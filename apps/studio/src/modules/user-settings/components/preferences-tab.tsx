@@ -23,6 +23,8 @@ import {
 	useSaveUserTerminalMutation,
 	useGetStudioCliIsInstalledQuery,
 	useSaveStudioCliIsInstalledMutation,
+	useGetDefaultSiteDirectoryQuery,
+	useSaveDefaultSiteDirectoryMutation,
 } from 'src/stores/installed-apps-api';
 import { SettingsFormField } from './settings-form-field';
 
@@ -35,11 +37,14 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const { data: editor } = useGetUserEditorQuery();
 	const { data: terminal } = useGetUserTerminalQuery();
 	const { data: isCliInstalled } = useGetStudioCliIsInstalledQuery();
+	const { data: defaultSiteDirectory, isLoading: isLoadingDefaultSiteDirectory } =
+		useGetDefaultSiteDirectoryQuery();
 
 	const [ saveColorSchemePreference ] = useSaveColorSchemeMutation();
 	const [ saveEditor ] = useSaveUserEditorMutation();
 	const [ saveTerminal ] = useSaveUserTerminalMutation();
 	const [ saveCliIsInstalled ] = useSaveStudioCliIsInstalledMutation();
+	const [ saveDefaultSiteDirectory ] = useSaveDefaultSiteDirectoryMutation();
 
 	const [ dirtyColorScheme, setDirtyColorScheme ] = useState< 'system' | 'light' | 'dark' >();
 	const [ dirtyLocale, setDirtyLocale ] = useState< SupportedLocale >();
@@ -47,8 +52,6 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const [ dirtyTerminal, setDirtyTerminal ] = useState< SupportedTerminal >();
 	const [ dirtyIsCliInstalled, setDirtyIsCliInstalled ] = useState< boolean >();
 	const [ dirtyDefaultSiteDirectory, setDirtyDefaultSiteDirectory ] = useState< string >();
-	const [ defaultSiteDirectory, setDefaultSiteDirectory ] = useState< string >();
-	const [ isLoadingDefaultSiteDirectory, setIsLoadingDefaultSiteDirectory ] = useState( true );
 
 	const wasSavedRef = useRef( false );
 	const dirtyColorSchemeRef = useRef( dirtyColorScheme );
@@ -94,7 +97,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 			await saveCliIsInstalled( dirtyIsCliInstalled );
 		}
 		if ( dirtyDefaultSiteDirectory ) {
-			await getIpcApi().saveDefaultSiteDirectory( dirtyDefaultSiteDirectory );
+			await saveDefaultSiteDirectory( dirtyDefaultSiteDirectory );
 		}
 		onClose();
 	};
@@ -114,26 +117,6 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 		[ dirtyIsCliInstalled, isCliInstalled ],
 		[ dirtyDefaultSiteDirectory, defaultSiteDirectory ],
 	].some( ( [ a, b ] ) => a !== undefined && a !== b );
-
-	useEffect( () => {
-		let isMounted = true;
-		void ( async () => {
-			try {
-				const directory = await getIpcApi().getDefaultSiteDirectory();
-				if ( ! isMounted ) {
-					return;
-				}
-				setDefaultSiteDirectory( directory );
-			} finally {
-				if ( isMounted ) {
-					setIsLoadingDefaultSiteDirectory( false );
-				}
-			}
-		} )();
-		return () => {
-			isMounted = false;
-		};
-	}, [] );
 
 	const handleChangeDefaultDirectory = async () => {
 		const response = await getIpcApi().showOpenFolderDialog(
@@ -157,17 +140,15 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 				/>
 				<TerminalPicker value={ terminalSelection } onChange={ setDirtyTerminal } />
 			</div>
-			{ ! isWindowsStore() && (
-				<StudioCliToggle value={ isCliInstalledSelection } onChange={ setDirtyIsCliInstalled } />
-			) }
 			<SettingsFormField label={ __( 'Default site directory' ) }>
 				<FormPathInputComponent
-					value={
-						isLoadingDefaultSiteDirectory ? __( 'Loading...' ) : defaultSiteDirectorySelection
-					}
+					value={ isLoadingDefaultSiteDirectory ? __( 'Loading…' ) : defaultSiteDirectorySelection }
 					onClick={ handleChangeDefaultDirectory }
 				/>
 			</SettingsFormField>
+			{ ! isWindowsStore() && (
+				<StudioCliToggle value={ isCliInstalledSelection } onChange={ setDirtyIsCliInstalled } />
+			) }
 			<div className="mt-auto pt-2 flex justify-end gap-3">
 				<Button
 					variant="tertiary"

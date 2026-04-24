@@ -37,20 +37,21 @@ export function FormPathInputComponent( {
 				type="button"
 				aria-label={ `${ value }, ${ __( 'Select different local path' ) }` }
 				className={ cx(
-					'flex flex-row items-stretch rounded-sm border border-frame-border focus:border-frame-theme focus:shadow-[0_0_0_0.5px] focus:shadow-a8c-blue-50 outline-none transition-shadow transition-linear duration-100 [&_.local-path-icon]:focus:border-l-frame-theme [&:disabled]:cursor-not-allowed',
+					'min-h-10 flex flex-row items-stretch rounded-sm border border-frame-border focus:border-frame-theme focus:shadow-[0_0_0_0.5px] focus:shadow-a8c-blue-50 outline-none transition-shadow transition-linear duration-100 [&_.local-path-icon]:focus:border-l-frame-theme [&:disabled]:cursor-not-allowed',
 					error && 'border-red-500 [&_.local-path-icon]:border-l-red-500'
 				) }
 				data-testid="select-path-button"
 				onClick={ onClick }
 				id={ id }
 			>
-				<div aria-hidden="true" tabIndex={ -1 } className="w-full text-left pl-3 py-3 min-h-10">
-					{ value }
-				</div>
 				<div
 					aria-hidden="true"
-					className="local-path-icon flex items-center py-[9px] px-2.5 self-center"
+					tabIndex={ -1 }
+					className="w-full text-left pl-3 py-2 flex items-center"
 				>
+					{ value }
+				</div>
+				<div aria-hidden="true" className="local-path-icon flex items-center px-2.5 self-center">
 					<FolderIcon className="text-frame-text-secondary" />
 				</div>
 			</button>

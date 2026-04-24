@@ -96,10 +96,15 @@ import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
 import { shouldExcludeFromSync, shouldLimitDepth } from 'src/modules/sync/lib/tree-utils';
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
-import { getUserEditor, getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
+import {
+	getUserEditor,
+	getUserTerminal,
+	getDefaultSiteDirectory,
+	saveDefaultSiteDirectory,
+} from 'src/modules/user-settings/lib/ipc-handlers';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { SiteServer, stopAllServers as triggerStopAllServers } from 'src/site-server';
-import { getSiteThumbnailPath, resolveDefaultSiteDirectory } from 'src/storage/paths';
+import { getSiteThumbnailPath } from 'src/storage/paths';
 import {
 	loadUserData,
 	lockAppdata,
@@ -155,9 +160,8 @@ export {
 	saveUserLocale,
 	saveUserTerminal,
 	showUserSettings,
-	getDefaultSiteDirectory,
-	saveDefaultSiteDirectory,
 } from 'src/modules/user-settings/lib/ipc-handlers';
+export { getDefaultSiteDirectory, saveDefaultSiteDirectory };
 
 export async function getAgentInstructionsStatus(
 	_event: IpcMainInvokeEvent,
@@ -665,11 +669,6 @@ export interface FolderDialogResponse {
 	isEmpty: boolean;
 	isWordPress: boolean;
 	isNameTooLong?: boolean;
-}
-
-async function getDefaultSiteDirectory(): Promise< string > {
-	const userData = await loadUserData();
-	return resolveDefaultSiteDirectory( userData.defaultSiteDirectory );
 }
 
 export async function showSaveAsDialog( event: IpcMainInvokeEvent, options: SaveDialogOptions ) {

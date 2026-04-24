@@ -10,6 +10,10 @@ import type { SiteDetails } from '@/data/core';
 
 interface SitePreviewProps {
 	site: SiteDetails;
+	// When present, the preview subscribes to the agent event stream for this
+	// session and reacts to `preview.command` events emitted by the agent's
+	// preview_navigate / preview_reload tools.
+	sessionId?: string;
 }
 
 // Isolated iframe + spinner so each URL change fully remounts the loading
@@ -44,10 +48,37 @@ function PreviewIframe( { src, title }: { src: string; title: string } ) {
 	);
 }
 
-export function SitePreview( { site }: SitePreviewProps ) {
+export function SitePreview( { site, sessionId }: SitePreviewProps ) {
 	const connector = useConnector();
 	const siteUrl = getSiteUrl( site );
 	const canPreview = site.running;
+	const [ currentPath, setCurrentPath ] = useState( '/' );
+	// Bumped on each `preview.command` (both navigate and reload) so the
+	// iframe remounts even when the resolved URL is identical to the current
+	// one — more reliable than calling `iframe.contentWindow.location.reload()`
+	// across the self-signed-HTTPS / custom-domain boundaries Studio supports.
+	const [ reloadNonce, setReloadNonce ] = useState( 0 );
+
+	useEffect( () => {
+		if ( ! sessionId ) {
+			return;
+		}
+		return connector.onAgentEvent( ( payload ) => {
+			if ( payload.sessionId !== sessionId ) {
+				return;
+			}
+			const event = payload.event;
+			if ( event.type !== 'preview.command' ) {
+				return;
+			}
+			if ( event.kind === 'navigate' ) {
+				setCurrentPath( event.path );
+			}
+			setReloadNonce( ( n ) => n + 1 );
+		} );
+	}, [ connector, sessionId ] );
+
+	const fullUrl = `${ siteUrl }${ currentPath }`;
 
 	return (
 		<aside className={ styles.root } aria-label={ __( 'Site preview' ) }>
@@ -66,12 +97,16 @@ export function SitePreview( { site }: SitePreviewProps ) {
 					icon={ external }
 					label={ __( 'Open site in browser' ) }
 					disabled={ ! canPreview }
-					onClick={ () => void connector.openExternalUrl( siteUrl ) }
+					onClick={ () => void connector.openExternalUrl( fullUrl ) }
 				/>
 			</div>
 			<div className={ styles.body }>
 				{ canPreview ? (
-					<PreviewIframe key={ siteUrl } src={ siteUrl } title={ site.name } />
+					<PreviewIframe
+						key={ `${ fullUrl }#${ reloadNonce }` }
+						src={ fullUrl }
+						title={ site.name }
+					/>
 				) : (
 					<div className={ styles.empty }>{ __( 'Start the site to see a live preview.' ) }</div>
 				) }

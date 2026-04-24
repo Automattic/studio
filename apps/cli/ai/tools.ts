@@ -5,6 +5,7 @@ import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { z } from 'zod/v4';
 import { validateBlocks, type ValidationReport } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
+import { emitEvent } from 'cli/ai/json-events';
 import { auditPerformance } from 'cli/ai/performance-audit';
 import { auditSeo } from 'cli/ai/seo-audit';
 import { createWpcomToolDefinitions } from 'cli/ai/wpcom-tools';
@@ -723,6 +724,59 @@ const takeScreenshotTool = tool(
 	}
 );
 
+// --- Preview orchestration tools ---
+
+function normalizePreviewPath( raw: string ): string {
+	const trimmed = raw.trim();
+	if ( ! trimmed ) {
+		return '/';
+	}
+	return trimmed.startsWith( '/' ) ? trimmed : `/${ trimmed }`;
+}
+
+const previewNavigateTool = tool(
+	'preview_navigate',
+	'Point the Studio site preview iframe at a specific page on the active site and reload it. ' +
+		'Use this after you finish editing a specific page, post, or template so the user immediately ' +
+		'sees the result of your change. Pass a site-relative path (e.g. "/", "/about/", ' +
+		'"/wp-admin/post.php?post=42&action=edit"). Does nothing when the preview pane is closed or ' +
+		'when running outside the Studio desktop app.',
+	{
+		path: z
+			.string()
+			.describe(
+				'Site-relative path to show in the preview, e.g. "/", "/about/", "/?p=123". Leading slash is added if missing.'
+			),
+	},
+	async ( args ) => {
+		const path = normalizePreviewPath( args.path );
+		emitEvent( {
+			type: 'preview.command',
+			timestamp: new Date().toISOString(),
+			kind: 'navigate',
+			path,
+		} );
+		return textResult( `Preview navigated to ${ path }.` );
+	}
+);
+
+const previewReloadTool = tool(
+	'preview_reload',
+	'Reload the Studio site preview iframe at its current URL. Use this after you edit the active ' +
+		'theme, CSS, template parts, or anything that affects the page the user is currently viewing, ' +
+		'so they see the updated result immediately. Does nothing when the preview pane is closed or ' +
+		'when running outside the Studio desktop app.',
+	{},
+	async () => {
+		emitEvent( {
+			type: 'preview.command',
+			timestamp: new Date().toISOString(),
+			kind: 'reload',
+		} );
+		return textResult( 'Preview reloaded.' );
+	}
+);
+
 // --- Taxonomist scripts installer ---
 
 const TAXONOMIST_SCRIPTS_DIR = 'tmp/taxonomist';
@@ -996,6 +1050,13 @@ const exportSiteTool = tool(
 	}
 );
 
+// Tools that only make sense when a Studio desktop UI is listening on the
+// other end of the agent event stream — they steer a preview iframe that
+// doesn't exist when the CLI runs standalone. Kept separate so plain-CLI
+// runs don't see (and the agent can't call) tools that would just produce
+// noise in the terminal transcript.
+const previewSteeringToolDefinitions = [ previewNavigateTool, previewReloadTool ];
+
 export const studioToolDefinitions = [
 	createSiteTool,
 	listSitesTool,
@@ -1017,13 +1078,31 @@ export const studioToolDefinitions = [
 	pullSiteTool,
 	importSiteTool,
 	exportSiteTool,
+	...previewSteeringToolDefinitions,
 ];
 
-export function createStudioTools() {
+export interface CreateStudioToolsOptions {
+	// Enable preview_navigate / preview_reload. Only meaningful when a
+	// Studio desktop UI is subscribed to the agent event stream — i.e. the
+	// CLI child was forked by the Studio main process (`process.send` is
+	// available). Defaults to false so standalone CLI runs don't advertise
+	// tools whose side effects would vanish into the void.
+	enablePreviewSteering?: boolean;
+}
+
+export function resolveStudioToolDefinitions( options: CreateStudioToolsOptions = {} ) {
+	return options.enablePreviewSteering
+		? studioToolDefinitions
+		: studioToolDefinitions.filter(
+				( candidate ) => ! previewSteeringToolDefinitions.includes( candidate )
+		  );
+}
+
+export function createStudioTools( options: CreateStudioToolsOptions = {} ) {
 	return createSdkMcpServer( {
 		name: 'studio',
 		version: '1.0.0',
-		tools: studioToolDefinitions,
+		tools: resolveStudioToolDefinitions( options ),
 	} );
 }
 

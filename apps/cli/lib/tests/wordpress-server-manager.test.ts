@@ -4,7 +4,6 @@ import { SiteData } from 'cli/lib/cli-config/core';
 import * as daemonClient from 'cli/lib/daemon-client';
 import { DaemonBus } from 'cli/lib/daemon-client';
 import {
-	getChildScriptPath,
 	isServerRunning,
 	startWordPressServer,
 	stopWordPressServer,
@@ -152,20 +151,6 @@ describe( 'WordPress Server Manager', () => {
 			await expect( startWordPressServer( mockSiteData, mockLogger ) ).rejects.toThrow(
 				'Failed to start process'
 			);
-		} );
-	} );
-
-	describe( 'getChildScriptPath', () => {
-		it( 'returns the playground child path when runtime is undefined', () => {
-			expect( getChildScriptPath( undefined ) ).toMatch( /wordpress-server-child\.mjs$/ );
-		} );
-
-		it( 'returns the playground child path for explicit playground runtime', () => {
-			expect( getChildScriptPath( 'playground' ) ).toMatch( /wordpress-server-child\.mjs$/ );
-		} );
-
-		it( 'returns the native-php child path for native-php runtime', () => {
-			expect( getChildScriptPath( 'native-php' ) ).toMatch( /wordpress-server-child-native\.mjs$/ );
 		} );
 	} );
 

@@ -7,8 +7,6 @@ import {
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback } from 'react';
 import { cx } from 'src/lib/cx';
-import type { AddSiteFlowType } from './options';
-
 interface Blueprint {
 	slug: string;
 	title: string;
@@ -23,7 +21,6 @@ interface Blueprint {
 }
 
 interface NewSiteOptionsProps {
-	onOptionSelect: ( option: AddSiteFlowType ) => void;
 	enableBlueprints: boolean;
 	blueprints: Blueprint[];
 	isLoadingBlueprints: boolean;

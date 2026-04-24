@@ -347,7 +347,6 @@ function NavigationContent( props: NavigationContentProps ) {
 			<Navigator.Screen className="h-full overflow-y-auto" path="/new">
 				<ScreenContent>
 					<NewSiteOptions
-						onOptionSelect={ handleOptionSelect }
 						enableBlueprints={ enableBlueprints }
 						blueprints={ blueprints }
 						isLoadingBlueprints={ isLoadingBlueprints }

@@ -138,35 +138,32 @@ export const authTokenReceived = createTypedAsyncThunk(
 	}
 );
 
-export const authLogout = createTypedAsyncThunk(
-	'auth/logout',
-	async ( { isOffline }: { isOffline: boolean } ) => {
-		const client = getWpcomClient();
+export const authLogout = createTypedAsyncThunk( 'auth/logout', async () => {
+	const client = getWpcomClient();
 
-		if ( ! isOffline && client ) {
-			try {
-				await client.req.del( {
-					apiNamespace: 'wpcom/v2',
-					path: '/studio-app/token',
-					method: 'DELETE',
-				} );
-				console.log( 'Token revoked' );
-			} catch ( err ) {
-				console.error( 'Failed to revoke token:', err );
-			}
-		} else if ( isOffline ) {
-			console.log( 'Offline: Skipping token revocation request' );
-		}
-
+	if ( navigator.onLine && client ) {
 		try {
-			await getIpcApi().clearAuthenticationToken();
-			setWpcomClient( undefined );
-			setSentryWpcomUserIdRenderer( undefined );
+			await client.req.del( {
+				apiNamespace: 'wpcom/v2',
+				path: '/studio-app/token',
+				method: 'DELETE',
+			} );
+			console.log( 'Token revoked' );
 		} catch ( err ) {
-			console.error( err );
+			console.error( 'Failed to revoke token:', err );
 		}
+	} else if ( ! navigator.onLine ) {
+		console.log( 'Offline: Skipping token revocation request' );
 	}
-);
+
+	try {
+		await getIpcApi().clearAuthenticationToken();
+		setWpcomClient( undefined );
+		setSentryWpcomUserIdRenderer( undefined );
+	} catch ( err ) {
+		console.error( err );
+	}
+} );
 
 const authSlice = createSlice( {
 	name: 'auth',
@@ -210,7 +207,7 @@ export function initializeAuthIpcListeners( dispatch: AppDispatch, getState: () 
 		}
 
 		if ( ! payload.token ) {
-			void dispatch( authLogout( { isOffline: true } ) );
+			void dispatch( authLogout() );
 			return;
 		}
 

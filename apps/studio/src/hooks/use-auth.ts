@@ -1,5 +1,4 @@
 import { useCallback } from 'react';
-import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useAppDispatch, useRootSelector } from 'src/stores';
 import { authLogout, selectIsAuthenticated, selectUser } from 'src/stores/auth-slice';
@@ -17,15 +16,14 @@ export interface AuthContextType {
 
 export const useAuth = (): AuthContextType => {
 	const dispatch = useAppDispatch();
-	const isOffline = useOffline();
 	const isAuthenticated = useRootSelector( selectIsAuthenticated );
 	const user = useRootSelector( selectUser );
 
 	const authenticate = useCallback( () => getIpcApi().authenticate(), [] );
 
 	const logout = useCallback( async () => {
-		await dispatch( authLogout( { isOffline } ) );
-	}, [ dispatch, isOffline ] );
+		await dispatch( authLogout() );
+	}, [ dispatch ] );
 
 	return {
 		client: isAuthenticated ? getWpcomClient() : undefined,

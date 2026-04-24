@@ -2,6 +2,7 @@ import { CLIENT_ID } from '@studio/common/constants';
 import { SupportedLocale } from '@studio/common/lib/locale';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/shared-config';
+export type { StoredAuthToken };
 
 export function getSignUpUrl( locale: SupportedLocale ) {
 	const oauth2Redirect = encodeURIComponent( getAuthenticationUrl( locale ) );

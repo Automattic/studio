@@ -170,7 +170,6 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 				<div className={ styles.loadingAnimation }>
 					<EmptyBackground />
 				</div>
-				<div className={ styles.loadingLabel }>{ __( 'Loading…' ) }</div>
 			</div>
 		);
 	}

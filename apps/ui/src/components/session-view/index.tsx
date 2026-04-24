@@ -12,7 +12,7 @@ import {
 	type ReactNode,
 	type Ref,
 } from 'react';
-import { Composer } from '@/components/session-view/composer';
+import { Composer, ComposerSkeleton } from '@/components/session-view/composer';
 import { pickLiveSite } from '@/components/session-view/composer/environment-pill';
 import { Conversation } from '@/components/session-view/conversation';
 import { EmptyBackground } from '@/components/session-view/empty-background';
@@ -196,13 +196,18 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 	}, [ sessionId, data, isRunning, queuedPrompts.length ] );
 
 	if ( isLoading ) {
-		// Use the same SessionFrame with empty placeholders so the
-		// EmptyBackground canvas sits in the exact same spot once the session
-		// data loads — otherwise the logo jumps and resizes mid-transition.
+		// Use the same SessionFrame with an empty header and a structural
+		// ComposerSkeleton so the scroll area has the exact same dimensions
+		// as the loaded view — otherwise the EmptyBackground canvas jumps
+		// mid-transition.
 		return (
 			<SessionFrame
 				header={ <div className={ styles.header } /> }
-				composer={ <div className={ clsx( styles.column, styles.composerPlaceholder ) } /> }
+				composer={
+					<div className={ styles.column }>
+						<ComposerSkeleton />
+					</div>
+				}
 			>
 				<EmptyBackground />
 			</SessionFrame>

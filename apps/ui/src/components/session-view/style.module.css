@@ -18,12 +18,6 @@
 	color: var(--wpds-color-fg-content-neutral-weak);
 }
 
-/* Matches the minimum visible height of the real Composer's shell + toolbar so
-   the scroll area (and the EmptyBackground canvas centered inside it) keeps
-   the same dimensions during session loading. */
-.composerPlaceholder {
-	min-height: 114px;
-}
 
 .header {
 	display: flex;

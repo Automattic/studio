@@ -9,6 +9,26 @@ import { EnvironmentPill } from './environment-pill';
 import styles from './style.module.css';
 import type { AiModelId, SyncSite } from '@/data/core';
 
+/**
+ * Structural placeholder that mirrors Composer's outer DOM (shell + textarea +
+ * toolbar + meta row) so the loading state can reserve the exact same vertical
+ * space. Heights track the real composer's CSS automatically — no magic
+ * numbers that drift when the composer changes.
+ */
+export function ComposerSkeleton() {
+	return (
+		<div className={ styles.root } aria-hidden="true">
+			<div className={ styles.shell }>
+				<textarea className={ styles.input } rows={ 2 } disabled tabIndex={ -1 } />
+				<div className={ styles.toolbar }>
+					<span className={ styles.pill } />
+				</div>
+			</div>
+			<div className={ styles.meta }>{ '\u00A0' }</div>
+		</div>
+	);
+}
+
 interface ComposerProps {
 	busy: boolean;
 	isInterrupting?: boolean;

@@ -130,8 +130,12 @@ tests:
       timeoutMs: 600000
       askUserPolicy: allow_all
       prompt: |
-        Build a simple WordPress site named "Eval Turn Timing". The site
-        only needs a single page — no extra pages, no blog posts, no
+        First check if a site named "Eval Turn Timing" exists using
+        site_list. If it does, delete it with site_delete so we start from
+        a clean slate. Do NOT touch any other site.
+
+        Then build a simple WordPress site named "Eval Turn Timing". The
+        site only needs a single page — no extra pages, no blog posts, no
         navigation menu beyond what a one-page site requires.
     assert:
       - type: javascript

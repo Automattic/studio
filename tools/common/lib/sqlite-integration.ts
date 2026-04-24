@@ -55,6 +55,7 @@ export abstract class SqliteIntegrationProvider {
 		await fs.promises.writeFile( path.join( wpContentPath, 'db.php' ), updatedContent );
 
 		const sqliteDestPath = path.join( wpContentPath, 'mu-plugins', sqliteDirname );
+		await fs.promises.rm( sqliteDestPath, { recursive: true, force: true } );
 		await fs.promises.cp( sqliteSourcePath, sqliteDestPath, {
 			recursive: true,
 			verbatimSymlinks: true,

@@ -12,7 +12,7 @@ import {
 	PLAYGROUND_CLI_MAX_TIMEOUT,
 } from '@studio/common/constants';
 import { z } from 'zod';
-import { SiteData } from 'cli/lib/cli-config/core';
+import { SiteData, SiteRuntime } from 'cli/lib/cli-config/core';
 import {
 	isProcessRunning,
 	startProcess,
@@ -36,6 +36,16 @@ process.on( 'SIGTERM', () => abortController.abort() );
 
 export function getProcessName( siteId: string ): string {
 	return `${ SITE_PROCESS_PREFIX }${ siteId }`;
+}
+
+function getChildScriptPath( runtime: SiteRuntime | undefined ): string {
+	switch ( runtime ?? 'playground' ) {
+		case 'native-php':
+			return path.resolve( import.meta.dirname, 'php-server-child.mjs' );
+		case 'playground':
+		default:
+			return path.resolve( import.meta.dirname, 'playground-server-child.mjs' );
+	}
 }
 
 export async function isServerRunning( siteId: string ): Promise< ProcessDescription | undefined > {
@@ -159,10 +169,7 @@ export async function startWordPressServer(
 		}
 	}
 
-	const wordPressServerChildPath = path.resolve(
-		import.meta.dirname,
-		'wordpress-server-child.mjs'
-	);
+	const wordPressServerChildPath = getChildScriptPath( site.runtime );
 	const processName = getProcessName( site.id );
 	const serverConfig = buildServerConfig( site, options );
 
@@ -187,7 +194,7 @@ export async function startWordPressServer(
 }
 
 function buildChildExitedError( processName: string, stderrTail?: string ): Error {
-	let message = `WordPress server child process "${ processName }" exited before becoming ready.`;
+	let message = `Server child process "${ processName }" exited before becoming ready.`;
 	if ( stderrTail?.trim() ) {
 		message += `\n${ stderrTail.trimEnd() }`;
 	}
@@ -244,7 +251,7 @@ async function subscribeForReadyOrExit( processName: string ): Promise< {
 
 		return new Promise< void >( ( resolve, reject ) => {
 			timeoutId = setTimeout( () => {
-				reject( new Error( 'Timeout waiting for ready message from WordPress server child' ) );
+				reject( new Error( 'Timeout waiting for ready message from server child process' ) );
 			}, PLAYGROUND_CLI_INACTIVITY_TIMEOUT );
 			abortListener = () => {
 				reject( new Error( 'Operation aborted' ) );
@@ -477,10 +484,7 @@ export async function runBlueprint(
 	logger: Logger< string >,
 	options: RunBlueprintOptions
 ): Promise< void > {
-	const wordPressServerChildPath = path.resolve(
-		import.meta.dirname,
-		'wordpress-server-child.mjs'
-	);
+	const wordPressServerChildPath = getChildScriptPath( site.runtime );
 	const processName = getProcessName( site.id );
 
 	const serverConfig = buildServerConfig( site, options );

@@ -180,6 +180,7 @@ type ExportOptions = {
 	showNotification?: boolean;
 	splitDatabaseDumpByTable?: boolean;
 	specificSelectionPaths?: string[];
+	applyDeployIgnore?: boolean;
 	abortSignal?: AbortSignal;
 };
 
@@ -201,6 +202,7 @@ export async function exportSite(
 		showNotification = false,
 		splitDatabaseDumpByTable = false,
 		specificSelectionPaths = [],
+		applyDeployIgnore = false,
 		abortSignal,
 	} = options;
 
@@ -209,6 +211,10 @@ export async function exportSite(
 
 	if ( splitDatabaseDumpByTable ) {
 		args.push( '--split-db-dump-by-table' );
+	}
+
+	if ( applyDeployIgnore ) {
+		args.push( '--apply-deploy-ignore' );
 	}
 
 	if ( specificSelectionPaths.length > 0 ) {

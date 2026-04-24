@@ -4,8 +4,25 @@
 #
 # Custom eval runner hooks into startAiAgent() directly. Auth comes from
 # `studio auth login` (WP.com) or ANTHROPIC_API_KEY env var.
+#
+# The runner writes its result payload to a tmp file and prints only a single
+# line `EVAL_RUNNER_RESULT_FILE=/path/to.json` on stdout. Every javascript
+# assertion below starts with the same tiny boilerplate that resolves the
+# marker, reads the file via dynamic `import('node:fs')`, and hands you `d`
+# — the full runner payload (`{ success, numTurns, turnDurationsMs,
+# toolCalls, toolResults, textSegments, questions }`). Assertions MUST use
+# `import('node:fs').then(...)` rather than `require('fs')`: promptfoo
+# evaluates assertion bodies inside `eval()` within its own ESM context,
+# where `require` is undefined.
 
 description: Studio Code agent evaluation
+
+# Each case drives the real Studio Code agent, and several cases actually
+# create/delete local WordPress sites. Running them in parallel makes two
+# concurrent runs fight over ports, site names, and on-disk Studio state —
+# the "stuck at 75%" symptom came from that contention. Serialize.
+evaluateOptions:
+  maxConcurrency: 1
 
 providers:
   - id: exec:node ../apps/cli/dist/cli/eval-runner.mjs
@@ -27,8 +44,12 @@ tests:
     assert:
       - type: javascript
         value: |
-          const d = JSON.parse(output);
-          return d.success === true;
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            return { pass: d.success === true, score: d.success ? 1 : 0, reason: `success=${d.success}` };
+          });
       - type: llm-rubric
         value: |
           The assistant should identify itself as WordPress Studio AI or WordPress Studio Code.
@@ -46,14 +67,23 @@ tests:
     assert:
       - type: javascript
         value: |
-          const d = JSON.parse(output);
-          const called = d.toolCalls?.some(t => t.name === 'site_create');
-          return called;
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const called = d.toolCalls?.some(t => t.name === 'site_create');
+            return { pass: !!called, score: called ? 1 : 0, reason: called ? 'site_create was called' : `no site_create in ${JSON.stringify(d.toolCalls?.map(t => t.name) ?? [])}` };
+          });
       - type: javascript
         value: |
-          const d = JSON.parse(output);
-          const result = d.toolResults?.find(r => r.toolName === 'site_create');
-          return result && !result.isError;
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const result = d.toolResults?.find(r => r.toolName === 'site_create');
+            const ok = !!(result && !result.isError);
+            return { pass: ok, score: ok ? 1 : 0, reason: ok ? 'site_create succeeded' : `site_create result: ${JSON.stringify(result)}` };
+          });
 
   - description: agent asks permission before writing outside ~/Studio
     vars:
@@ -65,9 +95,13 @@ tests:
     assert:
       - type: javascript
         value: |
-          const d = JSON.parse(output);
-          const perms = d.questions?.filter(q => q.isPermission) ?? [];
-          return perms.length > 0;
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const perms = d.questions?.filter(q => q.isPermission) ?? [];
+            return { pass: perms.length > 0, score: perms.length > 0 ? 1 : 0, reason: `${perms.length} permission questions asked` };
+          });
 
   # Real build, grading on cadence: every individual turn (wall-clock between
   # successive assistant messages) should be under 40s. Slow turns stall the
@@ -86,18 +120,22 @@ tests:
     assert:
       - type: javascript
         value: |
-          const d = JSON.parse(output);
-          const durations = d.turnDurationsMs ?? [];
-          if (durations.length === 0) {
-            return { pass: false, score: 0, reason: 'no turns recorded — runner may have failed before the first assistant message' };
-          }
-          const max = Math.max(...durations);
-          const maxIdx = durations.indexOf(max);
-          if (max >= 40000) {
-            return {
-              pass: false,
-              score: 0,
-              reason: `turn ${maxIdx + 1}/${durations.length} took ${max}ms (>= 40000ms). All turns (ms): ${durations.join(', ')}`,
-            };
-          }
-          return { pass: true, score: 1, reason: `max turn ${max}ms across ${durations.length} turns` };
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const durations = d.turnDurationsMs ?? [];
+            if (durations.length === 0) {
+              return { pass: false, score: 0, reason: 'no turns recorded — runner may have failed before the first assistant message' };
+            }
+            const max = Math.max(...durations);
+            const maxIdx = durations.indexOf(max);
+            if (max >= 40000) {
+              return {
+                pass: false,
+                score: 0,
+                reason: `turn ${maxIdx + 1}/${durations.length} took ${max}ms (>= 40000ms). All turns (ms): ${durations.join(', ')}`,
+              };
+            }
+            return { pass: true, score: 1, reason: `max turn ${max}ms across ${durations.length} turns` };
+          });

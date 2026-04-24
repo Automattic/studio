@@ -2,25 +2,15 @@
 # Run: npm run eval          (builds CLI first)
 # View: npm run eval:view
 #
-# Custom eval runner hooks into startAiAgent() directly. Auth comes from
-# `studio auth login` (WP.com) or ANTHROPIC_API_KEY env var.
-#
-# The runner writes its result payload to a tmp file and prints only a single
-# line `EVAL_RUNNER_RESULT_FILE=/path/to.json` on stdout. Every javascript
-# assertion below starts with the same tiny boilerplate that resolves the
-# marker, reads the file via dynamic `import('node:fs')`, and hands you `d`
-# — the full runner payload (`{ success, numTurns, turnDurationsMs,
-# toolCalls, toolResults, textSegments, questions }`). Assertions MUST use
-# `import('node:fs').then(...)` rather than `require('fs')`: promptfoo
-# evaluates assertion bodies inside `eval()` within its own ESM context,
-# where `require` is undefined.
+# The runner writes its payload to a tmp file and prints only
+# `EVAL_RUNNER_RESULT_FILE=/path/to.json` on stdout. Assertions resolve the
+# marker via `import('node:fs').then(...)` — not `require('fs')`, which is
+# undefined inside promptfoo's assertion eval context.
 
 description: Studio Code agent evaluation
 
-# Each case drives the real Studio Code agent, and several cases actually
-# create/delete local WordPress sites. Running them in parallel makes two
-# concurrent runs fight over ports, site names, and on-disk Studio state —
-# the "stuck at 75%" symptom came from that contention. Serialize.
+# Tests create/delete real local sites; running them in parallel makes two
+# runs fight over ports and on-disk state.
 evaluateOptions:
   maxConcurrency: 1
 
@@ -41,10 +31,6 @@ tests:
       maxTurns: 12
       timeoutMs: 60000
       prompt: In one short sentence, tell me who you are. Do not call any tools.
-    # The runner writes its payload to a tmp file and prints only a marker on
-    # stdout, so `output` here is just the marker — not the agent's prose.
-    # That means `llm-rubric` (which grades `{{output}}`) can't see the
-    # agent's actual identity claim. Check the saved textSegments directly.
     assert:
       - type: javascript
         value: |
@@ -55,16 +41,12 @@ tests:
             if (d.success !== true) return { pass: false, score: 0, reason: `runner success=${d.success}` };
             const text = (d.textSegments || []).join('\n');
             const mentionsStudio = /WordPress\s+Studio/i.test(text);
-            // Claiming to be a generic LLM is a hard fail; brand-new language
-            // like "an AI assistant made by Anthropic" also fails.
             const claimsOther = /\bI\s+am\s+(Claude|ChatGPT|a large language model|an AI (model|assistant) (made|built|developed) by Anthropic)\b/i.test(text);
             const pass = mentionsStudio && !claimsOther;
             return {
               pass,
               score: pass ? 1 : 0,
-              reason: pass
-                ? 'identifies as WordPress Studio'
-                : `identity response did not match rubric. Got: ${text.slice(0, 300)}`,
+              reason: pass ? 'identifies as WordPress Studio' : `got: ${text.slice(0, 300)}`,
             };
           });
 
@@ -116,13 +98,8 @@ tests:
             return { pass: perms.length > 0, score: perms.length > 0 ? 1 : 0, reason: `${perms.length} permission questions asked` };
           });
 
-  # Real build, grading on cadence: every individual turn (wall-clock between
-  # successive assistant messages) should be under 60s. Slow turns stall the
-  # UI and signal that the prompt is letting the agent run long, tool-heavy
-  # steps instead of keeping each turn small. The "first big Write" after an
-  # initial Bash probe consistently lands in the 40–50s band, so the bar is
-  # 60s (room above observed p99, still well below what would actually feel
-  # stuck to a user).
+  # Every individual turn (wall-clock between successive assistant messages)
+  # should stay under 60s. Slow turns stall the UI.
   - description: single-page site build keeps every turn under 60s
     vars:
       caseId: single-page-build-turn-cadence
@@ -146,16 +123,12 @@ tests:
             const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
             const durations = d.turnDurationsMs ?? [];
             if (durations.length === 0) {
-              return { pass: false, score: 0, reason: 'no turns recorded — runner may have failed before the first assistant message' };
+              return { pass: false, score: 0, reason: 'no turns recorded' };
             }
             const max = Math.max(...durations);
             const maxIdx = durations.indexOf(max);
             if (max >= 60000) {
-              return {
-                pass: false,
-                score: 0,
-                reason: `turn ${maxIdx + 1}/${durations.length} took ${max}ms (>= 60000ms). All turns (ms): ${durations.join(', ')}`,
-              };
+              return { pass: false, score: 0, reason: `turn ${maxIdx + 1}/${durations.length} took ${max}ms (>= 60000ms). All turns (ms): ${durations.join(', ')}` };
             }
             return { pass: true, score: 1, reason: `max turn ${max}ms across ${durations.length} turns` };
           });

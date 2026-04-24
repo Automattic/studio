@@ -151,4 +151,40 @@ describe( 'isInstalled', () => {
 			expect( isInstalled( 'vscode' ) ).toBe( true );
 		} );
 	} );
+
+	describe( 'on Linux', () => {
+		const originalPath = process.env.PATH;
+
+		beforeEach( async () => {
+			Object.defineProperty( process, 'platform', { value: 'linux' } );
+			process.env.PATH = '/usr/bin:/mock/home/path/.local/bin';
+			vi.resetModules();
+			const module = await import( '../is-installed' );
+			isInstalled = module.isInstalled;
+		} );
+
+		afterEach( () => {
+			process.env.PATH = originalPath;
+		} );
+
+		it( 'detects Zed installed in ~/.local/bin', () => {
+			mockPaths = [ '/mock/home/path/.local/bin/zed' ];
+			expect( isInstalled( 'zed' ) ).toBe( true );
+		} );
+
+		it( 'detects VS Code installed in /usr/bin', () => {
+			mockPaths = [ '/usr/bin/code' ];
+			expect( isInstalled( 'vscode' ) ).toBe( true );
+		} );
+
+		it( 'returns false when an editor binary is not on $PATH', () => {
+			mockPaths = [];
+			expect( isInstalled( 'zed' ) ).toBe( false );
+		} );
+
+		it( 'detects Warp via the hardcoded /usr/bin path (non-editor)', () => {
+			mockPaths = [ '/usr/bin/warp' ];
+			expect( isInstalled( 'warp' ) ).toBe( true );
+		} );
+	} );
 } );

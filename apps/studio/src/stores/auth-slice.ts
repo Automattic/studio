@@ -29,8 +29,9 @@ const initialState: AuthState = {
 	user: null,
 };
 
-function createWpcomClient( token?: string, locale?: string, onInvalidToken?: () => void ): WPCOM {
+function createWpcomClient( token?: string, onInvalidToken?: () => void ): WPCOM {
 	const addLocaleToParams = ( params: WpcomParams ) => {
+		const locale = store.getState().i18n.locale;
 		if ( locale && locale !== 'en' ) {
 			const queryParams = new URLSearchParams(
 				'query' in params && typeof params.query === 'string' ? params.query : ''
@@ -94,8 +95,7 @@ export const handleInvalidToken = createTypedAsyncThunk( 'auth/handleInvalidToke
 
 export const initializeAuth = createTypedAsyncThunk(
 	'auth/initialize',
-	async ( _, { dispatch, getState } ) => {
-		const { locale } = getState().i18n;
+	async ( _, { dispatch } ) => {
 		try {
 			const token = await getIpcApi().getAuthenticationToken();
 
@@ -103,9 +103,7 @@ export const initializeAuth = createTypedAsyncThunk(
 				return null;
 			}
 
-			const client = createWpcomClient( token.accessToken, locale, () =>
-				dispatch( handleInvalidToken() )
-			);
+			const client = createWpcomClient( token.accessToken, () => dispatch( handleInvalidToken() ) );
 			setWpcomClient( client );
 			setSentryWpcomUserIdRenderer( token.id );
 
@@ -124,10 +122,8 @@ export const initializeAuth = createTypedAsyncThunk(
 
 export const authTokenReceived = createTypedAsyncThunk(
 	'auth/tokenReceived',
-	async ( { token, locale }: { token: StoredAuthToken; locale: string }, { dispatch } ) => {
-		const client = createWpcomClient( token.accessToken, locale, () =>
-			dispatch( handleInvalidToken() )
-		);
+	async ( { token }: { token: StoredAuthToken }, { dispatch } ) => {
+		const client = createWpcomClient( token.accessToken, () => dispatch( handleInvalidToken() ) );
 		setWpcomClient( client );
 		setSentryWpcomUserIdRenderer( token.id );
 
@@ -190,6 +186,8 @@ const authSlice = createSlice( {
 export const selectIsAuthenticated = ( state: RootState ) => state.auth.isAuthenticated;
 export const selectUser = ( state: RootState ) => state.auth.user ?? undefined;
 
+void store.dispatch( initializeAuth() );
+
 window.ipcListener.subscribe( 'auth-updated', ( _event, payload ) => {
 	if ( 'error' in payload ) {
 		let title: string = __( 'Authentication error' );
@@ -211,8 +209,7 @@ window.ipcListener.subscribe( 'auth-updated', ( _event, payload ) => {
 		return;
 	}
 
-	const locale = store.getState().i18n.locale;
-	void store.dispatch( authTokenReceived( { token: payload.token, locale } ) );
+	void store.dispatch( authTokenReceived( { token: payload.token } ) );
 } );
 
 export default authSlice.reducer;

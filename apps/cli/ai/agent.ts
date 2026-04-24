@@ -112,12 +112,6 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 			cwd: STUDIO_ROOT,
 			tools: { type: 'preset', preset: 'claude_code' },
 			allowedTools,
-			// Disable extended thinking. The native 0.2.110+ runtime defaults
-			// to deep adaptive thinking, which can stall a turn for minutes
-			// between tool calls and trip the wpcom proxy's idle timeout
-			// (cURL 92). Studio tasks are mostly tool orchestration, not
-			// deep reasoning.
-			thinking: { type: 'disabled' },
 			permissionMode: 'default',
 			canUseTool: async ( toolName, input, metadata ) => {
 				if ( autoApprove ) {

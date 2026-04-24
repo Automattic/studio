@@ -11,6 +11,7 @@ import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 
 vi.mock( 'src/lib/app-globals', () => ( {
 	isWindows: vi.fn().mockReturnValue( false ),
+	getAppGlobals: vi.fn( () => ( { platform: 'darwin' } ) ),
 } ) );
 vi.mock( 'src/hooks/use-site-details' );
 vi.mock( 'src/hooks/use-theme-details' );
@@ -27,7 +28,7 @@ const runningSite: StartedSiteDetails = {
 	name: 'Test Site',
 	port: 8881,
 	path: '/path/to/site',
-	phpVersion: '8.3',
+	phpVersion: '8.4',
 	running: true,
 	id: 'site-id',
 	url: 'http://example.com',
@@ -37,7 +38,7 @@ const notRunningSite: SiteDetails = {
 	name: 'Test Site',
 	port: 8881,
 	path: '/path/to/site',
-	phpVersion: '8.3',
+	phpVersion: '8.4',
 	running: false,
 	id: 'site-id',
 };

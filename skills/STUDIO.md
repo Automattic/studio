@@ -50,6 +50,10 @@ studio site stop && studio site start --skip-browser
 
 ## Debugging
 
+**`studio` command not found:**
+
+If the `studio` command is not available in the terminal (e.g., "command not found" or "not recognized" errors), the Studio CLI is not installed. The user must open the WordPress Studio desktop app, go to **Settings → Studio CLI for terminal**, and enable the toggle to install it. Once installed, the user should open a new terminal window for the `studio` command to become available.
+
 **Enable WordPress debug logging:**
 ```bash
 studio site set --debug-log --debug-display
@@ -93,7 +97,7 @@ Use the Studio CLI to manage this site. All `studio` commands accept a `--path <
 studio site start          # Start the WordPress server
 studio site stop           # Stop the WordPress server
 studio site status         # Show URL, admin credentials, PHP/WP versions
-studio site set --php 8.3  # Change PHP version
+studio site set --php 8.4  # Change PHP version
 studio site set --wp 6.8   # Update WordPress version
 ```
 

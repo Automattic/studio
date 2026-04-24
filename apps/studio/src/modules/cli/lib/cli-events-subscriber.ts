@@ -13,13 +13,46 @@ import { captureSiteThumbnail } from 'src/lib/capture-site-thumbnail';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { SiteServer } from 'src/site-server';
 
+// Fields owned by Studio that the CLI never emits and that must survive a
+// site-event merge (TLS material, renderer-computed theme info, sort order,
+// transient runtime flags).
+const STUDIO_ONLY_DETAIL_KEYS = [
+	'tlsKey',
+	'tlsCert',
+	'themeDetails',
+	'sortOrder',
+	'isAddingSite',
+	'latestCliPid',
+] as const satisfies readonly ( keyof SiteServer[ 'details' ] )[];
+
+function pickStudioOnlyDetails( details?: SiteServer[ 'details' ] ) {
+	if ( ! details ) {
+		return {} as Partial< SiteServer[ 'details' ] >;
+	}
+	const picked: Partial< SiteServer[ 'details' ] > = {};
+	for ( const key of STUDIO_ONLY_DETAIL_KEYS ) {
+		const value = details[ key ];
+		if ( value !== undefined ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			( picked as any )[ key ] = value;
+		}
+	}
+	return picked;
+}
+
+// The CLI event is the authoritative snapshot for every field in the shared
+// `siteDetailsSchema`. JSON serialization drops `undefined` values, so a
+// field that's been cleared (e.g. `customDomain` after `site set --domain ''`)
+// arrives here as an absent key. Spreading `...existingDetails` first would
+// then preserve the stale value. Invert the merge: start from Studio-only
+// fields, then let the CLI payload set or omit everything else.
 function siteDetailsToServerDetails(
 	site: SiteDetails,
 	running: boolean,
 	existingDetails?: SiteServer[ 'details' ]
 ): SiteServer[ 'details' ] {
 	return {
-		...existingDetails,
+		...pickStudioOnlyDetails( existingDetails ),
 		...site,
 		running,
 	};
@@ -59,6 +92,7 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 		return;
 	}
 
+	const wasNotRunning = ! server.details.running;
 	server.details = siteDetailsToServerDetails( site, running, server.details );
 
 	if ( server.server && site.url ) {
@@ -66,8 +100,10 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 	}
 
 	void sendIpcEventToRenderer( 'site-event', event );
-	if ( running ) {
-		void captureSiteThumbnail( siteId, false );
+
+	if ( wasNotRunning && running ) {
+		void captureSiteThumbnail( siteId );
+		await server.getThemeDetails();
 	}
 } );
 

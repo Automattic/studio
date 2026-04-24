@@ -5,6 +5,7 @@
 	"productName": "Studio",
 	"description": "Local WordPress development environment using Playgrounds",
 	"license": "GPL-2.0-or-later",
+	"packageManager": "npm@11.13.0",
 	"devEngines": {
 		"runtime": {
 			"name": "node",
@@ -26,6 +27,7 @@
 	],
 	"scripts": {
 		"start": "npm -w studio-app run start",
+		"start:new": "node scripts/start-new-ui.mjs",
 		"start:test": "DEV_CONFIG_DIR=/tmp/studio-test npm -w studio-app run start",
 		"start-wayland": "npm -w studio-app run start-wayland",
 		"postinstall": "patch-package --patch-dir apps/cli/patches && patch-package --patch-dir apps/studio/patches && node ./scripts/remove-fs-ext-other-platform-binaries.mjs && ts-node ./scripts/download-wp-server-files.ts && node ./scripts/download-available-site-translations.mjs && ts-node ./scripts/download-agent-skills.ts",
@@ -45,7 +47,7 @@
 		"cli:watch": "npm -w wp-studio run watch",
 		"app:install:bundle": "npm -w studio-app run install:bundle",
 		"compare:perf": "npm -w compare-perf run compare",
-		"lint": "eslint {apps/cli,apps/studio/src,apps/studio/e2e,tools/common}",
+		"lint": "eslint {apps/cli,apps/studio/src,apps/studio/e2e,apps/ui/src,tools/common}",
 		"typecheck": "npm run typecheck --workspaces --if-present && tsc -p scripts/tsconfig.json --noEmit",
 		"format": "npm run lint -- --fix",
 		"test": "vitest run",
@@ -53,7 +55,9 @@
 		"e2e": "npx playwright install && npx playwright test",
 		"test:metrics": "npx playwright test --config=./tools/metrics/playwright.metrics.config.ts",
 		"download-language-packs": "ts-node ./scripts/download-language-packs.ts",
-		"download-agent-skills": "ts-node ./scripts/download-agent-skills.ts"
+		"download-agent-skills": "ts-node ./scripts/download-agent-skills.ts",
+		"eval": "npm run cli:build --silent && npx promptfoo@0.121.4 eval -c eval/promptfoo.config.yaml",
+		"eval:view": "npx promptfoo@0.121.4 view"
 	},
 	"devDependencies": {
 		"@automattic/wp-babel-makepot": "^1.2.0",

@@ -2,18 +2,18 @@
  * WordPress Studio Server Child Process — Native PHP (stub)
  *
  * Placeholder runtime for the forthcoming native PHP binary implementation. Shares the same IPC
- * contract as `wordpress-server-child.ts`, but every non-abort message returns a
+ * contract as `playground-server-child.ts`, but every non-abort message returns a
  * "not yet implemented" error so the manager surfaces a clean failure until the real runtime lands.
  */
 import { z } from 'zod';
 import { managerMessageSchema, ChildMessageRaw } from 'cli/lib/types/wordpress-server-ipc';
 
 function logToConsole( ...args: Parameters< typeof console.log > ) {
-	console.log( `[WordPress Server Child - native]`, ...args );
+	console.log( `[PHP Server]`, ...args );
 }
 
 function errorToConsole( ...args: Parameters< typeof console.error > ) {
-	console.error( `[WordPress Server Child - native]`, ...args );
+	console.error( `[PHP Server]`, ...args );
 }
 
 function sendErrorMessage( messageId: string, error: unknown ): Promise< void > {

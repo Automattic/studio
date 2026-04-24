@@ -77,7 +77,7 @@ export const managerMessageSchema = z.discriminatedUnion( 'topic', [
 ] );
 export type ManagerMessage = z.infer< typeof managerMessageSchema >;
 
-// Zod schemas for validating IPC messages from wordpress-server-child
+// Zod schemas for validating IPC messages from a server child process
 const childMessageReady = z.object( {
 	topic: z.literal( 'ready' ),
 } );

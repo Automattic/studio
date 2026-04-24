@@ -36,13 +36,13 @@ export function getProcessName( siteId: string ): string {
 	return `${ SITE_PROCESS_PREFIX }${ siteId }`;
 }
 
-export function getChildScriptPath( runtime: SiteRuntime | undefined ): string {
+function getChildScriptPath( runtime: SiteRuntime | undefined ): string {
 	switch ( runtime ?? 'playground' ) {
 		case 'native-php':
-			return path.resolve( import.meta.dirname, 'wordpress-server-child-native.mjs' );
+			return path.resolve( import.meta.dirname, 'php-server-child.mjs' );
 		case 'playground':
 		default:
-			return path.resolve( import.meta.dirname, 'wordpress-server-child.mjs' );
+			return path.resolve( import.meta.dirname, 'playground-server-child.mjs' );
 	}
 }
 
@@ -148,7 +148,7 @@ async function waitForReadyMessage( pmId: number ): Promise< void > {
 
 	return new Promise< void >( ( resolve, reject ) => {
 		timeoutId = setTimeout( () => {
-			reject( new Error( 'Timeout waiting for ready message from WordPress server child' ) );
+			reject( new Error( 'Timeout waiting for ready message from server child process' ) );
 		}, PLAYGROUND_CLI_INACTIVITY_TIMEOUT );
 		readyHandler = ( packet ) => {
 			if ( packet.process.pm_id === pmId && packet.raw.topic === 'ready' ) {

@@ -116,7 +116,7 @@ describe( 'WordPress Server Manager', () => {
 
 			expect( vi.mocked( daemonClient.startProcess ) ).toHaveBeenCalledWith(
 				'studio-site-test-site-id',
-				expect.stringMatching( /wordpress-server-child\.mjs$/ )
+				expect.stringMatching( /playground-server-child\.mjs$/ )
 			);
 
 			expect( result ).toEqual( mockProcessDescription );
@@ -129,7 +129,7 @@ describe( 'WordPress Server Manager', () => {
 
 			expect( vi.mocked( daemonClient.startProcess ) ).toHaveBeenCalledWith(
 				'studio-site-test-site-id',
-				expect.stringMatching( /wordpress-server-child-native\.mjs$/ )
+				expect.stringMatching( /php-server-child\.mjs$/ )
 			);
 		} );
 
@@ -140,7 +140,7 @@ describe( 'WordPress Server Manager', () => {
 
 			expect( vi.mocked( daemonClient.startProcess ) ).toHaveBeenCalledWith(
 				'studio-site-test-site-id',
-				expect.stringMatching( /wordpress-server-child\.mjs$/ )
+				expect.stringMatching( /playground-server-child\.mjs$/ )
 			);
 		} );
 

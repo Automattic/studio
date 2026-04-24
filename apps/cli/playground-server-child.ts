@@ -82,11 +82,11 @@ process.stderr.write = function ( ...args: Parameters< typeof originalStderrWrit
 } as typeof process.stderr.write;
 
 function logToConsole( ...args: Parameters< typeof console.log > ) {
-	originalConsoleLog( `[WordPress Server Child]`, ...args );
+	originalConsoleLog( `[Playground Server]`, ...args );
 }
 
 function errorToConsole( ...args: Parameters< typeof console.error > ) {
-	originalConsoleError( `[WordPress Server Child]`, ...args );
+	originalConsoleError( `[Playground Server]`, ...args );
 }
 
 function escapePhpString( str: string ): string {

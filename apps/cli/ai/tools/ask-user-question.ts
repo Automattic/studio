@@ -1,7 +1,7 @@
 import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod/v4';
-import type { AskUserQuestion } from 'cli/ai/security';
 import type { SdkMcpToolDefinition } from '@anthropic-ai/claude-agent-sdk';
+import type { AskUserQuestion } from 'cli/ai/security';
 
 /**
  * Builds an `AskUserQuestion` tool definition.

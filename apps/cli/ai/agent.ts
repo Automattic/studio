@@ -1,19 +1,23 @@
 import fs from 'fs';
 import path from 'path';
-import { query, type Query } from '@anthropic-ai/claude-agent-sdk';
+import { query, type HookCallback, type Query } from '@anthropic-ai/claude-agent-sdk';
 import { AI_MODELS, DEFAULT_MODEL, type AiModelId } from '@studio/common/ai/models';
-import {
-	ALLOWED_TOOLS,
-	STUDIO_ROOT,
-	promptForApproval,
-	type AskUserQuestion,
-} from 'cli/ai/security';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { createRemoteSiteTools, createStudioTools } from 'cli/ai/tools';
+import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import type { SiteInfo } from 'cli/ai/ui';
 
-export type { AskUserQuestion } from 'cli/ai/security';
 export { AI_MODELS, DEFAULT_MODEL, type AiModelId };
+
+export interface AskUserQuestion {
+	question: string;
+	options: { label: string; description: string }[];
+	allowFreeForm?: boolean;
+}
+
+export type AskUserHandler = (
+	questions: AskUserQuestion[]
+) => Promise< Record< string, string > >;
 
 export interface AiAgentConfig {
 	prompt: string;
@@ -21,10 +25,9 @@ export interface AiAgentConfig {
 	model?: AiModelId;
 	maxTurns?: number;
 	resume?: string;
-	autoApprove?: boolean;
 	activeSite?: SiteInfo | null;
 	wpcomAccessToken?: string;
-	onAskUser?: ( questions: AskUserQuestion[] ) => Promise< Record< string, string > >;
+	onAskUser?: AskUserHandler;
 }
 
 // The Claude Agent SDK rejects internal pending promises (e.g. control
@@ -57,7 +60,6 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 		model = DEFAULT_MODEL,
 		maxTurns = 75,
 		resume,
-		autoApprove,
 		activeSite,
 		wpcomAccessToken,
 		onAskUser,
@@ -81,8 +83,6 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 			: createStudioTools( { enablePreviewSteering: isForkedByDesktop } ),
 	};
 
-	const allowedTools = [ ...ALLOWED_TOOLS ];
-
 	// Build site-aware system prompt
 	const systemPromptOptions = isRemoteSite
 		? {
@@ -94,9 +94,38 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 		  }
 		: { previewSteering: isForkedByDesktop };
 
-	if ( ! fs.existsSync( STUDIO_ROOT ) ) {
-		fs.mkdirSync( STUDIO_ROOT, { recursive: true } );
+	if ( ! fs.existsSync( STUDIO_SITES_ROOT ) ) {
+		fs.mkdirSync( STUDIO_SITES_ROOT, { recursive: true } );
 	}
+
+	// Intercept the built-in AskUserQuestion tool so the agent's questions
+	// render in our chat UI (via onAskUser) instead of the SDK's default
+	// prompt. PreToolUse with `matcher: 'AskUserQuestion'` lets us inject
+	// answers via `updatedInput` and approve the call, while leaving every
+	// other tool to the 'auto' permission classifier.
+	const askUserQuestionHook: HookCallback | undefined = onAskUser
+		? async ( input ) => {
+				if ( input.hook_event_name !== 'PreToolUse' ) {
+					return {};
+				}
+				const toolInput = input.tool_input as {
+					questions?: AskUserQuestion[];
+					answers?: Record< string, string >;
+				};
+				const questions = ( toolInput.questions ?? [] ).map( ( q ) => ( {
+					...q,
+					allowFreeForm: true,
+				} ) );
+				const answers = await onAskUser( questions );
+				return {
+					hookSpecificOutput: {
+						hookEventName: 'PreToolUse' as const,
+						permissionDecision: 'allow' as const,
+						updatedInput: { ...toolInput, answers },
+					},
+				};
+		  }
+		: undefined;
 
 	return query( {
 		prompt,
@@ -109,36 +138,14 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 			},
 			mcpServers,
 			maxTurns,
-			cwd: STUDIO_ROOT,
+			cwd: STUDIO_SITES_ROOT,
 			tools: { type: 'preset', preset: 'claude_code' },
-			allowedTools,
-			permissionMode: 'default',
-			canUseTool: async ( toolName, input, metadata ) => {
-				if ( autoApprove ) {
-					return {
-						behavior: 'allow' as const,
-						updatedInput: input as Record< string, unknown >,
-					};
-				}
-
-				if ( toolName === 'AskUserQuestion' && onAskUser ) {
-					const typedInput = input as {
-						questions?: AskUserQuestion[];
-						answers?: Record< string, string >;
-					};
-					const questions = ( typedInput.questions ?? [] ).map( ( q ) => ( {
-						...q,
-						allowFreeForm: true,
-					} ) );
-					const answers = await onAskUser( questions );
-					return {
-						behavior: 'allow' as const,
-						updatedInput: { ...input, answers },
-					};
-				}
-
-				return promptForApproval( { toolName, input, metadata, onAskUser } );
-			},
+			permissionMode: 'auto',
+			...( askUserQuestionHook && {
+				hooks: {
+					PreToolUse: [ { matcher: 'AskUserQuestion', hooks: [ askUserQuestionHook ] } ],
+				},
+			} ),
 			plugins: [ { type: 'local' as const, path: path.resolve( import.meta.dirname, 'plugin' ) } ],
 			model,
 			resume,

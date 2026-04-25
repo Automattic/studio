@@ -993,43 +993,51 @@ export class AiChatUI implements AiOutputAdapter {
 		toolName: string,
 		toolInput: Record< string, unknown > | null
 	): Promise< void > {
-		switch ( toolName ) {
-			case 'mcp__studio__site_create': {
+		// Tool names arrive in two flavors depending on the runtime:
+		//   - Anthropic (Claude Agent SDK): `mcp__studio__site_create` (the SDK
+		//     auto-prefixes MCP-server tool names).
+		//   - OpenAI (pi-agent-core): `site_create` (registered by bare name).
+		// Strip the prefix so the switch below stays single-source.
+		const bareName = toolName.startsWith( 'mcp__studio__' )
+			? toolName.slice( 'mcp__studio__'.length )
+			: toolName;
+		switch ( bareName ) {
+			case 'site_create': {
 				const name = toolInput?.name;
 				if ( typeof name === 'string' ) {
 					await this.selectLocalSiteFromTool( name, { running: true } );
 				}
 				break;
 			}
-			case 'mcp__studio__site_info':
-			case 'mcp__studio__site_start': {
+			case 'site_info':
+			case 'site_start': {
 				const nameOrPath = toolInput?.nameOrPath;
 				if ( typeof nameOrPath === 'string' ) {
 					await this.selectLocalSiteFromTool( nameOrPath, {
-						running: toolName === 'mcp__studio__site_start' ? true : undefined,
+						running: bareName === 'site_start' ? true : undefined,
 					} );
 				}
 				break;
 			}
-			case 'mcp__studio__wp_cli':
-			case 'mcp__studio__preview_create':
-			case 'mcp__studio__preview_list':
-			case 'mcp__studio__preview_update':
-			case 'mcp__studio__validate_blocks': {
+			case 'wp_cli':
+			case 'preview_create':
+			case 'preview_list':
+			case 'preview_update':
+			case 'validate_blocks': {
 				const nameOrPath = toolInput?.nameOrPath;
 				if ( typeof nameOrPath === 'string' ) {
 					await this.selectLocalSiteFromTool( nameOrPath );
 				}
 				break;
 			}
-			case 'mcp__studio__site_stop': {
+			case 'site_stop': {
 				const nameOrPath = toolInput?.nameOrPath;
 				if ( typeof nameOrPath === 'string' ) {
 					await this.selectLocalSiteFromTool( nameOrPath, { running: false } );
 				}
 				break;
 			}
-			case 'mcp__studio__site_delete': {
+			case 'site_delete': {
 				const nameOrPath = toolInput?.nameOrPath;
 				if (
 					typeof nameOrPath === 'string' &&

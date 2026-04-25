@@ -1,6 +1,6 @@
 import { AI_MODELS } from '@studio/common/ai/models';
 import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
-import { __, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import { arrowUp, chevronDownSmall } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { useCallback, useState } from 'react';
@@ -151,12 +151,7 @@ export function Composer( {
 										className={ styles.pill }
 										aria-label={ __( 'Select model' ) }
 									>
-										<span>
-											{
-												/* translators: %s: model display name (e.g. "Sonnet 4.6") */
-												sprintf( __( 'Claude %s' ), AI_MODELS[ model ] )
-											}
-										</span>
+										<span>{ AI_MODELS[ model ] }</span>
 										<Icon icon={ chevronDownSmall } size={ 16 } />
 									</button>
 								}
@@ -169,10 +164,7 @@ export function Composer( {
 									{ ( Object.entries( AI_MODELS ) as [ AiModelId, string ][] ).map(
 										( [ id, label ] ) => (
 											<Menu.RadioItem key={ id } value={ id }>
-												{
-													/* translators: %s: model display name */
-													sprintf( __( 'Claude %s' ), label )
-												}
+												{ label }
 											</Menu.RadioItem>
 										)
 									) }

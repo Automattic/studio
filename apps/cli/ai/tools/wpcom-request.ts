@@ -2,6 +2,10 @@ import { tool } from '@anthropic-ai/claude-agent-sdk';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { z } from 'zod/v4';
+import { errorResult, textResult } from './utils';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ApiResponse = any;
 
 /**
  * Strips oversized fields from API responses that can't be filtered via query params.
@@ -38,19 +42,6 @@ function stripOversizedFields( result: ApiResponse ): ApiResponse {
 	return result;
 }
 
-function errorResult( message: string ) {
-	return {
-		content: [ { type: 'text' as const, text: message } ],
-		isError: true,
-	};
-}
-
-function textResult( text: string ) {
-	return {
-		content: [ { type: 'text' as const, text } ],
-	};
-}
-
 function getErrorMessage( error: unknown ): string {
 	if ( error instanceof Error ) {
 		return error.message;
@@ -58,19 +49,16 @@ function getErrorMessage( error: unknown ): string {
 	return String( error );
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type ApiResponse = any;
-
 /**
  * Creates a generic WP.com REST API tool for managing a remote WordPress.com site.
  * Instead of hardcoding individual endpoints, this provides a single flexible tool
  * that can call any WP.com REST API endpoint. The AI agent determines the correct
  * endpoints based on its knowledge of the WordPress.com REST API.
  */
-export function createWpcomToolDefinitions( token: string, siteId: number ) {
+export function createWpcomRequestTool( token: string, siteId: number ) {
 	const wpcom = wpcomFactory( token, wpcomXhrRequest );
 
-	const wpcomRequestTool = tool(
+	return tool(
 		'wpcom_request',
 		`Makes a request to the WordPress REST API (wp/v2) or WordPress.com REST API (v1.1) for site ${ siteId }. ` +
 			'Defaults to the WordPress REST API (wp/v2). Use this to manage posts, pages, templates, template parts, ' +
@@ -152,6 +140,4 @@ export function createWpcomToolDefinitions( token: string, siteId: number ) {
 			}
 		}
 	);
-
-	return [ wpcomRequestTool ];
 }

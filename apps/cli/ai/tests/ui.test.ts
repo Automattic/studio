@@ -120,6 +120,32 @@ describe( 'AiChatUI auto site selection', () => {
 		);
 	} );
 
+	it( 'selects a created site after the bare-name (OpenAI runtime) site_create succeeds', async () => {
+		const ui = createUiStub();
+		const siteData = {
+			name: 'toto',
+			path: '/Users/test/Studio/toto',
+			port: 8881,
+		};
+
+		vi.mocked( readCliConfig ).mockResolvedValue( {
+			sites: [ siteData ],
+		} as never );
+		vi.mocked( isSiteRunning ).mockResolvedValue( false );
+
+		// pi-agent-core registers tools by their bare name (no MCP prefix).
+		await ui.autoSelectSiteFromToolResult( 'site_create', { name: 'toto' } );
+
+		expect( ui._activeSite ).toMatchObject( {
+			name: 'toto',
+			path: '/Users/test/Studio/toto',
+			running: true,
+		} );
+		expect( ui.siteSelectedCallback ).toHaveBeenCalledWith(
+			expect.objectContaining( { name: 'toto', path: '/Users/test/Studio/toto', running: true } )
+		);
+	} );
+
 	it( 'selects the acted-on site after site_stop succeeds', async () => {
 		const ui = createUiStub();
 		const siteData = {

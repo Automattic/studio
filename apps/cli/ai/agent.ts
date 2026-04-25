@@ -81,10 +81,6 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 		studio: isRemoteSite
 			? createRemoteSiteTools( wpcomAccessToken, activeSite.wpcomSiteId! )
 			: createStudioTools( { enablePreviewSteering: isForkedByDesktop } ),
-		agentation: {
-			command: 'npx',
-			args: [ '--yes', 'agentation-mcp', 'server' ],
-		},
 	};
 
 	// Build site-aware system prompt

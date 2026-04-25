@@ -3,9 +3,9 @@ import path from 'path';
 import { tool, createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { z } from 'zod/v4';
-import { openAgentationBrowser } from 'cli/ai/agentation-inject';
 import { validateBlocks, type ValidationReport } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
+import { openAnnotationBrowser, waitForAnnotationsDone } from 'cli/ai/inspector/inspector-inject';
 import { emitEvent } from 'cli/ai/json-events';
 import { auditPerformance } from 'cli/ai/performance-audit';
 import { auditSeo } from 'cli/ai/seo-audit';
@@ -1060,15 +1060,16 @@ const previewSteeringToolDefinitions = [ previewNavigateTool, previewReloadTool 
 
 const openAnnotationBrowserTool = tool(
 	'open_annotation_browser',
-	'Opens a headed browser on a site with the Agentation annotation toolbar. ' +
-		'The user can click elements and add visual feedback. Use agentation MCP tools to read annotations afterward.',
+	'Opens a headed browser on a site with the Studio annotation inspector. ' +
+		'The user clicks "Annotate", picks an element, types feedback, then clicks "Done". ' +
+		'After calling this tool, call `wait_for_annotations` to block until the user submits.',
 	{
 		url: z.string().describe( 'The site URL to open (e.g., "http://localhost:8881")' ),
 	},
 	async ( args ) => {
 		try {
 			emitProgress( `Opening annotation browser at ${ args.url }…` );
-			const message = await openAgentationBrowser( args.url );
+			const message = await openAnnotationBrowser( args.url );
 			emitProgress( 'Annotation browser ready' );
 			return textResult( message );
 		} catch ( error ) {
@@ -1076,6 +1077,33 @@ const openAnnotationBrowserTool = tool(
 				`Failed to open annotation browser: ${
 					error instanceof Error ? error.message : String( error )
 				}`
+			);
+		}
+	}
+);
+
+const waitForAnnotationsTool = tool(
+	'wait_for_annotations',
+	'Blocks until the user clicks "Done" in the annotation inspector toolbar. ' +
+		'Returns the annotations the user wrote, captured straight from the page. ' +
+		'Call this AFTER `open_annotation_browser`.',
+	{
+		timeoutMinutes: z
+			.number()
+			.optional()
+			.describe( 'How long to wait for the user to click "Done", in minutes. Defaults to 30.' ),
+	},
+	async ( args ) => {
+		try {
+			emitProgress( 'Waiting for the user to click "Done"…' );
+			const result = await waitForAnnotationsDone( {
+				timeoutMs: ( args.timeoutMinutes ?? 30 ) * 60 * 1000,
+			} );
+			emitProgress( `Received ${ result.annotations.length } annotation(s)` );
+			return textResult( JSON.stringify( result, null, 2 ) );
+		} catch ( error ) {
+			return errorResult(
+				`Failed to read annotations: ${ error instanceof Error ? error.message : String( error ) }`
 			);
 		}
 	}
@@ -1103,6 +1131,7 @@ export const studioToolDefinitions = [
 	importSiteTool,
 	exportSiteTool,
 	openAnnotationBrowserTool,
+	waitForAnnotationsTool,
 	...previewSteeringToolDefinitions,
 ];
 

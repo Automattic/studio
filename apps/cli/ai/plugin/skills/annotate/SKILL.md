@@ -18,50 +18,71 @@ Then identify the target site. If there's an active site, use it. If there are m
 
 ## Workflow
 
-### 1. Clear old annotations
-
-Before opening the browser, dismiss all pending annotations from previous sessions so you start fresh. Use `agentation_get_all_pending`, then `agentation_dismiss` on each one.
-
-### 2. Open the browser
+### 1. Open the browser
 
 Call `site_info` to get the site URL — do NOT guess the URL or port.
 
-Use the `open_annotation_browser` tool with the site URL. This opens a headed Playwright browser with the Agentation toolbar injected.
+Use the `open_annotation_browser` tool with the site URL. This opens a headed browser with the Studio annotation inspector injected — a small dark pill in the bottom-right with **"Annotate"** and **"Done"** buttons.
 
 Tell the user:
-> The browser is open. Click the **circle icon** in the bottom-right corner to activate the toolbar, then click any element to annotate it. Let me know when you're done.
+> The browser is open. Click **Annotate** in the bottom-right toolbar, click any element on the page, type your feedback, then click **Done** when you're finished.
 
-### 3. Read annotations
+### 2. Wait for the user to submit
 
-Use `agentation_get_all_pending` to get unresolved annotations. Filter results:
-- **Only** act on annotations whose `url` matches the current site URL
-- **Only** act on annotations the user just created in this session — check timestamps and ignore old ones
-- Ask the user to confirm the list before making changes if there are annotations you didn't expect
+Call `wait_for_annotations`. This blocks until the user clicks **Done** and returns the annotations they wrote, captured straight from the page.
 
 Each annotation includes:
 - **CSS selector / elementPath** — use to find the element in the theme or via WP-CLI
 - **Computed styles** — current CSS values (colors, sizes, spacing)
 - **nearbyText** — visible text content of the element
 - **User feedback (comment)** — what the user wants changed
+- **pathname** — which page of the site the annotation was made on
+
+### 3. Summarize and confirm — REQUIRED before making any changes
+
+Do **not** start editing yet. First, present a numbered summary of every request, then ask the user to confirm before you proceed.
+
+Format the summary like this — one entry per annotation, in the order received:
+
+```
+Here's what you asked me to change:
+
+  1. <one-line description in your own words> — <element + nearby text>
+     (your note: "<the user's comment, verbatim>")
+
+  2. …
+
+Want me to go ahead with these N change(s)?
+```
+
+Rules for the summary:
+- **Restate intent in your own words** so the user can spot misunderstandings (e.g. "Make the title smaller" rather than echoing the comment).
+- **Identify the element by what they can see**, not by selector — use the tag name plus `nearbyText`. Selectors are noisy and unreadable; keep them out of the summary.
+- **Always include the user's verbatim comment** in parentheses so they know nothing was lost in your paraphrase.
+- If anything is ambiguous, list the ambiguity as a question in the same numbered item rather than guessing.
+
+Then call `AskUserQuestion` with a single yes/no question ("Proceed with these changes?") offering options like "Yes, go ahead", "No, let me re-annotate", and "Skip some — I'll tell you which". Only continue past this step on an explicit confirmation.
+
+If the user wants to re-annotate, point them back to the open browser and call `wait_for_annotations` again — the inspector keeps working without re-opening the browser.
 
 ### 4. Make changes
 
-For each annotation:
-1. Use `agentation_acknowledge_annotation` to signal you're working on it
-2. **Identify what to change:**
+For each confirmed annotation:
+1. **Identify what to change:**
    - Use the CSS selector to find the element in theme templates or stylesheets
    - Use `wp_cli` with `post list --post_type=wp_template --format=json` to check if it's in a template override
    - Use `wp_cli` with `eval "echo wp_get_custom_css();"` to check existing custom CSS
-3. **Apply the change using the right approach:**
+2. **Apply the change using the right approach:**
    - For style changes (colors, sizes, spacing): use Global Styles custom CSS with the selector from the annotation
    - For content changes (text, headings, block structure): edit the template or post content via WP-CLI
    - For block-level changes: identify the WordPress block type from the HTML structure (look for `wp-block-*` classes) and modify accordingly
-4. Take a screenshot to verify the change looks correct
-5. Use `agentation_resolve_annotation` with a summary of what was changed
+3. Take a screenshot to verify the change looks correct
 
 ### 5. Verify
 
 After all annotations are addressed, take a screenshot and confirm with the user.
+
+The browser window auto-closes about 10 seconds after the user clicks **Done**, so by the time you finish making changes it's already gone. If they want another round, run the skill again from the top — `/annotate` opens a fresh browser. Don't try to "reattach" to the previous window.
 
 ## Making changes the WordPress way
 

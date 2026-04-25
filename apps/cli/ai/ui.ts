@@ -27,7 +27,7 @@ import { getToolDetail, getToolDisplayName } from '@studio/common/ai/tools';
 import chalk from '@studio/common/lib/chalk';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { AI_MODELS, DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
+import { DEFAULT_MODEL, getAiModelLabel, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
 import { AI_CHAT_SLASH_COMMANDS } from 'cli/ai/slash-commands';
 import { buildTodoUpdateLines, type TodoRenderLine } from 'cli/ai/todo-render';
@@ -1217,7 +1217,7 @@ export class AiChatUI implements AiOutputAdapter {
 		// Truncate the cwd with a leading ellipsis (preserving the meaningful
 		// suffix) when the terminal is too narrow, otherwise the welcome wraps
 		// and visually breaks the logo layout.
-		const baseInfo = `${ AI_MODELS[ this.currentModel ] } · ${
+		const baseInfo = `${ getAiModelLabel( this.currentModel ) } · ${
 			AI_PROVIDERS[ this.currentProvider ]
 		}`;
 		const sep = ' · ';

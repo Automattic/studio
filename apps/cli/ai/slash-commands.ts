@@ -2,7 +2,7 @@ import { getAiModelFamily } from '@studio/common/ai/models';
 import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, sprintf } from '@wordpress/i18n';
-import { AI_MODELS, type AiModelId } from 'cli/ai/agent';
+import { getAiModelLabel, type AiModelId } from 'cli/ai/agent';
 import { getAvailableAiProviders, isAiProviderReady } from 'cli/ai/auth';
 import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
 import { captureCommandOutput } from 'cli/ai/tools';
@@ -160,9 +160,9 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 						? sprintf(
 								/* translators: %s: model name */
 								__( '%s (current)' ),
-								AI_MODELS[ id ]
+								getAiModelLabel( id )
 						  )
-						: AI_MODELS[ id ];
+						: getAiModelLabel( id );
 				labelToId.set( label, id );
 				return { label, description: id };
 			} );
@@ -193,7 +193,7 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 					sprintf(
 						/* translators: %s: model name */
 						__( 'Switched to %s' ),
-						AI_MODELS[ ctx.currentModel ]
+						getAiModelLabel( ctx.currentModel )
 					)
 				);
 				await ctx.persistSessionContext();

@@ -2,7 +2,6 @@ import { password } from '@inquirer/prompts';
 import {
 	AI_MODELS,
 	DEFAULT_MODEL,
-	getAiModelFamily,
 	type AiModelFamily,
 	type AiModelId,
 } from '@studio/common/ai/models';
@@ -61,9 +60,9 @@ export interface AiProviderDefinition {
 function defineProvider(
 	partial: Omit< AiProviderDefinition, 'availableModels' | 'defaultModel' | 'supportsModel' >
 ): AiProviderDefinition {
-	const availableModels = ( Object.keys( AI_MODELS ) as AiModelId[] ).filter( ( model ) =>
-		partial.supportedModelFamilies.includes( getAiModelFamily( model ) )
-	);
+	const availableModels: AiModelId[] = AI_MODELS.filter( ( model ) =>
+		partial.supportedModelFamilies.includes( model.family )
+	).map( ( model ) => model.id );
 	return {
 		...partial,
 		availableModels,

@@ -5,7 +5,7 @@ import {
 	runCommand as runDeletePreviewCommand,
 } from 'cli/commands/preview/delete';
 import { normalizeHostname } from 'cli/lib/utils';
-import { runPreviewCommand } from './utils';
+import { runPreviewCommand } from './preview-helpers';
 
 export const deletePreviewTool = tool(
 	'preview_delete',

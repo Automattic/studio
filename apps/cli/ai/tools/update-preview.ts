@@ -2,7 +2,8 @@ import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod/v4';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
 import { normalizeHostname } from 'cli/lib/utils';
-import { resolveSite, runPreviewCommand } from './utils';
+import { runPreviewCommand } from './preview-helpers';
+import { resolveSite } from './utils';
 
 export const updatePreviewTool = tool(
 	'preview_update',

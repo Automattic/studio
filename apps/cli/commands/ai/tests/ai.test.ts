@@ -309,11 +309,9 @@ describe( 'CLI: studio code sessions command', () => {
 	} );
 
 	it( 'persists selected model before the first prompt is sent', async () => {
-		const alternateModel = ( Object.entries( AI_MODELS ) as [ string, string ][] ).find(
-			( [ modelId ] ) => modelId !== DEFAULT_MODEL
-		);
+		const alternateModel = AI_MODELS.find( ( model ) => model.id !== DEFAULT_MODEL );
 		expect( alternateModel ).toBeDefined();
-		const [ selectedModelId, selectedModelLabel ] = alternateModel!;
+		const { id: selectedModelId, label: selectedModelLabel } = alternateModel!;
 
 		waitForInputMock.mockResolvedValueOnce( '/model' ).mockResolvedValueOnce( '/exit' );
 		askUserMock.mockResolvedValueOnce( {

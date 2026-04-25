@@ -1,10 +1,32 @@
 import { readFile } from 'fs/promises';
 import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod/v4';
-import { validateBlocks } from 'cli/ai/block-validator';
+import { validateBlocks, type ValidationReport } from 'cli/ai/block-validator';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { emitProgress } from 'cli/logger';
-import { errorResult, formatInvalidBlocks, resolveSite, textResult } from './utils';
+import { errorResult, resolveSite, textResult } from './utils';
+
+/**
+ * Render the invalid-block portion of a validation report as a list of
+ * indented lines suitable for the agent's tool result. Private to this
+ * module — only the validate_blocks tool consumes it.
+ */
+function formatInvalidBlocks( report: ValidationReport ): string[] {
+	const lines: string[] = [];
+	for ( const result of report.results ) {
+		if ( ! result.isValid ) {
+			lines.push( `  - ${ result.blockName }` );
+			for ( const issue of result.issues ) {
+				lines.push( `    ${ issue }` );
+			}
+			if ( result.expectedContent !== undefined ) {
+				lines.push( `    Expected: ${ result.expectedContent }` );
+				lines.push( `    Actual:   ${ result.originalContent }` );
+			}
+		}
+	}
+	return lines;
+}
 
 export const validateBlocksTool = tool(
 	'validate_blocks',

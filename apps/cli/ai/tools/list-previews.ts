@@ -1,7 +1,8 @@
 import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod/v4';
 import { runCommand as runListPreviewCommand } from 'cli/commands/preview/list';
-import { resolveSite, runPreviewCommand } from './utils';
+import { runPreviewCommand } from './preview-helpers';
+import { resolveSite } from './utils';
 
 export const listPreviewsTool = tool(
 	'preview_list',

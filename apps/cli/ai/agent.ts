@@ -3,6 +3,7 @@ import {
 	AI_MODELS,
 	DEFAULT_MODEL,
 	getAiModelFamily,
+	getAiModelLabel,
 	type AiModelId,
 } from '@studio/common/ai/models';
 import { anthropicRuntime } from 'cli/ai/runtimes/anthropic';
@@ -12,7 +13,7 @@ import type { AgentRuntime, AgentRuntimeHandle } from 'cli/ai/runtimes/types';
 import type { SiteInfo } from 'cli/ai/ui';
 
 export type { AskUserQuestion } from 'cli/ai/security';
-export { AI_MODELS, DEFAULT_MODEL, type AiModelId };
+export { AI_MODELS, DEFAULT_MODEL, getAiModelLabel, type AiModelId };
 
 export interface AiAgentConfig {
 	prompt: string;

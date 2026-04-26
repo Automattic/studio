@@ -32,6 +32,7 @@ export interface PathGatedPermissionRequest {
 // the `mcp__studio__*` servers, Read/Grep/etc. are host-filesystem-safe.
 export const ALLOWED_TOOLS = [
 	'mcp__studio__*',
+	'mcp__context-a8c__*',
 	'Read',
 	'Glob',
 	'Grep',

@@ -25,6 +25,7 @@
 	},
 	"dependencies": {
 		"@anthropic-ai/claude-agent-sdk": "^0.2.117",
+		"@automattic/mcp-context-a8c": "^0.1.5",
 		"@inquirer/prompts": "^8.3.2",
 		"@mariozechner/pi-tui": "^0.54.0",
 		"@modelcontextprotocol/sdk": "^1.27.1",

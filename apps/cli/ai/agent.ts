@@ -1,4 +1,5 @@
 import fs from 'fs';
+import { createRequire } from 'module';
 import path from 'path';
 import { query, type Query } from '@anthropic-ai/claude-agent-sdk';
 import { AI_MODELS, DEFAULT_MODEL, type AiModelId } from '@studio/common/ai/models';
@@ -46,6 +47,14 @@ process.on( 'unhandledRejection', ( reason ) => {
 	throw reason;
 } );
 
+function resolveContextA8cEntry(): string | null {
+	try {
+		return createRequire( import.meta.url ).resolve( '@automattic/mcp-context-a8c' );
+	} catch {
+		return null;
+	}
+}
+
 /**
  * Start the AI agent and return the Query object.
  * Caller can iterate messages with `for await` and call `interrupt()` to stop.
@@ -73,12 +82,27 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 	// pick between IPC and stdout NDJSON.
 	const isForkedByDesktop = typeof process.send === 'function';
 
+	// Add the Automattic internal context server (Linear, Slack, P2) when a
+	// WordPress.com access token is available and the package is installed.
+	const wpcomToken = resolvedEnv.ANTHROPIC_AUTH_TOKEN;
+	const contextA8cEntry = wpcomToken ? resolveContextA8cEntry() : null;
+
 	// Configure MCP servers based on site type:
 	// Remote sites get WP.com REST API tools + screenshot; local sites get the full Studio toolset.
 	const mcpServers = {
 		studio: isRemoteSite
 			? createRemoteSiteTools( wpcomAccessToken, activeSite.wpcomSiteId! )
 			: createStudioTools( { enablePreviewSteering: isForkedByDesktop } ),
+		...( contextA8cEntry && {
+			'context-a8c': {
+				command: 'node',
+				args: [ contextA8cEntry ],
+				env: {
+					JWT_TOKEN: wpcomToken,
+					OAUTH_ENABLED: 'false',
+				},
+			},
+		} ),
 	};
 
 	const allowedTools = [ ...ALLOWED_TOOLS ];

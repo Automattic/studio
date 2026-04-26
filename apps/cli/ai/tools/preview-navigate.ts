@@ -1,6 +1,6 @@
-import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod/v4';
 import { emitEvent } from 'cli/ai/json-events';
+import { tool } from './define-tool';
 import { textResult } from './utils';
 
 function normalizePreviewPath( raw: string ): string {

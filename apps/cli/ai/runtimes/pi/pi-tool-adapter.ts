@@ -1,13 +1,13 @@
 import { Type, type TSchema } from 'typebox';
 import { z } from 'zod/v4';
-import type { SdkMcpToolDefinition } from '@anthropic-ai/claude-agent-sdk';
 import type { AgentTool } from '@mariozechner/pi-agent-core';
+import type { SdkMcpToolDefinition } from 'cli/ai/sdk-message-types';
 
 /**
- * Flatten a Claude-Agent-SDK tool result (content blocks) to the pi-agent-core
- * result shape. pi-ai's `TextContent` / `ImageContent` are structurally identical
- * to the Anthropic SDK's text/image blocks, so the translation is essentially
- * a pass-through with defensive fallbacks for non-standard shapes.
+ * Flatten a tool result (content blocks) to the pi-agent-core result shape.
+ * pi-ai's `TextContent` / `ImageContent` are structurally identical to the
+ * Anthropic SDK's text/image blocks, so the translation is essentially a
+ * pass-through with defensive fallbacks for non-standard shapes.
  */
 function convertContent(
 	content: unknown
@@ -33,8 +33,9 @@ function convertContent(
 }
 
 /**
- * Adapts a Claude-Agent-SDK tool definition (zod-shaped `inputSchema`) to a
- * pi-agent-core `AgentTool` (typebox-shaped `parameters`).
+ * Adapts a Studio tool definition (zod-shaped `inputSchema`, see
+ * `apps/cli/ai/tools/define-tool.ts`) to a pi-agent-core `AgentTool`
+ * (typebox-shaped `parameters`).
  *
  * The conversion route is `zod → JSON Schema → typebox Unsafe<T>`. typebox's
  * `Type.Unsafe` wraps a raw JSON Schema with a `TSchema` brand without

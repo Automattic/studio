@@ -1,8 +1,8 @@
-import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod/v4';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getUnsupportedWpCliPostContentMessage } from 'cli/lib/rewrite-wp-cli-post-content';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
+import { tool } from './define-tool';
 import { errorResult, resolveSite } from './utils';
 
 /**

@@ -2,13 +2,12 @@ import fs from 'fs/promises';
 import type { AgentMessage } from '@mariozechner/pi-agent-core';
 
 /**
- * Sidecar transcript persistence for the OpenAI runtime.
+ * Sidecar transcript persistence for the unified pi runtime.
  *
- * The Claude Agent SDK ships its own on-disk session store, so cross-fork
- * resume works for free. pi-agent-core has no equivalent — its `Agent`
+ * pi-agent-core has no built-in cross-fork persistence — its `Agent`
  * transcript only lives in memory. The desktop UI forks a fresh CLI per turn
  * (apps/studio/src/modules/ai-agent/run-manager.ts), so without persistence
- * GPT loses every prior turn between forks.
+ * the agent loses every prior turn between forks.
  *
  * We sidecar pi's native `AgentMessage[]` next to the JSONL Studio already
  * writes. Same directory, same lifetime as the JSONL, but a separate file
@@ -18,28 +17,39 @@ import type { AgentMessage } from '@mariozechner/pi-agent-core';
  *
  * The sidecar is best-effort: a missing or malformed file just starts the
  * Agent fresh. The recorder JSONL remains the source of truth for *display*;
- * this file is the source of truth for *agent memory* on the OpenAI side.
+ * this file is the source of truth for *agent memory*.
  */
+
+const SIDECAR_SUFFIX = '.pi-state.json';
+// Pre-rename suffix used while the runtime was OpenAI-only. Read-only fallback
+// so existing sessions don't lose their pi-side memory across the migration.
+const LEGACY_SIDECAR_SUFFIX = '.openai-state.json';
 
 /**
  * Convert a session JSONL path to its sidecar path.
  *   .../2026-04-24T18-57-34-<uuid>.jsonl
- *   → .../2026-04-24T18-57-34-<uuid>.openai-state.json
+ *   → .../2026-04-24T18-57-34-<uuid>.pi-state.json
  *
  * Sidecars sit next to the JSONL so cleanup paths that walk the directory
  * (delete-session, prune-empty-directory) handle both as siblings.
  */
 export function getSidecarPath( sessionFilePath: string ): string {
 	if ( sessionFilePath.endsWith( '.jsonl' ) ) {
-		return sessionFilePath.slice( 0, -'.jsonl'.length ) + '.openai-state.json';
+		return sessionFilePath.slice( 0, -'.jsonl'.length ) + SIDECAR_SUFFIX;
 	}
-	return sessionFilePath + '.openai-state.json';
+	return sessionFilePath + SIDECAR_SUFFIX;
 }
 
-export async function loadSidecar( sessionFilePath: string ): Promise< AgentMessage[] | null > {
-	const path = getSidecarPath( sessionFilePath );
+function getLegacySidecarPath( sessionFilePath: string ): string {
+	if ( sessionFilePath.endsWith( '.jsonl' ) ) {
+		return sessionFilePath.slice( 0, -'.jsonl'.length ) + LEGACY_SIDECAR_SUFFIX;
+	}
+	return sessionFilePath + LEGACY_SIDECAR_SUFFIX;
+}
+
+async function readSidecarFile( filePath: string ): Promise< AgentMessage[] | null > {
 	try {
-		const data = await fs.readFile( path, 'utf8' );
+		const data = await fs.readFile( filePath, 'utf8' );
 		const parsed: unknown = JSON.parse( data );
 		if ( ! Array.isArray( parsed ) ) {
 			return null;
@@ -54,6 +64,17 @@ export async function loadSidecar( sessionFilePath: string ): Promise< AgentMess
 		// Malformed JSON or read error: treat as missing, don't crash the run.
 		return null;
 	}
+}
+
+export async function loadSidecar( sessionFilePath: string ): Promise< AgentMessage[] | null > {
+	const primary = await readSidecarFile( getSidecarPath( sessionFilePath ) );
+	if ( primary !== null ) {
+		return primary;
+	}
+	// Pre-migration sessions persisted under the OpenAI-specific suffix. Read
+	// it as a one-time fallback so resumed sessions don't forget their state.
+	// We never write this path back — `saveSidecar` always uses the new name.
+	return readSidecarFile( getLegacySidecarPath( sessionFilePath ) );
 }
 
 /**
@@ -75,12 +96,19 @@ export async function saveSidecar(
  * Best-effort cleanup. Called from `deleteAiSession` so the sidecar dies with
  * its JSONL. Missing file is fine; any other error is swallowed because we
  * don't want a stale sidecar to block deletion of the real session file.
+ *
+ * Sweeps both the current and legacy suffixes so the function works regardless
+ * of which runtime version wrote the sidecar.
  */
 export async function deleteSidecar( sessionFilePath: string ): Promise< void > {
-	const path = getSidecarPath( sessionFilePath );
-	try {
-		await fs.unlink( path );
-	} catch {
-		// ENOENT or permission errors — sidecar is opportunistic, not load-bearing.
+	for ( const candidate of [
+		getSidecarPath( sessionFilePath ),
+		getLegacySidecarPath( sessionFilePath ),
+	] ) {
+		try {
+			await fs.unlink( candidate );
+		} catch {
+			// ENOENT or permission errors — sidecar is opportunistic, not load-bearing.
+		}
 	}
 }

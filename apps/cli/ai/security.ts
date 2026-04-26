@@ -2,16 +2,54 @@ import os from 'os';
 import path from 'path';
 import { addApprovedPermission, readApprovedPermissions } from 'cli/lib/cli-config/permissions';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
-import type {
-	CanUseTool,
-	PermissionResult,
-	PermissionUpdate,
-} from '@anthropic-ai/claude-agent-sdk';
 
 export interface AskUserQuestion {
 	question: string;
 	options: { label: string; description: string }[];
 	allowFreeForm?: boolean;
+}
+
+/**
+ * Local mirror of the Claude Agent SDK's `PermissionUpdate` for the
+ * `addDirectories` shape — the only one we actually populate when promoting a
+ * directory approval to a session-scope permission. Kept here so the
+ * permission flow has a stable contract independent of the SDK.
+ */
+export type PermissionUpdate = {
+	type: 'addDirectories';
+	directories: string[];
+	destination: 'session';
+};
+
+/**
+ * Local mirror of the Claude Agent SDK's `PermissionResult`. Returned from
+ * `promptForApproval` and consumed by the runtime's `beforeToolCall` adapter
+ * (`runtimes/pi/index.ts`). The unified pi runtime maps `behavior: 'allow'`
+ * to "let the tool execute" and `behavior: 'deny'` to a `{ block: true }`
+ * pi result. `updatedInput` lets us mutate args before execution; today the
+ * runtime treats the input as opaque, but we keep the field on the contract
+ * for parity with how the SDK runtime used it.
+ */
+export type PermissionResult =
+	| {
+			behavior: 'allow';
+			updatedInput: Record< string, unknown >;
+			updatedPermissions?: PermissionUpdate[];
+	  }
+	| {
+			behavior: 'deny';
+			message: string;
+	  };
+
+/**
+ * Optional metadata the security flow accepts alongside the raw tool input.
+ * Today only `blockedPath` and `suggestions` are read; both come from the
+ * pi runtime's `beforeToolCall` adapter when we detect a path-gated tool
+ * targeting a path outside trusted roots.
+ */
+export interface ToolCallMetadata {
+	blockedPath?: string;
+	suggestions?: PermissionUpdate[];
 }
 
 export type AskUserHandler = (
@@ -30,6 +68,11 @@ export interface PathGatedPermissionRequest {
 // Tools that can run without permissions (read access). The same set
 // applies to both local and remote sites — remote operations still hit
 // the `mcp__studio__*` servers, Read/Grep/etc. are host-filesystem-safe.
+//
+// Note: `WebFetch`, `WebSearch`, `TodoRead`, and `NotebookRead` were ambient
+// tools provided by the Claude Agent SDK's `claude_code` preset. The unified
+// pi runtime no longer ships them — they're left in this list as a "would be
+// allowed if registered" marker. They have no effect today.
 export const ALLOWED_TOOLS = [
 	'mcp__studio__*',
 	'Read',
@@ -250,8 +293,8 @@ export async function promptForApproval( {
 	pathApprovalSession = defaultApprovalSession,
 }: {
 	toolName: string;
-	input: Parameters< CanUseTool >[ 1 ];
-	metadata?: Parameters< CanUseTool >[ 2 ];
+	input: Record< string, unknown >;
+	metadata?: ToolCallMetadata;
 	onAskUser?: AskUserHandler;
 	pathApprovalSession?: PathApprovalSession;
 } ): Promise< PermissionResult > {

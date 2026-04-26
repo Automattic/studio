@@ -1,6 +1,6 @@
-import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod/v4';
 import { runCommand as runStopSiteCommand, Mode as StopMode } from 'cli/commands/site/stop';
+import { tool } from './define-tool';
 import { errorResult, resolveSite, textResult } from './utils';
 
 export const stopSiteTool = tool(

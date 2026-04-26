@@ -1,10 +1,10 @@
-import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod/v4';
 import {
 	Mode as PreviewDeleteMode,
 	runCommand as runDeletePreviewCommand,
 } from 'cli/commands/preview/delete';
 import { normalizeHostname } from 'cli/lib/utils';
+import { tool } from './define-tool';
 import { runPreviewCommand } from './preview-helpers';
 
 export const deletePreviewTool = tool(

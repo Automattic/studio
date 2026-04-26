@@ -15,8 +15,8 @@ import {
 	resolveInitialAiProvider,
 	resolveUnavailableAiProvider,
 } from 'cli/ai/auth';
-import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { AiProviderId } from 'cli/ai/providers';
+import type { SDKMessage } from 'cli/ai/sdk-message-types';
 
 interface EvalRunnerInput {
 	prompt: string;

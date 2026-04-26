@@ -5,11 +5,11 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { deleteSidecar, getSidecarPath, loadSidecar, saveSidecar } from '../persistence';
 import type { AgentMessage } from '@mariozechner/pi-agent-core';
 
-describe( 'OpenAI runtime sidecar persistence', () => {
+describe( 'pi runtime sidecar persistence', () => {
 	let tempDir: string;
 
 	beforeEach( async () => {
-		tempDir = await fs.mkdtemp( path.join( os.tmpdir(), 'studio-openai-sidecar-' ) );
+		tempDir = await fs.mkdtemp( path.join( os.tmpdir(), 'studio-pi-sidecar-' ) );
 	} );
 
 	afterEach( async () => {
@@ -41,13 +41,13 @@ describe( 'OpenAI runtime sidecar persistence', () => {
 
 	it( 'derives the sidecar path by replacing the .jsonl extension', () => {
 		expect( getSidecarPath( '/tmp/foo/2026-04-24-abc.jsonl' ) ).toBe(
-			'/tmp/foo/2026-04-24-abc.openai-state.json'
+			'/tmp/foo/2026-04-24-abc.pi-state.json'
 		);
 	} );
 
 	it( 'falls back to suffixing when the input has no .jsonl extension', () => {
 		expect( getSidecarPath( '/tmp/foo/no-extension' ) ).toBe(
-			'/tmp/foo/no-extension.openai-state.json'
+			'/tmp/foo/no-extension.pi-state.json'
 		);
 	} );
 
@@ -86,7 +86,7 @@ describe( 'OpenAI runtime sidecar persistence', () => {
 		const loaded = await loadSidecar( jsonlPath );
 		expect( loaded ).toEqual( [ { role: 'user', content: 'second', timestamp: 2 } ] );
 		const entries = await fs.readdir( tempDir );
-		expect( entries ).not.toContain( 'session.openai-state.json.tmp' );
+		expect( entries ).not.toContain( 'session.pi-state.json.tmp' );
 	} );
 
 	it( 'silently no-ops when deleting a non-existent sidecar', async () => {
@@ -100,5 +100,51 @@ describe( 'OpenAI runtime sidecar persistence', () => {
 		await saveSidecar( jsonlPath, makeMessages() );
 		await deleteSidecar( jsonlPath );
 		expect( await loadSidecar( jsonlPath ) ).toBeNull();
+	} );
+
+	// Migration coverage: pre-rename sessions wrote their sidecar under the
+	// .openai-state.json suffix. The unified loader reads that path as a
+	// one-time fallback so resumed sessions don't lose pi memory across the
+	// migration. The writer always uses the new suffix.
+	it( 'reads from the legacy .openai-state.json suffix when the new one is absent', async () => {
+		const jsonlPath = path.join( tempDir, 'session.jsonl' );
+		const legacyPath = jsonlPath.replace( /\.jsonl$/, '.openai-state.json' );
+		const messages = makeMessages();
+		await fs.writeFile( legacyPath, JSON.stringify( messages ), 'utf8' );
+
+		const loaded = await loadSidecar( jsonlPath );
+		expect( loaded ).toEqual( messages );
+	} );
+
+	it( 'prefers the new .pi-state.json suffix when both exist', async () => {
+		const jsonlPath = path.join( tempDir, 'session.jsonl' );
+		const newPath = getSidecarPath( jsonlPath );
+		const legacyPath = jsonlPath.replace( /\.jsonl$/, '.openai-state.json' );
+
+		await fs.writeFile(
+			legacyPath,
+			JSON.stringify( [ { role: 'user', content: 'legacy', timestamp: 0 } ] ),
+			'utf8'
+		);
+		await fs.writeFile(
+			newPath,
+			JSON.stringify( [ { role: 'user', content: 'new', timestamp: 0 } ] ),
+			'utf8'
+		);
+
+		const loaded = await loadSidecar( jsonlPath );
+		expect( loaded ).toEqual( [ { role: 'user', content: 'new', timestamp: 0 } ] );
+	} );
+
+	it( 'sweeps both new and legacy sidecars on delete', async () => {
+		const jsonlPath = path.join( tempDir, 'session.jsonl' );
+		const legacyPath = jsonlPath.replace( /\.jsonl$/, '.openai-state.json' );
+		await saveSidecar( jsonlPath, makeMessages() );
+		await fs.writeFile( legacyPath, JSON.stringify( makeMessages() ), 'utf8' );
+
+		await deleteSidecar( jsonlPath );
+		const entries = await fs.readdir( tempDir );
+		expect( entries ).not.toContain( 'session.pi-state.json' );
+		expect( entries ).not.toContain( 'session.openai-state.json' );
 	} );
 } );

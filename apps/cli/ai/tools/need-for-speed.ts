@@ -1,8 +1,8 @@
-import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod/v4';
 import { auditPerformance } from 'cli/ai/performance-audit';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { emitProgress } from 'cli/logger';
+import { tool } from './define-tool';
 import { errorResult, resolveSite, textResult } from './utils';
 
 export const auditPerformanceTool = tool(

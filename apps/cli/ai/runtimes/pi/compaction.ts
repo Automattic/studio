@@ -1,9 +1,9 @@
 import { estimateTokens, generateSummary, shouldCompact } from '@mariozechner/pi-coding-agent';
 import type { AgentMessage } from '@mariozechner/pi-agent-core';
-import type { Model } from '@mariozechner/pi-ai';
+import type { Api, Model } from '@mariozechner/pi-ai';
 
 /**
- * Conversation compaction for the OpenAI runtime.
+ * Conversation compaction for the unified pi runtime.
  *
  * pi-agent-core ships zero context-window management. Long sessions just keep
  * growing until the model errors with "context too long" — silent failure
@@ -43,11 +43,12 @@ export const DEFAULT_COMPACTION_SETTINGS: CompactionSettings = {
 
 export interface BuildTransformContextOptions {
 	/**
-	 * The OpenAI model used for both the live agent turns and the compaction
-	 * summarizer call. We route everything through pi-ai's Chat Completions
-	 * provider — see `runtimes/openai/index.ts` `buildModel` for the rationale.
+	 * The active model used for both live agent turns and the compaction
+	 * summarizer call. Whatever pi `Model<Api>` the runtime built for the
+	 * current dispatch (`anthropic-messages` for Claude, `openai-completions`
+	 * for GPT) — `generateSummary` accepts either via pi-coding-agent.
 	 */
-	model: Model< 'openai-completions' >;
+	model: Model< Api >;
 	apiKey: string;
 	headers?: Record< string, string >;
 	/**

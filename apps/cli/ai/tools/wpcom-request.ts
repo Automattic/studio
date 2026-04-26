@@ -1,7 +1,7 @@
-import { tool } from '@anthropic-ai/claude-agent-sdk';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { z } from 'zod/v4';
+import { tool } from './define-tool';
 import { errorResult, textResult } from './utils';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -14,23 +14,17 @@ import {
 	promptForApproval,
 	resolveToolPath,
 	type AskUserQuestion,
+	type PermissionUpdate,
+	type ToolCallMetadata,
 } from 'cli/ai/security';
-import type { CanUseTool, PermissionUpdate } from '@anthropic-ai/claude-agent-sdk';
 
 vi.mock( 'cli/lib/cli-config/permissions', () => ( {
 	addApprovedPermission: vi.fn( async () => {} ),
 	readApprovedPermissions: vi.fn( async () => [] ),
 } ) );
 
-function createCanUseToolMetadata(
-	overrides: Partial< Parameters< CanUseTool >[ 2 ] > = {}
-): Parameters< CanUseTool >[ 2 ] {
-	const abortController = new AbortController();
-	return {
-		signal: abortController.signal,
-		toolUseID: 'test-tool-use-id',
-		...overrides,
-	};
+function createCanUseToolMetadata( overrides: Partial< ToolCallMetadata > = {} ): ToolCallMetadata {
+	return { ...overrides };
 }
 
 describe( 'AI security helpers', () => {

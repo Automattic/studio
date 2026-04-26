@@ -1,27 +1,20 @@
-import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod/v4';
-import type { SdkMcpToolDefinition } from '@anthropic-ai/claude-agent-sdk';
+import { tool } from './define-tool';
+import type { SdkMcpToolDefinition } from 'cli/ai/sdk-message-types';
 import type { AskUserQuestion } from 'cli/ai/security';
 
 /**
  * Builds an `AskUserQuestion` tool definition.
  *
- * Why this exists separately from Claude's version: on the Anthropic runtime,
- * `AskUserQuestion` is bundled into the `claude_code` SDK preset and isn't
- * exposed as a standalone tool we can import or share. The Anthropic runtime
- * intercepts the preset tool's invocation via `canUseTool` (see
- * `runtimes/anthropic.ts`) and routes to `onAskUser` from there. The OpenAI
- * runtime has no preset to lean on, so we reimplement the same shape here:
- * same tool name (`AskUserQuestion`), same questions/options input schema,
- * same `onAskUser` → `AiChatUI.askUser` → option picker UX. The two
- * implementations are interchangeable from the user's perspective.
+ * The Claude Agent SDK used to ship `AskUserQuestion` as a preset tool that
+ * the runtime intercepted via `canUseTool` to route to `onAskUser`. With the
+ * unified pi runtime there is no preset, so we register this tool directly
+ * whenever an `onAskUser` callback is provided (i.e. a UI is connected). The
+ * tool name, input schema, and option-picker UX are unchanged.
  *
  * Why the factory shape: the tool needs the runtime-supplied `onAskUser`
  * callback (which closes over the active `AiChatUI` instance) — same pattern
  * as `wpcom-request.ts`, which closes over a token + siteId.
- *
- * Currently consumed only by the OpenAI runtime; the Anthropic runtime relies
- * on the SDK preset's built-in tool of the same name.
  */
 export function createAskUserQuestionTool(
 	onAskUser: ( questions: AskUserQuestion[] ) => Promise< Record< string, string > >

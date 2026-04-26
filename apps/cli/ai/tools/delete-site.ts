@@ -1,6 +1,6 @@
-import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod/v4';
 import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
+import { tool } from './define-tool';
 import { errorResult, resolveSite, textResult } from './utils';
 
 export const deleteSiteTool = tool(

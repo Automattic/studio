@@ -105,9 +105,11 @@ describe( 'Studio AI MCP tools', () => {
 		return tool as ( typeof studioToolDefinitions )[ number ];
 	};
 
-	const getTextContent = ( result: { content?: Array< { type: string; text?: string } > } ) => {
-		const firstContent = result.content?.[ 0 ];
-		return firstContent && 'text' in firstContent ? firstContent.text : undefined;
+	const getTextContent = ( result: {
+		content?: Array< { type?: string; text?: string } | Record< string, unknown > >;
+	} ): string | undefined => {
+		const firstContent = result.content?.[ 0 ] as { text?: unknown } | undefined;
+		return typeof firstContent?.text === 'string' ? firstContent.text : undefined;
 	};
 
 	beforeEach( () => {

@@ -1,7 +1,7 @@
-import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod/v4';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
 import { emitProgress } from 'cli/logger';
+import { tool } from './define-tool';
 import { errorResult } from './utils';
 
 const VIEWPORTS = {

@@ -1,7 +1,7 @@
-import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod/v4';
 import { runCommand as runPullCommand } from 'cli/commands/pull';
 import { parseSyncOptions } from 'cli/lib/sync-api';
+import { tool } from './define-tool';
 import { captureCommandOutput, errorResult, resolveSite, textResult } from './utils';
 
 export const pullSiteTool = tool(

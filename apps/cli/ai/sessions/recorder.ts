@@ -3,10 +3,10 @@ import fs from 'fs/promises';
 import path from 'path';
 import { buildAiSessionFileName } from '@studio/common/ai/sessions/file-naming';
 import { getAiSessionsDirectoryForDate } from './paths';
-import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { AiSessionEvent, TurnStatus } from '@studio/common/ai/sessions/types';
 import type { AiModelId } from 'cli/ai/agent';
 import type { AiProviderId } from 'cli/ai/providers';
+import type { SDKMessage } from 'cli/ai/sdk-message-types';
 import type { SiteInfo } from 'cli/ai/ui';
 
 function toIsoTimestamp( value?: Date ): string {

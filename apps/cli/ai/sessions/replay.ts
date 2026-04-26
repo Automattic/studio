@@ -3,8 +3,8 @@ import {
 	isVisibleUserMessage,
 } from '@studio/common/ai/sessions/filter-events';
 import { AiChatUI } from 'cli/ai/ui';
-import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { AiSessionEvent } from '@studio/common/ai/sessions/types';
+import type { SDKMessage } from 'cli/ai/sdk-message-types';
 
 export function replaySessionHistory( ui: AiChatUI, events: AiSessionEvent[] ): void {
 	ui.prepareForReplay();

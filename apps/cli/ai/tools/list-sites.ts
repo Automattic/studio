@@ -1,5 +1,5 @@
-import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { runCommand as runListSitesCommand } from 'cli/commands/site/list';
+import { tool } from './define-tool';
 import { captureConsoleOutput, errorResult, textResult } from './utils';
 
 export const listSitesTool = tool(

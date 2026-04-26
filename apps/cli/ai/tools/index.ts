@@ -1,4 +1,3 @@
-import { createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
 import { createPreviewTool } from './create-preview';
 import { createSiteTool } from './create-site';
 import { deletePreviewTool } from './delete-preview';
@@ -21,7 +20,6 @@ import { takeScreenshotTool } from './take-screenshot';
 import { updatePreviewTool } from './update-preview';
 import { validateBlocksTool } from './validate-blocks';
 import { runWpCliTool } from './wp-cli';
-import { createWpcomRequestTool } from './wpcom-request';
 
 export { captureCommandOutput } from './utils';
 
@@ -54,7 +52,7 @@ export const studioToolDefinitions = [
 	...previewSteeringToolDefinitions,
 ];
 
-export interface CreateStudioToolsOptions {
+export interface ResolveStudioToolsOptions {
 	// Enable preview_navigate / preview_reload. Only meaningful when a
 	// Studio desktop UI is subscribed to the agent event stream — i.e. the
 	// CLI child was forked by the Studio main process (`process.send` is
@@ -63,7 +61,7 @@ export interface CreateStudioToolsOptions {
 	enablePreviewSteering?: boolean;
 }
 
-export function resolveStudioToolDefinitions( options: CreateStudioToolsOptions = {} ) {
+export function resolveStudioToolDefinitions( options: ResolveStudioToolsOptions = {} ) {
 	if ( options.enablePreviewSteering ) {
 		return studioToolDefinitions;
 	}
@@ -71,25 +69,4 @@ export function resolveStudioToolDefinitions( options: CreateStudioToolsOptions 
 	return studioToolDefinitions.filter(
 		( candidate ) => ! previewSteeringNames.has( candidate.name )
 	);
-}
-
-export function createStudioTools( options: CreateStudioToolsOptions = {} ) {
-	return createSdkMcpServer( {
-		name: 'studio',
-		version: '1.0.0',
-		tools: resolveStudioToolDefinitions( options ),
-	} );
-}
-
-/**
- * Creates an MCP server for remote WordPress.com sites, combining WP.com REST API tools
- * with URL-based tools (screenshot) that work with any site.
- */
-export function createRemoteSiteTools( token: string, siteId: number ) {
-	const wpcomRequest = createWpcomRequestTool( token, siteId );
-	return createSdkMcpServer( {
-		name: 'studio',
-		version: '1.0.0',
-		tools: [ wpcomRequest, takeScreenshotTool, createSiteTool, pullSiteTool ],
-	} );
 }

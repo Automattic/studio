@@ -1,5 +1,5 @@
-import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { emitEvent } from 'cli/ai/json-events';
+import { tool } from './define-tool';
 import { textResult } from './utils';
 
 export const previewReloadTool = tool(

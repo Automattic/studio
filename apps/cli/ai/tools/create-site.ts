@@ -1,10 +1,10 @@
 import path from 'path';
-import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { z } from 'zod/v4';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
+import { tool } from './define-tool';
 import { errorResult, resolveSite, textResult } from './utils';
 
 export const createSiteTool = tool(

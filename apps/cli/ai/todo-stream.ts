@@ -1,6 +1,14 @@
-import type { TodoWriteInput } from '@anthropic-ai/claude-agent-sdk/sdk-tools';
-
-export type TodoEntry = TodoWriteInput[ 'todos' ][ number ];
+/**
+ * Local mirror of `TodoWriteInput['todos'][number]` — used by the desktop UI
+ * + transcript renderer to reason about TodoWrite tool input without pulling
+ * in `@anthropic-ai/claude-agent-sdk` as a dependency. Kept structurally in
+ * sync with the SDK shape so existing callers don't need to change.
+ */
+export interface TodoEntry {
+	content: string;
+	status: 'pending' | 'in_progress' | 'completed';
+	activeForm: string;
+}
 
 export interface TodoChange {
 	content: string;

@@ -1,6 +1,6 @@
-import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod/v4';
 import { runCommand as runListPreviewCommand } from 'cli/commands/preview/list';
+import { tool } from './define-tool';
 import { runPreviewCommand } from './preview-helpers';
 import { resolveSite } from './utils';
 

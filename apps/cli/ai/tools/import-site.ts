@@ -1,6 +1,6 @@
-import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod/v4';
 import { runCommand as runImportCommand } from 'cli/commands/import';
+import { tool } from './define-tool';
 import { captureCommandOutput, errorResult, resolveSite, textResult } from './utils';
 
 export const importSiteTool = tool(

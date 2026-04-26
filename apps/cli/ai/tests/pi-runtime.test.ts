@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import { openaiRuntime } from 'cli/ai/runtimes/openai';
+import { piRuntime } from 'cli/ai/runtimes/pi';
 import type { AiModelId } from '@studio/common/ai/models';
 
 // Module-level capture so the model-swap test can inspect every Agent the
 // runtime instantiated across a sequence of `run()` calls.
-const constructedAgents: Array< { state: { model: { id: string }; messages: unknown[] } } > = [];
+const constructedAgents: Array< {
+	state: { model: { id: string; api: string; provider: string }; messages: unknown[] };
+} > = [];
 
 // Tests can override the events the mock Agent emits per prompt(), to
 // simulate weird model behavior (e.g. thinking-only turns) without
@@ -14,7 +16,7 @@ const DEFAULT_MOCK_EVENTS: unknown[] = [
 		type: 'message_end',
 		message: {
 			role: 'assistant',
-			content: [ { type: 'text', text: 'mocked openai response' } ],
+			content: [ { type: 'text', text: 'mocked response' } ],
 		},
 	},
 	{ type: 'turn_end', toolResults: [] },
@@ -25,12 +27,21 @@ let nextMockEvents: unknown[] | null = null;
 vi.mock( '@mariozechner/pi-agent-core', () => {
 	class MockAgent {
 		private listener?: ( event: unknown ) => void;
-		public state: { model: { id: string }; messages: unknown[] };
+		public state: { model: { id: string; api: string; provider: string }; messages: unknown[] };
 		constructor(
-			public options: { initialState?: { model?: { id?: string }; messages?: unknown[] } }
+			public options: {
+				initialState?: {
+					model?: { id?: string; api?: string; provider?: string };
+					messages?: unknown[];
+				};
+			}
 		) {
 			this.state = {
-				model: { id: options.initialState?.model?.id ?? '' },
+				model: {
+					id: options.initialState?.model?.id ?? '',
+					api: options.initialState?.model?.api ?? '',
+					provider: options.initialState?.model?.provider ?? '',
+				},
 				messages: options.initialState?.messages?.slice() ?? [],
 			};
 			constructedAgents.push( this );
@@ -67,12 +78,15 @@ vi.mock( '@mariozechner/pi-coding-agent', () => {
 		createGrepTool: () => stub( 'Grep' ),
 		createFindTool: () => stub( 'Glob' ),
 		createLsTool: () => stub( 'Ls' ),
+		shouldCompact: () => false,
+		generateSummary: async () => '',
+		estimateTokens: () => 0,
 	};
 } );
 
-describe( 'OpenAI runtime POC', () => {
-	it( 'yields an error when OPENAI_API_KEY is absent', async () => {
-		const handle = openaiRuntime.run( {
+describe( 'unified pi runtime', () => {
+	it( 'yields an error when OPENAI_API_KEY is absent for an OpenAI model', async () => {
+		const handle = piRuntime.run( {
 			prompt: 'hello',
 			env: {},
 			model: 'gpt-5.5',
@@ -91,8 +105,28 @@ describe( 'OpenAI runtime POC', () => {
 		] );
 	} );
 
-	it( 'yields a full exchange when the mocked OpenAI SDK returns output', async () => {
-		const handle = openaiRuntime.run( {
+	it( 'yields an error when no Anthropic auth is set for a Claude model', async () => {
+		const handle = piRuntime.run( {
+			prompt: 'hello',
+			env: {},
+			model: 'claude-sonnet-4-6',
+			maxTurns: 1,
+		} );
+
+		const messages: Array< { type: string; subtype?: string } > = [];
+		for await ( const m of handle ) {
+			messages.push( { type: m.type, subtype: 'subtype' in m ? m.subtype : undefined } );
+		}
+
+		expect( messages ).toEqual( [
+			{ type: 'system', subtype: 'init' },
+			{ type: 'assistant', subtype: undefined },
+			{ type: 'result', subtype: 'error_during_execution' },
+		] );
+	} );
+
+	it( 'yields a full exchange when the mocked Agent returns output (OpenAI dispatch)', async () => {
+		const handle = piRuntime.run( {
 			prompt: 'hello',
 			env: {
 				OPENAI_API_KEY: 'sk-test',
@@ -127,17 +161,41 @@ describe( 'OpenAI runtime POC', () => {
 
 		expect( messages ).toEqual( [
 			{ type: 'system', subtype: 'init' },
-			{ type: 'assistant', text: 'mocked openai response' },
+			{ type: 'assistant', text: 'mocked response' },
 			{ type: 'result', subtype: 'success' },
 		] );
 	} );
 
-	// Regression: with reasoning enabled, GPT-5+ models occasionally produce
-	// a turn whose only content is `thinking` blocks — no text, no tool
-	// calls. Without a fallback the UI would render an empty turn that shows
-	// up as just "Done" with no body. We surface the thinking summary as the
-	// assistant text so the user sees something.
-	it( 'falls back to thinking content when there is no text and no tool calls', async () => {
+	it( 'builds an anthropic-messages Model when dispatching a Claude model', async () => {
+		constructedAgents.length = 0;
+		const handle = piRuntime.run( {
+			prompt: 'hello',
+			env: {
+				ANTHROPIC_AUTH_TOKEN: 'sk-test',
+				ANTHROPIC_BASE_URL: 'https://proxy.example.com',
+				ANTHROPIC_CUSTOM_HEADERS: 'X-WPCOM-AI-Feature: studio-assistant-anthropic',
+			},
+			model: 'claude-opus-4-7',
+			maxTurns: 1,
+		} );
+
+		for await ( const _ of handle ) {
+			// Drain.
+		}
+
+		expect( constructedAgents ).toHaveLength( 1 );
+		expect( constructedAgents[ 0 ].state.model.api ).toBe( 'anthropic-messages' );
+		expect( constructedAgents[ 0 ].state.model.provider ).toBe( 'anthropic' );
+		expect( constructedAgents[ 0 ].state.model.id ).toBe( 'claude-opus-4-7' );
+	} );
+
+	// Regression: with reasoning enabled, models occasionally produce a turn
+	// whose only content is `thinking` blocks — no text, no tool calls. The
+	// unified runtime promotes thinking blocks into proper `thinking` content
+	// blocks on the synthetic SDKMessage so the desktop UI's "Claude is
+	// thinking" affordance keeps working. Empty turns are silently skipped —
+	// the result message still closes the turn.
+	it( 'surfaces thinking blocks as their own assistant SDKMessages', async () => {
 		nextMockEvents = [
 			{
 				type: 'message_end',
@@ -150,7 +208,7 @@ describe( 'OpenAI runtime POC', () => {
 			{ type: 'agent_end', messages: [] },
 		];
 
-		const handle = openaiRuntime.run( {
+		const handle = piRuntime.run( {
 			prompt: 'hello',
 			env: {
 				OPENAI_API_KEY: 'sk-test',
@@ -161,20 +219,26 @@ describe( 'OpenAI runtime POC', () => {
 			resume: 'thinking-only-' + Math.random(),
 		} );
 
-		const assistantTexts: string[] = [];
+		const thinkingTexts: string[] = [];
 		for await ( const m of handle ) {
 			if ( m.type === 'assistant' ) {
 				const content = m.message.content;
-				const firstText = Array.isArray( content )
-					? content.find( ( c ) => 'text' in c )
-					: undefined;
-				if ( firstText && 'text' in firstText && typeof firstText.text === 'string' ) {
-					assistantTexts.push( firstText.text );
+				if ( Array.isArray( content ) ) {
+					for ( const block of content ) {
+						if (
+							block &&
+							typeof block === 'object' &&
+							'type' in block &&
+							block.type === 'thinking'
+						) {
+							thinkingTexts.push( ( block as { thinking?: string } ).thinking ?? '' );
+						}
+					}
 				}
 			}
 		}
 
-		expect( assistantTexts ).toEqual( [ 'reasoned through it' ] );
+		expect( thinkingTexts ).toEqual( [ 'reasoned through it' ] );
 	} );
 
 	// Regression: in CLI interactive mode the runtime kept a single Agent per
@@ -197,7 +261,7 @@ describe( 'OpenAI runtime POC', () => {
 		const otherOpenAiModel = 'gpt-test-other' as AiModelId;
 
 		// First turn on gpt-5.5.
-		const first = openaiRuntime.run( {
+		const first = piRuntime.run( {
 			prompt: 'hi',
 			env,
 			model: 'gpt-5.5',
@@ -213,7 +277,7 @@ describe( 'OpenAI runtime POC', () => {
 
 		// Second turn on the same session id but a different model — this
 		// is the `/model` swap. The cache must NOT win here.
-		const second = openaiRuntime.run( {
+		const second = piRuntime.run( {
 			prompt: 'follow-up',
 			env,
 			model: otherOpenAiModel,
@@ -228,7 +292,7 @@ describe( 'OpenAI runtime POC', () => {
 		expect( constructedAgents[ 1 ].state.model.id ).toBe( otherOpenAiModel );
 
 		// Third turn on the same model — should hit the cache, not rebuild.
-		const third = openaiRuntime.run( {
+		const third = piRuntime.run( {
 			prompt: 'still on the second model',
 			env,
 			model: otherOpenAiModel,

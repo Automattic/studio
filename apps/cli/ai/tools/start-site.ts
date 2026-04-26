@@ -1,7 +1,7 @@
-import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod/v4';
 import { runCommand as runStartSiteCommand } from 'cli/commands/site/start';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
+import { tool } from './define-tool';
 import { errorResult, resolveSite, textResult } from './utils';
 
 export const startSiteTool = tool(

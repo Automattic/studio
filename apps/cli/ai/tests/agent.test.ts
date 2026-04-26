@@ -1,34 +1,45 @@
 import fs from 'fs';
-import { query } from '@anthropic-ai/claude-agent-sdk';
 import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { startAiAgent } from 'cli/ai/agent';
 import { STUDIO_ROOT } from 'cli/ai/security';
 
-vi.mock( '@anthropic-ai/claude-agent-sdk', () => ( {
-	query: vi.fn(),
-	tool: vi.fn().mockImplementation( ( name, description, inputSchema, handler ) => ( {
-		name,
-		description,
-		inputSchema,
-		handler,
-	} ) ),
-	createSdkMcpServer: vi.fn().mockReturnValue( { instance: {} } ),
-} ) );
+// Module-level capture so the cross-family dispatch test can inspect every
+// Agent the runtime instantiated, including the api/provider it was built
+// against.
+const constructedAgents: Array< {
+	state: { model: { id: string; api: string; provider: string } };
+} > = [];
 
 vi.mock( 'cli/ai/system-prompt', () => ( {
 	buildSystemPrompt: vi.fn().mockReturnValue( 'test system prompt' ),
 } ) );
 
 vi.mock( 'cli/ai/tools', () => ( {
-	createRemoteSiteTools: vi.fn().mockReturnValue( { type: 'remote-tools' } ),
-	createStudioTools: vi.fn().mockReturnValue( { type: 'local-tools' } ),
 	studioToolDefinitions: [],
 } ) );
 
 vi.mock( '@mariozechner/pi-agent-core', () => {
 	class MockAgent {
 		private listener?: ( event: unknown ) => void;
-		constructor( public options: unknown ) {}
+		public state: { model: { id: string; api: string; provider: string }; messages: unknown[] };
+		constructor(
+			public options: {
+				initialState?: {
+					model?: { id?: string; api?: string; provider?: string };
+					messages?: unknown[];
+				};
+			}
+		) {
+			this.state = {
+				model: {
+					id: options.initialState?.model?.id ?? '',
+					api: options.initialState?.model?.api ?? '',
+					provider: options.initialState?.model?.provider ?? '',
+				},
+				messages: options.initialState?.messages?.slice() ?? [],
+			};
+			constructedAgents.push( this );
+		}
 		subscribe( listener: ( event: unknown ) => void ): () => void {
 			this.listener = listener;
 			return () => {};
@@ -62,99 +73,100 @@ vi.mock( '@mariozechner/pi-coding-agent', () => {
 		createGrepTool: () => stub( 'Grep' ),
 		createFindTool: () => stub( 'Glob' ),
 		createLsTool: () => stub( 'Ls' ),
+		// Compaction helpers are imported by `runtimes/pi/compaction.ts`. Stub
+		// them to no-ops so we don't pull in the real implementations under test.
+		shouldCompact: () => false,
+		generateSummary: async () => '',
+		estimateTokens: () => 0,
 	};
 } );
 
 describe( 'AI agent startup', () => {
-	const mockQuery = {
-		interrupt: vi.fn(),
-		[ Symbol.asyncIterator ]() {
-			return {
-				next: async () => ( {
-					done: true as const,
-					value: undefined,
-				} ),
-			};
-		},
-	};
 	let existsSyncSpy: MockInstance;
 	let mkdirSyncSpy: MockInstance;
 
 	beforeEach( () => {
-		vi.resetAllMocks();
+		constructedAgents.length = 0;
+		vi.clearAllMocks();
 		existsSyncSpy = vi.spyOn( fs, 'existsSync' ).mockReturnValue( true );
 		mkdirSyncSpy = vi.spyOn( fs, 'mkdirSync' ).mockReturnValue( undefined );
-		vi.mocked( query ).mockReturnValue( mockQuery as never );
 	} );
 
-	it( 'creates the Studio root before starting the agent when it is missing', () => {
+	it( 'creates the Studio root before starting the agent when it is missing', async () => {
 		existsSyncSpy.mockReturnValue( false );
 
-		const result = startAiAgent( {
+		const handle = startAiAgent( {
 			prompt: 'Generate a website',
+			env: {
+				ANTHROPIC_AUTH_TOKEN: 'sk-test',
+				ANTHROPIC_BASE_URL: 'https://proxy.example.com',
+			},
 		} );
 
 		expect( existsSyncSpy ).toHaveBeenCalledWith( STUDIO_ROOT );
 		expect( mkdirSyncSpy ).toHaveBeenCalledWith( STUDIO_ROOT, { recursive: true } );
-		expect( query ).toHaveBeenCalledWith(
-			expect.objectContaining( {
-				prompt: 'Generate a website',
-				options: expect.objectContaining( {
-					cwd: STUDIO_ROOT,
-				} ),
-			} )
-		);
-		expect( result ).toBe( mockQuery );
+
+		// Drain the stream so the runtime's internal generator settles, ensuring
+		// we test the full dispatch path rather than the eager part.
+		for await ( const _ of handle ) {
+			// Noop.
+		}
 	} );
 
-	it( 'does not recreate the Studio root when it already exists', () => {
-		const result = startAiAgent( {
+	it( 'does not recreate the Studio root when it already exists', async () => {
+		const handle = startAiAgent( {
 			prompt: 'Generate a website',
+			env: {
+				ANTHROPIC_AUTH_TOKEN: 'sk-test',
+				ANTHROPIC_BASE_URL: 'https://proxy.example.com',
+			},
 		} );
 
 		expect( existsSyncSpy ).toHaveBeenCalledWith( STUDIO_ROOT );
 		expect( mkdirSyncSpy ).not.toHaveBeenCalled();
-		expect( query ).toHaveBeenCalledWith(
-			expect.objectContaining( {
-				prompt: 'Generate a website',
-				options: expect.objectContaining( {
-					cwd: STUDIO_ROOT,
-				} ),
-			} )
-		);
-		expect( result ).toBe( mockQuery );
+
+		for await ( const _ of handle ) {
+			// Drain.
+		}
 	} );
 
-	it( 'routes GPT models to the OpenAI runtime regardless of env credentials', async () => {
+	it( 'routes GPT models to an openai-completions Model build', async () => {
 		const handle = startAiAgent( {
 			prompt: 'hi',
 			model: 'gpt-5.5',
 			env: {
-				ANTHROPIC_API_KEY: 'sk-ant',
 				OPENAI_API_KEY: 'sk-oai',
 				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
 			},
 		} );
 
-		// The OpenAI runtime is self-contained and does not touch the mocked
-		// Claude Agent SDK's query() function.
-		expect( query ).not.toHaveBeenCalled();
-
-		// Drain the stream so the runtime's internal generator settles.
 		const messages: string[] = [];
 		for await ( const m of handle ) {
 			messages.push( m.type );
 		}
 		expect( messages ).toEqual( expect.arrayContaining( [ 'system', 'result' ] ) );
+		expect( constructedAgents ).toHaveLength( 1 );
+		expect( constructedAgents[ 0 ].state.model.api ).toBe( 'openai-completions' );
+		expect( constructedAgents[ 0 ].state.model.provider ).toBe( 'openai' );
 	} );
 
-	it( 'routes Claude models to the Anthropic runtime even when OPENAI_API_KEY is set', () => {
-		startAiAgent( {
+	it( 'routes Claude models to an anthropic-messages Model build', async () => {
+		const handle = startAiAgent( {
 			prompt: 'hi',
 			model: 'claude-sonnet-4-6',
-			env: { OPENAI_API_KEY: 'sk-oai' },
+			env: {
+				ANTHROPIC_AUTH_TOKEN: 'sk-test',
+				ANTHROPIC_BASE_URL: 'https://proxy.example.com',
+			},
 		} );
 
-		expect( query ).toHaveBeenCalled();
+		const messages: string[] = [];
+		for await ( const m of handle ) {
+			messages.push( m.type );
+		}
+		expect( messages ).toEqual( expect.arrayContaining( [ 'system', 'result' ] ) );
+		expect( constructedAgents ).toHaveLength( 1 );
+		expect( constructedAgents[ 0 ].state.model.api ).toBe( 'anthropic-messages' );
+		expect( constructedAgents[ 0 ].state.model.provider ).toBe( 'anthropic' );
 	} );
 } );

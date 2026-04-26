@@ -11,8 +11,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getAiSessionsDirectoryForDate, getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
 import { AiSessionRecorder } from 'cli/ai/sessions/recorder';
 import { replaySessionHistory } from 'cli/ai/sessions/replay';
-import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { AiSessionEvent } from '@studio/common/ai/sessions/types';
+import type { SDKMessage } from 'cli/ai/sdk-message-types';
 
 describe( 'ai-sessions', () => {
 	let testRoot: string | undefined;

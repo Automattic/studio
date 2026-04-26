@@ -1,7 +1,7 @@
 import { cp } from 'fs/promises';
 import path from 'path';
-import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod/v4';
+import { tool } from './define-tool';
 import { errorResult, resolveSite, textResult } from './utils';
 
 const TAXONOMIST_SCRIPTS_DIR = 'tmp/taxonomist';

@@ -1,11 +1,12 @@
 /**
- * Minimal structural types + guards for the Claude Agent SDK messages that
- * both the CLI and the UI care about. The CLI narrows further against the
- * full SDK types it imports from `@anthropic-ai/claude-agent-sdk`; the UI
- * only needs these structural shapes.
+ * Minimal structural types + guards for the synthetic SDKMessage shapes the
+ * CLI's pi runtime emits. Both the CLI and the desktop UI consume these
+ * shapes; this module is the shared structural contract.
  *
- * Kept free of any SDK dependency so this module can live in `tools/common`
- * without forcing the SDK into every consumer.
+ * Pre-pi-migration the CLI narrowed further against the full
+ * `@anthropic-ai/claude-agent-sdk` types. After the unification, the runtime
+ * synthesizes the exact same JSON shape (see `apps/cli/ai/runtimes/pi`) but
+ * no SDK dependency is involved at compile or runtime.
  */
 
 export interface TextBlock {

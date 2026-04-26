@@ -260,7 +260,7 @@ Focus areas:
 
 Premium designs reach beyond basic divs-with-text and abstract CSS effects. Compose from this concrete vocabulary:
 
-**Imagery — lean heavily on photography.** Use real images, not just colored boxes — full-bleed hero backgrounds with dark radial washes, asymmetric floating images that overlap text, portrait-tile testimonials, image-as-pill embeds inside H1 prose. Source from \`https://picsum.photos/seed/{keyword}/{width}/{height}\` (match the keyword to the design's vibe) or the WordPress media library. Tune photos with CSS filters so they read as intentional, not stock: \`filter: grayscale(1) contrast(1.15) brightness(.9)\`, \`mix-blend-mode: luminosity\`, \`opacity: .9\`.
+**Imagery — lean heavily on photography.** Use real images, not just colored boxes — full-bleed hero backgrounds with dark radial washes, asymmetric floating images that overlap text, portrait-tile testimonials, image-as-pill embeds inside H1 prose. Pick whatever image source fits the build; the only hard rule is that every photo's subject must actually match what the section is about — a coffee shop hero needs a coffee photo, not a random landscape. Tune photos with CSS filters so they read as intentional, not stock: \`filter: grayscale(1) contrast(1.15) brightness(.9)\`, \`mix-blend-mode: luminosity\`, \`opacity: .9\`.
 
 **Hero patterns — pick one based on the chosen aesthetic** (do not reuse the same pattern across generations):
 1. *Cinematic Center*: H1 perfectly centered with massive width. Below: exactly two high-contrast CTAs. Behind everything: a full-bleed background image with a dark radial wash (\`background: radial-gradient(ellipse at center, transparent 0%, rgba(0,0,0,.7) 100%), url(…) center/cover;\`).

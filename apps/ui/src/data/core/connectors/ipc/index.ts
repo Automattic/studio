@@ -626,11 +626,8 @@ export function createIpcConnector(): Connector {
 			async setBounds( viewId, bounds ) {
 				await ipcApi.setPreviewViewBounds( viewId, bounds );
 			},
-			async loadURL( viewId, url ) {
-				await ipcApi.loadPreviewViewURL( viewId, url );
-			},
-			async sendCommand( viewId, command ) {
-				await ipcApi.sendPreviewViewCommand( viewId, command );
+			async navigate( viewId, path ) {
+				await ipcApi.navigatePreviewView( viewId, path );
 			},
 			async destroy( viewId ) {
 				await ipcApi.destroyPreviewView( viewId );

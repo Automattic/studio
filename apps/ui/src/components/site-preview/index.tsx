@@ -7,7 +7,6 @@ import { useConnector } from '@/data/core';
 import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
 import { getSiteUrl } from '@/lib/get-site-url';
 import { playIcon } from '@/lib/icons';
-import { INSPECTOR_PAGE_SCRIPT } from './inspector-page-script';
 import styles from './style.module.css';
 import type { Annotation } from './types';
 import type { SiteDetails } from '@/data/core';
@@ -26,9 +25,8 @@ interface SitePreviewProps {
 }
 
 interface InspectorEvent {
-	type: 'done' | 'state' | 'pick-cancelled';
+	type: 'done';
 	annotations?: Annotation[];
-	isPicking?: boolean;
 }
 
 export function SitePreview( { site, sessionId, onAnnotationsDone }: SitePreviewProps ) {
@@ -78,8 +76,10 @@ export function SitePreview( { site, sessionId, onAnnotationsDone }: SitePreview
 				{ canPreview ? (
 					connector.previewView ? (
 						<WebContentsViewSurface
-							key={ `${ fullUrl }#${ reloadNonce }` }
-							url={ fullUrl }
+							key={ site.id }
+							siteId={ site.id }
+							path={ currentPath }
+							reloadNonce={ reloadNonce }
 							previewView={ connector.previewView }
 							onAnnotationsDone={ onAnnotationsDone }
 						/>
@@ -115,7 +115,9 @@ export function SitePreview( { site, sessionId, onAnnotationsDone }: SitePreview
 }
 
 interface WebContentsViewSurfaceProps {
-	url: string;
+	siteId: string;
+	path: string;
+	reloadNonce: number;
 	previewView: NonNullable< ReturnType< typeof useConnector >[ 'previewView' ] >;
 	onAnnotationsDone?: ( annotations: Annotation[] ) => void;
 }
@@ -126,24 +128,30 @@ interface WebContentsViewSurfaceProps {
  *
  * The view is a native overlay — it always paints on top of HTML in the
  * same window — so the inspector's toolbar UI lives inside the view's
- * page (via `INSPECTOR_PAGE_SCRIPT`) rather than as a React overlay.
+ * page rather than as a React overlay.
  */
 function WebContentsViewSurface( {
-	url,
+	siteId,
+	path,
+	reloadNonce,
 	previewView,
 	onAnnotationsDone,
 }: WebContentsViewSurfaceProps ) {
 	const placeholderRef = useRef< HTMLDivElement | null >( null );
 	const viewIdRef = useRef< string | null >( null );
+	const latestNavigationRef = useRef( { path, reloadNonce } );
 	const [ ready, setReady ] = useState( false );
 	const onAnnotationsDoneRef = useRef( onAnnotationsDone );
 	useEffect( () => {
 		onAnnotationsDoneRef.current = onAnnotationsDone;
 	}, [ onAnnotationsDone ] );
+	useEffect( () => {
+		latestNavigationRef.current = { path, reloadNonce };
+	}, [ path, reloadNonce ] );
 
-	// Lifecycle: create on mount, sync bounds, destroy on unmount. The
-	// `key` on the parent ensures we tear down + re-create whenever the URL
-	// changes (matches the old `<webview>` remount semantics).
+	// Lifecycle: create on mount, sync bounds, destroy on unmount. Navigation
+	// happens through a separate typed command so the main process keeps
+	// ownership of URL resolution and validation.
 	useEffect( () => {
 		const node = placeholderRef.current;
 		if ( ! node ) return;
@@ -158,17 +166,19 @@ function WebContentsViewSurface( {
 		const containerRadius = parseFloat(
 			window.getComputedStyle( node.closest( 'aside' ) ?? node ).borderRadius || '0'
 		);
+		const initialNavigation = latestNavigationRef.current;
 
 		void previewView
 			.create( {
-				url,
+				siteId,
+				path: initialNavigation.path,
 				bounds: {
 					x: initialBounds.left,
 					y: initialBounds.top,
 					width: initialBounds.width,
 					height: initialBounds.height,
 				},
-				inspectorScript: INSPECTOR_PAGE_SCRIPT,
+				enableInspector: true,
 				borderRadius: Number.isFinite( containerRadius ) ? containerRadius : 0,
 			} )
 			.then( ( { viewId } ) => {
@@ -178,6 +188,13 @@ function WebContentsViewSurface( {
 				}
 				viewIdRef.current = viewId;
 				setReady( true );
+				const latestNavigation = latestNavigationRef.current;
+				if (
+					latestNavigation.path !== initialNavigation.path ||
+					latestNavigation.reloadNonce !== initialNavigation.reloadNonce
+				) {
+					void previewView.navigate( viewId, latestNavigation.path );
+				}
 
 				const syncBounds = () => {
 					if ( ! placeholderRef.current ) return;
@@ -198,6 +215,11 @@ function WebContentsViewSurface( {
 				scrollListener = syncBounds;
 				window.addEventListener( 'scroll', scrollListener, true );
 				window.addEventListener( 'resize', scrollListener );
+			} )
+			.catch( () => {
+				if ( ! cancelled ) {
+					setReady( true );
+				}
 			} );
 
 		return () => {
@@ -213,7 +235,13 @@ function WebContentsViewSurface( {
 				void previewView.destroy( viewId );
 			}
 		};
-	}, [ previewView, url ] );
+	}, [ previewView, siteId ] );
+
+	useEffect( () => {
+		const viewId = viewIdRef.current;
+		if ( ! viewId ) return;
+		void previewView.navigate( viewId, path );
+	}, [ path, previewView, reloadNonce ] );
 
 	// Subscribe once for inspector events; route by viewId so the listener
 	// survives re-mounts under the same connector.

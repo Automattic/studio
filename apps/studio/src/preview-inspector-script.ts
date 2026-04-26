@@ -1,14 +1,11 @@
 /**
- * Annotation inspector injected into the site preview's `<webview>`.
+ * Annotation inspector injected into the site preview's `WebContentsView`.
  *
  * Vanilla DOM in a Shadow DOM root — React isn't loaded in the cross-origin
  * WordPress page. Communicates with the host renderer via the
  * `window.__studioInspector` bridge exposed by
  * `apps/studio/src/preview-preload.ts`:
- *   - host -> guest: `{ type: 'set-picking', picking: boolean }`,
- *                    `{ type: 'clear' }`
- *   - guest -> host: `{ type: 'state', annotations, isPicking }`,
- *                    `{ type: 'pick-cancelled' }`
+ *   - guest -> host: `{ type: 'done', annotations }`
  *
  * Layout strategy: markers and the picking highlight use `position: absolute`
  * anchored at *document* coordinates (viewport rect + scroll offset). They

@@ -1,6 +1,5 @@
-// Subset of the inspector annotation that the host needs to know about.
-// The inspector (in `inspector-page-script.ts`) builds these and ships
-// them via the `done` event when the user clicks Done in the toolbar.
+// Annotation payload assembled by the React site-preview inspector. The
+// injected page runtime only supplies page-local target metadata.
 export interface Annotation {
 	id: string;
 	comment: string;

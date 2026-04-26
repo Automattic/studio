@@ -229,10 +229,10 @@ export interface Connector {
 	openExternalUrl( url: string ): Promise< void >;
 
 	// Site preview rendered as a native `WebContentsView` overlay. The
-	// renderer reports a placeholder div's bounds via `setBounds`, sends
-	// commands to the inspector, and subscribes to inspector events through
-	// `onEvent`. Connectors that don't have an Electron backing should
-	// expose `null` here; the renderer falls back to a plain `<iframe>`.
+	// renderer reports a placeholder div's bounds via `setBounds`, navigates
+	// by site-relative path, and subscribes to inspector events through
+	// `onEvent`. Connectors that don't have an Electron backing should expose
+	// `null` here; the renderer falls back to a plain `<iframe>`.
 	previewView: PreviewViewConnector | null;
 
 	// Window state (macOS fullscreen hides traffic lights, so the UI needs
@@ -259,16 +259,16 @@ export interface PreviewViewEvent {
 
 export interface PreviewViewConnector {
 	create( options: {
-		url: string;
+		siteId: string;
+		path?: string;
 		bounds: PreviewViewBounds;
-		inspectorScript?: string;
+		enableInspector?: boolean;
 		// CSS pixels — matches the React container's `border-radius` so the
 		// native overlay's corners line up with its frame.
 		borderRadius?: number;
 	} ): Promise< { viewId: string } >;
 	setBounds( viewId: string, bounds: PreviewViewBounds ): Promise< void >;
-	loadURL( viewId: string, url: string ): Promise< void >;
-	sendCommand( viewId: string, command: unknown ): Promise< void >;
+	navigate( viewId: string, path: string ): Promise< void >;
 	destroy( viewId: string ): Promise< void >;
 	onEvent( listener: ( event: PreviewViewEvent ) => void ): () => void;
 }

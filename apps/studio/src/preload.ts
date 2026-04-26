@@ -221,9 +221,7 @@ const api: IpcApi = {
 	createPreviewView: ( options ) => ipcRendererInvoke( 'createPreviewView', options ),
 	setPreviewViewBounds: ( viewId, bounds ) =>
 		ipcRendererInvoke( 'setPreviewViewBounds', viewId, bounds ),
-	loadPreviewViewURL: ( viewId, url ) => ipcRendererInvoke( 'loadPreviewViewURL', viewId, url ),
-	sendPreviewViewCommand: ( viewId, command ) =>
-		ipcRendererInvoke( 'sendPreviewViewCommand', viewId, command ),
+	navigatePreviewView: ( viewId, path ) => ipcRendererInvoke( 'navigatePreviewView', viewId, path ),
 	destroyPreviewView: ( viewId ) => ipcRendererInvoke( 'destroyPreviewView', viewId ),
 };
 

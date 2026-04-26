@@ -1,6 +1,6 @@
 /**
  * Downloads the latest reprint.phar release from GitHub and saves it to
- * apps/cli/lib/import/reprint.phar.  Run manually or via `npm run update-reprint`.
+ * apps/cli/lib/pull/reprint.phar.  Run manually or via `npm run update-reprint`.
  *
  * Uses the GitHub API to find the latest release of the
  * adamziel/reprint repo, then downloads the reprint.phar
@@ -17,7 +17,7 @@ const OUTPUT_PATH = path.join(
 	'apps',
 	'cli',
 	'lib',
-	'import',
+	'pull',
 	ASSET_NAME
 );
 

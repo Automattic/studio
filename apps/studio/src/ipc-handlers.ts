@@ -1867,6 +1867,57 @@ export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boole
 	return window.isFullScreen();
 }
 
+export async function createPreviewView(
+	_event: IpcMainInvokeEvent,
+	options: {
+		url: string;
+		bounds: { x: number; y: number; width: number; height: number };
+		inspectorScript?: string;
+		borderRadius?: number;
+	}
+): Promise< { viewId: string } > {
+	const { PreviewView, registerPreviewView } = await import( 'src/preview-view' );
+	const window = await getMainWindow();
+	const view = new PreviewView( window, options );
+	registerPreviewView( view );
+	return { viewId: view.id };
+}
+
+export async function setPreviewViewBounds(
+	_event: IpcMainInvokeEvent,
+	viewId: string,
+	bounds: { x: number; y: number; width: number; height: number }
+): Promise< void > {
+	const { getPreviewView } = await import( 'src/preview-view' );
+	getPreviewView( viewId )?.setBounds( bounds );
+}
+
+export async function loadPreviewViewURL(
+	_event: IpcMainInvokeEvent,
+	viewId: string,
+	url: string
+): Promise< void > {
+	const { getPreviewView } = await import( 'src/preview-view' );
+	await getPreviewView( viewId )?.loadURL( url );
+}
+
+export async function sendPreviewViewCommand(
+	_event: IpcMainInvokeEvent,
+	viewId: string,
+	command: unknown
+): Promise< void > {
+	const { getPreviewView } = await import( 'src/preview-view' );
+	getPreviewView( viewId )?.sendInspectorCommand( command );
+}
+
+export async function destroyPreviewView(
+	_event: IpcMainInvokeEvent,
+	viewId: string
+): Promise< void > {
+	const { disposePreviewView } = await import( 'src/preview-view' );
+	disposePreviewView( viewId );
+}
+
 export async function getAllCustomDomains(): Promise< string[] > {
 	return SiteServer.getAllDetails()
 		.map( ( site ) => site.customDomain )

@@ -3,7 +3,7 @@ import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
 import { __, sprintf } from '@wordpress/i18n';
 import { arrowUp, chevronDownSmall } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
-import { useCallback, useState } from 'react';
+import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from 'react';
 import * as Menu from '@/components/menu';
 import { EnvironmentPill } from './environment-pill';
 import styles from './style.module.css';
@@ -46,22 +46,58 @@ interface ComposerProps {
 	liveSite?: SyncSite;
 }
 
+/**
+ * Imperative API surfaced via the Composer's forwarded ref. Lets parents
+ * (e.g. the annotate-toolbar hand-off) inject a draft without making the
+ * value a controlled prop — the latter would re-render the entire
+ * SessionView (and the heavy Conversation tree) on every keystroke.
+ */
+export interface ComposerHandle {
+	appendDraft( text: string ): void;
+}
+
 const isMacPlatform =
 	typeof navigator !== 'undefined' && /mac/i.test( navigator.platform || navigator.userAgent );
 
-export function Composer( {
-	busy,
-	isInterrupting = false,
-	error,
-	model,
-	onModelChange,
-	onSend,
-	onInterrupt,
-	sessionId,
-	effectiveEnvironment = 'local',
-	liveSite,
-}: ComposerProps ) {
+export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Composer(
+	{
+		busy,
+		isInterrupting = false,
+		error,
+		model,
+		onModelChange,
+		onSend,
+		onInterrupt,
+		sessionId,
+		effectiveEnvironment = 'local',
+		liveSite,
+	},
+	ref
+) {
 	const [ value, setValue ] = useState( '' );
+	const textareaRef = useRef< HTMLTextAreaElement | null >( null );
+
+	useImperativeHandle(
+		ref,
+		() => ( {
+			appendDraft( text ) {
+				if ( ! text ) return;
+				setValue( ( current ) =>
+					current.trim() ? `${ current.trimEnd() }\n\n${ text }` : text
+				);
+				// Defer focus to the next paint so the textarea reflects the
+				// new value before we move the caret to the end.
+				queueMicrotask( () => {
+					const node = textareaRef.current;
+					if ( ! node ) return;
+					node.focus();
+					const len = node.value.length;
+					node.setSelectionRange( len, len );
+				} );
+			},
+		} ),
+		[]
+	);
 
 	const send = useCallback( async () => {
 		const trimmed = value.trim();
@@ -91,6 +127,7 @@ export function Composer( {
 		<div className={ styles.root }>
 			<div className={ styles.shell }>
 				<textarea
+					ref={ textareaRef }
 					className={ styles.input }
 					placeholder={ placeholder }
 					value={ value }
@@ -214,4 +251,4 @@ export function Composer( {
 			</div>
 		</div>
 	);
-}
+} );

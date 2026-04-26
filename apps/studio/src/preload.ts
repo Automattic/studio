@@ -218,6 +218,13 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'answerAiAgentQuestion', runId, answers ),
 	setSessionEnvironment: ( sessionId, environment ) =>
 		ipcRendererInvoke( 'setSessionEnvironment', sessionId, environment ),
+	createPreviewView: ( options ) => ipcRendererInvoke( 'createPreviewView', options ),
+	setPreviewViewBounds: ( viewId, bounds ) =>
+		ipcRendererInvoke( 'setPreviewViewBounds', viewId, bounds ),
+	loadPreviewViewURL: ( viewId, url ) => ipcRendererInvoke( 'loadPreviewViewURL', viewId, url ),
+	sendPreviewViewCommand: ( viewId, command ) =>
+		ipcRendererInvoke( 'sendPreviewViewCommand', viewId, command ),
+	destroyPreviewView: ( viewId ) => ipcRendererInvoke( 'destroyPreviewView', viewId ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

@@ -49,6 +49,7 @@ import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { autoInstallMacOSCliIfNeeded } from 'src/modules/cli/lib/macos-installation-manager';
 import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
 import { stopAllProcesses as stopAllStudioCodeProcesses } from 'src/modules/studio-code';
+import { isPreviewWebContents } from 'src/preview-view';
 import { getRunningSiteCount, SiteServer, stopAllServers } from 'src/site-server';
 import {
 	loadUserData,
@@ -158,16 +159,26 @@ async function appBoot() {
 	// be able to perform privileged operations.
 	app.enableSandbox();
 
-	// Prevent navigation to anywhere other than known locations
+	// Prevent navigation to anywhere other than known locations.
+	// The site preview's `WebContentsView` is exempt — it intentionally
+	// loads arbitrary user-owned WordPress URLs and registers itself in
+	// `isPreviewWebContents`.
 	app.on( 'web-contents-created', ( _event, contents ) => {
 		contents.on( 'will-navigate', ( event, navigationUrl ) => {
+			if ( isPreviewWebContents( contents.id ) ) return;
 			const { origin } = new URL( navigationUrl );
 			const allowedOrigins = [ new URL( getRendererUrl() ).origin ];
 			if ( ! allowedOrigins.includes( origin ) ) {
 				event.preventDefault();
 			}
 		} );
-		contents.setWindowOpenHandler( () => {
+		contents.setWindowOpenHandler( ( details ) => {
+			if ( isPreviewWebContents( contents.id ) ) {
+				// Site-preview popups (target="_blank", admin-bar links, …)
+				// load inside the preview's own webContents instead of
+				// spawning a detached BrowserWindow.
+				void contents.loadURL( details.url ).catch( () => undefined );
+			}
 			return { action: 'deny' };
 		} );
 	} );

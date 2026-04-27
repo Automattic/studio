@@ -143,7 +143,9 @@ if ( process.platform === 'darwin' ) {
 	} );
 }
 
-function isSupportedEditor( key: keyof InstalledApps ): key is ( typeof SUPPORTED_EDITORS )[ number ] {
+function isSupportedEditor(
+	key: keyof InstalledApps
+): key is ( typeof SUPPORTED_EDITORS )[ number ] {
 	return ( SUPPORTED_EDITORS as readonly string[] ).includes( key );
 }
 

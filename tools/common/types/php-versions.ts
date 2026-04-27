@@ -19,7 +19,9 @@ export const SupportedPHPVersionsList: string[] = [ ...SupportedPHPVersions ];
 
 export type SupportedPHPVersion = ( typeof SupportedPHPVersions )[ number ];
 
-export function isSupportedPHPVersion( version: string | undefined ): version is SupportedPHPVersion {
+export function isSupportedPHPVersion(
+	version: string | undefined
+): version is SupportedPHPVersion {
 	return SupportedPHPVersions.includes( version as SupportedPHPVersion );
 }
 

@@ -1,4 +1,5 @@
 import { platform } from 'os';
+import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { writeHostsFile } from 'cli/lib/hosts-file';
 import { sudoExec } from 'cli/lib/sudo-exec';
@@ -32,6 +33,7 @@ vi.mock( 'cli/lib/sudo-exec', () => ( {
 } ) );
 
 const FAKE_TMPDIR = '/tmp/wp-studio-test';
+const FAKE_TEMP_PATH = path.join( FAKE_TMPDIR, 'wp-studio-hosts' );
 const FAKE_WINDOWS_ROOT = 'C:\\Windows';
 
 describe( 'writeHostsFile', () => {
@@ -59,7 +61,7 @@ describe( 'writeHostsFile', () => {
 			await writeHostsFile( '127.0.0.1 mysite.local' );
 
 			const [ command, options ] = vi.mocked( sudoExec ).mock.calls[ 0 ];
-			expect( command ).toBe( `tee /etc/hosts < ${ FAKE_TMPDIR }/wp-studio-hosts > /dev/null` );
+			expect( command ).toBe( `tee /etc/hosts < ${ FAKE_TEMP_PATH } > /dev/null` );
 			expect( options ).toMatchObject( { name: 'WordPress Studio' } );
 		}
 	);
@@ -70,7 +72,7 @@ describe( 'writeHostsFile', () => {
 		await writeHostsFile( '127.0.0.1 mysite.local' );
 
 		const [ command, options ] = vi.mocked( sudoExec ).mock.calls[ 0 ];
-		expect( command ).toContain( `type ${ FAKE_TMPDIR }/wp-studio-hosts >` );
+		expect( command ).toContain( `type ${ FAKE_TEMP_PATH } >` );
 		expect( command ).toContain( 'hosts' );
 		expect( command ).not.toContain( 'tee ' );
 		expect( options ).toMatchObject( { name: 'WordPress Studio' } );

@@ -20,6 +20,9 @@ import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { Readable } from 'stream';
+import { pipeline } from 'stream/promises';
+import type { ReadableStream as NodeReadableStream } from 'stream/web';
 import { extract } from 'tar';
 import { z } from 'zod';
 import { extractZip } from '../tools/common/lib/extract-zip';
@@ -104,35 +107,11 @@ async function download( downloadUrl: string, dest: string ): Promise< void > {
 		throw new Error( `Download failed: HTTP ${ response.status } ${ response.statusText }` );
 	}
 
-	const contentLength = response.headers.get( 'content-length' );
-	const totalBytes = contentLength ? parseInt( contentLength, 10 ) : null;
-	let downloadedBytes = 0;
+	await pipeline(
+		Readable.fromWeb( response.body! as NodeReadableStream< Uint8Array > ),
+		fs.createWriteStream( dest )
+	);
 
-	const file = fs.createWriteStream( dest );
-	const reader = response.body!.getReader();
-
-	try {
-		while ( true ) {
-			const { done, value } = await reader.read();
-			if ( done ) break;
-			file.write( value );
-			downloadedBytes += value.length;
-			if ( totalBytes ) {
-				const pct = ( ( downloadedBytes / totalBytes ) * 100 ).toFixed( 0 );
-				process.stdout.write( `\r  ${ ( downloadedBytes / 1024 / 1024 ).toFixed( 1 ) } MB / ${ ( totalBytes / 1024 / 1024 ).toFixed( 1 ) } MB (${ pct }%)` );
-			}
-		}
-	} finally {
-		reader.releaseLock();
-	}
-
-	await new Promise< void >( ( resolve, reject ) => {
-		file.on( 'finish', resolve );
-		file.on( 'error', reject );
-		file.end();
-	} );
-
-	process.stdout.write( '\n' );
 	console.log( 'Download complete.' );
 }
 

@@ -15,6 +15,9 @@ const repoRoot = path.resolve( __dirname, '../..' );
 const config: ForgeConfig = {
 	packagerConfig: {
 		asar: true,
+		extendInfo: {
+			MDItemKeywords: 'WordPress, WordPress Studio, WP, local WordPress development',
+		},
 		extraResource: [
 			path.join( __dirname, 'assets' ),
 			path.join( __dirname, 'bin' ),

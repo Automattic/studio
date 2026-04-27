@@ -30,6 +30,9 @@ vi.mock( 'src/stores/auth-slice', async () => {
 		},
 	};
 } );
+vi.mock( 'src/hooks/use-gravatar-url', () => ( {
+	useGravatarUrl: vi.fn( () => null ),
+} ) );
 vi.mock( 'src/hooks/use-ipc-listener' );
 vi.mock( 'src/hooks/use-offline' );
 

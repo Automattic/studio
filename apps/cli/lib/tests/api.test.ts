@@ -1,7 +1,7 @@
 import fs from 'fs';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import { vi } from 'vitest';
-import { uploadArchive, waitForSiteReady, SnapshotStatus } from 'cli/lib/api';
+import { rotateReprintSecret, SnapshotStatus, uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { LoggerError } from 'cli/logger';
 
 vi.mock( 'fs' );
@@ -28,6 +28,11 @@ describe( 'API Module', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		vi.mocked( fs.createReadStream ).mockReturnValue( mockReadStream );
+		vi.stubGlobal( 'fetch', vi.fn() );
+	} );
+
+	afterEach( () => {
+		vi.unstubAllGlobals();
 	} );
 
 	describe( 'uploadArchive', () => {
@@ -208,6 +213,46 @@ describe( 'API Module', () => {
 			const result = await waitForSiteReady( mockSiteId, mockToken );
 			expect( mockWpcom.req.get ).toHaveBeenCalledTimes( 2 );
 			expect( result ).toBe( true );
+		} );
+	} );
+
+	describe( 'rotateReprintSecret', () => {
+		it( 'should rotate the WordPress.com secret and return it', async () => {
+			vi.mocked( fetch ).mockResolvedValue( {
+				ok: true,
+				json: vi.fn().mockResolvedValue( {
+					code: 200,
+					body: {
+						data: {
+							secret: 'rotated-secret',
+						},
+					},
+				} ),
+			} as never );
+
+			await expect( rotateReprintSecret( mockSiteId, mockToken ) ).resolves.toBe(
+				'rotated-secret'
+			);
+			expect( fetch ).toHaveBeenCalledWith(
+				`https://public-api.wordpress.com/rest/v1.1/jetpack-blogs/${ mockSiteId }/rest-api?http_envelope=1&`,
+				expect.objectContaining( {
+					method: 'POST',
+					headers: expect.objectContaining( {
+						Authorization: `Bearer ${ mockToken }`,
+					} ),
+				} )
+			);
+		} );
+
+		it( 'should throw when rotating the WordPress.com secret fails', async () => {
+			vi.mocked( fetch ).mockResolvedValue( {
+				ok: false,
+				status: 500,
+			} as never );
+
+			await expect( rotateReprintSecret( mockSiteId, mockToken ) ).rejects.toThrow(
+				'Failed to rotate the WordPress.com site secret'
+			);
 		} );
 	} );
 } );

@@ -1,3 +1,4 @@
+import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, sprintf } from '@wordpress/i18n';
 import { AI_MODELS, type AiModelId } from 'cli/ai/agent';
@@ -293,7 +294,5 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		description: __( 'Exit the chat' ),
 		handler: async () => 'break',
 	},
-	{ name: 'taxonomist', description: __( 'Optimize category taxonomy with AI' ) },
-	{ name: 'need-for-speed', description: __( 'Run a performance audit on a site' ) },
-	{ name: 'rank-me-up', description: __( 'Run an on-page SEO audit on a site' ) },
+	...AI_SKILL_COMMANDS,
 ];

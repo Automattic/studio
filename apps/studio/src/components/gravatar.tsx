@@ -4,9 +4,9 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useState } from 'react';
 import profileIconDetailed from 'src/components/profile-icon-detailed';
 import { useGravatarUrl } from 'src/hooks/use-gravatar-url';
+import { cx } from 'src/lib/cx';
 import { useRootSelector } from 'src/stores';
 import { authSelectors } from 'src/stores/auth-slice';
-import { cx } from 'src/lib/cx';
 
 export function Gravatar( {
 	className,

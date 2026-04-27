@@ -3,8 +3,8 @@ import { useCallback, useEffect } from 'react';
 import { StudioLogo } from 'src/components/studio-logo';
 import { OnboardingConnectToWpcom } from 'src/modules/onboarding/components/connect-to-wpcom';
 import { useAppDispatch, useRootSelector } from 'src/stores';
-import { authSelectors } from 'src/stores/auth-slice';
 import { useSaveLastSeenVersionMutation } from 'src/stores/app-version-api';
+import { authSelectors } from 'src/stores/auth-slice';
 import { saveOnboardingStatus } from 'src/stores/onboarding-slice';
 
 const GradientBox = () => {

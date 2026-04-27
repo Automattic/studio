@@ -11,11 +11,11 @@ import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { useRootSelector } from 'src/stores';
-import { authSelectors } from 'src/stores/auth-slice';
 import { NoWpcomSitesContent } from 'src/modules/sync/components/no-wpcom-sites-content';
 import { SitesListContent } from 'src/modules/sync/components/sync-sites-modal-selector';
 import { SyncTabImage } from 'src/modules/sync/components/sync-tab-image';
+import { useRootSelector } from 'src/stores';
+import { authSelectors } from 'src/stores/auth-slice';
 import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
 import type { SyncSite } from '@studio/common/types/sync';
 

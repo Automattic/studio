@@ -13,8 +13,8 @@ import { store } from 'src/stores';
 import { authSelectors } from 'src/stores/auth-slice';
 import { syncOperationsActions, useLatestRewindId, useRemoteFileTree } from 'src/stores/sync';
 import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
-import { getWpcomClient } from 'src/stores/wpcom-client';
 import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
+import { getWpcomClient } from 'src/stores/wpcom-client';
 
 store.replaceReducer( testReducer );
 
@@ -105,9 +105,7 @@ const setupAuthMock = ( isAuthenticated: boolean = false ) => {
 	vi.mocked( authSelectors.selectUser ).mockReturnValue(
 		isAuthenticated ? { id: 123, email: 'user@example.com', displayName: 'user' } : undefined
 	);
-	vi.mocked( getWpcomClient ).mockReturnValue(
-		isAuthenticated ? ( {} as never ) : undefined
-	);
+	vi.mocked( getWpcomClient ).mockReturnValue( isAuthenticated ? ( {} as never ) : undefined );
 };
 
 const selectedSite: SiteDetails = {

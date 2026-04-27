@@ -2,8 +2,8 @@ import { __ } from '@wordpress/i18n';
 import { thumbsUp, thumbsDown, Icon } from '@wordpress/icons';
 import Button from 'src/components/button';
 import { useAppDispatch } from 'src/stores';
-import { getWpcomClient } from 'src/stores/wpcom-client';
 import { chatThunks } from 'src/stores/chat-slice';
+import { getWpcomClient } from 'src/stores/wpcom-client';
 
 interface ChatRatingProps {
 	instanceId: string;

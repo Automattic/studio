@@ -13,10 +13,10 @@ import { useSiteSize } from 'src/hooks/use-site-size';
 import { getLatestStableWpVersion } from 'src/lib/version-utils';
 import { hasUnsupportedWpOrPhpVersion } from 'src/modules/preview-site/lib/version-comparison';
 import { useRootSelector } from 'src/stores';
-import type { AuthUser } from 'src/stores/auth-slice';
 import { snapshotSelectors } from 'src/stores/snapshot-slice';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { useGetSnapshotUsage } from 'src/stores/wpcom-api';
+import type { AuthUser } from 'src/stores/auth-slice';
 
 interface CreatePreviewButtonProps {
 	onClick: () => void;

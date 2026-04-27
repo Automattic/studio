@@ -2,11 +2,11 @@ import { cloudUpload } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback } from 'react';
 import { useSiteDetails } from 'src/hooks/use-site-details';
-import { authSelectors } from 'src/stores/auth-slice';
 import { generateCheckoutUrl } from 'src/lib/generate-checkout-url';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ConnectButton } from 'src/modules/sync/components/connect-button';
 import { useRootSelector } from 'src/stores';
+import { authSelectors } from 'src/stores/auth-slice';
 import { syncOperationsSelectors } from 'src/stores/sync';
 import { useGetConnectedSitesForLocalSiteQuery } from 'src/stores/sync/connected-sites';
 

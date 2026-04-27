@@ -27,7 +27,6 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { addUrlParams } from 'src/lib/url-utils';
 import { useAppDispatch, useRootSelector } from 'src/stores';
 import { authSelectors } from 'src/stores/auth-slice';
-import { getWpcomClient } from 'src/stores/wpcom-client';
 import {
 	chatThunks,
 	generateMessage,
@@ -36,6 +35,7 @@ import {
 	chatSelectors,
 } from 'src/stores/chat-slice';
 import { useGetAssistantQuota, useGetWelcomeMessages } from 'src/stores/wpcom-api';
+import { getWpcomClient } from 'src/stores/wpcom-client';
 
 export const MIMIC_CONVERSATION_DELAY = 500;
 
@@ -535,7 +535,9 @@ function WpcomAssistant( { selectedSite }: ContentTabAssistantProps ) {
 							/>
 						</>
 					) : (
-						! isOffline && <UnauthenticatedView onAuthenticate={ () => getIpcApi().authenticate() } />
+						! isOffline && (
+							<UnauthenticatedView onAuthenticate={ () => getIpcApi().authenticate() } />
+						)
 					) }
 					{ renderNotice() }
 				</div>

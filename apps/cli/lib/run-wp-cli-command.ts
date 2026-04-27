@@ -27,24 +27,6 @@ import type { SiteData } from 'cli/lib/cli-config/core';
 const processIdAllocator = new ProcessIdAllocator();
 const PLAYGROUND_INTERNAL_SHARED_FOLDER = '/internal/shared';
 
-/**
- * Creates a no-op spawn handler that immediately exits with code 1.
- * This allows process spawning functions (proc_open, exec, etc.) to be called
- * without crashing, but they will fail gracefully. WP-CLI detects these failures
- * and falls back to single-threaded mode.
- *
- * The timeout before exit is required by the createSpawnHandler API — PHP needs
- * an event loop tick to set up its stream listeners after proc_open() returns.
- * Without it, the process exits before PHP registers its handlers and
- * createSpawnHandler throws a "exited synchronously" error.
- */
-function createNoopSpawnHandler() {
-	return createSpawnHandler( async ( args, processApi ) => {
-		await new Promise( ( resolve ) => setTimeout( resolve, 1 ) );
-		processApi.exit( 1 );
-	} );
-}
-
 function createClosedReadableStream(): ReadableStream< Uint8Array > {
 	return new ReadableStream( {
 		start( controller ) {
@@ -53,13 +35,7 @@ function createClosedReadableStream(): ReadableStream< Uint8Array > {
 	} );
 }
 
-function toWebReadableStream(
-	stream: NodeJS.ReadableStream | null | undefined
-): ReadableStream< Uint8Array > {
-	if ( ! stream ) {
-		return createClosedReadableStream();
-	}
-
+function toWebReadableStream( stream: NodeJS.ReadableStream ): ReadableStream< Uint8Array > {
 	return Readable.toWeb( stream as Readable ) as ReadableStream< Uint8Array >;
 }
 
@@ -148,6 +124,24 @@ async function runNativeWpCliCommand(
 			}
 		},
 	};
+}
+
+/**
+ * Creates a no-op spawn handler that immediately exits with code 1.
+ * This allows process spawning functions (proc_open, exec, etc.) to be called
+ * without crashing, but they will fail gracefully. WP-CLI detects these failures
+ * and falls back to single-threaded mode.
+ *
+ * The timeout before exit is required by the createSpawnHandler API — PHP needs
+ * an event loop tick to set up its stream listeners after proc_open() returns.
+ * Without it, the process exits before PHP registers its handlers and
+ * createSpawnHandler throws a "exited synchronously" error.
+ */
+function createNoopSpawnHandler() {
+	return createSpawnHandler( async ( args, processApi ) => {
+		await new Promise( ( resolve ) => setTimeout( resolve, 1 ) );
+		processApi.exit( 1 );
+	} );
 }
 
 // Run a WP-CLI command in a PHP-WASM instance. This function can be used even if the targeted

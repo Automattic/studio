@@ -1,9 +1,11 @@
+import { spawn } from 'node:child_process';
 import { StreamedPHPResponse } from '@php-wasm/universal';
 import { __ } from '@wordpress/i18n';
 import { ArgumentsCamelCase } from 'yargs';
 import yargsParser from 'yargs-parser';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { getPhpBinaryPath, getWpCliPharPath } from 'cli/lib/dependency-management/paths';
 import { runWpCliCommand, runGlobalWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { validatePhpVersion } from 'cli/lib/utils';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
@@ -42,6 +44,34 @@ enum Mode {
 	SITE = 'site',
 }
 
+async function runNativePhpWpCliCommand( siteFolder: string, args: string[] ): Promise< void > {
+	const child = spawn(
+		getPhpBinaryPath(),
+		[ getWpCliPharPath(), `--path=${ siteFolder }`, ...args ],
+		{
+			cwd: siteFolder,
+			stdio: 'inherit',
+		}
+	);
+
+	const { code, signal } = await new Promise< {
+		code: number | null;
+		signal: NodeJS.Signals | null;
+	} >( ( resolve, reject ) => {
+		child.once( 'error', reject );
+		child.once( 'exit', ( exitCode, exitSignal ) =>
+			resolve( { code: exitCode, signal: exitSignal } )
+		);
+	} );
+
+	if ( signal ) {
+		process.kill( process.pid, signal );
+		return;
+	}
+
+	process.exit( code ?? 1 );
+}
+
 export async function runCommand(
 	mode: Mode,
 	siteFolder: string,
@@ -59,13 +89,19 @@ export async function runCommand(
 	}
 
 	const site = await getSiteByFolder( siteFolder );
+
+	if ( site.runtime === 'native-php' ) {
+		await runNativePhpWpCliCommand( siteFolder, args );
+		return;
+	}
+
 	const phpVersion = validatePhpVersion( options.phpVersion ?? site.phpVersion );
 
 	// If there's already a running Playground instance for this site AND we're not requesting
 	// a different PHP version, pass the command to it…
 	const useCustomPhpVersion = options.phpVersion && options.phpVersion !== site.phpVersion;
 
-	if ( ! useCustomPhpVersion && site.runtime !== 'native-php' ) {
+	if ( ! useCustomPhpVersion ) {
 		process.on( 'SIGINT', disconnectFromDaemon );
 		process.on( 'SIGTERM', disconnectFromDaemon );
 

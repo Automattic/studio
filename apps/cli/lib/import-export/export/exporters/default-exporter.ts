@@ -17,7 +17,13 @@ import { getWordPressVersionFromInstallation } from 'cli/lib/dependency-manageme
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { ImportExportEventEmitter } from '../../events';
 import { exportDatabaseToFile, exportDatabaseToMultipleFiles } from '../export-database';
-import { ExportOptions, BackupContents, Exporter, StudioJson } from '../types';
+import {
+	ExportOptions,
+	BackupContents,
+	Exporter,
+	StudioJson,
+	StudioJsonPluginOrTheme,
+} from '../types';
 
 export class DefaultExporter extends ImportExportEventEmitter implements Exporter {
 	private archiveBuilder!: archiver.Archiver;
@@ -208,6 +214,10 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 					continue;
 				}
 
+				if ( this.options.ignoreFilter?.ignores( archivePath ) ) {
+					continue;
+				}
+
 				const stat = await fsPromises.stat( fullPath );
 				if ( stat.isDirectory() ) {
 					this.archiveBuilder.directory( fullPath, archivePath, ( entry ) => {
@@ -218,14 +228,18 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 						);
 						if (
 							this.isExactPathExcluded( entryPathRelativeToArchiveRoot ) ||
-							this.isPathExcludedByPattern( fullEntryPathOnDisk )
+							this.isPathExcludedByPattern( fullEntryPathOnDisk ) ||
+							this.options.ignoreFilter?.ignores( entryPathRelativeToArchiveRoot )
 						) {
 							return false;
 						}
 						return entry;
 					} );
 				} else {
-					if ( this.isExactPathExcluded( archivePath ) ) {
+					if (
+						this.isExactPathExcluded( archivePath ) ||
+						this.options.ignoreFilter?.ignores( archivePath )
+					) {
 						continue;
 					}
 					this.archiveBuilder.file( fullPath, { name: archivePath } );
@@ -284,8 +298,18 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 			this.getSiteThemes( this.options.site.path ),
 		] );
 
-		studioJson.plugins = plugins;
-		studioJson.themes = themes;
+		studioJson.plugins = this.options.ignoreFilter
+			? plugins.filter(
+					( p: StudioJsonPluginOrTheme ) =>
+						! this.options.ignoreFilter!.ignores( `wp-content/plugins/${ p.name }` )
+			  )
+			: plugins;
+		studioJson.themes = this.options.ignoreFilter
+			? themes.filter(
+					( t: StudioJsonPluginOrTheme ) =>
+						! this.options.ignoreFilter!.ignores( `wp-content/themes/${ t.name }` )
+			  )
+			: themes;
 
 		const tempDir = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio-export-' ) );
 		const studioJsonPath = path.join( tempDir, 'meta.json' );

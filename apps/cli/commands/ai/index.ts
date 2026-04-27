@@ -1,5 +1,6 @@
 import { listAiSessions } from '@studio/common/ai/sessions/store';
 import { type LoadedAiSession, type TurnStatus } from '@studio/common/ai/sessions/types';
+import { buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { DEFAULT_MODEL, startAiAgent, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
@@ -23,6 +24,7 @@ import { AI_CHAT_SLASH_COMMANDS, type SlashCommandContext } from 'cli/ai/slash-c
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { readCliConfig } from 'cli/lib/cli-config/core';
+import { findSiteByFolder } from 'cli/lib/cli-config/sites';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -658,7 +660,7 @@ export async function runCommand( options: {
 					// Skill command — no handler, route to agent
 					ui.addUserMessage( prompt );
 					try {
-						await runAgentTurn( `Run the /${ cmd.name } skill using the Skill tool.` );
+						await runAgentTurn( buildSkillInvocationPrompt( cmd.name ) );
 					} catch ( error ) {
 						handleAgentTurnError( error );
 					}
@@ -751,6 +753,15 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				}
 
 				const sitePath = typeof argv.path === 'string' ? argv.path : undefined;
+				let activeSite: { name: string; path: string } | undefined;
+				if ( sitePath && typedArgv.siteName ) {
+					activeSite = { name: typedArgv.siteName, path: sitePath };
+				} else if ( sitePath ) {
+					const matchedSite = await findSiteByFolder( sitePath );
+					if ( matchedSite ) {
+						activeSite = { name: matchedSite.name, path: matchedSite.path };
+					}
+				}
 				await runCommand( {
 					adapter,
 					initialMessage: typedArgv.message,
@@ -758,10 +769,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					noSessionPersistence,
 					autoApprove: typedArgv.autoApprove,
 					showLegacyCommandNotice: argv._[ 0 ] === 'ai',
-					activeSite:
-						sitePath && typedArgv.siteName
-							? { name: typedArgv.siteName, path: sitePath }
-							: undefined,
+					activeSite,
 				} );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {

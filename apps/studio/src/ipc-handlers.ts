@@ -27,6 +27,7 @@ import {
 	listAiSessions as listAiSessionsFromStore,
 	loadAiSession as loadAiSessionFromStore,
 } from '@studio/common/ai/sessions/store';
+import { AI_SKILL_COMMANDS, buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
 import {
 	installSkillToSite,
 	removeSkillFromSite,
@@ -34,6 +35,7 @@ import {
 } from '@studio/common/lib/agent-skills';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
+import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import { extractZip } from '@studio/common/lib/extract-zip';
 import {
 	calculateDirectorySizeForArchive,
@@ -55,7 +57,9 @@ import {
 	readSharedConfig,
 	updateSharedConfig,
 } from '@studio/common/lib/shared-config';
-import { shouldExcludeFromSync, shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
+import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
+import { shouldExcludeFromSync } from '@studio/common/lib/sync/exclude-from-sync';
+import { shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import {
@@ -105,10 +109,15 @@ import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-ed
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
-import { getUserEditor, getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
+import {
+	getUserEditor,
+	getUserTerminal,
+	getDefaultSiteDirectory,
+	saveDefaultSiteDirectory,
+} from 'src/modules/user-settings/lib/ipc-handlers';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { SiteServer, stopAllServers as triggerStopAllServers } from 'src/site-server';
-import { DEFAULT_SITE_PATH, getSiteThumbnailPath } from 'src/storage/paths';
+import { getSiteThumbnailPath } from 'src/storage/paths';
 import {
 	loadUserData,
 	lockAppdata,
@@ -120,6 +129,7 @@ import { Blueprint } from 'src/stores/wpcom-api';
 import { captureSiteThumbnail } from './lib/capture-site-thumbnail';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
+import type { Ignore } from 'ignore';
 import type { WpCliResult } from 'src/site-server';
 
 export {
@@ -168,6 +178,7 @@ export {
 	saveUserTerminal,
 	showUserSettings,
 } from 'src/modules/user-settings/lib/ipc-handlers';
+export { getDefaultSiteDirectory, saveDefaultSiteDirectory };
 
 export { importSite, exportSite } from 'src/modules/import-export/lib/ipc-handlers';
 
@@ -277,6 +288,22 @@ async function reconcileSessionEnvironmentBeforeRun( sessionId: string ): Promis
 	} );
 }
 
+// Expand a bare skill-command slash prompt (e.g. `/rank-me-up`) into the
+// instruction the agent actually acts on. Mirrors the CLI's interactive main
+// loop so UI clients can send the short form and get the same behaviour.
+function expandSkillCommandPrompt( prompt: string ): string {
+	const trimmed = prompt.trim();
+	if ( ! trimmed.startsWith( '/' ) ) {
+		return prompt;
+	}
+	const name = trimmed.slice( 1 );
+	const match = AI_SKILL_COMMANDS.find( ( cmd ) => cmd.name === name );
+	if ( ! match ) {
+		return prompt;
+	}
+	return buildSkillInvocationPrompt( name );
+}
+
 export async function continueAiSession(
 	event: IpcMainInvokeEvent,
 	sessionId: string,
@@ -285,7 +312,7 @@ export async function continueAiSession(
 	await reconcileSessionEnvironmentBeforeRun( sessionId );
 	return startAgentRun( {
 		sessionId,
-		prompt,
+		prompt: expandSkillCommandPrompt( prompt ),
 		webContents: event.sender,
 	} );
 }
@@ -883,10 +910,14 @@ export async function showSaveAsDialog( event: IpcMainInvokeEvent, options: Save
 		throw new Error( `No window found for sender of showSaveAsDialog message: ${ event.frameId }` );
 	}
 
-	const defaultPath =
-		options.defaultPath === nodePath.basename( options.defaultPath ?? '' )
-			? nodePath.join( DEFAULT_SITE_PATH, options.defaultPath )
-			: options.defaultPath;
+	let defaultPath = options.defaultPath;
+	if (
+		typeof options.defaultPath === 'string' &&
+		options.defaultPath === nodePath.basename( options.defaultPath )
+	) {
+		const defaultSiteDirectory = await getDefaultSiteDirectory();
+		defaultPath = nodePath.join( defaultSiteDirectory, options.defaultPath );
+	}
 	const { canceled, filePath } = await dialog.showSaveDialog( parentWindow, {
 		defaultPath,
 		...options,
@@ -920,9 +951,11 @@ export async function showOpenFolderDialog(
 		};
 	}
 
+	const defaultPath =
+		defaultDialogPath !== '' ? defaultDialogPath : await getDefaultSiteDirectory();
 	const { canceled, filePaths } = await dialog.showOpenDialog( parentWindow, {
 		title,
-		defaultPath: defaultDialogPath !== '' ? defaultDialogPath : DEFAULT_SITE_PATH,
+		defaultPath,
 		properties: [
 			'openDirectory',
 			'createDirectory', // allow user to create new directories; macOS only
@@ -966,7 +999,8 @@ export async function copySite(
 	}
 	const sourceSite = sourceServer.details;
 
-	const finalSitePath = nodePath.join( DEFAULT_SITE_PATH, sanitizeFolderName( siteName ) );
+	const defaultSiteDirectory = await getDefaultSiteDirectory();
+	const finalSitePath = nodePath.join( defaultSiteDirectory, sanitizeFolderName( siteName ) );
 
 	console.log( `Copying site '${ sourceSite.name }' to '${ siteName }'` );
 
@@ -1124,7 +1158,8 @@ export async function generateProposedSitePath(
 	_event: IpcMainInvokeEvent,
 	siteName: string
 ): Promise< FolderDialogResponse > {
-	const path = nodePath.join( DEFAULT_SITE_PATH, sanitizeFolderName( siteName ) );
+	const defaultSiteDirectory = await getDefaultSiteDirectory();
+	const path = nodePath.join( defaultSiteDirectory, sanitizeFolderName( siteName ) );
 
 	try {
 		return {
@@ -1159,9 +1194,10 @@ export async function generateSiteNameFromList(
 	_event: IpcMainInvokeEvent,
 	usedSites: SiteDetails[]
 ): Promise< string > {
+	const defaultSiteDirectory = await getDefaultSiteDirectory();
 	return generateSiteName(
 		usedSites.map( ( s ) => s.name ),
-		DEFAULT_SITE_PATH
+		defaultSiteDirectory
 	);
 }
 
@@ -1170,10 +1206,11 @@ export async function generateNumberedNameFromList(
 	baseName: string,
 	usedSites: SiteDetails[]
 ): Promise< string > {
+	const defaultSiteDirectory = await getDefaultSiteDirectory();
 	return generateNumberedName(
 		baseName,
 		usedSites.map( ( s ) => s.name ),
-		DEFAULT_SITE_PATH
+		defaultSiteDirectory
 	);
 }
 
@@ -1845,10 +1882,15 @@ export async function listLocalFileTree(
 	siteId: string,
 	path: string,
 	maxDepth: number = 3,
-	currentDepth: number = 0
+	currentDepth: number = 0,
+	deployIgnore?: Ignore
 ): Promise< RawDirectoryEntry[] > {
 	const server = SiteServer.get( siteId );
 	if ( ! server ) throw new Error( 'Site not found' );
+
+	if ( ! deployIgnore ) {
+		deployIgnore = await createDeployIgnoreFilter( server.details.path, SYNC_IGNORE_DEFAULTS );
+	}
 
 	const fullPath = nodePath.join( server.details.path, path );
 
@@ -1857,12 +1899,13 @@ export async function listLocalFileTree(
 		const result = [];
 
 		for ( const entry of entries ) {
-			if ( shouldExcludeFromSync( entry.name ) ) {
+			const itemPath = nodePath.join( path, entry.name ).replace( /\\/g, '/' );
+
+			if ( shouldExcludeFromSync( itemPath, deployIgnore ) ) {
 				continue;
 			}
 
 			const isDirectory = entry.isDirectory();
-			const itemPath = nodePath.join( path, entry.name ).replace( /\\/g, '/' );
 
 			const directoryEntry: RawDirectoryEntry = {
 				name: entry.name,
@@ -1878,7 +1921,8 @@ export async function listLocalFileTree(
 						siteId,
 						itemPath,
 						maxDepth,
-						currentDepth + 1
+						currentDepth + 1,
+						deployIgnore
 					);
 				} catch ( childErr ) {
 					console.warn( `Failed to load children for ${ itemPath }:`, childErr );

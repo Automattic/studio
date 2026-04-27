@@ -11,6 +11,10 @@ import { Logger, LoggerError } from 'cli/logger';
 import { registerCommand, runCommand } from '../export';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
+vi.mock( '@studio/common/lib/deploy-ignore', () => ( {
+	createDeployIgnoreFilter: vi.fn().mockResolvedValue( { ignores: vi.fn() } ),
+} ) );
+
 function getYargsArgvMock() {
 	return yargs().option( 'path', {
 		type: 'string',
@@ -82,8 +86,19 @@ describe( 'CLI: studio export', () => {
 			},
 			specificSelectionPaths: undefined,
 			splitDatabaseDumpByTable: false,
+			ignoreFilter: undefined,
 		} );
 		expect( disconnectFromDaemon ).toHaveBeenCalled();
+	} );
+
+	it( 'applies deploy-ignore filter when applyDeployIgnore is set', async () => {
+		await runCommand( testSitePath, testExportPath, 'full', false, undefined, true );
+
+		expect( getExporter ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				ignoreFilter: expect.objectContaining( { ignores: expect.any( Function ) } ),
+			} )
+		);
 	} );
 
 	it( 'maps export events to logger actions', async () => {

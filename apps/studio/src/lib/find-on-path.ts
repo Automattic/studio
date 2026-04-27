@@ -12,8 +12,16 @@ export function findOnPath( command: string ): string | null {
 
 	for ( const dir of pathEntries ) {
 		const candidate = nodePath.join( dir, command );
-		if ( fs.existsSync( candidate ) ) {
+		try {
+			const stats = fs.statSync( candidate );
+			if ( ! stats.isFile() ) {
+				continue;
+			}
+			fs.accessSync( candidate, fs.constants.X_OK );
 			return candidate;
+		} catch {
+			// Missing, not a regular file (after symlink resolution), or not executable — keep walking.
+			continue;
 		}
 	}
 

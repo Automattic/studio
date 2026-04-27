@@ -15,7 +15,7 @@ const logger = new Logger< '' >();
 async function pipePHPResponse( response: StreamedPHPResponse ) {
 	const decoder = new TextDecoder();
 
-	await response.stderr.pipeTo(
+	const stderrPipe = response.stderr.pipeTo(
 		new WritableStream( {
 			write( chunk ) {
 				process.stderr.write( chunk );
@@ -23,7 +23,7 @@ async function pipePHPResponse( response: StreamedPHPResponse ) {
 		} )
 	);
 
-	await response.stdout.pipeTo(
+	const stdoutPipe = response.stdout.pipeTo(
 		new WritableStream( {
 			write( chunk ) {
 				const text = decoder.decode( chunk, { stream: true } );
@@ -33,6 +33,8 @@ async function pipePHPResponse( response: StreamedPHPResponse ) {
 			},
 		} )
 	);
+
+	await Promise.all( [ stderrPipe, stdoutPipe ] );
 }
 
 enum Mode {
@@ -84,7 +86,7 @@ export async function runCommand(
 	process.on( 'SIGINT', () => process.exit( 1 ) );
 	process.on( 'SIGTERM', () => process.exit( 1 ) );
 
-	// …If not, run the command in a new PHP-WASM instance
+	// …If not, run the command in a new runtime instance (PHP-WASM or native PHP)
 	await using command = await runWpCliCommand( siteFolder, phpVersion, args );
 
 	await pipePHPResponse( command.response );

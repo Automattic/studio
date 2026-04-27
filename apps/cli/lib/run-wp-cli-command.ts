@@ -1,3 +1,6 @@
+import { ChildProcess, spawn } from 'node:child_process';
+import path from 'node:path';
+import { Readable } from 'node:stream';
 import { rootCertificates } from 'node:tls';
 import { loadNodeRuntime, createNodeFsMountHandler } from '@php-wasm/node';
 import {
@@ -13,7 +16,12 @@ import { cleanupLegacyMuPlugins, getMuPlugins } from '@studio/common/lib/mu-plug
 import { LatestSupportedPHPVersion } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
 import { setupPlatformLevelMuPlugins } from '@wp-playground/wordpress';
-import { getSqliteCommandPath, getWpCliPharPath } from 'cli/lib/dependency-management/paths';
+import { getSiteByFolder } from 'cli/lib/cli-config/sites';
+import {
+	getPhpBinaryPath,
+	getSqliteCommandPath,
+	getWpCliPharPath,
+} from 'cli/lib/dependency-management/paths';
 
 const processIdAllocator = new ProcessIdAllocator();
 const PLAYGROUND_INTERNAL_SHARED_FOLDER = '/internal/shared';
@@ -36,12 +44,108 @@ function createNoopSpawnHandler() {
 	} );
 }
 
-export interface RunWpCliCommandOptions {
-	siteUrl?: string;
+function createClosedReadableStream(): ReadableStream< Uint8Array > {
+	return new ReadableStream( {
+		start( controller ) {
+			controller.close();
+		},
+	} );
 }
 
-interface DisposableWpCliResponse extends Disposable {
+function toWebReadableStream(
+	stream: NodeJS.ReadableStream | null | undefined
+): ReadableStream< Uint8Array > {
+	if ( ! stream ) {
+		return createClosedReadableStream();
+	}
+
+	return Readable.toWeb( stream as Readable ) as ReadableStream< Uint8Array >;
+}
+
+type RunWpCliCommandOptions = {
+	siteUrl?: string;
+	requireSqliteCliCommand?: boolean;
+};
+
+type DisposableWpCliResponse = Disposable & {
 	response: StreamedPHPResponse;
+};
+
+const WASM_SQLITE_COMMAND_PATH = '/tmp/sqlite-command/command.php';
+
+function applyWpCliCommandOptions(
+	runtime: 'wasm' | 'native',
+	args: string[],
+	options: RunWpCliCommandOptions
+): string[] {
+	let normalizedArgs = args.slice();
+
+	if ( options.requireSqliteCliCommand ) {
+		const sqliteCommandPath =
+			runtime === 'native'
+				? path.join( getSqliteCommandPath(), 'command.php' )
+				: WASM_SQLITE_COMMAND_PATH;
+		const requireArg = `--require=${ sqliteCommandPath }`;
+
+		if ( ! normalizedArgs.includes( requireArg ) ) {
+			normalizedArgs = [ ...normalizedArgs, requireArg ];
+		}
+	}
+
+	return normalizedArgs;
+}
+
+async function ensureChildSpawned( child: ChildProcess ): Promise< void > {
+	await new Promise< void >( ( resolve, reject ) => {
+		const onSpawn = () => {
+			child.off( 'error', onError );
+			resolve();
+		};
+		const onError = ( error: Error ) => {
+			child.off( 'spawn', onSpawn );
+			reject( error );
+		};
+
+		child.once( 'spawn', onSpawn );
+		child.once( 'error', onError );
+	} );
+}
+
+async function runNativeWpCliCommand(
+	siteFolder: string,
+	args: string[],
+	options: RunWpCliCommandOptions = {}
+): Promise< DisposableWpCliResponse > {
+	const nativeArgs = applyWpCliCommandOptions( 'native', args, options );
+	const child = spawn(
+		getPhpBinaryPath(),
+		[ getWpCliPharPath(), `--path=${ siteFolder }`, ...nativeArgs ],
+		{
+			cwd: siteFolder,
+			stdio: [ 'ignore', 'pipe', 'pipe' ],
+		}
+	);
+
+	await ensureChildSpawned( child );
+
+	const exitCode = new Promise< number >( ( resolve, reject ) => {
+		child.once( 'error', ( error: Error ) => reject( error ) );
+		child.once( 'exit', ( code ) => resolve( code ?? 1 ) );
+	} );
+
+	return {
+		response: new StreamedPHPResponse(
+			createClosedReadableStream(),
+			toWebReadableStream( child.stdout ),
+			toWebReadableStream( child.stderr ),
+			exitCode
+		),
+		[ Symbol.dispose ]() {
+			if ( child.exitCode === null && child.signalCode === null && ! child.killed ) {
+				child.kill( 'SIGKILL' );
+			}
+		},
+	};
 }
 
 // Run a WP-CLI command in a PHP-WASM instance. This function can be used even if the targeted
@@ -50,8 +154,19 @@ interface DisposableWpCliResponse extends Disposable {
 export async function runWpCliCommand(
 	siteFolder: string,
 	phpVersion: SupportedPHPVersion,
-	args: string[]
+	args: string[],
+	options: RunWpCliCommandOptions = {}
 ): Promise< DisposableWpCliResponse > {
+	try {
+		const site = await getSiteByFolder( siteFolder );
+		if ( site.runtime === 'native-php' ) {
+			return runNativeWpCliCommand( siteFolder, args, options );
+		}
+	} catch {
+		// If the site can't be resolved from config, keep the previous behavior and
+		// continue with the PHP-WASM execution path.
+	}
+
 	const id = await loadNodeRuntime( phpVersion, {
 		followSymlinks: true,
 		withRedis: IS_JSPI_AVAILABLE,
@@ -71,6 +186,7 @@ export async function runWpCliCommand(
 
 		php.mkdir( '/wordpress' );
 		await php.mount( '/wordpress', createNodeFsMountHandler( siteFolder ) );
+		php.chdir( '/wordpress' );
 
 		// Setup SSL certificates
 		php.writeFile( '/tmp/ca-bundle.crt', rootCertificates.join( '\n' ) );
@@ -100,7 +216,13 @@ export async function runWpCliCommand(
 
 		await setupPlatformLevelMuPlugins( php );
 
-		const response = await php.cli( [ 'php', '/tmp/wp-cli.phar', '--path=/wordpress', ...args ] );
+		const wasmArgs = applyWpCliCommandOptions( 'wasm', args, options );
+		const response = await php.cli( [
+			'php',
+			'/tmp/wp-cli.phar',
+			'--path=/wordpress',
+			...wasmArgs,
+		] );
 
 		return {
 			response,
@@ -114,11 +236,49 @@ export async function runWpCliCommand(
 	}
 }
 
+async function runNativeGlobalWpCliCommand( args: string[] ): Promise< DisposableWpCliResponse > {
+	const child = spawn( getPhpBinaryPath(), [ getWpCliPharPath(), ...args ], {
+		stdio: [ 'ignore', 'pipe', 'pipe' ],
+	} );
+
+	await ensureChildSpawned( child );
+
+	const exitCode = new Promise< number >( ( resolve, reject ) => {
+		child.once( 'error', ( error: Error ) => reject( error ) );
+		child.once( 'exit', ( code ) => resolve( code ?? 1 ) );
+	} );
+
+	return {
+		response: new StreamedPHPResponse(
+			createClosedReadableStream(),
+			toWebReadableStream( child.stdout ),
+			toWebReadableStream( child.stderr ),
+			exitCode
+		),
+		[ Symbol.dispose ]() {
+			if ( child.exitCode === null && child.signalCode === null && ! child.killed ) {
+				child.kill( 'SIGKILL' );
+			}
+		},
+	};
+}
+
+type RunGlobalWpCliCommandOptions = {
+	runtime?: 'wasm' | 'native-php';
+};
+
 /**
  * Run a global WP-CLI command without requiring a site.
  * Useful for commands like --version that don't need a WordPress installation.
  */
-export async function runGlobalWpCliCommand( args: string[] ): Promise< DisposableWpCliResponse > {
+export async function runGlobalWpCliCommand(
+	args: string[],
+	options: RunGlobalWpCliCommandOptions = {}
+): Promise< DisposableWpCliResponse > {
+	if ( options.runtime === 'native-php' ) {
+		return runNativeGlobalWpCliCommand( args );
+	}
+
 	const id = await loadNodeRuntime( LatestSupportedPHPVersion, {
 		followSymlinks: true,
 		withRedis: false,

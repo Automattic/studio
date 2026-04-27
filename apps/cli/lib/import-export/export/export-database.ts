@@ -13,17 +13,15 @@ export async function exportDatabaseToFile(
 	// Generate a temporary file name in the project directory
 	const tempFileName = `${ generateBackupFilename( 'db-export' ) }.sql`;
 
-	// Execute the command to export directly to the temp file
-	// Use absolute path /wordpress/ because that's where site.path is mounted in the WASM filesystem
-	await using command = await runWpCliCommand( siteFolder, DEFAULT_PHP_VERSION, [
-		'sqlite',
-		'export',
-		`/wordpress/${ tempFileName }`,
-		'--require=/tmp/sqlite-command/command.php',
-		'--enable-ast-driver',
-		'--skip-plugins',
-		'--skip-themes',
-	] );
+	// Execute the command to export directly to a temp file in the site directory (cwd).
+	await using command = await runWpCliCommand(
+		siteFolder,
+		DEFAULT_PHP_VERSION,
+		[ 'sqlite', 'export', tempFileName, '--enable-ast-driver', '--skip-plugins', '--skip-themes' ],
+		{
+			requireSqliteCliCommand: true,
+		}
+	);
 
 	const exitCode = await command.response.exitCode;
 	if ( exitCode !== 0 ) {
@@ -39,15 +37,21 @@ export async function exportDatabaseToMultipleFiles(
 	siteFolder: string,
 	finalDestinationDir: string
 ): Promise< string[] > {
-	await using command = await runWpCliCommand( siteFolder, DEFAULT_PHP_VERSION, [
-		'sqlite',
-		'tables',
-		'--format=json',
-		'--require=/tmp/sqlite-command/command.php',
-		'--enable-ast-driver',
-		'--skip-plugins',
-		'--skip-themes',
-	] );
+	await using command = await runWpCliCommand(
+		siteFolder,
+		DEFAULT_PHP_VERSION,
+		[
+			'sqlite',
+			'tables',
+			'--format=json',
+			'--enable-ast-driver',
+			'--skip-plugins',
+			'--skip-themes',
+		],
+		{
+			requireSqliteCliCommand: true,
+		}
+	);
 
 	const tablesStdout = await command.response.stdoutText;
 	const exitCode = await command.response.exitCode;
@@ -77,17 +81,22 @@ export async function exportDatabaseToMultipleFiles(
 		const fileName = `${ table }.sql`;
 
 		// Execute the command to export directly to a temporary file in the project directory
-		await using command = await runWpCliCommand( siteFolder, DEFAULT_PHP_VERSION, [
-			'sqlite',
-			'export',
-			// Use absolute path /wordpress/ because that's where site.path is mounted in the WASM filesystem
-			`/wordpress/${ fileName }`,
-			`--tables=${ table }`,
-			'--require=/tmp/sqlite-command/command.php',
-			'--enable-ast-driver',
-			'--skip-plugins',
-			'--skip-themes',
-		] );
+		await using command = await runWpCliCommand(
+			siteFolder,
+			DEFAULT_PHP_VERSION,
+			[
+				'sqlite',
+				'export',
+				fileName,
+				`--tables=${ table }`,
+				'--enable-ast-driver',
+				'--skip-plugins',
+				'--skip-themes',
+			],
+			{
+				requireSqliteCliCommand: true,
+			}
+		);
 
 		const exitCode = await command.response.exitCode;
 		if ( exitCode !== 0 ) {

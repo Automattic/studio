@@ -13,6 +13,7 @@ Unreleased
 * Updated SQLite Database Integration to v3.0.0-rc.1 #3172
 * Fixed stale phpMyAdmin assets after Studio updates #3170
 * Fixed stale protocol handler registration on app boot #3114
+* Fixed path traversal vulnerability in .wpress extractor #3142 (reported independently by [flouciel](https://hackerone.com/flouciel) and [k4sperski](https://hackerone.com/k4sperski))
 * Fixed excessive word spacing on Linux caused by emoji-font fallback #3187
 * Fixed empty window on first `npm start` in a fresh workspace #3191
 * Updated multiple dependencies, including WP Playground and PHP-Wasm

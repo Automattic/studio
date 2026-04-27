@@ -104,7 +104,8 @@ async function handleTurn(
 	deps: PollLoopDeps,
 	config: RemoteSessionConfig,
 	target: ReplyTarget,
-	text: string
+	text: string,
+	signal: AbortSignal
 ): Promise< void > {
 	let sessionId: string | undefined = ( await deps.readState( target.chatId ) )?.session_id;
 	const started = Date.now();
@@ -122,12 +123,13 @@ async function handleTurn(
 			text,
 			sessionId,
 			timeoutMs: config.turn_timeout_seconds * 1000,
+			signal,
 			logger: deps.logger,
 			logContext,
 			onEvent: streamer.onEvent,
 		} );
 
-		if ( outcome.staleSession && sessionId ) {
+		if ( ! signal.aborted && outcome.staleSession && sessionId ) {
 			deps.logger.info( 'Resume failed; retrying without session_id', {
 				...logContext,
 				stale_session_id: sessionId,
@@ -139,6 +141,7 @@ async function handleTurn(
 				text,
 				sessionId: undefined,
 				timeoutMs: config.turn_timeout_seconds * 1000,
+				signal,
 				logger: deps.logger,
 				logContext,
 				onEvent: streamer.onEvent,
@@ -160,7 +163,14 @@ async function handleTurn(
 		exit_code: outcome.exitCode,
 		chars_out: outcome.replyText?.length ?? 0,
 		session_id: outcome.sessionId,
+		aborted: signal.aborted,
 	} );
+
+	// Detach was requested mid-turn. Skip posting any reply — the detach flow
+	// will announce "🔴 Local agent detached." on its own.
+	if ( signal.aborted ) {
+		return;
+	}
 
 	if ( outcome.status === 'timeout' ) {
 		await postBestEffort( deps, config, target, '⚠️ Turn took too long; aborted.' );
@@ -375,7 +385,7 @@ export async function runPollLoop( options: RunPollLoopOptions ): Promise< PollL
 				}
 
 				try {
-					await handleTurn( deps, config, target, polled.text );
+					await handleTurn( deps, config, target, polled.text, abortController.signal );
 				} catch ( error ) {
 					if ( error instanceof TelegramAuthError ) {
 						deps.logger.error( 'Auth error during respond; detaching', {

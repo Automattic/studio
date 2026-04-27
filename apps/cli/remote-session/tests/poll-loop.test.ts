@@ -207,6 +207,55 @@ describe( 'runPollLoop', () => {
 		expect( bodies ).toContain( '⚠️ Local agent did not return a result.' );
 	} );
 
+	it( 'aborts an in-flight turn when detach is called and skips posting a reply', async () => {
+		const scripted = makeScriptedPoll( [ { chat_id: 42, text: 'long task' } ] );
+		const deps = makeDeps( { scriptedPoll: scripted } );
+
+		// Capture the signal forwarded into runTurn so the test can drive detach
+		// only once the turn is actually in flight.
+		let resolveSignalSeen: ( signal: AbortSignal ) => void = () => undefined;
+		const signalSeen = new Promise< AbortSignal >( ( r ) => {
+			resolveSignalSeen = r;
+		} );
+		( deps.runTurn as ReturnType< typeof vi.fn > ).mockImplementation(
+			( opts: { signal?: AbortSignal } ) => {
+				if ( ! opts.signal ) {
+					throw new Error( 'expected signal to be forwarded into runTurn' );
+				}
+				resolveSignalSeen( opts.signal );
+				return new Promise< TurnOutcome >( ( resolve ) => {
+					opts.signal!.addEventListener(
+						'abort',
+						() => {
+							resolve( {
+								status: 'timeout',
+								isError: true,
+								stderrTail: '',
+								exitCode: null,
+								staleSession: false,
+							} satisfies TurnOutcome );
+						},
+						{ once: true }
+					);
+				} );
+			}
+		);
+
+		const handle = await runPollLoop( { config: baseConfig, deps } );
+		const signal = await signalSeen;
+		expect( signal.aborted ).toBe( false );
+		await handle.detach();
+		await handle.done;
+
+		expect( signal.aborted ).toBe( true );
+
+		const respond = deps.respond as ReturnType< typeof vi.fn >;
+		const bodies = respond.mock.calls.map( ( [ , params ] ) => params.text );
+		expect( bodies.some( ( b ) => /Turn took too long/.test( b ) ) ).toBe( false );
+		expect( bodies.some( ( b ) => /did not return a result/.test( b ) ) ).toBe( false );
+		expect( bodies.at( -1 ) ).toMatch( /detached/ );
+	} );
+
 	describe( 'when chat_id is not pinned in config', () => {
 		const openConfig: RemoteSessionConfig = { ...baseConfig, chat_id: undefined, bot: undefined };
 

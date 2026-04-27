@@ -1,17 +1,19 @@
 import fs from 'fs';
-import nodePath from 'path';
+import { posix as posixPath } from 'path';
 
 /**
  * Returns the absolute path of `command` if it's found in any directory on
  * $PATH, or `null` otherwise. Used on Linux to locate editor/CLI binaries
  * regardless of whether they were installed system-wide (e.g. `/usr/bin`),
- * per-user (e.g. `~/.local/bin`), via snap, or via Flatpak wrappers.
+ * per-user (e.g. `~/.local/bin`), via snap, or via Flatpak wrappers. Uses
+ * posix path semantics explicitly so the function behaves identically when
+ * unit-tested from Windows or macOS hosts.
  */
 export function findOnPath( command: string ): string | null {
-	const pathEntries = ( process.env.PATH ?? '' ).split( nodePath.delimiter ).filter( Boolean );
+	const pathEntries = ( process.env.PATH ?? '' ).split( posixPath.delimiter ).filter( Boolean );
 
 	for ( const dir of pathEntries ) {
-		const candidate = nodePath.join( dir, command );
+		const candidate = posixPath.join( dir, command );
 		try {
 			const stats = fs.statSync( candidate );
 			if ( ! stats.isFile() ) {

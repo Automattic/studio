@@ -41,6 +41,68 @@ function errorToConsole( ...args: Parameters< typeof console.error > ) {
 	console.error( `[PHP Server]`, ...args );
 }
 
+type SpawnPhpProcessOptions = {
+	cwd?: string;
+	signal?: AbortSignal;
+	mode?: 'pipe' | 'capture-stdout';
+};
+
+function spawnPhpProcess(
+	args: string[],
+	{ cwd, signal, mode = 'pipe' }: SpawnPhpProcessOptions = {}
+): ChildProcess {
+	const phpScriptProcess = spawn( PHP_BINARY_PATH, args, {
+		cwd,
+		stdio: [ 'ignore', 'pipe', 'pipe' ],
+		signal,
+	} );
+
+	if ( mode === 'pipe' ) {
+		phpScriptProcess.stdout?.pipe( process.stdout );
+	}
+
+	// Keep stderr visible in all modes for easier debugging.
+	if ( mode === 'pipe' || mode === 'capture-stdout' ) {
+		phpScriptProcess.stderr?.pipe( process.stderr );
+	}
+
+	return phpScriptProcess;
+}
+
+type RunPhpCommandOptions = SpawnPhpProcessOptions;
+
+async function runPhpCommand(
+	args: string[],
+	{ cwd, signal, mode = 'pipe' }: RunPhpCommandOptions
+): Promise< { stdout: string } > {
+	return await new Promise< { stdout: string } >( ( resolve, reject ) => {
+		const phpScriptProcess = spawnPhpProcess( args, {
+			cwd,
+			signal,
+			mode,
+		} );
+
+		let stdout = '';
+		if ( mode === 'capture-stdout' ) {
+			phpScriptProcess.stdout?.on( 'data', ( chunk ) => {
+				stdout += chunk.toString();
+			} );
+		}
+
+		phpScriptProcess.once( 'error', ( error: Error ) => {
+			reject( error );
+		} );
+		phpScriptProcess.once( 'exit', ( code ) => {
+			if ( code === 0 ) {
+				resolve( { stdout } );
+				return;
+			}
+
+			reject( new Error( `PHP command failed (code: ${ code })` ) );
+		} );
+	} );
+}
+
 // We allow a single `startServer` call per process. If that call throws, we expect
 // `ipcMessageHandler` to kill the process.
 function wrapWithStartingPromise< Args extends unknown[], Return extends void >(
@@ -64,35 +126,25 @@ async function ensureWpConfig( siteFolder: string, signal: AbortSignal ): Promis
 		await fs.promises.copyFile( wpConfigSamplePath, wpConfigPath );
 	}
 
-	await new Promise< void >( ( resolve, reject ) => {
-		const phpScriptProcess = spawn(
-			PHP_BINARY_PATH,
+	try {
+		await runPhpCommand(
 			[ ENSURE_WP_CONFIG_PATH, wpConfigPath, JSON.stringify( DEFAULT_WP_CONFIG_CONSTANTS ) ],
-			{
-				stdio: [ 'ignore', 'pipe', 'pipe' ],
-				signal,
-			}
+			{ signal }
 		);
-
-		phpScriptProcess.stdout?.pipe( process.stdout );
-		phpScriptProcess.stderr?.pipe( process.stderr );
-
-		phpScriptProcess.once( 'error', ( error: Error ) => {
-			reject( error );
-		} );
-		phpScriptProcess.once( 'exit', ( code ) => {
-			if ( code === 0 ) {
-				resolve();
-				return;
-			}
-
-			reject( new Error( `Failed to ensure wp-config.php constants (code: ${ code })` ) );
-		} );
-	} );
+	} catch ( error ) {
+		throw new Error(
+			`Failed to ensure wp-config.php constants: ${
+				error instanceof Error ? error.message : String( error )
+			}`
+		);
+	}
 }
 
 async function isWordPressInstalled( siteFolder: string, signal: AbortSignal ): Promise< boolean > {
 	const installationCheckScript = `
+error_reporting( E_ERROR );
+ini_set( 'display_errors', '0' );
+
 $wp_load = getcwd() . '/wp-load.php';
 if ( ! file_exists( $wp_load ) ) {
 	echo '0';
@@ -102,37 +154,24 @@ require_once $wp_load;
 echo is_blog_installed() ? '1' : '0';
 `;
 
-	return await new Promise< boolean >( ( resolve, reject ) => {
-		const phpScriptProcess = spawn( PHP_BINARY_PATH, [ '-r', installationCheckScript ], {
+	let stdout = '';
+	try {
+		const result = await runPhpCommand( [ '-r', installationCheckScript ], {
 			cwd: siteFolder,
-			stdio: [ 'ignore', 'pipe', 'pipe' ],
 			signal,
+			mode: 'capture-stdout',
 		} );
+		stdout = result.stdout;
+	} catch ( error ) {
+		throw new Error(
+			`Failed to check WordPress installation status: ${
+				error instanceof Error ? error.message : String( error )
+			}`
+		);
+	}
 
-		let stdout = '';
-		phpScriptProcess.stdout?.on( 'data', ( chunk: Buffer | string ) => {
-			stdout += chunk.toString();
-		} );
-		phpScriptProcess.stderr?.pipe( process.stderr );
-
-		phpScriptProcess.once( 'error', ( error: Error ) => {
-			reject( error );
-		} );
-		phpScriptProcess.once( 'exit', ( code ) => {
-			if ( code !== 0 ) {
-				reject( new Error( `Failed to check WordPress installation status (code: ${ code })` ) );
-				return;
-			}
-
-			const status = stdout.trim();
-			if ( status !== '0' && status !== '1' ) {
-				reject( new Error( `Failed to parse WordPress installation status` ) );
-				return;
-			}
-
-			resolve( status === '1' );
-		} );
-	} );
+	const status = stdout.trim();
+	return status === '1';
 }
 
 async function installWordPress( config: ServerConfig, signal: AbortSignal ): Promise< void > {
@@ -176,28 +215,18 @@ async function installWordPress( config: ServerConfig, signal: AbortSignal ): Pr
 		);
 	}
 
-	await new Promise< void >( ( resolve, reject ) => {
-		const phpScriptProcess = spawn( PHP_BINARY_PATH, [ SET_DEFAULT_PERMALINKS_PATH ], {
+	try {
+		await runPhpCommand( [ SET_DEFAULT_PERMALINKS_PATH ], {
 			cwd: config.sitePath,
-			stdio: [ 'ignore', 'pipe', 'pipe' ],
 			signal,
 		} );
-
-		phpScriptProcess.stdout?.pipe( process.stdout );
-		phpScriptProcess.stderr?.pipe( process.stderr );
-
-		phpScriptProcess.once( 'error', ( error: Error ) => {
-			reject( error );
-		} );
-		phpScriptProcess.once( 'exit', ( code ) => {
-			if ( code === 0 ) {
-				resolve();
-				return;
-			}
-
-			reject( new Error( `Failed to set default permalinks (code: ${ code })` ) );
-		} );
-	} );
+	} catch ( error ) {
+		throw new Error(
+			`Failed to set default permalinks: ${
+				error instanceof Error ? error.message : String( error )
+			}`
+		);
+	}
 }
 
 const startServer = wrapWithStartingPromise(
@@ -219,14 +248,10 @@ const startServer = wrapWithStartingPromise(
 			const phpAddress = `localhost:${ config.port }`;
 			logToConsole( `Spawning PHP built-in server on ${ phpAddress } for site ${ config.siteId }` );
 
-			const serverChild = spawn( PHP_BINARY_PATH, [ '-S', phpAddress, ROUTER_PATH ], {
+			const serverChild = spawnPhpProcess( [ '-S', phpAddress, ROUTER_PATH ], {
 				cwd: config.sitePath,
-				stdio: [ 'ignore', 'pipe', 'pipe' ],
 			} );
 			spawnedChild = serverChild;
-
-			serverChild.stdout?.pipe( process.stdout );
-			serverChild.stderr?.pipe( process.stderr );
 
 			await new Promise< void >( ( resolve, reject ) => {
 				serverChild.once( 'spawn', () => {

@@ -11,6 +11,7 @@ import {
 	PLAYGROUND_CLI_INACTIVITY_TIMEOUT,
 	PLAYGROUND_CLI_MAX_TIMEOUT,
 } from '@studio/common/constants';
+import { SiteCommandLoggerAction } from '@studio/common/logger-actions';
 import { z } from 'zod';
 import { SiteData, SiteRuntime } from 'cli/lib/cli-config/core';
 import {
@@ -21,9 +22,11 @@ import {
 	type DaemonBusEventMap,
 	sendMessageToProcess,
 } from 'cli/lib/daemon-client';
+import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { ServerConfig, ManagerMessagePayload } from 'cli/lib/types/wordpress-server-ipc';
 import { Logger } from 'cli/logger';
+import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { WordPressInstallMode } from '@wp-playground/wordpress';
 
 export const SITE_PROCESS_PREFIX = 'studio-site-';
@@ -167,6 +170,21 @@ export async function startWordPressServer(
 		if ( fs.existsSync( optionsPath ) ) {
 			options = JSON.parse( fs.readFileSync( optionsPath, 'utf-8' ) ) as StartServerOptions;
 		}
+	}
+
+	if ( site.runtime === 'native-php' && site.phpVersion ) {
+		logger.reportStart(
+			SiteCommandLoggerAction.ENSURE_PHP_BINARY,
+			`Checking PHP ${ site.phpVersion } binary…`
+		);
+		await ensurePhpBinaryAvailable(
+			site.phpVersion as SupportedPHPVersion,
+			( downloaded, total ) => {
+				const dl = ( downloaded / 1024 / 1024 ).toFixed( 1 );
+				const tot = total ? ` / ${ ( total / 1024 / 1024 ).toFixed( 1 ) } MB` : '';
+				logger.reportProgress( `Downloading PHP ${ site.phpVersion } (${ dl } MB${ tot })` );
+			}
+		);
 	}
 
 	const wordPressServerChildPath = getChildScriptPath( site.runtime );

@@ -1088,8 +1088,15 @@ const waitForAnnotationsTool = tool(
 		'Returns the annotations the user wrote, captured straight from the page. ' +
 		'Call this AFTER `open_annotation_browser`.',
 	{
+		// Bound the wait — `0` would resolve to `timeout: 0` in Playwright,
+		// which means "no timeout" and would block the agent forever. The
+		// upper bound of 120 minutes is generous enough for any realistic
+		// annotation session.
 		timeoutMinutes: z
 			.number()
+			.int()
+			.min( 1 )
+			.max( 120 )
 			.optional()
 			.describe( 'How long to wait for the user to click "Done", in minutes. Defaults to 30.' ),
 	},

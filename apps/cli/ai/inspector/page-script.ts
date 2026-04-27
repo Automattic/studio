@@ -64,8 +64,13 @@ export const INSPECTOR_PAGE_SCRIPT =
 			}
 			const parent = node.parentElement;
 			if ( parent ) {
+				/* Exclude our own host element when counting siblings — it
+				 * lives directly under <body>, so without this filter every
+				 * top-level <div> child of <body> picks up an off-by-one
+				 * nth-of-type index and the agent looks up the wrong
+				 * element. */
 				const sameTagSiblings = Array.from( parent.children ).filter(
-					( c ) => c.tagName === node.tagName
+					( c ) => c.tagName === node.tagName && c.id !== HOST_ID
 				);
 				if ( sameTagSiblings.length > 1 ) {
 					part += ':nth-of-type(' + ( sameTagSiblings.indexOf( node ) + 1 ) + ')';

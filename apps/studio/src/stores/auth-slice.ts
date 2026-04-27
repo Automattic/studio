@@ -195,32 +195,32 @@ export const authSelectors = {
 	selectUser: ( state: RootState ) => state.auth.user ?? undefined,
 };
 
-if ( process.env.NODE_ENV !== 'test' ) {
+export function initializeAuthListeners() {
 	void store.dispatch( initializeAuth() );
-}
 
-window.ipcListener.subscribe( 'auth-updated', ( _event, payload ) => {
-	if ( 'error' in payload ) {
-		let title: string = __( 'Authentication error' );
-		let message: string = __( 'Please try again.' );
+	window.ipcListener.subscribe( 'auth-updated', ( _event, payload ) => {
+		if ( 'error' in payload ) {
+			let title: string = __( 'Authentication error' );
+			let message: string = __( 'Please try again.' );
 
-		if ( payload.error instanceof Error && payload.error.message.includes( 'access_denied' ) ) {
-			title = __( 'Authorization denied' );
-			message = __(
-				'It looks like you denied the authorization request. To proceed, please click "Approve"'
-			);
+			if ( payload.error instanceof Error && payload.error.message.includes( 'access_denied' ) ) {
+				title = __( 'Authorization denied' );
+				message = __(
+					'It looks like you denied the authorization request. To proceed, please click "Approve"'
+				);
+			}
+
+			void getIpcApi().showErrorMessageBox( { title, message } );
+			return;
 		}
 
-		void getIpcApi().showErrorMessageBox( { title, message } );
-		return;
-	}
+		if ( ! payload.token ) {
+			void store.dispatch( authLogout() );
+			return;
+		}
 
-	if ( ! payload.token ) {
-		void store.dispatch( authLogout() );
-		return;
-	}
-
-	void store.dispatch( authTokenReceived( { token: payload.token } ) );
-} );
+		void store.dispatch( authTokenReceived( { token: payload.token } ) );
+	} );
+}
 
 export default authSlice.reducer;

@@ -21,6 +21,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { extract } from 'tar';
+import { z } from 'zod';
 import { extractZip } from '../tools/common/lib/extract-zip';
 
 const PHP_VERSION = '8.4.20';
@@ -36,21 +37,26 @@ const KNOWN_HASHES: Record< string, string > = {
 	// 'win32-x64':    '<sha256>',
 };
 
-type Platform = 'darwin' | 'win32' | 'linux';
-type Arch = 'x64' | 'arm64';
+const platformSchema = z.enum( [ 'darwin', 'win32', 'linux' ] );
+const archSchema = z.enum( [ 'x64', 'arm64' ] );
 
-const platform = ( process.argv[ 2 ] || process.platform ) as Platform;
-const arch = ( process.argv[ 3 ] || process.arch ) as Arch;
+type Platform = z.infer< typeof platformSchema >;
+type Arch = z.infer< typeof archSchema >;
 
-if ( ! [ 'darwin', 'win32', 'linux' ].includes( platform ) ) {
-	console.error( `Unsupported platform: ${ platform }` );
+const platformResult = platformSchema.safeParse( process.argv[ 2 ] ?? process.platform );
+if ( ! platformResult.success ) {
+	console.error( `Unsupported platform: ${ process.argv[ 2 ] ?? process.platform }` );
 	process.exit( 1 );
 }
 
-if ( ! [ 'x64', 'arm64' ].includes( arch ) ) {
-	console.error( `Unsupported arch: ${ arch }` );
+const archResult = archSchema.safeParse( process.argv[ 3 ] ?? process.arch );
+if ( ! archResult.success ) {
+	console.error( `Unsupported arch: ${ process.argv[ 3 ] ?? process.arch }` );
 	process.exit( 1 );
 }
+
+const platform = platformResult.data;
+const arch = archResult.data;
 
 // Windows ARM64 has no pre-built binary upstream; run x64 under OS emulation.
 const effectiveArch: Arch = platform === 'win32' ? 'x64' : arch;

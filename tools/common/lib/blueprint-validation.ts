@@ -3,7 +3,7 @@ import validateBlueprintSchema from '@wp-playground/blueprints/blueprint-schema-
 import { SupportedPHPVersion } from '../types/php-versions';
 
 export type BlueprintPreferredVersions = {
-	php?: SupportedPHPVersion;
+	php?: string;
 	wp?: string;
 };
 

@@ -8,7 +8,7 @@ import {
 	BlueprintPreferredVersions,
 	BlueprintValidationWarning,
 } from '@studio/common/lib/blueprint-validation';
-import { SupportedPHPVersion, SupportedPHPVersionsList } from '@studio/common/types/php-versions';
+import { isSupportedPHPVersion, SupportedPHPVersion } from '@studio/common/types/php-versions';
 import { SyncSite } from '@studio/common/types/sync';
 import { speak } from '@wordpress/a11y';
 import { Navigator, useNavigator } from '@wordpress/components';
@@ -295,10 +295,7 @@ function NavigationContent( props: NavigationContentProps ) {
 	} );
 	const defaultValuesWithBlueprint = useMemo( () => {
 		const values = { ...defaultValues };
-		if (
-			blueprintPreferredVersions?.php &&
-			SupportedPHPVersionsList.includes( blueprintPreferredVersions.php )
-		) {
+		if ( isSupportedPHPVersion( blueprintPreferredVersions?.php ) ) {
 			values.phpVersion = blueprintPreferredVersions.php;
 		}
 		if (

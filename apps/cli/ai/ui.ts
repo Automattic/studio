@@ -444,6 +444,11 @@ export class AiChatUI implements AiOutputAdapter {
 		return this._activeSite;
 	}
 
+	set activeSite( site: SiteInfo | null ) {
+		this._activeSite = site;
+		this.editor.activeSiteName = site?.name ?? null;
+	}
+
 	private refreshPromptChrome(): void {
 		this.editor.invalidate();
 	}
@@ -1763,7 +1768,7 @@ export class AiChatUI implements AiOutputAdapter {
 		}
 
 		const contentBlocks = Array.isArray( message.message.content ) ? message.message.content : [];
-		const toolResultBlock = contentBlocks.find( isToolResultBlock );
+		const toolResultBlock = ( contentBlocks as unknown[] ).find( isToolResultBlock );
 		if ( ! toolResultBlock ) {
 			return null;
 		}

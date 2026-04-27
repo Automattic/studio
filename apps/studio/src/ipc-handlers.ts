@@ -27,6 +27,7 @@ import {
 	listAiSessions as listAiSessionsFromStore,
 	loadAiSession as loadAiSessionFromStore,
 } from '@studio/common/ai/sessions/store';
+import { AI_SKILL_COMMANDS, buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
 import {
 	installSkillToSite,
 	removeSkillFromSite,
@@ -108,10 +109,15 @@ import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-ed
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
-import { getUserEditor, getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
+import {
+	getUserEditor,
+	getUserTerminal,
+	getDefaultSiteDirectory,
+	saveDefaultSiteDirectory,
+} from 'src/modules/user-settings/lib/ipc-handlers';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { SiteServer, stopAllServers as triggerStopAllServers } from 'src/site-server';
-import { DEFAULT_SITE_PATH, getSiteThumbnailPath } from 'src/storage/paths';
+import { getSiteThumbnailPath } from 'src/storage/paths';
 import {
 	loadUserData,
 	lockAppdata,
@@ -172,6 +178,7 @@ export {
 	saveUserTerminal,
 	showUserSettings,
 } from 'src/modules/user-settings/lib/ipc-handlers';
+export { getDefaultSiteDirectory, saveDefaultSiteDirectory };
 
 export { importSite, exportSite } from 'src/modules/import-export/lib/ipc-handlers';
 
@@ -281,6 +288,22 @@ async function reconcileSessionEnvironmentBeforeRun( sessionId: string ): Promis
 	} );
 }
 
+// Expand a bare skill-command slash prompt (e.g. `/rank-me-up`) into the
+// instruction the agent actually acts on. Mirrors the CLI's interactive main
+// loop so UI clients can send the short form and get the same behaviour.
+function expandSkillCommandPrompt( prompt: string ): string {
+	const trimmed = prompt.trim();
+	if ( ! trimmed.startsWith( '/' ) ) {
+		return prompt;
+	}
+	const name = trimmed.slice( 1 );
+	const match = AI_SKILL_COMMANDS.find( ( cmd ) => cmd.name === name );
+	if ( ! match ) {
+		return prompt;
+	}
+	return buildSkillInvocationPrompt( name );
+}
+
 export async function continueAiSession(
 	event: IpcMainInvokeEvent,
 	sessionId: string,
@@ -289,7 +312,7 @@ export async function continueAiSession(
 	await reconcileSessionEnvironmentBeforeRun( sessionId );
 	return startAgentRun( {
 		sessionId,
-		prompt,
+		prompt: expandSkillCommandPrompt( prompt ),
 		webContents: event.sender,
 	} );
 }
@@ -887,10 +910,14 @@ export async function showSaveAsDialog( event: IpcMainInvokeEvent, options: Save
 		throw new Error( `No window found for sender of showSaveAsDialog message: ${ event.frameId }` );
 	}
 
-	const defaultPath =
-		options.defaultPath === nodePath.basename( options.defaultPath ?? '' )
-			? nodePath.join( DEFAULT_SITE_PATH, options.defaultPath )
-			: options.defaultPath;
+	let defaultPath = options.defaultPath;
+	if (
+		typeof options.defaultPath === 'string' &&
+		options.defaultPath === nodePath.basename( options.defaultPath )
+	) {
+		const defaultSiteDirectory = await getDefaultSiteDirectory();
+		defaultPath = nodePath.join( defaultSiteDirectory, options.defaultPath );
+	}
 	const { canceled, filePath } = await dialog.showSaveDialog( parentWindow, {
 		defaultPath,
 		...options,
@@ -924,9 +951,11 @@ export async function showOpenFolderDialog(
 		};
 	}
 
+	const defaultPath =
+		defaultDialogPath !== '' ? defaultDialogPath : await getDefaultSiteDirectory();
 	const { canceled, filePaths } = await dialog.showOpenDialog( parentWindow, {
 		title,
-		defaultPath: defaultDialogPath !== '' ? defaultDialogPath : DEFAULT_SITE_PATH,
+		defaultPath,
 		properties: [
 			'openDirectory',
 			'createDirectory', // allow user to create new directories; macOS only
@@ -970,7 +999,8 @@ export async function copySite(
 	}
 	const sourceSite = sourceServer.details;
 
-	const finalSitePath = nodePath.join( DEFAULT_SITE_PATH, sanitizeFolderName( siteName ) );
+	const defaultSiteDirectory = await getDefaultSiteDirectory();
+	const finalSitePath = nodePath.join( defaultSiteDirectory, sanitizeFolderName( siteName ) );
 
 	console.log( `Copying site '${ sourceSite.name }' to '${ siteName }'` );
 
@@ -1128,7 +1158,8 @@ export async function generateProposedSitePath(
 	_event: IpcMainInvokeEvent,
 	siteName: string
 ): Promise< FolderDialogResponse > {
-	const path = nodePath.join( DEFAULT_SITE_PATH, sanitizeFolderName( siteName ) );
+	const defaultSiteDirectory = await getDefaultSiteDirectory();
+	const path = nodePath.join( defaultSiteDirectory, sanitizeFolderName( siteName ) );
 
 	try {
 		return {
@@ -1163,9 +1194,10 @@ export async function generateSiteNameFromList(
 	_event: IpcMainInvokeEvent,
 	usedSites: SiteDetails[]
 ): Promise< string > {
+	const defaultSiteDirectory = await getDefaultSiteDirectory();
 	return generateSiteName(
 		usedSites.map( ( s ) => s.name ),
-		DEFAULT_SITE_PATH
+		defaultSiteDirectory
 	);
 }
 
@@ -1174,10 +1206,11 @@ export async function generateNumberedNameFromList(
 	baseName: string,
 	usedSites: SiteDetails[]
 ): Promise< string > {
+	const defaultSiteDirectory = await getDefaultSiteDirectory();
 	return generateNumberedName(
 		baseName,
 		usedSites.map( ( s ) => s.name ),
-		DEFAULT_SITE_PATH
+		defaultSiteDirectory
 	);
 }
 

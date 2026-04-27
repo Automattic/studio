@@ -30,8 +30,8 @@
 	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
 	border-radius: var(--wpds-border-radius-sm);
 	color: var(--wpds-color-fg-content-neutral);
-	font-size: var(--wpds-font-size-sm);
-	line-height: var(--wpds-font-line-height-sm);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
 	cursor: var(--wpds-cursor-control);
 	outline: none;
 	user-select: none;

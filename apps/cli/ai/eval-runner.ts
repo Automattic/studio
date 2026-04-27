@@ -6,6 +6,9 @@
  * promptfoo config, not here.
  */
 
+import { writeFileSync, writeSync as fsWriteSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { startAiAgent, type AskUserQuestion } from 'cli/ai/agent';
 import {
 	resolveAiEnvironment,
@@ -54,22 +57,29 @@ function extractToolCalls( message: SDKMessage ) {
 			} ): block is { type: 'tool_use'; id: string; name: string; input: unknown } =>
 				block.type === 'tool_use'
 		)
-		.map( ( block: { id: string; name: string } ) => ( {
+		.map( ( block: { id: string; name: string; input: unknown } ) => ( {
 			id: block.id,
 			name: normalizeToolName( block.name ),
+			input: block.input,
 		} ) );
 }
+
+type TextBlock = { type: 'text'; text: string };
+type ToolResultBlock = {
+	type: 'tool_result';
+	tool_use_id: string;
+	is_error?: boolean;
+	content?: unknown;
+};
 
 function extractTextSegments( message: SDKMessage ): string[] {
 	if ( message.type !== 'assistant' ) {
 		return [];
 	}
-	const content = message.message.content ?? [];
+	const content = ( message.message.content ?? [] ) as Array< { type: string } >;
 	return content
-		.filter(
-			( block: { type: string } ): block is { type: 'text'; text: string } => block.type === 'text'
-		)
-		.map( ( block: { text: string } ) => block.text );
+		.filter( ( block ): block is TextBlock => block.type === 'text' )
+		.map( ( block ) => block.text );
 }
 
 function extractToolResult( message: SDKMessage ): {
@@ -80,12 +90,8 @@ function extractToolResult( message: SDKMessage ): {
 	if ( message.type !== 'user' || ! Array.isArray( message.message.content ) ) {
 		return null;
 	}
-	const block = message.message.content.find(
-		( b: {
-			type: string;
-		} ): b is { type: 'tool_result'; tool_use_id: string; is_error?: boolean; content?: unknown } =>
-			b.type === 'tool_result'
-	);
+	const content = message.message.content as Array< { type: string } >;
+	const block = content.find( ( b ): b is ToolResultBlock => b.type === 'tool_result' );
 	if ( ! block ) {
 		return null;
 	}
@@ -93,9 +99,11 @@ function extractToolResult( message: SDKMessage ): {
 	if ( typeof block.content === 'string' ) {
 		text = block.content;
 	} else if ( Array.isArray( block.content ) ) {
-		const tb = block.content.find( ( b: { type: string } ) => b.type === 'text' );
-		if ( tb && 'text' in tb ) {
-			text = tb.text as string;
+		const tb = ( block.content as Array< { type: string } > ).find(
+			( b ): b is TextBlock => b.type === 'text'
+		);
+		if ( tb ) {
+			text = tb.text;
 		}
 	}
 	return { toolUseId: block.tool_use_id ?? null, isError: block.is_error === true, text };
@@ -137,7 +145,7 @@ async function runEval( input: EvalRunnerInput ) {
 	// Allow running inside a Claude Code session
 	delete env.CLAUDECODE;
 
-	const toolCalls: { id: string; name: string }[] = [];
+	const toolCalls: { id: string; name: string; input: unknown }[] = [];
 	const toolResults: {
 		toolUseId: string | null;
 		toolName: string | null;
@@ -152,6 +160,9 @@ async function runEval( input: EvalRunnerInput ) {
 		isPermission: boolean;
 	}[] = [];
 	const toolNameById = new Map< string, string >();
+	// Wall-clock per turn, measured between successive assistant messages.
+	const turnDurationsMs: number[] = [];
+	let turnStart = Date.now();
 	let numTurns: number | null = null;
 	let success = false;
 
@@ -180,6 +191,11 @@ async function runEval( input: EvalRunnerInput ) {
 
 	try {
 		for await ( const message of query ) {
+			if ( message.type === 'assistant' ) {
+				const now = Date.now();
+				turnDurationsMs.push( now - turnStart );
+				turnStart = now;
+			}
 			for ( const tc of extractToolCalls( message ) ) {
 				toolCalls.push( tc );
 				toolNameById.set( tc.id, tc.name );
@@ -208,22 +224,47 @@ async function runEval( input: EvalRunnerInput ) {
 		clearTimeout( timeout );
 	}
 
-	return { success, numTurns, toolCalls, toolResults, textSegments, questions };
+	return { success, numTurns, turnDurationsMs, toolCalls, toolResults, textSegments, questions };
 }
 
+const RESULT_PREFIX = 'EVAL_RUNNER_RESULT_FILE=';
+
+// Studio tools and the Agent SDK freely print to stdout (pi-tui spinners,
+// daemon status, …). promptfoo's `exec:` provider wraps us in
+// `child_process.exec`, whose default 1 MB stdout buffer long runs overflow.
+// Redirect stdout writes to stderr during the run, serialize the result to a
+// tmp file, and emit only `EVAL_RUNNER_RESULT_FILE=<path>` via a raw
+// `fs.writeSync(1, …)` that bypasses the wrapper.
 async function main() {
+	const filePath = path.join( os.tmpdir(), `studio-eval-${ Date.now() }-${ process.pid }.json` );
+
+	( process.stdout as unknown as { write: ( ...args: unknown[] ) => boolean } ).write = (
+		...args: unknown[]
+	) => {
+		return ( process.stderr.write as unknown as ( ...args: unknown[] ) => boolean )( ...args );
+	};
+	const rawStdout = ( line: string ) => fsWriteSync( 1, line );
+	const emit = ( payload: unknown ) => {
+		try {
+			writeFileSync( filePath, JSON.stringify( payload ) );
+			rawStdout( `${ RESULT_PREFIX }${ filePath }` );
+		} catch ( writeError ) {
+			const msg = writeError instanceof Error ? writeError.message : String( writeError );
+			process.stderr.write( `[eval-runner] failed to write ${ filePath }: ${ msg }\n` );
+			rawStdout( JSON.stringify( { success: false, error: msg } ) );
+		}
+	};
+
+	let exitCode = 0;
 	try {
-		const result = await runEval( readInput() );
-		process.stdout.write( JSON.stringify( result ) );
+		emit( await runEval( readInput() ) );
 	} catch ( error ) {
-		process.stdout.write(
-			JSON.stringify( {
-				success: false,
-				error: error instanceof Error ? error.message : String( error ),
-			} )
-		);
-		process.exitCode = 1;
+		emit( { success: false, error: error instanceof Error ? error.message : String( error ) } );
+		exitCode = 1;
 	}
+	// The Agent SDK keeps internal handles open past conversation end; bail out
+	// rather than leaving promptfoo waiting on its exec child.
+	process.exit( exitCode );
 }
 
 void main();

@@ -25,8 +25,8 @@
 	width: 100%;
 	padding: 0 var(--wpds-dimension-padding-sm);
 	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-font-size-md);
-	font-weight: var(--wpds-font-weight-regular);
+	font-size: var(--wpds-typography-font-size-md);
+	font-weight: var(--wpds-typography-font-weight-regular);
 }
 
 .item:hover,
@@ -36,5 +36,5 @@
 
 .itemActive {
 	color: var(--wpds-color-fg-content-neutral);
-	font-weight: var(--wpds-font-weight-medium);
+	font-weight: var(--wpds-typography-font-weight-medium);
 }

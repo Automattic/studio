@@ -1,6 +1,6 @@
 .root {
 	color: var(--wpds-color-fg-content-neutral);
-	font-size: var(--wpds-font-size-md);
+	font-size: var(--wpds-typography-font-size-md);
 	line-height: 1.65;
 	/* Subtle opentype improvements — lining numerals in tables, contextual
 	   alternates in prose. Falls back silently on fonts that don't support them. */
@@ -97,7 +97,7 @@
 }
 
 .a {
-	color: var(--wpds-color-fg-content-accent, #2563eb);
+	color: var(--wpds-color-fg-interactive-brand, #2563eb);
 	font-weight: 500;
 	text-decoration: underline;
 	text-decoration-thickness: 1px;
@@ -138,7 +138,7 @@
 	padding: 0.1em 0.35em;
 	border-radius: 4px;
 	background-color: var(--wpds-color-bg-surface-neutral-weak);
-	font-family: var(--wpds-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+	font-family: var(--wpds-typography-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
 	font-size: 0.875em;
 	color: var(--wpds-color-fg-content-neutral);
 	/* Discourage code from breaking awkwardly across lines. */
@@ -150,7 +150,7 @@
 	padding: 0.875em 1em;
 	border-radius: var(--wpds-border-radius-md, 8px);
 	background-color: var(--wpds-color-bg-surface-neutral-weak);
-	font-family: var(--wpds-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+	font-family: var(--wpds-typography-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
 	font-size: 0.85em;
 	line-height: 1.55;
 	overflow-x: auto;

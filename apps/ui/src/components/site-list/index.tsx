@@ -114,6 +114,15 @@ function SessionItem( { session }: { session: AiSessionSummary } ) {
 
 function NewSessionButton( { site }: { site: SiteDetails } ) {
 	const navigate = useNavigate();
+	const [ isPending, setIsPending ] = useState( false );
+	const handleClick = async () => {
+		setIsPending( true );
+		try {
+			await navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+		} finally {
+			setIsPending( false );
+		}
+	};
 	return (
 		<IconButton
 			variant="minimal"
@@ -122,7 +131,9 @@ function NewSessionButton( { site }: { site: SiteDetails } ) {
 			icon={ plus }
 			label={ __( 'New session' ) }
 			className={ styles.siteAction }
-			onClick={ () => void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } ) }
+			loading={ isPending }
+			loadingAnnouncement={ __( 'Creating session' ) }
+			onClick={ handleClick }
 		/>
 	);
 }

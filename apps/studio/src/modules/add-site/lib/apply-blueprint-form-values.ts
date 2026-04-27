@@ -22,9 +22,11 @@ export function applyBlueprintFormValues(
 	if ( blueprintJson.preferredVersions ) {
 		const rawPhp = blueprintJson.preferredVersions.php;
 
-		// Normalise unsupported 7.2/7.3 to 7.4 for display; pass all other values through as-is.
+		// Normalise unsupported 7.2/7.3 to 7.4 for display; treat 'latest' as absent.
 		const preferredPhp =
-			rawPhp === '7.2' || rawPhp === '7.3' ? '7.4' : rawPhp;
+			rawPhp === '7.2' || rawPhp === '7.3' ? '7.4'
+			: rawPhp === 'latest' ? undefined
+			: rawPhp;
 
 		setters.setBlueprintPreferredVersions( {
 			php: preferredPhp,

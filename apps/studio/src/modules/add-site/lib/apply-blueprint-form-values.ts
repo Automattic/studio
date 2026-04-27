@@ -1,6 +1,6 @@
 import { extractFormValuesFromBlueprint } from '@studio/common/lib/blueprint-settings';
 import { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
-import { isSupportedPHPVersion, SupportedPHPVersion } from '@studio/common/types/php-versions';
+import { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 interface BlueprintFormValueSetters {
@@ -24,9 +24,7 @@ export function applyBlueprintFormValues(
 
 		// Normalise unsupported 7.2/7.3 to 7.4 for display; treat 'latest' as absent.
 		const preferredPhp =
-			rawPhp === '7.2' || rawPhp === '7.3' ? '7.4'
-			: rawPhp === 'latest' ? undefined
-			: rawPhp;
+			rawPhp === '7.2' || rawPhp === '7.3' ? '7.4' : rawPhp === 'latest' ? undefined : rawPhp;
 
 		setters.setBlueprintPreferredVersions( {
 			php: preferredPhp,

@@ -1,6 +1,5 @@
 import { __, sprintf } from '@wordpress/i18n';
 import validateBlueprintSchema from '@wp-playground/blueprints/blueprint-schema-validator';
-import { SupportedPHPVersion } from '../types/php-versions';
 
 export type BlueprintPreferredVersions = {
 	php?: string;

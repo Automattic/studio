@@ -1,33 +1,22 @@
-import fs from 'fs';
 import path from 'path';
-import { query } from '@anthropic-ai/claude-agent-sdk';
-import {
-	ALLOWED_TOOLS,
-	STUDIO_ROOT,
-	promptForApproval,
-	type AskUserQuestion,
-} from 'cli/ai/security';
+import { query, type HookCallback } from '@anthropic-ai/claude-agent-sdk';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { createRemoteSiteTools, createStudioTools } from 'cli/ai/tools';
+import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import type { AgentRuntime, AgentRuntimeConfig } from '../types';
+import type { AskUserQuestion } from 'cli/ai/agent';
 
 /**
  * Runtime that talks to Anthropic (direct API or via the WordPress.com proxy)
- * through the Claude Agent SDK. This is the established, supported path.
+ * through the Claude Agent SDK. Permission classification is delegated to the
+ * SDK's `auto` mode — see #3242 on trunk for the rationale (drops the
+ * ad-hoc, easily-bypassed gating that lived in `cli/ai/security` and lets the
+ * SDK make the call instead).
  */
 export const anthropicRuntime: AgentRuntime = {
 	run( config: AgentRuntimeConfig ) {
-		const {
-			prompt,
-			env,
-			model,
-			maxTurns,
-			resume,
-			autoApprove,
-			activeSite,
-			wpcomAccessToken,
-			onAskUser,
-		} = config;
+		const { prompt, env, model, maxTurns, resume, activeSite, wpcomAccessToken, onAskUser } =
+			config;
 
 		const isRemoteSite = activeSite?.remote && activeSite?.wpcomSiteId && wpcomAccessToken;
 
@@ -44,8 +33,6 @@ export const anthropicRuntime: AgentRuntime = {
 				: createStudioTools( { enablePreviewSteering: isForkedByDesktop } ),
 		};
 
-		const allowedTools = [ ...ALLOWED_TOOLS ];
-
 		const systemPromptOptions = isRemoteSite
 			? {
 					remoteSite: {
@@ -56,9 +43,34 @@ export const anthropicRuntime: AgentRuntime = {
 			  }
 			: { previewSteering: isForkedByDesktop };
 
-		if ( ! fs.existsSync( STUDIO_ROOT ) ) {
-			fs.mkdirSync( STUDIO_ROOT, { recursive: true } );
-		}
+		// Intercept the built-in AskUserQuestion tool so the agent's questions
+		// render in our chat UI (via onAskUser) instead of the SDK's default
+		// prompt. PreToolUse with `matcher: 'AskUserQuestion'` lets us inject
+		// answers via `updatedInput` and approve the call, while leaving every
+		// other tool to the 'auto' permission classifier.
+		const askUserQuestionHook: HookCallback | undefined = onAskUser
+			? async ( input ) => {
+					if ( input.hook_event_name !== 'PreToolUse' ) {
+						return {};
+					}
+					const toolInput = input.tool_input as {
+						questions?: AskUserQuestion[];
+						answers?: Record< string, string >;
+					};
+					const questions = ( toolInput.questions ?? [] ).map( ( q ) => ( {
+						...q,
+						allowFreeForm: true,
+					} ) );
+					const answers = await onAskUser( questions );
+					return {
+						hookSpecificOutput: {
+							hookEventName: 'PreToolUse' as const,
+							permissionDecision: 'allow' as const,
+							updatedInput: { ...toolInput, answers },
+						},
+					};
+			  }
+			: undefined;
 
 		return query( {
 			prompt,
@@ -71,36 +83,14 @@ export const anthropicRuntime: AgentRuntime = {
 				},
 				mcpServers,
 				maxTurns,
-				cwd: STUDIO_ROOT,
+				cwd: STUDIO_SITES_ROOT,
 				tools: { type: 'preset', preset: 'claude_code' },
-				allowedTools,
-				permissionMode: 'default',
-				canUseTool: async ( toolName, input, metadata ) => {
-					if ( autoApprove ) {
-						return {
-							behavior: 'allow' as const,
-							updatedInput: input as Record< string, unknown >,
-						};
-					}
-
-					if ( toolName === 'AskUserQuestion' && onAskUser ) {
-						const typedInput = input as {
-							questions?: AskUserQuestion[];
-							answers?: Record< string, string >;
-						};
-						const questions = ( typedInput.questions ?? [] ).map( ( q ) => ( {
-							...q,
-							allowFreeForm: true,
-						} ) );
-						const answers = await onAskUser( questions );
-						return {
-							behavior: 'allow' as const,
-							updatedInput: { ...input, answers },
-						};
-					}
-
-					return promptForApproval( { toolName, input, metadata, onAskUser } );
-				},
+				permissionMode: 'auto',
+				...( askUserQuestionHook && {
+					hooks: {
+						PreToolUse: [ { matcher: 'AskUserQuestion', hooks: [ askUserQuestionHook ] } ],
+					},
+				} ),
 				plugins: [
 					{
 						type: 'local' as const,

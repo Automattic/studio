@@ -14,7 +14,6 @@ import {
 	createReadTool,
 	createWriteTool,
 } from '@mariozechner/pi-coding-agent';
-import { STUDIO_ROOT } from 'cli/ai/security';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { studioToolDefinitions } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
@@ -22,6 +21,7 @@ import { createSiteTool } from 'cli/ai/tools/create-site';
 import { pullSiteTool } from 'cli/ai/tools/pull-site';
 import { takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
 import { createWpcomRequestTool } from 'cli/ai/tools/wpcom-request';
+import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { buildTransformContext } from './compaction';
 import { loadSidecar, saveSidecar } from './persistence';
 import { adaptToolsForPi } from './pi-tool-adapter';
@@ -316,13 +316,13 @@ function buildAgentTools( config: AgentRuntimeConfig ) {
 	} );
 
 	const piTools: AgentToolAny[] = [
-		renameTool( createReadTool( STUDIO_ROOT ), 'Read' ),
-		renameTool( createWriteTool( STUDIO_ROOT ), 'Write' ),
-		renameTool( createEditTool( STUDIO_ROOT ), 'Edit' ),
-		renameTool( createBashTool( STUDIO_ROOT ), 'Bash' ),
-		renameTool( createGrepTool( STUDIO_ROOT ), 'Grep' ),
-		renameTool( createFindTool( STUDIO_ROOT ), 'Glob' ),
-		renameTool( createLsTool( STUDIO_ROOT ), 'Ls' ),
+		renameTool( createReadTool( STUDIO_SITES_ROOT ), 'Read' ),
+		renameTool( createWriteTool( STUDIO_SITES_ROOT ), 'Write' ),
+		renameTool( createEditTool( STUDIO_SITES_ROOT ), 'Edit' ),
+		renameTool( createBashTool( STUDIO_SITES_ROOT ), 'Bash' ),
+		renameTool( createGrepTool( STUDIO_SITES_ROOT ), 'Grep' ),
+		renameTool( createFindTool( STUDIO_SITES_ROOT ), 'Glob' ),
+		renameTool( createLsTool( STUDIO_SITES_ROOT ), 'Ls' ),
 	];
 	return [ ...studioTools, ...piTools ];
 }
@@ -446,7 +446,7 @@ function makeSystemInit( sessionId: string, model: string ): SDKMessage {
 		type: 'system',
 		subtype: 'init',
 		apiKeySource: 'user',
-		cwd: STUDIO_ROOT,
+		cwd: STUDIO_SITES_ROOT,
 		tools: [],
 		mcp_servers: [],
 		model,

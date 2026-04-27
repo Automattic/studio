@@ -8,12 +8,21 @@ import {
 } from '@studio/common/ai/models';
 import { anthropicRuntime } from 'cli/ai/runtimes/anthropic';
 import { isOpenAIRuntimeSession, openaiRuntime } from 'cli/ai/runtimes/openai';
-import { STUDIO_ROOT, type AskUserQuestion } from 'cli/ai/security';
+import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import type { AgentRuntime, AgentRuntimeHandle } from 'cli/ai/runtimes/types';
 import type { SiteInfo } from 'cli/ai/ui';
 
-export type { AskUserQuestion } from 'cli/ai/security';
 export { AI_MODELS, DEFAULT_MODEL, getAiModelLabel, type AiModelId };
+
+export interface AskUserQuestion {
+	question: string;
+	options: { label: string; description: string }[];
+	allowFreeForm?: boolean;
+}
+
+export type AskUserHandler = (
+	questions: AskUserQuestion[]
+) => Promise< Record< string, string > >;
 
 export interface AiAgentConfig {
 	prompt: string;
@@ -21,10 +30,9 @@ export interface AiAgentConfig {
 	model?: AiModelId;
 	maxTurns?: number;
 	resume?: string;
-	autoApprove?: boolean;
 	activeSite?: SiteInfo | null;
 	wpcomAccessToken?: string;
-	onAskUser?: ( questions: AskUserQuestion[] ) => Promise< Record< string, string > >;
+	onAskUser?: AskUserHandler;
 	/**
 	 * Absolute path to the JSONL the recorder is writing to. Optional —
 	 * the OpenAI runtime uses it to load/save its sidecar transcript so
@@ -79,7 +87,6 @@ export function startAiAgent( config: AiAgentConfig ): AgentRuntimeHandle {
 		model = DEFAULT_MODEL,
 		maxTurns = 75,
 		resume,
-		autoApprove,
 		activeSite,
 		wpcomAccessToken,
 		onAskUser,
@@ -87,8 +94,8 @@ export function startAiAgent( config: AiAgentConfig ): AgentRuntimeHandle {
 	} = config;
 	const resolvedEnv = env ?? { ...( process.env as Record< string, string > ) };
 
-	if ( ! fs.existsSync( STUDIO_ROOT ) ) {
-		fs.mkdirSync( STUDIO_ROOT, { recursive: true } );
+	if ( ! fs.existsSync( STUDIO_SITES_ROOT ) ) {
+		fs.mkdirSync( STUDIO_SITES_ROOT, { recursive: true } );
 	}
 
 	const runtime = pickRuntime( model );
@@ -113,7 +120,6 @@ export function startAiAgent( config: AiAgentConfig ): AgentRuntimeHandle {
 		model,
 		maxTurns,
 		resume: safeResume,
-		autoApprove,
 		activeSite,
 		wpcomAccessToken,
 		onAskUser,

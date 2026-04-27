@@ -1,6 +1,6 @@
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { AiModelId } from '@studio/common/ai/models';
-import type { AskUserQuestion } from 'cli/ai/security';
+import type { AskUserQuestion } from 'cli/ai/agent';
 import type { SiteInfo } from 'cli/ai/ui';
 
 export interface AgentRuntimeConfig {

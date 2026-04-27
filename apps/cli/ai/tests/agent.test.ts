@@ -2,7 +2,7 @@ import fs from 'fs';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { startAiAgent } from 'cli/ai/agent';
-import { STUDIO_ROOT } from 'cli/ai/security';
+import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 
 vi.mock( '@anthropic-ai/claude-agent-sdk', () => ( {
 	query: vi.fn(),
@@ -94,13 +94,13 @@ describe( 'AI agent startup', () => {
 			prompt: 'Generate a website',
 		} );
 
-		expect( existsSyncSpy ).toHaveBeenCalledWith( STUDIO_ROOT );
-		expect( mkdirSyncSpy ).toHaveBeenCalledWith( STUDIO_ROOT, { recursive: true } );
+		expect( existsSyncSpy ).toHaveBeenCalledWith( STUDIO_SITES_ROOT );
+		expect( mkdirSyncSpy ).toHaveBeenCalledWith( STUDIO_SITES_ROOT, { recursive: true } );
 		expect( query ).toHaveBeenCalledWith(
 			expect.objectContaining( {
 				prompt: 'Generate a website',
 				options: expect.objectContaining( {
-					cwd: STUDIO_ROOT,
+					cwd: STUDIO_SITES_ROOT,
 				} ),
 			} )
 		);
@@ -112,13 +112,13 @@ describe( 'AI agent startup', () => {
 			prompt: 'Generate a website',
 		} );
 
-		expect( existsSyncSpy ).toHaveBeenCalledWith( STUDIO_ROOT );
+		expect( existsSyncSpy ).toHaveBeenCalledWith( STUDIO_SITES_ROOT );
 		expect( mkdirSyncSpy ).not.toHaveBeenCalled();
 		expect( query ).toHaveBeenCalledWith(
 			expect.objectContaining( {
 				prompt: 'Generate a website',
 				options: expect.objectContaining( {
-					cwd: STUDIO_ROOT,
+					cwd: STUDIO_SITES_ROOT,
 				} ),
 			} )
 		);

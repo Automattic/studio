@@ -23,6 +23,7 @@ import path from 'path';
 import { extract } from 'tar';
 import { z } from 'zod';
 import { extractZip } from '../tools/common/lib/extract-zip';
+import { getConfigDirectory } from '../tools/common/lib/well-known-paths';
 
 const PHP_VERSION = '8.4.20';
 
@@ -87,7 +88,7 @@ const filename = isWindows
 const url = `https://dl.static-php.dev/static-php-cli/${ variant }/${ filename }`;
 const platformKey = `${ platform }-${ effectiveArch }`;
 
-const binDir = path.join( __dirname, '..', 'apps', 'cli', 'bin' );
+const binDir = path.join( getConfigDirectory(), 'php-bin' );
 const binaryName = isWindows ? 'php.exe' : 'php';
 const destPath = path.join( binDir, binaryName );
 const tmpDir = os.tmpdir();

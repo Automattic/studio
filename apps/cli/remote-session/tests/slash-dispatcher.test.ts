@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { AI_CHAT_SLASH_COMMANDS } from 'cli/ai/slash-commands';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { AI_CHAT_SLASH_COMMANDS, getActiveSlashCommands } from 'cli/ai/slash-commands';
 
 describe( 'slash dispatcher match shape (regression)', () => {
 	// Mirror the dispatcher logic in apps/cli/commands/ai/index.ts so a breaking change
@@ -32,5 +32,40 @@ describe( 'slash dispatcher match shape (regression)', () => {
 	it( 'does not falsely match prefixes', () => {
 		expect( match( '/remote-sessio' ) ).toBeUndefined();
 		expect( match( '/remote-sessions' ) ).toBeUndefined();
+	} );
+} );
+
+describe( 'getActiveSlashCommands feature gate', () => {
+	const originalValue = process.env.STUDIO_ENABLE_REMOTE_SESSION;
+
+	beforeEach( () => {
+		delete process.env.STUDIO_ENABLE_REMOTE_SESSION;
+	} );
+
+	afterEach( () => {
+		if ( originalValue === undefined ) {
+			delete process.env.STUDIO_ENABLE_REMOTE_SESSION;
+		} else {
+			process.env.STUDIO_ENABLE_REMOTE_SESSION = originalValue;
+		}
+	} );
+
+	const hasRemoteSession = ( cmds: { name: string }[] ) =>
+		cmds.some( ( c ) => c.name === 'remote-session' );
+
+	it( 'omits /remote-session by default (flag off)', () => {
+		expect( hasRemoteSession( getActiveSlashCommands() ) ).toBe( false );
+	} );
+
+	it( 'includes /remote-session when STUDIO_ENABLE_REMOTE_SESSION=true', () => {
+		process.env.STUDIO_ENABLE_REMOTE_SESSION = 'true';
+		expect( hasRemoteSession( getActiveSlashCommands() ) ).toBe( true );
+	} );
+
+	it( 'still preserves non-gated commands when flag is off', () => {
+		const names = getActiveSlashCommands().map( ( c ) => c.name );
+		expect( names ).toContain( 'clear' );
+		expect( names ).toContain( 'login' );
+		expect( names ).toContain( 'exit' );
 	} );
 } );

@@ -19,10 +19,11 @@ import { resolveResumeSessionContext } from 'cli/ai/sessions/context';
 import { getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
 import { AiSessionRecorder } from 'cli/ai/sessions/recorder';
 import { replaySessionHistory } from 'cli/ai/sessions/replay';
-import { AI_CHAT_SLASH_COMMANDS, type SlashCommandContext } from 'cli/ai/slash-commands';
+import { getActiveSlashCommands, type SlashCommandContext } from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { readCliConfig } from 'cli/lib/cli-config/core';
+import { isRemoteSessionEnabled } from 'cli/lib/feature-flags';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
 import { RemoteSessionConfigError, runRemoteSession } from 'cli/remote-session';
 import { StudioArgv } from 'cli/types';
@@ -658,7 +659,7 @@ export async function runCommand( options: {
 
 			const firstToken = trimmedPrompt.split( /\s+/, 1 )[ 0 ] ?? '';
 			const cmd = firstToken.startsWith( '/' )
-				? AI_CHAT_SLASH_COMMANDS.find( ( c ) => `/${ c.name }` === firstToken )
+				? getActiveSlashCommands().find( ( c ) => `/${ c.name }` === firstToken )
 				: undefined;
 			if ( cmd ) {
 				if ( cmd.handler ) {
@@ -697,7 +698,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		command: '$0 [message]',
 		describe: __( 'AI agent for building WordPress' ),
 		builder: ( yargs ) => {
-			return yargs
+			let chain = yargs
 				.positional( 'message', {
 					type: 'string',
 					description: __( 'Initial message to send to the AI agent' ),
@@ -733,32 +734,40 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'boolean',
 					default: true,
 					description: __( 'Record this code session to disk' ),
-				} )
-				.option( 'remote-session', {
-					type: 'boolean',
-					default: false,
-					description: __( 'Attach to Telegram and drive studio code remotely' ),
-				} )
-				.option( 'remote-chat-id', {
-					type: 'number',
-					description: __( 'Override the Telegram chat id to bind to' ),
-				} )
-				.option( 'remote-bot', {
-					type: 'string',
-					description: __( 'Override the Telegram bot name to use for replies' ),
-				} )
-				.option( 'message-from-stdin', {
-					type: 'boolean',
-					hidden: true,
-					default: false,
-					description: __( 'Read the initial message from stdin (for headless drivers)' ),
-				} )
-				.check( ( argv ) => {
-					if ( argv.json && ! argv.message && ! argv.remoteSession && ! argv.messageFromStdin ) {
-						throw new Error( __( '--json requires an initial message argument' ) );
-					}
-					return true;
 				} );
+
+			// Remote-session options are gated behind STUDIO_ENABLE_REMOTE_SESSION so the
+			// experimental Telegram bridge stays out of `--help` and isn't dispatchable
+			// for users who haven't opted in.
+			if ( isRemoteSessionEnabled() ) {
+				chain = chain
+					.option( 'remote-session', {
+						type: 'boolean',
+						default: false,
+						description: __( 'Attach to Telegram and drive studio code remotely' ),
+					} )
+					.option( 'remote-chat-id', {
+						type: 'number',
+						description: __( 'Override the Telegram chat id to bind to' ),
+					} )
+					.option( 'remote-bot', {
+						type: 'string',
+						description: __( 'Override the Telegram bot name to use for replies' ),
+					} )
+					.option( 'message-from-stdin', {
+						type: 'boolean',
+						hidden: true,
+						default: false,
+						description: __( 'Read the initial message from stdin (for headless drivers)' ),
+					} );
+			}
+
+			return chain.check( ( argv ) => {
+				if ( argv.json && ! argv.message && ! argv.remoteSession && ! argv.messageFromStdin ) {
+					throw new Error( __( '--json requires an initial message argument' ) );
+				}
+				return true;
+			} );
 		},
 		handler: async ( argv ) => {
 			try {
@@ -776,7 +785,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					messageFromStdin?: boolean;
 				};
 
-				if ( typedArgv.remoteSession ) {
+				if ( typedArgv.remoteSession && isRemoteSessionEnabled() ) {
 					try {
 						await runRemoteSession( {
 							chat_id: typedArgv.remoteChatId,
@@ -797,7 +806,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				const adapter: AiOutputAdapter = typedArgv.json ? new JsonAdapter() : new AiChatUI();
 
 				let initialMessage = typedArgv.message;
-				if ( typedArgv.messageFromStdin ) {
+				if ( typedArgv.messageFromStdin && isRemoteSessionEnabled() ) {
 					initialMessage = await readAllStdin();
 					if ( ! initialMessage ) {
 						process.stderr.write(

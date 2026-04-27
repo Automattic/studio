@@ -8,6 +8,7 @@ import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { runCommand as runLogoutCommand } from 'cli/commands/auth/logout';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
+import { isRemoteSessionEnabled } from 'cli/lib/feature-flags';
 import { getSnapshotsFromConfig, isSnapshotExpired } from 'cli/lib/snapshots';
 import { LoggerError } from 'cli/logger';
 import { RemoteSessionConfigError, runRemoteSession } from 'cli/remote-session';
@@ -39,6 +40,21 @@ export interface SlashCommandDef {
 	name: string;
 	description: string;
 	handler?: SlashCommandHandler;
+	/**
+	 * Optional gate. When provided and returns false at the time of evaluation,
+	 * the command is hidden from autocomplete and the dispatcher won't match it.
+	 */
+	enabled?: () => boolean;
+}
+
+/**
+ * Returns the currently-active slash commands. Commands with an `enabled` gate
+ * are filtered out when the gate evaluates to false. Consumers (autocomplete,
+ * dispatcher) should call this rather than reading `AI_CHAT_SLASH_COMMANDS`
+ * directly so feature-flag flips take effect immediately.
+ */
+export function getActiveSlashCommands(): SlashCommandDef[] {
+	return AI_CHAT_SLASH_COMMANDS.filter( ( c ) => c.enabled === undefined || c.enabled() );
 }
 
 function isPromptAbortError( error: unknown ): boolean {
@@ -296,6 +312,7 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		description: __(
 			'Attach (blocking), detach, reset, or show status of the Telegram remote session'
 		),
+		enabled: isRemoteSessionEnabled,
 		handler: async ( prompt, ctx ) => {
 			const sub = ( prompt.trim().split( /\s+/ )[ 1 ] ?? 'status' ).toLowerCase();
 			try {

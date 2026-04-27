@@ -60,18 +60,15 @@ if ( arch === 'arm64' && platform === 'win32' ) {
 	);
 }
 
-// Variant selection per design doc: common has pdo_sqlite on Linux/macOS; spc-max has it on Windows.
-const variant = platform === 'win32' ? 'spc-max' : 'common';
-
 // CDN arch names differ from Node's process.arch values.
 const cdnArchMap: Record< Arch, string > = {
 	x64: 'x86_64',
 	arm64: 'aarch64',
 };
 
-// Asset naming on the CDN differs by platform.
-// Linux/macOS: php-{VERSION}-cli-{os}-{cdnArch}.tar.gz
-// Windows:     php-{VERSION}-cli-win.zip  (no arch segment, x64 only)
+// Asset naming and CDN path differ by platform.
+// Linux/macOS: dl.static-php.dev/static-php-cli/common/php-{VERSION}-cli-{os}-{cdnArch}.tar.gz
+// Windows:     dl.static-php.dev/static-php-cli/windows/spc-max/php-{VERSION}-cli-win.zip
 const osSegment: Record< Platform, string > = {
 	darwin: 'macos',
 	linux: 'linux',
@@ -85,7 +82,10 @@ const filename = isWindows
 	? `php-${ PHP_VERSION }-cli-win.${ ext }`
 	: `php-${ PHP_VERSION }-cli-${ osSegment[ platform ] }-${ cdnArch }.${ ext }`;
 
-const url = `https://dl.static-php.dev/static-php-cli/${ variant }/${ filename }`;
+const cdnBase = isWindows
+	? 'https://dl.static-php.dev/static-php-cli/windows/spc-max'
+	: 'https://dl.static-php.dev/static-php-cli/common';
+const url = `${ cdnBase }/${ filename }`;
 const platformKey = `${ platform }-${ effectiveArch }`;
 
 const binDir = path.join( getConfigDirectory(), 'php-bin' );
@@ -95,7 +95,7 @@ const tmpDir = os.tmpdir();
 const downloadPath = path.join( tmpDir, filename );
 
 async function download( downloadUrl: string, dest: string ): Promise< void > {
-	console.log( `Downloading PHP ${ PHP_VERSION } (${ variant }) for ${ platform }-${ effectiveArch }...` );
+	console.log( `Downloading PHP ${ PHP_VERSION } for ${ platform }-${ effectiveArch }...` );
 	console.log( `  URL: ${ downloadUrl }` );
 
 	const response = await fetch( downloadUrl );
@@ -215,8 +215,8 @@ async function main(): Promise< void > {
 			`\nPHP binary installed: ${ destPath } (${ ( stats.size / 1024 / 1024 ).toFixed( 1 ) } MB)`
 		);
 	} catch ( error ) {
-		console.error( 'Error:', ( error as Error ).message );
-		process.exit( 1 );
+		console.warn( `Warning: PHP binary download failed — ${ ( error as Error ).message }` );
+		console.warn( 'The native-php runtime will not be available. Run `npm run download:php-binary` to retry.' );
 	}
 }
 

@@ -3,47 +3,20 @@ Unreleased
 
 1.8.0
 =====
-<!-- Release notes generated using configuration in .github/release.yml at HEAD -->
-* Update AGENTS.md to reflect split config file layout #3169
-* Fix stale phpMyAdmin assets after Studio updates #3170
-* Studio: Add zip files support for blueprints #3089
-* Handle AI usage cap gracefully in studio code #3102
-* apps/ui: wire up Preview / Publish / Pull from the site dropdown #3171
-* Add PromptFoo evaluation framework for Studio Code agent #3031
-* Add resizable sidebar #2853
-* apps/ui: add Settings page and Open-in actions to site dropdown #3174
-* apps/ui: open sidebar plus and site actions menus to the left #3175
-* Auto-install Playwright Chromium for MCP tools #2942
-* apps/ui: add language switcher to Settings page #3177
-* apps/ui: add disconnect flow and reconcile live env on turn start #3176
-* CLI: Send X-WPCOM-Session-ID header on WPCOM AI proxy requests #3173
-* apps/ui: move Settings link from user menu to sidebar nav #3178
-* Fix stale protocol handler registration on app boot #3114
-* apps/ui: add Open phpMyAdmin entry to site dropdown #3179
-* apps/ui: add wave effect to new-session W animation #3180
-* Read bundled CLI dependencies directly from wp-files #3125
-* Add --all flag to preview list command #3098
-* apps/ui: add "Start from blueprint" onboarding flow #3185
-* apps/cli: add /rank-me-up on-page SEO audit skill #3181
-* Fix excessive word spacing on Linux caused by emoji-font fallback #3187
-* Studio Blueprints Gallery: Add project feature flag #3188
-* apps/cli: surface child-process crashes instead of silent 2-min timeout #3159
-* apps/ui: port import-from-backup onboarding flow #3189
-* apps/ui: add "Open WP admin" quick link with auto-login #3192
-* apps/ui: add Export entire site / Export database to site dropdown #3194
-* apps/cli: polish "Selected site" announcement in AI chat #3195
-* Update Xcode to 26.4.1 and remove openssl gem #3186
-* apps/cli: generate style.css and page content section-by-section #3199
-* Refactor Studio to depend on CLI for import/export #3129
-* apps/studio: update MCP and agent skills docs links #3202
-* apps/studio: Show What's New modal only on first launch or when explicitly forced #3203
-* Fix Dependabot: add top-level packageManager field #3204
-* Update SQLite Database Integration to v3.0.0-rc.1 #3172
-* Fix empty window on first `npm start` in fresh workspace #3191
-* Add test for FORCE_SHOW_WHATS_NEW triggering What's New modal #3206
-* Add .deployignore support to Site Sync #2955
-* @glendaviesnz made their first contribution in https://github.com/Automattic/studio/pull/2942
-**Full Changelog**: https://github.com/Automattic/studio/compare/v1.7.10...v1.8.0
+* Added resizable sidebar #2853
+* Added .deployignore support for Sync to exclude files from pushes #2955
+* Added zip file support for bundled Blueprints #3089
+* Added /rank-me-up on-page SEO audit skill to Studio Code #3181
+* Added auto-install of Playwright Chromium for MCP tools #2942
+* Added --all flag to preview list command #3098
+* Misc Studio Code improvements #3102, #3195, #3199, #3159
+* Updated SQLite Database Integration to v3.0.0-rc.1 #3172
+* Fixed stale phpMyAdmin assets after Studio updates #3170
+* Fixed stale protocol handler registration on app boot #3114
+* Fixed path traversal vulnerability in .wpress extractor #3142 (reported independently by [flouciel](https://hackerone.com/flouciel) and [k4sperski](https://hackerone.com/k4sperski))
+* Fixed excessive word spacing on Linux caused by emoji-font fallback #3187
+* Fixed empty window on first `npm start` in a fresh workspace #3191
+* Updated multiple dependencies, including WP Playground and PHP-Wasm
 
 1.7.8
 =====

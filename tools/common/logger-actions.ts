@@ -54,6 +54,19 @@ export enum SiteCommandLoggerAction {
 	CHECKING_DEPENDENCY_UPDATES = 'checkingDependencyUpdates',
 }
 
+export enum PullReprintCommandLoggerAction {
+	PREFLIGHT = 'preflight',
+	LOAD_WPCOM_SITES = 'loadWpComSites',
+	ROTATE_SECRET = 'rotateSecret',
+	ABORT_IMPORT = 'abortImport',
+	CREATE_SITE = 'createSite',
+	DOWNLOAD_FILES = 'downloadFiles',
+	DOWNLOAD_SQL = 'downloadSql',
+	START_SITE = 'startSite',
+	IMPORT_SQL = 'importSql',
+	URL_REWRITE = 'urlRewrite',
+}
+
 export enum SyncCommandLoggerAction {
 	START_DAEMON = 'startDaemon',
 	STOP_SITE = 'stopSite',

@@ -1768,7 +1768,7 @@ export class AiChatUI implements AiOutputAdapter {
 		}
 
 		const contentBlocks = Array.isArray( message.message.content ) ? message.message.content : [];
-		const toolResultBlock = contentBlocks.find( isToolResultBlock );
+		const toolResultBlock = ( contentBlocks as unknown[] ).find( isToolResultBlock );
 		if ( ! toolResultBlock ) {
 			return null;
 		}

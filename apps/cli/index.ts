@@ -7,6 +7,7 @@ import { registerCommand as registerExportCommand } from 'cli/commands/export';
 import { registerCommand as registerImportCommand } from 'cli/commands/import';
 import { registerCommand as registerMcpCommand } from 'cli/commands/mcp';
 import { registerCommand as registerPullCommand } from 'cli/commands/pull';
+import { registerCommand as registerPullReprintCommand } from 'cli/commands/pull-reprint';
 import { registerCommand as registerPushCommand } from 'cli/commands/push';
 import {
 	bumpAggregatedUniqueStat,
@@ -187,6 +188,9 @@ async function main() {
 	} );
 
 	registerPullCommand( studioArgv );
+	if ( process.env.STUDIO_ENABLE_PULL_REPRINT ) {
+		registerPullReprintCommand( studioArgv );
+	}
 	registerPushCommand( studioArgv );
 
 	studioArgv

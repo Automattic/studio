@@ -19,7 +19,6 @@ export interface AiAgentConfig {
 	model?: AiModelId;
 	maxTurns?: number;
 	resume?: string;
-	autoApprove?: boolean;
 	activeSite?: SiteInfo | null;
 	wpcomAccessToken?: string;
 	onAskUser?: ( questions: AskUserQuestion[] ) => Promise< Record< string, string > >;
@@ -47,7 +46,6 @@ export function startAiAgent( config: AiAgentConfig ): AgentRuntimeHandle {
 		model = DEFAULT_MODEL,
 		maxTurns = 75,
 		resume,
-		autoApprove,
 		activeSite,
 		wpcomAccessToken,
 		onAskUser,
@@ -65,7 +63,6 @@ export function startAiAgent( config: AiAgentConfig ): AgentRuntimeHandle {
 		model,
 		maxTurns,
 		resume,
-		autoApprove,
 		activeSite,
 		wpcomAccessToken,
 		onAskUser,

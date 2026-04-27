@@ -1,15 +1,15 @@
 /**
  * PromptFoo eval runner for Studio Code agent.
  *
- * Hooks into startAiAgent() to capture tool calls, tool results, assistant text,
- * and permission questions. Returns raw structured data — assertions live in the
+ * Hooks into startAiAgent() to capture tool calls, tool results, and
+ * assistant text. Returns raw structured data — assertions live in the
  * promptfoo config, not here.
  */
 
 import { writeFileSync, writeSync as fsWriteSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { startAiAgent, type AskUserQuestion } from 'cli/ai/agent';
+import { startAiAgent } from 'cli/ai/agent';
 import {
 	resolveAiEnvironment,
 	resolveInitialAiProvider,
@@ -22,27 +22,10 @@ interface EvalRunnerInput {
 	prompt: string;
 	maxTurns?: number;
 	timeoutMs?: number;
-	askUserPolicy?: 'allow_all' | 'first_option' | 'deny_permissions_allow_other';
 }
 
 function normalizeToolName( name: string ): string {
 	return name.replace( /^mcp__studio__/, '' );
-}
-
-function hasPermissionOptions( options: string[] ): boolean {
-	return options.some( ( o ) => /\b(deny|allow once|allow for this session)\b/i.test( o ) );
-}
-
-function pickAnswer( question: string, options: string[], policy: string ): string {
-	if ( policy === 'allow_all' || policy === 'first_option' ) {
-		return options[ 0 ] ?? 'yes';
-	}
-
-	if ( hasPermissionOptions( options ) ) {
-		const denyOption = options.find( ( o ) => /\bdeny\b/i.test( o ) );
-		return denyOption ?? options[ options.length - 1 ] ?? 'no';
-	}
-	return options[ 0 ] ?? 'yes';
 }
 
 function extractToolCalls( message: SDKMessage ) {
@@ -128,13 +111,10 @@ function readInput(): EvalRunnerInput {
 		prompt: ( vars.prompt as string ) ?? prompt,
 		maxTurns: typeof vars.maxTurns === 'number' ? vars.maxTurns : undefined,
 		timeoutMs: typeof vars.timeoutMs === 'number' ? vars.timeoutMs : undefined,
-		askUserPolicy: vars.askUserPolicy as EvalRunnerInput[ 'askUserPolicy' ],
 	};
 }
 
 async function runEval( input: EvalRunnerInput ) {
-	const policy = input.askUserPolicy ?? 'deny_permissions_allow_other';
-
 	let aiProvider: AiProviderId = await resolveInitialAiProvider();
 	aiProvider = ( await resolveUnavailableAiProvider( aiProvider ) ) ?? aiProvider;
 
@@ -153,12 +133,6 @@ async function runEval( input: EvalRunnerInput ) {
 		text?: string;
 	}[] = [];
 	const textSegments: string[] = [];
-	const questions: {
-		question: string;
-		options: string[];
-		answer: string;
-		isPermission: boolean;
-	}[] = [];
 	const toolNameById = new Map< string, string >();
 	// Wall-clock per turn, measured between successive assistant messages.
 	const turnDurationsMs: number[] = [];
@@ -170,21 +144,6 @@ async function runEval( input: EvalRunnerInput ) {
 		prompt: input.prompt.trim(),
 		env,
 		maxTurns: input.maxTurns ?? 50,
-		onAskUser: async ( qs: AskUserQuestion[] ) => {
-			const answers: Record< string, string > = {};
-			for ( const q of qs ) {
-				const opts = q.options.map( ( o ) => o.label );
-				const answer = pickAnswer( q.question, opts, policy );
-				answers[ q.question ] = answer;
-				questions.push( {
-					question: q.question,
-					options: opts,
-					answer,
-					isPermission: hasPermissionOptions( opts ),
-				} );
-			}
-			return answers;
-		},
 	} );
 
 	const timeout = setTimeout( () => void query.interrupt(), input.timeoutMs ?? 300000 );
@@ -224,7 +183,7 @@ async function runEval( input: EvalRunnerInput ) {
 		clearTimeout( timeout );
 	}
 
-	return { success, numTurns, turnDurationsMs, toolCalls, toolResults, textSegments, questions };
+	return { success, numTurns, turnDurationsMs, toolCalls, toolResults, textSegments };
 }
 
 const RESULT_PREFIX = 'EVAL_RUNNER_RESULT_FILE=';

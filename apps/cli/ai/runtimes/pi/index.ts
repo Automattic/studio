@@ -24,10 +24,11 @@ import {
 	type AiModelId,
 } from '@studio/common/ai/models';
 import {
+	ACCESS_DENIED_MESSAGE,
 	STUDIO_ROOT,
+	findFirstPathOutsideTrustedRoots,
 	isPathGatedTool,
-	promptForApproval,
-	type AskUserHandler,
+	resolveToolPath,
 } from 'cli/ai/security';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { studioToolDefinitions } from 'cli/ai/tools';
@@ -331,7 +332,7 @@ async function getOrCreateAgent(
 			apiKey,
 			headers: extraHeaders,
 		} ),
-		beforeToolCall: buildBeforeToolCall( config ),
+		beforeToolCall: buildBeforeToolCall(),
 	} );
 
 	AGENTS_BY_SESSION.set( sessionId, agent );
@@ -466,21 +467,24 @@ function buildAgentTools(
 /**
  * Build the `beforeToolCall` callback pi-agent-core invokes after argument
  * validation, just before tool execution. We use it to gate path-touching
- * tools (Read/Write/Edit/Bash/NotebookEdit) the same way the Anthropic
- * runtime gated them through the SDK's `canUseTool`. AskUserQuestion has
- * been reimplemented as a regular tool, so the question-routing path doesn't
- * need any special handling here.
+ * tools (Write/Edit/NotebookEdit) so they can't reach outside the trusted
+ * roots — `STUDIO_ROOT` plus the OS tmp directories. Bash is intentionally
+ * not gated here (its `command` arg isn't a structured path; static
+ * classification is the wrong shape of safety net for arbitrary shell —
+ * see `apps/cli/ai/security.ts`).
  *
- * Returns `{ block: true, reason }` to refuse a tool call; pi synthesizes an
- * error tool result with `reason` as its body. Returns `undefined` to allow.
+ * No prompt: the SDK's `permissionMode: 'auto'` classifier (which trunk used
+ * pre-unification) had no equivalent on pi-agent-core, and re-implementing
+ * the old allow-once / allow-always / deny UX adds host complexity in the
+ * other direction trunk simplified away. We just refuse silently with a
+ * stable message — `pi` synthesizes an error tool result the model can
+ * recover from on the next turn (e.g. "write inside ~/Studio instead").
+ *
+ * Returns `{ block: true, reason }` to refuse, `undefined` to allow.
  */
-function buildBeforeToolCall(
-	config: AgentRuntimeConfig
-): ( ( ctx: BeforeToolCallContext ) => Promise< BeforeToolCallResult | undefined > ) | undefined {
-	if ( config.autoApprove ) {
-		return undefined;
-	}
-	const onAskUser = config.onAskUser as AskUserHandler | undefined;
+function buildBeforeToolCall(): (
+	ctx: BeforeToolCallContext
+) => Promise< BeforeToolCallResult | undefined > {
 	return async ( ctx ) => {
 		const toolName = ctx.toolCall.name;
 		if ( ! isPathGatedTool( toolName ) ) {
@@ -488,9 +492,12 @@ function buildBeforeToolCall(
 		}
 		const input =
 			ctx.args && typeof ctx.args === 'object' ? ( ctx.args as Record< string, unknown > ) : {};
-		const result = await promptForApproval( { toolName, input, onAskUser } );
-		if ( result.behavior === 'deny' ) {
-			return { block: true, reason: result.message };
+		const outsidePath = findFirstPathOutsideTrustedRoots( input );
+		if ( outsidePath ) {
+			return {
+				block: true,
+				reason: `${ ACCESS_DENIED_MESSAGE }: ${ resolveToolPath( outsidePath ) }`,
+			};
 		}
 		return undefined;
 	};

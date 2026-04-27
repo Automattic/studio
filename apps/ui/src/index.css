@@ -21,6 +21,8 @@ body {
 	background-color: var(--wpds-color-bg-surface-neutral);
 	color: var(--wpds-color-fg-content-neutral);
 	color-scheme: light dark;
+	scrollbar-width: thin;
+	scrollbar-color: gray transparent;
 }
 
 /* Universal heading styles derived from the design system's font-size /

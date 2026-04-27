@@ -1,7 +1,26 @@
 import os from 'os';
 import path from 'path';
-import { addApprovedPermission, readApprovedPermissions } from 'cli/lib/cli-config/permissions';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
+
+/**
+ * Path-allowlist gating for the unified pi runtime.
+ *
+ * Background: when Studio ran on the Claude Agent SDK, it leaned on the SDK's
+ * `permissionMode: 'auto'` — an LLM-mediated classifier that inspected each
+ * tool call and decided allow/deny/ask server-side. Trunk commit 05a20caf
+ * removed Studio's ad-hoc allow-once / allow-always / deny prompts in favor
+ * of that classifier.
+ *
+ * Pi-agent-core ships nothing equivalent (see
+ * `node_modules/@mariozechner/pi-coding-agent/dist/core/tools/path-utils.js`
+ * — its tools resolve `~` and relative paths but pass absolute paths through
+ * untouched, so a freshly-wired pi agent has full host filesystem access).
+ * To keep "writes / edits / shell stay within the user's site folder" as a
+ * hard guarantee on the unified runtime, the pi runtime's `beforeToolCall`
+ * uses the helpers in this module to refuse path-gated calls aimed outside a
+ * small allowlist of trusted roots. There is no prompt — denials are silent
+ * with `ACCESS_DENIED_MESSAGE` surfaced as the tool result reason.
+ */
 
 export interface AskUserQuestion {
 	question: string;
@@ -9,89 +28,13 @@ export interface AskUserQuestion {
 	allowFreeForm?: boolean;
 }
 
-/**
- * Local mirror of the Claude Agent SDK's `PermissionUpdate` for the
- * `addDirectories` shape — the only one we actually populate when promoting a
- * directory approval to a session-scope permission. Kept here so the
- * permission flow has a stable contract independent of the SDK.
- */
-export type PermissionUpdate = {
-	type: 'addDirectories';
-	directories: string[];
-	destination: 'session';
-};
-
-/**
- * Local mirror of the Claude Agent SDK's `PermissionResult`. Returned from
- * `promptForApproval` and consumed by the runtime's `beforeToolCall` adapter
- * (`runtimes/pi/index.ts`). The unified pi runtime maps `behavior: 'allow'`
- * to "let the tool execute" and `behavior: 'deny'` to a `{ block: true }`
- * pi result. `updatedInput` lets us mutate args before execution; today the
- * runtime treats the input as opaque, but we keep the field on the contract
- * for parity with how the SDK runtime used it.
- */
-export type PermissionResult =
-	| {
-			behavior: 'allow';
-			updatedInput: Record< string, unknown >;
-			updatedPermissions?: PermissionUpdate[];
-	  }
-	| {
-			behavior: 'deny';
-			message: string;
-	  };
-
-/**
- * Optional metadata the security flow accepts alongside the raw tool input.
- * Today only `blockedPath` and `suggestions` are read; both come from the
- * pi runtime's `beforeToolCall` adapter when we detect a path-gated tool
- * targeting a path outside trusted roots.
- */
-export interface ToolCallMetadata {
-	blockedPath?: string;
-	suggestions?: PermissionUpdate[];
-}
-
-export type AskUserHandler = (
-	questions: AskUserQuestion[]
-) => Promise< Record< string, string > >;
-
-export type PathGatedApprovalDecision = 'allow_once' | 'allow_always' | 'deny';
-
-export interface PathGatedPermissionRequest {
-	toolName: string;
-	outsidePath: string;
-	approvalPath: string;
-	updatedPermissions?: PermissionUpdate[];
-}
-
-// Tools that can run without permissions (read access). The same set
-// applies to both local and remote sites — remote operations still hit
-// the `mcp__studio__*` servers, Read/Grep/etc. are host-filesystem-safe.
-//
-// Note: `WebFetch`, `WebSearch`, `TodoRead`, and `NotebookRead` were ambient
-// tools provided by the Claude Agent SDK's `claude_code` preset. The unified
-// pi runtime no longer ships them — they're left in this list as a "would be
-// allowed if registered" marker. They have no effect today.
-export const ALLOWED_TOOLS = [
-	'mcp__studio__*',
-	'Read',
-	'Glob',
-	'Grep',
-	'WebFetch',
-	'WebSearch',
-	'TodoRead',
-	'NotebookRead',
-	'AskUserQuestion',
-] as const;
-
-// Tools that should not manipulate files outside trusted roots without permission (write access)
-const PATH_GATED_TOOLS = [ 'Write', 'Edit', 'Bash', 'NotebookEdit' ] as const;
+// Tools whose path arguments must stay inside the trusted roots. Bash is
+// intentionally excluded — its `command` arg isn't a structured path so a
+// static allowlist would have to parse arbitrary shell, which gets the wrong
+// answer for both false positives and false negatives. Trust the system
+// prompt, the model, and the surrounding process boundary for shell.
+const PATH_GATED_TOOLS = [ 'Write', 'Edit', 'NotebookEdit' ] as const;
 const PATH_INPUT_KEYS = [ 'path', 'file_path', 'filePath' ] as const;
-
-const APPROVE_ONCE_LABEL = 'Allow once';
-const APPROVE_ALWAYS_LABEL = 'Allow always';
-const DENY_LABEL = 'Deny';
 
 export const STUDIO_ROOT = path.resolve( STUDIO_SITES_ROOT );
 export const TMP_ROOT = path.resolve( os.tmpdir() );
@@ -106,11 +49,6 @@ const TRUSTED_ROOT_PREFIXES = TRUSTED_ROOTS.map( ( trustedRoot ) =>
 );
 
 export const ACCESS_DENIED_MESSAGE = 'Access denied outside trusted directories';
-
-export interface PathApprovalSession {
-	hasApprovedPath: ( toolName: string, requestedPath: string ) => boolean;
-	rememberApprovedPath: ( toolName: string, approvedPath: string ) => void;
-}
 
 export function isPathGatedTool( toolName: string ): boolean {
 	return ( PATH_GATED_TOOLS as readonly string[] ).includes( toolName );
@@ -141,14 +79,14 @@ function getToolInputPaths( input: Record< string, unknown > ): string[] {
 		.filter( ( value ) => value.trim().length > 0 );
 }
 
+/**
+ * Returns the first path argument in `input` that lives outside the trusted
+ * roots, or `undefined` if all paths (or no paths) are inside. The pi
+ * runtime's `beforeToolCall` blocks the call when this returns a value.
+ */
 export function findFirstPathOutsideTrustedRoots(
-	input: Record< string, unknown >,
-	blockedPath?: string
+	input: Record< string, unknown >
 ): string | undefined {
-	if ( blockedPath && ! isPathWithinTrustedRoot( blockedPath ) ) {
-		return blockedPath;
-	}
-
 	for ( const toolPath of getToolInputPaths( input ) ) {
 		if ( ! isPathWithinTrustedRoot( toolPath ) ) {
 			return toolPath;
@@ -156,190 +94,4 @@ export function findFirstPathOutsideTrustedRoots(
 	}
 
 	return undefined;
-}
-
-function getFirstSuggestedDirectory( suggestions?: PermissionUpdate[] ): string | undefined {
-	return suggestions?.find(
-		( suggestion ): suggestion is Extract< PermissionUpdate, { type: 'addDirectories' } > =>
-			suggestion.type === 'addDirectories'
-	)?.directories?.[ 0 ];
-}
-
-function isPathWithinScope( filePath: string, scopePath: string ): boolean {
-	return filePath === scopePath || filePath.startsWith( `${ scopePath }${ path.sep }` );
-}
-
-export function createPathApprovalSession(): PathApprovalSession {
-	const approvedPathsByTool = new Map< string, Set< string > >();
-
-	return {
-		hasApprovedPath( toolName, requestedPath ) {
-			const approvedPaths = approvedPathsByTool.get( toolName );
-			if ( ! approvedPaths?.size ) {
-				return false;
-			}
-
-			const normalizedRequestedPath = resolveToolPath( requestedPath );
-			for ( const approvedPath of approvedPaths ) {
-				if ( isPathWithinScope( normalizedRequestedPath, approvedPath ) ) {
-					return true;
-				}
-			}
-
-			return false;
-		},
-		rememberApprovedPath( toolName, approvedPath ) {
-			const normalizedPath = resolveToolPath( approvedPath );
-			const approvedPaths = approvedPathsByTool.get( toolName ) ?? new Set< string >();
-			approvedPaths.add( normalizedPath );
-			approvedPathsByTool.set( toolName, approvedPaths );
-		},
-	};
-}
-
-// Process-wide approval session. Populated lazily on the first
-// `promptForApproval` call with whatever `Allow always` entries are
-// stored in cli.json.
-const defaultApprovalSession = createPathApprovalSession();
-let primePromise: Promise< void > | null = null;
-
-function primeDefaultApprovalSession(): Promise< void > {
-	if ( ! primePromise ) {
-		primePromise = ( async () => {
-			const entries = await readApprovedPermissions();
-			for ( const { toolName, approvalPath } of entries ) {
-				defaultApprovalSession.rememberApprovedPath( toolName, approvalPath );
-			}
-		} )();
-	}
-	return primePromise;
-}
-
-export function getPathGatedPermissionRequest( {
-	toolName,
-	input,
-	blockedPath,
-	suggestions,
-}: {
-	toolName: string;
-	input: Record< string, unknown >;
-	blockedPath?: string;
-	suggestions?: PermissionUpdate[];
-} ): PathGatedPermissionRequest | undefined {
-	const outsidePath = findFirstPathOutsideTrustedRoots( input, blockedPath );
-	if ( ! outsidePath || ! isPathGatedTool( toolName ) ) {
-		return undefined;
-	}
-
-	return {
-		toolName,
-		outsidePath,
-		approvalPath: getFirstSuggestedDirectory( suggestions ) ?? outsidePath,
-		...( suggestions?.length && { updatedPermissions: suggestions } ),
-	};
-}
-
-export async function askForPathGatedToolApproval( {
-	toolName,
-	outsidePath,
-	onAskUser,
-}: {
-	toolName: string;
-	outsidePath: string;
-	onAskUser?: AskUserHandler;
-} ): Promise< PathGatedApprovalDecision > {
-	if ( ! onAskUser ) {
-		return 'deny';
-	}
-
-	const normalizedPath = resolveToolPath( outsidePath );
-	const question = `Allow ${ toolName } to access ${ normalizedPath }?`;
-	const answers = await onAskUser( [
-		{
-			question,
-			options: [
-				{
-					label: APPROVE_ONCE_LABEL,
-					description: `Run ${ toolName } outside trusted directories for this step.`,
-				},
-				{
-					label: APPROVE_ALWAYS_LABEL,
-					description: `Remember this choice and stop asking for ${ toolName } on this path.`,
-				},
-				{
-					label: DENY_LABEL,
-					description: 'Keep filesystem access restricted to trusted directories.',
-				},
-			],
-		},
-	] );
-
-	if ( answers[ question ] === APPROVE_ONCE_LABEL ) {
-		return 'allow_once';
-	}
-
-	if ( answers[ question ] === APPROVE_ALWAYS_LABEL ) {
-		return 'allow_always';
-	}
-
-	return 'deny';
-}
-
-export async function promptForApproval( {
-	toolName,
-	input,
-	metadata,
-	onAskUser,
-	pathApprovalSession = defaultApprovalSession,
-}: {
-	toolName: string;
-	input: Record< string, unknown >;
-	metadata?: ToolCallMetadata;
-	onAskUser?: AskUserHandler;
-	pathApprovalSession?: PathApprovalSession;
-} ): Promise< PermissionResult > {
-	if ( pathApprovalSession === defaultApprovalSession ) {
-		await primeDefaultApprovalSession();
-	}
-	const permissionRequest = getPathGatedPermissionRequest( {
-		toolName,
-		input,
-		blockedPath: metadata?.blockedPath,
-		suggestions: metadata?.suggestions,
-	} );
-
-	if ( permissionRequest ) {
-		if ( ! pathApprovalSession.hasApprovedPath( toolName, permissionRequest.approvalPath ) ) {
-			const approvalDecision = await askForPathGatedToolApproval( {
-				toolName,
-				outsidePath: permissionRequest.approvalPath,
-				onAskUser,
-			} );
-
-			if ( approvalDecision === 'deny' ) {
-				return {
-					behavior: 'deny' as const,
-					message: ACCESS_DENIED_MESSAGE,
-				};
-			}
-
-			if ( approvalDecision === 'allow_always' ) {
-				pathApprovalSession.rememberApprovedPath( toolName, permissionRequest.approvalPath );
-				await addApprovedPermission( {
-					toolName,
-					approvalPath: permissionRequest.approvalPath,
-				} );
-			}
-		}
-
-		return {
-			behavior: 'allow' as const,
-			updatedInput: input,
-			...( permissionRequest.updatedPermissions && {
-				updatedPermissions: permissionRequest.updatedPermissions,
-			} ),
-		};
-	}
-
-	return { behavior: 'allow' as const, updatedInput: input };
 }

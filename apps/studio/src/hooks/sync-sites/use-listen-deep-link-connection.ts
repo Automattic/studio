@@ -1,10 +1,10 @@
 import { SyncSite } from '@studio/common/types/sync';
-import { useAuth } from 'src/hooks/use-auth';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { useAppDispatch } from 'src/stores';
+import { useAppDispatch, useRootSelector } from 'src/stores';
+import { authSelectors } from 'src/stores/auth-slice';
 import {
 	connectedSitesActions,
 	connectedSitesApi,
@@ -18,7 +18,7 @@ export function useListenDeepLinkConnection() {
 	const [ connectSite ] = useConnectSiteMutation();
 	const { selectedSite, setSelectedSiteId } = useSiteDetails();
 	const { setSelectedTab, selectedTab } = useContentTabs();
-	const { user } = useAuth();
+	const user = useRootSelector( authSelectors.selectUser );
 	const { data: connectedSites = [] } = useGetConnectedSitesForLocalSiteQuery( {
 		localSiteId: selectedSite?.id,
 		userId: user?.id,

@@ -19,7 +19,6 @@ import offlineIcon from 'src/components/offline-icon';
 import { StudioCodeChat } from 'src/components/studio-code-chat';
 import WelcomeComponent from 'src/components/welcome-message-prompt';
 import { LIMIT_OF_PROMPTS_PER_USER, TELEX_HOSTNAME, TELEX_UTM_PARAMS } from 'src/constants';
-import { useAuth } from 'src/hooks/use-auth';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useOffline } from 'src/hooks/use-offline';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
@@ -27,6 +26,8 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { addUrlParams } from 'src/lib/url-utils';
 import { useAppDispatch, useRootSelector } from 'src/stores';
+import { authSelectors } from 'src/stores/auth-slice';
+import { getWpcomClient } from 'src/stores/wpcom-client';
 import {
 	chatThunks,
 	generateMessage,
@@ -375,7 +376,8 @@ function WpcomAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	const chatInput = useRootSelector( ( state ) =>
 		chatSelectors.selectChatInput( state, selectedSite.id )
 	);
-	const { isAuthenticated, authenticate, user, client } = useAuth();
+	const isAuthenticated = useRootSelector( authSelectors.selectIsAuthenticated );
+	const user = useRootSelector( authSelectors.selectUser );
 	const instanceId = user?.id ? `${ user.id }_${ selectedSite.id }` : selectedSite.id;
 	const chatApiId = useRootSelector( ( state ) =>
 		chatSelectors.selectChatApiId( state, instanceId )
@@ -409,6 +411,7 @@ function WpcomAssistant( { selectedSite }: ContentTabAssistantProps ) {
 
 	const submitPrompt = useCallback(
 		( chatMessage: string, isRetry?: boolean ) => {
+			const client = getWpcomClient();
 			if ( ! chatMessage || ! client ) {
 				return;
 			}
@@ -430,7 +433,7 @@ function WpcomAssistant( { selectedSite }: ContentTabAssistantProps ) {
 				} )
 			);
 		},
-		[ client, dispatch, instanceId, selectedSite.id, messages, chatApiId ]
+		[ dispatch, instanceId, selectedSite.id, messages, chatApiId ]
 	);
 
 	const clearConversation = () => {
@@ -532,7 +535,7 @@ function WpcomAssistant( { selectedSite }: ContentTabAssistantProps ) {
 							/>
 						</>
 					) : (
-						! isOffline && <UnauthenticatedView onAuthenticate={ authenticate } />
+						! isOffline && <UnauthenticatedView onAuthenticate={ () => getIpcApi().authenticate() } />
 					) }
 					{ renderNotice() }
 				</div>

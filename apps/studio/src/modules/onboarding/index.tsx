@@ -1,9 +1,9 @@
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect } from 'react';
 import { StudioLogo } from 'src/components/studio-logo';
-import { useAuth } from 'src/hooks/use-auth';
 import { OnboardingConnectToWpcom } from 'src/modules/onboarding/components/connect-to-wpcom';
-import { useAppDispatch } from 'src/stores';
+import { useAppDispatch, useRootSelector } from 'src/stores';
+import { authSelectors } from 'src/stores/auth-slice';
 import { useSaveLastSeenVersionMutation } from 'src/stores/app-version-api';
 import { saveOnboardingStatus } from 'src/stores/onboarding-slice';
 
@@ -31,7 +31,7 @@ const GradientBox = () => {
 export function Onboarding() {
 	const { __ } = useI18n();
 	const dispatch = useAppDispatch();
-	const { isAuthenticated } = useAuth();
+	const isAuthenticated = useRootSelector( authSelectors.selectIsAuthenticated );
 	const [ saveLastSeenVersion ] = useSaveLastSeenVersionMutation();
 
 	const handleSkip = useCallback( async () => {

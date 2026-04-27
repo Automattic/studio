@@ -4,17 +4,20 @@ import nock from 'nock';
 import { Provider } from 'react-redux';
 import { vi } from 'vitest';
 import { useAddSite, CreateSiteFormValues } from 'src/hooks/use-add-site';
-import { useAuth } from 'src/hooks/use-auth';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { store } from 'src/stores';
+import { getWpcomClient } from 'src/stores/wpcom-client';
 import type { SyncSite } from '@studio/common/types/sync';
 import type { WPCOM } from 'wpcom/types';
 
 vi.mock( 'src/hooks/use-site-details' );
 vi.mock( 'src/hooks/use-feature-flags' );
-vi.mock( 'src/hooks/use-auth' );
 vi.mock( 'src/hooks/use-content-tabs' );
+vi.mock( 'src/stores/wpcom-client', () => ( {
+	getWpcomClient: vi.fn(),
+	setWpcomClient: vi.fn(),
+} ) );
 
 const mockPullSiteThunk = vi.hoisted( () => vi.fn() );
 
@@ -92,9 +95,7 @@ describe( 'useAddSite', () => {
 			startServer: mockStartServer,
 		} );
 
-		vi.mocked( useAuth, { partial: true } ).mockReturnValue( {
-			client: mockClient,
-		} );
+		vi.mocked( getWpcomClient ).mockReturnValue( mockClient );
 
 		mockSetSelectedTab.mockReset();
 		vi.mocked( useContentTabs, { partial: true } ).mockReturnValue( {

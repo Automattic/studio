@@ -6,7 +6,6 @@ import { useI18n } from '@wordpress/react-i18n';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
-import { AuthContextType } from 'src/hooks/use-auth';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { useIsMultisite } from 'src/hooks/use-is-multisite';
 import { useOffline } from 'src/hooks/use-offline';
@@ -14,6 +13,7 @@ import { useSiteSize } from 'src/hooks/use-site-size';
 import { getLatestStableWpVersion } from 'src/lib/version-utils';
 import { hasUnsupportedWpOrPhpVersion } from 'src/modules/preview-site/lib/version-comparison';
 import { useRootSelector } from 'src/stores';
+import type { AuthUser } from 'src/stores/auth-slice';
 import { snapshotSelectors } from 'src/stores/snapshot-slice';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { useGetSnapshotUsage } from 'src/stores/wpcom-api';
@@ -21,7 +21,7 @@ import { useGetSnapshotUsage } from 'src/stores/wpcom-api';
 interface CreatePreviewButtonProps {
 	onClick: () => void;
 	selectedSite: SiteDetails;
-	user: AuthContextType[ 'user' ];
+	user?: AuthUser;
 }
 
 export function CreatePreviewButton( { onClick, selectedSite, user }: CreatePreviewButtonProps ) {

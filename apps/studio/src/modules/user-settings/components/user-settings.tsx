@@ -2,7 +2,6 @@ import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo, useState } from 'react';
 import Modal from 'src/components/modal';
-import { useAuth } from 'src/hooks/use-auth';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
@@ -13,12 +12,13 @@ import { PreferencesTab } from 'src/modules/user-settings/components/preferences
 import { SkillsTab } from 'src/modules/user-settings/components/skills-tab';
 import { UserSettingsTab } from 'src/modules/user-settings/user-settings-types';
 import { useRootSelector } from 'src/stores';
+import { authSelectors } from 'src/stores/auth-slice';
 import { snapshotSelectors } from 'src/stores/snapshot-slice';
 import { useDeleteAllSnapshots, useGetSnapshotUsage } from 'src/stores/wpcom-api';
 
 export default function UserSettings() {
 	const { __ } = useI18n();
-	const { user } = useAuth();
+	const user = useRootSelector( authSelectors.selectUser );
 	const snapshotsByUser = useRootSelector( ( state ) =>
 		snapshotSelectors.selectSnapshotsByUser( state, user?.id ?? 0 )
 	);

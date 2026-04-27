@@ -3,8 +3,9 @@ import { commentAuthorAvatar } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useState } from 'react';
 import profileIconDetailed from 'src/components/profile-icon-detailed';
-import { useAuth } from 'src/hooks/use-auth';
 import { useGravatarUrl } from 'src/hooks/use-gravatar-url';
+import { useRootSelector } from 'src/stores';
+import { authSelectors } from 'src/stores/auth-slice';
 import { cx } from 'src/lib/cx';
 
 export function Gravatar( {
@@ -19,7 +20,7 @@ export function Gravatar( {
 	detailedDefaultImage?: boolean;
 } ) {
 	const { __ } = useI18n();
-	const { user } = useAuth();
+	const user = useRootSelector( authSelectors.selectUser );
 	const gravatarUrl = useGravatarUrl( user?.email, isBlack, detailedDefaultImage );
 	const [ imageError, setImageError ] = useState( false );
 

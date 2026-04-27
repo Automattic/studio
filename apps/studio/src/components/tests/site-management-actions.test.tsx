@@ -27,13 +27,17 @@ vi.mock( 'src/hooks/use-site-details', () => ( {
 	} ),
 } ) );
 
-// Mock useAuth to return a dummy user
-vi.mock( 'src/hooks/use-auth', () => ( {
-	useAuth: () => ( {
-		user: { id: 1 },
-		isAuthenticated: true,
-	} ),
-} ) );
+// Mock auth selectors to return a dummy user
+vi.mock( 'src/stores/auth-slice', async () => {
+	const actual = await vi.importActual( 'src/stores/auth-slice' );
+	return {
+		...actual,
+		authSelectors: {
+			selectIsAuthenticated: vi.fn( () => true ),
+			selectUser: vi.fn( () => ( { id: 1, email: 'user@example.com', displayName: 'User' } ) ),
+		},
+	};
+} );
 
 const defaultProps = {
 	onStart: vi.fn(),

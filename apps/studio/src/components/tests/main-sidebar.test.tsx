@@ -3,11 +3,20 @@ import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { vi } from 'vitest';
 import MainSidebar from 'src/components/main-sidebar';
-import { useAuth } from 'src/hooks/use-auth';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { store } from 'src/stores';
+import { authSelectors } from 'src/stores/auth-slice';
 
-vi.mock( 'src/hooks/use-auth' );
+vi.mock( 'src/stores/auth-slice', async () => {
+	const actual = await vi.importActual( 'src/stores/auth-slice' );
+	return {
+		...actual,
+		authSelectors: {
+			selectIsAuthenticated: vi.fn( () => false ),
+			selectUser: vi.fn( () => undefined ),
+		},
+	};
+} );
 
 vi.mock( 'src/stores/wordpress-versions-api', () => ( {
 	wordpressVersionsApi: {
@@ -111,7 +120,7 @@ describe( 'MainSidebar Footer', () => {
 		vi.clearAllMocks();
 	} );
 	it( 'Has add site button', async () => {
-		vi.mocked( useAuth, { partial: true } ).mockReturnValue( { isAuthenticated: false } );
+		vi.mocked( authSelectors.selectIsAuthenticated ).mockReturnValue( false );
 		await act( async () => renderWithProvider( <MainSidebar /> ) );
 		expect( screen.getByRole( 'button', { name: 'Add site' } ) ).toBeVisible();
 	} );

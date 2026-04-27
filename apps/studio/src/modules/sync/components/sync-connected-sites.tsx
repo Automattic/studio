@@ -16,7 +16,6 @@ import ProgressBar from 'src/components/progress-bar';
 import { Tooltip, DynamicTooltip } from 'src/components/tooltip';
 import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
 import { useLastSyncTimeText } from 'src/hooks/sync-sites/use-last-sync-time-text';
-import { useAuth } from 'src/hooks/use-auth';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSyncStatesProgressInfo } from 'src/hooks/use-sync-states-progress-info';
@@ -36,6 +35,7 @@ import {
 } from 'src/modules/sync/lib/convert-tree-to-sync-options';
 import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import { useAppDispatch, useI18nLocale, useRootSelector } from 'src/stores';
+import { authSelectors } from 'src/stores/auth-slice';
 import {
 	syncOperationsSelectors,
 	syncOperationsThunks,
@@ -46,6 +46,7 @@ import {
 	connectedSitesSelectors,
 	useGetConnectedSitesForLocalSiteQuery,
 } from 'src/stores/sync/connected-sites';
+import { getWpcomClient } from 'src/stores/wpcom-client';
 import type { SyncSite } from '@studio/common/types/sync';
 
 const SyncConnectedSiteControls = ( {
@@ -62,7 +63,7 @@ const SyncConnectedSiteControls = ( {
 	const isAnySitePulling = useRootSelector( syncOperationsSelectors.selectIsAnySitePulling );
 	const isAnySitePushing = useRootSelector( syncOperationsSelectors.selectIsAnySitePushing );
 	const getLastSyncTimeText = useLastSyncTimeText();
-	const { user, client } = useAuth();
+	const user = useRootSelector( authSelectors.selectUser );
 	const { data: connectedSites = [] } = useGetConnectedSitesForLocalSiteQuery( {
 		localSiteId: selectedSite.id,
 		userId: user?.id,
@@ -182,13 +183,14 @@ const SyncConnectedSiteControls = ( {
 							);
 						} }
 						onPull={ ( tree ) => {
-							if ( ! client ) {
+							const wpcomClient = getWpcomClient();
+							if ( ! wpcomClient ) {
 								return;
 							}
 							const pullOptions = convertTreeToPullOptions( tree );
 							void dispatch(
 								syncOperationsThunks.pullSite( {
-									client,
+									client: wpcomClient,
 									connectedSite,
 									selectedSite,
 									options: pullOptions,

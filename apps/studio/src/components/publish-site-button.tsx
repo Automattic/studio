@@ -1,8 +1,8 @@
 import { cloudUpload } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback } from 'react';
-import { useAuth } from 'src/hooks/use-auth';
 import { useSiteDetails } from 'src/hooks/use-site-details';
+import { authSelectors } from 'src/stores/auth-slice';
 import { generateCheckoutUrl } from 'src/lib/generate-checkout-url';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ConnectButton } from 'src/modules/sync/components/connect-button';
@@ -12,7 +12,7 @@ import { useGetConnectedSitesForLocalSiteQuery } from 'src/stores/sync/connected
 
 export const PublishSiteButton = () => {
 	const { __ } = useI18n();
-	const { user } = useAuth();
+	const user = useRootSelector( authSelectors.selectUser );
 	const { selectedSite } = useSiteDetails();
 	const { data: connectedSites = [] } = useGetConnectedSitesForLocalSiteQuery( {
 		localSiteId: selectedSite?.id,

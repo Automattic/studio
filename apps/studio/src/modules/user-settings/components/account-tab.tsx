@@ -1,4 +1,6 @@
-import { useAuth } from 'src/hooks/use-auth';
+import { useCallback } from 'react';
+import { useAppDispatch, useRootSelector } from 'src/stores';
+import { authSelectors, authThunks } from 'src/stores/auth-slice';
 import { NonAuthenticatedAccountTab } from './non-authenticated-account-tab';
 import { PromptInfo } from './prompt-info';
 import { SnapshotInfo } from './snapshot-info';
@@ -19,7 +21,10 @@ export const AccountTab = ( {
 	snapshotQuota: number;
 	onRemoveSnapshots: () => void;
 } ) => {
-	const { isAuthenticated, user, logout } = useAuth();
+	const dispatch = useAppDispatch();
+	const isAuthenticated = useRootSelector( authSelectors.selectIsAuthenticated );
+	const user = useRootSelector( authSelectors.selectUser );
+	const logout = useCallback( () => dispatch( authThunks.authLogout() ), [ dispatch ] );
 
 	return (
 		<>

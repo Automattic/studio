@@ -9,9 +9,10 @@ import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
-import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useRootSelector } from 'src/stores';
+import { authSelectors } from 'src/stores/auth-slice';
 import { NoWpcomSitesContent } from 'src/modules/sync/components/no-wpcom-sites-content';
 import { SitesListContent } from 'src/modules/sync/components/sync-sites-modal-selector';
 import { SyncTabImage } from 'src/modules/sync/components/sync-tab-image';
@@ -73,7 +74,6 @@ function NoWpcomSitesView() {
 function NoAuthPullRemoteSiteView() {
 	const isOffline = useOffline();
 	const { __ } = useI18n();
-	const { authenticate } = useAuth();
 	const offlineMessage = __( "You're currently offline." );
 
 	return (
@@ -88,7 +88,7 @@ function NoAuthPullRemoteSiteView() {
 							if ( isOffline ) {
 								return;
 							}
-							authenticate();
+							getIpcApi().authenticate();
 						} }
 					>
 						{ __( 'Log in to WordPress.com' ) }
@@ -134,7 +134,8 @@ export function PullRemoteSite( {
 	setSelectedRemoteSite: ( site?: SyncSite ) => void;
 } ) {
 	const { __ } = useI18n();
-	const { isAuthenticated, user } = useAuth();
+	const isAuthenticated = useRootSelector( authSelectors.selectIsAuthenticated );
+	const user = useRootSelector( authSelectors.selectUser );
 
 	const {
 		data: syncSites = [],

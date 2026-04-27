@@ -6,7 +6,6 @@ import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
-import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
@@ -16,7 +15,6 @@ export function OnboardingConnectToWpcom( { onSkip }: { onSkip: () => void } ) {
 	const { __ } = useI18n();
 	const isOffline = useOffline();
 	const offlineMessage = __( "You're currently offline." );
-	const { authenticate } = useAuth();
 	const locale = useI18nLocale();
 
 	return (
@@ -55,7 +53,7 @@ export function OnboardingConnectToWpcom( { onSkip }: { onSkip: () => void } ) {
 								if ( isOffline ) {
 									return;
 								}
-								authenticate();
+								getIpcApi().authenticate();
 							} }
 						>
 							{ __( 'Log in to WordPress.com' ) }

@@ -17,12 +17,16 @@ const selectedSite: SiteDetails = {
 };
 
 vi.mock( 'src/hooks/use-site-details' );
-vi.mock( 'src/hooks/use-auth', () => ( {
-	useAuth: () => ( {
-		isAuthenticated: true,
-		authenticate: vi.fn(),
-	} ),
-} ) );
+vi.mock( 'src/stores/auth-slice', async () => {
+	const actual = await vi.importActual( 'src/stores/auth-slice' );
+	return {
+		...actual,
+		authSelectors: {
+			selectIsAuthenticated: vi.fn( () => true ),
+			selectUser: vi.fn( () => undefined ),
+		},
+	};
+} );
 vi.mock( 'src/lib/app-globals', async () => ( {
 	...( await vi.importActual( '../../lib/app-globals' ) ),
 	getAppGlobals: vi.fn().mockReturnValue( { locale: ' en' } ),

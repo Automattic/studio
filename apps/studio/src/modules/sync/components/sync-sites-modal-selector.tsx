@@ -9,7 +9,6 @@ import offlineIcon from 'src/components/offline-icon';
 import { PressableLogo } from 'src/components/pressable-logo';
 import { Tooltip } from 'src/components/tooltip';
 import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
-import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -19,6 +18,7 @@ import { EnvironmentBadge } from 'src/modules/sync/components/environment-badge'
 import { NoWpcomSitesModal } from 'src/modules/sync/components/no-wpcom-sites-modal';
 import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import { useI18nLocale, useRootSelector } from 'src/stores';
+import { authSelectors } from 'src/stores/auth-slice';
 import {
 	connectedSitesSelectors,
 	useGetConnectedSitesForLocalSiteQuery,
@@ -46,7 +46,7 @@ export function SyncSitesModalSelector( {
 	mode?: SyncModalMode;
 } ) {
 	const { __ } = useI18n();
-	const { user } = useAuth();
+	const user = useRootSelector( authSelectors.selectUser );
 	const [ selectedSiteId, setSelectedSiteId ] = useState< number | null >( null );
 	const isOffline = useOffline();
 

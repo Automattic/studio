@@ -1,9 +1,10 @@
 import { useCallback, useState } from 'react';
 import { TreeNode } from 'src/components/tree-view';
-import { useAuth } from 'src/hooks/use-auth';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { convertRawToTreeNodes } from 'src/modules/sync/lib/tree-utils';
 import { useAppDispatch, useRootSelector } from 'src/stores';
+import { authSelectors } from 'src/stores/auth-slice';
+import { getWpcomClient } from 'src/stores/wpcom-client';
 import { fetchRemoteFileTree, useGetLatestRewindIdQuery } from './sync-api';
 import { syncSelectors } from './sync-slice';
 import { useGetPhpVersionQuery } from './wpcom-sites';
@@ -38,7 +39,7 @@ export function useHostingPhpVersion(
 	}
 ) {
 	const { skip = false } = options || {};
-	const { user } = useAuth();
+	const user = useRootSelector( authSelectors.selectUser );
 
 	const {
 		data: phpVersion,
@@ -60,7 +61,6 @@ export function useHostingPhpVersion(
 
 export function useRemoteFileTree() {
 	const dispatch = useAppDispatch();
-	const { client } = useAuth();
 	const isLoading = useRootSelector( syncSelectors.selectIsLoadingFileTree );
 	const error = useRootSelector( syncSelectors.selectFileTreeError );
 
@@ -71,6 +71,7 @@ export function useRemoteFileTree() {
 			path: string,
 			parentChecked: boolean = false
 		): Promise< TreeNode[] > => {
+			const client = getWpcomClient();
 			if ( ! client ) {
 				return [];
 			}
@@ -93,7 +94,7 @@ export function useRemoteFileTree() {
 				throw new Error( errorMessage );
 			}
 		},
-		[ client, dispatch ]
+		[ dispatch ]
 	);
 
 	return {

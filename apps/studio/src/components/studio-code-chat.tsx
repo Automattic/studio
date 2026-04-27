@@ -5,10 +5,11 @@ import { AIInput } from 'src/components/ai-input';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import { MessageThinking } from 'src/components/assistant-thinking';
 import Button from 'src/components/button';
-import { useAuth } from 'src/hooks/use-auth';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useRootSelector } from 'src/stores';
+import { authSelectors } from 'src/stores/auth-slice';
 import { parseStudioCodeEvent, type ParsedAction } from './studio-code-event-parser';
 import { StudioCodeMessage } from './studio-code-message';
 import { StudioCodePermission } from './studio-code-permission';
@@ -271,7 +272,7 @@ export function StudioCodeChat( { selectedSite }: StudioCodeChatProps ) {
 	const [ state, dispatch ] = useReducer( reducer, selectedSite.id, initState );
 	const [ inputValue, setInputValue ] = useState( '' );
 	const messagesEndRef = useRef< HTMLDivElement >( null );
-	const { isAuthenticated, authenticate } = useAuth();
+	const isAuthenticated = useRootSelector( authSelectors.selectIsAuthenticated );
 	const isOffline = useOffline();
 	const showUnauthenticated = ! isAuthenticated && ! isOffline;
 
@@ -408,7 +409,7 @@ export function StudioCodeChat( { selectedSite }: StudioCodeChatProps ) {
 							) }
 						</div>
 						<div className="mb-3">{ __( 'Usage limits may change in the future.' ) }</div>
-						<Button variant="primary" onClick={ authenticate }>
+						<Button variant="primary" onClick={ () => getIpcApi().authenticate() }>
 							{ __( 'Log in to WordPress.com' ) }
 							<ArrowIcon />
 						</Button>

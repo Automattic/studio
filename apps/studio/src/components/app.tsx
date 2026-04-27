@@ -10,7 +10,6 @@ import { SiteContentTabs } from 'src/components/site-content-tabs';
 import TopBar from 'src/components/top-bar';
 import WindowsTitlebar from 'src/components/windows-titlebar';
 import { useListenDeepLinkConnection } from 'src/hooks/sync-sites/use-listen-deep-link-connection';
-import { useAuth } from 'src/hooks/use-auth';
 import { useLocalizationSupport } from 'src/hooks/use-localization-support';
 import { useSidebarResize } from 'src/hooks/use-sidebar-resize';
 import { useSidebarVisibility } from 'src/hooks/use-sidebar-visibility';
@@ -23,8 +22,10 @@ import { useOnboarding } from 'src/modules/onboarding/hooks/use-onboarding';
 import { UserSettings } from 'src/modules/user-settings';
 import { WhatsNewModal, useWhatsNew } from 'src/modules/whats-new';
 import { useAppDispatch, useRootSelector } from 'src/stores';
+import { authSelectors } from 'src/stores/auth-slice';
 import { selectOnboardingLoading } from 'src/stores/onboarding-slice';
 import { syncOperationsThunks } from 'src/stores/sync';
+import { getWpcomClient } from 'src/stores/wpcom-client';
 import 'src/index.css';
 
 export default function App() {
@@ -40,15 +41,16 @@ export default function App() {
 	const { sites: localSites, loadingSites } = useSiteDetails();
 	const isEmpty = ! loadingSites && ! localSites.length;
 	const shouldShowWhatsNew = showWhatsNew && ! isEmpty;
-	const { client } = useAuth();
+	const isAuthenticated = useRootSelector( authSelectors.selectIsAuthenticated );
 	const dispatch = useAppDispatch();
 
 	// Initialize sync states from in-progress server operations
 	useEffect( () => {
+		const client = getWpcomClient();
 		if ( client ) {
 			void dispatch( syncOperationsThunks.initializeSyncStates( { client } ) );
 		}
-	}, [ client, dispatch ] );
+	}, [ isAuthenticated, dispatch ] );
 
 	useListenDeepLinkConnection();
 

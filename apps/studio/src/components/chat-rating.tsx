@@ -1,8 +1,8 @@
 import { __ } from '@wordpress/i18n';
 import { thumbsUp, thumbsDown, Icon } from '@wordpress/icons';
 import Button from 'src/components/button';
-import { useAuth } from 'src/hooks/use-auth';
 import { useAppDispatch } from 'src/stores';
+import { getWpcomClient } from 'src/stores/wpcom-client';
 import { chatThunks } from 'src/stores/chat-slice';
 
 interface ChatRatingProps {
@@ -21,9 +21,9 @@ export const FeedbackThanks = () => {
 };
 
 export const ChatRating = ( { messageApiId, feedbackReceived, instanceId }: ChatRatingProps ) => {
-	const { client } = useAuth();
 	const dispatch = useAppDispatch();
 	const handleRatingClick = async ( feedback: number ) => {
+		const client = getWpcomClient();
 		if ( ! client ) {
 			return;
 		}

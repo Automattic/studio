@@ -10,7 +10,6 @@ import offlineIcon from 'src/components/offline-icon';
 import { ScreenshotDemoSite } from 'src/components/screenshot-demo-site';
 import { Tooltip } from 'src/components/tooltip';
 import { LIMIT_OF_ZIP_SITES_PER_USER } from 'src/constants';
-import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteSize } from 'src/hooks/use-site-size';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -20,6 +19,7 @@ import { PreviewSitesTableHeader } from 'src/modules/preview-site/components/pre
 import { ProgressRow } from 'src/modules/preview-site/components/progress-row';
 import { useUpdateButtonTooltip } from 'src/modules/preview-site/hooks/use-update-button-tooltip';
 import { useAppDispatch, useRootSelector } from 'src/stores';
+import { authSelectors } from 'src/stores/auth-slice';
 import { snapshotSelectors, snapshotThunks } from 'src/stores/snapshot-slice';
 import { useGetSnapshotUsage } from 'src/stores/wpcom-api';
 
@@ -80,7 +80,6 @@ function EmptyGeneric( {
 function NoAuth( { selectedSite }: React.ComponentProps< typeof EmptyGeneric > ) {
 	const isOffline = useOffline();
 	const { __ } = useI18n();
-	const { authenticate } = useAuth();
 	const offlineMessage = __( "You're currently offline." );
 
 	return (
@@ -95,7 +94,7 @@ function NoAuth( { selectedSite }: React.ComponentProps< typeof EmptyGeneric > )
 							if ( isOffline ) {
 								return;
 							}
-							authenticate();
+							getIpcApi().authenticate();
 						} }
 					>
 						{ __( 'Log in to WordPress.com' ) }
@@ -135,7 +134,7 @@ function NoAuth( { selectedSite }: React.ComponentProps< typeof EmptyGeneric > )
 
 function NoPreviews( { selectedSite }: React.ComponentProps< typeof EmptyGeneric > ) {
 	const dispatch = useAppDispatch();
-	const { user } = useAuth();
+	const user = useRootSelector( authSelectors.selectUser );
 
 	return (
 		<EmptyGeneric selectedSite={ selectedSite }>
@@ -160,7 +159,8 @@ function NoPreviews( { selectedSite }: React.ComponentProps< typeof EmptyGeneric
 export function ContentTabPreviews( { selectedSite }: ContentTabPreviewsProps ) {
 	const dispatch = useAppDispatch();
 	const { data: snapshotUsage } = useGetSnapshotUsage();
-	const { isAuthenticated, user } = useAuth();
+	const isAuthenticated = useRootSelector( authSelectors.selectIsAuthenticated );
+	const user = useRootSelector( authSelectors.selectUser );
 	const { isOverLimit } = useSiteSize( selectedSite.id );
 	const activeOperation = useRootSelector( ( state ) =>
 		snapshotSelectors.selectActiveCreateOperationForSite( state, selectedSite.id )

@@ -12,15 +12,17 @@ import {
 	MIMIC_CONVERSATION_DELAY,
 } from 'src/components/content-tab-assistant';
 import { LOCAL_STORAGE_CHAT_MESSAGES_KEY, CLEAR_HISTORY_REMINDER_TIME } from 'src/constants';
-import { AuthContextType, useAuth } from 'src/hooks/use-auth';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { useOffline } from 'src/hooks/use-offline';
 import { ThemeDetailsProvider } from 'src/hooks/use-theme-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { store } from 'src/stores';
+import { authSelectors } from 'src/stores/auth-slice';
 import { generateMessage, chatActions } from 'src/stores/chat-slice';
 import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 import { useGetAssistantQuota, useGetWelcomeMessages } from 'src/stores/wpcom-api';
+import { getWpcomClient } from 'src/stores/wpcom-client';
+import type { AuthUser } from 'src/stores/auth-slice';
 import type { WPCOM } from 'wpcom/types';
 
 store.replaceReducer( testReducer );
@@ -28,7 +30,20 @@ store.replaceReducer( testReducer );
 vi.mock( 'src/hooks/use-offline' );
 vi.mock( 'src/lib/get-ipc-api' );
 vi.mock( 'src/hooks/use-get-wp-version' );
-vi.mock( 'src/hooks/use-auth' );
+vi.mock( 'src/stores/auth-slice', async () => {
+	const actual = await vi.importActual( 'src/stores/auth-slice' );
+	return {
+		...actual,
+		authSelectors: {
+			selectIsAuthenticated: vi.fn( () => true ),
+			selectUser: vi.fn( () => undefined ),
+		},
+	};
+} );
+vi.mock( 'src/stores/wpcom-client', () => ( {
+	getWpcomClient: vi.fn(),
+	setWpcomClient: vi.fn(),
+} ) );
 
 vi.mock( 'src/lib/app-globals', () => ( {
 	getAppGlobals: () => ( {
@@ -119,23 +134,21 @@ const initialMessages = [
 ];
 
 describe( 'ContentTabAssistant', () => {
-	const authenticate = vi.fn();
-	const logout = vi.fn();
-
 	type ContextState = {
 		selectedSite?: SiteDetails;
-		auth?: Partial< AuthContextType >;
+		auth?: {
+			isAuthenticated?: boolean;
+			user?: AuthUser;
+		};
 	};
 
 	const buildContextTree = ( { selectedSite = runningSite, auth = {} }: ContextState = {} ) => {
-		const authContextValue: AuthContextType = {
-			client: createWpcomClient(),
-			isAuthenticated: true,
-			authenticate,
-			logout,
-			...auth,
-		};
-		vi.mocked( useAuth ).mockReturnValue( authContextValue );
+		const { isAuthenticated = true, user } = auth;
+		vi.mocked( authSelectors.selectIsAuthenticated ).mockReturnValue( isAuthenticated );
+		vi.mocked( authSelectors.selectUser ).mockReturnValue( user );
+		vi.mocked( getWpcomClient ).mockReturnValue(
+			isAuthenticated ? createWpcomClient() : undefined
+		);
 
 		return (
 			<Provider store={ store }>
@@ -184,6 +197,7 @@ describe( 'ContentTabAssistant', () => {
 		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 			showMessageBox: vi.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ),
 			executeWPCLiInline: vi.fn().mockResolvedValue( { stdout: '', stderr: 'Error' } ),
+			authenticate: vi.fn(),
 		} );
 		vi.mocked( useGetWpVersion ).mockReturnValue( [ '6.4.3', vi.fn() ] );
 	} );
@@ -268,7 +282,7 @@ describe( 'ContentTabAssistant', () => {
 
 		const loginButton = screen.getByRole( 'button', { name: 'Log in to WordPress.com ↗' } );
 		fireEvent.click( loginButton );
-		expect( authenticate ).toHaveBeenCalledTimes( 1 );
+		expect( getIpcApi().authenticate ).toHaveBeenCalledTimes( 1 );
 	} );
 
 	it( 'it stores messages with user-unique keys', async () => {

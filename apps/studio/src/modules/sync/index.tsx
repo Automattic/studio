@@ -6,7 +6,6 @@ import Button from 'src/components/button';
 import { IllustrationGrid } from 'src/components/illustration-grid';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
-import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ConnectButton } from 'src/modules/sync/components/connect-button';
@@ -19,6 +18,7 @@ import {
 	convertTreeToPushOptions,
 } from 'src/modules/sync/lib/convert-tree-to-sync-options';
 import { useAppDispatch, useRootSelector } from 'src/stores';
+import { authSelectors } from 'src/stores/auth-slice';
 import { syncOperationsThunks } from 'src/stores/sync';
 import {
 	connectedSitesActions,
@@ -28,6 +28,7 @@ import {
 	useGetConnectedSitesForLocalSiteQuery,
 } from 'src/stores/sync/connected-sites';
 import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
+import { getWpcomClient } from 'src/stores/wpcom-client';
 import type { SyncSite } from '@studio/common/types/sync';
 
 function SiteSyncDescription( { children }: PropsWithChildren ) {
@@ -69,7 +70,6 @@ function SiteSyncDescription( { children }: PropsWithChildren ) {
 function NoAuthSyncTab() {
 	const isOffline = useOffline();
 	const { __ } = useI18n();
-	const { authenticate } = useAuth();
 	const offlineMessage = __( "You're currently offline." );
 
 	return (
@@ -84,7 +84,7 @@ function NoAuthSyncTab() {
 							if ( isOffline ) {
 								return;
 							}
-							authenticate();
+							getIpcApi().authenticate();
 						} }
 					>
 						{ __( 'Log in to WordPress.com' ) }
@@ -131,7 +131,8 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		connectedSitesSelectors.selectSelectedRemoteSiteId
 	);
 	const selectedLocalSiteId = useRootSelector( connectedSitesSelectors.selectSelectedLocalSiteId );
-	const { isAuthenticated, user, client } = useAuth();
+	const isAuthenticated = useRootSelector( authSelectors.selectIsAuthenticated );
+	const user = useRootSelector( authSelectors.selectUser );
 	const { data: connectedSites = [], isLoading: isLoadingConnectedSites } =
 		useGetConnectedSitesForLocalSiteQuery( {
 			localSiteId: selectedSite.id,
@@ -258,14 +259,15 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 							);
 						} }
 						onPull={ async ( tree ) => {
-							if ( ! client ) {
+							const wpcomClient = getWpcomClient();
+							if ( ! wpcomClient ) {
 								return;
 							}
 							await handleConnect( effectiveRemoteSite );
 							const pullOptions = convertTreeToPullOptions( tree );
 							void dispatch(
 								syncOperationsThunks.pullSite( {
-									client,
+									client: wpcomClient,
 									connectedSite: effectiveRemoteSite,
 									selectedSite,
 									options: pullOptions,

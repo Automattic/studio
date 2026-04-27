@@ -3,11 +3,11 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { vi } from 'vitest';
-import { useAuth } from 'src/hooks/use-auth';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { UserSettings } from 'src/modules/user-settings';
 import { store } from 'src/stores';
+import { authSelectors, authThunks } from 'src/stores/auth-slice';
 
 vi.mock( 'src/lib/app-globals', () => ( {
 	getAppGlobals: vi.fn( () => ( {
@@ -17,10 +17,23 @@ vi.mock( 'src/lib/app-globals', () => ( {
 	isWindows: vi.fn( () => false ),
 	isWindowsStore: vi.fn( () => false ),
 } ) );
-vi.mock( 'src/hooks/use-auth' );
+vi.mock( 'src/stores/auth-slice', async () => {
+	const actual = await vi.importActual( 'src/stores/auth-slice' );
+	return {
+		...actual,
+		authSelectors: {
+			selectIsAuthenticated: vi.fn( () => false ),
+			selectUser: vi.fn( () => undefined ),
+		},
+		authThunks: {
+			authLogout: vi.fn( () => ( { type: 'auth/logout/fulfilled' } ) ),
+		},
+	};
+} );
 vi.mock( 'src/hooks/use-ipc-listener' );
 vi.mock( 'src/hooks/use-offline' );
 
+const mockAuthenticate = vi.hoisted( () => vi.fn() );
 vi.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: () => ( {
 		getUserTerminal: vi.fn().mockResolvedValue( 'terminal' ),
@@ -32,6 +45,7 @@ vi.mock( 'src/lib/get-ipc-api', () => ( {
 		isStudioCliInstalled: vi.fn().mockResolvedValue( true ),
 		copyText: vi.fn().mockResolvedValue( undefined ),
 		getDefaultSiteDirectory: vi.fn().mockResolvedValue( '/mock/default/site/path' ),
+		authenticate: mockAuthenticate,
 	} ),
 } ) );
 
@@ -57,28 +71,22 @@ describe( 'UserSettings', () => {
 	} );
 
 	it( 'logs in when not authenticated', async () => {
-		const authenticate = vi.fn();
-		vi.mocked( useAuth ).mockReturnValue( {
-			isAuthenticated: false,
-			authenticate,
-			logout: vi.fn(),
-			client: undefined,
-		} );
+		vi.mocked( authSelectors.selectIsAuthenticated ).mockReturnValue( false );
+		vi.mocked( authSelectors.selectUser ).mockReturnValue( undefined );
 		renderWithProvider( <UserSettings /> );
 		await userEvent.click( screen.getByText( 'Account' ) );
 		const loginButton = screen.getByRole( 'button', { name: 'Log in' } );
 		expect( loginButton ).toBeVisible();
 		await userEvent.click( loginButton );
-		expect( authenticate ).toHaveBeenCalledTimes( 1 );
+		expect( mockAuthenticate ).toHaveBeenCalledTimes( 1 );
 	} );
 
 	it( 'logs out if authenticated', async () => {
-		const logout = vi.fn();
-		vi.mocked( useAuth ).mockReturnValue( {
-			isAuthenticated: true,
-			logout,
-			authenticate: vi.fn(),
-			client: undefined,
+		vi.mocked( authSelectors.selectIsAuthenticated ).mockReturnValue( true );
+		vi.mocked( authSelectors.selectUser ).mockReturnValue( {
+			id: 1,
+			email: 'user@example.com',
+			displayName: 'User',
 		} );
 		renderWithProvider( <UserSettings /> );
 		// Navigate to Account tab to find the logout button
@@ -86,25 +94,20 @@ describe( 'UserSettings', () => {
 		const logoutButton = screen.getByRole( 'button', { name: 'Log out' } );
 		expect( logoutButton ).toBeVisible();
 		await userEvent.click( logoutButton );
-		expect( logout ).toHaveBeenCalledTimes( 1 );
+		expect( authThunks.authLogout ).toHaveBeenCalledTimes( 1 );
 	} );
 
 	it( 'disables log in button when offline', async () => {
-		const authenticate = vi.fn();
 		vi.mocked( useOffline ).mockReturnValue( true );
-		vi.mocked( useAuth ).mockReturnValue( {
-			isAuthenticated: false,
-			authenticate,
-			logout: vi.fn(),
-			client: undefined,
-		} );
+		vi.mocked( authSelectors.selectIsAuthenticated ).mockReturnValue( false );
+		vi.mocked( authSelectors.selectUser ).mockReturnValue( undefined );
 		renderWithProvider( <UserSettings /> );
 		// Navigate to Account tab
 		await userEvent.click( screen.getByText( 'Account' ) );
 		const loginButton = screen.getByRole( 'button', { name: 'Log in' } );
 		expect( loginButton ).toHaveAttribute( 'aria-disabled', 'true' );
 		await userEvent.click( loginButton );
-		expect( authenticate ).not.toHaveBeenCalled();
+		expect( mockAuthenticate ).not.toHaveBeenCalled();
 		await userEvent.hover( loginButton );
 		expect(
 			screen.getByRole( 'tooltip', {
@@ -116,11 +119,11 @@ describe( 'UserSettings', () => {
 	describe( 'Tab Navigation', () => {
 		it( 'switches between tabs correctly', async () => {
 			const user = userEvent.setup();
-			vi.mocked( useAuth ).mockReturnValue( {
-				isAuthenticated: true,
-				authenticate: vi.fn(),
-				logout: vi.fn(),
-				client: undefined,
+			vi.mocked( authSelectors.selectIsAuthenticated ).mockReturnValue( true );
+			vi.mocked( authSelectors.selectUser ).mockReturnValue( {
+				id: 1,
+				email: 'user@example.com',
+				displayName: 'User',
 			} );
 
 			renderWithProvider( <UserSettings /> );
@@ -151,11 +154,11 @@ describe( 'UserSettings', () => {
 					setTimeout( () => callback( mockIpcEvent, { tabName: 'general' } ), 0 );
 				}
 			} );
-			vi.mocked( useAuth ).mockReturnValue( {
-				isAuthenticated: true,
-				authenticate: vi.fn(),
-				logout: vi.fn(),
-				client: undefined,
+			vi.mocked( authSelectors.selectIsAuthenticated ).mockReturnValue( true );
+			vi.mocked( authSelectors.selectUser ).mockReturnValue( {
+				id: 1,
+				email: 'user@example.com',
+				displayName: 'User',
 			} );
 
 			renderWithProvider( <UserSettings /> );
@@ -172,11 +175,11 @@ describe( 'UserSettings', () => {
 					setTimeout( () => callback( mockIpcEvent, { tabName: 'account' } ), 0 );
 				}
 			} );
-			vi.mocked( useAuth ).mockReturnValue( {
-				isAuthenticated: true,
-				authenticate: vi.fn(),
-				logout: vi.fn(),
-				client: undefined,
+			vi.mocked( authSelectors.selectIsAuthenticated ).mockReturnValue( true );
+			vi.mocked( authSelectors.selectUser ).mockReturnValue( {
+				id: 1,
+				email: 'user@example.com',
+				displayName: 'User',
 			} );
 
 			renderWithProvider( <UserSettings /> );
@@ -193,11 +196,11 @@ describe( 'UserSettings', () => {
 					setTimeout( () => callback( mockIpcEvent, {} ), 0 );
 				}
 			} );
-			vi.mocked( useAuth ).mockReturnValue( {
-				isAuthenticated: true,
-				authenticate: vi.fn(),
-				logout: vi.fn(),
-				client: undefined,
+			vi.mocked( authSelectors.selectIsAuthenticated ).mockReturnValue( true );
+			vi.mocked( authSelectors.selectUser ).mockReturnValue( {
+				id: 1,
+				email: 'user@example.com',
+				displayName: 'User',
 			} );
 
 			renderWithProvider( <UserSettings /> );
@@ -213,12 +216,8 @@ describe( 'UserSettings', () => {
 					setTimeout( () => callback( mockIpcEvent, { tabName: 'account' } ), 0 );
 				}
 			} );
-			vi.mocked( useAuth ).mockReturnValue( {
-				isAuthenticated: false,
-				authenticate: vi.fn(),
-				logout: vi.fn(),
-				client: undefined,
-			} );
+			vi.mocked( authSelectors.selectIsAuthenticated ).mockReturnValue( false );
+			vi.mocked( authSelectors.selectUser ).mockReturnValue( undefined );
 
 			renderWithProvider( <UserSettings /> );
 

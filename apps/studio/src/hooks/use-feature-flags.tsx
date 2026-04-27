@@ -1,8 +1,10 @@
 import React, { createContext, useContext, ReactNode, useState, useEffect } from 'react';
-import { useAuth } from 'src/hooks/use-auth';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { FEATURE_FLAGS } from 'src/lib/feature-flags';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useRootSelector } from 'src/stores';
+import { authSelectors } from 'src/stores/auth-slice';
+import { getWpcomClient } from 'src/stores/wpcom-client';
 
 type FeatureFlagsContextType = FeatureFlags;
 
@@ -31,7 +33,7 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 			...window.appGlobals,
 		};
 	} );
-	const { isAuthenticated, client } = useAuth();
+	const isAuthenticated = useRootSelector( authSelectors.selectIsAuthenticated );
 	const [ apiFlags, setApiFlags ] = useState< Partial< FeatureFlags > >( {} );
 
 	useIpcListener( 'refresh-app-globals', async () => {
@@ -46,6 +48,7 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 	useEffect( () => {
 		let cancel = false;
 		async function loadFeatureFlags() {
+			const client = getWpcomClient();
 			if ( ! isAuthenticated || ! client ) {
 				return;
 			}
@@ -72,7 +75,7 @@ export const FeatureFlagsProvider: React.FC< FeatureFlagsProviderProps > = ( { c
 		return () => {
 			cancel = true;
 		};
-	}, [ isAuthenticated, client ] );
+	}, [ isAuthenticated ] );
 
 	return (
 		<FeatureFlagsContext.Provider value={ featureFlags }>{ children }</FeatureFlagsContext.Provider>

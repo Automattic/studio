@@ -5,11 +5,11 @@ import { Gravatar } from 'src/components/gravatar';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { WordPressLogo } from 'src/components/wordpress-logo';
-import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
-import { useI18nLocale } from 'src/stores';
+import { useI18nLocale, useRootSelector } from 'src/stores';
+import { authSelectors } from 'src/stores/auth-slice';
 interface TopBarProps {
 	onToggleSidebar: () => void;
 }
@@ -71,7 +71,8 @@ function OfflineIndicator() {
 
 function Authentication() {
 	const { __ } = useI18n();
-	const { isAuthenticated, user } = useAuth();
+	const isAuthenticated = useRootSelector( authSelectors.selectIsAuthenticated );
+	const user = useRootSelector( authSelectors.selectUser );
 	const isOffline = useOffline();
 	if ( isAuthenticated ) {
 		return (

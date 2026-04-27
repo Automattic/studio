@@ -3,11 +3,20 @@ import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { vi } from 'vitest';
 import TopBar from 'src/components/top-bar';
-import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { store } from 'src/stores';
+import { authSelectors } from 'src/stores/auth-slice';
 
-vi.mock( 'src/hooks/use-auth' );
+vi.mock( 'src/stores/auth-slice', async () => {
+	const actual = await vi.importActual( 'src/stores/auth-slice' );
+	return {
+		...actual,
+		authSelectors: {
+			selectIsAuthenticated: vi.fn( () => false ),
+			selectUser: vi.fn( () => undefined ),
+		},
+	};
+} );
 vi.mock( 'src/hooks/use-offline' );
 vi.mock( 'src/lib/app-globals', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('src/lib/app-globals') >() ),
@@ -38,11 +47,7 @@ describe( 'TopBar', () => {
 		vi.clearAllMocks();
 	} );
 	it( 'Test unauthenticated TopBar has the Log in button', async () => {
-		const authenticate = vi.fn();
-		vi.mocked( useAuth, { partial: true } ).mockReturnValue( {
-			isAuthenticated: false,
-			authenticate,
-		} );
+		vi.mocked( authSelectors.selectIsAuthenticated ).mockReturnValue( false );
 		await act( async () => renderWithProvider( <TopBar onToggleSidebar={ vi.fn() } /> ) );
 		expect(
 			screen.queryByRole( 'button', { name: 'Open account settings' } )
@@ -53,7 +58,7 @@ describe( 'TopBar', () => {
 	} );
 
 	it( 'Test authenticated TopBar does not have the log in button and it has the settings and account buttons', async () => {
-		vi.mocked( useAuth, { partial: true } ).mockReturnValue( { isAuthenticated: true } );
+		vi.mocked( authSelectors.selectIsAuthenticated ).mockReturnValue( true );
 		await act( async () => renderWithProvider( <TopBar onToggleSidebar={ vi.fn() } /> ) );
 		expect( screen.queryByRole( 'button', { name: 'Log in' } ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Open settings' } ) ).toBeVisible();
@@ -74,7 +79,7 @@ describe( 'TopBar', () => {
 
 	it( 'opens the support URL', async () => {
 		const user = userEvent.setup();
-		vi.mocked( useAuth, { partial: true } ).mockReturnValue( { isAuthenticated: true } );
+		vi.mocked( authSelectors.selectIsAuthenticated ).mockReturnValue( true );
 
 		renderWithProvider( <TopBar onToggleSidebar={ vi.fn() } /> );
 
@@ -105,7 +110,7 @@ describe( 'TopBar', () => {
 	describe( 'login button with offline state', () => {
 		it( 'disables login button when offline and unauthenticated', async () => {
 			const user = userEvent.setup();
-			vi.mocked( useAuth, { partial: true } ).mockReturnValue( { isAuthenticated: false } );
+			vi.mocked( authSelectors.selectIsAuthenticated ).mockReturnValue( false );
 			vi.mocked( useOffline ).mockReturnValue( true );
 
 			renderWithProvider( <TopBar onToggleSidebar={ vi.fn() } /> );
@@ -122,7 +127,7 @@ describe( 'TopBar', () => {
 		} );
 
 		it( 'enables login button when online and unauthenticated', async () => {
-			vi.mocked( useAuth, { partial: true } ).mockReturnValue( { isAuthenticated: false } );
+			vi.mocked( authSelectors.selectIsAuthenticated ).mockReturnValue( false );
 			vi.mocked( useOffline ).mockReturnValue( false );
 
 			renderWithProvider( <TopBar onToggleSidebar={ vi.fn() } /> );
@@ -134,7 +139,7 @@ describe( 'TopBar', () => {
 		} );
 
 		it( 'disables login button when offline and unauthenticated', () => {
-			vi.mocked( useAuth, { partial: true } ).mockReturnValue( { isAuthenticated: false } );
+			vi.mocked( authSelectors.selectIsAuthenticated ).mockReturnValue( false );
 			vi.mocked( useOffline ).mockReturnValue( true );
 			renderWithProvider( <TopBar onToggleSidebar={ vi.fn() } /> );
 			const loginButton = screen.getByRole( 'button', {

@@ -5,7 +5,6 @@ import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
 import { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo, useState } from 'react';
-import { useAuth } from 'src/hooks/use-auth';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
@@ -13,6 +12,7 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useAppDispatch } from 'src/stores';
 import { syncOperationsThunks } from 'src/stores/sync';
 import { useConnectSiteMutation } from 'src/stores/sync/connected-sites';
+import { getWpcomClient } from 'src/stores/wpcom-client';
 import { Blueprint } from 'src/stores/wpcom-api';
 import type { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
 import type { SyncSite } from '@studio/common/types/sync';
@@ -50,7 +50,6 @@ export function useAddSite() {
 	const { createSite, sites } = useSiteDetails();
 	const { importFile, clearImportState, importState } = useImportExport();
 	const [ connectSite ] = useConnectSiteMutation();
-	const { client } = useAuth();
 	const dispatch = useAppDispatch();
 	const { setSelectedTab } = useContentTabs();
 	const [ fileForImport, setFileForImport ] = useState< File | null >( null );
@@ -272,12 +271,12 @@ export function useAddSite() {
 								title: newSite.name,
 								body: __( 'Your new site was imported' ),
 							} );
-						} else if ( selectedRemoteSite && client ) {
+						} else if ( selectedRemoteSite && getWpcomClient() ) {
 							await connectSite( { site: selectedRemoteSite, localSiteId: newSite.id } );
 							const pullOptions: SyncOption[] = [ 'all' ];
 							void dispatch(
 								syncOperationsThunks.pullSite( {
-									client,
+									client: getWpcomClient()!,
 									connectedSite: selectedRemoteSite,
 									selectedSite: newSite,
 									options: { optionsToSync: pullOptions },
@@ -303,7 +302,6 @@ export function useAddSite() {
 		[
 			__,
 			clearImportState,
-			client,
 			createSite,
 			dispatch,
 			fileForImport,

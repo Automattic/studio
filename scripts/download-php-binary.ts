@@ -43,20 +43,12 @@ const archSchema = z.enum( [ 'x64', 'arm64' ] );
 type Platform = z.infer< typeof platformSchema >;
 type Arch = z.infer< typeof archSchema >;
 
-const platformResult = platformSchema.safeParse( process.argv[ 2 ] ?? process.platform );
-if ( ! platformResult.success ) {
-	console.error( `Unsupported platform: ${ process.argv[ 2 ] ?? process.platform }` );
-	process.exit( 1 );
-}
+const argsSchema = z.tuple( [
+	platformSchema.default( process.platform as Platform ),
+	archSchema.default( process.arch as Arch ),
+] );
 
-const archResult = archSchema.safeParse( process.argv[ 3 ] ?? process.arch );
-if ( ! archResult.success ) {
-	console.error( `Unsupported arch: ${ process.argv[ 3 ] ?? process.arch }` );
-	process.exit( 1 );
-}
-
-const platform = platformResult.data;
-const arch = archResult.data;
+const [ platform, arch ] = argsSchema.parse( process.argv.slice( 2 ) );
 
 // Windows ARM64 has no pre-built binary upstream; run x64 under OS emulation.
 const effectiveArch: Arch = platform === 'win32' ? 'x64' : arch;

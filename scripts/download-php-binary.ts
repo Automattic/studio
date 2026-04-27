@@ -49,7 +49,7 @@ const argsSchema = z.tuple( [
 	archSchema.default( process.arch as Arch ),
 ] );
 
-const [ platform, arch ] = argsSchema.parse( process.argv.slice( 2 ) );
+const [ platform, arch ] = argsSchema.parse( [ process.argv[ 2 ], process.argv[ 3 ] ] );
 
 // Windows ARM64 has no pre-built binary upstream; run x64 under OS emulation.
 const effectiveArch: Arch = platform === 'win32' ? 'x64' : arch;

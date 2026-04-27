@@ -28,14 +28,13 @@ import { getConfigDirectory } from '../tools/common/lib/well-known-paths';
 const PHP_VERSION = '8.4.20';
 
 // SHA-256 hashes for each platform asset from dl.static-php.dev.
-// Run `sha256sum <downloaded-file>` after first download and populate these before committing.
-// Until populated, the script will warn and skip verification.
+// To recompute (e.g. after a PHP_VERSION bump), download each archive and run `shasum -a 256 <file>`.
 const KNOWN_HASHES: Record< string, string > = {
-	// 'darwin-arm64': '<sha256>',
-	// 'darwin-x64':   '<sha256>',
-	// 'linux-x64':    '<sha256>',
-	// 'linux-arm64':  '<sha256>',
-	// 'win32-x64':    '<sha256>',
+	'darwin-arm64': '07aaac422780abec034d8ebb40bb7a3d5dcf998579bf8facd1662e7dd98513bd',
+	'darwin-x64': '0a30d5fbea543442978af9b25a2c1ba998e2ea46b8a40a5418eebe20b9845cff',
+	'linux-x64': '697e6cace50e058c81dfdf14303477f3c7ef97074e1d753841a1686d21dd73e3',
+	'linux-arm64': '1457be0977400d5d2dce83aa571287d3fc77a47ebc543a2ab79714f253946ac9',
+	'win32-x64': '174ee2fefa1da9727bfc3d89d37b0bc31b474d7cbbf2005d71bf364cf93fd3f2',
 };
 
 const platformSchema = z.enum( [ 'darwin', 'win32', 'linux' ] );

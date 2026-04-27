@@ -24,6 +24,8 @@ const SET_DEFAULT_PERMALINKS_PATH = path.resolve(
 	'php',
 	'set-default-permalinks.php'
 );
+const PHP_BINARY_FILENAME = process.platform === 'win32' ? 'php.exe' : 'php';
+const PHP_BINARY_PATH = path.resolve( import.meta.dirname, 'bin', PHP_BINARY_FILENAME );
 // With Playground's/Studio's SQLite setup, the only required database constant is `DB_NAME`
 const DEFAULT_WP_CONFIG_CONSTANTS = { DB_NAME: 'wordpress' } as const;
 
@@ -64,7 +66,7 @@ async function ensureWpConfig( siteFolder: string, signal: AbortSignal ): Promis
 
 	await new Promise< void >( ( resolve, reject ) => {
 		const phpScriptProcess = spawn(
-			'php',
+			PHP_BINARY_PATH,
 			[ ENSURE_WP_CONFIG_PATH, wpConfigPath, JSON.stringify( DEFAULT_WP_CONFIG_CONSTANTS ) ],
 			{
 				stdio: [ 'ignore', 'pipe', 'pipe' ],
@@ -123,7 +125,7 @@ async function installWordPress( config: ServerConfig, signal: AbortSignal ): Pr
 	}
 
 	await new Promise< void >( ( resolve, reject ) => {
-		const phpScriptProcess = spawn( 'php', [ SET_DEFAULT_PERMALINKS_PATH ], {
+		const phpScriptProcess = spawn( PHP_BINARY_PATH, [ SET_DEFAULT_PERMALINKS_PATH ], {
 			cwd: config.sitePath,
 			stdio: [ 'ignore', 'pipe', 'pipe' ],
 			signal,
@@ -164,7 +166,7 @@ const startServer = wrapWithStartingPromise(
 			const phpAddress = `localhost:${ config.port }`;
 			logToConsole( `Spawning PHP built-in server on ${ phpAddress } for site ${ config.siteId }` );
 
-			const spawnedChild = spawn( 'php', [ '-S', phpAddress, ROUTER_PATH ], {
+			const spawnedChild = spawn( PHP_BINARY_PATH, [ '-S', phpAddress, ROUTER_PATH ], {
 				cwd: config.sitePath,
 				stdio: [ 'ignore', 'pipe', 'pipe' ],
 			} );

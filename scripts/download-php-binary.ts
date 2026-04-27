@@ -4,8 +4,8 @@
  * NOT used in production builds — binaries are not bundled with Studio or the CLI.
  *
  * Binaries come from https://dl.static-php.dev/static-php-cli/
- *   - macOS / Linux: `common` variant (includes pdo_sqlite)
- *   - Windows x64:   `spc-max` variant (includes pdo_sqlite + opcache)
+ *   - macOS / Linux: `bulk` variant (intl, opcache, sodium, imagick + pdo_sqlite)
+ *   - Windows x64:   `windows/spc-max` variant (pdo_sqlite + opcache, missing intl/sodium/imagick)
  *
  * Usage:
  *   npx ts-node scripts/download-php-binary.ts [platform] [arch]
@@ -30,10 +30,10 @@ const PHP_VERSION = '8.4.20';
 // SHA-256 hashes for each platform asset from dl.static-php.dev.
 // To recompute (e.g. after a PHP_VERSION bump), download each archive and run `shasum -a 256 <file>`.
 const KNOWN_HASHES: Record< string, string > = {
-	'darwin-arm64': '07aaac422780abec034d8ebb40bb7a3d5dcf998579bf8facd1662e7dd98513bd',
-	'darwin-x64': '0a30d5fbea543442978af9b25a2c1ba998e2ea46b8a40a5418eebe20b9845cff',
-	'linux-x64': '697e6cace50e058c81dfdf14303477f3c7ef97074e1d753841a1686d21dd73e3',
-	'linux-arm64': '1457be0977400d5d2dce83aa571287d3fc77a47ebc543a2ab79714f253946ac9',
+	'darwin-arm64': 'f0c8e545f77f45d4331e004effa34c863071ea9400c668e4462e41b22ded980d',
+	'darwin-x64': '837402a1a5d01a01fd5b3db08443376b3c962087a9ab3d7462b68b6724576579',
+	'linux-x64': '8a6bf4113d4ba950f153ad2898e51c94e6d2b42ef40609e94ad57ad3b585fbfa',
+	'linux-arm64': '7d08c5e18ba3377dd1d49a5720e3b4b91b1ac7f027c04fc07827c7814f530a57',
 	'win32-x64': '174ee2fefa1da9727bfc3d89d37b0bc31b474d7cbbf2005d71bf364cf93fd3f2',
 };
 
@@ -66,7 +66,7 @@ const cdnArchMap: Record< Arch, string > = {
 };
 
 // Asset naming and CDN path differ by platform.
-// Linux/macOS: dl.static-php.dev/static-php-cli/common/php-{VERSION}-cli-{os}-{cdnArch}.tar.gz
+// Linux/macOS: dl.static-php.dev/static-php-cli/bulk/php-{VERSION}-cli-{os}-{cdnArch}.tar.gz
 // Windows:     dl.static-php.dev/static-php-cli/windows/spc-max/php-{VERSION}-cli-win.zip
 const osSegment: Record< Platform, string > = {
 	darwin: 'macos',
@@ -83,7 +83,7 @@ const filename = isWindows
 
 const cdnBase = isWindows
 	? 'https://dl.static-php.dev/static-php-cli/windows/spc-max'
-	: 'https://dl.static-php.dev/static-php-cli/common';
+	: 'https://dl.static-php.dev/static-php-cli/bulk';
 const url = `${ cdnBase }/${ filename }`;
 const platformKey = `${ platform }-${ effectiveArch }`;
 

@@ -92,29 +92,6 @@ async function ensureWpConfig( siteFolder: string, signal: AbortSignal ): Promis
 }
 
 async function installWordPress( config: ServerConfig, signal: AbortSignal ): Promise< void > {
-	await new Promise< void >( ( resolve, reject ) => {
-		const phpScriptProcess = spawn( PHP_BINARY_PATH, [ SET_DEFAULT_PERMALINKS_PATH ], {
-			cwd: config.sitePath,
-			stdio: [ 'ignore', 'pipe', 'pipe' ],
-			signal,
-		} );
-
-		phpScriptProcess.stdout?.pipe( process.stdout );
-		phpScriptProcess.stderr?.pipe( process.stderr );
-
-		phpScriptProcess.once( 'error', ( error: Error ) => {
-			reject( error );
-		} );
-		phpScriptProcess.once( 'exit', ( code ) => {
-			if ( code === 0 ) {
-				resolve();
-				return;
-			}
-
-			reject( new Error( `Failed to set default permalinks (code: ${ code })` ) );
-		} );
-	} );
-
 	const siteTitle = config.siteTitle ?? 'My WordPress Website';
 	const username = config.adminUsername ?? 'admin';
 	const password = config.adminPassword ? decodePassword( config.adminPassword ) : 'password';
@@ -148,6 +125,29 @@ async function installWordPress( config: ServerConfig, signal: AbortSignal ): Pr
 			`Failed to install WordPress (HTTP ${ installResponse.status } ${ installResponse.statusText })`
 		);
 	}
+
+	await new Promise< void >( ( resolve, reject ) => {
+		const phpScriptProcess = spawn( PHP_BINARY_PATH, [ SET_DEFAULT_PERMALINKS_PATH ], {
+			cwd: config.sitePath,
+			stdio: [ 'ignore', 'pipe', 'pipe' ],
+			signal,
+		} );
+
+		phpScriptProcess.stdout?.pipe( process.stdout );
+		phpScriptProcess.stderr?.pipe( process.stderr );
+
+		phpScriptProcess.once( 'error', ( error: Error ) => {
+			reject( error );
+		} );
+		phpScriptProcess.once( 'exit', ( code ) => {
+			if ( code === 0 ) {
+				resolve();
+				return;
+			}
+
+			reject( new Error( `Failed to set default permalinks (code: ${ code })` ) );
+		} );
+	} );
 }
 
 const startServer = wrapWithStartingPromise(

@@ -162,23 +162,14 @@ async function extractBinary( archivePath: string ): Promise< void > {
 	console.log( 'Extracting PHP binary...' );
 
 	if ( isWindows ) {
-		const extractDir = path.join( tmpDir, `php-${ PHP_VERSION }-win` );
+		// The zip contains php.exe directly at the root, so it extracts straight into tmpDir.
 		await extractZip( archivePath, tmpDir );
-		// The zip contains php.exe at the root
-		const src = path.join( extractDir, 'php.exe' );
+		const src = path.join( tmpDir, 'php.exe' );
 		if ( ! fs.existsSync( src ) ) {
-			// Some builds place it directly in the archive root without a subdirectory
-			const altSrc = path.join( tmpDir, 'php.exe' );
-			if ( fs.existsSync( altSrc ) ) {
-				fs.copyFileSync( altSrc, destPath );
-				fs.unlinkSync( altSrc );
-			} else {
-				throw new Error( `php.exe not found after extraction. Check archive contents.` );
-			}
-		} else {
-			fs.copyFileSync( src, destPath );
-			fs.rmSync( extractDir, { recursive: true, force: true } );
+			throw new Error( `php.exe not found after extraction. Check archive contents.` );
 		}
+		fs.copyFileSync( src, destPath );
+		fs.unlinkSync( src );
 	} else {
 		const extractDir = path.join( tmpDir, `php-${ PHP_VERSION }-${ args.platform }-${ effectiveArch }` );
 		fs.mkdirSync( extractDir, { recursive: true } );

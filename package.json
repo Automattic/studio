@@ -5,6 +5,7 @@
 	"productName": "Studio",
 	"description": "Local WordPress development environment using Playgrounds",
 	"license": "GPL-2.0-or-later",
+	"packageManager": "npm@11.13.0",
 	"devEngines": {
 		"runtime": {
 			"name": "node",
@@ -29,7 +30,7 @@
 		"start:new": "node scripts/start-new-ui.mjs",
 		"start:test": "DEV_CONFIG_DIR=/tmp/studio-test npm -w studio-app run start",
 		"start-wayland": "npm -w studio-app run start-wayland",
-		"postinstall": "patch-package --patch-dir apps/cli/patches && patch-package --patch-dir apps/studio/patches && node ./scripts/remove-fs-ext-other-platform-binaries.mjs && ts-node ./scripts/download-wp-server-files.ts && node ./scripts/download-available-site-translations.mjs && ts-node ./scripts/download-agent-skills.ts",
+		"postinstall": "patch-package --patch-dir apps/cli/patches && patch-package --patch-dir apps/studio/patches && node ./scripts/remove-fs-ext-other-platform-binaries.mjs && ts-node ./scripts/download-wp-server-files.ts && node ./scripts/download-available-site-translations.mjs && ts-node ./scripts/download-agent-skills.ts && ts-node ./scripts/download-php-binary.ts",
 		"package": "ts-node ./scripts/package-in-isolation.ts package",
 		"make": "ts-node ./scripts/package-in-isolation.ts make",
 		"make:windows-x64": "ts-node ./scripts/package-in-isolation.ts make:windows-x64",
@@ -55,6 +56,7 @@
 		"test:metrics": "npx playwright test --config=./tools/metrics/playwright.metrics.config.ts",
 		"download-language-packs": "ts-node ./scripts/download-language-packs.ts",
 		"download-agent-skills": "ts-node ./scripts/download-agent-skills.ts",
+		"download:php-binary": "ts-node ./scripts/download-php-binary.ts",
 		"eval": "npm run cli:build --silent && npx promptfoo@0.121.4 eval -c eval/promptfoo.config.yaml",
 		"eval:view": "npx promptfoo@0.121.4 view"
 	},

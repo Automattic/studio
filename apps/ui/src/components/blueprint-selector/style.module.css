@@ -16,45 +16,9 @@
 	margin: 0;
 }
 
-.dropzone {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	gap: 8px;
-	padding: 32px 16px;
-	border: 1px dashed var(--wpds-color-border, #ccc);
-	border-radius: 8px;
-	background: var(--wpds-color-surface, #fff);
-	color: var(--wpds-color-text-secondary, #555);
-	text-align: center;
-}
-
-.dropzoneActive {
-	border-color: var(--wpds-color-border-hover, #888);
-	background: var(--wpds-color-surface-hover, #f7f7f7);
-}
-
-.dropzoneText {
-	margin: 0;
-}
-
-.fileInput {
-	display: none;
-}
-
-.uploadError {
-	padding: 8px 12px;
-	border-radius: 4px;
-	background: #fce8e8;
-	color: #7a1a1a;
-	font-size: 13px;
-	margin: 0;
-}
-
 .featuredHint {
 	margin: 0;
-	color: var(--wpds-color-text-secondary, #666);
+	color: var(--wpds-color-fg-content-neutral-weak, #666);
 	font-size: 0.875rem;
 }
 
@@ -84,9 +48,9 @@
 	flex-direction: column;
 	width: 100%;
 	padding: 0;
-	border: 1px solid var(--wpds-color-border, #ddd);
+	border: 1px solid var(--wpds-color-stroke-surface-neutral, #ddd);
 	border-radius: 8px;
-	background: var(--wpds-color-surface, #fff);
+	background: var(--wpds-color-bg-surface-neutral-strong, #fff);
 	cursor: pointer;
 	overflow: hidden;
 	text-align: left;
@@ -94,7 +58,7 @@
 }
 
 .card:hover {
-	border-color: var(--wpds-color-border-hover, #bbb);
+	border-color: var(--wpds-color-stroke-interactive-neutral, #bbb);
 }
 
 .previewButton {
@@ -129,7 +93,7 @@
 
 .cardExcerpt {
 	margin: 0;
-	color: var(--wpds-color-text-secondary, #666);
+	color: var(--wpds-color-fg-content-neutral-weak, #666);
 	font-size: 0.8125rem;
 	line-height: 1.4;
 	display: -webkit-box;

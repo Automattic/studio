@@ -1,14 +1,24 @@
 import { resolveSessionModel } from '@studio/common/ai/models';
 import { useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
+import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
-import { Composer } from '@/components/session-view/composer';
+import {
+	useCallback,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+	type ReactNode,
+	type Ref,
+} from 'react';
+import { Composer, ComposerSkeleton } from '@/components/session-view/composer';
 import { pickLiveSite } from '@/components/session-view/composer/environment-pill';
 import { Conversation } from '@/components/session-view/conversation';
 import { EmptyBackground } from '@/components/session-view/empty-background';
 import { QueuedPrompts } from '@/components/session-view/queued-prompts';
 import { SiteDropdown } from '@/components/site-dropdown';
+import { SitePreview } from '@/components/site-preview';
 import { useConnector } from '@/data/core';
 import { useAgentRun } from '@/data/queries/use-agent-run';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
@@ -20,10 +30,23 @@ import {
 import { useSites } from '@/data/queries/use-sites';
 import { useFullscreen } from '@/hooks/use-fullscreen';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
+import { drawerIcon } from '@/lib/icons';
 import styles from './style.module.css';
 import type { AiModelId, AiSessionSummary, LoadedAiSession } from '@/data/core';
 
-function SessionHeader( { summary }: { summary: AiSessionSummary } ) {
+interface SessionHeaderProps {
+	summary: AiSessionSummary;
+	previewOpen: boolean;
+	onTogglePreview: () => void;
+	canTogglePreview: boolean;
+}
+
+function SessionHeader( {
+	summary,
+	previewOpen,
+	onTogglePreview,
+	canTogglePreview,
+}: SessionHeaderProps ) {
 	const siteName = summary.ownerSiteName;
 	const sidebarCollapsed = useSidebarCollapsed();
 	const isFullscreen = useFullscreen();
@@ -54,6 +77,43 @@ function SessionHeader( { summary }: { summary: AiSessionSummary } ) {
 					</span>
 				</>
 			) }
+			<span className={ styles.headerSpacer } aria-hidden="true" />
+			{ canTogglePreview ? (
+				<div className={ styles.headerActions }>
+					<IconButton
+						variant="minimal"
+						tone="neutral"
+						size="small"
+						icon={ drawerIcon }
+						label={ previewOpen ? __( 'Hide site preview' ) : __( 'Show site preview' ) }
+						aria-pressed={ previewOpen }
+						onClick={ onTogglePreview }
+					/>
+				</div>
+			) : null }
+		</div>
+	);
+}
+
+interface SessionFrameProps {
+	header?: ReactNode;
+	composer?: ReactNode;
+	preview?: ReactNode;
+	scrollRef?: Ref< HTMLDivElement >;
+	children?: ReactNode;
+}
+
+function SessionFrame( { header, composer, preview, scrollRef, children }: SessionFrameProps ) {
+	return (
+		<div className={ styles.root }>
+			<div className={ styles.chatColumn }>
+				{ header }
+				<div ref={ scrollRef } className={ styles.scroll }>
+					{ children }
+				</div>
+				<div className={ styles.composerOuter }>{ composer }</div>
+			</div>
+			{ preview }
 		</div>
 	);
 }
@@ -119,6 +179,9 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 		[ data?.events ]
 	);
 	const scrollRef = useRef< HTMLDivElement >( null );
+	const [ previewOpen, setPreviewOpen ] = useState( false );
+	const canTogglePreview = !! ownerSite && effectiveEnvironment === 'local';
+	const showPreview = previewOpen && canTogglePreview;
 
 	useLayoutEffect( () => {
 		const node = scrollRef.current;
@@ -133,7 +196,22 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 	}, [ sessionId, data, isRunning, queuedPrompts.length ] );
 
 	if ( isLoading ) {
-		return <div className={ styles.state }>{ __( 'Loading session…' ) }</div>;
+		// Use the same SessionFrame with an empty header and a structural
+		// ComposerSkeleton so the scroll area has the exact same dimensions
+		// as the loaded view — otherwise the EmptyBackground canvas jumps
+		// mid-transition.
+		return (
+			<SessionFrame
+				header={ <div className={ styles.header } /> }
+				composer={
+					<div className={ styles.column }>
+						<ComposerSkeleton />
+					</div>
+				}
+			>
+				<EmptyBackground />
+			</SessionFrame>
+		);
 	}
 
 	if ( error || ! data ) {
@@ -146,22 +224,17 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 	}
 
 	return (
-		<div className={ styles.root }>
-			<SessionHeader summary={ data.summary } />
-			<div ref={ scrollRef } className={ styles.scroll }>
-				{ isEmpty ? <EmptyBackground /> : null }
-				<div className={ clsx( styles.column, styles.conversationSpacing ) }>
-					<Conversation
-						data={ data }
-						isRunning={ isRunning }
-						startedAt={ startedAt }
-						pendingQuestions={ pendingQuestionTexts }
-						pendingAnswers={ pendingAnswers }
-						onAnswerQuestion={ answerQuestion }
-					/>
-				</div>
-			</div>
-			<div className={ styles.composerOuter }>
+		<SessionFrame
+			scrollRef={ scrollRef }
+			header={
+				<SessionHeader
+					summary={ data.summary }
+					previewOpen={ showPreview }
+					onTogglePreview={ () => setPreviewOpen( ( open ) => ! open ) }
+					canTogglePreview={ canTogglePreview }
+				/>
+			}
+			composer={
 				<div className={ styles.column }>
 					<QueuedPrompts prompts={ queuedPrompts } onRemove={ removeQueuedPrompt } />
 					<Composer
@@ -177,7 +250,22 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 						liveSite={ liveSite }
 					/>
 				</div>
+			}
+			preview={
+				showPreview && ownerSite ? <SitePreview site={ ownerSite } sessionId={ sessionId } /> : null
+			}
+		>
+			{ isEmpty ? <EmptyBackground /> : null }
+			<div className={ clsx( styles.column, styles.conversationSpacing ) }>
+				<Conversation
+					data={ data }
+					isRunning={ isRunning }
+					startedAt={ startedAt }
+					pendingQuestions={ pendingQuestionTexts }
+					pendingAnswers={ pendingAnswers }
+					onAnswerQuestion={ answerQuestion }
+				/>
 			</div>
-		</div>
+		</SessionFrame>
 	);
 }

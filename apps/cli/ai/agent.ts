@@ -55,7 +55,7 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 		prompt,
 		env,
 		model = DEFAULT_MODEL,
-		maxTurns = 50,
+		maxTurns = 75,
 		resume,
 		autoApprove,
 		activeSite,
@@ -66,12 +66,19 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 
 	const isRemoteSite = activeSite?.remote && activeSite?.wpcomSiteId && wpcomAccessToken;
 
+	// Preview-steering tools only belong in the toolset when the Studio
+	// desktop UI is on the other end of the IPC channel — otherwise the
+	// agent's navigate/reload calls render as noise in the terminal
+	// transcript. `process.send` is the same signal `emitEvent` uses to
+	// pick between IPC and stdout NDJSON.
+	const isForkedByDesktop = typeof process.send === 'function';
+
 	// Configure MCP servers based on site type:
 	// Remote sites get WP.com REST API tools + screenshot; local sites get the full Studio toolset.
 	const mcpServers = {
 		studio: isRemoteSite
 			? createRemoteSiteTools( wpcomAccessToken, activeSite.wpcomSiteId! )
-			: createStudioTools(),
+			: createStudioTools( { enablePreviewSteering: isForkedByDesktop } ),
 	};
 
 	const allowedTools = [ ...ALLOWED_TOOLS ];
@@ -85,7 +92,7 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 					id: activeSite.wpcomSiteId!,
 				},
 		  }
-		: undefined;
+		: { previewSteering: isForkedByDesktop };
 
 	if ( ! fs.existsSync( STUDIO_ROOT ) ) {
 		fs.mkdirSync( STUDIO_ROOT, { recursive: true } );

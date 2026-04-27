@@ -51,6 +51,11 @@ vi.mock( 'src/stores/wpcom-api', () => ( {
 		reducer: () => ( {} ),
 		middleware: () => ( next: Dispatch ) => ( action: UnknownAction ) => next( action ),
 	},
+	galleryBlueprintsApi: {
+		reducerPath: 'galleryBlueprintsApi',
+		reducer: () => ( {} ),
+		middleware: () => ( next: Dispatch ) => ( action: UnknownAction ) => next( action ),
+	},
 } ) );
 
 const runningSite = {

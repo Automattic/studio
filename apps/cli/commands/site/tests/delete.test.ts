@@ -230,7 +230,7 @@ describe( 'CLI: studio site delete', () => {
 
 			await runCommand( testSiteFolder );
 
-			expect( trash ).toHaveBeenCalledWith( testSiteFolder );
+			expect( trash ).toHaveBeenCalledWith( [ testSiteFolder ] );
 			expect( saveCliConfig ).toHaveBeenCalled();
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
@@ -243,6 +243,24 @@ describe( 'CLI: studio site delete', () => {
 			expect( trash ).not.toHaveBeenCalled();
 			expect( saveCliConfig ).toHaveBeenCalled();
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
+		} );
+
+		it( 'should delete both the visible site and the technical import directory', async () => {
+			testSite = createTestSite( { technicalSiteDirectory: '/test/.studio/imports/site' } );
+			vi.mocked( getSiteByFolder ).mockResolvedValue( testSite );
+			vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
+				version: 1,
+				sites: [ testSite ],
+				snapshots: [],
+			} );
+			vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
+			vi.spyOn( fs, 'existsSync' ).mockImplementation(
+				( filePath ) => filePath === testSiteFolder || filePath === '/test/.studio/imports/site'
+			);
+
+			await runCommand( testSiteFolder, true );
+
+			expect( trash ).toHaveBeenCalledWith( [ testSiteFolder, '/test/.studio/imports/site' ] );
 		} );
 
 		it( 'should delete associated preview sites', async () => {

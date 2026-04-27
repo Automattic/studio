@@ -444,6 +444,11 @@ export class AiChatUI implements AiOutputAdapter {
 		return this._activeSite;
 	}
 
+	set activeSite( site: SiteInfo | null ) {
+		this._activeSite = site;
+		this.editor.activeSiteName = site?.name ?? null;
+	}
+
 	private refreshPromptChrome(): void {
 		this.editor.invalidate();
 	}
@@ -906,16 +911,16 @@ export class AiChatUI implements AiOutputAdapter {
 		const label = site.remote
 			? sprintf(
 					/* translators: %s: site name */
-					__( ' ✻ Selected site: %s (WordPress.com)' ),
+					__( ' Selected site: %s (WordPress.com)' ),
 					site.name
 			  )
 			: sprintf(
 					/* translators: %s: site name */
-					__( ' ✻ Selected site: %s' ),
+					__( ' Selected site: %s' ),
 					site.name
 			  );
 		if ( announce ) {
-			this.messages.addChild( new Text( `${ chalk.hex( '#5b8db8' )( label ) }\n`, 0, 0 ) );
+			this.messages.addChild( new Text( `\n${ chalk.hex( '#8839ef' )( label ) }\n`, 0, 0 ) );
 		}
 		if ( emitEvent ) {
 			this.siteSelectedCallback?.( site );
@@ -1763,7 +1768,7 @@ export class AiChatUI implements AiOutputAdapter {
 		}
 
 		const contentBlocks = Array.isArray( message.message.content ) ? message.message.content : [];
-		const toolResultBlock = contentBlocks.find( isToolResultBlock );
+		const toolResultBlock = ( contentBlocks as unknown[] ).find( isToolResultBlock );
 		if ( ! toolResultBlock ) {
 			return null;
 		}

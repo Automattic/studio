@@ -5,10 +5,13 @@
  * @param error - The error to simplify. Can be an Error object or unknown.
  * @returns A simplified error suitable for display to users, or the original error if it's not an Error object.
  */
-export function simplifyErrorForDisplay( error: unknown ): unknown {
+export function simplifyErrorForDisplay( error: unknown ): Error {
 	if ( error instanceof Error && error.message ) {
 		const firstLine = error.message.split( '\n' )[ 0 ].trim();
 		return new Error( firstLine );
 	}
-	return error;
+	if ( error instanceof Error ) {
+		return error;
+	}
+	return new Error( String( error ) );
 }

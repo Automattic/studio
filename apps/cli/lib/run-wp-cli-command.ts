@@ -65,7 +65,9 @@ export async function runWpCliCommand(
 	try {
 		await php.setSapiName( 'cli' );
 
-		php.defineConstant( 'WP_SQLITE_AST_DRIVER', true );
+		// Fallback for sites where DB_NAME was stripped from wp-config.php.
+		// The SQLite driver (v3+) requires a non-empty DB_NAME at runtime.
+		php.defineConstant( 'DB_NAME', 'wordpress' );
 
 		php.mkdir( '/wordpress' );
 		await php.mount( '/wordpress', createNodeFsMountHandler( siteFolder ) );

@@ -39,9 +39,9 @@
 }
 
 .siteName {
-	font-size: var(--wpds-font-size-md);
+	font-size: var(--wpds-typography-font-size-md);
 	line-height: 1.2;
-	font-weight: var(--wpds-font-weight-regular);
+	font-weight: var(--wpds-typography-font-weight-regular);
 	color: var(--wpds-color-fg-content-neutral-weak);
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -55,7 +55,7 @@
 
 .siteActive .siteName {
 	color: var(--wpds-color-fg-content-neutral);
-	font-weight: var(--wpds-font-weight-medium);
+	font-weight: var(--wpds-typography-font-weight-medium);
 }
 
 .siteActions {
@@ -84,7 +84,7 @@
 .empty {
 	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
 	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-font-size-sm);
+	font-size: var(--wpds-typography-font-size-sm);
 	margin: 0;
 }
 
@@ -105,8 +105,8 @@
 	height: 26px;
 	padding: 0 var(--wpds-dimension-padding-md) 0 var(--wpds-dimension-padding-xl);
 	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-font-size-sm);
-	font-weight: var(--wpds-font-weight-regular);
+	font-size: var(--wpds-typography-font-size-sm);
+	font-weight: var(--wpds-typography-font-weight-regular);
 }
 
 /* Use ::after so we don't collide with the Button primitive's ::before
@@ -151,8 +151,8 @@
 
 .dialogText {
 	margin: 0;
-	font-size: var(--wpds-font-size-sm);
-	line-height: var(--wpds-font-line-height-sm);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
 	color: var(--wpds-color-fg-content-neutral-weak);
 }
 
@@ -161,15 +161,15 @@
 	align-items: center;
 	gap: var(--wpds-dimension-padding-sm);
 	margin-top: var(--wpds-dimension-padding-sm);
-	font-size: var(--wpds-font-size-sm);
-	line-height: var(--wpds-font-line-height-sm);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
 	color: var(--wpds-color-fg-content-neutral);
 	cursor: var(--wpds-cursor-control);
 }
 
 .dialogError {
 	margin-top: var(--wpds-dimension-padding-sm);
-	font-size: var(--wpds-font-size-sm);
-	line-height: var(--wpds-font-line-height-sm);
-	color: var(--wpds-color-fg-content-critical, var(--wpds-color-fg-content-neutral));
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	color: var(--wpds-color-fg-content-error, var(--wpds-color-fg-content-neutral));
 }

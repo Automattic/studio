@@ -10,6 +10,8 @@ import { useSessions } from '@/data/queries/use-sessions';
 import {
 	useCopySite,
 	useDeleteSite,
+	useExportDatabase,
+	useExportFullSite,
 	useIsSiteStarting,
 	useIsSiteStopping,
 	useSites,
@@ -112,6 +114,15 @@ function SessionItem( { session }: { session: AiSessionSummary } ) {
 
 function NewSessionButton( { site }: { site: SiteDetails } ) {
 	const navigate = useNavigate();
+	const [ isPending, setIsPending ] = useState( false );
+	const handleClick = async () => {
+		setIsPending( true );
+		try {
+			await navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+		} finally {
+			setIsPending( false );
+		}
+	};
 	return (
 		<IconButton
 			variant="minimal"
@@ -120,7 +131,9 @@ function NewSessionButton( { site }: { site: SiteDetails } ) {
 			icon={ plus }
 			label={ __( 'New session' ) }
 			className={ styles.siteAction }
-			onClick={ () => void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } ) }
+			loading={ isPending }
+			loadingAnnouncement={ __( 'Creating session' ) }
+			onClick={ handleClick }
 		/>
 	);
 }
@@ -215,9 +228,12 @@ function SiteActionsMenu( { site }: { site: SiteDetails } ) {
 	const startSite = useStartSite();
 	const stopSite = useStopSite();
 	const copySite = useCopySite();
+	const exportFullSite = useExportFullSite();
+	const exportDatabase = useExportDatabase();
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
 	const busy = isStarting || isStopping;
+	const isExporting = exportFullSite.isPending || exportDatabase.isPending;
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
 
 	return (
@@ -258,6 +274,13 @@ function SiteActionsMenu( { site }: { site: SiteDetails } ) {
 					</Menu.Item>
 					<Menu.Item disabled={ copySite.isPending } onClick={ () => copySite.mutate( site.id ) }>
 						{ copySite.isPending ? __( 'Copying…' ) : __( 'Copy site' ) }
+					</Menu.Item>
+					<Menu.Separator />
+					<Menu.Item disabled={ isExporting } onClick={ () => exportFullSite.mutate( site.id ) }>
+						{ exportFullSite.isPending ? __( 'Exporting…' ) : __( 'Export entire site' ) }
+					</Menu.Item>
+					<Menu.Item disabled={ isExporting } onClick={ () => exportDatabase.mutate( site.id ) }>
+						{ exportDatabase.isPending ? __( 'Exporting…' ) : __( 'Export database' ) }
 					</Menu.Item>
 					<Menu.Separator />
 					<Menu.Item onClick={ () => setDeleteOpen( true ) }>{ __( 'Delete site' ) }</Menu.Item>

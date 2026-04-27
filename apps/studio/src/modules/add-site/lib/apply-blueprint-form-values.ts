@@ -1,6 +1,6 @@
 import { extractFormValuesFromBlueprint } from '@studio/common/lib/blueprint-settings';
 import { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
-import { SupportedPHPVersions, SupportedPHPVersion } from '@studio/common/types/php-versions';
+import { isSupportedPHPVersion, SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 interface BlueprintFormValueSetters {
@@ -29,11 +29,8 @@ export function applyBlueprintFormValues(
 			blueprintJson.preferredVersions.php === '7.3'
 		) {
 			preferredPhpVersion = '7.4';
-		} else if (
-			blueprintJson.preferredVersions.php !== 'latest' &&
-			( SupportedPHPVersions as readonly string[] ).includes( blueprintJson.preferredVersions.php )
-		) {
-			preferredPhpVersion = blueprintJson.preferredVersions.php as SupportedPHPVersion;
+		} else if ( isSupportedPHPVersion( blueprintJson.preferredVersions.php ) ) {
+			preferredPhpVersion = blueprintJson.preferredVersions.php;
 		}
 
 		setters.setBlueprintPreferredVersions( {

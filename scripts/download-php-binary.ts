@@ -43,17 +43,19 @@ const archSchema = z.enum( [ 'x64', 'arm64' ] );
 type Platform = z.infer< typeof platformSchema >;
 type Arch = z.infer< typeof archSchema >;
 
-const argsSchema = z.tuple( [
-	platformSchema.default( process.platform as Platform ),
-	archSchema.default( process.arch as Arch ),
-] );
+const argsSchema = z
+	.tuple( [
+		platformSchema.default( process.platform as Platform ),
+		archSchema.default( process.arch as Arch ),
+	] )
+	.transform( ( [ platform, arch ] ) => ( { platform, arch } ) );
 
-const [ platform, arch ] = argsSchema.parse( [ process.argv[ 2 ], process.argv[ 3 ] ] );
+const args = argsSchema.parse( [ process.argv[ 2 ], process.argv[ 3 ] ] );
 
 // Windows ARM64 has no pre-built binary upstream; run x64 under OS emulation.
-const effectiveArch: Arch = platform === 'win32' ? 'x64' : arch;
+const effectiveArch: Arch = args.platform === 'win32' ? 'x64' : args.arch;
 
-if ( arch === 'arm64' && platform === 'win32' ) {
+if ( args.arch === 'arm64' && args.platform === 'win32' ) {
 	console.warn(
 		'Warning: no Windows ARM64 binary available upstream. Downloading x64 binary instead (runs under Windows 11 emulation).'
 	);
@@ -74,18 +76,18 @@ const osSegment: Record< Platform, string > = {
 	win32: 'win',
 };
 
-const isWindows = platform === 'win32';
+const isWindows = args.platform === 'win32';
 const ext = isWindows ? 'zip' : 'tar.gz';
 const cdnArch = cdnArchMap[ effectiveArch ];
 const filename = isWindows
 	? `php-${ PHP_VERSION }-cli-win.${ ext }`
-	: `php-${ PHP_VERSION }-cli-${ osSegment[ platform ] }-${ cdnArch }.${ ext }`;
+	: `php-${ PHP_VERSION }-cli-${ osSegment[ args.platform ] }-${ cdnArch }.${ ext }`;
 
 const cdnBase = isWindows
 	? 'https://dl.static-php.dev/static-php-cli/windows/spc-max'
 	: 'https://dl.static-php.dev/static-php-cli/bulk';
 const url = `${ cdnBase }/${ filename }`;
-const platformKey = `${ platform }-${ effectiveArch }`;
+const platformKey = `${ args.platform }-${ effectiveArch }`;
 
 const binDir = path.join( getConfigDirectory(), 'php-bin' );
 const binaryName = isWindows ? 'php.exe' : 'php';
@@ -94,7 +96,7 @@ const tmpDir = os.tmpdir();
 const downloadPath = path.join( tmpDir, filename );
 
 async function download( downloadUrl: string, dest: string ): Promise< void > {
-	console.log( `Downloading PHP ${ PHP_VERSION } for ${ platform }-${ effectiveArch }...` );
+	console.log( `Downloading PHP ${ PHP_VERSION } for ${ args.platform }-${ effectiveArch }...` );
 	console.log( `  URL: ${ downloadUrl }` );
 
 	const response = await fetch( downloadUrl );
@@ -178,7 +180,7 @@ async function extractBinary( archivePath: string ): Promise< void > {
 			fs.rmSync( extractDir, { recursive: true, force: true } );
 		}
 	} else {
-		const extractDir = path.join( tmpDir, `php-${ PHP_VERSION }-${ platform }-${ effectiveArch }` );
+		const extractDir = path.join( tmpDir, `php-${ PHP_VERSION }-${ args.platform }-${ effectiveArch }` );
 		fs.mkdirSync( extractDir, { recursive: true } );
 
 		await extract( { file: archivePath, cwd: extractDir } );

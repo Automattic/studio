@@ -301,6 +301,10 @@ describe( 'ContentTabAssistant', () => {
 
 		// Simulate user authentication change
 		rerender( buildContextTree( { auth: { user: user2 } } ) );
+		// Force store subscribers (useRootSelector) to re-evaluate with updated mock
+		act( () => {
+			store.dispatch( { type: 'test/forceUpdate' } );
+		} );
 
 		await waitFor(
 			() => {

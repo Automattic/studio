@@ -85,6 +85,13 @@ const config: ForgeConfig = {
 				name: 'studio',
 				bin: 'studio',
 				mimeType: [ 'x-scheme-handler/wp-studio' ],
+				// libcap2-bin: ships `setcap`, used by postinst to grant the bundled
+				// node CAP_NET_BIND_SERVICE so the proxy can bind ports 80/443.
+				// policykit-1: pkexec backend used by @vscode/sudo-prompt for hosts-file writes.
+				depends: [ 'libcap2-bin', 'policykit-1' ],
+				scripts: {
+					postinst: path.join( __dirname, 'installers', 'linux', 'postinst.sh' ),
+				},
 			},
 		} ),
 		new MakerSquirrel(

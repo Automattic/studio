@@ -1,5 +1,6 @@
 import { listAiSessions } from '@studio/common/ai/sessions/store';
 import { type LoadedAiSession, type TurnStatus } from '@studio/common/ai/sessions/types';
+import { buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { DEFAULT_MODEL, startAiAgent, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
@@ -659,7 +660,7 @@ export async function runCommand( options: {
 					// Skill command — no handler, route to agent
 					ui.addUserMessage( prompt );
 					try {
-						await runAgentTurn( `Run the /${ cmd.name } skill using the Skill tool.` );
+						await runAgentTurn( buildSkillInvocationPrompt( cmd.name ) );
 					} catch ( error ) {
 						handleAgentTurnError( error );
 					}

@@ -4,6 +4,7 @@
  * Manages WordPress server processes via process manager daemon. Each site runs in a separate
  * process that spawns Playground CLI.
  */
+import fs from 'fs';
 import path from 'path';
 import {
 	PLAYGROUND_CLI_ACTIVITY_CHECK_INTERVAL,
@@ -23,6 +24,7 @@ import {
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { ServerConfig, ManagerMessagePayload } from 'cli/lib/types/wordpress-server-ipc';
 import { Logger } from 'cli/logger';
+import type { WordPressInstallMode } from '@wp-playground/wordpress';
 
 export const SITE_PROCESS_PREFIX = 'studio-site-';
 
@@ -62,16 +64,17 @@ export interface StartServerOptions {
 	wpVersion?: string;
 	blueprint?: unknown;
 	blueprintUri?: string;
+	mounts?: ServerConfig[ 'mounts' ];
+	mountsBeforeInstall?: ServerConfig[ 'mountsBeforeInstall' ];
+	wordpressInstallMode?: WordPressInstallMode;
+	skipSqliteSetup?: boolean;
+	useExactMountLayout?: boolean;
 }
 
-export async function startWordPressServer(
+function buildServerConfig(
 	site: SiteData,
-	logger: Logger< string >,
-	options?: StartServerOptions
-): Promise< ProcessDescription > {
-	const wordPressServerChildPath = getChildScriptPath( site.runtime );
-	const processName = getProcessName( site.id );
-
+	options?: Partial< StartServerOptions & RunBlueprintOptions >
+): ServerConfig {
 	const serverConfig: ServerConfig = {
 		siteId: site.id,
 		sitePath: site.path,
@@ -112,6 +115,26 @@ export async function startWordPressServer(
 		};
 	}
 
+	if ( options?.mounts ) {
+		serverConfig.mounts = options.mounts;
+	}
+
+	if ( options?.mountsBeforeInstall ) {
+		serverConfig.mountsBeforeInstall = options.mountsBeforeInstall;
+	}
+
+	if ( options?.wordpressInstallMode ) {
+		serverConfig.wordpressInstallMode = options.wordpressInstallMode;
+	}
+
+	if ( options?.skipSqliteSetup !== undefined ) {
+		serverConfig.skipSqliteSetup = options.skipSqliteSetup;
+	}
+
+	if ( options?.useExactMountLayout ) {
+		serverConfig.useExactMountLayout = true;
+	}
+
 	if ( site.enableXdebug ) {
 		serverConfig.enableXdebug = true;
 	}
@@ -123,6 +146,32 @@ export async function startWordPressServer(
 	if ( site.enableDebugDisplay ) {
 		serverConfig.enableDebugDisplay = true;
 	}
+
+	return serverConfig;
+}
+
+export async function startWordPressServer(
+	site: SiteData,
+	logger: Logger< string >,
+	options?: StartServerOptions
+): Promise< ProcessDescription > {
+	// For sites imported via `studio pull-reprint`, the pull command
+	// persists the computed start options to start-options.json so the
+	// daemon doesn't need to recompute them (which would spin up PHP
+	// WASM to extract runtime.php constants from the imported site).
+	if ( ! options && site.runtimeBlueprintPath ) {
+		const optionsPath = path.join(
+			path.dirname( site.runtimeBlueprintPath ),
+			'start-options.json'
+		);
+		if ( fs.existsSync( optionsPath ) ) {
+			options = JSON.parse( fs.readFileSync( optionsPath, 'utf-8' ) ) as StartServerOptions;
+		}
+	}
+
+	const wordPressServerChildPath = getChildScriptPath( site.runtime );
+	const processName = getProcessName( site.id );
+	const serverConfig = buildServerConfig( site, options );
 
 	const readyOrExit = await subscribeForReadyOrExit( processName );
 	try {
@@ -247,6 +296,7 @@ const messageActivityTrackers = new Map<
 		activityCheckIntervalId: NodeJS.Timeout;
 	}
 >();
+const CHILD_EXIT_ERROR_GRACE_MS = 100;
 
 export interface SendMessageOptions {
 	maxTotalElapsedTime?: number;
@@ -272,6 +322,7 @@ export async function sendMessage(
 	let responseHandler: ( packet: DaemonBusEventMap[ 'process-message' ] ) => void;
 	let processEventHandler: ( event: DaemonBusEventMap[ 'process-event' ] ) => void;
 	let abortListener: () => void;
+	let exitRejectTimeoutId: NodeJS.Timeout | undefined;
 
 	return new Promise( ( resolve, reject ) => {
 		const startTime = Date.now();
@@ -304,7 +355,9 @@ export async function sendMessage(
 
 		processEventHandler = ( event ) => {
 			if ( event.process.name === processName && event.event === 'exit' ) {
-				reject( new Error( 'WordPress server process exited unexpectedly' ) );
+				exitRejectTimeoutId = setTimeout( () => {
+					reject( new Error( 'WordPress server process exited unexpectedly' ) );
+				}, CHILD_EXIT_ERROR_GRACE_MS );
 			}
 		};
 
@@ -319,6 +372,10 @@ export async function sendMessage(
 				lastActivityTimestamp = Date.now();
 				logger?.reportProgress( packet.raw.message );
 			} else if ( packet.raw.topic === 'error' && packet.raw.originalMessageId === messageId ) {
+				if ( exitRejectTimeoutId ) {
+					clearTimeout( exitRejectTimeoutId );
+					exitRejectTimeoutId = undefined;
+				}
 				const error = new Error( packet.raw.errorMessage ) as Error & {
 					cliArgs?: Record< string, unknown >;
 				};
@@ -330,6 +387,10 @@ export async function sendMessage(
 				}
 				reject( error );
 			} else if ( packet.raw.topic === 'result' && packet.raw.originalMessageId === messageId ) {
+				if ( exitRejectTimeoutId ) {
+					clearTimeout( exitRejectTimeoutId );
+					exitRejectTimeoutId = undefined;
+				}
 				resolve( packet.raw.result );
 			}
 		};
@@ -353,6 +414,9 @@ export async function sendMessage(
 		if ( tracker ) {
 			clearInterval( tracker.activityCheckIntervalId );
 			messageActivityTrackers.delete( messageId );
+		}
+		if ( exitRejectTimeoutId ) {
+			clearTimeout( exitRejectTimeoutId );
 		}
 	} );
 }
@@ -423,54 +487,7 @@ export async function runBlueprint(
 	const wordPressServerChildPath = getChildScriptPath( site.runtime );
 	const processName = getProcessName( site.id );
 
-	const serverConfig: ServerConfig = {
-		siteId: site.id,
-		sitePath: site.path,
-		port: site.port,
-		phpVersion: site.phpVersion,
-		siteTitle: site.name,
-		blueprint: {
-			contents: options.blueprint,
-			uri: options.blueprintUri,
-		},
-	};
-
-	if ( site.customDomain ) {
-		const protocol = site.enableHttps ? 'https' : 'http';
-		serverConfig.absoluteUrl = `${ protocol }://${ site.customDomain }`;
-	}
-
-	if ( site.adminUsername ) {
-		serverConfig.adminUsername = site.adminUsername;
-	}
-
-	if ( site.adminPassword ) {
-		serverConfig.adminPassword = site.adminPassword;
-	}
-
-	if ( site.adminEmail ) {
-		serverConfig.adminEmail = site.adminEmail;
-	}
-
-	if ( site.isWpAutoUpdating !== undefined ) {
-		serverConfig.isWpAutoUpdating = site.isWpAutoUpdating;
-	}
-
-	if ( options.wpVersion ) {
-		serverConfig.wpVersion = options.wpVersion;
-	}
-
-	if ( site.enableXdebug ) {
-		serverConfig.enableXdebug = true;
-	}
-
-	if ( site.enableDebugLog ) {
-		serverConfig.enableDebugLog = true;
-	}
-
-	if ( site.enableDebugDisplay ) {
-		serverConfig.enableDebugDisplay = true;
-	}
+	const serverConfig = buildServerConfig( site, options );
 
 	const readyOrExit = await subscribeForReadyOrExit( processName );
 	try {

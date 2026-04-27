@@ -8,7 +8,10 @@ function __is_wp_installed() {
 	return is_blog_installed();
 }
 
-if ( ! __is_wp_installed() ) {
-	$nice_permalinks = '/%year%/%monthnum%/%day%/%postname%/';
-	$option_result = update_option( 'permalink_structure', $nice_permalinks );
+if ( __is_wp_installed() ) {
+	$current_permalink = get_option( 'permalink_structure' );
+	if ( empty( $current_permalink ) ) {
+		$nice_permalinks = '/%year%/%monthnum%/%day%/%postname%/';
+		update_option( 'permalink_structure', $nice_permalinks );
+	}
 }

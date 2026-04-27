@@ -91,7 +91,57 @@ async function ensureWpConfig( siteFolder: string, signal: AbortSignal ): Promis
 	} );
 }
 
+async function isWordPressInstalled( siteFolder: string, signal: AbortSignal ): Promise< boolean > {
+	const installationCheckScript = `
+$wp_load = getcwd() . '/wp-load.php';
+if ( ! file_exists( $wp_load ) ) {
+	echo '0';
+	exit( 0 );
+}
+require_once $wp_load;
+echo is_blog_installed() ? '1' : '0';
+`;
+
+	return await new Promise< boolean >( ( resolve, reject ) => {
+		const phpScriptProcess = spawn( PHP_BINARY_PATH, [ '-r', installationCheckScript ], {
+			cwd: siteFolder,
+			stdio: [ 'ignore', 'pipe', 'pipe' ],
+			signal,
+		} );
+
+		let stdout = '';
+		phpScriptProcess.stdout?.on( 'data', ( chunk: Buffer | string ) => {
+			stdout += chunk.toString();
+		} );
+		phpScriptProcess.stderr?.pipe( process.stderr );
+
+		phpScriptProcess.once( 'error', ( error: Error ) => {
+			reject( error );
+		} );
+		phpScriptProcess.once( 'exit', ( code ) => {
+			if ( code !== 0 ) {
+				reject( new Error( `Failed to check WordPress installation status (code: ${ code })` ) );
+				return;
+			}
+
+			const status = stdout.trim();
+			if ( status !== '0' && status !== '1' ) {
+				reject( new Error( `Failed to parse WordPress installation status` ) );
+				return;
+			}
+
+			resolve( status === '1' );
+		} );
+	} );
+}
+
 async function installWordPress( config: ServerConfig, signal: AbortSignal ): Promise< void > {
+	const alreadyInstalled = await isWordPressInstalled( config.sitePath, signal );
+	if ( alreadyInstalled ) {
+		logToConsole( `WordPress already installed for site ${ config.siteId }; skipping installer` );
+		return;
+	}
+
 	const siteTitle = config.siteTitle ?? 'My WordPress Website';
 	const username = config.adminUsername ?? 'admin';
 	const password = config.adminPassword ? decodePassword( config.adminPassword ) : 'password';

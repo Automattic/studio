@@ -183,8 +183,17 @@ const authSlice = createSlice( {
 	},
 } );
 
-export const selectIsAuthenticated = ( state: RootState ) => state.auth.isAuthenticated;
-export const selectUser = ( state: RootState ) => state.auth.user ?? undefined;
+export const authThunks = {
+	handleInvalidToken,
+	initializeAuth,
+	authTokenReceived,
+	authLogout,
+};
+
+export const authSelectors = {
+	selectIsAuthenticated: ( state: RootState ) => state.auth.isAuthenticated,
+	selectUser: ( state: RootState ) => state.auth.user ?? undefined,
+};
 
 void store.dispatch( initializeAuth() );
 

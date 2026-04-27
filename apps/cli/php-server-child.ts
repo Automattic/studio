@@ -16,6 +16,7 @@ import {
 	ChildMessageRaw,
 	ServerConfig,
 } from 'cli/lib/types/wordpress-server-ipc';
+import { getPhpBinaryPath } from './lib/dependency-management/paths';
 
 const ROUTER_PATH = path.resolve( import.meta.dirname, 'php', 'router.php' );
 const SET_DEFAULT_PERMALINKS_PATH = path.resolve(
@@ -28,8 +29,6 @@ const WP_CONFIG_TRANSFORMER_PATH = path.resolve(
 	'php',
 	'wp-config-transformer.php'
 );
-const PHP_BINARY_FILENAME = process.platform === 'win32' ? 'php.exe' : 'php';
-const PHP_BINARY_PATH = path.resolve( import.meta.dirname, 'bin', PHP_BINARY_FILENAME );
 // With Playground's/Studio's SQLite setup, the only required database constant is `DB_NAME`
 const DEFAULT_WP_CONFIG_CONSTANTS = { DB_NAME: 'wordpress' } as const;
 
@@ -55,7 +54,7 @@ function spawnPhpProcess(
 	args: string[],
 	{ cwd, signal, mode = 'pipe' }: SpawnPhpProcessOptions = {}
 ): ChildProcess {
-	const phpScriptProcess = spawn( PHP_BINARY_PATH, args, {
+	const phpScriptProcess = spawn( getPhpBinaryPath(), args, {
 		cwd,
 		stdio: [ 'ignore', 'pipe', 'pipe' ],
 		signal,

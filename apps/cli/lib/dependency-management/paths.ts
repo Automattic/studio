@@ -1,12 +1,12 @@
 import path from 'path';
-import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
+import { getConfigDirectory, getServerFilesPath } from '@studio/common/lib/well-known-paths';
 
-// PHP binary location — downloaded via `npm run download:php-binary` for local dev.
-// Not bundled in production builds; this path will be undefined in packaged Studio/CLI.
 const PHP_BINARY_FILENAME = process.platform === 'win32' ? 'php.exe' : 'php';
 
+// PHP binary lives in ~/.studio/php-bin/ — downloaded via `npm run download:php-binary`
+// for local dev. Not bundled in production builds.
 export function getPhpBinaryPath(): string {
-	return path.join( import.meta.dirname, '..', '..', 'bin', PHP_BINARY_FILENAME );
+	return path.join( getConfigDirectory(), 'php-bin', PHP_BINARY_FILENAME );
 }
 
 const WP_CLI_PHAR_FILENAME = 'wp-cli.phar';

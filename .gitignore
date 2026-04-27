@@ -131,10 +131,6 @@ CLAUDE.md
 apps/studio/bin/node
 apps/studio/bin/node.exe
 
-# PHP binary for native-php runtime (dev only — not bundled in production builds)
-apps/cli/bin/php
-apps/cli/bin/php.exe
-
 # CLI launcher executable (built during packaging via @yao-pkg/pkg)
 bin/studio-cli.exe
 

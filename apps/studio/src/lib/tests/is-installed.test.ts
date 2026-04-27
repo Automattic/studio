@@ -177,9 +177,10 @@ describe( 'isInstalled', () => {
 
 	describe( 'on Linux', () => {
 		const originalPath = process.env.PATH;
+		const originalPlatform = process.platform;
 
 		beforeEach( async () => {
-			Object.defineProperty( process, 'platform', { value: 'linux' } );
+			Object.defineProperty( process, 'platform', { value: 'linux', configurable: true } );
 			process.env.PATH = '/usr/bin:/mock/home/path/.local/bin';
 			vi.resetModules();
 			const module = await import( '../is-installed' );
@@ -188,6 +189,10 @@ describe( 'isInstalled', () => {
 
 		afterEach( () => {
 			process.env.PATH = originalPath;
+			Object.defineProperty( process, 'platform', {
+				value: originalPlatform,
+				configurable: true,
+			} );
 		} );
 
 		it( 'detects Zed installed in ~/.local/bin', () => {

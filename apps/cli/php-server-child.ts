@@ -92,38 +92,6 @@ async function ensureWpConfig( siteFolder: string, signal: AbortSignal ): Promis
 }
 
 async function installWordPress( config: ServerConfig, signal: AbortSignal ): Promise< void > {
-	const username = config.adminUsername ?? 'admin';
-	const password = config.adminPassword ? decodePassword( config.adminPassword ) : 'password';
-
-	const installResponse = await fetch(
-		`http://localhost:${ config.port }/wp-admin/install.php?step=2`,
-		{
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/x-www-form-urlencoded',
-			},
-			body: new URLSearchParams( {
-				language: 'en',
-				prefix: 'wp_',
-				weblog_title: 'My WordPress Website',
-				user_name: username,
-				admin_password: password,
-				// The installation wizard demands typing the same password twice
-				admin_password2: password,
-				Submit: 'Install WordPress',
-				pw_weak: '1',
-				admin_email: 'admin@localhost.com',
-			} ),
-			signal,
-		}
-	);
-
-	if ( ! installResponse.ok ) {
-		throw new Error(
-			`Failed to install WordPress (HTTP ${ installResponse.status } ${ installResponse.statusText })`
-		);
-	}
-
 	await new Promise< void >( ( resolve, reject ) => {
 		const phpScriptProcess = spawn( PHP_BINARY_PATH, [ SET_DEFAULT_PERMALINKS_PATH ], {
 			cwd: config.sitePath,
@@ -146,6 +114,40 @@ async function installWordPress( config: ServerConfig, signal: AbortSignal ): Pr
 			reject( new Error( `Failed to set default permalinks (code: ${ code })` ) );
 		} );
 	} );
+
+	const siteTitle = config.siteTitle ?? 'My WordPress Website';
+	const username = config.adminUsername ?? 'admin';
+	const password = config.adminPassword ? decodePassword( config.adminPassword ) : 'password';
+	const email = config.adminEmail ?? 'admin@localhost.com';
+
+	const installResponse = await fetch(
+		`http://localhost:${ config.port }/wp-admin/install.php?step=2`,
+		{
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/x-www-form-urlencoded',
+			},
+			body: new URLSearchParams( {
+				language: 'en',
+				prefix: 'wp_',
+				weblog_title: siteTitle,
+				user_name: username,
+				admin_password: password,
+				// The installation wizard demands typing the same password twice
+				admin_password2: password,
+				Submit: 'Install WordPress',
+				pw_weak: '1',
+				admin_email: email,
+			} ),
+			signal,
+		}
+	);
+
+	if ( ! installResponse.ok ) {
+		throw new Error(
+			`Failed to install WordPress (HTTP ${ installResponse.status } ${ installResponse.statusText })`
+		);
+	}
 }
 
 const startServer = wrapWithStartingPromise(
@@ -157,6 +159,7 @@ const startServer = wrapWithStartingPromise(
 
 		startupAbortController = new AbortController();
 		const stopSignal = AbortSignal.any( [ signal, startupAbortController.signal ] );
+		let spawnedChild: ChildProcess | null = null;
 
 		try {
 			stopSignal.throwIfAborted();
@@ -166,19 +169,20 @@ const startServer = wrapWithStartingPromise(
 			const phpAddress = `localhost:${ config.port }`;
 			logToConsole( `Spawning PHP built-in server on ${ phpAddress } for site ${ config.siteId }` );
 
-			const spawnedChild = spawn( PHP_BINARY_PATH, [ '-S', phpAddress, ROUTER_PATH ], {
+			const serverChild = spawn( PHP_BINARY_PATH, [ '-S', phpAddress, ROUTER_PATH ], {
 				cwd: config.sitePath,
 				stdio: [ 'ignore', 'pipe', 'pipe' ],
 			} );
+			spawnedChild = serverChild;
 
-			spawnedChild.stdout?.pipe( process.stdout );
-			spawnedChild.stderr?.pipe( process.stderr );
+			serverChild.stdout?.pipe( process.stdout );
+			serverChild.stderr?.pipe( process.stderr );
 
 			await new Promise< void >( ( resolve, reject ) => {
-				spawnedChild.once( 'spawn', () => {
+				serverChild.once( 'spawn', () => {
 					resolve();
 				} );
-				spawnedChild.once( 'error', ( error: Error ) => {
+				serverChild.once( 'error', ( error: Error ) => {
 					reject( error );
 				} );
 				stopSignal.addEventListener( 'abort', () => {
@@ -192,17 +196,17 @@ const startServer = wrapWithStartingPromise(
 			await new Promise< void >( ( resolve ) => setTimeout( resolve, 500 ) );
 			await installWordPress( config, stopSignal );
 
-			spawnedChild.once( 'exit', ( code, signalName ) => {
+			serverChild.once( 'exit', ( code, signalName ) => {
 				errorToConsole(
 					`PHP child process exited unexpectedly (code: ${ code }, signal: ${ signalName })`
 				);
 				process.exit( code ?? 1 );
 			} );
 
-			phpProcess = spawnedChild;
+			phpProcess = serverChild;
 		} catch ( error ) {
-			if ( phpProcess && ! phpProcess.killed ) {
-				phpProcess.kill( 'SIGKILL' );
+			if ( spawnedChild && ! spawnedChild.killed ) {
+				spawnedChild.kill( 'SIGKILL' );
 			}
 
 			if ( stopSignal.aborted ) {

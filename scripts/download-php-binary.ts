@@ -21,7 +21,9 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { extract } from 'tar';
+import { z } from 'zod';
 import { extractZip } from '../tools/common/lib/extract-zip';
+import { getConfigDirectory } from '../tools/common/lib/well-known-paths';
 
 const PHP_VERSION = '8.4.20';
 
@@ -36,21 +38,18 @@ const KNOWN_HASHES: Record< string, string > = {
 	// 'win32-x64':    '<sha256>',
 };
 
-type Platform = 'darwin' | 'win32' | 'linux';
-type Arch = 'x64' | 'arm64';
+const platformSchema = z.enum( [ 'darwin', 'win32', 'linux' ] );
+const archSchema = z.enum( [ 'x64', 'arm64' ] );
 
-const platform = ( process.argv[ 2 ] || process.platform ) as Platform;
-const arch = ( process.argv[ 3 ] || process.arch ) as Arch;
+type Platform = z.infer< typeof platformSchema >;
+type Arch = z.infer< typeof archSchema >;
 
-if ( ! [ 'darwin', 'win32', 'linux' ].includes( platform ) ) {
-	console.error( `Unsupported platform: ${ platform }` );
-	process.exit( 1 );
-}
+const argsSchema = z.tuple( [
+	platformSchema.default( process.platform as Platform ),
+	archSchema.default( process.arch as Arch ),
+] );
 
-if ( ! [ 'x64', 'arm64' ].includes( arch ) ) {
-	console.error( `Unsupported arch: ${ arch }` );
-	process.exit( 1 );
-}
+const [ platform, arch ] = argsSchema.parse( [ process.argv[ 2 ], process.argv[ 3 ] ] );
 
 // Windows ARM64 has no pre-built binary upstream; run x64 under OS emulation.
 const effectiveArch: Arch = platform === 'win32' ? 'x64' : arch;
@@ -61,18 +60,15 @@ if ( arch === 'arm64' && platform === 'win32' ) {
 	);
 }
 
-// Variant selection per design doc: common has pdo_sqlite on Linux/macOS; spc-max has it on Windows.
-const variant = platform === 'win32' ? 'spc-max' : 'common';
-
 // CDN arch names differ from Node's process.arch values.
 const cdnArchMap: Record< Arch, string > = {
 	x64: 'x86_64',
 	arm64: 'aarch64',
 };
 
-// Asset naming on the CDN differs by platform.
-// Linux/macOS: php-{VERSION}-cli-{os}-{cdnArch}.tar.gz
-// Windows:     php-{VERSION}-cli-win.zip  (no arch segment, x64 only)
+// Asset naming and CDN path differ by platform.
+// Linux/macOS: dl.static-php.dev/static-php-cli/common/php-{VERSION}-cli-{os}-{cdnArch}.tar.gz
+// Windows:     dl.static-php.dev/static-php-cli/windows/spc-max/php-{VERSION}-cli-win.zip
 const osSegment: Record< Platform, string > = {
 	darwin: 'macos',
 	linux: 'linux',
@@ -86,17 +82,20 @@ const filename = isWindows
 	? `php-${ PHP_VERSION }-cli-win.${ ext }`
 	: `php-${ PHP_VERSION }-cli-${ osSegment[ platform ] }-${ cdnArch }.${ ext }`;
 
-const url = `https://dl.static-php.dev/static-php-cli/${ variant }/${ filename }`;
+const cdnBase = isWindows
+	? 'https://dl.static-php.dev/static-php-cli/windows/spc-max'
+	: 'https://dl.static-php.dev/static-php-cli/common';
+const url = `${ cdnBase }/${ filename }`;
 const platformKey = `${ platform }-${ effectiveArch }`;
 
-const binDir = path.join( __dirname, '..', 'apps', 'cli', 'bin' );
+const binDir = path.join( getConfigDirectory(), 'php-bin' );
 const binaryName = isWindows ? 'php.exe' : 'php';
 const destPath = path.join( binDir, binaryName );
 const tmpDir = os.tmpdir();
 const downloadPath = path.join( tmpDir, filename );
 
 async function download( downloadUrl: string, dest: string ): Promise< void > {
-	console.log( `Downloading PHP ${ PHP_VERSION } (${ variant }) for ${ platform }-${ effectiveArch }...` );
+	console.log( `Downloading PHP ${ PHP_VERSION } for ${ platform }-${ effectiveArch }...` );
 	console.log( `  URL: ${ downloadUrl }` );
 
 	const response = await fetch( downloadUrl );
@@ -216,8 +215,8 @@ async function main(): Promise< void > {
 			`\nPHP binary installed: ${ destPath } (${ ( stats.size / 1024 / 1024 ).toFixed( 1 ) } MB)`
 		);
 	} catch ( error ) {
-		console.error( 'Error:', ( error as Error ).message );
-		process.exit( 1 );
+		console.warn( `Warning: PHP binary download failed — ${ ( error as Error ).message }` );
+		console.warn( 'The native-php runtime will not be available. Run `npm run download:php-binary` to retry.' );
 	}
 }
 

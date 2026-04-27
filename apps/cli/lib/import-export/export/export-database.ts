@@ -5,9 +5,10 @@ import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
 import { __, sprintf } from '@wordpress/i18n';
 import { move } from 'fs-extra';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
+import type { SiteData } from 'cli/lib/cli-config/core';
 
 export async function exportDatabaseToFile(
-	siteFolder: string,
+	site: SiteData,
 	finalDestination: string
 ): Promise< void > {
 	// Generate a temporary file name in the project directory
@@ -15,11 +16,11 @@ export async function exportDatabaseToFile(
 
 	// Execute the command to export directly to a temp file in the site directory (cwd).
 	await using command = await runWpCliCommand(
-		siteFolder,
-		DEFAULT_PHP_VERSION,
+		site,
 		[ 'sqlite', 'export', tempFileName, '--enable-ast-driver', '--skip-plugins', '--skip-themes' ],
 		{
 			requireSqliteCliCommand: true,
+			phpVersion: DEFAULT_PHP_VERSION,
 		}
 	);
 
@@ -29,17 +30,16 @@ export async function exportDatabaseToFile(
 	}
 
 	// Move the file to its final destination
-	const tempFilePath = path.join( siteFolder, tempFileName );
+	const tempFilePath = path.join( site.path, tempFileName );
 	await move( tempFilePath, finalDestination );
 }
 
 export async function exportDatabaseToMultipleFiles(
-	siteFolder: string,
+	site: SiteData,
 	finalDestinationDir: string
 ): Promise< string[] > {
 	await using command = await runWpCliCommand(
-		siteFolder,
-		DEFAULT_PHP_VERSION,
+		site,
 		[
 			'sqlite',
 			'tables',
@@ -50,6 +50,7 @@ export async function exportDatabaseToMultipleFiles(
 		],
 		{
 			requireSqliteCliCommand: true,
+			phpVersion: DEFAULT_PHP_VERSION,
 		}
 	);
 
@@ -82,8 +83,7 @@ export async function exportDatabaseToMultipleFiles(
 
 		// Execute the command to export directly to a temporary file in the project directory
 		await using command = await runWpCliCommand(
-			siteFolder,
-			DEFAULT_PHP_VERSION,
+			site,
 			[
 				'sqlite',
 				'export',
@@ -95,6 +95,7 @@ export async function exportDatabaseToMultipleFiles(
 			],
 			{
 				requireSqliteCliCommand: true,
+				phpVersion: DEFAULT_PHP_VERSION,
 			}
 		);
 
@@ -104,7 +105,7 @@ export async function exportDatabaseToMultipleFiles(
 		}
 
 		// Move the file to its final destination
-		const tempFilePath = path.join( siteFolder, fileName );
+		const tempFilePath = path.join( site.path, fileName );
 		const finalDestination = path.join( finalDestinationDir, fileName );
 		await move( tempFilePath, finalDestination );
 

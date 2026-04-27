@@ -60,8 +60,7 @@ abstract class BaseImporter extends ImportExportEventEmitter implements Importer
 				await this.prepareSqlFile( tmpPath );
 
 				await using command = await runWpCliCommand(
-					site.path,
-					DEFAULT_PHP_VERSION,
+					site,
 					[
 						'sqlite',
 						'import',
@@ -72,6 +71,7 @@ abstract class BaseImporter extends ImportExportEventEmitter implements Importer
 					],
 					{
 						requireSqliteCliCommand: true,
+						phpVersion: DEFAULT_PHP_VERSION,
 					}
 				);
 

@@ -87,7 +87,7 @@ export async function runCommand(
 	process.on( 'SIGTERM', () => process.exit( 1 ) );
 
 	// …If not, run the command in a new runtime instance (PHP-WASM or native PHP)
-	await using command = await runWpCliCommand( siteFolder, phpVersion, args );
+	await using command = await runWpCliCommand( site, args, { phpVersion } );
 
 	await pipePHPResponse( command.response );
 	process.exitCode = await command.response.exitCode;

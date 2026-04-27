@@ -265,8 +265,7 @@ describe( 'CLI: studio site set', () => {
 			await runCommand( testSitePath, { wp: '6.7' } );
 
 			expect( runWpCliCommand ).toHaveBeenCalledWith(
-				testSitePath,
-				'8.0',
+				expect.objectContaining( { path: testSitePath, phpVersion: '8.0' } ),
 				expect.arrayContaining( [ 'core', 'update' ] )
 			);
 		} );

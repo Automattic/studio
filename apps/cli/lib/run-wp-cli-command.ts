@@ -16,12 +16,13 @@ import { cleanupLegacyMuPlugins, getMuPlugins } from '@studio/common/lib/mu-plug
 import { LatestSupportedPHPVersion } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
 import { setupPlatformLevelMuPlugins } from '@wp-playground/wordpress';
-import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import {
 	getPhpBinaryPath,
 	getSqliteCommandPath,
 	getWpCliPharPath,
 } from 'cli/lib/dependency-management/paths';
+import { validatePhpVersion } from 'cli/lib/utils';
+import type { SiteData } from 'cli/lib/cli-config/core';
 
 const processIdAllocator = new ProcessIdAllocator();
 const PLAYGROUND_INTERNAL_SHARED_FOLDER = '/internal/shared';
@@ -65,6 +66,7 @@ function toWebReadableStream(
 type RunWpCliCommandOptions = {
 	siteUrl?: string;
 	requireSqliteCliCommand?: boolean;
+	phpVersion?: SupportedPHPVersion;
 };
 
 type DisposableWpCliResponse = Disposable & {
@@ -152,20 +154,17 @@ async function runNativeWpCliCommand(
 // Studio site is already running, but it is typically faster to use the `sendWpCliCommand`
 // function in that case.
 export async function runWpCliCommand(
-	siteFolder: string,
-	phpVersion: SupportedPHPVersion,
+	site: SiteData,
 	args: string[],
 	options: RunWpCliCommandOptions = {}
 ): Promise< DisposableWpCliResponse > {
-	try {
-		const site = await getSiteByFolder( siteFolder );
-		if ( site.runtime === 'native-php' ) {
-			return runNativeWpCliCommand( siteFolder, args, options );
-		}
-	} catch {
-		// If the site can't be resolved from config, keep the previous behavior and
-		// continue with the PHP-WASM execution path.
+	const siteFolder = site.path;
+
+	if ( site.runtime === 'native-php' ) {
+		return runNativeWpCliCommand( siteFolder, args, options );
 	}
+
+	const phpVersion = options.phpVersion ?? validatePhpVersion( site.phpVersion );
 
 	const id = await loadNodeRuntime( phpVersion, {
 		followSymlinks: true,

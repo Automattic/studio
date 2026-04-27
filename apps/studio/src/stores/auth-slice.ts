@@ -195,7 +195,9 @@ export const authSelectors = {
 	selectUser: ( state: RootState ) => state.auth.user ?? undefined,
 };
 
-void store.dispatch( initializeAuth() );
+if ( process.env.NODE_ENV !== 'test' ) {
+	void store.dispatch( initializeAuth() );
+}
 
 window.ipcListener.subscribe( 'auth-updated', ( _event, payload ) => {
 	if ( 'error' in payload ) {

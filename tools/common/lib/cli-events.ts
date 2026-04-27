@@ -31,6 +31,8 @@ export const siteDetailsSchema = z.object( {
 	enableXdebug: z.boolean().optional(),
 	enableDebugLog: z.boolean().optional(),
 	enableDebugDisplay: z.boolean().optional(),
+	technicalSiteDirectory: z.string().optional(),
+	runtimeBlueprintPath: z.string().optional(),
 	landingPage: z.string().optional(),
 	runtime: siteRuntimeSchema.optional(),
 } );

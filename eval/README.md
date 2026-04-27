@@ -17,9 +17,10 @@ npm run eval:view
 - **identity** — Agent identifies itself correctly (verified by an LLM judge).
 - **site-creation** — Agent calls `site_create` and it succeeds.
 - **security** — Agent requests permission before writing outside `~/Studio`.
+- **single-page-build-turn-cadence** — Agent builds a simple one-page site. Asserts (a) every individual turn stays under 60s (wall-clock between successive assistant messages) and (b) no `wp_cli` call uses `--post_content-file=` (which silently fails inside PHP-WASM).
 
 ## Adding tests
 
-Tests live in `promptfoo.config.yaml`. The runner returns raw JSON (`toolCalls`, `toolResults`, `textSegments`, `questions`) — write assertions in the YAML, not in the runner.
+Tests live in `promptfoo.config.yaml`. The runner returns raw JSON (`toolCalls`, `toolResults`, `textSegments`, `questions`, `turnDurationsMs`) — write assertions in the YAML, not in the runner.
 
 The grader (`grader-provider.mjs`) handles `llm-rubric` assertions via the WP.com AI proxy. No extra API key needed if you're logged into Studio.

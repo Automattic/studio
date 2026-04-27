@@ -63,7 +63,6 @@ export function spawnTurn(
 		'code',
 		message,
 		'--json',
-		'--no-auto-approve',
 		'--path',
 		sitePath,
 		'--site-name',

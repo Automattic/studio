@@ -1,5 +1,6 @@
 import { listAiSessions } from '@studio/common/ai/sessions/store';
 import { type LoadedAiSession, type TurnStatus } from '@studio/common/ai/sessions/types';
+import { buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { DEFAULT_MODEL, startAiAgent, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
@@ -50,7 +51,6 @@ export async function runCommand( options: {
 	resumeSession?: LoadedAiSession;
 	resumeSessionId?: string;
 	noSessionPersistence?: boolean;
-	autoApprove?: boolean;
 	showLegacyCommandNotice?: boolean;
 	activeSite?: {
 		name: string;
@@ -456,7 +456,6 @@ export async function runCommand( options: {
 			env,
 			model: currentModel,
 			resume: sessionId,
-			autoApprove: options.autoApprove ?? isJsonMode,
 			activeSite: site,
 			wpcomAccessToken,
 			onAskUser: ( questions ) => askUserAndPersistAnswers( questions ),
@@ -659,7 +658,7 @@ export async function runCommand( options: {
 					// Skill command — no handler, route to agent
 					ui.addUserMessage( prompt );
 					try {
-						await runAgentTurn( `Run the /${ cmd.name } skill using the Skill tool.` );
+						await runAgentTurn( buildSkillInvocationPrompt( cmd.name ) );
 					} catch ( error ) {
 						handleAgentTurnError( error );
 					}
@@ -704,10 +703,6 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					default: false,
 					description: __( 'Output events as NDJSON to stdout (headless mode)' ),
 				} )
-				.option( 'auto-approve', {
-					type: 'boolean',
-					description: __( 'Auto-approve all tool calls (defaults to true in --json mode)' ),
-				} )
 				.option( 'resume-session', {
 					type: 'string',
 					hidden: true,
@@ -736,7 +731,6 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					message?: string;
 					json?: boolean;
 					sessionPersistence?: boolean;
-					autoApprove?: boolean;
 					resumeSession?: string;
 					permissionResponse?: string;
 					siteName?: string;
@@ -766,7 +760,6 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					initialMessage: typedArgv.message,
 					resumeSessionId: typedArgv.resumeSession,
 					noSessionPersistence,
-					autoApprove: typedArgv.autoApprove,
 					showLegacyCommandNotice: argv._[ 0 ] === 'ai',
 					activeSite,
 				} );

@@ -11,7 +11,7 @@ import {
 import { isSupportedPHPVersion, SupportedPHPVersion } from '@studio/common/types/php-versions';
 import { SyncSite } from '@studio/common/types/sync';
 import { speak } from '@wordpress/a11y';
-import { Navigator, useNavigator } from '@wordpress/components';
+import { Button as WpButton, Navigator, useNavigator } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -27,11 +27,13 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useBlueprintDeeplink } from 'src/modules/add-site/hooks/use-blueprint-deeplink';
 import { useRootSelector, useAppDispatch, useI18nLocale } from 'src/stores';
 import { formatRtkError } from 'src/stores/format-rtk-error';
+import { useGetGalleryBlueprints, GalleryBlueprint } from 'src/stores/gallery-blueprints-api';
 import { openAddSiteModal, closeAddSiteModal, selectIsAddSiteModalOpen } from 'src/stores/ui-slice';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { useGetBlueprints, Blueprint } from 'src/stores/wpcom-api';
 import BlueprintDetails from './components/blueprint-details';
 import CreateSite from './components/create-site';
+import { ExploreBlueprints } from './components/explore-blueprints';
 import { NewSiteOptions } from './components/new-site-options';
 import AddSiteOptions, { type AddSiteFlowType } from './components/options';
 import { PullRemoteSite } from './components/pull-remote-site';
@@ -103,8 +105,16 @@ interface NavigationContentProps {
 
 function NavigationContent( props: NavigationContentProps ) {
 	const { goTo, goBack, location } = useNavigator();
+	const { __ } = useI18n();
 	const { enableBlueprints } = useFeatureFlags();
 	const [ blueprintFileError, setBlueprintFileError ] = useState< string | undefined >();
+	const [ isSelectingGalleryBlueprint, setIsSelectingGalleryBlueprint ] = useState( false );
+	const [ gallerySelectionError, setGallerySelectionError ] = useState< string | undefined >();
+	const {
+		data: galleryBlueprints,
+		isLoading: isLoadingGallery,
+		error: galleryError,
+	} = useGetGalleryBlueprints();
 	const {
 		startOver,
 		blueprintsData,
@@ -296,6 +306,45 @@ function NavigationContent( props: NavigationContentProps ) {
 		[ handleBlueprintFormValues, goTo ]
 	);
 
+	const handleGalleryBlueprintSelect = useCallback(
+		async ( gallery: GalleryBlueprint ) => {
+			setIsSelectingGalleryBlueprint( true );
+			setGallerySelectionError( undefined );
+			try {
+				const response = await fetch( gallery.blueprintUrl );
+				if ( ! response.ok ) {
+					throw new Error( __( 'Failed to download blueprint.' ) );
+				}
+				const blueprintJson = await response.json();
+
+				const validation = await getIpcApi().validateBlueprint( blueprintJson );
+				if ( ! validation.valid ) {
+					setGallerySelectionError( validation.error || __( 'Invalid Blueprint format' ) );
+					return;
+				}
+
+				const blueprint = {
+					slug: `gallery:${ gallery.slug }`,
+					title: gallery.title,
+					excerpt: gallery.description,
+					image: gallery.screenshotUrl,
+					playground_url: gallery.playgroundUrl,
+					blueprint: blueprintJson,
+				} as Blueprint;
+
+				handleBlueprintFormValues( blueprint );
+				goTo( '/new/create' );
+			} catch ( error ) {
+				setGallerySelectionError(
+					error instanceof Error ? error.message : __( 'Failed to load blueprint.' )
+				);
+			} finally {
+				setIsSelectingGalleryBlueprint( false );
+			}
+		},
+		[ __, goTo, handleBlueprintFormValues ]
+	);
+
 	// Build default values with blueprint preferred versions applied
 	const { data: wpVersions = [] } = useGetWordPressVersions( {
 		minimumVersion: MINIMUM_WORDPRESS_VERSION,
@@ -354,6 +403,18 @@ function NavigationContent( props: NavigationContentProps ) {
 					/>
 				</ScreenContent>
 			</Navigator.Screen>
+			<Navigator.Screen className="h-full overflow-y-auto" path="/new/explore">
+				<ScreenContent>
+					<ExploreBlueprints
+						blueprints={ galleryBlueprints ?? [] }
+						isLoading={ isLoadingGallery }
+						errorMessage={ galleryError ? __( 'Could not load blueprints.' ) : undefined }
+						onBlueprintSelect={ handleGalleryBlueprintSelect }
+						isSelectingBlueprint={ isSelectingGalleryBlueprint }
+						selectionError={ gallerySelectionError }
+					/>
+				</ScreenContent>
+			</Navigator.Screen>
 			<Navigator.Screen className="h-full overflow-y-auto" path="/new/create">
 				<ScreenContent>
 					<CreateSite
@@ -409,10 +470,19 @@ function NavigationContent( props: NavigationContentProps ) {
 				canSubmitCreate={ canSubmit }
 				leftSlot={
 					location.path === '/new' && enableBlueprints && ! isLoadingBlueprints ? (
-						<UploadBlueprintButton
-							onFileBlueprintSelect={ handleFileBlueprintSelect }
-							onError={ setBlueprintFileError }
-						/>
+						<div className="flex items-center gap-2">
+							<UploadBlueprintButton
+								onFileBlueprintSelect={ handleFileBlueprintSelect }
+								onError={ setBlueprintFileError }
+							/>
+							<WpButton
+								variant="tertiary"
+								className="cursor-pointer"
+								onClick={ () => goTo( '/new/explore' ) }
+							>
+								{ __( 'Explore more blueprints' ) }
+							</WpButton>
+						</div>
 					) : undefined
 				}
 			/>

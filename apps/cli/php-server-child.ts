@@ -18,11 +18,15 @@ import {
 } from 'cli/lib/types/wordpress-server-ipc';
 
 const ROUTER_PATH = path.resolve( import.meta.dirname, 'php', 'router.php' );
-const ENSURE_WP_CONFIG_PATH = path.resolve( import.meta.dirname, 'php', 'ensure-wp-config.php' );
 const SET_DEFAULT_PERMALINKS_PATH = path.resolve(
 	import.meta.dirname,
 	'php',
 	'set-default-permalinks.php'
+);
+const WP_CONFIG_TRANSFORMER_PATH = path.resolve(
+	import.meta.dirname,
+	'php',
+	'wp-config-transformer.php'
 );
 const PHP_BINARY_FILENAME = process.platform === 'win32' ? 'php.exe' : 'php';
 const PHP_BINARY_PATH = path.resolve( import.meta.dirname, 'bin', PHP_BINARY_FILENAME );
@@ -121,6 +125,17 @@ function wrapWithStartingPromise< Args extends unknown[], Return extends void >(
 async function ensureWpConfig( siteFolder: string, signal: AbortSignal ): Promise< void > {
 	const wpConfigPath = path.join( siteFolder, 'wp-config.php' );
 	const wpConfigSamplePath = path.join( siteFolder, 'wp-config-sample.php' );
+	const ensureWpConfigScript = `
+$transformer_path = $argv[1] ?? '';
+$wp_config_path = $argv[2] ?? '';
+$constants = json_decode( $argv[3] ?? '', true );
+
+require_once $transformer_path;
+
+$transformer = WP_Config_Transformer::from_file( $wp_config_path );
+$transformer->define_constants( $constants );
+$transformer->to_file( $wp_config_path );
+`;
 
 	if ( ! fs.existsSync( wpConfigPath ) && fs.existsSync( wpConfigSamplePath ) ) {
 		await fs.promises.copyFile( wpConfigSamplePath, wpConfigPath );
@@ -128,7 +143,13 @@ async function ensureWpConfig( siteFolder: string, signal: AbortSignal ): Promis
 
 	try {
 		await runPhpCommand(
-			[ ENSURE_WP_CONFIG_PATH, wpConfigPath, JSON.stringify( DEFAULT_WP_CONFIG_CONSTANTS ) ],
+			[
+				'-r',
+				ensureWpConfigScript,
+				WP_CONFIG_TRANSFORMER_PATH,
+				wpConfigPath,
+				JSON.stringify( DEFAULT_WP_CONFIG_CONSTANTS ),
+			],
 			{ signal }
 		);
 	} catch ( error ) {

@@ -11,8 +11,10 @@ import {
 	ProcessIdAllocator,
 } from '@php-wasm/universal';
 import { createSpawnHandler } from '@php-wasm/util';
+import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { IS_JSPI_AVAILABLE } from '@studio/common/lib/jspi';
 import { cleanupLegacyMuPlugins, getMuPlugins } from '@studio/common/lib/mu-plugins';
+import { validateNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
 import { LatestSupportedPHPVersion } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
 import { setupPlatformLevelMuPlugins } from '@wp-playground/wordpress';
@@ -116,8 +118,9 @@ async function runNativeWpCliCommand(
 	options: RunWpCliCommandOptions = {}
 ): Promise< DisposableWpCliResponse > {
 	const nativeArgs = applyWpCliCommandOptions( 'native', args, options );
+	const phpVersion = validateNativePhpVersion( options.phpVersion ?? DEFAULT_PHP_VERSION );
 	const child = spawn(
-		getPhpBinaryPath(),
+		getPhpBinaryPath( phpVersion ),
 		[ getWpCliPharPath(), `--path=${ siteFolder }`, ...nativeArgs ],
 		{
 			cwd: siteFolder,
@@ -250,7 +253,8 @@ export async function runWpCliCommand(
 }
 
 async function runNativeGlobalWpCliCommand( args: string[] ): Promise< DisposableWpCliResponse > {
-	const child = spawn( getPhpBinaryPath(), [ getWpCliPharPath(), ...args ], {
+	const phpVersion = validateNativePhpVersion( DEFAULT_PHP_VERSION );
+	const child = spawn( getPhpBinaryPath( phpVersion ), [ getWpCliPharPath(), ...args ], {
 		stdio: [ 'ignore', 'pipe', 'pipe' ],
 	} );
 

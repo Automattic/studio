@@ -1,7 +1,9 @@
 import { spawn } from 'node:child_process';
+import { validateNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
 import { __ } from '@wordpress/i18n';
 import { ArgumentsCamelCase } from 'yargs';
 import yargsParser from 'yargs-parser';
+import { SiteData } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getPhpBinaryPath, getWpCliPharPath } from 'cli/lib/dependency-management/paths';
@@ -39,12 +41,13 @@ enum Mode {
 	SITE = 'site',
 }
 
-async function runNativePhpWpCliCommand( siteFolder: string, args: string[] ): Promise< void > {
+async function runNativePhpWpCliCommand( site: SiteData, args: string[] ): Promise< void > {
+	const phpVersion = validateNativePhpVersion( site.phpVersion );
 	const child = spawn(
-		getPhpBinaryPath(),
-		[ getWpCliPharPath(), `--path=${ siteFolder }`, ...args ],
+		getPhpBinaryPath( phpVersion ),
+		[ getWpCliPharPath(), `--path=${ site.path }`, ...args ],
 		{
-			cwd: siteFolder,
+			cwd: site.path,
 			stdio: 'inherit',
 		}
 	);
@@ -86,7 +89,7 @@ export async function runCommand(
 	const site = await getSiteByFolder( siteFolder );
 
 	if ( site.runtime === 'native-php' ) {
-		await runNativePhpWpCliCommand( siteFolder, args );
+		await runNativePhpWpCliCommand( site, args );
 		return;
 	}
 
@@ -96,7 +99,7 @@ export async function runCommand(
 	// a different PHP version, pass the command to it…
 	const useCustomPhpVersion = options.phpVersion && options.phpVersion !== site.phpVersion;
 
-	if ( ! useCustomPhpVersion && site.runtime !== 'native-php' ) {
+	if ( ! useCustomPhpVersion ) {
 		process.on( 'SIGINT', disconnectFromDaemon );
 		process.on( 'SIGTERM', disconnectFromDaemon );
 

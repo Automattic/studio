@@ -91,7 +91,9 @@ const config: ForgeConfig = {
 				// writes and root-CA installs.
 				// ca-certificates: provides update-ca-certificates and the system trust
 				// bundle, used by the "Trust Certificate" flow on Linux.
-				depends: [ 'libcap2-bin', 'policykit-1', 'ca-certificates' ],
+				// libnss3-tools: ships `certutil`, used to import the CA into per-user
+				// NSS DBs so Chromium-family browsers (incl. Snap-Chromium) trust it.
+				depends: [ 'libcap2-bin', 'policykit-1', 'ca-certificates', 'libnss3-tools' ],
 				scripts: {
 					postinst: path.join( __dirname, 'installers', 'linux', 'postinst.sh' ),
 					postrm: path.join( __dirname, 'installers', 'linux', 'postrm.sh' ),

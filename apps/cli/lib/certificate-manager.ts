@@ -7,6 +7,7 @@ import { promisify } from 'node:util';
 import { CERT_UNTRUSTED_ROOT, SERVER_AUTH_OID } from '@studio/common/constants';
 import {
 	buildLinuxTrustInstallCommand,
+	importCAIntoUserNssDbsLinux,
 	isCATrustedOnLinux,
 } from '@studio/common/lib/linux-trust-store';
 import { getCertificatesPath } from '@studio/common/lib/well-known-paths';
@@ -234,6 +235,10 @@ export async function trustRootCA(): Promise< void > {
 					}
 				);
 			} );
+			// On stock Ubuntu desktops the default browsers (Snap-Chromium, Firefox)
+			// don't consult the system bundle, so also push the CA into per-user
+			// NSS databases. Best-effort — never blocks a successful system install.
+			await importCAIntoUserNssDbsLinux( CA_CERT_PATH );
 		} else {
 			console.error( 'Unsupported platform for automatic certificate trust:', platform );
 		}

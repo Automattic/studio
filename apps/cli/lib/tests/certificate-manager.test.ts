@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import {
 	buildLinuxTrustInstallCommand,
+	importCAIntoUserNssDbsLinux,
 	isCATrustedOnLinux,
 } from '@studio/common/lib/linux-trust-store';
 import sudo from '@vscode/sudo-prompt';
@@ -9,8 +10,10 @@ import { isRootCATrusted, trustRootCA } from 'cli/lib/certificate-manager';
 
 vi.mock( '@studio/common/lib/linux-trust-store', () => ( {
 	LINUX_TRUST_STORE_PATH: '/usr/local/share/ca-certificates/studio-ca.crt',
+	LINUX_NSS_NICKNAME: 'WordPress Studio CA',
 	isCATrustedOnLinux: vi.fn(),
 	buildLinuxTrustInstallCommand: vi.fn(),
+	importCAIntoUserNssDbsLinux: vi.fn(),
 } ) );
 
 vi.mock( '@vscode/sudo-prompt', () => ( {
@@ -21,6 +24,7 @@ vi.mock( '@vscode/sudo-prompt', () => ( {
 
 const mockedIsCATrustedOnLinux = vi.mocked( isCATrustedOnLinux );
 const mockedBuildLinuxTrustInstallCommand = vi.mocked( buildLinuxTrustInstallCommand );
+const mockedImportCAIntoUserNssDbsLinux = vi.mocked( importCAIntoUserNssDbsLinux );
 const mockedSudoExec = vi.mocked( sudo.exec );
 
 type SudoExecCallback = ( error?: Error, stdout?: string, stderr?: string ) => void;
@@ -43,10 +47,12 @@ describe( 'certificate-manager (Linux)', () => {
 	beforeEach( () => {
 		mockedIsCATrustedOnLinux.mockReset();
 		mockedBuildLinuxTrustInstallCommand.mockReset();
+		mockedImportCAIntoUserNssDbsLinux.mockReset();
 		mockedSudoExec.mockReset();
 		mockedBuildLinuxTrustInstallCommand.mockReturnValue(
 			'install -m 0644 "/home/user/.studio/certificates/studio-ca.crt" "/usr/local/share/ca-certificates/studio-ca.crt" && update-ca-certificates'
 		);
+		mockedImportCAIntoUserNssDbsLinux.mockResolvedValue( undefined );
 		existsSpy = vi.spyOn( fs, 'existsSync' ).mockReturnValue( true );
 	} );
 
@@ -100,6 +106,33 @@ describe( 'certificate-manager (Linux)', () => {
 			expect( command ).toContain( 'update-ca-certificates' );
 			expect( command ).toContain( '/usr/local/share/ca-certificates/studio-ca.crt' );
 			expect( options ).toEqual( { name: 'WordPress Studio' } );
+		} );
+
+		it( 'imports the CA into per-user NSS DBs after the system install succeeds', async () => {
+			setPlatform( 'linux' );
+			mockedIsCATrustedOnLinux.mockResolvedValue( false );
+			stubSudoExec();
+
+			await trustRootCA();
+
+			expect( mockedImportCAIntoUserNssDbsLinux ).toHaveBeenCalledWith(
+				expect.stringContaining( 'studio-ca.crt' )
+			);
+			// NSS import must run *after* the sudo install — sudo.exec call order
+			// in mock.invocationCallOrder should be earlier than the NSS import.
+			const sudoOrder = mockedSudoExec.mock.invocationCallOrder[ 0 ];
+			const nssOrder = mockedImportCAIntoUserNssDbsLinux.mock.invocationCallOrder[ 0 ];
+			expect( nssOrder ).toBeGreaterThan( sudoOrder );
+		} );
+
+		it( 'does not import into NSS DBs when the system install fails', async () => {
+			setPlatform( 'linux' );
+			mockedIsCATrustedOnLinux.mockResolvedValue( false );
+			stubSudoExec( new Error( 'pkexec dismissed' ) );
+
+			await expect( trustRootCA() ).rejects.toThrow();
+
+			expect( mockedImportCAIntoUserNssDbsLinux ).not.toHaveBeenCalled();
 		} );
 
 		it( 'rejects when sudo.exec reports an error', async () => {

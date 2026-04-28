@@ -15,6 +15,7 @@ vi.mock( 'src/lib/app-globals', () => ( {
 	} ) ),
 	isMac: vi.fn( () => true ),
 	isWindows: vi.fn( () => false ),
+	isLinux: vi.fn( () => false ),
 	isWindowsStore: vi.fn( () => false ),
 } ) );
 vi.mock( 'src/hooks/use-auth' );

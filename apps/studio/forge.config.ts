@@ -93,7 +93,6 @@ const config: ForgeConfig = {
 				// The cast is required because @electron-forge/maker-deb's type declares
 				// `icon?: string` only, even though the runtime also accepts the map form
 				// (https://github.com/electron-userland/electron-installer-debian#optionsicon).
-				// Don't "clean up" the cast without first widening the upstream type.
 				icon: {
 					'512x512': path.join( __dirname, 'assets', 'studio-app-icon-512.png' ),
 				} as unknown as string,

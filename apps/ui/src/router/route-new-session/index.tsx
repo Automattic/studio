@@ -16,8 +16,9 @@ export const newSessionRoute = createRoute( {
 		const summary = await context.connector.createSession( params.siteId );
 		// Bypasses `useCreateSession`, so we need to invalidate the sessions
 		// list ourselves — otherwise the sidebar wouldn't reflect the new
-		// session on first render after the redirect.
-		await context.queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } );
+		// session on first render after the redirect. Fire-and-forget: the
+		// refetch can happen in the background while we redirect immediately.
+		void context.queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } );
 		throw redirect( { to: '/sessions/$sessionId', params: { sessionId: summary.id } } );
 	},
 } );

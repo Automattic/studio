@@ -21,6 +21,7 @@ const {
 	askUserMock,
 	clearTranscriptMock,
 	showWelcomeMock,
+	showErrorMock,
 	showInfoMock,
 	recordSessionClearedMock,
 	recordSessionContextMock,
@@ -28,10 +29,12 @@ const {
 	reportErrorMock,
 	waitForInputMock,
 	activeSiteRef,
+	latestUiRef,
 } = vi.hoisted( () => ( {
 	askUserMock: vi.fn(),
 	clearTranscriptMock: vi.fn(),
 	showWelcomeMock: vi.fn(),
+	showErrorMock: vi.fn(),
 	showInfoMock: vi.fn(),
 	recordSessionClearedMock: vi.fn(),
 	recordSessionContextMock: vi.fn(),
@@ -47,6 +50,9 @@ const {
 			url?: string;
 			wpcomSiteId?: number;
 		} | null,
+	},
+	latestUiRef: {
+		current: null as { onInterrupt: ( () => void ) | null } | null,
 	},
 } ) );
 
@@ -118,6 +124,9 @@ vi.mock( 'cli/ai/agent', async () => {
 
 vi.mock( 'cli/ai/ui', () => ( {
 	AiChatUI: class {
+		constructor() {
+			latestUiRef.current = this;
+		}
 		get activeSite(): {
 			name: string;
 			path: string;
@@ -160,7 +169,9 @@ vi.mock( 'cli/ai/ui', () => ( {
 		showInfo( ...args: unknown[] ) {
 			showInfoMock( ...args );
 		}
-		showError() {}
+		showError( ...args: unknown[] ) {
+			showErrorMock( ...args );
+		}
 		showSuccess() {}
 		showOnboarding() {}
 		showCapabilities() {}
@@ -258,6 +269,7 @@ describe( 'CLI: studio code sessions command', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		activeSiteRef.current = null;
+		latestUiRef.current = null;
 		vi.mocked( readCliConfig ).mockResolvedValue( {
 			sites: [],
 			anthropicApiKey: 'test-api-key',
@@ -306,6 +318,87 @@ describe( 'CLI: studio code sessions command', () => {
 		await buildParser().parseAsync( [ 'ai' ] );
 
 		expect( ( AiSessionRecorder as typeof AiSessionRecorder ).create ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'does not show the server retry prompt when the user interrupts a turn', async () => {
+		const interruptMock = vi.fn().mockResolvedValue( undefined );
+		waitForInputMock.mockResolvedValueOnce( 'Build a site' ).mockResolvedValueOnce( '/exit' );
+		vi.mocked( startAiAgent ).mockReturnValueOnce( {
+			interrupt: interruptMock,
+			return: vi.fn().mockResolvedValue( { done: true, value: undefined } ),
+			[ Symbol.asyncIterator ]() {
+				return {
+					next: async () => {
+						latestUiRef.current?.onInterrupt?.();
+						throw new Error( 'Query closed' );
+					},
+				};
+			},
+		} as never );
+
+		await buildParser().parseAsync( [ 'ai' ] );
+
+		expect( interruptMock ).toHaveBeenCalledTimes( 1 );
+		expect( showErrorMock ).not.toHaveBeenCalled();
+		expect( askUserMock ).not.toHaveBeenCalled();
+	} );
+
+	it( 'runs the next prompt directly after an interrupted turn', async () => {
+		const firstInterruptMock = vi.fn().mockResolvedValue( undefined );
+		const secondInterruptMock = vi.fn().mockResolvedValue( undefined );
+		waitForInputMock
+			.mockResolvedValueOnce( 'Build a site' )
+			.mockResolvedValueOnce( 'Try a different layout' )
+			.mockResolvedValueOnce( '/exit' );
+		vi.mocked( startAiAgent )
+			.mockReturnValueOnce( {
+				interrupt: firstInterruptMock,
+				[ Symbol.asyncIterator ]() {
+					return {
+						next: async () => {
+							latestUiRef.current?.onInterrupt?.();
+							return new Promise( () => undefined );
+						},
+					};
+				},
+			} as never )
+			.mockReturnValueOnce( {
+				interrupt: secondInterruptMock,
+				return: vi.fn().mockResolvedValue( { done: true, value: undefined } ),
+				[ Symbol.asyncIterator ]() {
+					let emitted = false;
+					return {
+						next: async () => {
+							if ( ! emitted ) {
+								emitted = true;
+								return {
+									done: false as const,
+									value: {
+										type: 'result' as const,
+										subtype: 'success' as const,
+										session_id: 'next-session',
+										num_turns: 1,
+										total_cost_usd: 0,
+									},
+								};
+							}
+							return { done: true as const, value: undefined };
+						},
+					};
+				},
+			} as never );
+
+		await buildParser().parseAsync( [ 'ai' ] );
+
+		expect( firstInterruptMock ).toHaveBeenCalledTimes( 1 );
+		expect( startAiAgent ).toHaveBeenCalledTimes( 2 );
+		expect( startAiAgent ).toHaveBeenNthCalledWith(
+			2,
+			expect.objectContaining( {
+				prompt: 'Try a different layout',
+			} )
+		);
+		expect( secondInterruptMock ).not.toHaveBeenCalled();
 	} );
 
 	it( 'persists selected model before the first prompt is sent', async () => {
@@ -729,11 +822,6 @@ describe( 'CLI: studio code --json mode', () => {
 			type: 'turn.completed',
 			status: 'success',
 		} );
-		expect( startAiAgent ).toHaveBeenCalledWith(
-			expect.objectContaining( {
-				autoApprove: true,
-			} )
-		);
 		expect( process.exitCode ).not.toBe( 1 );
 	} );
 
@@ -807,50 +895,5 @@ describe( 'CLI: studio code --json mode', () => {
 			status: 'error',
 		} );
 		expect( process.exitCode ).toBe( 1 );
-	} );
-
-	it( 'does not call autoApprove in interactive mode', async () => {
-		waitForInputMock.mockResolvedValueOnce( 'Hello' ).mockResolvedValueOnce( '/exit' );
-
-		await buildParser().parseAsync( [ 'ai' ] );
-
-		expect( startAiAgent ).toHaveBeenCalledWith(
-			expect.objectContaining( {
-				autoApprove: false,
-			} )
-		);
-	} );
-
-	it( 'respects --no-auto-approve flag independently of --json', async () => {
-		const resultMessage = {
-			type: 'result' as const,
-			subtype: 'success' as const,
-			session_id: 'auto-approve-test',
-			num_turns: 1,
-			total_cost_usd: 0.001,
-		};
-		vi.mocked( startAiAgent ).mockReturnValueOnce( {
-			interrupt: vi.fn().mockResolvedValue( undefined ),
-			[ Symbol.asyncIterator ]() {
-				let emitted = false;
-				return {
-					next: async () => {
-						if ( ! emitted ) {
-							emitted = true;
-							return { done: false as const, value: resultMessage };
-						}
-						return { done: true as const, value: undefined };
-					},
-				};
-			},
-		} as never );
-
-		await buildParser().parseAsync( [ 'ai', 'hello', '--json', '--no-auto-approve' ] );
-
-		expect( startAiAgent ).toHaveBeenCalledWith(
-			expect.objectContaining( {
-				autoApprove: false,
-			} )
-		);
 	} );
 } );

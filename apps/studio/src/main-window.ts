@@ -176,6 +176,7 @@ function getOSWindowOptions(): Partial< BrowserWindowConstructorOptions > {
 			};
 
 		case 'win32':
+		case 'linux':
 			return {
 				titleBarStyle: 'hidden',
 				titleBarOverlay: {

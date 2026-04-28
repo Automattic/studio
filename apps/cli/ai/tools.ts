@@ -5,6 +5,8 @@ import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { z } from 'zod/v4';
 import { validateBlocks, type ValidationReport } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
+import { openAnnotationBrowser, waitForAnnotationsDone } from 'cli/ai/inspector/inspector-inject';
+import { emitEvent } from 'cli/ai/json-events';
 import { auditPerformance } from 'cli/ai/performance-audit';
 import { auditSeo } from 'cli/ai/seo-audit';
 import { createWpcomToolDefinitions } from 'cli/ai/wpcom-tools';
@@ -91,22 +93,56 @@ function stripMatchingOuterQuotes( value: string ): string {
 	return value;
 }
 
+function splitPostContentCommandArgs( command: string, postContentIndex: number ): string[] {
+	const postContentMarker = '--post_content=';
+	const prefix = command.slice( 0, postContentIndex ).trim();
+	const postContentTail = command.slice( postContentIndex + postContentMarker.length ).trim();
+	const prefixArgs = splitBasicCommandArgs( prefix );
+
+	if ( ! postContentTail ) {
+		return [ ...prefixArgs, postContentMarker ];
+	}
+
+	const quote = postContentTail[ 0 ];
+	if ( quote === '"' || quote === "'" ) {
+		const closingQuoteIndex = postContentTail.indexOf( quote, 1 );
+		if ( closingQuoteIndex !== -1 ) {
+			const postContent = postContentTail.slice( 1, closingQuoteIndex );
+			const suffix = postContentTail.slice( closingQuoteIndex + 1 ).trim();
+			return [
+				...prefixArgs,
+				`${ postContentMarker }${ postContent }`,
+				...splitBasicCommandArgs( suffix ),
+			];
+		}
+	}
+
+	// Large block content is commonly emitted without shell quoting and should
+	// be treated as a single literal argument that consumes the rest of the command.
+	return [
+		...prefixArgs,
+		`${ postContentMarker }${ stripMatchingOuterQuotes( postContentTail ) }`,
+	];
+}
+
 function splitCommandArgs( command: string ): string[] {
 	const postContentMarker = '--post_content=';
 	const postContentIndex = command.indexOf( postContentMarker );
 
-	// Large block content is commonly emitted without shell quoting and should
-	// be treated as a single literal argument that consumes the rest of the command.
 	if ( postContentIndex !== -1 ) {
-		const prefix = command.slice( 0, postContentIndex ).trim();
-		const postContent = stripMatchingOuterQuotes(
-			command.slice( postContentIndex + postContentMarker.length ).trim()
-		);
-
-		return [ ...splitBasicCommandArgs( prefix ), `${ postContentMarker }${ postContent }` ];
+		return splitPostContentCommandArgs( command, postContentIndex );
 	}
 
 	return splitBasicCommandArgs( command );
+}
+
+function getUnsupportedWpCliOptionMessage( args: string[] ): string | null {
+	const unsupportedOption = args.find( ( arg ) => /^[\u2010-\u2015]\S+/.test( arg ) );
+	if ( ! unsupportedOption ) {
+		return null;
+	}
+
+	return `Unsupported WP-CLI option "${ unsupportedOption }": use ASCII hyphens, for example "--porcelain", not a typographic dash.`;
 }
 
 async function findSiteByName( name: string ): Promise< SiteData | undefined > {
@@ -517,6 +553,11 @@ const runWpCliTool = tool(
 				}
 
 				const wpCliArgs = splitCommandArgs( args.command );
+				const unsupportedOptionMessage = getUnsupportedWpCliOptionMessage( wpCliArgs );
+				if ( unsupportedOptionMessage ) {
+					return errorResult( unsupportedOptionMessage );
+				}
+
 				const unsupportedPostContentMessage = getUnsupportedWpCliPostContentMessage( wpCliArgs );
 				if ( unsupportedPostContentMessage ) {
 					return errorResult( unsupportedPostContentMessage );
@@ -720,6 +761,59 @@ const takeScreenshotTool = tool(
 				`Screenshot failed: ${ error instanceof Error ? error.message : String( error ) }`
 			);
 		}
+	}
+);
+
+// --- Preview orchestration tools ---
+
+function normalizePreviewPath( raw: string ): string {
+	const trimmed = raw.trim();
+	if ( ! trimmed ) {
+		return '/';
+	}
+	return trimmed.startsWith( '/' ) ? trimmed : `/${ trimmed }`;
+}
+
+const previewNavigateTool = tool(
+	'preview_navigate',
+	'Point the Studio site preview iframe at a specific page on the active site and reload it. ' +
+		'Use this after you finish editing a specific page, post, or template so the user immediately ' +
+		'sees the result of your change. Pass a site-relative path (e.g. "/", "/about/", ' +
+		'"/wp-admin/post.php?post=42&action=edit"). Does nothing when the preview pane is closed or ' +
+		'when running outside the Studio desktop app.',
+	{
+		path: z
+			.string()
+			.describe(
+				'Site-relative path to show in the preview, e.g. "/", "/about/", "/?p=123". Leading slash is added if missing.'
+			),
+	},
+	async ( args ) => {
+		const path = normalizePreviewPath( args.path );
+		emitEvent( {
+			type: 'preview.command',
+			timestamp: new Date().toISOString(),
+			kind: 'navigate',
+			path,
+		} );
+		return textResult( `Preview navigated to ${ path }.` );
+	}
+);
+
+const previewReloadTool = tool(
+	'preview_reload',
+	'Reload the Studio site preview iframe at its current URL. Use this after you edit the active ' +
+		'theme, CSS, template parts, or anything that affects the page the user is currently viewing, ' +
+		'so they see the updated result immediately. Does nothing when the preview pane is closed or ' +
+		'when running outside the Studio desktop app.',
+	{},
+	async () => {
+		emitEvent( {
+			type: 'preview.command',
+			timestamp: new Date().toISOString(),
+			kind: 'reload',
+		} );
+		return textResult( 'Preview reloaded.' );
 	}
 );
 
@@ -996,6 +1090,71 @@ const exportSiteTool = tool(
 	}
 );
 
+// Tools that only make sense when a Studio desktop UI is listening on the
+// other end of the agent event stream — they steer a preview iframe that
+// doesn't exist when the CLI runs standalone. Kept separate so plain-CLI
+// runs don't see (and the agent can't call) tools that would just produce
+// noise in the terminal transcript.
+const previewSteeringToolDefinitions = [ previewNavigateTool, previewReloadTool ];
+
+const openAnnotationBrowserTool = tool(
+	'open_annotation_browser',
+	'Opens a headed browser on a site with the Studio annotation inspector. ' +
+		'The user clicks "Annotate", picks an element, types feedback, then clicks "Done". ' +
+		'After calling this tool, call `wait_for_annotations` to block until the user submits.',
+	{
+		url: z.string().describe( 'The site URL to open (e.g., "http://localhost:8881")' ),
+	},
+	async ( args ) => {
+		try {
+			emitProgress( `Opening annotation browser at ${ args.url }…` );
+			const message = await openAnnotationBrowser( args.url );
+			emitProgress( 'Annotation browser ready' );
+			return textResult( message );
+		} catch ( error ) {
+			return errorResult(
+				`Failed to open annotation browser: ${
+					error instanceof Error ? error.message : String( error )
+				}`
+			);
+		}
+	}
+);
+
+const waitForAnnotationsTool = tool(
+	'wait_for_annotations',
+	'Blocks until the user clicks "Done" in the annotation inspector toolbar. ' +
+		'Returns the annotations the user wrote, captured straight from the page. ' +
+		'Call this AFTER `open_annotation_browser`.',
+	{
+		// Bound the wait — `0` would resolve to `timeout: 0` in Playwright,
+		// which means "no timeout" and would block the agent forever. The
+		// upper bound of 120 minutes is generous enough for any realistic
+		// annotation session.
+		timeoutMinutes: z
+			.number()
+			.int()
+			.min( 1 )
+			.max( 120 )
+			.optional()
+			.describe( 'How long to wait for the user to click "Done", in minutes. Defaults to 30.' ),
+	},
+	async ( args ) => {
+		try {
+			emitProgress( 'Waiting for the user to click "Done"…' );
+			const result = await waitForAnnotationsDone( {
+				timeoutMs: ( args.timeoutMinutes ?? 30 ) * 60 * 1000,
+			} );
+			emitProgress( `Received ${ result.annotations.length } annotation(s)` );
+			return textResult( JSON.stringify( result, null, 2 ) );
+		} catch ( error ) {
+			return errorResult(
+				`Failed to read annotations: ${ error instanceof Error ? error.message : String( error ) }`
+			);
+		}
+	}
+);
+
 export const studioToolDefinitions = [
 	createSiteTool,
 	listSitesTool,
@@ -1017,13 +1176,35 @@ export const studioToolDefinitions = [
 	pullSiteTool,
 	importSiteTool,
 	exportSiteTool,
+	openAnnotationBrowserTool,
+	waitForAnnotationsTool,
+	...previewSteeringToolDefinitions,
 ];
 
-export function createStudioTools() {
+export interface CreateStudioToolsOptions {
+	// Enable preview_navigate / preview_reload. Only meaningful when a
+	// Studio desktop UI is subscribed to the agent event stream — i.e. the
+	// CLI child was forked by the Studio main process (`process.send` is
+	// available). Defaults to false so standalone CLI runs don't advertise
+	// tools whose side effects would vanish into the void.
+	enablePreviewSteering?: boolean;
+}
+
+export function resolveStudioToolDefinitions( options: CreateStudioToolsOptions = {} ) {
+	if ( options.enablePreviewSteering ) {
+		return studioToolDefinitions;
+	}
+	const previewSteeringNames = new Set( previewSteeringToolDefinitions.map( ( t ) => t.name ) );
+	return studioToolDefinitions.filter(
+		( candidate ) => ! previewSteeringNames.has( candidate.name )
+	);
+}
+
+export function createStudioTools( options: CreateStudioToolsOptions = {} ) {
 	return createSdkMcpServer( {
 		name: 'studio',
 		version: '1.0.0',
-		tools: studioToolDefinitions,
+		tools: resolveStudioToolDefinitions( options ),
 	} );
 }
 

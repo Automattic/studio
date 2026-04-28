@@ -52,16 +52,7 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 	const cliPath = getCliPath();
 	const child = fork(
 		cliPath,
-		[
-			'code',
-			'sessions',
-			'resume',
-			sessionId,
-			prompt,
-			'--json',
-			'--no-auto-approve',
-			'--avoid-telemetry',
-		],
+		[ 'code', 'sessions', 'resume', sessionId, prompt, '--json', '--avoid-telemetry' ],
 		{
 			// Agent events arrive over the Node IPC channel (via `process.send`
 			// in the child). stdout/stderr are ignored — the child's
@@ -143,6 +134,9 @@ export function interruptAgentRun( runId: string ): void {
 	}
 	run.interrupted = true;
 	run.interruptAttempts += 1;
+	if ( runsBySessionId.get( run.sessionId ) === run ) {
+		runsBySessionId.delete( run.sessionId );
+	}
 
 	// Second click escalates: the graceful path is in flight but evidently
 	// not landing fast enough, so skip the grace period.

@@ -1,5 +1,6 @@
 import { listAiSessions } from '@studio/common/ai/sessions/store';
 import { type LoadedAiSession, type TurnStatus } from '@studio/common/ai/sessions/types';
+import { buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { DEFAULT_MODEL, startAiAgent, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
@@ -24,7 +25,9 @@ import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
+import { isRemoteSessionEnabled } from 'cli/lib/feature-flags';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
+import { RemoteSessionConfigError, runRemoteSession } from 'cli/remote-session';
 import { StudioArgv } from 'cli/types';
 
 const logger = new Logger< string >();
@@ -44,13 +47,20 @@ function getErrorMessage( error: unknown ): string {
 	return String( error );
 }
 
+async function readAllStdin(): Promise< string > {
+	const chunks: Buffer[] = [];
+	for await ( const chunk of process.stdin ) {
+		chunks.push( typeof chunk === 'string' ? Buffer.from( chunk ) : ( chunk as Buffer ) );
+	}
+	return Buffer.concat( chunks ).toString( 'utf8' ).trim();
+}
+
 export async function runCommand( options: {
 	adapter: AiOutputAdapter;
 	initialMessage?: string;
 	resumeSession?: LoadedAiSession;
 	resumeSessionId?: string;
 	noSessionPersistence?: boolean;
-	autoApprove?: boolean;
 	showLegacyCommandNotice?: boolean;
 	activeSite?: {
 		name: string;
@@ -456,22 +466,34 @@ export async function runCommand( options: {
 			env,
 			model: currentModel,
 			resume: sessionId,
-			autoApprove: options.autoApprove ?? isJsonMode,
 			activeSite: site,
 			wpcomAccessToken,
 			onAskUser: ( questions ) => askUserAndPersistAnswers( questions ),
 		} );
 
+		let interruptRequested = false;
+		let resolveInterrupt: () => void = () => undefined;
+		const interruptPromise = new Promise< 'interrupted' >( ( resolve ) => {
+			resolveInterrupt = () => resolve( 'interrupted' );
+		} );
 		ui.onInterrupt = () => {
+			if ( interruptRequested ) {
+				return;
+			}
+			interruptRequested = true;
 			void agentQuery.interrupt();
+			resolveInterrupt();
 		};
 
 		let maxTurnsResult: { numTurns: number } | undefined;
-		let turnStatus: TurnStatus = 'interrupted';
+		const turnState: { status: TurnStatus } = { status: 'interrupted' };
 
-		try {
+		const consumeAgentTurn = async (): Promise< void > => {
 			for await ( const message of agentQuery ) {
 				const timestamp = new Date().toISOString();
+				if ( interruptRequested ) {
+					continue;
+				}
 				const result = ui.handleMessage( message );
 				await persist( ( recorder ) => recorder.recordSdkMessage( message, timestamp ) );
 				if ( result ) {
@@ -482,30 +504,45 @@ export async function runCommand( options: {
 						maxTurnsResult = {
 							numTurns: result.numTurns,
 						};
-						turnStatus = 'max_turns';
+						turnState.status = 'max_turns';
 					} else if ( result.interrupted ) {
-						turnStatus = 'interrupted';
+						turnState.status = 'interrupted';
 					} else {
-						turnStatus = result.success ? 'success' : 'error';
+						turnState.status = result.success ? 'success' : 'error';
 					}
 				}
 			}
-		} catch ( error ) {
-			turnStatus = 'error';
-			// In JSON mode there's no interactive retry, so re-throw and let
-			// the caller record the error. In interactive mode, fall through
-			// so the post-loop retry prompt offers the user a chance to retry.
-			if ( isJsonMode ) {
-				throw error;
+		};
+
+		const consumeAgentTurnResult = consumeAgentTurn().catch( ( error ) => {
+			if ( interruptRequested ) {
+				turnState.status = 'interrupted';
+				return;
 			}
+			turnState.status = 'error';
 			// If the UI already surfaced a descriptive terminal error (e.g.
 			// the AI usage cap was reached), suppress the generic SDK exit
 			// error (e.g. "Claude Code process exited with code 1").
 			if ( ! ( ui instanceof AiChatUI && ui.hasErrorBeenSurfaced() ) ) {
 				ui.showError( getErrorMessage( error ) );
 			}
+			// In JSON mode there's no interactive retry, so re-throw and let
+			// the caller record the error.
+			if ( isJsonMode ) {
+				throw error;
+			}
+		} );
+
+		try {
+			const result = await Promise.race( [
+				consumeAgentTurnResult.then( () => 'completed' as const ),
+				interruptPromise,
+			] );
+			if ( result === 'interrupted' ) {
+				turnState.status = 'interrupted';
+			}
 		} finally {
-			await persist( ( recorder ) => recorder.recordTurnClosed( turnStatus ) );
+			await persist( ( recorder ) => recorder.recordTurnClosed( turnState.status ) );
 			ui.endAgentTurn();
 		}
 
@@ -538,7 +575,7 @@ export async function runCommand( options: {
 		// the user has already been told what to do next.
 		const hasTerminalError = ui instanceof AiChatUI && ui.hasErrorBeenSurfaced();
 
-		if ( turnStatus === 'error' && ! isJsonMode && ! hasTerminalError ) {
+		if ( turnState.status === 'error' && ! isJsonMode && ! hasTerminalError ) {
 			if ( retryAttempt >= MAX_RETRY_ATTEMPTS ) {
 				ui.showInfo(
 					__( 'The server has not recovered after multiple attempts. Please try again later.' )
@@ -569,7 +606,7 @@ export async function runCommand( options: {
 		}
 
 		return {
-			status: turnStatus,
+			status: turnState.status,
 			usage: maxTurnsResult,
 		};
 	}
@@ -659,7 +696,7 @@ export async function runCommand( options: {
 					// Skill command — no handler, route to agent
 					ui.addUserMessage( prompt );
 					try {
-						await runAgentTurn( `Run the /${ cmd.name } skill using the Skill tool.` );
+						await runAgentTurn( buildSkillInvocationPrompt( cmd.name ) );
 					} catch ( error ) {
 						handleAgentTurnError( error );
 					}
@@ -686,7 +723,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		command: '$0 [message]',
 		describe: __( 'AI agent for building WordPress' ),
 		builder: ( yargs ) => {
-			return yargs
+			let chain = yargs
 				.positional( 'message', {
 					type: 'string',
 					description: __( 'Initial message to send to the AI agent' ),
@@ -704,10 +741,6 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					default: false,
 					description: __( 'Output events as NDJSON to stdout (headless mode)' ),
 				} )
-				.option( 'auto-approve', {
-					type: 'boolean',
-					description: __( 'Auto-approve all tool calls (defaults to true in --json mode)' ),
-				} )
 				.option( 'resume-session', {
 					type: 'string',
 					hidden: true,
@@ -722,13 +755,40 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'boolean',
 					default: true,
 					description: __( 'Record this code session to disk' ),
-				} )
-				.check( ( argv ) => {
-					if ( argv.json && ! argv.message ) {
-						throw new Error( __( '--json requires an initial message argument' ) );
-					}
-					return true;
 				} );
+
+			// Remote-session options are gated behind STUDIO_ENABLE_REMOTE_SESSION so the
+			// experimental Telegram bridge stays out of `--help` and isn't dispatchable
+			// for users who haven't opted in.
+			if ( isRemoteSessionEnabled() ) {
+				chain = chain
+					.option( 'remote-session', {
+						type: 'boolean',
+						default: false,
+						description: __( 'Attach to Telegram and drive studio code remotely' ),
+					} )
+					.option( 'remote-chat-id', {
+						type: 'number',
+						description: __( 'Override the Telegram chat id to bind to' ),
+					} )
+					.option( 'remote-bot', {
+						type: 'string',
+						description: __( 'Override the Telegram bot name to use for replies' ),
+					} )
+					.option( 'message-from-stdin', {
+						type: 'boolean',
+						hidden: true,
+						default: false,
+						description: __( 'Read the initial message from stdin (for headless drivers)' ),
+					} );
+			}
+
+			return chain.check( ( argv ) => {
+				if ( argv.json && ! argv.message && ! argv.remoteSession && ! argv.messageFromStdin ) {
+					throw new Error( __( '--json requires an initial message argument' ) );
+				}
+				return true;
+			} );
 		},
 		handler: async ( argv ) => {
 			try {
@@ -736,13 +796,46 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					message?: string;
 					json?: boolean;
 					sessionPersistence?: boolean;
-					autoApprove?: boolean;
 					resumeSession?: string;
 					permissionResponse?: string;
 					siteName?: string;
+					remoteSession?: boolean;
+					remoteChatId?: number;
+					remoteBot?: string;
+					messageFromStdin?: boolean;
 				};
+
+				if ( typedArgv.remoteSession && isRemoteSessionEnabled() ) {
+					try {
+						await runRemoteSession( {
+							chat_id: typedArgv.remoteChatId,
+							bot: typedArgv.remoteBot,
+						} );
+					} catch ( error ) {
+						if ( error instanceof RemoteSessionConfigError ) {
+							process.stderr.write( `${ error.message }\n` );
+							process.exitCode = 1;
+							return;
+						}
+						throw error;
+					}
+					return;
+				}
+
 				const noSessionPersistence = typedArgv.sessionPersistence === false;
 				const adapter: AiOutputAdapter = typedArgv.json ? new JsonAdapter() : new AiChatUI();
+
+				let initialMessage = typedArgv.message;
+				if ( typedArgv.messageFromStdin && isRemoteSessionEnabled() ) {
+					initialMessage = await readAllStdin();
+					if ( ! initialMessage ) {
+						process.stderr.write(
+							`${ __( '--message-from-stdin requires non-empty input on stdin' ) }\n`
+						);
+						process.exitCode = 1;
+						return;
+					}
+				}
 
 				if ( adapter instanceof JsonAdapter && typedArgv.permissionResponse ) {
 					adapter.permissionResponse = JSON.parse( typedArgv.permissionResponse ) as Record<
@@ -763,10 +856,9 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				}
 				await runCommand( {
 					adapter,
-					initialMessage: typedArgv.message,
+					initialMessage,
 					resumeSessionId: typedArgv.resumeSession,
 					noSessionPersistence,
-					autoApprove: typedArgv.autoApprove,
 					showLegacyCommandNotice: argv._[ 0 ] === 'ai',
 					activeSite,
 				} );

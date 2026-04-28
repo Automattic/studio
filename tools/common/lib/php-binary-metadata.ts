@@ -1,6 +1,6 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { z } from 'zod';
-import { SupportedPHPVersions, type SupportedPHPVersion } from '@studio/common/types/php-versions';
+import { SupportedPHPVersions } from '@studio/common/types/php-versions';
 
 // PHP versions supported by the native-php runtime (subset of SupportedPHPVersions).
 // PHP 7.4 is excluded: no static binaries are available from the upstream CDN.
@@ -83,12 +83,11 @@ const CDN_ARCH_MAP: Record< Arch, string > = { x64: 'x86_64', arm64: 'aarch64' }
 const OS_SEGMENT: Record< Platform, string > = { darwin: 'macos', linux: 'linux', win32: 'win' };
 
 export function buildPhpBinaryUrl(
-	version: SupportedPHPVersion,
+	version: NativePhpSupportedVersion,
 	platform: NodeJS.Platform,
 	arch: string
 ): string {
-	const validatedVersion = validateNativePhpVersion( version );
-	const patchVersion = PHP_PATCH_VERSIONS[ validatedVersion ];
+	const patchVersion = PHP_PATCH_VERSIONS[ version ];
 
 	const p = platform as Platform;
 	if ( p === 'win32' ) {

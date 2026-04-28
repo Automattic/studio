@@ -61,7 +61,6 @@ export async function runCommand( options: {
 	resumeSession?: LoadedAiSession;
 	resumeSessionId?: string;
 	noSessionPersistence?: boolean;
-	autoApprove?: boolean;
 	showLegacyCommandNotice?: boolean;
 	activeSite?: {
 		name: string;
@@ -467,7 +466,6 @@ export async function runCommand( options: {
 			env,
 			model: currentModel,
 			resume: sessionId,
-			autoApprove: options.autoApprove ?? isJsonMode,
 			activeSite: site,
 			wpcomAccessToken,
 			onAskUser: ( questions ) => askUserAndPersistAnswers( questions ),
@@ -718,10 +716,6 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					default: false,
 					description: __( 'Output events as NDJSON to stdout (headless mode)' ),
 				} )
-				.option( 'auto-approve', {
-					type: 'boolean',
-					description: __( 'Auto-approve all tool calls (defaults to true in --json mode)' ),
-				} )
 				.option( 'resume-session', {
 					type: 'string',
 					hidden: true,
@@ -777,7 +771,6 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					message?: string;
 					json?: boolean;
 					sessionPersistence?: boolean;
-					autoApprove?: boolean;
 					resumeSession?: string;
 					permissionResponse?: string;
 					siteName?: string;
@@ -841,7 +834,6 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					initialMessage,
 					resumeSessionId: typedArgv.resumeSession,
 					noSessionPersistence,
-					autoApprove: typedArgv.autoApprove,
 					showLegacyCommandNotice: argv._[ 0 ] === 'ai',
 					activeSite,
 				} );

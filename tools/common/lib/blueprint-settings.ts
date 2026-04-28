@@ -1,5 +1,5 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { SupportedPHPVersion } from '../types/php-versions';
+import { isSupportedPHPVersion, SupportedPHPVersion } from '../types/php-versions';
 import type { BlueprintV1Declaration, StepDefinition, Step } from '@wp-playground/blueprints';
 
 // Carbon-copy of the original function from @wp-playground/blueprints. Inlined to avoid trouble
@@ -36,7 +36,8 @@ export function extractFormValuesFromBlueprint(
 			preferredPhpVersion &&
 			preferredPhpVersion !== 'latest' &&
 			preferredPhpVersion !== '7.2' &&
-			preferredPhpVersion !== '7.3'
+			preferredPhpVersion !== '7.3' &&
+			isSupportedPHPVersion( preferredPhpVersion )
 		) {
 			values.phpVersion = preferredPhpVersion;
 		}

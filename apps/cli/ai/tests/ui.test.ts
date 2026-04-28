@@ -206,6 +206,55 @@ describe( 'AiChatUI.clearTranscript', () => {
 	} );
 } );
 
+describe( 'AiChatUI interrupt handling', () => {
+	it( 'centralizes ESC interruption cleanup and only calls the interrupt callback once', () => {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			requestInterrupt: () => boolean;
+			[ key: string ]: unknown;
+		};
+		const interruptCallback = vi.fn();
+		const submitResolve = vi.fn();
+
+		ui.interruptCallback = interruptCallback;
+		ui.wasInterrupted = false;
+		ui.closeSitePicker = vi.fn();
+		ui.cancelOptionPicker = vi.fn();
+		ui.showInterruptedNotice = vi.fn();
+		ui.submitResolve = submitResolve;
+		ui.updateHints = vi.fn();
+
+		expect( ui.requestInterrupt() ).toBe( true );
+		expect( ui.wasInterrupted ).toBe( true );
+		expect( ui.closeSitePicker ).toHaveBeenCalledTimes( 1 );
+		expect( ui.cancelOptionPicker ).toHaveBeenCalledTimes( 1 );
+		expect( submitResolve ).toHaveBeenCalledWith( '' );
+		expect( ui.showInterruptedNotice ).toHaveBeenCalledTimes( 1 );
+		expect( interruptCallback ).toHaveBeenCalledTimes( 1 );
+
+		expect( ui.requestInterrupt() ).toBe( true );
+		expect( interruptCallback ).toHaveBeenCalledTimes( 1 );
+		expect( ui.showInterruptedNotice ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'does not advertise ESC as interrupt when no interrupt callback is active', () => {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			updateHints: () => void;
+			[ key: string ]: unknown;
+		};
+		const editor = { hints: [] as string[] };
+
+		ui.editor = editor;
+		ui.interruptCallback = null;
+		ui._inAgentTurn = false;
+		ui.activeExpandablePreview = null;
+		ui.queuedPrompts = [];
+
+		ui.updateHints();
+
+		expect( editor.hints ).not.toContain( 'esc to interrupt' );
+	} );
+} );
+
 describe( 'AiChatUI.handleMessage', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();

@@ -85,17 +85,7 @@ const config: ForgeConfig = {
 				name: 'studio',
 				bin: 'studio',
 				mimeType: [ 'x-scheme-handler/wp-studio' ],
-				// Pass `icon` as a {size: path} map so the underlying electron-installer-debian
-				// installs the PNG under /usr/share/icons/hicolor/<size>/apps/, where modern
-				// desktop environments look first. A bare string would land in the legacy
-				// /usr/share/pixmaps/ which isn't reliably indexed.
-				//
-				// The cast is required because @electron-forge/maker-deb's type declares
-				// `icon?: string` only, even though the runtime also accepts the map form
-				// (https://github.com/electron-userland/electron-installer-debian#optionsicon).
-				icon: {
-					'512x512': path.join( __dirname, 'assets', 'studio-app-icon-512.png' ),
-				} as unknown as string,
+				icon: path.join( __dirname, 'assets', 'studio-app-icon.png' ),
 				desktopTemplate: path.join( __dirname, 'installers', 'desktop.ejs' ),
 			},
 		} ),

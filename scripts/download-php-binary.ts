@@ -22,11 +22,11 @@ import os from 'os';
 import path from 'path';
 import { Readable } from 'stream';
 import { pipeline } from 'stream/promises';
-import type { ReadableStream as NodeReadableStream } from 'stream/web';
 import { extract } from 'tar';
 import { z } from 'zod';
 import { extractZip } from '../tools/common/lib/extract-zip';
 import { getConfigDirectory } from '../tools/common/lib/well-known-paths';
+import type { ReadableStream as NodeReadableStream } from 'stream/web';
 
 const PHP_VERSION = '8.4.20';
 
@@ -120,8 +120,8 @@ async function verifyHash( filePath: string, key: string ): Promise< void > {
 	if ( ! expected ) {
 		console.warn(
 			`Warning: no pinned SHA-256 hash for ${ key }. Skipping verification.\n` +
-			`         Compute it with: sha256sum ${ filePath }\n` +
-			`         Then add it to KNOWN_HASHES in scripts/download-php-binary.ts`
+				`         Compute it with: sha256sum ${ filePath }\n` +
+				`         Then add it to KNOWN_HASHES in scripts/download-php-binary.ts`
 		);
 		return;
 	}
@@ -150,7 +150,10 @@ async function extractBinary( archivePath: string ): Promise< void > {
 		fs.copyFileSync( src, destPath );
 		fs.unlinkSync( src );
 	} else {
-		const extractDir = path.join( tmpDir, `php-${ PHP_VERSION }-${ args.platform }-${ effectiveArch }` );
+		const extractDir = path.join(
+			tmpDir,
+			`php-${ PHP_VERSION }-${ args.platform }-${ effectiveArch }`
+		);
 		fs.mkdirSync( extractDir, { recursive: true } );
 
 		await extract( { file: archivePath, cwd: extractDir } );
@@ -187,7 +190,9 @@ async function main(): Promise< void > {
 		);
 	} catch ( error ) {
 		console.warn( `Warning: PHP binary download failed — ${ ( error as Error ).message }` );
-		console.warn( 'The native-php runtime will not be available. Run `npm run download:php-binary` to retry.' );
+		console.warn(
+			'The native-php runtime will not be available. Run `npm run download:php-binary` to retry.'
+		);
 	}
 }
 

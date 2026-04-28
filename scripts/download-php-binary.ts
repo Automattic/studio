@@ -126,9 +126,7 @@ async function main(): Promise< void > {
 			fs.mkdirSync( binDir );
 		} catch ( err ) {
 			if ( isErrnoException( err ) && err.code === 'EEXIST' ) {
-				console.log(
-					`PHP ${ version } is already being downloaded by another process. Waiting…`
-				);
+				console.log( `PHP ${ version } is already being downloaded by another process. Waiting…` );
 				return;
 			}
 			throw err;
@@ -195,7 +193,11 @@ async function main(): Promise< void > {
 
 			const stats = fs.statSync( destPath );
 			console.log(
-				`\nPHP ${ version } binary installed: ${ destPath } (${ ( stats.size / 1024 / 1024 ).toFixed( 1 ) } MB)`
+				`\nPHP ${ version } binary installed: ${ destPath } (${ (
+					stats.size /
+					1024 /
+					1024
+				).toFixed( 1 ) } MB)`
 			);
 		} catch ( err ) {
 			fs.rmSync( binDir, { recursive: true, force: true } );

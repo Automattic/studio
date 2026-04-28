@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { downloadFile } from '@studio/common/lib/download-file';
 import { extractZip } from '@studio/common/lib/extract-zip';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import {
@@ -13,7 +14,6 @@ import {
 import { sequential } from '@studio/common/lib/sequential';
 import { extract } from 'tar';
 import { getPhpBinaryPath } from './paths';
-import { downloadFile } from '@studio/common/lib/download-file';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 
 const WAIT_POLL_INTERVAL_MS = 1_000;

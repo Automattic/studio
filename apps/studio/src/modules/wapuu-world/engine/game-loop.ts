@@ -228,11 +228,11 @@ function update( state: GameState, keys: Set< string > ) {
 		if ( e.hurtTimer > 0 ) e.hurtTimer--;
 
 		// Collision with player
-		if ( player.invincibleTimer === 0 && rectsOverlap( player, e ) ) {
+		if ( rectsOverlap( player, e ) ) {
 			const playerBottom = player.y + player.h;
 			const enemyTop = e.y;
 			if ( player.vy > 0 && playerBottom - enemyTop < 16 ) {
-				// Stomp
+				// Stomp — always works regardless of invincibility
 				e.health--;
 				player.vy = JUMP_FORCE * 0.6;
 				playSound( 'stomp' );
@@ -244,8 +244,8 @@ function update( state: GameState, keys: Set< string > ) {
 					e.hurtTimer = 60;
 					e.vx *= 1.5;
 				}
-			} else if ( e.hurtTimer === 0 ) {
-				// Hit player (mguy can't hurt while stunned)
+			} else if ( player.invincibleTimer === 0 && e.hurtTimer === 0 ) {
+				// Hit player — only when not invincible, mguy can't hurt while stunned
 				player.lives--;
 				player.invincibleTimer = 90;
 				if ( player.lives <= 0 ) {

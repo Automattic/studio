@@ -71,6 +71,7 @@ const AGENTS_BY_SESSION = new Map< string, Agent >();
 // model breakdowns the same way the Claude Agent SDK did.
 interface RunUsage {
 	turns: number;
+	runtimeError: boolean;
 	denials: { tool_name: string; tool_use_id: string; tool_input: Record< string, unknown > }[];
 	usageByModel: Map<
 		string,
@@ -86,7 +87,7 @@ interface RunUsage {
 }
 
 function newRunUsage(): RunUsage {
-	return { turns: 0, denials: [], usageByModel: new Map() };
+	return { turns: 0, runtimeError: false, denials: [], usageByModel: new Map() };
 }
 
 export const piRuntime: AgentRuntime = {
@@ -120,7 +121,7 @@ async function* createMessageStream(
 	// any future feature-flagged model rollouts from blowing up the loop.
 	const family: AiModelFamily = isAiModelId( config.model )
 		? getAiModelFamily( config.model )
-		: config.model.startsWith( 'gpt' )
+		: String( config.model ).startsWith( 'gpt' )
 		? 'openai'
 		: 'anthropic';
 	yield makeSystemInit( sessionId, config.model );
@@ -153,11 +154,22 @@ async function* createMessageStream(
 		// stream is push-based via `subscribe()`, so we bridge to our
 		// generator with a simple queue.
 		const queue: SDKMessage[] = [];
+		const emittedAssistantMessageKeys = new Set< string >();
+		const emittedToolCallIds = new Set< string >();
+		const emittedToolResultIds = new Set< string >();
 		let resolveNext: ( () => void ) | null = null;
 		let done = false;
 
 		const unsubscribe = agent.subscribe( ( event ) => {
-			for ( const msg of translateEvent( event, sessionId, config.model, usage ) ) {
+			for ( const msg of translateEvent(
+				event,
+				sessionId,
+				config.model,
+				usage,
+				emittedAssistantMessageKeys,
+				emittedToolCallIds,
+				emittedToolResultIds
+			) ) {
 				queue.push( msg );
 			}
 			if ( event.type === 'agent_end' ) {
@@ -195,9 +207,11 @@ async function* createMessageStream(
 			await saveSidecar( config.sessionFilePath, agent.state.messages ).catch( () => undefined );
 		}
 
-		// Emit the success result *after* persistence so the UI's "Done"
+		// Emit the result *after* persistence so the UI's "Done"
 		// message lines up with the durable state on disk.
-		yield makeResultSuccess( sessionId, config.model, start, usage );
+		yield usage.runtimeError
+			? makeResultError( sessionId, config.model, start, usage )
+			: makeResultSuccess( sessionId, config.model, start, usage );
 	} catch ( error ) {
 		if ( controller.signal.aborted ) {
 			yield makeResultError( sessionId, config.model, start, usage );
@@ -252,8 +266,12 @@ function resolveModelEnvironment(
 	// sensible default `baseUrl` of https://api.anthropic.com, so we only
 	// override when one is supplied.
 	const baseURL = env.ANTHROPIC_BASE_URL?.trim() || 'https://api.anthropic.com';
-	const extraHeaders = parseColonHeaderEnv( env.ANTHROPIC_CUSTOM_HEADERS );
-	return { apiKey, baseURL, extraHeaders };
+	const authToken = env.ANTHROPIC_AUTH_TOKEN?.trim();
+	const extraHeaders = {
+		...( parseColonHeaderEnv( env.ANTHROPIC_CUSTOM_HEADERS ) ?? {} ),
+		...( authToken ? { Authorization: `Bearer ${ authToken }` } : {} ),
+	};
+	return { apiKey, baseURL, extraHeaders: Object.keys( extraHeaders ).length ? extraHeaders : undefined };
 }
 
 /**
@@ -507,10 +525,13 @@ function buildBeforeToolCall(): (
  * Maps pi's AgentEvent stream into the synthetic SDKMessage shape the UI
  * (ui.ts) already knows how to render. The important events:
  *
+ * - `tool_execution_start` / `tool_execution_end` emit tool-use and tool-result
+ *   SDKMessages as the work happens, so the UI/recorder can measure real tool
+ *   duration instead of reconstructing it from bundled end-of-turn artifacts.
  * - `turn_end` emits one assistant message (possibly with tool calls) plus
- *   tool results. We yield one `SDKAssistantMessage` per tool-call block and
- *   one `SDKUserMessage` per tool result. We also accumulate per-turn usage
- *   here so the synthetic `result` message can report real numbers.
+ *   tool results. We use it as a fallback for artifacts not already emitted by
+ *   the streaming tool execution events, and accumulate per-turn usage here so
+ *   the synthetic `result` message can report real numbers.
  * - `message_end` covers the pure-text case (no tools).
  * - `agent_end` we treat as a no-op for emission; the success result is
  *   synthesized after persistence, in `createMessageStream`.
@@ -519,45 +540,67 @@ function* translateEvent(
 	event: AgentEvent,
 	sessionId: string,
 	currentModel: AiModelId,
-	usage: RunUsage
+	usage: RunUsage,
+	emittedAssistantMessageKeys: Set< string >,
+	emittedToolCallIds: Set< string >,
+	emittedToolResultIds: Set< string >
 ): Generator< SDKMessage, void, void > {
-	if ( event.type === 'message_end' ) {
-		const msg = event.message;
-		if ( msg.role !== 'assistant' ) return;
-		recordUsage( msg, usage );
-		const text = extractAssistantText( msg );
-		const thinkingBlocks = extractThinkingBlocks( msg );
-		const toolCalls = msg.content.filter(
-			( block ): block is Extract< typeof block, { type: 'toolCall' } > => block.type === 'toolCall'
+	if ( event.type === 'tool_execution_start' ) {
+		if ( emittedToolCallIds.has( event.toolCallId ) ) {
+			return;
+		}
+		emittedToolCallIds.add( event.toolCallId );
+		yield makeAssistantToolUse(
+			sessionId,
+			currentModel,
+			event.toolCallId,
+			event.toolName,
+			( event.args as Record< string, unknown > ) ?? {}
 		);
-		// Yield thinking content first so the desktop UI can render the
-		// "thinking" affordance before any text or tool calls land. Each
-		// thinking block becomes its own assistant SDKMessage with a single
-		// `thinking` content block — matches the Claude Agent SDK shape that
-		// the UI already knows how to render.
-		for ( const block of thinkingBlocks ) {
-			yield makeAssistantThinking( sessionId, currentModel, block.thinking, block.signature );
+		return;
+	}
+	if ( event.type === 'tool_execution_end' ) {
+		if ( emittedToolResultIds.has( event.toolCallId ) ) {
+			return;
 		}
-		if ( text ) {
-			yield makeAssistantText( sessionId, currentModel, text );
-		} else if ( toolCalls.length === 0 && thinkingBlocks.length === 0 ) {
-			// Empty turn fallback: nothing to render. Skip silently — the
-			// `result` message still closes the turn so the UI doesn't hang.
-		}
-		for ( const block of toolCalls ) {
-			yield makeAssistantToolUse(
-				sessionId,
-				currentModel,
-				block.id,
-				block.name,
-				( block.arguments as Record< string, unknown > ) ?? {}
-			);
-		}
+		emittedToolResultIds.add( event.toolCallId );
+		yield makeToolResult(
+			sessionId,
+			event.toolCallId,
+			extractToolResultText( event.result ),
+			Boolean( event.isError )
+		);
+		return;
+	}
+	if ( event.type === 'message_end' ) {
+		yield* emitAssistantMessage(
+			event.message,
+			sessionId,
+			currentModel,
+			usage,
+			emittedAssistantMessageKeys,
+			emittedToolCallIds
+		);
 		return;
 	}
 	if ( event.type === 'turn_end' ) {
 		usage.turns += 1;
+		const maybeMessage = ( event as { message?: AgentMessage } ).message;
+		if ( maybeMessage ) {
+			yield* emitAssistantMessage(
+				maybeMessage,
+				sessionId,
+				currentModel,
+				usage,
+				emittedAssistantMessageKeys,
+				emittedToolCallIds
+			);
+		}
 		for ( const toolResult of event.toolResults ) {
+			if ( emittedToolResultIds.has( toolResult.toolCallId ) ) {
+				continue;
+			}
+			emittedToolResultIds.add( toolResult.toolCallId );
 			const text = extractToolResultText( toolResult );
 			if ( toolResult.isError ) {
 				// pi reports a permission denial as an error tool result with
@@ -578,6 +621,71 @@ function* translateEvent(
 		}
 		return;
 	}
+}
+
+function* emitAssistantMessage(
+	msg: AgentMessage,
+	sessionId: string,
+	currentModel: AiModelId,
+	usage: RunUsage,
+	emittedAssistantMessageKeys: Set< string >,
+	emittedToolCallIds: Set< string >
+): Generator< SDKMessage, void, void > {
+	if ( msg.role !== 'assistant' ) return;
+	const messageKey = assistantMessageKey( msg );
+	if ( emittedAssistantMessageKeys.has( messageKey ) ) {
+		return;
+	}
+	emittedAssistantMessageKeys.add( messageKey );
+	recordUsage( msg, usage );
+	if ( isAssistantError( msg ) ) {
+		usage.runtimeError = true;
+	}
+	const text = extractAssistantText( msg );
+	const thinkingBlocks = extractThinkingBlocks( msg );
+	const toolCalls = msg.content.filter(
+		( block ): block is Extract< typeof block, { type: 'toolCall' } > => block.type === 'toolCall'
+	);
+	// Yield thinking content first so the desktop UI can render the "thinking"
+	// affordance before any text or tool calls land.
+	for ( const block of thinkingBlocks ) {
+		yield makeAssistantThinking( sessionId, currentModel, block.thinking, block.signature );
+	}
+	if ( text ) {
+		yield makeAssistantText( sessionId, currentModel, text );
+	} else if ( toolCalls.length === 0 && thinkingBlocks.length === 0 ) {
+		// Empty turn fallback: nothing to render. Skip silently — the `result`
+		// message still closes the turn so the UI doesn't hang.
+	}
+	for ( const block of toolCalls ) {
+		if ( emittedToolCallIds.has( block.id ) ) {
+			continue;
+		}
+		emittedToolCallIds.add( block.id );
+		yield makeAssistantToolUse(
+			sessionId,
+			currentModel,
+			block.id,
+			block.name,
+			( block.arguments as Record< string, unknown > ) ?? {}
+		);
+	}
+}
+
+function assistantMessageKey( msg: AgentMessage ): string {
+	if ( msg.role !== 'assistant' ) {
+		return JSON.stringify( { role: msg.role } );
+	}
+	return JSON.stringify( {
+		role: msg.role,
+		content: msg.content,
+		model: 'model' in msg ? msg.model : undefined,
+		stopReason: 'stopReason' in msg ? msg.stopReason : undefined,
+	} );
+}
+
+function isAssistantError( msg: AgentMessage ): boolean {
+	return msg.role === 'assistant' && 'stopReason' in msg && msg.stopReason === 'error';
 }
 
 function recordUsage( msg: AssistantMessage, usage: RunUsage ): void {

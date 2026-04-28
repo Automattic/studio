@@ -5,7 +5,17 @@ import type { AiModelId } from '@studio/common/ai/models';
 // Module-level capture so the model-swap test can inspect every Agent the
 // runtime instantiated across a sequence of `run()` calls.
 const constructedAgents: Array< {
-	state: { model: { id: string; api: string; provider: string }; messages: unknown[] };
+	options: {
+		getApiKey?: () => string;
+		initialState?: {
+			model?: { id?: string; api?: string; provider?: string; headers?: Record< string, string > };
+			messages?: unknown[];
+		};
+	};
+	state: {
+		model: { id: string; api: string; provider: string; headers?: Record< string, string > };
+		messages: unknown[];
+	};
 } > = [];
 
 // Tests can override the events the mock Agent emits per prompt(), to
@@ -27,11 +37,15 @@ let nextMockEvents: unknown[] | null = null;
 vi.mock( '@mariozechner/pi-agent-core', () => {
 	class MockAgent {
 		private listener?: ( event: unknown ) => void;
-		public state: { model: { id: string; api: string; provider: string }; messages: unknown[] };
+		public state: {
+			model: { id: string; api: string; provider: string; headers?: Record< string, string > };
+			messages: unknown[];
+		};
 		constructor(
 			public options: {
+				getApiKey?: () => string;
 				initialState?: {
-					model?: { id?: string; api?: string; provider?: string };
+					model?: { id?: string; api?: string; provider?: string; headers?: Record< string, string > };
 					messages?: unknown[];
 				};
 			}
@@ -41,6 +55,7 @@ vi.mock( '@mariozechner/pi-agent-core', () => {
 					id: options.initialState?.model?.id ?? '',
 					api: options.initialState?.model?.api ?? '',
 					provider: options.initialState?.model?.provider ?? '',
+					headers: options.initialState?.model?.headers,
 				},
 				messages: options.initialState?.messages?.slice() ?? [],
 			};
@@ -187,6 +202,211 @@ describe( 'unified pi runtime', () => {
 		expect( constructedAgents[ 0 ].state.model.api ).toBe( 'anthropic-messages' );
 		expect( constructedAgents[ 0 ].state.model.provider ).toBe( 'anthropic' );
 		expect( constructedAgents[ 0 ].state.model.id ).toBe( 'claude-opus-4-7' );
+		expect( constructedAgents[ 0 ].state.model.headers ).toMatchObject( {
+			Authorization: 'Bearer sk-test',
+			'X-WPCOM-AI-Feature': 'studio-assistant-anthropic',
+		} );
+		expect( constructedAgents[ 0 ].options.getApiKey?.() ).toBe( 'sk-test' );
+	} );
+
+	it( 'surfaces assistant text carried by turn_end.message', async () => {
+		nextMockEvents = [
+			{
+				type: 'turn_end',
+				message: {
+					role: 'assistant',
+					content: [ { type: 'text', text: 'turn end response' } ],
+					stopReason: 'stop',
+				},
+				toolResults: [],
+			},
+			{ type: 'agent_end', messages: [] },
+		];
+
+		const handle = piRuntime.run( {
+			prompt: 'hello',
+			env: {
+				ANTHROPIC_AUTH_TOKEN: 'sk-test',
+				ANTHROPIC_BASE_URL: 'https://proxy.example.com',
+			},
+			model: 'claude-sonnet-4-6',
+			maxTurns: 1,
+			resume: 'turn-end-message-' + Math.random(),
+		} );
+
+		const assistantTexts: string[] = [];
+		for await ( const m of handle ) {
+			if ( m.type === 'assistant' && Array.isArray( m.message.content ) ) {
+				const content = m.message.content as Array< { type: string; text?: string } >;
+				const text = content.find(
+					( block ): block is { type: 'text'; text: string } => block.type === 'text'
+				);
+				if ( text ) assistantTexts.push( text.text );
+			}
+		}
+
+		expect( assistantTexts ).toEqual( [ 'turn end response' ] );
+	} );
+
+	it( 'dedupes assistant messages repeated by message_end and turn_end.message', async () => {
+		const repeatedMessage = {
+			role: 'assistant',
+			content: [ { type: 'text', text: 'same response' } ],
+			stopReason: 'stop',
+		};
+		nextMockEvents = [
+			{ type: 'message_end', message: repeatedMessage },
+			{ type: 'turn_end', message: repeatedMessage, toolResults: [] },
+			{ type: 'agent_end', messages: [] },
+		];
+
+		const handle = piRuntime.run( {
+			prompt: 'hello',
+			env: {
+				ANTHROPIC_AUTH_TOKEN: 'sk-test',
+				ANTHROPIC_BASE_URL: 'https://proxy.example.com',
+			},
+			model: 'claude-sonnet-4-6',
+			maxTurns: 1,
+			resume: 'dedupe-' + Math.random(),
+		} );
+
+		let assistantCount = 0;
+		for await ( const m of handle ) {
+			if ( m.type === 'assistant' ) assistantCount += 1;
+		}
+
+		expect( assistantCount ).toBe( 1 );
+	} );
+
+	it( 'streams tool calls and results from execution events without turn_end duplicates', async () => {
+		const toolMessage = {
+			role: 'assistant',
+			content: [
+				{
+					type: 'toolCall',
+					id: 'tool-1',
+					name: 'site_info',
+					arguments: { nameOrPath: 'intelligence-chubes4' },
+				},
+			],
+			stopReason: 'toolCall',
+		};
+		nextMockEvents = [
+			{
+				type: 'tool_execution_start',
+				toolCallId: 'tool-1',
+				toolName: 'site_info',
+				args: { nameOrPath: 'intelligence-chubes4' },
+			},
+			{
+				type: 'tool_execution_end',
+				toolCallId: 'tool-1',
+				toolName: 'site_info',
+				args: { nameOrPath: 'intelligence-chubes4' },
+				result: { content: [ { type: 'text', text: '{"status":"Offline"}' } ] },
+				isError: false,
+			},
+			{
+				type: 'turn_end',
+				message: toolMessage,
+				toolResults: [
+					{
+						toolCallId: 'tool-1',
+						toolName: 'site_info',
+						content: [ { type: 'text', text: '{"status":"Offline"}' } ],
+						isError: false,
+					},
+				],
+			},
+			{ type: 'agent_end', messages: [] },
+		];
+
+		const handle = piRuntime.run( {
+			prompt: 'hello',
+			env: {
+				ANTHROPIC_AUTH_TOKEN: 'sk-test',
+				ANTHROPIC_BASE_URL: 'https://proxy.example.com',
+			},
+			model: 'claude-sonnet-4-6',
+			maxTurns: 1,
+			resume: 'stream-tool-events-' + Math.random(),
+		} );
+
+		const toolCalls: Array< { id: string; name: string; input: unknown } > = [];
+		const toolResults: Array< { id: string; text: string; isError: boolean } > = [];
+		for await ( const m of handle ) {
+			if ( m.type === 'assistant' && Array.isArray( m.message.content ) ) {
+				for ( const block of m.message.content ) {
+					if ( block.type === 'tool_use' ) {
+						toolCalls.push( { id: block.id, name: block.name, input: block.input } );
+					}
+				}
+			}
+			if ( m.type === 'user' && Array.isArray( m.message.content ) ) {
+				for ( const block of m.message.content ) {
+					if ( block.type === 'tool_result' ) {
+						toolResults.push( {
+							id: block.tool_use_id,
+							text: block.content,
+							isError: block.is_error,
+						} );
+					}
+				}
+			}
+		}
+
+		expect( toolCalls ).toEqual( [
+			{ id: 'tool-1', name: 'site_info', input: { nameOrPath: 'intelligence-chubes4' } },
+		] );
+		expect( toolResults ).toEqual( [
+			{ id: 'tool-1', text: '{"status":"Offline"}', isError: false },
+		] );
+	} );
+
+	it( 'treats pi assistant error stop reasons as failed results', async () => {
+		nextMockEvents = [
+			{
+				type: 'turn_end',
+				message: {
+					role: 'assistant',
+					content: [ { type: 'text', text: 'provider failed' } ],
+					stopReason: 'error',
+				},
+				toolResults: [],
+			},
+			{ type: 'agent_end', messages: [] },
+		];
+
+		const handle = piRuntime.run( {
+			prompt: 'hello',
+			env: {
+				ANTHROPIC_AUTH_TOKEN: 'sk-test',
+				ANTHROPIC_BASE_URL: 'https://proxy.example.com',
+			},
+			model: 'claude-sonnet-4-6',
+			maxTurns: 1,
+			resume: 'error-stop-' + Math.random(),
+		} );
+
+		const messages: Array< { type: string; subtype?: string; text?: string } > = [];
+		for await ( const m of handle ) {
+			if ( m.type === 'assistant' && Array.isArray( m.message.content ) ) {
+				const content = m.message.content as Array< { type: string; text?: string } >;
+				const text = content.find(
+					( block ): block is { type: 'text'; text: string } => block.type === 'text'
+				);
+				messages.push( { type: m.type, text: text?.text } );
+			} else {
+				messages.push( { type: m.type, subtype: 'subtype' in m ? m.subtype : undefined } );
+			}
+		}
+
+		expect( messages ).toEqual( [
+			{ type: 'system', subtype: 'init' },
+			{ type: 'assistant', text: 'provider failed' },
+			{ type: 'result', subtype: 'error_during_execution' },
+		] );
 	} );
 
 	// Regression: with reasoning enabled, models occasionally produce a turn

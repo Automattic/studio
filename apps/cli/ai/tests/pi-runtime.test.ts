@@ -45,7 +45,12 @@ vi.mock( '@mariozechner/pi-agent-core', () => {
 			public options: {
 				getApiKey?: () => string;
 				initialState?: {
-					model?: { id?: string; api?: string; provider?: string; headers?: Record< string, string > };
+					model?: {
+						id?: string;
+						api?: string;
+						provider?: string;
+						headers?: Record< string, string >;
+					};
 					messages?: unknown[];
 				};
 			}

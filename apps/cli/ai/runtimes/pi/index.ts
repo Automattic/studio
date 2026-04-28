@@ -271,7 +271,11 @@ function resolveModelEnvironment(
 		...( parseColonHeaderEnv( env.ANTHROPIC_CUSTOM_HEADERS ) ?? {} ),
 		...( authToken ? { Authorization: `Bearer ${ authToken }` } : {} ),
 	};
-	return { apiKey, baseURL, extraHeaders: Object.keys( extraHeaders ).length ? extraHeaders : undefined };
+	return {
+		apiKey,
+		baseURL,
+		extraHeaders: Object.keys( extraHeaders ).length ? extraHeaders : undefined,
+	};
 }
 
 /**

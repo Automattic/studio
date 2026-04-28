@@ -25,7 +25,9 @@ import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
+import { isRemoteSessionEnabled } from 'cli/lib/feature-flags';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
+import { RemoteSessionConfigError, runRemoteSession } from 'cli/remote-session';
 import { StudioArgv } from 'cli/types';
 
 const logger = new Logger< string >();
@@ -43,6 +45,14 @@ function getErrorMessage( error: unknown ): string {
 	}
 
 	return String( error );
+}
+
+async function readAllStdin(): Promise< string > {
+	const chunks: Buffer[] = [];
+	for await ( const chunk of process.stdin ) {
+		chunks.push( typeof chunk === 'string' ? Buffer.from( chunk ) : ( chunk as Buffer ) );
+	}
+	return Buffer.concat( chunks ).toString( 'utf8' ).trim();
 }
 
 export async function runCommand( options: {
@@ -713,7 +723,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		command: '$0 [message]',
 		describe: __( 'AI agent for building WordPress' ),
 		builder: ( yargs ) => {
-			return yargs
+			let chain = yargs
 				.positional( 'message', {
 					type: 'string',
 					description: __( 'Initial message to send to the AI agent' ),
@@ -745,13 +755,40 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'boolean',
 					default: true,
 					description: __( 'Record this code session to disk' ),
-				} )
-				.check( ( argv ) => {
-					if ( argv.json && ! argv.message ) {
-						throw new Error( __( '--json requires an initial message argument' ) );
-					}
-					return true;
 				} );
+
+			// Remote-session options are gated behind STUDIO_ENABLE_REMOTE_SESSION so the
+			// experimental Telegram bridge stays out of `--help` and isn't dispatchable
+			// for users who haven't opted in.
+			if ( isRemoteSessionEnabled() ) {
+				chain = chain
+					.option( 'remote-session', {
+						type: 'boolean',
+						default: false,
+						description: __( 'Attach to Telegram and drive studio code remotely' ),
+					} )
+					.option( 'remote-chat-id', {
+						type: 'number',
+						description: __( 'Override the Telegram chat id to bind to' ),
+					} )
+					.option( 'remote-bot', {
+						type: 'string',
+						description: __( 'Override the Telegram bot name to use for replies' ),
+					} )
+					.option( 'message-from-stdin', {
+						type: 'boolean',
+						hidden: true,
+						default: false,
+						description: __( 'Read the initial message from stdin (for headless drivers)' ),
+					} );
+			}
+
+			return chain.check( ( argv ) => {
+				if ( argv.json && ! argv.message && ! argv.remoteSession && ! argv.messageFromStdin ) {
+					throw new Error( __( '--json requires an initial message argument' ) );
+				}
+				return true;
+			} );
 		},
 		handler: async ( argv ) => {
 			try {
@@ -762,9 +799,43 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					resumeSession?: string;
 					permissionResponse?: string;
 					siteName?: string;
+					remoteSession?: boolean;
+					remoteChatId?: number;
+					remoteBot?: string;
+					messageFromStdin?: boolean;
 				};
+
+				if ( typedArgv.remoteSession && isRemoteSessionEnabled() ) {
+					try {
+						await runRemoteSession( {
+							chat_id: typedArgv.remoteChatId,
+							bot: typedArgv.remoteBot,
+						} );
+					} catch ( error ) {
+						if ( error instanceof RemoteSessionConfigError ) {
+							process.stderr.write( `${ error.message }\n` );
+							process.exitCode = 1;
+							return;
+						}
+						throw error;
+					}
+					return;
+				}
+
 				const noSessionPersistence = typedArgv.sessionPersistence === false;
 				const adapter: AiOutputAdapter = typedArgv.json ? new JsonAdapter() : new AiChatUI();
+
+				let initialMessage = typedArgv.message;
+				if ( typedArgv.messageFromStdin && isRemoteSessionEnabled() ) {
+					initialMessage = await readAllStdin();
+					if ( ! initialMessage ) {
+						process.stderr.write(
+							`${ __( '--message-from-stdin requires non-empty input on stdin' ) }\n`
+						);
+						process.exitCode = 1;
+						return;
+					}
+				}
 
 				if ( adapter instanceof JsonAdapter && typedArgv.permissionResponse ) {
 					adapter.permissionResponse = JSON.parse( typedArgv.permissionResponse ) as Record<
@@ -785,7 +856,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				}
 				await runCommand( {
 					adapter,
-					initialMessage: typedArgv.message,
+					initialMessage,
 					resumeSessionId: typedArgv.resumeSession,
 					noSessionPersistence,
 					showLegacyCommandNotice: argv._[ 0 ] === 'ai',

@@ -1,6 +1,7 @@
 import { dialog } from 'electron';
 import { __ } from '@wordpress/i18n';
 import { getMainWindow } from 'src/main-window';
+import { LinuxCliInstallationManager } from 'src/modules/cli/lib/linux-installation-manager';
 import { MacOSCliInstallationManager } from 'src/modules/cli/lib/macos-installation-manager';
 import { WindowsCliInstallationManager } from 'src/modules/cli/lib/windows-installation-manager';
 
@@ -19,13 +20,17 @@ function getCliInstallationManager(): StudioCliInstallationManager {
 			return new MacOSCliInstallationManager();
 		case 'win32':
 			return new WindowsCliInstallationManager();
+		case 'linux':
+			return new LinuxCliInstallationManager();
 		default:
 			throw new Error( 'Studio CLI is not available on this platform.' );
 	}
 }
 
 function isPlatformSupported(): boolean {
-	return process.platform === 'darwin' || process.platform === 'win32';
+	return (
+		process.platform === 'darwin' || process.platform === 'win32' || process.platform === 'linux'
+	);
 }
 
 export async function isStudioCliInstalled(): Promise< boolean > {

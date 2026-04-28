@@ -36,6 +36,7 @@ Open the result in **Piskelapp** ([piskelapp.com](https://www.piskelapp.com/p/cr
 - Remove the background to make it transparent
 - Align all frames consistently (feet at the same y position, horizontally centered)
 - Use the animation preview to check the loop looks right
+- Save the Piskel source file (download `.piskel` or save in browser) so you can return and make further edits without starting from scratch
 - Export as a sprite sheet (PNG, horizontal strip)
 
 ### 5. Add to project and wire up

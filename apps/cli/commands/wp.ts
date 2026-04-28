@@ -1,12 +1,11 @@
 import { spawn } from 'node:child_process';
-import { StreamedPHPResponse } from '@php-wasm/universal';
 import { __ } from '@wordpress/i18n';
 import { ArgumentsCamelCase } from 'yargs';
 import yargsParser from 'yargs-parser';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getPhpBinaryPath, getWpCliPharPath } from 'cli/lib/dependency-management/paths';
-import { runWpCliCommand, runGlobalWpCliCommand } from 'cli/lib/run-wp-cli-command';
+import { runWpCliCommand, runGlobalWpCliCommand, WpCliResponse } from 'cli/lib/run-wp-cli-command';
 import { validatePhpVersion } from 'cli/lib/utils';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
@@ -14,29 +13,25 @@ import { GlobalOptions } from 'cli/types';
 
 const logger = new Logger< '' >();
 
-async function pipePHPResponse( response: StreamedPHPResponse ) {
+async function pipePHPResponse( response: WpCliResponse ) {
 	const decoder = new TextDecoder();
 
-	const stderrPipe = response.stderr.pipeTo(
-		new WritableStream( {
-			write( chunk ) {
-				process.stderr.write( chunk );
-			},
-		} )
-	);
+	const stderrPipe = async () => {
+		for await ( const chunk of response.stderr ) {
+			process.stderr.write( chunk );
+		}
+	};
 
-	const stdoutPipe = response.stdout.pipeTo(
-		new WritableStream( {
-			write( chunk ) {
-				const text = decoder.decode( chunk, { stream: true } );
-				if ( ! text.startsWith( '#!/usr/bin/env' ) ) {
-					process.stdout.write( chunk );
-				}
-			},
-		} )
-	);
+	const stdoutPipe = async () => {
+		for await ( const chunk of response.stdout ) {
+			const text = decoder.decode( chunk, { stream: true } );
+			if ( ! text.startsWith( '#!/usr/bin/env' ) ) {
+				process.stdout.write( chunk );
+			}
+		}
+	};
 
-	await Promise.all( [ stderrPipe, stdoutPipe ] );
+	await Promise.all( [ stderrPipe(), stdoutPipe() ] );
 }
 
 enum Mode {

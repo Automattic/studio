@@ -1,4 +1,3 @@
-import { StreamedPHPResponse } from '@php-wasm/universal';
 import { getDomainNameValidationError } from '@studio/common/lib/domains';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
 import { encodePassword } from '@studio/common/lib/passwords';
@@ -7,7 +6,7 @@ import { readCliConfig, saveCliConfig, unlockCliConfig, SiteData } from 'cli/lib
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { updateDomainInHosts } from 'cli/lib/hosts-file';
-import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
+import { runWpCliCommand, WpCliResponse } from 'cli/lib/run-wp-cli-command';
 import { setupCustomDomain } from 'cli/lib/site-utils';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import {
@@ -252,11 +251,11 @@ describe( 'CLI: studio site set', () => {
 
 	describe( 'WordPress version changes', () => {
 		beforeEach( () => {
-			const mockResponse: Partial< StreamedPHPResponse > = {
+			const mockResponse: Partial< WpCliResponse > = {
 				exitCode: Promise.resolve( 0 ),
 			};
 			vi.mocked( runWpCliCommand ).mockResolvedValue( {
-				response: mockResponse as StreamedPHPResponse,
+				response: mockResponse as WpCliResponse,
 				[ Symbol.dispose ]: vi.fn().mockResolvedValue( undefined ),
 			} );
 		} );
@@ -281,11 +280,11 @@ describe( 'CLI: studio site set', () => {
 		} );
 
 		it( 'should throw when WP-CLI fails', async () => {
-			const mockResponse: Partial< StreamedPHPResponse > = {
+			const mockResponse: Partial< WpCliResponse > = {
 				exitCode: Promise.resolve( 1 ),
 			};
 			vi.mocked( runWpCliCommand ).mockResolvedValue( {
-				response: mockResponse as StreamedPHPResponse,
+				response: mockResponse as WpCliResponse,
 				[ Symbol.dispose ]: vi.fn().mockResolvedValue( undefined ),
 			} );
 

@@ -1,10 +1,10 @@
 import { ChildProcess, spawn } from 'node:child_process';
 import path from 'node:path';
 import { Readable } from 'node:stream';
+import { text } from 'node:stream/consumers';
 import { rootCertificates } from 'node:tls';
 import { loadNodeRuntime, createNodeFsMountHandler } from '@php-wasm/node';
 import {
-	StreamedPHPResponse,
 	SupportedPHPVersion,
 	PHP,
 	setPhpIniEntries,
@@ -23,20 +23,41 @@ import {
 } from 'cli/lib/dependency-management/paths';
 import { validatePhpVersion } from 'cli/lib/utils';
 import type { SiteData } from 'cli/lib/cli-config/core';
+import type { ReadableStream as WebReadableStream } from 'node:stream/web';
 
 const processIdAllocator = new ProcessIdAllocator();
 const PLAYGROUND_INTERNAL_SHARED_FOLDER = '/internal/shared';
 
-function createClosedReadableStream(): ReadableStream< Uint8Array > {
-	return new ReadableStream( {
-		start( controller ) {
-			controller.close();
-		},
-	} );
-}
+/**
+ * Runtime-agnostic WP-CLI invocation result. Both the native PHP runtime and
+ * the Playground runtime produce instances of this class, so callers stay
+ * decoupled from Playground's `StreamedPHPResponse`.
+ *
+ * The text getters consume the same underlying stream as `stdout`/`stderr` —
+ * use one or the other, not both.
+ */
+export class WpCliResponse {
+	readonly stdout: Readable;
+	readonly stderr: Readable;
+	readonly exitCode: Promise< number >;
+	#stdoutText?: Promise< string >;
+	#stderrText?: Promise< string >;
 
-function toWebReadableStream( stream: NodeJS.ReadableStream ): ReadableStream< Uint8Array > {
-	return Readable.toWeb( stream as Readable ) as ReadableStream< Uint8Array >;
+	constructor( stdout: Readable, stderr: Readable, exitCode: Promise< number > ) {
+		this.stdout = stdout;
+		this.stderr = stderr;
+		this.exitCode = exitCode;
+	}
+
+	get stdoutText(): Promise< string > {
+		this.#stdoutText ??= text( this.stdout );
+		return this.#stdoutText;
+	}
+
+	get stderrText(): Promise< string > {
+		this.#stderrText ??= text( this.stderr );
+		return this.#stderrText;
+	}
 }
 
 type RunWpCliCommandOptions = {
@@ -46,7 +67,7 @@ type RunWpCliCommandOptions = {
 };
 
 type DisposableWpCliResponse = Disposable & {
-	response: StreamedPHPResponse;
+	response: WpCliResponse;
 };
 
 const WASM_SQLITE_COMMAND_PATH = '/tmp/sqlite-command/command.php';
@@ -112,12 +133,7 @@ async function runNativeWpCliCommand(
 	} );
 
 	return {
-		response: new StreamedPHPResponse(
-			createClosedReadableStream(),
-			toWebReadableStream( child.stdout ),
-			toWebReadableStream( child.stderr ),
-			exitCode
-		),
+		response: new WpCliResponse( child.stdout, child.stderr, exitCode ),
 		[ Symbol.dispose ]() {
 			if ( child.exitCode === null && child.signalCode === null && ! child.killed ) {
 				child.kill( 'SIGKILL' );
@@ -210,7 +226,7 @@ export async function runWpCliCommand(
 		await setupPlatformLevelMuPlugins( php );
 
 		const wasmArgs = applyWpCliCommandOptions( 'wasm', args, options );
-		const response = await php.cli( [
+		const streamedResponse = await php.cli( [
 			'php',
 			'/tmp/wp-cli.phar',
 			'--path=/wordpress',
@@ -218,7 +234,11 @@ export async function runWpCliCommand(
 		] );
 
 		return {
-			response,
+			response: new WpCliResponse(
+				Readable.fromWeb( streamedResponse.stdout as WebReadableStream ),
+				Readable.fromWeb( streamedResponse.stderr as WebReadableStream ),
+				streamedResponse.exitCode
+			),
 			[ Symbol.dispose ]() {
 				php.exit();
 			},
@@ -242,12 +262,7 @@ async function runNativeGlobalWpCliCommand( args: string[] ): Promise< Disposabl
 	} );
 
 	return {
-		response: new StreamedPHPResponse(
-			createClosedReadableStream(),
-			toWebReadableStream( child.stdout ),
-			toWebReadableStream( child.stderr ),
-			exitCode
-		),
+		response: new WpCliResponse( child.stdout, child.stderr, exitCode ),
 		[ Symbol.dispose ]() {
 			if ( child.exitCode === null && child.signalCode === null && ! child.killed ) {
 				child.kill( 'SIGKILL' );
@@ -296,10 +311,14 @@ export async function runGlobalWpCliCommand(
 
 		await php.mount( '/tmp/wp-cli.phar', createNodeFsMountHandler( getWpCliPharPath() ) );
 
-		const response = await php.cli( [ 'php', '/tmp/wp-cli.phar', ...args ] );
+		const streamedResponse = await php.cli( [ 'php', '/tmp/wp-cli.phar', ...args ] );
 
 		return {
-			response,
+			response: new WpCliResponse(
+				Readable.fromWeb( streamedResponse.stdout as WebReadableStream ),
+				Readable.fromWeb( streamedResponse.stderr as WebReadableStream ),
+				streamedResponse.exitCode
+			),
 			[ Symbol.dispose ]() {
 				php.exit();
 			},

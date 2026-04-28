@@ -471,16 +471,29 @@ export async function runCommand( options: {
 			onAskUser: ( questions ) => askUserAndPersistAnswers( questions ),
 		} );
 
+		let interruptRequested = false;
+		let resolveInterrupt: () => void = () => undefined;
+		const interruptPromise = new Promise< 'interrupted' >( ( resolve ) => {
+			resolveInterrupt = () => resolve( 'interrupted' );
+		} );
 		ui.onInterrupt = () => {
+			if ( interruptRequested ) {
+				return;
+			}
+			interruptRequested = true;
 			void agentQuery.interrupt();
+			resolveInterrupt();
 		};
 
 		let maxTurnsResult: { numTurns: number } | undefined;
-		let turnStatus: TurnStatus = 'interrupted';
+		const turnState: { status: TurnStatus } = { status: 'interrupted' };
 
-		try {
+		const consumeAgentTurn = async (): Promise< void > => {
 			for await ( const message of agentQuery ) {
 				const timestamp = new Date().toISOString();
+				if ( interruptRequested ) {
+					continue;
+				}
 				const result = ui.handleMessage( message );
 				await persist( ( recorder ) => recorder.recordSdkMessage( message, timestamp ) );
 				if ( result ) {
@@ -491,30 +504,45 @@ export async function runCommand( options: {
 						maxTurnsResult = {
 							numTurns: result.numTurns,
 						};
-						turnStatus = 'max_turns';
+						turnState.status = 'max_turns';
 					} else if ( result.interrupted ) {
-						turnStatus = 'interrupted';
+						turnState.status = 'interrupted';
 					} else {
-						turnStatus = result.success ? 'success' : 'error';
+						turnState.status = result.success ? 'success' : 'error';
 					}
 				}
 			}
-		} catch ( error ) {
-			turnStatus = 'error';
-			// In JSON mode there's no interactive retry, so re-throw and let
-			// the caller record the error. In interactive mode, fall through
-			// so the post-loop retry prompt offers the user a chance to retry.
-			if ( isJsonMode ) {
-				throw error;
+		};
+
+		const consumeAgentTurnResult = consumeAgentTurn().catch( ( error ) => {
+			if ( interruptRequested ) {
+				turnState.status = 'interrupted';
+				return;
 			}
+			turnState.status = 'error';
 			// If the UI already surfaced a descriptive terminal error (e.g.
 			// the AI usage cap was reached), suppress the generic SDK exit
 			// error (e.g. "Claude Code process exited with code 1").
 			if ( ! ( ui instanceof AiChatUI && ui.hasErrorBeenSurfaced() ) ) {
 				ui.showError( getErrorMessage( error ) );
 			}
+			// In JSON mode there's no interactive retry, so re-throw and let
+			// the caller record the error.
+			if ( isJsonMode ) {
+				throw error;
+			}
+		} );
+
+		try {
+			const result = await Promise.race( [
+				consumeAgentTurnResult.then( () => 'completed' as const ),
+				interruptPromise,
+			] );
+			if ( result === 'interrupted' ) {
+				turnState.status = 'interrupted';
+			}
 		} finally {
-			await persist( ( recorder ) => recorder.recordTurnClosed( turnStatus ) );
+			await persist( ( recorder ) => recorder.recordTurnClosed( turnState.status ) );
 			ui.endAgentTurn();
 		}
 
@@ -547,7 +575,7 @@ export async function runCommand( options: {
 		// the user has already been told what to do next.
 		const hasTerminalError = ui instanceof AiChatUI && ui.hasErrorBeenSurfaced();
 
-		if ( turnStatus === 'error' && ! isJsonMode && ! hasTerminalError ) {
+		if ( turnState.status === 'error' && ! isJsonMode && ! hasTerminalError ) {
 			if ( retryAttempt >= MAX_RETRY_ATTEMPTS ) {
 				ui.showInfo(
 					__( 'The server has not recovered after multiple attempts. Please try again later.' )
@@ -578,7 +606,7 @@ export async function runCommand( options: {
 		}
 
 		return {
-			status: turnStatus,
+			status: turnState.status,
 			usage: maxTurnsResult,
 		};
 	}

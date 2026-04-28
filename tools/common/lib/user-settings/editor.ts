@@ -17,6 +17,7 @@ export type SupportedEditorConfig = {
 	url: ( path: string ) => string;
 	macOSBundleId: string;
 	winPaths: string[];
+	linuxCommands: string[];
 };
 
 export const supportedEditorConfig: Record< SupportedEditor, SupportedEditorConfig > = {
@@ -29,6 +30,7 @@ export const supportedEditorConfig: Record< SupportedEditor, SupportedEditorConf
 			'%LOCALAPPDATA%\\Programs\\Antigravity\\Antigravity.exe',
 			'%PROGRAMFILES%\\Google\\Antigravity\\Antigravity.exe',
 		],
+		linuxCommands: [ 'antigravity' ],
 	},
 	vscode: {
 		// translators: "Visual Studio Code" is the brand name for an IDE and does not need to be translated
@@ -40,6 +42,7 @@ export const supportedEditorConfig: Record< SupportedEditor, SupportedEditorConf
 			'%PROGRAMFILES%\\Microsoft VS Code\\code.exe',
 			'%PROGRAMFILES(X86)%\\Microsoft VS Code\\code.exe',
 		],
+		linuxCommands: [ 'code' ],
 	},
 	phpstorm: {
 		// translators: "PhpStorm" is the brand name for an IDE and does not need to be translated
@@ -50,6 +53,7 @@ export const supportedEditorConfig: Record< SupportedEditor, SupportedEditorConf
 			'%LOCALAPPDATA%\\Programs\\PhpStorm\\bin\\phpstorm64.exe',
 			'%PROGRAMFILES%\\JetBrains\\PhpStorm*\\bin\\phpstorm64.exe',
 		],
+		linuxCommands: [ 'phpstorm' ],
 	},
 	webstorm: {
 		// translators: "WebStorm" is the brand name for an IDE and does not need to be translated
@@ -60,6 +64,7 @@ export const supportedEditorConfig: Record< SupportedEditor, SupportedEditorConf
 			'%LOCALAPPDATA%\\Programs\\WebStorm\\bin\\webstorm64.exe',
 			'%PROGRAMFILES%\\JetBrains\\WebStorm*\\bin\\webstorm64.exe',
 		],
+		linuxCommands: [ 'webstorm' ],
 	},
 	windsurf: {
 		// translators: "Windsurf" is the brand name for an IDE and does not need to be translated
@@ -70,6 +75,7 @@ export const supportedEditorConfig: Record< SupportedEditor, SupportedEditorConf
 			'%LOCALAPPDATA%\\Programs\\Windsurf\\Windsurf.exe',
 			'%PROGRAMFILES%\\Windsurf\\Windsurf.exe',
 		],
+		linuxCommands: [ 'windsurf' ],
 	},
 	cursor: {
 		// translators: "Cursor" is the brand name for an IDE and does not need to be translated
@@ -80,6 +86,7 @@ export const supportedEditorConfig: Record< SupportedEditor, SupportedEditorConf
 			'%LOCALAPPDATA%\\Programs\\cursor\\Cursor.exe',
 			'%PROGRAMFILES%\\cursor\\Cursor.exe',
 		],
+		linuxCommands: [ 'cursor' ],
 	},
 	sublime: {
 		// translators: "Sublime Text" is the brand name for an IDE and does not need to be translated
@@ -91,6 +98,7 @@ export const supportedEditorConfig: Record< SupportedEditor, SupportedEditorConf
 			'%PROGRAMFILES%\\Sublime Text 4\\sublime_text.exe',
 			'%PROGRAMFILES%\\Sublime Text 3\\sublime_text.exe',
 		],
+		linuxCommands: [ 'subl' ],
 	},
 	zed: {
 		// translators: "Zed" is the brand name for an IDE and does not need to be translated
@@ -98,5 +106,6 @@ export const supportedEditorConfig: Record< SupportedEditor, SupportedEditorConf
 		url: ( path: string ) => `zed://file/${ path }`,
 		macOSBundleId: 'dev.zed.Zed',
 		winPaths: [ '%LOCALAPPDATA%\\Programs\\Zed\\zed.exe' ],
+		linuxCommands: [ 'zed' ],
 	},
 };

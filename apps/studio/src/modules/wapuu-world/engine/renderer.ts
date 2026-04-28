@@ -1,6 +1,7 @@
 import bgFarUrl from 'src/modules/wapuu-world/assets/wapuu-bg-far.png';
 import bgNearUrl from 'src/modules/wapuu-world/assets/wapuu-bg-near.png';
 import gutenbergSpriteUrl from 'src/modules/wapuu-world/assets/wapuu-gutenberg-sprite.png';
+import mguySpriteUrl from 'src/modules/wapuu-world/assets/wapuu-mguy-sprite.png';
 import wapuuPlayerIdleSpriteUrl from 'src/modules/wapuu-world/assets/wapuu-player-idle-sprite.png';
 import wapuuPlayerSpriteUrl from 'src/modules/wapuu-world/assets/wapuu-player-sprite.png';
 import coinSpriteUrl from 'src/modules/wapuu-world/assets/wapuu-sprites-coin.png';
@@ -23,6 +24,7 @@ const sprites = {
 	bgFar: loadImage( bgFarUrl ),
 	bgNear: loadImage( bgNearUrl ),
 	gutenberg: loadImage( gutenbergSpriteUrl ),
+	mguy: loadImage( mguySpriteUrl ),
 	wapuu: loadImage( wapuuPlayerSpriteUrl ),
 	wapuuIdle: loadImage( wapuuPlayerIdleSpriteUrl ),
 };
@@ -301,69 +303,50 @@ function drawMguy( ctx: CanvasRenderingContext2D, e: Enemy, cameraX: number ) {
 	const flash = e.hurtTimer > 0 && Math.floor( e.hurtTimer / 4 ) % 2 === 0;
 	if ( flash ) return;
 
-	const legSwing = Math.sin( e.animFrame * 0.6 ) * 3;
+	const { img, ready } = sprites.mguy;
+	const frame = e.animFrame % 4;
 
-	// Legs
-	ctx.fillStyle = '#222244';
-	ctx.fillRect( x + 8, y + 26, 7, 12 + legSwing );
-	ctx.fillRect( x + 17, y + 26, 7, 12 - legSwing );
+	ctx.save();
+	if ( e.vx < 0 ) {
+		ctx.translate( x + e.w / 2, 0 );
+		ctx.scale( -1, 1 );
+		ctx.translate( -( x + e.w / 2 ), 0 );
+	}
+	if ( ready ) {
+		ctx.drawImage( img, frame * 32, 0, 32, 32, x, y, e.w, e.h );
+	} else {
+		// Fallback procedural
+		const legSwing = Math.sin( e.animFrame * 0.6 ) * 3;
+		ctx.fillStyle = '#222244';
+		ctx.fillRect( x + 8, y + 26, 7, 12 + legSwing );
+		ctx.fillRect( x + 17, y + 26, 7, 12 - legSwing );
+		ctx.beginPath();
+		ctx.roundRect( x + 5, y + 14, e.w - 10, 16, 3 );
+		ctx.fill();
+		ctx.fillStyle = '#fff';
+		ctx.fillRect( x + 13, y + 15, 6, 10 );
+		ctx.fillStyle = '#cc2222';
+		ctx.fillRect( x + 15, y + 15, 2, 9 );
+		ctx.fillStyle = '#c8956c';
+		ctx.beginPath();
+		ctx.roundRect( x + 7, y + 2, 18, 16, 6 );
+		ctx.fill();
+		ctx.fillStyle = '#1a1a1a';
+		ctx.beginPath();
+		ctx.roundRect( x + 7, y + 2, 18, 7, [ 6, 6, 0, 0 ] );
+		ctx.fill();
+	}
+	ctx.restore();
 
-	// Suit body
-	ctx.fillStyle = '#222244';
-	ctx.beginPath();
-	ctx.roundRect( x + 5, y + 14, e.w - 10, 16, 3 );
-	ctx.fill();
-
-	// Shirt / tie
-	ctx.fillStyle = '#fff';
-	ctx.fillRect( x + 13, y + 15, 6, 10 );
-	ctx.fillStyle = '#cc2222';
-	ctx.fillRect( x + 15, y + 15, 2, 9 );
-
-	// Head
-	ctx.fillStyle = '#c8956c';
-	ctx.beginPath();
-	ctx.roundRect( x + 7, y + 2, 18, 16, 6 );
-	ctx.fill();
-
-	// Dark hair
-	ctx.fillStyle = '#1a1a1a';
-	ctx.beginPath();
-	ctx.roundRect( x + 7, y + 2, 18, 7, [ 6, 6, 0, 0 ] );
-	ctx.fill();
-	// Slight widow's peak
-	ctx.beginPath();
-	ctx.moveTo( x + 14, y + 8 );
-	ctx.lineTo( x + 16, y + 11 );
-	ctx.lineTo( x + 18, y + 8 );
-	ctx.fill();
-
-	// Beard / stubble
-	ctx.fillStyle = '#2a2a2a';
-	ctx.beginPath();
-	ctx.roundRect( x + 9, y + 13, 14, 6, [ 0, 0, 4, 4 ] );
-	ctx.fill();
-
-	// Eyes
-	ctx.fillStyle = '#fff';
-	ctx.fillRect( x + 10, y + 8, 5, 4 );
-	ctx.fillRect( x + 17, y + 8, 5, 4 );
-	ctx.fillStyle = '#333';
-	ctx.fillRect( x + 12, y + 9, 2, 2 );
-	ctx.fillRect( x + 19, y + 9, 2, 2 );
-
-	// Health pip — show remaining stomps needed
+	// Health pips drawn after restore (screen-space, not flipped)
+	ctx.font = 'bold 10px monospace';
+	ctx.textAlign = 'center';
+	ctx.textBaseline = 'middle';
 	if ( e.health > 1 ) {
 		ctx.fillStyle = '#f5a623';
-		ctx.font = 'bold 10px monospace';
-		ctx.textAlign = 'center';
-		ctx.textBaseline = 'middle';
 		ctx.fillText( '❤❤', x + e.w / 2, y - 6 );
 	} else {
 		ctx.fillStyle = '#ff4444';
-		ctx.font = 'bold 10px monospace';
-		ctx.textAlign = 'center';
-		ctx.textBaseline = 'middle';
 		ctx.fillText( '❤', x + e.w / 2, y - 6 );
 	}
 }

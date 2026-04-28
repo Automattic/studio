@@ -330,6 +330,7 @@ function NavigationContent( props: NavigationContentProps ) {
 					image: gallery.screenshotUrl,
 					playground_url: gallery.playgroundUrl,
 					blueprint: blueprintJson,
+					filePath: gallery.blueprintUrl,
 				} as Blueprint;
 
 				handleBlueprintFormValues( blueprint );

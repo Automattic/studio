@@ -815,8 +815,13 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 
 					// When invoked by the desktop app, the blueprint contents come from a temp file
 					// but resources should be resolved relative to the original file location.
+					// For gallery blueprints the path is a URL; use it directly.
 					if ( argv.originalBlueprintPath ) {
-						config.blueprint.uri = path.resolve( argv.originalBlueprintPath );
+						const originalPath = argv.originalBlueprintPath;
+						config.blueprint.uri =
+							originalPath.startsWith( 'http://' ) || originalPath.startsWith( 'https://' )
+								? originalPath
+								: path.resolve( originalPath );
 					}
 				}
 			}

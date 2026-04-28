@@ -444,14 +444,6 @@ function SiteThumbnail( {
 			) }
 		>
 			<img src={ mshotUrl } alt="" className="w-full h-full object-cover" loading="lazy" />
-			{ site.siteIconUrl && (
-				<img
-					src={ site.siteIconUrl }
-					alt=""
-					className="absolute bottom-1.5 left-1.5 w-6 h-6 rounded border border-white/30 bg-white object-cover"
-					loading="lazy"
-				/>
-			) }
 			{ showBadge && (
 				<div className="absolute bottom-1.5 right-1.5 flex gap-1">
 					<Badge className="bg-black/40 text-white backdrop-blur-sm">

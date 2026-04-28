@@ -84,7 +84,6 @@ export type SyncSite = {
 	lastPullTimestamp: string | null;
 	lastPushTimestamp: string | null;
 	wpVersion?: string;
-	siteIconUrl?: string;
 	planName?: string;
 	createdAt?: string;
 };

@@ -4,7 +4,7 @@
  * NOT used in production builds — binaries are not bundled with Studio or the CLI.
  *
  * Source CDN: https://dl.static-php.dev/static-php-cli/
- *   - macOS / Linux: `bulk` variant (intl, opcache, sodium, imagick + pdo_sqlite)
+ *   - macOS / Linux: `common` variant (pdo_sqlite, curl, gd, zip, redis + most WP requirements)
  *   - Windows x64:   `windows/spc-max` variant (pdo_sqlite + opcache)
  *
  * Usage:
@@ -33,13 +33,10 @@ import {
 	PHP_PATCH_VERSIONS,
 } from '../tools/common/lib/php-binary-metadata';
 import { getConfigDirectory } from '../tools/common/lib/well-known-paths';
-import { RecommendedPHPVersion } from '../tools/common/types/php-versions';
-import type { SupportedPHPVersion } from '../tools/common/types/php-versions';
+import { RecommendedPHPVersion, SupportedPHPVersions } from '../tools/common/types/php-versions';
 import type { ReadableStream as NodeReadableStream } from 'stream/web';
 
-const versionSchema = z.enum(
-	NativePhpSupportedVersions as [ SupportedPHPVersion, ...SupportedPHPVersion[] ]
-);
+const versionSchema = z.enum( SupportedPHPVersions );
 const platformSchema = z.enum( [ 'darwin', 'win32', 'linux' ] );
 const archSchema = z.enum( [ 'x64', 'arm64' ] );
 

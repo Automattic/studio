@@ -1,5 +1,6 @@
 import { Icon, help, drawerLeft, cog } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
+import { useRef } from 'react';
 import Button from 'src/components/button';
 import { Gravatar } from 'src/components/gravatar';
 import offlineIcon from 'src/components/offline-icon';
@@ -9,7 +10,9 @@ import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
-import { useI18nLocale } from 'src/stores';
+import { useAppDispatch, useI18nLocale } from 'src/stores';
+import { openEasterEgg } from 'src/stores/ui-slice';
+
 interface TopBarProps {
 	onToggleSidebar: () => void;
 }
@@ -105,10 +108,32 @@ function Authentication() {
 
 function SettingsButton() {
 	const { __ } = useI18n();
+	const dispatch = useAppDispatch();
+	const clickCountRef = useRef( 0 );
+	const clickTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
+
+	function handleClick() {
+		clickCountRef.current += 1;
+		if ( clickTimerRef.current ) clearTimeout( clickTimerRef.current );
+
+		if ( clickCountRef.current >= 3 ) {
+			clickCountRef.current = 0;
+			dispatch( openEasterEgg() );
+			return;
+		}
+
+		clickTimerRef.current = setTimeout( () => {
+			if ( clickCountRef.current < 3 ) {
+				void getIpcApi().showUserSettings( 'general' );
+			}
+			clickCountRef.current = 0;
+		}, 400 );
+	}
+
 	return (
 		<Tooltip text={ __( 'Settings' ) } placement="bottom-end">
 			<Button
-				onClick={ () => getIpcApi().showUserSettings( 'general' ) }
+				onClick={ handleClick }
 				aria-label={ __( 'Open settings' ) }
 				variant="icon"
 				className="!p-1.5 !rounded-lg"

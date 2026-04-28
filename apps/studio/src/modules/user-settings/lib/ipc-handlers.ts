@@ -102,6 +102,18 @@ export async function getColorScheme(): Promise< 'system' | 'light' | 'dark' > {
 	return colorScheme;
 }
 
+export async function saveWapuuScore( _event: IpcMainInvokeEvent, score: number ): Promise< void > {
+	const userData = await loadUserData();
+	if ( userData.wapuuScore === undefined || score > userData.wapuuScore ) {
+		await updateAppdata( { wapuuScore: score } );
+	}
+}
+
+export async function getWapuuScore(): Promise< number | undefined > {
+	const userData = await loadUserData();
+	return userData.wapuuScore;
+}
+
 export function showUserSettings( event: IpcMainInvokeEvent, tabName?: UserSettingsTabName ) {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	sendIpcEventToRendererWithWindow( parentWindow, 'user-settings', { tabName } );

@@ -2,7 +2,8 @@ import {
 	__experimentalVStack as VStack,
 	__experimentalHStack as HStack,
 } from '@wordpress/components';
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
+import { EasterEggGame } from 'src/components/easter-egg/EasterEggGame';
 import MacTitlebar from 'src/components/mac-titlebar';
 import MainSidebar from 'src/components/main-sidebar';
 import { NoStudioSites } from 'src/components/no-studio-sites';
@@ -11,6 +12,7 @@ import TopBar from 'src/components/top-bar';
 import WindowsTitlebar from 'src/components/windows-titlebar';
 import { useListenDeepLinkConnection } from 'src/hooks/sync-sites/use-listen-deep-link-connection';
 import { useAuth } from 'src/hooks/use-auth';
+import { useKonamiCode } from 'src/hooks/use-konami-code';
 import { useLocalizationSupport } from 'src/hooks/use-localization-support';
 import { useSidebarResize } from 'src/hooks/use-sidebar-resize';
 import { useSidebarVisibility } from 'src/hooks/use-sidebar-visibility';
@@ -25,6 +27,7 @@ import { WhatsNewModal, useWhatsNew } from 'src/modules/whats-new';
 import { useAppDispatch, useRootSelector } from 'src/stores';
 import { selectOnboardingLoading } from 'src/stores/onboarding-slice';
 import { syncOperationsThunks } from 'src/stores/sync';
+import { openEasterEgg, selectIsEasterEggOpen } from 'src/stores/ui-slice';
 import 'src/index.css';
 
 export default function App() {
@@ -42,6 +45,9 @@ export default function App() {
 	const shouldShowWhatsNew = showWhatsNew && ! isEmpty;
 	const { client } = useAuth();
 	const dispatch = useAppDispatch();
+	const isEasterEggOpen = useRootSelector( selectIsEasterEggOpen );
+	const activateEasterEgg = useCallback( () => dispatch( openEasterEgg() ), [ dispatch ] );
+	useKonamiCode( activateEasterEgg );
 
 	// Initialize sync states from in-progress server operations
 	useEffect( () => {
@@ -122,6 +128,7 @@ export default function App() {
 			) }
 			<UserSettings />
 			<WhatsNewModal showModal={ shouldShowWhatsNew } onClose={ closeWhatsNew } />
+			{ isEasterEggOpen && <EasterEggGame /> }
 		</>
 	);
 }

@@ -34,6 +34,7 @@ export interface UserData {
 	stopSitesOnQuit?: boolean;
 	defaultSiteDirectory?: string;
 	cliAutoInstalled?: boolean;
+	wapuuScore?: number;
 }
 
 export interface PromptWindowsSpeedUpResult {

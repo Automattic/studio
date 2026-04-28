@@ -87,12 +87,9 @@ const config: ForgeConfig = {
 				mimeType: [ 'x-scheme-handler/wp-studio' ],
 				// libcap2-bin: ships `setcap`, used by postinst to grant the bundled
 				// node CAP_NET_BIND_SERVICE so the proxy can bind ports 80/443.
-				// policykit-1: pkexec backend used by @vscode/sudo-prompt for hosts-file
-				// writes and root-CA installs.
-				// ca-certificates: provides update-ca-certificates and the system trust
-				// bundle, used by the "Trust Certificate" flow on Linux.
-				// libnss3-tools: ships `certutil`, used to import the CA into per-user
-				// NSS DBs so Chromium-family browsers (incl. Snap-Chromium) trust it.
+				// policykit-1: pkexec backend used by @vscode/sudo-prompt for hosts-file writes.
+				// ca-certificates: ships `update-ca-certificates` and the system trust bundle.
+				// libnss3-tools: ships `certutil`, used to import the CA into per-user NSS DBs.
 				depends: [ 'libcap2-bin', 'policykit-1', 'ca-certificates', 'libnss3-tools' ],
 				scripts: {
 					postinst: path.join( __dirname, 'installers', 'linux', 'postinst.sh' ),

@@ -118,8 +118,7 @@ describe( 'certificate-manager (Linux)', () => {
 			expect( mockedImportCAIntoUserNssDbsLinux ).toHaveBeenCalledWith(
 				expect.stringContaining( 'studio-ca.crt' )
 			);
-			// NSS import must run *after* the sudo install — sudo.exec call order
-			// in mock.invocationCallOrder should be earlier than the NSS import.
+			// NSS import must run *after* the sudo install.
 			const sudoOrder = mockedSudoExec.mock.invocationCallOrder[ 0 ];
 			const nssOrder = mockedImportCAIntoUserNssDbsLinux.mock.invocationCallOrder[ 0 ];
 			expect( nssOrder ).toBeGreaterThan( sudoOrder );

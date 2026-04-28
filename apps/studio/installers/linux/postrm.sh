@@ -1,9 +1,5 @@
 #!/bin/sh
-# Studio DEB postrm — runs on remove and purge.
-#
-# On `purge`, remove the Studio root CA from the system trust store and refresh
-# the trust bundle so that previously-issued site certificates are no longer
-# trusted system-wide.
+# On `purge`, remove the Studio root CA from the system trust store.
 
 set -e
 
@@ -16,10 +12,6 @@ case "$1" in
 				update-ca-certificates --fresh >/dev/null || true
 			fi
 		fi
-		;;
-	remove|upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
-		# Leave the trusted CA in place — re-installing or upgrading should not
-		# require the user to re-trust the certificate.
 		;;
 esac
 

@@ -44,7 +44,7 @@ describe( 'linux-trust-store', () => {
 	} );
 
 	describe( 'getLinuxNssDbCandidates', () => {
-		// Use a real tmp dir so the existsSync check inside the helper sees what we set up.
+		// Real tmp dir — helper uses fs.existsSync, not a mock.
 		let tmpHome: string;
 
 		beforeEach( () => {

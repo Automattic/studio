@@ -235,9 +235,7 @@ export async function trustRootCA(): Promise< void > {
 					}
 				);
 			} );
-			// On stock Ubuntu desktops the default browsers (Snap-Chromium, Firefox)
-			// don't consult the system bundle, so also push the CA into per-user
-			// NSS databases. Best-effort — never blocks a successful system install.
+			// Chromium-family browsers don't consult the system bundle on Linux.
 			await importCAIntoUserNssDbsLinux( CA_CERT_PATH );
 		} else {
 			console.error( 'Unsupported platform for automatic certificate trust:', platform );

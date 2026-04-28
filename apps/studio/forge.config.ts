@@ -85,14 +85,11 @@ const config: ForgeConfig = {
 				name: 'studio',
 				bin: 'studio',
 				mimeType: [ 'x-scheme-handler/wp-studio' ],
-				// Install the icon under /usr/share/icons/hicolor/512x512/apps/ so desktop
-				// environments resolve `Icon=studio`. The TS types only declare `string` here,
-				// but the underlying electron-installer-debian also accepts a {size: path} map.
+				// The TS type declares `string`, but electron-installer-debian also accepts
+				// a {size: path} map and installs to /usr/share/icons/hicolor/<size>/apps/.
 				icon: {
 					'512x512': path.join( __dirname, 'assets', 'studio-app-icon-512.png' ),
 				} as unknown as string,
-				// Custom desktop entry adds StartupWMClass=Studio so the running window
-				// (whose WM_CLASS comes from app.getName()/productName) matches this entry.
 				desktopTemplate: path.join( __dirname, 'installers', 'desktop.ejs' ),
 			},
 		} ),

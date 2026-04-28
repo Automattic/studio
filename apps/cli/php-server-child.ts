@@ -194,6 +194,26 @@ echo is_blog_installed() ? '1' : '0';
 	return status === '1';
 }
 
+async function waitForServerReady( url: string, signal: AbortSignal ): Promise< void > {
+	const pollIntervalMs = 50;
+	const timeoutMs = 30_000;
+	const deadline = Date.now() + timeoutMs;
+
+	while ( true ) {
+		signal.throwIfAborted();
+		try {
+			await fetch( url, { signal } );
+			return;
+		} catch {
+			signal.throwIfAborted();
+			if ( Date.now() > deadline ) {
+				throw new Error( `PHP server did not start within ${ timeoutMs }ms` );
+			}
+			await new Promise< void >( ( resolve ) => setTimeout( resolve, pollIntervalMs ) );
+		}
+	}
+}
+
 async function installWordPress( config: ServerConfig, signal: AbortSignal ): Promise< void > {
 	const alreadyInstalled = await isWordPressInstalled( config.sitePath, signal );
 	if ( alreadyInstalled ) {
@@ -201,6 +221,7 @@ async function installWordPress( config: ServerConfig, signal: AbortSignal ): Pr
 		return;
 	}
 
+	const siteLanguage = config.siteLanguage ?? 'en';
 	const siteTitle = config.siteTitle ?? 'My WordPress Website';
 	const username = config.adminUsername ?? 'admin';
 	const password = config.adminPassword ? decodePassword( config.adminPassword ) : 'password';
@@ -214,7 +235,7 @@ async function installWordPress( config: ServerConfig, signal: AbortSignal ): Pr
 				'Content-Type': 'application/x-www-form-urlencoded',
 			},
 			body: new URLSearchParams( {
-				language: 'en',
+				language: siteLanguage,
 				prefix: 'wp_',
 				weblog_title: siteTitle,
 				user_name: username,
@@ -287,8 +308,7 @@ const startServer = wrapWithStartingPromise(
 
 			stopSignal.throwIfAborted();
 
-			// There's a brief delay between the PHP process starting and when it accepts connections
-			await new Promise< void >( ( resolve ) => setTimeout( resolve, 500 ) );
+			await waitForServerReady( `http://localhost:${ config.port }/`, stopSignal );
 			await installWordPress( config, stopSignal );
 
 			serverChild.once( 'exit', ( code, signalName ) => {

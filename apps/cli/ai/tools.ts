@@ -92,22 +92,56 @@ function stripMatchingOuterQuotes( value: string ): string {
 	return value;
 }
 
+function splitPostContentCommandArgs( command: string, postContentIndex: number ): string[] {
+	const postContentMarker = '--post_content=';
+	const prefix = command.slice( 0, postContentIndex ).trim();
+	const postContentTail = command.slice( postContentIndex + postContentMarker.length ).trim();
+	const prefixArgs = splitBasicCommandArgs( prefix );
+
+	if ( ! postContentTail ) {
+		return [ ...prefixArgs, postContentMarker ];
+	}
+
+	const quote = postContentTail[ 0 ];
+	if ( quote === '"' || quote === "'" ) {
+		const closingQuoteIndex = postContentTail.indexOf( quote, 1 );
+		if ( closingQuoteIndex !== -1 ) {
+			const postContent = postContentTail.slice( 1, closingQuoteIndex );
+			const suffix = postContentTail.slice( closingQuoteIndex + 1 ).trim();
+			return [
+				...prefixArgs,
+				`${ postContentMarker }${ postContent }`,
+				...splitBasicCommandArgs( suffix ),
+			];
+		}
+	}
+
+	// Large block content is commonly emitted without shell quoting and should
+	// be treated as a single literal argument that consumes the rest of the command.
+	return [
+		...prefixArgs,
+		`${ postContentMarker }${ stripMatchingOuterQuotes( postContentTail ) }`,
+	];
+}
+
 function splitCommandArgs( command: string ): string[] {
 	const postContentMarker = '--post_content=';
 	const postContentIndex = command.indexOf( postContentMarker );
 
-	// Large block content is commonly emitted without shell quoting and should
-	// be treated as a single literal argument that consumes the rest of the command.
 	if ( postContentIndex !== -1 ) {
-		const prefix = command.slice( 0, postContentIndex ).trim();
-		const postContent = stripMatchingOuterQuotes(
-			command.slice( postContentIndex + postContentMarker.length ).trim()
-		);
-
-		return [ ...splitBasicCommandArgs( prefix ), `${ postContentMarker }${ postContent }` ];
+		return splitPostContentCommandArgs( command, postContentIndex );
 	}
 
 	return splitBasicCommandArgs( command );
+}
+
+function getUnsupportedWpCliOptionMessage( args: string[] ): string | null {
+	const unsupportedOption = args.find( ( arg ) => /^[\u2010-\u2015]\S+/.test( arg ) );
+	if ( ! unsupportedOption ) {
+		return null;
+	}
+
+	return `Unsupported WP-CLI option "${ unsupportedOption }": use ASCII hyphens, for example "--porcelain", not a typographic dash.`;
 }
 
 async function findSiteByName( name: string ): Promise< SiteData | undefined > {
@@ -518,6 +552,11 @@ const runWpCliTool = tool(
 				}
 
 				const wpCliArgs = splitCommandArgs( args.command );
+				const unsupportedOptionMessage = getUnsupportedWpCliOptionMessage( wpCliArgs );
+				if ( unsupportedOptionMessage ) {
+					return errorResult( unsupportedOptionMessage );
+				}
+
 				const unsupportedPostContentMessage = getUnsupportedWpCliPostContentMessage( wpCliArgs );
 				if ( unsupportedPostContentMessage ) {
 					return errorResult( unsupportedPostContentMessage );

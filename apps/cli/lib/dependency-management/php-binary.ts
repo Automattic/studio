@@ -3,6 +3,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { extractZip } from '@studio/common/lib/extract-zip';
+import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import {
 	buildPhpBinaryUrl,
 	getPhpBinaryHash,
@@ -15,10 +16,15 @@ import { getPhpBinaryPath } from './paths';
 import { downloadFile } from './utils';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 
+const WAIT_POLL_INTERVAL_MS = 1_000;
+const WAIT_TIMEOUT_MS = 5 * 60 * 1_000;
+
 export function isVersionSupportedByNativeRuntime( version: SupportedPHPVersion ): boolean {
 	return NativePhpSupportedVersions.includes( version );
 }
 
+// Within-process dedup: if the same version is already downloading in this
+// process, reuse the promise instead of racing to the filesystem lock.
 const downloadAndInstallDeduped = sequential(
 	(
 		version: SupportedPHPVersion,
@@ -48,6 +54,21 @@ export async function ensurePhpBinaryAvailable(
 	await downloadAndInstallDeduped( version, onProgress );
 }
 
+async function waitForBinary( binaryPath: string ): Promise< void > {
+	const deadline = Date.now() + WAIT_TIMEOUT_MS;
+	while ( Date.now() < deadline ) {
+		if ( fs.existsSync( binaryPath ) ) {
+			return;
+		}
+		await new Promise( ( resolve ) => setTimeout( resolve, WAIT_POLL_INTERVAL_MS ) );
+	}
+	throw new Error(
+		`Timed out waiting for PHP binary at ${ binaryPath }. ` +
+			`Another process may have failed to install it. ` +
+			`Delete ${ path.dirname( binaryPath ) } and retry.`
+	);
+}
+
 async function downloadAndInstall(
 	version: SupportedPHPVersion,
 	onProgress?: ( downloaded: number, total: number ) => void
@@ -63,15 +84,38 @@ async function downloadAndInstall(
 		);
 	}
 
+	const destPath = getPhpBinaryPath( version );
+	const destDir = path.dirname( destPath );
+	const phpBinRoot = path.dirname( destDir );
+
+	// Ensure ~/.studio/php-bin/ exists before attempting the exclusive mkdir.
+	fs.mkdirSync( phpBinRoot, { recursive: true } );
+
+	// Atomically claim this version's install slot. If another process already
+	// created the directory it is either mid-download or finished.
+	try {
+		fs.mkdirSync( destDir );
+	} catch ( err ) {
+		if ( isErrnoException( err ) && err.code === 'EEXIST' ) {
+			await waitForBinary( destPath );
+			return;
+		}
+		throw err;
+	}
+
+	// We own the slot — clean up the directory on failure so the next attempt
+	// can claim it and retry.
 	const url = buildPhpBinaryUrl( version, platform, arch );
 	const patchVersion = PHP_PATCH_VERSIONS[ version ]!;
-	const filename = path.basename( url );
-	const downloadPath = path.join( os.tmpdir(), filename );
+	const downloadPath = path.join( destDir, path.basename( url ) );
 
 	try {
 		await downloadFile( url, downloadPath, onProgress );
 		await verifyHash( downloadPath, version, platform, arch );
-		await extractAndInstall( downloadPath, version, patchVersion, platform, arch );
+		await extractAndInstall( downloadPath, destPath, version, patchVersion, platform, arch );
+	} catch ( err ) {
+		fs.rmSync( destDir, { recursive: true, force: true } );
+		throw err;
 	} finally {
 		if ( fs.existsSync( downloadPath ) ) {
 			fs.unlinkSync( downloadPath );
@@ -107,14 +151,12 @@ async function verifyHash(
 
 async function extractAndInstall(
 	archivePath: string,
+	destPath: string,
 	version: SupportedPHPVersion,
 	patchVersion: string,
 	platform: NodeJS.Platform,
 	arch: string
 ): Promise< void > {
-	const destPath = getPhpBinaryPath( version );
-	fs.mkdirSync( path.dirname( destPath ), { recursive: true } );
-
 	const isWindows = platform === 'win32';
 	const effectiveArch = isWindows ? 'x64' : arch;
 	const tmpDir = os.tmpdir();

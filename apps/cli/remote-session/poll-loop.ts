@@ -10,7 +10,12 @@ import {
 	pollMessages,
 	respondMessage,
 } from 'cli/remote-session/telegram-client';
-import { runTurn, type TurnOutcome, type TurnRunOptions } from 'cli/remote-session/turn-runner';
+import {
+	runTurn,
+	type MediaShare,
+	type TurnOutcome,
+	type TurnRunOptions,
+} from 'cli/remote-session/turn-runner';
 
 /** Injected for tests. */
 export interface PollLoopDeps {
@@ -95,6 +100,31 @@ async function postChunks(
 		await deps.respond(
 			config,
 			{ chatId: target.chatId, bot: target.bot, text: chunk },
+			{ logger: deps.logger }
+		);
+	}
+}
+
+async function postMediaShares(
+	deps: PollLoopDeps,
+	config: RemoteSessionConfig,
+	target: ReplyTarget,
+	mediaShares: MediaShare[]
+): Promise< void > {
+	deps.logger.info( 'Posting media shares', {
+		chat_id: target.chatId,
+		count: mediaShares.length,
+	} );
+	for ( const media of mediaShares ) {
+		await deps.respond(
+			config,
+			{
+				chatId: target.chatId,
+				bot: target.bot,
+				photo: media.dataBase64,
+				photoMimeType: media.mimeType,
+				caption: media.caption,
+			},
 			{ logger: deps.logger }
 		);
 	}
@@ -202,12 +232,20 @@ async function handleTurn(
 		isError: outcome.isError,
 	} );
 
-	if ( reply === null ) {
+	const hasMedia = ( outcome.mediaShares?.length ?? 0 ) > 0;
+
+	if ( reply === null && ! hasMedia ) {
 		await postBestEffort( deps, config, target, '⚠️ Local agent did not return a result.' );
 		return;
 	}
 
-	await postChunks( deps, config, target, reply );
+	if ( hasMedia ) {
+		await postMediaShares( deps, config, target, outcome.mediaShares! );
+	}
+
+	if ( reply !== null ) {
+		await postChunks( deps, config, target, reply );
+	}
 }
 
 /**

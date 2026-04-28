@@ -61,4 +61,24 @@ describe( 'runTurn', () => {
 		const outcome = await run( 'hang', undefined, 400 );
 		expect( outcome.status ).toBe( 'timeout' );
 	}, 10_000 );
+
+	it( 'collects media.share events in emit order alongside the reply text', async () => {
+		const outcome = await run( 'media-share' );
+		expect( outcome.status ).toBe( 'success' );
+		expect( outcome.replyText ).toBe( 'Want me to publish this as a preview site?' );
+		expect( outcome.mediaShares ).toEqual( [
+			{
+				mediaType: 'image',
+				mimeType: 'image/png',
+				dataBase64: 'AAAA',
+				caption: 'Site preview',
+			},
+			{
+				mediaType: 'image',
+				mimeType: 'image/png',
+				dataBase64: 'BBBB',
+				caption: undefined,
+			},
+		] );
+	} );
 } );

@@ -665,15 +665,86 @@ const validateBlocksTool = tool(
 
 // --- Screenshot tool ---
 
+// Tall portrait viewport used by `take_screenshot` for full-page captures
+// where the agent wants to inspect the whole scrolled page at once.
 const VIEWPORTS = {
 	desktop: { width: 1040, height: 1248 },
 	mobile: { width: 390, height: 844 },
 } as const;
 
+// 16:9 viewport used by `share_screenshot` to capture "as it would look on a
+// screen" — an above-the-fold view of the rendered page. The user can ask for
+// the full page explicitly by setting `fullPage: true`.
+const SHARE_VIEWPORTS = {
+	desktop: { width: 1280, height: 720 },
+	mobile: { width: 390, height: 844 },
+} as const;
+
+async function captureScreenshotPng(
+	url: string,
+	viewport: { width: number; height: number },
+	options: { fullPage: boolean }
+): Promise< string > {
+	const browser = await getSharedBrowser();
+	const page = await browser.newPage( { viewport } );
+
+	try {
+		await page.emulateMedia( { reducedMotion: 'reduce' } );
+		await page.goto( url, { waitUntil: 'domcontentloaded', timeout: 30000 } );
+		await page.waitForLoadState( 'networkidle', { timeout: 10000 } ).catch( () => {} );
+
+		// Scroll through the page to trigger lazy-loaded images, then wait
+		// for all images to finish loading (with a timeout so we don't hang
+		// on images that never settle).
+		await page.evaluate( async () => {
+			const delay = ( ms: number ) =>
+				new Promise< void >( ( resolve ) => setTimeout( resolve, ms ) );
+			const scrollHeight = document.body.scrollHeight;
+			const viewportHeight = window.innerHeight;
+			for ( let y = 0; y < scrollHeight; y += viewportHeight ) {
+				window.scrollTo( 0, y );
+				await delay( 100 );
+			}
+			window.scrollTo( 0, 0 );
+
+			const timeout = new Promise< void >( ( resolve ) => setTimeout( resolve, 5000 ) );
+			const allImages = Promise.all(
+				Array.from( document.images )
+					.filter( ( img ) => ! img.complete )
+					.map(
+						( img ) =>
+							new Promise< void >( ( resolve ) => {
+								img.addEventListener( 'load', () => resolve() );
+								img.addEventListener( 'error', () => resolve() );
+							} )
+					)
+			);
+			await Promise.race( [ allImages, timeout ] );
+		} );
+
+		// Hide WordPress admin bar and scrollbars for cleaner screenshots
+		await page.addStyleTag( {
+			content: `
+				#wpadminbar { display: none !important; }
+				html { margin-top: 0 !important; }
+				::-webkit-scrollbar { display: none !important; }
+				html, body { scrollbar-width: none !important; }
+			`,
+		} );
+
+		const buffer = await page.screenshot( { fullPage: options.fullPage, type: 'png' } );
+		return buffer.toString( 'base64' );
+	} finally {
+		await page.close();
+	}
+}
+
 const takeScreenshotTool = tool(
 	'take_screenshot',
 	'Takes a full-page screenshot of a URL. Returns the screenshot as an image that you can analyze visually. ' +
-		'Supports desktop and mobile viewports. Use this to verify the site looks correct after building it.',
+		'Supports desktop and mobile viewports. Use this to verify the site looks correct after building it. ' +
+		'Note: this image is for your own visual reasoning only — the user does not see it. ' +
+		'Use `share_screenshot` instead when you want to deliver the rendered page to the user.',
 	{
 		url: z.string().describe( 'The URL to screenshot' ),
 		viewport: z
@@ -686,79 +757,84 @@ const takeScreenshotTool = tool(
 	async ( args ) => {
 		try {
 			const viewportType = args.viewport ?? 'desktop';
-			const viewport = VIEWPORTS[ viewportType ];
-
 			emitProgress( `Taking ${ viewportType } screenshot of ${ args.url }…` );
-
-			const browser = await getSharedBrowser();
-			const page = await browser.newPage( { viewport } );
-
-			try {
-				// Reduce motion to avoid capturing mid-animation states
-				await page.emulateMedia( { reducedMotion: 'reduce' } );
-
-				await page.goto( args.url, { waitUntil: 'domcontentloaded', timeout: 30000 } );
-				await page.waitForLoadState( 'networkidle', { timeout: 10000 } ).catch( () => {} );
-
-				// Scroll through the page to trigger lazy-loaded images, then wait
-				// for all images to finish loading (with a timeout so we don't hang
-				// on images that never settle).
-				await page.evaluate( async () => {
-					const delay = ( ms: number ) =>
-						new Promise< void >( ( resolve ) => setTimeout( resolve, ms ) );
-					const scrollHeight = document.body.scrollHeight;
-					const viewportHeight = window.innerHeight;
-					for ( let y = 0; y < scrollHeight; y += viewportHeight ) {
-						window.scrollTo( 0, y );
-						await delay( 100 );
-					}
-					window.scrollTo( 0, 0 );
-
-					const timeout = new Promise< void >( ( resolve ) => setTimeout( resolve, 5000 ) );
-					const allImages = Promise.all(
-						Array.from( document.images )
-							.filter( ( img ) => ! img.complete )
-							.map(
-								( img ) =>
-									new Promise< void >( ( resolve ) => {
-										img.addEventListener( 'load', () => resolve() );
-										img.addEventListener( 'error', () => resolve() );
-									} )
-							)
-					);
-					await Promise.race( [ allImages, timeout ] );
-				} );
-
-				// Hide WordPress admin bar and scrollbars for cleaner screenshots
-				await page.addStyleTag( {
-					content: `
-						#wpadminbar { display: none !important; }
-						html { margin-top: 0 !important; }
-						::-webkit-scrollbar { display: none !important; }
-						html, body { scrollbar-width: none !important; }
-					`,
-				} );
-
-				const buffer = await page.screenshot( { fullPage: true, type: 'png' } );
-				const base64 = buffer.toString( 'base64' );
-
-				emitProgress( `Screenshot captured (${ viewportType })` );
-
-				return {
-					content: [
-						{
-							type: 'image' as const,
-							data: base64,
-							mimeType: 'image/png',
-						},
-					],
-				};
-			} finally {
-				await page.close();
-			}
+			const base64 = await captureScreenshotPng( args.url, VIEWPORTS[ viewportType ], {
+				fullPage: true,
+			} );
+			emitProgress( `Screenshot captured (${ viewportType })` );
+			return {
+				content: [
+					{
+						type: 'image' as const,
+						data: base64,
+						mimeType: 'image/png',
+					},
+				],
+			};
 		} catch ( error ) {
 			return errorResult(
 				`Screenshot failed: ${ error instanceof Error ? error.message : String( error ) }`
+			);
+		}
+	}
+);
+
+const shareScreenshotTool = tool(
+	'share_screenshot',
+	'Captures a screenshot of a URL and delivers it to the user (and back to you, so you can also see what was sent). ' +
+		'Use this when you want the user to *see* the result of your work — for example, after building or modifying a site, share the rendered page so the user can review it visually. ' +
+		'By default this captures the rendered viewport ("above the fold"), the way the page would look on a screen at first glance. Set `fullPage: true` only when the user explicitly asks for the whole scroll length. ' +
+		'In Telegram remote-session mode the image is posted inline; in other contexts the image is delivered through whichever UI is connected. ' +
+		'Distinct from `take_screenshot`, which is for your own visual reasoning only and does not reach the user.',
+	{
+		url: z.string().describe( 'The URL to screenshot and share with the user' ),
+		viewport: z
+			.enum( [ 'desktop', 'mobile' ] )
+			.optional()
+			.describe(
+				'Viewport size: "desktop" (1280x720, 16:9) or "mobile" (390x844). Defaults to desktop.'
+			),
+		fullPage: z
+			.boolean()
+			.optional()
+			.describe(
+				'When true, capture the entire scrolled page instead of just the viewport. Defaults to false. Only set this when the user has explicitly asked for the full page.'
+			),
+		caption: z
+			.string()
+			.optional()
+			.describe(
+				'Short caption to send alongside the image. Keep it under ~1024 characters; the server will demote longer captions to a follow-up message.'
+			),
+	},
+	async ( args ) => {
+		try {
+			const viewportType = args.viewport ?? 'desktop';
+			const base64 = await captureScreenshotPng( args.url, SHARE_VIEWPORTS[ viewportType ], {
+				fullPage: args.fullPage ?? false,
+			} );
+
+			emitEvent( {
+				type: 'media.share',
+				timestamp: new Date().toISOString(),
+				mediaType: 'image',
+				mimeType: 'image/png',
+				dataBase64: base64,
+				caption: args.caption,
+			} );
+
+			return {
+				content: [
+					{
+						type: 'image' as const,
+						data: base64,
+						mimeType: 'image/png',
+					},
+				],
+			};
+		} catch ( error ) {
+			return errorResult(
+				`Share screenshot failed: ${ error instanceof Error ? error.message : String( error ) }`
 			);
 		}
 	}
@@ -1169,6 +1245,7 @@ export const studioToolDefinitions = [
 	runWpCliTool,
 	validateBlocksTool,
 	takeScreenshotTool,
+	shareScreenshotTool,
 	installTaxonomyScriptsTool,
 	auditPerformanceTool,
 	auditSeoTool,
@@ -1217,6 +1294,6 @@ export function createRemoteSiteTools( token: string, siteId: number ) {
 	return createSdkMcpServer( {
 		name: 'studio',
 		version: '1.0.0',
-		tools: [ ...wpcomTools, takeScreenshotTool, createSiteTool, pullSiteTool ],
+		tools: [ ...wpcomTools, takeScreenshotTool, shareScreenshotTool, createSiteTool, pullSiteTool ],
 	} );
 }

@@ -151,4 +151,98 @@ describe( 'respondMessage', () => {
 		);
 		expect( fetchMock ).toHaveBeenCalledTimes( 1 );
 	} );
+
+	it( 'POSTs photo + caption as multipart/form-data with raw image bytes', async () => {
+		fetchMock.mockResolvedValueOnce(
+			new Response( JSON.stringify( { success: true, photo_sent: true } ), {
+				status: 200,
+				headers: { 'content-type': 'application/json' },
+			} )
+		);
+		// Tiny 1x1 PNG — base64 of the standard "transparent pixel" header.
+		const photoBase64 =
+			'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII=';
+		await respondMessage( baseConfig, {
+			chatId: 42,
+			photo: photoBase64,
+			caption: 'Hello world',
+		} );
+		const [ , init ] = fetchMock.mock.calls[ 0 ];
+		expect( init.body ).toBeInstanceOf( FormData );
+		// fetch sets Content-Type with the boundary; we must NOT set it ourselves.
+		expect( init.headers ).not.toHaveProperty( 'Content-Type' );
+		expect( init.headers.Authorization ).toBe( 'Bearer abc' );
+		const fd = init.body as FormData;
+		expect( fd.get( 'chat_id' ) ).toBe( '42' );
+		expect( fd.get( 'bot' ) ).toBe( 'my_bot' );
+		expect( fd.get( 'caption' ) ).toBe( 'Hello world' );
+		expect( fd.get( 'text' ) ).toBeNull();
+		const photo = fd.get( 'photo' ) as Blob;
+		expect( photo ).toBeInstanceOf( Blob );
+		expect( photo.type ).toBe( 'image/png' );
+		expect( photo.size ).toBe( Buffer.from( photoBase64, 'base64' ).length );
+	} );
+
+	it( 'POSTs photo + text together via multipart with both fields', async () => {
+		fetchMock.mockResolvedValueOnce(
+			new Response( JSON.stringify( { success: true, photo_sent: true, text_sent: true } ), {
+				status: 200,
+				headers: { 'content-type': 'application/json' },
+			} )
+		);
+		await respondMessage( baseConfig, {
+			chatId: 42,
+			photo: 'BASE64DATA',
+			text: 'Follow-up',
+		} );
+		const [ , init ] = fetchMock.mock.calls[ 0 ];
+		const fd = init.body as FormData;
+		expect( fd.get( 'text' ) ).toBe( 'Follow-up' );
+		expect( fd.get( 'caption' ) ).toBeNull();
+		const photo = fd.get( 'photo' ) as Blob;
+		expect( photo ).toBeInstanceOf( Blob );
+		expect( photo.type ).toBe( 'image/png' );
+	} );
+
+	it( 'uses the requested mime type for the photo file part', async () => {
+		fetchMock.mockResolvedValueOnce( new Response( '', { status: 200 } ) );
+		await respondMessage( baseConfig, {
+			chatId: 1,
+			photo: 'BASE64DATA',
+			photoMimeType: 'image/jpeg',
+		} );
+		const [ , init ] = fetchMock.mock.calls[ 0 ];
+		const fd = init.body as FormData;
+		const photo = fd.get( 'photo' ) as Blob;
+		expect( photo.type ).toBe( 'image/jpeg' );
+	} );
+
+	it( 'omits caption from the multipart body when it is undefined', async () => {
+		fetchMock.mockResolvedValueOnce( new Response( '', { status: 200 } ) );
+		await respondMessage( baseConfig, { chatId: 1, photo: 'BASE64DATA' } );
+		const [ , init ] = fetchMock.mock.calls[ 0 ];
+		const fd = init.body as FormData;
+		expect( fd.get( 'caption' ) ).toBeNull();
+	} );
+
+	it( 'logs a warning but does not throw when the server reports a partial failure', async () => {
+		fetchMock.mockResolvedValueOnce(
+			new Response(
+				JSON.stringify( {
+					success: false,
+					photo_sent: true,
+					text_sent: false,
+					error: 'Telegram returned 502 on text follow-up',
+				} ),
+				{ status: 200, headers: { 'content-type': 'application/json' } }
+			)
+		);
+		// Should resolve, not throw.
+		await respondMessage( baseConfig, { chatId: 1, photo: 'BASE64DATA', text: 'follow' } );
+	} );
+
+	it( 'rejects calls with neither text nor photo', async () => {
+		await expect( respondMessage( baseConfig, { chatId: 1 } ) ).rejects.toThrow( /text.*photo/i );
+		expect( fetchMock ).not.toHaveBeenCalled();
+	} );
 } );

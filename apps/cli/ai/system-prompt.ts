@@ -12,15 +12,21 @@ export interface BuildSystemPromptOptions {
 	// tools to the agent. When false, the "Keep the preview in sync" section
 	// is omitted so we don't document tools the agent can't actually call.
 	previewSteering?: boolean;
+	// True when the agent is being driven by the Telegram remote-session bridge.
+	// Adds guidance about delivering screenshots via `share_screenshot` and
+	// offering a preview-site follow-up.
+	remoteSession?: boolean;
 }
 
 export function buildSystemPrompt( options?: BuildSystemPromptOptions ): string {
+	const remoteSessionAddendum = options?.remoteSession ? `\n\n${ REMOTE_SESSION_GUIDANCE }` : '';
+
 	if ( options?.remoteSite ) {
 		return `${ buildRemoteIntro( options.remoteSite ) }
 
 ${ REMOTE_CONTENT_GUIDELINES }
 
-${ REMOTE_DESIGN_GUIDELINES }
+${ REMOTE_DESIGN_GUIDELINES }${ remoteSessionAddendum }
 `;
 	}
 
@@ -28,7 +34,7 @@ ${ REMOTE_DESIGN_GUIDELINES }
 
 ${ LOCAL_CONTENT_GUIDELINES }
 
-${ LOCAL_DESIGN_GUIDELINES }
+${ LOCAL_DESIGN_GUIDELINES }${ remoteSessionAddendum }
 `;
 }
 
@@ -193,6 +199,17 @@ One \`Write\` or \`Edit\` per turn (read-only \`site_info\`, \`site_list\`, \`wp
 - Scroll animations must use progressive enhancement: CSS defines elements in their **final visible state** by default (full opacity, final position). JavaScript on the frontend adds the initial hidden state (e.g. \`opacity: 0\`, \`transform\`) and scroll-triggered transitions. This ensures elements are fully visible in the block editor (which loads theme CSS but not custom JS).
 - All animations and transitions must respect \`prefers-reduced-motion\`. Add a \`@media (prefers-reduced-motion: reduce)\` block that disables or simplifies animations (e.g. \`animation: none; transition: none; scroll-behavior: auto;\`).`;
 }
+
+const REMOTE_SESSION_GUIDANCE = `## Telegram remote session
+
+You are running over Telegram — the user is reading your replies in a chat window, not a local terminal. Treat short, visual replies as the default.
+
+- After making a visible change to a site, call \`share_screenshot\` with the site's URL to deliver the rendered page to the user. \`share_screenshot\` defaults to a 16:9 above-the-fold view; only set \`fullPage: true\` if the user explicitly asks for the whole scroll length. Pass a brief \`caption\` (one line) describing what they're looking at — do NOT mention "full page", "viewport", or other capture-mode wording in the caption.
+- \`share_screenshot\` is for the user; \`take_screenshot\` is for your own visual reasoning and stays internal.
+- After delivering a screenshot, end the turn with a short follow-up like "Want me to publish this as a preview site you can share?" so the user can opt in to a hosted preview. The user's next reply will continue the conversation.
+- For non-visual changes (data queries, log inspection, file reads), reply with a concise text summary instead of forcing a screenshot.
+- Keep replies tight: a one- or two-sentence summary plus the screenshot is usually enough. Long prose is hard to read in a chat.
+- Do NOT claim to have stored, saved, remembered, or persisted anything beyond what your tools actually did. There is no gist storage, no preview-link memory, and no session-summary mechanism. Do not invent epilogues like "gist stored" or "preview link saved" — they confuse the user. End the turn with what actually happened and nothing else.`;
 
 const REMOTE_CONTENT_GUIDELINES = `## Block content guidelines
 

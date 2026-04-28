@@ -85,19 +85,11 @@ const config: ForgeConfig = {
 				name: 'studio',
 				bin: 'studio',
 				mimeType: [ 'x-scheme-handler/wp-studio' ],
-				// Multi-size icons are installed under /usr/share/icons/hicolor/<size>/apps/
-				// so desktop environments resolve `Icon=studio` without falling back to a
-				// generic icon. The TS types only declare `string` here, but the underlying
-				// electron-installer-debian also accepts a {size: path} map.
+				// Install the icon under /usr/share/icons/hicolor/512x512/apps/ so desktop
+				// environments resolve `Icon=studio`. The TS types only declare `string` here,
+				// but the underlying electron-installer-debian also accepts a {size: path} map.
 				icon: {
-					'16x16': path.join( __dirname, 'assets', 'icons', '16x16.png' ),
-					'24x24': path.join( __dirname, 'assets', 'icons', '24x24.png' ),
-					'32x32': path.join( __dirname, 'assets', 'icons', '32x32.png' ),
-					'48x48': path.join( __dirname, 'assets', 'icons', '48x48.png' ),
-					'64x64': path.join( __dirname, 'assets', 'icons', '64x64.png' ),
-					'128x128': path.join( __dirname, 'assets', 'icons', '128x128.png' ),
-					'256x256': path.join( __dirname, 'assets', 'icons', '256x256.png' ),
-					'512x512': path.join( __dirname, 'assets', 'icons', '512x512.png' ),
+					'512x512': path.join( __dirname, 'assets', 'studio-app-icon-512.png' ),
 				} as unknown as string,
 				// Custom desktop entry adds StartupWMClass=Studio so the running window
 				// (whose WM_CLASS comes from app.getName()/productName) matches this entry.

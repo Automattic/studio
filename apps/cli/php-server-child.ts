@@ -319,7 +319,7 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		await installWordPress( config, phpVersion, stopSignal );
 
 		if ( config.blueprint ) {
-			await runBlueprint( config, stopSignal );
+			await runBlueprint( config, phpVersion, stopSignal );
 		}
 
 		serverChild.once( 'exit', ( code, signalName ) => {
@@ -439,7 +439,11 @@ function runProcessToCompletion(
 	} );
 }
 
-async function runBlueprint( config: ServerConfig, signal: AbortSignal ): Promise< void > {
+async function runBlueprint(
+	config: ServerConfig,
+	phpVersion: NativePhpSupportedVersion,
+	signal: AbortSignal
+): Promise< void > {
 	const blueprintJson = JSON.stringify( config.blueprint!.contents );
 	const tmpPath = path.join( os.tmpdir(), `studio-blueprint-${ config.siteId }.json` );
 	await fs.promises.writeFile( tmpPath, blueprintJson );
@@ -467,7 +471,7 @@ async function runBlueprint( config: ServerConfig, signal: AbortSignal ): Promis
 
 	try {
 		await runProcessToCompletion(
-			getPhpBinaryPath(),
+			getPhpBinaryPath( phpVersion ),
 			[
 				getBlueprintsPharPath(),
 				'exec',
@@ -532,9 +536,13 @@ async function ipcMessageHandler( packet: unknown ) {
 			case 'stop-server':
 				result = await stopServer();
 				break;
-			case 'run-blueprint':
-				await runBlueprint( validMessage.data.config, abortController.signal );
+			case 'run-blueprint': {
+				const blueprintPhpVersion = validateNativePhpVersion(
+					validMessage.data.config.phpVersion ?? ''
+				);
+				await runBlueprint( validMessage.data.config, blueprintPhpVersion, abortController.signal );
 				break;
+			}
 			case 'wp-cli-command':
 				throw new Error(
 					`Message "${ validMessage.topic }" is not supported by the native PHP runtime`

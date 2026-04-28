@@ -16,7 +16,6 @@ export async function runCommand(
 		noSessionPersistence?: boolean;
 		message?: string;
 		json?: boolean;
-		autoApprove?: boolean;
 	} = {}
 ): Promise< void > {
 	let resolvedSessionIdOrPrefix = sessionIdOrPrefix?.trim();
@@ -57,7 +56,6 @@ export async function runCommand(
 		resumeSession: session,
 		noSessionPersistence: options.noSessionPersistence === true,
 		initialMessage: options.message,
-		autoApprove: options.autoApprove,
 		activeSite: resolvedSite,
 	} );
 }
@@ -83,10 +81,6 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					default: false,
 					description: __( 'Output events as NDJSON to stdout (headless mode)' ),
 				} )
-				.option( 'auto-approve', {
-					type: 'boolean',
-					description: __( 'Auto-approve all tool calls (defaults to true in --json mode)' ),
-				} )
 				.check( ( argv ) => {
 					if ( argv.json && ! argv.message ) {
 						throw new Error( __( '--json requires a message argument' ) );
@@ -101,14 +95,12 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					message?: string;
 					json?: boolean;
 					sessionPersistence?: boolean;
-					autoApprove?: boolean;
 				};
 				const noSessionPersistence = typedArgv.sessionPersistence === false;
 				await runCommand( typedArgv.id, {
 					noSessionPersistence,
 					message: typedArgv.message,
 					json: typedArgv.json,
-					autoApprove: typedArgv.autoApprove,
 				} );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {

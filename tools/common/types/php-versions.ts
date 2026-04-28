@@ -19,6 +19,12 @@ export const SupportedPHPVersionsList: string[] = [ ...SupportedPHPVersions ];
 
 export type SupportedPHPVersion = ( typeof SupportedPHPVersions )[ number ];
 
+export function isSupportedPHPVersion(
+	version: string | undefined
+): version is SupportedPHPVersion {
+	return SupportedPHPVersions.includes( version as SupportedPHPVersion );
+}
+
 /**
  * The recommended PHP version for new sites.
  * This replaces RecommendedPHPVersion from @wp-playground/common.

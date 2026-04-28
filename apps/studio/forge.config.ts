@@ -84,6 +84,7 @@ const config: ForgeConfig = {
 				categories: [ 'Utility' ],
 				name: 'studio',
 				bin: 'studio',
+				mimeType: [ 'x-scheme-handler/wp-studio' ],
 				// Multi-size icons are installed under /usr/share/icons/hicolor/<size>/apps/
 				// so desktop environments resolve `Icon=studio` without falling back to a
 				// generic icon. The TS types only declare `string` here, but the underlying

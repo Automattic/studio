@@ -52,16 +52,7 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 	const cliPath = getCliPath();
 	const child = fork(
 		cliPath,
-		[
-			'code',
-			'sessions',
-			'resume',
-			sessionId,
-			prompt,
-			'--json',
-			'--no-auto-approve',
-			'--avoid-telemetry',
-		],
+		[ 'code', 'sessions', 'resume', sessionId, prompt, '--json', '--avoid-telemetry' ],
 		{
 			// Agent events arrive over the Node IPC channel (via `process.send`
 			// in the child). stdout/stderr are ignored — the child's

@@ -3,7 +3,6 @@ import {
 	__experimentalHStack as HStack,
 } from '@wordpress/components';
 import { useCallback, useEffect } from 'react';
-import { WapuuWorldGame } from 'src/modules/wapuu-world/wapuu-world-game';
 import MacTitlebar from 'src/components/mac-titlebar';
 import MainSidebar from 'src/components/main-sidebar';
 import { NoStudioSites } from 'src/components/no-studio-sites';
@@ -12,7 +11,6 @@ import TopBar from 'src/components/top-bar';
 import WindowsTitlebar from 'src/components/windows-titlebar';
 import { useListenDeepLinkConnection } from 'src/hooks/sync-sites/use-listen-deep-link-connection';
 import { useAuth } from 'src/hooks/use-auth';
-import { useKonamiCode } from 'src/modules/wapuu-world/use-konami-code';
 import { useLocalizationSupport } from 'src/hooks/use-localization-support';
 import { useSidebarResize } from 'src/hooks/use-sidebar-resize';
 import { useSidebarVisibility } from 'src/hooks/use-sidebar-visibility';
@@ -23,6 +21,8 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { Onboarding } from 'src/modules/onboarding';
 import { useOnboarding } from 'src/modules/onboarding/hooks/use-onboarding';
 import { UserSettings } from 'src/modules/user-settings';
+import { useKonamiCode } from 'src/modules/wapuu-world/use-konami-code';
+import { WapuuWorldGame } from 'src/modules/wapuu-world/wapuu-world-game';
 import { WhatsNewModal, useWhatsNew } from 'src/modules/whats-new';
 import { useAppDispatch, useRootSelector } from 'src/stores';
 import { selectOnboardingLoading } from 'src/stores/onboarding-slice';

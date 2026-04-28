@@ -11,6 +11,7 @@ import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 
 vi.mock( 'src/lib/app-globals', () => ( {
 	isWindows: vi.fn().mockReturnValue( false ),
+	isLinux: vi.fn().mockReturnValue( false ),
 	getAppGlobals: vi.fn( () => ( { platform: 'darwin' } ) ),
 } ) );
 vi.mock( 'src/hooks/use-site-details' );

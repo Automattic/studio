@@ -96,6 +96,11 @@ export function Composer( {
 					value={ value }
 					onChange={ ( event ) => setValue( event.target.value ) }
 					onKeyDown={ ( event ) => {
+						if ( event.key === 'Escape' && busy ) {
+							event.preventDefault();
+							void onInterrupt();
+							return;
+						}
 						if ( event.key === 'Enter' && ( event.metaKey || event.ctrlKey ) ) {
 							event.preventDefault();
 							void send();

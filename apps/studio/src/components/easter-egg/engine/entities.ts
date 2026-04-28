@@ -21,6 +21,7 @@ export interface Player {
 	state: 'idle' | 'run' | 'jump' | 'dead';
 	lives: number;
 	invincibleTimer: number;
+	idleTimer: number;
 }
 
 export interface Enemy {
@@ -34,6 +35,9 @@ export interface Enemy {
 	alive: boolean;
 	animFrame: number;
 	animTimer: number;
+	type: 'block' | 'mguy';
+	health: number;
+	hurtTimer: number;
 }
 
 export interface Collectible {
@@ -70,6 +74,7 @@ export function createPlayer( x: number, y: number ): Player {
 		state: 'idle',
 		lives: 3,
 		invincibleTimer: 0,
+		idleTimer: 0,
 	};
 }
 
@@ -85,6 +90,27 @@ export function createEnemy( x: number, y: number ): Enemy {
 		alive: true,
 		animFrame: 0,
 		animTimer: 0,
+		type: 'block',
+		health: 1,
+		hurtTimer: 0,
+	};
+}
+
+export function createMguy( x: number, y: number ): Enemy {
+	return {
+		x,
+		y,
+		w: 32,
+		h: 38,
+		vx: -1.8,
+		vy: 0,
+		onGround: false,
+		alive: true,
+		animFrame: 0,
+		animTimer: 0,
+		type: 'mguy',
+		health: 2,
+		hurtTimer: 0,
 	};
 }
 
@@ -106,6 +132,8 @@ export function spawnEntities() {
 				collectibles.push( createCollectible( px + 6, py + 6 ) );
 			} else if ( tile === 5 ) {
 				enemies.push( createEnemy( px + 2, py ) );
+			} else if ( tile === 7 ) {
+				enemies.push( createMguy( px, py ) );
 			} else if ( tile === 4 ) {
 				flag = {
 					x: px,

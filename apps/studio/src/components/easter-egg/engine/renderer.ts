@@ -1,5 +1,58 @@
 import { Player, Enemy, Collectible, Flag } from './entities';
 import { TILE_SIZE, LEVEL_MAP, getTile } from './level';
+import spriteSheetUrl from 'src/assets/easter-egg/wapuu-sprites.png';
+import tilesSpriteUrl from 'src/assets/easter-egg/wapuu-sprites-tiles.png';
+import coinSpriteUrl from 'src/assets/easter-egg/wapuu-sprites-coin.png';
+import bgFarUrl from 'src/assets/easter-egg/wapuu-bg-far.png';
+import bgNearUrl from 'src/assets/easter-egg/wapuu-bg-near.png';
+import gutenbergSpriteUrl from 'src/assets/easter-egg/wapuu-gutenberg-sprite.png';
+import wapuuPlayerSpriteUrl from 'src/assets/easter-egg/wapuu-player-sprite.png';
+import wapuuPlayerIdleSpriteUrl from 'src/assets/easter-egg/wapuu-player-idle-sprite.png';
+
+// Sprite sheet constants (1536×1024px, 256×128px per frame)
+const SW = 256; // source frame width
+const SH = 128; // source frame height
+
+function loadImage( url: string ): { img: HTMLImageElement; ready: boolean } {
+	const entry = { img: new Image(), ready: false };
+	entry.img.onload = () => { entry.ready = true; };
+	entry.img.src = url;
+	return entry;
+}
+
+const sprites = {
+	sheet: loadImage( spriteSheetUrl ),
+	tiles: loadImage( tilesSpriteUrl ),
+	coin: loadImage( coinSpriteUrl ),
+	bgFar: loadImage( bgFarUrl ),
+	bgNear: loadImage( bgNearUrl ),
+	gutenberg: loadImage( gutenbergSpriteUrl ),
+	wapuu: loadImage( wapuuPlayerSpriteUrl ),
+	wapuuIdle: loadImage( wapuuPlayerIdleSpriteUrl ),
+};
+
+function drawSprite(
+	ctx: CanvasRenderingContext2D,
+	sx: number, sy: number,
+	dx: number, dy: number,
+	dw = TILE_SIZE, dh = TILE_SIZE
+) {
+	const { img, ready } = sprites.sheet;
+	if ( ! ready ) return false;
+	ctx.drawImage( img, sx, sy, SW, SH, dx, dy, dw, dh );
+	return true;
+}
+
+function drawTileSprite(
+	ctx: CanvasRenderingContext2D,
+	dx: number, dy: number,
+	dw = TILE_SIZE, dh = TILE_SIZE
+) {
+	const { img, ready } = sprites.tiles;
+	if ( ! ready ) return false;
+	ctx.drawImage( img, 0, 0, img.naturalWidth, img.naturalHeight, dx, dy, dw, dh );
+	return true;
+}
 
 const COLORS = {
 	sky: '#1a8cff',
@@ -32,16 +85,80 @@ function drawBackground( ctx: CanvasRenderingContext2D, cameraX: number, w: numb
 	ctx.fillStyle = grad;
 	ctx.fillRect( 0, 0, w, h );
 
-	// Parallax hills
-	ctx.fillStyle = COLORS.hill;
-	const hillOffset = ( cameraX * 0.3 ) % 200;
-	for ( let i = -1; i < Math.ceil( w / 200 ) + 1; i++ ) {
-		const hx = i * 200 - hillOffset;
+	// Far background layer (parallax at 0.2x speed, bottom-aligned)
+	const { img: bgImg, ready: bgReady } = sprites.bgFar;
+	if ( bgReady ) {
+		const zoom = 1.2;
+		const bgW = bgImg.naturalWidth;
+		const bgH = bgImg.naturalHeight;
+		// Destination tile size: full image scaled by zoom
+		const dw = bgW * zoom;
+		const dh = bgH * zoom;
+		// Source crop from bottom to match canvas height
+		const srcH = Math.min( bgH, h / zoom );
+		const srcY = bgH - srcH; // bottom-aligned
+		const destH = srcH * zoom; // = h when image is tall enough
+		const offset = ( ( cameraX * 0.2 ) % dw + dw ) % dw;
+		for ( let dx = -offset; dx < w; dx += dw ) {
+			ctx.drawImage( bgImg, 0, srcY, bgW, srcH, dx, h - destH, dw, destH );
+		}
+	}
+
+	// Near background layer (parallax at 0.5x speed, bottom-aligned)
+	const { img: nearImg, ready: nearReady } = sprites.bgNear;
+	if ( nearReady ) {
+		const zoom = 0.6;
+		const nearW = nearImg.naturalWidth;
+		const nearH = nearImg.naturalHeight;
+		const scale = ( h / nearH ) * zoom;
+		const dw = nearW * scale;
+		const dh = nearH * scale;
+		// Keep offset in [0, dw) to avoid float drift at large cameraX
+		const offset = ( ( cameraX * 0.5 ) % dw + dw ) % dw;
+		const startX = -offset;
+		for ( let dx = startX; dx < w; dx += dw ) {
+			ctx.drawImage( nearImg, 0, 0, nearW, nearH, dx, h - dh, dw, dh );
+		}
+	} else {
+		// Fallback parallax hills while image loads
+		ctx.fillStyle = COLORS.hill;
+		const hillOffset = ( cameraX * 0.3 ) % 200;
+		for ( let i = -1; i < Math.ceil( w / 200 ) + 1; i++ ) {
+			const hx = i * 200 - hillOffset;
+			ctx.beginPath();
+			ctx.arc( hx + 100, h - 60, 80, Math.PI, 0 );
+			ctx.fill();
+			ctx.beginPath();
+			ctx.arc( hx + 180, h - 40, 60, Math.PI, 0 );
+			ctx.fill();
+		}
+	}
+}
+
+let waterTick = 0;
+
+function drawWater( ctx: CanvasRenderingContext2D, cameraX: number, _w: number, h: number ) {
+	const pitRow = LEVEL_MAP.length - 1; // bottom row
+	const tileY = pitRow * TILE_SIZE;
+	const waterDepth = h - tileY;
+	const waterOffset = Math.floor( waterDepth / 3 ); // lower surface by 1/3
+	const surfaceY = tileY + waterOffset;
+
+	for ( let col = 0; col < LEVEL_MAP[ 0 ].length; col++ ) {
+		// A pit column has no solid tile in the bottom row
+		if ( LEVEL_MAP[ pitRow ][ col ] !== 0 ) continue;
+
+		const tx = col * TILE_SIZE - cameraX;
+
+		// Body
+		ctx.fillStyle = 'rgba(30, 100, 220, 0.75)';
+		ctx.fillRect( tx, surfaceY + 6, TILE_SIZE, h - surfaceY - 6 );
+
+		// Animated surface wave
+		ctx.fillStyle = 'rgba(100, 180, 255, 0.9)';
 		ctx.beginPath();
-		ctx.arc( hx + 100, h - 60, 80, Math.PI, 0 );
-		ctx.fill();
-		ctx.beginPath();
-		ctx.arc( hx + 180, h - 40, 60, Math.PI, 0 );
+		const waveY = surfaceY + 2 + Math.sin( ( waterTick * 0.05 ) + col * 0.8 ) * 3;
+		ctx.rect( tx, waveY, TILE_SIZE, 4 );
 		ctx.fill();
 	}
 }
@@ -58,178 +175,242 @@ function drawTiles( ctx: CanvasRenderingContext2D, cameraX: number, w: number, _
 			const tx = col * TILE_SIZE - cameraX;
 			const ty = row * TILE_SIZE;
 
-			if ( tile === 1 ) {
-				// Check if tile above is empty (top surface)
-				const above = getTile( col, row - 1 );
-				if ( ! ( above === 1 ) ) {
+			const drawn = drawTileSprite( ctx, tx - 1, ty, TILE_SIZE + 2, TILE_SIZE + 1 );
+			if ( ! drawn ) {
+				// Fallback procedural while sprite loads
+				if ( tile === 1 ) {
 					ctx.fillStyle = COLORS.groundTop;
 					ctx.fillRect( tx, ty, TILE_SIZE, 8 );
 					ctx.fillStyle = COLORS.ground;
 					ctx.fillRect( tx, ty + 8, TILE_SIZE, TILE_SIZE - 8 );
-					// Grass tufts
-					ctx.fillStyle = '#5a9e30';
-					ctx.fillRect( tx + 4, ty, 4, 4 );
-					ctx.fillRect( tx + 12, ty - 2, 4, 5 );
-					ctx.fillRect( tx + 22, ty, 4, 4 );
 				} else {
-					ctx.fillStyle = COLORS.ground;
-					ctx.fillRect( tx, ty, TILE_SIZE, TILE_SIZE );
+					ctx.fillStyle = COLORS.platformTop;
+					ctx.fillRect( tx, ty, TILE_SIZE, 6 );
+					ctx.fillStyle = COLORS.platform;
+					ctx.fillRect( tx, ty + 6, TILE_SIZE, TILE_SIZE - 6 );
 				}
-				// Brick lines
-				ctx.strokeStyle = 'rgba(0,0,0,0.15)';
-				ctx.lineWidth = 1;
-				ctx.strokeRect( tx + 0.5, ty + 0.5, TILE_SIZE - 1, TILE_SIZE - 1 );
-			} else {
-				// Platform
-				ctx.fillStyle = COLORS.platformTop;
-				ctx.fillRect( tx, ty, TILE_SIZE, 6 );
-				ctx.fillStyle = COLORS.platform;
-				ctx.fillRect( tx, ty + 6, TILE_SIZE, TILE_SIZE - 6 );
-				ctx.strokeStyle = 'rgba(0,0,0,0.2)';
-				ctx.lineWidth = 1;
-				ctx.strokeRect( tx + 0.5, ty + 0.5, TILE_SIZE - 1, TILE_SIZE - 1 );
 			}
 		}
 	}
 }
 
 function drawWapuu( ctx: CanvasRenderingContext2D, p: Player, cameraX: number ) {
-	const sx = Math.round( p.x - cameraX );
-	const sy = Math.round( p.y );
 	const blink = p.invincibleTimer > 0 && Math.floor( p.invincibleTimer / 4 ) % 2 === 0;
 	if ( blink ) return;
 
+	const sx = Math.round( p.x - cameraX );
+	const sy = Math.floor( p.y );
+	const isIdle = p.vx === 0;
+	const { img, ready } = isIdle ? sprites.wapuuIdle : sprites.wapuu;
+	const frame = isIdle ? 0 : p.animFrame % 4;
+	// Draw sprite at 32×32, bottom-aligned to hitbox, horizontally centered
+	const dw = 32;
+	const dh = 32;
+	const dx = sx + ( p.w - dw ) / 2;
+	const dy = sy + p.h - dh;
+
 	ctx.save();
 	if ( ! p.facingRight ) {
-		ctx.translate( sx + p.w / 2, 0 );
+		ctx.translate( dx + dw / 2, 0 );
 		ctx.scale( -1, 1 );
-		ctx.translate( -( sx + p.w / 2 ), 0 );
+		ctx.translate( -( dx + dw / 2 ), 0 );
 	}
 
-	const x = sx;
-	const y = sy;
-
-	// Body
-	ctx.fillStyle = COLORS.wapuuBody;
-	ctx.beginPath();
-	ctx.roundRect( x + 4, y + 12, 20, 16, 4 );
-	ctx.fill();
-
-	// Belly
-	ctx.fillStyle = COLORS.wapuuBelly;
-	ctx.beginPath();
-	ctx.ellipse( x + 14, y + 20, 7, 6, 0, 0, Math.PI * 2 );
-	ctx.fill();
-
-	// Head
-	ctx.fillStyle = COLORS.wapuuBody;
-	ctx.beginPath();
-	ctx.roundRect( x + 3, y + 1, 22, 18, 8 );
-	ctx.fill();
-
-	// Ears
-	ctx.fillStyle = COLORS.wapuuEar;
-	ctx.beginPath();
-	ctx.ellipse( x + 5, y + 5, 4, 5, -0.4, 0, Math.PI * 2 );
-	ctx.fill();
-	ctx.beginPath();
-	ctx.ellipse( x + 23, y + 5, 4, 5, 0.4, 0, Math.PI * 2 );
-	ctx.fill();
-
-	// Hat (WordPress blue)
-	ctx.fillStyle = COLORS.wapuuHat;
-	ctx.beginPath();
-	ctx.roundRect( x + 3, y - 3, 22, 9, [ 4, 4, 0, 0 ] );
-	ctx.fill();
-	ctx.fillRect( x + 1, y + 5, 26, 4 );
-
-	// Eyes
-	ctx.fillStyle = COLORS.wapuuEye;
-	ctx.beginPath();
-	ctx.ellipse( x + 10, y + 10, 3, 3.5, 0, 0, Math.PI * 2 );
-	ctx.fill();
-	ctx.beginPath();
-	ctx.ellipse( x + 20, y + 10, 3, 3.5, 0, 0, Math.PI * 2 );
-	ctx.fill();
-	// Pupils
-	ctx.fillStyle = '#000';
-	ctx.beginPath();
-	ctx.ellipse( x + 11, y + 11, 1.5, 1.5, 0, 0, Math.PI * 2 );
-	ctx.fill();
-	ctx.beginPath();
-	ctx.ellipse( x + 21, y + 11, 1.5, 1.5, 0, 0, Math.PI * 2 );
-	ctx.fill();
-
-	// Paws
-	const legOffset = p.state === 'run' ? Math.sin( p.animFrame * 0.8 ) * 4 : 0;
-	ctx.fillStyle = COLORS.wapuuPaw;
-	ctx.beginPath();
-	ctx.ellipse( x + 8, y + 28 + legOffset, 4, 3, 0, 0, Math.PI * 2 );
-	ctx.fill();
-	ctx.beginPath();
-	ctx.ellipse( x + 20, y + 28 - legOffset, 4, 3, 0, 0, Math.PI * 2 );
-	ctx.fill();
-
-	// Jump pose: raise arms
-	if ( p.state === 'jump' ) {
-		ctx.fillStyle = COLORS.wapuuPaw;
+	if ( ready ) {
+		ctx.drawImage( img, frame * 32, 0, 32, 32, dx, dy, dw, dh );
+	} else {
+		// Fallback procedural
+		const x = sx;
+		const y = sy;
+		ctx.fillStyle = COLORS.wapuuBody;
 		ctx.beginPath();
-		ctx.ellipse( x + 2, y + 14, 3, 4, -0.5, 0, Math.PI * 2 );
+		ctx.roundRect( x + 4, y + 12, 20, 16, 4 );
+		ctx.fill();
+		ctx.fillStyle = COLORS.wapuuBelly;
+		ctx.beginPath();
+		ctx.ellipse( x + 14, y + 20, 7, 6, 0, 0, Math.PI * 2 );
+		ctx.fill();
+		ctx.fillStyle = COLORS.wapuuBody;
+		ctx.beginPath();
+		ctx.roundRect( x + 3, y + 1, 22, 18, 8 );
+		ctx.fill();
+		ctx.fillStyle = COLORS.wapuuEar;
+		ctx.beginPath();
+		ctx.ellipse( x + 5, y + 5, 4, 5, -0.4, 0, Math.PI * 2 );
 		ctx.fill();
 		ctx.beginPath();
-		ctx.ellipse( x + 26, y + 14, 3, 4, 0.5, 0, Math.PI * 2 );
+		ctx.ellipse( x + 23, y + 5, 4, 5, 0.4, 0, Math.PI * 2 );
+		ctx.fill();
+		ctx.fillStyle = COLORS.wapuuHat;
+		ctx.beginPath();
+		ctx.roundRect( x + 3, y - 3, 22, 9, [ 4, 4, 0, 0 ] );
+		ctx.fill();
+		ctx.fillRect( x + 1, y + 5, 26, 4 );
+		ctx.fillStyle = COLORS.wapuuEye;
+		ctx.beginPath();
+		ctx.ellipse( x + 10, y + 10, 3, 3.5, 0, 0, Math.PI * 2 );
+		ctx.fill();
+		ctx.beginPath();
+		ctx.ellipse( x + 20, y + 10, 3, 3.5, 0, 0, Math.PI * 2 );
+		ctx.fill();
+		ctx.fillStyle = '#000';
+		ctx.beginPath();
+		ctx.ellipse( x + 11, y + 11, 1.5, 1.5, 0, 0, Math.PI * 2 );
+		ctx.fill();
+		ctx.beginPath();
+		ctx.ellipse( x + 21, y + 11, 1.5, 1.5, 0, 0, Math.PI * 2 );
+		ctx.fill();
+		const legOffset = p.state === 'run' ? Math.sin( p.animFrame * 0.8 ) * 4 : 0;
+		ctx.fillStyle = COLORS.wapuuPaw;
+		ctx.beginPath();
+		ctx.ellipse( x + 8, y + 28 + legOffset, 4, 3, 0, 0, Math.PI * 2 );
+		ctx.fill();
+		ctx.beginPath();
+		ctx.ellipse( x + 20, y + 28 - legOffset, 4, 3, 0, 0, Math.PI * 2 );
 		ctx.fill();
 	}
 
 	ctx.restore();
 }
 
-function drawEnemy( ctx: CanvasRenderingContext2D, e: Enemy, cameraX: number ) {
+function drawBlock( ctx: CanvasRenderingContext2D, e: Enemy, cameraX: number ) {
 	const x = Math.round( e.x - cameraX );
 	const y = Math.round( e.y );
-
-	// Slime body
-	ctx.fillStyle = COLORS.enemyBody;
+	const { img, ready } = sprites.gutenberg;
+	const frame = e.animFrame % 4;
+	if ( ready ) {
+		ctx.save();
+		if ( e.vx < 0 ) {
+			ctx.translate( x + e.w, 0 );
+			ctx.scale( -1, 1 );
+			ctx.drawImage( img, frame * 32, 0, 32, 32, 0, y, e.w, e.h );
+		} else {
+			ctx.drawImage( img, frame * 32, 0, 32, 32, x, y, e.w, e.h );
+		}
+		ctx.restore();
+		return;
+	}
+	// Fallback
+	const bob = Math.sin( e.animFrame * 0.4 ) * 2;
+	ctx.fillStyle = '#1e1e1e';
 	ctx.beginPath();
-	ctx.ellipse( x + e.w / 2, y + e.h * 0.6, e.w / 2, e.h * 0.6, 0, Math.PI, 0 );
-	ctx.arc( x + e.w / 2, y + e.h * 0.4, e.w / 2, 0, Math.PI );
+	ctx.roundRect( x + 2, y + bob, e.w - 4, e.h - 2, 5 );
+	ctx.fill();
+	ctx.fillStyle = '#fff';
+	ctx.beginPath();
+	ctx.arc( x + e.w / 2, y + e.h / 2 + bob, 8, 0, Math.PI * 2 );
+	ctx.fill();
+	ctx.fillStyle = '#1e1e1e';
+	ctx.font = 'bold 11px monospace';
+	ctx.textAlign = 'center';
+	ctx.textBaseline = 'middle';
+	ctx.fillText( 'G', x + e.w / 2, y + e.h / 2 + bob + 1 );
+	ctx.fillStyle = '#ff4444';
+	ctx.fillRect( x + 6, y + 5 + bob, 4, 3 );
+	ctx.fillRect( x + 18, y + 5 + bob, 4, 3 );
+}
+
+function drawMguy( ctx: CanvasRenderingContext2D, e: Enemy, cameraX: number ) {
+	const x = Math.round( e.x - cameraX );
+	const y = Math.round( e.y );
+	const flash = e.hurtTimer > 0 && Math.floor( e.hurtTimer / 4 ) % 2 === 0;
+	if ( flash ) return;
+
+	const legSwing = Math.sin( e.animFrame * 0.6 ) * 3;
+
+	// Legs
+	ctx.fillStyle = '#222244';
+	ctx.fillRect( x + 8, y + 26, 7, 12 + legSwing );
+	ctx.fillRect( x + 17, y + 26, 7, 12 - legSwing );
+
+	// Suit body
+	ctx.fillStyle = '#222244';
+	ctx.beginPath();
+	ctx.roundRect( x + 5, y + 14, e.w - 10, 16, 3 );
+	ctx.fill();
+
+	// Shirt / tie
+	ctx.fillStyle = '#fff';
+	ctx.fillRect( x + 13, y + 15, 6, 10 );
+	ctx.fillStyle = '#cc2222';
+	ctx.fillRect( x + 15, y + 15, 2, 9 );
+
+	// Head
+	ctx.fillStyle = '#c8956c';
+	ctx.beginPath();
+	ctx.roundRect( x + 7, y + 2, 18, 16, 6 );
+	ctx.fill();
+
+	// Dark hair
+	ctx.fillStyle = '#1a1a1a';
+	ctx.beginPath();
+	ctx.roundRect( x + 7, y + 2, 18, 7, [ 6, 6, 0, 0 ] );
+	ctx.fill();
+	// Slight widow's peak
+	ctx.beginPath();
+	ctx.moveTo( x + 14, y + 8 );
+	ctx.lineTo( x + 16, y + 11 );
+	ctx.lineTo( x + 18, y + 8 );
+	ctx.fill();
+
+	// Beard / stubble
+	ctx.fillStyle = '#2a2a2a';
+	ctx.beginPath();
+	ctx.roundRect( x + 9, y + 13, 14, 6, [ 0, 0, 4, 4 ] );
 	ctx.fill();
 
 	// Eyes
-	const eyeBob = Math.sin( e.animFrame * 0.5 ) * 1;
-	ctx.fillStyle = COLORS.enemyEye;
-	ctx.beginPath();
-	ctx.ellipse( x + 8, y + 10 + eyeBob, 3, 3.5, 0, 0, Math.PI * 2 );
-	ctx.fill();
-	ctx.beginPath();
-	ctx.ellipse( x + 20, y + 10 + eyeBob, 3, 3.5, 0, 0, Math.PI * 2 );
-	ctx.fill();
-	ctx.fillStyle = '#300';
-	ctx.beginPath();
-	ctx.ellipse( x + 9, y + 11 + eyeBob, 1.5, 1.5, 0, 0, Math.PI * 2 );
-	ctx.fill();
-	ctx.beginPath();
-	ctx.ellipse( x + 21, y + 11 + eyeBob, 1.5, 1.5, 0, 0, Math.PI * 2 );
-	ctx.fill();
+	ctx.fillStyle = '#fff';
+	ctx.fillRect( x + 10, y + 8, 5, 4 );
+	ctx.fillRect( x + 17, y + 8, 5, 4 );
+	ctx.fillStyle = '#333';
+	ctx.fillRect( x + 12, y + 9, 2, 2 );
+	ctx.fillRect( x + 19, y + 9, 2, 2 );
+
+	// Health pip — show remaining stomps needed
+	if ( e.health > 1 ) {
+		ctx.fillStyle = '#f5a623';
+		ctx.font = 'bold 10px monospace';
+		ctx.textAlign = 'center';
+		ctx.textBaseline = 'middle';
+		ctx.fillText( '❤❤', x + e.w / 2, y - 6 );
+	} else {
+		ctx.fillStyle = '#ff4444';
+		ctx.font = 'bold 10px monospace';
+		ctx.textAlign = 'center';
+		ctx.textBaseline = 'middle';
+		ctx.fillText( '❤', x + e.w / 2, y - 6 );
+	}
+}
+
+function drawEnemy( ctx: CanvasRenderingContext2D, e: Enemy, cameraX: number ) {
+	if ( e.type === 'mguy' ) {
+		drawMguy( ctx, e, cameraX );
+	} else {
+		drawBlock( ctx, e, cameraX );
+	}
 }
 
 function drawCollectible( ctx: CanvasRenderingContext2D, c: Collectible, cameraX: number ) {
 	const x = Math.round( c.x - cameraX );
-	const y = Math.round( c.y ) + Math.sin( c.animFrame * 0.05 ) * 3;
-	const r = c.w / 2;
-
-	// Coin circle
-	ctx.fillStyle = COLORS.collectible;
-	ctx.beginPath();
-	ctx.arc( x + r, y + r, r, 0, Math.PI * 2 );
-	ctx.fill();
-
-	// "W" letter
-	ctx.fillStyle = '#fff';
-	ctx.font = `bold ${ Math.round( r * 1.2 ) }px monospace`;
-	ctx.textAlign = 'center';
-	ctx.textBaseline = 'middle';
-	ctx.fillText( 'W', x + r, y + r + 1 );
+	const bob = Math.sin( c.animFrame * 0.05 ) * 3;
+	const y = Math.round( c.y ) + bob;
+	const { img, ready } = sprites.coin;
+	if ( ready ) {
+		ctx.drawImage( img, 0, 0, img.naturalWidth, img.naturalHeight, x, y, c.w, c.h );
+	} else {
+		// Fallback
+		const r = c.w / 2;
+		ctx.fillStyle = COLORS.collectible;
+		ctx.beginPath();
+		ctx.arc( x + r, y + r, r, 0, Math.PI * 2 );
+		ctx.fill();
+		ctx.fillStyle = '#fff';
+		ctx.font = `bold ${ Math.round( r * 1.2 ) }px monospace`;
+		ctx.textAlign = 'center';
+		ctx.textBaseline = 'middle';
+		ctx.fillText( 'W', x + r, y + r + 1 );
+	}
 }
 
 function drawFlag( ctx: CanvasRenderingContext2D, flag: Flag, cameraX: number ) {
@@ -277,11 +458,14 @@ export function renderGame(
 	w: number,
 	h: number
 ) {
-	const { player, enemies, collectibles, flag, score, cameraX } = state;
+	const { player, enemies, collectibles, flag, score } = state;
+	const cameraX = Math.floor( state.cameraX );
 
+	waterTick++;
 	ctx.clearRect( 0, 0, w, h );
 	drawBackground( ctx, cameraX, w, h );
 	drawTiles( ctx, cameraX, w, h );
+	drawWater( ctx, cameraX, w, h );
 
 	for ( const c of collectibles ) {
 		if ( ! c.collected ) drawCollectible( ctx, c, cameraX );

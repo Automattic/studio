@@ -72,9 +72,19 @@ export function startGame( canvas: HTMLCanvasElement ): () => void {
 	window.addEventListener( 'keyup', onKeyUp );
 
 	let rafId = 0;
+	const TARGET_MS = 1000 / 60;
+	let lastTime = 0;
+	let accumulator = 0;
 
-	function tick() {
-		update( state, keys );
+	function tick( now: number ) {
+		const delta = Math.min( now - lastTime, 100 ); // cap at 100ms to avoid spiral on tab switch
+		lastTime = now;
+		accumulator += delta;
+
+		while ( accumulator >= TARGET_MS ) {
+			update( state, keys );
+			accumulator -= TARGET_MS;
+		}
 		const { player, enemies, collectibles, flag, score, cameraX, status } = state;
 
 		if ( status === 'playing' ) {
@@ -105,7 +115,10 @@ export function startGame( canvas: HTMLCanvasElement ): () => void {
 		rafId = requestAnimationFrame( tick );
 	}
 
-	rafId = requestAnimationFrame( tick );
+	rafId = requestAnimationFrame( ( now ) => {
+		lastTime = now;
+		rafId = requestAnimationFrame( tick );
+	} );
 
 	return () => {
 		cancelAnimationFrame( rafId );
@@ -132,7 +145,7 @@ function update( state: GameState, keys: Set< string > ) {
 		player.facingRight = true;
 	} else {
 		player.vx *= 0.7;
-		if ( Math.abs( player.vx ) < 0.1 ) player.vx = 0;
+		if ( Math.abs( player.vx ) < 0.2 ) player.vx = 0;
 	}
 
 	// Jump
@@ -155,13 +168,18 @@ function update( state: GameState, keys: Set< string > ) {
 	// Animation state
 	if ( ! player.onGround ) {
 		player.state = 'jump';
-	} else if ( Math.abs( player.vx ) > 0.2 ) {
+	} else if ( player.vx !== 0 ) {
 		player.state = 'run';
 	} else {
 		player.state = 'idle';
 	}
-	player.animTimer++;
-	if ( player.animTimer % 6 === 0 ) player.animFrame++;
+	if ( player.vx !== 0 ) {
+		player.animTimer++;
+		if ( player.animTimer % 6 === 0 ) player.animFrame++;
+	} else if ( player.animTimer !== 0 ) {
+		player.animFrame = 0;
+		player.animTimer = 0;
+	}
 
 	if ( player.invincibleTimer > 0 ) player.invincibleTimer--;
 
@@ -188,18 +206,28 @@ function update( state: GameState, keys: Set< string > ) {
 		const nextX = e.x + e.vx;
 		if ( nextX < 0 || nextX + e.w > LEVEL_WIDTH || ! groundAhead ) e.vx *= -1;
 
+		// Hurt timer tick (makes boss flash after first stomp)
+		if ( e.hurtTimer > 0 ) e.hurtTimer--;
+
 		// Collision with player
 		if ( player.invincibleTimer === 0 && rectsOverlap( player, e ) ) {
 			const playerBottom = player.y + player.h;
 			const enemyTop = e.y;
 			if ( player.vy > 0 && playerBottom - enemyTop < 16 ) {
 				// Stomp
-				e.alive = false;
+				e.health--;
 				player.vy = JUMP_FORCE * 0.6;
-				state.score += 100;
 				playSound( 'stomp' );
-			} else {
-				// Hit
+				if ( e.health <= 0 ) {
+					e.alive = false;
+					state.score += e.type === 'mguy' ? 500 : 100;
+				} else {
+					// First stomp on mguy — stun briefly and flash
+					e.hurtTimer = 60;
+					e.vx *= 1.5;
+				}
+			} else if ( e.hurtTimer === 0 ) {
+				// Hit player (mguy can't hurt while stunned)
 				player.lives--;
 				player.invincibleTimer = 90;
 				if ( player.lives <= 0 ) {

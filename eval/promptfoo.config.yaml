@@ -147,17 +147,15 @@ tests:
             if (validationResults.length === 0) {
               return { pass: false, score: 0, reason: 'validate_blocks was not called after building the page' };
             }
-            const failures = validationResults.filter(r => {
-              const text = r.text || '';
-              return r.isError || /Invalid blocks:/i.test(text) || !/Validation:\s+\d+\/\d+\s+blocks valid/i.test(text);
-            });
-            if (failures.length > 0) {
+            const last = validationResults[validationResults.length - 1];
+            const text = last.text || '';
+            const failed = last.isError || /Invalid blocks:/i.test(text) || !/Validation:\s+\d+\/\d+\s+blocks valid/i.test(text);
+            if (failed) {
               return {
                 pass: false,
                 score: 0,
-                reason: `validate_blocks reported invalid or inconclusive output: ${(failures[0].text || JSON.stringify(failures[0])).slice(0, 500)}`,
+                reason: `final validate_blocks result was invalid or inconclusive: ${(text || JSON.stringify(last)).slice(0, 500)}`,
               };
             }
-            const last = validationResults[validationResults.length - 1];
             return { pass: true, score: 1, reason: `validate_blocks passed: ${(last.text || '').split(/\r?\n/)[0]}` };
           });

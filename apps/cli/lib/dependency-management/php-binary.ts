@@ -25,7 +25,7 @@ export async function ensurePhpBinaryAvailable(
 ): Promise< void > {
 	const validatedVersion = validateNativePhpVersion( version );
 
-	if ( fs.existsSync( getPhpBinaryPath( version ) ) ) {
+	if ( fs.existsSync( getPhpBinaryPath( validatedVersion ) ) ) {
 		return;
 	}
 

@@ -6,7 +6,7 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { isWindowFrameRtl } from 'src/lib/is-window-frame-rtl';
 
-export default function WindowsTitlebar( {
+export default function CustomTitlebar( {
 	className,
 	children,
 }: {

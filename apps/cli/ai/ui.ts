@@ -29,7 +29,7 @@ import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { AI_MODELS, DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
-import { getActiveSlashCommands } from 'cli/ai/slash-commands';
+import { AI_CHAT_SLASH_COMMANDS } from 'cli/ai/slash-commands';
 import { buildTodoUpdateLines, type TodoRenderLine } from 'cli/ai/todo-render';
 import { diffTodoSnapshot, type TodoDiff, type TodoEntry } from 'cli/ai/todo-stream';
 import { getWpComSites } from 'cli/lib/api';
@@ -562,7 +562,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this.editor = new PromptEditor( this.tui, editorTheme );
 
 		this.editor.setAutocompleteProvider(
-			new CombinedAutocompleteProvider( getActiveSlashCommands() )
+			new CombinedAutocompleteProvider( AI_CHAT_SLASH_COMMANDS )
 		);
 
 		this.editor.onSubmit = ( text ) => {

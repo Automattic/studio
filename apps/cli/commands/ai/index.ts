@@ -20,7 +20,7 @@ import { resolveResumeSessionContext } from 'cli/ai/sessions/context';
 import { getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
 import { AiSessionRecorder } from 'cli/ai/sessions/recorder';
 import { replaySessionHistory } from 'cli/ai/sessions/replay';
-import { getActiveSlashCommands, type SlashCommandContext } from 'cli/ai/slash-commands';
+import { AI_CHAT_SLASH_COMMANDS, type SlashCommandContext } from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { readCliConfig } from 'cli/lib/cli-config/core';
@@ -657,10 +657,7 @@ export async function runCommand( options: {
 			const prompt = await ui.waitForInput();
 			const trimmedPrompt = prompt.trim();
 
-			const firstToken = trimmedPrompt.split( /\s+/, 1 )[ 0 ] ?? '';
-			const cmd = firstToken.startsWith( '/' )
-				? getActiveSlashCommands().find( ( c ) => `/${ c.name }` === firstToken )
-				: undefined;
+			const cmd = AI_CHAT_SLASH_COMMANDS.find( ( c ) => `/${ c.name }` === trimmedPrompt );
 			if ( cmd ) {
 				if ( cmd.handler ) {
 					const result = await cmd.handler( prompt, slashCommandContext );

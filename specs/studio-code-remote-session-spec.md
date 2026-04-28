@@ -1,5 +1,7 @@
 # Spec: `studio code` Remote Session (Telegram bridge)
 
+> **Status note (2026-04-28):** the `/remote-session` slash command and its subcommands (`attach|detach|new|status`) are **deferred** for the initial PoC. Only the `studio code --remote-session` flag is shipping. The slash-command sections below describe the planned design and can be re-introduced once a non-blocking REPL mode lands.
+
 ## Overview
 
 Add a "remote session" capability to the `studio code` CLI that lets the user drive `studio code` from Telegram. Each Telegram message arriving at the WordPress.com server is delivered to `studio code` as a new turn, and each assistant reply is posted back to Telegram.

@@ -11,9 +11,8 @@ import { respondMessage } from 'cli/remote-session/telegram-client';
 export { RemoteSessionConfigError };
 
 /**
- * Entry point for the --remote-session flag AND for the /remote-session attach
- * slash command. Validates config, enters the poll loop, and returns when the
- * loop exits (detach, Ctrl-C, or fatal error).
+ * Entry point for the `--remote-session` flag. Validates config, enters the
+ * poll loop, and returns when the loop exits (detach, Ctrl-C, or fatal error).
  */
 export async function runRemoteSession( overrides: RemoteSessionOverrides = {} ): Promise< void > {
 	const config = await loadRemoteSessionConfig( overrides );

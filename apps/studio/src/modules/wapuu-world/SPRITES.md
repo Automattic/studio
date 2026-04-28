@@ -36,11 +36,17 @@ Open the result in **Piskelapp** ([piskelapp.com](https://www.piskelapp.com/p/cr
 - Remove the background to make it transparent
 - Align all frames consistently (feet at the same y position, horizontally centered)
 - Use the animation preview to check the loop looks right
-- Save the Piskel source file (download `.piskel` or save in browser) so you can return and make further edits without starting from scratch
+- **Save the `.piskel` source file** (File → Download) and drop it into `apps/studio/src/modules/wapuu-world/piskel/` — this lets you reopen and tweak the sprite without starting over
 - Export as a sprite sheet (PNG, horizontal strip)
 
 ### 5. Add to project and wire up
-Drop the exported PNG into `apps/studio/src/assets/easter-egg/`. Then ask Claude Code to update the renderer to use it — provide the filename, frame count, and frame size.
+Drop the exported PNG into `apps/studio/src/modules/wapuu-world/assets/`. Then ask Claude Code to update the renderer to use it — provide the filename, frame count, and frame size.
+
+## Source files (Piskel)
+
+`.piskel` source files live in `apps/studio/src/modules/wapuu-world/piskel/`. They are **not imported by code** — they exist only so sprites can be reopened and edited in Piskel without starting from scratch. Commit them alongside the exported PNGs so the full pipeline is in source control.
+
+The `.piskel` format is JSON with base64-encoded PNG layers embedded directly — each file is self-contained and human-readable.
 
 ## Tips
 - Keep feet anchored at the same pixel row across all frames — the renderer bottom-aligns sprites to the hitbox, so vertical drift between frames will look like bouncing

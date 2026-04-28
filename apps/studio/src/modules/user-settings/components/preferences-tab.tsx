@@ -102,7 +102,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 		onClose();
 	};
 
-	const colorSchemeSelection = dirtyColorScheme ?? colorScheme ?? 'system';
+	const colorSchemeSelection = dirtyColorScheme ?? colorScheme ?? 'light';
 	const localeSelection = dirtyLocale ?? savedLocale ?? 'en';
 	const editorSelection = dirtyEditor ?? editor ?? 'vscode';
 	const terminalSelection = dirtyTerminal ?? terminal ?? 'terminal';

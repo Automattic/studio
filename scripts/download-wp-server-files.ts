@@ -86,6 +86,35 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 		getUrl: () => PHPMYADMIN_DOWNLOAD_URL,
 		destinationPath: path.join( WP_SERVER_FILES_PATH, 'phpmyadmin' ),
 	},
+	{
+		name: 'blueprints-phar',
+		description: 'blueprints.phar CLI tool',
+		getUrl: async () => {
+			const url = 'https://api.github.com/repos/WordPress/php-toolkit/releases/latest';
+			const headers: HeadersInit = {
+				Accept: 'application/vnd.github.v3+json',
+				'User-Agent': 'wp-now-cli',
+			};
+			if ( process.env.GITHUB_TOKEN ) {
+				headers.Authorization = `token ${ process.env.GITHUB_TOKEN }`;
+			}
+			const response = await fetch( url, { headers } );
+			if ( ! response.ok ) {
+				throw new Error(
+					`GitHub API request failed: ${ response.status } ${ response.statusText }`
+				);
+			}
+			const release: GithubRelease = await response.json();
+			const asset = release.assets?.find( ( a ) => a.name === 'blueprints.phar' );
+			if ( ! asset ) {
+				throw new Error(
+					`blueprints.phar not found in latest php-toolkit release ${ release.tag_name }`
+				);
+			}
+			return asset.browser_download_url;
+		},
+		destinationPath: path.join( WP_SERVER_FILES_PATH, 'blueprints' ),
+	},
 ];
 
 async function downloadFile( file: FileToDownload ): Promise< void > {
@@ -112,6 +141,9 @@ async function downloadFile( file: FileToDownload ): Promise< void > {
 	if ( name === 'wp-cli' ) {
 		console.log( `[${ name }] Moving WP-CLI to destination ...` );
 		fs.moveSync( zipPath, path.join( extractedPath, 'wp-cli.phar' ), { overwrite: true } );
+	} else if ( name === 'blueprints-phar' ) {
+		console.log( `[${ name }] Moving blueprints.phar to destination ...` );
+		fs.moveSync( zipPath, path.join( extractedPath, 'blueprints.phar' ), { overwrite: true } );
 	} else if ( name === 'sqlite' ) {
 		/**
 		 * The SQLite database integration plugin zip extracts into a folder named

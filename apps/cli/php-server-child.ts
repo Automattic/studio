@@ -8,6 +8,7 @@
 
 import { ChildProcess, spawn } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { z } from 'zod';
@@ -16,7 +17,7 @@ import {
 	ChildMessageRaw,
 	ServerConfig,
 } from 'cli/lib/types/wordpress-server-ipc';
-import { getPhpBinaryPath } from './lib/dependency-management/paths';
+import { getBlueprintsPharPath, getPhpBinaryPath } from './lib/dependency-management/paths';
 
 const ROUTER_PATH = path.resolve( import.meta.dirname, 'php', 'router.php' );
 const SET_DEFAULT_PERMALINKS_PATH = path.resolve(
@@ -295,6 +296,10 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		await waitForServerReady( `http://localhost:${ config.port }/`, stopSignal );
 		await installWordPress( config, stopSignal );
 
+		if ( config.blueprint ) {
+			await runBlueprint( config, stopSignal );
+		}
+
 		serverChild.once( 'exit', ( code, signalName ) => {
 			errorToConsole(
 				`PHP child process exited unexpectedly (code: ${ code }, signal: ${ signalName })`
@@ -383,6 +388,82 @@ function sendErrorMessage( messageId: string, error: unknown ): Promise< void > 
 	} );
 }
 
+function runProcessToCompletion(
+	command: string,
+	args: string[],
+	options: { cwd?: string; signal?: AbortSignal } = {}
+): Promise< void > {
+	return new Promise( ( resolve, reject ) => {
+		const child = spawn( command, args, {
+			cwd: options.cwd,
+			stdio: [ 'ignore', 'pipe', 'pipe' ],
+			signal: options.signal,
+		} );
+
+		const onChunk = () => process.send?.( { topic: 'activity' } );
+		child.stdout?.on( 'data', ( chunk: Buffer ) => {
+			process.stdout.write( chunk );
+			onChunk();
+		} );
+		child.stderr?.on( 'data', ( chunk: Buffer ) => {
+			process.stderr.write( chunk );
+			onChunk();
+		} );
+
+		child.on( 'error', reject );
+		child.on( 'close', ( code ) => {
+			if ( code === 0 ) resolve();
+			else reject( new Error( `Process exited with code ${ code }` ) );
+		} );
+	} );
+}
+
+async function runBlueprint( config: ServerConfig, signal: AbortSignal ): Promise< void > {
+	const blueprintJson = JSON.stringify( config.blueprint!.contents );
+	const tmpPath = path.join( os.tmpdir(), `studio-blueprint-${ config.siteId }.json` );
+	await fs.promises.writeFile( tmpPath, blueprintJson );
+
+	// blueprints.phar checks wp-content/plugins/sqlite-database-integration/load.php to detect
+	// SQLite, but Studio puts it in mu-plugins. Create a temporary symlink so the PHAR can find it.
+	const muPluginsSqlite = path.join(
+		config.sitePath,
+		'wp-content',
+		'mu-plugins',
+		'sqlite-database-integration'
+	);
+	const pluginsSqlite = path.join(
+		config.sitePath,
+		'wp-content',
+		'plugins',
+		'sqlite-database-integration'
+	);
+	const needsSymlink = fs.existsSync( muPluginsSqlite ) && ! fs.existsSync( pluginsSqlite );
+	if ( needsSymlink ) {
+		fs.symlinkSync( muPluginsSqlite, pluginsSqlite );
+	}
+
+	try {
+		await runProcessToCompletion(
+			getPhpBinaryPath(),
+			[
+				getBlueprintsPharPath(),
+				'exec',
+				tmpPath,
+				'--mode=apply-to-existing-site',
+				`--site-path=${ config.sitePath }`,
+				`--site-url=${ config.absoluteUrl ?? `http://localhost:${ config.port }` }`,
+				'--db-engine=sqlite',
+			],
+			{ signal }
+		);
+	} finally {
+		await fs.promises.unlink( tmpPath ).catch( () => {} );
+		if ( needsSymlink ) {
+			await fs.promises.unlink( pluginsSqlite ).catch( () => {} );
+		}
+	}
+}
+
 const abortControllers: Record< string, AbortController > = {};
 
 async function ipcMessageHandler( packet: unknown ) {
@@ -429,6 +510,9 @@ async function ipcMessageHandler( packet: unknown ) {
 				result = await stopServer();
 				break;
 			case 'run-blueprint':
+				await runBlueprint( validMessage.data.config, abortController.signal );
+				result = undefined;
+				break;
 			case 'wp-cli-command':
 				throw new Error(
 					`Message "${ validMessage.topic }" is not supported by the native PHP runtime`

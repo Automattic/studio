@@ -50,3 +50,7 @@ export function getAiInstructionsPath(): string {
 export function getPhpMyAdminPath(): string {
 	return path.join( getWpFilesPath(), 'phpmyadmin' );
 }
+
+export function getBlueprintsPharPath(): string {
+	return path.join( getWpFilesPath(), 'blueprints', 'blueprints.phar' );
+}

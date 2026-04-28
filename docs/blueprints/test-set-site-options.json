@@ -1,0 +1,10 @@
+{
+  "steps": [
+    {
+      "step": "setSiteOptions",
+      "options": {
+        "blogname": "Blueprint worked!"
+      }
+    }
+  ]
+}

@@ -5,6 +5,10 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import * as Sentry from '@sentry/electron/main';
 import { CERT_UNTRUSTED_ROOT, SERVER_AUTH_OID } from '@studio/common/constants';
+import {
+	buildLinuxTrustInstallCommand,
+	isCATrustedOnLinux,
+} from '@studio/common/lib/linux-trust-store';
 import { getCertificatesPath } from '@studio/common/lib/well-known-paths';
 import sudo from '@vscode/sudo-prompt';
 
@@ -45,6 +49,8 @@ export async function isRootCATrusted(): Promise< boolean > {
 		} catch ( error ) {
 			return false;
 		}
+	} else if ( process.platform === 'linux' ) {
+		return isCATrustedOnLinux( CA_CERT_PATH );
 	}
 
 	return false;
@@ -75,6 +81,22 @@ export async function trustRootCA(): Promise< void > {
 							reject( error );
 						} else {
 							console.log( 'Root CA trusted in Windows certificate store' );
+							resolve();
+						}
+					}
+				);
+			} );
+		} else if ( platform === 'linux' ) {
+			await new Promise< void >( ( resolve, reject ) => {
+				sudo.exec(
+					buildLinuxTrustInstallCommand( CA_CERT_PATH ),
+					{ name: 'WordPress Studio' },
+					( error ) => {
+						if ( error ) {
+							console.error( 'Error adding certificate to system trust store:', error );
+							reject( error );
+						} else {
+							console.log( 'Root CA trusted in Linux system trust store' );
 							resolve();
 						}
 					}

@@ -11,6 +11,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { decodePassword } from '@studio/common/lib/passwords';
+import { validateNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
 import { isSupportedPHPVersion, type SupportedPHPVersion } from '@studio/common/types/php-versions';
 import { z } from 'zod';
 import {
@@ -19,6 +20,7 @@ import {
 	ServerConfig,
 } from 'cli/lib/types/wordpress-server-ipc';
 import { getPhpBinaryPath } from './lib/dependency-management/paths';
+import { validatePhpVersion } from './lib/utils';
 
 const ROUTER_PATH = path.resolve( import.meta.dirname, 'php', 'router.php' );
 const SET_DEFAULT_PERMALINKS_PATH = path.resolve(
@@ -291,7 +293,7 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		return;
 	}
 
-	const phpVersion = getSupportedPhpVersion( config.phpVersion );
+	const phpVersion = validateNativePhpVersion( config.phpVersion ?? '' );
 	startupAbortController = new AbortController();
 	const stopSignal = AbortSignal.any( [ signal, startupAbortController.signal ] );
 	let spawnedChild: ChildProcess | null = null;

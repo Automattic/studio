@@ -8,8 +8,9 @@ import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import {
 	buildPhpBinaryUrl,
 	getPhpBinaryHash,
-	NativePhpSupportedVersions,
+	validateNativePhpVersion,
 	PHP_PATCH_VERSIONS,
+	type NativePhpSupportedVersion,
 } from '@studio/common/lib/php-binary-metadata';
 import { extract } from 'tar';
 import { getPhpBinaryPath } from './paths';
@@ -18,26 +19,17 @@ import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 const WAIT_POLL_INTERVAL_MS = 1_000;
 const WAIT_TIMEOUT_MS = 5 * 60 * 1_000;
 
-export function isVersionSupportedByNativeRuntime( version: SupportedPHPVersion ): boolean {
-	return NativePhpSupportedVersions.includes( version );
-}
-
 export async function ensurePhpBinaryAvailable(
 	version: SupportedPHPVersion,
 	onProgress?: ( downloaded: number, total: number ) => void
 ): Promise< void > {
-	if ( ! isVersionSupportedByNativeRuntime( version ) ) {
-		throw new Error(
-			`PHP ${ version } is not supported by the native-php runtime. ` +
-				`Supported versions: ${ NativePhpSupportedVersions.join( ', ' ) }.`
-		);
-	}
+	const validatedVersion = validateNativePhpVersion( version );
 
 	if ( fs.existsSync( getPhpBinaryPath( version ) ) ) {
 		return;
 	}
 
-	await downloadAndInstall( version, onProgress );
+	await downloadAndInstall( validatedVersion, onProgress );
 }
 
 async function waitForBinary( binaryPath: string ): Promise< void > {
@@ -56,7 +48,7 @@ async function waitForBinary( binaryPath: string ): Promise< void > {
 }
 
 async function downloadAndInstall(
-	version: SupportedPHPVersion,
+	version: NativePhpSupportedVersion,
 	onProgress?: ( downloaded: number, total: number ) => void
 ): Promise< void > {
 	const platform = process.platform;
@@ -92,13 +84,13 @@ async function downloadAndInstall(
 	// We own the slot — clean up the directory on failure so the next attempt
 	// can claim it and retry.
 	const url = buildPhpBinaryUrl( version, platform, arch );
-	const patchVersion = PHP_PATCH_VERSIONS[ version ]!;
+	const patchVersion = PHP_PATCH_VERSIONS[ version ];
 	const downloadPath = path.join( destDir, path.basename( url ) );
 
 	try {
 		await downloadFile( url, downloadPath, onProgress );
 		await verifyHash( downloadPath, version, platform, arch );
-		await extractAndInstall( downloadPath, destPath, version, patchVersion, platform, arch );
+		await extractAndInstall( downloadPath, destPath, patchVersion, platform, arch );
 	} catch ( err ) {
 		fs.rmSync( destDir, { recursive: true, force: true } );
 		throw err;
@@ -111,7 +103,7 @@ async function downloadAndInstall(
 
 async function verifyHash(
 	filePath: string,
-	version: SupportedPHPVersion,
+	version: NativePhpSupportedVersion,
 	platform: NodeJS.Platform,
 	arch: string
 ): Promise< void > {
@@ -138,7 +130,6 @@ async function verifyHash(
 async function extractAndInstall(
 	archivePath: string,
 	destPath: string,
-	version: SupportedPHPVersion,
 	patchVersion: string,
 	platform: NodeJS.Platform,
 	arch: string

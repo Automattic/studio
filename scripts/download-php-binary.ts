@@ -29,13 +29,14 @@ import { isErrnoException } from '../tools/common/lib/is-errno-exception';
 import {
 	buildPhpBinaryUrl,
 	getPhpBinaryHash,
-	NativePhpSupportedVersions,
 	PHP_PATCH_VERSIONS,
+	NativePhpSupportedVersions,
+	NativePhpSupportedVersion,
 } from '../tools/common/lib/php-binary-metadata';
 import { getConfigDirectory } from '../tools/common/lib/well-known-paths';
-import { RecommendedPHPVersion, SupportedPHPVersions } from '../tools/common/types/php-versions';
+import { RecommendedPHPVersion } from '../tools/common/types/php-versions';
 
-const versionSchema = z.enum( SupportedPHPVersions );
+const versionSchema = z.enum( NativePhpSupportedVersions );
 const platformSchema = z.enum( [ 'darwin', 'win32', 'linux' ] );
 const archSchema = z.enum( [ 'x64', 'arm64' ] );
 
@@ -48,7 +49,7 @@ const positionalArgs = computeHashesMode ? rawArgs.slice( 1 ) : rawArgs;
 
 const { version, ...args } = z
 	.tuple( [
-		versionSchema.default( RecommendedPHPVersion ),
+		versionSchema.default( RecommendedPHPVersion as NativePhpSupportedVersion ),
 		platformSchema.default( process.platform as Platform ),
 		archSchema.default( process.arch as Arch ),
 	] )
@@ -70,14 +71,6 @@ if ( computeHashesMode ) {
 }
 
 async function computeAndPrintHash(): Promise< void > {
-	const patchVersion = PHP_PATCH_VERSIONS[ version ];
-	if ( ! patchVersion ) {
-		console.error(
-			`PHP ${ version } is not supported. Available: ${ NativePhpSupportedVersions.join( ', ' ) }`
-		);
-		process.exit( 1 );
-	}
-
 	const url = buildPhpBinaryUrl( version, args.platform, args.arch );
 	const tmpPath = path.join( os.tmpdir(), `${ process.pid }-${ path.basename( url ) }` );
 
@@ -98,13 +91,6 @@ async function computeAndPrintHash(): Promise< void > {
 
 async function main(): Promise< void > {
 	const patchVersion = PHP_PATCH_VERSIONS[ version ];
-	if ( ! patchVersion ) {
-		console.error(
-			`PHP ${ version } is not supported. Available: ${ NativePhpSupportedVersions.join( ', ' ) }`
-		);
-		process.exit( 1 );
-	}
-
 	const isWindows = args.platform === 'win32';
 	const url = buildPhpBinaryUrl( version, args.platform, args.arch );
 	const binDir = path.join( getConfigDirectory(), 'php-bin', version );

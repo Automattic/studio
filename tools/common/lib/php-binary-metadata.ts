@@ -1,8 +1,30 @@
-import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
+import { __, _n, sprintf } from '@wordpress/i18n';
+import { z } from 'zod';
+import { SupportedPHPVersions, type SupportedPHPVersion } from '@studio/common/types/php-versions';
+
+// PHP versions supported by the native-php runtime (subset of SupportedPHPVersions).
+// PHP 7.4 is excluded: no static binaries are available from the upstream CDN.
+export const NativePhpSupportedVersions = SupportedPHPVersions.filter( ( v ) => v !== '7.4' );
+export type NativePhpSupportedVersion = ( typeof NativePhpSupportedVersions )[ number ];
+
+export function validateNativePhpVersion( version: string ): NativePhpSupportedVersion {
+	const phpVersionSchema = z.enum( NativePhpSupportedVersions );
+	const result = phpVersionSchema.safeParse( version );
+	if ( ! result.success ) {
+		throw new Error(
+			sprintf(
+				`PHP %s is not supported by the native-php runtime. Supported versions: %s.`,
+				version,
+				NativePhpSupportedVersions.join( ', ' )
+			)
+		);
+	}
+	return result.data;
+}
 
 // Pinned patch versions per PHP minor. Bump when new patch releases are available.
 // PHP 7.4 is not available from the upstream static-php-cli CDN.
-export const PHP_PATCH_VERSIONS: Partial< Record< SupportedPHPVersion, string > > = {
+export const PHP_PATCH_VERSIONS: Record< NativePhpSupportedVersion, string > = {
 	'8.5': '8.5.5',
 	'8.4': '8.4.20',
 	'8.3': '8.3.30',
@@ -10,12 +32,6 @@ export const PHP_PATCH_VERSIONS: Partial< Record< SupportedPHPVersion, string > 
 	'8.1': '8.1.34',
 	'8.0': '8.0.30',
 };
-
-// PHP versions supported by the native-php runtime (subset of SupportedPHPVersions).
-// PHP 7.4 is excluded: no static binaries are available from the upstream CDN.
-export const NativePhpSupportedVersions = Object.keys(
-	PHP_PATCH_VERSIONS
-) as SupportedPHPVersion[];
 
 // SHA-256 hashes keyed by '<phpMinorVersion>-<nodePlatform>-<nodeArch>'.
 // Examples: '8.4-darwin-arm64', '8.3-linux-x64', '8.4-win32-x64'
@@ -71,13 +87,8 @@ export function buildPhpBinaryUrl(
 	platform: NodeJS.Platform,
 	arch: string
 ): string {
-	const patchVersion = PHP_PATCH_VERSIONS[ version ];
-	if ( ! patchVersion ) {
-		throw new Error(
-			`PHP ${ version } is not available for the native-php runtime. ` +
-				`Supported versions: ${ NativePhpSupportedVersions.join( ', ' ) }.`
-		);
-	}
+	const validatedVersion = validateNativePhpVersion( version );
+	const patchVersion = PHP_PATCH_VERSIONS[ validatedVersion ];
 
 	const p = platform as Platform;
 	if ( p === 'win32' ) {
@@ -89,7 +100,7 @@ export function buildPhpBinaryUrl(
 }
 
 export function getPhpBinaryHash(
-	version: SupportedPHPVersion,
+	version: NativePhpSupportedVersion,
 	platform: NodeJS.Platform,
 	arch: string
 ): string | undefined {

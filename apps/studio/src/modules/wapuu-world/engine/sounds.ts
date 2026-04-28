@@ -31,7 +31,13 @@ function sweep(
 	osc.stop( ac.currentTime + duration );
 }
 
-function note( freq: number, start: number, duration: number, volume = 0.25, type: OscillatorType = 'square' ) {
+function note(
+	freq: number,
+	start: number,
+	duration: number,
+	volume = 0.25,
+	type: OscillatorType = 'square'
+) {
 	const ac = getCtx();
 	const osc = ac.createOscillator();
 	const gain = ac.createGain();

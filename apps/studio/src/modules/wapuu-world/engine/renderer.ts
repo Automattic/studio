@@ -1,16 +1,18 @@
-import { Player, Enemy, Collectible, Flag } from './entities';
-import { TILE_SIZE, LEVEL_MAP, getTile } from './level';
-import tilesSpriteUrl from 'src/modules/wapuu-world/assets/wapuu-sprites-tiles.png';
-import coinSpriteUrl from 'src/modules/wapuu-world/assets/wapuu-sprites-coin.png';
 import bgFarUrl from 'src/modules/wapuu-world/assets/wapuu-bg-far.png';
 import bgNearUrl from 'src/modules/wapuu-world/assets/wapuu-bg-near.png';
 import gutenbergSpriteUrl from 'src/modules/wapuu-world/assets/wapuu-gutenberg-sprite.png';
-import wapuuPlayerSpriteUrl from 'src/modules/wapuu-world/assets/wapuu-player-sprite.png';
 import wapuuPlayerIdleSpriteUrl from 'src/modules/wapuu-world/assets/wapuu-player-idle-sprite.png';
+import wapuuPlayerSpriteUrl from 'src/modules/wapuu-world/assets/wapuu-player-sprite.png';
+import coinSpriteUrl from 'src/modules/wapuu-world/assets/wapuu-sprites-coin.png';
+import tilesSpriteUrl from 'src/modules/wapuu-world/assets/wapuu-sprites-tiles.png';
+import { Player, Enemy, Collectible, Flag } from './entities';
+import { TILE_SIZE, LEVEL_MAP, getTile } from './level';
 
 function loadImage( url: string ): { img: HTMLImageElement; ready: boolean } {
 	const entry = { img: new Image(), ready: false };
-	entry.img.onload = () => { entry.ready = true; };
+	entry.img.onload = () => {
+		entry.ready = true;
+	};
 	entry.img.src = url;
 	return entry;
 }
@@ -27,8 +29,10 @@ const sprites = {
 
 function drawTileSprite(
 	ctx: CanvasRenderingContext2D,
-	dx: number, dy: number,
-	dw = TILE_SIZE, dh = TILE_SIZE
+	dx: number,
+	dy: number,
+	dw = TILE_SIZE,
+	dh = TILE_SIZE
 ) {
 	const { img, ready } = sprites.tiles;
 	if ( ! ready ) return false;
@@ -75,12 +79,11 @@ function drawBackground( ctx: CanvasRenderingContext2D, cameraX: number, w: numb
 		const bgH = bgImg.naturalHeight;
 		// Destination tile size: full image scaled by zoom
 		const dw = bgW * zoom;
-		const dh = bgH * zoom;
 		// Source crop from bottom to match canvas height
 		const srcH = Math.min( bgH, h / zoom );
 		const srcY = bgH - srcH; // bottom-aligned
 		const destH = srcH * zoom; // = h when image is tall enough
-		const offset = ( ( cameraX * 0.2 ) % dw + dw ) % dw;
+		const offset = ( ( ( cameraX * 0.2 ) % dw ) + dw ) % dw;
 		for ( let dx = -offset; dx < w; dx += dw ) {
 			ctx.drawImage( bgImg, 0, srcY, bgW, srcH, dx, h - destH, dw, destH );
 		}
@@ -96,7 +99,7 @@ function drawBackground( ctx: CanvasRenderingContext2D, cameraX: number, w: numb
 		const dw = nearW * scale;
 		const dh = nearH * scale;
 		// Keep offset in [0, dw) to avoid float drift at large cameraX
-		const offset = ( ( cameraX * 0.5 ) % dw + dw ) % dw;
+		const offset = ( ( ( cameraX * 0.5 ) % dw ) + dw ) % dw;
 		const startX = -offset;
 		for ( let dx = startX; dx < w; dx += dw ) {
 			ctx.drawImage( nearImg, 0, 0, nearW, nearH, dx, h - dh, dw, dh );
@@ -139,7 +142,7 @@ function drawWater( ctx: CanvasRenderingContext2D, cameraX: number, _w: number, 
 		// Animated surface wave
 		ctx.fillStyle = 'rgba(100, 180, 255, 0.9)';
 		ctx.beginPath();
-		const waveY = surfaceY + 2 + Math.sin( ( waterTick * 0.05 ) + col * 0.8 ) * 3;
+		const waveY = surfaceY + 2 + Math.sin( waterTick * 0.05 + col * 0.8 ) * 3;
 		ctx.rect( tx, waveY, TILE_SIZE, 4 );
 		ctx.fill();
 	}

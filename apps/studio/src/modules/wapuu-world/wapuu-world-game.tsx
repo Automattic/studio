@@ -83,12 +83,7 @@ export function WapuuWorldGame() {
 						const rect = ( e.target as HTMLCanvasElement ).getBoundingClientRect();
 						const y = e.clientY - rect.top;
 						const x = e.clientX - rect.left;
-						if (
-							y >= WIN_LINK.y &&
-							y <= WIN_LINK.y + WIN_LINK.h &&
-							x >= 0 &&
-							x <= 480
-						) {
+						if ( y >= WIN_LINK.y && y <= WIN_LINK.y + WIN_LINK.h && x >= 0 && x <= 480 ) {
 							void window.ipcApi.openURL( WIN_LINK.url );
 						}
 					} }

@@ -115,7 +115,6 @@ import {
 	getDefaultSiteDirectory,
 	saveDefaultSiteDirectory,
 } from 'src/modules/user-settings/lib/ipc-handlers';
-import { linuxFindEditorPath } from 'src/modules/user-settings/lib/linux-editor-path';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { SiteServer, stopAllServers as triggerStopAllServers } from 'src/site-server';
 import { getSiteThumbnailPath } from 'src/storage/paths';
@@ -1387,19 +1386,6 @@ export async function openAppAtPath(
 
 	if ( platform === 'win32' ) {
 		const editorPath = await winFindEditorPath( editorKey );
-		if ( ! editorPath ) {
-			// Fall back to URL scheme for each path
-			for ( const p of allPaths ) {
-				openURL( event, editor.url( p ) );
-			}
-			return;
-		}
-
-		return promiseExec( `"${ editorPath }" ${ quotedPaths }` );
-	}
-
-	if ( platform === 'linux' ) {
-		const editorPath = await linuxFindEditorPath( editorKey );
 		if ( ! editorPath ) {
 			// Fall back to URL scheme for each path
 			for ( const p of allPaths ) {

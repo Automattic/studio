@@ -386,7 +386,6 @@ export class AiChatUI implements AiOutputAdapter {
 	private editorVisible = false;
 	private interruptCallback: ( () => void ) | null = null;
 	private wasInterrupted = false;
-	private interruptionNoticeShown = false;
 	private usageCapReached = false;
 	private hasShownResponseMarker = false;
 	private turnStartTime = 0;
@@ -595,9 +594,6 @@ export class AiChatUI implements AiOutputAdapter {
 				this.stop();
 				process.exit( 0 );
 			}
-			if ( matchesKey( data, 'escape' ) && this.requestInterrupt() ) {
-				return { consume: true };
-			}
 			// Option picker navigation (must be checked before site picker)
 			if ( this.optionPickerSelectList ) {
 				// When "Other" is active, let the inline input handle most keys
@@ -707,6 +703,10 @@ export class AiChatUI implements AiOutputAdapter {
 				this.queuedPrompts.pop();
 				this.renderQueuedContainer();
 				return { consume: true };
+			}
+			if ( matchesKey( data, 'escape' ) && this.interruptCallback ) {
+				this.wasInterrupted = true;
+				this.interruptCallback();
 			}
 			if ( matchesKey( data, 'ctrl+o' ) && this.activeExpandablePreview ) {
 				this.toggleExpandablePreview();
@@ -1174,13 +1174,6 @@ export class AiChatUI implements AiOutputAdapter {
 		this.tui.requestRender();
 	}
 
-	private cancelOptionPicker(): void {
-		const resolve = this.optionPickerResolve;
-		this.optionPickerResolve = null;
-		this.closeOptionPicker();
-		resolve?.( '' );
-	}
-
 	start(): void {
 		this.tui.start();
 	}
@@ -1253,55 +1246,6 @@ export class AiChatUI implements AiOutputAdapter {
 
 	set onInterrupt( fn: ( () => void ) | null ) {
 		this.interruptCallback = fn;
-		this.updateHints();
-	}
-
-	private requestInterrupt(): boolean {
-		if ( ! this.interruptCallback ) {
-			return false;
-		}
-
-		if ( this.wasInterrupted ) {
-			return true;
-		}
-
-		this.wasInterrupted = true;
-		this.closeSitePicker();
-		this.cancelOptionPicker();
-		if ( this.submitResolve ) {
-			const resolve = this.submitResolve;
-			this.submitResolve = null;
-			resolve( '' );
-		}
-		this.showInterruptedNotice();
-		this.interruptCallback();
-		this.updateHints();
-		return true;
-	}
-
-	private showInterruptedNotice(): void {
-		if ( this.interruptionNoticeShown ) {
-			return;
-		}
-
-		this.interruptionNoticeShown = true;
-		this.hideLoader();
-		this.stopToolDotBlink();
-		this.toolDotText = null;
-		this.currentMarkdown = null;
-		this.currentResponseText = '';
-
-		const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
-		this.messages.addChild(
-			new Text( '\n ' + chalk.yellow( '⏺' ) + ' ' + chalk.yellow( __( 'Interrupted' ) ), 0, 0 )
-		);
-		this.showInfo(
-			sprintf(
-				/* translators: %d: number of seconds */
-				__( 'Ran for %ds before interruption' ),
-				thinkingSec
-			)
-		);
 	}
 
 	stop(): void {
@@ -1409,9 +1353,7 @@ export class AiChatUI implements AiOutputAdapter {
 		if ( this.queuedPrompts.length > 0 ) {
 			hints.push( __( 'backspace to unqueue' ) );
 		}
-		if ( this.interruptCallback ) {
-			hints.push( __( 'esc to interrupt' ) );
-		}
+		hints.push( __( 'esc to interrupt' ) );
 		this.editor.hints = hints;
 	}
 
@@ -1445,7 +1387,6 @@ export class AiChatUI implements AiOutputAdapter {
 		this.currentResponseText = '';
 		this.hasShownResponseMarker = false;
 		this.wasInterrupted = false;
-		this.interruptionNoticeShown = false;
 		this.usageCapReached = false;
 		this.turnStartTime = this.nowMs();
 		this.todoSnapshot = [];
@@ -2064,21 +2005,12 @@ export class AiChatUI implements AiOutputAdapter {
 						this.closeOptionPicker();
 						resolve( item.value );
 					};
-					selectList.onCancel = () => {
-						this.cancelOptionPicker();
-					};
 				} );
 
-				if ( ! selected ) {
-					return answers;
-				}
 				answers[ q.question ] = selected;
 			} else {
 				// Free-form text input
 				const answer = await this.waitForInput();
-				if ( ! answer ) {
-					return answers;
-				}
 				answers[ q.question ] = answer;
 			}
 		}
@@ -2093,10 +2025,6 @@ export class AiChatUI implements AiOutputAdapter {
 	 * Returns session result when the agent turn is complete.
 	 */
 	handleMessage( message: SDKMessage ): HandleMessageResult | undefined {
-		if ( this.wasInterrupted && message.type !== 'result' ) {
-			return undefined;
-		}
-
 		switch ( message.type ) {
 			case 'assistant': {
 				// Detect the AI usage cap response from the WordPress.com proxy.
@@ -2240,7 +2168,21 @@ export class AiChatUI implements AiOutputAdapter {
 
 				// User-initiated interruption: friendly message, suppress retry prompt.
 				if ( this.wasInterrupted ) {
-					this.showInterruptedNotice();
+					const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
+					this.messages.addChild(
+						new Text(
+							'\n ' + chalk.yellow( '⏺' ) + ' ' + chalk.yellow( __( 'Interrupted' ) ),
+							0,
+							0
+						)
+					);
+					this.showInfo(
+						sprintf(
+							/* translators: %d: number of seconds */
+							__( 'Ran for %ds before interruption' ),
+							thinkingSec
+						)
+					);
 					return {
 						type: 'result',
 						sessionId: message.session_id,

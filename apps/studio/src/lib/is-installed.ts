@@ -1,8 +1,6 @@
 import { app } from 'electron';
 import fs from 'fs';
 import path from 'path';
-import { findOnPath } from 'src/lib/find-on-path';
-import { SUPPORTED_EDITORS, supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
 
 type PlatformPaths = {
 	[ K in keyof InstalledApps ]: string[];
@@ -54,18 +52,15 @@ const installationPaths: Record< string, PlatformPaths > = {
 		warp: [ 'Warp.app' ],
 		ghostty: [ 'Ghostty.app' ],
 	},
-	// Linux editor detection is driven by `supportedEditorConfig.linuxCommands`
-	// (resolved via $PATH in `isInstalled`), so editors are intentionally
-	// omitted from this map. Only non-editor entries live here.
 	linux: {
-		antigravity: [],
-		vscode: [],
-		phpstorm: [],
-		cursor: [],
-		windsurf: [],
-		webstorm: [],
-		sublime: [],
-		zed: [],
+		antigravity: [ '/usr/bin/antigravity' ],
+		vscode: [ '/usr/bin/code' ],
+		phpstorm: [ '/usr/bin/phpstorm' ],
+		cursor: [ '/usr/bin/cursor' ],
+		windsurf: [ '/usr/bin/windsurf' ],
+		webstorm: [ '/usr/bin/webstorm' ],
+		sublime: [ '/usr/bin/subl' ],
+		zed: [ '/usr/bin/zed' ],
 		iterm: [],
 		terminal: [],
 		warp: [ '/usr/bin/warp' ],
@@ -143,22 +138,8 @@ if ( process.platform === 'darwin' ) {
 	} );
 }
 
-function isSupportedEditor(
-	key: keyof InstalledApps
-): key is ( typeof SUPPORTED_EDITORS )[ number ] {
-	return ( SUPPORTED_EDITORS as readonly string[] ).includes( key );
-}
-
 export function isInstalled( key: keyof InstalledApps ): boolean {
 	const platform = process.platform;
-
-	// On Linux, editors live in many places (apt, snap, flatpak, ~/.local/bin, …).
-	// Resolve them against $PATH using the editor config instead of hardcoded paths.
-	if ( platform === 'linux' && isSupportedEditor( key ) ) {
-		const editor = supportedEditorConfig[ key ];
-		return editor.linuxCommands.some( ( command ) => findOnPath( command ) !== null );
-	}
-
 	const paths = installationPaths[ platform ]?.[ key ];
 
 	// Return true if any of the possible paths exist

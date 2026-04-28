@@ -11,14 +11,10 @@ import {
 import { Logger } from 'cli/logger';
 
 vi.mock( 'cli/lib/daemon-client' );
-vi.mock( 'cli/lib/dependency-management/php-binary', () => ( {
-	ensurePhpBinaryAvailable: vi.fn().mockResolvedValue( undefined ),
-} ) );
 
 describe( 'WordPress Server Manager', () => {
 	const mockLogger = {
 		reportProgress: vi.fn(),
-		reportStart: vi.fn(),
 	} as unknown as Logger< string >;
 
 	const mockSiteData: SiteData = {

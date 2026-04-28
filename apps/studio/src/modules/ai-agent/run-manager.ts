@@ -134,9 +134,6 @@ export function interruptAgentRun( runId: string ): void {
 	}
 	run.interrupted = true;
 	run.interruptAttempts += 1;
-	if ( runsBySessionId.get( run.sessionId ) === run ) {
-		runsBySessionId.delete( run.sessionId );
-	}
 
 	// Second click escalates: the graceful path is in flight but evidently
 	// not landing fast enough, so skip the grace period.

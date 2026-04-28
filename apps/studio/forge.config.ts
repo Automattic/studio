@@ -85,8 +85,6 @@ const config: ForgeConfig = {
 				name: 'studio',
 				bin: 'studio',
 				mimeType: [ 'x-scheme-handler/wp-studio' ],
-				icon: path.join( __dirname, 'assets', 'studio-app-icon.png' ),
-				desktopTemplate: path.join( __dirname, 'installers', 'desktop.ejs' ),
 			},
 		} ),
 		new MakerSquirrel(

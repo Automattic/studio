@@ -20,23 +20,14 @@ type ReaddirSyncStrings = (
 ) => string[];
 type ReaddirSyncMock = ReturnType< typeof vi.fn< ReaddirSyncStrings > >;
 
-vi.mock( 'fs', () => {
-	const constants = { X_OK: 1 };
-	return {
-		default: {
-			existsSync: vi.fn(),
-			readdirSync: vi.fn(),
-			statSync: vi.fn(),
-			accessSync: vi.fn(),
-			constants,
-		},
+vi.mock( 'fs', () => ( {
+	default: {
 		existsSync: vi.fn(),
 		readdirSync: vi.fn(),
-		statSync: vi.fn(),
-		accessSync: vi.fn(),
-		constants,
-	};
-} );
+	},
+	existsSync: vi.fn(),
+	readdirSync: vi.fn(),
+} ) );
 
 vi.mock( 'electron', () => ( {
 	app: {
@@ -54,25 +45,11 @@ describe( 'isInstalled', () => {
 		vi.resetAllMocks();
 		mockPaths = [];
 
-		const isMocked = ( testPath: unknown ): boolean => {
-			const normalizedTestPath = String( testPath ).replace( /\\/g, '/' );
+		vi.mocked( fs.existsSync ).mockImplementation( ( testPath ) => {
+			const pathStr = String( testPath );
+			const normalizedTestPath = pathStr.replace( /\\/g, '/' );
 			const normalizedMockPaths = mockPaths.map( ( p ) => p.replace( /\\/g, '/' ) );
 			return normalizedMockPaths.includes( normalizedTestPath );
-		};
-
-		vi.mocked( fs.existsSync ).mockImplementation( isMocked );
-
-		vi.mocked( fs.statSync ).mockImplementation( ( ( testPath: unknown ) => {
-			if ( ! isMocked( testPath ) ) {
-				throw Object.assign( new Error( 'ENOENT' ), { code: 'ENOENT' } );
-			}
-			return { isFile: () => true } as unknown as fs.Stats;
-		} ) as typeof fs.statSync );
-
-		vi.mocked( fs.accessSync ).mockImplementation( ( testPath: unknown ) => {
-			if ( ! isMocked( testPath ) ) {
-				throw Object.assign( new Error( 'EACCES' ), { code: 'EACCES' } );
-			}
 		} );
 
 		vi.mocked( app.getPath ).mockImplementation( ( name: string ) => {
@@ -172,66 +149,6 @@ describe( 'isInstalled', () => {
 
 			mockPaths = [ 'C:\\Users\\TestUser\\AppData\\Roaming\\Local\\Programs\\Microsoft VS Code' ];
 			expect( isInstalled( 'vscode' ) ).toBe( true );
-		} );
-	} );
-
-	describe( 'on Linux', () => {
-		const originalPath = process.env.PATH;
-		const originalPlatform = process.platform;
-
-		beforeEach( async () => {
-			Object.defineProperty( process, 'platform', { value: 'linux', configurable: true } );
-			process.env.PATH = '/usr/bin:/mock/home/path/.local/bin';
-			vi.resetModules();
-			const module = await import( '../is-installed' );
-			isInstalled = module.isInstalled;
-		} );
-
-		afterEach( () => {
-			process.env.PATH = originalPath;
-			Object.defineProperty( process, 'platform', {
-				value: originalPlatform,
-				configurable: true,
-			} );
-		} );
-
-		it( 'detects Zed installed in ~/.local/bin', () => {
-			mockPaths = [ '/mock/home/path/.local/bin/zed' ];
-			expect( isInstalled( 'zed' ) ).toBe( true );
-		} );
-
-		it( 'detects VS Code installed in /usr/bin', () => {
-			mockPaths = [ '/usr/bin/code' ];
-			expect( isInstalled( 'vscode' ) ).toBe( true );
-		} );
-
-		it( 'returns false when an editor binary is not on $PATH', () => {
-			mockPaths = [];
-			expect( isInstalled( 'zed' ) ).toBe( false );
-		} );
-
-		it( 'detects Warp via the hardcoded /usr/bin path (non-editor)', () => {
-			mockPaths = [ '/usr/bin/warp' ];
-			expect( isInstalled( 'warp' ) ).toBe( true );
-		} );
-
-		it( 'ignores a same-named directory on $PATH (not a regular file)', () => {
-			mockPaths = [ '/usr/bin/code' ];
-			vi.mocked( fs.statSync ).mockImplementation( ( ( testPath: unknown ) => {
-				if ( String( testPath ) !== '/usr/bin/code' ) {
-					throw Object.assign( new Error( 'ENOENT' ), { code: 'ENOENT' } );
-				}
-				return { isFile: () => false } as unknown as fs.Stats;
-			} ) as typeof fs.statSync );
-			expect( isInstalled( 'vscode' ) ).toBe( false );
-		} );
-
-		it( 'ignores a non-executable file on $PATH', () => {
-			mockPaths = [ '/usr/bin/code' ];
-			vi.mocked( fs.accessSync ).mockImplementation( () => {
-				throw Object.assign( new Error( 'EACCES' ), { code: 'EACCES' } );
-			} );
-			expect( isInstalled( 'vscode' ) ).toBe( false );
 		} );
 	} );
 } );

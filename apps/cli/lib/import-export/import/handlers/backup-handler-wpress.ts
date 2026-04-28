@@ -101,15 +101,6 @@ async function readBlockToFile( fd: fs.promises.FileHandle, header: Header, outp
 	await fse.ensureDir( path.dirname( outputFilePath ) );
 	const outputStream = fs.createWriteStream( outputFilePath );
 
-	// Resolve once the underlying fd is closed — either after end() flushes or
-	// after an error destroys the stream. Awaiting this before returning prevents
-	// the writeStream's lazy open + flush from racing with synchronous existence
-	// checks in the caller (manifested as a Windows-only test flake; libuv's
-	// worker happens to flush fast enough on Linux/macOS to mask it).
-	const closed = new Promise< void >( ( resolve ) => {
-		outputStream.once( 'close', () => resolve() );
-	} );
-
 	let totalBytesToRead = header.size;
 	let errored = false;
 	let streamEnded = false;
@@ -148,7 +139,6 @@ async function readBlockToFile( fd: fs.promises.FileHandle, header: Header, outp
 		errorHandler();
 	} finally {
 		endStream();
-		await closed;
 	}
 }
 

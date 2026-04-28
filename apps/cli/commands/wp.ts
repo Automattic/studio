@@ -63,7 +63,7 @@ export async function runCommand(
 	// a different PHP version, pass the command to it…
 	const useCustomPhpVersion = options.phpVersion && options.phpVersion !== site.phpVersion;
 
-	if ( ! useCustomPhpVersion && site.runtime !== 'native-php' ) {
+	if ( ! useCustomPhpVersion ) {
 		process.on( 'SIGINT', disconnectFromDaemon );
 		process.on( 'SIGTERM', disconnectFromDaemon );
 

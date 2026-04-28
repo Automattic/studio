@@ -3,7 +3,7 @@ import {
 	BlueprintPreferredVersions,
 	BlueprintValidationWarning,
 } from '@studio/common/lib/blueprint-validation';
-import { SupportedPHPVersion, SupportedPHPVersionsList } from '@studio/common/types/php-versions';
+import { SupportedPHPVersion, isSupportedPHPVersion } from '@studio/common/types/php-versions';
 import { SyncSite } from '@studio/common/types/sync';
 import { Navigator, useNavigator } from '@wordpress/components';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -282,7 +282,7 @@ export default function NavigationContentClassic( props: NavigationContentClassi
 		const values = { ...defaultValues };
 		if (
 			blueprintPreferredVersions?.php &&
-			SupportedPHPVersionsList.includes( blueprintPreferredVersions.php )
+			isSupportedPHPVersion( blueprintPreferredVersions.php )
 		) {
 			values.phpVersion = blueprintPreferredVersions.php;
 		}

@@ -1,0 +1,13 @@
+.root {
+	display: inline-grid;
+	box-sizing: border-box;
+	place-items: center;
+	width: 16px;
+	height: 16px;
+	border-radius: 4px;
+	color: var(--wpds-color-fg-content-neutral);
+	background: var(--wpds-color-bg-surface-neutral);
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	flex-shrink: 0;
+	line-height: 0;
+}

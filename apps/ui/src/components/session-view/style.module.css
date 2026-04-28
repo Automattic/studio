@@ -18,7 +18,6 @@
 	color: var(--wpds-color-fg-content-neutral-weak);
 }
 
-
 .header {
 	display: flex;
 	align-items: center;
@@ -50,6 +49,10 @@
 
 .headerSite {
 	font-weight: 600;
+}
+
+.headerSiteIcon {
+	margin-inline-end: calc(-1 * var(--wpds-dimension-padding-xs));
 }
 
 .headerDot {

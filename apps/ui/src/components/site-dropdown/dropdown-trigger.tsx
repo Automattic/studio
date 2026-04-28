@@ -3,6 +3,7 @@ import { chevronDownSmall } from '@wordpress/icons';
 import { Button, Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { forwardRef } from 'react';
+import { SiteIcon } from '@/components/site-icon';
 import styles from './dropdown-trigger.module.css';
 import type { ComponentProps, ElementRef } from 'react';
 
@@ -14,11 +15,21 @@ type Props = Omit< ComponentProps< typeof Button >, 'children' > & {
 	status: SiteStatus;
 	statusLabel: string;
 	environment: 'local' | 'live';
+	showSiteIcon?: boolean;
 };
 
 export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
 	function DropdownTrigger(
-		{ siteName, siteUrl, status, statusLabel, environment, className, ...props },
+		{
+			siteName,
+			siteUrl,
+			status,
+			statusLabel,
+			environment,
+			showSiteIcon = false,
+			className,
+			...props
+		},
 		ref
 	) {
 		// In live mode the local server's running/stopped status is irrelevant
@@ -34,6 +45,7 @@ export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
 				className={ clsx( styles.trigger, className ) }
 				{ ...props }
 			>
+				{ showSiteIcon ? <SiteIcon className={ styles.siteIcon } /> : null }
 				<span className={ styles.site }>{ siteName }</span>
 				<span className={ styles.status }>
 					<span className={ clsx( styles.dot, dotClass ) } role="img" aria-label={ statusLabel } />

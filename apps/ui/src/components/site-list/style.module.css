@@ -36,7 +36,34 @@
 .siteToggle {
 	max-width: 100%;
 	height: auto;
-	gap: var(--wpds-dimension-padding-xs);
+	gap: 0;
+}
+
+.siteIconSlot {
+	display: inline-grid;
+	place-items: center;
+	flex-shrink: 0;
+	inline-size: 0;
+	margin-inline-end: 0;
+	opacity: 0;
+	transform: translateX(-4px) scale(0.75);
+	transform-origin: left center;
+	overflow: hidden;
+	transition: inline-size 150ms ease, margin-inline-end 150ms ease, opacity 150ms ease,
+		transform 150ms ease;
+}
+
+.siteActive .siteIconSlot {
+	inline-size: 16px;
+	margin-inline-end: var(--wpds-dimension-padding-xs);
+	opacity: 1;
+	transform: translateX(0) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.siteIconSlot {
+		transition: none;
+	}
 }
 
 .siteName {

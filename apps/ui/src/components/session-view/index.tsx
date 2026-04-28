@@ -22,6 +22,7 @@ import { Conversation } from '@/components/session-view/conversation';
 import { EmptyBackground } from '@/components/session-view/empty-background';
 import { QueuedPrompts } from '@/components/session-view/queued-prompts';
 import { SiteDropdown } from '@/components/site-dropdown';
+import { SiteIcon } from '@/components/site-icon';
 import { SitePreview } from '@/components/site-preview';
 import { type Annotation } from '@/components/site-preview/types';
 import { useConnector } from '@/data/core';
@@ -72,9 +73,14 @@ function SessionHeader( {
 		<div className={ styles.header }>
 			{ toggleSpacerClass ? <span className={ toggleSpacerClass } aria-hidden="true" /> : null }
 			{ site ? (
-				<SiteDropdown site={ site } activeEnvironment={ effectiveEnvironment } />
+				<SiteDropdown
+					site={ site }
+					activeEnvironment={ effectiveEnvironment }
+					showSiteIcon={ sidebarCollapsed }
+				/>
 			) : (
 				<>
+					{ sidebarCollapsed ? <SiteIcon className={ styles.headerSiteIcon } /> : null }
 					<span className={ styles.headerSite }>{ siteName }</span>
 					<span className={ styles.headerDot } aria-hidden="true" />
 					<span className={ styles.headerEnv }>

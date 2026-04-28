@@ -37,6 +37,9 @@ import { RecommendedPHPVersion } from '../tools/common/types/php-versions';
 import type { SupportedPHPVersion } from '../tools/common/types/php-versions';
 import type { ReadableStream as NodeReadableStream } from 'stream/web';
 
+const versionSchema = z.enum(
+	NativePhpSupportedVersions as [ SupportedPHPVersion, ...SupportedPHPVersion[] ]
+);
 const platformSchema = z.enum( [ 'darwin', 'win32', 'linux' ] );
 const archSchema = z.enum( [ 'x64', 'arm64' ] );
 
@@ -47,20 +50,14 @@ const rawArgs = process.argv.slice( 2 );
 const computeHashesMode = rawArgs[ 0 ] === '--compute-hashes';
 const positionalArgs = computeHashesMode ? rawArgs.slice( 1 ) : rawArgs;
 
-const versionArg = positionalArgs[ 0 ];
-const version = (
-	versionArg && NativePhpSupportedVersions.includes( versionArg as SupportedPHPVersion )
-		? versionArg
-		: RecommendedPHPVersion
-) as SupportedPHPVersion;
-
-const args = z
+const { version, ...args } = z
 	.tuple( [
+		versionSchema.default( RecommendedPHPVersion ),
 		platformSchema.default( process.platform as Platform ),
 		archSchema.default( process.arch as Arch ),
 	] )
-	.transform( ( [ platform, arch ] ) => ( { platform, arch } ) )
-	.parse( [ positionalArgs[ 1 ], positionalArgs[ 2 ] ] );
+	.transform( ( [ version, platform, arch ] ) => ( { version, platform, arch } ) )
+	.parse( [ positionalArgs[ 0 ], positionalArgs[ 1 ], positionalArgs[ 2 ] ] );
 
 // Windows ARM64 has no pre-built binary upstream; run x64 under OS emulation.
 const effectiveArch: Arch = args.platform === 'win32' ? 'x64' : args.arch;

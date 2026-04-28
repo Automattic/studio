@@ -4,8 +4,8 @@
  * NOT used in production builds — binaries are not bundled with Studio or the CLI.
  *
  * Binaries come from https://dl.static-php.dev/static-php-cli/
- *   - macOS / Linux: `common` variant (includes pdo_sqlite)
- *   - Windows x64:   `spc-max` variant (includes pdo_sqlite + opcache)
+ *   - macOS / Linux: `bulk` variant (intl, opcache, sodium, imagick + pdo_sqlite)
+ *   - Windows x64:   `windows/spc-max` variant (pdo_sqlite + opcache, missing intl/sodium/imagick)
  *
  * Usage:
  *   npx ts-node scripts/download-php-binary.ts [platform] [arch]
@@ -20,6 +20,9 @@ import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { Readable } from 'stream';
+import { pipeline } from 'stream/promises';
+import type { ReadableStream as NodeReadableStream } from 'stream/web';
 import { extract } from 'tar';
 import { z } from 'zod';
 import { extractZip } from '../tools/common/lib/extract-zip';
@@ -28,14 +31,13 @@ import { getConfigDirectory } from '../tools/common/lib/well-known-paths';
 const PHP_VERSION = '8.4.20';
 
 // SHA-256 hashes for each platform asset from dl.static-php.dev.
-// Run `sha256sum <downloaded-file>` after first download and populate these before committing.
-// Until populated, the script will warn and skip verification.
+// To recompute (e.g. after a PHP_VERSION bump), download each archive and run `shasum -a 256 <file>`.
 const KNOWN_HASHES: Record< string, string > = {
-	// 'darwin-arm64': '<sha256>',
-	// 'darwin-x64':   '<sha256>',
-	// 'linux-x64':    '<sha256>',
-	// 'linux-arm64':  '<sha256>',
-	// 'win32-x64':    '<sha256>',
+	'darwin-arm64': 'f0c8e545f77f45d4331e004effa34c863071ea9400c668e4462e41b22ded980d',
+	'darwin-x64': '837402a1a5d01a01fd5b3db08443376b3c962087a9ab3d7462b68b6724576579',
+	'linux-x64': '8a6bf4113d4ba950f153ad2898e51c94e6d2b42ef40609e94ad57ad3b585fbfa',
+	'linux-arm64': '7d08c5e18ba3377dd1d49a5720e3b4b91b1ac7f027c04fc07827c7814f530a57',
+	'win32-x64': '174ee2fefa1da9727bfc3d89d37b0bc31b474d7cbbf2005d71bf364cf93fd3f2',
 };
 
 const platformSchema = z.enum( [ 'darwin', 'win32', 'linux' ] );
@@ -44,17 +46,19 @@ const archSchema = z.enum( [ 'x64', 'arm64' ] );
 type Platform = z.infer< typeof platformSchema >;
 type Arch = z.infer< typeof archSchema >;
 
-const argsSchema = z.tuple( [
-	platformSchema.default( process.platform as Platform ),
-	archSchema.default( process.arch as Arch ),
-] );
+const argsSchema = z
+	.tuple( [
+		platformSchema.default( process.platform as Platform ),
+		archSchema.default( process.arch as Arch ),
+	] )
+	.transform( ( [ platform, arch ] ) => ( { platform, arch } ) );
 
-const [ platform, arch ] = argsSchema.parse( [ process.argv[ 2 ], process.argv[ 3 ] ] );
+const args = argsSchema.parse( [ process.argv[ 2 ], process.argv[ 3 ] ] );
 
 // Windows ARM64 has no pre-built binary upstream; run x64 under OS emulation.
-const effectiveArch: Arch = platform === 'win32' ? 'x64' : arch;
+const effectiveArch: Arch = args.platform === 'win32' ? 'x64' : args.arch;
 
-if ( arch === 'arm64' && platform === 'win32' ) {
+if ( args.arch === 'arm64' && args.platform === 'win32' ) {
 	console.warn(
 		'Warning: no Windows ARM64 binary available upstream. Downloading x64 binary instead (runs under Windows 11 emulation).'
 	);
@@ -67,7 +71,7 @@ const cdnArchMap: Record< Arch, string > = {
 };
 
 // Asset naming and CDN path differ by platform.
-// Linux/macOS: dl.static-php.dev/static-php-cli/common/php-{VERSION}-cli-{os}-{cdnArch}.tar.gz
+// Linux/macOS: dl.static-php.dev/static-php-cli/bulk/php-{VERSION}-cli-{os}-{cdnArch}.tar.gz
 // Windows:     dl.static-php.dev/static-php-cli/windows/spc-max/php-{VERSION}-cli-win.zip
 const osSegment: Record< Platform, string > = {
 	darwin: 'macos',
@@ -75,18 +79,18 @@ const osSegment: Record< Platform, string > = {
 	win32: 'win',
 };
 
-const isWindows = platform === 'win32';
+const isWindows = args.platform === 'win32';
 const ext = isWindows ? 'zip' : 'tar.gz';
 const cdnArch = cdnArchMap[ effectiveArch ];
 const filename = isWindows
 	? `php-${ PHP_VERSION }-cli-win.${ ext }`
-	: `php-${ PHP_VERSION }-cli-${ osSegment[ platform ] }-${ cdnArch }.${ ext }`;
+	: `php-${ PHP_VERSION }-cli-${ osSegment[ args.platform ] }-${ cdnArch }.${ ext }`;
 
 const cdnBase = isWindows
 	? 'https://dl.static-php.dev/static-php-cli/windows/spc-max'
-	: 'https://dl.static-php.dev/static-php-cli/common';
+	: 'https://dl.static-php.dev/static-php-cli/bulk';
 const url = `${ cdnBase }/${ filename }`;
-const platformKey = `${ platform }-${ effectiveArch }`;
+const platformKey = `${ args.platform }-${ effectiveArch }`;
 
 const binDir = path.join( getConfigDirectory(), 'php-bin' );
 const binaryName = isWindows ? 'php.exe' : 'php';
@@ -95,7 +99,7 @@ const tmpDir = os.tmpdir();
 const downloadPath = path.join( tmpDir, filename );
 
 async function download( downloadUrl: string, dest: string ): Promise< void > {
-	console.log( `Downloading PHP ${ PHP_VERSION } for ${ platform }-${ effectiveArch }...` );
+	console.log( `Downloading PHP ${ PHP_VERSION } for ${ args.platform }-${ effectiveArch }...` );
 	console.log( `  URL: ${ downloadUrl }` );
 
 	const response = await fetch( downloadUrl );
@@ -103,35 +107,11 @@ async function download( downloadUrl: string, dest: string ): Promise< void > {
 		throw new Error( `Download failed: HTTP ${ response.status } ${ response.statusText }` );
 	}
 
-	const contentLength = response.headers.get( 'content-length' );
-	const totalBytes = contentLength ? parseInt( contentLength, 10 ) : null;
-	let downloadedBytes = 0;
+	await pipeline(
+		Readable.fromWeb( response.body! as NodeReadableStream< Uint8Array > ),
+		fs.createWriteStream( dest )
+	);
 
-	const file = fs.createWriteStream( dest );
-	const reader = response.body!.getReader();
-
-	try {
-		while ( true ) {
-			const { done, value } = await reader.read();
-			if ( done ) break;
-			file.write( value );
-			downloadedBytes += value.length;
-			if ( totalBytes ) {
-				const pct = ( ( downloadedBytes / totalBytes ) * 100 ).toFixed( 0 );
-				process.stdout.write( `\r  ${ ( downloadedBytes / 1024 / 1024 ).toFixed( 1 ) } MB / ${ ( totalBytes / 1024 / 1024 ).toFixed( 1 ) } MB (${ pct }%)` );
-			}
-		}
-	} finally {
-		reader.releaseLock();
-	}
-
-	await new Promise< void >( ( resolve, reject ) => {
-		file.on( 'finish', resolve );
-		file.on( 'error', reject );
-		file.end();
-	} );
-
-	process.stdout.write( '\n' );
 	console.log( 'Download complete.' );
 }
 
@@ -161,25 +141,16 @@ async function extractBinary( archivePath: string ): Promise< void > {
 	console.log( 'Extracting PHP binary...' );
 
 	if ( isWindows ) {
-		const extractDir = path.join( tmpDir, `php-${ PHP_VERSION }-win` );
+		// The zip contains php.exe directly at the root, so it extracts straight into tmpDir.
 		await extractZip( archivePath, tmpDir );
-		// The zip contains php.exe at the root
-		const src = path.join( extractDir, 'php.exe' );
+		const src = path.join( tmpDir, 'php.exe' );
 		if ( ! fs.existsSync( src ) ) {
-			// Some builds place it directly in the archive root without a subdirectory
-			const altSrc = path.join( tmpDir, 'php.exe' );
-			if ( fs.existsSync( altSrc ) ) {
-				fs.copyFileSync( altSrc, destPath );
-				fs.unlinkSync( altSrc );
-			} else {
-				throw new Error( `php.exe not found after extraction. Check archive contents.` );
-			}
-		} else {
-			fs.copyFileSync( src, destPath );
-			fs.rmSync( extractDir, { recursive: true, force: true } );
+			throw new Error( `php.exe not found after extraction. Check archive contents.` );
 		}
+		fs.copyFileSync( src, destPath );
+		fs.unlinkSync( src );
 	} else {
-		const extractDir = path.join( tmpDir, `php-${ PHP_VERSION }-${ platform }-${ effectiveArch }` );
+		const extractDir = path.join( tmpDir, `php-${ PHP_VERSION }-${ args.platform }-${ effectiveArch }` );
 		fs.mkdirSync( extractDir, { recursive: true } );
 
 		await extract( { file: archivePath, cwd: extractDir } );
@@ -220,4 +191,4 @@ async function main(): Promise< void > {
 	}
 }
 
-main();
+void main();

@@ -1,6 +1,6 @@
 # Agent Evaluation
 
-[PromptFoo](https://www.promptfoo.dev/) eval suite for the Studio Code agent. Runs the real agent via `startAiAgent()` and asserts on tool calls, permissions, and output.
+[PromptFoo](https://www.promptfoo.dev/) eval suite for the Studio Code agent. Runs the real agent via `startAiAgent()` and asserts on tool calls and output.
 
 ## Usage
 
@@ -16,7 +16,6 @@ npm run eval:view
 
 - **identity** — Agent identifies itself correctly (verified by an LLM judge).
 - **site-creation** — Agent calls `site_create` and it succeeds.
-- **security** — Agent requests permission before writing outside `~/Studio`.
 - **single-page-build-turn-cadence** — Agent builds a simple one-page site. Asserts (a) every individual turn stays under 60s (wall-clock between successive assistant messages) and (b) no `wp_cli` call uses `--post_content-file=` (which silently fails inside PHP-WASM).
 
 ## Adding tests

@@ -11,7 +11,6 @@ import {
 	NativePhpSupportedVersions,
 	PHP_PATCH_VERSIONS,
 } from '@studio/common/lib/php-binary-metadata';
-import { sequential } from '@studio/common/lib/sequential';
 import { extract } from 'tar';
 import { getPhpBinaryPath } from './paths';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
@@ -22,19 +21,6 @@ const WAIT_TIMEOUT_MS = 5 * 60 * 1_000;
 export function isVersionSupportedByNativeRuntime( version: SupportedPHPVersion ): boolean {
 	return NativePhpSupportedVersions.includes( version );
 }
-
-// Within-process dedup: if the same version is already downloading in this
-// process, reuse the promise instead of racing to the filesystem lock.
-const downloadAndInstallDeduped = sequential(
-	(
-		version: SupportedPHPVersion,
-		onProgress: ( ( downloaded: number, total: number ) => void ) | undefined
-	) => downloadAndInstall( version, onProgress ),
-	{
-		concurrent: NativePhpSupportedVersions.length,
-		deduplicateKey: ( version ) => version,
-	}
-);
 
 export async function ensurePhpBinaryAvailable(
 	version: SupportedPHPVersion,
@@ -51,7 +37,7 @@ export async function ensurePhpBinaryAvailable(
 		return;
 	}
 
-	await downloadAndInstallDeduped( version, onProgress );
+	await downloadAndInstall( version, onProgress );
 }
 
 async function waitForBinary( binaryPath: string ): Promise< void > {

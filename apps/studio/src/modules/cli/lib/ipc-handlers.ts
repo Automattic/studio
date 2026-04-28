@@ -27,18 +27,9 @@ function getCliInstallationManager(): StudioCliInstallationManager {
 	}
 }
 
-function isPlatformSupported(): boolean {
-	return (
-		process.platform === 'darwin' || process.platform === 'win32' || process.platform === 'linux'
-	);
-}
-
 export async function isStudioCliInstalled(): Promise< boolean > {
-	if ( isPlatformSupported() ) {
-		const manager = getCliInstallationManager();
-		return await manager.isCliInstalled();
-	}
-	return false;
+	const manager = getCliInstallationManager();
+	return await manager.isCliInstalled();
 }
 
 export async function installStudioCli(): Promise< void > {
@@ -57,10 +48,8 @@ export async function installStudioCli(): Promise< void > {
 		}
 	}
 
-	if ( isPlatformSupported() ) {
-		const manager = getCliInstallationManager();
-		await manager.installCliWithConfirmation();
-	}
+	const manager = getCliInstallationManager();
+	await manager.installCliWithConfirmation();
 }
 
 export async function uninstallStudioCli(): Promise< void > {
@@ -79,8 +68,6 @@ export async function uninstallStudioCli(): Promise< void > {
 		}
 	}
 
-	if ( isPlatformSupported() ) {
-		const manager = getCliInstallationManager();
-		await manager.uninstallCliWithConfirmation();
-	}
+	const manager = getCliInstallationManager();
+	await manager.uninstallCliWithConfirmation();
 }

@@ -106,21 +106,6 @@ async function runPhpCommand(
 	} );
 }
 
-// We allow a single `startServer` call per process. If that call throws, we expect
-// `ipcMessageHandler` to kill the process.
-function wrapWithStartingPromise< Args extends unknown[], Return extends void >(
-	callback: ( ...args: Args ) => Promise< Return >
-) {
-	return async ( ...args: Args ) => {
-		if ( startingPromise ) {
-			return startingPromise;
-		}
-
-		startingPromise = callback( ...args );
-		return startingPromise;
-	};
-}
-
 async function ensureWpConfig( siteFolder: string, signal: AbortSignal ): Promise< void > {
 	const wpConfigPath = path.join( siteFolder, 'wp-config.php' );
 	const wpConfigSamplePath = path.join( siteFolder, 'wp-config-sample.php' );
@@ -270,72 +255,70 @@ async function installWordPress( config: ServerConfig, signal: AbortSignal ): Pr
 	}
 }
 
-const startServer = wrapWithStartingPromise(
-	async ( config: ServerConfig, signal: AbortSignal ): Promise< void > => {
-		if ( phpProcess ) {
-			logToConsole( `Server already running for site ${ config.siteId }` );
-			return;
-		}
-
-		startupAbortController = new AbortController();
-		const stopSignal = AbortSignal.any( [ signal, startupAbortController.signal ] );
-		let spawnedChild: ChildProcess | null = null;
-
-		try {
-			stopSignal.throwIfAborted();
-			await ensureWpConfig( config.sitePath, stopSignal );
-			stopSignal.throwIfAborted();
-
-			const phpAddress = `localhost:${ config.port }`;
-			logToConsole( `Spawning PHP built-in server on ${ phpAddress } for site ${ config.siteId }` );
-
-			const serverChild = spawnPhpProcess( [ '-S', phpAddress, ROUTER_PATH ], {
-				cwd: config.sitePath,
-			} );
-			spawnedChild = serverChild;
-
-			await new Promise< void >( ( resolve, reject ) => {
-				serverChild.once( 'spawn', () => {
-					resolve();
-				} );
-				serverChild.once( 'error', ( error: Error ) => {
-					reject( error );
-				} );
-				stopSignal.addEventListener( 'abort', () => {
-					reject( new DOMException( 'Aborted', 'AbortError' ) );
-				} );
-			} );
-
-			stopSignal.throwIfAborted();
-
-			await waitForServerReady( `http://localhost:${ config.port }/`, stopSignal );
-			await installWordPress( config, stopSignal );
-
-			serverChild.once( 'exit', ( code, signalName ) => {
-				errorToConsole(
-					`PHP child process exited unexpectedly (code: ${ code }, signal: ${ signalName })`
-				);
-				process.exit( code ?? 1 );
-			} );
-
-			phpProcess = serverChild;
-		} catch ( error ) {
-			if ( spawnedChild && ! spawnedChild.killed ) {
-				spawnedChild.kill( 'SIGKILL' );
-			}
-
-			if ( stopSignal.aborted ) {
-				logToConsole( `Aborted start server operation:`, error );
-			} else {
-				errorToConsole( `Failed to start server:`, error );
-			}
-
-			throw error;
-		} finally {
-			startupAbortController = null;
-		}
+async function startServer( config: ServerConfig, signal: AbortSignal ): Promise< void > {
+	if ( phpProcess ) {
+		logToConsole( `Server already running for site ${ config.siteId }` );
+		return;
 	}
-);
+
+	startupAbortController = new AbortController();
+	const stopSignal = AbortSignal.any( [ signal, startupAbortController.signal ] );
+	let spawnedChild: ChildProcess | null = null;
+
+	try {
+		stopSignal.throwIfAborted();
+		await ensureWpConfig( config.sitePath, stopSignal );
+		stopSignal.throwIfAborted();
+
+		const phpAddress = `localhost:${ config.port }`;
+		logToConsole( `Spawning PHP built-in server on ${ phpAddress } for site ${ config.siteId }` );
+
+		const serverChild = spawnPhpProcess( [ '-S', phpAddress, ROUTER_PATH ], {
+			cwd: config.sitePath,
+		} );
+		spawnedChild = serverChild;
+
+		await new Promise< void >( ( resolve, reject ) => {
+			serverChild.once( 'spawn', () => {
+				resolve();
+			} );
+			serverChild.once( 'error', ( error: Error ) => {
+				reject( error );
+			} );
+			stopSignal.addEventListener( 'abort', () => {
+				reject( new DOMException( 'Aborted', 'AbortError' ) );
+			} );
+		} );
+
+		stopSignal.throwIfAborted();
+
+		await waitForServerReady( `http://localhost:${ config.port }/`, stopSignal );
+		await installWordPress( config, stopSignal );
+
+		serverChild.once( 'exit', ( code, signalName ) => {
+			errorToConsole(
+				`PHP child process exited unexpectedly (code: ${ code }, signal: ${ signalName })`
+			);
+			process.exit( code ?? 1 );
+		} );
+
+		phpProcess = serverChild;
+	} catch ( error ) {
+		if ( spawnedChild && ! spawnedChild.killed ) {
+			spawnedChild.kill( 'SIGKILL' );
+		}
+
+		if ( stopSignal.aborted ) {
+			logToConsole( `Aborted start server operation:`, error );
+		} else {
+			errorToConsole( `Failed to start server:`, error );
+		}
+
+		throw error;
+	} finally {
+		startupAbortController = null;
+	}
+}
 
 const STOP_SERVER_TIMEOUT = 5000;
 
@@ -432,7 +415,15 @@ async function ipcMessageHandler( packet: unknown ) {
 				abortController?.abort();
 				return;
 			case 'start-server':
-				result = await startServer( validMessage.data.config, abortController.signal );
+				// Share an in-flight startup so concurrent start messages cannot spawn two PHP servers.
+				if ( ! startingPromise ) {
+					startingPromise = startServer( validMessage.data.config, abortController.signal ).finally(
+						() => {
+							startingPromise = null;
+						}
+					);
+				}
+				result = await startingPromise;
 				break;
 			case 'stop-server':
 				result = await stopServer();

@@ -9,7 +9,9 @@
 import { ChildProcess, spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { decodePassword } from '@studio/common/lib/passwords';
+import { isSupportedPHPVersion, type SupportedPHPVersion } from '@studio/common/types/php-versions';
 import { z } from 'zod';
 import {
 	managerMessageSchema,
@@ -45,6 +47,7 @@ function errorToConsole( ...args: Parameters< typeof console.error > ) {
 }
 
 type SpawnPhpProcessOptions = {
+	phpVersion: SupportedPHPVersion;
 	cwd?: string;
 	signal?: AbortSignal;
 	mode?: 'pipe' | 'capture-stdout';
@@ -52,9 +55,9 @@ type SpawnPhpProcessOptions = {
 
 function spawnPhpProcess(
 	args: string[],
-	{ cwd, signal, mode = 'pipe' }: SpawnPhpProcessOptions = {}
+	{ phpVersion, cwd, signal, mode = 'pipe' }: SpawnPhpProcessOptions
 ): ChildProcess {
-	const phpScriptProcess = spawn( getPhpBinaryPath(), args, {
+	const phpScriptProcess = spawn( getPhpBinaryPath( phpVersion ), args, {
 		cwd,
 		stdio: [ 'ignore', 'pipe', 'pipe' ],
 		signal,
@@ -76,10 +79,11 @@ type RunPhpCommandOptions = SpawnPhpProcessOptions;
 
 async function runPhpCommand(
 	args: string[],
-	{ cwd, signal, mode = 'pipe' }: RunPhpCommandOptions
+	{ phpVersion, cwd, signal, mode = 'pipe' }: RunPhpCommandOptions
 ): Promise< { stdout: string } > {
 	return await new Promise< { stdout: string } >( ( resolve, reject ) => {
 		const phpScriptProcess = spawnPhpProcess( args, {
+			phpVersion,
 			cwd,
 			signal,
 			mode,
@@ -106,7 +110,23 @@ async function runPhpCommand(
 	} );
 }
 
-async function ensureWpConfig( siteFolder: string, signal: AbortSignal ): Promise< void > {
+function getSupportedPhpVersion( phpVersion: string | undefined ): SupportedPHPVersion {
+	if ( phpVersion === undefined ) {
+		return DEFAULT_PHP_VERSION;
+	}
+
+	if ( isSupportedPHPVersion( phpVersion ) ) {
+		return phpVersion;
+	}
+
+	throw new Error( `Unsupported PHP version "${ phpVersion }"` );
+}
+
+async function ensureWpConfig(
+	siteFolder: string,
+	phpVersion: SupportedPHPVersion,
+	signal: AbortSignal
+): Promise< void > {
 	const wpConfigPath = path.join( siteFolder, 'wp-config.php' );
 	const wpConfigSamplePath = path.join( siteFolder, 'wp-config-sample.php' );
 	const ensureWpConfigScript = `
@@ -134,7 +154,7 @@ $transformer->to_file( $wp_config_path );
 				wpConfigPath,
 				JSON.stringify( DEFAULT_WP_CONFIG_CONSTANTS ),
 			],
-			{ signal }
+			{ phpVersion, signal }
 		);
 	} catch ( error ) {
 		throw new Error(
@@ -145,7 +165,11 @@ $transformer->to_file( $wp_config_path );
 	}
 }
 
-async function isWordPressInstalled( siteFolder: string, signal: AbortSignal ): Promise< boolean > {
+async function isWordPressInstalled(
+	siteFolder: string,
+	phpVersion: SupportedPHPVersion,
+	signal: AbortSignal
+): Promise< boolean > {
 	const installationCheckScript = `
 error_reporting( E_ERROR );
 ini_set( 'display_errors', '0' );
@@ -162,6 +186,7 @@ echo is_blog_installed() ? '1' : '0';
 	let stdout = '';
 	try {
 		const result = await runPhpCommand( [ '-r', installationCheckScript ], {
+			phpVersion,
 			cwd: siteFolder,
 			signal,
 			mode: 'capture-stdout',
@@ -199,8 +224,12 @@ async function waitForServerReady( url: string, signal: AbortSignal ): Promise< 
 	}
 }
 
-async function installWordPress( config: ServerConfig, signal: AbortSignal ): Promise< void > {
-	const alreadyInstalled = await isWordPressInstalled( config.sitePath, signal );
+async function installWordPress(
+	config: ServerConfig,
+	phpVersion: SupportedPHPVersion,
+	signal: AbortSignal
+): Promise< void > {
+	const alreadyInstalled = await isWordPressInstalled( config.sitePath, phpVersion, signal );
 	if ( alreadyInstalled ) {
 		logToConsole( `WordPress already installed for site ${ config.siteId }; skipping installer` );
 		return;
@@ -243,6 +272,7 @@ async function installWordPress( config: ServerConfig, signal: AbortSignal ): Pr
 
 	try {
 		await runPhpCommand( [ SET_DEFAULT_PERMALINKS_PATH ], {
+			phpVersion,
 			cwd: config.sitePath,
 			signal,
 		} );
@@ -261,19 +291,21 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		return;
 	}
 
+	const phpVersion = getSupportedPhpVersion( config.phpVersion );
 	startupAbortController = new AbortController();
 	const stopSignal = AbortSignal.any( [ signal, startupAbortController.signal ] );
 	let spawnedChild: ChildProcess | null = null;
 
 	try {
 		stopSignal.throwIfAborted();
-		await ensureWpConfig( config.sitePath, stopSignal );
+		await ensureWpConfig( config.sitePath, phpVersion, stopSignal );
 		stopSignal.throwIfAborted();
 
 		const phpAddress = `localhost:${ config.port }`;
 		logToConsole( `Spawning PHP built-in server on ${ phpAddress } for site ${ config.siteId }` );
 
 		const serverChild = spawnPhpProcess( [ '-S', phpAddress, ROUTER_PATH ], {
+			phpVersion,
 			cwd: config.sitePath,
 		} );
 		spawnedChild = serverChild;
@@ -293,7 +325,7 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		stopSignal.throwIfAborted();
 
 		await waitForServerReady( `http://localhost:${ config.port }/`, stopSignal );
-		await installWordPress( config, stopSignal );
+		await installWordPress( config, phpVersion, stopSignal );
 
 		serverChild.once( 'exit', ( code, signalName ) => {
 			errorToConsole(

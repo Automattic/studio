@@ -1,6 +1,5 @@
 import { Player, Enemy, Collectible, Flag } from './entities';
 import { TILE_SIZE, LEVEL_MAP, getTile } from './level';
-import spriteSheetUrl from 'src/modules/wapuu-world/assets/wapuu-sprites.png';
 import tilesSpriteUrl from 'src/modules/wapuu-world/assets/wapuu-sprites-tiles.png';
 import coinSpriteUrl from 'src/modules/wapuu-world/assets/wapuu-sprites-coin.png';
 import bgFarUrl from 'src/modules/wapuu-world/assets/wapuu-bg-far.png';
@@ -8,10 +7,6 @@ import bgNearUrl from 'src/modules/wapuu-world/assets/wapuu-bg-near.png';
 import gutenbergSpriteUrl from 'src/modules/wapuu-world/assets/wapuu-gutenberg-sprite.png';
 import wapuuPlayerSpriteUrl from 'src/modules/wapuu-world/assets/wapuu-player-sprite.png';
 import wapuuPlayerIdleSpriteUrl from 'src/modules/wapuu-world/assets/wapuu-player-idle-sprite.png';
-
-// Sprite sheet constants (1536×1024px, 256×128px per frame)
-const SW = 256; // source frame width
-const SH = 128; // source frame height
 
 function loadImage( url: string ): { img: HTMLImageElement; ready: boolean } {
 	const entry = { img: new Image(), ready: false };
@@ -21,7 +16,6 @@ function loadImage( url: string ): { img: HTMLImageElement; ready: boolean } {
 }
 
 const sprites = {
-	sheet: loadImage( spriteSheetUrl ),
 	tiles: loadImage( tilesSpriteUrl ),
 	coin: loadImage( coinSpriteUrl ),
 	bgFar: loadImage( bgFarUrl ),
@@ -30,18 +24,6 @@ const sprites = {
 	wapuu: loadImage( wapuuPlayerSpriteUrl ),
 	wapuuIdle: loadImage( wapuuPlayerIdleSpriteUrl ),
 };
-
-function drawSprite(
-	ctx: CanvasRenderingContext2D,
-	sx: number, sy: number,
-	dx: number, dy: number,
-	dw = TILE_SIZE, dh = TILE_SIZE
-) {
-	const { img, ready } = sprites.sheet;
-	if ( ! ready ) return false;
-	ctx.drawImage( img, sx, sy, SW, SH, dx, dy, dw, dh );
-	return true;
-}
 
 function drawTileSprite(
 	ctx: CanvasRenderingContext2D,

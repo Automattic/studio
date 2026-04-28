@@ -481,23 +481,23 @@ export function renderStartScreen(
 	h: number,
 	startTimer: number
 ) {
-	ctx.fillStyle = 'rgba(0,0,0,0.65)';
+	ctx.fillStyle = 'rgba(0,0,0,0.7)';
 	ctx.fillRect( 0, 0, w, h );
 	ctx.fillStyle = '#f5a623';
 	ctx.font = 'bold 28px monospace';
 	ctx.textAlign = 'center';
 	ctx.textBaseline = 'middle';
-	ctx.fillText( '🐾 Wapuu World', w / 2, h / 2 - 44 );
+	ctx.fillText( 'Wapuu World', w / 2, h / 2 - 44 );
 	ctx.fillStyle = '#fff';
 	ctx.font = '14px monospace';
 	ctx.fillText( 'Collect coins, stomp enemies, reach the flag!', w / 2, h / 2 - 8 );
-	ctx.font = '13px monospace';
 	ctx.fillStyle = '#cce8f4';
+	ctx.font = '13px monospace';
 	ctx.fillText( 'Arrow keys / WASD · Space to jump', w / 2, h / 2 + 16 );
 	const seconds = Math.ceil( startTimer / 60 );
 	ctx.fillStyle = '#fff';
-	ctx.font = 'bold 15px monospace';
-	ctx.fillText( `Starting in ${ seconds }… or press Space / Enter`, w / 2, h / 2 + 50 );
+	ctx.font = '16px monospace';
+	ctx.fillText( `Press Enter or Space to start (${ seconds }s)`, w / 2, h / 2 + 50 );
 }
 
 export function renderDeathScreen( ctx: CanvasRenderingContext2D, w: number, h: number ) {

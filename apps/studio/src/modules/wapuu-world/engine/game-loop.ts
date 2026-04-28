@@ -21,7 +21,7 @@ const PLAYER_START_X = TILE_SIZE;
 const PLAYER_START_Y = TILE_SIZE * 9;
 const TIME_LIMIT = 90; // seconds
 const TIME_BONUS_PER_SECOND = 10;
-const AUTO_START_DELAY = 3 * 60; // frames at 60fps
+const AUTO_START_DELAY = 5 * 60; // frames at 60fps
 
 type GameStatus = 'start' | 'playing' | 'dead' | 'win';
 

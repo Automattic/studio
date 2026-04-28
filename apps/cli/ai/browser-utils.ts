@@ -19,6 +19,22 @@ type ChromiumLaunchOptions = Parameters< Chromium[ 'launch' ] >[ 0 ];
 type InstallBrowserFn = () => Promise< void >;
 
 const DEFAULT_BROWSER_ARGS = [ '--ignore-certificate-errors' ];
+const EDITOR_READY_TIMEOUT_MS = 30_000;
+
+interface EditorDocumentState {
+	url: string;
+	title: string;
+	readyState: string;
+	hasWp: boolean;
+	bodyClass: string;
+}
+
+class EditorLoadFailure extends Error {
+	constructor( message: string ) {
+		super( message );
+		this.name = 'EditorLoadFailure';
+	}
+}
 
 let browserPromise: Promise< Browser > | null = null;
 const execFileAsync = promisify( execFile );
@@ -185,6 +201,103 @@ async function getPageDiagnostics( page: Page ): Promise< string > {
 	}
 }
 
+export function getKnownEditorLoadFailureFromDocument( state: EditorDocumentState ): string | null {
+	if (
+		state.url.includes( '/wp-admin/post-new.php' ) &&
+		state.readyState !== 'loading' &&
+		! state.hasWp &&
+		state.title === '' &&
+		state.bodyClass === ''
+	) {
+		return `WordPress block editor loaded a blank document (${ state.url })`;
+	}
+	return null;
+}
+
+async function getEditorDocumentState( page: Page ): Promise< EditorDocumentState > {
+	return page.evaluate( () => {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const wp = ( window as any ).wp;
+		return {
+			url: window.location.href,
+			title: document.title,
+			readyState: document.readyState,
+			hasWp: typeof wp !== 'undefined',
+			bodyClass: document.body?.className ?? '',
+		};
+	} );
+}
+
+function delay( ms: number ): Promise< void > {
+	return new Promise( ( resolve ) => setTimeout( resolve, ms ) );
+}
+
+async function throwIfKnownEditorDocumentFailure( page: Page ): Promise< void > {
+	const documentFailure = getKnownEditorLoadFailureFromDocument(
+		await getEditorDocumentState( page )
+	);
+	if ( documentFailure ) {
+		throw new EditorLoadFailure( documentFailure );
+	}
+}
+
+async function loadAndWaitForEditorReady(
+	page: Page,
+	loadPage: () => Promise< unknown >
+): Promise< void > {
+	await loadPage();
+	await throwIfKnownEditorDocumentFailure( page );
+
+	let stopWatchingDocument = false;
+	const watchForBlankDocument = async () => {
+		while ( ! stopWatchingDocument ) {
+			await delay( 250 );
+			try {
+				await throwIfKnownEditorDocumentFailure( page );
+			} catch ( error ) {
+				if ( error instanceof EditorLoadFailure ) {
+					throw error;
+				}
+			}
+		}
+	};
+
+	// Wait for the block editor scripts to be fully loaded and blocks registered.
+	// wp is set early as a global but wp.blocks is populated later, so every
+	// level must be checked to avoid "Cannot read properties of undefined".
+	try {
+		await Promise.race( [
+			page.waitForFunction(
+				() => {
+					try {
+						// eslint-disable-next-line @typescript-eslint/no-explicit-any
+						const wp = ( window as any ).wp;
+						return (
+							wp &&
+							wp.blocks &&
+							typeof wp.blocks.getBlockTypes === 'function' &&
+							wp.blocks.getBlockTypes().length > 0
+						);
+					} catch {
+						return false;
+					}
+				},
+				{ timeout: EDITOR_READY_TIMEOUT_MS }
+			),
+			watchForBlankDocument(),
+		] );
+	} finally {
+		stopWatchingDocument = true;
+	}
+	await page.evaluate( async () => {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const loadBlockEditor = ( window as any )._wpLoadBlockEditor;
+		if ( loadBlockEditor?.then ) {
+			await loadBlockEditor;
+		}
+	} );
+}
+
 /**
  * A long-lived page that stays open on a site's block editor so repeated
  * validation calls don't have to re-navigate and re-load all block scripts.
@@ -209,29 +322,23 @@ export class EditorPage {
 		} );
 
 		const loginUrl = `${ this.siteUrl }/studio-auto-login?redirect_to=/wp-admin/post-new.php`;
-		await page.goto( loginUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 } );
 
-		// Wait for the block editor scripts to be fully loaded and blocks registered.
-		// wp is set early as a global but wp.blocks is populated later, so every
-		// level must be checked to avoid "Cannot read properties of undefined".
 		try {
-			await page.waitForFunction(
-				() => {
-					try {
-						// eslint-disable-next-line @typescript-eslint/no-explicit-any
-						const wp = ( window as any ).wp;
-						return (
-							wp &&
-							wp.blocks &&
-							typeof wp.blocks.getBlockTypes === 'function' &&
-							wp.blocks.getBlockTypes().length > 0
-						);
-					} catch {
-						return false;
-					}
-				},
-				{ timeout: 30_000 }
-			);
+			try {
+				await loadAndWaitForEditorReady( page, () =>
+					page.goto( loginUrl, {
+						waitUntil: 'domcontentloaded',
+						timeout: EDITOR_READY_TIMEOUT_MS,
+					} )
+				);
+			} catch ( error ) {
+				if ( ! ( error instanceof EditorLoadFailure ) ) {
+					throw error;
+				}
+				await loadAndWaitForEditorReady( page, () =>
+					page.reload( { waitUntil: 'domcontentloaded', timeout: EDITOR_READY_TIMEOUT_MS } )
+				);
+			}
 		} catch ( error ) {
 			const diag = await getPageDiagnostics( page );
 			await page.close();

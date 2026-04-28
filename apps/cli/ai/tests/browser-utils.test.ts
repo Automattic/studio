@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { buildChromiumLaunchAttempts, ensurePlaywrightChromiumInstalled } from '../browser-utils';
+import {
+	buildChromiumLaunchAttempts,
+	ensurePlaywrightChromiumInstalled,
+	getKnownEditorLoadFailureFromDocument,
+} from '../browser-utils';
 
 describe( 'browser-utils', () => {
 	beforeEach( () => {
@@ -89,5 +93,29 @@ describe( 'browser-utils', () => {
 
 		expect( error ).toBeNull();
 		expect( installBrowser ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'detects a blank block editor document after navigation', () => {
+		const message = getKnownEditorLoadFailureFromDocument( {
+			url: 'http://localhost:8881/wp-admin/post-new.php',
+			title: '',
+			readyState: 'complete',
+			hasWp: false,
+			bodyClass: '',
+		} );
+
+		expect( message ).toContain( 'blank document' );
+	} );
+
+	it( 'ignores an editor document that is still loading', () => {
+		const message = getKnownEditorLoadFailureFromDocument( {
+			url: 'http://localhost:8881/wp-admin/post-new.php',
+			title: '',
+			readyState: 'loading',
+			hasWp: false,
+			bodyClass: '',
+		} );
+
+		expect( message ).toBeNull();
 	} );
 } );

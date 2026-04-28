@@ -159,3 +159,28 @@ tests:
             }
             return { pass: true, score: 1, reason: `validate_blocks passed: ${(last.text || '').split(/\r?\n/)[0]}` };
           });
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const validations = (d.toolEvents || []).filter(e => e.toolName === 'validate_blocks');
+            if (validations.length === 0) {
+              return { pass: false, score: 0, reason: 'no validate_blocks tool events recorded' };
+            }
+            const missingDuration = validations.filter(e => typeof e.durationMs !== 'number');
+            if (missingDuration.length > 0) {
+              return { pass: false, score: 0, reason: `${missingDuration.length}/${validations.length} validate_blocks event(s) had no durationMs` };
+            }
+            const slow = validations
+              .map((e, i) => ({ index: i + 1, durationMs: e.durationMs, isError: e.isError }))
+              .filter(e => e.durationMs >= 8000);
+            if (slow.length > 0) {
+              const details = slow.map(e => `#${e.index}: ${e.durationMs}ms${e.isError ? ' (error)' : ''}`).join(', ');
+              const all = validations.map((e, i) => `#${i + 1}: ${e.durationMs}ms${e.isError ? ' (error)' : ''}`).join(', ');
+              return { pass: false, score: 0, reason: `${slow.length}/${validations.length} validate_blocks call(s) took >= 8000ms (${details}). All validation durations: ${all}` };
+            }
+            const max = Math.max(...validations.map(e => e.durationMs));
+            return { pass: true, score: 1, reason: `${validations.length} validate_blocks call(s), max ${max}ms` };
+          });

@@ -2027,7 +2027,7 @@ export async function setWindowControlVisibility( event: IpcMainInvokeEvent, vis
 		if ( visible ) {
 			parentWindow.setWindowButtonPosition( MACOS_TRAFFIC_LIGHT_POSITION );
 		}
-	} else if ( process.platform === 'win32' ) {
+	} else if ( process.platform === 'win32' || process.platform === 'linux' ) {
 		const isDark = nativeTheme.shouldUseDarkColors;
 		if ( visible ) {
 			parentWindow.setTitleBarOverlay( {
@@ -2047,7 +2047,7 @@ export async function setWindowControlVisibility( event: IpcMainInvokeEvent, vis
 
 export async function setTitleBarBackdropEffect( event: IpcMainInvokeEvent, enabled: boolean ) {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( ! parentWindow || process.platform !== 'win32' ) {
+	if ( ! parentWindow || ( process.platform !== 'win32' && process.platform !== 'linux' ) ) {
 		return;
 	}
 

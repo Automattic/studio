@@ -10,6 +10,7 @@ import {
 } from './entities';
 import { TILE_SIZE, LEVEL_WIDTH, getTile, isSolid } from './level';
 import { renderGame, renderDeathScreen, renderWinScreen } from './renderer';
+import { playSound } from './sounds';
 
 const GRAVITY = 0.9;
 const JUMP_FORCE = -14;
@@ -138,6 +139,7 @@ function update( state: GameState, keys: Set< string > ) {
 	if ( jumpPressed && player.onGround ) {
 		player.vy = JUMP_FORCE;
 		player.onGround = false;
+		playSound( 'jump' );
 	}
 
 	// Gravity
@@ -195,12 +197,16 @@ function update( state: GameState, keys: Set< string > ) {
 				e.alive = false;
 				player.vy = JUMP_FORCE * 0.6;
 				state.score += 100;
+				playSound( 'stomp' );
 			} else {
 				// Hit
 				player.lives--;
 				player.invincibleTimer = 90;
 				if ( player.lives <= 0 ) {
 					state.status = 'dead';
+					playSound( 'die' );
+				} else {
+					playSound( 'hit' );
 				}
 			}
 		}
@@ -214,6 +220,7 @@ function update( state: GameState, keys: Set< string > ) {
 		if ( rectsOverlap( player, c ) ) {
 			c.collected = true;
 			state.score += 50;
+			playSound( 'collect' );
 		}
 	}
 
@@ -221,6 +228,7 @@ function update( state: GameState, keys: Set< string > ) {
 	if ( state.flag && rectsOverlap( player, state.flag ) ) {
 		state.status = 'win';
 		state.score += 500;
+		playSound( 'win' );
 		void window.ipcApi.saveWapuuScore( state.score );
 	}
 
@@ -229,7 +237,9 @@ function update( state: GameState, keys: Set< string > ) {
 		player.lives--;
 		if ( player.lives <= 0 ) {
 			state.status = 'dead';
+			playSound( 'die' );
 		} else {
+			playSound( 'hit' );
 			player.x = PLAYER_START_X;
 			player.y = PLAYER_START_Y;
 			player.vx = 0;

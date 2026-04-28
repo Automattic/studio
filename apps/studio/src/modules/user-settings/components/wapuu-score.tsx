@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import ProgressBar from 'src/components/progress-bar';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
-const MAX_SCORE = 1850;
+const MAX_SCORE = 2750;
 const WAPUU_STUDIO_URL = 'https://wapuu.studio';
 
 export function WapuuScore() {

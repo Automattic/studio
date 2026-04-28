@@ -417,7 +417,13 @@ function drawFlag( ctx: CanvasRenderingContext2D, flag: Flag, cameraX: number ) 
 	ctx.fill();
 }
 
-function drawHud( ctx: CanvasRenderingContext2D, score: number, lives: number, w: number ) {
+function drawHud(
+	ctx: CanvasRenderingContext2D,
+	score: number,
+	lives: number,
+	timeLeft: number,
+	w: number
+) {
 	ctx.fillStyle = COLORS.hud;
 	ctx.fillRect( 0, 0, w, 28 );
 
@@ -426,6 +432,10 @@ function drawHud( ctx: CanvasRenderingContext2D, score: number, lives: number, w
 	ctx.textAlign = 'left';
 	ctx.textBaseline = 'middle';
 	ctx.fillText( `♥ ${ lives }`, 10, 14 );
+	ctx.textAlign = 'center';
+	ctx.fillStyle = timeLeft <= 10 ? '#ff4444' : timeLeft <= 30 ? '#f5a623' : COLORS.hudText;
+	ctx.fillText( `⏱ ${ timeLeft }s`, w / 2, 14 );
+	ctx.fillStyle = COLORS.hudText;
 	ctx.textAlign = 'right';
 	ctx.fillText( `${ score } pts`, w - 10, 14 );
 }
@@ -439,11 +449,12 @@ export function renderGame(
 		flag: Flag | null;
 		score: number;
 		cameraX: number;
+		timeLeft: number;
 	},
 	w: number,
 	h: number
 ) {
-	const { player, enemies, collectibles, flag, score } = state;
+	const { player, enemies, collectibles, flag, score, timeLeft } = state;
 	const cameraX = Math.floor( state.cameraX );
 
 	waterTick++;
@@ -461,7 +472,32 @@ export function renderGame(
 	}
 
 	drawWapuu( ctx, player, cameraX );
-	drawHud( ctx, score, player.lives, w );
+	drawHud( ctx, score, player.lives, timeLeft, w );
+}
+
+export function renderStartScreen(
+	ctx: CanvasRenderingContext2D,
+	w: number,
+	h: number,
+	startTimer: number
+) {
+	ctx.fillStyle = 'rgba(0,0,0,0.65)';
+	ctx.fillRect( 0, 0, w, h );
+	ctx.fillStyle = '#f5a623';
+	ctx.font = 'bold 28px monospace';
+	ctx.textAlign = 'center';
+	ctx.textBaseline = 'middle';
+	ctx.fillText( '🐾 Wapuu World', w / 2, h / 2 - 44 );
+	ctx.fillStyle = '#fff';
+	ctx.font = '14px monospace';
+	ctx.fillText( 'Collect coins, stomp enemies, reach the flag!', w / 2, h / 2 - 8 );
+	ctx.font = '13px monospace';
+	ctx.fillStyle = '#cce8f4';
+	ctx.fillText( 'Arrow keys / WASD · Space to jump', w / 2, h / 2 + 16 );
+	const seconds = Math.ceil( startTimer / 60 );
+	ctx.fillStyle = '#fff';
+	ctx.font = 'bold 15px monospace';
+	ctx.fillText( `Starting in ${ seconds }… or press Space / Enter`, w / 2, h / 2 + 50 );
 }
 
 export function renderDeathScreen( ctx: CanvasRenderingContext2D, w: number, h: number ) {

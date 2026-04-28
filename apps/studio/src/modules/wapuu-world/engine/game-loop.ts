@@ -9,7 +9,7 @@ import {
 	rectsOverlap,
 } from './entities';
 import { TILE_SIZE, LEVEL_WIDTH, getTile, isSolid } from './level';
-import { renderGame, renderDeathScreen, renderWinScreen } from './renderer';
+import { renderGame, renderDeathScreen, renderWinScreen, renderStartScreen } from './renderer';
 import { playSound } from './sounds';
 
 const GRAVITY = 0.9;
@@ -19,8 +19,11 @@ const CANVAS_W = 480;
 const CANVAS_H = 384;
 const PLAYER_START_X = TILE_SIZE;
 const PLAYER_START_Y = TILE_SIZE * 9;
+const TIME_LIMIT = 90; // seconds
+const TIME_BONUS_PER_SECOND = 10;
+const AUTO_START_DELAY = 3 * 60; // frames at 60fps
 
-type GameStatus = 'playing' | 'dead' | 'win';
+type GameStatus = 'start' | 'playing' | 'dead' | 'win';
 
 interface GameState {
 	player: Player;
@@ -30,6 +33,9 @@ interface GameState {
 	score: number;
 	cameraX: number;
 	status: GameStatus;
+	timeLeft: number; // seconds remaining
+	startTimer: number; // frames until auto-start
+	playFrames: number; // frames elapsed while playing
 }
 
 function initState(): GameState {
@@ -41,7 +47,10 @@ function initState(): GameState {
 		flag,
 		score: 0,
 		cameraX: 0,
-		status: 'playing',
+		status: 'start',
+		timeLeft: TIME_LIMIT,
+		startTimer: AUTO_START_DELAY,
+		playFrames: 0,
 	};
 }
 
@@ -53,7 +62,11 @@ export function startGame( canvas: HTMLCanvasElement ): () => void {
 
 	function onKeyDown( e: KeyboardEvent ) {
 		keys.add( e.key );
-		if ( state.status !== 'playing' ) {
+		if ( state.status === 'start' ) {
+			if ( e.key === 'Enter' || e.key === ' ' ) {
+				state.status = 'playing';
+			}
+		} else if ( state.status === 'dead' || state.status === 'win' ) {
 			if ( e.key === 'Enter' || e.key === ' ' ) {
 				state = initState();
 			}
@@ -85,30 +98,19 @@ export function startGame( canvas: HTMLCanvasElement ): () => void {
 			update( state, keys );
 			accumulator -= TARGET_MS;
 		}
-		const { player, enemies, collectibles, flag, score, cameraX, status } = state;
+		const { player, enemies, collectibles, flag, score, cameraX, status, timeLeft } = state;
+		const gameState = { player, enemies, collectibles, flag, score, cameraX, timeLeft };
 
-		if ( status === 'playing' ) {
-			renderGame(
-				ctx,
-				{ player, enemies, collectibles, flag, score, cameraX },
-				CANVAS_W,
-				CANVAS_H
-			);
+		if ( status === 'start' ) {
+			renderGame( ctx, gameState, CANVAS_W, CANVAS_H );
+			renderStartScreen( ctx, CANVAS_W, CANVAS_H, state.startTimer );
+		} else if ( status === 'playing' ) {
+			renderGame( ctx, gameState, CANVAS_W, CANVAS_H );
 		} else if ( status === 'dead' ) {
-			renderGame(
-				ctx,
-				{ player, enemies, collectibles, flag, score, cameraX },
-				CANVAS_W,
-				CANVAS_H
-			);
+			renderGame( ctx, gameState, CANVAS_W, CANVAS_H );
 			renderDeathScreen( ctx, CANVAS_W, CANVAS_H );
 		} else {
-			renderGame(
-				ctx,
-				{ player, enemies, collectibles, flag, score, cameraX },
-				CANVAS_W,
-				CANVAS_H
-			);
+			renderGame( ctx, gameState, CANVAS_W, CANVAS_H );
 			renderWinScreen( ctx, CANVAS_W, CANVAS_H, score );
 		}
 
@@ -128,7 +130,23 @@ export function startGame( canvas: HTMLCanvasElement ): () => void {
 }
 
 function update( state: GameState, keys: Set< string > ) {
+	if ( state.status === 'start' ) {
+		state.startTimer--;
+		if ( state.startTimer <= 0 ) {
+			state.status = 'playing';
+		}
+		return;
+	}
 	if ( state.status !== 'playing' ) return;
+
+	// Countdown timer
+	state.playFrames++;
+	state.timeLeft = Math.max( 0, TIME_LIMIT - Math.floor( state.playFrames / 60 ) );
+	if ( state.timeLeft <= 0 ) {
+		state.status = 'dead';
+		playSound( 'die' );
+		return;
+	}
 
 	const { player } = state;
 
@@ -255,7 +273,7 @@ function update( state: GameState, keys: Set< string > ) {
 	// Flag
 	if ( state.flag && rectsOverlap( player, state.flag ) ) {
 		state.status = 'win';
-		state.score += 500;
+		state.score += 500 + state.timeLeft * TIME_BONUS_PER_SECOND;
 		playSound( 'win' );
 		void window.ipcApi.saveWapuuScore( state.score );
 	}

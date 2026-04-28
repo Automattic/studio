@@ -1,13 +1,13 @@
 import { Player, Enemy, Collectible, Flag } from './entities';
 import { TILE_SIZE, LEVEL_MAP, getTile } from './level';
-import spriteSheetUrl from 'src/assets/easter-egg/wapuu-sprites.png';
-import tilesSpriteUrl from 'src/assets/easter-egg/wapuu-sprites-tiles.png';
-import coinSpriteUrl from 'src/assets/easter-egg/wapuu-sprites-coin.png';
-import bgFarUrl from 'src/assets/easter-egg/wapuu-bg-far.png';
-import bgNearUrl from 'src/assets/easter-egg/wapuu-bg-near.png';
-import gutenbergSpriteUrl from 'src/assets/easter-egg/wapuu-gutenberg-sprite.png';
-import wapuuPlayerSpriteUrl from 'src/assets/easter-egg/wapuu-player-sprite.png';
-import wapuuPlayerIdleSpriteUrl from 'src/assets/easter-egg/wapuu-player-idle-sprite.png';
+import spriteSheetUrl from 'src/modules/wapuu-world/assets/wapuu-sprites.png';
+import tilesSpriteUrl from 'src/modules/wapuu-world/assets/wapuu-sprites-tiles.png';
+import coinSpriteUrl from 'src/modules/wapuu-world/assets/wapuu-sprites-coin.png';
+import bgFarUrl from 'src/modules/wapuu-world/assets/wapuu-bg-far.png';
+import bgNearUrl from 'src/modules/wapuu-world/assets/wapuu-bg-near.png';
+import gutenbergSpriteUrl from 'src/modules/wapuu-world/assets/wapuu-gutenberg-sprite.png';
+import wapuuPlayerSpriteUrl from 'src/modules/wapuu-world/assets/wapuu-player-sprite.png';
+import wapuuPlayerIdleSpriteUrl from 'src/modules/wapuu-world/assets/wapuu-player-idle-sprite.png';
 
 // Sprite sheet constants (1536×1024px, 256×128px per frame)
 const SW = 256; // source frame width

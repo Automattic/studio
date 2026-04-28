@@ -11,7 +11,7 @@ import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { useAppDispatch, useI18nLocale } from 'src/stores';
-import { openEasterEgg } from 'src/stores/ui-slice';
+import { openWapuuWorld } from 'src/stores/ui-slice';
 
 interface TopBarProps {
 	onToggleSidebar: () => void;
@@ -118,7 +118,7 @@ function SettingsButton() {
 
 		if ( clickCountRef.current >= 3 ) {
 			clickCountRef.current = 0;
-			dispatch( openEasterEgg() );
+			dispatch( openWapuuWorld() );
 			return;
 		}
 

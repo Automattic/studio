@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { useAppDispatch } from 'src/stores';
-import { closeEasterEgg } from 'src/stores/ui-slice';
+import { closeWapuuWorld } from 'src/stores/ui-slice';
 import { startGame } from './engine/game-loop';
 import { WIN_LINK } from './engine/renderer';
 
-export function EasterEggGame() {
+export function WapuuWorldGame() {
 	const dispatch = useAppDispatch();
 	const canvasRef = useRef< HTMLCanvasElement >( null );
 
@@ -17,7 +17,7 @@ export function EasterEggGame() {
 	useEffect( () => {
 		function onKeyDown( e: KeyboardEvent ) {
 			if ( e.key === 'Escape' ) {
-				dispatch( closeEasterEgg() );
+				dispatch( closeWapuuWorld() );
 			}
 		}
 		window.addEventListener( 'keydown', onKeyDown );
@@ -54,7 +54,7 @@ export function EasterEggGame() {
 					>
 						<span>ESC to close</span>
 						<button
-							onClick={ () => dispatch( closeEasterEgg() ) }
+							onClick={ () => dispatch( closeWapuuWorld() ) }
 							style={ {
 								marginLeft: 8,
 								background: 'rgba(255,255,255,0.2)',

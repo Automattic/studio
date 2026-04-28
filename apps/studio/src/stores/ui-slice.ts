@@ -3,12 +3,12 @@ import { RootState } from 'src/stores';
 
 type UiState = {
 	isAddSiteModalOpen: boolean;
-	isEasterEggOpen: boolean;
+	isWapuuWorldOpen: boolean;
 };
 
 const initialState: UiState = {
 	isAddSiteModalOpen: false,
-	isEasterEggOpen: false,
+	isWapuuWorldOpen: false,
 };
 
 const uiSlice = createSlice( {
@@ -24,19 +24,19 @@ const uiSlice = createSlice( {
 		toggleAddSiteModal: ( state ) => {
 			state.isAddSiteModalOpen = ! state.isAddSiteModalOpen;
 		},
-		openEasterEgg: ( state ) => {
-			state.isEasterEggOpen = true;
+		openWapuuWorld: ( state ) => {
+			state.isWapuuWorldOpen = true;
 		},
-		closeEasterEgg: ( state ) => {
-			state.isEasterEggOpen = false;
+		closeWapuuWorld: ( state ) => {
+			state.isWapuuWorldOpen = false;
 		},
 	},
 } );
 
-export const { openAddSiteModal, closeAddSiteModal, openEasterEgg, closeEasterEgg } =
+export const { openAddSiteModal, closeAddSiteModal, openWapuuWorld, closeWapuuWorld } =
 	uiSlice.actions;
 
 export const selectIsAddSiteModalOpen = ( state: RootState ) => state.ui.isAddSiteModalOpen;
-export const selectIsEasterEggOpen = ( state: RootState ) => state.ui.isEasterEggOpen;
+export const selectIsWapuuWorldOpen = ( state: RootState ) => state.ui.isWapuuWorldOpen;
 
 export default uiSlice.reducer;

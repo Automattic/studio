@@ -9,10 +9,11 @@
 import { ChildProcess, spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { decodePassword } from '@studio/common/lib/passwords';
-import { validateNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
-import { isSupportedPHPVersion, type SupportedPHPVersion } from '@studio/common/types/php-versions';
+import {
+	NativePhpSupportedVersion,
+	validateNativePhpVersion,
+} from '@studio/common/lib/php-binary-metadata';
 import { z } from 'zod';
 import {
 	managerMessageSchema,
@@ -20,7 +21,6 @@ import {
 	ServerConfig,
 } from 'cli/lib/types/wordpress-server-ipc';
 import { getPhpBinaryPath } from './lib/dependency-management/paths';
-import { validatePhpVersion } from './lib/utils';
 
 const ROUTER_PATH = path.resolve( import.meta.dirname, 'php', 'router.php' );
 const SET_DEFAULT_PERMALINKS_PATH = path.resolve(
@@ -49,7 +49,7 @@ function errorToConsole( ...args: Parameters< typeof console.error > ) {
 }
 
 type SpawnPhpProcessOptions = {
-	phpVersion: SupportedPHPVersion;
+	phpVersion: NativePhpSupportedVersion;
 	cwd?: string;
 	signal?: AbortSignal;
 	mode?: 'pipe' | 'capture-stdout';
@@ -112,21 +112,9 @@ async function runPhpCommand(
 	} );
 }
 
-function getSupportedPhpVersion( phpVersion: string | undefined ): SupportedPHPVersion {
-	if ( phpVersion === undefined ) {
-		return DEFAULT_PHP_VERSION;
-	}
-
-	if ( isSupportedPHPVersion( phpVersion ) ) {
-		return phpVersion;
-	}
-
-	throw new Error( `Unsupported PHP version "${ phpVersion }"` );
-}
-
 async function ensureWpConfig(
 	siteFolder: string,
-	phpVersion: SupportedPHPVersion,
+	phpVersion: NativePhpSupportedVersion,
 	signal: AbortSignal
 ): Promise< void > {
 	const wpConfigPath = path.join( siteFolder, 'wp-config.php' );
@@ -169,7 +157,7 @@ $transformer->to_file( $wp_config_path );
 
 async function isWordPressInstalled(
 	siteFolder: string,
-	phpVersion: SupportedPHPVersion,
+	phpVersion: NativePhpSupportedVersion,
 	signal: AbortSignal
 ): Promise< boolean > {
 	const installationCheckScript = `
@@ -228,7 +216,7 @@ async function waitForServerReady( url: string, signal: AbortSignal ): Promise< 
 
 async function installWordPress(
 	config: ServerConfig,
-	phpVersion: SupportedPHPVersion,
+	phpVersion: NativePhpSupportedVersion,
 	signal: AbortSignal
 ): Promise< void > {
 	const alreadyInstalled = await isWordPressInstalled( config.sitePath, phpVersion, signal );

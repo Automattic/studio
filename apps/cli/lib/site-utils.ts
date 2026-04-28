@@ -55,7 +55,9 @@ export async function openSiteInBrowser( site: SiteData ): Promise< void > {
 	try {
 		const targetPath = site.landingPage || '/wp-admin/';
 		const target = new URL( targetPath, siteUrl ).toString();
-		await openBrowser( buildAutoLoginUrl( siteUrl, target ) );
+		const autoLoginUrl =
+			site.runtime === 'playground' ? buildAutoLoginUrl( siteUrl, target ) : `${ siteUrl }/`;
+		await openBrowser( autoLoginUrl );
 	} catch ( error ) {
 		// Silently fail if browser can't be opened
 	}

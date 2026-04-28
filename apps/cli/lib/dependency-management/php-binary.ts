@@ -9,17 +9,26 @@ import {
 	NativePhpSupportedVersions,
 	PHP_PATCH_VERSIONS,
 } from '@studio/common/lib/php-binary-metadata';
+import { sequential } from '@studio/common/lib/sequential';
 import { extract } from 'tar';
 import { getPhpBinaryPath } from './paths';
 import { downloadFile } from './utils';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 
-// In-flight dedup: if the same version is already downloading, reuse the promise.
-const inFlight = new Map< SupportedPHPVersion, Promise< void > >();
-
 export function isVersionSupportedByNativeRuntime( version: SupportedPHPVersion ): boolean {
 	return NativePhpSupportedVersions.includes( version );
 }
+
+const downloadAndInstallDeduped = sequential(
+	(
+		version: SupportedPHPVersion,
+		onProgress: ( ( downloaded: number, total: number ) => void ) | undefined
+	) => downloadAndInstall( version, onProgress ),
+	{
+		concurrent: NativePhpSupportedVersions.length,
+		deduplicateKey: ( version ) => version,
+	}
+);
 
 export async function ensurePhpBinaryAvailable(
 	version: SupportedPHPVersion,
@@ -36,16 +45,7 @@ export async function ensurePhpBinaryAvailable(
 		return;
 	}
 
-	const existing = inFlight.get( version );
-	if ( existing ) {
-		return existing;
-	}
-
-	const promise = downloadAndInstall( version, onProgress ).finally( () => {
-		inFlight.delete( version );
-	} );
-	inFlight.set( version, promise );
-	return promise;
+	await downloadAndInstallDeduped( version, onProgress );
 }
 
 async function downloadAndInstall(

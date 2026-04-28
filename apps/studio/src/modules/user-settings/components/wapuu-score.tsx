@@ -5,8 +5,9 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useState } from 'react';
 import ProgressBar from 'src/components/progress-bar';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import wapuuIdleUrl from 'src/modules/wapuu-world/assets/wapuu-player-idle-sprite.png';
 
-const MAX_SCORE = 2750;
+const MAX_SCORE = 3200;
 const WAPUU_STUDIO_URL = 'https://wapuu.studio';
 
 export function WapuuScore() {
@@ -25,7 +26,16 @@ export function WapuuScore() {
 
 	return (
 		<div className="flex gap-3 flex-col">
-			<h2 className="a8c-label-semibold">{ __( '🐾 Wapuu score' ) }</h2>
+			<h2 className="a8c-label-semibold flex items-center gap-1.5">
+				<img
+					src={ wapuuIdleUrl }
+					alt=""
+					width={ 16 }
+					height={ 16 }
+					style={ { imageRendering: 'pixelated' } }
+				/>
+				{ __( 'Wapuu score' ) }
+			</h2>
 			<div className="flex gap-3 flex-row items-center w-full">
 				<div className="flex w-full flex-col gap-2">
 					<div className="flex w-full flex-row justify-between gap-8">

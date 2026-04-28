@@ -413,11 +413,10 @@ function sendErrorMessage( messageId: string, error: unknown ): Promise< void > 
 function runProcessToCompletion(
 	command: string,
 	args: string[],
-	options: { cwd?: string; signal?: AbortSignal } = {}
+	options: { signal?: AbortSignal } = {}
 ): Promise< void > {
 	return new Promise( ( resolve, reject ) => {
 		const child = spawn( command, args, {
-			cwd: options.cwd,
 			stdio: [ 'ignore', 'pipe', 'pipe' ],
 			signal: options.signal,
 		} );
@@ -459,9 +458,11 @@ async function runBlueprint( config: ServerConfig, signal: AbortSignal ): Promis
 		'plugins',
 		'sqlite-database-integration'
 	);
+	// Use 'junction' type so this works on Windows without elevated permissions.
+	// On macOS/Linux the type argument is ignored for directories.
 	const needsSymlink = fs.existsSync( muPluginsSqlite ) && ! fs.existsSync( pluginsSqlite );
 	if ( needsSymlink ) {
-		fs.symlinkSync( muPluginsSqlite, pluginsSqlite );
+		fs.symlinkSync( muPluginsSqlite, pluginsSqlite, 'junction' );
 	}
 
 	try {
@@ -533,7 +534,6 @@ async function ipcMessageHandler( packet: unknown ) {
 				break;
 			case 'run-blueprint':
 				await runBlueprint( validMessage.data.config, abortController.signal );
-				result = undefined;
 				break;
 			case 'wp-cli-command':
 				throw new Error(

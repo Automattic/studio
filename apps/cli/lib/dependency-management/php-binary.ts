@@ -13,7 +13,7 @@ import {
 import { sequential } from '@studio/common/lib/sequential';
 import { extract } from 'tar';
 import { getPhpBinaryPath } from './paths';
-import { downloadFile } from './utils';
+import { downloadFile } from '@studio/common/lib/download-file';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 
 const WAIT_POLL_INTERVAL_MS = 1_000;

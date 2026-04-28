@@ -7,7 +7,7 @@ import { recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
 import { getWordPressVersionUrl } from '@studio/common/lib/wordpress-version-utils';
 import semver from 'semver';
 import { getWordPressVersionPath } from './paths';
-import { downloadFile } from './utils';
+import { downloadFile } from '@studio/common/lib/download-file';
 
 const MINIMUM_SUPPORTED_WP_VERSION = 6;
 const DEFAULT_WORDPRESS_VERSION = 'latest';

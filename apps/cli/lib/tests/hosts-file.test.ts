@@ -54,7 +54,7 @@ describe( 'writeHostsFile', () => {
 	} );
 
 	it.each( [ 'linux', 'darwin' ] as const )(
-		'uses `tee` (no shell redirect) on %s',
+		'uses `tee` instead of redirecting directly to `/etc/hosts` on %s',
 		async ( osPlatform ) => {
 			vi.mocked( platform ).mockReturnValue( osPlatform );
 

@@ -76,28 +76,4 @@ describe( 'AI agent startup', () => {
 		);
 		expect( result ).toBe( mockQuery );
 	} );
-
-	it( 'does not set max turns by default', () => {
-		startAiAgent( {
-			prompt: 'Generate a website',
-		} );
-
-		const queryOptions = vi.mocked( query ).mock.calls[ 0 ][ 0 ].options;
-		expect( queryOptions ).not.toHaveProperty( 'maxTurns' );
-	} );
-
-	it( 'passes explicit max turns through to the SDK', () => {
-		startAiAgent( {
-			prompt: 'Generate a website',
-			maxTurns: 25,
-		} );
-
-		expect( query ).toHaveBeenCalledWith(
-			expect.objectContaining( {
-				options: expect.objectContaining( {
-					maxTurns: 25,
-				} ),
-			} )
-		);
-	} );
 } );

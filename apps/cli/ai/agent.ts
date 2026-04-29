@@ -23,7 +23,6 @@ export interface AiAgentConfig {
 	prompt: string;
 	env?: Record< string, string >;
 	model?: AiModelId;
-	maxTurns?: number;
 	resume?: string;
 	activeSite?: SiteInfo | null;
 	wpcomAccessToken?: string;
@@ -58,7 +57,6 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 		prompt,
 		env,
 		model = DEFAULT_MODEL,
-		maxTurns,
 		resume,
 		activeSite,
 		wpcomAccessToken,
@@ -137,7 +135,6 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 				append: buildSystemPrompt( systemPromptOptions ),
 			},
 			mcpServers,
-			...( maxTurns !== undefined && { maxTurns } ),
 			cwd: STUDIO_SITES_ROOT,
 			tools: { type: 'preset', preset: 'claude_code' },
 			permissionMode: 'auto',

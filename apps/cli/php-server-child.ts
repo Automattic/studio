@@ -649,20 +649,24 @@ function killPhpProcess(): void {
 	}
 }
 
-// If this node process is going down (normal exit, IPC disconnect, or signal), make sure PHP
-// goes with it. Without explicit signal handlers, Node's default behavior on SIGTERM is to exit
-// without firing the 'exit' event — leaving `php -S` orphaned with the session temp directory's
-// SQLite/mu-plugin files held open. That blocks rimraf during e2e teardown.
+// If this node process is going down (normal exit or IPC disconnect), make sure PHP goes with it.
 process.on( 'exit', killPhpProcess );
 process.on( 'disconnect', () => {
 	killPhpProcess();
 } );
-for ( const signal of [ 'SIGTERM', 'SIGINT', 'SIGHUP' ] as const ) {
-	process.on( signal, () => {
+
+// Orphan watchdog: if our parent (the daemon) dies without signalling us, we get reparented to
+// init (PPID 1). Without this check, `php -S` keeps running and holds the session temp dir's
+// SQLite/mu-plugin files open, which blocks `rimraf` during e2e teardown. We avoid installing
+// SIGTERM/SIGINT handlers because they would short-circuit the graceful `stop-server` IPC flow.
+const initialParentPid = process.ppid;
+setInterval( () => {
+	if ( process.ppid !== initialParentPid || process.ppid === 1 ) {
+		errorToConsole( 'Parent process is gone; killing PHP server and exiting' );
 		killPhpProcess();
 		process.exit( 0 );
-	} );
-}
+	}
+}, 1000 ).unref();
 
 if ( process.send ) {
 	process.on( 'message', ipcMessageHandler );

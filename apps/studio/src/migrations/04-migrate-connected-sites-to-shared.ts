@@ -49,7 +49,7 @@ async function readAppConfigWithConnectedWpcomSites() {
 export const migrateConnectedSitesToShared: Migration = {
 	async needsToRun() {
 		const parsed = await readAppConfigWithConnectedWpcomSites();
-		return Array.isArray( parsed?.connectedWpcomSites ) && parsed.connectedWpcomSites.length > 0;
+		return !! parsed?.connectedWpcomSites && Object.keys( parsed.connectedWpcomSites ).length > 0;
 	},
 	async run() {
 		const parsed = await readAppConfigWithConnectedWpcomSites();

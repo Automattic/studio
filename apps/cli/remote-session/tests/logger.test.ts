@@ -1,8 +1,8 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { RemoteSessionLogger, redact } from 'cli/remote-session/logger';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { RemoteSessionLogger, redact, stripTerminalControls } from 'cli/remote-session/logger';
 
 describe( 'remote-session logger redaction', () => {
 	it( 'redacts Bearer tokens in arbitrary text', () => {
@@ -22,6 +22,21 @@ describe( 'remote-session logger redaction', () => {
 	} );
 } );
 
+describe( 'stripTerminalControls', () => {
+	it( 'removes ANSI CSI sequences and bare ESC bytes', () => {
+		expect( stripTerminalControls( '\x1b[2Jhello\x1b[31mworld\x1b[0m' ) ).toBe( 'helloworld' );
+		expect( stripTerminalControls( 'before\x1bafter' ) ).toBe( 'beforeafter' );
+	} );
+
+	it( 'removes OSC hyperlink sequences', () => {
+		expect( stripTerminalControls( '\x1b]8;;https://evil/\x07click\x1b]8;;\x07' ) ).toBe( 'click' );
+	} );
+
+	it( 'strips C0 and DEL but keeps tab and newline', () => {
+		expect( stripTerminalControls( 'a\x07b\x7fc\nd\te' ) ).toBe( 'abc\nd\te' );
+	} );
+} );
+
 describe( 'RemoteSessionLogger writes', () => {
 	let tmpDir: string;
 	let logPath: string;
@@ -33,7 +48,27 @@ describe( 'RemoteSessionLogger writes', () => {
 
 	afterEach( () => {
 		fs.rmSync( tmpDir, { recursive: true, force: true } );
+		vi.restoreAllMocks();
 	} );
+
+	function captureStdout(): { writes: string[]; combined: () => string } {
+		const writes: string[] = [];
+		// `process.stdout.write` has overloads: `(chunk, cb?)` and `(chunk, encoding?, cb?)`.
+		// Accept rest args and invoke any function-typed arg so internal Node/Vitest writers
+		// that supply a callback don't hang waiting for it.
+		vi.spyOn( process.stdout, 'write' ).mockImplementation( ( (
+			chunk: unknown,
+			...rest: unknown[]
+		) => {
+			writes.push(
+				typeof chunk === 'string' ? chunk : Buffer.from( chunk as Uint8Array ).toString( 'utf8' )
+			);
+			const cb = rest.find( ( arg ): arg is ( err?: Error ) => void => typeof arg === 'function' );
+			cb?.();
+			return true;
+		} ) as typeof process.stdout.write );
+		return { writes, combined: () => writes.join( '' ) };
+	}
 
 	it( 'writes one line per call with redacted content', () => {
 		const logger = new RemoteSessionLogger( { logPath } );
@@ -65,20 +100,11 @@ describe( 'RemoteSessionLogger writes', () => {
 	} );
 
 	it( 'mirrors non-debug entries to stdout when mirrorToStdout is set, with redaction', () => {
-		const writes: string[] = [];
-		const originalWrite = process.stdout.write.bind( process.stdout );
-		process.stdout.write = ( ( chunk: string | Uint8Array ) => {
-			writes.push( typeof chunk === 'string' ? chunk : Buffer.from( chunk ).toString( 'utf8' ) );
-			return true;
-		} ) as typeof process.stdout.write;
-		try {
-			const logger = new RemoteSessionLogger( { logPath, mirrorToStdout: true } );
-			logger.info( 'hello Bearer abc123', { token: 'visible-secret', chat_id: 42 } );
-			logger.warn( 'no meta here' );
-		} finally {
-			process.stdout.write = originalWrite;
-		}
-		const combined = writes.join( '' );
+		const captured = captureStdout();
+		const logger = new RemoteSessionLogger( { logPath, mirrorToStdout: true } );
+		logger.info( 'hello Bearer abc123', { token: 'visible-secret', chat_id: 42 } );
+		logger.warn( 'no meta here' );
+		const combined = captured.combined();
 		expect( combined ).toMatch( /\binfo\b.*hello Bearer \[redacted\].*"chat_id":42/ );
 		expect( combined ).toMatch( /\bwarn\b.*no meta here/ );
 		expect( combined ).not.toMatch( /visible-secret/ );
@@ -87,20 +113,11 @@ describe( 'RemoteSessionLogger writes', () => {
 	} );
 
 	it( 'event() writes a single stdout line and never touches the file', () => {
-		const writes: string[] = [];
-		const originalWrite = process.stdout.write.bind( process.stdout );
-		process.stdout.write = ( ( chunk: string | Uint8Array ) => {
-			writes.push( typeof chunk === 'string' ? chunk : Buffer.from( chunk ).toString( 'utf8' ) );
-			return true;
-		} ) as typeof process.stdout.write;
-		try {
-			const logger = new RemoteSessionLogger( { logPath, mirrorToStdout: true } );
-			logger.event( 'reply', 'Just 1 site is running.\nLine two.' );
-			logger.event( 'progress', 'Authorization: Bearer abc.def' );
-		} finally {
-			process.stdout.write = originalWrite;
-		}
-		const combined = writes.join( '' );
+		const captured = captureStdout();
+		const logger = new RemoteSessionLogger( { logPath, mirrorToStdout: true } );
+		logger.event( 'reply', 'Just 1 site is running.\nLine two.' );
+		logger.event( 'progress', 'Authorization: Bearer abc.def' );
+		const combined = captured.combined();
 		// Newlines in content are indented so each line stays grouped under its event.
 		expect( combined ).toMatch( /reply Just 1 site is running\.\n {2}Line two\./ );
 		expect( combined ).toMatch( /progress Authorization: Bearer \[redacted\]/ );
@@ -109,35 +126,35 @@ describe( 'RemoteSessionLogger writes', () => {
 	} );
 
 	it( 'event() is a no-op when mirrorToStdout is off', () => {
-		const writes: string[] = [];
-		const originalWrite = process.stdout.write.bind( process.stdout );
-		process.stdout.write = ( ( chunk: string | Uint8Array ) => {
-			writes.push( typeof chunk === 'string' ? chunk : Buffer.from( chunk ).toString( 'utf8' ) );
-			return true;
-		} ) as typeof process.stdout.write;
-		try {
-			const logger = new RemoteSessionLogger( { logPath } );
-			logger.event( 'reply', 'should not appear' );
-		} finally {
-			process.stdout.write = originalWrite;
-		}
-		expect( writes.join( '' ) ).not.toMatch( /should not appear/ );
+		const captured = captureStdout();
+		const logger = new RemoteSessionLogger( { logPath } );
+		logger.event( 'reply', 'should not appear' );
+		expect( captured.combined() ).not.toMatch( /should not appear/ );
 		expect( fs.existsSync( logPath ) ).toBe( false );
 	} );
 
 	it( 'does not mirror to stdout by default', () => {
-		const writes: string[] = [];
-		const originalWrite = process.stdout.write.bind( process.stdout );
-		process.stdout.write = ( ( chunk: string | Uint8Array ) => {
-			writes.push( typeof chunk === 'string' ? chunk : Buffer.from( chunk ).toString( 'utf8' ) );
-			return true;
-		} ) as typeof process.stdout.write;
-		try {
-			const logger = new RemoteSessionLogger( { logPath } );
-			logger.info( 'silent on stdout' );
-		} finally {
-			process.stdout.write = originalWrite;
-		}
-		expect( writes.join( '' ) ).not.toMatch( /silent on stdout/ );
+		const captured = captureStdout();
+		const logger = new RemoteSessionLogger( { logPath } );
+		logger.info( 'silent on stdout' );
+		expect( captured.combined() ).not.toMatch( /silent on stdout/ );
+	} );
+
+	it( 'sanitizes terminal control sequences from untrusted content on stdout', () => {
+		const captured = captureStdout();
+		const logger = new RemoteSessionLogger( { logPath, mirrorToStdout: true } );
+		// Raw ESC + CSI screen-clear, plus an OSC hyperlink wrapping evil text.
+		logger.event( 'message', '\x1b[2Jcleared\nhello\x1b]8;;https://evil/\x07click\x1b]8;;\x07' );
+		// info() goes through formatStdoutLine; its meta values must also be neutralized.
+		logger.info( 'Polled message', { preview: '\x1b[31mred\x1b[0m\x07' } );
+		const combined = captured.combined();
+		// No raw ESC, BEL, or other C0/DEL bytes (apart from \t/\n) leak through.
+		// eslint-disable-next-line no-control-regex
+		expect( combined ).not.toMatch( /[\x00-\x08\x0B-\x1F\x7F]/ );
+		expect( combined ).toContain( 'message cleared' );
+		expect( combined ).toContain( 'click' );
+		// JSON.stringify already escapes raw ESC bytes to the visible 6-char ``
+		// sequence in meta, so the terminal sees inert text rather than active escapes.
+		expect( combined ).toContain( '\\u001b[31mred\\u001b[0m\\u0007' );
 	} );
 } );

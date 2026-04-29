@@ -12,6 +12,19 @@ export default mergeConfig(
 	baseConfig,
 	defineConfig( {
 		plugins: [
+			// Copy the SDK plugin tree into `dist/cli/plugin/` so the Electron-bundled
+			// `studio code` can load it at runtime. This mirrors the equivalent block
+			// in `vite.config.dev.ts` and `vite.config.npm.ts` and fixes a pre-existing
+			// gap where the prod config was missing the target. Tracked independently
+			// of the DLA integration work it landed alongside; reviewable on its own.
+			viteStaticCopy( {
+				targets: [
+					{
+						src: 'ai/plugin',
+						dest: '.',
+					},
+				],
+			} ),
 			...( existsSync( cliNodeModulesPath )
 				? [
 						viteStaticCopy( {

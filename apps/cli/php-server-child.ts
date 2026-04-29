@@ -655,19 +655,6 @@ process.on( 'disconnect', () => {
 	killPhpProcess();
 } );
 
-// Orphan watchdog: if our parent (the daemon) dies without signalling us, we get reparented to
-// init (PPID 1). Without this check, `php -S` keeps running and holds the session temp dir's
-// SQLite/mu-plugin files open, which blocks `rimraf` during e2e teardown. We avoid installing
-// SIGTERM/SIGINT handlers because they would short-circuit the graceful `stop-server` IPC flow.
-const initialParentPid = process.ppid;
-setInterval( () => {
-	if ( process.ppid !== initialParentPid || process.ppid === 1 ) {
-		errorToConsole( 'Parent process is gone; killing PHP server and exiting' );
-		killPhpProcess();
-		process.exit( 0 );
-	}
-}, 1000 ).unref();
-
 if ( process.send ) {
 	process.on( 'message', ipcMessageHandler );
 	process.send( { topic: 'ready' } );

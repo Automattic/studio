@@ -15,6 +15,7 @@ const KONAMI_SEQUENCE = [
 
 const RESET_TIMEOUT_MS = 2000;
 
+// onActivate must be stable (useCallback) — this effect re-attaches the listener whenever it changes.
 export function useKonamiCode( onActivate: () => void ) {
 	const indexRef = useRef( 0 );
 	const timerRef = useRef< ReturnType< typeof setTimeout > | null >( null );

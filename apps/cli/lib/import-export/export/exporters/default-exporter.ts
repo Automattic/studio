@@ -5,6 +5,10 @@ import path from 'path';
 import { ARCHIVER_OPTIONS, DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { generateBackupFilename } from '@studio/common/lib/generate-backup-filename';
 import { ExportEvents } from '@studio/common/lib/import-export-events';
+import {
+	LEGACY_MU_PLUGIN_FILENAMES,
+	STUDIO_LOADER_MU_PLUGIN_FILENAME,
+} from '@studio/common/lib/mu-plugins';
 import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
 import {
 	hasDefaultDbBlock,
@@ -26,6 +30,10 @@ import {
 } from '../types';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
+const prefixedLegacyMuPluginNames = LEGACY_MU_PLUGIN_FILENAMES.map(
+	( name ) => `wp-content/mu-plugins/${ name }`
+);
+
 export class DefaultExporter extends ImportExportEventEmitter implements Exporter {
 	private archiveBuilder!: archiver.Archiver;
 	private backup: BackupContents;
@@ -37,16 +45,8 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 			'wp-content/database',
 			'wp-content/db.php',
 			'wp-content/debug.log',
-			'wp-content/mu-plugins/0-allowed-redirect-hosts.php',
-			'wp-content/mu-plugins/0-check-theme-availability.php',
-			'wp-content/mu-plugins/0-deactivate-jetpack-modules.php',
-			'wp-content/mu-plugins/0-dns-functions.php',
-			'wp-content/mu-plugins/0-permalinks.php',
-			'wp-content/mu-plugins/0-wp-config-constants-polyfill.php',
-			'wp-content/mu-plugins/0-sqlite.php',
-			'wp-content/mu-plugins/0-thumbnails.php',
-			'wp-content/mu-plugins/0-https-for-reverse-proxy.php',
-			'wp-content/mu-plugins/0-sqlite-command.php',
+			...prefixedLegacyMuPluginNames,
+			`wp-content/mu-plugins/${ STUDIO_LOADER_MU_PLUGIN_FILENAME }`,
 		];
 
 		return PATHS_TO_EXCLUDE.some( ( pathToExclude ) =>

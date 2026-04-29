@@ -11,7 +11,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
-import { writeMuPluginsForNativePhp } from '@studio/common/lib/mu-plugins';
+import { writeStudioMuPluginsForNativePhpRuntime } from '@studio/common/lib/mu-plugins';
 import { decodePassword } from '@studio/common/lib/passwords';
 import {
 	NativePhpSupportedVersion,
@@ -315,9 +315,7 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		stopSignal.throwIfAborted();
 		await ensureWpConfig( config.sitePath, phpVersion, stopSignal, config );
 		stopSignal.throwIfAborted();
-		await writeMuPluginsForNativePhp( config.sitePath, {
-			isWpAutoUpdating: config.isWpAutoUpdating,
-		} );
+		await writeStudioMuPluginsForNativePhpRuntime( config.sitePath, config.isWpAutoUpdating );
 		stopSignal.throwIfAborted();
 		await installWordPress( config, phpVersion, stopSignal );
 		stopSignal.throwIfAborted();
@@ -593,9 +591,10 @@ async function ipcMessageHandler( packet: unknown ) {
 					abortController.signal,
 					blueprintConfig
 				);
-				await writeMuPluginsForNativePhp( blueprintConfig.sitePath, {
-					isWpAutoUpdating: blueprintConfig.isWpAutoUpdating,
-				} );
+				await writeStudioMuPluginsForNativePhpRuntime(
+					blueprintConfig.sitePath,
+					blueprintConfig.isWpAutoUpdating
+				);
 				await installWordPress( blueprintConfig, blueprintPhpVersion, abortController.signal );
 				if ( ! blueprintConfig.blueprint ) {
 					throw new Error( 'Blueprint is required' );

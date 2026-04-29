@@ -598,7 +598,7 @@ const runWpCliTool = tool(
 const validateBlocksTool = tool(
 	'validate_blocks',
 	"Validates WordPress block content by running each block through its save() function in the site's block editor (real browser). " +
-		'The site must be running. Returns per-block validation results with expected HTML for invalid blocks.',
+		'The site must be running. Also flags core/html blocks used for editable layout or text content. Returns per-block validation results with expected HTML for invalid blocks.',
 	{
 		nameOrPath: z
 			.string()

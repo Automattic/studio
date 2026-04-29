@@ -1,6 +1,11 @@
 import fs from 'fs';
 import path from 'path';
-import { query, type HookCallback, type Query } from '@anthropic-ai/claude-agent-sdk';
+import {
+	query,
+	type HookCallback,
+	type McpServerConfig,
+	type Query,
+} from '@anthropic-ai/claude-agent-sdk';
 import { AI_MODELS, DEFAULT_MODEL, type AiModelId } from '@studio/common/ai/models';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { createRemoteSiteTools, createStudioTools } from 'cli/ai/tools';
@@ -75,13 +80,61 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 	// pick between IPC and stdout NDJSON.
 	const isForkedByDesktop = typeof process.send === 'function';
 
+	// The Data Liberation Agent (DLA) ships as an optional sibling tree at
+	// `apps/cli/ai/dla/`, vendored by `scripts/download-data-liberation-agent.ts`
+	// at install time. Contributors without a `GH_PAT` (or anyone who skipped
+	// the download) won't have it on disk; gating registration on `existsSync`
+	// keeps the agent runnable without DLA and only adds the `/migrate`
+	// surface when it's actually available.
+	const dlaPath = path.resolve( import.meta.dirname, 'dla' );
+	const dlaAvailable = fs.existsSync( dlaPath );
+
 	// Configure MCP servers based on site type:
 	// Remote sites get WP.com REST API tools + screenshot; local sites get the full Studio toolset.
-	const mcpServers = {
+	const mcpServers: Record< string, McpServerConfig > = {
 		studio: isRemoteSite
 			? createRemoteSiteTools( wpcomAccessToken, activeSite.wpcomSiteId! )
 			: createStudioTools( { enablePreviewSteering: isForkedByDesktop } ),
 	};
+
+	if ( dlaAvailable ) {
+		// Spawn DLA's MCP server as a stdio child process. We use
+		// `process.execPath` (rather than the literal string `'node'`) so the
+		// Electron-bundled binary path picks up the same Node runtime the host
+		// is already using — same precedent as `apps/cli/ai/browser-utils.ts`
+		// and `apps/cli/lib/daemon-client.ts`.
+		//
+		// We pass an absolute path to `mcp-server.js` rather than relying on a
+		// `cwd` field, because the Anthropic Agent SDK's `McpStdioServerConfig`
+		// type (see `node_modules/@anthropic-ai/claude-agent-sdk/sdk.d.ts`
+		// around line 395) only accepts `{ type, command, args, env }` — there
+		// is no `cwd` field, and inspection of the SDK's spawn pipeline
+		// (`spawnLocalProcess` in `sdk.mjs`) shows `cwd` is only honored for
+		// the host Claude Code process, not forwarded to MCP children. DLA's
+		// internal scripts must therefore resolve their own peers via
+		// `import.meta.url` (which is always absolute) rather than relative
+		// to a working directory.
+		//
+		// `STUDIO_WPCOM_TOKEN` is forwarded explicitly so DLA tools targeting
+		// a remote WordPress.com site work even when the active Studio site
+		// is local. `LIBERATION_TOKEN` and `SHOPIFY_ADMIN_TOKEN` are forwarded
+		// transitively via `...resolvedEnv` (they originate in `process.env`).
+		//
+		// If the spawned child fails to start at runtime (missing file,
+		// malformed binary), the SDK reports the MCP server status as
+		// `'failed'` and the rest of the agent stays up — `/migrate` would
+		// surface that as a tool-not-available error rather than crashing
+		// the session. We rely on the SDK's own error reporting here.
+		mcpServers[ 'data-liberation' ] = {
+			type: 'stdio',
+			command: process.execPath,
+			args: [ path.resolve( dlaPath, 'src/mcp-server.js' ) ],
+			env: {
+				...resolvedEnv,
+				STUDIO_WPCOM_TOKEN: wpcomAccessToken ?? '',
+			},
+		};
+	}
 
 	// Build site-aware system prompt
 	const systemPromptOptions = isRemoteSite
@@ -146,7 +199,10 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 					PreToolUse: [ { matcher: 'AskUserQuestion', hooks: [ askUserQuestionHook ] } ],
 				},
 			} ),
-			plugins: [ { type: 'local' as const, path: path.resolve( import.meta.dirname, 'plugin' ) } ],
+			plugins: [
+				{ type: 'local' as const, path: path.resolve( import.meta.dirname, 'plugin' ) },
+				...( dlaAvailable ? [ { type: 'local' as const, path: dlaPath } ] : [] ),
+			],
 			model,
 			resume,
 		},

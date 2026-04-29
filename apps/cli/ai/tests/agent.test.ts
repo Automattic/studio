@@ -1,4 +1,5 @@
 import fs from 'fs';
+import path from 'path';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { startAiAgent } from 'cli/ai/agent';
@@ -16,6 +17,13 @@ vi.mock( 'cli/ai/tools', () => ( {
 	createRemoteSiteTools: vi.fn().mockReturnValue( { type: 'remote-tools' } ),
 	createStudioTools: vi.fn().mockReturnValue( { type: 'local-tools' } ),
 } ) );
+
+/**
+ * Resolve the absolute path for the DLA tree based on the agent module's
+ * runtime directory. Mirrors the `path.resolve( import.meta.dirname, 'dla' )`
+ * call in `agent.ts` so test assertions match the production lookup.
+ */
+const DLA_PATH = path.resolve( import.meta.dirname, '..', 'dla' );
 
 describe( 'AI agent startup', () => {
 	const mockQuery = {
@@ -40,7 +48,12 @@ describe( 'AI agent startup', () => {
 	} );
 
 	it( 'creates the Studio root before starting the agent when it is missing', () => {
-		existsSyncSpy.mockReturnValue( false );
+		existsSyncSpy.mockImplementation( ( p: fs.PathLike ) => {
+			if ( p === STUDIO_SITES_ROOT ) {
+				return false;
+			}
+			return true;
+		} );
 
 		const result = startAiAgent( {
 			prompt: 'Generate a website',
@@ -77,11 +90,97 @@ describe( 'AI agent startup', () => {
 		expect( result ).toBe( mockQuery );
 	} );
 
-	// Placeholder for the conditional DLA registration implemented in T5
-	// (RSM-1675). The agent must not register the data-liberation MCP server
-	// when `apps/cli/ai/dla/` is absent (e.g. on contributors without a
-	// `GH_PAT` to vendor it). T5 turns this on; see plan §T5.
-	it.todo(
-		'agent does not register data-liberation MCP server when apps/cli/ai/dla/ does not exist'
-	);
+	describe( 'DLA registration', () => {
+		it( 'registers data-liberation MCP server when dla/ dir exists', () => {
+			existsSyncSpy.mockReturnValue( true );
+
+			startAiAgent( {
+				prompt: 'Migrate a site',
+				env: { CUSTOM_ENV: 'value' },
+			} );
+
+			const callArgs = vi.mocked( query ).mock.calls[ 0 ][ 0 ];
+			const mcpServers = callArgs.options?.mcpServers as Record< string, unknown >;
+			expect( mcpServers ).toHaveProperty( 'data-liberation' );
+			const dla = mcpServers[ 'data-liberation' ] as {
+				type: string;
+				command: string;
+				args: string[];
+				env: Record< string, string >;
+			};
+			expect( dla.type ).toBe( 'stdio' );
+			expect( dla.command ).toBe( process.execPath );
+			// The MCP server path must be absolute so DLA's `import.meta.url`
+			// peer lookups work without depending on a working directory —
+			// the Anthropic Agent SDK's `McpStdioServerConfig` does not
+			// accept a `cwd` field for stdio MCP children.
+			expect( dla.args ).toEqual( [ path.join( DLA_PATH, 'src/mcp-server.js' ) ] );
+			expect( path.isAbsolute( dla.args[ 0 ] ) ).toBe( true );
+			expect( dla ).not.toHaveProperty( 'cwd' );
+			expect( dla.env.CUSTOM_ENV ).toBe( 'value' );
+			expect( dla.env ).toHaveProperty( 'STUDIO_WPCOM_TOKEN' );
+		} );
+
+		it( 'does not register data-liberation MCP server when dla/ dir is missing', () => {
+			existsSyncSpy.mockImplementation( ( p: fs.PathLike ) => {
+				if ( typeof p === 'string' && p === DLA_PATH ) {
+					return false;
+				}
+				return true;
+			} );
+
+			startAiAgent( {
+				prompt: 'Migrate a site',
+			} );
+
+			const callArgs = vi.mocked( query ).mock.calls[ 0 ][ 0 ];
+			const mcpServers = callArgs.options?.mcpServers as Record< string, unknown >;
+			expect( mcpServers ).not.toHaveProperty( 'data-liberation' );
+			const plugins = callArgs.options?.plugins as unknown[];
+			expect( plugins ).toHaveLength( 1 );
+		} );
+
+		it( 'includes the DLA plugin in plugins when dla/ dir exists', () => {
+			existsSyncSpy.mockReturnValue( true );
+
+			startAiAgent( { prompt: 'Migrate a site' } );
+
+			const callArgs = vi.mocked( query ).mock.calls[ 0 ][ 0 ];
+			const plugins = callArgs.options?.plugins as Array< { type: string; path: string } >;
+			expect( plugins ).toHaveLength( 2 );
+			expect( plugins[ 1 ] ).toEqual( {
+				type: 'local',
+				path: DLA_PATH,
+			} );
+		} );
+
+		it( 'passes wpcomAccessToken into data-liberation env when provided', () => {
+			existsSyncSpy.mockReturnValue( true );
+
+			startAiAgent( {
+				prompt: 'Migrate a site',
+				wpcomAccessToken: 'secret-token-123',
+			} );
+
+			const callArgs = vi.mocked( query ).mock.calls[ 0 ][ 0 ];
+			const mcpServers = callArgs.options?.mcpServers as Record< string, unknown >;
+			const dla = mcpServers[ 'data-liberation' ] as {
+				env: Record< string, string >;
+			};
+			expect( dla.env.STUDIO_WPCOM_TOKEN ).toBe( 'secret-token-123' );
+		} );
+
+		it( 'falls back to empty STUDIO_WPCOM_TOKEN when no token is provided', () => {
+			existsSyncSpy.mockReturnValue( true );
+
+			startAiAgent( { prompt: 'Migrate a site' } );
+
+			const callArgs = vi.mocked( query ).mock.calls[ 0 ][ 0 ];
+			const mcpServers = callArgs.options?.mcpServers as Record< string, unknown >;
+			const dla = mcpServers[ 'data-liberation' ] as {
+				env: Record< string, string >;
+			};
+			expect( dla.env.STUDIO_WPCOM_TOKEN ).toBe( '' );
+		} );
+	} );
 } );

@@ -444,12 +444,13 @@ export async function runCommand( options: {
 			}]\n\n${ prompt }`;
 		}
 
-		// Read the WP.com access token for remote sites
-		let wpcomAccessToken: string | undefined;
-		if ( site?.remote ) {
-			const token = await readAuthToken();
-			wpcomAccessToken = token?.accessToken;
-		}
+		// Read the WP.com access token regardless of site type. Remote sites
+		// use it for the WordPress.com REST API tools, but the Data Liberation
+		// Agent's MCP server may also need it when its tools target a remote
+		// WordPress.com destination even while the active Studio site is local
+		// (e.g. migrating a local source into a WP.com target).
+		const token = await readAuthToken();
+		const wpcomAccessToken = token?.accessToken;
 
 		await persistSessionContext();
 

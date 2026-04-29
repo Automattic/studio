@@ -53,7 +53,7 @@ export const writeHostsFile = async ( content: string ): Promise< void > => {
 		const command =
 			platform() === 'win32'
 				? `type ${ tempPath } > ${ hostsPath }`
-				: `cat ${ tempPath } > ${ hostsPath }`;
+				: `tee ${ hostsPath } < ${ tempPath } > /dev/null`;
 		await sudoExec( command, {
 			name: 'WordPress Studio',
 		} );

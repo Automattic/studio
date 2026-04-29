@@ -76,4 +76,12 @@ describe( 'AI agent startup', () => {
 		);
 		expect( result ).toBe( mockQuery );
 	} );
+
+	// Placeholder for the conditional DLA registration implemented in T5
+	// (RSM-1675). The agent must not register the data-liberation MCP server
+	// when `apps/cli/ai/dla/` is absent (e.g. on contributors without a
+	// `GH_PAT` to vendor it). T5 turns this on; see plan §T5.
+	it.todo(
+		'agent does not register data-liberation MCP server when apps/cli/ai/dla/ does not exist'
+	);
 } );

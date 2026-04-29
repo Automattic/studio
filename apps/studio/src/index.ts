@@ -48,6 +48,7 @@ import {
 	stopCliEventsSubscriber,
 } from 'src/modules/cli/lib/cli-events-subscriber';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
+import { autoInstallLinuxCliIfNeeded } from 'src/modules/cli/lib/linux-installation-manager';
 import { autoInstallMacOSCliIfNeeded } from 'src/modules/cli/lib/macos-installation-manager';
 import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
 import { stopAllProcesses as stopAllStudioCodeProcesses } from 'src/modules/studio-code';
@@ -395,6 +396,7 @@ async function appBoot() {
 
 		await autoInstallWindowsCliIfNeeded();
 		await autoInstallMacOSCliIfNeeded();
+		await autoInstallLinuxCliIfNeeded();
 
 		finishedInitialization = true;
 	} );

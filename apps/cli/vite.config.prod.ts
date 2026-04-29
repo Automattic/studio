@@ -7,6 +7,7 @@ import { baseConfig } from './vite.config.base';
 
 const cliNodeModulesPath = resolve( __dirname, 'node_modules' );
 const distCliNodeModulesPath = resolve( __dirname, 'dist/cli/node_modules' );
+const dlaPath = resolve( __dirname, 'ai/dla' );
 
 export default mergeConfig(
 	baseConfig,
@@ -23,6 +24,19 @@ export default mergeConfig(
 						src: 'ai/plugin',
 						dest: '.',
 					},
+					// Conditionally include the vendored Data Liberation Agent tree.
+					// `ai/dla` is fetched at install time via `scripts/download-data-liberation-agent.ts`
+					// and may be absent for contributors without access to the private repo;
+					// guard with `existsSync` so the build still succeeds in that case
+					// (mirrors the `existsSync(cliNodeModulesPath)` pattern below).
+					...( existsSync( dlaPath )
+						? [
+								{
+									src: 'ai/dla',
+									dest: '.',
+								},
+						  ]
+						: [] ),
 				],
 			} ),
 			...( existsSync( cliNodeModulesPath )

@@ -61,7 +61,7 @@ describe( 'promptWindowsSpeedUpSites', () => {
 		it( 'should return early on non-Windows platforms', async () => {
 			Object.defineProperty( process, 'platform', { value: 'darwin' } );
 
-			mockLoadUserData.mockResolvedValue( { version: 2, siteMetadata: {} } );
+			mockLoadUserData.mockResolvedValue( { version: 1, siteMetadata: {} } );
 
 			await promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: false } );
 
@@ -69,7 +69,7 @@ describe( 'promptWindowsSpeedUpSites', () => {
 		} );
 
 		it( 'should show prompt on Windows platform', async () => {
-			mockLoadUserData.mockResolvedValue( { version: 2, siteMetadata: {} } );
+			mockLoadUserData.mockResolvedValue( { version: 1, siteMetadata: {} } );
 			mockDialogShowMessageBox.mockResolvedValue( { response: 1, checkboxChecked: false } );
 
 			await promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: false } );
@@ -80,7 +80,7 @@ describe( 'promptWindowsSpeedUpSites', () => {
 
 	describe( 'version tracking', () => {
 		it( 'should show prompt when no previous response exists', async () => {
-			mockLoadUserData.mockResolvedValue( { version: 2, siteMetadata: {} } );
+			mockLoadUserData.mockResolvedValue( { version: 1, siteMetadata: {} } );
 			mockDialogShowMessageBox.mockResolvedValue( { response: 1, checkboxChecked: false } );
 
 			await promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: true } );
@@ -90,7 +90,7 @@ describe( 'promptWindowsSpeedUpSites', () => {
 
 		it( 'should skip prompt when user said "no" to the current version', async () => {
 			mockLoadUserData.mockResolvedValue( {
-				version: 2,
+				version: 1,
 				siteMetadata: {},
 				promptWindowsSpeedUpResult: {
 					response: 'no',
@@ -106,7 +106,7 @@ describe( 'promptWindowsSpeedUpSites', () => {
 
 		it( 'should show prompt again when user said "no" to a previous version', async () => {
 			mockLoadUserData.mockResolvedValue( {
-				version: 2,
+				version: 1,
 				siteMetadata: {},
 				promptWindowsSpeedUpResult: {
 					response: 'no',
@@ -123,7 +123,7 @@ describe( 'promptWindowsSpeedUpSites', () => {
 
 		it( 'should skip prompt when user said "yes" regardless of version', async () => {
 			mockLoadUserData.mockResolvedValue( {
-				version: 2,
+				version: 1,
 				siteMetadata: {},
 				promptWindowsSpeedUpResult: {
 					response: 'yes',
@@ -139,7 +139,7 @@ describe( 'promptWindowsSpeedUpSites', () => {
 
 		it( 'should always show prompt when skipIfAlreadyPrompted is false', async () => {
 			mockLoadUserData.mockResolvedValue( {
-				version: 2,
+				version: 1,
 				siteMetadata: {},
 				promptWindowsSpeedUpResult: {
 					response: 'no',
@@ -184,7 +184,7 @@ describe( 'promptWindowsSpeedUpSites', () => {
 
 	describe( 'user response handling', () => {
 		it( 'should save "yes" response with current app version and dontAskAgain false', async () => {
-			mockLoadUserData.mockResolvedValue( { version: 2, siteMetadata: {} } );
+			mockLoadUserData.mockResolvedValue( { version: 1, siteMetadata: {} } );
 			mockDialogShowMessageBox.mockResolvedValue( { response: 0, checkboxChecked: false } ); // First button (yes)
 
 			await promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: false } );
@@ -199,7 +199,7 @@ describe( 'promptWindowsSpeedUpSites', () => {
 		} );
 
 		it( 'should save "no" response with current app version and dontAskAgain false', async () => {
-			mockLoadUserData.mockResolvedValue( { version: 2, siteMetadata: {} } );
+			mockLoadUserData.mockResolvedValue( { version: 1, siteMetadata: {} } );
 			mockDialogShowMessageBox.mockResolvedValue( { response: 1, checkboxChecked: false } ); // Second button (no)
 
 			await promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: false } );
@@ -216,7 +216,7 @@ describe( 'promptWindowsSpeedUpSites', () => {
 
 	describe( 'dialog content', () => {
 		it( 'should show correct dialog title and message', async () => {
-			mockLoadUserData.mockResolvedValue( { version: 2, siteMetadata: {} } );
+			mockLoadUserData.mockResolvedValue( { version: 1, siteMetadata: {} } );
 			mockDialogShowMessageBox.mockResolvedValue( { response: 1, checkboxChecked: false } );
 
 			await promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: false } );
@@ -233,7 +233,7 @@ describe( 'promptWindowsSpeedUpSites', () => {
 		} );
 
 		it( 'should show checkbox when skipIfAlreadyPrompted is true', async () => {
-			mockLoadUserData.mockResolvedValue( { version: 2, siteMetadata: {} } );
+			mockLoadUserData.mockResolvedValue( { version: 1, siteMetadata: {} } );
 			mockDialogShowMessageBox.mockResolvedValue( { response: 1, checkboxChecked: false } );
 
 			await promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: true } );
@@ -247,7 +247,7 @@ describe( 'promptWindowsSpeedUpSites', () => {
 		} );
 
 		it( 'should not show checkbox when skipIfAlreadyPrompted is false', async () => {
-			mockLoadUserData.mockResolvedValue( { version: 2, siteMetadata: {} } );
+			mockLoadUserData.mockResolvedValue( { version: 1, siteMetadata: {} } );
 			mockDialogShowMessageBox.mockResolvedValue( { response: 1, checkboxChecked: false } );
 
 			await promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: false } );
@@ -264,7 +264,7 @@ describe( 'promptWindowsSpeedUpSites', () => {
 	describe( 'dontAskAgain functionality', () => {
 		it( 'should skip prompt when dontAskAgain is true regardless of version', async () => {
 			mockLoadUserData.mockResolvedValue( {
-				version: 2,
+				version: 1,
 				siteMetadata: {},
 				promptWindowsSpeedUpResult: {
 					response: 'no',
@@ -279,7 +279,7 @@ describe( 'promptWindowsSpeedUpSites', () => {
 		} );
 
 		it( 'should save dontAskAgain true when checkbox is checked with "yes" response', async () => {
-			mockLoadUserData.mockResolvedValue( { version: 2, siteMetadata: {} } );
+			mockLoadUserData.mockResolvedValue( { version: 1, siteMetadata: {} } );
 			mockDialogShowMessageBox.mockResolvedValue( { response: 0, checkboxChecked: true } ); // First button (yes) with checkbox
 
 			await promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: true } );
@@ -294,7 +294,7 @@ describe( 'promptWindowsSpeedUpSites', () => {
 		} );
 
 		it( 'should save dontAskAgain true when checkbox is checked with "no" response', async () => {
-			mockLoadUserData.mockResolvedValue( { version: 2, siteMetadata: {} } );
+			mockLoadUserData.mockResolvedValue( { version: 1, siteMetadata: {} } );
 			mockDialogShowMessageBox.mockResolvedValue( { response: 1, checkboxChecked: true } ); // Second button (no) with checkbox
 
 			await promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: true } );

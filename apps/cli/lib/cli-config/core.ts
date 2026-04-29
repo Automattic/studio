@@ -10,7 +10,6 @@ import { hideDirectoryOnWindows } from '@studio/common/lib/hide-dir-windows';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
 import { getCliConfigPath, getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { snapshotSchema } from '@studio/common/types/snapshot';
-import { syncSiteSchema } from '@studio/common/types/sync';
 import { __ } from '@wordpress/i18n';
 import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
@@ -21,10 +20,6 @@ const siteSchema = siteDetailsSchema
 	.extend( {
 		url: z.string().optional(),
 		latestCliPid: z.number().optional(),
-		// Per-userId map of WordPress.com sites attached to this local site.
-		// Populated by Desktop connect/disconnect flows and by CLI push/pull
-		// when targeting a remote site. Shared across Desktop and CLI.
-		connectedWpcomSites: z.record( z.string(), z.array( syncSiteSchema ) ).optional(),
 	} )
 	.loose();
 

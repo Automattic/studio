@@ -28,7 +28,7 @@ if ($Architecture -notin $VALID_ARCHITECTURES) {
     Exit 1
 }
 
-If ($env:USE_AZURE_TRUSTED_SIGNING) {
+If (@('1', 'true') -contains ($env:USE_AZURE_TRUSTED_SIGNING ?? '').Trim().ToLower()) {
     Write-Host "--- :lock: Setting up Azure Trusted Signing"
     $setupScript = (Get-Command setup_azure_trusted_signing.ps1 -ErrorAction Stop).Source
     & $setupScript

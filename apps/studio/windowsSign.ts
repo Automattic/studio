@@ -8,11 +8,15 @@ import type { WindowsSignOptions } from '@electron/packager';
 // The hook calls signtool directly with SHA256-only parameters.
 //
 // Controlled by the USE_AZURE_TRUSTED_SIGNING env var:
-// - Unset/falsy: returns undefined, letting Forge use PFX certificate signing.
-// - Set: returns the Azure signing hook config, or throws if the
+// - Unset or not '1'/'true': returns undefined, letting Forge use PFX certificate signing.
+// - '1' or 'true': returns the Azure signing hook config, or throws if the
 //   required Azure env vars are missing.
 function getWindowsSign(): WindowsSignOptions | undefined {
-	if ( ! process.env.USE_AZURE_TRUSTED_SIGNING ) {
+	const useAzureSigning = [ '1', 'true' ].includes(
+		( process.env.USE_AZURE_TRUSTED_SIGNING ?? '' ).trim().toLowerCase()
+	);
+
+	if ( ! useAzureSigning ) {
 		return undefined;
 	}
 

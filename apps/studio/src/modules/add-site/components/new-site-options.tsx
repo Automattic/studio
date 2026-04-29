@@ -308,7 +308,10 @@ export function NewSiteOptions( {
 
 			{ onGalleryBlueprintSelect && (
 				<>
-					<Heading className="text-[18px] text-frame-text mt-8 mb-4 w-full max-w-2xl mx-auto" weight={ 500 }>
+					<Heading
+						className="text-[18px] text-frame-text mt-8 mb-4 w-full max-w-2xl mx-auto"
+						weight={ 500 }
+					>
 						{ __( 'Explore more blueprints' ) }
 					</Heading>
 

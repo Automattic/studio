@@ -1,14 +1,13 @@
-import { renderer } from 'picospinner';
+import { Spinner } from 'picospinner';
 
 /**
  * picospinner renders to stdout with no option to change the stream. Several CLI
  * commands emit machine-readable JSON on stdout (e.g. `site list --format=json`),
  * so mixing spinner frames into stdout breaks consumers like `| jq`.
  *
- * Wrap the renderer's two write-emitting methods so any `process.stdout.write`
- * calls they make are rerouted to stderr for the duration of the call. This
- * avoids duplicating picospinner internals and survives upstream changes as
- * long as `render` and `onComponentFinish` remain the only write paths.
+ * Wrap Spinner methods that render output so any `process.stdout.write` calls
+ * they make are rerouted to stderr for the duration of the call. This avoids
+ * duplicating picospinner internals or patching the private renderer.
  */
 
 function redirectPicospinnerToStderr(): void {

@@ -21,11 +21,40 @@ const DEFAULT_TOOLTIP_PLACEMENT = 'bottom-start';
 
 function ToggleSidebar( { onToggleSidebar }: TopBarProps ) {
 	const { __ } = useI18n();
+	const dispatch = useAppDispatch();
+	const clickCountRef = useRef( 0 );
+	const clickTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
+
+	useEffect( () => {
+		return () => {
+			if ( clickTimerRef.current ) clearTimeout( clickTimerRef.current );
+		};
+	}, [] );
+
+	function handleClick() {
+		clickCountRef.current += 1;
+		if ( clickTimerRef.current ) clearTimeout( clickTimerRef.current );
+
+		if ( clickCountRef.current >= 3 ) {
+			clickCountRef.current = 0;
+			clickTimerRef.current = null;
+			dispatch( openWapuuWorld() );
+			return;
+		}
+
+		onToggleSidebar();
+
+		clickTimerRef.current = setTimeout( () => {
+			clickCountRef.current = 0;
+			clickTimerRef.current = null;
+		}, 400 );
+	}
+
 	return (
 		<div className="app-no-drag-region ml-2">
 			<Tooltip text={ __( 'Toggle sidebar' ) } placement={ DEFAULT_TOOLTIP_PLACEMENT }>
 				<Button
-					onClick={ onToggleSidebar }
+					onClick={ handleClick }
 					variant="icon"
 					aria-label={ __( 'Toggle sidebar' ) }
 					className="!p-1.5 !rounded-lg"
@@ -108,40 +137,11 @@ function Authentication() {
 
 function SettingsButton() {
 	const { __ } = useI18n();
-	const dispatch = useAppDispatch();
-	const clickCountRef = useRef( 0 );
-	const clickTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
-
-	useEffect( () => {
-		return () => {
-			if ( clickTimerRef.current ) clearTimeout( clickTimerRef.current );
-		};
-	}, [] );
-
-	function handleClick() {
-		clickCountRef.current += 1;
-		if ( clickTimerRef.current ) clearTimeout( clickTimerRef.current );
-
-		if ( clickCountRef.current >= 3 ) {
-			clickCountRef.current = 0;
-			clickTimerRef.current = null;
-			dispatch( openWapuuWorld() );
-			return;
-		}
-
-		clickTimerRef.current = setTimeout( () => {
-			if ( clickCountRef.current < 3 ) {
-				void getIpcApi().showUserSettings( 'general' );
-			}
-			clickCountRef.current = 0;
-			clickTimerRef.current = null;
-		}, 400 );
-	}
 
 	return (
 		<Tooltip text={ __( 'Settings' ) } placement="bottom-end">
 			<Button
-				onClick={ handleClick }
+				onClick={ () => void getIpcApi().showUserSettings( 'general' ) }
 				aria-label={ __( 'Open settings' ) }
 				variant="icon"
 				className="!p-1.5 !rounded-lg"

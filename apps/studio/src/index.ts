@@ -261,6 +261,8 @@ async function appBoot() {
 		console.log( `System locale: ${ app.getSystemLocale() }` );
 		console.log( `Used language: ${ locale }` );
 
+		// By default Electron automatically approves all permissions requests (e.g. notifications, webcam)
+		// We'll opt-in to permissions we specifically need instead.
 		session.defaultSession.setPermissionRequestHandler( ( webContents, permission, callback ) => {
 			// Reject all permission requests
 			callback( false );

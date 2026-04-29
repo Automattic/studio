@@ -49,29 +49,25 @@ async function readAppConfigWithConnectedWpcomSites() {
 export const migrateConnectedSitesToShared: Migration = {
 	async needsToRun() {
 		const parsed = await readAppConfigWithConnectedWpcomSites();
-		return !! parsed;
+		return Array.isArray( parsed?.connectedWpcomSites ) && parsed.connectedWpcomSites.length > 0;
 	},
 	async run() {
 		const parsed = await readAppConfigWithConnectedWpcomSites();
 		if ( ! parsed ) {
 			return;
 		}
-		const hasEntries =
-			!! parsed.connectedWpcomSites && Object.keys( parsed.connectedWpcomSites ).length > 0;
 
-		if ( hasEntries ) {
-			try {
-				await lockSharedConfig();
-				const shared = await readSharedConfig();
-				if ( ! shared.connectedWpcomSites ) {
-					await saveSharedConfig( {
-						...shared,
-						connectedWpcomSites: parsed.connectedWpcomSites,
-					} );
-				}
-			} finally {
-				await unlockSharedConfig();
+		try {
+			await lockSharedConfig();
+			const shared = await readSharedConfig();
+			if ( ! shared.connectedWpcomSites ) {
+				await saveSharedConfig( {
+					...shared,
+					connectedWpcomSites: parsed.connectedWpcomSites,
+				} );
 			}
+		} finally {
+			await unlockSharedConfig();
 		}
 
 		const { connectedWpcomSites: _legacy, ...rest } = parsed;

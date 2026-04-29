@@ -59,15 +59,21 @@ abstract class BaseImporter extends ImportExportEventEmitter implements Importer
 				await move( sqlFile, tmpPath );
 				await this.prepareSqlFile( tmpPath );
 
-				await using command = await runWpCliCommand( site.path, DEFAULT_PHP_VERSION, [
-					'sqlite',
-					'import',
-					`/wordpress/${ sqlTempFile }`,
-					'--require=/tmp/sqlite-command/command.php',
-					'--enable-ast-driver',
-					'--skip-plugins',
-					'--skip-themes',
-				] );
+				await using command = await runWpCliCommand(
+					site,
+					[
+						'sqlite',
+						'import',
+						sqlTempFile,
+						'--enable-ast-driver',
+						'--skip-plugins',
+						'--skip-themes',
+					],
+					{
+						requireSqliteCliCommand: true,
+						phpVersion: DEFAULT_PHP_VERSION,
+					}
+				);
 
 				const exitCode = await command.response.exitCode;
 				const stderr = await command.response.stderrText;

@@ -15,6 +15,7 @@ import { registerCommand as registerAiSessionsDeleteCommand } from 'cli/commands
 import { registerCommand as registerAiSessionsListCommand } from 'cli/commands/ai/sessions/list';
 import { registerCommand as registerAiSessionsResumeCommand } from 'cli/commands/ai/sessions/resume';
 import { readCliConfig } from 'cli/lib/cli-config/core';
+import { setProgressCallback } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
 const {
@@ -27,6 +28,7 @@ const {
 	recordSessionContextMock,
 	recordSiteSelectedMock,
 	reportErrorMock,
+	setLoaderMessageMock,
 	waitForInputMock,
 	activeSiteRef,
 	latestUiRef,
@@ -40,6 +42,7 @@ const {
 	recordSessionContextMock: vi.fn(),
 	recordSiteSelectedMock: vi.fn(),
 	reportErrorMock: vi.fn(),
+	setLoaderMessageMock: vi.fn(),
 	waitForInputMock: vi.fn(),
 	activeSiteRef: {
 		current: null as {
@@ -180,7 +183,9 @@ vi.mock( 'cli/ai/ui', () => ( {
 		finishReplay() {}
 		beginAgentTurn() {}
 		endAgentTurn() {}
-		setLoaderMessage() {}
+		setLoaderMessage( ...args: unknown[] ) {
+			setLoaderMessageMock( ...args );
+		}
 		setActiveSite( site: {
 			name: string;
 			path: string;
@@ -318,6 +323,17 @@ describe( 'CLI: studio code sessions command', () => {
 		await buildParser().parseAsync( [ 'ai' ] );
 
 		expect( ( AiSessionRecorder as typeof AiSessionRecorder ).create ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'passes progress update signals through to the loader', async () => {
+		waitForInputMock.mockResolvedValueOnce( 'Hello' ).mockResolvedValueOnce( '/exit' );
+
+		await buildParser().parseAsync( [ 'ai' ] );
+
+		const progressCallback = vi.mocked( setProgressCallback ).mock.calls.at( -1 )?.[ 0 ];
+		progressCallback?.( 'Applying changes… (75%)', true );
+
+		expect( setLoaderMessageMock ).toHaveBeenCalledWith( 'Applying changes… (75%)', true );
 	} );
 
 	it( 'does not show the server retry prompt when the user interrupts a turn', async () => {

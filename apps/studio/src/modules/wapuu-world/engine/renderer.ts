@@ -1,13 +1,13 @@
 import bgFarUrl from 'src/modules/wapuu-world/assets/wapuu-bg-far.png';
 import bgNearUrl from 'src/modules/wapuu-world/assets/wapuu-bg-near.png';
 import flagSpriteUrl from 'src/modules/wapuu-world/assets/wapuu-flag-sprite.png';
-import waveSpriteUrl from 'src/modules/wapuu-world/assets/wapuu-wave-sprite.png';
 import gutenbergSpriteUrl from 'src/modules/wapuu-world/assets/wapuu-gutenberg-sprite.png';
 import mguySpriteUrl from 'src/modules/wapuu-world/assets/wapuu-mguy-sprite.png';
 import wapuuPlayerIdleSpriteUrl from 'src/modules/wapuu-world/assets/wapuu-player-idle-sprite.png';
 import wapuuPlayerSpriteUrl from 'src/modules/wapuu-world/assets/wapuu-player-sprite.png';
 import coinSpriteUrl from 'src/modules/wapuu-world/assets/wapuu-sprites-coin.png';
 import tilesSpriteUrl from 'src/modules/wapuu-world/assets/wapuu-sprites-tiles.png';
+import waveSpriteUrl from 'src/modules/wapuu-world/assets/wapuu-wave-sprite.png';
 import { Player, Enemy, Collectible, Flag } from './entities';
 import { TILE_SIZE, LEVEL_MAP, getTile } from './level';
 
@@ -17,7 +17,6 @@ function loadImage( url: string ): { img: HTMLImageElement; ready: boolean } {
 		entry.ready = true;
 	};
 	entry.img.onerror = () => {
-		// eslint-disable-next-line no-console
 		console.warn( `[wapuu-world] sprite failed to load: ${ url }` );
 	};
 	entry.img.src = url;
@@ -456,6 +455,43 @@ function drawHud(
 	strokeText( ctx, `${ score } pts`, w - 10, 14, COLORS.hudText );
 }
 
+function drawHitboxes(
+	ctx: CanvasRenderingContext2D,
+	player: Player,
+	enemies: Enemy[],
+	collectibles: Collectible[],
+	flag: Flag | null,
+	cameraX: number
+) {
+	ctx.save();
+	ctx.globalAlpha = 0.5;
+	ctx.lineWidth = 1;
+
+	// Player — green
+	ctx.strokeStyle = '#00ff00';
+	ctx.strokeRect( player.x - cameraX, player.y, player.w, player.h );
+
+	// Enemies — red
+	ctx.strokeStyle = '#ff0000';
+	for ( const e of enemies ) {
+		if ( e.alive ) ctx.strokeRect( e.x - cameraX, e.y, e.w, e.h );
+	}
+
+	// Collectibles — yellow
+	ctx.strokeStyle = '#ffff00';
+	for ( const c of collectibles ) {
+		if ( ! c.collected ) ctx.strokeRect( c.x - cameraX, c.y, c.w, c.h );
+	}
+
+	// Flag — cyan
+	if ( flag ) {
+		ctx.strokeStyle = '#00ffff';
+		ctx.strokeRect( flag.x - cameraX, flag.y, flag.w, flag.h );
+	}
+
+	ctx.restore();
+}
+
 export function renderGame(
 	ctx: CanvasRenderingContext2D,
 	state: {
@@ -468,7 +504,8 @@ export function renderGame(
 		timeLeft: number;
 	},
 	w: number,
-	h: number
+	h: number,
+	debug = false
 ) {
 	const { player, enemies, collectibles, flag, score, timeLeft } = state;
 	const cameraX = Math.floor( state.cameraX );
@@ -490,6 +527,7 @@ export function renderGame(
 	}
 
 	drawWapuu( ctx, player, cameraX );
+	if ( debug ) drawHitboxes( ctx, player, enemies, collectibles, flag, cameraX );
 	drawHud( ctx, score, player.lives, timeLeft, w );
 }
 

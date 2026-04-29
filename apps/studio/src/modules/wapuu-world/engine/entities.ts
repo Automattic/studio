@@ -84,7 +84,7 @@ export function createEnemy( x: number, y: number ): Enemy {
 	return {
 		x,
 		y,
-		w: 28,
+		w: 20,
 		h: 28,
 		vx: -1.2,
 		vy: 0,
@@ -102,7 +102,7 @@ export function createMguy( x: number, y: number ): Enemy {
 	return {
 		x,
 		y,
-		w: 32,
+		w: 24,
 		h: 38,
 		vx: -1.8,
 		vy: 0,
@@ -133,7 +133,7 @@ export function spawnEntities() {
 			if ( tile === 3 ) {
 				collectibles.push( createCollectible( px + 6, py + 6 ) );
 			} else if ( tile === 5 ) {
-				enemies.push( createEnemy( px + 2, py ) );
+				enemies.push( createEnemy( px + 6, py ) );
 			} else if ( tile === 7 ) {
 				enemies.push( createMguy( px, py ) );
 			} else if ( tile === 4 ) {

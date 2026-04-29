@@ -81,9 +81,13 @@ export function startGame( canvas: HTMLCanvasElement ): () => void {
 	let state = initState();
 
 	const keys: Set< string > = new Set();
+	let debugHitboxes = false;
 
 	function onKeyDown( e: KeyboardEvent ) {
 		keys.add( e.key );
+		if ( e.key === '`' || e.key === '~' ) {
+			debugHitboxes = ! debugHitboxes;
+		}
 		if ( state.status === 'start' ) {
 			if ( e.key === 'Enter' || e.key === ' ' ) {
 				state.status = 'playing';
@@ -125,15 +129,15 @@ export function startGame( canvas: HTMLCanvasElement ): () => void {
 		const gameState = { player, enemies, collectibles, flag, score, cameraX, timeLeft };
 
 		if ( status === 'start' ) {
-			renderGame( ctx, gameState, CANVAS_W, CANVAS_H );
+			renderGame( ctx, gameState, CANVAS_W, CANVAS_H, debugHitboxes );
 			renderStartScreen( ctx, CANVAS_W, CANVAS_H, state.startTimer );
 		} else if ( status === 'playing' ) {
-			renderGame( ctx, gameState, CANVAS_W, CANVAS_H );
+			renderGame( ctx, gameState, CANVAS_W, CANVAS_H, debugHitboxes );
 		} else if ( status === 'dead' ) {
-			renderGame( ctx, gameState, CANVAS_W, CANVAS_H );
+			renderGame( ctx, gameState, CANVAS_W, CANVAS_H, debugHitboxes );
 			renderDeathScreen( ctx, CANVAS_W, CANVAS_H );
 		} else {
-			renderGame( ctx, gameState, CANVAS_W, CANVAS_H );
+			renderGame( ctx, gameState, CANVAS_W, CANVAS_H, debugHitboxes );
 			renderWinScreen( ctx, CANVAS_W, CANVAS_H, score );
 		}
 

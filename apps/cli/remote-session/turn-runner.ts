@@ -1,10 +1,6 @@
 import { type ChildProcess, spawn } from 'child_process';
 import readline from 'readline';
-import type {
-	JsonEvent,
-	MediaShareEvent,
-	TurnCompletedStatus,
-} from '@studio/common/ai/json-events';
+import type { JsonEvent, TurnCompletedStatus } from '@studio/common/ai/json-events';
 import type { RemoteSessionLogger } from 'cli/remote-session/logger';
 
 export interface QuestionAsked {
@@ -14,13 +10,6 @@ export interface QuestionAsked {
 
 export type TurnOutcomeStatus = TurnCompletedStatus | 'timeout' | 'spawn_error';
 
-export interface MediaShare {
-	mediaType: 'image';
-	mimeType: 'image/png' | 'image/jpeg';
-	dataBase64: string;
-	caption?: string;
-}
-
 export interface TurnOutcome {
 	status: TurnOutcomeStatus;
 	sessionId?: string;
@@ -28,8 +17,6 @@ export interface TurnOutcome {
 	replyText?: string;
 	/** Flattened question + options when the turn ends with a paused AskUserQuestion. */
 	questions?: QuestionAsked[];
-	/** Images the agent asked us to deliver to the user (in emit order). */
-	mediaShares?: MediaShare[];
 	/** True when the underlying SDK result had `is_error: true`. */
 	isError: boolean;
 	/** Last ~2KB of stderr output from the child. */
@@ -206,7 +193,6 @@ export async function runTurn( options: TurnRunOptions ): Promise< TurnOutcome >
 	let replyText: string | undefined;
 	let isError = false;
 	let pausedQuestions: QuestionAsked[] | undefined;
-	const mediaShares: MediaShare[] = [];
 	let completedStatus: TurnCompletedStatus | undefined;
 	let stderrTail = '';
 	let timedOut = false;
@@ -256,21 +242,6 @@ export async function runTurn( options: TurnRunOptions ): Promise< TurnOutcome >
 			logger?.debug( 'Event: question.asked', {
 				...logContext,
 				questions: pausedQuestions.length,
-			} );
-		} else if ( event.type === 'media.share' ) {
-			const media = event as MediaShareEvent;
-			mediaShares.push( {
-				mediaType: media.mediaType,
-				mimeType: media.mimeType,
-				dataBase64: media.dataBase64,
-				caption: media.caption,
-			} );
-			logger?.debug( 'Event: media.share', {
-				...logContext,
-				media_type: media.mediaType,
-				mime_type: media.mimeType,
-				base64_chars: media.dataBase64.length,
-				caption_length: media.caption?.length ?? 0,
 			} );
 		} else if ( event.type === 'turn.completed' ) {
 			completedStatus = event.status;
@@ -329,8 +300,6 @@ export async function runTurn( options: TurnRunOptions ): Promise< TurnOutcome >
 	options.signal?.removeEventListener( 'abort', onAbort );
 	rl.close();
 
-	const mediaSharesOut = mediaShares.length > 0 ? mediaShares : undefined;
-
 	if ( aborted ) {
 		// Caller initiated — surface as timeout so the poll loop doesn't post a reply.
 		return {
@@ -338,7 +307,6 @@ export async function runTurn( options: TurnRunOptions ): Promise< TurnOutcome >
 			sessionId: capturedSessionId,
 			replyText,
 			questions: pausedQuestions,
-			mediaShares: mediaSharesOut,
 			isError: true,
 			stderrTail,
 			exitCode,
@@ -352,7 +320,6 @@ export async function runTurn( options: TurnRunOptions ): Promise< TurnOutcome >
 			sessionId: capturedSessionId,
 			replyText,
 			questions: pausedQuestions,
-			mediaShares: mediaSharesOut,
 			isError: true,
 			stderrTail,
 			exitCode,
@@ -372,7 +339,6 @@ export async function runTurn( options: TurnRunOptions ): Promise< TurnOutcome >
 		is_error: isError,
 		reply_chars: replyText?.length ?? 0,
 		questions: pausedQuestions?.length ?? 0,
-		media_shares: mediaShares.length,
 		stale_session: staleSession,
 		stderr_tail: stderrTail ? stderrTail.slice( -500 ) : '',
 	} );
@@ -382,7 +348,6 @@ export async function runTurn( options: TurnRunOptions ): Promise< TurnOutcome >
 		sessionId: capturedSessionId,
 		replyText,
 		questions: pausedQuestions,
-		mediaShares: mediaSharesOut,
 		isError,
 		stderrTail,
 		exitCode,

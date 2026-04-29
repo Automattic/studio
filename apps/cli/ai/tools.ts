@@ -793,13 +793,13 @@ const takeScreenshotTool = tool(
 
 const shareScreenshotTool = tool(
 	'share_screenshot',
-	'Captures a screenshot of a URL and delivers it to the user (and back to you, so you can also see what was sent). ' +
-		'Use this when you want the user to *see* the result of your work — for example, after building or modifying a site, share the rendered page so the user can review it visually. ' +
-		'By default this captures the rendered viewport ("above the fold"), the way the page would look on a screen at first glance. Set `fullPage: true` only when the user explicitly asks for the whole scroll length. ' +
-		'In Telegram remote-session mode the image is posted inline; in other contexts the image is delivered through whichever UI is connected. ' +
-		'Distinct from `take_screenshot`, which is for your own visual reasoning only and does not reach the user.',
+	'Fire-and-forget primitive that captures a URL and delivers the image to the user. ' +
+		'Call after ANY visible change to a site so the user sees the new state. ' +
+		'Returns a confirmation string only — the image is NOT returned to you. The user already has the picture; do not analyze or describe what was sent in your reply. After calling this, write at most one short follow-up sentence and end the turn. ' +
+		'Defaults to a 16:9 above-the-fold view. Set `fullPage: true` only when the user explicitly asks for the whole scroll length. ' +
+		'Distinct from `take_screenshot`, which is for your own visual reasoning before continuing work.',
 	{
-		url: z.string().describe( 'The URL to screenshot and share with the user' ),
+		url: z.string().describe( 'The URL to screenshot and send to the user' ),
 		viewport: z
 			.enum( [ 'desktop', 'mobile' ] )
 			.optional()
@@ -810,13 +810,13 @@ const shareScreenshotTool = tool(
 			.boolean()
 			.optional()
 			.describe(
-				'When true, capture the entire scrolled page instead of just the viewport. Defaults to false. Only set this when the user has explicitly asked for the full page.'
+				'When true, capture the entire scrolled page instead of just the viewport. Defaults to false; only set this when the user has explicitly asked for the full page.'
 			),
 		caption: z
 			.string()
 			.optional()
 			.describe(
-				'Short caption to send alongside the image. Keep it under ~1024 characters; the server will demote longer captions to a follow-up message.'
+				'Short caption sent with the image. Describe what the user is looking at; do NOT mention "full page", "viewport", or other capture-mode wording. Keep it under ~1024 characters.'
 			),
 	},
 	async ( args ) => {
@@ -835,15 +835,11 @@ const shareScreenshotTool = tool(
 				caption: args.caption,
 			} );
 
-			return {
-				content: [
-					{
-						type: 'image' as const,
-						data: base64,
-						mimeType: 'image/png',
-					},
-				],
-			};
+			return textResult(
+				`Screenshot delivered to the user (${ viewportType }${
+					args.fullPage ? ', full page' : ''
+				}). The user is viewing it now; do not describe what was sent.`
+			);
 		} catch ( error ) {
 			return errorResult(
 				`Share screenshot failed: ${ error instanceof Error ? error.message : String( error ) }`

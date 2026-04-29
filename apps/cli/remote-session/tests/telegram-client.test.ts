@@ -245,4 +245,19 @@ describe( 'respondMessage', () => {
 		await expect( respondMessage( baseConfig, { chatId: 1 } ) ).rejects.toThrow( /text.*photo/i );
 		expect( fetchMock ).not.toHaveBeenCalled();
 	} );
+
+	it( 'truncates captions over 1024 chars before sending', async () => {
+		fetchMock.mockResolvedValueOnce( new Response( '', { status: 200 } ) );
+		const longCaption = 'x'.repeat( 1500 );
+		await respondMessage( baseConfig, {
+			chatId: 1,
+			photo: 'BASE64DATA',
+			caption: longCaption,
+		} );
+		const [ , init ] = fetchMock.mock.calls[ 0 ];
+		const fd = init.body as FormData;
+		const sent = fd.get( 'caption' ) as string;
+		expect( sent.length ).toBe( 1024 );
+		expect( sent.endsWith( '…' ) ).toBe( true );
+	} );
 } );

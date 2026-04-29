@@ -207,26 +207,31 @@ describe( 'runPollLoop', () => {
 		expect( bodies ).toContain( '⚠️ Local agent did not return a result.' );
 	} );
 
-	it( 'posts media shares before the text reply when both are present', async () => {
+	it( 'posts media shares in real time before the text reply when both are present', async () => {
 		const scripted = makeScriptedPoll( [ { chat_id: 42, text: 'show me' } ] );
 		const deps = makeDeps( { scriptedPoll: scripted } );
-		( deps.runTurn as ReturnType< typeof vi.fn > ).mockResolvedValue( {
-			status: 'success',
-			sessionId: 'sess-1',
-			replyText: 'Want me to publish this as a preview site?',
-			mediaShares: [
-				{
+		// Simulate the child emitting a media.share event mid-turn, then completing.
+		( deps.runTurn as ReturnType< typeof vi.fn > ).mockImplementation(
+			async ( opts: { onEvent?: ( event: unknown ) => void } ) => {
+				opts.onEvent?.( {
+					type: 'media.share',
+					timestamp: 'now',
 					mediaType: 'image',
 					mimeType: 'image/png',
 					dataBase64: 'AAAA',
 					caption: 'Site preview',
-				},
-			],
-			isError: false,
-			stderrTail: '',
-			exitCode: 0,
-			staleSession: false,
-		} satisfies TurnOutcome );
+				} );
+				return {
+					status: 'success',
+					sessionId: 'sess-1',
+					replyText: 'Want me to publish this as a preview site?',
+					isError: false,
+					stderrTail: '',
+					exitCode: 0,
+					staleSession: false,
+				} satisfies TurnOutcome;
+			}
+		);
 
 		const handle = await runPollLoop( { config: baseConfig, deps } );
 		await scripted.done;
@@ -234,7 +239,6 @@ describe( 'runPollLoop', () => {
 		await handle.done;
 
 		const respond = deps.respond as ReturnType< typeof vi.fn >;
-		// First call is the attach status. Find the photo + text calls.
 		const calls = respond.mock.calls.map( ( [ , params ] ) => params );
 		const photoIdx = calls.findIndex( ( p ) => p.photo === 'AAAA' );
 		const textIdx = calls.findIndex(
@@ -257,15 +261,25 @@ describe( 'runPollLoop', () => {
 	it( 'posts media even when there is no text reply (no fallback warning)', async () => {
 		const scripted = makeScriptedPoll( [ { chat_id: 42, text: 'just the screenshot' } ] );
 		const deps = makeDeps( { scriptedPoll: scripted } );
-		( deps.runTurn as ReturnType< typeof vi.fn > ).mockResolvedValue( {
-			status: 'success',
-			sessionId: 'sess-1',
-			mediaShares: [ { mediaType: 'image', mimeType: 'image/png', dataBase64: 'IMG' } ],
-			isError: false,
-			stderrTail: '',
-			exitCode: 0,
-			staleSession: false,
-		} satisfies TurnOutcome );
+		( deps.runTurn as ReturnType< typeof vi.fn > ).mockImplementation(
+			async ( opts: { onEvent?: ( event: unknown ) => void } ) => {
+				opts.onEvent?.( {
+					type: 'media.share',
+					timestamp: 'now',
+					mediaType: 'image',
+					mimeType: 'image/png',
+					dataBase64: 'IMG',
+				} );
+				return {
+					status: 'success',
+					sessionId: 'sess-1',
+					isError: false,
+					stderrTail: '',
+					exitCode: 0,
+					staleSession: false,
+				} satisfies TurnOutcome;
+			}
+		);
 
 		const handle = await runPollLoop( { config: baseConfig, deps } );
 		await scripted.done;

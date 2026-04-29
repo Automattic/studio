@@ -62,23 +62,23 @@ describe( 'runTurn', () => {
 		expect( outcome.status ).toBe( 'timeout' );
 	}, 10_000 );
 
-	it( 'collects media.share events in emit order alongside the reply text', async () => {
-		const outcome = await run( 'media-share' );
+	it( 'forwards media.share events to the onEvent callback for in-flight delivery', async () => {
+		const seen: string[] = [];
+		const outcome = await runTurn( {
+			text: 'ignored',
+			timeoutMs: 5000,
+			cliEntry: mockCli,
+			env: { ...process.env, SCENARIO: 'media-share', SESSION_ID: 'captured-sess' },
+			onEvent: ( event ) => {
+				if ( event.type === 'media.share' ) {
+					seen.push( event.dataBase64 );
+				}
+			},
+		} );
 		expect( outcome.status ).toBe( 'success' );
 		expect( outcome.replyText ).toBe( 'Want me to publish this as a preview site?' );
-		expect( outcome.mediaShares ).toEqual( [
-			{
-				mediaType: 'image',
-				mimeType: 'image/png',
-				dataBase64: 'AAAA',
-				caption: 'Site preview',
-			},
-			{
-				mediaType: 'image',
-				mimeType: 'image/png',
-				dataBase64: 'BBBB',
-				caption: undefined,
-			},
-		] );
+		// Events are forwarded in emit order; the streamer (not the runner) is
+		// responsible for actually posting them, so the outcome itself stays clean.
+		expect( seen ).toEqual( [ 'AAAA', 'BBBB' ] );
 	} );
 } );

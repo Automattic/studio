@@ -1,5 +1,7 @@
+import { type JsonEvent } from '@studio/common/ai/json-events';
 import { type RemoteSessionConfig } from 'cli/remote-session/config';
 import { RemoteSessionLogger } from 'cli/remote-session/logger';
+import { MediaStreamer } from 'cli/remote-session/media-streamer';
 import { ProgressStreamer } from 'cli/remote-session/progress-streamer';
 import { chunkReply, extractReply } from 'cli/remote-session/reply-formatter';
 import { clearSessionId, readStateForChat, writeSessionId } from 'cli/remote-session/state';
@@ -10,12 +12,7 @@ import {
 	pollMessages,
 	respondMessage,
 } from 'cli/remote-session/telegram-client';
-import {
-	runTurn,
-	type MediaShare,
-	type TurnOutcome,
-	type TurnRunOptions,
-} from 'cli/remote-session/turn-runner';
+import { runTurn, type TurnOutcome, type TurnRunOptions } from 'cli/remote-session/turn-runner';
 
 /** Injected for tests. */
 export interface PollLoopDeps {
@@ -105,31 +102,6 @@ async function postChunks(
 	}
 }
 
-async function postMediaShares(
-	deps: PollLoopDeps,
-	config: RemoteSessionConfig,
-	target: ReplyTarget,
-	mediaShares: MediaShare[]
-): Promise< void > {
-	deps.logger.info( 'Posting media shares', {
-		chat_id: target.chatId,
-		count: mediaShares.length,
-	} );
-	for ( const media of mediaShares ) {
-		await deps.respond(
-			config,
-			{
-				chatId: target.chatId,
-				bot: target.bot,
-				photo: media.dataBase64,
-				photoMimeType: media.mimeType,
-				caption: media.caption,
-			},
-			{ logger: deps.logger }
-		);
-	}
-}
-
 async function handleTurn(
 	deps: PollLoopDeps,
 	config: RemoteSessionConfig,
@@ -141,11 +113,20 @@ async function handleTurn(
 	const started = Date.now();
 	const logContext = { chat_id: target.chatId };
 
-	const streamer = new ProgressStreamer( {
+	const progressStreamer = new ProgressStreamer( {
 		config,
 		target,
 		deps: { respond: deps.respond, logger: deps.logger },
 	} );
+	const mediaStreamer = new MediaStreamer( {
+		config,
+		target,
+		deps: { respond: deps.respond, logger: deps.logger },
+	} );
+	const onEvent = ( event: JsonEvent ) => {
+		progressStreamer.onEvent( event );
+		mediaStreamer.onEvent( event );
+	};
 
 	let outcome: TurnOutcome;
 	try {
@@ -156,7 +137,7 @@ async function handleTurn(
 			signal,
 			logger: deps.logger,
 			logContext,
-			onEvent: streamer.onEvent,
+			onEvent,
 		} );
 
 		if ( ! signal.aborted && outcome.staleSession && sessionId ) {
@@ -174,12 +155,17 @@ async function handleTurn(
 				signal,
 				logger: deps.logger,
 				logContext,
-				onEvent: streamer.onEvent,
+				onEvent,
 			} );
 		}
 	} finally {
-		streamer.stop();
+		progressStreamer.stop();
 	}
+
+	// Wait for any in-flight photos to finish posting so a text reply that
+	// follows them lands in chat order, even if the photo POST is still
+	// running when the turn ends.
+	const mediaSummary = await mediaStreamer.drain();
 
 	if ( outcome.sessionId && outcome.sessionId !== sessionId ) {
 		await deps.writeSession( target.chatId, outcome.sessionId );
@@ -194,6 +180,8 @@ async function handleTurn(
 		chars_out: outcome.replyText?.length ?? 0,
 		session_id: outcome.sessionId,
 		aborted: signal.aborted,
+		media_posted: mediaSummary.posted,
+		media_failed: mediaSummary.failed,
 	} );
 
 	// Detach was requested mid-turn. Skip posting any reply — the detach flow
@@ -232,15 +220,11 @@ async function handleTurn(
 		isError: outcome.isError,
 	} );
 
-	const hasMedia = ( outcome.mediaShares?.length ?? 0 ) > 0;
+	const deliveredMedia = mediaSummary.posted > 0;
 
-	if ( reply === null && ! hasMedia ) {
+	if ( reply === null && ! deliveredMedia ) {
 		await postBestEffort( deps, config, target, '⚠️ Local agent did not return a result.' );
 		return;
-	}
-
-	if ( hasMedia ) {
-		await postMediaShares( deps, config, target, outcome.mediaShares! );
 	}
 
 	if ( reply !== null ) {

@@ -389,6 +389,21 @@ interface BuildBodyParams {
 	caption?: string;
 }
 
+// Telegram caps captions at 1024 characters and the wpcom endpoint rejects
+// anything longer with HTTP 400. Truncate at the client so a slightly
+// over-cap caption from the agent doesn't drop the whole photo.
+const CAPTION_MAX_CHARS = 1024;
+
+function clampCaption( caption: string | undefined ): string | undefined {
+	if ( ! caption ) {
+		return undefined;
+	}
+	if ( caption.length <= CAPTION_MAX_CHARS ) {
+		return caption;
+	}
+	return `${ caption.slice( 0, CAPTION_MAX_CHARS - 1 ) }…`;
+}
+
 function buildRespondBody( params: BuildBodyParams ): {
 	body: string | FormData;
 	/** Set for the JSON path; `undefined` for multipart so fetch fills the boundary in. */
@@ -403,8 +418,9 @@ function buildRespondBody( params: BuildBodyParams ): {
 		if ( params.text ) {
 			fd.append( 'text', params.text );
 		}
-		if ( params.caption ) {
-			fd.append( 'caption', params.caption );
+		const caption = clampCaption( params.caption );
+		if ( caption ) {
+			fd.append( 'caption', caption );
 		}
 		const mime = params.photoMimeType ?? 'image/png';
 		const filename = mime === 'image/jpeg' ? 'screenshot.jpg' : 'screenshot.png';

@@ -86,6 +86,45 @@ describe( 'RemoteSessionLogger writes', () => {
 		expect( fs.readFileSync( logPath, 'utf8' ) ).toMatch( /"msg":"hello Bearer \[redacted\]"/ );
 	} );
 
+	it( 'event() writes a single stdout line and never touches the file', () => {
+		const writes: string[] = [];
+		const originalWrite = process.stdout.write.bind( process.stdout );
+		process.stdout.write = ( ( chunk: string | Uint8Array ) => {
+			writes.push( typeof chunk === 'string' ? chunk : Buffer.from( chunk ).toString( 'utf8' ) );
+			return true;
+		} ) as typeof process.stdout.write;
+		try {
+			const logger = new RemoteSessionLogger( { logPath, mirrorToStdout: true } );
+			logger.event( 'reply', 'Just 1 site is running.\nLine two.' );
+			logger.event( 'progress', 'Authorization: Bearer abc.def' );
+		} finally {
+			process.stdout.write = originalWrite;
+		}
+		const combined = writes.join( '' );
+		// Newlines in content are indented so each line stays grouped under its event.
+		expect( combined ).toMatch( /reply Just 1 site is running\.\n {2}Line two\./ );
+		expect( combined ).toMatch( /progress Authorization: Bearer \[redacted\]/ );
+		// File sink stays untouched by event().
+		expect( fs.existsSync( logPath ) ).toBe( false );
+	} );
+
+	it( 'event() is a no-op when mirrorToStdout is off', () => {
+		const writes: string[] = [];
+		const originalWrite = process.stdout.write.bind( process.stdout );
+		process.stdout.write = ( ( chunk: string | Uint8Array ) => {
+			writes.push( typeof chunk === 'string' ? chunk : Buffer.from( chunk ).toString( 'utf8' ) );
+			return true;
+		} ) as typeof process.stdout.write;
+		try {
+			const logger = new RemoteSessionLogger( { logPath } );
+			logger.event( 'reply', 'should not appear' );
+		} finally {
+			process.stdout.write = originalWrite;
+		}
+		expect( writes.join( '' ) ).not.toMatch( /should not appear/ );
+		expect( fs.existsSync( logPath ) ).toBe( false );
+	} );
+
 	it( 'does not mirror to stdout by default', () => {
 		const writes: string[] = [];
 		const originalWrite = process.stdout.write.bind( process.stdout );

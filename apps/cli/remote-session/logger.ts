@@ -146,4 +146,24 @@ export class RemoteSessionLogger {
 	error( message: string, meta?: Record< string, unknown > ): void {
 		this.write( 'error', message, meta );
 	}
+
+	/**
+	 * Write a single conversation-content line to stdout only (never the file).
+	 * Used to surface the actual subprocess event payloads — incoming user text,
+	 * progress messages, the final reply, paused questions — while attached.
+	 * Skipped when `mirrorToStdout` is off, so callers can sprinkle these freely
+	 * without affecting non-streaming runs.
+	 */
+	event( kind: string, content: string ): void {
+		if ( ! this.mirrorToStdout ) {
+			return;
+		}
+		const time = new Date().toTimeString().slice( 0, 8 );
+		const oneLine = redact( content ).replace( /\r?\n/g, '\n  ' );
+		try {
+			process.stdout.write( `[${ time }] ${ kind } ${ oneLine }\n` );
+		} catch {
+			// Best-effort; never throw from here.
+		}
+	}
 }

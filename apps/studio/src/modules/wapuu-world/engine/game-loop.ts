@@ -82,6 +82,7 @@ export function startGame( canvas: HTMLCanvasElement ): () => void {
 
 	const keys: Set< string > = new Set();
 	let debugHitboxes = false;
+	const jumpEdge = { consumed: false };
 
 	function onKeyDown( e: KeyboardEvent ) {
 		keys.add( e.key );
@@ -105,6 +106,9 @@ export function startGame( canvas: HTMLCanvasElement ): () => void {
 	}
 	function onKeyUp( e: KeyboardEvent ) {
 		keys.delete( e.key );
+		if ( e.key === 'ArrowUp' || e.key === 'w' || e.key === ' ' ) {
+			jumpEdge.consumed = false;
+		}
 	}
 
 	window.addEventListener( 'keydown', onKeyDown, { capture: true } );
@@ -122,7 +126,7 @@ export function startGame( canvas: HTMLCanvasElement ): () => void {
 		accumulator += delta;
 
 		while ( accumulator >= TARGET_MS ) {
-			update( state, keys );
+			update( state, keys, jumpEdge );
 			accumulator -= TARGET_MS;
 		}
 		const { player, enemies, collectibles, flag, score, cameraX, status, timeLeft } = state;
@@ -159,7 +163,7 @@ export function startGame( canvas: HTMLCanvasElement ): () => void {
 	};
 }
 
-function update( state: GameState, keys: Set< string > ) {
+function update( state: GameState, keys: Set< string >, jumpEdge: { consumed: boolean } ) {
 	if ( state.status === 'start' ) {
 		state.startTimer--;
 		if ( state.startTimer <= 0 ) {
@@ -196,10 +200,11 @@ function update( state: GameState, keys: Set< string > ) {
 		if ( Math.abs( player.vx ) < 0.2 ) player.vx = 0;
 	}
 
-	// Jump
-	if ( jumpPressed && player.onGround ) {
+	// Jump — only on fresh keypress, not while held
+	if ( jumpPressed && ! jumpEdge.consumed && player.onGround ) {
 		player.vy = JUMP_FORCE;
 		player.onGround = false;
+		jumpEdge.consumed = true;
 		playSound( 'jump' );
 	}
 

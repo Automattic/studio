@@ -1,6 +1,6 @@
 import { Icon, help, drawerLeft, cog } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import Button from 'src/components/button';
 import { Gravatar } from 'src/components/gravatar';
 import offlineIcon from 'src/components/offline-icon';
@@ -112,12 +112,19 @@ function SettingsButton() {
 	const clickCountRef = useRef( 0 );
 	const clickTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
 
+	useEffect( () => {
+		return () => {
+			if ( clickTimerRef.current ) clearTimeout( clickTimerRef.current );
+		};
+	}, [] );
+
 	function handleClick() {
 		clickCountRef.current += 1;
 		if ( clickTimerRef.current ) clearTimeout( clickTimerRef.current );
 
 		if ( clickCountRef.current >= 3 ) {
 			clickCountRef.current = 0;
+			clickTimerRef.current = null;
 			dispatch( openWapuuWorld() );
 			return;
 		}
@@ -127,6 +134,7 @@ function SettingsButton() {
 				void getIpcApi().showUserSettings( 'general' );
 			}
 			clickCountRef.current = 0;
+			clickTimerRef.current = null;
 		}, 400 );
 	}
 

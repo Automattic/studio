@@ -40,6 +40,7 @@ const DEFAULT_WP_CONFIG_CONSTANTS = { DB_NAME: 'wordpress' } as const;
 let phpProcess: ChildProcess | null = null;
 let startupAbortController: AbortController | null = null;
 let startingPromise: Promise< void > | null = null;
+let blueprintPromise: Promise< void > | null = null;
 
 function logToConsole( ...args: Parameters< typeof console.log > ) {
 	console.log( `[PHP Server]`, ...args );
@@ -93,16 +94,19 @@ async function runPhpCommand(
 		} );
 
 		let stdout = '';
-		if ( mode === 'capture-stdout' ) {
-			phpScriptProcess.stdout?.on( 'data', ( chunk ) => {
+		const reportActivity = () => process.send?.( { topic: 'activity' } );
+		phpScriptProcess.stdout?.on( 'data', ( chunk ) => {
+			reportActivity();
+			if ( mode === 'capture-stdout' ) {
 				stdout += chunk.toString();
-			} );
-		}
+			}
+		} );
+		phpScriptProcess.stderr?.on( 'data', reportActivity );
 
 		phpScriptProcess.once( 'error', ( error: Error ) => {
 			reject( error );
 		} );
-		phpScriptProcess.once( 'exit', ( code ) => {
+		phpScriptProcess.once( 'close', ( code ) => {
 			if ( code === 0 ) {
 				resolve( { stdout } );
 				return;
@@ -319,7 +323,7 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		await installWordPress( config, phpVersion, stopSignal );
 
 		if ( config.blueprint ) {
-			await runBlueprint( config, phpVersion, stopSignal );
+			await runBlueprint( config, config.blueprint, phpVersion, stopSignal );
 		}
 
 		serverChild.once( 'exit', ( code, signalName ) => {
@@ -410,41 +414,13 @@ function sendErrorMessage( messageId: string, error: unknown ): Promise< void > 
 	} );
 }
 
-function runProcessToCompletion(
-	command: string,
-	args: string[],
-	options: { signal?: AbortSignal } = {}
-): Promise< void > {
-	return new Promise( ( resolve, reject ) => {
-		const child = spawn( command, args, {
-			stdio: [ 'ignore', 'pipe', 'pipe' ],
-			signal: options.signal,
-		} );
-
-		const onChunk = () => process.send?.( { topic: 'activity' } );
-		child.stdout?.on( 'data', ( chunk: Buffer ) => {
-			process.stdout.write( chunk );
-			onChunk();
-		} );
-		child.stderr?.on( 'data', ( chunk: Buffer ) => {
-			process.stderr.write( chunk );
-			onChunk();
-		} );
-
-		child.on( 'error', reject );
-		child.on( 'close', ( code ) => {
-			if ( code === 0 ) resolve();
-			else reject( new Error( `Process exited with code ${ code }` ) );
-		} );
-	} );
-}
-
 async function runBlueprint(
 	config: ServerConfig,
+	blueprint: NonNullable< ServerConfig[ 'blueprint' ] >,
 	phpVersion: NativePhpSupportedVersion,
 	signal: AbortSignal
 ): Promise< void > {
-	const blueprintJson = JSON.stringify( config.blueprint!.contents );
+	const blueprintJson = JSON.stringify( blueprint.contents );
 	const tmpPath = path.join( os.tmpdir(), `studio-blueprint-${ config.siteId }.json` );
 	await fs.promises.writeFile( tmpPath, blueprintJson );
 
@@ -470,8 +446,7 @@ async function runBlueprint(
 	}
 
 	try {
-		await runProcessToCompletion(
-			getPhpBinaryPath( phpVersion ),
+		await runPhpCommand(
 			[
 				getBlueprintsPharPath(),
 				'exec',
@@ -481,7 +456,7 @@ async function runBlueprint(
 				`--site-url=${ config.absoluteUrl ?? `http://localhost:${ config.port }` }`,
 				'--db-engine=sqlite',
 			],
-			{ signal }
+			{ phpVersion, signal }
 		);
 	} finally {
 		await fs.promises.unlink( tmpPath ).catch( () => {} );
@@ -523,7 +498,7 @@ async function ipcMessageHandler( packet: unknown ) {
 				abortController?.abort();
 				return;
 			case 'start-server':
-				// Share an in-flight startup so concurrent start messages cannot spawn two PHP servers.
+				// Track in-flight startup operations so concurrent messages cannot spawn two PHP servers.
 				if ( ! startingPromise ) {
 					startingPromise = startServer( validMessage.data.config, abortController.signal ).finally(
 						() => {
@@ -537,10 +512,24 @@ async function ipcMessageHandler( packet: unknown ) {
 				result = await stopServer();
 				break;
 			case 'run-blueprint': {
-				const blueprintPhpVersion = validateNativePhpVersion(
-					validMessage.data.config.phpVersion ?? ''
-				);
-				await runBlueprint( validMessage.data.config, blueprintPhpVersion, abortController.signal );
+				// Track in-flight blueprint operations so concurrent messages don't cause any conflicts.
+				if ( ! blueprintPromise ) {
+					const blueprintPhpVersion = validateNativePhpVersion(
+						validMessage.data.config.phpVersion ?? ''
+					);
+					if ( ! validMessage.data.config.blueprint ) {
+						throw new Error( 'Blueprint is required' );
+					}
+					blueprintPromise = runBlueprint(
+						validMessage.data.config,
+						validMessage.data.config.blueprint,
+						blueprintPhpVersion,
+						abortController.signal
+					).finally( () => {
+						blueprintPromise = null;
+					} );
+				}
+				result = await blueprintPromise;
 				break;
 			}
 			case 'wp-cli-command':

@@ -630,7 +630,18 @@ const validateBlocksTool = tool(
 
 			const site = await resolveSite( args.nameOrPath );
 			const siteUrl = getSiteUrl( site );
-			const report = await validateBlocks( blockContent, siteUrl );
+			const report = await validateBlocks( blockContent, siteUrl, {
+				site: {
+					id: site.id,
+					name: site.name,
+					path: site.path,
+					port: site.port,
+					url: site.url,
+					phpVersion: site.phpVersion,
+					runtime: site.runtime,
+					technicalSiteDirectory: site.technicalSiteDirectory,
+				},
+			} );
 
 			if ( report.error ) {
 				emitProgress( `Validation failed for ${ fileName }: ${ report.error.slice( 0, 80 ) }` );

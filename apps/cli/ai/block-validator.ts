@@ -17,6 +17,10 @@ export interface ValidationReport {
 	error?: string;
 }
 
+interface ValidationArtifactContext {
+	site?: Record< string, unknown >;
+}
+
 // Cache one EditorPage per site URL so repeated validations reuse the same
 // browser tab instead of navigating and loading the block editor each time.
 const editorPages = new Map< string, EditorPage >();
@@ -41,13 +45,15 @@ function getEditorPage( siteUrl: string ): EditorPage {
  */
 export async function validateBlocks(
 	content: string,
-	siteUrl: string
+	siteUrl: string,
+	context: ValidationArtifactContext = {}
 ): Promise< ValidationReport > {
 	const editorPage = getEditorPage( siteUrl );
 	const artifacts = await ValidationArtifacts.create( {
 		siteUrl,
 		content,
 		source: 'validate_blocks',
+		site: context.site,
 	} );
 	let page: Awaited< ReturnType< EditorPage[ 'getPage' ] > > | null = null;
 

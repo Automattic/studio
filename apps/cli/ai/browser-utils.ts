@@ -9,7 +9,7 @@
 import { execFile } from 'child_process';
 import { randomUUID } from 'crypto';
 import { existsSync } from 'fs';
-import { mkdir, rm, writeFile } from 'fs/promises';
+import { copyFile, mkdir, rm, stat, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -25,6 +25,7 @@ type InstallBrowserFn = () => Promise< void >;
 const DEFAULT_BROWSER_ARGS = [ '--ignore-certificate-errors' ];
 const EDITOR_READY_TIMEOUT_MS = 30_000;
 const MAX_ARTIFACT_EVENTS = 200;
+const MAX_RESPONSE_BODY_PREVIEW_LENGTH = 4_000;
 
 interface EditorDocumentState {
 	url: string;
@@ -65,6 +66,32 @@ function serializeError( error: unknown ): { name?: string; message: string; sta
 	return { message: String( error ) };
 }
 
+function sanitizeArtifactFileName( value: string ): string {
+	return value.replace( /[^a-zA-Z0-9._-]+/g, '-' ).replace( /^-+|-+$/g, '' ) || 'response';
+}
+
+function getResponseArtifactName( response: Response, index: number ): string {
+	let urlName = 'response';
+	try {
+		const url = new URL( response.url() );
+		urlName = path.basename( url.pathname ) || url.hostname;
+	} catch {
+		urlName = response.url().slice( 0, 80 );
+	}
+	return sanitizeArtifactFileName(
+		`${ String( index ).padStart( 3, '0' ) }-${ response.status() }-${ urlName }`
+	);
+}
+
+function redactHeaders( headers: Record< string, string > ): Record< string, string > {
+	return Object.fromEntries(
+		Object.entries( headers ).map( ( [ key, value ] ) => [
+			key,
+			/^(cookie|set-cookie|authorization)$/i.test( key ) ? '[redacted]' : value,
+		] )
+	);
+}
+
 export class ValidationArtifacts {
 	readonly directory: string;
 
@@ -73,6 +100,8 @@ export class ValidationArtifacts {
 	private readonly pageErrors: unknown[] = [];
 	private readonly requestFailures: unknown[] = [];
 	private readonly errorResponses: unknown[] = [];
+	private readonly pendingArtifactWrites: Promise< void >[] = [];
+	private readonly sitePath?: string;
 	private attachedPage: Page | null = null;
 	private tracingStarted = false;
 	private tracingStopped = false;
@@ -81,14 +110,16 @@ export class ValidationArtifacts {
 	private requestFailedHandler?: ( request: Request ) => void;
 	private responseHandler?: ( response: Response ) => void;
 
-	private constructor( directory: string ) {
+	private constructor( directory: string, sitePath?: string ) {
 		this.directory = directory;
+		this.sitePath = sitePath;
 	}
 
 	static async create( input: {
 		siteUrl: string;
 		content: string;
 		source: string;
+		site?: Record< string, unknown >;
 	} ): Promise< ValidationArtifacts > {
 		const directory = path.join(
 			os.tmpdir(),
@@ -103,14 +134,25 @@ export class ValidationArtifacts {
 				{
 					siteUrl: input.siteUrl,
 					source: input.source,
+					site: input.site,
 					startedAt: new Date().toISOString(),
 					contentLength: input.content.length,
+					process: {
+						pid: process.pid,
+						node: process.version,
+						platform: process.platform,
+						arch: process.arch,
+						cwd: process.cwd(),
+					},
 				},
 				null,
 				2
 			)
 		);
-		return new ValidationArtifacts( directory );
+		return new ValidationArtifacts(
+			directory,
+			typeof input.site?.path === 'string' ? input.site.path : undefined
+		);
 	}
 
 	async attachPage( page: Page ): Promise< void > {
@@ -148,14 +190,18 @@ export class ValidationArtifacts {
 			if ( status < 400 ) {
 				return;
 			}
-			pushLimited( this.errorResponses, {
+			const record: Record< string, unknown > = {
 				url: response.url(),
 				status,
 				statusText: response.statusText(),
 				requestMethod: response.request().method(),
 				requestResourceType: response.request().resourceType(),
 				timestamp: new Date().toISOString(),
-			} );
+			};
+			pushLimited( this.errorResponses, record );
+			if ( status >= 500 ) {
+				this.pendingArtifactWrites.push( this.writeErrorResponseArtifact( response, record ) );
+			}
 		};
 
 		page.on( 'console', this.consoleHandler );
@@ -194,6 +240,8 @@ export class ValidationArtifacts {
 		if ( page && ! page.isClosed() ) {
 			await this.writePageArtifacts( page );
 		}
+		await this.writeSiteArtifacts();
+		await Promise.allSettled( this.pendingArtifactWrites );
 		await this.stopTracing( path.join( this.directory, 'trace.zip' ) ).catch(
 			async ( traceError ) => {
 				await writeFile(
@@ -297,6 +345,69 @@ export class ValidationArtifacts {
 					serializeError( error ).message
 				).catch( () => {} );
 			} );
+	}
+
+	private async writeErrorResponseArtifact(
+		response: Response,
+		record: Record< string, unknown >
+	): Promise< void > {
+		const artifactName = getResponseArtifactName( response, this.errorResponses.length );
+		const metadataPath = path.join( this.directory, `${ artifactName }.response.json` );
+		const bodyPath = path.join( this.directory, `${ artifactName }.body` );
+
+		try {
+			const request = response.request();
+			const responseHeaders = await response.allHeaders().catch( () => response.headers() );
+			const body = await response.body();
+			await writeFile( bodyPath, body );
+
+			Object.assign( record, {
+				responseHeaders: redactHeaders( responseHeaders ),
+				requestHeaders: redactHeaders( request.headers() ),
+				requestPostData: request.postData()?.slice( 0, MAX_RESPONSE_BODY_PREVIEW_LENGTH ),
+				requestTiming: request.timing(),
+				bodyPath: path.basename( bodyPath ),
+				bodySize: body.length,
+				bodyPreview: body.toString( 'utf8' ).slice( 0, MAX_RESPONSE_BODY_PREVIEW_LENGTH ),
+			} );
+		} catch ( error ) {
+			Object.assign( record, {
+				bodyError: serializeError( error ),
+			} );
+		}
+
+		await writeFile( metadataPath, JSON.stringify( record, null, 2 ) ).catch( () => {} );
+	}
+
+	private async writeSiteArtifacts(): Promise< void > {
+		if ( ! this.sitePath ) {
+			return;
+		}
+
+		const siteSummary: Record< string, unknown > = {
+			sitePath: this.sitePath,
+		};
+		const debugLogPath = path.join( this.sitePath, 'wp-content', 'debug.log' );
+		try {
+			const debugLogStat = await stat( debugLogPath );
+			siteSummary.debugLog = {
+				path: debugLogPath,
+				size: debugLogStat.size,
+				mtime: debugLogStat.mtime.toISOString(),
+				copiedTo: 'wp-debug.log',
+			};
+			await copyFile( debugLogPath, path.join( this.directory, 'wp-debug.log' ) );
+		} catch ( error ) {
+			siteSummary.debugLog = {
+				path: debugLogPath,
+				error: serializeError( error ).message,
+			};
+		}
+
+		await writeFile(
+			path.join( this.directory, 'site-artifacts.json' ),
+			JSON.stringify( siteSummary, null, 2 )
+		).catch( () => {} );
 	}
 
 	private async stopTracing( tracePath?: string ): Promise< void > {

@@ -80,10 +80,10 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 			const asset = release.assets[ 0 ];
 			if ( ! asset ) {
 				throw new Error(
-					`blueprints.phar not found in latest php-toolkit release ${ release.tag_name }`
+					`No asset found in latest wp-cli-sqlite-command release ${ release.tag_name }`
 				);
 			}
-			return asset.browser_download_url ?? '';
+			return asset.browser_download_url;
 		},
 		destinationPath: path.join( WP_SERVER_FILES_PATH, 'sqlite-command' ),
 	},
@@ -98,7 +98,7 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 		description: 'blueprints.phar CLI tool',
 		getUrl: async () => {
 			const release = await fetchLatestGithubRelease( 'WordPress/php-toolkit' );
-			const asset = release.assets?.find( ( a ) => a.name === 'blueprints.phar' );
+			const asset = release.assets.find( ( a ) => a.name === 'blueprints.phar' );
 			if ( ! asset ) {
 				throw new Error(
 					`blueprints.phar not found in latest php-toolkit release ${ release.tag_name }`

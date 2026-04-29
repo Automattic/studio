@@ -8,8 +8,8 @@
 
 import { ChildProcess, spawn } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
+import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { decodePassword } from '@studio/common/lib/passwords';
 import {
 	NativePhpSupportedVersion,
@@ -40,7 +40,7 @@ const DEFAULT_WP_CONFIG_CONSTANTS = { DB_NAME: 'wordpress' } as const;
 let phpProcess: ChildProcess | null = null;
 let startupAbortController: AbortController | null = null;
 let startingPromise: Promise< void > | null = null;
-let blueprintPromise: Promise< void > | null = null;
+let blueprintQueue: Promise< unknown > = Promise.resolve();
 
 function logToConsole( ...args: Parameters< typeof console.log > ) {
 	console.log( `[PHP Server]`, ...args );
@@ -420,9 +420,43 @@ async function runBlueprint(
 	phpVersion: NativePhpSupportedVersion,
 	signal: AbortSignal
 ): Promise< void > {
-	const blueprintJson = JSON.stringify( blueprint.contents );
-	const tmpPath = path.join( os.tmpdir(), `studio-blueprint-${ config.siteId }.json` );
-	await fs.promises.writeFile( tmpPath, blueprintJson );
+	// blueprints.phar's CLI accepts only local paths. Remote URIs are supported by
+	// the Playground runtime (via FetchFilesystem) but not here.
+	if ( blueprint.uri.startsWith( 'http://' ) || blueprint.uri.startsWith( 'https://' ) ) {
+		throw new Error(
+			`Remote blueprint URIs are not supported by the native PHP runtime: ${ blueprint.uri }`
+		);
+	}
+
+	// Mirror the Playground runtime: merge Studio's defaults into blueprint.contents
+	// with the same precedence so both runtimes apply blueprints consistently.
+	const enableDebugLog = config.enableDebugLog ?? false;
+	const enableDebugDisplay = config.enableDebugDisplay ?? false;
+	const defaultConstants: Record< string, boolean | string > = {
+		// Fallback for sites where DB_NAME was stripped from wp-config.php — the SQLite
+		// driver (v3+) requires a non-empty DB_NAME at runtime.
+		DB_NAME: 'wordpress',
+		WP_DEBUG: enableDebugLog || enableDebugDisplay,
+		WP_DEBUG_LOG: enableDebugLog,
+		WP_DEBUG_DISPLAY: enableDebugDisplay,
+	};
+
+	const preferredVersions = {
+		php: config.phpVersion || blueprint.contents?.preferredVersions?.php || DEFAULT_PHP_VERSION,
+		wp: config.wpVersion || blueprint.contents?.preferredVersions?.wp || 'latest',
+	};
+	blueprint.contents.constants = {
+		...blueprint.contents.constants,
+		...defaultConstants,
+	};
+	blueprint.contents.preferredVersions = preferredVersions;
+
+	// Write the merged blueprint next to the original so blueprints.phar resolves any
+	// relative file references against the original blueprint's directory — its runner
+	// uses dirname(blueprintPath) as the execution context.
+	const blueprintDir = path.dirname( blueprint.uri );
+	const tmpPath = path.join( blueprintDir, `studio-blueprint-${ config.siteId }.json` );
+	await fs.promises.writeFile( tmpPath, JSON.stringify( blueprint.contents ) );
 
 	// blueprints.phar checks wp-content/plugins/sqlite-database-integration/load.php to detect
 	// SQLite, but Studio puts it in mu-plugins. Create a temporary symlink so the PHAR can find it.
@@ -441,8 +475,13 @@ async function runBlueprint(
 	// Use 'junction' type so this works on Windows without elevated permissions.
 	// On macOS/Linux the type argument is ignored for directories.
 	const needsSymlink = fs.existsSync( muPluginsSqlite ) && ! fs.existsSync( pluginsSqlite );
+	let symlinkIno: number | undefined;
 	if ( needsSymlink ) {
 		fs.symlinkSync( muPluginsSqlite, pluginsSqlite, 'junction' );
+		// Record the inode so cleanup only removes the entry we created. statSync follows
+		// the link, so the inode resolves to the mu-plugins target and changes if the
+		// entry has been replaced with unrelated content.
+		symlinkIno = fs.statSync( pluginsSqlite ).ino;
 	}
 
 	try {
@@ -461,7 +500,16 @@ async function runBlueprint(
 	} finally {
 		await fs.promises.unlink( tmpPath ).catch( () => {} );
 		if ( needsSymlink ) {
-			await fs.promises.unlink( pluginsSqlite ).catch( () => {} );
+			try {
+				if ( fs.statSync( pluginsSqlite ).ino === symlinkIno ) {
+					// Use rm with recursive to handle Windows junctions, which fs.unlink
+					// rejects with EPERM. The inode check above guards against accidentally
+					// recursing into an unrelated directory.
+					await fs.promises.rm( pluginsSqlite, { recursive: true, force: true } );
+				}
+			} catch {
+				// Best effort — leaving the symlink behind is non-fatal.
+			}
 		}
 	}
 }
@@ -512,24 +560,28 @@ async function ipcMessageHandler( packet: unknown ) {
 				result = await stopServer();
 				break;
 			case 'run-blueprint': {
-				// Track in-flight blueprint operations so concurrent messages don't cause any conflicts.
-				if ( ! blueprintPromise ) {
-					const blueprintPhpVersion = validateNativePhpVersion(
-						validMessage.data.config.phpVersion ?? ''
-					);
-					if ( ! validMessage.data.config.blueprint ) {
-						throw new Error( 'Blueprint is required' );
-					}
-					blueprintPromise = runBlueprint(
-						validMessage.data.config,
-						validMessage.data.config.blueprint,
-						blueprintPhpVersion,
-						abortController.signal
-					).finally( () => {
-						blueprintPromise = null;
-					} );
+				const blueprintPhpVersion = validateNativePhpVersion(
+					validMessage.data.config.phpVersion ?? ''
+				);
+				if ( ! validMessage.data.config.blueprint ) {
+					throw new Error( 'Blueprint is required' );
 				}
-				result = await blueprintPromise;
+				const blueprintConfig = validMessage.data.config;
+				const blueprintContents = validMessage.data.config.blueprint;
+				// Sequential queue: each message waits for the previous to settle before
+				// running its own blueprint. Distinct configs are not coalesced.
+				const next = blueprintQueue
+					.catch( () => {} )
+					.then( () =>
+						runBlueprint(
+							blueprintConfig,
+							blueprintContents,
+							blueprintPhpVersion,
+							abortController.signal
+						)
+					);
+				blueprintQueue = next;
+				result = await next;
 				break;
 			}
 			case 'wp-cli-command':

@@ -2,7 +2,7 @@ import { listAiSessions } from '@studio/common/ai/sessions/store';
 import { type LoadedAiSession, type TurnStatus } from '@studio/common/ai/sessions/types';
 import { buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
 import { readAuthToken } from '@studio/common/lib/shared-config';
-import { __, _n, sprintf } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { DEFAULT_MODEL, startAiAgent, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
 import {
 	getAvailableAiProviders,
@@ -423,7 +423,7 @@ export async function runCommand( options: {
 	async function runAgentTurn(
 		prompt: string,
 		retryAttempt = 0
-	): Promise< { status: TurnStatus; usage?: { numTurns: number; costUsd?: number } } > {
+	): Promise< { status: TurnStatus } > {
 		await maybeAutoSwitchProvider();
 		const recorder = await ensureSessionRecorder();
 		const env = await resolveAiEnvironment( currentProvider, {
@@ -485,7 +485,6 @@ export async function runCommand( options: {
 			resolveInterrupt();
 		};
 
-		let maxTurnsResult: { numTurns: number } | undefined;
 		const turnState: { status: TurnStatus } = { status: 'interrupted' };
 
 		const consumeAgentTurn = async (): Promise< void > => {
@@ -500,12 +499,7 @@ export async function runCommand( options: {
 					sessionId = result.sessionId;
 					await persist( ( recorder ) => recorder.recordAgentSessionId( result.sessionId ) );
 
-					if ( result.type === 'max_turns' ) {
-						maxTurnsResult = {
-							numTurns: result.numTurns,
-						};
-						turnState.status = 'max_turns';
-					} else if ( result.interrupted ) {
+					if ( result.interrupted ) {
 						turnState.status = 'interrupted';
 					} else {
 						turnState.status = result.success ? 'success' : 'error';
@@ -546,30 +540,6 @@ export async function runCommand( options: {
 			ui.endAgentTurn();
 		}
 
-		if ( maxTurnsResult ) {
-			ui.showInfo(
-				sprintf(
-					/* translators: %d: number of turns used */
-					_n( 'Used %d turn', 'Used %d turns', maxTurnsResult.numTurns ),
-					maxTurnsResult.numTurns
-				)
-			);
-			const answer = await ui.askUser( [
-				{
-					question: __( 'Reached the turn limit. Continue?' ),
-					options: [
-						{ label: 'Yes', description: __( 'Resume where the agent left off' ) },
-						{ label: 'No', description: __( 'Stop here' ) },
-					],
-				},
-			] );
-			const choice = Object.values( answer )[ 0 ]?.toLowerCase();
-			if ( choice === 'yes' ) {
-				ui.addUserMessage( 'Continue' );
-				return runAgentTurn( 'Continue from where you left off.' );
-			}
-		}
-
 		// Skip the retry prompt when the UI has already surfaced a terminal
 		// error (e.g. AI usage cap). Retrying won't recover from a cap, and
 		// the user has already been told what to do next.
@@ -607,7 +577,6 @@ export async function runCommand( options: {
 
 		return {
 			status: turnState.status,
-			usage: maxTurnsResult,
 		};
 	}
 
@@ -617,7 +586,7 @@ export async function runCommand( options: {
 			ui.addUserMessage( options.initialMessage );
 			const result = await runAgentTurn( options.initialMessage );
 			const jsonStatus = result.status === 'interrupted' ? 'error' : result.status;
-			( ui as JsonAdapter ).emitTurnCompleted( jsonStatus, result.usage );
+			( ui as JsonAdapter ).emitTurnCompleted( jsonStatus );
 		} catch ( error ) {
 			process.exitCode = 1;
 			handleAgentTurnError( error );

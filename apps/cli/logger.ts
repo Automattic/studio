@@ -1,3 +1,4 @@
+import 'cli/lib/picospinner-stderr-patch';
 import { Spinner } from 'picospinner';
 
 const isIpcMode = Boolean( process.send );

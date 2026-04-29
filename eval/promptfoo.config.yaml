@@ -28,7 +28,6 @@ tests:
   - description: agent identifies as WordPress Studio AI
     vars:
       caseId: identity
-      maxTurns: 12
       timeoutMs: 60000
       prompt: In one short sentence, tell me who you are. Do not call any tools.
     assert:
@@ -53,7 +52,6 @@ tests:
   - description: agent calls site_create when asked to make a site
     vars:
       caseId: site-creation
-      maxTurns: 20
       timeoutMs: 120000
       askUserPolicy: allow_all
       prompt: |
@@ -85,7 +83,6 @@ tests:
   - description: single-page site build keeps every turn under 60s
     vars:
       caseId: single-page-build-turn-cadence
-      maxTurns: 80
       timeoutMs: 600000
       askUserPolicy: allow_all
       prompt: |

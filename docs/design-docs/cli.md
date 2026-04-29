@@ -63,3 +63,68 @@ This approach of forking CLI processes to run business logic has both pros and c
 The biggest pro is that when the CLI becomes capable of running Studio sites, we can move the Playground dependencies entirely to the CLI and avoid bundling them twice (which would increase the size of the app by several hundred MBs). Moreover, it consolidates the business logic and creates increased incentives for developers to focus on the CLI when shipping new features.
 
 The biggest con is that it decreases control in the Studio code, particularly when it comes to error handling. We mitigate this by creating as clear a structure as possible around the `process.send` IPC calls.
+
+## Data Liberation Agent integration
+
+The `studio code` agent ships a `/migrate` slash command that pulls a site off a closed hosting platform (Wix, Squarespace, Shopify, etc.) and into a fresh local Studio site. The actual extraction is performed by the [Data Liberation Agent](https://github.com/Automattic/data-liberation-agent) (DLA), an external Node/TypeScript toolkit that exposes its capabilities as a Claude Code plugin and an MCP server. Studio consumes both.
+
+For the alternatives we considered (in-process re-implementation, npm dependency, runtime fetch, child-process CLI) and the trade-offs that drove this shape, see [`issues/rsm-1639-dla-integration/research-report.md`](../../issues/rsm-1639-dla-integration/research-report.md).
+
+### Vendoring
+
+DLA is vendored into `apps/cli/ai/dla/` at a pinned git SHA by `scripts/download-data-liberation-agent.ts`, which runs from the root `postinstall` script. The fetch script downloads the tarball at `DLA_PINNED_SHA`, runs `tsc` against DLA's `tsconfig.json` to pre-compile the TypeScript sources to JS (`dist-vendored/` is renamed to `src/` in the staged tree), copies the curated subset (`.claude-plugin/`, `skills/`, `commands/`, `prompts/`, the compiled `src/`, and the vendored PHP under `src/lib/preview/scripts/`), and writes a `.dla-pinned-sha` file for provenance. Pre-compiling at vendor time means the runtime never needs `tsx`.
+
+DLA lives in a private repo, so the fetch requires a `GH_PAT` (or `GH_TOKEN`) environment variable with read access. When the token is missing, the script logs a warning and exits 0 — installs MUST keep working for contributors without DLA access. The `/migrate` surface is then simply unavailable: `startAiAgent` in `apps/cli/ai/agent.ts` checks `fs.existsSync(dlaPath)` before registering anything DLA-related, so the agent runs normally without DLA.
+
+### Plugin and MCP wiring
+
+DLA loads as a second local SDK plugin alongside Studio's own `apps/cli/ai/plugin/`. Both are registered via the `plugins` array in `startAiAgent` (`apps/cli/ai/agent.ts`), and the second entry is conditional on `dlaAvailable`:
+
+```ts
+plugins: [
+    { type: 'local', path: path.resolve( import.meta.dirname, 'plugin' ) },
+    ...( dlaAvailable ? [ { type: 'local', path: dlaPath } ] : [] ),
+],
+```
+
+DLA's MCP server is registered alongside Studio's in-process MCP server on the `mcpServers` map under the key `data-liberation`. We spawn it as a stdio child process pointing at the pre-compiled entry:
+
+```ts
+mcpServers[ 'data-liberation' ] = {
+    type: 'stdio',
+    command: process.execPath,
+    args: [ path.resolve( dlaPath, 'src/mcp-server.js' ) ],
+    env: { ...resolvedEnv, STUDIO_WPCOM_TOKEN: wpcomAccessToken ?? '' },
+};
+```
+
+A few details that are load-bearing:
+
+- We use `process.execPath` rather than the literal string `'node'`. This matches the precedent in `apps/cli/ai/browser-utils.ts` and `apps/cli/lib/daemon-client.ts`, and ensures DLA runs under the same Electron-bundled Node runtime the host CLI is using.
+- The path to `mcp-server.js` is absolute. The Anthropic Agent SDK's `McpStdioServerConfig` exposes `{ type, command, args, env }` only — there is no `cwd` field, and the SDK's spawn pipeline does not forward a working directory to MCP children. DLA's internal scripts therefore resolve their peers via `import.meta.url` (always absolute) rather than relative to a working directory.
+- `STUDIO_WPCOM_TOKEN` is forwarded explicitly so DLA tools targeting a remote WordPress.com site work even when the active Studio site is local. Other env vars consumed by DLA (e.g. `LIBERATION_TOKEN`, `SHOPIFY_ADMIN_TOKEN`) are forwarded transitively via `...resolvedEnv`.
+- If the spawned child fails to start at runtime, the SDK reports the MCP server status as `failed` and the rest of the agent stays up; `/migrate` then surfaces the failure as a tool-not-available error rather than crashing the session.
+
+### Handoff contract: `delegate: true`
+
+DLA's `liberate_setup` and `liberate_import` MCP tools accept a `delegate: true` flag. With this flag set, DLA does not write to a remote WordPress installation itself. Instead, it returns a structured manifest of artifact paths (`{ wxrFile, outputDir, mediaDir, productsCsv, redirectMap, importAuthors }`), and the calling host (Studio) is expected to drive the actual import.
+
+In our flow, the agent calls DLA's `liberate_*` tools to detect, discover, extract, and verify the source site, then invokes `liberate_setup` / `liberate_import` with `delegate: true` to receive the manifest. From there, it calls Studio's existing `mcp__studio__site_create` to create the local site and uses Studio's `wp_cli` Bash plumbing to import the WXR. This is the contract that lets us consume DLA wholesale without forking it: the manifest is small and stable, and DLA already supports it for "local dev tools with direct database/CLI access" — Studio is the canonical caller.
+
+### Permission scoping
+
+The Agent SDK's `permissionMode: 'auto'` would otherwise auto-approve every DLA MCP tool, including ones that write to disk or hit a remote write API. To scope this, we register a `canUseTool` callback built by `buildDlaCanUseTool` in `apps/cli/ai/dla-permissions.ts`. The callback is only installed when DLA is available — non-DLA sessions keep the SDK's default classifier path untouched.
+
+Per-tool policy:
+
+- **Read-only auto-approve.** `liberate_detect`, `liberate_discover`, `liberate_inspect`, `liberate_status`, and `liberate_verify` pass through immediately.
+- **Ask once per session.** `liberate_extract`, `liberate_setup`, `liberate_map_apis`, and `liberate_probe` modify state locally (write to disk, scrape into a manifest, drive a Chromium devtools session). The callback prompts the user via the agent's `onAskUser` plumbing on first use and memoises the answer in a closure-scoped `Set` for the rest of the agent turn.
+- **`liberate_import` — always ask unless `delegate: true`.** When the model passes `delegate: true` in the tool input, the call is auto-approved (DLA returns a manifest, Studio drives the actual import). Without the flag, it falls through to the ask-once branch.
+- **Unknown DLA tool — deny.** Any `mcp__data-liberation__*` tool not present in the policy sets is denied with a clear message, so a future DLA tool addition can't silently inherit auto-approval. Adding a new DLA tool requires updating the per-tool allow list in `apps/cli/ai/dla-permissions.ts`.
+- **Headless / no `onAskUser`.** Ask-once tools deny rather than auto-approve when no interactive surface is wired up, so scripted runs never silently allow a write operation.
+
+Non-DLA tool calls fall through to the SDK's auto classifier (the callback returns `{ behavior: 'allow', updatedInput: input }` — installing `canUseTool` overrides the default classifier path, so we must explicitly allow non-DLA tools to preserve the auto behaviour for them).
+
+### Update cadence
+
+DLA is pinned by SHA in `scripts/download-data-liberation-agent.ts` (`DLA_PINNED_SHA`). Bumping is a one-line change in the fetch script, which means each Studio CLI release ships a known-good DLA snapshot. The trade-off is that DLA goes 0–6 weeks behind upstream depending on the release window. The mitigation path is to move to npm or tagged releases once DLA is published; until then, contributors who need a fresher DLA can re-run the postinstall with `STUDIO_REFRESH_DLA=1` (or `--update`) to refresh the vendored tree in place.

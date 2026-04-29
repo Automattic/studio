@@ -20,10 +20,10 @@ function getWindowsSign(): WindowsSignOptions | undefined {
 		return undefined;
 	}
 
-	if ( ! process.env.AZURE_CODE_SIGNING_DLIB || ! process.env.AZURE_METADATA_JSON ) {
+	if ( ! process.env.AZURE_CODE_SIGNING_DLIB || ! process.env.AZURE_METADATA_JSON || ! process.env.SIGNTOOL_PATH ) {
 		throw new Error(
 			'USE_AZURE_TRUSTED_SIGNING is set but Azure signing env vars ' +
-				'(AZURE_CODE_SIGNING_DLIB, AZURE_METADATA_JSON) are missing. ' +
+				'(AZURE_CODE_SIGNING_DLIB, AZURE_METADATA_JSON, SIGNTOOL_PATH) are missing. ' +
 				'Did setup_azure_trusted_signing.ps1 run?'
 		);
 	}

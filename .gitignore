@@ -131,6 +131,10 @@ CLAUDE.md
 apps/studio/bin/node
 apps/studio/bin/node.exe
 
+# Vendored Data Liberation Agent (fetched at install time by
+# scripts/download-data-liberation-agent.ts; reproducible from the SHA pin).
+apps/cli/ai/dla/
+
 # CLI launcher executable (built during packaging via @yao-pkg/pkg)
 bin/studio-cli.exe
 

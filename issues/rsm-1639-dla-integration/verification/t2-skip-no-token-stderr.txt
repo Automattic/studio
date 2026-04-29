@@ -1,0 +1,2 @@
+[dla] Skipping DLA download — set GH_PAT to enable. /migrate will not work until DLA is vendored.
+exit: 0

@@ -6,7 +6,7 @@ import convertToWindowsStore from 'electron2appx';
 import packageJson from '../apps/studio/package.json' with { type: 'json' };
 
 const useAzureSigning = [ '1', 'true' ].includes(
-	process.env.USE_AZURE_TRUSTED_SIGNING?.trim().toLowerCase()
+	( process.env.USE_AZURE_TRUSTED_SIGNING ?? '' ).trim().toLowerCase()
 );
 
 console.log( '--- :electron: Packaging AppX' );

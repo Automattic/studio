@@ -8,7 +8,13 @@ import { SUPPORTED_EDITORS, SupportedEditor } from 'src/modules/user-settings/li
 import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 import { UserSettingsTabName } from 'src/modules/user-settings/user-settings-types';
 import { defaultSitePath, ensureWritableDirectory } from 'src/storage/paths';
-import { loadUserData, lockAppdata, saveUserData, unlockAppdata, updateAppdata } from 'src/storage/user-data';
+import {
+	loadUserData,
+	lockAppdata,
+	saveUserData,
+	unlockAppdata,
+	updateAppdata,
+} from 'src/storage/user-data';
 
 export function getInstalledAppsAndTerminals(): InstalledApps {
 	return {

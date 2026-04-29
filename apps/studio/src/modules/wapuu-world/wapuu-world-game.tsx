@@ -50,7 +50,15 @@ export function WapuuWorldGame() {
 					style={ { background: '#21759b', borderRadius: '4px 4px 0 0', minWidth: CANVAS_W } }
 				>
 					<span
-						style={ { color: '#fff', fontFamily: 'monospace', fontWeight: 'bold', fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 } }
+						style={ {
+							color: '#fff',
+							fontFamily: 'monospace',
+							fontWeight: 'bold',
+							fontSize: 14,
+							display: 'flex',
+							alignItems: 'center',
+							gap: 6,
+						} }
 					>
 						<img
 							src={ wapuuIdleUrl }

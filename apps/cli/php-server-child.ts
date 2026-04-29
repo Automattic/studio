@@ -649,11 +649,20 @@ function killPhpProcess(): void {
 	}
 }
 
-// If this node process is going down (normal exit or IPC disconnect), make sure PHP goes with it.
+// If this node process is going down (normal exit, IPC disconnect, or signal), make sure PHP
+// goes with it. Without explicit signal handlers, Node's default behavior on SIGTERM is to exit
+// without firing the 'exit' event — leaving `php -S` orphaned with the session temp directory's
+// SQLite/mu-plugin files held open. That blocks rimraf during e2e teardown.
 process.on( 'exit', killPhpProcess );
 process.on( 'disconnect', () => {
 	killPhpProcess();
 } );
+for ( const signal of [ 'SIGTERM', 'SIGINT', 'SIGHUP' ] as const ) {
+	process.on( signal, () => {
+		killPhpProcess();
+		process.exit( 0 );
+	} );
+}
 
 if ( process.send ) {
 	process.on( 'message', ipcMessageHandler );

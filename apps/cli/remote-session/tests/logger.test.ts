@@ -153,7 +153,7 @@ describe( 'RemoteSessionLogger writes', () => {
 		expect( combined ).not.toMatch( /[\x00-\x08\x0B-\x1F\x7F]/ );
 		expect( combined ).toContain( 'message cleared' );
 		expect( combined ).toContain( 'click' );
-		// JSON.stringify already escapes raw ESC bytes to the visible 6-char ``
+		// JSON.stringify already escapes raw ESC bytes to the visible 6-char `\u001b` (literal backslash-u-0-0-1-b)
 		// sequence in meta, so the terminal sees inert text rather than active escapes.
 		expect( combined ).toContain( '\\u001b[31mred\\u001b[0m\\u0007' );
 	} );

@@ -360,4 +360,89 @@ describe( 'Studio AI MCP tools', () => {
 			'--post_content=Hello world',
 		] );
 	} );
+
+	it( 'keeps flags after quoted post_content out of the page content', async () => {
+		vi.mocked( isServerRunning ).mockResolvedValue( {
+			name: 'site-123',
+			pmId: 1,
+			status: 'online',
+			pid: 1234,
+		} );
+		vi.mocked( sendWpCliCommand ).mockResolvedValue( {
+			stdout: '123',
+			stderr: '',
+			exitCode: 0,
+		} );
+
+		await getTool( 'wp_cli' ).handler(
+			{
+				nameOrPath: 'My Site',
+				command:
+					'post create --post_type=page --post_title="About" --post_content="Hello world" --porcelain',
+			} as never,
+			null
+		);
+
+		expect( sendWpCliCommand ).toHaveBeenCalledWith( 'site-123', [
+			'post',
+			'create',
+			'--post_type=page',
+			'--post_title=About',
+			'--post_content=Hello world',
+			'--porcelain',
+		] );
+	} );
+
+	it( 'keeps porcelain after empty quoted post_content out of the page content', async () => {
+		vi.mocked( isServerRunning ).mockResolvedValue( {
+			name: 'site-123',
+			pmId: 1,
+			status: 'online',
+			pid: 1234,
+		} );
+		vi.mocked( sendWpCliCommand ).mockResolvedValue( {
+			stdout: '123',
+			stderr: '',
+			exitCode: 0,
+		} );
+
+		await getTool( 'wp_cli' ).handler(
+			{
+				nameOrPath: 'My Site',
+				command: 'post create --post_type=page --post_title="About" --post_content="" --porcelain',
+			} as never,
+			null
+		);
+
+		expect( sendWpCliCommand ).toHaveBeenCalledWith( 'site-123', [
+			'post',
+			'create',
+			'--post_type=page',
+			'--post_title=About',
+			'--post_content=',
+			'--porcelain',
+		] );
+	} );
+
+	it( 'rejects typographic dash options before dispatching to WP-CLI', async () => {
+		vi.mocked( isServerRunning ).mockResolvedValue( {
+			name: 'site-123',
+			pmId: 1,
+			status: 'online',
+			pid: 1234,
+		} );
+
+		const result = await getTool( 'wp_cli' ).handler(
+			{
+				nameOrPath: 'My Site',
+				command:
+					'post create --post_type=page --post_title="About" --post_content="Hello world" –porcelain',
+			} as never,
+			null
+		);
+
+		expect( sendWpCliCommand ).not.toHaveBeenCalled();
+		expect( result.isError ).toBe( true );
+		expect( getTextContent( result ) ).toContain( 'typographic dash' );
+	} );
 } );

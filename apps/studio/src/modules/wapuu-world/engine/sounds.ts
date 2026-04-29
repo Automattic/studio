@@ -1,3 +1,6 @@
+// Reused across game sessions intentionally — browsers cap AudioContext instances (~6/page)
+// and closing/reopening on each game mount would burn through that limit quickly.
+// Created lazily on first sound so the user gesture requirement is already satisfied.
 let ctx: AudioContext | null = null;
 
 function getCtx(): AudioContext {

@@ -13,24 +13,46 @@ const KONAMI_SEQUENCE = [
 	'a',
 ];
 
+const RESET_TIMEOUT_MS = 2000;
+
 export function useKonamiCode( onActivate: () => void ) {
 	const indexRef = useRef( 0 );
+	const timerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
 
 	useEffect( () => {
+		function resetSequence() {
+			indexRef.current = 0;
+			if ( timerRef.current !== null ) {
+				clearTimeout( timerRef.current );
+				timerRef.current = null;
+			}
+		}
+
 		function handleKeyDown( e: KeyboardEvent ) {
 			const expected = KONAMI_SEQUENCE[ indexRef.current ];
 			if ( e.key === expected ) {
 				indexRef.current += 1;
 				if ( indexRef.current === KONAMI_SEQUENCE.length ) {
-					indexRef.current = 0;
+					resetSequence();
 					onActivate();
+					return;
 				}
+				// Reset the sequence if no key is pressed within the time window
+				if ( timerRef.current !== null ) clearTimeout( timerRef.current );
+				timerRef.current = setTimeout( resetSequence, RESET_TIMEOUT_MS );
 			} else {
-				indexRef.current = e.key === KONAMI_SEQUENCE[ 0 ] ? 1 : 0;
+				resetSequence();
+				if ( e.key === KONAMI_SEQUENCE[ 0 ] ) {
+					indexRef.current = 1;
+					timerRef.current = setTimeout( resetSequence, RESET_TIMEOUT_MS );
+				}
 			}
 		}
 
 		window.addEventListener( 'keydown', handleKeyDown );
-		return () => window.removeEventListener( 'keydown', handleKeyDown );
+		return () => {
+			window.removeEventListener( 'keydown', handleKeyDown );
+			if ( timerRef.current !== null ) clearTimeout( timerRef.current );
+		};
 	}, [ onActivate ] );
 }

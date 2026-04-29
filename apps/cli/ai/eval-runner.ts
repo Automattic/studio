@@ -20,7 +20,6 @@ import type { AiProviderId } from 'cli/ai/providers';
 
 interface EvalRunnerInput {
 	prompt: string;
-	maxTurns?: number;
 	timeoutMs?: number;
 }
 
@@ -134,7 +133,6 @@ function readInput(): EvalRunnerInput {
 
 	return {
 		prompt: ( vars.prompt as string ) ?? prompt,
-		maxTurns: typeof vars.maxTurns === 'number' ? vars.maxTurns : undefined,
 		timeoutMs: typeof vars.timeoutMs === 'number' ? vars.timeoutMs : undefined,
 	};
 }
@@ -185,7 +183,6 @@ async function runEval( input: EvalRunnerInput ) {
 	const query = startAiAgent( {
 		prompt: input.prompt.trim(),
 		env,
-		maxTurns: input.maxTurns ?? 50,
 	} );
 	phaseTimingsMs.start_ai_agent_ms = Date.now() - phaseStartedAt;
 

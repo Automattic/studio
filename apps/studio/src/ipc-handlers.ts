@@ -115,6 +115,7 @@ import {
 	getDefaultSiteDirectory,
 	saveDefaultSiteDirectory,
 } from 'src/modules/user-settings/lib/ipc-handlers';
+import { linuxFindEditorPath } from 'src/modules/user-settings/lib/linux-editor-path';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { SiteServer, stopAllServers as triggerStopAllServers } from 'src/site-server';
 import { getSiteThumbnailPath } from 'src/storage/paths';
@@ -1397,6 +1398,19 @@ export async function openAppAtPath(
 		return promiseExec( `"${ editorPath }" ${ quotedPaths }` );
 	}
 
+	if ( platform === 'linux' ) {
+		const editorPath = await linuxFindEditorPath( editorKey );
+		if ( ! editorPath ) {
+			// Fall back to URL scheme for each path
+			for ( const p of allPaths ) {
+				openURL( event, editor.url( p ) );
+			}
+			return;
+		}
+
+		return promiseExec( `"${ editorPath }" ${ quotedPaths }` );
+	}
+
 	throw new Error( `Platform ${ platform } is not supported` );
 }
 
@@ -1865,6 +1879,88 @@ export async function checkSyncBackupSize(
 export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boolean > {
 	const window = await getMainWindow();
 	return window.isFullScreen();
+}
+
+function getSitePreviewBaseUrl( siteId: string ): { url: string; allowedOrigins: string[] } {
+	const server = SiteServer.get( siteId );
+	if ( ! server || ! server.details.running ) {
+		throw new Error( 'Cannot create preview for a site that is not running.' );
+	}
+
+	const details = server.details;
+	const baseUrl = details.customDomain
+		? `${ details.enableHttps ? 'https' : 'http' }://${ details.customDomain }`
+		: `http://localhost:${ details.port }`;
+
+	return {
+		url: baseUrl,
+		allowedOrigins: [ new URL( baseUrl ).origin ],
+	};
+}
+
+function resolveSitePreviewUrl( siteId: string, pathname: string = '/' ): string {
+	const { url: baseUrl, allowedOrigins } = getSitePreviewBaseUrl( siteId );
+	const resolvedUrl = new URL( pathname || '/', baseUrl );
+	if ( ! allowedOrigins.includes( resolvedUrl.origin ) ) {
+		throw new Error( 'Preview navigation blocked: path resolves outside the site origin.' );
+	}
+	return resolvedUrl.toString();
+}
+
+export async function createPreviewView(
+	event: IpcMainInvokeEvent,
+	options: {
+		siteId: string;
+		path?: string;
+		bounds: { x: number; y: number; width: number; height: number };
+		enableInspector?: boolean;
+		borderRadius?: number;
+	}
+): Promise< { viewId: string } > {
+	const { PreviewView, registerPreviewView, disposePreviewViewsForOwner } = await import(
+		'src/preview-view'
+	);
+	const window = await getMainWindow();
+	const { allowedOrigins } = getSitePreviewBaseUrl( options.siteId );
+	const view = new PreviewView( window, {
+		...options,
+		url: resolveSitePreviewUrl( options.siteId, options.path ),
+		allowedOrigins,
+		ownerWebContentsId: event.sender.id,
+	} );
+	registerPreviewView( view );
+	event.sender.once( 'destroyed', () => disposePreviewViewsForOwner( event.sender.id ) );
+	return { viewId: view.id };
+}
+
+export async function setPreviewViewBounds(
+	event: IpcMainInvokeEvent,
+	viewId: string,
+	bounds: { x: number; y: number; width: number; height: number }
+): Promise< void > {
+	const { getPreviewView } = await import( 'src/preview-view' );
+	getPreviewView( viewId, event.sender.id )?.setBounds( bounds );
+}
+
+export async function navigatePreviewView(
+	event: IpcMainInvokeEvent,
+	viewId: string,
+	path: string
+): Promise< void > {
+	const { getPreviewView } = await import( 'src/preview-view' );
+	const view = getPreviewView( viewId, event.sender.id );
+	if ( ! view ) return;
+	await view.loadURL( resolveSitePreviewUrl( view.siteId, path ) );
+}
+
+export async function destroyPreviewView(
+	event: IpcMainInvokeEvent,
+	viewId: string
+): Promise< void > {
+	const { disposePreviewView, getPreviewView } = await import( 'src/preview-view' );
+	if ( getPreviewView( viewId, event.sender.id ) ) {
+		disposePreviewView( viewId );
+	}
 }
 
 export async function getAllCustomDomains(): Promise< string[] > {

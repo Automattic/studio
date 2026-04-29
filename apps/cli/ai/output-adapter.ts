@@ -4,9 +4,12 @@ import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { AiProviderId } from 'cli/ai/providers';
 import type { SiteInfo } from 'cli/ai/ui';
 
-export type HandleMessageResult =
-	| { type: 'result'; sessionId: string; success: boolean; interrupted?: boolean }
-	| { type: 'max_turns'; sessionId: string; numTurns: number; costUsd?: number };
+export type HandleMessageResult = {
+	type: 'result';
+	sessionId: string;
+	success: boolean;
+	interrupted?: boolean;
+};
 
 export interface AiOutputAdapter {
 	currentProvider: AiProviderId;
@@ -134,14 +137,6 @@ export class JsonAdapter implements AiOutputAdapter {
 
 		if ( message.type === 'result' ) {
 			this.sessionId = message.session_id;
-			if ( message.subtype === 'error_max_turns' ) {
-				return {
-					type: 'max_turns',
-					sessionId: message.session_id,
-					numTurns: message.num_turns,
-					costUsd: message.total_cost_usd,
-				};
-			}
 			return {
 				type: 'result',
 				sessionId: message.session_id,

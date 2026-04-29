@@ -10,17 +10,8 @@ import { renderer } from 'picospinner';
  * avoids duplicating picospinner internals and survives upstream changes as
  * long as `render` and `onComponentFinish` remain the only write paths.
  */
-type PatchableRenderer = {
-	render: () => void;
-	onComponentFinish: () => void;
-};
 
 function redirectPicospinnerToStderr(): void {
-	const r = renderer as unknown as Partial< PatchableRenderer > | undefined;
-	if ( ! r || typeof r.render !== 'function' || typeof r.onComponentFinish !== 'function' ) {
-		return;
-	}
-
 	const withStdoutAsStderr = < T >( fn: () => T ): T => {
 		const originalWrite = process.stdout.write.bind( process.stdout );
 		process.stdout.write = process.stderr.write.bind(
@@ -33,11 +24,29 @@ function redirectPicospinnerToStderr(): void {
 		}
 	};
 
-	const originalRender = r.render.bind( r );
-	const originalOnComponentFinish = r.onComponentFinish.bind( r );
+	const originalRefresh = Spinner.prototype.refresh;
+	const originalSetDisplay = Spinner.prototype.setDisplay;
+	const originalStart = Spinner.prototype.start;
+	const originalStop = Spinner.prototype.stop;
 
-	r.render = () => withStdoutAsStderr( originalRender );
-	r.onComponentFinish = () => withStdoutAsStderr( originalOnComponentFinish );
+	Spinner.prototype.refresh = function (
+		this: Spinner,
+		...args: Parameters< Spinner[ 'refresh' ] >
+	) {
+		return withStdoutAsStderr( () => originalRefresh.apply( this, args ) );
+	};
+	Spinner.prototype.setDisplay = function (
+		this: Spinner,
+		...args: Parameters< Spinner[ 'setDisplay' ] >
+	) {
+		return withStdoutAsStderr( () => originalSetDisplay.apply( this, args ) );
+	};
+	Spinner.prototype.start = function ( this: Spinner, ...args: Parameters< Spinner[ 'start' ] > ) {
+		return withStdoutAsStderr( () => originalStart.apply( this, args ) );
+	};
+	Spinner.prototype.stop = function ( this: Spinner, ...args: Parameters< Spinner[ 'stop' ] > ) {
+		return withStdoutAsStderr( () => originalStop.apply( this, args ) );
+	};
 }
 
 redirectPicospinnerToStderr();

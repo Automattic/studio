@@ -28,7 +28,6 @@ import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/dae
 import { updateDomainInHosts } from 'cli/lib/hosts-file';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { setupCustomDomain } from 'cli/lib/site-utils';
-import { validatePhpVersion } from 'cli/lib/utils';
 import { ValidationError } from 'cli/lib/validation-error';
 import {
 	isServerRunning,
@@ -271,10 +270,9 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 
 		if ( wpChanged ) {
 			logger.reportStart( LoggerAction.SET_WP_VERSION, __( 'Updating WordPress version…' ) );
-			const phpVersion = validatePhpVersion( site.phpVersion );
 			const zipUrl = getWordPressVersionUrl( wp );
 
-			await using command = await runWpCliCommand( sitePath, phpVersion, [
+			await using command = await runWpCliCommand( site, [
 				'core',
 				'update',
 				zipUrl,

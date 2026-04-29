@@ -2219,15 +2219,6 @@ export class AiChatUI implements AiOutputAdapter {
 			case 'result': {
 				this.hideLoader();
 
-				// Max-turns exhaustion has dedicated upstream handling (prompts user to continue).
-				if ( message.subtype === 'error_max_turns' ) {
-					return {
-						type: 'max_turns',
-						sessionId: message.session_id,
-						numTurns: message.num_turns,
-					};
-				}
-
 				// When the cap message was surfaced earlier in this turn,
 				// the SDK still classifies the turn as successful (or returns
 				// is_error with the raw upstream body). Skip the "Done" /

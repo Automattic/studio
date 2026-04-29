@@ -15,8 +15,8 @@ import { playSound } from './sounds';
 const GRAVITY = 0.9;
 const JUMP_FORCE = -14;
 const MOVE_SPEED = 4.5;
-const CANVAS_W = 480;
-const CANVAS_H = 384;
+export const CANVAS_W = 480;
+export const CANVAS_H = 384;
 const PLAYER_START_X = TILE_SIZE;
 const PLAYER_START_Y = TILE_SIZE * 9;
 const TIME_LIMIT = 90; // seconds

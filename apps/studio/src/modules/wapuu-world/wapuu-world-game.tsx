@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useAppDispatch } from 'src/stores';
 import { closeWapuuWorld } from 'src/stores/ui-slice';
-import { startGame } from './engine/game-loop';
+import { startGame, CANVAS_W, CANVAS_H } from './engine/game-loop';
 import { WIN_LINK } from './engine/renderer';
 
 export function WapuuWorldGame() {
@@ -41,7 +41,7 @@ export function WapuuWorldGame() {
 				{ /* Title bar */ }
 				<div
 					className="flex items-center justify-between px-3 py-1.5"
-					style={ { background: '#21759b', borderRadius: '4px 4px 0 0', minWidth: 480 } }
+					style={ { background: '#21759b', borderRadius: '4px 4px 0 0', minWidth: CANVAS_W } }
 				>
 					<span
 						style={ { color: '#fff', fontFamily: 'monospace', fontWeight: 'bold', fontSize: 14 } }
@@ -76,14 +76,14 @@ export function WapuuWorldGame() {
 				{ /* Game canvas */ }
 				<canvas
 					ref={ canvasRef }
-					width={ 480 }
-					height={ 384 }
+					width={ CANVAS_W }
+					height={ CANVAS_H }
 					style={ { display: 'block', imageRendering: 'pixelated', cursor: 'default' } }
 					onClick={ ( e ) => {
 						const rect = ( e.target as HTMLCanvasElement ).getBoundingClientRect();
 						const y = e.clientY - rect.top;
 						const x = e.clientX - rect.left;
-						if ( y >= WIN_LINK.y && y <= WIN_LINK.y + WIN_LINK.h && x >= 0 && x <= 480 ) {
+						if ( y >= WIN_LINK.y && y <= WIN_LINK.y + WIN_LINK.h && x >= 0 && x <= CANVAS_W ) {
 							void window.ipcApi.openURL( WIN_LINK.url );
 						}
 					} }

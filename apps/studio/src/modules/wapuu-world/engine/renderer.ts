@@ -16,6 +16,10 @@ function loadImage( url: string ): { img: HTMLImageElement; ready: boolean } {
 	entry.img.onload = () => {
 		entry.ready = true;
 	};
+	entry.img.onerror = () => {
+		// eslint-disable-next-line no-console
+		console.warn( `[wapuu-world] sprite failed to load: ${ url }` );
+	};
 	entry.img.src = url;
 	return entry;
 }

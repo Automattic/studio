@@ -9,6 +9,7 @@
 import { ChildProcess, spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { writeStudioMuPluginsForNativePhpRuntime } from '@studio/common/lib/mu-plugins';
 import { decodePassword } from '@studio/common/lib/passwords';
 import {
 	NativePhpSupportedVersion,
@@ -289,6 +290,8 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 	try {
 		stopSignal.throwIfAborted();
 		await ensureWpConfig( config.sitePath, phpVersion, stopSignal );
+		stopSignal.throwIfAborted();
+		await writeStudioMuPluginsForNativePhpRuntime( config.sitePath );
 		stopSignal.throwIfAborted();
 
 		const phpAddress = `localhost:${ config.port }`;

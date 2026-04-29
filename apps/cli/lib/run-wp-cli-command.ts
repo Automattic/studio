@@ -13,7 +13,11 @@ import {
 import { createSpawnHandler } from '@php-wasm/util';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { IS_JSPI_AVAILABLE } from '@studio/common/lib/jspi';
-import { cleanupLegacyMuPlugins, getMuPlugins } from '@studio/common/lib/mu-plugins';
+import {
+	cleanupLegacyMuPlugins,
+	getMuPlugins,
+	writeStudioMuPluginsForNativePhpRuntime,
+} from '@studio/common/lib/mu-plugins';
 import { validateNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
 import { LatestSupportedPHPVersion } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
@@ -119,6 +123,7 @@ async function runNativeWpCliCommand(
 ): Promise< DisposableWpCliResponse > {
 	const nativeArgs = applyWpCliCommandOptions( 'native', args, options );
 	const phpVersion = validateNativePhpVersion( options.phpVersion ?? DEFAULT_PHP_VERSION );
+	await writeStudioMuPluginsForNativePhpRuntime( siteFolder );
 	const child = spawn(
 		getPhpBinaryPath( phpVersion ),
 		[ getWpCliPharPath(), `--path=${ siteFolder }`, ...nativeArgs ],

@@ -203,7 +203,6 @@ export default function AddSiteOptions( {
 				/>
 				<ImportDropZone onValidated={ handleValidatedBackup } />
 			</div>
-
 		</VStack>
 	);
 }

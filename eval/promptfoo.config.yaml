@@ -137,3 +137,25 @@ tests:
             }
             return { pass: true, score: 1, reason: 'no wp_cli call used --post_content-file=' };
           });
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const validationResults = (d.toolResults || []).filter(r => r.toolName === 'validate_blocks');
+            if (validationResults.length === 0) {
+              return { pass: false, score: 0, reason: 'validate_blocks was not called after building the page' };
+            }
+            const last = validationResults[validationResults.length - 1];
+            const text = last.text || '';
+            const failed = last.isError || /Invalid blocks:/i.test(text) || !/Validation:\s+\d+\/\d+\s+blocks valid/i.test(text);
+            if (failed) {
+              return {
+                pass: false,
+                score: 0,
+                reason: `final validate_blocks result was invalid or inconclusive: ${(text || JSON.stringify(last)).slice(0, 500)}`,
+              };
+            }
+            return { pass: true, score: 1, reason: `validate_blocks passed: ${(last.text || '').split(/\r?\n/)[0]}` };
+          });

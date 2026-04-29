@@ -68,11 +68,38 @@ function ensureLogDir( logPath: string ): void {
 	}
 }
 
+export interface RemoteSessionLoggerOptions {
+	/** Override the file path. Defaults to `~/.studio/remote-session.log`. */
+	logPath?: string;
+	/**
+	 * Also write a human-readable line to stdout for each non-suppressed call.
+	 * Used by `studio code --remote-session` so the user can watch session
+	 * activity in the terminal while the interactive REPL is blocked.
+	 */
+	mirrorToStdout?: boolean;
+}
+
+function formatStdoutLine(
+	level: LogLevel,
+	message: string,
+	meta?: Record< string, unknown >
+): string {
+	const time = new Date().toTimeString().slice( 0, 8 );
+	const head = `[${ time }] ${ level } ${ redact( message ) }`;
+	if ( ! meta ) {
+		return `${ head }\n`;
+	}
+	const redactedMeta = redact( JSON.stringify( meta ) );
+	return `${ head } ${ redactedMeta }\n`;
+}
+
 export class RemoteSessionLogger {
 	private logPath: string;
+	private mirrorToStdout: boolean;
 
-	constructor( logPath: string = getRemoteSessionLogPath() ) {
-		this.logPath = logPath;
+	constructor( options: RemoteSessionLoggerOptions = {} ) {
+		this.logPath = options.logPath ?? getRemoteSessionLogPath();
+		this.mirrorToStdout = options.mirrorToStdout ?? false;
 	}
 
 	private write( level: LogLevel, message: string, meta?: Record< string, unknown > ): void {
@@ -93,6 +120,14 @@ export class RemoteSessionLogger {
 			fs.appendFileSync( this.logPath, line, { encoding: 'utf8' } );
 		} catch {
 			// Logging is best-effort; never throw from here.
+		}
+
+		if ( this.mirrorToStdout ) {
+			try {
+				process.stdout.write( formatStdoutLine( level, message, meta ) );
+			} catch {
+				// Stdout mirroring is best-effort; never throw from here.
+			}
 		}
 	}
 

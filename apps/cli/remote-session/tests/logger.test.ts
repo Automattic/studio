@@ -36,7 +36,7 @@ describe( 'RemoteSessionLogger writes', () => {
 	} );
 
 	it( 'writes one line per call with redacted content', () => {
-		const logger = new RemoteSessionLogger( logPath );
+		const logger = new RemoteSessionLogger( { logPath } );
 		logger.info( 'hello Bearer abc123', { token: 'visible-secret' } );
 		const content = fs.readFileSync( logPath, 'utf8' );
 		expect( content ).toMatch( /"msg":"hello Bearer \[redacted\]"/ );
@@ -48,7 +48,7 @@ describe( 'RemoteSessionLogger writes', () => {
 		const original = process.env.STUDIO_REMOTE_DEBUG;
 		try {
 			delete process.env.STUDIO_REMOTE_DEBUG;
-			const logger = new RemoteSessionLogger( logPath );
+			const logger = new RemoteSessionLogger( { logPath } );
 			logger.debug( 'should be suppressed' );
 			expect( fs.existsSync( logPath ) ).toBe( false );
 
@@ -62,5 +62,43 @@ describe( 'RemoteSessionLogger writes', () => {
 				process.env.STUDIO_REMOTE_DEBUG = original;
 			}
 		}
+	} );
+
+	it( 'mirrors non-debug entries to stdout when mirrorToStdout is set, with redaction', () => {
+		const writes: string[] = [];
+		const originalWrite = process.stdout.write.bind( process.stdout );
+		process.stdout.write = ( ( chunk: string | Uint8Array ) => {
+			writes.push( typeof chunk === 'string' ? chunk : Buffer.from( chunk ).toString( 'utf8' ) );
+			return true;
+		} ) as typeof process.stdout.write;
+		try {
+			const logger = new RemoteSessionLogger( { logPath, mirrorToStdout: true } );
+			logger.info( 'hello Bearer abc123', { token: 'visible-secret', chat_id: 42 } );
+			logger.warn( 'no meta here' );
+		} finally {
+			process.stdout.write = originalWrite;
+		}
+		const combined = writes.join( '' );
+		expect( combined ).toMatch( /\binfo\b.*hello Bearer \[redacted\].*"chat_id":42/ );
+		expect( combined ).toMatch( /\bwarn\b.*no meta here/ );
+		expect( combined ).not.toMatch( /visible-secret/ );
+		// Sanity check: file path also got the line.
+		expect( fs.readFileSync( logPath, 'utf8' ) ).toMatch( /"msg":"hello Bearer \[redacted\]"/ );
+	} );
+
+	it( 'does not mirror to stdout by default', () => {
+		const writes: string[] = [];
+		const originalWrite = process.stdout.write.bind( process.stdout );
+		process.stdout.write = ( ( chunk: string | Uint8Array ) => {
+			writes.push( typeof chunk === 'string' ? chunk : Buffer.from( chunk ).toString( 'utf8' ) );
+			return true;
+		} ) as typeof process.stdout.write;
+		try {
+			const logger = new RemoteSessionLogger( { logPath } );
+			logger.info( 'silent on stdout' );
+		} finally {
+			process.stdout.write = originalWrite;
+		}
+		expect( writes.join( '' ) ).not.toMatch( /silent on stdout/ );
 	} );
 } );

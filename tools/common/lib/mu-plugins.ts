@@ -594,7 +594,8 @@ export async function getMuPlugins( options: MuPluginOptions = {} ): Promise< [ 
 }
 
 export async function writeStudioMuPluginsForNativePhpRuntime(
-	siteFolder: string
+	siteFolder: string,
+	isWpAutoUpdating: MuPluginOptions[ 'isWpAutoUpdating' ]
 ): Promise< void > {
 	const muPluginsDir = path.join( siteFolder, 'wp-content', 'mu-plugins' );
 	await mkdir( muPluginsDir, { recursive: true } );
@@ -604,7 +605,7 @@ export async function writeStudioMuPluginsForNativePhpRuntime(
 	// copy the loader into wp-content/mu-plugins/ — WordPress auto-loads it
 	// at runtime and it pulls the rest in from the temp directory, keeping
 	// the user's mu-plugins/ nearly empty.
-	const [ , loaderHostPath ] = await getMuPlugins( { runtime: 'native-php' } );
+	const [ , loaderHostPath ] = await getMuPlugins( { isWpAutoUpdating, runtime: 'native-php' } );
 	await copyFile( loaderHostPath, path.join( muPluginsDir, STUDIO_LOADER_MU_PLUGIN_FILENAME ) );
 }
 

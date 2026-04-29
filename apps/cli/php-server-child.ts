@@ -291,7 +291,7 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		stopSignal.throwIfAborted();
 		await ensureWpConfig( config.sitePath, phpVersion, stopSignal );
 		stopSignal.throwIfAborted();
-		await writeStudioMuPluginsForNativePhpRuntime( config.sitePath );
+		await writeStudioMuPluginsForNativePhpRuntime( config.sitePath, config.isWpAutoUpdating );
 		stopSignal.throwIfAborted();
 
 		const phpAddress = `localhost:${ config.port }`;

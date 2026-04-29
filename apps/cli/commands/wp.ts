@@ -44,7 +44,7 @@ enum Mode {
 
 async function runNativePhpWpCliCommand( site: SiteData, args: string[] ): Promise< void > {
 	const phpVersion = validateNativePhpVersion( site.phpVersion );
-	await writeStudioMuPluginsForNativePhpRuntime( site.path );
+	await writeStudioMuPluginsForNativePhpRuntime( site.path, site.isWpAutoUpdating );
 	const child = spawn(
 		getPhpBinaryPath( phpVersion ),
 		[ getWpCliPharPath(), `--path=${ site.path }`, ...args ],

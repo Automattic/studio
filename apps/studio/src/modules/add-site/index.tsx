@@ -11,7 +11,7 @@ import {
 import { isSupportedPHPVersion, SupportedPHPVersion } from '@studio/common/types/php-versions';
 import { SyncSite } from '@studio/common/types/sync';
 import { speak } from '@wordpress/a11y';
-import { Button as WpButton, Navigator, useNavigator } from '@wordpress/components';
+import { Navigator, useNavigator } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -33,7 +33,6 @@ import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { useGetBlueprints, Blueprint } from 'src/stores/wpcom-api';
 import BlueprintDetails from './components/blueprint-details';
 import CreateSite from './components/create-site';
-import { ExploreBlueprints } from './components/explore-blueprints';
 import { NewSiteOptions } from './components/new-site-options';
 import AddSiteOptions, { type AddSiteFlowType } from './components/options';
 import { PullRemoteSite } from './components/pull-remote-site';
@@ -401,18 +400,12 @@ function NavigationContent( props: NavigationContentProps ) {
 						selectedBlueprint={ selectedBlueprint?.slug || null }
 						onBlueprintChange={ handleBlueprintChange }
 						blueprintFileError={ blueprintFileError }
-					/>
-				</ScreenContent>
-			</Navigator.Screen>
-			<Navigator.Screen className="h-full overflow-y-auto" path="/new/explore">
-				<ScreenContent>
-					<ExploreBlueprints
-						blueprints={ galleryBlueprints ?? [] }
-						isLoading={ isLoadingGallery }
-						errorMessage={ galleryError ? __( 'Could not load blueprints.' ) : undefined }
-						onBlueprintSelect={ handleGalleryBlueprintSelect }
-						isSelectingBlueprint={ isSelectingGalleryBlueprint }
-						selectionError={ gallerySelectionError }
+						galleryBlueprints={ galleryBlueprints ?? [] }
+						isLoadingGallery={ isLoadingGallery }
+						galleryErrorMessage={ galleryError ? __( 'Could not load blueprints.' ) : undefined }
+						onGalleryBlueprintSelect={ handleGalleryBlueprintSelect }
+						isSelectingGalleryBlueprint={ isSelectingGalleryBlueprint }
+						gallerySelectionError={ gallerySelectionError }
 					/>
 				</ScreenContent>
 			</Navigator.Screen>
@@ -471,19 +464,10 @@ function NavigationContent( props: NavigationContentProps ) {
 				canSubmitCreate={ canSubmit }
 				leftSlot={
 					location.path === '/new' && enableBlueprints && ! isLoadingBlueprints ? (
-						<div className="flex items-center gap-2">
-							<UploadBlueprintButton
-								onFileBlueprintSelect={ handleFileBlueprintSelect }
-								onError={ setBlueprintFileError }
-							/>
-							<WpButton
-								variant="tertiary"
-								className="cursor-pointer"
-								onClick={ () => goTo( '/new/explore' ) }
-							>
-								{ __( 'Explore more blueprints' ) }
-							</WpButton>
-						</div>
+						<UploadBlueprintButton
+							onFileBlueprintSelect={ handleFileBlueprintSelect }
+							onError={ setBlueprintFileError }
+						/>
 					) : undefined
 				}
 			/>

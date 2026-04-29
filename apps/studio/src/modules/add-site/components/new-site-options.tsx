@@ -8,6 +8,8 @@ import { __ } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback } from 'react';
 import { cx } from 'src/lib/cx';
+import { GalleryBlueprint } from 'src/stores/gallery-blueprints-api';
+
 interface Blueprint {
 	slug: string;
 	title: string;
@@ -29,6 +31,12 @@ interface NewSiteOptionsProps {
 	selectedBlueprint: string | null;
 	onBlueprintChange: ( blueprintId: string ) => void;
 	blueprintFileError?: string;
+	galleryBlueprints?: GalleryBlueprint[];
+	isLoadingGallery?: boolean;
+	galleryErrorMessage?: string;
+	onGalleryBlueprintSelect?: ( blueprint: GalleryBlueprint ) => void;
+	isSelectingGalleryBlueprint?: boolean;
+	gallerySelectionError?: string;
 }
 
 function EmptySiteCard( { isSelected, onClick }: { isSelected: boolean; onClick: () => void } ) {
@@ -177,6 +185,55 @@ function renameBlueprintsForDisplay( blueprints: Blueprint[] ): Blueprint[] {
 		} ) );
 }
 
+function GalleryBlueprintCard( {
+	blueprint,
+	onClick,
+	disabled,
+}: {
+	blueprint: GalleryBlueprint;
+	onClick: () => void;
+	disabled: boolean;
+} ) {
+	return (
+		<button
+			onClick={ onClick }
+			disabled={ disabled }
+			className={ cx(
+				'flex flex-col h-full rounded-lg border overflow-hidden text-left transition-colors',
+				disabled
+					? 'opacity-50 cursor-not-allowed border-frame-border'
+					: 'border-frame-border hover:border-frame-text-secondary'
+			) }
+		>
+			<div className="relative w-full h-24 [@media(min-height:680px)]:h-36 bg-frame-surface overflow-hidden">
+				{ blueprint.screenshotUrl ? (
+					<img
+						src={ blueprint.screenshotUrl }
+						alt={ blueprint.title }
+						className="w-full h-full object-cover object-center"
+					/>
+				) : (
+					<div className="w-full h-full flex items-center justify-center text-frame-text-tertiary">
+						{ blueprint.title }
+					</div>
+				) }
+			</div>
+			<div className="px-3 pt-3 pb-3">
+				<Heading level={ 3 } className="text-[13px] text-frame-text mb-1" weight={ 500 }>
+					{ blueprint.title }
+				</Heading>
+				<Text
+					className="text-[12px] text-frame-text-secondary leading-[18px] text-pretty"
+					weight={ 400 }
+					title={ blueprint.description }
+				>
+					{ blueprint.description }
+				</Text>
+			</div>
+		</button>
+	);
+}
+
 export function NewSiteOptions( {
 	enableBlueprints,
 	blueprints,
@@ -185,6 +242,12 @@ export function NewSiteOptions( {
 	selectedBlueprint,
 	onBlueprintChange,
 	blueprintFileError,
+	galleryBlueprints = [],
+	isLoadingGallery = false,
+	galleryErrorMessage,
+	onGalleryBlueprintSelect,
+	isSelectingGalleryBlueprint = false,
+	gallerySelectionError,
 }: NewSiteOptionsProps ) {
 	const { __ } = useI18n();
 
@@ -236,6 +299,47 @@ export function NewSiteOptions( {
 					) )
 				) }
 			</div>
+
+			{ onGalleryBlueprintSelect && (
+				<>
+					<Heading className="text-[18px] text-frame-text mt-8 mb-4 w-full max-w-2xl mx-auto" weight={ 500 }>
+						{ __( 'Explore more blueprints' ) }
+					</Heading>
+
+					{ gallerySelectionError && (
+						<div className="bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200 text-sm rounded-lg px-4 py-3 mb-4 max-w-2xl mx-auto w-full">
+							{ gallerySelectionError }
+						</div>
+					) }
+
+					{ isLoadingGallery ? (
+						<div className="flex items-center justify-center py-8">
+							<Spinner />
+						</div>
+					) : galleryErrorMessage ? (
+						<div className="flex items-center justify-center text-sm text-frame-text-secondary py-8">
+							{ galleryErrorMessage }
+						</div>
+					) : (
+						<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-2xl mx-auto pb-1">
+							{ galleryBlueprints.map( ( bp ) => (
+								<GalleryBlueprintCard
+									key={ bp.slug }
+									blueprint={ bp }
+									onClick={ () => onGalleryBlueprintSelect( bp ) }
+									disabled={ isSelectingGalleryBlueprint }
+								/>
+							) ) }
+						</div>
+					) }
+
+					{ isSelectingGalleryBlueprint && (
+						<div className="flex items-center justify-center py-4">
+							<Spinner />
+						</div>
+					) }
+				</>
+			) }
 		</VStack>
 	);
 }

@@ -11,7 +11,8 @@ This documents the workflow for creating pixel art sprites for the Wapuu platfor
 | Gutenberg block | `wapuu-gutenberg-sprite.png` | 4 | 32×32px | 128×32px |
 | Mguy enemy | `wapuu-mguy-sprite.png` | 4 | 32×32px | 128×32px |
 | Coin / collectible | `wapuu-sprites-coin.png` | 1 | 32×32px | 32×32px |
-| Ground / platform tile | `wapuu-sprites-tiles.png` | 1 | any | any |
+| Ground / platform tile | `wapuu-sprites-tiles.png` | 2 | 32×32px each | any |
+| Flag | `wapuu-flag-sprite.png` | 1 | 32×64px | 32×64px |
 | Far background | `wapuu-bg-far.png` | — | 1024×1024px | — |
 | Near background | `wapuu-bg-near.png` | — | 1024×757px | — |
 

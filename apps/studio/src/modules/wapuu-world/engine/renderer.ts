@@ -1,5 +1,6 @@
 import bgFarUrl from 'src/modules/wapuu-world/assets/wapuu-bg-far.png';
 import bgNearUrl from 'src/modules/wapuu-world/assets/wapuu-bg-near.png';
+import flagSpriteUrl from 'src/modules/wapuu-world/assets/wapuu-flag-sprite.png';
 import gutenbergSpriteUrl from 'src/modules/wapuu-world/assets/wapuu-gutenberg-sprite.png';
 import mguySpriteUrl from 'src/modules/wapuu-world/assets/wapuu-mguy-sprite.png';
 import wapuuPlayerIdleSpriteUrl from 'src/modules/wapuu-world/assets/wapuu-player-idle-sprite.png';
@@ -23,6 +24,7 @@ const sprites = {
 	coin: loadImage( coinSpriteUrl ),
 	bgFar: loadImage( bgFarUrl ),
 	bgNear: loadImage( bgNearUrl ),
+	flag: loadImage( flagSpriteUrl ),
 	gutenberg: loadImage( gutenbergSpriteUrl ),
 	mguy: loadImage( mguySpriteUrl ),
 	wapuu: loadImage( wapuuPlayerSpriteUrl ),
@@ -387,12 +389,14 @@ function drawCollectible( ctx: CanvasRenderingContext2D, c: Collectible, cameraX
 function drawFlag( ctx: CanvasRenderingContext2D, flag: Flag, cameraX: number ) {
 	const x = Math.round( flag.x - cameraX );
 	const y = Math.round( flag.y );
-
-	// Pole
+	const { img, ready } = sprites.flag;
+	if ( ready ) {
+		ctx.drawImage( img, 0, 0, 32, 64, x, y, flag.w, flag.h );
+		return;
+	}
+	// Fallback procedural
 	ctx.fillStyle = COLORS.flagPole;
 	ctx.fillRect( x + 14, y, 4, flag.h );
-
-	// Banner wave
 	const wave = Math.sin( flag.animFrame * 0.05 ) * 3;
 	ctx.fillStyle = COLORS.flagBanner;
 	ctx.beginPath();

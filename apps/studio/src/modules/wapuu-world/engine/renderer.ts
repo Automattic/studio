@@ -34,11 +34,13 @@ function drawTileSprite(
 	dx: number,
 	dy: number,
 	dw = TILE_SIZE,
-	dh = TILE_SIZE
+	dh = TILE_SIZE,
+	frame = 0
 ) {
 	const { img, ready } = sprites.tiles;
 	if ( ! ready ) return false;
-	ctx.drawImage( img, 0, 0, img.naturalWidth, img.naturalHeight, dx, dy, dw, dh );
+	const frameW = img.naturalWidth / 2;
+	ctx.drawImage( img, frame * frameW, 0, frameW, img.naturalHeight, dx, dy, dw, dh );
 	return true;
 }
 
@@ -157,12 +159,13 @@ function drawTiles( ctx: CanvasRenderingContext2D, cameraX: number, w: number, _
 	for ( let row = 0; row < LEVEL_MAP.length; row++ ) {
 		for ( let col = startCol; col <= endCol; col++ ) {
 			const tile = getTile( col, row );
-			if ( tile !== 1 && tile !== 2 ) continue;
+			if ( tile !== 1 && tile !== 2 && tile !== 8 ) continue;
 
 			const tx = col * TILE_SIZE - cameraX;
 			const ty = row * TILE_SIZE;
+			const frame = tile === 8 ? 1 : 0;
 
-			const drawn = drawTileSprite( ctx, tx - 1, ty, TILE_SIZE + 2, TILE_SIZE + 1 );
+			const drawn = drawTileSprite( ctx, tx - 1, ty, TILE_SIZE + 2, TILE_SIZE + 1, frame );
 			if ( ! drawn ) {
 				// Fallback procedural while sprite loads
 				if ( tile === 1 ) {

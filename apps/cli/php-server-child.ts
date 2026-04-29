@@ -10,6 +10,8 @@ import { ChildProcess, spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
+import { writeMuPluginsForNativePhp } from '@studio/common/lib/mu-plugins';
 import { decodePassword } from '@studio/common/lib/passwords';
 import {
 	NativePhpSupportedVersion,
@@ -21,7 +23,11 @@ import {
 	ChildMessageRaw,
 	ServerConfig,
 } from 'cli/lib/types/wordpress-server-ipc';
-import { getBlueprintsPharPath, getPhpBinaryPath } from './lib/dependency-management/paths';
+import {
+	getBlueprintsPharPath,
+	getPhpBinaryPath,
+	getWpCliPharPath,
+} from './lib/dependency-management/paths';
 
 const ROUTER_PATH = path.resolve( import.meta.dirname, 'php', 'router.php' );
 const SET_DEFAULT_PERMALINKS_PATH = path.resolve(
@@ -34,7 +40,6 @@ const WP_CONFIG_TRANSFORMER_PATH = path.resolve(
 	'php',
 	'wp-config-transformer.php'
 );
-// With Playground's/Studio's SQLite setup, the only required database constant is `DB_NAME`
 const DEFAULT_WP_CONFIG_CONSTANTS = { DB_NAME: 'wordpress' } as const;
 
 let phpProcess: ChildProcess | null = null;
@@ -116,7 +121,8 @@ async function runPhpCommand(
 async function ensureWpConfig(
 	siteFolder: string,
 	phpVersion: NativePhpSupportedVersion,
-	signal: AbortSignal
+	signal: AbortSignal,
+	config?: Pick< ServerConfig, 'enableDebugLog' | 'enableDebugDisplay' >
 ): Promise< void > {
 	const wpConfigPath = path.join( siteFolder, 'wp-config.php' );
 	const wpConfigSamplePath = path.join( siteFolder, 'wp-config-sample.php' );
@@ -136,6 +142,15 @@ $transformer->to_file( $wp_config_path );
 		await fs.promises.copyFile( wpConfigSamplePath, wpConfigPath );
 	}
 
+	const enableDebugLog = config?.enableDebugLog ?? false;
+	const enableDebugDisplay = config?.enableDebugDisplay ?? false;
+	const constants = {
+		...DEFAULT_WP_CONFIG_CONSTANTS,
+		WP_DEBUG: enableDebugLog || enableDebugDisplay,
+		WP_DEBUG_LOG: enableDebugLog,
+		WP_DEBUG_DISPLAY: enableDebugDisplay,
+	};
+
 	try {
 		await runPhpCommand(
 			[
@@ -143,7 +158,7 @@ $transformer->to_file( $wp_config_path );
 				ensureWpConfigScript,
 				WP_CONFIG_TRANSFORMER_PATH,
 				wpConfigPath,
-				JSON.stringify( DEFAULT_WP_CONFIG_CONSTANTS ),
+				JSON.stringify( constants ),
 			],
 			{ phpVersion, signal }
 		);
@@ -226,40 +241,47 @@ async function installWordPress(
 		return;
 	}
 
-	const siteLanguage = config.siteLanguage ?? 'en';
 	const siteTitle = config.siteTitle ?? 'My WordPress Website';
 	const username = config.adminUsername ?? 'admin';
 	const password = config.adminPassword ? decodePassword( config.adminPassword ) : 'password';
 	const email = config.adminEmail ?? 'admin@localhost.com';
+	const siteUrl = config.absoluteUrl ?? `http://localhost:${ config.port }`;
+	// Only pass --locale for non-default locales; WP-CLI defaults to en_US for English.
+	// DEFAULT_LOCALE is 'en' which is not a valid WP locale code.
+	const locale =
+		config.siteLanguage && config.siteLanguage !== DEFAULT_LOCALE ? config.siteLanguage : undefined;
 
-	const installResponse = await fetch(
-		`http://localhost:${ config.port }/wp-admin/install.php?step=2`,
-		{
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/x-www-form-urlencoded',
-			},
-			body: new URLSearchParams( {
-				language: siteLanguage,
-				prefix: 'wp_',
-				weblog_title: siteTitle,
-				user_name: username,
-				admin_password: password,
-				// The installation wizard demands typing the same password twice
-				admin_password2: password,
-				Submit: 'Install WordPress',
-				pw_weak: '1',
-				admin_email: email,
-			} ),
-			signal,
-		}
+	await runProcessToCompletion(
+		getPhpBinaryPath( phpVersion ),
+		[
+			getWpCliPharPath(),
+			'core',
+			'install',
+			`--path=${ config.sitePath }`,
+			`--url=${ siteUrl }`,
+			`--title=${ siteTitle }`,
+			`--admin_user=${ username }`,
+			`--admin_password=${ password }`,
+			`--admin_email=${ email }`,
+			...( locale ? [ `--locale=${ locale }` ] : [] ),
+			'--skip-email',
+		],
+		{ signal }
 	);
 
-	if ( ! installResponse.ok ) {
-		throw new Error(
-			`Failed to install WordPress (HTTP ${ installResponse.status } ${ installResponse.statusText })`
-		);
-	}
+	// Store the admin username in WP options so the auto-login MU plugin can find it.
+	await runProcessToCompletion(
+		getPhpBinaryPath( phpVersion ),
+		[
+			getWpCliPharPath(),
+			'option',
+			'update',
+			'studio_admin_username',
+			username,
+			`--path=${ config.sitePath }`,
+		],
+		{ signal }
+	);
 
 	try {
 		await runPhpCommand( [ SET_DEFAULT_PERMALINKS_PATH ], {
@@ -289,8 +311,19 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 
 	try {
 		stopSignal.throwIfAborted();
-		await ensureWpConfig( config.sitePath, phpVersion, stopSignal );
+		await ensureWpConfig( config.sitePath, phpVersion, stopSignal, config );
 		stopSignal.throwIfAborted();
+		await writeMuPluginsForNativePhp( config.sitePath, {
+			isWpAutoUpdating: config.isWpAutoUpdating,
+		} );
+		stopSignal.throwIfAborted();
+		await installWordPress( config, phpVersion, stopSignal );
+		stopSignal.throwIfAborted();
+
+		if ( config.blueprint ) {
+			await runBlueprint( config, phpVersion, stopSignal );
+			stopSignal.throwIfAborted();
+		}
 
 		const phpAddress = `localhost:${ config.port }`;
 		logToConsole( `Spawning PHP built-in server on ${ phpAddress } for site ${ config.siteId }` );
@@ -314,13 +347,7 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		} );
 
 		stopSignal.throwIfAborted();
-
 		await waitForServerReady( `http://localhost:${ config.port }/`, stopSignal );
-		await installWordPress( config, phpVersion, stopSignal );
-
-		if ( config.blueprint ) {
-			await runBlueprint( config, phpVersion, stopSignal );
-		}
 
 		serverChild.once( 'exit', ( code, signalName ) => {
 			errorToConsole(
@@ -537,10 +564,19 @@ async function ipcMessageHandler( packet: unknown ) {
 				result = await stopServer();
 				break;
 			case 'run-blueprint': {
-				const blueprintPhpVersion = validateNativePhpVersion(
-					validMessage.data.config.phpVersion ?? ''
+				const blueprintConfig = validMessage.data.config;
+				const blueprintPhpVersion = validateNativePhpVersion( blueprintConfig.phpVersion ?? '' );
+				await ensureWpConfig(
+					blueprintConfig.sitePath,
+					blueprintPhpVersion,
+					abortController.signal,
+					blueprintConfig
 				);
-				await runBlueprint( validMessage.data.config, blueprintPhpVersion, abortController.signal );
+				await writeMuPluginsForNativePhp( blueprintConfig.sitePath, {
+					isWpAutoUpdating: blueprintConfig.isWpAutoUpdating,
+				} );
+				await installWordPress( blueprintConfig, blueprintPhpVersion, abortController.signal );
+				await runBlueprint( blueprintConfig, blueprintPhpVersion, abortController.signal );
 				break;
 			}
 			case 'wp-cli-command':

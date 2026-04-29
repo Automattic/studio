@@ -5,7 +5,7 @@
  * available to WordPress instances. Shared between desktop app and CLI.
  */
 
-import { mkdtemp, readdir, unlink, writeFile } from 'fs/promises';
+import { mkdir, mkdtemp, readdir, unlink, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -555,6 +555,33 @@ export async function getMuPlugins( options: MuPluginOptions ) {
 	const loaderMuPluginHostPath = await createLoaderMuPlugin();
 
 	return [ studioMuPluginsHostPath, loaderMuPluginHostPath ];
+}
+
+// These mu-plugins are WASM-specific and should not be written to disk for native PHP sites.
+const WASM_ONLY_MU_PLUGIN_FILENAMES = new Set( [
+	'0-tmp-fix-qm-plugin-sapi.php',
+	'0-suppress-dns-get-record-warnings.php',
+	'0-sqlite-command.php',
+] );
+
+/**
+ * Write Studio mu-plugins to disk for native PHP sites.
+ *
+ * Unlike Playground (WASM), native PHP can't mount plugins via a virtual filesystem,
+ * so the files must exist on disk for WordPress to load them.
+ */
+export async function writeMuPluginsForNativePhp(
+	sitePath: string,
+	options: MuPluginOptions
+): Promise< void > {
+	const muPluginsDir = join( sitePath, 'wp-content', 'mu-plugins' );
+	await mkdir( muPluginsDir, { recursive: true } );
+	const plugins = getStandardMuPlugins( options ).filter(
+		( plugin ) => ! WASM_ONLY_MU_PLUGIN_FILENAMES.has( plugin.filename )
+	);
+	await Promise.all(
+		plugins.map( ( plugin ) => writeFile( join( muPluginsDir, plugin.filename ), plugin.content ) )
+	);
 }
 
 /**

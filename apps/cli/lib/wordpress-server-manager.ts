@@ -68,6 +68,7 @@ export interface StartServerOptions {
 	wpVersion?: string;
 	blueprint?: unknown;
 	blueprintUri?: string;
+	siteLanguage?: string;
 	mounts?: ServerConfig[ 'mounts' ];
 	mountsBeforeInstall?: ServerConfig[ 'mountsBeforeInstall' ];
 	wordpressInstallMode?: WordPressInstallMode;
@@ -110,6 +111,10 @@ function buildServerConfig(
 
 	if ( options?.wpVersion ) {
 		serverConfig.wpVersion = options.wpVersion;
+	}
+
+	if ( options?.siteLanguage ) {
+		serverConfig.siteLanguage = options.siteLanguage;
 	}
 
 	if ( options?.blueprint && options.blueprintUri ) {
@@ -486,6 +491,7 @@ export interface RunBlueprintOptions {
 	wpVersion?: string;
 	blueprint: unknown;
 	blueprintUri: string;
+	siteLanguage?: string;
 }
 
 /**

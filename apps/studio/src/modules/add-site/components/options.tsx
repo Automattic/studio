@@ -108,7 +108,7 @@ function ImportDropZone( { onValidated }: { onValidated: ( file: File ) => void 
 	return (
 		<div
 			className={ cx(
-				'group w-full border border-dashed rounded-xl p-6 text-center',
+				'group w-full border rounded-xl p-6 text-center',
 				'bg-frame/50 backdrop-blur-md transition-colors cursor-pointer',
 				isDragging
 					? 'border-frame-theme bg-frame-theme/5'

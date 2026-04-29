@@ -34,6 +34,12 @@ interface EditorDocumentState {
 	bodyClass: string;
 }
 
+interface EditorLoadResponse {
+	url(): string;
+	status(): number;
+	statusText(): string;
+}
+
 class EditorLoadFailure extends Error {
 	constructor( message: string ) {
 		super( message );
@@ -499,6 +505,16 @@ export function getKnownEditorLoadFailureFromDocument( state: EditorDocumentStat
 	return null;
 }
 
+export function getKnownEditorLoadFailureFromResponse(
+	response: EditorLoadResponse
+): string | null {
+	const status = response.status();
+	if ( status >= 500 ) {
+		return `Block editor request failed (${ status } ${ response.statusText() } ${ response.url() })`;
+	}
+	return null;
+}
+
 async function getEditorDocumentState( page: Page ): Promise< EditorDocumentState > {
 	return page.evaluate( () => {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -530,57 +546,80 @@ async function loadAndWaitForEditorReady(
 	page: Page,
 	loadPage: () => Promise< unknown >
 ): Promise< void > {
-	await loadPage();
-	await throwIfKnownEditorDocumentFailure( page );
+	let rejectKnownFailure: ( error: EditorLoadFailure ) => void = () => {};
+	const knownFailure = new Promise< never >( ( _resolve, reject ) => {
+		rejectKnownFailure = reject;
+	} );
 
-	let stopWatchingDocument = false;
-	const watchForBlankDocument = async () => {
-		while ( ! stopWatchingDocument ) {
-			await delay( 250 );
-			try {
-				await throwIfKnownEditorDocumentFailure( page );
-			} catch ( error ) {
-				if ( error instanceof EditorLoadFailure ) {
-					throw error;
-				}
-			}
+	const onResponse = ( response: Response ) => {
+		const responseFailure = getKnownEditorLoadFailureFromResponse( response );
+		if ( responseFailure ) {
+			rejectKnownFailure( new EditorLoadFailure( responseFailure ) );
 		}
 	};
 
-	// Wait for the block editor scripts to be fully loaded and blocks registered.
-	// wp is set early as a global but wp.blocks is populated later, so every
-	// level must be checked to avoid "Cannot read properties of undefined".
+	page.on( 'response', onResponse );
+
 	try {
 		await Promise.race( [
-			page.waitForFunction(
-				() => {
-					try {
-						// eslint-disable-next-line @typescript-eslint/no-explicit-any
-						const wp = ( window as any ).wp;
-						return (
-							wp &&
-							wp.blocks &&
-							typeof wp.blocks.getBlockTypes === 'function' &&
-							wp.blocks.getBlockTypes().length > 0
-						);
-					} catch {
-						return false;
+			( async () => {
+				await loadPage();
+				await throwIfKnownEditorDocumentFailure( page );
+
+				let stopWatchingDocument = false;
+				const watchForBlankDocument = async () => {
+					while ( ! stopWatchingDocument ) {
+						await delay( 250 );
+						try {
+							await throwIfKnownEditorDocumentFailure( page );
+						} catch ( error ) {
+							if ( error instanceof EditorLoadFailure ) {
+								throw error;
+							}
+						}
 					}
-				},
-				{ timeout: EDITOR_READY_TIMEOUT_MS }
-			),
-			watchForBlankDocument(),
+				};
+
+				// Wait for the block editor scripts to be fully loaded and blocks registered.
+				// wp is set early as a global but wp.blocks is populated later, so every
+				// level must be checked to avoid "Cannot read properties of undefined".
+				try {
+					await Promise.race( [
+						page.waitForFunction(
+							() => {
+								try {
+									// eslint-disable-next-line @typescript-eslint/no-explicit-any
+									const wp = ( window as any ).wp;
+									return (
+										wp &&
+										wp.blocks &&
+										typeof wp.blocks.getBlockTypes === 'function' &&
+										wp.blocks.getBlockTypes().length > 0
+									);
+								} catch {
+									return false;
+								}
+							},
+							{ timeout: EDITOR_READY_TIMEOUT_MS }
+						),
+						watchForBlankDocument(),
+					] );
+				} finally {
+					stopWatchingDocument = true;
+				}
+				await page.evaluate( async () => {
+					// eslint-disable-next-line @typescript-eslint/no-explicit-any
+					const loadBlockEditor = ( window as any )._wpLoadBlockEditor;
+					if ( loadBlockEditor?.then ) {
+						await loadBlockEditor;
+					}
+				} );
+			} )(),
+			knownFailure,
 		] );
 	} finally {
-		stopWatchingDocument = true;
+		page.off( 'response', onResponse );
 	}
-	await page.evaluate( async () => {
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const loadBlockEditor = ( window as any )._wpLoadBlockEditor;
-		if ( loadBlockEditor?.then ) {
-			await loadBlockEditor;
-		}
-	} );
 }
 
 /**

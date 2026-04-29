@@ -3,6 +3,7 @@ import {
 	buildChromiumLaunchAttempts,
 	ensurePlaywrightChromiumInstalled,
 	getKnownEditorLoadFailureFromDocument,
+	getKnownEditorLoadFailureFromResponse,
 } from '../browser-utils';
 
 describe( 'browser-utils', () => {
@@ -114,6 +115,27 @@ describe( 'browser-utils', () => {
 			readyState: 'loading',
 			hasWp: false,
 			bodyClass: '',
+		} );
+
+		expect( message ).toBeNull();
+	} );
+
+	it( 'detects server errors during block editor loading', () => {
+		const message = getKnownEditorLoadFailureFromResponse( {
+			url: () => 'http://localhost:8881/wp-admin/load-scripts.php',
+			status: () => 500,
+			statusText: () => 'Internal Server Error',
+		} );
+
+		expect( message ).toContain( 'Block editor request failed' );
+		expect( message ).toContain( '500' );
+	} );
+
+	it( 'ignores non-server errors during block editor loading', () => {
+		const message = getKnownEditorLoadFailureFromResponse( {
+			url: () => 'http://localhost:8881/wp-admin/admin-ajax.php',
+			status: () => 404,
+			statusText: () => 'Not Found',
 		} );
 
 		expect( message ).toBeNull();

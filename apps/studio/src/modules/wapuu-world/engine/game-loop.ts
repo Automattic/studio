@@ -86,6 +86,7 @@ export function startGame( canvas: HTMLCanvasElement ): () => void {
 	window.addEventListener( 'keyup', onKeyUp );
 
 	let rafId = 0;
+	let cancelled = false;
 	const TARGET_MS = 1000 / 60;
 	let lastTime = 0;
 	let accumulator = 0;
@@ -119,11 +120,13 @@ export function startGame( canvas: HTMLCanvasElement ): () => void {
 	}
 
 	rafId = requestAnimationFrame( ( now ) => {
+		if ( cancelled ) return;
 		lastTime = now;
 		rafId = requestAnimationFrame( tick );
 	} );
 
 	return () => {
+		cancelled = true;
 		cancelAnimationFrame( rafId );
 		window.removeEventListener( 'keydown', onKeyDown, { capture: true } );
 		window.removeEventListener( 'keyup', onKeyUp );

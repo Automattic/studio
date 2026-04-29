@@ -9,11 +9,12 @@
 import { execFile } from 'child_process';
 import { randomUUID } from 'crypto';
 import { existsSync } from 'fs';
-import { copyFile, mkdir, rm, stat, writeFile } from 'fs/promises';
+import { copyFile, mkdir, open, readdir, rm, stat, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { promisify } from 'util';
+import { PROCESS_MANAGER_LOGS_DIR } from 'cli/lib/paths';
 import type { ConsoleMessage, Request, Response } from 'playwright';
 
 type Browser = Awaited< ReturnType< ( typeof import('playwright') )[ 'chromium' ][ 'launch' ] > >;
@@ -26,6 +27,7 @@ const DEFAULT_BROWSER_ARGS = [ '--ignore-certificate-errors' ];
 const EDITOR_READY_TIMEOUT_MS = 30_000;
 const MAX_ARTIFACT_EVENTS = 200;
 const MAX_RESPONSE_BODY_PREVIEW_LENGTH = 4_000;
+const MAX_SERVER_LOG_BYTES = 512 * 1024;
 
 interface EditorDocumentState {
 	url: string;
@@ -102,6 +104,7 @@ export class ValidationArtifacts {
 	private readonly errorResponses: unknown[] = [];
 	private readonly pendingArtifactWrites: Promise< void >[] = [];
 	private readonly sitePath?: string;
+	private readonly siteId?: string;
 	private attachedPage: Page | null = null;
 	private tracingStarted = false;
 	private tracingStopped = false;
@@ -110,9 +113,10 @@ export class ValidationArtifacts {
 	private requestFailedHandler?: ( request: Request ) => void;
 	private responseHandler?: ( response: Response ) => void;
 
-	private constructor( directory: string, sitePath?: string ) {
+	private constructor( directory: string, sitePath?: string, siteId?: string ) {
 		this.directory = directory;
 		this.sitePath = sitePath;
+		this.siteId = siteId;
 	}
 
 	static async create( input: {
@@ -151,7 +155,8 @@ export class ValidationArtifacts {
 		);
 		return new ValidationArtifacts(
 			directory,
-			typeof input.site?.path === 'string' ? input.site.path : undefined
+			typeof input.site?.path === 'string' ? input.site.path : undefined,
+			typeof input.site?.id === 'string' ? input.site.id : undefined
 		);
 	}
 
@@ -241,6 +246,7 @@ export class ValidationArtifacts {
 			await this.writePageArtifacts( page );
 		}
 		await this.writeSiteArtifacts();
+		await this.writeProcessLogArtifacts();
 		await Promise.allSettled( this.pendingArtifactWrites );
 		await this.stopTracing( path.join( this.directory, 'trace.zip' ) ).catch(
 			async ( traceError ) => {
@@ -407,6 +413,60 @@ export class ValidationArtifacts {
 		await writeFile(
 			path.join( this.directory, 'site-artifacts.json' ),
 			JSON.stringify( siteSummary, null, 2 )
+		).catch( () => {} );
+	}
+
+	private async writeProcessLogArtifacts(): Promise< void > {
+		if ( ! this.siteId ) {
+			return;
+		}
+
+		const processName = `studio-site-${ this.siteId }`;
+		const logSummary: Record< string, unknown > = {
+			processName,
+			logDirectory: PROCESS_MANAGER_LOGS_DIR,
+			files: [],
+		};
+		const copiedFiles: Record< string, unknown >[] = [];
+		logSummary.files = copiedFiles;
+
+		try {
+			const logFiles = ( await readdir( PROCESS_MANAGER_LOGS_DIR ) )
+				.filter( ( file ) => file.startsWith( `${ processName }-` ) && file.endsWith( '.log' ) )
+				.sort();
+
+			const outputDirectory = path.join( this.directory, 'process-logs' );
+			await mkdir( outputDirectory, { recursive: true } );
+
+			for ( const file of logFiles ) {
+				const sourcePath = path.join( PROCESS_MANAGER_LOGS_DIR, file );
+				const destinationPath = path.join( outputDirectory, file );
+				const fileStat = await stat( sourcePath );
+				const start = Math.max( 0, fileStat.size - MAX_SERVER_LOG_BYTES );
+				const handle = await open( sourcePath, 'r' );
+				try {
+					const buffer = Buffer.alloc( fileStat.size - start );
+					await handle.read( buffer, 0, buffer.length, start );
+					await writeFile( destinationPath, buffer );
+				} finally {
+					await handle.close();
+				}
+				copiedFiles.push( {
+					sourcePath,
+					copiedTo: path.join( 'process-logs', file ),
+					size: fileStat.size,
+					mtime: fileStat.mtime.toISOString(),
+					truncatedToLastBytes:
+						fileStat.size > MAX_SERVER_LOG_BYTES ? MAX_SERVER_LOG_BYTES : undefined,
+				} );
+			}
+		} catch ( error ) {
+			logSummary.error = serializeError( error ).message;
+		}
+
+		await writeFile(
+			path.join( this.directory, 'process-logs.json' ),
+			JSON.stringify( logSummary, null, 2 )
 		).catch( () => {} );
 	}
 

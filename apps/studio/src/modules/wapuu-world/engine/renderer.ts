@@ -273,20 +273,27 @@ function drawWapuu( ctx: CanvasRenderingContext2D, p: Player, cameraX: number ) 
 	ctx.restore();
 }
 
+const BLOCK_SPRITE_W = 32;
+const BLOCK_SPRITE_H = 32;
+const MGUY_SPRITE_W = 32;
+const MGUY_SPRITE_H = 32;
+
 function drawBlock( ctx: CanvasRenderingContext2D, e: Enemy, cameraX: number ) {
-	const x = Math.round( e.x - cameraX );
-	const y = Math.round( e.y );
+	const hx = Math.round( e.x - cameraX );
+	const hy = Math.round( e.y );
+	// Center sprite over hitbox, bottom-aligned
+	const dx = hx + ( e.w - BLOCK_SPRITE_W ) / 2;
+	const dy = hy + e.h - BLOCK_SPRITE_H;
 	const { img, ready } = sprites.gutenberg;
 	const frame = e.animFrame % 4;
 	if ( ready ) {
 		ctx.save();
 		if ( e.vx < 0 ) {
-			ctx.translate( x + e.w, 0 );
+			ctx.translate( dx + BLOCK_SPRITE_W / 2, 0 );
 			ctx.scale( -1, 1 );
-			ctx.drawImage( img, frame * 32, 0, 32, 32, 0, y, e.w, e.h );
-		} else {
-			ctx.drawImage( img, frame * 32, 0, 32, 32, x, y, e.w, e.h );
+			ctx.translate( -( dx + BLOCK_SPRITE_W / 2 ), 0 );
 		}
+		ctx.drawImage( img, frame * 32, 0, 32, 32, dx, dy, BLOCK_SPRITE_W, BLOCK_SPRITE_H );
 		ctx.restore();
 		return;
 	}
@@ -294,59 +301,63 @@ function drawBlock( ctx: CanvasRenderingContext2D, e: Enemy, cameraX: number ) {
 	const bob = Math.sin( e.animFrame * 0.4 ) * 2;
 	ctx.fillStyle = '#1e1e1e';
 	ctx.beginPath();
-	ctx.roundRect( x + 2, y + bob, e.w - 4, e.h - 2, 5 );
+	ctx.roundRect( hx + 2, hy + bob, e.w - 4, e.h - 2, 5 );
 	ctx.fill();
 	ctx.fillStyle = '#fff';
 	ctx.beginPath();
-	ctx.arc( x + e.w / 2, y + e.h / 2 + bob, 8, 0, Math.PI * 2 );
+	ctx.arc( hx + e.w / 2, hy + e.h / 2 + bob, 8, 0, Math.PI * 2 );
 	ctx.fill();
 	ctx.fillStyle = '#1e1e1e';
 	ctx.font = 'bold 11px monospace';
 	ctx.textAlign = 'center';
 	ctx.textBaseline = 'middle';
-	ctx.fillText( 'G', x + e.w / 2, y + e.h / 2 + bob + 1 );
+	ctx.fillText( 'G', hx + e.w / 2, hy + e.h / 2 + bob + 1 );
 	ctx.fillStyle = '#ff4444';
-	ctx.fillRect( x + 6, y + 5 + bob, 4, 3 );
-	ctx.fillRect( x + 18, y + 5 + bob, 4, 3 );
+	ctx.fillRect( hx + 6, hy + 5 + bob, 4, 3 );
+	ctx.fillRect( hx + 18, hy + 5 + bob, 4, 3 );
 }
 
 function drawMguy( ctx: CanvasRenderingContext2D, e: Enemy, cameraX: number ) {
-	const x = Math.round( e.x - cameraX );
-	const y = Math.round( e.y );
+	const hx = Math.round( e.x - cameraX );
+	const hy = Math.round( e.y );
 	const flash = e.hurtTimer > 0 && Math.floor( e.hurtTimer / 4 ) % 2 === 0;
 	if ( flash ) return;
+
+	// Center sprite over hitbox, bottom-aligned
+	const dx = hx + ( e.w - MGUY_SPRITE_W ) / 2;
+	const dy = hy + e.h - MGUY_SPRITE_H;
 
 	const { img, ready } = sprites.mguy;
 	const frame = e.animFrame % 4;
 
 	ctx.save();
 	if ( e.vx < 0 ) {
-		ctx.translate( x + e.w / 2, 0 );
+		ctx.translate( dx + MGUY_SPRITE_W / 2, 0 );
 		ctx.scale( -1, 1 );
-		ctx.translate( -( x + e.w / 2 ), 0 );
+		ctx.translate( -( dx + MGUY_SPRITE_W / 2 ), 0 );
 	}
 	if ( ready ) {
-		ctx.drawImage( img, frame * 32, 0, 32, 32, x, y, e.w, e.h );
+		ctx.drawImage( img, frame * 32, 0, 32, 32, dx, dy, MGUY_SPRITE_W, MGUY_SPRITE_H );
 	} else {
 		// Fallback procedural
 		const legSwing = Math.sin( e.animFrame * 0.6 ) * 3;
 		ctx.fillStyle = '#222244';
-		ctx.fillRect( x + 8, y + 26, 7, 12 + legSwing );
-		ctx.fillRect( x + 17, y + 26, 7, 12 - legSwing );
+		ctx.fillRect( hx + 8, hy + 26, 7, 12 + legSwing );
+		ctx.fillRect( hx + 17, hy + 26, 7, 12 - legSwing );
 		ctx.beginPath();
-		ctx.roundRect( x + 5, y + 14, e.w - 10, 16, 3 );
+		ctx.roundRect( hx + 5, hy + 14, e.w - 10, 16, 3 );
 		ctx.fill();
 		ctx.fillStyle = '#fff';
-		ctx.fillRect( x + 13, y + 15, 6, 10 );
+		ctx.fillRect( hx + 13, hy + 15, 6, 10 );
 		ctx.fillStyle = '#cc2222';
-		ctx.fillRect( x + 15, y + 15, 2, 9 );
+		ctx.fillRect( hx + 15, hy + 15, 2, 9 );
 		ctx.fillStyle = '#c8956c';
 		ctx.beginPath();
-		ctx.roundRect( x + 7, y + 2, 18, 16, 6 );
+		ctx.roundRect( hx + 7, hy + 2, 18, 16, 6 );
 		ctx.fill();
 		ctx.fillStyle = '#1a1a1a';
 		ctx.beginPath();
-		ctx.roundRect( x + 7, y + 2, 18, 7, [ 6, 6, 0, 0 ] );
+		ctx.roundRect( hx + 7, hy + 2, 18, 7, [ 6, 6, 0, 0 ] );
 		ctx.fill();
 	}
 	ctx.restore();
@@ -357,10 +368,10 @@ function drawMguy( ctx: CanvasRenderingContext2D, e: Enemy, cameraX: number ) {
 	ctx.textBaseline = 'middle';
 	if ( e.health > 1 ) {
 		ctx.fillStyle = '#f5a623';
-		ctx.fillText( '❤❤', x + e.w / 2, y - 6 );
+		ctx.fillText( '❤❤', hx + e.w / 2, hy - 6 );
 	} else {
 		ctx.fillStyle = '#ff4444';
-		ctx.fillText( '❤', x + e.w / 2, y - 6 );
+		ctx.fillText( '❤', hx + e.w / 2, hy - 6 );
 	}
 }
 

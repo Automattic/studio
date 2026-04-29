@@ -400,6 +400,14 @@ function NavigationContent( props: NavigationContentProps ) {
 						selectedBlueprint={ selectedBlueprint?.slug || null }
 						onBlueprintChange={ handleBlueprintChange }
 						blueprintFileError={ blueprintFileError }
+						uploadButton={
+							enableBlueprints && ! isLoadingBlueprints ? (
+								<UploadBlueprintButton
+									onFileBlueprintSelect={ handleFileBlueprintSelect }
+									onError={ setBlueprintFileError }
+								/>
+							) : undefined
+						}
 						galleryBlueprints={ galleryBlueprints ?? [] }
 						isLoadingGallery={ isLoadingGallery }
 						galleryErrorMessage={ galleryError ? __( 'Could not load blueprints.' ) : undefined }
@@ -462,14 +470,6 @@ function NavigationContent( props: NavigationContentProps ) {
 				canSubmitBlueprintDeeplink={ !! selectedBlueprint }
 				canSubmitPullRemote={ !! selectedRemoteSite }
 				canSubmitCreate={ canSubmit }
-				leftSlot={
-					location.path === '/new' && enableBlueprints && ! isLoadingBlueprints ? (
-						<UploadBlueprintButton
-							onFileBlueprintSelect={ handleFileBlueprintSelect }
-							onError={ setBlueprintFileError }
-						/>
-					) : undefined
-				}
 			/>
 		</>
 	);

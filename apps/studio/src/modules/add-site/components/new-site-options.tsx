@@ -31,6 +31,7 @@ interface NewSiteOptionsProps {
 	selectedBlueprint: string | null;
 	onBlueprintChange: ( blueprintId: string ) => void;
 	blueprintFileError?: string;
+	uploadButton?: React.ReactNode;
 	galleryBlueprints?: GalleryBlueprint[];
 	isLoadingGallery?: boolean;
 	galleryErrorMessage?: string;
@@ -242,6 +243,7 @@ export function NewSiteOptions( {
 	selectedBlueprint,
 	onBlueprintChange,
 	blueprintFileError,
+	uploadButton,
 	galleryBlueprints = [],
 	isLoadingGallery = false,
 	galleryErrorMessage,
@@ -270,6 +272,10 @@ export function NewSiteOptions( {
 			<Text className="text-center text-[15px] font-light text-frame-text-secondary block mb-6">
 				{ __( 'Start with an empty site or choose a template.' ) }
 			</Text>
+
+			{ uploadButton && (
+				<div className="w-full max-w-2xl mx-auto mb-4 flex justify-end">{ uploadButton }</div>
+			) }
 
 			{ blueprintFileError && (
 				<div className="bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200 text-sm rounded-lg px-4 py-3 mb-4">

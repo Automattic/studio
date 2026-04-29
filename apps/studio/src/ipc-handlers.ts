@@ -116,6 +116,8 @@ import {
 	saveDefaultSiteDirectory,
 } from 'src/modules/user-settings/lib/ipc-handlers';
 import { linuxFindEditorPath } from 'src/modules/user-settings/lib/linux-editor-path';
+import { linuxFindTerminalPath } from 'src/modules/user-settings/lib/linux-terminal-path';
+import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { SiteServer, stopAllServers as triggerStopAllServers } from 'src/site-server';
 import { getSiteThumbnailPath } from 'src/storage/paths';
@@ -1362,7 +1364,46 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 			env,
 		} );
 	} else if ( platform === 'linux' ) {
-		return promiseExec( `gnome-terminal --working-directory=${ targetPath }` );
+		const escapedPath = targetPath.replace( /\\/g, '\\\\' ).replace( /"/g, '\\"' );
+
+		// Warp on Linux currently opens at its configured "new session"
+		// directory regardless of how it is launched — it ignores
+		// `--working-directory`, the `path=` URL scheme query, and the
+		// spawn cwd. Tracked upstream in warpdotdev/Warp#4974 and #6357.
+		// Best effort: launch with `cwd` set so we benefit if/when upstream
+		// adds support, and so a fresh launch (no daemon yet) at least has
+		// a chance of inheriting it.
+		const launchers: Record<
+			SupportedTerminal,
+			( () => { command: string; options?: ExecOptions } ) | null
+		> = {
+			terminal: () => ( {
+				command: `gnome-terminal --working-directory="${ escapedPath }"`,
+			} ),
+			warp: () => ( { command: 'warp-terminal', options: { cwd: targetPath } } ),
+			ghostty: () => ( {
+				command: `ghostty --working-directory="${ escapedPath }"`,
+			} ),
+			iterm: null,
+		};
+
+		const order: SupportedTerminal[] = [ preferredTerminal, 'terminal' ];
+		for ( const candidate of order ) {
+			const launcher = launchers[ candidate ];
+			if ( ! launcher ) {
+				continue;
+			}
+			const binary = await linuxFindTerminalPath( candidate );
+			if ( ! binary ) {
+				continue;
+			}
+			const { command, options } = launcher();
+			return promiseExec( command, options );
+		}
+
+		// Last-resort fallback that preserves prior behavior even if no
+		// supported terminal binary is on $PATH.
+		return promiseExec( `gnome-terminal --working-directory="${ escapedPath }"` );
 	} else {
 		console.error( 'Unsupported platform:', platform );
 		return;

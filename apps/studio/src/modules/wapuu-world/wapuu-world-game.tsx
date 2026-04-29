@@ -1,3 +1,4 @@
+import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useRef } from 'react';
 import { useAppDispatch } from 'src/stores';
 import { closeWapuuWorld } from 'src/stores/ui-slice';
@@ -5,6 +6,7 @@ import { startGame, CANVAS_W, CANVAS_H } from './engine/game-loop';
 import { WIN_LINK } from './engine/renderer';
 
 export function WapuuWorldGame() {
+	const { __ } = useI18n();
 	const dispatch = useAppDispatch();
 	const canvasRef = useRef< HTMLCanvasElement >( null );
 
@@ -46,13 +48,13 @@ export function WapuuWorldGame() {
 					<span
 						style={ { color: '#fff', fontFamily: 'monospace', fontWeight: 'bold', fontSize: 14 } }
 					>
-						🐾 Wapuu World
+						🐾 { __( 'Wapuu World' ) }
 					</span>
 					<div
 						className="flex items-center gap-1"
 						style={ { color: '#cce8f4', fontFamily: 'monospace', fontSize: 11 } }
 					>
-						<span>ESC to close</span>
+						<span>{ __( 'ESC to close' ) }</span>
 						<button
 							onClick={ () => dispatch( closeWapuuWorld() ) }
 							style={ {
@@ -66,7 +68,7 @@ export function WapuuWorldGame() {
 								fontSize: 13,
 								padding: '1px 7px',
 							} }
-							aria-label="Close game"
+							aria-label={ __( 'Close game' ) }
 						>
 							✕
 						</button>
@@ -101,7 +103,7 @@ export function WapuuWorldGame() {
 						textAlign: 'center',
 					} }
 				>
-					Arrow keys / WASD to move &nbsp;·&nbsp; Up / W / Space to jump
+					{ __( 'Arrow keys / WASD to move · Up / W / Space to jump' ) }
 				</div>
 			</div>
 		</div>

@@ -269,7 +269,7 @@ export async function runTurn( options: TurnRunOptions ): Promise< TurnOutcome >
 				...logContext,
 				media_type: media.mediaType,
 				mime_type: media.mimeType,
-				bytes: media.dataBase64.length,
+				base64_chars: media.dataBase64.length,
 				caption_length: media.caption?.length ?? 0,
 			} );
 		} else if ( event.type === 'turn.completed' ) {

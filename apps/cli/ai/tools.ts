@@ -693,34 +693,46 @@ async function captureScreenshotPng(
 		await page.goto( url, { waitUntil: 'domcontentloaded', timeout: 30000 } );
 		await page.waitForLoadState( 'networkidle', { timeout: 10000 } ).catch( () => {} );
 
-		// Scroll through the page to trigger lazy-loaded images, then wait
-		// for all images to finish loading (with a timeout so we don't hang
-		// on images that never settle).
-		await page.evaluate( async () => {
+		// For full-page captures, scroll through the entire document so lazy-loaded
+		// images can begin loading. For viewport captures we keep the page where
+		// it is and only wait on images that intersect the first viewport, so
+		// above-the-fold shots stay quick on long pages.
+		await page.evaluate( async ( fullPage ) => {
 			const delay = ( ms: number ) =>
 				new Promise< void >( ( resolve ) => setTimeout( resolve, ms ) );
-			const scrollHeight = document.body.scrollHeight;
-			const viewportHeight = window.innerHeight;
-			for ( let y = 0; y < scrollHeight; y += viewportHeight ) {
-				window.scrollTo( 0, y );
-				await delay( 100 );
-			}
-			window.scrollTo( 0, 0 );
 
+			if ( fullPage ) {
+				const scrollHeight = document.body.scrollHeight;
+				const viewportHeight = window.innerHeight;
+				for ( let y = 0; y < scrollHeight; y += viewportHeight ) {
+					window.scrollTo( 0, y );
+					await delay( 100 );
+				}
+				window.scrollTo( 0, 0 );
+			}
+
+			const pendingImages = Array.from( document.images ).filter( ( img ) => {
+				if ( img.complete ) {
+					return false;
+				}
+				if ( fullPage ) {
+					return true;
+				}
+				const rect = img.getBoundingClientRect();
+				return rect.bottom > 0 && rect.top < window.innerHeight;
+			} );
 			const timeout = new Promise< void >( ( resolve ) => setTimeout( resolve, 5000 ) );
 			const allImages = Promise.all(
-				Array.from( document.images )
-					.filter( ( img ) => ! img.complete )
-					.map(
-						( img ) =>
-							new Promise< void >( ( resolve ) => {
-								img.addEventListener( 'load', () => resolve() );
-								img.addEventListener( 'error', () => resolve() );
-							} )
-					)
+				pendingImages.map(
+					( img ) =>
+						new Promise< void >( ( resolve ) => {
+							img.addEventListener( 'load', () => resolve(), { once: true } );
+							img.addEventListener( 'error', () => resolve(), { once: true } );
+						} )
+				)
 			);
 			await Promise.race( [ allImages, timeout ] );
-		} );
+		}, options.fullPage );
 
 		// Hide WordPress admin bar and scrollbars for cleaner screenshots
 		await page.addStyleTag( {

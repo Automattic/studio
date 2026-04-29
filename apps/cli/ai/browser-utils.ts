@@ -7,10 +7,14 @@
  */
 
 import { execFile } from 'child_process';
+import { randomUUID } from 'crypto';
 import { existsSync } from 'fs';
+import { mkdir, rm, writeFile } from 'fs/promises';
+import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { promisify } from 'util';
+import type { ConsoleMessage, Request, Response } from 'playwright';
 
 type Browser = Awaited< ReturnType< ( typeof import('playwright') )[ 'chromium' ][ 'launch' ] > >;
 type Page = Awaited< ReturnType< Browser[ 'newPage' ] > >;
@@ -20,6 +24,7 @@ type InstallBrowserFn = () => Promise< void >;
 
 const DEFAULT_BROWSER_ARGS = [ '--ignore-certificate-errors' ];
 const EDITOR_READY_TIMEOUT_MS = 30_000;
+const MAX_ARTIFACT_EVENTS = 200;
 
 interface EditorDocumentState {
 	url: string;
@@ -33,6 +38,286 @@ class EditorLoadFailure extends Error {
 	constructor( message: string ) {
 		super( message );
 		this.name = 'EditorLoadFailure';
+	}
+}
+
+function pushLimited< T >( items: T[], item: T ): void {
+	items.push( item );
+	if ( items.length > MAX_ARTIFACT_EVENTS ) {
+		items.shift();
+	}
+}
+
+function serializeError( error: unknown ): { name?: string; message: string; stack?: string } {
+	if ( error instanceof Error ) {
+		return {
+			name: error.name,
+			message: error.message,
+			...( error.stack ? { stack: error.stack } : {} ),
+		};
+	}
+	return { message: String( error ) };
+}
+
+export class ValidationArtifacts {
+	readonly directory: string;
+
+	private readonly startedAt = new Date().toISOString();
+	private readonly consoleMessages: unknown[] = [];
+	private readonly pageErrors: unknown[] = [];
+	private readonly requestFailures: unknown[] = [];
+	private readonly errorResponses: unknown[] = [];
+	private attachedPage: Page | null = null;
+	private tracingStarted = false;
+	private tracingStopped = false;
+	private consoleHandler?: ( message: ConsoleMessage ) => void;
+	private pageErrorHandler?: ( error: Error ) => void;
+	private requestFailedHandler?: ( request: Request ) => void;
+	private responseHandler?: ( response: Response ) => void;
+
+	private constructor( directory: string ) {
+		this.directory = directory;
+	}
+
+	static async create( input: {
+		siteUrl: string;
+		content: string;
+		source: string;
+	} ): Promise< ValidationArtifacts > {
+		const directory = path.join(
+			os.tmpdir(),
+			'studio-validate-blocks',
+			`${ Date.now() }-${ process.pid }-${ randomUUID().slice( 0, 8 ) }`
+		);
+		await mkdir( directory, { recursive: true } );
+		await writeFile( path.join( directory, 'input.html' ), input.content );
+		await writeFile(
+			path.join( directory, 'input-metadata.json' ),
+			JSON.stringify(
+				{
+					siteUrl: input.siteUrl,
+					source: input.source,
+					startedAt: new Date().toISOString(),
+					contentLength: input.content.length,
+				},
+				null,
+				2
+			)
+		);
+		return new ValidationArtifacts( directory );
+	}
+
+	async attachPage( page: Page ): Promise< void > {
+		if ( this.attachedPage === page ) {
+			return;
+		}
+		this.detachPage();
+		this.attachedPage = page;
+
+		this.consoleHandler = ( message ) => {
+			pushLimited( this.consoleMessages, {
+				type: message.type(),
+				text: message.text(),
+				location: message.location(),
+				timestamp: new Date().toISOString(),
+			} );
+		};
+		this.pageErrorHandler = ( error ) => {
+			pushLimited( this.pageErrors, {
+				...serializeError( error ),
+				timestamp: new Date().toISOString(),
+			} );
+		};
+		this.requestFailedHandler = ( request ) => {
+			pushLimited( this.requestFailures, {
+				url: request.url(),
+				method: request.method(),
+				resourceType: request.resourceType(),
+				failure: request.failure(),
+				timestamp: new Date().toISOString(),
+			} );
+		};
+		this.responseHandler = ( response ) => {
+			const status = response.status();
+			if ( status < 400 ) {
+				return;
+			}
+			pushLimited( this.errorResponses, {
+				url: response.url(),
+				status,
+				statusText: response.statusText(),
+				requestMethod: response.request().method(),
+				requestResourceType: response.request().resourceType(),
+				timestamp: new Date().toISOString(),
+			} );
+		};
+
+		page.on( 'console', this.consoleHandler );
+		page.on( 'pageerror', this.pageErrorHandler );
+		page.on( 'requestfailed', this.requestFailedHandler );
+		page.on( 'response', this.responseHandler );
+
+		try {
+			await page.context().tracing.start( {
+				screenshots: true,
+				snapshots: true,
+				sources: true,
+			} );
+			this.tracingStarted = true;
+		} catch ( error ) {
+			pushLimited( this.pageErrors, {
+				message: `Could not start Playwright tracing: ${ serializeError( error ).message }`,
+				timestamp: new Date().toISOString(),
+			} );
+		}
+	}
+
+	async discard(): Promise< void > {
+		await this.stopTracing().catch( () => {} );
+		this.detachPage();
+		await rm( this.directory, { recursive: true, force: true } );
+	}
+
+	async captureFailure(
+		page: Page | null,
+		error: unknown,
+		details: Record< string, unknown > = {}
+	): Promise< string > {
+		await mkdir( this.directory, { recursive: true } );
+
+		if ( page && ! page.isClosed() ) {
+			await this.writePageArtifacts( page );
+		}
+		await this.stopTracing( path.join( this.directory, 'trace.zip' ) ).catch(
+			async ( traceError ) => {
+				await writeFile(
+					path.join( this.directory, 'trace-error.txt' ),
+					serializeError( traceError ).message
+				).catch( () => {} );
+			}
+		);
+
+		await writeFile(
+			path.join( this.directory, 'metadata.json' ),
+			JSON.stringify(
+				{
+					startedAt: this.startedAt,
+					failedAt: new Date().toISOString(),
+					error: serializeError( error ),
+					details,
+					consoleMessages: this.consoleMessages,
+					pageErrors: this.pageErrors,
+					requestFailures: this.requestFailures,
+					errorResponses: this.errorResponses,
+				},
+				null,
+				2
+			)
+		).catch( () => {} );
+
+		this.detachPage();
+		return this.directory;
+	}
+
+	private async writePageArtifacts( page: Page ): Promise< void > {
+		await page
+			.screenshot( { path: path.join( this.directory, 'screenshot.png' ), fullPage: true } )
+			.catch( async ( error ) => {
+				await writeFile(
+					path.join( this.directory, 'screenshot-error.txt' ),
+					serializeError( error ).message
+				).catch( () => {} );
+			} );
+
+		await page
+			.content()
+			.then( ( content ) => writeFile( path.join( this.directory, 'page.html' ), content ) )
+			.catch( async ( error ) => {
+				await writeFile(
+					path.join( this.directory, 'page-html-error.txt' ),
+					serializeError( error ).message
+				).catch( () => {} );
+			} );
+
+		await page
+			.evaluate( () => {
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				const wp = ( window as any ).wp;
+				return {
+					url: window.location.href,
+					title: document.title,
+					readyState: document.readyState,
+					bodyClass: document.body?.className ?? '',
+					bodyText: document.body?.innerText?.slice( 0, 2000 ) ?? '',
+					hasWp: typeof wp !== 'undefined',
+					hasWpBlocks: !! wp?.blocks,
+					hasGetBlockTypes: typeof wp?.blocks?.getBlockTypes === 'function',
+					blockTypeCount: wp?.blocks?.getBlockTypes?.()?.length ?? 0,
+					scripts: Array.from( document.scripts ).map( ( script ) => ( {
+						src: script.src,
+						type: script.type,
+						async: script.async,
+						defer: script.defer,
+					} ) ),
+					resources: performance
+						.getEntriesByType( 'resource' )
+						.filter(
+							( entry ) =>
+								entry.name.includes( '/wp-admin/' ) ||
+								entry.name.includes( '/wp-includes/' ) ||
+								entry.name.includes( 'load-scripts.php' ) ||
+								entry.name.includes( 'load-styles.php' )
+						)
+						.map( ( entry ) => ( {
+							name: entry.name,
+							initiatorType: ( entry as PerformanceResourceTiming ).initiatorType,
+							duration: entry.duration,
+							startTime: entry.startTime,
+							transferSize: ( entry as PerformanceResourceTiming ).transferSize,
+							encodedBodySize: ( entry as PerformanceResourceTiming ).encodedBodySize,
+							decodedBodySize: ( entry as PerformanceResourceTiming ).decodedBodySize,
+						} ) ),
+				};
+			} )
+			.then( ( state ) =>
+				writeFile(
+					path.join( this.directory, 'page-state.json' ),
+					JSON.stringify( state, null, 2 )
+				)
+			)
+			.catch( async ( error ) => {
+				await writeFile(
+					path.join( this.directory, 'page-state-error.txt' ),
+					serializeError( error ).message
+				).catch( () => {} );
+			} );
+	}
+
+	private async stopTracing( tracePath?: string ): Promise< void > {
+		if ( ! this.tracingStarted || this.tracingStopped || ! this.attachedPage ) {
+			return;
+		}
+		this.tracingStopped = true;
+		await this.attachedPage.context().tracing.stop( tracePath ? { path: tracePath } : undefined );
+	}
+
+	private detachPage(): void {
+		if ( ! this.attachedPage ) {
+			return;
+		}
+		if ( this.consoleHandler ) {
+			this.attachedPage.off( 'console', this.consoleHandler );
+		}
+		if ( this.pageErrorHandler ) {
+			this.attachedPage.off( 'pageerror', this.pageErrorHandler );
+		}
+		if ( this.requestFailedHandler ) {
+			this.attachedPage.off( 'requestfailed', this.requestFailedHandler );
+		}
+		if ( this.responseHandler ) {
+			this.attachedPage.off( 'response', this.responseHandler );
+		}
+		this.attachedPage = null;
 	}
 }
 
@@ -311,8 +596,9 @@ export class EditorPage {
 	}
 
 	/** Get or create a page with the block editor loaded. */
-	async getPage(): Promise< Page > {
+	async getPage( artifacts?: ValidationArtifacts ): Promise< Page > {
 		if ( this.page && ! this.page.isClosed() ) {
+			await artifacts?.attachPage( this.page );
 			return this.page;
 		}
 
@@ -320,6 +606,7 @@ export class EditorPage {
 		const page = await browser.newPage( {
 			ignoreHTTPSErrors: true,
 		} );
+		await artifacts?.attachPage( page );
 
 		const loginUrl = `${ this.siteUrl }/studio-auto-login?redirect_to=/wp-admin/post-new.php`;
 
@@ -341,6 +628,12 @@ export class EditorPage {
 			}
 		} catch ( error ) {
 			const diag = await getPageDiagnostics( page );
+			await artifacts
+				?.captureFailure( page, error, {
+					stage: 'load-editor',
+					diagnostics: diag,
+				} )
+				.catch( () => {} );
 			await page.close();
 			throw new Error(
 				`Block editor failed to load (${ diag }): ${

@@ -1,5 +1,5 @@
 import { getHtmlBlockPolicyIssues } from 'cli/ai/block-content-policy';
-import { EditorPage } from 'cli/ai/browser-utils';
+import { EditorPage, ValidationArtifacts } from 'cli/ai/browser-utils';
 
 interface BlockValidationResult {
 	blockName: string;
@@ -44,9 +44,16 @@ export async function validateBlocks(
 	siteUrl: string
 ): Promise< ValidationReport > {
 	const editorPage = getEditorPage( siteUrl );
+	const artifacts = await ValidationArtifacts.create( {
+		siteUrl,
+		content,
+		source: 'validate_blocks',
+	} );
+	let page: Awaited< ReturnType< EditorPage[ 'getPage' ] > > | null = null;
 
 	try {
-		const page = await editorPage.getPage();
+		page = await editorPage.getPage( artifacts );
+		await artifacts.attachPage( page );
 
 		const report = await page.evaluate( ( html: string ) => {
 			/* eslint-disable @typescript-eslint/no-explicit-any */
@@ -168,8 +175,35 @@ export async function validateBlocks(
 			/* eslint-enable @typescript-eslint/no-explicit-any */
 		}, content );
 
-		return applyBlockContentPolicy( report as ValidationReport );
+		const validationReport = applyBlockContentPolicy( report as ValidationReport );
+		if ( validationReport.error ) {
+			const artifactDirectory = await artifacts.captureFailure(
+				page,
+				new Error( validationReport.error ),
+				{
+					stage: 'validate-blocks-report',
+				}
+			);
+			await editorPage.close();
+			editorPages.delete( siteUrl );
+			return {
+				...validationReport,
+				error: `${ validationReport.error }. Validation artifacts: ${ artifactDirectory }`,
+			};
+		}
+		await artifacts.discard().catch( () => {} );
+		return validationReport;
 	} catch ( error ) {
+		let artifactDirectory = artifacts.directory;
+		try {
+			artifactDirectory = await artifacts.captureFailure( page, error, {
+				stage: 'validate-blocks',
+			} );
+		} catch ( artifactError ) {
+			artifactDirectory = `${ artifactDirectory } (artifact capture failed: ${
+				artifactError instanceof Error ? artifactError.message : String( artifactError )
+			})`;
+		}
 		// If navigation or evaluation failed, discard the cached page so the
 		// next call gets a fresh one.
 		await editorPage.close();
@@ -182,7 +216,7 @@ export async function validateBlocks(
 			results: [],
 			error: `Block validation error: ${
 				error instanceof Error ? error.message : String( error )
-			}`,
+			}. Validation artifacts: ${ artifactDirectory }`,
 		};
 	}
 }

@@ -20,7 +20,8 @@ const CANVAS_H = 384;
 const PLAYER_START_X = TILE_SIZE;
 const PLAYER_START_Y = TILE_SIZE * 9;
 const TIME_LIMIT = 90; // seconds
-const TIME_BONUS_PER_SECOND = 10;
+const TIME_BONUS_PER_SECOND = 20;
+const LIVES_BONUS = 500;
 const AUTO_START_DELAY = 5 * 60; // frames at 60fps
 
 type GameStatus = 'start' | 'playing' | 'dead' | 'win';
@@ -273,7 +274,7 @@ function update( state: GameState, keys: Set< string > ) {
 	// Flag
 	if ( state.flag && rectsOverlap( player, state.flag ) ) {
 		state.status = 'win';
-		state.score += 500 + state.timeLeft * TIME_BONUS_PER_SECOND;
+		state.score += 500 + state.timeLeft * TIME_BONUS_PER_SECOND + player.lives * LIVES_BONUS;
 		playSound( 'win' );
 		void window.ipcApi.saveWapuuScore( state.score );
 	}

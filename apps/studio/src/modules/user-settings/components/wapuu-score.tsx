@@ -7,7 +7,7 @@ import ProgressBar from 'src/components/progress-bar';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import wapuuIdleUrl from 'src/modules/wapuu-world/assets/wapuu-player-idle-sprite.png';
 
-const MAX_SCORE = 3200;
+const MAX_SCORE = 5600;
 const WAPUU_STUDIO_URL = 'https://wapuu.studio';
 
 export function WapuuScore() {

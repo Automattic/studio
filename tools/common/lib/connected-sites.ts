@@ -6,6 +6,7 @@ import {
 	saveSharedConfig,
 	unlockSharedConfig,
 } from './shared-config';
+import type { SharedConfig } from './shared-config';
 
 /**
  * Stamp a SyncSite onto a local site entry. Ensures `localSiteId` is
@@ -20,28 +21,98 @@ function normalizeStoredSite( site: SyncSite, localSiteId: string ): SyncSite {
 	};
 }
 
-async function updateConnectionsForUser(
-	userId: number,
-	updater: ( current: SyncSite[] ) => SyncSite[]
-): Promise< SyncSite[] > {
-	try {
-		await lockSharedConfig();
-		const config = await readSharedConfig();
-		const byUser = { ...( config.connectedWpcomSites ?? {} ) };
-		const current = byUser[ String( userId ) ] ?? [];
-		const next = updater( current );
-		if ( next.length === 0 ) {
-			delete byUser[ String( userId ) ];
-		} else {
-			byUser[ String( userId ) ] = next;
+async function getCurrentUserKey(): Promise< string | null > {
+	const userId = await getCurrentUserId();
+	return userId ? String( userId ) : null;
+}
+
+function getConnectionsForUser(
+	config: Pick< SharedConfig, 'connectedWpcomSites' > | null,
+	userKey: string
+): SyncSite[] {
+	return config?.connectedWpcomSites?.[ userKey ] ?? [];
+}
+
+function getMutableConnectionsForUser( config: SharedConfig, userKey: string ): SyncSite[] {
+	config.connectedWpcomSites ??= {};
+	config.connectedWpcomSites[ userKey ] ??= [];
+	return config.connectedWpcomSites[ userKey ];
+}
+
+function pruneEmptyConnectionsForUser( config: SharedConfig, userKey: string ): void {
+	if ( ! config.connectedWpcomSites ) {
+		return;
+	}
+
+	if ( config.connectedWpcomSites[ userKey ]?.length === 0 ) {
+		delete config.connectedWpcomSites[ userKey ];
+	}
+
+	if ( Object.keys( config.connectedWpcomSites ).length === 0 ) {
+		delete config.connectedWpcomSites;
+	}
+}
+
+function upsertConnection( connections: SyncSite[], localSiteId: string, site: SyncSite ): void {
+	const incoming = normalizeStoredSite(
+		{ ...site, syncSupport: 'already-connected' },
+		localSiteId
+	);
+	const existing = connections.find(
+		( connection ) => connection.id === incoming.id && connection.localSiteId === localSiteId
+	);
+
+	if ( existing ) {
+		Object.assign( existing, incoming );
+		return;
+	}
+
+	connections.push( incoming );
+}
+
+function removeConnection(
+	connections: SyncSite[],
+	localSiteId: string,
+	remoteSiteId: number
+): void {
+	for ( let index = connections.length - 1; index >= 0; index-- ) {
+		const connection = connections[ index ];
+		if ( connection.id === remoteSiteId && connection.localSiteId === localSiteId ) {
+			connections.splice( index, 1 );
 		}
-		await saveSharedConfig( {
-			...config,
-			connectedWpcomSites: Object.keys( byUser ).length > 0 ? byUser : undefined,
-		} );
-		return next;
-	} finally {
-		await unlockSharedConfig();
+	}
+}
+
+function applyConnectionUpdates(
+	connections: SyncSite[],
+	localSiteId: string,
+	updates: SyncSite[]
+): void {
+	for ( const existing of connections ) {
+		if ( existing.localSiteId !== localSiteId ) {
+			continue;
+		}
+
+		const update = updates.find( ( candidate ) => candidate.id === existing.id );
+		if ( update ) {
+			Object.assign( existing, normalizeStoredSite( { ...existing, ...update }, localSiteId ) );
+		}
+	}
+}
+
+function stampConnectionSynced(
+	connections: SyncSite[],
+	localSiteId: string,
+	remoteSiteId: number,
+	direction: 'push' | 'pull',
+	timestamp: string
+): void {
+	const field = direction === 'push' ? 'lastPushTimestamp' : 'lastPullTimestamp';
+
+	for ( const connection of connections ) {
+		if ( connection.id === remoteSiteId && connection.localSiteId === localSiteId ) {
+			connection[ field ] = timestamp;
+		}
 	}
 }
 
@@ -53,26 +124,26 @@ async function updateConnectionsForUser(
 export async function getConnectedWpcomSitesForLocalSite(
 	localSiteId: string
 ): Promise< SyncSite[] > {
-	const userId = await getCurrentUserId();
-	if ( ! userId ) {
+	const userKey = await getCurrentUserKey();
+	if ( ! userKey ) {
 		return [];
 	}
 	const config = await readSharedConfig().catch( () => null );
-	const all = config?.connectedWpcomSites?.[ String( userId ) ] ?? [];
-	return all.filter( ( site ) => site.localSiteId === localSiteId );
+	return getConnectionsForUser( config, userKey ).filter(
+		( site ) => site.localSiteId === localSiteId
+	);
 }
 
 /**
- * Returns every connection stored for the current user, across all local
- * sites. Preserves the order entries appear in shared.json.
+ * Returns every connection stored for the current user, across all local sites.
  */
 export async function getAllConnectedWpcomSitesForCurrentUser(): Promise< SyncSite[] > {
-	const userId = await getCurrentUserId();
-	if ( ! userId ) {
+	const userKey = await getCurrentUserKey();
+	if ( ! userKey ) {
 		return [];
 	}
 	const config = await readSharedConfig().catch( () => null );
-	return config?.connectedWpcomSites?.[ String( userId ) ] ?? [];
+	return getConnectionsForUser( config, userKey );
 }
 
 /**
@@ -84,25 +155,21 @@ export async function addConnectedWpcomSite(
 	localSiteId: string,
 	site: SyncSite
 ): Promise< SyncSite[] > {
-	const userId = await getCurrentUserId();
-	if ( ! userId ) {
+	const userKey = await getCurrentUserKey();
+	if ( ! userKey ) {
 		return [];
 	}
-	return updateConnectionsForUser( userId, ( current ) => {
-		const normalized = normalizeStoredSite(
-			{ ...site, syncSupport: 'already-connected' },
-			localSiteId
-		);
-		const existingIndex = current.findIndex(
-			( c ) => c.id === normalized.id && c.localSiteId === localSiteId
-		);
-		if ( existingIndex === -1 ) {
-			return [ ...current, normalized ];
-		}
-		const merged = [ ...current ];
-		merged[ existingIndex ] = { ...current[ existingIndex ], ...normalized };
-		return merged;
-	} );
+
+	try {
+		await lockSharedConfig();
+		const config = await readSharedConfig();
+		const connections = getMutableConnectionsForUser( config, userKey );
+		upsertConnection( connections, localSiteId, site );
+		await saveSharedConfig( config );
+		return connections;
+	} finally {
+		await unlockSharedConfig();
+	}
 }
 
 /**
@@ -113,13 +180,22 @@ export async function removeConnectedWpcomSite(
 	localSiteId: string,
 	remoteSiteId: number
 ): Promise< SyncSite[] > {
-	const userId = await getCurrentUserId();
-	if ( ! userId ) {
+	const userKey = await getCurrentUserKey();
+	if ( ! userKey ) {
 		return [];
 	}
-	return updateConnectionsForUser( userId, ( current ) =>
-		current.filter( ( c ) => ! ( c.id === remoteSiteId && c.localSiteId === localSiteId ) )
-	);
+
+	try {
+		await lockSharedConfig();
+		const config = await readSharedConfig();
+		const connections = getConnectionsForUser( config, userKey );
+		removeConnection( connections, localSiteId, remoteSiteId );
+		pruneEmptyConnectionsForUser( config, userKey );
+		await saveSharedConfig( config );
+		return connections;
+	} finally {
+		await unlockSharedConfig();
+	}
 }
 
 /**
@@ -131,20 +207,21 @@ export async function updateConnectedWpcomSites(
 	localSiteId: string,
 	updates: SyncSite[]
 ): Promise< SyncSite[] > {
-	const userId = await getCurrentUserId();
-	if ( ! userId ) {
+	const userKey = await getCurrentUserKey();
+	if ( ! userKey ) {
 		return [];
 	}
-	return updateConnectionsForUser( userId, ( current ) => {
-		const next = [ ...current ];
-		for ( const update of updates ) {
-			const idx = next.findIndex( ( c ) => c.id === update.id && c.localSiteId === localSiteId );
-			if ( idx !== -1 ) {
-				next[ idx ] = normalizeStoredSite( { ...next[ idx ], ...update }, localSiteId );
-			}
-		}
-		return next;
-	} );
+
+	try {
+		await lockSharedConfig();
+		const config = await readSharedConfig();
+		const connections = getConnectionsForUser( config, userKey );
+		applyConnectionUpdates( connections, localSiteId, updates );
+		await saveSharedConfig( config );
+		return connections;
+	} finally {
+		await unlockSharedConfig();
+	}
 }
 
 /**
@@ -157,19 +234,22 @@ export async function markConnectedWpcomSiteSynced(
 	remoteSiteId: number,
 	direction: 'push' | 'pull'
 ): Promise< void > {
-	const userId = await getCurrentUserId();
-	if ( ! userId ) {
+	const userKey = await getCurrentUserKey();
+	if ( ! userKey ) {
 		return;
 	}
 	const timestamp = new Date().toISOString();
-	await updateConnectionsForUser( userId, ( current ) =>
-		current.map( ( c ) => {
-			if ( c.id !== remoteSiteId || c.localSiteId !== localSiteId ) {
-				return c;
-			}
-			return direction === 'push'
-				? { ...c, lastPushTimestamp: timestamp }
-				: { ...c, lastPullTimestamp: timestamp };
-		} )
-	);
+
+	try {
+		await lockSharedConfig();
+		const config = await readSharedConfig();
+		const connections = getConnectionsForUser( config, userKey );
+		if ( connections.length === 0 ) {
+			return;
+		}
+		stampConnectionSynced( connections, localSiteId, remoteSiteId, direction, timestamp );
+		await saveSharedConfig( config );
+	} finally {
+		await unlockSharedConfig();
+	}
 }

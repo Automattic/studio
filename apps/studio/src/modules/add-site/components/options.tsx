@@ -182,7 +182,7 @@ export default function AddSiteOptions( {
 				{ __( 'Start fresh or bring an existing site into your Studio.' ) }
 			</Text>
 
-			<div className="flex gap-3 w-full max-w-[540px]">
+			<div className="flex gap-5 w-full max-w-[760px]">
 				<OptionCard
 					illustration={ <BuildNewSiteIllustration /> }
 					title={ __( 'Build a new site' ) }
@@ -201,11 +201,9 @@ export default function AddSiteOptions( {
 					onClick={ () => onOptionSelect( 'connect' ) }
 					disabled={ isOffline }
 				/>
-			</div>
-
-			<div className="w-full max-w-[540px] mt-3">
 				<ImportDropZone onValidated={ handleValidatedBackup } />
 			</div>
+
 		</VStack>
 	);
 }

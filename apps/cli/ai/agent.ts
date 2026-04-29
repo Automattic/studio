@@ -7,6 +7,7 @@ import {
 	type Query,
 } from '@anthropic-ai/claude-agent-sdk';
 import { AI_MODELS, DEFAULT_MODEL, type AiModelId } from '@studio/common/ai/models';
+import { buildDlaCanUseTool } from 'cli/ai/dla-permissions';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { createRemoteSiteTools, createStudioTools } from 'cli/ai/tools';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
@@ -180,6 +181,13 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 		  }
 		: undefined;
 
+	// Scope per-tool permissions for DLA's MCP tools. Without this callback,
+	// `permissionMode: 'auto'` would auto-approve write-to-disk and remote-
+	// write tools alongside genuinely read-only ones. We only register the
+	// callback when DLA is available — non-DLA sessions keep the SDK's
+	// default classifier path untouched.
+	const canUseTool = dlaAvailable ? buildDlaCanUseTool( { onAskUser } ) : undefined;
+
 	return query( {
 		prompt,
 		options: {
@@ -194,6 +202,7 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 			cwd: STUDIO_SITES_ROOT,
 			tools: { type: 'preset', preset: 'claude_code' },
 			permissionMode: 'auto',
+			...( canUseTool && { canUseTool } ),
 			...( askUserQuestionHook && {
 				hooks: {
 					PreToolUse: [ { matcher: 'AskUserQuestion', hooks: [ askUserQuestionHook ] } ],

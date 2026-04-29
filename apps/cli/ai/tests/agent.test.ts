@@ -182,5 +182,28 @@ describe( 'AI agent startup', () => {
 			};
 			expect( dla.env.STUDIO_WPCOM_TOKEN ).toBe( '' );
 		} );
+
+		it( 'registers a canUseTool callback when DLA is available', () => {
+			existsSyncSpy.mockReturnValue( true );
+
+			startAiAgent( { prompt: 'Migrate a site' } );
+
+			const callArgs = vi.mocked( query ).mock.calls[ 0 ][ 0 ];
+			expect( callArgs.options?.canUseTool ).toBeTypeOf( 'function' );
+		} );
+
+		it( 'does not register a canUseTool callback when DLA is missing', () => {
+			existsSyncSpy.mockImplementation( ( p: fs.PathLike ) => {
+				if ( typeof p === 'string' && p === DLA_PATH ) {
+					return false;
+				}
+				return true;
+			} );
+
+			startAiAgent( { prompt: 'Migrate a site' } );
+
+			const callArgs = vi.mocked( query ).mock.calls[ 0 ][ 0 ];
+			expect( callArgs.options?.canUseTool ).toBeUndefined();
+		} );
 	} );
 } );

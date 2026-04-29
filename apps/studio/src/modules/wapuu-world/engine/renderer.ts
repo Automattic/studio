@@ -470,6 +470,8 @@ export function renderGame(
 	const cameraX = Math.floor( state.cameraX );
 
 	waterTick++;
+	WIN_LINK.y = -1;
+	WIN_LINK.h = 0;
 	ctx.clearRect( 0, 0, w, h );
 	drawBackground( ctx, cameraX, w, h );
 	drawTiles( ctx, cameraX, w, h );
@@ -525,7 +527,7 @@ export function renderDeathScreen( ctx: CanvasRenderingContext2D, w: number, h: 
 	ctx.fillText( 'Press Enter or Space to retry', w / 2, h / 2 + 16 );
 }
 
-export const WIN_LINK = { url: 'https://wapuu.studio', y: 0, h: 20 };
+export const WIN_LINK = { url: 'https://wapuu.studio', y: -1, h: 0 };
 
 export function renderWinScreen(
 	ctx: CanvasRenderingContext2D,

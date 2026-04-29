@@ -1,3 +1,4 @@
+import { spawnSync } from 'child_process';
 import { randomUUID } from 'crypto';
 import { tmpdir } from 'os';
 import path from 'path';
@@ -84,6 +85,22 @@ export class E2ESession {
 			console.log( 'Process exit timeout' );
 		} finally {
 			this.stopCapturingMainProcessLogs();
+			this.killOrphanedSessionProcesses();
+		}
+	}
+
+	// Native PHP sites spawn `php -S` subprocesses. When the daemon (or its children) is SIGKILL'd
+	// during shutdown, those PHP processes get reparented to init and keep running, holding file
+	// handles in the session temp dir open and blocking the worker teardown. Force-kill anything
+	// still referencing this session's path.
+	private killOrphanedSessionProcesses(): void {
+		if ( process.platform === 'win32' ) {
+			return; // pkill not available; rely on Windows job-object behavior elsewhere.
+		}
+		try {
+			spawnSync( 'pkill', [ '-9', '-f', this.sessionPath ], { stdio: 'ignore' } );
+		} catch {
+			// Best effort — failure to clean up shouldn't block the test run.
 		}
 	}
 

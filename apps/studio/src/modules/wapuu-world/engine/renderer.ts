@@ -1,6 +1,7 @@
 import bgFarUrl from 'src/modules/wapuu-world/assets/wapuu-bg-far.png';
 import bgNearUrl from 'src/modules/wapuu-world/assets/wapuu-bg-near.png';
 import flagSpriteUrl from 'src/modules/wapuu-world/assets/wapuu-flag-sprite.png';
+import waveSpriteUrl from 'src/modules/wapuu-world/assets/wapuu-wave-sprite.png';
 import gutenbergSpriteUrl from 'src/modules/wapuu-world/assets/wapuu-gutenberg-sprite.png';
 import mguySpriteUrl from 'src/modules/wapuu-world/assets/wapuu-mguy-sprite.png';
 import wapuuPlayerIdleSpriteUrl from 'src/modules/wapuu-world/assets/wapuu-player-idle-sprite.png';
@@ -25,6 +26,7 @@ const sprites = {
 	bgFar: loadImage( bgFarUrl ),
 	bgNear: loadImage( bgNearUrl ),
 	flag: loadImage( flagSpriteUrl ),
+	wave: loadImage( waveSpriteUrl ),
 	gutenberg: loadImage( gutenbergSpriteUrl ),
 	mguy: loadImage( mguySpriteUrl ),
 	wapuu: loadImage( wapuuPlayerSpriteUrl ),
@@ -129,14 +131,15 @@ function drawBackground( ctx: CanvasRenderingContext2D, cameraX: number, w: numb
 let waterTick = 0;
 
 function drawWater( ctx: CanvasRenderingContext2D, cameraX: number, _w: number, h: number ) {
-	const pitRow = LEVEL_MAP.length - 1; // bottom row
+	const pitRow = LEVEL_MAP.length - 1;
 	const tileY = pitRow * TILE_SIZE;
 	const waterDepth = h - tileY;
-	const waterOffset = Math.floor( waterDepth / 3 ); // lower surface by 1/3
+	const waterOffset = Math.floor( waterDepth / 3 );
 	const surfaceY = tileY + waterOffset;
+	const frame = Math.floor( waterTick / 20 ) % 2;
+	const { img: waveImg, ready: waveReady } = sprites.wave;
 
 	for ( let col = 0; col < LEVEL_MAP[ 0 ].length; col++ ) {
-		// A pit column has no solid tile in the bottom row
 		if ( LEVEL_MAP[ pitRow ][ col ] !== 0 ) continue;
 
 		const tx = col * TILE_SIZE - cameraX;
@@ -145,12 +148,14 @@ function drawWater( ctx: CanvasRenderingContext2D, cameraX: number, _w: number, 
 		ctx.fillStyle = 'rgba(30, 100, 220, 0.75)';
 		ctx.fillRect( tx, surfaceY + 6, TILE_SIZE, h - surfaceY - 6 );
 
-		// Animated surface wave
-		ctx.fillStyle = 'rgba(100, 180, 255, 0.9)';
-		ctx.beginPath();
-		const waveY = surfaceY + 2 + Math.sin( waterTick * 0.05 + col * 0.8 ) * 3;
-		ctx.rect( tx, waveY, TILE_SIZE, 4 );
-		ctx.fill();
+		// Surface wave
+		if ( waveReady ) {
+			ctx.drawImage( waveImg, frame * 32, 0, 32, 32, tx, surfaceY - 8, TILE_SIZE, 32 );
+		} else {
+			ctx.fillStyle = 'rgba(100, 180, 255, 0.9)';
+			const waveY = surfaceY + 2 + Math.sin( waterTick * 0.05 + col * 0.8 ) * 3;
+			ctx.fillRect( tx, waveY, TILE_SIZE, 4 );
+		}
 	}
 }
 
@@ -407,6 +412,21 @@ function drawFlag( ctx: CanvasRenderingContext2D, flag: Flag, cameraX: number ) 
 	ctx.fill();
 }
 
+function strokeText(
+	ctx: CanvasRenderingContext2D,
+	text: string,
+	x: number,
+	y: number,
+	fillColor: string
+) {
+	ctx.strokeStyle = '#000';
+	ctx.lineWidth = 3;
+	ctx.lineJoin = 'round';
+	ctx.strokeText( text, x, y );
+	ctx.fillStyle = fillColor;
+	ctx.fillText( text, x, y );
+}
+
 function drawHud(
 	ctx: CanvasRenderingContext2D,
 	score: number,
@@ -414,20 +434,22 @@ function drawHud(
 	timeLeft: number,
 	w: number
 ) {
-	ctx.fillStyle = COLORS.hud;
-	ctx.fillRect( 0, 0, w, 28 );
-
-	ctx.fillStyle = COLORS.hudText;
-	ctx.font = 'bold 14px monospace';
-	ctx.textAlign = 'left';
+	ctx.font = 'bold 16px monospace';
 	ctx.textBaseline = 'middle';
-	ctx.fillText( `♥ ${ lives }`, 10, 14 );
+
+	// Hearts
+	ctx.textAlign = 'left';
+	const hearts = Array.from( { length: Math.max( 0, lives ) }, () => '♥' ).join( ' ' );
+	strokeText( ctx, hearts, 10, 14, '#ff4444' );
+
+	// Timer
 	ctx.textAlign = 'center';
-	ctx.fillStyle = timeLeft <= 10 ? '#ff4444' : timeLeft <= 30 ? '#f5a623' : COLORS.hudText;
-	ctx.fillText( `⏱ ${ timeLeft }s`, w / 2, 14 );
-	ctx.fillStyle = COLORS.hudText;
+	const timerColor = timeLeft <= 10 ? '#ff4444' : timeLeft <= 30 ? '#f5a623' : COLORS.hudText;
+	strokeText( ctx, `⏱ ${ timeLeft }s`, w / 2, 14, timerColor );
+
+	// Score
 	ctx.textAlign = 'right';
-	ctx.fillText( `${ score } pts`, w - 10, 14 );
+	strokeText( ctx, `${ score } pts`, w - 10, 14, COLORS.hudText );
 }
 
 export function renderGame(

@@ -1,0 +1,18 @@
+studio code
+
+Agent d’IA pour la création de sites WordPress
+
+Commandes :
+  studio code [message]     Agent d’IA pour la création de sites WordPress
+                                                                        [défaut]
+  studio code sessions      Gérer les sessions de code
+
+Arguments positionnels :
+  message  Initial message to send to the AI agent        [chaîne de caractères]
+
+Options :
+  --help                 Affiche l'aide                                [booléen]
+  --json                 Output events as NDJSON to stdout (headless mode)
+                                                      [booléen] [défaut : false]
+  --session-persistence  Enregistrer cette session de code sur le disque
+                                                       [booléen] [défaut : true]

@@ -1,0 +1,80 @@
+
+> cli:build:prod
+> npm -w wp-studio run build:prod
+
+
+> wp-studio@1.8.0 build:prod
+> vite build --config ./vite.config.prod.ts
+
+vite v7.3.1 building client environment for production...
+transforming...
+✓ 1081 modules transformed.
+rendering chunks...
+[plugin vite:reporter] 
+(!) /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-1639-dla-integration/apps/cli/commands/preview/create.ts is dynamically imported by /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-1639-dla-integration/apps/cli/index.ts but also statically imported by /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-1639-dla-integration/apps/cli/ai/slash-commands.ts, /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-1639-dla-integration/apps/cli/ai/tools.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-1639-dla-integration/apps/cli/commands/preview/delete.ts is dynamically imported by /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-1639-dla-integration/apps/cli/index.ts but also statically imported by /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-1639-dla-integration/apps/cli/ai/tools.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-1639-dla-integration/apps/cli/commands/preview/list.ts is dynamically imported by /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-1639-dla-integration/apps/cli/index.ts but also statically imported by /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-1639-dla-integration/apps/cli/ai/tools.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-1639-dla-integration/apps/cli/commands/preview/update.ts is dynamically imported by /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-1639-dla-integration/apps/cli/index.ts but also statically imported by /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-1639-dla-integration/apps/cli/ai/slash-commands.ts, /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-1639-dla-integration/apps/cli/ai/tools.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-1639-dla-integration/apps/cli/commands/site/create.ts is dynamically imported by /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-1639-dla-integration/apps/cli/index.ts but also statically imported by /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-1639-dla-integration/apps/cli/ai/tools.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-1639-dla-integration/apps/cli/commands/site/delete.ts is dynamically imported by /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-1639-dla-integration/apps/cli/index.ts but also statically imported by /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-1639-dla-integration/apps/cli/ai/tools.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-1639-dla-integration/apps/cli/commands/site/list.ts is dynamically imported by /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-1639-dla-integration/apps/cli/index.ts but also statically imported by /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-1639-dla-integration/apps/cli/ai/tools.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-1639-dla-integration/apps/cli/commands/site/start.ts is dynamically imported by /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-1639-dla-integration/apps/cli/index.ts but also statically imported by /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-1639-dla-integration/apps/cli/ai/tools.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-1639-dla-integration/apps/cli/commands/site/status.ts is dynamically imported by /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-1639-dla-integration/apps/cli/index.ts but also statically imported by /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-1639-dla-integration/apps/cli/ai/tools.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-1639-dla-integration/apps/cli/commands/site/stop.ts is dynamically imported by /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-1639-dla-integration/apps/cli/index.ts but also statically imported by /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-1639-dla-integration/apps/cli/ai/tools.ts, dynamic import will not move module into another chunk.
+
+computing gzip size...
+[vite-plugin-static-copy] Copied 1 items.
+dist/cli/main.mjs                                      0.16 kB │ gzip:     0.13 kB
+dist/cli/migration-B2m6ZEJz.mjs                        0.19 kB │ gzip:     0.13 kB
+dist/cli/php-versions-C4NIFv0m.mjs                     0.48 kB │ gzip:     0.21 kB
+dist/cli/is-errno-exception-t38xF2pB.mjs               0.52 kB │ gzip:     0.20 kB
+dist/cli/appdata-OE-g5s6z.mjs                          0.67 kB │ gzip:     0.35 kB
+dist/cli/prune-pm-logs-DHiFyLAM.mjs                    1.08 kB │ gzip:     0.55 kB
+dist/cli/sequential-BQFuixXz.mjs                       1.30 kB │ gzip:     0.54 kB
+dist/cli/list-BLtVi8by.mjs                             1.36 kB │ gzip:     0.62 kB
+dist/cli/logout-CniFWMCq.mjs                           1.39 kB │ gzip:     0.65 kB
+dist/cli/set-DUGTDJGF.mjs                              1.93 kB │ gzip:     0.82 kB
+dist/cli/delete-CgYKNohr.mjs                           1.94 kB │ gzip:     0.78 kB
+dist/cli/status-DpR78TjF.mjs                           2.01 kB │ gzip:     0.84 kB
+dist/cli/resume-DQJUkgWl.mjs                           3.38 kB │ gzip:     1.24 kB
+dist/cli/login-kc4_CmII.mjs                            3.38 kB │ gzip:     1.35 kB
+dist/cli/well-known-paths-kP8oHPED.mjs                 3.62 kB │ gzip:     1.10 kB
+dist/cli/passwords-7piHLagW.mjs                        4.06 kB │ gzip:     1.46 kB
+dist/cli/wordpress-server-ipc-LCHRL4uO.mjs             4.28 kB │ gzip:     1.01 kB
+dist/cli/php-binary-metadata-B51UcEYo.mjs              4.46 kB │ gzip:     2.18 kB
+dist/cli/reprint-child.mjs                             4.56 kB │ gzip:     1.63 kB
+dist/cli/index-ByBqmQbP.mjs                            5.05 kB │ gzip:     1.74 kB
+dist/cli/_events-DrKk_lxK.mjs                          5.62 kB │ gzip:     1.71 kB
+dist/cli/wp-CgJQs7J9.mjs                               5.82 kB │ gzip:     1.97 kB
+dist/cli/proxy-daemon.mjs                              5.96 kB │ gzip:     1.77 kB
+dist/cli/helpers-CiYUslVm.mjs                          6.47 kB │ gzip:     2.14 kB
+dist/cli/paths-D1XNnSYT.mjs                            7.09 kB │ gzip:     2.15 kB
+dist/cli/process-manager-daemon.mjs                   11.27 kB │ gzip:     3.07 kB
+dist/cli/php-server-child.mjs                         11.96 kB │ gzip:     3.61 kB
+dist/cli/process-manager-ipc-CBIoRMQx.mjs             13.84 kB │ gzip:     3.10 kB
+dist/cli/set-mbXY9zMn.mjs                             14.38 kB │ gzip:     4.00 kB
+dist/cli/playground-server-child.mjs                  18.80 kB │ gzip:     5.45 kB
+dist/cli/rewrite-wp-cli-post-content-CYMtdA7i.mjs     28.76 kB │ gzip:     8.60 kB
+dist/cli/certificate-manager-e5cllQLG.mjs             35.96 kB │ gzip:     8.84 kB
+dist/cli/index-B-Tyq2Yv.mjs                          188.97 kB │ gzip:    47.82 kB
+dist/cli/index-CsUr_VjJ.mjs                        4,990.92 kB │ gzip: 1,107.21 kB
+[vite-plugin-static-copy] Copied 1 items.
+✓ built in 3.48s

@@ -1,0 +1,8 @@
+Multiple projects found, consider using a single `tsconfig` with `references` to speed up, or use `noWarnOnMultipleProjects` to suppress this warning
+
+/Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-1639-dla-integration/vitest.config.ts
+  0:0  error  Parsing error: /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-1639-dla-integration/vitest.config.ts was not found by the project service. Consider either including it in the tsconfig.json or including it in allowDefaultProject.
+allowDefaultProject is set to ["apps/studio/tailwind.config.js"], which does not match 'vitest.config.ts'
+
+✖ 1 problem (1 error, 0 warnings)
+

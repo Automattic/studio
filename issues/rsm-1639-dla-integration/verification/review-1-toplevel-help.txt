@@ -1,0 +1,18 @@
+WordPress Studio CLI
+
+Commands:
+  studio auth                  Manage authentication
+  studio code                  AI agent for building WordPress sites
+  studio export [export-file]  Export site to a backup file
+  studio import <import-file>  Import a backup file to site
+  studio mcp                   MCP server for AI agents
+  studio preview               Manage preview sites
+  studio pull                  Pull a WordPress.com site to your local site
+  studio push                  Push your local site to a WordPress.com site
+  studio site                  Manage sites
+  studio wp                    WP-CLI
+
+Options:
+  --help     Show help                                                 [boolean]
+  --version  Show version number                                       [boolean]
+  --path     Path to the WordPress files   [string] [default: Current directory]

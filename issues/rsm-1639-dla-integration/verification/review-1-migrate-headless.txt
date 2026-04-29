@@ -1,0 +1,19 @@
+studio code
+
+AI agent for building WordPress sites
+
+Commands:
+  studio code [message]     AI agent for building WordPress            [default]
+  studio code sessions      Manage code sessions
+
+Positionals:
+  message  Initial message to send to the AI agent                      [string]
+
+Options:
+  --help                 Show help                                     [boolean]
+  --json                 Output events as NDJSON to stdout (headless mode)
+                                                      [boolean] [default: false]
+  --session-persistence  Record this code session to disk
+                                                       [boolean] [default: true]
+
+Unknown argument: print

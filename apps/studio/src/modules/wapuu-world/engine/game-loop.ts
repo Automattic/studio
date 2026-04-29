@@ -127,6 +127,7 @@ export function startGame( canvas: HTMLCanvasElement ): () => void {
 		cancelAnimationFrame( rafId );
 		window.removeEventListener( 'keydown', onKeyDown, { capture: true } );
 		window.removeEventListener( 'keyup', onKeyUp );
+		keys.clear();
 	};
 }
 

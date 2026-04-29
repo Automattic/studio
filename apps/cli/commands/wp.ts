@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { writeStudioMuPluginsForNativePhpRuntime } from '@studio/common/lib/mu-plugins';
 import { validateNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
 import { __ } from '@wordpress/i18n';
 import { ArgumentsCamelCase } from 'yargs';
@@ -43,6 +44,7 @@ enum Mode {
 
 async function runNativePhpWpCliCommand( site: SiteData, args: string[] ): Promise< void > {
 	const phpVersion = validateNativePhpVersion( site.phpVersion );
+	await writeStudioMuPluginsForNativePhpRuntime( site.path, site.isWpAutoUpdating );
 	const child = spawn(
 		getPhpBinaryPath( phpVersion ),
 		[ getWpCliPharPath(), `--path=${ site.path }`, ...args ],

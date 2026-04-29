@@ -27,6 +27,7 @@ The Studio CLI lets you:
 - [Quick start](#quick-start)
 - [Usage](#usage)
 - [Studio Code](#studio-code)
+- [Migrate from a closed platform](#migrate-from-a-closed-platform)
 - [Import and export](#import-and-export)
 - [Sync with WordPress.com and Pressable](#sync-with-wordpresscom-and-pressable)
 - [Preview sites](#preview-sites)
@@ -97,6 +98,23 @@ studio code sessions delete
 studio code sessions list
 studio code sessions resume
 ```
+
+## Migrate from a closed platform
+
+Studio Code can move an existing site off a closed hosting platform and into a fresh local Studio site. Supported platforms are GoDaddy Websites & Marketing, Hostinger, HubSpot, Shopify, Squarespace, Webflow, Weebly, and Wix. Run the `/migrate` slash command from inside `studio code`, optionally with the source URL inline:
+
+```text
+/migrate
+/migrate https://my-site.example/
+```
+
+The agent walks you through the migration interactively: it inspects the URL to detect the platform, extracts content into a WordPress-compatible export (WXR plus media), runs a quality check, then creates a brand-new Studio site and imports everything. Nothing is uploaded anywhere — the migrated site lands as a fresh Studio site under `~/Studio/`.
+
+Two platforms need an API token before extraction can run. Set `LIBERATION_TOKEN` in your environment for Webflow, and `SHOPIFY_ADMIN_TOKEN` for Shopify. The agent will prompt you with the exact shell command if it detects a missing token.
+
+> **Note:** `/migrate` requires the [Data Liberation Agent](https://github.com/Automattic/data-liberation-agent) to be vendored at install time. While DLA is still a private repository, you must set a `GH_PAT` environment variable with read access to it before running `npm install`; otherwise the postinstall step skips the download and `/migrate` is unavailable. See [`docs/design-docs/cli.md`](../../docs/design-docs/cli.md) for details.
+
+Powered by the [Data Liberation Agent](https://github.com/Automattic/data-liberation-agent).
 
 ## Import and export
 

@@ -17,7 +17,7 @@ const cliPackagedPath = path.join( binPath, 'studio-cli.sh' );
 
 // Production install path for the Studio DEB package. Used in development mode to detect
 // whether a production CLI is already installed alongside the running dev build.
-const PROD_CLI_PACKAGED_PATH = '/opt/Studio/resources/bin/studio-cli.sh';
+const PROD_CLI_PACKAGED_PATH = '/usr/lib/studio/resources/bin/studio-cli.sh';
 
 const SUPPORTED_SHELLS = [ 'bash', 'zsh' ] as const;
 const SHELL_PROFILE_MAP: Record< ( typeof SUPPORTED_SHELLS )[ number ], string > = {

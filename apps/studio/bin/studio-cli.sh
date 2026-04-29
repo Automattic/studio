@@ -3,7 +3,7 @@
 # In production, this script lives alongside `node` and the `cli/` directory under the Electron
 # app's resources directory:
 #   macOS: /Applications/Studio.app/Contents/Resources/bin/studio-cli.sh
-#   Linux: /opt/Studio/resources/bin/studio-cli.sh
+#   Linux: /usr/lib/studio/resources/bin/studio-cli.sh
 BIN_DIR=$(dirname "$(realpath "$0")")
 BUNDLED_NODE_EXECUTABLE="$BIN_DIR/node"
 CLI_SCRIPT="$(dirname "$BIN_DIR")/cli/main.mjs"

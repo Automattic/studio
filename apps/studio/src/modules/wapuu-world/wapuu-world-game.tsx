@@ -2,6 +2,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useRef } from 'react';
 import { useAppDispatch } from 'src/stores';
 import { closeWapuuWorld } from 'src/stores/ui-slice';
+import wapuuIdleUrl from './assets/wapuu-player-idle-sprite.png';
 import { startGame, CANVAS_W, CANVAS_H } from './engine/game-loop';
 import { WIN_LINK } from './engine/renderer';
 
@@ -49,9 +50,16 @@ export function WapuuWorldGame() {
 					style={ { background: '#21759b', borderRadius: '4px 4px 0 0', minWidth: CANVAS_W } }
 				>
 					<span
-						style={ { color: '#fff', fontFamily: 'monospace', fontWeight: 'bold', fontSize: 14 } }
+						style={ { color: '#fff', fontFamily: 'monospace', fontWeight: 'bold', fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 } }
 					>
-						🐾 { __( 'Wapuu World' ) }
+						<img
+							src={ wapuuIdleUrl }
+							alt=""
+							width={ 16 }
+							height={ 16 }
+							style={ { imageRendering: 'pixelated' } }
+						/>
+						{ __( 'Wapuu World' ) }
 					</span>
 					<div
 						className="flex items-center gap-1"

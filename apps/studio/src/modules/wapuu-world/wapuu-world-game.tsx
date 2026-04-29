@@ -32,6 +32,9 @@ export function WapuuWorldGame() {
 			style={ { background: 'rgba(0,0,0,0.75)' } }
 		>
 			<div
+				role="dialog"
+				aria-modal="true"
+				aria-label={ __( 'Wapuu World' ) }
 				className="relative flex flex-col"
 				style={ {
 					border: '4px solid #21759b',

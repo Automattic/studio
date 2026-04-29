@@ -8,8 +8,8 @@
 
 import { ChildProcess, spawn } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
+import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
 import { writeMuPluginsForNativePhp } from '@studio/common/lib/mu-plugins';
 import { decodePassword } from '@studio/common/lib/passwords';
@@ -45,6 +45,7 @@ const DEFAULT_WP_CONFIG_CONSTANTS = { DB_NAME: 'wordpress' } as const;
 let phpProcess: ChildProcess | null = null;
 let startupAbortController: AbortController | null = null;
 let startingPromise: Promise< void > | null = null;
+let blueprintQueue: Promise< unknown > = Promise.resolve();
 
 function logToConsole( ...args: Parameters< typeof console.log > ) {
 	console.log( `[PHP Server]`, ...args );
@@ -98,16 +99,19 @@ async function runPhpCommand(
 		} );
 
 		let stdout = '';
-		if ( mode === 'capture-stdout' ) {
-			phpScriptProcess.stdout?.on( 'data', ( chunk ) => {
+		const reportActivity = () => process.send?.( { topic: 'activity' } );
+		phpScriptProcess.stdout?.on( 'data', ( chunk ) => {
+			reportActivity();
+			if ( mode === 'capture-stdout' ) {
 				stdout += chunk.toString();
-			} );
-		}
+			}
+		} );
+		phpScriptProcess.stderr?.on( 'data', reportActivity );
 
 		phpScriptProcess.once( 'error', ( error: Error ) => {
 			reject( error );
 		} );
-		phpScriptProcess.once( 'exit', ( code ) => {
+		phpScriptProcess.once( 'close', ( code ) => {
 			if ( code === 0 ) {
 				resolve( { stdout } );
 				return;
@@ -251,8 +255,7 @@ async function installWordPress(
 	const locale =
 		config.siteLanguage && config.siteLanguage !== DEFAULT_LOCALE ? config.siteLanguage : undefined;
 
-	await runProcessToCompletion(
-		getPhpBinaryPath( phpVersion ),
+	await runPhpCommand(
 		[
 			getWpCliPharPath(),
 			'core',
@@ -266,12 +269,11 @@ async function installWordPress(
 			...( locale ? [ `--locale=${ locale }` ] : [] ),
 			'--skip-email',
 		],
-		{ signal }
+		{ phpVersion, signal }
 	);
 
 	// Store the admin username in WP options so the auto-login MU plugin can find it.
-	await runProcessToCompletion(
-		getPhpBinaryPath( phpVersion ),
+	await runPhpCommand(
 		[
 			getWpCliPharPath(),
 			'option',
@@ -280,7 +282,7 @@ async function installWordPress(
 			username,
 			`--path=${ config.sitePath }`,
 		],
-		{ signal }
+		{ phpVersion, signal }
 	);
 
 	try {
@@ -321,7 +323,7 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		stopSignal.throwIfAborted();
 
 		if ( config.blueprint ) {
-			await runBlueprint( config, phpVersion, stopSignal );
+			await runBlueprint( config, config.blueprint, phpVersion, stopSignal );
 			stopSignal.throwIfAborted();
 		}
 
@@ -437,43 +439,49 @@ function sendErrorMessage( messageId: string, error: unknown ): Promise< void > 
 	} );
 }
 
-function runProcessToCompletion(
-	command: string,
-	args: string[],
-	options: { signal?: AbortSignal } = {}
-): Promise< void > {
-	return new Promise( ( resolve, reject ) => {
-		const child = spawn( command, args, {
-			stdio: [ 'ignore', 'pipe', 'pipe' ],
-			signal: options.signal,
-		} );
-
-		const onChunk = () => process.send?.( { topic: 'activity' } );
-		child.stdout?.on( 'data', ( chunk: Buffer ) => {
-			process.stdout.write( chunk );
-			onChunk();
-		} );
-		child.stderr?.on( 'data', ( chunk: Buffer ) => {
-			process.stderr.write( chunk );
-			onChunk();
-		} );
-
-		child.on( 'error', reject );
-		child.on( 'close', ( code ) => {
-			if ( code === 0 ) resolve();
-			else reject( new Error( `Process exited with code ${ code }` ) );
-		} );
-	} );
-}
-
 async function runBlueprint(
 	config: ServerConfig,
+	blueprint: NonNullable< ServerConfig[ 'blueprint' ] >,
 	phpVersion: NativePhpSupportedVersion,
 	signal: AbortSignal
 ): Promise< void > {
-	const blueprintJson = JSON.stringify( config.blueprint!.contents );
-	const tmpPath = path.join( os.tmpdir(), `studio-blueprint-${ config.siteId }.json` );
-	await fs.promises.writeFile( tmpPath, blueprintJson );
+	// blueprints.phar's CLI accepts only local paths. Remote URIs are supported by
+	// the Playground runtime (via FetchFilesystem) but not here.
+	if ( blueprint.uri.startsWith( 'http://' ) || blueprint.uri.startsWith( 'https://' ) ) {
+		throw new Error(
+			`Remote blueprint URIs are not supported by the native PHP runtime: ${ blueprint.uri }`
+		);
+	}
+
+	// Mirror the Playground runtime: merge Studio's defaults into blueprint.contents
+	// with the same precedence so both runtimes apply blueprints consistently.
+	const enableDebugLog = config.enableDebugLog ?? false;
+	const enableDebugDisplay = config.enableDebugDisplay ?? false;
+	const defaultConstants: Record< string, boolean | string > = {
+		// Fallback for sites where DB_NAME was stripped from wp-config.php — the SQLite
+		// driver (v3+) requires a non-empty DB_NAME at runtime.
+		DB_NAME: 'wordpress',
+		WP_DEBUG: enableDebugLog || enableDebugDisplay,
+		WP_DEBUG_LOG: enableDebugLog,
+		WP_DEBUG_DISPLAY: enableDebugDisplay,
+	};
+
+	const preferredVersions = {
+		php: config.phpVersion || blueprint.contents?.preferredVersions?.php || DEFAULT_PHP_VERSION,
+		wp: config.wpVersion || blueprint.contents?.preferredVersions?.wp || 'latest',
+	};
+	blueprint.contents.constants = {
+		...blueprint.contents.constants,
+		...defaultConstants,
+	};
+	blueprint.contents.preferredVersions = preferredVersions;
+
+	// Write the merged blueprint next to the original so blueprints.phar resolves any
+	// relative file references against the original blueprint's directory — its runner
+	// uses dirname(blueprintPath) as the execution context.
+	const blueprintDir = path.dirname( blueprint.uri );
+	const tmpPath = path.join( blueprintDir, `studio-blueprint-${ config.siteId }.json` );
+	await fs.promises.writeFile( tmpPath, JSON.stringify( blueprint.contents ) );
 
 	// blueprints.phar checks wp-content/plugins/sqlite-database-integration/load.php to detect
 	// SQLite, but Studio puts it in mu-plugins. Create a temporary symlink so the PHAR can find it.
@@ -492,13 +500,17 @@ async function runBlueprint(
 	// Use 'junction' type so this works on Windows without elevated permissions.
 	// On macOS/Linux the type argument is ignored for directories.
 	const needsSymlink = fs.existsSync( muPluginsSqlite ) && ! fs.existsSync( pluginsSqlite );
+	let symlinkIno: number | undefined;
 	if ( needsSymlink ) {
 		fs.symlinkSync( muPluginsSqlite, pluginsSqlite, 'junction' );
+		// Record the inode so cleanup only removes the entry we created. statSync follows
+		// the link, so the inode resolves to the mu-plugins target and changes if the
+		// entry has been replaced with unrelated content.
+		symlinkIno = fs.statSync( pluginsSqlite ).ino;
 	}
 
 	try {
-		await runProcessToCompletion(
-			getPhpBinaryPath( phpVersion ),
+		await runPhpCommand(
 			[
 				getBlueprintsPharPath(),
 				'exec',
@@ -508,12 +520,21 @@ async function runBlueprint(
 				`--site-url=${ config.absoluteUrl ?? `http://localhost:${ config.port }` }`,
 				'--db-engine=sqlite',
 			],
-			{ signal }
+			{ phpVersion, signal }
 		);
 	} finally {
 		await fs.promises.unlink( tmpPath ).catch( () => {} );
 		if ( needsSymlink ) {
-			await fs.promises.unlink( pluginsSqlite ).catch( () => {} );
+			try {
+				if ( fs.statSync( pluginsSqlite ).ino === symlinkIno ) {
+					// Use rm with recursive to handle Windows junctions, which fs.unlink
+					// rejects with EPERM. The inode check above guards against accidentally
+					// recursing into an unrelated directory.
+					await fs.promises.rm( pluginsSqlite, { recursive: true, force: true } );
+				}
+			} catch {
+				// Best effort — leaving the symlink behind is non-fatal.
+			}
 		}
 	}
 }
@@ -550,7 +571,7 @@ async function ipcMessageHandler( packet: unknown ) {
 				abortController?.abort();
 				return;
 			case 'start-server':
-				// Share an in-flight startup so concurrent start messages cannot spawn two PHP servers.
+				// Track in-flight startup operations so concurrent messages cannot spawn two PHP servers.
 				if ( ! startingPromise ) {
 					startingPromise = startServer( validMessage.data.config, abortController.signal ).finally(
 						() => {
@@ -576,7 +597,19 @@ async function ipcMessageHandler( packet: unknown ) {
 					isWpAutoUpdating: blueprintConfig.isWpAutoUpdating,
 				} );
 				await installWordPress( blueprintConfig, blueprintPhpVersion, abortController.signal );
-				await runBlueprint( blueprintConfig, blueprintPhpVersion, abortController.signal );
+				if ( ! blueprintConfig.blueprint ) {
+					throw new Error( 'Blueprint is required' );
+				}
+				const blueprint = blueprintConfig.blueprint;
+				// Sequential queue: each message waits for the previous to settle before
+				// running its own blueprint. Distinct configs are not coalesced.
+				const next = blueprintQueue
+					.catch( () => {} )
+					.then( () =>
+						runBlueprint( blueprintConfig, blueprint, blueprintPhpVersion, abortController.signal )
+					);
+				blueprintQueue = next;
+				result = await next;
 				break;
 			}
 			case 'wp-cli-command':

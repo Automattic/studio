@@ -1,5 +1,7 @@
 import { TILE_SIZE, getTile, isSolid, LEVEL_MAP } from './level';
 
+export const INITIAL_LIVES = 3;
+
 export interface Rect {
 	x: number;
 	y: number;
@@ -72,7 +74,7 @@ export function createPlayer( x: number, y: number ): Player {
 		animFrame: 0,
 		animTimer: 0,
 		state: 'idle',
-		lives: 3,
+		lives: INITIAL_LIVES,
 		invincibleTimer: 0,
 		idleTimer: 0,
 	};

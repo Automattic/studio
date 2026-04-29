@@ -6,8 +6,7 @@ import { useEffect, useState } from 'react';
 import ProgressBar from 'src/components/progress-bar';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import wapuuIdleUrl from 'src/modules/wapuu-world/assets/wapuu-player-idle-sprite.png';
-
-const MAX_SCORE = 5600;
+import { MAX_SCORE } from 'src/modules/wapuu-world/engine/game-loop';
 const WAPUU_STUDIO_URL = 'https://wapuu.studio';
 
 export function WapuuScore() {
@@ -45,7 +44,7 @@ export function WapuuScore() {
 							</span>
 						</div>
 					</div>
-					<ProgressBar value={ score } maxValue={ MAX_SCORE } />
+					<ProgressBar value={ Math.min( score, MAX_SCORE ) } maxValue={ MAX_SCORE } />
 				</div>
 				<DropdownMenu
 					className="ml-auto flex items-center [&_button:first-child]:p-0 [&_button:first-child]:min-w-6 [&_button:first-child]:h-6"

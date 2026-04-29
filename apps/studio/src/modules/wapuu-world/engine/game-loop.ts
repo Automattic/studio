@@ -7,8 +7,9 @@ import {
 	spawnEntities,
 	moveEntity,
 	rectsOverlap,
+	INITIAL_LIVES,
 } from './entities';
-import { TILE_SIZE, LEVEL_WIDTH, getTile, isSolid } from './level';
+import { TILE_SIZE, LEVEL_WIDTH, LEVEL_MAP, getTile, isSolid } from './level';
 import { renderGame, renderDeathScreen, renderWinScreen, renderStartScreen } from './renderer';
 import { playSound } from './sounds';
 
@@ -23,6 +24,26 @@ const TIME_LIMIT = 90; // seconds
 const TIME_BONUS_PER_SECOND = 20;
 const LIVES_BONUS = 500;
 const AUTO_START_DELAY = 5 * 60; // frames at 60fps
+
+const SCORE_FLAG = 500;
+const SCORE_COLLECTIBLE = 50;
+const SCORE_ENEMY = 100;
+const SCORE_MGUY = 500;
+
+export const MAX_SCORE = ( () => {
+	const flat = LEVEL_MAP.flat();
+	const coins = flat.filter( ( t ) => t === 3 ).length;
+	const enemies = flat.filter( ( t ) => t === 5 ).length;
+	const mguys = flat.filter( ( t ) => t === 7 ).length;
+	return (
+		SCORE_FLAG +
+		TIME_LIMIT * TIME_BONUS_PER_SECOND +
+		INITIAL_LIVES * LIVES_BONUS +
+		coins * SCORE_COLLECTIBLE +
+		enemies * SCORE_ENEMY +
+		mguys * SCORE_MGUY
+	);
+} )();
 
 type GameStatus = 'start' | 'playing' | 'dead' | 'win';
 
@@ -243,7 +264,7 @@ function update( state: GameState, keys: Set< string > ) {
 				playSound( 'stomp' );
 				if ( e.health <= 0 ) {
 					e.alive = false;
-					state.score += e.type === 'mguy' ? 500 : 100;
+					state.score += e.type === 'mguy' ? SCORE_MGUY : SCORE_ENEMY;
 				} else {
 					// First stomp on mguy — stun briefly and flash
 					e.hurtTimer = 60;
@@ -270,7 +291,7 @@ function update( state: GameState, keys: Set< string > ) {
 		if ( c.animTimer % 4 === 0 ) c.animFrame++;
 		if ( rectsOverlap( player, c ) ) {
 			c.collected = true;
-			state.score += 50;
+			state.score += SCORE_COLLECTIBLE;
 			playSound( 'collect' );
 		}
 	}
@@ -278,7 +299,7 @@ function update( state: GameState, keys: Set< string > ) {
 	// Flag
 	if ( state.flag && rectsOverlap( player, state.flag ) ) {
 		state.status = 'win';
-		state.score += 500 + state.timeLeft * TIME_BONUS_PER_SECOND + player.lives * LIVES_BONUS;
+		state.score += SCORE_FLAG + state.timeLeft * TIME_BONUS_PER_SECOND + player.lives * LIVES_BONUS;
 		playSound( 'win' );
 		void window.ipcApi.saveWapuuScore( state.score );
 	}

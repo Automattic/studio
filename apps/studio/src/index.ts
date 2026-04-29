@@ -8,6 +8,8 @@ import {
 	Menu,
 	dialog,
 	MessageBoxSyncOptions,
+	shell,
+	type Event as ElectronEvent,
 } from 'electron';
 import path from 'path';
 import { pathToFileURL } from 'url';
@@ -46,9 +48,15 @@ import {
 	stopCliEventsSubscriber,
 } from 'src/modules/cli/lib/cli-events-subscriber';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
+import { autoInstallLinuxCliIfNeeded } from 'src/modules/cli/lib/linux-installation-manager';
 import { autoInstallMacOSCliIfNeeded } from 'src/modules/cli/lib/macos-installation-manager';
 import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
 import { stopAllProcesses as stopAllStudioCodeProcesses } from 'src/modules/studio-code';
+import {
+	isPreviewNavigationAllowed,
+	isPreviewWebContents,
+	loadPreviewWebContentsURL,
+} from 'src/preview-view';
 import { getRunningSiteCount, SiteServer, stopAllServers } from 'src/site-server';
 import {
 	loadUserData,
@@ -68,6 +76,18 @@ function getRendererUrl(): string {
 	} else {
 		// For production file paths, convert to file:// URL
 		return pathToFileURL( path.join( __dirname, '../renderer/index.html' ) ).href;
+	}
+}
+
+function openExternalWebUrl( url: string ): void {
+	try {
+		const parsedUrl = new URL( url );
+		if ( ! [ 'http:', 'https:' ].includes( parsedUrl.protocol ) ) {
+			return;
+		}
+		void shell.openExternal( parsedUrl.toString() ).catch( () => undefined );
+	} catch {
+		// Ignore malformed URLs from untrusted pages.
 	}
 }
 
@@ -158,16 +178,49 @@ async function appBoot() {
 	// be able to perform privileged operations.
 	app.enableSandbox();
 
-	// Prevent navigation to anywhere other than known locations
+	// Prevent navigation to anywhere other than known locations.
+	// The site preview's `WebContentsView` has its own site-scoped policy,
+	// since it intentionally loads local WordPress pages outside the renderer
+	// origin.
 	app.on( 'web-contents-created', ( _event, contents ) => {
+		const blockExternalPreviewNavigation = (
+			event: ElectronEvent,
+			navigationUrl: string
+		): boolean => {
+			if ( isPreviewWebContents( contents.id ) ) {
+				if ( ! isPreviewNavigationAllowed( contents.id, navigationUrl ) ) {
+					event.preventDefault();
+					openExternalWebUrl( navigationUrl );
+				}
+				return true;
+			}
+			return false;
+		};
+
 		contents.on( 'will-navigate', ( event, navigationUrl ) => {
+			if ( blockExternalPreviewNavigation( event, navigationUrl ) ) {
+				return;
+			}
 			const { origin } = new URL( navigationUrl );
 			const allowedOrigins = [ new URL( getRendererUrl() ).origin ];
 			if ( ! allowedOrigins.includes( origin ) ) {
 				event.preventDefault();
 			}
 		} );
-		contents.setWindowOpenHandler( () => {
+		contents.on( 'will-redirect', ( event, navigationUrl ) => {
+			blockExternalPreviewNavigation( event, navigationUrl );
+		} );
+		contents.setWindowOpenHandler( ( details ) => {
+			if ( isPreviewWebContents( contents.id ) ) {
+				// Site-preview popups (target="_blank", admin-bar links, …)
+				// load inside the preview only when they stay on the same site.
+				// External URLs leave the preview bridge and open in the browser.
+				void loadPreviewWebContentsURL( contents.id, details.url ).then( ( loaded ) => {
+					if ( ! loaded ) {
+						openExternalWebUrl( details.url );
+					}
+				} );
+			}
 			return { action: 'deny' };
 		} );
 	} );
@@ -343,6 +396,7 @@ async function appBoot() {
 
 		await autoInstallWindowsCliIfNeeded();
 		await autoInstallMacOSCliIfNeeded();
+		await autoInstallLinuxCliIfNeeded();
 
 		finishedInitialization = true;
 	} );

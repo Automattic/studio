@@ -19,6 +19,24 @@ export async function isCATrustedOnLinux( caPath: string ): Promise< boolean > {
 	}
 }
 
+// Returns true only when every expected NSS DB contains the Studio CA. Used by
+// isRootCATrusted() so the **Trust Certificate** button reappears if a
+// Chromium-family browser (notably Snap-Chromium) is installed *after* the
+// initial system-bundle trust — that browser's sandboxed NSS DB starts empty
+// and only this check surfaces the gap.
+export async function isCAImportedInUserNssDbsLinux(
+	homeDir: string = os.homedir()
+): Promise< boolean > {
+	for ( const db of getLinuxNssDbCandidates( homeDir ) ) {
+		try {
+			await execFilePromise( 'certutil', [ '-d', `sql:${ db }`, '-L', '-n', LINUX_NSS_NICKNAME ] );
+		} catch {
+			return false;
+		}
+	}
+	return true;
+}
+
 export function buildLinuxTrustInstallCommand( caPath: string ): string {
 	return `install -m 0644 "${ caPath }" "${ LINUX_TRUST_STORE_PATH }" && update-ca-certificates`;
 }

@@ -8,6 +8,7 @@ import { CERT_UNTRUSTED_ROOT, SERVER_AUTH_OID } from '@studio/common/constants';
 import {
 	buildLinuxTrustInstallCommand,
 	importCAIntoUserNssDbsLinux,
+	isCAImportedInUserNssDbsLinux,
 	isCATrustedOnLinux,
 } from '@studio/common/lib/linux-trust-store';
 import { getCertificatesPath } from '@studio/common/lib/well-known-paths';
@@ -51,7 +52,12 @@ export async function isRootCATrusted(): Promise< boolean > {
 			return false;
 		}
 	} else if ( process.platform === 'linux' ) {
-		return isCATrustedOnLinux( CA_CERT_PATH );
+		// The CA is fully trusted on Linux only when it lives in both the system
+		// bundle (covers curl/openssl/Node) AND every NSS DB candidate (covers
+		// Chromium-family browsers, including Snap-Chromium's sandboxed DB).
+		return (
+			( await isCATrustedOnLinux( CA_CERT_PATH ) ) && ( await isCAImportedInUserNssDbsLinux() )
+		);
 	}
 
 	return false;
@@ -88,22 +94,29 @@ export async function trustRootCA(): Promise< void > {
 				);
 			} );
 		} else if ( platform === 'linux' ) {
-			await new Promise< void >( ( resolve, reject ) => {
-				sudo.exec(
-					buildLinuxTrustInstallCommand( CA_CERT_PATH ),
-					{ name: 'WordPress Studio' },
-					( error ) => {
-						if ( error ) {
-							console.error( 'Error adding certificate to system trust store:', error );
-							reject( error );
-						} else {
-							console.log( 'Root CA trusted in Linux system trust store' );
-							resolve();
+			// Skip the sudo install when the system bundle is already trusted —
+			// otherwise we'd reprompt for the polkit password just to re-sync NSS
+			// (the common case when a Chromium-family browser is installed after
+			// the initial trust flow).
+			if ( ! ( await isCATrustedOnLinux( CA_CERT_PATH ) ) ) {
+				await new Promise< void >( ( resolve, reject ) => {
+					sudo.exec(
+						buildLinuxTrustInstallCommand( CA_CERT_PATH ),
+						{ name: 'WordPress Studio' },
+						( error ) => {
+							if ( error ) {
+								console.error( 'Error adding certificate to system trust store:', error );
+								reject( error );
+							} else {
+								console.log( 'Root CA trusted in Linux system trust store' );
+								resolve();
+							}
 						}
-					}
-				);
-			} );
-			// Chromium-family browsers don't consult the system bundle on Linux.
+					);
+				} );
+			}
+			// Always run NSS imports — they're idempotent (-D before -A) and don't
+			// need sudo, so re-running covers the install-browser-after-trust case.
 			await importCAIntoUserNssDbsLinux( CA_CERT_PATH );
 		} else {
 			console.error( 'Unsupported platform for automatic certificate trust:', platform );

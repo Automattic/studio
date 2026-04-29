@@ -1,10 +1,13 @@
-import { StreamedPHPResponse } from '@php-wasm/universal';
+import { spawn } from 'node:child_process';
+import { validateNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
 import { __ } from '@wordpress/i18n';
 import { ArgumentsCamelCase } from 'yargs';
 import yargsParser from 'yargs-parser';
+import { SiteData } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
-import { runWpCliCommand, runGlobalWpCliCommand } from 'cli/lib/run-wp-cli-command';
+import { getPhpBinaryPath, getWpCliPharPath } from 'cli/lib/dependency-management/paths';
+import { runWpCliCommand, runGlobalWpCliCommand, WpCliResponse } from 'cli/lib/run-wp-cli-command';
 import { validatePhpVersion } from 'cli/lib/utils';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
@@ -12,32 +15,59 @@ import { GlobalOptions } from 'cli/types';
 
 const logger = new Logger< '' >();
 
-async function pipePHPResponse( response: StreamedPHPResponse ) {
+async function pipePHPResponse( response: WpCliResponse ) {
 	const decoder = new TextDecoder();
 
-	await response.stderr.pipeTo(
-		new WritableStream( {
-			write( chunk ) {
-				process.stderr.write( chunk );
-			},
-		} )
-	);
+	const stderrPipe = async () => {
+		for await ( const chunk of response.stderr ) {
+			process.stderr.write( chunk );
+		}
+	};
 
-	await response.stdout.pipeTo(
-		new WritableStream( {
-			write( chunk ) {
-				const text = decoder.decode( chunk, { stream: true } );
-				if ( ! text.startsWith( '#!/usr/bin/env' ) ) {
-					process.stdout.write( chunk );
-				}
-			},
-		} )
-	);
+	const stdoutPipe = async () => {
+		for await ( const chunk of response.stdout ) {
+			const text = decoder.decode( chunk, { stream: true } );
+			if ( ! text.startsWith( '#!/usr/bin/env' ) ) {
+				process.stdout.write( chunk );
+			}
+		}
+	};
+
+	await Promise.all( [ stderrPipe(), stdoutPipe() ] );
 }
 
 enum Mode {
 	GLOBAL = 'global',
 	SITE = 'site',
+}
+
+async function runNativePhpWpCliCommand( site: SiteData, args: string[] ): Promise< void > {
+	const phpVersion = validateNativePhpVersion( site.phpVersion );
+	const child = spawn(
+		getPhpBinaryPath( phpVersion ),
+		[ getWpCliPharPath(), `--path=${ site.path }`, ...args ],
+		{
+			cwd: site.path,
+			stdio: 'inherit',
+		}
+	);
+
+	const { code, signal } = await new Promise< {
+		code: number | null;
+		signal: NodeJS.Signals | null;
+	} >( ( resolve, reject ) => {
+		child.once( 'error', reject );
+		child.once( 'exit', ( exitCode, exitSignal ) =>
+			resolve( { code: exitCode, signal: exitSignal } )
+		);
+	} );
+
+	if ( signal ) {
+		process.kill( process.pid, signal );
+		return;
+	}
+
+	process.exit( code ?? 1 );
 }
 
 export async function runCommand(
@@ -57,13 +87,19 @@ export async function runCommand(
 	}
 
 	const site = await getSiteByFolder( siteFolder );
+
+	if ( site.runtime === 'native-php' ) {
+		await runNativePhpWpCliCommand( site, args );
+		return;
+	}
+
 	const phpVersion = validatePhpVersion( options.phpVersion ?? site.phpVersion );
 
 	// If there's already a running Playground instance for this site AND we're not requesting
 	// a different PHP version, pass the command to it…
 	const useCustomPhpVersion = options.phpVersion && options.phpVersion !== site.phpVersion;
 
-	if ( ! useCustomPhpVersion && site.runtime !== 'native-php' ) {
+	if ( ! useCustomPhpVersion ) {
 		process.on( 'SIGINT', disconnectFromDaemon );
 		process.on( 'SIGTERM', disconnectFromDaemon );
 
@@ -84,8 +120,8 @@ export async function runCommand(
 	process.on( 'SIGINT', () => process.exit( 1 ) );
 	process.on( 'SIGTERM', () => process.exit( 1 ) );
 
-	// …If not, run the command in a new PHP-WASM instance
-	await using command = await runWpCliCommand( siteFolder, phpVersion, args );
+	// …If not, run the command in a new runtime instance (PHP-WASM or native PHP)
+	await using command = await runWpCliCommand( site, args, { phpVersion } );
 
 	await pipePHPResponse( command.response );
 	process.exitCode = await command.response.exitCode;

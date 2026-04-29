@@ -24,6 +24,7 @@ import {
 	StudioJson,
 	StudioJsonPluginOrTheme,
 } from '../types';
+import type { SiteData } from 'cli/lib/cli-config/core';
 
 export class DefaultExporter extends ImportExportEventEmitter implements Exporter {
 	private archiveBuilder!: archiver.Archiver;
@@ -259,7 +260,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		const tmpFolder = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_export' ) );
 
 		if ( this.options.splitDatabaseDumpByTable ) {
-			const sqlFiles = await exportDatabaseToMultipleFiles( this.options.site.path, tmpFolder );
+			const sqlFiles = await exportDatabaseToMultipleFiles( this.options.site, tmpFolder );
 			sqlFiles.forEach( ( file ) =>
 				this.archiveBuilder.file( file, { name: `sql/${ path.basename( file ) }` } )
 			);
@@ -267,7 +268,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		} else {
 			const fileName = `${ generateBackupFilename( 'db-export' ) }.sql`;
 			const sqlDumpPath = path.join( tmpFolder, fileName );
-			await exportDatabaseToFile( this.options.site.path, sqlDumpPath );
+			await exportDatabaseToFile( this.options.site, sqlDumpPath );
 			this.archiveBuilder.file( sqlDumpPath, { name: `sql/${ fileName }` } );
 			this.backup.sqlFiles.push( sqlDumpPath );
 		}
@@ -294,8 +295,8 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		};
 
 		const [ plugins, themes ] = await Promise.all( [
-			this.getSitePlugins( this.options.site.path ),
-			this.getSiteThemes( this.options.site.path ),
+			this.getSitePlugins( this.options.site ),
+			this.getSiteThemes( this.options.site ),
 		] );
 
 		studioJson.plugins = this.options.ignoreFilter
@@ -317,16 +318,20 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		return studioJsonPath;
 	}
 
-	private async getSitePlugins( siteFolder: string ) {
-		await using command = await runWpCliCommand( siteFolder, DEFAULT_PHP_VERSION, [
-			'plugin',
-			'list',
-			'--status=active,inactive',
-			'--fields=name,status,version',
-			'--format=json',
-			'--skip-plugins',
-			'--skip-themes',
-		] );
+	private async getSitePlugins( site: SiteData ) {
+		await using command = await runWpCliCommand(
+			site,
+			[
+				'plugin',
+				'list',
+				'--status=active,inactive',
+				'--fields=name,status,version',
+				'--format=json',
+				'--skip-plugins',
+				'--skip-themes',
+			],
+			{ phpVersion: DEFAULT_PHP_VERSION }
+		);
 
 		const exitCode = await command.response.exitCode;
 		const stderr = await command.response.stderrText;
@@ -353,15 +358,19 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		}
 	}
 
-	private async getSiteThemes( siteFolder: string ) {
-		await using command = await runWpCliCommand( siteFolder, DEFAULT_PHP_VERSION, [
-			'theme',
-			'list',
-			'--fields=name,status,version',
-			'--format=json',
-			'--skip-plugins',
-			'--skip-themes',
-		] );
+	private async getSiteThemes( site: SiteData ) {
+		await using command = await runWpCliCommand(
+			site,
+			[
+				'theme',
+				'list',
+				'--fields=name,status,version',
+				'--format=json',
+				'--skip-plugins',
+				'--skip-themes',
+			],
+			{ phpVersion: DEFAULT_PHP_VERSION }
+		);
 
 		const exitCode = await command.response.exitCode;
 		const stderr = await command.response.stderrText;

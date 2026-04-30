@@ -172,11 +172,13 @@ export {
 	getUserEditor,
 	getUserLocale,
 	getUserTerminal,
+	getWapuuScore,
 	previewColorScheme,
 	saveColorScheme,
 	saveUserEditor,
 	saveUserLocale,
 	saveUserTerminal,
+	saveWapuuScore,
 	showUserSettings,
 } from 'src/modules/user-settings/lib/ipc-handlers';
 export { getDefaultSiteDirectory, saveDefaultSiteDirectory };
@@ -1603,7 +1605,7 @@ export async function isCATrusted(): Promise< boolean > {
 
 export async function trustCertificate( event: IpcMainInvokeEvent ): Promise< void > {
 	const platform = process.platform;
-	if ( platform === 'win32' ) {
+	if ( platform === 'win32' || platform === 'linux' ) {
 		try {
 			await trustRootCA();
 		} catch ( error ) {

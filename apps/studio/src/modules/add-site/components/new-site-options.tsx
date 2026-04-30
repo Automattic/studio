@@ -11,7 +11,6 @@ import StudioButton from 'src/components/button';
 import { EMPTY_SITE_PLAYGROUND_URL } from 'src/constants';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import type { AddSiteFlowType } from './options';
 
 interface Blueprint {
 	slug: string;
@@ -27,7 +26,6 @@ interface Blueprint {
 }
 
 interface NewSiteOptionsProps {
-	onOptionSelect: ( option: AddSiteFlowType ) => void;
 	enableBlueprints: boolean;
 	blueprints: Blueprint[];
 	isLoadingBlueprints: boolean;

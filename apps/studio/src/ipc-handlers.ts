@@ -172,11 +172,13 @@ export {
 	getUserEditor,
 	getUserLocale,
 	getUserTerminal,
+	getWapuuScore,
 	previewColorScheme,
 	saveColorScheme,
 	saveUserEditor,
 	saveUserLocale,
 	saveUserTerminal,
+	saveWapuuScore,
 	showUserSettings,
 } from 'src/modules/user-settings/lib/ipc-handlers';
 export { getDefaultSiteDirectory, saveDefaultSiteDirectory };

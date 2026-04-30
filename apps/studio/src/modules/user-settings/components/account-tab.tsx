@@ -3,6 +3,7 @@ import { NonAuthenticatedAccountTab } from './non-authenticated-account-tab';
 import { PromptInfo } from './prompt-info';
 import { SnapshotInfo } from './snapshot-info';
 import { UserInfo } from './user-info';
+import { WapuuScore } from './wapuu-score';
 
 export const AccountTab = ( {
 	loadingDeletingAllSnapshots,
@@ -39,6 +40,7 @@ export const AccountTab = ( {
 						onRemoveSnapshots={ onRemoveSnapshots }
 					/>
 					<PromptInfo />
+					<WapuuScore />
 				</>
 			) : (
 				<NonAuthenticatedAccountTab />

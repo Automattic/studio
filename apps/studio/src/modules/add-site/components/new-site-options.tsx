@@ -8,6 +8,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useCallback } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import StudioButton from 'src/components/button';
+import { EMPTY_SITE_PLAYGROUND_URL } from 'src/constants';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import type { AddSiteFlowType } from './options';
@@ -35,8 +36,6 @@ interface NewSiteOptionsProps {
 	onBlueprintChange: ( blueprintId: string ) => void;
 	blueprintFileError?: string;
 }
-
-const EMPTY_SITE_PLAYGROUND_URL = 'https://playground.wordpress.net/';
 
 function PreviewLink( { url }: { url: string } ) {
 	const { __ } = useI18n();

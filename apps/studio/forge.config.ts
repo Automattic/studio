@@ -92,9 +92,12 @@ const config: ForgeConfig = {
 				// libcap2-bin: ships `setcap`, used by postinst to grant the bundled
 				// node CAP_NET_BIND_SERVICE so the proxy can bind ports 80/443.
 				// policykit-1: pkexec backend used by @vscode/sudo-prompt for hosts-file writes.
-				depends: [ 'libcap2-bin', 'policykit-1' ],
+				// ca-certificates: ships `update-ca-certificates` and the system trust bundle.
+				// libnss3-tools: ships `certutil`, used to import the CA into per-user NSS DBs.
+				depends: [ 'libcap2-bin', 'policykit-1', 'ca-certificates', 'libnss3-tools' ],
 				scripts: {
 					postinst: path.join( __dirname, 'installers', 'linux', 'postinst.sh' ),
+					postrm: path.join( __dirname, 'installers', 'linux', 'postrm.sh' ),
 				},
 			},
 		} ),

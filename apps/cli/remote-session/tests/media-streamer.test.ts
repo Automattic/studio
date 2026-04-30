@@ -120,4 +120,51 @@ describe( 'MediaStreamer', () => {
 		expect( summary.posted ).toBe( 0 );
 		expect( respond ).not.toHaveBeenCalled();
 	} );
+
+	it( 'ignores malformed media.share events without throwing', async () => {
+		const respond = vi.fn().mockResolvedValue( undefined );
+		const streamer = new MediaStreamer( {
+			config,
+			target: { chatId: 42 },
+			deps: { respond, logger: new RemoteSessionLogger( '/dev/null' ) },
+		} );
+
+		// Missing dataBase64.
+		streamer.onEvent( {
+			type: 'media.share',
+			timestamp: 'now',
+			mediaType: 'image',
+			mimeType: 'image/png',
+		} as never );
+		// Empty dataBase64.
+		streamer.onEvent( {
+			type: 'media.share',
+			timestamp: 'now',
+			mediaType: 'image',
+			mimeType: 'image/png',
+			dataBase64: '',
+		} );
+		// Invalid mimeType.
+		streamer.onEvent( {
+			type: 'media.share',
+			timestamp: 'now',
+			mediaType: 'image',
+			mimeType: 'image/gif',
+			dataBase64: 'AAAA',
+		} as never );
+		// Caption present but wrong type.
+		streamer.onEvent( {
+			type: 'media.share',
+			timestamp: 'now',
+			mediaType: 'image',
+			mimeType: 'image/png',
+			dataBase64: 'AAAA',
+			caption: 123,
+		} as never );
+
+		const summary = await streamer.drain();
+		expect( summary.posted ).toBe( 0 );
+		expect( summary.failed ).toBe( 0 );
+		expect( respond ).not.toHaveBeenCalled();
+	} );
 } );

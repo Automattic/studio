@@ -3,6 +3,34 @@ import type { RemoteSessionConfig } from 'cli/remote-session/config';
 import type { RemoteSessionLogger } from 'cli/remote-session/logger';
 import type { respondMessage } from 'cli/remote-session/telegram-client';
 
+interface ValidMediaShare {
+	dataBase64: string;
+	mimeType: 'image/png' | 'image/jpeg';
+	caption?: string;
+}
+
+// `parseEvent` in turn-runner only checks for an object with a string `type`
+// field, so a malformed `{"type":"media.share"}` line could reach here with
+// missing/wrong-typed fields. Validate the shape at the boundary; log+skip
+// invalid events instead of throwing into the readline `'line'` listener.
+function parseMediaShare(
+	event: Extract< JsonEvent, { type: 'media.share' } >
+): ValidMediaShare | null {
+	const dataBase64 = ( event as { dataBase64?: unknown } ).dataBase64;
+	const mimeType = ( event as { mimeType?: unknown } ).mimeType;
+	const caption = ( event as { caption?: unknown } ).caption;
+	if ( typeof dataBase64 !== 'string' || dataBase64.length === 0 ) {
+		return null;
+	}
+	if ( mimeType !== 'image/png' && mimeType !== 'image/jpeg' ) {
+		return null;
+	}
+	if ( caption !== undefined && typeof caption !== 'string' ) {
+		return null;
+	}
+	return { dataBase64, mimeType, caption };
+}
+
 export interface MediaTarget {
 	chatId: number;
 	bot?: string;
@@ -47,7 +75,14 @@ export class MediaStreamer {
 		if ( event.type !== 'media.share' ) {
 			return;
 		}
-		const { dataBase64, mimeType, caption } = event;
+		const valid = parseMediaShare( event );
+		if ( ! valid ) {
+			this.deps.logger.warn( 'Ignoring malformed media.share event', {
+				chat_id: this.target.chatId,
+			} );
+			return;
+		}
+		const { dataBase64, mimeType, caption } = valid;
 		this.deps.logger.debug( 'media.share received; queueing photo post', {
 			chat_id: this.target.chatId,
 			mime_type: mimeType,

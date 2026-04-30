@@ -246,6 +246,23 @@ describe( 'respondMessage', () => {
 		expect( fetchMock ).not.toHaveBeenCalled();
 	} );
 
+	it( 'treats empty-string text or photo as absent', async () => {
+		fetchMock.mockResolvedValueOnce( new Response( '', { status: 200 } ) );
+
+		// Empty photo + real text → goes through the JSON text path, no photo dropped.
+		await respondMessage( baseConfig, { chatId: 1, text: 'hi', photo: '' } );
+		const [ , init ] = fetchMock.mock.calls[ 0 ];
+		expect( init.headers[ 'Content-Type' ] ).toBe( 'application/json' );
+		expect( init.body ).toBeTypeOf( 'string' );
+		expect( JSON.parse( init.body as string ) ).not.toHaveProperty( 'photo' );
+
+		// Both empty → throws, no fetch.
+		await expect(
+			respondMessage( baseConfig, { chatId: 1, text: '', photo: '' } )
+		).rejects.toThrow( /text.*photo/i );
+		expect( fetchMock ).toHaveBeenCalledTimes( 1 );
+	} );
+
 	it( 'truncates captions over 1024 chars before sending', async () => {
 		fetchMock.mockResolvedValueOnce( new Response( '', { status: 200 } ) );
 		const longCaption = 'x'.repeat( 1500 );

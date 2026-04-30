@@ -244,7 +244,12 @@ export async function respondMessage(
 	params: RespondParams,
 	options: { signal?: AbortSignal; maxRetries?: number; logger?: RemoteSessionLogger } = {}
 ): Promise< void > {
-	if ( ! params.text && ! params.photo ) {
+	// Normalize empty strings to "absent" so every downstream check (early
+	// guard, body builder, debug log) agrees on what counts as present.
+	const text = params.text && params.text.length > 0 ? params.text : undefined;
+	const photo = params.photo && params.photo.length > 0 ? params.photo : undefined;
+
+	if ( ! text && ! photo ) {
 		throw new Error( 'respondMessage requires `text`, `photo`, or both' );
 	}
 
@@ -256,8 +261,8 @@ export async function respondMessage(
 	const { body, contentType } = buildRespondBody( {
 		chatId: params.chatId,
 		bot,
-		text: params.text,
-		photo: params.photo,
+		text,
+		photo,
 		photoMimeType: params.photoMimeType,
 		caption: params.caption,
 	} );
@@ -269,10 +274,10 @@ export async function respondMessage(
 	logger?.debug( 'Respond start', {
 		chat_id: params.chatId,
 		bot,
-		text_length: params.text?.length ?? 0,
-		text_preview: params.text?.slice( 0, 120 ),
-		has_photo: params.photo !== undefined,
-		photo_base64_chars: params.photo?.length ?? 0,
+		text_length: text?.length ?? 0,
+		text_preview: text?.slice( 0, 120 ),
+		has_photo: photo !== undefined,
+		photo_base64_chars: photo?.length ?? 0,
 		photo_mime_type: params.photoMimeType,
 		caption_length: params.caption?.length ?? 0,
 		transport: contentType === undefined ? 'multipart' : 'json',

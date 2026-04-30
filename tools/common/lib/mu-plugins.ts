@@ -5,7 +5,7 @@
  * available to WordPress instances. Shared between desktop app and CLI.
  */
 
-import { copyFile, mkdir, mkdtemp, readdir, unlink, writeFile } from 'fs/promises';
+import { copyFile, mkdir, mkdtemp, readdir, symlink, unlink, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import path from 'path';
 
@@ -20,6 +20,8 @@ export interface MuPluginOptions {
 	isWpAutoUpdating?: boolean;
 	runtime?: MuPluginRuntime;
 }
+
+const BFB_EXPERIMENT_PATH_ENV = 'STUDIO_BFB_MU_PLUGIN_PATH';
 
 /**
  * MU-plugin filenames that should not be written for native PHP sites.
@@ -432,6 +434,38 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		`,
 	} );
 
+	if ( process.env[ BFB_EXPERIMENT_PATH_ENV ] ) {
+		muPlugins.push( {
+			filename: '1-block-format-bridge-experiment.php',
+			content: `<?php
+			/**
+			 * Block Format Bridge experiment loader.
+			 *
+			 * Enabled only when Studio is launched with ${ BFB_EXPERIMENT_PATH_ENV }.
+			 */
+			$bfb_library = '/internal/studio/mu-plugins/block-format-bridge/library.php';
+			if ( file_exists( $bfb_library ) ) {
+				require_once $bfb_library;
+			}
+
+			add_filter( 'html_to_blocks_supported_post_types', function( $post_types ) {
+				return array_values( array_unique( array_merge( (array) $post_types, array(
+					'post',
+					'page',
+					'wp_template',
+					'wp_template_part',
+					'wp_navigation',
+				) ) ) );
+			} );
+
+			add_action( 'html_to_blocks_unsupported_html_fallback', function() {
+				$count = (int) get_option( 'studio_bfb_unsupported_fallback_count', 0 );
+				update_option( 'studio_bfb_unsupported_fallback_count', $count + 1, false );
+			}, 10, 3 );
+			`,
+		} );
+	}
+
 	// Studio Admin API: Persistent endpoint for admin operations
 	muPlugins.push( {
 		filename: '0-studio-admin-api.php',
@@ -603,6 +637,12 @@ async function createMuPluginsDirectory( options: MuPluginOptions ): Promise< st
 			const pluginPath = path.join( tempDir, plugin.filename );
 			await writeFile( pluginPath, plugin.content );
 		}
+
+		const bfbExperimentPath = process.env[ BFB_EXPERIMENT_PATH_ENV ];
+		if ( bfbExperimentPath ) {
+			await symlink( bfbExperimentPath, path.join( tempDir, 'block-format-bridge' ), 'dir' );
+		}
+
 		return tempDir;
 	} catch ( error ) {
 		throw new Error( `Failed to create mu-plugins directory: ${ error }` );

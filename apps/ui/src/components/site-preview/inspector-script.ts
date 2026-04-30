@@ -1,11 +1,12 @@
 /**
- * Annotation inspector injected into the site preview's `WebContentsView`.
+ * Annotation inspector injected into the site-preview `<webview>` via
+ * `webview.executeJavaScript()`.
  *
- * Vanilla DOM in a Shadow DOM root — React isn't loaded in the cross-origin
- * WordPress page. Communicates with the host renderer via the
- * `window.__studioInspector` bridge exposed by
- * `apps/studio/src/preview-preload.ts`:
- *   - guest -> host: `{ type: 'done', annotations }`
+ * Runs in the cross-origin guest page so it uses vanilla DOM in a Shadow DOM
+ * root — React isn't loaded there. Communicates with the host renderer via a
+ * structured `console.log` line that the host receives through the webview's
+ * `console-message` event:
+ *   guest -> host: `__studio-inspector__:{ "type": "done", ... }`
  *
  * Layout strategy: markers and the picking highlight use `position: absolute`
  * anchored at *document* coordinates (viewport rect + scroll offset). They
@@ -13,19 +14,29 @@
  * popup uses `position: fixed` so it stays in the viewport.
  */
 
+export const INSPECTOR_BRIDGE_PREFIX = '__studio-inspector__:';
+
 export const INSPECTOR_PAGE_SCRIPT =
 	String.raw`
 ( () => {
-	const bridge = window.__studioInspector;
-	if ( ! bridge || typeof bridge.send !== 'function' ) {
-		return;
-	}
 	if ( window.__studioInspectorMounted ) {
 		return;
 	}
 	window.__studioInspectorMounted = true;
 
+	const BRIDGE_PREFIX = '` +
+	INSPECTOR_BRIDGE_PREFIX +
+	String.raw`';
 	const HOST_ID = '__studio-inspector-host';
+
+	function send( payload ) {
+		try {
+			console.log( BRIDGE_PREFIX + JSON.stringify( payload ) );
+		} catch ( err ) {
+			/* JSON.stringify can fail on cycles; the host treats missing
+			 * messages as no-ops, so we swallow rather than crash the page. */
+		}
+	}
 
 	function buildSelector( el ) {
 		if ( ! el || el.nodeType !== 1 ) return '';
@@ -309,7 +320,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 		doneBtn.addEventListener( 'click', () => {
 			if ( annotations.length === 0 ) return;
 			const sent = annotations.slice();
-			bridge.send( { type: 'done', annotations: sent } );
+			send( { type: 'done', annotations: sent } );
 			annotations = [];
 			activePopup = null;
 			isPicking = false;

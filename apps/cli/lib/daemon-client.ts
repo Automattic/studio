@@ -307,7 +307,7 @@ const daemonStartProcessSuccessResponseSchema = z.object( {
 export async function startProcess(
 	processName: string,
 	scriptPath: string,
-	env: Record< string, string > = {},
+	env: NodeJS.ProcessEnv = process.env,
 	args: string[] = []
 ): Promise< ProcessDescription > {
 	const response = await sendDaemonRequest( {

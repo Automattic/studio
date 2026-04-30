@@ -201,7 +201,6 @@ function renameBlueprintsForDisplay( blueprints: Blueprint[] ): Blueprint[] {
 }
 
 export function NewSiteOptions( {
-	onOptionSelect,
 	enableBlueprints,
 	blueprints,
 	isLoadingBlueprints,

@@ -19,10 +19,26 @@ test.describe( 'Blueprints', () => {
 
 		const siteContent = new SiteContent( session.mainWindow, DEFAULT_SITE_NAME );
 		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
+
+		// Run one site at a time to keep peak memory low on constrained hosts.
+		const sidebar = new MainSidebar( session.mainWindow );
+		await sidebar.getStopAllButton().click();
+		await expect( sidebar.locator.getByText( 'No sites running' ) ).toBeAttached( {
+			timeout: 60_000,
+		} );
 	} );
 
 	test.afterEach( async ( { page: _page }, testInfo ) => {
 		await session.reportMainProcessLogsOnFailure( testInfo );
+
+		const sidebar = new MainSidebar( session.mainWindow );
+		const stopAllButton = sidebar.getStopAllButton();
+		if ( await stopAllButton.isVisible().catch( () => false ) ) {
+			await stopAllButton.click();
+			await expect( sidebar.locator.getByText( 'No sites running' ) ).toBeAttached( {
+				timeout: 60_000,
+			} );
+		}
 	} );
 
 	test.afterAll( async () => {

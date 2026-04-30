@@ -14,6 +14,7 @@ import path, { dirname } from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { isWordPressDirectory } from '@studio/common/lib/fs-utils';
 import { IS_JSPI_AVAILABLE } from '@studio/common/lib/jspi';
+import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
 import { cleanupLegacyMuPlugins, getMuPlugins } from '@studio/common/lib/mu-plugins';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { formatPlaygroundCliMessage } from '@studio/common/lib/playground-cli-messages';
@@ -140,6 +141,43 @@ async function getWordPressInstallMode( sitePath: string ): Promise< WordPressIn
 	return 'do-not-attempt-installing';
 }
 
+function buildSetupSteps( config: ServerConfig ): Array< Record< string, unknown > > {
+	const steps: Array< Record< string, unknown > > = [];
+
+	const siteLanguage = config.siteLanguage;
+	if ( siteLanguage && siteLanguage !== DEFAULT_LOCALE ) {
+		// If copyLanguagePackToSite already copied bundled packs, use defineWpConfigConsts
+		// (no network needed). Otherwise fall back to setSiteLanguage which downloads them.
+		const langFile = path.join(
+			config.sitePath,
+			'wp-content',
+			'languages',
+			`${ siteLanguage }.l10n.php`
+		);
+		if ( fs.existsSync( langFile ) ) {
+			steps.push(
+				{ step: 'defineWpConfigConsts', consts: { WPLANG: siteLanguage } },
+				{ step: 'setSiteOptions', options: { WPLANG: siteLanguage } }
+			);
+		} else {
+			steps.push(
+				{ step: 'setSiteLanguage', language: siteLanguage },
+				{ step: 'setSiteOptions', options: { WPLANG: siteLanguage } }
+			);
+		}
+	}
+
+	// Set blogname for new sites only (where WordPress hasn't been installed yet)
+	const isNewSite =
+		! isWordPressDirectory( config.sitePath ) ||
+		! fs.existsSync( path.join( config.sitePath, 'wp-config.php' ) );
+	if ( config.siteTitle && isNewSite ) {
+		steps.push( { step: 'setSiteOptions', options: { blogname: config.siteTitle } } );
+	}
+
+	return steps;
+}
+
 function getBaseRunCLIArgs(
 	command: 'server',
 	config: ServerConfig
@@ -248,6 +286,15 @@ async function getBaseRunCLIArgs(
 			...defaultConstants,
 		};
 		config.blueprint.contents.preferredVersions = preferredVersions;
+
+		const setupSteps = buildSetupSteps( config );
+		if ( setupSteps.length > 0 ) {
+			const existingSteps = Array.isArray( config.blueprint.contents.steps )
+				? config.blueprint.contents.steps
+				: [];
+			config.blueprint.contents.steps = [ ...setupSteps, ...existingSteps ];
+		}
+
 		const blueprintFs = new InMemoryFilesystem( {
 			'blueprint.json': JSON.stringify( config.blueprint.contents ),
 		} );
@@ -267,10 +314,12 @@ async function getBaseRunCLIArgs(
 			] );
 		}
 	} else {
+		const setupSteps = buildSetupSteps( config );
 		blueprintBundle = new InMemoryFilesystem( {
 			'blueprint.json': JSON.stringify( {
 				constants: defaultConstants,
 				preferredVersions,
+				...( setupSteps.length > 0 ? { steps: setupSteps } : {} ),
 			} ),
 		} );
 	}

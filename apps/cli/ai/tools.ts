@@ -244,7 +244,11 @@ export async function captureCommandOutput( fn: () => Promise< void > ): Promise
 	};
 	process.exitCode = undefined;
 	setProgressCallback( ( message, update ) => {
-		progressMessages.push( message );
+		if ( update && progressMessages.length > 0 ) {
+			progressMessages[ progressMessages.length - 1 ] = message;
+		} else {
+			progressMessages.push( message );
+		}
 		previousCallback?.( message, update );
 	} );
 

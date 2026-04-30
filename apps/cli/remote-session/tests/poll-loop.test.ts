@@ -71,7 +71,7 @@ function makeDeps(
 		readState,
 		writeSession,
 		clearSession,
-		logger: new RemoteSessionLogger( '/dev/null' ),
+		logger: new RemoteSessionLogger( { logPath: '/dev/null' } ),
 		sleep,
 		...overrides,
 	};

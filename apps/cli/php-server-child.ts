@@ -346,15 +346,16 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 			} );
 		} );
 
-		stopSignal.throwIfAborted();
-		await waitForServerReady( `http://localhost:${ config.port }/`, stopSignal );
-
 		serverChild.once( 'exit', ( code, signalName ) => {
 			errorToConsole(
 				`PHP child process exited unexpectedly (code: ${ code }, signal: ${ signalName })`
 			);
 			process.exit( code ?? 1 );
 		} );
+
+		stopSignal.throwIfAborted();
+		await waitForServerReady( `http://localhost:${ config.port }/`, stopSignal );
+		await installWordPress( config, phpVersion, stopSignal );
 
 		phpProcess = serverChild;
 	} catch ( error ) {

@@ -217,6 +217,7 @@ export class ProcessManagerDaemon {
 			env,
 			stdio: [ 'ignore', 'pipe', 'pipe', 'ipc' ],
 			windowsHide: true,
+			detached: process.platform !== 'win32',
 		} );
 
 		const managedProcess: ManagedProcessRunning = {
@@ -293,7 +294,7 @@ export class ProcessManagerDaemon {
 
 		await new Promise< void >( ( resolve ) => {
 			const timeoutId = setTimeout( () => {
-				managedProcess.child.kill( 'SIGKILL' );
+				this.forceCleanupChild( managedProcess );
 			}, STOP_TIMEOUT_MS );
 
 			managedProcess.child.once( 'exit', () => {
@@ -418,11 +419,28 @@ export class ProcessManagerDaemon {
 			if ( managedProcess.settled ) {
 				continue;
 			}
+			this.forceCleanupChild( managedProcess );
+		}
+	}
+
+	private forceCleanupChild( managedProcess: ManagedProcess ) {
+		if ( process.platform === 'win32' ) {
 			try {
-				managedProcess.child.kill( 'SIGKILL' );
+				managedProcess.child.kill( 'SIGTERM' );
 			} catch {
 				// Do nothing
 			}
+			return;
+		}
+
+		if ( ! managedProcess.child.pid ) {
+			return;
+		}
+
+		try {
+			process.kill( -managedProcess.child.pid, 'SIGKILL' );
+		} catch {
+			// Do nothing
 		}
 	}
 
@@ -432,16 +450,17 @@ export class ProcessManagerDaemon {
 		}
 
 		this.shuttingDown = true;
-		await this.broadcastEvent( {
-			type: 'daemon-kill',
-			payload: { reason },
-		} );
 
 		await Promise.allSettled(
 			Array.from( this.managedProcesses.values() ).map( ( managedProcess ) =>
 				this.stopProcess( managedProcess.name )
 			)
 		);
+
+		await this.broadcastEvent( {
+			type: 'daemon-kill',
+			payload: { reason },
+		} );
 
 		await new Promise< void >( ( resolve ) => {
 			void this.controlServer.close().then( () => resolve() );

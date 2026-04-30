@@ -104,7 +104,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 
 	const colorSchemeSelection = dirtyColorScheme ?? colorScheme ?? 'light';
 	const localeSelection = dirtyLocale ?? savedLocale ?? 'en';
-	const editorSelection = dirtyEditor ?? editor ?? 'vscode';
+	const editorSelection = dirtyEditor !== undefined ? dirtyEditor : editor ?? null;
 	const terminalSelection = dirtyTerminal ?? terminal ?? 'terminal';
 	const isCliInstalledSelection = dirtyIsCliInstalled ?? isCliInstalled ?? false;
 	const defaultSiteDirectorySelection = dirtyDefaultSiteDirectory ?? defaultSiteDirectory ?? '';

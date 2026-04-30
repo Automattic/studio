@@ -201,9 +201,9 @@ export async function runCommand( options: {
 		);
 	}
 
-	setProgressCallback( ( message ) => {
+	setProgressCallback( ( message, update ) => {
 		const timestamp = new Date().toISOString();
-		ui.setLoaderMessage( message );
+		ui.setLoaderMessage( message, update );
 		void persist( ( recorder ) => recorder.recordToolProgress( message, timestamp ) );
 	} );
 

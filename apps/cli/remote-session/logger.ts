@@ -21,6 +21,33 @@ export function redact( input: string ): string {
 		.replace( TOKEN_FIELD_PATTERN, '"token":"[redacted]"' );
 }
 
+// CSI (`\x1b[...`), OSC (`\x1b]...BEL` or `...ST`), and other 7-bit C1 escapes.
+const ANSI_ESCAPE_PATTERN =
+	// eslint-disable-next-line no-control-regex
+	/\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07\x1b]*(?:\x07|\x1b\\)|[@-_])/g;
+// All C0 control chars except `\t` (0x09) and `\n` (0x0A), plus DEL (0x7F).
+// eslint-disable-next-line no-control-regex
+const CONTROL_CHAR_PATTERN = /[\x00-\x08\x0B-\x1F\x7F]/g;
+
+/**
+ * Strip terminal control sequences from text destined for stdout. Telegram
+ * messages and agent output are untrusted and may embed ANSI escapes (colors,
+ * screen clears, cursor moves, OSC hyperlinks) that would otherwise manipulate
+ * the user's terminal — a log-spoofing / phishing risk. We keep `\t` and `\n`
+ * so multi-line replies still render with whitespace structure.
+ */
+export function stripTerminalControls( input: string ): string {
+	return input.replace( ANSI_ESCAPE_PATTERN, '' ).replace( CONTROL_CHAR_PATTERN, '' );
+}
+
+/**
+ * Apply both redaction and terminal-control sanitization. Use whenever text
+ * (operator-supplied or attacker-supplied) is being written to stdout.
+ */
+function safeForStdout( input: string ): string {
+	return stripTerminalControls( redact( input ) );
+}
+
 function shouldLogDebug(): boolean {
 	return process.env.STUDIO_REMOTE_DEBUG === '1';
 }
@@ -68,11 +95,42 @@ function ensureLogDir( logPath: string ): void {
 	}
 }
 
+export interface RemoteSessionLoggerOptions {
+	/** Override the file path. Defaults to `~/.studio/remote-session.log`. */
+	logPath?: string;
+	/**
+	 * Also write a human-readable line to stdout for each non-suppressed call.
+	 * Used by `studio code --remote-session` so the user can watch session
+	 * activity in the terminal while the interactive REPL is blocked.
+	 */
+	mirrorToStdout?: boolean;
+}
+
+function formatStdoutLine(
+	level: LogLevel,
+	message: string,
+	meta?: Record< string, unknown >
+): string {
+	const time = new Date().toTimeString().slice( 0, 8 );
+	const head = `[${ time }] ${ level } ${ safeForStdout( message ) }`;
+	if ( ! meta ) {
+		return `${ head }\n`;
+	}
+	// JSON.stringify already escapes control bytes inside string values
+	// (e.g. `"[2J"`), but we sanitize again defensively in case the
+	// shape ever changes. Redaction must run on the JSON so token fields
+	// matching `"token":"…"` are caught after serialization.
+	const safeMeta = safeForStdout( JSON.stringify( meta ) );
+	return `${ head } ${ safeMeta }\n`;
+}
+
 export class RemoteSessionLogger {
 	private logPath: string;
+	private mirrorToStdout: boolean;
 
-	constructor( logPath: string = getRemoteSessionLogPath() ) {
-		this.logPath = logPath;
+	constructor( options: RemoteSessionLoggerOptions = {} ) {
+		this.logPath = options.logPath ?? getRemoteSessionLogPath();
+		this.mirrorToStdout = options.mirrorToStdout ?? false;
 	}
 
 	private write( level: LogLevel, message: string, meta?: Record< string, unknown > ): void {
@@ -94,6 +152,14 @@ export class RemoteSessionLogger {
 		} catch {
 			// Logging is best-effort; never throw from here.
 		}
+
+		if ( this.mirrorToStdout ) {
+			try {
+				process.stdout.write( formatStdoutLine( level, message, meta ) );
+			} catch {
+				// Stdout mirroring is best-effort; never throw from here.
+			}
+		}
 	}
 
 	debug( message: string, meta?: Record< string, unknown > ): void {
@@ -110,5 +176,28 @@ export class RemoteSessionLogger {
 
 	error( message: string, meta?: Record< string, unknown > ): void {
 		this.write( 'error', message, meta );
+	}
+
+	/**
+	 * Write a single conversation-content line to stdout only (never the file).
+	 * Used to surface the actual subprocess event payloads — incoming user text,
+	 * progress messages, the final reply, paused questions — while attached.
+	 * Skipped when `mirrorToStdout` is off, so callers can sprinkle these freely
+	 * without affecting non-streaming runs.
+	 */
+	event( kind: string, content: string ): void {
+		if ( ! this.mirrorToStdout ) {
+			return;
+		}
+		const time = new Date().toTimeString().slice( 0, 8 );
+		// Sanitize first so `\r` and other control bytes are gone before we
+		// indent newlines for multi-line content (questions, replies).
+		const safe = safeForStdout( content ).replace( /\n/g, '\n  ' );
+		const safeKind = stripTerminalControls( kind );
+		try {
+			process.stdout.write( `[${ time }] ${ safeKind } ${ safe }\n` );
+		} catch {
+			// Best-effort; never throw from here.
+		}
 	}
 }

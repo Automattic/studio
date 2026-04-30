@@ -346,6 +346,9 @@ export async function runPollLoop( options: RunPollLoopOptions ): Promise< PollL
 					text_length: polled.text.length,
 					preview: text.slice( 0, 80 ),
 				} );
+				if ( text.length > 0 ) {
+					deps.logger.event( 'message', text );
+				}
 
 				if ( text.length === 0 ) {
 					// Empty text would cause `studio code --json` to fail its `.check()`

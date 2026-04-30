@@ -175,13 +175,17 @@ const BLUEPRINT_DISPLAY_NAMES: Record< string, string > = {
 	Commerce: 'WooCommerce',
 };
 
-const BLUEPRINT_EXCERPT_OVERRIDES: Record< string, string > = {
-	'Quick Start':
-		'A WordPress.com-like environment with Business plan plugins and themes pre-installed.',
-	Commerce:
-		'Create your next online store with WooCommerce and its companion plugins pre-installed.',
-	Development: 'A streamlined environment for building and testing themes or plugins.',
-};
+function getBlueprintExcerptOverrides( __: ( text: string ) => string ): Record< string, string > {
+	return {
+		'Quick Start': __(
+			'A WordPress.com-like environment with Business plan plugins and themes pre-installed.'
+		),
+		Commerce: __(
+			'Create your next online store with WooCommerce and its companion plugins pre-installed.'
+		),
+		Development: __( 'A streamlined environment for building and testing themes or plugins.' ),
+	};
+}
 
 const BLUEPRINT_ORDER: Record< string, number > = {
 	'Quick Start': 1,
@@ -189,12 +193,16 @@ const BLUEPRINT_ORDER: Record< string, number > = {
 	Development: 3,
 };
 
-function renameBlueprintsForDisplay( blueprints: Blueprint[] ): Blueprint[] {
+function renameBlueprintsForDisplay(
+	blueprints: Blueprint[],
+	__: ( text: string ) => string
+): Blueprint[] {
+	const excerptOverrides = getBlueprintExcerptOverrides( __ );
 	return [ ...blueprints ]
 		.sort( ( a, b ) => ( BLUEPRINT_ORDER[ a.title ] ?? 99 ) - ( BLUEPRINT_ORDER[ b.title ] ?? 99 ) )
 		.map( ( bp ) => ( {
 			...bp,
-			excerpt: BLUEPRINT_EXCERPT_OVERRIDES[ bp.title ] || bp.excerpt,
+			excerpt: excerptOverrides[ bp.title ] || bp.excerpt,
 			title: BLUEPRINT_DISPLAY_NAMES[ bp.title ] || bp.title,
 		} ) );
 }
@@ -248,7 +256,7 @@ export function NewSiteOptions( {
 					</div>
 				) : (
 					enableBlueprints &&
-					renameBlueprintsForDisplay( blueprints ).map( ( bp ) => (
+					renameBlueprintsForDisplay( blueprints, __ ).map( ( bp ) => (
 						<BlueprintCard
 							key={ bp.slug }
 							blueprint={ bp }

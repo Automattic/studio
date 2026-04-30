@@ -1375,14 +1375,14 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 		// a chance of inheriting it.
 		const launchers: Record<
 			SupportedTerminal,
-			( () => { command: string; options?: ExecOptions } ) | null
+			( ( binary: string ) => { command: string; options?: ExecOptions } ) | null
 		> = {
-			terminal: () => ( {
-				command: `gnome-terminal --working-directory="${ escapedPath }"`,
+			terminal: ( binary ) => ( {
+				command: `"${ binary }" --working-directory="${ escapedPath }"`,
 			} ),
-			warp: () => ( { command: 'warp-terminal', options: { cwd: targetPath } } ),
-			ghostty: () => ( {
-				command: `ghostty --working-directory="${ escapedPath }"`,
+			warp: ( binary ) => ( { command: `"${ binary }"`, options: { cwd: targetPath } } ),
+			ghostty: ( binary ) => ( {
+				command: `"${ binary }" --working-directory="${ escapedPath }"`,
 			} ),
 			iterm: null,
 		};
@@ -1397,7 +1397,7 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 			if ( ! binary ) {
 				continue;
 			}
-			const { command, options } = launcher();
+			const { command, options } = launcher( binary );
 			return promiseExec( command, options );
 		}
 

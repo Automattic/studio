@@ -22,9 +22,11 @@ import {
 	truncateToWidth,
 	CURSOR_MARKER,
 } from '@mariozechner/pi-tui';
+import { randomThinkingMessage } from '@studio/common/ai/thinking-messages';
+import { getToolDetail, getToolDisplayName } from '@studio/common/ai/tools';
+import chalk from '@studio/common/lib/chalk';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import chalk from 'chalk';
 import { AI_MODELS, DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
 import { AI_CHAT_SLASH_COMMANDS } from 'cli/ai/slash-commands';
@@ -37,6 +39,7 @@ import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { getSitesRunningStatus, isSiteRunning } from 'cli/lib/site-utils';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { TodoWriteInput } from '@anthropic-ai/claude-agent-sdk/sdk-tools';
+import type { AiOutputAdapter, HandleMessageResult } from 'cli/ai/output-adapter';
 
 const SITE_PICKER_TAB_LOCAL = 'local' as const;
 const SITE_PICKER_TAB_REMOTE = 'remote' as const;
@@ -71,6 +74,18 @@ interface ExpandablePreview {
 function formatToolOutputLines( lines: string[] ): string {
 	return lines
 		.map( ( line, index ) => `${ index === 0 ? '   ' + chalk.dim( '⎿ ' ) : '     ' }${ line }` )
+		.join( '\n' );
+}
+
+// Faint variant of the user bubble used by `addUserMessage`, for prompts that
+// were staged during an active turn and haven't been dispatched yet.
+function formatQueuedPrompt( text: string ): string {
+	const lines = text.split( '\n' );
+	return lines
+		.map( ( line, i ) => {
+			const body = i === 0 ? '↳ ' + line + ' ' : '  ' + line + ' ';
+			return ' ' + chalk.bgHex( '#e8eef5' ).hex( '#5a6b7d' )( body );
+		} )
 		.join( '\n' );
 }
 
@@ -233,89 +248,13 @@ const editorTheme: EditorTheme = {
 	},
 };
 
-const toolDisplayNames: Record< string, string > = {
-	mcp__studio__site_create: __( 'Create site' ),
-	mcp__studio__site_list: __( 'List sites' ),
-	mcp__studio__site_info: __( 'Get site info' ),
-	mcp__studio__site_start: __( 'Start site' ),
-	mcp__studio__site_stop: __( 'Stop site' ),
-	mcp__studio__site_delete: __( 'Delete site' ),
-	mcp__studio__preview_create: __( 'Create preview' ),
-	mcp__studio__preview_list: __( 'List previews' ),
-	mcp__studio__preview_update: __( 'Update preview' ),
-	mcp__studio__preview_delete: __( 'Delete preview' ),
-	mcp__studio__wp_cli: __( 'Run WP-CLI' ),
-	mcp__studio__validate_blocks: __( 'Validate blocks' ),
-	mcp__studio__take_screenshot: __( 'Take screenshot' ),
-	Read: __( 'Read' ),
-	Write: __( 'Write' ),
-	Edit: __( 'Edit' ),
-	Bash: __( 'Run' ),
-	Glob: __( 'Search' ),
-	Grep: __( 'Search' ),
-	Skill: __( 'Load skill' ),
-	Task: __( 'Run task' ),
-	TodoWrite: __( 'Update todo list' ),
-};
-
-function getToolDetail( name: string, input: Record< string, unknown > ): string {
-	switch ( name ) {
-		case 'mcp__studio__site_create':
-			return typeof input.name === 'string' ? input.name : '';
-		case 'mcp__studio__site_info':
-		case 'mcp__studio__site_start':
-		case 'mcp__studio__site_stop':
-		case 'mcp__studio__site_delete':
-		case 'mcp__studio__preview_create':
-		case 'mcp__studio__preview_list':
-			return typeof input.nameOrPath === 'string' ? input.nameOrPath : '';
-		case 'mcp__studio__preview_update':
-		case 'mcp__studio__preview_delete':
-			return typeof input.host === 'string' ? input.host : '';
-		case 'mcp__studio__wp_cli':
-			return typeof input.command === 'string' ? `wp ${ input.command }` : '';
-		case 'mcp__studio__validate_blocks':
-			if ( typeof input.filePath === 'string' ) {
-				return input.filePath.split( '/' ).slice( -2 ).join( '/' );
-			}
-			return __( 'inline content' );
-		case 'mcp__studio__take_screenshot':
-			return typeof input.url === 'string' ? input.url : '';
-		case 'Read':
-		case 'Write':
-		case 'Edit': {
-			const filePath = input.file_path ?? input.path;
-			if ( typeof filePath === 'string' ) {
-				const parts = filePath.split( '/' );
-				return parts.slice( -2 ).join( '/' );
-			}
-			return '';
-		}
-		case 'Bash':
-			return typeof input.command === 'string'
-				? input.command.length > 60
-					? input.command.slice( 0, 57 ) + '…'
-					: input.command
-				: '';
-		case 'Skill':
-			return typeof input.skill === 'string' ? input.skill : '';
-		case 'Grep':
-		case 'Glob':
-			return typeof input.pattern === 'string' ? input.pattern : '';
-		default:
-			return '';
-	}
-}
-
 function formatToolName( name: string, input?: Record< string, unknown > ): string {
-	const displayName = toolDisplayNames[ name ] ?? name;
-	if ( input ) {
-		const detail = getToolDetail( name, input );
-		if ( detail ) {
-			return chalk.bold( displayName ) + ' ' + chalk.dim( '(' + detail + ')' );
-		}
+	const displayName = chalk.bold( getToolDisplayName( name ) );
+	const detail = getToolDetail( name, input );
+	if ( detail ) {
+		return displayName + ' ' + chalk.dim( '(' + detail + ')' );
 	}
-	return chalk.bold( displayName );
+	return displayName;
 }
 
 interface ToolUseResultContent {
@@ -433,11 +372,13 @@ function normalizeToolUseResult( result: unknown ): ToolUseResultContent | null 
 
 	return null;
 }
-export class AiChatUI {
+export class AiChatUI implements AiOutputAdapter {
 	private tui: TUI;
 	private editor: PromptEditor;
 	private loader: Loader;
 	private messages: Container;
+	private queuedContainer: Container;
+	private queuedPrompts: string[] = [];
 	private currentResponseText = '';
 	private currentMarkdown: Markdown | null = null;
 	private submitResolve: ( ( text: string ) => void ) | null = null;
@@ -445,6 +386,8 @@ export class AiChatUI {
 	private editorVisible = false;
 	private interruptCallback: ( () => void ) | null = null;
 	private wasInterrupted = false;
+	private interruptionNoticeShown = false;
+	private usageCapReached = false;
 	private hasShownResponseMarker = false;
 	private turnStartTime = 0;
 	private toolStartTime: number | null = null;
@@ -471,61 +414,6 @@ export class AiChatUI {
 	currentModel: AiModelId = DEFAULT_MODEL;
 	currentProvider: AiProviderId = DEFAULT_AI_PROVIDER;
 
-	private readonly thinkingMessages = [
-		'Thinking…',
-		'Iterating…',
-		'Interpolating…',
-		'Philosophising…',
-		'Cogitating…',
-		'Poetizing…',
-		'Sketching…',
-		'Scribbling…',
-		'Drafting…',
-		'Harmonizing…',
-		'Rehearsing…',
-		'Combabulating…',
-		'Conjectureing…',
-		'Tinkering…',
-		'Polishing…',
-		'Concocting…',
-		'Wizarding…',
-		'Enchanting…',
-		'Transmuting…',
-		'Summoning…',
-		'Gutenberging…',
-		'Hooking…',
-		'Filtering…',
-		'Looping…',
-		'Codexing…',
-		'Annotating…',
-		'Ruminating…',
-		'Paragraphing…',
-		'Typesetting…',
-		'Soloing…',
-		'Compiling…',
-		'Abstracting…',
-		'Meandering…',
-		'Daydreaming…',
-		'Riffing…',
-		'Wandering…',
-		'Introspecting…',
-		'Experiencing…',
-		'Reflecting…',
-		'Adventuring…',
-		'Levitating…',
-		'Glueing…',
-		'Soaring…',
-		'Gliding…',
-		'Paragliding…',
-		'Excavating…',
-		'Planting…',
-		'Stargazing…',
-		'Scribing…',
-		'Levitating…',
-	];
-	private randomThinkingMessage(): string {
-		return this.thinkingMessages[ Math.floor( Math.random() * this.thinkingMessages.length ) ];
-	}
 	private optionPickerContainer: Container | null = null;
 	private optionPickerSelectList: SelectList | null = null;
 	private optionPickerVisible = false;
@@ -555,6 +443,11 @@ export class AiChatUI {
 
 	get activeSite(): SiteInfo | null {
 		return this._activeSite;
+	}
+
+	set activeSite( site: SiteInfo | null ) {
+		this._activeSite = site;
+		this.editor.activeSiteName = site?.name ?? null;
 	}
 
 	private refreshPromptChrome(): void {
@@ -599,6 +492,18 @@ export class AiChatUI {
 		this.currentResponseText = '';
 	}
 
+	clearTranscript(): void {
+		this.hideLoader();
+		this.currentMarkdown = null;
+		this.currentResponseText = '';
+		this.messages.clear();
+		if ( this.queuedPrompts.length > 0 ) {
+			this.queuedPrompts = [];
+			this.renderQueuedContainer();
+		}
+		this.tui.requestRender();
+	}
+
 	showAgentQuestion(
 		question: string,
 		_options: Array< { label: string; description: string } >
@@ -616,6 +521,12 @@ export class AiChatUI {
 
 		this.messages = new Container();
 		this.tui.addChild( this.messages );
+
+		// Always mounted just after `messages` and (once shown) just before the
+		// editor, so staged follow-up prompts render in that gap regardless of
+		// whether the loader is currently visible.
+		this.queuedContainer = new Container();
+		this.tui.addChild( this.queuedContainer );
 
 		this.loader = new Loader(
 			this.tui,
@@ -657,10 +568,21 @@ export class AiChatUI {
 
 		this.editor.onSubmit = ( text ) => {
 			const trimmed = text.trim();
-			if ( trimmed && this.submitResolve ) {
+			if ( ! trimmed ) {
+				return;
+			}
+			if ( this.submitResolve ) {
 				const resolve = this.submitResolve;
 				this.submitResolve = null;
 				resolve( trimmed );
+				return;
+			}
+			// No waiter → we're mid-turn. Stage the prompt so it fires after
+			// the current run ends; `waitForInput` drains the head.
+			if ( this._inAgentTurn ) {
+				this.queuedPrompts.push( trimmed );
+				this.editor.setText( '' );
+				this.renderQueuedContainer();
 			}
 		};
 		// Ctrl+C to exit, Escape to interrupt/close picker, arrow keys for picker
@@ -672,6 +594,9 @@ export class AiChatUI {
 			if ( matchesKey( data, 'ctrl+c' ) ) {
 				this.stop();
 				process.exit( 0 );
+			}
+			if ( matchesKey( data, 'escape' ) && this.requestInterrupt() ) {
+				return { consume: true };
 			}
 			// Option picker navigation (must be checked before site picker)
 			if ( this.optionPickerSelectList ) {
@@ -770,9 +695,18 @@ export class AiChatUI {
 				this.renderSitePicker();
 				return { consume: true };
 			}
-			if ( matchesKey( data, 'escape' ) && this.interruptCallback ) {
-				this.wasInterrupted = true;
-				this.interruptCallback();
+			// Backspace on an empty editor pops the most recent queued prompt.
+			// Mirrors the × discard affordance in the GUI — lightweight undo
+			// for staged follow-ups without adding a new keybinding.
+			if (
+				matchesKey( data, 'backspace' ) &&
+				this.editorVisible &&
+				this.queuedPrompts.length > 0 &&
+				this.editor.getText() === ''
+			) {
+				this.queuedPrompts.pop();
+				this.renderQueuedContainer();
+				return { consume: true };
 			}
 			if ( matchesKey( data, 'ctrl+o' ) && this.activeExpandablePreview ) {
 				this.toggleExpandablePreview();
@@ -977,16 +911,16 @@ export class AiChatUI {
 		const label = site.remote
 			? sprintf(
 					/* translators: %s: site name */
-					__( ' ✻ Selected site: %s (WordPress.com)' ),
+					__( ' Selected site: %s (WordPress.com)' ),
 					site.name
 			  )
 			: sprintf(
 					/* translators: %s: site name */
-					__( ' ✻ Selected site: %s' ),
+					__( ' Selected site: %s' ),
 					site.name
 			  );
 		if ( announce ) {
-			this.messages.addChild( new Text( `${ chalk.hex( '#5b8db8' )( label ) }\n`, 0, 0 ) );
+			this.messages.addChild( new Text( `\n${ chalk.hex( '#8839ef' )( label ) }\n`, 0, 0 ) );
 		}
 		if ( emitEvent ) {
 			this.siteSelectedCallback?.( site );
@@ -1240,6 +1174,13 @@ export class AiChatUI {
 		this.tui.requestRender();
 	}
 
+	private cancelOptionPicker(): void {
+		const resolve = this.optionPickerResolve;
+		this.optionPickerResolve = null;
+		this.closeOptionPicker();
+		resolve?.( '' );
+	}
+
 	start(): void {
 		this.tui.start();
 	}
@@ -1253,7 +1194,7 @@ export class AiChatUI {
 		const b = chalk.blue;
 
 		// WordPress logo in block characters, widened to avoid vertical stretching in terminals.
-		const logo = [
+		const logoLines = [
 			'    ▄█▛▀▀▀▀█▙▖',
 			' ▗▟█        ▗██▄',
 			'▄███▛ ▝▜██  ▝███▙',
@@ -1262,27 +1203,48 @@ export class AiChatUI {
 			'▀▙▖ ▜█▄▟ ▝█▙▄▌ ▄▛',
 			' ▝▜▄▝██▌  ▀██▗▟▀',
 			'    ▀██▙▄▄▄█▛▘',
-		].map( ( s ) => b( s ) );
+		];
+		const logo = logoLines.map( ( s ) => b( s ) );
+		const logoWidth = Math.max( ...logoLines.map( ( s ) => s.length ) );
+
+		// Lay out logo on the left, info on the right (vertically centered)
+		const gap = 4;
+		const leading = 1;
+		const termWidth = process.stdout.columns ?? 80;
+		const availableInfoWidth = Math.max( 0, termWidth - leading - logoWidth - gap );
+
+		// Truncate the cwd with a leading ellipsis (preserving the meaningful
+		// suffix) when the terminal is too narrow, otherwise the welcome wraps
+		// and visually breaks the logo layout.
+		const baseInfo = `${ AI_MODELS[ this.currentModel ] } · ${
+			AI_PROVIDERS[ this.currentProvider ]
+		}`;
+		const sep = ' · ';
+		let secondLine: string;
+		if ( baseInfo.length + sep.length + displayCwd.length <= availableInfoWidth ) {
+			secondLine = `${ baseInfo }${ sep }${ displayCwd }`;
+		} else {
+			const pathBudget = availableInfoWidth - baseInfo.length - sep.length;
+			if ( pathBudget >= 4 ) {
+				secondLine = `${ baseInfo }${ sep }…${ displayCwd.slice( -( pathBudget - 1 ) ) }`;
+			} else {
+				secondLine = baseInfo;
+			}
+		}
 
 		const info = [
 			chalk.bold( 'WordPress Studio' ) + ( version ? chalk.dim( ` v${ version }` ) : '' ),
-			chalk.dim(
-				`${ AI_MODELS[ this.currentModel ] } · ${
-					AI_PROVIDERS[ this.currentProvider ]
-				} · ${ displayCwd }`
-			),
+			chalk.dim( secondLine ),
 			'',
 			chalk.dim.italic( __( 'Code is Poetry' ) ),
 		];
 
-		// Lay out logo on the left, info on the right (vertically centered)
-		const gap = 4;
 		const infoStartRow = Math.max( 0, Math.floor( ( logo.length - info.length ) / 2 ) );
 
 		const lines = logo.map( ( logoLine, i ) => {
 			const infoIndex = i - infoStartRow;
 			const infoText = infoIndex >= 0 && infoIndex < info.length ? info[ infoIndex ] : '';
-			return ' ' + logoLine + ' '.repeat( gap ) + infoText;
+			return ' '.repeat( leading ) + logoLine + ' '.repeat( gap ) + infoText;
 		} );
 
 		this.messages.addChild( new Text( '\n' + lines.join( '\n' ) + '\n', 0, 0 ) );
@@ -1291,6 +1253,55 @@ export class AiChatUI {
 
 	set onInterrupt( fn: ( () => void ) | null ) {
 		this.interruptCallback = fn;
+		this.updateHints();
+	}
+
+	private requestInterrupt(): boolean {
+		if ( ! this.interruptCallback ) {
+			return false;
+		}
+
+		if ( this.wasInterrupted ) {
+			return true;
+		}
+
+		this.wasInterrupted = true;
+		this.closeSitePicker();
+		this.cancelOptionPicker();
+		if ( this.submitResolve ) {
+			const resolve = this.submitResolve;
+			this.submitResolve = null;
+			resolve( '' );
+		}
+		this.showInterruptedNotice();
+		this.interruptCallback();
+		this.updateHints();
+		return true;
+	}
+
+	private showInterruptedNotice(): void {
+		if ( this.interruptionNoticeShown ) {
+			return;
+		}
+
+		this.interruptionNoticeShown = true;
+		this.hideLoader();
+		this.stopToolDotBlink();
+		this.toolDotText = null;
+		this.currentMarkdown = null;
+		this.currentResponseText = '';
+
+		const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
+		this.messages.addChild(
+			new Text( '\n ' + chalk.yellow( '⏺' ) + ' ' + chalk.yellow( __( 'Interrupted' ) ), 0, 0 )
+		);
+		this.showInfo(
+			sprintf(
+				/* translators: %d: number of seconds */
+				__( 'Ran for %ds before interruption' ),
+				thinkingSec
+			)
+		);
 	}
 
 	stop(): void {
@@ -1302,6 +1313,11 @@ export class AiChatUI {
 		this.editor.setText( '' );
 		this.hideLoader();
 		this.showEditor();
+		if ( this.queuedPrompts.length > 0 ) {
+			const next = this.queuedPrompts.shift()!;
+			this.renderQueuedContainer();
+			return Promise.resolve( next );
+		}
 		return new Promise( ( resolve ) => {
 			this.submitResolve = resolve;
 		} );
@@ -1321,22 +1337,43 @@ export class AiChatUI {
 		this.tui.requestRender();
 	}
 
-	setLoaderMessage( message: string ): void {
+	private renderQueuedContainer(): void {
+		this.queuedContainer.clear();
+		for ( const prompt of this.queuedPrompts ) {
+			this.queuedContainer.addChild( new Text( '\n' + formatQueuedPrompt( prompt ), 0, 0 ) );
+		}
+		this.updateHints();
+		this.tui.requestRender();
+	}
+
+	private lastProgressText: Text | null = null;
+
+	setLoaderMessage( message: string, update?: boolean ): void {
 		if ( ! message ) {
 			return;
 		}
-		this.messages.addChild( new Text( '   ' + chalk.dim( '⎿ ' ) + chalk.dim( message ), 0, 0 ) );
+		const formatted = '   ' + chalk.dim( '⎿ ' ) + chalk.dim( message );
+		if ( update && this.lastProgressText ) {
+			this.lastProgressText.setText( formatted );
+		} else {
+			this.lastProgressText = new Text( formatted, 0, 0 );
+			this.messages.addChild( this.lastProgressText );
+		}
 		this.tui.requestRender();
 	}
 
 	private showLoader( message?: string ): void {
 		if ( ! this.loaderVisible ) {
-			// Ensure editor is removed first so loader appears above it
+			// Re-attach trailing children in order so the final stack is
+			// [..., loader, queuedContainer, editor?] — loader just above the
+			// staged follow-ups, which sit just above the editor.
 			const wasEditorVisible = this.editorVisible;
 			if ( wasEditorVisible ) {
 				this.tui.removeChild( this.editor );
 			}
+			this.tui.removeChild( this.queuedContainer );
 			this.tui.addChild( this.loader );
+			this.tui.addChild( this.queuedContainer );
 			if ( wasEditorVisible ) {
 				this.tui.addChild( this.editor );
 			}
@@ -1354,6 +1391,7 @@ export class AiChatUI {
 			this.loader.stop();
 			this.tui.removeChild( this.loader );
 			this.loaderVisible = false;
+			this.lastProgressText = null;
 			this.tui.requestRender();
 		}
 	}
@@ -1368,7 +1406,12 @@ export class AiChatUI {
 				this.activeExpandablePreview.isExpanded ? __( 'ctrl+o collapse' ) : __( 'ctrl+o expand' )
 			);
 		}
-		hints.push( __( 'esc to interrupt' ) );
+		if ( this.queuedPrompts.length > 0 ) {
+			hints.push( __( 'backspace to unqueue' ) );
+		}
+		if ( this.interruptCallback ) {
+			hints.push( __( 'esc to interrupt' ) );
+		}
 		this.editor.hints = hints;
 	}
 
@@ -1398,10 +1441,12 @@ export class AiChatUI {
 		this.editor.setText( '' );
 		this._inAgentTurn = true;
 		this.updateHints();
-		this.showLoader( this.randomThinkingMessage() );
+		this.showLoader( randomThinkingMessage() );
 		this.currentResponseText = '';
 		this.hasShownResponseMarker = false;
 		this.wasInterrupted = false;
+		this.interruptionNoticeShown = false;
+		this.usageCapReached = false;
 		this.turnStartTime = this.nowMs();
 		this.todoSnapshot = [];
 		this.latestTodoSnapshot = [];
@@ -1428,6 +1473,16 @@ export class AiChatUI {
 		this.currentResponseText = '';
 		this.pendingTodoRenders.clear();
 		this.pendingTodoRenderOrder = [];
+	}
+
+	/**
+	 * Returns true when the current/last turn surfaced the AI usage cap
+	 * message to the user. Lets callers suppress redundant downstream
+	 * errors (e.g. the SDK's "process exited with code 1" that follows
+	 * the upstream 429).
+	 */
+	hasErrorBeenSurfaced(): boolean {
+		return this.usageCapReached;
 	}
 
 	showOnboarding(): void {
@@ -1738,8 +1793,9 @@ export class AiChatUI {
 	}
 
 	private showToolUse( toolLabel: string ): void {
-		this.showLoader( this.randomThinkingMessage() );
+		this.showLoader( randomThinkingMessage() );
 		this.stopToolDotBlink();
+		this.lastProgressText = null;
 		this.toolDotLabel = toolLabel;
 		this.toolDotText = new Text( '\n ' + '⏺' + ' ' + toolLabel, 0, 0 );
 		this.messages.addChild( this.toolDotText );
@@ -1771,7 +1827,7 @@ export class AiChatUI {
 		}
 
 		const contentBlocks = Array.isArray( message.message.content ) ? message.message.content : [];
-		const toolResultBlock = contentBlocks.find( isToolResultBlock );
+		const toolResultBlock = ( contentBlocks as unknown[] ).find( isToolResultBlock );
 		if ( ! toolResultBlock ) {
 			return null;
 		}
@@ -2008,18 +2064,27 @@ export class AiChatUI {
 						this.closeOptionPicker();
 						resolve( item.value );
 					};
+					selectList.onCancel = () => {
+						this.cancelOptionPicker();
+					};
 				} );
 
+				if ( ! selected ) {
+					return answers;
+				}
 				answers[ q.question ] = selected;
 			} else {
 				// Free-form text input
 				const answer = await this.waitForInput();
+				if ( ! answer ) {
+					return answers;
+				}
 				answers[ q.question ] = answer;
 			}
 		}
 
 		// Resume the agent turn with a fresh markdown block for subsequent text
-		this.showLoader( this.randomThinkingMessage() );
+		this.showLoader( randomThinkingMessage() );
 		return answers;
 	}
 
@@ -2027,14 +2092,44 @@ export class AiChatUI {
 	 * Process an SDK message and update the UI.
 	 * Returns session result when the agent turn is complete.
 	 */
-	handleMessage(
-		message: SDKMessage
-	):
-		| { sessionId: string; success: boolean; maxTurnsReached?: undefined }
-		| { sessionId: string; maxTurnsReached: true; numTurns: number }
-		| undefined {
+	handleMessage( message: SDKMessage ): HandleMessageResult | undefined {
+		if ( this.wasInterrupted && message.type !== 'result' ) {
+			return undefined;
+		}
+
 		switch ( message.type ) {
 			case 'assistant': {
+				// Detect the AI usage cap response from the WordPress.com proxy.
+				// The proxy returns a 429 when the cap is hit; the SDK can't
+				// classify errors from off-domain base URLs so it forwards the
+				// body verbatim as a text block prefixed with "API Error: 429".
+				// On the wpcom provider a 429 is always a cap issue — matching
+				// the SDK's status-code prefix is more robust than any specific
+				// body marker, which has varied across backend revisions.
+				let isCapMessage = false;
+				if ( message.error && this.currentProvider === 'wpcom' ) {
+					for ( const block of message.message.content ) {
+						if ( block.type === 'text' && /API Error:\s*429/i.test( block.text ?? '' ) ) {
+							isCapMessage = true;
+							break;
+						}
+					}
+				}
+				if ( isCapMessage ) {
+					this.hideLoader();
+					this.usageCapReached = true;
+					this.showError(
+						__(
+							'AI usage cap reached. You can continue using Studio Code by switching to your own Anthropic API key.'
+						)
+					);
+					this.showInfo(
+						__( 'Use /provider to switch to Anthropic · API key, or try again later.' )
+					);
+					this.currentMarkdown = null;
+					this.currentResponseText = '';
+					return undefined;
+				}
 				for ( const block of message.message.content ) {
 					if ( block.type === 'text' ) {
 						this.hideLoader();
@@ -2095,7 +2190,7 @@ export class AiChatUI {
 				// Always show the loader after processing — the agent turn is still active
 				// and more messages are coming (next API call, tool execution, etc.)
 				if ( ! this.replayMode && ! this.loaderVisible ) {
-					this.showLoader( this.randomThinkingMessage() );
+					this.showLoader( randomThinkingMessage() );
 				}
 				return undefined;
 			}
@@ -2123,75 +2218,85 @@ export class AiChatUI {
 			}
 			case 'result': {
 				this.hideLoader();
-				if ( message.subtype === 'success' ) {
-					const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
-					if ( ! this.hasShownResponseMarker ) {
-						this.messages.addChild(
-							new Text( '\n ' + chalk.blue( '⏺' ) + ' ' + __( 'Done' ), 0, 0 )
-						);
-					}
-					this.showInfo(
-						sprintf(
-							/* translators: 1: seconds spent thinking, 2: number of turns */
-							_n(
-								'Thought for %1$ds · %2$d turn',
-								'Thought for %1$ds · %2$d turns',
-								message.num_turns
-							),
-							thinkingSec,
-							message.num_turns
-						)
-					);
-					return { sessionId: message.session_id, success: true };
+
+				// When the cap message was surfaced earlier in this turn,
+				// the SDK still classifies the turn as successful (or returns
+				// is_error with the raw upstream body). Skip the "Done" /
+				// "Thought for Xs" indicators and the generic error rendering
+				// so the cap message stands on its own, and report the turn
+				// as failed to upstream callers.
+				if ( this.usageCapReached ) {
+					return { type: 'result', sessionId: message.session_id, success: false };
 				}
 
-				// User-initiated interruption: show friendly message instead of error
+				// User-initiated interruption: friendly message, suppress retry prompt.
 				if ( this.wasInterrupted ) {
-					const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
-					this.messages.addChild(
-						new Text(
-							'\n ' + chalk.yellow( '⏺' ) + ' ' + chalk.yellow( __( 'Interrupted' ) ),
-							0,
-							0
-						)
-					);
-					this.showInfo(
-						sprintf(
-							/* translators: %d: number of seconds */
-							__( 'Ran for %ds before interruption' ),
-							thinkingSec
-						)
-					);
-					return { sessionId: message.session_id, success: false };
+					this.showInterruptedNotice();
+					return {
+						type: 'result',
+						sessionId: message.session_id,
+						success: false,
+						interrupted: true,
+					};
 				}
 
-				// Build detailed error message
-				const parts: string[] = [];
-				if ( 'errors' in message && message.errors?.length ) {
-					parts.push( ...message.errors );
-				}
-				if ( message.subtype === 'error_max_turns' ) {
-					return {
-						sessionId: message.session_id,
-						maxTurnsReached: true,
-						numTurns: message.num_turns,
-					};
-				} else if ( message.subtype ) {
-					parts.push( `(${ message.subtype })` );
-				}
-				if ( 'permission_denials' in message && message.permission_denials?.length ) {
-					for ( const denial of message.permission_denials ) {
-						parts.push(
-							sprintf(
-								/* translators: %s: tool name */
-								__( 'Permission denied: %s' ),
-								denial.tool_name
-							)
-						);
+				// is_error is the authoritative failure signal. A message can have
+				// subtype='success' and still carry is_error=true (e.g. API 504 after
+				// the SDK exhausts retries and emits the error text as the result).
+				if ( message.is_error ) {
+					const parts: string[] = [];
+					if ( 'errors' in message && message.errors?.length ) {
+						parts.push( ...message.errors );
 					}
+					if ( 'result' in message && typeof message.result === 'string' && message.result ) {
+						parts.push( message.result );
+					} else if ( message.subtype && message.subtype !== 'success' ) {
+						parts.push( `(${ message.subtype })` );
+					}
+					if ( 'permission_denials' in message && message.permission_denials?.length ) {
+						for ( const denial of message.permission_denials ) {
+							parts.push(
+								sprintf(
+									/* translators: %s: tool name */
+									__( 'Permission denied: %s' ),
+									denial.tool_name
+								)
+							);
+						}
+					}
+					this.showError( parts.length > 0 ? parts.join( '\n' ) : __( 'Unknown error' ) );
+					return { type: 'result', sessionId: message.session_id, success: false };
 				}
-				this.showError( parts.length > 0 ? parts.join( '\n' ) : __( 'Unknown error' ) );
-				return { sessionId: message.session_id, success: false };
+
+				// Genuine success.
+				const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
+				if ( ! this.hasShownResponseMarker ) {
+					this.messages.addChild(
+						new Text( '\n ' + chalk.blue( '⏺' ) + ' ' + __( 'Done' ), 0, 0 )
+					);
+				}
+				this.showInfo(
+					sprintf(
+						/* translators: 1: seconds spent thinking, 2: number of turns */
+						_n(
+							'Thought for %1$ds · %2$d turn',
+							'Thought for %1$ds · %2$d turns',
+							message.num_turns
+						),
+						thinkingSec,
+						message.num_turns
+					)
+				);
+				return { type: 'result', sessionId: message.session_id, success: true };
+			}
+			case 'system': {
+				if ( message.subtype === 'status' && message.status === 'compacting' ) {
+					this.showLoader( __( 'Compacting conversation history…' ) );
+				} else if ( message.subtype === 'compact_boundary' ) {
+					this.hideLoader();
+					this.showInfo( __( 'Conversation history compacted' ) );
+				}
+				return undefined;
 			}
 		}
 		return undefined;

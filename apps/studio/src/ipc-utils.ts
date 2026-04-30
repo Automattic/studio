@@ -1,11 +1,12 @@
 import crypto from 'crypto';
 import { BrowserWindow } from 'electron';
-import { BlueprintValidationWarning } from '@studio/common/lib/blueprint-validation';
 import { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
+import { ExportEventTuple, ImportEventTuple } from '@studio/common/lib/import-export-events';
 import { PreviewCommandLoggerAction } from '@studio/common/logger-actions';
-import { ImportExportEventData } from 'src/lib/import-export/handle-events';
 import { getMainWindow } from 'src/main-window';
 import type { StoredAuthToken } from '@studio/common/lib/shared-config';
+import type { AgentRunEvent } from 'src/modules/ai-agent/types';
+import type { StudioCodeEvent } from 'src/modules/studio-code/studio-code-event-types';
 
 type SnapshotEventData = {
 	action: PreviewCommandLoggerAction;
@@ -23,12 +24,11 @@ export interface IpcEvents {
 	'add-site-with-blueprint': [
 		{
 			blueprintPath: string;
-			warnings?: BlueprintValidationWarning[];
 		},
 	];
 	'auth-updated': [ { token: StoredAuthToken } | { token: null } | { error: unknown } ];
-	'on-export': [ ImportExportEventData, string ];
-	'on-import': [ ImportExportEventData, string ];
+	'on-export': [ ExportEventTuple, string ];
+	'on-import': [ ImportEventTuple, string ];
 	'on-site-create-progress': [ { siteId: string; message: string } ];
 	'site-context-menu-action': [ { action: string; siteId: string } ];
 	'site-event': [ SiteEvent ];
@@ -61,6 +61,12 @@ export interface IpcEvents {
 	'user-preference-changed': [ void ];
 	'refresh-app-globals': [ void ];
 	'beta-features-updated': [ void ];
+	'ai-agent-event': [ AgentRunEvent ];
+	'studio-code-event': [ { siteId: string; event: StudioCodeEvent } ];
+	// Inspector events forwarded from a `WebContentsView`-backed site preview.
+	// Renderers subscribe through `ipcListener` and dispatch to the
+	// `viewId`-matching consumer (today: `SitePreview`'s annotate flow).
+	'preview-view:event': [ { viewId: string; payload: unknown } ];
 }
 
 export async function sendIpcEventToRenderer< T extends keyof IpcEvents >(

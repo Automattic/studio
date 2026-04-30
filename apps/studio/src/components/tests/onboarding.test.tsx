@@ -15,6 +15,7 @@ vi.mock( 'src/modules/onboarding/hooks/use-onboarding', () => ( {
 vi.mock( 'src/lib/app-globals', () => ( {
 	isMac: () => true,
 	isWindows: () => false,
+	isLinux: () => false,
 } ) );
 
 vi.mock( 'src/hooks/use-offline', () => ( {
@@ -35,10 +36,12 @@ vi.mock( 'src/stores/app-version-api', async () => {
 } );
 
 const mockSaveOnboarding = vi.fn();
+const mockOpenURL = vi.fn();
 
 vi.mock( 'src/lib/get-ipc-api', () => ( {
 	getIpcApi: vi.fn( () => ( {
 		saveOnboarding: mockSaveOnboarding,
+		openURL: mockOpenURL,
 	} ) ),
 } ) );
 
@@ -100,6 +103,30 @@ describe( 'Onboarding Component', () => {
 		await user.hover( logIn );
 
 		expect( screen.queryByText( "You're currently offline." ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'renders the Terms of Service and Privacy Policy links', () => {
+		renderWithProvider( <Onboarding /> );
+
+		expect( screen.getByTestId( 'onboarding-legal' ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Terms of Service' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Privacy Policy' } ) ).toBeVisible();
+	} );
+
+	it( 'opens the Terms of Service URL when the link is clicked', async () => {
+		renderWithProvider( <Onboarding /> );
+
+		await user.click( screen.getByRole( 'button', { name: 'Terms of Service' } ) );
+
+		expect( mockOpenURL ).toHaveBeenCalledWith( 'https://wordpress.com/tos/' );
+	} );
+
+	it( 'opens the Privacy Policy URL when the link is clicked', async () => {
+		renderWithProvider( <Onboarding /> );
+
+		await user.click( screen.getByRole( 'button', { name: 'Privacy Policy' } ) );
+
+		expect( mockOpenURL ).toHaveBeenCalledWith( 'https://automattic.com/privacy/' );
 	} );
 
 	it( 'should save the current app version when onboarding completes', async () => {

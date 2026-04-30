@@ -1,48 +1,48 @@
 import fs from 'fs';
 import path from 'path';
-import { query, type Query } from '@anthropic-ai/claude-agent-sdk';
-import {
-	ALLOWED_TOOLS,
-	ALLOWED_TOOLS_REMOTE,
-	STUDIO_ROOT,
-	createPathApprovalSession,
-	promptForApproval,
-	type AskUserQuestion,
-} from 'cli/ai/security';
+import { query, type HookCallback, type Query } from '@anthropic-ai/claude-agent-sdk';
+import { AI_MODELS, DEFAULT_MODEL, type AiModelId } from '@studio/common/ai/models';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { createRemoteSiteTools, createStudioTools } from 'cli/ai/tools';
+import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import type { SiteInfo } from 'cli/ai/ui';
 
-export type { AskUserQuestion } from 'cli/ai/security';
+export { AI_MODELS, DEFAULT_MODEL, type AiModelId };
+
+export interface AskUserQuestion {
+	question: string;
+	options: { label: string; description: string }[];
+	allowFreeForm?: boolean;
+}
+
+export type AskUserHandler = (
+	questions: AskUserQuestion[]
+) => Promise< Record< string, string > >;
 
 export interface AiAgentConfig {
 	prompt: string;
 	env?: Record< string, string >;
 	model?: AiModelId;
-	maxTurns?: number;
 	resume?: string;
 	activeSite?: SiteInfo | null;
 	wpcomAccessToken?: string;
-	onAskUser?: ( questions: AskUserQuestion[] ) => Promise< Record< string, string > >;
+	onAskUser?: AskUserHandler;
 }
-
-export const AI_MODELS = {
-	'claude-sonnet-4-6': 'Sonnet 4.6',
-	'claude-opus-4-6': 'Opus 4.6',
-} as const;
-
-export type AiModelId = keyof typeof AI_MODELS;
-
-export const DEFAULT_MODEL: AiModelId = 'claude-sonnet-4-6';
-const pathApprovalSession = createPathApprovalSession();
 
 // The Claude Agent SDK rejects internal pending promises (e.g. control
 // responses) when an agent turn is interrupted via ESC. These rejections
 // are unhandled because they originate inside the SDK cleanup path rather
 // than propagating through the async iterator. Without this handler,
 // Node.js terminates the process on unhandled rejections.
+const SDK_INTERRUPT_CLEANUP_ERRORS = [
+	'Query closed',
+	'ProcessTransport is not ready for writing',
+];
 process.on( 'unhandledRejection', ( reason ) => {
-	if ( reason instanceof Error && reason.message.includes( 'Query closed' ) ) {
+	if (
+		reason instanceof Error &&
+		SDK_INTERRUPT_CLEANUP_ERRORS.some( ( msg ) => reason.message.includes( msg ) )
+	) {
 		return;
 	}
 	throw reason;
@@ -57,7 +57,6 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 		prompt,
 		env,
 		model = DEFAULT_MODEL,
-		maxTurns = 50,
 		resume,
 		activeSite,
 		wpcomAccessToken,
@@ -67,15 +66,20 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 
 	const isRemoteSite = activeSite?.remote && activeSite?.wpcomSiteId && wpcomAccessToken;
 
+	// Preview-steering tools only belong in the toolset when the Studio
+	// desktop UI is on the other end of the IPC channel — otherwise the
+	// agent's navigate/reload calls render as noise in the terminal
+	// transcript. `process.send` is the same signal `emitEvent` uses to
+	// pick between IPC and stdout NDJSON.
+	const isForkedByDesktop = typeof process.send === 'function';
+
 	// Configure MCP servers based on site type:
 	// Remote sites get WP.com REST API tools + screenshot; local sites get the full Studio toolset.
 	const mcpServers = {
 		studio: isRemoteSite
 			? createRemoteSiteTools( wpcomAccessToken, activeSite.wpcomSiteId! )
-			: createStudioTools(),
+			: createStudioTools( { enablePreviewSteering: isForkedByDesktop } ),
 	};
-
-	const allowedTools = isRemoteSite ? [ ...ALLOWED_TOOLS_REMOTE ] : [ ...ALLOWED_TOOLS ];
 
 	// Build site-aware system prompt
 	const systemPromptOptions = isRemoteSite
@@ -86,11 +90,40 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 					id: activeSite.wpcomSiteId!,
 				},
 		  }
-		: undefined;
+		: { previewSteering: isForkedByDesktop };
 
-	if ( ! fs.existsSync( STUDIO_ROOT ) ) {
-		fs.mkdirSync( STUDIO_ROOT, { recursive: true } );
+	if ( ! fs.existsSync( STUDIO_SITES_ROOT ) ) {
+		fs.mkdirSync( STUDIO_SITES_ROOT, { recursive: true } );
 	}
+
+	// Intercept the built-in AskUserQuestion tool so the agent's questions
+	// render in our chat UI (via onAskUser) instead of the SDK's default
+	// prompt. PreToolUse with `matcher: 'AskUserQuestion'` lets us inject
+	// answers via `updatedInput` and approve the call, while leaving every
+	// other tool to the 'auto' permission classifier.
+	const askUserQuestionHook: HookCallback | undefined = onAskUser
+		? async ( input ) => {
+				if ( input.hook_event_name !== 'PreToolUse' ) {
+					return {};
+				}
+				const toolInput = input.tool_input as {
+					questions?: AskUserQuestion[];
+					answers?: Record< string, string >;
+				};
+				const questions = ( toolInput.questions ?? [] ).map( ( q ) => ( {
+					...q,
+					allowFreeForm: true,
+				} ) );
+				const answers = await onAskUser( questions );
+				return {
+					hookSpecificOutput: {
+						hookEventName: 'PreToolUse' as const,
+						permissionDecision: 'allow' as const,
+						updatedInput: { ...toolInput, answers },
+					},
+				};
+		  }
+		: undefined;
 
 	return query( {
 		prompt,
@@ -102,36 +135,14 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 				append: buildSystemPrompt( systemPromptOptions ),
 			},
 			mcpServers,
-			maxTurns,
-			cwd: STUDIO_ROOT,
+			cwd: STUDIO_SITES_ROOT,
 			tools: { type: 'preset', preset: 'claude_code' },
-			allowedTools,
-			permissionMode: 'default',
-			canUseTool: async ( toolName, input, metadata ) => {
-				if ( toolName === 'AskUserQuestion' && onAskUser ) {
-					const typedInput = input as {
-						questions?: AskUserQuestion[];
-						answers?: Record< string, string >;
-					};
-					const questions = ( typedInput.questions ?? [] ).map( ( q ) => ( {
-						...q,
-						allowFreeForm: true,
-					} ) );
-					const answers = await onAskUser( questions );
-					return {
-						behavior: 'allow' as const,
-						updatedInput: { ...input, answers },
-					};
-				}
-
-				return promptForApproval( {
-					toolName,
-					input,
-					metadata,
-					onAskUser,
-					pathApprovalSession,
-				} );
-			},
+			permissionMode: 'auto',
+			...( askUserQuestionHook && {
+				hooks: {
+					PreToolUse: [ { matcher: 'AskUserQuestion', hooks: [ askUserQuestionHook ] } ],
+				},
+			} ),
 			plugins: [ { type: 'local' as const, path: path.resolve( import.meta.dirname, 'plugin' ) } ],
 			model,
 			resume,

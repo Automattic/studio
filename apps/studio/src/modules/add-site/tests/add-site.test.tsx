@@ -18,6 +18,7 @@ vi.mock( 'src/stores/certificate-trust-api', async () => {
 
 vi.mock( 'src/lib/app-globals', () => ( {
 	isWindows: () => false,
+	isLinux: () => false,
 } ) );
 
 vi.mock( 'src/stores/wordpress-versions-api', async () => {
@@ -203,7 +204,7 @@ describe( 'AddSite', () => {
 				undefined,
 				false,
 				undefined, // blueprint parameter
-				'8.3',
+				'8.4',
 				expect.any( Function ),
 				false,
 				'admin',
@@ -423,7 +424,7 @@ describe( 'AddSite', () => {
 				undefined,
 				false,
 				undefined, // blueprint parameter
-				'8.3',
+				'8.4',
 				expect.any( Function ),
 				false,
 				'admin',
@@ -608,7 +609,7 @@ describe( 'AddSite', () => {
 			expect(
 				screen.getByText( 'Version differs from Blueprint recommendation' )
 			).toBeInTheDocument();
-			expect( screen.getByText( 'PHP 7.1 (selected is 8.3)' ) ).toBeInTheDocument();
+			expect( screen.getByText( 'PHP 7.1 (selected is 8.4)' ) ).toBeInTheDocument();
 			expect( screen.getByText( 'WordPress 6.2.0 (selected is latest)' ) ).toBeInTheDocument();
 		} );
 
@@ -630,7 +631,7 @@ describe( 'AddSite', () => {
 						playground_url: '',
 						blueprint: {
 							preferredVersions: {
-								php: '8.3', // Same as default in store
+								php: '8.4', // Same as default in store
 								wp: 'latest',
 							},
 						},

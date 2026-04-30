@@ -93,6 +93,12 @@ For easier access, you can create a desktop entry file that will add Studio to y
    update-desktop-database ~/.local/share/applications
    ```
 
+6. **Register Studio handler for `wp-studio://` links:**
+   ```bash
+   xdg-mime default studio.desktop x-scheme-handler/wp-studio
+   ```
+   Without this, browsers will still show "Open With… / No Apps Available" when WordPress.com OAuth redirects back to `wp-studio://`.
+
 Studio should now appear in your application launcher and can handle `wp-studio://` protocol URLs.
 
 ## Running with Wayland
@@ -118,6 +124,19 @@ If you encounter permission issues when running the executable, make sure it has
 ```bash
 chmod +x apps/studio/out/Studio-linux-x64/studio
 ```
+
+### `npm start` fails with a Chrome sandbox error (Ubuntu 24.04+)
+
+On distributions that restrict unprivileged user namespaces via AppArmor (notably Ubuntu 24.04+), `npm start` may abort with `FATAL: ... The SUID sandbox helper binary was found, but is not configured correctly`. Electron falls back to its SUID sandbox because AppArmor blocks the user-namespace sandbox by default.
+
+Allow the user-namespace sandbox persistently:
+
+```bash
+echo 'kernel.apparmor_restrict_unprivileged_userns=0' | sudo tee /etc/sysctl.d/60-apparmor-namespace.conf
+sudo sysctl --system
+```
+
+The setting survives reboots and `npm install` runs, so you only need to do this once per machine.
 
 ### Missing Dependencies
 

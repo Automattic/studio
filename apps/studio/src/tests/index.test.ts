@@ -26,6 +26,7 @@ vi.mock( import( 'src/lib/bump-stats' ), async ( importOriginal ) => {
 		bumpAggregatedUniqueStat: vi.fn().mockResolvedValue( undefined ),
 	};
 } );
+vi.mock( 'src/lib/user-data-watcher' );
 vi.mock( 'src/setup-wp-server-files', () => ( {
 	setupWPServerFiles: vi.fn().mockResolvedValue( undefined ),
 	updateWPServerFiles: vi.fn().mockResolvedValue( undefined ),
@@ -59,6 +60,12 @@ vi.mock( 'src/modules/cli/lib/execute-command', () => {
 } );
 vi.mock( 'src/modules/cli/lib/windows-installation-manager', () => ( {
 	autoInstallWindowsCliIfNeeded: vi.fn().mockResolvedValue( undefined ),
+} ) );
+vi.mock( 'src/modules/cli/lib/macos-installation-manager', () => ( {
+	autoInstallMacOSCliIfNeeded: vi.fn().mockResolvedValue( undefined ),
+} ) );
+vi.mock( 'src/modules/cli/lib/linux-installation-manager', () => ( {
+	autoInstallLinuxCliIfNeeded: vi.fn().mockResolvedValue( undefined ),
 } ) );
 vi.mock( 'electron-devtools-installer', () => ( {
 	installExtension: vi.fn().mockResolvedValue( { id: 'test-extension' } ),

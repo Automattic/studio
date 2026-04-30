@@ -7,6 +7,7 @@ import { registerCommand as registerExportCommand } from 'cli/commands/export';
 import { registerCommand as registerImportCommand } from 'cli/commands/import';
 import { registerCommand as registerMcpCommand } from 'cli/commands/mcp';
 import { registerCommand as registerPullCommand } from 'cli/commands/pull';
+import { registerCommand as registerPullReprintCommand } from 'cli/commands/pull-reprint';
 import { registerCommand as registerPushCommand } from 'cli/commands/push';
 import {
 	bumpAggregatedUniqueStat,
@@ -17,6 +18,7 @@ import {
 import { setupServerFiles } from 'cli/lib/dependency-management/setup';
 import { loadTranslations } from 'cli/lib/i18n';
 import { StatsGroup, StatsMetric } from 'cli/lib/types/bump-stats';
+import { setupUpdateNotifier } from 'cli/lib/update-notifier';
 import { untildify } from 'cli/lib/utils';
 import { StudioArgv } from 'cli/types';
 
@@ -25,6 +27,8 @@ const version = __STUDIO_CLI_VERSION__;
 suppressPunycodeWarning();
 
 async function main() {
+	await setupUpdateNotifier( version );
+
 	const yargsLocale = await loadTranslations();
 
 	if ( semver.lt( process.version, __MINIMUM_NODE_VERSION__ ) ) {
@@ -63,6 +67,9 @@ async function main() {
 			const { runMigrations } = await import( '@studio/common/lib/migration' );
 			const { migrations } = await import( 'cli/migrations' );
 			await runMigrations( migrations );
+
+			const { prunePmLogs } = await import( 'cli/lib/prune-pm-logs' );
+			await prunePmLogs();
 		} )
 		.middleware( async ( argv ) => {
 			if ( __ENABLE_CLI_TELEMETRY__ && ! argv.avoidTelemetry ) {
@@ -181,6 +188,9 @@ async function main() {
 	} );
 
 	registerPullCommand( studioArgv );
+	if ( process.env.STUDIO_ENABLE_PULL_REPRINT ) {
+		registerPullReprintCommand( studioArgv );
+	}
 	registerPushCommand( studioArgv );
 
 	studioArgv

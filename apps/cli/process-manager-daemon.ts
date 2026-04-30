@@ -23,17 +23,24 @@ import { ManagerMessage } from 'cli/lib/types/wordpress-server-ipc';
 const SOCKET_TIMEOUT_MS = 2_500;
 const STOP_TIMEOUT_MS = 5_000;
 
+// In-memory tail of stderr kept per child so we can include the current invocation's error
+// output in the `exit` event. Bounded to avoid unbounded memory growth on chatty processes.
+const STDERR_BUFFER_MAX_LINES = 100;
+const STDERR_BUFFER_MAX_BYTES = 16 * 1024;
+
 type ManagedProcessBase = {
 	pmId: number;
 	name: string;
 	scriptPath: string;
 	args: string[];
-	env: Record< string, string >;
+	env: NodeJS.ProcessEnv;
 	child: ChildProcess;
 	stdoutLogPath: string;
 	stderrLogPath: string;
 	stdoutStream: WriteStream;
 	stderrStream: WriteStream;
+	stderrBuffer: string[];
+	stderrBufferBytes: number;
 	settled: boolean;
 };
 type ManagedProcessRunning = ManagedProcessBase & {
@@ -45,10 +52,18 @@ type ManagedProcessStopped = ManagedProcessBase & {
 };
 type ManagedProcess = ManagedProcessRunning | ManagedProcessStopped;
 
-function getProcessLogPaths( processName: string ) {
+function formatLogDateTag( date: Date ): string {
+	const year = date.getFullYear();
+	const month = String( date.getMonth() + 1 ).padStart( 2, '0' );
+	const day = String( date.getDate() ).padStart( 2, '0' );
+	return `${ year }${ month }${ day }`;
+}
+
+function getProcessLogPaths( processName: string, date: Date = new Date() ) {
+	const dateTag = formatLogDateTag( date );
 	return {
-		stdoutLogPath: path.join( PROCESS_MANAGER_LOGS_DIR, `${ processName }-out.log` ),
-		stderrLogPath: path.join( PROCESS_MANAGER_LOGS_DIR, `${ processName }-error.log` ),
+		stdoutLogPath: path.join( PROCESS_MANAGER_LOGS_DIR, `${ processName }-out-${ dateTag }.log` ),
+		stderrLogPath: path.join( PROCESS_MANAGER_LOGS_DIR, `${ processName }-error-${ dateTag }.log` ),
 	};
 }
 
@@ -183,7 +198,7 @@ export class ProcessManagerDaemon {
 	private async startProcess(
 		processName: string,
 		scriptPath: string,
-		env: Record< string, string >,
+		env: NodeJS.ProcessEnv,
 		args: string[]
 	): Promise< ProcessDescription > {
 		const existing = this.getManagedProcessByName( processName );
@@ -199,7 +214,7 @@ export class ProcessManagerDaemon {
 		const doesCurrentNodeSupportJspi = semver.gte( process.version, '24.0.0' );
 		const execArgv = doesCurrentNodeSupportJspi ? [ '--experimental-wasm-jspi' ] : [];
 		const child = spawn( process.execPath, [ ...execArgv, scriptPath, ...args ], {
-			env: { ...process.env, ...env },
+			env,
 			stdio: [ 'ignore', 'pipe', 'pipe', 'ipc' ],
 			windowsHide: true,
 		} );
@@ -219,13 +234,17 @@ export class ProcessManagerDaemon {
 			stderrLogPath,
 			stdoutStream,
 			stderrStream,
+			stderrBuffer: [],
+			stderrBufferBytes: 0,
 			settled: false,
 		};
 
 		this.managedProcesses.set( pmId, managedProcess );
 
 		this.pipeOutputWithTimestamp( child.stdout, stdoutStream );
-		this.pipeOutputWithTimestamp( child.stderr, stderrStream );
+		this.pipeOutputWithTimestamp( child.stderr, stderrStream, ( line ) => {
+			this.recordStderrLine( managedProcess, line );
+		} );
 
 		child.on( 'message', ( raw ) => {
 			const event = daemonEventSchema.safeParse( {
@@ -242,7 +261,11 @@ export class ProcessManagerDaemon {
 		} );
 
 		child.on( 'error', ( error ) => {
-			writeTimestampedLines( stderrStream, error.stack ?? error.message );
+			const errorText = error.stack ?? error.message;
+			writeTimestampedLines( stderrStream, errorText );
+			for ( const line of errorText.split( '\n' ) ) {
+				this.recordStderrLine( managedProcess, line );
+			}
 			void this.handleProcessExit( managedProcess );
 		} );
 
@@ -300,11 +323,14 @@ export class ProcessManagerDaemon {
 		managedProcess.stdoutStream.end();
 		managedProcess.stderrStream.end();
 
+		const stderrTail = managedProcess.stderrBuffer.join( '\n' );
+
 		await this.broadcastEvent( {
 			type: 'process-event',
 			payload: {
 				process: { name: managedProcess.name, pm_id: managedProcess.pmId },
 				event: 'exit',
+				...( stderrTail ? { stderrTail } : {} ),
 			},
 		} );
 	}
@@ -336,7 +362,8 @@ export class ProcessManagerDaemon {
 
 	private pipeOutputWithTimestamp(
 		input: NodeJS.ReadableStream | null,
-		target: WriteStream
+		target: WriteStream,
+		onLine?: ( line: string ) => void
 	): void {
 		if ( ! input ) {
 			return;
@@ -349,7 +376,24 @@ export class ProcessManagerDaemon {
 
 		lineReader.on( 'line', ( line ) => {
 			void target.write( timestampLogLine( line ) );
+			onLine?.( line );
 		} );
+	}
+
+	private recordStderrLine( managedProcess: ManagedProcess, line: string ): void {
+		managedProcess.stderrBuffer.push( line );
+		managedProcess.stderrBufferBytes += Buffer.byteLength( line, 'utf8' ) + 1; // +1 for the joining newline
+
+		while (
+			managedProcess.stderrBuffer.length > STDERR_BUFFER_MAX_LINES ||
+			managedProcess.stderrBufferBytes > STDERR_BUFFER_MAX_BYTES
+		) {
+			const dropped = managedProcess.stderrBuffer.shift();
+			if ( dropped === undefined ) {
+				break;
+			}
+			managedProcess.stderrBufferBytes -= Buffer.byteLength( dropped, 'utf8' ) + 1;
+		}
 	}
 
 	private toProcessDescription( managedProcess: ManagedProcess ): ProcessDescription {

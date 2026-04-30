@@ -169,6 +169,92 @@ describe( 'AiChatUI auto site selection', () => {
 	} );
 } );
 
+describe( 'AiChatUI.clearTranscript', () => {
+	beforeEach( () => {
+		vi.clearAllMocks();
+	} );
+
+	it( 'clears children, resets streaming state, and requests a render', () => {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			clearTranscript: () => void;
+			[ key: string ]: unknown;
+		};
+
+		const children: unknown[] = [ {}, {} ];
+		const messages = {
+			clear: vi.fn( () => {
+				children.length = 0;
+			} ),
+			children,
+		};
+		const tui = { requestRender: vi.fn() };
+
+		ui.messages = messages;
+		ui.tui = tui;
+		ui.currentMarkdown = { someMarkdown: true };
+		ui.currentResponseText = 'in-progress';
+		ui.hideLoader = vi.fn();
+		ui.queuedPrompts = [];
+
+		ui.clearTranscript();
+
+		expect( ui.hideLoader ).toHaveBeenCalled();
+		expect( messages.children ).toHaveLength( 0 );
+		expect( ui.currentMarkdown ).toBeNull();
+		expect( ui.currentResponseText ).toBe( '' );
+		expect( tui.requestRender ).toHaveBeenCalledTimes( 1 );
+	} );
+} );
+
+describe( 'AiChatUI interrupt handling', () => {
+	it( 'centralizes ESC interruption cleanup and only calls the interrupt callback once', () => {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			requestInterrupt: () => boolean;
+			[ key: string ]: unknown;
+		};
+		const interruptCallback = vi.fn();
+		const submitResolve = vi.fn();
+
+		ui.interruptCallback = interruptCallback;
+		ui.wasInterrupted = false;
+		ui.closeSitePicker = vi.fn();
+		ui.cancelOptionPicker = vi.fn();
+		ui.showInterruptedNotice = vi.fn();
+		ui.submitResolve = submitResolve;
+		ui.updateHints = vi.fn();
+
+		expect( ui.requestInterrupt() ).toBe( true );
+		expect( ui.wasInterrupted ).toBe( true );
+		expect( ui.closeSitePicker ).toHaveBeenCalledTimes( 1 );
+		expect( ui.cancelOptionPicker ).toHaveBeenCalledTimes( 1 );
+		expect( submitResolve ).toHaveBeenCalledWith( '' );
+		expect( ui.showInterruptedNotice ).toHaveBeenCalledTimes( 1 );
+		expect( interruptCallback ).toHaveBeenCalledTimes( 1 );
+
+		expect( ui.requestInterrupt() ).toBe( true );
+		expect( interruptCallback ).toHaveBeenCalledTimes( 1 );
+		expect( ui.showInterruptedNotice ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'does not advertise ESC as interrupt when no interrupt callback is active', () => {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			updateHints: () => void;
+			[ key: string ]: unknown;
+		};
+		const editor = { hints: [] as string[] };
+
+		ui.editor = editor;
+		ui.interruptCallback = null;
+		ui._inAgentTurn = false;
+		ui.activeExpandablePreview = null;
+		ui.queuedPrompts = [];
+
+		ui.updateHints();
+
+		expect( editor.hints ).not.toContain( 'esc to interrupt' );
+	} );
+} );
+
 describe( 'AiChatUI.handleMessage', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
@@ -214,5 +300,165 @@ describe( 'AiChatUI.handleMessage', () => {
 			{ nameOrPath: 'aura' }
 		);
 		expect( ui.pendingToolCalls ).toEqual( new Map() );
+	} );
+
+	it( 'surfaces the cap message when an assistant error contains an API Error: 429 text block', () => {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			handleMessage: ( message: unknown ) => unknown;
+			[ key: string ]: unknown;
+		};
+		const hideLoader = vi.fn();
+		const showError = vi.fn();
+		const showInfo = vi.fn();
+
+		ui.hideLoader = hideLoader;
+		ui.showError = showError;
+		ui.showInfo = showInfo;
+		ui.currentProvider = 'wpcom';
+		ui.currentMarkdown = { setText: vi.fn() };
+		ui.currentResponseText = 'previous content';
+		ui.usageCapReached = false;
+
+		const result = ui.handleMessage( {
+			type: 'assistant',
+			error: 'unknown',
+			message: {
+				content: [
+					{
+						type: 'text',
+						text: 'API Error: 429 {"error":{"message":"You have exceeded your AI usage cap."}}',
+					},
+				],
+			},
+			parent_tool_use_id: null,
+			uuid: 'uuid',
+			session_id: 'sess',
+		} );
+
+		expect( result ).toBeUndefined();
+		expect( hideLoader ).toHaveBeenCalled();
+		expect( showError ).toHaveBeenCalledWith( expect.stringContaining( 'AI usage cap reached' ) );
+		expect( showInfo ).toHaveBeenCalledWith( expect.stringContaining( '/provider' ) );
+		expect( ui.usageCapReached ).toBe( true );
+		expect( ui.currentMarkdown ).toBeNull();
+		expect( ui.currentResponseText ).toBe( '' );
+	} );
+
+	it( 'does not trigger cap detection for non-wpcom providers even with a 429 error', () => {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			handleMessage: ( message: unknown ) => unknown;
+			[ key: string ]: unknown;
+		};
+		const showError = vi.fn();
+		const showInfo = vi.fn();
+		const addChild = vi.fn();
+		const requestRender = vi.fn();
+
+		ui.hideLoader = vi.fn();
+		ui.showError = showError;
+		ui.showInfo = showInfo;
+		ui.currentProvider = 'anthropic-api-key';
+		ui.currentMarkdown = null;
+		ui.currentResponseText = '';
+		ui.usageCapReached = false;
+		ui.hasShownResponseMarker = false;
+		ui.messages = { addChild };
+		ui.tui = { requestRender };
+		// Replay mode skips the showLoader call at the end of the assistant
+		// branch, which would otherwise need extensive tui stubs.
+		ui.replayMode = true;
+
+		ui.handleMessage( {
+			type: 'assistant',
+			error: 'unknown',
+			message: {
+				content: [
+					{
+						type: 'text',
+						text: 'API Error: 429 {"error":{"message":"cap"}}',
+					},
+				],
+			},
+			parent_tool_use_id: null,
+			uuid: 'uuid',
+			session_id: 'sess',
+		} );
+
+		expect( showError ).not.toHaveBeenCalled();
+		expect( showInfo ).not.toHaveBeenCalled();
+		expect( ui.usageCapReached ).toBe( false );
+	} );
+
+	it( 'skips the "Done" success indicator when the usage cap was reached', () => {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			handleMessage: ( message: unknown ) => unknown;
+			[ key: string ]: unknown;
+		};
+		const addChild = vi.fn();
+		const showInfo = vi.fn();
+
+		ui.hideLoader = vi.fn();
+		ui.showInfo = showInfo;
+		ui.usageCapReached = true;
+		ui.hasShownResponseMarker = false;
+		ui.nowMs = () => 5000;
+		ui.turnStartTime = 0;
+		ui.messages = { addChild };
+
+		const result = ui.handleMessage( {
+			type: 'result',
+			subtype: 'success',
+			session_id: 'sess',
+			num_turns: 1,
+		} );
+
+		expect( addChild ).not.toHaveBeenCalled();
+		expect( showInfo ).not.toHaveBeenCalled();
+		expect( result ).toEqual( { type: 'result', sessionId: 'sess', success: false } );
+	} );
+
+	it( 'reports hasErrorBeenSurfaced based on usageCapReached', () => {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			hasErrorBeenSurfaced: () => boolean;
+			[ key: string ]: unknown;
+		};
+		ui.usageCapReached = false;
+		expect( ui.hasErrorBeenSurfaced() ).toBe( false );
+		ui.usageCapReached = true;
+		expect( ui.hasErrorBeenSurfaced() ).toBe( true );
+	} );
+
+	it( 'does not trip the cap branch when an assistant error has no 429 text block', () => {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			handleMessage: ( message: unknown ) => unknown;
+			[ key: string ]: unknown;
+		};
+		const showError = vi.fn();
+		const showInfo = vi.fn();
+
+		ui.hideLoader = vi.fn();
+		ui.showError = showError;
+		ui.showInfo = showInfo;
+		ui.currentProvider = 'wpcom';
+		ui.currentMarkdown = null;
+		ui.currentResponseText = '';
+		ui.usageCapReached = false;
+		// Empty content + replay mode bypasses the rendering path; this test
+		// only guards that the cap branch isn't taken without a 429 text block.
+		ui.replayMode = true;
+		ui.loaderVisible = true;
+
+		ui.handleMessage( {
+			type: 'assistant',
+			error: 'unknown',
+			message: { content: [] },
+			parent_tool_use_id: null,
+			uuid: 'uuid',
+			session_id: 'sess',
+		} );
+
+		expect( showError ).not.toHaveBeenCalled();
+		expect( showInfo ).not.toHaveBeenCalled();
+		expect( ui.usageCapReached ).toBe( false );
 	} );
 } );

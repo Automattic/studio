@@ -225,15 +225,42 @@ describe( 'CLI: studio site delete', () => {
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
-		it( 'should delete a site and remove files when files flag is set', async () => {
+		it( 'should move files to trash by default', async () => {
 			vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
+
+			await runCommand( testSiteFolder );
+
+			expect( trash ).toHaveBeenCalledWith( [ testSiteFolder ] );
+			expect( saveCliConfig ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
+		} );
+
+		it( 'should not move files to trash when --no-files is used', async () => {
+			vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
+
+			await runCommand( testSiteFolder, false );
+
+			expect( trash ).not.toHaveBeenCalled();
+			expect( saveCliConfig ).toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
+		} );
+
+		it( 'should delete both the visible site and the technical import directory', async () => {
+			testSite = createTestSite( { technicalSiteDirectory: '/test/.studio/imports/site' } );
+			vi.mocked( getSiteByFolder ).mockResolvedValue( testSite );
+			vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
+				version: 1,
+				sites: [ testSite ],
+				snapshots: [],
+			} );
+			vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
+			vi.spyOn( fs, 'existsSync' ).mockImplementation(
+				( filePath ) => filePath === testSiteFolder || filePath === '/test/.studio/imports/site'
+			);
 
 			await runCommand( testSiteFolder, true );
 
-			expect( saveCliConfig ).toHaveBeenCalled();
-			const savedCliConfig = vi.mocked( saveCliConfig ).mock.calls[ 0 ][ 0 ];
-			expect( savedCliConfig.sites ).toHaveLength( 0 );
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
+			expect( trash ).toHaveBeenCalledWith( [ testSiteFolder, '/test/.studio/imports/site' ] );
 		} );
 
 		it( 'should delete associated preview sites', async () => {

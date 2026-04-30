@@ -59,7 +59,13 @@ body {
 		BlinkMacSystemFont,
 		/* macOS/iOS system UI */ 'Segoe UI',
 		Roboto,
-		/* Windows + Android system UI */ 'Apple Color Emoji',
+		/* Windows + Android system UI */ Ubuntu,
+		Cantarell,
+		'Liberation Sans',
+		'DejaVu Sans',
+		/* Linux system UI — listed before emoji fonts so the space glyph
+		   resolves from a text font, not from Noto Color Emoji's wide space. */
+			'Apple Color Emoji',
 		'Segoe UI Emoji',
 		'Noto Color Emoji',
 		/* emoji */ 'Noto Sans',
@@ -96,6 +102,21 @@ blockquote {
 /* Settings modal — reduce WP's default 128px viewport margin to 32px */
 .components-modal__frame.has-size-medium {
 	max-height: calc( 100% - 32px );
+}
+
+/* Sync sites modal — center the title across the full header width regardless
+   of the close button position. */
+.sync-sites-modal .components-modal__header {
+	display: grid;
+	grid-template-columns: 1fr auto 1fr;
+}
+.sync-sites-modal .components-modal__header-heading-container {
+	grid-column: 2;
+	justify-content: center;
+}
+.sync-sites-modal .components-modal__header > button {
+	grid-column: 3;
+	justify-self: end;
 }
 
 /* Tabs */

@@ -1,9 +1,10 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
+import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import {
+	SYNC_IGNORE_DEFAULTS,
 	SYNC_MAX_STALLED_ATTEMPTS,
 	SYNC_POLL_INTERVAL_MS,
 	SYNC_PUSH_SIZE_LIMIT_BYTES,
@@ -14,7 +15,7 @@ import { SyncCommandLoggerAction as LoggerAction } from '@studio/common/logger-a
 import { SyncOption } from '@studio/common/types/sync';
 import { __, sprintf } from '@wordpress/i18n';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
-import { exportBackup } from 'cli/lib/import-export/export/export-manager';
+import { getExporter } from 'cli/lib/import-export/export/export-manager';
 import { ExportOptions } from 'cli/lib/import-export/export/types';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import {
@@ -27,7 +28,7 @@ import { selectSyncItemsForPush } from 'cli/lib/sync-selector';
 import { findSyncSiteByIdentifier, pickSyncSite } from 'cli/lib/sync-site-picker';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
-import { exportEventHandler } from './export';
+import { handleExportEvents } from './export';
 
 const logger = new Logger< LoggerAction >();
 
@@ -57,7 +58,6 @@ export async function runCommand(
 	logger.reportStart( LoggerAction.FETCH_REMOTE_SITES, __( 'Fetching WordPress.com sites…' ) );
 	const remoteSites = await fetchSyncableSites( token.accessToken );
 	logger.spinner.stop();
-	logger.reportSuccess( sprintf( __( 'Found %d sites' ), remoteSites.length ), true );
 
 	let remoteSite;
 	if ( remoteSiteIdentifier ) {
@@ -107,21 +107,24 @@ export async function runCommand(
 			};
 		}
 
-		const isExported = await exportBackup(
-			{
-				site,
-				backupFile: archivePath,
-				includes,
-				phpVersion: DEFAULT_PHP_VERSION,
-				splitDatabaseDumpByTable: true,
-				specificSelectionPaths,
-			},
-			exportEventHandler
-		);
+		const deployIgnore = await createDeployIgnoreFilter( site.path, SYNC_IGNORE_DEFAULTS );
 
-		if ( ! isExported ) {
+		const exporter = await getExporter( {
+			site,
+			backupFile: archivePath,
+			includes,
+			phpVersion: site.phpVersion,
+			splitDatabaseDumpByTable: true,
+			specificSelectionPaths,
+			ignoreFilter: deployIgnore,
+		} );
+
+		if ( ! exporter ) {
 			throw new LoggerError( __( 'No suitable exporter found for the provided backup file' ) );
 		}
+
+		handleExportEvents( exporter );
+		await exporter.export();
 
 		const archiveSize = fs.statSync( archivePath ).size;
 		if ( archiveSize > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
@@ -156,7 +159,7 @@ export async function runCommand(
 			onProgress: ( percent ) => {
 				// Upload phase: 20-40%
 				const progress = Math.round( 20 + percent * 0.2 );
-				logger.spinner.text = sprintf( __( 'Uploading archive… (%d%%)' ), progress );
+				logger.reportProgress( sprintf( __( 'Uploading archive… (%d%%)' ), progress ) );
 			},
 		} );
 
@@ -183,7 +186,7 @@ export async function runCommand(
 		}
 
 		// Initiate import: 40%
-		logger.spinner.text = sprintf( __( 'Initiating import… (%d%%)' ), 40 );
+		logger.reportProgress( sprintf( __( 'Initiating import… (%d%%)' ), 40 ) );
 		await initiateImport( token.accessToken, remoteSite.id, attachmentId, {
 			optionsToSync,
 			specificSelectionPaths,
@@ -237,7 +240,7 @@ export async function runCommand(
 				stalledAttempts++;
 			}
 
-			logger.spinner.text = sprintf( '%s (%d%%)', statusMessage, roundedProgress );
+			logger.reportProgress( sprintf( '%s (%d%%)', statusMessage, roundedProgress ) );
 
 			await new Promise( ( resolve ) => setTimeout( resolve, SYNC_POLL_INTERVAL_MS ) );
 		}

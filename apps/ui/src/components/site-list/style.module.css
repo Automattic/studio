@@ -1,0 +1,175 @@
+.root {
+	padding: 0 var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-xl)
+		calc(var(--wpds-dimension-padding-xl) + var(--wpds-dimension-padding-sm));
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-sm);
+}
+
+.sites {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-xs);
+}
+
+.site {
+	display: flex;
+	flex-direction: column;
+}
+
+.siteHeader {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xs);
+	min-width: 0;
+	padding-right: var(--wpds-dimension-padding-sm);
+}
+
+.siteText {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+}
+
+.siteToggle {
+	max-width: 100%;
+	height: auto;
+}
+
+.siteName {
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: 1.2;
+	font-weight: var(--wpds-typography-font-weight-regular);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	max-width: 100%;
+}
+
+.siteToggle:hover .siteName {
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.siteActive .siteName {
+	color: var(--wpds-color-fg-content-neutral);
+	font-weight: var(--wpds-typography-font-weight-medium);
+}
+
+.siteActions {
+	display: flex;
+	align-items: center;
+	flex-shrink: 0;
+	gap: var(--wpds-dimension-padding-xs);
+}
+
+.siteAction {
+	opacity: 0;
+	transition: opacity 100ms ease;
+}
+
+.siteActive .siteAction,
+.siteHeader:hover .siteAction,
+.siteHeader:focus-within .siteAction,
+.siteAction[data-popup-open] {
+	opacity: 1;
+}
+
+.unassigned {
+	margin-top: var(--wpds-dimension-padding-sm);
+}
+
+.empty {
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	margin: 0;
+}
+
+.sessionList {
+	list-style: none;
+	padding: 0;
+	margin: 0 0 var(--wpds-dimension-padding-sm);
+	display: flex;
+	flex-direction: column;
+}
+
+.sessionItem {
+	min-width: 0;
+}
+
+.sessionLink {
+	width: 100%;
+	height: 26px;
+	padding: 0 var(--wpds-dimension-padding-md) 0 var(--wpds-dimension-padding-xl);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	font-weight: var(--wpds-typography-font-weight-regular);
+}
+
+/* Use ::after so we don't collide with the Button primitive's ::before
+   (which it uses for the loading spinner). */
+.sessionLink::after {
+	content: '';
+	position: absolute;
+	left: var(--wpds-dimension-padding-sm);
+	top: 4px;
+	bottom: 4px;
+	width: 1px;
+	background: transparent;
+}
+
+.sessionLabel {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.sessionTime {
+	flex-shrink: 0;
+	font-size: 10px;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	opacity: 0.55;
+}
+
+.sessionLink:hover,
+.sessionLink:focus-visible {
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.sessionLinkActive {
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.sessionLinkActive::after {
+	background: var(--wpds-color-fg-content-neutral);
+}
+
+.dialogText {
+	margin: 0;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.dialogCheckbox {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-sm);
+	margin-top: var(--wpds-dimension-padding-sm);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	color: var(--wpds-color-fg-content-neutral);
+	cursor: var(--wpds-cursor-control);
+}
+
+.dialogError {
+	margin-top: var(--wpds-dimension-padding-sm);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	color: var(--wpds-color-fg-content-error, var(--wpds-color-fg-content-neutral));
+}

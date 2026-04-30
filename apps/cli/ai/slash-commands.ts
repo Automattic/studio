@@ -1,3 +1,4 @@
+import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, sprintf } from '@wordpress/i18n';
 import { AI_MODELS, type AiModelId } from 'cli/ai/agent';
@@ -24,6 +25,7 @@ export interface SlashCommandContext {
 	): Promise< void >;
 	maybeAutoSwitchProvider(): Promise< void >;
 	persistSessionContext(): Promise< void >;
+	clearSession(): Promise< void >;
 }
 
 export type SlashCommandHandler = (
@@ -53,6 +55,14 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 			if ( ! opened ) {
 				ctx.ui.showInfo( __( 'No site selected. Use ↓ to select a site first.' ) );
 			}
+			return 'continue';
+		},
+	},
+	{
+		name: 'clear',
+		description: __( 'Clear the conversation and start a fresh session' ),
+		handler: async ( _prompt, ctx ) => {
+			await ctx.clearSession();
 			return 'continue';
 		},
 	},
@@ -284,6 +294,5 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		description: __( 'Exit the chat' ),
 		handler: async () => 'break',
 	},
-	{ name: 'taxonomist', description: __( 'Optimize category taxonomy with AI' ) },
-	{ name: 'need-for-speed', description: __( 'Run a performance audit on a site' ) },
+	...AI_SKILL_COMMANDS,
 ];

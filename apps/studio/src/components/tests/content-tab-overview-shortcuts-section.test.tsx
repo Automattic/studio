@@ -12,7 +12,11 @@ import { testReducer } from 'src/stores/tests/utils/test-reducer';
 
 vi.mock( 'src/lib/app-globals', () => ( {
 	isWindows: vi.fn().mockReturnValue( false ),
+	isLinux: vi.fn().mockReturnValue( false ),
 	isMac: vi.fn().mockReturnValue( false ),
+	getAppGlobals: vi.fn( () => ( {
+		platform: 'darwin',
+	} ) ),
 } ) );
 
 const selectedSite: StartedSiteDetails = {
@@ -20,7 +24,7 @@ const selectedSite: StartedSiteDetails = {
 	port: 8881,
 	path: '/path/to/site',
 	running: true,
-	phpVersion: '8.3',
+	phpVersion: '8.4',
 	id: 'site-id',
 	url: 'http://example.com',
 };

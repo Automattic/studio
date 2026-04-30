@@ -3,12 +3,8 @@ import path from 'path';
 
 // Abstract base class for SQLite integration across different contexts
 export abstract class SqliteIntegrationProvider {
-	abstract getServerFilesPath(): string;
 	abstract getSqliteDirname(): string;
-
-	protected getSqlitePluginSourcePath(): string {
-		return path.join( this.getServerFilesPath(), this.getSqliteDirname() );
-	}
+	protected abstract getSqlitePluginSourcePath(): string;
 
 	async isSqliteIntegrationAvailable(): Promise< boolean > {
 		const sqliteSourcePath = this.getSqlitePluginSourcePath();
@@ -106,6 +102,7 @@ export abstract class SqliteIntegrationProvider {
 		const sqliteSourcePath = this.getSqlitePluginSourcePath();
 		const sqliteDirname = this.getSqliteDirname();
 		const sqliteDestPath = path.join( wpContentPath, 'mu-plugins', sqliteDirname );
+		await fs.promises.rm( sqliteDestPath, { recursive: true, force: true } );
 		await fs.promises.cp( sqliteSourcePath, sqliteDestPath, {
 			recursive: true,
 			verbatimSymlinks: true,

@@ -9,6 +9,7 @@ import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { exec } from 'child_process';
 import { exec as pkgExec } from '@yao-pkg/pkg';
 import type { ForgeConfig } from '@electron-forge/shared-types';
+import { windowsSign } from './windowsSign';
 
 const repoRoot = path.resolve( __dirname, '../..' );
 
@@ -22,6 +23,7 @@ const config: ForgeConfig = {
 		],
 		executableName: process.platform === 'linux' ? 'studio' : undefined,
 		icon: path.join( __dirname, 'assets', 'studio-app-icon' ),
+		windowsSign,
 		osxSign: {
 			optionsForFile: ( filePath ) => {
 				// The bundled Node binary requires specific entitlements for V8 JIT compilation.
@@ -83,6 +85,20 @@ const config: ForgeConfig = {
 				genericName: 'WordPress Studio',
 				categories: [ 'Utility' ],
 				name: 'studio',
+				bin: 'studio',
+				mimeType: [ 'x-scheme-handler/wp-studio' ],
+				icon: path.join( __dirname, 'assets', 'studio-app-icon.png' ),
+				desktopTemplate: path.join( __dirname, 'installers', 'desktop.ejs' ),
+				// libcap2-bin: ships `setcap`, used by postinst to grant the bundled
+				// node CAP_NET_BIND_SERVICE so the proxy can bind ports 80/443.
+				// policykit-1: pkexec backend used by @vscode/sudo-prompt for hosts-file writes.
+				// ca-certificates: ships `update-ca-certificates` and the system trust bundle.
+				// libnss3-tools: ships `certutil`, used to import the CA into per-user NSS DBs.
+				depends: [ 'libcap2-bin', 'policykit-1', 'ca-certificates', 'libnss3-tools' ],
+				scripts: {
+					postinst: path.join( __dirname, 'installers', 'linux', 'postinst.sh' ),
+					postrm: path.join( __dirname, 'installers', 'linux', 'postrm.sh' ),
+				},
 			},
 		} ),
 		new MakerSquirrel(
@@ -95,9 +111,16 @@ const config: ForgeConfig = {
 
 				setupExe: 'studio-setup.exe',
 
-				// CI code-signing setup writes certificate.pfx at the repository root.
-				certificateFile: path.join( repoRoot, 'certificate.pfx' ),
-				certificatePassword: process.env.WINDOWS_CODE_SIGNING_CERT_PASSWORD,
+				// Azure mode: use the custom signing hook that calls signtool
+				// with Azure Trusted Signing parameters.
+				// PFX mode: use the local certificate file and password.
+				...( windowsSign
+					? { windowsSign }
+					: {
+							certificateFile: path.join( repoRoot, 'certificate.pfx' ),
+							certificatePassword: process.env.WINDOWS_CODE_SIGNING_CERT_PASSWORD,
+					  }
+				),
 			},
 			[ 'win32' ]
 		),

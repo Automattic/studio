@@ -1,4 +1,5 @@
 import { vi } from 'vitest';
+import { emitEvent } from 'cli/ai/json-events';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
 import {
 	Mode as PreviewDeleteMode,
@@ -10,7 +11,11 @@ import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
 import { getProgressCallback, setProgressCallback } from 'cli/logger';
-import { studioToolDefinitions } from '../tools';
+import {
+	captureCommandOutput,
+	resolveStudioToolDefinitions,
+	studioToolDefinitions,
+} from '../tools';
 
 vi.mock( 'cli/ai/block-validator', () => ( {
 	validateBlocks: vi.fn(),
@@ -18,6 +23,10 @@ vi.mock( 'cli/ai/block-validator', () => ( {
 
 vi.mock( 'cli/ai/browser-utils', () => ( {
 	getSharedBrowser: vi.fn(),
+} ) );
+
+vi.mock( 'cli/ai/json-events', () => ( {
+	emitEvent: vi.fn(),
 } ) );
 
 vi.mock( 'cli/commands/preview/create', () => ( {
@@ -91,7 +100,7 @@ describe( 'Studio AI MCP tools', () => {
 		path: '/sites/my-site',
 		adminPassword: 'password',
 		port: 8888,
-		phpVersion: '8.3',
+		phpVersion: '8.4',
 	};
 
 	const getTool = ( name: string ) => {
@@ -126,8 +135,58 @@ describe( 'Studio AI MCP tools', () => {
 				'preview_list',
 				'preview_update',
 				'preview_delete',
+				'preview_navigate',
+				'preview_reload',
 			] )
 		);
+	} );
+
+	it( 'emits a preview navigate command with a normalized path', async () => {
+		const result = await getTool( 'preview_navigate' ).handler( { path: 'about/' } as never, null );
+
+		expect( emitEvent ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				type: 'preview.command',
+				kind: 'navigate',
+				path: '/about/',
+			} )
+		);
+		expect( result.isError ).toBeUndefined();
+		expect( getTextContent( result ) ).toContain( '/about/' );
+	} );
+
+	it( 'falls back to "/" when preview_navigate receives an empty path', async () => {
+		await getTool( 'preview_navigate' ).handler( { path: '   ' } as never, null );
+
+		expect( emitEvent ).toHaveBeenCalledWith(
+			expect.objectContaining( { kind: 'navigate', path: '/' } )
+		);
+	} );
+
+	it( 'emits a preview reload command', async () => {
+		const result = await getTool( 'preview_reload' ).handler( {} as never, null );
+
+		expect( emitEvent ).toHaveBeenCalledWith(
+			expect.objectContaining( { type: 'preview.command', kind: 'reload' } )
+		);
+		expect( result.isError ).toBeUndefined();
+	} );
+
+	it( 'omits preview-steering tools when preview steering is disabled', () => {
+		const names = resolveStudioToolDefinitions().map( ( tool ) => tool.name );
+		expect( names ).not.toContain( 'preview_navigate' );
+		expect( names ).not.toContain( 'preview_reload' );
+		// Baseline Studio tools still present.
+		expect( names ).toContain( 'site_create' );
+		expect( names ).toContain( 'wp_cli' );
+	} );
+
+	it( 'includes preview-steering tools when enabled', () => {
+		const names = resolveStudioToolDefinitions( { enablePreviewSteering: true } ).map(
+			( tool ) => tool.name
+		);
+		expect( names ).toContain( 'preview_navigate' );
+		expect( names ).toContain( 'preview_reload' );
 	} );
 
 	it( 'creates previews for a resolved local site', async () => {
@@ -203,6 +262,39 @@ describe( 'Studio AI MCP tools', () => {
 		await getTool( 'preview_create' ).handler( { nameOrPath: 'My Site' } as never, null );
 
 		expect( getProgressCallback() ).toBe( previousCallback );
+	} );
+
+	it( 'forwards progress messages to the previous callback during command execution', async () => {
+		const previousCallback = vi.fn();
+		setProgressCallback( previousCallback );
+
+		vi.mocked( runCreatePreviewCommand ).mockImplementation( async () => {
+			const currentCallback = getProgressCallback();
+			currentCallback?.( 'Creating preview…' );
+			currentCallback?.( 'Almost done…' );
+		} );
+
+		await getTool( 'preview_create' ).handler( { nameOrPath: 'My Site' } as never, null );
+
+		expect( previousCallback ).toHaveBeenCalledWith( 'Creating preview…', undefined );
+		expect( previousCallback ).toHaveBeenCalledWith( 'Almost done…', undefined );
+	} );
+
+	it( 'coalesces progress updates in captured command output', async () => {
+		const previousCallback = vi.fn();
+		setProgressCallback( previousCallback );
+
+		const result = await captureCommandOutput( async () => {
+			const currentCallback = getProgressCallback();
+			currentCallback?.( 'Applying changes… (74%)' );
+			currentCallback?.( 'Applying changes… (75%)', true );
+			currentCallback?.( 'Applying changes… (76%)', true );
+			currentCallback?.( 'Push complete' );
+		} );
+
+		expect( result.progressOutput ).toBe( 'Applying changes… (76%)\nPush complete' );
+		expect( previousCallback ).toHaveBeenCalledWith( 'Applying changes… (75%)', true );
+		expect( previousCallback ).toHaveBeenCalledWith( 'Applying changes… (76%)', true );
 	} );
 
 	it( 'rejects shell syntax in wp_cli post content before dispatching to WP-CLI', async () => {
@@ -288,5 +380,90 @@ describe( 'Studio AI MCP tools', () => {
 			'--post_title=About',
 			'--post_content=Hello world',
 		] );
+	} );
+
+	it( 'keeps flags after quoted post_content out of the page content', async () => {
+		vi.mocked( isServerRunning ).mockResolvedValue( {
+			name: 'site-123',
+			pmId: 1,
+			status: 'online',
+			pid: 1234,
+		} );
+		vi.mocked( sendWpCliCommand ).mockResolvedValue( {
+			stdout: '123',
+			stderr: '',
+			exitCode: 0,
+		} );
+
+		await getTool( 'wp_cli' ).handler(
+			{
+				nameOrPath: 'My Site',
+				command:
+					'post create --post_type=page --post_title="About" --post_content="Hello world" --porcelain',
+			} as never,
+			null
+		);
+
+		expect( sendWpCliCommand ).toHaveBeenCalledWith( 'site-123', [
+			'post',
+			'create',
+			'--post_type=page',
+			'--post_title=About',
+			'--post_content=Hello world',
+			'--porcelain',
+		] );
+	} );
+
+	it( 'keeps porcelain after empty quoted post_content out of the page content', async () => {
+		vi.mocked( isServerRunning ).mockResolvedValue( {
+			name: 'site-123',
+			pmId: 1,
+			status: 'online',
+			pid: 1234,
+		} );
+		vi.mocked( sendWpCliCommand ).mockResolvedValue( {
+			stdout: '123',
+			stderr: '',
+			exitCode: 0,
+		} );
+
+		await getTool( 'wp_cli' ).handler(
+			{
+				nameOrPath: 'My Site',
+				command: 'post create --post_type=page --post_title="About" --post_content="" --porcelain',
+			} as never,
+			null
+		);
+
+		expect( sendWpCliCommand ).toHaveBeenCalledWith( 'site-123', [
+			'post',
+			'create',
+			'--post_type=page',
+			'--post_title=About',
+			'--post_content=',
+			'--porcelain',
+		] );
+	} );
+
+	it( 'rejects typographic dash options before dispatching to WP-CLI', async () => {
+		vi.mocked( isServerRunning ).mockResolvedValue( {
+			name: 'site-123',
+			pmId: 1,
+			status: 'online',
+			pid: 1234,
+		} );
+
+		const result = await getTool( 'wp_cli' ).handler(
+			{
+				nameOrPath: 'My Site',
+				command:
+					'post create --post_type=page --post_title="About" --post_content="Hello world" –porcelain',
+			} as never,
+			null
+		);
+
+		expect( sendWpCliCommand ).not.toHaveBeenCalled();
+		expect( result.isError ).toBe( true );
+		expect( getTextContent( result ) ).toContain( 'typographic dash' );
 	} );
 } );

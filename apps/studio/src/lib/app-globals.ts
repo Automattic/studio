@@ -10,7 +10,17 @@ export function isMac() {
 }
 
 export function isWindows() {
+	if ( process.env.NODE_ENV === 'test' ) {
+		return false;
+	}
 	return getAppGlobals().platform === 'win32';
+}
+
+export function isLinux() {
+	if ( process.env.NODE_ENV === 'test' ) {
+		return false;
+	}
+	return getAppGlobals().platform === 'linux';
 }
 
 export function isWindowsStore() {

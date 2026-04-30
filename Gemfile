@@ -8,5 +8,3 @@ gem 'fastlane-plugin-wpmreleasetoolkit', '~> 14.2'
 gem 'aws-sdk-cloudfront', '~> 1.87'
 
 gem 'rubocop', '~> 1.42', require: false
-
-gem 'openssl'

@@ -414,6 +414,7 @@ const pushSiteThunk = createTypedAsyncThunk< void, PushSitePayload >(
 					specificSelectionPaths: options?.specificSelectionPaths,
 				}
 			);
+			signal.throwIfAborted();
 
 			if ( archiveSizeInBytes > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
 				return rejectWithValue( {
@@ -439,6 +440,7 @@ const pushSiteThunk = createTypedAsyncThunk< void, PushSitePayload >(
 				options?.optionsToSync,
 				options?.specificSelectionPaths
 			);
+			signal.throwIfAborted();
 
 			if ( response.success ) {
 				dispatch(
@@ -805,17 +807,12 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 					} )
 				);
 
-				await getIpcApi().stopServer( selectedSiteId );
-				await getIpcApi().importSite( {
-					id: selectedSiteId,
-					backupFile: {
-						path: filePath,
-						type: 'application/tar+gzip',
-					},
+				await getIpcApi().importSite( selectedSiteId, filePath, {
+					alwaysStartServer: true,
+					removeBackupOnComplete: true,
+					showErrorModal: false,
+					showNotification: false,
 				} );
-				await getIpcApi().startServer( selectedSiteId );
-
-				await getIpcApi().removeSyncBackup( remoteSiteId );
 
 				await updateSiteTimestamp( {
 					siteId: remoteSiteId,

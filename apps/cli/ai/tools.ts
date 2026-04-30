@@ -243,7 +243,11 @@ export async function captureCommandOutput( fn: () => Promise< void > ): Promise
 	};
 	process.exitCode = undefined;
 	setProgressCallback( ( message, update ) => {
-		progressMessages.push( message );
+		if ( update && progressMessages.length > 0 ) {
+			progressMessages[ progressMessages.length - 1 ] = message;
+		} else {
+			progressMessages.push( message );
+		}
 		previousCallback?.( message, update );
 	} );
 
@@ -598,7 +602,7 @@ const runWpCliTool = tool(
 const validateBlocksTool = tool(
 	'validate_blocks',
 	"Validates WordPress block content by running each block through its save() function in the site's block editor (real browser). " +
-		'The site must be running. Returns per-block validation results with expected HTML for invalid blocks.',
+		'The site must be running. Also flags core/html blocks used for editable layout or text content. Returns per-block validation results with expected HTML for invalid blocks.',
 	{
 		nameOrPath: z
 			.string()

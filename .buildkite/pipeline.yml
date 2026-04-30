@@ -137,7 +137,10 @@ steps:
     steps:
       - label: 🔨 Windows Dev Build - {{matrix}}
         agents:
-          queue: windows
+          # Trialing the windows-staging queue (m8i.4xlarge) to benchmark
+          # against the prod c5.4xlarge windows queue. See
+          # Automattic/buildkite-ci#844. Revert before merging.
+          queue: windows-staging
         env:
           USE_AZURE_TRUSTED_SIGNING: 1
         command: powershell -File .buildkite/commands/build-for-windows.ps1 -BuildType dev -Architecture {{matrix}}

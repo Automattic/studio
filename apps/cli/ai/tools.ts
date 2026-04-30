@@ -674,12 +674,39 @@ const VIEWPORTS = {
 	mobile: { width: 390, height: 844 },
 } as const;
 
+async function resolveScreenshotUrl( args: {
+	url?: string;
+	nameOrPath?: string;
+	path?: string;
+} ): Promise< string | null > {
+	if ( args.url ) {
+		return args.url;
+	}
+
+	if ( ! args.nameOrPath ) {
+		return null;
+	}
+
+	const site = await resolveSite( args.nameOrPath );
+	const sitePath = args.path?.trim() || '/';
+	const normalizedPath = sitePath.startsWith( '/' ) ? sitePath : `/${ sitePath }`;
+	return new URL( normalizedPath, getSiteUrl( site ) ).toString();
+}
+
 const takeScreenshotTool = tool(
 	'take_screenshot',
-	'Takes a full-page screenshot of a URL. Returns the screenshot as an image that you can analyze visually. ' +
+	'Takes a full-page screenshot of a URL or local Studio site. Returns the screenshot as an image that you can analyze visually. ' +
 		'Supports desktop and mobile viewports. Use this to verify the site looks correct after building it.',
 	{
-		url: z.string().describe( 'The URL to screenshot' ),
+		url: z.string().optional().describe( 'The URL to screenshot' ),
+		nameOrPath: z
+			.string()
+			.optional()
+			.describe( 'The local site name or file system path to screenshot' ),
+		path: z
+			.string()
+			.optional()
+			.describe( 'Site-relative path to screenshot when using nameOrPath. Defaults to "/".' ),
 		viewport: z
 			.enum( [ 'desktop', 'mobile' ] )
 			.optional()
@@ -691,8 +718,13 @@ const takeScreenshotTool = tool(
 		try {
 			const viewportType = args.viewport ?? 'desktop';
 			const viewport = VIEWPORTS[ viewportType ];
+			const targetUrl = await resolveScreenshotUrl( args );
 
-			emitProgress( `Taking ${ viewportType } screenshot of ${ args.url }…` );
+			if ( ! targetUrl ) {
+				return errorResult( 'Either url or nameOrPath must be provided.' );
+			}
+
+			emitProgress( `Taking ${ viewportType } screenshot of ${ targetUrl }…` );
 
 			const browser = await getSharedBrowser();
 			const page = await browser.newPage( { viewport } );
@@ -701,7 +733,7 @@ const takeScreenshotTool = tool(
 				// Reduce motion to avoid capturing mid-animation states
 				await page.emulateMedia( { reducedMotion: 'reduce' } );
 
-				await page.goto( args.url, { waitUntil: 'domcontentloaded', timeout: 30000 } );
+				await page.goto( targetUrl, { waitUntil: 'domcontentloaded', timeout: 30000 } );
 				await page.waitForLoadState( 'networkidle', { timeout: 10000 } ).catch( () => {} );
 
 				// Scroll through the page to trigger lazy-loaded images, then wait

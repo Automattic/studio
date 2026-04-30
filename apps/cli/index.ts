@@ -160,6 +160,11 @@ async function main() {
 					.demandCommand( 1, __( 'You must provide a valid code sessions command' ) );
 			}
 		);
+		aiYargs.command( 'mcp', __( 'Manage custom MCP servers' ), async ( mcpYargs ) => {
+			const { registerCommand: registerAiMcpCommand } = await import( 'cli/commands/ai/mcp' );
+			registerAiMcpCommand( mcpYargs );
+			mcpYargs.version( false );
+		} );
 		aiYargs
 			.example( [
 				[ 'studio code', __( 'Start an interactive chat with the AI agent' ) ],

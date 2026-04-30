@@ -16,7 +16,10 @@ export { RemoteSessionConfigError };
  */
 export async function runRemoteSession( overrides: RemoteSessionOverrides = {} ): Promise< void > {
 	const config = await loadRemoteSessionConfig( overrides );
-	const logger = new RemoteSessionLogger();
+	// The interactive REPL is blocked while attached, so stdout is free. Stream
+	// session activity (polled messages, turn outcomes, replies posted, errors)
+	// there alongside the structured log file, so the user can watch progress.
+	const logger = new RemoteSessionLogger( { mirrorToStdout: true } );
 	const logPath = getRemoteSessionLogPath();
 	logger.info( 'Remote session starting', {
 		base_url: config.base_url,

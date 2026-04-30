@@ -1,5 +1,6 @@
 import { HOUR_MS } from '@studio/common/constants';
-export const DEFAULT_WIDTH = 900;
+export const DEFAULT_WIDTH = 1100;
+export const DEFAULT_HEIGHT = 820;
 export const MAIN_MIN_HEIGHT = 600;
 export const SIDEBAR_WIDTH = 208;
 export const SIDEBAR_MIN_WIDTH = 200;

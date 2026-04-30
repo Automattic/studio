@@ -138,6 +138,8 @@ steps:
       - label: 🔨 Windows Dev Build - {{matrix}}
         agents:
           queue: windows
+        env:
+          USE_AZURE_TRUSTED_SIGNING: 1
         command: powershell -File .buildkite/commands/build-for-windows.ps1 -BuildType dev -Architecture {{matrix}}
         artifact_paths:
           - apps\studio\out\**\studio-setup.exe

@@ -33,7 +33,7 @@ type ManagedProcessBase = {
 	name: string;
 	scriptPath: string;
 	args: string[];
-	env: Record< string, string >;
+	env: NodeJS.ProcessEnv;
 	child: ChildProcess;
 	stdoutLogPath: string;
 	stderrLogPath: string;
@@ -198,7 +198,7 @@ export class ProcessManagerDaemon {
 	private async startProcess(
 		processName: string,
 		scriptPath: string,
-		env: Record< string, string >,
+		env: NodeJS.ProcessEnv,
 		args: string[]
 	): Promise< ProcessDescription > {
 		const existing = this.getManagedProcessByName( processName );
@@ -214,7 +214,7 @@ export class ProcessManagerDaemon {
 		const doesCurrentNodeSupportJspi = semver.gte( process.version, '24.0.0' );
 		const execArgv = doesCurrentNodeSupportJspi ? [ '--experimental-wasm-jspi' ] : [];
 		const child = spawn( process.execPath, [ ...execArgv, scriptPath, ...args ], {
-			env: { ...process.env, ...env },
+			env,
 			stdio: [ 'ignore', 'pipe', 'pipe', 'ipc' ],
 			windowsHide: true,
 		} );

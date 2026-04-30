@@ -680,13 +680,23 @@ const SHARE_VIEWPORTS = {
 	mobile: { width: 390, height: 844 },
 } as const;
 
+// Render share_screenshot at 2x DPR so the captured PNG has retina pixel
+// density (e.g. 2560x1440 raw pixels for the desktop viewport) without
+// changing CSS layout breakpoints. The page still sees a 1280x720 window;
+// only the rasterized output is denser. This survives Telegram's compression
+// pipeline noticeably better than 1x captures.
+const SHARE_DEVICE_SCALE_FACTOR = 2;
+
 async function captureScreenshotPng(
 	url: string,
 	viewport: { width: number; height: number },
-	options: { fullPage: boolean }
+	options: { fullPage: boolean; deviceScaleFactor?: number }
 ): Promise< string > {
 	const browser = await getSharedBrowser();
-	const page = await browser.newPage( { viewport } );
+	const page = await browser.newPage( {
+		viewport,
+		deviceScaleFactor: options.deviceScaleFactor,
+	} );
 
 	try {
 		await page.emulateMedia( { reducedMotion: 'reduce' } );
@@ -824,6 +834,7 @@ const shareScreenshotTool = tool(
 			const viewportType = args.viewport ?? 'desktop';
 			const base64 = await captureScreenshotPng( args.url, SHARE_VIEWPORTS[ viewportType ], {
 				fullPage: args.fullPage ?? false,
+				deviceScaleFactor: SHARE_DEVICE_SCALE_FACTOR,
 			} );
 
 			emitEvent( {

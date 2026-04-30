@@ -19,6 +19,8 @@ export function transformSingleSiteResponse(
 		lastPullTimestamp: null,
 		lastPushTimestamp: null,
 		wpVersion: site.options?.software_version,
+		planName: site.plan?.product_name_short,
+		createdAt: site.options?.created_at,
 	};
 }
 

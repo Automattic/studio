@@ -31,7 +31,7 @@ const daemonRequestStartProcessSchema = z.object( {
 	type: z.literal( 'start-process' ),
 	processName: z.string(),
 	scriptPath: z.string(),
-	env: z.record( z.string(), z.string() ).optional(),
+	env: z.record( z.string(), z.union( [ z.string(), z.undefined() ] ) ).optional(),
 	args: z.array( z.string() ).optional(),
 } );
 

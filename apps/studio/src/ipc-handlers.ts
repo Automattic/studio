@@ -118,11 +118,7 @@ import {
 } from 'src/modules/user-settings/lib/ipc-handlers';
 import { linuxFindEditorPath } from 'src/modules/user-settings/lib/linux-editor-path';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
-import {
-	getAbsoluteUrl,
-	SiteServer,
-	stopAllServers as triggerStopAllServers,
-} from 'src/site-server';
+import { SiteServer, stopAllServers as triggerStopAllServers } from 'src/site-server';
 import { getSiteThumbnailPath } from 'src/storage/paths';
 import {
 	loadUserData,
@@ -1039,7 +1035,7 @@ export async function copySite(
 
 	// Playground sets the correct siteurl internally, but for the native-php runtime, we need to
 	// explicitly update that option
-	await updateSiteUrl( server, `http://localhost/${ details.port }` );
+	await updateSiteUrl( server, `http://localhost:${ details.port }` );
 
 	// Persist themeDetails to appdata (Studio-only data)
 	if ( sourceSite.themeDetails ) {

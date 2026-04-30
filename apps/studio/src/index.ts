@@ -78,7 +78,7 @@ function getRendererUrl(): string {
 		return pathToFileURL( path.join( __dirname, '../renderer/index.html' ) ).href;
 	}
 }
-//test change 2
+//test change 3
 function openExternalWebUrl( url: string ): void {
 	try {
 		const parsedUrl = new URL( url );

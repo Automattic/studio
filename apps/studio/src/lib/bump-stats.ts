@@ -57,7 +57,7 @@ const lastBumpStatsProvider: LastBumpStatsProvider = {
 	},
 };
 
-export function bumpStat( group: StatsGroup, stat: StatsMetric, bumpInDev = false ) {
+export function bumpStat( group: StatsGroup, stat: StatsMetric | string, bumpInDev = false ) {
 	return __bumpStat( group, stat, bumpInDev );
 }
 
@@ -100,12 +100,14 @@ export function getImporterMetric( importer?: ImporterType ): StatsMetric {
 	}
 }
 
-export function getBlueprintMetric( blueprintSlug: string | undefined ) {
+export function getBlueprintMetric( blueprintSlug: string | undefined ): string {
 	if ( ! blueprintSlug ) {
 		return StatsMetric.NO_BLUEPRINT;
 	}
-	if ( blueprintSlug?.startsWith( 'file:' ) ) {
+	if ( blueprintSlug.startsWith( 'file:' ) ) {
 		return StatsMetric.FILE_BLUEPRINT;
 	}
-	return StatsMetric.REMOTE_BLUEPRINT;
+	// Include the slug to differentiate individual blueprints.
+	// Truncate to stay within the 32-char stat limit.
+	return `bp-${ blueprintSlug }`.slice( 0, 32 );
 }

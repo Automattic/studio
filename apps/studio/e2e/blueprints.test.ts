@@ -18,7 +18,7 @@ test.describe( 'Blueprints', () => {
 		await onboarding.closeWhatsNew();
 
 		const siteContent = new SiteContent( session.mainWindow, DEFAULT_SITE_NAME );
-		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
+		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 
 		// Run one site at a time to keep peak memory low on constrained hosts.
 		const sidebar = new MainSidebar( session.mainWindow );

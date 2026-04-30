@@ -23,18 +23,42 @@ function loadImage( url: string ): { img: HTMLImageElement; ready: boolean } {
 	return entry;
 }
 
-const sprites = {
-	tiles: loadImage( tilesSpriteUrl ),
-	coin: loadImage( coinSpriteUrl ),
-	bgFar: loadImage( bgFarUrl ),
-	bgNear: loadImage( bgNearUrl ),
-	flag: loadImage( flagSpriteUrl ),
-	wave: loadImage( waveSpriteUrl ),
-	gutenberg: loadImage( gutenbergSpriteUrl ),
-	mguy: loadImage( mguySpriteUrl ),
-	wapuu: loadImage( wapuuPlayerSpriteUrl ),
-	wapuuIdle: loadImage( wapuuPlayerIdleSpriteUrl ),
+type SpriteEntry = { img: HTMLImageElement; ready: boolean };
+type SpriteMap = {
+	tiles: SpriteEntry;
+	coin: SpriteEntry;
+	bgFar: SpriteEntry;
+	bgNear: SpriteEntry;
+	flag: SpriteEntry;
+	wave: SpriteEntry;
+	gutenberg: SpriteEntry;
+	mguy: SpriteEntry;
+	wapuu: SpriteEntry;
+	wapuuIdle: SpriteEntry;
 };
+
+// Sprites load lazily on first access so importers of this module (and its
+// transitive dependents like wapuu-score.tsx, which pulls in MAX_SCORE via
+// game-loop.ts) don't trigger image network requests at module evaluation.
+let _sprites: SpriteMap | null = null;
+
+function getSprites(): SpriteMap {
+	if ( ! _sprites ) {
+		_sprites = {
+			tiles: loadImage( tilesSpriteUrl ),
+			coin: loadImage( coinSpriteUrl ),
+			bgFar: loadImage( bgFarUrl ),
+			bgNear: loadImage( bgNearUrl ),
+			flag: loadImage( flagSpriteUrl ),
+			wave: loadImage( waveSpriteUrl ),
+			gutenberg: loadImage( gutenbergSpriteUrl ),
+			mguy: loadImage( mguySpriteUrl ),
+			wapuu: loadImage( wapuuPlayerSpriteUrl ),
+			wapuuIdle: loadImage( wapuuPlayerIdleSpriteUrl ),
+		};
+	}
+	return _sprites;
+}
 
 function drawTileSprite(
 	ctx: CanvasRenderingContext2D,
@@ -44,7 +68,7 @@ function drawTileSprite(
 	dh = TILE_SIZE,
 	frame = 0
 ) {
-	const { img, ready } = sprites.tiles;
+	const { img, ready } = getSprites().tiles;
 	if ( ! ready ) return false;
 	const frameW = img.naturalWidth / 2;
 	ctx.drawImage( img, frame * frameW, 0, frameW, img.naturalHeight, dx, dy, dw, dh );
@@ -83,7 +107,7 @@ function drawBackground( ctx: CanvasRenderingContext2D, cameraX: number, w: numb
 	ctx.fillRect( 0, 0, w, h );
 
 	// Far background layer (parallax at 0.2x speed, bottom-aligned)
-	const { img: bgImg, ready: bgReady } = sprites.bgFar;
+	const { img: bgImg, ready: bgReady } = getSprites().bgFar;
 	if ( bgReady ) {
 		const zoom = 1.2;
 		const bgW = bgImg.naturalWidth;
@@ -101,7 +125,7 @@ function drawBackground( ctx: CanvasRenderingContext2D, cameraX: number, w: numb
 	}
 
 	// Near background layer (parallax at 0.5x speed, bottom-aligned)
-	const { img: nearImg, ready: nearReady } = sprites.bgNear;
+	const { img: nearImg, ready: nearReady } = getSprites().bgNear;
 	if ( nearReady ) {
 		const zoom = 0.6;
 		const nearW = nearImg.naturalWidth;
@@ -140,7 +164,7 @@ function drawWater( ctx: CanvasRenderingContext2D, cameraX: number, _w: number, 
 	const waterOffset = Math.floor( waterDepth / 3 );
 	const surfaceY = tileY + waterOffset;
 	const frame = Math.floor( waterTick / 20 ) % 2;
-	const { img: waveImg, ready: waveReady } = sprites.wave;
+	const { img: waveImg, ready: waveReady } = getSprites().wave;
 
 	for ( let col = 0; col < LEVEL_MAP[ 0 ].length; col++ ) {
 		if ( LEVEL_MAP[ pitRow ][ col ] !== 0 ) continue;
@@ -201,7 +225,8 @@ function drawWapuu( ctx: CanvasRenderingContext2D, p: Player, cameraX: number ) 
 	const sx = Math.round( p.x - cameraX );
 	const sy = Math.floor( p.y );
 	const isIdle = p.vx === 0;
-	const { img, ready } = isIdle ? sprites.wapuuIdle : sprites.wapuu;
+	const sp = getSprites();
+	const { img, ready } = isIdle ? sp.wapuuIdle : sp.wapuu;
 	const frame = isIdle ? 0 : p.animFrame % 4;
 	// Draw sprite at 32×32, bottom-aligned to hitbox, horizontally centered
 	const dw = 32;
@@ -284,7 +309,7 @@ function drawBlock( ctx: CanvasRenderingContext2D, e: Enemy, cameraX: number ) {
 	// Center sprite over hitbox, bottom-aligned
 	const dx = hx + ( e.w - BLOCK_SPRITE_W ) / 2;
 	const dy = hy + e.h - BLOCK_SPRITE_H;
-	const { img, ready } = sprites.gutenberg;
+	const { img, ready } = getSprites().gutenberg;
 	const frame = e.animFrame % 4;
 	if ( ready ) {
 		ctx.save();
@@ -327,7 +352,7 @@ function drawMguy( ctx: CanvasRenderingContext2D, e: Enemy, cameraX: number ) {
 	const dx = hx + ( e.w - MGUY_SPRITE_W ) / 2;
 	const dy = hy + e.h - MGUY_SPRITE_H;
 
-	const { img, ready } = sprites.mguy;
+	const { img, ready } = getSprites().mguy;
 	const frame = e.animFrame % 4;
 
 	ctx.save();
@@ -387,7 +412,7 @@ function drawCollectible( ctx: CanvasRenderingContext2D, c: Collectible, cameraX
 	const x = Math.round( c.x - cameraX );
 	const bob = Math.sin( c.animFrame * 0.05 ) * 3;
 	const y = Math.round( c.y ) + bob;
-	const { img, ready } = sprites.coin;
+	const { img, ready } = getSprites().coin;
 	if ( ready ) {
 		ctx.drawImage( img, 0, 0, img.naturalWidth, img.naturalHeight, x, y, c.w, c.h );
 	} else {
@@ -408,7 +433,7 @@ function drawCollectible( ctx: CanvasRenderingContext2D, c: Collectible, cameraX
 function drawFlag( ctx: CanvasRenderingContext2D, flag: Flag, cameraX: number ) {
 	const x = Math.round( flag.x - cameraX );
 	const y = Math.round( flag.y );
-	const { img, ready } = sprites.flag;
+	const { img, ready } = getSprites().flag;
 	if ( ready ) {
 		ctx.drawImage( img, 0, 0, 32, 64, x, y, flag.w, flag.h );
 		return;

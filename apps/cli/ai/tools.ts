@@ -30,6 +30,7 @@ import { runCommand as runStopSiteCommand, Mode as StopMode } from 'cli/commands
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { isRemoteSessionEnabled } from 'cli/lib/feature-flags';
 import { getUnsupportedWpCliPostContentMessage } from 'cli/lib/rewrite-wp-cli-post-content';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { parseSyncOptions } from 'cli/lib/sync-api';
@@ -1287,13 +1288,19 @@ export interface CreateStudioToolsOptions {
 }
 
 export function resolveStudioToolDefinitions( options: CreateStudioToolsOptions = {} ) {
-	if ( options.enablePreviewSteering ) {
+	const excludedNames = new Set< string >();
+	if ( ! options.enablePreviewSteering ) {
+		for ( const t of previewSteeringToolDefinitions ) {
+			excludedNames.add( t.name );
+		}
+	}
+	if ( ! isRemoteSessionEnabled() ) {
+		excludedNames.add( shareScreenshotTool.name );
+	}
+	if ( excludedNames.size === 0 ) {
 		return studioToolDefinitions;
 	}
-	const previewSteeringNames = new Set( previewSteeringToolDefinitions.map( ( t ) => t.name ) );
-	return studioToolDefinitions.filter(
-		( candidate ) => ! previewSteeringNames.has( candidate.name )
-	);
+	return studioToolDefinitions.filter( ( candidate ) => ! excludedNames.has( candidate.name ) );
 }
 
 export function createStudioTools( options: CreateStudioToolsOptions = {} ) {
@@ -1310,9 +1317,12 @@ export function createStudioTools( options: CreateStudioToolsOptions = {} ) {
  */
 export function createRemoteSiteTools( token: string, siteId: number ) {
 	const wpcomTools = createWpcomToolDefinitions( token, siteId );
+	const screenshotTools = isRemoteSessionEnabled()
+		? [ takeScreenshotTool, shareScreenshotTool ]
+		: [ takeScreenshotTool ];
 	return createSdkMcpServer( {
 		name: 'studio',
 		version: '1.0.0',
-		tools: [ ...wpcomTools, takeScreenshotTool, shareScreenshotTool, createSiteTool, pullSiteTool ],
+		tools: [ ...wpcomTools, ...screenshotTools, createSiteTool, pullSiteTool ],
 	} );
 }

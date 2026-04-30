@@ -185,6 +185,38 @@ describe( 'Studio AI MCP tools', () => {
 		expect( names ).toContain( 'preview_reload' );
 	} );
 
+	describe( 'share_screenshot gating', () => {
+		const originalValue = process.env.STUDIO_ENABLE_REMOTE_SESSION;
+
+		beforeEach( () => {
+			delete process.env.STUDIO_ENABLE_REMOTE_SESSION;
+		} );
+
+		afterEach( () => {
+			if ( originalValue === undefined ) {
+				delete process.env.STUDIO_ENABLE_REMOTE_SESSION;
+			} else {
+				process.env.STUDIO_ENABLE_REMOTE_SESSION = originalValue;
+			}
+		} );
+
+		it( 'omits share_screenshot when STUDIO_ENABLE_REMOTE_SESSION is unset', () => {
+			const names = resolveStudioToolDefinitions( { enablePreviewSteering: true } ).map(
+				( tool ) => tool.name
+			);
+			expect( names ).not.toContain( 'share_screenshot' );
+			expect( names ).toContain( 'take_screenshot' );
+		} );
+
+		it( 'includes share_screenshot when STUDIO_ENABLE_REMOTE_SESSION=true', () => {
+			process.env.STUDIO_ENABLE_REMOTE_SESSION = 'true';
+			const names = resolveStudioToolDefinitions( { enablePreviewSteering: true } ).map(
+				( tool ) => tool.name
+			);
+			expect( names ).toContain( 'share_screenshot' );
+		} );
+	} );
+
 	it( 'creates previews for a resolved local site', async () => {
 		const result = await getTool( 'preview_create' ).handler(
 			{ nameOrPath: 'My Site' } as never,

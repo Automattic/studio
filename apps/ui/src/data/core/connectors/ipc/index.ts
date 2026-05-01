@@ -619,34 +619,6 @@ export function createIpcConnector(): Connector {
 			ipcApi.openURL( url );
 		},
 
-		previewView: {
-			async create( options ) {
-				return ipcApi.createPreviewView( options );
-			},
-			async setBounds( viewId, bounds ) {
-				await ipcApi.setPreviewViewBounds( viewId, bounds );
-			},
-			async navigate( viewId, path ) {
-				await ipcApi.navigatePreviewView( viewId, path );
-			},
-			async destroy( viewId ) {
-				await ipcApi.destroyPreviewView( viewId );
-			},
-			onEvent( listener ) {
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
-				const ipcListener = ( window as any ).ipcListener;
-				if ( ! ipcListener ) {
-					return () => undefined;
-				}
-				return ipcListener.subscribe(
-					'preview-view:event',
-					( _event: unknown, payload: { viewId: string; payload: unknown } ) => {
-						listener( payload );
-					}
-				);
-			},
-		},
-
 		// Window state
 		async isFullscreen(): Promise< boolean > {
 			return ipcApi.isFullscreen();

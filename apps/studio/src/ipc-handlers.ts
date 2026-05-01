@@ -312,12 +312,14 @@ function expandSkillCommandPrompt( prompt: string ): string {
 export async function continueAiSession(
 	event: IpcMainInvokeEvent,
 	sessionId: string,
-	prompt: string
+	prompt: string,
+	options: { displayMessage?: string } = {}
 ): Promise< { runId: string } > {
 	await reconcileSessionEnvironmentBeforeRun( sessionId );
 	return startAgentRun( {
 		sessionId,
 		prompt: expandSkillCommandPrompt( prompt ),
+		displayMessage: options.displayMessage,
 		webContents: event.sender,
 	} );
 }

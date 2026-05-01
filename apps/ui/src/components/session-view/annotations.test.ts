@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { formatAnnotationsAsPrompt } from './annotations';
+import { formatAnnotationsAsPrompt, formatAnnotationsSubmittedMessage } from './annotations';
 import type { Annotation } from '@/components/site-preview/types';
 
 describe( 'formatAnnotationsAsPrompt', () => {
+	it( 'formats a compact submitted message for the visible transcript', () => {
+		expect( formatAnnotationsSubmittedMessage( 1 ) ).toBe( '1 annotation submitted' );
+		expect( formatAnnotationsSubmittedMessage( 2 ) ).toBe( '2 annotations submitted' );
+	} );
+
 	it( 'asks the agent to summarize, confirm, and use todos before editing', () => {
 		const annotations: Annotation[] = [
 			{

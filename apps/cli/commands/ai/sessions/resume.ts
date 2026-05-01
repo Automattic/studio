@@ -15,6 +15,7 @@ export async function runCommand(
 	options: {
 		noSessionPersistence?: boolean;
 		message?: string;
+		displayMessage?: string;
 		json?: boolean;
 	} = {}
 ): Promise< void > {
@@ -56,6 +57,7 @@ export async function runCommand(
 		resumeSession: session,
 		noSessionPersistence: options.noSessionPersistence === true,
 		initialMessage: options.message,
+		initialDisplayMessage: options.displayMessage,
 		activeSite: resolvedSite,
 	} );
 }
@@ -81,6 +83,11 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					default: false,
 					description: __( 'Output events as NDJSON to stdout (headless mode)' ),
 				} )
+				.option( 'display-message', {
+					type: 'string',
+					hidden: true,
+					description: __( 'Message to persist and display in the session transcript' ),
+				} )
 				.check( ( argv ) => {
 					if ( argv.json && ! argv.message ) {
 						throw new Error( __( '--json requires a message argument' ) );
@@ -93,6 +100,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				const typedArgv = argv as {
 					id?: string;
 					message?: string;
+					displayMessage?: string;
 					json?: boolean;
 					sessionPersistence?: boolean;
 				};
@@ -100,6 +108,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				await runCommand( typedArgv.id, {
 					noSessionPersistence,
 					message: typedArgv.message,
+					displayMessage: typedArgv.displayMessage,
 					json: typedArgv.json,
 				} );
 			} catch ( error ) {

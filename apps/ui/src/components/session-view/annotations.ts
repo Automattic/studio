@@ -1,7 +1,12 @@
+import { _n, sprintf } from '@wordpress/i18n';
 import type { Annotation } from '@/components/site-preview/types';
 
 function describeCount( count: number ): string {
 	return count === 1 ? '1 visual annotation' : `${ count } visual annotations`;
+}
+
+export function formatAnnotationsSubmittedMessage( count: number ): string {
+	return sprintf( _n( '%d annotation submitted', '%d annotations submitted', count ), count );
 }
 
 function truncateText( text: string, maxLength: number ): string {

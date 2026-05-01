@@ -15,7 +15,7 @@ export function QueuedPrompts( { prompts, onRemove }: QueuedPromptsProps ) {
 		<div className={ styles.root } aria-label={ __( 'Queued follow-ups' ) }>
 			{ prompts.map( ( item ) => (
 				<div key={ item.id } className={ styles.item }>
-					<span className={ styles.text }>{ item.prompt }</span>
+					<span className={ styles.text }>{ item.displayMessage ?? item.prompt }</span>
 					<button
 						type="button"
 						className={ styles.remove }

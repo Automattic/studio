@@ -12,7 +12,10 @@ import {
 	type ReactNode,
 	type Ref,
 } from 'react';
-import { formatAnnotationsAsPrompt } from '@/components/session-view/annotations';
+import {
+	formatAnnotationsAsPrompt,
+	formatAnnotationsSubmittedMessage,
+} from '@/components/session-view/annotations';
 import { Composer, ComposerSkeleton } from '@/components/session-view/composer';
 import { pickLiveSite } from '@/components/session-view/composer/environment-pill';
 import { Conversation } from '@/components/session-view/conversation';
@@ -188,7 +191,9 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 	const handleAnnotationsDone = useCallback(
 		( annotations: Annotation[] ) => {
 			if ( annotations.length === 0 ) return;
-			void sendMessage( formatAnnotationsAsPrompt( annotations ) );
+			void sendMessage( formatAnnotationsAsPrompt( annotations ), {
+				displayMessage: formatAnnotationsSubmittedMessage( annotations.length ),
+			} );
 		},
 		[ sendMessage ]
 	);

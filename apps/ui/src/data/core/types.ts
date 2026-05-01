@@ -191,7 +191,11 @@ export interface Connector {
 	// Continue an existing session by sending a new prompt. Returns a `runId`
 	// that identifies the in-flight agent run; live events for that run stream
 	// through `onAgentEvent`.
-	continueSession( sessionId: string, prompt: string ): Promise< { runId: string } >;
+	continueSession(
+		sessionId: string,
+		prompt: string,
+		options?: { displayMessage?: string }
+	): Promise< { runId: string } >;
 	// Persist a UI-driven model override for the session. The CLI picks this up
 	// on the next turn; the change survives reloads because it's written to the
 	// session JSONL.

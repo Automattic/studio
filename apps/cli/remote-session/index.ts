@@ -27,7 +27,10 @@ export async function runRemoteSession( overrides: RemoteSessionOverrides = {} )
 		// detach path below; the `exit` event still fires afterwards.
 		installDaemonChildHooks();
 	}
-	const logger = new RemoteSessionLogger();
+	// In foreground mode the interactive REPL is blocked, so stdout is free
+	// and we stream activity there alongside the log file. As a daemon, stdout
+	// is `/dev/null`, so mirroring is wasted work and we skip it.
+	const logger = new RemoteSessionLogger( { mirrorToStdout: ! runningAsDaemon } );
 	const logPath = getRemoteSessionLogPath();
 	logger.info( 'Remote session starting', {
 		base_url: config.base_url,

@@ -2,7 +2,7 @@ import {
 	__experimentalVStack as VStack,
 	__experimentalHStack as HStack,
 } from '@wordpress/components';
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import CustomTitlebar from 'src/components/custom-titlebar';
 import MacTitlebar from 'src/components/mac-titlebar';
 import MainSidebar from 'src/components/main-sidebar';
@@ -21,10 +21,13 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { Onboarding } from 'src/modules/onboarding';
 import { useOnboarding } from 'src/modules/onboarding/hooks/use-onboarding';
 import { UserSettings } from 'src/modules/user-settings';
+import { useKonamiCode } from 'src/modules/wapuu-world/use-konami-code';
+import { WapuuWorldGame } from 'src/modules/wapuu-world/wapuu-world-game';
 import { WhatsNewModal, useWhatsNew } from 'src/modules/whats-new';
 import { useAppDispatch, useRootSelector } from 'src/stores';
 import { selectOnboardingLoading } from 'src/stores/onboarding-slice';
 import { syncOperationsThunks } from 'src/stores/sync';
+import { openWapuuWorld, selectIsWapuuWorldOpen } from 'src/stores/ui-slice';
 import 'src/index.css';
 
 export default function App() {
@@ -42,6 +45,9 @@ export default function App() {
 	const shouldShowWhatsNew = showWhatsNew && ! isEmpty;
 	const { client } = useAuth();
 	const dispatch = useAppDispatch();
+	const isWapuuWorldOpen = useRootSelector( selectIsWapuuWorldOpen );
+	const activateWapuuWorld = useCallback( () => dispatch( openWapuuWorld() ), [ dispatch ] );
+	useKonamiCode( activateWapuuWorld );
 
 	// Initialize sync states from in-progress server operations
 	useEffect( () => {
@@ -124,6 +130,7 @@ export default function App() {
 			) }
 			<UserSettings />
 			<WhatsNewModal showModal={ shouldShowWhatsNew } onClose={ closeWhatsNew } />
+			{ isWapuuWorldOpen && <WapuuWorldGame /> }
 		</>
 	);
 }

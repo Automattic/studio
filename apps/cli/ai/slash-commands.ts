@@ -17,7 +17,6 @@ import { loadRemoteSessionConfig } from 'cli/remote-session/config';
 import {
 	DaemonAlreadyRunningError,
 	DaemonStartTimeoutError,
-	getDaemonStatus,
 	startDaemon,
 	stopDaemon,
 } from 'cli/remote-session/daemon';
@@ -80,10 +79,10 @@ function isPromptAbortError( error: unknown ): boolean {
 	);
 }
 
-function parseRemoteSessionSubcommand( prompt: string ): 'start' | 'stop' | 'status' | undefined {
+function parseRemoteSessionSubcommand( prompt: string ): 'start' | 'stop' | undefined {
 	const tokens = prompt.trim().split( /\s+/ );
 	const sub = tokens[ 1 ]?.toLowerCase();
-	if ( sub === 'start' || sub === 'stop' || sub === 'status' ) {
+	if ( sub === 'start' || sub === 'stop' ) {
 		return sub;
 	}
 	return undefined;
@@ -170,30 +169,6 @@ async function runRemoteSessionStop( ctx: SlashCommandContext ): Promise< void >
 	);
 }
 
-function runRemoteSessionStatus( ctx: SlashCommandContext ): void {
-	const status = getDaemonStatus();
-	ctx.ui.setDaemonStatus(
-		status.running && status.pid !== undefined
-			? { running: true, pid: status.pid }
-			: { running: false }
-	);
-	if ( status.running && status.pid !== undefined ) {
-		ctx.ui.showInfo(
-			sprintf(
-				/* translators: %d: daemon PID */
-				__( 'Remote-session daemon is running (PID %d).' ),
-				status.pid
-			)
-		);
-		return;
-	}
-	if ( status.staleFileRemoved ) {
-		ctx.ui.showInfo( __( 'Remote-session daemon is not running (cleaned up a stale PID file).' ) );
-		return;
-	}
-	ctx.ui.showInfo( __( 'Remote-session daemon is not running.' ) );
-}
-
 async function runRemoteSessionSlashCommand(
 	prompt: string,
 	ctx: SlashCommandContext
@@ -203,10 +178,8 @@ async function runRemoteSessionSlashCommand(
 		await runRemoteSessionStart( ctx );
 	} else if ( sub === 'stop' ) {
 		await runRemoteSessionStop( ctx );
-	} else if ( sub === 'status' ) {
-		runRemoteSessionStatus( ctx );
 	} else {
-		ctx.ui.showInfo( __( 'Usage: /remote-session [start|stop|status]' ) );
+		ctx.ui.showInfo( __( 'Usage: /remote-session [start|stop]' ) );
 	}
 	return 'continue';
 }
@@ -456,13 +429,12 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 	},
 	{
 		name: 'remote-session',
-		description: __( 'Manage the Telegram remote-session daemon (start, stop, status)' ),
+		description: __( 'Manage the Telegram remote-session daemon (start, stop)' ),
 		enabled: isRemoteSessionEnabled,
 		getArgumentCompletions: ( argumentPrefix ) => {
 			const items: AutocompleteItem[] = [
 				{ value: 'start', label: 'start', description: __( 'Spawn the daemon' ) },
 				{ value: 'stop', label: 'stop', description: __( 'Stop the daemon' ) },
-				{ value: 'status', label: 'status', description: __( 'Show daemon status' ) },
 			];
 			const lower = argumentPrefix.toLowerCase();
 			return items.filter( ( item ) => item.value.startsWith( lower ) );

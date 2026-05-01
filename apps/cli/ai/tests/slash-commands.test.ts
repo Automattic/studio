@@ -58,10 +58,10 @@ describe( '/remote-session slash command registration', () => {
 		expect( cmd!.description ).toBeTruthy();
 	} );
 
-	it( 'returns start/stop/status as autocomplete suggestions', () => {
+	it( 'returns start/stop as autocomplete suggestions', () => {
 		const items = cmd!.getArgumentCompletions!( '' );
 		const values = items?.map( ( i ) => i.value ).sort();
-		expect( values ).toEqual( [ 'start', 'status', 'stop' ] );
+		expect( values ).toEqual( [ 'start', 'stop' ] );
 	} );
 
 	it( 'filters autocomplete suggestions by prefix (case-insensitive)', () => {
@@ -69,11 +69,8 @@ describe( '/remote-session slash command registration', () => {
 			cmd!.getArgumentCompletions!( 'st' )
 				?.map( ( i ) => i.value )
 				.sort()
-		).toEqual( [ 'start', 'status', 'stop' ] );
-		expect( cmd!.getArgumentCompletions!( 'sta' )?.map( ( i ) => i.value ) ).toEqual( [
-			'start',
-			'status',
-		] );
+		).toEqual( [ 'start', 'stop' ] );
+		expect( cmd!.getArgumentCompletions!( 'sta' )?.map( ( i ) => i.value ) ).toEqual( [ 'start' ] );
 		expect( cmd!.getArgumentCompletions!( 'STO' )?.map( ( i ) => i.value ) ).toEqual( [ 'stop' ] );
 	} );
 } );
@@ -82,7 +79,6 @@ vi.mock( 'cli/remote-session/daemon', () => {
 	return {
 		startDaemon: vi.fn(),
 		stopDaemon: vi.fn(),
-		getDaemonStatus: vi.fn(),
 		DaemonAlreadyRunningError: class DaemonAlreadyRunningError extends Error {
 			pid: number;
 			constructor( pid: number ) {
@@ -150,7 +146,6 @@ describe( '/remote-session slash command handler', () => {
 		const daemon = await import( 'cli/remote-session/daemon' );
 		( daemon.startDaemon as ReturnType< typeof vi.fn > ).mockReset();
 		( daemon.stopDaemon as ReturnType< typeof vi.fn > ).mockReset();
-		( daemon.getDaemonStatus as ReturnType< typeof vi.fn > ).mockReset();
 		const config = await import( 'cli/remote-session/config' );
 		( config.loadRemoteSessionConfig as ReturnType< typeof vi.fn > ).mockReset();
 		( config.loadRemoteSessionConfig as ReturnType< typeof vi.fn > ).mockResolvedValue( {} );
@@ -285,51 +280,6 @@ describe( '/remote-session slash command handler', () => {
 			await cmd.handler!( '/remote-session stop', makeCtx( ui ) );
 
 			expect( ui.showError ).toHaveBeenCalledWith( expect.stringContaining( '777' ) );
-		} );
-	} );
-
-	describe( 'status', () => {
-		it( 'shows running daemon details and updates the indicator', async () => {
-			const daemon = await import( 'cli/remote-session/daemon' );
-			( daemon.getDaemonStatus as ReturnType< typeof vi.fn > ).mockReturnValue( {
-				running: true,
-				pid: 321,
-				pidFile: '/tmp/x.pid',
-			} );
-
-			const ui = makeUi();
-			await cmd.handler!( '/remote-session status', makeCtx( ui ) );
-
-			expect( ui.showInfo ).toHaveBeenCalledWith( expect.stringContaining( '321' ) );
-			expect( ui.setDaemonStatus ).toHaveBeenCalledWith( { running: true, pid: 321 } );
-		} );
-
-		it( 'reports stopped state and clears the indicator', async () => {
-			const daemon = await import( 'cli/remote-session/daemon' );
-			( daemon.getDaemonStatus as ReturnType< typeof vi.fn > ).mockReturnValue( {
-				running: false,
-				pidFile: '/tmp/x.pid',
-			} );
-
-			const ui = makeUi();
-			await cmd.handler!( '/remote-session status', makeCtx( ui ) );
-
-			expect( ui.showInfo ).toHaveBeenCalledWith( expect.stringContaining( 'not running' ) );
-			expect( ui.setDaemonStatus ).toHaveBeenCalledWith( { running: false } );
-		} );
-
-		it( 'mentions stale PID file cleanup when applicable', async () => {
-			const daemon = await import( 'cli/remote-session/daemon' );
-			( daemon.getDaemonStatus as ReturnType< typeof vi.fn > ).mockReturnValue( {
-				running: false,
-				pidFile: '/tmp/x.pid',
-				staleFileRemoved: true,
-			} );
-
-			const ui = makeUi();
-			await cmd.handler!( '/remote-session status', makeCtx( ui ) );
-
-			expect( ui.showInfo ).toHaveBeenCalledWith( expect.stringContaining( 'stale' ) );
 		} );
 	} );
 } );

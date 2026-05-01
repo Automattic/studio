@@ -156,14 +156,15 @@ Inside an interactive `studio code` session, `/remote-session` (registered in `a
 
 - `/remote-session start` — validates config (so a missing token surfaces immediately), then spawns the detached daemon via the same `startDaemon()` helper used by `studio code remote-session start --detach`. Reports the new PID via `ui.showSuccess` and updates the bottom-bar daemon indicator. If a daemon is already running, reports the existing PID and updates the indicator (idempotent).
 - `/remote-session stop` — calls `stopDaemon()` and clears the indicator. Surfaces friendly messages for "already stopped", "needed SIGKILL", or "process refused to die".
-- `/remote-session status` — calls `getDaemonStatus()` (synchronous fs probe), updates the indicator, and prints the current state.
+
+There is intentionally no `/remote-session status` slash command. The bottom-bar indicator (described below) already shows whether the daemon is running, and `studio code remote-session status` covers the out-of-REPL case.
 
 Implementation notes:
 
 - The command is gated by `STUDIO_ENABLE_REMOTE_SESSION` via the `enabled` getter on `SlashCommandDef`, so it is hidden from autocomplete and unreachable from the dispatcher when the flag is off.
-- `SlashCommandDef.getArgumentCompletions(prefix)` returns `start | stop | status` so typing `/remote-session ` shows them in the autocomplete dropdown.
+- `SlashCommandDef.getArgumentCompletions(prefix)` returns `start | stop` so typing `/remote-session ` shows them in the autocomplete dropdown.
 - The REPL dispatcher matches on the first whitespace token (`/${name} <args>` rather than exact-match) so the handler receives the full prompt and parses the subcommand itself.
-- The bottom-bar **daemon indicator** (`PromptEditor.daemonStatusMessage`) is updated immediately by the `start`/`stop`/`status` handlers AND every 5s by a light `getDaemonStatus()` poll started by the REPL when the feature flag is on. The poll catches external start/stop (e.g. another terminal running `studio code remote-session stop`) and unexpected daemon death.
+- The bottom-bar **daemon indicator** (`PromptEditor.daemonStatusMessage`) is updated immediately by the `start`/`stop` handlers AND every 5s by a light `getDaemonStatus()` poll started by the REPL when the feature flag is on. The poll catches external start/stop (e.g. another terminal running `studio code remote-session stop`) and unexpected daemon death.
 
 `RemoteSessionConfigError` (e.g. missing token) is shown via `ui.showError` rather than crashing the REPL — the user is told to authenticate via `/login` or set `STUDIO_REMOTE_TOKEN`.
 

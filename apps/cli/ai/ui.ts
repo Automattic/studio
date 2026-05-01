@@ -1660,17 +1660,7 @@ export class AiChatUI implements AiOutputAdapter {
 	}
 
 	setDaemonStatus( state: { running: boolean; pid?: number } ): void {
-		if ( ! state.running ) {
-			this.editor.daemonStatusMessage = null;
-		} else if ( typeof state.pid === 'number' ) {
-			this.editor.daemonStatusMessage = sprintf(
-				/* translators: %d: daemon PID */
-				__( 'Remote: ON (PID %d)' ),
-				state.pid
-			);
-		} else {
-			this.editor.daemonStatusMessage = __( 'Remote: ON' );
-		}
+		this.editor.daemonStatusMessage = state.running ? __( 'Remote: ON' ) : null;
 		this.tui.requestRender();
 	}
 

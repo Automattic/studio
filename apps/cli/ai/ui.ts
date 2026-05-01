@@ -209,13 +209,15 @@ class PromptEditor implements Component, Focusable {
 			activeHints.length > 0
 				? ' ' + activeHints.map( ( h ) => chalk.dim( h ) ).join( chalk.dim( ' · ' ) )
 				: '';
-		const rightSegments = [ this.daemonStatusMessage, this.statusMessage ].filter(
-			( s ): s is string => typeof s === 'string' && s.length > 0
-		);
+		const rightSegments: string[] = [];
+		if ( this.daemonStatusMessage ) {
+			rightSegments.push( chalk.green( this.daemonStatusMessage ) );
+		}
+		if ( this.statusMessage ) {
+			rightSegments.push( chalk.dim( this.statusMessage ) );
+		}
 		const rightPart =
-			rightSegments.length > 0
-				? rightSegments.map( ( s ) => chalk.dim( s ) ).join( chalk.dim( ' · ' ) ) + ' '
-				: '';
+			rightSegments.length > 0 ? rightSegments.join( chalk.dim( ' · ' ) ) + ' ' : '';
 		if ( leftPart || rightPart ) {
 			const leftLen = visibleWidth( leftPart );
 			const rightLen = visibleWidth( rightPart );
@@ -1660,7 +1662,7 @@ export class AiChatUI implements AiOutputAdapter {
 	}
 
 	setDaemonStatus( state: { running: boolean; pid?: number } ): void {
-		this.editor.daemonStatusMessage = state.running ? __( 'Remote: ON' ) : null;
+		this.editor.daemonStatusMessage = state.running ? __( 'Remote session active' ) : null;
 		this.tui.requestRender();
 	}
 

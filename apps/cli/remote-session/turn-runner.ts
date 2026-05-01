@@ -153,11 +153,18 @@ export async function runTurn( options: TurnRunOptions ): Promise< TurnOutcome >
 		timeout_ms: options.timeoutMs,
 	} );
 
+	// Tell the spawned `studio code --json` it's running in a remote session so the
+	// system prompt can lean on `share_screenshot` and the preview-site follow-up.
+	const childEnv: NodeJS.ProcessEnv = {
+		...( options.env ?? process.env ),
+		STUDIO_REMOTE_SESSION: '1',
+	};
+
 	let child: ChildProcess;
 	try {
 		child = spawn( execPath, args, {
 			stdio: [ 'pipe', 'pipe', 'pipe' ],
-			env: options.env ?? process.env,
+			env: childEnv,
 			// Explicitly never use a shell — text is attacker-controlled.
 			shell: false,
 		} );

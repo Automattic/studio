@@ -216,7 +216,7 @@ if ( useAzureSigning ) {
 		const appxPath = path.join( appxOutputPathSigned, appxFile );
 		console.log( `Signing ${ appxPath }...` );
 		const { signtoolPath } = getAzureSigningConfig();
-		execFileSync( signtoolPath, getAzureSignArgs( appxPath, [ '/debug' ] ), {
+		execFileSync( signtoolPath, getAzureSignArgs( appxPath ), {
 			stdio: 'inherit',
 		} );
 		console.log( `Signed ${ appxFile } successfully.` );

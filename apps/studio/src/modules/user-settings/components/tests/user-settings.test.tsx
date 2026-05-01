@@ -33,6 +33,7 @@ vi.mock( 'src/lib/get-ipc-api', () => ( {
 		isStudioCliInstalled: vi.fn().mockResolvedValue( true ),
 		copyText: vi.fn().mockResolvedValue( undefined ),
 		getDefaultSiteDirectory: vi.fn().mockResolvedValue( '/mock/default/site/path' ),
+		getWapuuScore: vi.fn().mockResolvedValue( undefined ),
 	} ),
 } ) );
 

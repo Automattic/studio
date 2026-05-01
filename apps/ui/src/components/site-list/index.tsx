@@ -1,7 +1,7 @@
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { moreHorizontal, plus } from '@wordpress/icons';
-import { Button, Dialog, IconButton } from '@wordpress/ui';
+import { chevronDown, chevronRight, moreHorizontal, plus } from '@wordpress/icons';
+import { Button, Dialog, Icon, IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useMemo, useState } from 'react';
 import * as Menu from '@/components/menu';
@@ -88,7 +88,7 @@ function groupSessionsByOwner(
 	return groups;
 }
 
-function SessionItem( { session }: { session: AiSessionSummary } ) {
+function SessionItem( { session, isVisible }: { session: AiSessionSummary; isVisible: boolean } ) {
 	const label = session.firstPrompt?.trim() || __( '(No prompt yet)' );
 
 	return (
@@ -99,6 +99,7 @@ function SessionItem( { session }: { session: AiSessionSummary } ) {
 					<Link
 						to="/sessions/$sessionId"
 						params={ { sessionId: session.id } }
+						tabIndex={ isVisible ? undefined : -1 }
 						activeProps={ {
 							className: clsx( styles.sessionLink, styles.sessionLinkActive ),
 						} }
@@ -319,6 +320,9 @@ function SiteSection( {
 						onClick={ onToggle }
 						aria-expanded={ isOpen }
 					>
+						<span className={ styles.siteChevron } aria-hidden="true">
+							<Icon icon={ isOpen ? chevronDown : chevronRight } size={ 16 } />
+						</span>
 						<span className={ styles.siteName }>{ group.label }</span>
 					</SidebarButton>
 				</div>
@@ -329,12 +333,17 @@ function SiteSection( {
 					</div>
 				) : null }
 			</header>
-			{ isOpen && group.sessions.length > 0 ? (
-				<ul className={ styles.sessionList }>
-					{ group.sessions.map( ( session ) => (
-						<SessionItem key={ session.id } session={ session } />
-					) ) }
-				</ul>
+			{ group.sessions.length > 0 ? (
+				<div
+					className={ clsx( styles.sessionListFrame, isOpen && styles.sessionListFrameOpen ) }
+					aria-hidden={ ! isOpen }
+				>
+					<ul className={ styles.sessionList }>
+						{ group.sessions.map( ( session ) => (
+							<SessionItem key={ session.id } session={ session } isVisible={ isOpen } />
+						) ) }
+					</ul>
+				</div>
 			) : null }
 		</section>
 	);

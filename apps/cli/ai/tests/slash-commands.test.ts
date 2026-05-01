@@ -223,6 +223,36 @@ describe( '/remote-session slash command handler', () => {
 
 			expect( ui.showError ).toHaveBeenCalledWith( expect.stringContaining( 'timed out' ) );
 		} );
+
+		it( 'surfaces unexpected loadRemoteSessionConfig errors via showError', async () => {
+			const config = await import( 'cli/remote-session/config' );
+			( config.loadRemoteSessionConfig as ReturnType< typeof vi.fn > ).mockRejectedValue(
+				new Error( 'EACCES: permission denied' )
+			);
+
+			const daemon = await import( 'cli/remote-session/daemon' );
+			const ui = makeUi();
+			await expect( cmd.handler!( '/remote-session start', makeCtx( ui ) ) ).resolves.toBe(
+				'continue'
+			);
+
+			expect( daemon.startDaemon ).not.toHaveBeenCalled();
+			expect( ui.showError ).toHaveBeenCalledWith( expect.stringContaining( 'EACCES' ) );
+		} );
+
+		it( 'surfaces unexpected startDaemon errors via showError', async () => {
+			const daemon = await import( 'cli/remote-session/daemon' );
+			( daemon.startDaemon as ReturnType< typeof vi.fn > ).mockRejectedValue(
+				new Error( 'spawn EAGAIN' )
+			);
+
+			const ui = makeUi();
+			await expect( cmd.handler!( '/remote-session start', makeCtx( ui ) ) ).resolves.toBe(
+				'continue'
+			);
+
+			expect( ui.showError ).toHaveBeenCalledWith( expect.stringContaining( 'EAGAIN' ) );
+		} );
 	} );
 
 	describe( 'stop', () => {

@@ -12,14 +12,8 @@ import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/upda
 import { isRemoteSessionEnabled } from 'cli/lib/feature-flags';
 import { getSnapshotsFromConfig, isSnapshotExpired } from 'cli/lib/snapshots';
 import { LoggerError } from 'cli/logger';
-import { RemoteSessionConfigError } from 'cli/remote-session';
 import { loadRemoteSessionConfig } from 'cli/remote-session/config';
-import {
-	DaemonAlreadyRunningError,
-	DaemonStartTimeoutError,
-	startDaemon,
-	stopDaemon,
-} from 'cli/remote-session/daemon';
+import { DaemonAlreadyRunningError, startDaemon, stopDaemon } from 'cli/remote-session/daemon';
 import type { AutocompleteItem } from '@mariozechner/pi-tui';
 import type { AiChatUI } from 'cli/ai/ui';
 
@@ -98,11 +92,14 @@ async function runRemoteSessionStart( ctx: SlashCommandContext ): Promise< void 
 	try {
 		await loadRemoteSessionConfig();
 	} catch ( error ) {
-		if ( error instanceof RemoteSessionConfigError ) {
-			ctx.ui.showError( error.message );
-			return;
-		}
-		throw error;
+		// RemoteSessionConfigError already carries a user-facing message
+		// telling the user how to authenticate. Anything else (fs permissions,
+		// JSON parse, etc.) gets a generic surface so the REPL stays alive —
+		// the dispatcher does not catch handler throws.
+		ctx.ui.showError(
+			error instanceof Error ? error.message : __( 'Failed to load remote-session config.' )
+		);
+		return;
 	}
 
 	try {
@@ -131,11 +128,12 @@ async function runRemoteSessionStart( ctx: SlashCommandContext ): Promise< void 
 			ctx.ui.setDaemonStatus( { running: true, pid: error.pid } );
 			return;
 		}
-		if ( error instanceof DaemonStartTimeoutError ) {
-			ctx.ui.showError( error.message );
-			return;
-		}
-		throw error;
+		// DaemonStartTimeoutError and any other unexpected errors (spawn
+		// failure, fs write failure, etc.) get surfaced via showError so the
+		// REPL stays alive.
+		ctx.ui.showError(
+			error instanceof Error ? error.message : __( 'Failed to start the remote-session daemon.' )
+		);
 	}
 }
 

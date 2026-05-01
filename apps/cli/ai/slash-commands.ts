@@ -106,7 +106,9 @@ async function runRemoteSessionStart( ctx: SlashCommandContext ): Promise< void 
 		ctx.ui.showSuccess(
 			sprintf(
 				/* translators: %d: daemon PID */
-				__( 'Remote-session daemon started (PID %d). Message the Dolly bot on Telegram.' ),
+				__(
+					'Remote-session started (PID %d). Message Dolly (@wordpress_com_bot) on Telegram to continue this session remotely.'
+				),
 				result.pid
 			)
 		);
@@ -117,7 +119,7 @@ async function runRemoteSessionStart( ctx: SlashCommandContext ): Promise< void 
 				sprintf(
 					/* translators: %d: daemon PID */
 					__(
-						'Remote-session daemon is already running (PID %d). Message the Dolly bot on Telegram.'
+						'Remote-session already running (PID %d). Message Dolly (@wordpress_com_bot) on Telegram to continue this session remotely.'
 					),
 					error.pid
 				)

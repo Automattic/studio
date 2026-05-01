@@ -63,10 +63,14 @@ export interface SlashCommandDef {
 }
 
 /**
- * Returns the slash commands that should be visible/dispatchable right now.
- * Consumers (autocomplete + REPL dispatcher) should call this rather than
- * reading `AI_CHAT_SLASH_COMMANDS` directly so feature-flag flips take effect
- * without a restart.
+ * Returns the slash commands that are active at the time this function is
+ * called.
+ *
+ * Consumers such as the dispatcher should call this rather than reading
+ * `AI_CHAT_SLASH_COMMANDS` directly so feature-flag evaluation happens
+ * against current state. Consumers that cache the returned list, or build
+ * long-lived autocomplete providers from it, must refresh those consumers
+ * separately for later feature-flag changes to be reflected.
  */
 export function getActiveSlashCommands(): SlashCommandDef[] {
 	return AI_CHAT_SLASH_COMMANDS.filter( ( c ) => c.enabled === undefined || c.enabled() );

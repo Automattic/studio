@@ -1,10 +1,12 @@
 import { spawn } from 'child_process';
 import fs from 'fs';
+import path from 'path';
 import { getRemoteSessionPidPath } from '@studio/common/lib/well-known-paths';
 
 /**
  * Env var the parent sets on the detached child so it knows to write its PID
- * and install cleanup hooks. The presence of the var (any value) is the signal.
+ * and install cleanup hooks. Must be exactly the string "1" — see
+ * `isDaemonChild()`.
  */
 export const DAEMON_CHILD_ENV_VAR = 'STUDIO_REMOTE_SESSION_DAEMON_CHILD';
 
@@ -95,6 +97,13 @@ function removePidFile( pidFile: string ): void {
 }
 
 function writePidFile( pidFile: string, pid: number ): void {
+	// Defensive: ~/.studio is normally created by the migration middleware and
+	// the logger, but the daemon module shouldn't depend on that ordering.
+	try {
+		fs.mkdirSync( path.dirname( pidFile ), { recursive: true } );
+	} catch {
+		// best-effort; the writeFileSync below will surface a real error.
+	}
 	fs.writeFileSync( pidFile, `${ pid }\n`, { encoding: 'utf8', mode: 0o600 } );
 	if ( process.platform !== 'win32' ) {
 		try {
@@ -254,10 +263,13 @@ export interface StopDaemonResult {
 /**
  * Read the PID file and gracefully terminate the daemon. SIGTERM is sent first
  * (so the daemon can post its detach message and clean up); after a grace
- * period, SIGKILL is used. Always removes the PID file on success.
+ * period, SIGKILL is used. Removes the PID file once the process is confirmed
+ * dead; if SIGKILL didn't take effect (PID reuse, missing permissions, etc.),
+ * the PID file is left on disk and `stopped: false` is returned so `status`
+ * keeps reporting accurately.
  *
- * Returns `{ stopped: true }` even when the daemon was already gone — in that
- * case `alreadyStopped: true` is set.
+ * Returns `{ stopped: true, alreadyStopped: true }` when the daemon was
+ * already gone before we did anything.
  */
 export async function stopDaemon(
 	options: { timeoutMs?: number } = {},
@@ -309,11 +321,13 @@ export async function stopDaemon(
 	const killDeadline = Date.now() + 1000;
 	while ( Date.now() < killDeadline ) {
 		if ( ! isProcessAlive( pid ) ) {
-			break;
+			removePidFile( pidFile );
+			return { stopped: true, pid, usedSigKill };
 		}
 		await sleep( DAEMON_STOP_POLL_INTERVAL_MS );
 	}
 
-	removePidFile( pidFile );
-	return { stopped: true, pid, usedSigKill };
+	// Process refused to die. Leave the PID file in place so `status` keeps
+	// telling the truth and the user can investigate.
+	return { stopped: false, pid, usedSigKill };
 }

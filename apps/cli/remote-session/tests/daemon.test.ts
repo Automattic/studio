@@ -27,6 +27,22 @@ describe( 'remote-session daemon helpers', () => {
 		fs.rmSync( tmpDir, { recursive: true, force: true } );
 	} );
 
+	/**
+	 * Spawn a transient Node child, await its exit, and return its PID. Linux
+	 * with `pid_max=4194304` makes any hardcoded sentinel (e.g. 999999)
+	 * potentially live; this guarantees the PID points at a process that has
+	 * already terminated.
+	 */
+	async function reapedPid(): Promise< number > {
+		const child = spawn( process.execPath, [ '-e', 'process.exit(0)' ], { stdio: 'ignore' } );
+		const pid = child.pid;
+		if ( typeof pid !== 'number' ) {
+			throw new Error( 'Could not allocate a PID for the dead-process fixture' );
+		}
+		await new Promise< void >( ( resolve ) => child.once( 'exit', () => resolve() ) );
+		return pid;
+	}
+
 	describe( 'isDaemonChild', () => {
 		it( 'returns true when the env var is set to "1"', () => {
 			expect( isDaemonChild( { [ DAEMON_CHILD_ENV_VAR ]: '1' } ) ).toBe( true );
@@ -54,12 +70,12 @@ describe( 'remote-session daemon helpers', () => {
 			expect( status.pid ).toBe( process.pid );
 		} );
 
-		it( 'cleans up stale PID files that point to dead processes', () => {
-			// PID 999999 is essentially never live on real systems.
-			fs.writeFileSync( pidFile, '999999\n', 'utf8' );
+		it( 'cleans up stale PID files that point to dead processes', async () => {
+			const dead = await reapedPid();
+			fs.writeFileSync( pidFile, `${ dead }\n`, 'utf8' );
 			const status = getDaemonStatus( pidFile );
 			expect( status.running ).toBe( false );
-			expect( status.pid ).toBe( 999999 );
+			expect( status.pid ).toBe( dead );
 			expect( status.staleFileRemoved ).toBe( true );
 			expect( fs.existsSync( pidFile ) ).toBe( false );
 		} );
@@ -176,7 +192,8 @@ describe( 'remote-session daemon helpers', () => {
 		} );
 
 		it( 'stopDaemon cleans up a stale PID file pointing at a dead PID', async () => {
-			fs.writeFileSync( pidFile, '999999\n', 'utf8' );
+			const dead = await reapedPid();
+			fs.writeFileSync( pidFile, `${ dead }\n`, 'utf8' );
 			const result = await stopDaemon( {}, pidFile );
 			expect( result.stopped ).toBe( true );
 			expect( result.alreadyStopped ).toBe( true );

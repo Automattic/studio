@@ -124,6 +124,19 @@ async function runStop(): Promise< void > {
 		process.stdout.write( __( 'Remote-session daemon is not running.\n' ) );
 		return;
 	}
+	if ( ! result.stopped ) {
+		process.stderr.write(
+			sprintf(
+				/* translators: %d: PID */
+				__(
+					'Remote-session daemon (PID %d) did not exit after SIGKILL. PID file left in place.\n'
+				),
+				result.pid ?? 0
+			)
+		);
+		process.exitCode = 1;
+		return;
+	}
 	if ( result.usedSigKill ) {
 		process.stdout.write(
 			sprintf(

@@ -6,7 +6,8 @@ describe( 'AI system prompt', () => {
 		const prompt = buildSystemPrompt();
 
 		expect( prompt ).toContain( 'Header/admin bar compatibility' );
-		expect( prompt ).toContain( 'Prefer normal-flow headers' );
+		expect( prompt ).toContain( 'Fixed or sticky top headers are allowed' );
+		expect( prompt ).not.toContain( 'Prefer normal-flow headers' );
 		expect( prompt ).toContain( 'Never override the WordPress admin-bar `html` margin' );
 		expect( prompt ).toContain( 'position: fixed' );
 		expect( prompt ).toContain( 'position: sticky' );

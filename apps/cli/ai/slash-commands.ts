@@ -165,7 +165,7 @@ async function runRemoteSessionStop( ctx: SlashCommandContext ): Promise< void >
 	ctx.ui.showSuccess(
 		sprintf(
 			/* translators: %d: daemon PID */
-			__( 'Remote-session daemon (PID %d) stopped.' ),
+			__( 'Remote-session stopped (PID %d).' ),
 			result.pid ?? 0
 		)
 	);

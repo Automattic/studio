@@ -1,6 +1,5 @@
 import crypto from 'crypto';
 import fs from 'fs';
-import os from 'os';
 import path from 'path';
 import { confirm, input, password, select } from '@inquirer/prompts';
 import { SupportedPHPVersions } from '@php-wasm/universal';
@@ -45,11 +44,7 @@ import {
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
-import {
-	isStepDefinition,
-	type BlueprintV1Declaration,
-	type StepDefinition,
-} from '@wp-playground/blueprints';
+import { isStepDefinition, type BlueprintV1Declaration } from '@wp-playground/blueprints';
 import { bumpStat, getPlatformMetric } from 'cli/lib/bump-stat';
 import {
 	lockCliConfig,
@@ -279,71 +274,14 @@ export async function runCommand(
 		const externalPassword = options.adminPassword || blueprintCredentials?.adminPassword;
 		const adminPassword = externalPassword ? encodePassword( externalPassword ) : createPassword();
 
-		const setupSteps: StepDefinition[] = [];
-
 		const siteLanguage = await getPreferredSiteLanguage( options.wpVersion );
 
-		if ( siteLanguage && siteLanguage !== DEFAULT_LOCALE ) {
-			// For the 'latest' WP version, try using bundled language packs first to avoid
-			// a network round-trip. Fall back to the Playground setSiteLanguage step for
-			// non-latest versions or when bundled packs aren't available.
-			let isUsingBundledLanguagePacks = false;
-			if ( options.wpVersion === DEFAULT_WORDPRESS_VERSION ) {
-				isUsingBundledLanguagePacks = await copyLanguagePackToSite( sitePath, siteLanguage );
-			}
-
-			if ( isUsingBundledLanguagePacks ) {
-				setupSteps.push(
-					{
-						step: 'defineWpConfigConsts',
-						consts: {
-							WPLANG: siteLanguage,
-						},
-					},
-					{
-						step: 'setSiteOptions',
-						options: {
-							WPLANG: siteLanguage,
-						},
-					}
-				);
-			} else if ( isOnlineStatus ) {
-				setupSteps.push(
-					{
-						step: 'setSiteLanguage',
-						language: siteLanguage,
-					},
-					{
-						step: 'setSiteOptions',
-						options: {
-							WPLANG: siteLanguage,
-						},
-					}
-				);
-			}
-		}
-
-		const hasWpConfig = await pathExists( path.join( sitePath, 'wp-config.php' ) );
-		const isWordPressDirectoryInitialized = isWordPressDirResult && hasWpConfig;
-		if ( options.name && ! isWordPressDirectoryInitialized ) {
-			setupSteps.push( {
-				step: 'setSiteOptions',
-				options: {
-					blogname: options.name,
-				},
-			} );
-		}
-
-		if ( setupSteps.length > 0 ) {
-			if ( ! blueprint ) {
-				blueprint = {};
-				// Since we know the user didn't supply a blueprint, we create an empty directory to use as a
-				// fake location for the `blueprintUri`
-				const blueprintDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-empty-blueprint-' ) );
-				blueprintUri = path.join( blueprintDir, 'blueprint.json' );
-			}
-			const existingSteps = Array.isArray( blueprint.steps ) ? blueprint.steps : [];
-			blueprint = { ...blueprint, steps: [ ...setupSteps, ...existingSteps ] };
+		if (
+			siteLanguage &&
+			siteLanguage !== DEFAULT_LOCALE &&
+			options.wpVersion === DEFAULT_WORDPRESS_VERSION
+		) {
+			await copyLanguagePackToSite( sitePath, siteLanguage );
 		}
 
 		const siteDetails: SiteData = {
@@ -394,6 +332,7 @@ export async function runCommand(
 					wpVersion: options.wpVersion,
 					blueprint,
 					blueprintUri,
+					siteLanguage,
 				} );
 				logger.reportSuccess( __( 'WordPress server started' ) );
 
@@ -437,6 +376,7 @@ export async function runCommand(
 						wpVersion: options.wpVersion,
 						blueprint,
 						blueprintUri,
+						siteLanguage,
 					} );
 					logger.reportSuccess( __( 'Blueprint applied successfully' ) );
 

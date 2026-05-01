@@ -106,7 +106,10 @@ const childMessageActivity = z.object( {
 const childMessageResult = z.object( {
 	originalMessageId: z.string(),
 	topic: z.literal( 'result' ),
-	result: z.unknown(),
+	// `result` is `optional` so handlers that return `void` (e.g. `start-server`) survive
+	// IPC serialization — Node's default JSON IPC drops `undefined` values, leaving the key
+	// absent on the receiving side. Zod 4's `z.unknown()` rejects an absent key.
+	result: z.unknown().optional(),
 } );
 
 const childMessageError = z.object( {

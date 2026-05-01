@@ -11,7 +11,11 @@ import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
 import { getProgressCallback, setProgressCallback } from 'cli/logger';
-import { resolveStudioToolDefinitions, studioToolDefinitions } from '../tools';
+import {
+	captureCommandOutput,
+	resolveStudioToolDefinitions,
+	studioToolDefinitions,
+} from '../tools';
 
 vi.mock( 'cli/ai/block-validator', () => ( {
 	validateBlocks: vi.fn(),
@@ -185,6 +189,38 @@ describe( 'Studio AI MCP tools', () => {
 		expect( names ).toContain( 'preview_reload' );
 	} );
 
+	describe( 'share_screenshot gating', () => {
+		const originalValue = process.env.STUDIO_ENABLE_REMOTE_SESSION;
+
+		beforeEach( () => {
+			delete process.env.STUDIO_ENABLE_REMOTE_SESSION;
+		} );
+
+		afterEach( () => {
+			if ( originalValue === undefined ) {
+				delete process.env.STUDIO_ENABLE_REMOTE_SESSION;
+			} else {
+				process.env.STUDIO_ENABLE_REMOTE_SESSION = originalValue;
+			}
+		} );
+
+		it( 'omits share_screenshot when STUDIO_ENABLE_REMOTE_SESSION is unset', () => {
+			const names = resolveStudioToolDefinitions( { enablePreviewSteering: true } ).map(
+				( tool ) => tool.name
+			);
+			expect( names ).not.toContain( 'share_screenshot' );
+			expect( names ).toContain( 'take_screenshot' );
+		} );
+
+		it( 'includes share_screenshot when STUDIO_ENABLE_REMOTE_SESSION=true', () => {
+			process.env.STUDIO_ENABLE_REMOTE_SESSION = 'true';
+			const names = resolveStudioToolDefinitions( { enablePreviewSteering: true } ).map(
+				( tool ) => tool.name
+			);
+			expect( names ).toContain( 'share_screenshot' );
+		} );
+	} );
+
 	it( 'creates previews for a resolved local site', async () => {
 		const result = await getTool( 'preview_create' ).handler(
 			{ nameOrPath: 'My Site' } as never,
@@ -274,6 +310,23 @@ describe( 'Studio AI MCP tools', () => {
 
 		expect( previousCallback ).toHaveBeenCalledWith( 'Creating preview…', undefined );
 		expect( previousCallback ).toHaveBeenCalledWith( 'Almost done…', undefined );
+	} );
+
+	it( 'coalesces progress updates in captured command output', async () => {
+		const previousCallback = vi.fn();
+		setProgressCallback( previousCallback );
+
+		const result = await captureCommandOutput( async () => {
+			const currentCallback = getProgressCallback();
+			currentCallback?.( 'Applying changes… (74%)' );
+			currentCallback?.( 'Applying changes… (75%)', true );
+			currentCallback?.( 'Applying changes… (76%)', true );
+			currentCallback?.( 'Push complete' );
+		} );
+
+		expect( result.progressOutput ).toBe( 'Applying changes… (76%)\nPush complete' );
+		expect( previousCallback ).toHaveBeenCalledWith( 'Applying changes… (75%)', true );
+		expect( previousCallback ).toHaveBeenCalledWith( 'Applying changes… (76%)', true );
 	} );
 
 	it( 'rejects shell syntax in wp_cli post content before dispatching to WP-CLI', async () => {

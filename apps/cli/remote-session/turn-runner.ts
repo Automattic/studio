@@ -153,11 +153,18 @@ export async function runTurn( options: TurnRunOptions ): Promise< TurnOutcome >
 		timeout_ms: options.timeoutMs,
 	} );
 
+	// Tell the spawned `studio code --json` it's running in a remote session so the
+	// system prompt can lean on `share_screenshot` and the preview-site follow-up.
+	const childEnv: NodeJS.ProcessEnv = {
+		...( options.env ?? process.env ),
+		STUDIO_REMOTE_SESSION: '1',
+	};
+
 	let child: ChildProcess;
 	try {
 		child = spawn( execPath, args, {
 			stdio: [ 'pipe', 'pipe', 'pipe' ],
-			env: options.env ?? process.env,
+			env: childEnv,
 			// Explicitly never use a shell — text is attacker-controlled.
 			shell: false,
 		} );
@@ -205,6 +212,12 @@ export async function runTurn( options: TurnRunOptions ): Promise< TurnOutcome >
 		}
 		options.onEvent?.( event );
 
+		if ( event.type === 'progress' || event.type === 'info' ) {
+			logger?.event( event.type, event.message );
+		} else if ( event.type === 'error' ) {
+			logger?.event( 'error', event.message );
+		}
+
 		if ( event.type === 'message' ) {
 			const extracted = extractResultPayload( event );
 			if ( extracted ) {
@@ -213,6 +226,7 @@ export async function runTurn( options: TurnRunOptions ): Promise< TurnOutcome >
 				}
 				if ( extracted.replyText ) {
 					replyText = extracted.replyText;
+					logger?.event( extracted.isError ? 'reply.error' : 'reply', extracted.replyText );
 				}
 				isError = isError || extracted.isError;
 				logger?.debug( 'Event: message/result', {
@@ -232,6 +246,12 @@ export async function runTurn( options: TurnRunOptions ): Promise< TurnOutcome >
 					description: o.description,
 				} ) ),
 			} ) );
+			for ( const q of pausedQuestions ) {
+				const optionLines = q.options
+					.map( ( o ) => `  - ${ o.label }: ${ o.description }` )
+					.join( '\n' );
+				logger?.event( 'question', `${ q.question }\n${ optionLines }` );
+			}
 			logger?.debug( 'Event: question.asked', {
 				...logContext,
 				questions: pausedQuestions.length,

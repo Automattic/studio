@@ -320,10 +320,10 @@ function SiteSection( {
 						onClick={ onToggle }
 						aria-expanded={ isOpen }
 					>
+						<span className={ styles.siteName }>{ group.label }</span>
 						<span className={ styles.siteChevron } aria-hidden="true">
 							<Icon icon={ isOpen ? chevronDown : chevronRight } size={ 16 } />
 						</span>
-						<span className={ styles.siteName }>{ group.label }</span>
 					</SidebarButton>
 				</div>
 				{ group.site ? (

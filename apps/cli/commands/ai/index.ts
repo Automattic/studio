@@ -661,9 +661,17 @@ export async function runCommand( options: {
 			const prompt = await ui.waitForInput();
 			const trimmedPrompt = prompt.trim();
 
+			// Match exact-prompt by default (preserves the legacy behavior where
+			// `/clear foo` falls through to the AI agent). Commands that opt into
+			// arguments via `getArgumentCompletions` get first-token matching so
+			// inputs like `/remote-session start` route to the right handler.
 			const firstToken = trimmedPrompt.split( /\s+/, 1 )[ 0 ] ?? '';
-			const cmd = firstToken.startsWith( '/' )
-				? getActiveSlashCommands().find( ( c ) => `/${ c.name }` === firstToken )
+			const cmd = trimmedPrompt.startsWith( '/' )
+				? getActiveSlashCommands().find( ( c ) =>
+						c.getArgumentCompletions
+							? `/${ c.name }` === firstToken
+							: `/${ c.name }` === trimmedPrompt
+				  )
 				: undefined;
 			if ( cmd ) {
 				if ( cmd.handler ) {

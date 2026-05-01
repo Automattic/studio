@@ -9,8 +9,19 @@ import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { runCommand as runLogoutCommand } from 'cli/commands/auth/logout';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
+import { isRemoteSessionEnabled } from 'cli/lib/feature-flags';
 import { getSnapshotsFromConfig, isSnapshotExpired } from 'cli/lib/snapshots';
 import { LoggerError } from 'cli/logger';
+import { RemoteSessionConfigError } from 'cli/remote-session';
+import { loadRemoteSessionConfig } from 'cli/remote-session/config';
+import {
+	DaemonAlreadyRunningError,
+	DaemonStartTimeoutError,
+	getDaemonStatus,
+	startDaemon,
+	stopDaemon,
+} from 'cli/remote-session/daemon';
+import type { AutocompleteItem } from '@mariozechner/pi-tui';
 import type { AiChatUI } from 'cli/ai/ui';
 
 export interface SlashCommandContext {
@@ -37,6 +48,29 @@ export interface SlashCommandDef {
 	name: string;
 	description: string;
 	handler?: SlashCommandHandler;
+	/**
+	 * Optional gate. When provided and returning false at evaluation time, the
+	 * command is hidden from autocomplete and unreachable from the dispatcher.
+	 * Used for feature-flagged commands so the surface stays clean for users
+	 * who haven't opted in.
+	 */
+	enabled?: () => boolean;
+	/**
+	 * Optional argument completion. When the user has typed past the first
+	 * whitespace (e.g. `/remote-session `), the autocomplete provider calls
+	 * this to surface subcommand suggestions.
+	 */
+	getArgumentCompletions?: ( argumentPrefix: string ) => AutocompleteItem[] | null;
+}
+
+/**
+ * Returns the slash commands that should be visible/dispatchable right now.
+ * Consumers (autocomplete + REPL dispatcher) should call this rather than
+ * reading `AI_CHAT_SLASH_COMMANDS` directly so feature-flag flips take effect
+ * without a restart.
+ */
+export function getActiveSlashCommands(): SlashCommandDef[] {
+	return AI_CHAT_SLASH_COMMANDS.filter( ( c ) => c.enabled === undefined || c.enabled() );
 }
 
 function isPromptAbortError( error: unknown ): boolean {
@@ -44,6 +78,135 @@ function isPromptAbortError( error: unknown ): boolean {
 		error instanceof Error &&
 		[ 'AbortPromptError', 'CancelPromptError', 'ExitPromptError' ].includes( error.name )
 	);
+}
+
+function parseRemoteSessionSubcommand( prompt: string ): 'start' | 'stop' | 'status' | undefined {
+	const tokens = prompt.trim().split( /\s+/ );
+	const sub = tokens[ 1 ]?.toLowerCase();
+	if ( sub === 'start' || sub === 'stop' || sub === 'status' ) {
+		return sub;
+	}
+	return undefined;
+}
+
+async function runRemoteSessionStart( ctx: SlashCommandContext ): Promise< void > {
+	// Validate config in-process so a missing token surfaces as an error in the
+	// REPL rather than silently spawning a child that exits on its own.
+	try {
+		await loadRemoteSessionConfig();
+	} catch ( error ) {
+		if ( error instanceof RemoteSessionConfigError ) {
+			ctx.ui.showError( error.message );
+			return;
+		}
+		throw error;
+	}
+
+	try {
+		const result = await startDaemon();
+		ctx.ui.showSuccess(
+			sprintf(
+				/* translators: %d: daemon PID */
+				__( 'Remote-session daemon started (PID %d).' ),
+				result.pid
+			)
+		);
+		ctx.ui.setDaemonStatus( { running: true, pid: result.pid } );
+	} catch ( error ) {
+		if ( error instanceof DaemonAlreadyRunningError ) {
+			ctx.ui.showInfo(
+				sprintf(
+					/* translators: %d: daemon PID */
+					__( 'Remote-session daemon is already running (PID %d).' ),
+					error.pid
+				)
+			);
+			ctx.ui.setDaemonStatus( { running: true, pid: error.pid } );
+			return;
+		}
+		if ( error instanceof DaemonStartTimeoutError ) {
+			ctx.ui.showError( error.message );
+			return;
+		}
+		throw error;
+	}
+}
+
+async function runRemoteSessionStop( ctx: SlashCommandContext ): Promise< void > {
+	const result = await stopDaemon();
+	ctx.ui.setDaemonStatus( { running: false } );
+	if ( result.alreadyStopped ) {
+		ctx.ui.showInfo( __( 'Remote-session daemon was not running.' ) );
+		return;
+	}
+	if ( ! result.stopped ) {
+		ctx.ui.showError(
+			sprintf(
+				/* translators: %d: daemon PID */
+				__( 'Remote-session daemon (PID %d) did not exit after SIGKILL. PID file left in place.' ),
+				result.pid ?? 0
+			)
+		);
+		return;
+	}
+	if ( result.usedSigKill ) {
+		ctx.ui.showInfo(
+			sprintf(
+				/* translators: %d: daemon PID */
+				__( 'Remote-session daemon (PID %d) did not exit gracefully; sent SIGKILL.' ),
+				result.pid ?? 0
+			)
+		);
+		return;
+	}
+	ctx.ui.showSuccess(
+		sprintf(
+			/* translators: %d: daemon PID */
+			__( 'Remote-session daemon (PID %d) stopped.' ),
+			result.pid ?? 0
+		)
+	);
+}
+
+function runRemoteSessionStatus( ctx: SlashCommandContext ): void {
+	const status = getDaemonStatus();
+	ctx.ui.setDaemonStatus(
+		status.running && status.pid !== undefined
+			? { running: true, pid: status.pid }
+			: { running: false }
+	);
+	if ( status.running && status.pid !== undefined ) {
+		ctx.ui.showInfo(
+			sprintf(
+				/* translators: %d: daemon PID */
+				__( 'Remote-session daemon is running (PID %d).' ),
+				status.pid
+			)
+		);
+		return;
+	}
+	if ( status.staleFileRemoved ) {
+		ctx.ui.showInfo( __( 'Remote-session daemon is not running (cleaned up a stale PID file).' ) );
+		return;
+	}
+	ctx.ui.showInfo( __( 'Remote-session daemon is not running.' ) );
+}
+
+async function runRemoteSessionSlashCommand(
+	prompt: string,
+	ctx: SlashCommandContext
+): Promise< 'continue' | 'break' > {
+	const sub = parseRemoteSessionSubcommand( prompt );
+	if ( sub === 'start' ) {
+		await runRemoteSessionStart( ctx );
+	} else if ( sub === 'stop' ) {
+		await runRemoteSessionStop( ctx );
+	} else if ( sub === 'status' ) {
+		runRemoteSessionStatus( ctx );
+	} else {
+		ctx.ui.showInfo( __( 'Usage: /remote-session [start|stop|status]' ) );
+	}
+	return 'continue';
 }
 
 export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
@@ -288,6 +451,21 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 			}
 			return 'continue';
 		},
+	},
+	{
+		name: 'remote-session',
+		description: __( 'Manage the Telegram remote-session daemon (start, stop, status)' ),
+		enabled: isRemoteSessionEnabled,
+		getArgumentCompletions: ( argumentPrefix ) => {
+			const items: AutocompleteItem[] = [
+				{ value: 'start', label: 'start', description: __( 'Spawn the daemon' ) },
+				{ value: 'stop', label: 'stop', description: __( 'Stop the daemon' ) },
+				{ value: 'status', label: 'status', description: __( 'Show daemon status' ) },
+			];
+			const lower = argumentPrefix.toLowerCase();
+			return items.filter( ( item ) => item.value.startsWith( lower ) );
+		},
+		handler: runRemoteSessionSlashCommand,
 	},
 	{
 		name: 'exit',

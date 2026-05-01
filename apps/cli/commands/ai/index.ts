@@ -14,13 +14,14 @@ import {
 	saveSelectedAiProvider,
 } from 'cli/ai/auth';
 import { closeSharedBrowser } from 'cli/ai/browser-utils';
+import { startDaemonStatusPolling } from 'cli/ai/daemon-status-poll';
 import { type AiOutputAdapter, JsonAdapter } from 'cli/ai/output-adapter';
 import { AI_PROVIDERS, type AiProviderId } from 'cli/ai/providers';
 import { resolveResumeSessionContext } from 'cli/ai/sessions/context';
 import { getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
 import { AiSessionRecorder } from 'cli/ai/sessions/recorder';
 import { replaySessionHistory } from 'cli/ai/sessions/replay';
-import { AI_CHAT_SLASH_COMMANDS, type SlashCommandContext } from 'cli/ai/slash-commands';
+import { getActiveSlashCommands, type SlashCommandContext } from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { readCliConfig } from 'cli/lib/cli-config/core';
@@ -648,13 +649,22 @@ export async function runCommand( options: {
 		},
 	};
 
+	// Surface remote-session daemon status in the editor's bottom bar. Cheap
+	// fs poll catches external start/stop (e.g. `studio code remote-session
+	// stop` from another terminal) without blocking the REPL. Skipped entirely
+	// when the feature flag is off.
+	const stopDaemonStatusPolling = startDaemonStatusPolling( ui );
+
 	// --- Main loop ---
 	try {
 		while ( true ) {
 			const prompt = await ui.waitForInput();
 			const trimmedPrompt = prompt.trim();
 
-			const cmd = AI_CHAT_SLASH_COMMANDS.find( ( c ) => `/${ c.name }` === trimmedPrompt );
+			const firstToken = trimmedPrompt.split( /\s+/, 1 )[ 0 ] ?? '';
+			const cmd = firstToken.startsWith( '/' )
+				? getActiveSlashCommands().find( ( c ) => `/${ c.name }` === firstToken )
+				: undefined;
 			if ( cmd ) {
 				if ( cmd.handler ) {
 					const result = await cmd.handler( prompt, slashCommandContext );
@@ -681,6 +691,7 @@ export async function runCommand( options: {
 			}
 		}
 	} finally {
+		stopDaemonStatusPolling();
 		await persistQueue;
 		ui.stop();
 		process.exit( 0 );

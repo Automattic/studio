@@ -29,7 +29,7 @@ import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { AI_MODELS, DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
-import { AI_CHAT_SLASH_COMMANDS } from 'cli/ai/slash-commands';
+import { getActiveSlashCommands } from 'cli/ai/slash-commands';
 import { buildTodoUpdateLines, type TodoRenderLine } from 'cli/ai/todo-render';
 import { diffTodoSnapshot, type TodoDiff, type TodoEntry } from 'cli/ai/todo-stream';
 import { getWpComSites } from 'cli/lib/api';
@@ -98,6 +98,7 @@ class PromptEditor implements Component, Focusable {
 	busyMessage: string | null = null;
 	hints: string[] = [];
 	statusMessage: string | null = null;
+	daemonStatusMessage: string | null = null;
 	showBottomBar = true;
 
 	get focused(): boolean {
@@ -208,7 +209,13 @@ class PromptEditor implements Component, Focusable {
 			activeHints.length > 0
 				? ' ' + activeHints.map( ( h ) => chalk.dim( h ) ).join( chalk.dim( ' · ' ) )
 				: '';
-		const rightPart = this.statusMessage ? chalk.dim( this.statusMessage ) + ' ' : '';
+		const rightSegments = [ this.daemonStatusMessage, this.statusMessage ].filter(
+			( s ): s is string => typeof s === 'string' && s.length > 0
+		);
+		const rightPart =
+			rightSegments.length > 0
+				? rightSegments.map( ( s ) => chalk.dim( s ) ).join( chalk.dim( ' · ' ) ) + ' '
+				: '';
 		if ( leftPart || rightPart ) {
 			const leftLen = visibleWidth( leftPart );
 			const rightLen = visibleWidth( rightPart );
@@ -563,7 +570,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this.editor = new PromptEditor( this.tui, editorTheme );
 
 		this.editor.setAutocompleteProvider(
-			new CombinedAutocompleteProvider( AI_CHAT_SLASH_COMMANDS )
+			new CombinedAutocompleteProvider( getActiveSlashCommands() )
 		);
 
 		this.editor.onSubmit = ( text ) => {
@@ -1649,6 +1656,21 @@ export class AiChatUI implements AiOutputAdapter {
 
 	setStatusMessage( message: string | null ): void {
 		this.editor.statusMessage = message;
+		this.tui.requestRender();
+	}
+
+	setDaemonStatus( state: { running: boolean; pid?: number } ): void {
+		if ( ! state.running ) {
+			this.editor.daemonStatusMessage = null;
+		} else if ( typeof state.pid === 'number' ) {
+			this.editor.daemonStatusMessage = sprintf(
+				/* translators: %d: daemon PID */
+				__( 'Remote: ON (PID %d)' ),
+				state.pid
+			);
+		} else {
+			this.editor.daemonStatusMessage = __( 'Remote: ON' );
+		}
 		this.tui.requestRender();
 	}
 

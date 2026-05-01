@@ -20,7 +20,7 @@ describe( 'MediaStreamer', () => {
 		const streamer = new MediaStreamer( {
 			config,
 			target: { chatId: 42, bot: 'b' },
-			deps: { respond, logger: new RemoteSessionLogger( '/dev/null' ) },
+			deps: { respond, logger: new RemoteSessionLogger( { logPath: '/dev/null' } ) },
 		} );
 
 		streamer.onEvent( {
@@ -56,7 +56,7 @@ describe( 'MediaStreamer', () => {
 		const streamer = new MediaStreamer( {
 			config,
 			target: { chatId: 42 },
-			deps: { respond, logger: new RemoteSessionLogger( '/dev/null' ) },
+			deps: { respond, logger: new RemoteSessionLogger( { logPath: '/dev/null' } ) },
 		} );
 
 		streamer.onEvent( {
@@ -87,7 +87,7 @@ describe( 'MediaStreamer', () => {
 		const streamer = new MediaStreamer( {
 			config,
 			target: { chatId: 42 },
-			deps: { respond, logger: new RemoteSessionLogger( '/dev/null' ) },
+			deps: { respond, logger: new RemoteSessionLogger( { logPath: '/dev/null' } ) },
 		} );
 
 		for ( const data of [ 'a', 'b', 'c' ] ) {
@@ -110,7 +110,7 @@ describe( 'MediaStreamer', () => {
 		const streamer = new MediaStreamer( {
 			config,
 			target: { chatId: 42 },
-			deps: { respond, logger: new RemoteSessionLogger( '/dev/null' ) },
+			deps: { respond, logger: new RemoteSessionLogger( { logPath: '/dev/null' } ) },
 		} );
 
 		streamer.onEvent( { type: 'progress', timestamp: 'now', message: 'doing things' } );
@@ -126,7 +126,7 @@ describe( 'MediaStreamer', () => {
 		const streamer = new MediaStreamer( {
 			config,
 			target: { chatId: 42 },
-			deps: { respond, logger: new RemoteSessionLogger( '/dev/null' ) },
+			deps: { respond, logger: new RemoteSessionLogger( { logPath: '/dev/null' } ) },
 		} );
 
 		// Missing dataBase64.

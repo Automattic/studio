@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import styles from './style.module.css';
-import logoSrc from './wordpress-logo.png';
+import logoSrc from './wordpress-logo.webp';
 
 const SIZE = 320;
 const PAD = 130;

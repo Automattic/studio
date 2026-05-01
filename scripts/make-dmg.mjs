@@ -56,11 +56,6 @@ fs.mkdirSync( path.dirname( dmgPath ), { recursive: true } );
 
 const specsFile = path.resolve( import.meta.dirname, '..', 'appdmg-specs.json' );
 fs.writeFileSync( specsFile, JSON.stringify( dmgSpecs ) );
-child_process.execSync(
-	[
-		path.join( import.meta.dirname, '..', 'node_modules', '.bin', `appdmg` ),
-		specsFile,
-		dmgPath,
-	].join( ' ' )
-);
+const appdmgBin = path.join( import.meta.dirname, '..', 'node_modules', '.bin', 'appdmg' );
+child_process.execFileSync( appdmgBin, [ specsFile, dmgPath ] );
 fs.unlinkSync( specsFile );

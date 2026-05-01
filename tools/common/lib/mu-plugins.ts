@@ -5,7 +5,7 @@
  * available to WordPress instances. Shared between desktop app and CLI.
  */
 
-import { mkdtemp, readdir, unlink, writeFile, mkdir, copyFile } from 'fs/promises';
+import { copyFile, mkdir, mkdtemp, readdir, unlink, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import path from 'path';
 

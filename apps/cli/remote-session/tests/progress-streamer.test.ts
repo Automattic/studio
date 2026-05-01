@@ -38,7 +38,7 @@ function makeClock(): FakeClock {
 
 function makeStreamer( overrides: { intervalMs?: number; maxChars?: number } = {} ) {
 	const respond = vi.fn().mockResolvedValue( undefined );
-	const logger = new RemoteSessionLogger( '/dev/null' );
+	const logger = new RemoteSessionLogger( { logPath: '/dev/null' } );
 	const clock = makeClock();
 	const streamer = new ProgressStreamer( {
 		config: baseConfig,

@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { findOnPath } from 'src/lib/find-on-path';
 import { SUPPORTED_EDITORS, supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
+import { SUPPORTED_TERMINALS, terminalConfig } from 'src/modules/user-settings/lib/terminal';
 
 type PlatformPaths = {
 	[ K in keyof InstalledApps ]: string[];
@@ -54,9 +55,9 @@ const installationPaths: Record< string, PlatformPaths > = {
 		warp: [ 'Warp.app' ],
 		ghostty: [ 'Ghostty.app' ],
 	},
-	// Linux editor detection is driven by `supportedEditorConfig.linuxCommands`
-	// (resolved via $PATH in `isInstalled`), so editors are intentionally
-	// omitted from this map. Only non-editor entries live here.
+	// Linux editor and terminal detection is driven by `linuxCommands`
+	// (resolved via $PATH in `isInstalled`), so those entries are intentionally
+	// omitted from this map. Only the non-resolvable iterm entry lives here.
 	linux: {
 		antigravity: [],
 		vscode: [],
@@ -68,7 +69,7 @@ const installationPaths: Record< string, PlatformPaths > = {
 		zed: [],
 		iterm: [],
 		terminal: [],
-		warp: [ '/usr/bin/warp' ],
+		warp: [],
 		ghostty: [],
 	},
 	win32: {
@@ -149,14 +150,27 @@ function isSupportedEditor(
 	return ( SUPPORTED_EDITORS as readonly string[] ).includes( key );
 }
 
+function isSupportedTerminal(
+	key: keyof InstalledApps
+): key is ( typeof SUPPORTED_TERMINALS )[ number ] {
+	return ( SUPPORTED_TERMINALS as readonly string[] ).includes( key );
+}
+
 export function isInstalled( key: keyof InstalledApps ): boolean {
 	const platform = process.platform;
 
-	// On Linux, editors live in many places (apt, snap, flatpak, ~/.local/bin, …).
-	// Resolve them against $PATH using the editor config instead of hardcoded paths.
-	if ( platform === 'linux' && isSupportedEditor( key ) ) {
-		const editor = supportedEditorConfig[ key ];
-		return editor.linuxCommands.some( ( command ) => findOnPath( command ) !== null );
+	// On Linux, editors and terminals live in many places (apt, snap, flatpak,
+	// ~/.local/bin, …). Resolve them against $PATH using their `linuxCommands`
+	// instead of hardcoded paths.
+	if ( platform === 'linux' ) {
+		if ( isSupportedEditor( key ) ) {
+			const editor = supportedEditorConfig[ key ];
+			return editor.linuxCommands.some( ( command ) => findOnPath( command ) !== null );
+		}
+		if ( isSupportedTerminal( key ) ) {
+			const terminal = terminalConfig[ key ];
+			return terminal.linuxCommands.some( ( command ) => findOnPath( command ) !== null );
+		}
 	}
 
 	const paths = installationPaths[ platform ]?.[ key ];

@@ -1,6 +1,5 @@
 import { Icon, help, drawerLeft, cog } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { useEffect, useRef } from 'react';
 import Button from 'src/components/button';
 import { Gravatar } from 'src/components/gravatar';
 import offlineIcon from 'src/components/offline-icon';
@@ -10,8 +9,7 @@ import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
-import { useAppDispatch, useI18nLocale } from 'src/stores';
-import { openWapuuWorld } from 'src/stores/ui-slice';
+import { useI18nLocale } from 'src/stores';
 
 interface TopBarProps {
 	onToggleSidebar: () => void;

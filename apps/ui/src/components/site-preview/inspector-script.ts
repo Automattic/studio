@@ -313,11 +313,15 @@ export const INSPECTOR_PAGE_SCRIPT =
 			toolbarNode.appendChild( count );
 		}
 
-		const doneBtn = document.createElement( 'button' );
-		doneBtn.className = 'primary';
-		doneBtn.textContent = 'Done';
-		doneBtn.disabled = annotations.length === 0;
-		doneBtn.addEventListener( 'click', () => {
+		const submitBtn = document.createElement( 'button' );
+		submitBtn.className = 'primary';
+		submitBtn.textContent = 'Submit';
+		submitBtn.disabled = annotations.length === 0;
+		submitBtn.title =
+			annotations.length === 0
+				? 'Add at least one annotation first'
+				: 'Submit annotations to the agent';
+		submitBtn.addEventListener( 'click', () => {
 			if ( annotations.length === 0 ) return;
 			const sent = annotations.slice();
 			send( { type: 'done', annotations: sent } );
@@ -328,7 +332,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 			persistAnnotations();
 			render();
 		} );
-		toolbarNode.appendChild( doneBtn );
+		toolbarNode.appendChild( submitBtn );
 
 		root.appendChild( toolbarNode );
 	}

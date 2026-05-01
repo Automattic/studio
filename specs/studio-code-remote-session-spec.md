@@ -4,7 +4,7 @@
 >
 > **Status note (2026-04-30, STU-1649):** background-daemon support is implemented under a new `studio code remote-session` subcommand tree (`start [--detach]`, `stop`, `status`). The original `studio code --remote-session` flag still works and is equivalent to `studio code remote-session start` in foreground mode. Daemonized runs are tracked via `~/.studio/remote-session.pid`. The whole surface remains gated by the `STUDIO_ENABLE_REMOTE_SESSION=true` feature flag.
 >
-> **Status note (2026-05-01, STU-1655):** the `/remote-session` REPL slash command is back, redesigned around the daemon. `/remote-session start` spawns the detached daemon (same code path as `studio code remote-session start --detach`) and returns immediately. `/remote-session stop` terminates the daemon. The REPL never blocks. The statusline shows a "Remote session: running (PID …)" indicator while a daemon is alive. The `attach`/`detach`/`new` subcommands and the previous "blocking attach" mode remain off the table.
+> **Status note (2026-05-01, STU-1655):** the `/remote-session` REPL slash command is back, redesigned around the daemon. `/remote-session start` spawns the detached daemon (same code path as `studio code remote-session start --detach`) and returns immediately. `/remote-session stop` terminates the daemon. The REPL never blocks. While a daemon is alive, the statusline shows a green `Remote session active` indicator. The `attach`/`detach`/`new` subcommands and the previous "blocking attach" mode remain off the table.
 
 ## Overview
 

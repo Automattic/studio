@@ -56,7 +56,6 @@ export default defineConfig({
 			rollupOptions: {
 				input: {
 					preload: resolve( __dirname, 'src/preload.ts' ),
-					'preview-preload': resolve( __dirname, 'src/preview-preload.ts' ),
 				},
 				output: {
 					entryFileNames: '[name].js',

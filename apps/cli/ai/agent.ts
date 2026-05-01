@@ -81,6 +81,11 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 			: createStudioTools( { enablePreviewSteering: isForkedByDesktop } ),
 	};
 
+	// The remote-session controller sets STUDIO_REMOTE_SESSION=1 when it spawns
+	// `studio code --json` so the agent knows it's driving Telegram and should
+	// favor screenshot replies.
+	const remoteSession = resolvedEnv.STUDIO_REMOTE_SESSION === '1';
+
 	// Build site-aware system prompt
 	const systemPromptOptions = isRemoteSite
 		? {
@@ -89,8 +94,9 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 					url: activeSite.url ?? '',
 					id: activeSite.wpcomSiteId!,
 				},
+				remoteSession,
 		  }
-		: { previewSteering: isForkedByDesktop };
+		: { previewSteering: isForkedByDesktop, remoteSession };
 
 	if ( ! fs.existsSync( STUDIO_SITES_ROOT ) ) {
 		fs.mkdirSync( STUDIO_SITES_ROOT, { recursive: true } );

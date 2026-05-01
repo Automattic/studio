@@ -3,8 +3,6 @@
 // (sha1 + sha256) fails because there's no local cert for sha1.
 // This hook calls signtool directly with SHA256-only parameters.
 
-/* eslint-disable @typescript-eslint/no-require-imports */
-
 const { execFileSync } = require( 'child_process' );
 const path = require( 'path' );
 const {

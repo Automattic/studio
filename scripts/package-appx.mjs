@@ -1,7 +1,6 @@
 import { execFileSync } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import convertToWindowsStore from 'electron2appx';
 import packageJson from '../apps/studio/package.json' with { type: 'json' };
 
@@ -29,8 +28,6 @@ if ( useAzureSigning ) {
 	}
 }
 
-const __dirname = path.dirname( fileURLToPath( import.meta.url ) );
-
 // Get architecture from environment variable, default to x64 for backward compatibility
 const architecture = process.env.FILE_ARCHITECTURE || 'x64';
 if ( architecture !== 'x64' && architecture !== 'arm64' ) {
@@ -38,7 +35,11 @@ if ( architecture !== 'x64' && architecture !== 'arm64' ) {
 	process.exit( 1 );
 }
 
-const windows10SDKVersionPath = path.resolve( __dirname, '..', '.windows-10-sdk-version' );
+const windows10SDKVersionPath = path.resolve(
+	import.meta.dirname,
+	'..',
+	'.windows-10-sdk-version'
+);
 try {
 	await fs.access( windows10SDKVersionPath );
 } catch {
@@ -62,8 +63,8 @@ try {
 	process.exit( 1 );
 }
 
-const outPath = path.join( __dirname, '..', 'apps', 'studio', 'out' );
-const assetsPath = path.join( __dirname, '..', 'apps', 'studio', 'assets', 'appx' );
+const outPath = path.join( import.meta.dirname, '..', 'apps', 'studio', 'out' );
+const assetsPath = path.join( import.meta.dirname, '..', 'apps', 'studio', 'assets', 'appx' );
 
 console.log( `~~~ Packaging AppX for architecture: ${ architecture }` );
 

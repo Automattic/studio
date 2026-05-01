@@ -1,7 +1,10 @@
 .root {
 	display: flex;
 	flex-direction: column;
-	width: 520px;
+	position: relative;
+	width: var(--site-preview-width, 520px);
+	min-width: 360px;
+	max-width: 50vw;
 	flex-shrink: 0;
 	min-height: 0;
 	margin: calc(var(--wpds-dimension-padding-md) * 2) calc(var(--wpds-dimension-padding-md) * 2)
@@ -11,6 +14,44 @@
 	border-radius: var(--wpds-border-radius-lg, 12px);
 	overflow: hidden;
 	box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.resizeHandle {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	width: 12px;
+	z-index: 20;
+	display: flex;
+	justify-content: center;
+	cursor: col-resize;
+	outline: none;
+	-webkit-app-region: no-drag;
+}
+
+.resizeHandleIndicator {
+	width: 3px;
+	margin: var(--wpds-dimension-padding-sm) 0;
+	border-radius: 999px;
+	background-color: var(--wpds-color-stroke-interactive-brand, #2563eb);
+	opacity: 0;
+	transition: opacity 120ms ease;
+}
+
+.resizeHandle:hover .resizeHandleIndicator,
+.resizeHandle:focus-visible .resizeHandleIndicator,
+.resizing .resizeHandleIndicator {
+	opacity: 1;
+}
+
+.resizeOverlay {
+	position: fixed;
+	inset: 0;
+	z-index: 1000;
+	cursor: col-resize;
+	user-select: none;
+	-webkit-app-region: no-drag;
 }
 
 .header {

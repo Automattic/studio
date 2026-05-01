@@ -5,12 +5,15 @@ import { clsx } from 'clsx';
 import { useEffect, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
 import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
+import { useResizablePanel } from '@/hooks/use-resizable-panel';
 import { getSiteUrl } from '@/lib/get-site-url';
 import { playIcon } from '@/lib/icons';
+import { PREVIEW_PANEL_CONFIG, PREVIEW_PANEL_STORAGE_KEY } from '@/lib/resizable-panels';
 import { INSPECTOR_BRIDGE_PREFIX, INSPECTOR_PAGE_SCRIPT } from './inspector-script';
 import styles from './style.module.css';
 import type { Annotation } from './types';
 import type { SiteDetails } from '@/data/core';
+import type { CSSProperties } from 'react';
 
 export type { Annotation } from './types';
 
@@ -59,6 +62,14 @@ export function SitePreview( { site, sessionId, onAnnotationsDone }: SitePreview
 	const [ currentPath, setCurrentPath ] = useState( '/' );
 	const [ reloadNonce, setReloadNonce ] = useState( 0 );
 	const fullUrl = `${ siteUrl }${ currentPath }`;
+	const previewResize = useResizablePanel( {
+		config: PREVIEW_PANEL_CONFIG,
+		edge: 'left',
+		storageKey: PREVIEW_PANEL_STORAGE_KEY,
+	} );
+	const previewStyle = {
+		'--site-preview-width': `${ previewResize.width }px`,
+	} as CSSProperties;
 
 	useEffect( () => {
 		if ( ! sessionId ) return;
@@ -74,7 +85,21 @@ export function SitePreview( { site, sessionId, onAnnotationsDone }: SitePreview
 	}, [ connector, sessionId ] );
 
 	return (
-		<aside className={ styles.root } aria-label={ __( 'Site preview' ) }>
+		<aside className={ styles.root } style={ previewStyle } aria-label={ __( 'Site preview' ) }>
+			<div
+				className={ clsx( styles.resizeHandle, previewResize.isResizing && styles.resizing ) }
+				role="separator"
+				aria-label={ __( 'Resize site preview' ) }
+				aria-orientation="vertical"
+				aria-valuemin={ previewResize.minWidth }
+				aria-valuemax={ previewResize.maxWidth }
+				aria-valuenow={ previewResize.width }
+				tabIndex={ 0 }
+				onMouseDown={ previewResize.handleResizeStart }
+				onKeyDown={ previewResize.handleKeyDown }
+			>
+				<span className={ styles.resizeHandleIndicator } aria-hidden="true" />
+			</div>
 			<div className={ styles.header }>
 				<div className={ styles.trafficLights } aria-hidden="true">
 					<span className={ clsx( styles.trafficLight, styles.trafficLightActive ) } />
@@ -129,6 +154,7 @@ export function SitePreview( { site, sessionId, onAnnotationsDone }: SitePreview
 					</div>
 				) }
 			</div>
+			{ previewResize.isResizing ? <div className={ styles.resizeOverlay } /> : null }
 		</aside>
 	);
 }

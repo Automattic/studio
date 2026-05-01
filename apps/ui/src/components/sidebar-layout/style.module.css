@@ -1,10 +1,13 @@
 .root {
 	display: flex;
 	height: 100vh;
+	overflow: hidden;
 }
 
 .sidebar {
-	width: 320px;
+	width: var(--sidebar-width, 320px);
+	min-width: 240px;
+	max-width: 25vw;
 	flex-shrink: 0;
 	background-color: var(--wpds-color-bg-surface-neutral-weak);
 	border-right: 1px solid var(--wpds-color-stroke-surface-neutral);
@@ -20,12 +23,51 @@
 
 .sidebarCollapsed {
 	width: 0;
+	min-width: 0;
 }
 
 .main {
 	flex: 1;
+	min-width: 0;
 	overflow: auto;
 	position: relative;
+}
+
+.resizeHandle {
+	width: 10px;
+	margin-right: -5px;
+	margin-left: -5px;
+	flex-shrink: 0;
+	z-index: 20;
+	display: flex;
+	align-items: stretch;
+	justify-content: center;
+	cursor: col-resize;
+	outline: none;
+	-webkit-app-region: no-drag;
+}
+
+.resizeHandleIndicator {
+	width: 3px;
+	border-radius: 999px;
+	background-color: var(--wpds-color-stroke-interactive-brand, #2563eb);
+	opacity: 0;
+	transition: opacity 120ms ease;
+}
+
+.resizeHandle:hover .resizeHandleIndicator,
+.resizeHandle:focus-visible .resizeHandleIndicator,
+.resizing .resizeHandleIndicator {
+	opacity: 1;
+}
+
+.resizeOverlay {
+	position: fixed;
+	inset: 0;
+	z-index: 1000;
+	cursor: col-resize;
+	user-select: none;
+	-webkit-app-region: no-drag;
 }
 
 .floatingToggle {

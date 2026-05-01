@@ -136,7 +136,20 @@ async function runRemoteSessionStart( ctx: SlashCommandContext ): Promise< void 
 }
 
 async function runRemoteSessionStop( ctx: SlashCommandContext ): Promise< void > {
-	const result = await stopDaemon();
+	let result;
+	try {
+		result = await stopDaemon();
+	} catch ( error ) {
+		// stopDaemon rethrows non-ESRCH errors from process.kill (e.g. EPERM
+		// when the PID was reused by another user, or any unexpected fs error
+		// while removing the PID file). The REPL dispatcher does not wrap
+		// handlers in a try/catch, so we surface these as a friendly error
+		// rather than letting them terminate the interactive session.
+		ctx.ui.showError(
+			error instanceof Error ? error.message : __( 'Failed to stop the remote-session daemon.' )
+		);
+		return;
+	}
 	ctx.ui.setDaemonStatus( { running: false } );
 	if ( result.alreadyStopped ) {
 		ctx.ui.showInfo( __( 'Remote-session daemon was not running.' ) );

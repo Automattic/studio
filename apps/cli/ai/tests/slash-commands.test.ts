@@ -281,5 +281,20 @@ describe( '/remote-session slash command handler', () => {
 
 			expect( ui.showError ).toHaveBeenCalledWith( expect.stringContaining( '777' ) );
 		} );
+
+		it( 'surfaces unexpected stopDaemon errors via showError instead of throwing', async () => {
+			const daemon = await import( 'cli/remote-session/daemon' );
+			const err = Object.assign( new Error( 'kill EPERM' ), { code: 'EPERM' } );
+			( daemon.stopDaemon as ReturnType< typeof vi.fn > ).mockRejectedValue( err );
+
+			const ui = makeUi();
+			await expect( cmd.handler!( '/remote-session stop', makeCtx( ui ) ) ).resolves.toBe(
+				'continue'
+			);
+
+			expect( ui.showError ).toHaveBeenCalledWith( expect.stringContaining( 'EPERM' ) );
+			// The on-disk state is unknown after a failed stop, so don't assert
+			// on setDaemonStatus — the 5s poll catches up.
+		} );
 	} );
 } );

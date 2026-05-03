@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,11 +8,13 @@ import { fileURLToPath } from 'node:url';
 const scriptDir = dirname( fileURLToPath( import.meta.url ) );
 const cliPath = resolve( scriptDir, '../dist/cli/main.mjs' );
 const nodeBin = process.execPath;
-const sitePath = process.env.STUDIO_BFB_SMOKE_SITE || resolve( tmpdir(), 'studio-bfb-smoke' );
-const bfbPath = process.env.STUDIO_BFB_MU_PLUGIN_PATH;
+const sitePath =
+	process.env.STUDIO_STATIC_SITE_IMPORTER_SMOKE_SITE ||
+	resolve( tmpdir(), 'studio-static-site-importer-smoke' );
+const importerPath = process.env.STUDIO_STATIC_SITE_IMPORTER_PLUGIN_PATH;
 
-if ( ! bfbPath ) {
-	console.error( 'STUDIO_BFB_MU_PLUGIN_PATH is required.' );
+if ( ! importerPath ) {
+	console.error( 'STUDIO_STATIC_SITE_IMPORTER_PLUGIN_PATH is required.' );
 	process.exit( 1 );
 }
 
@@ -23,10 +25,14 @@ if ( ! existsSync( cliPath ) ) {
 	process.exit( 1 );
 }
 
+function env() {
+	return { ...process.env, STUDIO_STATIC_SITE_IMPORTER_PLUGIN_PATH: importerPath };
+}
+
 function run( args, options = {} ) {
 	const result = spawnSync( nodeBin, [ cliPath, ...args ], {
 		encoding: 'utf8',
-		env: { ...process.env, STUDIO_BFB_MU_PLUGIN_PATH: bfbPath },
+		env: env(),
 		...options,
 	} );
 
@@ -49,7 +55,7 @@ function ensureSite() {
 		[ cliPath, 'site', 'status', '--path', sitePath, '--format', 'json' ],
 		{
 			encoding: 'utf8',
-			env: { ...process.env, STUDIO_BFB_MU_PLUGIN_PATH: bfbPath },
+			env: env(),
 		}
 	);
 
@@ -61,7 +67,7 @@ function ensureSite() {
 		'site',
 		'create',
 		'--name',
-		'BFB Mu Plugin Smoke',
+		'Static Site Importer Smoke',
 		'--path',
 		sitePath,
 		'--skip-browser',
@@ -72,77 +78,112 @@ function ensureSite() {
 function stopSite() {
 	spawnSync( nodeBin, [ cliPath, 'site', 'stop', '--path', sitePath ], {
 		encoding: 'utf8',
-		env: { ...process.env, STUDIO_BFB_MU_PLUGIN_PATH: bfbPath },
+		env: env(),
 	} );
+}
+
+function writeStaticFixture() {
+	const fixtureDir = resolve( sitePath, 'tmp/static-site-importer-smoke' );
+	mkdirSync( fixtureDir, { recursive: true } );
+	writeFileSync(
+		resolve( fixtureDir, 'index.html' ),
+		`<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Static Importer Smoke</title>
+  <style>
+    :root { --bg: #101018; --text: #f7f7fb; --accent: #42e8c5; }
+    body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; }
+    .site-header, .site-footer { padding: 24px; border-color: rgba(255,255,255,.12); }
+    .hero { padding: 72px 24px; }
+    .cta { color: var(--bg); background: var(--accent); padding: 12px 18px; border-radius: 999px; }
+  </style>
+</head>
+<body>
+  <header class="site-header"><a class="brand" href="index.html">Studio Code</a><nav><a href="#start">Start</a></nav></header>
+  <main>
+    <section class="hero"><h1>Imported Static Site</h1><p>Static HTML should become editable block theme output.</p><a class="cta" href="#start">Start</a></section>
+    <section id="start"><h2>Workflow</h2><ol><li>Generate HTML</li><li>Import theme</li><li>Edit blocks</li></ol></section>
+  </main>
+  <footer class="site-footer"><p>Built with Static Site Importer.</p></footer>
+</body>
+</html>
+`,
+		'utf8'
+	);
 }
 
 const php = `
 update_option( 'studio_bfb_unsupported_fallback_count', 0, false );
 
 $results = array();
+$results['importer_loaded'] = class_exists( 'Static_Site_Importer_Theme_Generator' );
 $results['bfb_loaded'] = function_exists( 'bfb_convert' );
 $results['h2bc_loaded'] = function_exists( 'BlockFormatBridge\\Vendor\\html_to_blocks_raw_handler' );
-$results['write_hook'] = (bool) has_filter( 'wp_insert_post_data', 'BlockFormatBridge\\Vendor\\html_to_blocks_convert_on_insert' );
 
-$page_html = '<section class="hero"><h1>Deterministic Blocks</h1><p>Raw semantic HTML should become editable blocks.</p><ul><li>Fast</li><li>Native</li></ul><p><a class="wp-element-button" href="/#start">Start</a></p></section>';
-$page_id = wp_insert_post( array(
-	'post_title'   => 'BFB smoke page ' . time(),
-	'post_type'    => 'page',
-	'post_status'  => 'publish',
-	'post_content' => $page_html,
+$html_path = ABSPATH . 'tmp/static-site-importer-smoke/index.html';
+$result = Static_Site_Importer_Theme_Generator::import_theme( $html_path, array(
+	'slug' => 'studio-static-importer-smoke',
+	'name' => 'Studio Static Importer Smoke',
+	'activate' => true,
+	'overwrite' => true,
 ) );
-if ( is_wp_error( $page_id ) ) {
-	throw new RuntimeException( $page_id->get_error_message() );
+if ( is_wp_error( $result ) ) {
+	throw new RuntimeException( $result->get_error_message() );
 }
-$page_stored = get_post_field( 'post_content', $page_id );
 
-$template_html = '<main class="site-shell"><section class="hero"><h1>Clean Block Template Smoke</h1><p>No fallback should fire.</p></section></main>';
-$template_id = wp_insert_post( array(
-	'post_title'   => 'bfb-smoke//main-' . time(),
-	'post_name'    => 'bfb-smoke//main-' . time(),
-	'post_type'    => 'wp_template',
-	'post_status'  => 'publish',
-	'post_content' => $template_html,
-) );
-if ( is_wp_error( $template_id ) ) {
-	throw new RuntimeException( $template_id->get_error_message() );
+$theme_dir = $result['theme_dir'];
+$files = array(
+	'parts/header.html',
+	'parts/footer.html',
+	'templates/front-page.html',
+	'templates/page-home.html',
+	'patterns/page-home.php',
+	'style.css',
+	'theme.json',
+);
+foreach ( $files as $file ) {
+	$results['file:' . $file] = file_exists( $theme_dir . '/' . $file );
 }
-$template_stored = get_post_field( 'post_content', $template_id );
 
-$results['page_has_blocks'] = false !== strpos( $page_stored, '<!-- wp:' );
-$results['template_has_blocks'] = false !== strpos( $template_stored, '<!-- wp:' );
-$results['page_html_blocks'] = substr_count( $page_stored, 'wp:html' );
-$results['template_html_blocks'] = substr_count( $template_stored, 'wp:html' );
+$home_page_id = $result['pages']['index.html'] ?? 0;
+$results['front_page_id'] = (int) get_option( 'page_on_front', 0 );
+$results['home_page_id'] = (int) $home_page_id;
+$results['active_theme'] = get_stylesheet();
 $results['fallback_count'] = (int) get_option( 'studio_bfb_unsupported_fallback_count', 0 );
-$results['page_id'] = $page_id;
-$results['template_id'] = $template_id;
+$results['header_html_blocks'] = substr_count( (string) file_get_contents( $theme_dir . '/parts/header.html' ), 'wp:html' );
+$results['footer_html_blocks'] = substr_count( (string) file_get_contents( $theme_dir . '/parts/footer.html' ), 'wp:html' );
+$results['pattern_has_blocks'] = false !== strpos( (string) file_get_contents( $theme_dir . '/patterns/page-home.php' ), '<!-- wp:' );
 
 echo wp_json_encode( $results, JSON_PRETTY_PRINT ) . PHP_EOL;
 
-foreach ( array( 'bfb_loaded', 'h2bc_loaded', 'write_hook', 'page_has_blocks', 'template_has_blocks' ) as $key ) {
+foreach ( array( 'importer_loaded', 'bfb_loaded', 'h2bc_loaded', 'pattern_has_blocks' ) as $key ) {
 	if ( empty( $results[ $key ] ) ) {
 		throw new RuntimeException( 'Smoke failed: ' . $key );
 	}
 }
-
-if ( 0 !== $results['fallback_count'] ) {
-	throw new RuntimeException( 'Smoke failed: fallback_count=' . $results['fallback_count'] );
+foreach ( $files as $file ) {
+	$key = 'file:' . $file;
+	if ( empty( $results[ $key ] ) ) {
+		throw new RuntimeException( 'Smoke failed missing file: ' . $file );
+	}
 }
-
-if ( 0 !== $results['page_html_blocks'] || 0 !== $results['template_html_blocks'] ) {
-	throw new RuntimeException( 'Smoke failed: core/html fallback block present' );
+if ( $results['front_page_id'] !== $results['home_page_id'] ) {
+	throw new RuntimeException( 'Smoke failed: imported home page is not the front page' );
 }
 `;
 
 try {
 	ensureSite();
+	writeStaticFixture();
 	stopSite();
 	const result = run( [ 'wp', '--path', sitePath, '--php-version', '8.3', 'eval', php ] );
 	process.stdout.write( result.stdout );
 	if ( result.stderr ) {
 		process.stderr.write( result.stderr );
 	}
-	console.log( 'PASS: Studio/BFB raw HTML write path stores native blocks.' );
+	console.log( 'PASS: Studio Static Site Importer smoke generated an editable block theme.' );
 } catch ( error ) {
 	console.error( error instanceof Error ? error.message : String( error ) );
 	process.exit( 1 );

@@ -471,6 +471,21 @@ export class SiteServer {
 		return this.details.siteIconPath;
 	}
 
+	async persistSiteIcon(): Promise< void > {
+		try {
+			await lockAppdata();
+			const userData = await loadUserData();
+			const siteId = this.details.id;
+			userData.siteMetadata[ siteId ] = {
+				...userData.siteMetadata[ siteId ],
+				siteIconPath: this.details.siteIconPath,
+			};
+			await saveUserData( userData );
+		} finally {
+			await unlockAppdata();
+		}
+	}
+
 	async hasSQLitePlugin(): Promise< boolean > {
 		const wpContentPath = nodePath.join( this.details.path, 'wp-content' );
 

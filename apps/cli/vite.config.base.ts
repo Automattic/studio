@@ -69,7 +69,7 @@ export const baseConfig = defineConfig( {
 			formats: [ 'es' ],
 		},
 		outDir: 'dist/cli',
-		target: 'node22',
+		target: 'node24',
 		rollupOptions: {
 			output: {
 				format: 'es',

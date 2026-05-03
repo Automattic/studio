@@ -33,7 +33,7 @@ The Studio CLI lets you:
 
 ## Requirements
 
-`wp-studio` runs best on Node.js 24 or higher, which supports more recent V8 WASM APIs. Node.js 22 or higher is required. You can download the appropriate version from the [Node.js website](https://nodejs.org/en/download).
+`wp-studio` requires Node.js 24 or higher, which supports the V8 WASM APIs the CLI relies on. You can download the appropriate version from the [Node.js website](https://nodejs.org/en/download).
 
 ## Installation
 

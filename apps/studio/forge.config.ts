@@ -249,7 +249,7 @@ const config: ForgeConfig = {
 			// AppX packages require AppExecutionAlias with an .exe target — batch files won't work.
 			if ( platform === 'win32' ) {
 				const pkgArch = arch === 'x64' ? 'x64' : 'arm64';
-				const target = `node22-win-${ pkgArch }`;
+				const target = `node24-win-${ pkgArch }`;
 				console.log( `Building CLI launcher executable for ${ target }...` );
 				await pkgExec( [
 					'bin/studio-cli-launcher.js',

@@ -323,7 +323,10 @@ function SiteSection( {
 					>
 						{ group.site ? (
 							<span className={ styles.siteIconSlot } aria-hidden="true">
-								<SiteIcon seed={ `${ group.site.id }:${ group.site.name }:${ group.site.path }` } />
+								<SiteIcon
+									seed={ `${ group.site.id }:${ group.site.name }:${ group.site.path }` }
+									imageSrc={ group.site.siteIcon }
+								/>
 							</span>
 						) : null }
 						<span className={ styles.siteName }>{ group.label }</span>

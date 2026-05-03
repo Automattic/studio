@@ -349,6 +349,11 @@ async function appBoot() {
 		await SiteServer.fetchAll();
 		await startCliEventsSubscriber();
 
+		// Sites already running at launch never hit the cli-events-subscriber's
+		// "transitioned to running" branch, so kick off icon fetches for them
+		// here. Don't await — the renderer picks up results via site-event.
+		void SiteServer.backfillRunningSiteIcons();
+
 		await createMainWindow();
 
 		const userData = await loadUserData();

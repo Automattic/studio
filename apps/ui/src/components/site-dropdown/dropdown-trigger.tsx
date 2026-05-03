@@ -17,6 +17,7 @@ type Props = Omit< ComponentProps< typeof Button >, 'children' > & {
 	environment: 'local' | 'live';
 	showSiteIcon?: boolean;
 	siteIconSeed?: string;
+	siteIconImage?: string | null;
 };
 
 export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
@@ -29,6 +30,7 @@ export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
 			environment,
 			showSiteIcon = false,
 			siteIconSeed,
+			siteIconImage,
 			className,
 			...props
 		},
@@ -51,6 +53,7 @@ export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
 					<SiteIcon
 						className={ styles.siteIcon }
 						seed={ siteIconSeed ?? `${ siteName }:${ siteUrl }` }
+						imageSrc={ siteIconImage }
 					/>
 				) : null }
 				<span className={ styles.site }>{ siteName }</span>

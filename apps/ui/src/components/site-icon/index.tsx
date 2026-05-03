@@ -1,4 +1,5 @@
 import { clsx } from 'clsx';
+import { useState } from 'react';
 import styles from './style.module.css';
 import type { ComponentPropsWithoutRef, CSSProperties } from 'react';
 
@@ -14,6 +15,9 @@ type SiteIconStyle = CSSProperties & {
 
 type Props = ComponentPropsWithoutRef< 'span' > & {
 	seed?: string;
+	// Data URL for the configured WordPress Site Icon. Falls back to the
+	// procedural mesh gradient when missing or when the image fails to load.
+	imageSrc?: string | null;
 };
 
 function hashSeed( seed: string ): number {
@@ -43,13 +47,25 @@ function getMeshGradientStyle( seed = 'site' ): SiteIconStyle {
 	};
 }
 
-export function SiteIcon( { className, seed, style, ...props }: Props ) {
+export function SiteIcon( { className, seed, style, imageSrc, ...props }: Props ) {
+	const [ hasImageError, setHasImageError ] = useState( false );
+	const showImage = !! imageSrc && ! hasImageError;
+
 	return (
 		<span
 			{ ...props }
-			className={ clsx( styles.root, className ) }
-			style={ { ...getMeshGradientStyle( seed ), ...style } }
+			className={ clsx( styles.root, showImage && styles.rootWithImage, className ) }
+			style={ showImage ? style : { ...getMeshGradientStyle( seed ), ...style } }
 			aria-hidden="true"
-		/>
+		>
+			{ showImage && (
+				<img
+					className={ styles.image }
+					src={ imageSrc as string }
+					alt=""
+					onError={ () => setHasImageError( true ) }
+				/>
+			) }
+		</span>
 	);
 }

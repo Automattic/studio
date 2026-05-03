@@ -2,7 +2,7 @@ import fs from 'fs';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { SQLITE_FILENAME } from '@studio/common/constants';
-import { SITE_EVENTS, siteListSchema, type SiteListItem } from '@studio/common/lib/cli-events';
+import { siteListSchema, type SiteListItem } from '@studio/common/lib/cli-events';
 import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
 import fsExtra from 'fs-extra';
 import { parse } from 'shell-quote';
@@ -11,7 +11,6 @@ import {
 	WP_CLI_DEFAULT_RESPONSE_TIMEOUT,
 	WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT,
 } from 'src/constants';
-import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { CliServerProcess } from 'src/modules/cli/lib/cli-server-process';
 import { createSiteViaCli, type CreateSiteOptions } from 'src/modules/cli/lib/cli-site-creator';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
@@ -123,44 +122,6 @@ export class SiteServer {
 			.transform( ( val ) => JSON.parse( val ) )
 			.pipe( siteListSchema ),
 	} );
-
-	/**
-	 * Hydrate cached icon paths for running sites and fill any gaps by
-	 * fetching from the CLI. Necessary because `_events` only emits
-	 * transitions — sites that are already running when Studio launches
-	 * never trigger the cli-events-subscriber's running-transition branch,
-	 * so `getSiteIcon` would otherwise never run for them.
-	 */
-	static async backfillRunningSiteIcons(): Promise< void > {
-		const userData = await loadUserData();
-
-		await Promise.all(
-			Array.from( servers.values() ).map( async ( server ) => {
-				if ( ! server.details.running || deletedServers.includes( server.details.id ) ) {
-					return;
-				}
-
-				const cached = userData.siteMetadata[ server.details.id ]?.siteIconPath;
-				if ( cached !== undefined ) {
-					// Already resolved on a prior run (path or explicit "no icon").
-					// Trust the cache and let the next start cycle refresh it.
-					server.details.siteIconPath = cached;
-					return;
-				}
-
-				const previousPath = server.details.siteIconPath;
-				await server.getSiteIcon();
-				if ( server.details.siteIconPath !== previousPath ) {
-					await server.persistSiteIcon();
-					void sendIpcEventToRenderer( 'site-event', {
-						event: SITE_EVENTS.UPDATED,
-						siteId: server.details.id,
-						running: server.details.running,
-					} );
-				}
-			} )
-		);
-	}
 
 	static async fetchAll(): Promise< void > {
 		try {
@@ -508,21 +469,6 @@ export class SiteServer {
 		}
 
 		return this.details.siteIconPath;
-	}
-
-	async persistSiteIcon(): Promise< void > {
-		try {
-			await lockAppdata();
-			const userData = await loadUserData();
-			const siteId = this.details.id;
-			userData.siteMetadata[ siteId ] = {
-				...userData.siteMetadata[ siteId ],
-				siteIconPath: this.details.siteIconPath,
-			};
-			await saveUserData( userData );
-		} finally {
-			await unlockAppdata();
-		}
 	}
 
 	async hasSQLitePlugin(): Promise< boolean > {

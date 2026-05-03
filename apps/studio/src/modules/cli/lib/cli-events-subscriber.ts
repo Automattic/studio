@@ -105,15 +105,7 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 	if ( wasNotRunning && running ) {
 		void captureSiteThumbnail( siteId );
 		await server.getThemeDetails();
-
-		const previousIconPath = server.details.siteIconPath;
 		await server.getSiteIcon();
-		if ( server.details.siteIconPath !== previousIconPath ) {
-			await server.persistSiteIcon();
-			// Re-emit so the renderer's site list re-fetches and picks up the
-			// freshly-loaded icon.
-			void sendIpcEventToRenderer( 'site-event', event );
-		}
 	}
 } );
 

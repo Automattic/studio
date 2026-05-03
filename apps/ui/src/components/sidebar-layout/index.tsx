@@ -2,6 +2,7 @@ import { __ } from '@wordpress/i18n';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useState } from 'react';
+import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { SidebarHeader } from '@/components/sidebar-header';
 import { SidebarNav } from '@/components/sidebar-nav';
 import { SiteList } from '@/components/site-list';
@@ -39,20 +40,16 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 					<UserMenu />
 				</aside>
 				{ ! collapsed ? (
-					<div
-						className={ clsx( styles.resizeHandle, sidebarResize.isResizing && styles.resizing ) }
-						role="separator"
-						aria-label={ __( 'Resize sidebar' ) }
-						aria-orientation="vertical"
-						aria-valuemin={ sidebarResize.minWidth }
-						aria-valuemax={ sidebarResize.maxWidth }
-						aria-valuenow={ sidebarResize.width }
-						tabIndex={ 0 }
-						onMouseDown={ sidebarResize.handleResizeStart }
+					<ResizeHandle
+						className={ styles.resizeHandle }
+						label={ __( 'Resize sidebar' ) }
+						minWidth={ sidebarResize.minWidth }
+						maxWidth={ sidebarResize.maxWidth }
+						width={ sidebarResize.width }
+						isResizing={ sidebarResize.isResizing }
+						onResizeStart={ sidebarResize.handleResizeStart }
 						onKeyDown={ sidebarResize.handleKeyDown }
-					>
-						<span className={ styles.resizeHandleIndicator } aria-hidden="true" />
-					</div>
+					/>
 				) : null }
 				<main className={ styles.main }>
 					{ collapsed ? (
@@ -74,7 +71,7 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 					) : null }
 					{ children }
 				</main>
-				{ sidebarResize.isResizing ? <div className={ styles.resizeOverlay } /> : null }
+				{ sidebarResize.isResizing ? <ResizeOverlay /> : null }
 			</div>
 		</SidebarCollapsedContext.Provider>
 	);

@@ -3,6 +3,7 @@ import { external } from '@wordpress/icons';
 import { Button, IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useEffect, useRef, useState } from 'react';
+import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { useConnector } from '@/data/core';
 import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
 import { useResizablePanel } from '@/hooks/use-resizable-panel';
@@ -86,20 +87,16 @@ export function SitePreview( { site, sessionId, onAnnotationsDone }: SitePreview
 
 	return (
 		<aside className={ styles.root } style={ previewStyle } aria-label={ __( 'Site preview' ) }>
-			<div
-				className={ clsx( styles.resizeHandle, previewResize.isResizing && styles.resizing ) }
-				role="separator"
-				aria-label={ __( 'Resize site preview' ) }
-				aria-orientation="vertical"
-				aria-valuemin={ previewResize.minWidth }
-				aria-valuemax={ previewResize.maxWidth }
-				aria-valuenow={ previewResize.width }
-				tabIndex={ 0 }
-				onMouseDown={ previewResize.handleResizeStart }
+			<ResizeHandle
+				className={ styles.resizeHandle }
+				label={ __( 'Resize site preview' ) }
+				minWidth={ previewResize.minWidth }
+				maxWidth={ previewResize.maxWidth }
+				width={ previewResize.width }
+				isResizing={ previewResize.isResizing }
+				onResizeStart={ previewResize.handleResizeStart }
 				onKeyDown={ previewResize.handleKeyDown }
-			>
-				<span className={ styles.resizeHandleIndicator } aria-hidden="true" />
-			</div>
+			/>
 			<div className={ styles.header }>
 				<div className={ styles.trafficLights } aria-hidden="true">
 					<span className={ clsx( styles.trafficLight, styles.trafficLightActive ) } />
@@ -154,7 +151,7 @@ export function SitePreview( { site, sessionId, onAnnotationsDone }: SitePreview
 					</div>
 				) }
 			</div>
-			{ previewResize.isResizing ? <div className={ styles.resizeOverlay } /> : null }
+			{ previewResize.isResizing ? <ResizeOverlay /> : null }
 		</aside>
 	);
 }

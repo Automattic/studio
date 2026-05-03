@@ -393,6 +393,42 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 			];
 			echo json_encode( $result );
 		} );
+
+		/**
+		 * Gets the path of the configured Site Icon relative to the
+		 * WordPress install root, or null when no Site Icon is set.
+		 *
+		 * The host (Studio) translates the WordPress-runtime path
+		 * (rooted at the /wordpress mount) into a real filesystem path
+		 * by joining the site folder with the returned relative path.
+		 *
+		 * ## EXAMPLES
+		 *
+		 *     wp studio get-site-icon
+		 *
+		 * @when after_wp_load
+		 */
+		WP_CLI::add_command( 'studio get-site-icon', function() {
+			$icon_id = (int) get_option( 'site_icon' );
+			if ( ! $icon_id ) {
+				echo json_encode( null );
+				return;
+			}
+
+			$path = get_attached_file( $icon_id );
+			if ( ! $path || ! file_exists( $path ) ) {
+				echo json_encode( null );
+				return;
+			}
+
+			// get_attached_file() returns paths rooted at /wordpress
+			// (Studio's PHP-runtime mount point). Strip the leading
+			// /wordpress so the host can resolve against the site dir.
+			$relative = preg_replace( '#^/wordpress/?#', '', $path );
+			echo json_encode( [
+				'relativePath' => ltrim( $relative, '/' ),
+			] );
+		} );
 		`,
 	} );
 

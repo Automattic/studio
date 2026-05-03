@@ -48,6 +48,7 @@ export interface SiteDetails {
 		slug: string;
 		isBlockTheme: boolean;
 	};
+	siteIcon?: string | null;
 }
 
 export interface AuthUser {

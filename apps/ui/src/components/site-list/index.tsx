@@ -6,6 +6,7 @@ import { clsx } from 'clsx';
 import { useMemo, useState } from 'react';
 import * as Menu from '@/components/menu';
 import { SidebarButton } from '@/components/sidebar-button';
+import { SiteIcon } from '@/components/site-icon';
 import { useSessions } from '@/data/queries/use-sessions';
 import {
 	useCopySite,
@@ -320,6 +321,14 @@ function SiteSection( {
 						onClick={ onToggle }
 						aria-expanded={ isOpen }
 					>
+						{ group.site ? (
+							<span className={ styles.siteIconSlot } aria-hidden="true">
+								<SiteIcon
+									seed={ `${ group.site.id }:${ group.site.name }:${ group.site.path }` }
+									imageSrc={ group.site.siteIcon }
+								/>
+							</span>
+						) : null }
 						<span className={ styles.siteName }>{ group.label }</span>
 						<span className={ styles.siteChevron } aria-hidden="true">
 							<Icon icon={ isOpen ? chevronDown : chevronRight } size={ 16 } />

@@ -13,6 +13,7 @@ export interface WindowBounds {
 
 export interface AppdataSiteData {
 	themeDetails?: SiteDetails[ 'themeDetails' ];
+	siteIconPath?: SiteDetails[ 'siteIconPath' ];
 	sortOrder?: number;
 }
 

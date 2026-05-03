@@ -97,6 +97,7 @@ const api: IpcApi = {
 	showItemInFolder: ( path ) => ipcRendererSend( 'showItemInFolder', path ),
 	loadThemeDetails: ( id, emitLoadingEvent = true ) =>
 		ipcRendererInvoke( 'loadThemeDetails', id, emitLoadingEvent ),
+	loadSiteIcon: ( id ) => ipcRendererInvoke( 'loadSiteIcon', id ),
 	getThumbnailData: ( id ) => ipcRendererInvoke( 'getThumbnailData', id ),
 	getInstalledAppsAndTerminals: () => ipcRendererInvoke( 'getInstalledAppsAndTerminals' ),
 	importSite: ( siteId, importArchivePath, options ) =>

@@ -48,7 +48,21 @@ import type { Model } from '@mariozechner/pi-ai';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AgentToolAny = AgentTool< any >;
 
+/**
+ * Per-Agent mutable handle for compaction lifecycle. The Agent's
+ * `transformContext` closure is built once at Agent construction (and reused
+ * across cache hits), but each `run()` wants to receive lifecycle callbacks
+ * into its own message queue. The closure dereferences `ref.current` at call
+ * time, so each `createMessageStream` can swap a fresh handler in for the
+ * duration of its run and clear it on exit — without rebuilding the Agent.
+ */
+type CompactionPhase = 'start' | 'end' | 'skipped' | 'failed';
+interface CompactionLifecycleRef {
+	current: ( ( phase: CompactionPhase ) => void ) | null;
+}
+
 const AGENTS_BY_SESSION = new Map< string, Agent >();
+const LIFECYCLE_REFS_BY_SESSION = new Map< string, CompactionLifecycleRef >();
 
 /**
  * Returns true when the given session id was issued by this runtime. agent.ts
@@ -111,7 +125,13 @@ async function* createMessageStream(
 	const extraHeaders = parseHeaderEnv( config.env.STUDIO_OPENAI_DEFAULT_HEADERS );
 
 	try {
-		const agent = await getOrCreateAgent( sessionId, config, baseURL, apiKey, extraHeaders );
+		const { agent, lifecycleRef } = await getOrCreateAgent(
+			sessionId,
+			config,
+			baseURL,
+			apiKey,
+			extraHeaders
+		);
 
 		// Emit all SDKMessages produced since we last iterated. pi's event
 		// stream is push-based via `subscribe()`, so we bridge to our
@@ -120,6 +140,26 @@ async function* createMessageStream(
 		let resolveNext: ( () => void ) | null = null;
 		let done = false;
 
+		const wake = () => {
+			resolveNext?.();
+			resolveNext = null;
+		};
+
+		// Synthesize SDK system messages around compaction so the UI shows a
+		// loader during summarization and a "Conversation history compacted"
+		// boundary marker after — same surface the Claude Agent SDK emits
+		// natively and the desktop UI already knows how to render
+		// (see `apps/cli/ai/ui.ts:2243-2249`).
+		lifecycleRef.current = ( phase ) => {
+			if ( phase === 'start' ) {
+				queue.push( makeSystemStatus( sessionId, 'compacting' ) );
+				wake();
+			} else if ( phase === 'end' ) {
+				queue.push( makeCompactBoundary( sessionId ) );
+				wake();
+			}
+		};
+
 		const unsubscribe = agent.subscribe( ( event ) => {
 			for ( const msg of translateEvent( event, sessionId, start ) ) {
 				queue.push( msg );
@@ -127,8 +167,7 @@ async function* createMessageStream(
 			if ( event.type === 'agent_end' ) {
 				done = true;
 			}
-			resolveNext?.();
-			resolveNext = null;
+			wake();
 		} );
 
 		// Kick off the turn. Don't await here — we want the subscription-driven
@@ -149,6 +188,10 @@ async function* createMessageStream(
 		}
 
 		unsubscribe();
+		// Detach from the cached agent's lifecycle ref so a stale closure
+		// can't keep pushing into our (now-finished) queue if a follow-up
+		// run reuses the same Agent before our handler is overwritten.
+		lifecycleRef.current = null;
 		await runPromise.catch( () => undefined );
 
 		// Persist the post-turn transcript so the next CLI fork can resume.
@@ -193,10 +236,11 @@ async function getOrCreateAgent(
 	baseURL: string,
 	apiKey: string,
 	extraHeaders: Record< string, string > | undefined
-): Promise< Agent > {
+): Promise< { agent: Agent; lifecycleRef: CompactionLifecycleRef } > {
 	const existing = AGENTS_BY_SESSION.get( sessionId );
-	if ( existing && existing.state.model.id === config.model ) {
-		return existing;
+	const existingRef = LIFECYCLE_REFS_BY_SESSION.get( sessionId );
+	if ( existing && existingRef && existing.state.model.id === config.model ) {
+		return { agent: existing, lifecycleRef: existingRef };
 	}
 
 	const model = buildModel( config.model, baseURL, extraHeaders );
@@ -225,6 +269,8 @@ async function getOrCreateAgent(
 		? ( await loadSidecar( config.sessionFilePath ) ) ?? []
 		: [];
 
+	const lifecycleRef: CompactionLifecycleRef = { current: null };
+
 	const agent = new Agent( {
 		initialState: {
 			model,
@@ -238,11 +284,16 @@ async function getOrCreateAgent(
 			model,
 			apiKey,
 			headers: extraHeaders,
+			// Stable closure that defers to whatever handler the current
+			// `createMessageStream` plugged in. See the doc-block on
+			// `CompactionLifecycleRef`.
+			onLifecycle: ( phase ) => lifecycleRef.current?.( phase ),
 		} ),
 	} );
 
 	AGENTS_BY_SESSION.set( sessionId, agent );
-	return agent;
+	LIFECYCLE_REFS_BY_SESSION.set( sessionId, lifecycleRef );
+	return { agent, lifecycleRef };
 }
 
 /**
@@ -456,6 +507,38 @@ function makeSystemInit( sessionId: string, model: string ): SDKMessage {
 		skills: [],
 		plugins: [],
 		claude_code_version: '0.0.0-openai-poc',
+		uuid: crypto.randomUUID(),
+		session_id: sessionId,
+	} as unknown as SDKMessage;
+}
+
+/**
+ * Synthesize a `system.status` SDKMessage. The desktop UI (`ui.ts:2243-2249`)
+ * renders `subtype === 'status' && status === 'compacting'` as a "Compacting
+ * conversation history…" loader. Used at the start of a compaction round so
+ * the user sees that the runtime is doing work before the next turn lands.
+ */
+function makeSystemStatus( sessionId: string, status: 'compacting' ): SDKMessage {
+	return {
+		type: 'system',
+		subtype: 'status',
+		status,
+		uuid: crypto.randomUUID(),
+		session_id: sessionId,
+	} as unknown as SDKMessage;
+}
+
+/**
+ * Synthesize a `system.compact_boundary` SDKMessage. The desktop UI renders
+ * this as a "Conversation history compacted" notice and the recorder
+ * persists it to the JSONL — same shape the Claude Agent SDK emits natively
+ * when its built-in compaction fires, so on-screen and on-disk surfaces
+ * agree.
+ */
+function makeCompactBoundary( sessionId: string ): SDKMessage {
+	return {
+		type: 'system',
+		subtype: 'compact_boundary',
 		uuid: crypto.randomUUID(),
 		session_id: sessionId,
 	} as unknown as SDKMessage;

@@ -160,4 +160,77 @@ describe( 'OpenAI runtime compaction', () => {
 		await transform( messages );
 		expect( phases ).toEqual( [ 'start', 'end' ] );
 	} );
+
+	// Mid-turn safeguard: pi calls transformContext between LLM rounds; if the
+	// last message is a toolResult, the assistant's matching tool_use is one
+	// round back and the model is about to follow up. Compacting here can
+	// summarize half of an in-flight tool sequence and leave a dangling
+	// tool_use without its result.
+	it( 'skips compaction when the last message is a toolResult (mid-turn safeguard)', async () => {
+		generateSummaryMock.mockReset();
+		generateSummaryMock.mockResolvedValue( 'SHOULD NOT BE CALLED' );
+
+		const filler = 'a'.repeat( 4_000 );
+		const transform = buildTransformContext( {
+			model: buildModel( { contextWindow: 8_000 } ),
+			apiKey: 'sk-test',
+			settings: { reserveTokens: 1_000, keepRecentTokens: 2_000 },
+		} );
+
+		const messages: AgentMessage[] = [];
+		for ( let i = 0; i < 5; i++ ) {
+			messages.push( userMessage( `u${ i }: ${ filler }`, i * 2 ) );
+			messages.push( assistantMessage( `a${ i }: ${ filler }`, i * 2 + 1 ) );
+		}
+		// Dangling toolResult — assistant is about to follow up on it.
+		messages.push( {
+			role: 'toolResult',
+			toolCallId: 'call_1',
+			toolName: 'noop',
+			content: [ { type: 'text', text: 'tool ran' } ],
+			isError: false,
+			timestamp: 99,
+		} );
+
+		const result = await transform( messages );
+		expect( result ).toBe( messages );
+		expect( generateSummaryMock ).not.toHaveBeenCalled();
+	} );
+
+	// Context-window safety: defaults sized for 200k+ windows must not crowd
+	// out the prompt budget on a smaller window. We cap reserveTokens and
+	// keepRecentTokens so at least MIN_PROMPT_BUDGET_TOKENS (~4k) remains
+	// for the actual prompt regardless of what the caller passed.
+	it( 'caps reserve and keep-recent against a narrow context window', async () => {
+		generateSummaryMock.mockReset();
+		generateSummaryMock.mockResolvedValue( 'SUMMARY' );
+
+		const filler = 'a'.repeat( 4_000 );
+		// Defaults are 16_384 reserve / 20_000 keepRecent. With contextWindow
+		// = 10_000, naive use would reserve more tokens than the window has,
+		// `shouldCompact` would always fire, and keepRecent (20k) would
+		// exceed window so `findTailCutIndex` would never find a cut.
+		const transform = buildTransformContext( {
+			model: buildModel( { contextWindow: 10_000 } ),
+			apiKey: 'sk-test',
+			// No `settings` override — exercise the defaults' cap behavior.
+		} );
+
+		const messages: AgentMessage[] = [];
+		for ( let i = 0; i < 5; i++ ) {
+			messages.push( userMessage( `u${ i }: ${ filler }`, i * 2 ) );
+			messages.push( assistantMessage( `a${ i }: ${ filler }`, i * 2 + 1 ) );
+		}
+		messages.push( userMessage( `recent: ${ filler }`, 100 ) );
+
+		// Should produce a summary + tail (i.e. caps allowed compaction to
+		// happen meaningfully) rather than skipping due to a 0-cut or
+		// returning unmodified due to an impossible threshold.
+		const result = await transform( messages );
+		expect( generateSummaryMock ).toHaveBeenCalledTimes( 1 );
+		expect( result ).not.toBe( messages );
+		expect( result.length ).toBeLessThan( messages.length );
+		expect( result[ 0 ].role ).toBe( 'user' );
+		expect( ( result[ 0 ] as { content: string } ).content ).toContain( 'SUMMARY' );
+	} );
 } );

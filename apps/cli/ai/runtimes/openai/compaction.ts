@@ -41,6 +41,39 @@ export const DEFAULT_COMPACTION_SETTINGS: CompactionSettings = {
 	keepRecentTokens: 20_000,
 };
 
+/**
+ * Floor for how much of the context window must remain available for the
+ * actual prompt after `reserveTokens` and `keepRecentTokens` are accounted
+ * for. We never want to scale our knobs so aggressively that the model has
+ * less than this for real input. Mirrors OpenClaw's `MIN_PROMPT_BUDGET_TOKENS`.
+ */
+const MIN_PROMPT_BUDGET_TOKENS = 4_000;
+
+/**
+ * Cap `reserveTokens` and `keepRecentTokens` against the actual context
+ * window so callers with a small window (e.g. a proxy that imposes a tighter
+ * limit than the model's nominal `contextWindow`) don't end up reserving
+ * more tokens than the window itself can hold. In that pathological state,
+ * `shouldCompact` would always fire and `findTailCutIndex` would never
+ * find a cut.
+ *
+ * The defaults (16k reserve, 20k keep-recent) are sized for ≥200k windows.
+ * On a 32k window they'd already crowd the prompt to ≤-4k. We scale down
+ * proportionally, leaving at minimum `MIN_PROMPT_BUDGET_TOKENS` for the
+ * actual user content.
+ */
+export function resolveCompactionSettings(
+	settings: CompactionSettings,
+	contextWindow: number
+): CompactionSettings {
+	const maxReserve = Math.max( 0, contextWindow - MIN_PROMPT_BUDGET_TOKENS );
+	const reserveTokens = Math.min( settings.reserveTokens, maxReserve );
+	// Keep-recent has to fit alongside reserve and the prompt budget.
+	const maxKeepRecent = Math.max( 0, contextWindow - reserveTokens - MIN_PROMPT_BUDGET_TOKENS );
+	const keepRecentTokens = Math.min( settings.keepRecentTokens, maxKeepRecent );
+	return { ...settings, reserveTokens, keepRecentTokens };
+}
+
 export interface BuildTransformContextOptions {
 	/**
 	 * The OpenAI model used for both the live agent turns and the compaction
@@ -79,12 +112,23 @@ export interface BuildTransformContextOptions {
  */
 export function buildTransformContext( options: BuildTransformContextOptions ) {
 	const contextWindow = options.contextWindow ?? options.model.contextWindow;
-	const settings: CompactionSettings = {
-		...DEFAULT_COMPACTION_SETTINGS,
-		...options.settings,
-	};
+	const settings = resolveCompactionSettings(
+		{ ...DEFAULT_COMPACTION_SETTINGS, ...options.settings },
+		contextWindow
+	);
 
 	return async ( messages: AgentMessage[], signal?: AbortSignal ): Promise< AgentMessage[] > => {
+		// Mid-turn safeguard: if pi calls transformContext when the most
+		// recent message is a `toolResult`, we're between an assistant's
+		// tool call and its follow-up — compacting now risks summarizing
+		// half of an in-flight tool sequence and leaving the next turn with
+		// a tool_use that has no matching tool_result. Defer compaction to
+		// a clean turn boundary instead.
+		const last = messages[ messages.length - 1 ];
+		if ( last?.role === 'toolResult' ) {
+			return messages;
+		}
+
 		const tokens = estimateTotalTokens( messages );
 		if ( ! shouldCompact( tokens, contextWindow, settings ) ) {
 			return messages;

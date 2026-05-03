@@ -16,6 +16,7 @@ type Props = Omit< ComponentProps< typeof Button >, 'children' > & {
 	statusLabel: string;
 	environment: 'local' | 'live';
 	showSiteIcon?: boolean;
+	siteIconSeed?: string;
 };
 
 export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
@@ -27,6 +28,7 @@ export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
 			statusLabel,
 			environment,
 			showSiteIcon = false,
+			siteIconSeed,
 			className,
 			...props
 		},
@@ -45,7 +47,12 @@ export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
 				className={ clsx( styles.trigger, className ) }
 				{ ...props }
 			>
-				{ showSiteIcon ? <SiteIcon className={ styles.siteIcon } /> : null }
+				{ showSiteIcon ? (
+					<SiteIcon
+						className={ styles.siteIcon }
+						seed={ siteIconSeed ?? `${ siteName }:${ siteUrl }` }
+					/>
+				) : null }
 				<span className={ styles.site }>{ siteName }</span>
 				<span className={ styles.status }>
 					<span className={ clsx( styles.dot, dotClass ) } role="img" aria-label={ statusLabel } />

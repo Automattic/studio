@@ -1,15 +1,55 @@
-import { globe } from '@wordpress/icons';
-import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import styles from './style.module.css';
-import type { ComponentPropsWithoutRef } from 'react';
+import type { ComponentPropsWithoutRef, CSSProperties } from 'react';
 
-type Props = ComponentPropsWithoutRef< 'span' >;
+type SiteIconStyle = CSSProperties & {
+	'--site-icon-color-a': string;
+	'--site-icon-color-b': string;
+	'--site-icon-color-c': string;
+	'--site-icon-color-d': string;
+	'--site-icon-position-a': string;
+	'--site-icon-position-b': string;
+	'--site-icon-position-c': string;
+};
 
-export function SiteIcon( { className, ...props }: Props ) {
+type Props = ComponentPropsWithoutRef< 'span' > & {
+	seed?: string;
+};
+
+function hashSeed( seed: string ): number {
+	let hash = 0;
+	for ( let index = 0; index < seed.length; index++ ) {
+		hash = ( hash << 5 ) - hash + seed.charCodeAt( index );
+		hash |= 0;
+	}
+	return Math.abs( hash );
+}
+
+function getMeshGradientStyle( seed = 'site' ): SiteIconStyle {
+	const hash = hashSeed( seed );
+	const hue = hash % 360;
+	const offset = ( hash >> 4 ) % 48;
+
+	return {
+		'--site-icon-color-a': `hsl(${ hue } 88% 58%)`,
+		'--site-icon-color-b': `hsl(${ ( hue + 92 + offset ) % 360 } 84% 62%)`,
+		'--site-icon-color-c': `hsl(${ ( hue + 188 + offset ) % 360 } 82% 54%)`,
+		'--site-icon-color-d': `hsl(${ ( hue + 276 + offset ) % 360 } 86% 66%)`,
+		'--site-icon-position-a': `${ 18 + ( hash % 34 ) }% ${ 20 + ( ( hash >> 3 ) % 30 ) }%`,
+		'--site-icon-position-b': `${ 58 + ( ( hash >> 6 ) % 28 ) }% ${ 16 + ( ( hash >> 9 ) % 36 ) }%`,
+		'--site-icon-position-c': `${ 30 + ( ( hash >> 12 ) % 40 ) }% ${
+			58 + ( ( hash >> 15 ) % 28 )
+		}%`,
+	};
+}
+
+export function SiteIcon( { className, seed, style, ...props }: Props ) {
 	return (
-		<span { ...props } className={ clsx( styles.root, className ) } aria-hidden="true">
-			<Icon icon={ globe } size={ 12 } />
-		</span>
+		<span
+			{ ...props }
+			className={ clsx( styles.root, className ) }
+			style={ { ...getMeshGradientStyle( seed ), ...style } }
+			aria-hidden="true"
+		/>
 	);
 }

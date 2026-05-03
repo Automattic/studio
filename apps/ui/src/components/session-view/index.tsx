@@ -80,7 +80,9 @@ function SessionHeader( {
 				/>
 			) : (
 				<>
-					{ sidebarCollapsed ? <SiteIcon className={ styles.headerSiteIcon } /> : null }
+					{ sidebarCollapsed ? (
+						<SiteIcon className={ styles.headerSiteIcon } seed={ siteName } />
+					) : null }
 					<span className={ styles.headerSite }>{ siteName }</span>
 					<span className={ styles.headerDot } aria-hidden="true" />
 					<span className={ styles.headerEnv }>

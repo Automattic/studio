@@ -67,6 +67,7 @@ export function SiteDropdown( { site, activeEnvironment = 'local', showSiteIcon 
 							statusLabel={ statusLabel }
 							environment={ activeEnvironment }
 							showSiteIcon={ showSiteIcon }
+							siteIconSeed={ `${ site.id }:${ site.name }:${ site.path }` }
 						/>
 					}
 				/>

@@ -21,14 +21,19 @@ export function applyBlueprintFormValues(
 
 	if ( blueprintJson.preferredVersions ) {
 		const rawPhp = blueprintJson.preferredVersions.php;
+		const rawWp = blueprintJson.preferredVersions.wp;
 
 		// Normalise unsupported 7.2/7.3 to 7.4 for display; treat 'latest' as absent.
 		const preferredPhp =
 			rawPhp === '7.2' || rawPhp === '7.3' ? '7.4' : rawPhp === 'latest' ? undefined : rawPhp;
 
+		// `wp: false` selects a PHP-only Playground; the form has no representation
+		// for that, so treat it the same as an unspecified version.
+		const preferredWp = rawWp === false ? undefined : rawWp;
+
 		setters.setBlueprintPreferredVersions( {
 			php: preferredPhp,
-			wp: blueprintJson.preferredVersions.wp,
+			wp: preferredWp,
 		} );
 	} else {
 		setters.setBlueprintPreferredVersions( undefined );

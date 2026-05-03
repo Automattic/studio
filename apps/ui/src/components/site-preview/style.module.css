@@ -12,7 +12,7 @@
 	background-color: var(--wpds-color-bg-surface-neutral);
 	border: 1px solid var(--wpds-color-stroke-surface-neutral);
 	border-radius: var(--wpds-border-radius-lg, 12px);
-	overflow: hidden;
+	overflow: visible;
 	box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.06);
 }
 
@@ -20,11 +20,14 @@
 	position: absolute;
 	top: 0;
 	bottom: 0;
-	left: 0;
-	width: 12px;
+	left: -15px;
+	width: 15px;
 	z-index: 20;
 	display: flex;
-	justify-content: center;
+	align-items: center;
+	justify-content: flex-end;
+	padding-right: 4px;
+	box-sizing: border-box;
 	cursor: col-resize;
 	outline: none;
 	-webkit-app-region: no-drag;
@@ -32,7 +35,7 @@
 
 .resizeHandleIndicator {
 	width: 3px;
-	margin: var(--wpds-dimension-padding-sm) 0;
+	height: 48px;
 	border-radius: 999px;
 	background-color: var(--wpds-color-stroke-interactive-brand, #2563eb);
 	opacity: 0;
@@ -63,6 +66,8 @@
 	flex-shrink: 0;
 	background-color: #fff;
 	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-top-left-radius: inherit;
+	border-top-right-radius: inherit;
 }
 
 .trafficLights {
@@ -99,6 +104,9 @@
 	display: flex;
 	position: relative;
 	background-color: #fff;
+	overflow: hidden;
+	border-bottom-right-radius: inherit;
+	border-bottom-left-radius: inherit;
 }
 
 .spinnerOverlay {

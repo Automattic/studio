@@ -211,8 +211,8 @@ const api: IpcApi = {
 	deleteAiSession: ( sessionIdOrPrefix ) =>
 		ipcRendererInvoke( 'deleteAiSession', sessionIdOrPrefix ),
 	createAiSession: ( siteId ) => ipcRendererInvoke( 'createAiSession', siteId ),
-	continueAiSession: ( sessionId, prompt ) =>
-		ipcRendererInvoke( 'continueAiSession', sessionId, prompt ),
+	continueAiSession: ( sessionId, prompt, options ) =>
+		ipcRendererInvoke( 'continueAiSession', sessionId, prompt, options ),
 	setAiSessionModel: ( sessionId, model ) =>
 		ipcRendererInvoke( 'setAiSessionModel', sessionId, model ),
 	interruptAiAgentRun: ( runId ) => ipcRendererInvoke( 'interruptAiAgentRun', runId ),

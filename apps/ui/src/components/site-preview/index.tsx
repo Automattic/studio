@@ -20,8 +20,8 @@ interface SitePreviewProps {
 	// session and reacts to `preview.command` events emitted by the agent's
 	// preview_navigate / preview_reload tools.
 	sessionId?: string;
-	// Called when the user clicks "Done" in the inspector toolbar. Receives the
-	// full annotation payload assembled inside the webview's guest page.
+	// Called when the user clicks "Submit" in the inspector toolbar. Receives
+	// the full annotation payload assembled inside the webview's guest page.
 	onAnnotationsDone?: ( annotations: Annotation[] ) => void;
 }
 

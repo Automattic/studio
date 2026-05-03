@@ -58,6 +58,7 @@ async function readAllStdin(): Promise< string > {
 export async function runCommand( options: {
 	adapter: AiOutputAdapter;
 	initialMessage?: string;
+	initialDisplayMessage?: string;
 	resumeSession?: LoadedAiSession;
 	resumeSessionId?: string;
 	noSessionPersistence?: boolean;
@@ -422,7 +423,8 @@ export async function runCommand( options: {
 
 	async function runAgentTurn(
 		prompt: string,
-		retryAttempt = 0
+		retryAttempt = 0,
+		displayMessage = prompt
 	): Promise< { status: TurnStatus } > {
 		await maybeAutoSwitchProvider();
 		const recorder = await ensureSessionRecorder();
@@ -455,7 +457,7 @@ export async function runCommand( options: {
 
 		await persist( ( recorder ) =>
 			recorder.recordUserMessage( {
-				text: prompt,
+				text: displayMessage,
 				source: 'prompt',
 				sitePath: site?.path,
 			} )
@@ -583,8 +585,9 @@ export async function runCommand( options: {
 	// JSON mode: single turn, then exit
 	if ( isJsonMode && options.initialMessage ) {
 		try {
-			ui.addUserMessage( options.initialMessage );
-			const result = await runAgentTurn( options.initialMessage );
+			const displayMessage = options.initialDisplayMessage ?? options.initialMessage;
+			ui.addUserMessage( displayMessage );
+			const result = await runAgentTurn( options.initialMessage, 0, displayMessage );
 			const jsonStatus = result.status === 'interrupted' ? 'error' : result.status;
 			( ui as JsonAdapter ).emitTurnCompleted( jsonStatus );
 		} catch ( error ) {
@@ -601,9 +604,10 @@ export async function runCommand( options: {
 
 	// Run initial message before entering the input loop
 	if ( options.initialMessage ) {
-		ui.addUserMessage( options.initialMessage );
+		const displayMessage = options.initialDisplayMessage ?? options.initialMessage;
+		ui.addUserMessage( displayMessage );
 		try {
-			await runAgentTurn( options.initialMessage );
+			await runAgentTurn( options.initialMessage, 0, displayMessage );
 		} catch ( error ) {
 			handleAgentTurnError( error );
 		}

@@ -124,14 +124,6 @@
 	pointer-events: auto;
 }
 
-@media (prefers-reduced-motion: reduce) {
-	.siteChevron,
-	.siteAction,
-	.sessionListFrame {
-		transition: none;
-	}
-}
-
 .sessionList {
 	overflow: hidden;
 	min-height: 0;

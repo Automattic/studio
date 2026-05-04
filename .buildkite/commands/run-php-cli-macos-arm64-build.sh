@@ -45,6 +45,24 @@ install_brew_formula() {
 	brew install "$formula_name"
 }
 
+copy_spc_logs_to_artifacts() {
+	local log_dir=".cache/static-php-cli/log"
+	local output_dir="out/php-binaries"
+
+	if [[ ! -d "$log_dir" ]]; then
+		return
+	fi
+
+	mkdir -p "$output_dir"
+	for log_file in "$log_dir"/spc.output.log "$log_dir"/spc.shell.log; do
+		if [[ -f "$log_file" ]]; then
+			cp "$log_file" "$output_dir/"
+		fi
+	done
+}
+
+trap copy_spc_logs_to_artifacts ERR
+
 should_run=false
 while IFS= read -r file; do
 	for watched_file in "${WATCHED_FILES[@]}"; do

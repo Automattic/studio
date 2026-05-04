@@ -10,6 +10,7 @@ import { installTaxonomyScriptsTool } from './install-taxonomy-scripts';
 import { listPreviewsTool } from './list-previews';
 import { listSitesTool } from './list-sites';
 import { auditPerformanceTool } from './need-for-speed';
+import { openAnnotationBrowserTool } from './open-annotation-browser';
 import { previewNavigateTool } from './preview-navigate';
 import { previewReloadTool } from './preview-reload';
 import { pullSiteTool } from './pull-site';
@@ -22,6 +23,7 @@ import { stopSiteTool } from './stop-site';
 import { takeScreenshotTool } from './take-screenshot';
 import { updatePreviewTool } from './update-preview';
 import { validateBlocksTool } from './validate-blocks';
+import { waitForAnnotationsTool } from './wait-for-annotations';
 import { runWpCliTool } from './wp-cli';
 import { createWpcomRequestTool } from './wpcom-request';
 
@@ -54,6 +56,8 @@ export const studioToolDefinitions = [
 	pullSiteTool,
 	importSiteTool,
 	exportSiteTool,
+	openAnnotationBrowserTool,
+	waitForAnnotationsTool,
 	...previewSteeringToolDefinitions,
 ];
 

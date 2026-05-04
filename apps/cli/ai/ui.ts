@@ -131,6 +131,10 @@ class PromptEditor implements Component, Focusable {
 		this.editor.setAutocompleteProvider( provider );
 	}
 
+	addToHistory( text: string ): void {
+		this.editor.addToHistory( text );
+	}
+
 	getText(): string {
 		return this.editor.getText();
 	}
@@ -563,7 +567,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this.editor = new PromptEditor( this.tui, editorTheme );
 
 		this.editor.setAutocompleteProvider(
-			new CombinedAutocompleteProvider( AI_CHAT_SLASH_COMMANDS )
+			new CombinedAutocompleteProvider( AI_CHAT_SLASH_COMMANDS, process.cwd() )
 		);
 
 		this.editor.onSubmit = ( text ) => {
@@ -571,6 +575,7 @@ export class AiChatUI implements AiOutputAdapter {
 			if ( ! trimmed ) {
 				return;
 			}
+			this.editor.addToHistory( trimmed );
 			if ( this.submitResolve ) {
 				const resolve = this.submitResolve;
 				this.submitResolve = null;

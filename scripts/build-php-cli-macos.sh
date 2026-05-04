@@ -101,6 +101,29 @@ ensure_patch(
         ),
     ],
 )
+ensure_patch(
+    "src/SPC/util/SPCConfigUtil.php",
+    "$libs = str_replace('-lstdc++', '', $libs);",
+    [
+        (
+            """        if ($this->hasCpp($extensions, $libraries)) {
+            $libcpp = SPCTarget::getTargetOS() === 'Darwin' ? '-lc++' : '-lstdc++';
+            $libs = str_replace($libcpp, '', $libs) . " {$libcpp}";
+        }
+""",
+            """        if ($this->hasCpp($extensions, $libraries)) {
+            $isDarwin = SPCTarget::getTargetOS() === 'Darwin';
+            $libcpp = $isDarwin ? '-lc++' : '-lstdc++';
+            $libs = str_replace($libcpp, '', $libs);
+            if ($isDarwin) {
+                $libs = str_replace('-lstdc++', '', $libs);
+            }
+            $libs .= " {$libcpp}";
+        }
+""",
+        ),
+    ],
+)
 PY
 
 php bin/spc download --with-php="$PHP_MINOR" --for-extensions="$EXTENSIONS" --retry=2

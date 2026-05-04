@@ -734,13 +734,11 @@ export const LEGACY_MU_PLUGIN_FILENAMES = [
 	'0-tmp-fix-hide-plugins-spinner.php',
 	'0-tmp-fix-qm-plugin-sapi.php',
 	'0-wp-admin-trailing-slash.php',
-	'1-static-site-importer.php',
 	// Retired mu-plugins from older Studio versions
 	'0-32bit-integer-warnings.php',
 	'0-dns-functions.php',
 	'0-sqlite.php',
 	'0-wp-config-constants-polyfill.php',
-	'1-static-site-importer-experiment.php',
 ];
 
 /**

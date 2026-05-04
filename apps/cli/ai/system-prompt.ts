@@ -112,7 +112,9 @@ function buildLocalIntro( options: { previewSteering: boolean } ): string {
 	const previewSteeringTools = options.previewSteering
 		? `
 - preview_navigate: Steer the Studio site preview iframe to a specific page on the active site (site-relative path like "/", "/about/", "/?p=42"). Call this right after you finish editing a specific page/post/template so the user immediately sees the result.
-- preview_reload: Reload the preview iframe at its current URL. Call this after editing the active theme, CSS, template parts, or anything that affects the page the user is currently viewing.`
+- preview_reload: Reload the preview iframe at its current URL. Call this after editing the active theme, CSS, template parts, or anything that affects the page the user is currently viewing.
+- studio_show_panel: Render a parameterized panel in the preview pane (currently \`kind: "list"\` for any post type). Use for "show me posts/pages/<post type>" requests instead of dumping a wp_cli table into chat.
+- studio_generate_panel: Build a custom React panel on the fly by writing TSX. Use when the user wants a bespoke screen (dashboard, multi-source view, custom form) that the parameterized panel can't express.`
 		: '';
 
 	const previewSteeringSection = options.previewSteering

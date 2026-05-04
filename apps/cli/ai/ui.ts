@@ -27,7 +27,7 @@ import { getToolDetail, getToolDisplayName } from '@studio/common/ai/tools';
 import chalk from '@studio/common/lib/chalk';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { AI_MODELS, DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
+import { DEFAULT_MODEL, getAiModelLabel, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
 import { AI_CHAT_SLASH_COMMANDS } from 'cli/ai/slash-commands';
 import { buildTodoUpdateLines, type TodoRenderLine } from 'cli/ai/todo-render';
@@ -993,43 +993,51 @@ export class AiChatUI implements AiOutputAdapter {
 		toolName: string,
 		toolInput: Record< string, unknown > | null
 	): Promise< void > {
-		switch ( toolName ) {
-			case 'mcp__studio__site_create': {
+		// Tool names arrive in two flavors depending on the runtime:
+		//   - Anthropic (Claude Agent SDK): `mcp__studio__site_create` (the SDK
+		//     auto-prefixes MCP-server tool names).
+		//   - OpenAI (pi-agent-core): `site_create` (registered by bare name).
+		// Strip the prefix so the switch below stays single-source.
+		const bareName = toolName.startsWith( 'mcp__studio__' )
+			? toolName.slice( 'mcp__studio__'.length )
+			: toolName;
+		switch ( bareName ) {
+			case 'site_create': {
 				const name = toolInput?.name;
 				if ( typeof name === 'string' ) {
 					await this.selectLocalSiteFromTool( name, { running: true } );
 				}
 				break;
 			}
-			case 'mcp__studio__site_info':
-			case 'mcp__studio__site_start': {
+			case 'site_info':
+			case 'site_start': {
 				const nameOrPath = toolInput?.nameOrPath;
 				if ( typeof nameOrPath === 'string' ) {
 					await this.selectLocalSiteFromTool( nameOrPath, {
-						running: toolName === 'mcp__studio__site_start' ? true : undefined,
+						running: bareName === 'site_start' ? true : undefined,
 					} );
 				}
 				break;
 			}
-			case 'mcp__studio__wp_cli':
-			case 'mcp__studio__preview_create':
-			case 'mcp__studio__preview_list':
-			case 'mcp__studio__preview_update':
-			case 'mcp__studio__validate_blocks': {
+			case 'wp_cli':
+			case 'preview_create':
+			case 'preview_list':
+			case 'preview_update':
+			case 'validate_blocks': {
 				const nameOrPath = toolInput?.nameOrPath;
 				if ( typeof nameOrPath === 'string' ) {
 					await this.selectLocalSiteFromTool( nameOrPath );
 				}
 				break;
 			}
-			case 'mcp__studio__site_stop': {
+			case 'site_stop': {
 				const nameOrPath = toolInput?.nameOrPath;
 				if ( typeof nameOrPath === 'string' ) {
 					await this.selectLocalSiteFromTool( nameOrPath, { running: false } );
 				}
 				break;
 			}
-			case 'mcp__studio__site_delete': {
+			case 'site_delete': {
 				const nameOrPath = toolInput?.nameOrPath;
 				if (
 					typeof nameOrPath === 'string' &&
@@ -1216,7 +1224,7 @@ export class AiChatUI implements AiOutputAdapter {
 		// Truncate the cwd with a leading ellipsis (preserving the meaningful
 		// suffix) when the terminal is too narrow, otherwise the welcome wraps
 		// and visually breaks the logo layout.
-		const baseInfo = `${ AI_MODELS[ this.currentModel ] } · ${
+		const baseInfo = `${ getAiModelLabel( this.currentModel ) } · ${
 			AI_PROVIDERS[ this.currentProvider ]
 		}`;
 		const sep = ' · ';

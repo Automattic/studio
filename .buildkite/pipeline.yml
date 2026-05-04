@@ -151,6 +151,35 @@ steps:
           - x64
           - arm64
 
+  - input: "🚦 Build for Linux?"
+    prompt: "Do you want to build Linux dev binaries for this PR?"
+    key: input-dev-linux
+    if: build.tag !~ /^v[0-9]+/ && build.branch != 'trunk'
+
+  - group: 📦 Build for Linux
+    key: dev-linux
+    depends_on: input-dev-linux
+    if: build.tag !~ /^v[0-9]+/
+    steps:
+      - label: 🔨 Linux Dev Build - {{matrix}}
+        agents:
+          queue: linux
+        command: |
+          .buildkite/commands/install-node-dependencies.sh
+
+          node ./scripts/prepare-dev-build-version.mjs
+
+          export IS_DEV_BUILD=true
+
+          echo "--- :node: Building DEB"
+          npm run make:linux-{{matrix}}
+        artifact_paths:
+          - apps/studio/out/make/deb/**/*.deb
+        plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
+        matrix:
+          - x64
+          - arm64
+
   - label: ":rocket: Distribute Dev Builds"
     command: |
       echo "--- :node: Downloading Binaries"

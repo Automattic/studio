@@ -195,7 +195,7 @@ One \`Write\` or \`Edit\` per turn (read-only \`site_info\`, \`site_list\`, \`wp
 - Before running wp_cli, ensure the site is running (site_start if needed).
 - When building themes, always build block themes (NO CLASSIC THEMES).
 - Always add the style.css as editor styles in the functions.php of the theme to make the editor match the frontend.
-- Always enqueue the theme's style.css on the frontend from functions.php — block themes do NOT auto-load style.css on the frontend, so add a \`wp_enqueue_scripts\` action that calls \`wp_enqueue_style( 'theme-style', get_stylesheet_uri() )\`. Without this, the editor renders styled but the frontend renders unstyled.
+- Always enqueue the theme's style.css on the frontend from functions.php.
 - For theme and page content custom CSS, put the styles in the main style.css of the theme. No custom stylesheets.
 - Scroll animations must use progressive enhancement: CSS defines elements in their **final visible state** by default (full opacity, final position). JavaScript on the frontend adds the initial hidden state (e.g. \`opacity: 0\`, \`transform\`) and scroll-triggered transitions. This ensures elements are fully visible in the block editor (which loads theme CSS but not custom JS).
 - All animations and transitions must respect \`prefers-reduced-motion\`. Add a \`@media (prefers-reduced-motion: reduce)\` block that disables or simplifies animations (e.g. \`animation: none; transition: none; scroll-behavior: auto;\`).`;

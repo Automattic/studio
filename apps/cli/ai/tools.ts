@@ -6,6 +6,8 @@ import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected
 import { z } from 'zod/v4';
 import { validateBlocks, type ValidationReport } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
+import { openAnnotationBrowser, waitForAnnotationsDone } from 'cli/ai/inspector/inspector-inject';
+import { emitEvent } from 'cli/ai/json-events';
 import { auditPerformance } from 'cli/ai/performance-audit';
 import { auditSeo } from 'cli/ai/seo-audit';
 import { createWpcomToolDefinitions } from 'cli/ai/wpcom-tools';
@@ -29,6 +31,7 @@ import { runCommand as runStopSiteCommand, Mode as StopMode } from 'cli/commands
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { isRemoteSessionEnabled } from 'cli/lib/feature-flags';
 import { getUnsupportedWpCliPostContentMessage } from 'cli/lib/rewrite-wp-cli-post-content';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { parseSyncOptions } from 'cli/lib/sync-api';
@@ -92,22 +95,56 @@ function stripMatchingOuterQuotes( value: string ): string {
 	return value;
 }
 
+function splitPostContentCommandArgs( command: string, postContentIndex: number ): string[] {
+	const postContentMarker = '--post_content=';
+	const prefix = command.slice( 0, postContentIndex ).trim();
+	const postContentTail = command.slice( postContentIndex + postContentMarker.length ).trim();
+	const prefixArgs = splitBasicCommandArgs( prefix );
+
+	if ( ! postContentTail ) {
+		return [ ...prefixArgs, postContentMarker ];
+	}
+
+	const quote = postContentTail[ 0 ];
+	if ( quote === '"' || quote === "'" ) {
+		const closingQuoteIndex = postContentTail.indexOf( quote, 1 );
+		if ( closingQuoteIndex !== -1 ) {
+			const postContent = postContentTail.slice( 1, closingQuoteIndex );
+			const suffix = postContentTail.slice( closingQuoteIndex + 1 ).trim();
+			return [
+				...prefixArgs,
+				`${ postContentMarker }${ postContent }`,
+				...splitBasicCommandArgs( suffix ),
+			];
+		}
+	}
+
+	// Large block content is commonly emitted without shell quoting and should
+	// be treated as a single literal argument that consumes the rest of the command.
+	return [
+		...prefixArgs,
+		`${ postContentMarker }${ stripMatchingOuterQuotes( postContentTail ) }`,
+	];
+}
+
 function splitCommandArgs( command: string ): string[] {
 	const postContentMarker = '--post_content=';
 	const postContentIndex = command.indexOf( postContentMarker );
 
-	// Large block content is commonly emitted without shell quoting and should
-	// be treated as a single literal argument that consumes the rest of the command.
 	if ( postContentIndex !== -1 ) {
-		const prefix = command.slice( 0, postContentIndex ).trim();
-		const postContent = stripMatchingOuterQuotes(
-			command.slice( postContentIndex + postContentMarker.length ).trim()
-		);
-
-		return [ ...splitBasicCommandArgs( prefix ), `${ postContentMarker }${ postContent }` ];
+		return splitPostContentCommandArgs( command, postContentIndex );
 	}
 
 	return splitBasicCommandArgs( command );
+}
+
+function getUnsupportedWpCliOptionMessage( args: string[] ): string | null {
+	const unsupportedOption = args.find( ( arg ) => /^[\u2010-\u2015]\S+/.test( arg ) );
+	if ( ! unsupportedOption ) {
+		return null;
+	}
+
+	return `Unsupported WP-CLI option "${ unsupportedOption }": use ASCII hyphens, for example "--porcelain", not a typographic dash.`;
 }
 
 async function findSiteByName( name: string ): Promise< SiteData | undefined > {
@@ -208,7 +245,11 @@ export async function captureCommandOutput( fn: () => Promise< void > ): Promise
 	};
 	process.exitCode = undefined;
 	setProgressCallback( ( message, update ) => {
-		progressMessages.push( message );
+		if ( update && progressMessages.length > 0 ) {
+			progressMessages[ progressMessages.length - 1 ] = message;
+		} else {
+			progressMessages.push( message );
+		}
 		previousCallback?.( message, update );
 	} );
 
@@ -518,6 +559,11 @@ const runWpCliTool = tool(
 				}
 
 				const wpCliArgs = splitCommandArgs( args.command );
+				const unsupportedOptionMessage = getUnsupportedWpCliOptionMessage( wpCliArgs );
+				if ( unsupportedOptionMessage ) {
+					return errorResult( unsupportedOptionMessage );
+				}
+
 				const unsupportedPostContentMessage = getUnsupportedWpCliPostContentMessage( wpCliArgs );
 				if ( unsupportedPostContentMessage ) {
 					return errorResult( unsupportedPostContentMessage );
@@ -558,7 +604,7 @@ const runWpCliTool = tool(
 const validateBlocksTool = tool(
 	'validate_blocks',
 	"Validates WordPress block content by running each block through its save() function in the site's block editor (real browser). " +
-		'The site must be running. Returns per-block validation results with expected HTML for invalid blocks.',
+		'The site must be running. Also flags core/html blocks used for editable layout or text content. Returns per-block validation results with expected HTML for invalid blocks.',
 	{
 		nameOrPath: z
 			.string()
@@ -625,15 +671,108 @@ const validateBlocksTool = tool(
 
 // --- Screenshot tool ---
 
+// Tall portrait viewport used by `take_screenshot` for full-page captures
+// where the agent wants to inspect the whole scrolled page at once.
 const VIEWPORTS = {
 	desktop: { width: 1040, height: 1248 },
 	mobile: { width: 390, height: 844 },
 } as const;
 
+// 16:9 viewport used by `share_screenshot` to capture "as it would look on a
+// screen" — an above-the-fold view of the rendered page. The user can ask for
+// the full page explicitly by setting `fullPage: true`.
+const SHARE_VIEWPORTS = {
+	desktop: { width: 1280, height: 720 },
+	mobile: { width: 390, height: 844 },
+} as const;
+
+// Render share_screenshot at 2x DPR so the captured PNG has retina pixel
+// density (e.g. 2560x1440 raw pixels for the desktop viewport) without
+// changing CSS layout breakpoints. The page still sees a 1280x720 window;
+// only the rasterized output is denser. This survives Telegram's compression
+// pipeline noticeably better than 1x captures.
+const SHARE_DEVICE_SCALE_FACTOR = 2;
+
+async function captureScreenshotPng(
+	url: string,
+	viewport: { width: number; height: number },
+	options: { fullPage: boolean; deviceScaleFactor?: number }
+): Promise< string > {
+	const browser = await getSharedBrowser();
+	const page = await browser.newPage( {
+		viewport,
+		deviceScaleFactor: options.deviceScaleFactor,
+	} );
+
+	try {
+		await page.emulateMedia( { reducedMotion: 'reduce' } );
+		await page.goto( url, { waitUntil: 'domcontentloaded', timeout: 30000 } );
+		await page.waitForLoadState( 'networkidle', { timeout: 10000 } ).catch( () => {} );
+
+		// For full-page captures, scroll through the entire document so lazy-loaded
+		// images can begin loading. For viewport captures we keep the page where
+		// it is and only wait on images that intersect the first viewport, so
+		// above-the-fold shots stay quick on long pages.
+		await page.evaluate( async ( fullPage ) => {
+			const delay = ( ms: number ) =>
+				new Promise< void >( ( resolve ) => setTimeout( resolve, ms ) );
+
+			if ( fullPage ) {
+				const scrollHeight = document.body.scrollHeight;
+				const viewportHeight = window.innerHeight;
+				for ( let y = 0; y < scrollHeight; y += viewportHeight ) {
+					window.scrollTo( 0, y );
+					await delay( 100 );
+				}
+				window.scrollTo( 0, 0 );
+			}
+
+			const pendingImages = Array.from( document.images ).filter( ( img ) => {
+				if ( img.complete ) {
+					return false;
+				}
+				if ( fullPage ) {
+					return true;
+				}
+				const rect = img.getBoundingClientRect();
+				return rect.bottom > 0 && rect.top < window.innerHeight;
+			} );
+			const timeout = new Promise< void >( ( resolve ) => setTimeout( resolve, 5000 ) );
+			const allImages = Promise.all(
+				pendingImages.map(
+					( img ) =>
+						new Promise< void >( ( resolve ) => {
+							img.addEventListener( 'load', () => resolve(), { once: true } );
+							img.addEventListener( 'error', () => resolve(), { once: true } );
+						} )
+				)
+			);
+			await Promise.race( [ allImages, timeout ] );
+		}, options.fullPage );
+
+		// Hide WordPress admin bar and scrollbars for cleaner screenshots
+		await page.addStyleTag( {
+			content: `
+				#wpadminbar { display: none !important; }
+				html { margin-top: 0 !important; }
+				::-webkit-scrollbar { display: none !important; }
+				html, body { scrollbar-width: none !important; }
+			`,
+		} );
+
+		const buffer = await page.screenshot( { fullPage: options.fullPage, type: 'png' } );
+		return buffer.toString( 'base64' );
+	} finally {
+		await page.close();
+	}
+}
+
 const takeScreenshotTool = tool(
 	'take_screenshot',
 	'Takes a full-page screenshot of a URL. Returns the screenshot as an image that you can analyze visually. ' +
-		'Supports desktop and mobile viewports. Use this to verify the site looks correct after building it.',
+		'Supports desktop and mobile viewports. Use this to verify the site looks correct after building it. ' +
+		'Note: this image is for your own visual reasoning only — the user does not see it. ' +
+		'Use `share_screenshot` instead when you want to deliver the rendered page to the user.',
 	{
 		url: z.string().describe( 'The URL to screenshot' ),
 		viewport: z
@@ -646,81 +785,136 @@ const takeScreenshotTool = tool(
 	async ( args ) => {
 		try {
 			const viewportType = args.viewport ?? 'desktop';
-			const viewport = VIEWPORTS[ viewportType ];
-
 			emitProgress( `Taking ${ viewportType } screenshot of ${ args.url }…` );
-
-			const browser = await getSharedBrowser();
-			const page = await browser.newPage( { viewport } );
-
-			try {
-				// Reduce motion to avoid capturing mid-animation states
-				await page.emulateMedia( { reducedMotion: 'reduce' } );
-
-				await page.goto( args.url, { waitUntil: 'domcontentloaded', timeout: 30000 } );
-				await page.waitForLoadState( 'networkidle', { timeout: 10000 } ).catch( () => {} );
-
-				// Scroll through the page to trigger lazy-loaded images, then wait
-				// for all images to finish loading (with a timeout so we don't hang
-				// on images that never settle).
-				await page.evaluate( async () => {
-					const delay = ( ms: number ) =>
-						new Promise< void >( ( resolve ) => setTimeout( resolve, ms ) );
-					const scrollHeight = document.body.scrollHeight;
-					const viewportHeight = window.innerHeight;
-					for ( let y = 0; y < scrollHeight; y += viewportHeight ) {
-						window.scrollTo( 0, y );
-						await delay( 100 );
-					}
-					window.scrollTo( 0, 0 );
-
-					const timeout = new Promise< void >( ( resolve ) => setTimeout( resolve, 5000 ) );
-					const allImages = Promise.all(
-						Array.from( document.images )
-							.filter( ( img ) => ! img.complete )
-							.map(
-								( img ) =>
-									new Promise< void >( ( resolve ) => {
-										img.addEventListener( 'load', () => resolve() );
-										img.addEventListener( 'error', () => resolve() );
-									} )
-							)
-					);
-					await Promise.race( [ allImages, timeout ] );
-				} );
-
-				// Hide WordPress admin bar and scrollbars for cleaner screenshots
-				await page.addStyleTag( {
-					content: `
-						#wpadminbar { display: none !important; }
-						html { margin-top: 0 !important; }
-						::-webkit-scrollbar { display: none !important; }
-						html, body { scrollbar-width: none !important; }
-					`,
-				} );
-
-				const buffer = await page.screenshot( { fullPage: true, type: 'png' } );
-				const base64 = buffer.toString( 'base64' );
-
-				emitProgress( `Screenshot captured (${ viewportType })` );
-
-				return {
-					content: [
-						{
-							type: 'image' as const,
-							data: base64,
-							mimeType: 'image/png',
-						},
-					],
-				};
-			} finally {
-				await page.close();
-			}
+			const base64 = await captureScreenshotPng( args.url, VIEWPORTS[ viewportType ], {
+				fullPage: true,
+			} );
+			emitProgress( `Screenshot captured (${ viewportType })` );
+			return {
+				content: [
+					{
+						type: 'image' as const,
+						data: base64,
+						mimeType: 'image/png',
+					},
+				],
+			};
 		} catch ( error ) {
 			return errorResult(
 				`Screenshot failed: ${ error instanceof Error ? error.message : String( error ) }`
 			);
 		}
+	}
+);
+
+const shareScreenshotTool = tool(
+	'share_screenshot',
+	'Fire-and-forget primitive that captures a URL and delivers the image to the user. ' +
+		'Call after ANY visible change to a site so the user sees the new state. ' +
+		'Returns a confirmation string only — the image is NOT returned to you. The user already has the picture; do not analyze or describe what was sent in your reply. After calling this, write at most one short follow-up sentence and end the turn. ' +
+		'Defaults to a 16:9 above-the-fold view. Set `fullPage: true` only when the user explicitly asks for the whole scroll length. ' +
+		'Distinct from `take_screenshot`, which is for your own visual reasoning before continuing work.',
+	{
+		url: z.string().describe( 'The URL to screenshot and send to the user' ),
+		viewport: z
+			.enum( [ 'desktop', 'mobile' ] )
+			.optional()
+			.describe(
+				'Viewport size: "desktop" (1280x720, 16:9) or "mobile" (390x844). Defaults to desktop.'
+			),
+		fullPage: z
+			.boolean()
+			.optional()
+			.describe(
+				'When true, capture the entire scrolled page instead of just the viewport. Defaults to false; only set this when the user has explicitly asked for the full page.'
+			),
+		caption: z
+			.string()
+			.optional()
+			.describe(
+				'Short caption sent with the image. Describe what the user is looking at; do NOT mention "full page", "viewport", or other capture-mode wording. Keep it under ~1024 characters.'
+			),
+	},
+	async ( args ) => {
+		try {
+			const viewportType = args.viewport ?? 'desktop';
+			const base64 = await captureScreenshotPng( args.url, SHARE_VIEWPORTS[ viewportType ], {
+				fullPage: args.fullPage ?? false,
+				deviceScaleFactor: SHARE_DEVICE_SCALE_FACTOR,
+			} );
+
+			emitEvent( {
+				type: 'media.share',
+				timestamp: new Date().toISOString(),
+				mediaType: 'image',
+				mimeType: 'image/png',
+				dataBase64: base64,
+				caption: args.caption,
+			} );
+
+			return textResult(
+				`Screenshot delivered to the user (${ viewportType }${
+					args.fullPage ? ', full page' : ''
+				}). The user is viewing it now; do not describe what was sent.`
+			);
+		} catch ( error ) {
+			return errorResult(
+				`Share screenshot failed: ${ error instanceof Error ? error.message : String( error ) }`
+			);
+		}
+	}
+);
+
+// --- Preview orchestration tools ---
+
+function normalizePreviewPath( raw: string ): string {
+	const trimmed = raw.trim();
+	if ( ! trimmed ) {
+		return '/';
+	}
+	return trimmed.startsWith( '/' ) ? trimmed : `/${ trimmed }`;
+}
+
+const previewNavigateTool = tool(
+	'preview_navigate',
+	'Point the Studio site preview iframe at a specific page on the active site and reload it. ' +
+		'Use this after you finish editing a specific page, post, or template so the user immediately ' +
+		'sees the result of your change. Pass a site-relative path (e.g. "/", "/about/", ' +
+		'"/wp-admin/post.php?post=42&action=edit"). Does nothing when the preview pane is closed or ' +
+		'when running outside the Studio desktop app.',
+	{
+		path: z
+			.string()
+			.describe(
+				'Site-relative path to show in the preview, e.g. "/", "/about/", "/?p=123". Leading slash is added if missing.'
+			),
+	},
+	async ( args ) => {
+		const path = normalizePreviewPath( args.path );
+		emitEvent( {
+			type: 'preview.command',
+			timestamp: new Date().toISOString(),
+			kind: 'navigate',
+			path,
+		} );
+		return textResult( `Preview navigated to ${ path }.` );
+	}
+);
+
+const previewReloadTool = tool(
+	'preview_reload',
+	'Reload the Studio site preview iframe at its current URL. Use this after you edit the active ' +
+		'theme, CSS, template parts, or anything that affects the page the user is currently viewing, ' +
+		'so they see the updated result immediately. Does nothing when the preview pane is closed or ' +
+		'when running outside the Studio desktop app.',
+	{},
+	async () => {
+		emitEvent( {
+			type: 'preview.command',
+			timestamp: new Date().toISOString(),
+			kind: 'reload',
+		} );
+		return textResult( 'Preview reloaded.' );
 	}
 );
 
@@ -1029,6 +1223,71 @@ const exportSiteTool = tool(
 	}
 );
 
+// Tools that only make sense when a Studio desktop UI is listening on the
+// other end of the agent event stream — they steer a preview iframe that
+// doesn't exist when the CLI runs standalone. Kept separate so plain-CLI
+// runs don't see (and the agent can't call) tools that would just produce
+// noise in the terminal transcript.
+const previewSteeringToolDefinitions = [ previewNavigateTool, previewReloadTool ];
+
+const openAnnotationBrowserTool = tool(
+	'open_annotation_browser',
+	'Opens a headed browser on a site with the Studio annotation inspector. ' +
+		'The user clicks "Annotate", picks an element, types feedback, then clicks "Done". ' +
+		'After calling this tool, call `wait_for_annotations` to block until the user submits.',
+	{
+		url: z.string().describe( 'The site URL to open (e.g., "http://localhost:8881")' ),
+	},
+	async ( args ) => {
+		try {
+			emitProgress( `Opening annotation browser at ${ args.url }…` );
+			const message = await openAnnotationBrowser( args.url );
+			emitProgress( 'Annotation browser ready' );
+			return textResult( message );
+		} catch ( error ) {
+			return errorResult(
+				`Failed to open annotation browser: ${
+					error instanceof Error ? error.message : String( error )
+				}`
+			);
+		}
+	}
+);
+
+const waitForAnnotationsTool = tool(
+	'wait_for_annotations',
+	'Blocks until the user clicks "Done" in the annotation inspector toolbar. ' +
+		'Returns the annotations the user wrote, captured straight from the page. ' +
+		'Call this AFTER `open_annotation_browser`.',
+	{
+		// Bound the wait — `0` would resolve to `timeout: 0` in Playwright,
+		// which means "no timeout" and would block the agent forever. The
+		// upper bound of 120 minutes is generous enough for any realistic
+		// annotation session.
+		timeoutMinutes: z
+			.number()
+			.int()
+			.min( 1 )
+			.max( 120 )
+			.optional()
+			.describe( 'How long to wait for the user to click "Done", in minutes. Defaults to 30.' ),
+	},
+	async ( args ) => {
+		try {
+			emitProgress( 'Waiting for the user to click "Done"…' );
+			const result = await waitForAnnotationsDone( {
+				timeoutMs: ( args.timeoutMinutes ?? 30 ) * 60 * 1000,
+			} );
+			emitProgress( `Received ${ result.annotations.length } annotation(s)` );
+			return textResult( JSON.stringify( result, null, 2 ) );
+		} catch ( error ) {
+			return errorResult(
+				`Failed to read annotations: ${ error instanceof Error ? error.message : String( error ) }`
+			);
+		}
+	}
+);
+
 export const studioToolDefinitions = [
 	createSiteTool,
 	listSitesTool,
@@ -1043,6 +1302,7 @@ export const studioToolDefinitions = [
 	runWpCliTool,
 	validateBlocksTool,
 	takeScreenshotTool,
+	shareScreenshotTool,
 	installTaxonomyScriptsTool,
 	auditPerformanceTool,
 	auditSeoTool,
@@ -1051,13 +1311,41 @@ export const studioToolDefinitions = [
 	pullSiteTool,
 	importSiteTool,
 	exportSiteTool,
+	openAnnotationBrowserTool,
+	waitForAnnotationsTool,
+	...previewSteeringToolDefinitions,
 ];
 
-export function createStudioTools() {
+export interface CreateStudioToolsOptions {
+	// Enable preview_navigate / preview_reload. Only meaningful when a
+	// Studio desktop UI is subscribed to the agent event stream — i.e. the
+	// CLI child was forked by the Studio main process (`process.send` is
+	// available). Defaults to false so standalone CLI runs don't advertise
+	// tools whose side effects would vanish into the void.
+	enablePreviewSteering?: boolean;
+}
+
+export function resolveStudioToolDefinitions( options: CreateStudioToolsOptions = {} ) {
+	const excludedNames = new Set< string >();
+	if ( ! options.enablePreviewSteering ) {
+		for ( const t of previewSteeringToolDefinitions ) {
+			excludedNames.add( t.name );
+		}
+	}
+	if ( ! isRemoteSessionEnabled() ) {
+		excludedNames.add( shareScreenshotTool.name );
+	}
+	if ( excludedNames.size === 0 ) {
+		return studioToolDefinitions;
+	}
+	return studioToolDefinitions.filter( ( candidate ) => ! excludedNames.has( candidate.name ) );
+}
+
+export function createStudioTools( options: CreateStudioToolsOptions = {} ) {
 	return createSdkMcpServer( {
 		name: 'studio',
 		version: '1.0.0',
-		tools: studioToolDefinitions,
+		tools: resolveStudioToolDefinitions( options ),
 	} );
 }
 
@@ -1067,9 +1355,12 @@ export function createStudioTools() {
  */
 export function createRemoteSiteTools( token: string, siteId: number ) {
 	const wpcomTools = createWpcomToolDefinitions( token, siteId );
+	const screenshotTools = isRemoteSessionEnabled()
+		? [ takeScreenshotTool, shareScreenshotTool ]
+		: [ takeScreenshotTool ];
 	return createSdkMcpServer( {
 		name: 'studio',
 		version: '1.0.0',
-		tools: [ ...wpcomTools, takeScreenshotTool, createSiteTool, pullSiteTool ],
+		tools: [ ...wpcomTools, ...screenshotTools, createSiteTool, pullSiteTool ],
 	} );
 }

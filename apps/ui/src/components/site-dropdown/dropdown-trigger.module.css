@@ -2,6 +2,10 @@
 	gap: var(--wpds-dimension-padding-lg);
 }
 
+.siteIcon {
+	margin-inline-end: calc(-1 * var(--wpds-dimension-padding-sm));
+}
+
 .site {
 	font-weight: 600;
 }
@@ -50,13 +54,13 @@
 
 .env {
 	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-font-size-sm);
+	font-size: var(--wpds-typography-font-size-sm);
 }
 
 .url {
 	color: var(--wpds-color-fg-content-neutral-weak);
 	opacity: 0.6;
-	font-size: var(--wpds-font-size-sm);
+	font-size: var(--wpds-typography-font-size-sm);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;

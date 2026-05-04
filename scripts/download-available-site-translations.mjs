@@ -1,16 +1,13 @@
 import fs from 'fs';
 import https from 'https';
 import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = path.dirname( fileURLToPath( import.meta.url ) );
 
 console.log(
 	'[available-site-translations] Downloading information of available translations for latest WordPress version ...'
 );
 
 const jsonFilePath = path.join(
-	__dirname,
+	import.meta.dirname,
 	'..',
 	'wp-files',
 	'latest',

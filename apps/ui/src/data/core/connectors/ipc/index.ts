@@ -519,8 +519,10 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.createAiSession( siteId ) ) as AiSessionSummary;
 		},
 
-		async continueSession( sessionId, prompt ): Promise< { runId: string } > {
-			return ( await ipcApi.continueAiSession( sessionId, prompt ) ) as { runId: string };
+		async continueSession( sessionId, prompt, options ): Promise< { runId: string } > {
+			return ( await ipcApi.continueAiSession( sessionId, prompt, options ) ) as {
+				runId: string;
+			};
 		},
 
 		async setSessionModel( sessionId, model ) {

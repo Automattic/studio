@@ -1,3 +1,4 @@
+import { getHtmlBlockPolicyIssues } from 'cli/ai/block-content-policy';
 import { EditorPage } from 'cli/ai/browser-utils';
 
 interface BlockValidationResult {
@@ -167,7 +168,7 @@ export async function validateBlocks(
 			/* eslint-enable @typescript-eslint/no-explicit-any */
 		}, content );
 
-		return report as ValidationReport;
+		return applyBlockContentPolicy( report as ValidationReport );
 	} catch ( error ) {
 		// If navigation or evaluation failed, discard the cached page so the
 		// next call gets a fresh one.
@@ -184,6 +185,33 @@ export async function validateBlocks(
 			}`,
 		};
 	}
+}
+
+function applyBlockContentPolicy( report: ValidationReport ): ValidationReport {
+	const results = report.results.map( ( result ) => {
+		if ( result.blockName !== 'core/html' ) {
+			return result;
+		}
+
+		const policyIssues = getHtmlBlockPolicyIssues( result.originalContent );
+		if ( policyIssues.length === 0 ) {
+			return result;
+		}
+
+		return {
+			...result,
+			isValid: false,
+			issues: [ ...result.issues, ...policyIssues ],
+		};
+	} );
+
+	const validBlocks = results.filter( ( result ) => result.isValid ).length;
+	return {
+		...report,
+		results,
+		validBlocks,
+		invalidBlocks: results.length - validBlocks,
+	};
 }
 
 /** Clean up all cached editor pages. */

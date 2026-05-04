@@ -1,8 +1,12 @@
 import { existsSync, mkdirSync, writeFileSync } from 'fs';
-import { mkdtemp, readdir } from 'fs/promises';
+import { mkdtemp, readdir, readFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { cleanupLegacyMuPlugins } from '@studio/common/lib/mu-plugins';
+import {
+	cleanupLegacyMuPlugins,
+	STUDIO_LOADER_MU_PLUGIN_FILENAME,
+	writeStudioMuPluginsForNativePhpRuntime,
+} from '@studio/common/lib/mu-plugins';
 
 describe( 'cleanupLegacyMuPlugins', () => {
 	let sitePath: string;
@@ -82,5 +86,32 @@ describe( 'cleanupLegacyMuPlugins', () => {
 
 		const remaining = await readdir( muPluginsDir );
 		expect( remaining ).toHaveLength( 0 );
+	} );
+} );
+
+describe( 'writeStudioMuPluginsForNativePhpRuntime', () => {
+	let sitePath: string;
+
+	beforeEach( async () => {
+		sitePath = await mkdtemp( join( tmpdir(), 'studio-test-site-' ) );
+	} );
+
+	it( 'should preserve the auto-update setting for native PHP mu-plugins', async () => {
+		await writeStudioMuPluginsForNativePhpRuntime( sitePath, true );
+
+		const loaderPath = join(
+			sitePath,
+			'wp-content',
+			'mu-plugins',
+			STUDIO_LOADER_MU_PLUGIN_FILENAME
+		);
+		const loaderContent = await readFile( loaderPath, 'utf8' );
+		const muPluginsDir = loaderContent.match( /\$studio_mu_plugins_dir = '([^']+)';/ )?.[ 1 ];
+
+		expect( muPluginsDir ).toBeTruthy();
+
+		const generatedPlugins = await readdir( muPluginsDir as string );
+		expect( generatedPlugins ).toContain( '0-enable-auto-updates.php' );
+		expect( generatedPlugins ).not.toContain( '0-disable-auto-updates.php' );
 	} );
 } );

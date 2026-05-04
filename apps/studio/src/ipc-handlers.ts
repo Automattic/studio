@@ -27,6 +27,7 @@ import {
 	listAiSessions as listAiSessionsFromStore,
 	loadAiSession as loadAiSessionFromStore,
 } from '@studio/common/ai/sessions/store';
+import { AI_SKILL_COMMANDS, buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
 import {
 	installSkillToSite,
 	removeSkillFromSite,
@@ -105,10 +106,18 @@ import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-ed
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
-import { getUserEditor, getUserTerminal } from 'src/modules/user-settings/lib/ipc-handlers';
+import {
+	getUserEditor,
+	getUserTerminal,
+	getDefaultSiteDirectory,
+	saveDefaultSiteDirectory,
+} from 'src/modules/user-settings/lib/ipc-handlers';
+import { linuxFindEditorPath } from 'src/modules/user-settings/lib/linux-editor-path';
+import { linuxFindTerminalPath } from 'src/modules/user-settings/lib/linux-terminal-path';
+import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { SiteServer, stopAllServers as triggerStopAllServers } from 'src/site-server';
-import { DEFAULT_SITE_PATH, getSiteThumbnailPath } from 'src/storage/paths';
+import { getSiteThumbnailPath } from 'src/storage/paths';
 import {
 	loadUserData,
 	lockAppdata,
@@ -162,13 +171,16 @@ export {
 	getUserEditor,
 	getUserLocale,
 	getUserTerminal,
+	getWapuuScore,
 	previewColorScheme,
 	saveColorScheme,
 	saveUserEditor,
 	saveUserLocale,
 	saveUserTerminal,
+	saveWapuuScore,
 	showUserSettings,
 } from 'src/modules/user-settings/lib/ipc-handlers';
+export { getDefaultSiteDirectory, saveDefaultSiteDirectory };
 
 export { importSite, exportSite } from 'src/modules/import-export/lib/ipc-handlers';
 
@@ -273,15 +285,33 @@ async function reconcileSessionEnvironmentBeforeRun( sessionId: string ): Promis
 	} );
 }
 
+// Expand a bare skill-command slash prompt (e.g. `/rank-me-up`) into the
+// instruction the agent actually acts on. Mirrors the CLI's interactive main
+// loop so UI clients can send the short form and get the same behaviour.
+function expandSkillCommandPrompt( prompt: string ): string {
+	const trimmed = prompt.trim();
+	if ( ! trimmed.startsWith( '/' ) ) {
+		return prompt;
+	}
+	const name = trimmed.slice( 1 );
+	const match = AI_SKILL_COMMANDS.find( ( cmd ) => cmd.name === name );
+	if ( ! match ) {
+		return prompt;
+	}
+	return buildSkillInvocationPrompt( name );
+}
+
 export async function continueAiSession(
 	event: IpcMainInvokeEvent,
 	sessionId: string,
-	prompt: string
+	prompt: string,
+	options: { displayMessage?: string } = {}
 ): Promise< { runId: string } > {
 	await reconcileSessionEnvironmentBeforeRun( sessionId );
 	return startAgentRun( {
 		sessionId,
-		prompt,
+		prompt: expandSkillCommandPrompt( prompt ),
+		displayMessage: options.displayMessage,
 		webContents: event.sender,
 	} );
 }
@@ -575,13 +605,26 @@ function readProcessManagerLogs( siteId: string ): { stdout?: string[]; stderr?:
 export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< SiteDetails[] > {
 	const sites = SiteServer.getAllDetails();
 	const userData = await loadUserData();
-	for ( const site of sites ) {
-		const appdataSite = userData.siteMetadata[ site.id ];
-		if ( appdataSite ) {
+	await Promise.all(
+		sites.map( async ( site ) => {
+			const appdataSite = userData.siteMetadata[ site.id ];
+			if ( ! appdataSite ) {
+				return;
+			}
 			site.sortOrder = appdataSite.sortOrder;
 			site.themeDetails = appdataSite.themeDetails;
-		}
-	}
+			site.siteIconPath = appdataSite.siteIconPath;
+
+			// Read the icon file from disk and hand the renderer a data URL.
+			// Keeping the base64 out of the persisted appdata avoids bloating
+			// app.json with image bytes.
+			if ( appdataSite.siteIconPath ) {
+				site.siteIcon = await getImageData( appdataSite.siteIconPath );
+			} else if ( appdataSite.siteIconPath === null ) {
+				site.siteIcon = null;
+			}
+		} )
+	);
 
 	return sites;
 }
@@ -653,6 +696,7 @@ export async function createSite(
 		// If the site is running after creation, fetch theme details and update thumbnail
 		if ( server.details.running ) {
 			void loadThemeDetails( event, server.details.id );
+			void loadSiteIcon( event, server.details.id );
 		}
 
 		return server.details;
@@ -837,6 +881,7 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 
 	if ( server.details.running ) {
 		void loadThemeDetails( event, id );
+		void loadSiteIcon( event, id );
 	}
 
 	// Keep managed instruction files (STUDIO.md, CLAUDE.md) up-to-date
@@ -876,10 +921,14 @@ export async function showSaveAsDialog( event: IpcMainInvokeEvent, options: Save
 		throw new Error( `No window found for sender of showSaveAsDialog message: ${ event.frameId }` );
 	}
 
-	const defaultPath =
-		options.defaultPath === nodePath.basename( options.defaultPath ?? '' )
-			? nodePath.join( DEFAULT_SITE_PATH, options.defaultPath )
-			: options.defaultPath;
+	let defaultPath = options.defaultPath;
+	if (
+		typeof options.defaultPath === 'string' &&
+		options.defaultPath === nodePath.basename( options.defaultPath )
+	) {
+		const defaultSiteDirectory = await getDefaultSiteDirectory();
+		defaultPath = nodePath.join( defaultSiteDirectory, options.defaultPath );
+	}
 	const { canceled, filePath } = await dialog.showSaveDialog( parentWindow, {
 		defaultPath,
 		...options,
@@ -913,9 +962,11 @@ export async function showOpenFolderDialog(
 		};
 	}
 
+	const defaultPath =
+		defaultDialogPath !== '' ? defaultDialogPath : await getDefaultSiteDirectory();
 	const { canceled, filePaths } = await dialog.showOpenDialog( parentWindow, {
 		title,
-		defaultPath: defaultDialogPath !== '' ? defaultDialogPath : DEFAULT_SITE_PATH,
+		defaultPath,
 		properties: [
 			'openDirectory',
 			'createDirectory', // allow user to create new directories; macOS only
@@ -959,7 +1010,8 @@ export async function copySite(
 	}
 	const sourceSite = sourceServer.details;
 
-	const finalSitePath = nodePath.join( DEFAULT_SITE_PATH, sanitizeFolderName( siteName ) );
+	const defaultSiteDirectory = await getDefaultSiteDirectory();
+	const finalSitePath = nodePath.join( defaultSiteDirectory, sanitizeFolderName( siteName ) );
 
 	console.log( `Copying site '${ sourceSite.name }' to '${ siteName }'` );
 
@@ -1117,7 +1169,8 @@ export async function generateProposedSitePath(
 	_event: IpcMainInvokeEvent,
 	siteName: string
 ): Promise< FolderDialogResponse > {
-	const path = nodePath.join( DEFAULT_SITE_PATH, sanitizeFolderName( siteName ) );
+	const defaultSiteDirectory = await getDefaultSiteDirectory();
+	const path = nodePath.join( defaultSiteDirectory, sanitizeFolderName( siteName ) );
 
 	try {
 		return {
@@ -1152,9 +1205,10 @@ export async function generateSiteNameFromList(
 	_event: IpcMainInvokeEvent,
 	usedSites: SiteDetails[]
 ): Promise< string > {
+	const defaultSiteDirectory = await getDefaultSiteDirectory();
 	return generateSiteName(
 		usedSites.map( ( s ) => s.name ),
-		DEFAULT_SITE_PATH
+		defaultSiteDirectory
 	);
 }
 
@@ -1163,10 +1217,11 @@ export async function generateNumberedNameFromList(
 	baseName: string,
 	usedSites: SiteDetails[]
 ): Promise< string > {
+	const defaultSiteDirectory = await getDefaultSiteDirectory();
 	return generateNumberedName(
 		baseName,
 		usedSites.map( ( s ) => s.name ),
-		DEFAULT_SITE_PATH
+		defaultSiteDirectory
 	);
 }
 
@@ -1211,6 +1266,29 @@ export async function loadThemeDetails(
 	}
 
 	return themeDetails;
+}
+
+// Mirror of loadThemeDetails for the Site Icon: fetch from the running
+// site's mu-plugin command and persist the resolved path so the renderer
+// can read it back from appdata via getSiteDetails.
+export async function loadSiteIcon(
+	_event: IpcMainInvokeEvent,
+	id: string
+): Promise< StartedSiteDetails[ 'siteIconPath' ] > {
+	const server = SiteServer.get( id );
+	if ( ! server ) {
+		throw new Error( 'Site not found.' );
+	}
+
+	const oldIconPath = server.details.siteIconPath;
+	const iconPath = await server.getSiteIcon();
+	const hasIconChanged = iconPath !== oldIconPath;
+
+	if ( hasIconChanged ) {
+		await server.persistSiteIcon();
+	}
+
+	return iconPath;
 }
 
 export async function getOnboardingData( _event: IpcMainInvokeEvent ): Promise< boolean > {
@@ -1317,7 +1395,46 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 			env,
 		} );
 	} else if ( platform === 'linux' ) {
-		return promiseExec( `gnome-terminal --working-directory=${ targetPath }` );
+		const escapedPath = targetPath.replace( /\\/g, '\\\\' ).replace( /"/g, '\\"' );
+
+		// Warp on Linux currently opens at its configured "new session"
+		// directory regardless of how it is launched — it ignores
+		// `--working-directory`, the `path=` URL scheme query, and the
+		// spawn cwd. Tracked upstream in warpdotdev/Warp#4974 and #6357.
+		// Best effort: launch with `cwd` set so we benefit if/when upstream
+		// adds support, and so a fresh launch (no daemon yet) at least has
+		// a chance of inheriting it.
+		const launchers: Record<
+			SupportedTerminal,
+			( ( binary: string ) => { command: string; options?: ExecOptions } ) | null
+		> = {
+			terminal: ( binary ) => ( {
+				command: `"${ binary }" --working-directory="${ escapedPath }"`,
+			} ),
+			warp: ( binary ) => ( { command: `"${ binary }"`, options: { cwd: targetPath } } ),
+			ghostty: ( binary ) => ( {
+				command: `"${ binary }" --working-directory="${ escapedPath }"`,
+			} ),
+			iterm: null,
+		};
+
+		const order: SupportedTerminal[] = [ preferredTerminal, 'terminal' ];
+		for ( const candidate of order ) {
+			const launcher = launchers[ candidate ];
+			if ( ! launcher ) {
+				continue;
+			}
+			const binary = await linuxFindTerminalPath( candidate );
+			if ( ! binary ) {
+				continue;
+			}
+			const { command, options } = launcher( binary );
+			return promiseExec( command, options );
+		}
+
+		// Last-resort fallback that preserves prior behavior even if no
+		// supported terminal binary is on $PATH.
+		return promiseExec( `gnome-terminal --working-directory="${ escapedPath }"` );
 	} else {
 		console.error( 'Unsupported platform:', platform );
 		return;
@@ -1342,6 +1459,19 @@ export async function openAppAtPath(
 
 	if ( platform === 'win32' ) {
 		const editorPath = await winFindEditorPath( editorKey );
+		if ( ! editorPath ) {
+			// Fall back to URL scheme for each path
+			for ( const p of allPaths ) {
+				openURL( event, editor.url( p ) );
+			}
+			return;
+		}
+
+		return promiseExec( `"${ editorPath }" ${ quotedPaths }` );
+	}
+
+	if ( platform === 'linux' ) {
+		const editorPath = await linuxFindEditorPath( editorKey );
 		if ( ! editorPath ) {
 			// Fall back to URL scheme for each path
 			for ( const p of allPaths ) {
@@ -1545,7 +1675,7 @@ export async function isCATrusted(): Promise< boolean > {
 
 export async function trustCertificate( event: IpcMainInvokeEvent ): Promise< void > {
 	const platform = process.platform;
-	if ( platform === 'win32' ) {
+	if ( platform === 'win32' || platform === 'linux' ) {
 		try {
 			await trustRootCA();
 		} catch ( error ) {
@@ -1983,7 +2113,7 @@ export async function setWindowControlVisibility( event: IpcMainInvokeEvent, vis
 		if ( visible ) {
 			parentWindow.setWindowButtonPosition( MACOS_TRAFFIC_LIGHT_POSITION );
 		}
-	} else if ( process.platform === 'win32' ) {
+	} else if ( process.platform === 'win32' || process.platform === 'linux' ) {
 		const isDark = nativeTheme.shouldUseDarkColors;
 		if ( visible ) {
 			parentWindow.setTitleBarOverlay( {
@@ -2003,7 +2133,7 @@ export async function setWindowControlVisibility( event: IpcMainInvokeEvent, vis
 
 export async function setTitleBarBackdropEffect( event: IpcMainInvokeEvent, enabled: boolean ) {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( ! parentWindow || process.platform !== 'win32' ) {
+	if ( ! parentWindow || ( process.platform !== 'win32' && process.platform !== 'linux' ) ) {
 		return;
 	}
 

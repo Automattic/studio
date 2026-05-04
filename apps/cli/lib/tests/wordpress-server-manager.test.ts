@@ -11,10 +11,14 @@ import {
 import { Logger } from 'cli/logger';
 
 vi.mock( 'cli/lib/daemon-client' );
+vi.mock( 'cli/lib/dependency-management/php-binary', () => ( {
+	ensurePhpBinaryAvailable: vi.fn().mockResolvedValue( undefined ),
+} ) );
 
 describe( 'WordPress Server Manager', () => {
 	const mockLogger = {
 		reportProgress: vi.fn(),
+		reportStart: vi.fn(),
 	} as unknown as Logger< string >;
 
 	const mockSiteData: SiteData = {
@@ -115,10 +119,32 @@ describe( 'WordPress Server Manager', () => {
 
 			expect( vi.mocked( daemonClient.startProcess ) ).toHaveBeenCalledWith(
 				'studio-site-test-site-id',
-				expect.stringContaining( 'wordpress-server-child.mjs' )
+				expect.stringMatching( /playground-server-child\.mjs$/ )
 			);
 
 			expect( result ).toEqual( mockProcessDescription );
+		} );
+
+		it( 'should use the native-php child script when site.runtime is native-php', async () => {
+			setupIpcMocks();
+
+			await startWordPressServer( { ...mockSiteData, runtime: 'native-php' }, mockLogger );
+
+			expect( vi.mocked( daemonClient.startProcess ) ).toHaveBeenCalledWith(
+				'studio-site-test-site-id',
+				expect.stringMatching( /php-server-child\.mjs$/ )
+			);
+		} );
+
+		it( 'should use the playground child script when site.runtime is undefined', async () => {
+			setupIpcMocks();
+
+			await startWordPressServer( { ...mockSiteData, runtime: undefined }, mockLogger );
+
+			expect( vi.mocked( daemonClient.startProcess ) ).toHaveBeenCalledWith(
+				'studio-site-test-site-id',
+				expect.stringMatching( /playground-server-child\.mjs$/ )
+			);
 		} );
 
 		it( 'should handle start process failure', async () => {

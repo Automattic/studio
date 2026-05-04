@@ -10,10 +10,11 @@
  * - Sends response back when ready
  * - Sends activity heartbeats to prevent timeout during long operations
  */
-import { dirname } from 'path';
+import path, { dirname } from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { isWordPressDirectory } from '@studio/common/lib/fs-utils';
 import { IS_JSPI_AVAILABLE } from '@studio/common/lib/jspi';
+import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
 import { cleanupLegacyMuPlugins, getMuPlugins } from '@studio/common/lib/mu-plugins';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { formatPlaygroundCliMessage } from '@studio/common/lib/playground-cli-messages';
@@ -86,11 +87,11 @@ process.stderr.write = function ( ...args: Parameters< typeof originalStderrWrit
 } as typeof process.stderr.write;
 
 function logToConsole( ...args: Parameters< typeof console.log > ) {
-	originalConsoleLog( `[WordPress Server Child]`, ...args );
+	originalConsoleLog( `[Playground Server]`, ...args );
 }
 
 function errorToConsole( ...args: Parameters< typeof console.error > ) {
-	originalConsoleError( `[WordPress Server Child]`, ...args );
+	originalConsoleError( `[Playground Server]`, ...args );
 }
 
 function escapePhpString( str: string ): string {
@@ -140,6 +141,43 @@ async function getWordPressInstallMode( sitePath: string ): Promise< WordPressIn
 	return 'do-not-attempt-installing';
 }
 
+function buildSetupSteps( config: ServerConfig ): Array< Record< string, unknown > > {
+	const steps: Array< Record< string, unknown > > = [];
+
+	const siteLanguage = config.siteLanguage;
+	if ( siteLanguage && siteLanguage !== DEFAULT_LOCALE ) {
+		// If copyLanguagePackToSite already copied bundled packs, use defineWpConfigConsts
+		// (no network needed). Otherwise fall back to setSiteLanguage which downloads them.
+		const langFile = path.join(
+			config.sitePath,
+			'wp-content',
+			'languages',
+			`${ siteLanguage }.l10n.php`
+		);
+		if ( fs.existsSync( langFile ) ) {
+			steps.push(
+				{ step: 'defineWpConfigConsts', consts: { WPLANG: siteLanguage } },
+				{ step: 'setSiteOptions', options: { WPLANG: siteLanguage } }
+			);
+		} else {
+			steps.push(
+				{ step: 'setSiteLanguage', language: siteLanguage },
+				{ step: 'setSiteOptions', options: { WPLANG: siteLanguage } }
+			);
+		}
+	}
+
+	// Set blogname for new sites only (where WordPress hasn't been installed yet)
+	const isNewSite =
+		! isWordPressDirectory( config.sitePath ) ||
+		! fs.existsSync( path.join( config.sitePath, 'wp-config.php' ) );
+	if ( config.siteTitle && isNewSite ) {
+		steps.push( { step: 'setSiteOptions', options: { blogname: config.siteTitle } } );
+	}
+
+	return steps;
+}
+
 function getBaseRunCLIArgs(
 	command: 'server',
 	config: ServerConfig
@@ -152,7 +190,33 @@ async function getBaseRunCLIArgs(
 	command: RunCLIArgs[ 'command' ],
 	config: ServerConfig
 ): Promise< RunCLIArgs > {
-	const wordpressInstallMode = await getWordPressInstallMode( config.sitePath );
+	// For sites imported via `studio pull-reprint`, the pull command
+	// persists the computed start options to start-options.json so the
+	// daemon doesn't need to recompute them (which would spin up PHP
+	// WASM to extract runtime.php constants from the imported site).
+	if ( ! config.useExactMountLayout && config.blueprint?.uri ) {
+		try {
+			const optionsPath = path.join( path.dirname( config.blueprint.uri ), 'start-options.json' );
+			if ( fs.existsSync( optionsPath ) ) {
+				const saved = JSON.parse( fs.readFileSync( optionsPath, 'utf-8' ) );
+				if ( saved.useExactMountLayout ) {
+					config.mountsBeforeInstall = saved.mountsBeforeInstall;
+					config.mounts = saved.mounts;
+					config.wordpressInstallMode = saved.wordpressInstallMode ?? config.wordpressInstallMode;
+					config.useExactMountLayout = true;
+					logToConsole( `Loaded persisted start options from ${ optionsPath } before startup` );
+				}
+			}
+		} catch {
+			// Ignore missing or invalid start options and continue with the provided config.
+		}
+	}
+
+	const wordpressInstallMode =
+		config.wordpressInstallMode ?? ( await getWordPressInstallMode( config.sitePath ) );
+	const useExactMountLayout = config.useExactMountLayout ?? false;
+	let mountsBeforeInstall = [ ...( config.mountsBeforeInstall ?? [] ) ];
+	const mounts = [ ...( config.mounts ?? [] ) ];
 
 	await cleanupLegacyMuPlugins( config.sitePath );
 
@@ -160,11 +224,28 @@ async function getBaseRunCLIArgs(
 		isWpAutoUpdating: config.isWpAutoUpdating,
 	} );
 
-	const mounts = [
-		{
-			hostPath: config.sitePath,
-			vfsPath: '/wordpress',
-		},
+	if ( ! useExactMountLayout ) {
+		mountsBeforeInstall = [
+			...( config.mountsBeforeInstall ?? [
+				{
+					hostPath: config.sitePath,
+					vfsPath: '/wordpress',
+				},
+			] ),
+			{
+				hostPath: getWpCliPharPath(),
+				vfsPath: '/tmp/wp-cli.phar',
+			},
+			{
+				hostPath: getSqliteCommandPath(),
+				vfsPath: '/tmp/sqlite-command',
+			},
+		];
+	}
+
+	// Studio MU-plugins (auto-login, admin-api, etc.) must be mounted for
+	// all sites including imported ones that use an exact mount layout.
+	mountsBeforeInstall.push(
 		{
 			hostPath: studioMuPluginsHostPath,
 			vfsPath: '/internal/studio/mu-plugins',
@@ -172,16 +253,8 @@ async function getBaseRunCLIArgs(
 		{
 			hostPath: loaderMuPluginHostPath,
 			vfsPath: '/internal/shared/mu-plugins/99-studio-loader.php',
-		},
-		{
-			hostPath: getWpCliPharPath(),
-			vfsPath: '/tmp/wp-cli.phar',
-		},
-		{
-			hostPath: getSqliteCommandPath(),
-			vfsPath: '/tmp/sqlite-command',
-		},
-	];
+		}
+	);
 
 	const enableDebugLog = config.enableDebugLog ?? false;
 	const enableDebugDisplay = config.enableDebugDisplay ?? false;
@@ -213,6 +286,15 @@ async function getBaseRunCLIArgs(
 			...defaultConstants,
 		};
 		config.blueprint.contents.preferredVersions = preferredVersions;
+
+		const setupSteps = buildSetupSteps( config );
+		if ( setupSteps.length > 0 ) {
+			const existingSteps = Array.isArray( config.blueprint.contents.steps )
+				? config.blueprint.contents.steps
+				: [];
+			config.blueprint.contents.steps = [ ...setupSteps, ...existingSteps ];
+		}
+
 		const blueprintFs = new InMemoryFilesystem( {
 			'blueprint.json': JSON.stringify( config.blueprint.contents ),
 		} );
@@ -232,10 +314,12 @@ async function getBaseRunCLIArgs(
 			] );
 		}
 	} else {
+		const setupSteps = buildSetupSteps( config );
 		blueprintBundle = new InMemoryFilesystem( {
 			'blueprint.json': JSON.stringify( {
 				constants: defaultConstants,
 				preferredVersions,
+				...( setupSteps.length > 0 ? { steps: setupSteps } : {} ),
 			} ),
 		} );
 	}
@@ -245,9 +329,10 @@ async function getBaseRunCLIArgs(
 		internalCookieStore: false,
 		login: false,
 		followSymlinks: true,
-		skipSqliteSetup: true,
+		skipSqliteSetup: config.skipSqliteSetup ?? ! useExactMountLayout,
 		port: config.port,
-		'mount-before-install': mounts,
+		'mount-before-install': mountsBeforeInstall,
+		...( mounts.length > 0 ? { mount: mounts } : {} ),
 		'site-url': config.absoluteUrl || `http://localhost:${ config.port }`,
 		blueprint: blueprintBundle,
 		wordpressInstallMode,
@@ -268,17 +353,19 @@ async function getBaseRunCLIArgs(
 		args.xdebug = true;
 	}
 
-	const phpMyAdminHostPath = getPhpMyAdminPath();
-	if ( await fs.pathExists( phpMyAdminHostPath ) ) {
-		mounts.push( {
-			hostPath: phpMyAdminHostPath,
-			vfsPath: '/tools/phpmyadmin',
-		} );
-		logToConsole( 'Mounting bundled phpMyAdmin' );
-	} else {
-		logToConsole( 'Bundled phpMyAdmin not found, falling back to Playground download' );
+	if ( ! useExactMountLayout ) {
+		const phpMyAdminHostPath = getPhpMyAdminPath();
+		if ( await fs.pathExists( phpMyAdminHostPath ) ) {
+			mountsBeforeInstall.push( {
+				hostPath: phpMyAdminHostPath,
+				vfsPath: '/tools/phpmyadmin',
+			} );
+			logToConsole( 'Mounting bundled phpMyAdmin' );
+		} else {
+			logToConsole( 'Bundled phpMyAdmin not found, falling back to Playground download' );
+		}
+		args.phpmyadmin = true;
 	}
-	args.phpmyadmin = true;
 
 	lastCliArgs = sanitizeRunCLIArgs( args );
 	return args;
@@ -316,6 +403,13 @@ const startServer = wrapWithStartingPromise(
 			stopSignal.throwIfAborted();
 
 			const args = await getBaseRunCLIArgs( 'server', config );
+
+			// Playground CLI's runCLI() has a top-level .catch() that calls
+			// process.exit(1) instead of re-throwing. If a non-fatal error
+			// happens (e.g. a background worker exit race), this kills the
+			// entire child process. The daemon will restart it, but the
+			// error message is lost. Filed upstream:
+			// https://github.com/WordPress/wordpress-playground/issues/3520
 			server = await runCLI( args );
 
 			stopSignal.throwIfAborted();

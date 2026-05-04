@@ -131,6 +131,15 @@ describe( 'CLI: studio site list', () => {
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
+		it( 'should output empty json array when no sites found', async () => {
+			vi.mocked( readCliConfig ).mockResolvedValue( emptyCliConfig );
+
+			await runCommand( 'json' );
+
+			expect( mockReportKeyValuePair ).toHaveBeenCalledWith( 'sites', '[]' );
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
+		} );
+
 		it( 'should handle custom domain in site URL', async () => {
 			await runCommand( 'json' );
 

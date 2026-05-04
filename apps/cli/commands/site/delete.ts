@@ -117,9 +117,16 @@ export async function runCommand(
 		}
 
 		if ( deleteFiles ) {
-			if ( fs.existsSync( siteFolder ) ) {
+			// Imported sites have both a visible site directory and a
+			// hidden technical directory under ~/.studio/imports; delete
+			// both if they exist.
+			const deleteTargets = [ siteFolder, site.technicalSiteDirectory ].filter(
+				( value ): value is string => typeof value === 'string' && fs.existsSync( value )
+			);
+
+			if ( deleteTargets.length > 0 ) {
 				logger.reportStart( LoggerAction.DELETE_FILES, __( 'Moving site files to trash…' ) );
-				await trash( siteFolder );
+				await trash( deleteTargets );
 				logger.reportSuccess( __( 'Site files moved to trash' ) );
 			} else {
 				logger.reportSuccess( __( 'Site files already removed' ) );

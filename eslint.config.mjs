@@ -74,10 +74,17 @@ export default defineConfig(
 				},
 			],
 			'import-x/no-named-as-default-member': 'off',
-			// @wp-playground/blueprints ships blueprint-schema-validator outside its package.json exports map
+			// @wp-playground/blueprints ships blueprint-schema-validator outside its package.json exports map.
+			// @modelcontextprotocol/sdk 1.29+ only exposes server/stdio.js via a wildcard export which the
+			// eslint-import-x typescript resolver can't follow (runtime resolution is fine).
 			'import-x/no-unresolved': [
 				'error',
-				{ ignore: [ '@wp-playground/blueprints/blueprint-schema-validator' ] },
+				{
+					ignore: [
+						'@wp-playground/blueprints/blueprint-schema-validator',
+						'@modelcontextprotocol/sdk/server/stdio\\.js$',
+					],
+				},
 			],
 			'import-x/order': [
 				'error',
@@ -119,8 +126,30 @@ export default defineConfig(
 		},
 	},
 	{
+		files: [ 'scripts/**/*.js', 'scripts/**/*.cjs' ],
+		rules: {
+			'@typescript-eslint/no-require-imports': 'off',
+		},
+	},
+	{
 		files: [ 'apps/cli/**/*.{ts,tsx}' ],
 		ignores: [ 'apps/cli/vite.config*.ts', 'apps/cli/vitest.config.ts' ],
+		rules: {
+			'no-restricted-globals': [
+				'error',
+				{
+					name: '__dirname',
+					message: 'Use import.meta.dirname in ESM modules.',
+				},
+				{
+					name: '__filename',
+					message: 'Use import.meta.filename in ESM modules.',
+				},
+			],
+		},
+	},
+	{
+		files: [ 'scripts/**/*.mjs' ],
 		rules: {
 			'no-restricted-globals': [
 				'error',

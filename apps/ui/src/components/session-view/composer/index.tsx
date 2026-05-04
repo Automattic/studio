@@ -1,28 +1,32 @@
 import { AI_MODELS } from '@studio/common/ai/models';
+import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
 import { __, sprintf } from '@wordpress/i18n';
 import { arrowUp, chevronDownSmall } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
-import { useCallback, useState } from 'react';
+import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from 'react';
 import * as Menu from '@/components/menu';
 import { EnvironmentPill } from './environment-pill';
 import styles from './style.module.css';
 import type { AiModelId, SyncSite } from '@/data/core';
 
-function PaperclipIcon() {
+/**
+ * Invisible structural placeholder that mirrors Composer's outer DOM (shell +
+ * textarea + toolbar + meta row) so the loading state can reserve the exact
+ * same vertical space without rendering a visible composer. Heights track the
+ * real composer's CSS automatically — no magic numbers that drift when the
+ * composer changes.
+ */
+export function ComposerSkeleton() {
 	return (
-		<svg
-			width="16"
-			height="16"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			strokeWidth="1.6"
-			strokeLinecap="round"
-			strokeLinejoin="round"
-			aria-hidden="true"
-		>
-			<path d="M21 11.5 12.5 20a5.5 5.5 0 0 1-7.78-7.78l9.2-9.2a3.5 3.5 0 0 1 4.95 4.95l-9.2 9.2a1.5 1.5 0 0 1-2.12-2.12l8.49-8.49" />
-		</svg>
+		<div className={ styles.root } style={ { visibility: 'hidden' } } aria-hidden="true">
+			<div className={ styles.shell }>
+				<textarea className={ styles.input } rows={ 2 } disabled tabIndex={ -1 } />
+				<div className={ styles.toolbar }>
+					<span className={ styles.pill } />
+				</div>
+			</div>
+			<div className={ styles.meta }>{ '\u00A0' }</div>
+		</div>
 	);
 }
 
@@ -42,22 +46,58 @@ interface ComposerProps {
 	liveSite?: SyncSite;
 }
 
+/**
+ * Imperative API surfaced via the Composer's forwarded ref. Lets parents
+ * (e.g. the annotate-toolbar hand-off) inject a draft without making the
+ * value a controlled prop — the latter would re-render the entire
+ * SessionView (and the heavy Conversation tree) on every keystroke.
+ */
+export interface ComposerHandle {
+	appendDraft( text: string ): void;
+}
+
 const isMacPlatform =
 	typeof navigator !== 'undefined' && /mac/i.test( navigator.platform || navigator.userAgent );
 
-export function Composer( {
-	busy,
-	isInterrupting = false,
-	error,
-	model,
-	onModelChange,
-	onSend,
-	onInterrupt,
-	sessionId,
-	effectiveEnvironment = 'local',
-	liveSite,
-}: ComposerProps ) {
+export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Composer(
+	{
+		busy,
+		isInterrupting = false,
+		error,
+		model,
+		onModelChange,
+		onSend,
+		onInterrupt,
+		sessionId,
+		effectiveEnvironment = 'local',
+		liveSite,
+	},
+	ref
+) {
 	const [ value, setValue ] = useState( '' );
+	const textareaRef = useRef< HTMLTextAreaElement | null >( null );
+
+	useImperativeHandle(
+		ref,
+		() => ( {
+			appendDraft( text ) {
+				if ( ! text ) return;
+				setValue( ( current ) =>
+					current.trim() ? `${ current.trimEnd() }\n\n${ text }` : text
+				);
+				// Defer focus to the next paint so the textarea reflects the
+				// new value before we move the caret to the end.
+				queueMicrotask( () => {
+					const node = textareaRef.current;
+					if ( ! node ) return;
+					node.focus();
+					const len = node.value.length;
+					node.setSelectionRange( len, len );
+				} );
+			},
+		} ),
+		[]
+	);
 
 	const send = useCallback( async () => {
 		const trimmed = value.trim();
@@ -87,11 +127,17 @@ export function Composer( {
 		<div className={ styles.root }>
 			<div className={ styles.shell }>
 				<textarea
+					ref={ textareaRef }
 					className={ styles.input }
 					placeholder={ placeholder }
 					value={ value }
 					onChange={ ( event ) => setValue( event.target.value ) }
 					onKeyDown={ ( event ) => {
+						if ( event.key === 'Escape' && busy ) {
+							event.preventDefault();
+							void onInterrupt();
+							return;
+						}
 						if ( event.key === 'Enter' && ( event.metaKey || event.ctrlKey ) ) {
 							event.preventDefault();
 							void send();
@@ -101,30 +147,34 @@ export function Composer( {
 				/>
 				<div className={ styles.toolbar }>
 					<div className={ styles.leftActions }>
-						<button
-							type="button"
-							className={ styles.iconButton }
-							aria-label={ __( 'Attach file' ) }
-							disabled
-						>
-							<PaperclipIcon />
-						</button>
-						<button
-							type="button"
-							className={ `${ styles.iconButton } ${ styles.glyphButton }` }
-							aria-label={ __( 'Commands' ) }
-							disabled
-						>
-							/
-						</button>
-						<button
-							type="button"
-							className={ `${ styles.iconButton } ${ styles.glyphButton }` }
-							aria-label={ __( 'Mention' ) }
-							disabled
-						>
-							@
-						</button>
+						<Menu.Root modal={ false }>
+							<Menu.Trigger
+								render={
+									<button
+										type="button"
+										className={ `${ styles.iconButton } ${ styles.glyphButton }` }
+										aria-label={ __( 'Commands' ) }
+									>
+										/
+									</button>
+								}
+							/>
+							<Menu.Popup side="top" align="start" className={ styles.commandsMenuPopup }>
+								{ AI_SKILL_COMMANDS.map( ( command ) => (
+									<Menu.Item
+										key={ command.name }
+										onClick={ () => {
+											void onSend( `/${ command.name }` );
+										} }
+									>
+										<span className={ styles.commandItem }>
+											<span className={ styles.commandName }>/{ command.name }</span>
+											<span className={ styles.commandDescription }>{ command.description }</span>
+										</span>
+									</Menu.Item>
+								) ) }
+							</Menu.Popup>
+						</Menu.Root>
 					</div>
 					<div className={ styles.rightActions }>
 						{ sessionId && liveSite ? (
@@ -206,4 +256,4 @@ export function Composer( {
 			</div>
 		</div>
 	);
-}
+} );

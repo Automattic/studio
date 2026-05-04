@@ -7,12 +7,14 @@ import { IllustrationGrid } from 'src/components/illustration-grid';
 import offlineIcon from 'src/components/offline-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { useAuth } from 'src/hooks/use-auth';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ConnectButton } from 'src/modules/sync/components/connect-button';
 import { SyncConnectedSites } from 'src/modules/sync/components/sync-connected-sites';
 import { SyncDialog } from 'src/modules/sync/components/sync-dialog';
 import { SyncSitesModalSelector } from 'src/modules/sync/components/sync-sites-modal-selector';
+import { SyncSitesModalSelector as SyncSitesModalSelectorClassic } from 'src/modules/sync/components/sync-sites-modal-selector-classic';
 import { SyncTabImage } from 'src/modules/sync/components/sync-tab-image';
 import {
 	convertTreeToPullOptions,
@@ -140,11 +142,16 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	const [ connectSite ] = useConnectSiteMutation();
 	const [ disconnectSite ] = useDisconnectSiteMutation();
 
+	const { enableBlueprintsGallery } = useFeatureFlags();
 	const connectedSiteIds = connectedSites.map( ( { id } ) => id );
-	const { data: syncSites = [] } = useGetWpComSitesQuery( {
+	// Subscribe to /me/sites so reconcileConnectedSites runs on page load to
+	// refresh stored connection metadata. The list itself isn't rendered here —
+	// the connect modal has its own subscription with a larger page size.
+	const { data: wpcomSitesData } = useGetWpComSitesQuery( {
 		connectedSiteIds,
 		userId: user?.id,
 	} );
+	const syncSites = wpcomSitesData?.sites ?? [];
 
 	const [ selectedRemoteSite, setSelectedRemoteSite ] = useState< SyncSite | null >( null );
 
@@ -175,7 +182,17 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		}
 	};
 
-	const handleSiteSelection = async ( siteId: number ) => {
+	const handleSiteSelection = async ( selectedSiteFromList: SyncSite ) => {
+		if ( reduxModalMode === 'push' || reduxModalMode === 'pull' ) {
+			dispatch( connectedSitesActions.openModal( reduxModalMode ) );
+			setSelectedRemoteSite( selectedSiteFromList );
+		} else {
+			await handleConnect( selectedSiteFromList );
+			dispatch( connectedSitesActions.closeModal() );
+		}
+	};
+
+	const handleSiteSelectionClassic = async ( siteId: number ) => {
 		const selectedSiteFromList = syncSites.find( ( site ) => site.id === siteId );
 		if ( ! selectedSiteFromList ) {
 			getIpcApi().showErrorMessageBox( {
@@ -184,14 +201,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 			} );
 			return;
 		}
-
-		if ( reduxModalMode === 'push' || reduxModalMode === 'pull' ) {
-			dispatch( connectedSitesActions.openModal( reduxModalMode ) );
-			setSelectedRemoteSite( selectedSiteFromList );
-		} else {
-			await handleConnect( selectedSiteFromList );
-			dispatch( connectedSitesActions.closeModal() );
-		}
+		await handleSiteSelection( selectedSiteFromList );
 	};
 
 	return (
@@ -227,14 +237,27 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 				</SiteSyncDescription>
 			) }
 
-			{ isModalOpen && ! effectiveRemoteSite && (
+			{ isModalOpen && ! effectiveRemoteSite && enableBlueprintsGallery && (
 				<SyncSitesModalSelector
 					mode={ reduxModalMode || 'connect' }
 					onRequestClose={ () => {
 						dispatch( connectedSitesActions.closeModal() );
 					} }
+					onConnect={ async ( site: SyncSite ) => {
+						await handleSiteSelection( site );
+					} }
+					selectedSite={ selectedSite }
+				/>
+			) }
+
+			{ isModalOpen && ! effectiveRemoteSite && ! enableBlueprintsGallery && (
+				<SyncSitesModalSelectorClassic
+					mode={ reduxModalMode || 'connect' }
+					onRequestClose={ () => {
+						dispatch( connectedSitesActions.closeModal() );
+					} }
 					onConnect={ async ( siteId: number ) => {
-						await handleSiteSelection( siteId );
+						await handleSiteSelectionClassic( siteId );
 					} }
 					selectedSite={ selectedSite }
 				/>

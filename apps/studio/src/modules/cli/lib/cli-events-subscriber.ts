@@ -20,6 +20,7 @@ const STUDIO_ONLY_DETAIL_KEYS = [
 	'tlsKey',
 	'tlsCert',
 	'themeDetails',
+	'siteIconPath',
 	'sortOrder',
 	'isAddingSite',
 	'latestCliPid',
@@ -104,6 +105,7 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 	if ( wasNotRunning && running ) {
 		void captureSiteThumbnail( siteId );
 		await server.getThemeDetails();
+		await server.getSiteIcon();
 	}
 } );
 

@@ -1,9 +1,10 @@
+import { getAiModelFamily } from '@studio/common/ai/models';
 import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, sprintf } from '@wordpress/i18n';
-import { AI_MODELS, type AiModelId } from 'cli/ai/agent';
+import { getAiModelLabel, type AiModelId } from 'cli/ai/agent';
 import { getAvailableAiProviders, isAiProviderReady } from 'cli/ai/auth';
-import { AI_PROVIDERS, type AiProviderId } from 'cli/ai/providers';
+import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
 import { captureCommandOutput } from 'cli/ai/tools';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { runCommand as runLogoutCommand } from 'cli/commands/auth/logout';
@@ -145,34 +146,54 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		name: 'model',
 		description: __( 'Switch the AI model' ),
 		handler: async ( _prompt, ctx ) => {
-			const modelOptions = ( Object.entries( AI_MODELS ) as [ AiModelId, string ][] ).map(
-				( [ id, label ] ) => ( {
-					label:
-						id === ctx.currentModel
-							? sprintf(
-									/* translators: %s: model name */
-									__( '%s (current)' ),
-									label
-							  )
-							: label,
-					description: id,
-				} )
-			);
+			const { availableModels } = getAiProviderDefinition( ctx.currentProvider );
+			// Build options and a reverse lookup at the same time so we never
+			// have to recover the model id from the label. A startsWith-based
+			// match is buggy when one model's label is a prefix of another's
+			// (e.g. "GPT 5.5" prefixes "GPT 5.5 Pro" — picking Pro silently
+			// returns the non-pro id), so we keep the label → id mapping
+			// explicit here and look up by exact match below.
+			const labelToId = new Map< string, AiModelId >();
+			const modelOptions = availableModels.map( ( id ) => {
+				const label =
+					id === ctx.currentModel
+						? sprintf(
+								/* translators: %s: model name */
+								__( '%s (current)' ),
+								getAiModelLabel( id )
+						  )
+						: getAiModelLabel( id );
+				labelToId.set( label, id );
+				return { label, description: id };
+			} );
 			const answer = await ctx.ui.askUser( [
 				{ question: __( 'Select a model' ), options: modelOptions },
 			] );
-			const selectedId = Object.values( answer )[ 0 ] as string;
-			const newModel = ( Object.entries( AI_MODELS ) as [ AiModelId, string ][] ).find(
-				( [ , label ] ) => selectedId.startsWith( label )
-			);
-			if ( newModel && newModel[ 0 ] !== ctx.currentModel ) {
-				ctx.currentModel = newModel[ 0 ];
+			const selectedLabel = Object.values( answer )[ 0 ] as string;
+			const newModel = labelToId.get( selectedLabel );
+			if ( newModel && newModel !== ctx.currentModel ) {
+				// Switching to a model in a different family (Anthropic ↔ OpenAI)
+				// hands the next turn off to a different runtime. Each runtime keeps
+				// its own session store, so the existing session id from the previous
+				// runtime won't resolve there ("No conversation found"). Clear the
+				// session before the model swap so the new runtime starts fresh.
+				const familyChanged = getAiModelFamily( ctx.currentModel ) !== getAiModelFamily( newModel );
+				if ( familyChanged ) {
+					await ctx.clearSession();
+					ctx.ui.showInfo(
+						__(
+							"Switching across model families starts a fresh conversation — the prior turns aren't carried over."
+						)
+					);
+				}
+
+				ctx.currentModel = newModel;
 				ctx.ui.currentModel = ctx.currentModel;
 				ctx.ui.showInfo(
 					sprintf(
 						/* translators: %s: model name */
 						__( 'Switched to %s' ),
-						AI_MODELS[ ctx.currentModel ]
+						getAiModelLabel( ctx.currentModel )
 					)
 				);
 				await ctx.persistSessionContext();

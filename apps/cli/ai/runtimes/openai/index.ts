@@ -19,13 +19,13 @@ import { studioToolDefinitions } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
 import { createSiteTool } from 'cli/ai/tools/create-site';
 import { pullSiteTool } from 'cli/ai/tools/pull-site';
+import { createSkillTool } from 'cli/ai/tools/skill';
 import { takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
 import { createWpcomRequestTool } from 'cli/ai/tools/wpcom-request';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { buildTransformContext } from './compaction';
 import { loadSidecar, saveSidecar } from './persistence';
 import { adaptToolsForPi } from './pi-tool-adapter';
-import { buildSkillsAppendix } from './skill-loader';
 import type { AgentRuntime, AgentRuntimeConfig, AgentRuntimeHandle } from '../types';
 import type { SDKMessage, SdkMcpToolDefinition } from '@anthropic-ai/claude-agent-sdk';
 import type { Model } from '@mariozechner/pi-ai';
@@ -245,7 +245,7 @@ async function getOrCreateAgent(
 
 	const model = buildModel( config.model, baseURL, extraHeaders );
 
-	const basePrompt = buildSystemPrompt(
+	const systemPrompt = buildSystemPrompt(
 		config.activeSite?.remote && config.activeSite?.wpcomSiteId
 			? {
 					remoteSite: {
@@ -256,8 +256,6 @@ async function getOrCreateAgent(
 			  }
 			: undefined
 	);
-	const skillsAppendix = buildSkillsAppendix();
-	const systemPrompt = skillsAppendix ? `${ basePrompt }\n\n${ skillsAppendix }` : basePrompt;
 
 	const tools = buildAgentTools( config );
 
@@ -340,6 +338,12 @@ function buildAgentTools( config: AgentRuntimeConfig ) {
 		? [ createAskUserQuestionTool( config.onAskUser ) ]
 		: [];
 
+	// Skill tool — mirrors the Anthropic SDK's built-in Skill tool. Gives the
+	// model a way to load workflow runbooks (e.g. `site-spec`) on demand
+	// instead of having every body inlined into the system prompt.
+	const skillToolDef = createSkillTool();
+	const skillTool: SdkMcpToolDefinition[] = skillToolDef ? [ skillToolDef ] : [];
+
 	if ( isRemoteSite ) {
 		const defs = [
 			createWpcomRequestTool( config.wpcomAccessToken!, config.activeSite!.wpcomSiteId! ),
@@ -347,6 +351,7 @@ function buildAgentTools( config: AgentRuntimeConfig ) {
 			createSiteTool,
 			pullSiteTool,
 			...askUserTool,
+			...skillTool,
 		] as unknown as SdkMcpToolDefinition[];
 		return adaptToolsForPi( defs );
 	}
@@ -359,6 +364,7 @@ function buildAgentTools( config: AgentRuntimeConfig ) {
 	const studioTools = adaptToolsForPi( [
 		...studioToolDefinitions,
 		...askUserTool,
+		...skillTool,
 	] as unknown as SdkMcpToolDefinition[] );
 	const renameTool = ( tool: AgentToolAny, name: string ): AgentToolAny => ( {
 		...tool,

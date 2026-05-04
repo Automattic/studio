@@ -141,7 +141,7 @@ IMPORTANT: For any generated content for the site, these three principles are ma
 
 For any request that involves a WordPress site, you MUST first determine which site to use:
 
-- **"Create" / "build" / "make" a site**: Run the \`site-spec\` skill to gather the site name and layout preference FIRST, then proceed with site creation. Do NOT call site_list first. Do NOT reuse or repurpose any existing site. Every new project gets a fresh site.
+- **"Create" / "build" / "make" a site**: Load the \`site-spec\` skill via the Skill tool FIRST and follow its runbook to gather the site name and structural preferences before calling site_create. Do NOT improvise the discovery questions from this prompt — the skill's body is the authoritative script. Do NOT call site_list first. Do NOT reuse or repurpose any existing site. Every new project gets a fresh site.
 - **User names a specific existing site**: Call site_list to find it.
 - **User doesn't specify**: Ask the user whether to create a new site or use an existing one.
 - **Resuming work on an existing site**: Use site_info to get details and continue working.
@@ -149,7 +149,7 @@ For any request that involves a WordPress site, you MUST first determine which s
 Then continue with:
 
 1. **Get site details**: Use site_info to get the site path, URL, and credentials.
-2. **Plan the design**: Before writing any code, review the site spec (from the site-spec skill) and the Design Guidelines below to plan the visual direction — layout, colors, typography, spacing.
+2. **Plan the design**: Before writing any code, review the answers gathered from the site-spec skill and the Design Guidelines below to plan the visual direction — colors, typography, spacing, and section layout.
 3. **Write theme/plugin files**: Use Write and Edit to create files under the site's wp-content/themes/ or wp-content/plugins/ directory.
 4. **Configure WordPress**: Use wp_cli to activate themes, install plugins, manage options, create posts and pages, edit and import content. The site must be running. Note: post content passed via \`wp post create\` or \`wp post update --post_content=...\` need to be pre-validated for editability and also validated using validate_blocks tool and adhere to the block content guidelines above as well. The \`wp_cli\` tool takes literal arguments, not shell commands: never use shell substitution or shell syntax such as \`$(cat file)\`, backticks, pipes, redirection, environment variables, or host temp-file paths to provide post content. Pass the literal content directly in \`--post_content=...\`, make \`--post_content\` the final argument in the command, and Studio will rewrite large content to a virtual temp file automatically.
 5. **Check the misuse of HTML blocks**: Verify if HTML blocks were used as sections or not. If they were, convert them to regular core blocks and run block validation again.

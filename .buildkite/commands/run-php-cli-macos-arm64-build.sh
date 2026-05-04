@@ -6,6 +6,7 @@ WATCHED_FILES=(
 	"scripts/build-php-cli-macos.sh"
 	".buildkite/commands/run-php-cli-macos-arm64-build.sh"
 )
+PHP_HOST_FORMULA="${PHP_HOST_FORMULA:-php@8.4}"
 
 changed_files() {
 	if [[ "${BUILDKITE_PULL_REQUEST:-false}" != "false" && -n "${BUILDKITE_PULL_REQUEST_BASE_BRANCH:-}" ]]; then
@@ -83,8 +84,10 @@ if [[ "$(uname -m)" != "arm64" ]]; then
 	exit 1
 fi
 
+install_brew_formula "$PHP_HOST_FORMULA"
+export PATH="/opt/homebrew/opt/$PHP_HOST_FORMULA/bin:/opt/homebrew/opt/$PHP_HOST_FORMULA/sbin:$PATH"
+
 install_brew_formula_if_missing composer composer
-install_brew_formula_if_missing php php
 install_brew_formula_if_missing re2c re2c
 install_brew_formula_if_missing autoconf autoconf
 install_brew_formula_if_missing automake automake

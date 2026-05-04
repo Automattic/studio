@@ -30,6 +30,12 @@ for command in git composer php python3 shasum tar file; do
 	fi
 done
 
+host_php_minor="$(php -r 'echo PHP_MAJOR_VERSION . "." . PHP_MINOR_VERSION;')"
+if [[ "$host_php_minor" != "$PHP_MINOR" ]]; then
+	echo "Host PHP must be $PHP_MINOR; found $host_php_minor at $(command -v php)." >&2
+	exit 1
+fi
+
 if [[ ! -d "$SPC_DIR/.git" ]]; then
 	git clone --depth 1 --branch "$SPC_TAG" https://github.com/crazywhalecc/static-php-cli.git "$SPC_DIR"
 else

@@ -76,4 +76,49 @@ describe( 'AI agent startup', () => {
 		);
 		expect( result ).toBe( mockQuery );
 	} );
+
+	describe( 'permission hooks', () => {
+		function getPreToolUseHooks() {
+			const callArgs = vi.mocked( query ).mock.calls[ 0 ][ 0 ];
+			return callArgs.options?.hooks?.PreToolUse ?? [];
+		}
+
+		it( 'pre-approves mcp__studio__ tools so a classifier outage cannot block them', async () => {
+			startAiAgent( { prompt: 'noop' } );
+
+			const studioMatcher = getPreToolUseHooks().find( ( m ) => m.matcher === '^mcp__studio__' );
+			expect( studioMatcher ).toBeDefined();
+
+			const result = await studioMatcher!.hooks[ 0 ](
+				{
+					hook_event_name: 'PreToolUse',
+					tool_name: 'mcp__studio__site_info',
+					tool_input: {},
+					tool_use_id: 'use-1',
+				} as never,
+				'use-1',
+				{ signal: new AbortController().signal }
+			);
+			expect( result ).toEqual( {
+				hookSpecificOutput: {
+					hookEventName: 'PreToolUse',
+					permissionDecision: 'allow',
+				},
+			} );
+		} );
+
+		it( 'registers the studio pre-approval hook even when onAskUser is not provided', () => {
+			startAiAgent( { prompt: 'noop' } );
+
+			const matchers = getPreToolUseHooks().map( ( m ) => m.matcher );
+			expect( matchers ).toEqual( [ '^mcp__studio__' ] );
+		} );
+
+		it( 'keeps the AskUserQuestion hook alongside the studio pre-approval', () => {
+			startAiAgent( { prompt: 'noop', onAskUser: async () => ( {} ) } );
+
+			const matchers = getPreToolUseHooks().map( ( m ) => m.matcher );
+			expect( matchers ).toEqual( [ '^mcp__studio__', 'AskUserQuestion' ] );
+		} );
+	} );
 } );

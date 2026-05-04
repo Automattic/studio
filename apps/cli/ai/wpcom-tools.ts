@@ -10,8 +10,12 @@ import { z } from 'zod/v4';
  * `features` sub-field alone is 60K+ characters, which pushes the tool result past
  * Claude Code's MCP output limit (~100k chars). The v1.1 API doesn't support
  * sub-field filtering (e.g. `fields=plan.product_slug`), so we can't solve this
- * via query params. The agent only needs a few plan properties to gate features
- * since the system prompt hardcodes what each plan tier can do.
+ * via query params.
+ *
+ * We preserve `features.active` (a small array of slugs the site has access to)
+ * because the system prompt instructs the agent to consult it for feature gating
+ * — losing it would silently block that workflow. We drop `features.available`
+ * and any other sub-fields, which together account for nearly all of the bloat.
  *
  * This is NOT a pattern to follow for other endpoints. For general large responses,
  * the system prompt instructs the agent to use `_fields` (wp/v2) or `fields` (v1.1)
@@ -32,6 +36,7 @@ function stripOversizedFields( result: ApiResponse ): ApiResponse {
 				product_name_short: result.plan.product_name_short,
 				expired: result.plan.expired,
 				is_free: result.plan.is_free,
+				features: { active: result.plan.features.active ?? [] },
 			},
 		};
 	}

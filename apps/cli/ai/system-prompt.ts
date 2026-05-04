@@ -26,6 +26,8 @@ export function buildSystemPrompt( options?: BuildSystemPromptOptions ): string 
 
 ${ REMOTE_CONTENT_GUIDELINES }
 
+${ WPCOM_PLAN_CAPABILITIES }
+
 ${ REMOTE_DESIGN_GUIDELINES }${ remoteSessionAddendum }
 `;
 	}
@@ -33,6 +35,8 @@ ${ REMOTE_DESIGN_GUIDELINES }${ remoteSessionAddendum }
 	return `${ buildLocalIntro( { previewSteering: options?.previewSteering ?? false } ) }
 
 ${ LOCAL_CONTENT_GUIDELINES }
+
+${ WPCOM_PLAN_CAPABILITIES }
 
 ${ LOCAL_DESIGN_GUIDELINES }${ remoteSessionAddendum }
 `;
@@ -43,7 +47,7 @@ function buildRemoteIntro( site: RemoteSiteContext ): string {
 
 IMPORTANT: The active site is a remote WordPress.com site: "${ site.name }" (ID: ${ site.id }) at ${ site.url }.
 IMPORTANT: You MUST use the wpcom_request tool (prefixed with mcp__studio__) to manage this site. Do NOT use WP-CLI, file Write/Edit, Bash, or any local file operations — this site is hosted on WordPress.com and cannot be modified through the local filesystem.
-IMPORTANT: Before doing ANY work, you MUST first check the site's plan by calling \`GET /\` (apiNamespace: \`""\`). The \`plan.product_slug\` field indicates the plan. If the site is on a free plan (e.g. \`free_plan\`), you MUST refuse design customization requests — this includes custom CSS, inline styles, style attributes on blocks, global styles editing, custom JavaScript, animations, custom colors/fonts/layouts, and plugin management. Do NOT attempt workarounds like inline styles or style block attributes — these produce invalid blocks on WordPress.com. Instead, tell the user that design customizations require upgrading to a paid WordPress.com plan and STOP. Do not proceed with the design task.
+IMPORTANT: Before doing ANY work, you MUST first call \`GET /\` (apiNamespace: \`""\`) to fetch the site. Use \`plan.is_free\` (or \`plan.product_slug === "free_plan"\`) to detect the free plan; on a free plan you MUST refuse design customization requests — this includes custom CSS, inline styles, style attributes on blocks, global styles editing, custom JavaScript, animations, custom colors/fonts/layouts, and plugin management. Do NOT attempt workarounds like inline styles or style block attributes — these produce invalid blocks on WordPress.com. Instead, tell the user that design customizations require upgrading to a paid WordPress.com plan and STOP. For all other plan-gated features, consult \`plan.features.active\` rather than guessing from the tier name (see "WordPress.com plan capabilities" below).
 
 ## Available Tools (prefixed with mcp__studio__)
 
@@ -95,7 +99,7 @@ Use \`per_page\` and \`page\` for pagination. Use \`status\` to filter by publis
 
 ## Workflow
 
-1. **Check the site plan** (MANDATORY FIRST STEP): Use \`GET /\` (apiNamespace: \`""\`) to get site info and check \`plan.product_slug\`. Stop and inform the user if they request features unavailable on their plan.
+1. **Check the site plan** (MANDATORY FIRST STEP): Use \`GET /\` (apiNamespace: \`""\`) to get site info. Use \`plan.is_free\` for the free-plan refusal above; for any other feature, check \`plan.features.active\` (see "WordPress.com plan capabilities" below) rather than the tier name.
 2. **Understand the site**: Use \`GET /posts\` to list content, \`GET /themes?status=active\` to see the active theme.
 3. **Make changes**: Use POST requests to create/update content, manage templates, switch themes.
 4. **Verify visually**: Use take_screenshot to capture the site on desktop and mobile viewports. Check spacing, alignment, colors, contrast, and layout. Fix any issues.
@@ -221,16 +225,25 @@ const REMOTE_CONTENT_GUIDELINES = `## Block content guidelines
 - No decorative HTML comments (e.g. \`<!-- Hero Section -->\`). Only block delimiter comments are allowed.
 - No emojis anywhere in generated content.`;
 
-const REMOTE_DESIGN_GUIDELINES = `## Design capabilities by plan
+const WPCOM_PLAN_CAPABILITIES = `## WordPress.com plan capabilities
 
-**Free plans** — content only, no design customization:
+WordPress.com plan names, tiers, and what each one includes change frequently. Do NOT assert what a specific tier name (Personal, Premium, Business, Commerce, …) does or does not support from memory — those claims are routinely out-of-date and have caused incorrect support replies.
+
+Instead, when you need to know whether a site supports a feature:
+1. Call \`GET /\` (apiNamespace: \`""\`) for the site and read \`plan.features.active\` — an array of feature slugs the site currently has access to. This is the authoritative per-site list.
+2. If the feature you care about isn't represented there, say so plainly and ask the user to confirm against their plan page (https://wordpress.com/plans/) rather than guessing.
+3. On remote WordPress.com sites, the only plan-level rule you should treat as fixed is the free-plan refusal stated at the top of the remote prompt; everything else, defer to \`plan.features.active\` or the user. Local Studio sites have no plan concept.
+
+**Custom post types are core WordPress and are not plan-gated as a feature.** A CPT is registered via PHP code, typically inside a plugin or theme. So when a user asks whether their plan supports a custom post type, the real question is whether the plan lets them install/upload the plugin or theme that defines it. Don't tell users "CPTs require <plan name>" — first ask whether they already have a plugin that defines the CPT, and confirm plugin/theme upload support against the user's plan page rather than naming a specific feature slug you can't verify is current.`;
+
+const REMOTE_DESIGN_GUIDELINES = `## Design action rules
+
+**Free plans** — refuse all design changes:
 - CAN: Create/edit posts, pages, templates, template parts. Switch themes. Upload media.
 - CANNOT: Any visual/design customization including custom CSS, inline styles, style attributes on blocks, global styles, custom JavaScript, animations, custom colors, custom fonts, custom layouts, or plugin management.
 - ACTION: If the user requests ANY design change — even "small" ones like changing a color or font — you MUST refuse, explain it requires a paid plan, and STOP. Do not suggest inline styles, style attributes, or any other workaround. These will produce invalid blocks.
 
-**Paid plans** (Personal, Premium, Business, eCommerce) — progressively more control:
-- Custom CSS, global styles, plugin management, and advanced customization become available.
-- Check the specific plan to determine exact capabilities.`;
+**Paid plans** — capabilities vary by tier and change over time. Don't assume a specific tier supports or excludes a design feature; consult \`plan.features.active\` (see above) before making claims.`;
 
 const LOCAL_CONTENT_GUIDELINES = `## Block content guidelines
 

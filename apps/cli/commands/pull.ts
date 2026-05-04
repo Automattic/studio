@@ -195,8 +195,12 @@ export async function runCommand(
 
 			// Remember this connection so future push/pull runs (and the Desktop UI)
 			// can surface it without re-selecting from the full site list.
-			await addConnectedWpcomSite( site.id, { ...remoteSite, localSiteId: site.id } );
-			await markConnectedWpcomSiteSynced( site.id, remoteSite.id, 'pull' );
+			try {
+				await addConnectedWpcomSite( site.id, { ...remoteSite, localSiteId: site.id } );
+				await markConnectedWpcomSiteSynced( site.id, remoteSite.id, 'pull' );
+			} catch ( error ) {
+				logger.reportError( new LoggerError( 'Failed to save connected site', error ), false );
+			}
 
 			logger.reportSuccess(
 				sprintf( __( 'Pulled from %s (%s)' ), remoteSite.name, remoteSite.url )

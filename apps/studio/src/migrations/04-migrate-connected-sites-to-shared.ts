@@ -24,6 +24,7 @@ import { getAppConfigPath } from '@studio/common/lib/well-known-paths';
 import { syncSiteSchema } from '@studio/common/types/sync';
 import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
+import { lockAppdata, unlockAppdata } from 'src/storage/user-data';
 import type { Migration } from '@studio/common/lib/migration';
 
 const appConnectedShapeSchema = z
@@ -70,9 +71,14 @@ export const migrateConnectedSitesToShared: Migration = {
 			await unlockSharedConfig();
 		}
 
-		const { connectedWpcomSites: _legacy, ...rest } = parsed;
-		await writeFile( getAppConfigPath(), JSON.stringify( rest, null, 2 ) + '\n', {
-			encoding: 'utf8',
-		} );
+		try {
+			await lockAppdata();
+			const { connectedWpcomSites: _legacy, ...rest } = parsed;
+			await writeFile( getAppConfigPath(), JSON.stringify( rest, null, 2 ) + '\n', {
+				encoding: 'utf8',
+			} );
+		} finally {
+			await unlockAppdata();
+		}
 	},
 };

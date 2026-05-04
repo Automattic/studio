@@ -112,7 +112,7 @@ PKG_ROOT="$SPC_DIR/pkgroot/aarch64-darwin"
 rm -rf "$BUILD_ROOT" "$SOURCE_PATH"
 
 BUILD_ROOT_PATH="$BUILD_ROOT" SOURCE_PATH="$SOURCE_PATH" PKG_ROOT_PATH="$PKG_ROOT" \
-	php bin/spc doctor
+	php bin/spc doctor --auto-fix=never
 BUILD_ROOT_PATH="$BUILD_ROOT" SOURCE_PATH="$SOURCE_PATH" PKG_ROOT_PATH="$PKG_ROOT" \
 	php bin/spc build "$EXTENSIONS" --build-cli --with-suggested-libs
 

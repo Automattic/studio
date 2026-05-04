@@ -18,6 +18,33 @@ changed_files() {
 	git diff --name-only HEAD^ HEAD
 }
 
+install_brew_formula_if_missing() {
+	local command_name="$1"
+	local formula_name="$2"
+
+	if command -v "$command_name" >/dev/null 2>&1; then
+		return
+	fi
+
+	install_brew_formula "$formula_name"
+}
+
+install_brew_formula() {
+	local formula_name="$1"
+
+	if ! command -v brew >/dev/null 2>&1; then
+		echo "Missing required Homebrew formula: $formula_name, and Homebrew is unavailable to install it." >&2
+		exit 1
+	fi
+
+	if brew list --formula "$formula_name" >/dev/null 2>&1; then
+		return
+	fi
+
+	echo "--- :homebrew: Installing $formula_name"
+	brew install "$formula_name"
+}
+
 should_run=false
 while IFS= read -r file; do
 	for watched_file in "${WATCHED_FILES[@]}"; do
@@ -38,14 +65,15 @@ if [[ "$(uname -m)" != "arm64" ]]; then
 	exit 1
 fi
 
-if ! command -v composer >/dev/null 2>&1; then
-	if ! command -v brew >/dev/null 2>&1; then
-		echo "Missing required command: composer, and Homebrew is unavailable to install it." >&2
-		exit 1
-	fi
-
-	echo "--- :homebrew: Installing Composer"
-	brew install composer
-fi
+install_brew_formula_if_missing composer composer
+install_brew_formula_if_missing php php
+install_brew_formula_if_missing pkg-config pkgconf
+install_brew_formula_if_missing re2c re2c
+install_brew_formula_if_missing autoconf autoconf
+install_brew_formula_if_missing automake automake
+install_brew_formula_if_missing cmake cmake
+install_brew_formula_if_missing glibtoolize libtool
+install_brew_formula_if_missing xz xz
+install_brew_formula bison
 
 bash scripts/build-php-cli-macos.sh

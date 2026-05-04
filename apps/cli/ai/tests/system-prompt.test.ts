@@ -4,9 +4,23 @@ import { buildSystemPrompt } from 'cli/ai/system-prompt';
 const REMOTE_SITE = { name: 'Example', url: 'https://example.wordpress.com', id: 123 };
 
 describe( 'buildSystemPrompt — WordPress.com plan capabilities', () => {
-	it( 'directs the remote agent to consult plan.features.active rather than guess by tier name', () => {
+	it( 'inlines the prefetched plan.features.active list when provided', () => {
+		const prompt = buildSystemPrompt( {
+			remoteSite: { ...REMOTE_SITE, planFeaturesActive: [ 'custom-design', 'videopress' ] },
+		} );
+		expect( prompt ).toMatch( /Active plan features for this site/i );
+		expect( prompt ).toMatch( /custom-design, videopress/ );
+		expect( prompt ).toMatch( /Use this list — not tier names/i );
+	} );
+
+	it( 'falls back to "ask the user" guidance when the features list was not prefetched', () => {
 		const prompt = buildSystemPrompt( { remoteSite: REMOTE_SITE } );
-		expect( prompt ).toMatch( /plan\.features\.active/ );
+		expect( prompt ).toMatch( /active feature list for this site was not prefetched/i );
+		expect( prompt ).toMatch( /https:\/\/wordpress\.com\/plans\// );
+	} );
+
+	it( 'tells the remote agent not to assert capabilities by tier name', () => {
+		const prompt = buildSystemPrompt( { remoteSite: REMOTE_SITE } );
 		expect( prompt ).toMatch( /Do NOT assert what a specific tier name/i );
 	} );
 

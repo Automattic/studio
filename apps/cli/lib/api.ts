@@ -206,6 +206,47 @@ const wpComSitesResponseSchema = z.object( {
 	),
 } );
 
+const sitePlanFeaturesResponseSchema = z.object( {
+	plan: z
+		.object( {
+			features: z
+				.object( {
+					active: z.array( z.string() ).optional(),
+				} )
+				.optional(),
+		} )
+		.optional(),
+} );
+
+/**
+ * Fetch the active feature slugs for a single WordPress.com site (e.g.
+ * `["custom-design", "advanced-design", "videopress", …]`). The full plan
+ * object includes `features.available` which is 60K+ chars — way too much
+ * to ship in tool output — so we ask for `fields=plan` and immediately
+ * narrow to `plan.features.active`. Returns undefined if the site has no
+ * plan or the field is missing; never throws (a broken feature lookup
+ * shouldn't block the agent — it falls back to asking the user).
+ */
+export async function getWpComSitePlanFeatures(
+	token: string,
+	siteId: number
+): Promise< string[] | undefined > {
+	const wpcom = wpcomFactory( token, wpcomXhrRequest );
+	try {
+		const raw = await wpcom.req.get(
+			{
+				apiNamespace: '',
+				path: `/sites/${ siteId }`,
+			},
+			{ fields: 'plan' }
+		);
+		const parsed = sitePlanFeaturesResponseSchema.safeParse( raw );
+		return parsed.success ? parsed.data.plan?.features?.active : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
 export async function getWpComSites( token: string ): Promise< WpComSiteInfo[] > {
 	const wpcom = wpcomFactory( token, wpcomXhrRequest );
 	try {

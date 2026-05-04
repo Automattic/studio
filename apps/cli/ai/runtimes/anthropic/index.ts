@@ -46,6 +46,7 @@ export const anthropicRuntime: AgentRuntime = {
 						name: activeSite.name,
 						url: activeSite.url ?? '',
 						id: activeSite.wpcomSiteId!,
+						planFeaturesActive: activeSite.planFeaturesActive,
 					},
 					remoteSession,
 			  }

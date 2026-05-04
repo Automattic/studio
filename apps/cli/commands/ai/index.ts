@@ -23,6 +23,7 @@ import { replaySessionHistory } from 'cli/ai/sessions/replay';
 import { AI_CHAT_SLASH_COMMANDS, type SlashCommandContext } from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
+import { getWpComSitePlanFeatures } from 'cli/lib/api';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
 import { isRemoteSessionEnabled } from 'cli/lib/feature-flags';
@@ -461,6 +462,23 @@ export async function runCommand( options: {
 		if ( site?.remote ) {
 			const token = await readAuthToken();
 			wpcomAccessToken = token?.accessToken;
+		}
+
+		// Prefetch the active feature list once per site so the agent can read
+		// it from the system prompt instead of paying for it on every `GET /`
+		// tool response (the v1.1 API can't filter `plan.features.available`
+		// out, and that field alone is 60K+ chars). Cached on `ui.activeSite`
+		// so subsequent turns reuse it without another roundtrip.
+		if (
+			site?.remote &&
+			site.wpcomSiteId &&
+			wpcomAccessToken &&
+			site.planFeaturesActive === undefined
+		) {
+			const features = await getWpComSitePlanFeatures( wpcomAccessToken, site.wpcomSiteId );
+			if ( features ) {
+				site.planFeaturesActive = features;
+			}
 		}
 
 		await persistSessionContext();

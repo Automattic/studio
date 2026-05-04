@@ -65,15 +65,16 @@ export function loadSkills(): Skill[] {
  * spliced into the GPT system prompt so the model follows them at the right
  * point during a build.
  *
- * Currently empty. We previously inlined `site-spec` here (the "gather name +
- * layout before site_create" interaction), but that produced a behavioral
- * asymmetry with Claude: the Anthropic SDK exposes skills as a `Skill` tool
- * Claude only loads on a heuristic match, and for "build me a site" prompts
- * Claude doesn't reliably trigger that load — it just builds. So Claude
- * effectively never asks the layout question, while GPT (with the spec
- * inlined) always did. Same prompt, two visibly different conversations.
- * We dropped `site-spec` from the auto-apply set to bring GPT in line with
- * Claude's "just build" default.
+ * `site-spec` is in the set because the system prompt tells the model to gather
+ * the site name and layout preference before calling `site_create`, and the
+ * skill body is the concrete script for that interaction (Round 1: ask for
+ * name; Round 2: ask "one-page site or multi-page site?" via AskUserQuestion).
+ * Without the body inlined, GPT improvises a layout question from the Design
+ * Guidelines vocabulary — asking about visual direction (Cinematic / Editorial
+ * / Bento) instead of the structural one-page-vs-multi-page question the spec
+ * actually defines. The Anthropic runtime gets the same content via the SDK's
+ * plugin/Skill mechanism (the `Skill` tool loads `site-spec` on heuristic match
+ * for "build me a site" prompts).
  *
  * Every other skill in the plugin directory is "tool-shaped" — `rank-me-up`,
  * `need-for-speed`, `taxonomist` each map 1:1 to a Studio tool with a
@@ -86,10 +87,9 @@ export function loadSkills(): Skill[] {
  *
  * Add a skill name here when (and only when) it's a workflow that the model
  * should auto-follow during normal usage AND we want both runtimes to follow
- * it (in which case Anthropic should get the same content, e.g. via a system
- * prompt addition that's loud enough to override Claude's heuristic-load).
+ * it.
  */
-const AUTO_APPLY_SKILLS = new Set< string >();
+const AUTO_APPLY_SKILLS = new Set( [ 'site-spec' ] );
 
 /**
  * Renders auto-apply skills as an appendix to the system prompt. Returns the

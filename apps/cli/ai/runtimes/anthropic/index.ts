@@ -100,8 +100,17 @@ export const anthropicRuntime: AgentRuntime = {
 				} ),
 				plugins: [
 					{
+						// vite-plugin-static-copy puts `apps/cli/ai/plugin` at
+						// `dist/cli/plugin/`, and Rollup bundles every chunk to
+						// the flat `dist/cli/` root — so `import.meta.dirname`
+						// always resolves there regardless of where the source
+						// file lived. The naive source-tree traversal
+						// (`'..', '..', 'plugin'`) overshoots into the
+						// workspace root and the SDK never finds the skills,
+						// surfacing as `<tool_use_error>Unknown skill:
+						// site-spec</tool_use_error>` etc.
 						type: 'local' as const,
-						path: path.resolve( import.meta.dirname, '..', '..', 'plugin' ),
+						path: path.resolve( import.meta.dirname, 'plugin' ),
 					},
 				],
 				model,

@@ -4,14 +4,7 @@ Unreleased
 1.8.2
 =====
 * Fixed an issue where multiple CLI progress line showed up in Studio Code #3286
-* CLI: stream remote-session activity to stdout while the REPL is blocked #3282
-* CLI: send screenshots from `studio code` to Telegram remote sessions #3272
 * Added Wapuu platformer easter egg #3270
-* Linux: trust root CA for HTTPS custom domains #3268
-* Linux: detect and launch third-party terminals #3278
-* Linux: don't default editor dropdown to VS Code when nothing is installed #3291
-* Enabled E2E tests on Linux #3295
-* Improved annotation submit workflow in `studio code` #3312
 * Silenced noisy ENOENT CLI log messages when daemon socket is absent #3322
 * Updated multiple dependencies, including WP Playground, PHP-WASM, and Electron
 

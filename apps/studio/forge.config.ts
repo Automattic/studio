@@ -19,6 +19,11 @@ const config: ForgeConfig = {
 		extraResource: [
 			path.join( __dirname, 'assets' ),
 			path.join( __dirname, 'bin' ),
+			// AppStream metainfo for Linux software stores. The DEB postinst
+			// hook copies it from the app's resources dir to /usr/share/metainfo/.
+			// Bundling it via extraResource keeps it inside the .deb without
+			// requiring custom maker plumbing. Cost on Mac/Win packages is ~1.5KB.
+			path.join( __dirname, 'installers', 'com.automattic.Studio.metainfo.xml' ),
 			path.join( repoRoot, 'apps', 'cli', 'dist', 'cli' ),
 		],
 		executableName: process.platform === 'linux' ? 'studio' : undefined,
@@ -82,10 +87,20 @@ const config: ForgeConfig = {
 		new MakerZIP( {}, [ 'darwin' ] ),
 		new MakerDeb( {
 			options: {
-				genericName: 'WordPress Studio',
+				// Display name for app launchers and stores. Overrides
+				// package.json.productName ("Studio") so Linux users see the
+				// fully-qualified "WordPress Studio" in their menus.
+				productName: 'WordPress Studio',
 				categories: [ 'Utility' ],
 				name: 'studio',
 				bin: 'studio',
+				// Synopsis and extended description shown by package managers and
+				// software stores. Without these, electron-installer-debian falls
+				// back to package.json.description for both, producing a duplicated
+				// Description block. Copy mirrors the Microsoft Store listing.
+				description: 'Meet Studio—a fast, free way to develop locally with WordPress.',
+				productDescription:
+					'Simplify WordPress site creation and management with Studio—WordPress.com’s powerful, lightweight local development tool. Studio streamlines your workflow with instant WordPress setup, one-click WP Admin access, and a code-agnostic environment. No Docker, MySQL, or NGINX required. Get real-time feedback from clients or collaborators with easy-to-share demo sites. And with help from Studio Assistant, you can speed up plugin management, run WP-CLI commands, and automate tasks right from the intuitive chat interface.',
 				mimeType: [ 'x-scheme-handler/wp-studio' ],
 				icon: path.join( __dirname, 'assets', 'studio-app-icon.png' ),
 				desktopTemplate: path.join( __dirname, 'installers', 'desktop.ejs' ),

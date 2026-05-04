@@ -108,6 +108,27 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 		},
 		destinationPath: path.join( WP_SERVER_FILES_PATH, 'blueprints' ),
 	},
+	/**
+	 * Static Site Importer is an experimental upstream WordPress plugin that
+	 * converts static HTML into editable block themes. It's bundled into Studio
+	 * as a mu-plugin so generated local sites can run `wp static-site-importer
+	 * import-theme ...` without any per-machine setup.
+	 *
+	 * **Iteration mode:** while the SSI substrate is still rapidly evolving,
+	 * Studio pulls the latest `main` zipball at `npm install` time. Reviewers
+	 * automatically pick up fixes by re-running `npm install`. Before the
+	 * Studio PR un-drafts, swap the URL below for a pinned tag/sha — for
+	 * example `archive/refs/tags/v0.4.0.zip` — to lock the substrate.
+	 *
+	 * The SSI repo commits its `vendor/` directory, so no `composer install`
+	 * runs on the consumer side.
+	 */
+	{
+		name: 'static-site-importer',
+		description: 'Static Site Importer (chubes4/static-site-importer @ main)',
+		getUrl: () => 'https://github.com/chubes4/static-site-importer/archive/refs/heads/main.zip',
+		destinationPath: path.join( WP_SERVER_FILES_PATH, 'static-site-importer' ),
+	},
 ];
 
 async function downloadFile( file: FileToDownload ): Promise< void > {
@@ -152,6 +173,25 @@ async function downloadFile( file: FileToDownload ): Promise< void > {
 			fs.rmSync( targetPath, { recursive: true, force: true } );
 		}
 		fs.moveSync( sourcePath, targetPath );
+	} else if ( name === 'static-site-importer' ) {
+		/**
+		 * GitHub's `archive/refs/heads/main.zip` extracts into a folder named
+		 * `static-site-importer-main`. We extract to a temp dir, then move the
+		 * inner folder into `wp-files/static-site-importer/`.
+		 */
+		console.log( `[${ name }] Extracting files from zip ...` );
+		const tmpExtractPath = path.join( os.tmpdir(), 'static-site-importer-extract' );
+		if ( fs.existsSync( tmpExtractPath ) ) {
+			fs.rmSync( tmpExtractPath, { recursive: true, force: true } );
+		}
+		await extractZip( zipPath, tmpExtractPath );
+
+		const sourcePath = path.join( tmpExtractPath, 'static-site-importer-main' );
+		if ( fs.existsSync( extractedPath ) ) {
+			fs.rmSync( extractedPath, { recursive: true, force: true } );
+		}
+		fs.moveSync( sourcePath, extractedPath );
+		fs.rmSync( tmpExtractPath, { recursive: true, force: true } );
 	} else if ( name === 'phpmyadmin' ) {
 		/**
 		 * phpMyAdmin is extracted into a folder like phpMyAdmin-5.2.3-english.

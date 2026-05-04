@@ -11,12 +11,6 @@ const nodeBin = process.execPath;
 const sitePath =
 	process.env.STUDIO_STATIC_SITE_IMPORTER_SMOKE_SITE ||
 	resolve( tmpdir(), 'studio-static-site-importer-smoke' );
-const importerPath = process.env.STUDIO_STATIC_SITE_IMPORTER_PLUGIN_PATH;
-
-if ( ! importerPath ) {
-	console.error( 'STUDIO_STATIC_SITE_IMPORTER_PLUGIN_PATH is required.' );
-	process.exit( 1 );
-}
 
 if ( ! existsSync( cliPath ) ) {
 	console.error(
@@ -25,14 +19,9 @@ if ( ! existsSync( cliPath ) ) {
 	process.exit( 1 );
 }
 
-function env() {
-	return { ...process.env, STUDIO_STATIC_SITE_IMPORTER_PLUGIN_PATH: importerPath };
-}
-
 function run( args, options = {} ) {
 	const result = spawnSync( nodeBin, [ cliPath, ...args ], {
 		encoding: 'utf8',
-		env: env(),
 		...options,
 	} );
 
@@ -53,32 +42,28 @@ function ensureSite() {
 	const status = spawnSync(
 		nodeBin,
 		[ cliPath, 'site', 'status', '--path', sitePath, '--format', 'json' ],
-		{
-			encoding: 'utf8',
-			env: env(),
-		}
+		{ encoding: 'utf8' }
 	);
 
-	if ( status.status === 0 ) {
-		return;
+	if ( status.status !== 0 ) {
+		run( [
+			'site',
+			'create',
+			'--name',
+			'Static Site Importer Smoke',
+			'--path',
+			sitePath,
+			'--skip-browser',
+			'--skip-log-details',
+		] );
 	}
 
-	run( [
-		'site',
-		'create',
-		'--name',
-		'Static Site Importer Smoke',
-		'--path',
-		sitePath,
-		'--skip-browser',
-		'--skip-log-details',
-	] );
+	run( [ 'site', 'start', '--path', sitePath, '--skip-browser' ] );
 }
 
 function stopSite() {
 	spawnSync( nodeBin, [ cliPath, 'site', 'stop', '--path', sitePath ], {
 		encoding: 'utf8',
-		env: env(),
 	} );
 }
 
@@ -177,7 +162,6 @@ if ( $results['front_page_id'] !== $results['home_page_id'] ) {
 try {
 	ensureSite();
 	writeStaticFixture();
-	stopSite();
 	const result = run( [ 'wp', '--path', sitePath, '--php-version', '8.3', 'eval', php ] );
 	process.stdout.write( result.stdout );
 	if ( result.stderr ) {
@@ -187,4 +171,6 @@ try {
 } catch ( error ) {
 	console.error( error instanceof Error ? error.message : String( error ) );
 	process.exit( 1 );
+} finally {
+	stopSite();
 }

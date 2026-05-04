@@ -35,6 +35,7 @@ import { sanitizeRunCLIArgs } from 'cli/lib/cli-args-sanitizer';
 import {
 	getPhpMyAdminPath,
 	getSqliteCommandPath,
+	getStaticSiteImporterPluginPath,
 	getWpCliPharPath,
 } from 'cli/lib/dependency-management/paths';
 import { rewriteWpCliPostContentToFile } from 'cli/lib/rewrite-wp-cli-post-content';
@@ -222,6 +223,7 @@ async function getBaseRunCLIArgs(
 
 	const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {
 		isWpAutoUpdating: config.isWpAutoUpdating,
+		staticSiteImporterPluginPath: getStaticSiteImporterPluginPath(),
 	} );
 
 	if ( ! useExactMountLayout ) {

@@ -25,6 +25,7 @@ import { setupPlatformLevelMuPlugins } from '@wp-playground/wordpress';
 import {
 	getPhpBinaryPath,
 	getSqliteCommandPath,
+	getStaticSiteImporterPluginPath,
 	getWpCliPharPath,
 } from 'cli/lib/dependency-management/paths';
 import { validatePhpVersion } from 'cli/lib/utils';
@@ -123,7 +124,11 @@ async function runNativeWpCliCommand(
 ): Promise< DisposableWpCliResponse > {
 	const nativeArgs = applyWpCliCommandOptions( 'native', args, options );
 	const phpVersion = validateNativePhpVersion( options.phpVersion ?? DEFAULT_PHP_VERSION );
-	await writeStudioMuPluginsForNativePhpRuntime( site.path, site.isWpAutoUpdating );
+	await writeStudioMuPluginsForNativePhpRuntime(
+		site.path,
+		site.isWpAutoUpdating,
+		getStaticSiteImporterPluginPath()
+	);
 	const child = spawn(
 		getPhpBinaryPath( phpVersion ),
 		[ getWpCliPharPath(), `--path=${ site.path }`, ...nativeArgs ],
@@ -219,6 +224,7 @@ export async function runWpCliCommand(
 		// Mount mu-plugins
 		const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {
 			isWpAutoUpdating: false,
+			staticSiteImporterPluginPath: getStaticSiteImporterPluginPath(),
 		} );
 		await php.mount(
 			'/internal/studio/mu-plugins',

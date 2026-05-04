@@ -1549,7 +1549,7 @@ export class AiChatUI implements AiOutputAdapter {
 			'  - ' +
 				sprintf(
 					/* translators: %s: bold "Build" */
-					__( '%s block themes with striking, memorable designs' ),
+					__( '%s WordPress sites with striking, memorable designs' ),
 					b( __( 'Build' ) )
 				),
 			'  - ' +

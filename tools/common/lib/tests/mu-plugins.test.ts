@@ -114,4 +114,52 @@ describe( 'writeStudioMuPluginsForNativePhpRuntime', () => {
 		expect( generatedPlugins ).toContain( '0-enable-auto-updates.php' );
 		expect( generatedPlugins ).not.toContain( '0-disable-auto-updates.php' );
 	} );
+
+	it( 'should write the Static Site Importer loader and symlink when a plugin path is provided', async () => {
+		const ssiPath = await mkdtemp( join( tmpdir(), 'studio-ssi-fixture-' ) );
+		writeFileSync( join( ssiPath, 'static-site-importer.php' ), '<?php // SSI plugin fixture' );
+
+		await writeStudioMuPluginsForNativePhpRuntime( sitePath, true, ssiPath );
+
+		const loaderPath = join(
+			sitePath,
+			'wp-content',
+			'mu-plugins',
+			STUDIO_LOADER_MU_PLUGIN_FILENAME
+		);
+		const loaderContent = await readFile( loaderPath, 'utf8' );
+		const muPluginsDir = loaderContent.match( /\$studio_mu_plugins_dir = '([^']+)';/ )?.[ 1 ];
+
+		expect( muPluginsDir ).toBeTruthy();
+
+		const generatedPlugins = await readdir( muPluginsDir as string );
+		// The SSI loader mu-plugin should be present.
+		expect( generatedPlugins ).toContain( '1-static-site-importer.php' );
+		// The symlinked SSI plugin directory should be present and resolve to a file.
+		expect( generatedPlugins ).toContain( 'static-site-importer' );
+		expect(
+			existsSync(
+				join( muPluginsDir as string, 'static-site-importer', 'static-site-importer.php' )
+			)
+		).toBe( true );
+	} );
+
+	it( 'should not write the SSI loader when no plugin path is provided', async () => {
+		await writeStudioMuPluginsForNativePhpRuntime( sitePath, true );
+
+		const loaderPath = join(
+			sitePath,
+			'wp-content',
+			'mu-plugins',
+			STUDIO_LOADER_MU_PLUGIN_FILENAME
+		);
+		const loaderContent = await readFile( loaderPath, 'utf8' );
+		const muPluginsDir = loaderContent.match( /\$studio_mu_plugins_dir = '([^']+)';/ )?.[ 1 ];
+
+		expect( muPluginsDir ).toBeTruthy();
+
+		const generatedPlugins = await readdir( muPluginsDir as string );
+		expect( generatedPlugins ).not.toContain( '1-static-site-importer.php' );
+		expect( generatedPlugins ).not.toContain( 'static-site-importer' );
+	} );
 } );

@@ -19,9 +19,21 @@ export type MuPluginRuntime = 'playground' | 'native-php';
 export interface MuPluginOptions {
 	isWpAutoUpdating?: boolean;
 	runtime?: MuPluginRuntime;
+	/**
+	 * Absolute host path to the Static Site Importer plugin directory.
+	 *
+	 * Studio bundles the SSI plugin (sourced from
+	 * `chubes4/static-site-importer` `main` at `npm install` time, see
+	 * `scripts/download-wp-server-files.ts`) into `wp-files/static-site-importer/`.
+	 * Callers pass that path here; this module symlinks it into the per-site
+	 * mu-plugins temp directory and writes a small loader that requires
+	 * `static-site-importer/static-site-importer.php`.
+	 *
+	 * Optional only because not every caller has the bundled-files path
+	 * resolved (e.g. unit tests). When omitted, SSI is not loaded.
+	 */
+	staticSiteImporterPluginPath?: string;
 }
-
-const STATIC_SITE_IMPORTER_EXPERIMENT_PATH_ENV = 'STUDIO_STATIC_SITE_IMPORTER_PLUGIN_PATH';
 
 /**
  * MU-plugin filenames that should not be written for native PHP sites.
@@ -434,14 +446,17 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		`,
 	} );
 
-	if ( process.env[ STATIC_SITE_IMPORTER_EXPERIMENT_PATH_ENV ] ) {
+	if ( options.staticSiteImporterPluginPath ) {
 		muPlugins.push( {
-			filename: '1-static-site-importer-experiment.php',
+			filename: '1-static-site-importer.php',
 			content: `<?php
 			/**
-			 * Static Site Importer experiment loader.
+			 * Static Site Importer loader.
 			 *
-			 * Enabled only when Studio is launched with ${ STATIC_SITE_IMPORTER_EXPERIMENT_PATH_ENV }.
+			 * Loads the bundled SSI plugin from the symlinked directory
+			 * created by createMuPluginsDirectory() and observes the
+			 * unsupported-HTML fallback signal so the smoke harness can
+			 * gate on a clean conversion.
 			 */
 			$static_site_importer_plugin = __DIR__ . '/static-site-importer/static-site-importer.php';
 			if ( file_exists( $static_site_importer_plugin ) ) {
@@ -628,11 +643,9 @@ async function createMuPluginsDirectory( options: MuPluginOptions ): Promise< st
 			await writeFile( pluginPath, plugin.content );
 		}
 
-		const staticSiteImporterExperimentPath =
-			process.env[ STATIC_SITE_IMPORTER_EXPERIMENT_PATH_ENV ];
-		if ( staticSiteImporterExperimentPath ) {
+		if ( options.staticSiteImporterPluginPath ) {
 			await symlink(
-				staticSiteImporterExperimentPath,
+				options.staticSiteImporterPluginPath,
 				path.join( tempDir, 'static-site-importer' ),
 				'dir'
 			);
@@ -666,7 +679,8 @@ export async function getMuPlugins( options: MuPluginOptions = {} ): Promise< [ 
 
 export async function writeStudioMuPluginsForNativePhpRuntime(
 	siteFolder: string,
-	isWpAutoUpdating: MuPluginOptions[ 'isWpAutoUpdating' ]
+	isWpAutoUpdating: MuPluginOptions[ 'isWpAutoUpdating' ],
+	staticSiteImporterPluginPath?: MuPluginOptions[ 'staticSiteImporterPluginPath' ]
 ): Promise< void > {
 	const muPluginsDir = path.join( siteFolder, 'wp-content', 'mu-plugins' );
 	await mkdir( muPluginsDir, { recursive: true } );
@@ -676,7 +690,11 @@ export async function writeStudioMuPluginsForNativePhpRuntime(
 	// copy the loader into wp-content/mu-plugins/ — WordPress auto-loads it
 	// at runtime and it pulls the rest in from the temp directory, keeping
 	// the user's mu-plugins/ nearly empty.
-	const [ , loaderHostPath ] = await getMuPlugins( { isWpAutoUpdating, runtime: 'native-php' } );
+	const [ , loaderHostPath ] = await getMuPlugins( {
+		isWpAutoUpdating,
+		runtime: 'native-php',
+		staticSiteImporterPluginPath,
+	} );
 	await copyFile( loaderHostPath, path.join( muPluginsDir, STUDIO_LOADER_MU_PLUGIN_FILENAME ) );
 }
 
@@ -716,11 +734,13 @@ export const LEGACY_MU_PLUGIN_FILENAMES = [
 	'0-tmp-fix-hide-plugins-spinner.php',
 	'0-tmp-fix-qm-plugin-sapi.php',
 	'0-wp-admin-trailing-slash.php',
+	'1-static-site-importer.php',
 	// Retired mu-plugins from older Studio versions
 	'0-32bit-integer-warnings.php',
 	'0-dns-functions.php',
 	'0-sqlite.php',
 	'0-wp-config-constants-polyfill.php',
+	'1-static-site-importer-experiment.php',
 ];
 
 /**

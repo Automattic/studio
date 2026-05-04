@@ -156,8 +156,6 @@ One \`Write\` or \`Edit\` per turn (read-only \`site_info\`, \`site_list\`, \`wp
 
 **After \`site_create\`** (or "redesign"/"rebuild"/"start over" triggers), the next turn MUST be small: \`site_info\` or a single ≤50-line \`Write\`. Never scaffold a whole theme in one turn.
 
-**Long static HTML files (>~200 lines): skeleton first, then fill across Edits.** Create \`index.html\` with the document shell, \`<style>\` block anchors, and body section anchors first; fill one section/anchor per Edit.
-
 ## Available Studio Tools (prefixed with mcp__studio__)
 
 - site_create: Create a new WordPress site (name only — handles everything automatically)
@@ -182,7 +180,6 @@ One \`Write\` or \`Edit\` per turn (read-only \`site_info\`, \`site_list\`, \`wp
 
 ## General rules
 
-- Design quality and visual ambition are not in conflict with Site Editor compatibility. Normal static HTML/CSS targeting semantic classes can achieve any visual design; the importer turns that static site into editable WordPress block theme output.
 - Do NOT modify WordPress core files. Only work within wp-content/.
 - Before running wp_cli, ensure the site is running (site_start if needed).
 - Let Static Site Importer generate and activate the block theme. Do not manually create theme files unless the user explicitly asks for custom plugin/theme development.

@@ -27,6 +27,7 @@ import {
 import {
 	getBlueprintsPharPath,
 	getPhpBinaryPath,
+	getStaticSiteImporterPluginPath,
 	getWpCliPharPath,
 } from './lib/dependency-management/paths';
 
@@ -316,7 +317,11 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		stopSignal.throwIfAborted();
 		await ensureWpConfig( config.sitePath, phpVersion, stopSignal, config );
 		stopSignal.throwIfAborted();
-		await writeStudioMuPluginsForNativePhpRuntime( config.sitePath, config.isWpAutoUpdating );
+		await writeStudioMuPluginsForNativePhpRuntime(
+			config.sitePath,
+			config.isWpAutoUpdating,
+			getStaticSiteImporterPluginPath()
+		);
 		stopSignal.throwIfAborted();
 		await installWordPress( config, phpVersion, stopSignal );
 		stopSignal.throwIfAborted();
@@ -594,7 +599,8 @@ async function ipcMessageHandler( packet: unknown ) {
 				);
 				await writeStudioMuPluginsForNativePhpRuntime(
 					blueprintConfig.sitePath,
-					blueprintConfig.isWpAutoUpdating
+					blueprintConfig.isWpAutoUpdating,
+					getStaticSiteImporterPluginPath()
 				);
 				await installWordPress( blueprintConfig, blueprintPhpVersion, abortController.signal );
 				if ( ! blueprintConfig.blueprint ) {

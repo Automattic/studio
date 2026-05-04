@@ -55,3 +55,11 @@ export function getPhpMyAdminPath(): string {
 export function getBlueprintsPharPath(): string {
 	return path.join( getWpFilesPath(), 'blueprints', 'blueprints.phar' );
 }
+
+// Static Site Importer ships read-only with the CLI bundle (downloaded at npm
+// install time by `scripts/download-wp-server-files.ts`) and is symlinked into
+// each site's mu-plugins temp directory. No writable cache needed — the
+// bundled directory is treated as the source of truth.
+export function getStaticSiteImporterPluginPath(): string {
+	return path.join( getWpFilesPath(), 'static-site-importer' );
+}

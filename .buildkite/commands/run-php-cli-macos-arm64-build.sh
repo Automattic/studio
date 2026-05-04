@@ -38,4 +38,14 @@ if [[ "$(uname -m)" != "arm64" ]]; then
 	exit 1
 fi
 
+if ! command -v composer >/dev/null 2>&1; then
+	if ! command -v brew >/dev/null 2>&1; then
+		echo "Missing required command: composer, and Homebrew is unavailable to install it." >&2
+		exit 1
+	fi
+
+	echo "--- :homebrew: Installing Composer"
+	brew install composer
+fi
+
 bash scripts/build-php-cli-macos.sh

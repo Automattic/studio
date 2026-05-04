@@ -7,11 +7,28 @@ import { baseConfig } from './vite.config.base';
 
 const cliNodeModulesPath = resolve( __dirname, 'node_modules' );
 const distCliNodeModulesPath = resolve( __dirname, 'dist/cli/node_modules' );
+const studioPanelsRoot = resolve( __dirname, '../studio-panels' );
 
 export default mergeConfig(
 	baseConfig,
 	defineConfig( {
 		plugins: [
+			viteStaticCopy( {
+				targets: [
+					{
+						src: `${ studioPanelsRoot }/studio-panels.php`,
+						dest: 'studio-panels',
+					},
+					{
+						src: `${ studioPanelsRoot }/version.txt`,
+						dest: 'studio-panels',
+					},
+					{
+						src: `${ studioPanelsRoot }/build`,
+						dest: 'studio-panels',
+					},
+				],
+			} ),
 			...( existsSync( cliNodeModulesPath )
 				? [
 						viteStaticCopy( {

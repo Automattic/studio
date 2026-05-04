@@ -27,6 +27,7 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useBlueprintDeeplink } from 'src/modules/add-site/hooks/use-blueprint-deeplink';
 import { useRootSelector, useAppDispatch, useI18nLocale } from 'src/stores';
 import { formatRtkError } from 'src/stores/format-rtk-error';
+import { useGetGalleryBlueprints, GalleryBlueprint } from 'src/stores/gallery-blueprints-api';
 import { openAddSiteModal, closeAddSiteModal, selectIsAddSiteModalOpen } from 'src/stores/ui-slice';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { useGetBlueprints, Blueprint } from 'src/stores/wpcom-api';
@@ -103,8 +104,16 @@ interface NavigationContentProps {
 
 function NavigationContent( props: NavigationContentProps ) {
 	const { goTo, goBack, location } = useNavigator();
+	const { __ } = useI18n();
 	const { enableBlueprints } = useFeatureFlags();
 	const [ blueprintFileError, setBlueprintFileError ] = useState< string | undefined >();
+	const [ isSelectingGalleryBlueprint, setIsSelectingGalleryBlueprint ] = useState( false );
+	const [ gallerySelectionError, setGallerySelectionError ] = useState< string | undefined >();
+	const {
+		data: galleryBlueprints,
+		isLoading: isLoadingGallery,
+		error: galleryError,
+	} = useGetGalleryBlueprints();
 	const {
 		startOver,
 		blueprintsData,
@@ -296,6 +305,46 @@ function NavigationContent( props: NavigationContentProps ) {
 		[ handleBlueprintFormValues, goTo ]
 	);
 
+	const handleGalleryBlueprintSelect = useCallback(
+		async ( gallery: GalleryBlueprint ) => {
+			setIsSelectingGalleryBlueprint( true );
+			setGallerySelectionError( undefined );
+			try {
+				const response = await fetch( gallery.blueprintUrl );
+				if ( ! response.ok ) {
+					throw new Error( __( 'Failed to download blueprint.' ) );
+				}
+				const blueprintJson = await response.json();
+
+				const validation = await getIpcApi().validateBlueprint( blueprintJson );
+				if ( ! validation.valid ) {
+					setGallerySelectionError( validation.error || __( 'Invalid Blueprint format' ) );
+					return;
+				}
+
+				const blueprint = {
+					slug: `gallery:${ gallery.slug }`,
+					title: gallery.title,
+					excerpt: gallery.description,
+					image: gallery.screenshotUrl,
+					playground_url: gallery.playgroundUrl,
+					blueprint: blueprintJson,
+					filePath: gallery.blueprintUrl,
+				} as Blueprint;
+
+				handleBlueprintFormValues( blueprint );
+				goTo( '/new/create' );
+			} catch ( error ) {
+				setGallerySelectionError(
+					error instanceof Error ? error.message : __( 'Failed to load blueprint.' )
+				);
+			} finally {
+				setIsSelectingGalleryBlueprint( false );
+			}
+		},
+		[ __, goTo, handleBlueprintFormValues ]
+	);
+
 	// Build default values with blueprint preferred versions applied
 	const { data: wpVersions = [] } = useGetWordPressVersions( {
 		minimumVersion: MINIMUM_WORDPRESS_VERSION,
@@ -351,6 +400,20 @@ function NavigationContent( props: NavigationContentProps ) {
 						selectedBlueprint={ selectedBlueprint?.slug || null }
 						onBlueprintChange={ handleBlueprintChange }
 						blueprintFileError={ blueprintFileError }
+						uploadButton={
+							enableBlueprints && ! isLoadingBlueprints ? (
+								<UploadBlueprintButton
+									onFileBlueprintSelect={ handleFileBlueprintSelect }
+									onError={ setBlueprintFileError }
+								/>
+							) : undefined
+						}
+						galleryBlueprints={ galleryBlueprints ?? [] }
+						isLoadingGallery={ isLoadingGallery }
+						galleryErrorMessage={ galleryError ? __( 'Could not load blueprints.' ) : undefined }
+						onGalleryBlueprintSelect={ handleGalleryBlueprintSelect }
+						isSelectingGalleryBlueprint={ isSelectingGalleryBlueprint }
+						gallerySelectionError={ gallerySelectionError }
 					/>
 				</ScreenContent>
 			</Navigator.Screen>
@@ -407,14 +470,6 @@ function NavigationContent( props: NavigationContentProps ) {
 				canSubmitBlueprintDeeplink={ !! selectedBlueprint }
 				canSubmitPullRemote={ !! selectedRemoteSite }
 				canSubmitCreate={ canSubmit }
-				leftSlot={
-					location.path === '/new' && enableBlueprints && ! isLoadingBlueprints ? (
-						<UploadBlueprintButton
-							onFileBlueprintSelect={ handleFileBlueprintSelect }
-							onError={ setBlueprintFileError }
-						/>
-					) : undefined
-				}
 			/>
 		</>
 	);

@@ -20,6 +20,11 @@ export interface PendingQuestion {
 export interface QueuedPrompt {
 	id: string;
 	prompt: string;
+	displayMessage?: string;
+}
+
+export interface SendMessageOptions {
+	displayMessage?: string;
 }
 
 export interface LiveAgentEvents {
@@ -43,7 +48,7 @@ export interface LiveAgentEvents {
 	// Follow-up prompts the user staged while a turn was in flight. FIFO:
 	// the head auto-dispatches when the current run ends.
 	queuedPrompts: QueuedPrompt[];
-	sendMessage: ( prompt: string ) => Promise< void >;
+	sendMessage: ( prompt: string, options?: SendMessageOptions ) => Promise< void >;
 	interrupt: () => Promise< void >;
 	answerQuestion: ( question: string, answer: string ) => void;
 	removeQueuedPrompt: ( id: string ) => void;
@@ -313,16 +318,17 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 	// idle) and the queue auto-dispatch effect. Throws on error so the direct
 	// caller can restore the composer draft; the queue path catches and clears.
 	const startRun = useCallback(
-		async ( prompt: string ) => {
+		async ( prompt: string, options: SendMessageOptions = {} ) => {
 			if ( ! sessionId ) {
 				throw new Error( 'No session selected' );
 			}
+			const displayMessage = options.displayMessage ?? prompt;
 			dispatch( { type: 'error_set', message: null } );
 
 			const optimisticEvent: AiSessionEvent = {
 				type: 'user.message',
 				timestamp: nowIso(),
-				text: prompt,
+				text: displayMessage,
 				source: 'prompt',
 			};
 			updateCache( ( events ) => [ ...events, optimisticEvent ] );
@@ -330,7 +336,9 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 
 			try {
 				await interruptRequestRef.current;
-				const { runId: newRunId } = await connector.continueSession( sessionId, prompt );
+				const { runId: newRunId } = await connector.continueSession( sessionId, prompt, {
+					displayMessage,
+				} );
 				if ( interruptPendingStartRef.current ) {
 					interruptPendingStartRef.current = false;
 					ignoredRunIdsRef.current.add( newRunId );
@@ -374,7 +382,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		dispatchingQueuedRef.current = true;
 		void ( async () => {
 			try {
-				await startRun( next.prompt );
+				await startRun( next.prompt, { displayMessage: next.displayMessage } );
 				dispatch( { type: 'queue_shift' } );
 			} catch {
 				dispatch( { type: 'queue_clear' } );
@@ -385,15 +393,18 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 	}, [ phase, queuedPrompts, startRun ] );
 
 	const sendMessage = useCallback(
-		async ( prompt: string ) => {
+		async ( prompt: string, options: SendMessageOptions = {} ) => {
 			// Queue if anything is in flight, if we're waiting on question
 			// answers, or if earlier queued prompts haven't been dispatched yet
 			// (preserves FIFO order).
 			if ( phase !== 'idle' || pendingQuestions.length > 0 || queuedPrompts.length > 0 ) {
-				dispatch( { type: 'queue_append', prompt: { id: newId(), prompt } } );
+				dispatch( {
+					type: 'queue_append',
+					prompt: { id: newId(), prompt, displayMessage: options.displayMessage },
+				} );
 				return;
 			}
-			await startRun( prompt );
+			await startRun( prompt, options );
 		},
 		[ phase, pendingQuestions.length, queuedPrompts.length, startRun ]
 	);

@@ -117,6 +117,8 @@ import {
 	saveDefaultSiteDirectory,
 } from 'src/modules/user-settings/lib/ipc-handlers';
 import { linuxFindEditorPath } from 'src/modules/user-settings/lib/linux-editor-path';
+import { linuxFindTerminalPath } from 'src/modules/user-settings/lib/linux-terminal-path';
+import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { SiteServer, stopAllServers as triggerStopAllServers } from 'src/site-server';
 import { getSiteThumbnailPath } from 'src/storage/paths';
@@ -173,11 +175,13 @@ export {
 	getUserEditor,
 	getUserLocale,
 	getUserTerminal,
+	getWapuuScore,
 	previewColorScheme,
 	saveColorScheme,
 	saveUserEditor,
 	saveUserLocale,
 	saveUserTerminal,
+	saveWapuuScore,
 	showUserSettings,
 } from 'src/modules/user-settings/lib/ipc-handlers';
 export { getDefaultSiteDirectory, saveDefaultSiteDirectory };
@@ -309,12 +313,14 @@ function expandSkillCommandPrompt( prompt: string ): string {
 export async function continueAiSession(
 	event: IpcMainInvokeEvent,
 	sessionId: string,
-	prompt: string
+	prompt: string,
+	options: { displayMessage?: string } = {}
 ): Promise< { runId: string } > {
 	await reconcileSessionEnvironmentBeforeRun( sessionId );
 	return startAgentRun( {
 		sessionId,
 		prompt: expandSkillCommandPrompt( prompt ),
+		displayMessage: options.displayMessage,
 		webContents: event.sender,
 	} );
 }
@@ -611,13 +617,26 @@ function readProcessManagerLogs( siteId: string ): { stdout?: string[]; stderr?:
 export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< SiteDetails[] > {
 	const sites = SiteServer.getAllDetails();
 	const userData = await loadUserData();
-	for ( const site of sites ) {
-		const appdataSite = userData.siteMetadata[ site.id ];
-		if ( appdataSite ) {
+	await Promise.all(
+		sites.map( async ( site ) => {
+			const appdataSite = userData.siteMetadata[ site.id ];
+			if ( ! appdataSite ) {
+				return;
+			}
 			site.sortOrder = appdataSite.sortOrder;
 			site.themeDetails = appdataSite.themeDetails;
-		}
-	}
+			site.siteIconPath = appdataSite.siteIconPath;
+
+			// Read the icon file from disk and hand the renderer a data URL.
+			// Keeping the base64 out of the persisted appdata avoids bloating
+			// app.json with image bytes.
+			if ( appdataSite.siteIconPath ) {
+				site.siteIcon = await getImageData( appdataSite.siteIconPath );
+			} else if ( appdataSite.siteIconPath === null ) {
+				site.siteIcon = null;
+			}
+		} )
+	);
 
 	return sites;
 }
@@ -689,6 +708,7 @@ export async function createSite(
 		// If the site is running after creation, fetch theme details and update thumbnail
 		if ( server.details.running ) {
 			void loadThemeDetails( event, server.details.id );
+			void loadSiteIcon( event, server.details.id );
 		}
 
 		return server.details;
@@ -873,6 +893,7 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 
 	if ( server.details.running ) {
 		void loadThemeDetails( event, id );
+		void loadSiteIcon( event, id );
 	}
 
 	// Keep managed instruction files (STUDIO.md, CLAUDE.md) up-to-date
@@ -1263,6 +1284,29 @@ export async function loadThemeDetails(
 	return themeDetails;
 }
 
+// Mirror of loadThemeDetails for the Site Icon: fetch from the running
+// site's mu-plugin command and persist the resolved path so the renderer
+// can read it back from appdata via getSiteDetails.
+export async function loadSiteIcon(
+	_event: IpcMainInvokeEvent,
+	id: string
+): Promise< StartedSiteDetails[ 'siteIconPath' ] > {
+	const server = SiteServer.get( id );
+	if ( ! server ) {
+		throw new Error( 'Site not found.' );
+	}
+
+	const oldIconPath = server.details.siteIconPath;
+	const iconPath = await server.getSiteIcon();
+	const hasIconChanged = iconPath !== oldIconPath;
+
+	if ( hasIconChanged ) {
+		await server.persistSiteIcon();
+	}
+
+	return iconPath;
+}
+
 export async function getOnboardingData( _event: IpcMainInvokeEvent ): Promise< boolean > {
 	const userData = await loadUserData();
 	const { onboardingCompleted = false } = userData;
@@ -1367,7 +1411,46 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 			env,
 		} );
 	} else if ( platform === 'linux' ) {
-		return promiseExec( `gnome-terminal --working-directory=${ targetPath }` );
+		const escapedPath = targetPath.replace( /\\/g, '\\\\' ).replace( /"/g, '\\"' );
+
+		// Warp on Linux currently opens at its configured "new session"
+		// directory regardless of how it is launched — it ignores
+		// `--working-directory`, the `path=` URL scheme query, and the
+		// spawn cwd. Tracked upstream in warpdotdev/Warp#4974 and #6357.
+		// Best effort: launch with `cwd` set so we benefit if/when upstream
+		// adds support, and so a fresh launch (no daemon yet) at least has
+		// a chance of inheriting it.
+		const launchers: Record<
+			SupportedTerminal,
+			( ( binary: string ) => { command: string; options?: ExecOptions } ) | null
+		> = {
+			terminal: ( binary ) => ( {
+				command: `"${ binary }" --working-directory="${ escapedPath }"`,
+			} ),
+			warp: ( binary ) => ( { command: `"${ binary }"`, options: { cwd: targetPath } } ),
+			ghostty: ( binary ) => ( {
+				command: `"${ binary }" --working-directory="${ escapedPath }"`,
+			} ),
+			iterm: null,
+		};
+
+		const order: SupportedTerminal[] = [ preferredTerminal, 'terminal' ];
+		for ( const candidate of order ) {
+			const launcher = launchers[ candidate ];
+			if ( ! launcher ) {
+				continue;
+			}
+			const binary = await linuxFindTerminalPath( candidate );
+			if ( ! binary ) {
+				continue;
+			}
+			const { command, options } = launcher( binary );
+			return promiseExec( command, options );
+		}
+
+		// Last-resort fallback that preserves prior behavior even if no
+		// supported terminal binary is on $PATH.
+		return promiseExec( `gnome-terminal --working-directory="${ escapedPath }"` );
 	} else {
 		console.error( 'Unsupported platform:', platform );
 		return;
@@ -1884,88 +1967,6 @@ export async function checkSyncBackupSize(
 export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boolean > {
 	const window = await getMainWindow();
 	return window.isFullScreen();
-}
-
-function getSitePreviewBaseUrl( siteId: string ): { url: string; allowedOrigins: string[] } {
-	const server = SiteServer.get( siteId );
-	if ( ! server || ! server.details.running ) {
-		throw new Error( 'Cannot create preview for a site that is not running.' );
-	}
-
-	const details = server.details;
-	const baseUrl = details.customDomain
-		? `${ details.enableHttps ? 'https' : 'http' }://${ details.customDomain }`
-		: `http://localhost:${ details.port }`;
-
-	return {
-		url: baseUrl,
-		allowedOrigins: [ new URL( baseUrl ).origin ],
-	};
-}
-
-function resolveSitePreviewUrl( siteId: string, pathname: string = '/' ): string {
-	const { url: baseUrl, allowedOrigins } = getSitePreviewBaseUrl( siteId );
-	const resolvedUrl = new URL( pathname || '/', baseUrl );
-	if ( ! allowedOrigins.includes( resolvedUrl.origin ) ) {
-		throw new Error( 'Preview navigation blocked: path resolves outside the site origin.' );
-	}
-	return resolvedUrl.toString();
-}
-
-export async function createPreviewView(
-	event: IpcMainInvokeEvent,
-	options: {
-		siteId: string;
-		path?: string;
-		bounds: { x: number; y: number; width: number; height: number };
-		enableInspector?: boolean;
-		borderRadius?: number;
-	}
-): Promise< { viewId: string } > {
-	const { PreviewView, registerPreviewView, disposePreviewViewsForOwner } = await import(
-		'src/preview-view'
-	);
-	const window = await getMainWindow();
-	const { allowedOrigins } = getSitePreviewBaseUrl( options.siteId );
-	const view = new PreviewView( window, {
-		...options,
-		url: resolveSitePreviewUrl( options.siteId, options.path ),
-		allowedOrigins,
-		ownerWebContentsId: event.sender.id,
-	} );
-	registerPreviewView( view );
-	event.sender.once( 'destroyed', () => disposePreviewViewsForOwner( event.sender.id ) );
-	return { viewId: view.id };
-}
-
-export async function setPreviewViewBounds(
-	event: IpcMainInvokeEvent,
-	viewId: string,
-	bounds: { x: number; y: number; width: number; height: number }
-): Promise< void > {
-	const { getPreviewView } = await import( 'src/preview-view' );
-	getPreviewView( viewId, event.sender.id )?.setBounds( bounds );
-}
-
-export async function navigatePreviewView(
-	event: IpcMainInvokeEvent,
-	viewId: string,
-	path: string
-): Promise< void > {
-	const { getPreviewView } = await import( 'src/preview-view' );
-	const view = getPreviewView( viewId, event.sender.id );
-	if ( ! view ) return;
-	await view.loadURL( resolveSitePreviewUrl( view.siteId, path ) );
-}
-
-export async function destroyPreviewView(
-	event: IpcMainInvokeEvent,
-	viewId: string
-): Promise< void > {
-	const { disposePreviewView, getPreviewView } = await import( 'src/preview-view' );
-	if ( getPreviewView( viewId, event.sender.id ) ) {
-		disposePreviewView( viewId );
-	}
 }
 
 export async function getAllCustomDomains(): Promise< string[] > {

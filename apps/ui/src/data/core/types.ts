@@ -48,6 +48,7 @@ export interface SiteDetails {
 		slug: string;
 		isBlockTheme: boolean;
 	};
+	siteIcon?: string | null;
 }
 
 export interface AuthUser {
@@ -191,7 +192,11 @@ export interface Connector {
 	// Continue an existing session by sending a new prompt. Returns a `runId`
 	// that identifies the in-flight agent run; live events for that run stream
 	// through `onAgentEvent`.
-	continueSession( sessionId: string, prompt: string ): Promise< { runId: string } >;
+	continueSession(
+		sessionId: string,
+		prompt: string,
+		options?: { displayMessage?: string }
+	): Promise< { runId: string } >;
 	// Persist a UI-driven model override for the session. The CLI picks this up
 	// on the next turn; the change survives reloads because it's written to the
 	// session JSONL.
@@ -228,13 +233,6 @@ export interface Connector {
 	// External links
 	openExternalUrl( url: string ): Promise< void >;
 
-	// Site preview rendered as a native `WebContentsView` overlay. The
-	// renderer reports a placeholder div's bounds via `setBounds`, navigates
-	// by site-relative path, and subscribes to inspector events through
-	// `onEvent`. Connectors that don't have an Electron backing should expose
-	// `null` here; the renderer falls back to a plain `<iframe>`.
-	previewView: PreviewViewConnector | null;
-
 	// Window state (macOS fullscreen hides traffic lights, so the UI needs
 	// to reclaim the space we normally leave for them).
 	isFullscreen(): Promise< boolean >;
@@ -243,34 +241,6 @@ export interface Connector {
 	// Fires whenever a site is created, updated, started, stopped, or deleted.
 	// Consumers typically invalidate cached site data in response.
 	onSiteEvent( listener: () => void ): () => void;
-}
-
-export interface PreviewViewBounds {
-	x: number;
-	y: number;
-	width: number;
-	height: number;
-}
-
-export interface PreviewViewEvent {
-	viewId: string;
-	payload: unknown;
-}
-
-export interface PreviewViewConnector {
-	create( options: {
-		siteId: string;
-		path?: string;
-		bounds: PreviewViewBounds;
-		enableInspector?: boolean;
-		// CSS pixels — matches the React container's `border-radius` so the
-		// native overlay's corners line up with its frame.
-		borderRadius?: number;
-	} ): Promise< { viewId: string } >;
-	setBounds( viewId: string, bounds: PreviewViewBounds ): Promise< void >;
-	navigate( viewId: string, path: string ): Promise< void >;
-	destroy( viewId: string ): Promise< void >;
-	onEvent( listener: ( event: PreviewViewEvent ) => void ): () => void;
 }
 
 export type ColorScheme = 'system' | 'light' | 'dark';

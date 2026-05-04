@@ -13,15 +13,16 @@ import {
 	type Ref,
 } from 'react';
 import {
-	Composer,
-	ComposerSkeleton,
-	type ComposerHandle,
-} from '@/components/session-view/composer';
+	formatAnnotationsAsPrompt,
+	formatAnnotationsSubmittedMessage,
+} from '@/components/session-view/annotations';
+import { Composer, ComposerSkeleton } from '@/components/session-view/composer';
 import { pickLiveSite } from '@/components/session-view/composer/environment-pill';
 import { Conversation } from '@/components/session-view/conversation';
 import { EmptyBackground } from '@/components/session-view/empty-background';
 import { QueuedPrompts } from '@/components/session-view/queued-prompts';
 import { SiteDropdown } from '@/components/site-dropdown';
+import { SiteIcon } from '@/components/site-icon';
 import { SitePreview } from '@/components/site-preview';
 import { type Annotation } from '@/components/site-preview/types';
 import { useConnector } from '@/data/core';
@@ -72,9 +73,16 @@ function SessionHeader( {
 		<div className={ styles.header }>
 			{ toggleSpacerClass ? <span className={ toggleSpacerClass } aria-hidden="true" /> : null }
 			{ site ? (
-				<SiteDropdown site={ site } activeEnvironment={ effectiveEnvironment } />
+				<SiteDropdown
+					site={ site }
+					activeEnvironment={ effectiveEnvironment }
+					showSiteIcon={ sidebarCollapsed }
+				/>
 			) : (
 				<>
+					{ sidebarCollapsed ? (
+						<SiteIcon className={ styles.headerSiteIcon } seed={ siteName } />
+					) : null }
 					<span className={ styles.headerSite }>{ siteName }</span>
 					<span className={ styles.headerDot } aria-hidden="true" />
 					<span className={ styles.headerEnv }>
@@ -106,58 +114,6 @@ interface SessionFrameProps {
 	preview?: ReactNode;
 	scrollRef?: Ref< HTMLDivElement >;
 	children?: ReactNode;
-}
-
-/**
- * Renders the annotation batch as a markdown prompt the user can review and
- * (optionally) edit before sending. Annotations are grouped by the page they
- * were taken on so the agent knows which URL to load before acting on each
- * element. Within a group, each item carries the element's tag, nearby text
- * and CSS selector — enough for the agent to locate the target without
- * re-running the inspector.
- */
-function formatAnnotationsAsPrompt( annotations: Annotation[] ): string {
-	const intro =
-		annotations.length === 1
-			? __( 'Apply this change from the site preview:' )
-			: // translators: %d is the number of annotations.
-			  __( 'Apply these %d changes from the site preview:' ).replace(
-					'%d',
-					String( annotations.length )
-			  );
-
-	// Group while preserving the order in which the user added the
-	// annotations, then merge consecutive runs that share a page so a
-	// chained sequence reads as a single section.
-	const groups: { page: string; items: Annotation[] }[] = [];
-	for ( const ann of annotations ) {
-		const page = ann.url || ann.pathname || '/';
-		const last = groups[ groups.length - 1 ];
-		if ( last && last.page === page ) {
-			last.items.push( ann );
-		} else {
-			groups.push( { page, items: [ ann ] } );
-		}
-	}
-
-	const lines: string[] = [ intro, '' ];
-	let counter = 1;
-	for ( const group of groups ) {
-		// translators: %s is the page URL or pathname.
-		lines.push( __( 'On %s:' ).replace( '%s', group.page ) );
-		for ( const ann of group.items ) {
-			const tag = ann.tag ?? 'element';
-			const nearby = ann.nearbyText ? ` — "${ ann.nearbyText.slice( 0, 80 ) }"` : '';
-			const selector = ann.selector ? `\n   Selector: \`${ ann.selector }\`` : '';
-			lines.push(
-				`${ counter }. \`<${ tag }>\`${ nearby }\n   Comment: ${ ann.comment }${ selector }`
-			);
-			counter += 1;
-		}
-		lines.push( '' );
-	}
-
-	return lines.join( '\n' ).trimEnd();
 }
 
 function SessionFrame( { header, composer, preview, scrollRef, children }: SessionFrameProps ) {
@@ -236,15 +192,19 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 		[ data?.events ]
 	);
 	const scrollRef = useRef< HTMLDivElement >( null );
-	const composerRef = useRef< ComposerHandle | null >( null );
 	const [ previewOpen, setPreviewOpen ] = useState( false );
 	const canTogglePreview = !! ownerSite && effectiveEnvironment === 'local';
 	const showPreview = previewOpen && canTogglePreview;
 
-	const handleAnnotationsDone = useCallback( ( annotations: Annotation[] ) => {
-		if ( annotations.length === 0 ) return;
-		composerRef.current?.appendDraft( formatAnnotationsAsPrompt( annotations ) );
-	}, [] );
+	const handleAnnotationsDone = useCallback(
+		( annotations: Annotation[] ) => {
+			if ( annotations.length === 0 ) return;
+			void sendMessage( formatAnnotationsAsPrompt( annotations ), {
+				displayMessage: formatAnnotationsSubmittedMessage( annotations.length ),
+			} );
+		},
+		[ sendMessage ]
+	);
 
 	useLayoutEffect( () => {
 		const node = scrollRef.current;
@@ -301,7 +261,6 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 				<div className={ styles.column }>
 					<QueuedPrompts prompts={ queuedPrompts } onRemove={ removeQueuedPrompt } />
 					<Composer
-						ref={ composerRef }
 						busy={ composerBusy }
 						isInterrupting={ isInterrupting }
 						error={ runError }

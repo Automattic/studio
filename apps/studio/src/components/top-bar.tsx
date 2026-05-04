@@ -10,6 +10,7 @@ import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { useI18nLocale } from 'src/stores';
+
 interface TopBarProps {
 	onToggleSidebar: () => void;
 }
@@ -105,10 +106,11 @@ function Authentication() {
 
 function SettingsButton() {
 	const { __ } = useI18n();
+
 	return (
 		<Tooltip text={ __( 'Settings' ) } placement="bottom-end">
 			<Button
-				onClick={ () => getIpcApi().showUserSettings( 'general' ) }
+				onClick={ () => void getIpcApi().showUserSettings( 'general' ) }
 				aria-label={ __( 'Open settings' ) }
 				variant="icon"
 				className="!p-1.5 !rounded-lg"

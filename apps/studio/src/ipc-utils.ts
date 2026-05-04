@@ -63,10 +63,6 @@ export interface IpcEvents {
 	'beta-features-updated': [ void ];
 	'ai-agent-event': [ AgentRunEvent ];
 	'studio-code-event': [ { siteId: string; event: StudioCodeEvent } ];
-	// Inspector events forwarded from a `WebContentsView`-backed site preview.
-	// Renderers subscribe through `ipcListener` and dispatch to the
-	// `viewId`-matching consumer (today: `SitePreview`'s annotate flow).
-	'preview-view:event': [ { viewId: string; payload: unknown } ];
 }
 
 export async function sendIpcEventToRenderer< T extends keyof IpcEvents >(

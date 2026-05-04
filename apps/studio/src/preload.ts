@@ -97,6 +97,7 @@ const api: IpcApi = {
 	showItemInFolder: ( path ) => ipcRendererSend( 'showItemInFolder', path ),
 	loadThemeDetails: ( id, emitLoadingEvent = true ) =>
 		ipcRendererInvoke( 'loadThemeDetails', id, emitLoadingEvent ),
+	loadSiteIcon: ( id ) => ipcRendererInvoke( 'loadSiteIcon', id ),
 	getThumbnailData: ( id ) => ipcRendererInvoke( 'getThumbnailData', id ),
 	getInstalledAppsAndTerminals: () => ipcRendererInvoke( 'getInstalledAppsAndTerminals' ),
 	importSite: ( siteId, importArchivePath, options ) =>
@@ -154,6 +155,8 @@ const api: IpcApi = {
 	previewColorScheme: ( colorScheme ) => ipcRendererInvoke( 'previewColorScheme', colorScheme ),
 	saveColorScheme: ( colorScheme ) => ipcRendererInvoke( 'saveColorScheme', colorScheme ),
 	getColorScheme: () => ipcRendererInvoke( 'getColorScheme' ),
+	saveWapuuScore: ( score ) => ipcRendererInvoke( 'saveWapuuScore', score ),
+	getWapuuScore: () => ipcRendererInvoke( 'getWapuuScore' ),
 	getUserEditor: () => ipcRendererInvoke( 'getUserEditor' ),
 	saveUserEditor: ( editor ) => ipcRendererInvoke( 'saveUserEditor', editor ),
 	comparePaths: ( path1, path2 ) => ipcRendererInvoke( 'comparePaths', path1, path2 ),
@@ -209,8 +212,8 @@ const api: IpcApi = {
 	deleteAiSession: ( sessionIdOrPrefix ) =>
 		ipcRendererInvoke( 'deleteAiSession', sessionIdOrPrefix ),
 	createAiSession: ( siteId ) => ipcRendererInvoke( 'createAiSession', siteId ),
-	continueAiSession: ( sessionId, prompt ) =>
-		ipcRendererInvoke( 'continueAiSession', sessionId, prompt ),
+	continueAiSession: ( sessionId, prompt, options ) =>
+		ipcRendererInvoke( 'continueAiSession', sessionId, prompt, options ),
 	setAiSessionModel: ( sessionId, model ) =>
 		ipcRendererInvoke( 'setAiSessionModel', sessionId, model ),
 	interruptAiAgentRun: ( runId ) => ipcRendererInvoke( 'interruptAiAgentRun', runId ),
@@ -218,11 +221,6 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'answerAiAgentQuestion', runId, answers ),
 	setSessionEnvironment: ( sessionId, environment ) =>
 		ipcRendererInvoke( 'setSessionEnvironment', sessionId, environment ),
-	createPreviewView: ( options ) => ipcRendererInvoke( 'createPreviewView', options ),
-	setPreviewViewBounds: ( viewId, bounds ) =>
-		ipcRendererInvoke( 'setPreviewViewBounds', viewId, bounds ),
-	navigatePreviewView: ( viewId, path ) => ipcRendererInvoke( 'navigatePreviewView', viewId, path ),
-	destroyPreviewView: ( viewId ) => ipcRendererInvoke( 'destroyPreviewView', viewId ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

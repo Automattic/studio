@@ -3,13 +3,18 @@ import { external } from '@wordpress/icons';
 import { Button, IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useEffect, useRef, useState } from 'react';
+import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { useConnector } from '@/data/core';
 import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
+import { useResizablePanel } from '@/hooks/use-resizable-panel';
 import { getSiteUrl } from '@/lib/get-site-url';
 import { playIcon } from '@/lib/icons';
+import { PREVIEW_PANEL_CONFIG, PREVIEW_PANEL_STORAGE_KEY } from '@/lib/resizable-panels';
+import { INSPECTOR_BRIDGE_PREFIX, INSPECTOR_PAGE_SCRIPT } from './inspector-script';
 import styles from './style.module.css';
 import type { Annotation } from './types';
 import type { SiteDetails } from '@/data/core';
+import type { CSSProperties } from 'react';
 
 export type { Annotation } from './types';
 
@@ -19,8 +24,8 @@ interface SitePreviewProps {
 	// session and reacts to `preview.command` events emitted by the agent's
 	// preview_navigate / preview_reload tools.
 	sessionId?: string;
-	// Called when the user clicks "Done" in the inspector toolbar (rendered
-	// inside the WebContentsView). Receives the full annotation payload.
+	// Called when the user clicks "Submit" in the inspector toolbar. Receives
+	// the full annotation payload assembled inside the webview's guest page.
 	onAnnotationsDone?: ( annotations: Annotation[] ) => void;
 }
 
@@ -28,6 +33,26 @@ interface InspectorEvent {
 	type: 'done';
 	annotations?: Annotation[];
 }
+
+// Electron's `<webview>` is a custom element with non-standard methods. Type
+// just the surface we use so this file compiles without an `electron` dep.
+interface WebviewTag extends HTMLElement {
+	loadURL( url: string ): Promise< void >;
+	executeJavaScript( code: string, userGesture?: boolean ): Promise< unknown >;
+}
+
+interface WebviewConsoleEvent extends Event {
+	level: number;
+	message: string;
+}
+
+// Best-effort UA sniff: webview is only meaningful inside Electron. Outside
+// (e.g. running apps/ui standalone in a regular browser) the tag is inert, so
+// we render a plain iframe instead and skip the inspector.
+const isElectron = (): boolean => {
+	if ( typeof navigator === 'undefined' ) return false;
+	return /\bElectron\//.test( navigator.userAgent );
+};
 
 export function SitePreview( { site, sessionId, onAnnotationsDone }: SitePreviewProps ) {
 	const connector = useConnector();
@@ -38,6 +63,14 @@ export function SitePreview( { site, sessionId, onAnnotationsDone }: SitePreview
 	const [ currentPath, setCurrentPath ] = useState( '/' );
 	const [ reloadNonce, setReloadNonce ] = useState( 0 );
 	const fullUrl = `${ siteUrl }${ currentPath }`;
+	const previewResize = useResizablePanel( {
+		config: PREVIEW_PANEL_CONFIG,
+		edge: 'left',
+		storageKey: PREVIEW_PANEL_STORAGE_KEY,
+	} );
+	const previewStyle = {
+		'--site-preview-width': `${ previewResize.width }px`,
+	} as CSSProperties;
 
 	useEffect( () => {
 		if ( ! sessionId ) return;
@@ -53,7 +86,17 @@ export function SitePreview( { site, sessionId, onAnnotationsDone }: SitePreview
 	}, [ connector, sessionId ] );
 
 	return (
-		<aside className={ styles.root } aria-label={ __( 'Site preview' ) }>
+		<aside className={ styles.root } style={ previewStyle } aria-label={ __( 'Site preview' ) }>
+			<ResizeHandle
+				className={ styles.resizeHandle }
+				label={ __( 'Resize site preview' ) }
+				minWidth={ previewResize.minWidth }
+				maxWidth={ previewResize.maxWidth }
+				width={ previewResize.width }
+				isResizing={ previewResize.isResizing }
+				onResizeStart={ previewResize.handleResizeStart }
+				onKeyDown={ previewResize.handleKeyDown }
+			/>
 			<div className={ styles.header }>
 				<div className={ styles.trafficLights } aria-hidden="true">
 					<span className={ clsx( styles.trafficLight, styles.trafficLightActive ) } />
@@ -74,13 +117,11 @@ export function SitePreview( { site, sessionId, onAnnotationsDone }: SitePreview
 			</div>
 			<div className={ styles.body }>
 				{ canPreview ? (
-					connector.previewView ? (
-						<WebContentsViewSurface
+					isElectron() ? (
+						<WebviewSurface
 							key={ site.id }
-							siteId={ site.id }
-							path={ currentPath }
+							url={ fullUrl }
 							reloadNonce={ reloadNonce }
-							previewView={ connector.previewView }
 							onAnnotationsDone={ onAnnotationsDone }
 						/>
 					) : (
@@ -110,155 +151,97 @@ export function SitePreview( { site, sessionId, onAnnotationsDone }: SitePreview
 					</div>
 				) }
 			</div>
+			{ previewResize.isResizing ? <ResizeOverlay /> : null }
 		</aside>
 	);
 }
 
-interface WebContentsViewSurfaceProps {
-	siteId: string;
-	path: string;
+interface WebviewSurfaceProps {
+	url: string;
 	reloadNonce: number;
-	previewView: NonNullable< ReturnType< typeof useConnector >[ 'previewView' ] >;
 	onAnnotationsDone?: ( annotations: Annotation[] ) => void;
 }
 
 /**
- * Mounts a Studio `WebContentsView` over the placeholder div, keeps its
- * bounds in sync with the placeholder, and tears it down on unmount.
+ * Renders the site preview as an Electron `<webview>` tag.
  *
- * The view is a native overlay — it always paints on top of HTML in the
- * same window — so the inspector's toolbar UI lives inside the view's
- * page rather than as a React overlay.
+ * The annotation inspector is injected into the guest page via
+ * `executeJavaScript()` after each load. It reports completed annotation
+ * batches by calling `console.log(BRIDGE_PREFIX + JSON.stringify(...))`,
+ * which we receive through the webview's `console-message` event.
  */
-function WebContentsViewSurface( {
-	siteId,
-	path,
-	reloadNonce,
-	previewView,
-	onAnnotationsDone,
-}: WebContentsViewSurfaceProps ) {
-	const placeholderRef = useRef< HTMLDivElement | null >( null );
-	const viewIdRef = useRef< string | null >( null );
-	const latestNavigationRef = useRef( { path, reloadNonce } );
+function WebviewSurface( { url, reloadNonce, onAnnotationsDone }: WebviewSurfaceProps ) {
+	const ref = useRef< HTMLElement | null >( null );
 	const [ ready, setReady ] = useState( false );
 	const onAnnotationsDoneRef = useRef( onAnnotationsDone );
 	useEffect( () => {
 		onAnnotationsDoneRef.current = onAnnotationsDone;
 	}, [ onAnnotationsDone ] );
+
+	// The initial url+nonce are loaded by the `src` attribute on the
+	// `<webview>` itself; calling `loadURL` before `dom-ready` throws
+	// "WebView must be attached to the DOM and the dom-ready event emitted".
+	// We capture the mount-time values once and skip the navigation effect
+	// while it still matches them.
+	const [ initialNav ] = useState( () => ( { url, reloadNonce } ) );
+
+	// Wire DOM events on the underlying custom element. We use refs + native
+	// event listeners because React doesn't recognise `<webview>`'s
+	// non-standard events (`dom-ready`, `console-message`).
 	useEffect( () => {
-		latestNavigationRef.current = { path, reloadNonce };
-	}, [ path, reloadNonce ] );
+		const webview = ref.current as WebviewTag | null;
+		if ( ! webview ) return;
 
-	// Lifecycle: create on mount, sync bounds, destroy on unmount. Navigation
-	// happens through a separate typed command so the main process keeps
-	// ownership of URL resolution and validation.
-	useEffect( () => {
-		const node = placeholderRef.current;
-		if ( ! node ) return;
-
-		let cancelled = false;
-		let resizeObserver: ResizeObserver | null = null;
-		let scrollListener: ( () => void ) | null = null;
-		const initialBounds = node.getBoundingClientRect();
-		// WebContentsView ignores parent CSS clipping, so read the host
-		// container's border-radius and pass it down — the native view
-		// applies it via setBorderRadius. Falls back to 0 if unparseable.
-		const containerRadius = parseFloat(
-			window.getComputedStyle( node.closest( 'aside' ) ?? node ).borderRadius || '0'
-		);
-		const initialNavigation = latestNavigationRef.current;
-
-		void previewView
-			.create( {
-				siteId,
-				path: initialNavigation.path,
-				bounds: {
-					x: initialBounds.left,
-					y: initialBounds.top,
-					width: initialBounds.width,
-					height: initialBounds.height,
-				},
-				enableInspector: true,
-				borderRadius: Number.isFinite( containerRadius ) ? containerRadius : 0,
-			} )
-			.then( ( { viewId } ) => {
-				if ( cancelled ) {
-					void previewView.destroy( viewId );
-					return;
-				}
-				viewIdRef.current = viewId;
-				setReady( true );
-				const latestNavigation = latestNavigationRef.current;
-				if (
-					latestNavigation.path !== initialNavigation.path ||
-					latestNavigation.reloadNonce !== initialNavigation.reloadNonce
-				) {
-					void previewView.navigate( viewId, latestNavigation.path );
-				}
-
-				const syncBounds = () => {
-					if ( ! placeholderRef.current ) return;
-					const rect = placeholderRef.current.getBoundingClientRect();
-					void previewView.setBounds( viewId, {
-						x: rect.left,
-						y: rect.top,
-						width: rect.width,
-						height: rect.height,
-					} );
-				};
-
-				// `ResizeObserver` covers placeholder size changes (window
-				// resize, sidebar collapse, …). Window-level scroll covers
-				// the case where the placeholder moves without resizing.
-				resizeObserver = new ResizeObserver( syncBounds );
-				resizeObserver.observe( node );
-				scrollListener = syncBounds;
-				window.addEventListener( 'scroll', scrollListener, true );
-				window.addEventListener( 'resize', scrollListener );
-			} )
-			.catch( () => {
-				if ( ! cancelled ) {
-					setReady( true );
-				}
+		const handleDomReady = () => {
+			setReady( true );
+			webview.executeJavaScript( INSPECTOR_PAGE_SCRIPT, false ).catch( () => {
+				// Transient injection failures (e.g. frame swapped mid-eval)
+				// are recoverable on the next dom-ready.
 			} );
-
-		return () => {
-			cancelled = true;
-			resizeObserver?.disconnect();
-			if ( scrollListener ) {
-				window.removeEventListener( 'scroll', scrollListener, true );
-				window.removeEventListener( 'resize', scrollListener );
-			}
-			const viewId = viewIdRef.current;
-			viewIdRef.current = null;
-			if ( viewId ) {
-				void previewView.destroy( viewId );
-			}
 		};
-	}, [ previewView, siteId ] );
 
-	useEffect( () => {
-		const viewId = viewIdRef.current;
-		if ( ! viewId ) return;
-		void previewView.navigate( viewId, path );
-	}, [ path, previewView, reloadNonce ] );
-
-	// Subscribe once for inspector events; route by viewId so the listener
-	// survives re-mounts under the same connector.
-	useEffect( () => {
-		return previewView.onEvent( ( { viewId, payload } ) => {
-			if ( viewId !== viewIdRef.current ) return;
-			const event = payload as InspectorEvent | null;
-			if ( ! event ) return;
-			if ( event.type === 'done' && event.annotations ) {
-				onAnnotationsDoneRef.current?.( event.annotations );
+		const handleConsoleMessage = ( event: Event ) => {
+			const consoleEvent = event as WebviewConsoleEvent;
+			if ( typeof consoleEvent.message !== 'string' ) return;
+			if ( ! consoleEvent.message.startsWith( INSPECTOR_BRIDGE_PREFIX ) ) return;
+			let parsed: InspectorEvent | null = null;
+			try {
+				parsed = JSON.parse( consoleEvent.message.slice( INSPECTOR_BRIDGE_PREFIX.length ) );
+			} catch {
+				return;
 			}
-		} );
-	}, [ previewView ] );
+			if ( ! parsed || parsed.type !== 'done' || ! parsed.annotations ) return;
+			onAnnotationsDoneRef.current?.( parsed.annotations );
+		};
+
+		webview.addEventListener( 'dom-ready', handleDomReady );
+		webview.addEventListener( 'console-message', handleConsoleMessage );
+		return () => {
+			webview.removeEventListener( 'dom-ready', handleDomReady );
+			webview.removeEventListener( 'console-message', handleConsoleMessage );
+		};
+	}, [] );
+
+	// Navigation effect — gated on `ready` so the first call happens after
+	// `dom-ready`. If url/nonce changed while loading, the latest values are
+	// flushed when `ready` flips to true.
+	useEffect( () => {
+		if ( ! ready ) return;
+		if ( url === initialNav.url && reloadNonce === initialNav.reloadNonce ) return;
+		const webview = ref.current as WebviewTag | null;
+		if ( ! webview ) return;
+		webview.loadURL( url ).catch( () => undefined );
+	}, [ url, reloadNonce, ready, initialNav.url, initialNav.reloadNonce ] );
 
 	return (
 		<>
-			<div ref={ placeholderRef } className={ styles.iframe } />
+			<webview
+				ref={ ref }
+				src={ initialNav.url }
+				className={ styles.iframe }
+				allowpopups="true"
+				partition="persist:site-preview"
+			/>
 			{ ! ready ? (
 				<div className={ styles.spinnerOverlay } aria-hidden="true">
 					<span className={ styles.spinner } />

@@ -36,6 +36,34 @@
 .siteToggle {
 	max-width: 100%;
 	height: auto;
+	gap: 0;
+}
+
+.siteIconSlot {
+	display: inline-grid;
+	place-items: center;
+	flex-shrink: 0;
+	inline-size: 0;
+	margin-inline-end: 0;
+	opacity: 0;
+	transform: translateX(-4px) scale(0.75);
+	transform-origin: left center;
+	overflow: hidden;
+	transition: inline-size 150ms ease, margin-inline-end 150ms ease, opacity 150ms ease,
+		transform 150ms ease;
+}
+
+.siteActive .siteIconSlot {
+	inline-size: 16px;
+	margin-inline-end: var(--wpds-dimension-padding-xs);
+	opacity: 1;
+	transform: translateX(0) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.siteIconSlot {
+		transition: none;
+	}
 }
 
 .siteName {
@@ -47,6 +75,27 @@
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	max-width: 100%;
+}
+
+.siteChevron {
+	display: grid;
+	place-items: center;
+	flex-shrink: 0;
+	width: 16px;
+	height: 16px;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	opacity: 0;
+	transition: opacity 100ms ease, color 100ms ease;
+}
+
+.siteToggle:hover .siteChevron,
+.siteToggle:focus-visible .siteChevron {
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.siteHeader:hover .siteChevron,
+.siteHeader:focus-within .siteChevron {
+	opacity: 1;
 }
 
 .siteToggle:hover .siteName {
@@ -88,7 +137,23 @@
 	margin: 0;
 }
 
+.sessionListFrame {
+	display: grid;
+	grid-template-rows: 0fr;
+	opacity: 0;
+	pointer-events: none;
+	transition: grid-template-rows 160ms ease, opacity 120ms ease;
+}
+
+.sessionListFrameOpen {
+	grid-template-rows: 1fr;
+	opacity: 1;
+	pointer-events: auto;
+}
+
 .sessionList {
+	overflow: hidden;
+	min-height: 0;
 	list-style: none;
 	padding: 0;
 	margin: 0 0 var(--wpds-dimension-padding-sm);

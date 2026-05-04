@@ -13,6 +13,7 @@ export interface WindowBounds {
 
 export interface AppdataSiteData {
 	themeDetails?: SiteDetails[ 'themeDetails' ];
+	siteIconPath?: SiteDetails[ 'siteIconPath' ];
 	sortOrder?: number;
 }
 
@@ -34,6 +35,7 @@ export interface UserData {
 	stopSitesOnQuit?: boolean;
 	defaultSiteDirectory?: string;
 	cliAutoInstalled?: boolean;
+	wapuuScore?: number;
 }
 
 export interface PromptWindowsSpeedUpResult {

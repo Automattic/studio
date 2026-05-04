@@ -78,6 +78,9 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		webPreferences: {
 			preload: path.join( __dirname, '../preload/preload.js' ),
 			webSecurity: process.env.NODE_ENV !== 'development',
+			// Enables the `<webview>` tag used by the site-preview surface to
+			// host running WordPress sites.
+			webviewTag: true,
 		},
 		...getOSWindowOptions(),
 	};

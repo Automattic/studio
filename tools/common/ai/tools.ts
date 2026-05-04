@@ -20,6 +20,7 @@ export function getToolDisplayName( name: string ): string {
 		mcp__studio__wp_cli: __( 'Run WP-CLI' ),
 		mcp__studio__validate_blocks: __( 'Validate blocks' ),
 		mcp__studio__take_screenshot: __( 'Take screenshot' ),
+		mcp__studio__share_screenshot: __( 'Share screenshot' ),
 		mcp__studio__preview_navigate: __( 'Navigate preview' ),
 		mcp__studio__preview_reload: __( 'Reload preview' ),
 		Read: __( 'Read' ),
@@ -68,6 +69,7 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 			}
 			return __( 'inline content' );
 		case 'mcp__studio__take_screenshot':
+		case 'mcp__studio__share_screenshot':
 			return typeof input.url === 'string' ? input.url : '';
 		case 'mcp__studio__preview_navigate':
 			return typeof input.path === 'string' ? input.path : '';

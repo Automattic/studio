@@ -519,8 +519,10 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.createAiSession( siteId ) ) as AiSessionSummary;
 		},
 
-		async continueSession( sessionId, prompt ): Promise< { runId: string } > {
-			return ( await ipcApi.continueAiSession( sessionId, prompt ) ) as { runId: string };
+		async continueSession( sessionId, prompt, options ): Promise< { runId: string } > {
+			return ( await ipcApi.continueAiSession( sessionId, prompt, options ) ) as {
+				runId: string;
+			};
 		},
 
 		async setSessionModel( sessionId, model ) {
@@ -617,34 +619,6 @@ export function createIpcConnector(): Connector {
 		// External links
 		async openExternalUrl( url: string ): Promise< void > {
 			ipcApi.openURL( url );
-		},
-
-		previewView: {
-			async create( options ) {
-				return ipcApi.createPreviewView( options );
-			},
-			async setBounds( viewId, bounds ) {
-				await ipcApi.setPreviewViewBounds( viewId, bounds );
-			},
-			async navigate( viewId, path ) {
-				await ipcApi.navigatePreviewView( viewId, path );
-			},
-			async destroy( viewId ) {
-				await ipcApi.destroyPreviewView( viewId );
-			},
-			onEvent( listener ) {
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
-				const ipcListener = ( window as any ).ipcListener;
-				if ( ! ipcListener ) {
-					return () => undefined;
-				}
-				return ipcListener.subscribe(
-					'preview-view:event',
-					( _event: unknown, payload: { viewId: string; payload: unknown } ) => {
-						listener( payload );
-					}
-				);
-			},
 		},
 
 		// Window state

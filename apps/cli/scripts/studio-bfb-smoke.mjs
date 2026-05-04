@@ -14,7 +14,7 @@ const sitePath =
 
 if ( ! existsSync( cliPath ) ) {
 	console.error(
-		`Built Studio CLI not found at ${ cliPath }. Run homeboy rig up studio-bfb first.`
+		`Built Studio CLI not found at ${ cliPath }. Run \`npm install\` at the repo root and \`npm run build\` in apps/cli first.`
 	);
 	process.exit( 1 );
 }

@@ -18,6 +18,8 @@
 		"make:windows-arm64": "electron-vite build --config ./electron.vite.config.ts --outDir=dist && electron-forge make . --arch=arm64 --platform=win32",
 		"make:macos-x64": "electron-vite build --config ./electron.vite.config.ts --outDir=dist && SKIP_DMG=true FILE_ARCHITECTURE=x64 electron-forge make . --arch=x64 --platform=darwin",
 		"make:macos-arm64": "electron-vite build --config ./electron.vite.config.ts --outDir=dist && SKIP_DMG=true FILE_ARCHITECTURE=arm64 electron-forge make . --arch=arm64 --platform=darwin",
+		"make:linux-x64": "electron-vite build --config ./electron.vite.config.ts --outDir=dist && electron-forge make . --arch=x64 --platform=linux",
+		"make:linux-arm64": "electron-vite build --config ./electron.vite.config.ts --outDir=dist && electron-forge make . --arch=arm64 --platform=linux",
 		"install:bundle": "npm install --no-package-lock --no-progress --install-links --no-workspaces && patch-package && node ../../scripts/remove-fs-ext-other-platform-binaries.mjs",
 		"package": "electron-vite build --config ./electron.vite.config.ts --outDir=dist && electron-forge package .",
 		"publish": "electron-forge publish .",

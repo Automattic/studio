@@ -1,0 +1,19 @@
+{
+	"name": "@studio-panels/route-scratch",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"description": "Studio Panels scratch route — overwritten by studio_generate_panel agent tool.",
+	"license": "GPL-2.0-or-later",
+	"route": {
+		"path": "/scratch",
+		"page": "studio-panels"
+	},
+	"dependencies": {
+		"@wordpress/components": "32.6.0",
+		"@wordpress/core-data": "^7.18.0",
+		"@wordpress/data": "^10.18.0",
+		"@wordpress/element": "^6.18.0",
+		"@wordpress/i18n": "^6.18.0"
+	}
+}

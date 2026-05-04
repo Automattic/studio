@@ -1,6 +1,33 @@
 Unreleased
 ==========
 
+1.8.2
+=====
+* Fixed an issue where multiple CLI progress line showed up in Studio Code #3286
+* CLI: stream remote-session activity to stdout while the REPL is blocked #3282
+* CLI: send screenshots from `studio code` to Telegram remote sessions #3272
+* Added Wapuu platformer easter egg #3270
+* Linux: trust root CA for HTTPS custom domains #3268
+* Linux: detect and launch third-party terminals #3278
+* Linux: don't default editor dropdown to VS Code when nothing is installed #3291
+* Enabled E2E tests on Linux #3295
+* Improved annotation submit workflow in `studio code` #3312
+* Silenced noisy ENOENT CLI log messages when daemon socket is absent #3322
+* Updated multiple dependencies, including WP Playground, PHP-WASM, and Electron
+
+1.8.1
+=====
+* Added Telegram remote-session bridge for studio code (PoC) #3196
+* Added /annotate skill with Studio inspector #3243
+* Added toolbar annotations to the site preview #3247
+* Removed Studio Code turn cap handling #3276
+* Switched Agent SDK to auto permission mode #3242
+* Flag HTML block misuse during validation #3267
+* Fixed AI CLI interrupt handling and immediate turn recovery #3263
+* Linux: support installing the Studio CLI #3269
+* Improved --format=json output when no sites are found #3220
+* Fixed WP-CLI post content parsing before porcelain flags #3264
+
 1.8.0
 =====
 * Added resizable sidebar #2853

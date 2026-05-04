@@ -186,6 +186,8 @@ async function runEval( input: EvalRunnerInput ) {
 	let turnIndex = 0;
 	let numTurns: number | null = null;
 	let success = false;
+	let error: string | null = null;
+	let timedOut = false;
 
 	phaseStartedAt = Date.now();
 	const query = startAiAgent( {
@@ -198,7 +200,10 @@ async function runEval( input: EvalRunnerInput ) {
 	const queryStartedAt = Date.now();
 	let turnStart = queryStartedAt;
 
-	const timeout = setTimeout( () => void query.interrupt(), input.timeoutMs ?? 300000 );
+	const timeout = setTimeout( () => {
+		timedOut = true;
+		void query.interrupt();
+	}, input.timeoutMs ?? 300000 );
 
 	try {
 		for await ( const message of query ) {
@@ -259,6 +264,8 @@ async function runEval( input: EvalRunnerInput ) {
 				numTurns = message.num_turns ?? null;
 			}
 		}
+	} catch ( caught ) {
+		error = caught instanceof Error ? caught.message : String( caught );
 	} finally {
 		clearTimeout( timeout );
 	}
@@ -266,6 +273,8 @@ async function runEval( input: EvalRunnerInput ) {
 
 	return {
 		success,
+		error,
+		timedOut,
 		numTurns,
 		phaseTimingsMs,
 		turnDurationsMs,

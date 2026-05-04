@@ -67,7 +67,6 @@ fi
 
 install_brew_formula_if_missing composer composer
 install_brew_formula_if_missing php php
-install_brew_formula_if_missing pkg-config pkgconf
 install_brew_formula_if_missing re2c re2c
 install_brew_formula_if_missing autoconf autoconf
 install_brew_formula_if_missing automake automake

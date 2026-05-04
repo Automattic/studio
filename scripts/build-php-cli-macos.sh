@@ -108,13 +108,17 @@ php bin/spc download --with-php="$PHP_MINOR" --for-extensions="$EXTENSIONS" --re
 BUILD_ROOT="$SPC_DIR/buildroot-arm64"
 SOURCE_PATH="$SPC_DIR/source-arm64"
 PKG_ROOT="$SPC_DIR/pkgroot/aarch64-darwin"
+SPC_ENV=(
+	"BUILD_ROOT_PATH=$BUILD_ROOT"
+	"SOURCE_PATH=$SOURCE_PATH"
+	"PKG_ROOT_PATH=$PKG_ROOT"
+)
 
 rm -rf "$BUILD_ROOT" "$SOURCE_PATH"
 
-BUILD_ROOT_PATH="$BUILD_ROOT" SOURCE_PATH="$SOURCE_PATH" PKG_ROOT_PATH="$PKG_ROOT" \
-	php bin/spc doctor --auto-fix=never
-BUILD_ROOT_PATH="$BUILD_ROOT" SOURCE_PATH="$SOURCE_PATH" PKG_ROOT_PATH="$PKG_ROOT" \
-	php bin/spc build "$EXTENSIONS" --build-cli --with-suggested-libs
+env "${SPC_ENV[@]}" php bin/spc install-pkg pkg-config
+env "${SPC_ENV[@]}" php bin/spc doctor --auto-fix=never
+env "${SPC_ENV[@]}" php bin/spc build "$EXTENSIONS" --build-cli --with-suggested-libs
 
 PHP_BIN="$BUILD_ROOT/bin/php"
 

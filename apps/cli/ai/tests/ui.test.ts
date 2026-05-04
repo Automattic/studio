@@ -29,6 +29,79 @@ vi.mock( 'cli/lib/site-utils', () => ( {
 	isSiteRunning: vi.fn(),
 } ) );
 
+describe( 'AiChatUI.updateAutocompleteBasePath', () => {
+	type AutocompleteCall = {
+		basePath: string | undefined;
+	};
+
+	function makeUi( initialCwd = '/launch/cwd' ) {
+		const calls: AutocompleteCall[] = [];
+		const ui = Object.create( AiChatUI.prototype ) as {
+			updateAutocompleteBasePath: () => void;
+			activeSite: { name: string; path: string; remote?: boolean; running: boolean } | null;
+			[ key: string ]: unknown;
+		};
+		ui.initialCwd = initialCwd;
+		ui._activeSite = null;
+		ui.editor = {
+			activeSiteName: null,
+			setAutocompleteProvider: ( provider: { basePath?: unknown } ) => {
+				// CombinedAutocompleteProvider keeps `basePath` as a private field;
+				// reading it via index access avoids a fragile type cast and is
+				// enough to assert the runtime value.
+				calls.push( { basePath: ( provider as { basePath?: string } ).basePath } );
+			},
+		};
+		return { ui, calls };
+	}
+
+	it( 'scopes @-mention completion to the active local site path', () => {
+		const { ui, calls } = makeUi();
+		ui._activeSite = {
+			name: 'my-site',
+			path: '/Users/test/Studio/my-site',
+			running: true,
+		};
+		ui.updateAutocompleteBasePath();
+		expect( calls ).toHaveLength( 1 );
+		expect( calls[ 0 ].basePath ).toBe( '/Users/test/Studio/my-site' );
+	} );
+
+	it( 'falls back to the launch cwd when no site is active', () => {
+		const { ui, calls } = makeUi( '/launch/cwd' );
+		ui._activeSite = null;
+		ui.updateAutocompleteBasePath();
+		expect( calls[ 0 ].basePath ).toBe( '/launch/cwd' );
+	} );
+
+	it( 'falls back to the launch cwd for remote sites (no local files to complete)', () => {
+		const { ui, calls } = makeUi( '/launch/cwd' );
+		ui._activeSite = {
+			name: 'remote-site',
+			path: '',
+			remote: true,
+			running: true,
+		};
+		ui.updateAutocompleteBasePath();
+		expect( calls[ 0 ].basePath ).toBe( '/launch/cwd' );
+	} );
+
+	it( 'updates the basePath when the active site changes', () => {
+		const { ui, calls } = makeUi( '/launch/cwd' );
+		ui._activeSite = { name: 'a', path: '/Users/test/Studio/a', running: true };
+		ui.updateAutocompleteBasePath();
+		ui._activeSite = { name: 'b', path: '/Users/test/Studio/b', running: true };
+		ui.updateAutocompleteBasePath();
+		ui._activeSite = null;
+		ui.updateAutocompleteBasePath();
+		expect( calls.map( ( c ) => c.basePath ) ).toEqual( [
+			'/Users/test/Studio/a',
+			'/Users/test/Studio/b',
+			'/launch/cwd',
+		] );
+	} );
+} );
+
 describe( 'AiChatUI.openActiveSiteInBrowser', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
@@ -87,7 +160,12 @@ describe( 'AiChatUI auto site selection', () => {
 		};
 		ui._activeSite = null;
 		ui._activeSiteData = null;
-		ui.editor = { activeSiteName: null, invalidate: vi.fn() };
+		ui.initialCwd = '/launch/cwd';
+		ui.editor = {
+			activeSiteName: null,
+			invalidate: vi.fn(),
+			setAutocompleteProvider: vi.fn(),
+		};
 		ui.messages = { addChild: vi.fn() };
 		ui.tui = { requestRender: vi.fn() };
 		ui.siteSelectedCallback = vi.fn();

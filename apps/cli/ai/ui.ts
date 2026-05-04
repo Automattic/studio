@@ -409,6 +409,11 @@ export class AiChatUI implements AiOutputAdapter {
 	private _inAgentTurn = false;
 	private _activeSiteData: SiteData | null = null;
 	private siteSelectedCallback: ( ( site: SiteInfo ) => void ) | null = null;
+	// Captured at construction so the @-mention autocomplete falls back to the
+	// directory the user launched `studio code` from when no local site is
+	// active. `process.cwd()` at use-time would drift if anything ever calls
+	// `chdir()` later in the process lifetime.
+	private readonly initialCwd = process.cwd();
 	private replayMode = false;
 	private replayTimestampMs: number | null = null;
 	private pendingToolCalls = new Map<
@@ -452,10 +457,30 @@ export class AiChatUI implements AiOutputAdapter {
 	set activeSite( site: SiteInfo | null ) {
 		this._activeSite = site;
 		this.editor.activeSiteName = site?.name ?? null;
+		this.updateAutocompleteBasePath();
 	}
 
 	private refreshPromptChrome(): void {
 		this.editor.invalidate();
+	}
+
+	/**
+	 * Re-bind the editor's `@`-mention autocomplete to the active site's path
+	 * when one is selected, falling back to the launch cwd otherwise. pi-tui's
+	 * `CombinedAutocompleteProvider` takes its `basePath` only at construction
+	 * — there's no public setter — so we replace the whole provider whenever
+	 * the scope should change. Cheap (the provider is stateless beyond config)
+	 * and keeps `@` completion useful after a mid-session site switch.
+	 *
+	 * Remote sites have no local files, so they fall through to `initialCwd`
+	 * rather than scoping `@` to a path that would never match anything.
+	 */
+	private updateAutocompleteBasePath(): void {
+		const basePath =
+			this._activeSite && ! this._activeSite.remote ? this._activeSite.path : this.initialCwd;
+		this.editor.setAutocompleteProvider(
+			new CombinedAutocompleteProvider( AI_CHAT_SLASH_COMMANDS, basePath )
+		);
 	}
 
 	set onSiteSelected( fn: ( ( site: SiteInfo ) => void ) | null ) {
@@ -566,9 +591,7 @@ export class AiChatUI implements AiOutputAdapter {
 
 		this.editor = new PromptEditor( this.tui, editorTheme );
 
-		this.editor.setAutocompleteProvider(
-			new CombinedAutocompleteProvider( AI_CHAT_SLASH_COMMANDS, process.cwd() )
-		);
+		this.updateAutocompleteBasePath();
 
 		this.editor.onSubmit = ( text ) => {
 			const trimmed = text.trim();
@@ -912,6 +935,7 @@ export class AiChatUI implements AiOutputAdapter {
 		const { announce = true, emitEvent = true } = options;
 		this._activeSite = site;
 		this.editor.activeSiteName = site.name;
+		this.updateAutocompleteBasePath();
 		this.refreshPromptChrome();
 		const label = site.remote
 			? sprintf(
@@ -937,6 +961,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this._activeSite = null;
 		this._activeSiteData = null;
 		this.editor.activeSiteName = null;
+		this.updateAutocompleteBasePath();
 		this.refreshPromptChrome();
 		this.messages.addChild( new Text( chalk.dim( __( ' ✻ Site deselected' ) ) + '\n', 0, 0 ) );
 		this.tui.requestRender();

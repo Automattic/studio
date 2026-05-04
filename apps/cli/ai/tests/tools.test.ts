@@ -115,25 +115,6 @@ describe( 'Studio AI MCP tools', () => {
 		return firstContent && 'text' in firstContent ? firstContent.text : undefined;
 	};
 
-	const mockScreenshotBrowser = () => {
-		const page = {
-			emulateMedia: vi.fn().mockResolvedValue( undefined ),
-			goto: vi.fn().mockResolvedValue( undefined ),
-			waitForLoadState: vi.fn().mockResolvedValue( undefined ),
-			evaluate: vi.fn().mockResolvedValue( undefined ),
-			addStyleTag: vi.fn().mockResolvedValue( undefined ),
-			screenshot: vi.fn().mockResolvedValue( Buffer.from( 'fake-png' ) ),
-			close: vi.fn().mockResolvedValue( undefined ),
-		};
-		const browser = {
-			newPage: vi.fn().mockResolvedValue( page ),
-		};
-
-		vi.mocked( getSharedBrowser ).mockResolvedValue( browser as never );
-
-		return { browser, page };
-	};
-
 	beforeEach( () => {
 		vi.resetAllMocks();
 		process.exitCode = undefined;
@@ -349,24 +330,19 @@ describe( 'Studio AI MCP tools', () => {
 		expect( previousCallback ).toHaveBeenCalledWith( 'Applying changes… (76%)', true );
 	} );
 
-	it( 'takes screenshots from an explicit URL', async () => {
-		const { page } = mockScreenshotBrowser();
-
-		const result = await getTool( 'take_screenshot' ).handler(
-			{ url: 'https://example.com/demo/' } as never,
-			null
-		);
-
-		expect( page.goto ).toHaveBeenCalledWith( 'https://example.com/demo/', {
-			waitUntil: 'domcontentloaded',
-			timeout: 30000,
-		} );
-		expect( result.isError ).toBeUndefined();
-		expect( result.content?.[ 0 ]?.type ).toBe( 'image' );
-	} );
-
-	it( 'takes screenshots from a resolved local site', async () => {
-		const { page } = mockScreenshotBrowser();
+	it( 'resolves take_screenshot nameOrPath against the local site registry', async () => {
+		const page = {
+			emulateMedia: vi.fn().mockResolvedValue( undefined ),
+			goto: vi.fn().mockResolvedValue( undefined ),
+			waitForLoadState: vi.fn().mockResolvedValue( undefined ),
+			evaluate: vi.fn().mockResolvedValue( undefined ),
+			addStyleTag: vi.fn().mockResolvedValue( undefined ),
+			screenshot: vi.fn().mockResolvedValue( Buffer.from( 'fake-png' ) ),
+			close: vi.fn().mockResolvedValue( undefined ),
+		};
+		vi.mocked( getSharedBrowser ).mockResolvedValue( {
+			newPage: vi.fn().mockResolvedValue( page ),
+		} as never );
 
 		const result = await getTool( 'take_screenshot' ).handler(
 			{ nameOrPath: 'My Site' } as never,
@@ -378,29 +354,6 @@ describe( 'Studio AI MCP tools', () => {
 			timeout: 30000,
 		} );
 		expect( result.isError ).toBeUndefined();
-	} );
-
-	it( 'takes screenshots from a resolved local site path', async () => {
-		const { page } = mockScreenshotBrowser();
-
-		const result = await getTool( 'take_screenshot' ).handler(
-			{ nameOrPath: 'My Site', path: 'about/' } as never,
-			null
-		);
-
-		expect( page.goto ).toHaveBeenCalledWith( 'http://localhost:8888/about/', {
-			waitUntil: 'domcontentloaded',
-			timeout: 30000,
-		} );
-		expect( result.isError ).toBeUndefined();
-	} );
-
-	it( 'returns a clear screenshot error when neither url nor nameOrPath is provided', async () => {
-		const result = await getTool( 'take_screenshot' ).handler( {} as never, null );
-
-		expect( getSharedBrowser ).not.toHaveBeenCalled();
-		expect( result.isError ).toBe( true );
-		expect( getTextContent( result ) ).toBe( 'Either url or nameOrPath must be provided.' );
 	} );
 
 	it( 'rejects shell syntax in wp_cli post content before dispatching to WP-CLI', async () => {

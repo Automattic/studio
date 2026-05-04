@@ -841,13 +841,21 @@ const takeScreenshotTool = tool(
 
 const shareScreenshotTool = tool(
 	'share_screenshot',
-	'Fire-and-forget primitive that captures a URL and delivers the image to the user. ' +
+	'Fire-and-forget primitive that captures a URL or local Studio site and delivers the image to the user. ' +
 		'Call after ANY visible change to a site so the user sees the new state. ' +
 		'Returns a confirmation string only — the image is NOT returned to you. The user already has the picture; do not analyze or describe what was sent in your reply. After calling this, write at most one short follow-up sentence and end the turn. ' +
 		'Defaults to a 16:9 above-the-fold view. Set `fullPage: true` only when the user explicitly asks for the whole scroll length. ' +
 		'Distinct from `take_screenshot`, which is for your own visual reasoning before continuing work.',
 	{
-		url: z.string().describe( 'The URL to screenshot and send to the user' ),
+		url: z.string().optional().describe( 'The URL to screenshot and send to the user' ),
+		nameOrPath: z
+			.string()
+			.optional()
+			.describe( 'The local site name or file system path to screenshot and send to the user' ),
+		path: z
+			.string()
+			.optional()
+			.describe( 'Site-relative path to screenshot when using nameOrPath. Defaults to "/".' ),
 		viewport: z
 			.enum( [ 'desktop', 'mobile' ] )
 			.optional()
@@ -870,7 +878,13 @@ const shareScreenshotTool = tool(
 	async ( args ) => {
 		try {
 			const viewportType = args.viewport ?? 'desktop';
-			const base64 = await captureScreenshotPng( args.url, SHARE_VIEWPORTS[ viewportType ], {
+			const targetUrl = await resolveScreenshotUrl( args );
+
+			if ( ! targetUrl ) {
+				return errorResult( 'Either url or nameOrPath must be provided.' );
+			}
+
+			const base64 = await captureScreenshotPng( targetUrl, SHARE_VIEWPORTS[ viewportType ], {
 				fullPage: args.fullPage ?? false,
 				deviceScaleFactor: SHARE_DEVICE_SCALE_FACTOR,
 			} );

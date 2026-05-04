@@ -8,7 +8,12 @@ import {
 } from '@anthropic-ai/claude-agent-sdk';
 import { AI_MODELS, DEFAULT_MODEL, type AiModelId } from '@studio/common/ai/models';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
-import { createRemoteSiteTools, createStudioTools } from 'cli/ai/tools';
+import {
+	createRemoteSiteTools,
+	createStudioTools,
+	STUDIO_MCP_SERVER_NAME,
+	STUDIO_MCP_TOOL_PREFIX,
+} from 'cli/ai/tools';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import type { SiteInfo } from 'cli/ai/ui';
 
@@ -81,7 +86,7 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 	// Configure MCP servers based on site type:
 	// Remote sites get WP.com REST API tools + screenshot; local sites get the full Studio toolset.
 	const mcpServers = {
-		studio: isRemoteSite
+		[ STUDIO_MCP_SERVER_NAME ]: isRemoteSite
 			? createRemoteSiteTools( wpcomAccessToken, activeSite.wpcomSiteId! )
 			: createStudioTools( { enablePreviewSteering: isForkedByDesktop } ),
 	};
@@ -154,7 +159,7 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 	} );
 
 	const preToolUseHooks: HookCallbackMatcher[] = [
-		{ matcher: '^mcp__studio__', hooks: [ allowStudioToolsHook ] },
+		{ matcher: `^${ STUDIO_MCP_TOOL_PREFIX }`, hooks: [ allowStudioToolsHook ] },
 	];
 	if ( askUserQuestionHook ) {
 		preToolUseHooks.push( { matcher: 'AskUserQuestion', hooks: [ askUserQuestionHook ] } );

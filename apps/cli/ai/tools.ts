@@ -38,6 +38,13 @@ import { normalizeHostname } from 'cli/lib/utils';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
 import { getProgressCallback, setProgressCallback, emitProgress } from 'cli/logger';
 
+// The MCP server name that prefixes every Studio tool the agent sees as
+// `mcp__studio__<tool>`. The agent's PreToolUse permission hook matches against
+// this prefix to pre-approve our own tools — keep `STUDIO_MCP_TOOL_PREFIX` in
+// sync if you ever rename the server.
+export const STUDIO_MCP_SERVER_NAME = 'studio';
+export const STUDIO_MCP_TOOL_PREFIX = `mcp__${ STUDIO_MCP_SERVER_NAME }__`;
+
 /**
  * Splits a command string into arguments, respecting quoted strings.
  * Handles both single and double quotes, e.g.:
@@ -1309,7 +1316,7 @@ export function resolveStudioToolDefinitions( options: CreateStudioToolsOptions 
 
 export function createStudioTools( options: CreateStudioToolsOptions = {} ) {
 	return createSdkMcpServer( {
-		name: 'studio',
+		name: STUDIO_MCP_SERVER_NAME,
 		version: '1.0.0',
 		tools: resolveStudioToolDefinitions( options ),
 	} );
@@ -1325,7 +1332,7 @@ export function createRemoteSiteTools( token: string, siteId: number ) {
 		? [ takeScreenshotTool, shareScreenshotTool ]
 		: [ takeScreenshotTool ];
 	return createSdkMcpServer( {
-		name: 'studio',
+		name: STUDIO_MCP_SERVER_NAME,
 		version: '1.0.0',
 		tools: [ ...wpcomTools, ...screenshotTools, createSiteTool, pullSiteTool ],
 	} );

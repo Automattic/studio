@@ -3,7 +3,7 @@ import { useSelect } from '@wordpress/data';
 import { DataViews, type View, type Field } from '@wordpress/dataviews';
 import { useMemo, useState } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
-import type { ListLoaderData } from './route';
+import { useSearch } from '@wordpress/route';
 
 interface RestPost {
 	id: number;
@@ -14,6 +14,10 @@ interface RestPost {
 	title: { rendered: string };
 	author?: number;
 }
+
+const DEFAULT_COLUMNS = [ 'title', 'date', 'status' ];
+const DEFAULT_PER_PAGE = 20;
+const MAX_PER_PAGE = 100;
 
 const ALL_FIELDS: Record< string, Field< RestPost > > = {
 	title: {
@@ -57,15 +61,38 @@ const ALL_FIELDS: Record< string, Field< RestPost > > = {
 	},
 };
 
-interface StageProps {
-	loaderData: ListLoaderData;
+interface ListSearchParams {
+	postType?: string;
+	columns?: string;
+	perPage?: string;
+	search?: string;
+}
+
+function parseColumns( raw: string | undefined ): string[] {
+	if ( ! raw ) return DEFAULT_COLUMNS;
+	const list = raw
+		.split( ',' )
+		.map( ( c ) => c.trim() )
+		.filter( ( c ) => c.length > 0 );
+	return list.length > 0 ? list : DEFAULT_COLUMNS;
+}
+
+function clampPerPage( raw: string | undefined ): number {
+	if ( ! raw ) return DEFAULT_PER_PAGE;
+	const n = Number( raw );
+	if ( ! Number.isFinite( n ) || n < 1 ) return DEFAULT_PER_PAGE;
+	return Math.min( Math.floor( n ), MAX_PER_PAGE );
 }
 
 // Wrap in an uppercase component because `useSelect` / `useMemo` / `useState`
 // must live inside a React component or hook. wp-build looks for an export
 // named `stage` to mount the route, so we re-export below.
-function ListStage( { loaderData }: StageProps ) {
-	const { postType, columns, perPage, search: initialSearch } = loaderData;
+function ListStage() {
+	const search = useSearch( { strict: false } ) as ListSearchParams;
+	const postType = ( search.postType || 'post' ).trim();
+	const columns = useMemo( () => parseColumns( search.columns ), [ search.columns ] );
+	const perPage = clampPerPage( search.perPage );
+	const initialSearch = search.search ?? '';
 
 	const fields = useMemo< Field< RestPost >[] >(
 		() => columns.map( ( id ) => ALL_FIELDS[ id ] ).filter( Boolean ),
@@ -134,4 +161,4 @@ function ListStage( { loaderData }: StageProps ) {
 	);
 }
 
-export const stage = ( props: StageProps ) => <ListStage { ...props } />;
+export const stage = () => <ListStage />;

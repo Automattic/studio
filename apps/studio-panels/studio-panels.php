@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       Studio Panels
  * Description:       Renders dynamic wp-admin panels driven by Studio's AI agent. Built with @wordpress/build's pages routing system; requires the Gutenberg plugin (or WP 7.0+) for the @wordpress/boot, @wordpress/route, and @wordpress/dataviews script modules.
- * Version:           0.2.2
+ * Version:           0.2.3
  * Requires at least: 6.6
  * Requires PHP:      7.4
  * Author:            Automattic
@@ -16,7 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'STUDIO_PANELS_VERSION', '0.2.2' );
+define( 'STUDIO_PANELS_VERSION', '0.2.3' );
 define( 'STUDIO_PANELS_PAGE_ID', 'studio-panels' );
 define( 'STUDIO_PANELS_PAGE_SLUG', 'studio-panels-wp-admin' );
 define( 'STUDIO_PANELS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );

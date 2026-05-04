@@ -71,6 +71,18 @@ steps:
       - github_commit_status:
           context: Performance Metrics
 
+  - label: ":elephant: PHP CLI macOS arm64 Build"
+    key: php-cli-macos-arm64
+    agents:
+      queue: mac
+    command: bash .buildkite/commands/run-php-cli-macos-arm64-build.sh
+    artifact_paths:
+      - out/php-binaries/*
+    plugins: [$CI_TOOLKIT_PLUGIN]
+    notify:
+      - github_commit_status:
+          context: PHP CLI macOS arm64 Build
+
   - input: "🚦 Build for Mac?"
     prompt: "Do you want to build Mac dev binaries for this PR?"
     key: input-dev-mac

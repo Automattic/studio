@@ -7,9 +7,7 @@ export interface AgentRuntimeConfig {
 	prompt: string;
 	env: Record< string, string >;
 	model: AiModelId;
-	maxTurns: number;
 	resume?: string;
-	autoApprove?: boolean;
 	activeSite?: SiteInfo | null;
 	wpcomAccessToken?: string;
 	onAskUser?: ( questions: AskUserQuestion[] ) => Promise< Record< string, string > >;

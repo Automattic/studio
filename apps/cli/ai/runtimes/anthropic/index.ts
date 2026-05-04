@@ -15,8 +15,7 @@ import type { AskUserQuestion } from 'cli/ai/agent';
  */
 export const anthropicRuntime: AgentRuntime = {
 	run( config: AgentRuntimeConfig ) {
-		const { prompt, env, model, maxTurns, resume, activeSite, wpcomAccessToken, onAskUser } =
-			config;
+		const { prompt, env, model, resume, activeSite, wpcomAccessToken, onAskUser } = config;
 
 		const isRemoteSite = activeSite?.remote && activeSite?.wpcomSiteId && wpcomAccessToken;
 
@@ -33,6 +32,14 @@ export const anthropicRuntime: AgentRuntime = {
 				: createStudioTools( { enablePreviewSteering: isForkedByDesktop } ),
 		};
 
+		// The remote-session controller (Telegram bridge) sets
+		// STUDIO_REMOTE_SESSION=1 when it spawns `studio code --json`, so the
+		// agent can favor `share_screenshot` for delivery and surface a
+		// preview-site offer in the system prompt. Same env channel #3272 wired
+		// into the inline-query path on trunk; we thread it through here for
+		// the runtime-dispatch architecture.
+		const remoteSession = env.STUDIO_REMOTE_SESSION === '1';
+
 		const systemPromptOptions = isRemoteSite
 			? {
 					remoteSite: {
@@ -40,8 +47,9 @@ export const anthropicRuntime: AgentRuntime = {
 						url: activeSite.url ?? '',
 						id: activeSite.wpcomSiteId!,
 					},
+					remoteSession,
 			  }
-			: { previewSteering: isForkedByDesktop };
+			: { previewSteering: isForkedByDesktop, remoteSession };
 
 		// Intercept the built-in AskUserQuestion tool so the agent's questions
 		// render in our chat UI (via onAskUser) instead of the SDK's default
@@ -82,7 +90,6 @@ export const anthropicRuntime: AgentRuntime = {
 					append: buildSystemPrompt( systemPromptOptions ),
 				},
 				mcpServers,
-				maxTurns,
 				cwd: STUDIO_SITES_ROOT,
 				tools: { type: 'preset', preset: 'claude_code' },
 				permissionMode: 'auto',

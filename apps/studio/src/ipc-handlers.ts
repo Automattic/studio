@@ -115,6 +115,9 @@ import {
 	getDefaultSiteDirectory,
 	saveDefaultSiteDirectory,
 } from 'src/modules/user-settings/lib/ipc-handlers';
+import { linuxFindEditorPath } from 'src/modules/user-settings/lib/linux-editor-path';
+import { linuxFindTerminalPath } from 'src/modules/user-settings/lib/linux-terminal-path';
+import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { SiteServer, stopAllServers as triggerStopAllServers } from 'src/site-server';
 import { getSiteThumbnailPath } from 'src/storage/paths';
@@ -171,11 +174,13 @@ export {
 	getUserEditor,
 	getUserLocale,
 	getUserTerminal,
+	getWapuuScore,
 	previewColorScheme,
 	saveColorScheme,
 	saveUserEditor,
 	saveUserLocale,
 	saveUserTerminal,
+	saveWapuuScore,
 	showUserSettings,
 } from 'src/modules/user-settings/lib/ipc-handlers';
 export { getDefaultSiteDirectory, saveDefaultSiteDirectory };
@@ -307,12 +312,14 @@ function expandSkillCommandPrompt( prompt: string ): string {
 export async function continueAiSession(
 	event: IpcMainInvokeEvent,
 	sessionId: string,
-	prompt: string
+	prompt: string,
+	options: { displayMessage?: string } = {}
 ): Promise< { runId: string } > {
 	await reconcileSessionEnvironmentBeforeRun( sessionId );
 	return startAgentRun( {
 		sessionId,
 		prompt: expandSkillCommandPrompt( prompt ),
+		displayMessage: options.displayMessage,
 		webContents: event.sender,
 	} );
 }
@@ -609,13 +616,26 @@ function readProcessManagerLogs( siteId: string ): { stdout?: string[]; stderr?:
 export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< SiteDetails[] > {
 	const sites = SiteServer.getAllDetails();
 	const userData = await loadUserData();
-	for ( const site of sites ) {
-		const appdataSite = userData.siteMetadata[ site.id ];
-		if ( appdataSite ) {
+	await Promise.all(
+		sites.map( async ( site ) => {
+			const appdataSite = userData.siteMetadata[ site.id ];
+			if ( ! appdataSite ) {
+				return;
+			}
 			site.sortOrder = appdataSite.sortOrder;
 			site.themeDetails = appdataSite.themeDetails;
-		}
-	}
+			site.siteIconPath = appdataSite.siteIconPath;
+
+			// Read the icon file from disk and hand the renderer a data URL.
+			// Keeping the base64 out of the persisted appdata avoids bloating
+			// app.json with image bytes.
+			if ( appdataSite.siteIconPath ) {
+				site.siteIcon = await getImageData( appdataSite.siteIconPath );
+			} else if ( appdataSite.siteIconPath === null ) {
+				site.siteIcon = null;
+			}
+		} )
+	);
 
 	return sites;
 }
@@ -687,6 +707,7 @@ export async function createSite(
 		// If the site is running after creation, fetch theme details and update thumbnail
 		if ( server.details.running ) {
 			void loadThemeDetails( event, server.details.id );
+			void loadSiteIcon( event, server.details.id );
 		}
 
 		return server.details;
@@ -871,6 +892,7 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 
 	if ( server.details.running ) {
 		void loadThemeDetails( event, id );
+		void loadSiteIcon( event, id );
 	}
 
 	// Keep managed instruction files (STUDIO.md, CLAUDE.md) up-to-date
@@ -1257,6 +1279,29 @@ export async function loadThemeDetails(
 	return themeDetails;
 }
 
+// Mirror of loadThemeDetails for the Site Icon: fetch from the running
+// site's mu-plugin command and persist the resolved path so the renderer
+// can read it back from appdata via getSiteDetails.
+export async function loadSiteIcon(
+	_event: IpcMainInvokeEvent,
+	id: string
+): Promise< StartedSiteDetails[ 'siteIconPath' ] > {
+	const server = SiteServer.get( id );
+	if ( ! server ) {
+		throw new Error( 'Site not found.' );
+	}
+
+	const oldIconPath = server.details.siteIconPath;
+	const iconPath = await server.getSiteIcon();
+	const hasIconChanged = iconPath !== oldIconPath;
+
+	if ( hasIconChanged ) {
+		await server.persistSiteIcon();
+	}
+
+	return iconPath;
+}
+
 export async function getOnboardingData( _event: IpcMainInvokeEvent ): Promise< boolean > {
 	const userData = await loadUserData();
 	const { onboardingCompleted = false } = userData;
@@ -1361,7 +1406,46 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 			env,
 		} );
 	} else if ( platform === 'linux' ) {
-		return promiseExec( `gnome-terminal --working-directory=${ targetPath }` );
+		const escapedPath = targetPath.replace( /\\/g, '\\\\' ).replace( /"/g, '\\"' );
+
+		// Warp on Linux currently opens at its configured "new session"
+		// directory regardless of how it is launched — it ignores
+		// `--working-directory`, the `path=` URL scheme query, and the
+		// spawn cwd. Tracked upstream in warpdotdev/Warp#4974 and #6357.
+		// Best effort: launch with `cwd` set so we benefit if/when upstream
+		// adds support, and so a fresh launch (no daemon yet) at least has
+		// a chance of inheriting it.
+		const launchers: Record<
+			SupportedTerminal,
+			( ( binary: string ) => { command: string; options?: ExecOptions } ) | null
+		> = {
+			terminal: ( binary ) => ( {
+				command: `"${ binary }" --working-directory="${ escapedPath }"`,
+			} ),
+			warp: ( binary ) => ( { command: `"${ binary }"`, options: { cwd: targetPath } } ),
+			ghostty: ( binary ) => ( {
+				command: `"${ binary }" --working-directory="${ escapedPath }"`,
+			} ),
+			iterm: null,
+		};
+
+		const order: SupportedTerminal[] = [ preferredTerminal, 'terminal' ];
+		for ( const candidate of order ) {
+			const launcher = launchers[ candidate ];
+			if ( ! launcher ) {
+				continue;
+			}
+			const binary = await linuxFindTerminalPath( candidate );
+			if ( ! binary ) {
+				continue;
+			}
+			const { command, options } = launcher( binary );
+			return promiseExec( command, options );
+		}
+
+		// Last-resort fallback that preserves prior behavior even if no
+		// supported terminal binary is on $PATH.
+		return promiseExec( `gnome-terminal --working-directory="${ escapedPath }"` );
 	} else {
 		console.error( 'Unsupported platform:', platform );
 		return;
@@ -1386,6 +1470,19 @@ export async function openAppAtPath(
 
 	if ( platform === 'win32' ) {
 		const editorPath = await winFindEditorPath( editorKey );
+		if ( ! editorPath ) {
+			// Fall back to URL scheme for each path
+			for ( const p of allPaths ) {
+				openURL( event, editor.url( p ) );
+			}
+			return;
+		}
+
+		return promiseExec( `"${ editorPath }" ${ quotedPaths }` );
+	}
+
+	if ( platform === 'linux' ) {
+		const editorPath = await linuxFindEditorPath( editorKey );
 		if ( ! editorPath ) {
 			// Fall back to URL scheme for each path
 			for ( const p of allPaths ) {
@@ -1589,7 +1686,7 @@ export async function isCATrusted(): Promise< boolean > {
 
 export async function trustCertificate( event: IpcMainInvokeEvent ): Promise< void > {
 	const platform = process.platform;
-	if ( platform === 'win32' ) {
+	if ( platform === 'win32' || platform === 'linux' ) {
 		try {
 			await trustRootCA();
 		} catch ( error ) {
@@ -2027,7 +2124,7 @@ export async function setWindowControlVisibility( event: IpcMainInvokeEvent, vis
 		if ( visible ) {
 			parentWindow.setWindowButtonPosition( MACOS_TRAFFIC_LIGHT_POSITION );
 		}
-	} else if ( process.platform === 'win32' ) {
+	} else if ( process.platform === 'win32' || process.platform === 'linux' ) {
 		const isDark = nativeTheme.shouldUseDarkColors;
 		if ( visible ) {
 			parentWindow.setTitleBarOverlay( {
@@ -2047,7 +2144,7 @@ export async function setWindowControlVisibility( event: IpcMainInvokeEvent, vis
 
 export async function setTitleBarBackdropEffect( event: IpcMainInvokeEvent, enabled: boolean ) {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if ( ! parentWindow || process.platform !== 'win32' ) {
+	if ( ! parentWindow || ( process.platform !== 'win32' && process.platform !== 'linux' ) ) {
 		return;
 	}
 

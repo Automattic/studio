@@ -38,11 +38,12 @@ function sendEvent( run: AgentRun, event: AgentRunEvent[ 'event' ] ): void {
 export interface StartAgentRunOptions {
 	sessionId: string;
 	prompt: string;
+	displayMessage?: string;
 	webContents: WebContents;
 }
 
 export function startAgentRun( options: StartAgentRunOptions ): { runId: string } {
-	const { sessionId, prompt, webContents } = options;
+	const { sessionId, prompt, displayMessage, webContents } = options;
 
 	if ( runsBySessionId.has( sessionId ) ) {
 		throw new Error( `A run is already in progress for session ${ sessionId }` );
@@ -50,19 +51,19 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 
 	const runId = crypto.randomUUID();
 	const cliPath = getCliPath();
-	const child = fork(
-		cliPath,
-		[ 'code', 'sessions', 'resume', sessionId, prompt, '--json', '--avoid-telemetry' ],
-		{
-			// Agent events arrive over the Node IPC channel (via `process.send`
-			// in the child). stdout/stderr are ignored — the child's
-			// `emitEvent` falls back to stdout only when IPC isn't available.
-			stdio: [ 'ignore', 'ignore', 'ignore', 'ipc' ],
-			execPath: getBundledNodeBinaryPath(),
-			execArgv: [ '--experimental-wasm-jspi' ],
-			env: { ...process.env },
-		}
-	);
+	const args = [ 'code', 'sessions', 'resume', sessionId, prompt, '--json', '--avoid-telemetry' ];
+	if ( displayMessage ) {
+		args.push( '--display-message', displayMessage );
+	}
+	const child = fork( cliPath, args, {
+		// Agent events arrive over the Node IPC channel (via `process.send`
+		// in the child). stdout/stderr are ignored — the child's
+		// `emitEvent` falls back to stdout only when IPC isn't available.
+		stdio: [ 'ignore', 'ignore', 'ignore', 'ipc' ],
+		execPath: getBundledNodeBinaryPath(),
+		execArgv: [ '--experimental-wasm-jspi' ],
+		env: { ...process.env },
+	} );
 
 	const run: AgentRun = {
 		runId,
@@ -134,6 +135,9 @@ export function interruptAgentRun( runId: string ): void {
 	}
 	run.interrupted = true;
 	run.interruptAttempts += 1;
+	if ( runsBySessionId.get( run.sessionId ) === run ) {
+		runsBySessionId.delete( run.sessionId );
+	}
 
 	// Second click escalates: the graceful path is in flight but evidently
 	// not landing fast enough, so skip the grace period.

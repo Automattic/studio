@@ -70,22 +70,72 @@ function stripMatchingOuterQuotes( value: string ): string {
 	return value;
 }
 
+/**
+ * Handle a command containing `--post_content=`. The marker can be followed
+ * by either a quoted payload (in which case flags after the closing quote
+ * still need to be parsed as separate args) or an unquoted block-markup
+ * payload (in which case everything after the marker is one literal arg).
+ *
+ * Mirrors trunk #3264 — the simpler "consume the rest of the command"
+ * heuristic was wrong for callers that emit `--porcelain` after a quoted
+ * post_content; we now scan for a closing quote and split the trailing
+ * flags out when one is found.
+ */
+function splitPostContentCommandArgs( command: string, postContentIndex: number ): string[] {
+	const postContentMarker = '--post_content=';
+	const prefix = command.slice( 0, postContentIndex ).trim();
+	const postContentTail = command.slice( postContentIndex + postContentMarker.length ).trim();
+	const prefixArgs = splitBasicCommandArgs( prefix );
+
+	if ( ! postContentTail ) {
+		return [ ...prefixArgs, postContentMarker ];
+	}
+
+	const quote = postContentTail[ 0 ];
+	if ( quote === '"' || quote === "'" ) {
+		const closingQuoteIndex = postContentTail.indexOf( quote, 1 );
+		if ( closingQuoteIndex !== -1 ) {
+			const postContent = postContentTail.slice( 1, closingQuoteIndex );
+			const suffix = postContentTail.slice( closingQuoteIndex + 1 ).trim();
+			return [
+				...prefixArgs,
+				`${ postContentMarker }${ postContent }`,
+				...splitBasicCommandArgs( suffix ),
+			];
+		}
+	}
+
+	// No closing quote — large block content is commonly emitted without shell
+	// quoting; treat everything after the marker as a single literal argument.
+	return [
+		...prefixArgs,
+		`${ postContentMarker }${ stripMatchingOuterQuotes( postContentTail ) }`,
+	];
+}
+
 function splitCommandArgs( command: string ): string[] {
 	const postContentMarker = '--post_content=';
 	const postContentIndex = command.indexOf( postContentMarker );
 
-	// Large block content is commonly emitted without shell quoting and should
-	// be treated as a single literal argument that consumes the rest of the command.
 	if ( postContentIndex !== -1 ) {
-		const prefix = command.slice( 0, postContentIndex ).trim();
-		const postContent = stripMatchingOuterQuotes(
-			command.slice( postContentIndex + postContentMarker.length ).trim()
-		);
-
-		return [ ...splitBasicCommandArgs( prefix ), `${ postContentMarker }${ postContent }` ];
+		return splitPostContentCommandArgs( command, postContentIndex );
 	}
 
 	return splitBasicCommandArgs( command );
+}
+
+/**
+ * Detect typographic-dash flag prefixes (e.g. `‐porcelain`, `–color`) that
+ * arrive when an LLM auto-formats hyphens to en/em dashes. WP-CLI silently
+ * ignores these as garbage input; we reject up-front so the agent gets a
+ * clear error to retry with the right characters. Mirrors trunk #3264.
+ */
+function getUnsupportedWpCliOptionMessage( args: string[] ): string | null {
+	const unsupportedOption = args.find( ( arg ) => /^[‐-―]\S+/.test( arg ) );
+	if ( ! unsupportedOption ) {
+		return null;
+	}
+	return `Unsupported WP-CLI option "${ unsupportedOption }": use ASCII hyphens, for example "--porcelain", not a typographic dash.`;
 }
 
 // Note: wp.ts runCommand calls process.exit(), so we use the lower-level sendWpCliCommand directly.
@@ -116,6 +166,10 @@ export const runWpCliTool = tool(
 				}
 
 				const wpCliArgs = splitCommandArgs( args.command );
+				const unsupportedOptionMessage = getUnsupportedWpCliOptionMessage( wpCliArgs );
+				if ( unsupportedOptionMessage ) {
+					return errorResult( unsupportedOptionMessage );
+				}
 				const unsupportedPostContentMessage = getUnsupportedWpCliPostContentMessage( wpCliArgs );
 				if ( unsupportedPostContentMessage ) {
 					return errorResult( unsupportedPostContentMessage );

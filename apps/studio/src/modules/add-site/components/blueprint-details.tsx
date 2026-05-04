@@ -35,7 +35,7 @@ export default function BlueprintDetails( {
 
 	return (
 		<VStack className="text-center w-full" alignment="top" spacing={ 0 }>
-			<Heading className="text-center text-[32px] text-frame-text mb-5" weight={ 500 }>
+			<Heading className="text-center text-[32px] text-frame-text mb-6" weight={ 500 }>
 				{ __( 'Start from a Blueprint' ) }
 			</Heading>
 			<VStack className="max-w-[400px] min-w-[350px] mx-auto mt-16 justify-start" spacing={ 0 }>

@@ -12,15 +12,21 @@ export interface BuildSystemPromptOptions {
 	// tools to the agent. When false, the "Keep the preview in sync" section
 	// is omitted so we don't document tools the agent can't actually call.
 	previewSteering?: boolean;
+	// True when the agent is being driven by the Telegram remote-session bridge.
+	// Adds guidance about delivering screenshots via `share_screenshot` and
+	// offering a preview-site follow-up.
+	remoteSession?: boolean;
 }
 
 export function buildSystemPrompt( options?: BuildSystemPromptOptions ): string {
+	const remoteSessionAddendum = options?.remoteSession ? `\n\n${ REMOTE_SESSION_GUIDANCE }` : '';
+
 	if ( options?.remoteSite ) {
 		return `${ buildRemoteIntro( options.remoteSite ) }
 
 ${ REMOTE_CONTENT_GUIDELINES }
 
-${ REMOTE_DESIGN_GUIDELINES }
+${ REMOTE_DESIGN_GUIDELINES }${ remoteSessionAddendum }
 `;
 	}
 
@@ -28,7 +34,7 @@ ${ REMOTE_DESIGN_GUIDELINES }
 
 ${ LOCAL_CONTENT_GUIDELINES }
 
-${ LOCAL_DESIGN_GUIDELINES }
+${ LOCAL_DESIGN_GUIDELINES }${ remoteSessionAddendum }
 `;
 }
 
@@ -198,6 +204,20 @@ Then continue with:
 - For theme and page content custom CSS, put the styles in the main style.css of the theme. No custom stylesheets.
 - Scroll animations must use progressive enhancement: CSS defines elements in their **final visible state** by default (full opacity, final position). JavaScript on the frontend adds the initial hidden state (e.g. \`opacity: 0\`, \`transform\`) and scroll-triggered transitions. This ensures elements are fully visible in the block editor (which loads theme CSS but not custom JS).`;
 }
+
+const REMOTE_SESSION_GUIDANCE = `## Telegram remote session
+
+You are running over Telegram. The user iterates turn-by-turn; keep replies short and image-driven.
+
+After ANY visible change to a site, call \`share_screenshot\` before ending the turn — no preamble, no permission-asking. It is fire-and-forget: the image goes to the user but is NOT returned to you. Do not analyze or describe what you sent. Follow up with at most one short sentence (e.g. "Heading is now red." or "Want me to publish this as a preview?").
+
+Defaults to a 16:9 above-the-fold view. Pass \`fullPage: true\` only when the user explicitly asks for the whole page. Captions describe what the user is looking at; never mention "full page", "viewport", or other capture-mode wording.
+
+\`take_screenshot\` is separate — use it only when YOU need to inspect a render before continuing. Don't pair it with \`share_screenshot\` for the same URL.
+
+For non-visual changes (data, logs, listings), reply with a concise text summary; no screenshot needed.
+
+Never claim to have stored, saved, or remembered anything beyond what your tools actually did. There is no gist storage, no preview-link memory, no session summary. Do not invent epilogues like "gist stored" or "preview link saved".`;
 
 const REMOTE_CONTENT_GUIDELINES = `## Block content guidelines
 

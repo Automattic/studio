@@ -5,7 +5,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { arrowUp, chevronDownSmall } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
-import { useCallback, useState } from 'react';
+import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from 'react';
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
@@ -30,7 +30,7 @@ export function ComposerSkeleton() {
 					<span className={ styles.pill } />
 				</div>
 			</div>
-			<div className={ styles.meta }>{ '\u00A0' }</div>
+			<div className={ styles.meta }>{ ' ' }</div>
 		</div>
 	);
 }
@@ -59,23 +59,37 @@ interface ComposerProps {
 	ownerSiteId?: string;
 }
 
+/**
+ * Imperative API surfaced via the Composer's forwarded ref. Lets parents
+ * (e.g. the annotate-toolbar hand-off) inject a draft without making the
+ * value a controlled prop — the latter would re-render the entire
+ * SessionView (and the heavy Conversation tree) on every keystroke.
+ */
+export interface ComposerHandle {
+	appendDraft( text: string ): void;
+}
+
 const isMacPlatform =
 	typeof navigator !== 'undefined' && /mac/i.test( navigator.platform || navigator.userAgent );
 
-export function Composer( {
-	busy,
-	isInterrupting = false,
-	error,
-	model,
-	onSend,
-	onInterrupt,
-	sessionId,
-	effectiveEnvironment = 'local',
-	liveSite,
-	events,
-	ownerSiteId,
-}: ComposerProps ) {
+export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Composer(
+	{
+		busy,
+		isInterrupting = false,
+		error,
+		model,
+		onSend,
+		onInterrupt,
+		sessionId,
+		effectiveEnvironment = 'local',
+		liveSite,
+		events,
+		ownerSiteId,
+	},
+	ref
+) {
 	const [ value, setValue ] = useState( '' );
+	const textareaRef = useRef< HTMLTextAreaElement | null >( null );
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	const navigate = useNavigate();
@@ -85,6 +99,28 @@ export function Composer( {
 	// confirms.
 	const [ pendingFamilyChange, setPendingFamilyChange ] = useState< AiModelId | null >( null );
 	const [ familySwitchInFlight, setFamilySwitchInFlight ] = useState( false );
+
+	useImperativeHandle(
+		ref,
+		() => ( {
+			appendDraft( text ) {
+				if ( ! text ) return;
+				setValue( ( current ) =>
+					current.trim() ? `${ current.trimEnd() }\n\n${ text }` : text
+				);
+				// Defer focus to the next paint so the textarea reflects the
+				// new value before we move the caret to the end.
+				queueMicrotask( () => {
+					const node = textareaRef.current;
+					if ( ! node ) return;
+					node.focus();
+					const len = node.value.length;
+					node.setSelectionRange( len, len );
+				} );
+			},
+		} ),
+		[]
+	);
 
 	const send = useCallback( async () => {
 		const trimmed = value.trim();
@@ -202,11 +238,17 @@ export function Composer( {
 			<div className={ styles.root }>
 				<div className={ styles.shell }>
 					<textarea
+						ref={ textareaRef }
 						className={ styles.input }
 						placeholder={ placeholder }
 						value={ value }
 						onChange={ ( event ) => setValue( event.target.value ) }
 						onKeyDown={ ( event ) => {
+							if ( event.key === 'Escape' && busy ) {
+								event.preventDefault();
+								void onInterrupt();
+								return;
+							}
 							if ( event.key === 'Enter' && ( event.metaKey || event.ctrlKey ) ) {
 								event.preventDefault();
 								void send();
@@ -323,4 +365,4 @@ export function Composer( {
 			/>
 		</>
 	);
-}
+} );

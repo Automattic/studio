@@ -84,7 +84,16 @@ export async function captureCommandOutput( fn: () => Promise< void > ): Promise
 	};
 	process.exitCode = undefined;
 	setProgressCallback( ( message, update ) => {
-		progressMessages.push( message );
+		// `update: true` means the caller is amending the most recent progress
+		// line in place (e.g. spinner-style "Applying changes… (74%)" →
+		// "(75%)"). Coalesce here so the captured `progressOutput` only keeps
+		// the latest value of each rolling line; non-update messages still
+		// append normally. Mirrors trunk's #3286 fix.
+		if ( update && progressMessages.length > 0 ) {
+			progressMessages[ progressMessages.length - 1 ] = message;
+		} else {
+			progressMessages.push( message );
+		}
 		previousCallback?.( message, update );
 	} );
 

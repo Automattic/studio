@@ -3,8 +3,8 @@
 import fs from 'fs/promises';
 import path from 'path';
 import semver from 'semver';
-import { getLatestTag, getCommitCount } from './lib/git-utils.mjs';
 import packageJson from '../apps/studio/package.json' with { type: 'json' };
+import { getCommitCount, getLatestTag } from './lib/git-utils.mjs';
 
 const latestTag = getLatestTag();
 const commitCount = getCommitCount( latestTag );

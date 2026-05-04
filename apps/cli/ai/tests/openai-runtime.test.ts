@@ -76,7 +76,6 @@ describe( 'OpenAI runtime POC', () => {
 			prompt: 'hello',
 			env: {},
 			model: 'gpt-5.5',
-			maxTurns: 1,
 		} );
 
 		const messages: Array< { type: string; subtype?: string } > = [];
@@ -99,7 +98,6 @@ describe( 'OpenAI runtime POC', () => {
 				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
 			},
 			model: 'gpt-5.5',
-			maxTurns: 1,
 		} );
 
 		const messages: Array< {
@@ -157,7 +155,6 @@ describe( 'OpenAI runtime POC', () => {
 				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
 			},
 			model: 'gpt-5.5',
-			maxTurns: 1,
 			resume: 'thinking-only-' + Math.random(),
 		} );
 
@@ -201,7 +198,6 @@ describe( 'OpenAI runtime POC', () => {
 			prompt: 'hi',
 			env,
 			model: 'gpt-5.5',
-			maxTurns: 1,
 			resume: sessionId,
 		} );
 
@@ -217,7 +213,6 @@ describe( 'OpenAI runtime POC', () => {
 			prompt: 'follow-up',
 			env,
 			model: otherOpenAiModel,
-			maxTurns: 1,
 			resume: sessionId,
 		} );
 
@@ -232,7 +227,6 @@ describe( 'OpenAI runtime POC', () => {
 			prompt: 'still on the second model',
 			env,
 			model: otherOpenAiModel,
-			maxTurns: 1,
 			resume: sessionId,
 		} );
 

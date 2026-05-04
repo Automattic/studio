@@ -2,14 +2,28 @@ import { resolveSessionModel } from '@studio/common/ai/models';
 import { __ } from '@wordpress/i18n';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useLayoutEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react';
+import {
+	useCallback,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+	type ReactNode,
+	type Ref,
+} from 'react';
+import {
+	formatAnnotationsAsPrompt,
+	formatAnnotationsSubmittedMessage,
+} from '@/components/session-view/annotations';
 import { Composer, ComposerSkeleton } from '@/components/session-view/composer';
 import { pickLiveSite } from '@/components/session-view/composer/environment-pill';
 import { Conversation } from '@/components/session-view/conversation';
 import { EmptyBackground } from '@/components/session-view/empty-background';
 import { QueuedPrompts } from '@/components/session-view/queued-prompts';
 import { SiteDropdown } from '@/components/site-dropdown';
+import { SiteIcon } from '@/components/site-icon';
 import { SitePreview } from '@/components/site-preview';
+import { type Annotation } from '@/components/site-preview/types';
 import { useAgentRun } from '@/data/queries/use-agent-run';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
@@ -53,9 +67,16 @@ function SessionHeader( {
 		<div className={ styles.header }>
 			{ toggleSpacerClass ? <span className={ toggleSpacerClass } aria-hidden="true" /> : null }
 			{ site ? (
-				<SiteDropdown site={ site } activeEnvironment={ effectiveEnvironment } />
+				<SiteDropdown
+					site={ site }
+					activeEnvironment={ effectiveEnvironment }
+					showSiteIcon={ sidebarCollapsed }
+				/>
 			) : (
 				<>
+					{ sidebarCollapsed ? (
+						<SiteIcon className={ styles.headerSiteIcon } seed={ siteName } />
+					) : null }
 					<span className={ styles.headerSite }>{ siteName }</span>
 					<span className={ styles.headerDot } aria-hidden="true" />
 					<span className={ styles.headerEnv }>
@@ -143,6 +164,16 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 	const canTogglePreview = !! ownerSite && effectiveEnvironment === 'local';
 	const showPreview = previewOpen && canTogglePreview;
 
+	const handleAnnotationsDone = useCallback(
+		( annotations: Annotation[] ) => {
+			if ( annotations.length === 0 ) return;
+			void sendMessage( formatAnnotationsAsPrompt( annotations ), {
+				displayMessage: formatAnnotationsSubmittedMessage( annotations.length ),
+			} );
+		},
+		[ sendMessage ]
+	);
+
 	useLayoutEffect( () => {
 		const node = scrollRef.current;
 		if ( ! node ) {
@@ -213,7 +244,13 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 				</div>
 			}
 			preview={
-				showPreview && ownerSite ? <SitePreview site={ ownerSite } sessionId={ sessionId } /> : null
+				showPreview && ownerSite ? (
+					<SitePreview
+						site={ ownerSite }
+						sessionId={ sessionId }
+						onAnnotationsDone={ handleAnnotationsDone }
+					/>
+				) : null
 			}
 		>
 			{ isEmpty ? <EmptyBackground /> : null }

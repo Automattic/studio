@@ -1,4 +1,5 @@
 import { createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
+import { isRemoteSessionEnabled } from 'cli/lib/feature-flags';
 import { createPreviewTool } from './create-preview';
 import { createSiteTool } from './create-site';
 import { deletePreviewTool } from './delete-preview';
@@ -14,6 +15,7 @@ import { previewReloadTool } from './preview-reload';
 import { pullSiteTool } from './pull-site';
 import { pushSiteTool } from './push-site';
 import { auditSeoTool } from './rank-me-up';
+import { shareScreenshotTool } from './share-screenshot';
 import { getSiteInfoTool } from './site-info';
 import { startSiteTool } from './start-site';
 import { stopSiteTool } from './stop-site';
@@ -44,6 +46,7 @@ export const studioToolDefinitions = [
 	runWpCliTool,
 	validateBlocksTool,
 	takeScreenshotTool,
+	shareScreenshotTool,
 	installTaxonomyScriptsTool,
 	auditPerformanceTool,
 	auditSeoTool,
@@ -64,13 +67,19 @@ export interface CreateStudioToolsOptions {
 }
 
 export function resolveStudioToolDefinitions( options: CreateStudioToolsOptions = {} ) {
-	if ( options.enablePreviewSteering ) {
+	const excludedNames = new Set< string >();
+	if ( ! options.enablePreviewSteering ) {
+		for ( const t of previewSteeringToolDefinitions ) {
+			excludedNames.add( t.name );
+		}
+	}
+	if ( ! isRemoteSessionEnabled() ) {
+		excludedNames.add( shareScreenshotTool.name );
+	}
+	if ( excludedNames.size === 0 ) {
 		return studioToolDefinitions;
 	}
-	const previewSteeringNames = new Set( previewSteeringToolDefinitions.map( ( t ) => t.name ) );
-	return studioToolDefinitions.filter(
-		( candidate ) => ! previewSteeringNames.has( candidate.name )
-	);
+	return studioToolDefinitions.filter( ( candidate ) => ! excludedNames.has( candidate.name ) );
 }
 
 export function createStudioTools( options: CreateStudioToolsOptions = {} ) {
@@ -87,9 +96,12 @@ export function createStudioTools( options: CreateStudioToolsOptions = {} ) {
  */
 export function createRemoteSiteTools( token: string, siteId: number ) {
 	const wpcomRequest = createWpcomRequestTool( token, siteId );
+	const screenshotTools = isRemoteSessionEnabled()
+		? [ takeScreenshotTool, shareScreenshotTool ]
+		: [ takeScreenshotTool ];
 	return createSdkMcpServer( {
 		name: 'studio',
 		version: '1.0.0',
-		tools: [ wpcomRequest, takeScreenshotTool, createSiteTool, pullSiteTool ],
+		tools: [ wpcomRequest, ...screenshotTools, createSiteTool, pullSiteTool ],
 	} );
 }

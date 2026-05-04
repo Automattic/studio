@@ -8,6 +8,7 @@ import {
 	Menu,
 	dialog,
 	MessageBoxSyncOptions,
+	shell,
 } from 'electron';
 import path from 'path';
 import { pathToFileURL } from 'url';
@@ -46,6 +47,7 @@ import {
 	stopCliEventsSubscriber,
 } from 'src/modules/cli/lib/cli-events-subscriber';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
+import { autoInstallLinuxCliIfNeeded } from 'src/modules/cli/lib/linux-installation-manager';
 import { autoInstallMacOSCliIfNeeded } from 'src/modules/cli/lib/macos-installation-manager';
 import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
 import { stopAllProcesses as stopAllStudioCodeProcesses } from 'src/modules/studio-code';
@@ -68,6 +70,18 @@ function getRendererUrl(): string {
 	} else {
 		// For production file paths, convert to file:// URL
 		return pathToFileURL( path.join( __dirname, '../renderer/index.html' ) ).href;
+	}
+}
+
+function openExternalWebUrl( url: string ): void {
+	try {
+		const parsedUrl = new URL( url );
+		if ( ! [ 'http:', 'https:' ].includes( parsedUrl.protocol ) ) {
+			return;
+		}
+		void shell.openExternal( parsedUrl.toString() ).catch( () => undefined );
+	} catch {
+		// Ignore malformed URLs from untrusted pages.
 	}
 }
 
@@ -158,16 +172,29 @@ async function appBoot() {
 	// be able to perform privileged operations.
 	app.enableSandbox();
 
-	// Prevent navigation to anywhere other than known locations
+	// Prevent navigation to anywhere other than known locations.
+	// The site-preview `<webview>` is a separate webContents that intentionally
+	// loads local WordPress pages — it's identified by `getType() === 'webview'`
+	// and exempted from the renderer-origin restriction below.
 	app.on( 'web-contents-created', ( _event, contents ) => {
+		const isSitePreviewWebview = contents.getType() === 'webview';
+
 		contents.on( 'will-navigate', ( event, navigationUrl ) => {
+			if ( isSitePreviewWebview ) {
+				return;
+			}
 			const { origin } = new URL( navigationUrl );
 			const allowedOrigins = [ new URL( getRendererUrl() ).origin ];
 			if ( ! allowedOrigins.includes( origin ) ) {
 				event.preventDefault();
 			}
 		} );
-		contents.setWindowOpenHandler( () => {
+		contents.setWindowOpenHandler( ( details ) => {
+			// Site-preview popups (target="_blank", admin-bar links, …) open
+			// in the user's browser rather than spawning a new Electron window.
+			if ( isSitePreviewWebview ) {
+				openExternalWebUrl( details.url );
+			}
 			return { action: 'deny' };
 		} );
 	} );
@@ -279,9 +306,13 @@ async function appBoot() {
 			const basePolicies = [
 				"default-src 'self'", // Allow resources from these domains
 				"script-src-attr 'none'",
-				"img-src 'self' https://*.gravatar.com https://*.wp.com https://blueprintlibrary.wordpress.com data:",
+				"img-src 'self' https://*.gravatar.com https://*.wp.com https://blueprintlibrary.wordpress.com https://wordpress.github.io https://raw.githubusercontent.com data:",
 				"style-src 'self' 'unsafe-inline'", // unsafe-inline used by tailwindcss in development, and also in production after the app rename
 				"script-src 'self' 'wasm-unsafe-eval'", // allow WebAssembly to compile and instantiate
+				// Site preview uses `<webview>` to host local WordPress sites
+				// served from arbitrary localhost ports and (optionally) HTTPS
+				// custom domains.
+				'frame-src http: https:',
 			];
 			const prodPolicies = [
 				"connect-src 'self' https://public-api.wordpress.com https://api.wordpress.org",
@@ -343,6 +374,7 @@ async function appBoot() {
 
 		await autoInstallWindowsCliIfNeeded();
 		await autoInstallMacOSCliIfNeeded();
+		await autoInstallLinuxCliIfNeeded();
 
 		finishedInitialization = true;
 	} );

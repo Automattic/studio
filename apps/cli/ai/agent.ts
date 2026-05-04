@@ -28,7 +28,6 @@ export interface AiAgentConfig {
 	prompt: string;
 	env?: Record< string, string >;
 	model?: AiModelId;
-	maxTurns?: number;
 	resume?: string;
 	activeSite?: SiteInfo | null;
 	wpcomAccessToken?: string;
@@ -85,7 +84,6 @@ export function startAiAgent( config: AiAgentConfig ): AgentRuntimeHandle {
 		prompt,
 		env,
 		model = DEFAULT_MODEL,
-		maxTurns = 75,
 		resume,
 		activeSite,
 		wpcomAccessToken,
@@ -118,7 +116,6 @@ export function startAiAgent( config: AiAgentConfig ): AgentRuntimeHandle {
 		prompt,
 		env: resolvedEnv,
 		model,
-		maxTurns,
 		resume: safeResume,
 		activeSite,
 		wpcomAccessToken,

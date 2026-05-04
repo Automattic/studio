@@ -27,6 +27,7 @@ if ( ! minimumNodeVersion ) {
 }
 
 const bundledWpFilesPath = resolve( __dirname, '..', '..', 'wp-files' );
+const phpSourceCodePath = resolve( __dirname, 'php' );
 const bundledReprintPhar = resolve( __dirname, 'lib/pull/reprint.phar' );
 
 export const baseConfig = defineConfig( {
@@ -41,6 +42,9 @@ export const baseConfig = defineConfig( {
 					resolve( outDir, 'package.json' ),
 					JSON.stringify( { type: 'module' }, null, 2 ) + '\n'
 				);
+				if ( existsSync( phpSourceCodePath ) ) {
+					cpSync( phpSourceCodePath, resolve( outDir, 'php' ), { recursive: true } );
+				}
 				if ( existsSync( bundledWpFilesPath ) ) {
 					cpSync( bundledWpFilesPath, resolve( outDir, 'wp-files' ), { recursive: true } );
 				}

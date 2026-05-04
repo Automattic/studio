@@ -15,6 +15,7 @@ vi.mock( 'src/lib/app-globals', () => ( {
 	} ) ),
 	isMac: vi.fn( () => true ),
 	isWindows: vi.fn( () => false ),
+	isLinux: vi.fn( () => false ),
 	isWindowsStore: vi.fn( () => false ),
 } ) );
 vi.mock( 'src/hooks/use-auth' );
@@ -32,6 +33,7 @@ vi.mock( 'src/lib/get-ipc-api', () => ( {
 		isStudioCliInstalled: vi.fn().mockResolvedValue( true ),
 		copyText: vi.fn().mockResolvedValue( undefined ),
 		getDefaultSiteDirectory: vi.fn().mockResolvedValue( '/mock/default/site/path' ),
+		getWapuuScore: vi.fn().mockResolvedValue( undefined ),
 	} ),
 } ) );
 

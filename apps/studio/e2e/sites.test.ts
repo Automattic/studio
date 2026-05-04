@@ -104,8 +104,12 @@ test.describe( 'Sites', () => {
 		await settingsTab.editSiteButton.click();
 		await expect( settingsTab.editSiteDialog ).toBeVisible();
 
-		const updatedPhpVersion = await settingsTab.phpVersionSelect.inputValue();
-		expect( updatedPhpVersion ).toBe( newPhpVersion );
+		// `inputValue()` reads the DOM once and `expect(string).toBe()` doesn't
+		// retry, so if the SITE_EVENTS.UPDATED round-trip (CLI _events socket
+		// → main process → renderer Redux) hasn't landed by the time the
+		// dialog reopens, the dropdown still shows the previous value. Use
+		// the auto-waiting matcher to ride out that race.
+		await expect( settingsTab.phpVersionSelect ).toHaveValue( newPhpVersion );
 
 		await settingsTab.editSiteDialog.getByRole( 'button', { name: 'Cancel' } ).click();
 	} );

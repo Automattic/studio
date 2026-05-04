@@ -355,7 +355,6 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 
 		stopSignal.throwIfAborted();
 		await waitForServerReady( `http://localhost:${ config.port }/`, stopSignal );
-		await installWordPress( config, phpVersion, stopSignal );
 
 		phpProcess = serverChild;
 	} catch ( error ) {

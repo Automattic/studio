@@ -36,8 +36,6 @@ ${ REMOTE_DESIGN_GUIDELINES }${ remoteSessionAddendum }
 
 ${ LOCAL_CONTENT_GUIDELINES }
 
-${ WPCOM_PLAN_CAPABILITIES }
-
 ${ LOCAL_DESIGN_GUIDELINES }${ remoteSessionAddendum }
 `;
 }
@@ -232,9 +230,7 @@ WordPress.com plan names, tiers, and what each one includes change frequently. D
 Instead, when you need to know whether a site supports a feature:
 1. Call \`GET /\` (apiNamespace: \`""\`) for the site and read \`plan.features.active\` — an array of feature slugs the site currently has access to. This is the authoritative per-site list.
 2. If the feature you care about isn't represented there, say so plainly and ask the user to confirm against their plan page (https://wordpress.com/plans/) rather than guessing.
-3. On remote WordPress.com sites, the only plan-level rule you should treat as fixed is the free-plan refusal stated at the top of the remote prompt; everything else, defer to \`plan.features.active\` or the user. Local Studio sites have no plan concept.
-
-**Custom post types are core WordPress and are not plan-gated as a feature.** A CPT is registered via PHP code, typically inside a plugin or theme. So when a user asks whether their plan supports a custom post type, the real question is whether the plan lets them install/upload the plugin or theme that defines it. Don't tell users "CPTs require <plan name>" — first ask whether they already have a plugin that defines the CPT, and confirm plugin/theme upload support against the user's plan page rather than naming a specific feature slug you can't verify is current.`;
+3. The only plan-level rule you should treat as fixed is the free-plan refusal stated at the top of this prompt; everything else, defer to \`plan.features.active\` or the user.`;
 
 const REMOTE_DESIGN_GUIDELINES = `## Design action rules
 

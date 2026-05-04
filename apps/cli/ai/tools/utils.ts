@@ -27,23 +27,13 @@ export async function resolveSite( nameOrPath: string ): Promise< SiteData > {
 	return getSiteByFolder( nameOrPath );
 }
 
-export function errorResult( message: string ) {
-	return {
-		content: [ { type: 'text' as const, text: message } ],
-		isError: true,
-	};
-}
-
 export function textResult( text: string ) {
 	return {
 		content: [ { type: 'text' as const, text } ],
 	};
 }
 
-/**
- * Captures console.log output during a function call.
- * Used for commands (list, status) that print JSON to console instead of returning data.
- */
+// Site list / status print JSON via console.log; capture it for tool output.
 export async function captureConsoleOutput( fn: () => Promise< void > ): Promise< string > {
 	let captured = '';
 	const origLog = console.log;
@@ -84,11 +74,8 @@ export async function captureCommandOutput( fn: () => Promise< void > ): Promise
 	};
 	process.exitCode = undefined;
 	setProgressCallback( ( message, update ) => {
-		// `update: true` means the caller is amending the most recent progress
-		// line in place (e.g. spinner-style "Applying changes… (74%)" →
-		// "(75%)"). Coalesce here so the captured `progressOutput` only keeps
-		// the latest value of each rolling line; non-update messages still
-		// append normally. Mirrors trunk's #3286 fix.
+		// `update: true` is a rolling refresh of the same line (e.g. "(74%)" →
+		// "(75%)"); coalesce so progressOutput only keeps the latest value.
 		if ( update && progressMessages.length > 0 ) {
 			progressMessages[ progressMessages.length - 1 ] = message;
 		} else {

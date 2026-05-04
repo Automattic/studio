@@ -1,23 +1,22 @@
-import { tool } from '@anthropic-ai/claude-agent-sdk';
-import { z } from 'zod/v4';
+import { Type } from 'typebox';
 import { emitProgress } from 'cli/logger';
+import { defineTool } from './define-tool';
 import { captureScreenshotPng, VIEWPORTS } from './screenshot-helpers';
-import { errorResult } from './utils';
 
-export const takeScreenshotTool = tool(
+export const takeScreenshotTool = defineTool(
 	'take_screenshot',
 	'Takes a full-page screenshot of a URL. Returns the screenshot as an image that you can analyze visually. ' +
 		'Supports desktop and mobile viewports. Use this to verify the site looks correct after building it. ' +
 		'Note: this image is for your own visual reasoning only — the user does not see it. ' +
 		'Use `share_screenshot` instead when you want to deliver the rendered page to the user.',
 	{
-		url: z.string().describe( 'The URL to screenshot' ),
-		viewport: z
-			.enum( [ 'desktop', 'mobile' ] )
-			.optional()
-			.describe(
-				'Viewport size: "desktop" (1040x1248) or "mobile" (390x844). Defaults to desktop.'
-			),
+		url: Type.String( { description: 'The URL to screenshot' } ),
+		viewport: Type.Optional(
+			Type.Enum( [ 'desktop', 'mobile' ], {
+				description:
+					'Viewport size: "desktop" (1040x1248) or "mobile" (390x844). Defaults to desktop.',
+			} )
+		),
 	},
 	async ( args ) => {
 		try {
@@ -37,7 +36,7 @@ export const takeScreenshotTool = tool(
 				],
 			};
 		} catch ( error ) {
-			return errorResult(
+			throw new Error(
 				`Screenshot failed: ${ error instanceof Error ? error.message : String( error ) }`
 			);
 		}

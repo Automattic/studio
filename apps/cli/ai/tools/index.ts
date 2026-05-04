@@ -1,4 +1,3 @@
-import { createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
 import { isRemoteSessionEnabled } from 'cli/lib/feature-flags';
 import { createPreviewTool } from './create-preview';
 import { createSiteTool } from './create-site';
@@ -23,7 +22,6 @@ import { takeScreenshotTool } from './take-screenshot';
 import { updatePreviewTool } from './update-preview';
 import { validateBlocksTool } from './validate-blocks';
 import { runWpCliTool } from './wp-cli';
-import { createWpcomRequestTool } from './wpcom-request';
 
 export { captureCommandOutput } from './utils';
 
@@ -80,28 +78,4 @@ export function resolveStudioToolDefinitions( options: CreateStudioToolsOptions 
 		return studioToolDefinitions;
 	}
 	return studioToolDefinitions.filter( ( candidate ) => ! excludedNames.has( candidate.name ) );
-}
-
-export function createStudioTools( options: CreateStudioToolsOptions = {} ) {
-	return createSdkMcpServer( {
-		name: 'studio',
-		version: '1.0.0',
-		tools: resolveStudioToolDefinitions( options ),
-	} );
-}
-
-/**
- * Creates an MCP server for remote WordPress.com sites, combining WP.com REST API tools
- * with URL-based tools (screenshot) that work with any site.
- */
-export function createRemoteSiteTools( token: string, siteId: number ) {
-	const wpcomRequest = createWpcomRequestTool( token, siteId );
-	const screenshotTools = isRemoteSessionEnabled()
-		? [ takeScreenshotTool, shareScreenshotTool ]
-		: [ takeScreenshotTool ];
-	return createSdkMcpServer( {
-		name: 'studio',
-		version: '1.0.0',
-		tools: [ wpcomRequest, ...screenshotTools, createSiteTool, pullSiteTool ],
-	} );
 }

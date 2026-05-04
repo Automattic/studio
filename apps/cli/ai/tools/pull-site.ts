@@ -1,25 +1,25 @@
-import { tool } from '@anthropic-ai/claude-agent-sdk';
-import { z } from 'zod/v4';
+import { Type } from 'typebox';
 import { runCommand as runPullCommand } from 'cli/commands/pull';
 import { parseSyncOptions } from 'cli/lib/sync-api';
-import { captureCommandOutput, errorResult, resolveSite, textResult } from './utils';
+import { defineTool } from './define-tool';
+import { captureCommandOutput, resolveSite, textResult } from './utils';
 
-export const pullSiteTool = tool(
+export const pullSiteTool = defineTool(
 	'site_pull',
 	'Pulls a WordPress.com site to a local WordPress site. Requires WordPress.com authentication ' +
 		'(studio auth login). Creates a remote backup, downloads it, and imports it locally. ' +
 		'This can take several minutes depending on site size.',
 	{
-		nameOrPath: z.string().describe( 'The local site name or file system path' ),
-		remoteSite: z
-			.string()
-			.describe( 'The remote WordPress.com site URL or numeric site ID to pull from' ),
-		options: z
-			.string()
-			.optional()
-			.describe(
-				'Comma-separated sync options: all, sqls, uploads, plugins, themes, contents. Defaults to "all".'
-			),
+		nameOrPath: Type.String( { description: 'The local site name or file system path' } ),
+		remoteSite: Type.String( {
+			description: 'The remote WordPress.com site URL or numeric site ID to pull from',
+		} ),
+		options: Type.Optional(
+			Type.String( {
+				description:
+					'Comma-separated sync options: all, sqls, uploads, plugins, themes, contents. Defaults to "all".',
+			} )
+		),
 	},
 	async ( args ) => {
 		try {
@@ -32,12 +32,12 @@ export const pullSiteTool = tool(
 			const output = result.consoleOutput || result.progressOutput || 'Pull completed.';
 
 			if ( result.exitCode ) {
-				return errorResult( output );
+				throw new Error( output );
 			}
 
 			return textResult( output );
 		} catch ( error ) {
-			return errorResult(
+			throw new Error(
 				`Failed to pull site: ${ error instanceof Error ? error.message : String( error ) }`
 			);
 		}

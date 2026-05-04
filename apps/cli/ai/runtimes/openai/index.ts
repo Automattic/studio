@@ -109,6 +109,7 @@ async function* createMessageStream(
 	if ( ! apiKey ) {
 		yield makeAssistantText(
 			sessionId,
+			config.model,
 			'OpenAI provider selected but OPENAI_API_KEY is not set. On the WordPress.com provider this means the wpcom access token is missing — run /login to authenticate.'
 		);
 		yield makeResultError( sessionId, start );
@@ -117,7 +118,11 @@ async function* createMessageStream(
 
 	const baseURL = config.env.OPENAI_BASE_URL?.trim();
 	if ( ! baseURL ) {
-		yield makeAssistantText( sessionId, 'OPENAI_BASE_URL not set — cannot route to wpcom proxy.' );
+		yield makeAssistantText(
+			sessionId,
+			config.model,
+			'OPENAI_BASE_URL not set — cannot route to wpcom proxy.'
+		);
 		yield makeResultError( sessionId, start );
 		return;
 	}
@@ -161,7 +166,7 @@ async function* createMessageStream(
 		};
 
 		const unsubscribe = agent.subscribe( ( event ) => {
-			for ( const msg of translateEvent( event, sessionId, start ) ) {
+			for ( const msg of translateEvent( event, sessionId, config.model, start ) ) {
 				queue.push( msg );
 			}
 			if ( event.type === 'agent_end' ) {
@@ -207,7 +212,7 @@ async function* createMessageStream(
 			return;
 		}
 		const message = error instanceof Error ? error.message : String( error );
-		yield makeAssistantText( sessionId, `OpenAI runtime error: ${ message }` );
+		yield makeAssistantText( sessionId, config.model, `OpenAI runtime error: ${ message }` );
 		yield makeResultError( sessionId, start );
 	}
 }
@@ -397,6 +402,7 @@ function buildAgentTools( config: AgentRuntimeConfig ) {
 function* translateEvent(
 	event: AgentEvent,
 	sessionId: string,
+	model: string,
 	start: number
 ): Generator< SDKMessage, void, void > {
 	if ( event.type === 'message_end' ) {
@@ -407,7 +413,7 @@ function* translateEvent(
 			( block ): block is Extract< typeof block, { type: 'toolCall' } > => block.type === 'toolCall'
 		);
 		if ( text ) {
-			yield makeAssistantText( sessionId, text );
+			yield makeAssistantText( sessionId, model, text );
 		} else if ( toolCalls.length === 0 ) {
 			// Defensive fallback: when reasoning models burn the whole turn on
 			// thinking and produce no text *and* no tool calls (seen with low
@@ -418,12 +424,13 @@ function* translateEvent(
 			// instead so at least the model's reasoning is visible.
 			const thinking = extractThinkingText( msg );
 			if ( thinking ) {
-				yield makeAssistantText( sessionId, thinking );
+				yield makeAssistantText( sessionId, model, thinking );
 			}
 		}
 		for ( const block of toolCalls ) {
 			yield makeAssistantToolUse(
 				sessionId,
+				model,
 				block.id,
 				block.name,
 				( block.arguments as Record< string, unknown > ) ?? {}
@@ -492,8 +499,15 @@ function parseHeaderEnv( value: string | undefined ): Record< string, string > |
 			) as [ string, string ][];
 			return entries.length ? Object.fromEntries( entries ) : undefined;
 		}
+		console.warn(
+			'STUDIO_OPENAI_DEFAULT_HEADERS must be a JSON object of string→string pairs; ignoring custom headers.'
+		);
 	} catch {
-		// Ignore malformed JSON — fall back to no custom headers.
+		// JSON.parse failed. Surface a warning so a missing X-WPCOM-AI-Feature
+		// header doesn't show up later as an opaque 401 from the proxy.
+		console.warn(
+			'STUDIO_OPENAI_DEFAULT_HEADERS contained malformed JSON; ignoring custom headers.'
+		);
 	}
 	return undefined;
 }
@@ -550,7 +564,7 @@ function makeCompactBoundary( sessionId: string ): SDKMessage {
 	} as unknown as SDKMessage;
 }
 
-function makeAssistantText( sessionId: string, text: string ): SDKMessage {
+function makeAssistantText( sessionId: string, model: string, text: string ): SDKMessage {
 	return {
 		type: 'assistant',
 		parent_tool_use_id: null,
@@ -560,7 +574,7 @@ function makeAssistantText( sessionId: string, text: string ): SDKMessage {
 			id: crypto.randomUUID(),
 			type: 'message',
 			role: 'assistant',
-			model: 'openai',
+			model,
 			content: [ { type: 'text', text } ],
 			stop_reason: 'end_turn',
 			stop_sequence: null,
@@ -577,6 +591,7 @@ function makeAssistantText( sessionId: string, text: string ): SDKMessage {
 
 function makeAssistantToolUse(
 	sessionId: string,
+	model: string,
 	toolUseId: string,
 	toolName: string,
 	input: Record< string, unknown >
@@ -590,7 +605,7 @@ function makeAssistantToolUse(
 			id: crypto.randomUUID(),
 			type: 'message',
 			role: 'assistant',
-			model: 'openai',
+			model,
 			content: [ { type: 'tool_use', id: toolUseId, name: toolName, input } ],
 			stop_reason: 'tool_use',
 			stop_sequence: null,

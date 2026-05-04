@@ -235,4 +235,64 @@ describe( 'OpenAI runtime POC', () => {
 		}
 		expect( constructedAgents ).toHaveLength( 2 );
 	} );
+
+	// Synthetic SDKMessages should carry the configured model id, not a
+	// generic 'openai' literal. Nothing reads `message.model` today, but it
+	// shows up in transcripts side-by-side with the Anthropic runtime's
+	// (which always carries the real id), and a future consumer that does
+	// read it shouldn't get the wrong value.
+	it( 'tags synthetic assistant messages with the configured model id', async () => {
+		const handle = openaiRuntime.run( {
+			prompt: 'hello',
+			env: {
+				OPENAI_API_KEY: 'sk-test',
+				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
+			},
+			model: 'gpt-5.5',
+			resume: 'model-tag-' + Math.random(),
+		} );
+
+		const assistantModels: string[] = [];
+		for await ( const m of handle ) {
+			if ( m.type === 'assistant' ) {
+				assistantModels.push( m.message.model as string );
+			}
+		}
+
+		expect( assistantModels ).not.toHaveLength( 0 );
+		expect( assistantModels.every( ( id ) => id === 'gpt-5.5' ) ).toBe( true );
+	} );
+
+	// STUDIO_OPENAI_DEFAULT_HEADERS is produced by Studio (JSON.stringify of a
+	// plain object), so malformed JSON only ever indicates a bug in the
+	// producer or a manual env override during debugging. Either way, silently
+	// dropping the headers turns into an opaque 401 from the wpcom proxy
+	// (missing X-WPCOM-AI-Feature). Surface a stderr warning so the cause is
+	// visible.
+	it( 'warns and continues when STUDIO_OPENAI_DEFAULT_HEADERS is malformed', async () => {
+		const warnSpy = vi.spyOn( console, 'warn' ).mockImplementation( () => {} );
+
+		try {
+			const handle = openaiRuntime.run( {
+				prompt: 'hello',
+				env: {
+					OPENAI_API_KEY: 'sk-test',
+					OPENAI_BASE_URL: 'https://proxy.example.com/v1',
+					STUDIO_OPENAI_DEFAULT_HEADERS: '{not json',
+				},
+				model: 'gpt-5.5',
+				resume: 'malformed-headers-' + Math.random(),
+			} );
+			for await ( const _ of handle ) {
+				// Drain.
+			}
+
+			expect( warnSpy ).toHaveBeenCalledTimes( 1 );
+			expect( warnSpy.mock.calls[ 0 ][ 0 ] ).toMatch(
+				/STUDIO_OPENAI_DEFAULT_HEADERS.*malformed JSON/
+			);
+		} finally {
+			warnSpy.mockRestore();
+		}
+	} );
 } );

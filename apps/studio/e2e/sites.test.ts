@@ -101,14 +101,18 @@ test.describe( 'Sites', () => {
 		await settingsTab.saveButton.click();
 		await expect( settingsTab.editSiteDialog ).not.toBeVisible( { timeout: 120_000 } );
 
+		// The dialog seeds its dropdown from `useState(selectedSite.phpVersion)`
+		// at mount time and never resyncs on later prop changes, so reopening
+		// before the SITE_EVENTS.UPDATED round-trip (CLI _events socket → main
+		// → renderer Redux) lands will lock the dropdown to the stale value
+		// indefinitely. Wait on the read-only Settings-tab row first — it's
+		// bound directly to Redux, so it flips as soon as the round-trip
+		// completes.
+		await expect( settingsTab.phpVersionDisplay ).toContainText( newPhpVersion );
+
 		await settingsTab.editSiteButton.click();
 		await expect( settingsTab.editSiteDialog ).toBeVisible();
 
-		// `inputValue()` reads the DOM once and `expect(string).toBe()` doesn't
-		// retry, so if the SITE_EVENTS.UPDATED round-trip (CLI _events socket
-		// → main process → renderer Redux) hasn't landed by the time the
-		// dialog reopens, the dropdown still shows the previous value. Use
-		// the auto-waiting matcher to ride out that race.
 		await expect( settingsTab.phpVersionSelect ).toHaveValue( newPhpVersion );
 
 		await settingsTab.editSiteDialog.getByRole( 'button', { name: 'Cancel' } ).click();

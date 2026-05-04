@@ -63,6 +63,18 @@ export default class SettingsTab {
 		return this.editSiteDialog.getByLabel( 'PHP version' );
 	}
 
+	/**
+	 * Read-only PHP-version row on the Settings tab body itself (not the
+	 * Edit dialog). Bound to Redux state; updates as soon as the
+	 * SITE_EVENTS.UPDATED round-trip from the CLI _events subprocess
+	 * lands. Use this to gate the next dialog open after a save — the
+	 * dialog's own dropdown is seeded from `useState` at mount time and
+	 * does not resync on later prop changes.
+	 */
+	get phpVersionDisplay() {
+		return this.locator.getByRole( 'row', { name: /PHP version/i } );
+	}
+
 	get saveButton() {
 		return this.editSiteDialog.getByRole( 'button', { name: 'Save' } );
 	}

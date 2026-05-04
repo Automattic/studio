@@ -54,15 +54,47 @@ const isElectron = (): boolean => {
 	return /\bElectron\//.test( navigator.userAgent );
 };
 
+/**
+ * Detects panel URLs (the studio-panels admin page, optionally wrapped in
+ * `/studio-auto-login?redirect_to=…`). Used to (a) route agent navigation
+ * events into the panel slot vs. the site slot for the toggle, and (b)
+ * suppress the annotation inspector — panels are agent-generated UI, not
+ * the rendered site content the inspector is designed to comment on.
+ */
+function isPanelPath( pathOrUrl: string ): boolean {
+	// Matches both "page=studio-panels" and "page=studio-panels-wp-admin",
+	// directly in the URL or wrapped inside `/studio-auto-login?redirect_to=…`.
+	if ( /page=studio-panels(-wp-admin)?\b/.test( pathOrUrl ) ) return true;
+	if ( pathOrUrl.includes( 'studio-auto-login' ) ) {
+		try {
+			const decoded = decodeURIComponent( pathOrUrl );
+			return /page=studio-panels(-wp-admin)?\b/.test( decoded );
+		} catch {
+			return false;
+		}
+	}
+	return false;
+}
+
 export function SitePreview( { site, sessionId, onAnnotationsDone }: SitePreviewProps ) {
 	const connector = useConnector();
 	const startSite = useStartSite();
 	const isStarting = useIsSiteStarting( site.id );
 	const siteUrl = getSiteUrl( site );
 	const canPreview = site.running;
-	const [ currentPath, setCurrentPath ] = useState( '/' );
+	// Track the latest site path and the latest panel path independently so
+	// the toggle can swap between them without losing either side's state.
+	// Agent navigation events update one path or the other depending on what
+	// they navigate to.
+	const [ sitePath, setSitePath ] = useState( '/' );
+	const [ panelPath, setPanelPath ] = useState< string | null >( null );
+	const [ currentMode, setCurrentMode ] = useState< 'site' | 'panel' >( 'site' );
 	const [ reloadNonce, setReloadNonce ] = useState( 0 );
+
+	const currentPath = currentMode === 'panel' && panelPath ? panelPath : sitePath;
 	const fullUrl = `${ siteUrl }${ currentPath }`;
+	const showingPanel = currentMode === 'panel' && !! panelPath;
+
 	const previewResize = useResizablePanel( {
 		config: PREVIEW_PANEL_CONFIG,
 		edge: 'left',
@@ -79,7 +111,13 @@ export function SitePreview( { site, sessionId, onAnnotationsDone }: SitePreview
 			const event = payload.event;
 			if ( event.type !== 'preview.command' ) return;
 			if ( event.kind === 'navigate' ) {
-				setCurrentPath( event.path );
+				if ( isPanelPath( event.path ) ) {
+					setPanelPath( event.path );
+					setCurrentMode( 'panel' );
+				} else {
+					setSitePath( event.path );
+					setCurrentMode( 'site' );
+				}
 			}
 			setReloadNonce( ( n ) => n + 1 );
 		} );
@@ -103,6 +141,32 @@ export function SitePreview( { site, sessionId, onAnnotationsDone }: SitePreview
 					<span className={ styles.trafficLight } />
 					<span className={ styles.trafficLight } />
 				</div>
+				<div className={ styles.modeToggle } role="group" aria-label={ __( 'Preview mode' ) }>
+					<button
+						type="button"
+						className={ clsx(
+							styles.modeButton,
+							currentMode === 'site' && styles.modeButtonActive
+						) }
+						onClick={ () => setCurrentMode( 'site' ) }
+						aria-pressed={ currentMode === 'site' }
+					>
+						{ __( 'Site' ) }
+					</button>
+					<button
+						type="button"
+						className={ clsx(
+							styles.modeButton,
+							currentMode === 'panel' && styles.modeButtonActive
+						) }
+						onClick={ () => setCurrentMode( 'panel' ) }
+						disabled={ ! panelPath }
+						aria-pressed={ currentMode === 'panel' }
+						title={ ! panelPath ? __( 'No panel generated yet' ) : __( 'Show generated panel' ) }
+					>
+						{ __( 'Panel' ) }
+					</button>
+				</div>
 				<span className={ styles.headerSpacer } aria-hidden="true" />
 				<span className={ styles.separator } aria-hidden="true" />
 				<IconButton
@@ -123,6 +187,7 @@ export function SitePreview( { site, sessionId, onAnnotationsDone }: SitePreview
 							url={ fullUrl }
 							reloadNonce={ reloadNonce }
 							onAnnotationsDone={ onAnnotationsDone }
+							enableInspector={ ! showingPanel }
 						/>
 					) : (
 						// Non-Electron fallback: plain iframe, no inspector.
@@ -160,6 +225,7 @@ interface WebviewSurfaceProps {
 	url: string;
 	reloadNonce: number;
 	onAnnotationsDone?: ( annotations: Annotation[] ) => void;
+	enableInspector?: boolean;
 }
 
 /**
@@ -169,14 +235,27 @@ interface WebviewSurfaceProps {
  * `executeJavaScript()` after each load. It reports completed annotation
  * batches by calling `console.log(BRIDGE_PREFIX + JSON.stringify(...))`,
  * which we receive through the webview's `console-message` event.
+ *
+ * When `enableInspector` is false (e.g. for studio-panels admin pages) the
+ * inspector script is skipped — those pages are agent-rendered UI, not the
+ * site content the inspector is designed to annotate.
  */
-function WebviewSurface( { url, reloadNonce, onAnnotationsDone }: WebviewSurfaceProps ) {
+function WebviewSurface( {
+	url,
+	reloadNonce,
+	onAnnotationsDone,
+	enableInspector = true,
+}: WebviewSurfaceProps ) {
 	const ref = useRef< HTMLElement | null >( null );
 	const [ ready, setReady ] = useState( false );
 	const onAnnotationsDoneRef = useRef( onAnnotationsDone );
 	useEffect( () => {
 		onAnnotationsDoneRef.current = onAnnotationsDone;
 	}, [ onAnnotationsDone ] );
+	const enableInspectorRef = useRef( enableInspector );
+	useEffect( () => {
+		enableInspectorRef.current = enableInspector;
+	}, [ enableInspector ] );
 
 	// The initial url+nonce are loaded by the `src` attribute on the
 	// `<webview>` itself; calling `loadURL` before `dom-ready` throws
@@ -194,6 +273,7 @@ function WebviewSurface( { url, reloadNonce, onAnnotationsDone }: WebviewSurface
 
 		const handleDomReady = () => {
 			setReady( true );
+			if ( ! enableInspectorRef.current ) return;
 			webview.executeJavaScript( INSPECTOR_PAGE_SCRIPT, false ).catch( () => {
 				// Transient injection failures (e.g. frame swapped mid-eval)
 				// are recoverable on the next dom-ready.

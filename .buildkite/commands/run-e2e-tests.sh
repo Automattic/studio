@@ -21,6 +21,9 @@ case "$PLATFORM" in
   windows)
     FORGE_PLATFORM="win32"
     ;;
+  linux)
+    FORGE_PLATFORM="linux"
+    ;;
   *)
     echo "Unknown platform: $PLATFORM"
     exit 1
@@ -51,4 +54,10 @@ echo 'Installing Playwright browsers...'
 npx playwright install
 
 echo 'Running Playwright tests...'
-npx playwright test
+# Electron needs a display server to launch. CI Linux agents are headless,
+# so wrap with xvfb-run to provide a virtual display.
+if [ "$PLATFORM" = "linux" ]; then
+  xvfb-run -a npx playwright test
+else
+  npx playwright test
+fi

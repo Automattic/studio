@@ -1,9 +1,19 @@
 import fs from 'fs';
 import path from 'path';
-import { query, type HookCallback, type Query } from '@anthropic-ai/claude-agent-sdk';
+import {
+	query,
+	type HookCallback,
+	type HookCallbackMatcher,
+	type Query,
+} from '@anthropic-ai/claude-agent-sdk';
 import { AI_MODELS, DEFAULT_MODEL, type AiModelId } from '@studio/common/ai/models';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
-import { createRemoteSiteTools, createStudioTools } from 'cli/ai/tools';
+import {
+	createRemoteSiteTools,
+	createStudioTools,
+	STUDIO_MCP_SERVER_NAME,
+	STUDIO_MCP_TOOL_PREFIX,
+} from 'cli/ai/tools';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import type { SiteInfo } from 'cli/ai/ui';
 
@@ -76,7 +86,7 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 	// Configure MCP servers based on site type:
 	// Remote sites get WP.com REST API tools + screenshot; local sites get the full Studio toolset.
 	const mcpServers = {
-		studio: isRemoteSite
+		[ STUDIO_MCP_SERVER_NAME ]: isRemoteSite
 			? createRemoteSiteTools( wpcomAccessToken, activeSite.wpcomSiteId! )
 			: createStudioTools( { enablePreviewSteering: isForkedByDesktop } ),
 	};
@@ -131,6 +141,30 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 		  }
 		: undefined;
 
+	// Pre-approve our own MCP server's tools so they bypass the SDK's auto
+	// permission classifier. The classifier is a Sonnet call: when it has an
+	// outage every Studio tool call fails with "claude-sonnet-4-6 is
+	// temporarily unavailable, so auto mode cannot determine the safety…",
+	// which leaves the agent unable to do anything until Sonnet recovers.
+	// Studio's own tools are scoped to local sites or the user's own
+	// WordPress.com sites via OAuth, and the system prompt instructs the
+	// agent to confirm destructive actions, so they don't need an external
+	// safety check. Built-in tools (Bash, Write, Edit, …) still go through
+	// the classifier.
+	const allowStudioToolsHook: HookCallback = async () => ( {
+		hookSpecificOutput: {
+			hookEventName: 'PreToolUse' as const,
+			permissionDecision: 'allow' as const,
+		},
+	} );
+
+	const preToolUseHooks: HookCallbackMatcher[] = [
+		{ matcher: `^${ STUDIO_MCP_TOOL_PREFIX }`, hooks: [ allowStudioToolsHook ] },
+	];
+	if ( askUserQuestionHook ) {
+		preToolUseHooks.push( { matcher: 'AskUserQuestion', hooks: [ askUserQuestionHook ] } );
+	}
+
 	return query( {
 		prompt,
 		options: {
@@ -144,11 +178,7 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 			cwd: STUDIO_SITES_ROOT,
 			tools: { type: 'preset', preset: 'claude_code' },
 			permissionMode: 'auto',
-			...( askUserQuestionHook && {
-				hooks: {
-					PreToolUse: [ { matcher: 'AskUserQuestion', hooks: [ askUserQuestionHook ] } ],
-				},
-			} ),
+			hooks: { PreToolUse: preToolUseHooks },
 			plugins: [ { type: 'local' as const, path: path.resolve( import.meta.dirname, 'plugin' ) } ],
 			model,
 			resume,

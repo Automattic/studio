@@ -677,6 +677,25 @@ const VIEWPORTS = {
 	mobile: { width: 390, height: 844 },
 } as const;
 
+async function resolveScreenshotUrl( args: {
+	url?: string;
+	nameOrPath?: string;
+	path?: string;
+} ): Promise< string | null > {
+	if ( args.url ) {
+		return args.url;
+	}
+
+	if ( ! args.nameOrPath ) {
+		return null;
+	}
+
+	const site = await resolveSite( args.nameOrPath );
+	const sitePath = args.path?.trim() || '/';
+	const normalizedPath = sitePath.startsWith( '/' ) ? sitePath : `/${ sitePath }`;
+	return new URL( normalizedPath, getSiteUrl( site ) ).toString();
+}
+
 // 16:9 viewport used by `share_screenshot` to capture "as it would look on a
 // screen" — an above-the-fold view of the rendered page. The user can ask for
 // the full page explicitly by setting `fullPage: true`.
@@ -768,12 +787,20 @@ async function captureScreenshotPng(
 
 const takeScreenshotTool = tool(
 	'take_screenshot',
-	'Takes a full-page screenshot of a URL. Returns the screenshot as an image that you can analyze visually. ' +
+	'Takes a full-page screenshot of a URL or local Studio site. Returns the screenshot as an image that you can analyze visually. ' +
 		'Supports desktop and mobile viewports. Use this to verify the site looks correct after building it. ' +
 		'Note: this image is for your own visual reasoning only — the user does not see it. ' +
 		'Use `share_screenshot` instead when you want to deliver the rendered page to the user.',
 	{
-		url: z.string().describe( 'The URL to screenshot' ),
+		url: z.string().optional().describe( 'The URL to screenshot' ),
+		nameOrPath: z
+			.string()
+			.optional()
+			.describe( 'The local site name or file system path to screenshot' ),
+		path: z
+			.string()
+			.optional()
+			.describe( 'Site-relative path to screenshot when using nameOrPath. Defaults to "/".' ),
 		viewport: z
 			.enum( [ 'desktop', 'mobile' ] )
 			.optional()
@@ -784,8 +811,14 @@ const takeScreenshotTool = tool(
 	async ( args ) => {
 		try {
 			const viewportType = args.viewport ?? 'desktop';
-			emitProgress( `Taking ${ viewportType } screenshot of ${ args.url }…` );
-			const base64 = await captureScreenshotPng( args.url, VIEWPORTS[ viewportType ], {
+			const targetUrl = await resolveScreenshotUrl( args );
+
+			if ( ! targetUrl ) {
+				return errorResult( 'Either url or nameOrPath must be provided.' );
+			}
+
+			emitProgress( `Taking ${ viewportType } screenshot of ${ targetUrl }…` );
+			const base64 = await captureScreenshotPng( targetUrl, VIEWPORTS[ viewportType ], {
 				fullPage: true,
 			} );
 			emitProgress( `Screenshot captured (${ viewportType })` );
@@ -808,13 +841,21 @@ const takeScreenshotTool = tool(
 
 const shareScreenshotTool = tool(
 	'share_screenshot',
-	'Fire-and-forget primitive that captures a URL and delivers the image to the user. ' +
+	'Fire-and-forget primitive that captures a URL or local Studio site and delivers the image to the user. ' +
 		'Call after ANY visible change to a site so the user sees the new state. ' +
 		'Returns a confirmation string only — the image is NOT returned to you. The user already has the picture; do not analyze or describe what was sent in your reply. After calling this, write at most one short follow-up sentence and end the turn. ' +
 		'Defaults to a 16:9 above-the-fold view. Set `fullPage: true` only when the user explicitly asks for the whole scroll length. ' +
 		'Distinct from `take_screenshot`, which is for your own visual reasoning before continuing work.',
 	{
-		url: z.string().describe( 'The URL to screenshot and send to the user' ),
+		url: z.string().optional().describe( 'The URL to screenshot and send to the user' ),
+		nameOrPath: z
+			.string()
+			.optional()
+			.describe( 'The local site name or file system path to screenshot and send to the user' ),
+		path: z
+			.string()
+			.optional()
+			.describe( 'Site-relative path to screenshot when using nameOrPath. Defaults to "/".' ),
 		viewport: z
 			.enum( [ 'desktop', 'mobile' ] )
 			.optional()
@@ -837,7 +878,13 @@ const shareScreenshotTool = tool(
 	async ( args ) => {
 		try {
 			const viewportType = args.viewport ?? 'desktop';
-			const base64 = await captureScreenshotPng( args.url, SHARE_VIEWPORTS[ viewportType ], {
+			const targetUrl = await resolveScreenshotUrl( args );
+
+			if ( ! targetUrl ) {
+				return errorResult( 'Either url or nameOrPath must be provided.' );
+			}
+
+			const base64 = await captureScreenshotPng( targetUrl, SHARE_VIEWPORTS[ viewportType ], {
 				fullPage: args.fullPage ?? false,
 				deviceScaleFactor: SHARE_DEVICE_SCALE_FACTOR,
 			} );

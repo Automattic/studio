@@ -8,6 +8,7 @@ import { getSharedBrowser } from 'cli/ai/browser-utils';
 import { openAnnotationBrowser, waitForAnnotationsDone } from 'cli/ai/inspector/inspector-inject';
 import { emitEvent } from 'cli/ai/json-events';
 import { auditPerformance } from 'cli/ai/performance-audit';
+import { previewSteeringPerFileToolDefinitions } from 'cli/ai/tools/index';
 import { auditSeo } from 'cli/ai/seo-audit';
 import { createWpcomToolDefinitions } from 'cli/ai/wpcom-tools';
 import { runCommand as runExportCommand } from 'cli/commands/export';
@@ -1195,7 +1196,11 @@ const exportSiteTool = tool(
 // doesn't exist when the CLI runs standalone. Kept separate so plain-CLI
 // runs don't see (and the agent can't call) tools that would just produce
 // noise in the terminal transcript.
-const previewSteeringToolDefinitions = [ previewNavigateTool, previewReloadTool ];
+const previewSteeringToolDefinitions = [
+	previewNavigateTool,
+	previewReloadTool,
+	...previewSteeringPerFileToolDefinitions,
+];
 
 const openAnnotationBrowserTool = tool(
 	'open_annotation_browser',

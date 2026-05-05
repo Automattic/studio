@@ -5,5 +5,3 @@ download-options:
   retry: 2
 build-options:
   with-suggested-libs: false
-craft-options:
-  doctor: false

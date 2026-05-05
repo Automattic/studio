@@ -1,0 +1,7 @@
+php-version: 8.4.20
+extensions: apcu,bcmath,calendar,ctype,curl,dba,dom,exif,fileinfo,filter,ftp,gd,iconv,igbinary,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pdo,pdo_mysql,pdo_sqlite,phar,redis,session,shmop,simplexml,sockets,sqlite3,ssh2,tokenizer,xml,xmlreader,xmlwriter,yaml,zip,zlib
+sapi: cli
+download-options:
+  retry: 2
+build-options:
+  with-suggested-libs: false

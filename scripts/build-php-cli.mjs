@@ -28,7 +28,11 @@ const config = {
 	outputDir: path.resolve( process.env.OUTPUT_DIR || path.join( repoRoot, 'out', 'php-binaries' ) ),
 };
 
-const craftFile = path.join( repoRoot, 'scripts', 'php-cli.craft.yml' );
+const craftFile = path.join(
+	repoRoot,
+	'scripts',
+	config.nodePlatform === 'win32' ? 'php-cli.windows.craft.yml' : 'php-cli.craft.yml'
+);
 const buildRoot = path.join(
 	config.spcDir,
 	`buildroot-${ config.nodePlatform }-${ config.nodeArch }`
@@ -53,8 +57,9 @@ try {
 
 function main() {
 	assertHostMatchesTarget();
-	installHostRuntime();
 	prepareStaticPhpCli();
+	installHostRuntime();
+	installStaticPhpCliDependencies();
 	cleanBuildPaths();
 	runCraft();
 	packageArtifact();
@@ -68,8 +73,16 @@ function run( command, args, options = {} ) {
 		...options,
 	} );
 
+	if ( result.error ) {
+		throw result.error;
+	}
+
 	if ( result.status !== 0 ) {
-		process.exit( result.status ?? 1 );
+		throw new Error(
+			`${ [ command, ...args ].join( ' ' ) } failed with ${
+				result.signal ? `signal ${ result.signal }` : `exit code ${ result.status ?? 1 }`
+			}.`
+		);
 	}
 }
 
@@ -94,10 +107,20 @@ function assertHostMatchesTarget() {
 }
 
 function installHostRuntime() {
-	if ( config.nodePlatform !== 'darwin' ) {
-		throw new Error( `Unsupported PHP CLI build platform: ${ config.nodePlatform }.` );
+	if ( config.nodePlatform === 'darwin' ) {
+		installMacHostRuntime();
+		return;
 	}
 
+	if ( config.nodePlatform === 'win32' ) {
+		installWindowsHostRuntime();
+		return;
+	}
+
+	throw new Error( `Unsupported PHP CLI build platform: ${ config.nodePlatform }.` );
+}
+
+function installMacHostRuntime() {
 	if ( ! commandExists( 'brew' ) ) {
 		throw new Error( 'Homebrew is required to install the PHP host runtime.' );
 	}
@@ -105,6 +128,28 @@ function installHostRuntime() {
 	installBrewFormulaIfMissing( 'php@8.4' );
 	process.env.PATH = `/opt/homebrew/opt/php@8.4/bin:/opt/homebrew/opt/php@8.4/sbin:${ process.env.PATH }`;
 	installBrewFormulaIfMissing( 'composer' );
+}
+
+function installWindowsHostRuntime() {
+	console.log( '--- :windows: Installing static-php-cli runtime' );
+	run(
+		'powershell.exe',
+		[
+			'-NoProfile',
+			'-ExecutionPolicy',
+			'Bypass',
+			'-File',
+			path.join( config.spcDir, 'bin', 'setup-runtime.ps1' ),
+		],
+		{ cwd: config.spcDir, shell: false }
+	);
+
+	const runtimeDir = path.join( config.spcDir, 'runtime' );
+	if ( ! fs.existsSync( path.join( runtimeDir, 'php.exe' ) ) ) {
+		throw new Error( `static-php-cli runtime PHP was not installed at ${ runtimeDir }.` );
+	}
+
+	process.env.PATH = `${ runtimeDir }${ path.delimiter }${ process.env.PATH }`;
 }
 
 function installBrewFormulaIfMissing( formula ) {
@@ -136,27 +181,41 @@ function prepareStaticPhpCli() {
 		run( 'git', [ '-C', config.spcDir, 'checkout', '--detach', 'FETCH_HEAD' ] );
 		run( 'git', [ '-C', config.spcDir, 'reset', '--hard' ] );
 	}
+}
 
+function installStaticPhpCliDependencies() {
 	console.log( '--- :composer: Installing static-php-cli dependencies' );
-	run( 'composer', [
+	const composerArgs = [
 		'--working-dir',
 		config.spcDir,
 		'install',
 		'--no-dev',
 		'--no-interaction',
 		'--prefer-dist',
-	] );
+	];
+
+	if ( config.nodePlatform === 'win32' ) {
+		run(
+			path.join( config.spcDir, 'runtime', 'php.exe' ),
+			[ path.join( config.spcDir, 'runtime', 'composer.phar' ), ...composerArgs ],
+			{ shell: false }
+		);
+		return;
+	}
+
+	run( 'composer', composerArgs );
 }
 
 function cleanBuildPaths() {
 	console.log( '--- :broom: Cleaning PHP CLI build paths' );
 	fs.rmSync( buildRoot, { recursive: true, force: true } );
 	fs.rmSync( sourcePath, { recursive: true, force: true } );
+	fs.rmSync( pkgRoot, { recursive: true, force: true } );
 }
 
 function runCraft() {
 	console.log( '--- :elephant: Building PHP CLI' );
-	run( 'npm', [ 'run', 'php-cli:craft' ], {
+	run( 'npm', [ 'run', craftScriptName() ], {
 		env: {
 			...process.env,
 			BUILD_ROOT_PATH: buildRoot,
@@ -174,7 +233,9 @@ function packageArtifact() {
 		throw new Error( `PHP binary was not built at ${ phpBin }.` );
 	}
 
-	run( 'file', [ phpBin ] );
+	if ( config.nodePlatform !== 'win32' ) {
+		run( 'file', [ phpBin ] );
+	}
 	const versionOutput = execFileSync( phpBin, [ '--version' ], { encoding: 'utf8' } );
 	if ( ! versionOutput.includes( `PHP ${ phpVersion } ` ) ) {
 		throw new Error( `Built PHP binary does not report PHP ${ phpVersion }.` );
@@ -194,15 +255,32 @@ function packageArtifact() {
 	try {
 		const packageBin = path.join( packageDir, config.binaryName );
 		fs.copyFileSync( phpBin, packageBin );
-		fs.chmodSync( packageBin, 0o755 );
+		if ( config.nodePlatform !== 'win32' ) {
+			fs.chmodSync( packageBin, 0o755 );
+		}
 		fs.rmSync( artifactPath, { force: true } );
 		fs.rmSync( hashPath, { force: true } );
 
-		if ( config.archiveExt !== 'tar.gz' ) {
+		if ( config.archiveExt === 'tar.gz' ) {
+			run( 'tar', [ '-czf', artifactPath, '-C', packageDir, config.binaryName ] );
+		} else if ( config.archiveExt === 'zip' ) {
+			run(
+				'powershell.exe',
+				[
+					'-NoProfile',
+					'-ExecutionPolicy',
+					'Bypass',
+					'-Command',
+					`Compress-Archive -LiteralPath ${ quotePowerShell(
+						packageBin
+					) } -DestinationPath ${ quotePowerShell( artifactPath ) } -Force`,
+				],
+				{ shell: false }
+			);
+		} else {
 			throw new Error( `Unsupported PHP CLI archive extension: ${ config.archiveExt }.` );
 		}
 
-		run( 'tar', [ '-czf', artifactPath, '-C', packageDir, config.binaryName ] );
 		fs.writeFileSync( hashPath, `${ sha256( artifactPath ) }\n` );
 	} finally {
 		fs.rmSync( packageDir, { recursive: true, force: true } );
@@ -234,6 +312,14 @@ function readPhpVersion() {
 		throw new Error( `Could not read php-version from ${ craftFile }.` );
 	}
 	return match[ 1 ].trim();
+}
+
+function craftScriptName() {
+	return config.nodePlatform === 'win32' ? 'php-cli:craft:windows' : 'php-cli:craft';
+}
+
+function quotePowerShell( value ) {
+	return `'${ value.replaceAll( "'", "''" ) }'`;
 }
 
 function sha256( filePath ) {

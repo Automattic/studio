@@ -82,11 +82,13 @@ steps:
     if_changed:
       - scripts/build-php-cli.mjs
       - scripts/php-cli.craft.yml
+      - scripts/php-cli.windows.craft.yml
     matrix:
       setup: { platform: [], arch: [] }
       adjustments:
         - with: { platform: mac, arch: x64 }
         - with: { platform: mac, arch: arm64 }
+        - with: { platform: windows, arch: x64 }
     notify:
       - github_commit_status:
           context: Build PHP CLI

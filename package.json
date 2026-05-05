@@ -41,6 +41,7 @@
 		"make:dmg-arm64": "FILE_ARCHITECTURE=arm64 node ./scripts/make-dmg.mjs",
 		"php-cli:build": "node ./scripts/build-php-cli.mjs",
 		"php-cli:craft": "cd .cache/static-php-cli && php bin/spc craft ../../scripts/php-cli.craft.yml",
+		"php-cli:craft:windows": "cd .cache/static-php-cli && php bin/spc craft ../../scripts/php-cli.windows.craft.yml",
 		"publish": "npm -w studio-app run publish",
 		"cli:build": "npm -w wp-studio run build",
 		"cli:build:prod": "npm -w wp-studio run build:prod",

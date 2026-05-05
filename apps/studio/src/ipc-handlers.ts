@@ -82,6 +82,7 @@ import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import * as oauthClient from 'src/lib/oauth';
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
+import { updateSiteUrl } from 'src/lib/update-site-url';
 import * as windowsHelpers from 'src/lib/windows-helpers';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
@@ -1041,6 +1042,10 @@ export async function copySite(
 		adminEmail: sourceSite.adminEmail,
 		noStart: true,
 	} );
+
+	// Playground sets the correct siteurl internally, but for the native-php runtime, we need to
+	// explicitly update that option
+	await updateSiteUrl( server, `http://localhost:${ details.port }` );
 
 	// Persist themeDetails to appdata (Studio-only data)
 	if ( sourceSite.themeDetails ) {

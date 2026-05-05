@@ -505,6 +505,7 @@ describe( 'Studio AI MCP tools', () => {
 				'theme.json',
 				'functions.php',
 				'templates/index.html',
+				'templates/front-page.html',
 				'templates/single.html',
 				'templates/page.html',
 				'templates/archive.html',

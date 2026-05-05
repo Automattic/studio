@@ -261,6 +261,17 @@ const TEMPLATE_SINGLE = `<!-- wp:template-part {"slug":"header"} /-->
 <!-- wp:template-part {"slug":"footer"} /-->
 `;
 
+const TEMPLATE_FRONT_PAGE = `<!-- wp:template-part {"slug":"header"} /-->
+
+<!-- wp:group {"tagName":"main"} -->
+<main class="wp-block-group">
+	<!-- wp:post-content /-->
+</main>
+<!-- /wp:group -->
+
+<!-- wp:template-part {"slug":"footer"} /-->
+`;
+
 const TEMPLATE_PAGE = `<!-- wp:template-part {"slug":"header"} /-->
 
 <!-- wp:group {"tagName":"main"} -->
@@ -363,7 +374,7 @@ export const scaffoldThemeTool = defineTool(
 	'scaffold_theme',
 	'Scaffolds a minimal block theme into the given site at wp-content/themes/<slug>/ and activates it by default. ' +
 		'Drops in style.css, theme.json (with appearanceTools, semantic palette and a numeric spacing scale), ' +
-		'functions.php (frontend + editor style enqueue), default templates (index, single, page, archive, 404), ' +
+		'functions.php (frontend + editor style enqueue), default templates (index, front-page, single, page, archive, 404), ' +
 		'header/footer parts, and empty assets/fonts and patterns directories. ' +
 		'Use when the user wants to start a new custom theme — the agent fills in design-specific content afterwards. ' +
 		'Block themes only; does not support classic (PHP template) themes. ' +
@@ -428,6 +439,7 @@ export const scaffoldThemeTool = defineTool(
 				[ 'theme.json', renderThemeJson() ],
 				[ 'functions.php', renderFunctionsPhp( trimmedName, slug ) ],
 				[ path.join( 'templates', 'index.html' ), TEMPLATE_INDEX ],
+				[ path.join( 'templates', 'front-page.html' ), TEMPLATE_FRONT_PAGE ],
 				[ path.join( 'templates', 'single.html' ), TEMPLATE_SINGLE ],
 				[ path.join( 'templates', 'page.html' ), TEMPLATE_PAGE ],
 				[ path.join( 'templates', 'archive.html' ), TEMPLATE_ARCHIVE ],

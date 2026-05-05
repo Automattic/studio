@@ -5,6 +5,7 @@
 	"description": "Shared code between Studio app and CLI",
 	"scripts": {
 		"build": "tsc -p tsconfig.json",
+		"lint": "eslint .",
 		"typecheck": "tsc -p tsconfig.json --noEmit"
 	},
 	"dependencies": {

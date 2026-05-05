@@ -91,7 +91,6 @@ describe( 'OpenAI runtime sidecar persistence', () => {
 
 	it( 'silently no-ops when deleting a non-existent sidecar', async () => {
 		const jsonlPath = path.join( tempDir, 'session.jsonl' );
-		// Should not throw.
 		await deleteSidecar( jsonlPath );
 	} );
 

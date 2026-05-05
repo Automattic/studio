@@ -1,17 +1,17 @@
 import path from 'path';
-import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
-import { z } from 'zod/v4';
+import { Type } from 'typebox';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
-import { errorResult, resolveSite, textResult } from './utils';
+import { defineTool } from './define-tool';
+import { resolveSite, textResult } from './utils';
 
-export const createSiteTool = tool(
+export const createSiteTool = defineTool(
 	'site_create',
 	'Creates a new WordPress site with the latest WordPress version. Automatically sets up the site directory, installs WordPress, registers the site, and starts the server. Returns the site URL and credentials.',
 	{
-		name: z.string().describe( 'The name for the new site (e.g., "My Coffee Shop")' ),
+		name: Type.String( { description: 'The name for the new site (e.g., "My Coffee Shop")' } ),
 	},
 	async ( args ) => {
 		try {
@@ -20,9 +20,7 @@ export const createSiteTool = tool(
 				.replace( /[^a-z0-9]+/g, '-' )
 				.replace( /^-|-$/g, '' );
 			if ( ! slug ) {
-				return errorResult(
-					'Site name must contain at least one ASCII letter or digit (a-z, 0-9).'
-				);
+				throw new Error( 'Site name must contain at least one ASCII letter or digit (a-z, 0-9).' );
 			}
 			const sitePath = path.join( STUDIO_SITES_ROOT, slug );
 
@@ -54,7 +52,7 @@ export const createSiteTool = tool(
 				)
 			);
 		} catch ( error ) {
-			return errorResult(
+			throw new Error(
 				`Failed to create site: ${ error instanceof Error ? error.message : String( error ) }`
 			);
 		}

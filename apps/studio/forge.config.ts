@@ -208,29 +208,6 @@ const config: ForgeConfig = {
 			console.log( `Removing native binaries for other platforms from CLI bundle...` );
 			const cliNodeModules = path.join( repoRoot, 'apps', 'cli', 'dist', 'cli', 'node_modules' );
 
-			// Clean up @anthropic-ai/claude-agent-sdk vendor binaries (uses {arch}-{platform} format)
-			const claudeVendorDir = path.join(
-				cliNodeModules,
-				'@anthropic-ai',
-				'claude-agent-sdk',
-				'vendor'
-			);
-			const platformSuffix = `-${ platform }`;
-			if ( fs.existsSync( claudeVendorDir ) ) {
-				for ( const toolDir of fs.readdirSync( claudeVendorDir ) ) {
-					const toolPath = path.join( claudeVendorDir, toolDir );
-					if ( fs.statSync( toolPath ).isDirectory() ) {
-						for ( const archPlatformDir of fs.readdirSync( toolPath ) ) {
-							if ( ! archPlatformDir.endsWith( platformSuffix ) ) {
-								const dirToRemove = path.join( toolPath, archPlatformDir );
-								fs.rmSync( dirToRemove, { recursive: true, force: true } );
-								console.log( `Removed claude-agent-sdk/vendor/${ toolDir }/${ archPlatformDir }` );
-							}
-						}
-					}
-				}
-			}
-
 			// Clean up koffi binaries (uses {platform}_{arch} format)
 			const koffiBuildDir = path.join( cliNodeModules, 'koffi', 'build', 'koffi' );
 			const platformPrefix = `${ platform }_`;

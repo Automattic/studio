@@ -1,15 +1,15 @@
-import { tool } from '@anthropic-ai/claude-agent-sdk';
-import { z } from 'zod/v4';
+import { Type } from 'typebox';
 import { runCommand as runImportCommand } from 'cli/commands/import';
-import { captureCommandOutput, errorResult, resolveSite, textResult } from './utils';
+import { defineTool } from './define-tool';
+import { captureCommandOutput, resolveSite, textResult } from './utils';
 
-export const importSiteTool = tool(
+export const importSiteTool = defineTool(
 	'site_import',
 	'Imports a backup file into a local WordPress site. Supports .zip, .tar.gz, .sql, and .wpress formats. ' +
 		'The site server will be stopped during import and restarted afterward if it was running.',
 	{
-		nameOrPath: z.string().describe( 'The local site name or file system path' ),
-		importFile: z.string().describe( 'Absolute path to the backup file to import' ),
+		nameOrPath: Type.String( { description: 'The local site name or file system path' } ),
+		importFile: Type.String( { description: 'Absolute path to the backup file to import' } ),
 	},
 	async ( args ) => {
 		try {
@@ -21,12 +21,12 @@ export const importSiteTool = tool(
 			const output = result.consoleOutput || result.progressOutput || 'Import completed.';
 
 			if ( result.exitCode ) {
-				return errorResult( output );
+				throw new Error( output );
 			}
 
 			return textResult( output );
 		} catch ( error ) {
-			return errorResult(
+			throw new Error(
 				`Failed to import site: ${ error instanceof Error ? error.message : String( error ) }`
 			);
 		}

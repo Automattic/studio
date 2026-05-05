@@ -1,10 +1,14 @@
 import crypto from 'crypto';
+import Anthropic from '@anthropic-ai/sdk';
 import {
 	Agent,
 	type AgentEvent,
 	type AgentMessage,
 	type AgentTool,
+	type StreamFn,
 } from '@mariozechner/pi-agent-core';
+import { type Model } from '@mariozechner/pi-ai';
+import { streamAnthropic, type AnthropicOptions } from '@mariozechner/pi-ai/anthropic';
 import {
 	createBashTool,
 	createEditTool,
@@ -14,8 +18,9 @@ import {
 	createReadTool,
 	createWriteTool,
 } from '@mariozechner/pi-coding-agent';
+import { getAiModelFamily, type AiModelFamily, type AiModelId } from '@studio/common/ai/models';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
-import { studioToolDefinitions } from 'cli/ai/tools';
+import { resolveStudioToolDefinitions } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
 import { createSiteTool } from 'cli/ai/tools/create-site';
 import { pullSiteTool } from 'cli/ai/tools/pull-site';
@@ -25,37 +30,12 @@ import { createWpcomRequestTool } from 'cli/ai/tools/wpcom-request';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { buildTransformContext } from './compaction';
 import { loadSidecar, saveSidecar } from './persistence';
-import { adaptToolsForPi } from './pi-tool-adapter';
+import type { SDKMessage } from '../messages';
 import type { AgentRuntime, AgentRuntimeConfig, AgentRuntimeHandle } from '../types';
-import type { SDKMessage, SdkMcpToolDefinition } from '@anthropic-ai/claude-agent-sdk';
-import type { Model } from '@mariozechner/pi-ai';
-
-/**
- * OpenAI runtime — pi-agent-core edition.
- *
- * Uses `@mariozechner/pi-agent-core`'s `Agent` class for the tool loop and
- * conversation state, and `@mariozechner/pi-ai`'s OpenAI Chat Completions
- * provider for the actual LLM call. Both packages accept `baseUrl` + headers
- * + apiKey as first-class arguments, so the wpcom AI proxy is just a Model
- * with a custom baseUrl/headers and the wpcom access token as apiKey.
- *
- * Session persistence is baked in: an `Agent` owns its transcript, and
- * successive `prompt()` calls append to it. We keep Agents in a module-scoped
- * Map keyed by our session id so `config.resume` across turns lands back on
- * the same Agent with its full message history.
- */
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AgentToolAny = AgentTool< any >;
 
-/**
- * Per-Agent mutable handle for compaction lifecycle. The Agent's
- * `transformContext` closure is built once at Agent construction (and reused
- * across cache hits), but each `run()` wants to receive lifecycle callbacks
- * into its own message queue. The closure dereferences `ref.current` at call
- * time, so each `createMessageStream` can swap a fresh handler in for the
- * duration of its run and clear it on exit — without rebuilding the Agent.
- */
 type CompactionPhase = 'start' | 'end' | 'skipped' | 'failed';
 interface CompactionLifecycleRef {
 	current: ( ( phase: CompactionPhase ) => void ) | null;
@@ -64,22 +44,7 @@ interface CompactionLifecycleRef {
 const AGENTS_BY_SESSION = new Map< string, Agent >();
 const LIFECYCLE_REFS_BY_SESSION = new Map< string, CompactionLifecycleRef >();
 
-/**
- * Returns true when the given session id was issued by this runtime. agent.ts
- * uses this at dispatch time to detect cross-family model swaps mid-session
- * (e.g. user ran a turn on GPT, then switched to Sonnet). Without this check,
- * the Anthropic runtime would forward the OpenAI-issued session id to the
- * Claude Agent SDK as `resume`, which doesn't recognize it and errors with
- * "No conversation found with session ID: …". The check is in-memory only —
- * across CLI process restarts the map is empty and we can't distinguish the
- * two runtimes' session ids; a fully persistent fix would require tagging
- * session.linked events with the model family.
- */
-export function isOpenAIRuntimeSession( sessionId: string ): boolean {
-	return AGENTS_BY_SESSION.has( sessionId );
-}
-
-export const openaiRuntime: AgentRuntime = {
+export const piRuntime: AgentRuntime = {
 	run( config: AgentRuntimeConfig ): AgentRuntimeHandle {
 		const sessionId = config.resume ?? crypto.randomUUID();
 		const controller = new AbortController();
@@ -97,6 +62,63 @@ export const openaiRuntime: AgentRuntime = {
 	},
 };
 
+interface ResolvedCredentials {
+	apiKey: string;
+	baseURL: string;
+	extraHeaders?: Record< string, string >;
+	useBearerAuth: boolean;
+}
+
+function resolveCredentials(
+	family: AiModelFamily,
+	env: Record< string, string >
+): { ok: true; creds: ResolvedCredentials } | { ok: false; reason: string } {
+	if ( family === 'openai' ) {
+		const apiKey = env.OPENAI_API_KEY?.trim();
+		if ( ! apiKey ) {
+			return {
+				ok: false,
+				reason:
+					'OpenAI provider selected but OPENAI_API_KEY is not set. On the WordPress.com provider this means the wpcom access token is missing — run /login to authenticate.',
+			};
+		}
+		const baseURL = env.OPENAI_BASE_URL?.trim();
+		if ( ! baseURL ) {
+			return { ok: false, reason: 'OPENAI_BASE_URL not set — cannot route to wpcom proxy.' };
+		}
+		return {
+			ok: true,
+			creds: {
+				apiKey,
+				baseURL,
+				extraHeaders: parseJsonHeaderEnv( env.STUDIO_OPENAI_DEFAULT_HEADERS ),
+				useBearerAuth: false,
+			},
+		};
+	}
+
+	const authToken = env.ANTHROPIC_AUTH_TOKEN?.trim();
+	const apiKey = env.ANTHROPIC_API_KEY?.trim();
+	const credential = authToken ?? apiKey;
+	if ( ! credential ) {
+		return {
+			ok: false,
+			reason:
+				'Anthropic provider selected but neither ANTHROPIC_AUTH_TOKEN nor ANTHROPIC_API_KEY is set. On the WordPress.com provider this means the wpcom access token is missing — run /login to authenticate. Otherwise switch to the Anthropic · API key provider with /provider and save a key.',
+		};
+	}
+	const baseURL = env.ANTHROPIC_BASE_URL?.trim() || 'https://api.anthropic.com';
+	return {
+		ok: true,
+		creds: {
+			apiKey: credential,
+			baseURL,
+			extraHeaders: parseAnthropicHeaderEnv( env.ANTHROPIC_CUSTOM_HEADERS ),
+			useBearerAuth: Boolean( authToken ),
+		},
+	};
+}
+
 async function* createMessageStream(
 	config: AgentRuntimeConfig,
 	sessionId: string,
@@ -105,42 +127,22 @@ async function* createMessageStream(
 	const start = Date.now();
 	yield makeSystemInit( sessionId, config.model );
 
-	const apiKey = config.env.OPENAI_API_KEY?.trim();
-	if ( ! apiKey ) {
-		yield makeAssistantText(
-			sessionId,
-			config.model,
-			'OpenAI provider selected but OPENAI_API_KEY is not set. On the WordPress.com provider this means the wpcom access token is missing — run /login to authenticate.'
-		);
+	const family = getAiModelFamily( config.model );
+	const resolved = resolveCredentials( family, config.env );
+	if ( ! resolved.ok ) {
+		yield makeAssistantText( sessionId, config.model, resolved.reason );
 		yield makeResultError( sessionId, start );
 		return;
 	}
-
-	const baseURL = config.env.OPENAI_BASE_URL?.trim();
-	if ( ! baseURL ) {
-		yield makeAssistantText(
-			sessionId,
-			config.model,
-			'OPENAI_BASE_URL not set — cannot route to wpcom proxy.'
-		);
-		yield makeResultError( sessionId, start );
-		return;
-	}
-
-	const extraHeaders = parseHeaderEnv( config.env.STUDIO_OPENAI_DEFAULT_HEADERS );
 
 	try {
 		const { agent, lifecycleRef } = await getOrCreateAgent(
 			sessionId,
 			config,
-			baseURL,
-			apiKey,
-			extraHeaders
+			family,
+			resolved.creds
 		);
 
-		// Emit all SDKMessages produced since we last iterated. pi's event
-		// stream is push-based via `subscribe()`, so we bridge to our
-		// generator with a simple queue.
 		const queue: SDKMessage[] = [];
 		let resolveNext: ( () => void ) | null = null;
 		let done = false;
@@ -150,11 +152,6 @@ async function* createMessageStream(
 			resolveNext = null;
 		};
 
-		// Synthesize SDK system messages around compaction so the UI shows a
-		// loader during summarization and a "Conversation history compacted"
-		// boundary marker after — same surface the Claude Agent SDK emits
-		// natively and the desktop UI already knows how to render
-		// (see `apps/cli/ai/ui.ts:2243-2249`).
 		lifecycleRef.current = ( phase ) => {
 			if ( phase === 'start' ) {
 				queue.push( makeSystemStatus( sessionId, 'compacting' ) );
@@ -175,8 +172,6 @@ async function* createMessageStream(
 			wake();
 		} );
 
-		// Kick off the turn. Don't await here — we want the subscription-driven
-		// generator to emit messages as they arrive.
 		const runPromise = agent.prompt( config.prompt );
 
 		while ( true ) {
@@ -193,16 +188,11 @@ async function* createMessageStream(
 		}
 
 		unsubscribe();
-		// Detach from the cached agent's lifecycle ref so a stale closure
-		// can't keep pushing into our (now-finished) queue if a follow-up
-		// run reuses the same Agent before our handler is overwritten.
+		// Stale closures from previous runs would otherwise keep pushing into a
+		// finished queue if a follow-up run reuses the same Agent.
 		lifecycleRef.current = null;
 		await runPromise.catch( () => undefined );
 
-		// Persist the post-turn transcript so the next CLI fork can resume.
-		// Best-effort: failure to write doesn't abort the (already finished)
-		// turn — the run still appears successful to the caller and the user.
-		// The next fork would just start with empty memory in the worst case.
 		if ( config.sessionFilePath ) {
 			await saveSidecar( config.sessionFilePath, agent.state.messages ).catch( () => undefined );
 		}
@@ -212,35 +202,16 @@ async function* createMessageStream(
 			return;
 		}
 		const message = error instanceof Error ? error.message : String( error );
-		yield makeAssistantText( sessionId, config.model, `OpenAI runtime error: ${ message }` );
+		yield makeAssistantText( sessionId, config.model, `Runtime error: ${ message }` );
 		yield makeResultError( sessionId, start );
 	}
 }
 
-/**
- * Returns the `Agent` for this session, creating it on first use. Subsequent
- * turns reuse the same Agent so the transcript accumulates naturally across
- * the CLI's turn-by-turn interaction within a single process.
- *
- * Two cases force a rebuild rather than a cache hit:
- *   - **No cached Agent (cold start)**: e.g. the first turn of a new session,
- *     or the first fork from the desktop UI for a resumed session. We
- *     hydrate messages from the sidecar (see `persistence.ts`) so pi's
- *     transcript survives across CLI process forks.
- *   - **Cached Agent but model changed**: the user ran `/model` mid-session.
- *     `Agent` captures `model` once at construction (and `transformContext`
- *     closes over it for compaction calls), so the only correct way to
- *     honor the swap is to rebuild — preserving the prior transcript so
- *     conversation continuity isn't lost. Without this branch the cache
- *     would happily return the old-model Agent forever, and `/model` would
- *     silently no-op for the live runtime.
- */
 async function getOrCreateAgent(
 	sessionId: string,
 	config: AgentRuntimeConfig,
-	baseURL: string,
-	apiKey: string,
-	extraHeaders: Record< string, string > | undefined
+	family: AiModelFamily,
+	creds: ResolvedCredentials
 ): Promise< { agent: Agent; lifecycleRef: CompactionLifecycleRef } > {
 	const existing = AGENTS_BY_SESSION.get( sessionId );
 	const existingRef = LIFECYCLE_REFS_BY_SESSION.get( sessionId );
@@ -248,24 +219,31 @@ async function getOrCreateAgent(
 		return { agent: existing, lifecycleRef: existingRef };
 	}
 
-	const model = buildModel( config.model, baseURL, extraHeaders );
+	const model = buildModel( config.model, family, creds );
+
+	const isRemoteSite = Boolean( config.activeSite?.remote && config.activeSite?.wpcomSiteId );
+	// `process.send` is the same signal `emitEvent` uses to detect the desktop
+	// IPC channel; without it, navigate/reload tools are noise in a terminal.
+	const isForkedByDesktop = typeof process.send === 'function';
+	const remoteSession = config.env.STUDIO_REMOTE_SESSION === '1';
 
 	const systemPrompt = buildSystemPrompt(
-		config.activeSite?.remote && config.activeSite?.wpcomSiteId
+		isRemoteSite
 			? {
 					remoteSite: {
-						name: config.activeSite.name,
-						url: config.activeSite.url ?? '',
-						id: config.activeSite.wpcomSiteId,
+						name: config.activeSite!.name,
+						url: config.activeSite!.url ?? '',
+						id: config.activeSite!.wpcomSiteId!,
 					},
+					remoteSession,
 			  }
-			: undefined
+			: { previewSteering: isForkedByDesktop, remoteSession }
 	);
 
-	const tools = buildAgentTools( config );
+	const tools = buildAgentTools( config, isForkedByDesktop );
 
-	// Source the seed transcript: in-memory if we're swapping models on a
-	// running session, otherwise from the sidecar (cold start).
+	// On a `/model` swap mid-session, reuse the prior transcript so the
+	// conversation continues; on a cold fork hydrate from the sidecar.
 	const initialMessages = existing
 		? existing.state.messages
 		: config.sessionFilePath
@@ -274,22 +252,32 @@ async function getOrCreateAgent(
 
 	const lifecycleRef: CompactionLifecycleRef = { current: null };
 
+	// pi-ai's default Anthropic auth uses `apiKey` → `x-api-key`, which the
+	// wpcom proxy rejects. Inject a pre-built client with `authToken` so the
+	// SDK sends `Authorization: Bearer` instead.
+	const streamFn: StreamFn | undefined =
+		family === 'anthropic' && creds.useBearerAuth
+			? buildAnthropicBearerStreamFn( creds )
+			: undefined;
+
 	const agent = new Agent( {
 		initialState: {
 			model,
 			systemPrompt,
 			messages: initialMessages,
 			tools,
+			// pi-agent-core defaults to "off"; matches the Claude Agent SDK's
+			// previous adaptive-thinking default and gives gpt-5.5 a real
+			// reasoning effort budget on Chat Completions.
+			thinkingLevel: 'high',
 		},
-		getApiKey: () => apiKey,
+		getApiKey: () => creds.apiKey,
 		sessionId,
+		...( streamFn ? { streamFn } : {} ),
 		transformContext: buildTransformContext( {
 			model,
-			apiKey,
-			headers: extraHeaders,
-			// Stable closure that defers to whatever handler the current
-			// `createMessageStream` plugged in. See the doc-block on
-			// `CompactionLifecycleRef`.
+			apiKey: creds.apiKey,
+			headers: creds.extraHeaders,
 			onLifecycle: ( phase ) => lifecycleRef.current?.( phase ),
 		} ),
 	} );
@@ -299,78 +287,93 @@ async function getOrCreateAgent(
 	return { agent, lifecycleRef };
 }
 
-/**
- * Construct the pi-ai `Model` for the wpcom proxy.
- *
- * We route OpenAI calls through Chat Completions (`/v1/chat/completions`).
- * The only OpenAI model we expose today is `gpt-5.5`, which works cleanly
- * on this path — no reasoning hop, no per-model thinking-level tuning, no
- * tool-loop terminating early on empty content.
- *
- * Pro / o-series variants would require `/v1/responses` (and were removed
- * from `AI_MODELS` because the reasoning step ran past the proxy / SDK
- * timeout). If/when we want to re-add them we'd either restore the
- * Responses path here keyed by model id, or solve the timeout server-side.
- */
 function buildModel(
-	modelId: string,
-	baseURL: string,
-	extraHeaders: Record< string, string > | undefined
-): Model< 'openai-completions' > {
-	return {
+	modelId: AiModelId,
+	family: AiModelFamily,
+	creds: ResolvedCredentials
+): Model< 'openai-completions' > | Model< 'anthropic-messages' > {
+	const baseUrl = creds.baseURL.replace( /\/+$/, '' );
+	const common = {
 		id: modelId,
 		name: modelId,
-		api: 'openai-completions',
-		provider: 'openai',
-		baseUrl: baseURL.replace( /\/+$/, '' ),
-		reasoning: false,
-		input: [ 'text' ],
+		baseUrl,
+		input: [ 'text' as const ],
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+		...( creds.extraHeaders ? { headers: creds.extraHeaders } : {} ),
+	};
+
+	// OpenAI Chat Completions reasoning_effort='high' starves visible output
+	// on GPT-5.5 (model returns "Done" after a long internal-reasoning turn).
+	// Leave reasoning off for OpenAI and let server-side defaults handle it.
+	if ( family === 'openai' ) {
+		return {
+			...common,
+			api: 'openai-completions',
+			provider: 'openai',
+			reasoning: false,
+			contextWindow: 200_000,
+			maxTokens: 16_384,
+		};
+	}
+	return {
+		...common,
+		api: 'anthropic-messages',
+		provider: 'anthropic',
+		reasoning: true,
 		contextWindow: 200_000,
-		maxTokens: 16_384,
-		...( extraHeaders ? { headers: extraHeaders } : {} ),
+		maxTokens: 8_192,
 	};
 }
 
-function buildAgentTools( config: AgentRuntimeConfig ) {
+function buildAnthropicBearerStreamFn( creds: ResolvedCredentials ): StreamFn {
+	const client = new Anthropic( {
+		apiKey: null,
+		authToken: creds.apiKey,
+		baseURL: creds.baseURL,
+		// Some test envs (e.g. vitest jsdom) trip the SDK's browser-detect
+		// guard; we're in Node.
+		dangerouslyAllowBrowser: true,
+		defaultHeaders: creds.extraHeaders,
+	} );
+	// pi-ai bundles its own `@anthropic-ai/sdk` copy; the bundled `Anthropic`
+	// class is a different TS identity from ours (private-field branding).
+	// Cast through `unknown` since the runtime shape is identical.
+	const clientForPi = client as unknown as AnthropicOptions[ 'client' ];
+	return ( m, ctx, options ) =>
+		streamAnthropic( m as Model< 'anthropic-messages' >, ctx, {
+			...( options as AnthropicOptions | undefined ),
+			client: clientForPi,
+		} );
+}
+
+function buildAgentTools(
+	config: AgentRuntimeConfig,
+	enablePreviewSteering: boolean
+): AgentToolAny[] {
 	const isRemoteSite = Boolean(
 		config.activeSite?.remote && config.activeSite?.wpcomSiteId && config.wpcomAccessToken
 	);
 
-	// AskUserQuestion only makes sense interactively — only register it when the
-	// runtime config provides an onAskUser callback (i.e. a UI is connected).
-	const askUserTool: SdkMcpToolDefinition[] = config.onAskUser
+	const askUserTool: AgentToolAny[] = config.onAskUser
 		? [ createAskUserQuestionTool( config.onAskUser ) ]
 		: [];
 
-	// Skill tool — mirrors the Anthropic SDK's built-in Skill tool. Gives the
-	// model a way to load workflow runbooks (e.g. `site-spec`) on demand
-	// instead of having every body inlined into the system prompt.
 	const skillToolDef = createSkillTool();
-	const skillTool: SdkMcpToolDefinition[] = skillToolDef ? [ skillToolDef ] : [];
+	const skillTool: AgentToolAny[] = skillToolDef ? [ skillToolDef ] : [];
 
 	if ( isRemoteSite ) {
-		const defs = [
+		return [
 			createWpcomRequestTool( config.wpcomAccessToken!, config.activeSite!.wpcomSiteId! ),
 			takeScreenshotTool,
 			createSiteTool,
 			pullSiteTool,
 			...askUserTool,
 			...skillTool,
-		] as unknown as SdkMcpToolDefinition[];
-		return adaptToolsForPi( defs );
+		];
 	}
 
-	// Local site: adapted studio tools + pi's native coding tools (Read/Write/
-	// Edit/Bash/Grep/Glob/Ls). The pi tools are already AgentTool instances so
-	// they skip the zod → typebox adapter. The `Glob` / `Ls` naming keeps the
-	// tool names consistent with Claude Code's preset, so the system prompt
-	// doesn't need to know which runtime is serving the turn.
-	const studioTools = adaptToolsForPi( [
-		...studioToolDefinitions,
-		...askUserTool,
-		...skillTool,
-	] as unknown as SdkMcpToolDefinition[] );
+	// `Glob` / `Ls` mirror Claude Code's preset tool names so the system
+	// prompt stays family-agnostic.
 	const renameTool = ( tool: AgentToolAny, name: string ): AgentToolAny => ( {
 		...tool,
 		name,
@@ -386,19 +389,14 @@ function buildAgentTools( config: AgentRuntimeConfig ) {
 		renameTool( createFindTool( STUDIO_SITES_ROOT ), 'Glob' ),
 		renameTool( createLsTool( STUDIO_SITES_ROOT ), 'Ls' ),
 	];
-	return [ ...studioTools, ...piTools ];
+	return [
+		...resolveStudioToolDefinitions( { enablePreviewSteering } ),
+		...askUserTool,
+		...skillTool,
+		...piTools,
+	];
 }
 
-/**
- * Maps pi's AgentEvent stream into the synthetic SDKMessage shape the UI
- * (ui.ts) already knows how to render. The important events:
- *
- * - `turn_end` emits one assistant message (possibly with tool calls) plus
- *   tool results. We yield one `SDKAssistantMessage` per tool-call block and
- *   one `SDKUserMessage` per tool result.
- * - `message_end` covers the pure-text case (no tools).
- * - `agent_end` closes the turn with a success result.
- */
 function* translateEvent(
 	event: AgentEvent,
 	sessionId: string,
@@ -415,13 +413,8 @@ function* translateEvent(
 		if ( text ) {
 			yield makeAssistantText( sessionId, model, text );
 		} else if ( toolCalls.length === 0 ) {
-			// Defensive fallback: when reasoning models burn the whole turn on
-			// thinking and produce no text *and* no tool calls (seen with low
-			// reasoning effort + simple prompts), pi delivers a message whose
-			// content is only `thinking` blocks. Without this branch the UI
-			// would render an empty turn ("Done" with no body) and the user
-			// would think the agent did nothing. Surface the thinking summary
-			// instead so at least the model's reasoning is visible.
+			// Reasoning models can burn a turn on `thinking` blocks alone; show
+			// the summary so the UI doesn't render a silent "Done".
 			const thinking = extractThinkingText( msg );
 			if ( thinking ) {
 				yield makeAssistantText( sessionId, model, thinking );
@@ -459,11 +452,6 @@ function extractAssistantText( msg: AgentMessage ): string {
 		.join( '' );
 }
 
-/**
- * Concatenate any `thinking` block text from an assistant message. Used as a
- * last-resort fallback in `translateEvent` when a turn ends without text or
- * tool calls — better to show the model's reasoning summary than nothing.
- */
 function extractThinkingText( msg: AgentMessage ): string {
 	if ( msg.role !== 'assistant' ) return '';
 	return msg.content
@@ -489,7 +477,7 @@ function extractToolResultText( toolResult: {
 		.join( '' );
 }
 
-function parseHeaderEnv( value: string | undefined ): Record< string, string > | undefined {
+function parseJsonHeaderEnv( value: string | undefined ): Record< string, string > | undefined {
 	if ( ! value ) return undefined;
 	try {
 		const parsed: unknown = JSON.parse( value );
@@ -503,13 +491,29 @@ function parseHeaderEnv( value: string | undefined ): Record< string, string > |
 			'STUDIO_OPENAI_DEFAULT_HEADERS must be a JSON object of string→string pairs; ignoring custom headers.'
 		);
 	} catch {
-		// JSON.parse failed. Surface a warning so a missing X-WPCOM-AI-Feature
-		// header doesn't show up later as an opaque 401 from the proxy.
+		// Surface the warning so a missing X-WPCOM-AI-Feature header doesn't
+		// later show up as an opaque 401 from the proxy.
 		console.warn(
 			'STUDIO_OPENAI_DEFAULT_HEADERS contained malformed JSON; ignoring custom headers.'
 		);
 	}
 	return undefined;
+}
+
+// `Name: value\nName: value` — the format `ANTHROPIC_CUSTOM_HEADERS` carries.
+function parseAnthropicHeaderEnv(
+	value: string | undefined
+): Record< string, string > | undefined {
+	if ( ! value ) return undefined;
+	const out: Record< string, string > = {};
+	for ( const line of value.split( '\n' ) ) {
+		const idx = line.indexOf( ':' );
+		if ( idx <= 0 ) continue;
+		const name = line.slice( 0, idx ).trim();
+		const v = line.slice( idx + 1 ).trim();
+		if ( name && v ) out[ name ] = v;
+	}
+	return Object.keys( out ).length ? out : undefined;
 }
 
 function makeSystemInit( sessionId: string, model: string ): SDKMessage {
@@ -526,18 +530,12 @@ function makeSystemInit( sessionId: string, model: string ): SDKMessage {
 		output_style: 'default',
 		skills: [],
 		plugins: [],
-		claude_code_version: '0.0.0-openai-poc',
+		claude_code_version: '0.0.0-pi-runtime',
 		uuid: crypto.randomUUID(),
 		session_id: sessionId,
 	} as unknown as SDKMessage;
 }
 
-/**
- * Synthesize a `system.status` SDKMessage. The desktop UI (`ui.ts:2243-2249`)
- * renders `subtype === 'status' && status === 'compacting'` as a "Compacting
- * conversation history…" loader. Used at the start of a compaction round so
- * the user sees that the runtime is doing work before the next turn lands.
- */
 function makeSystemStatus( sessionId: string, status: 'compacting' ): SDKMessage {
 	return {
 		type: 'system',
@@ -548,13 +546,6 @@ function makeSystemStatus( sessionId: string, status: 'compacting' ): SDKMessage
 	} as unknown as SDKMessage;
 }
 
-/**
- * Synthesize a `system.compact_boundary` SDKMessage. The desktop UI renders
- * this as a "Conversation history compacted" notice and the recorder
- * persists it to the JSONL — same shape the Claude Agent SDK emits natively
- * when its built-in compaction fires, so on-screen and on-disk surfaces
- * agree.
- */
 function makeCompactBoundary( sessionId: string ): SDKMessage {
 	return {
 		type: 'system',

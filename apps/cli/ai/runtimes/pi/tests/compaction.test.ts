@@ -3,8 +3,6 @@ import { buildTransformContext } from '../compaction';
 import type { AgentMessage } from '@mariozechner/pi-agent-core';
 import type { Model } from '@mariozechner/pi-ai';
 
-// We intercept generateSummary to (a) avoid hitting the network, and (b)
-// assert that it was called with the messages we expect.
 const generateSummaryMock = vi.fn< ( ...args: unknown[] ) => Promise< string > >();
 
 vi.mock( '@mariozechner/pi-coding-agent', async ( importOriginal ) => {
@@ -27,8 +25,7 @@ function buildModel(
 		reasoning: false,
 		input: [ 'text' ],
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-		// Keep the window tight in tests so we can trigger compaction without
-		// generating megabytes of fixture text.
+		// Tight window so tests trigger compaction without MB of fixture text.
 		contextWindow: 1_000,
 		maxTokens: 256,
 		...overrides,
@@ -78,10 +75,8 @@ describe( 'OpenAI runtime compaction', () => {
 		generateSummaryMock.mockReset();
 		generateSummaryMock.mockResolvedValue( 'EARLIER WORK SUMMARY' );
 
-		// estimateTokens uses chars/4. With these tight settings, a 4k-char
-		// message ≈ 1k tokens, so 5 user/asst pairs ≈ 10k tokens — well past
-		// `contextWindow (8k) - reserveTokens (1k)` and enough recent tail
-		// (≥ keepRecentTokens = 2k) past a user-message boundary to cut at.
+		// `estimateTokens` ≈ chars/4: 5 user/asst pairs of 4k filler exceeds
+		// the (8k window − 1k reserve) threshold with a ≥2k recent-tail cut.
 		const filler = 'a'.repeat( 4_000 );
 		const transform = buildTransformContext( {
 			model: buildModel( { contextWindow: 8_000 } ),
@@ -107,7 +102,6 @@ describe( 'OpenAI runtime compaction', () => {
 		// First message must be the synthetic summary.
 		expect( result[ 0 ].role ).toBe( 'user' );
 		expect( ( result[ 0 ] as { content: string } ).content ).toContain( 'EARLIER WORK SUMMARY' );
-		// The recent tail is preserved verbatim at the end.
 		const lastFour = result.slice( -4 );
 		expect( lastFour ).toEqual( messages.slice( -4 ) );
 	} );
@@ -131,9 +125,6 @@ describe( 'OpenAI runtime compaction', () => {
 		messages.push( userMessage( `recent: ${ filler }`, 100 ) );
 
 		const result = await transform( messages );
-		// pi's contract: transformContext must not throw. Falling back to the
-		// untouched array means the turn proceeds; if context truly overflows,
-		// the model surfaces the error — louder than silent truncation.
 		expect( result ).toBe( messages );
 	} );
 
@@ -161,11 +152,7 @@ describe( 'OpenAI runtime compaction', () => {
 		expect( phases ).toEqual( [ 'start', 'end' ] );
 	} );
 
-	// Mid-turn safeguard: pi calls transformContext between LLM rounds; if the
-	// last message is a toolResult, the assistant's matching tool_use is one
-	// round back and the model is about to follow up. Compacting here can
-	// summarize half of an in-flight tool sequence and leave a dangling
-	// tool_use without its result.
+	// Don't cut between a tool_use and its tool_result.
 	it( 'skips compaction when the last message is a toolResult (mid-turn safeguard)', async () => {
 		generateSummaryMock.mockReset();
 		generateSummaryMock.mockResolvedValue( 'SHOULD NOT BE CALLED' );
@@ -197,23 +184,17 @@ describe( 'OpenAI runtime compaction', () => {
 		expect( generateSummaryMock ).not.toHaveBeenCalled();
 	} );
 
-	// Context-window safety: defaults sized for 200k+ windows must not crowd
-	// out the prompt budget on a smaller window. We cap reserveTokens and
-	// keepRecentTokens so at least MIN_PROMPT_BUDGET_TOKENS (~4k) remains
-	// for the actual prompt regardless of what the caller passed.
+	// Defaults are sized for 200k+ windows; on tighter windows they must scale
+	// down, not crowd out the prompt budget.
 	it( 'caps reserve and keep-recent against a narrow context window', async () => {
 		generateSummaryMock.mockReset();
 		generateSummaryMock.mockResolvedValue( 'SUMMARY' );
 
 		const filler = 'a'.repeat( 4_000 );
-		// Defaults are 16_384 reserve / 20_000 keepRecent. With contextWindow
-		// = 10_000, naive use would reserve more tokens than the window has,
-		// `shouldCompact` would always fire, and keepRecent (20k) would
-		// exceed window so `findTailCutIndex` would never find a cut.
+		// Defaults (16k/20k) on a 10k window — exercise the cap behavior.
 		const transform = buildTransformContext( {
 			model: buildModel( { contextWindow: 10_000 } ),
 			apiKey: 'sk-test',
-			// No `settings` override — exercise the defaults' cap behavior.
 		} );
 
 		const messages: AgentMessage[] = [];
@@ -223,9 +204,6 @@ describe( 'OpenAI runtime compaction', () => {
 		}
 		messages.push( userMessage( `recent: ${ filler }`, 100 ) );
 
-		// Should produce a summary + tail (i.e. caps allowed compaction to
-		// happen meaningfully) rather than skipping due to a 0-cut or
-		// returning unmodified due to an impossible threshold.
 		const result = await transform( messages );
 		expect( generateSummaryMock ).toHaveBeenCalledTimes( 1 );
 		expect( result ).not.toBe( messages );

@@ -1,11 +1,11 @@
 /**
- * Minimal structural types + guards for the Claude Agent SDK messages that
- * both the CLI and the UI care about. The CLI narrows further against the
- * full SDK types it imports from `@anthropic-ai/claude-agent-sdk`; the UI
- * only needs these structural shapes.
+ * Minimal structural types + guards for the streaming-message format that
+ * both the CLI and the UI care about. The CLI narrows further against its
+ * full local types in `cli/ai/runtimes/messages`; the UI only needs these
+ * structural shapes.
  *
- * Kept free of any SDK dependency so this module can live in `tools/common`
- * without forcing the SDK into every consumer.
+ * Kept free of any runtime dependency so this module can live in
+ * `tools/common` without forcing the CLI's runtime types on every consumer.
  */
 
 export interface TextBlock {

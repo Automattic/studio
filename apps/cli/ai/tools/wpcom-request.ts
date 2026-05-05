@@ -1,8 +1,8 @@
-import { tool } from '@anthropic-ai/claude-agent-sdk';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
-import { z } from 'zod/v4';
-import { errorResult, textResult } from './utils';
+import { Type } from 'typebox';
+import { defineTool } from './define-tool';
+import { textResult } from './utils';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ApiResponse = any;
@@ -58,7 +58,7 @@ function getErrorMessage( error: unknown ): string {
 export function createWpcomRequestTool( token: string, siteId: number ) {
 	const wpcom = wpcomFactory( token, wpcomXhrRequest );
 
-	return tool(
+	return defineTool(
 		'wpcom_request',
 		`Makes a request to the WordPress REST API (wp/v2) or WordPress.com REST API (v1.1) for site ${ siteId }. ` +
 			'Defaults to the WordPress REST API (wp/v2). Use this to manage posts, pages, templates, template parts, ' +
@@ -66,34 +66,34 @@ export function createWpcomRequestTool( token: string, siteId: number ) {
 			'The path is relative to /sites/{siteId}/ — for example, pass "/posts" to call /wp/v2/sites/{siteId}/posts. ' +
 			'For non-site endpoints, start the path with "!" (e.g., "!/me") to use an absolute path.',
 		{
-			method: z
-				.enum( [ 'GET', 'POST', 'PUT', 'DELETE' ] )
-				.describe( 'HTTP method for the request.' ),
-			path: z
-				.string()
-				.describe(
+			method: Type.Enum( [ 'GET', 'POST', 'PUT', 'DELETE' ], {
+				description: 'HTTP method for the request.',
+			} ),
+			path: Type.String( {
+				description:
 					'API path relative to /sites/{siteId}/, e.g. "/posts", "/posts/123", "/templates", "/template-parts". ' +
-						'Prefix with "!" to use an absolute path (e.g. "!/me").'
-				),
-			query: z
-				.record( z.string(), z.unknown() )
-				.optional()
-				.describe(
-					'Query parameters as key-value pairs, e.g. { "per_page": 20, "status": "publish" }.'
-				),
-			body: z
-				.record( z.string(), z.unknown() )
-				.optional()
-				.describe( 'Request body for POST/PUT requests as key-value pairs.' ),
-			apiNamespace: z
-				.string()
-				.optional()
-				.describe(
-					'API namespace. Defaults to "wp/v2" (WordPress REST API). ' +
+					'Prefix with "!" to use an absolute path (e.g. "!/me").',
+			} ),
+			query: Type.Optional(
+				Type.Record( Type.String(), Type.Unknown(), {
+					description:
+						'Query parameters as key-value pairs, e.g. { "per_page": 20, "status": "publish" }.',
+				} )
+			),
+			body: Type.Optional(
+				Type.Record( Type.String(), Type.Unknown(), {
+					description: 'Request body for POST/PUT requests as key-value pairs.',
+				} )
+			),
+			apiNamespace: Type.Optional(
+				Type.String( {
+					description:
+						'API namespace. Defaults to "wp/v2" (WordPress REST API). ' +
 						'Set to "wpcom/v2" for WordPress.com v2 endpoints, or omit/leave empty to fall back to WP.com REST API v1.1. ' +
 						'Use wp/v2 for standard WordPress resources (posts, pages, templates, media, users, etc.). ' +
-						'Use WP.com v1.1 (set apiNamespace to "") for WP.com-specific endpoints like /plugins, /themes/mine.'
-				),
+						'Use WP.com v1.1 (set apiNamespace to "") for WP.com-specific endpoints like /plugins, /themes/mine.',
+				} )
+			),
 		},
 		async ( args ) => {
 			try {
@@ -132,7 +132,7 @@ export function createWpcomRequestTool( token: string, siteId: number ) {
 				const compacted = stripOversizedFields( result );
 				return textResult( JSON.stringify( compacted ) );
 			} catch ( error ) {
-				return errorResult(
+				throw new Error(
 					`WP.com API request failed (${ args.method } ${ args.path }): ${ getErrorMessage(
 						error
 					) }`

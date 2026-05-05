@@ -135,6 +135,7 @@ describe( '/remote-session slash command handler', () => {
 			start: vi.fn(),
 			stop: vi.fn(),
 			setDaemonStatus: vi.fn(),
+			askUser: vi.fn(),
 		};
 	}
 	function makeCtx( ui: ReturnType< typeof makeUi > ): SlashCommandContext {
@@ -162,10 +163,54 @@ describe( '/remote-session slash command handler', () => {
 		( config.loadRemoteSessionConfig as ReturnType< typeof vi.fn > ).mockResolvedValue( {} );
 	} );
 
-	it( 'shows usage when no subcommand is given', async () => {
+	it( 'pops an interactive picker when no subcommand is given', async () => {
+		const daemon = await import( 'cli/remote-session/daemon' );
+		( daemon.startDaemon as ReturnType< typeof vi.fn > ).mockResolvedValue( {
+			pid: 4242,
+			pidFile: '/tmp/x.pid',
+		} );
+
 		const ui = makeUi();
+		ui.askUser.mockResolvedValue( { 0: 'Start' } );
 		const result = await cmd.handler!( '/remote-session', makeCtx( ui ) );
-		expect( ui.showInfo ).toHaveBeenCalledWith( expect.stringContaining( 'Usage' ) );
+
+		expect( ui.askUser ).toHaveBeenCalledOnce();
+		const questions = ui.askUser.mock.calls[ 0 ][ 0 ];
+		expect( questions[ 0 ].options.map( ( o: { label: string } ) => o.label ) ).toEqual( [
+			'Start',
+			'Stop',
+		] );
+		expect( daemon.startDaemon ).toHaveBeenCalledOnce();
+		expect( ui.showSuccess ).toHaveBeenCalledWith( expect.stringContaining( '4242' ) );
+		expect( result ).toBe( 'continue' );
+	} );
+
+	it( 'routes the picker selection to stop', async () => {
+		const daemon = await import( 'cli/remote-session/daemon' );
+		( daemon.stopDaemon as ReturnType< typeof vi.fn > ).mockResolvedValue( {
+			stopped: true,
+			pid: 555,
+		} );
+
+		const ui = makeUi();
+		ui.askUser.mockResolvedValue( { 0: 'Stop' } );
+		await cmd.handler!( '/remote-session', makeCtx( ui ) );
+
+		expect( daemon.stopDaemon ).toHaveBeenCalledOnce();
+		expect( ui.showSuccess ).toHaveBeenCalledWith( expect.stringContaining( '555' ) );
+	} );
+
+	it( 'is a no-op when the picker is canceled (Esc)', async () => {
+		const daemon = await import( 'cli/remote-session/daemon' );
+		const ui = makeUi();
+		const abortError = Object.assign( new Error( 'aborted' ), { name: 'AbortPromptError' } );
+		ui.askUser.mockRejectedValue( abortError );
+
+		const result = await cmd.handler!( '/remote-session', makeCtx( ui ) );
+
+		expect( daemon.startDaemon ).not.toHaveBeenCalled();
+		expect( daemon.stopDaemon ).not.toHaveBeenCalled();
+		expect( ui.showInfo ).toHaveBeenCalledWith( expect.stringContaining( 'canceled' ) );
 		expect( result ).toBe( 'continue' );
 	} );
 
@@ -173,6 +218,7 @@ describe( '/remote-session slash command handler', () => {
 		const ui = makeUi();
 		await cmd.handler!( '/remote-session bogus', makeCtx( ui ) );
 		expect( ui.showInfo ).toHaveBeenCalledWith( expect.stringContaining( 'Usage' ) );
+		expect( ui.askUser ).not.toHaveBeenCalled();
 	} );
 
 	describe( 'start', () => {

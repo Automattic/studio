@@ -187,17 +187,62 @@ async function runRemoteSessionStop( ctx: SlashCommandContext ): Promise< void >
 	);
 }
 
+async function pickRemoteSessionSubcommand(
+	ctx: SlashCommandContext
+): Promise< 'start' | 'stop' | undefined > {
+	try {
+		const answer = await ctx.ui.askUser( [
+			{
+				question: __( 'Remote session' ),
+				options: [
+					{ label: __( 'Start' ), description: __( 'Spawn the daemon' ) },
+					{ label: __( 'Stop' ), description: __( 'Stop the daemon' ) },
+				],
+			},
+		] );
+		const selected = ( Object.values( answer )[ 0 ] as string | undefined )?.toLowerCase();
+		if ( selected === undefined ) {
+			return undefined;
+		}
+		if ( selected.startsWith( 'start' ) ) {
+			return 'start';
+		}
+		if ( selected.startsWith( 'stop' ) ) {
+			return 'stop';
+		}
+		return undefined;
+	} catch ( error ) {
+		if ( isPromptAbortError( error ) ) {
+			return undefined;
+		}
+		throw error;
+	}
+}
+
 async function runRemoteSessionSlashCommand(
 	prompt: string,
 	ctx: SlashCommandContext
 ): Promise< 'continue' | 'break' > {
-	const sub = parseRemoteSessionSubcommand( prompt );
+	let sub = parseRemoteSessionSubcommand( prompt );
+	if ( sub === undefined ) {
+		const tokens = prompt.trim().split( /\s+/ );
+		// `tokens.length > 1` means the user typed something like
+		// `/remote-session bogus` — surface usage rather than silently popping
+		// a picker that ignores the bad input.
+		if ( tokens.length > 1 ) {
+			ctx.ui.showInfo( __( 'Usage: /remote-session [start|stop]' ) );
+			return 'continue';
+		}
+		sub = await pickRemoteSessionSubcommand( ctx );
+		if ( sub === undefined ) {
+			ctx.ui.showInfo( __( 'Remote session selection canceled.' ) );
+			return 'continue';
+		}
+	}
 	if ( sub === 'start' ) {
 		await runRemoteSessionStart( ctx );
 	} else if ( sub === 'stop' ) {
 		await runRemoteSessionStop( ctx );
-	} else {
-		ctx.ui.showInfo( __( 'Usage: /remote-session [start|stop]' ) );
 	}
 	return 'continue';
 }

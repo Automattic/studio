@@ -663,7 +663,11 @@ function shutdownOnSignal( signal: NodeJS.Signals ): void {
 // If this node process is going down (normal exit or IPC disconnect), make sure PHP goes with it.
 process.on( 'exit', killPhpProcess );
 process.on( 'disconnect', () => {
+	logToConsole( 'IPC channel disconnected, shutting down' );
 	killPhpProcess();
+	// Without an explicit exit, the wrapper would linger until the event loop drains,
+	// which delays the daemon's stop sequence and risks the force-kill timer firing.
+	process.exit( 0 );
 } );
 
 // Without explicit signal handlers, the process is terminated abruptly and the 'exit' event

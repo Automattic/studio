@@ -1,4 +1,4 @@
-import { ChildProcess, spawn } from 'child_process';
+import { ChildProcess, spawn, spawnSync } from 'child_process';
 import fs, { createWriteStream, WriteStream } from 'fs';
 import net from 'net';
 import path from 'path';
@@ -430,7 +430,34 @@ export class ProcessManagerDaemon {
 	}
 
 	private signalProcessGroup( managedProcess: ManagedProcess, signal: NodeJS.Signals ): void {
-		if ( process.platform === 'win32' || ! managedProcess.child.pid ) {
+		const pid = managedProcess.child.pid;
+		if ( ! pid ) {
+			return;
+		}
+
+		if ( process.platform === 'win32' ) {
+			if ( signal === 'SIGKILL' ) {
+				// Windows has no process-group concept Node can reach. /T walks the descendant
+				// tree via parent-PID lookup; /F forces termination. Without /T, grandchildren
+				// (e.g. the PHP server spawned by the wrapper) would be orphaned.
+				spawnSync( 'taskkill', [ '/F', '/T', '/PID', String( pid ) ], {
+					windowsHide: true,
+					stdio: 'ignore',
+				} );
+				return;
+			}
+			// Console apps on Windows have no SIGTERM equivalent — `child.kill( 'SIGTERM' )`
+			// maps to TerminateProcess of a single PID, so neither cleanup nor tree-walk runs.
+			// Closing the IPC channel triggers the wrapper's 'disconnect' handler instead, which
+			// kills the PHP child and exits cleanly. Force escalation falls back to taskkill /T.
+			if ( managedProcess.child.connected ) {
+				try {
+					managedProcess.child.disconnect();
+				} catch {
+					// Do nothing
+				}
+				return;
+			}
 			try {
 				managedProcess.child.kill( signal );
 			} catch {
@@ -443,7 +470,7 @@ export class ProcessManagerDaemon {
 		// process group. Signalling the negative PID delivers to every member of that group,
 		// including grandchildren (e.g. the PHP server spawned by the wrapper).
 		try {
-			process.kill( -managedProcess.child.pid, signal );
+			process.kill( -pid, signal );
 		} catch {
 			// Group send can fail if the leader has already exited but children remain.
 			try {

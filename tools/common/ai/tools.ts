@@ -13,6 +13,11 @@ export function getToolDisplayName( name: string ): string {
 		mcp__studio__site_start: __( 'Start site' ),
 		mcp__studio__site_stop: __( 'Stop site' ),
 		mcp__studio__site_delete: __( 'Delete site' ),
+		mcp__studio__site_push: __( 'Push site' ),
+		mcp__studio__site_pull: __( 'Pull site' ),
+		mcp__studio__site_import: __( 'Import site' ),
+		mcp__studio__site_export: __( 'Export site' ),
+		mcp__studio__list_connected_remote_sites: __( 'List connected sites' ),
 		mcp__studio__preview_create: __( 'Create preview' ),
 		mcp__studio__preview_list: __( 'List previews' ),
 		mcp__studio__preview_update: __( 'Update preview' ),
@@ -23,6 +28,14 @@ export function getToolDisplayName( name: string ): string {
 		mcp__studio__share_screenshot: __( 'Share screenshot' ),
 		mcp__studio__preview_navigate: __( 'Navigate preview' ),
 		mcp__studio__preview_reload: __( 'Reload preview' ),
+		mcp__studio__studio_show_panel: __( 'Show panel' ),
+		mcp__studio__studio_generate_panel: __( 'Generate panel' ),
+		mcp__studio__install_taxonomy_scripts: __( 'Install taxonomist scripts' ),
+		mcp__studio__need_for_speed: __( 'Audit performance' ),
+		mcp__studio__rank_me_up: __( 'Audit SEO' ),
+		mcp__studio__open_annotation_browser: __( 'Open annotation browser' ),
+		mcp__studio__wait_for_annotations: __( 'Wait for annotations' ),
+		mcp__studio__wpcom_request: __( 'WordPress.com REST request' ),
 		Read: __( 'Read' ),
 		Write: __( 'Write' ),
 		Edit: __( 'Edit' ),
@@ -32,6 +45,10 @@ export function getToolDisplayName( name: string ): string {
 		Skill: __( 'Load skill' ),
 		Task: __( 'Run task' ),
 		TodoWrite: __( 'Update todo list' ),
+		AskUserQuestion: __( 'Ask question' ),
+		NotebookEdit: __( 'Edit notebook' ),
+		WebFetch: __( 'Fetch URL' ),
+		WebSearch: __( 'Web search' ),
 	};
 	return displayNames[ name ] ?? name;
 }
@@ -55,14 +72,38 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 		case 'mcp__studio__site_start':
 		case 'mcp__studio__site_stop':
 		case 'mcp__studio__site_delete':
+		case 'mcp__studio__site_push':
+		case 'mcp__studio__site_pull':
+		case 'mcp__studio__site_import':
+		case 'mcp__studio__site_export':
 		case 'mcp__studio__preview_create':
 		case 'mcp__studio__preview_list':
+		case 'mcp__studio__install_taxonomy_scripts':
+		case 'mcp__studio__need_for_speed':
+		case 'mcp__studio__rank_me_up':
 			return typeof input.nameOrPath === 'string' ? input.nameOrPath : '';
 		case 'mcp__studio__preview_update':
 		case 'mcp__studio__preview_delete':
 			return typeof input.host === 'string' ? input.host : '';
 		case 'mcp__studio__wp_cli':
 			return typeof input.command === 'string' ? `wp ${ input.command }` : '';
+		case 'mcp__studio__studio_show_panel': {
+			const kind = typeof input.kind === 'string' ? input.kind : '';
+			const postType = typeof input.postType === 'string' ? input.postType : '';
+			if ( kind && postType ) return `${ kind } · ${ postType }`;
+			return kind || postType || '';
+		}
+		case 'mcp__studio__studio_generate_panel':
+			if ( typeof input.summary === 'string' && input.summary ) return input.summary;
+			return typeof input.nameOrPath === 'string' ? input.nameOrPath : '';
+		case 'mcp__studio__open_annotation_browser':
+			return typeof input.url === 'string' ? input.url : '';
+		case 'mcp__studio__wpcom_request': {
+			const method = typeof input.method === 'string' ? input.method : '';
+			const reqPath = typeof input.path === 'string' ? input.path : '';
+			if ( method && reqPath ) return `${ method } ${ reqPath }`;
+			return method || reqPath || '';
+		}
 		case 'mcp__studio__validate_blocks':
 			if ( typeof input.filePath === 'string' ) {
 				return input.filePath.split( '/' ).slice( -2 ).join( '/' );

@@ -55,12 +55,22 @@ interface WebviewTag extends HTMLElement {
 const HIDE_ADMIN_BAR_SCRIPT = `
 ( function () {
 	var TARGET_IDS = [ 'wpwrap', 'wpcontent', 'wpbody', 'wpbody-content' ];
+	// @wordpress/boot's layout primitives (rendered around our scratch /
+	// list routes) reserve their own top space via a class-based rule.
+	var TARGET_SELECTORS = [
+		'.boot-layout--single-page .boot-layout__stage',
+		'.boot-layout--single-page .boot-layout__inspector',
+	];
 	var MAX_WALK = 12;
 	function killTopSpace( el ) {
 		if ( ! el || ! el.style || typeof el.style.setProperty !== 'function' ) return;
 		el.style.setProperty( 'margin-top', '0', 'important' );
 		el.style.setProperty( 'padding-top', '0', 'important' );
 		el.style.setProperty( 'border-top-width', '0', 'important' );
+	}
+	function killAll( nodeList ) {
+		if ( ! nodeList ) return;
+		for ( var j = 0; j < nodeList.length; j++ ) killTopSpace( nodeList[ j ] );
 	}
 	function nukeTopSpaceWalk() {
 		// Walk the leftmost-deepest path from body and zero any element that
@@ -95,6 +105,9 @@ const HIDE_ADMIN_BAR_SCRIPT = `
 		killTopSpace( document.body );
 		for ( var i = 0; i < TARGET_IDS.length; i++ ) {
 			killTopSpace( document.getElementById( TARGET_IDS[ i ] ) );
+		}
+		for ( var k = 0; k < TARGET_SELECTORS.length; k++ ) {
+			killAll( document.querySelectorAll( TARGET_SELECTORS[ k ] ) );
 		}
 		nukeTopSpaceWalk();
 	}

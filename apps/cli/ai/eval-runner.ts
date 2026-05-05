@@ -79,6 +79,33 @@ type FirstToolError = {
 	turnIndex: number;
 };
 
+type TranscriptEvent = {
+	index: number;
+	type: SDKMessage[ 'type' ];
+	turnIndex: number;
+	elapsedMs: number;
+	text?: string[];
+	toolCalls?: ToolCallRecord[];
+	toolResult?: {
+		toolUseId: string | null;
+		toolName: string | null;
+		isError: boolean;
+		text?: string;
+	};
+	stopReason?: string | null;
+	result?: string;
+	subtype?: string;
+	isError?: boolean;
+	errors?: string[];
+	numTurns?: number;
+};
+
+function truncateText( value: string, maxLength = 4000 ): string {
+	return value.length > maxLength
+		? `${ value.slice( 0, maxLength ) }…[truncated ${ value.length - maxLength } chars]`
+		: value;
+}
+
 function extractTextSegments( message: SDKMessage ): string[] {
 	if ( message.type !== 'assistant' ) {
 		return [];
@@ -176,6 +203,8 @@ async function runEval( input: EvalRunnerInput ) {
 	}[] = [];
 	const toolEvents: ToolEvent[] = [];
 	const textSegments: string[] = [];
+	const transcript: TranscriptEvent[] = [];
+	const includeTranscript = process.env.STUDIO_EVAL_INCLUDE_TRANSCRIPT === '1';
 	const toolNameById = new Map< string, string >();
 	const toolEventById = new Map< string, ToolEvent >();
 	let firstToolError: FirstToolError | null = null;
@@ -186,6 +215,12 @@ async function runEval( input: EvalRunnerInput ) {
 	let success = false;
 	let error: string | null = null;
 	let timedOut = false;
+	let resultStopReason: string | null = null;
+	let resultText = '';
+	let resultSubtype: string | null = null;
+	let resultIsError = false;
+	let resultErrors: string[] = [];
+	let messageIndex = 0;
 
 	phaseStartedAt = Date.now();
 	const query = startAiAgent( {
@@ -205,45 +240,68 @@ async function runEval( input: EvalRunnerInput ) {
 
 	try {
 		for await ( const message of query ) {
+			messageIndex += 1;
+			const event: TranscriptEvent = {
+				index: messageIndex,
+				type: message.type,
+				turnIndex,
+				elapsedMs: elapsed(),
+			};
 			if ( message.type === 'assistant' ) {
 				const now = Date.now();
 				turnDurationsMs.push( now - turnStart );
 				turnIndex += 1;
+				event.turnIndex = turnIndex;
 				if ( turnIndex === 1 ) {
 					phaseTimingsMs.first_assistant_message_ms = now - queryStartedAt;
 				}
 				turnStart = now;
+				event.stopReason = message.message.stop_reason ?? null;
 			}
-			for ( const tc of extractToolCalls( message ) ) {
+			const messageToolCalls = extractToolCalls( message );
+			if ( messageToolCalls.length ) {
+				event.toolCalls = messageToolCalls;
+			}
+			for ( const tc of messageToolCalls ) {
 				toolCalls.push( tc );
 				toolNameById.set( tc.id, tc.name );
-				const event: ToolEvent = {
+				const toolEvent: ToolEvent = {
 					toolUseId: tc.id,
 					toolName: tc.name,
 					input: tc.input,
 					startedAtMs: elapsed(),
 					turnIndex,
 				};
-				toolEvents.push( event );
-				toolEventById.set( tc.id, event );
+				toolEvents.push( toolEvent );
+				toolEventById.set( tc.id, toolEvent );
 			}
-			textSegments.push( ...extractTextSegments( message ) );
+			const messageTextSegments = extractTextSegments( message );
+			if ( messageTextSegments.length ) {
+				event.text = messageTextSegments.map( ( text ) => truncateText( text ) );
+			}
+			textSegments.push( ...messageTextSegments );
 
 			if ( message.type === 'user' ) {
 				const tr = extractToolResult( message );
 				if ( tr ) {
 					const id = tr.toolUseId ?? message.parent_tool_use_id ?? null;
-					const event = id ? toolEventById.get( id ) : undefined;
-					if ( event ) {
-						event.endedAtMs = elapsed();
-						event.durationMs = event.endedAtMs - event.startedAtMs;
-						event.isError = tr.isError;
+					const toolEvent = id ? toolEventById.get( id ) : undefined;
+					if ( toolEvent ) {
+						toolEvent.endedAtMs = elapsed();
+						toolEvent.durationMs = toolEvent.endedAtMs - toolEvent.startedAtMs;
+						toolEvent.isError = tr.isError;
 					}
+					event.toolResult = {
+						toolUseId: id,
+						toolName: id ? toolNameById.get( id ) ?? null : null,
+						isError: tr.isError,
+						...( tr.text ? { text: truncateText( tr.text ) } : {} ),
+					};
 					if ( tr.isError && ! firstToolError ) {
 						firstToolError = {
 							toolUseId: id,
 							toolName: id ? toolNameById.get( id ) ?? null : null,
-							...( event?.input ? { input: event.input } : {} ),
+							...( toolEvent?.input ? { input: toolEvent.input } : {} ),
 							error: tr.text ?? 'Tool returned an error result.',
 							turnIndex,
 						};
@@ -260,6 +318,22 @@ async function runEval( input: EvalRunnerInput ) {
 			if ( message.type === 'result' ) {
 				success = message.subtype === 'success';
 				numTurns = message.num_turns ?? null;
+				resultStopReason = message.stop_reason ?? null;
+				resultText = message.result ?? '';
+				resultSubtype = message.subtype ?? null;
+				resultIsError = message.is_error === true;
+				resultErrors = Array.isArray( message.errors ) ? message.errors : [];
+				event.subtype = message.subtype;
+				event.isError = message.is_error;
+				event.stopReason = message.stop_reason ?? null;
+				event.result = truncateText( message.result ?? '' );
+				event.numTurns = message.num_turns;
+				if ( resultErrors.length ) {
+					event.errors = resultErrors;
+				}
+			}
+			if ( includeTranscript ) {
+				transcript.push( event );
 			}
 		}
 	} catch ( caught ) {
@@ -268,12 +342,21 @@ async function runEval( input: EvalRunnerInput ) {
 		clearTimeout( timeout );
 	}
 	phaseTimingsMs.total_eval_ms = elapsed();
+	if ( success && ! textSegments.length && ! resultText.trim() ) {
+		success = false;
+		error = 'Agent completed without assistant text or result output.';
+	}
 
 	return {
 		success,
 		error,
 		timedOut,
 		numTurns,
+		resultSubtype,
+		resultIsError,
+		resultStopReason,
+		resultText,
+		resultErrors,
 		phaseTimingsMs,
 		turnDurationsMs,
 		toolCalls,
@@ -281,6 +364,7 @@ async function runEval( input: EvalRunnerInput ) {
 		toolEvents,
 		firstToolError,
 		textSegments,
+		...( includeTranscript ? { transcript } : {} ),
 	};
 }
 

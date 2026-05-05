@@ -46,7 +46,6 @@ import {
 	startCliEventsSubscriber,
 	stopCliEventsSubscriber,
 } from 'src/modules/cli/lib/cli-events-subscriber';
-import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { autoInstallLinuxCliIfNeeded } from 'src/modules/cli/lib/linux-installation-manager';
 import { autoInstallMacOSCliIfNeeded } from 'src/modules/cli/lib/macos-installation-manager';
 import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
@@ -444,7 +443,6 @@ async function appBoot() {
 
 			void ( async () => {
 				const userData = await loadUserData();
-				const isCliInstalled = await isStudioCliInstalled();
 
 				if ( userData.stopSitesOnQuit !== undefined ) {
 					shouldStopSitesOnQuit = userData.stopSitesOnQuit;
@@ -453,7 +451,7 @@ async function appBoot() {
 					return;
 				}
 
-				if ( ! isCliInstalled || process.env.E2E ) {
+				if ( process.env.E2E ) {
 					isQuittingConfirmed = true;
 					app.quit();
 					return;

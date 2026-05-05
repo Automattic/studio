@@ -44,26 +44,32 @@ interface WebviewTag extends HTMLElement {
 // page is visual noise here. Inject this stylesheet on every navigation —
 // the `<webview>`'s `insertCSS()` survives reloads within the same view.
 //
-// WP reserves admin-bar height with `!important` rules in two places:
-// the top-level (32px desktop) AND a `@media (max-width: 782px)` block
-// (46px mobile). Both must be matched to leave the preview edge-to-edge
-// at all breakpoints. We over-cover the relevant selectors rather than
-// trying to match WP's exact specificity — the rules are simple enough
-// that "all paths to zero" is cheaper than introspecting their cascade.
+// WP reserves admin-bar height in three layers:
+//   1. front-end body / html (`html { margin-top: 32px }`, etc.)
+//   2. wp-admin wrappers (`#wpwrap`, `#wpcontent`, `#wpbody`,
+//      `#wpbody-content`) which add their own top padding on top of the
+//      html-level reservation
+//   3. mobile media-query overrides at <=782px and <=600px (46px instead
+//      of 32px).
+// Hit all three layers at all breakpoints with `!important` so the
+// preview is edge-to-edge regardless of which wp-admin / front-end
+// surface is rendered.
+const ADMIN_BAR_RESET_SELECTORS =
+	'html, html.wp-toolbar, body, body.admin-bar, ' + '#wpwrap, #wpcontent, #wpbody, #wpbody-content';
 const HIDE_ADMIN_BAR_CSS = `
 	#wpadminbar { display: none !important; }
-	html, html.wp-toolbar, body, body.admin-bar {
+	${ ADMIN_BAR_RESET_SELECTORS } {
 		margin-top: 0 !important;
 		padding-top: 0 !important;
 	}
 	@media screen and (max-width: 782px) {
-		html, html.wp-toolbar, body, body.admin-bar {
+		${ ADMIN_BAR_RESET_SELECTORS } {
 			margin-top: 0 !important;
 			padding-top: 0 !important;
 		}
 	}
 	@media screen and (max-width: 600px) {
-		html, html.wp-toolbar, body, body.admin-bar {
+		${ ADMIN_BAR_RESET_SELECTORS } {
 			margin-top: 0 !important;
 			padding-top: 0 !important;
 		}

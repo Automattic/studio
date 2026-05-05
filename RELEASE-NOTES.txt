@@ -1,14 +1,14 @@
 Unreleased
 ==========
 
-1.8.2
+1.8.2 (CLI only)
 =====
 * Fixed an issue where multiple CLI progress line showed up in Studio Code #3286
 * Added Wapuu platformer easter egg #3270
 * Silenced noisy ENOENT CLI log messages when daemon socket is absent #3322
 * Updated multiple dependencies, including WP Playground, PHP-WASM, and Electron
 
-1.8.1
+1.8.1 (CLI only)
 =====
 * Added Telegram remote-session bridge for studio code (PoC) #3196
 * Added /annotate skill with Studio inspector #3243

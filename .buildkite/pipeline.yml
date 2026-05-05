@@ -163,7 +163,7 @@ steps:
     steps:
       - label: 🔨 Linux Dev Build - {{matrix}}
         agents:
-          queue: linux
+          queue: default
         command: |
           .buildkite/commands/install-node-dependencies.sh
 

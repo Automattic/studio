@@ -29,7 +29,7 @@ edit after checkout to let SPC detect it.
 SPC 2.8.5 also fails to extract `php-src` on the Windows Buildkite agent because
 its `7za | tar -C <source>\php-src` command runs before `<source>\php-src`
 exists. The script creates that Windows source extraction target before running
-`spc craft`.
+`spc craft` and patches the Windows `tar -C` target to use forward slashes.
 
 Do not patch `static-php-cli` by default. If the upstream build fails, use the CI
 logs to add the smallest targeted patch and document the exact upstream failure

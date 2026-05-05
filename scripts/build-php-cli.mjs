@@ -418,7 +418,31 @@ function patchStaticPhpCliWindowsSourceExtraction() {
 		throw new Error( `Could not patch Windows source extraction in ${ fileSystemPath }.` );
 	}
 
-	fs.writeFileSync( fileSystemPath, fileSystem.replace( needle, replacement ) );
+	let patchedFileSystem = fileSystem.replace( needle, replacement );
+
+	const tarNeedle = `            // Yeah, I will be an MS HATER !
+            match (self::extname($filename)) {
+                'tar' => f_passthru("tar -xf {$filename} -C {$target} --strip-components 1"),
+                'xz', 'txz', 'gz', 'tgz', 'bz2' => cmd()->execWithResult("\\"{$_7z}\\" x -so {$filename} | tar -f - -x -C \\"{$target}\\" --strip-components 1"),
+                'zip' => self::unzipWithStrip($filename, $target),
+`;
+	const tarReplacement = `            // Yeah, I will be an MS HATER !
+            /* SPC_WINDOWS_TAR_FORWARD_SLASH_TARGET */
+            $tar_target = str_replace('\\\\', '/', $target);
+            match (self::extname($filename)) {
+                'tar' => f_passthru("tar -xf {$filename} -C {$tar_target} --strip-components 1"),
+                'xz', 'txz', 'gz', 'tgz', 'bz2' => cmd()->execWithResult("\\"{$_7z}\\" x -so {$filename} | tar -f - -x -C \\"{$tar_target}\\" --strip-components 1"),
+                'zip' => self::unzipWithStrip($filename, $target),
+`;
+
+	if ( ! patchedFileSystem.includes( 'SPC_WINDOWS_TAR_FORWARD_SLASH_TARGET' ) ) {
+		if ( ! patchedFileSystem.includes( tarNeedle ) ) {
+			throw new Error( `Could not patch Windows tar target in ${ fileSystemPath }.` );
+		}
+		patchedFileSystem = patchedFileSystem.replace( tarNeedle, tarReplacement );
+	}
+
+	fs.writeFileSync( fileSystemPath, patchedFileSystem );
 }
 
 function installBrewFormulaIfMissing( formula ) {

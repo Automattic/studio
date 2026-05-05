@@ -6,9 +6,11 @@ import { deleteSiteTool } from './delete-site';
 import { exportSiteTool } from './export-site';
 import { importSiteTool } from './import-site';
 import { installTaxonomyScriptsTool } from './install-taxonomy-scripts';
+import { listConnectedRemoteSitesTool } from './list-connected-remote-sites';
 import { listPreviewsTool } from './list-previews';
 import { listSitesTool } from './list-sites';
 import { auditPerformanceTool } from './need-for-speed';
+import { openAnnotationBrowserTool } from './open-annotation-browser';
 import { previewNavigateTool } from './preview-navigate';
 import { previewReloadTool } from './preview-reload';
 import { pullSiteTool } from './pull-site';
@@ -21,6 +23,7 @@ import { stopSiteTool } from './stop-site';
 import { takeScreenshotTool } from './take-screenshot';
 import { updatePreviewTool } from './update-preview';
 import { validateBlocksTool } from './validate-blocks';
+import { waitForAnnotationsTool } from './wait-for-annotations';
 import { runWpCliTool } from './wp-cli';
 
 export { captureCommandOutput } from './utils';
@@ -48,10 +51,13 @@ export const studioToolDefinitions = [
 	installTaxonomyScriptsTool,
 	auditPerformanceTool,
 	auditSeoTool,
+	listConnectedRemoteSitesTool,
 	pushSiteTool,
 	pullSiteTool,
 	importSiteTool,
 	exportSiteTool,
+	openAnnotationBrowserTool,
+	waitForAnnotationsTool,
 	...previewSteeringToolDefinitions,
 ];
 

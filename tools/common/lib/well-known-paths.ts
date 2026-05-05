@@ -54,3 +54,7 @@ export function getRemoteSessionStateLockFilePath(): string {
 export function getRemoteSessionLogPath(): string {
 	return path.join( getConfigDirectory(), 'remote-session.log' );
 }
+
+export function getRemoteSessionPidPath(): string {
+	return path.join( getConfigDirectory(), 'remote-session.pid' );
+}

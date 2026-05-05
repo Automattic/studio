@@ -89,7 +89,7 @@ steps:
         - with: { platform: mac, arch: arm64 }
     notify:
       - github_commit_status:
-          context: Build PHP CLI {{matrix.platform}}-{{matrix.arch}}
+          context: Build PHP CLI
 
   - input: "🚦 Build for Mac?"
     prompt: "Do you want to build Mac dev binaries for this PR?"

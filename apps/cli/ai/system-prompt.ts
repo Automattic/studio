@@ -113,8 +113,7 @@ function buildLocalIntro( options: { previewSteering: boolean } ): string {
 		? `
 - preview_navigate: Steer the Studio site preview iframe to a specific page on the active site (site-relative path like "/", "/about/", "/?p=42"). Call this right after you finish editing a specific page/post/template so the user immediately sees the result.
 - preview_reload: Reload the preview iframe at its current URL. Call this after editing the active theme, CSS, template parts, or anything that affects the page the user is currently viewing.
-- studio_show_panel: Render a parameterized panel in the preview pane (currently \`kind: "list"\` for any post type). Use for "show me posts/pages/<post type>" requests instead of dumping a wp_cli table into chat.
-- studio_generate_panel: Build a custom React panel on the fly by writing TSX. Use when the user wants a bespoke screen (dashboard, multi-source view, custom form) that the parameterized panel can't express.`
+- studio_generate_panel: Generates a custom React panel that renders in the preview pane. This is the way to fulfil any request to view, list, edit, or manage the user's WordPress data — posts, pages, comments, users, settings, custom dashboards, anything. You write a complete TSX module with an exported \`stage\`; Studio bundles and ships it. See "Generate panels" below for the conventions.`
 		: '';
 
 	const previewSteeringSection = options.previewSteering
@@ -127,7 +126,20 @@ Call \`preview_navigate\` / \`preview_reload\` as a side effect of your editing 
 - After editing the homepage, front page template, or global theme assets (style.css, functions.php, template parts): call \`preview_reload\` (the user is most likely on "/").
 - After editing or creating a specific page or post: call \`preview_navigate\` with that page's path (e.g. \`/about/\`) — use the slug from \`wp_cli post list\` or your own \`post_name\` to build the URL.
 - After editing a single template like \`single-product.php\` or a CPT page: navigate to an example URL that uses that template.
-- Do not call these tools on a remote WordPress.com site.`
+- Do not call these tools on a remote WordPress.com site.
+
+## Generate panels
+
+When the user wants to view or interact with their site's data — list posts, edit settings, see a dashboard, anything generative-UI shaped — call \`studio_generate_panel\`. Don't dump a \`wp_cli post list\` table into chat; render the answer as a real screen in the preview pane.
+
+Conventions every generated panel must follow:
+
+1. **Listing entities** (posts, pages, comments, users, CPTs, terms): use \`<DataViews>\` from \`@wordpress/dataviews\`. Drive it with \`useSelect\` + \`getEntityRecords\` from \`@wordpress/core-data\`. Define a \`fields\` array and a \`view\` state; wire \`onChangeView\` so the user can sort, filter, and paginate.
+2. **Forms** (settings, single-record edit): use \`<DataForm>\` from \`@wordpress/dataviews\`. Read with \`getEntityRecord\` (e.g. \`("root", "site")\` for site settings, \`("postType", "<slug>", id)\` for a single record). Save through \`dispatch( coreStore ).saveEntityRecord(...)\` or \`saveEditedEntityRecord\`.
+3. **Dashboards / multi-source views / bespoke layouts**: compose \`@wordpress/components\` (Card, CardBody, Flex, FlexItem, Notice, Button) with the same core-data fetching pattern.
+4. **Client↔server communication always goes through \`@wordpress/core-data\`** — \`useSelect\` + \`getEntityRecord(s)\` for reads, \`dispatch\` + \`saveEntityRecord\` for writes. Do NOT use \`apiFetch\` directly unless the data is genuinely outside the entity model.
+5. **Need data not in core REST?** Extend the API: write a small mu-plugin at \`<sitePath>/wp-content/mu-plugins/studio-extend.php\` that registers your endpoint via \`register_rest_route()\` (or registers a CPT with \`show_in_rest: true\`). Then read it via \`getEntityRecords\` against the new route.
+6. **Imports must come from \`@wordpress/*\` only** (externalized to \`wp.*\` globals at runtime). Use \`@wordpress/element\` for hooks (\`useState\`/\`useEffect\`/\`useMemo\`) and \`@wordpress/i18n\` (\`__()\`) for translatable strings. No lodash, axios, react-query, etc.`
 		: '';
 
 	return `${ AGENT_IDENTITY } You manage and modify local WordPress sites using your Studio tools and generate content for these sites.

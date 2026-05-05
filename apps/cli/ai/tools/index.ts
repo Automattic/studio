@@ -19,7 +19,6 @@ import { pullSiteTool } from './pull-site';
 import { pushSiteTool } from './push-site';
 import { auditSeoTool } from './rank-me-up';
 import { shareScreenshotTool } from './share-screenshot';
-import { showPanelTool } from './show-panel';
 import { getSiteInfoTool } from './site-info';
 import { startSiteTool } from './start-site';
 import { stopSiteTool } from './stop-site';
@@ -31,19 +30,15 @@ import { runWpCliTool } from './wp-cli';
 import { createWpcomRequestTool } from './wpcom-request';
 
 export { captureCommandOutput } from './utils';
-export { showPanelTool, composePanelUrl } from './show-panel';
 export { generatePanelTool, validateScratchSource } from './generate-panel';
-export type { PanelIntent, ComposedPanelUrl } from './show-panel';
 
 // Preview-steering tools only belong in the toolset when the Studio desktop UI
 // is on the other end of the IPC channel — outside of that, navigate/reload
-// calls render as noise in the terminal transcript. The studio_show_panel and
-// studio_generate_panel tools also emit `preview.command` events, so they
-// belong here too.
+// calls render as noise in the terminal transcript. studio_generate_panel
+// also emits `preview.command` events, so it belongs here too.
 const previewSteeringToolDefinitions = [
 	previewNavigateTool,
 	previewReloadTool,
-	showPanelTool,
 	generatePanelTool,
 ];
 

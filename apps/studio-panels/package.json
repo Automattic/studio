@@ -1,6 +1,6 @@
 {
 	"name": "@studio/panels",
-	"version": "0.2.3",
+	"version": "0.3.0",
 	"private": true,
 	"type": "module",
 	"description": "WordPress admin panels for Studio agent UI. Uses @wordpress/build's pages routing system; requires Gutenberg (or WP 7.0+) on the host site for the @wordpress/boot, @wordpress/route, and @wordpress/dataviews script modules.",

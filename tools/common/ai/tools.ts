@@ -28,7 +28,6 @@ export function getToolDisplayName( name: string ): string {
 		mcp__studio__share_screenshot: __( 'Share screenshot' ),
 		mcp__studio__preview_navigate: __( 'Navigate preview' ),
 		mcp__studio__preview_reload: __( 'Reload preview' ),
-		mcp__studio__studio_show_panel: __( 'Show panel' ),
 		mcp__studio__studio_generate_panel: __( 'Generate panel' ),
 		mcp__studio__install_taxonomy_scripts: __( 'Install taxonomist scripts' ),
 		mcp__studio__need_for_speed: __( 'Audit performance' ),
@@ -87,12 +86,6 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 			return typeof input.host === 'string' ? input.host : '';
 		case 'mcp__studio__wp_cli':
 			return typeof input.command === 'string' ? `wp ${ input.command }` : '';
-		case 'mcp__studio__studio_show_panel': {
-			const kind = typeof input.kind === 'string' ? input.kind : '';
-			const postType = typeof input.postType === 'string' ? input.postType : '';
-			if ( kind && postType ) return `${ kind } · ${ postType }`;
-			return kind || postType || '';
-		}
 		case 'mcp__studio__studio_generate_panel':
 			if ( typeof input.summary === 'string' && input.summary ) return input.summary;
 			return typeof input.nameOrPath === 'string' ? input.nameOrPath : '';

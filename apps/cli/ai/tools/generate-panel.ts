@@ -1,10 +1,10 @@
 import { tool } from '@anthropic-ai/claude-agent-sdk';
+import { z } from 'zod/v4';
 import { emitEvent } from 'cli/ai/json-events';
 import { runCommand as runStartSiteCommand } from 'cli/commands/site/start';
 import { disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { generateAndDeployScratchPanel } from 'cli/lib/studio-panels-builder';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
-import { z } from 'zod/v4';
 import { errorResult, resolveSite, textResult } from './utils';
 
 const PLUGIN_BASENAME = 'studio-panels/studio-panels.php';
@@ -90,13 +90,32 @@ async function ensureSiteRunningAndPluginActive( site: {
 
 export const generatePanelTool = tool(
 	'studio_generate_panel',
-	'Builds a custom React panel on the fly. You write a complete TSX module exporting a ' +
-		'`stage` value (wp-build route convention); Studio bundles it via @wordpress/build and ' +
-		'renders it inside the studio-panels wp-admin page. Imports must come from `@wordpress/*` ' +
-		'packages only (they are externalized to `wp.*` globals at runtime). Use ' +
-		'@wordpress/components for UI, @wordpress/data + @wordpress/core-data (useSelect + ' +
-		'getEntityRecords) for fetching site data, @wordpress/dataviews for tabular layouts, ' +
-		'@wordpress/element for hooks, @wordpress/i18n for `__()`.',
+	'Generates a custom React panel rendered in the Studio site preview pane. This is the way ' +
+		'to fulfil any "show me / list / display / edit" request involving the user\'s WordPress ' +
+		'data — list of posts/pages/comments/users/CPTs, edit forms, settings screens, ' +
+		'dashboards, anything else. Write a complete TSX module exporting a `stage` value ' +
+		'(wp-build route convention); Studio bundles it via @wordpress/build (~200ms) and renders ' +
+		'it inside the studio-panels wp-admin page.\n\n' +
+		'CONVENTIONS — follow these so panels stay consistent and idiomatic:\n' +
+		'1. LISTING entities (posts, pages, comments, users, CPTs, terms): use <DataViews> from ' +
+		'@wordpress/dataviews. Drive it with `useSelect` + `getEntityRecords` from ' +
+		'@wordpress/core-data. Define `fields` and a `view` state, wire `onChangeView` so the ' +
+		'user can sort/filter/paginate.\n' +
+		'2. FORMS (settings, single-record edit): use <DataForm> from @wordpress/dataviews. Read ' +
+		'the record with `getEntityRecord` and save via `dispatch(coreStore).saveEntityRecord` / ' +
+		'`saveEditedEntityRecord`. For site settings, the entity is `("root", "site")`.\n' +
+		'3. DASHBOARDS / multi-source / bespoke layouts: compose @wordpress/components (Card, ' +
+		'CardBody, Flex, FlexItem, Notice, Button) with the same core-data fetching pattern.\n' +
+		'4. CLIENT↔SERVER COMMUNICATION: always go through @wordpress/core-data ' +
+		'(useSelect + getEntityRecord(s) for reads, dispatch + saveEntityRecord for writes). Do ' +
+		'NOT call `apiFetch` directly unless the data is genuinely outside the entity model.\n' +
+		'5. NEED DATA NOT IN CORE REST? Extend the API: write a small mu-plugin at ' +
+		'`<sitePath>/wp-content/mu-plugins/studio-extend.php` that registers your endpoint via ' +
+		'`register_rest_route` (or registers a custom post type with `show_in_rest: true`). ' +
+		'Then the panel can read it via `getEntityRecords` against the new route.\n' +
+		'6. IMPORTS must come from `@wordpress/*` only (externalized to `wp.*` globals). No ' +
+		'lodash, axios, react-query, etc. Use `useState/useEffect/useMemo` from ' +
+		'@wordpress/element and `__()` from @wordpress/i18n for translatable strings.',
 	{
 		nameOrPath: z
 			.string()

@@ -171,10 +171,12 @@ function installWindowsHostRuntime() {
 
 function ensureWindowsVisualStudio() {
 	let visualStudio = findWindowsVisualStudio();
+	let cmake = visualStudio ? findWindowsCMake( visualStudio ) : undefined;
 
-	if ( ! visualStudio || ! hasWindowsCppCompiler( visualStudio ) ) {
+	if ( ! visualStudio || ! hasWindowsCppCompiler( visualStudio ) || ! cmake ) {
 		installWindowsBuildTools();
 		visualStudio = findWindowsVisualStudio();
+		cmake = visualStudio ? findWindowsCMake( visualStudio ) : undefined;
 	}
 
 	if ( ! visualStudio ) {
@@ -189,6 +191,13 @@ function ensureWindowsVisualStudio() {
 		);
 	}
 
+	if ( ! cmake ) {
+		throw new Error(
+			`Visual Studio was found at ${ visualStudio.rootDir }, but cmake.exe was not installed.`
+		);
+	}
+
+	process.env.PATH = `${ cmake.dir }${ path.delimiter }${ process.env.PATH }`;
 	patchStaticPhpCliVisualStudioDetection( visualStudio );
 }
 
@@ -204,6 +213,35 @@ function hasWindowsCppCompiler( visualStudio ) {
 		.some( ( entry ) =>
 			fs.existsSync( path.win32.join( msvcDir, entry.name, 'bin', 'Hostx64', 'x64', 'cl.exe' ) )
 		);
+}
+
+function findWindowsCMake( visualStudio ) {
+	const candidates = [
+		path.win32.join(
+			visualStudio.rootDir,
+			'Common7',
+			'IDE',
+			'CommonExtensions',
+			'Microsoft',
+			'CMake',
+			'CMake',
+			'bin',
+			'cmake.exe'
+		),
+		path.win32.join( visualStudio.rootDir, 'MSBuild', 'Current', 'Bin', 'cmake.exe' ),
+	];
+	const cmake = candidates.find( ( candidate ) => fs.existsSync( candidate ) );
+	if ( cmake ) {
+		return { path: cmake, dir: path.win32.dirname( cmake ) };
+	}
+
+	const whereOutput = runCapture( 'where.exe', [ 'cmake.exe' ] );
+	const whereCmake = whereOutput
+		.split( /\r?\n/ )
+		.map( ( line ) => line.trim() )
+		.find( Boolean );
+
+	return whereCmake ? { path: whereCmake, dir: path.win32.dirname( whereCmake ) } : undefined;
 }
 
 function findWindowsVisualStudio() {
@@ -345,7 +383,7 @@ function installWindowsBuildTools() {
 			[
 				`$installer = ${ quotePowerShell( installerPath ) }`,
 				"Invoke-WebRequest -Uri 'https://aka.ms/vs/17/release/vs_BuildTools.exe' -OutFile $installer",
-				"$arguments = @('--quiet', '--wait', '--norestart', '--nocache', '--installPath', 'C:\\Program Files\\Microsoft Visual Studio\\2022\\BuildTools', '--add', 'Microsoft.VisualStudio.Workload.VCTools', '--includeRecommended')",
+				"$arguments = @('--quiet', '--wait', '--norestart', '--nocache', '--installPath', 'C:\\Program Files\\Microsoft Visual Studio\\2022\\BuildTools', '--add', 'Microsoft.VisualStudio.Workload.VCTools', '--add', 'Microsoft.VisualStudio.Component.VC.CMake.Project', '--includeRecommended')",
 				'$process = Start-Process -FilePath $installer -ArgumentList $arguments -Wait -PassThru',
 				'if ( @( 0, 3010 ) -notcontains $process.ExitCode ) { exit $process.ExitCode }',
 			].join( '; ' ),

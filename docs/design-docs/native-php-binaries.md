@@ -21,10 +21,10 @@ files as Buildkite artifacts only.
 
 Windows builds require a Visual Studio C++ toolchain. The build script installs
 Visual Studio 2022 Build Tools when the Windows agent does not already have a
-supported Visual Studio installation. SPC 2.8.5 checks Community, Professional,
-and Enterprise install paths but not all Build Tools paths, so the script uses
-`vswhere` to find the actual MSBuild location and applies a Windows-only source
-edit after checkout to let SPC detect it.
+supported Visual Studio installation or CMake. SPC 2.8.5 checks Community,
+Professional, and Enterprise install paths but not all Build Tools paths, so the
+script uses `vswhere` to find the actual MSBuild location and applies a
+Windows-only source edit after checkout to let SPC detect it.
 
 SPC 2.8.5 also fails to extract `php-src` on the Windows Buildkite agent because
 its `7za | tar -C <source>\php-src` command runs before `<source>\php-src`

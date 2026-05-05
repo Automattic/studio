@@ -1,5 +1,4 @@
 import { resolveSessionModel } from '@studio/common/ai/models';
-import { useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
@@ -25,20 +24,15 @@ import { SiteDropdown } from '@/components/site-dropdown';
 import { SiteIcon } from '@/components/site-icon';
 import { SitePreview } from '@/components/site-preview';
 import { type Annotation } from '@/components/site-preview/types';
-import { useConnector } from '@/data/core';
 import { useAgentRun } from '@/data/queries/use-agent-run';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
-import {
-	SESSIONS_QUERY_KEY,
-	useSession,
-	useSessionEffectiveEnvironment,
-} from '@/data/queries/use-sessions';
+import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import { useFullscreen } from '@/hooks/use-fullscreen';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { drawerIcon } from '@/lib/icons';
 import styles from './style.module.css';
-import type { AiModelId, AiSessionSummary, LoadedAiSession } from '@/data/core';
+import type { AiSessionSummary } from '@/data/core';
 
 interface SessionHeaderProps {
 	summary: AiSessionSummary;
@@ -133,8 +127,6 @@ function SessionFrame( { header, composer, preview, scrollRef, children }: Sessi
 
 export function SessionView( { sessionId }: { sessionId: string } ) {
 	const { data, isLoading, error } = useSession( sessionId );
-	const connector = useConnector();
-	const queryClient = useQueryClient();
 	const { data: sites } = useSites();
 	const ownerSitePath = data?.summary.ownerSitePath;
 	const ownerSite = ownerSitePath
@@ -158,30 +150,6 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 		removeQueuedPrompt,
 	} = useAgentRun( sessionId );
 	const currentModel = useMemo( () => resolveSessionModel( data?.events ?? [] ), [ data?.events ] );
-	// Optimistically append a `session.model_selected` event so the composer
-	// reflects the new pick immediately. The main process writes the same event
-	// to the JSONL; if that write fails we fall back to the prior state.
-	const onModelChange = useCallback(
-		( model: AiModelId ) => {
-			const timestamp = new Date().toISOString();
-			queryClient.setQueryData< LoadedAiSession >(
-				[ ...SESSIONS_QUERY_KEY, sessionId ],
-				( prev ) =>
-					prev
-						? {
-								...prev,
-								events: [ ...prev.events, { type: 'session.model_selected', timestamp, model } ],
-						  }
-						: prev
-			);
-			void connector.setSessionModel( sessionId, model ).catch( () => {
-				void queryClient.invalidateQueries( {
-					queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ],
-				} );
-			} );
-		},
-		[ connector, queryClient, sessionId ]
-	);
 	const pendingQuestionTexts = useMemo(
 		() => new Set( pendingQuestions.map( ( q ) => q.question ) ),
 		[ pendingQuestions ]
@@ -265,12 +233,13 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 						isInterrupting={ isInterrupting }
 						error={ runError }
 						model={ currentModel }
-						onModelChange={ onModelChange }
 						onSend={ sendMessage }
 						onInterrupt={ interrupt }
 						sessionId={ sessionId }
 						effectiveEnvironment={ effectiveEnvironment }
 						liveSite={ liveSite }
+						events={ data.events }
+						ownerSiteId={ ownerSite?.id }
 					/>
 				</div>
 			}

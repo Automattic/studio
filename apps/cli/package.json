@@ -65,6 +65,7 @@
 		"build:npm": "vite build --config ./vite.config.npm.ts",
 		"install:bundle": "npm install --omit=dev --no-package-lock --no-progress --install-links --no-workspaces && patch-package && node ../../scripts/remove-fs-ext-other-platform-binaries.mjs",
 		"package": "npm run install:bundle && npm run build:prod",
+		"lint": "eslint .",
 		"watch": "vite build --config ./vite.config.dev.ts --watch",
 		"prepublishOnly": "npm run build:npm",
 		"postinstall": "node scripts/postinstall-npm.mjs",

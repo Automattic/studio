@@ -136,7 +136,11 @@ export async function loadAiSession(
 ): Promise< LoadedAiSession > {
 	const summary = await resolveSessionByIdOrPrefix( rootDirectory, sessionIdOrPrefix );
 	const events = await readAiSessionEventsFromFile( summary.filePath );
-	return { summary, events };
+	// `entries` will carry pi-format SessionEntry[] once the renderer migrates
+	// to the new shape (Phase 2). For now, both consumers can pull from
+	// `events`; the field is populated empty so callers that read entries get
+	// the right shape rather than a runtime undefined.
+	return { summary, events, entries: [] };
 }
 
 export async function createAiSession(

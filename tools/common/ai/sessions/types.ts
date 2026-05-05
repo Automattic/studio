@@ -110,5 +110,12 @@ export interface AiSessionSummary {
 
 export interface LoadedAiSession {
 	summary: AiSessionSummary;
+	// Pi-format session entries (the post-migration shape). Phase 2 of the
+	// pi-session adoption replaces the legacy `events: AiSessionEvent[]` here;
+	// the renderer reads pi entries directly via the `entry-types` mirror.
+	entries: import('./entry-types').PiSessionEntry[];
+	// Backward-compat alias for in-flight code paths that still iterate the
+	// legacy event stream (apps/ui renderer + summary helpers). Removed once
+	// those callers move to `entries`.
 	events: AiSessionEvent[];
 }

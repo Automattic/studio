@@ -1,10 +1,10 @@
 import { DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
 import { emitEvent, type TurnCompletedStatus } from 'cli/ai/json-events';
 import type { AiProviderId } from 'cli/ai/providers';
-import type { SDKMessage } from 'cli/ai/runtimes/messages';
+import type { AgentRuntimeEvent } from 'cli/ai/runtimes/runtime-events';
 import type { SiteInfo } from 'cli/ai/ui';
 
-export type HandleMessageResult = {
+export type HandleEventResult = {
 	type: 'result';
 	sessionId: string;
 	success: boolean;
@@ -36,7 +36,7 @@ export interface AiOutputAdapter {
 	beginAgentTurn(): void;
 	endAgentTurn(): void;
 	addUserMessage( text: string ): void;
-	handleMessage( message: SDKMessage ): HandleMessageResult | undefined;
+	handleEvent( event: AgentRuntimeEvent ): HandleEventResult | undefined;
 
 	waitForInput(): Promise< string >;
 	askUser( questions: AskUserQuestion[] ): Promise< Record< string, string > >;
@@ -137,15 +137,24 @@ export class JsonAdapter implements AiOutputAdapter {
 		// No-op in JSON mode — the service already knows the message it sent
 	}
 
-	handleMessage( message: SDKMessage ): HandleMessageResult | undefined {
-		emitEvent( { type: 'message', timestamp: new Date().toISOString(), message } );
+	handleEvent( event: AgentRuntimeEvent ): HandleEventResult | undefined {
+		// Forward the event verbatim so the desktop main process can re-derive
+		// state without loading the JSONL itself. The wire keeps the legacy
+		// `'message'` envelope for compatibility with the renderer's parser,
+		// but the inner payload is now the native AgentRuntimeEvent.
+		emitEvent( { type: 'message', timestamp: new Date().toISOString(), message: event } );
 
-		if ( message.type === 'result' ) {
-			this.sessionId = message.session_id;
+		if ( event.type === 'run_started' ) {
+			this.sessionId = event.sessionId;
+			return undefined;
+		}
+
+		if ( event.type === 'turn_completed' ) {
+			this.sessionId = event.sessionId;
 			return {
 				type: 'result',
-				sessionId: message.session_id,
-				success: ! message.is_error,
+				sessionId: event.sessionId,
+				success: ! event.isError,
 			};
 		}
 

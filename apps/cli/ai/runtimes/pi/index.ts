@@ -1,13 +1,6 @@
-import crypto from 'crypto';
 import Anthropic from '@anthropic-ai/sdk';
-import {
-	Agent,
-	type AgentEvent,
-	type AgentMessage,
-	type AgentTool,
-	type StreamFn,
-} from '@mariozechner/pi-agent-core';
-import { type Model } from '@mariozechner/pi-ai';
+import { Agent, type AgentEvent, type AgentTool, type StreamFn } from '@mariozechner/pi-agent-core';
+import { type Message, type Model, type ToolResultMessage } from '@mariozechner/pi-ai';
 import { streamAnthropic, type AnthropicOptions } from '@mariozechner/pi-ai/anthropic';
 import {
 	createBashTool,
@@ -29,14 +22,12 @@ import { takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
 import { createWpcomRequestTool } from 'cli/ai/tools/wpcom-request';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { buildTransformContext } from './compaction';
-import { loadSidecar, saveSidecar } from './persistence';
-import type { SDKMessage } from '../messages';
 import type { AgentRuntime, AgentRuntimeConfig, AgentRuntimeHandle } from '../types';
+import type { AgentRuntimeEvent, CompactionPhase } from 'cli/ai/runtimes/runtime-events';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AgentToolAny = AgentTool< any >;
 
-type CompactionPhase = 'start' | 'end' | 'skipped' | 'failed';
 interface CompactionLifecycleRef {
 	current: ( ( phase: CompactionPhase ) => void ) | null;
 }
@@ -46,9 +37,9 @@ const LIFECYCLE_REFS_BY_SESSION = new Map< string, CompactionLifecycleRef >();
 
 export const piRuntime: AgentRuntime = {
 	run( config: AgentRuntimeConfig ): AgentRuntimeHandle {
-		const sessionId = config.resume ?? crypto.randomUUID();
+		const sessionId = config.session.getSessionId();
 		const controller = new AbortController();
-		const messages = createMessageStream( config, sessionId, controller );
+		const events = createEventStream( config, sessionId, controller );
 
 		return {
 			async interrupt() {
@@ -56,7 +47,7 @@ export const piRuntime: AgentRuntime = {
 				AGENTS_BY_SESSION.get( sessionId )?.abort();
 			},
 			[ Symbol.asyncIterator ]() {
-				return messages[ Symbol.asyncIterator ]();
+				return events[ Symbol.asyncIterator ]();
 			},
 		};
 	},
@@ -119,19 +110,27 @@ function resolveCredentials(
 	};
 }
 
-async function* createMessageStream(
+async function* createEventStream(
 	config: AgentRuntimeConfig,
 	sessionId: string,
 	controller: AbortController
-): AsyncGenerator< SDKMessage, void, void > {
+): AsyncGenerator< AgentRuntimeEvent, void, void > {
 	const start = Date.now();
-	yield makeSystemInit( sessionId, config.model );
+	yield { type: 'run_started', sessionId, model: config.model };
 
 	const family = getAiModelFamily( config.model );
 	const resolved = resolveCredentials( family, config.env );
 	if ( ! resolved.ok ) {
-		yield makeAssistantText( sessionId, config.model, resolved.reason );
-		yield makeResultError( sessionId, start );
+		yield { type: 'runtime_error', message: resolved.reason };
+		yield {
+			type: 'turn_completed',
+			sessionId,
+			subtype: 'error_during_execution',
+			isError: true,
+			durationMs: Date.now() - start,
+			numTurns: 0,
+			result: '',
+		};
 		return;
 	}
 
@@ -143,9 +142,11 @@ async function* createMessageStream(
 			resolved.creds
 		);
 
-		const queue: SDKMessage[] = [];
+		const queue: AgentRuntimeEvent[] = [];
 		let resolveNext: ( () => void ) | null = null;
 		let done = false;
+		let numTurns = 0;
+		let resultText = '';
 
 		const wake = () => {
 			resolveNext?.();
@@ -153,31 +154,52 @@ async function* createMessageStream(
 		};
 
 		lifecycleRef.current = ( phase ) => {
-			if ( phase === 'start' ) {
-				queue.push( makeSystemStatus( sessionId, 'compacting' ) );
-				wake();
-			} else if ( phase === 'end' ) {
-				queue.push( makeCompactBoundary( sessionId ) );
-				wake();
-			}
+			queue.push( { type: 'compaction', phase } );
+			wake();
 		};
 
-		const unsubscribe = agent.subscribe( ( event ) => {
-			for ( const msg of translateEvent( event, sessionId, config.model, start ) ) {
-				queue.push( msg );
+		const unsubscribe = agent.subscribe( ( event: AgentEvent ) => {
+			queue.push( event );
+
+			if ( event.type === 'turn_end' ) {
+				numTurns += 1;
+				// turn_end's `message` is always a base `Message` from the LLM
+				// (user/assistant/toolResult) — branch/compaction summaries
+				// don't ride this event. Cast through Message to satisfy
+				// SessionManager.appendMessage's narrower signature.
+				config.session.appendMessage( event.message as Message );
+				for ( const tr of event.toolResults as ToolResultMessage[] ) {
+					config.session.appendMessage( tr );
+				}
+				if ( event.message.role === 'assistant' ) {
+					for ( const block of event.message.content ) {
+						if ( block.type === 'text' ) {
+							resultText = block.text;
+						}
+					}
+				}
 			}
+
 			if ( event.type === 'agent_end' ) {
 				done = true;
 			}
+
 			wake();
+		} );
+
+		// Persist the user prompt before the agent starts processing so the
+		// transcript on disk matches what the model is about to see.
+		config.session.appendMessage( {
+			role: 'user',
+			content: config.prompt,
+			timestamp: Date.now(),
 		} );
 
 		const runPromise = agent.prompt( config.prompt );
 
 		while ( true ) {
 			if ( queue.length > 0 ) {
-				const msg = queue.shift()!;
-				yield msg;
+				yield queue.shift()!;
 				continue;
 			}
 			if ( done ) break;
@@ -193,17 +215,40 @@ async function* createMessageStream(
 		lifecycleRef.current = null;
 		await runPromise.catch( () => undefined );
 
-		if ( config.sessionFilePath ) {
-			await saveSidecar( config.sessionFilePath, agent.state.messages ).catch( () => undefined );
-		}
+		const aborted = controller.signal.aborted;
+		yield {
+			type: 'turn_completed',
+			sessionId,
+			subtype: aborted ? 'error_during_execution' : 'success',
+			isError: aborted,
+			durationMs: Date.now() - start,
+			numTurns,
+			result: resultText,
+		};
 	} catch ( error ) {
 		if ( controller.signal.aborted ) {
-			yield makeResultError( sessionId, start );
+			yield {
+				type: 'turn_completed',
+				sessionId,
+				subtype: 'error_during_execution',
+				isError: true,
+				durationMs: Date.now() - start,
+				numTurns: 0,
+				result: '',
+			};
 			return;
 		}
 		const message = error instanceof Error ? error.message : String( error );
-		yield makeAssistantText( sessionId, config.model, `Runtime error: ${ message }` );
-		yield makeResultError( sessionId, start );
+		yield { type: 'runtime_error', message };
+		yield {
+			type: 'turn_completed',
+			sessionId,
+			subtype: 'error_during_execution',
+			isError: true,
+			durationMs: Date.now() - start,
+			numTurns: 0,
+			result: '',
+		};
 	}
 }
 
@@ -243,12 +288,11 @@ async function getOrCreateAgent(
 	const tools = buildAgentTools( config, isForkedByDesktop );
 
 	// On a `/model` swap mid-session, reuse the prior transcript so the
-	// conversation continues; on a cold fork hydrate from the sidecar.
+	// conversation continues; on a cold fork hydrate from the SessionManager
+	// (which already resolves compaction summaries via buildSessionContext).
 	const initialMessages = existing
 		? existing.state.messages
-		: config.sessionFilePath
-		? ( await loadSidecar( config.sessionFilePath ) ) ?? []
-		: [];
+		: config.session.buildSessionContext().messages;
 
 	const lifecycleRef: CompactionLifecycleRef = { current: null };
 
@@ -397,86 +441,6 @@ function buildAgentTools(
 	];
 }
 
-function* translateEvent(
-	event: AgentEvent,
-	sessionId: string,
-	model: string,
-	start: number
-): Generator< SDKMessage, void, void > {
-	if ( event.type === 'message_end' ) {
-		const msg = event.message;
-		if ( msg.role !== 'assistant' ) return;
-		const text = extractAssistantText( msg );
-		const toolCalls = msg.content.filter(
-			( block ): block is Extract< typeof block, { type: 'toolCall' } > => block.type === 'toolCall'
-		);
-		if ( text ) {
-			yield makeAssistantText( sessionId, model, text );
-		} else if ( toolCalls.length === 0 ) {
-			// Reasoning models can burn a turn on `thinking` blocks alone; show
-			// the summary so the UI doesn't render a silent "Done".
-			const thinking = extractThinkingText( msg );
-			if ( thinking ) {
-				yield makeAssistantText( sessionId, model, thinking );
-			}
-		}
-		for ( const block of toolCalls ) {
-			yield makeAssistantToolUse(
-				sessionId,
-				model,
-				block.id,
-				block.name,
-				( block.arguments as Record< string, unknown > ) ?? {}
-			);
-		}
-		return;
-	}
-	if ( event.type === 'turn_end' ) {
-		for ( const toolResult of event.toolResults ) {
-			const text = extractToolResultText( toolResult );
-			yield makeToolResult( sessionId, toolResult.toolCallId, text, Boolean( toolResult.isError ) );
-		}
-		return;
-	}
-	if ( event.type === 'agent_end' ) {
-		yield makeResultSuccess( sessionId, '', start );
-		return;
-	}
-}
-
-function extractAssistantText( msg: AgentMessage ): string {
-	if ( msg.role !== 'assistant' ) return '';
-	return msg.content
-		.filter( ( b ): b is { type: 'text'; text: string } => b.type === 'text' )
-		.map( ( b ) => b.text )
-		.join( '' );
-}
-
-function extractThinkingText( msg: AgentMessage ): string {
-	if ( msg.role !== 'assistant' ) return '';
-	return msg.content
-		.filter(
-			( b ): b is { type: 'thinking'; thinking: string } =>
-				b.type === 'thinking' && typeof ( b as { thinking?: unknown } ).thinking === 'string'
-		)
-		.map( ( b ) => b.thinking )
-		.join( '\n\n' );
-}
-
-function extractToolResultText( toolResult: {
-	content: Array< { type: string; text?: string } | unknown >;
-} ): string {
-	if ( ! Array.isArray( toolResult.content ) ) return '';
-	return toolResult.content
-		.map( ( part ) => {
-			if ( ! part || typeof part !== 'object' ) return String( part );
-			const p = part as { type?: string; text?: string };
-			if ( p.type === 'text' && typeof p.text === 'string' ) return p.text;
-			return '';
-		} )
-		.join( '' );
-}
-
 function parseJsonHeaderEnv( value: string | undefined ): Record< string, string > | undefined {
 	if ( ! value ) return undefined;
 	try {
@@ -514,178 +478,4 @@ function parseAnthropicHeaderEnv(
 		if ( name && v ) out[ name ] = v;
 	}
 	return Object.keys( out ).length ? out : undefined;
-}
-
-function makeSystemInit( sessionId: string, model: string ): SDKMessage {
-	return {
-		type: 'system',
-		subtype: 'init',
-		apiKeySource: 'user',
-		cwd: STUDIO_SITES_ROOT,
-		tools: [],
-		mcp_servers: [],
-		model,
-		permissionMode: 'default',
-		slash_commands: [],
-		output_style: 'default',
-		skills: [],
-		plugins: [],
-		claude_code_version: '0.0.0-pi-runtime',
-		uuid: crypto.randomUUID(),
-		session_id: sessionId,
-	} as unknown as SDKMessage;
-}
-
-function makeSystemStatus( sessionId: string, status: 'compacting' ): SDKMessage {
-	return {
-		type: 'system',
-		subtype: 'status',
-		status,
-		uuid: crypto.randomUUID(),
-		session_id: sessionId,
-	} as unknown as SDKMessage;
-}
-
-function makeCompactBoundary( sessionId: string ): SDKMessage {
-	return {
-		type: 'system',
-		subtype: 'compact_boundary',
-		uuid: crypto.randomUUID(),
-		session_id: sessionId,
-	} as unknown as SDKMessage;
-}
-
-function makeAssistantText( sessionId: string, model: string, text: string ): SDKMessage {
-	return {
-		type: 'assistant',
-		parent_tool_use_id: null,
-		uuid: crypto.randomUUID(),
-		session_id: sessionId,
-		message: {
-			id: crypto.randomUUID(),
-			type: 'message',
-			role: 'assistant',
-			model,
-			content: [ { type: 'text', text } ],
-			stop_reason: 'end_turn',
-			stop_sequence: null,
-			usage: {
-				input_tokens: 0,
-				output_tokens: 0,
-				cache_creation_input_tokens: 0,
-				cache_read_input_tokens: 0,
-				service_tier: 'standard',
-			},
-		},
-	} as unknown as SDKMessage;
-}
-
-function makeAssistantToolUse(
-	sessionId: string,
-	model: string,
-	toolUseId: string,
-	toolName: string,
-	input: Record< string, unknown >
-): SDKMessage {
-	return {
-		type: 'assistant',
-		parent_tool_use_id: null,
-		uuid: crypto.randomUUID(),
-		session_id: sessionId,
-		message: {
-			id: crypto.randomUUID(),
-			type: 'message',
-			role: 'assistant',
-			model,
-			content: [ { type: 'tool_use', id: toolUseId, name: toolName, input } ],
-			stop_reason: 'tool_use',
-			stop_sequence: null,
-			usage: {
-				input_tokens: 0,
-				output_tokens: 0,
-				cache_creation_input_tokens: 0,
-				cache_read_input_tokens: 0,
-				service_tier: 'standard',
-			},
-		},
-	} as unknown as SDKMessage;
-}
-
-function makeToolResult(
-	sessionId: string,
-	toolUseId: string,
-	content: string,
-	isError: boolean
-): SDKMessage {
-	return {
-		type: 'user',
-		parent_tool_use_id: null,
-		uuid: crypto.randomUUID(),
-		session_id: sessionId,
-		message: {
-			role: 'user',
-			content: [
-				{
-					type: 'tool_result',
-					tool_use_id: toolUseId,
-					content,
-					is_error: isError,
-				},
-			],
-		},
-	} as unknown as SDKMessage;
-}
-
-function makeResultSuccess( sessionId: string, text: string, start: number ): SDKMessage {
-	const durationMs = Date.now() - start;
-	return {
-		type: 'result',
-		subtype: 'success',
-		duration_ms: durationMs,
-		duration_api_ms: durationMs,
-		is_error: false,
-		num_turns: 1,
-		result: text,
-		stop_reason: 'end_turn',
-		total_cost_usd: 0,
-		usage: {
-			input_tokens: 0,
-			output_tokens: 0,
-			cache_creation_input_tokens: 0,
-			cache_read_input_tokens: 0,
-			server_tool_use: { web_search_requests: 0 },
-			service_tier: 'standard',
-		},
-		modelUsage: {},
-		permission_denials: [],
-		uuid: crypto.randomUUID(),
-		session_id: sessionId,
-	} as unknown as SDKMessage;
-}
-
-function makeResultError( sessionId: string, start: number ): SDKMessage {
-	const durationMs = Date.now() - start;
-	return {
-		type: 'result',
-		subtype: 'error_during_execution',
-		duration_ms: durationMs,
-		duration_api_ms: durationMs,
-		is_error: true,
-		num_turns: 0,
-		result: '',
-		stop_reason: null,
-		total_cost_usd: 0,
-		usage: {
-			input_tokens: 0,
-			output_tokens: 0,
-			cache_creation_input_tokens: 0,
-			cache_read_input_tokens: 0,
-			server_tool_use: { web_search_requests: 0 },
-			service_tier: 'standard',
-		},
-		modelUsage: {},
-		permission_denials: [],
-		uuid: crypto.randomUUID(),
-		session_id: sessionId,
-	} as unknown as SDKMessage;
 }

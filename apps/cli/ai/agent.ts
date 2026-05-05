@@ -7,6 +7,7 @@ import {
 } from '@studio/common/ai/models';
 import { piRuntime } from 'cli/ai/runtimes/pi';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
+import type { SessionManager } from '@mariozechner/pi-coding-agent';
 import type { AgentRuntimeHandle } from 'cli/ai/runtimes/types';
 import type { SiteInfo } from 'cli/ai/ui';
 
@@ -24,27 +25,27 @@ export type AskUserHandler = (
 
 export interface AiAgentConfig {
 	prompt: string;
+	// The pi-coding-agent SessionManager backing the conversation. Owns the
+	// JSONL file on disk; the runtime appends user/assistant/tool messages to
+	// it as the turn progresses. Callers create it via
+	// `createStudioSession()` / `openStudioSession()` from `cli/ai/sessions`.
+	session: SessionManager;
 	env?: Record< string, string >;
 	model?: AiModelId;
-	resume?: string;
 	activeSite?: SiteInfo | null;
 	wpcomAccessToken?: string;
 	onAskUser?: AskUserHandler;
-	// JSONL path the recorder writes to; the runtime stashes a sidecar
-	// transcript next to it so pi-agent-core state survives CLI process forks.
-	sessionFilePath?: string;
 }
 
 export function startAiAgent( config: AiAgentConfig ): AgentRuntimeHandle {
 	const {
 		prompt,
+		session,
 		env,
 		model = DEFAULT_MODEL,
-		resume,
 		activeSite,
 		wpcomAccessToken,
 		onAskUser,
-		sessionFilePath,
 	} = config;
 	const resolvedEnv = env ?? { ...( process.env as Record< string, string > ) };
 
@@ -56,10 +57,9 @@ export function startAiAgent( config: AiAgentConfig ): AgentRuntimeHandle {
 		prompt,
 		env: resolvedEnv,
 		model,
-		resume,
+		session,
 		activeSite,
 		wpcomAccessToken,
 		onAskUser,
-		sessionFilePath,
 	} );
 }

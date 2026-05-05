@@ -1,74 +1,133 @@
+// Re-run the on-disk transcript through the live UI so the resumed session
+// looks like it was streaming again. Iterates pi `SessionEntry[]` directly
+// and synthesizes the same `AgentRuntimeEvent`s the runtime would emit, so
+// `ui.handleEvent()` is the single rendering path.
+
 import {
-	filterEventsAfterLastClear,
-	isVisibleUserMessage,
-} from '@studio/common/ai/sessions/filter-events';
+	isStudioCustomEntryOfType,
+	type StudioCustomEntry,
+} from '@studio/common/ai/sessions/entry-types';
 import { AiChatUI } from 'cli/ai/ui';
-import type { AiSessionEvent } from '@studio/common/ai/sessions/types';
-import type { SDKMessage } from 'cli/ai/runtimes/messages';
+import type { AssistantMessage, ToolResultMessage } from '@mariozechner/pi-ai';
+import type { SessionEntry } from '@mariozechner/pi-coding-agent';
+import type { AgentRuntimeEvent } from 'cli/ai/runtimes/runtime-events';
 
-export function replaySessionHistory( ui: AiChatUI, events: AiSessionEvent[] ): void {
+function findLastClearIndex( entries: SessionEntry[] ): number {
+	for ( let i = entries.length - 1; i >= 0; i -= 1 ) {
+		if ( isStudioCustomEntryOfType( entries[ i ], 'studio.session_cleared' ) ) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+export function replaySessionHistory( ui: AiChatUI, entries: SessionEntry[] ): void {
 	ui.prepareForReplay();
-	let isTurnOpen = false;
 
-	const eventsToReplay = filterEventsAfterLastClear( events );
+	const clearAt = findLastClearIndex( entries );
+	const slice = clearAt >= 0 ? entries.slice( clearAt + 1 ) : entries;
+
+	let isTurnOpen = false;
+	let pendingResults: ToolResultMessage[] = [];
+	const flushTurnResults = () => {
+		if ( pendingResults.length === 0 ) return;
+		const fakeAssistant: AssistantMessage = {
+			role: 'assistant',
+			content: [],
+			api: 'anthropic-messages',
+			provider: 'anthropic',
+			model: '',
+			usage: {
+				input: 0,
+				output: 0,
+				cacheRead: 0,
+				cacheWrite: 0,
+				totalTokens: 0,
+				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+			},
+			stopReason: 'toolUse',
+			timestamp: 0,
+		};
+		const event: AgentRuntimeEvent = {
+			type: 'turn_end',
+			message: fakeAssistant,
+			toolResults: pendingResults,
+		};
+		ui.handleEvent( event );
+		pendingResults = [];
+	};
 
 	try {
-		for ( const event of eventsToReplay ) {
-			ui.setReplayTimestamp( event.timestamp );
+		for ( const entry of slice ) {
+			ui.setReplayTimestamp( entry.timestamp );
 
-			if ( event.type === 'site.selected' ) {
-				ui.setActiveSite(
-					{
-						name: event.siteName,
-						path: event.sitePath,
-						running: false,
-						remote: event.remote === true,
-						url: typeof event.url === 'string' ? event.url : undefined,
-						wpcomSiteId: typeof event.wpcomSiteId === 'number' ? event.wpcomSiteId : undefined,
-					},
-					{ announce: true, emitEvent: false }
-				);
+			if ( isStudioCustomEntryOfType( entry, 'studio.site_selected' ) ) {
+				const data = ( entry as StudioCustomEntry< 'studio.site_selected' > ).data;
+				if ( data ) {
+					ui.setActiveSite(
+						{
+							name: data.siteName,
+							path: data.sitePath,
+							running: false,
+							remote: data.remote === true,
+							url: data.url,
+							wpcomSiteId: data.wpcomSiteId,
+						},
+						{ announce: true, emitEvent: false }
+					);
+				}
 				continue;
 			}
 
-			if ( event.type === 'user.message' ) {
-				if ( ! isVisibleUserMessage( event ) ) {
-					continue;
-				}
-
-				// Defensive close if the previous turn never emitted turn.closed.
+			if ( isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
+				const data = ( entry as StudioCustomEntry< 'studio.user_prompt' > ).data;
+				if ( ! data || data.source !== 'prompt' ) continue;
 				if ( isTurnOpen ) {
+					flushTurnResults();
 					ui.endAgentTurn();
 				}
-
 				ui.beginAgentTurn();
 				isTurnOpen = true;
-				ui.addUserMessage( event.text );
+				ui.addUserMessage( data.text );
 				continue;
 			}
 
-			if ( event.type === 'sdk.message' ) {
-				ui.handleMessage( event.message as SDKMessage );
+			if ( isStudioCustomEntryOfType( entry, 'studio.tool_progress' ) ) {
+				const data = ( entry as StudioCustomEntry< 'studio.tool_progress' > ).data;
+				if ( data ) ui.setLoaderMessage( data.message );
 				continue;
 			}
 
-			if ( event.type === 'tool.progress' ) {
-				ui.setLoaderMessage( event.message );
+			if ( isStudioCustomEntryOfType( entry, 'studio.agent_question' ) ) {
+				const data = ( entry as StudioCustomEntry< 'studio.agent_question' > ).data;
+				if ( data ) ui.showAgentQuestion( data.question, data.options );
 				continue;
 			}
 
-			if ( event.type === 'agent.question' ) {
-				ui.showAgentQuestion( event.question, event.options );
-				continue;
-			}
-
-			if ( event.type === 'turn.closed' ) {
+			if ( isStudioCustomEntryOfType( entry, 'studio.turn_closed' ) ) {
+				flushTurnResults();
 				if ( isTurnOpen ) {
 					ui.endAgentTurn();
 					isTurnOpen = false;
 				}
+				continue;
+			}
+
+			if ( entry.type === 'message' ) {
+				const message = entry.message;
+				if ( message.role === 'assistant' ) {
+					flushTurnResults();
+					ui.handleEvent( {
+						type: 'message_end',
+						message,
+					} );
+				} else if ( message.role === 'toolResult' ) {
+					pendingResults.push( message );
+				}
+				continue;
 			}
 		}
+		flushTurnResults();
 	} finally {
 		if ( isTurnOpen ) {
 			ui.endAgentTurn();

@@ -1,4 +1,3 @@
-import { listAiSessions } from '@studio/common/ai/sessions/store';
 import { type LoadedAiSession, type TurnStatus } from '@studio/common/ai/sessions/types';
 import { buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
 import { readAuthToken } from '@studio/common/lib/shared-config';
@@ -19,8 +18,21 @@ import { type AiOutputAdapter, JsonAdapter } from 'cli/ai/output-adapter';
 import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
 import { resolveResumeSessionContext } from 'cli/ai/sessions/context';
 import { getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
-import { AiSessionRecorder } from 'cli/ai/sessions/recorder';
+import {
+	createStudioSession,
+	listStudioSessionFiles,
+	openStudioSession,
+} from 'cli/ai/sessions/pi-session';
 import { replaySessionHistory } from 'cli/ai/sessions/replay';
+import {
+	appendAgentQuestion,
+	appendSessionCleared,
+	appendSessionContext,
+	appendSiteSelected,
+	appendToolProgress,
+	appendTurnClosed,
+	appendUserPrompt,
+} from 'cli/ai/sessions/studio-entries';
 import { getActiveSlashCommands, type SlashCommandContext } from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
@@ -29,6 +41,7 @@ import { findSiteByFolder } from 'cli/lib/cli-config/sites';
 import { isRemoteSessionEnabled } from 'cli/lib/feature-flags';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
+import type { SessionManager } from '@mariozechner/pi-coding-agent';
 
 const logger = new Logger< string >();
 
@@ -97,38 +110,44 @@ export async function runCommand( options: {
 		ui.showInfo( __( 'ⓘ The "studio ai" command is now "studio code".' ) );
 	}
 
-	let sessionRecorder: AiSessionRecorder | undefined;
+	let session: SessionManager | undefined;
 	let didDisableSessionPersistence = options.noSessionPersistence === true;
-	let sessionId: string | undefined = options.resumeSessionId ?? resumeContext.sessionId;
-	let persistQueue: Promise< void > = Promise.resolve();
+	let lastResultSessionId: string | undefined = options.resumeSessionId ?? resumeContext.sessionId;
 
 	if ( options.noSessionPersistence ) {
 		ui.showInfo( __( 'Session persistence disabled (--no-session-persistence).' ) );
 	}
 
-	const ensureSessionRecorder = async (): Promise< AiSessionRecorder | undefined > => {
+	const ensureSession = async (): Promise< SessionManager | undefined > => {
 		if ( didDisableSessionPersistence ) {
 			return undefined;
 		}
-		if ( sessionRecorder ) {
-			return sessionRecorder;
+		if ( session ) {
+			return session;
 		}
 
 		try {
 			if ( options.resumeSession ) {
-				sessionRecorder = await AiSessionRecorder.open( {
-					sessionId: options.resumeSession.summary.id,
-					filePath: options.resumeSession.summary.filePath,
-					linkedAgentSessionIds: options.resumeSession.summary.linkedAgentSessionIds,
-				} );
+				session = await openStudioSession( options.resumeSession.summary.filePath );
 			} else if ( options.resumeSessionId ) {
-				// Find existing session file by SDK agent session ID so
-				// follow-up turns append to the same file instead of creating new ones.
-				const sessions = await listAiSessions( getAiSessionsRootDirectory() );
-				const existing = sessions.find( ( s ) =>
-					s.linkedAgentSessionIds.includes( options.resumeSessionId! )
-				);
-				if ( ! existing ) {
+				// Look up the on-disk session by id. Pi sessions ARE the agent
+				// sessions now, so the file's `getSessionId()` matches the resume
+				// id directly — no separate `linkedAgentSessionIds` mapping.
+				const files = await listStudioSessionFiles( getAiSessionsRootDirectory() );
+				let match: string | undefined;
+				for ( const file of files ) {
+					try {
+						const sm = await openStudioSession( file );
+						if ( sm.getSessionId() === options.resumeSessionId ) {
+							session = sm;
+							match = file;
+							break;
+						}
+					} catch {
+						// Skip unreadable files.
+					}
+				}
+				if ( ! match ) {
 					throw new Error(
 						sprintf(
 							/* translators: %s: agent session ID */
@@ -137,13 +156,8 @@ export async function runCommand( options: {
 						)
 					);
 				}
-				sessionRecorder = await AiSessionRecorder.open( {
-					sessionId: existing.id,
-					filePath: existing.filePath,
-					linkedAgentSessionIds: existing.linkedAgentSessionIds,
-				} );
 			} else {
-				sessionRecorder = await AiSessionRecorder.create();
+				session = await createStudioSession();
 			}
 		} catch ( error ) {
 			didDisableSessionPersistence = true;
@@ -156,60 +170,59 @@ export async function runCommand( options: {
 			);
 		}
 
-		return sessionRecorder;
+		return session;
 	};
 
-	const persist = ( callback: ( recorder: AiSessionRecorder ) => Promise< void > ) => {
-		persistQueue = persistQueue.then( async () => {
-			const recorder = await ensureSessionRecorder();
-			if ( ! recorder ) {
-				return;
+	// Run a synchronous SessionManager append, swallowing failures to a one-shot
+	// "persistence disabled" error. Pi's `appendX` writes to disk synchronously,
+	// so callers don't need a serializing queue.
+	const append = async ( fn: ( sm: SessionManager ) => void ): Promise< void > => {
+		const sm = await ensureSession();
+		if ( ! sm ) return;
+		try {
+			fn( sm );
+		} catch ( error ) {
+			session = undefined;
+			if ( ! didDisableSessionPersistence ) {
+				didDisableSessionPersistence = true;
+				ui.showError(
+					sprintf(
+						/* translators: %s: error message */
+						__( 'Session persistence disabled: %s' ),
+						getErrorMessage( error )
+					)
+				);
 			}
-
-			try {
-				await callback( recorder );
-			} catch ( error ) {
-				sessionRecorder = undefined;
-				if ( ! didDisableSessionPersistence ) {
-					didDisableSessionPersistence = true;
-					ui.showError(
-						sprintf(
-							/* translators: %s: error message */
-							__( 'Session persistence disabled: %s' ),
-							getErrorMessage( error )
-						)
-					);
-				}
-			}
-		} );
-
-		return persistQueue;
+		}
 	};
 
 	if ( ui instanceof JsonAdapter ) {
 		ui.onBeforeExit = async () => {
-			await persistQueue;
 			ui.stop();
 		};
 	}
 
 	async function persistSessionContext(): Promise< void > {
-		await persist( ( recorder ) =>
-			recorder.recordSessionContext( {
-				provider: currentProvider,
-				model: currentModel,
-			} )
+		await append( ( sm ) =>
+			appendSessionContext( sm, { provider: currentProvider, model: currentModel } )
 		);
 	}
 
 	setProgressCallback( ( message, update ) => {
-		const timestamp = new Date().toISOString();
 		ui.setLoaderMessage( message, update );
-		void persist( ( recorder ) => recorder.recordToolProgress( message, timestamp ) );
+		void append( ( sm ) => appendToolProgress( sm, { message } ) );
 	} );
 
 	ui.onSiteSelected = ( site ) => {
-		void persist( ( recorder ) => recorder.recordSiteSelected( site ) );
+		void append( ( sm ) =>
+			appendSiteSelected( sm, {
+				siteName: site.name,
+				sitePath: site.path,
+				remote: site.remote,
+				url: site.url,
+				wpcomSiteId: site.wpcomSiteId,
+			} )
+		);
 	};
 
 	if ( options.resumeSession ) {
@@ -221,10 +234,10 @@ export async function runCommand( options: {
 			)
 		);
 		if ( ui instanceof AiChatUI ) {
-			replaySessionHistory( ui, options.resumeSession.events );
-		}
-		if ( ! sessionId ) {
-			ui.showInfo( __( 'No linked Claude session was found. Continuing from transcript only.' ) );
+			const sm = await ensureSession();
+			if ( sm ) {
+				replaySessionHistory( ui, sm.getEntries() );
+			}
 		}
 	}
 
@@ -243,7 +256,7 @@ export async function runCommand( options: {
 	async function switchProvider( provider: AiProviderId, announce = true ): Promise< void > {
 		currentProvider = provider;
 		ui.currentProvider = currentProvider;
-		sessionId = undefined;
+		lastResultSessionId = undefined;
 
 		// Auto-correct model when the provider change leaves it unsupported
 		// (e.g. switching from wpcom → anthropic-api-key while a GPT model is
@@ -286,7 +299,7 @@ export async function runCommand( options: {
 	}
 
 	function handleAgentTurnError( error: unknown ): void {
-		sessionId = undefined;
+		lastResultSessionId = undefined;
 
 		// If the UI already surfaced a descriptive error (e.g. the AI usage
 		// cap was reached), suppress the generic SDK exit error (e.g.
@@ -399,8 +412,8 @@ export async function runCommand( options: {
 		questions: AskUserQuestion[]
 	): Promise< Record< string, string > > {
 		for ( const question of questions ) {
-			await persist( ( recorder ) =>
-				recorder.recordAgentQuestion( {
+			await append( ( sm ) =>
+				appendAgentQuestion( sm, {
 					question: question.question,
 					options: question.options.map( ( option ) => ( {
 						label: option.label,
@@ -416,9 +429,8 @@ export async function runCommand( options: {
 			if ( typeof answer !== 'string' || ! answer.trim() ) {
 				continue;
 			}
-
-			await persist( ( recorder ) =>
-				recorder.recordUserMessage( {
+			await append( ( sm ) =>
+				appendUserPrompt( sm, {
 					text: answer,
 					source: 'ask_user',
 					sitePath: ui.activeSite?.path,
@@ -437,9 +449,12 @@ export async function runCommand( options: {
 		displayMessage = prompt
 	): Promise< { status: TurnStatus } > {
 		await maybeAutoSwitchProvider();
-		const recorder = await ensureSessionRecorder();
+		const sm = await ensureSession();
+		if ( ! sm ) {
+			throw new Error( 'AI agent requires a session — persistence is disabled.' );
+		}
 		const env = await resolveAiEnvironment( currentProvider, {
-			sessionId: recorder?.sessionId,
+			sessionId: sm.getSessionId(),
 		} );
 
 		ui.beginAgentTurn();
@@ -465,8 +480,12 @@ export async function runCommand( options: {
 
 		await persistSessionContext();
 
-		await persist( ( recorder ) =>
-			recorder.recordUserMessage( {
+		// Studio-side marker for the user's typed prompt. Pi will append the
+		// canonical UserMessage when the runtime starts the turn — this entry
+		// is purely for the renderer's "user-typed prompt" rendering and the
+		// summary's `firstPrompt` extraction.
+		await append( ( s ) =>
+			appendUserPrompt( s, {
 				text: displayMessage,
 				source: 'prompt',
 				sitePath: site?.path,
@@ -477,11 +496,10 @@ export async function runCommand( options: {
 			prompt: enrichedPrompt,
 			env,
 			model: currentModel,
-			resume: sessionId,
+			session: sm,
 			activeSite: site,
 			wpcomAccessToken,
 			onAskUser: ( questions ) => askUserAndPersistAnswers( questions ),
-			sessionFilePath: recorder?.filePath,
 		} );
 
 		let interruptRequested = false;
@@ -501,17 +519,13 @@ export async function runCommand( options: {
 		const turnState: { status: TurnStatus } = { status: 'interrupted' };
 
 		const consumeAgentTurn = async (): Promise< void > => {
-			for await ( const message of agentQuery ) {
-				const timestamp = new Date().toISOString();
+			for await ( const event of agentQuery ) {
 				if ( interruptRequested ) {
 					continue;
 				}
-				const result = ui.handleMessage( message );
-				await persist( ( recorder ) => recorder.recordSdkMessage( message, timestamp ) );
+				const result = ui.handleEvent( event );
 				if ( result ) {
-					sessionId = result.sessionId;
-					await persist( ( recorder ) => recorder.recordAgentSessionId( result.sessionId ) );
-
+					lastResultSessionId = result.sessionId;
 					if ( result.interrupted ) {
 						turnState.status = 'interrupted';
 					} else {
@@ -549,7 +563,7 @@ export async function runCommand( options: {
 				turnState.status = 'interrupted';
 			}
 		} finally {
-			await persist( ( recorder ) => recorder.recordTurnClosed( turnState.status ) );
+			await append( ( s ) => appendTurnClosed( s, { status: turnState.status } ) );
 			ui.endAgentTurn();
 		}
 
@@ -579,10 +593,11 @@ export async function runCommand( options: {
 				const choice = Object.values( answer )[ 0 ]?.toLowerCase();
 				if ( choice === 'yes' ) {
 					ui.showInfo( __( 'Retrying…' ) );
-					// If the SDK threw before emitting any result, sessionId is
-					// still whatever it was before this turn; without one to resume,
-					// replay the original prompt instead.
-					const retryPrompt = sessionId ? 'Continue from where you left off.' : prompt;
+					// If the runtime threw before emitting any result, the
+					// session may still have prior turns; if so we ask the
+					// model to continue, otherwise we replay the original
+					// prompt.
+					const retryPrompt = lastResultSessionId ? 'Continue from where you left off.' : prompt;
 					return runAgentTurn( retryPrompt, retryAttempt + 1 );
 				}
 			}
@@ -606,7 +621,6 @@ export async function runCommand( options: {
 			handleAgentTurnError( error );
 			( ui as JsonAdapter ).emitTurnCompleted( 'error' );
 		} finally {
-			await persistQueue;
 			ui.stop();
 			await closeSharedBrowser();
 		}
@@ -650,15 +664,23 @@ export async function runCommand( options: {
 		maybeAutoSwitchProvider,
 		persistSessionContext,
 		async clearSession() {
-			sessionId = undefined;
+			lastResultSessionId = undefined;
 			ui.clearTranscript();
 			ui.showWelcome();
 			ui.showInfo( __( 'Conversation cleared' ) );
-			await persist( ( recorder ) => recorder.recordSessionCleared() );
+			await append( ( sm ) => appendSessionCleared( sm ) );
 			await persistSessionContext();
 			const site = ui.activeSite;
 			if ( site ) {
-				await persist( ( recorder ) => recorder.recordSiteSelected( site ) );
+				await append( ( sm ) =>
+					appendSiteSelected( sm, {
+						siteName: site.name,
+						sitePath: site.path,
+						remote: site.remote,
+						url: site.url,
+						wpcomSiteId: site.wpcomSiteId,
+					} )
+				);
 			}
 		},
 	};
@@ -714,7 +736,6 @@ export async function runCommand( options: {
 		}
 	} finally {
 		stopDaemonStatusPolling();
-		await persistQueue;
 		ui.stop();
 		process.exit( 0 );
 	}

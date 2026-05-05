@@ -37,8 +37,17 @@ import { openBrowser } from 'cli/lib/browser';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { getSitesRunningStatus, isSiteRunning } from 'cli/lib/site-utils';
-import type { AiOutputAdapter, HandleMessageResult } from 'cli/ai/output-adapter';
-import type { SDKMessage, TodoWriteInput } from 'cli/ai/runtimes/messages';
+import type { ToolResultMessage } from '@mariozechner/pi-ai';
+import type { AiOutputAdapter, HandleEventResult } from 'cli/ai/output-adapter';
+import type { AgentRuntimeEvent } from 'cli/ai/runtimes/runtime-events';
+
+interface TodoWriteInput {
+	todos: Array< {
+		content: string;
+		activeForm: string;
+		status: 'pending' | 'in_progress' | 'completed';
+	} >;
+}
 
 const SITE_PICKER_TAB_LOCAL = 'local' as const;
 const SITE_PICKER_TAB_REMOTE = 'remote' as const;
@@ -270,25 +279,10 @@ function formatToolName( name: string, input?: Record< string, unknown > ): stri
 }
 
 interface ToolUseResultContent {
-	content?: string | Array< { type: string; text?: string } >;
+	// Pi `ToolResultMessage` content is always an array of text/image blocks;
+	// we render text and ignore image blocks for the terminal preview.
+	content?: Array< { type: string; text?: string } >;
 	isError?: boolean;
-}
-
-interface MessageContentWithType {
-	type: string;
-}
-
-interface ToolResultBlock extends MessageContentWithType {
-	type: 'tool_result';
-	content?: unknown;
-	is_error?: boolean;
-}
-
-interface StdoutStderrToolResult {
-	stdout?: unknown;
-	stderr?: unknown;
-	is_error?: unknown;
-	noOutputExpected?: unknown;
 }
 
 interface PendingTodoRender {
@@ -316,74 +310,6 @@ function isTodoWriteInput( input: unknown ): input is TodoWriteInput {
 	);
 }
 
-function isMessageContentWithType( value: unknown ): value is MessageContentWithType {
-	return typeof value === 'object' && value !== null && 'type' in value;
-}
-
-function isToolResultBlock( value: unknown ): value is ToolResultBlock {
-	return isMessageContentWithType( value ) && value.type === 'tool_result';
-}
-
-function isStdoutStderrToolResult( value: unknown ): value is StdoutStderrToolResult {
-	return (
-		typeof value === 'object' &&
-		value !== null &&
-		( 'stdout' in value || 'stderr' in value || 'noOutputExpected' in value )
-	);
-}
-
-function normalizeToolResultContent(
-	content: unknown
-): ToolUseResultContent[ 'content' ] | undefined {
-	if ( typeof content === 'string' ) {
-		return content;
-	}
-
-	if ( Array.isArray( content ) ) {
-		return content.filter( isMessageContentWithType ).map( ( block ) => {
-			if ( 'text' in block && typeof block.text === 'string' ) {
-				return { type: block.type, text: block.text };
-			}
-			return { type: block.type };
-		} );
-	}
-
-	if ( content === undefined || content === null ) {
-		return undefined;
-	}
-
-	return String( content );
-}
-
-function normalizeToolUseResult( result: unknown ): ToolUseResultContent | null {
-	if ( ! result || typeof result !== 'object' ) {
-		return null;
-	}
-
-	if ( 'content' in result || 'isError' in result || 'is_error' in result ) {
-		const typedResult = result as {
-			content?: unknown;
-			isError?: unknown;
-			is_error?: unknown;
-		};
-		return {
-			content: normalizeToolResultContent( typedResult.content ),
-			isError: typedResult.isError === true || typedResult.is_error === true,
-		};
-	}
-
-	if ( isStdoutStderrToolResult( result ) ) {
-		const stdout = typeof result.stdout === 'string' ? result.stdout : '';
-		const stderr = typeof result.stderr === 'string' ? result.stderr : '';
-		const parts = [ stdout, stderr ? `stderr: ${ stderr }` : '' ].filter( Boolean );
-		return {
-			content: parts.join( '\n' ) || undefined,
-			isError: result.is_error === true,
-		};
-	}
-
-	return null;
-}
 export class AiChatUI implements AiOutputAdapter {
 	private tui: TUI;
 	private editor: PromptEditor;
@@ -1839,26 +1765,19 @@ export class AiChatUI implements AiOutputAdapter {
 		}, 500 );
 	}
 
-	private getToolResultContent(
-		message: SDKMessage & { type: 'user' }
-	): ToolUseResultContent | null {
-		const toolUseResult = normalizeToolUseResult( message.tool_use_result );
-		if (
-			toolUseResult &&
-			( toolUseResult.content !== undefined || toolUseResult.isError === true )
-		) {
-			return toolUseResult;
+	private getToolResultContent( result: ToolResultMessage ): ToolUseResultContent | null {
+		const blocks: Array< { type: string; text?: string } > = [];
+		for ( const block of result.content ) {
+			if ( block.type === 'text' && typeof block.text === 'string' ) {
+				blocks.push( { type: 'text', text: block.text } );
+			}
 		}
-
-		const contentBlocks = Array.isArray( message.message.content ) ? message.message.content : [];
-		const toolResultBlock = ( contentBlocks as unknown[] ).find( isToolResultBlock );
-		if ( ! toolResultBlock ) {
+		if ( blocks.length === 0 && ! result.isError ) {
 			return null;
 		}
-
 		return {
-			content: normalizeToolResultContent( toolResultBlock.content ),
-			isError: toolResultBlock.is_error === true,
+			content: blocks.length > 0 ? blocks : undefined,
+			isError: result.isError,
 		};
 	}
 
@@ -1958,12 +1877,12 @@ export class AiChatUI implements AiOutputAdapter {
 	}
 
 	private showToolResult(
-		message: SDKMessage & { type: 'user' },
+		result: ToolResultMessage,
 		toolName?: string,
 		toolInput?: Record< string, unknown > | null
 	): void {
 		this.stopToolDotBlink();
-		const typedResult = this.getToolResultContent( message );
+		const typedResult = this.getToolResultContent( result );
 		if ( ! typedResult ) {
 			this.toolDotText = null;
 			return;
@@ -1988,9 +1907,9 @@ export class AiChatUI implements AiOutputAdapter {
 		this.tui.requestRender();
 	}
 
-	private showTodoToolResult( message: SDKMessage & { type: 'user' }, toolUseId: string ): void {
+	private showTodoToolResult( result: ToolResultMessage, toolUseId: string ): void {
 		this.stopToolDotBlink();
-		const typedResult = this.getToolResultContent( message );
+		const typedResult = this.getToolResultContent( result );
 		const pendingTodoRender = this.consumePendingTodoRender( toolUseId );
 
 		if ( ! typedResult || ! pendingTodoRender ) {
@@ -2113,33 +2032,45 @@ export class AiChatUI implements AiOutputAdapter {
 	}
 
 	/**
-	 * Process an SDK message and update the UI.
+	 * Process a runtime event and update the UI.
 	 * Returns session result when the agent turn is complete.
 	 */
-	handleMessage( message: SDKMessage ): HandleMessageResult | undefined {
-		if ( this.wasInterrupted && message.type !== 'result' ) {
+	handleEvent( event: AgentRuntimeEvent ): HandleEventResult | undefined {
+		if ( this.wasInterrupted && event.type !== 'turn_completed' ) {
 			return undefined;
 		}
 
-		switch ( message.type ) {
-			case 'assistant': {
-				// Detect the AI usage cap response from the WordPress.com proxy.
-				// The proxy returns a 429 when the cap is hit; the SDK can't
-				// classify errors from off-domain base URLs so it forwards the
-				// body verbatim as a text block prefixed with "API Error: 429".
-				// On the wpcom provider a 429 is always a cap issue — matching
-				// the SDK's status-code prefix is more robust than any specific
-				// body marker, which has varied across backend revisions.
-				let isCapMessage = false;
-				if ( message.error && this.currentProvider === 'wpcom' ) {
-					for ( const block of message.message.content ) {
-						if ( block.type === 'text' && /API Error:\s*429/i.test( block.text ?? '' ) ) {
-							isCapMessage = true;
-							break;
-						}
-					}
+		switch ( event.type ) {
+			case 'run_started':
+				// AiChatUI doesn't track sessionId at the UI level — it comes
+				// back attached to `turn_completed` for callers that need it.
+				return undefined;
+			case 'compaction':
+				if ( event.phase === 'start' ) {
+					this.showLoader( __( 'Compacting conversation history…' ) );
+				} else if ( event.phase === 'end' ) {
+					this.hideLoader();
+					this.showInfo( __( 'Conversation history compacted' ) );
 				}
-				if ( isCapMessage ) {
+				return undefined;
+			case 'runtime_error':
+				this.hideLoader();
+				this.showError( event.message );
+				return undefined;
+			case 'message_end': {
+				const message = event.message;
+				if ( message.role !== 'assistant' ) {
+					return undefined;
+				}
+
+				// Detect the AI usage cap response from the WordPress.com proxy.
+				// On wpcom a 429 is always a cap issue — pi-ai surfaces it via
+				// `stopReason: 'error'` with the upstream body in `errorMessage`.
+				if (
+					message.stopReason === 'error' &&
+					this.currentProvider === 'wpcom' &&
+					/API Error:\s*429|status code 429|"status":\s*429/i.test( message.errorMessage ?? '' )
+				) {
 					this.hideLoader();
 					this.usageCapReached = true;
 					this.showError(
@@ -2154,10 +2085,10 @@ export class AiChatUI implements AiOutputAdapter {
 					this.currentResponseText = '';
 					return undefined;
 				}
-				for ( const block of message.message.content ) {
+
+				for ( const block of message.content ) {
 					if ( block.type === 'text' ) {
 						this.hideLoader();
-						// Lazily create a new markdown block if needed (e.g. after askUser closed the previous one)
 						if ( ! this.currentMarkdown ) {
 							this.currentResponseText = '';
 							this.hasShownResponseMarker = false;
@@ -2167,7 +2098,6 @@ export class AiChatUI implements AiOutputAdapter {
 							this.currentMarkdown = new Markdown( '\n', 1, 0, markdownTheme );
 							this.messages.addChild( this.currentMarkdown );
 						}
-						// Add a line break between consecutive assistant messages
 						if ( this.currentResponseText && ! this.currentResponseText.endsWith( '\n' ) ) {
 							this.currentResponseText += '\n';
 						}
@@ -2176,29 +2106,21 @@ export class AiChatUI implements AiOutputAdapter {
 							'\n' + chalk.blue( '⏺' ) + ' ' + this.currentResponseText
 						);
 						this.tui.requestRender();
-					} else if ( block.type === 'tool_use' ) {
+					} else if ( block.type === 'toolCall' ) {
 						this.toolStartTime = this.nowMs();
-						const typedBlock = block as {
-							id: string;
-							name: string;
-							input?: Record< string, unknown >;
-						};
-						const input = typedBlock.input;
-						this.pendingToolCalls.set( typedBlock.id, {
-							name: typedBlock.name,
-							input: input ?? {},
-						} );
+						const input = ( block.arguments ?? {} ) as Record< string, unknown >;
+						this.pendingToolCalls.set( block.id, { name: block.name, input } );
 						const toolLabel = formatToolName( block.name, input );
 						if ( block.name === 'TodoWrite' && isTodoWriteInput( input ) ) {
 							const diff = diffTodoSnapshot( this.latestTodoSnapshot, input.todos );
 							const shouldRender =
 								diff.hasVisibleChanges && diff.signature !== this.lastRenderedTodoSignature;
-							this.pendingTodoRenders.set( typedBlock.id, {
+							this.pendingTodoRenders.set( block.id, {
 								diff,
 								toolLabel,
 								shouldRender,
 							} );
-							this.pendingTodoRenderOrder.push( typedBlock.id );
+							this.pendingTodoRenderOrder.push( block.id );
 							this.latestTodoSnapshot = diff.snapshot;
 							if ( shouldRender ) {
 								this.showToolUse( toolLabel );
@@ -2211,74 +2133,68 @@ export class AiChatUI implements AiOutputAdapter {
 						}
 					}
 				}
-				// Always show the loader after processing — the agent turn is still active
-				// and more messages are coming (next API call, tool execution, etc.)
 				if ( ! this.replayMode && ! this.loaderVisible ) {
 					this.showLoader( randomThinkingMessage() );
 				}
 				return undefined;
 			}
-			case 'user': {
-				const toolCallId = message.parent_tool_use_id;
-				const toolCall = toolCallId ? this.pendingToolCalls.get( toolCallId ) : null;
-				if ( toolCallId ) {
-					this.pendingToolCalls.delete( toolCallId );
+			case 'turn_end': {
+				// Render tool results emitted by this turn. Pi already routes
+				// them via individual `tool_execution_end` events, but the
+				// turn-end batch is the canonical post-tool boundary —
+				// closing the markdown block here mirrors the old `'user'`
+				// branch behavior.
+				for ( const toolResult of event.toolResults ) {
+					const toolCallId = toolResult.toolCallId;
+					const toolCall = this.pendingToolCalls.get( toolCallId );
+					if ( toolCall ) {
+						this.pendingToolCalls.delete( toolCallId );
+					}
+					if ( this.pendingTodoRenders.has( toolCallId ) ) {
+						this.showTodoToolResult( toolResult, toolCallId );
+					} else if (
+						! this.pendingTodoRenders.has( toolCallId ) &&
+						this.pendingTodoRenderOrder.length > 0 &&
+						toolCall?.name === 'TodoWrite'
+					) {
+						this.showTodoToolResult( toolResult, this.pendingTodoRenderOrder[ 0 ] );
+					} else {
+						this.showToolResult( toolResult, toolCall?.name, toolCall?.input );
+					}
 				}
-				// Direct ID match, or fallback for SDK-internal tools (e.g. TodoWrite)
-				// where parent_tool_use_id may be null.
-				if ( toolCallId && this.pendingTodoRenders.has( toolCallId ) ) {
-					this.showTodoToolResult( message, toolCallId );
-				} else if ( ! toolCallId && this.pendingTodoRenderOrder.length > 0 ) {
-					this.showTodoToolResult( message, this.pendingTodoRenderOrder[ 0 ] );
-				} else {
-					const fallbackToolCall = toolCall ?? this.consumeLatestPendingToolCall();
-					this.showToolResult( message, fallbackToolCall?.name, fallbackToolCall?.input );
+				if ( event.toolResults.length > 0 ) {
+					this.currentMarkdown = null;
+					this.currentResponseText = '';
 				}
-				// Close the current markdown block so the next assistant text
-				// creates a fresh visual block (mirrors askUser / endAgentTurn).
-				this.currentMarkdown = null;
-				this.currentResponseText = '';
 				return undefined;
 			}
-			case 'result': {
+			case 'turn_completed': {
 				this.hideLoader();
 
-				// When the cap message was surfaced earlier in this turn,
-				// the SDK still classifies the turn as successful (or returns
-				// is_error with the raw upstream body). Skip the "Done" /
-				// "Thought for Xs" indicators and the generic error rendering
-				// so the cap message stands on its own, and report the turn
-				// as failed to upstream callers.
 				if ( this.usageCapReached ) {
-					return { type: 'result', sessionId: message.session_id, success: false };
+					return { type: 'result', sessionId: event.sessionId, success: false };
 				}
 
-				// User-initiated interruption: friendly message, suppress retry prompt.
 				if ( this.wasInterrupted ) {
 					this.showInterruptedNotice();
 					return {
 						type: 'result',
-						sessionId: message.session_id,
+						sessionId: event.sessionId,
 						success: false,
 						interrupted: true,
 					};
 				}
 
-				// is_error is the authoritative failure signal. A message can have
-				// subtype='success' and still carry is_error=true (e.g. API 504 after
-				// the SDK exhausts retries and emits the error text as the result).
-				if ( message.is_error ) {
+				if ( event.isError ) {
 					const parts: string[] = [];
-					if ( 'errors' in message && message.errors?.length ) {
-						parts.push( ...message.errors );
+					if ( event.errors?.length ) {
+						parts.push( ...event.errors );
 					}
-					if ( 'result' in message && typeof message.result === 'string' && message.result ) {
-						parts.push( message.result );
-					} else if ( message.subtype && message.subtype !== 'success' ) {
-						parts.push( `(${ message.subtype })` );
+					if ( event.result ) {
+						parts.push( event.result );
 					}
-					if ( 'permission_denials' in message && message.permission_denials?.length ) {
-						for ( const denial of message.permission_denials ) {
+					if ( event.permissionDenials?.length ) {
+						for ( const denial of event.permissionDenials ) {
 							parts.push(
 								sprintf(
 									/* translators: %s: tool name */
@@ -2289,10 +2205,9 @@ export class AiChatUI implements AiOutputAdapter {
 						}
 					}
 					this.showError( parts.length > 0 ? parts.join( '\n' ) : __( 'Unknown error' ) );
-					return { type: 'result', sessionId: message.session_id, success: false };
+					return { type: 'result', sessionId: event.sessionId, success: false };
 				}
 
-				// Genuine success.
 				const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
 				if ( ! this.hasShownResponseMarker ) {
 					this.messages.addChild(
@@ -2302,27 +2217,19 @@ export class AiChatUI implements AiOutputAdapter {
 				this.showInfo(
 					sprintf(
 						/* translators: 1: seconds spent thinking, 2: number of turns */
-						_n(
-							'Thought for %1$ds · %2$d turn',
-							'Thought for %1$ds · %2$d turns',
-							message.num_turns
-						),
+						_n( 'Thought for %1$ds · %2$d turn', 'Thought for %1$ds · %2$d turns', event.numTurns ),
 						thinkingSec,
-						message.num_turns
+						event.numTurns
 					)
 				);
-				return { type: 'result', sessionId: message.session_id, success: true };
+				return { type: 'result', sessionId: event.sessionId, success: true };
 			}
-			case 'system': {
-				if ( message.subtype === 'status' && message.status === 'compacting' ) {
-					this.showLoader( __( 'Compacting conversation history…' ) );
-				} else if ( message.subtype === 'compact_boundary' ) {
-					this.hideLoader();
-					this.showInfo( __( 'Conversation history compacted' ) );
-				}
+			default:
+				// agent_start / agent_end / turn_start / message_start /
+				// message_update / tool_execution_* — UI doesn't act on these
+				// directly; pi events drive incremental state but the visible
+				// transitions happen at message_end / turn_end / turn_completed.
 				return undefined;
-			}
 		}
-		return undefined;
 	}
 }

@@ -1,6 +1,8 @@
+import { SessionManager } from '@mariozechner/pi-coding-agent';
 import { describe, expect, it, vi } from 'vitest';
 import { piRuntime } from 'cli/ai/runtimes/pi';
 import type { AiModelId } from '@studio/common/ai/models';
+import type { AgentRuntimeEvent } from 'cli/ai/runtimes/runtime-events';
 
 // Model-swap test uses a synthetic id outside `AI_MODELS`; route unknowns to
 // 'openai' so the env credentials match.
@@ -21,9 +23,42 @@ const DEFAULT_MOCK_EVENTS: unknown[] = [
 		message: {
 			role: 'assistant',
 			content: [ { type: 'text', text: 'mocked openai response' } ],
+			api: 'openai-completions',
+			provider: 'openai',
+			model: 'gpt-5.5',
+			usage: {
+				input: 0,
+				output: 0,
+				cacheRead: 0,
+				cacheWrite: 0,
+				totalTokens: 0,
+				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+			},
+			stopReason: 'stop',
+			timestamp: 0,
 		},
 	},
-	{ type: 'turn_end', toolResults: [] },
+	{
+		type: 'turn_end',
+		message: {
+			role: 'assistant',
+			content: [ { type: 'text', text: 'mocked openai response' } ],
+			api: 'openai-completions',
+			provider: 'openai',
+			model: 'gpt-5.5',
+			usage: {
+				input: 0,
+				output: 0,
+				cacheRead: 0,
+				cacheWrite: 0,
+				totalTokens: 0,
+				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+			},
+			stopReason: 'stop',
+			timestamp: 0,
+		},
+		toolResults: [],
+	},
 	{ type: 'agent_end', messages: [] },
 ];
 let nextMockEvents: unknown[] | null = null;
@@ -57,7 +92,8 @@ vi.mock( '@mariozechner/pi-agent-core', () => {
 	return { Agent: MockAgent };
 } );
 
-vi.mock( '@mariozechner/pi-coding-agent', () => {
+vi.mock( '@mariozechner/pi-coding-agent', async ( importOriginal ) => {
+	const actual = await importOriginal< typeof import('@mariozechner/pi-coding-agent') >();
 	const stub = ( name: string ) => ( {
 		name,
 		label: name,
@@ -66,6 +102,7 @@ vi.mock( '@mariozechner/pi-coding-agent', () => {
 		execute: async () => ( { content: [ { type: 'text', text: '' } ], details: undefined } ),
 	} );
 	return {
+		...actual,
 		createReadTool: () => stub( 'Read' ),
 		createWriteTool: () => stub( 'Write' ),
 		createEditTool: () => stub( 'Edit' ),
@@ -76,24 +113,42 @@ vi.mock( '@mariozechner/pi-coding-agent', () => {
 	};
 } );
 
+const newSession = () => SessionManager.inMemory( '/tmp/eval' );
+
+const findAssistantText = ( events: AgentRuntimeEvent[] ): string | undefined => {
+	for ( const e of events ) {
+		if ( e.type === 'message_end' && e.message.role === 'assistant' ) {
+			for ( const block of e.message.content ) {
+				if ( block.type === 'text' ) return block.text;
+			}
+		}
+	}
+	return undefined;
+};
+
 describe( 'pi runtime', () => {
-	it( 'yields an error when OPENAI_API_KEY is absent', async () => {
+	it( 'yields runtime_error when OPENAI_API_KEY is absent', async () => {
 		const handle = piRuntime.run( {
 			prompt: 'hello',
 			env: {},
 			model: 'gpt-5.5',
+			session: newSession(),
 		} );
 
-		const messages: Array< { type: string; subtype?: string } > = [];
-		for await ( const m of handle ) {
-			messages.push( { type: m.type, subtype: 'subtype' in m ? m.subtype : undefined } );
+		const events: AgentRuntimeEvent[] = [];
+		for await ( const e of handle ) {
+			events.push( e );
 		}
 
-		expect( messages ).toEqual( [
-			{ type: 'system', subtype: 'init' },
-			{ type: 'assistant', subtype: undefined },
-			{ type: 'result', subtype: 'error_during_execution' },
-		] );
+		const types = events.map( ( e ) => e.type );
+		expect( types ).toContain( 'run_started' );
+		expect( types ).toContain( 'runtime_error' );
+		expect( types ).toContain( 'turn_completed' );
+		const final = events[ events.length - 1 ];
+		expect( final.type ).toBe( 'turn_completed' );
+		if ( final.type === 'turn_completed' ) {
+			expect( final.subtype ).toBe( 'error_during_execution' );
+		}
 	} );
 
 	it( 'yields a full exchange when the mocked OpenAI SDK returns output', async () => {
@@ -104,77 +159,20 @@ describe( 'pi runtime', () => {
 				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
 			},
 			model: 'gpt-5.5',
+			session: newSession(),
 		} );
 
-		const messages: Array< {
-			type: string;
-			subtype?: string;
-			text?: string;
-		} > = [];
-		for await ( const m of handle ) {
-			if ( m.type === 'assistant' ) {
-				const content = m.message.content;
-				const firstText = Array.isArray( content )
-					? content.find( ( c ) => 'text' in c )
-					: undefined;
-				messages.push( {
-					type: m.type,
-					text: firstText && 'text' in firstText ? firstText.text : undefined,
-				} );
-			} else {
-				messages.push( {
-					type: m.type,
-					subtype: 'subtype' in m ? m.subtype : undefined,
-				} );
-			}
+		const events: AgentRuntimeEvent[] = [];
+		for await ( const e of handle ) {
+			events.push( e );
 		}
 
-		expect( messages ).toEqual( [
-			{ type: 'system', subtype: 'init' },
-			{ type: 'assistant', text: 'mocked openai response' },
-			{ type: 'result', subtype: 'success' },
-		] );
-	} );
-
-	// Reasoning models can produce a `thinking`-only turn; show the summary
-	// so the UI doesn't render a silent empty "Done".
-	it( 'falls back to thinking content when there is no text and no tool calls', async () => {
-		nextMockEvents = [
-			{
-				type: 'message_end',
-				message: {
-					role: 'assistant',
-					content: [ { type: 'thinking', thinking: 'reasoned through it' } ],
-				},
-			},
-			{ type: 'turn_end', toolResults: [] },
-			{ type: 'agent_end', messages: [] },
-		];
-
-		const handle = piRuntime.run( {
-			prompt: 'hello',
-			env: {
-				OPENAI_API_KEY: 'sk-test',
-				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
-			},
-			model: 'gpt-5.5',
-			resume: 'thinking-only-' + Math.random(),
-		} );
-
-		const assistantTexts: string[] = [];
-		for await ( const m of handle ) {
-			if ( m.type === 'assistant' ) {
-				const content = m.message.content;
-				const firstText = Array.isArray( content )
-					? content.find( ( c ) => 'text' in c )
-					: undefined;
-				if ( firstText && 'text' in firstText && typeof firstText.text === 'string' ) {
-					assistantTexts.push( firstText.text );
-				}
-			}
+		expect( findAssistantText( events ) ).toBe( 'mocked openai response' );
+		const final = events[ events.length - 1 ];
+		expect( final.type ).toBe( 'turn_completed' );
+		if ( final.type === 'turn_completed' ) {
+			expect( final.subtype ).toBe( 'success' );
 		}
-
-		expect( assistantTexts ).toEqual( [ 'reasoned through it' ] );
 	} );
 
 	// `/model` swap mid-session must reach the next request — the prior cache
@@ -185,10 +183,10 @@ describe( 'pi runtime', () => {
 			OPENAI_API_KEY: 'sk-test',
 			OPENAI_BASE_URL: 'https://proxy.example.com/v1',
 		};
-		const sessionId = 'fixed-session-id-for-swap-test';
+		const session = newSession();
 		const otherOpenAiModel = 'gpt-test-other' as AiModelId;
 
-		const first = piRuntime.run( { prompt: 'hi', env, model: 'gpt-5.5', resume: sessionId } );
+		const first = piRuntime.run( { prompt: 'hi', env, model: 'gpt-5.5', session } );
 		for await ( const _ of first );
 		expect( constructedAgents ).toHaveLength( 1 );
 		expect( constructedAgents[ 0 ].state.model.id ).toBe( 'gpt-5.5' );
@@ -198,7 +196,7 @@ describe( 'pi runtime', () => {
 			prompt: 'follow-up',
 			env,
 			model: otherOpenAiModel,
-			resume: sessionId,
+			session,
 		} );
 		for await ( const _ of second );
 		expect( constructedAgents ).toHaveLength( 2 );
@@ -209,7 +207,7 @@ describe( 'pi runtime', () => {
 			prompt: 'still on the second model',
 			env,
 			model: otherOpenAiModel,
-			resume: sessionId,
+			session,
 		} );
 		for await ( const _ of third );
 		expect( constructedAgents ).toHaveLength( 2 );
@@ -228,7 +226,7 @@ describe( 'pi runtime', () => {
 					STUDIO_OPENAI_DEFAULT_HEADERS: '{not json',
 				},
 				model: 'gpt-5.5',
-				resume: 'malformed-headers-' + Math.random(),
+				session: newSession(),
 			} );
 			for await ( const _ of handle ) {
 				// Drain.

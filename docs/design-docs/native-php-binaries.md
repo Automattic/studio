@@ -4,11 +4,12 @@ Studio currently downloads native PHP binaries on demand from the upstream
 static-php-cli CDN. Custom Studio-built binaries are not bundled in the repo or
 uploaded by PR CI.
 
-Use `npm run php-cli:build` to build the macOS arm64 PHP 8.4.20 CLI artifact
-with the WordPress-recommended extension set plus Studio's SQLite/PDO runtime
+Use `npm run php-cli:build` to build macOS PHP 8.4.20 CLI artifacts with the
+WordPress-recommended extension set plus Studio's SQLite/PDO runtime
 requirements from `scripts/php-cli.craft.yml`. The script prepares
 `static-php-cli`, then delegates the actual build to `spc craft`. It writes
-`php-8.4.20-cli-macos-aarch64.tar.gz` and its `.sha256` file to
+`php-8.4.20-cli-macos-aarch64.tar.gz`,
+`php-8.4.20-cli-macos-x86_64.tar.gz`, and their `.sha256` files to
 `out/php-binaries/`.
 
 Buildkite runs this build only when `scripts/build-php-cli.mjs` or

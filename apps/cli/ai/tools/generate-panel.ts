@@ -5,7 +5,7 @@ import { disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { generateAndDeployScratchPanel } from 'cli/lib/studio-panels-builder';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
 import { z } from 'zod/v4';
-import { errorResult, resolveSite, textResult } from './helpers';
+import { errorResult, resolveSite, textResult } from './utils';
 
 const PLUGIN_BASENAME = 'studio-panels/studio-panels.php';
 const GUTENBERG_BASENAME = 'gutenberg/gutenberg.php';

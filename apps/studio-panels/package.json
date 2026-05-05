@@ -8,6 +8,7 @@
 	"scripts": {
 		"build": "wp-build && node scripts/post-build.mjs",
 		"dev": "wp-build --watch",
+		"lint": "eslint routes",
 		"typecheck": "tsc -p tsconfig.json --noEmit"
 	},
 	"wpPlugin": {

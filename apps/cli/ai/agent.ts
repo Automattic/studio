@@ -1,13 +1,18 @@
 import fs from 'fs';
-import path from 'path';
-import { query, type HookCallback, type Query } from '@anthropic-ai/claude-agent-sdk';
-import { AI_MODELS, DEFAULT_MODEL, type AiModelId } from '@studio/common/ai/models';
-import { buildSystemPrompt } from 'cli/ai/system-prompt';
-import { createRemoteSiteTools, createStudioTools } from 'cli/ai/tools';
+import {
+	AI_MODELS,
+	DEFAULT_MODEL,
+	getAiModelFamily,
+	getAiModelLabel,
+	type AiModelId,
+} from '@studio/common/ai/models';
+import { anthropicRuntime } from 'cli/ai/runtimes/anthropic';
+import { isOpenAIRuntimeSession, openaiRuntime } from 'cli/ai/runtimes/openai';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
+import type { AgentRuntime, AgentRuntimeHandle } from 'cli/ai/runtimes/types';
 import type { SiteInfo } from 'cli/ai/ui';
 
-export { AI_MODELS, DEFAULT_MODEL, type AiModelId };
+export { AI_MODELS, DEFAULT_MODEL, getAiModelLabel, type AiModelId };
 
 export interface AskUserQuestion {
 	question: string;
@@ -27,6 +32,14 @@ export interface AiAgentConfig {
 	activeSite?: SiteInfo | null;
 	wpcomAccessToken?: string;
 	onAskUser?: AskUserHandler;
+	/**
+	 * Absolute path to the JSONL the recorder is writing to. Optional —
+	 * the OpenAI runtime uses it to load/save its sidecar transcript so
+	 * pi-agent-core memory survives across CLI process forks (the desktop
+	 * UI forks per turn). When omitted, the OpenAI runtime keeps state in
+	 * memory only and forgets across forks.
+	 */
+	sessionFilePath?: string;
 }
 
 // The Claude Agent SDK rejects internal pending promises (e.g. control
@@ -49,10 +62,24 @@ process.on( 'unhandledRejection', ( reason ) => {
 } );
 
 /**
- * Start the AI agent and return the Query object.
- * Caller can iterate messages with `for await` and call `interrupt()` to stop.
+ * Pick the runtime based on the selected model's family. GPT-* models route to
+ * the OpenAI runtime; everything else defaults to the Claude Agent SDK path.
+ *
+ * Matches the user-facing mental model: `/model` is the control, and whichever
+ * model you pick dictates which backend handles the turn — independent of
+ * which provider supplied the credentials.
  */
-export function startAiAgent( config: AiAgentConfig ): Query {
+function pickRuntime( model: AiModelId ): AgentRuntime {
+	return getAiModelFamily( model ) === 'openai' ? openaiRuntime : anthropicRuntime;
+}
+
+/**
+ * Start the AI agent and return a handle that streams messages until the
+ * turn completes. Caller can iterate with `for await` and call `interrupt()`
+ * to stop. The concrete runtime (Anthropic vs OpenAI) is chosen based on the
+ * resolved environment.
+ */
+export function startAiAgent( config: AiAgentConfig ): AgentRuntimeHandle {
 	const {
 		prompt,
 		env,
@@ -61,97 +88,38 @@ export function startAiAgent( config: AiAgentConfig ): Query {
 		activeSite,
 		wpcomAccessToken,
 		onAskUser,
+		sessionFilePath,
 	} = config;
 	const resolvedEnv = env ?? { ...( process.env as Record< string, string > ) };
-
-	const isRemoteSite = activeSite?.remote && activeSite?.wpcomSiteId && wpcomAccessToken;
-
-	// Preview-steering tools only belong in the toolset when the Studio
-	// desktop UI is on the other end of the IPC channel — otherwise the
-	// agent's navigate/reload calls render as noise in the terminal
-	// transcript. `process.send` is the same signal `emitEvent` uses to
-	// pick between IPC and stdout NDJSON.
-	const isForkedByDesktop = typeof process.send === 'function';
-
-	// Configure MCP servers based on site type:
-	// Remote sites get WP.com REST API tools + screenshot; local sites get the full Studio toolset.
-	const mcpServers = {
-		studio: isRemoteSite
-			? createRemoteSiteTools( wpcomAccessToken, activeSite.wpcomSiteId! )
-			: createStudioTools( { enablePreviewSteering: isForkedByDesktop } ),
-	};
-
-	// The remote-session controller sets STUDIO_REMOTE_SESSION=1 when it spawns
-	// `studio code --json` so the agent knows it's driving Telegram and should
-	// favor screenshot replies.
-	const remoteSession = resolvedEnv.STUDIO_REMOTE_SESSION === '1';
-
-	// Build site-aware system prompt
-	const systemPromptOptions = isRemoteSite
-		? {
-				remoteSite: {
-					name: activeSite.name,
-					url: activeSite.url ?? '',
-					id: activeSite.wpcomSiteId!,
-				},
-				remoteSession,
-		  }
-		: { previewSteering: isForkedByDesktop, remoteSession };
 
 	if ( ! fs.existsSync( STUDIO_SITES_ROOT ) ) {
 		fs.mkdirSync( STUDIO_SITES_ROOT, { recursive: true } );
 	}
 
-	// Intercept the built-in AskUserQuestion tool so the agent's questions
-	// render in our chat UI (via onAskUser) instead of the SDK's default
-	// prompt. PreToolUse with `matcher: 'AskUserQuestion'` lets us inject
-	// answers via `updatedInput` and approve the call, while leaving every
-	// other tool to the 'auto' permission classifier.
-	const askUserQuestionHook: HookCallback | undefined = onAskUser
-		? async ( input ) => {
-				if ( input.hook_event_name !== 'PreToolUse' ) {
-					return {};
-				}
-				const toolInput = input.tool_input as {
-					questions?: AskUserQuestion[];
-					answers?: Record< string, string >;
-				};
-				const questions = ( toolInput.questions ?? [] ).map( ( q ) => ( {
-					...q,
-					allowFreeForm: true,
-				} ) );
-				const answers = await onAskUser( questions );
-				return {
-					hookSpecificOutput: {
-						hookEventName: 'PreToolUse' as const,
-						permissionDecision: 'allow' as const,
-						updatedInput: { ...toolInput, answers },
-					},
-				};
-		  }
-		: undefined;
+	const runtime = pickRuntime( model );
+	// Cross-family resume guard. If the caller passes a `resume` id that was
+	// issued by the OpenAI runtime but we're now routing to the Anthropic
+	// runtime (e.g. user picked a different family in the model dropdown
+	// mid-session), the Claude Agent SDK doesn't recognize it and errors with
+	// "No conversation found". Drop the resume hint instead — the new runtime
+	// starts a fresh agent thread, the session record on disk continues
+	// accumulating turns. The OpenAI direction handles unknown resume ids
+	// silently (see runtimes/openai/index.ts), so we only need to gate the
+	// Anthropic side. In-memory tracking; survives a single process lifetime
+	// only (see comment on isOpenAIRuntimeSession).
+	const safeResume =
+		resume && getAiModelFamily( model ) === 'anthropic' && isOpenAIRuntimeSession( resume )
+			? undefined
+			: resume;
 
-	return query( {
+	return runtime.run( {
 		prompt,
-		options: {
-			env: resolvedEnv,
-			systemPrompt: {
-				type: 'preset',
-				preset: 'claude_code',
-				append: buildSystemPrompt( systemPromptOptions ),
-			},
-			mcpServers,
-			cwd: STUDIO_SITES_ROOT,
-			tools: { type: 'preset', preset: 'claude_code' },
-			permissionMode: 'auto',
-			...( askUserQuestionHook && {
-				hooks: {
-					PreToolUse: [ { matcher: 'AskUserQuestion', hooks: [ askUserQuestionHook ] } ],
-				},
-			} ),
-			plugins: [ { type: 'local' as const, path: path.resolve( import.meta.dirname, 'plugin' ) } ],
-			model,
-			resume,
-		},
+		env: resolvedEnv,
+		model,
+		resume: safeResume,
+		activeSite,
+		wpcomAccessToken,
+		onAskUser,
+		sessionFilePath,
 	} );
 }

@@ -7,6 +7,7 @@ import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { useConnector } from '@/data/core';
 import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
 import { useResizablePanel } from '@/hooks/use-resizable-panel';
+import { isPanelPath, type PreviewMode } from '@/hooks/use-session-ui';
 import { getSiteUrl } from '@/lib/get-site-url';
 import { playIcon } from '@/lib/icons';
 import { PREVIEW_PANEL_CONFIG, PREVIEW_PANEL_STORAGE_KEY } from '@/lib/resizable-panels';
@@ -20,10 +21,19 @@ export type { Annotation } from './types';
 
 interface SitePreviewProps {
 	site: SiteDetails;
-	// When present, the preview subscribes to the agent event stream for this
-	// session and reacts to `preview.command` events emitted by the agent's
-	// preview_navigate / preview_reload tools.
-	sessionId?: string;
+	// Path to display within the previewed site, controlled by the parent so
+	// it can be updated by `preview.command` events even when the panel was
+	// previously collapsed.
+	path: string;
+	// Bumped by the parent to force a webview reload (e.g. on a `reload`
+	// preview command).
+	reloadNonce: number;
+	// Site/Panel mode + the toggle handler. The "Panel" button is shown but
+	// disabled until the agent has navigated to a panel URL at least once
+	// (i.e. `hasPanel` is true).
+	mode: PreviewMode;
+	setMode: ( value: PreviewMode ) => void;
+	hasPanel: boolean;
 	// Called when the user clicks "Submit" in the inspector toolbar. Receives
 	// the full annotation payload assembled inside the webview's guest page.
 	onAnnotationsDone?: ( annotations: Annotation[] ) => void;
@@ -54,46 +64,22 @@ const isElectron = (): boolean => {
 	return /\bElectron\//.test( navigator.userAgent );
 };
 
-/**
- * Detects panel URLs (the studio-panels admin page, optionally wrapped in
- * `/studio-auto-login?redirect_to=…`). Used to (a) route agent navigation
- * events into the panel slot vs. the site slot for the toggle, and (b)
- * suppress the annotation inspector — panels are agent-generated UI, not
- * the rendered site content the inspector is designed to comment on.
- */
-function isPanelPath( pathOrUrl: string ): boolean {
-	// Matches both "page=studio-panels" and "page=studio-panels-wp-admin",
-	// directly in the URL or wrapped inside `/studio-auto-login?redirect_to=…`.
-	if ( /page=studio-panels(-wp-admin)?\b/.test( pathOrUrl ) ) return true;
-	if ( pathOrUrl.includes( 'studio-auto-login' ) ) {
-		try {
-			const decoded = decodeURIComponent( pathOrUrl );
-			return /page=studio-panels(-wp-admin)?\b/.test( decoded );
-		} catch {
-			return false;
-		}
-	}
-	return false;
-}
-
-export function SitePreview( { site, sessionId, onAnnotationsDone }: SitePreviewProps ) {
+export function SitePreview( {
+	site,
+	path,
+	reloadNonce,
+	mode,
+	setMode,
+	hasPanel,
+	onAnnotationsDone,
+}: SitePreviewProps ) {
 	const connector = useConnector();
 	const startSite = useStartSite();
 	const isStarting = useIsSiteStarting( site.id );
 	const siteUrl = getSiteUrl( site );
 	const canPreview = site.running;
-	// Track the latest site path and the latest panel path independently so
-	// the toggle can swap between them without losing either side's state.
-	// Agent navigation events update one path or the other depending on what
-	// they navigate to.
-	const [ sitePath, setSitePath ] = useState( '/' );
-	const [ panelPath, setPanelPath ] = useState< string | null >( null );
-	const [ currentMode, setCurrentMode ] = useState< 'site' | 'panel' >( 'site' );
-	const [ reloadNonce, setReloadNonce ] = useState( 0 );
-
-	const currentPath = currentMode === 'panel' && panelPath ? panelPath : sitePath;
-	const fullUrl = `${ siteUrl }${ currentPath }`;
-	const showingPanel = currentMode === 'panel' && !! panelPath;
+	const fullUrl = `${ siteUrl }${ path }`;
+	const showingPanel = isPanelPath( path );
 
 	const previewResize = useResizablePanel( {
 		config: PREVIEW_PANEL_CONFIG,
@@ -103,25 +89,6 @@ export function SitePreview( { site, sessionId, onAnnotationsDone }: SitePreview
 	const previewStyle = {
 		'--site-preview-width': `${ previewResize.width }px`,
 	} as CSSProperties;
-
-	useEffect( () => {
-		if ( ! sessionId ) return;
-		return connector.onAgentEvent( ( payload ) => {
-			if ( payload.sessionId !== sessionId ) return;
-			const event = payload.event;
-			if ( event.type !== 'preview.command' ) return;
-			if ( event.kind === 'navigate' ) {
-				if ( isPanelPath( event.path ) ) {
-					setPanelPath( event.path );
-					setCurrentMode( 'panel' );
-				} else {
-					setSitePath( event.path );
-					setCurrentMode( 'site' );
-				}
-			}
-			setReloadNonce( ( n ) => n + 1 );
-		} );
-	}, [ connector, sessionId ] );
 
 	return (
 		<aside className={ styles.root } style={ previewStyle } aria-label={ __( 'Site preview' ) }>
@@ -144,25 +111,19 @@ export function SitePreview( { site, sessionId, onAnnotationsDone }: SitePreview
 				<div className={ styles.modeToggle } role="group" aria-label={ __( 'Preview mode' ) }>
 					<button
 						type="button"
-						className={ clsx(
-							styles.modeButton,
-							currentMode === 'site' && styles.modeButtonActive
-						) }
-						onClick={ () => setCurrentMode( 'site' ) }
-						aria-pressed={ currentMode === 'site' }
+						className={ clsx( styles.modeButton, mode === 'site' && styles.modeButtonActive ) }
+						onClick={ () => setMode( 'site' ) }
+						aria-pressed={ mode === 'site' }
 					>
 						{ __( 'Site' ) }
 					</button>
 					<button
 						type="button"
-						className={ clsx(
-							styles.modeButton,
-							currentMode === 'panel' && styles.modeButtonActive
-						) }
-						onClick={ () => setCurrentMode( 'panel' ) }
-						disabled={ ! panelPath }
-						aria-pressed={ currentMode === 'panel' }
-						title={ ! panelPath ? __( 'No panel generated yet' ) : __( 'Show generated panel' ) }
+						className={ clsx( styles.modeButton, mode === 'panel' && styles.modeButtonActive ) }
+						onClick={ () => setMode( 'panel' ) }
+						disabled={ ! hasPanel }
+						aria-pressed={ mode === 'panel' }
+						title={ ! hasPanel ? __( 'No panel generated yet' ) : __( 'Show generated panel' ) }
 					>
 						{ __( 'Panel' ) }
 					</button>

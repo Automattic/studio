@@ -204,7 +204,30 @@ export async function deleteAiSession(
 ): Promise< AiSessionSummary > {
 	const sessionToDelete = await resolveSessionByIdOrPrefix( rootDirectory, sessionIdOrPrefix );
 	await fs.rm( sessionToDelete.filePath, { force: false } );
-	await pruneEmptySessionDirectories( rootDirectory, path.dirname( sessionToDelete.filePath ) );
+
+	// Some runtimes write sidecar files alongside the JSONL (currently the
+	// OpenAI runtime saves a `.openai-state.json` next to the JSONL so pi's
+	// in-memory transcript survives across CLI process forks). Sweep any
+	// file in the same directory that shares the JSONL's stem so deletes
+	// don't leave orphans behind. Best-effort: failures are ignored — they
+	// just mean a stale sidecar remains, which is harmless.
+	const sessionDir = path.dirname( sessionToDelete.filePath );
+	const baseName = path.basename( sessionToDelete.filePath, '.jsonl' );
+	try {
+		const siblings = await fs.readdir( sessionDir );
+		await Promise.all(
+			siblings
+				.filter( ( name ) => name.startsWith( `${ baseName }.` ) && name !== `${ baseName }.jsonl` )
+				.map( ( name ) =>
+					fs.rm( path.join( sessionDir, name ), { force: true } ).catch( () => undefined )
+				)
+		);
+	} catch {
+		// Directory disappeared between rm and readdir, or readdir failed —
+		// either way the JSONL is gone, which is what we promised.
+	}
+
+	await pruneEmptySessionDirectories( rootDirectory, sessionDir );
 
 	return sessionToDelete;
 }

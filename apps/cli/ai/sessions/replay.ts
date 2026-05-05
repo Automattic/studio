@@ -3,10 +3,7 @@
 // and synthesizes the same `AgentRuntimeEvent`s the runtime would emit, so
 // `ui.handleEvent()` is the single rendering path.
 
-import {
-	isStudioCustomEntryOfType,
-	type StudioCustomEntry,
-} from '@studio/common/ai/sessions/entry-types';
+import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import { AiChatUI } from 'cli/ai/ui';
 import type { AssistantMessage, ToolResultMessage } from '@mariozechner/pi-ai';
 import type { SessionEntry } from '@mariozechner/pi-coding-agent';
@@ -62,7 +59,7 @@ export function replaySessionHistory( ui: AiChatUI, entries: SessionEntry[] ): v
 			ui.setReplayTimestamp( entry.timestamp );
 
 			if ( isStudioCustomEntryOfType( entry, 'studio.site_selected' ) ) {
-				const data = ( entry as StudioCustomEntry< 'studio.site_selected' > ).data;
+				const data = entry.data;
 				if ( data ) {
 					ui.setActiveSite(
 						{
@@ -80,7 +77,7 @@ export function replaySessionHistory( ui: AiChatUI, entries: SessionEntry[] ): v
 			}
 
 			if ( isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
-				const data = ( entry as StudioCustomEntry< 'studio.user_prompt' > ).data;
+				const data = entry.data;
 				if ( ! data || data.source !== 'prompt' ) continue;
 				if ( isTurnOpen ) {
 					flushTurnResults();
@@ -93,14 +90,12 @@ export function replaySessionHistory( ui: AiChatUI, entries: SessionEntry[] ): v
 			}
 
 			if ( isStudioCustomEntryOfType( entry, 'studio.tool_progress' ) ) {
-				const data = ( entry as StudioCustomEntry< 'studio.tool_progress' > ).data;
-				if ( data ) ui.setLoaderMessage( data.message );
+				if ( entry.data ) ui.setLoaderMessage( entry.data.message );
 				continue;
 			}
 
 			if ( isStudioCustomEntryOfType( entry, 'studio.agent_question' ) ) {
-				const data = ( entry as StudioCustomEntry< 'studio.agent_question' > ).data;
-				if ( data ) ui.showAgentQuestion( data.question, data.options );
+				if ( entry.data ) ui.showAgentQuestion( entry.data.question, entry.data.options );
 				continue;
 			}
 

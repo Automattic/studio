@@ -127,7 +127,7 @@ const findAssistantText = ( events: AgentRuntimeEvent[] ): string | undefined =>
 };
 
 describe( 'pi runtime', () => {
-	it( 'yields runtime_error when OPENAI_API_KEY is absent', async () => {
+	it( 'yields turn_completed with the credential error in `result` when OPENAI_API_KEY is absent', async () => {
 		const handle = piRuntime.run( {
 			prompt: 'hello',
 			env: {},
@@ -140,14 +140,13 @@ describe( 'pi runtime', () => {
 			events.push( e );
 		}
 
-		const types = events.map( ( e ) => e.type );
-		expect( types ).toContain( 'run_started' );
-		expect( types ).toContain( 'runtime_error' );
-		expect( types ).toContain( 'turn_completed' );
-		const final = events[ events.length - 1 ];
+		expect( events ).toHaveLength( 1 );
+		const final = events[ 0 ];
 		expect( final.type ).toBe( 'turn_completed' );
 		if ( final.type === 'turn_completed' ) {
 			expect( final.subtype ).toBe( 'error_during_execution' );
+			expect( final.isError ).toBe( true );
+			expect( final.result ).toMatch( /OPENAI_API_KEY/ );
 		}
 	} );
 

@@ -144,11 +144,6 @@ export class JsonAdapter implements AiOutputAdapter {
 		// but the inner payload is now the native AgentRuntimeEvent.
 		emitEvent( { type: 'message', timestamp: new Date().toISOString(), message: event } );
 
-		if ( event.type === 'run_started' ) {
-			this.sessionId = event.sessionId;
-			return undefined;
-		}
-
 		if ( event.type === 'turn_completed' ) {
 			this.sessionId = event.sessionId;
 			return {

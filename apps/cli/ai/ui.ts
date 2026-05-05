@@ -2041,21 +2041,14 @@ export class AiChatUI implements AiOutputAdapter {
 		}
 
 		switch ( event.type ) {
-			case 'run_started':
-				// AiChatUI doesn't track sessionId at the UI level — it comes
-				// back attached to `turn_completed` for callers that need it.
+			case 'compaction_start':
+				this.showLoader( __( 'Compacting conversation history…' ) );
 				return undefined;
-			case 'compaction':
-				if ( event.phase === 'start' ) {
-					this.showLoader( __( 'Compacting conversation history…' ) );
-				} else if ( event.phase === 'end' ) {
-					this.hideLoader();
+			case 'compaction_end':
+				this.hideLoader();
+				if ( ! event.errorMessage ) {
 					this.showInfo( __( 'Conversation history compacted' ) );
 				}
-				return undefined;
-			case 'runtime_error':
-				this.hideLoader();
-				this.showError( event.message );
 				return undefined;
 			case 'message_end': {
 				const message = event.message;

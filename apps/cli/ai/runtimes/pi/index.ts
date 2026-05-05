@@ -23,10 +23,12 @@ import { createWpcomRequestTool } from 'cli/ai/tools/wpcom-request';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { buildTransformContext } from './compaction';
 import type { AgentRuntime, AgentRuntimeConfig, AgentRuntimeHandle } from '../types';
-import type { AgentRuntimeEvent, CompactionPhase } from 'cli/ai/runtimes/runtime-events';
+import type { AgentRuntimeEvent } from 'cli/ai/runtimes/runtime-events';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AgentToolAny = AgentTool< any >;
+
+type CompactionPhase = 'start' | 'end' | 'skipped' | 'failed';
 
 interface CompactionLifecycleRef {
 	current: ( ( phase: CompactionPhase ) => void ) | null;
@@ -116,12 +118,13 @@ async function* createEventStream(
 	controller: AbortController
 ): AsyncGenerator< AgentRuntimeEvent, void, void > {
 	const start = Date.now();
-	yield { type: 'run_started', sessionId, model: config.model };
 
 	const family = getAiModelFamily( config.model );
 	const resolved = resolveCredentials( family, config.env );
 	if ( ! resolved.ok ) {
-		yield { type: 'runtime_error', message: resolved.reason };
+		// Pre-flight credential failure — surface the reason via the
+		// `turn_completed.result` payload so consumers can `showError(result)`
+		// without a separate runtime-error event type.
 		yield {
 			type: 'turn_completed',
 			sessionId,
@@ -129,7 +132,7 @@ async function* createEventStream(
 			isError: true,
 			durationMs: Date.now() - start,
 			numTurns: 0,
-			result: '',
+			result: resolved.reason,
 		};
 		return;
 	}
@@ -154,7 +157,28 @@ async function* createEventStream(
 		};
 
 		lifecycleRef.current = ( phase ) => {
-			queue.push( { type: 'compaction', phase } );
+			// Map our compaction.ts lifecycle to the pi-shaped events. We
+			// always run as a `threshold`-driven transformContext compaction.
+			// `skipped` is silent (the UI doesn't differentiate); `failed`
+			// flows through compaction_end with errorMessage populated.
+			if ( phase === 'start' ) {
+				queue.push( { type: 'compaction_start', reason: 'threshold' } );
+			} else if ( phase === 'end' ) {
+				queue.push( {
+					type: 'compaction_end',
+					reason: 'threshold',
+					aborted: false,
+					willRetry: false,
+				} );
+			} else if ( phase === 'failed' ) {
+				queue.push( {
+					type: 'compaction_end',
+					reason: 'threshold',
+					aborted: false,
+					willRetry: false,
+					errorMessage: 'Compaction failed',
+				} );
+			}
 			wake();
 		};
 
@@ -239,7 +263,6 @@ async function* createEventStream(
 			return;
 		}
 		const message = error instanceof Error ? error.message : String( error );
-		yield { type: 'runtime_error', message };
 		yield {
 			type: 'turn_completed',
 			sessionId,
@@ -247,7 +270,7 @@ async function* createEventStream(
 			isError: true,
 			durationMs: Date.now() - start,
 			numTurns: 0,
-			result: '',
+			result: message,
 		};
 	}
 }

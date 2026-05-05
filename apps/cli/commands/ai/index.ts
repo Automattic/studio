@@ -24,15 +24,7 @@ import {
 	openStudioSession,
 } from 'cli/ai/sessions/pi-session';
 import { replaySessionHistory } from 'cli/ai/sessions/replay';
-import {
-	appendAgentQuestion,
-	appendSessionCleared,
-	appendSessionContext,
-	appendSiteSelected,
-	appendToolProgress,
-	appendTurnClosed,
-	appendUserPrompt,
-} from 'cli/ai/sessions/studio-entries';
+import { appendStudioEntry } from 'cli/ai/sessions/studio-entries';
 import { getActiveSlashCommands, type SlashCommandContext } from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
@@ -112,7 +104,6 @@ export async function runCommand( options: {
 
 	let session: SessionManager | undefined;
 	let didDisableSessionPersistence = options.noSessionPersistence === true;
-	let lastResultSessionId: string | undefined = options.resumeSessionId ?? resumeContext.sessionId;
 
 	if ( options.noSessionPersistence ) {
 		ui.showInfo( __( 'Session persistence disabled (--no-session-persistence).' ) );
@@ -204,18 +195,22 @@ export async function runCommand( options: {
 
 	async function persistSessionContext(): Promise< void > {
 		await append( ( sm ) =>
-			appendSessionContext( sm, { provider: currentProvider, model: currentModel } )
+			appendStudioEntry( sm, 'studio.session_context', {
+				provider: currentProvider,
+				model: currentModel,
+			} )
 		);
 	}
 
 	setProgressCallback( ( message, update ) => {
 		ui.setLoaderMessage( message, update );
-		void append( ( sm ) => appendToolProgress( sm, { message } ) );
+		if ( ! message.trim() ) return;
+		void append( ( sm ) => appendStudioEntry( sm, 'studio.tool_progress', { message } ) );
 	} );
 
 	ui.onSiteSelected = ( site ) => {
 		void append( ( sm ) =>
-			appendSiteSelected( sm, {
+			appendStudioEntry( sm, 'studio.site_selected', {
 				siteName: site.name,
 				sitePath: site.path,
 				remote: site.remote,
@@ -256,7 +251,6 @@ export async function runCommand( options: {
 	async function switchProvider( provider: AiProviderId, announce = true ): Promise< void > {
 		currentProvider = provider;
 		ui.currentProvider = currentProvider;
-		lastResultSessionId = undefined;
 
 		// Auto-correct model when the provider change leaves it unsupported
 		// (e.g. switching from wpcom → anthropic-api-key while a GPT model is
@@ -299,8 +293,6 @@ export async function runCommand( options: {
 	}
 
 	function handleAgentTurnError( error: unknown ): void {
-		lastResultSessionId = undefined;
-
 		// If the UI already surfaced a descriptive error (e.g. the AI usage
 		// cap was reached), suppress the generic SDK exit error (e.g.
 		// "Claude Code process exited with code 1") that follows.
@@ -413,7 +405,7 @@ export async function runCommand( options: {
 	): Promise< Record< string, string > > {
 		for ( const question of questions ) {
 			await append( ( sm ) =>
-				appendAgentQuestion( sm, {
+				appendStudioEntry( sm, 'studio.agent_question', {
 					question: question.question,
 					options: question.options.map( ( option ) => ( {
 						label: option.label,
@@ -430,7 +422,7 @@ export async function runCommand( options: {
 				continue;
 			}
 			await append( ( sm ) =>
-				appendUserPrompt( sm, {
+				appendStudioEntry( sm, 'studio.user_prompt', {
 					text: answer,
 					source: 'ask_user',
 					sitePath: ui.activeSite?.path,
@@ -485,7 +477,7 @@ export async function runCommand( options: {
 		// is purely for the renderer's "user-typed prompt" rendering and the
 		// summary's `firstPrompt` extraction.
 		await append( ( s ) =>
-			appendUserPrompt( s, {
+			appendStudioEntry( s, 'studio.user_prompt', {
 				text: displayMessage,
 				source: 'prompt',
 				sitePath: site?.path,
@@ -525,7 +517,6 @@ export async function runCommand( options: {
 				}
 				const result = ui.handleEvent( event );
 				if ( result ) {
-					lastResultSessionId = result.sessionId;
 					if ( result.interrupted ) {
 						turnState.status = 'interrupted';
 					} else {
@@ -563,7 +554,9 @@ export async function runCommand( options: {
 				turnState.status = 'interrupted';
 			}
 		} finally {
-			await append( ( s ) => appendTurnClosed( s, { status: turnState.status } ) );
+			await append( ( s ) =>
+				appendStudioEntry( s, 'studio.turn_closed', { status: turnState.status } )
+			);
 			ui.endAgentTurn();
 		}
 
@@ -593,12 +586,11 @@ export async function runCommand( options: {
 				const choice = Object.values( answer )[ 0 ]?.toLowerCase();
 				if ( choice === 'yes' ) {
 					ui.showInfo( __( 'Retrying…' ) );
-					// If the runtime threw before emitting any result, the
-					// session may still have prior turns; if so we ask the
-					// model to continue, otherwise we replay the original
-					// prompt.
-					const retryPrompt = lastResultSessionId ? 'Continue from where you left off.' : prompt;
-					return runAgentTurn( retryPrompt, retryAttempt + 1 );
+					// Pi's SessionManager hydrates the next turn from the
+					// transcript, so the model already has the prior prompt
+					// in context regardless of whether the failed turn
+					// produced an assistant reply.
+					return runAgentTurn( 'Continue from where you left off.', retryAttempt + 1 );
 				}
 			}
 		}
@@ -664,16 +656,15 @@ export async function runCommand( options: {
 		maybeAutoSwitchProvider,
 		persistSessionContext,
 		async clearSession() {
-			lastResultSessionId = undefined;
 			ui.clearTranscript();
 			ui.showWelcome();
 			ui.showInfo( __( 'Conversation cleared' ) );
-			await append( ( sm ) => appendSessionCleared( sm ) );
+			await append( ( sm ) => appendStudioEntry( sm, 'studio.session_cleared', {} ) );
 			await persistSessionContext();
 			const site = ui.activeSite;
 			if ( site ) {
 				await append( ( sm ) =>
-					appendSiteSelected( sm, {
+					appendStudioEntry( sm, 'studio.site_selected', {
 						siteName: site.name,
 						sitePath: site.path,
 						remote: site.remote,

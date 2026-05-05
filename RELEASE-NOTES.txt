@@ -50,7 +50,7 @@ Unreleased
 * Added Opus 4.7 support to code agent #3124
 * Queued follow-up prompts during an active agent turn #3146
 * Prompted user to retry on transient API errors in code agent #3130
-* Scaffolded new Studio COde UI behind ENABLE_STUDIO_CODE_UI feature flag #2870
+* Scaffolded new Studio Code UI behind ENABLE_STUDIO_CODE_UI feature flag #2870
 * Supported inline wpcom auth via STUDIO_WPCOM_TOKEN in code agent #3158
 * Truncated cwd in welcome header on narrow terminals #3134
 * Replaced chalk with util.styleText wrapper #3106

@@ -86,6 +86,21 @@ function run( command, args, options = {} ) {
 	}
 }
 
+function runCapture( command, args, options = {} ) {
+	const result = spawnSync( command, args, {
+		cwd: repoRoot,
+		encoding: 'utf8',
+		shell: false,
+		...options,
+	} );
+
+	if ( result.error || result.status !== 0 ) {
+		return '';
+	}
+
+	return result.stdout.trim();
+}
+
 function commandExists( command ) {
 	return (
 		spawnSync( 'bash', [ '-lc', `command -v ${ command } >/dev/null 2>&1` ], {
@@ -162,19 +177,22 @@ function ensureWindowsVisualStudio() {
 	}
 
 	if ( ! visualStudio ) {
-		throw new Error( 'Visual Studio 2022 Build Tools were not installed.' );
+		throw new Error(
+			'Visual Studio was not found after installing Build Tools. Check the Visual Studio installer output above.'
+		);
 	}
 
-	if ( visualStudio.edition === 'BuildTools' ) {
-		patchStaticPhpCliBuildToolsDetection();
+	if ( ! hasWindowsCppCompiler( visualStudio ) ) {
+		throw new Error(
+			`Visual Studio was found at ${ visualStudio.rootDir }, but cl.exe was not installed.`
+		);
 	}
+
+	patchStaticPhpCliVisualStudioDetection( visualStudio );
 }
 
 function hasWindowsCppCompiler( visualStudio ) {
-	const rootDir = path.win32.dirname(
-		path.win32.dirname( path.win32.dirname( path.win32.dirname( visualStudio.msbuild ) ) )
-	);
-	const msvcDir = path.win32.join( rootDir, 'VC', 'Tools', 'MSVC' );
+	const msvcDir = path.win32.join( visualStudio.rootDir, 'VC', 'Tools', 'MSVC' );
 
 	if ( ! fs.existsSync( msvcDir ) ) {
 		return false;
@@ -188,50 +206,129 @@ function hasWindowsCppCompiler( visualStudio ) {
 }
 
 function findWindowsVisualStudio() {
+	const vswhereInstall = findWindowsVisualStudioWithVswhere();
+	if ( vswhereInstall ) {
+		return vswhereInstall;
+	}
+
 	const installs = [
 		{
 			edition: 'BuildTools',
+			version: 'vs17',
+			rootDir: 'C:\\Program Files\\Microsoft Visual Studio\\2022\\BuildTools',
 			msbuild:
 				'C:\\Program Files\\Microsoft Visual Studio\\2022\\BuildTools\\MSBuild\\Current\\Bin\\MSBuild.exe',
 		},
 		{
 			edition: 'Community',
+			version: 'vs17',
+			rootDir: 'C:\\Program Files\\Microsoft Visual Studio\\2022\\Community',
 			msbuild:
 				'C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe',
 		},
 		{
 			edition: 'Professional',
+			version: 'vs17',
+			rootDir: 'C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional',
 			msbuild:
 				'C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\MSBuild\\Current\\Bin\\MSBuild.exe',
 		},
 		{
 			edition: 'Enterprise',
+			version: 'vs17',
+			rootDir: 'C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise',
 			msbuild:
 				'C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise\\MSBuild\\Current\\Bin\\MSBuild.exe',
 		},
 		{
 			edition: 'BuildTools',
+			version: 'vs17',
+			rootDir: 'C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools',
+			msbuild:
+				'C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\MSBuild\\Current\\Bin\\MSBuild.exe',
+		},
+		{
+			edition: 'BuildTools',
+			version: 'vs16',
+			rootDir: 'C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools',
 			msbuild:
 				'C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\MSBuild\\Current\\Bin\\MSBuild.exe',
 		},
 		{
 			edition: 'Community',
+			version: 'vs16',
+			rootDir: 'C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community',
 			msbuild:
 				'C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe',
 		},
 		{
 			edition: 'Professional',
+			version: 'vs16',
+			rootDir: 'C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional',
 			msbuild:
 				'C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\MSBuild\\Current\\Bin\\MSBuild.exe',
 		},
 		{
 			edition: 'Enterprise',
+			version: 'vs16',
+			rootDir: 'C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Enterprise',
 			msbuild:
 				'C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Enterprise\\MSBuild\\Current\\Bin\\MSBuild.exe',
 		},
 	];
 
 	return installs.find( ( install ) => fs.existsSync( install.msbuild ) );
+}
+
+function findWindowsVisualStudioWithVswhere() {
+	const vswhere = [
+		'C:\\Program Files (x86)\\Microsoft Visual Studio\\Installer\\vswhere.exe',
+		'C:\\Program Files\\Microsoft Visual Studio\\Installer\\vswhere.exe',
+	].find( ( candidate ) => fs.existsSync( candidate ) );
+
+	if ( ! vswhere ) {
+		return;
+	}
+
+	const output = runCapture( vswhere, [
+		'-latest',
+		'-products',
+		'*',
+		'-requires',
+		'Microsoft.VisualStudio.Component.VC.Tools.x86.x64',
+		'-format',
+		'json',
+		'-utf8',
+	] );
+
+	if ( ! output ) {
+		return;
+	}
+
+	let installs;
+	try {
+		installs = JSON.parse( output.replace( /^\uFEFF/, '' ) );
+	} catch {
+		return;
+	}
+	const install = installs.find( ( item ) => item.installationPath );
+	if ( ! install ) {
+		return;
+	}
+
+	const rootDir = install.installationPath;
+	const msbuild = path.win32.join( rootDir, 'MSBuild', 'Current', 'Bin', 'MSBuild.exe' );
+	if ( ! fs.existsSync( msbuild ) ) {
+		return;
+	}
+
+	const majorVersion = Number.parseInt( install.installationVersion, 10 );
+	return {
+		edition: install.productId?.split( '.' ).at( -1 ) || 'Unknown',
+		version: majorVersion >= 17 || rootDir.includes( '\\2022\\' ) ? 'vs17' : 'vs16',
+		rootDir,
+		msbuild,
+	};
 }
 
 function installWindowsBuildTools() {
@@ -256,7 +353,7 @@ function installWindowsBuildTools() {
 	);
 }
 
-function patchStaticPhpCliBuildToolsDetection() {
+function patchStaticPhpCliVisualStudioDetection( visualStudio ) {
 	const systemUtilPath = path.join(
 		config.spcDir,
 		'src',
@@ -267,15 +364,16 @@ function patchStaticPhpCliBuildToolsDetection() {
 	);
 	const systemUtil = fs.readFileSync( systemUtilPath, 'utf8' );
 
-	if ( systemUtil.includes( '2022\\BuildTools\\MSBuild' ) ) {
+	if ( systemUtil.includes( visualStudio.msbuild ) ) {
 		return;
 	}
 
 	const needle = '        $check_path = [\n';
 	const replacement =
 		needle +
-		"            'C:\\Program Files\\Microsoft Visual Studio\\2022\\BuildTools\\MSBuild\\Current\\Bin\\MSBuild.exe' => 'vs17',\n" +
-		"            'C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\MSBuild\\Current\\Bin\\MSBuild.exe' => 'vs16',\n";
+		`            '${ escapePhpSingleQuotedString( visualStudio.msbuild ) }' => '${
+			visualStudio.version
+		}',\n`;
 
 	if ( ! systemUtil.includes( needle ) ) {
 		throw new Error(
@@ -284,6 +382,10 @@ function patchStaticPhpCliBuildToolsDetection() {
 	}
 
 	fs.writeFileSync( systemUtilPath, systemUtil.replace( needle, replacement ) );
+}
+
+function escapePhpSingleQuotedString( value ) {
+	return value.replaceAll( '\\', '\\\\' ).replaceAll( "'", "\\'" );
 }
 
 function installBrewFormulaIfMissing( formula ) {

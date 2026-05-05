@@ -4,13 +4,13 @@ import { defineTool } from './define-tool';
 import type { AgentTool } from '@mariozechner/pi-agent-core';
 import type { TSchema } from 'typebox';
 
-// Skills shaped like dedicated tools (`rank-me-up`, `need-for-speed`,
-// `taxonomist`) are excluded — exposing both routes the model toward
-// running audits unprompted on every build.
-const VISIBLE_SKILL_NAMES = new Set( [ 'site-spec' ] );
-
+// Expose every skill the user can trigger via `/<name>` plus `site-spec`,
+// which the model loads autonomously at the start of a site build. Other
+// skills stay hidden so the model doesn't reach for them unprompted.
 function getVisibleSkills(): Skill[] {
-	return loadSkills().filter( ( skill ) => VISIBLE_SKILL_NAMES.has( skill.name ) );
+	return loadSkills().filter(
+		( skill ) => skill.userInvokable || skill.name === 'site-spec'
+	);
 }
 
 // Returns `null` when no visible skills are discovered so the caller skips

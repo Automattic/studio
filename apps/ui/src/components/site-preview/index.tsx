@@ -55,10 +55,38 @@ interface WebviewTag extends HTMLElement {
 const HIDE_ADMIN_BAR_SCRIPT = `
 ( function () {
 	var TARGET_IDS = [ 'wpwrap', 'wpcontent', 'wpbody', 'wpbody-content' ];
+	var MAX_WALK = 12;
 	function killTopSpace( el ) {
 		if ( ! el || ! el.style || typeof el.style.setProperty !== 'function' ) return;
 		el.style.setProperty( 'margin-top', '0', 'important' );
 		el.style.setProperty( 'padding-top', '0', 'important' );
+		el.style.setProperty( 'border-top-width', '0', 'important' );
+	}
+	function nukeTopSpaceWalk() {
+		// Walk the leftmost-deepest path from body and zero any element that
+		// computes a non-zero contribution to top space. Catches whichever
+		// wp-admin / theme wrapper still reserves the admin bar after the
+		// known-id passes above.
+		var el = document.body && document.body.firstElementChild;
+		var count = 0;
+		while ( el && count < MAX_WALK ) {
+			var cs = getComputedStyle( el );
+			var contribs =
+				parseFloat( cs.marginTop || '0' ) +
+				parseFloat( cs.paddingTop || '0' ) +
+				parseFloat( cs.borderTopWidth || '0' );
+			if ( contribs > 0 ) {
+				console.log(
+					'[studio-preview] zeroing top space on ' + el.tagName +
+					( el.id ? '#' + el.id : '' ) +
+					( el.className ? '.' + String( el.className ).split( ' ' ).join( '.' ) : '' ) +
+					' (was ' + contribs + 'px)'
+				);
+				killTopSpace( el );
+			}
+			el = el.firstElementChild;
+			count++;
+		}
 	}
 	function fix() {
 		var bar = document.getElementById( 'wpadminbar' );
@@ -68,10 +96,16 @@ const HIDE_ADMIN_BAR_SCRIPT = `
 		for ( var i = 0; i < TARGET_IDS.length; i++ ) {
 			killTopSpace( document.getElementById( TARGET_IDS[ i ] ) );
 		}
+		nukeTopSpaceWalk();
 	}
 	fix();
 	if ( document.body && typeof MutationObserver === 'function' ) {
-		new MutationObserver( fix ).observe( document.body, { childList: true } );
+		new MutationObserver( fix ).observe( document.body, {
+			childList: true,
+			subtree: true,
+			attributes: true,
+			attributeFilter: [ 'style', 'class' ],
+		} );
 	}
 } )();
 `;

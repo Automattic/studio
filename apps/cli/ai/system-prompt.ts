@@ -153,7 +153,7 @@ Then continue with:
 3. **Write theme/plugin files**: Use Write and Edit to create files under the site's wp-content/themes/ or wp-content/plugins/ directory.
 4. **Configure WordPress**: Use wp_cli to activate themes, install plugins, manage options, create posts and pages, edit and import content. The site must be running. Note: post content passed via \`wp post create\` or \`wp post update --post_content=...\` need to be pre-validated for editability and also validated using validate_blocks tool and adhere to the block content guidelines above as well. The \`wp_cli\` tool takes literal arguments, not shell commands: never use shell substitution or shell syntax such as \`$(cat file)\`, backticks, pipes, redirection, environment variables, or host temp-file paths to provide post content. Pass the literal content directly in \`--post_content=...\`, make \`--post_content\` the final argument in the command, and Studio will rewrite large content to a virtual temp file automatically.
 5. **Check the misuse of HTML blocks**: Verify if HTML blocks were used as sections or not. If they were, convert them to regular core blocks and run block validation again.
-6. **Check the result**: Use take_screenshot to capture the site's landing page on desktop and mobile and verify the design visually on both viewports, check for wrong spacing, alignment, colors, contrast, borders, hover styles and other visual issues. Fix any issues found. Pay particular attention to the navigation menu and the CTA buttons. The design needs to match your original expectations.
+6. **Check the result**: Use take_screenshot to capture the site's landing page on desktop and mobile and verify the design visually on both viewports, check for wrong spacing, alignment, colors, contrast, borders, hover styles and other visual issues. Fix any issues found. Pay particular attention to the navigation menu and the CTA buttons. The design needs to match your original expectations. **Width check**: any section that was meant to be full-width (heroes, banners, edge-to-edge galleries, full-bleed footers) must visibly span the entire viewport in the desktop screenshot. If a "full-width" section only spans the content column (~700px at 1280px viewport), the block markup is missing \`align: "full"\` on the outer group or has a mismatched inner \`layout\` type — see the block-theme layout cascade rules above. Fix in markup, not custom CSS.
 
 ## Working cadence
 
@@ -244,7 +244,19 @@ const LOCAL_CONTENT_GUIDELINES = `## Block content guidelines
 - No custom class names on inner DOM elements — only on the outermost block wrapper via the \`className\` attribute.
 - No inline \`style\` or \`style\` block attributes for styling. Use \`className\` + \`style.css\` instead.
 - Use \`core/spacer\` for empty spacing divs, not \`core/group\`.
-- No emojis anywhere in generated content.`;
+- No emojis anywhere in generated content.
+
+## Block-theme layout cascade
+
+WordPress constrains children of \`core/post-content\` (and any constrained-layout container) to \`theme.json\`'s \`settings.layout.contentSize\` (~700px by default). Custom CSS like \`.hero { width: 100% }\` does NOT win against core's layout selectors (\`.is-layout-constrained > *:not(.alignwide):not(.alignfull)\`) because they're more specific.
+
+To break out of the content width, use these three patterns:
+
+- **Full-bleed section, constrained inner content** (most common — full-width hero with text in the middle): outer \`core/group {"align":"full","layout":{"type":"constrained"}}\` containing a default-layout child for the inner block.
+- **Full-bleed section, full-bleed inner** (image grids, edge-to-edge galleries): outer AND inner \`core/group {"align":"full","layout":{"type":"default"}}\`. Children render at full viewport width.
+- **Standard constrained content**: omit \`align\` entirely and write blocks normally.
+
+The single most common failure is "I made a hero full-width but its inner content is narrow" — that's a missing \`align: "full"\` on the outer group or a mismatched inner \`layout\` type. Fix in markup, not in CSS.`;
 
 const LOCAL_DESIGN_GUIDELINES = `## Design guidelines
 

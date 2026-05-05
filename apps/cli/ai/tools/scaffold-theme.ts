@@ -456,14 +456,22 @@ export const scaffoldThemeTool = defineTool(
 			const activation = shouldActivate ? await activateTheme( site.id, slug ) : null;
 
 			const summaryLines = [
-				`Block theme '${ trimmedName }' scaffolded at wp-content/themes/${ slug }/.`,
+				`Block theme '${ trimmedName }' scaffolded at ${ themeDir }/.`,
 				'',
-				'Created files:',
-				...files.map( ( [ relPath ] ) => `  ${ relPath }` ),
+				'Files (paths relative to the theme directory above):',
+				'  style.css                 — WP header + UX-fix CSS. Append :root tokens and section anchors below the existing rules.',
+				'  theme.json                — appearanceTools, useRootPaddingAwareAlignments, palette (base/contrast/accent), spacing scale 20–80, content/wide 720/1200, system-sans default.',
+				'  functions.php             — versioned style.css frontend enqueue + add_editor_style.',
+				'  templates/front-page.html — Plain <main> + <wp:post-content/>. Replace post-content with section anchors for the homepage layout.',
+				'  templates/page.html       — Constrained title group + constrained post-content. Interior pages.',
+				'  templates/single.html     — Constrained title/date/featured-image + constrained post-content + constrained comments form.',
+				'  templates/index.html      — Constrained query loop (blog index fallback).',
+				'  templates/archive.html    — Constrained archive title + term description + query loop.',
+				'  templates/404.html        — Constrained heading + message + search.',
+				'  parts/header.html         — Constrained group: site-title + empty wp:navigation. Add menu items here.',
+				'  parts/footer.html         — Constrained group: centered © + site-title.',
 				'',
-				'Empty directories:',
-				'  assets/fonts/',
-				'  patterns/',
+				'Empty: assets/fonts/, patterns/',
 				'',
 			];
 

@@ -131,6 +131,7 @@ function installMacHostRuntime() {
 }
 
 function installWindowsHostRuntime() {
+	ensureWindowsVisualStudio();
 	console.log( '--- :windows: Installing static-php-cli runtime' );
 	run(
 		'powershell.exe',
@@ -150,6 +151,139 @@ function installWindowsHostRuntime() {
 	}
 
 	process.env.PATH = `${ runtimeDir }${ path.delimiter }${ process.env.PATH }`;
+}
+
+function ensureWindowsVisualStudio() {
+	let visualStudio = findWindowsVisualStudio();
+
+	if ( ! visualStudio || ! hasWindowsCppCompiler( visualStudio ) ) {
+		installWindowsBuildTools();
+		visualStudio = findWindowsVisualStudio();
+	}
+
+	if ( ! visualStudio ) {
+		throw new Error( 'Visual Studio 2022 Build Tools were not installed.' );
+	}
+
+	if ( visualStudio.edition === 'BuildTools' ) {
+		patchStaticPhpCliBuildToolsDetection();
+	}
+}
+
+function hasWindowsCppCompiler( visualStudio ) {
+	const rootDir = path.win32.dirname(
+		path.win32.dirname( path.win32.dirname( path.win32.dirname( visualStudio.msbuild ) ) )
+	);
+	const msvcDir = path.win32.join( rootDir, 'VC', 'Tools', 'MSVC' );
+
+	if ( ! fs.existsSync( msvcDir ) ) {
+		return false;
+	}
+
+	return fs
+		.readdirSync( msvcDir, { withFileTypes: true } )
+		.some( ( entry ) =>
+			fs.existsSync( path.win32.join( msvcDir, entry.name, 'bin', 'Hostx64', 'x64', 'cl.exe' ) )
+		);
+}
+
+function findWindowsVisualStudio() {
+	const installs = [
+		{
+			edition: 'BuildTools',
+			msbuild:
+				'C:\\Program Files\\Microsoft Visual Studio\\2022\\BuildTools\\MSBuild\\Current\\Bin\\MSBuild.exe',
+		},
+		{
+			edition: 'Community',
+			msbuild:
+				'C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe',
+		},
+		{
+			edition: 'Professional',
+			msbuild:
+				'C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\MSBuild\\Current\\Bin\\MSBuild.exe',
+		},
+		{
+			edition: 'Enterprise',
+			msbuild:
+				'C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise\\MSBuild\\Current\\Bin\\MSBuild.exe',
+		},
+		{
+			edition: 'BuildTools',
+			msbuild:
+				'C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\MSBuild\\Current\\Bin\\MSBuild.exe',
+		},
+		{
+			edition: 'Community',
+			msbuild:
+				'C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe',
+		},
+		{
+			edition: 'Professional',
+			msbuild:
+				'C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\MSBuild\\Current\\Bin\\MSBuild.exe',
+		},
+		{
+			edition: 'Enterprise',
+			msbuild:
+				'C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Enterprise\\MSBuild\\Current\\Bin\\MSBuild.exe',
+		},
+	];
+
+	return installs.find( ( install ) => fs.existsSync( install.msbuild ) );
+}
+
+function installWindowsBuildTools() {
+	console.log( '--- :windows: Installing Visual Studio 2022 Build Tools' );
+	const installerPath = path.join( os.tmpdir(), 'vs_BuildTools.exe' );
+	run(
+		'powershell.exe',
+		[
+			'-NoProfile',
+			'-ExecutionPolicy',
+			'Bypass',
+			'-Command',
+			[
+				`$installer = ${ quotePowerShell( installerPath ) }`,
+				"Invoke-WebRequest -Uri 'https://aka.ms/vs/17/release/vs_BuildTools.exe' -OutFile $installer",
+				"$arguments = @('--quiet', '--wait', '--norestart', '--nocache', '--installPath', 'C:\\Program Files\\Microsoft Visual Studio\\2022\\BuildTools', '--add', 'Microsoft.VisualStudio.Workload.VCTools', '--includeRecommended')",
+				'$process = Start-Process -FilePath $installer -ArgumentList $arguments -Wait -PassThru',
+				'if ( @( 0, 3010 ) -notcontains $process.ExitCode ) { exit $process.ExitCode }',
+			].join( '; ' ),
+		],
+		{ shell: false }
+	);
+}
+
+function patchStaticPhpCliBuildToolsDetection() {
+	const systemUtilPath = path.join(
+		config.spcDir,
+		'src',
+		'SPC',
+		'builder',
+		'windows',
+		'SystemUtil.php'
+	);
+	const systemUtil = fs.readFileSync( systemUtilPath, 'utf8' );
+
+	if ( systemUtil.includes( '2022\\BuildTools\\MSBuild' ) ) {
+		return;
+	}
+
+	const needle = '        $check_path = [\n';
+	const replacement =
+		needle +
+		"            'C:\\Program Files\\Microsoft Visual Studio\\2022\\BuildTools\\MSBuild\\Current\\Bin\\MSBuild.exe' => 'vs17',\n" +
+		"            'C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\MSBuild\\Current\\Bin\\MSBuild.exe' => 'vs16',\n";
+
+	if ( ! systemUtil.includes( needle ) ) {
+		throw new Error(
+			`Could not patch Visual Studio Build Tools detection in ${ systemUtilPath }.`
+		);
+	}
+
+	fs.writeFileSync( systemUtilPath, systemUtil.replace( needle, replacement ) );
 }
 
 function installBrewFormulaIfMissing( formula ) {

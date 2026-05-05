@@ -1,11 +1,11 @@
-import { tool } from '@anthropic-ai/claude-agent-sdk';
-import { z } from 'zod/v4';
+import { Type } from 'typebox';
 import { auditPerformance } from 'cli/ai/performance-audit';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { emitProgress } from 'cli/logger';
-import { errorResult, resolveSite, textResult } from './utils';
+import { defineTool } from './define-tool';
+import { resolveSite, textResult } from './utils';
 
-export const auditPerformanceTool = tool(
+export const auditPerformanceTool = defineTool(
 	'need_for_speed',
 	'Measures frontend performance metrics for a WordPress site page. Returns Core Web Vitals ' +
 		'(TTFB, FCP, LCP, CLS), page weight, DOM size, request count, and a breakdown of JS, CSS, ' +
@@ -14,13 +14,14 @@ export const auditPerformanceTool = tool(
 		'speed / Core Web Vitals / Lighthouse, or invokes /need-for-speed. Do NOT call this as part of a ' +
 		'normal "build a site" or "design a page" workflow.',
 	{
-		nameOrPath: z
-			.string()
-			.describe( 'The site name or file system path — the site must be running' ),
-		path: z
-			.string()
-			.optional()
-			.describe( 'URL path to audit (e.g., "/", "/about", "/wp-admin/"). Defaults to "/".' ),
+		nameOrPath: Type.String( {
+			description: 'The site name or file system path — the site must be running',
+		} ),
+		path: Type.Optional(
+			Type.String( {
+				description: 'URL path to audit (e.g., "/", "/about", "/wp-admin/"). Defaults to "/".',
+			} )
+		),
 	},
 	async ( args ) => {
 		try {
@@ -34,14 +35,14 @@ export const auditPerformanceTool = tool(
 
 			if ( result.error ) {
 				emitProgress( `Audit failed: ${ result.error.slice( 0, 80 ) }` );
-				return errorResult( `Performance audit failed: ${ result.error }` );
+				throw new Error( `Performance audit failed: ${ result.error }` );
 			}
 
 			emitProgress( `Audit complete for ${ urlPath }` );
 
 			return textResult( JSON.stringify( result, null, 2 ) );
 		} catch ( error ) {
-			return errorResult(
+			throw new Error(
 				`Performance audit failed: ${ error instanceof Error ? error.message : String( error ) }`
 			);
 		}

@@ -37,9 +37,8 @@ import { openBrowser } from 'cli/lib/browser';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { getSitesRunningStatus, isSiteRunning } from 'cli/lib/site-utils';
-import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
-import type { TodoWriteInput } from '@anthropic-ai/claude-agent-sdk/sdk-tools';
 import type { AiOutputAdapter, HandleMessageResult } from 'cli/ai/output-adapter';
+import type { SDKMessage, TodoWriteInput } from 'cli/ai/runtimes/messages';
 
 const SITE_PICKER_TAB_LOCAL = 'local' as const;
 const SITE_PICKER_TAB_REMOTE = 'remote' as const;

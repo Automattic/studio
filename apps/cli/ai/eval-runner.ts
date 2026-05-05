@@ -16,8 +16,8 @@ import {
 	resolveInitialAiProvider,
 	resolveUnavailableAiProvider,
 } from 'cli/ai/auth';
-import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { AiProviderId } from 'cli/ai/providers';
+import type { SDKMessage } from 'cli/ai/runtimes/messages';
 
 interface EvalRunnerInput {
 	prompt: string;
@@ -36,12 +36,10 @@ function extractToolCalls( message: SDKMessage ) {
 	const content = message.message.content ?? [];
 	return content
 		.filter(
-			( block: {
-				type: string;
-			} ): block is { type: 'tool_use'; id: string; name: string; input: unknown } =>
+			( block ): block is Extract< ( typeof content )[ number ], { type: 'tool_use' } > =>
 				block.type === 'tool_use'
 		)
-		.map( ( block: { id: string; name: string; input: unknown } ) => ( {
+		.map( ( block ) => ( {
 			id: block.id,
 			name: normalizeToolName( block.name ),
 			input: block.input,

@@ -86,6 +86,10 @@ export const validateBlocksTool = defineTool(
 
 			if ( report.invalidBlocks > 0 ) {
 				lines.push( '', 'Invalid blocks:', ...formatInvalidBlocks( report ) );
+				lines.push(
+					'',
+					'Before fixing: each Expected/Actual diff is a structural change, not a literal text swap. Classes the validator adds or removes (has-X-color, alignwide, is-style-Y, wp-block-*-is-layout-flex) pull in or strip core CSS that drives layout, spacing, and color. Diff the markup explicitly, update any style.css selectors that target the old class or nesting in the same edit batch, preserve your intentional className hooks, then take a screenshot of desktop and mobile to verify the design did not drift.'
+				);
 			}
 
 			return textResult( lines.join( '\n' ) );

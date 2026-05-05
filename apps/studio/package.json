@@ -5,6 +5,7 @@
 	"productName": "Studio",
 	"version": "1.8.2",
 	"description": "Local WordPress development environment using Playgrounds",
+	"homepage": "https://developer.wordpress.com/studio/",
 	"license": "GPL-2.0-or-later",
 	"main": "dist/main/index.js",
 	"config": {

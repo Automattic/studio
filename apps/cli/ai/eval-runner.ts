@@ -9,18 +9,20 @@
 import { writeFileSync, writeSync as fsWriteSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { isAiModelId, type AiModelId } from '@studio/common/ai/models';
 import { startAiAgent } from 'cli/ai/agent';
 import {
 	resolveAiEnvironment,
 	resolveInitialAiProvider,
 	resolveUnavailableAiProvider,
 } from 'cli/ai/auth';
-import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { AiProviderId } from 'cli/ai/providers';
+import type { SDKMessage } from 'cli/ai/runtimes/messages';
 
 interface EvalRunnerInput {
 	prompt: string;
 	timeoutMs?: number;
+	model?: AiModelId;
 }
 
 function normalizeToolName( name: string ): string {
@@ -34,12 +36,10 @@ function extractToolCalls( message: SDKMessage ) {
 	const content = message.message.content ?? [];
 	return content
 		.filter(
-			( block: {
-				type: string;
-			} ): block is { type: 'tool_use'; id: string; name: string; input: unknown } =>
+			( block ): block is Extract< ( typeof content )[ number ], { type: 'tool_use' } > =>
 				block.type === 'tool_use'
 		)
-		.map( ( block: { id: string; name: string; input: unknown } ) => ( {
+		.map( ( block ) => ( {
 			id: block.id,
 			name: normalizeToolName( block.name ),
 			input: block.input,
@@ -131,9 +131,15 @@ function readInput(): EvalRunnerInput {
 		}
 	}
 
+	const envModel = process.env.STUDIO_EVAL_MODEL?.trim();
+	const varModel = typeof vars.model === 'string' ? vars.model.trim() : undefined;
+	const rawModel = varModel || envModel;
+	const model = rawModel && isAiModelId( rawModel ) ? rawModel : undefined;
+
 	return {
 		prompt: ( vars.prompt as string ) ?? prompt,
 		timeoutMs: typeof vars.timeoutMs === 'number' ? vars.timeoutMs : undefined,
+		model,
 	};
 }
 
@@ -178,18 +184,24 @@ async function runEval( input: EvalRunnerInput ) {
 	let turnIndex = 0;
 	let numTurns: number | null = null;
 	let success = false;
+	let error: string | null = null;
+	let timedOut = false;
 
 	phaseStartedAt = Date.now();
 	const query = startAiAgent( {
 		prompt: input.prompt.trim(),
 		env,
+		...( input.model ? { model: input.model } : {} ),
 	} );
 	phaseTimingsMs.start_ai_agent_ms = Date.now() - phaseStartedAt;
 
 	const queryStartedAt = Date.now();
 	let turnStart = queryStartedAt;
 
-	const timeout = setTimeout( () => void query.interrupt(), input.timeoutMs ?? 300000 );
+	const timeout = setTimeout( () => {
+		timedOut = true;
+		void query.interrupt();
+	}, input.timeoutMs ?? 300000 );
 
 	try {
 		for await ( const message of query ) {
@@ -250,6 +262,8 @@ async function runEval( input: EvalRunnerInput ) {
 				numTurns = message.num_turns ?? null;
 			}
 		}
+	} catch ( caught ) {
+		error = caught instanceof Error ? caught.message : String( caught );
 	} finally {
 		clearTimeout( timeout );
 	}
@@ -257,6 +271,8 @@ async function runEval( input: EvalRunnerInput ) {
 
 	return {
 		success,
+		error,
+		timedOut,
 		numTurns,
 		phaseTimingsMs,
 		turnDurationsMs,

@@ -82,10 +82,20 @@ const config: ForgeConfig = {
 		new MakerZIP( {}, [ 'darwin' ] ),
 		new MakerDeb( {
 			options: {
-				genericName: 'WordPress Studio',
+				// Display name for app launchers and stores. Overrides
+				// package.json.productName ("Studio") so Linux users see the
+				// fully-qualified "WordPress Studio" in their menus.
+				productName: 'WordPress Studio',
 				categories: [ 'Utility' ],
 				name: 'studio',
 				bin: 'studio',
+				// Synopsis and extended description shown by package managers and
+				// software stores. Without these, electron-installer-debian falls
+				// back to package.json.description for both, producing a duplicated
+				// Description block. Copy mirrors the Microsoft Store listing.
+				description: 'Meet Studio - a fast, free way to develop locally with WordPress.',
+				productDescription:
+					"Simplify WordPress site creation and management with Studio - WordPress.com's powerful, lightweight local development tool. Studio streamlines your workflow with instant WordPress setup, one-click WP Admin access, and a code-agnostic environment. No Docker, MySQL, or NGINX required. Get real-time feedback from clients or collaborators with easy-to-share demo sites. And with help from Studio Assistant, you can speed up plugin management, run WP-CLI commands, and automate tasks right from the intuitive chat interface.",
 				mimeType: [ 'x-scheme-handler/wp-studio' ],
 				icon: path.join( __dirname, 'assets', 'studio-app-icon.png' ),
 				desktopTemplate: path.join( __dirname, 'installers', 'desktop.ejs' ),
@@ -197,29 +207,6 @@ const config: ForgeConfig = {
 			// on Windows when signtool encounters non-PE binaries (e.g., darwin .node files).
 			console.log( `Removing native binaries for other platforms from CLI bundle...` );
 			const cliNodeModules = path.join( repoRoot, 'apps', 'cli', 'dist', 'cli', 'node_modules' );
-
-			// Clean up @anthropic-ai/claude-agent-sdk vendor binaries (uses {arch}-{platform} format)
-			const claudeVendorDir = path.join(
-				cliNodeModules,
-				'@anthropic-ai',
-				'claude-agent-sdk',
-				'vendor'
-			);
-			const platformSuffix = `-${ platform }`;
-			if ( fs.existsSync( claudeVendorDir ) ) {
-				for ( const toolDir of fs.readdirSync( claudeVendorDir ) ) {
-					const toolPath = path.join( claudeVendorDir, toolDir );
-					if ( fs.statSync( toolPath ).isDirectory() ) {
-						for ( const archPlatformDir of fs.readdirSync( toolPath ) ) {
-							if ( ! archPlatformDir.endsWith( platformSuffix ) ) {
-								const dirToRemove = path.join( toolPath, archPlatformDir );
-								fs.rmSync( dirToRemove, { recursive: true, force: true } );
-								console.log( `Removed claude-agent-sdk/vendor/${ toolDir }/${ archPlatformDir }` );
-							}
-						}
-					}
-				}
-			}
 
 			// Clean up koffi binaries (uses {platform}_{arch} format)
 			const koffiBuildDir = path.join( cliNodeModules, 'koffi', 'build', 'koffi' );

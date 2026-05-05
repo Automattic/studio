@@ -244,19 +244,7 @@ const LOCAL_CONTENT_GUIDELINES = `## Block content guidelines
 - No custom class names on inner DOM elements — only on the outermost block wrapper via the \`className\` attribute.
 - No inline \`style\` or \`style\` block attributes for styling. Use \`className\` + \`style.css\` instead.
 - Use \`core/spacer\` for empty spacing divs, not \`core/group\`.
-- No emojis anywhere in generated content.
-
-## Applying validate_blocks fixes without breaking the design
-
-When \`validate_blocks\` reports invalid blocks, treat each \`Expected\` snippet as a *structural* repair, not a literal text replacement. WordPress core blocks ship default styles tied to their markup; classes the validator adds or removes (\`has-X-color\`, \`alignwide\`, \`is-style-Y\`, \`wp-block-*-is-layout-flex\`, etc.) pull in or strip core CSS that drives layout, spacing, and color.
-
-Before the Edit:
-
-- Diff the markup, not just the text. For each invalid block, identify what's structurally changing — wrapping \`<div>\` added/removed, \`className\` added/removed/renamed, attribute order, child nesting.
-- Predict the CSS impact. Every class the validator adds or removes carries implicit core styling. If your custom \`style.css\` targets the *old* class name or the *old* nesting depth, update those selectors in the same edit batch — otherwise the design partially detaches from its rules.
-- Preserve intentional \`className\` additions. Design hooks like \`className: "hero-section"\` must survive the fix; if the validator's \`Expected\` dropped them, the surrounding markup was malformed — fix the markup, keep your class.
-
-After the Edit, take a screenshot of desktop and mobile and compare against your design intent. Validation passing does not mean the design survived — class and structural changes shift spacing, color tokens, and layout silently. Fix any drift in \`style.css\` before considering the page done.`;
+- No emojis anywhere in generated content.`;
 
 const LOCAL_DESIGN_GUIDELINES = `## Design guidelines
 

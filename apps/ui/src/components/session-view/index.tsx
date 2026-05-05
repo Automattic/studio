@@ -248,15 +248,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			}
 			preview={
 				showPreview && ownerSite ? (
-					<SitePreview
-						site={ ownerSite }
-						path={ preview.path }
-						reloadNonce={ preview.reloadNonce }
-						mode={ preview.mode }
-						setMode={ preview.setMode }
-						hasPanel={ !! preview.panelPath }
-						onAnnotationsDone={ handleAnnotationsDone }
-					/>
+					<SitePreview site={ ownerSite } onAnnotationsDone={ handleAnnotationsDone } />
 				) : null
 			}
 		>

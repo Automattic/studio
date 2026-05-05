@@ -7,7 +7,7 @@ import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { useConnector } from '@/data/core';
 import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
 import { useResizablePanel } from '@/hooks/use-resizable-panel';
-import { isPanelPath, type PreviewMode } from '@/hooks/use-session-ui';
+import { isPanelPath, useSessionPreviewUI } from '@/hooks/use-session-ui';
 import { getSiteUrl } from '@/lib/get-site-url';
 import { playIcon } from '@/lib/icons';
 import { PREVIEW_PANEL_CONFIG, PREVIEW_PANEL_STORAGE_KEY } from '@/lib/resizable-panels';
@@ -21,19 +21,6 @@ export type { Annotation } from './types';
 
 interface SitePreviewProps {
 	site: SiteDetails;
-	// Path to display within the previewed site, controlled by the parent so
-	// it can be updated by `preview.command` events even when the panel was
-	// previously collapsed.
-	path: string;
-	// Bumped by the parent to force a webview reload (e.g. on a `reload`
-	// preview command).
-	reloadNonce: number;
-	// Site/Panel mode + the toggle handler. The "Panel" button is shown but
-	// disabled until the agent has navigated to a panel URL at least once
-	// (i.e. `hasPanel` is true).
-	mode: PreviewMode;
-	setMode: ( value: PreviewMode ) => void;
-	hasPanel: boolean;
 	// Called when the user clicks "Submit" in the inspector toolbar. Receives
 	// the full annotation payload assembled inside the webview's guest page.
 	onAnnotationsDone?: ( annotations: Annotation[] ) => void;
@@ -64,22 +51,16 @@ const isElectron = (): boolean => {
 	return /\bElectron\//.test( navigator.userAgent );
 };
 
-export function SitePreview( {
-	site,
-	path,
-	reloadNonce,
-	mode,
-	setMode,
-	hasPanel,
-	onAnnotationsDone,
-}: SitePreviewProps ) {
+export function SitePreview( { site, onAnnotationsDone }: SitePreviewProps ) {
 	const connector = useConnector();
 	const startSite = useStartSite();
 	const isStarting = useIsSiteStarting( site.id );
 	const siteUrl = getSiteUrl( site );
 	const canPreview = site.running;
+	const { path, reloadNonce, mode, panelPath, setMode } = useSessionPreviewUI();
 	const fullUrl = `${ siteUrl }${ path }`;
 	const showingPanel = isPanelPath( path );
+	const hasPanel = !! panelPath;
 
 	const previewResize = useResizablePanel( {
 		config: PREVIEW_PANEL_CONFIG,

@@ -19,11 +19,6 @@ const config: ForgeConfig = {
 		extraResource: [
 			path.join( __dirname, 'assets' ),
 			path.join( __dirname, 'bin' ),
-			// AppStream metainfo for Linux software stores. The DEB postinst
-			// hook copies it from the app's resources dir to /usr/share/metainfo/.
-			// Bundling it via extraResource keeps it inside the .deb without
-			// requiring custom maker plumbing. Cost on Mac/Win packages is ~1.5KB.
-			path.join( __dirname, 'installers', 'com.automattic.Studio.metainfo.xml' ),
 			path.join( repoRoot, 'apps', 'cli', 'dist', 'cli' ),
 		],
 		executableName: process.platform === 'linux' ? 'studio' : undefined,

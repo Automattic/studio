@@ -1,17 +1,7 @@
 #!/bin/sh
-# Cleanup hook for files that postinst placed outside the package's tracked
-# paths (system trust store, AppStream metainfo). dpkg removes everything
-# under /usr/lib/studio/ on its own.
+# On `purge`, remove the Studio root CA from the system trust store.
 
 set -e
-
-# Remove the AppStream metainfo postinst placed at /usr/share/metainfo/.
-# Skipped on `upgrade` — the new package's postinst overwrites it.
-case "$1" in
-	remove|purge)
-		rm -f /usr/share/metainfo/com.automattic.Studio.metainfo.xml
-		;;
-esac
 
 case "$1" in
 	purge)

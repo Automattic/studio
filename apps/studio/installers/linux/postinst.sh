@@ -41,27 +41,4 @@ if ! setcap 'cap_net_bind_service=+ep' "$NODE_BIN" 2>/dev/null; then
 	echo "                  Try manually: sudo setcap 'cap_net_bind_service=+ep' $NODE_BIN" >&2
 fi
 
-# Install AppStream metainfo so software stores (GNOME Software, KDE Discover,
-# Pop!_Shop, COSMIC Store) display proper name, summary, description, license,
-# and developer instead of falling back to the bare Debian control fields.
-# The file is bundled via extraResource and lives next to the node binary.
-METAINFO_SRC=""
-for candidate in \
-	/usr/lib/studio/resources/com.automattic.Studio.metainfo.xml \
-	/opt/Studio/resources/com.automattic.Studio.metainfo.xml \
-	/opt/studio/resources/com.automattic.Studio.metainfo.xml
-do
-	if [ -f "$candidate" ]; then
-		METAINFO_SRC="$candidate"
-		break
-	fi
-done
-
-if [ -n "$METAINFO_SRC" ]; then
-	install -D -m 0644 "$METAINFO_SRC" /usr/share/metainfo/com.automattic.Studio.metainfo.xml
-	if command -v appstreamcli >/dev/null 2>&1; then
-		appstreamcli refresh-cache --force >/dev/null 2>&1 || true
-	fi
-fi
-
 exit 0

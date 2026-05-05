@@ -302,15 +302,15 @@ function buildModel(
 		...( creds.extraHeaders ? { headers: creds.extraHeaders } : {} ),
 	};
 
-	// `reasoning: true` is the capability flag pi-ai checks before sending
-	// the reasoning_effort / thinking_budget; the runtime knob lives on
-	// `Agent.state.thinkingLevel`.
+	// OpenAI Chat Completions reasoning_effort='high' starves visible output
+	// on GPT-5.5 (model returns "Done" after a long internal-reasoning turn).
+	// Leave reasoning off for OpenAI and let server-side defaults handle it.
 	if ( family === 'openai' ) {
 		return {
 			...common,
 			api: 'openai-completions',
 			provider: 'openai',
-			reasoning: true,
+			reasoning: false,
 			contextWindow: 200_000,
 			maxTokens: 16_384,
 		};

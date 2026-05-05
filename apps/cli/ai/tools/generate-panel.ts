@@ -12,17 +12,8 @@ const GUTENBERG_BASENAME = 'gutenberg/gutenberg.php';
 const SCRATCH_DEEP_LINK = '/scratch';
 const PANEL_PAGE_SLUG = 'studio-panels-wp-admin';
 
-/**
- * Validates the agent-supplied source against a small set of structural
- * requirements that are easy to check without running TypeScript:
- *
- *   - must export a `stage` value (wp-build's route-content convention)
- *   - imports must come from `@wordpress/*` packages (which are externalized
- *     to `wp.*` globals at runtime — anything else won't resolve)
- *
- * Errors here come back to the agent in plain text so the model can correct
- * them on the next turn without waiting for a build round-trip.
- */
+// Cheap structural checks so the agent gets a fixable error before paying
+// for a wp-build round-trip on broken source.
 export function validateScratchSource(
 	source: string
 ): { ok: true } | { ok: false; errors: string[] } {

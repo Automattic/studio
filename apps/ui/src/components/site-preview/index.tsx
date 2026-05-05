@@ -1,8 +1,8 @@
 import { __ } from '@wordpress/i18n';
-import { code, external } from '@wordpress/icons';
+import { external } from '@wordpress/icons';
 import { Button, IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { useConnector } from '@/data/core';
 import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
@@ -21,8 +21,6 @@ export type { Annotation } from './types';
 
 interface SitePreviewProps {
 	site: SiteDetails;
-	// Called when the user clicks "Submit" in the inspector toolbar. Receives
-	// the full annotation payload assembled inside the webview's guest page.
 	onAnnotationsDone?: ( annotations: Annotation[] ) => void;
 }
 
@@ -31,134 +29,47 @@ interface InspectorEvent {
 	annotations?: Annotation[];
 }
 
-// Electron's `<webview>` is a custom element with non-standard methods. Type
-// just the surface we use so this file compiles without an `electron` dep.
+// Subset of Electron's `<webview>` API we use; typed locally so this file
+// compiles without an `electron` dep.
 interface WebviewTag extends HTMLElement {
 	loadURL( url: string ): Promise< void >;
 	executeJavaScript( code: string, userGesture?: boolean ): Promise< unknown >;
 	insertCSS( css: string ): Promise< string >;
-	openDevTools(): void;
 }
 
-// Layered with the JS-based hider below: the JS sets inline styles that
-// beat external CSS unconditionally, but only on elements that exist when
-// it runs. This stylesheet covers elements that get added later (e.g.
-// @wordpress/boot mounts `.boot-layout--single-page .boot-layout__stage`
-// asynchronously after dom-ready). Selectors are intentionally
-// over-specified so the rule outranks any author rule with the same
-// `!important` weight via specificity.
+// Studio's preview pane has its own chrome; the WP admin bar at the top of
+// every wp-admin / logged-in front-end page is visual noise here. The CSS
+// covers elements that exist or arrive later (e.g. @wordpress/boot mounts
+// `.boot-layout__stage` async), the JS sets inline styles that win the
+// cascade for elements present at dom-ready.
 const HIDE_ADMIN_BAR_CSS = `
-	html.wp-toolbar #wpadminbar,
-	body.admin-bar #wpadminbar,
 	#wpadminbar { display: none !important; }
-	html.wp-toolbar,
-	body.admin-bar,
-	html.wp-toolbar body.admin-bar { margin-top: 0 !important; padding-top: 0 !important; }
+	html.wp-toolbar, body.admin-bar { margin-top: 0 !important; padding-top: 0 !important; }
 	html .boot-layout--single-page .boot-layout__stage,
 	html .boot-layout--single-page .boot-layout__inspector {
-		margin-top: 0 !important;
-		padding-top: 0 !important;
-		border-top-width: 0 !important;
-		/* @wordpress/boot uses absolute positioning with top:46px (admin
-		   bar mobile height) on these slots — zero the offset and let
-		   the slot fill its container. */
 		top: 0 !important;
 		height: 100% !important;
 	}
-	@media screen and (max-width: 782px) {
-		html.wp-toolbar,
-		body.admin-bar,
-		html.wp-toolbar body.admin-bar { margin-top: 0 !important; padding-top: 0 !important; }
-		html .boot-layout--single-page .boot-layout__stage,
-		html .boot-layout--single-page .boot-layout__inspector {
-			margin-top: 0 !important;
-			padding-top: 0 !important;
-			top: 0 !important;
-			height: 100% !important;
-		}
-	}
 `;
 
-// Studio's preview pane has its own chrome (header, mode toggle); the WP
-// admin bar (`#wpadminbar`) on top of every wp-admin / logged-in front-end
-// page is visual noise here. Run the snippet below on every dom-ready so
-// it covers both slots and survives in-webview navigation.
-//
-// We use inline `style.setProperty(..., 'important')` rather than an
-// external stylesheet because WP / themes / wp-admin reserve admin-bar
-// space across multiple selectors (html, body, #wpwrap, #wpcontent, …)
-// and across multiple media queries (32px desktop / 46px mobile / 600px
-// breakpoints), often with `!important` themselves. Inline styles win
-// the cascade unconditionally, and a small MutationObserver re-applies
-// the fix if WP injects late content (e.g. heartbeat re-rendering the
-// admin bar after first paint).
 const HIDE_ADMIN_BAR_SCRIPT = `
 ( function () {
 	var TARGET_IDS = [ 'wpwrap', 'wpcontent', 'wpbody', 'wpbody-content' ];
-	// @wordpress/boot's layout primitives (rendered around our scratch /
-	// list routes) reserve their own top space via a class-based rule.
 	var TARGET_SELECTORS = [
 		'.boot-layout--single-page .boot-layout__stage',
 		'.boot-layout--single-page .boot-layout__inspector',
 	];
-	var MAX_WALK = 12;
 	function killTopSpace( el ) {
 		if ( ! el || ! el.style || typeof el.style.setProperty !== 'function' ) return;
 		el.style.setProperty( 'margin-top', '0', 'important' );
 		el.style.setProperty( 'padding-top', '0', 'important' );
-		el.style.setProperty( 'border-top-width', '0', 'important' );
 	}
 	function killTopOffset( el ) {
-		// For positioned elements (position: absolute/fixed/relative) where
-		// the gap comes from a non-zero \`top\` rather than box-model spacing.
-		// e.g. @wordpress/boot's .boot-layout__stage uses top:46px to leave
-		// room for the (now hidden) admin bar.
 		if ( ! el || ! el.style || typeof el.style.setProperty !== 'function' ) return;
 		var cs = getComputedStyle( el );
 		if ( cs.position === 'static' ) return;
-		var topPx = parseFloat( cs.top || '0' );
-		if ( ! Number.isFinite( topPx ) || topPx <= 0 ) return;
 		el.style.setProperty( 'top', '0', 'important' );
 		el.style.setProperty( 'height', '100%', 'important' );
-		console.log(
-			'[studio-preview] zeroing positioning top on ' + el.tagName +
-			( el.id ? '#' + el.id : '' ) +
-			( el.className ? '.' + String( el.className ).split( ' ' ).join( '.' ) : '' ) +
-			' (was top:' + topPx + 'px)'
-		);
-	}
-	function killAll( nodeList ) {
-		if ( ! nodeList ) return;
-		for ( var j = 0; j < nodeList.length; j++ ) {
-			killTopSpace( nodeList[ j ] );
-			killTopOffset( nodeList[ j ] );
-		}
-	}
-	function nukeTopSpaceWalk() {
-		// Walk the leftmost-deepest path from body and zero any element that
-		// computes a non-zero contribution to top space. Catches whichever
-		// wp-admin / theme wrapper still reserves the admin bar after the
-		// known-id passes above.
-		var el = document.body && document.body.firstElementChild;
-		var count = 0;
-		while ( el && count < MAX_WALK ) {
-			var cs = getComputedStyle( el );
-			var contribs =
-				parseFloat( cs.marginTop || '0' ) +
-				parseFloat( cs.paddingTop || '0' ) +
-				parseFloat( cs.borderTopWidth || '0' );
-			if ( contribs > 0 ) {
-				console.log(
-					'[studio-preview] zeroing top space on ' + el.tagName +
-					( el.id ? '#' + el.id : '' ) +
-					( el.className ? '.' + String( el.className ).split( ' ' ).join( '.' ) : '' ) +
-					' (was ' + contribs + 'px)'
-				);
-				killTopSpace( el );
-			}
-			el = el.firstElementChild;
-			count++;
-		}
 	}
 	function fix() {
 		var bar = document.getElementById( 'wpadminbar' );
@@ -169,26 +80,18 @@ const HIDE_ADMIN_BAR_SCRIPT = `
 			killTopSpace( document.getElementById( TARGET_IDS[ i ] ) );
 		}
 		for ( var k = 0; k < TARGET_SELECTORS.length; k++ ) {
-			killAll( document.querySelectorAll( TARGET_SELECTORS[ k ] ) );
+			var nodes = document.querySelectorAll( TARGET_SELECTORS[ k ] );
+			for ( var j = 0; j < nodes.length; j++ ) {
+				killTopSpace( nodes[ j ] );
+				killTopOffset( nodes[ j ] );
+			}
 		}
-		nukeTopSpaceWalk();
 	}
 	fix();
-	// Re-run after boot has had a chance to mount its layout async (it
-	// renders into the page after dom-ready, which is when our injection
-	// runs). Cheap and idempotent.
-	if ( typeof requestAnimationFrame === 'function' ) {
-		requestAnimationFrame( fix );
-		setTimeout( fix, 100 );
-		setTimeout( fix, 500 );
-	}
+	// boot's layout primitives mount async after dom-ready; the observer
+	// re-runs the fix as they arrive.
 	if ( document.body && typeof MutationObserver === 'function' ) {
-		new MutationObserver( fix ).observe( document.body, {
-			childList: true,
-			subtree: true,
-			attributes: true,
-			attributeFilter: [ 'style', 'class' ],
-		} );
+		new MutationObserver( fix ).observe( document.body, { childList: true, subtree: true } );
 	}
 } )();
 `;
@@ -206,10 +109,6 @@ const isElectron = (): boolean => {
 	return /\bElectron\//.test( navigator.userAgent );
 };
 
-export interface WebviewSurfaceHandle {
-	openDevTools: () => void;
-}
-
 export function SitePreview( { site, onAnnotationsDone }: SitePreviewProps ) {
 	const connector = useConnector();
 	const startSite = useStartSite();
@@ -220,13 +119,6 @@ export function SitePreview( { site, onAnnotationsDone }: SitePreviewProps ) {
 	const hasPanel = !! panelSlot;
 	const activeSlot = mode === 'panel' && panelSlot ? panelSlot : siteSlot;
 	const fullUrl = `${ siteUrl }${ activeSlot.path }`;
-
-	const siteSurfaceRef = useRef< WebviewSurfaceHandle | null >( null );
-	const panelSurfaceRef = useRef< WebviewSurfaceHandle | null >( null );
-	const handleInspect = () => {
-		const target = mode === 'panel' ? panelSurfaceRef.current : siteSurfaceRef.current;
-		target?.openDevTools();
-	};
 
 	const previewResize = useResizablePanel( {
 		config: PREVIEW_PANEL_CONFIG,
@@ -281,15 +173,6 @@ export function SitePreview( { site, onAnnotationsDone }: SitePreviewProps ) {
 					variant="minimal"
 					tone="neutral"
 					size="small"
-					icon={ code }
-					label={ __( 'Inspect (open DevTools)' ) }
-					disabled={ ! canPreview }
-					onClick={ handleInspect }
-				/>
-				<IconButton
-					variant="minimal"
-					tone="neutral"
-					size="small"
 					icon={ external }
 					label={ __( 'Open site in browser' ) }
 					disabled={ ! canPreview }
@@ -300,13 +183,11 @@ export function SitePreview( { site, onAnnotationsDone }: SitePreviewProps ) {
 				{ canPreview ? (
 					isElectron() ? (
 						<>
-							{ /* Two webviews — one per slot — kept mounted so toggling
-							     Site↔Panel preserves each side's in-page state (scroll
-							     position, DataView filters, etc.) and avoids a fresh
-							     navigation through `/studio-auto-login` each time. */ }
+							{ /* Two webviews kept mounted so toggling Site↔Panel preserves
+							     each side's in-page state and avoids re-navigating through
+							     /studio-auto-login. */ }
 							<WebviewSurface
 								key={ `${ site.id }/site` }
-								ref={ siteSurfaceRef }
 								url={ `${ siteUrl }${ siteSlot.path }` }
 								reloadNonce={ siteSlot.reloadNonce }
 								onAnnotationsDone={ onAnnotationsDone }
@@ -316,7 +197,6 @@ export function SitePreview( { site, onAnnotationsDone }: SitePreviewProps ) {
 							{ panelSlot ? (
 								<WebviewSurface
 									key={ `${ site.id }/panel` }
-									ref={ panelSurfaceRef }
 									url={ `${ siteUrl }${ panelSlot.path }` }
 									reloadNonce={ panelSlot.reloadNonce }
 									enableInspector={ false }
@@ -325,7 +205,6 @@ export function SitePreview( { site, onAnnotationsDone }: SitePreviewProps ) {
 							) : null }
 						</>
 					) : (
-						// Non-Electron fallback: plain iframe, no inspector.
 						<iframe
 							key={ `${ fullUrl }#${ activeSlot.reloadNonce }` }
 							className={ styles.iframe }
@@ -361,147 +240,92 @@ interface WebviewSurfaceProps {
 	reloadNonce: number;
 	onAnnotationsDone?: ( annotations: Annotation[] ) => void;
 	enableInspector?: boolean;
-	// When true, the underlying `<webview>` stays mounted (preserving page
-	// state and avoiding a re-navigation) but is hidden via CSS.
 	hidden?: boolean;
 }
 
-/**
- * Renders the site preview as an Electron `<webview>` tag.
- *
- * The annotation inspector is injected into the guest page via
- * `executeJavaScript()` after each load. It reports completed annotation
- * batches by calling `console.log(BRIDGE_PREFIX + JSON.stringify(...))`,
- * which we receive through the webview's `console-message` event.
- *
- * When `enableInspector` is false (e.g. for studio-panels admin pages) the
- * inspector script is skipped — those pages are agent-rendered UI, not the
- * site content the inspector is designed to annotate.
- */
-const WebviewSurface = forwardRef< WebviewSurfaceHandle, WebviewSurfaceProps >(
-	function WebviewSurface(
-		{ url, reloadNonce, onAnnotationsDone, enableInspector = true, hidden = false },
-		handleRef
-	) {
-		const ref = useRef< HTMLElement | null >( null );
-		const [ ready, setReady ] = useState( false );
+function WebviewSurface( {
+	url,
+	reloadNonce,
+	onAnnotationsDone,
+	enableInspector = true,
+	hidden = false,
+}: WebviewSurfaceProps ) {
+	const ref = useRef< HTMLElement | null >( null );
+	const [ ready, setReady ] = useState( false );
+	const onAnnotationsDoneRef = useRef( onAnnotationsDone );
+	useEffect( () => {
+		onAnnotationsDoneRef.current = onAnnotationsDone;
+	}, [ onAnnotationsDone ] );
+	const enableInspectorRef = useRef( enableInspector );
+	useEffect( () => {
+		enableInspectorRef.current = enableInspector;
+	}, [ enableInspector ] );
 
-		useImperativeHandle(
-			handleRef,
-			() => ( {
-				openDevTools: () => {
-					const webview = ref.current as WebviewTag | null;
-					try {
-						webview?.openDevTools();
-					} catch {
-						// Webview not yet attached or already open — both are fine.
-					}
-				},
-			} ),
-			[]
-		);
-		const onAnnotationsDoneRef = useRef( onAnnotationsDone );
-		useEffect( () => {
-			onAnnotationsDoneRef.current = onAnnotationsDone;
-		}, [ onAnnotationsDone ] );
-		const enableInspectorRef = useRef( enableInspector );
-		useEffect( () => {
-			enableInspectorRef.current = enableInspector;
-		}, [ enableInspector ] );
+	// `loadURL` before `dom-ready` throws — capture mount-time values once
+	// and skip the navigation effect until they no longer match.
+	const [ initialNav ] = useState( () => ( { url, reloadNonce } ) );
 
-		// The initial url+nonce are loaded by the `src` attribute on the
-		// `<webview>` itself; calling `loadURL` before `dom-ready` throws
-		// "WebView must be attached to the DOM and the dom-ready event emitted".
-		// We capture the mount-time values once and skip the navigation effect
-		// while it still matches them.
-		const [ initialNav ] = useState( () => ( { url, reloadNonce } ) );
+	// React doesn't recognise `<webview>`'s non-standard events
+	// (`dom-ready`, `console-message`); wire them via native listeners.
+	useEffect( () => {
+		const webview = ref.current as WebviewTag | null;
+		if ( ! webview ) return;
 
-		// Wire DOM events on the underlying custom element. We use refs + native
-		// event listeners because React doesn't recognise `<webview>`'s
-		// non-standard events (`dom-ready`, `console-message`).
-		useEffect( () => {
-			const webview = ref.current as WebviewTag | null;
-			if ( ! webview ) return;
+		const handleDomReady = () => {
+			setReady( true );
+			webview.insertCSS( HIDE_ADMIN_BAR_CSS ).catch( () => undefined );
+			webview.executeJavaScript( HIDE_ADMIN_BAR_SCRIPT, false ).catch( () => undefined );
+			if ( ! enableInspectorRef.current ) return;
+			webview.executeJavaScript( INSPECTOR_PAGE_SCRIPT, false ).catch( () => {
+				// Transient injection failures (e.g. frame swapped mid-eval)
+				// recover on the next dom-ready.
+			} );
+		};
 
-			const handleDomReady = () => {
-				setReady( true );
-				webview.insertCSS( HIDE_ADMIN_BAR_CSS ).catch( () => undefined );
-				webview.executeJavaScript( HIDE_ADMIN_BAR_SCRIPT, false ).catch( () => undefined );
-				if ( ! enableInspectorRef.current ) return;
-				webview.executeJavaScript( INSPECTOR_PAGE_SCRIPT, false ).catch( () => {
-					// Transient injection failures (e.g. frame swapped mid-eval)
-					// are recoverable on the next dom-ready.
-				} );
-			};
+		const handleConsoleMessage = ( event: Event ) => {
+			const consoleEvent = event as WebviewConsoleEvent;
+			if ( typeof consoleEvent.message !== 'string' ) return;
+			if ( ! consoleEvent.message.startsWith( INSPECTOR_BRIDGE_PREFIX ) ) return;
+			let parsed: InspectorEvent | null = null;
+			try {
+				parsed = JSON.parse( consoleEvent.message.slice( INSPECTOR_BRIDGE_PREFIX.length ) );
+			} catch {
+				return;
+			}
+			if ( ! parsed || parsed.type !== 'done' || ! parsed.annotations ) return;
+			onAnnotationsDoneRef.current?.( parsed.annotations );
+		};
 
-			const handleConsoleMessage = ( event: Event ) => {
-				const consoleEvent = event as WebviewConsoleEvent;
-				if ( typeof consoleEvent.message !== 'string' ) return;
-				if ( ! consoleEvent.message.startsWith( INSPECTOR_BRIDGE_PREFIX ) ) return;
-				let parsed: InspectorEvent | null = null;
-				try {
-					parsed = JSON.parse( consoleEvent.message.slice( INSPECTOR_BRIDGE_PREFIX.length ) );
-				} catch {
-					return;
-				}
-				if ( ! parsed || parsed.type !== 'done' || ! parsed.annotations ) return;
-				onAnnotationsDoneRef.current?.( parsed.annotations );
-			};
+		webview.addEventListener( 'dom-ready', handleDomReady );
+		webview.addEventListener( 'console-message', handleConsoleMessage );
+		return () => {
+			webview.removeEventListener( 'dom-ready', handleDomReady );
+			webview.removeEventListener( 'console-message', handleConsoleMessage );
+		};
+	}, [] );
 
-			// Cmd/Ctrl+Shift+I opens the webview's own DevTools so the inner
-			// page can be inspected. Without this the iframe is opaque and
-			// debugging anything inside Studio's preview is painful.
-			const handleHostKeydown = ( event: KeyboardEvent ) => {
-				if (
-					( event.metaKey || event.ctrlKey ) &&
-					event.shiftKey &&
-					( event.key === 'I' || event.key === 'i' )
-				) {
-					event.preventDefault();
-					try {
-						webview.openDevTools();
-					} catch {
-						// Webview not yet attached or already open — both are fine.
-					}
-				}
-			};
+	useEffect( () => {
+		if ( ! ready ) return;
+		if ( url === initialNav.url && reloadNonce === initialNav.reloadNonce ) return;
+		const webview = ref.current as WebviewTag | null;
+		if ( ! webview ) return;
+		webview.loadURL( url ).catch( () => undefined );
+	}, [ url, reloadNonce, ready, initialNav.url, initialNav.reloadNonce ] );
 
-			webview.addEventListener( 'dom-ready', handleDomReady );
-			webview.addEventListener( 'console-message', handleConsoleMessage );
-			window.addEventListener( 'keydown', handleHostKeydown );
-			return () => {
-				webview.removeEventListener( 'dom-ready', handleDomReady );
-				webview.removeEventListener( 'console-message', handleConsoleMessage );
-				window.removeEventListener( 'keydown', handleHostKeydown );
-			};
-		}, [] );
-
-		// Navigation effect — gated on `ready` so the first call happens after
-		// `dom-ready`. If url/nonce changed while loading, the latest values are
-		// flushed when `ready` flips to true.
-		useEffect( () => {
-			if ( ! ready ) return;
-			if ( url === initialNav.url && reloadNonce === initialNav.reloadNonce ) return;
-			const webview = ref.current as WebviewTag | null;
-			if ( ! webview ) return;
-			webview.loadURL( url ).catch( () => undefined );
-		}, [ url, reloadNonce, ready, initialNav.url, initialNav.reloadNonce ] );
-
-		return (
-			<div className={ clsx( styles.webviewSlot, hidden && styles.webviewSlotHidden ) }>
-				<webview
-					ref={ ref }
-					src={ initialNav.url }
-					className={ styles.iframe }
-					allowpopups="true"
-					partition="persist:site-preview"
-				/>
-				{ ! ready ? (
-					<div className={ styles.spinnerOverlay } aria-hidden="true">
-						<span className={ styles.spinner } />
-					</div>
-				) : null }
-			</div>
-		);
-	}
-);
+	return (
+		<div className={ clsx( styles.webviewSlot, hidden && styles.webviewSlotHidden ) }>
+			<webview
+				ref={ ref }
+				src={ initialNav.url }
+				className={ styles.iframe }
+				allowpopups="true"
+				partition="persist:site-preview"
+			/>
+			{ ! ready ? (
+				<div className={ styles.spinnerOverlay } aria-hidden="true">
+					<span className={ styles.spinner } />
+				</div>
+			) : null }
+		</div>
+	);
+}

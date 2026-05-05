@@ -29,10 +29,7 @@ export interface PreviewSlot {
 interface PreviewUIState {
 	open: boolean;
 	mode: PreviewMode;
-	// `site` always exists (defaults to `/`); `panel` is null until the agent
-	// navigates to a panel URL for the first time. SitePreview keeps a
-	// dedicated `<webview>` per slot so toggling Site↔Panel preserves each
-	// side's in-page state (scroll position, DataView filters, etc.).
+	// `panel` is null until the agent navigates to a panel URL.
 	site: PreviewSlot;
 	panel: PreviewSlot | null;
 }
@@ -57,13 +54,8 @@ const INITIAL_STATE: SessionUIState = {
 	},
 };
 
-/**
- * Detects panel URLs (the studio-panels admin page, optionally wrapped in
- * `/studio-auto-login?redirect_to=…`). Used to route agent navigation events
- * into the panel slot vs. the site slot, and to gate the annotation
- * inspector — panels are agent-generated UI, not the rendered site content
- * the inspector is designed to comment on.
- */
+// Matches the studio-panels admin page, including paths wrapped in
+// `/studio-auto-login?redirect_to=…`.
 export function isPanelPath( pathOrUrl: string ): boolean {
 	if ( /page=studio-panels(-wp-admin)?\b/.test( pathOrUrl ) ) return true;
 	if ( pathOrUrl.includes( 'studio-auto-login' ) ) {
@@ -90,11 +82,8 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 				? state
 				: { ...state, preview: { ...state.preview, mode: action.value } };
 		case 'preview/navigate': {
-			// Route the agent's navigation event into the matching slot and
-			// auto-switch mode so the preview pane shows the latest result.
-			// The OTHER slot keeps its previous path + nonce so that toggling
-			// back doesn't cause it to reload — the user picks up where they
-			// left off.
+			// Route into the matching slot and auto-switch mode. The other
+			// slot keeps its path + nonce so toggling back doesn't reload it.
 			const isPanel = isPanelPath( action.path );
 			if ( isPanel ) {
 				const previous = state.preview.panel;
@@ -125,7 +114,6 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 			};
 		}
 		case 'preview/reload': {
-			// Reload only the currently active slot; the other side stays put.
 			if ( state.preview.mode === 'panel' && state.preview.panel ) {
 				return {
 					...state,

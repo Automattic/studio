@@ -60,6 +60,10 @@ export interface SiteInfo {
 	remote?: boolean;
 	url?: string;
 	wpcomSiteId?: number;
+	// Cached `plan.features.active` for remote WP.com sites — fetched once
+	// when the agent first runs against the site so the system prompt can
+	// list the active feature slugs without bloating per-request tool output.
+	planFeaturesActive?: string[];
 }
 
 const DEFAULT_COLLAPSE_THRESHOLD_LINES = 5;

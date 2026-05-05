@@ -257,6 +257,7 @@ async function getOrCreateAgent(
 						name: config.activeSite.name,
 						url: config.activeSite.url ?? '',
 						id: config.activeSite.wpcomSiteId,
+						planFeaturesActive: config.activeSite.planFeaturesActive,
 					},
 			  }
 			: undefined

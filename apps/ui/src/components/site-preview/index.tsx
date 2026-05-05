@@ -43,11 +43,31 @@ interface WebviewTag extends HTMLElement {
 // admin bar (`#wpadminbar`) on top of every wp-admin / logged-in front-end
 // page is visual noise here. Inject this stylesheet on every navigation —
 // the `<webview>`'s `insertCSS()` survives reloads within the same view.
+//
+// WP reserves admin-bar height with `!important` rules in two places:
+// the top-level (32px desktop) AND a `@media (max-width: 782px)` block
+// (46px mobile). Both must be matched to leave the preview edge-to-edge
+// at all breakpoints. We over-cover the relevant selectors rather than
+// trying to match WP's exact specificity — the rules are simple enough
+// that "all paths to zero" is cheaper than introspecting their cascade.
 const HIDE_ADMIN_BAR_CSS = `
 	#wpadminbar { display: none !important; }
-	html { margin-top: 0 !important; }
-	html.wp-toolbar { padding-top: 0 !important; }
-	body.admin-bar { padding-top: 0 !important; }
+	html, html.wp-toolbar, body, body.admin-bar {
+		margin-top: 0 !important;
+		padding-top: 0 !important;
+	}
+	@media screen and (max-width: 782px) {
+		html, html.wp-toolbar, body, body.admin-bar {
+			margin-top: 0 !important;
+			padding-top: 0 !important;
+		}
+	}
+	@media screen and (max-width: 600px) {
+		html, html.wp-toolbar, body, body.admin-bar {
+			margin-top: 0 !important;
+			padding-top: 0 !important;
+		}
+	}
 `;
 
 interface WebviewConsoleEvent extends Event {

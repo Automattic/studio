@@ -18,6 +18,7 @@ import {
 	NativePhpSupportedVersion,
 	validateNativePhpVersion,
 } from '@studio/common/lib/php-binary-metadata';
+import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { z } from 'zod';
 import {
 	managerMessageSchema,
@@ -61,13 +62,35 @@ type SpawnPhpProcessOptions = {
 	cwd?: string;
 	signal?: AbortSignal;
 	mode?: 'pipe' | 'capture-stdout';
+	opcacheSiteId?: string;
 };
+
+function getDefaultPhpArgs( siteId?: string ): string[] {
+	if ( process.platform !== 'win32' || ! siteId ) {
+		return [];
+	}
+
+	const cacheId = siteId.replace( /[^A-Za-z0-9_.-]/g, '-' );
+	const cacheDirectory = path.join( getConfigDirectory(), 'php-bin', 'opcache', cacheId );
+	fs.mkdirSync( cacheDirectory, { recursive: true } );
+
+	return [
+		'-d',
+		`opcache.file_cache=${ cacheDirectory }`,
+		'-d',
+		'opcache.file_cache_fallback=1',
+		'-d',
+		`opcache.cache_id=studio-${ cacheId }`,
+	];
+}
 
 function spawnPhpProcess(
 	args: string[],
-	{ phpVersion, cwd, signal, mode = 'pipe' }: SpawnPhpProcessOptions
+	{ phpVersion, cwd, signal, mode = 'pipe', opcacheSiteId }: SpawnPhpProcessOptions
 ): ChildProcess {
-	const phpScriptProcess = spawn( getPhpBinaryPath( phpVersion ), args, {
+	const defaultArgs = getDefaultPhpArgs( opcacheSiteId );
+	const phpArgs = [ ...defaultArgs, ...args ];
+	const phpScriptProcess = spawn( getPhpBinaryPath( phpVersion ), phpArgs, {
 		cwd,
 		stdio: [ 'ignore', 'pipe', 'pipe' ],
 		signal,
@@ -332,6 +355,7 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		const serverChild = spawnPhpProcess( [ '-S', phpAddress, ROUTER_PATH ], {
 			phpVersion,
 			cwd: config.sitePath,
+			opcacheSiteId: config.siteId,
 		} );
 		spawnedChild = serverChild;
 

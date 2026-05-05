@@ -36,8 +36,41 @@ interface InspectorEvent {
 interface WebviewTag extends HTMLElement {
 	loadURL( url: string ): Promise< void >;
 	executeJavaScript( code: string, userGesture?: boolean ): Promise< unknown >;
+	insertCSS( css: string ): Promise< string >;
 	openDevTools(): void;
 }
+
+// Layered with the JS-based hider below: the JS sets inline styles that
+// beat external CSS unconditionally, but only on elements that exist when
+// it runs. This stylesheet covers elements that get added later (e.g.
+// @wordpress/boot mounts `.boot-layout--single-page .boot-layout__stage`
+// asynchronously after dom-ready). Selectors are intentionally
+// over-specified so the rule outranks any author rule with the same
+// `!important` weight via specificity.
+const HIDE_ADMIN_BAR_CSS = `
+	html.wp-toolbar #wpadminbar,
+	body.admin-bar #wpadminbar,
+	#wpadminbar { display: none !important; }
+	html.wp-toolbar,
+	body.admin-bar,
+	html.wp-toolbar body.admin-bar { margin-top: 0 !important; padding-top: 0 !important; }
+	html .boot-layout--single-page .boot-layout__stage,
+	html .boot-layout--single-page .boot-layout__inspector {
+		margin-top: 0 !important;
+		padding-top: 0 !important;
+		border-top-width: 0 !important;
+	}
+	@media screen and (max-width: 782px) {
+		html.wp-toolbar,
+		body.admin-bar,
+		html.wp-toolbar body.admin-bar { margin-top: 0 !important; padding-top: 0 !important; }
+		html .boot-layout--single-page .boot-layout__stage,
+		html .boot-layout--single-page .boot-layout__inspector {
+			margin-top: 0 !important;
+			padding-top: 0 !important;
+		}
+	}
+`;
 
 // Studio's preview pane has its own chrome (header, mode toggle); the WP
 // admin bar (`#wpadminbar`) on top of every wp-admin / logged-in front-end
@@ -112,6 +145,14 @@ const HIDE_ADMIN_BAR_SCRIPT = `
 		nukeTopSpaceWalk();
 	}
 	fix();
+	// Re-run after boot has had a chance to mount its layout async (it
+	// renders into the page after dom-ready, which is when our injection
+	// runs). Cheap and idempotent.
+	if ( typeof requestAnimationFrame === 'function' ) {
+		requestAnimationFrame( fix );
+		setTimeout( fix, 100 );
+		setTimeout( fix, 500 );
+	}
 	if ( document.body && typeof MutationObserver === 'function' ) {
 		new MutationObserver( fix ).observe( document.body, {
 			childList: true,
@@ -320,6 +361,7 @@ function WebviewSurface( {
 
 		const handleDomReady = () => {
 			setReady( true );
+			webview.insertCSS( HIDE_ADMIN_BAR_CSS ).catch( () => undefined );
 			webview.executeJavaScript( HIDE_ADMIN_BAR_SCRIPT, false ).catch( () => undefined );
 			if ( ! enableInspectorRef.current ) return;
 			webview.executeJavaScript( INSPECTOR_PAGE_SCRIPT, false ).catch( () => {

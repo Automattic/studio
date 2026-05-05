@@ -1,6 +1,7 @@
 import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
+import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { getRemoteSessionPidPath } from '@studio/common/lib/well-known-paths';
 
 /**
@@ -83,8 +84,7 @@ function isProcessAlive( pid: number ): boolean {
 		return true;
 	} catch ( error ) {
 		// EPERM means the process exists but we can't signal it — still "alive".
-		const code = ( error as NodeJS.ErrnoException ).code;
-		return code === 'EPERM';
+		return isErrnoException( error ) && error.code === 'EPERM';
 	}
 }
 
@@ -288,8 +288,7 @@ export async function stopDaemon(
 	try {
 		process.kill( pid, 'SIGTERM' );
 	} catch ( error ) {
-		const code = ( error as NodeJS.ErrnoException ).code;
-		if ( code === 'ESRCH' ) {
+		if ( isErrnoException( error ) && error.code === 'ESRCH' ) {
 			removePidFile( pidFile );
 			return { stopped: true, pid, alreadyStopped: true };
 		}
@@ -311,8 +310,7 @@ export async function stopDaemon(
 		process.kill( pid, 'SIGKILL' );
 		usedSigKill = true;
 	} catch ( error ) {
-		const code = ( error as NodeJS.ErrnoException ).code;
-		if ( code !== 'ESRCH' ) {
+		if ( ! isErrnoException( error ) || error.code !== 'ESRCH' ) {
 			throw error;
 		}
 	}

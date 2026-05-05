@@ -1,7 +1,10 @@
 .root {
 	display: flex;
 	flex-direction: column;
-	width: 520px;
+	position: relative;
+	width: var(--site-preview-width, 520px);
+	min-width: 360px;
+	max-width: 50vw;
 	flex-shrink: 0;
 	min-height: 0;
 	margin: calc(var(--wpds-dimension-padding-md) * 2) calc(var(--wpds-dimension-padding-md) * 2)
@@ -9,8 +12,17 @@
 	background-color: var(--wpds-color-bg-surface-neutral);
 	border: 1px solid var(--wpds-color-stroke-surface-neutral);
 	border-radius: var(--wpds-border-radius-lg, 12px);
-	overflow: hidden;
+	overflow: visible;
 	box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.resizeHandle {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: -15px;
+	justify-content: flex-end;
+	padding-right: 4px;
 }
 
 .header {
@@ -22,6 +34,8 @@
 	flex-shrink: 0;
 	background-color: #fff;
 	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-top-left-radius: inherit;
+	border-top-right-radius: inherit;
 }
 
 .trafficLights {
@@ -58,6 +72,9 @@
 	display: flex;
 	position: relative;
 	background-color: #fff;
+	overflow: hidden;
+	border-bottom-right-radius: inherit;
+	border-bottom-left-radius: inherit;
 }
 
 .spinnerOverlay {

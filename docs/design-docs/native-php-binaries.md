@@ -26,6 +26,11 @@ and Enterprise install paths but not all Build Tools paths, so the script uses
 `vswhere` to find the actual MSBuild location and applies a Windows-only source
 edit after checkout to let SPC detect it.
 
+SPC 2.8.5 also fails to extract `php-src` on the Windows Buildkite agent because
+its `7za | tar -C <source>\php-src` command runs before `<source>\php-src`
+exists. The script creates that Windows source extraction target before running
+`spc craft`.
+
 Do not patch `static-php-cli` by default. If the upstream build fails, use the CI
 logs to add the smallest targeted patch and document the exact upstream failure
 that requires it.

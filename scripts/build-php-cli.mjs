@@ -147,6 +147,7 @@ function installMacHostRuntime() {
 
 function installWindowsHostRuntime() {
 	ensureWindowsVisualStudio();
+	patchStaticPhpCliWindowsSourceExtraction();
 	console.log( '--- :windows: Installing static-php-cli runtime' );
 	run(
 		'powershell.exe',
@@ -386,6 +387,38 @@ function patchStaticPhpCliVisualStudioDetection( visualStudio ) {
 
 function escapePhpSingleQuotedString( value ) {
 	return value.replaceAll( '\\', '\\\\' ).replaceAll( "'", "\\'" );
+}
+
+function patchStaticPhpCliWindowsSourceExtraction() {
+	const fileSystemPath = path.join( config.spcDir, 'src', 'SPC', 'store', 'FileSystem.php' );
+	const fileSystem = fs.readFileSync( fileSystemPath, 'utf8' );
+
+	if ( fileSystem.includes( 'SPC_WINDOWS_CREATE_SOURCE_TARGET' ) ) {
+		return;
+	}
+
+	const needle = `        if (!is_dir($dir = dirname($target))) {
+            self::createDir($dir);
+        }
+        try {
+            self::extractWithType($source_type, $filename, $move_path);
+`;
+	const replacement = `        if (!is_dir($dir = dirname($target))) {
+            self::createDir($dir);
+        }
+        /* SPC_WINDOWS_CREATE_SOURCE_TARGET */
+        if (PHP_OS_FAMILY === 'Windows' && !is_dir($target)) {
+            self::createDir($target);
+        }
+        try {
+            self::extractWithType($source_type, $filename, $move_path);
+`;
+
+	if ( ! fileSystem.includes( needle ) ) {
+		throw new Error( `Could not patch Windows source extraction in ${ fileSystemPath }.` );
+	}
+
+	fs.writeFileSync( fileSystemPath, fileSystem.replace( needle, replacement ) );
 }
 
 function installBrewFormulaIfMissing( formula ) {

@@ -58,8 +58,12 @@ export function getBlueprintsPharPath(): string {
 
 // Static Site Importer ships read-only with the CLI bundle (downloaded at npm
 // install time by `scripts/download-wp-server-files.ts`) and is symlinked into
-// each site's mu-plugins temp directory. No writable cache needed — the
-// bundled directory is treated as the source of truth.
+// each site's mu-plugins temp directory. Bench harnesses may override that
+// bundled copy to test an active SSI worktree.
 export function getStaticSiteImporterPluginPath(): string {
+	if ( process.env.STUDIO_STATIC_SITE_IMPORTER_PLUGIN_PATH ) {
+		return process.env.STUDIO_STATIC_SITE_IMPORTER_PLUGIN_PATH;
+	}
+
 	return path.join( getWpFilesPath(), 'static-site-importer' );
 }

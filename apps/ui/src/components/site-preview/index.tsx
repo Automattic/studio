@@ -7,7 +7,7 @@ import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { useConnector } from '@/data/core';
 import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
 import { useResizablePanel } from '@/hooks/use-resizable-panel';
-import { isPanelPath, useSessionPreviewUI } from '@/hooks/use-session-ui';
+import { useSessionPreviewUI } from '@/hooks/use-session-ui';
 import { getSiteUrl } from '@/lib/get-site-url';
 import { playIcon } from '@/lib/icons';
 import { PREVIEW_PANEL_CONFIG, PREVIEW_PANEL_STORAGE_KEY } from '@/lib/resizable-panels';
@@ -57,10 +57,10 @@ export function SitePreview( { site, onAnnotationsDone }: SitePreviewProps ) {
 	const isStarting = useIsSiteStarting( site.id );
 	const siteUrl = getSiteUrl( site );
 	const canPreview = site.running;
-	const { path, reloadNonce, mode, panelPath, setMode } = useSessionPreviewUI();
-	const fullUrl = `${ siteUrl }${ path }`;
-	const showingPanel = isPanelPath( path );
-	const hasPanel = !! panelPath;
+	const { mode, site: siteSlot, panel: panelSlot, setMode } = useSessionPreviewUI();
+	const hasPanel = !! panelSlot;
+	const activeSlot = mode === 'panel' && panelSlot ? panelSlot : siteSlot;
+	const fullUrl = `${ siteUrl }${ activeSlot.path }`;
 
 	const previewResize = useResizablePanel( {
 		config: PREVIEW_PANEL_CONFIG,
@@ -124,17 +124,33 @@ export function SitePreview( { site, onAnnotationsDone }: SitePreviewProps ) {
 			<div className={ styles.body }>
 				{ canPreview ? (
 					isElectron() ? (
-						<WebviewSurface
-							key={ site.id }
-							url={ fullUrl }
-							reloadNonce={ reloadNonce }
-							onAnnotationsDone={ onAnnotationsDone }
-							enableInspector={ ! showingPanel }
-						/>
+						<>
+							{ /* Two webviews — one per slot — kept mounted so toggling
+							     Site↔Panel preserves each side's in-page state (scroll
+							     position, DataView filters, etc.) and avoids a fresh
+							     navigation through `/studio-auto-login` each time. */ }
+							<WebviewSurface
+								key={ `${ site.id }/site` }
+								url={ `${ siteUrl }${ siteSlot.path }` }
+								reloadNonce={ siteSlot.reloadNonce }
+								onAnnotationsDone={ onAnnotationsDone }
+								enableInspector
+								hidden={ mode !== 'site' }
+							/>
+							{ panelSlot ? (
+								<WebviewSurface
+									key={ `${ site.id }/panel` }
+									url={ `${ siteUrl }${ panelSlot.path }` }
+									reloadNonce={ panelSlot.reloadNonce }
+									enableInspector={ false }
+									hidden={ mode !== 'panel' }
+								/>
+							) : null }
+						</>
 					) : (
 						// Non-Electron fallback: plain iframe, no inspector.
 						<iframe
-							key={ `${ fullUrl }#${ reloadNonce }` }
+							key={ `${ fullUrl }#${ activeSlot.reloadNonce }` }
 							className={ styles.iframe }
 							src={ fullUrl }
 							title={ site.name }
@@ -168,6 +184,9 @@ interface WebviewSurfaceProps {
 	reloadNonce: number;
 	onAnnotationsDone?: ( annotations: Annotation[] ) => void;
 	enableInspector?: boolean;
+	// When true, the underlying `<webview>` stays mounted (preserving page
+	// state and avoiding a re-navigation) but is hidden via CSS.
+	hidden?: boolean;
 }
 
 /**
@@ -187,6 +206,7 @@ function WebviewSurface( {
 	reloadNonce,
 	onAnnotationsDone,
 	enableInspector = true,
+	hidden = false,
 }: WebviewSurfaceProps ) {
 	const ref = useRef< HTMLElement | null >( null );
 	const [ ready, setReady ] = useState( false );
@@ -256,7 +276,7 @@ function WebviewSurface( {
 	}, [ url, reloadNonce, ready, initialNav.url, initialNav.reloadNonce ] );
 
 	return (
-		<>
+		<div className={ clsx( styles.webviewSlot, hidden && styles.webviewSlotHidden ) }>
 			<webview
 				ref={ ref }
 				src={ initialNav.url }
@@ -269,6 +289,6 @@ function WebviewSurface( {
 					<span className={ styles.spinner } />
 				</div>
 			) : null }
-		</>
+		</div>
 	);
 }

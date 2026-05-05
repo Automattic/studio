@@ -21,12 +21,20 @@ import {
 
 export type PreviewMode = 'site' | 'panel';
 
+export interface PreviewSlot {
+	path: string;
+	reloadNonce: number;
+}
+
 interface PreviewUIState {
 	open: boolean;
 	mode: PreviewMode;
-	sitePath: string;
-	panelPath: string | null;
-	reloadNonce: number;
+	// `site` always exists (defaults to `/`); `panel` is null until the agent
+	// navigates to a panel URL for the first time. SitePreview keeps a
+	// dedicated `<webview>` per slot so toggling Site↔Panel preserves each
+	// side's in-page state (scroll position, DataView filters, etc.).
+	site: PreviewSlot;
+	panel: PreviewSlot | null;
 }
 
 export interface SessionUIState {
@@ -41,7 +49,12 @@ export type SessionUIAction =
 	| { type: 'preview/reload' };
 
 const INITIAL_STATE: SessionUIState = {
-	preview: { open: false, mode: 'site', sitePath: '/', panelPath: null, reloadNonce: 0 },
+	preview: {
+		open: false,
+		mode: 'site',
+		site: { path: '/', reloadNonce: 0 },
+		panel: null,
+	},
 };
 
 /**
@@ -77,33 +90,67 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 				? state
 				: { ...state, preview: { ...state.preview, mode: action.value } };
 		case 'preview/navigate': {
-			// Agent navigation events are routed into the panel slot or the
-			// site slot based on the URL pattern. The mode auto-switches so
-			// the preview pane shows whatever the agent just navigated to;
-			// the other slot keeps its previous path so the user can toggle
-			// back.
+			// Route the agent's navigation event into the matching slot and
+			// auto-switch mode so the preview pane shows the latest result.
+			// The OTHER slot keeps its previous path + nonce so that toggling
+			// back doesn't cause it to reload — the user picks up where they
+			// left off.
 			const isPanel = isPanelPath( action.path );
+			if ( isPanel ) {
+				const previous = state.preview.panel;
+				return {
+					...state,
+					preview: {
+						...state.preview,
+						mode: 'panel',
+						panel: {
+							path: action.path,
+							reloadNonce: ( previous?.reloadNonce ?? 0 ) + 1,
+						},
+						open: true,
+					},
+				};
+			}
 			return {
 				...state,
 				preview: {
 					...state.preview,
-					mode: isPanel ? 'panel' : 'site',
-					sitePath: isPanel ? state.preview.sitePath : action.path,
-					panelPath: isPanel ? action.path : state.preview.panelPath,
-					reloadNonce: state.preview.reloadNonce + 1,
+					mode: 'site',
+					site: {
+						path: action.path,
+						reloadNonce: state.preview.site.reloadNonce + 1,
+					},
 					open: true,
 				},
 			};
 		}
-		case 'preview/reload':
+		case 'preview/reload': {
+			// Reload only the currently active slot; the other side stays put.
+			if ( state.preview.mode === 'panel' && state.preview.panel ) {
+				return {
+					...state,
+					preview: {
+						...state.preview,
+						panel: {
+							...state.preview.panel,
+							reloadNonce: state.preview.panel.reloadNonce + 1,
+						},
+						open: true,
+					},
+				};
+			}
 			return {
 				...state,
 				preview: {
 					...state.preview,
-					reloadNonce: state.preview.reloadNonce + 1,
+					site: {
+						...state.preview.site,
+						reloadNonce: state.preview.site.reloadNonce + 1,
+					},
 					open: true,
 				},
 			};
+		}
 	}
 }
 
@@ -140,10 +187,8 @@ export function useSessionUIDispatch(): Dispatch< SessionUIAction > {
 export interface SessionPreviewUI {
 	readonly open: boolean;
 	readonly mode: PreviewMode;
-	readonly path: string;
-	readonly sitePath: string;
-	readonly panelPath: string | null;
-	readonly reloadNonce: number;
+	readonly site: PreviewSlot;
+	readonly panel: PreviewSlot | null;
 	setOpen: ( value: boolean ) => void;
 	toggle: () => void;
 	setMode: ( value: PreviewMode ) => void;
@@ -161,10 +206,9 @@ export function useSessionPreviewUI(): SessionPreviewUI {
 		( value: PreviewMode ) => dispatch( { type: 'preview/set-mode', value } ),
 		[ dispatch ]
 	);
-	const { mode, sitePath, panelPath, reloadNonce, open } = state.preview;
-	const path = mode === 'panel' && panelPath ? panelPath : sitePath;
+	const { open, mode, site, panel } = state.preview;
 	return useMemo(
-		() => ( { open, mode, path, sitePath, panelPath, reloadNonce, setOpen, toggle, setMode } ),
-		[ open, mode, path, sitePath, panelPath, reloadNonce, setOpen, toggle, setMode ]
+		() => ( { open, mode, site, panel, setOpen, toggle, setMode } ),
+		[ open, mode, site, panel, setOpen, toggle, setMode ]
 	);
 }

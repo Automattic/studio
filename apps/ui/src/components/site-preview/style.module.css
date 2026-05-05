@@ -114,6 +114,17 @@
 	border-bottom-left-radius: inherit;
 }
 
+.webviewSlot {
+	position: absolute;
+	inset: 0;
+	display: flex;
+}
+
+.webviewSlotHidden {
+	visibility: hidden;
+	pointer-events: none;
+}
+
 .spinnerOverlay {
 	position: absolute;
 	inset: 0;

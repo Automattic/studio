@@ -1,6 +1,8 @@
 # Spec: `studio code` Remote Session (Telegram bridge)
 
 > **Status note (2026-04-28):** the `/remote-session` slash command and its subcommands (`attach|detach|new|status`) are **deferred** for the initial PoC. Only the `studio code --remote-session` flag is shipping. The slash-command sections below describe the planned design and can be re-introduced once a non-blocking REPL mode lands.
+>
+> **Status note (2026-04-30, STU-1649):** background-daemon support is implemented under a new `studio code remote-session` subcommand tree (`start [--detach]`, `stop`, `status`). The original `studio code --remote-session` flag still works and is equivalent to `studio code remote-session start` in foreground mode. Daemonized runs are tracked via `~/.studio/remote-session.pid`. The whole surface remains gated by the `STUDIO_ENABLE_REMOTE_SESSION=true` feature flag.
 
 ## Overview
 
@@ -129,6 +131,22 @@ studio code --remote-session [--remote-chat-id <id>] [--remote-bot <name>]
 Behavior: start `studio code` in **remote-only** mode (no interactive REPL, no `AiChatUI`). The process is dedicated to running the poll loop. Equivalent to launching the poll loop directly with the configured chat binding.
 
 This mode is intended for running under launchd or in a terminal tab dedicated to the bridge. Implementation: when `--remote-session` is present, the `studio code` handler short-circuits before instantiating any UI adapter and hands off to `runRemoteSession()`.
+
+### Subcommand tree (daemon control)
+
+```
+studio code remote-session start [--detach] [--remote-chat-id <id>] [--remote-bot <name>]
+studio code remote-session stop
+studio code remote-session status
+```
+
+`start` is the canonical entry point and accepts the same chat/bot pinning flags as the autostart flag. Without `--detach` it runs in the foreground (identical behavior to `studio code --remote-session`). With `--detach` it forks a detached child via `child_process.spawn(... { detached: true, stdio: 'ignore', windowsHide: true })`, sets `STUDIO_REMOTE_SESSION_DAEMON_CHILD=1` on the child's environment, and waits up to 5s for the child to write `~/.studio/remote-session.pid` before returning success. The parent's call to `loadRemoteSessionConfig()` (before spawning) means a missing token surfaces in the foreground terminal rather than dying silently in the background.
+
+`stop` reads the PID file, sends `SIGTERM`, polls for exit (up to 5s), then escalates to `SIGKILL`. The PID file is removed regardless of how the daemon exits. `runRemoteSession()`'s existing SIGTERM handler triggers the graceful detach path (poll-loop abort + Telegram detach status), so well-behaved stops still get a `🔴 Local agent detached.` message in the chat.
+
+`status` reads the PID file, probes liveness via `process.kill(pid, 0)`, removes the file when it points to a dead PID, and prints `running (PID …)` or `not running` accordingly.
+
+The detached child's `runRemoteSession()` checks the env var on entry and calls `installDaemonChildHooks()` to write its PID and register an `exit` handler (and a SIGHUP handler on POSIX) that removes the file. SIGINT/SIGTERM are intentionally not intercepted by the daemon hooks — the existing graceful-detach path in `runRemoteSession()` handles them, and the `exit` event still fires afterwards to clean up the file.
 
 ### Slash command
 

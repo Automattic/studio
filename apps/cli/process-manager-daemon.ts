@@ -217,6 +217,7 @@ export class ProcessManagerDaemon {
 			env,
 			stdio: [ 'ignore', 'pipe', 'pipe', 'ipc' ],
 			windowsHide: true,
+			detached: process.platform !== 'win32',
 		} );
 
 		const managedProcess: ManagedProcessRunning = {
@@ -293,7 +294,7 @@ export class ProcessManagerDaemon {
 
 		await new Promise< void >( ( resolve ) => {
 			const timeoutId = setTimeout( () => {
-				managedProcess.child.kill( 'SIGKILL' );
+				this.forceCleanupChild( managedProcess );
 			}, STOP_TIMEOUT_MS );
 
 			managedProcess.child.once( 'exit', () => {
@@ -308,7 +309,7 @@ export class ProcessManagerDaemon {
 				resolve();
 			} );
 
-			managedProcess.child.kill( 'SIGTERM' );
+			this.signalProcessGroup( managedProcess, 'SIGTERM' );
 		} );
 	}
 
@@ -418,8 +419,35 @@ export class ProcessManagerDaemon {
 			if ( managedProcess.settled ) {
 				continue;
 			}
+			this.forceCleanupChild( managedProcess );
+		}
+	}
+
+	private forceCleanupChild( managedProcess: ManagedProcess ) {
+		// On Windows, child.kill() maps any signal to TerminateProcess, so SIGKILL and SIGTERM
+		// are equivalent there. On non-Windows the helper sends SIGKILL to the whole group.
+		this.signalProcessGroup( managedProcess, 'SIGKILL' );
+	}
+
+	private signalProcessGroup( managedProcess: ManagedProcess, signal: NodeJS.Signals ): void {
+		if ( process.platform === 'win32' || ! managedProcess.child.pid ) {
 			try {
-				managedProcess.child.kill( 'SIGKILL' );
+				managedProcess.child.kill( signal );
+			} catch {
+				// Do nothing
+			}
+			return;
+		}
+
+		// Children are spawned with `detached: true` on non-Windows, so each lives in its own
+		// process group. Signalling the negative PID delivers to every member of that group,
+		// including grandchildren (e.g. the PHP server spawned by the wrapper).
+		try {
+			process.kill( -managedProcess.child.pid, signal );
+		} catch {
+			// Group send can fail if the leader has already exited but children remain.
+			try {
+				managedProcess.child.kill( signal );
 			} catch {
 				// Do nothing
 			}
@@ -432,16 +460,17 @@ export class ProcessManagerDaemon {
 		}
 
 		this.shuttingDown = true;
-		await this.broadcastEvent( {
-			type: 'daemon-kill',
-			payload: { reason },
-		} );
 
 		await Promise.allSettled(
 			Array.from( this.managedProcesses.values() ).map( ( managedProcess ) =>
 				this.stopProcess( managedProcess.name )
 			)
 		);
+
+		await this.broadcastEvent( {
+			type: 'daemon-kill',
+			payload: { reason },
+		} );
 
 		await new Promise< void >( ( resolve ) => {
 			void this.controlServer.close().then( () => resolve() );

@@ -7,6 +7,7 @@ import { deleteSiteTool } from './delete-site';
 import { exportSiteTool } from './export-site';
 import { importSiteTool } from './import-site';
 import { installTaxonomyScriptsTool } from './install-taxonomy-scripts';
+import { listConnectedRemoteSitesTool } from './list-connected-remote-sites';
 import { listPreviewsTool } from './list-previews';
 import { listSitesTool } from './list-sites';
 import { auditPerformanceTool } from './need-for-speed';
@@ -52,6 +53,7 @@ export const studioToolDefinitions = [
 	installTaxonomyScriptsTool,
 	auditPerformanceTool,
 	auditSeoTool,
+	listConnectedRemoteSitesTool,
 	pushSiteTool,
 	pullSiteTool,
 	importSiteTool,

@@ -4,6 +4,7 @@ import {
 	loadRemoteSessionConfig,
 	type RemoteSessionOverrides,
 } from 'cli/remote-session/config';
+import { installDaemonChildHooks, isDaemonChild } from 'cli/remote-session/daemon';
 import { RemoteSessionLogger } from 'cli/remote-session/logger';
 import { runPollLoop } from 'cli/remote-session/poll-loop';
 import { respondMessage } from 'cli/remote-session/telegram-client';
@@ -11,15 +12,25 @@ import { respondMessage } from 'cli/remote-session/telegram-client';
 export { RemoteSessionConfigError };
 
 /**
- * Entry point for the `--remote-session` flag. Validates config, enters the
- * poll loop, and returns when the loop exits (detach, Ctrl-C, or fatal error).
+ * Entry point for `studio code --remote-session` and `studio code remote-session
+ * start`. Validates config, enters the poll loop, and returns when the loop
+ * exits (detach, Ctrl-C, or fatal error). When invoked as the detached child of
+ * `start --detach` (env var `STUDIO_REMOTE_SESSION_DAEMON_CHILD=1`), it also
+ * writes a PID file that the `stop` / `status` subcommands consult.
  */
 export async function runRemoteSession( overrides: RemoteSessionOverrides = {} ): Promise< void > {
 	const config = await loadRemoteSessionConfig( overrides );
-	// The interactive REPL is blocked while attached, so stdout is free. Stream
-	// session activity (polled messages, turn outcomes, replies posted, errors)
-	// there alongside the structured log file, so the user can watch progress.
-	const logger = new RemoteSessionLogger( { mirrorToStdout: true } );
+	const runningAsDaemon = isDaemonChild();
+	if ( runningAsDaemon ) {
+		// Detached child: claim the PID file. The hook removes it on `exit` and
+		// (on POSIX) on SIGHUP. SIGINT/SIGTERM go through the existing graceful
+		// detach path below; the `exit` event still fires afterwards.
+		installDaemonChildHooks();
+	}
+	// In foreground mode the interactive REPL is blocked, so stdout is free
+	// and we stream activity there alongside the log file. As a daemon, stdout
+	// is `/dev/null`, so mirroring is wasted work and we skip it.
+	const logger = new RemoteSessionLogger( { mirrorToStdout: ! runningAsDaemon } );
 	const logPath = getRemoteSessionLogPath();
 	logger.info( 'Remote session starting', {
 		base_url: config.base_url,
@@ -29,13 +40,19 @@ export async function runRemoteSession( overrides: RemoteSessionOverrides = {} )
 		long_poll_timeout_seconds: config.long_poll_timeout_seconds,
 		turn_timeout_seconds: config.turn_timeout_seconds,
 		debug: process.env.STUDIO_REMOTE_DEBUG === '1',
+		daemon: runningAsDaemon,
 	} );
-	process.stdout.write( `Remote session log: ${ logPath }\n` );
+	if ( ! runningAsDaemon ) {
+		process.stdout.write( `Remote session log: ${ logPath }\n` );
+	}
 
 	const { done, detach } = await runPollLoop( {
 		config,
 		deps: { logger },
 		onAttached: () => {
+			if ( runningAsDaemon ) {
+				return;
+			}
 			const target =
 				config.chat_id !== undefined
 					? `chat ${ config.chat_id }`
@@ -80,7 +97,9 @@ export async function runRemoteSession( overrides: RemoteSessionOverrides = {} )
 
 	try {
 		await done;
-		process.stdout.write( 'Remote session detached.\n' );
+		if ( ! runningAsDaemon ) {
+			process.stdout.write( 'Remote session detached.\n' );
+		}
 	} finally {
 		for ( const cleanup of signalCleanup ) {
 			cleanup();

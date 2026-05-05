@@ -24,7 +24,7 @@ export function executeExportCliCommand(
 	const { abortSignal } = options;
 
 	function abortExportProcess() {
-		childProcess.kill( 'SIGKILL' );
+		childProcess.kill( 'SIGTERM' );
 		emitFailure( new Error( 'Export aborted' ) );
 	}
 

@@ -9,6 +9,7 @@ import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useDeleteSite } from 'src/hooks/use-delete-site';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
+import { useSiteFavicon } from 'src/hooks/use-site-favicon';
 import { isMac, isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -139,6 +140,41 @@ function ButtonToRun( site: SiteDetails ) {
 		</Tooltip>
 	);
 }
+
+/**
+ * Renders a 16x16 favicon for the site if one is available.
+ * Shows a subtle placeholder circle when no favicon has been found yet, so
+ * the layout stays stable and does not jump when the image loads.
+ */
+function SiteFavicon( { site }: { site: SiteDetails } ) {
+	const favicon = useSiteFavicon( site.id, site );
+
+	if ( favicon ) {
+		return (
+			<img
+				src={ favicon }
+				alt=""
+				aria-hidden="true"
+				width={ 16 }
+				height={ 16 }
+				className="rounded-[3px] flex-shrink-0 object-contain ms-2"
+				onError={ ( e ) => {
+					// Hide broken image icon gracefully
+					( e.currentTarget as HTMLImageElement ).style.display = 'none';
+				} }
+			/>
+		);
+	}
+
+	// Placeholder keeps the layout stable while we wait or when no icon exists
+	return (
+		<span
+			aria-hidden="true"
+			className="w-4 h-4 rounded-[3px] flex-shrink-0 bg-[#ffffff12] ms-2"
+		/>
+	);
+}
+
 function SiteItem( {
 	site,
 	index,
@@ -221,6 +257,7 @@ function SiteItem( {
 			onDrop={ ( e ) => onDrop( e, index ) }
 			onDragEnd={ onDragEnd }
 		>
+			<SiteFavicon site={ site } />
 			<button
 				type="button"
 				className="p-2 text-xs rounded-tl rounded-bl whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme"

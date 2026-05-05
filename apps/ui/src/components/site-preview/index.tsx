@@ -36,7 +36,19 @@ interface InspectorEvent {
 interface WebviewTag extends HTMLElement {
 	loadURL( url: string ): Promise< void >;
 	executeJavaScript( code: string, userGesture?: boolean ): Promise< unknown >;
+	insertCSS( css: string ): Promise< string >;
 }
+
+// Studio's preview pane has its own chrome (header, mode toggle); the WP
+// admin bar (`#wpadminbar`) on top of every wp-admin / logged-in front-end
+// page is visual noise here. Inject this stylesheet on every navigation —
+// the `<webview>`'s `insertCSS()` survives reloads within the same view.
+const HIDE_ADMIN_BAR_CSS = `
+	#wpadminbar { display: none !important; }
+	html { margin-top: 0 !important; }
+	html.wp-toolbar { padding-top: 0 !important; }
+	body.admin-bar { padding-top: 0 !important; }
+`;
 
 interface WebviewConsoleEvent extends Event {
 	level: number;
@@ -235,6 +247,7 @@ function WebviewSurface( {
 
 		const handleDomReady = () => {
 			setReady( true );
+			webview.insertCSS( HIDE_ADMIN_BAR_CSS ).catch( () => undefined );
 			if ( ! enableInspectorRef.current ) return;
 			webview.executeJavaScript( INSPECTOR_PAGE_SCRIPT, false ).catch( () => {
 				// Transient injection failures (e.g. frame swapped mid-eval)

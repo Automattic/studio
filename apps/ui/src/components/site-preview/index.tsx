@@ -36,44 +36,44 @@ interface InspectorEvent {
 interface WebviewTag extends HTMLElement {
 	loadURL( url: string ): Promise< void >;
 	executeJavaScript( code: string, userGesture?: boolean ): Promise< unknown >;
-	insertCSS( css: string ): Promise< string >;
+	openDevTools(): void;
 }
 
 // Studio's preview pane has its own chrome (header, mode toggle); the WP
 // admin bar (`#wpadminbar`) on top of every wp-admin / logged-in front-end
-// page is visual noise here. Inject this stylesheet on every navigation —
-// the `<webview>`'s `insertCSS()` survives reloads within the same view.
+// page is visual noise here. Run the snippet below on every dom-ready so
+// it covers both slots and survives in-webview navigation.
 //
-// WP reserves admin-bar height in three layers:
-//   1. front-end body / html (`html { margin-top: 32px }`, etc.)
-//   2. wp-admin wrappers (`#wpwrap`, `#wpcontent`, `#wpbody`,
-//      `#wpbody-content`) which add their own top padding on top of the
-//      html-level reservation
-//   3. mobile media-query overrides at <=782px and <=600px (46px instead
-//      of 32px).
-// Hit all three layers at all breakpoints with `!important` so the
-// preview is edge-to-edge regardless of which wp-admin / front-end
-// surface is rendered.
-const ADMIN_BAR_RESET_SELECTORS =
-	'html, html.wp-toolbar, body, body.admin-bar, ' + '#wpwrap, #wpcontent, #wpbody, #wpbody-content';
-const HIDE_ADMIN_BAR_CSS = `
-	#wpadminbar { display: none !important; }
-	${ ADMIN_BAR_RESET_SELECTORS } {
-		margin-top: 0 !important;
-		padding-top: 0 !important;
+// We use inline `style.setProperty(..., 'important')` rather than an
+// external stylesheet because WP / themes / wp-admin reserve admin-bar
+// space across multiple selectors (html, body, #wpwrap, #wpcontent, …)
+// and across multiple media queries (32px desktop / 46px mobile / 600px
+// breakpoints), often with `!important` themselves. Inline styles win
+// the cascade unconditionally, and a small MutationObserver re-applies
+// the fix if WP injects late content (e.g. heartbeat re-rendering the
+// admin bar after first paint).
+const HIDE_ADMIN_BAR_SCRIPT = `
+( function () {
+	var TARGET_IDS = [ 'wpwrap', 'wpcontent', 'wpbody', 'wpbody-content' ];
+	function killTopSpace( el ) {
+		if ( ! el || ! el.style || typeof el.style.setProperty !== 'function' ) return;
+		el.style.setProperty( 'margin-top', '0', 'important' );
+		el.style.setProperty( 'padding-top', '0', 'important' );
 	}
-	@media screen and (max-width: 782px) {
-		${ ADMIN_BAR_RESET_SELECTORS } {
-			margin-top: 0 !important;
-			padding-top: 0 !important;
+	function fix() {
+		var bar = document.getElementById( 'wpadminbar' );
+		if ( bar && bar.style ) bar.style.setProperty( 'display', 'none', 'important' );
+		killTopSpace( document.documentElement );
+		killTopSpace( document.body );
+		for ( var i = 0; i < TARGET_IDS.length; i++ ) {
+			killTopSpace( document.getElementById( TARGET_IDS[ i ] ) );
 		}
 	}
-	@media screen and (max-width: 600px) {
-		${ ADMIN_BAR_RESET_SELECTORS } {
-			margin-top: 0 !important;
-			padding-top: 0 !important;
-		}
+	fix();
+	if ( document.body && typeof MutationObserver === 'function' ) {
+		new MutationObserver( fix ).observe( document.body, { childList: true } );
 	}
+} )();
 `;
 
 interface WebviewConsoleEvent extends Event {
@@ -273,7 +273,7 @@ function WebviewSurface( {
 
 		const handleDomReady = () => {
 			setReady( true );
-			webview.insertCSS( HIDE_ADMIN_BAR_CSS ).catch( () => undefined );
+			webview.executeJavaScript( HIDE_ADMIN_BAR_SCRIPT, false ).catch( () => undefined );
 			if ( ! enableInspectorRef.current ) return;
 			webview.executeJavaScript( INSPECTOR_PAGE_SCRIPT, false ).catch( () => {
 				// Transient injection failures (e.g. frame swapped mid-eval)
@@ -295,11 +295,31 @@ function WebviewSurface( {
 			onAnnotationsDoneRef.current?.( parsed.annotations );
 		};
 
+		// Cmd/Ctrl+Shift+I opens the webview's own DevTools so the inner
+		// page can be inspected. Without this the iframe is opaque and
+		// debugging anything inside Studio's preview is painful.
+		const handleHostKeydown = ( event: KeyboardEvent ) => {
+			if (
+				( event.metaKey || event.ctrlKey ) &&
+				event.shiftKey &&
+				( event.key === 'I' || event.key === 'i' )
+			) {
+				event.preventDefault();
+				try {
+					webview.openDevTools();
+				} catch {
+					// Webview not yet attached or already open — both are fine.
+				}
+			}
+		};
+
 		webview.addEventListener( 'dom-ready', handleDomReady );
 		webview.addEventListener( 'console-message', handleConsoleMessage );
+		window.addEventListener( 'keydown', handleHostKeydown );
 		return () => {
 			webview.removeEventListener( 'dom-ready', handleDomReady );
 			webview.removeEventListener( 'console-message', handleConsoleMessage );
+			window.removeEventListener( 'keydown', handleHostKeydown );
 		};
 	}, [] );
 

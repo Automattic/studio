@@ -86,7 +86,6 @@ steps:
     matrix:
       setup: { platform: [], arch: [] }
       adjustments:
-        - with: { platform: mac, arch: x64 }
         - with: { platform: mac, arch: arm64 }
         - with: { platform: windows, arch: x64 }
     notify:

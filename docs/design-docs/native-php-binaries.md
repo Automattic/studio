@@ -11,13 +11,16 @@ requirements. macOS uses `scripts/php-cli.craft.yml`; Windows uses
 extension there. The script prepares `static-php-cli`, then delegates the actual
 build to `spc craft`. It writes
 `php-8.4.20-cli-macos-aarch64.tar.gz`,
-`php-8.4.20-cli-macos-x86_64.tar.gz`,
 `php-8.4.20-cli-windows-x86_64.zip`, and their `.sha256` files to
 `out/php-binaries/`.
 
 Buildkite runs this build only when `scripts/build-php-cli.mjs` or
 one of the checked-in PHP CLI craft files changed, and uploads the generated
 files as Buildkite artifacts only.
+
+SPC 2.8.5 does not support macOS cross-compilation. Buildkite only builds the
+macOS ARM64 artifact until an Intel macOS agent or fully x64 Rosetta build
+environment is available for `php-8.4.20-cli-macos-x86_64.tar.gz`.
 
 Windows builds require a Visual Studio C++ toolchain. The build script installs
 Visual Studio 2022 Build Tools when the Windows agent does not already have a

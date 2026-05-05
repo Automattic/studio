@@ -47,7 +47,7 @@
 		"cli:watch": "npm -w wp-studio run watch",
 		"app:install:bundle": "npm -w studio-app run install:bundle",
 		"compare:perf": "npm -w compare-perf run compare",
-		"lint": "eslint {apps/cli,apps/studio/src,apps/studio/e2e,apps/ui/src,tools/common,scripts}",
+		"lint": "node --max-old-space-size=8192 ./node_modules/.bin/eslint {apps/cli,apps/studio/src,apps/studio/e2e,apps/ui/src,tools/common,scripts}",
 		"typecheck": "npm run typecheck --workspaces --if-present && tsc -p scripts/tsconfig.json --noEmit",
 		"format": "npm run lint -- --fix",
 		"test": "vitest run",

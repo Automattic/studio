@@ -26,6 +26,7 @@ import { z } from 'zod';
 import { downloadFile } from '../tools/common/lib/download-file';
 import { extractZip } from '../tools/common/lib/extract-zip';
 import { isErrnoException } from '../tools/common/lib/is-errno-exception';
+import { removeMacQuarantine } from '../tools/common/lib/macos-quarantine';
 import {
 	buildPhpBinaryUrl,
 	getPhpBinaryHash,
@@ -100,6 +101,7 @@ async function main(): Promise< void > {
 
 	try {
 		if ( fs.existsSync( destPath ) ) {
+			removeMacQuarantine( destPath, args.platform );
 			console.log(
 				`PHP ${ version } binary already exists at ${ destPath }. Delete it to re-download.`
 			);
@@ -176,6 +178,7 @@ async function main(): Promise< void > {
 					fs.rmSync( extractDir, { recursive: true, force: true } );
 				}
 			}
+			removeMacQuarantine( destPath, args.platform );
 
 			const stats = fs.statSync( destPath );
 			console.log(

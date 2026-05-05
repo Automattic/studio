@@ -1,0 +1,47 @@
+diff --git a/src/SPC/util/executor/UnixCMakeExecutor.php b/src/SPC/util/executor/UnixCMakeExecutor.php
+index b7c5b60..c9a3d79 100644
+--- a/src/SPC/util/executor/UnixCMakeExecutor.php
++++ b/src/SPC/util/executor/UnixCMakeExecutor.php
+@@ -161,6 +161,10 @@ class UnixCMakeExecutor extends Executor
+         }
+         $os = PHP_OS_FAMILY;
+         $target_arch = arch2gnu(php_uname('m'));
++        $target_mac_arch = match ($target_arch) {
++            'aarch64' => 'arm64',
++            default => $target_arch,
++        };
+         $cflags = getenv('SPC_DEFAULT_C_FLAGS');
+         $cc = getenv('CC');
+         $cxx = getenv('CCX');
+@@ -198,6 +202,9 @@ set(CMAKE_EXE_LINKER_FLAGS "-ldl -lpthread -lm -lutil")
+ CMAKE;
+         // Whoops, linux may need CMAKE_AR sometimes
+         if (PHP_OS_FAMILY === 'Linux') {
+             $toolchain .= "\nSET(CMAKE_AR \"ar\")";
+         }
++        if (PHP_OS_FAMILY === 'Darwin') {
++            $toolchain .= "\nset(CMAKE_OSX_ARCHITECTURES \"{$target_mac_arch}\" CACHE STRING \"\" FORCE)";
++        }
+         FileSystem::writeFile(SOURCE_PATH . '/toolchain.cmake', $toolchain);
+         return $created = realpath(SOURCE_PATH . '/toolchain.cmake');
+     }
+diff --git a/src/SPC/util/SPCConfigUtil.php b/src/SPC/util/SPCConfigUtil.php
+index 7fc335e..0e2398d 100644
+--- a/src/SPC/util/SPCConfigUtil.php
++++ b/src/SPC/util/SPCConfigUtil.php
+@@ -84,8 +84,13 @@ class SPCConfigUtil
+             $libs .= " {$this->getFrameworksString($extensions)}";
+         }
+         if ($this->hasCpp($extensions, $libraries)) {
+-            $libcpp = SPCTarget::getTargetOS() === 'Darwin' ? '-lc++' : '-lstdc++';
+-            $libs = str_replace($libcpp, '', $libs) . " {$libcpp}";
++            $isDarwin = SPCTarget::getTargetOS() === 'Darwin';
++            $libcpp = $isDarwin ? '-lc++' : '-lstdc++';
++            $libs = str_replace($libcpp, '', $libs);
++            if ($isDarwin) {
++                $libs = str_replace('-lstdc++', '', $libs);
++            }
++            $libs .= " {$libcpp}";
+         }
+ 
+         if ($this->libs_only_deps) {

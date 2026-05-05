@@ -105,6 +105,11 @@ export const CreateSiteForm = ( {
 	const hasUserInteracted = useRef( false );
 	const hasUserEditedCredentials = useRef( false );
 
+	const shouldShowCustomDomainError = useCustomDomain && customDomainError;
+	const adminUsernameError = validateAdminUsername( adminUsername );
+	const adminPasswordError = ! adminPassword.trim() ? __( 'Admin password is required' ) : '';
+	const adminEmailError = validateAdminEmail( adminEmail );
+
 	// Sync name/path only before user interaction (allows async loading)
 	useEffect( () => {
 		if ( hasUserInteracted.current ) {
@@ -315,10 +320,6 @@ export const CreateSiteForm = ( {
 		[ onSubmit, formValues ]
 	);
 
-	const shouldShowCustomDomainError = useCustomDomain && customDomainError;
-	const adminUsernameError = validateAdminUsername( adminUsername );
-	const adminPasswordError = ! adminPassword.trim() ? __( 'Admin password is required' ) : '';
-	const adminEmailError = validateAdminEmail( adminEmail );
 	const errorCount = [
 		pathError,
 		shouldShowCustomDomainError,

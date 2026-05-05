@@ -3,15 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import {
-	useCallback,
-	useLayoutEffect,
-	useMemo,
-	useRef,
-	useState,
-	type ReactNode,
-	type Ref,
-} from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, type ReactNode, type Ref } from 'react';
 import {
 	formatAnnotationsAsPrompt,
 	formatAnnotationsSubmittedMessage,
@@ -35,6 +27,8 @@ import {
 } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import { useFullscreen } from '@/hooks/use-fullscreen';
+import { useSessionCommands } from '@/hooks/use-session-commands';
+import { SessionUIProvider, useSessionPreviewUI } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { drawerIcon } from '@/lib/icons';
 import styles from './style.module.css';
@@ -132,6 +126,14 @@ function SessionFrame( { header, composer, preview, scrollRef, children }: Sessi
 }
 
 export function SessionView( { sessionId }: { sessionId: string } ) {
+	return (
+		<SessionUIProvider>
+			<SessionViewContent sessionId={ sessionId } />
+		</SessionUIProvider>
+	);
+}
+
+function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const { data, isLoading, error } = useSession( sessionId );
 	const connector = useConnector();
 	const queryClient = useQueryClient();
@@ -192,9 +194,10 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 		[ data?.events ]
 	);
 	const scrollRef = useRef< HTMLDivElement >( null );
-	const [ previewOpen, setPreviewOpen ] = useState( false );
+	useSessionCommands( sessionId );
+	const preview = useSessionPreviewUI();
 	const canTogglePreview = !! ownerSite && effectiveEnvironment === 'local';
-	const showPreview = previewOpen && canTogglePreview;
+	const showPreview = preview.open && canTogglePreview;
 
 	const handleAnnotationsDone = useCallback(
 		( annotations: Annotation[] ) => {
@@ -253,7 +256,7 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 				<SessionHeader
 					summary={ data.summary }
 					previewOpen={ showPreview }
-					onTogglePreview={ () => setPreviewOpen( ( open ) => ! open ) }
+					onTogglePreview={ preview.toggle }
 					canTogglePreview={ canTogglePreview }
 				/>
 			}
@@ -278,7 +281,8 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 				showPreview && ownerSite ? (
 					<SitePreview
 						site={ ownerSite }
-						sessionId={ sessionId }
+						path={ preview.path }
+						reloadNonce={ preview.reloadNonce }
 						onAnnotationsDone={ handleAnnotationsDone }
 					/>
 				) : null

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 /**
  * Cache favicon URLs by site ID so we do not re-fetch on every render.
- * Stores `null` when a site has been checked but has no favicon available.
+ * Stores `null` when a site has been checked but has no valid favicon.
  */
 const faviconCache = new Map< string, string | null >();
 
@@ -12,13 +12,10 @@ const faviconCache = new Map< string, string | null >();
  * Priority order:
  *   1. `siteIcon` - a data URL already computed by the main process from the
  *      WordPress site icon set under Appearance > Customize > Site Identity.
- *      This is the highest-quality option and ships with the existing
- *      `SiteDetails` type, so we use it for free when it is present.
- *   2. `/favicon.ico` fetched from the running local server as a fallback for
- *      sites that have not configured a site icon but do have a favicon.
+ *   2. `/favicon.ico` fetched from the running local server, validated to be
+ *      an actual image content-type (not a WordPress HTML redirect).
  *
- * Returns `null` when no favicon is available (site stopped, no icon set, etc.)
- * so callers can render a placeholder instead.
+ * Returns `null` when no favicon is available so callers render a placeholder.
  */
 export function useSiteFavicon( siteId: string, site: SiteDetails ): string | null {
 	// Prefer the data URL already provided by the main process.
@@ -33,21 +30,23 @@ export function useSiteFavicon( siteId: string, site: SiteDetails ): string | nu
 
 	// eslint-disable-next-line react-hooks/rules-of-hooks
 	useEffect( () => {
-		// Only attempt to fetch if the site is currently running and we do not
-		// already have a cached result (including a cached `null` meaning
-		// "checked and nothing found").
 		if ( ! site.running || faviconCache.has( siteId ) ) {
 			return;
 		}
 
 		const url = `${ ( site as StartedSiteDetails ).url }/favicon.ico`;
-
 		let cancelled = false;
 
 		fetch( url, { method: 'HEAD' } )
 			.then( ( res ) => {
 				if ( cancelled ) return;
-				const result = res.ok ? url : null;
+
+				const contentType = res.headers.get( 'content-type' ) ?? '';
+				// WordPress returns text/html when no favicon is configured.
+				// Only treat the response as a valid favicon if it is an image.
+				const isImage = res.ok && contentType.startsWith( 'image/' );
+
+				const result = isImage ? url : null;
 				faviconCache.set( siteId, result );
 				setFaviconUrl( result );
 			} )

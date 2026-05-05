@@ -15,7 +15,7 @@ import {
 } from 'cli/ai/auth';
 import { closeSharedBrowser } from 'cli/ai/browser-utils';
 import { type AiOutputAdapter, JsonAdapter } from 'cli/ai/output-adapter';
-import { AI_PROVIDERS, type AiProviderId } from 'cli/ai/providers';
+import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
 import { resolveResumeSessionContext } from 'cli/ai/sessions/context';
 import { getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
 import { AiSessionRecorder } from 'cli/ai/sessions/recorder';
@@ -244,6 +244,16 @@ export async function runCommand( options: {
 		currentProvider = provider;
 		ui.currentProvider = currentProvider;
 		sessionId = undefined;
+
+		// Auto-correct model when the provider change leaves it unsupported
+		// (e.g. switching from wpcom → anthropic-api-key while a GPT model is
+		// selected). Fall back to the provider's default.
+		const definition = getAiProviderDefinition( currentProvider );
+		if ( ! definition.supportsModel( currentModel ) ) {
+			currentModel = definition.defaultModel;
+			ui.currentModel = currentModel;
+		}
+
 		await saveSelectedAiProvider( currentProvider );
 		await persistSessionContext();
 		if ( announce ) {
@@ -471,6 +481,7 @@ export async function runCommand( options: {
 			activeSite: site,
 			wpcomAccessToken,
 			onAskUser: ( questions ) => askUserAndPersistAnswers( questions ),
+			sessionFilePath: recorder?.filePath,
 		} );
 
 		let interruptRequested = false;

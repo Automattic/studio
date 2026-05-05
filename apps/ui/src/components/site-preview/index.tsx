@@ -1,8 +1,8 @@
 import { __ } from '@wordpress/i18n';
-import { external } from '@wordpress/icons';
+import { code, external } from '@wordpress/icons';
 import { Button, IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useEffect, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { useConnector } from '@/data/core';
 import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
@@ -59,6 +59,11 @@ const HIDE_ADMIN_BAR_CSS = `
 		margin-top: 0 !important;
 		padding-top: 0 !important;
 		border-top-width: 0 !important;
+		/* @wordpress/boot uses absolute positioning with top:46px (admin
+		   bar mobile height) on these slots — zero the offset and let
+		   the slot fill its container. */
+		top: 0 !important;
+		height: 100% !important;
 	}
 	@media screen and (max-width: 782px) {
 		html.wp-toolbar,
@@ -68,6 +73,8 @@ const HIDE_ADMIN_BAR_CSS = `
 		html .boot-layout--single-page .boot-layout__inspector {
 			margin-top: 0 !important;
 			padding-top: 0 !important;
+			top: 0 !important;
+			height: 100% !important;
 		}
 	}
 `;
@@ -101,9 +108,31 @@ const HIDE_ADMIN_BAR_SCRIPT = `
 		el.style.setProperty( 'padding-top', '0', 'important' );
 		el.style.setProperty( 'border-top-width', '0', 'important' );
 	}
+	function killTopOffset( el ) {
+		// For positioned elements (position: absolute/fixed/relative) where
+		// the gap comes from a non-zero \`top\` rather than box-model spacing.
+		// e.g. @wordpress/boot's .boot-layout__stage uses top:46px to leave
+		// room for the (now hidden) admin bar.
+		if ( ! el || ! el.style || typeof el.style.setProperty !== 'function' ) return;
+		var cs = getComputedStyle( el );
+		if ( cs.position === 'static' ) return;
+		var topPx = parseFloat( cs.top || '0' );
+		if ( ! Number.isFinite( topPx ) || topPx <= 0 ) return;
+		el.style.setProperty( 'top', '0', 'important' );
+		el.style.setProperty( 'height', '100%', 'important' );
+		console.log(
+			'[studio-preview] zeroing positioning top on ' + el.tagName +
+			( el.id ? '#' + el.id : '' ) +
+			( el.className ? '.' + String( el.className ).split( ' ' ).join( '.' ) : '' ) +
+			' (was top:' + topPx + 'px)'
+		);
+	}
 	function killAll( nodeList ) {
 		if ( ! nodeList ) return;
-		for ( var j = 0; j < nodeList.length; j++ ) killTopSpace( nodeList[ j ] );
+		for ( var j = 0; j < nodeList.length; j++ ) {
+			killTopSpace( nodeList[ j ] );
+			killTopOffset( nodeList[ j ] );
+		}
 	}
 	function nukeTopSpaceWalk() {
 		// Walk the leftmost-deepest path from body and zero any element that
@@ -177,6 +206,10 @@ const isElectron = (): boolean => {
 	return /\bElectron\//.test( navigator.userAgent );
 };
 
+export interface WebviewSurfaceHandle {
+	openDevTools: () => void;
+}
+
 export function SitePreview( { site, onAnnotationsDone }: SitePreviewProps ) {
 	const connector = useConnector();
 	const startSite = useStartSite();
@@ -187,6 +220,13 @@ export function SitePreview( { site, onAnnotationsDone }: SitePreviewProps ) {
 	const hasPanel = !! panelSlot;
 	const activeSlot = mode === 'panel' && panelSlot ? panelSlot : siteSlot;
 	const fullUrl = `${ siteUrl }${ activeSlot.path }`;
+
+	const siteSurfaceRef = useRef< WebviewSurfaceHandle | null >( null );
+	const panelSurfaceRef = useRef< WebviewSurfaceHandle | null >( null );
+	const handleInspect = () => {
+		const target = mode === 'panel' ? panelSurfaceRef.current : siteSurfaceRef.current;
+		target?.openDevTools();
+	};
 
 	const previewResize = useResizablePanel( {
 		config: PREVIEW_PANEL_CONFIG,
@@ -241,6 +281,15 @@ export function SitePreview( { site, onAnnotationsDone }: SitePreviewProps ) {
 					variant="minimal"
 					tone="neutral"
 					size="small"
+					icon={ code }
+					label={ __( 'Inspect (open DevTools)' ) }
+					disabled={ ! canPreview }
+					onClick={ handleInspect }
+				/>
+				<IconButton
+					variant="minimal"
+					tone="neutral"
+					size="small"
 					icon={ external }
 					label={ __( 'Open site in browser' ) }
 					disabled={ ! canPreview }
@@ -257,6 +306,7 @@ export function SitePreview( { site, onAnnotationsDone }: SitePreviewProps ) {
 							     navigation through `/studio-auto-login` each time. */ }
 							<WebviewSurface
 								key={ `${ site.id }/site` }
+								ref={ siteSurfaceRef }
 								url={ `${ siteUrl }${ siteSlot.path }` }
 								reloadNonce={ siteSlot.reloadNonce }
 								onAnnotationsDone={ onAnnotationsDone }
@@ -266,6 +316,7 @@ export function SitePreview( { site, onAnnotationsDone }: SitePreviewProps ) {
 							{ panelSlot ? (
 								<WebviewSurface
 									key={ `${ site.id }/panel` }
+									ref={ panelSurfaceRef }
 									url={ `${ siteUrl }${ panelSlot.path }` }
 									reloadNonce={ panelSlot.reloadNonce }
 									enableInspector={ false }
@@ -327,116 +378,130 @@ interface WebviewSurfaceProps {
  * inspector script is skipped — those pages are agent-rendered UI, not the
  * site content the inspector is designed to annotate.
  */
-function WebviewSurface( {
-	url,
-	reloadNonce,
-	onAnnotationsDone,
-	enableInspector = true,
-	hidden = false,
-}: WebviewSurfaceProps ) {
-	const ref = useRef< HTMLElement | null >( null );
-	const [ ready, setReady ] = useState( false );
-	const onAnnotationsDoneRef = useRef( onAnnotationsDone );
-	useEffect( () => {
-		onAnnotationsDoneRef.current = onAnnotationsDone;
-	}, [ onAnnotationsDone ] );
-	const enableInspectorRef = useRef( enableInspector );
-	useEffect( () => {
-		enableInspectorRef.current = enableInspector;
-	}, [ enableInspector ] );
+const WebviewSurface = forwardRef< WebviewSurfaceHandle, WebviewSurfaceProps >(
+	function WebviewSurface(
+		{ url, reloadNonce, onAnnotationsDone, enableInspector = true, hidden = false },
+		handleRef
+	) {
+		const ref = useRef< HTMLElement | null >( null );
+		const [ ready, setReady ] = useState( false );
 
-	// The initial url+nonce are loaded by the `src` attribute on the
-	// `<webview>` itself; calling `loadURL` before `dom-ready` throws
-	// "WebView must be attached to the DOM and the dom-ready event emitted".
-	// We capture the mount-time values once and skip the navigation effect
-	// while it still matches them.
-	const [ initialNav ] = useState( () => ( { url, reloadNonce } ) );
+		useImperativeHandle(
+			handleRef,
+			() => ( {
+				openDevTools: () => {
+					const webview = ref.current as WebviewTag | null;
+					try {
+						webview?.openDevTools();
+					} catch {
+						// Webview not yet attached or already open — both are fine.
+					}
+				},
+			} ),
+			[]
+		);
+		const onAnnotationsDoneRef = useRef( onAnnotationsDone );
+		useEffect( () => {
+			onAnnotationsDoneRef.current = onAnnotationsDone;
+		}, [ onAnnotationsDone ] );
+		const enableInspectorRef = useRef( enableInspector );
+		useEffect( () => {
+			enableInspectorRef.current = enableInspector;
+		}, [ enableInspector ] );
 
-	// Wire DOM events on the underlying custom element. We use refs + native
-	// event listeners because React doesn't recognise `<webview>`'s
-	// non-standard events (`dom-ready`, `console-message`).
-	useEffect( () => {
-		const webview = ref.current as WebviewTag | null;
-		if ( ! webview ) return;
+		// The initial url+nonce are loaded by the `src` attribute on the
+		// `<webview>` itself; calling `loadURL` before `dom-ready` throws
+		// "WebView must be attached to the DOM and the dom-ready event emitted".
+		// We capture the mount-time values once and skip the navigation effect
+		// while it still matches them.
+		const [ initialNav ] = useState( () => ( { url, reloadNonce } ) );
 
-		const handleDomReady = () => {
-			setReady( true );
-			webview.insertCSS( HIDE_ADMIN_BAR_CSS ).catch( () => undefined );
-			webview.executeJavaScript( HIDE_ADMIN_BAR_SCRIPT, false ).catch( () => undefined );
-			if ( ! enableInspectorRef.current ) return;
-			webview.executeJavaScript( INSPECTOR_PAGE_SCRIPT, false ).catch( () => {
-				// Transient injection failures (e.g. frame swapped mid-eval)
-				// are recoverable on the next dom-ready.
-			} );
-		};
+		// Wire DOM events on the underlying custom element. We use refs + native
+		// event listeners because React doesn't recognise `<webview>`'s
+		// non-standard events (`dom-ready`, `console-message`).
+		useEffect( () => {
+			const webview = ref.current as WebviewTag | null;
+			if ( ! webview ) return;
 
-		const handleConsoleMessage = ( event: Event ) => {
-			const consoleEvent = event as WebviewConsoleEvent;
-			if ( typeof consoleEvent.message !== 'string' ) return;
-			if ( ! consoleEvent.message.startsWith( INSPECTOR_BRIDGE_PREFIX ) ) return;
-			let parsed: InspectorEvent | null = null;
-			try {
-				parsed = JSON.parse( consoleEvent.message.slice( INSPECTOR_BRIDGE_PREFIX.length ) );
-			} catch {
-				return;
-			}
-			if ( ! parsed || parsed.type !== 'done' || ! parsed.annotations ) return;
-			onAnnotationsDoneRef.current?.( parsed.annotations );
-		};
+			const handleDomReady = () => {
+				setReady( true );
+				webview.insertCSS( HIDE_ADMIN_BAR_CSS ).catch( () => undefined );
+				webview.executeJavaScript( HIDE_ADMIN_BAR_SCRIPT, false ).catch( () => undefined );
+				if ( ! enableInspectorRef.current ) return;
+				webview.executeJavaScript( INSPECTOR_PAGE_SCRIPT, false ).catch( () => {
+					// Transient injection failures (e.g. frame swapped mid-eval)
+					// are recoverable on the next dom-ready.
+				} );
+			};
 
-		// Cmd/Ctrl+Shift+I opens the webview's own DevTools so the inner
-		// page can be inspected. Without this the iframe is opaque and
-		// debugging anything inside Studio's preview is painful.
-		const handleHostKeydown = ( event: KeyboardEvent ) => {
-			if (
-				( event.metaKey || event.ctrlKey ) &&
-				event.shiftKey &&
-				( event.key === 'I' || event.key === 'i' )
-			) {
-				event.preventDefault();
+			const handleConsoleMessage = ( event: Event ) => {
+				const consoleEvent = event as WebviewConsoleEvent;
+				if ( typeof consoleEvent.message !== 'string' ) return;
+				if ( ! consoleEvent.message.startsWith( INSPECTOR_BRIDGE_PREFIX ) ) return;
+				let parsed: InspectorEvent | null = null;
 				try {
-					webview.openDevTools();
+					parsed = JSON.parse( consoleEvent.message.slice( INSPECTOR_BRIDGE_PREFIX.length ) );
 				} catch {
-					// Webview not yet attached or already open — both are fine.
+					return;
 				}
-			}
-		};
+				if ( ! parsed || parsed.type !== 'done' || ! parsed.annotations ) return;
+				onAnnotationsDoneRef.current?.( parsed.annotations );
+			};
 
-		webview.addEventListener( 'dom-ready', handleDomReady );
-		webview.addEventListener( 'console-message', handleConsoleMessage );
-		window.addEventListener( 'keydown', handleHostKeydown );
-		return () => {
-			webview.removeEventListener( 'dom-ready', handleDomReady );
-			webview.removeEventListener( 'console-message', handleConsoleMessage );
-			window.removeEventListener( 'keydown', handleHostKeydown );
-		};
-	}, [] );
+			// Cmd/Ctrl+Shift+I opens the webview's own DevTools so the inner
+			// page can be inspected. Without this the iframe is opaque and
+			// debugging anything inside Studio's preview is painful.
+			const handleHostKeydown = ( event: KeyboardEvent ) => {
+				if (
+					( event.metaKey || event.ctrlKey ) &&
+					event.shiftKey &&
+					( event.key === 'I' || event.key === 'i' )
+				) {
+					event.preventDefault();
+					try {
+						webview.openDevTools();
+					} catch {
+						// Webview not yet attached or already open — both are fine.
+					}
+				}
+			};
 
-	// Navigation effect — gated on `ready` so the first call happens after
-	// `dom-ready`. If url/nonce changed while loading, the latest values are
-	// flushed when `ready` flips to true.
-	useEffect( () => {
-		if ( ! ready ) return;
-		if ( url === initialNav.url && reloadNonce === initialNav.reloadNonce ) return;
-		const webview = ref.current as WebviewTag | null;
-		if ( ! webview ) return;
-		webview.loadURL( url ).catch( () => undefined );
-	}, [ url, reloadNonce, ready, initialNav.url, initialNav.reloadNonce ] );
+			webview.addEventListener( 'dom-ready', handleDomReady );
+			webview.addEventListener( 'console-message', handleConsoleMessage );
+			window.addEventListener( 'keydown', handleHostKeydown );
+			return () => {
+				webview.removeEventListener( 'dom-ready', handleDomReady );
+				webview.removeEventListener( 'console-message', handleConsoleMessage );
+				window.removeEventListener( 'keydown', handleHostKeydown );
+			};
+		}, [] );
 
-	return (
-		<div className={ clsx( styles.webviewSlot, hidden && styles.webviewSlotHidden ) }>
-			<webview
-				ref={ ref }
-				src={ initialNav.url }
-				className={ styles.iframe }
-				allowpopups="true"
-				partition="persist:site-preview"
-			/>
-			{ ! ready ? (
-				<div className={ styles.spinnerOverlay } aria-hidden="true">
-					<span className={ styles.spinner } />
-				</div>
-			) : null }
-		</div>
-	);
-}
+		// Navigation effect — gated on `ready` so the first call happens after
+		// `dom-ready`. If url/nonce changed while loading, the latest values are
+		// flushed when `ready` flips to true.
+		useEffect( () => {
+			if ( ! ready ) return;
+			if ( url === initialNav.url && reloadNonce === initialNav.reloadNonce ) return;
+			const webview = ref.current as WebviewTag | null;
+			if ( ! webview ) return;
+			webview.loadURL( url ).catch( () => undefined );
+		}, [ url, reloadNonce, ready, initialNav.url, initialNav.reloadNonce ] );
+
+		return (
+			<div className={ clsx( styles.webviewSlot, hidden && styles.webviewSlotHidden ) }>
+				<webview
+					ref={ ref }
+					src={ initialNav.url }
+					className={ styles.iframe }
+					allowpopups="true"
+					partition="persist:site-preview"
+				/>
+				{ ! ready ? (
+					<div className={ styles.spinnerOverlay } aria-hidden="true">
+						<span className={ styles.spinner } />
+					</div>
+				) : null }
+			</div>
+		);
+	}
+);

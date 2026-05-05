@@ -409,6 +409,9 @@ export class AiChatUI implements AiOutputAdapter {
 	private _inAgentTurn = false;
 	private _activeSiteData: SiteData | null = null;
 	private siteSelectedCallback: ( ( site: SiteInfo ) => void ) | null = null;
+	// `@`-mention fallback when no local site is active.
+	private readonly initialCwd = process.cwd();
+	private autocompleteBasePath: string | null = null;
 	private replayMode = false;
 	private replayTimestampMs: number | null = null;
 	private pendingToolCalls = new Map<
@@ -452,10 +455,27 @@ export class AiChatUI implements AiOutputAdapter {
 	set activeSite( site: SiteInfo | null ) {
 		this._activeSite = site;
 		this.editor.activeSiteName = site?.name ?? null;
+		this.updateAutocompleteBasePath();
 	}
 
 	private refreshPromptChrome(): void {
 		this.editor.invalidate();
+	}
+
+	// pi-tui's `CombinedAutocompleteProvider` accepts its basePath only at
+	// construction, so a scope change requires a fresh provider. Remote sites
+	// have no local files to complete against, so they fall through to the
+	// launch cwd.
+	private updateAutocompleteBasePath(): void {
+		const basePath =
+			this._activeSite && ! this._activeSite.remote ? this._activeSite.path : this.initialCwd;
+		if ( basePath === this.autocompleteBasePath ) {
+			return;
+		}
+		this.autocompleteBasePath = basePath;
+		this.editor.setAutocompleteProvider(
+			new CombinedAutocompleteProvider( AI_CHAT_SLASH_COMMANDS, basePath )
+		);
 	}
 
 	set onSiteSelected( fn: ( ( site: SiteInfo ) => void ) | null ) {
@@ -566,9 +586,7 @@ export class AiChatUI implements AiOutputAdapter {
 
 		this.editor = new PromptEditor( this.tui, editorTheme );
 
-		this.editor.setAutocompleteProvider(
-			new CombinedAutocompleteProvider( AI_CHAT_SLASH_COMMANDS, process.cwd() )
-		);
+		this.updateAutocompleteBasePath();
 
 		this.editor.onSubmit = ( text ) => {
 			const trimmed = text.trim();
@@ -910,8 +928,7 @@ export class AiChatUI implements AiOutputAdapter {
 
 	setActiveSite( site: SiteInfo, options: { announce?: boolean; emitEvent?: boolean } = {} ): void {
 		const { announce = true, emitEvent = true } = options;
-		this._activeSite = site;
-		this.editor.activeSiteName = site.name;
+		this.activeSite = site;
 		this.refreshPromptChrome();
 		const label = site.remote
 			? sprintf(
@@ -934,9 +951,8 @@ export class AiChatUI implements AiOutputAdapter {
 	}
 
 	private clearActiveSite(): void {
-		this._activeSite = null;
+		this.activeSite = null;
 		this._activeSiteData = null;
-		this.editor.activeSiteName = null;
 		this.refreshPromptChrome();
 		this.messages.addChild( new Text( chalk.dim( __( ' ✻ Site deselected' ) ) + '\n', 0, 0 ) );
 		this.tui.requestRender();

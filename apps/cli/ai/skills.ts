@@ -5,10 +5,6 @@ export interface Skill {
 	name: string;
 	description: string;
 	body: string;
-	// `user-invokable: true` in frontmatter marks a skill the user can trigger
-	// via a `/<name>` slash command. The Skill tool whitelists these so the
-	// LLM can satisfy the schema when the dispatcher asks it to load them.
-	userInvokable: boolean;
 }
 
 function parseSkillFile( filePath: string ): Skill | null {
@@ -19,10 +15,9 @@ function parseSkillFile( filePath: string ): Skill | null {
 
 	const name = frontmatter.match( /^name:\s*(.+)$/m )?.[ 1 ]?.trim();
 	const description = frontmatter.match( /^description:\s*(.+)$/m )?.[ 1 ]?.trim();
-	const userInvokable = /^user-invokable:\s*true\s*$/m.test( frontmatter );
 	if ( ! name || ! description ) return null;
 
-	return { name, description, body: body.trim(), userInvokable };
+	return { name, description, body: body.trim() };
 }
 
 let cachedSkills: Skill[] | null = null;

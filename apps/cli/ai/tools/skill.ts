@@ -1,22 +1,13 @@
 import { Type } from 'typebox';
-import { findSkill, loadSkills, type Skill } from 'cli/ai/skills';
+import { findSkill, loadSkills } from 'cli/ai/skills';
 import { defineTool } from './define-tool';
 import type { AgentTool } from '@mariozechner/pi-agent-core';
 import type { TSchema } from 'typebox';
 
-// Expose every skill the user can trigger via `/<name>` plus `site-spec`,
-// which the model loads autonomously at the start of a site build. Other
-// skills stay hidden so the model doesn't reach for them unprompted.
-function getVisibleSkills(): Skill[] {
-	return loadSkills().filter(
-		( skill ) => skill.userInvokable || skill.name === 'site-spec'
-	);
-}
-
-// Returns `null` when no visible skills are discovered so the caller skips
+// Returns `null` when no skills are discovered so the caller skips
 // registering the tool entirely.
 export function createSkillTool(): AgentTool< TSchema > | null {
-	const skills = getVisibleSkills();
+	const skills = loadSkills();
 	if ( skills.length === 0 ) return null;
 
 	const skillIndex = skills.map( ( s ) => `- ${ s.name }: ${ s.description }` ).join( '\n' );

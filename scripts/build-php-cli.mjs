@@ -6,17 +6,23 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const repoRoot = path.resolve( path.dirname( fileURLToPath( import.meta.url ) ), '..' );
+const [
+	targetPlatform = process.env.PHP_CLI_PLATFORM ||
+		process.env.PHP_CLI_NODE_PLATFORM ||
+		process.platform,
+	targetArch = process.env.PHP_CLI_ARCH || process.env.PHP_CLI_NODE_ARCH || process.arch,
+] = process.argv.slice( 2 );
+const nodePlatform = buildkitePlatformToNode( targetPlatform );
+const nodeArch = normalizeArch( targetArch );
 
 const config = {
-	nodePlatform: process.env.PHP_CLI_NODE_PLATFORM || process.platform,
-	nodeArch: process.env.PHP_CLI_NODE_ARCH || process.arch,
-	artifactPlatform: process.env.PHP_CLI_ARTIFACT_PLATFORM || platformToArtifact( process.platform ),
-	artifactArch: process.env.PHP_CLI_ARTIFACT_ARCH || archToArtifact( process.arch ),
-	archiveExt:
-		process.env.PHP_CLI_ARCHIVE_EXT || ( process.platform === 'win32' ? 'zip' : 'tar.gz' ),
-	binaryName:
-		process.env.PHP_CLI_BINARY_NAME || ( process.platform === 'win32' ? 'php.exe' : 'php' ),
-	spcPkgOs: process.env.PHP_CLI_SPC_PKG_OS || spcPackageOs( process.platform ),
+	nodePlatform,
+	nodeArch,
+	artifactPlatform: process.env.PHP_CLI_ARTIFACT_PLATFORM || platformToArtifact( nodePlatform ),
+	artifactArch: process.env.PHP_CLI_ARTIFACT_ARCH || archToArtifact( nodeArch ),
+	archiveExt: process.env.PHP_CLI_ARCHIVE_EXT || ( nodePlatform === 'win32' ? 'zip' : 'tar.gz' ),
+	binaryName: process.env.PHP_CLI_BINARY_NAME || ( nodePlatform === 'win32' ? 'php.exe' : 'php' ),
+	spcPkgOs: process.env.PHP_CLI_SPC_PKG_OS || spcPackageOs( nodePlatform ),
 	spcTag: process.env.SPC_TAG || '2.8.5',
 	spcDir: path.resolve( process.env.SPC_DIR || path.join( repoRoot, '.cache', 'static-php-cli' ) ),
 	outputDir: path.resolve( process.env.OUTPUT_DIR || path.join( repoRoot, 'out', 'php-binaries' ) ),
@@ -243,9 +249,28 @@ function archToArtifact( arch ) {
 }
 
 function platformToArtifact( platform ) {
-	return platform === 'darwin' ? 'macos' : platform;
+	return (
+		{
+			darwin: 'macos',
+			win32: 'windows',
+		}[ platform ] || platform
+	);
 }
 
 function spcPackageOs( platform ) {
-	return platform === 'darwin' ? 'darwin' : platform;
+	return (
+		{
+			darwin: 'darwin',
+			win32: 'windows',
+		}[ platform ] || platform
+	);
+}
+
+function buildkitePlatformToNode( platform ) {
+	return (
+		{
+			mac: 'darwin',
+			windows: 'win32',
+		}[ platform ] || platform
+	);
 }

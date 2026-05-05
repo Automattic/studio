@@ -71,19 +71,11 @@ steps:
       - github_commit_status:
           context: Performance Metrics
 
-  - label: ":elephant: PHP CLI {{matrix.artifact_platform}} {{matrix.artifact_arch}} Build"
+  - label: ":elephant: PHP CLI {{matrix.platform}}-{{matrix.arch}} Build"
     key: php-cli-binaries
     agents:
-      queue: "{{matrix.agent_queue}}"
-    command: npm run php-cli:build
-    env:
-      PHP_CLI_NODE_PLATFORM: "{{matrix.node_platform}}"
-      PHP_CLI_NODE_ARCH: "{{matrix.node_arch}}"
-      PHP_CLI_ARTIFACT_PLATFORM: "{{matrix.artifact_platform}}"
-      PHP_CLI_ARTIFACT_ARCH: "{{matrix.artifact_arch}}"
-      PHP_CLI_ARCHIVE_EXT: "{{matrix.archive_ext}}"
-      PHP_CLI_BINARY_NAME: "{{matrix.binary_name}}"
-      PHP_CLI_SPC_PKG_OS: "{{matrix.spc_pkg_os}}"
+      queue: "{{matrix.platform}}"
+    command: npm run php-cli:build -- "{{matrix.platform}}" "{{matrix.arch}}"
     artifact_paths:
       - out/php-binaries/*
     plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
@@ -91,25 +83,9 @@ steps:
       - scripts/build-php-cli.mjs
       - scripts/php-cli.craft.yml
     matrix:
-      setup:
-        node_platform: []
-        node_arch: []
-        artifact_platform: []
-        artifact_arch: []
-        archive_ext: []
-        binary_name: []
-        spc_pkg_os: []
-        agent_queue: []
+      setup: { platform: [], arch: [] }
       adjustments:
-        - with:
-            node_platform: darwin
-            node_arch: arm64
-            artifact_platform: macos
-            artifact_arch: aarch64
-            archive_ext: tar.gz
-            binary_name: php
-            spc_pkg_os: darwin
-            agent_queue: mac
+        - with: { platform: mac, arch: arm64 }
     notify:
       - github_commit_status:
           context: PHP CLI macOS arm64 Build

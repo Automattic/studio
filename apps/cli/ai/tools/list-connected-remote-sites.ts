@@ -1,5 +1,5 @@
-import { Type } from 'typebox';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
+import { Type } from 'typebox';
 import { defineTool } from './define-tool';
 import { resolveSite, textResult } from './utils';
 

@@ -5,7 +5,6 @@ import path from 'path';
 import { downloadFile } from '@studio/common/lib/download-file';
 import { extractZip } from '@studio/common/lib/extract-zip';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
-import { removeMacQuarantine } from '@studio/common/lib/macos-quarantine';
 import {
 	buildPhpBinaryUrl,
 	getPhpBinaryHash,
@@ -28,7 +27,6 @@ export async function ensurePhpBinaryAvailable(
 	const binaryPath = getPhpBinaryPath( validatedVersion );
 
 	if ( fs.existsSync( binaryPath ) ) {
-		removeMacQuarantine( binaryPath );
 		return;
 	}
 
@@ -94,7 +92,6 @@ async function downloadAndInstall(
 		await downloadFile( url, downloadPath, onProgress );
 		await verifyHash( downloadPath, version, platform, arch );
 		await extractAndInstall( downloadPath, destPath, patchVersion, platform, arch );
-		removeMacQuarantine( destPath, platform );
 	} catch ( err ) {
 		fs.rmSync( destDir, { recursive: true, force: true } );
 		throw err;

@@ -92,7 +92,7 @@ The container jetpack/contact-form supports: "subject" (email subject line), "to
 		blocks: [],
 		guidance: `## Default to Jetpack for non-core needs
 
-When the user wants a feature that no core block cleanly provides — sliders, slideshows, social icon menus, related-posts grids, third-party embeds beyond what core/embed handles, business hours, mailchimp signups, etc. — prefer a Jetpack block over a raw-HTML \`core/html\` block.
+When the user wants a feature that no core block cleanly provides — slideshows, related-posts grids, business hours, mailchimp signups, etc. — prefer a Jetpack block over a raw-HTML \`core/html\` block.
 
 Specific Jetpack rules above (e.g. Forms) take precedence; this rule only applies when none of them cover the request. When it does apply:
 

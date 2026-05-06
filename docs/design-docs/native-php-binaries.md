@@ -1,9 +1,5 @@
 # Native PHP Binaries
 
-Studio currently downloads native PHP binaries on demand from the upstream
-static-php-cli CDN. Custom Studio-built binaries are not bundled in the repo or
-uploaded by PR CI.
-
 Use the manual `Build PHP CLI Binaries` GitHub Actions workflow to build Studio
 PHP CLI artifacts. The workflow checks out `crazywhalecc/static-php-cli`, pins
 the requested SPC ref, passes Studio's extension list directly to `spc download`
@@ -18,9 +14,11 @@ The manual workflow currently builds:
 Windows ARM64 Studio builds use the Windows x64 PHP binary under Windows 11
 emulation. Native Windows ARM64 PHP binaries are not built.
 
-Do not patch `static-php-cli` by default. If the upstream build fails, use the
-workflow logs to add the smallest targeted patch and document the exact upstream
-failure that requires it.
+The `.sha256` sidecars are used to verify downloaded artifacts. When these
+artifacts are published to the Apps CDN, copy those checksums into
+`tools/common/lib/php-binary-metadata.ts`.
+Before publishing macOS artifacts, sign and notarize the `php` binary with the
+existing Studio Developer ID setup.
 
 Regular Studio app builds upload to the Apps CDN through `fastlane/Fastfile`:
 `upload_file_to_apps_cdn` wraps `upload_build_to_apps_cdn` from

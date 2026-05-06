@@ -1,9 +1,6 @@
 name: Build PHP CLI Binaries
 
 on:
-  pull_request:
-    paths:
-      - .github/workflows/build-php-cli-binaries.yml
   workflow_dispatch:
     inputs:
       php_version:
@@ -46,21 +43,22 @@ jobs:
             artifact_arch: aarch64
             archive_extension: tar.gz
             binary_name: php
-            extensions: apcu,bcmath,calendar,ctype,curl,dba,dom,exif,fileinfo,filter,ftp,gd,gettext,iconv,igbinary,imagick,intl,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pcntl,pdo,pdo_mysql,pdo_sqlite,phar,posix,readline,redis,session,shmop,simplexml,sockets,sodium,sqlite3,ssh2,tokenizer,xml,xmlreader,xmlwriter,xsl,yaml,zip,zlib
+            extensions: &macos_php_extensions apcu,bcmath,calendar,ctype,curl,dba,dom,exif,fileinfo,filter,ftp,gd,gettext,iconv,igbinary,imagick,intl,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pcntl,pdo,pdo_mysql,pdo_sqlite,phar,posix,readline,redis,session,shmop,simplexml,sockets,sodium,sqlite3,ssh2,tokenizer,xml,xmlreader,xmlwriter,xsl,yaml,zip,zlib
           - target: macos-x86_64
             runner: macos-15-intel
             artifact_platform: macos
             artifact_arch: x86_64
             archive_extension: tar.gz
             binary_name: php
-            extensions: apcu,bcmath,calendar,ctype,curl,dba,dom,exif,fileinfo,filter,ftp,gd,gettext,iconv,igbinary,imagick,intl,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pcntl,pdo,pdo_mysql,pdo_sqlite,phar,posix,readline,redis,session,shmop,simplexml,sockets,sodium,sqlite3,ssh2,tokenizer,xml,xmlreader,xmlwriter,xsl,yaml,zip,zlib
+            extensions: *macos_php_extensions
           - target: windows-x86_64
             runner: windows-latest
             artifact_platform: windows
             artifact_arch: x86_64
             archive_extension: zip
             binary_name: php.exe
-            extensions: apcu,bcmath,calendar,ctype,curl,dba,dom,exif,fileinfo,filter,ftp,gd,iconv,igbinary,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pdo,pdo_mysql,pdo_sqlite,phar,redis,session,shmop,simplexml,sockets,sqlite3,ssh2,tokenizer,xml,xmlreader,xmlwriter,yaml,zip,zlib
+            # static-php-cli 2.8.5 has Windows builders for intl and sodium, but not gettext/libxslt.
+            extensions: apcu,bcmath,calendar,ctype,curl,dba,dom,exif,fileinfo,filter,ftp,gd,iconv,igbinary,intl,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pdo,pdo_mysql,pdo_sqlite,phar,redis,session,shmop,simplexml,sockets,sodium,sqlite3,ssh2,tokenizer,xml,xmlreader,xmlwriter,yaml,zip,zlib
     env:
       PHP_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.php_version || '8.4.20' }}
       SPC_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.spc_ref || '2.8.5' }}
@@ -74,10 +72,10 @@ jobs:
 
     steps:
       - name: Checkout Studio
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Checkout static-php-cli
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: crazywhalecc/static-php-cli
           ref: ${{ env.SPC_REF }}

@@ -307,6 +307,26 @@ export function stopPullPoller( stateId: string ) {
 	PULL_POLLERS.delete( stateId );
 }
 
+// Aborts every in-flight push/pull (pollers, push upload abort callbacks, and
+// the corresponding main-process operations) without dispatching any state
+// updates. Use from the userLoggedOut listener; rely on the slice's
+// addCase(userLoggedOut) for state cleanup.
+export function abortAllSyncOperations() {
+	const operationIds = new Set< string >( [
+		...PUSH_POLLERS.keys(),
+		...PULL_POLLERS.keys(),
+		...PUSH_SITE_ABORT_CALLBACKS.keys(),
+	] );
+
+	for ( const operationId of operationIds ) {
+		stopPushPoller( operationId );
+		stopPullPoller( operationId );
+		PUSH_SITE_ABORT_CALLBACKS.get( operationId )?.();
+		getIpcApi().cancelSyncOperation( operationId );
+	}
+	PUSH_SITE_ABORT_CALLBACKS.clear();
+}
+
 const PUSH_POLLING_KEYS = [ 'creatingRemoteBackup', 'applyingChanges', 'finishing' ];
 const SYNC_POLLING_INTERVAL = 3000;
 
@@ -416,61 +436,46 @@ const createTypedAsyncThunk = createAsyncThunk.withTypes< {
 type CancelOperationPayload = {
 	selectedSiteId: string;
 	remoteSiteId: number;
-	displayNotification?: boolean;
 };
 
 const cancelPushThunk = createTypedAsyncThunk(
 	'syncOperations/cancelPush',
-	async (
-		{ selectedSiteId, remoteSiteId, displayNotification = true }: CancelOperationPayload,
-		{ dispatch }
-	) => {
+	async ( { selectedSiteId, remoteSiteId }: CancelOperationPayload, { dispatch } ) => {
 		const operationId = generateStateId( selectedSiteId, remoteSiteId );
-		const abortCallback = PUSH_SITE_ABORT_CALLBACKS.get( operationId );
 
 		stopPushPoller( operationId );
-		abortCallback?.();
+		PUSH_SITE_ABORT_CALLBACKS.get( operationId )?.();
 		getIpcApi().cancelSyncOperation( operationId );
 
-		// Treat `displayNotification: false` as a "silent cancel" (e.g. logout cleanup):
-		// abort the underlying operation but avoid creating a persisted "cancelled" UI state.
-		if ( displayNotification ) {
-			dispatch(
-				syncOperationsActions.updatePushState( {
-					selectedSiteId,
-					remoteSiteId,
-					state: { status: getPushStatesProgressInfo().cancelled },
-				} )
-			);
+		dispatch(
+			syncOperationsActions.updatePushState( {
+				selectedSiteId,
+				remoteSiteId,
+				state: { status: getPushStatesProgressInfo().cancelled },
+			} )
+		);
 
-			getIpcApi().showNotification( {
-				title: __( 'Push cancelled' ),
-				body: __( 'The push operation has been cancelled.' ),
-			} );
-		}
+		getIpcApi().showNotification( {
+			title: __( 'Push cancelled' ),
+			body: __( 'The push operation has been cancelled.' ),
+		} );
 	}
 );
 
 const cancelPullThunk = createTypedAsyncThunk(
 	'syncOperations/cancelPull',
-	async (
-		{ selectedSiteId, remoteSiteId, displayNotification = true }: CancelOperationPayload,
-		{ dispatch }
-	) => {
+	async ( { selectedSiteId, remoteSiteId }: CancelOperationPayload, { dispatch } ) => {
 		const operationId = generateStateId( selectedSiteId, remoteSiteId );
 		stopPullPoller( operationId );
 		getIpcApi().cancelSyncOperation( operationId );
 
-		// See cancelPushThunk note: skip "cancelled" UI state for silent cancels (logout cleanup).
-		if ( displayNotification ) {
-			dispatch(
-				syncOperationsActions.updatePullState( {
-					selectedSiteId,
-					remoteSiteId,
-					state: { status: getPullStatesProgressInfo().cancelled },
-				} )
-			);
-		}
+		dispatch(
+			syncOperationsActions.updatePullState( {
+				selectedSiteId,
+				remoteSiteId,
+				state: { status: getPullStatesProgressInfo().cancelled },
+			} )
+		);
 
 		getIpcApi()
 			.removeSyncBackup( remoteSiteId )
@@ -478,12 +483,10 @@ const cancelPullThunk = createTypedAsyncThunk(
 				// Ignore errors if file doesn't exist
 			} );
 
-		if ( displayNotification ) {
-			getIpcApi().showNotification( {
-				title: __( 'Pull cancelled' ),
-				body: __( 'The pull operation has been cancelled.' ),
-			} );
-		}
+		getIpcApi().showNotification( {
+			title: __( 'Pull cancelled' ),
+			body: __( 'The pull operation has been cancelled.' ),
+		} );
 	}
 );
 

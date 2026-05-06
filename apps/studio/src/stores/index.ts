@@ -24,6 +24,7 @@ import {
 import { syncReducer, syncOperationsActions } from 'src/stores/sync';
 import { connectedSitesApi, connectedSitesReducer } from 'src/stores/sync/connected-sites';
 import {
+	abortAllSyncOperations,
 	stopPullPoller,
 	stopPushPoller,
 	syncOperationsReducer,
@@ -185,36 +186,17 @@ startAppListening( {
 	},
 } );
 
-// Clear all sync state when user logs out
+// Clear all sync state when user logs out. Slice state is reset via
+// addCase(userLoggedOut) in sync-operations-slice; here we only abort the
+// in-flight side effects (pollers, upload aborts, main-process operations) so
+// they don't surface error UI after logout.
 startAppListening( {
 	actionCreator: userLoggedOut,
 	effect( action, listenerApi ) {
 		setWpcomClient( undefined );
 
-		// Use getOriginalState() to read state BEFORE the reducer cleared pullStates/pushStates
-		const state = listenerApi.getOriginalState();
+		abortAllSyncOperations();
 
-		for ( const pullState of Object.values( state.syncOperations.pullStates ) ) {
-			void store.dispatch(
-				syncOperationsThunks.cancelPull( {
-					selectedSiteId: pullState.selectedSite.id,
-					remoteSiteId: pullState.remoteSiteId,
-					displayNotification: false,
-				} )
-			);
-		}
-
-		for ( const pushState of Object.values( state.syncOperations.pushStates ) ) {
-			void store.dispatch(
-				syncOperationsThunks.cancelPush( {
-					selectedSiteId: pushState.selectedSite.id,
-					remoteSiteId: pushState.remoteSiteId,
-					displayNotification: false,
-				} )
-			);
-		}
-
-		// Reset authenticated RTK Query caches
 		listenerApi.dispatch( wpcomSitesApi.util.resetApiState() );
 		listenerApi.dispatch( wpcomApi.util.resetApiState() );
 	},

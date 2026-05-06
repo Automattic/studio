@@ -1,6 +1,7 @@
+import fs from 'fs/promises';
 import Anthropic from '@anthropic-ai/sdk';
 import { Agent, type AgentEvent, type AgentTool, type StreamFn } from '@mariozechner/pi-agent-core';
-import { type Message, type Model, type ToolResultMessage } from '@mariozechner/pi-ai';
+import { type Model } from '@mariozechner/pi-ai';
 import { streamAnthropic, type AnthropicOptions } from '@mariozechner/pi-ai/anthropic';
 import {
 	createBashTool,
@@ -12,6 +13,7 @@ import {
 	createWriteTool,
 } from '@mariozechner/pi-coding-agent';
 import { getAiModelFamily, type AiModelFamily, type AiModelId } from '@studio/common/ai/models';
+import { readAiSessionEventsFromFile } from '@studio/common/ai/sessions/store';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
@@ -22,7 +24,13 @@ import { takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
 import { createWpcomRequestTool } from 'cli/ai/tools/wpcom-request';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { buildTransformContext } from './compaction';
+import {
+	assistantMessageToLegacyEvent,
+	legacyEventsToAgentMessages,
+	toolResultMessageToLegacyEvent,
+} from './messages';
 import type { AgentRuntime, AgentRuntimeConfig, AgentRuntimeHandle } from '../types';
+import type { AiSessionEvent } from '@studio/common/ai/sessions/types';
 import type { AgentRuntimeEvent } from 'cli/ai/runtimes/runtime-events';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -39,7 +47,7 @@ const LIFECYCLE_REFS_BY_SESSION = new Map< string, CompactionLifecycleRef >();
 
 export const piRuntime: AgentRuntime = {
 	run( config: AgentRuntimeConfig ): AgentRuntimeHandle {
-		const sessionId = config.session.getSessionId();
+		const sessionId = config.sessionId;
 		const controller = new AbortController();
 		const events = createEventStream( config, sessionId, controller );
 
@@ -54,6 +62,12 @@ export const piRuntime: AgentRuntime = {
 		};
 	},
 };
+
+async function appendEventsToFile( filePath: string, events: AiSessionEvent[] ): Promise< void > {
+	if ( events.length === 0 ) return;
+	const serialized = events.map( ( e ) => JSON.stringify( e ) ).join( '\n' ) + '\n';
+	await fs.appendFile( filePath, serialized, { encoding: 'utf8' } );
+}
 
 interface ResolvedCredentials {
 	apiKey: string;
@@ -182,26 +196,32 @@ async function* createEventStream(
 			wake();
 		};
 
+		const pendingDiskWrites: Array< Promise< void > > = [];
+		const queueDiskWrite = ( events: AiSessionEvent[] ) => {
+			pendingDiskWrites.push(
+				appendEventsToFile( config.sessionFilePath, events ).catch( () => undefined )
+			);
+		};
+
 		const unsubscribe = agent.subscribe( ( event: AgentEvent ) => {
 			queue.push( event );
 
 			if ( event.type === 'turn_end' ) {
 				numTurns += 1;
-				// turn_end's `message` is always a base `Message` from the LLM
-				// (user/assistant/toolResult) — branch/compaction summaries
-				// don't ride this event. Cast through Message to satisfy
-				// SessionManager.appendMessage's narrower signature.
-				config.session.appendMessage( event.message as Message );
-				for ( const tr of event.toolResults as ToolResultMessage[] ) {
-					config.session.appendMessage( tr );
-				}
+				const ts = new Date().toISOString();
+				const events: AiSessionEvent[] = [];
 				if ( event.message.role === 'assistant' ) {
+					events.push( assistantMessageToLegacyEvent( event.message, sessionId, ts ) );
 					for ( const block of event.message.content ) {
 						if ( block.type === 'text' ) {
 							resultText = block.text;
 						}
 					}
 				}
+				for ( const tr of event.toolResults ) {
+					events.push( toolResultMessageToLegacyEvent( tr, sessionId, ts ) );
+				}
+				queueDiskWrite( events );
 			}
 
 			if ( event.type === 'agent_end' ) {
@@ -209,14 +229,6 @@ async function* createEventStream(
 			}
 
 			wake();
-		} );
-
-		// Persist the user prompt before the agent starts processing so the
-		// transcript on disk matches what the model is about to see.
-		config.session.appendMessage( {
-			role: 'user',
-			content: config.prompt,
-			timestamp: Date.now(),
 		} );
 
 		const runPromise = agent.prompt( config.prompt );
@@ -238,6 +250,10 @@ async function* createEventStream(
 		// finished queue if a follow-up run reuses the same Agent.
 		lifecycleRef.current = null;
 		await runPromise.catch( () => undefined );
+		// Make sure all turn-end events are flushed to disk before we yield
+		// the final `turn_completed` — consumers (e.g. desktop IPC) chain
+		// follow-up reads off that event.
+		await Promise.all( pendingDiskWrites );
 
 		const aborted = controller.signal.aborted;
 		yield {
@@ -311,11 +327,12 @@ async function getOrCreateAgent(
 	const tools = buildAgentTools( config, isForkedByDesktop );
 
 	// On a `/model` swap mid-session, reuse the prior transcript so the
-	// conversation continues; on a cold fork hydrate from the SessionManager
-	// (which already resolves compaction summaries via buildSessionContext).
+	// conversation continues; on a cold fork hydrate by reading the legacy
+	// session JSONL and translating its `sdk.message` events back into pi
+	// `AgentMessage[]`.
 	const initialMessages = existing
 		? existing.state.messages
-		: config.session.buildSessionContext().messages;
+		: legacyEventsToAgentMessages( await readAiSessionEventsFromFile( config.sessionFilePath ) );
 
 	const lifecycleRef: CompactionLifecycleRef = { current: null };
 

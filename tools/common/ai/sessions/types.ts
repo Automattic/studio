@@ -110,10 +110,5 @@ export interface AiSessionSummary {
 
 export interface LoadedAiSession {
 	summary: AiSessionSummary;
-	// On disk the session is pi-coding-agent's `SessionEntry`-based JSONL
-	// (with Studio metadata as `studio.*` `CustomEntry` payloads). The store
-	// translates that back to this legacy `AiSessionEvent[]` view for
-	// summary / filter / renderer consumption — `events` remains the
-	// canonical in-memory shape across the codebase.
 	events: AiSessionEvent[];
 }

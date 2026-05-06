@@ -211,7 +211,17 @@ export async function startDaemon(
 		throw new Error( 'Cannot launch remote-session daemon: process.argv[1] is empty.' );
 	}
 
-	const args = [ cliEntry, 'code', 'remote-session', 'start', ...( options.extraArgs ?? [] ) ];
+	// `--no-detach` pins the child to foreground mode. Without it, the child
+	// would re-read the now-default `--detach=true` and try to spawn its own
+	// grandchild instead of running runRemoteSession + writing the PID file.
+	const args = [
+		cliEntry,
+		'code',
+		'remote-session',
+		'start',
+		'--no-detach',
+		...( options.extraArgs ?? [] ),
+	];
 	const env = {
 		...process.env,
 		...options.env,

@@ -1,3 +1,5 @@
+import { buildPluginRecommendationsSection } from './plugin-recommendations';
+
 interface RemoteSiteContext {
 	name: string;
 	url: string;
@@ -32,7 +34,7 @@ ${ REMOTE_DESIGN_GUIDELINES }${ remoteSessionAddendum }
 
 	return `${ buildLocalIntro( { previewSteering: options?.previewSteering ?? false } ) }
 
-${ LOCAL_CONTENT_GUIDELINES }
+${ buildLocalContentGuidelines() }
 
 ${ LOCAL_DESIGN_GUIDELINES }${ remoteSessionAddendum }
 `;
@@ -150,7 +152,7 @@ Then continue with:
 
 1. **Get site details**: Use site_info to get the site path, URL, and credentials.
 2. **Plan the design**: Before writing any code, review the site spec (from the site-spec skill) and the Design Guidelines below to plan the visual direction — layout, colors, typography, spacing.
-3. **Write theme/plugin files**: Use Write and Edit to create files under the site's wp-content/themes/ or wp-content/plugins/ directory.
+3. **Write theme/plugin files**: For a brand new theme, call \`scaffold_theme\` first — it drops an unopinionated block-theme baseline (style.css with only the theme header, theme.json with appearanceTools only, functions.php with frontend + editor style enqueue, default templates and parts, empty assets/fonts and patterns dirs) and activates it by default. Then use Write and Edit to fill the scaffold (one part/template/file per turn). For plugins or for editing an existing theme, use Write and Edit directly under the site's wp-content/themes/ or wp-content/plugins/ directory.
 4. **Configure WordPress**: Use wp_cli to activate themes, install plugins, manage options, create posts and pages, edit and import content. The site must be running. Note: post content passed via \`wp post create\` or \`wp post update --post_content=...\` need to be pre-validated for editability and also validated using validate_blocks tool and adhere to the block content guidelines above as well. The \`wp_cli\` tool takes literal arguments, not shell commands: never use shell substitution or shell syntax such as \`$(cat file)\`, backticks, pipes, redirection, environment variables, or host temp-file paths to provide post content. Pass the literal content directly in \`--post_content=...\`, make \`--post_content\` the final argument in the command, and Studio will rewrite large content to a virtual temp file automatically.
 5. **Check the misuse of HTML blocks**: Verify if HTML blocks were used as sections or not. If they were, convert them to regular core blocks and run block validation again.
 6. **Check the result**: Use take_screenshot to capture the site's landing page on desktop and mobile and verify the design visually on both viewports, check for wrong spacing, alignment, colors, contrast, borders, hover styles and other visual issues. Fix any issues found. Pay particular attention to the navigation menu and the CTA buttons. The design needs to match your original expectations. **Width check**: any section that was meant to be full-width (heroes, banners, edge-to-edge galleries, full-bleed footers) must visibly span the entire viewport in the desktop screenshot. If a "full-width" section only spans the content column (~700px at 1280px viewport), the block markup is missing \`align: "full"\` on the outer group or has a mismatched inner \`layout\` type — see the block-theme layout cascade rules above. Fix in markup, not custom CSS.
@@ -159,11 +161,11 @@ Then continue with:
 
 One \`Write\` or \`Edit\` per turn (read-only \`site_info\`, \`site_list\`, \`wp_cli\` queries may be combined). Short prose between tools — no long design-plan essays. The CLI only renders complete assistant messages, so a turn that batches files or emits >~200 lines spins silently for minutes and can hit gateway timeouts. Cadence is also a quality lever: the screenshot-fix loop only works after small visible increments.
 
-**After \`site_create\`** (or "redesign"/"rebuild"/"start over" triggers), the next turn MUST be small: \`site_info\` or a single ≤50-line \`Write\`. Never scaffold a whole theme in one turn.
+**After \`site_create\`** (or "redesign"/"rebuild"/"start over" triggers), the next turn MUST be small: \`site_info\`, a single \`scaffold_theme\` call, or a single ≤50-line \`Write\`. Never *fill* a whole theme in one turn — \`scaffold_theme\` only ships a baseline; design content (custom templates, parts, CSS) still goes one Write/Edit per turn.
 
 **Long files (>~200 lines): skeleton first, then fill across Edits.**
 
-- \`style.css\`: skeleton = \`:root { ... }\` custom properties + 6–10 anchor comments \`/* === <concern> === */\` (e.g. \`reset\`, \`typography\`, \`hero\`, \`features\`, \`cta\`, \`footer\`, \`responsive\`), <2KB total. Fill one anchor per Edit (300–2000B each) — \`old_string\` is the anchor line, \`new_string\` is \`<anchor>\\n\\n<styles>\`.
+- \`style.css\`: skeleton = \`:root { ... }\` custom properties + 6–10 anchor comments \`/* === <concern> === */\` (e.g. \`reset\`, \`typography\`, \`hero\`, \`features\`, \`cta\`, \`footer\`, \`responsive\`), <2KB total. Fill one anchor per Edit (300–2000B each) — \`old_string\` is the anchor line, \`new_string\` is \`<anchor>\\n\\n<styles>\`. **When \`scaffold_theme\` was used, do NOT \`Write\` over the scaffolded \`style.css\`** — it already contains the required theme header. Instead, \`Edit\` the file to append the \`:root { ... }\` block and anchor comments below the existing content, then fill anchors as above.
 - Page content: create the page empty (\`wp_cli post create --post_content=""\`), write \`<site>/tmp/page-<slug>.html\` (not inside the theme) with \`<!-- section:<concern> -->\` anchors (<1KB), fill one anchor per Edit using only core blocks (never wrap in \`core/html\`), then apply once with \`wp_cli eval '$content = file_get_contents(ABSPATH . "tmp/page-<slug>.html"); wp_update_post(["ID" => <id>, "post_content" => $content]); echo "ok";'\`. Do NOT use \`--post_content-file=<host path>\` — \`wp_cli\` runs inside the PHP-WASM filesystem (the host site directory is mounted at \`/wordpress/\`, so \`ABSPATH === "/wordpress/"\`) and cannot read host paths; \`--post_content-file=<host path>\` silently updates the post to empty content.
 
 ## Available Studio Tools (prefixed with mcp__studio__)
@@ -179,6 +181,7 @@ One \`Write\` or \`Edit\` per turn (read-only \`site_info\`, \`site_list\`, \`wp
 - preview_update: Update an existing hosted WordPress.com preview from a local site; this can take a few minutes, so tell the user to wait
 - preview_delete: Delete a hosted WordPress.com preview by hostname
 - wp_cli: Run WP-CLI commands on a running site
+- scaffold_theme: Scaffold a minimal block theme (style.css, theme.json, functions.php with frontend + editor enqueue, default templates and parts, empty assets/fonts and patterns dirs) into a site and activate it. Use as the first step when starting a new custom theme; the agent fills design-specific content afterwards. Block themes only.
 - validate_blocks: Validate block content for correctness on a running site (runs each block through its save() function in a real browser). Requires a site name or path. Call after every file write/edit that contains block content.
 - take_screenshot: Take a full-page screenshot of a URL (supports desktop and mobile viewports). Use this to visually check the site after building it.
 - need_for_speed: Measure frontend performance metrics (TTFB, FCP, LCP, CLS, page weight, DOM size, JS/CSS/image/font asset breakdown) for a running site. Use this to identify performance bottlenecks and guide optimization.
@@ -195,8 +198,7 @@ One \`Write\` or \`Edit\` per turn (read-only \`site_info\`, \`site_list\`, \`wp
 - Do NOT modify WordPress core files. Only work within wp-content/.
 - Before running wp_cli, ensure the site is running (site_start if needed).
 - When building themes, always build block themes (NO CLASSIC THEMES).
-- Always add the style.css as editor styles in the functions.php of the theme to make the editor match the frontend.
-- Always enqueue the theme's style.css on the frontend from functions.php.
+- New CSS files impacting the frontend of the site need to be enqueued in both the editor and the frontend (automatic for the scaffold's style.css when using \`scaffold_theme\`).
 - For theme and page content custom CSS, put the styles in the main style.css of the theme. No custom stylesheets.
 - Scroll animations must use progressive enhancement: CSS defines elements in their **final visible state** by default (full opacity, final position). JavaScript on the frontend adds the initial hidden state (e.g. \`opacity: 0\`, \`transform\`) and scroll-triggered transitions. This ensures elements are fully visible in the block editor (which loads theme CSS but not custom JS).
 - All animations and transitions must respect \`prefers-reduced-motion\`. Add a \`@media (prefers-reduced-motion: reduce)\` block that disables or simplifies animations (e.g. \`animation: none; transition: none; scroll-behavior: auto;\`).
@@ -244,14 +246,15 @@ const REMOTE_DESIGN_GUIDELINES = `## Design capabilities by plan
 - Custom CSS, global styles, plugin management, and advanced customization become available.
 - Check the specific plan to determine exact capabilities.`;
 
-const LOCAL_CONTENT_GUIDELINES = `## Block content guidelines
+// Evaluated lazily so unit tests that stub PLUGIN_RECOMMENDATIONS still work.
+function buildLocalContentGuidelines(): string {
+	return `## Block content guidelines
 
 - Only use \`core/html\` blocks for:
 	- Inline SVGs
-	- \`<form>\` elements and interactive inputs
 	- Animation/interaction markup with no block equivalent (marquee, cursor)
 	- A single \`<script>\` block at the bottom of the page for JS
-- Never use \`core/html\` to wrap text content, headings, layout sections, or lists.
+- Never use \`core/html\` to wrap text content, headings, layout sections, lists, or forms.
 - No decorative HTML comments (e.g. \`<!-- Hero Section -->\`, \`<!-- Features -->\`). Only block delimiter comments are allowed.
 - No custom class names on inner DOM elements — only on the outermost block wrapper via the \`className\` attribute.
 - No inline \`style\` or \`style\` block attributes for styling. Use \`className\` + \`style.css\` instead.
@@ -268,7 +271,10 @@ To break out of the content width, use these three patterns:
 - **Full-bleed section, full-bleed inner** (image grids, edge-to-edge galleries): outer AND inner \`core/group {"align":"full","layout":{"type":"default"}}\`. Children render at full viewport width.
 - **Standard constrained content**: omit \`align\` entirely and write blocks normally.
 
-The single most common failure is "I made a hero full-width but its inner content is narrow" — that's a missing \`align: "full"\` on the outer group or a mismatched inner \`layout\` type. Fix in markup, not in CSS.`;
+The single most common failure is "I made a hero full-width but its inner content is narrow" — that's a missing \`align: "full"\` on the outer group or a mismatched inner \`layout\` type. Fix in markup, not in CSS.
+
+${ buildPluginRecommendationsSection() }`;
+}
 
 const LOCAL_DESIGN_GUIDELINES = `## Design guidelines
 

@@ -183,6 +183,7 @@ vi.mock( 'cli/ai/ui', () => ( {
 		showOnboarding() {}
 		showCapabilities() {}
 		setStatusMessage() {}
+		setDaemonStatus() {}
 		prepareForReplay() {}
 		finishReplay() {}
 		beginAgentTurn() {}

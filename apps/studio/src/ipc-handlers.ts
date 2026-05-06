@@ -35,6 +35,7 @@ import {
 } from '@studio/common/lib/agent-skills';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
+import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import { extractZip } from '@studio/common/lib/extract-zip';
 import {
@@ -52,11 +53,7 @@ import { isMultisite } from '@studio/common/lib/is-multisite';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
-import {
-	getCurrentUserId,
-	readSharedConfig,
-	updateSharedConfig,
-} from '@studio/common/lib/shared-config';
+import { readSharedConfig, updateSharedConfig } from '@studio/common/lib/shared-config';
 import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
 import { shouldExcludeFromSync } from '@studio/common/lib/sync/exclude-from-sync';
 import { shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
@@ -85,6 +82,7 @@ import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import * as oauthClient from 'src/lib/oauth';
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
+import { updateSiteUrl } from 'src/lib/update-site-url';
 import * as windowsHelpers from 'src/lib/windows-helpers';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
@@ -270,12 +268,7 @@ async function reconcileSessionEnvironmentBeforeRun( sessionId: string ): Promis
 		return;
 	}
 
-	const currentUserId = await getCurrentUserId();
-	const userData = currentUserId ? await loadUserData() : undefined;
-	const connected = userData?.connectedWpcomSites?.[ currentUserId! ] ?? [];
-	const connectedForOwner = connected.filter(
-		( site ) => site.localSiteId === ownerServer.details.id
-	);
+	const connectedForOwner = await getConnectedWpcomSitesForLocalSite( ownerServer.details.id );
 	const connectedIds = new Set( connectedForOwner.map( ( site ) => site.id ) );
 
 	const effective = deriveEffectiveEnvironment( summary, ( blogId ) => connectedIds.has( blogId ) );
@@ -376,10 +369,7 @@ export async function setSessionEnvironment(
 	const timestamp = new Date().toISOString();
 
 	if ( environment === 'live' ) {
-		const currentUserId = await getCurrentUserId();
-		const userData = currentUserId ? await loadUserData() : undefined;
-		const connected = userData?.connectedWpcomSites?.[ currentUserId! ] ?? [];
-		const candidates = connected.filter( ( s ) => s.localSiteId === ownerServer.details.id );
+		const candidates = await getConnectedWpcomSitesForLocalSite( ownerServer.details.id );
 		// Prefer the production (non-staging) site to match the UI's
 		// `pickLiveSite` behavior in the site dropdown.
 		const liveSite = candidates.find( ( s ) => ! s.isStaging ) ?? candidates[ 0 ];
@@ -1052,6 +1042,10 @@ export async function copySite(
 		adminEmail: sourceSite.adminEmail,
 		noStart: true,
 	} );
+
+	// Playground sets the correct siteurl internally, but for the native-php runtime, we need to
+	// explicitly update that option
+	await updateSiteUrl( server, `http://localhost:${ details.port }` );
 
 	// Persist themeDetails to appdata (Studio-only data)
 	if ( sourceSite.themeDetails ) {

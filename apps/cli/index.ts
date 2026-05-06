@@ -124,6 +124,11 @@ async function main() {
 	const studioCodeCommandBuilder = async ( aiYargs: StudioArgv ) => {
 		const { registerCommand: registerAiCommand } = await import( 'cli/commands/ai' );
 		registerAiCommand( aiYargs );
+		const { isRemoteSessionEnabled } = await import( 'cli/lib/feature-flags' );
+		if ( isRemoteSessionEnabled() ) {
+			const { registerRemoteSessionCommand } = await import( 'cli/commands/ai/remote-session' );
+			registerRemoteSessionCommand( aiYargs );
+		}
 		aiYargs.command( 'sessions', __( 'Manage code sessions' ), async ( sessionsYargs ) => {
 			const [
 				{ registerCommand: registerAiSessionsDeleteCommand },

@@ -8,6 +8,7 @@
 
 import { ChildProcess, spawn } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
@@ -346,15 +347,15 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 			} );
 		} );
 
-		stopSignal.throwIfAborted();
-		await waitForServerReady( `http://localhost:${ config.port }/`, stopSignal );
-
 		serverChild.once( 'exit', ( code, signalName ) => {
 			errorToConsole(
 				`PHP child process exited unexpectedly (code: ${ code }, signal: ${ signalName })`
 			);
 			process.exit( code ?? 1 );
 		} );
+
+		stopSignal.throwIfAborted();
+		await waitForServerReady( `http://localhost:${ config.port }/`, stopSignal );
 
 		phpProcess = serverChild;
 	} catch ( error ) {
@@ -642,6 +643,8 @@ async function ipcMessageHandler( packet: unknown ) {
 function killPhpProcess(): void {
 	if ( phpProcess && ! phpProcess.killed ) {
 		try {
+			// Detach the unexpected-exit listener so the imminent SIGKILL is not logged as a crash.
+			phpProcess.removeAllListeners( 'exit' );
 			phpProcess.kill( 'SIGKILL' );
 		} catch {
 			// Best effort — nothing useful to do if this fails.
@@ -649,11 +652,24 @@ function killPhpProcess(): void {
 	}
 }
 
+function shutdownOnSignal( signal: NodeJS.Signals ): void {
+	logToConsole( `Received ${ signal }, shutting down` );
+	killPhpProcess();
+	// Follow the Unix convention of `128 + signum` so the exit code reflects the signal.
+	const signum = os.constants.signals[ signal ] ?? 0;
+	process.exit( 128 + signum );
+}
+
 // If this node process is going down (normal exit or IPC disconnect), make sure PHP goes with it.
 process.on( 'exit', killPhpProcess );
 process.on( 'disconnect', () => {
 	killPhpProcess();
 } );
+
+// Without explicit signal handlers, the process is terminated abruptly and the 'exit' event
+// does not fire — leaving the PHP child orphaned. These handlers ensure cleanup runs.
+process.on( 'SIGTERM', shutdownOnSignal );
+process.on( 'SIGINT', shutdownOnSignal );
 
 if ( process.send ) {
 	process.on( 'message', ipcMessageHandler );

@@ -10,8 +10,8 @@ import type { SyncSite } from '@studio/common/types/sync';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 export type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+export type { SessionEntry } from '@mariozechner/pi-coding-agent';
 export type {
-	SessionEntryBase,
 	StudioCustomEntry,
 	StudioCustomEntryType,
 	StudioCustomEntryDataMap,

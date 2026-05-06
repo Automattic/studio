@@ -112,25 +112,49 @@ function resolveCredentials(
 	};
 }
 
+// Synthesize a pi `agent_end` event with a single error assistant message.
+// Used for failures the runtime catches before pi's own `agent_end` fires
+// (missing credentials, abort during pre-flight, exceptions out of the
+// agent loop). Downstream consumers read `stopReason`/`errorMessage` from
+// the last assistant message — same path as a real run that errored.
+function syntheticErrorAgentEnd(
+	stopReason: 'error' | 'aborted',
+	errorMessage: string
+): AgentEvent {
+	return {
+		type: 'agent_end',
+		messages: [
+			{
+				role: 'assistant',
+				content: errorMessage ? [ { type: 'text', text: errorMessage } ] : [],
+				api: 'anthropic-messages',
+				provider: 'anthropic',
+				model: '',
+				usage: {
+					input: 0,
+					output: 0,
+					cacheRead: 0,
+					cacheWrite: 0,
+					totalTokens: 0,
+					cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+				},
+				stopReason,
+				errorMessage,
+				timestamp: Date.now(),
+			},
+		],
+	};
+}
+
 async function* createEventStream(
 	config: AgentRuntimeConfig,
 	sessionId: string,
 	controller: AbortController
 ): AsyncGenerator< AgentRuntimeEvent, void, void > {
-	const start = Date.now();
-
 	const family = getAiModelFamily( config.model );
 	const resolved = resolveCredentials( family, config.env );
 	if ( ! resolved.ok ) {
-		yield {
-			type: 'turn_completed',
-			sessionId,
-			subtype: 'error_during_execution',
-			isError: true,
-			durationMs: Date.now() - start,
-			numTurns: 0,
-			result: resolved.reason,
-		};
+		yield syntheticErrorAgentEnd( 'error', resolved.reason );
 		return;
 	}
 
@@ -145,8 +169,6 @@ async function* createEventStream(
 		const queue: AgentRuntimeEvent[] = [];
 		let resolveNext: ( () => void ) | null = null;
 		let done = false;
-		let numTurns = 0;
-		let resultText = '';
 
 		const wake = () => {
 			resolveNext?.();
@@ -179,17 +201,9 @@ async function* createEventStream(
 			queue.push( event );
 
 			if ( event.type === 'turn_end' ) {
-				numTurns += 1;
 				config.session.appendMessage( event.message as Message );
 				for ( const tr of event.toolResults as ToolResultMessage[] ) {
 					config.session.appendMessage( tr );
-				}
-				if ( event.message.role === 'assistant' ) {
-					for ( const block of event.message.content ) {
-						if ( block.type === 'text' ) {
-							resultText = block.text;
-						}
-					}
 				}
 			}
 
@@ -226,39 +240,16 @@ async function* createEventStream(
 		lifecycleRef.current = null;
 		await runPromise.catch( () => undefined );
 
-		const aborted = controller.signal.aborted;
-		yield {
-			type: 'turn_completed',
-			sessionId,
-			subtype: aborted ? 'error_during_execution' : 'success',
-			isError: aborted,
-			durationMs: Date.now() - start,
-			numTurns,
-			result: resultText,
-		};
-	} catch ( error ) {
-		if ( controller.signal.aborted ) {
-			yield {
-				type: 'turn_completed',
-				sessionId,
-				subtype: 'error_during_execution',
-				isError: true,
-				durationMs: Date.now() - start,
-				numTurns: 0,
-				result: '',
-			};
-			return;
+		// If we exited the loop because the abort signal fired before pi
+		// emitted its own `agent_end`, synthesize one so consumers always
+		// see exactly one final event.
+		if ( ! done && controller.signal.aborted ) {
+			yield syntheticErrorAgentEnd( 'aborted', '' );
 		}
-		const message = error instanceof Error ? error.message : String( error );
-		yield {
-			type: 'turn_completed',
-			sessionId,
-			subtype: 'error_during_execution',
-			isError: true,
-			durationMs: Date.now() - start,
-			numTurns: 0,
-			result: message,
-		};
+	} catch ( error ) {
+		const aborted = controller.signal.aborted;
+		const message = aborted ? '' : error instanceof Error ? error.message : String( error );
+		yield syntheticErrorAgentEnd( aborted ? 'aborted' : 'error', message );
 	}
 }
 

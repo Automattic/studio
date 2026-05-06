@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
-import type { AgentEvent, AgentRunEvent, LoadedAiSession, SessionEntryBase } from '@/data/core';
+import type { AgentEvent, AgentRunEvent, LoadedAiSession, SessionEntry } from '@/data/core';
 
 function nowIso(): string {
 	return new Date().toISOString();
@@ -212,7 +212,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 	}, [ sessionId ] );
 
 	const updateCache = useCallback(
-		( updater: ( entries: SessionEntryBase[] ) => SessionEntryBase[] ) => {
+		( updater: ( entries: SessionEntry[] ) => SessionEntry[] ) => {
 			if ( ! sessionId ) {
 				return;
 			}
@@ -275,7 +275,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 								timestamp: event.timestamp,
 								customType: 'studio.turn_closed',
 								data: { status: 'interrupted' },
-							} as SessionEntryBase,
+							} as SessionEntry,
 						] );
 					}
 					dispatch( { type: 'run_ended' } );
@@ -298,7 +298,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 								parentId: null,
 								timestamp: event.timestamp,
 								message: inner.message,
-							} as unknown as SessionEntryBase,
+							} as unknown as SessionEntry,
 						] );
 					} else if ( inner?.type === 'turn_end' ) {
 						const toolResults = ( inner as { toolResults?: unknown[] } ).toolResults;
@@ -313,7 +313,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 											parentId: null,
 											timestamp: event.timestamp,
 											message: tr,
-										} ) as unknown as SessionEntryBase
+										} ) as unknown as SessionEntry
 								),
 							] );
 						}
@@ -330,7 +330,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 							timestamp: event.timestamp,
 							customType: 'studio.tool_progress',
 							data: { message: event.message },
-						} as SessionEntryBase,
+						} as SessionEntry,
 					] );
 					return;
 				case 'question.asked':
@@ -346,7 +346,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 									timestamp: event.timestamp,
 									customType: 'studio.agent_question',
 									data: { question: q.question, options: q.options },
-								} ) as SessionEntryBase
+								} ) as SessionEntry
 						),
 					] );
 					dispatch( { type: 'questions_added', questions: event.questions } );
@@ -367,14 +367,14 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 			const displayMessage = options.displayMessage ?? prompt;
 			dispatch( { type: 'error_set', message: null } );
 
-			const optimisticEntry: SessionEntryBase = {
+			const optimisticEntry: SessionEntry = {
 				type: 'custom',
 				id: shortEntryId(),
 				parentId: null,
 				timestamp: nowIso(),
 				customType: 'studio.user_prompt',
 				data: { text: displayMessage, source: 'prompt' },
-			} as SessionEntryBase;
+			} as SessionEntry;
 			updateCache( ( entries ) => [ ...entries, optimisticEntry ] );
 			dispatch( { type: 'send_pending', startedAt: Date.now() } );
 
@@ -471,7 +471,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 				timestamp: nowIso(),
 				customType: 'studio.turn_closed',
 				data: { status: 'interrupted' },
-			} as SessionEntryBase,
+			} as SessionEntry,
 		] );
 		// Optimistic feedback: the main-process `run.interrupting` event will
 		// also set this, but flipping state on the click keeps the button

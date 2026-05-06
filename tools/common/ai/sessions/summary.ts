@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
-import { isStudioCustomEntryOfType, type SessionEntryBase } from './entry-types';
+import { isStudioCustomEntryOfType } from './entry-types';
 import type { AiSessionSummary } from './types';
+import type { SessionEntry } from '@mariozechner/pi-coding-agent';
 
 interface PiSessionHeader {
 	type: 'session';
@@ -20,7 +21,7 @@ function isPiHeader( value: unknown ): value is PiSessionHeader {
 
 export async function readAiSessionSummaryFromEntries(
 	filePath: string,
-	fileEntries: Array< SessionEntryBase | PiSessionHeader >
+	fileEntries: Array< SessionEntry | PiSessionHeader >
 ): Promise< AiSessionSummary | undefined > {
 	if ( fileEntries.length === 0 ) return undefined;
 

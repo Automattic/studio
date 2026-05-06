@@ -13,7 +13,7 @@ export type {
 	LoadedAiSession,
 	ProposedSitePath,
 	SelectedSiteFolder,
-	SessionEntryBase,
+	SessionEntry,
 	SiteDetails,
 	Snapshot,
 	StudioAgentQuestionData,

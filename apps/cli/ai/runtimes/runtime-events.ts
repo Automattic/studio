@@ -1,5 +1,7 @@
-// Streaming events the runtime yields. Shapes mirror pi-coding-agent's
-// `AgentSessionEvent` so an `AgentSession` swap stays drop-in.
+// Streaming events the runtime yields. Pi's `AgentEvent` covers the run
+// lifecycle (agent_start/end, turn_end, message_*, tool_*); compaction is
+// the only Studio-specific addition since pi handles compaction internally
+// without surfacing user-visible events.
 
 import type { AgentEvent } from '@mariozechner/pi-agent-core';
 
@@ -18,20 +20,4 @@ export interface CompactionEndEvent {
 	errorMessage?: string;
 }
 
-export interface TurnCompletedEvent {
-	type: 'turn_completed';
-	sessionId: string;
-	subtype: 'success' | 'error_during_execution';
-	isError: boolean;
-	durationMs: number;
-	numTurns: number;
-	result: string;
-	errors?: string[];
-	permissionDenials?: Array< { tool_name: string } >;
-}
-
-export type AgentRuntimeEvent =
-	| AgentEvent
-	| CompactionStartEvent
-	| CompactionEndEvent
-	| TurnCompletedEvent;
+export type AgentRuntimeEvent = AgentEvent | CompactionStartEvent | CompactionEndEvent;

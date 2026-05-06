@@ -1,14 +1,8 @@
 // Studio metadata rides as `studio.*` `customType` entries on top of pi's
-// `SessionEntry` schema. Renderer-safe (no pi imports) — CLI code imports
-// `SessionEntry` from `@mariozechner/pi-coding-agent` directly.
+// `SessionEntry` schema. The renderer never imports pi at runtime — these
+// types are only used at the type-check boundary (`import type` is erased).
 
-export interface SessionEntryBase {
-	type: string;
-	id: string;
-	parentId: string | null;
-	timestamp: string;
-	customType?: string;
-}
+import type { CustomEntry, SessionEntry } from '@mariozechner/pi-coding-agent';
 
 export type StudioCustomEntryType =
 	| 'studio.site_selected'
@@ -71,16 +65,14 @@ export interface StudioCustomEntryDataMap {
 	'studio.user_prompt': StudioUserPromptData;
 }
 
-export interface StudioCustomEntry< T extends StudioCustomEntryType = StudioCustomEntryType >
-	extends SessionEntryBase {
-	type: 'custom';
+export type StudioCustomEntry< T extends StudioCustomEntryType = StudioCustomEntryType > = Omit<
+	CustomEntry< StudioCustomEntryDataMap[ T ] >,
+	'customType'
+> & {
 	customType: T;
-	data?: StudioCustomEntryDataMap[ T ];
-}
+};
 
-type EntryShape = { type?: unknown; customType?: unknown };
-
-export function isStudioCustomEntry( entry: EntryShape ): entry is StudioCustomEntry {
+export function isStudioCustomEntry( entry: SessionEntry ): entry is StudioCustomEntry {
 	return (
 		entry.type === 'custom' &&
 		typeof entry.customType === 'string' &&
@@ -89,7 +81,7 @@ export function isStudioCustomEntry( entry: EntryShape ): entry is StudioCustomE
 }
 
 export function isStudioCustomEntryOfType< T extends StudioCustomEntryType >(
-	entry: EntryShape,
+	entry: SessionEntry,
 	customType: T
 ): entry is StudioCustomEntry< T > {
 	return entry.type === 'custom' && entry.customType === customType;

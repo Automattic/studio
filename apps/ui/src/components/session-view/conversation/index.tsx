@@ -1,6 +1,5 @@
 import {
 	isStudioCustomEntryOfType,
-	type SessionEntryBase,
 	type StudioCustomEntry,
 } from '@studio/common/ai/sessions/entry-types';
 import { filterEntriesAfterLastClear } from '@studio/common/ai/sessions/filter-events';
@@ -16,6 +15,7 @@ import { Markdown } from '@/components/markdown';
 import { ThinkingIndicator } from '@/components/session-view/thinking-indicator';
 import styles from './style.module.css';
 import type { LoadedAiSession } from '@/data/core';
+import type { SessionEntry } from '@mariozechner/pi-coding-agent';
 
 type RenderItem =
 	| { kind: 'user-text'; key: string; text: string }
@@ -55,7 +55,7 @@ interface PiToolResultLike {
 	isError?: boolean;
 }
 
-function entriesToRenderItems( entries: SessionEntryBase[] ): RenderItem[] {
+function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 	const relevant = filterEntriesAfterLastClear( entries );
 
 	// First pass: collect tool_call_id → tool_result pairings so each
@@ -151,7 +151,7 @@ function entriesToRenderItems( entries: SessionEntryBase[] ): RenderItem[] {
 
 // Progress from earlier turns must not leak into the current indicator, so
 // the scan stops at the nearest turn boundary.
-function findLatestProgressMessage( entries: SessionEntryBase[] ): string | null {
+function findLatestProgressMessage( entries: SessionEntry[] ): string | null {
 	for ( let i = entries.length - 1; i >= 0; i -= 1 ) {
 		const entry = entries[ i ];
 		if (

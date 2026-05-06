@@ -1,4 +1,5 @@
-import { isStudioCustomEntryOfType, type SessionEntryBase } from './sessions/entry-types';
+import { isStudioCustomEntryOfType } from './sessions/entry-types';
+import type { SessionEntry } from '@mariozechner/pi-coding-agent';
 
 export type AiModelFamily = 'anthropic' | 'openai';
 
@@ -66,7 +67,7 @@ export function getAiModelLabel( id: AiModelId ): string {
  * sessions that have neither — e.g. a brand-new session before the first
  * turn runs.
  */
-export function resolveSessionModel( entries: SessionEntryBase[] ): AiModelId {
+export function resolveSessionModel( entries: SessionEntry[] ): AiModelId {
 	for ( let index = entries.length - 1; index >= 0; index -= 1 ) {
 		const entry = entries[ index ];
 		if ( entry.type === 'model_change' ) {

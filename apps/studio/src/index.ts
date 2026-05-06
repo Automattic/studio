@@ -13,7 +13,6 @@ import {
 import path from 'path';
 import { pathToFileURL } from 'url';
 import * as Sentry from '@sentry/electron/main';
-import { migrateAllSessions } from '@studio/common/ai/sessions/migrate-all';
 import { PROTOCOL_PREFIX } from '@studio/common/constants';
 import { runMigrations } from '@studio/common/lib/migration';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
@@ -30,7 +29,6 @@ import {
 	hasActiveSyncOperations,
 	hasUploadingPushOperations,
 } from 'src/lib/active-sync-operations';
-import { getAiSessionsRootDirectory } from 'src/lib/ai-sessions';
 import {
 	bumpStat,
 	bumpAggregatedUniqueStat,
@@ -279,26 +277,6 @@ async function appBoot() {
 			await installExtension( REACT_DEVELOPER_TOOLS );
 			await installExtension( REDUX_DEVTOOLS );
 			await launchExtensionBackgroundWorkers();
-		}
-
-		try {
-			const result = await migrateAllSessions(
-				getAiSessionsRootDirectory(),
-				path.join( app.getPath( 'home' ), 'Studio' )
-			);
-			if ( result.migrated > 0 ) {
-				console.log(
-					`AI sessions: migrated ${ result.migrated } legacy file(s); ${ result.skipped } already pi-format.`
-				);
-			}
-			if ( result.failed.length > 0 ) {
-				console.warn(
-					`AI sessions: ${ result.failed.length } file(s) failed migration:`,
-					result.failed
-				);
-			}
-		} catch ( error ) {
-			console.warn( 'AI sessions: eager migration failed', error );
 		}
 
 		console.log( `App version: ${ app.getVersion() }` );

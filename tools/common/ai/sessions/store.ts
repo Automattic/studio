@@ -5,15 +5,13 @@ import { buildAiSessionFileName } from './file-naming';
 import { migrateLegacyFileInPlace } from './migration';
 import { getAiSessionsDirectoryForDate } from './paths';
 import { readAiSessionSummaryFromEntries } from './summary';
-import type {
-	SessionEntryBase,
-	StudioCustomEntryDataMap,
-	StudioCustomEntryType,
-} from './entry-types';
+import type { StudioCustomEntryDataMap, StudioCustomEntryType } from './entry-types';
 import type { AiSessionSummary, LoadedAiSession } from './types';
+import type { SessionEntry } from '@mariozechner/pi-coding-agent';
 
-// Lazy fallback in case `migrateAllSessions` missed this file at boot.
-export async function readPiFileEntries( filePath: string ): Promise< SessionEntryBase[] > {
+// Migrates the file in place on first read, then parses the (now-pi-format)
+// JSONL into pi `SessionEntry` records.
+export async function readPiFileEntries( filePath: string ): Promise< SessionEntry[] > {
 	let content: string;
 	try {
 		content = await fs.readFile( filePath, 'utf8' );
@@ -26,12 +24,12 @@ export async function readPiFileEntries( filePath: string ): Promise< SessionEnt
 	await migrateLegacyFileInPlace( filePath, '~/Studio' );
 	const refreshed = await fs.readFile( filePath, 'utf8' );
 
-	const entries: SessionEntryBase[] = [];
+	const entries: SessionEntry[] = [];
 	for ( const line of refreshed.split( '\n' ) ) {
 		const trimmed = line.trim();
 		if ( ! trimmed ) continue;
 		try {
-			entries.push( JSON.parse( trimmed ) as SessionEntryBase );
+			entries.push( JSON.parse( trimmed ) as SessionEntry );
 		} catch {
 			// malformed line
 		}
@@ -192,7 +190,7 @@ export async function createAiSession(
 			cwd: PI_SESSION_CWD,
 		} ),
 	];
-	const entries: SessionEntryBase[] = [];
+	const entries: SessionEntry[] = [];
 	if ( options.site ) {
 		const entry = {
 			type: 'custom' as const,
@@ -208,7 +206,7 @@ export async function createAiSession(
 				wpcomSiteId: options.site.wpcomSiteId,
 			},
 		};
-		entries.push( entry as SessionEntryBase );
+		entries.push( entry as SessionEntry );
 		lines.push( JSON.stringify( entry ) );
 	}
 
@@ -224,7 +222,7 @@ export async function createAiSession(
 	];
 	const summary = await readAiSessionSummaryFromEntries(
 		filePath,
-		allEntries as Array< SessionEntryBase | { type: 'session'; id: string; timestamp: string } >
+		allEntries as Array< SessionEntry | { type: 'session'; id: string; timestamp: string } >
 	);
 	if ( ! summary ) {
 		throw new Error( 'Failed to build summary for newly created session' );

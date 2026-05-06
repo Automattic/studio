@@ -17,6 +17,7 @@ import {
 	resolveInitialAiProvider,
 	resolveUnavailableAiProvider,
 } from 'cli/ai/auth';
+import { findLastAssistant } from 'cli/ai/output-adapter';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import type { AiProviderId } from 'cli/ai/providers';
 import type { AgentRuntimeEvent } from 'cli/ai/runtimes/runtime-events';
@@ -168,7 +169,8 @@ async function runEval( input: EvalRunnerInput ) {
 	// Wall-clock per turn, measured between successive assistant messages.
 	const turnDurationsMs: number[] = [];
 	let turnIndex = 0;
-	let numTurns: number | null = null;
+	let numTurns = 0;
+	let numTurnsResult: number | null = null;
 	let success = false;
 	let error: string | null = null;
 	let timedOut = false;
@@ -245,9 +247,16 @@ async function runEval( input: EvalRunnerInput ) {
 				}
 			}
 
-			if ( event.type === 'turn_completed' ) {
-				success = event.subtype === 'success';
-				numTurns = event.numTurns;
+			if ( event.type === 'turn_end' ) {
+				numTurns += 1;
+			}
+
+			if ( event.type === 'agent_end' ) {
+				const lastAssistant = findLastAssistant( event.messages );
+				success =
+					! lastAssistant ||
+					( lastAssistant.stopReason !== 'error' && lastAssistant.stopReason !== 'aborted' );
+				numTurnsResult = numTurns;
 			}
 		}
 	} catch ( caught ) {
@@ -261,7 +270,7 @@ async function runEval( input: EvalRunnerInput ) {
 		success,
 		error,
 		timedOut,
-		numTurns,
+		numTurns: numTurnsResult,
 		phaseTimingsMs,
 		turnDurationsMs,
 		toolCalls,

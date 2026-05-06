@@ -28,6 +28,11 @@ import chalk from '@studio/common/lib/chalk';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { DEFAULT_MODEL, getAiModelLabel, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
+import {
+	findLastAssistant,
+	type AiOutputAdapter,
+	type HandleEventResult,
+} from 'cli/ai/output-adapter';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
 import { getActiveSlashCommands } from 'cli/ai/slash-commands';
 import { buildTodoUpdateLines, type TodoRenderLine } from 'cli/ai/todo-render';
@@ -38,7 +43,6 @@ import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { getSitesRunningStatus, isSiteRunning } from 'cli/lib/site-utils';
 import type { ToolResultMessage } from '@mariozechner/pi-ai';
-import type { AiOutputAdapter, HandleEventResult } from 'cli/ai/output-adapter';
 import type { AgentRuntimeEvent } from 'cli/ai/runtimes/runtime-events';
 
 interface TodoWriteInput {
@@ -351,6 +355,8 @@ export class AiChatUI implements AiOutputAdapter {
 	>();
 	currentModel: AiModelId = DEFAULT_MODEL;
 	currentProvider: AiProviderId = DEFAULT_AI_PROVIDER;
+	currentSessionId: string | undefined;
+	private numTurns = 0;
 
 	private optionPickerContainer: Container | null = null;
 	private optionPickerSelectList: SelectList | null = null;
@@ -1393,6 +1399,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this.interruptionNoticeShown = false;
 		this.usageCapReached = false;
 		this.turnStartTime = this.nowMs();
+		this.numTurns = 0;
 		this.todoSnapshot = [];
 		this.latestTodoSnapshot = [];
 		this.lastRenderedTodoSignature = null;
@@ -2036,7 +2043,7 @@ export class AiChatUI implements AiOutputAdapter {
 	 * Returns session result when the agent turn is complete.
 	 */
 	handleEvent( event: AgentRuntimeEvent ): HandleEventResult | undefined {
-		if ( this.wasInterrupted && event.type !== 'turn_completed' ) {
+		if ( this.wasInterrupted && event.type !== 'agent_end' ) {
 			return undefined;
 		}
 
@@ -2132,6 +2139,7 @@ export class AiChatUI implements AiOutputAdapter {
 				return undefined;
 			}
 			case 'turn_end': {
+				this.numTurns += 1;
 				// Render tool results emitted by this turn. Pi already routes
 				// them via individual `tool_execution_end` events, but the
 				// turn-end batch is the canonical post-tool boundary —
@@ -2161,44 +2169,37 @@ export class AiChatUI implements AiOutputAdapter {
 				}
 				return undefined;
 			}
-			case 'turn_completed': {
+			case 'agent_end': {
 				this.hideLoader();
+				const sessionId = this.currentSessionId ?? '';
 
 				if ( this.usageCapReached ) {
-					return { type: 'result', sessionId: event.sessionId, success: false };
+					return { type: 'result', sessionId, success: false };
 				}
 
 				if ( this.wasInterrupted ) {
 					this.showInterruptedNotice();
 					return {
 						type: 'result',
-						sessionId: event.sessionId,
+						sessionId,
 						success: false,
 						interrupted: true,
 					};
 				}
 
-				if ( event.isError ) {
-					const parts: string[] = [];
-					if ( event.errors?.length ) {
-						parts.push( ...event.errors );
-					}
-					if ( event.result ) {
-						parts.push( event.result );
-					}
-					if ( event.permissionDenials?.length ) {
-						for ( const denial of event.permissionDenials ) {
-							parts.push(
-								sprintf(
-									/* translators: %s: tool name */
-									__( 'Permission denied: %s' ),
-									denial.tool_name
-								)
-							);
-						}
-					}
-					this.showError( parts.length > 0 ? parts.join( '\n' ) : __( 'Unknown error' ) );
-					return { type: 'result', sessionId: event.sessionId, success: false };
+				const lastAssistant = findLastAssistant( event.messages );
+				const isError =
+					lastAssistant?.stopReason === 'error' || lastAssistant?.stopReason === 'aborted';
+
+				if ( isError ) {
+					const errorText = lastAssistant?.errorMessage?.trim();
+					const fallbackText = lastAssistant?.content
+						.filter( ( block ): block is { type: 'text'; text: string } => block.type === 'text' )
+						.map( ( block ) => block.text )
+						.join( '\n' )
+						.trim();
+					this.showError( errorText || fallbackText || __( 'Unknown error' ) );
+					return { type: 'result', sessionId, success: false };
 				}
 
 				const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
@@ -2210,18 +2211,18 @@ export class AiChatUI implements AiOutputAdapter {
 				this.showInfo(
 					sprintf(
 						/* translators: 1: seconds spent thinking, 2: number of turns */
-						_n( 'Thought for %1$ds · %2$d turn', 'Thought for %1$ds · %2$d turns', event.numTurns ),
+						_n( 'Thought for %1$ds · %2$d turn', 'Thought for %1$ds · %2$d turns', this.numTurns ),
 						thinkingSec,
-						event.numTurns
+						this.numTurns
 					)
 				);
-				return { type: 'result', sessionId: event.sessionId, success: true };
+				return { type: 'result', sessionId, success: true };
 			}
 			default:
-				// agent_start / agent_end / turn_start / message_start /
-				// message_update / tool_execution_* — UI doesn't act on these
-				// directly; pi events drive incremental state but the visible
-				// transitions happen at message_end / turn_end / turn_completed.
+				// agent_start / turn_start / message_start / message_update /
+				// tool_execution_* — UI doesn't act on these directly; pi
+				// events drive incremental state but the visible transitions
+				// happen at message_end / turn_end / agent_end.
 				return undefined;
 		}
 	}

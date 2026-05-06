@@ -127,7 +127,7 @@ const findAssistantText = ( events: AgentRuntimeEvent[] ): string | undefined =>
 };
 
 describe( 'pi runtime', () => {
-	it( 'yields turn_completed with the credential error in `result` when OPENAI_API_KEY is absent', async () => {
+	it( 'yields agent_end carrying the credential error when OPENAI_API_KEY is absent', async () => {
 		const handle = piRuntime.run( {
 			prompt: 'hello',
 			env: {},
@@ -142,11 +142,14 @@ describe( 'pi runtime', () => {
 
 		expect( events ).toHaveLength( 1 );
 		const final = events[ 0 ];
-		expect( final.type ).toBe( 'turn_completed' );
-		if ( final.type === 'turn_completed' ) {
-			expect( final.subtype ).toBe( 'error_during_execution' );
-			expect( final.isError ).toBe( true );
-			expect( final.result ).toMatch( /OPENAI_API_KEY/ );
+		expect( final.type ).toBe( 'agent_end' );
+		if ( final.type === 'agent_end' ) {
+			const last = final.messages[ final.messages.length - 1 ];
+			expect( last.role ).toBe( 'assistant' );
+			if ( last.role === 'assistant' ) {
+				expect( last.stopReason ).toBe( 'error' );
+				expect( last.errorMessage ).toMatch( /OPENAI_API_KEY/ );
+			}
 		}
 	} );
 
@@ -168,10 +171,7 @@ describe( 'pi runtime', () => {
 
 		expect( findAssistantText( events ) ).toBe( 'mocked openai response' );
 		const final = events[ events.length - 1 ];
-		expect( final.type ).toBe( 'turn_completed' );
-		if ( final.type === 'turn_completed' ) {
-			expect( final.subtype ).toBe( 'success' );
-		}
+		expect( final.type ).toBe( 'agent_end' );
 	} );
 
 	// `/model` swap mid-session must reach the next request — the prior cache

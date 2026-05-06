@@ -1,4 +1,5 @@
-import { isStudioCustomEntryOfType, type SessionEntryBase } from './entry-types';
+import { isStudioCustomEntryOfType } from './entry-types';
+import type { SessionEntry } from '@mariozechner/pi-coding-agent';
 
 export interface ResolvedActiveSite {
 	name: string;
@@ -11,7 +12,7 @@ export interface ResolvedActiveSite {
 // The most recent `studio.site_selected` wins. Used by the JSON adapter to
 // hydrate `ui.activeSite` before dispatching a turn (no replay loop there).
 export function resolveActiveSiteFromEntries(
-	entries: SessionEntryBase[]
+	entries: SessionEntry[]
 ): ResolvedActiveSite | undefined {
 	let state: ResolvedActiveSite | undefined;
 

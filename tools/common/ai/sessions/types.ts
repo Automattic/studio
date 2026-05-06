@@ -1,4 +1,4 @@
-import type { SessionEntryBase } from './entry-types';
+import type { SessionEntry } from '@mariozechner/pi-coding-agent';
 
 export type TurnStatus = 'success' | 'error' | 'max_turns' | 'interrupted';
 
@@ -30,5 +30,5 @@ export interface AiSessionSummary {
 
 export interface LoadedAiSession {
 	summary: AiSessionSummary;
-	entries: SessionEntryBase[];
+	entries: SessionEntry[];
 }

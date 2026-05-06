@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { resolveActiveSiteFromEntries } from '../active-site';
 import { deriveEffectiveEnvironment } from '../effective-site';
 import { appendStudioEntry, createAiSession, loadAiSession } from '../store';
+import type { SessionEntry } from '@mariozechner/pi-coding-agent';
 
 describe( 'site.selected — environment flips', () => {
 	let rootDirectory: string | undefined;
@@ -46,7 +47,7 @@ describe( 'site.selected — environment flips', () => {
 	} );
 
 	it( 'resolver preserves owner name/path when flipping to live', () => {
-		const entries = [
+		const entries: SessionEntry[] = [
 			{
 				type: 'custom',
 				id: 'a',
@@ -83,7 +84,7 @@ describe( 'site.selected — environment flips', () => {
 	} );
 
 	it( 'resolver clears live endpoint info when flipping back to local', () => {
-		const entries = [
+		const entries: SessionEntry[] = [
 			{
 				type: 'custom',
 				id: 'a',

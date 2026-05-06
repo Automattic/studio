@@ -1,8 +1,22 @@
 import { DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
 import { emitEvent, type TurnCompletedStatus } from 'cli/ai/json-events';
+import type { AgentMessage } from '@mariozechner/pi-agent-core';
+import type { AssistantMessage } from '@mariozechner/pi-ai';
 import type { AiProviderId } from 'cli/ai/providers';
 import type { AgentRuntimeEvent } from 'cli/ai/runtimes/runtime-events';
 import type { SiteInfo } from 'cli/ai/ui';
+
+export function findLastAssistant(
+	messages: ReadonlyArray< AgentMessage >
+): AssistantMessage | undefined {
+	for ( let i = messages.length - 1; i >= 0; i -= 1 ) {
+		const m = messages[ i ];
+		if ( ( m as AssistantMessage ).role === 'assistant' ) {
+			return m as AssistantMessage;
+		}
+	}
+	return undefined;
+}
 
 export type HandleEventResult = {
 	type: 'result';
@@ -14,6 +28,10 @@ export type HandleEventResult = {
 export interface AiOutputAdapter {
 	currentProvider: AiProviderId;
 	currentModel: AiModelId;
+	// Set by the orchestrator before dispatching a turn so handlers that
+	// surface a per-session `HandleEventResult` (e.g. JSON-mode trailers)
+	// don't have to thread the session id through every event.
+	currentSessionId?: string;
 	activeSite: SiteInfo | null;
 	onSiteSelected: ( ( site: SiteInfo ) => void ) | null;
 	onInterrupt: ( () => void ) | null;
@@ -46,13 +64,13 @@ export interface AiOutputAdapter {
 export class JsonAdapter implements AiOutputAdapter {
 	currentProvider: AiProviderId = 'wpcom';
 	currentModel: AiModelId = DEFAULT_MODEL;
+	currentSessionId: string | undefined;
 	activeSite: SiteInfo | null = null;
 	onSiteSelected: ( ( site: SiteInfo ) => void ) | null = null;
 	onInterrupt: ( () => void ) | null = null;
 	onBeforeExit: ( () => Promise< void > ) | null = null;
 	permissionResponse: Record< string, string > | null = null;
 
-	private sessionId: string | undefined;
 	private ipcMessageListener: ( ( message: unknown ) => void ) | null = null;
 
 	start(): void {
@@ -144,13 +162,13 @@ export class JsonAdapter implements AiOutputAdapter {
 		// but the inner payload is now the native AgentRuntimeEvent.
 		emitEvent( { type: 'message', timestamp: new Date().toISOString(), message: event } );
 
-		if ( event.type === 'turn_completed' ) {
-			this.sessionId = event.sessionId;
-			return {
-				type: 'result',
-				sessionId: event.sessionId,
-				success: ! event.isError,
-			};
+		if ( event.type === 'agent_end' ) {
+			const sessionId = this.currentSessionId ?? '';
+			const lastAssistant = findLastAssistant( event.messages );
+			const success =
+				! lastAssistant ||
+				( lastAssistant.stopReason !== 'error' && lastAssistant.stopReason !== 'aborted' );
+			return { type: 'result', sessionId, success };
 		}
 
 		return undefined;
@@ -163,7 +181,7 @@ export class JsonAdapter implements AiOutputAdapter {
 		emitEvent( {
 			type: 'turn.completed',
 			timestamp: new Date().toISOString(),
-			sessionId: this.sessionId ?? '',
+			sessionId: this.currentSessionId ?? '',
 			status,
 			usage,
 		} );

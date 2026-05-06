@@ -1,4 +1,3 @@
-import { migrateAllSessions } from '@studio/common/ai/sessions/migrate-all';
 import { buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, sprintf } from '@wordpress/i18n';
@@ -31,7 +30,6 @@ import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
 import { isRemoteSessionEnabled } from 'cli/lib/feature-flags';
-import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 import type { SessionManager } from '@mariozechner/pi-coding-agent';
@@ -103,10 +101,6 @@ export async function runCommand( options: {
 	if ( options.showLegacyCommandNotice && ! isJsonMode ) {
 		ui.showInfo( __( 'ⓘ The "studio ai" command is now "studio code".' ) );
 	}
-
-	await migrateAllSessions( getAiSessionsRootDirectory(), STUDIO_SITES_ROOT ).catch(
-		() => undefined
-	);
 
 	let session: SessionManager | undefined;
 	let didDisableSessionPersistence = options.noSessionPersistence === true;
@@ -444,6 +438,7 @@ export async function runCommand( options: {
 			sessionId: sm.getSessionId(),
 		} );
 
+		ui.currentSessionId = sm.getSessionId();
 		ui.beginAgentTurn();
 
 		// Prepend active site context to the prompt.

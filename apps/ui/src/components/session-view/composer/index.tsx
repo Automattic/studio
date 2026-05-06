@@ -13,7 +13,7 @@ import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { EnvironmentPill } from './environment-pill';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';
-import type { AiModelId, LoadedAiSession, SessionEntryBase, SyncSite } from '@/data/core';
+import type { AiModelId, LoadedAiSession, SessionEntry, SyncSite } from '@/data/core';
 
 /**
  * Invisible structural placeholder that mirrors Composer's outer DOM (shell +
@@ -49,7 +49,7 @@ interface ComposerProps {
 	sessionId?: string;
 	effectiveEnvironment?: 'local' | 'live';
 	liveSite?: SyncSite;
-	entries?: SessionEntryBase[];
+	entries?: SessionEntry[];
 	// Local owner site id, when the session is anchored to one. Required to
 	// spin up a fresh session via `connector.createSession` on a confirmed
 	// family swap; if absent we fall back to the in-place model change so the
@@ -159,7 +159,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 										timestamp,
 										provider: '',
 										modelId: picked,
-									} as unknown as SessionEntryBase,
+									} as unknown as SessionEntry,
 								],
 						  }
 						: prev

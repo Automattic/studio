@@ -395,16 +395,13 @@ describe( 'AiChatUI.handleEvent', () => {
 		ui.hasShownResponseMarker = false;
 		ui.nowMs = () => 5000;
 		ui.turnStartTime = 0;
+		ui.numTurns = 1;
+		ui.currentSessionId = 'sess';
 		ui.messages = { addChild };
 
 		const result = ui.handleEvent( {
-			type: 'turn_completed',
-			sessionId: 'sess',
-			subtype: 'success',
-			isError: false,
-			durationMs: 5000,
-			numTurns: 1,
-			result: '',
+			type: 'agent_end',
+			messages: [],
 		} );
 
 		expect( addChild ).not.toHaveBeenCalled();

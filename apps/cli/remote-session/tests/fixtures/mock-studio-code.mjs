@@ -6,6 +6,8 @@
 //   stale-resume   — writes a stale-session-looking line to stderr + exits non-zero
 //   hang           — never exits (tests timeout path)
 //   media-share    — emits a media.share + result + turn.completed success
+//   empty-result-with-text — assistant emits text, but result has empty `result`
+//                            field (reproduces the pi-runtime agent_end bug).
 
 const scenario = process.env.SCENARIO ?? 'success';
 const sessionId = process.env.SESSION_ID ?? 'sess-new';
@@ -133,6 +135,88 @@ function runMediaShare() {
 	process.exit( 0 );
 }
 
+function runEmptyResultWithText() {
+	emit( { type: 'turn.started', timestamp: ts() } );
+	// Assistant emits a tool call, then a text block with the actual answer.
+	emit( {
+		type: 'message',
+		timestamp: ts(),
+		message: {
+			type: 'assistant',
+			parent_tool_use_id: null,
+			uuid: 'a1',
+			session_id: sessionId,
+			message: {
+				id: 'm1',
+				type: 'message',
+				role: 'assistant',
+				model: 'claude',
+				content: [ { type: 'tool_use', id: 't1', name: 'site_list', input: {} } ],
+				stop_reason: 'tool_use',
+				stop_sequence: null,
+				usage: {},
+			},
+		},
+	} );
+	emit( {
+		type: 'message',
+		timestamp: ts(),
+		message: {
+			type: 'user',
+			parent_tool_use_id: null,
+			uuid: 'u1',
+			session_id: sessionId,
+			message: {
+				role: 'user',
+				content: [ { type: 'tool_result', tool_use_id: 't1', content: '[]', is_error: false } ],
+			},
+		},
+	} );
+	emit( {
+		type: 'message',
+		timestamp: ts(),
+		message: {
+			type: 'assistant',
+			parent_tool_use_id: null,
+			uuid: 'a2',
+			session_id: sessionId,
+			message: {
+				id: 'm2',
+				type: 'message',
+				role: 'assistant',
+				model: 'claude',
+				content: [ { type: 'text', text: 'Final answer from assistant.' } ],
+				stop_reason: 'end_turn',
+				stop_sequence: null,
+				usage: {},
+			},
+		},
+	} );
+	// Buggy result: empty `result` despite the assistant text above.
+	emit( {
+		type: 'message',
+		timestamp: ts(),
+		message: {
+			type: 'result',
+			subtype: 'success',
+			is_error: false,
+			result: '',
+			session_id: sessionId,
+			duration_ms: 10,
+			duration_api_ms: 5,
+			num_turns: 1,
+			stop_reason: 'end_turn',
+			total_cost_usd: 0,
+			usage: {},
+			modelUsage: {},
+			permission_denials: [],
+			uuid: 'r',
+		},
+	} );
+	emit( { type: 'turn.completed', timestamp: ts(), sessionId, status: 'success' } );
+	process.exit( 0 );
+}
+
 const handlers = {
 	success: runSuccess,
 	paused: runPaused,
@@ -140,6 +224,7 @@ const handlers = {
 	'stale-resume': runStaleResume,
 	hang: runHang,
 	'media-share': runMediaShare,
+	'empty-result-with-text': runEmptyResultWithText,
 };
 
 const handler = handlers[ scenario ];

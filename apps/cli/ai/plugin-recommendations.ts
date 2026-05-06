@@ -44,9 +44,10 @@ export const PLUGIN_RECOMMENDATIONS: PluginRecommendation[] = [
 
 When the user asks for a contact form, feedback form, newsletter signup, survey, or any other interactive form, you MUST use Jetpack Forms — not raw HTML <form> elements.
 
-Install the plugin first if it is not already active:
+Install the plugin AND activate the \`contact-form\` Jetpack module first if not already active — both steps are required, otherwise the form blocks render as empty \`<div>\` elements on the frontend:
 \`\`\`
 wp_cli plugin install jetpack --activate
+wp_cli jetpack module activate contact-form
 \`\`\`
 
 Then build the form with blocks. Each field is a container block that holds a \`jetpack/label\` and a \`jetpack/input\` child. The submit button is a standard \`core/button\` (written as \`wp:button\` in block markup) placed directly inside the form container.

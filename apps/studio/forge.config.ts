@@ -101,10 +101,14 @@ const config: ForgeConfig = {
 				desktopTemplate: path.join( __dirname, 'installers', 'desktop.ejs' ),
 				// libcap2-bin: ships `setcap`, used by postinst to grant the bundled
 				// node CAP_NET_BIND_SERVICE so the proxy can bind ports 80/443.
-				// policykit-1: pkexec backend used by @vscode/sudo-prompt for hosts-file writes.
+				// pkexec | policykit-1: provides `pkexec`, used by @vscode/sudo-prompt for
+				// hosts-file writes. `policykit-1` is the legacy package name (Ubuntu 24.04
+				// and older Debian); on Debian trixie / Kali rolling polkit was split and
+				// `pkexec` ships as its own binary package. The alternative makes the
+				// dependency resolvable on both.
 				// ca-certificates: ships `update-ca-certificates` and the system trust bundle.
 				// libnss3-tools: ships `certutil`, used to import the CA into per-user NSS DBs.
-				depends: [ 'libcap2-bin', 'policykit-1', 'ca-certificates', 'libnss3-tools' ],
+				depends: [ 'libcap2-bin', 'pkexec | policykit-1', 'ca-certificates', 'libnss3-tools' ],
 				scripts: {
 					postinst: path.join( __dirname, 'installers', 'linux', 'postinst.sh' ),
 					postrm: path.join( __dirname, 'installers', 'linux', 'postrm.sh' ),

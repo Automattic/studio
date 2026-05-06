@@ -28,6 +28,9 @@ on:
 permissions:
   contents: read
 
+env:
+  GITHUB_TOKEN: ${{ github.token }}
+
 jobs:
   build:
     name: Build ${{ matrix.target }}
@@ -177,7 +180,7 @@ jobs:
       - name: Upload PHP CLI artifact
         uses: actions/upload-artifact@v4
         with:
-          name: php-${{ inputs.php_version }}-cli-${{ matrix.target }}
+          name: php-${{ env.PHP_VERSION }}-cli-${{ matrix.target }}
           path: out/php-binaries/*
 
       - name: Upload static-php-cli logs

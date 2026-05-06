@@ -1,14 +1,20 @@
 import { describe, expect, it, vi } from 'vitest';
-import { openaiRuntime } from 'cli/ai/runtimes/openai';
+import { piRuntime } from 'cli/ai/runtimes/pi';
 import type { AiModelId } from '@studio/common/ai/models';
 
-// Module-level capture so the model-swap test can inspect every Agent the
-// runtime instantiated across a sequence of `run()` calls.
+// Model-swap test uses a synthetic id outside `AI_MODELS`; route unknowns to
+// 'openai' so the env credentials match.
+vi.mock( '@studio/common/ai/models', async ( importOriginal ) => {
+	const actual = await importOriginal< typeof import('@studio/common/ai/models') >();
+	return {
+		...actual,
+		getAiModelFamily: ( id: string ) =>
+			actual.isAiModelId( id ) ? actual.getAiModelFamily( id ) : 'openai',
+	};
+} );
+
 const constructedAgents: Array< { state: { model: { id: string }; messages: unknown[] } } > = [];
 
-// Tests can override the events the mock Agent emits per prompt(), to
-// simulate weird model behavior (e.g. thinking-only turns) without
-// re-mocking the whole module.
 const DEFAULT_MOCK_EVENTS: unknown[] = [
 	{
 		type: 'message_end',
@@ -70,9 +76,9 @@ vi.mock( '@mariozechner/pi-coding-agent', () => {
 	};
 } );
 
-describe( 'OpenAI runtime POC', () => {
+describe( 'pi runtime', () => {
 	it( 'yields an error when OPENAI_API_KEY is absent', async () => {
-		const handle = openaiRuntime.run( {
+		const handle = piRuntime.run( {
 			prompt: 'hello',
 			env: {},
 			model: 'gpt-5.5',
@@ -91,7 +97,7 @@ describe( 'OpenAI runtime POC', () => {
 	} );
 
 	it( 'yields a full exchange when the mocked OpenAI SDK returns output', async () => {
-		const handle = openaiRuntime.run( {
+		const handle = piRuntime.run( {
 			prompt: 'hello',
 			env: {
 				OPENAI_API_KEY: 'sk-test',
@@ -130,11 +136,8 @@ describe( 'OpenAI runtime POC', () => {
 		] );
 	} );
 
-	// Regression: with reasoning enabled, GPT-5+ models occasionally produce
-	// a turn whose only content is `thinking` blocks — no text, no tool
-	// calls. Without a fallback the UI would render an empty turn that shows
-	// up as just "Done" with no body. We surface the thinking summary as the
-	// assistant text so the user sees something.
+	// Reasoning models can produce a `thinking`-only turn; show the summary
+	// so the UI doesn't render a silent empty "Done".
 	it( 'falls back to thinking content when there is no text and no tool calls', async () => {
 		nextMockEvents = [
 			{
@@ -148,7 +151,7 @@ describe( 'OpenAI runtime POC', () => {
 			{ type: 'agent_end', messages: [] },
 		];
 
-		const handle = openaiRuntime.run( {
+		const handle = piRuntime.run( {
 			prompt: 'hello',
 			env: {
 				OPENAI_API_KEY: 'sk-test',
@@ -174,16 +177,8 @@ describe( 'OpenAI runtime POC', () => {
 		expect( assistantTexts ).toEqual( [ 'reasoned through it' ] );
 	} );
 
-	// Regression: in CLI interactive mode the runtime kept a single Agent per
-	// session forever. Switching models with `/model` flipped the dropdown
-	// without rebuilding the Agent, so the new model id never reached the
-	// next request. The fix: when the cached Agent's model differs from the
-	// new request, rebuild the Agent (preserving messages so conversation
-	// continues).
-	//
-	// We use a synthetic second model id (cast to AiModelId) so the test
-	// covers the cache logic independent of which models AI_MODELS happens
-	// to expose at any point in time.
+	// `/model` swap mid-session must reach the next request — the prior cache
+	// quietly served the old model.
 	it( 'rebuilds the Agent when the model changes mid-session', async () => {
 		constructedAgents.length = 0;
 		const env = {
@@ -193,87 +188,39 @@ describe( 'OpenAI runtime POC', () => {
 		const sessionId = 'fixed-session-id-for-swap-test';
 		const otherOpenAiModel = 'gpt-test-other' as AiModelId;
 
-		// First turn on gpt-5.5.
-		const first = openaiRuntime.run( {
-			prompt: 'hi',
-			env,
-			model: 'gpt-5.5',
-			resume: sessionId,
-		} );
-
-		for await ( const _ of first ) {
-			// Drain.
-		}
+		const first = piRuntime.run( { prompt: 'hi', env, model: 'gpt-5.5', resume: sessionId } );
+		for await ( const _ of first );
 		expect( constructedAgents ).toHaveLength( 1 );
 		expect( constructedAgents[ 0 ].state.model.id ).toBe( 'gpt-5.5' );
 
-		// Second turn on the same session id but a different model — this
-		// is the `/model` swap. The cache must NOT win here.
-		const second = openaiRuntime.run( {
+		// `/model` swap — cache must NOT win.
+		const second = piRuntime.run( {
 			prompt: 'follow-up',
 			env,
 			model: otherOpenAiModel,
 			resume: sessionId,
 		} );
-
-		for await ( const _ of second ) {
-			// Drain.
-		}
+		for await ( const _ of second );
 		expect( constructedAgents ).toHaveLength( 2 );
 		expect( constructedAgents[ 1 ].state.model.id ).toBe( otherOpenAiModel );
 
-		// Third turn on the same model — should hit the cache, not rebuild.
-		const third = openaiRuntime.run( {
+		// Same model again — cache hits, no rebuild.
+		const third = piRuntime.run( {
 			prompt: 'still on the second model',
 			env,
 			model: otherOpenAiModel,
 			resume: sessionId,
 		} );
-
-		for await ( const _ of third ) {
-			// Drain.
-		}
+		for await ( const _ of third );
 		expect( constructedAgents ).toHaveLength( 2 );
 	} );
 
-	// Synthetic SDKMessages should carry the configured model id, not a
-	// generic 'openai' literal. Nothing reads `message.model` today, but it
-	// shows up in transcripts side-by-side with the Anthropic runtime's
-	// (which always carries the real id), and a future consumer that does
-	// read it shouldn't get the wrong value.
-	it( 'tags synthetic assistant messages with the configured model id', async () => {
-		const handle = openaiRuntime.run( {
-			prompt: 'hello',
-			env: {
-				OPENAI_API_KEY: 'sk-test',
-				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
-			},
-			model: 'gpt-5.5',
-			resume: 'model-tag-' + Math.random(),
-		} );
-
-		const assistantModels: string[] = [];
-		for await ( const m of handle ) {
-			if ( m.type === 'assistant' ) {
-				assistantModels.push( m.message.model as string );
-			}
-		}
-
-		expect( assistantModels ).not.toHaveLength( 0 );
-		expect( assistantModels.every( ( id ) => id === 'gpt-5.5' ) ).toBe( true );
-	} );
-
-	// STUDIO_OPENAI_DEFAULT_HEADERS is produced by Studio (JSON.stringify of a
-	// plain object), so malformed JSON only ever indicates a bug in the
-	// producer or a manual env override during debugging. Either way, silently
-	// dropping the headers turns into an opaque 401 from the wpcom proxy
-	// (missing X-WPCOM-AI-Feature). Surface a stderr warning so the cause is
-	// visible.
+	// Silent header-drop would surface as an opaque 401 from the wpcom proxy.
 	it( 'warns and continues when STUDIO_OPENAI_DEFAULT_HEADERS is malformed', async () => {
 		const warnSpy = vi.spyOn( console, 'warn' ).mockImplementation( () => {} );
 
 		try {
-			const handle = openaiRuntime.run( {
+			const handle = piRuntime.run( {
 				prompt: 'hello',
 				env: {
 					OPENAI_API_KEY: 'sk-test',

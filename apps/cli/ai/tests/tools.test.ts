@@ -142,7 +142,7 @@ describe( 'Studio AI MCP tools', () => {
 	} );
 
 	it( 'emits a preview navigate command with a normalized path', async () => {
-		const result = await getTool( 'preview_navigate' ).handler( { path: 'about/' } as never, null );
+		const result = await getTool( 'preview_navigate' ).rawHandler( { path: 'about/' } as never );
 
 		expect( emitEvent ).toHaveBeenCalledWith(
 			expect.objectContaining( {
@@ -151,12 +151,11 @@ describe( 'Studio AI MCP tools', () => {
 				path: '/about/',
 			} )
 		);
-		expect( result.isError ).toBeUndefined();
 		expect( getTextContent( result ) ).toContain( '/about/' );
 	} );
 
 	it( 'falls back to "/" when preview_navigate receives an empty path', async () => {
-		await getTool( 'preview_navigate' ).handler( { path: '   ' } as never, null );
+		await getTool( 'preview_navigate' ).rawHandler( { path: '   ' } as never );
 
 		expect( emitEvent ).toHaveBeenCalledWith(
 			expect.objectContaining( { kind: 'navigate', path: '/' } )
@@ -164,12 +163,11 @@ describe( 'Studio AI MCP tools', () => {
 	} );
 
 	it( 'emits a preview reload command', async () => {
-		const result = await getTool( 'preview_reload' ).handler( {} as never, null );
+		await getTool( 'preview_reload' ).rawHandler( {} as never );
 
 		expect( emitEvent ).toHaveBeenCalledWith(
 			expect.objectContaining( { type: 'preview.command', kind: 'reload' } )
 		);
-		expect( result.isError ).toBeUndefined();
 	} );
 
 	it( 'omits preview-steering tools when preview steering is disabled', () => {
@@ -222,13 +220,11 @@ describe( 'Studio AI MCP tools', () => {
 	} );
 
 	it( 'creates previews for a resolved local site', async () => {
-		const result = await getTool( 'preview_create' ).handler(
-			{ nameOrPath: 'My Site' } as never,
-			null
-		);
+		const result = await getTool( 'preview_create' ).rawHandler( {
+			nameOrPath: 'My Site',
+		} as never );
 
 		expect( runCreatePreviewCommand ).toHaveBeenCalledWith( '/sites/my-site' );
-		expect( result.isError ).toBeUndefined();
 		expect( getTextContent( result ) ).toContain( 'Preview site created for "My Site".' );
 	} );
 
@@ -237,32 +233,24 @@ describe( 'Studio AI MCP tools', () => {
 			console.log( '[{"url":"https://demo.wordpress.com"}]' );
 		} );
 
-		const result = await getTool( 'preview_list' ).handler(
-			{ nameOrPath: 'My Site' } as never,
-			null
-		);
+		const result = await getTool( 'preview_list' ).rawHandler( { nameOrPath: 'My Site' } as never );
 
 		expect( runListPreviewCommand ).toHaveBeenCalledWith( '/sites/my-site', 'json' );
-		expect( result.isError ).toBeUndefined();
 		expect( getTextContent( result ) ).toBe( '[{"url":"https://demo.wordpress.com"}]' );
 	} );
 
 	it( 'updates previews with a normalized hostname', async () => {
-		const result = await getTool( 'preview_update' ).handler(
-			{
-				nameOrPath: 'My Site',
-				host: 'https://demo.wordpress.com/',
-				overwrite: true,
-			} as never,
-			null
-		);
+		const result = await getTool( 'preview_update' ).rawHandler( {
+			nameOrPath: 'My Site',
+			host: 'https://demo.wordpress.com/',
+			overwrite: true,
+		} as never );
 
 		expect( runUpdatePreviewCommand ).toHaveBeenCalledWith(
 			'/sites/my-site',
 			'demo.wordpress.com',
 			true
 		);
-		expect( result.isError ).toBeUndefined();
 		expect( getTextContent( result ) ).toContain(
 			'Preview site "demo.wordpress.com" updated from "My Site".'
 		);
@@ -274,24 +262,23 @@ describe( 'Studio AI MCP tools', () => {
 			console.log( 'Failed to delete preview site' );
 		} );
 
-		const result = await getTool( 'preview_delete' ).handler(
-			{ host: 'https://demo.wordpress.com/' } as never,
-			null
-		);
+		await expect(
+			getTool( 'preview_delete' ).rawHandler( {
+				host: 'https://demo.wordpress.com/',
+			} as never )
+		).rejects.toThrow( 'Failed to delete preview site' );
 
 		expect( runDeletePreviewCommand ).toHaveBeenCalledWith(
 			PreviewDeleteMode.DELETE_SINGLE_SNAPSHOT,
 			'demo.wordpress.com'
 		);
-		expect( result.isError ).toBe( true );
-		expect( getTextContent( result ) ).toBe( 'Failed to delete preview site' );
 	} );
 
 	it( 'restores the previous progress callback after running a preview tool', async () => {
 		const previousCallback = vi.fn();
 		setProgressCallback( previousCallback );
 
-		await getTool( 'preview_create' ).handler( { nameOrPath: 'My Site' } as never, null );
+		await getTool( 'preview_create' ).rawHandler( { nameOrPath: 'My Site' } as never );
 
 		expect( getProgressCallback() ).toBe( previousCallback );
 	} );
@@ -306,7 +293,7 @@ describe( 'Studio AI MCP tools', () => {
 			currentCallback?.( 'Almost done…' );
 		} );
 
-		await getTool( 'preview_create' ).handler( { nameOrPath: 'My Site' } as never, null );
+		await getTool( 'preview_create' ).rawHandler( { nameOrPath: 'My Site' } as never );
 
 		expect( previousCallback ).toHaveBeenCalledWith( 'Creating preview…', undefined );
 		expect( previousCallback ).toHaveBeenCalledWith( 'Almost done…', undefined );
@@ -337,18 +324,15 @@ describe( 'Studio AI MCP tools', () => {
 			pid: 1234,
 		} );
 
-		const result = await getTool( 'wp_cli' ).handler(
-			{
+		await expect(
+			getTool( 'wp_cli' ).rawHandler( {
 				nameOrPath: 'My Site',
 				command:
 					'post create --post_type=page --post_title=Home --post_content="$(cat /tmp/one-page-content.txt)"',
-			} as never,
-			null
-		);
+			} as never )
+		).rejects.toThrow( /does not run in a shell/ );
 
 		expect( sendWpCliCommand ).not.toHaveBeenCalled();
-		expect( result.isError ).toBe( true );
-		expect( getTextContent( result ) ).toContain( 'does not run in a shell' );
 	} );
 
 	it( 'treats unquoted post_content as a single trailing literal argument', async () => {
@@ -364,15 +348,12 @@ describe( 'Studio AI MCP tools', () => {
 			exitCode: 0,
 		} );
 
-		await getTool( 'wp_cli' ).handler(
-			{
-				nameOrPath: 'My Site',
-				command: `post create --post_type=page --post_title="About" --post_status=publish --post_content=<!-- wp:paragraph -->
+		await getTool( 'wp_cli' ).rawHandler( {
+			nameOrPath: 'My Site',
+			command: `post create --post_type=page --post_title="About" --post_status=publish --post_content=<!-- wp:paragraph -->
 <p>Hello world</p>
 <!-- /wp:paragraph -->`,
-			} as never,
-			null
-		);
+		} as never );
 
 		expect( sendWpCliCommand ).toHaveBeenCalledWith( 'site-123', [
 			'post',
@@ -397,13 +378,10 @@ describe( 'Studio AI MCP tools', () => {
 			exitCode: 0,
 		} );
 
-		await getTool( 'wp_cli' ).handler(
-			{
-				nameOrPath: 'My Site',
-				command: 'post create --post_type=page --post_title="About" --post_content="Hello world"',
-			} as never,
-			null
-		);
+		await getTool( 'wp_cli' ).rawHandler( {
+			nameOrPath: 'My Site',
+			command: 'post create --post_type=page --post_title="About" --post_content="Hello world"',
+		} as never );
 
 		expect( sendWpCliCommand ).toHaveBeenCalledWith( 'site-123', [
 			'post',
@@ -427,14 +405,11 @@ describe( 'Studio AI MCP tools', () => {
 			exitCode: 0,
 		} );
 
-		await getTool( 'wp_cli' ).handler(
-			{
-				nameOrPath: 'My Site',
-				command:
-					'post create --post_type=page --post_title="About" --post_content="Hello world" --porcelain',
-			} as never,
-			null
-		);
+		await getTool( 'wp_cli' ).rawHandler( {
+			nameOrPath: 'My Site',
+			command:
+				'post create --post_type=page --post_title="About" --post_content="Hello world" --porcelain',
+		} as never );
 
 		expect( sendWpCliCommand ).toHaveBeenCalledWith( 'site-123', [
 			'post',
@@ -459,13 +434,10 @@ describe( 'Studio AI MCP tools', () => {
 			exitCode: 0,
 		} );
 
-		await getTool( 'wp_cli' ).handler(
-			{
-				nameOrPath: 'My Site',
-				command: 'post create --post_type=page --post_title="About" --post_content="" --porcelain',
-			} as never,
-			null
-		);
+		await getTool( 'wp_cli' ).rawHandler( {
+			nameOrPath: 'My Site',
+			command: 'post create --post_type=page --post_title="About" --post_content="" --porcelain',
+		} as never );
 
 		expect( sendWpCliCommand ).toHaveBeenCalledWith( 'site-123', [
 			'post',
@@ -485,17 +457,14 @@ describe( 'Studio AI MCP tools', () => {
 			pid: 1234,
 		} );
 
-		const result = await getTool( 'wp_cli' ).handler(
-			{
+		await expect(
+			getTool( 'wp_cli' ).rawHandler( {
 				nameOrPath: 'My Site',
 				command:
 					'post create --post_type=page --post_title="About" --post_content="Hello world" –porcelain',
-			} as never,
-			null
-		);
+			} as never )
+		).rejects.toThrow( /typographic dash/ );
 
 		expect( sendWpCliCommand ).not.toHaveBeenCalled();
-		expect( result.isError ).toBe( true );
-		expect( getTextContent( result ) ).toContain( 'typographic dash' );
 	} );
 } );

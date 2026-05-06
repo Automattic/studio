@@ -1,7 +1,7 @@
 import { DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
 import { emitEvent, type TurnCompletedStatus } from 'cli/ai/json-events';
-import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { AiProviderId } from 'cli/ai/providers';
+import type { SDKMessage } from 'cli/ai/runtimes/messages';
 import type { SiteInfo } from 'cli/ai/ui';
 
 export type HandleMessageResult = {
@@ -30,6 +30,7 @@ export interface AiOutputAdapter {
 	showInfo( message: string ): void;
 	showError( message: string ): void;
 	setStatusMessage( message: string | null ): void;
+	setDaemonStatus( state: { running: boolean; pid?: number } ): void;
 	setLoaderMessage( message: string, update?: boolean ): void;
 
 	beginAgentTurn(): void;
@@ -113,6 +114,10 @@ export class JsonAdapter implements AiOutputAdapter {
 	}
 
 	setStatusMessage(): void {
+		// No-op in JSON mode
+	}
+
+	setDaemonStatus(): void {
 		// No-op in JSON mode
 	}
 

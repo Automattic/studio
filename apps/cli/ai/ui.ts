@@ -29,7 +29,7 @@ import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { DEFAULT_MODEL, getAiModelLabel, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
-import { AI_CHAT_SLASH_COMMANDS } from 'cli/ai/slash-commands';
+import { getActiveSlashCommands } from 'cli/ai/slash-commands';
 import { buildTodoUpdateLines, type TodoRenderLine } from 'cli/ai/todo-render';
 import { diffTodoSnapshot, type TodoDiff, type TodoEntry } from 'cli/ai/todo-stream';
 import { getWpComSites } from 'cli/lib/api';
@@ -37,9 +37,8 @@ import { openBrowser } from 'cli/lib/browser';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { getSitesRunningStatus, isSiteRunning } from 'cli/lib/site-utils';
-import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
-import type { TodoWriteInput } from '@anthropic-ai/claude-agent-sdk/sdk-tools';
 import type { AiOutputAdapter, HandleMessageResult } from 'cli/ai/output-adapter';
+import type { SDKMessage, TodoWriteInput } from 'cli/ai/runtimes/messages';
 
 const SITE_PICKER_TAB_LOCAL = 'local' as const;
 const SITE_PICKER_TAB_REMOTE = 'remote' as const;
@@ -98,6 +97,7 @@ class PromptEditor implements Component, Focusable {
 	busyMessage: string | null = null;
 	hints: string[] = [];
 	statusMessage: string | null = null;
+	daemonStatusMessage: string | null = null;
 	showBottomBar = true;
 
 	get focused(): boolean {
@@ -212,7 +212,15 @@ class PromptEditor implements Component, Focusable {
 			activeHints.length > 0
 				? ' ' + activeHints.map( ( h ) => chalk.dim( h ) ).join( chalk.dim( ' · ' ) )
 				: '';
-		const rightPart = this.statusMessage ? chalk.dim( this.statusMessage ) + ' ' : '';
+		const rightSegments: string[] = [];
+		if ( this.daemonStatusMessage ) {
+			rightSegments.push( chalk.green( this.daemonStatusMessage ) );
+		}
+		if ( this.statusMessage ) {
+			rightSegments.push( chalk.dim( this.statusMessage ) );
+		}
+		const rightPart =
+			rightSegments.length > 0 ? rightSegments.join( chalk.dim( ' · ' ) ) + ' ' : '';
 		if ( leftPart || rightPart ) {
 			const leftLen = visibleWidth( leftPart );
 			const rightLen = visibleWidth( rightPart );
@@ -567,7 +575,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this.editor = new PromptEditor( this.tui, editorTheme );
 
 		this.editor.setAutocompleteProvider(
-			new CombinedAutocompleteProvider( AI_CHAT_SLASH_COMMANDS, process.cwd() )
+			new CombinedAutocompleteProvider( getActiveSlashCommands(), process.cwd() )
 		);
 
 		this.editor.onSubmit = ( text ) => {
@@ -1323,7 +1331,6 @@ export class AiChatUI implements AiOutputAdapter {
 	}
 
 	waitForInput(): Promise< string > {
-		this.editor.setText( '' );
 		this.hideLoader();
 		this.showEditor();
 		if ( this.queuedPrompts.length > 0 ) {
@@ -1451,7 +1458,6 @@ export class AiChatUI implements AiOutputAdapter {
 	 * Begin an agent turn: hide editor, show loader, prepare response area.
 	 */
 	beginAgentTurn(): void {
-		this.editor.setText( '' );
 		this._inAgentTurn = true;
 		this.updateHints();
 		this.showLoader( randomThinkingMessage() );
@@ -1662,6 +1668,11 @@ export class AiChatUI implements AiOutputAdapter {
 
 	setStatusMessage( message: string | null ): void {
 		this.editor.statusMessage = message;
+		this.tui.requestRender();
+	}
+
+	setDaemonStatus( state: { running: boolean; pid?: number } ): void {
+		this.editor.daemonStatusMessage = state.running ? __( 'Remote session active' ) : null;
 		this.tui.requestRender();
 	}
 

@@ -1,10 +1,10 @@
 import { readFile } from 'fs/promises';
-import { tool } from '@anthropic-ai/claude-agent-sdk';
-import { z } from 'zod/v4';
+import { Type } from 'typebox';
 import { validateBlocks, type ValidationReport } from 'cli/ai/block-validator';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { emitProgress } from 'cli/logger';
-import { errorResult, resolveSite, textResult } from './utils';
+import { defineTool } from './define-tool';
+import { resolveSite, textResult } from './utils';
 
 /**
  * Render the invalid-block portion of a validation report as a list of
@@ -28,22 +28,24 @@ function formatInvalidBlocks( report: ValidationReport ): string[] {
 	return lines;
 }
 
-export const validateBlocksTool = tool(
+export const validateBlocksTool = defineTool(
 	'validate_blocks',
 	"Validates WordPress block content by running each block through its save() function in the site's block editor (real browser). " +
 		'The site must be running. Returns per-block validation results with expected HTML for invalid blocks.',
 	{
-		nameOrPath: z
-			.string()
-			.describe( 'The site name or file system path — the site must be running' ),
-		filePath: z
-			.string()
-			.optional()
-			.describe( 'Path to a file containing WordPress block content to validate' ),
-		content: z
-			.string()
-			.optional()
-			.describe( 'Raw WordPress block content (HTML with block comments) to validate' ),
+		nameOrPath: Type.String( {
+			description: 'The site name or file system path — the site must be running',
+		} ),
+		filePath: Type.Optional(
+			Type.String( {
+				description: 'Path to a file containing WordPress block content to validate',
+			} )
+		),
+		content: Type.Optional(
+			Type.String( {
+				description: 'Raw WordPress block content (HTML with block comments) to validate',
+			} )
+		),
 	},
 	async ( args ) => {
 		try {
@@ -56,7 +58,7 @@ export const validateBlocksTool = tool(
 			} else if ( args.content ) {
 				blockContent = args.content;
 			} else {
-				return errorResult( 'Either content or filePath must be provided.' );
+				throw new Error( 'Either content or filePath must be provided.' );
 			}
 
 			emitProgress( `Validating blocks in ${ fileName }…` );
@@ -67,7 +69,7 @@ export const validateBlocksTool = tool(
 
 			if ( report.error ) {
 				emitProgress( `Validation failed for ${ fileName }: ${ report.error.slice( 0, 80 ) }` );
-				return errorResult( `Block validation failed: ${ report.error }` );
+				throw new Error( `Block validation failed: ${ report.error }` );
 			}
 
 			if ( report.invalidBlocks > 0 ) {
@@ -84,11 +86,15 @@ export const validateBlocksTool = tool(
 
 			if ( report.invalidBlocks > 0 ) {
 				lines.push( '', 'Invalid blocks:', ...formatInvalidBlocks( report ) );
+				lines.push(
+					'',
+					'Before fixing: each Expected/Actual diff is a structural change, not a literal text swap. Classes the validator adds or removes (has-X-color, alignwide, is-style-Y, wp-block-*-is-layout-flex) pull in or strip core CSS that drives layout, spacing, and color. Diff the markup explicitly, update any style.css selectors that target the old class or nesting in the same edit batch, preserve your intentional className hooks, then take a screenshot of desktop and mobile to verify the design did not drift.'
+				);
 			}
 
 			return textResult( lines.join( '\n' ) );
 		} catch ( error ) {
-			return errorResult(
+			throw new Error(
 				`Block validation failed: ${ error instanceof Error ? error.message : String( error ) }`
 			);
 		}

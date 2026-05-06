@@ -27,6 +27,8 @@ const {
 	recordSessionClearedMock,
 	recordSessionContextMock,
 	recordSiteSelectedMock,
+	recordUserMessageMock,
+	addUserMessageMock,
 	reportErrorMock,
 	setLoaderMessageMock,
 	waitForInputMock,
@@ -41,6 +43,8 @@ const {
 	recordSessionClearedMock: vi.fn(),
 	recordSessionContextMock: vi.fn(),
 	recordSiteSelectedMock: vi.fn(),
+	recordUserMessageMock: vi.fn(),
+	addUserMessageMock: vi.fn(),
 	reportErrorMock: vi.fn(),
 	setLoaderMessageMock: vi.fn(),
 	waitForInputMock: vi.fn(),
@@ -179,6 +183,7 @@ vi.mock( 'cli/ai/ui', () => ( {
 		showOnboarding() {}
 		showCapabilities() {}
 		setStatusMessage() {}
+		setDaemonStatus() {}
 		prepareForReplay() {}
 		finishReplay() {}
 		beginAgentTurn() {}
@@ -196,7 +201,9 @@ vi.mock( 'cli/ai/ui', () => ( {
 		} ) {
 			this.activeSite = site;
 		}
-		addUserMessage() {}
+		addUserMessage( ...args: unknown[] ) {
+			addUserMessageMock( ...args );
+		}
 		clearTranscript() {
 			clearTranscriptMock();
 		}
@@ -241,7 +248,9 @@ vi.mock( 'cli/ai/sessions/recorder', () => {
 		async recordSiteSelected( ...args: unknown[] ) {
 			return recordSiteSelectedMock( ...args );
 		}
-		async recordUserMessage() {}
+		async recordUserMessage( ...args: unknown[] ) {
+			return recordUserMessageMock( ...args );
+		}
 		async recordAgentQuestion() {}
 		async recordTurnClosed() {}
 		async recordAgentSessionId() {}
@@ -418,11 +427,9 @@ describe( 'CLI: studio code sessions command', () => {
 	} );
 
 	it( 'persists selected model before the first prompt is sent', async () => {
-		const alternateModel = ( Object.entries( AI_MODELS ) as [ string, string ][] ).find(
-			( [ modelId ] ) => modelId !== DEFAULT_MODEL
-		);
+		const alternateModel = AI_MODELS.find( ( model ) => model.id !== DEFAULT_MODEL );
 		expect( alternateModel ).toBeDefined();
-		const [ selectedModelId, selectedModelLabel ] = alternateModel!;
+		const { id: selectedModelId, label: selectedModelLabel } = alternateModel!;
 
 		waitForInputMock.mockResolvedValueOnce( '/model' ).mockResolvedValueOnce( '/exit' );
 		askUserMock.mockResolvedValueOnce( {
@@ -515,6 +522,44 @@ describe( 'CLI: studio code sessions command', () => {
 		expect( loadAiSession ).toHaveBeenCalledWith( expect.any( String ), 'session-latest' );
 		expect( ( AiSessionRecorder as typeof AiSessionRecorder ).open ).not.toHaveBeenCalled();
 		expect( process.exit ).toHaveBeenCalledWith( 0 );
+	} );
+
+	it( 'persists the display message when resuming with a hidden full message', async () => {
+		vi.mocked( loadAiSession ).mockResolvedValue( {
+			summary: {
+				id: 'session-id',
+				filePath: '/tmp/session-id.jsonl',
+				createdAt: '2026-03-11T11:00:00.000Z',
+				updatedAt: '2026-03-11T11:00:00.000Z',
+				linkedAgentSessionIds: [],
+				activeEnvironment: 'local',
+				eventCount: 1,
+			},
+			events: [],
+		} );
+
+		await buildParser().parseAsync( [
+			'ai',
+			'sessions',
+			'resume',
+			'session-id',
+			'Full annotation prompt',
+			'--json',
+			'--display-message',
+			'2 annotations submitted',
+		] );
+
+		expect( startAiAgent ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				prompt: 'Full annotation prompt',
+			} )
+		);
+		expect( recordUserMessageMock ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				text: '2 annotations submitted',
+				source: 'prompt',
+			} )
+		);
 	} );
 
 	it( 'deletes the latest session', async () => {

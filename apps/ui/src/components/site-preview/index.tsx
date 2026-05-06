@@ -3,25 +3,32 @@ import { external } from '@wordpress/icons';
 import { Button, IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useEffect, useRef, useState } from 'react';
+import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { useConnector } from '@/data/core';
 import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
+import { useResizablePanel } from '@/hooks/use-resizable-panel';
 import { getSiteUrl } from '@/lib/get-site-url';
 import { playIcon } from '@/lib/icons';
+import { PREVIEW_PANEL_CONFIG, PREVIEW_PANEL_STORAGE_KEY } from '@/lib/resizable-panels';
 import { INSPECTOR_BRIDGE_PREFIX, INSPECTOR_PAGE_SCRIPT } from './inspector-script';
 import styles from './style.module.css';
 import type { Annotation } from './types';
 import type { SiteDetails } from '@/data/core';
+import type { CSSProperties } from 'react';
 
 export type { Annotation } from './types';
 
 interface SitePreviewProps {
 	site: SiteDetails;
-	// When present, the preview subscribes to the agent event stream for this
-	// session and reacts to `preview.command` events emitted by the agent's
-	// preview_navigate / preview_reload tools.
-	sessionId?: string;
-	// Called when the user clicks "Done" in the inspector toolbar. Receives the
-	// full annotation payload assembled inside the webview's guest page.
+	// Path to display within the previewed site, controlled by the parent so
+	// it can be updated by `preview.command` events even when the panel was
+	// previously collapsed.
+	path: string;
+	// Bumped by the parent to force a webview reload (e.g. on a `reload`
+	// preview command).
+	reloadNonce: number;
+	// Called when the user clicks "Submit" in the inspector toolbar. Receives
+	// the full annotation payload assembled inside the webview's guest page.
 	onAnnotationsDone?: ( annotations: Annotation[] ) => void;
 }
 
@@ -50,31 +57,34 @@ const isElectron = (): boolean => {
 	return /\bElectron\//.test( navigator.userAgent );
 };
 
-export function SitePreview( { site, sessionId, onAnnotationsDone }: SitePreviewProps ) {
+export function SitePreview( { site, path, reloadNonce, onAnnotationsDone }: SitePreviewProps ) {
 	const connector = useConnector();
 	const startSite = useStartSite();
 	const isStarting = useIsSiteStarting( site.id );
 	const siteUrl = getSiteUrl( site );
 	const canPreview = site.running;
-	const [ currentPath, setCurrentPath ] = useState( '/' );
-	const [ reloadNonce, setReloadNonce ] = useState( 0 );
-	const fullUrl = `${ siteUrl }${ currentPath }`;
-
-	useEffect( () => {
-		if ( ! sessionId ) return;
-		return connector.onAgentEvent( ( payload ) => {
-			if ( payload.sessionId !== sessionId ) return;
-			const event = payload.event;
-			if ( event.type !== 'preview.command' ) return;
-			if ( event.kind === 'navigate' ) {
-				setCurrentPath( event.path );
-			}
-			setReloadNonce( ( n ) => n + 1 );
-		} );
-	}, [ connector, sessionId ] );
+	const fullUrl = `${ siteUrl }${ path }`;
+	const previewResize = useResizablePanel( {
+		config: PREVIEW_PANEL_CONFIG,
+		edge: 'left',
+		storageKey: PREVIEW_PANEL_STORAGE_KEY,
+	} );
+	const previewStyle = {
+		'--site-preview-width': `${ previewResize.width }px`,
+	} as CSSProperties;
 
 	return (
-		<aside className={ styles.root } aria-label={ __( 'Site preview' ) }>
+		<aside className={ styles.root } style={ previewStyle } aria-label={ __( 'Site preview' ) }>
+			<ResizeHandle
+				className={ styles.resizeHandle }
+				label={ __( 'Resize site preview' ) }
+				minWidth={ previewResize.minWidth }
+				maxWidth={ previewResize.maxWidth }
+				width={ previewResize.width }
+				isResizing={ previewResize.isResizing }
+				onResizeStart={ previewResize.handleResizeStart }
+				onKeyDown={ previewResize.handleKeyDown }
+			/>
 			<div className={ styles.header }>
 				<div className={ styles.trafficLights } aria-hidden="true">
 					<span className={ clsx( styles.trafficLight, styles.trafficLightActive ) } />
@@ -129,6 +139,7 @@ export function SitePreview( { site, sessionId, onAnnotationsDone }: SitePreview
 					</div>
 				) }
 			</div>
+			{ previewResize.isResizing ? <ResizeOverlay /> : null }
 		</aside>
 	);
 }

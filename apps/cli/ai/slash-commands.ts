@@ -1,16 +1,21 @@
+import { getAiModelFamily } from '@studio/common/ai/models';
 import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, sprintf } from '@wordpress/i18n';
-import { AI_MODELS, type AiModelId } from 'cli/ai/agent';
+import { getAiModelLabel, type AiModelId } from 'cli/ai/agent';
 import { getAvailableAiProviders, isAiProviderReady } from 'cli/ai/auth';
-import { AI_PROVIDERS, type AiProviderId } from 'cli/ai/providers';
+import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
 import { captureCommandOutput } from 'cli/ai/tools';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { runCommand as runLogoutCommand } from 'cli/commands/auth/logout';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
+import { isRemoteSessionEnabled } from 'cli/lib/feature-flags';
 import { getSnapshotsFromConfig, isSnapshotExpired } from 'cli/lib/snapshots';
 import { LoggerError } from 'cli/logger';
+import { loadRemoteSessionConfig } from 'cli/remote-session/config';
+import { DaemonAlreadyRunningError, startDaemon, stopDaemon } from 'cli/remote-session/daemon';
+import type { AutocompleteItem } from '@mariozechner/pi-tui';
 import type { AiChatUI } from 'cli/ai/ui';
 
 export interface SlashCommandContext {
@@ -37,6 +42,33 @@ export interface SlashCommandDef {
 	name: string;
 	description: string;
 	handler?: SlashCommandHandler;
+	/**
+	 * Optional gate. When provided and returning false at evaluation time, the
+	 * command is hidden from autocomplete and unreachable from the dispatcher.
+	 * Used for feature-flagged commands so the surface stays clean for users
+	 * who haven't opted in.
+	 */
+	enabled?: () => boolean;
+	/**
+	 * Optional argument completion. When the user has typed past the first
+	 * whitespace (e.g. `/remote-session `), the autocomplete provider calls
+	 * this to surface subcommand suggestions.
+	 */
+	getArgumentCompletions?: ( argumentPrefix: string ) => AutocompleteItem[] | null;
+}
+
+/**
+ * Returns the slash commands that are active at the time this function is
+ * called.
+ *
+ * Consumers such as the dispatcher should call this rather than reading
+ * `AI_CHAT_SLASH_COMMANDS` directly so feature-flag evaluation happens
+ * against current state. Consumers that cache the returned list, or build
+ * long-lived autocomplete providers from it, must refresh those consumers
+ * separately for later feature-flag changes to be reflected.
+ */
+export function getActiveSlashCommands(): SlashCommandDef[] {
+	return AI_CHAT_SLASH_COMMANDS.filter( ( c ) => c.enabled === undefined || c.enabled() );
 }
 
 function isPromptAbortError( error: unknown ): boolean {
@@ -44,6 +76,175 @@ function isPromptAbortError( error: unknown ): boolean {
 		error instanceof Error &&
 		[ 'AbortPromptError', 'CancelPromptError', 'ExitPromptError' ].includes( error.name )
 	);
+}
+
+function parseRemoteSessionSubcommand( prompt: string ): 'start' | 'stop' | undefined {
+	const tokens = prompt.trim().split( /\s+/ );
+	const sub = tokens[ 1 ]?.toLowerCase();
+	if ( sub === 'start' || sub === 'stop' ) {
+		return sub;
+	}
+	return undefined;
+}
+
+async function runRemoteSessionStart( ctx: SlashCommandContext ): Promise< void > {
+	// Validate config in-process so a missing token surfaces as an error in the
+	// REPL rather than silently spawning a child that exits on its own.
+	try {
+		await loadRemoteSessionConfig();
+	} catch ( error ) {
+		// RemoteSessionConfigError already carries a user-facing message
+		// telling the user how to authenticate. Anything else (fs permissions,
+		// JSON parse, etc.) gets a generic surface so the REPL stays alive —
+		// the dispatcher does not catch handler throws.
+		ctx.ui.showError(
+			error instanceof Error ? error.message : __( 'Failed to load remote-session config.' )
+		);
+		return;
+	}
+
+	try {
+		const result = await startDaemon();
+		ctx.ui.showSuccess(
+			sprintf(
+				/* translators: %d: daemon PID */
+				__(
+					'Remote-session started (PID %d). Message Dolly (@wordpress_com_bot) on Telegram to work with Studio.'
+				),
+				result.pid
+			)
+		);
+		ctx.ui.setDaemonStatus( { running: true, pid: result.pid } );
+	} catch ( error ) {
+		if ( error instanceof DaemonAlreadyRunningError ) {
+			ctx.ui.showInfo(
+				sprintf(
+					/* translators: %d: daemon PID */
+					__(
+						'Remote-session already running (PID %d). Message Dolly (@wordpress_com_bot) on Telegram to work with Studio.'
+					),
+					error.pid
+				)
+			);
+			ctx.ui.setDaemonStatus( { running: true, pid: error.pid } );
+			return;
+		}
+		// DaemonStartTimeoutError and any other unexpected errors (spawn
+		// failure, fs write failure, etc.) get surfaced via showError so the
+		// REPL stays alive.
+		ctx.ui.showError(
+			error instanceof Error ? error.message : __( 'Failed to start the remote-session daemon.' )
+		);
+	}
+}
+
+async function runRemoteSessionStop( ctx: SlashCommandContext ): Promise< void > {
+	let result;
+	try {
+		result = await stopDaemon();
+	} catch ( error ) {
+		// stopDaemon rethrows non-ESRCH errors from process.kill (e.g. EPERM
+		// when the PID was reused by another user, or any unexpected fs error
+		// while removing the PID file). The REPL dispatcher does not wrap
+		// handlers in a try/catch, so we surface these as a friendly error
+		// rather than letting them terminate the interactive session.
+		ctx.ui.showError(
+			error instanceof Error ? error.message : __( 'Failed to stop the remote-session daemon.' )
+		);
+		return;
+	}
+	ctx.ui.setDaemonStatus( { running: false } );
+	if ( result.alreadyStopped ) {
+		ctx.ui.showInfo( __( 'Remote-session daemon was not running.' ) );
+		return;
+	}
+	if ( ! result.stopped ) {
+		ctx.ui.showError(
+			sprintf(
+				/* translators: %d: daemon PID */
+				__( 'Remote-session daemon (PID %d) did not exit after SIGKILL. PID file left in place.' ),
+				result.pid ?? 0
+			)
+		);
+		return;
+	}
+	if ( result.usedSigKill ) {
+		ctx.ui.showInfo(
+			sprintf(
+				/* translators: %d: daemon PID */
+				__( 'Remote-session daemon (PID %d) did not exit gracefully; sent SIGKILL.' ),
+				result.pid ?? 0
+			)
+		);
+		return;
+	}
+	ctx.ui.showSuccess(
+		sprintf(
+			/* translators: %d: daemon PID */
+			__( 'Remote-session stopped (PID %d).' ),
+			result.pid ?? 0
+		)
+	);
+}
+
+async function pickRemoteSessionSubcommand(
+	ctx: SlashCommandContext
+): Promise< 'start' | 'stop' | undefined > {
+	try {
+		const answer = await ctx.ui.askUser( [
+			{
+				question: __( 'Remote session' ),
+				options: [
+					{ label: __( 'Start' ), description: __( 'Spawn the daemon' ) },
+					{ label: __( 'Stop' ), description: __( 'Stop the daemon' ) },
+				],
+			},
+		] );
+		const selected = ( Object.values( answer )[ 0 ] as string | undefined )?.toLowerCase();
+		if ( selected === undefined ) {
+			return undefined;
+		}
+		if ( selected.startsWith( 'start' ) ) {
+			return 'start';
+		}
+		if ( selected.startsWith( 'stop' ) ) {
+			return 'stop';
+		}
+		return undefined;
+	} catch ( error ) {
+		if ( isPromptAbortError( error ) ) {
+			return undefined;
+		}
+		throw error;
+	}
+}
+
+async function runRemoteSessionSlashCommand(
+	prompt: string,
+	ctx: SlashCommandContext
+): Promise< 'continue' | 'break' > {
+	let sub = parseRemoteSessionSubcommand( prompt );
+	if ( sub === undefined ) {
+		const tokens = prompt.trim().split( /\s+/ );
+		// `tokens.length > 1` means the user typed something like
+		// `/remote-session bogus` — surface usage rather than silently popping
+		// a picker that ignores the bad input.
+		if ( tokens.length > 1 ) {
+			ctx.ui.showInfo( __( 'Usage: /remote-session [start|stop]' ) );
+			return 'continue';
+		}
+		sub = await pickRemoteSessionSubcommand( ctx );
+		if ( sub === undefined ) {
+			ctx.ui.showInfo( __( 'Remote session selection canceled.' ) );
+			return 'continue';
+		}
+	}
+	if ( sub === 'start' ) {
+		await runRemoteSessionStart( ctx );
+	} else if ( sub === 'stop' ) {
+		await runRemoteSessionStop( ctx );
+	}
+	return 'continue';
 }
 
 export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
@@ -145,34 +346,54 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		name: 'model',
 		description: __( 'Switch the AI model' ),
 		handler: async ( _prompt, ctx ) => {
-			const modelOptions = ( Object.entries( AI_MODELS ) as [ AiModelId, string ][] ).map(
-				( [ id, label ] ) => ( {
-					label:
-						id === ctx.currentModel
-							? sprintf(
-									/* translators: %s: model name */
-									__( '%s (current)' ),
-									label
-							  )
-							: label,
-					description: id,
-				} )
-			);
+			const { availableModels } = getAiProviderDefinition( ctx.currentProvider );
+			// Build options and a reverse lookup at the same time so we never
+			// have to recover the model id from the label. A startsWith-based
+			// match is buggy when one model's label is a prefix of another's
+			// (e.g. "GPT 5.5" prefixes "GPT 5.5 Pro" — picking Pro silently
+			// returns the non-pro id), so we keep the label → id mapping
+			// explicit here and look up by exact match below.
+			const labelToId = new Map< string, AiModelId >();
+			const modelOptions = availableModels.map( ( id ) => {
+				const label =
+					id === ctx.currentModel
+						? sprintf(
+								/* translators: %s: model name */
+								__( '%s (current)' ),
+								getAiModelLabel( id )
+						  )
+						: getAiModelLabel( id );
+				labelToId.set( label, id );
+				return { label, description: id };
+			} );
 			const answer = await ctx.ui.askUser( [
 				{ question: __( 'Select a model' ), options: modelOptions },
 			] );
-			const selectedId = Object.values( answer )[ 0 ] as string;
-			const newModel = ( Object.entries( AI_MODELS ) as [ AiModelId, string ][] ).find(
-				( [ , label ] ) => selectedId.startsWith( label )
-			);
-			if ( newModel && newModel[ 0 ] !== ctx.currentModel ) {
-				ctx.currentModel = newModel[ 0 ];
+			const selectedLabel = Object.values( answer )[ 0 ] as string;
+			const newModel = labelToId.get( selectedLabel );
+			if ( newModel && newModel !== ctx.currentModel ) {
+				// Switching to a model in a different family (Anthropic ↔ OpenAI)
+				// hands the next turn off to a different runtime. Each runtime keeps
+				// its own session store, so the existing session id from the previous
+				// runtime won't resolve there ("No conversation found"). Clear the
+				// session before the model swap so the new runtime starts fresh.
+				const familyChanged = getAiModelFamily( ctx.currentModel ) !== getAiModelFamily( newModel );
+				if ( familyChanged ) {
+					await ctx.clearSession();
+					ctx.ui.showInfo(
+						__(
+							"Switching across model families starts a fresh conversation — the prior turns aren't carried over."
+						)
+					);
+				}
+
+				ctx.currentModel = newModel;
 				ctx.ui.currentModel = ctx.currentModel;
 				ctx.ui.showInfo(
 					sprintf(
 						/* translators: %s: model name */
 						__( 'Switched to %s' ),
-						AI_MODELS[ ctx.currentModel ]
+						getAiModelLabel( ctx.currentModel )
 					)
 				);
 				await ctx.persistSessionContext();
@@ -288,6 +509,20 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 			}
 			return 'continue';
 		},
+	},
+	{
+		name: 'remote-session',
+		description: __( 'Manage the Telegram remote-session daemon (start, stop)' ),
+		enabled: isRemoteSessionEnabled,
+		getArgumentCompletions: ( argumentPrefix ) => {
+			const items: AutocompleteItem[] = [
+				{ value: 'start', label: 'start', description: __( 'Spawn the daemon' ) },
+				{ value: 'stop', label: 'stop', description: __( 'Stop the daemon' ) },
+			];
+			const lower = argumentPrefix.toLowerCase();
+			return items.filter( ( item ) => item.value.startsWith( lower ) );
+		},
+		handler: runRemoteSessionSlashCommand,
 	},
 	{
 		name: 'exit',

@@ -14,13 +14,14 @@ import {
 	saveSelectedAiProvider,
 } from 'cli/ai/auth';
 import { closeSharedBrowser } from 'cli/ai/browser-utils';
+import { startDaemonStatusPolling } from 'cli/ai/daemon-status-poll';
 import { type AiOutputAdapter, JsonAdapter } from 'cli/ai/output-adapter';
-import { AI_PROVIDERS, type AiProviderId } from 'cli/ai/providers';
+import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
 import { resolveResumeSessionContext } from 'cli/ai/sessions/context';
 import { getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
 import { AiSessionRecorder } from 'cli/ai/sessions/recorder';
 import { replaySessionHistory } from 'cli/ai/sessions/replay';
-import { AI_CHAT_SLASH_COMMANDS, type SlashCommandContext } from 'cli/ai/slash-commands';
+import { getActiveSlashCommands, type SlashCommandContext } from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { readCliConfig } from 'cli/lib/cli-config/core';
@@ -58,6 +59,7 @@ async function readAllStdin(): Promise< string > {
 export async function runCommand( options: {
 	adapter: AiOutputAdapter;
 	initialMessage?: string;
+	initialDisplayMessage?: string;
 	resumeSession?: LoadedAiSession;
 	resumeSessionId?: string;
 	noSessionPersistence?: boolean;
@@ -243,6 +245,16 @@ export async function runCommand( options: {
 		currentProvider = provider;
 		ui.currentProvider = currentProvider;
 		sessionId = undefined;
+
+		// Auto-correct model when the provider change leaves it unsupported
+		// (e.g. switching from wpcom → anthropic-api-key while a GPT model is
+		// selected). Fall back to the provider's default.
+		const definition = getAiProviderDefinition( currentProvider );
+		if ( ! definition.supportsModel( currentModel ) ) {
+			currentModel = definition.defaultModel;
+			ui.currentModel = currentModel;
+		}
+
 		await saveSelectedAiProvider( currentProvider );
 		await persistSessionContext();
 		if ( announce ) {
@@ -422,7 +434,8 @@ export async function runCommand( options: {
 
 	async function runAgentTurn(
 		prompt: string,
-		retryAttempt = 0
+		retryAttempt = 0,
+		displayMessage = prompt
 	): Promise< { status: TurnStatus } > {
 		await maybeAutoSwitchProvider();
 		const recorder = await ensureSessionRecorder();
@@ -455,7 +468,7 @@ export async function runCommand( options: {
 
 		await persist( ( recorder ) =>
 			recorder.recordUserMessage( {
-				text: prompt,
+				text: displayMessage,
 				source: 'prompt',
 				sitePath: site?.path,
 			} )
@@ -469,6 +482,7 @@ export async function runCommand( options: {
 			activeSite: site,
 			wpcomAccessToken,
 			onAskUser: ( questions ) => askUserAndPersistAnswers( questions ),
+			sessionFilePath: recorder?.filePath,
 		} );
 
 		let interruptRequested = false;
@@ -583,8 +597,9 @@ export async function runCommand( options: {
 	// JSON mode: single turn, then exit
 	if ( isJsonMode && options.initialMessage ) {
 		try {
-			ui.addUserMessage( options.initialMessage );
-			const result = await runAgentTurn( options.initialMessage );
+			const displayMessage = options.initialDisplayMessage ?? options.initialMessage;
+			ui.addUserMessage( displayMessage );
+			const result = await runAgentTurn( options.initialMessage, 0, displayMessage );
 			const jsonStatus = result.status === 'interrupted' ? 'error' : result.status;
 			( ui as JsonAdapter ).emitTurnCompleted( jsonStatus );
 		} catch ( error ) {
@@ -601,9 +616,10 @@ export async function runCommand( options: {
 
 	// Run initial message before entering the input loop
 	if ( options.initialMessage ) {
-		ui.addUserMessage( options.initialMessage );
+		const displayMessage = options.initialDisplayMessage ?? options.initialMessage;
+		ui.addUserMessage( displayMessage );
 		try {
-			await runAgentTurn( options.initialMessage );
+			await runAgentTurn( options.initialMessage, 0, displayMessage );
 		} catch ( error ) {
 			handleAgentTurnError( error );
 		}
@@ -648,13 +664,30 @@ export async function runCommand( options: {
 		},
 	};
 
+	// Surface remote-session daemon status in the editor's bottom bar. Cheap
+	// fs poll catches external start/stop (e.g. `studio code remote-session
+	// stop` from another terminal) without blocking the REPL. Skipped entirely
+	// when the feature flag is off.
+	const stopDaemonStatusPolling = startDaemonStatusPolling( ui );
+
 	// --- Main loop ---
 	try {
 		while ( true ) {
 			const prompt = await ui.waitForInput();
 			const trimmedPrompt = prompt.trim();
 
-			const cmd = AI_CHAT_SLASH_COMMANDS.find( ( c ) => `/${ c.name }` === trimmedPrompt );
+			// Match exact-prompt by default (preserves the legacy behavior where
+			// `/clear foo` falls through to the AI agent). Commands that opt into
+			// arguments via `getArgumentCompletions` get first-token matching so
+			// inputs like `/remote-session start` route to the right handler.
+			const firstToken = trimmedPrompt.split( /\s+/, 1 )[ 0 ] ?? '';
+			const cmd = trimmedPrompt.startsWith( '/' )
+				? getActiveSlashCommands().find( ( c ) =>
+						c.getArgumentCompletions
+							? `/${ c.name }` === firstToken
+							: `/${ c.name }` === trimmedPrompt
+				  )
+				: undefined;
 			if ( cmd ) {
 				if ( cmd.handler ) {
 					const result = await cmd.handler( prompt, slashCommandContext );
@@ -681,6 +714,7 @@ export async function runCommand( options: {
 			}
 		}
 	} finally {
+		stopDaemonStatusPolling();
 		await persistQueue;
 		ui.stop();
 		process.exit( 0 );

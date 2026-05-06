@@ -295,7 +295,9 @@ export async function isProcessRunning(
 		const processes = await listProcesses();
 		return processes.find( ( p ) => p.name === processName && p.status === 'online' );
 	} catch ( error ) {
-		console.error( `Error checking if process ${ processName } is running:`, error );
+		if ( ! isRecoverableConnectError( error ) ) {
+			console.error( `Error checking if process ${ processName } is running:`, error );
+		}
 		return undefined;
 	}
 }

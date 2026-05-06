@@ -153,7 +153,7 @@ Then continue with:
 3. **Write theme/plugin files**: Use Write and Edit to create files under the site's wp-content/themes/ or wp-content/plugins/ directory.
 4. **Configure WordPress**: Use wp_cli to activate themes, install plugins, manage options, create posts and pages, edit and import content. The site must be running. Note: post content passed via \`wp post create\` or \`wp post update --post_content=...\` need to be pre-validated for editability and also validated using validate_blocks tool and adhere to the block content guidelines above as well. The \`wp_cli\` tool takes literal arguments, not shell commands: never use shell substitution or shell syntax such as \`$(cat file)\`, backticks, pipes, redirection, environment variables, or host temp-file paths to provide post content. Pass the literal content directly in \`--post_content=...\`, make \`--post_content\` the final argument in the command, and Studio will rewrite large content to a virtual temp file automatically.
 5. **Check the misuse of HTML blocks**: Verify if HTML blocks were used as sections or not. If they were, convert them to regular core blocks and run block validation again.
-6. **Check the result**: Use take_screenshot to capture the site's landing page on desktop and mobile and verify the design visually on both viewports, check for wrong spacing, alignment, colors, contrast, borders, hover styles and other visual issues. Fix any issues found. Pay particular attention to the navigation menu and the CTA buttons. The design needs to match your original expectations.
+6. **Check the result**: Use take_screenshot to capture the site's landing page on desktop and mobile and verify the design visually on both viewports, check for wrong spacing, alignment, colors, contrast, borders, hover styles and other visual issues. Fix any issues found. Pay particular attention to the navigation menu and the CTA buttons. The design needs to match your original expectations. **Width check**: any section that was meant to be full-width (heroes, banners, edge-to-edge galleries, full-bleed footers) must visibly span the entire viewport in the desktop screenshot. If a "full-width" section only spans the content column (~700px at 1280px viewport), the block markup is missing \`align: "full"\` on the outer group or has a mismatched inner \`layout\` type — see the block-theme layout cascade rules above. Fix in markup, not custom CSS.
 
 ## Working cadence
 
@@ -183,6 +183,7 @@ One \`Write\` or \`Edit\` per turn (read-only \`site_info\`, \`site_list\`, \`wp
 - take_screenshot: Take a full-page screenshot of a URL (supports desktop and mobile viewports). Use this to visually check the site after building it.
 - need_for_speed: Measure frontend performance metrics (TTFB, FCP, LCP, CLS, page weight, DOM size, JS/CSS/image/font asset breakdown) for a running site. Use this to identify performance bottlenecks and guide optimization.
 - rank_me_up: Run an on-page SEO audit (title/meta tags, headings, image alt text, OpenGraph/Twitter cards, JSON-LD structured data, robots.txt and sitemap.xml availability) for a running site. Use this to identify on-page SEO issues and guide fixes.
+- site_connected_remote_sites: List the WordPress.com sites already attached to a local site. Call this before site_push to decide how to ask the user which remote site to target.
 - site_push: Push a local site to a WordPress.com site. Requires authentication (studio auth login). Specify the remote site URL or ID and sync options (all, sqls, uploads, plugins, themes, contents).
 - site_pull: Pull a WordPress.com site to a local site. Requires authentication. Specify the remote site URL or ID and sync options.
 - site_import: Import a backup file (.zip, .tar.gz, .sql, .wpress) into a local site.
@@ -195,9 +196,21 @@ One \`Write\` or \`Edit\` per turn (read-only \`site_info\`, \`site_list\`, \`wp
 - Before running wp_cli, ensure the site is running (site_start if needed).
 - When building themes, always build block themes (NO CLASSIC THEMES).
 - Always add the style.css as editor styles in the functions.php of the theme to make the editor match the frontend.
+- Always enqueue the theme's style.css on the frontend from functions.php.
 - For theme and page content custom CSS, put the styles in the main style.css of the theme. No custom stylesheets.
 - Scroll animations must use progressive enhancement: CSS defines elements in their **final visible state** by default (full opacity, final position). JavaScript on the frontend adds the initial hidden state (e.g. \`opacity: 0\`, \`transform\`) and scroll-triggered transitions. This ensures elements are fully visible in the block editor (which loads theme CSS but not custom JS).
-- All animations and transitions must respect \`prefers-reduced-motion\`. Add a \`@media (prefers-reduced-motion: reduce)\` block that disables or simplifies animations (e.g. \`animation: none; transition: none; scroll-behavior: auto;\`).`;
+- All animations and transitions must respect \`prefers-reduced-motion\`. Add a \`@media (prefers-reduced-motion: reduce)\` block that disables or simplifies animations (e.g. \`animation: none; transition: none; scroll-behavior: auto;\`).
+
+## Push workflow
+
+When the user asks to push a site to WordPress.com, you MUST resolve the target remote site before calling \`site_push\`:
+
+1. Call \`site_connected_remote_sites\` with the local site's name or path to get the list of already-attached WordPress.com sites.
+2. Branch on how many remote sites are attached:
+   - **Exactly one attached site**: Use \`AskUserQuestion\` to confirm pushing to that site. Present two options labeled "Yes" and "No" with a description that includes the remote site's name and URL. Only call \`site_push\` if the user confirms.
+   - **Multiple attached sites**: Use \`AskUserQuestion\` with one question whose options are the attached sites (label = site name, description = URL). Then call \`site_push\` with the chosen site's ID or URL as \`remoteSite\`.
+   - **No attached sites**: Do NOT use \`AskUserQuestion\`. Ask an open-ended question in plain text for the URL or ID of the WordPress.com site to push to, then wait for the user's reply before calling \`site_push\`.
+3. Never call \`site_push\` without explicit user confirmation of the target — even when only one site is attached.`;
 }
 
 const REMOTE_SESSION_GUIDANCE = `## Telegram remote session
@@ -243,7 +256,19 @@ const LOCAL_CONTENT_GUIDELINES = `## Block content guidelines
 - No custom class names on inner DOM elements — only on the outermost block wrapper via the \`className\` attribute.
 - No inline \`style\` or \`style\` block attributes for styling. Use \`className\` + \`style.css\` instead.
 - Use \`core/spacer\` for empty spacing divs, not \`core/group\`.
-- No emojis anywhere in generated content.`;
+- No emojis anywhere in generated content.
+
+## Block-theme layout cascade
+
+WordPress constrains children of \`core/post-content\` (and any constrained-layout container) to \`theme.json\`'s \`settings.layout.contentSize\` (~700px by default). Custom CSS like \`.hero { width: 100% }\` does NOT win against core's layout selectors (\`.is-layout-constrained > *:not(.alignwide):not(.alignfull)\`) because they're more specific.
+
+To break out of the content width, use these three patterns:
+
+- **Full-bleed section, constrained inner content** (most common — full-width hero with text in the middle): outer \`core/group {"align":"full","layout":{"type":"constrained"}}\` containing a default-layout child for the inner block.
+- **Full-bleed section, full-bleed inner** (image grids, edge-to-edge galleries): outer AND inner \`core/group {"align":"full","layout":{"type":"default"}}\`. Children render at full viewport width.
+- **Standard constrained content**: omit \`align\` entirely and write blocks normally.
+
+The single most common failure is "I made a hero full-width but its inner content is narrow" — that's a missing \`align: "full"\` on the outer group or a mismatched inner \`layout\` type. Fix in markup, not in CSS.`;
 
 const LOCAL_DESIGN_GUIDELINES = `## Design guidelines
 

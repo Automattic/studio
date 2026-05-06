@@ -97,6 +97,7 @@ const api: IpcApi = {
 	showItemInFolder: ( path ) => ipcRendererSend( 'showItemInFolder', path ),
 	loadThemeDetails: ( id, emitLoadingEvent = true ) =>
 		ipcRendererInvoke( 'loadThemeDetails', id, emitLoadingEvent ),
+	loadSiteIcon: ( id ) => ipcRendererInvoke( 'loadSiteIcon', id ),
 	getThumbnailData: ( id ) => ipcRendererInvoke( 'getThumbnailData', id ),
 	getInstalledAppsAndTerminals: () => ipcRendererInvoke( 'getInstalledAppsAndTerminals' ),
 	importSite: ( siteId, importArchivePath, options ) =>
@@ -211,8 +212,8 @@ const api: IpcApi = {
 	deleteAiSession: ( sessionIdOrPrefix ) =>
 		ipcRendererInvoke( 'deleteAiSession', sessionIdOrPrefix ),
 	createAiSession: ( siteId ) => ipcRendererInvoke( 'createAiSession', siteId ),
-	continueAiSession: ( sessionId, prompt ) =>
-		ipcRendererInvoke( 'continueAiSession', sessionId, prompt ),
+	continueAiSession: ( sessionId, prompt, options ) =>
+		ipcRendererInvoke( 'continueAiSession', sessionId, prompt, options ),
 	setAiSessionModel: ( sessionId, model ) =>
 		ipcRendererInvoke( 'setAiSessionModel', sessionId, model ),
 	interruptAiAgentRun: ( runId ) => ipcRendererInvoke( 'interruptAiAgentRun', runId ),

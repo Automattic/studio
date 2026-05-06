@@ -2,6 +2,10 @@
 	gap: var(--wpds-dimension-padding-lg);
 }
 
+.siteIcon {
+	margin-inline-end: calc(-1 * var(--wpds-dimension-padding-sm));
+}
+
 .site {
 	font-weight: 600;
 }

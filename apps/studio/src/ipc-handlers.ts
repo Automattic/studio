@@ -35,6 +35,7 @@ import {
 } from '@studio/common/lib/agent-skills';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
+import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import { extractZip } from '@studio/common/lib/extract-zip';
 import {
@@ -52,11 +53,7 @@ import { isMultisite } from '@studio/common/lib/is-multisite';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
-import {
-	getCurrentUserId,
-	readSharedConfig,
-	updateSharedConfig,
-} from '@studio/common/lib/shared-config';
+import { readSharedConfig, updateSharedConfig } from '@studio/common/lib/shared-config';
 import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
 import { shouldExcludeFromSync } from '@studio/common/lib/sync/exclude-from-sync';
 import { shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
@@ -85,6 +82,7 @@ import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import * as oauthClient from 'src/lib/oauth';
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
+import { updateSiteUrl } from 'src/lib/update-site-url';
 import * as windowsHelpers from 'src/lib/windows-helpers';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
@@ -270,12 +268,7 @@ async function reconcileSessionEnvironmentBeforeRun( sessionId: string ): Promis
 		return;
 	}
 
-	const currentUserId = await getCurrentUserId();
-	const userData = currentUserId ? await loadUserData() : undefined;
-	const connected = userData?.connectedWpcomSites?.[ currentUserId! ] ?? [];
-	const connectedForOwner = connected.filter(
-		( site ) => site.localSiteId === ownerServer.details.id
-	);
+	const connectedForOwner = await getConnectedWpcomSitesForLocalSite( ownerServer.details.id );
 	const connectedIds = new Set( connectedForOwner.map( ( site ) => site.id ) );
 
 	const effective = deriveEffectiveEnvironment( summary, ( blogId ) => connectedIds.has( blogId ) );
@@ -312,12 +305,14 @@ function expandSkillCommandPrompt( prompt: string ): string {
 export async function continueAiSession(
 	event: IpcMainInvokeEvent,
 	sessionId: string,
-	prompt: string
+	prompt: string,
+	options: { displayMessage?: string } = {}
 ): Promise< { runId: string } > {
 	await reconcileSessionEnvironmentBeforeRun( sessionId );
 	return startAgentRun( {
 		sessionId,
 		prompt: expandSkillCommandPrompt( prompt ),
+		displayMessage: options.displayMessage,
 		webContents: event.sender,
 	} );
 }
@@ -374,10 +369,7 @@ export async function setSessionEnvironment(
 	const timestamp = new Date().toISOString();
 
 	if ( environment === 'live' ) {
-		const currentUserId = await getCurrentUserId();
-		const userData = currentUserId ? await loadUserData() : undefined;
-		const connected = userData?.connectedWpcomSites?.[ currentUserId! ] ?? [];
-		const candidates = connected.filter( ( s ) => s.localSiteId === ownerServer.details.id );
+		const candidates = await getConnectedWpcomSitesForLocalSite( ownerServer.details.id );
 		// Prefer the production (non-staging) site to match the UI's
 		// `pickLiveSite` behavior in the site dropdown.
 		const liveSite = candidates.find( ( s ) => ! s.isStaging ) ?? candidates[ 0 ];
@@ -614,13 +606,26 @@ function readProcessManagerLogs( siteId: string ): { stdout?: string[]; stderr?:
 export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< SiteDetails[] > {
 	const sites = SiteServer.getAllDetails();
 	const userData = await loadUserData();
-	for ( const site of sites ) {
-		const appdataSite = userData.siteMetadata[ site.id ];
-		if ( appdataSite ) {
+	await Promise.all(
+		sites.map( async ( site ) => {
+			const appdataSite = userData.siteMetadata[ site.id ];
+			if ( ! appdataSite ) {
+				return;
+			}
 			site.sortOrder = appdataSite.sortOrder;
 			site.themeDetails = appdataSite.themeDetails;
-		}
-	}
+			site.siteIconPath = appdataSite.siteIconPath;
+
+			// Read the icon file from disk and hand the renderer a data URL.
+			// Keeping the base64 out of the persisted appdata avoids bloating
+			// app.json with image bytes.
+			if ( appdataSite.siteIconPath ) {
+				site.siteIcon = await getImageData( appdataSite.siteIconPath );
+			} else if ( appdataSite.siteIconPath === null ) {
+				site.siteIcon = null;
+			}
+		} )
+	);
 
 	return sites;
 }
@@ -692,6 +697,7 @@ export async function createSite(
 		// If the site is running after creation, fetch theme details and update thumbnail
 		if ( server.details.running ) {
 			void loadThemeDetails( event, server.details.id );
+			void loadSiteIcon( event, server.details.id );
 		}
 
 		return server.details;
@@ -876,6 +882,7 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 
 	if ( server.details.running ) {
 		void loadThemeDetails( event, id );
+		void loadSiteIcon( event, id );
 	}
 
 	// Keep managed instruction files (STUDIO.md, CLAUDE.md) up-to-date
@@ -1035,6 +1042,10 @@ export async function copySite(
 		adminEmail: sourceSite.adminEmail,
 		noStart: true,
 	} );
+
+	// Playground sets the correct siteurl internally, but for the native-php runtime, we need to
+	// explicitly update that option
+	await updateSiteUrl( server, `http://localhost:${ details.port }` );
 
 	// Persist themeDetails to appdata (Studio-only data)
 	if ( sourceSite.themeDetails ) {
@@ -1260,6 +1271,29 @@ export async function loadThemeDetails(
 	}
 
 	return themeDetails;
+}
+
+// Mirror of loadThemeDetails for the Site Icon: fetch from the running
+// site's mu-plugin command and persist the resolved path so the renderer
+// can read it back from appdata via getSiteDetails.
+export async function loadSiteIcon(
+	_event: IpcMainInvokeEvent,
+	id: string
+): Promise< StartedSiteDetails[ 'siteIconPath' ] > {
+	const server = SiteServer.get( id );
+	if ( ! server ) {
+		throw new Error( 'Site not found.' );
+	}
+
+	const oldIconPath = server.details.siteIconPath;
+	const iconPath = await server.getSiteIcon();
+	const hasIconChanged = iconPath !== oldIconPath;
+
+	if ( hasIconChanged ) {
+		await server.persistSiteIcon();
+	}
+
+	return iconPath;
 }
 
 export async function getOnboardingData( _event: IpcMainInvokeEvent ): Promise< boolean > {

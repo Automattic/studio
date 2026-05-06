@@ -1,7 +1,11 @@
-import { tool } from '@anthropic-ai/claude-agent-sdk';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
-import { z } from 'zod/v4';
+import { Type } from 'typebox';
+import { defineTool } from './define-tool';
+import { textResult } from './utils';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ApiResponse = any;
 
 /**
  * Strips oversized fields from API responses that can't be filtered via query params.
@@ -38,19 +42,6 @@ function stripOversizedFields( result: ApiResponse ): ApiResponse {
 	return result;
 }
 
-function errorResult( message: string ) {
-	return {
-		content: [ { type: 'text' as const, text: message } ],
-		isError: true,
-	};
-}
-
-function textResult( text: string ) {
-	return {
-		content: [ { type: 'text' as const, text } ],
-	};
-}
-
 function getErrorMessage( error: unknown ): string {
 	if ( error instanceof Error ) {
 		return error.message;
@@ -58,19 +49,16 @@ function getErrorMessage( error: unknown ): string {
 	return String( error );
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type ApiResponse = any;
-
 /**
  * Creates a generic WP.com REST API tool for managing a remote WordPress.com site.
  * Instead of hardcoding individual endpoints, this provides a single flexible tool
  * that can call any WP.com REST API endpoint. The AI agent determines the correct
  * endpoints based on its knowledge of the WordPress.com REST API.
  */
-export function createWpcomToolDefinitions( token: string, siteId: number ) {
+export function createWpcomRequestTool( token: string, siteId: number ) {
 	const wpcom = wpcomFactory( token, wpcomXhrRequest );
 
-	const wpcomRequestTool = tool(
+	return defineTool(
 		'wpcom_request',
 		`Makes a request to the WordPress REST API (wp/v2) or WordPress.com REST API (v1.1) for site ${ siteId }. ` +
 			'Defaults to the WordPress REST API (wp/v2). Use this to manage posts, pages, templates, template parts, ' +
@@ -78,34 +66,34 @@ export function createWpcomToolDefinitions( token: string, siteId: number ) {
 			'The path is relative to /sites/{siteId}/ — for example, pass "/posts" to call /wp/v2/sites/{siteId}/posts. ' +
 			'For non-site endpoints, start the path with "!" (e.g., "!/me") to use an absolute path.',
 		{
-			method: z
-				.enum( [ 'GET', 'POST', 'PUT', 'DELETE' ] )
-				.describe( 'HTTP method for the request.' ),
-			path: z
-				.string()
-				.describe(
+			method: Type.Enum( [ 'GET', 'POST', 'PUT', 'DELETE' ], {
+				description: 'HTTP method for the request.',
+			} ),
+			path: Type.String( {
+				description:
 					'API path relative to /sites/{siteId}/, e.g. "/posts", "/posts/123", "/templates", "/template-parts". ' +
-						'Prefix with "!" to use an absolute path (e.g. "!/me").'
-				),
-			query: z
-				.record( z.string(), z.unknown() )
-				.optional()
-				.describe(
-					'Query parameters as key-value pairs, e.g. { "per_page": 20, "status": "publish" }.'
-				),
-			body: z
-				.record( z.string(), z.unknown() )
-				.optional()
-				.describe( 'Request body for POST/PUT requests as key-value pairs.' ),
-			apiNamespace: z
-				.string()
-				.optional()
-				.describe(
-					'API namespace. Defaults to "wp/v2" (WordPress REST API). ' +
+					'Prefix with "!" to use an absolute path (e.g. "!/me").',
+			} ),
+			query: Type.Optional(
+				Type.Record( Type.String(), Type.Unknown(), {
+					description:
+						'Query parameters as key-value pairs, e.g. { "per_page": 20, "status": "publish" }.',
+				} )
+			),
+			body: Type.Optional(
+				Type.Record( Type.String(), Type.Unknown(), {
+					description: 'Request body for POST/PUT requests as key-value pairs.',
+				} )
+			),
+			apiNamespace: Type.Optional(
+				Type.String( {
+					description:
+						'API namespace. Defaults to "wp/v2" (WordPress REST API). ' +
 						'Set to "wpcom/v2" for WordPress.com v2 endpoints, or omit/leave empty to fall back to WP.com REST API v1.1. ' +
 						'Use wp/v2 for standard WordPress resources (posts, pages, templates, media, users, etc.). ' +
-						'Use WP.com v1.1 (set apiNamespace to "") for WP.com-specific endpoints like /plugins, /themes/mine.'
-				),
+						'Use WP.com v1.1 (set apiNamespace to "") for WP.com-specific endpoints like /plugins, /themes/mine.',
+				} )
+			),
 		},
 		async ( args ) => {
 			try {
@@ -144,7 +132,7 @@ export function createWpcomToolDefinitions( token: string, siteId: number ) {
 				const compacted = stripOversizedFields( result );
 				return textResult( JSON.stringify( compacted ) );
 			} catch ( error ) {
-				return errorResult(
+				throw new Error(
 					`WP.com API request failed (${ args.method } ${ args.path }): ${ getErrorMessage(
 						error
 					) }`
@@ -152,6 +140,4 @@ export function createWpcomToolDefinitions( token: string, siteId: number ) {
 			}
 		}
 	);
-
-	return [ wpcomRequestTool ];
 }

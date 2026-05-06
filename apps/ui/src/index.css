@@ -125,3 +125,19 @@ a:focus:not(:focus-visible),
 	background-color: var(--wp-components-color-background, #fff);
 }
 
+/* Honor the user's reduced-motion preference across the entire app. Class-
+   scoped transitions out-specify a `*`-targeted rule, so `!important` is
+   needed to clamp them. Components that genuinely need to keep motion can
+   re-enable it with a more specific `!important` rule inside the same
+   media query. */
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
+	}
+}
+

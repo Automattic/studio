@@ -124,6 +124,47 @@ function formatStdoutLine(
 	return `${ head } ${ safeMeta }\n`;
 }
 
+interface PersistedLogLine {
+	t?: unknown;
+	level?: unknown;
+	msg?: unknown;
+	meta?: unknown;
+}
+
+/**
+ * Reformat one JSON log line (as written by RemoteSessionLogger) into the same
+ * human-readable shape used when mirroring to stdout. Falls back to the raw
+ * line (sanitized + newline-terminated) when parsing fails.
+ */
+export function formatLogLineForStdout( rawLine: string ): string {
+	const trimmed = rawLine.replace( /\r?\n$/, '' );
+	if ( trimmed.length === 0 ) {
+		return '\n';
+	}
+	let parsed: PersistedLogLine;
+	try {
+		parsed = JSON.parse( trimmed ) as PersistedLogLine;
+	} catch {
+		return `${ stripTerminalControls( trimmed ) }\n`;
+	}
+	const level = isLogLevel( parsed.level ) ? parsed.level : 'info';
+	const message = typeof parsed.msg === 'string' ? parsed.msg : '';
+	const time =
+		typeof parsed.t === 'string' && parsed.t.length >= 19
+			? parsed.t.slice( 11, 19 )
+			: new Date().toTimeString().slice( 0, 8 );
+	const head = `[${ time }] ${ level } ${ safeForStdout( message ) }`;
+	if ( parsed.meta && typeof parsed.meta === 'object' ) {
+		const safeMeta = safeForStdout( JSON.stringify( parsed.meta ) );
+		return `${ head } ${ safeMeta }\n`;
+	}
+	return `${ head }\n`;
+}
+
+function isLogLevel( value: unknown ): value is LogLevel {
+	return value === 'debug' || value === 'info' || value === 'warn' || value === 'error';
+}
+
 export class RemoteSessionLogger {
 	private logPath: string;
 	private mirrorToStdout: boolean;

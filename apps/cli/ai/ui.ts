@@ -27,9 +27,9 @@ import { getToolDetail, getToolDisplayName } from '@studio/common/ai/tools';
 import chalk from '@studio/common/lib/chalk';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { AI_MODELS, DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
+import { DEFAULT_MODEL, getAiModelLabel, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
-import { AI_CHAT_SLASH_COMMANDS } from 'cli/ai/slash-commands';
+import { getActiveSlashCommands } from 'cli/ai/slash-commands';
 import { buildTodoUpdateLines, type TodoRenderLine } from 'cli/ai/todo-render';
 import { diffTodoSnapshot, type TodoDiff, type TodoEntry } from 'cli/ai/todo-stream';
 import { getWpComSites } from 'cli/lib/api';
@@ -37,9 +37,8 @@ import { openBrowser } from 'cli/lib/browser';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { getSitesRunningStatus, isSiteRunning } from 'cli/lib/site-utils';
-import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
-import type { TodoWriteInput } from '@anthropic-ai/claude-agent-sdk/sdk-tools';
 import type { AiOutputAdapter, HandleMessageResult } from 'cli/ai/output-adapter';
+import type { SDKMessage, TodoWriteInput } from 'cli/ai/runtimes/messages';
 
 const SITE_PICKER_TAB_LOCAL = 'local' as const;
 const SITE_PICKER_TAB_REMOTE = 'remote' as const;
@@ -98,6 +97,7 @@ class PromptEditor implements Component, Focusable {
 	busyMessage: string | null = null;
 	hints: string[] = [];
 	statusMessage: string | null = null;
+	daemonStatusMessage: string | null = null;
 	showBottomBar = true;
 
 	get focused(): boolean {
@@ -129,6 +129,10 @@ class PromptEditor implements Component, Focusable {
 
 	setAutocompleteProvider( provider: CombinedAutocompleteProvider ): void {
 		this.editor.setAutocompleteProvider( provider );
+	}
+
+	addToHistory( text: string ): void {
+		this.editor.addToHistory( text );
 	}
 
 	getText(): string {
@@ -208,7 +212,15 @@ class PromptEditor implements Component, Focusable {
 			activeHints.length > 0
 				? ' ' + activeHints.map( ( h ) => chalk.dim( h ) ).join( chalk.dim( ' · ' ) )
 				: '';
-		const rightPart = this.statusMessage ? chalk.dim( this.statusMessage ) + ' ' : '';
+		const rightSegments: string[] = [];
+		if ( this.daemonStatusMessage ) {
+			rightSegments.push( chalk.green( this.daemonStatusMessage ) );
+		}
+		if ( this.statusMessage ) {
+			rightSegments.push( chalk.dim( this.statusMessage ) );
+		}
+		const rightPart =
+			rightSegments.length > 0 ? rightSegments.join( chalk.dim( ' · ' ) ) + ' ' : '';
 		if ( leftPart || rightPart ) {
 			const leftLen = visibleWidth( leftPart );
 			const rightLen = visibleWidth( rightPart );
@@ -563,7 +575,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this.editor = new PromptEditor( this.tui, editorTheme );
 
 		this.editor.setAutocompleteProvider(
-			new CombinedAutocompleteProvider( AI_CHAT_SLASH_COMMANDS )
+			new CombinedAutocompleteProvider( getActiveSlashCommands(), process.cwd() )
 		);
 
 		this.editor.onSubmit = ( text ) => {
@@ -571,6 +583,7 @@ export class AiChatUI implements AiOutputAdapter {
 			if ( ! trimmed ) {
 				return;
 			}
+			this.editor.addToHistory( trimmed );
 			if ( this.submitResolve ) {
 				const resolve = this.submitResolve;
 				this.submitResolve = null;
@@ -993,43 +1006,51 @@ export class AiChatUI implements AiOutputAdapter {
 		toolName: string,
 		toolInput: Record< string, unknown > | null
 	): Promise< void > {
-		switch ( toolName ) {
-			case 'mcp__studio__site_create': {
+		// Tool names arrive in two flavors depending on the runtime:
+		//   - Anthropic (Claude Agent SDK): `mcp__studio__site_create` (the SDK
+		//     auto-prefixes MCP-server tool names).
+		//   - OpenAI (pi-agent-core): `site_create` (registered by bare name).
+		// Strip the prefix so the switch below stays single-source.
+		const bareName = toolName.startsWith( 'mcp__studio__' )
+			? toolName.slice( 'mcp__studio__'.length )
+			: toolName;
+		switch ( bareName ) {
+			case 'site_create': {
 				const name = toolInput?.name;
 				if ( typeof name === 'string' ) {
 					await this.selectLocalSiteFromTool( name, { running: true } );
 				}
 				break;
 			}
-			case 'mcp__studio__site_info':
-			case 'mcp__studio__site_start': {
+			case 'site_info':
+			case 'site_start': {
 				const nameOrPath = toolInput?.nameOrPath;
 				if ( typeof nameOrPath === 'string' ) {
 					await this.selectLocalSiteFromTool( nameOrPath, {
-						running: toolName === 'mcp__studio__site_start' ? true : undefined,
+						running: bareName === 'site_start' ? true : undefined,
 					} );
 				}
 				break;
 			}
-			case 'mcp__studio__wp_cli':
-			case 'mcp__studio__preview_create':
-			case 'mcp__studio__preview_list':
-			case 'mcp__studio__preview_update':
-			case 'mcp__studio__validate_blocks': {
+			case 'wp_cli':
+			case 'preview_create':
+			case 'preview_list':
+			case 'preview_update':
+			case 'validate_blocks': {
 				const nameOrPath = toolInput?.nameOrPath;
 				if ( typeof nameOrPath === 'string' ) {
 					await this.selectLocalSiteFromTool( nameOrPath );
 				}
 				break;
 			}
-			case 'mcp__studio__site_stop': {
+			case 'site_stop': {
 				const nameOrPath = toolInput?.nameOrPath;
 				if ( typeof nameOrPath === 'string' ) {
 					await this.selectLocalSiteFromTool( nameOrPath, { running: false } );
 				}
 				break;
 			}
-			case 'mcp__studio__site_delete': {
+			case 'site_delete': {
 				const nameOrPath = toolInput?.nameOrPath;
 				if (
 					typeof nameOrPath === 'string' &&
@@ -1216,7 +1237,7 @@ export class AiChatUI implements AiOutputAdapter {
 		// Truncate the cwd with a leading ellipsis (preserving the meaningful
 		// suffix) when the terminal is too narrow, otherwise the welcome wraps
 		// and visually breaks the logo layout.
-		const baseInfo = `${ AI_MODELS[ this.currentModel ] } · ${
+		const baseInfo = `${ getAiModelLabel( this.currentModel ) } · ${
 			AI_PROVIDERS[ this.currentProvider ]
 		}`;
 		const sep = ' · ';
@@ -1310,7 +1331,6 @@ export class AiChatUI implements AiOutputAdapter {
 	}
 
 	waitForInput(): Promise< string > {
-		this.editor.setText( '' );
 		this.hideLoader();
 		this.showEditor();
 		if ( this.queuedPrompts.length > 0 ) {
@@ -1438,7 +1458,6 @@ export class AiChatUI implements AiOutputAdapter {
 	 * Begin an agent turn: hide editor, show loader, prepare response area.
 	 */
 	beginAgentTurn(): void {
-		this.editor.setText( '' );
 		this._inAgentTurn = true;
 		this.updateHints();
 		this.showLoader( randomThinkingMessage() );
@@ -1649,6 +1668,11 @@ export class AiChatUI implements AiOutputAdapter {
 
 	setStatusMessage( message: string | null ): void {
 		this.editor.statusMessage = message;
+		this.tui.requestRender();
+	}
+
+	setDaemonStatus( state: { running: boolean; pid?: number } ): void {
+		this.editor.daemonStatusMessage = state.running ? __( 'Remote session active' ) : null;
 		this.tui.requestRender();
 	}
 

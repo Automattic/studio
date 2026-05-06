@@ -1,82 +1,6 @@
-export type TurnStatus = 'success' | 'error' | 'max_turns' | 'interrupted';
+import type { SessionEntryBase } from './entry-types';
 
-export type AiSessionEvent =
-	| {
-			type: 'session.started';
-			timestamp: string;
-			version: 1;
-			sessionId: string;
-	  }
-	| {
-			type: 'session.linked';
-			timestamp: string;
-			agentSessionId: string;
-	  }
-	| {
-			type: 'session.context';
-			timestamp: string;
-			provider: string;
-			model: string;
-	  }
-	| {
-			// User-initiated model override (e.g. the composer dropdown in the
-			// desktop UI). The CLI prefers this over `session.context.model` on
-			// resume so the next turn uses the selected model.
-			type: 'session.model_selected';
-			timestamp: string;
-			model: string;
-	  }
-	| {
-			type: 'session.cleared';
-			timestamp: string;
-	  }
-	| {
-			// The site the next turn will act on. `remote` + `wpcomSiteId` together
-			// mean "the linked WordPress.com site"; otherwise `sitePath` identifies
-			// a local site. Writers emit a fresh `site.selected` for every flip so
-			// the log is self-describing — there's no separate "environment"
-			// concept, the event itself carries the whole state.
-			type: 'site.selected';
-			timestamp: string;
-			siteName: string;
-			sitePath: string;
-			remote?: boolean;
-			url?: string;
-			wpcomSiteId?: number;
-	  }
-	| {
-			type: 'user.message';
-			timestamp: string;
-			text: string;
-			source: 'prompt' | 'ask_user';
-			sitePath?: string;
-	  }
-	| {
-			type: 'sdk.message';
-			timestamp: string;
-			// Opaque SDK message payload. Only the CLI (which owns the Claude Agent SDK)
-			// narrows this to `SDKMessage`; other consumers treat it as arbitrary JSON.
-			message: unknown;
-	  }
-	| {
-			type: 'tool.progress';
-			timestamp: string;
-			message: string;
-	  }
-	| {
-			type: 'agent.question';
-			timestamp: string;
-			question: string;
-			options: Array< {
-				label: string;
-				description: string;
-			} >;
-	  }
-	| {
-			type: 'turn.closed';
-			timestamp: string;
-			status: TurnStatus;
-	  };
+export type TurnStatus = 'success' | 'error' | 'max_turns' | 'interrupted';
 
 export interface AiSessionSummary {
 	id: string;
@@ -96,19 +20,24 @@ export interface AiSessionSummary {
 	// anchored to the first local pick).
 	selectedSiteName?: string;
 	// Which side of the owner site the next turn will act on. Derived from the
-	// latest `site.selected` event (`remote === true` → 'live'). Consumers that
-	// care about disconnect fall-back (the renderer's effective-env hook) also
-	// cross-check `lastSelectedWpcomSiteId` against current connected-sites.
+	// latest `studio.site_selected` custom entry (`remote === true` → 'live').
+	// Consumers that care about disconnect fall-back (the renderer's
+	// effective-env hook) also cross-check `lastSelectedWpcomSiteId` against
+	// current connected-sites.
 	activeEnvironment: 'local' | 'live';
-	// The wpcomSiteId carried by the latest live `site.selected`. Used by the
-	// renderer's effective-env derivation to detect "live was disconnected"
-	// without needing to re-scan events.
+	// The wpcomSiteId carried by the latest live `studio.site_selected`. Used
+	// by the renderer's effective-env derivation to detect "live was
+	// disconnected" without needing to re-scan entries.
 	lastSelectedWpcomSiteId?: number;
 	endReason?: 'error' | 'stopped';
+	// Count of pi entries in the session JSONL (excluding the header).
 	eventCount: number;
 }
 
 export interface LoadedAiSession {
 	summary: AiSessionSummary;
-	events: AiSessionEvent[];
+	// On disk the session is pi-coding-agent's `SessionEntry`-based JSONL
+	// (with Studio metadata as `studio.*` `CustomEntry` payloads). Renderer
+	// consumers iterate `entries` directly.
+	entries: SessionEntryBase[];
 }

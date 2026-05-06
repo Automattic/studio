@@ -1,4 +1,4 @@
-import type { AiSessionEvent } from './types';
+import { isStudioCustomEntryOfType, type SessionEntryBase } from './entry-types';
 
 export interface ResolvedActiveSite {
 	name: string;
@@ -9,26 +9,27 @@ export interface ResolvedActiveSite {
 }
 
 /**
- * Walks a session's events and returns the site the next turn should act on —
- * the most recent `site.selected` wins. The CLI's JSON adapter has no replay
- * loop, so it relies on this helper to hydrate `ui.activeSite` before
- * dispatching a new turn.
+ * Walks a session's pi entries and returns the site the next turn should
+ * act on — the most recent `studio.site_selected` custom entry wins. The
+ * CLI's JSON adapter has no replay loop, so it relies on this helper to
+ * hydrate `ui.activeSite` before dispatching a new turn.
  */
-export function resolveActiveSiteFromEvents(
-	events: AiSessionEvent[]
+export function resolveActiveSiteFromEntries(
+	entries: SessionEntryBase[]
 ): ResolvedActiveSite | undefined {
 	let state: ResolvedActiveSite | undefined;
 
-	for ( const event of events ) {
-		if ( event.type === 'site.selected' ) {
-			state = {
-				name: event.siteName,
-				path: event.sitePath,
-				remote: event.remote === true,
-				url: event.url,
-				wpcomSiteId: event.wpcomSiteId,
-			};
-		}
+	for ( const entry of entries ) {
+		if ( ! isStudioCustomEntryOfType( entry, 'studio.site_selected' ) ) continue;
+		const data = entry.data;
+		if ( ! data ) continue;
+		state = {
+			name: data.siteName,
+			path: data.sitePath,
+			remote: data.remote === true,
+			url: data.url,
+			wpcomSiteId: data.wpcomSiteId,
+		};
 	}
 
 	return state;

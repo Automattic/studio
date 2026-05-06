@@ -7,6 +7,7 @@ import {
 } from '@studio/common/ai/models';
 import { piRuntime } from 'cli/ai/runtimes/pi';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
+import type { SessionManager } from '@mariozechner/pi-coding-agent';
 import type { AgentRuntimeHandle } from 'cli/ai/runtimes/types';
 import type { SiteInfo } from 'cli/ai/ui';
 
@@ -24,13 +25,11 @@ export type AskUserHandler = (
 
 export interface AiAgentConfig {
 	prompt: string;
-	// Stable session identifier — survives across CLI process forks because
-	// it's the id stored inside the legacy session JSONL.
-	sessionId: string;
-	// Path to the legacy `AiSessionEvent[]` JSONL on disk. The runtime
-	// hydrates pi `AgentMessage[]` from it and appends new turns back as
-	// `sdk.message` events.
-	sessionFilePath: string;
+	// Pi `SessionManager` backing the conversation. Owns the JSONL on disk;
+	// the runtime appends user/assistant/tool messages to it as the turn
+	// progresses. Callers create it via `createStudioSession()` /
+	// `openStudioSession()` from `cli/ai/sessions/pi-session`.
+	session: SessionManager;
 	env?: Record< string, string >;
 	model?: AiModelId;
 	activeSite?: SiteInfo | null;
@@ -41,8 +40,7 @@ export interface AiAgentConfig {
 export function startAiAgent( config: AiAgentConfig ): AgentRuntimeHandle {
 	const {
 		prompt,
-		sessionId,
-		sessionFilePath,
+		session,
 		env,
 		model = DEFAULT_MODEL,
 		activeSite,
@@ -59,8 +57,7 @@ export function startAiAgent( config: AiAgentConfig ): AgentRuntimeHandle {
 		prompt,
 		env: resolvedEnv,
 		model,
-		sessionId,
-		sessionFilePath,
+		session,
 		activeSite,
 		wpcomAccessToken,
 		onAskUser,

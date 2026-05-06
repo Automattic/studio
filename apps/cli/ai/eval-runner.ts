@@ -6,10 +6,10 @@
  * promptfoo config, not here.
  */
 
-import crypto from 'node:crypto';
 import { writeFileSync, writeSync as fsWriteSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { SessionManager } from '@mariozechner/pi-coding-agent';
 import { isAiModelId, type AiModelId } from '@studio/common/ai/models';
 import { startAiAgent } from 'cli/ai/agent';
 import {
@@ -17,6 +17,7 @@ import {
 	resolveInitialAiProvider,
 	resolveUnavailableAiProvider,
 } from 'cli/ai/auth';
+import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import type { AiProviderId } from 'cli/ai/providers';
 import type { AgentRuntimeEvent } from 'cli/ai/runtimes/runtime-events';
 
@@ -173,16 +174,13 @@ async function runEval( input: EvalRunnerInput ) {
 	let timedOut = false;
 
 	phaseStartedAt = Date.now();
-	// Eval runs don't need a persisted transcript — point the runtime at
-	// a throwaway temp file. Hydration reads it (empty), turn writes
-	// append to it; the file is removed at the end of the run.
-	const sessionId = crypto.randomUUID();
-	const sessionFilePath = path.join( os.tmpdir(), `studio-eval-session-${ sessionId }.jsonl` );
+	// Eval runs don't need a persisted transcript — feed the runtime an
+	// in-memory SessionManager so nothing hits disk.
+	const session = SessionManager.inMemory( STUDIO_SITES_ROOT );
 	const query = startAiAgent( {
 		prompt: input.prompt.trim(),
 		env,
-		sessionId,
-		sessionFilePath,
+		session,
 		...( input.model ? { model: input.model } : {} ),
 	} );
 	phaseTimingsMs.start_ai_agent_ms = Date.now() - phaseStartedAt;

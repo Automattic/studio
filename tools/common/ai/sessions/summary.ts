@@ -1,19 +1,40 @@
 import fs from 'fs/promises';
-import { extractAiSessionIdFromFilePath } from './file-naming';
-import type { AiSessionEvent, AiSessionSummary } from './types';
+import { isStudioCustomEntryOfType, type SessionEntryBase } from './entry-types';
+import type { AiSessionSummary } from './types';
 
-export async function readAiSessionSummaryFromEvents(
+// Derive an `AiSessionSummary` from a pi-format session: the `session` header
+// carries the id and creation timestamp; per-entry timestamps drive
+// `updatedAt`; and the Studio-specific bits (firstPrompt, ownerSitePath,
+// activeEnvironment, etc.) come from the matching `studio.*` `CustomEntry`
+// payloads.
+
+interface PiSessionHeader {
+	type: 'session';
+	id: string;
+	timestamp: string;
+}
+
+function isPiHeader( value: unknown ): value is PiSessionHeader {
+	return (
+		!! value &&
+		typeof value === 'object' &&
+		( value as { type?: unknown } ).type === 'session' &&
+		typeof ( value as { id?: unknown } ).id === 'string' &&
+		typeof ( value as { timestamp?: unknown } ).timestamp === 'string'
+	);
+}
+
+export async function readAiSessionSummaryFromEntries(
 	filePath: string,
-	events: AiSessionEvent[]
+	fileEntries: Array< SessionEntryBase | PiSessionHeader >
 ): Promise< AiSessionSummary | undefined > {
-	if ( events.length === 0 ) {
-		return undefined;
-	}
+	if ( fileEntries.length === 0 ) return undefined;
 
+	const header = fileEntries.find( isPiHeader );
 	const linkedAgentSessionIds: string[] = [];
-	let createdAt: string | undefined;
-	let updatedAt: string | undefined;
-	let sessionId = extractAiSessionIdFromFilePath( filePath );
+	const createdAt = header?.timestamp;
+	let updatedAt = header?.timestamp;
+	const sessionId = header?.id ?? '';
 	let firstPrompt: string | undefined;
 	let ownerSitePath: string | undefined;
 	let ownerSiteName: string | undefined;
@@ -21,52 +42,53 @@ export async function readAiSessionSummaryFromEvents(
 	let activeEnvironment: 'local' | 'live' = 'local';
 	let lastSelectedWpcomSiteId: number | undefined;
 	let endReason: 'error' | 'stopped' | undefined;
-	let eventCount = 0;
+	let entryCount = 0;
 
-	for ( const event of events ) {
-		eventCount += 1;
-		updatedAt = event.timestamp;
+	for ( const entry of fileEntries ) {
+		if ( isPiHeader( entry ) ) continue;
+		entryCount += 1;
+		const ts = entry.timestamp;
+		if ( typeof ts === 'string' ) updatedAt = ts;
 
-		if ( event.type === 'session.started' ) {
-			createdAt = event.timestamp;
-			if ( event.sessionId.trim().length > 0 ) {
-				sessionId = event.sessionId;
+		if ( isStudioCustomEntryOfType( entry, 'studio.session_linked' ) ) {
+			const id = entry.data?.agentSessionId;
+			if ( typeof id === 'string' && ! linkedAgentSessionIds.includes( id ) ) {
+				linkedAgentSessionIds.push( id );
 			}
+			continue;
 		}
 
-		if (
-			event.type === 'session.linked' &&
-			! linkedAgentSessionIds.includes( event.agentSessionId )
-		) {
-			linkedAgentSessionIds.push( event.agentSessionId );
-		}
-
-		if ( event.type === 'site.selected' ) {
-			selectedSiteName = event.siteName;
-			const isLive = event.remote === true;
+		if ( isStudioCustomEntryOfType( entry, 'studio.site_selected' ) ) {
+			const data = entry.data;
+			if ( ! data ) continue;
+			selectedSiteName = data.siteName;
+			const isLive = data.remote === true;
 			activeEnvironment = isLive ? 'live' : 'local';
-			lastSelectedWpcomSiteId = isLive ? event.wpcomSiteId : undefined;
-
+			lastSelectedWpcomSiteId = isLive ? data.wpcomSiteId : undefined;
 			// Anchor the owner on the first *local* site. Remote-only sessions
 			// (CLI user picked a WP.com site as their very first site) stay
 			// ownerless — they belong in the sidebar's Unassigned group, which
 			// matches the fact that they never had a local home.
 			if ( ownerSitePath === undefined && ! isLive ) {
-				ownerSitePath = event.sitePath;
-				ownerSiteName = event.siteName;
+				ownerSitePath = data.sitePath;
+				ownerSiteName = data.siteName;
 			}
+			continue;
 		}
 
-		if ( event.type === 'user.message' && event.source === 'prompt' && ! firstPrompt ) {
-			firstPrompt = event.text;
+		if ( isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
+			const data = entry.data;
+			if ( data && data.source === 'prompt' && ! firstPrompt ) {
+				firstPrompt = data.text;
+			}
+			continue;
 		}
 
-		if ( event.type === 'turn.closed' ) {
-			if ( event.status === 'error' ) {
-				endReason = 'error';
-			} else if ( event.status === 'interrupted' ) {
-				endReason = 'stopped';
-			}
+		if ( isStudioCustomEntryOfType( entry, 'studio.turn_closed' ) ) {
+			const status = entry.data?.status;
+			if ( status === 'error' ) endReason = 'error';
+			else if ( status === 'interrupted' ) endReason = 'stopped';
+			continue;
 		}
 	}
 
@@ -87,6 +109,6 @@ export async function readAiSessionSummaryFromEvents(
 		activeEnvironment,
 		lastSelectedWpcomSiteId,
 		endReason,
-		eventCount,
+		eventCount: entryCount,
 	};
 }

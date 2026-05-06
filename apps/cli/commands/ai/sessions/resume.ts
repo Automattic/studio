@@ -1,4 +1,4 @@
-import { resolveActiveSiteFromEvents } from '@studio/common/ai/sessions/active-site';
+import { resolveActiveSiteFromEntries } from '@studio/common/ai/sessions/active-site';
 import { listAiSessions, loadAiSession } from '@studio/common/ai/sessions/store';
 import { __ } from '@wordpress/i18n';
 import { JsonAdapter } from 'cli/ai/output-adapter';
@@ -50,7 +50,7 @@ export async function runCommand(
 	// even if the session was flipped to live. Hydrate it explicitly from the
 	// event log instead.
 	const resolvedSite =
-		adapter instanceof JsonAdapter ? resolveActiveSiteFromEvents( session.events ) : undefined;
+		adapter instanceof JsonAdapter ? resolveActiveSiteFromEntries( session.entries ) : undefined;
 
 	await runAiCommand( {
 		adapter,

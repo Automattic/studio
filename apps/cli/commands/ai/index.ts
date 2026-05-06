@@ -1,8 +1,4 @@
-import {
-	appendAiSessionEvent,
-	createAiSession,
-	listAiSessions,
-} from '@studio/common/ai/sessions/store';
+import { migrateAllSessions } from '@studio/common/ai/sessions/migrate-all';
 import { buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, sprintf } from '@wordpress/i18n';
@@ -22,16 +18,24 @@ import { type AiOutputAdapter, JsonAdapter } from 'cli/ai/output-adapter';
 import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
 import { resolveResumeSessionContext } from 'cli/ai/sessions/context';
 import { getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
+import {
+	createStudioSession,
+	listStudioSessionFiles,
+	openStudioSession,
+} from 'cli/ai/sessions/pi-session';
 import { replaySessionHistory } from 'cli/ai/sessions/replay';
+import { appendStudioEntry } from 'cli/ai/sessions/studio-entries';
 import { getActiveSlashCommands, type SlashCommandContext } from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
 import { isRemoteSessionEnabled } from 'cli/lib/feature-flags';
+import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
-import type { AiSessionEvent, LoadedAiSession, TurnStatus } from '@studio/common/ai/sessions/types';
+import type { SessionManager } from '@mariozechner/pi-coding-agent';
+import type { LoadedAiSession, TurnStatus } from '@studio/common/ai/sessions/types';
 
 const logger = new Logger< string >();
 
@@ -100,27 +104,45 @@ export async function runCommand( options: {
 		ui.showInfo( __( 'ⓘ The "studio ai" command is now "studio code".' ) );
 	}
 
-	let sessionId: string | undefined;
-	let sessionFilePath: string | undefined;
+	// One-shot eager migration of any pre-pi session JSONL still on disk.
+	// Idempotent — pi-format files are skipped. Doing it once at command
+	// boot means downstream readers always see pi entries.
+	await migrateAllSessions( getAiSessionsRootDirectory(), STUDIO_SITES_ROOT ).catch(
+		() => undefined
+	);
+
+	let session: SessionManager | undefined;
 	let didDisableSessionPersistence = options.noSessionPersistence === true;
 
 	if ( options.noSessionPersistence ) {
 		ui.showInfo( __( 'Session persistence disabled (--no-session-persistence).' ) );
 	}
 
-	const ensureSession = async (): Promise< { id: string; filePath: string } | undefined > => {
+	const ensureSession = async (): Promise< SessionManager | undefined > => {
 		if ( didDisableSessionPersistence ) return undefined;
-		if ( sessionId && sessionFilePath ) {
-			return { id: sessionId, filePath: sessionFilePath };
-		}
+		if ( session ) return session;
 
 		try {
 			if ( options.resumeSession ) {
-				sessionId = options.resumeSession.summary.id;
-				sessionFilePath = options.resumeSession.summary.filePath;
+				session = await openStudioSession( options.resumeSession.summary.filePath );
 			} else if ( options.resumeSessionId ) {
-				const sessions = await listAiSessions( getAiSessionsRootDirectory() );
-				const match = sessions.find( ( s ) => s.id === options.resumeSessionId );
+				// Pi sessions ARE the agent sessions now — `getSessionId()`
+				// matches the resume id directly. Walk files until we find
+				// the match.
+				const files = await listStudioSessionFiles( getAiSessionsRootDirectory() );
+				let match: string | undefined;
+				for ( const file of files ) {
+					try {
+						const sm = await openStudioSession( file );
+						if ( sm.getSessionId() === options.resumeSessionId ) {
+							session = sm;
+							match = file;
+							break;
+						}
+					} catch {
+						// Skip unreadable files.
+					}
+				}
 				if ( ! match ) {
 					throw new Error(
 						sprintf(
@@ -130,12 +152,8 @@ export async function runCommand( options: {
 						)
 					);
 				}
-				sessionId = match.id;
-				sessionFilePath = match.filePath;
 			} else {
-				const summary = await createAiSession( getAiSessionsRootDirectory() );
-				sessionId = summary.id;
-				sessionFilePath = summary.filePath;
+				session = await createStudioSession();
 			}
 		} catch ( error ) {
 			didDisableSessionPersistence = true;
@@ -149,15 +167,16 @@ export async function runCommand( options: {
 			return undefined;
 		}
 
-		return { id: sessionId!, filePath: sessionFilePath! };
+		return session;
 	};
 
-	const append = async ( event: AiSessionEvent ): Promise< void > => {
-		const s = await ensureSession();
-		if ( ! s ) return;
+	const append = async ( fn: ( sm: SessionManager ) => void ): Promise< void > => {
+		const sm = await ensureSession();
+		if ( ! sm ) return;
 		try {
-			await appendAiSessionEvent( getAiSessionsRootDirectory(), s.id, event );
+			fn( sm );
 		} catch ( error ) {
+			session = undefined;
 			if ( ! didDisableSessionPersistence ) {
 				didDisableSessionPersistence = true;
 				ui.showError(
@@ -178,34 +197,30 @@ export async function runCommand( options: {
 	}
 
 	async function persistSessionContext(): Promise< void > {
-		await append( {
-			type: 'session.context',
-			timestamp: new Date().toISOString(),
-			provider: currentProvider,
-			model: currentModel,
-		} );
+		await append( ( sm ) =>
+			appendStudioEntry( sm, 'studio.session_context', {
+				provider: currentProvider,
+				model: currentModel,
+			} )
+		);
 	}
 
 	setProgressCallback( ( message, update ) => {
 		ui.setLoaderMessage( message, update );
 		if ( ! message.trim() ) return;
-		void append( {
-			type: 'tool.progress',
-			timestamp: new Date().toISOString(),
-			message,
-		} );
+		void append( ( sm ) => appendStudioEntry( sm, 'studio.tool_progress', { message } ) );
 	} );
 
 	ui.onSiteSelected = ( site ) => {
-		void append( {
-			type: 'site.selected',
-			timestamp: new Date().toISOString(),
-			siteName: site.name,
-			sitePath: site.path,
-			remote: site.remote,
-			url: site.url,
-			wpcomSiteId: site.wpcomSiteId,
-		} );
+		void append( ( sm ) =>
+			appendStudioEntry( sm, 'studio.site_selected', {
+				siteName: site.name,
+				sitePath: site.path,
+				remote: site.remote,
+				url: site.url,
+				wpcomSiteId: site.wpcomSiteId,
+			} )
+		);
 	};
 
 	if ( options.resumeSession ) {
@@ -216,9 +231,9 @@ export async function runCommand( options: {
 				options.resumeSession.summary.id
 			)
 		);
-		await ensureSession();
-		if ( ui instanceof AiChatUI ) {
-			replaySessionHistory( ui, options.resumeSession.events );
+		const sm = await ensureSession();
+		if ( ui instanceof AiChatUI && sm ) {
+			replaySessionHistory( ui, sm.getEntries() );
 		}
 	}
 
@@ -390,15 +405,15 @@ export async function runCommand( options: {
 		questions: AskUserQuestion[]
 	): Promise< Record< string, string > > {
 		for ( const question of questions ) {
-			await append( {
-				type: 'agent.question',
-				timestamp: new Date().toISOString(),
-				question: question.question,
-				options: question.options.map( ( option ) => ( {
-					label: option.label,
-					description: option.description,
-				} ) ),
-			} );
+			await append( ( sm ) =>
+				appendStudioEntry( sm, 'studio.agent_question', {
+					question: question.question,
+					options: question.options.map( ( option ) => ( {
+						label: option.label,
+						description: option.description,
+					} ) ),
+				} )
+			);
 		}
 
 		const answers = await ui.askUser( questions );
@@ -407,13 +422,13 @@ export async function runCommand( options: {
 			if ( typeof answer !== 'string' || ! answer.trim() ) {
 				continue;
 			}
-			await append( {
-				type: 'user.message',
-				timestamp: new Date().toISOString(),
-				text: answer,
-				source: 'ask_user',
-				sitePath: ui.activeSite?.path,
-			} );
+			await append( ( sm ) =>
+				appendStudioEntry( sm, 'studio.user_prompt', {
+					text: answer,
+					source: 'ask_user',
+					sitePath: ui.activeSite?.path,
+				} )
+			);
 		}
 
 		return answers;
@@ -427,12 +442,12 @@ export async function runCommand( options: {
 		displayMessage = prompt
 	): Promise< { status: TurnStatus } > {
 		await maybeAutoSwitchProvider();
-		const s = await ensureSession();
-		if ( ! s ) {
+		const sm = await ensureSession();
+		if ( ! sm ) {
 			throw new Error( 'AI agent requires a session — persistence is disabled.' );
 		}
 		const env = await resolveAiEnvironment( currentProvider, {
-			sessionId: s.id,
+			sessionId: sm.getSessionId(),
 		} );
 
 		ui.beginAgentTurn();
@@ -458,20 +473,23 @@ export async function runCommand( options: {
 
 		await persistSessionContext();
 
-		await append( {
-			type: 'user.message',
-			timestamp: new Date().toISOString(),
-			text: displayMessage,
-			source: 'prompt',
-			sitePath: site?.path,
-		} );
+		// Studio-side marker for the user's typed prompt. Pi will append the
+		// canonical UserMessage when the runtime starts the turn — this entry
+		// is purely for the renderer's "user-typed prompt" rendering and the
+		// summary's `firstPrompt` extraction.
+		await append( ( s ) =>
+			appendStudioEntry( s, 'studio.user_prompt', {
+				text: displayMessage,
+				source: 'prompt',
+				sitePath: site?.path,
+			} )
+		);
 
 		const agentQuery = startAiAgent( {
 			prompt: enrichedPrompt,
 			env,
 			model: currentModel,
-			sessionId: s.id,
-			sessionFilePath: s.filePath,
+			session: sm,
 			activeSite: site,
 			wpcomAccessToken,
 			onAskUser: ( questions ) => askUserAndPersistAnswers( questions ),
@@ -537,11 +555,9 @@ export async function runCommand( options: {
 				turnState.status = 'interrupted';
 			}
 		} finally {
-			await append( {
-				type: 'turn.closed',
-				timestamp: new Date().toISOString(),
-				status: turnState.status,
-			} );
+			await append( ( s ) =>
+				appendStudioEntry( s, 'studio.turn_closed', { status: turnState.status } )
+			);
 			ui.endAgentTurn();
 		}
 
@@ -644,19 +660,19 @@ export async function runCommand( options: {
 			ui.clearTranscript();
 			ui.showWelcome();
 			ui.showInfo( __( 'Conversation cleared' ) );
-			await append( { type: 'session.cleared', timestamp: new Date().toISOString() } );
+			await append( ( sm ) => appendStudioEntry( sm, 'studio.session_cleared', {} ) );
 			await persistSessionContext();
 			const site = ui.activeSite;
 			if ( site ) {
-				await append( {
-					type: 'site.selected',
-					timestamp: new Date().toISOString(),
-					siteName: site.name,
-					sitePath: site.path,
-					remote: site.remote,
-					url: site.url,
-					wpcomSiteId: site.wpcomSiteId,
-				} );
+				await append( ( sm ) =>
+					appendStudioEntry( sm, 'studio.site_selected', {
+						siteName: site.name,
+						sitePath: site.path,
+						remote: site.remote,
+						url: site.url,
+						wpcomSiteId: site.wpcomSiteId,
+					} )
+				);
 			}
 		},
 	};

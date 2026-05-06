@@ -1,6 +1,4 @@
-import crypto from 'node:crypto';
-import os from 'node:os';
-import path from 'node:path';
+import { SessionManager } from '@mariozechner/pi-coding-agent';
 import { describe, expect, it, vi } from 'vitest';
 import { piRuntime } from 'cli/ai/runtimes/pi';
 import type { AiModelId } from '@studio/common/ai/models';
@@ -94,7 +92,8 @@ vi.mock( '@mariozechner/pi-agent-core', () => {
 	return { Agent: MockAgent };
 } );
 
-vi.mock( '@mariozechner/pi-coding-agent', () => {
+vi.mock( '@mariozechner/pi-coding-agent', async ( importOriginal ) => {
+	const actual = await importOriginal< typeof import('@mariozechner/pi-coding-agent') >();
 	const stub = ( name: string ) => ( {
 		name,
 		label: name,
@@ -103,6 +102,7 @@ vi.mock( '@mariozechner/pi-coding-agent', () => {
 		execute: async () => ( { content: [ { type: 'text', text: '' } ], details: undefined } ),
 	} );
 	return {
+		...actual,
 		createReadTool: () => stub( 'Read' ),
 		createWriteTool: () => stub( 'Write' ),
 		createEditTool: () => stub( 'Edit' ),
@@ -113,13 +113,7 @@ vi.mock( '@mariozechner/pi-coding-agent', () => {
 	};
 } );
 
-const newSession = () => ( {
-	sessionId: crypto.randomUUID(),
-	sessionFilePath: path.join(
-		os.tmpdir(),
-		`studio-pi-runtime-test-${ crypto.randomUUID() }.jsonl`
-	),
-} );
+const newSession = () => SessionManager.inMemory( '/tmp/eval' );
 
 const findAssistantText = ( events: AgentRuntimeEvent[] ): string | undefined => {
 	for ( const e of events ) {
@@ -138,7 +132,7 @@ describe( 'pi runtime', () => {
 			prompt: 'hello',
 			env: {},
 			model: 'gpt-5.5',
-			...newSession(),
+			session: newSession(),
 		} );
 
 		const events: AgentRuntimeEvent[] = [];
@@ -164,7 +158,7 @@ describe( 'pi runtime', () => {
 				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
 			},
 			model: 'gpt-5.5',
-			...newSession(),
+			session: newSession(),
 		} );
 
 		const events: AgentRuntimeEvent[] = [];
@@ -191,7 +185,7 @@ describe( 'pi runtime', () => {
 		const session = newSession();
 		const otherOpenAiModel = 'gpt-test-other' as AiModelId;
 
-		const first = piRuntime.run( { prompt: 'hi', env, model: 'gpt-5.5', ...session } );
+		const first = piRuntime.run( { prompt: 'hi', env, model: 'gpt-5.5', session } );
 		for await ( const _ of first );
 		expect( constructedAgents ).toHaveLength( 1 );
 		expect( constructedAgents[ 0 ].state.model.id ).toBe( 'gpt-5.5' );
@@ -201,7 +195,7 @@ describe( 'pi runtime', () => {
 			prompt: 'follow-up',
 			env,
 			model: otherOpenAiModel,
-			...session,
+			session,
 		} );
 		for await ( const _ of second );
 		expect( constructedAgents ).toHaveLength( 2 );
@@ -212,7 +206,7 @@ describe( 'pi runtime', () => {
 			prompt: 'still on the second model',
 			env,
 			model: otherOpenAiModel,
-			...session,
+			session,
 		} );
 		for await ( const _ of third );
 		expect( constructedAgents ).toHaveLength( 2 );
@@ -231,7 +225,7 @@ describe( 'pi runtime', () => {
 					STUDIO_OPENAI_DEFAULT_HEADERS: '{not json',
 				},
 				model: 'gpt-5.5',
-				...newSession(),
+				session: newSession(),
 			} );
 			for await ( const _ of handle ) {
 				// Drain.

@@ -9,11 +9,20 @@ import type { Snapshot } from '@studio/common/types/snapshot';
 import type { SyncSite } from '@studio/common/types/sync';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
+export type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 export type {
-	AiSessionSummary,
-	LoadedAiSession,
-	AiSessionEvent,
-} from '@studio/common/ai/sessions/types';
+	SessionEntryBase,
+	StudioCustomEntry,
+	StudioCustomEntryType,
+	StudioCustomEntryDataMap,
+	StudioSiteSelectedData,
+	StudioToolProgressData,
+	StudioAgentQuestionData,
+	StudioTurnClosedData,
+	StudioSessionContextData,
+	StudioSessionLinkedData,
+	StudioUserPromptData,
+} from '@studio/common/ai/sessions/entry-types';
 export type { AiModelId } from '@studio/common/ai/models';
 export type { Snapshot } from '@studio/common/types/snapshot';
 export type { SyncSite } from '@studio/common/types/sync';

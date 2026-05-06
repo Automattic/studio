@@ -2,36 +2,46 @@ import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
 import { buildAiSessionFileName } from './file-naming';
+import { migrateLegacyFileInPlace } from './migration';
 import { getAiSessionsDirectoryForDate } from './paths';
-import { readAiSessionSummaryFromEvents } from './summary';
-import type { AiSessionEvent, AiSessionSummary, LoadedAiSession } from './types';
+import { readAiSessionSummaryFromEntries } from './summary';
+import type {
+	SessionEntryBase,
+	StudioCustomEntryDataMap,
+	StudioCustomEntryType,
+} from './entry-types';
+import type { AiSessionSummary, LoadedAiSession } from './types';
 
-export async function readAiSessionEventsFromFile( filePath: string ): Promise< AiSessionEvent[] > {
+// Reads the JSONL as a sequence of pi `FileEntry` objects (header + entries).
+// Migrates the file in place if it's still in the Studio-legacy event shape;
+// the eager `migrateAllSessions` walker normally handles that at app launch
+// but the lazy fallback keeps file-by-file reads safe.
+export async function readPiFileEntries( filePath: string ): Promise< SessionEntryBase[] > {
 	let content: string;
 	try {
 		content = await fs.readFile( filePath, 'utf8' );
 	} catch ( error ) {
-		// A missing file is treated as an empty session — the runtime calls
-		// this on cold-start hydration before any turn has appended anything,
-		// and `createAiSession` writes the file lazily.
 		if ( ( error as NodeJS.ErrnoException ).code === 'ENOENT' ) return [];
 		throw error;
 	}
-	const lines = content
-		.split( '\n' )
-		.map( ( line ) => line.trim() )
-		.filter( ( line ) => line.length > 0 );
-	const events: AiSessionEvent[] = [];
+	if ( ! content.trim() ) return [];
 
-	for ( const line of lines ) {
+	// `migrateLegacyFileInPlace` peeks at the first line and bails out for
+	// pi-format files, so the cost on the hot path is just a small re-read.
+	await migrateLegacyFileInPlace( filePath, '~/Studio' );
+	const refreshed = await fs.readFile( filePath, 'utf8' );
+
+	const entries: SessionEntryBase[] = [];
+	for ( const line of refreshed.split( '\n' ) ) {
+		const trimmed = line.trim();
+		if ( ! trimmed ) continue;
 		try {
-			events.push( JSON.parse( line ) as AiSessionEvent );
+			entries.push( JSON.parse( trimmed ) as SessionEntryBase );
 		} catch {
 			// Ignore malformed lines and keep loading the rest.
 		}
 	}
-
-	return events;
+	return entries;
 }
 
 async function listSessionFilesRecursively( directory: string ): Promise< string[] > {
@@ -123,8 +133,8 @@ export async function listAiSessions( rootDirectory: string ): Promise< AiSessio
 	const sessionFiles = await listSessionFilesRecursively( rootDirectory );
 	const results = await Promise.allSettled(
 		sessionFiles.map( async ( filePath ) => {
-			const events = await readAiSessionEventsFromFile( filePath );
-			return readAiSessionSummaryFromEvents( filePath, events );
+			const entries = await readPiFileEntries( filePath );
+			return readAiSessionSummaryFromEntries( filePath, entries );
 		} )
 	);
 
@@ -144,8 +154,8 @@ export async function loadAiSession(
 	sessionIdOrPrefix: string
 ): Promise< LoadedAiSession > {
 	const summary = await resolveSessionByIdOrPrefix( rootDirectory, sessionIdOrPrefix );
-	const events = await readAiSessionEventsFromFile( summary.filePath );
-	return { summary, events };
+	const entries = await readPiFileEntries( summary.filePath );
+	return { summary, entries };
 }
 
 export interface CreateAiSessionOptions {
@@ -156,6 +166,13 @@ export interface CreateAiSessionOptions {
 		url?: string;
 		wpcomSiteId?: number;
 	};
+}
+
+const PI_SESSION_VERSION = 3;
+const PI_SESSION_CWD = '~/Studio';
+
+function shortId(): string {
+	return crypto.randomUUID().slice( 0, 8 );
 }
 
 export async function createAiSession(
@@ -170,45 +187,109 @@ export async function createAiSession(
 
 	await fs.mkdir( directory, { recursive: true } );
 
-	const events: AiSessionEvent[] = [
-		{
-			type: 'session.started',
-			timestamp: startedAt.toISOString(),
-			version: 1,
-			sessionId,
-		},
+	const isoTs = startedAt.toISOString();
+	const lines: string[] = [
+		JSON.stringify( {
+			type: 'session',
+			version: PI_SESSION_VERSION,
+			id: sessionId,
+			timestamp: isoTs,
+			cwd: PI_SESSION_CWD,
+		} ),
 	];
+	const entries: SessionEntryBase[] = [];
 	if ( options.site ) {
-		events.push( {
-			type: 'site.selected',
-			timestamp: startedAt.toISOString(),
-			siteName: options.site.name,
-			sitePath: options.site.path,
-			remote: options.site.remote,
-			url: options.site.url,
-			wpcomSiteId: options.site.wpcomSiteId,
-		} );
+		const entry = {
+			type: 'custom' as const,
+			id: shortId(),
+			parentId: null,
+			timestamp: isoTs,
+			customType: 'studio.site_selected',
+			data: {
+				siteName: options.site.name,
+				sitePath: options.site.path,
+				remote: options.site.remote,
+				url: options.site.url,
+				wpcomSiteId: options.site.wpcomSiteId,
+			},
+		};
+		entries.push( entry as SessionEntryBase );
+		lines.push( JSON.stringify( entry ) );
 	}
 
-	const serialized = events.map( ( event ) => JSON.stringify( event ) ).join( '\n' ) + '\n';
-	await fs.writeFile( filePath, serialized, { encoding: 'utf8' } );
+	await fs.writeFile( filePath, lines.join( '\n' ) + '\n', { encoding: 'utf8' } );
 
-	const summary = await readAiSessionSummaryFromEvents( filePath, events );
+	const allEntries = [
+		{
+			type: 'session' as const,
+			id: sessionId,
+			timestamp: isoTs,
+		},
+		...entries,
+	];
+	const summary = await readAiSessionSummaryFromEntries(
+		filePath,
+		allEntries as Array< SessionEntryBase | { type: 'session'; id: string; timestamp: string } >
+	);
 	if ( ! summary ) {
 		throw new Error( 'Failed to build summary for newly created session' );
 	}
 	return summary;
 }
 
-export async function appendAiSessionEvent(
+async function readLastEntryId( filePath: string ): Promise< string | null > {
+	const entries = await readPiFileEntries( filePath );
+	for ( let i = entries.length - 1; i >= 0; i -= 1 ) {
+		const id = ( entries[ i ] as { id?: unknown } ).id;
+		if ( typeof id === 'string' && id.length > 0 ) return id;
+	}
+	return null;
+}
+
+// Append a Studio `studio.*` `CustomEntry` to a session JSONL. Used by the
+// desktop IPC layer for `setSessionEnvironment`, `setAiSessionModel`, etc.
+// Note that `setAiSessionModel` writes a `model_change` entry instead — pi
+// has its own discriminator for that — exposed via `appendModelChangeEntry`
+// below.
+export async function appendStudioEntry< T extends StudioCustomEntryType >(
 	rootDirectory: string,
 	sessionIdOrPrefix: string,
-	event: AiSessionEvent
+	customType: T,
+	data: StudioCustomEntryDataMap[ T ]
 ): Promise< void > {
 	const summary = await resolveSessionByIdOrPrefix( rootDirectory, sessionIdOrPrefix );
-	await fs.appendFile( summary.filePath, `${ JSON.stringify( event ) }\n`, {
-		encoding: 'utf8',
-	} );
+	const parentId = await readLastEntryId( summary.filePath );
+	const entry = {
+		type: 'custom',
+		id: shortId(),
+		parentId,
+		timestamp: new Date().toISOString(),
+		customType,
+		data,
+	};
+	await fs.appendFile( summary.filePath, JSON.stringify( entry ) + '\n', { encoding: 'utf8' } );
+}
+
+// Append a pi `model_change` entry — this is how the UI's composer-driven
+// `/model` switch gets persisted so the next turn's resume context picks
+// up the user's choice.
+export async function appendModelChangeEntry(
+	rootDirectory: string,
+	sessionIdOrPrefix: string,
+	provider: string,
+	modelId: string
+): Promise< void > {
+	const summary = await resolveSessionByIdOrPrefix( rootDirectory, sessionIdOrPrefix );
+	const parentId = await readLastEntryId( summary.filePath );
+	const entry = {
+		type: 'model_change',
+		id: shortId(),
+		parentId,
+		timestamp: new Date().toISOString(),
+		provider,
+		modelId,
+	};
+	await fs.appendFile( summary.filePath, JSON.stringify( entry ) + '\n', { encoding: 'utf8' } );
 }
 
 export async function deleteAiSession(

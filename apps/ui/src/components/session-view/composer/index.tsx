@@ -1,4 +1,5 @@
 import { AI_MODELS, getAiModelFamily, getAiModelLabel } from '@studio/common/ai/models';
+import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
@@ -12,7 +13,7 @@ import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { EnvironmentPill } from './environment-pill';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';
-import type { AiModelId, AiSessionEvent, LoadedAiSession, SyncSite } from '@/data/core';
+import type { AiModelId, LoadedAiSession, SessionEntryBase, SyncSite } from '@/data/core';
 
 /**
  * Invisible structural placeholder that mirrors Composer's outer DOM (shell +
@@ -48,10 +49,10 @@ interface ComposerProps {
 	sessionId?: string;
 	effectiveEnvironment?: 'local' | 'live';
 	liveSite?: SyncSite;
-	// Session events drive the cross-family confirmation logic — we skip the
+	// Session entries drive the cross-family confirmation logic — we skip the
 	// dialog when the session is empty (nothing to lose) and use them for the
-	// optimistic `session.model_selected` cache update on same-family swaps.
-	events?: AiSessionEvent[];
+	// optimistic `model_change` cache update on same-family swaps.
+	entries?: SessionEntryBase[];
 	// Local owner site id, when the session is anchored to one. Required to
 	// spin up a fresh session via `connector.createSession` on a confirmed
 	// family swap; if absent we fall back to the in-place model change so the
@@ -83,7 +84,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		sessionId,
 		effectiveEnvironment = 'local',
 		liveSite,
-		events,
+		entries,
 		ownerSiteId,
 	},
 	ref
@@ -139,10 +140,10 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		}
 	}, [ value, onSend ] );
 
-	// Same-family swap: optimistically append a `session.model_selected` event
-	// so the composer reflects the new pick immediately. The main process
-	// writes the same event to the JSONL; if that write fails we fall back
-	// to the prior state via query invalidation.
+	// Same-family swap: optimistically append a `model_change` entry so the
+	// composer reflects the new pick immediately. The main process writes the
+	// same entry to the JSONL; if that write fails we fall back to the prior
+	// state via query invalidation.
 	const applySameFamilyModel = useCallback(
 		( picked: AiModelId ) => {
 			if ( ! sessionId ) {
@@ -155,9 +156,16 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 					prev
 						? {
 								...prev,
-								events: [
-									...prev.events,
-									{ type: 'session.model_selected', timestamp, model: picked },
+								entries: [
+									...prev.entries,
+									{
+										type: 'model_change',
+										id: Math.random().toString( 36 ).slice( 2, 10 ),
+										parentId: null,
+										timestamp,
+										provider: '',
+										modelId: picked,
+									} as unknown as SessionEntryBase,
 								],
 						  }
 						: prev
@@ -185,14 +193,16 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 			//     pass to `createSession`, so the fresh-session path can't
 			//     run; fall back to the in-place switch instead of blocking
 			//     the dropdown).
-			const hasTurns = ( events ?? [] ).some( ( event ) => event.type === 'user.message' );
+			const hasTurns = ( entries ?? [] ).some( ( entry ) =>
+				isStudioCustomEntryOfType( entry, 'studio.user_prompt' )
+			);
 			if ( getAiModelFamily( model ) !== getAiModelFamily( picked ) && ownerSiteId && hasTurns ) {
 				setPendingFamilyChange( picked );
 				return;
 			}
 			applySameFamilyModel( picked );
 		},
-		[ applySameFamilyModel, events, model, ownerSiteId ]
+		[ applySameFamilyModel, entries, model, ownerSiteId ]
 	);
 
 	const cancelFamilyChange = useCallback( () => {

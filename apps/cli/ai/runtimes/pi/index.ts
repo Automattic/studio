@@ -1,7 +1,6 @@
-import fs from 'fs/promises';
 import Anthropic from '@anthropic-ai/sdk';
 import { Agent, type AgentEvent, type AgentTool, type StreamFn } from '@mariozechner/pi-agent-core';
-import { type Model } from '@mariozechner/pi-ai';
+import { type Message, type Model, type ToolResultMessage } from '@mariozechner/pi-ai';
 import { streamAnthropic, type AnthropicOptions } from '@mariozechner/pi-ai/anthropic';
 import {
 	createBashTool,
@@ -13,7 +12,6 @@ import {
 	createWriteTool,
 } from '@mariozechner/pi-coding-agent';
 import { getAiModelFamily, type AiModelFamily, type AiModelId } from '@studio/common/ai/models';
-import { readAiSessionEventsFromFile } from '@studio/common/ai/sessions/store';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
@@ -24,13 +22,7 @@ import { takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
 import { createWpcomRequestTool } from 'cli/ai/tools/wpcom-request';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { buildTransformContext } from './compaction';
-import {
-	assistantMessageToLegacyEvent,
-	legacyEventsToAgentMessages,
-	toolResultMessageToLegacyEvent,
-} from './messages';
 import type { AgentRuntime, AgentRuntimeConfig, AgentRuntimeHandle } from '../types';
-import type { AiSessionEvent } from '@studio/common/ai/sessions/types';
 import type { AgentRuntimeEvent } from 'cli/ai/runtimes/runtime-events';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -47,7 +39,7 @@ const LIFECYCLE_REFS_BY_SESSION = new Map< string, CompactionLifecycleRef >();
 
 export const piRuntime: AgentRuntime = {
 	run( config: AgentRuntimeConfig ): AgentRuntimeHandle {
-		const sessionId = config.sessionId;
+		const sessionId = config.session.getSessionId();
 		const controller = new AbortController();
 		const events = createEventStream( config, sessionId, controller );
 
@@ -62,12 +54,6 @@ export const piRuntime: AgentRuntime = {
 		};
 	},
 };
-
-async function appendEventsToFile( filePath: string, events: AiSessionEvent[] ): Promise< void > {
-	if ( events.length === 0 ) return;
-	const serialized = events.map( ( e ) => JSON.stringify( e ) ).join( '\n' ) + '\n';
-	await fs.appendFile( filePath, serialized, { encoding: 'utf8' } );
-}
 
 interface ResolvedCredentials {
 	apiKey: string;
@@ -136,9 +122,6 @@ async function* createEventStream(
 	const family = getAiModelFamily( config.model );
 	const resolved = resolveCredentials( family, config.env );
 	if ( ! resolved.ok ) {
-		// Pre-flight credential failure — surface the reason via the
-		// `turn_completed.result` payload so consumers can `showError(result)`
-		// without a separate runtime-error event type.
 		yield {
 			type: 'turn_completed',
 			sessionId,
@@ -171,10 +154,6 @@ async function* createEventStream(
 		};
 
 		lifecycleRef.current = ( phase ) => {
-			// Map our compaction.ts lifecycle to the pi-shaped events. We
-			// always run as a `threshold`-driven transformContext compaction.
-			// `skipped` is silent (the UI doesn't differentiate); `failed`
-			// flows through compaction_end with errorMessage populated.
 			if ( phase === 'start' ) {
 				queue.push( { type: 'compaction_start', reason: 'threshold' } );
 			} else if ( phase === 'end' ) {
@@ -196,32 +175,26 @@ async function* createEventStream(
 			wake();
 		};
 
-		const pendingDiskWrites: Array< Promise< void > > = [];
-		const queueDiskWrite = ( events: AiSessionEvent[] ) => {
-			pendingDiskWrites.push(
-				appendEventsToFile( config.sessionFilePath, events ).catch( () => undefined )
-			);
-		};
-
 		const unsubscribe = agent.subscribe( ( event: AgentEvent ) => {
 			queue.push( event );
 
 			if ( event.type === 'turn_end' ) {
 				numTurns += 1;
-				const ts = new Date().toISOString();
-				const events: AiSessionEvent[] = [];
+				// turn_end's `message` is always a base `Message` from the LLM
+				// (user/assistant/toolResult); branch/compaction summaries don't
+				// ride this event. Cast through Message to satisfy
+				// SessionManager.appendMessage's narrower signature.
+				config.session.appendMessage( event.message as Message );
+				for ( const tr of event.toolResults as ToolResultMessage[] ) {
+					config.session.appendMessage( tr );
+				}
 				if ( event.message.role === 'assistant' ) {
-					events.push( assistantMessageToLegacyEvent( event.message, sessionId, ts ) );
 					for ( const block of event.message.content ) {
 						if ( block.type === 'text' ) {
 							resultText = block.text;
 						}
 					}
 				}
-				for ( const tr of event.toolResults ) {
-					events.push( toolResultMessageToLegacyEvent( tr, sessionId, ts ) );
-				}
-				queueDiskWrite( events );
 			}
 
 			if ( event.type === 'agent_end' ) {
@@ -229,6 +202,14 @@ async function* createEventStream(
 			}
 
 			wake();
+		} );
+
+		// Persist the user prompt before the agent starts processing so the
+		// transcript on disk matches what the model is about to see.
+		config.session.appendMessage( {
+			role: 'user',
+			content: config.prompt,
+			timestamp: Date.now(),
 		} );
 
 		const runPromise = agent.prompt( config.prompt );
@@ -250,10 +231,6 @@ async function* createEventStream(
 		// finished queue if a follow-up run reuses the same Agent.
 		lifecycleRef.current = null;
 		await runPromise.catch( () => undefined );
-		// Make sure all turn-end events are flushed to disk before we yield
-		// the final `turn_completed` — consumers (e.g. desktop IPC) chain
-		// follow-up reads off that event.
-		await Promise.all( pendingDiskWrites );
 
 		const aborted = controller.signal.aborted;
 		yield {
@@ -306,8 +283,6 @@ async function getOrCreateAgent(
 	const model = buildModel( config.model, family, creds );
 
 	const isRemoteSite = Boolean( config.activeSite?.remote && config.activeSite?.wpcomSiteId );
-	// `process.send` is the same signal `emitEvent` uses to detect the desktop
-	// IPC channel; without it, navigate/reload tools are noise in a terminal.
 	const isForkedByDesktop = typeof process.send === 'function';
 	const remoteSession = config.env.STUDIO_REMOTE_SESSION === '1';
 
@@ -327,18 +302,14 @@ async function getOrCreateAgent(
 	const tools = buildAgentTools( config, isForkedByDesktop );
 
 	// On a `/model` swap mid-session, reuse the prior transcript so the
-	// conversation continues; on a cold fork hydrate by reading the legacy
-	// session JSONL and translating its `sdk.message` events back into pi
-	// `AgentMessage[]`.
+	// conversation continues; on a cold fork hydrate from the SessionManager
+	// (which already resolves compaction summaries via buildSessionContext).
 	const initialMessages = existing
 		? existing.state.messages
-		: legacyEventsToAgentMessages( await readAiSessionEventsFromFile( config.sessionFilePath ) );
+		: config.session.buildSessionContext().messages;
 
 	const lifecycleRef: CompactionLifecycleRef = { current: null };
 
-	// pi-ai's default Anthropic auth uses `apiKey` → `x-api-key`, which the
-	// wpcom proxy rejects. Inject a pre-built client with `authToken` so the
-	// SDK sends `Authorization: Bearer` instead.
 	const streamFn: StreamFn | undefined =
 		family === 'anthropic' && creds.useBearerAuth
 			? buildAnthropicBearerStreamFn( creds )
@@ -350,9 +321,6 @@ async function getOrCreateAgent(
 			systemPrompt,
 			messages: initialMessages,
 			tools,
-			// pi-agent-core defaults to "off"; matches the Claude Agent SDK's
-			// previous adaptive-thinking default and gives gpt-5.5 a real
-			// reasoning effort budget on Chat Completions.
 			thinkingLevel: 'high',
 		},
 		getApiKey: () => creds.apiKey,
@@ -386,9 +354,6 @@ function buildModel(
 		...( creds.extraHeaders ? { headers: creds.extraHeaders } : {} ),
 	};
 
-	// OpenAI Chat Completions reasoning_effort='high' starves visible output
-	// on GPT-5.5 (model returns "Done" after a long internal-reasoning turn).
-	// Leave reasoning off for OpenAI and let server-side defaults handle it.
 	if ( family === 'openai' ) {
 		return {
 			...common,
@@ -414,14 +379,9 @@ function buildAnthropicBearerStreamFn( creds: ResolvedCredentials ): StreamFn {
 		apiKey: null,
 		authToken: creds.apiKey,
 		baseURL: creds.baseURL,
-		// Some test envs (e.g. vitest jsdom) trip the SDK's browser-detect
-		// guard; we're in Node.
 		dangerouslyAllowBrowser: true,
 		defaultHeaders: creds.extraHeaders,
 	} );
-	// pi-ai bundles its own `@anthropic-ai/sdk` copy; the bundled `Anthropic`
-	// class is a different TS identity from ours (private-field branding).
-	// Cast through `unknown` since the runtime shape is identical.
 	const clientForPi = client as unknown as AnthropicOptions[ 'client' ];
 	return ( m, ctx, options ) =>
 		streamAnthropic( m as Model< 'anthropic-messages' >, ctx, {
@@ -456,8 +416,6 @@ function buildAgentTools(
 		];
 	}
 
-	// `Glob` / `Ls` mirror Claude Code's preset tool names so the system
-	// prompt stays family-agnostic.
 	const renameTool = ( tool: AgentToolAny, name: string ): AgentToolAny => ( {
 		...tool,
 		name,
@@ -495,8 +453,6 @@ function parseJsonHeaderEnv( value: string | undefined ): Record< string, string
 			'STUDIO_OPENAI_DEFAULT_HEADERS must be a JSON object of string→string pairs; ignoring custom headers.'
 		);
 	} catch {
-		// Surface the warning so a missing X-WPCOM-AI-Feature header doesn't
-		// later show up as an opaque 401 from the proxy.
 		console.warn(
 			'STUDIO_OPENAI_DEFAULT_HEADERS contained malformed JSON; ignoring custom headers.'
 		);
@@ -504,7 +460,6 @@ function parseJsonHeaderEnv( value: string | undefined ): Record< string, string
 	return undefined;
 }
 
-// `Name: value\nName: value` — the format `ANTHROPIC_CUSTOM_HEADERS` carries.
 function parseAnthropicHeaderEnv(
 	value: string | undefined
 ): Record< string, string > | undefined {

@@ -1,3 +1,4 @@
+import type { SessionManager } from '@mariozechner/pi-coding-agent';
 import type { AiModelId } from '@studio/common/ai/models';
 import type { AskUserQuestion } from 'cli/ai/agent';
 import type { AgentRuntimeEvent } from 'cli/ai/runtimes/runtime-events';
@@ -7,13 +8,11 @@ export interface AgentRuntimeConfig {
 	prompt: string;
 	env: Record< string, string >;
 	model: AiModelId;
-	// Stable session id used for the runtime event stream and the
-	// `X-WPCOM-Session-ID` header. The orchestrator owns this id and writes
-	// it to the on-disk JSONL via `appendAiSessionEvent` / `createAiSession`.
-	sessionId: string;
-	// Path to the legacy `AiSessionEvent[]` JSONL the runtime hydrates from
-	// (on cold-start / desktop fork) and appends new pi turns to.
-	sessionFilePath: string;
+	// Pi-managed session. Owns the on-disk JSONL and the in-memory message
+	// transcript; runtime hydrates the agent from
+	// `session.buildSessionContext()` and appends new messages via
+	// `session.appendMessage()` so persistence is implicit.
+	session: SessionManager;
 	activeSite?: SiteInfo | null;
 	wpcomAccessToken?: string;
 	onAskUser?: ( questions: AskUserQuestion[] ) => Promise< Record< string, string > >;

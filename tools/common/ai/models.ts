@@ -1,4 +1,4 @@
-import type { AiSessionEvent } from './sessions/types';
+import { isStudioCustomEntryOfType, type SessionEntryBase } from './sessions/entry-types';
 
 export type AiModelFamily = 'anthropic' | 'openai';
 
@@ -58,21 +58,24 @@ export function getAiModelLabel( id: AiModelId ): string {
 }
 
 /**
- * Derive the current model for a session from its events.
+ * Derive the current model for a session from its pi entries.
  *
- * Prefers the most recent `session.model_selected` override (written when the
- * user picks a model from the UI) over the `session.context.model` that the
- * CLI records per turn. Falls back to `DEFAULT_MODEL` for sessions that have
- * neither — e.g. a brand-new session before the first turn runs.
+ * Prefers the most recent `model_change` entry (written when the user picks
+ * a model from the UI) over the `studio.session_context` `customType`
+ * payload that the CLI records per turn. Falls back to `DEFAULT_MODEL` for
+ * sessions that have neither — e.g. a brand-new session before the first
+ * turn runs.
  */
-export function resolveSessionModel( events: AiSessionEvent[] ): AiModelId {
-	for ( let index = events.length - 1; index >= 0; index -= 1 ) {
-		const event = events[ index ];
-		if ( event.type === 'session.model_selected' && isAiModelId( event.model ) ) {
-			return event.model;
+export function resolveSessionModel( entries: SessionEntryBase[] ): AiModelId {
+	for ( let index = entries.length - 1; index >= 0; index -= 1 ) {
+		const entry = entries[ index ];
+		if ( entry.type === 'model_change' ) {
+			const modelId = ( entry as { modelId?: unknown } ).modelId;
+			if ( typeof modelId === 'string' && isAiModelId( modelId ) ) return modelId;
 		}
-		if ( event.type === 'session.context' && isAiModelId( event.model ) ) {
-			return event.model;
+		if ( isStudioCustomEntryOfType( entry, 'studio.session_context' ) ) {
+			const model = entry.data?.model;
+			if ( typeof model === 'string' && isAiModelId( model ) ) return model;
 		}
 	}
 	return DEFAULT_MODEL;

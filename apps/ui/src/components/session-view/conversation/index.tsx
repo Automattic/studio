@@ -1,7 +1,10 @@
-import { isAssistantSdkMessage, isTextBlock, isToolUseBlock } from '@studio/common/ai/sdk-messages';
-import { filterEventsAfterLastClear } from '@studio/common/ai/sessions/filter-events';
 import {
-	extractToolResultsFromUserMessage,
+	isStudioCustomEntryOfType,
+	type SessionEntryBase,
+	type StudioCustomEntry,
+} from '@studio/common/ai/sessions/entry-types';
+import { filterEntriesAfterLastClear } from '@studio/common/ai/sessions/filter-events';
+import {
 	getToolDetail,
 	getToolDisplayName,
 	type NormalizedToolResult,
@@ -12,7 +15,7 @@ import { useMemo, useState } from 'react';
 import { Markdown } from '@/components/markdown';
 import { ThinkingIndicator } from '@/components/session-view/thinking-indicator';
 import styles from './style.module.css';
-import type { AiSessionEvent, LoadedAiSession } from '@/data/core';
+import type { LoadedAiSession } from '@/data/core';
 
 type RenderItem =
 	| { kind: 'user-text'; key: string; text: string }
@@ -32,85 +35,114 @@ type RenderItem =
 	  }
 	| { kind: 'interrupted-marker'; key: string };
 
-function eventsToRenderItems( events: AiSessionEvent[] ): RenderItem[] {
-	const relevant = filterEventsAfterLastClear( events );
+interface PiAssistantContentBlock {
+	type: 'text' | 'toolCall' | 'thinking';
+	text?: string;
+	id?: string;
+	name?: string;
+	arguments?: Record< string, unknown >;
+}
 
-	// First pass: collect tool_use → tool_result pairings from user-type SDK
-	// messages so render items can attach output inline.
-	const resultsByToolUseId = new Map< string, NormalizedToolResult >();
-	for ( const event of relevant ) {
-		if ( event.type !== 'sdk.message' ) {
-			continue;
-		}
-		const msg = event.message as { type?: string } | null;
-		if ( ! msg || msg.type !== 'user' ) {
-			continue;
-		}
-		for ( const [ id, result ] of extractToolResultsFromUserMessage( msg ) ) {
-			resultsByToolUseId.set( id, result );
-		}
+interface PiAssistantMessageLike {
+	role: 'assistant';
+	content: PiAssistantContentBlock[];
+}
+
+interface PiToolResultLike {
+	role: 'toolResult';
+	toolCallId: string;
+	content?: Array< { type: string; text?: string } >;
+	isError?: boolean;
+}
+
+function entriesToRenderItems( entries: SessionEntryBase[] ): RenderItem[] {
+	const relevant = filterEntriesAfterLastClear( entries );
+
+	// First pass: collect tool_call_id → tool_result pairings so each
+	// `toolCall` row can render its output inline.
+	const resultsByToolCallId = new Map< string, NormalizedToolResult >();
+	for ( const entry of relevant ) {
+		if ( entry.type !== 'message' ) continue;
+		const message = ( entry as { message?: unknown } ).message as PiToolResultLike | undefined;
+		if ( ! message || message.role !== 'toolResult' ) continue;
+		const text = ( message.content ?? [] )
+			.filter( ( b ) => b.type === 'text' && typeof b.text === 'string' )
+			.map( ( b ) => b.text as string )
+			.join( '\n' );
+		resultsByToolCallId.set( message.toolCallId, {
+			text,
+			isError: message.isError === true,
+		} );
 	}
 
 	const items: RenderItem[] = [];
-	relevant.forEach( ( event, eventIndex ) => {
-		switch ( event.type ) {
-			case 'user.message': {
-				if ( event.source !== 'prompt' ) {
-					return;
-				}
-				items.push( {
-					kind: 'user-text',
-					key: `${ eventIndex }:user`,
-					text: event.text,
-				} );
+	relevant.forEach( ( entry, entryIndex ) => {
+		if ( isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
+			const data = ( entry as StudioCustomEntry< 'studio.user_prompt' > ).data;
+			if ( ! data || data.source !== 'prompt' ) return;
+			items.push( {
+				kind: 'user-text',
+				key: `${ entryIndex }:user`,
+				text: data.text,
+			} );
+			return;
+		}
+
+		if ( entry.type === 'message' ) {
+			const message = ( entry as { message?: unknown } ).message as
+				| PiAssistantMessageLike
+				| undefined;
+			if ( ! message || message.role !== 'assistant' || ! Array.isArray( message.content ) ) {
 				return;
 			}
-			case 'sdk.message': {
-				if ( ! isAssistantSdkMessage( event.message ) ) {
-					return;
-				}
-				event.message.message.content.forEach( ( block, blockIndex ) => {
-					if ( isTextBlock( block ) ) {
-						const text = block.text.trim();
-						if ( text ) {
-							items.push( {
-								kind: 'assistant-text',
-								key: `${ eventIndex }:${ blockIndex }:text`,
-								text,
-							} );
-						}
-					} else if ( isToolUseBlock( block ) ) {
+			message.content.forEach( ( block, blockIndex ) => {
+				if ( block.type === 'text' && typeof block.text === 'string' ) {
+					const text = block.text.trim();
+					if ( text ) {
 						items.push( {
-							kind: 'tool-use',
-							key: `${ eventIndex }:${ blockIndex }:tool`,
-							name: block.name,
-							input: block.input,
-							result: resultsByToolUseId.get( block.id ),
+							kind: 'assistant-text',
+							key: `${ entryIndex }:${ blockIndex }:text`,
+							text,
 						} );
 					}
-				} );
-				return;
-			}
-			case 'agent.question': {
-				items.push( {
-					kind: 'agent-question',
-					key: `${ eventIndex }:question`,
-					question: event.question,
-					options: event.options,
-				} );
-				return;
-			}
-			case 'turn.closed': {
-				if ( event.status === 'interrupted' ) {
+				} else if (
+					block.type === 'toolCall' &&
+					typeof block.id === 'string' &&
+					typeof block.name === 'string'
+				) {
 					items.push( {
-						kind: 'interrupted-marker',
-						key: `${ eventIndex }:interrupted`,
+						kind: 'tool-use',
+						key: `${ entryIndex }:${ blockIndex }:tool`,
+						name: block.name,
+						input: ( block.arguments as Record< string, unknown > ) ?? {},
+						result: resultsByToolCallId.get( block.id ),
 					} );
 				}
-				return;
+			} );
+			return;
+		}
+
+		if ( isStudioCustomEntryOfType( entry, 'studio.agent_question' ) ) {
+			const data = ( entry as StudioCustomEntry< 'studio.agent_question' > ).data;
+			if ( ! data ) return;
+			items.push( {
+				kind: 'agent-question',
+				key: `${ entryIndex }:question`,
+				question: data.question,
+				options: data.options,
+			} );
+			return;
+		}
+
+		if ( isStudioCustomEntryOfType( entry, 'studio.turn_closed' ) ) {
+			const data = ( entry as StudioCustomEntry< 'studio.turn_closed' > ).data;
+			if ( data?.status === 'interrupted' ) {
+				items.push( {
+					kind: 'interrupted-marker',
+					key: `${ entryIndex }:interrupted`,
+				} );
 			}
-			default:
-				return;
+			return;
 		}
 	} );
 
@@ -119,14 +151,18 @@ function eventsToRenderItems( events: AiSessionEvent[] ): RenderItem[] {
 
 // Progress from earlier turns must not leak into the current indicator, so
 // the scan stops at the nearest turn boundary.
-function findLatestProgressMessage( events: AiSessionEvent[] ): string | null {
-	for ( let i = events.length - 1; i >= 0; i-- ) {
-		const event = events[ i ];
-		if ( event.type === 'user.message' || event.type === 'turn.closed' ) {
+function findLatestProgressMessage( entries: SessionEntryBase[] ): string | null {
+	for ( let i = entries.length - 1; i >= 0; i -= 1 ) {
+		const entry = entries[ i ];
+		if (
+			isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ||
+			isStudioCustomEntryOfType( entry, 'studio.turn_closed' )
+		) {
 			return null;
 		}
-		if ( event.type === 'tool.progress' ) {
-			return event.message;
+		if ( isStudioCustomEntryOfType( entry, 'studio.tool_progress' ) ) {
+			const data = ( entry as StudioCustomEntry< 'studio.tool_progress' > ).data;
+			if ( data ) return data.message;
 		}
 	}
 	return null;
@@ -249,10 +285,10 @@ export function Conversation( {
 	pendingAnswers: Record< string, string >;
 	onAnswerQuestion: ( question: string, label: string ) => void;
 } ) {
-	const items = useMemo( () => eventsToRenderItems( data.events ), [ data.events ] );
+	const items = useMemo( () => entriesToRenderItems( data.entries ), [ data.entries ] );
 	const progressMessage = useMemo(
-		() => ( isRunning ? findLatestProgressMessage( data.events ) : null ),
-		[ data.events, isRunning ]
+		() => ( isRunning ? findLatestProgressMessage( data.entries ) : null ),
+		[ data.entries, isRunning ]
 	);
 
 	return (

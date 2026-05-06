@@ -15,8 +15,10 @@ import { textResult } from './utils';
  * agent never sees the image — the user does, and the agent gets only a
  * confirmation string back.
  *
- * Only registered when the remote-session feature flag is on; the regular
- * desktop / interactive CLI flows don't expose this tool.
+ * Only registered when the agent is actually being driven by the
+ * remote-session daemon (`STUDIO_REMOTE_SESSION=1`); the regular desktop /
+ * interactive CLI flows don't expose this tool, even when the
+ * `STUDIO_ENABLE_REMOTE_SESSION` feature flag is on.
  */
 export const shareScreenshotTool = defineTool(
 	'share_screenshot',

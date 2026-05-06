@@ -180,10 +180,6 @@ async function* createEventStream(
 
 			if ( event.type === 'turn_end' ) {
 				numTurns += 1;
-				// turn_end's `message` is always a base `Message` from the LLM
-				// (user/assistant/toolResult); branch/compaction summaries don't
-				// ride this event. Cast through Message to satisfy
-				// SessionManager.appendMessage's narrower signature.
 				config.session.appendMessage( event.message as Message );
 				for ( const tr of event.toolResults as ToolResultMessage[] ) {
 					config.session.appendMessage( tr );
@@ -204,8 +200,8 @@ async function* createEventStream(
 			wake();
 		} );
 
-		// Persist the user prompt before the agent starts processing so the
-		// transcript on disk matches what the model is about to see.
+		// Persist the user prompt before agent.prompt runs so disk matches the
+		// transcript the model sees.
 		config.session.appendMessage( {
 			role: 'user',
 			content: config.prompt,
@@ -227,8 +223,6 @@ async function* createEventStream(
 		}
 
 		unsubscribe();
-		// Stale closures from previous runs would otherwise keep pushing into a
-		// finished queue if a follow-up run reuses the same Agent.
 		lifecycleRef.current = null;
 		await runPromise.catch( () => undefined );
 
@@ -301,9 +295,7 @@ async function getOrCreateAgent(
 
 	const tools = buildAgentTools( config, isForkedByDesktop );
 
-	// On a `/model` swap mid-session, reuse the prior transcript so the
-	// conversation continues; on a cold fork hydrate from the SessionManager
-	// (which already resolves compaction summaries via buildSessionContext).
+	// `/model` swap reuses the prior transcript; cold fork hydrates from disk.
 	const initialMessages = existing
 		? existing.state.messages
 		: config.session.buildSessionContext().messages;

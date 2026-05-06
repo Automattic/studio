@@ -1,28 +1,14 @@
-// One-shot migrator from Studio-legacy session JSONL (the recorder's
-// pre-pi format with `session.started v1`, `sdk.message`, etc.) to
-// pi-coding-agent's `SessionEntry`-based format. Runs on first read of an
-// old file via `migrateLegacyFileInPlace`. Pi's own `migrateSessionEntries`
-// then handles any further pi-internal version bumps.
-//
-// We use structural shapes for the pi entries we emit so this module stays
-// free of `@mariozechner/pi-coding-agent` runtime imports — keeps tools/common
-// portable to both Node and the renderer.
+// Studio-legacy → pi `SessionEntry` migrator. Pi's own `migrateSessionEntries`
+// handles any later pi-internal version bumps from here.
 
 import crypto from 'crypto';
 import fs from 'fs/promises';
 
-// Must match `@mariozechner/pi-coding-agent`'s `CURRENT_SESSION_VERSION`. If
-// pi bumps theirs, we'll be writing an older version here, but pi's own
-// `migrateSessionEntries` runs on `SessionManager.open` and will bring the
-// file forward again — so this is forward-compatible.
+// Must match pi-coding-agent's `CURRENT_SESSION_VERSION`. If pi bumps it,
+// pi's `migrateSessionEntries` will bring our v3 output forward on open.
 const PI_SESSION_VERSION = 3;
 
-// We construct pi entries with arbitrary discriminator-specific fields; the
-// renderer-facing `SessionEntryBase` is the *reader* shape and intentionally
-// narrow. For writing, accept any shape that has the structural minimum.
-type PiFileEntry = Record< string, unknown > & {
-	type: string;
-};
+type PiFileEntry = Record< string, unknown > & { type: string };
 
 function makeIdAllocator(): () => string {
 	const used = new Set< string >();

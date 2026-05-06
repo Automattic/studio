@@ -1,7 +1,4 @@
-// Re-run the on-disk transcript through the live UI so the resumed session
-// looks like it was streaming again. Iterates pi `SessionEntry[]` directly
-// and synthesizes the same `AgentRuntimeEvent`s the runtime would emit, so
-// `ui.handleEvent()` is the single rendering path.
+// Replay disk entries as if they were streaming, via `ui.handleEvent()`.
 
 import {
 	isStudioCustomEntryOfType,

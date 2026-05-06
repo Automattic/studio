@@ -8,12 +8,8 @@ export interface ResolvedActiveSite {
 	wpcomSiteId?: number;
 }
 
-/**
- * Walks a session's pi entries and returns the site the next turn should
- * act on — the most recent `studio.site_selected` custom entry wins. The
- * CLI's JSON adapter has no replay loop, so it relies on this helper to
- * hydrate `ui.activeSite` before dispatching a new turn.
- */
+// The most recent `studio.site_selected` wins. Used by the JSON adapter to
+// hydrate `ui.activeSite` before dispatching a turn (no replay loop there).
 export function resolveActiveSiteFromEntries(
 	entries: SessionEntryBase[]
 ): ResolvedActiveSite | undefined {

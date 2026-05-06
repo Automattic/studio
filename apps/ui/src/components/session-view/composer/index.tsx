@@ -49,9 +49,6 @@ interface ComposerProps {
 	sessionId?: string;
 	effectiveEnvironment?: 'local' | 'live';
 	liveSite?: SyncSite;
-	// Session entries drive the cross-family confirmation logic — we skip the
-	// dialog when the session is empty (nothing to lose) and use them for the
-	// optimistic `model_change` cache update on same-family swaps.
 	entries?: SessionEntryBase[];
 	// Local owner site id, when the session is anchored to one. Required to
 	// spin up a fresh session via `connector.createSession` on a confirmed
@@ -140,10 +137,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		}
 	}, [ value, onSend ] );
 
-	// Same-family swap: optimistically append a `model_change` entry so the
-	// composer reflects the new pick immediately. The main process writes the
-	// same entry to the JSONL; if that write fails we fall back to the prior
-	// state via query invalidation.
+	// Same-family swap: optimistic `model_change` entry; refetch on write fail.
 	const applySameFamilyModel = useCallback(
 		( picked: AiModelId ) => {
 			if ( ! sessionId ) {

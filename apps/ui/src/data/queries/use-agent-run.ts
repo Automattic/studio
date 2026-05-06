@@ -12,10 +12,8 @@ function newId(): string {
 	return `${ Date.now().toString( 36 ) }-${ Math.random().toString( 36 ).slice( 2, 10 ) }`;
 }
 
+// Optimistic entry id; the next refetch replaces it with the disk-backed one.
 function shortEntryId(): string {
-	// Optimistic entry ids — we don't need server-issued ones since the next
-	// refetch (`run.exited` invalidates `[SESSIONS_QUERY_KEY, sessionId]`)
-	// replaces them with the real disk-backed entries.
 	return Math.random().toString( 36 ).slice( 2, 10 );
 }
 
@@ -265,10 +263,8 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 				case 'run.exited':
 				case 'run.interrupted':
 					if ( event.type === 'run.interrupted' ) {
-						// Append a synthetic `studio.turn_closed` so the
-						// conversation renders the "Interrupted by you" marker
-						// immediately. The CLI also persists a real one to disk,
-						// so the marker survives a reload.
+						// Synthetic studio.turn_closed for immediate "Interrupted
+						// by you" rendering; the CLI also writes a real one.
 						updateCache( ( entries ) => [
 							...entries,
 							{
@@ -283,19 +279,14 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 					}
 					dispatch( { type: 'run_ended' } );
 					subscribedRunIdRef.current = null;
-					// Refetch the per-session cache so we see real disk entries
-					// instead of optimistic ones. The CLI runtime persists each
-					// turn's messages via SessionManager synchronously, so by
-					// `run.exited` the file is up to date.
+					// Refetch to replace optimistic entries with disk-backed ones.
 					void queryClient.invalidateQueries( {
 						queryKey: SESSIONS_QUERY_KEY,
 					} );
 					return;
 				case 'message': {
-					// `event.message` carries an `AgentRuntimeEvent` from the
-					// CLI runtime. Translate the message-bearing events to pi
-					// `message` entries; everything else is control flow we
-					// don't need to render mid-run.
+					// `event.message` is an `AgentRuntimeEvent`; only the
+					// message-bearing variants need optimistic entries.
 					const inner = event.message as { type?: string; message?: { role?: string } } | undefined;
 					if ( inner?.type === 'message_end' && inner.message?.role === 'assistant' ) {
 						updateCache( ( entries ) => [

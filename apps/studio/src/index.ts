@@ -281,14 +281,7 @@ async function appBoot() {
 			await launchExtensionBackgroundWorkers();
 		}
 
-		// One-shot eager migration of any pre-pi session JSONL still on disk.
-		// Idempotent — pi-format files are no-ops. Running this at boot means
-		// every downstream reader (sidebar listing, session view, IPC handlers)
-		// always sees pi `SessionEntry`-format files.
 		try {
-			// `cwd` is recorded in the pi session header but not interpreted; a
-			// stable label keeps migration deterministic without requiring main
-			// to know about the CLI's `STUDIO_SITES_ROOT`.
 			const result = await migrateAllSessions(
 				getAiSessionsRootDirectory(),
 				path.join( app.getPath( 'home' ), 'Studio' )

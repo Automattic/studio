@@ -13,12 +13,8 @@ export interface ResumeSessionContext {
 	model?: AiModelId;
 }
 
-// Walks a loaded session's pi entries and resolves the values needed to
-// resume:
-// - sessionId: the pi `SessionHeader.id` (already on `summary.id`)
-// - model: the most recent `model_change` entry, falling back to the latest
-//   `studio.session_context.model`
-// - provider: the most recent `studio.session_context.provider`
+// Resolve provider/model for resume from the most recent `model_change` /
+// `studio.session_context` entries.
 export function resolveResumeSessionContext(
 	resumeSession?: LoadedAiSession
 ): ResumeSessionContext {

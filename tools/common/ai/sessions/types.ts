@@ -19,25 +19,16 @@ export interface AiSessionSummary {
 	// owner when the user switches between local and live (the owner stays
 	// anchored to the first local pick).
 	selectedSiteName?: string;
-	// Which side of the owner site the next turn will act on. Derived from the
-	// latest `studio.site_selected` custom entry (`remote === true` → 'live').
-	// Consumers that care about disconnect fall-back (the renderer's
-	// effective-env hook) also cross-check `lastSelectedWpcomSiteId` against
-	// current connected-sites.
+	// Side of the owner site the next turn acts on. `remote === true` → 'live'.
+	// Renderer's effective-env hook also checks `lastSelectedWpcomSiteId` against
+	// current connected sites for disconnect fall-back.
 	activeEnvironment: 'local' | 'live';
-	// The wpcomSiteId carried by the latest live `studio.site_selected`. Used
-	// by the renderer's effective-env derivation to detect "live was
-	// disconnected" without needing to re-scan entries.
 	lastSelectedWpcomSiteId?: number;
 	endReason?: 'error' | 'stopped';
-	// Count of pi entries in the session JSONL (excluding the header).
 	eventCount: number;
 }
 
 export interface LoadedAiSession {
 	summary: AiSessionSummary;
-	// On disk the session is pi-coding-agent's `SessionEntry`-based JSONL
-	// (with Studio metadata as `studio.*` `CustomEntry` payloads). Renderer
-	// consumers iterate `entries` directly.
 	entries: SessionEntryBase[];
 }

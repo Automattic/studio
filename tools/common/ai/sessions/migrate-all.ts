@@ -1,7 +1,5 @@
-// One-shot eager migration: walk every JSONL under the sessions root and
-// migrate any legacy-format file in place. Called once at app launch (apps/
-// studio main process and apps/cli `runCommand` entry) so downstream readers
-// always see pi-format files. Idempotent — pi-format files are skipped.
+// Eager one-shot migration of legacy session JSONL at app launch.
+// Idempotent — pi-format files are skipped.
 
 import fs from 'fs/promises';
 import path from 'path';
@@ -41,9 +39,6 @@ export async function migrateAllSessions(
 
 	for ( const filePath of files ) {
 		try {
-			// `migrateLegacyFileInPlace` reads the first line and bails out for
-			// pi-format / unknown / empty files. We track migrated vs skipped by
-			// comparing file mtime before and after — cheap enough for a one-off.
 			const before = await fs.stat( filePath );
 			await migrateLegacyFileInPlace( filePath, cwd );
 			const after = await fs.stat( filePath );

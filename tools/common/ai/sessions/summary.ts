@@ -2,12 +2,6 @@ import fs from 'fs/promises';
 import { isStudioCustomEntryOfType, type SessionEntryBase } from './entry-types';
 import type { AiSessionSummary } from './types';
 
-// Derive an `AiSessionSummary` from a pi-format session: the `session` header
-// carries the id and creation timestamp; per-entry timestamps drive
-// `updatedAt`; and the Studio-specific bits (firstPrompt, ownerSitePath,
-// activeEnvironment, etc.) come from the matching `studio.*` `CustomEntry`
-// payloads.
-
 interface PiSessionHeader {
 	type: 'session';
 	id: string;
@@ -65,10 +59,8 @@ export async function readAiSessionSummaryFromEntries(
 			const isLive = data.remote === true;
 			activeEnvironment = isLive ? 'live' : 'local';
 			lastSelectedWpcomSiteId = isLive ? data.wpcomSiteId : undefined;
-			// Anchor the owner on the first *local* site. Remote-only sessions
-			// (CLI user picked a WP.com site as their very first site) stay
-			// ownerless — they belong in the sidebar's Unassigned group, which
-			// matches the fact that they never had a local home.
+			// Anchor the owner on the first *local* site; remote-only sessions
+			// stay ownerless (sidebar Unassigned).
 			if ( ownerSitePath === undefined && ! isLive ) {
 				ownerSitePath = data.sitePath;
 				ownerSiteName = data.siteName;

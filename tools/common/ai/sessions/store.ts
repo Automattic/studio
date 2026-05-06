@@ -12,10 +12,7 @@ import type {
 } from './entry-types';
 import type { AiSessionSummary, LoadedAiSession } from './types';
 
-// Reads the JSONL as a sequence of pi `FileEntry` objects (header + entries).
-// Migrates the file in place if it's still in the Studio-legacy event shape;
-// the eager `migrateAllSessions` walker normally handles that at app launch
-// but the lazy fallback keeps file-by-file reads safe.
+// Lazy fallback in case `migrateAllSessions` missed this file at boot.
 export async function readPiFileEntries( filePath: string ): Promise< SessionEntryBase[] > {
 	let content: string;
 	try {
@@ -26,8 +23,6 @@ export async function readPiFileEntries( filePath: string ): Promise< SessionEnt
 	}
 	if ( ! content.trim() ) return [];
 
-	// `migrateLegacyFileInPlace` peeks at the first line and bails out for
-	// pi-format files, so the cost on the hot path is just a small re-read.
 	await migrateLegacyFileInPlace( filePath, '~/Studio' );
 	const refreshed = await fs.readFile( filePath, 'utf8' );
 
@@ -38,7 +33,7 @@ export async function readPiFileEntries( filePath: string ): Promise< SessionEnt
 		try {
 			entries.push( JSON.parse( trimmed ) as SessionEntryBase );
 		} catch {
-			// Ignore malformed lines and keep loading the rest.
+			// malformed line
 		}
 	}
 	return entries;
@@ -246,11 +241,6 @@ async function readLastEntryId( filePath: string ): Promise< string | null > {
 	return null;
 }
 
-// Append a Studio `studio.*` `CustomEntry` to a session JSONL. Used by the
-// desktop IPC layer for `setSessionEnvironment`, `setAiSessionModel`, etc.
-// Note that `setAiSessionModel` writes a `model_change` entry instead — pi
-// has its own discriminator for that — exposed via `appendModelChangeEntry`
-// below.
 export async function appendStudioEntry< T extends StudioCustomEntryType >(
 	rootDirectory: string,
 	sessionIdOrPrefix: string,
@@ -270,9 +260,6 @@ export async function appendStudioEntry< T extends StudioCustomEntryType >(
 	await fs.appendFile( summary.filePath, JSON.stringify( entry ) + '\n', { encoding: 'utf8' } );
 }
 
-// Append a pi `model_change` entry — this is how the UI's composer-driven
-// `/model` switch gets persisted so the next turn's resume context picks
-// up the user's choice.
 export async function appendModelChangeEntry(
 	rootDirectory: string,
 	sessionIdOrPrefix: string,
@@ -299,11 +286,8 @@ export async function deleteAiSession(
 	const sessionToDelete = await resolveSessionByIdOrPrefix( rootDirectory, sessionIdOrPrefix );
 	await fs.rm( sessionToDelete.filePath, { force: false } );
 
-	// Some legacy runtimes wrote sidecar files alongside the JSONL (e.g. the
-	// pre-pi OpenAI runtime saved a `.openai-state.json` next to the JSONL).
-	// Sweep any file in the same directory that shares the JSONL's stem so
-	// deletes don't leave orphans behind. Best-effort: failures are ignored —
-	// they just mean a stale sidecar remains, which is harmless.
+	// Sweep sidecar files (e.g. legacy `.openai-state.json`) sharing the
+	// JSONL's stem. Best-effort.
 	const sessionDir = path.dirname( sessionToDelete.filePath );
 	const baseName = path.basename( sessionToDelete.filePath, '.jsonl' );
 	try {

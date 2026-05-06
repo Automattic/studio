@@ -174,8 +174,6 @@ async function runEval( input: EvalRunnerInput ) {
 	let timedOut = false;
 
 	phaseStartedAt = Date.now();
-	// Eval runs don't need a persisted transcript — feed the runtime an
-	// in-memory SessionManager so nothing hits disk.
 	const session = SessionManager.inMemory( STUDIO_SITES_ROOT );
 	const query = startAiAgent( {
 		prompt: input.prompt.trim(),

@@ -25,10 +25,6 @@ export type AskUserHandler = (
 
 export interface AiAgentConfig {
 	prompt: string;
-	// Pi `SessionManager` backing the conversation. Owns the JSONL on disk;
-	// the runtime appends user/assistant/tool messages to it as the turn
-	// progresses. Callers create it via `createStudioSession()` /
-	// `openStudioSession()` from `cli/ai/sessions/pi-session`.
 	session: SessionManager;
 	env?: Record< string, string >;
 	model?: AiModelId;

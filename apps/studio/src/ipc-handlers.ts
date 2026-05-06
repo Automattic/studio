@@ -324,9 +324,6 @@ export async function setAiSessionModel(
 	if ( ! isAiModelId( model ) ) {
 		throw new Error( `Unknown AI model: ${ model }` );
 	}
-	// Pi has its own `model_change` discriminator — using it (rather than a
-	// custom entry) means resume-context resolution and pi's own session
-	// tooling both pick up the override.
 	await appendModelChangeEntry( getAiSessionsRootDirectory(), sessionId, '', model );
 }
 

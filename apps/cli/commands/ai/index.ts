@@ -104,9 +104,6 @@ export async function runCommand( options: {
 		ui.showInfo( __( 'ⓘ The "studio ai" command is now "studio code".' ) );
 	}
 
-	// One-shot eager migration of any pre-pi session JSONL still on disk.
-	// Idempotent — pi-format files are skipped. Doing it once at command
-	// boot means downstream readers always see pi entries.
 	await migrateAllSessions( getAiSessionsRootDirectory(), STUDIO_SITES_ROOT ).catch(
 		() => undefined
 	);
@@ -126,9 +123,6 @@ export async function runCommand( options: {
 			if ( options.resumeSession ) {
 				session = await openStudioSession( options.resumeSession.summary.filePath );
 			} else if ( options.resumeSessionId ) {
-				// Pi sessions ARE the agent sessions now — `getSessionId()`
-				// matches the resume id directly. Walk files until we find
-				// the match.
 				const files = await listStudioSessionFiles( getAiSessionsRootDirectory() );
 				let match: string | undefined;
 				for ( const file of files ) {
@@ -473,10 +467,7 @@ export async function runCommand( options: {
 
 		await persistSessionContext();
 
-		// Studio-side marker for the user's typed prompt. Pi will append the
-		// canonical UserMessage when the runtime starts the turn — this entry
-		// is purely for the renderer's "user-typed prompt" rendering and the
-		// summary's `firstPrompt` extraction.
+		// Studio marker for the typed prompt; pi appends the real UserMessage.
 		await append( ( s ) =>
 			appendStudioEntry( s, 'studio.user_prompt', {
 				text: displayMessage,
@@ -587,10 +578,6 @@ export async function runCommand( options: {
 				const choice = Object.values( answer )[ 0 ]?.toLowerCase();
 				if ( choice === 'yes' ) {
 					ui.showInfo( __( 'Retrying…' ) );
-					// Pi's SessionManager hydrates the next turn from the
-					// transcript, so the model already has the prior prompt
-					// in context regardless of whether the failed turn
-					// produced an assistant reply.
 					return runAgentTurn( 'Continue from where you left off.', retryAttempt + 1 );
 				}
 			}

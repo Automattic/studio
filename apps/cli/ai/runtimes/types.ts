@@ -8,10 +8,6 @@ export interface AgentRuntimeConfig {
 	prompt: string;
 	env: Record< string, string >;
 	model: AiModelId;
-	// Pi-managed session. Owns the on-disk JSONL and the in-memory message
-	// transcript; runtime hydrates the agent from
-	// `session.buildSessionContext()` and appends new messages via
-	// `session.appendMessage()` so persistence is implicit.
 	session: SessionManager;
 	activeSite?: SiteInfo | null;
 	wpcomAccessToken?: string;

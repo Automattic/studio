@@ -5,6 +5,8 @@
 > **Status note (2026-04-30, STU-1649):** background-daemon support is implemented under a new `studio code remote-session` subcommand tree (`start [--detach]`, `stop`, `status`). The original `studio code --remote-session` flag still works and is equivalent to `studio code remote-session start` in foreground mode. Daemonized runs are tracked via `~/.studio/remote-session.pid`. The whole surface remains gated by the `STUDIO_ENABLE_REMOTE_SESSION=true` feature flag.
 >
 > **Status note (2026-05-01, STU-1655):** the `/remote-session` REPL slash command is back, redesigned around the daemon. `/remote-session start` spawns the detached daemon (same code path as `studio code remote-session start --detach`) and returns immediately. `/remote-session stop` terminates the daemon. The REPL never blocks. While a daemon is alive, the statusline shows a green `Remote session active` indicator. The `attach`/`detach`/`new` subcommands and the previous "blocking attach" mode remain off the table.
+>
+> **Status note (2026-05-06, STU-1682):** the `studio code --remote-session` autostart flag has been removed. It was redundant with `studio code remote-session start` (foreground) and the in-REPL `/remote-session` slash command, and kept the CLI surface confusing. Use the subcommand tree as the single entry point. The `--remote-chat-id` and `--remote-bot` flags are now only available on `studio code remote-session start` (where they always lived); `--message-from-stdin` remains as a hidden headless turn entry point used by the daemon's turn runner.
 
 ## Overview
 
@@ -19,8 +21,8 @@ The server side already exists. This spec covers only the local CLI changes.
 - The server's bearer token is the auth boundary. The local agent trusts that any message returned by `/local-agent-poll` is authorized for the holder of the token, and derives the reply target (`chat_id`, `bot`) from the polled message itself. No pre-binding to a specific chat is required.
 - Optional pinning: a user can still set `chat_id` (and/or `bot`) in config to filter inbound messages and pin the outgoing reply identity, e.g. for a kiosk or shared workstation.
 - Two entry points to the same feature:
-  - **Autostart flag**: `studio code --remote-session` enters remote mode immediately.
-  - **Slash command**: `/remote-session attach|detach|new|status` toggles remote mode from inside an interactive `studio code` session.
+  - **Subcommand**: `studio code remote-session start [--detach]` enters remote mode (foreground or as a background daemon).
+  - **Slash command**: `/remote-session start|stop` toggles the remote-session daemon from inside an interactive `studio code` session.
 - Fully autonomous: tool calls and file modifications proceed without per-message approval (the underlying agent already supports `--auto-approve`).
 - Outbound-only network from the laptop (poll + post). No inbound ports, no tunnel, no PTY plumbing.
 
@@ -124,16 +126,6 @@ Unlike in raw Claude Code mode, Studio's `--json` output does **not** require pa
 
 ## CLI surface
 
-### Flag
-
-```
-studio code --remote-session [--remote-chat-id <id>] [--remote-bot <name>]
-```
-
-Behavior: start `studio code` in **remote-only** mode (no interactive REPL, no `AiChatUI`). The process is dedicated to running the poll loop. Equivalent to launching the poll loop directly with the configured chat binding.
-
-This mode is intended for running under launchd or in a terminal tab dedicated to the bridge. Implementation: when `--remote-session` is present, the `studio code` handler short-circuits before instantiating any UI adapter and hands off to `runRemoteSession()`.
-
 ### Subcommand tree (daemon control)
 
 ```
@@ -142,7 +134,7 @@ studio code remote-session stop
 studio code remote-session status
 ```
 
-`start` is the canonical entry point and accepts the same chat/bot pinning flags as the autostart flag. Without `--detach` it runs in the foreground (identical behavior to `studio code --remote-session`). With `--detach` it forks a detached child via `child_process.spawn(... { detached: true, stdio: 'ignore', windowsHide: true })`, sets `STUDIO_REMOTE_SESSION_DAEMON_CHILD=1` on the child's environment, and waits up to 5s for the child to write `~/.studio/remote-session.pid` before returning success. The parent's call to `loadRemoteSessionConfig()` (before spawning) means a missing token surfaces in the foreground terminal rather than dying silently in the background.
+`start` is the canonical entry point. Without `--detach` it runs in the foreground, dedicated to the poll loop (no interactive REPL, no `AiChatUI`). With `--detach` it forks a detached child via `child_process.spawn(... { detached: true, stdio: 'ignore', windowsHide: true })`, sets `STUDIO_REMOTE_SESSION_DAEMON_CHILD=1` on the child's environment, and waits up to 5s for the child to write `~/.studio/remote-session.pid` before returning success. The parent's call to `loadRemoteSessionConfig()` (before spawning) means a missing token surfaces in the foreground terminal rather than dying silently in the background.
 
 `stop` reads the PID file, sends `SIGTERM`, polls for exit (up to 5s), then escalates to `SIGKILL`. The PID file is removed regardless of how the daemon exits. `runRemoteSession()`'s existing SIGTERM handler triggers the graceful detach path (poll-loop abort + Telegram detach status), so well-behaved stops still get a `🔴 Local agent detached.` message in the chat.
 
@@ -256,7 +248,7 @@ Use a dedicated lockfile (`~/.studio/remote-session-state.lock`) with the `lockf
 ```
 ┌──────────────────────────────────────────┐
 │  studio code process                     │
-│  (interactive OR --remote-session mode)  │
+│  (interactive REPL OR remote-session)    │
 │                                          │
 │  ┌────────────────────────────────────┐  │
 │  │ remote-session controller          │  │
@@ -516,7 +508,7 @@ DEBUG-level (only when `STUDIO_REMOTE_DEBUG=1`): full request/response bodies wi
 
 ## Acceptance criteria
 
-1. `studio code --remote-session` starts a process that begins polling. No interactive UI is shown. If `chat_id` is pinned in config, the process also POSTs an "attached" status to that chat before the first poll; without a pin, attach is silent on the Telegram side.
+1. `studio code remote-session start` (foreground) or `studio code remote-session start --detach` starts a process that begins polling. No interactive UI is shown. If `chat_id` is pinned in config, the process also POSTs an "attached" status to that chat before the first poll; without a pin, attach is silent on the Telegram side.
 2. From an interactive `studio code` session, `/remote-session attach` starts the poll loop; for v1 this blocks the REPL until the user detaches.
 3. A Telegram message routed to the local agent appears in the chat as a reply within `poll_interval + studio_code_turn_duration + ~2s` end-to-end.
 4. The second and subsequent Telegram messages are processed in the **same** `studio code` session (verified by the agent referring back to earlier turns).

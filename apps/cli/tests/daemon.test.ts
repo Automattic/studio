@@ -74,9 +74,7 @@ describe( 'ProcessManagerDaemon', () => {
 			type: 'start-process',
 			requestId: '1',
 			processName: testProcessName,
-			scriptPath: '/tmp/test-child.js',
-			env: {},
-			args: [],
+			processKind: 'proxy',
 		} );
 
 		expect( response ).toEqual(
@@ -150,9 +148,7 @@ describe( 'ProcessManagerDaemon', () => {
 			type: 'start-process',
 			requestId: '1',
 			processName: testProcessName,
-			scriptPath: '/tmp/test-child.js',
-			env: {},
-			args: [],
+			processKind: 'proxy',
 		} );
 
 		child.stderr.write( 'SyntaxError: boom\n' );
@@ -190,17 +186,13 @@ describe( 'ProcessManagerDaemon', () => {
 			type: 'start-process',
 			requestId: '1',
 			processName: testProcessName,
-			scriptPath: '/tmp/test-child.js',
-			env: {},
-			args: [],
+			processKind: 'proxy',
 		} );
 		const second = await daemonInternal.handleRequest( {
 			type: 'start-process',
 			requestId: '2',
 			processName: testProcessName,
-			scriptPath: '/tmp/test-child.js',
-			env: {},
-			args: [],
+			processKind: 'proxy',
 		} );
 
 		const firstProcess = first.payload.process;
@@ -233,5 +225,84 @@ describe( 'ProcessManagerDaemon', () => {
 			type: 'result',
 			payload: {},
 		} );
+	} );
+
+	it( 'manages native PHP sessions without spawning a wrapper process', async () => {
+		const { ProcessManagerDaemon } = await import( '../process-manager-daemon' );
+
+		const daemon = new ProcessManagerDaemon();
+		const daemonInternal = daemon as unknown as {
+			handleRequest: ( request: unknown ) => Promise< {
+				type: string;
+				payload: { process?: { pmId: number; name: string; status: string; pid?: number } };
+			} >;
+			broadcastEvent: ( event: unknown ) => Promise< void >;
+		};
+		const broadcastSpy = vi
+			.spyOn( daemonInternal, 'broadcastEvent' )
+			.mockResolvedValue( undefined );
+
+		const response = await daemonInternal.handleRequest( {
+			type: 'start-process',
+			requestId: '1',
+			processName: testProcessName,
+			processKind: 'wordpress-server',
+			wordpressRuntime: 'native-php',
+		} );
+
+		const processDesc = response.payload.process;
+		if ( ! processDesc ) {
+			throw new Error( 'Expected start-process response to include a process' );
+		}
+
+		expect( spawnMock ).not.toHaveBeenCalled();
+		expect( processDesc ).toEqual(
+			expect.objectContaining( {
+				name: testProcessName,
+				status: 'online',
+				pid: process.pid,
+			} )
+		);
+		expect( broadcastSpy ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				type: 'process-message',
+				payload: expect.objectContaining( {
+					process: expect.objectContaining( { name: testProcessName } ),
+					raw: expect.objectContaining( { topic: 'ready' } ),
+				} ),
+			} )
+		);
+
+		await expect(
+			daemonInternal.handleRequest( {
+				type: 'send-message-to-process',
+				requestId: '2',
+				processId: processDesc.pmId,
+				message: { topic: 'stop-server', messageId: 'msg-1', data: {} },
+			} )
+		).resolves.toEqual( {
+			type: 'result',
+			payload: {},
+		} );
+
+		await new Promise( ( resolve ) => setTimeout( resolve, 25 ) );
+
+		expect( broadcastSpy ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				type: 'process-message',
+				payload: expect.objectContaining( {
+					raw: expect.objectContaining( {
+						topic: 'result',
+						originalMessageId: 'msg-1',
+					} ),
+				} ),
+			} )
+		);
+		expect( broadcastSpy ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				type: 'process-event',
+				payload: expect.objectContaining( { event: 'exit' } ),
+			} )
+		);
 	} );
 } );

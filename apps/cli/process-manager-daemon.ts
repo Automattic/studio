@@ -1,14 +1,18 @@
-import { ChildProcess, spawn, spawnSync } from 'child_process';
-import fs, { createWriteStream, WriteStream } from 'fs';
+import fs from 'fs';
 import net from 'net';
-import path from 'path';
-import readline from 'readline';
-import semver from 'semver';
 import {
 	PROCESS_MANAGER_LOGS_DIR,
 	PROCESS_MANAGER_CONTROL_SOCKET_PATH,
 	PROCESS_MANAGER_EVENTS_SOCKET_PATH,
 } from 'cli/lib/paths';
+import {
+	ManagedProcess,
+	ManagedProcessCallbacks,
+	ManagedProcessEvent,
+} from 'cli/lib/process-manager/managed-process';
+import { ProxyProcess } from 'cli/lib/process-manager/managed-process-proxy';
+import { ManagedProcessWordPressNativePhp } from 'cli/lib/process-manager/managed-process-wordpress-native-php';
+import { ManagedProcessWordPressPlayground } from 'cli/lib/process-manager/managed-process-wordpress-playground';
 import { SocketServer } from 'cli/lib/socket';
 import {
 	ProcessDescription,
@@ -21,64 +25,8 @@ import {
 import { ManagerMessage } from 'cli/lib/types/wordpress-server-ipc';
 
 const SOCKET_TIMEOUT_MS = 2_500;
-const STOP_TIMEOUT_MS = 2_500;
 
-// In-memory tail of stderr kept per child so we can include the current invocation's error
-// output in the `exit` event. Bounded to avoid unbounded memory growth on chatty processes.
-const STDERR_BUFFER_MAX_LINES = 100;
-const STDERR_BUFFER_MAX_BYTES = 16 * 1024;
-
-type ManagedProcessBase = {
-	pmId: number;
-	name: string;
-	scriptPath: string;
-	args: string[];
-	env: NodeJS.ProcessEnv;
-	child: ChildProcess;
-	stdoutLogPath: string;
-	stderrLogPath: string;
-	stdoutStream: WriteStream;
-	stderrStream: WriteStream;
-	stderrBuffer: string[];
-	stderrBufferBytes: number;
-	settled: boolean;
-};
-type ManagedProcessRunning = ManagedProcessBase & {
-	pid: number;
-	status: 'online';
-};
-type ManagedProcessStopped = ManagedProcessBase & {
-	status: 'stopped';
-};
-type ManagedProcess = ManagedProcessRunning | ManagedProcessStopped;
-
-function formatLogDateTag( date: Date ): string {
-	const year = date.getFullYear();
-	const month = String( date.getMonth() + 1 ).padStart( 2, '0' );
-	const day = String( date.getDate() ).padStart( 2, '0' );
-	return `${ year }${ month }${ day }`;
-}
-
-function getProcessLogPaths( processName: string, date: Date = new Date() ) {
-	const dateTag = formatLogDateTag( date );
-	return {
-		stdoutLogPath: path.join( PROCESS_MANAGER_LOGS_DIR, `${ processName }-out-${ dateTag }.log` ),
-		stderrLogPath: path.join( PROCESS_MANAGER_LOGS_DIR, `${ processName }-error-${ dateTag }.log` ),
-	};
-}
-
-function timestampLogLine( line: string ): string {
-	return `${ new Date().toISOString() } ${ line }\n`;
-}
-
-function writeTimestampedLines( target: WriteStream, content: string ) {
-	const normalizedContent = content.split( '\r\n' ).join( '\n' );
-	const lines = normalizedContent.trimEnd().split( '\n' );
-
-	lines.forEach( ( line ) => {
-		target.write( timestampLogLine( line ) );
-	} );
-}
+type StartProcessRequest = Extract< DaemonRequest, { type: 'start-process' } >;
 
 export class ProcessManagerDaemon {
 	private readonly controlServer = new SocketServer(
@@ -146,12 +94,7 @@ export class ProcessManagerDaemon {
 					payload: {},
 				};
 			case 'start-process': {
-				const processDesc = await this.startProcess(
-					request.processName,
-					request.scriptPath,
-					request.env ?? {},
-					request.args ?? []
-				);
+				const processDesc = await this.startProcess( request );
 				return {
 					type: 'result',
 					payload: { process: processDesc },
@@ -184,7 +127,9 @@ export class ProcessManagerDaemon {
 	}
 
 	private listProcesses(): ProcessDescription[] {
-		return Array.from( this.managedProcesses.values() ).map( this.toProcessDescription );
+		return Array.from( this.managedProcesses.values() ).map( ( managedProcess ) =>
+			managedProcess.toProcessDescription()
+		);
 	}
 
 	private getManagedProcessByName( processName: string ): ManagedProcess | undefined {
@@ -196,145 +141,62 @@ export class ProcessManagerDaemon {
 		return undefined;
 	}
 
-	private async startProcess(
-		processName: string,
-		scriptPath: string,
-		env: NodeJS.ProcessEnv,
-		args: string[]
-	): Promise< ProcessDescription > {
-		const existing = this.getManagedProcessByName( processName );
+	private async startProcess( request: StartProcessRequest ): Promise< ProcessDescription > {
+		const existing = this.getManagedProcessByName( request.processName );
 		if ( existing && existing.status === 'online' ) {
-			return this.toProcessDescription( existing );
+			return existing.toProcessDescription();
 		}
 
-		const pmId = this.nextPmId++;
-		const { stdoutLogPath, stderrLogPath } = getProcessLogPaths( processName );
-		const stdoutStream = createWriteStream( stdoutLogPath, { flags: 'a' } );
-		const stderrStream = createWriteStream( stderrLogPath, { flags: 'a' } );
-		// Node.js >=24 supports the JSPI (JavaScript Promises Integration) API
-		const doesCurrentNodeSupportJspi = semver.gte( process.version, '24.0.0' );
-		const execArgv = doesCurrentNodeSupportJspi ? [ '--experimental-wasm-jspi' ] : [];
-		const child = spawn( process.execPath, [ ...execArgv, scriptPath, ...args ], {
-			env,
-			stdio: [ 'ignore', 'pipe', 'pipe', 'ipc' ],
-			windowsHide: true,
-			detached: process.platform !== 'win32',
-		} );
+		const managedProcess = this.createManagedProcess( request );
+		this.managedProcesses.set( managedProcess.pmId, managedProcess );
 
-		const managedProcess: ManagedProcessRunning = {
-			pmId,
-			name: processName,
-			scriptPath,
-			args,
-			env,
-			child,
-			// `child.pid` is only undefined if there's an error, in which case our error handler
-			// immediately changes the status and deletes the process from the map
-			pid: child.pid as number,
-			status: 'online',
-			stdoutLogPath,
-			stderrLogPath,
-			stdoutStream,
-			stderrStream,
-			stderrBuffer: [],
-			stderrBufferBytes: 0,
-			settled: false,
+		try {
+			await managedProcess.start();
+		} catch ( error ) {
+			this.managedProcesses.delete( managedProcess.pmId );
+			await managedProcess.forceStop();
+			throw error;
+		}
+
+		return managedProcess.toProcessDescription();
+	}
+
+	private createManagedProcess( request: StartProcessRequest ): ManagedProcess {
+		const processOptions = {
+			pmId: this.nextPmId++,
+			name: request.processName,
+			callbacks: this.createProcessCallbacks(),
 		};
 
-		this.managedProcesses.set( pmId, managedProcess );
+		switch ( request.processKind ) {
+			case 'proxy':
+				return new ProxyProcess( processOptions );
+			case 'wordpress-server':
+				if ( request.wordpressRuntime === 'native-php' ) {
+					return new ManagedProcessWordPressNativePhp( processOptions );
+				}
+				return new ManagedProcessWordPressPlayground( processOptions );
+		}
+	}
 
-		this.pipeOutputWithTimestamp( child.stdout, stdoutStream );
-		this.pipeOutputWithTimestamp( child.stderr, stderrStream, ( line ) => {
-			this.recordStderrLine( managedProcess, line );
-		} );
-
-		child.on( 'message', ( raw ) => {
-			const event = daemonEventSchema.safeParse( {
-				type: 'process-message',
-				payload: {
-					process: { name: processName, pm_id: pmId },
-					raw,
-				},
-			} );
-
-			if ( event.success ) {
-				void this.broadcastEvent( event.data );
-			}
-		} );
-
-		child.on( 'error', ( error ) => {
-			const errorText = error.stack ?? error.message;
-			writeTimestampedLines( stderrStream, errorText );
-			for ( const line of errorText.split( '\n' ) ) {
-				this.recordStderrLine( managedProcess, line );
-			}
-			void this.handleProcessExit( managedProcess );
-		} );
-
-		child.on( 'exit', () => {
-			void this.handleProcessExit( managedProcess );
-		} );
-
-		await this.broadcastEvent( {
-			type: 'process-event',
-			payload: {
-				process: { name: processName, pm_id: pmId },
-				event: 'online',
+	private createProcessCallbacks(): ManagedProcessCallbacks {
+		return {
+			onEvent: ( managedProcess, event ) => this.broadcastProcessEvent( managedProcess, event ),
+			onExit: ( managedProcess ) => {
+				this.managedProcesses.delete( managedProcess.pmId );
 			},
-		} );
-
-		return this.toProcessDescription( managedProcess );
+			onMessage: ( managedProcess, raw ) => this.broadcastProcessMessage( managedProcess, raw ),
+		};
 	}
 
 	private async stopProcess( processName: string ): Promise< void > {
 		const managedProcess = this.getManagedProcessByName( processName );
 
-		if ( ! managedProcess || managedProcess.settled ) {
+		if ( ! managedProcess || managedProcess.status !== 'online' ) {
 			return;
 		}
 
-		await new Promise< void >( ( resolve ) => {
-			const timeoutId = setTimeout( () => {
-				this.signalProcessGroup( managedProcess, 'SIGKILL' );
-			}, STOP_TIMEOUT_MS );
-
-			managedProcess.child.once( 'exit', () => {
-				clearTimeout( timeoutId );
-				void this.broadcastEvent( {
-					type: 'process-event',
-					payload: {
-						process: { name: managedProcess.name, pm_id: managedProcess.pmId },
-						event: 'delete',
-					},
-				} );
-				resolve();
-			} );
-
-			this.signalProcessGroup( managedProcess, 'SIGTERM' );
-		} );
-	}
-
-	private async handleProcessExit( managedProcess: ManagedProcess ) {
-		if ( managedProcess.settled ) {
-			return;
-		}
-
-		managedProcess.settled = true;
-		managedProcess.status = 'stopped';
-		this.managedProcesses.delete( managedProcess.pmId );
-		managedProcess.stdoutStream.end();
-		managedProcess.stderrStream.end();
-
-		const stderrTail = managedProcess.stderrBuffer.join( '\n' );
-
-		await this.broadcastEvent( {
-			type: 'process-event',
-			payload: {
-				process: { name: managedProcess.name, pm_id: managedProcess.pmId },
-				event: 'exit',
-				...( stderrTail ? { stderrTail } : {} ),
-			},
-		} );
+		await managedProcess.stop();
 	}
 
 	private async sendMessageToProcess( processId: number, message: ManagerMessage ) {
@@ -342,137 +204,54 @@ export class ProcessManagerDaemon {
 		if ( ! managedProcess ) {
 			throw new Error( `Process with id ${ processId } not found` );
 		}
-
-		if ( ! managedProcess.child.connected ) {
-			throw new Error( `Process with id ${ processId } is not connected` );
+		if ( managedProcess.status !== 'online' ) {
+			throw new Error( `Process with id ${ processId } is not online` );
 		}
 
-		await new Promise< void >( ( resolve, reject ) => {
-			managedProcess.child.send( message, ( error ) => {
-				if ( error ) {
-					reject( error );
-					return;
-				}
-				resolve();
-			} );
-		} );
+		await managedProcess.sendMessage( message );
 	}
 
 	private async broadcastEvent( event: DaemonEvent ): Promise< void > {
 		this.eventsServer.broadcast( event );
 	}
 
-	private pipeOutputWithTimestamp(
-		input: NodeJS.ReadableStream | null,
-		target: WriteStream,
-		onLine?: ( line: string ) => void
-	): void {
-		if ( ! input ) {
-			return;
-		}
-
-		const lineReader = readline.createInterface( {
-			input,
-			crlfDelay: Infinity,
-		} );
-
-		lineReader.on( 'line', ( line ) => {
-			void target.write( timestampLogLine( line ) );
-			onLine?.( line );
+	private async broadcastProcessEvent(
+		managedProcess: ManagedProcess,
+		event: ManagedProcessEvent
+	): Promise< void > {
+		await this.broadcastEvent( {
+			type: 'process-event',
+			payload: {
+				process: { name: managedProcess.name, pm_id: managedProcess.pmId },
+				event: event.event,
+				...( event.stderrTail ? { stderrTail: event.stderrTail } : {} ),
+			},
 		} );
 	}
 
-	private recordStderrLine( managedProcess: ManagedProcess, line: string ): void {
-		managedProcess.stderrBuffer.push( line );
-		managedProcess.stderrBufferBytes += Buffer.byteLength( line, 'utf8' ) + 1; // +1 for the joining newline
+	private async broadcastProcessMessage(
+		managedProcess: ManagedProcess,
+		raw: unknown
+	): Promise< void > {
+		const event = daemonEventSchema.safeParse( {
+			type: 'process-message',
+			payload: {
+				process: { name: managedProcess.name, pm_id: managedProcess.pmId },
+				raw,
+			},
+		} );
 
-		while (
-			managedProcess.stderrBuffer.length > STDERR_BUFFER_MAX_LINES ||
-			managedProcess.stderrBufferBytes > STDERR_BUFFER_MAX_BYTES
-		) {
-			const dropped = managedProcess.stderrBuffer.shift();
-			if ( dropped === undefined ) {
-				break;
-			}
-			managedProcess.stderrBufferBytes -= Buffer.byteLength( dropped, 'utf8' ) + 1;
+		if ( event.success ) {
+			await this.broadcastEvent( event.data );
 		}
-	}
-
-	private toProcessDescription( managedProcess: ManagedProcess ): ProcessDescription {
-		if ( managedProcess.status === 'stopped' ) {
-			return {
-				name: managedProcess.name,
-				pmId: managedProcess.pmId,
-				status: managedProcess.status,
-			};
-		}
-
-		return {
-			name: managedProcess.name,
-			pmId: managedProcess.pmId,
-			status: managedProcess.status,
-			pid: managedProcess.pid,
-		};
 	}
 
 	private forceCleanupChildren() {
 		for ( const managedProcess of this.managedProcesses.values() ) {
-			if ( managedProcess.settled ) {
+			if ( managedProcess.status !== 'online' ) {
 				continue;
 			}
-			this.signalProcessGroup( managedProcess, 'SIGKILL' );
-		}
-	}
-
-	private signalProcessGroup( managedProcess: ManagedProcess, signal: NodeJS.Signals ): void {
-		const pid = managedProcess.child.pid;
-		if ( ! pid ) {
-			return;
-		}
-
-		if ( process.platform === 'win32' ) {
-			if ( signal === 'SIGKILL' ) {
-				// Windows has no process-group concept Node can reach. /T walks the descendant
-				// tree via parent-PID lookup; /F forces termination. Without /T, grandchildren
-				// (e.g. the PHP server spawned by the wrapper) would be orphaned.
-				spawnSync( 'taskkill', [ '/F', '/T', '/PID', String( pid ) ], {
-					windowsHide: true,
-					stdio: 'ignore',
-				} );
-				return;
-			}
-			// Console apps on Windows have no SIGTERM equivalent — `child.kill( 'SIGTERM' )`
-			// maps to TerminateProcess of a single PID, so neither cleanup nor tree-walk runs.
-			// Closing the IPC channel triggers the wrapper's 'disconnect' handler instead, which
-			// kills the PHP child and exits cleanly. Force escalation falls back to taskkill /T.
-			if ( managedProcess.child.connected ) {
-				try {
-					managedProcess.child.disconnect();
-				} catch {
-					// Do nothing
-				}
-				return;
-			}
-			try {
-				managedProcess.child.kill( signal );
-			} catch {
-				// Do nothing
-			}
-			return;
-		}
-
-		// Children are spawned with `detached: true` on non-Windows, so each lives in its own
-		// process group. Signalling the negative PID delivers to every member of that group,
-		// including grandchildren (e.g. the PHP server spawned by the wrapper).
-		try {
-			process.kill( -pid, signal );
-		} catch {
-			// Group send can fail if the leader has already exited but children remain.
-			try {
-				managedProcess.child.kill( signal );
-			} catch {
-				// Do nothing
-			}
+			void managedProcess.forceStop();
 		}
 	}
 
@@ -485,7 +264,7 @@ export class ProcessManagerDaemon {
 		const stopAllChildren = async (): Promise< void > => {
 			await Promise.allSettled(
 				Array.from( this.managedProcesses.values() ).map( ( managedProcess ) =>
-					this.stopProcess( managedProcess.name )
+					managedProcess.stop()
 				)
 			);
 

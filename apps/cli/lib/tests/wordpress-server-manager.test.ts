@@ -47,7 +47,9 @@ describe( 'WordPress Server Manager', () => {
 		mockBus = new EventEmitter();
 
 		vi.mocked( daemonClient.isProcessRunning ).mockResolvedValue( undefined );
-		vi.mocked( daemonClient.startProcess ).mockResolvedValue( mockProcessDescription );
+		vi.mocked( daemonClient.startWordPressServerProcess ).mockResolvedValue(
+			mockProcessDescription
+		);
 		vi.mocked( daemonClient.stopProcess ).mockResolvedValue( undefined );
 		vi.mocked( daemonClient.getDaemonBus ).mockResolvedValue( mockBus as DaemonBus );
 		vi.mocked( daemonClient.sendMessageToProcess ).mockReturnValue( Promise.resolve() );
@@ -117,22 +119,22 @@ describe( 'WordPress Server Manager', () => {
 
 			const result = await startWordPressServer( mockSiteData, mockLogger );
 
-			expect( vi.mocked( daemonClient.startProcess ) ).toHaveBeenCalledWith(
+			expect( vi.mocked( daemonClient.startWordPressServerProcess ) ).toHaveBeenCalledWith(
 				'studio-site-test-site-id',
-				expect.stringMatching( /playground-server-child\.mjs$/ )
+				'playground'
 			);
 
 			expect( result ).toEqual( mockProcessDescription );
 		} );
 
-		it( 'should use the native-php child script when site.runtime is native-php', async () => {
+		it( 'should use the daemon-managed native PHP runtime when site.runtime is native-php', async () => {
 			setupIpcMocks();
 
 			await startWordPressServer( { ...mockSiteData, runtime: 'native-php' }, mockLogger );
 
-			expect( vi.mocked( daemonClient.startProcess ) ).toHaveBeenCalledWith(
+			expect( vi.mocked( daemonClient.startWordPressServerProcess ) ).toHaveBeenCalledWith(
 				'studio-site-test-site-id',
-				expect.stringMatching( /php-server-child\.mjs$/ )
+				'native-php'
 			);
 		} );
 
@@ -141,14 +143,14 @@ describe( 'WordPress Server Manager', () => {
 
 			await startWordPressServer( { ...mockSiteData, runtime: undefined }, mockLogger );
 
-			expect( vi.mocked( daemonClient.startProcess ) ).toHaveBeenCalledWith(
+			expect( vi.mocked( daemonClient.startWordPressServerProcess ) ).toHaveBeenCalledWith(
 				'studio-site-test-site-id',
-				expect.stringMatching( /playground-server-child\.mjs$/ )
+				'playground'
 			);
 		} );
 
 		it( 'should handle start process failure', async () => {
-			vi.mocked( daemonClient.startProcess ).mockRejectedValue(
+			vi.mocked( daemonClient.startWordPressServerProcess ).mockRejectedValue(
 				new Error( 'Failed to start process' )
 			);
 
@@ -193,11 +195,11 @@ describe( 'WordPress Server Manager', () => {
 			);
 		} );
 
-		it( 'should catch exit events fired before startProcess resolves', async () => {
-			// Simulate an exit that fires while `startProcess` is still in flight, *before*
-			// the caller knows the pmId. Listeners must be attached ahead of startProcess for
+		it( 'should catch exit events fired before the server process start resolves', async () => {
+			// Simulate an exit that fires while process start is still in flight, *before*
+			// the caller knows the pmId. Listeners must be attached ahead of process start for
 			// this to work.
-			vi.mocked( daemonClient.startProcess ).mockImplementation( async () => {
+			vi.mocked( daemonClient.startWordPressServerProcess ).mockImplementation( async () => {
 				setTimeout( () => {
 					mockBus.emit( 'process-event', {
 						process: {

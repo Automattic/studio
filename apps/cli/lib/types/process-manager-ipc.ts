@@ -4,6 +4,10 @@ import {
 	managerMessageSchema,
 } from 'cli/lib/types/wordpress-server-ipc';
 
+export const managedProcessKindSchema = z.enum( [ 'proxy', 'wordpress-server' ] );
+export const wordpressServerRuntimeSchema = z.enum( [ 'playground', 'native-php' ] );
+export type WordPressServerRuntime = z.infer< typeof wordpressServerRuntimeSchema >;
+
 // Zod schema for process descriptions
 const processDescriptionSchemaBase = z.object( {
 	name: z.string(),
@@ -30,9 +34,8 @@ const daemonRequestPingSchema = z.object( {
 const daemonRequestStartProcessSchema = z.object( {
 	type: z.literal( 'start-process' ),
 	processName: z.string(),
-	scriptPath: z.string(),
-	env: z.record( z.string(), z.union( [ z.string(), z.undefined() ] ) ).optional(),
-	args: z.array( z.string() ).optional(),
+	processKind: managedProcessKindSchema,
+	wordpressRuntime: wordpressServerRuntimeSchema.optional(),
 } );
 
 const daemonRequestStopProcessSchema = z.object( {

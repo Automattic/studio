@@ -20,6 +20,7 @@ import {
 	daemonResponseSchema,
 	processDescriptionSchema,
 	processEventSchema,
+	WordPressServerRuntime,
 } from 'cli/lib/types/process-manager-ipc';
 import {
 	ManagerMessage,
@@ -275,9 +276,7 @@ export async function sendMessageToProcess(
 }
 
 export async function startProxyProcess(): Promise< ProcessDescription > {
-	const proxyDaemonPath = path.resolve( import.meta.dirname, 'proxy-daemon.mjs' );
-
-	return startProcess( PROXY_PROCESS_NAME, proxyDaemonPath );
+	return startManagedProcess( PROXY_PROCESS_NAME, { processKind: 'proxy' } );
 }
 
 export async function isProxyProcessRunning(): Promise< ProcessDescription | undefined > {
@@ -306,20 +305,29 @@ const daemonStartProcessSuccessResponseSchema = z.object( {
 	process: processDescriptionSchema,
 } );
 
-export async function startProcess(
+async function startManagedProcess(
 	processName: string,
-	scriptPath: string,
-	env: NodeJS.ProcessEnv = process.env,
-	args: string[] = []
+	options: Pick<
+		Extract< DaemonRequest, { type: 'start-process' } >,
+		'processKind' | 'wordpressRuntime'
+	>
 ): Promise< ProcessDescription > {
 	const response = await sendDaemonRequest( {
 		type: 'start-process',
 		processName,
-		scriptPath,
-		env,
-		args,
+		...options,
 	} );
 	return daemonStartProcessSuccessResponseSchema.parse( response ).process;
+}
+
+export async function startWordPressServerProcess(
+	processName: string,
+	runtime: WordPressServerRuntime = 'playground'
+): Promise< ProcessDescription > {
+	return startManagedProcess( processName, {
+		processKind: 'wordpress-server',
+		wordpressRuntime: runtime,
+	} );
 }
 
 export async function stopProcess( processName: string ): Promise< void > {

@@ -17,7 +17,7 @@ import { z } from 'zod';
 import { SiteData, SiteRuntime } from 'cli/lib/cli-config/core';
 import {
 	isProcessRunning,
-	startProcess,
+	startWordPressServerProcess,
 	stopProcess,
 	getDaemonBus,
 	type DaemonBusEventMap,
@@ -42,14 +42,8 @@ export function getProcessName( siteId: string ): string {
 	return `${ SITE_PROCESS_PREFIX }${ siteId }`;
 }
 
-function getChildScriptPath( runtime: SiteRuntime | undefined ): string {
-	switch ( runtime ?? 'playground' ) {
-		case 'native-php':
-			return path.resolve( import.meta.dirname, 'php-server-child.mjs' );
-		case 'playground':
-		default:
-			return path.resolve( import.meta.dirname, 'playground-server-child.mjs' );
-	}
+function getWordPressServerRuntime( runtime: SiteRuntime | undefined ) {
+	return runtime === 'native-php' ? 'native-php' : 'playground';
 }
 
 export async function isServerRunning( siteId: string ): Promise< ProcessDescription | undefined > {
@@ -203,13 +197,13 @@ export async function startWordPressServer(
 		: __( 'Starting WordPress server…' );
 	logger.reportStart( SiteCommandLoggerAction.START_SITE, startMessage );
 
-	const wordPressServerChildPath = getChildScriptPath( site.runtime );
 	const processName = getProcessName( site.id );
 	const serverConfig = buildServerConfig( site, options );
+	const processRuntime = getWordPressServerRuntime( site.runtime );
 
 	const readyOrExit = await subscribeForReadyOrExit( processName );
 	try {
-		const processDesc = await startProcess( processName, wordPressServerChildPath );
+		const processDesc = await startWordPressServerProcess( processName, processRuntime );
 		await readyOrExit.waitFor( processDesc.pmId );
 		await sendMessage(
 			processDesc.pmId,
@@ -522,13 +516,13 @@ export async function runBlueprint(
 	await ensurePhpBinaryAvailableIfNeeded( site, logger );
 	logger.reportStart( SiteCommandLoggerAction.APPLY_BLUEPRINT, __( 'Applying Blueprint…' ) );
 
-	const wordPressServerChildPath = getChildScriptPath( site.runtime );
 	const processName = getProcessName( site.id );
 	const serverConfig = buildServerConfig( site, options );
+	const processRuntime = getWordPressServerRuntime( site.runtime );
 
 	const readyOrExit = await subscribeForReadyOrExit( processName );
 	try {
-		const processDesc = await startProcess( processName, wordPressServerChildPath );
+		const processDesc = await startWordPressServerProcess( processName, processRuntime );
 		try {
 			await readyOrExit.waitFor( processDesc.pmId );
 			await sendMessage(

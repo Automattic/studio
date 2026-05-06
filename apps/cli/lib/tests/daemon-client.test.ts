@@ -138,7 +138,7 @@ describe( 'process manager daemon client', () => {
 		expect( spawnMock ).toHaveBeenCalledTimes( 1 );
 	} );
 
-	it( 'startProcess() validates the daemon response structure', async () => {
+	it( 'startWordPressServerProcess() validates the daemon response structure', async () => {
 		createConnectionMock.mockImplementation( ( peer?: string ) => {
 			if ( isEventsSocketPath( peer ) ) {
 				eventSocket = createMockSocket();
@@ -151,11 +151,61 @@ describe( 'process manager daemon client', () => {
 			} );
 		} );
 
-		const { connectToDaemon, startProcess } = await import( '../daemon-client' );
+		const { connectToDaemon, startWordPressServerProcess } = await import( '../daemon-client' );
 		await connectToDaemon();
 
-		await expect( startProcess( 'app', '/path/script.js' ) ).rejects.toThrow(
+		await expect( startWordPressServerProcess( 'app', 'playground' ) ).rejects.toThrow(
 			/Invalid input|process/
+		);
+	} );
+
+	it( 'startWordPressServerProcess() sends a managed process kind without spawn details', async () => {
+		const writeSpy = vi.fn();
+		createConnectionMock.mockImplementation( ( peer?: string ) => {
+			if ( isEventsSocketPath( peer ) ) {
+				eventSocket = createMockSocket();
+				return eventSocket;
+			}
+
+			return createMockSocket( ( socket, chunk ) => {
+				writeSpy( chunk );
+				const request = JSON.parse( chunk.subarray( 4 ).toString( 'utf8' ) );
+				const payload =
+					request.type === 'start-process'
+						? {
+								process: {
+									name: 'app',
+									pmId: 7,
+									status: 'online',
+									pid: 1234,
+								},
+						  }
+						: {};
+				socket.emit( 'data', frameMessage( createSuccessResponse( request, payload ) ) );
+			} );
+		} );
+
+		const { connectToDaemon, startWordPressServerProcess } = await import( '../daemon-client' );
+		await connectToDaemon();
+
+		await expect( startWordPressServerProcess( 'app', 'native-php' ) ).resolves.toEqual(
+			expect.objectContaining( {
+				name: 'app',
+				pmId: 7,
+			} )
+		);
+
+		const encodedRequest = writeSpy.mock.calls.at( -1 )?.[ 0 ] as Buffer;
+		expect( JSON.parse( encodedRequest.subarray( 4 ).toString( 'utf8' ) ) ).toEqual(
+			expect.objectContaining( {
+				type: 'start-process',
+				processName: 'app',
+				processKind: 'wordpress-server',
+				wordpressRuntime: 'native-php',
+			} )
+		);
+		expect( JSON.parse( encodedRequest.subarray( 4 ).toString( 'utf8' ) ) ).not.toHaveProperty(
+			'scriptPath'
 		);
 	} );
 

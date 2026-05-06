@@ -408,12 +408,6 @@ function NavigationContent( props: NavigationContentProps ) {
 								/>
 							) : undefined
 						}
-						galleryBlueprints={ galleryBlueprints ?? [] }
-						isLoadingGallery={ isLoadingGallery }
-						galleryErrorMessage={ galleryError ? __( 'Could not load blueprints.' ) : undefined }
-						onGalleryBlueprintSelect={ handleGalleryBlueprintSelect }
-						isSelectingGalleryBlueprint={ isSelectingGalleryBlueprint }
-						gallerySelectionError={ gallerySelectionError }
 					/>
 				</ScreenContent>
 			</Navigator.Screen>

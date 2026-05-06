@@ -1,23 +1,13 @@
 // Streaming events the runtime yields. Pi's `AgentEvent` covers the run
-// lifecycle (agent_start/end, turn_end, message_*, tool_*); compaction is
-// the only Studio-specific addition since pi handles compaction internally
-// without surfacing user-visible events.
+// lifecycle (agent_start/end, turn_end, message_*, tool_*); compaction
+// events match the shape pi's `AgentSession` emits so consumers stay
+// aligned with what the broader pi ecosystem produces.
 
 import type { AgentEvent } from '@mariozechner/pi-agent-core';
+import type { AgentSessionEvent } from '@mariozechner/pi-coding-agent';
 
-export type CompactionReason = 'manual' | 'threshold' | 'overflow';
-
-export interface CompactionStartEvent {
-	type: 'compaction_start';
-	reason: CompactionReason;
-}
-
-export interface CompactionEndEvent {
-	type: 'compaction_end';
-	reason: CompactionReason;
-	aborted: boolean;
-	willRetry: boolean;
-	errorMessage?: string;
-}
+export type CompactionStartEvent = Extract< AgentSessionEvent, { type: 'compaction_start' } >;
+export type CompactionEndEvent = Extract< AgentSessionEvent, { type: 'compaction_end' } >;
+export type CompactionReason = CompactionStartEvent[ 'reason' ];
 
 export type AgentRuntimeEvent = AgentEvent | CompactionStartEvent | CompactionEndEvent;

@@ -2053,7 +2053,9 @@ export class AiChatUI implements AiOutputAdapter {
 				return undefined;
 			case 'compaction_end':
 				this.hideLoader();
-				if ( ! event.errorMessage ) {
+				if ( event.errorMessage ) {
+					this.showError( event.errorMessage );
+				} else if ( event.result && ! event.aborted ) {
 					this.showInfo( __( 'Conversation history compacted' ) );
 				}
 				return undefined;

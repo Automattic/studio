@@ -1,8 +1,14 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { Agent, type AgentEvent, type AgentTool, type StreamFn } from '@mariozechner/pi-agent-core';
-import { type Message, type Model, type ToolResultMessage } from '@mariozechner/pi-ai';
+import {
+	type AssistantMessage,
+	type Message,
+	type Model,
+	type ToolResultMessage,
+} from '@mariozechner/pi-ai';
 import { streamAnthropic, type AnthropicOptions } from '@mariozechner/pi-ai/anthropic';
 import {
+	calculateContextTokens,
 	createBashTool,
 	createEditTool,
 	createFindTool,
@@ -21,21 +27,26 @@ import { createSkillTool } from 'cli/ai/tools/skill';
 import { takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
 import { createWpcomRequestTool } from 'cli/ai/tools/wpcom-request';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
-import { buildTransformContext } from './compaction';
+import {
+	decideCompaction,
+	runCompaction,
+	STUDIO_COMPACTION_SETTINGS,
+	type CompactionReason,
+} from './auto-compaction';
 import type { AgentRuntime, AgentRuntimeConfig, AgentRuntimeHandle } from '../types';
-import type { AgentRuntimeEvent } from 'cli/ai/runtimes/runtime-events';
+import type { AgentRuntimeEvent, CompactionEndEvent } from 'cli/ai/runtimes/runtime-events';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AgentToolAny = AgentTool< any >;
 
-type CompactionPhase = 'start' | 'end' | 'skipped' | 'failed';
-
-interface CompactionLifecycleRef {
-	current: ( ( phase: CompactionPhase ) => void ) | null;
+interface CachedAgent {
+	agent: Agent;
+	model: Model< 'openai-completions' > | Model< 'anthropic-messages' >;
+	creds: ResolvedCredentials;
+	overflowRecoveryAttempted: boolean;
 }
 
-const AGENTS_BY_SESSION = new Map< string, Agent >();
-const LIFECYCLE_REFS_BY_SESSION = new Map< string, CompactionLifecycleRef >();
+const AGENTS_BY_SESSION = new Map< string, CachedAgent >();
 
 export const piRuntime: AgentRuntime = {
 	run( config: AgentRuntimeConfig ): AgentRuntimeHandle {
@@ -46,7 +57,7 @@ export const piRuntime: AgentRuntime = {
 		return {
 			async interrupt() {
 				controller.abort();
-				AGENTS_BY_SESSION.get( sessionId )?.abort();
+				AGENTS_BY_SESSION.get( sessionId )?.agent.abort();
 			},
 			[ Symbol.asyncIterator ]() {
 				return events[ Symbol.asyncIterator ]();
@@ -146,6 +157,15 @@ function syntheticErrorAgentEnd(
 	};
 }
 
+function findLastAssistant(
+	messages: ReadonlyArray< { role: string } >
+): AssistantMessage | undefined {
+	for ( let i = messages.length - 1; i >= 0; i -= 1 ) {
+		if ( messages[ i ].role === 'assistant' ) return messages[ i ] as AssistantMessage;
+	}
+	return undefined;
+}
+
 async function* createEventStream(
 	config: AgentRuntimeConfig,
 	sessionId: string,
@@ -159,12 +179,8 @@ async function* createEventStream(
 	}
 
 	try {
-		const { agent, lifecycleRef } = await getOrCreateAgent(
-			sessionId,
-			config,
-			family,
-			resolved.creds
-		);
+		const cached = await getOrCreateAgent( sessionId, config, family, resolved.creds );
+		const { agent, model, creds } = cached;
 
 		const queue: AgentRuntimeEvent[] = [];
 		let resolveNext: ( () => void ) | null = null;
@@ -175,31 +191,107 @@ async function* createEventStream(
 			resolveNext = null;
 		};
 
-		lifecycleRef.current = ( phase ) => {
-			if ( phase === 'start' ) {
-				queue.push( { type: 'compaction_start', reason: 'threshold' } );
-			} else if ( phase === 'end' ) {
+		// Auto-compaction takes over the agent_end → done=true transition.
+		// `pendingCompaction` keeps `done` false while the compaction promise
+		// resolves so the loop drains compaction events before exiting.
+		let pendingCompaction = false;
+
+		const handleAgentEnd = async (
+			lastAssistant: AssistantMessage | undefined
+		): Promise< void > => {
+			if ( ! lastAssistant ) return;
+			const decision = decideCompaction( {
+				assistantMessage: lastAssistant,
+				agent,
+				sessionManager: config.session,
+				model,
+				settings: STUDIO_COMPACTION_SETTINGS,
+				overflowRecoveryAttempted: cached.overflowRecoveryAttempted,
+				skipAbortedCheck: true,
+			} );
+
+			if ( decision.kind === 'none' ) return;
+
+			if ( decision.kind === 'overflow_already_attempted' ) {
+				queue.push( { type: 'compaction_start', reason: 'overflow' } );
 				queue.push( {
 					type: 'compaction_end',
-					reason: 'threshold',
+					reason: 'overflow',
+					result: undefined,
 					aborted: false,
 					willRetry: false,
+					errorMessage: decision.errorMessage,
 				} );
-			} else if ( phase === 'failed' ) {
-				queue.push( {
+				wake();
+				return;
+			}
+
+			const reason: CompactionReason = decision.kind;
+			const willRetry = reason === 'overflow';
+
+			pendingCompaction = true;
+			queue.push( { type: 'compaction_start', reason } );
+			wake();
+
+			// Overflow: drop the failed assistant from agent state before we
+			// summarize so it doesn't leak into the kept tail.
+			if ( reason === 'overflow' ) {
+				cached.overflowRecoveryAttempted = true;
+				const messages = agent.state.messages;
+				if ( messages.length > 0 && messages[ messages.length - 1 ] === lastAssistant ) {
+					agent.state.messages = messages.slice( 0, -1 );
+				}
+			}
+
+			let endEvent: CompactionEndEvent;
+			try {
+				const result = await runCompaction( {
+					agent,
+					sessionManager: config.session,
+					model,
+					apiKey: creds.apiKey,
+					headers: creds.extraHeaders,
+					settings: STUDIO_COMPACTION_SETTINGS,
+					signal: controller.signal,
+					tokensBefore:
+						lastAssistant.stopReason === 'error'
+							? 0
+							: calculateContextTokens( lastAssistant.usage ),
+				} );
+				endEvent = {
 					type: 'compaction_end',
-					reason: 'threshold',
+					reason,
+					result,
+					aborted: controller.signal.aborted,
+					willRetry,
+				};
+			} catch ( error ) {
+				const errorMessage = error instanceof Error ? error.message : 'compaction failed';
+				endEvent = {
+					type: 'compaction_end',
+					reason,
+					result: undefined,
 					aborted: false,
 					willRetry: false,
-					errorMessage: 'Compaction failed',
-				} );
+					errorMessage:
+						reason === 'overflow'
+							? `Context overflow recovery failed: ${ errorMessage }`
+							: `Auto-compaction failed: ${ errorMessage }`,
+				};
+			}
+
+			queue.push( endEvent );
+			pendingCompaction = false;
+
+			// Overflow path: kick the loop again so the user actually gets an
+			// answer to the prompt that just overflowed.
+			if ( willRetry && ! controller.signal.aborted && endEvent.result ) {
+				agent.continue().catch( () => undefined );
 			}
 			wake();
 		};
 
 		const unsubscribe = agent.subscribe( ( event: AgentEvent ) => {
-			queue.push( event );
-
 			if ( event.type === 'turn_end' ) {
 				config.session.appendMessage( event.message as Message );
 				for ( const tr of event.toolResults as ToolResultMessage[] ) {
@@ -207,12 +299,32 @@ async function* createEventStream(
 				}
 			}
 
+			queue.push( event );
+
 			if ( event.type === 'agent_end' ) {
-				done = true;
+				const lastAssistant = findLastAssistant( event.messages );
+				// Reset the overflow flag on a fresh, successful turn so a
+				// later overflow gets one recovery attempt of its own.
+				if ( lastAssistant?.stopReason === 'stop' ) {
+					cached.overflowRecoveryAttempted = false;
+				}
+				// The handler decides whether to compact (and possibly retry
+				// via agent.continue()); we only mark `done` once we know no
+				// further work is queued.
+				void handleAgentEnd( lastAssistant ).then( () => {
+					if ( ! pendingCompaction && ! agentWillRetry() ) {
+						done = true;
+						wake();
+					}
+				} );
 			}
 
 			wake();
 		} );
+
+		// True while we're inside an overflow → continue() recovery cycle —
+		// the next agent_end is the retry's terminator, not the run's.
+		const agentWillRetry = (): boolean => agent.state.isStreaming;
 
 		// Persist the user prompt before agent.prompt runs so disk matches the
 		// transcript the model sees.
@@ -221,6 +333,56 @@ async function* createEventStream(
 			content: config.prompt,
 			timestamp: Date.now(),
 		} );
+
+		// Pre-flight compaction: pi's AgentSession runs `_checkCompaction` on
+		// the latest assistant before sending. Mirrors that so a session
+		// resumed near the threshold gets compacted before we hit the wall.
+		const preflightAssistant = findLastAssistant( agent.state.messages );
+		if ( preflightAssistant ) {
+			const decision = decideCompaction( {
+				assistantMessage: preflightAssistant,
+				agent,
+				sessionManager: config.session,
+				model,
+				settings: STUDIO_COMPACTION_SETTINGS,
+				overflowRecoveryAttempted: cached.overflowRecoveryAttempted,
+				skipAbortedCheck: false,
+			} );
+			if ( decision.kind === 'threshold' ) {
+				queue.push( { type: 'compaction_start', reason: 'threshold' } );
+				wake();
+				try {
+					const result = await runCompaction( {
+						agent,
+						sessionManager: config.session,
+						model,
+						apiKey: creds.apiKey,
+						headers: creds.extraHeaders,
+						settings: STUDIO_COMPACTION_SETTINGS,
+						signal: controller.signal,
+						tokensBefore: calculateContextTokens( preflightAssistant.usage ),
+					} );
+					queue.push( {
+						type: 'compaction_end',
+						reason: 'threshold',
+						result,
+						aborted: controller.signal.aborted,
+						willRetry: false,
+					} );
+				} catch ( error ) {
+					const errorMessage = error instanceof Error ? error.message : 'compaction failed';
+					queue.push( {
+						type: 'compaction_end',
+						reason: 'threshold',
+						result: undefined,
+						aborted: false,
+						willRetry: false,
+						errorMessage: `Auto-compaction failed: ${ errorMessage }`,
+					} );
+				}
+				wake();
+			}
+		}
 
 		const runPromise = agent.prompt( config.prompt );
 
@@ -237,7 +399,6 @@ async function* createEventStream(
 		}
 
 		unsubscribe();
-		lifecycleRef.current = null;
 		await runPromise.catch( () => undefined );
 
 		// If we exited the loop because the abort signal fired before pi
@@ -258,11 +419,12 @@ async function getOrCreateAgent(
 	config: AgentRuntimeConfig,
 	family: AiModelFamily,
 	creds: ResolvedCredentials
-): Promise< { agent: Agent; lifecycleRef: CompactionLifecycleRef } > {
+): Promise< CachedAgent > {
 	const existing = AGENTS_BY_SESSION.get( sessionId );
-	const existingRef = LIFECYCLE_REFS_BY_SESSION.get( sessionId );
-	if ( existing && existingRef && existing.state.model.id === config.model ) {
-		return { agent: existing, lifecycleRef: existingRef };
+	if ( existing && existing.agent.state.model.id === config.model ) {
+		// Refresh creds in case env tokens rotated between turns.
+		existing.creds = creds;
+		return existing;
 	}
 
 	const model = buildModel( config.model, family, creds );
@@ -288,10 +450,8 @@ async function getOrCreateAgent(
 
 	// `/model` swap reuses the prior transcript; cold fork hydrates from disk.
 	const initialMessages = existing
-		? existing.state.messages
+		? existing.agent.state.messages
 		: config.session.buildSessionContext().messages;
-
-	const lifecycleRef: CompactionLifecycleRef = { current: null };
 
 	const streamFn: StreamFn | undefined =
 		family === 'anthropic' && creds.useBearerAuth
@@ -309,17 +469,16 @@ async function getOrCreateAgent(
 		getApiKey: () => creds.apiKey,
 		sessionId,
 		...( streamFn ? { streamFn } : {} ),
-		transformContext: buildTransformContext( {
-			model,
-			apiKey: creds.apiKey,
-			headers: creds.extraHeaders,
-			onLifecycle: ( phase ) => lifecycleRef.current?.( phase ),
-		} ),
 	} );
 
-	AGENTS_BY_SESSION.set( sessionId, agent );
-	LIFECYCLE_REFS_BY_SESSION.set( sessionId, lifecycleRef );
-	return { agent, lifecycleRef };
+	const cached: CachedAgent = {
+		agent,
+		model,
+		creds,
+		overflowRecoveryAttempted: false,
+	};
+	AGENTS_BY_SESSION.set( sessionId, cached );
+	return cached;
 }
 
 function buildModel(

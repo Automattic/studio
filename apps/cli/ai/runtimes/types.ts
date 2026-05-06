@@ -1,7 +1,6 @@
-import type { SessionManager } from '@mariozechner/pi-coding-agent';
+import type { SessionManager, AgentSessionEvent } from '@mariozechner/pi-coding-agent';
 import type { AiModelId } from '@studio/common/ai/models';
 import type { AskUserQuestion } from 'cli/ai/agent';
-import type { AgentRuntimeEvent } from 'cli/ai/runtimes/runtime-events';
 import type { SiteInfo } from 'cli/ai/ui';
 
 export interface AgentRuntimeConfig {
@@ -14,7 +13,7 @@ export interface AgentRuntimeConfig {
 	onAskUser?: ( questions: AskUserQuestion[] ) => Promise< Record< string, string > >;
 }
 
-export interface AgentRuntimeHandle extends AsyncIterable< AgentRuntimeEvent > {
+export interface AgentRuntimeHandle extends AsyncIterable< AgentSessionEvent > {
 	interrupt(): Promise< void >;
 }
 

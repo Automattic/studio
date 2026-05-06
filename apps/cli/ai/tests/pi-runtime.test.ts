@@ -1,8 +1,8 @@
 import { SessionManager } from '@mariozechner/pi-coding-agent';
 import { describe, expect, it, vi } from 'vitest';
 import { piRuntime } from 'cli/ai/runtimes/pi';
+import type { AgentSessionEvent } from '@mariozechner/pi-coding-agent';
 import type { AiModelId } from '@studio/common/ai/models';
-import type { AgentRuntimeEvent } from 'cli/ai/runtimes/runtime-events';
 
 // Model-swap test uses a synthetic id outside `AI_MODELS`; route unknowns to
 // 'openai' so the env credentials match.
@@ -115,7 +115,7 @@ vi.mock( '@mariozechner/pi-coding-agent', async ( importOriginal ) => {
 
 const newSession = () => SessionManager.inMemory( '/tmp/eval' );
 
-const findAssistantText = ( events: AgentRuntimeEvent[] ): string | undefined => {
+const findAssistantText = ( events: AgentSessionEvent[] ): string | undefined => {
 	for ( const e of events ) {
 		if ( e.type === 'message_end' && e.message.role === 'assistant' ) {
 			for ( const block of e.message.content ) {
@@ -135,7 +135,7 @@ describe( 'pi runtime', () => {
 			session: newSession(),
 		} );
 
-		const events: AgentRuntimeEvent[] = [];
+		const events: AgentSessionEvent[] = [];
 		for await ( const e of handle ) {
 			events.push( e );
 		}
@@ -164,7 +164,7 @@ describe( 'pi runtime', () => {
 			session: newSession(),
 		} );
 
-		const events: AgentRuntimeEvent[] = [];
+		const events: AgentSessionEvent[] = [];
 		for await ( const e of handle ) {
 			events.push( e );
 		}

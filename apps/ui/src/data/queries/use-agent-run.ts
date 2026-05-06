@@ -286,7 +286,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 					} );
 					return;
 				case 'message': {
-					// `event.message` is an `AgentRuntimeEvent`; only the
+					// `event.message` is an `AgentSessionEvent`; only the
 					// message-bearing variants need optimistic entries.
 					const inner = event.message as { type?: string; message?: { role?: string } } | undefined;
 					if ( inner?.type === 'message_end' && inner.message?.role === 'assistant' ) {

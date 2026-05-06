@@ -43,7 +43,7 @@ import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { getSitesRunningStatus, isSiteRunning } from 'cli/lib/site-utils';
 import type { ToolResultMessage } from '@mariozechner/pi-ai';
-import type { AgentRuntimeEvent } from 'cli/ai/runtimes/runtime-events';
+import type { AgentSessionEvent } from '@mariozechner/pi-coding-agent';
 
 interface TodoWriteInput {
 	todos: Array< {
@@ -2068,7 +2068,7 @@ export class AiChatUI implements AiOutputAdapter {
 	 * Process a runtime event and update the UI.
 	 * Returns session result when the agent turn is complete.
 	 */
-	handleEvent( event: AgentRuntimeEvent ): HandleEventResult | undefined {
+	handleEvent( event: AgentSessionEvent ): HandleEventResult | undefined {
 		if ( this.wasInterrupted && event.type !== 'agent_end' ) {
 			return undefined;
 		}

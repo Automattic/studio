@@ -19,8 +19,8 @@ import {
 } from 'cli/ai/auth';
 import { findLastAssistant } from 'cli/ai/output-adapter';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
+import type { AgentSessionEvent } from '@mariozechner/pi-coding-agent';
 import type { AiProviderId } from 'cli/ai/providers';
-import type { AgentRuntimeEvent } from 'cli/ai/runtimes/runtime-events';
 
 interface EvalRunnerInput {
 	prompt: string;
@@ -32,7 +32,7 @@ function normalizeToolName( name: string ): string {
 	return name.replace( /^mcp__studio__/, '' );
 }
 
-function extractToolCalls( event: AgentRuntimeEvent ) {
+function extractToolCalls( event: AgentSessionEvent ) {
 	if ( event.type !== 'message_end' || event.message.role !== 'assistant' ) {
 		return [];
 	}
@@ -75,7 +75,7 @@ type FirstToolError = {
 	turnIndex: number;
 };
 
-function extractTextSegments( event: AgentRuntimeEvent ): string[] {
+function extractTextSegments( event: AgentSessionEvent ): string[] {
 	if ( event.type !== 'message_end' || event.message.role !== 'assistant' ) {
 		return [];
 	}
@@ -84,7 +84,7 @@ function extractTextSegments( event: AgentRuntimeEvent ): string[] {
 		.map( ( block ) => block.text );
 }
 
-function extractToolResult( event: AgentRuntimeEvent ): {
+function extractToolResult( event: AgentSessionEvent ): {
 	toolUseId: string;
 	isError: boolean;
 	text?: string;

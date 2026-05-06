@@ -29,7 +29,7 @@ import { createWpcomRequestTool } from 'cli/ai/tools/wpcom-request';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { runCompaction, shouldCompact, STUDIO_COMPACTION_SETTINGS } from './auto-compaction';
 import type { AgentRuntime, AgentRuntimeConfig, AgentRuntimeHandle } from '../types';
-import type { AgentRuntimeEvent } from 'cli/ai/runtimes/runtime-events';
+import type { AgentSessionEvent } from '@mariozechner/pi-coding-agent';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AgentToolAny = AgentTool< any >;
@@ -164,7 +164,7 @@ async function* createEventStream(
 	config: AgentRuntimeConfig,
 	sessionId: string,
 	controller: AbortController
-): AsyncGenerator< AgentRuntimeEvent, void, void > {
+): AsyncGenerator< AgentSessionEvent, void, void > {
 	const family = getAiModelFamily( config.model );
 	const resolved = resolveCredentials( family, config.env );
 	if ( ! resolved.ok ) {
@@ -176,7 +176,7 @@ async function* createEventStream(
 		const cached = await getOrCreateAgent( sessionId, config, family, resolved.creds );
 		const { agent, model, creds } = cached;
 
-		const queue: AgentRuntimeEvent[] = [];
+		const queue: AgentSessionEvent[] = [];
 		let resolveNext: ( () => void ) | null = null;
 		let done = false;
 

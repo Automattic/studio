@@ -2,8 +2,8 @@ import { DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agen
 import { emitEvent, type TurnCompletedStatus } from 'cli/ai/json-events';
 import type { AgentMessage } from '@mariozechner/pi-agent-core';
 import type { AssistantMessage } from '@mariozechner/pi-ai';
+import type { AgentSessionEvent } from '@mariozechner/pi-coding-agent';
 import type { AiProviderId } from 'cli/ai/providers';
-import type { AgentRuntimeEvent } from 'cli/ai/runtimes/runtime-events';
 import type { SiteInfo } from 'cli/ai/ui';
 
 export function findLastAssistant(
@@ -54,7 +54,7 @@ export interface AiOutputAdapter {
 	beginAgentTurn(): void;
 	endAgentTurn(): void;
 	addUserMessage( text: string ): void;
-	handleEvent( event: AgentRuntimeEvent ): HandleEventResult | undefined;
+	handleEvent( event: AgentSessionEvent ): HandleEventResult | undefined;
 
 	waitForInput(): Promise< string >;
 	askUser( questions: AskUserQuestion[] ): Promise< Record< string, string > >;
@@ -155,11 +155,11 @@ export class JsonAdapter implements AiOutputAdapter {
 		// No-op in JSON mode — the service already knows the message it sent
 	}
 
-	handleEvent( event: AgentRuntimeEvent ): HandleEventResult | undefined {
+	handleEvent( event: AgentSessionEvent ): HandleEventResult | undefined {
 		// Forward the event verbatim so the desktop main process can re-derive
 		// state without loading the JSONL itself. The wire keeps the legacy
 		// `'message'` envelope for compatibility with the renderer's parser,
-		// but the inner payload is now the native AgentRuntimeEvent.
+		// but the inner payload is now the native AgentSessionEvent.
 		emitEvent( { type: 'message', timestamp: new Date().toISOString(), message: event } );
 
 		if ( event.type === 'agent_end' ) {

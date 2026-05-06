@@ -140,15 +140,9 @@ async function main() {
 				import( 'cli/commands/ai/sessions/resume' ),
 			] );
 
-			sessionsYargs
-				.option( 'path', {
-					hidden: true,
-				} )
-				.option( 'session-persistence', {
-					type: 'boolean',
-					default: true,
-					description: __( 'Record this code session to disk' ),
-				} );
+			sessionsYargs.option( 'path', {
+				hidden: true,
+			} );
 			registerAiSessionsDeleteCommand( sessionsYargs );
 			registerAiSessionsListCommand( sessionsYargs );
 			registerAiSessionsResumeCommand( sessionsYargs );

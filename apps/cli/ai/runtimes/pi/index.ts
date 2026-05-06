@@ -8,6 +8,7 @@ import {
 } from '@mariozechner/pi-ai';
 import { streamAnthropic, type AnthropicOptions } from '@mariozechner/pi-ai/anthropic';
 import {
+	buildSessionContext,
 	calculateContextTokens,
 	createBashTool,
 	createEditTool,
@@ -18,6 +19,7 @@ import {
 	createWriteTool,
 } from '@mariozechner/pi-coding-agent';
 import { getAiModelFamily, type AiModelFamily, type AiModelId } from '@studio/common/ai/models';
+import { filterEntriesAfterLastClear } from '@studio/common/ai/sessions/filter-events';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
@@ -59,6 +61,14 @@ export const piRuntime: AgentRuntime = {
 		};
 	},
 };
+
+// Drop any cached `Agent` for `sessionId`. Called from the orchestrator on
+// `/clear` so the next turn rebuilds the agent with the post-clear branch
+// — `agent.state.messages` is otherwise sticky across turns and would
+// keep showing the model the pre-clear transcript.
+export function clearAgentForSession( sessionId: string ): void {
+	AGENTS_BY_SESSION.delete( sessionId );
+}
 
 interface ResolvedCredentials {
 	apiKey: string;
@@ -322,9 +332,13 @@ async function getOrCreateAgent(
 	const tools = buildAgentTools( config, isForkedByDesktop );
 
 	// `/model` swap reuses the prior transcript; cold fork hydrates from disk.
+	// Pi's `buildSessionContext()` doesn't honor Studio's `studio.session_cleared`
+	// marker — pre-filter the branch through `filterEntriesAfterLastClear` so a
+	// resumed session that ended with `/clear` doesn't leak old turns to the
+	// model.
 	const initialMessages = existing
 		? existing.agent.state.messages
-		: config.session.buildSessionContext().messages;
+		: buildSessionContext( filterEntriesAfterLastClear( config.session.getBranch() ) ).messages;
 
 	const streamFn: StreamFn | undefined =
 		family === 'anthropic' && creds.useBearerAuth

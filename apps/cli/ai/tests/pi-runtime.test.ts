@@ -1,6 +1,6 @@
 import { SessionManager } from '@mariozechner/pi-coding-agent';
 import { describe, expect, it, vi } from 'vitest';
-import { piRuntime } from 'cli/ai/runtimes/pi';
+import { clearAgentForSession, piRuntime } from 'cli/ai/runtimes/pi';
 import type { AgentSessionEvent } from '@mariozechner/pi-coding-agent';
 import type { AiModelId } from '@studio/common/ai/models';
 
@@ -210,6 +210,56 @@ describe( 'pi runtime', () => {
 		} );
 		for await ( const _ of third );
 		expect( constructedAgents ).toHaveLength( 2 );
+	} );
+
+	// `/clear` would otherwise leave the cached agent's transcript intact —
+	// the model would still see pre-clear messages even though the UI
+	// hides them.
+	it( 'drops pre-`session_cleared` messages from the rebuilt agent', async () => {
+		constructedAgents.length = 0;
+		const env = {
+			OPENAI_API_KEY: 'sk-test',
+			OPENAI_BASE_URL: 'https://proxy.example.com/v1',
+		};
+		const session = SessionManager.inMemory( '/tmp/eval' );
+
+		// Pre-clear transcript: a user prompt + assistant reply.
+		session.appendMessage( { role: 'user', content: 'pre-clear question', timestamp: 1 } );
+		session.appendMessage( {
+			role: 'assistant',
+			content: [ { type: 'text', text: 'pre-clear answer' } ],
+			api: 'openai-completions',
+			provider: 'openai',
+			model: 'gpt-5.5',
+			usage: {
+				input: 0,
+				output: 0,
+				cacheRead: 0,
+				cacheWrite: 0,
+				totalTokens: 0,
+				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+			},
+			stopReason: 'stop',
+			timestamp: 2,
+		} );
+
+		// User runs `/clear` — orchestrator appends the marker + drops the
+		// cached agent.
+		session.appendCustomEntry( 'studio.session_cleared', {} );
+		clearAgentForSession( session.getSessionId() );
+
+		const handle = piRuntime.run( { prompt: 'after clear', env, model: 'gpt-5.5', session } );
+		for await ( const _ of handle );
+
+		expect( constructedAgents ).toHaveLength( 1 );
+		const initialMessages = constructedAgents[ 0 ].state.messages as Array< {
+			role: string;
+			content?: unknown;
+		} >;
+		// Pre-clear text must not be visible to the model.
+		const flat = JSON.stringify( initialMessages );
+		expect( flat ).not.toContain( 'pre-clear question' );
+		expect( flat ).not.toContain( 'pre-clear answer' );
 	} );
 
 	// Silent header-drop would surface as an opaque 401 from the wpcom proxy.

@@ -5,13 +5,13 @@ import {
 	getAiModelLabel,
 	type AiModelId,
 } from '@studio/common/ai/models';
-import { piRuntime } from 'cli/ai/runtimes/pi';
+import { clearAgentForSession, piRuntime } from 'cli/ai/runtimes/pi';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import type { SessionManager } from '@mariozechner/pi-coding-agent';
 import type { AgentRuntimeHandle } from 'cli/ai/runtimes/types';
 import type { SiteInfo } from 'cli/ai/ui';
 
-export { AI_MODELS, DEFAULT_MODEL, getAiModelLabel, type AiModelId };
+export { AI_MODELS, DEFAULT_MODEL, getAiModelLabel, type AiModelId, clearAgentForSession };
 
 export interface AskUserQuestion {
 	question: string;

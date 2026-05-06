@@ -13,11 +13,12 @@ export type TurnOutcomeStatus = TurnCompletedStatus | 'timeout' | 'spawn_error';
 export interface TurnOutcome {
 	status: TurnOutcomeStatus;
 	sessionId?: string;
-	/** `result` field from the SDK result event, or error text assembled from `errors[]`. */
+	/** Last assistant text from the terminal `agent_end`, or the message's
+	 * `errorMessage` when the turn errored without producing text. */
 	replyText?: string;
 	/** Flattened question + options when the turn ends with a paused AskUserQuestion. */
 	questions?: QuestionAsked[];
-	/** True when the underlying SDK result had `is_error: true`. */
+	/** True when the last assistant message's `stopReason` was `error` or `aborted`. */
 	isError: boolean;
 	/** Last ~2KB of stderr output from the child. */
 	stderrTail: string;
@@ -58,38 +59,60 @@ const STALE_SESSION_PATTERNS = [
 	/resume.*session.*(failed|invalid)/i,
 ];
 
-interface SdkResultLike {
+// The CLI now wraps native pi `AgentSessionEvent` payloads inside the
+// `'message'` envelope; `agent_end` is the terminal event carrying the
+// full message tail. Pull the last assistant message's text + error
+// state from there. (The pre-pi-migration shape was a synthetic SDK
+// `result` message — replaced wholesale.)
+interface PiAgentEndEnvelope {
 	type?: unknown;
-	subtype?: unknown;
-	result?: unknown;
-	session_id?: unknown;
-	is_error?: unknown;
-	errors?: unknown;
+	messages?: unknown;
+}
+
+interface PiAssistantContentBlock {
+	type?: unknown;
+	text?: unknown;
 }
 
 function extractResultPayload( event: Extract< JsonEvent, { type: 'message' } > ): {
-	sessionId?: string;
 	replyText?: string;
 	isError: boolean;
 } | null {
-	const wrapped = event.message as SdkResultLike | null | undefined;
-	if ( ! wrapped || typeof wrapped !== 'object' || wrapped.type !== 'result' ) {
+	const wrapped = event.message as PiAgentEndEnvelope | null | undefined;
+	if ( ! wrapped || typeof wrapped !== 'object' || wrapped.type !== 'agent_end' ) {
 		return null;
 	}
-	const isError = wrapped.is_error === true;
-	const sessionId = typeof wrapped.session_id === 'string' ? wrapped.session_id : undefined;
-	let replyText: string | undefined;
-	if ( typeof wrapped.result === 'string' && wrapped.result.length > 0 ) {
-		replyText = wrapped.result;
-	} else if ( isError && Array.isArray( wrapped.errors ) ) {
-		const msgs = ( wrapped.errors as unknown[] )
-			.filter( ( e ): e is string => typeof e === 'string' )
-			.join( '\n' );
-		if ( msgs.length > 0 ) {
-			replyText = msgs;
+	const messages = Array.isArray( wrapped.messages ) ? wrapped.messages : [];
+	let lastAssistant:
+		| { stopReason?: unknown; errorMessage?: unknown; content?: unknown }
+		| undefined;
+	for ( let i = messages.length - 1; i >= 0; i -= 1 ) {
+		const m = messages[ i ] as { role?: unknown };
+		if ( m && m.role === 'assistant' ) {
+			lastAssistant = m as typeof lastAssistant;
+			break;
 		}
 	}
-	return { sessionId, replyText, isError };
+	if ( ! lastAssistant ) {
+		return { isError: false };
+	}
+
+	const isError = lastAssistant.stopReason === 'error' || lastAssistant.stopReason === 'aborted';
+
+	let replyText: string | undefined;
+	if ( Array.isArray( lastAssistant.content ) ) {
+		const text = ( lastAssistant.content as PiAssistantContentBlock[] )
+			.filter( ( b ) => b?.type === 'text' && typeof b.text === 'string' )
+			.map( ( b ) => b.text as string )
+			.join( '\n' )
+			.trim();
+		if ( text.length > 0 ) replyText = text;
+	}
+	if ( ! replyText && typeof lastAssistant.errorMessage === 'string' ) {
+		const trimmed = lastAssistant.errorMessage.trim();
+		if ( trimmed.length > 0 ) replyText = trimmed;
+	}
+	return { replyText, isError };
 }
 
 function parseEvent( line: string ): JsonEvent | null {
@@ -221,17 +244,13 @@ export async function runTurn( options: TurnRunOptions ): Promise< TurnOutcome >
 		if ( event.type === 'message' ) {
 			const extracted = extractResultPayload( event );
 			if ( extracted ) {
-				if ( extracted.sessionId ) {
-					capturedSessionId = extracted.sessionId;
-				}
 				if ( extracted.replyText ) {
 					replyText = extracted.replyText;
 					logger?.event( extracted.isError ? 'reply.error' : 'reply', extracted.replyText );
 				}
 				isError = isError || extracted.isError;
-				logger?.debug( 'Event: message/result', {
+				logger?.debug( 'Event: message/agent_end', {
 					...logContext,
-					session_id: extracted.sessionId,
 					is_error: extracted.isError,
 					result_chars: extracted.replyText?.length ?? 0,
 				} );

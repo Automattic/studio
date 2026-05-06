@@ -1,8 +1,8 @@
-import { Agent } from '@mariozechner/pi-agent-core';
+import { Agent, type AgentMessage } from '@mariozechner/pi-agent-core';
 import { SessionManager } from '@mariozechner/pi-coding-agent';
 import { describe, expect, it, vi } from 'vitest';
 import { runCompaction, shouldCompact, STUDIO_COMPACTION_SETTINGS } from '../auto-compaction';
-import type { AssistantMessage, Message, Model } from '@mariozechner/pi-ai';
+import type { AssistantMessage, Model } from '@mariozechner/pi-ai';
 import type { CompactionSettings } from '@mariozechner/pi-coding-agent';
 
 const generateSummaryMock = vi.fn< ( ...args: unknown[] ) => Promise< string > >();
@@ -54,7 +54,7 @@ function assistantMessage( overrides: Partial< AssistantMessage > = {} ): Assist
 	};
 }
 
-function buildAgent( messages: Message[] = [] ): Agent {
+function buildAgent( messages: AgentMessage[] = [] ): Agent {
 	return new Agent( {
 		initialState: {
 			model: buildModel(),

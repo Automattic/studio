@@ -1,7 +1,13 @@
 import { buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, sprintf } from '@wordpress/i18n';
-import { DEFAULT_MODEL, startAiAgent, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
+import {
+	clearAgentForSession,
+	DEFAULT_MODEL,
+	startAiAgent,
+	type AiModelId,
+	type AskUserQuestion,
+} from 'cli/ai/agent';
 import {
 	getAvailableAiProviders,
 	isAiProviderReady,
@@ -80,7 +86,6 @@ export async function runCommand( options: {
 	initialDisplayMessage?: string;
 	resumeSession?: LoadedAiSession;
 	resumeSessionId?: string;
-	noSessionPersistence?: boolean;
 	showLegacyCommandNotice?: boolean;
 	activeSite?: {
 		name: string;
@@ -117,79 +122,46 @@ export async function runCommand( options: {
 	}
 
 	let session: SessionManager | undefined;
-	let didDisableSessionPersistence = options.noSessionPersistence === true;
 
-	if ( options.noSessionPersistence ) {
-		ui.showInfo( __( 'Session persistence disabled (--no-session-persistence).' ) );
-	}
-
-	const ensureSession = async (): Promise< SessionManager | undefined > => {
-		if ( didDisableSessionPersistence ) return undefined;
+	const ensureSession = async (): Promise< SessionManager > => {
 		if ( session ) return session;
 
-		try {
-			if ( options.resumeSession ) {
-				session = await openStudioSession( options.resumeSession.summary.filePath );
-			} else if ( options.resumeSessionId ) {
-				const files = await listStudioSessionFiles( getAiSessionsRootDirectory() );
-				let match: string | undefined;
-				for ( const file of files ) {
-					try {
-						const sm = await openStudioSession( file );
-						if ( sm.getSessionId() === options.resumeSessionId ) {
-							session = sm;
-							match = file;
-							break;
-						}
-					} catch {
-						// Skip unreadable files.
+		if ( options.resumeSession ) {
+			session = await openStudioSession( options.resumeSession.summary.filePath );
+		} else if ( options.resumeSessionId ) {
+			const files = await listStudioSessionFiles( getAiSessionsRootDirectory() );
+			let match: string | undefined;
+			for ( const file of files ) {
+				try {
+					const sm = await openStudioSession( file );
+					if ( sm.getSessionId() === options.resumeSessionId ) {
+						session = sm;
+						match = file;
+						break;
 					}
+				} catch {
+					// Skip unreadable files.
 				}
-				if ( ! match ) {
-					throw new Error(
-						sprintf(
-							/* translators: %s: agent session ID */
-							__( 'No AI session found for resume ID: %s' ),
-							options.resumeSessionId
-						)
-					);
-				}
-			} else {
-				session = await createStudioSession();
 			}
-		} catch ( error ) {
-			didDisableSessionPersistence = true;
-			ui.showError(
-				sprintf(
-					/* translators: %s: error message */
-					__( 'Session persistence disabled: %s' ),
-					getErrorMessage( error )
-				)
-			);
-			return undefined;
+			if ( ! match ) {
+				throw new Error(
+					sprintf(
+						/* translators: %s: agent session ID */
+						__( 'No AI session found for resume ID: %s' ),
+						options.resumeSessionId
+					)
+				);
+			}
+		} else {
+			session = await createStudioSession();
 		}
 
-		return session;
+		return session!;
 	};
 
 	const append = async ( fn: ( sm: SessionManager ) => void ): Promise< void > => {
 		const sm = await ensureSession();
-		if ( ! sm ) return;
-		try {
-			fn( sm );
-		} catch ( error ) {
-			session = undefined;
-			if ( ! didDisableSessionPersistence ) {
-				didDisableSessionPersistence = true;
-				ui.showError(
-					sprintf(
-						/* translators: %s: error message */
-						__( 'Session persistence disabled: %s' ),
-						getErrorMessage( error )
-					)
-				);
-			}
-		}
+		fn( sm );
 	};
 
 	if ( ui instanceof JsonAdapter ) {
@@ -445,9 +417,6 @@ export async function runCommand( options: {
 	): Promise< { status: TurnStatus } > {
 		await maybeAutoSwitchProvider();
 		const sm = await ensureSession();
-		if ( ! sm ) {
-			throw new Error( 'AI agent requires a session — persistence is disabled.' );
-		}
 		const env = await resolveAiEnvironment( currentProvider, {
 			sessionId: sm.getSessionId(),
 		} );
@@ -657,6 +626,11 @@ export async function runCommand( options: {
 			ui.showWelcome();
 			ui.showInfo( __( 'Conversation cleared' ) );
 			await append( ( sm ) => appendStudioEntry( sm, 'studio.session_cleared', {} ) );
+			// Drop the cached Agent so the next turn rebuilds from the
+			// post-clear branch — otherwise `agent.state.messages` keeps
+			// showing the model the pre-clear transcript.
+			const sm = await ensureSession();
+			clearAgentForSession( sm.getSessionId() );
 			await persistSessionContext();
 			const site = ui.activeSite;
 			if ( site ) {
@@ -761,11 +735,6 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'string',
 					hidden: true,
 					description: __( 'JSON-encoded permission response for a paused session' ),
-				} )
-				.option( 'session-persistence', {
-					type: 'boolean',
-					default: true,
-					description: __( 'Record this code session to disk' ),
 				} );
 
 			// `--message-from-stdin` is the headless turn entry point used by the
@@ -793,14 +762,12 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				const typedArgv = argv as {
 					message?: string;
 					json?: boolean;
-					sessionPersistence?: boolean;
 					resumeSession?: string;
 					permissionResponse?: string;
 					siteName?: string;
 					messageFromStdin?: boolean;
 				};
 
-				const noSessionPersistence = typedArgv.sessionPersistence === false;
 				const adapter: AiOutputAdapter = typedArgv.json ? new JsonAdapter() : new AiChatUI();
 
 				let initialMessage = typedArgv.message;
@@ -836,7 +803,6 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					adapter,
 					initialMessage,
 					resumeSessionId: typedArgv.resumeSession,
-					noSessionPersistence,
 					showLegacyCommandNotice: argv._[ 0 ] === 'ai',
 					activeSite,
 				} );

@@ -1331,7 +1331,6 @@ export class AiChatUI implements AiOutputAdapter {
 	}
 
 	waitForInput(): Promise< string > {
-		this.editor.setText( '' );
 		this.hideLoader();
 		this.showEditor();
 		if ( this.queuedPrompts.length > 0 ) {
@@ -1459,7 +1458,6 @@ export class AiChatUI implements AiOutputAdapter {
 	 * Begin an agent turn: hide editor, show loader, prepare response area.
 	 */
 	beginAgentTurn(): void {
-		this.editor.setText( '' );
 		this._inAgentTurn = true;
 		this.updateHints();
 		this.showLoader( randomThinkingMessage() );

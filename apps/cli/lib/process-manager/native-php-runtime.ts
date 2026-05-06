@@ -1,5 +1,6 @@
 import { ChildProcess, spawn } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import readline from 'node:readline';
 import { format } from 'node:util';
@@ -11,7 +12,6 @@ import {
 	NativePhpSupportedVersion,
 	validateNativePhpVersion,
 } from '@studio/common/lib/php-binary-metadata';
-import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import {
 	getBlueprintsPharPath,
 	getPhpBinaryPath,
@@ -45,13 +45,39 @@ type NativePhpRuntimeEvents = {
 	onPhpProcessSpawn?: ( child: ChildProcess ) => void;
 };
 
-function getDefaultPhpArgs( siteId?: string ): string[] {
+// Process-scoped opcache dir, created lazily and removed when the daemon exits.
+// Scoping to the daemon process means we never need cleanup logic for stale
+// caches; the trade-off is a cold compile on the first request after each
+// daemon launch.
+let opcacheRootDir: string | null = null;
+
+function getOpcacheRootDir(): string {
+	if ( opcacheRootDir ) {
+		return opcacheRootDir;
+	}
+
+	opcacheRootDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-opcache-' ) );
+	const dirToClean = opcacheRootDir;
+	process.once( 'exit', () => {
+		try {
+			fs.rmSync( dirToClean, { recursive: true, force: true } );
+		} catch {
+			// Best effort. The OS will reap tmp eventually.
+		}
+	} );
+	return opcacheRootDir;
+}
+
+function getDefaultPhpArgs( phpVersion: NativePhpSupportedVersion, siteId?: string ): string[] {
 	if ( process.platform !== 'win32' || ! siteId ) {
 		return [];
 	}
 
-	const cacheId = siteId.replace( /[^A-Za-z0-9_.-]/g, '-' );
-	const cacheDirectory = path.join( getConfigDirectory(), 'php-bin', 'opcache', cacheId );
+	// Partition the file_cache by PHP version: opcache's on-disk script blob
+	// format isn't stable across minor versions, and reusing a cache populated
+	// by a different PHP can crash the server at startup on Windows.
+	const cacheId = `${ siteId.replace( /[^A-Za-z0-9_.-]/g, '-' ) }-php${ phpVersion }`;
+	const cacheDirectory = path.join( getOpcacheRootDir(), cacheId );
 	fs.mkdirSync( cacheDirectory, { recursive: true } );
 
 	return [
@@ -104,7 +130,7 @@ export class NativePhpRuntime {
 		args: string[],
 		{ phpVersion, cwd, signal, mode = 'pipe', opcacheSiteId }: SpawnPhpProcessOptions
 	): ChildProcess {
-		const defaultArgs = getDefaultPhpArgs( opcacheSiteId );
+		const defaultArgs = getDefaultPhpArgs( phpVersion, opcacheSiteId );
 		const phpArgs = [ ...defaultArgs, ...args ];
 		const phpScriptProcess = spawn( getPhpBinaryPath( phpVersion ), phpArgs, {
 			cwd,

@@ -62,7 +62,6 @@ export class ManagedProcessWordPressNativePhp extends ManagedProcessBase {
 	}
 
 	async start(): Promise< void > {
-		this.currentPid = process.pid;
 		this.currentStatus = 'online';
 		await this.emitEvent( { event: 'online' } );
 		await this.emitMessage( { topic: 'ready' } );
@@ -180,6 +179,7 @@ export class ManagedProcessWordPressNativePhp extends ManagedProcessBase {
 				.startServer( config, stopSignal )
 				.then( ( serverProcess ) => {
 					this.serverProcess = serverProcess;
+					this.currentPid = serverProcess.pid;
 					this.attachServerExitHandler( serverProcess );
 				} )
 				.catch( async ( error ) => {

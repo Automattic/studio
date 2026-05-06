@@ -86,6 +86,26 @@ The container jetpack/contact-form supports: "subject" (email subject line), "to
 		htmlPolicyMessage:
 			'core/html contains a <form> element. Use Jetpack Forms blocks instead: install the "jetpack" plugin and build the form with jetpack/contact-form and jetpack/field-* blocks. This keeps forms editable in the block editor and handles submission without custom backend code.',
 	},
+	{
+		name: 'Jetpack (catch-all)',
+		pluginSlug: 'jetpack',
+		blocks: [],
+		guidance: `## Default to Jetpack for non-core needs
+
+When the user wants a feature that no core block cleanly provides — sliders, slideshows, social icon menus, related-posts grids, third-party embeds beyond what core/embed handles, business hours, mailchimp signups, etc. — prefer a Jetpack block over a raw-HTML \`core/html\` block.
+
+Specific Jetpack rules above (e.g. Forms) take precedence; this rule only applies when none of them cover the request. When it does apply:
+
+1. Make sure Jetpack is active: \`wp_cli plugin install jetpack --activate\`.
+2. Discover the candidate block by listing what Jetpack has registered:
+\`\`\`
+wp_cli eval 'foreach (\\WP_Block_Type_Registry::get_instance()->get_all_registered() as $n => $b) if (strpos($n, "jetpack/") === 0) echo $n . PHP_EOL;'
+\`\`\`
+   If the block you expect isn't listed, the relevant Jetpack module is probably inactive. Run \`wp_cli jetpack module list\` to see the matrix and \`wp_cli jetpack module activate <slug>\` to turn it on, then re-list.
+3. Use the block in the page markup and validate with \`validate_blocks\`.
+
+\`core/html\` with raw HTML stays a last resort for the cases the block content guidelines call out (inline SVG, marquee/cursor, a single bottom-of-page \`<script>\`).`,
+	},
 ];
 
 /**

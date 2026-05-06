@@ -36,7 +36,7 @@ export const PLUGIN_RECOMMENDATIONS: PluginRecommendation[] = [
 			'jetpack/field-checkbox-multiple',
 			'jetpack/field-radio',
 			'jetpack/field-select',
-			'jetpack/button',
+			'core/button',
 		],
 		guidance: `## Forms
 
@@ -54,7 +54,7 @@ Then build the form with blocks:
 <!-- wp:jetpack/field-name {"label":"Your name","required":true} /-->
 <!-- wp:jetpack/field-email {"label":"Email address","required":true} /-->
 <!-- wp:jetpack/field-textarea {"label":"Message","required":true} /-->
-<!-- wp:jetpack/button {"text":"Send message","lock":{"move":false,"remove":false}} /-->
+<!-- wp:core/button {"text":"Send message"} /-->
 <!-- /wp:jetpack/contact-form -->
 \`\`\`
 

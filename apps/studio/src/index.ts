@@ -46,7 +46,6 @@ import {
 	startCliEventsSubscriber,
 	stopCliEventsSubscriber,
 } from 'src/modules/cli/lib/cli-events-subscriber';
-import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { autoInstallLinuxCliIfNeeded } from 'src/modules/cli/lib/linux-installation-manager';
 import { autoInstallMacOSCliIfNeeded } from 'src/modules/cli/lib/macos-installation-manager';
 import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
@@ -444,7 +443,6 @@ async function appBoot() {
 
 			void ( async () => {
 				const userData = await loadUserData();
-				const isCliInstalled = await isStudioCliInstalled();
 
 				if ( userData.stopSitesOnQuit !== undefined ) {
 					shouldStopSitesOnQuit = userData.stopSitesOnQuit;
@@ -453,13 +451,14 @@ async function appBoot() {
 					return;
 				}
 
-				if ( ! isCliInstalled || process.env.E2E ) {
+				if ( process.env.E2E ) {
 					isQuittingConfirmed = true;
 					app.quit();
 					return;
 				}
 
 				const STOP_SITES_BUTTON_INDEX = 0;
+				const LEAVE_RUNNING_BUTTON_INDEX = 1;
 				const CANCEL_BUTTON_INDEX = 2;
 
 				const { response, checkboxChecked } = await dialog.showMessageBox( {
@@ -476,7 +475,7 @@ async function appBoot() {
 					buttons: [ __( 'Stop sites' ), __( 'Leave running' ), __( 'Cancel' ) ],
 					checkboxLabel: __( "Don't ask again" ),
 					cancelId: CANCEL_BUTTON_INDEX,
-					defaultId: STOP_SITES_BUTTON_INDEX,
+					defaultId: LEAVE_RUNNING_BUTTON_INDEX,
 				} );
 
 				if ( response === CANCEL_BUTTON_INDEX ) {

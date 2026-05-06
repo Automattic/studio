@@ -15,6 +15,7 @@ import { previewReloadTool } from './preview-reload';
 import { pullSiteTool } from './pull-site';
 import { pushSiteTool } from './push-site';
 import { auditSeoTool } from './rank-me-up';
+import { scaffoldThemeTool } from './scaffold-theme';
 import { shareScreenshotTool } from './share-screenshot';
 import { getSiteInfoTool } from './site-info';
 import { startSiteTool } from './start-site';
@@ -44,6 +45,7 @@ export const studioToolDefinitions = [
 	updatePreviewTool,
 	deletePreviewTool,
 	runWpCliTool,
+	scaffoldThemeTool,
 	validateBlocksTool,
 	takeScreenshotTool,
 	shareScreenshotTool,

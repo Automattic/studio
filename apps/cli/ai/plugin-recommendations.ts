@@ -3,8 +3,8 @@ export interface PluginRecommendation {
 	name: string;
 	/** WP-CLI installable slug (e.g. "jetpack"). */
 	pluginSlug: string;
-	/** Block names made available after activation. */
-	blocks: string[];
+	/** Block names made available after activation. Omit when blocks are discovered at runtime rather than enumerated. */
+	blocks?: string[];
 	/**
 	 * Instruction injected into the system prompt.
 	 * Explain when to use this plugin and how to use its blocks.
@@ -87,9 +87,8 @@ The container jetpack/contact-form supports: "subject" (email subject line), "to
 			'core/html contains a <form> element. Use Jetpack Forms blocks instead: install the "jetpack" plugin and build the form with jetpack/contact-form and jetpack/field-* blocks. This keeps forms editable in the block editor and handles submission without custom backend code.',
 	},
 	{
-		name: 'Jetpack (catch-all)',
+		name: 'Jetpack (general)',
 		pluginSlug: 'jetpack',
-		blocks: [],
 		guidance: `## Default to Jetpack for non-core needs
 
 When the user wants a feature that no core block cleanly provides — slideshows, related-posts grids, business hours, mailchimp signups, etc. — prefer a Jetpack block over a raw-HTML \`core/html\` block.

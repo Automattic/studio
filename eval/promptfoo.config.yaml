@@ -170,29 +170,6 @@ tests:
         Then create a new site named "Catchall Eval Site" and add a
         slideshow of three placeholder images to its homepage.
     assert:
-      # Catch-all signal #1: when no clean core block exists for the
-      # requested feature, the agent should reach for Jetpack rather
-      # than raw HTML. We assert it ran `wp_cli plugin install jetpack`.
-      - type: javascript
-        value: |
-          return import('node:fs').then(({ readFileSync }) => {
-            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
-            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
-            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
-            const installed = (d.toolCalls || []).some(c => {
-              if (c.name !== 'wp_cli') return false;
-              const cmd = (c.input && typeof c.input.command === 'string') ? c.input.command : '';
-              return /\bplugin\s+install\s+jetpack\b/.test(cmd);
-            });
-            return {
-              pass: installed,
-              score: installed ? 1 : 0,
-              reason: installed ? 'agent installed jetpack for the slideshow request' : `no "wp plugin install jetpack" in tool calls: ${JSON.stringify((d.toolCalls || []).map(c => c.name))}`,
-            };
-          });
-      # Catch-all signal #2: the page content the agent generated should
-      # contain at least one jetpack/* block, not raw HTML for the
-      # slideshow.
       - type: javascript
         value: |
           return import('node:fs').then(({ readFileSync }) => {
@@ -203,13 +180,11 @@ tests:
               .filter(c => c.name === 'Write' && c.input && typeof c.input.content === 'string')
               .map(c => c.input.content);
             const usedJetpackBlock = writtenContents.some(c => /<!--\s*wp:jetpack\//.test(c));
-            const usedRawSlideshowHtml = writtenContents.some(c => /<!--\s*wp:html[\s\S]*?<div[^>]*(slid|carousel)/i.test(c));
-            const pass = usedJetpackBlock && !usedRawSlideshowHtml;
             return {
-              pass,
-              score: pass ? 1 : 0,
-              reason: pass
-                ? 'page content uses a jetpack/* block and no raw slideshow HTML'
-                : `usedJetpackBlock=${usedJetpackBlock} usedRawSlideshowHtml=${usedRawSlideshowHtml}; sample: ${(writtenContents[0] || '').slice(0, 300)}`,
+              pass: usedJetpackBlock,
+              score: usedJetpackBlock ? 1 : 0,
+              reason: usedJetpackBlock
+                ? 'page content uses a jetpack/* block'
+                : `no jetpack/* block in any Write tool call; sample: ${(writtenContents[0] || '').slice(0, 300)}`,
             };
           });

@@ -1,0 +1,189 @@
+name: Build PHP CLI Binaries
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/build-php-cli-binaries.yml
+  workflow_dispatch:
+    inputs:
+      php_version:
+        description: PHP patch version to build
+        required: true
+        default: 8.4.20
+      spc_ref:
+        description: static-php-cli ref
+        required: true
+        default: 2.8.5
+      prefer_pre_built:
+        description: Prefer pre-built static-php-cli libraries
+        required: true
+        type: boolean
+        default: true
+      debug:
+        description: Enable static-php-cli debug logs
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: macos-aarch64
+            runner: macos-15
+            artifact_platform: macos
+            artifact_arch: aarch64
+            archive_extension: tar.gz
+            binary_name: php
+            extensions: apcu,bcmath,calendar,ctype,curl,dba,dom,exif,fileinfo,filter,ftp,gd,gettext,iconv,igbinary,imagick,intl,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pcntl,pdo,pdo_mysql,pdo_sqlite,phar,posix,readline,redis,session,shmop,simplexml,sockets,sodium,sqlite3,ssh2,tokenizer,xml,xmlreader,xmlwriter,xsl,yaml,zip,zlib
+          - target: macos-x86_64
+            runner: macos-15-intel
+            artifact_platform: macos
+            artifact_arch: x86_64
+            archive_extension: tar.gz
+            binary_name: php
+            extensions: apcu,bcmath,calendar,ctype,curl,dba,dom,exif,fileinfo,filter,ftp,gd,gettext,iconv,igbinary,imagick,intl,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pcntl,pdo,pdo_mysql,pdo_sqlite,phar,posix,readline,redis,session,shmop,simplexml,sockets,sodium,sqlite3,ssh2,tokenizer,xml,xmlreader,xmlwriter,xsl,yaml,zip,zlib
+          - target: windows-x86_64
+            runner: windows-latest
+            artifact_platform: windows
+            artifact_arch: x86_64
+            archive_extension: zip
+            binary_name: php.exe
+            extensions: apcu,bcmath,calendar,ctype,curl,dba,dom,exif,fileinfo,filter,ftp,gd,iconv,igbinary,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pdo,pdo_mysql,pdo_sqlite,phar,redis,session,shmop,simplexml,sockets,sqlite3,ssh2,tokenizer,xml,xmlreader,xmlwriter,yaml,zip,zlib
+    env:
+      PHP_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.php_version || '8.4.20' }}
+      SPC_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.spc_ref || '2.8.5' }}
+      PHP_CLI_EXTENSIONS: ${{ matrix.extensions }}
+      PHP_CLI_ARTIFACT_PLATFORM: ${{ matrix.artifact_platform }}
+      PHP_CLI_ARTIFACT_ARCH: ${{ matrix.artifact_arch }}
+      PHP_CLI_ARCHIVE_EXTENSION: ${{ matrix.archive_extension }}
+      PHP_CLI_BINARY_NAME: ${{ matrix.binary_name }}
+      PREFER_PRE_BUILT: ${{ github.event_name != 'workflow_dispatch' || inputs.prefer_pre_built }}
+      SPC_DEBUG: ${{ github.event_name == 'workflow_dispatch' && inputs.debug || false }}
+
+    steps:
+      - name: Checkout Studio
+        uses: actions/checkout@v4
+
+      - name: Checkout static-php-cli
+        uses: actions/checkout@v4
+        with:
+          repository: crazywhalecc/static-php-cli
+          ref: ${{ env.SPC_REF }}
+          path: .cache/static-php-cli
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          coverage: none
+          tools: composer:v2
+          php-version: 8.4
+          ini-values: memory_limit=-1
+          extensions: curl, openssl, mbstring
+        env:
+          phpts: nts
+
+      - name: Install static-php-cli dependencies
+        working-directory: .cache/static-php-cli
+        run: composer install --no-dev --no-interaction --prefer-dist --classmap-authoritative
+
+      - name: Build PHP CLI on macOS
+        if: runner.os == 'macOS'
+        working-directory: .cache/static-php-cli
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          download_args=(--with-php="$PHP_VERSION" --for-extensions="$PHP_CLI_EXTENSIONS" --ignore-cache-sources=php-src)
+          build_args=("$PHP_CLI_EXTENSIONS" --build-cli)
+
+          if [ "$PREFER_PRE_BUILT" = "true" ]; then
+            download_args+=(--prefer-pre-built)
+          fi
+
+          if [ "$SPC_DEBUG" = "true" ]; then
+            download_args+=(--debug)
+            build_args+=(--debug)
+          fi
+
+          php bin/spc doctor --auto-fix
+          php bin/spc download "${download_args[@]}"
+          php bin/spc build "${build_args[@]}"
+
+      - name: Build PHP CLI on Windows
+        if: runner.os == 'Windows'
+        working-directory: .cache/static-php-cli
+        shell: pwsh
+        run: |
+          $downloadArgs = @(
+            "--with-php=$env:PHP_VERSION",
+            "--for-extensions=$env:PHP_CLI_EXTENSIONS",
+            "--ignore-cache-sources=php-src"
+          )
+          $buildArgs = @( $env:PHP_CLI_EXTENSIONS, "--build-cli" )
+
+          if ( $env:PREFER_PRE_BUILT -eq "true" ) {
+            $downloadArgs += "--prefer-pre-built"
+          }
+
+          if ( $env:SPC_DEBUG -eq "true" ) {
+            $downloadArgs += "--debug"
+            $buildArgs += "--debug"
+          }
+
+          php bin/spc doctor --auto-fix
+          php bin/spc download @downloadArgs
+          php bin/spc build @buildArgs
+
+      - name: Package macOS artifact
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          out_dir="$GITHUB_WORKSPACE/out/php-binaries"
+          artifact="php-${PHP_VERSION}-cli-${PHP_CLI_ARTIFACT_PLATFORM}-${PHP_CLI_ARTIFACT_ARCH}.${PHP_CLI_ARCHIVE_EXTENSION}"
+
+          mkdir -p "$out_dir"
+          cp "$GITHUB_WORKSPACE/.cache/static-php-cli/buildroot/bin/$PHP_CLI_BINARY_NAME" "$RUNNER_TEMP/php"
+          chmod +x "$RUNNER_TEMP/php"
+          xattr -cr "$RUNNER_TEMP/php"
+          tar -czf "$out_dir/$artifact" -C "$RUNNER_TEMP" php
+          shasum -a 256 "$out_dir/$artifact" | awk '{print $1}' > "$out_dir/$artifact.sha256"
+
+      - name: Package Windows artifact
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $outDir = Join-Path $env:GITHUB_WORKSPACE 'out/php-binaries'
+          $artifact = "php-$env:PHP_VERSION-cli-$env:PHP_CLI_ARTIFACT_PLATFORM-$env:PHP_CLI_ARTIFACT_ARCH.$env:PHP_CLI_ARCHIVE_EXTENSION"
+          $source = Join-Path $env:GITHUB_WORKSPACE ".cache/static-php-cli/buildroot/bin/$env:PHP_CLI_BINARY_NAME"
+          $dest = Join-Path $env:RUNNER_TEMP $env:PHP_CLI_BINARY_NAME
+          $archive = Join-Path $outDir $artifact
+
+          New-Item -ItemType Directory -Force $outDir | Out-Null
+          Copy-Item -Force $source $dest
+          Compress-Archive -Force -Path $dest -DestinationPath $archive
+          (Get-FileHash $archive -Algorithm SHA256).Hash.ToLower() | Set-Content -NoNewline "$archive.sha256"
+
+      - name: Upload PHP CLI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: php-${{ inputs.php_version }}-cli-${{ matrix.target }}
+          path: out/php-binaries/*
+
+      - name: Upload static-php-cli logs
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: spc-logs-${{ matrix.target }}
+          path: .cache/static-php-cli/log/*.log
+          if-no-files-found: ignore

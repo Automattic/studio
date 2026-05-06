@@ -71,27 +71,6 @@ steps:
       - github_commit_status:
           context: Performance Metrics
 
-  - label: ":elephant: Build PHP CLI {{matrix.platform}}-{{matrix.arch}}"
-    key: php-cli-binaries
-    agents:
-      queue: "{{matrix.platform}}"
-    command: npm run php-cli:build -- "{{matrix.platform}}" "{{matrix.arch}}"
-    artifact_paths:
-      - out/php-binaries/*
-    plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
-    if_changed:
-      - scripts/build-php-cli.mjs
-      - scripts/php-cli.craft.yml
-      - scripts/php-cli.windows.craft.yml
-    matrix:
-      setup: { platform: [], arch: [] }
-      adjustments:
-        - with: { platform: mac, arch: arm64 }
-        - with: { platform: windows, arch: x64 }
-    notify:
-      - github_commit_status:
-          context: Build PHP CLI
-
   - input: "🚦 Build for Mac?"
     prompt: "Do you want to build Mac dev binaries for this PR?"
     key: input-dev-mac

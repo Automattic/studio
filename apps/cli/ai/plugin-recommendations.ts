@@ -70,7 +70,7 @@ The container jetpack/contact-form supports: "subject" (email subject line), "to
 		name: 'WooCommerce',
 		pluginSlug: 'woocommerce',
 		blocks: [
-			'woocommerce/product-grid',
+			'woocommerce/product-collection',
 			'woocommerce/all-products',
 			'woocommerce/featured-product',
 			'woocommerce/featured-category',
@@ -92,7 +92,7 @@ wp_cli plugin install woocommerce --activate
 
 Then build shop pages using WooCommerce blocks:
 
-- **Product grid / shop page**: \`woocommerce/product-grid\` or \`woocommerce/all-products\`
+- **Product grid / shop page**: \`woocommerce/product-collection\` (modern, filter-aware) or \`woocommerce/all-products\` (legacy)
 - **Featured product highlight**: \`woocommerce/featured-product\` (requires a product ID)
 - **Cart page**: \`woocommerce/cart\`
 - **Checkout page**: \`woocommerce/checkout\`

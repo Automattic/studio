@@ -18,12 +18,13 @@ describe( 'HTML block content policy', () => {
 		).toEqual( [] );
 	} );
 
-	it( 'allows form markup', () => {
-		expect(
-			getHtmlBlockPolicyIssues(
-				'<!-- wp:html --><form><label>Email<input type="email" /></label></form><!-- /wp:html -->'
-			)
-		).toEqual( [] );
+	it( 'flags form markup with a Jetpack-specific message', () => {
+		const issues = getHtmlBlockPolicyIssues(
+			'<!-- wp:html --><form><label>Email<input type="email" /></label></form><!-- /wp:html -->'
+		);
+
+		expect( issues ).toHaveLength( 1 );
+		expect( issues[ 0 ] ).toContain( 'Jetpack Forms' );
 	} );
 
 	it( 'flags layout and text markup that should use core blocks', () => {

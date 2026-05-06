@@ -1,3 +1,5 @@
+import { buildPluginRecommendationsSection } from './plugin-recommendations';
+
 interface RemoteSiteContext {
 	name: string;
 	url: string;
@@ -32,7 +34,7 @@ ${ REMOTE_DESIGN_GUIDELINES }${ remoteSessionAddendum }
 
 	return `${ buildLocalIntro( { previewSteering: options?.previewSteering ?? false } ) }
 
-${ LOCAL_CONTENT_GUIDELINES }
+${ buildLocalContentGuidelines() }
 
 ${ LOCAL_DESIGN_GUIDELINES }${ remoteSessionAddendum }
 `;
@@ -244,14 +246,15 @@ const REMOTE_DESIGN_GUIDELINES = `## Design capabilities by plan
 - Custom CSS, global styles, plugin management, and advanced customization become available.
 - Check the specific plan to determine exact capabilities.`;
 
-const LOCAL_CONTENT_GUIDELINES = `## Block content guidelines
+// Evaluated lazily so unit tests that stub PLUGIN_RECOMMENDATIONS still work.
+function buildLocalContentGuidelines(): string {
+	return `## Block content guidelines
 
 - Only use \`core/html\` blocks for:
 	- Inline SVGs
-	- \`<form>\` elements and interactive inputs
 	- Animation/interaction markup with no block equivalent (marquee, cursor)
 	- A single \`<script>\` block at the bottom of the page for JS
-- Never use \`core/html\` to wrap text content, headings, layout sections, or lists.
+- Never use \`core/html\` to wrap text content, headings, layout sections, lists, or forms.
 - No decorative HTML comments (e.g. \`<!-- Hero Section -->\`, \`<!-- Features -->\`). Only block delimiter comments are allowed.
 - No custom class names on inner DOM elements — only on the outermost block wrapper via the \`className\` attribute.
 - No inline \`style\` or \`style\` block attributes for styling. Use \`className\` + \`style.css\` instead.
@@ -268,7 +271,10 @@ To break out of the content width, use these three patterns:
 - **Full-bleed section, full-bleed inner** (image grids, edge-to-edge galleries): outer AND inner \`core/group {"align":"full","layout":{"type":"default"}}\`. Children render at full viewport width.
 - **Standard constrained content**: omit \`align\` entirely and write blocks normally.
 
-The single most common failure is "I made a hero full-width but its inner content is narrow" — that's a missing \`align: "full"\` on the outer group or a mismatched inner \`layout\` type. Fix in markup, not in CSS.`;
+The single most common failure is "I made a hero full-width but its inner content is narrow" — that's a missing \`align: "full"\` on the outer group or a mismatched inner \`layout\` type. Fix in markup, not in CSS.
+
+${ buildPluginRecommendationsSection() }`;
+}
 
 const LOCAL_DESIGN_GUIDELINES = `## Design guidelines
 

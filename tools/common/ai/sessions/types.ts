@@ -110,13 +110,10 @@ export interface AiSessionSummary {
 
 export interface LoadedAiSession {
 	summary: AiSessionSummary;
-	// Pi-format session entries (the post-migration shape). Phase 2 of the
-	// pi-session adoption replaces the legacy `events: AiSessionEvent[]` here;
-	// the renderer reads pi entries via the structural `SessionEntryBase`
-	// guard interface in `entry-types.ts`.
-	entries: import('./entry-types').SessionEntryBase[];
-	// Backward-compat alias for in-flight code paths that still iterate the
-	// legacy event stream (apps/ui renderer + summary helpers). Removed once
-	// those callers move to `entries`.
+	// On disk the session is pi-coding-agent's `SessionEntry`-based JSONL
+	// (with Studio metadata as `studio.*` `CustomEntry` payloads). The store
+	// translates that back to this legacy `AiSessionEvent[]` view for
+	// summary / filter / renderer consumption — `events` remains the
+	// canonical in-memory shape across the codebase.
 	events: AiSessionEvent[];
 }

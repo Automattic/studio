@@ -10,10 +10,10 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { SessionManager } from '@mariozechner/pi-coding-agent';
+import { migrateLegacyFileInPlace } from '@studio/common/ai/sessions/migration';
 import { getAiSessionsDirectoryForDate } from '@studio/common/ai/sessions/paths';
 import { getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
-import { migrateLegacyFileInPlace } from './legacy-migration';
 
 export interface CreateStudioSessionOptions {
 	startedAt?: Date;
@@ -33,7 +33,7 @@ export async function createStudioSession(
 // Open an existing session file. Runs the Studio-legacy → pi-format
 // rewrite if the file is still in the recorder's pre-pi shape.
 export async function openStudioSession( filePath: string ): Promise< SessionManager > {
-	await migrateLegacyFileInPlace( filePath );
+	await migrateLegacyFileInPlace( filePath, STUDIO_SITES_ROOT );
 	const sessionDir = path.dirname( filePath );
 	return SessionManager.open( filePath, sessionDir, STUDIO_SITES_ROOT );
 }

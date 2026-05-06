@@ -2,27 +2,49 @@ import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
 import { buildAiSessionFileName } from './file-naming';
+import {
+	detectSessionFormat,
+	migrateLegacyEvents,
+	migrateLegacyFileInPlace,
+	type PiFileEntry,
+} from './migration';
 import { getAiSessionsDirectoryForDate } from './paths';
+import { legacyEventToPiEntries, piEntriesToLegacyEvents } from './pi-translation';
 import { readAiSessionSummaryFromEvents } from './summary';
 import type { AiSessionEvent, AiSessionSummary, LoadedAiSession } from './types';
 
-export async function readAiSessionEventsFromFile( filePath: string ): Promise< AiSessionEvent[] > {
-	const content = await fs.readFile( filePath, 'utf8' );
-	const lines = content
-		.split( '\n' )
-		.map( ( line ) => line.trim() )
-		.filter( ( line ) => line.length > 0 );
-	const events: AiSessionEvent[] = [];
+// Working directory recorded in pi session headers. The CLI uses
+// `STUDIO_SITES_ROOT` for live runs; for sessions created via apps/studio's
+// IPC layer (which has no sites root concept) we fall back to a generic
+// label that pi just stores verbatim and never interprets.
+const PI_SESSION_CWD = '~/Studio';
 
-	for ( const line of lines ) {
+async function readJsonlEntries< T = Record< string, unknown > >(
+	filePath: string
+): Promise< T[] > {
+	const content = await fs.readFile( filePath, 'utf8' );
+	const out: T[] = [];
+	for ( const line of content.split( '\n' ) ) {
+		const trimmed = line.trim();
+		if ( ! trimmed ) continue;
 		try {
-			events.push( JSON.parse( line ) as AiSessionEvent );
+			out.push( JSON.parse( trimmed ) as T );
 		} catch {
-			// Ignore malformed lines and keep loading the rest.
+			// Skip malformed lines.
 		}
 	}
+	return out;
+}
 
-	return events;
+// Reads the JSONL and returns it as a legacy `AiSessionEvent[]` view, the
+// shape downstream summary / filter / renderer code expects. For pi-format
+// files this triggers an in-place migration if the file is still in legacy
+// format, then translates the resulting pi entries back to legacy events
+// (the disk-truth is pi; legacy is just an in-memory abstraction).
+export async function readAiSessionEventsFromFile( filePath: string ): Promise< AiSessionEvent[] > {
+	await migrateLegacyFileInPlace( filePath, PI_SESSION_CWD );
+	const fileEntries = await readJsonlEntries( filePath );
+	return piEntriesToLegacyEvents( fileEntries );
 }
 
 async function listSessionFilesRecursively( directory: string ): Promise< string[] > {
@@ -136,11 +158,7 @@ export async function loadAiSession(
 ): Promise< LoadedAiSession > {
 	const summary = await resolveSessionByIdOrPrefix( rootDirectory, sessionIdOrPrefix );
 	const events = await readAiSessionEventsFromFile( summary.filePath );
-	// `entries` will carry pi-format SessionEntry[] once the renderer migrates
-	// to the new shape (Phase 2). For now, both consumers can pull from
-	// `events`; the field is populated empty so callers that read entries get
-	// the right shape rather than a runtime undefined.
-	return { summary, events, entries: [] };
+	return { summary, events };
 }
 
 export async function createAiSession(
@@ -155,6 +173,10 @@ export async function createAiSession(
 		};
 	}
 ): Promise< AiSessionSummary > {
+	// Build a pi-format session file directly (header + one custom entry for
+	// the initial site selection) by routing the legacy events through the
+	// migrator. Keeps the on-disk format consistent with sessions written by
+	// the CLI runtime — there's exactly one shape on disk going forward.
 	const startedAt = new Date();
 	const sessionId = crypto.randomUUID();
 	const directory = getAiSessionsDirectoryForDate( rootDirectory, startedAt );
@@ -163,7 +185,7 @@ export async function createAiSession(
 
 	await fs.mkdir( directory, { recursive: true } );
 
-	const events: AiSessionEvent[] = [
+	const seedEvents: AiSessionEvent[] = [
 		{
 			type: 'session.started',
 			timestamp: startedAt.toISOString(),
@@ -180,15 +202,30 @@ export async function createAiSession(
 			wpcomSiteId: options.site.wpcomSiteId,
 		},
 	];
-
-	const serialized = events.map( ( event ) => JSON.stringify( event ) ).join( '\n' ) + '\n';
+	const fileEntries = migrateLegacyEvents( seedEvents, PI_SESSION_CWD );
+	const serialized = fileEntries.map( ( entry ) => JSON.stringify( entry ) ).join( '\n' ) + '\n';
 	await fs.writeFile( filePath, serialized, { encoding: 'utf8' } );
 
-	const summary = await readAiSessionSummaryFromEvents( filePath, events );
+	const summary = await readAiSessionSummaryFromEvents( filePath, seedEvents );
 	if ( ! summary ) {
 		throw new Error( 'Failed to build summary for newly created session' );
 	}
 	return summary;
+}
+
+async function lastEntryId( filePath: string ): Promise< string | null > {
+	const entries = await readJsonlEntries< { id?: unknown; type?: unknown } >( filePath );
+	for ( let i = entries.length - 1; i >= 0; i -= 1 ) {
+		const id = entries[ i ].id;
+		if ( typeof id === 'string' && id.length > 0 ) return id;
+	}
+	return null;
+}
+
+async function appendPiEntries( filePath: string, entries: PiFileEntry[] ): Promise< void > {
+	if ( entries.length === 0 ) return;
+	const serialized = entries.map( ( entry ) => JSON.stringify( entry ) ).join( '\n' ) + '\n';
+	await fs.appendFile( filePath, serialized, { encoding: 'utf8' } );
 }
 
 export async function appendAiSessionEvent(
@@ -197,6 +234,22 @@ export async function appendAiSessionEvent(
 	event: AiSessionEvent
 ): Promise< void > {
 	const summary = await resolveSessionByIdOrPrefix( rootDirectory, sessionIdOrPrefix );
+	// `resolveSessionByIdOrPrefix` already migrated the file via
+	// `listAiSessions` → `readAiSessionEventsFromFile`. Detect format defensively
+	// so this stays correct if callers ever bypass the migration path.
+	const content = await fs.readFile( summary.filePath, 'utf8' );
+	const firstLine = content.split( '\n' ).find( ( line ) => line.trim().length > 0 );
+	const format = detectSessionFormat( firstLine );
+
+	if ( format === 'pi' ) {
+		const parent = await lastEntryId( summary.filePath );
+		const entries = legacyEventToPiEntries( event, parent );
+		await appendPiEntries( summary.filePath, entries );
+		return;
+	}
+
+	// Fallback for the (now unreachable) legacy-on-disk path. Kept so the
+	// call doesn't silently no-op if a future regression skips migration.
 	await fs.appendFile( summary.filePath, `${ JSON.stringify( event ) }\n`, {
 		encoding: 'utf8',
 	} );
@@ -209,12 +262,11 @@ export async function deleteAiSession(
 	const sessionToDelete = await resolveSessionByIdOrPrefix( rootDirectory, sessionIdOrPrefix );
 	await fs.rm( sessionToDelete.filePath, { force: false } );
 
-	// Some runtimes write sidecar files alongside the JSONL (currently the
-	// OpenAI runtime saves a `.openai-state.json` next to the JSONL so pi's
-	// in-memory transcript survives across CLI process forks). Sweep any
-	// file in the same directory that shares the JSONL's stem so deletes
-	// don't leave orphans behind. Best-effort: failures are ignored — they
-	// just mean a stale sidecar remains, which is harmless.
+	// Some legacy runtimes wrote sidecar files alongside the JSONL (e.g. the
+	// pre-pi OpenAI runtime saved a `.openai-state.json` next to the JSONL).
+	// Sweep any file in the same directory that shares the JSONL's stem so
+	// deletes don't leave orphans behind. Best-effort: failures are ignored
+	// — they just mean a stale sidecar remains, which is harmless.
 	const sessionDir = path.dirname( sessionToDelete.filePath );
 	const baseName = path.basename( sessionToDelete.filePath, '.jsonl' );
 	try {

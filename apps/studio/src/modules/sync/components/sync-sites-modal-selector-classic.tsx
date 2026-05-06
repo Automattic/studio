@@ -63,7 +63,7 @@ export function SyncSitesModalSelector( {
 		isSuccess,
 		refetch: refetchWpComSites,
 	} = useGetWpComSitesQuery(
-		{ connectedSiteIds, userId: user?.id },
+		{ connectedSiteIds, userId: user?.id, perPage: 200 },
 		{ refetchOnMountOrArgChange: true }
 	);
 	const syncSites = wpcomSitesData?.sites ?? [];

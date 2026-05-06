@@ -23,7 +23,6 @@ import {
 	openStudioSession,
 } from 'cli/ai/sessions/pi-session';
 import { replaySessionHistory } from 'cli/ai/sessions/replay';
-import { appendStudioEntry } from 'cli/ai/sessions/studio-entries';
 import { getActiveSlashCommands, type SlashCommandContext } from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
@@ -33,9 +32,24 @@ import { isRemoteSessionEnabled } from 'cli/lib/feature-flags';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 import type { SessionManager } from '@mariozechner/pi-coding-agent';
+import type {
+	StudioCustomEntryDataMap,
+	StudioCustomEntryType,
+} from '@studio/common/ai/sessions/entry-types';
 import type { LoadedAiSession, TurnStatus } from '@studio/common/ai/sessions/types';
 
 const logger = new Logger< string >();
+
+// Type-safe wrapper around `sm.appendCustomEntry` — the underlying call
+// accepts `data: unknown`, so this constrains `data` to the shape declared
+// for each `studio.*` customType in `StudioCustomEntryDataMap`.
+function appendStudioEntry< T extends StudioCustomEntryType >(
+	sm: SessionManager,
+	customType: T,
+	data: StudioCustomEntryDataMap[ T ]
+): string {
+	return sm.appendCustomEntry( customType, data );
+}
 
 function isPromptAbortError( error: unknown ): boolean {
 	return (

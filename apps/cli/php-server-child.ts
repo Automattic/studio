@@ -65,12 +65,15 @@ type SpawnPhpProcessOptions = {
 	opcacheSiteId?: string;
 };
 
-function getDefaultPhpArgs( siteId?: string ): string[] {
+function getDefaultPhpArgs( phpVersion: NativePhpSupportedVersion, siteId?: string ): string[] {
 	if ( process.platform !== 'win32' || ! siteId ) {
 		return [];
 	}
 
-	const cacheId = siteId.replace( /[^A-Za-z0-9_.-]/g, '-' );
+	// Partition the file_cache by PHP version: opcache's on-disk script blob
+	// format isn't stable across minor versions, and reusing a cache populated
+	// by a different PHP can crash the server at startup on Windows.
+	const cacheId = `${ siteId.replace( /[^A-Za-z0-9_.-]/g, '-' ) }-php${ phpVersion }`;
 	const cacheDirectory = path.join( getConfigDirectory(), 'php-bin', 'opcache', cacheId );
 	fs.mkdirSync( cacheDirectory, { recursive: true } );
 
@@ -88,7 +91,7 @@ function spawnPhpProcess(
 	args: string[],
 	{ phpVersion, cwd, signal, mode = 'pipe', opcacheSiteId }: SpawnPhpProcessOptions
 ): ChildProcess {
-	const defaultArgs = getDefaultPhpArgs( opcacheSiteId );
+	const defaultArgs = getDefaultPhpArgs( phpVersion, opcacheSiteId );
 	const phpArgs = [ ...defaultArgs, ...args ];
 	const phpScriptProcess = spawn( getPhpBinaryPath( phpVersion ), phpArgs, {
 		cwd,

@@ -85,47 +85,6 @@ The container jetpack/contact-form supports: "subject" (email subject line), "to
 		htmlPolicyMessage:
 			'core/html contains a <form> element. Use Jetpack Forms blocks instead: install the "jetpack" plugin and build the form with jetpack/contact-form and jetpack/field-* blocks. This keeps forms editable in the block editor and handles submission without custom backend code.',
 	},
-	{
-		name: 'WooCommerce',
-		pluginSlug: 'woocommerce',
-		blocks: [
-			'woocommerce/product-collection',
-			'woocommerce/all-products',
-			'woocommerce/featured-product',
-			'woocommerce/featured-category',
-			'woocommerce/cart',
-			'woocommerce/checkout',
-			'woocommerce/customer-account',
-			'woocommerce/mini-cart',
-			'woocommerce/product-search',
-			'woocommerce/product-categories',
-		],
-		guidance: `## E-commerce / Shops
-
-When the user asks for a shop, product listing, cart, checkout, or any e-commerce feature, you MUST use WooCommerce — not hand-coded product layouts.
-
-Install and activate WooCommerce first if it is not already active:
-\`\`\`
-wp_cli plugin install woocommerce --activate
-\`\`\`
-
-Then build shop pages using WooCommerce blocks:
-
-- **Product grid / shop page**: \`woocommerce/product-collection\` (modern, filter-aware) or \`woocommerce/all-products\` (legacy)
-- **Featured product highlight**: \`woocommerce/featured-product\` (requires a product ID)
-- **Cart page**: \`woocommerce/cart\`
-- **Checkout page**: \`woocommerce/checkout\`
-- **Mini-cart in header**: \`woocommerce/mini-cart\`
-- **Product search**: \`woocommerce/product-search\`
-- **Category navigation**: \`woocommerce/product-categories\`
-
-After activation, create a few demo products with WP-CLI so the user can see a real preview:
-\`\`\`
-wp_cli wc product create --name="Sample Product" --regular_price=29.99 --user=1
-\`\`\`
-
-Use WP-CLI's \`wc\` sub-commands (not \`post create\`) to manage products, orders, and coupons so all WooCommerce metadata is set correctly.`,
-	},
 ];
 
 /**

@@ -36,6 +36,7 @@ type ExportProgressState = {
 		statusMessage: string;
 		progress: number;
 		exportType?: 'full' | 'database';
+		isError?: boolean;
 	};
 };
 
@@ -556,6 +557,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 						...currentProgress,
 						statusMessage: __( 'Export failed. Please try again.' ),
 						progress: 100,
+						isError: true,
 					},
 				} ) );
 				break;

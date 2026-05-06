@@ -14,10 +14,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { SiteData } from 'cli/lib/cli-config/core';
 import { clearSiteLatestCliPid, getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
-import {
-	DEFAULT_IMPORTER_OPTIONS,
-	importBackup,
-} from 'cli/lib/import-export/import/import-manager';
+import { DEFAULT_IMPORTER_OPTIONS, getImporter } from 'cli/lib/import-export/import/import-manager';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import {
 	checkBackupSize,
@@ -36,7 +33,7 @@ import {
 } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
-import { importEventHandler } from './import';
+import { handleImportEvents } from './import';
 import type { SyncOption } from '@studio/common/types/sync';
 
 const logger = new Logger< LoggerAction >();
@@ -70,7 +67,6 @@ export async function runCommand(
 		logger.reportStart( LoggerAction.FETCH_REMOTE_SITES, __( 'Fetching WordPress.com sites…' ) );
 		const remoteSites = await fetchSyncableSites( token.accessToken );
 		logger.spinner.stop();
-		logger.reportSuccess( sprintf( __( 'Found %d sites' ), remoteSites.length ), true );
 
 		let remoteSite;
 		if ( siteIdentifier ) {
@@ -136,7 +132,7 @@ export async function runCommand(
 
 			// Backup phase: 0-50%
 			const backupProgress = Math.round( status.percent * 0.5 );
-			logger.spinner.text = sprintf( __( 'Creating remote backup… (%d%%)' ), backupProgress );
+			logger.reportProgress( sprintf( __( 'Creating remote backup… (%d%%)' ), backupProgress ) );
 
 			await new Promise( ( resolve ) => setTimeout( resolve, SYNC_POLL_INTERVAL_MS ) );
 		}
@@ -181,12 +177,12 @@ export async function runCommand(
 				logger.reportSuccess( __( 'WordPress server stopped' ) );
 			}
 
-			await importBackup(
+			const importer = getImporter(
 				{ path: destPath, type: 'application/gzip' },
-				site,
-				importEventHandler,
 				DEFAULT_IMPORTER_OPTIONS
 			);
+			handleImportEvents( importer );
+			await importer.import( site );
 
 			// Something in Playground makes it so the front-end of the site sometimes returns an error page
 			// on the first request. Send that first request from here to hide the error from the user.

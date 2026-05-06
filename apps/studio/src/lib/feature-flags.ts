@@ -12,6 +12,12 @@ export const FEATURE_FLAGS: Record< keyof FeatureFlags, FeatureFlagDefinition > 
 		flag: 'enableBlueprints',
 		default: true,
 	},
+	enableStudioCodeUi: {
+		label: 'Enable Studio Code UI',
+		env: 'ENABLE_STUDIO_CODE_UI',
+		flag: 'enableStudioCodeUi',
+		default: false,
+	},
 } as const;
 
 export function getFeatureFlagFromEnv( flag: keyof FeatureFlags ): boolean {

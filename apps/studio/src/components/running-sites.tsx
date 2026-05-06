@@ -22,7 +22,7 @@ export function RunningSites() {
 	}
 
 	return (
-		<div className="flex flex-row px-5 pb-1 justify-between align-center self-stretch opacity-70">
+		<div className="flex flex-row px-5 pb-1 justify-between align-center self-stretch opacity-70 whitespace-nowrap min-w-0">
 			<p className="text-xxs leading-4">
 				{ anyRunning
 					? sprintf(

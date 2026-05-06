@@ -313,22 +313,11 @@ const SyncConnectedSitesSectionItem = ( {
 	};
 
 	return (
-		<div className="grid grid-cols-[max-content_1fr_max-content]">
+		<div className="grid grid-cols-[1fr_max-content]">
 			<div
-				className="col-span-3 grid ps-8 pe-5 gap-2 justify-items-start items-center grid-cols-subgrid"
+				className="col-span-2 grid ps-8 pe-5 gap-2 justify-items-start items-center grid-cols-subgrid"
 				key={ connectedSite.id }
 			>
-				<div className="shrink-0">
-					{ isSiteLoading ? (
-						<div
-							className="h-5 w-20 rounded skeleton-bg"
-							aria-label={ __( 'Loading environment' ) }
-						/>
-					) : (
-						<EnvironmentBadge type={ getSiteEnvironment( connectedSite ) } />
-					) }
-				</div>
-
 				{ isSiteLoading ? (
 					<div className="h-5 w-48 rounded skeleton-bg" aria-label={ __( 'Loading site URL' ) } />
 				) : (
@@ -453,7 +442,7 @@ const SyncConnectedSitesSectionItem = ( {
 							>
 								<div className="flex flex-col gap-2 min-w-44 flex-shrink">
 									<div className="a8c-body-small flex items-center gap-0.5">
-										<Icon icon={ info } size={ 14 } />
+										<Icon icon={ info } size={ 14 } className="fill-frame-text-secondary" />
 										{ pushState.status.message }
 									</div>
 									<ProgressBar value={ pushState.status.progress } maxValue={ 100 } />
@@ -506,7 +495,7 @@ const SyncConnectedSitesSectionItem = ( {
 												className="fill-frame-text-secondary"
 											/>
 										) : (
-											<Icon icon={ info } size={ 14 } />
+											<Icon icon={ info } size={ 14 } className="fill-frame-text-secondary" />
 										) }
 										{ getPushUploadMessage( pushState.status.message, uploadPercentage ) }
 									</div>
@@ -715,9 +704,12 @@ const SyncConnectedSiteSection = ( {
 				{ isSiteLoading ? (
 					<div className="h-5 w-40 rounded skeleton-bg" aria-label={ __( 'Loading site name' ) } />
 				) : (
-					<div className={ cx( 'a8c-label-semibold', hasConnectionErrors && 'error-message' ) }>
-						{ connectedSite.name }
-					</div>
+					<>
+						<EnvironmentBadge type={ getSiteEnvironment( connectedSite ) } />
+						<div className={ cx( 'a8c-label-semibold', hasConnectionErrors && 'error-message' ) }>
+							{ connectedSite.name }
+						</div>
+					</>
 				) }
 				<div className="ms-auto">
 					<Tooltip
@@ -746,7 +738,7 @@ const SyncConnectedSiteSection = ( {
 					<div className="text-frame-text">
 						{ createInterpolateElement(
 							__(
-								'<siteUrlButton /> appears to be deleted or is currently unreachable. <button>Get help ↗</button>'
+								'<siteUrlButton/> appears to be deleted or is currently unreachable. <button>Get help ↗</button>'
 							),
 							{
 								button: (

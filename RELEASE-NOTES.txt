@@ -1,6 +1,5 @@
 Unreleased
 ==========
-* Removed the `studio code --remote-session` autostart flag; use `studio code remote-session start` (or the `/remote-session` slash command) instead
 
 
 1.8.2 (CLI only)

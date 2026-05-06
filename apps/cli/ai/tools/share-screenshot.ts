@@ -23,7 +23,8 @@ import { textResult } from './utils';
 export const shareScreenshotTool = defineTool(
 	'share_screenshot',
 	'Fire-and-forget primitive that captures a URL and delivers the image to the user. ' +
-		'Call after ANY visible change to a site so the user sees the new state. ' +
+		'Use this when the user explicitly asks to see the site, or when you finish a logical milestone with a clear visible result worth looking at — not after every intermediate edit. ' +
+		'One screenshot per milestone, not per tool call. If the change is non-visual (data, listings, logs), skip the screenshot and reply in text. ' +
 		'Returns a confirmation string only — the image is NOT returned to you. ' +
 		'The user already has the picture; do not analyze or describe what was sent in your reply. ' +
 		'After calling this, write at most one short follow-up sentence and end the turn. ' +

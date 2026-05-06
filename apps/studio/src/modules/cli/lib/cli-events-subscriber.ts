@@ -20,6 +20,7 @@ const STUDIO_ONLY_DETAIL_KEYS = [
 	'tlsKey',
 	'tlsCert',
 	'themeDetails',
+	'siteIconPath',
 	'sortOrder',
 	'isAddingSite',
 	'latestCliPid',
@@ -92,6 +93,7 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 		return;
 	}
 
+	const wasNotRunning = ! server.details.running;
 	server.details = siteDetailsToServerDetails( site, running, server.details );
 
 	if ( server.server && site.url ) {
@@ -99,6 +101,12 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 	}
 
 	void sendIpcEventToRenderer( 'site-event', event );
+
+	if ( wasNotRunning && running ) {
+		void captureSiteThumbnail( siteId );
+		await server.getThemeDetails();
+		await server.getSiteIcon();
+	}
 } );
 
 let subscriber: ReturnType< typeof executeCliCommand > | null = null;

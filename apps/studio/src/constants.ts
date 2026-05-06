@@ -1,5 +1,6 @@
 import { HOUR_MS } from '@studio/common/constants';
-export const DEFAULT_WIDTH = 900;
+export const DEFAULT_WIDTH = 1100;
+export const DEFAULT_HEIGHT = 820;
 export const MAIN_MIN_HEIGHT = 600;
 export const SIDEBAR_WIDTH = 208;
 export const SIDEBAR_MIN_WIDTH = 200;
@@ -17,6 +18,7 @@ export const UPDATED_MESSAGE_DURATION_MS = 60000; // 1 minute
 export const AUTO_UPDATE_INTERVAL_MS = 60 * 60 * 1000;
 export const MACOS_TRAFFIC_LIGHT_POSITION = { x: 20, y: 20 };
 export const WINDOWS_TITLEBAR_HEIGHT = 44;
+export const EMPTY_SITE_PLAYGROUND_URL = 'https://playground.wordpress.net/';
 export const ABOUT_WINDOW_WIDTH = 300;
 export const ABOUT_WINDOW_HEIGHT = 350;
 export const TELEX_HOSTNAME = 'telex.automattic.ai';
@@ -59,7 +61,7 @@ export const WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT =
 	WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT_IN_HRS * 60 * 60 * 1000; // 6hr
 
 // SQLite
-const SQLITE_DATABASE_INTEGRATION_VERSION = 'v2.2.23';
+const SQLITE_DATABASE_INTEGRATION_VERSION = 'v3.0.0-rc.3';
 
 export const SQLITE_DATABASE_INTEGRATION_RELEASE_URL = `https://github.com/WordPress/sqlite-database-integration/releases/download/${ SQLITE_DATABASE_INTEGRATION_VERSION }/plugin-sqlite-database-integration.zip`;
 
@@ -85,4 +87,7 @@ export const IPC_VOID_HANDLERS = < const >[
 ];
 
 // What's New
-export const FORCE_WHATS_NEW_WHEN_PATCH_CHANGED = true;
+// Flip to `true` when shipping new modal content so users who haven't seen the
+// current app version get the modal once. Keep at `false` otherwise — the modal
+// will only auto-show for first-time users of Studio.
+export const FORCE_SHOW_WHATS_NEW = false;

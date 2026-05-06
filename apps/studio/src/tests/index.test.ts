@@ -64,6 +64,9 @@ vi.mock( 'src/modules/cli/lib/windows-installation-manager', () => ( {
 vi.mock( 'src/modules/cli/lib/macos-installation-manager', () => ( {
 	autoInstallMacOSCliIfNeeded: vi.fn().mockResolvedValue( undefined ),
 } ) );
+vi.mock( 'src/modules/cli/lib/linux-installation-manager', () => ( {
+	autoInstallLinuxCliIfNeeded: vi.fn().mockResolvedValue( undefined ),
+} ) );
 vi.mock( 'electron-devtools-installer', () => ( {
 	installExtension: vi.fn().mockResolvedValue( { id: 'test-extension' } ),
 	REACT_DEVELOPER_TOOLS: { id: 'fmkadmapgofadopljbjfkapdkoienihi' },

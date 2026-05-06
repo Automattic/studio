@@ -17,13 +17,20 @@ function OnboardingHomePage() {
 						{ __( 'Start fresh with a blank site and build it with AI' ) }
 					</p>
 				</Link>
-				<div className={ `${ styles.card } ${ styles.cardDisabled }` }>
+				<Link to="/onboarding/blueprint" className={ styles.card }>
+					<h3 className={ styles.cardTitle }>{ __( 'Start from a blueprint' ) }</h3>
+					<p className={ styles.cardBody }>
+						{ __(
+							'Pick a featured blueprint or drop in your own to provision plugins, content, and settings.'
+						) }
+					</p>
+				</Link>
+				<Link to="/onboarding/import" className={ styles.card }>
 					<h3 className={ styles.cardTitle }>{ __( 'Bring existing' ) }</h3>
 					<p className={ styles.cardBody }>
-						{ __( 'Import from WordPress.com, a backup, or an export file' ) }
+						{ __( 'Import from a Jetpack backup or another full-site export' ) }
 					</p>
-					<span className={ styles.cardBadge }>{ __( 'Coming soon' ) }</span>
-				</div>
+				</Link>
 			</div>
 		</div>
 	);

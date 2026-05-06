@@ -53,8 +53,14 @@ export default defineConfig({
 	preload: {
 		build: {
 			externalizeDeps: { exclude: [ '@sentry/electron' ] },
-			lib: {
-				entry: resolve( __dirname, 'src/preload.ts' ),
+			rollupOptions: {
+				input: {
+					preload: resolve( __dirname, 'src/preload.ts' ),
+				},
+				output: {
+					entryFileNames: '[name].js',
+					format: 'cjs',
+				},
 			},
 		},
 	},

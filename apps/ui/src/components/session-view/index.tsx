@@ -1,29 +1,46 @@
 import { resolveSessionModel } from '@studio/common/ai/models';
-import { useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
+import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
-import { Composer } from '@/components/session-view/composer';
+import { useCallback, useLayoutEffect, useMemo, useRef, type ReactNode, type Ref } from 'react';
+import {
+	formatAnnotationsAsPrompt,
+	formatAnnotationsSubmittedMessage,
+} from '@/components/session-view/annotations';
+import { Composer, ComposerSkeleton } from '@/components/session-view/composer';
 import { pickLiveSite } from '@/components/session-view/composer/environment-pill';
 import { Conversation } from '@/components/session-view/conversation';
 import { EmptyBackground } from '@/components/session-view/empty-background';
 import { QueuedPrompts } from '@/components/session-view/queued-prompts';
 import { SiteDropdown } from '@/components/site-dropdown';
-import { useConnector } from '@/data/core';
+import { SiteIcon } from '@/components/site-icon';
+import { SitePreview } from '@/components/site-preview';
+import { type Annotation } from '@/components/site-preview/types';
 import { useAgentRun } from '@/data/queries/use-agent-run';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
-import {
-	SESSIONS_QUERY_KEY,
-	useSession,
-	useSessionEffectiveEnvironment,
-} from '@/data/queries/use-sessions';
+import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import { useFullscreen } from '@/hooks/use-fullscreen';
+import { useSessionCommands } from '@/hooks/use-session-commands';
+import { SessionUIProvider, useSessionPreviewUI } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
+import { drawerIcon } from '@/lib/icons';
 import styles from './style.module.css';
-import type { AiModelId, AiSessionSummary, LoadedAiSession } from '@/data/core';
+import type { AiSessionSummary } from '@/data/core';
 
-function SessionHeader( { summary }: { summary: AiSessionSummary } ) {
+interface SessionHeaderProps {
+	summary: AiSessionSummary;
+	previewOpen: boolean;
+	onTogglePreview: () => void;
+	canTogglePreview: boolean;
+}
+
+function SessionHeader( {
+	summary,
+	previewOpen,
+	onTogglePreview,
+	canTogglePreview,
+}: SessionHeaderProps ) {
 	const siteName = summary.ownerSiteName;
 	const sidebarCollapsed = useSidebarCollapsed();
 	const isFullscreen = useFullscreen();
@@ -44,9 +61,16 @@ function SessionHeader( { summary }: { summary: AiSessionSummary } ) {
 		<div className={ styles.header }>
 			{ toggleSpacerClass ? <span className={ toggleSpacerClass } aria-hidden="true" /> : null }
 			{ site ? (
-				<SiteDropdown site={ site } activeEnvironment={ effectiveEnvironment } />
+				<SiteDropdown
+					site={ site }
+					activeEnvironment={ effectiveEnvironment }
+					showSiteIcon={ sidebarCollapsed }
+				/>
 			) : (
 				<>
+					{ sidebarCollapsed ? (
+						<SiteIcon className={ styles.headerSiteIcon } seed={ siteName } />
+					) : null }
 					<span className={ styles.headerSite }>{ siteName }</span>
 					<span className={ styles.headerDot } aria-hidden="true" />
 					<span className={ styles.headerEnv }>
@@ -54,14 +78,57 @@ function SessionHeader( { summary }: { summary: AiSessionSummary } ) {
 					</span>
 				</>
 			) }
+			<span className={ styles.headerSpacer } aria-hidden="true" />
+			{ canTogglePreview ? (
+				<div className={ styles.headerActions }>
+					<IconButton
+						variant="minimal"
+						tone="neutral"
+						size="small"
+						icon={ drawerIcon }
+						label={ previewOpen ? __( 'Hide site preview' ) : __( 'Show site preview' ) }
+						aria-pressed={ previewOpen }
+						onClick={ onTogglePreview }
+					/>
+				</div>
+			) : null }
+		</div>
+	);
+}
+
+interface SessionFrameProps {
+	header?: ReactNode;
+	composer?: ReactNode;
+	preview?: ReactNode;
+	scrollRef?: Ref< HTMLDivElement >;
+	children?: ReactNode;
+}
+
+function SessionFrame( { header, composer, preview, scrollRef, children }: SessionFrameProps ) {
+	return (
+		<div className={ styles.root }>
+			<div className={ styles.chatColumn }>
+				{ header }
+				<div ref={ scrollRef } className={ styles.scroll }>
+					{ children }
+				</div>
+				<div className={ styles.composerOuter }>{ composer }</div>
+			</div>
+			{ preview }
 		</div>
 	);
 }
 
 export function SessionView( { sessionId }: { sessionId: string } ) {
+	return (
+		<SessionUIProvider>
+			<SessionViewContent sessionId={ sessionId } />
+		</SessionUIProvider>
+	);
+}
+
+function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const { data, isLoading, error } = useSession( sessionId );
-	const connector = useConnector();
-	const queryClient = useQueryClient();
 	const { data: sites } = useSites();
 	const ownerSitePath = data?.summary.ownerSitePath;
 	const ownerSite = ownerSitePath
@@ -85,30 +152,6 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 		removeQueuedPrompt,
 	} = useAgentRun( sessionId );
 	const currentModel = useMemo( () => resolveSessionModel( data?.events ?? [] ), [ data?.events ] );
-	// Optimistically append a `session.model_selected` event so the composer
-	// reflects the new pick immediately. The main process writes the same event
-	// to the JSONL; if that write fails we fall back to the prior state.
-	const onModelChange = useCallback(
-		( model: AiModelId ) => {
-			const timestamp = new Date().toISOString();
-			queryClient.setQueryData< LoadedAiSession >(
-				[ ...SESSIONS_QUERY_KEY, sessionId ],
-				( prev ) =>
-					prev
-						? {
-								...prev,
-								events: [ ...prev.events, { type: 'session.model_selected', timestamp, model } ],
-						  }
-						: prev
-			);
-			void connector.setSessionModel( sessionId, model ).catch( () => {
-				void queryClient.invalidateQueries( {
-					queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ],
-				} );
-			} );
-		},
-		[ connector, queryClient, sessionId ]
-	);
 	const pendingQuestionTexts = useMemo(
 		() => new Set( pendingQuestions.map( ( q ) => q.question ) ),
 		[ pendingQuestions ]
@@ -119,6 +162,20 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 		[ data?.events ]
 	);
 	const scrollRef = useRef< HTMLDivElement >( null );
+	useSessionCommands( sessionId );
+	const preview = useSessionPreviewUI();
+	const canTogglePreview = !! ownerSite && effectiveEnvironment === 'local';
+	const showPreview = preview.open && canTogglePreview;
+
+	const handleAnnotationsDone = useCallback(
+		( annotations: Annotation[] ) => {
+			if ( annotations.length === 0 ) return;
+			void sendMessage( formatAnnotationsAsPrompt( annotations ), {
+				displayMessage: formatAnnotationsSubmittedMessage( annotations.length ),
+			} );
+		},
+		[ sendMessage ]
+	);
 
 	useLayoutEffect( () => {
 		const node = scrollRef.current;
@@ -133,7 +190,22 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 	}, [ sessionId, data, isRunning, queuedPrompts.length ] );
 
 	if ( isLoading ) {
-		return <div className={ styles.state }>{ __( 'Loading session…' ) }</div>;
+		// Use the same SessionFrame with an empty header and a structural
+		// ComposerSkeleton so the scroll area has the exact same dimensions
+		// as the loaded view — otherwise the EmptyBackground canvas jumps
+		// mid-transition.
+		return (
+			<SessionFrame
+				header={ <div className={ styles.header } /> }
+				composer={
+					<div className={ styles.column }>
+						<ComposerSkeleton />
+					</div>
+				}
+			>
+				<EmptyBackground />
+			</SessionFrame>
+		);
 	}
 
 	if ( error || ! data ) {
@@ -146,22 +218,17 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 	}
 
 	return (
-		<div className={ styles.root }>
-			<SessionHeader summary={ data.summary } />
-			<div ref={ scrollRef } className={ styles.scroll }>
-				{ isEmpty ? <EmptyBackground /> : null }
-				<div className={ clsx( styles.column, styles.conversationSpacing ) }>
-					<Conversation
-						data={ data }
-						isRunning={ isRunning }
-						startedAt={ startedAt }
-						pendingQuestions={ pendingQuestionTexts }
-						pendingAnswers={ pendingAnswers }
-						onAnswerQuestion={ answerQuestion }
-					/>
-				</div>
-			</div>
-			<div className={ styles.composerOuter }>
+		<SessionFrame
+			scrollRef={ scrollRef }
+			header={
+				<SessionHeader
+					summary={ data.summary }
+					previewOpen={ showPreview }
+					onTogglePreview={ preview.toggle }
+					canTogglePreview={ canTogglePreview }
+				/>
+			}
+			composer={
 				<div className={ styles.column }>
 					<QueuedPrompts prompts={ queuedPrompts } onRemove={ removeQueuedPrompt } />
 					<Composer
@@ -169,15 +236,38 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 						isInterrupting={ isInterrupting }
 						error={ runError }
 						model={ currentModel }
-						onModelChange={ onModelChange }
 						onSend={ sendMessage }
 						onInterrupt={ interrupt }
 						sessionId={ sessionId }
 						effectiveEnvironment={ effectiveEnvironment }
 						liveSite={ liveSite }
+						events={ data.events }
+						ownerSiteId={ ownerSite?.id }
 					/>
 				</div>
+			}
+			preview={
+				showPreview && ownerSite ? (
+					<SitePreview
+						site={ ownerSite }
+						path={ preview.path }
+						reloadNonce={ preview.reloadNonce }
+						onAnnotationsDone={ handleAnnotationsDone }
+					/>
+				) : null
+			}
+		>
+			{ isEmpty ? <EmptyBackground /> : null }
+			<div className={ clsx( styles.column, styles.conversationSpacing ) }>
+				<Conversation
+					data={ data }
+					isRunning={ isRunning }
+					startedAt={ startedAt }
+					pendingQuestions={ pendingQuestionTexts }
+					pendingAnswers={ pendingAnswers }
+					onAnswerQuestion={ answerQuestion }
+				/>
 			</div>
-		</div>
+		</SessionFrame>
 	);
 }

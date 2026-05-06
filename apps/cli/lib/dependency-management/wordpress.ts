@@ -2,12 +2,12 @@ import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { downloadFile } from '@studio/common/lib/download-file';
 import { extractZip } from '@studio/common/lib/extract-zip';
 import { recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
 import { getWordPressVersionUrl } from '@studio/common/lib/wordpress-version-utils';
 import semver from 'semver';
-import { getWordPressVersionPath } from '../server-files';
-import { downloadFile } from './utils';
+import { getWordPressVersionPath } from './paths';
 
 const MINIMUM_SUPPORTED_WP_VERSION = 6;
 const DEFAULT_WORDPRESS_VERSION = 'latest';

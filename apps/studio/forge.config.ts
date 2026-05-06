@@ -9,6 +9,7 @@ import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { exec } from 'child_process';
 import { exec as pkgExec } from '@yao-pkg/pkg';
 import type { ForgeConfig } from '@electron-forge/shared-types';
+import { windowsSign } from './windowsSign';
 
 const repoRoot = path.resolve( __dirname, '../..' );
 
@@ -22,6 +23,7 @@ const config: ForgeConfig = {
 		],
 		executableName: process.platform === 'linux' ? 'studio' : undefined,
 		icon: path.join( __dirname, 'assets', 'studio-app-icon' ),
+		windowsSign,
 		osxSign: {
 			optionsForFile: ( filePath ) => {
 				// The bundled Node binary requires specific entitlements for V8 JIT compilation.
@@ -80,9 +82,33 @@ const config: ForgeConfig = {
 		new MakerZIP( {}, [ 'darwin' ] ),
 		new MakerDeb( {
 			options: {
-				genericName: 'WordPress Studio',
+				// Display name for app launchers and stores. Overrides
+				// package.json.productName ("Studio") so Linux users see the
+				// fully-qualified "WordPress Studio" in their menus.
+				productName: 'WordPress Studio',
 				categories: [ 'Utility' ],
 				name: 'studio',
+				bin: 'studio',
+				// Synopsis and extended description shown by package managers and
+				// software stores. Without these, electron-installer-debian falls
+				// back to package.json.description for both, producing a duplicated
+				// Description block. Copy mirrors the Microsoft Store listing.
+				description: 'Meet Studio - a fast, free way to develop locally with WordPress.',
+				productDescription:
+					"Simplify WordPress site creation and management with Studio - WordPress.com's powerful, lightweight local development tool. Studio streamlines your workflow with instant WordPress setup, one-click WP Admin access, and a code-agnostic environment. No Docker, MySQL, or NGINX required. Get real-time feedback from clients or collaborators with easy-to-share demo sites. And with help from Studio Assistant, you can speed up plugin management, run WP-CLI commands, and automate tasks right from the intuitive chat interface.",
+				mimeType: [ 'x-scheme-handler/wp-studio' ],
+				icon: path.join( __dirname, 'assets', 'studio-app-icon.png' ),
+				desktopTemplate: path.join( __dirname, 'installers', 'desktop.ejs' ),
+				// libcap2-bin: ships `setcap`, used by postinst to grant the bundled
+				// node CAP_NET_BIND_SERVICE so the proxy can bind ports 80/443.
+				// policykit-1: pkexec backend used by @vscode/sudo-prompt for hosts-file writes.
+				// ca-certificates: ships `update-ca-certificates` and the system trust bundle.
+				// libnss3-tools: ships `certutil`, used to import the CA into per-user NSS DBs.
+				depends: [ 'libcap2-bin', 'policykit-1', 'ca-certificates', 'libnss3-tools' ],
+				scripts: {
+					postinst: path.join( __dirname, 'installers', 'linux', 'postinst.sh' ),
+					postrm: path.join( __dirname, 'installers', 'linux', 'postrm.sh' ),
+				},
 			},
 		} ),
 		new MakerSquirrel(
@@ -95,9 +121,16 @@ const config: ForgeConfig = {
 
 				setupExe: 'studio-setup.exe',
 
-				// CI code-signing setup writes certificate.pfx at the repository root.
-				certificateFile: path.join( repoRoot, 'certificate.pfx' ),
-				certificatePassword: process.env.WINDOWS_CODE_SIGNING_CERT_PASSWORD,
+				// Azure mode: use the custom signing hook that calls signtool
+				// with Azure Trusted Signing parameters.
+				// PFX mode: use the local certificate file and password.
+				...( windowsSign
+					? { windowsSign }
+					: {
+							certificateFile: path.join( repoRoot, 'certificate.pfx' ),
+							certificatePassword: process.env.WINDOWS_CODE_SIGNING_CERT_PASSWORD,
+					  }
+				),
 			},
 			[ 'win32' ]
 		),
@@ -174,29 +207,6 @@ const config: ForgeConfig = {
 			// on Windows when signtool encounters non-PE binaries (e.g., darwin .node files).
 			console.log( `Removing native binaries for other platforms from CLI bundle...` );
 			const cliNodeModules = path.join( repoRoot, 'apps', 'cli', 'dist', 'cli', 'node_modules' );
-
-			// Clean up @anthropic-ai/claude-agent-sdk vendor binaries (uses {arch}-{platform} format)
-			const claudeVendorDir = path.join(
-				cliNodeModules,
-				'@anthropic-ai',
-				'claude-agent-sdk',
-				'vendor'
-			);
-			const platformSuffix = `-${ platform }`;
-			if ( fs.existsSync( claudeVendorDir ) ) {
-				for ( const toolDir of fs.readdirSync( claudeVendorDir ) ) {
-					const toolPath = path.join( claudeVendorDir, toolDir );
-					if ( fs.statSync( toolPath ).isDirectory() ) {
-						for ( const archPlatformDir of fs.readdirSync( toolPath ) ) {
-							if ( ! archPlatformDir.endsWith( platformSuffix ) ) {
-								const dirToRemove = path.join( toolPath, archPlatformDir );
-								fs.rmSync( dirToRemove, { recursive: true, force: true } );
-								console.log( `Removed claude-agent-sdk/vendor/${ toolDir }/${ archPlatformDir }` );
-							}
-						}
-					}
-				}
-			}
 
 			// Clean up koffi binaries (uses {platform}_{arch} format)
 			const koffiBuildDir = path.join( cliNodeModules, 'koffi', 'build', 'koffi' );

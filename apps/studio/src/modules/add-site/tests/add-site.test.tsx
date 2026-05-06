@@ -18,6 +18,7 @@ vi.mock( 'src/stores/certificate-trust-api', async () => {
 
 vi.mock( 'src/lib/app-globals', () => ( {
 	isWindows: () => false,
+	isLinux: () => false,
 } ) );
 
 vi.mock( 'src/stores/wordpress-versions-api', async () => {

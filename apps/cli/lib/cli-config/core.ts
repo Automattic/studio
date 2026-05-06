@@ -6,6 +6,8 @@ import {
 	LOCKFILE_WAIT_TIME,
 } from '@studio/common/constants';
 import { siteDetailsSchema } from '@studio/common/lib/cli-events';
+export { siteRuntimeSchema } from '@studio/common/lib/cli-events';
+export type { SiteRuntime } from '@studio/common/lib/cli-events';
 import { hideDirectoryOnWindows } from '@studio/common/lib/hide-dir-windows';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
 import { getCliConfigPath, getConfigDirectory } from '@studio/common/lib/well-known-paths';
@@ -36,18 +38,12 @@ export const updateCheckSchema = z.object( {
 	latestVersion: z.string(),
 } );
 
-export const approvedPermissionSchema = z.object( {
-	toolName: z.string(),
-	approvalPath: z.string(),
-} );
-
 const cliConfigSchema = z.object( {
 	version: z.literal( CLI_CONFIG_VERSION ),
 	sites: z.array( siteSchema ).default( () => [] ),
 	snapshots: z.array( snapshotSchema ).default( () => [] ),
 	aiProvider: aiProviderSchema.optional(),
 	anthropicApiKey: z.string().optional(),
-	approvedPermissions: z.array( approvedPermissionSchema ).optional(),
 	lastBumpStats: z
 		.record( z.string(), z.partialRecord( z.enum( StatsMetric ), z.number() ) )
 		.optional(),
@@ -57,7 +53,6 @@ const cliConfigSchema = z.object( {
 
 type CliConfig = z.infer< typeof cliConfigSchema >;
 export type SiteData = z.infer< typeof siteSchema >;
-export type ApprovedPermission = z.infer< typeof approvedPermissionSchema >;
 
 const DEFAULT_CLI_CONFIG: CliConfig = {
 	version: CLI_CONFIG_VERSION,

@@ -1,7 +1,8 @@
 import { listAiSessions } from '@studio/common/ai/sessions/store';
 import { type LoadedAiSession, type TurnStatus } from '@studio/common/ai/sessions/types';
+import { buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
 import { readAuthToken } from '@studio/common/lib/shared-config';
-import { __, _n, sprintf } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { DEFAULT_MODEL, startAiAgent, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
 import {
 	getAvailableAiProviders,
@@ -13,16 +14,19 @@ import {
 	saveSelectedAiProvider,
 } from 'cli/ai/auth';
 import { closeSharedBrowser } from 'cli/ai/browser-utils';
+import { startDaemonStatusPolling } from 'cli/ai/daemon-status-poll';
 import { type AiOutputAdapter, JsonAdapter } from 'cli/ai/output-adapter';
-import { AI_PROVIDERS, type AiProviderId } from 'cli/ai/providers';
+import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
 import { resolveResumeSessionContext } from 'cli/ai/sessions/context';
 import { getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
 import { AiSessionRecorder } from 'cli/ai/sessions/recorder';
 import { replaySessionHistory } from 'cli/ai/sessions/replay';
-import { AI_CHAT_SLASH_COMMANDS, type SlashCommandContext } from 'cli/ai/slash-commands';
+import { getActiveSlashCommands, type SlashCommandContext } from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { readCliConfig } from 'cli/lib/cli-config/core';
+import { findSiteByFolder } from 'cli/lib/cli-config/sites';
+import { isRemoteSessionEnabled } from 'cli/lib/feature-flags';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -43,13 +47,21 @@ function getErrorMessage( error: unknown ): string {
 	return String( error );
 }
 
+async function readAllStdin(): Promise< string > {
+	const chunks: Buffer[] = [];
+	for await ( const chunk of process.stdin ) {
+		chunks.push( typeof chunk === 'string' ? Buffer.from( chunk ) : ( chunk as Buffer ) );
+	}
+	return Buffer.concat( chunks ).toString( 'utf8' ).trim();
+}
+
 export async function runCommand( options: {
 	adapter: AiOutputAdapter;
 	initialMessage?: string;
+	initialDisplayMessage?: string;
 	resumeSession?: LoadedAiSession;
 	resumeSessionId?: string;
 	noSessionPersistence?: boolean;
-	autoApprove?: boolean;
 	showLegacyCommandNotice?: boolean;
 	activeSite?: {
 		name: string;
@@ -190,9 +202,9 @@ export async function runCommand( options: {
 		);
 	}
 
-	setProgressCallback( ( message ) => {
+	setProgressCallback( ( message, update ) => {
 		const timestamp = new Date().toISOString();
-		ui.setLoaderMessage( message );
+		ui.setLoaderMessage( message, update );
 		void persist( ( recorder ) => recorder.recordToolProgress( message, timestamp ) );
 	} );
 
@@ -232,6 +244,16 @@ export async function runCommand( options: {
 		currentProvider = provider;
 		ui.currentProvider = currentProvider;
 		sessionId = undefined;
+
+		// Auto-correct model when the provider change leaves it unsupported
+		// (e.g. switching from wpcom → anthropic-api-key while a GPT model is
+		// selected). Fall back to the provider's default.
+		const definition = getAiProviderDefinition( currentProvider );
+		if ( ! definition.supportsModel( currentModel ) ) {
+			currentModel = definition.defaultModel;
+			ui.currentModel = currentModel;
+		}
+
 		await saveSelectedAiProvider( currentProvider );
 		await persistSessionContext();
 		if ( announce ) {
@@ -411,8 +433,9 @@ export async function runCommand( options: {
 
 	async function runAgentTurn(
 		prompt: string,
-		retryAttempt = 0
-	): Promise< { status: TurnStatus; usage?: { numTurns: number; costUsd?: number } } > {
+		retryAttempt = 0,
+		displayMessage = prompt
+	): Promise< { status: TurnStatus } > {
 		await maybeAutoSwitchProvider();
 		const recorder = await ensureSessionRecorder();
 		const env = await resolveAiEnvironment( currentProvider, {
@@ -444,7 +467,7 @@ export async function runCommand( options: {
 
 		await persist( ( recorder ) =>
 			recorder.recordUserMessage( {
-				text: prompt,
+				text: displayMessage,
 				source: 'prompt',
 				sitePath: site?.path,
 			} )
@@ -455,81 +478,79 @@ export async function runCommand( options: {
 			env,
 			model: currentModel,
 			resume: sessionId,
-			autoApprove: options.autoApprove ?? isJsonMode,
 			activeSite: site,
 			wpcomAccessToken,
 			onAskUser: ( questions ) => askUserAndPersistAnswers( questions ),
+			sessionFilePath: recorder?.filePath,
 		} );
 
+		let interruptRequested = false;
+		let resolveInterrupt: () => void = () => undefined;
+		const interruptPromise = new Promise< 'interrupted' >( ( resolve ) => {
+			resolveInterrupt = () => resolve( 'interrupted' );
+		} );
 		ui.onInterrupt = () => {
+			if ( interruptRequested ) {
+				return;
+			}
+			interruptRequested = true;
 			void agentQuery.interrupt();
+			resolveInterrupt();
 		};
 
-		let maxTurnsResult: { numTurns: number } | undefined;
-		let turnStatus: TurnStatus = 'interrupted';
+		const turnState: { status: TurnStatus } = { status: 'interrupted' };
 
-		try {
+		const consumeAgentTurn = async (): Promise< void > => {
 			for await ( const message of agentQuery ) {
 				const timestamp = new Date().toISOString();
+				if ( interruptRequested ) {
+					continue;
+				}
 				const result = ui.handleMessage( message );
 				await persist( ( recorder ) => recorder.recordSdkMessage( message, timestamp ) );
 				if ( result ) {
 					sessionId = result.sessionId;
 					await persist( ( recorder ) => recorder.recordAgentSessionId( result.sessionId ) );
 
-					if ( result.type === 'max_turns' ) {
-						maxTurnsResult = {
-							numTurns: result.numTurns,
-						};
-						turnStatus = 'max_turns';
-					} else if ( result.interrupted ) {
-						turnStatus = 'interrupted';
+					if ( result.interrupted ) {
+						turnState.status = 'interrupted';
 					} else {
-						turnStatus = result.success ? 'success' : 'error';
+						turnState.status = result.success ? 'success' : 'error';
 					}
 				}
 			}
-		} catch ( error ) {
-			turnStatus = 'error';
-			// In JSON mode there's no interactive retry, so re-throw and let
-			// the caller record the error. In interactive mode, fall through
-			// so the post-loop retry prompt offers the user a chance to retry.
-			if ( isJsonMode ) {
-				throw error;
+		};
+
+		const consumeAgentTurnResult = consumeAgentTurn().catch( ( error ) => {
+			if ( interruptRequested ) {
+				turnState.status = 'interrupted';
+				return;
 			}
+			turnState.status = 'error';
 			// If the UI already surfaced a descriptive terminal error (e.g.
 			// the AI usage cap was reached), suppress the generic SDK exit
 			// error (e.g. "Claude Code process exited with code 1").
 			if ( ! ( ui instanceof AiChatUI && ui.hasErrorBeenSurfaced() ) ) {
 				ui.showError( getErrorMessage( error ) );
 			}
-		} finally {
-			await persist( ( recorder ) => recorder.recordTurnClosed( turnStatus ) );
-			ui.endAgentTurn();
-		}
-
-		if ( maxTurnsResult ) {
-			ui.showInfo(
-				sprintf(
-					/* translators: %d: number of turns used */
-					_n( 'Used %d turn', 'Used %d turns', maxTurnsResult.numTurns ),
-					maxTurnsResult.numTurns
-				)
-			);
-			const answer = await ui.askUser( [
-				{
-					question: __( 'Reached the turn limit. Continue?' ),
-					options: [
-						{ label: 'Yes', description: __( 'Resume where the agent left off' ) },
-						{ label: 'No', description: __( 'Stop here' ) },
-					],
-				},
-			] );
-			const choice = Object.values( answer )[ 0 ]?.toLowerCase();
-			if ( choice === 'yes' ) {
-				ui.addUserMessage( 'Continue' );
-				return runAgentTurn( 'Continue from where you left off.' );
+			// In JSON mode there's no interactive retry, so re-throw and let
+			// the caller record the error.
+			if ( isJsonMode ) {
+				throw error;
 			}
+		} );
+
+		try {
+			const result = await Promise.race( [
+				consumeAgentTurnResult.then( () => 'completed' as const ),
+				interruptPromise,
+			] );
+			if ( result === 'interrupted' ) {
+				turnState.status = 'interrupted';
+			}
+		} finally {
+			await persist( ( recorder ) => recorder.recordTurnClosed( turnState.status ) );
+			ui.endAgentTurn();
 		}
 
 		// Skip the retry prompt when the UI has already surfaced a terminal
@@ -537,7 +558,7 @@ export async function runCommand( options: {
 		// the user has already been told what to do next.
 		const hasTerminalError = ui instanceof AiChatUI && ui.hasErrorBeenSurfaced();
 
-		if ( turnStatus === 'error' && ! isJsonMode && ! hasTerminalError ) {
+		if ( turnState.status === 'error' && ! isJsonMode && ! hasTerminalError ) {
 			if ( retryAttempt >= MAX_RETRY_ATTEMPTS ) {
 				ui.showInfo(
 					__( 'The server has not recovered after multiple attempts. Please try again later.' )
@@ -568,18 +589,18 @@ export async function runCommand( options: {
 		}
 
 		return {
-			status: turnStatus,
-			usage: maxTurnsResult,
+			status: turnState.status,
 		};
 	}
 
 	// JSON mode: single turn, then exit
 	if ( isJsonMode && options.initialMessage ) {
 		try {
-			ui.addUserMessage( options.initialMessage );
-			const result = await runAgentTurn( options.initialMessage );
+			const displayMessage = options.initialDisplayMessage ?? options.initialMessage;
+			ui.addUserMessage( displayMessage );
+			const result = await runAgentTurn( options.initialMessage, 0, displayMessage );
 			const jsonStatus = result.status === 'interrupted' ? 'error' : result.status;
-			( ui as JsonAdapter ).emitTurnCompleted( jsonStatus, result.usage );
+			( ui as JsonAdapter ).emitTurnCompleted( jsonStatus );
 		} catch ( error ) {
 			process.exitCode = 1;
 			handleAgentTurnError( error );
@@ -594,9 +615,10 @@ export async function runCommand( options: {
 
 	// Run initial message before entering the input loop
 	if ( options.initialMessage ) {
-		ui.addUserMessage( options.initialMessage );
+		const displayMessage = options.initialDisplayMessage ?? options.initialMessage;
+		ui.addUserMessage( displayMessage );
 		try {
-			await runAgentTurn( options.initialMessage );
+			await runAgentTurn( options.initialMessage, 0, displayMessage );
 		} catch ( error ) {
 			handleAgentTurnError( error );
 		}
@@ -641,13 +663,30 @@ export async function runCommand( options: {
 		},
 	};
 
+	// Surface remote-session daemon status in the editor's bottom bar. Cheap
+	// fs poll catches external start/stop (e.g. `studio code remote-session
+	// stop` from another terminal) without blocking the REPL. Skipped entirely
+	// when the feature flag is off.
+	const stopDaemonStatusPolling = startDaemonStatusPolling( ui );
+
 	// --- Main loop ---
 	try {
 		while ( true ) {
 			const prompt = await ui.waitForInput();
 			const trimmedPrompt = prompt.trim();
 
-			const cmd = AI_CHAT_SLASH_COMMANDS.find( ( c ) => `/${ c.name }` === trimmedPrompt );
+			// Match exact-prompt by default (preserves the legacy behavior where
+			// `/clear foo` falls through to the AI agent). Commands that opt into
+			// arguments via `getArgumentCompletions` get first-token matching so
+			// inputs like `/remote-session start` route to the right handler.
+			const firstToken = trimmedPrompt.split( /\s+/, 1 )[ 0 ] ?? '';
+			const cmd = trimmedPrompt.startsWith( '/' )
+				? getActiveSlashCommands().find( ( c ) =>
+						c.getArgumentCompletions
+							? `/${ c.name }` === firstToken
+							: `/${ c.name }` === trimmedPrompt
+				  )
+				: undefined;
 			if ( cmd ) {
 				if ( cmd.handler ) {
 					const result = await cmd.handler( prompt, slashCommandContext );
@@ -658,7 +697,7 @@ export async function runCommand( options: {
 					// Skill command — no handler, route to agent
 					ui.addUserMessage( prompt );
 					try {
-						await runAgentTurn( `Run the /${ cmd.name } skill using the Skill tool.` );
+						await runAgentTurn( buildSkillInvocationPrompt( cmd.name ) );
 					} catch ( error ) {
 						handleAgentTurnError( error );
 					}
@@ -674,6 +713,7 @@ export async function runCommand( options: {
 			}
 		}
 	} finally {
+		stopDaemonStatusPolling();
 		await persistQueue;
 		ui.stop();
 		process.exit( 0 );
@@ -685,7 +725,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		command: '$0 [message]',
 		describe: __( 'AI agent for building WordPress' ),
 		builder: ( yargs ) => {
-			return yargs
+			let chain = yargs
 				.positional( 'message', {
 					type: 'string',
 					description: __( 'Initial message to send to the AI agent' ),
@@ -703,10 +743,6 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					default: false,
 					description: __( 'Output events as NDJSON to stdout (headless mode)' ),
 				} )
-				.option( 'auto-approve', {
-					type: 'boolean',
-					description: __( 'Auto-approve all tool calls (defaults to true in --json mode)' ),
-				} )
 				.option( 'resume-session', {
 					type: 'string',
 					hidden: true,
@@ -721,13 +757,27 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'boolean',
 					default: true,
 					description: __( 'Record this code session to disk' ),
-				} )
-				.check( ( argv ) => {
-					if ( argv.json && ! argv.message ) {
-						throw new Error( __( '--json requires an initial message argument' ) );
-					}
-					return true;
 				} );
+
+			// `--message-from-stdin` is the headless turn entry point used by the
+			// remote-session daemon (see `apps/cli/remote-session/turn-runner.ts`).
+			// It stays hidden and is gated behind STUDIO_ENABLE_REMOTE_SESSION so
+			// it isn't dispatchable for users who haven't opted in.
+			if ( isRemoteSessionEnabled() ) {
+				chain = chain.option( 'message-from-stdin', {
+					type: 'boolean',
+					hidden: true,
+					default: false,
+					description: __( 'Read the initial message from stdin (for headless drivers)' ),
+				} );
+			}
+
+			return chain.check( ( argv ) => {
+				if ( argv.json && ! argv.message && ! argv.messageFromStdin ) {
+					throw new Error( __( '--json requires an initial message argument' ) );
+				}
+				return true;
+			} );
 		},
 		handler: async ( argv ) => {
 			try {
@@ -735,13 +785,26 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					message?: string;
 					json?: boolean;
 					sessionPersistence?: boolean;
-					autoApprove?: boolean;
 					resumeSession?: string;
 					permissionResponse?: string;
 					siteName?: string;
+					messageFromStdin?: boolean;
 				};
+
 				const noSessionPersistence = typedArgv.sessionPersistence === false;
 				const adapter: AiOutputAdapter = typedArgv.json ? new JsonAdapter() : new AiChatUI();
+
+				let initialMessage = typedArgv.message;
+				if ( typedArgv.messageFromStdin && isRemoteSessionEnabled() ) {
+					initialMessage = await readAllStdin();
+					if ( ! initialMessage ) {
+						process.stderr.write(
+							`${ __( '--message-from-stdin requires non-empty input on stdin' ) }\n`
+						);
+						process.exitCode = 1;
+						return;
+					}
+				}
 
 				if ( adapter instanceof JsonAdapter && typedArgv.permissionResponse ) {
 					adapter.permissionResponse = JSON.parse( typedArgv.permissionResponse ) as Record<
@@ -751,17 +814,22 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				}
 
 				const sitePath = typeof argv.path === 'string' ? argv.path : undefined;
+				let activeSite: { name: string; path: string } | undefined;
+				if ( sitePath && typedArgv.siteName ) {
+					activeSite = { name: typedArgv.siteName, path: sitePath };
+				} else if ( sitePath ) {
+					const matchedSite = await findSiteByFolder( sitePath );
+					if ( matchedSite ) {
+						activeSite = { name: matchedSite.name, path: matchedSite.path };
+					}
+				}
 				await runCommand( {
 					adapter,
-					initialMessage: typedArgv.message,
+					initialMessage,
 					resumeSessionId: typedArgv.resumeSession,
 					noSessionPersistence,
-					autoApprove: typedArgv.autoApprove,
 					showLegacyCommandNotice: argv._[ 0 ] === 'ai',
-					activeSite:
-						sitePath && typedArgv.siteName
-							? { name: typedArgv.siteName, path: sitePath }
-							: undefined,
+					activeSite,
 				} );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {

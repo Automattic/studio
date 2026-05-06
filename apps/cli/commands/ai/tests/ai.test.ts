@@ -15,28 +15,38 @@ import { registerCommand as registerAiSessionsDeleteCommand } from 'cli/commands
 import { registerCommand as registerAiSessionsListCommand } from 'cli/commands/ai/sessions/list';
 import { registerCommand as registerAiSessionsResumeCommand } from 'cli/commands/ai/sessions/resume';
 import { readCliConfig } from 'cli/lib/cli-config/core';
+import { setProgressCallback } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
 const {
 	askUserMock,
 	clearTranscriptMock,
 	showWelcomeMock,
+	showErrorMock,
 	showInfoMock,
 	recordSessionClearedMock,
 	recordSessionContextMock,
 	recordSiteSelectedMock,
+	recordUserMessageMock,
+	addUserMessageMock,
 	reportErrorMock,
+	setLoaderMessageMock,
 	waitForInputMock,
 	activeSiteRef,
+	latestUiRef,
 } = vi.hoisted( () => ( {
 	askUserMock: vi.fn(),
 	clearTranscriptMock: vi.fn(),
 	showWelcomeMock: vi.fn(),
+	showErrorMock: vi.fn(),
 	showInfoMock: vi.fn(),
 	recordSessionClearedMock: vi.fn(),
 	recordSessionContextMock: vi.fn(),
 	recordSiteSelectedMock: vi.fn(),
+	recordUserMessageMock: vi.fn(),
+	addUserMessageMock: vi.fn(),
 	reportErrorMock: vi.fn(),
+	setLoaderMessageMock: vi.fn(),
 	waitForInputMock: vi.fn(),
 	activeSiteRef: {
 		current: null as {
@@ -47,6 +57,9 @@ const {
 			url?: string;
 			wpcomSiteId?: number;
 		} | null,
+	},
+	latestUiRef: {
+		current: null as { onInterrupt: ( () => void ) | null } | null,
 	},
 } ) );
 
@@ -118,6 +131,9 @@ vi.mock( 'cli/ai/agent', async () => {
 
 vi.mock( 'cli/ai/ui', () => ( {
 	AiChatUI: class {
+		constructor() {
+			latestUiRef.current = this;
+		}
 		get activeSite(): {
 			name: string;
 			path: string;
@@ -160,16 +176,21 @@ vi.mock( 'cli/ai/ui', () => ( {
 		showInfo( ...args: unknown[] ) {
 			showInfoMock( ...args );
 		}
-		showError() {}
+		showError( ...args: unknown[] ) {
+			showErrorMock( ...args );
+		}
 		showSuccess() {}
 		showOnboarding() {}
 		showCapabilities() {}
 		setStatusMessage() {}
+		setDaemonStatus() {}
 		prepareForReplay() {}
 		finishReplay() {}
 		beginAgentTurn() {}
 		endAgentTurn() {}
-		setLoaderMessage() {}
+		setLoaderMessage( ...args: unknown[] ) {
+			setLoaderMessageMock( ...args );
+		}
 		setActiveSite( site: {
 			name: string;
 			path: string;
@@ -180,7 +201,9 @@ vi.mock( 'cli/ai/ui', () => ( {
 		} ) {
 			this.activeSite = site;
 		}
-		addUserMessage() {}
+		addUserMessage( ...args: unknown[] ) {
+			addUserMessageMock( ...args );
+		}
 		clearTranscript() {
 			clearTranscriptMock();
 		}
@@ -225,7 +248,9 @@ vi.mock( 'cli/ai/sessions/recorder', () => {
 		async recordSiteSelected( ...args: unknown[] ) {
 			return recordSiteSelectedMock( ...args );
 		}
-		async recordUserMessage() {}
+		async recordUserMessage( ...args: unknown[] ) {
+			return recordUserMessageMock( ...args );
+		}
 		async recordAgentQuestion() {}
 		async recordTurnClosed() {}
 		async recordAgentSessionId() {}
@@ -258,6 +283,7 @@ describe( 'CLI: studio code sessions command', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		activeSiteRef.current = null;
+		latestUiRef.current = null;
 		vi.mocked( readCliConfig ).mockResolvedValue( {
 			sites: [],
 			anthropicApiKey: 'test-api-key',
@@ -308,12 +334,102 @@ describe( 'CLI: studio code sessions command', () => {
 		expect( ( AiSessionRecorder as typeof AiSessionRecorder ).create ).toHaveBeenCalledTimes( 1 );
 	} );
 
-	it( 'persists selected model before the first prompt is sent', async () => {
-		const alternateModel = ( Object.entries( AI_MODELS ) as [ string, string ][] ).find(
-			( [ modelId ] ) => modelId !== DEFAULT_MODEL
+	it( 'passes progress update signals through to the loader', async () => {
+		waitForInputMock.mockResolvedValueOnce( 'Hello' ).mockResolvedValueOnce( '/exit' );
+
+		await buildParser().parseAsync( [ 'ai' ] );
+
+		const progressCallback = vi.mocked( setProgressCallback ).mock.calls.at( -1 )?.[ 0 ];
+		progressCallback?.( 'Applying changes… (75%)', true );
+
+		expect( setLoaderMessageMock ).toHaveBeenCalledWith( 'Applying changes… (75%)', true );
+	} );
+
+	it( 'does not show the server retry prompt when the user interrupts a turn', async () => {
+		const interruptMock = vi.fn().mockResolvedValue( undefined );
+		waitForInputMock.mockResolvedValueOnce( 'Build a site' ).mockResolvedValueOnce( '/exit' );
+		vi.mocked( startAiAgent ).mockReturnValueOnce( {
+			interrupt: interruptMock,
+			return: vi.fn().mockResolvedValue( { done: true, value: undefined } ),
+			[ Symbol.asyncIterator ]() {
+				return {
+					next: async () => {
+						latestUiRef.current?.onInterrupt?.();
+						throw new Error( 'Query closed' );
+					},
+				};
+			},
+		} as never );
+
+		await buildParser().parseAsync( [ 'ai' ] );
+
+		expect( interruptMock ).toHaveBeenCalledTimes( 1 );
+		expect( showErrorMock ).not.toHaveBeenCalled();
+		expect( askUserMock ).not.toHaveBeenCalled();
+	} );
+
+	it( 'runs the next prompt directly after an interrupted turn', async () => {
+		const firstInterruptMock = vi.fn().mockResolvedValue( undefined );
+		const secondInterruptMock = vi.fn().mockResolvedValue( undefined );
+		waitForInputMock
+			.mockResolvedValueOnce( 'Build a site' )
+			.mockResolvedValueOnce( 'Try a different layout' )
+			.mockResolvedValueOnce( '/exit' );
+		vi.mocked( startAiAgent )
+			.mockReturnValueOnce( {
+				interrupt: firstInterruptMock,
+				[ Symbol.asyncIterator ]() {
+					return {
+						next: async () => {
+							latestUiRef.current?.onInterrupt?.();
+							return new Promise( () => undefined );
+						},
+					};
+				},
+			} as never )
+			.mockReturnValueOnce( {
+				interrupt: secondInterruptMock,
+				return: vi.fn().mockResolvedValue( { done: true, value: undefined } ),
+				[ Symbol.asyncIterator ]() {
+					let emitted = false;
+					return {
+						next: async () => {
+							if ( ! emitted ) {
+								emitted = true;
+								return {
+									done: false as const,
+									value: {
+										type: 'result' as const,
+										subtype: 'success' as const,
+										session_id: 'next-session',
+										num_turns: 1,
+										total_cost_usd: 0,
+									},
+								};
+							}
+							return { done: true as const, value: undefined };
+						},
+					};
+				},
+			} as never );
+
+		await buildParser().parseAsync( [ 'ai' ] );
+
+		expect( firstInterruptMock ).toHaveBeenCalledTimes( 1 );
+		expect( startAiAgent ).toHaveBeenCalledTimes( 2 );
+		expect( startAiAgent ).toHaveBeenNthCalledWith(
+			2,
+			expect.objectContaining( {
+				prompt: 'Try a different layout',
+			} )
 		);
+		expect( secondInterruptMock ).not.toHaveBeenCalled();
+	} );
+
+	it( 'persists selected model before the first prompt is sent', async () => {
+		const alternateModel = AI_MODELS.find( ( model ) => model.id !== DEFAULT_MODEL );
 		expect( alternateModel ).toBeDefined();
-		const [ selectedModelId, selectedModelLabel ] = alternateModel!;
+		const { id: selectedModelId, label: selectedModelLabel } = alternateModel!;
 
 		waitForInputMock.mockResolvedValueOnce( '/model' ).mockResolvedValueOnce( '/exit' );
 		askUserMock.mockResolvedValueOnce( {
@@ -406,6 +522,44 @@ describe( 'CLI: studio code sessions command', () => {
 		expect( loadAiSession ).toHaveBeenCalledWith( expect.any( String ), 'session-latest' );
 		expect( ( AiSessionRecorder as typeof AiSessionRecorder ).open ).not.toHaveBeenCalled();
 		expect( process.exit ).toHaveBeenCalledWith( 0 );
+	} );
+
+	it( 'persists the display message when resuming with a hidden full message', async () => {
+		vi.mocked( loadAiSession ).mockResolvedValue( {
+			summary: {
+				id: 'session-id',
+				filePath: '/tmp/session-id.jsonl',
+				createdAt: '2026-03-11T11:00:00.000Z',
+				updatedAt: '2026-03-11T11:00:00.000Z',
+				linkedAgentSessionIds: [],
+				activeEnvironment: 'local',
+				eventCount: 1,
+			},
+			events: [],
+		} );
+
+		await buildParser().parseAsync( [
+			'ai',
+			'sessions',
+			'resume',
+			'session-id',
+			'Full annotation prompt',
+			'--json',
+			'--display-message',
+			'2 annotations submitted',
+		] );
+
+		expect( startAiAgent ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				prompt: 'Full annotation prompt',
+			} )
+		);
+		expect( recordUserMessageMock ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				text: '2 annotations submitted',
+				source: 'prompt',
+			} )
+		);
 	} );
 
 	it( 'deletes the latest session', async () => {
@@ -729,11 +883,6 @@ describe( 'CLI: studio code --json mode', () => {
 			type: 'turn.completed',
 			status: 'success',
 		} );
-		expect( startAiAgent ).toHaveBeenCalledWith(
-			expect.objectContaining( {
-				autoApprove: true,
-			} )
-		);
 		expect( process.exitCode ).not.toBe( 1 );
 	} );
 
@@ -807,50 +956,5 @@ describe( 'CLI: studio code --json mode', () => {
 			status: 'error',
 		} );
 		expect( process.exitCode ).toBe( 1 );
-	} );
-
-	it( 'does not call autoApprove in interactive mode', async () => {
-		waitForInputMock.mockResolvedValueOnce( 'Hello' ).mockResolvedValueOnce( '/exit' );
-
-		await buildParser().parseAsync( [ 'ai' ] );
-
-		expect( startAiAgent ).toHaveBeenCalledWith(
-			expect.objectContaining( {
-				autoApprove: false,
-			} )
-		);
-	} );
-
-	it( 'respects --no-auto-approve flag independently of --json', async () => {
-		const resultMessage = {
-			type: 'result' as const,
-			subtype: 'success' as const,
-			session_id: 'auto-approve-test',
-			num_turns: 1,
-			total_cost_usd: 0.001,
-		};
-		vi.mocked( startAiAgent ).mockReturnValueOnce( {
-			interrupt: vi.fn().mockResolvedValue( undefined ),
-			[ Symbol.asyncIterator ]() {
-				let emitted = false;
-				return {
-					next: async () => {
-						if ( ! emitted ) {
-							emitted = true;
-							return { done: false as const, value: resultMessage };
-						}
-						return { done: true as const, value: undefined };
-					},
-				};
-			},
-		} as never );
-
-		await buildParser().parseAsync( [ 'ai', 'hello', '--json', '--no-auto-approve' ] );
-
-		expect( startAiAgent ).toHaveBeenCalledWith(
-			expect.objectContaining( {
-				autoApprove: false,
-			} )
-		);
 	} );
 } );

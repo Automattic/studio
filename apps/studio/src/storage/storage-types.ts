@@ -1,6 +1,5 @@
 import { StatsMetric } from 'src/lib/bump-stats';
 import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
-import type { SyncSite } from '@studio/common/types/sync';
 import type { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 
 export interface WindowBounds {
@@ -13,6 +12,7 @@ export interface WindowBounds {
 
 export interface AppdataSiteData {
 	themeDetails?: SiteDetails[ 'themeDetails' ];
+	siteIconPath?: SiteDetails[ 'siteIconPath' ];
 	sortOrder?: number;
 }
 
@@ -24,7 +24,6 @@ export interface UserData {
 	onboardingCompleted?: boolean;
 	lastBumpStats?: Record< string, Partial< Record< StatsMetric, number > > >;
 	promptWindowsSpeedUpResult?: PromptWindowsSpeedUpResult;
-	connectedWpcomSites?: { [ userId: number ]: SyncSite[] };
 	sentryUserId?: string;
 	lastSeenVersion?: string;
 	preferredTerminal?: SupportedTerminal;
@@ -32,7 +31,9 @@ export interface UserData {
 	colorScheme?: 'system' | 'light' | 'dark';
 	betaFeatures?: BetaFeatures;
 	stopSitesOnQuit?: boolean;
+	defaultSiteDirectory?: string;
 	cliAutoInstalled?: boolean;
+	wapuuScore?: number;
 }
 
 export interface PromptWindowsSpeedUpResult {

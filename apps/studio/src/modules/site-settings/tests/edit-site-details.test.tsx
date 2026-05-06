@@ -19,6 +19,7 @@ const mockGetXdebugEnabledSite = vi.fn().mockResolvedValue( null );
 
 vi.mock( 'src/lib/app-globals', () => ( {
 	isWindows: () => false,
+	isLinux: () => false,
 } ) );
 
 vi.mock( 'src/hooks/use-site-details' );

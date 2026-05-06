@@ -63,6 +63,7 @@ vi.mock( 'src/hooks/use-site-details' );
 vi.mock( 'src/lib/get-ipc-api' );
 vi.mock( 'src/lib/app-globals', () => ( {
 	isWindows: () => false,
+	isLinux: () => false,
 } ) );
 
 vi.mock( 'src/stores/wordpress-versions-api', async () => {

@@ -1,12 +1,15 @@
 import { DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
 import { emitEvent, type TurnCompletedStatus } from 'cli/ai/json-events';
-import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { AiProviderId } from 'cli/ai/providers';
+import type { SDKMessage } from 'cli/ai/runtimes/messages';
 import type { SiteInfo } from 'cli/ai/ui';
 
-export type HandleMessageResult =
-	| { type: 'result'; sessionId: string; success: boolean; interrupted?: boolean }
-	| { type: 'max_turns'; sessionId: string; numTurns: number; costUsd?: number };
+export type HandleMessageResult = {
+	type: 'result';
+	sessionId: string;
+	success: boolean;
+	interrupted?: boolean;
+};
 
 export interface AiOutputAdapter {
 	currentProvider: AiProviderId;
@@ -27,6 +30,7 @@ export interface AiOutputAdapter {
 	showInfo( message: string ): void;
 	showError( message: string ): void;
 	setStatusMessage( message: string | null ): void;
+	setDaemonStatus( state: { running: boolean; pid?: number } ): void;
 	setLoaderMessage( message: string, update?: boolean ): void;
 
 	beginAgentTurn(): void;
@@ -113,6 +117,10 @@ export class JsonAdapter implements AiOutputAdapter {
 		// No-op in JSON mode
 	}
 
+	setDaemonStatus(): void {
+		// No-op in JSON mode
+	}
+
 	setLoaderMessage( message: string, _update?: boolean ): void {
 		this.showProgress( message );
 	}
@@ -134,14 +142,6 @@ export class JsonAdapter implements AiOutputAdapter {
 
 		if ( message.type === 'result' ) {
 			this.sessionId = message.session_id;
-			if ( message.subtype === 'error_max_turns' ) {
-				return {
-					type: 'max_turns',
-					sessionId: message.session_id,
-					numTurns: message.num_turns,
-					costUsd: message.total_cost_usd,
-				};
-			}
 			return {
 				type: 'result',
 				sessionId: message.session_id,

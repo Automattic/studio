@@ -23,17 +23,24 @@ import { ManagerMessage } from 'cli/lib/types/wordpress-server-ipc';
 const SOCKET_TIMEOUT_MS = 2_500;
 const STOP_TIMEOUT_MS = 5_000;
 
+// In-memory tail of stderr kept per child so we can include the current invocation's error
+// output in the `exit` event. Bounded to avoid unbounded memory growth on chatty processes.
+const STDERR_BUFFER_MAX_LINES = 100;
+const STDERR_BUFFER_MAX_BYTES = 16 * 1024;
+
 type ManagedProcessBase = {
 	pmId: number;
 	name: string;
 	scriptPath: string;
 	args: string[];
-	env: Record< string, string >;
+	env: NodeJS.ProcessEnv;
 	child: ChildProcess;
 	stdoutLogPath: string;
 	stderrLogPath: string;
 	stdoutStream: WriteStream;
 	stderrStream: WriteStream;
+	stderrBuffer: string[];
+	stderrBufferBytes: number;
 	settled: boolean;
 };
 type ManagedProcessRunning = ManagedProcessBase & {
@@ -191,7 +198,7 @@ export class ProcessManagerDaemon {
 	private async startProcess(
 		processName: string,
 		scriptPath: string,
-		env: Record< string, string >,
+		env: NodeJS.ProcessEnv,
 		args: string[]
 	): Promise< ProcessDescription > {
 		const existing = this.getManagedProcessByName( processName );
@@ -207,9 +214,10 @@ export class ProcessManagerDaemon {
 		const doesCurrentNodeSupportJspi = semver.gte( process.version, '24.0.0' );
 		const execArgv = doesCurrentNodeSupportJspi ? [ '--experimental-wasm-jspi' ] : [];
 		const child = spawn( process.execPath, [ ...execArgv, scriptPath, ...args ], {
-			env: { ...process.env, ...env },
+			env,
 			stdio: [ 'ignore', 'pipe', 'pipe', 'ipc' ],
 			windowsHide: true,
+			detached: process.platform !== 'win32',
 		} );
 
 		const managedProcess: ManagedProcessRunning = {
@@ -227,13 +235,17 @@ export class ProcessManagerDaemon {
 			stderrLogPath,
 			stdoutStream,
 			stderrStream,
+			stderrBuffer: [],
+			stderrBufferBytes: 0,
 			settled: false,
 		};
 
 		this.managedProcesses.set( pmId, managedProcess );
 
 		this.pipeOutputWithTimestamp( child.stdout, stdoutStream );
-		this.pipeOutputWithTimestamp( child.stderr, stderrStream );
+		this.pipeOutputWithTimestamp( child.stderr, stderrStream, ( line ) => {
+			this.recordStderrLine( managedProcess, line );
+		} );
 
 		child.on( 'message', ( raw ) => {
 			const event = daemonEventSchema.safeParse( {
@@ -250,7 +262,11 @@ export class ProcessManagerDaemon {
 		} );
 
 		child.on( 'error', ( error ) => {
-			writeTimestampedLines( stderrStream, error.stack ?? error.message );
+			const errorText = error.stack ?? error.message;
+			writeTimestampedLines( stderrStream, errorText );
+			for ( const line of errorText.split( '\n' ) ) {
+				this.recordStderrLine( managedProcess, line );
+			}
 			void this.handleProcessExit( managedProcess );
 		} );
 
@@ -278,7 +294,7 @@ export class ProcessManagerDaemon {
 
 		await new Promise< void >( ( resolve ) => {
 			const timeoutId = setTimeout( () => {
-				managedProcess.child.kill( 'SIGKILL' );
+				this.forceCleanupChild( managedProcess );
 			}, STOP_TIMEOUT_MS );
 
 			managedProcess.child.once( 'exit', () => {
@@ -293,7 +309,7 @@ export class ProcessManagerDaemon {
 				resolve();
 			} );
 
-			managedProcess.child.kill( 'SIGTERM' );
+			this.signalProcessGroup( managedProcess, 'SIGTERM' );
 		} );
 	}
 
@@ -308,11 +324,14 @@ export class ProcessManagerDaemon {
 		managedProcess.stdoutStream.end();
 		managedProcess.stderrStream.end();
 
+		const stderrTail = managedProcess.stderrBuffer.join( '\n' );
+
 		await this.broadcastEvent( {
 			type: 'process-event',
 			payload: {
 				process: { name: managedProcess.name, pm_id: managedProcess.pmId },
 				event: 'exit',
+				...( stderrTail ? { stderrTail } : {} ),
 			},
 		} );
 	}
@@ -344,7 +363,8 @@ export class ProcessManagerDaemon {
 
 	private pipeOutputWithTimestamp(
 		input: NodeJS.ReadableStream | null,
-		target: WriteStream
+		target: WriteStream,
+		onLine?: ( line: string ) => void
 	): void {
 		if ( ! input ) {
 			return;
@@ -357,7 +377,24 @@ export class ProcessManagerDaemon {
 
 		lineReader.on( 'line', ( line ) => {
 			void target.write( timestampLogLine( line ) );
+			onLine?.( line );
 		} );
+	}
+
+	private recordStderrLine( managedProcess: ManagedProcess, line: string ): void {
+		managedProcess.stderrBuffer.push( line );
+		managedProcess.stderrBufferBytes += Buffer.byteLength( line, 'utf8' ) + 1; // +1 for the joining newline
+
+		while (
+			managedProcess.stderrBuffer.length > STDERR_BUFFER_MAX_LINES ||
+			managedProcess.stderrBufferBytes > STDERR_BUFFER_MAX_BYTES
+		) {
+			const dropped = managedProcess.stderrBuffer.shift();
+			if ( dropped === undefined ) {
+				break;
+			}
+			managedProcess.stderrBufferBytes -= Buffer.byteLength( dropped, 'utf8' ) + 1;
+		}
 	}
 
 	private toProcessDescription( managedProcess: ManagedProcess ): ProcessDescription {
@@ -382,8 +419,35 @@ export class ProcessManagerDaemon {
 			if ( managedProcess.settled ) {
 				continue;
 			}
+			this.forceCleanupChild( managedProcess );
+		}
+	}
+
+	private forceCleanupChild( managedProcess: ManagedProcess ) {
+		// On Windows, child.kill() maps any signal to TerminateProcess, so SIGKILL and SIGTERM
+		// are equivalent there. On non-Windows the helper sends SIGKILL to the whole group.
+		this.signalProcessGroup( managedProcess, 'SIGKILL' );
+	}
+
+	private signalProcessGroup( managedProcess: ManagedProcess, signal: NodeJS.Signals ): void {
+		if ( process.platform === 'win32' || ! managedProcess.child.pid ) {
 			try {
-				managedProcess.child.kill( 'SIGKILL' );
+				managedProcess.child.kill( signal );
+			} catch {
+				// Do nothing
+			}
+			return;
+		}
+
+		// Children are spawned with `detached: true` on non-Windows, so each lives in its own
+		// process group. Signalling the negative PID delivers to every member of that group,
+		// including grandchildren (e.g. the PHP server spawned by the wrapper).
+		try {
+			process.kill( -managedProcess.child.pid, signal );
+		} catch {
+			// Group send can fail if the leader has already exited but children remain.
+			try {
+				managedProcess.child.kill( signal );
 			} catch {
 				// Do nothing
 			}
@@ -396,16 +460,17 @@ export class ProcessManagerDaemon {
 		}
 
 		this.shuttingDown = true;
-		await this.broadcastEvent( {
-			type: 'daemon-kill',
-			payload: { reason },
-		} );
 
 		await Promise.allSettled(
 			Array.from( this.managedProcesses.values() ).map( ( managedProcess ) =>
 				this.stopProcess( managedProcess.name )
 			)
 		);
+
+		await this.broadcastEvent( {
+			type: 'daemon-kill',
+			payload: { reason },
+		} );
 
 		await new Promise< void >( ( resolve ) => {
 			void this.controlServer.close().then( () => resolve() );

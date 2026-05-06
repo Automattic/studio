@@ -1,6 +1,9 @@
 import { app } from 'electron';
 import fs from 'fs';
 import path from 'path';
+import { findOnPath } from 'src/lib/find-on-path';
+import { SUPPORTED_EDITORS, supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
+import { SUPPORTED_TERMINALS, terminalConfig } from 'src/modules/user-settings/lib/terminal';
 
 type PlatformPaths = {
 	[ K in keyof InstalledApps ]: string[];
@@ -52,18 +55,21 @@ const installationPaths: Record< string, PlatformPaths > = {
 		warp: [ 'Warp.app' ],
 		ghostty: [ 'Ghostty.app' ],
 	},
+	// Linux editor and terminal detection is driven by `linuxCommands`
+	// (resolved via $PATH in `isInstalled`), so those entries are intentionally
+	// omitted from this map. Only the non-resolvable iterm entry lives here.
 	linux: {
-		antigravity: [ '/usr/bin/antigravity' ],
-		vscode: [ '/usr/bin/code' ],
-		phpstorm: [ '/usr/bin/phpstorm' ],
-		cursor: [ '/usr/bin/cursor' ],
-		windsurf: [ '/usr/bin/windsurf' ],
-		webstorm: [ '/usr/bin/webstorm' ],
-		sublime: [ '/usr/bin/subl' ],
-		zed: [ '/usr/bin/zed' ],
+		antigravity: [],
+		vscode: [],
+		phpstorm: [],
+		cursor: [],
+		windsurf: [],
+		webstorm: [],
+		sublime: [],
+		zed: [],
 		iterm: [],
 		terminal: [],
-		warp: [ '/usr/bin/warp' ],
+		warp: [],
 		ghostty: [],
 	},
 	win32: {
@@ -138,8 +144,35 @@ if ( process.platform === 'darwin' ) {
 	} );
 }
 
+function isSupportedEditor(
+	key: keyof InstalledApps
+): key is ( typeof SUPPORTED_EDITORS )[ number ] {
+	return ( SUPPORTED_EDITORS as readonly string[] ).includes( key );
+}
+
+function isSupportedTerminal(
+	key: keyof InstalledApps
+): key is ( typeof SUPPORTED_TERMINALS )[ number ] {
+	return ( SUPPORTED_TERMINALS as readonly string[] ).includes( key );
+}
+
 export function isInstalled( key: keyof InstalledApps ): boolean {
 	const platform = process.platform;
+
+	// On Linux, editors and terminals live in many places (apt, snap, flatpak,
+	// ~/.local/bin, …). Resolve them against $PATH using their `linuxCommands`
+	// instead of hardcoded paths.
+	if ( platform === 'linux' ) {
+		if ( isSupportedEditor( key ) ) {
+			const editor = supportedEditorConfig[ key ];
+			return editor.linuxCommands.some( ( command ) => findOnPath( command ) !== null );
+		}
+		if ( isSupportedTerminal( key ) ) {
+			const terminal = terminalConfig[ key ];
+			return terminal.linuxCommands.some( ( command ) => findOnPath( command ) !== null );
+		}
+	}
+
 	const paths = installationPaths[ platform ]?.[ key ];
 
 	// Return true if any of the possible paths exist

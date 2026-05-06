@@ -31,7 +31,7 @@ const daemonRequestStartProcessSchema = z.object( {
 	type: z.literal( 'start-process' ),
 	processName: z.string(),
 	scriptPath: z.string(),
-	env: z.record( z.string(), z.string() ).optional(),
+	env: z.record( z.string(), z.union( [ z.string(), z.undefined() ] ) ).optional(),
 	args: z.array( z.string() ).optional(),
 } );
 
@@ -98,6 +98,9 @@ export const processEventSchema = z.object( {
 		z.literal( 'restart' ),
 		z.literal( 'stop' ),
 	] ),
+	// Tail of the child's stderr captured during this invocation. Only populated on `exit`
+	// events; undefined for any other event.
+	stderrTail: z.string().optional(),
 } );
 
 const daemonProcessEventSchema = z.object( {

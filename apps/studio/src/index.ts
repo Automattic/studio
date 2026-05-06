@@ -8,9 +8,8 @@ import {
 	Menu,
 	dialog,
 	MessageBoxSyncOptions,
+	shell,
 } from 'electron';
-import { execFileSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
 import path from 'path';
 import { pathToFileURL } from 'url';
 import * as Sentry from '@sentry/electron/main';
@@ -47,7 +46,7 @@ import {
 	startCliEventsSubscriber,
 	stopCliEventsSubscriber,
 } from 'src/modules/cli/lib/cli-events-subscriber';
-import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
+import { autoInstallLinuxCliIfNeeded } from 'src/modules/cli/lib/linux-installation-manager';
 import { autoInstallMacOSCliIfNeeded } from 'src/modules/cli/lib/macos-installation-manager';
 import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
 import { stopAllProcesses as stopAllStudioCodeProcesses } from 'src/modules/studio-code';
@@ -70,6 +69,18 @@ function getRendererUrl(): string {
 	} else {
 		// For production file paths, convert to file:// URL
 		return pathToFileURL( path.join( __dirname, '../renderer/index.html' ) ).href;
+	}
+}
+
+function openExternalWebUrl( url: string ): void {
+	try {
+		const parsedUrl = new URL( url );
+		if ( ! [ 'http:', 'https:' ].includes( parsedUrl.protocol ) ) {
+			return;
+		}
+		void shell.openExternal( parsedUrl.toString() ).catch( () => undefined );
+	} catch {
+		// Ignore malformed URLs from untrusted pages.
 	}
 }
 
@@ -135,47 +146,7 @@ function launchExtensionBackgroundWorkers( appSession = session.defaultSession )
 	);
 }
 
-// In dev mode, every unpackaged Electron binary shares the bundle ID
-// "com.github.Electron", so protocol handlers across workspaces collide in
-// Launch Services. Patch the Electron.app Info.plist once per workspace to
-// give each dev instance a unique bundle ID derived from its path, then
-// relaunch so the new ID takes effect. The patch is idempotent and only
-// runs on the first boot after `npm install`.
-function ensureUniqueDevBundleId(): void {
-	if ( process.platform !== 'darwin' || ! process.defaultApp ) {
-		return;
-	}
-
-	// process.execPath points to <Electron.app>/Contents/MacOS/Electron, so
-	// walking up three dirs gives the Electron.app bundle reliably regardless
-	// of how the main process was bundled (electron-vite rewrites
-	// `require.resolve('electron')` to the bundled output path in dev).
-	const electronAppPath = path.resolve( process.execPath, '..', '..', '..' );
-	const infoPlist = path.join( electronAppPath, 'Contents', 'Info.plist' );
-	const plistBuddy = '/usr/libexec/PlistBuddy';
-	const lsregister =
-		'/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister';
-
-	const currentId = execFileSync( plistBuddy, [ '-c', 'Print :CFBundleIdentifier', infoPlist ], {
-		encoding: 'utf8',
-	} ).trim();
-	if ( currentId !== 'com.github.Electron' ) {
-		return;
-	}
-
-	const uniqueId = `com.studio.dev.${ createHash( 'sha1' )
-		.update( electronAppPath )
-		.digest( 'hex' )
-		.slice( 0, 12 ) }`;
-	execFileSync( plistBuddy, [ '-c', `Set :CFBundleIdentifier ${ uniqueId }`, infoPlist ] );
-	execFileSync( lsregister, [ '-f', electronAppPath ] );
-	app.relaunch();
-	app.exit( 0 );
-}
-
 async function appBoot() {
-	ensureUniqueDevBundleId();
-
 	app.setName( packageJson.productName );
 
 	Menu.setApplicationMenu( null );
@@ -202,16 +173,29 @@ async function appBoot() {
 	// be able to perform privileged operations.
 	app.enableSandbox();
 
-	// Prevent navigation to anywhere other than known locations
+	// Prevent navigation to anywhere other than known locations.
+	// The site-preview `<webview>` is a separate webContents that intentionally
+	// loads local WordPress pages — it's identified by `getType() === 'webview'`
+	// and exempted from the renderer-origin restriction below.
 	app.on( 'web-contents-created', ( _event, contents ) => {
+		const isSitePreviewWebview = contents.getType() === 'webview';
+
 		contents.on( 'will-navigate', ( event, navigationUrl ) => {
+			if ( isSitePreviewWebview ) {
+				return;
+			}
 			const { origin } = new URL( navigationUrl );
 			const allowedOrigins = [ new URL( getRendererUrl() ).origin ];
 			if ( ! allowedOrigins.includes( origin ) ) {
 				event.preventDefault();
 			}
 		} );
-		contents.setWindowOpenHandler( () => {
+		contents.setWindowOpenHandler( ( details ) => {
+			// Site-preview popups (target="_blank", admin-bar links, …) open
+			// in the user's browser rather than spawning a new Electron window.
+			if ( isSitePreviewWebview ) {
+				openExternalWebUrl( details.url );
+			}
 			return { action: 'deny' };
 		} );
 	} );
@@ -323,9 +307,13 @@ async function appBoot() {
 			const basePolicies = [
 				"default-src 'self'", // Allow resources from these domains
 				"script-src-attr 'none'",
-				"img-src 'self' https://*.gravatar.com https://*.wp.com https://blueprintlibrary.wordpress.com data:",
+				"img-src 'self' https://*.gravatar.com https://*.wp.com https://blueprintlibrary.wordpress.com https://blueprintslibraryv2.wpcomstaging.com https://wordpress.github.io https://raw.githubusercontent.com data:",
 				"style-src 'self' 'unsafe-inline'", // unsafe-inline used by tailwindcss in development, and also in production after the app rename
 				"script-src 'self' 'wasm-unsafe-eval'", // allow WebAssembly to compile and instantiate
+				// Site preview uses `<webview>` to host local WordPress sites
+				// served from arbitrary localhost ports and (optionally) HTTPS
+				// custom domains.
+				'frame-src http: https:',
 			];
 			const prodPolicies = [
 				"connect-src 'self' https://public-api.wordpress.com https://api.wordpress.org",
@@ -387,6 +375,7 @@ async function appBoot() {
 
 		await autoInstallWindowsCliIfNeeded();
 		await autoInstallMacOSCliIfNeeded();
+		await autoInstallLinuxCliIfNeeded();
 
 		finishedInitialization = true;
 	} );
@@ -456,7 +445,6 @@ async function appBoot() {
 
 			void ( async () => {
 				const userData = await loadUserData();
-				const isCliInstalled = await isStudioCliInstalled();
 
 				if ( userData.stopSitesOnQuit !== undefined ) {
 					shouldStopSitesOnQuit = userData.stopSitesOnQuit;
@@ -465,13 +453,14 @@ async function appBoot() {
 					return;
 				}
 
-				if ( ! isCliInstalled || process.env.E2E ) {
+				if ( process.env.E2E ) {
 					isQuittingConfirmed = true;
 					app.quit();
 					return;
 				}
 
 				const STOP_SITES_BUTTON_INDEX = 0;
+				const LEAVE_RUNNING_BUTTON_INDEX = 1;
 				const CANCEL_BUTTON_INDEX = 2;
 
 				const { response, checkboxChecked } = await dialog.showMessageBox( {
@@ -488,7 +477,7 @@ async function appBoot() {
 					buttons: [ __( 'Stop sites' ), __( 'Leave running' ), __( 'Cancel' ) ],
 					checkboxLabel: __( "Don't ask again" ),
 					cancelId: CANCEL_BUTTON_INDEX,
-					defaultId: STOP_SITES_BUTTON_INDEX,
+					defaultId: LEAVE_RUNNING_BUTTON_INDEX,
 				} );
 
 				if ( response === CANCEL_BUTTON_INDEX ) {

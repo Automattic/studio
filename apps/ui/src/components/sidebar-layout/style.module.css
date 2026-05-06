@@ -1,10 +1,13 @@
 .root {
 	display: flex;
 	height: 100vh;
+	overflow: hidden;
 }
 
 .sidebar {
-	width: 320px;
+	width: var(--sidebar-width, 320px);
+	min-width: 240px;
+	max-width: 25vw;
 	flex-shrink: 0;
 	background-color: var(--wpds-color-bg-surface-neutral-weak);
 	border-right: 1px solid var(--wpds-color-stroke-surface-neutral);
@@ -20,12 +23,20 @@
 
 .sidebarCollapsed {
 	width: 0;
+	min-width: 0;
 }
 
 .main {
 	flex: 1;
+	min-width: 0;
 	overflow: auto;
 	position: relative;
+}
+
+.resizeHandle {
+	flex-shrink: 0;
+	justify-content: flex-start;
+	padding-left: 4px;
 }
 
 .floatingToggle {

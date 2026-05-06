@@ -27,9 +27,9 @@ import { getToolDetail, getToolDisplayName } from '@studio/common/ai/tools';
 import chalk from '@studio/common/lib/chalk';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { AI_MODELS, DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
+import { DEFAULT_MODEL, getAiModelLabel, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
-import { AI_CHAT_SLASH_COMMANDS } from 'cli/ai/slash-commands';
+import { getActiveSlashCommands } from 'cli/ai/slash-commands';
 import { buildTodoUpdateLines, type TodoRenderLine } from 'cli/ai/todo-render';
 import { diffTodoSnapshot, type TodoDiff, type TodoEntry } from 'cli/ai/todo-stream';
 import { getWpComSites } from 'cli/lib/api';
@@ -37,9 +37,8 @@ import { openBrowser } from 'cli/lib/browser';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { getSitesRunningStatus, isSiteRunning } from 'cli/lib/site-utils';
-import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
-import type { TodoWriteInput } from '@anthropic-ai/claude-agent-sdk/sdk-tools';
 import type { AiOutputAdapter, HandleMessageResult } from 'cli/ai/output-adapter';
+import type { SDKMessage, TodoWriteInput } from 'cli/ai/runtimes/messages';
 
 const SITE_PICKER_TAB_LOCAL = 'local' as const;
 const SITE_PICKER_TAB_REMOTE = 'remote' as const;
@@ -98,6 +97,7 @@ class PromptEditor implements Component, Focusable {
 	busyMessage: string | null = null;
 	hints: string[] = [];
 	statusMessage: string | null = null;
+	daemonStatusMessage: string | null = null;
 	showBottomBar = true;
 
 	get focused(): boolean {
@@ -129,6 +129,10 @@ class PromptEditor implements Component, Focusable {
 
 	setAutocompleteProvider( provider: CombinedAutocompleteProvider ): void {
 		this.editor.setAutocompleteProvider( provider );
+	}
+
+	addToHistory( text: string ): void {
+		this.editor.addToHistory( text );
 	}
 
 	getText(): string {
@@ -208,7 +212,15 @@ class PromptEditor implements Component, Focusable {
 			activeHints.length > 0
 				? ' ' + activeHints.map( ( h ) => chalk.dim( h ) ).join( chalk.dim( ' · ' ) )
 				: '';
-		const rightPart = this.statusMessage ? chalk.dim( this.statusMessage ) + ' ' : '';
+		const rightSegments: string[] = [];
+		if ( this.daemonStatusMessage ) {
+			rightSegments.push( chalk.green( this.daemonStatusMessage ) );
+		}
+		if ( this.statusMessage ) {
+			rightSegments.push( chalk.dim( this.statusMessage ) );
+		}
+		const rightPart =
+			rightSegments.length > 0 ? rightSegments.join( chalk.dim( ' · ' ) ) + ' ' : '';
 		if ( leftPart || rightPart ) {
 			const leftLen = visibleWidth( leftPart );
 			const rightLen = visibleWidth( rightPart );
@@ -386,6 +398,7 @@ export class AiChatUI implements AiOutputAdapter {
 	private editorVisible = false;
 	private interruptCallback: ( () => void ) | null = null;
 	private wasInterrupted = false;
+	private interruptionNoticeShown = false;
 	private usageCapReached = false;
 	private hasShownResponseMarker = false;
 	private turnStartTime = 0;
@@ -442,6 +455,11 @@ export class AiChatUI implements AiOutputAdapter {
 
 	get activeSite(): SiteInfo | null {
 		return this._activeSite;
+	}
+
+	set activeSite( site: SiteInfo | null ) {
+		this._activeSite = site;
+		this.editor.activeSiteName = site?.name ?? null;
 	}
 
 	private refreshPromptChrome(): void {
@@ -557,7 +575,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this.editor = new PromptEditor( this.tui, editorTheme );
 
 		this.editor.setAutocompleteProvider(
-			new CombinedAutocompleteProvider( AI_CHAT_SLASH_COMMANDS )
+			new CombinedAutocompleteProvider( getActiveSlashCommands(), process.cwd() )
 		);
 
 		this.editor.onSubmit = ( text ) => {
@@ -565,6 +583,7 @@ export class AiChatUI implements AiOutputAdapter {
 			if ( ! trimmed ) {
 				return;
 			}
+			this.editor.addToHistory( trimmed );
 			if ( this.submitResolve ) {
 				const resolve = this.submitResolve;
 				this.submitResolve = null;
@@ -588,6 +607,9 @@ export class AiChatUI implements AiOutputAdapter {
 			if ( matchesKey( data, 'ctrl+c' ) ) {
 				this.stop();
 				process.exit( 0 );
+			}
+			if ( matchesKey( data, 'escape' ) && this.requestInterrupt() ) {
+				return { consume: true };
 			}
 			// Option picker navigation (must be checked before site picker)
 			if ( this.optionPickerSelectList ) {
@@ -698,10 +720,6 @@ export class AiChatUI implements AiOutputAdapter {
 				this.queuedPrompts.pop();
 				this.renderQueuedContainer();
 				return { consume: true };
-			}
-			if ( matchesKey( data, 'escape' ) && this.interruptCallback ) {
-				this.wasInterrupted = true;
-				this.interruptCallback();
 			}
 			if ( matchesKey( data, 'ctrl+o' ) && this.activeExpandablePreview ) {
 				this.toggleExpandablePreview();
@@ -906,16 +924,16 @@ export class AiChatUI implements AiOutputAdapter {
 		const label = site.remote
 			? sprintf(
 					/* translators: %s: site name */
-					__( ' ✻ Selected site: %s (WordPress.com)' ),
+					__( ' Selected site: %s (WordPress.com)' ),
 					site.name
 			  )
 			: sprintf(
 					/* translators: %s: site name */
-					__( ' ✻ Selected site: %s' ),
+					__( ' Selected site: %s' ),
 					site.name
 			  );
 		if ( announce ) {
-			this.messages.addChild( new Text( `${ chalk.hex( '#5b8db8' )( label ) }\n`, 0, 0 ) );
+			this.messages.addChild( new Text( `\n${ chalk.hex( '#8839ef' )( label ) }\n`, 0, 0 ) );
 		}
 		if ( emitEvent ) {
 			this.siteSelectedCallback?.( site );
@@ -988,43 +1006,51 @@ export class AiChatUI implements AiOutputAdapter {
 		toolName: string,
 		toolInput: Record< string, unknown > | null
 	): Promise< void > {
-		switch ( toolName ) {
-			case 'mcp__studio__site_create': {
+		// Tool names arrive in two flavors depending on the runtime:
+		//   - Anthropic (Claude Agent SDK): `mcp__studio__site_create` (the SDK
+		//     auto-prefixes MCP-server tool names).
+		//   - OpenAI (pi-agent-core): `site_create` (registered by bare name).
+		// Strip the prefix so the switch below stays single-source.
+		const bareName = toolName.startsWith( 'mcp__studio__' )
+			? toolName.slice( 'mcp__studio__'.length )
+			: toolName;
+		switch ( bareName ) {
+			case 'site_create': {
 				const name = toolInput?.name;
 				if ( typeof name === 'string' ) {
 					await this.selectLocalSiteFromTool( name, { running: true } );
 				}
 				break;
 			}
-			case 'mcp__studio__site_info':
-			case 'mcp__studio__site_start': {
+			case 'site_info':
+			case 'site_start': {
 				const nameOrPath = toolInput?.nameOrPath;
 				if ( typeof nameOrPath === 'string' ) {
 					await this.selectLocalSiteFromTool( nameOrPath, {
-						running: toolName === 'mcp__studio__site_start' ? true : undefined,
+						running: bareName === 'site_start' ? true : undefined,
 					} );
 				}
 				break;
 			}
-			case 'mcp__studio__wp_cli':
-			case 'mcp__studio__preview_create':
-			case 'mcp__studio__preview_list':
-			case 'mcp__studio__preview_update':
-			case 'mcp__studio__validate_blocks': {
+			case 'wp_cli':
+			case 'preview_create':
+			case 'preview_list':
+			case 'preview_update':
+			case 'validate_blocks': {
 				const nameOrPath = toolInput?.nameOrPath;
 				if ( typeof nameOrPath === 'string' ) {
 					await this.selectLocalSiteFromTool( nameOrPath );
 				}
 				break;
 			}
-			case 'mcp__studio__site_stop': {
+			case 'site_stop': {
 				const nameOrPath = toolInput?.nameOrPath;
 				if ( typeof nameOrPath === 'string' ) {
 					await this.selectLocalSiteFromTool( nameOrPath, { running: false } );
 				}
 				break;
 			}
-			case 'mcp__studio__site_delete': {
+			case 'site_delete': {
 				const nameOrPath = toolInput?.nameOrPath;
 				if (
 					typeof nameOrPath === 'string' &&
@@ -1169,6 +1195,13 @@ export class AiChatUI implements AiOutputAdapter {
 		this.tui.requestRender();
 	}
 
+	private cancelOptionPicker(): void {
+		const resolve = this.optionPickerResolve;
+		this.optionPickerResolve = null;
+		this.closeOptionPicker();
+		resolve?.( '' );
+	}
+
 	start(): void {
 		this.tui.start();
 	}
@@ -1204,7 +1237,7 @@ export class AiChatUI implements AiOutputAdapter {
 		// Truncate the cwd with a leading ellipsis (preserving the meaningful
 		// suffix) when the terminal is too narrow, otherwise the welcome wraps
 		// and visually breaks the logo layout.
-		const baseInfo = `${ AI_MODELS[ this.currentModel ] } · ${
+		const baseInfo = `${ getAiModelLabel( this.currentModel ) } · ${
 			AI_PROVIDERS[ this.currentProvider ]
 		}`;
 		const sep = ' · ';
@@ -1241,6 +1274,55 @@ export class AiChatUI implements AiOutputAdapter {
 
 	set onInterrupt( fn: ( () => void ) | null ) {
 		this.interruptCallback = fn;
+		this.updateHints();
+	}
+
+	private requestInterrupt(): boolean {
+		if ( ! this.interruptCallback ) {
+			return false;
+		}
+
+		if ( this.wasInterrupted ) {
+			return true;
+		}
+
+		this.wasInterrupted = true;
+		this.closeSitePicker();
+		this.cancelOptionPicker();
+		if ( this.submitResolve ) {
+			const resolve = this.submitResolve;
+			this.submitResolve = null;
+			resolve( '' );
+		}
+		this.showInterruptedNotice();
+		this.interruptCallback();
+		this.updateHints();
+		return true;
+	}
+
+	private showInterruptedNotice(): void {
+		if ( this.interruptionNoticeShown ) {
+			return;
+		}
+
+		this.interruptionNoticeShown = true;
+		this.hideLoader();
+		this.stopToolDotBlink();
+		this.toolDotText = null;
+		this.currentMarkdown = null;
+		this.currentResponseText = '';
+
+		const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
+		this.messages.addChild(
+			new Text( '\n ' + chalk.yellow( '⏺' ) + ' ' + chalk.yellow( __( 'Interrupted' ) ), 0, 0 )
+		);
+		this.showInfo(
+			sprintf(
+				/* translators: %d: number of seconds */
+				__( 'Ran for %ds before interruption' ),
+				thinkingSec
+			)
+		);
 	}
 
 	stop(): void {
@@ -1249,7 +1331,6 @@ export class AiChatUI implements AiOutputAdapter {
 	}
 
 	waitForInput(): Promise< string > {
-		this.editor.setText( '' );
 		this.hideLoader();
 		this.showEditor();
 		if ( this.queuedPrompts.length > 0 ) {
@@ -1348,7 +1429,9 @@ export class AiChatUI implements AiOutputAdapter {
 		if ( this.queuedPrompts.length > 0 ) {
 			hints.push( __( 'backspace to unqueue' ) );
 		}
-		hints.push( __( 'esc to interrupt' ) );
+		if ( this.interruptCallback ) {
+			hints.push( __( 'esc to interrupt' ) );
+		}
 		this.editor.hints = hints;
 	}
 
@@ -1375,13 +1458,13 @@ export class AiChatUI implements AiOutputAdapter {
 	 * Begin an agent turn: hide editor, show loader, prepare response area.
 	 */
 	beginAgentTurn(): void {
-		this.editor.setText( '' );
 		this._inAgentTurn = true;
 		this.updateHints();
 		this.showLoader( randomThinkingMessage() );
 		this.currentResponseText = '';
 		this.hasShownResponseMarker = false;
 		this.wasInterrupted = false;
+		this.interruptionNoticeShown = false;
 		this.usageCapReached = false;
 		this.turnStartTime = this.nowMs();
 		this.todoSnapshot = [];
@@ -1588,6 +1671,11 @@ export class AiChatUI implements AiOutputAdapter {
 		this.tui.requestRender();
 	}
 
+	setDaemonStatus( state: { running: boolean; pid?: number } ): void {
+		this.editor.daemonStatusMessage = state.running ? __( 'Remote session active' ) : null;
+		this.tui.requestRender();
+	}
+
 	private busyTimer: ReturnType< typeof setInterval > | null = null;
 	private busyFrameIndex = 0;
 	private static readonly BUSY_FRAMES = [ '⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏' ];
@@ -1763,7 +1851,7 @@ export class AiChatUI implements AiOutputAdapter {
 		}
 
 		const contentBlocks = Array.isArray( message.message.content ) ? message.message.content : [];
-		const toolResultBlock = contentBlocks.find( isToolResultBlock );
+		const toolResultBlock = ( contentBlocks as unknown[] ).find( isToolResultBlock );
 		if ( ! toolResultBlock ) {
 			return null;
 		}
@@ -2000,12 +2088,21 @@ export class AiChatUI implements AiOutputAdapter {
 						this.closeOptionPicker();
 						resolve( item.value );
 					};
+					selectList.onCancel = () => {
+						this.cancelOptionPicker();
+					};
 				} );
 
+				if ( ! selected ) {
+					return answers;
+				}
 				answers[ q.question ] = selected;
 			} else {
 				// Free-form text input
 				const answer = await this.waitForInput();
+				if ( ! answer ) {
+					return answers;
+				}
 				answers[ q.question ] = answer;
 			}
 		}
@@ -2020,6 +2117,10 @@ export class AiChatUI implements AiOutputAdapter {
 	 * Returns session result when the agent turn is complete.
 	 */
 	handleMessage( message: SDKMessage ): HandleMessageResult | undefined {
+		if ( this.wasInterrupted && message.type !== 'result' ) {
+			return undefined;
+		}
+
 		switch ( message.type ) {
 			case 'assistant': {
 				// Detect the AI usage cap response from the WordPress.com proxy.
@@ -2142,15 +2243,6 @@ export class AiChatUI implements AiOutputAdapter {
 			case 'result': {
 				this.hideLoader();
 
-				// Max-turns exhaustion has dedicated upstream handling (prompts user to continue).
-				if ( message.subtype === 'error_max_turns' ) {
-					return {
-						type: 'max_turns',
-						sessionId: message.session_id,
-						numTurns: message.num_turns,
-					};
-				}
-
 				// When the cap message was surfaced earlier in this turn,
 				// the SDK still classifies the turn as successful (or returns
 				// is_error with the raw upstream body). Skip the "Done" /
@@ -2163,21 +2255,7 @@ export class AiChatUI implements AiOutputAdapter {
 
 				// User-initiated interruption: friendly message, suppress retry prompt.
 				if ( this.wasInterrupted ) {
-					const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
-					this.messages.addChild(
-						new Text(
-							'\n ' + chalk.yellow( '⏺' ) + ' ' + chalk.yellow( __( 'Interrupted' ) ),
-							0,
-							0
-						)
-					);
-					this.showInfo(
-						sprintf(
-							/* translators: %d: number of seconds */
-							__( 'Ran for %ds before interruption' ),
-							thinkingSec
-						)
-					);
+					this.showInterruptedNotice();
 					return {
 						type: 'result',
 						sessionId: message.session_id,

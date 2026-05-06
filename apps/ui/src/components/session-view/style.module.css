@@ -1,7 +1,15 @@
 .root {
 	display: flex;
-	flex-direction: column;
+	flex-direction: row;
 	height: 100%;
+	min-height: 0;
+}
+
+.chatColumn {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	min-width: 0;
 	min-height: 0;
 }
 
@@ -16,7 +24,7 @@
 	gap: var(--wpds-dimension-padding-sm);
 	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-2xl);
 	min-height: 46px;
-	font-size: var(--wpds-font-size-sm);
+	font-size: var(--wpds-typography-font-size-sm);
 	color: var(--wpds-color-fg-content-neutral);
 	-webkit-app-region: drag;
 }
@@ -43,6 +51,10 @@
 	font-weight: 600;
 }
 
+.headerSiteIcon {
+	margin-inline-end: calc(-1 * var(--wpds-dimension-padding-xs));
+}
+
 .headerDot {
 	width: 6px;
 	height: 6px;
@@ -57,6 +69,17 @@
 
 .headerEnv {
 	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.headerSpacer {
+	flex: 1;
+}
+
+.headerActions {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xs);
+	-webkit-app-region: no-drag;
 }
 
 .scroll {
@@ -84,5 +107,5 @@
 }
 
 .composerOuter {
-	padding: 0 var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-xl);
+	padding: 0 calc(var(--wpds-dimension-padding-2xl) * 2) var(--wpds-dimension-padding-xl);
 }

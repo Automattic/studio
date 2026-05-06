@@ -13,6 +13,7 @@ import { userLoggedOut } from 'src/stores/auth-actions';
 import { betaFeaturesReducer, loadBetaFeatures } from 'src/stores/beta-features-slice';
 import { certificateTrustApi } from 'src/stores/certificate-trust-api';
 import { reducer as chatReducer } from 'src/stores/chat-slice';
+import { galleryBlueprintsApi } from 'src/stores/gallery-blueprints-api';
 import i18nReducer from 'src/stores/i18n-slice';
 import { installedAppsApi } from 'src/stores/installed-apps-api';
 import onboardingReducer from 'src/stores/onboarding-slice';
@@ -51,6 +52,7 @@ export type RootState = {
 	wordpressVersionsApi: ReturnType< typeof wordpressVersionsApi.reducer >;
 	wpcomApi: ReturnType< typeof wpcomApi.reducer >;
 	wpcomPublicApi: ReturnType< typeof wpcomPublicApi.reducer >;
+	galleryBlueprintsApi: ReturnType< typeof galleryBlueprintsApi.reducer >;
 	certificateTrustApi: ReturnType< typeof certificateTrustApi.reducer >;
 	i18n: ReturnType< typeof i18nReducer >;
 	ui: ReturnType< typeof uiReducer >;
@@ -217,6 +219,7 @@ export const rootReducer = combineReducers( {
 	wordpressVersionsApi: wordpressVersionsApi.reducer,
 	wpcomApi: wpcomApi.reducer,
 	wpcomPublicApi: wpcomPublicApi.reducer,
+	galleryBlueprintsApi: galleryBlueprintsApi.reducer,
 	certificateTrustApi: certificateTrustApi.reducer,
 	i18n: i18nReducer,
 	ui: uiReducer,
@@ -234,6 +237,7 @@ export const store = configureStore( {
 			.concat( wordpressVersionsApi.middleware )
 			.concat( wpcomApi.middleware )
 			.concat( wpcomPublicApi.middleware )
+			.concat( galleryBlueprintsApi.middleware )
 			.concat( certificateTrustApi.middleware ),
 } );
 

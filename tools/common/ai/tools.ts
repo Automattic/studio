@@ -1,5 +1,12 @@
 import { __ } from '@wordpress/i18n';
 
+// Strip the legacy `mcp__studio__` prefix from SDK-era tool names so the
+// dictionary below can stay keyed on pi-runtime bare names while still
+// matching tool calls replayed from older session JSONL.
+function stripMcpPrefix( name: string ): string {
+	return name.startsWith( 'mcp__studio__' ) ? name.slice( 'mcp__studio__'.length ) : name;
+}
+
 /**
  * Human-facing display name for a tool, localized.
  * Falls back to the raw tool name (e.g. an unknown MCP tool) so the UI/CLI
@@ -7,30 +14,44 @@ import { __ } from '@wordpress/i18n';
  */
 export function getToolDisplayName( name: string ): string {
 	const displayNames: Record< string, string > = {
-		mcp__studio__site_create: __( 'Create site' ),
-		mcp__studio__site_list: __( 'List sites' ),
-		mcp__studio__site_info: __( 'Get site info' ),
-		mcp__studio__site_start: __( 'Start site' ),
-		mcp__studio__site_stop: __( 'Stop site' ),
-		mcp__studio__site_delete: __( 'Delete site' ),
-		mcp__studio__preview_create: __( 'Create preview' ),
-		mcp__studio__preview_list: __( 'List previews' ),
-		mcp__studio__preview_update: __( 'Update preview' ),
-		mcp__studio__preview_delete: __( 'Delete preview' ),
-		mcp__studio__wp_cli: __( 'Run WP-CLI' ),
-		mcp__studio__validate_blocks: __( 'Validate blocks' ),
-		mcp__studio__take_screenshot: __( 'Take screenshot' ),
+		site_create: __( 'Create site' ),
+		site_list: __( 'List sites' ),
+		site_info: __( 'Get site info' ),
+		site_start: __( 'Start site' ),
+		site_stop: __( 'Stop site' ),
+		site_delete: __( 'Delete site' ),
+		site_push: __( 'Push site' ),
+		site_pull: __( 'Pull site' ),
+		site_import: __( 'Import site' ),
+		site_export: __( 'Export site' ),
+		preview_create: __( 'Create preview' ),
+		preview_list: __( 'List previews' ),
+		preview_update: __( 'Update preview' ),
+		preview_delete: __( 'Delete preview' ),
+		wp_cli: __( 'Run WP-CLI' ),
+		scaffold_theme: __( 'Scaffold theme' ),
+		validate_blocks: __( 'Validate blocks' ),
+		take_screenshot: __( 'Take screenshot' ),
+		share_screenshot: __( 'Share screenshot' ),
+		preview_navigate: __( 'Navigate preview' ),
+		preview_reload: __( 'Reload preview' ),
+		need_for_speed: __( 'Audit performance' ),
+		rank_me_up: __( 'Audit SEO' ),
+		install_taxonomy_scripts: __( 'Install taxonomy scripts' ),
+		wpcom_request: __( 'WordPress.com API' ),
+		AskUserQuestion: __( 'Ask user' ),
 		Read: __( 'Read' ),
 		Write: __( 'Write' ),
 		Edit: __( 'Edit' ),
 		Bash: __( 'Run' ),
 		Glob: __( 'Search' ),
 		Grep: __( 'Search' ),
+		Ls: __( 'List' ),
 		Skill: __( 'Load skill' ),
 		Task: __( 'Run task' ),
 		TodoWrite: __( 'Update todo list' ),
 	};
-	return displayNames[ name ] ?? name;
+	return displayNames[ stripMcpPrefix( name ) ] ?? name;
 }
 
 const BASH_DETAIL_MAX_LENGTH = 60;
@@ -45,28 +66,37 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 	if ( ! input ) {
 		return '';
 	}
-	switch ( name ) {
-		case 'mcp__studio__site_create':
+	switch ( stripMcpPrefix( name ) ) {
+		case 'site_create':
 			return typeof input.name === 'string' ? input.name : '';
-		case 'mcp__studio__site_info':
-		case 'mcp__studio__site_start':
-		case 'mcp__studio__site_stop':
-		case 'mcp__studio__site_delete':
-		case 'mcp__studio__preview_create':
-		case 'mcp__studio__preview_list':
+		case 'site_info':
+		case 'site_start':
+		case 'site_stop':
+		case 'site_delete':
+		case 'site_push':
+		case 'site_pull':
+		case 'site_import':
+		case 'site_export':
+		case 'preview_create':
+		case 'preview_list':
 			return typeof input.nameOrPath === 'string' ? input.nameOrPath : '';
-		case 'mcp__studio__preview_update':
-		case 'mcp__studio__preview_delete':
+		case 'preview_update':
+		case 'preview_delete':
 			return typeof input.host === 'string' ? input.host : '';
-		case 'mcp__studio__wp_cli':
+		case 'wp_cli':
 			return typeof input.command === 'string' ? `wp ${ input.command }` : '';
-		case 'mcp__studio__validate_blocks':
+		case 'scaffold_theme':
+			return typeof input.name === 'string' ? input.name : '';
+		case 'validate_blocks':
 			if ( typeof input.filePath === 'string' ) {
 				return input.filePath.split( '/' ).slice( -2 ).join( '/' );
 			}
 			return __( 'inline content' );
-		case 'mcp__studio__take_screenshot':
+		case 'take_screenshot':
+		case 'share_screenshot':
 			return typeof input.url === 'string' ? input.url : '';
+		case 'preview_navigate':
+			return typeof input.path === 'string' ? input.path : '';
 		case 'Read':
 		case 'Write':
 		case 'Edit': {

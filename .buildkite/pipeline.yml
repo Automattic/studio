@@ -138,6 +138,8 @@ steps:
       - label: 🔨 Windows Dev Build - {{matrix}}
         agents:
           queue: windows
+        env:
+          USE_AZURE_TRUSTED_SIGNING: 1
         command: powershell -File .buildkite/commands/build-for-windows.ps1 -BuildType dev -Architecture {{matrix}}
         artifact_paths:
           - apps\studio\out\**\studio-setup.exe
@@ -145,6 +147,57 @@ steps:
           - apps\studio\out\**\RELEASES
           - apps\studio\out\**\*.appx
         plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
+        matrix:
+          - x64
+          - arm64
+
+  - input: "🚦 Build for Linux?"
+    prompt: "Do you want to build Linux dev binaries for this PR?"
+    key: input-dev-linux
+    if: build.tag !~ /^v[0-9]+/ && build.branch != 'trunk'
+
+  - group: 📦 Build for Linux
+    key: dev-linux
+    depends_on: input-dev-linux
+    if: build.tag !~ /^v[0-9]+/
+    steps:
+      - label: 🔨 Linux Dev Build - {{matrix}}
+        agents:
+          queue: default
+        command: |
+          set -eu
+
+          # The container has no SSH keys / known_hosts, use anonymous HTTPS
+          git remote set-url origin https://github.com/Automattic/studio.git
+
+          apt-get -o Acquire::Retries=3 update
+          apt-get install -y --no-install-recommends fakeroot
+
+          # `--maxsockets 1` works around npm/cli#4652 (ECONNRESETs on Linux);
+          # see install-node-dependencies.sh for the original rationale.
+          # TODO: restore the Buildkite npm cache used on Mac/Windows. The
+          # toolkit's cache helpers live on the host, so wiring them around a
+          # Docker step needs extra plumbing or a persistent agent volume.
+          npm ci --unsafe-perm --no-audit --no-progress --maxsockets 1
+
+          node ./scripts/prepare-dev-build-version.mjs
+
+          export IS_DEV_BUILD=true
+
+          echo "--- :node: Building DEB"
+          npm run make:linux-{{matrix}}
+        artifact_paths:
+          - apps/studio/out/make/deb/**/*.deb
+        plugins:
+          # Amazon Linux on the `default` queue lacks `dpkg`/`fakeroot`
+          # required by electron-forge's MakerDeb, so we build inside a
+          # Debian container that has them. Image tag is derived from
+          # `.nvmrc` (see shared-pipeline-vars) so Linux drifts in lockstep
+          # with the Mac/Windows agents (which install Node via NVM).
+          - $DOCKER_PLUGIN:
+              image: "$NODE_DOCKER_IMAGE"
+              propagate-environment: true
+              mount-buildkite-agent: true
         matrix:
           - x64
           - arm64

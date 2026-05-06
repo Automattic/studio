@@ -51,6 +51,20 @@ export function useCopySite() {
 	} );
 }
 
+export function useExportFullSite() {
+	const connector = useConnector();
+	return useMutation( {
+		mutationFn: ( siteId: string ) => connector.exportFullSite( siteId ),
+	} );
+}
+
+export function useExportDatabase() {
+	const connector = useConnector();
+	return useMutation( {
+		mutationFn: ( siteId: string ) => connector.exportDatabase( siteId ),
+	} );
+}
+
 // Invalidation is awaited inside `mutationFn` (not `onSettled`) so
 // `isPending` stays true until `site.running` reflects the new state.
 export function useStartSite() {

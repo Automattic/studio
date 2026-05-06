@@ -165,6 +165,41 @@ describe( 'remote-session daemon helpers', () => {
 		} );
 
 		itPosix(
+			'startDaemon spawns the child with --no-detach so it runs in foreground mode',
+			async () => {
+				// Write a fake CLI entry that records its argv, then writes the
+				// PID file so startDaemon resolves cleanly.
+				const argvFile = path.join( tmpDir, 'argv.json' );
+				const fakeEntry = path.join( tmpDir, 'argv-recorder.cjs' );
+				fs.writeFileSync(
+					fakeEntry,
+					`const fs = require('fs');
+fs.writeFileSync(${ JSON.stringify( argvFile ) }, JSON.stringify(process.argv));
+fs.writeFileSync(${ JSON.stringify( pidFile ) }, String(process.pid) + '\\n', { mode: 0o600 });
+setInterval(() => {}, 60000);
+`,
+					'utf8'
+				);
+				try {
+					const result = await startDaemon( { cliEntry: fakeEntry, pidFileWaitMs: 5000 }, pidFile );
+					const argv = JSON.parse( fs.readFileSync( argvFile, 'utf8' ) ) as string[];
+					expect( argv ).toContain( '--no-detach' );
+					expect( argv ).toContain( 'remote-session' );
+					expect( argv ).toContain( 'start' );
+					// Cleanup the long-runner.
+					try {
+						process.kill( result.pid, 'SIGKILL' );
+					} catch {
+						// ignore
+					}
+				} finally {
+					fs.rmSync( pidFile, { force: true } );
+				}
+			},
+			15000
+		);
+
+		itPosix(
 			'startDaemon raises DaemonStartTimeoutError when the child never writes the PID file',
 			async () => {
 				// Spawn a child that exits immediately — it never has a chance to write the PID file.

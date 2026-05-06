@@ -1,4 +1,5 @@
 import { renderHook, act } from '@testing-library/react';
+import { Provider } from 'react-redux';
 import { vi } from 'vitest';
 import { ImportExportProvider, useImportExport } from 'src/hooks/use-import-export';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
@@ -6,6 +7,7 @@ import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ExportEventType, ExportEvents } from 'src/lib/import-export/export/events';
 import { ImportEventType, ImportEvents } from 'src/lib/import-export/import/events';
+import { store } from 'src/stores';
 
 const mockShowSaveAsDialog = vi.fn();
 const mockShowErrorMessageBox = vi.fn();
@@ -49,7 +51,9 @@ const selectedSite: SiteDetails = {
 };
 
 const wrapper = ( { children }: { children: React.ReactNode } ) => (
-	<ImportExportProvider>{ children }</ImportExportProvider>
+	<Provider store={ store }>
+		<ImportExportProvider>{ children }</ImportExportProvider>
+	</Provider>
 );
 
 beforeEach( () => {

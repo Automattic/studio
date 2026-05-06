@@ -27,14 +27,9 @@ import { createSkillTool } from 'cli/ai/tools/skill';
 import { takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
 import { createWpcomRequestTool } from 'cli/ai/tools/wpcom-request';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
-import {
-	decideCompaction,
-	runCompaction,
-	STUDIO_COMPACTION_SETTINGS,
-	type CompactionReason,
-} from './auto-compaction';
+import { runCompaction, shouldCompact, STUDIO_COMPACTION_SETTINGS } from './auto-compaction';
 import type { AgentRuntime, AgentRuntimeConfig, AgentRuntimeHandle } from '../types';
-import type { AgentRuntimeEvent, CompactionEndEvent } from 'cli/ai/runtimes/runtime-events';
+import type { AgentRuntimeEvent } from 'cli/ai/runtimes/runtime-events';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AgentToolAny = AgentTool< any >;
@@ -43,7 +38,6 @@ interface CachedAgent {
 	agent: Agent;
 	model: Model< 'openai-completions' > | Model< 'anthropic-messages' >;
 	creds: ResolvedCredentials;
-	overflowRecoveryAttempted: boolean;
 }
 
 const AGENTS_BY_SESSION = new Map< string, CachedAgent >();
@@ -191,59 +185,17 @@ async function* createEventStream(
 			resolveNext = null;
 		};
 
-		// Auto-compaction takes over the agent_end → done=true transition.
-		// `pendingCompaction` keeps `done` false while the compaction promise
-		// resolves so the loop drains compaction events before exiting.
-		let pendingCompaction = false;
-
-		const handleAgentEnd = async (
-			lastAssistant: AssistantMessage | undefined
-		): Promise< void > => {
-			if ( ! lastAssistant ) return;
-			const decision = decideCompaction( {
-				assistantMessage: lastAssistant,
-				agent,
-				sessionManager: config.session,
-				model,
-				settings: STUDIO_COMPACTION_SETTINGS,
-				overflowRecoveryAttempted: cached.overflowRecoveryAttempted,
-				skipAbortedCheck: true,
-			} );
-
-			if ( decision.kind === 'none' ) return;
-
-			if ( decision.kind === 'overflow_already_attempted' ) {
-				queue.push( { type: 'compaction_start', reason: 'overflow' } );
-				queue.push( {
-					type: 'compaction_end',
-					reason: 'overflow',
-					result: undefined,
-					aborted: false,
-					willRetry: false,
-					errorMessage: decision.errorMessage,
-				} );
-				wake();
-				return;
-			}
-
-			const reason: CompactionReason = decision.kind;
-			const willRetry = reason === 'overflow';
-
-			pendingCompaction = true;
+		// Run pi-style auto-compaction after the agent finishes a turn.
+		// Compaction events flow through `queue` like any other runtime
+		// event; while compaction is in flight `done` stays false so the
+		// loop drains them before exiting. No `agent.continue()` retry on
+		// overflow — the user re-prompts; the next request sees the
+		// compacted transcript.
+		const compactAfterAgentEnd = async ( last: AssistantMessage ): Promise< void > => {
+			const reason = shouldCompact( last, model, STUDIO_COMPACTION_SETTINGS );
+			if ( ! reason ) return;
 			queue.push( { type: 'compaction_start', reason } );
 			wake();
-
-			// Overflow: drop the failed assistant from agent state before we
-			// summarize so it doesn't leak into the kept tail.
-			if ( reason === 'overflow' ) {
-				cached.overflowRecoveryAttempted = true;
-				const messages = agent.state.messages;
-				if ( messages.length > 0 && messages[ messages.length - 1 ] === lastAssistant ) {
-					agent.state.messages = messages.slice( 0, -1 );
-				}
-			}
-
-			let endEvent: CompactionEndEvent;
 			try {
 				const result = await runCompaction( {
 					agent,
@@ -253,40 +205,24 @@ async function* createEventStream(
 					headers: creds.extraHeaders,
 					settings: STUDIO_COMPACTION_SETTINGS,
 					signal: controller.signal,
-					tokensBefore:
-						lastAssistant.stopReason === 'error'
-							? 0
-							: calculateContextTokens( lastAssistant.usage ),
+					tokensBefore: last.stopReason === 'error' ? 0 : calculateContextTokens( last.usage ),
 				} );
-				endEvent = {
+				queue.push( {
 					type: 'compaction_end',
 					reason,
 					result,
 					aborted: controller.signal.aborted,
-					willRetry,
-				};
+					willRetry: false,
+				} );
 			} catch ( error ) {
-				const errorMessage = error instanceof Error ? error.message : 'compaction failed';
-				endEvent = {
+				queue.push( {
 					type: 'compaction_end',
 					reason,
 					result: undefined,
 					aborted: false,
 					willRetry: false,
-					errorMessage:
-						reason === 'overflow'
-							? `Context overflow recovery failed: ${ errorMessage }`
-							: `Auto-compaction failed: ${ errorMessage }`,
-				};
-			}
-
-			queue.push( endEvent );
-			pendingCompaction = false;
-
-			// Overflow path: kick the loop again so the user actually gets an
-			// answer to the prompt that just overflowed.
-			if ( willRetry && ! controller.signal.aborted && endEvent.result ) {
-				agent.continue().catch( () => undefined );
+					errorMessage: error instanceof Error ? error.message : 'compaction failed',
+				} );
 			}
 			wake();
 		};
@@ -302,29 +238,16 @@ async function* createEventStream(
 			queue.push( event );
 
 			if ( event.type === 'agent_end' ) {
-				const lastAssistant = findLastAssistant( event.messages );
-				// Reset the overflow flag on a fresh, successful turn so a
-				// later overflow gets one recovery attempt of its own.
-				if ( lastAssistant?.stopReason === 'stop' ) {
-					cached.overflowRecoveryAttempted = false;
-				}
-				// The handler decides whether to compact (and possibly retry
-				// via agent.continue()); we only mark `done` once we know no
-				// further work is queued.
-				void handleAgentEnd( lastAssistant ).then( () => {
-					if ( ! pendingCompaction && ! agentWillRetry() ) {
-						done = true;
-						wake();
-					}
+				const last = findLastAssistant( event.messages );
+				const work = last ? compactAfterAgentEnd( last ) : Promise.resolve();
+				void work.then( () => {
+					done = true;
+					wake();
 				} );
 			}
 
 			wake();
 		} );
-
-		// True while we're inside an overflow → continue() recovery cycle —
-		// the next agent_end is the retry's terminator, not the run's.
-		const agentWillRetry = (): boolean => agent.state.isStreaming;
 
 		// Persist the user prompt before agent.prompt runs so disk matches the
 		// transcript the model sees.
@@ -333,56 +256,6 @@ async function* createEventStream(
 			content: config.prompt,
 			timestamp: Date.now(),
 		} );
-
-		// Pre-flight compaction: pi's AgentSession runs `_checkCompaction` on
-		// the latest assistant before sending. Mirrors that so a session
-		// resumed near the threshold gets compacted before we hit the wall.
-		const preflightAssistant = findLastAssistant( agent.state.messages );
-		if ( preflightAssistant ) {
-			const decision = decideCompaction( {
-				assistantMessage: preflightAssistant,
-				agent,
-				sessionManager: config.session,
-				model,
-				settings: STUDIO_COMPACTION_SETTINGS,
-				overflowRecoveryAttempted: cached.overflowRecoveryAttempted,
-				skipAbortedCheck: false,
-			} );
-			if ( decision.kind === 'threshold' ) {
-				queue.push( { type: 'compaction_start', reason: 'threshold' } );
-				wake();
-				try {
-					const result = await runCompaction( {
-						agent,
-						sessionManager: config.session,
-						model,
-						apiKey: creds.apiKey,
-						headers: creds.extraHeaders,
-						settings: STUDIO_COMPACTION_SETTINGS,
-						signal: controller.signal,
-						tokensBefore: calculateContextTokens( preflightAssistant.usage ),
-					} );
-					queue.push( {
-						type: 'compaction_end',
-						reason: 'threshold',
-						result,
-						aborted: controller.signal.aborted,
-						willRetry: false,
-					} );
-				} catch ( error ) {
-					const errorMessage = error instanceof Error ? error.message : 'compaction failed';
-					queue.push( {
-						type: 'compaction_end',
-						reason: 'threshold',
-						result: undefined,
-						aborted: false,
-						willRetry: false,
-						errorMessage: `Auto-compaction failed: ${ errorMessage }`,
-					} );
-				}
-				wake();
-			}
-		}
 
 		const runPromise = agent.prompt( config.prompt );
 
@@ -471,12 +344,7 @@ async function getOrCreateAgent(
 		...( streamFn ? { streamFn } : {} ),
 	} );
 
-	const cached: CachedAgent = {
-		agent,
-		model,
-		creds,
-		overflowRecoveryAttempted: false,
-	};
+	const cached: CachedAgent = { agent, model, creds };
 	AGENTS_BY_SESSION.set( sessionId, cached );
 	return cached;
 }

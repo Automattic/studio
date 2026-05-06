@@ -110,6 +110,7 @@ export class NativePhpRuntime {
 			cwd,
 			stdio: [ 'ignore', 'pipe', 'pipe' ],
 			signal,
+			windowsHide: true,
 		} );
 
 		this.events.onPhpProcessSpawn?.( phpScriptProcess );

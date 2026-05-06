@@ -36,6 +36,8 @@ export const PLUGIN_RECOMMENDATIONS: PluginRecommendation[] = [
 			'jetpack/field-checkbox-multiple',
 			'jetpack/field-radio',
 			'jetpack/field-select',
+			'jetpack/label',
+			'jetpack/input',
 			'core/button',
 		],
 		guidance: `## Forms
@@ -47,20 +49,37 @@ Install the plugin first if it is not already active:
 wp_cli plugin install jetpack --activate
 \`\`\`
 
-Then build the form with blocks:
+Then build the form with blocks. Each field is a container block that holds a \`jetpack/label\` and a \`jetpack/input\` child. The submit button is a standard \`core/button\` (written as \`wp:button\` in block markup) placed directly inside the form container.
 
 \`\`\`html
-<!-- wp:jetpack/contact-form {"subject":"Contact Us","to":"admin@example.com"} -->
-<!-- wp:jetpack/field-name {"label":"Your name","required":true} /-->
-<!-- wp:jetpack/field-email {"label":"Email address","required":true} /-->
-<!-- wp:jetpack/field-textarea {"label":"Message","required":true} /-->
-<!-- wp:core/button {"text":"Send message"} /-->
+<!-- wp:jetpack/contact-form {"jetpackCRM":false,"variationName":"default","lock":{"remove":true,"move":true},"layout":{"type":"flex","flexWrap":"nowrap","orientation":"vertical","justifyContent":"left","verticalAlignment":"top"}} -->
+<div class="wp-block-jetpack-contact-form"><!-- wp:jetpack/field-name {"required":true,"fieldVariant":"name"} -->
+<div><!-- wp:jetpack/label {"label":"Name"} /-->
+
+<!-- wp:jetpack/input /--></div>
+<!-- /wp:jetpack/field-name -->
+
+<!-- wp:jetpack/field-email {"required":true} -->
+<div><!-- wp:jetpack/label {"label":"Email"} /-->
+
+<!-- wp:jetpack/input /--></div>
+<!-- /wp:jetpack/field-email -->
+
+<!-- wp:jetpack/field-textarea -->
+<div><!-- wp:jetpack/label {"label":"Message"} /-->
+
+<!-- wp:jetpack/input {"type":"textarea"} /--></div>
+<!-- /wp:jetpack/field-textarea -->
+
+<!-- wp:button {"tagName":"button","type":"submit","lock":{"move":false,"remove":true}} -->
+<div class="wp-block-button"><button type="submit" class="wp-block-button__link wp-element-button">Contact us</button></div>
+<!-- /wp:button --></div>
 <!-- /wp:jetpack/contact-form -->
 \`\`\`
 
-Available field types: jetpack/field-name, jetpack/field-text, jetpack/field-email, jetpack/field-url, jetpack/field-telephone, jetpack/field-textarea, jetpack/field-checkbox, jetpack/field-checkbox-multiple, jetpack/field-radio, jetpack/field-select.
+Available field block types: jetpack/field-name, jetpack/field-text, jetpack/field-email, jetpack/field-url, jetpack/field-telephone, jetpack/field-textarea, jetpack/field-checkbox, jetpack/field-checkbox-multiple, jetpack/field-radio, jetpack/field-select.
 
-Every field block supports: "label" (string), "required" (boolean), "placeholder" (string), "id" (string for <label> association).
+Each field block is a container with two inner blocks: \`jetpack/label\` (accepts a "label" string attribute) and \`jetpack/input\` (accepts a "type" attribute — defaults to text; use "textarea" for jetpack/field-textarea). Top-level field attributes: "required" (boolean), "fieldVariant" (string, e.g. "name" for jetpack/field-name).
 The container jetpack/contact-form supports: "subject" (email subject line), "to" (recipient address or comma-separated list).`,
 		htmlPatterns: [ /<(form|input|select|textarea|fieldset)\b/i ],
 		htmlPolicyMessage:

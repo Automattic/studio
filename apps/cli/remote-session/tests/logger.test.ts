@@ -2,7 +2,12 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { RemoteSessionLogger, redact, stripTerminalControls } from 'cli/remote-session/logger';
+import {
+	RemoteSessionLogger,
+	formatLogLineForStdout,
+	redact,
+	stripTerminalControls,
+} from 'cli/remote-session/logger';
 
 describe( 'remote-session logger redaction', () => {
 	it( 'redacts Bearer tokens in arbitrary text', () => {
@@ -112,7 +117,7 @@ describe( 'RemoteSessionLogger writes', () => {
 		expect( fs.readFileSync( logPath, 'utf8' ) ).toMatch( /"msg":"hello Bearer \[redacted\]"/ );
 	} );
 
-	it( 'event() writes a single stdout line and never touches the file', () => {
+	it( 'event() persists to the log file and mirrors to stdout when enabled', () => {
 		const captured = captureStdout();
 		const logger = new RemoteSessionLogger( { logPath, mirrorToStdout: true } );
 		logger.event( 'reply', 'Just 1 site is running.\nLine two.' );
@@ -121,16 +126,28 @@ describe( 'RemoteSessionLogger writes', () => {
 		// Newlines in content are indented so each line stays grouped under its event.
 		expect( combined ).toMatch( /reply Just 1 site is running\.\n {2}Line two\./ );
 		expect( combined ).toMatch( /progress Authorization: Bearer \[redacted\]/ );
-		// File sink stays untouched by event().
-		expect( fs.existsSync( logPath ) ).toBe( false );
+		// File sink also receives the events (so attach can replay them).
+		const fileContent = fs.readFileSync( logPath, 'utf8' );
+		const lines = fileContent.split( '\n' ).filter( Boolean );
+		expect( lines ).toHaveLength( 2 );
+		const first = JSON.parse( lines[ 0 ] );
+		expect( first.event ).toBe( 'reply' );
+		expect( first.content ).toBe( 'Just 1 site is running.\nLine two.' );
+		const second = JSON.parse( lines[ 1 ] );
+		expect( second.event ).toBe( 'progress' );
+		expect( second.content ).toBe( 'Authorization: Bearer [redacted]' );
 	} );
 
-	it( 'event() is a no-op when mirrorToStdout is off', () => {
+	it( 'event() persists to the log file even when mirrorToStdout is off', () => {
 		const captured = captureStdout();
 		const logger = new RemoteSessionLogger( { logPath } );
-		logger.event( 'reply', 'should not appear' );
-		expect( captured.combined() ).not.toMatch( /should not appear/ );
-		expect( fs.existsSync( logPath ) ).toBe( false );
+		logger.event( 'reply', 'agent says hi' );
+		expect( captured.combined() ).not.toMatch( /agent says hi/ );
+		const lines = fs.readFileSync( logPath, 'utf8' ).split( '\n' ).filter( Boolean );
+		expect( lines ).toHaveLength( 1 );
+		const parsed = JSON.parse( lines[ 0 ] );
+		expect( parsed.event ).toBe( 'reply' );
+		expect( parsed.content ).toBe( 'agent says hi' );
 	} );
 
 	it( 'does not mirror to stdout by default', () => {
@@ -156,5 +173,31 @@ describe( 'RemoteSessionLogger writes', () => {
 		// JSON.stringify already escapes raw ESC bytes to the visible 6-char `\u001b` (literal backslash-u-0-0-1-b)
 		// sequence in meta, so the terminal sees inert text rather than active escapes.
 		expect( combined ).toContain( '\\u001b[31mred\\u001b[0m\\u0007' );
+	} );
+} );
+
+describe( 'formatLogLineForStdout', () => {
+	it( 'renders persisted event lines in [time] kind content shape', () => {
+		const line =
+			JSON.stringify( {
+				t: '2026-05-05T12:34:56.000Z',
+				event: 'reply',
+				content: 'Hello world.\nLine two.',
+			} ) + '\n';
+		const out = formatLogLineForStdout( line );
+		expect( out ).toBe( '[12:34:56] reply Hello world.\n  Line two.\n' );
+	} );
+
+	it( 'sanitizes terminal control sequences in event content', () => {
+		const line =
+			JSON.stringify( {
+				t: '2026-05-05T12:34:56.000Z',
+				event: 'progress',
+				content: '\x1b[2Jcleared',
+			} ) + '\n';
+		const out = formatLogLineForStdout( line );
+		// eslint-disable-next-line no-control-regex
+		expect( out ).not.toMatch( /[\x00-\x08\x0B-\x1F\x7F]/ );
+		expect( out ).toContain( 'progress cleared' );
 	} );
 } );

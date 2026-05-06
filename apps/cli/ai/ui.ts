@@ -1883,6 +1883,32 @@ export class AiChatUI implements AiOutputAdapter {
 		);
 	}
 
+	// Render a batch of tool results (turn-end boundary live, full
+	// turn replay on resume). Pi already routes individual
+	// `tool_execution_end` events, but the turn-end batch is the
+	// canonical post-tool boundary — closing the markdown block here
+	// mirrors the old `'user'` branch behavior.
+	renderToolResults( results: readonly ToolResultMessage[] ): void {
+		for ( const toolResult of results ) {
+			const toolCallId = toolResult.toolCallId;
+			const toolCall = this.pendingToolCalls.get( toolCallId );
+			if ( toolCall ) {
+				this.pendingToolCalls.delete( toolCallId );
+			}
+			if ( this.pendingTodoRenders.has( toolCallId ) ) {
+				this.showTodoToolResult( toolResult, toolCallId );
+			} else if ( this.pendingTodoRenderOrder.length > 0 && toolCall?.name === 'TodoWrite' ) {
+				this.showTodoToolResult( toolResult, this.pendingTodoRenderOrder[ 0 ] );
+			} else {
+				this.showToolResult( toolResult, toolCall?.name, toolCall?.input );
+			}
+		}
+		if ( results.length > 0 ) {
+			this.currentMarkdown = null;
+			this.currentResponseText = '';
+		}
+	}
+
 	private showToolResult(
 		result: ToolResultMessage,
 		toolName?: string,
@@ -2142,33 +2168,7 @@ export class AiChatUI implements AiOutputAdapter {
 			}
 			case 'turn_end': {
 				this.numTurns += 1;
-				// Render tool results emitted by this turn. Pi already routes
-				// them via individual `tool_execution_end` events, but the
-				// turn-end batch is the canonical post-tool boundary —
-				// closing the markdown block here mirrors the old `'user'`
-				// branch behavior.
-				for ( const toolResult of event.toolResults ) {
-					const toolCallId = toolResult.toolCallId;
-					const toolCall = this.pendingToolCalls.get( toolCallId );
-					if ( toolCall ) {
-						this.pendingToolCalls.delete( toolCallId );
-					}
-					if ( this.pendingTodoRenders.has( toolCallId ) ) {
-						this.showTodoToolResult( toolResult, toolCallId );
-					} else if (
-						! this.pendingTodoRenders.has( toolCallId ) &&
-						this.pendingTodoRenderOrder.length > 0 &&
-						toolCall?.name === 'TodoWrite'
-					) {
-						this.showTodoToolResult( toolResult, this.pendingTodoRenderOrder[ 0 ] );
-					} else {
-						this.showToolResult( toolResult, toolCall?.name, toolCall?.input );
-					}
-				}
-				if ( event.toolResults.length > 0 ) {
-					this.currentMarkdown = null;
-					this.currentResponseText = '';
-				}
+				this.renderToolResults( event.toolResults );
 				return undefined;
 			}
 			case 'agent_end': {

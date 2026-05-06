@@ -222,8 +222,9 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 					if ( ! prev ) {
 						return prev;
 					}
-					const entries = updater( prev.entries );
-					return entries === prev.entries ? prev : { ...prev, entries };
+					const current = prev.entries ?? [];
+					const entries = updater( current );
+					return entries === current ? prev : { ...prev, entries };
 				}
 			);
 		},

@@ -285,10 +285,11 @@ export function Conversation( {
 	pendingAnswers: Record< string, string >;
 	onAnswerQuestion: ( question: string, label: string ) => void;
 } ) {
-	const items = useMemo( () => entriesToRenderItems( data.entries ), [ data.entries ] );
+	const entries = data.entries ?? [];
+	const items = useMemo( () => entriesToRenderItems( entries ), [ entries ] );
 	const progressMessage = useMemo(
-		() => ( isRunning ? findLatestProgressMessage( data.entries ) : null ),
-		[ data.entries, isRunning ]
+		() => ( isRunning ? findLatestProgressMessage( entries ) : null ),
+		[ entries, isRunning ]
 	);
 
 	return (

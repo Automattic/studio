@@ -151,7 +151,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 						? {
 								...prev,
 								entries: [
-									...prev.entries,
+									...( prev.entries ?? [] ),
 									{
 										type: 'model_change',
 										id: Math.random().toString( 36 ).slice( 2, 10 ),

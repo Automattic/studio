@@ -70,28 +70,6 @@ License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Text Domain: ${ slug }
 Tags: full-site-editing, block-patterns, block-styles, wide-blocks, accessibility-ready, style-variations
 */
-
-/* Link styles */
-a {
-	text-decoration-thickness: 1px !important;
-	text-underline-offset: .1em;
-}
-
-/* Focus styles */
-:where(.wp-site-blocks *:focus) {
-	outline-width: 2px;
-	outline-style: solid;
-}
-
-/* Reduce widows and orphans on prose */
-h1, h2, h3, h4, h5, h6, blockquote, caption, figcaption, p {
-	text-wrap: pretty;
-}
-
-/* Prevent unnecessary scrollbars on long preformatted text */
-:where(pre) {
-	overflow-x: auto;
-}
 `;
 }
 
@@ -101,79 +79,7 @@ function renderThemeJson(): string {
 		version: 3,
 		settings: {
 			appearanceTools: true,
-			useRootPaddingAwareAlignments: true,
-			layout: {
-				contentSize: '720px',
-				wideSize: '1200px',
-			},
-			color: {
-				palette: [
-					{ color: '#FFFFFF', name: 'Base', slug: 'base' },
-					{ color: '#111111', name: 'Contrast', slug: 'contrast' },
-					{ color: '#3858E9', name: 'Accent', slug: 'accent' },
-				],
-			},
-			spacing: {
-				spacingSizes: [
-					{ name: 'Tiny', size: '8px', slug: '20' },
-					{ name: 'X-Small', size: '16px', slug: '30' },
-					{ name: 'Small', size: '24px', slug: '40' },
-					{ name: 'Regular', size: 'clamp(32px, 5vw, 48px)', slug: '50' },
-					{ name: 'Large', size: 'clamp(48px, 8vw, 80px)', slug: '60' },
-					{ name: 'X-Large', size: 'clamp(80px, 12vw, 128px)', slug: '70' },
-					{ name: 'Huge', size: 'clamp(128px, 16vw, 192px)', slug: '80' },
-				],
-			},
-			typography: {
-				fluid: true,
-				fontFamilies: [
-					{
-						name: 'System Sans',
-						slug: 'system-sans',
-						fontFamily:
-							"-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif",
-					},
-				],
-			},
 		},
-		styles: {
-			color: {
-				background: 'var(--wp--preset--color--base)',
-				text: 'var(--wp--preset--color--contrast)',
-			},
-			typography: {
-				fontFamily: 'var(--wp--preset--font-family--system-sans)',
-				lineHeight: '1.6',
-			},
-			elements: {
-				link: {
-					color: { text: 'var(--wp--preset--color--accent)' },
-				},
-				h1: {
-					typography: {
-						fontSize: 'clamp(2rem, 4vw, 3.5rem)',
-						lineHeight: '1.1',
-					},
-				},
-				h2: {
-					typography: {
-						fontSize: 'clamp(1.5rem, 3vw, 2.5rem)',
-						lineHeight: '1.2',
-					},
-				},
-				h3: {
-					typography: {
-						fontSize: 'clamp(1.25rem, 2vw, 1.75rem)',
-						lineHeight: '1.3',
-					},
-				},
-			},
-		},
-		templateParts: [
-			{ name: 'header', title: 'Header', area: 'header' },
-			{ name: 'footer', title: 'Footer', area: 'footer' },
-		],
-		customTemplates: [],
 	};
 	return JSON.stringify( data, null, '\t' ) + '\n';
 }
@@ -255,17 +161,6 @@ const TEMPLATE_SINGLE = `<!-- wp:template-part {"slug":"header"} /-->
 		<!-- wp:post-comments-form /-->
 	</div>
 	<!-- /wp:group -->
-</main>
-<!-- /wp:group -->
-
-<!-- wp:template-part {"slug":"footer"} /-->
-`;
-
-const TEMPLATE_FRONT_PAGE = `<!-- wp:template-part {"slug":"header"} /-->
-
-<!-- wp:group {"tagName":"main"} -->
-<main class="wp-block-group">
-	<!-- wp:post-content /-->
 </main>
 <!-- /wp:group -->
 
@@ -373,8 +268,8 @@ const PART_FOOTER = `<!-- wp:group {"layout":{"type":"constrained"},"style":{"sp
 export const scaffoldThemeTool = defineTool(
 	'scaffold_theme',
 	'Scaffolds a minimal block theme into the given site at wp-content/themes/<slug>/ and activates it by default. ' +
-		'Drops in style.css, theme.json (with appearanceTools, semantic palette and a numeric spacing scale), ' +
-		'functions.php (frontend + editor style enqueue), default templates (index, front-page, single, page, archive, 404), ' +
+		'Drops in style.css (theme header only), theme.json (appearanceTools only), ' +
+		'functions.php (frontend + editor style enqueue), default templates (index, single, page, archive, 404), ' +
 		'header/footer parts, and empty assets/fonts and patterns directories. ' +
 		'Use when the user wants to start a new custom theme — the agent fills in design-specific content afterwards. ' +
 		'Block themes only; does not support classic (PHP template) themes. ' +
@@ -439,7 +334,6 @@ export const scaffoldThemeTool = defineTool(
 				[ 'theme.json', renderThemeJson() ],
 				[ 'functions.php', renderFunctionsPhp( trimmedName, slug ) ],
 				[ path.join( 'templates', 'index.html' ), TEMPLATE_INDEX ],
-				[ path.join( 'templates', 'front-page.html' ), TEMPLATE_FRONT_PAGE ],
 				[ path.join( 'templates', 'single.html' ), TEMPLATE_SINGLE ],
 				[ path.join( 'templates', 'page.html' ), TEMPLATE_PAGE ],
 				[ path.join( 'templates', 'archive.html' ), TEMPLATE_ARCHIVE ],
@@ -456,22 +350,14 @@ export const scaffoldThemeTool = defineTool(
 			const activation = shouldActivate ? await activateTheme( site.id, slug ) : null;
 
 			const summaryLines = [
-				`Block theme '${ trimmedName }' scaffolded at ${ themeDir }/.`,
+				`Block theme '${ trimmedName }' scaffolded at wp-content/themes/${ slug }/.`,
 				'',
-				'Files (paths relative to the theme directory above):',
-				'  style.css                 — WP header + UX-fix CSS. Append :root tokens and section anchors below the existing rules.',
-				'  theme.json                — appearanceTools, useRootPaddingAwareAlignments, palette (base/contrast/accent), spacing scale 20–80, content/wide 720/1200, system-sans default.',
-				'  functions.php             — versioned style.css frontend enqueue + add_editor_style.',
-				'  templates/front-page.html — Plain <main> + <wp:post-content/>. Replace post-content with section anchors for the homepage layout.',
-				'  templates/page.html       — Constrained title group + constrained post-content. Interior pages.',
-				'  templates/single.html     — Constrained title/date/featured-image + constrained post-content + constrained comments form.',
-				'  templates/index.html      — Constrained query loop (blog index fallback).',
-				'  templates/archive.html    — Constrained archive title + term description + query loop.',
-				'  templates/404.html        — Constrained heading + message + search.',
-				'  parts/header.html         — Constrained group: site-title + empty wp:navigation. Add menu items here.',
-				'  parts/footer.html         — Constrained group: centered © + site-title.',
+				'Created files:',
+				...files.map( ( [ relPath ] ) => `  ${ relPath }` ),
 				'',
-				'Empty: assets/fonts/, patterns/',
+				'Empty directories:',
+				'  assets/fonts/',
+				'  patterns/',
 				'',
 			];
 

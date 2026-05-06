@@ -505,7 +505,6 @@ describe( 'Studio AI MCP tools', () => {
 				'theme.json',
 				'functions.php',
 				'templates/index.html',
-				'templates/front-page.html',
 				'templates/single.html',
 				'templates/page.html',
 				'templates/archive.html',
@@ -537,7 +536,7 @@ describe( 'Studio AI MCP tools', () => {
 			expect( functionsPhp ).toContain( "add_editor_style( 'style.css' )" );
 
 			expect( getTextContent( result ) ).toContain(
-				`Block theme 'Acme Studio' scaffolded at ${ path.join( tempSiteRoot, 'wp-content', 'themes', 'acme-studio' ) }/.`
+				"Block theme 'Acme Studio' scaffolded at wp-content/themes/acme-studio/."
 			);
 			expect( getTextContent( result ) ).toContain( 'wp theme activate acme-studio' );
 		} );

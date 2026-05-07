@@ -2,7 +2,7 @@ import { Dialog } from '@base-ui/react/dialog';
 import { __ } from '@wordpress/i18n';
 import { Button } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import motionStyles from '@/components/floating-surface-motion/style.module.css';
 import { useCreateSession, useSessions } from '@/data/queries/use-sessions';
 import { formatRelativeTime } from '@/lib/format-relative-time';
@@ -13,6 +13,7 @@ import type { AiSessionSummary } from '@/data/core';
 interface UserDeskChatsProps {
 	open: boolean;
 	onOpenChange: ( open: boolean ) => void;
+	createChatRequestId: number;
 }
 
 function getSessionTitle( session: AiSessionSummary ) {
@@ -27,9 +28,10 @@ function getSessionSubtitle( session: AiSessionSummary ) {
 	return formatRelativeTime( session.updatedAt );
 }
 
-export function UserDeskChats( { open, onOpenChange }: UserDeskChatsProps ) {
+export function UserDeskChats( { open, onOpenChange, createChatRequestId }: UserDeskChatsProps ) {
 	const { data: sessions } = useSessions();
 	const createSession = useCreateSession();
+	const lastCreateChatRequestId = useRef( createChatRequestId );
 	const [ selectedSessionId, setSelectedSessionId ] = useState< string | undefined >( undefined );
 	const [ expanded, setExpanded ] = useState( false );
 	const [ autoFocusSessionId, setAutoFocusSessionId ] = useState< string | undefined >( undefined );
@@ -55,12 +57,21 @@ export function UserDeskChats( { open, onOpenChange }: UserDeskChatsProps ) {
 		setAutoFocusSessionId( undefined );
 	};
 
-	const handleNewChat = async () => {
+	const handleNewChat = useCallback( async () => {
 		const session = await createSession.mutateAsync( undefined );
 		setSelectedSessionId( session.id );
 		setExpanded( true );
 		setAutoFocusSessionId( session.id );
-	};
+	}, [ createSession ] );
+
+	useEffect( () => {
+		if ( createChatRequestId === lastCreateChatRequestId.current ) {
+			return;
+		}
+
+		lastCreateChatRequestId.current = createChatRequestId;
+		void handleNewChat();
+	}, [ createChatRequestId, handleNewChat ] );
 
 	return (
 		<Dialog.Root

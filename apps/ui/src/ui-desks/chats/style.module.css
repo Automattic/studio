@@ -110,9 +110,23 @@
 }
 
 .chatPane {
+	--desk-chats-session-edge-padding: var(--wpds-dimension-padding-2xl);
+
 	min-width: 0;
 	min-height: 0;
 	position: relative;
+}
+
+.sessionScroll {
+	padding-inline: var(--desk-chats-session-edge-padding);
+}
+
+.sessionConversation {
+	padding-block: var(--desk-chats-session-edge-padding);
+}
+
+.sessionComposerOuter {
+	padding: 0 var(--desk-chats-session-edge-padding) var(--desk-chats-session-edge-padding);
 }
 
 .emptyChat {

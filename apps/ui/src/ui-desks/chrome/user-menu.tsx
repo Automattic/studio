@@ -12,7 +12,11 @@ const WPCOM_PROFILE_URL = 'https://wordpress.com/me';
 const DOCS_URL = 'https://developer.wordpress.com/docs/developer-tools/studio/';
 const REPORT_ISSUE_URL = 'https://github.com/Automattic/studio/issues/new/choose';
 
-export function DeskUserMenu() {
+interface DeskUserMenuProps {
+	onUserDashboard?: () => void;
+}
+
+export function DeskUserMenu( { onUserDashboard }: DeskUserMenuProps ) {
 	const connector = useConnector();
 	const { data: user } = useAuthUser();
 	const { data: preferences } = useUserPreferences();
@@ -59,6 +63,12 @@ export function DeskUserMenu() {
 				}
 			/>
 			<Menu.Popup side="bottom" align="start" className={ styles.popup }>
+				{ onUserDashboard ? (
+					<>
+						<Menu.Item onClick={ onUserDashboard }>{ __( 'User Dashboard' ) }</Menu.Item>
+						<Menu.Separator />
+					</>
+				) : null }
 				<div className={ styles.email } title={ user.email }>
 					{ user.email }
 				</div>

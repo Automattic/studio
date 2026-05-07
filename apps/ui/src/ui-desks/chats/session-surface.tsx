@@ -15,6 +15,7 @@ import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-s
 import { useSites } from '@/data/queries/use-sites';
 import { useSessionCommands } from '@/hooks/use-session-commands';
 import { SessionUIProvider } from '@/hooks/use-session-ui';
+import styles from './style.module.css';
 
 interface DeskSessionSurfaceProps {
 	sessionId: string;
@@ -32,10 +33,12 @@ function Frame( { composer, scrollRef, children }: FrameProps ) {
 	return (
 		<div className={ sessionStyles.root }>
 			<div className={ sessionStyles.chatColumn }>
-				<div ref={ scrollRef } className={ sessionStyles.scroll }>
+				<div ref={ scrollRef } className={ clsx( sessionStyles.scroll, styles.sessionScroll ) }>
 					{ children }
 				</div>
-				<div className={ sessionStyles.composerOuter }>{ composer }</div>
+				<div className={ clsx( sessionStyles.composerOuter, styles.sessionComposerOuter ) }>
+					{ composer }
+				</div>
 			</div>
 		</div>
 	);
@@ -148,7 +151,13 @@ function DeskSessionSurfaceContent( {
 			}
 		>
 			{ isEmpty ? <EmptyBackground /> : null }
-			<div className={ clsx( sessionStyles.column, sessionStyles.conversationSpacing ) }>
+			<div
+				className={ clsx(
+					sessionStyles.column,
+					sessionStyles.conversationSpacing,
+					styles.sessionConversation
+				) }
+			>
 				<Conversation
 					data={ data }
 					isRunning={ isRunning }

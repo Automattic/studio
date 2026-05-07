@@ -1,6 +1,7 @@
 .root {
 	--desk-user-menu-size: 40px;
 	--desk-user-menu-y-nudge: 2px;
+	--desk-chrome-edge-offset: var(--wpds-dimension-padding-xl);
 
 	position: fixed;
 	top: calc((46px - var(--desk-user-menu-size)) / 2 + var(--desk-user-menu-y-nudge));
@@ -13,7 +14,8 @@
 }
 
 .fullscreen {
-	left: var(--wpds-dimension-padding-xl);
+	top: var(--desk-chrome-edge-offset);
+	left: var(--desk-chrome-edge-offset);
 }
 
 .trigger {

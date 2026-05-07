@@ -4,6 +4,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import {
 	cleanupLegacyMuPlugins,
+	getMuPlugins,
 	STUDIO_LOADER_MU_PLUGIN_FILENAME,
 	writeStudioMuPluginsForNativePhpRuntime,
 } from '@studio/common/lib/mu-plugins';
@@ -113,5 +114,33 @@ describe( 'writeStudioMuPluginsForNativePhpRuntime', () => {
 		const generatedPlugins = await readdir( muPluginsDir as string );
 		expect( generatedPlugins ).toContain( '0-enable-auto-updates.php' );
 		expect( generatedPlugins ).not.toContain( '0-disable-auto-updates.php' );
+	} );
+} );
+
+describe( 'local admin performance mu-plugin', () => {
+	it( 'defers opportunistic checks on passive admin pages and exposes the refresh hook', async () => {
+		const [ muPluginsDir ] = await getMuPlugins( {} );
+		const pluginContent = await readFile( join( muPluginsDir, '0-local-admin-performance.php' ), 'utf8' );
+
+		expect( pluginContent ).toContain(
+			"const STUDIO_REFRESH_LOCAL_ADMIN_CHECKS_HOOK = 'studio_refresh_local_admin_checks';"
+		);
+		expect( pluginContent ).toContain( "'/wp-admin/' === $path" );
+		expect( pluginContent ).toContain( "'/wp-admin/index.php' === $path" );
+		expect( pluginContent ).toContain( 'function studio_should_defer_local_admin_checks()' );
+		expect( pluginContent ).toContain( "'/wp-admin/update-core.php'" );
+		expect( pluginContent ).toContain( "'/wp-admin/plugins.php'" );
+		expect( pluginContent ).toContain( "'/wp-admin/plugin-install.php'" );
+		expect( pluginContent ).toContain( "'/wp-admin/themes.php'" );
+		expect( pluginContent ).toContain( "'/wp-admin/theme-install.php'" );
+		expect( pluginContent ).toContain( "remove_action( 'admin_init', '_maybe_update_core' );" );
+		expect( pluginContent ).toContain( "remove_action( 'admin_init', '_maybe_update_plugins' );" );
+		expect( pluginContent ).toContain( "remove_action( 'admin_init', '_maybe_update_themes' );" );
+		expect( pluginContent ).toContain( 'wp_version_check();' );
+		expect( pluginContent ).toContain( 'wp_update_plugins();' );
+		expect( pluginContent ).toContain( 'wp_update_themes();' );
+		expect( pluginContent ).toContain( 'wp_check_browser_version();' );
+		expect( pluginContent ).toContain( 'wp_check_php_version();' );
+		expect( pluginContent ).toContain( 'wp_get_available_translations();' );
 	} );
 } );

@@ -10,6 +10,7 @@ import {
 import { sequential } from '@studio/common/lib/sequential';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { captureSiteThumbnail } from 'src/lib/capture-site-thumbnail';
+import { scheduleLocalAdminChecksRefresh } from 'src/lib/site-maintenance-tasks';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { SiteServer } from 'src/site-server';
 
@@ -74,14 +75,17 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 
 	if ( eventType === SITE_EVENTS.CREATED ) {
 		const existingServer = SiteServer.get( siteId ) ?? SiteServer.getByPath( site.path );
+		let server: SiteServer;
 		if ( ! existingServer ) {
-			SiteServer.register( siteDetailsToServerDetails( site, running ) );
+			server = SiteServer.register( siteDetailsToServerDetails( site, running ) );
 		} else {
 			existingServer.details = siteDetailsToServerDetails( site, running, existingServer.details );
+			server = existingServer;
 		}
 		void sendIpcEventToRenderer( 'site-event', event );
 		if ( running ) {
 			void captureSiteThumbnail( siteId );
+			void scheduleLocalAdminChecksRefresh( server, 'site-created' ).catch( () => undefined );
 		}
 		return;
 	}
@@ -104,6 +108,7 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 
 	if ( wasNotRunning && running ) {
 		void captureSiteThumbnail( siteId );
+		void scheduleLocalAdminChecksRefresh( server, 'site-started' ).catch( () => undefined );
 		await server.getThemeDetails();
 		await server.getSiteIcon();
 	}

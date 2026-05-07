@@ -9,9 +9,7 @@ export type StudioCustomEntryType =
 	| 'studio.tool_progress'
 	| 'studio.agent_question'
 	| 'studio.turn_closed'
-	| 'studio.session_cleared'
 	| 'studio.session_context'
-	| 'studio.session_linked'
 	| 'studio.user_prompt';
 
 export interface StudioSiteSelectedData {
@@ -42,10 +40,6 @@ export interface StudioSessionContextData {
 	model: string;
 }
 
-export interface StudioSessionLinkedData {
-	agentSessionId: string;
-}
-
 // `source` distinguishes a user-typed prompt from an `ask_user` answer the
 // runtime forwarded to the model — the renderer only shows `'prompt'`.
 export interface StudioUserPromptData {
@@ -59,9 +53,7 @@ export interface StudioCustomEntryDataMap {
 	'studio.tool_progress': StudioToolProgressData;
 	'studio.agent_question': StudioAgentQuestionData;
 	'studio.turn_closed': StudioTurnClosedData;
-	'studio.session_cleared': Record< string, never >;
 	'studio.session_context': StudioSessionContextData;
-	'studio.session_linked': StudioSessionLinkedData;
 	'studio.user_prompt': StudioUserPromptData;
 }
 

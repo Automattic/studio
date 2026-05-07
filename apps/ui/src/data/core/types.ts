@@ -1,4 +1,4 @@
-import type { AgentRunEvent } from './agent-events';
+import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiModelId } from '@studio/common/ai/models';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { SupportedLocale } from '@studio/common/lib/locale';
@@ -20,7 +20,6 @@ export type {
 	StudioAgentQuestionData,
 	StudioTurnClosedData,
 	StudioSessionContextData,
-	StudioSessionLinkedData,
 	StudioUserPromptData,
 } from '@studio/common/ai/sessions/entry-types';
 export type { AiModelId } from '@studio/common/ai/models';

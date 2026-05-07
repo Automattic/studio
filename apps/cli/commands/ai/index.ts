@@ -1,13 +1,8 @@
+import { DEFAULT_MODEL, type AiModelId } from '@studio/common/ai/models';
+import { getAgentEndTurnResult } from '@studio/common/ai/session-events';
 import { buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, sprintf } from '@wordpress/i18n';
-import {
-	clearAgentForSession,
-	DEFAULT_MODEL,
-	startAiAgent,
-	type AiModelId,
-	type AskUserQuestion,
-} from 'cli/ai/agent';
 import {
 	getAvailableAiProviders,
 	isAiProviderReady,
@@ -21,6 +16,7 @@ import { closeSharedBrowser } from 'cli/ai/browser-utils';
 import { startDaemonStatusPolling } from 'cli/ai/daemon-status-poll';
 import { type AiOutputAdapter, JsonAdapter } from 'cli/ai/output-adapter';
 import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
+import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
 import { resolveResumeSessionContext } from 'cli/ai/sessions/context';
 import { getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
 import {
@@ -43,6 +39,7 @@ import type {
 	StudioCustomEntryType,
 } from '@studio/common/ai/sessions/entry-types';
 import type { LoadedAiSession, TurnStatus } from '@studio/common/ai/sessions/types';
+import type { AskUserQuestion } from 'cli/ai/types';
 
 const logger = new Logger< string >();
 
@@ -408,21 +405,18 @@ export async function runCommand( options: {
 		return answers;
 	}
 
-	const MAX_RETRY_ATTEMPTS = 4;
-
 	async function runAgentTurn(
 		prompt: string,
-		retryAttempt = 0,
 		displayMessage = prompt
-	): Promise< { status: TurnStatus } > {
+	): Promise< { status: TurnStatus; sessionId: string } > {
 		await maybeAutoSwitchProvider();
 		const sm = await ensureSession();
+		const sessionId = sm.getSessionId();
 		const env = await resolveAiEnvironment( currentProvider, {
-			sessionId: sm.getSessionId(),
+			sessionId,
 		} );
 
-		ui.currentSessionId = sm.getSessionId();
-		ui.beginAgentTurn();
+		ui.beginAgentTurn( sessionId );
 
 		// Prepend active site context to the prompt.
 		// Remote (WordPress.com) sites only have a URL and site ID; local sites have a filesystem path and running state.
@@ -454,7 +448,9 @@ export async function runCommand( options: {
 			} )
 		);
 
-		const agentQuery = startAiAgent( {
+		const turnState: { status: TurnStatus } = { status: 'interrupted' };
+
+		const agentQuery = runStudioAgentTurn( {
 			prompt: enrichedPrompt,
 			env,
 			model: currentModel,
@@ -462,45 +458,25 @@ export async function runCommand( options: {
 			activeSite: site,
 			wpcomAccessToken,
 			onAskUser: ( questions ) => askUserAndPersistAnswers( questions ),
+			onEvent: ( event ) => {
+				ui.handleEvent( event );
+				if ( event.type !== 'agent_end' ) {
+					return;
+				}
+				const result = getAgentEndTurnResult( event );
+				if ( result.interrupted ) {
+					turnState.status = 'interrupted';
+				} else {
+					turnState.status = result.success ? 'success' : 'error';
+				}
+			},
 		} );
 
-		let interruptRequested = false;
-		let resolveInterrupt: () => void = () => undefined;
-		const interruptPromise = new Promise< 'interrupted' >( ( resolve ) => {
-			resolveInterrupt = () => resolve( 'interrupted' );
-		} );
 		ui.onInterrupt = () => {
-			if ( interruptRequested ) {
-				return;
-			}
-			interruptRequested = true;
 			void agentQuery.interrupt();
-			resolveInterrupt();
 		};
 
-		const turnState: { status: TurnStatus } = { status: 'interrupted' };
-
-		const consumeAgentTurn = async (): Promise< void > => {
-			for await ( const event of agentQuery ) {
-				if ( interruptRequested ) {
-					continue;
-				}
-				const result = ui.handleEvent( event );
-				if ( result ) {
-					if ( result.interrupted ) {
-						turnState.status = 'interrupted';
-					} else {
-						turnState.status = result.success ? 'success' : 'error';
-					}
-				}
-			}
-		};
-
-		const consumeAgentTurnResult = consumeAgentTurn().catch( ( error ) => {
-			if ( interruptRequested ) {
-				turnState.status = 'interrupted';
-				return;
-			}
+		const consumeAgentTurnResult = agentQuery.result.catch( ( error ) => {
 			turnState.status = 'error';
 			// If the UI already surfaced a descriptive terminal error (e.g.
 			// the AI usage cap was reached), suppress the generic SDK exit
@@ -516,13 +492,7 @@ export async function runCommand( options: {
 		} );
 
 		try {
-			const result = await Promise.race( [
-				consumeAgentTurnResult.then( () => 'completed' as const ),
-				interruptPromise,
-			] );
-			if ( result === 'interrupted' ) {
-				turnState.status = 'interrupted';
-			}
+			await consumeAgentTurnResult;
 		} finally {
 			await append( ( s ) =>
 				appendStudioEntry( s, 'studio.turn_closed', { status: turnState.status } )
@@ -530,39 +500,9 @@ export async function runCommand( options: {
 			ui.endAgentTurn();
 		}
 
-		// Skip the retry prompt when the UI has already surfaced a terminal
-		// error (e.g. AI usage cap). Retrying won't recover from a cap, and
-		// the user has already been told what to do next.
-		const hasTerminalError = ui instanceof AiChatUI && ui.hasErrorBeenSurfaced();
-
-		if ( turnState.status === 'error' && ! isJsonMode && ! hasTerminalError ) {
-			if ( retryAttempt >= MAX_RETRY_ATTEMPTS ) {
-				ui.showInfo(
-					__( 'The server has not recovered after multiple attempts. Please try again later.' )
-				);
-			} else {
-				const answer = await ui.askUser( [
-					{
-						question: __( 'There was a hiccup on the server. Do you want to continue?' ),
-						options: [
-							{ label: 'Yes', description: __( 'Continue from where you left off' ) },
-							{
-								label: 'No',
-								description: __( 'Stop so I can give different instructions' ),
-							},
-						],
-					},
-				] );
-				const choice = Object.values( answer )[ 0 ]?.toLowerCase();
-				if ( choice === 'yes' ) {
-					ui.showInfo( __( 'Retrying…' ) );
-					return runAgentTurn( 'Continue from where you left off.', retryAttempt + 1 );
-				}
-			}
-		}
-
 		return {
 			status: turnState.status,
+			sessionId,
 		};
 	}
 
@@ -571,13 +511,13 @@ export async function runCommand( options: {
 		try {
 			const displayMessage = options.initialDisplayMessage ?? options.initialMessage;
 			ui.addUserMessage( displayMessage );
-			const result = await runAgentTurn( options.initialMessage, 0, displayMessage );
+			const result = await runAgentTurn( options.initialMessage, displayMessage );
 			const jsonStatus = result.status === 'interrupted' ? 'error' : result.status;
-			( ui as JsonAdapter ).emitTurnCompleted( jsonStatus );
+			( ui as JsonAdapter ).emitTurnCompleted( jsonStatus, result.sessionId );
 		} catch ( error ) {
 			process.exitCode = 1;
 			handleAgentTurnError( error );
-			( ui as JsonAdapter ).emitTurnCompleted( 'error' );
+			( ui as JsonAdapter ).emitTurnCompleted( 'error', session?.getSessionId() ?? '' );
 		} finally {
 			ui.stop();
 			await closeSharedBrowser();
@@ -590,7 +530,7 @@ export async function runCommand( options: {
 		const displayMessage = options.initialDisplayMessage ?? options.initialMessage;
 		ui.addUserMessage( displayMessage );
 		try {
-			await runAgentTurn( options.initialMessage, 0, displayMessage );
+			await runAgentTurn( options.initialMessage, displayMessage );
 		} catch ( error ) {
 			handleAgentTurnError( error );
 		}
@@ -622,15 +562,10 @@ export async function runCommand( options: {
 		maybeAutoSwitchProvider,
 		persistSessionContext,
 		async clearSession() {
+			session = await createStudioSession();
 			ui.clearTranscript();
 			ui.showWelcome();
 			ui.showInfo( __( 'Conversation cleared' ) );
-			await append( ( sm ) => appendStudioEntry( sm, 'studio.session_cleared', {} ) );
-			// Drop the cached Agent so the next turn rebuilds from the
-			// post-clear branch — otherwise `agent.state.messages` keeps
-			// showing the model the pre-clear transcript.
-			const sm = await ensureSession();
-			clearAgentForSession( sm.getSessionId() );
 			await persistSessionContext();
 			const site = ui.activeSite;
 			if ( site ) {

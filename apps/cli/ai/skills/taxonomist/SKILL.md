@@ -263,7 +263,7 @@ TAXONOMIST_BACKUP={site_path}/taxonomist-data/backups/pre-analysis-{timestamp}.j
 
 ## Important Notes
 
-- **Use the Studio MCP tools** (`site_list`, `site_info`, `site_start`, `wp_cli`, etc.) — not shell commands
+- **Use the Studio tools** (`site_list`, `site_info`, `site_start`, `wp_cli`, etc.) — not shell commands
 - **Category slugs are the stable identifier** — always use slugs (not names or IDs) when referencing categories across steps
 - **Never modify WordPress core files** — all changes go through WP-CLI commands
 - **The default category cannot be deleted** — change it first via `wp_cli`: `option update default_category {new_id}` if needed

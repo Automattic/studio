@@ -1,10 +1,10 @@
+import fs from 'fs';
 import Anthropic from '@anthropic-ai/sdk';
 import { type AgentEvent, type AgentTool } from '@mariozechner/pi-agent-core';
 import { type Model, type SimpleStreamOptions } from '@mariozechner/pi-ai';
 import { streamAnthropic, type AnthropicOptions } from '@mariozechner/pi-ai/anthropic';
 import {
 	AuthStorage,
-	buildSessionContext,
 	createAgentSession,
 	createBashTool,
 	createEditTool,
@@ -18,12 +18,15 @@ import {
 	SettingsManager,
 	type AgentSession,
 	type AgentSessionEvent,
-	type SessionEntry,
 	type SessionManager,
 	type ToolDefinition,
 } from '@mariozechner/pi-coding-agent';
-import { getAiModelFamily, type AiModelFamily, type AiModelId } from '@studio/common/ai/models';
-import { filterEntriesAfterLastClear } from '@studio/common/ai/sessions/filter-events';
+import {
+	DEFAULT_MODEL,
+	getAiModelFamily,
+	type AiModelFamily,
+	type AiModelId,
+} from '@studio/common/ai/models';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
@@ -33,14 +36,13 @@ import { createSkillTool } from 'cli/ai/tools/skill';
 import { takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
 import { createWpcomRequestTool } from 'cli/ai/tools/wpcom-request';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
-import type { AgentRuntime, AgentRuntimeConfig, AgentRuntimeHandle } from '../types';
+import type { AskUserHandler, SiteInfo } from 'cli/ai/types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AgentToolAny = AgentTool< any >;
 type StudioModel = Model< 'openai-completions' > | Model< 'anthropic-messages' >;
 type ProviderConfigInput = Parameters< ModelRegistry[ 'registerProvider' ] >[ 1 ];
 
-const ACTIVE_SESSIONS_BY_ID = new Map< string, AgentSession >();
 const STUDIO_WPCOM_ANTHROPIC_PROVIDER = 'studio-wpcom-anthropic';
 const STUDIO_AGENT_DIR = STUDIO_SITES_ROOT;
 const STUDIO_COMPACTION_SETTINGS = {
@@ -49,29 +51,51 @@ const STUDIO_COMPACTION_SETTINGS = {
 	keepRecentTokens: 20_000,
 };
 
-export const piRuntime: AgentRuntime = {
-	run( config: AgentRuntimeConfig ): AgentRuntimeHandle {
-		const sessionId = config.session.getSessionId();
-		const controller = new AbortController();
-		const events = createEventStream( config, sessionId, controller );
+export interface StudioAgentTurnConfig {
+	prompt: string;
+	session: SessionManager;
+	env?: Record< string, string >;
+	model?: AiModelId;
+	activeSite?: SiteInfo | null;
+	wpcomAccessToken?: string;
+	onAskUser?: AskUserHandler;
+	onEvent: ( event: AgentSessionEvent ) => void;
+}
 
-		return {
-			async interrupt() {
-				controller.abort();
-				await ACTIVE_SESSIONS_BY_ID.get( sessionId )?.abort();
-			},
-			[ Symbol.asyncIterator ]() {
-				return events[ Symbol.asyncIterator ]();
-			},
-		};
-	},
-};
+interface ResolvedStudioAgentTurnConfig extends StudioAgentTurnConfig {
+	env: Record< string, string >;
+	model: AiModelId;
+}
 
-// The AgentSession runtime rebuilds from SessionManager every turn, so there is
-// no sticky in-memory transcript to clear. Keep the exported hook for the
-// orchestrator, and abort an active turn if `/clear` somehow arrives mid-run.
-export function clearAgentForSession( sessionId: string ): void {
-	void ACTIVE_SESSIONS_BY_ID.get( sessionId )?.abort();
+export interface StudioAgentTurnHandle {
+	result: Promise< void >;
+	interrupt(): Promise< void >;
+}
+
+export function runStudioAgentTurn( config: StudioAgentTurnConfig ): StudioAgentTurnHandle {
+	const controller = new AbortController();
+	let activeSession: AgentSession | undefined;
+	const resolvedConfig: ResolvedStudioAgentTurnConfig = {
+		...config,
+		env: config.env ?? { ...( process.env as Record< string, string > ) },
+		model: config.model ?? DEFAULT_MODEL,
+	};
+
+	if ( ! fs.existsSync( STUDIO_SITES_ROOT ) ) {
+		fs.mkdirSync( STUDIO_SITES_ROOT, { recursive: true } );
+	}
+
+	const result = runAgentSessionTurn( resolvedConfig, controller, ( session ) => {
+		activeSession = session;
+	} );
+
+	return {
+		result,
+		async interrupt() {
+			controller.abort();
+			await activeSession?.abort();
+		},
+	};
 }
 
 interface ResolvedCredentials {
@@ -165,107 +189,56 @@ function syntheticErrorAgentEnd(
 	};
 }
 
-async function* createEventStream(
-	config: AgentRuntimeConfig,
-	sessionId: string,
-	controller: AbortController
-): AsyncGenerator< AgentSessionEvent, void, void > {
+async function runAgentSessionTurn(
+	config: ResolvedStudioAgentTurnConfig,
+	controller: AbortController,
+	setActiveSession: ( session: AgentSession | undefined ) => void
+): Promise< void > {
 	const family = getAiModelFamily( config.model );
 	const resolved = resolveCredentials( family, config.env );
 	if ( ! resolved.ok ) {
-		yield syntheticErrorAgentEnd( 'error', resolved.reason );
+		config.onEvent( syntheticErrorAgentEnd( 'error', resolved.reason ) );
 		return;
 	}
 
+	let session: AgentSession | undefined;
+	let unsubscribe: ( () => void ) | undefined;
 	try {
-		const session = await createStudioAgentSession( config, family, resolved.creds );
-		ACTIVE_SESSIONS_BY_ID.set( sessionId, session );
+		session = await createStudioAgentSession( config, family, resolved.creds );
+		setActiveSession( session );
+		unsubscribe = session.subscribe( config.onEvent );
 
-		const queue: AgentSessionEvent[] = [];
-		let resolveNext: ( () => void ) | null = null;
-		let done = false;
-		let seenAgentEnd = false;
-		let compacting = false;
-		let promptError: unknown;
-
-		const wake = () => {
-			resolveNext?.();
-			resolveNext = null;
-		};
-
-		const maybeFinish = () => {
-			if ( seenAgentEnd && ! compacting ) {
-				done = true;
-				wake();
-			}
-		};
-
-		const unsubscribe = session.subscribe( ( event: AgentSessionEvent ) => {
-			if ( event.type === 'compaction_start' ) {
-				compacting = true;
-			} else if ( event.type === 'compaction_end' ) {
-				compacting = false;
-				maybeFinish();
-			} else if ( event.type === 'agent_end' ) {
-				seenAgentEnd = true;
-				setTimeout( maybeFinish, 0 );
-			}
-
-			queue.push( event );
-			wake();
-		} );
-
-		const runPromise = session
-			.prompt( config.prompt, { expandPromptTemplates: false, source: 'rpc' } )
-			.catch( ( error: unknown ) => {
-				promptError = error;
-			} )
-			.finally( () => {
-				if ( ! seenAgentEnd ) {
-					done = true;
-					wake();
-				}
-			} );
-
-		while ( true ) {
-			if ( queue.length > 0 ) {
-				yield queue.shift()!;
-				continue;
-			}
-			if ( done ) break;
-			if ( controller.signal.aborted ) break;
-			await new Promise< void >( ( resolve ) => {
-				resolveNext = resolve;
-			} );
+		if ( controller.signal.aborted ) {
+			await session.abort();
+			config.onEvent( syntheticErrorAgentEnd( 'aborted', '' ) );
+			return;
 		}
 
-		unsubscribe();
-		await runPromise;
-
-		// If we exited the loop because the abort signal fired before pi
-		// emitted its own `agent_end`, synthesize one so consumers always
-		// see exactly one final event.
-		if ( ! done && controller.signal.aborted ) {
-			yield syntheticErrorAgentEnd( 'aborted', '' );
-		}
-		if ( promptError ) {
-			throw promptError;
-		}
+		await session.prompt( config.prompt, { expandPromptTemplates: false, source: 'rpc' } );
+		await waitForAgentSessionEvents( session );
 	} catch ( error ) {
 		const aborted = controller.signal.aborted;
 		const message = aborted ? '' : error instanceof Error ? error.message : String( error );
-		yield syntheticErrorAgentEnd( aborted ? 'aborted' : 'error', message );
+		config.onEvent( syntheticErrorAgentEnd( aborted ? 'aborted' : 'error', message ) );
 	} finally {
-		const active = ACTIVE_SESSIONS_BY_ID.get( sessionId );
-		if ( active ) {
-			active.dispose();
-			ACTIVE_SESSIONS_BY_ID.delete( sessionId );
-		}
+		unsubscribe?.();
+		session?.dispose();
+		setActiveSession( undefined );
 	}
 }
 
+async function waitForAgentSessionEvents( session: AgentSession ): Promise< void > {
+	// AgentSession.prompt() currently resolves when the underlying Agent is
+	// idle. Its public events and post-turn maintenance are processed through
+	// AgentSession's internal queue, so wait for that queue instead of treating
+	// any specific event (like `agent_end`) as the lifecycle boundary.
+	const eventQueue = ( session as unknown as { _agentEventQueue?: Promise< unknown > } )
+		._agentEventQueue;
+	await eventQueue?.catch( () => undefined );
+}
+
 async function createStudioAgentSession(
-	config: AgentRuntimeConfig,
+	config: ResolvedStudioAgentTurnConfig,
 	family: AiModelFamily,
 	creds: ResolvedCredentials
 ): Promise< AgentSession > {
@@ -311,7 +284,7 @@ async function createStudioAgentSession(
 		modelRegistry,
 		model,
 		thinkingLevel: 'high',
-		sessionManager: createClearAwareSessionManager( config.session ),
+		sessionManager: config.session,
 		settingsManager,
 		resourceLoader,
 		customTools: toolDefinitions,
@@ -418,24 +391,11 @@ function createWpcomAnthropicProviderConfig(
 	};
 }
 
-function createSettingsManager( env: Record< string, string > ): SettingsManager {
-	const providerMaxRetries = parseOptionalNonNegativeInteger( env.CLAUDE_CODE_MAX_RETRIES );
+function createSettingsManager( _env: Record< string, string > ): SettingsManager {
 	return SettingsManager.inMemory( {
 		defaultThinkingLevel: 'high',
 		compaction: STUDIO_COMPACTION_SETTINGS,
-		retry: {
-			enabled: false,
-			...( providerMaxRetries === undefined
-				? {}
-				: { provider: { maxRetries: providerMaxRetries } } ),
-		},
 	} );
-}
-
-function parseOptionalNonNegativeInteger( value: string | undefined ): number | undefined {
-	if ( value === undefined || value.trim() === '' ) return undefined;
-	const parsed = Number.parseInt( value, 10 );
-	return Number.isFinite( parsed ) && parsed >= 0 ? parsed : undefined;
 }
 
 function toToolDefinition( tool: AgentToolAny ): ToolDefinition {
@@ -451,30 +411,8 @@ function toToolDefinition( tool: AgentToolAny ): ToolDefinition {
 	};
 }
 
-function createClearAwareSessionManager( session: SessionManager ): SessionManager {
-	const filteredBranch = ( fromId?: string ): SessionEntry[] =>
-		filterEntriesAfterLastClear( session.getBranch( fromId ) );
-	const filteredEntries = (): SessionEntry[] => filterEntriesAfterLastClear( session.getEntries() );
-
-	return new Proxy( session, {
-		get( target, prop, receiver ) {
-			if ( prop === 'getBranch' ) {
-				return filteredBranch;
-			}
-			if ( prop === 'getEntries' ) {
-				return filteredEntries;
-			}
-			if ( prop === 'buildSessionContext' ) {
-				return () => buildSessionContext( filteredBranch() );
-			}
-			const value = Reflect.get( target, prop, receiver );
-			return typeof value === 'function' ? value.bind( target ) : value;
-		},
-	} ) as SessionManager;
-}
-
 function buildAgentTools(
-	config: AgentRuntimeConfig,
+	config: ResolvedStudioAgentTurnConfig,
 	enablePreviewSteering: boolean
 ): AgentToolAny[] {
 	const isRemoteSite = Boolean(

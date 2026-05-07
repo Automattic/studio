@@ -107,33 +107,6 @@ describe( 'AiChatUI auto site selection', () => {
 		} as never );
 		vi.mocked( isSiteRunning ).mockResolvedValue( false );
 
-		await ui.autoSelectSiteFromToolResult( 'mcp__studio__site_create', { name: 'toto' } );
-
-		expect( ui._activeSite ).toMatchObject( {
-			name: 'toto',
-			path: '/Users/test/Studio/toto',
-			running: true,
-		} );
-		expect( ui.editor ).toMatchObject( { activeSiteName: 'toto' } );
-		expect( ui.siteSelectedCallback ).toHaveBeenCalledWith(
-			expect.objectContaining( { name: 'toto', path: '/Users/test/Studio/toto', running: true } )
-		);
-	} );
-
-	it( 'selects a created site after the bare-name (OpenAI runtime) site_create succeeds', async () => {
-		const ui = createUiStub();
-		const siteData = {
-			name: 'toto',
-			path: '/Users/test/Studio/toto',
-			port: 8881,
-		};
-
-		vi.mocked( readCliConfig ).mockResolvedValue( {
-			sites: [ siteData ],
-		} as never );
-		vi.mocked( isSiteRunning ).mockResolvedValue( false );
-
-		// pi-agent-core registers tools by their bare name (no MCP prefix).
 		await ui.autoSelectSiteFromToolResult( 'site_create', { name: 'toto' } );
 
 		expect( ui._activeSite ).toMatchObject( {
@@ -164,7 +137,7 @@ describe( 'AiChatUI auto site selection', () => {
 		} as never );
 		vi.mocked( isSiteRunning ).mockResolvedValue( true );
 
-		await ui.autoSelectSiteFromToolResult( 'mcp__studio__site_stop', { nameOrPath: 'tata' } );
+		await ui.autoSelectSiteFromToolResult( 'site_stop', { nameOrPath: 'tata' } );
 
 		expect( ui._activeSite ).toMatchObject( {
 			name: 'tata',
@@ -331,14 +304,13 @@ describe( 'AiChatUI.handleEvent', () => {
 		ui.currentResponseText = 'previous content';
 		ui.usageCapReached = false;
 
-		const result = ui.handleEvent(
+		ui.handleEvent(
 			buildAssistantMessageEnd( {
 				stopReason: 'error',
 				errorMessage: 'API Error: 429 {"error":{"message":"You have exceeded your AI usage cap."}}',
 			} )
 		);
 
-		expect( result ).toBeUndefined();
 		expect( hideLoader ).toHaveBeenCalled();
 		expect( showError ).toHaveBeenCalledWith( expect.stringContaining( 'AI usage cap reached' ) );
 		expect( showInfo ).toHaveBeenCalledWith( expect.stringContaining( '/provider' ) );
@@ -396,17 +368,15 @@ describe( 'AiChatUI.handleEvent', () => {
 		ui.nowMs = () => 5000;
 		ui.turnStartTime = 0;
 		ui.numTurns = 1;
-		ui.currentSessionId = 'sess';
 		ui.messages = { addChild };
 
-		const result = ui.handleEvent( {
+		ui.handleEvent( {
 			type: 'agent_end',
 			messages: [],
 		} );
 
 		expect( addChild ).not.toHaveBeenCalled();
 		expect( showInfo ).not.toHaveBeenCalled();
-		expect( result ).toEqual( { type: 'result', sessionId: 'sess', success: false } );
 	} );
 
 	it( 'reports hasErrorBeenSurfaced based on usageCapReached', () => {

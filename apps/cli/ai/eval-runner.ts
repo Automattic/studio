@@ -1,7 +1,7 @@
 /**
  * PromptFoo eval runner for Studio Code agent.
  *
- * Hooks into startAiAgent() to capture tool calls, tool results, and
+ * Hooks into runStudioAgentTurn() to capture tool calls, tool results, and
  * assistant text. Returns raw structured data — assertions live in the
  * promptfoo config, not here.
  */
@@ -11,13 +11,13 @@ import os from 'node:os';
 import path from 'node:path';
 import { SessionManager } from '@mariozechner/pi-coding-agent';
 import { isAiModelId, type AiModelId } from '@studio/common/ai/models';
-import { startAiAgent } from 'cli/ai/agent';
+import { findLastAssistant } from '@studio/common/ai/session-events';
 import {
 	resolveAiEnvironment,
 	resolveInitialAiProvider,
 	resolveUnavailableAiProvider,
 } from 'cli/ai/auth';
-import { findLastAssistant } from 'cli/ai/output-adapter';
+import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import type { AgentSessionEvent } from '@mariozechner/pi-coding-agent';
 import type { AiProviderId } from 'cli/ai/providers';
@@ -26,10 +26,6 @@ interface EvalRunnerInput {
 	prompt: string;
 	timeoutMs?: number;
 	model?: AiModelId;
-}
-
-function normalizeToolName( name: string ): string {
-	return name.replace( /^mcp__studio__/, '' );
 }
 
 function extractToolCalls( event: AgentSessionEvent ) {
@@ -45,7 +41,7 @@ function extractToolCalls( event: AgentSessionEvent ) {
 		)
 		.map( ( block ) => ( {
 			id: block.id,
-			name: normalizeToolName( block.name ),
+			name: block.name,
 			input: block.arguments as Record< string, unknown >,
 		} ) );
 }
@@ -177,16 +173,83 @@ async function runEval( input: EvalRunnerInput ) {
 
 	phaseStartedAt = Date.now();
 	const session = SessionManager.inMemory( STUDIO_SITES_ROOT );
-	const query = startAiAgent( {
+	const queryStartedAt = Date.now();
+	let turnStart = queryStartedAt;
+
+	const handleEvent = ( event: AgentSessionEvent ): void => {
+		if ( event.type === 'message_end' && event.message.role === 'assistant' ) {
+			const now = Date.now();
+			turnDurationsMs.push( now - turnStart );
+			turnIndex += 1;
+			if ( turnIndex === 1 ) {
+				phaseTimingsMs.first_assistant_message_ms = now - queryStartedAt;
+			}
+			turnStart = now;
+		}
+		for ( const tc of extractToolCalls( event ) ) {
+			toolCalls.push( tc );
+			toolNameById.set( tc.id, tc.name );
+			const evt: ToolEvent = {
+				toolUseId: tc.id,
+				toolName: tc.name,
+				input: tc.input,
+				startedAtMs: elapsed(),
+				turnIndex,
+			};
+			toolEvents.push( evt );
+			toolEventById.set( tc.id, evt );
+		}
+		textSegments.push( ...extractTextSegments( event ) );
+
+		if ( event.type === 'tool_execution_end' ) {
+			const tr = extractToolResult( event );
+			if ( tr ) {
+				const id = tr.toolUseId;
+				const evt = toolEventById.get( id );
+				if ( evt ) {
+					evt.endedAtMs = elapsed();
+					evt.durationMs = evt.endedAtMs - evt.startedAtMs;
+					evt.isError = tr.isError;
+				}
+				if ( tr.isError && ! firstToolError ) {
+					firstToolError = {
+						toolUseId: id,
+						toolName: toolNameById.get( id ) ?? null,
+						...( evt?.input ? { input: evt.input } : {} ),
+						error: tr.text ?? 'Tool returned an error result.',
+						turnIndex,
+					};
+				}
+				toolResults.push( {
+					toolUseId: id,
+					toolName: toolNameById.get( id ) ?? null,
+					isError: tr.isError,
+					...( tr.text ? { text: tr.text } : {} ),
+				} );
+			}
+		}
+
+		if ( event.type === 'turn_end' ) {
+			numTurns += 1;
+		}
+
+		if ( event.type === 'agent_end' ) {
+			const lastAssistant = findLastAssistant( event.messages );
+			success =
+				! lastAssistant ||
+				( lastAssistant.stopReason !== 'error' && lastAssistant.stopReason !== 'aborted' );
+			numTurnsResult = numTurns;
+		}
+	};
+
+	const query = runStudioAgentTurn( {
 		prompt: input.prompt.trim(),
 		env,
 		session,
+		onEvent: handleEvent,
 		...( input.model ? { model: input.model } : {} ),
 	} );
 	phaseTimingsMs.start_ai_agent_ms = Date.now() - phaseStartedAt;
-
-	const queryStartedAt = Date.now();
-	let turnStart = queryStartedAt;
 
 	const timeout = setTimeout( () => {
 		timedOut = true;
@@ -194,71 +257,7 @@ async function runEval( input: EvalRunnerInput ) {
 	}, input.timeoutMs ?? 300000 );
 
 	try {
-		for await ( const event of query ) {
-			if ( event.type === 'message_end' && event.message.role === 'assistant' ) {
-				const now = Date.now();
-				turnDurationsMs.push( now - turnStart );
-				turnIndex += 1;
-				if ( turnIndex === 1 ) {
-					phaseTimingsMs.first_assistant_message_ms = now - queryStartedAt;
-				}
-				turnStart = now;
-			}
-			for ( const tc of extractToolCalls( event ) ) {
-				toolCalls.push( tc );
-				toolNameById.set( tc.id, tc.name );
-				const evt: ToolEvent = {
-					toolUseId: tc.id,
-					toolName: tc.name,
-					input: tc.input,
-					startedAtMs: elapsed(),
-					turnIndex,
-				};
-				toolEvents.push( evt );
-				toolEventById.set( tc.id, evt );
-			}
-			textSegments.push( ...extractTextSegments( event ) );
-
-			if ( event.type === 'tool_execution_end' ) {
-				const tr = extractToolResult( event );
-				if ( tr ) {
-					const id = tr.toolUseId;
-					const evt = toolEventById.get( id );
-					if ( evt ) {
-						evt.endedAtMs = elapsed();
-						evt.durationMs = evt.endedAtMs - evt.startedAtMs;
-						evt.isError = tr.isError;
-					}
-					if ( tr.isError && ! firstToolError ) {
-						firstToolError = {
-							toolUseId: id,
-							toolName: toolNameById.get( id ) ?? null,
-							...( evt?.input ? { input: evt.input } : {} ),
-							error: tr.text ?? 'Tool returned an error result.',
-							turnIndex,
-						};
-					}
-					toolResults.push( {
-						toolUseId: id,
-						toolName: toolNameById.get( id ) ?? null,
-						isError: tr.isError,
-						...( tr.text ? { text: tr.text } : {} ),
-					} );
-				}
-			}
-
-			if ( event.type === 'turn_end' ) {
-				numTurns += 1;
-			}
-
-			if ( event.type === 'agent_end' ) {
-				const lastAssistant = findLastAssistant( event.messages );
-				success =
-					! lastAssistant ||
-					( lastAssistant.stopReason !== 'error' && lastAssistant.stopReason !== 'aborted' );
-				numTurnsResult = numTurns;
-			}
-		}
+		await query.result;
 	} catch ( caught ) {
 		error = caught instanceof Error ? caught.message : String( caught );
 	} finally {

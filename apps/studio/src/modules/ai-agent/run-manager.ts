@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { fork, type ChildProcess } from 'node:child_process';
 import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
-import type { AgentRunEvent } from './types';
+import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { JsonEvent } from '@studio/common/ai/json-events';
 import type { WebContents } from 'electron';
 

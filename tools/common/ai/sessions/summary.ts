@@ -26,7 +26,6 @@ export async function readAiSessionSummaryFromEntries(
 	if ( fileEntries.length === 0 ) return undefined;
 
 	const header = fileEntries.find( isPiHeader );
-	const linkedAgentSessionIds: string[] = [];
 	const createdAt = header?.timestamp;
 	let updatedAt = header?.timestamp;
 	const sessionId = header?.id ?? '';
@@ -44,14 +43,6 @@ export async function readAiSessionSummaryFromEntries(
 		entryCount += 1;
 		const ts = entry.timestamp;
 		if ( typeof ts === 'string' ) updatedAt = ts;
-
-		if ( isStudioCustomEntryOfType( entry, 'studio.session_linked' ) ) {
-			const id = entry.data?.agentSessionId;
-			if ( typeof id === 'string' && ! linkedAgentSessionIds.includes( id ) ) {
-				linkedAgentSessionIds.push( id );
-			}
-			continue;
-		}
 
 		if ( isStudioCustomEntryOfType( entry, 'studio.site_selected' ) ) {
 			const data = entry.data;
@@ -93,8 +84,6 @@ export async function readAiSessionSummaryFromEntries(
 		filePath,
 		createdAt: createdAt ?? fallbackTimestamp,
 		updatedAt: updatedAt ?? createdAt ?? fallbackTimestamp,
-		agentSessionId: linkedAgentSessionIds[ linkedAgentSessionIds.length - 1 ],
-		linkedAgentSessionIds,
 		firstPrompt,
 		ownerSitePath,
 		ownerSiteName,

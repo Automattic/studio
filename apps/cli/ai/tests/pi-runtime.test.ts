@@ -1,6 +1,6 @@
 import { SessionManager } from '@mariozechner/pi-coding-agent';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { clearAgentForSession, piRuntime } from 'cli/ai/runtimes/pi';
+import { runStudioAgentTurn, type StudioAgentTurnConfig } from 'cli/ai/runtimes/pi';
 import type { AgentSessionEvent, CreateAgentSessionOptions } from '@mariozechner/pi-coding-agent';
 import type { AiModelId } from '@studio/common/ai/models';
 
@@ -139,11 +139,12 @@ const findAssistantText = ( events: AgentSessionEvent[] ): string | undefined =>
 	return undefined;
 };
 
-async function drain( handle: AsyncIterable< AgentSessionEvent > ): Promise< AgentSessionEvent[] > {
+async function runRuntime(
+	config: Omit< StudioAgentTurnConfig, 'onEvent' >
+): Promise< AgentSessionEvent[] > {
 	const events: AgentSessionEvent[] = [];
-	for await ( const event of handle ) {
-		events.push( event );
-	}
+	const handle = runStudioAgentTurn( { ...config, onEvent: ( event ) => events.push( event ) } );
+	await handle.result;
 	return events;
 }
 
@@ -159,15 +160,13 @@ describe( 'pi runtime', () => {
 		} );
 	} );
 
-	it( 'yields agent_end carrying the credential error when OPENAI_API_KEY is absent', async () => {
-		const events = await drain(
-			piRuntime.run( {
-				prompt: 'hello',
-				env: {},
-				model: 'gpt-5.5',
-				session: newSession(),
-			} )
-		);
+	it( 'emits agent_end carrying the credential error when OPENAI_API_KEY is absent', async () => {
+		const events = await runRuntime( {
+			prompt: 'hello',
+			env: {},
+			model: 'gpt-5.5',
+			session: newSession(),
+		} );
 
 		expect( mocks.createAgentSession ).not.toHaveBeenCalled();
 		expect( events ).toHaveLength( 1 );
@@ -183,22 +182,40 @@ describe( 'pi runtime', () => {
 		}
 	} );
 
-	it( 'yields a full exchange when AgentSession returns output', async () => {
-		const events = await drain(
-			piRuntime.run( {
-				prompt: 'hello',
-				env: {
-					OPENAI_API_KEY: 'sk-test',
-					OPENAI_BASE_URL: 'https://proxy.example.com/v1',
-				},
-				model: 'gpt-5.5',
-				session: newSession(),
-			} )
-		);
+	it( 'emits a full exchange when AgentSession returns output', async () => {
+		const events = await runRuntime( {
+			prompt: 'hello',
+			env: {
+				OPENAI_API_KEY: 'sk-test',
+				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
+			},
+			model: 'gpt-5.5',
+			session: newSession(),
+		} );
 
 		expect( findAssistantText( events ) ).toBe( 'mocked openai response' );
 		const final = events[ events.length - 1 ];
 		expect( final.type ).toBe( 'agent_end' );
+	} );
+
+	it( 'leaves retry policy to pi settings defaults', async () => {
+		await runRuntime( {
+			prompt: 'hello',
+			env: {
+				OPENAI_API_KEY: 'sk-test',
+				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
+			},
+			model: 'gpt-5.5',
+			session: newSession(),
+		} );
+
+		expect( mocks.createdSessions[ 0 ].options.settingsManager?.getRetrySettings() ).toMatchObject(
+			{
+				enabled: true,
+				maxRetries: 3,
+				baseDelayMs: 2000,
+			}
+		);
 	} );
 
 	it( 'creates each AgentSession with the requested model', async () => {
@@ -209,16 +226,14 @@ describe( 'pi runtime', () => {
 		const session = newSession();
 		const otherOpenAiModel = 'gpt-test-other' as AiModelId;
 
-		await drain( piRuntime.run( { prompt: 'hi', env, model: 'gpt-5.5', session } ) );
-		await drain( piRuntime.run( { prompt: 'follow-up', env, model: otherOpenAiModel, session } ) );
-		await drain(
-			piRuntime.run( {
-				prompt: 'still on the second model',
-				env,
-				model: otherOpenAiModel,
-				session,
-			} )
-		);
+		await runRuntime( { prompt: 'hi', env, model: 'gpt-5.5', session } );
+		await runRuntime( { prompt: 'follow-up', env, model: otherOpenAiModel, session } );
+		await runRuntime( {
+			prompt: 'still on the second model',
+			env,
+			model: otherOpenAiModel,
+			session,
+		} );
 
 		expect( mocks.createdSessions.map( ( s ) => s.state.model.id ) ).toEqual( [
 			'gpt-5.5',
@@ -227,56 +242,18 @@ describe( 'pi runtime', () => {
 		] );
 	} );
 
-	it( 'drops pre-`session_cleared` messages from the AgentSession context', async () => {
-		const env = {
-			OPENAI_API_KEY: 'sk-test',
-			OPENAI_BASE_URL: 'https://proxy.example.com/v1',
-		};
-		const session = SessionManager.inMemory( '/tmp/eval' );
-
-		session.appendMessage( { role: 'user', content: 'pre-clear question', timestamp: 1 } );
-		session.appendMessage( {
-			role: 'assistant',
-			content: [ { type: 'text', text: 'pre-clear answer' } ],
-			api: 'openai-completions',
-			provider: 'openai',
-			model: 'gpt-5.5',
-			usage: {
-				input: 0,
-				output: 0,
-				cacheRead: 0,
-				cacheWrite: 0,
-				totalTokens: 0,
-				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
-			},
-			stopReason: 'stop',
-			timestamp: 2,
-		} );
-		session.appendCustomEntry( 'studio.session_cleared', {} );
-		clearAgentForSession( session.getSessionId() );
-
-		await drain( piRuntime.run( { prompt: 'after clear', env, model: 'gpt-5.5', session } ) );
-
-		expect( mocks.createdSessions ).toHaveLength( 1 );
-		const flat = JSON.stringify( mocks.createdSessions[ 0 ].state.messages );
-		expect( flat ).not.toContain( 'pre-clear question' );
-		expect( flat ).not.toContain( 'pre-clear answer' );
-	} );
-
 	it( 'registers WPCOM Anthropic as a custom bearer-auth provider', async () => {
-		await drain(
-			piRuntime.run( {
-				prompt: 'hello',
-				env: {
-					ANTHROPIC_AUTH_TOKEN: 'wpcom-token',
-					ANTHROPIC_BASE_URL: 'https://proxy.example.com',
-					ANTHROPIC_CUSTOM_HEADERS:
-						'X-WPCOM-AI-Feature: studio-assistant-anthropic\nX-WPCOM-Session-ID: session-1',
-				},
-				model: 'claude-sonnet-4-6',
-				session: newSession(),
-			} )
-		);
+		await runRuntime( {
+			prompt: 'hello',
+			env: {
+				ANTHROPIC_AUTH_TOKEN: 'wpcom-token',
+				ANTHROPIC_BASE_URL: 'https://proxy.example.com',
+				ANTHROPIC_CUSTOM_HEADERS:
+					'X-WPCOM-AI-Feature: studio-assistant-anthropic\nX-WPCOM-Session-ID: session-1',
+			},
+			model: 'claude-sonnet-4-6',
+			session: newSession(),
+		} );
 
 		const options = mocks.createdSessions[ 0 ].options;
 		expect( options.model?.provider ).toBe( 'studio-wpcom-anthropic' );
@@ -297,18 +274,16 @@ describe( 'pi runtime', () => {
 		const warnSpy = vi.spyOn( console, 'warn' ).mockImplementation( () => {} );
 
 		try {
-			await drain(
-				piRuntime.run( {
-					prompt: 'hello',
-					env: {
-						OPENAI_API_KEY: 'sk-test',
-						OPENAI_BASE_URL: 'https://proxy.example.com/v1',
-						STUDIO_OPENAI_DEFAULT_HEADERS: '{not json',
-					},
-					model: 'gpt-5.5',
-					session: newSession(),
-				} )
-			);
+			await runRuntime( {
+				prompt: 'hello',
+				env: {
+					OPENAI_API_KEY: 'sk-test',
+					OPENAI_BASE_URL: 'https://proxy.example.com/v1',
+					STUDIO_OPENAI_DEFAULT_HEADERS: '{not json',
+				},
+				model: 'gpt-5.5',
+				session: newSession(),
+			} );
 
 			expect( warnSpy ).toHaveBeenCalledTimes( 1 );
 			expect( warnSpy.mock.calls[ 0 ][ 0 ] ).toMatch(

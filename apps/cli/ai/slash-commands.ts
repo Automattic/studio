@@ -227,58 +227,41 @@ async function pickRemoteSessionSubcommand(
 const STUDIO_BUG_REPORT_URL =
 	'https://github.com/Automattic/studio/issues/new?assignees=&labels=Needs+triage%2C%5BType%5D+Bug&projects=&template=bug_report.yml';
 
-interface FeedbackEnvironment {
-	platform: string;
-	arch: string;
-	nodeVersion: string;
-	cliVersion: string;
-	provider: AiProviderId;
-	model: AiModelId;
+function formatFeedbackEnvironment( ctx: SlashCommandContext ): string {
+	return `${ process.platform }/${ process.arch }, Node ${ process.version }, Studio CLI ${ __STUDIO_CLI_VERSION__ }, ${ ctx.currentProvider }/${ ctx.currentModel }`;
 }
 
-function collectFeedbackEnvironment( ctx: SlashCommandContext ): FeedbackEnvironment {
-	return {
-		platform: process.platform,
-		arch: process.arch,
-		nodeVersion: process.version,
-		cliVersion: __STUDIO_CLI_VERSION__,
-		provider: ctx.currentProvider,
-		model: ctx.currentModel,
-	};
-}
-
-function formatEnvironmentLine( env: FeedbackEnvironment ): string {
-	return `${ env.platform }/${ env.arch }, Node ${ env.nodeVersion }, Studio CLI ${ env.cliVersion }, ${ env.provider }/${ env.model }`;
-}
-
-function buildFeedbackUrl( summary: string, env: FeedbackEnvironment ): string {
+function buildFeedbackUrl( summary: string, environmentLine: string ): string {
 	const params = new URLSearchParams();
 	const trimmed = summary.trim();
 	if ( trimmed ) {
-		// `summary` is the id of the first textarea in bug_report.yml — GitHub
-		// issue forms accept query params keyed by field id. The `logs` field is
-		// the optional textarea at the bottom of the same template.
+		// `summary` and `logs` are field ids in bug_report.yml — GitHub issue
+		// forms accept query params keyed by field id.
 		params.set( 'summary', trimmed );
 	}
-	params.set( 'logs', formatEnvironmentLine( env ) );
+	params.set( 'logs', environmentLine );
 	return `${ STUDIO_BUG_REPORT_URL }&${ params.toString() }`;
 }
 
+function cancelFeedback( ctx: SlashCommandContext ): 'continue' {
+	ctx.ui.showInfo( __( 'Feedback canceled.' ) );
+	return 'continue';
+}
+
 async function confirmFeedbackSubmission( ctx: SlashCommandContext ): Promise< boolean > {
+	const submitLabel = __( 'Submit on GitHub' );
 	const answer = await ctx.ui.askUser( [
 		{
 			question: __( 'Open GitHub with this report?' ),
 			options: [
-				{
-					label: __( 'Submit on GitHub' ),
-					description: __( 'Open the pre-filled bug report' ),
-				},
+				{ label: submitLabel, description: __( 'Open the pre-filled bug report' ) },
 				{ label: __( 'Cancel' ), description: __( 'Discard the feedback' ) },
 			],
 		},
 	] );
-	const selected = ( Object.values( answer )[ 0 ] as string | undefined )?.toLowerCase() ?? '';
-	return selected.startsWith( 'submit' );
+	// Compare against the same label reference we passed in — a translated
+	// label could otherwise share a `startsWith` prefix with another option.
+	return Object.values( answer )[ 0 ] === submitLabel;
 }
 
 async function runFeedbackSlashCommand(
@@ -291,18 +274,16 @@ async function runFeedbackSlashCommand(
 		answers = await ctx.ui.askUser( [ { question: descriptionQ, options: [] } ] );
 	} catch ( error ) {
 		if ( isPromptAbortError( error ) ) {
-			ctx.ui.showInfo( __( 'Feedback canceled.' ) );
-			return 'continue';
+			return cancelFeedback( ctx );
 		}
 		throw error;
 	}
 	const summary = ( answers[ descriptionQ ] ?? '' ).trim();
 	if ( ! summary ) {
-		ctx.ui.showInfo( __( 'Feedback canceled.' ) );
-		return 'continue';
+		return cancelFeedback( ctx );
 	}
 
-	const env = collectFeedbackEnvironment( ctx );
+	const environmentLine = formatFeedbackEnvironment( ctx );
 	ctx.ui.showInfo(
 		[
 			__( 'Submit Feedback / Bug Report' ),
@@ -316,7 +297,7 @@ async function runFeedbackSlashCommand(
 			sprintf(
 				/* translators: %s: environment summary like "darwin/arm64, Node v22.18.0, …" */
 				__( '  - Environment: %s' ),
-				formatEnvironmentLine( env )
+				environmentLine
 			),
 			'',
 			__( "You'll review and submit the issue on github.com." ),
@@ -328,17 +309,15 @@ async function runFeedbackSlashCommand(
 		confirmed = await confirmFeedbackSubmission( ctx );
 	} catch ( error ) {
 		if ( isPromptAbortError( error ) ) {
-			ctx.ui.showInfo( __( 'Feedback canceled.' ) );
-			return 'continue';
+			return cancelFeedback( ctx );
 		}
 		throw error;
 	}
 	if ( ! confirmed ) {
-		ctx.ui.showInfo( __( 'Feedback canceled.' ) );
-		return 'continue';
+		return cancelFeedback( ctx );
 	}
 
-	await openBrowser( buildFeedbackUrl( summary, env ) );
+	await openBrowser( buildFeedbackUrl( summary, environmentLine ) );
 	ctx.ui.showSuccess(
 		__( 'Opening GitHub with your feedback pre-filled — finish the form to submit.' )
 	);

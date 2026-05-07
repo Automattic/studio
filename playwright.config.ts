@@ -2,8 +2,6 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig( {
 	testDir: './apps/studio/e2e',
-	// TODO: revert before merging — temporarily restricted to sites.test.ts to verify a Windows fix.
-	testMatch: '**/sites.test.ts',
 	snapshotPathTemplate: '{testDir}/__screenshots__/{testFilePath}/{arg}{ext}',
 
 	// The app only allows a single instance to be running at a time, so we can

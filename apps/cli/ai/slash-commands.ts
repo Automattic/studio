@@ -236,20 +236,17 @@ function formatFeedbackEnvironment( ctx: SlashCommandContext ): string {
 // and notifications.
 const FEEDBACK_TITLE_MAX_LENGTH = 80;
 
+function truncateWithEllipsis( text: string, max: number ): string {
+	if ( text.length <= max ) {
+		return text;
+	}
+	return text.slice( 0, max - 1 ).trimEnd() + '…';
+}
+
 function fallbackTitleFromSummary( summary: string ): string {
 	const newlineIdx = summary.indexOf( '\n' );
 	const firstLine = ( newlineIdx === -1 ? summary : summary.slice( 0, newlineIdx ) ).trim();
-	if ( firstLine.length <= FEEDBACK_TITLE_MAX_LENGTH ) {
-		return firstLine;
-	}
-	return firstLine.slice( 0, FEEDBACK_TITLE_MAX_LENGTH - 1 ).trimEnd() + '…';
-}
-
-function clampTitle( title: string ): string {
-	if ( title.length <= FEEDBACK_TITLE_MAX_LENGTH ) {
-		return title;
-	}
-	return title.slice( 0, FEEDBACK_TITLE_MAX_LENGTH - 1 ).trimEnd() + '…';
+	return truncateWithEllipsis( firstLine, FEEDBACK_TITLE_MAX_LENGTH );
 }
 
 type PlatformLabel = 'Mac Silicon' | 'Mac Intel' | 'Windows';
@@ -283,7 +280,9 @@ function composeFeedbackPrefill(
 	extracted: ExtractedFeedbackFields | null,
 	ctx: SlashCommandContext
 ): FeedbackPrefill {
-	const aiTitle = extracted?.title ? clampTitle( extracted.title ) : null;
+	const aiTitle = extracted?.title
+		? truncateWithEllipsis( extracted.title, FEEDBACK_TITLE_MAX_LENGTH )
+		: null;
 	return {
 		title: aiTitle ?? fallbackTitleFromSummary( summary ),
 		summary,
@@ -379,6 +378,21 @@ async function runFeedbackSlashCommand(
 	}
 	const prefill = composeFeedbackPrefill( summary, extracted, ctx );
 
+	const previewRows: Array< [ string, string | null ] > = [
+		[ __( 'Title' ), prefill.title ],
+		[ __( 'Description' ), prefill.summary ],
+		[ __( 'Steps' ), prefill.steps ],
+		[ __( 'Expected' ), prefill.expected ],
+		[ __( 'Actual' ), prefill.actual ],
+		[ __( 'Impact' ), prefill.impact ],
+		[ __( 'Workarounds' ), prefill.workaround ],
+		[ __( 'Platform' ), prefill.platform ],
+		[ __( 'Environment' ), prefill.environmentLine ],
+	];
+	const previewBody = previewRows
+		.filter( ( [ , value ] ) => value )
+		.map( ( [ label, value ] ) => `  - ${ label }: ${ value }` )
+		.join( '\n' );
 	ctx.ui.showInfo(
 		[
 			__( 'Submit Feedback / Bug Report' ),
@@ -389,66 +403,8 @@ async function runFeedbackSlashCommand(
 						'GitHub will open with what we could pre-fill — fill in the rest before submitting.'
 				  ),
 			'',
-			sprintf(
-				/* translators: %s: deduced issue title */
-				__( '  - Title: %s' ),
-				prefill.title
-			),
-			sprintf(
-				/* translators: %s: the user's feedback text */
-				__( '  - Description: %s' ),
-				prefill.summary
-			),
-			prefill.steps
-				? sprintf(
-						/* translators: %s: AI-extracted reproduction steps */
-						__( '  - Steps: %s' ),
-						prefill.steps
-				  )
-				: null,
-			prefill.expected
-				? sprintf(
-						/* translators: %s: AI-extracted "what you expected" */
-						__( '  - Expected: %s' ),
-						prefill.expected
-				  )
-				: null,
-			prefill.actual
-				? sprintf(
-						/* translators: %s: AI-extracted "what actually happened" */
-						__( '  - Actual: %s' ),
-						prefill.actual
-				  )
-				: null,
-			prefill.impact
-				? sprintf(
-						/* translators: %s: AI-extracted impact label, e.g. "All" */
-						__( '  - Impact: %s' ),
-						prefill.impact
-				  )
-				: null,
-			prefill.workaround
-				? sprintf(
-						/* translators: %s: AI-extracted workaround availability */
-						__( '  - Workarounds: %s' ),
-						prefill.workaround
-				  )
-				: null,
-			prefill.platform
-				? sprintf(
-						/* translators: %s: detected platform like "Mac Silicon" */
-						__( '  - Platform: %s' ),
-						prefill.platform
-				  )
-				: null,
-			sprintf(
-				/* translators: %s: environment summary like "darwin/arm64, Node v22.18.0, …" */
-				__( '  - Environment: %s' ),
-				prefill.environmentLine
-			),
-		]
-			.filter( ( line ): line is string => typeof line === 'string' )
-			.join( '\n' )
+			previewBody,
+		].join( '\n' )
 	);
 
 	let confirmed: boolean;

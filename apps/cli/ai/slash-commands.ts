@@ -4,6 +4,7 @@ import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, sprintf } from '@wordpress/i18n';
 import { getAvailableAiProviders, isAiProviderReady } from 'cli/ai/auth';
+import { extractFeedbackFields, type ExtractedFeedbackFields } from 'cli/ai/feedback-extraction';
 import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
 import { captureCommandOutput } from 'cli/ai/tools';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
@@ -231,19 +232,31 @@ function formatFeedbackEnvironment( ctx: SlashCommandContext ): string {
 	return `${ process.platform }/${ process.arch }, Node ${ process.version }, Studio CLI ${ __STUDIO_CLI_VERSION__ }, ${ ctx.currentProvider }/${ ctx.currentModel }`;
 }
 
+// Cap below GitHub's 256-char issue title limit so titles read well in lists
+// and notifications.
 const FEEDBACK_TITLE_MAX_LENGTH = 80;
 
-function deduceFeedbackTitle( summary: string ): string {
-	const firstLine = summary.split( '\n' )[ 0 ].trim();
+function fallbackTitleFromSummary( summary: string ): string {
+	const newlineIdx = summary.indexOf( '\n' );
+	const firstLine = ( newlineIdx === -1 ? summary : summary.slice( 0, newlineIdx ) ).trim();
 	if ( firstLine.length <= FEEDBACK_TITLE_MAX_LENGTH ) {
 		return firstLine;
 	}
 	return firstLine.slice( 0, FEEDBACK_TITLE_MAX_LENGTH - 1 ).trimEnd() + '…';
 }
 
+function clampTitle( title: string ): string {
+	if ( title.length <= FEEDBACK_TITLE_MAX_LENGTH ) {
+		return title;
+	}
+	return title.slice( 0, FEEDBACK_TITLE_MAX_LENGTH - 1 ).trimEnd() + '…';
+}
+
+type PlatformLabel = 'Mac Silicon' | 'Mac Intel' | 'Windows';
+
 // Maps to the dropdown labels in .github/ISSUE_TEMPLATE/bug_report.yml. Linux
 // has no matching option there, so we just skip pre-fill on that platform.
-function deducePlatformLabel(): string | null {
+function deducePlatformLabel(): PlatformLabel | null {
 	if ( process.platform === 'darwin' ) {
 		return process.arch === 'arm64' ? 'Mac Silicon' : 'Mac Intel';
 	}
@@ -256,14 +269,29 @@ function deducePlatformLabel(): string | null {
 interface FeedbackPrefill {
 	title: string;
 	summary: string;
-	platform: string | null;
+	steps: string | null;
+	expected: string | null;
+	actual: string | null;
+	impact: string | null;
+	workaround: string | null;
+	platform: PlatformLabel | null;
 	environmentLine: string;
 }
 
-function deduceFeedbackPrefill( summary: string, ctx: SlashCommandContext ): FeedbackPrefill {
+function composeFeedbackPrefill(
+	summary: string,
+	extracted: ExtractedFeedbackFields | null,
+	ctx: SlashCommandContext
+): FeedbackPrefill {
+	const aiTitle = extracted?.title ? clampTitle( extracted.title ) : null;
 	return {
-		title: deduceFeedbackTitle( summary ),
+		title: aiTitle ?? fallbackTitleFromSummary( summary ),
 		summary,
+		steps: extracted?.steps ?? null,
+		expected: extracted?.expected ?? null,
+		actual: extracted?.actual ?? null,
+		impact: extracted?.impact ?? null,
+		workaround: extracted?.workaround ?? null,
 		platform: deducePlatformLabel(),
 		environmentLine: formatFeedbackEnvironment( ctx ),
 	};
@@ -276,6 +304,21 @@ function buildFeedbackUrl( prefill: FeedbackPrefill ): string {
 	const params = new URLSearchParams();
 	params.set( 'title', prefill.title );
 	params.set( 'summary', prefill.summary );
+	if ( prefill.steps ) {
+		params.set( 'steps', prefill.steps );
+	}
+	if ( prefill.expected ) {
+		params.set( 'expected', prefill.expected );
+	}
+	if ( prefill.actual ) {
+		params.set( 'actual', prefill.actual );
+	}
+	if ( prefill.impact ) {
+		params.set( 'users-affected', prefill.impact );
+	}
+	if ( prefill.workaround ) {
+		params.set( 'workarounds', prefill.workaround );
+	}
 	if ( prefill.platform ) {
 		params.set( 'site-type', prefill.platform );
 	}
@@ -323,43 +366,90 @@ async function runFeedbackSlashCommand(
 		return cancelFeedback( ctx );
 	}
 
-	const prefill = deduceFeedbackPrefill( summary, ctx );
-	const previewLines = [
-		__( 'Submit Feedback / Bug Report' ),
-		'',
-		__( 'This report will pre-fill GitHub with:' ),
-		sprintf(
-			/* translators: %s: deduced issue title */
-			__( '  - Title: %s' ),
-			prefill.title
-		),
-		sprintf(
-			/* translators: %s: the user's feedback text */
-			__( '  - Description: %s' ),
-			prefill.summary
-		),
-	];
-	if ( prefill.platform ) {
-		previewLines.push(
-			sprintf(
-				/* translators: %s: detected platform like "Mac Silicon" */
-				__( '  - Platform: %s' ),
-				prefill.platform
-			)
-		);
+	ctx.ui.showProgress( __( 'Analyzing your feedback…' ) );
+	ctx.ui.setBusy( true );
+	let extracted: ExtractedFeedbackFields | null;
+	try {
+		extracted = await extractFeedbackFields( summary, {
+			provider: ctx.currentProvider,
+			model: ctx.currentModel,
+		} );
+	} finally {
+		ctx.ui.setBusy( false );
 	}
-	previewLines.push(
-		sprintf(
-			/* translators: %s: environment summary like "darwin/arm64, Node v22.18.0, …" */
-			__( '  - Environment: %s' ),
-			prefill.environmentLine
-		),
-		'',
-		__(
-			"You'll still need to fill in steps to reproduce, expected/actual behavior, and impact on github.com."
-		)
+	const prefill = composeFeedbackPrefill( summary, extracted, ctx );
+
+	ctx.ui.showInfo(
+		[
+			__( 'Submit Feedback / Bug Report' ),
+			'',
+			extracted
+				? __( 'GitHub will open with these fields pre-filled — review and edit before submitting.' )
+				: __(
+						'GitHub will open with what we could pre-fill — fill in the rest before submitting.'
+				  ),
+			'',
+			sprintf(
+				/* translators: %s: deduced issue title */
+				__( '  - Title: %s' ),
+				prefill.title
+			),
+			sprintf(
+				/* translators: %s: the user's feedback text */
+				__( '  - Description: %s' ),
+				prefill.summary
+			),
+			prefill.steps
+				? sprintf(
+						/* translators: %s: AI-extracted reproduction steps */
+						__( '  - Steps: %s' ),
+						prefill.steps
+				  )
+				: null,
+			prefill.expected
+				? sprintf(
+						/* translators: %s: AI-extracted "what you expected" */
+						__( '  - Expected: %s' ),
+						prefill.expected
+				  )
+				: null,
+			prefill.actual
+				? sprintf(
+						/* translators: %s: AI-extracted "what actually happened" */
+						__( '  - Actual: %s' ),
+						prefill.actual
+				  )
+				: null,
+			prefill.impact
+				? sprintf(
+						/* translators: %s: AI-extracted impact label, e.g. "All" */
+						__( '  - Impact: %s' ),
+						prefill.impact
+				  )
+				: null,
+			prefill.workaround
+				? sprintf(
+						/* translators: %s: AI-extracted workaround availability */
+						__( '  - Workarounds: %s' ),
+						prefill.workaround
+				  )
+				: null,
+			prefill.platform
+				? sprintf(
+						/* translators: %s: detected platform like "Mac Silicon" */
+						__( '  - Platform: %s' ),
+						prefill.platform
+				  )
+				: null,
+			sprintf(
+				/* translators: %s: environment summary like "darwin/arm64, Node v22.18.0, …" */
+				__( '  - Environment: %s' ),
+				prefill.environmentLine
+			),
+		]
+			.filter( ( line ): line is string => typeof line === 'string' )
+			.join( '\n' )
 	);
-	ctx.ui.showInfo( previewLines.join( '\n' ) );
 
 	let confirmed: boolean;
 	try {

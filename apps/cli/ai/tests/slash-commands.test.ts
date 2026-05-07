@@ -85,6 +85,7 @@ vi.mock( 'cli/commands/auth/logout', () => ( { runCommand: vi.fn() } ) );
 vi.mock( 'cli/commands/preview/create', () => ( { runCommand: vi.fn() } ) );
 vi.mock( 'cli/commands/preview/update', () => ( { runCommand: vi.fn() } ) );
 vi.mock( 'cli/lib/browser', () => ( { openBrowser: vi.fn() } ) );
+vi.mock( 'cli/ai/feedback-extraction', () => ( { extractFeedbackFields: vi.fn() } ) );
 vi.mock( '@studio/common/lib/shared-config', () => ( { readAuthToken: vi.fn() } ) );
 
 vi.mock( 'cli/remote-session/daemon', () => {
@@ -458,6 +459,8 @@ describe( '/feedback slash command', () => {
 			showInfo: vi.fn(),
 			showError: vi.fn(),
 			showSuccess: vi.fn(),
+			showProgress: vi.fn(),
+			setBusy: vi.fn(),
 			askUser: vi.fn(),
 		};
 	}
@@ -479,6 +482,10 @@ describe( '/feedback slash command', () => {
 		const browser = await import( 'cli/lib/browser' );
 		( browser.openBrowser as ReturnType< typeof vi.fn > ).mockReset();
 		( browser.openBrowser as ReturnType< typeof vi.fn > ).mockResolvedValue( undefined );
+		const extraction = await import( 'cli/ai/feedback-extraction' );
+		( extraction.extractFeedbackFields as ReturnType< typeof vi.fn > ).mockReset();
+		// Default: no AI signal — tests opt in to extraction by overriding.
+		( extraction.extractFeedbackFields as ReturnType< typeof vi.fn > ).mockResolvedValue( null );
 	} );
 
 	it( 'is registered with a handler and description', () => {
@@ -498,14 +505,14 @@ describe( '/feedback slash command', () => {
 		const browser = await import( 'cli/lib/browser' );
 		expect( browser.openBrowser ).toHaveBeenCalledOnce();
 		const url = ( browser.openBrowser as ReturnType< typeof vi.fn > ).mock.calls[ 0 ][ 0 ];
+		const params = new URL( url ).searchParams;
 		expect( url ).toContain( 'github.com/Automattic/studio/issues/new' );
 		expect( url ).toContain( 'template=bug_report.yml' );
-		expect( url ).toContain( 'title=something+is+broken' );
-		expect( url ).toContain( 'summary=something+is+broken' );
-		expect( url ).toContain( 'logs=' );
-		// Required fields the user must fill themselves are NOT pre-filled —
-		// only what we can honestly derive from the entry.
-		const params = new URL( url ).searchParams;
+		expect( params.get( 'title' ) ).toBe( 'something is broken' );
+		expect( params.get( 'summary' ) ).toBe( 'something is broken' );
+		expect( params.get( 'logs' ) ).toBeTruthy();
+		// AI extraction returned null in this test — fields without honest
+		// signal stay unset rather than getting force-filled.
 		expect( params.has( 'steps' ) ).toBe( false );
 		expect( params.has( 'expected' ) ).toBe( false );
 		expect( params.has( 'actual' ) ).toBe( false );
@@ -513,6 +520,65 @@ describe( '/feedback slash command', () => {
 		expect( params.has( 'workarounds' ) ).toBe( false );
 		expect( ui.showSuccess ).toHaveBeenCalledOnce();
 		expect( result ).toBe( 'continue' );
+	} );
+
+	it( 'pre-fills steps/expected/actual/impact/workarounds when AI extraction returns them', async () => {
+		const extraction = await import( 'cli/ai/feedback-extraction' );
+		( extraction.extractFeedbackFields as ReturnType< typeof vi.fn > ).mockResolvedValue( {
+			title: 'Sites fail to start after update',
+			steps: '1. Update Studio.\n2. Click Start on a site.',
+			expected: 'The site should start and serve on its assigned port.',
+			actual: 'The Start button spins forever and the port stays closed.',
+			impact: 'All',
+			workaround: 'No and the app is unusable',
+		} );
+
+		const ui = makeUi();
+		ui.askUser
+			.mockResolvedValueOnce( {
+				'Describe the issue or feedback':
+					'After updating, every site I try to start just spins. The app is basically dead.',
+			} )
+			.mockResolvedValueOnce( { 'Open GitHub with this report?': 'Submit on GitHub' } );
+
+		await cmd.handler!( '/feedback', makeCtx( ui ) );
+
+		const browser = await import( 'cli/lib/browser' );
+		const url = ( browser.openBrowser as ReturnType< typeof vi.fn > ).mock.calls[ 0 ][ 0 ];
+		const params = new URL( url ).searchParams;
+		expect( params.get( 'title' ) ).toBe( 'Sites fail to start after update' );
+		expect( params.get( 'steps' ) ).toContain( 'Update Studio' );
+		expect( params.get( 'expected' ) ).toContain( 'serve on its assigned port' );
+		expect( params.get( 'actual' ) ).toContain( 'spins forever' );
+		expect( params.get( 'users-affected' ) ).toBe( 'All' );
+		expect( params.get( 'workarounds' ) ).toBe( 'No and the app is unusable' );
+		// Description still flows into summary verbatim.
+		expect( params.get( 'summary' ) ).toContain( 'every site I try to start' );
+	} );
+
+	it( 'falls back to the first-line title when AI returns no title', async () => {
+		const extraction = await import( 'cli/ai/feedback-extraction' );
+		( extraction.extractFeedbackFields as ReturnType< typeof vi.fn > ).mockResolvedValue( {
+			title: null,
+			steps: null,
+			expected: null,
+			actual: null,
+			impact: null,
+			workaround: null,
+		} );
+
+		const ui = makeUi();
+		ui.askUser
+			.mockResolvedValueOnce( {
+				'Describe the issue or feedback': 'something headline\nbody text follows',
+			} )
+			.mockResolvedValueOnce( { 'Open GitHub with this report?': 'Submit on GitHub' } );
+
+		await cmd.handler!( '/feedback', makeCtx( ui ) );
+
+		const browser = await import( 'cli/lib/browser' );
+		const url = ( browser.openBrowser as ReturnType< typeof vi.fn > ).mock.calls[ 0 ][ 0 ];
+		expect( new URL( url ).searchParams.get( 'title' ) ).toBe( 'something headline' );
 	} );
 
 	it( 'truncates a long first line into a title that fits the issue title field', async () => {

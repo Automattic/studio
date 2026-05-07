@@ -79,11 +79,11 @@ function getDefaultPhpArgs( phpVersion: NativePhpSupportedVersion, siteId?: stri
 
 	return [
 		'-d',
-		`opcache.file_cache=${ cacheDirectory }`,
+		`opcache.file_cache="${ cacheDirectory }"`,
 		'-d',
 		'opcache.file_cache_fallback=1',
 		'-d',
-		`opcache.cache_id=studio-${ cacheId }`,
+		`opcache.cache_id=studio-"${ cacheId }"`,
 	];
 }
 

@@ -194,10 +194,9 @@ export interface Connector {
 	getSession( sessionId: string ): Promise< LoadedAiSession >;
 	deleteSession( sessionId: string ): Promise< void >;
 
-	// Create an empty session file attached to a site, so the new session
-	// appears in the sidebar immediately. The first prompt flows through
-	// `continueSession` as usual.
-	createSession( siteId: string ): Promise< AiSessionSummary >;
+	// Create an empty session file so it appears immediately. When `siteId`
+	// is omitted, the session is a user-desk chat with no owner site.
+	createSession( siteId?: string ): Promise< AiSessionSummary >;
 
 	// Continue an existing session by sending a new prompt. Returns a `runId`
 	// that identifies the in-flight agent run; live events for that run stream

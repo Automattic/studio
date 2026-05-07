@@ -215,14 +215,27 @@ export async function deleteAiSession(
 
 export async function createAiSession(
 	_event: IpcMainInvokeEvent,
-	siteId: string
+	siteId?: string
 ): Promise< AiSessionSummary > {
+	const sitesRoot = getAiSessionsRootDirectory();
+	if ( ! siteId ) {
+		const existing = await listAiSessionsFromStore( sitesRoot );
+		const emptyUserDeskSession = existing
+			.filter( ( session ) => ! session.ownerSitePath && ! session.firstPrompt )
+			.sort( ( a, b ) => Date.parse( b.updatedAt ) - Date.parse( a.updatedAt ) )[ 0 ];
+
+		if ( emptyUserDeskSession ) {
+			return emptyUserDeskSession;
+		}
+
+		return createAiSessionInStore( sitesRoot );
+	}
+
 	const server = SiteServer.get( siteId );
 	if ( ! server ) {
 		throw new Error( `Site not found: ${ siteId }` );
 	}
 	const sitePath = server.details.path;
-	const sitesRoot = getAiSessionsRootDirectory();
 
 	// Reuse the newest existing empty session for this site (one that has
 	// never received a user prompt) instead of creating another one. This

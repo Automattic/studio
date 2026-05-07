@@ -7,6 +7,9 @@
 	/* Matches the classic header's reserved macOS traffic-light space. */
 	left: 94px;
 	z-index: 20;
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-md);
 }
 
 .fullscreen {

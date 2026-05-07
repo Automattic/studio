@@ -1,4 +1,5 @@
 import { resolveSessionModel } from '@studio/common/ai/models';
+import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
@@ -128,6 +129,7 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 }
 
 function SessionViewContent( { sessionId }: { sessionId: string } ) {
+	const navigate = useNavigate();
 	const { data, isLoading, error } = useSession( sessionId );
 	const { data: sites } = useSites();
 	const ownerSitePath = data?.summary.ownerSitePath;
@@ -249,6 +251,12 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						liveSite={ liveSite }
 						entries={ data.entries }
 						ownerSiteId={ ownerSite?.id }
+						onSwitchSession={ ( nextSessionId ) =>
+							void navigate( {
+								to: '/sessions/$sessionId',
+								params: { sessionId: nextSessionId },
+							} )
+						}
 					/>
 				</div>
 			}

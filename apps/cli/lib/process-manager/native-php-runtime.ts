@@ -140,6 +140,7 @@ export class NativePhpRuntime {
 		{ phpVersion, cwd, signal, mode = 'pipe', opcacheSiteId }: SpawnPhpProcessOptions
 	): ChildProcess {
 		const defaultArgs = getDefaultPhpArgs( phpVersion, opcacheSiteId );
+		console.log( 'default php args', defaultArgs );
 		const phpArgs = [ ...defaultArgs, ...args ];
 		const phpScriptProcess = spawn( getPhpBinaryPath( phpVersion ), phpArgs, {
 			cwd,

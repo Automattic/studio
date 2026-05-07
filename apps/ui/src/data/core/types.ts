@@ -1,4 +1,4 @@
-import type { AgentRunEvent } from './agent-events';
+import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiModelId } from '@studio/common/ai/models';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { SupportedLocale } from '@studio/common/lib/locale';
@@ -9,11 +9,19 @@ import type { Snapshot } from '@studio/common/types/snapshot';
 import type { SyncSite } from '@studio/common/types/sync';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
+export type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+export type { SessionEntry } from '@mariozechner/pi-coding-agent';
 export type {
-	AiSessionSummary,
-	LoadedAiSession,
-	AiSessionEvent,
-} from '@studio/common/ai/sessions/types';
+	StudioCustomEntry,
+	StudioCustomEntryType,
+	StudioCustomEntryDataMap,
+	StudioSiteSelectedData,
+	StudioToolProgressData,
+	StudioAgentQuestionData,
+	StudioTurnClosedData,
+	StudioSessionContextData,
+	StudioUserPromptData,
+} from '@studio/common/ai/sessions/entry-types';
 export type { AiModelId } from '@studio/common/ai/models';
 export type { Snapshot } from '@studio/common/types/snapshot';
 export type { SyncSite } from '@studio/common/types/sync';

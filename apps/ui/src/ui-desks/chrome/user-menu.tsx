@@ -1,6 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { chevronDownSmall } from '@wordpress/icons';
-import { Button, Icon } from '@wordpress/ui';
+import { Button } from '@wordpress/ui';
 import { Gravatar } from '@/components/gravatar';
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
@@ -35,9 +34,10 @@ export function DeskUserMenu() {
 				tone="neutral"
 				size="small"
 				className={ styles.trigger }
+				aria-label={ __( 'Log in with WordPress.com' ) }
 				onClick={ () => login.mutate() }
 			>
-				{ __( 'Log in with WordPress.com' ) }
+				<span className={ styles.loginAvatar } aria-hidden="true" />
 			</Button>
 		);
 	}
@@ -46,10 +46,15 @@ export function DeskUserMenu() {
 		<Menu.Root modal={ false }>
 			<Menu.Trigger
 				render={
-					<Button variant="minimal" tone="neutral" size="small" className={ styles.trigger }>
-						<Gravatar email={ user.email } isDark={ themeIsDark } />
-						<span className={ styles.userName }>{ user.displayName }</span>
-						<Icon icon={ chevronDownSmall } />
+					<Button
+						variant="minimal"
+						tone="neutral"
+						size="small"
+						className={ styles.trigger }
+						aria-label={ __( 'User menu' ) }
+						title={ user.displayName }
+					>
+						<Gravatar className={ styles.avatar } email={ user.email } isDark={ themeIsDark } />
 					</Button>
 				}
 			/>

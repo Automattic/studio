@@ -1,14 +1,13 @@
 import type { PermissionRequest } from './studio-code-ui-types';
+import type { AgentSessionEvent } from '@mariozechner/pi-coding-agent';
 import type { StudioCodeEvent } from 'src/modules/studio-code/studio-code-event-types';
 
 // Translates the CLI's NDJSON wire format into reducer actions for
-// `studio-code-chat`. The CLI now wraps native pi `AgentSessionEvent`
-// payloads inside the legacy `{type:'message', message: <event>}` envelope,
-// so this parser pattern-matches against pi event shapes (`message_end`,
-// `turn_end`) rather than the prior SDK shapes. The other envelope-level
-// event types (`turn.started`, `turn.completed`, `question.asked`,
-// `progress`, `error`) come straight from `JsonAdapter.emit*` and stay
-// unchanged.
+// `studio-code-chat`. The CLI wraps native pi `AgentSessionEvent` payloads
+// inside the `{type:'message', message: <event>}` envelope, so this parser
+// pattern-matches against pi event shapes (`message_end`, `turn_end`). The
+// other envelope-level event types (`turn.started`, `turn.completed`,
+// `question.asked`, `progress`, `error`) come straight from `JsonAdapter.emit*`.
 
 interface PiTextContent {
 	type: 'text';
@@ -36,16 +35,10 @@ interface PiToolResultMessage {
 	isError?: boolean;
 }
 
-interface PiMessageEndEvent {
-	type: 'message_end';
-	message: PiAssistantMessage | { role: string };
-}
 interface PiTurnEndEvent {
 	type: 'turn_end';
 	toolResults?: PiToolResultMessage[];
 }
-
-type PiSessionEvent = PiMessageEndEvent | PiTurnEndEvent | { type: string };
 
 export type ParsedAction =
 	| { type: 'START_ASSISTANT_MESSAGE' }
@@ -66,13 +59,10 @@ function toolResultText( content: PiToolResultMessage[ 'content' ] ): string {
 		.join( '\n' );
 }
 
-function parseSessionMessage( raw: unknown ): ParsedAction[] {
-	const event = raw as PiSessionEvent | null | undefined;
-	if ( ! event || typeof event !== 'object' ) return [];
-
+function parseSessionMessage( event: AgentSessionEvent ): ParsedAction[] {
 	if ( event.type === 'message_end' ) {
-		const message = ( event as PiMessageEndEvent ).message;
-		if ( message?.role !== 'assistant' ) return [];
+		const message = event.message as PiAssistantMessage | { role?: string };
+		if ( message.role !== 'assistant' ) return [];
 		const actions: ParsedAction[] = [];
 		for ( const block of ( message as PiAssistantMessage ).content ?? [] ) {
 			if ( block.type === 'text' ) {

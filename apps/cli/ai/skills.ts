@@ -1,13 +1,6 @@
 import fs from 'fs';
 import path from 'path';
 
-/**
- * A skill parsed from the plugin directory. The frontmatter is YAML-ish but we
- * only extract `name` and `description` — everything else we need (workflow,
- * constraints) lives in the body and is loaded on demand by the runtime's
- * Skill tool. Keep the parser deliberately minimal so we don't pull in a YAML
- * dependency for this one narrow use case.
- */
 export interface Skill {
 	name: string;
 	description: string;
@@ -29,26 +22,18 @@ function parseSkillFile( filePath: string ): Skill | null {
 
 let cachedSkills: Skill[] | null = null;
 
-/**
- * Discover all `SKILL.md` files under the bundled plugin directory.
- *
- * The plugin directory is the same one the Anthropic runtime hands to the
- * Agent SDK as a `type: 'local'` plugin. The Anthropic runtime relies on the
- * SDK's built-in skill machinery (frontmatter goes into the prompt index, the
- * body is fetched via the SDK's native `Skill` tool). The OpenAI runtime
- * doesn't have an SDK to lean on, so it consumes these parsed entries
- * directly: a short index goes into the system prompt, and a hand-rolled
- * `Skill` tool returns the body on demand.
- *
- * Results are cached on the first call — skills never change at runtime.
- */
+// Discovers `apps/cli/ai/skills/<name>/SKILL.md` files at startup; cached
+// for the process lifetime since skills never change at runtime.
 export function loadSkills(): Skill[] {
 	if ( cachedSkills ) return cachedSkills;
 
-	const pluginRoot = path.resolve( import.meta.dirname, 'plugin' );
-	const skillsRoot = path.join( pluginRoot, 'skills' );
+	const skillsRoot = path.resolve( import.meta.dirname, 'skills' );
 
 	if ( ! fs.existsSync( skillsRoot ) ) {
+		// Loud warning so a broken bundle path doesn't silently disable Skill.
+		console.warn(
+			`[skills] skills directory not found at ${ skillsRoot } — Skill tool will be unavailable.`
+		);
 		cachedSkills = [];
 		return cachedSkills;
 	}

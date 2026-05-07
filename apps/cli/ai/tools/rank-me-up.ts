@@ -1,11 +1,11 @@
-import { tool } from '@anthropic-ai/claude-agent-sdk';
-import { z } from 'zod/v4';
+import { Type } from 'typebox';
 import { auditSeo } from 'cli/ai/seo-audit';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { emitProgress } from 'cli/logger';
-import { errorResult, resolveSite, textResult } from './utils';
+import { defineTool } from './define-tool';
+import { resolveSite, textResult } from './utils';
 
-export const auditSeoTool = tool(
+export const auditSeoTool = defineTool(
 	'rank_me_up',
 	'Runs an on-page SEO audit on a WordPress site page. Returns title and meta description, ' +
 		'canonical/robots/viewport tags, Open Graph and Twitter cards, heading structure, image alt-text ' +
@@ -15,13 +15,14 @@ export const auditSeoTool = tool(
 		'meta tags / OpenGraph / sitemap / search visibility, or invokes /rank-me-up. Do NOT call this as ' +
 		'part of a normal "build a site" or "design a page" workflow.',
 	{
-		nameOrPath: z
-			.string()
-			.describe( 'The site name or file system path — the site must be running' ),
-		path: z
-			.string()
-			.optional()
-			.describe( 'URL path to audit (e.g., "/", "/about"). Defaults to "/".' ),
+		nameOrPath: Type.String( {
+			description: 'The site name or file system path — the site must be running',
+		} ),
+		path: Type.Optional(
+			Type.String( {
+				description: 'URL path to audit (e.g., "/", "/about"). Defaults to "/".',
+			} )
+		),
 	},
 	async ( args ) => {
 		try {
@@ -35,14 +36,14 @@ export const auditSeoTool = tool(
 
 			if ( result.error ) {
 				emitProgress( `Audit failed: ${ result.error.slice( 0, 80 ) }` );
-				return errorResult( `SEO audit failed: ${ result.error }` );
+				throw new Error( `SEO audit failed: ${ result.error }` );
 			}
 
 			emitProgress( `SEO audit complete for ${ urlPath }` );
 
 			return textResult( JSON.stringify( result, null, 2 ) );
 		} catch ( error ) {
-			return errorResult(
+			throw new Error(
 				`SEO audit failed: ${ error instanceof Error ? error.message : String( error ) }`
 			);
 		}

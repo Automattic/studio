@@ -1,15 +1,15 @@
-import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
-import { z } from 'zod/v4';
-import { errorResult, resolveSite, textResult } from './utils';
+import { Type } from 'typebox';
+import { defineTool } from './define-tool';
+import { resolveSite, textResult } from './utils';
 
-export const listConnectedRemoteSitesTool = tool(
+export const listConnectedRemoteSitesTool = defineTool(
 	'site_connected_remote_sites',
 	'Lists the WordPress.com sites that are already connected/attached to a local Studio site. ' +
 		'Use this before calling site_push to determine how to ask the user which remote site to push to. ' +
 		'Returns an empty array when the user has no connections for that local site.',
 	{
-		nameOrPath: z.string().describe( 'The local site name or file system path' ),
+		nameOrPath: Type.String( { description: 'The local site name or file system path' } ),
 	},
 	async ( args ) => {
 		try {
@@ -26,7 +26,7 @@ export const listConnectedRemoteSitesTool = tool(
 			} ) );
 			return textResult( JSON.stringify( summary, null, 2 ) );
 		} catch ( error ) {
-			return errorResult(
+			throw new Error(
 				`Failed to list connected remote sites: ${
 					error instanceof Error ? error.message : String( error )
 				}`

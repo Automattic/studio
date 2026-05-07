@@ -1,8 +1,8 @@
-import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { runCommand as runListSitesCommand } from 'cli/commands/site/list';
-import { captureConsoleOutput, errorResult, textResult } from './utils';
+import { defineTool } from './define-tool';
+import { captureConsoleOutput, textResult } from './utils';
 
-export const listSitesTool = tool(
+export const listSitesTool = defineTool(
 	'site_list',
 	'Lists all WordPress sites managed by Studio with their name, path, URL, and running status.',
 	{},
@@ -11,7 +11,7 @@ export const listSitesTool = tool(
 			const output = await captureConsoleOutput( () => runListSitesCommand( 'json' ) );
 			return textResult( output || 'No sites found.' );
 		} catch ( error ) {
-			return errorResult(
+			throw new Error(
 				`Failed to list sites: ${ error instanceof Error ? error.message : String( error ) }`
 			);
 		}

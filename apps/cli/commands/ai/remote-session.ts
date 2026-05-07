@@ -1,5 +1,6 @@
 import { getRemoteSessionLogPath } from '@studio/common/lib/well-known-paths';
 import { __, sprintf } from '@wordpress/i18n';
+import { DaemonNotRunningError, runAttach } from 'cli/remote-session/attach';
 import { loadRemoteSessionConfig } from 'cli/remote-session/config';
 import {
 	DaemonAlreadyRunningError,
@@ -51,7 +52,9 @@ async function runStart( argv: StartArgs ): Promise< void > {
 			process.stdout.write(
 				sprintf(
 					/* translators: 1: PID, 2: log file path */
-					__( 'Remote-session daemon started (PID %1$d). Logs: %2$s\n' ),
+					__(
+						'Remote-session daemon started (PID %1$d). Logs: %2$s\nRun `studio code remote-session attach` to follow them.\n'
+					),
 					result.pid,
 					getRemoteSessionLogPath()
 				)
@@ -156,6 +159,33 @@ async function runStop(): Promise< void > {
 	);
 }
 
+async function runAttachCommand(): Promise< void > {
+	const controller = new AbortController();
+	const onSignal = () => controller.abort();
+	process.on( 'SIGINT', onSignal );
+	process.on( 'SIGTERM', onSignal );
+	try {
+		await runAttach( { signal: controller.signal } );
+		if ( controller.signal.aborted ) {
+			process.stdout.write( __( 'Detached. Daemon is still running.\n' ) );
+		}
+	} catch ( error ) {
+		if ( error instanceof DaemonNotRunningError ) {
+			process.stderr.write(
+				__(
+					'Remote-session daemon is not running. Start it with `studio code remote-session start`.\n'
+				)
+			);
+			process.exitCode = 1;
+			return;
+		}
+		throw error;
+	} finally {
+		process.off( 'SIGINT', onSignal );
+		process.off( 'SIGTERM', onSignal );
+	}
+}
+
 export const registerRemoteSessionCommand = ( yargs: StudioArgv ) => {
 	return yargs.command(
 		'remote-session',
@@ -163,13 +193,17 @@ export const registerRemoteSessionCommand = ( yargs: StudioArgv ) => {
 		( remoteYargs ) => {
 			remoteYargs.command( {
 				command: 'start',
-				describe: __( 'Start the remote-session bridge (foreground or detached)' ),
+				describe: __(
+					'Start the remote-session bridge as a background daemon (use --no-detach to run in the foreground)'
+				),
 				builder: ( startYargs ) =>
 					startYargs
 						.option( 'detach', {
 							type: 'boolean',
-							default: false,
-							description: __( 'Run as a background daemon and return immediately' ),
+							default: true,
+							description: __(
+								'Run as a background daemon and return immediately (default). Use --no-detach to run attached in the foreground.'
+							),
 						} )
 						.option( 'remote-chat-id', {
 							type: 'number',
@@ -192,6 +226,13 @@ export const registerRemoteSessionCommand = ( yargs: StudioArgv ) => {
 				command: 'status',
 				describe: __( 'Show the remote-session daemon status' ),
 				handler: runStatus,
+			} );
+			remoteYargs.command( {
+				command: 'attach',
+				describe: __(
+					'Attach to a running remote-session daemon and stream its logs (Ctrl-C detaches)'
+				),
+				handler: runAttachCommand,
 			} );
 			remoteYargs
 				.version( false )

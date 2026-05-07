@@ -14,20 +14,20 @@ import {
 	saveSelectedAiProvider,
 } from 'cli/ai/auth';
 import { closeSharedBrowser } from 'cli/ai/browser-utils';
+import { startDaemonStatusPolling } from 'cli/ai/daemon-status-poll';
 import { type AiOutputAdapter, JsonAdapter } from 'cli/ai/output-adapter';
 import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
 import { resolveResumeSessionContext } from 'cli/ai/sessions/context';
 import { getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
 import { AiSessionRecorder } from 'cli/ai/sessions/recorder';
 import { replaySessionHistory } from 'cli/ai/sessions/replay';
-import { AI_CHAT_SLASH_COMMANDS, type SlashCommandContext } from 'cli/ai/slash-commands';
+import { getActiveSlashCommands, type SlashCommandContext } from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
 import { isRemoteSessionEnabled } from 'cli/lib/feature-flags';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
-import { RemoteSessionConfigError, runRemoteSession } from 'cli/remote-session';
 import { StudioArgv } from 'cli/types';
 
 const logger = new Logger< string >();
@@ -663,13 +663,30 @@ export async function runCommand( options: {
 		},
 	};
 
+	// Surface remote-session daemon status in the editor's bottom bar. Cheap
+	// fs poll catches external start/stop (e.g. `studio code remote-session
+	// stop` from another terminal) without blocking the REPL. Skipped entirely
+	// when the feature flag is off.
+	const stopDaemonStatusPolling = startDaemonStatusPolling( ui );
+
 	// --- Main loop ---
 	try {
 		while ( true ) {
 			const prompt = await ui.waitForInput();
 			const trimmedPrompt = prompt.trim();
 
-			const cmd = AI_CHAT_SLASH_COMMANDS.find( ( c ) => `/${ c.name }` === trimmedPrompt );
+			// Match exact-prompt by default (preserves the legacy behavior where
+			// `/clear foo` falls through to the AI agent). Commands that opt into
+			// arguments via `getArgumentCompletions` get first-token matching so
+			// inputs like `/remote-session start` route to the right handler.
+			const firstToken = trimmedPrompt.split( /\s+/, 1 )[ 0 ] ?? '';
+			const cmd = trimmedPrompt.startsWith( '/' )
+				? getActiveSlashCommands().find( ( c ) =>
+						c.getArgumentCompletions
+							? `/${ c.name }` === firstToken
+							: `/${ c.name }` === trimmedPrompt
+				  )
+				: undefined;
 			if ( cmd ) {
 				if ( cmd.handler ) {
 					const result = await cmd.handler( prompt, slashCommandContext );
@@ -696,6 +713,7 @@ export async function runCommand( options: {
 			}
 		}
 	} finally {
+		stopDaemonStatusPolling();
 		await persistQueue;
 		ui.stop();
 		process.exit( 0 );
@@ -741,34 +759,21 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					description: __( 'Record this code session to disk' ),
 				} );
 
-			// Remote-session options are gated behind STUDIO_ENABLE_REMOTE_SESSION so the
-			// experimental Telegram bridge stays out of `--help` and isn't dispatchable
-			// for users who haven't opted in.
+			// `--message-from-stdin` is the headless turn entry point used by the
+			// remote-session daemon (see `apps/cli/remote-session/turn-runner.ts`).
+			// It stays hidden and is gated behind STUDIO_ENABLE_REMOTE_SESSION so
+			// it isn't dispatchable for users who haven't opted in.
 			if ( isRemoteSessionEnabled() ) {
-				chain = chain
-					.option( 'remote-session', {
-						type: 'boolean',
-						default: false,
-						description: __( 'Attach to Telegram and drive studio code remotely' ),
-					} )
-					.option( 'remote-chat-id', {
-						type: 'number',
-						description: __( 'Override the Telegram chat id to bind to' ),
-					} )
-					.option( 'remote-bot', {
-						type: 'string',
-						description: __( 'Override the Telegram bot name to use for replies' ),
-					} )
-					.option( 'message-from-stdin', {
-						type: 'boolean',
-						hidden: true,
-						default: false,
-						description: __( 'Read the initial message from stdin (for headless drivers)' ),
-					} );
+				chain = chain.option( 'message-from-stdin', {
+					type: 'boolean',
+					hidden: true,
+					default: false,
+					description: __( 'Read the initial message from stdin (for headless drivers)' ),
+				} );
 			}
 
 			return chain.check( ( argv ) => {
-				if ( argv.json && ! argv.message && ! argv.remoteSession && ! argv.messageFromStdin ) {
+				if ( argv.json && ! argv.message && ! argv.messageFromStdin ) {
 					throw new Error( __( '--json requires an initial message argument' ) );
 				}
 				return true;
@@ -783,28 +788,8 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					resumeSession?: string;
 					permissionResponse?: string;
 					siteName?: string;
-					remoteSession?: boolean;
-					remoteChatId?: number;
-					remoteBot?: string;
 					messageFromStdin?: boolean;
 				};
-
-				if ( typedArgv.remoteSession && isRemoteSessionEnabled() ) {
-					try {
-						await runRemoteSession( {
-							chat_id: typedArgv.remoteChatId,
-							bot: typedArgv.remoteBot,
-						} );
-					} catch ( error ) {
-						if ( error instanceof RemoteSessionConfigError ) {
-							process.stderr.write( `${ error.message }\n` );
-							process.exitCode = 1;
-							return;
-						}
-						throw error;
-					}
-					return;
-				}
 
 				const noSessionPersistence = typedArgv.sessionPersistence === false;
 				const adapter: AiOutputAdapter = typedArgv.json ? new JsonAdapter() : new AiChatUI();

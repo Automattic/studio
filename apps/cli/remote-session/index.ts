@@ -16,7 +16,8 @@ export { RemoteSessionConfigError };
  * start`. Validates config, enters the poll loop, and returns when the loop
  * exits (detach, Ctrl-C, or fatal error). When invoked as the detached child of
  * `start --detach` (env var `STUDIO_REMOTE_SESSION_DAEMON_CHILD=1`), it also
- * writes a PID file that the `stop` / `status` subcommands consult.
+ * writes a PID file that the `stop` / `status` subcommands and the
+ * `/remote-session` REPL slash command consult.
  */
 export async function runRemoteSession( overrides: RemoteSessionOverrides = {} ): Promise< void > {
 	const config = await loadRemoteSessionConfig( overrides );

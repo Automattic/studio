@@ -1,4 +1,4 @@
-import type { TodoWriteInput } from '@anthropic-ai/claude-agent-sdk/sdk-tools';
+import type { TodoWriteInput } from 'cli/ai/runtimes/messages';
 
 export type TodoEntry = TodoWriteInput[ 'todos' ][ number ];
 

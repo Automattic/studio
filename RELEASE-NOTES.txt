@@ -1,14 +1,15 @@
 Unreleased
 ==========
 
-1.8.2
+
+1.8.2 (CLI only)
 =====
 * Fixed an issue where multiple CLI progress line showed up in Studio Code #3286
 * Added Wapuu platformer easter egg #3270
 * Silenced noisy ENOENT CLI log messages when daemon socket is absent #3322
 * Updated multiple dependencies, including WP Playground, PHP-WASM, and Electron
 
-1.8.1
+1.8.1 (CLI only)
 =====
 * Added Telegram remote-session bridge for studio code (PoC) #3196
 * Added /annotate skill with Studio inspector #3243
@@ -37,6 +38,45 @@ Unreleased
 * Fixed excessive word spacing on Linux caused by emoji-font fallback #3187
 * Fixed empty window on first `npm start` in a fresh workspace #3191
 * Updated multiple dependencies, including WP Playground and PHP-Wasm
+
+1.7.11 (CLI only)
+=====
+* Added PromptFoo evaluation framework for code agent #3031
+* Added log rotation for process manager children logs #3132
+* Renamed process manager home from .studio/pm2 to .studio/daemon #3143
+* Fixed Jetpack backup import using stale .ht.sqlite instead of SQL dumps #3144
+
+1.7.10 (CLI only)
+=====
+* Added Opus 4.7 support to code agent #3124
+* Queued follow-up prompts during an active agent turn #3146
+* Prompted user to retry on transient API errors in code agent #3130
+* Scaffolded new Studio Code UI behind ENABLE_STUDIO_CODE_UI feature flag #2870
+* Supported inline wpcom auth via STUDIO_WPCOM_TOKEN in code agent #3158
+* Truncated cwd in welcome header on narrow terminals #3134
+* Replaced chalk with util.styleText wrapper #3106
+* Updated default PHP version to 8.4 #3127
+* Updated @wp-playground/* and @php-wasm/* packages to 3.1.20 #3148
+
+1.7.9 (CLI only)
+=====
+* Showed compaction status in code agent UI #3101
+* Added /clear command to code agent #3062
+* Added --json flag for headless NDJSON output #3012
+* Showed real-time progress feedback during push/pull from code agent #3071
+* Added push/pull/import/export MCP tools for AI agents #3022
+* Sorted code agent commands and subcommands alphabetically #3027
+* Added hosting guidance to agent instructions #3111
+* Added update notifier #3096
+* Throttled dependency update checks to once per 24h #3100
+* Stopped runtime update checks for WP-CLI and sqlite-command #3086
+* Showed clear error for non-existent WordPress versions #3065
+* Enforced minimum node version #3049
+* Ensured Studio root exists before starting code agent #3039
+* Fixed 'Spinner is already running' error when creating sites via CLI #3093
+* Replaced ora with picospinner #3035
+* Added Blueprint landingPage property support #3107
+* Updated @wp-playground/* and @php-wasm/* packages to 3.1.19 #3083
 
 1.7.8
 =====

@@ -120,7 +120,10 @@ describe( 'writeStudioMuPluginsForNativePhpRuntime', () => {
 describe( 'local admin performance mu-plugin', () => {
 	it( 'defers opportunistic checks on passive admin pages and exposes the refresh hook', async () => {
 		const [ muPluginsDir ] = await getMuPlugins( {} );
-		const pluginContent = await readFile( join( muPluginsDir, '0-local-admin-performance.php' ), 'utf8' );
+		const pluginContent = await readFile(
+			join( muPluginsDir, '0-local-admin-performance.php' ),
+			'utf8'
+		);
 
 		expect( pluginContent ).toContain(
 			"const STUDIO_REFRESH_LOCAL_ADMIN_CHECKS_HOOK = 'studio_refresh_local_admin_checks';"

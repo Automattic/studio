@@ -254,8 +254,19 @@ const config: ForgeConfig = {
 				} else {
 					for ( const file of fsExtFiles ) {
 						if ( ! file.startsWith( fsExtPrefix ) ) {
-							fs.unlinkSync( path.join( fsExtBinDir, file ) );
-							console.log( `Removed fs-ext-extra-prebuilt/binaries/${ file }` );
+							// Tolerate transient failures (Windows AV locks, permissions) — this
+							// cleanup is a size optimization; aborting packaging over a stuck file
+							// would be worse than shipping a few hundred extra KB. Mirrors the
+							// behavior of scripts/remove-fs-ext-other-platform-binaries.mjs.
+							try {
+								fs.unlinkSync( path.join( fsExtBinDir, file ) );
+								console.log( `Removed fs-ext-extra-prebuilt/binaries/${ file }` );
+							} catch ( e ) {
+								const message = e instanceof Error ? e.message : String( e );
+								console.warn(
+									`Could not remove fs-ext-extra-prebuilt/binaries/${ file }: ${ message }`
+								);
+							}
 						}
 					}
 				}

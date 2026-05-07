@@ -1,4 +1,4 @@
-import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
+import { RouterProvider, createRouter } from '@tanstack/react-router';
 import { useMemo } from 'react';
 import {
 	desksOnboardingBlueprintRoute,
@@ -22,7 +22,6 @@ const routeTree = desksRootRoute.addChildren( [
 export function createDesksRouter() {
 	return createRouter( {
 		routeTree,
-		history: createMemoryHistory( { initialEntries: [ '/' ] } ),
 		defaultPreload: 'intent',
 	} );
 }

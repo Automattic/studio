@@ -3,7 +3,7 @@ import {
 	extractFormValuesFromBlueprint,
 	updateBlueprintWithFormValues,
 } from '@studio/common/lib/blueprint-settings';
-import { createRoute } from '@tanstack/react-router';
+import { createRoute, useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { arrowLeft, download } from '@wordpress/icons';
 import { Button, Icon } from '@wordpress/ui';
@@ -21,7 +21,6 @@ import {
 import { useFeaturedBlueprints } from '@/data/queries/use-featured-blueprints';
 import { useImportSite } from '@/data/queries/use-import-site';
 import { useCreateSite, useSites } from '@/data/queries/use-sites';
-import { useDesksNavigate } from '../router/navigation';
 import { desksRootRoute } from '../router/root';
 import styles from './style.module.css';
 import type { CreateSiteFormValues } from '@/components/create-site-form';
@@ -38,7 +37,7 @@ interface PickedBackup {
 }
 
 export function DeskOnboardingHome() {
-	const navigate = useDesksNavigate();
+	const navigate = useNavigate();
 
 	return (
 		<OnboardingLayout onClose={ () => void navigate( { to: '/' } ) } width="wide">
@@ -91,7 +90,7 @@ export function DeskOnboardingHome() {
 }
 
 export function DeskOnboardingCreate() {
-	const navigate = useDesksNavigate();
+	const navigate = useNavigate();
 	const { data: sites } = useSites();
 	const { data: existingDomainNames } = useExistingCustomDomains();
 	const { data: proposedName } = useProposedSiteName( sites );
@@ -142,7 +141,7 @@ export function DeskOnboardingCreate() {
 
 export function DeskOnboardingBlueprint() {
 	const { step } = desksOnboardingBlueprintRoute.useSearch() as StepSearch;
-	const navigate = useDesksNavigate();
+	const navigate = useNavigate();
 	const activeStep: Step = step === 'configure' ? 'configure' : 'select';
 	const featured = useFeaturedBlueprints();
 	const { data: existingDomainNames } = useExistingCustomDomains();
@@ -275,7 +274,7 @@ export function DeskOnboardingBlueprint() {
 
 export function DeskOnboardingImport() {
 	const { step } = desksOnboardingImportRoute.useSearch() as StepSearch;
-	const navigate = useDesksNavigate();
+	const navigate = useNavigate();
 	const connector = useConnector();
 	const activeStep: Step = step === 'configure' ? 'configure' : 'select';
 	const { data: existingDomainNames } = useExistingCustomDomains();

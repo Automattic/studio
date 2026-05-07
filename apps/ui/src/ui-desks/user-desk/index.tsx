@@ -1,9 +1,8 @@
-import { createRoute } from '@tanstack/react-router';
+import { createRoute, useNavigate } from '@tanstack/react-router';
 import { useEffect } from 'react';
 import { useSaveUserDeskConfig, useUserDeskConfig } from '@/data/queries/use-desk-config';
 import { UserDeskChats } from '../chats';
 import { DeskChrome } from '../chrome';
-import { useDesksNavigate } from '../router/navigation';
 import { desksRootRoute } from '../router/root';
 import { defaultUserDesk } from './default-user-desk';
 import styles from './style.module.css';
@@ -26,13 +25,13 @@ function parseNewChatSearch( value: unknown ) {
 
 function UserDeskRoute() {
 	const { chats, newChat } = userDeskRoute.useSearch() as UserDeskSearch;
-	const navigate = useDesksNavigate();
+	const navigate = useNavigate();
 	const chatsOpen = chats === true;
 
 	const setChatsOpen = ( open: boolean ) => {
 		void navigate( {
 			to: '/',
-			search: ( previous ) => ( {
+			search: ( previous: UserDeskSearch ) => ( {
 				...previous,
 				chats: open ? true : undefined,
 			} ),

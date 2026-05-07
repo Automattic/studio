@@ -1,12 +1,12 @@
+import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { comment, download, globe, plus } from '@wordpress/icons';
 import { Icon, IconButton } from '@wordpress/ui';
 import * as Menu from '@/components/menu';
-import { useDesksNavigate } from '../router/navigation';
 import styles from './style.module.css';
 
 export function DeskCreateMenu() {
-	const navigate = useDesksNavigate();
+	const navigate = useNavigate();
 
 	const createChat = () => {
 		void navigate( {

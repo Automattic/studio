@@ -430,10 +430,36 @@ echo is_blog_installed() ? '1' : '0';
 
 			await this.waitForSpawn( spawnedServerChild, signal );
 
-			let startupExitHandler: ( () => void ) | null = null;
+			// Capture stderr during startup so any fatal startup error from PHP
+			// (e.g. "Failed to listen on …: Address already in use") is included
+			// in the rejection rather than swallowed.
+			const startupStderrChunks: string[] = [];
+			const startupStderrHandler = ( chunk: Buffer ) => {
+				startupStderrChunks.push( chunk.toString( 'utf8' ) );
+			};
+			spawnedServerChild.stderr?.on( 'data', startupStderrHandler );
+
+			let startupExitHandler:
+				| ( ( code: number | null, signal: NodeJS.Signals | null ) => void )
+				| null = null;
 			const startupExitPromise = new Promise< never >( ( _, reject ) => {
-				startupExitHandler = () => {
-					reject( new Error( `PHP child process exited before startup completed` ) );
+				startupExitHandler = ( code, exitSignal ) => {
+					// `exit` can fire before readline has flushed the final stderr lines on
+					// Windows, so wait briefly for the stream to drain before rejecting.
+					const drainTimeoutMs = 300;
+					const drainDeadline = setTimeout( () => finalize(), drainTimeoutMs );
+					const finalize = () => {
+						clearTimeout( drainDeadline );
+						spawnedServerChild.stderr?.off( 'end', finalize );
+						const tail = startupStderrChunks.join( '' ).trim();
+						const detail = tail ? `\n${ tail }` : '';
+						reject(
+							new Error(
+								`PHP child process exited before startup completed (code=${ code }, signal=${ exitSignal })${ detail }`
+							)
+						);
+					};
+					spawnedServerChild.stderr?.once( 'end', finalize );
 				};
 				spawnedServerChild.once( 'exit', startupExitHandler );
 			} );
@@ -444,6 +470,7 @@ echo is_blog_installed() ? '1' : '0';
 				this.waitForServerReady( `http://localhost:${ config.port }/`, signal ),
 				startupExitPromise,
 			] ).finally( () => {
+				spawnedServerChild.stderr?.off( 'data', startupStderrHandler );
 				if ( startupExitHandler ) {
 					spawnedServerChild.off( 'exit', startupExitHandler );
 				}

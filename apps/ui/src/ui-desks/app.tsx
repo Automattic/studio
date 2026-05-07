@@ -12,7 +12,7 @@ export function DesksUiApp() {
 				chatsOpen={ chatsOpen }
 				onToggleChats={ () => setChatsOpen( ( open ) => ! open ) }
 			/>
-			<UserDeskChats open={ chatsOpen } />
+			<UserDeskChats open={ chatsOpen } onOpenChange={ setChatsOpen } />
 			<UserDesk />
 		</div>
 	);

@@ -15,6 +15,9 @@
 	border-radius: var(--wpds-border-radius-lg);
 	box-shadow: var(--wpds-elevation-lg);
 	color: var(--wpds-color-fg-content-neutral);
+	--studio-floating-surface-width-duration: 240ms;
+	--studio-floating-surface-transform-duration: 220ms;
+	--studio-floating-surface-opacity-duration: 200ms;
 }
 
 .panelExpanded {

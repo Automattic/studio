@@ -240,7 +240,7 @@ async function getOrCreateAgent(
 			: { previewSteering: isForkedByDesktop, remoteSession }
 	);
 
-	const tools = buildAgentTools( config, isForkedByDesktop );
+	const tools = buildAgentTools( config, isForkedByDesktop, remoteSession );
 
 	// On a `/model` swap mid-session, reuse the prior transcript so the
 	// conversation continues; on a cold fork hydrate from the sidecar.
@@ -348,7 +348,8 @@ function buildAnthropicBearerStreamFn( creds: ResolvedCredentials ): StreamFn {
 
 function buildAgentTools(
 	config: AgentRuntimeConfig,
-	enablePreviewSteering: boolean
+	enablePreviewSteering: boolean,
+	remoteSession: boolean
 ): AgentToolAny[] {
 	const isRemoteSite = Boolean(
 		config.activeSite?.remote && config.activeSite?.wpcomSiteId && config.wpcomAccessToken
@@ -390,7 +391,7 @@ function buildAgentTools(
 		renameTool( createLsTool( STUDIO_SITES_ROOT ), 'Ls' ),
 	];
 	return [
-		...resolveStudioToolDefinitions( { enablePreviewSteering } ),
+		...resolveStudioToolDefinitions( { enablePreviewSteering, remoteSession } ),
 		...askUserTool,
 		...skillTool,
 		...piTools,

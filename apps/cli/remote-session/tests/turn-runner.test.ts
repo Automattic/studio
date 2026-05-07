@@ -50,6 +50,14 @@ describe( 'runTurn', () => {
 		expect( outcome.exitCode ).toBe( 1 );
 	} );
 
+	it( 'falls back to last assistant text when SDK result has empty result field', async () => {
+		const outcome = await run( 'empty-result-with-text' );
+		expect( outcome.status ).toBe( 'success' );
+		expect( outcome.isError ).toBe( false );
+		expect( outcome.replyText ).toBe( 'Final answer from assistant.' );
+		expect( outcome.exitCode ).toBe( 0 );
+	} );
+
 	it( 'detects a stale --resume-session via stderr pattern', async () => {
 		const outcome = await run( 'stale-resume', 'bogus-sess-id' );
 		expect( outcome.staleSession ).toBe( true );

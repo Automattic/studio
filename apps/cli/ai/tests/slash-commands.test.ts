@@ -503,6 +503,14 @@ describe( '/feedback slash command', () => {
 		expect( url ).toContain( 'title=something+is+broken' );
 		expect( url ).toContain( 'summary=something+is+broken' );
 		expect( url ).toContain( 'logs=' );
+		// Required fields the user must fill themselves are NOT pre-filled —
+		// only what we can honestly derive from the entry.
+		const params = new URL( url ).searchParams;
+		expect( params.has( 'steps' ) ).toBe( false );
+		expect( params.has( 'expected' ) ).toBe( false );
+		expect( params.has( 'actual' ) ).toBe( false );
+		expect( params.has( 'users-affected' ) ).toBe( false );
+		expect( params.has( 'workarounds' ) ).toBe( false );
 		expect( ui.showSuccess ).toHaveBeenCalledOnce();
 		expect( result ).toBe( 'continue' );
 	} );

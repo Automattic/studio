@@ -39,14 +39,14 @@ export const PHP_PATCH_VERSIONS: Record< NativePhpSupportedVersion, string > = {
 // Windows ARM64 falls back to x64, so there is no separate win32-arm64 entry.
 export const PHP_BINARY_HASHES: Record< string, string > = {
 	// PHP 8.5 (8.5.5)
-	'8.5-darwin-arm64': '025d07dc55e806f98fc36871cf8b342228379b9d5ac3d739d66744a2b550de2a',
-	'8.5-darwin-x64': 'f206193e86c6ca188fbb46532c432ff3f216f203be9fe67bfc839973de64f9b8',
+	'8.5-darwin-arm64': '7f072385de34fe31970f82981e841b24d69c590d31d9e0664295b6787a86b689',
+	'8.5-darwin-x64': '7c0efc0d3bfdb0b9273a9f1481604904aa07a77248096f4cc4a6d92602c6f6a7',
 	'8.5-linux-x64': '72a877af1cb93d7c14f79344bdbd78dc2a57a2e915a76b13e9a3141700df3f21',
 	'8.5-linux-arm64': 'a45fc1f818497586bfd8f749c808f1f63c9d10bf48f439985e77bee607a2c76b',
-	'8.5-win32-x64': 'ebfc272938fa2c33e92063b4e3014cc6d11b2609a9b7acd4f8bb22c0577f31c4',
+	'8.5-win32-x64': '1eaacf3a0c91069a596cd9ce59d2931216c56cd575034514ac4bfb30cf8e1892',
 	// PHP 8.4 (8.4.20)
-	'8.4-darwin-arm64': 'e1ce00874e398bcef5884f2b9067a984480e7dd32d256747f89a75e5f183113c',
-	'8.4-darwin-x64': '6fc09f87d9676bf8f22b05cf77a91b99ee120414e9a028c6f357c18df531fa83',
+	'8.4-darwin-arm64': 'fb060f7a5ed7daf201aab3283a314a7b2f2546d730dc755f1bf2b417c6116d18',
+	'8.4-darwin-x64': 'cf1692ee50fbd888e39c54a211d20b425c65a96e7a4fcb6120ca1aba2544c5cb',
 	'8.4-linux-x64': '3624293e0556625e19f4483d74eac21d41b70d21bdbb7e8ea3e1247303886148',
 	'8.4-linux-arm64': '1be37b0cc533edc691632828ecdaddd84eaa0f71bb9c06a3458347aa13da2987',
 	'8.4-win32-x64': '174ee2fefa1da9727bfc3d89d37b0bc31b474d7cbbf2005d71bf364cf93fd3f2',

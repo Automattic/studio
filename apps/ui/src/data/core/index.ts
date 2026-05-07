@@ -7,6 +7,8 @@ export type {
 	ColorScheme,
 	Connector,
 	CreateSiteParams,
+	DeskConfig,
+	DeskWidgetBase,
 	ExtractedBlueprintBundle,
 	FeaturedBlueprint,
 	InstalledApps,

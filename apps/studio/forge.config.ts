@@ -213,9 +213,13 @@ const config: ForgeConfig = {
 			const koffiTarget = `${ platform }_${ arch }`;
 			if ( fs.existsSync( koffiBuildDir ) ) {
 				const koffiDirs = fs.readdirSync( koffiBuildDir );
-				// Refuse to delete anything if the target arch dir is missing — guards
-				// against a koffi naming change silently nuking every prebuilt.
-				if ( ! koffiDirs.includes( koffiTarget ) ) {
+				const koffiTargetPath = path.join( koffiBuildDir, koffiTarget );
+				// Refuse to delete anything unless the target arch is present *as a directory* —
+				// guards against a koffi naming/layout change silently nuking every prebuilt.
+				const targetIsDir =
+					fs.existsSync( koffiTargetPath ) &&
+					fs.statSync( koffiTargetPath ).isDirectory();
+				if ( ! targetIsDir ) {
 					console.warn(
 						`Skipping koffi cleanup: no directory named ${ koffiTarget } in ${ koffiBuildDir }`
 					);

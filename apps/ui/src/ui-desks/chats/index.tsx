@@ -3,7 +3,6 @@ import { Button } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useEffect, useMemo, useState } from 'react';
 import { useCreateSession, useSessions } from '@/data/queries/use-sessions';
-import { useFullscreen } from '@/hooks/use-fullscreen';
 import { formatRelativeTime } from '@/lib/format-relative-time';
 import { DeskSessionSurface } from './session-surface';
 import styles from './style.module.css';
@@ -26,7 +25,6 @@ function getSessionSubtitle( session: AiSessionSummary ) {
 }
 
 export function UserDeskChats( { open }: UserDeskChatsProps ) {
-	const isFullscreen = useFullscreen();
 	const { data: sessions } = useSessions();
 	const createSession = useCreateSession();
 	const [ selectedSessionId, setSelectedSessionId ] = useState< string | undefined >( undefined );
@@ -67,11 +65,7 @@ export function UserDeskChats( { open }: UserDeskChatsProps ) {
 
 	return (
 		<section
-			className={ clsx(
-				styles.panel,
-				expanded && styles.panelExpanded,
-				isFullscreen && styles.panelFullscreen
-			) }
+			className={ clsx( styles.panel, expanded && styles.panelExpanded ) }
 			aria-label={ __( 'Conversations' ) }
 		>
 			<div className={ styles.listPane }>

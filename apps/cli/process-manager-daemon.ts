@@ -424,7 +424,7 @@ export class ProcessManagerDaemon {
 		}
 	}
 
-	private signalProcessGroup( managedProcess: ManagedProcess, signal: NodeJS.Signals ): void {
+	private async signalProcessGroup( managedProcess: ManagedProcess, signal: NodeJS.Signals ): void {
 		const pid = managedProcess.child.pid;
 		if ( ! pid ) {
 			return;
@@ -448,6 +448,8 @@ export class ProcessManagerDaemon {
 			if ( managedProcess.child.connected ) {
 				try {
 					managedProcess.child.disconnect();
+					// Wait very briefly to allow the disconnect handler to run in the child process
+					await new Promise( ( resolve ) => setTimeout( resolve, 10 ) );
 				} catch {
 					// Do nothing
 				}

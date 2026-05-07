@@ -678,6 +678,8 @@ async function ipcMessageHandler( packet: unknown ) {
 		};
 		process.send!( response );
 
+		// If the `stopServer` function ran successfully, the last open handle should be the IPC channel.
+		// Disconnect so that the process can exit cleanly.
 		if ( validMessage.topic === 'stop-server' && result === StopServerResult.OK ) {
 			process.disconnect();
 		}

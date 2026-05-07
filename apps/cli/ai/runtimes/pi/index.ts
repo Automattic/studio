@@ -215,7 +215,6 @@ async function runAgentSessionTurn(
 		}
 
 		await session.prompt( config.prompt, { expandPromptTemplates: false, source: 'rpc' } );
-		await waitForAgentSessionEvents( session );
 	} catch ( error ) {
 		const aborted = controller.signal.aborted;
 		const message = aborted ? '' : error instanceof Error ? error.message : String( error );
@@ -225,16 +224,6 @@ async function runAgentSessionTurn(
 		session?.dispose();
 		setActiveSession( undefined );
 	}
-}
-
-async function waitForAgentSessionEvents( session: AgentSession ): Promise< void > {
-	// AgentSession.prompt() currently resolves when the underlying Agent is
-	// idle. Its public events and post-turn maintenance are processed through
-	// AgentSession's internal queue, so wait for that queue instead of treating
-	// any specific event (like `agent_end`) as the lifecycle boundary.
-	const eventQueue = ( session as unknown as { _agentEventQueue?: Promise< unknown > } )
-		._agentEventQueue;
-	await eventQueue?.catch( () => undefined );
 }
 
 async function createStudioAgentSession(

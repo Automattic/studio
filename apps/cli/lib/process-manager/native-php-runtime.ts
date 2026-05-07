@@ -56,7 +56,13 @@ function getOpcacheRootDir(): string {
 		return opcacheRootDir;
 	}
 
-	opcacheRootDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-opcache-' ) );
+	// Resolve to the long-form path on Windows. `os.tmpdir()` can return an 8.3
+	// short name (e.g. C:\Users\BUILDK~1\AppData\…) when the user has a long
+	// username, and PHP's INI scanner treats `~` as a special token, breaking
+	// `-d opcache.file_cache=<path>` parsing.
+	const tmpRoot =
+		process.platform === 'win32' ? fs.realpathSync.native( os.tmpdir() ) : os.tmpdir();
+	opcacheRootDir = fs.mkdtempSync( path.join( tmpRoot, 'studio-opcache-' ) );
 	const dirToClean = opcacheRootDir;
 	process.once( 'exit', () => {
 		try {
@@ -80,13 +86,16 @@ function getDefaultPhpArgs( phpVersion: NativePhpSupportedVersion, siteId?: stri
 	const cacheDirectory = path.join( getOpcacheRootDir(), cacheId );
 	fs.mkdirSync( cacheDirectory, { recursive: true } );
 
+	// Quote the INI values so PHP's INI scanner takes them literally — paths
+	// with characters like `~`, `;`, `#` or `=` are otherwise treated as INI
+	// syntax and break parsing.
 	return [
 		'-d',
-		`opcache.file_cache=${ cacheDirectory }`,
+		`opcache.file_cache="${ cacheDirectory }"`,
 		'-d',
 		'opcache.file_cache_fallback=1',
 		'-d',
-		`opcache.cache_id=studio-${ cacheId }`,
+		`opcache.cache_id="studio-${ cacheId }"`,
 	];
 }
 

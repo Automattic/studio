@@ -1,3 +1,5 @@
+import { buildPluginRecommendationsSection } from './plugin-recommendations';
+
 interface RemoteSiteContext {
 	name: string;
 	url: string;
@@ -32,7 +34,7 @@ ${ REMOTE_DESIGN_GUIDELINES }${ remoteSessionAddendum }
 
 	return `${ buildLocalIntro( { previewSteering: options?.previewSteering ?? false } ) }
 
-${ LOCAL_CONTENT_GUIDELINES }
+${ buildLocalContentGuidelines() }
 
 ${ LOCAL_DESIGN_GUIDELINES }${ remoteSessionAddendum }
 `;
@@ -217,7 +219,7 @@ const REMOTE_SESSION_GUIDANCE = `## Telegram remote session
 
 You are running over Telegram. The user iterates turn-by-turn; keep replies short and image-driven.
 
-After ANY visible change to a site, call \`share_screenshot\` before ending the turn — no preamble, no permission-asking. It is fire-and-forget: the image goes to the user but is NOT returned to you. Do not analyze or describe what you sent. Follow up with at most one short sentence (e.g. "Heading is now red." or "Want me to publish this as a preview?").
+When the user explicitly asks to see the site, or when you finish a logical milestone with a clear visible result, call \`share_screenshot\` before ending the turn — no preamble, no permission-asking. One screenshot per milestone, not per edit: don't pepper the user with intermediate snapshots while you iterate. It is fire-and-forget: the image goes to the user but is NOT returned to you. Do not analyze or describe what you sent. Follow up with at most one short sentence (e.g. "Heading is now red." or "Want me to publish this as a preview?").
 
 Defaults to a 16:9 above-the-fold view. Pass \`fullPage: true\` only when the user explicitly asks for the whole page. Captions describe what the user is looking at; never mention "full page", "viewport", or other capture-mode wording.
 
@@ -244,14 +246,15 @@ const REMOTE_DESIGN_GUIDELINES = `## Design capabilities by plan
 - Custom CSS, global styles, plugin management, and advanced customization become available.
 - Check the specific plan to determine exact capabilities.`;
 
-const LOCAL_CONTENT_GUIDELINES = `## Block content guidelines
+// Evaluated lazily so unit tests that stub PLUGIN_RECOMMENDATIONS still work.
+function buildLocalContentGuidelines(): string {
+	return `## Block content guidelines
 
 - Only use \`core/html\` blocks for:
 	- Inline SVGs
-	- \`<form>\` elements and interactive inputs
 	- Animation/interaction markup with no block equivalent (marquee, cursor)
 	- A single \`<script>\` block at the bottom of the page for JS
-- Never use \`core/html\` to wrap text content, headings, layout sections, or lists.
+- Never use \`core/html\` to wrap text content, headings, layout sections, lists, or forms.
 - No decorative HTML comments (e.g. \`<!-- Hero Section -->\`, \`<!-- Features -->\`). Only block delimiter comments are allowed.
 - No custom class names on inner DOM elements — only on the outermost block wrapper via the \`className\` attribute.
 - No inline \`style\` or \`style\` block attributes for styling. Use \`className\` + \`style.css\` instead.
@@ -268,7 +271,10 @@ To break out of the content width, use these three patterns:
 - **Full-bleed section, full-bleed inner** (image grids, edge-to-edge galleries): outer AND inner \`core/group {"align":"full","layout":{"type":"default"}}\`. Children render at full viewport width.
 - **Standard constrained content**: omit \`align\` entirely and write blocks normally.
 
-The single most common failure is "I made a hero full-width but its inner content is narrow" — that's a missing \`align: "full"\` on the outer group or a mismatched inner \`layout\` type. Fix in markup, not in CSS.`;
+The single most common failure is "I made a hero full-width but its inner content is narrow" — that's a missing \`align: "full"\` on the outer group or a mismatched inner \`layout\` type. Fix in markup, not in CSS.
+
+${ buildPluginRecommendationsSection() }`;
+}
 
 const LOCAL_DESIGN_GUIDELINES = `## Design guidelines
 

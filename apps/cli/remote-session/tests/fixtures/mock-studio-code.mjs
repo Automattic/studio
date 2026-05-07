@@ -10,6 +10,7 @@
 //   stale-resume   — stale-session stderr line + non-zero exit
 //   hang           — never exits (tests timeout path)
 //   media-share    — media.share + agent_end with success + turn.completed success
+//   empty-result-with-text — assistant emits text, but agent_end lacks final text
 
 const scenario = process.env.SCENARIO ?? 'success';
 const sessionId = process.env.SESSION_ID ?? 'sess-new';
@@ -40,6 +41,10 @@ function assistant( text, { stopReason = 'stop', errorMessage } = {} ) {
 
 function emitAgentEnd( messages ) {
 	emit( { type: 'message', timestamp: ts(), message: { type: 'agent_end', messages } } );
+}
+
+function emitMessageEnd( message ) {
+	emit( { type: 'message', timestamp: ts(), message: { type: 'message_end', message } } );
 }
 
 function runSuccess() {
@@ -106,6 +111,39 @@ function runMediaShare() {
 	process.exit( 0 );
 }
 
+function runEmptyResultWithText() {
+	emit( { type: 'turn.started', timestamp: ts() } );
+	emitMessageEnd( {
+		role: 'assistant',
+		content: [ { type: 'toolCall', id: 't1', name: 'site_list', arguments: {} } ],
+		api: 'anthropic-messages',
+		provider: 'anthropic',
+		model: 'mock',
+		usage: {
+			input: 0,
+			output: 0,
+			cacheRead: 0,
+			cacheWrite: 0,
+			totalTokens: 0,
+			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+		},
+		stopReason: 'toolUse',
+		timestamp: 0,
+	} );
+	emitMessageEnd( {
+		role: 'toolResult',
+		toolCallId: 't1',
+		toolName: 'site_list',
+		content: [ { type: 'text', text: '[]' } ],
+		isError: false,
+		timestamp: 0,
+	} );
+	emitMessageEnd( assistant( 'Final answer from assistant.' ) );
+	emitAgentEnd( [] );
+	emit( { type: 'turn.completed', timestamp: ts(), sessionId, status: 'success' } );
+	process.exit( 0 );
+}
+
 const handlers = {
 	success: runSuccess,
 	paused: runPaused,
@@ -113,6 +151,7 @@ const handlers = {
 	'stale-resume': runStaleResume,
 	hang: runHang,
 	'media-share': runMediaShare,
+	'empty-result-with-text': runEmptyResultWithText,
 };
 
 const handler = handlers[ scenario ];

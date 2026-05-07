@@ -69,14 +69,172 @@ interface PiAgentEndEnvelope {
 	messages?: unknown;
 }
 
-interface PiAssistantContentBlock {
+interface PiAgentSessionEventLike {
+	type?: unknown;
+	message?: unknown;
+	messages?: unknown;
+	toolName?: unknown;
+	args?: unknown;
+	isError?: unknown;
+}
+
+interface PiAgentMessageLike {
+	role?: unknown;
+	content?: unknown;
+	stopReason?: unknown;
+	errorMessage?: unknown;
+	toolName?: unknown;
+	isError?: unknown;
+}
+
+interface PiContentBlockLike {
 	type?: unknown;
 	text?: unknown;
+	name?: unknown;
+	arguments?: unknown;
+	input?: unknown;
+}
+
+const STEP_TEXT_PREVIEW_CHARS = 200;
+const STEP_INPUT_PREVIEW_CHARS = 120;
+
+function previewToolInput( input: unknown ): string {
+	if ( ! input || typeof input !== 'object' ) {
+		return '';
+	}
+	let json: string;
+	try {
+		json = JSON.stringify( input );
+	} catch {
+		return '';
+	}
+	const oneLine = json.replace( /\s+/g, ' ' );
+	return oneLine.length > STEP_INPUT_PREVIEW_CHARS
+		? `${ oneLine.slice( 0, STEP_INPUT_PREVIEW_CHARS - 1 ) }…`
+		: oneLine;
+}
+
+/**
+ * Extract concatenated text from a native pi assistant message. Used as a
+ * fallback if the terminal `agent_end` arrives without final text.
+ */
+function extractAssistantText( raw: unknown ): string {
+	const message = raw as PiAgentMessageLike | null | undefined;
+	if ( ! message || typeof message !== 'object' || message.role !== 'assistant' ) {
+		return '';
+	}
+	const blocks = message.content;
+	if ( ! Array.isArray( blocks ) ) {
+		return '';
+	}
+	const parts: string[] = [];
+	for ( const block of blocks as PiContentBlockLike[] ) {
+		if (
+			block &&
+			typeof block === 'object' &&
+			block.type === 'text' &&
+			typeof block.text === 'string'
+		) {
+			parts.push( block.text );
+		}
+	}
+	return parts.join( '' ).trim();
+}
+
+/**
+ * Extract a short, human-readable summary of a native pi message or tool event
+ * for logging to the remote-session log file. Returns one line per content
+ * block (text snippet, tool call name+input preview, tool result error flag).
+ * Empty array when the message has no useful content to summarize.
+ */
+function summarizeAgentMessage( raw: unknown ): string[] {
+	const message = raw as PiAgentMessageLike | null | undefined;
+	if ( ! message || typeof message !== 'object' ) {
+		return [];
+	}
+	const role = typeof message.role === 'string' ? message.role : '';
+	if ( role !== 'assistant' && role !== 'user' && role !== 'toolResult' ) {
+		return [];
+	}
+
+	if ( role === 'toolResult' ) {
+		const name = typeof message.toolName === 'string' ? message.toolName : '<unknown>';
+		const errFlag = message.isError === true ? ' (error)' : '';
+		return [ `tool_result: ${ name }${ errFlag }` ];
+	}
+
+	const blocks = message.content;
+	const lines: string[] = [];
+	if ( typeof blocks === 'string' ) {
+		const snippet = blocks.replace( /\s+/g, ' ' ).trim();
+		if ( snippet.length > 0 ) {
+			lines.push( `text: ${ truncatePreview( snippet, STEP_TEXT_PREVIEW_CHARS ) }` );
+		}
+		return lines;
+	}
+	if ( ! Array.isArray( blocks ) ) {
+		return [];
+	}
+	for ( const block of blocks as PiContentBlockLike[] ) {
+		if ( ! block || typeof block !== 'object' ) {
+			continue;
+		}
+		if ( block.type === 'text' && typeof block.text === 'string' ) {
+			const snippet = block.text.replace( /\s+/g, ' ' ).trim();
+			if ( snippet.length === 0 ) {
+				continue;
+			}
+			lines.push( `text: ${ truncatePreview( snippet, STEP_TEXT_PREVIEW_CHARS ) }` );
+		} else if ( block.type === 'toolCall' ) {
+			const name = typeof block.name === 'string' ? block.name : '<unknown>';
+			const inputPreview = previewToolInput( block.arguments );
+			lines.push(
+				inputPreview ? `tool_call: ${ name } ${ inputPreview }` : `tool_call: ${ name }`
+			);
+		} else if ( block.type === 'thinking' ) {
+			lines.push( 'thinking' );
+		}
+	}
+	return lines;
+}
+
+function summarizeMessageContent( raw: unknown ): string[] {
+	const event = raw as PiAgentSessionEventLike | null | undefined;
+	if ( ! event || typeof event !== 'object' || typeof event.type !== 'string' ) {
+		return [];
+	}
+	if ( event.type === 'message_end' ) {
+		return summarizeAgentMessage( event.message );
+	}
+	if ( event.type === 'tool_execution_start' ) {
+		const name = typeof event.toolName === 'string' ? event.toolName : '<unknown>';
+		const inputPreview = previewToolInput( event.args );
+		return [ inputPreview ? `tool_call: ${ name } ${ inputPreview }` : `tool_call: ${ name }` ];
+	}
+	if ( event.type === 'tool_execution_end' ) {
+		const name = typeof event.toolName === 'string' ? event.toolName : '<unknown>';
+		const errFlag = event.isError === true ? ' (error)' : '';
+		return [ `tool_result: ${ name }${ errFlag }` ];
+	}
+	return [];
+}
+
+function extractAssistantTextFromEvent( raw: unknown ): string {
+	const event = raw as PiAgentSessionEventLike | null | undefined;
+	if ( ! event || typeof event !== 'object' || event.type !== 'message_end' ) {
+		return '';
+	}
+	return extractAssistantText( event.message );
+}
+
+function truncatePreview( text: string, maxLength: number ): string {
+	return text.length > maxLength ? `${ text.slice( 0, maxLength - 1 ) }…` : text;
 }
 
 function extractResultPayload( event: Extract< JsonEvent, { type: 'message' } > ): {
 	replyText?: string;
 	isError: boolean;
+	stopReason?: string | null;
 } | null {
 	const wrapped = event.message as PiAgentEndEnvelope | null | undefined;
 	if ( ! wrapped || typeof wrapped !== 'object' || wrapped.type !== 'agent_end' ) {
@@ -98,10 +256,14 @@ function extractResultPayload( event: Extract< JsonEvent, { type: 'message' } > 
 	}
 
 	const isError = lastAssistant.stopReason === 'error' || lastAssistant.stopReason === 'aborted';
+	const stopReason =
+		typeof lastAssistant.stopReason === 'string' || lastAssistant.stopReason === null
+			? ( lastAssistant.stopReason as string | null )
+			: undefined;
 
 	let replyText: string | undefined;
 	if ( Array.isArray( lastAssistant.content ) ) {
-		const text = ( lastAssistant.content as PiAssistantContentBlock[] )
+		const text = ( lastAssistant.content as PiContentBlockLike[] )
 			.filter( ( b ) => b?.type === 'text' && typeof b.text === 'string' )
 			.map( ( b ) => b.text as string )
 			.join( '\n' )
@@ -112,7 +274,7 @@ function extractResultPayload( event: Extract< JsonEvent, { type: 'message' } > 
 		const trimmed = lastAssistant.errorMessage.trim();
 		if ( trimmed.length > 0 ) replyText = trimmed;
 	}
-	return { replyText, isError };
+	return { replyText, isError, stopReason };
 }
 
 function parseEvent( line: string ): JsonEvent | null {
@@ -220,12 +382,19 @@ export async function runTurn( options: TurnRunOptions ): Promise< TurnOutcome >
 	let stderrTail = '';
 	let timedOut = false;
 	let aborted = false;
+	const eventCounts: Record< string, number > = {};
+	let agentEndEventSeen = false;
+	let agentEndEventEmptyReply = false;
+	let nonJsonStdoutLines = 0;
+	let lastAssistantText = '';
+	let usedAssistantTextFallback = false;
 
 	const rl = readline.createInterface( { input: child.stdout! } );
 	rl.on( 'line', ( line ) => {
 		const event = parseEvent( line );
 		if ( ! event ) {
 			if ( line.trim().length > 0 ) {
+				nonJsonStdoutLines++;
 				logger?.debug( 'Subprocess stdout (non-JSON)', {
 					...logContext,
 					line: line.slice( 0, 500 ),
@@ -233,6 +402,7 @@ export async function runTurn( options: TurnRunOptions ): Promise< TurnOutcome >
 			}
 			return;
 		}
+		eventCounts[ event.type ] = ( eventCounts[ event.type ] ?? 0 ) + 1;
 		options.onEvent?.( event );
 
 		if ( event.type === 'progress' || event.type === 'info' ) {
@@ -243,10 +413,28 @@ export async function runTurn( options: TurnRunOptions ): Promise< TurnOutcome >
 
 		if ( event.type === 'message' ) {
 			const extracted = extractResultPayload( event );
+			if ( ! extracted ) {
+				const stepLines = summarizeMessageContent( event.message );
+				for ( const line of stepLines ) {
+					logger?.event( 'agent.step', line );
+				}
+				const assistantText = extractAssistantTextFromEvent( event.message );
+				if ( assistantText ) {
+					lastAssistantText = assistantText;
+				}
+			}
 			if ( extracted ) {
+				agentEndEventSeen = true;
 				if ( extracted.replyText ) {
 					replyText = extracted.replyText;
 					logger?.event( extracted.isError ? 'reply.error' : 'reply', extracted.replyText );
+				} else {
+					agentEndEventEmptyReply = true;
+					logger?.warn( 'agent_end event had empty reply', {
+						...logContext,
+						is_error: extracted.isError,
+						stop_reason: extracted.stopReason,
+					} );
 				}
 				isError = isError || extracted.isError;
 				logger?.debug( 'Event: message/agent_end', {
@@ -359,6 +547,23 @@ export async function runTurn( options: TurnRunOptions ): Promise< TurnOutcome >
 		};
 	}
 
+	// If `agent_end` arrives without final text but we saw an assistant
+	// `message_end` earlier in the turn, surface that text instead of posting
+	// "did not return a result" to the user.
+	if (
+		agentEndEventEmptyReply &&
+		! isError &&
+		replyText === undefined &&
+		lastAssistantText.length > 0
+	) {
+		replyText = lastAssistantText;
+		usedAssistantTextFallback = true;
+		logger?.warn( 'Using last assistant text as reply (empty agent_end)', {
+			...logContext,
+			fallback_chars: lastAssistantText.length,
+		} );
+	}
+
 	const status: TurnOutcomeStatus = completedStatus ?? ( isError ? 'error' : 'error' );
 	const staleSession =
 		options.sessionId !== undefined && detectStaleSession( stderrTail, replyText, isError );
@@ -373,6 +578,12 @@ export async function runTurn( options: TurnRunOptions ): Promise< TurnOutcome >
 		questions: pausedQuestions?.length ?? 0,
 		stale_session: staleSession,
 		stderr_tail: stderrTail ? stderrTail.slice( -500 ) : '',
+		event_counts: eventCounts,
+		agent_end_event_seen: agentEndEventSeen,
+		agent_end_event_empty_reply: agentEndEventEmptyReply,
+		non_json_stdout_lines: nonJsonStdoutLines,
+		turn_completed_seen: completedStatus !== undefined,
+		used_assistant_text_fallback: usedAssistantTextFallback,
 	} );
 
 	return {

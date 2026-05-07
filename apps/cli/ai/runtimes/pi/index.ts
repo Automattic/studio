@@ -249,7 +249,7 @@ async function createStudioAgentSession(
 			: { previewSteering: isForkedByDesktop, remoteSession }
 	);
 
-	const tools = buildAgentTools( config, isForkedByDesktop );
+	const tools = buildAgentTools( config, isForkedByDesktop, remoteSession );
 	const toolDefinitions = tools.map( toToolDefinition );
 	const { authStorage, modelRegistry } = createModelRegistry( model, family, creds );
 	const settingsManager = createSettingsManager( config.env );
@@ -402,7 +402,8 @@ function toToolDefinition( tool: AgentToolAny ): ToolDefinition {
 
 function buildAgentTools(
 	config: ResolvedStudioAgentTurnConfig,
-	enablePreviewSteering: boolean
+	enablePreviewSteering: boolean,
+	remoteSession: boolean
 ): AgentToolAny[] {
 	const isRemoteSite = Boolean(
 		config.activeSite?.remote && config.activeSite?.wpcomSiteId && config.wpcomAccessToken
@@ -442,7 +443,7 @@ function buildAgentTools(
 		renameTool( createLsTool( STUDIO_SITES_ROOT ), 'Ls' ),
 	];
 	return [
-		...resolveStudioToolDefinitions( { enablePreviewSteering } ),
+		...resolveStudioToolDefinitions( { enablePreviewSteering, remoteSession } ),
 		...askUserTool,
 		...skillTool,
 		...piTools,

@@ -129,6 +129,14 @@ interface PersistedLogLine {
 	level?: unknown;
 	msg?: unknown;
 	meta?: unknown;
+	event?: unknown;
+	content?: unknown;
+}
+
+function formatEventForStdout( time: string, kind: string, content: string ): string {
+	const safe = safeForStdout( content ).replace( /\n/g, '\n  ' );
+	const safeKind = stripTerminalControls( kind );
+	return `[${ time }] ${ safeKind } ${ safe }\n`;
 }
 
 /**
@@ -147,12 +155,16 @@ export function formatLogLineForStdout( rawLine: string ): string {
 	} catch {
 		return `${ stripTerminalControls( trimmed ) }\n`;
 	}
-	const level = isLogLevel( parsed.level ) ? parsed.level : 'info';
-	const message = typeof parsed.msg === 'string' ? parsed.msg : '';
 	const time =
 		typeof parsed.t === 'string' && parsed.t.length >= 19
 			? parsed.t.slice( 11, 19 )
 			: new Date().toTimeString().slice( 0, 8 );
+	if ( typeof parsed.event === 'string' ) {
+		const content = typeof parsed.content === 'string' ? parsed.content : '';
+		return formatEventForStdout( time, parsed.event, content );
+	}
+	const level = isLogLevel( parsed.level ) ? parsed.level : 'info';
+	const message = typeof parsed.msg === 'string' ? parsed.msg : '';
 	const head = `[${ time }] ${ level } ${ safeForStdout( message ) }`;
 	if ( parsed.meta && typeof parsed.meta === 'object' ) {
 		const safeMeta = safeForStdout( JSON.stringify( parsed.meta ) );
@@ -220,23 +232,33 @@ export class RemoteSessionLogger {
 	}
 
 	/**
-	 * Write a single conversation-content line to stdout only (never the file).
-	 * Used to surface the actual subprocess event payloads — incoming user text,
-	 * progress messages, the final reply, paused questions — while attached.
-	 * Skipped when `mirrorToStdout` is off, so callers can sprinkle these freely
-	 * without affecting non-streaming runs.
+	 * Write a single conversation-content line — incoming user text, progress
+	 * messages, the final reply, paused questions. Persisted to the log file so
+	 * `remote-session attach` can replay them; also mirrored to stdout in
+	 * foreground mode for live viewing.
 	 */
 	event( kind: string, content: string ): void {
+		ensureLogDir( this.logPath );
+		rotateIfNeeded( this.logPath );
+
+		const line =
+			JSON.stringify( {
+				t: new Date().toISOString(),
+				event: kind,
+				content: redact( content ),
+			} ) + '\n';
+		try {
+			fs.appendFileSync( this.logPath, line, { encoding: 'utf8' } );
+		} catch {
+			// Logging is best-effort; never throw from here.
+		}
+
 		if ( ! this.mirrorToStdout ) {
 			return;
 		}
 		const time = new Date().toTimeString().slice( 0, 8 );
-		// Sanitize first so `\r` and other control bytes are gone before we
-		// indent newlines for multi-line content (questions, replies).
-		const safe = safeForStdout( content ).replace( /\n/g, '\n  ' );
-		const safeKind = stripTerminalControls( kind );
 		try {
-			process.stdout.write( `[${ time }] ${ safeKind } ${ safe }\n` );
+			process.stdout.write( formatEventForStdout( time, kind, content ) );
 		} catch {
 			// Best-effort; never throw from here.
 		}

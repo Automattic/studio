@@ -18,8 +18,8 @@
 }
 
 .panelExpanded {
-	width: min(1040px, calc(100vw - 2 * var(--desk-chats-panel-gap)));
-	grid-template-columns: 340px minmax(0, 1fr);
+	width: min(960px, calc(100vw - 2 * var(--desk-chats-panel-gap)));
+	grid-template-columns: 320px minmax(0, 1fr);
 }
 
 .listPane {

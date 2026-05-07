@@ -6,17 +6,16 @@ import { useConnector } from '@/data/core';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
+import { useDesksLocation, useDesksNavigate } from '../router/navigation';
 import styles from './style.module.css';
 
 const WPCOM_PROFILE_URL = 'https://wordpress.com/me';
 const DOCS_URL = 'https://developer.wordpress.com/docs/developer-tools/studio/';
 const REPORT_ISSUE_URL = 'https://github.com/Automattic/studio/issues/new/choose';
 
-interface DeskUserMenuProps {
-	onUserDashboard?: () => void;
-}
-
-export function DeskUserMenu( { onUserDashboard }: DeskUserMenuProps ) {
+export function DeskUserMenu() {
+	const navigate = useDesksNavigate();
+	const location = useDesksLocation();
 	const connector = useConnector();
 	const { data: user } = useAuthUser();
 	const { data: preferences } = useUserPreferences();
@@ -26,9 +25,14 @@ export function DeskUserMenu( { onUserDashboard }: DeskUserMenuProps ) {
 	const savedScheme = preferences?.colorScheme;
 	const themeIsDark =
 		savedScheme === 'dark' || ( savedScheme !== 'light' && effectiveScheme === 'dark' );
+	const showUserDashboardItem = location.pathname !== '/';
 
 	const openLink = ( url: string ) => {
 		void connector.openExternalUrl( url );
+	};
+
+	const openUserDashboard = () => {
+		void navigate( { to: '/' } );
 	};
 
 	if ( ! user ) {
@@ -63,9 +67,9 @@ export function DeskUserMenu( { onUserDashboard }: DeskUserMenuProps ) {
 				}
 			/>
 			<Menu.Popup side="bottom" align="start" className={ styles.popup }>
-				{ onUserDashboard ? (
+				{ showUserDashboardItem ? (
 					<>
-						<Menu.Item onClick={ onUserDashboard }>{ __( 'User Dashboard' ) }</Menu.Item>
+						<Menu.Item onClick={ openUserDashboard }>{ __( 'User Dashboard' ) }</Menu.Item>
 						<Menu.Separator />
 					</>
 				) : null }

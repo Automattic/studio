@@ -3,6 +3,7 @@ import {
 	extractFormValuesFromBlueprint,
 	updateBlueprintWithFormValues,
 } from '@studio/common/lib/blueprint-settings';
+import { createRoute } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { arrowLeft, download } from '@wordpress/icons';
 import { Button, Icon } from '@wordpress/ui';
@@ -20,29 +21,15 @@ import {
 import { useFeaturedBlueprints } from '@/data/queries/use-featured-blueprints';
 import { useImportSite } from '@/data/queries/use-import-site';
 import { useCreateSite, useSites } from '@/data/queries/use-sites';
+import { useDesksNavigate } from '../router/navigation';
+import { desksRootRoute } from '../router/root';
 import styles from './style.module.css';
 import type { CreateSiteFormValues } from '@/components/create-site-form';
 
 type Step = 'select' | 'configure';
 
-interface DeskOnboardingScreenProps {
-	onClose: () => void;
-}
-
-interface DeskOnboardingHomeProps extends DeskOnboardingScreenProps {
-	onCreate: () => void;
-	onBlueprint: () => void;
-	onImport: () => void;
-}
-
-interface SiteCreatedProps extends DeskOnboardingScreenProps {
-	onCancel: () => void;
-	onSiteCreated: ( siteId: string ) => void;
-}
-
-interface SteppedSiteCreatedProps extends SiteCreatedProps {
-	step: Step;
-	onStepChange: ( step: Step ) => void;
+interface StepSearch {
+	step?: Step;
 }
 
 interface PickedBackup {
@@ -50,27 +37,34 @@ interface PickedBackup {
 	path: string;
 }
 
-export function DeskOnboardingHome( {
-	onClose,
-	onCreate,
-	onBlueprint,
-	onImport,
-}: DeskOnboardingHomeProps ) {
+export function DeskOnboardingHome() {
+	const navigate = useDesksNavigate();
+
 	return (
-		<OnboardingLayout onClose={ onClose } width="wide">
+		<OnboardingLayout onClose={ () => void navigate( { to: '/' } ) } width="wide">
 			<div className={ styles.page }>
 				<h1 className={ styles.title }>{ __( 'Start a new site' ) }</h1>
 				<p className={ styles.subtitle }>
 					{ __( 'WordPress can power anything. What are you building?' ) }
 				</p>
 				<div className={ styles.cards }>
-					<button type="button" className={ styles.card } onClick={ onCreate }>
+					<button
+						type="button"
+						className={ styles.card }
+						onClick={ () => void navigate( { to: '/onboarding/create' } ) }
+					>
 						<h3 className={ styles.cardTitle }>{ __( 'Create new' ) }</h3>
 						<p className={ styles.cardBody }>
 							{ __( 'Start fresh with a blank site and build it with AI' ) }
 						</p>
 					</button>
-					<button type="button" className={ styles.card } onClick={ onBlueprint }>
+					<button
+						type="button"
+						className={ styles.card }
+						onClick={ () =>
+							void navigate( { to: '/onboarding/blueprint', search: { step: 'select' } } )
+						}
+					>
 						<h3 className={ styles.cardTitle }>{ __( 'Start from a blueprint' ) }</h3>
 						<p className={ styles.cardBody }>
 							{ __(
@@ -78,7 +72,13 @@ export function DeskOnboardingHome( {
 							) }
 						</p>
 					</button>
-					<button type="button" className={ styles.card } onClick={ onImport }>
+					<button
+						type="button"
+						className={ styles.card }
+						onClick={ () =>
+							void navigate( { to: '/onboarding/import', search: { step: 'select' } } )
+						}
+					>
 						<h3 className={ styles.cardTitle }>{ __( 'Bring existing' ) }</h3>
 						<p className={ styles.cardBody }>
 							{ __( 'Import from a Jetpack backup or another full-site export' ) }
@@ -90,7 +90,8 @@ export function DeskOnboardingHome( {
 	);
 }
 
-export function DeskOnboardingCreate( { onClose, onCancel, onSiteCreated }: SiteCreatedProps ) {
+export function DeskOnboardingCreate() {
+	const navigate = useDesksNavigate();
 	const { data: sites } = useSites();
 	const { data: existingDomainNames } = useExistingCustomDomains();
 	const { data: proposedName } = useProposedSiteName( sites );
@@ -111,7 +112,7 @@ export function DeskOnboardingCreate( { onClose, onCancel, onSiteCreated }: Site
 				adminPassword: values.adminPassword || undefined,
 				adminEmail: values.adminEmail || undefined,
 			} );
-			onSiteCreated( site.id );
+			await navigate( { to: '/sites/$siteId', params: { siteId: site.id } } );
 		} catch ( error ) {
 			setSubmitError(
 				error instanceof Error ? error.message : __( 'Failed to create site. Please try again.' )
@@ -120,7 +121,7 @@ export function DeskOnboardingCreate( { onClose, onCancel, onSiteCreated }: Site
 	};
 
 	return (
-		<OnboardingLayout onClose={ onClose }>
+		<OnboardingLayout onClose={ () => void navigate( { to: '/' } ) }>
 			<div className={ styles.page }>
 				<h1 className={ styles.title }>{ __( 'Create a new site' ) }</h1>
 				<p className={ styles.subtitle }>
@@ -130,7 +131,7 @@ export function DeskOnboardingCreate( { onClose, onCancel, onSiteCreated }: Site
 					initialValues={ proposedName ? { name: proposedName } : undefined }
 					existingDomainNames={ existingDomainNames ?? [] }
 					onSubmit={ handleSubmit }
-					onCancel={ onCancel }
+					onCancel={ () => void navigate( { to: '/onboarding' } ) }
 					isSubmitting={ createSite.isPending }
 					submitError={ submitError }
 				/>
@@ -139,13 +140,9 @@ export function DeskOnboardingCreate( { onClose, onCancel, onSiteCreated }: Site
 	);
 }
 
-export function DeskOnboardingBlueprint( {
-	step,
-	onStepChange,
-	onClose,
-	onCancel,
-	onSiteCreated,
-}: SteppedSiteCreatedProps ) {
+export function DeskOnboardingBlueprint() {
+	const { step } = desksOnboardingBlueprintRoute.useSearch() as StepSearch;
+	const navigate = useDesksNavigate();
 	const activeStep: Step = step === 'configure' ? 'configure' : 'select';
 	const featured = useFeaturedBlueprints();
 	const { data: existingDomainNames } = useExistingCustomDomains();
@@ -155,9 +152,13 @@ export function DeskOnboardingBlueprint( {
 
 	useEffect( () => {
 		if ( activeStep === 'configure' && ! picked ) {
-			onStepChange( 'select' );
+			void navigate( {
+				to: '/onboarding/blueprint',
+				search: { step: 'select' },
+				replace: true,
+			} );
 		}
-	}, [ activeStep, picked, onStepChange ] );
+	}, [ activeStep, picked, navigate ] );
 
 	const handlePick = useCallback(
 		( blueprint: PickedBlueprint ) => {
@@ -165,9 +166,12 @@ export function DeskOnboardingBlueprint( {
 				setPicked( blueprint );
 				setSubmitError( '' );
 			} );
-			onStepChange( 'configure' );
+			void navigate( {
+				to: '/onboarding/blueprint',
+				search: { step: 'configure' },
+			} );
 		},
-		[ onStepChange ]
+		[ navigate ]
 	);
 
 	const handleSubmit = async ( values: CreateSiteFormValues ) => {
@@ -199,7 +203,7 @@ export function DeskOnboardingBlueprint( {
 					filePath: picked.filePath,
 				},
 			} );
-			onSiteCreated( site.id );
+			await navigate( { to: '/sites/$siteId', params: { siteId: site.id } } );
 		} catch ( error ) {
 			setSubmitError(
 				error instanceof Error
@@ -211,7 +215,7 @@ export function DeskOnboardingBlueprint( {
 
 	if ( activeStep === 'select' ) {
 		return (
-			<OnboardingLayout onClose={ onClose } width="wide">
+			<OnboardingLayout onClose={ () => void navigate( { to: '/' } ) } width="wide">
 				<div className={ styles.page }>
 					<h1 className={ styles.title }>{ __( 'Start from a Blueprint' ) }</h1>
 					<p className={ styles.subtitle }>
@@ -239,14 +243,16 @@ export function DeskOnboardingBlueprint( {
 	);
 
 	return (
-		<OnboardingLayout onClose={ onClose }>
+		<OnboardingLayout onClose={ () => void navigate( { to: '/' } ) }>
 			<div className={ styles.page }>
 				<Button
 					type="button"
 					variant="minimal"
 					tone="neutral"
 					className={ styles.backLink }
-					onClick={ () => onStepChange( 'select' ) }
+					onClick={ () =>
+						void navigate( { to: '/onboarding/blueprint', search: { step: 'select' } } )
+					}
 				>
 					<Icon icon={ arrowLeft } />
 					<span>{ __( 'Back to Blueprints' ) }</span>
@@ -257,7 +263,7 @@ export function DeskOnboardingBlueprint( {
 					initialValues={ initialValues }
 					existingDomainNames={ existingDomainNames ?? [] }
 					onSubmit={ handleSubmit }
-					onCancel={ onCancel }
+					onCancel={ () => void navigate( { to: '/onboarding' } ) }
 					isSubmitting={ createSite.isPending }
 					submitError={ submitError }
 					submitLabel={ __( 'Create site from Blueprint' ) }
@@ -267,13 +273,9 @@ export function DeskOnboardingBlueprint( {
 	);
 }
 
-export function DeskOnboardingImport( {
-	step,
-	onStepChange,
-	onClose,
-	onCancel,
-	onSiteCreated,
-}: SteppedSiteCreatedProps ) {
+export function DeskOnboardingImport() {
+	const { step } = desksOnboardingImportRoute.useSearch() as StepSearch;
+	const navigate = useDesksNavigate();
 	const connector = useConnector();
 	const activeStep: Step = step === 'configure' ? 'configure' : 'select';
 	const { data: existingDomainNames } = useExistingCustomDomains();
@@ -285,9 +287,13 @@ export function DeskOnboardingImport( {
 
 	useEffect( () => {
 		if ( activeStep === 'configure' && ! picked ) {
-			onStepChange( 'select' );
+			void navigate( {
+				to: '/onboarding/import',
+				search: { step: 'select' },
+				replace: true,
+			} );
 		}
-	}, [ activeStep, picked, onStepChange ] );
+	}, [ activeStep, picked, navigate ] );
 
 	const handlePick = useCallback(
 		async ( file: File ) => {
@@ -310,9 +316,12 @@ export function DeskOnboardingImport( {
 				setPickError( null );
 				setPicked( { file, path } );
 			} );
-			onStepChange( 'configure' );
+			void navigate( {
+				to: '/onboarding/import',
+				search: { step: 'configure' },
+			} );
 		},
-		[ connector, onStepChange ]
+		[ connector, navigate ]
 	);
 
 	const handleClearPick = useCallback( () => {
@@ -339,7 +348,7 @@ export function DeskOnboardingImport( {
 				siteId: site.id,
 				backup: { path: picked.path, type: picked.file.type },
 			} );
-			onSiteCreated( site.id );
+			await navigate( { to: '/sites/$siteId', params: { siteId: site.id } } );
 		} catch ( error ) {
 			setSubmitError(
 				error instanceof Error ? error.message : __( 'Failed to import site. Please try again.' )
@@ -349,7 +358,7 @@ export function DeskOnboardingImport( {
 
 	if ( activeStep === 'select' ) {
 		return (
-			<OnboardingLayout onClose={ onClose }>
+			<OnboardingLayout onClose={ () => void navigate( { to: '/' } ) }>
 				<div className={ styles.page }>
 					<h1 className={ styles.title }>{ __( 'Import from a backup' ) }</h1>
 					<p className={ styles.subtitle }>
@@ -381,14 +390,16 @@ export function DeskOnboardingImport( {
 	const isSubmitting = createSite.isPending || importSite.isPending;
 
 	return (
-		<OnboardingLayout onClose={ onClose }>
+		<OnboardingLayout onClose={ () => void navigate( { to: '/' } ) }>
 			<div className={ styles.page }>
 				<Button
 					type="button"
 					variant="minimal"
 					tone="neutral"
 					className={ styles.backLink }
-					onClick={ () => onStepChange( 'select' ) }
+					onClick={ () =>
+						void navigate( { to: '/onboarding/import', search: { step: 'select' } } )
+					}
 				>
 					<Icon icon={ arrowLeft } />
 					<span>{ __( 'Back to backup' ) }</span>
@@ -401,7 +412,7 @@ export function DeskOnboardingImport( {
 					initialValues={ initialValues }
 					existingDomainNames={ existingDomainNames ?? [] }
 					onSubmit={ handleSubmit }
-					onCancel={ onCancel }
+					onCancel={ () => void navigate( { to: '/onboarding' } ) }
 					isSubmitting={ isSubmitting }
 					submitError={ submitError }
 					submitLabel={ __( 'Import site' ) }
@@ -441,3 +452,37 @@ function nameFromFilename( filename: string ): string {
 		.replace( /[-_]+/g, ' ' )
 		.trim();
 }
+
+function validateStepSearch( search: Record< string, unknown > ): StepSearch {
+	const value = search.step;
+	if ( value === 'configure' || value === 'select' ) {
+		return { step: value };
+	}
+	return {};
+}
+
+export const desksOnboardingHomeRoute = createRoute( {
+	getParentRoute: () => desksRootRoute,
+	path: '/onboarding',
+	component: DeskOnboardingHome,
+} );
+
+export const desksOnboardingCreateRoute = createRoute( {
+	getParentRoute: () => desksRootRoute,
+	path: '/onboarding/create',
+	component: DeskOnboardingCreate,
+} );
+
+export const desksOnboardingBlueprintRoute = createRoute( {
+	getParentRoute: () => desksRootRoute,
+	path: '/onboarding/blueprint',
+	validateSearch: validateStepSearch,
+	component: DeskOnboardingBlueprint,
+} );
+
+export const desksOnboardingImportRoute = createRoute( {
+	getParentRoute: () => desksRootRoute,
+	path: '/onboarding/import',
+	validateSearch: validateStepSearch,
+	component: DeskOnboardingImport,
+} );

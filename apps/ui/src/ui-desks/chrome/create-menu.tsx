@@ -2,11 +2,26 @@ import { __ } from '@wordpress/i18n';
 import { comment, download, globe, plus } from '@wordpress/icons';
 import { Icon, IconButton } from '@wordpress/ui';
 import * as Menu from '@/components/menu';
-import { useDeskActions } from '../actions';
+import { useDesksNavigate } from '../router/navigation';
 import styles from './style.module.css';
 
 export function DeskCreateMenu() {
-	const { createChat, openCreateSite, openImportSite } = useDeskActions();
+	const navigate = useDesksNavigate();
+
+	const createChat = () => {
+		void navigate( {
+			to: '/',
+			search: { chats: true, newChat: Date.now() },
+		} );
+	};
+
+	const openCreateSite = () => {
+		void navigate( { to: '/onboarding' } );
+	};
+
+	const openImportSite = () => {
+		void navigate( { to: '/onboarding/import', search: { step: 'select' } } );
+	};
 
 	return (
 		<Menu.Root modal={ false }>

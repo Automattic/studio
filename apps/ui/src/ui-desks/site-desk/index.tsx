@@ -1,20 +1,17 @@
+import { createRoute } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { SiteIcon } from '@/components/site-icon';
 import { useSites } from '@/data/queries/use-sites';
 import { useFullscreen } from '@/hooks/use-fullscreen';
-import { useDeskActions } from '../actions';
 import { DeskUserMenu } from '../chrome/user-menu';
+import { desksRootRoute } from '../router/root';
 import styles from './style.module.css';
 
-interface SiteDeskProps {
-	siteId: string;
-}
-
-export function SiteDesk( { siteId }: SiteDeskProps ) {
+export function SiteDesk() {
+	const { siteId } = siteDeskRoute.useParams();
 	const isFullscreen = useFullscreen();
 	const { data: sites } = useSites();
-	const { openUserDashboard } = useDeskActions();
 	const site = sites?.find( ( candidate ) => candidate.id === siteId );
 	const siteName = site?.name ?? __( 'Site' );
 	const siteIconSeed = site ? `${ site.id }:${ site.name }:${ site.path }` : siteId;
@@ -22,7 +19,7 @@ export function SiteDesk( { siteId }: SiteDeskProps ) {
 	return (
 		<main className={ styles.root } aria-label={ __( 'Site desk' ) } data-site-id={ siteId }>
 			<div className={ clsx( styles.chrome, isFullscreen && styles.chromeFullscreen ) }>
-				<DeskUserMenu onUserDashboard={ openUserDashboard } />
+				<DeskUserMenu />
 				<div className={ styles.sitePill }>
 					<SiteIcon
 						className={ styles.siteIcon }
@@ -37,3 +34,9 @@ export function SiteDesk( { siteId }: SiteDeskProps ) {
 		</main>
 	);
 }
+
+export const siteDeskRoute = createRoute( {
+	getParentRoute: () => desksRootRoute,
+	path: '/sites/$siteId',
+	component: SiteDesk,
+} );

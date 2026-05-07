@@ -21,7 +21,8 @@ import * as Sentry from '@sentry/electron/main';
 import { isAiModelId } from '@studio/common/ai/models';
 import { deriveEffectiveEnvironment } from '@studio/common/ai/sessions/effective-site';
 import {
-	appendAiSessionEvent,
+	appendModelChangeEntry,
+	appendStudioEntry,
 	createAiSession as createAiSessionInStore,
 	deleteAiSession as deleteAiSessionFromStore,
 	listAiSessions as listAiSessionsFromStore,
@@ -278,9 +279,7 @@ async function reconcileSessionEnvironmentBeforeRun( sessionId: string ): Promis
 
 	// Live was disconnected since the last flip. Record the fallback so the
 	// CLI's replay sees Local on the next turn.
-	await appendAiSessionEvent( root, sessionId, {
-		type: 'site.selected',
-		timestamp: new Date().toISOString(),
+	await appendStudioEntry( root, sessionId, 'studio.site_selected', {
 		siteName: ownerServer.details.name,
 		sitePath: summary.ownerSitePath,
 	} );
@@ -325,11 +324,7 @@ export async function setAiSessionModel(
 	if ( ! isAiModelId( model ) ) {
 		throw new Error( `Unknown AI model: ${ model }` );
 	}
-	await appendAiSessionEvent( getAiSessionsRootDirectory(), sessionId, {
-		type: 'session.model_selected',
-		timestamp: new Date().toISOString(),
-		model,
-	} );
+	await appendModelChangeEntry( getAiSessionsRootDirectory(), sessionId, '', model );
 }
 
 export interface SetSessionEnvironmentResult {
@@ -366,8 +361,6 @@ export async function setSessionEnvironment(
 		);
 	}
 
-	const timestamp = new Date().toISOString();
-
 	if ( environment === 'live' ) {
 		const candidates = await getConnectedWpcomSitesForLocalSite( ownerServer.details.id );
 		// Prefer the production (non-staging) site to match the UI's
@@ -378,13 +371,11 @@ export async function setSessionEnvironment(
 			throw new Error( 'Cannot switch to live: no linked WordPress.com site for this session' );
 		}
 
-		await appendAiSessionEvent( getAiSessionsRootDirectory(), sessionId, {
-			type: 'site.selected',
-			timestamp,
+		await appendStudioEntry( getAiSessionsRootDirectory(), sessionId, 'studio.site_selected', {
 			siteName: liveSite.name,
-			// Keep the owner's path on remote picks too, so the renderer (which
-			// groups the sidebar by `ownerSitePath`) still resolves the session
-			// to its owner while the active environment is live.
+			// Keep the owner's path on remote picks too, so the renderer
+			// (which groups the sidebar by `ownerSitePath`) still resolves
+			// the session to its owner while the active environment is live.
 			sitePath: summary.ownerSitePath,
 			remote: true,
 			url: liveSite.url,
@@ -401,9 +392,7 @@ export async function setSessionEnvironment(
 	}
 
 	const details = ownerServer.details;
-	await appendAiSessionEvent( getAiSessionsRootDirectory(), sessionId, {
-		type: 'site.selected',
-		timestamp,
+	await appendStudioEntry( getAiSessionsRootDirectory(), sessionId, 'studio.site_selected', {
 		siteName: details.name,
 		sitePath: details.path,
 		url: 'url' in details ? details.url : undefined,

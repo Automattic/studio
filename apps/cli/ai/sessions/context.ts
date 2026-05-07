@@ -1,4 +1,5 @@
 import { isAiModelId, type AiModelId } from '@studio/common/ai/models';
+import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import { AI_PROVIDERS, type AiProviderId } from 'cli/ai/providers';
 import type { LoadedAiSession } from '@studio/common/ai/sessions/types';
 
@@ -12,6 +13,8 @@ export interface ResumeSessionContext {
 	model?: AiModelId;
 }
 
+// Resolve provider/model for resume from the most recent `model_change` /
+// `studio.session_context` entries.
 export function resolveResumeSessionContext(
 	resumeSession?: LoadedAiSession
 ): ResumeSessionContext {
@@ -20,36 +23,29 @@ export function resolveResumeSessionContext(
 	}
 
 	const context: ResumeSessionContext = {};
-	const linkedSessionId = resumeSession.summary.agentSessionId?.trim();
-	if ( linkedSessionId ) {
-		context.sessionId = linkedSessionId;
+	if ( resumeSession.summary.id ) {
+		context.sessionId = resumeSession.summary.id;
 	}
 
-	for ( let index = resumeSession.events.length - 1; index >= 0; index -= 1 ) {
-		const event = resumeSession.events[ index ];
+	for ( let index = resumeSession.entries.length - 1; index >= 0; index -= 1 ) {
+		const entry = resumeSession.entries[ index ];
 
-		if ( ! context.sessionId && event.type === 'sdk.message' ) {
-			const sessionId = ( event.message as { session_id?: unknown } ).session_id;
-			if ( typeof sessionId === 'string' && sessionId.trim().length > 0 ) {
-				context.sessionId = sessionId;
+		if ( ! context.model && entry.type === 'model_change' ) {
+			const modelId = ( entry as { modelId?: unknown } ).modelId;
+			if ( typeof modelId === 'string' && isAiModelId( modelId ) ) {
+				context.model = modelId;
 			}
 		}
 
-		// `session.model_selected` is a UI-side override (set from the
-		// composer dropdown). Prefer it over the per-turn `session.context`
-		// model so the user's pick wins on the next turn.
-		if ( ! context.model && event.type === 'session.model_selected' ) {
-			if ( isAiModelId( event.model ) ) {
-				context.model = event.model;
-			}
-		}
-
-		if ( event.type === 'session.context' ) {
-			if ( ! context.provider && isAiProviderId( event.provider ) ) {
-				context.provider = event.provider;
-			}
-			if ( ! context.model && isAiModelId( event.model ) ) {
-				context.model = event.model;
+		if ( isStudioCustomEntryOfType( entry, 'studio.session_context' ) ) {
+			const data = entry.data;
+			if ( data ) {
+				if ( ! context.provider && isAiProviderId( data.provider ) ) {
+					context.provider = data.provider;
+				}
+				if ( ! context.model && isAiModelId( data.model ) ) {
+					context.model = data.model;
+				}
 			}
 		}
 

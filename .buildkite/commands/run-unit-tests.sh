@@ -8,7 +8,16 @@ if .buildkite/commands/should-skip-job.sh --job-type validation; then
 fi
 
 echo '--- :package: Install deps'
-bash .buildkite/commands/install-node-dependencies.sh
+if [ "$MATRIX" = "linux" ]; then
+  # Linux runs inside the Docker container set up by the pipeline step. The
+  # a8c-ci-toolkit cache helpers (hash_file, restore_cache) live on the host,
+  # so install-node-dependencies.sh can't run here. Inline the equivalent
+  # setup, matching the build step's approach (#3346).
+  apt-get -o Acquire::Retries=3 update
+  npm ci --unsafe-perm --no-audit --no-progress --maxsockets 1
+else
+  bash .buildkite/commands/install-node-dependencies.sh
+fi
 
 echo '--- :npm: Run Unit Tests'
 npm run test

@@ -1,0 +1,42 @@
+.root {
+	position: fixed;
+	top: var(--wpds-dimension-padding-sm);
+	/* Matches the classic header's reserved macOS traffic-light space. */
+	left: 94px;
+	z-index: 20;
+}
+
+.fullscreen {
+	left: var(--wpds-dimension-padding-xl);
+}
+
+.trigger {
+	gap: var(--wpds-dimension-padding-sm);
+	max-width: min(280px, calc(100vw - 94px - var(--wpds-dimension-padding-xl)));
+	padding-inline: var(--wpds-dimension-padding-sm);
+	background: var(--wpds-color-bg-surface-neutral-strong);
+	border-color: var(--wpds-color-stroke-surface-neutral-weak);
+	border-radius: var(--wpds-border-radius-lg);
+	box-shadow: var(--wpds-elevation-md);
+}
+
+.userName {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-weight: var(--wpds-typography-font-weight-medium);
+}
+
+.popup {
+	min-width: 220px;
+}
+
+.email {
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
+	font-size: var(--wpds-typography-font-size-xs);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}

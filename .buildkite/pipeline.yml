@@ -30,6 +30,24 @@ steps:
       - github_commit_status:
           context: Unit Tests
 
+  # Linux unit tests run on the shared `default` queue inside a Debian Node
+  # container — the same pattern the Linux build group uses. Kept as a
+  # separate step (rather than another matrix entry above) because Mac and
+  # Windows share queue/plugin defaults that Linux doesn't.
+  - label: Unit Tests on linux
+    key: unit_tests_linux
+    command: bash .buildkite/commands/run-unit-tests.sh "linux"
+    agents:
+      queue: default
+    plugins:
+      - $DOCKER_PLUGIN:
+          image: "$NODE_DOCKER_IMAGE"
+          propagate-environment: true
+          mount-buildkite-agent: true
+    notify:
+      - github_commit_status:
+          context: Unit Tests
+
   # E2E tests run on supported platform/architecture combinations.
   # - mac-arm64: Native on Apple Silicon agents
   # - windows-x64: Native on x64 agents

@@ -1,74 +1,90 @@
-import {
-	filterEventsAfterLastClear,
-	isVisibleUserMessage,
-} from '@studio/common/ai/sessions/filter-events';
+// Rehydrate the terminal UI from a session's JSONL on resume. Walks
+// `SessionEntry[]` and dispatches each entry to the live `ui.handleEvent()`
+// path (for assistant messages) or directly to `ui.*` (for Studio's
+// `custom` markers — site selections, progress, agent questions — which
+// don't appear in pi's flat `buildSessionContext()` output).
+
+import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import { AiChatUI } from 'cli/ai/ui';
-import type { AiSessionEvent } from '@studio/common/ai/sessions/types';
-import type { SDKMessage } from 'cli/ai/runtimes/messages';
+import type { ToolResultMessage } from '@mariozechner/pi-ai';
+import type { SessionEntry } from '@mariozechner/pi-coding-agent';
 
-export function replaySessionHistory( ui: AiChatUI, events: AiSessionEvent[] ): void {
+export function replaySessionHistory( ui: AiChatUI, entries: SessionEntry[] ): void {
 	ui.prepareForReplay();
-	let isTurnOpen = false;
 
-	const eventsToReplay = filterEventsAfterLastClear( events );
+	let isTurnOpen = false;
+	let pendingResults: ToolResultMessage[] = [];
+	const flushPendingResults = () => {
+		if ( pendingResults.length === 0 ) return;
+		ui.renderToolResults( pendingResults );
+		pendingResults = [];
+	};
 
 	try {
-		for ( const event of eventsToReplay ) {
-			ui.setReplayTimestamp( event.timestamp );
+		for ( const entry of entries ) {
+			ui.setReplayTimestamp( entry.timestamp );
 
-			if ( event.type === 'site.selected' ) {
-				ui.setActiveSite(
-					{
-						name: event.siteName,
-						path: event.sitePath,
-						running: false,
-						remote: event.remote === true,
-						url: typeof event.url === 'string' ? event.url : undefined,
-						wpcomSiteId: typeof event.wpcomSiteId === 'number' ? event.wpcomSiteId : undefined,
-					},
-					{ announce: true, emitEvent: false }
-				);
+			if ( isStudioCustomEntryOfType( entry, 'studio.site_selected' ) ) {
+				const data = entry.data;
+				if ( data ) {
+					ui.setActiveSite(
+						{
+							name: data.siteName,
+							path: data.sitePath,
+							running: false,
+							remote: data.remote === true,
+							url: data.url,
+							wpcomSiteId: data.wpcomSiteId,
+						},
+						{ announce: true, emitEvent: false }
+					);
+				}
 				continue;
 			}
 
-			if ( event.type === 'user.message' ) {
-				if ( ! isVisibleUserMessage( event ) ) {
-					continue;
-				}
-
-				// Defensive close if the previous turn never emitted turn.closed.
+			if ( isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
+				const data = entry.data;
+				if ( ! data || data.source !== 'prompt' ) continue;
 				if ( isTurnOpen ) {
+					flushPendingResults();
 					ui.endAgentTurn();
 				}
-
 				ui.beginAgentTurn();
 				isTurnOpen = true;
-				ui.addUserMessage( event.text );
+				ui.addUserMessage( data.text );
 				continue;
 			}
 
-			if ( event.type === 'sdk.message' ) {
-				ui.handleMessage( event.message as SDKMessage );
+			if ( isStudioCustomEntryOfType( entry, 'studio.tool_progress' ) ) {
+				if ( entry.data ) ui.setLoaderMessage( entry.data.message );
 				continue;
 			}
 
-			if ( event.type === 'tool.progress' ) {
-				ui.setLoaderMessage( event.message );
+			if ( isStudioCustomEntryOfType( entry, 'studio.agent_question' ) ) {
+				if ( entry.data ) ui.showAgentQuestion( entry.data.question, entry.data.options );
 				continue;
 			}
 
-			if ( event.type === 'agent.question' ) {
-				ui.showAgentQuestion( event.question, event.options );
-				continue;
-			}
-
-			if ( event.type === 'turn.closed' ) {
+			if ( isStudioCustomEntryOfType( entry, 'studio.turn_closed' ) ) {
+				flushPendingResults();
 				if ( isTurnOpen ) {
 					ui.endAgentTurn();
 					isTurnOpen = false;
 				}
+				continue;
+			}
+
+			if ( entry.type === 'message' ) {
+				const message = entry.message;
+				if ( message.role === 'assistant' ) {
+					flushPendingResults();
+					ui.handleEvent( { type: 'message_end', message } );
+				} else if ( message.role === 'toolResult' ) {
+					pendingResults.push( message );
+				}
 			}
 		}
+		flushPendingResults();
 	} finally {
 		if ( isTurnOpen ) {
 			ui.endAgentTurn();

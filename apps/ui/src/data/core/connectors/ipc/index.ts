@@ -1,6 +1,5 @@
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import { __ } from '@wordpress/i18n';
-import type { AgentRunEvent } from '../../agent-events';
 import type {
 	AiSessionSummary,
 	AuthUser,
@@ -19,6 +18,7 @@ import type {
 	SyncSite,
 	UserPreferences,
 } from '../../types';
+import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 
 function generateBackupFilename( siteName: string ): string {
 	const now = new Date();

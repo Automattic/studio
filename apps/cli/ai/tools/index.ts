@@ -1,4 +1,3 @@
-import { isRemoteSessionEnabled } from 'cli/lib/feature-flags';
 import { createPreviewTool } from './create-preview';
 import { createSiteTool } from './create-site';
 import { deletePreviewTool } from './delete-preview';
@@ -70,6 +69,13 @@ export interface CreateStudioToolsOptions {
 	// available). Defaults to false so standalone CLI runs don't advertise
 	// tools whose side effects would vanish into the void.
 	enablePreviewSteering?: boolean;
+	// Enable share_screenshot. Only meaningful when the agent is actually
+	// being driven by the remote-session daemon (Telegram bridge), signaled
+	// by `STUDIO_REMOTE_SESSION=1`. The `STUDIO_ENABLE_REMOTE_SESSION`
+	// feature flag only opts users into the `remote-session` command — it
+	// must NOT also expose share_screenshot to direct `studio code`
+	// invocations, where the image has nowhere to go.
+	remoteSession?: boolean;
 }
 
 export function resolveStudioToolDefinitions( options: CreateStudioToolsOptions = {} ) {
@@ -79,7 +85,7 @@ export function resolveStudioToolDefinitions( options: CreateStudioToolsOptions 
 			excludedNames.add( t.name );
 		}
 	}
-	if ( ! isRemoteSessionEnabled() ) {
+	if ( ! options.remoteSession ) {
 		excludedNames.add( shareScreenshotTool.name );
 	}
 	if ( excludedNames.size === 0 ) {

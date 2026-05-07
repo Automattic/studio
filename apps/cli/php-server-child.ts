@@ -62,19 +62,44 @@ type SpawnPhpProcessOptions = {
 	cwd?: string;
 	signal?: AbortSignal;
 	mode?: 'pipe' | 'capture-stdout';
-	opcacheSiteId?: string;
 };
 
-function getDefaultPhpArgs( phpVersion: NativePhpSupportedVersion, siteId?: string ): string[] {
-	if ( process.platform !== 'win32' || ! siteId ) {
+// Process-scoped opcache dir, created lazily and removed when the process exits
+let opcacheRootDir: string | null = null;
+
+function getOpcacheRootDir(): string {
+	if ( opcacheRootDir ) {
+		return opcacheRootDir;
+	}
+
+	// Resolve to the long-form path on Windows. `os.tmpdir()` can return an 8.3
+	// short name (e.g. C:\Users\BUILDK~1\AppData\…) when the user has a long
+	// username, and PHP's INI scanner treats `~` as a special token, breaking
+	// `-d opcache.file_cache=<path>` parsing.
+	const tmpRoot =
+		process.platform === 'win32' ? fs.realpathSync.native( os.tmpdir() ) : os.tmpdir();
+	opcacheRootDir = fs.mkdtempSync( path.join( tmpRoot, 'studio-opcache-' ) );
+	const dirToClean = opcacheRootDir;
+	process.once( 'exit', () => {
+		try {
+			fs.rmSync( dirToClean, { recursive: true, force: true } );
+		} catch {
+			// Best effort. The OS will reap tmp eventually.
+		}
+	} );
+	return opcacheRootDir;
+}
+
+function getDefaultPhpArgs( phpVersion: NativePhpSupportedVersion ): string[] {
+	if ( process.platform !== 'win32' ) {
 		return [];
 	}
 
 	// Partition the file_cache by PHP version: opcache's on-disk script blob
 	// format isn't stable across minor versions, and reusing a cache populated
 	// by a different PHP can crash the server at startup on Windows.
-	const cacheId = `${ siteId.replace( /[^A-Za-z0-9_.-]/g, '-' ) }-php${ phpVersion }`;
-	const cacheDirectory = path.join( getConfigDirectory(), 'php-bin', 'opcache', cacheId );
+	const cacheId = `php${ phpVersion }`;
+	const cacheDirectory = path.join( getOpcacheRootDir(), cacheId );
 	fs.mkdirSync( cacheDirectory, { recursive: true } );
 
 	return [
@@ -83,15 +108,15 @@ function getDefaultPhpArgs( phpVersion: NativePhpSupportedVersion, siteId?: stri
 		'-d',
 		'opcache.file_cache_fallback=1',
 		'-d',
-		`opcache.cache_id=studio-"${ cacheId }"`,
+		`opcache.cache_id="studio-${ cacheId }"`,
 	];
 }
 
 function spawnPhpProcess(
 	args: string[],
-	{ phpVersion, cwd, signal, mode = 'pipe', opcacheSiteId }: SpawnPhpProcessOptions
+	{ phpVersion, cwd, signal, mode = 'pipe' }: SpawnPhpProcessOptions
 ): ChildProcess {
-	const defaultArgs = getDefaultPhpArgs( phpVersion, opcacheSiteId );
+	const defaultArgs = getDefaultPhpArgs( phpVersion );
 	const phpArgs = [ ...defaultArgs, ...args ];
 	const phpScriptProcess = spawn( getPhpBinaryPath( phpVersion ), phpArgs, {
 		cwd,
@@ -358,7 +383,6 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		const serverChild = spawnPhpProcess( [ '-S', phpAddress, ROUTER_PATH ], {
 			phpVersion,
 			cwd: config.sitePath,
-			opcacheSiteId: config.siteId,
 		} );
 		spawnedChild = serverChild;
 

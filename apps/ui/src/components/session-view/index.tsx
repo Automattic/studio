@@ -151,15 +151,21 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		answerQuestion,
 		removeQueuedPrompt,
 	} = useAgentRun( sessionId );
-	const currentModel = useMemo( () => resolveSessionModel( data?.events ?? [] ), [ data?.events ] );
+	const currentModel = useMemo(
+		() => resolveSessionModel( data?.entries ?? [] ),
+		[ data?.entries ]
+	);
 	const pendingQuestionTexts = useMemo(
 		() => new Set( pendingQuestions.map( ( q ) => q.question ) ),
 		[ pendingQuestions ]
 	);
 	const composerBusy = hasActiveRun || pendingQuestions.length > 0;
 	const isEmpty = useMemo(
-		() => ! ( data?.events ?? [] ).some( ( event ) => event.type === 'user.message' ),
-		[ data?.events ]
+		() =>
+			! ( data?.entries ?? [] ).some(
+				( entry ) => entry.type === 'custom' && entry.customType === 'studio.user_prompt'
+			),
+		[ data?.entries ]
 	);
 	const scrollRef = useRef< HTMLDivElement >( null );
 	useSessionCommands( sessionId );
@@ -241,7 +247,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						sessionId={ sessionId }
 						effectiveEnvironment={ effectiveEnvironment }
 						liveSite={ liveSite }
-						events={ data.events }
+						entries={ data.entries }
 						ownerSiteId={ ownerSite?.id }
 					/>
 				</div>

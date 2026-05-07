@@ -2,7 +2,6 @@ export { ConnectorProvider, useConnector } from './connector-context';
 export { queryClient, persistPromise } from './query-client';
 export type {
 	AiModelId,
-	AiSessionEvent,
 	AiSessionSummary,
 	AuthUser,
 	ColorScheme,
@@ -14,8 +13,18 @@ export type {
 	LoadedAiSession,
 	ProposedSitePath,
 	SelectedSiteFolder,
+	SessionEntry,
 	SiteDetails,
 	Snapshot,
+	StudioAgentQuestionData,
+	StudioCustomEntry,
+	StudioCustomEntryDataMap,
+	StudioCustomEntryType,
+	StudioSessionContextData,
+	StudioSiteSelectedData,
+	StudioToolProgressData,
+	StudioTurnClosedData,
+	StudioUserPromptData,
 	SupportedEditor,
 	SupportedLocale,
 	SupportedTerminal,
@@ -23,4 +32,4 @@ export type {
 	UserPreferences,
 	WritableUserPreferences,
 } from './types';
-export type { AgentEvent, AgentRunEvent } from './agent-events';
+export type { AgentEvent, AgentRunEvent } from '@studio/common/ai/agent-events';

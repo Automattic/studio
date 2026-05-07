@@ -4,9 +4,9 @@ import { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
 import { ExportEventTuple, ImportEventTuple } from '@studio/common/lib/import-export-events';
 import { PreviewCommandLoggerAction } from '@studio/common/logger-actions';
 import { getMainWindow } from 'src/main-window';
+import type { AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { JsonEvent as StudioCodeEvent } from '@studio/common/ai/json-events';
 import type { StoredAuthToken } from '@studio/common/lib/shared-config';
-import type { AgentRunEvent } from 'src/modules/ai-agent/types';
-import type { StudioCodeEvent } from 'src/modules/studio-code/studio-code-event-types';
 
 type SnapshotEventData = {
 	action: PreviewCommandLoggerAction;

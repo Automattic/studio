@@ -6,6 +6,9 @@ import { DaemonResponse } from 'cli/lib/types/process-manager-ipc';
 
 const DEFAULT_CONNECT_TIMEOUT_MS = 500;
 const DEFAULT_RECONNECT_DELAY_MS = 500;
+// How long to wait for a socket's pending writes to flush during graceful close before
+// giving up and forcefully destroying it.
+const GRACEFUL_SOCKET_END_TIMEOUT_MS = 500;
 
 function isWindowsNamedPipe( endpoint: string ): boolean {
 	return endpoint.startsWith( '\\\\.\\pipe\\' );
@@ -421,20 +424,41 @@ export class SocketServer extends SocketServerEventEmitter {
 		} );
 	}
 
-	close(): Promise< void > {
-		return new Promise< void >( ( resolve ) => {
-			for ( const socket of this.sockets ) {
-				socket.destroy();
-			}
+	async close(): Promise< void > {
+		// End each socket gracefully so any pending writes (e.g. an in-flight response)
+		// have a chance to flush. Forcefully destroy as a fallback if the peer is slow.
+		await Promise.all(
+			Array.from( this.sockets ).map( ( socket ) => this.endSocketGracefully( socket ) )
+		);
 
-			if ( ! this.server.listening ) {
+		if ( ! this.server.listening ) {
+			return;
+		}
+
+		await new Promise< void >( ( resolve ) => {
+			this.server.close( () => {
+				resolve();
+			} );
+		} );
+	}
+
+	private endSocketGracefully( socket: net.Socket ): Promise< void > {
+		return new Promise< void >( ( resolve ) => {
+			if ( socket.destroyed ) {
 				resolve();
 				return;
 			}
 
-			this.server.close( () => {
+			const fallback = setTimeout( () => {
+				socket.destroy();
+			}, GRACEFUL_SOCKET_END_TIMEOUT_MS );
+
+			socket.once( 'close', () => {
+				clearTimeout( fallback );
 				resolve();
 			} );
+
+			socket.end();
 		} );
 	}
 }

@@ -15,13 +15,16 @@ import { textResult } from './utils';
  * agent never sees the image — the user does, and the agent gets only a
  * confirmation string back.
  *
- * Only registered when the remote-session feature flag is on; the regular
- * desktop / interactive CLI flows don't expose this tool.
+ * Only registered when the agent is actually being driven by the
+ * remote-session daemon (`STUDIO_REMOTE_SESSION=1`); the regular desktop /
+ * interactive CLI flows don't expose this tool, even when the
+ * `STUDIO_ENABLE_REMOTE_SESSION` feature flag is on.
  */
 export const shareScreenshotTool = defineTool(
 	'share_screenshot',
 	'Fire-and-forget primitive that captures a URL and delivers the image to the user. ' +
-		'Call after ANY visible change to a site so the user sees the new state. ' +
+		'Use this when the user explicitly asks to see the site, or when you finish a logical milestone with a clear visible result worth looking at — not after every intermediate edit. ' +
+		'One screenshot per milestone, not per tool call. If the change is non-visual (data, listings, logs), skip the screenshot and reply in text. ' +
 		'Returns a confirmation string only — the image is NOT returned to you. ' +
 		'The user already has the picture; do not analyze or describe what was sent in your reply. ' +
 		'After calling this, write at most one short follow-up sentence and end the turn. ' +

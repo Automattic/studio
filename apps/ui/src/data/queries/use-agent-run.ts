@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
-import type { AgentEvent, AgentRunEvent, AiSessionEvent, LoadedAiSession } from '@/data/core';
+import type { AgentEvent, AgentRunEvent, LoadedAiSession, SessionEntry } from '@/data/core';
 
 function nowIso(): string {
 	return new Date().toISOString();
@@ -10,6 +10,11 @@ function nowIso(): string {
 
 function newId(): string {
 	return `${ Date.now().toString( 36 ) }-${ Math.random().toString( 36 ).slice( 2, 10 ) }`;
+}
+
+// Optimistic entry id; the next refetch replaces it with the disk-backed one.
+function shortEntryId(): string {
+	return Math.random().toString( 36 ).slice( 2, 10 );
 }
 
 export interface PendingQuestion {
@@ -207,7 +212,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 	}, [ sessionId ] );
 
 	const updateCache = useCallback(
-		( updater: ( events: AiSessionEvent[] ) => AiSessionEvent[] ) => {
+		( updater: ( entries: SessionEntry[] ) => SessionEntry[] ) => {
 			if ( ! sessionId ) {
 				return;
 			}
@@ -217,8 +222,9 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 					if ( ! prev ) {
 						return prev;
 					}
-					const events = updater( prev.events );
-					return events === prev.events ? prev : { ...prev, events };
+					const current = prev.entries ?? [];
+					const entries = updater( current );
+					return entries === current ? prev : { ...prev, entries };
 				}
 			);
 		},
@@ -258,54 +264,92 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 				case 'run.exited':
 				case 'run.interrupted':
 					if ( event.type === 'run.interrupted' ) {
-						// Append a synthetic `turn.closed` so the conversation view
-						// renders the "Interrupted by you" marker immediately. The
-						// CLI also persists a real `turn.closed` to the session file,
-						// so the marker survives a reload.
-						updateCache( ( events ) => [
-							...events,
+						// Synthetic studio.turn_closed for immediate "Interrupted
+						// by you" rendering; the CLI also writes a real one.
+						updateCache( ( entries ) => [
+							...entries,
 							{
-								type: 'turn.closed',
+								type: 'custom',
+								id: shortEntryId(),
+								parentId: null,
 								timestamp: event.timestamp,
-								status: 'interrupted',
-							},
+								customType: 'studio.turn_closed',
+								data: { status: 'interrupted' },
+							} as SessionEntry,
 						] );
 					}
 					dispatch( { type: 'run_ended' } );
 					subscribedRunIdRef.current = null;
-					// Only refresh the sessions list (sidebar summaries, updatedAt).
-					// The per-session cache already reflects the streamed events; a
-					// refetch here would clobber any optimistic user message the
-					// user just queued for the next turn.
+					// Refetch to replace optimistic entries with disk-backed ones.
 					void queryClient.invalidateQueries( {
 						queryKey: SESSIONS_QUERY_KEY,
-						exact: true,
 					} );
 					return;
-				case 'message':
-					updateCache( ( events ) => [
-						...events,
-						{ type: 'sdk.message', timestamp: event.timestamp, message: event.message },
-					] );
+				case 'message': {
+					// Only message-bearing pi event variants need optimistic entries.
+					const inner = event.message;
+					if (
+						inner.type === 'message_end' &&
+						( inner.message as { role?: string } ).role === 'assistant'
+					) {
+						updateCache( ( entries ) => [
+							...entries,
+							{
+								type: 'message',
+								id: shortEntryId(),
+								parentId: null,
+								timestamp: event.timestamp,
+								message: inner.message,
+							} as unknown as SessionEntry,
+						] );
+					} else if ( inner.type === 'turn_end' ) {
+						const toolResults = inner.toolResults;
+						if ( Array.isArray( toolResults ) && toolResults.length > 0 ) {
+							updateCache( ( entries ) => [
+								...entries,
+								...toolResults.map(
+									( tr ) =>
+										( {
+											type: 'message',
+											id: shortEntryId(),
+											parentId: null,
+											timestamp: event.timestamp,
+											message: tr,
+										} ) as unknown as SessionEntry
+								),
+							] );
+						}
+					}
 					return;
+				}
 				case 'progress':
-					updateCache( ( events ) => [
-						...events,
-						{ type: 'tool.progress', timestamp: event.timestamp, message: event.message },
+					updateCache( ( entries ) => [
+						...entries,
+						{
+							type: 'custom',
+							id: shortEntryId(),
+							parentId: null,
+							timestamp: event.timestamp,
+							customType: 'studio.tool_progress',
+							data: { message: event.message },
+						} as SessionEntry,
 					] );
 					return;
 				case 'question.asked':
-					if ( event.questions.length === 0 ) {
-						return;
-					}
-					updateCache( ( events ) => [
-						...events,
-						...event.questions.map( ( q ) => ( {
-							type: 'agent.question' as const,
-							timestamp: event.timestamp,
-							question: q.question,
-							options: q.options,
-						} ) ),
+					if ( event.questions.length === 0 ) return;
+					updateCache( ( entries ) => [
+						...entries,
+						...event.questions.map(
+							( q ) =>
+								( {
+									type: 'custom',
+									id: shortEntryId(),
+									parentId: null,
+									timestamp: event.timestamp,
+									customType: 'studio.agent_question',
+									data: { question: q.question, options: q.options },
+								} ) as SessionEntry
+						),
 					] );
 					dispatch( { type: 'questions_added', questions: event.questions } );
 					return;
@@ -325,13 +369,15 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 			const displayMessage = options.displayMessage ?? prompt;
 			dispatch( { type: 'error_set', message: null } );
 
-			const optimisticEvent: AiSessionEvent = {
-				type: 'user.message',
+			const optimisticEntry: SessionEntry = {
+				type: 'custom',
+				id: shortEntryId(),
+				parentId: null,
 				timestamp: nowIso(),
-				text: displayMessage,
-				source: 'prompt',
-			};
-			updateCache( ( events ) => [ ...events, optimisticEvent ] );
+				customType: 'studio.user_prompt',
+				data: { text: displayMessage, source: 'prompt' },
+			} as SessionEntry;
+			updateCache( ( entries ) => [ ...entries, optimisticEntry ] );
 			dispatch( { type: 'send_pending', startedAt: Date.now() } );
 
 			try {
@@ -353,12 +399,10 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 				dispatch( { type: 'send_start', runId: newRunId, startedAt: Date.now() } );
 				subscribedRunIdRef.current = newRunId;
 			} catch ( err ) {
-				updateCache( ( events ) => {
-					const idx = events.lastIndexOf( optimisticEvent );
-					if ( idx === -1 ) {
-						return events;
-					}
-					return [ ...events.slice( 0, idx ), ...events.slice( idx + 1 ) ];
+				updateCache( ( entries ) => {
+					const idx = entries.lastIndexOf( optimisticEntry );
+					if ( idx === -1 ) return entries;
+					return [ ...entries.slice( 0, idx ), ...entries.slice( idx + 1 ) ];
 				} );
 				const message = err instanceof Error ? err.message : String( err );
 				dispatch( { type: 'error_set', message } );
@@ -420,13 +464,16 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 			interruptPendingStartRef.current = true;
 		}
 		subscribedRunIdRef.current = null;
-		updateCache( ( events ) => [
-			...events,
+		updateCache( ( entries ) => [
+			...entries,
 			{
-				type: 'turn.closed',
+				type: 'custom',
+				id: shortEntryId(),
+				parentId: null,
 				timestamp: nowIso(),
-				status: 'interrupted',
-			},
+				customType: 'studio.turn_closed',
+				data: { status: 'interrupted' },
+			} as SessionEntry,
 		] );
 		// Optimistic feedback: the main-process `run.interrupting` event will
 		// also set this, but flipping state on the click keeps the button

@@ -2,15 +2,19 @@ import {
 	__experimentalVStack as VStack,
 	__experimentalHeading as Heading,
 	__experimentalText as Text,
+	SearchControl as SearchControlWp,
 	Spinner,
 } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
-import { useCallback } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import StudioButton from 'src/components/button';
 import { EMPTY_SITE_PLAYGROUND_URL } from 'src/constants';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+
+const SearchControl = process.env.NODE_ENV === 'test' ? () => null : SearchControlWp;
+
 interface Blueprint {
 	slug: string;
 	title: string;
@@ -200,10 +204,10 @@ function renameBlueprintsForDisplay(
 	const excerptOverrides = getBlueprintExcerptOverrides( __ );
 	return [ ...blueprints ]
 		.sort( ( a, b ) => ( BLUEPRINT_ORDER[ a.title ] ?? 99 ) - ( BLUEPRINT_ORDER[ b.title ] ?? 99 ) )
-		.map( ( bp ) => ( {
-			...bp,
-			excerpt: excerptOverrides[ bp.title ] || bp.excerpt,
-			title: BLUEPRINT_DISPLAY_NAMES[ bp.title ] || bp.title,
+		.map( ( item ) => ( {
+			...item,
+			excerpt: excerptOverrides[ item.title ] || item.excerpt,
+			title: BLUEPRINT_DISPLAY_NAMES[ item.title ] || item.title,
 		} ) );
 }
 
@@ -218,6 +222,29 @@ export function NewSiteOptions( {
 	uploadButton,
 }: NewSiteOptionsProps ) {
 	const { __ } = useI18n();
+	const [ searchQuery, setSearchQuery ] = useState( '' );
+
+	const featuredBlueprints = blueprints.filter( ( blueprint ) =>
+		FEATURED_BLUEPRINT_SLUGS.has( blueprint.slug )
+	);
+	const exploreBlueprints = blueprints.filter(
+		( blueprint ) => ! FEATURED_BLUEPRINT_SLUGS.has( blueprint.slug )
+	);
+
+	const filteredExploreBlueprints = useMemo( () => {
+		const query = searchQuery.toLowerCase().trim();
+		if ( ! query ) {
+			return exploreBlueprints;
+		}
+		return exploreBlueprints.filter( ( blueprint ) => {
+			const titleMatch = blueprint.title.toLowerCase().includes( query );
+			const excerptMatch = blueprint.excerpt.toLowerCase().includes( query );
+			const categoryMatch = blueprint.blueprint?.meta?.categories?.some( ( category ) =>
+				category.toLowerCase().includes( query )
+			);
+			return titleMatch || excerptMatch || categoryMatch;
+		} );
+	}, [ exploreBlueprints, searchQuery ] );
 
 	const handleEmptyClick = useCallback( () => {
 		onBlueprintChange( 'empty' );
@@ -228,11 +255,6 @@ export function NewSiteOptions( {
 			onBlueprintChange( slug );
 		},
 		[ onBlueprintChange ]
-	);
-
-	const featuredBlueprints = blueprints.filter( ( bp ) => FEATURED_BLUEPRINT_SLUGS.has( bp.slug ) );
-	const exploreBlueprints = blueprints.filter(
-		( bp ) => ! FEATURED_BLUEPRINT_SLUGS.has( bp.slug )
 	);
 
 	return (
@@ -266,12 +288,12 @@ export function NewSiteOptions( {
 					</div>
 				) : (
 					enableBlueprints &&
-					renameBlueprintsForDisplay( featuredBlueprints, __ ).map( ( bp ) => (
+					renameBlueprintsForDisplay( featuredBlueprints, __ ).map( ( item ) => (
 						<BlueprintCard
-							key={ bp.slug }
-							blueprint={ bp }
-							isSelected={ selectedBlueprint === bp.slug }
-							onClick={ () => handleBlueprintClick( bp.slug ) }
+							key={ item.slug }
+							blueprint={ item }
+							isSelected={ selectedBlueprint === item.slug }
+							onClick={ () => handleBlueprintClick( item.slug ) }
 						/>
 					) )
 				) }
@@ -279,22 +301,34 @@ export function NewSiteOptions( {
 
 			{ enableBlueprints && ! isLoadingBlueprints && exploreBlueprints.length > 0 && (
 				<>
-					<Heading
-						className="text-[18px] text-frame-text mt-8 mb-4 w-full max-w-2xl mx-auto"
-						weight={ 500 }
-					>
-						{ __( 'Explore more blueprints' ) }
-					</Heading>
-					<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-2xl mx-auto pb-1">
-						{ exploreBlueprints.map( ( bp ) => (
-							<BlueprintCard
-								key={ bp.slug }
-								blueprint={ bp }
-								isSelected={ selectedBlueprint === bp.slug }
-								onClick={ () => handleBlueprintClick( bp.slug ) }
-							/>
-						) ) }
+					<div className="flex items-center justify-between w-full max-w-2xl mx-auto mt-8 mb-4">
+						<Heading className="text-[18px] text-frame-text" weight={ 500 }>
+							{ __( 'Explore more blueprints' ) }
+						</Heading>
+						<SearchControl
+							className="!w-48 text-frame-text"
+							placeholder={ __( 'Search blueprints' ) }
+							onChange={ setSearchQuery }
+							value={ searchQuery }
+							__nextHasNoMarginBottom={ true }
+						/>
 					</div>
+					{ filteredExploreBlueprints.length === 0 ? (
+						<div className="flex items-center justify-center text-sm text-frame-text-secondary py-8 max-w-2xl mx-auto">
+							{ __( 'No blueprints found.' ) }
+						</div>
+					) : (
+						<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-2xl mx-auto pb-1">
+							{ filteredExploreBlueprints.map( ( item ) => (
+								<BlueprintCard
+									key={ item.slug }
+									blueprint={ item }
+									isSelected={ selectedBlueprint === item.slug }
+									onClick={ () => handleBlueprintClick( item.slug ) }
+								/>
+							) ) }
+						</div>
+					) }
 				</>
 			) }
 		</VStack>

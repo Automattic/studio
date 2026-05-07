@@ -1,22 +1,31 @@
 import { describe, expect, it } from 'vitest';
 import { RECTANGLE_WIDGET_SHAPE_TYPE } from '@/ui-desks/shapes/rectangle-widget/types';
-import { createNoteWidget } from '@/ui-desks/widgets/note/defaults';
 import {
 	canvasCameraToDeskViewport,
 	canvasShapeToDeskWidget,
 	deskWidgetToCanvasShape,
 } from './tldraw-adapter';
+import type { NoteWidget } from '@/ui-desks/widgets/note/types';
 import type { TLShape } from 'tldraw';
 
 describe( 'tldraw adapter', () => {
 	it( 'maps a desk note widget to a canvas shape', () => {
-		const widget = createNoteWidget( {
+		const widget: NoteWidget = {
 			id: 'note-1',
+			type: 'note',
+			shapeType: RECTANGLE_WIDGET_SHAPE_TYPE,
 			x: 10,
 			y: 20,
 			zIndex: 'a1',
-			text: 'Hello',
-		} );
+			shapeProps: {
+				w: 260,
+				h: 220,
+			},
+			widgetProps: {
+				text: 'Hello',
+				color: 'yellow',
+			},
+		};
 
 		expect( deskWidgetToCanvasShape( widget ) ).toMatchObject( {
 			id: 'shape:note-1',

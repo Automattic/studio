@@ -22,17 +22,14 @@ import {
 	truncateToWidth,
 	CURSOR_MARKER,
 } from '@mariozechner/pi-tui';
+import { DEFAULT_MODEL, getAiModelLabel, type AiModelId } from '@studio/common/ai/models';
+import { findLastAssistant } from '@studio/common/ai/session-events';
 import { randomThinkingMessage } from '@studio/common/ai/thinking-messages';
 import { getToolDetail, getToolDisplayName } from '@studio/common/ai/tools';
 import chalk from '@studio/common/lib/chalk';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { DEFAULT_MODEL, getAiModelLabel, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
-import {
-	findLastAssistant,
-	type AiOutputAdapter,
-	type HandleEventResult,
-} from 'cli/ai/output-adapter';
+import { type AiOutputAdapter } from 'cli/ai/output-adapter';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
 import { getActiveSlashCommands } from 'cli/ai/slash-commands';
 import { buildTodoUpdateLines, type TodoRenderLine } from 'cli/ai/todo-render';
@@ -44,6 +41,7 @@ import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { getSitesRunningStatus, isSiteRunning } from 'cli/lib/site-utils';
 import type { ToolResultMessage } from '@mariozechner/pi-ai';
 import type { AgentSessionEvent } from '@mariozechner/pi-coding-agent';
+import type { AskUserQuestion, SiteInfo } from 'cli/ai/types';
 
 interface TodoWriteInput {
 	todos: Array< {
@@ -64,15 +62,6 @@ const sitePickerTheme: SelectListTheme = {
 	scrollInfo: ( text ) => chalk.dim( text ),
 	noMatch: ( text ) => chalk.dim( text ),
 };
-
-export interface SiteInfo {
-	name: string;
-	path: string;
-	running: boolean;
-	remote?: boolean;
-	url?: string;
-	wpcomSiteId?: number;
-}
 
 const DEFAULT_COLLAPSE_THRESHOLD_LINES = 5;
 
@@ -355,7 +344,6 @@ export class AiChatUI implements AiOutputAdapter {
 	>();
 	currentModel: AiModelId = DEFAULT_MODEL;
 	currentProvider: AiProviderId = DEFAULT_AI_PROVIDER;
-	currentSessionId: string | undefined;
 	private numTurns = 0;
 
 	private optionPickerContainer: Container | null = null;
@@ -938,15 +926,7 @@ export class AiChatUI implements AiOutputAdapter {
 		toolName: string,
 		toolInput: Record< string, unknown > | null
 	): Promise< void > {
-		// Tool names arrive in two flavors depending on the runtime:
-		//   - Anthropic (Claude Agent SDK): `mcp__studio__site_create` (the SDK
-		//     auto-prefixes MCP-server tool names).
-		//   - OpenAI (pi-agent-core): `site_create` (registered by bare name).
-		// Strip the prefix so the switch below stays single-source.
-		const bareName = toolName.startsWith( 'mcp__studio__' )
-			? toolName.slice( 'mcp__studio__'.length )
-			: toolName;
-		switch ( bareName ) {
+		switch ( toolName ) {
 			case 'site_create': {
 				const name = toolInput?.name;
 				if ( typeof name === 'string' ) {
@@ -959,7 +939,7 @@ export class AiChatUI implements AiOutputAdapter {
 				const nameOrPath = toolInput?.nameOrPath;
 				if ( typeof nameOrPath === 'string' ) {
 					await this.selectLocalSiteFromTool( nameOrPath, {
-						running: bareName === 'site_start' ? true : undefined,
+						running: toolName === 'site_start' ? true : undefined,
 					} );
 				}
 				break;
@@ -1875,7 +1855,7 @@ export class AiChatUI implements AiOutputAdapter {
 			return;
 		}
 
-		const maxLength = toolName === 'mcp__studio__validate_blocks' ? 2000 : 500;
+		const maxLength = toolName === 'validate_blocks' ? 2000 : 500;
 		const truncated = text.length > maxLength ? text.slice( 0, maxLength ) + '…' : text;
 		const resultLines = truncated.split( '\n' );
 		this.addExpandablePreview(
@@ -2068,15 +2048,15 @@ export class AiChatUI implements AiOutputAdapter {
 	 * Process a runtime event and update the UI.
 	 * Returns session result when the agent turn is complete.
 	 */
-	handleEvent( event: AgentSessionEvent ): HandleEventResult | undefined {
+	handleEvent( event: AgentSessionEvent ): void {
 		if ( this.wasInterrupted && event.type !== 'agent_end' ) {
-			return undefined;
+			return;
 		}
 
 		switch ( event.type ) {
 			case 'compaction_start':
 				this.showLoader( __( 'Compacting conversation history…' ) );
-				return undefined;
+				return;
 			case 'compaction_end':
 				this.hideLoader();
 				if ( event.errorMessage ) {
@@ -2084,11 +2064,11 @@ export class AiChatUI implements AiOutputAdapter {
 				} else if ( event.result && ! event.aborted ) {
 					this.showInfo( __( 'Conversation history compacted' ) );
 				}
-				return undefined;
+				return;
 			case 'message_end': {
 				const message = event.message;
 				if ( message.role !== 'assistant' ) {
-					return undefined;
+					return;
 				}
 
 				// Detect the AI usage cap response from the WordPress.com proxy.
@@ -2111,7 +2091,7 @@ export class AiChatUI implements AiOutputAdapter {
 					);
 					this.currentMarkdown = null;
 					this.currentResponseText = '';
-					return undefined;
+					return;
 				}
 
 				for ( const block of message.content ) {
@@ -2164,29 +2144,23 @@ export class AiChatUI implements AiOutputAdapter {
 				if ( ! this.replayMode && ! this.loaderVisible ) {
 					this.showLoader( randomThinkingMessage() );
 				}
-				return undefined;
+				return;
 			}
 			case 'turn_end': {
 				this.numTurns += 1;
 				this.renderToolResults( event.toolResults );
-				return undefined;
+				return;
 			}
 			case 'agent_end': {
 				this.hideLoader();
-				const sessionId = this.currentSessionId ?? '';
 
 				if ( this.usageCapReached ) {
-					return { type: 'result', sessionId, success: false };
+					return;
 				}
 
 				if ( this.wasInterrupted ) {
 					this.showInterruptedNotice();
-					return {
-						type: 'result',
-						sessionId,
-						success: false,
-						interrupted: true,
-					};
+					return;
 				}
 
 				const lastAssistant = findLastAssistant( event.messages );
@@ -2201,7 +2175,7 @@ export class AiChatUI implements AiOutputAdapter {
 						.join( '\n' )
 						.trim();
 					this.showError( errorText || fallbackText || __( 'Unknown error' ) );
-					return { type: 'result', sessionId, success: false };
+					return;
 				}
 
 				const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
@@ -2218,14 +2192,14 @@ export class AiChatUI implements AiOutputAdapter {
 						this.numTurns
 					)
 				);
-				return { type: 'result', sessionId, success: true };
+				return;
 			}
 			default:
 				// agent_start / turn_start / message_start / message_update /
 				// tool_execution_* — UI doesn't act on these directly; pi
 				// events drive incremental state but the visible transitions
 				// happen at message_end / turn_end / agent_end.
-				return undefined;
+				return;
 		}
 	}
 }

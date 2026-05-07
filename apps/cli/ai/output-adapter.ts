@@ -1,37 +1,12 @@
-import { DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
+import { DEFAULT_MODEL, type AiModelId } from '@studio/common/ai/models';
 import { emitEvent, type TurnCompletedStatus } from 'cli/ai/json-events';
-import type { AgentMessage } from '@mariozechner/pi-agent-core';
-import type { AssistantMessage } from '@mariozechner/pi-ai';
 import type { AgentSessionEvent } from '@mariozechner/pi-coding-agent';
 import type { AiProviderId } from 'cli/ai/providers';
-import type { SiteInfo } from 'cli/ai/ui';
-
-export function findLastAssistant(
-	messages: ReadonlyArray< AgentMessage >
-): AssistantMessage | undefined {
-	for ( let i = messages.length - 1; i >= 0; i -= 1 ) {
-		const m = messages[ i ];
-		if ( ( m as AssistantMessage ).role === 'assistant' ) {
-			return m as AssistantMessage;
-		}
-	}
-	return undefined;
-}
-
-export type HandleEventResult = {
-	type: 'result';
-	sessionId: string;
-	success: boolean;
-	interrupted?: boolean;
-};
+import type { AskUserQuestion, SiteInfo } from 'cli/ai/types';
 
 export interface AiOutputAdapter {
 	currentProvider: AiProviderId;
 	currentModel: AiModelId;
-	// Set by the orchestrator before dispatching a turn so handlers that
-	// surface a per-session `HandleEventResult` (e.g. JSON-mode trailers)
-	// don't have to thread the session id through every event.
-	currentSessionId?: string;
 	activeSite: SiteInfo | null;
 	onSiteSelected: ( ( site: SiteInfo ) => void ) | null;
 	onInterrupt: ( () => void ) | null;
@@ -51,10 +26,10 @@ export interface AiOutputAdapter {
 	setDaemonStatus( state: { running: boolean; pid?: number } ): void;
 	setLoaderMessage( message: string, update?: boolean ): void;
 
-	beginAgentTurn(): void;
+	beginAgentTurn( sessionId?: string ): void;
 	endAgentTurn(): void;
 	addUserMessage( text: string ): void;
-	handleEvent( event: AgentSessionEvent ): HandleEventResult | undefined;
+	handleEvent( event: AgentSessionEvent ): void;
 
 	waitForInput(): Promise< string >;
 	askUser( questions: AskUserQuestion[] ): Promise< Record< string, string > >;
@@ -64,7 +39,6 @@ export interface AiOutputAdapter {
 export class JsonAdapter implements AiOutputAdapter {
 	currentProvider: AiProviderId = 'wpcom';
 	currentModel: AiModelId = DEFAULT_MODEL;
-	currentSessionId: string | undefined;
 	activeSite: SiteInfo | null = null;
 	onSiteSelected: ( ( site: SiteInfo ) => void ) | null = null;
 	onInterrupt: ( () => void ) | null = null;
@@ -72,6 +46,7 @@ export class JsonAdapter implements AiOutputAdapter {
 	permissionResponse: Record< string, string > | null = null;
 
 	private ipcMessageListener: ( ( message: unknown ) => void ) | null = null;
+	private activeSessionId = '';
 
 	start(): void {
 		// When forked from Studio, route the parent's IPC `interrupt` message
@@ -143,7 +118,8 @@ export class JsonAdapter implements AiOutputAdapter {
 		this.showProgress( message );
 	}
 
-	beginAgentTurn(): void {
+	beginAgentTurn( sessionId?: string ): void {
+		this.activeSessionId = sessionId ?? '';
 		emitEvent( { type: 'turn.started', timestamp: new Date().toISOString() } );
 	}
 
@@ -155,33 +131,23 @@ export class JsonAdapter implements AiOutputAdapter {
 		// No-op in JSON mode — the service already knows the message it sent
 	}
 
-	handleEvent( event: AgentSessionEvent ): HandleEventResult | undefined {
+	handleEvent( event: AgentSessionEvent ): void {
 		// Forward the event verbatim so the desktop main process can re-derive
 		// state without loading the JSONL itself. The wire keeps the legacy
 		// `'message'` envelope for compatibility with the renderer's parser,
 		// but the inner payload is now the native AgentSessionEvent.
 		emitEvent( { type: 'message', timestamp: new Date().toISOString(), message: event } );
-
-		if ( event.type === 'agent_end' ) {
-			const sessionId = this.currentSessionId ?? '';
-			const lastAssistant = findLastAssistant( event.messages );
-			const success =
-				! lastAssistant ||
-				( lastAssistant.stopReason !== 'error' && lastAssistant.stopReason !== 'aborted' );
-			return { type: 'result', sessionId, success };
-		}
-
-		return undefined;
 	}
 
 	emitTurnCompleted(
 		status: TurnCompletedStatus,
+		sessionId: string,
 		usage?: { numTurns: number; costUsd?: number }
 	): void {
 		emitEvent( {
 			type: 'turn.completed',
 			timestamp: new Date().toISOString(),
-			sessionId: this.currentSessionId ?? '',
+			sessionId,
 			status,
 			usage,
 		} );
@@ -230,7 +196,7 @@ export class JsonAdapter implements AiOutputAdapter {
 			} );
 		}
 
-		this.emitTurnCompleted( 'paused' );
+		this.emitTurnCompleted( 'paused', this.activeSessionId );
 		await this.onBeforeExit?.();
 		process.exitCode = 0;
 		return new Promise< Record< string, string > >( () => {} );

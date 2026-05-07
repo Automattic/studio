@@ -7,8 +7,6 @@ export interface AiSessionSummary {
 	filePath: string;
 	createdAt: string;
 	updatedAt: string;
-	agentSessionId?: string;
-	linkedAgentSessionIds: string[];
 	firstPrompt?: string;
 	// The first local site the session attached to. Acts as the session's owner
 	// in the UI sidebar. Undefined for sessions that only ever selected remote

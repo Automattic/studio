@@ -69,6 +69,10 @@ interface LegacyToolResult {
 
 type ToolNameLookup = Map< string, string >;
 
+function normalizeLegacyToolName( name: string ): string {
+	return name.startsWith( 'mcp__studio__' ) ? name.slice( 'mcp__studio__'.length ) : name;
+}
+
 function buildAssistantMessage(
 	model: string,
 	timestampMs: number,
@@ -86,7 +90,7 @@ function buildAssistantMessage(
 			out.push( {
 				type: 'toolCall',
 				id: block.id,
-				name: block.name,
+				name: normalizeLegacyToolName( block.name ),
 				arguments: block.input ?? {},
 			} );
 		} else if ( block.type === 'thinking' && typeof block.thinking === 'string' ) {
@@ -207,13 +211,14 @@ export function migrateLegacyEvents( events: LegacyEvent[], cwd: string ): PiFil
 	const headerTimestamp =
 		typeof header?.timestamp === 'string' ? header.timestamp : new Date().toISOString();
 
-	out.push( {
+	const sessionHeader: PiFileEntry = {
 		type: 'session',
 		version: PI_SESSION_VERSION,
 		id: sessionId,
 		timestamp: headerTimestamp,
 		cwd,
-	} );
+	};
+	out.push( sessionHeader );
 
 	const append = ( entry: PiFileEntry ): void => {
 		out.push( entry );
@@ -266,26 +271,15 @@ export function migrateLegacyEvents( events: LegacyEvent[], cwd: string ): PiFil
 				continue;
 			}
 			case 'session.linked':
-				append( {
-					type: 'custom',
-					id: nextId(),
-					parentId,
-					timestamp: ts,
-					customType: 'studio.session_linked',
-					data: {
-						agentSessionId: typeof event.agentSessionId === 'string' ? event.agentSessionId : '',
-					},
-				} );
 				continue;
 			case 'session.cleared':
-				append( {
-					type: 'custom',
-					id: nextId(),
-					parentId,
-					timestamp: ts,
-					customType: 'studio.session_cleared',
-					data: {},
-				} );
+				// Legacy SDK sessions used an in-branch clear marker. Pi sessions
+				// model `/clear` as a fresh conversation, so keep only entries
+				// after the most recent clear.
+				out.splice( 1 );
+				parentId = null;
+				lastModelId = undefined;
+				toolNameLookup.clear();
 				continue;
 			case 'site.selected':
 				append( {
@@ -385,7 +379,7 @@ export function migrateLegacyEvents( events: LegacyEvent[], cwd: string ): PiFil
 							typeof block.id === 'string' &&
 							typeof block.name === 'string'
 						) {
-							toolNameLookup.set( block.id, block.name );
+							toolNameLookup.set( block.id, normalizeLegacyToolName( block.name ) );
 						}
 					}
 					append( {

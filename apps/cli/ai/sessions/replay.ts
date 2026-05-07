@@ -5,7 +5,6 @@
 // don't appear in pi's flat `buildSessionContext()` output).
 
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
-import { filterEntriesAfterLastClear } from '@studio/common/ai/sessions/filter-events';
 import { AiChatUI } from 'cli/ai/ui';
 import type { ToolResultMessage } from '@mariozechner/pi-ai';
 import type { SessionEntry } from '@mariozechner/pi-coding-agent';
@@ -22,7 +21,7 @@ export function replaySessionHistory( ui: AiChatUI, entries: SessionEntry[] ): v
 	};
 
 	try {
-		for ( const entry of filterEntriesAfterLastClear( entries ) ) {
+		for ( const entry of entries ) {
 			ui.setReplayTimestamp( entry.timestamp );
 
 			if ( isStudioCustomEntryOfType( entry, 'studio.site_selected' ) ) {

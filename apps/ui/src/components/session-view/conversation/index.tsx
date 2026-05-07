@@ -2,7 +2,6 @@ import {
 	isStudioCustomEntryOfType,
 	type StudioCustomEntry,
 } from '@studio/common/ai/sessions/entry-types';
-import { filterEntriesAfterLastClear } from '@studio/common/ai/sessions/filter-events';
 import {
 	getToolDetail,
 	getToolDisplayName,
@@ -56,12 +55,10 @@ interface PiToolResultLike {
 }
 
 function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
-	const relevant = filterEntriesAfterLastClear( entries );
-
 	// First pass: collect tool_call_id → tool_result pairings so each
 	// `toolCall` row can render its output inline.
 	const resultsByToolCallId = new Map< string, NormalizedToolResult >();
-	for ( const entry of relevant ) {
+	for ( const entry of entries ) {
 		if ( entry.type !== 'message' ) continue;
 		const message = ( entry as { message?: unknown } ).message as PiToolResultLike | undefined;
 		if ( ! message || message.role !== 'toolResult' ) continue;
@@ -76,7 +73,7 @@ function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 	}
 
 	const items: RenderItem[] = [];
-	relevant.forEach( ( entry, entryIndex ) => {
+	entries.forEach( ( entry, entryIndex ) => {
 		if ( isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
 			const data = ( entry as StudioCustomEntry< 'studio.user_prompt' > ).data;
 			if ( ! data || data.source !== 'prompt' ) return;
@@ -285,7 +282,7 @@ export function Conversation( {
 	pendingAnswers: Record< string, string >;
 	onAnswerQuestion: ( question: string, label: string ) => void;
 } ) {
-	const entries = data.entries ?? [];
+	const entries = data.entries;
 	const items = useMemo( () => entriesToRenderItems( entries ), [ entries ] );
 	const progressMessage = useMemo(
 		() => ( isRunning ? findLatestProgressMessage( entries ) : null ),

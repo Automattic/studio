@@ -1,15 +1,11 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { Agent, type AgentEvent, type AgentTool, type StreamFn } from '@mariozechner/pi-agent-core';
-import {
-	type AssistantMessage,
-	type Message,
-	type Model,
-	type ToolResultMessage,
-} from '@mariozechner/pi-ai';
+import { type AgentEvent, type AgentTool } from '@mariozechner/pi-agent-core';
+import { type Model, type SimpleStreamOptions } from '@mariozechner/pi-ai';
 import { streamAnthropic, type AnthropicOptions } from '@mariozechner/pi-ai/anthropic';
 import {
+	AuthStorage,
 	buildSessionContext,
-	calculateContextTokens,
+	createAgentSession,
 	createBashTool,
 	createEditTool,
 	createFindTool,
@@ -17,6 +13,14 @@ import {
 	createLsTool,
 	createReadTool,
 	createWriteTool,
+	DefaultResourceLoader,
+	ModelRegistry,
+	SettingsManager,
+	type AgentSession,
+	type AgentSessionEvent,
+	type SessionEntry,
+	type SessionManager,
+	type ToolDefinition,
 } from '@mariozechner/pi-coding-agent';
 import { getAiModelFamily, type AiModelFamily, type AiModelId } from '@studio/common/ai/models';
 import { filterEntriesAfterLastClear } from '@studio/common/ai/sessions/filter-events';
@@ -29,20 +33,21 @@ import { createSkillTool } from 'cli/ai/tools/skill';
 import { takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
 import { createWpcomRequestTool } from 'cli/ai/tools/wpcom-request';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
-import { runCompaction, shouldCompact, STUDIO_COMPACTION_SETTINGS } from './auto-compaction';
 import type { AgentRuntime, AgentRuntimeConfig, AgentRuntimeHandle } from '../types';
-import type { AgentSessionEvent } from '@mariozechner/pi-coding-agent';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AgentToolAny = AgentTool< any >;
+type StudioModel = Model< 'openai-completions' > | Model< 'anthropic-messages' >;
+type ProviderConfigInput = Parameters< ModelRegistry[ 'registerProvider' ] >[ 1 ];
 
-interface CachedAgent {
-	agent: Agent;
-	model: Model< 'openai-completions' > | Model< 'anthropic-messages' >;
-	creds: ResolvedCredentials;
-}
-
-const AGENTS_BY_SESSION = new Map< string, CachedAgent >();
+const ACTIVE_SESSIONS_BY_ID = new Map< string, AgentSession >();
+const STUDIO_WPCOM_ANTHROPIC_PROVIDER = 'studio-wpcom-anthropic';
+const STUDIO_AGENT_DIR = STUDIO_SITES_ROOT;
+const STUDIO_COMPACTION_SETTINGS = {
+	enabled: true,
+	reserveTokens: 16_384,
+	keepRecentTokens: 20_000,
+};
 
 export const piRuntime: AgentRuntime = {
 	run( config: AgentRuntimeConfig ): AgentRuntimeHandle {
@@ -53,7 +58,7 @@ export const piRuntime: AgentRuntime = {
 		return {
 			async interrupt() {
 				controller.abort();
-				AGENTS_BY_SESSION.get( sessionId )?.agent.abort();
+				await ACTIVE_SESSIONS_BY_ID.get( sessionId )?.abort();
 			},
 			[ Symbol.asyncIterator ]() {
 				return events[ Symbol.asyncIterator ]();
@@ -62,12 +67,11 @@ export const piRuntime: AgentRuntime = {
 	},
 };
 
-// Drop any cached `Agent` for `sessionId`. Called from the orchestrator on
-// `/clear` so the next turn rebuilds the agent with the post-clear branch
-// — `agent.state.messages` is otherwise sticky across turns and would
-// keep showing the model the pre-clear transcript.
+// The AgentSession runtime rebuilds from SessionManager every turn, so there is
+// no sticky in-memory transcript to clear. Keep the exported hook for the
+// orchestrator, and abort an active turn if `/clear` somehow arrives mid-run.
 export function clearAgentForSession( sessionId: string ): void {
-	AGENTS_BY_SESSION.delete( sessionId );
+	void ACTIVE_SESSIONS_BY_ID.get( sessionId )?.abort();
 }
 
 interface ResolvedCredentials {
@@ -161,15 +165,6 @@ function syntheticErrorAgentEnd(
 	};
 }
 
-function findLastAssistant(
-	messages: ReadonlyArray< { role: string } >
-): AssistantMessage | undefined {
-	for ( let i = messages.length - 1; i >= 0; i -= 1 ) {
-		if ( messages[ i ].role === 'assistant' ) return messages[ i ] as AssistantMessage;
-	}
-	return undefined;
-}
-
 async function* createEventStream(
 	config: AgentRuntimeConfig,
 	sessionId: string,
@@ -183,91 +178,54 @@ async function* createEventStream(
 	}
 
 	try {
-		const cached = await getOrCreateAgent( sessionId, config, family, resolved.creds );
-		const { agent, model, creds } = cached;
+		const session = await createStudioAgentSession( config, family, resolved.creds );
+		ACTIVE_SESSIONS_BY_ID.set( sessionId, session );
 
 		const queue: AgentSessionEvent[] = [];
 		let resolveNext: ( () => void ) | null = null;
 		let done = false;
+		let seenAgentEnd = false;
+		let compacting = false;
+		let promptError: unknown;
 
 		const wake = () => {
 			resolveNext?.();
 			resolveNext = null;
 		};
 
-		// Run pi-style auto-compaction after the agent finishes a turn.
-		// Compaction events flow through `queue` like any other runtime
-		// event; while compaction is in flight `done` stays false so the
-		// loop drains them before exiting. No `agent.continue()` retry on
-		// overflow — the user re-prompts; the next request sees the
-		// compacted transcript.
-		const compactAfterAgentEnd = async ( last: AssistantMessage ): Promise< void > => {
-			const reason = shouldCompact( last, model, STUDIO_COMPACTION_SETTINGS );
-			if ( ! reason ) return;
-			queue.push( { type: 'compaction_start', reason } );
-			wake();
-			try {
-				const result = await runCompaction( {
-					agent,
-					sessionManager: config.session,
-					model,
-					apiKey: creds.apiKey,
-					headers: creds.extraHeaders,
-					settings: STUDIO_COMPACTION_SETTINGS,
-					signal: controller.signal,
-					tokensBefore: last.stopReason === 'error' ? 0 : calculateContextTokens( last.usage ),
-				} );
-				queue.push( {
-					type: 'compaction_end',
-					reason,
-					result,
-					aborted: controller.signal.aborted,
-					willRetry: false,
-				} );
-			} catch ( error ) {
-				queue.push( {
-					type: 'compaction_end',
-					reason,
-					result: undefined,
-					aborted: false,
-					willRetry: false,
-					errorMessage: error instanceof Error ? error.message : 'compaction failed',
-				} );
+		const maybeFinish = () => {
+			if ( seenAgentEnd && ! compacting ) {
+				done = true;
+				wake();
 			}
-			wake();
 		};
 
-		const unsubscribe = agent.subscribe( ( event: AgentEvent ) => {
-			if ( event.type === 'turn_end' ) {
-				config.session.appendMessage( event.message as Message );
-				for ( const tr of event.toolResults as ToolResultMessage[] ) {
-					config.session.appendMessage( tr );
-				}
+		const unsubscribe = session.subscribe( ( event: AgentSessionEvent ) => {
+			if ( event.type === 'compaction_start' ) {
+				compacting = true;
+			} else if ( event.type === 'compaction_end' ) {
+				compacting = false;
+				maybeFinish();
+			} else if ( event.type === 'agent_end' ) {
+				seenAgentEnd = true;
+				setTimeout( maybeFinish, 0 );
 			}
 
 			queue.push( event );
-
-			if ( event.type === 'agent_end' ) {
-				const last = findLastAssistant( event.messages );
-				const work = last ? compactAfterAgentEnd( last ) : Promise.resolve();
-				void work.then( () => {
-					done = true;
-					wake();
-				} );
-			}
-
 			wake();
 		} );
 
-		// Persist the user prompt before agent.prompt runs so disk matches the
-		// transcript the model sees.
-		config.session.appendMessage( {
-			role: 'user',
-			content: config.prompt,
-			timestamp: Date.now(),
-		} );
-
-		const runPromise = agent.prompt( config.prompt );
+		const runPromise = session
+			.prompt( config.prompt, { expandPromptTemplates: false, source: 'rpc' } )
+			.catch( ( error: unknown ) => {
+				promptError = error;
+			} )
+			.finally( () => {
+				if ( ! seenAgentEnd ) {
+					done = true;
+					wake();
+				}
+			} );
 
 		while ( true ) {
 			if ( queue.length > 0 ) {
@@ -282,7 +240,7 @@ async function* createEventStream(
 		}
 
 		unsubscribe();
-		await runPromise.catch( () => undefined );
+		await runPromise;
 
 		// If we exited the loop because the abort signal fired before pi
 		// emitted its own `agent_end`, synthesize one so consumers always
@@ -290,28 +248,28 @@ async function* createEventStream(
 		if ( ! done && controller.signal.aborted ) {
 			yield syntheticErrorAgentEnd( 'aborted', '' );
 		}
+		if ( promptError ) {
+			throw promptError;
+		}
 	} catch ( error ) {
 		const aborted = controller.signal.aborted;
 		const message = aborted ? '' : error instanceof Error ? error.message : String( error );
 		yield syntheticErrorAgentEnd( aborted ? 'aborted' : 'error', message );
+	} finally {
+		const active = ACTIVE_SESSIONS_BY_ID.get( sessionId );
+		if ( active ) {
+			active.dispose();
+			ACTIVE_SESSIONS_BY_ID.delete( sessionId );
+		}
 	}
 }
 
-async function getOrCreateAgent(
-	sessionId: string,
+async function createStudioAgentSession(
 	config: AgentRuntimeConfig,
 	family: AiModelFamily,
 	creds: ResolvedCredentials
-): Promise< CachedAgent > {
-	const existing = AGENTS_BY_SESSION.get( sessionId );
-	if ( existing && existing.agent.state.model.id === config.model ) {
-		// Refresh creds in case env tokens rotated between turns.
-		existing.creds = creds;
-		return existing;
-	}
-
+): Promise< AgentSession > {
 	const model = buildModel( config.model, family, creds );
-
 	const isRemoteSite = Boolean( config.activeSite?.remote && config.activeSite?.wpcomSiteId );
 	const isForkedByDesktop = typeof process.send === 'function';
 	const remoteSession = config.env.STUDIO_REMOTE_SESSION === '1';
@@ -330,44 +288,45 @@ async function getOrCreateAgent(
 	);
 
 	const tools = buildAgentTools( config, isForkedByDesktop );
+	const toolDefinitions = tools.map( toToolDefinition );
+	const { authStorage, modelRegistry } = createModelRegistry( model, family, creds );
+	const settingsManager = createSettingsManager( config.env );
+	const resourceLoader = new DefaultResourceLoader( {
+		cwd: STUDIO_SITES_ROOT,
+		agentDir: STUDIO_AGENT_DIR,
+		settingsManager,
+		noExtensions: true,
+		noSkills: true,
+		noPromptTemplates: true,
+		noThemes: true,
+		noContextFiles: true,
+		systemPrompt,
+	} );
+	await resourceLoader.reload();
 
-	// `/model` swap reuses the prior transcript; cold fork hydrates from disk.
-	// Pi's `buildSessionContext()` doesn't honor Studio's `studio.session_cleared`
-	// marker — pre-filter the branch through `filterEntriesAfterLastClear` so a
-	// resumed session that ended with `/clear` doesn't leak old turns to the
-	// model.
-	const initialMessages = existing
-		? existing.agent.state.messages
-		: buildSessionContext( filterEntriesAfterLastClear( config.session.getBranch() ) ).messages;
-
-	const streamFn: StreamFn | undefined =
-		family === 'anthropic' && creds.useBearerAuth
-			? buildAnthropicBearerStreamFn( creds )
-			: undefined;
-
-	const agent = new Agent( {
-		initialState: {
-			model,
-			systemPrompt,
-			messages: initialMessages,
-			tools,
-			thinkingLevel: 'high',
-		},
-		getApiKey: () => creds.apiKey,
-		sessionId,
-		...( streamFn ? { streamFn } : {} ),
+	const result = await createAgentSession( {
+		cwd: STUDIO_SITES_ROOT,
+		agentDir: STUDIO_AGENT_DIR,
+		authStorage,
+		modelRegistry,
+		model,
+		thinkingLevel: 'high',
+		sessionManager: createClearAwareSessionManager( config.session ),
+		settingsManager,
+		resourceLoader,
+		customTools: toolDefinitions,
+		tools: toolDefinitions.map( ( tool ) => tool.name ),
+		sessionStartEvent: { type: 'session_start', reason: 'startup' },
 	} );
 
-	const cached: CachedAgent = { agent, model, creds };
-	AGENTS_BY_SESSION.set( sessionId, cached );
-	return cached;
+	return result.session;
 }
 
 function buildModel(
 	modelId: AiModelId,
 	family: AiModelFamily,
 	creds: ResolvedCredentials
-): Model< 'openai-completions' > | Model< 'anthropic-messages' > {
+): StudioModel {
 	const baseUrl = creds.baseURL.replace( /\/+$/, '' );
 	const common = {
 		id: modelId,
@@ -391,27 +350,127 @@ function buildModel(
 	return {
 		...common,
 		api: 'anthropic-messages',
-		provider: 'anthropic',
+		provider: creds.useBearerAuth ? STUDIO_WPCOM_ANTHROPIC_PROVIDER : 'anthropic',
 		reasoning: true,
 		contextWindow: 200_000,
 		maxTokens: 8_192,
 	};
 }
 
-function buildAnthropicBearerStreamFn( creds: ResolvedCredentials ): StreamFn {
-	const client = new Anthropic( {
-		apiKey: null,
-		authToken: creds.apiKey,
-		baseURL: creds.baseURL,
-		dangerouslyAllowBrowser: true,
-		defaultHeaders: creds.extraHeaders,
+function createModelRegistry(
+	model: StudioModel,
+	family: AiModelFamily,
+	creds: ResolvedCredentials
+): { authStorage: AuthStorage; modelRegistry: ModelRegistry } {
+	const authStorage = AuthStorage.inMemory();
+	const modelRegistry = ModelRegistry.inMemory( authStorage );
+
+	if ( family === 'anthropic' && creds.useBearerAuth ) {
+		modelRegistry.registerProvider(
+			STUDIO_WPCOM_ANTHROPIC_PROVIDER,
+			createWpcomAnthropicProviderConfig( model as Model< 'anthropic-messages' >, creds )
+		);
+		return { authStorage, modelRegistry };
+	}
+
+	authStorage.setRuntimeApiKey( family, creds.apiKey );
+	return { authStorage, modelRegistry };
+}
+
+function createWpcomAnthropicProviderConfig(
+	model: Model< 'anthropic-messages' >,
+	creds: ResolvedCredentials
+): ProviderConfigInput {
+	return {
+		baseUrl: creds.baseURL,
+		apiKey: creds.apiKey,
+		api: 'anthropic-messages',
+		headers: creds.extraHeaders,
+		streamSimple: ( m, ctx, options?: SimpleStreamOptions ) => {
+			const client = new Anthropic( {
+				apiKey: null,
+				authToken: options?.apiKey ?? creds.apiKey,
+				baseURL: m.baseUrl,
+				dangerouslyAllowBrowser: true,
+				defaultHeaders: options?.headers,
+			} );
+			const clientForPi = client as unknown as AnthropicOptions[ 'client' ];
+			return streamAnthropic( m as Model< 'anthropic-messages' >, ctx, {
+				...( options as AnthropicOptions | undefined ),
+				client: clientForPi,
+			} );
+		},
+		models: [
+			{
+				id: model.id,
+				name: model.name,
+				api: 'anthropic-messages',
+				baseUrl: model.baseUrl,
+				reasoning: model.reasoning,
+				input: model.input,
+				cost: model.cost,
+				contextWindow: model.contextWindow,
+				maxTokens: model.maxTokens,
+				headers: creds.extraHeaders,
+				compat: model.compat,
+			},
+		],
+	};
+}
+
+function createSettingsManager( env: Record< string, string > ): SettingsManager {
+	const providerMaxRetries = parseOptionalNonNegativeInteger( env.CLAUDE_CODE_MAX_RETRIES );
+	return SettingsManager.inMemory( {
+		defaultThinkingLevel: 'high',
+		compaction: STUDIO_COMPACTION_SETTINGS,
+		retry: {
+			enabled: false,
+			...( providerMaxRetries === undefined
+				? {}
+				: { provider: { maxRetries: providerMaxRetries } } ),
+		},
 	} );
-	const clientForPi = client as unknown as AnthropicOptions[ 'client' ];
-	return ( m, ctx, options ) =>
-		streamAnthropic( m as Model< 'anthropic-messages' >, ctx, {
-			...( options as AnthropicOptions | undefined ),
-			client: clientForPi,
-		} );
+}
+
+function parseOptionalNonNegativeInteger( value: string | undefined ): number | undefined {
+	if ( value === undefined || value.trim() === '' ) return undefined;
+	const parsed = Number.parseInt( value, 10 );
+	return Number.isFinite( parsed ) && parsed >= 0 ? parsed : undefined;
+}
+
+function toToolDefinition( tool: AgentToolAny ): ToolDefinition {
+	return {
+		name: tool.name,
+		label: tool.label,
+		description: tool.description,
+		parameters: tool.parameters,
+		prepareArguments: tool.prepareArguments,
+		executionMode: tool.executionMode,
+		execute: async ( toolCallId, params, signal, onUpdate ) =>
+			tool.execute( toolCallId, params, signal, onUpdate ),
+	};
+}
+
+function createClearAwareSessionManager( session: SessionManager ): SessionManager {
+	const filteredBranch = ( fromId?: string ): SessionEntry[] =>
+		filterEntriesAfterLastClear( session.getBranch( fromId ) );
+	const filteredEntries = (): SessionEntry[] => filterEntriesAfterLastClear( session.getEntries() );
+
+	return new Proxy( session, {
+		get( target, prop, receiver ) {
+			if ( prop === 'getBranch' ) {
+				return filteredBranch;
+			}
+			if ( prop === 'getEntries' ) {
+				return filteredEntries;
+			}
+			if ( prop === 'buildSessionContext' ) {
+				return () => buildSessionContext( filteredBranch() );
+			}
+			const value = Reflect.get( target, prop, receiver );
+			return typeof value === 'function' ? value.bind( target ) : value;
+		},
+	} ) as SessionManager;
 }
 
 function buildAgentTools(

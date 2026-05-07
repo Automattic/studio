@@ -1,8 +1,14 @@
 import { SessionManager } from '@mariozechner/pi-coding-agent';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { clearAgentForSession, piRuntime } from 'cli/ai/runtimes/pi';
-import type { AgentSessionEvent } from '@mariozechner/pi-coding-agent';
+import type { AgentSessionEvent, CreateAgentSessionOptions } from '@mariozechner/pi-coding-agent';
 import type { AiModelId } from '@studio/common/ai/models';
+
+const mocks = vi.hoisted( () => ( {
+	createAgentSession: vi.fn(),
+	createdSessions: [] as FakeSession[],
+	nextEvents: null as AgentSessionEvent[] | null,
+} ) );
 
 // Model-swap test uses a synthetic id outside `AI_MODELS`; route unknowns to
 // 'openai' so the env credentials match.
@@ -15,9 +21,29 @@ vi.mock( '@studio/common/ai/models', async ( importOriginal ) => {
 	};
 } );
 
-const constructedAgents: Array< { state: { model: { id: string }; messages: unknown[] } } > = [];
+vi.mock( '@mariozechner/pi-coding-agent', async ( importOriginal ) => {
+	const actual = await importOriginal< typeof import('@mariozechner/pi-coding-agent') >();
+	const stub = ( name: string ) => ( {
+		name,
+		label: name,
+		description: name,
+		parameters: {},
+		execute: async () => ( { content: [ { type: 'text', text: '' } ], details: undefined } ),
+	} );
+	return {
+		...actual,
+		createAgentSession: mocks.createAgentSession,
+		createReadTool: () => stub( 'Read' ),
+		createWriteTool: () => stub( 'Write' ),
+		createEditTool: () => stub( 'Edit' ),
+		createBashTool: () => stub( 'Bash' ),
+		createGrepTool: () => stub( 'Grep' ),
+		createFindTool: () => stub( 'Glob' ),
+		createLsTool: () => stub( 'Ls' ),
+	};
+} );
 
-const DEFAULT_MOCK_EVENTS: unknown[] = [
+const DEFAULT_MOCK_EVENTS: AgentSessionEvent[] = [
 	{
 		type: 'message_end',
 		message: {
@@ -61,57 +87,44 @@ const DEFAULT_MOCK_EVENTS: unknown[] = [
 	},
 	{ type: 'agent_end', messages: [] },
 ];
-let nextMockEvents: unknown[] | null = null;
 
-vi.mock( '@mariozechner/pi-agent-core', () => {
-	class MockAgent {
-		private listener?: ( event: unknown ) => void;
-		public state: { model: { id: string }; messages: unknown[] };
-		constructor(
-			public options: { initialState?: { model?: { id?: string }; messages?: unknown[] } }
-		) {
-			this.state = {
-				model: { id: options.initialState?.model?.id ?? '' },
-				messages: options.initialState?.messages?.slice() ?? [],
-			};
-			constructedAgents.push( this );
-		}
-		subscribe( listener: ( event: unknown ) => void ): () => void {
-			this.listener = listener;
-			return () => {};
-		}
-		async prompt( _text: string ): Promise< void > {
-			const events = nextMockEvents ?? DEFAULT_MOCK_EVENTS;
-			nextMockEvents = null;
-			for ( const event of events ) {
-				this.listener?.( event );
-			}
-		}
-		abort(): void {}
+class FakeSession {
+	private listener?: ( event: AgentSessionEvent ) => void;
+	public state: { model: { id: string; provider: string }; messages: unknown[] };
+	public aborted = false;
+	public disposed = false;
+
+	constructor( public options: CreateAgentSessionOptions ) {
+		this.state = {
+			model: {
+				id: options.model?.id ?? '',
+				provider: options.model?.provider ?? '',
+			},
+			messages: options.sessionManager?.buildSessionContext().messages.slice() ?? [],
+		};
 	}
-	return { Agent: MockAgent };
-} );
 
-vi.mock( '@mariozechner/pi-coding-agent', async ( importOriginal ) => {
-	const actual = await importOriginal< typeof import('@mariozechner/pi-coding-agent') >();
-	const stub = ( name: string ) => ( {
-		name,
-		label: name,
-		description: name,
-		parameters: {},
-		execute: async () => ( { content: [ { type: 'text', text: '' } ], details: undefined } ),
-	} );
-	return {
-		...actual,
-		createReadTool: () => stub( 'Read' ),
-		createWriteTool: () => stub( 'Write' ),
-		createEditTool: () => stub( 'Edit' ),
-		createBashTool: () => stub( 'Bash' ),
-		createGrepTool: () => stub( 'Grep' ),
-		createFindTool: () => stub( 'Glob' ),
-		createLsTool: () => stub( 'Ls' ),
-	};
-} );
+	subscribe( listener: ( event: AgentSessionEvent ) => void ): () => void {
+		this.listener = listener;
+		return () => {};
+	}
+
+	async prompt( _text: string ): Promise< void > {
+		const events = mocks.nextEvents ?? DEFAULT_MOCK_EVENTS;
+		mocks.nextEvents = null;
+		for ( const event of events ) {
+			this.listener?.( event );
+		}
+	}
+
+	async abort(): Promise< void > {
+		this.aborted = true;
+	}
+
+	dispose(): void {
+		this.disposed = true;
+	}
+}
 
 const newSession = () => SessionManager.inMemory( '/tmp/eval' );
 
@@ -126,20 +139,37 @@ const findAssistantText = ( events: AgentSessionEvent[] ): string | undefined =>
 	return undefined;
 };
 
+async function drain( handle: AsyncIterable< AgentSessionEvent > ): Promise< AgentSessionEvent[] > {
+	const events: AgentSessionEvent[] = [];
+	for await ( const event of handle ) {
+		events.push( event );
+	}
+	return events;
+}
+
 describe( 'pi runtime', () => {
-	it( 'yields agent_end carrying the credential error when OPENAI_API_KEY is absent', async () => {
-		const handle = piRuntime.run( {
-			prompt: 'hello',
-			env: {},
-			model: 'gpt-5.5',
-			session: newSession(),
+	beforeEach( () => {
+		mocks.createdSessions.length = 0;
+		mocks.nextEvents = null;
+		mocks.createAgentSession.mockReset();
+		mocks.createAgentSession.mockImplementation( async ( options: CreateAgentSessionOptions ) => {
+			const session = new FakeSession( options );
+			mocks.createdSessions.push( session );
+			return { session, extensionsResult: { extensions: [], errors: [], runtime: {} } };
 		} );
+	} );
 
-		const events: AgentSessionEvent[] = [];
-		for await ( const e of handle ) {
-			events.push( e );
-		}
+	it( 'yields agent_end carrying the credential error when OPENAI_API_KEY is absent', async () => {
+		const events = await drain(
+			piRuntime.run( {
+				prompt: 'hello',
+				env: {},
+				model: 'gpt-5.5',
+				session: newSession(),
+			} )
+		);
 
+		expect( mocks.createAgentSession ).not.toHaveBeenCalled();
 		expect( events ).toHaveLength( 1 );
 		const final = events[ 0 ];
 		expect( final.type ).toBe( 'agent_end' );
@@ -153,31 +183,25 @@ describe( 'pi runtime', () => {
 		}
 	} );
 
-	it( 'yields a full exchange when the mocked OpenAI SDK returns output', async () => {
-		const handle = piRuntime.run( {
-			prompt: 'hello',
-			env: {
-				OPENAI_API_KEY: 'sk-test',
-				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
-			},
-			model: 'gpt-5.5',
-			session: newSession(),
-		} );
-
-		const events: AgentSessionEvent[] = [];
-		for await ( const e of handle ) {
-			events.push( e );
-		}
+	it( 'yields a full exchange when AgentSession returns output', async () => {
+		const events = await drain(
+			piRuntime.run( {
+				prompt: 'hello',
+				env: {
+					OPENAI_API_KEY: 'sk-test',
+					OPENAI_BASE_URL: 'https://proxy.example.com/v1',
+				},
+				model: 'gpt-5.5',
+				session: newSession(),
+			} )
+		);
 
 		expect( findAssistantText( events ) ).toBe( 'mocked openai response' );
 		const final = events[ events.length - 1 ];
 		expect( final.type ).toBe( 'agent_end' );
 	} );
 
-	// `/model` swap mid-session must reach the next request — the prior cache
-	// quietly served the old model.
-	it( 'rebuilds the Agent when the model changes mid-session', async () => {
-		constructedAgents.length = 0;
+	it( 'creates each AgentSession with the requested model', async () => {
 		const env = {
 			OPENAI_API_KEY: 'sk-test',
 			OPENAI_BASE_URL: 'https://proxy.example.com/v1',
@@ -185,45 +209,31 @@ describe( 'pi runtime', () => {
 		const session = newSession();
 		const otherOpenAiModel = 'gpt-test-other' as AiModelId;
 
-		const first = piRuntime.run( { prompt: 'hi', env, model: 'gpt-5.5', session } );
-		for await ( const _ of first );
-		expect( constructedAgents ).toHaveLength( 1 );
-		expect( constructedAgents[ 0 ].state.model.id ).toBe( 'gpt-5.5' );
+		await drain( piRuntime.run( { prompt: 'hi', env, model: 'gpt-5.5', session } ) );
+		await drain( piRuntime.run( { prompt: 'follow-up', env, model: otherOpenAiModel, session } ) );
+		await drain(
+			piRuntime.run( {
+				prompt: 'still on the second model',
+				env,
+				model: otherOpenAiModel,
+				session,
+			} )
+		);
 
-		// `/model` swap — cache must NOT win.
-		const second = piRuntime.run( {
-			prompt: 'follow-up',
-			env,
-			model: otherOpenAiModel,
-			session,
-		} );
-		for await ( const _ of second );
-		expect( constructedAgents ).toHaveLength( 2 );
-		expect( constructedAgents[ 1 ].state.model.id ).toBe( otherOpenAiModel );
-
-		// Same model again — cache hits, no rebuild.
-		const third = piRuntime.run( {
-			prompt: 'still on the second model',
-			env,
-			model: otherOpenAiModel,
-			session,
-		} );
-		for await ( const _ of third );
-		expect( constructedAgents ).toHaveLength( 2 );
+		expect( mocks.createdSessions.map( ( s ) => s.state.model.id ) ).toEqual( [
+			'gpt-5.5',
+			otherOpenAiModel,
+			otherOpenAiModel,
+		] );
 	} );
 
-	// `/clear` would otherwise leave the cached agent's transcript intact —
-	// the model would still see pre-clear messages even though the UI
-	// hides them.
-	it( 'drops pre-`session_cleared` messages from the rebuilt agent', async () => {
-		constructedAgents.length = 0;
+	it( 'drops pre-`session_cleared` messages from the AgentSession context', async () => {
 		const env = {
 			OPENAI_API_KEY: 'sk-test',
 			OPENAI_BASE_URL: 'https://proxy.example.com/v1',
 		};
 		const session = SessionManager.inMemory( '/tmp/eval' );
 
-		// Pre-clear transcript: a user prompt + assistant reply.
 		session.appendMessage( { role: 'user', content: 'pre-clear question', timestamp: 1 } );
 		session.appendMessage( {
 			role: 'assistant',
@@ -242,24 +252,44 @@ describe( 'pi runtime', () => {
 			stopReason: 'stop',
 			timestamp: 2,
 		} );
-
-		// User runs `/clear` — orchestrator appends the marker + drops the
-		// cached agent.
 		session.appendCustomEntry( 'studio.session_cleared', {} );
 		clearAgentForSession( session.getSessionId() );
 
-		const handle = piRuntime.run( { prompt: 'after clear', env, model: 'gpt-5.5', session } );
-		for await ( const _ of handle );
+		await drain( piRuntime.run( { prompt: 'after clear', env, model: 'gpt-5.5', session } ) );
 
-		expect( constructedAgents ).toHaveLength( 1 );
-		const initialMessages = constructedAgents[ 0 ].state.messages as Array< {
-			role: string;
-			content?: unknown;
-		} >;
-		// Pre-clear text must not be visible to the model.
-		const flat = JSON.stringify( initialMessages );
+		expect( mocks.createdSessions ).toHaveLength( 1 );
+		const flat = JSON.stringify( mocks.createdSessions[ 0 ].state.messages );
 		expect( flat ).not.toContain( 'pre-clear question' );
 		expect( flat ).not.toContain( 'pre-clear answer' );
+	} );
+
+	it( 'registers WPCOM Anthropic as a custom bearer-auth provider', async () => {
+		await drain(
+			piRuntime.run( {
+				prompt: 'hello',
+				env: {
+					ANTHROPIC_AUTH_TOKEN: 'wpcom-token',
+					ANTHROPIC_BASE_URL: 'https://proxy.example.com',
+					ANTHROPIC_CUSTOM_HEADERS:
+						'X-WPCOM-AI-Feature: studio-assistant-anthropic\nX-WPCOM-Session-ID: session-1',
+				},
+				model: 'claude-sonnet-4-6',
+				session: newSession(),
+			} )
+		);
+
+		const options = mocks.createdSessions[ 0 ].options;
+		expect( options.model?.provider ).toBe( 'studio-wpcom-anthropic' );
+		expect( options.model?.api ).toBe( 'anthropic-messages' );
+		const auth = await options.modelRegistry!.getApiKeyAndHeaders( options.model! );
+		expect( auth ).toMatchObject( {
+			ok: true,
+			apiKey: 'wpcom-token',
+			headers: {
+				'X-WPCOM-AI-Feature': 'studio-assistant-anthropic',
+				'X-WPCOM-Session-ID': 'session-1',
+			},
+		} );
 	} );
 
 	// Silent header-drop would surface as an opaque 401 from the wpcom proxy.
@@ -267,19 +297,18 @@ describe( 'pi runtime', () => {
 		const warnSpy = vi.spyOn( console, 'warn' ).mockImplementation( () => {} );
 
 		try {
-			const handle = piRuntime.run( {
-				prompt: 'hello',
-				env: {
-					OPENAI_API_KEY: 'sk-test',
-					OPENAI_BASE_URL: 'https://proxy.example.com/v1',
-					STUDIO_OPENAI_DEFAULT_HEADERS: '{not json',
-				},
-				model: 'gpt-5.5',
-				session: newSession(),
-			} );
-			for await ( const _ of handle ) {
-				// Drain.
-			}
+			await drain(
+				piRuntime.run( {
+					prompt: 'hello',
+					env: {
+						OPENAI_API_KEY: 'sk-test',
+						OPENAI_BASE_URL: 'https://proxy.example.com/v1',
+						STUDIO_OPENAI_DEFAULT_HEADERS: '{not json',
+					},
+					model: 'gpt-5.5',
+					session: newSession(),
+				} )
+			);
 
 			expect( warnSpy ).toHaveBeenCalledTimes( 1 );
 			expect( warnSpy.mock.calls[ 0 ][ 0 ] ).toMatch(

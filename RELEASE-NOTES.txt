@@ -1,6 +1,46 @@
 Unreleased
 ==========
 
+1.9.0
+=====
+<!-- Release notes generated using configuration in .github/release.yml at HEAD -->
+* CLI: capture eval-runner failures and timeouts in result #3330
+* Add GPT 5.5 support without modifying the system prompt #3328
+* CLI agent: align pi-tui with other pi-* deps and restore annotation tools #3336
+* Bump @wp-playground/* and @php-wasm/* to 3.1.26 #3325
+* Add Linux make scripts for cross-architecture builds #3326
+* Share connected WP.com sites between Studio app and CLI #3227
+* Studio Code: run the remote-session bridge as a background daemon #3300
+* Fix E2E tests on macOS when `STUDIO_RUNTIME=native-php` #3301
+* Fix Studio app metadata for Linux software stores #3335
+* apps/ui: auto-open site preview when the agent navigates #3342
+* Unify CLI agent on a single pi-based runtime #3337
+* Add release notes for 1.7.9, 1.7.10, 1.7.11 CLI patches #3344
+* Studio Code: add /remote-session slash command #3315
+* Studio Code: don't wipe in-progress typing on turn boundaries #3352
+* build(deps): bump the wordpress group across 1 directory with 28 updates #3302
+* Studio Code: detach remote-session by default and add `attach` subcommand #3347
+* build(deps): bump simple-git from 3.33.0 to 3.36.0 #3354
+* Fix Sync modal capping at 20 sites on the Sync modal #3356
+* Studio Code: remove `--remote-session` CLI flag #3357
+* Bump Playground and PHP-WASM packages to 3.1.28 #3353
+* Studio: Ensure that images render correctly with the new library #3317
+* Always ask before stopping running sites on quit #3350
+* CLI agent: add scaffold_theme tool #3348
+* Rename wordpress components patch to account for 33.0.0 version update #3355
+* Steer agent to use Jetpack Forms instead of raw HTML forms #3351
+* Fix w logo display #3316
+* Add Linux dev build group to Buildkite pipeline #3327
+* remote-session: show agent output in attach (STU-1696) #3366
+* Studio Code: don't expose share_screenshot outside the remote-session runtime #3365
+* Build static macOS PHP CLI binaries #3297
+* build(deps): bump nokogiri from 1.19.1 to 1.19.3 #3368
+* AI sessions: adopt pi-coding-agent SessionManager end-to-end #3360
+* Run unit tests on Linux in Buildkite #3370
+* Cleanup: Type agent JSON message events #3373
+* Fix blueprints zip uploads in the new add site design #3372
+* Make `native-php` E2E tests pass on Windows #3343
+**Full Changelog**: https://github.com/Automattic/studio/compare/v1.8.2...v1.9.0
 
 1.8.2 (CLI only)
 =====

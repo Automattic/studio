@@ -500,10 +500,85 @@ describe( '/feedback slash command', () => {
 		const url = ( browser.openBrowser as ReturnType< typeof vi.fn > ).mock.calls[ 0 ][ 0 ];
 		expect( url ).toContain( 'github.com/Automattic/studio/issues/new' );
 		expect( url ).toContain( 'template=bug_report.yml' );
+		expect( url ).toContain( 'title=something+is+broken' );
 		expect( url ).toContain( 'summary=something+is+broken' );
 		expect( url ).toContain( 'logs=' );
 		expect( ui.showSuccess ).toHaveBeenCalledOnce();
 		expect( result ).toBe( 'continue' );
+	} );
+
+	it( 'truncates a long first line into a title that fits the issue title field', async () => {
+		const ui = makeUi();
+		const longLine = 'x'.repeat( 200 );
+		ui.askUser
+			.mockResolvedValueOnce( { 'Describe the issue or feedback': longLine } )
+			.mockResolvedValueOnce( { 'Open GitHub with this report?': 'Submit on GitHub' } );
+
+		await cmd.handler!( '/feedback', makeCtx( ui ) );
+
+		const browser = await import( 'cli/lib/browser' );
+		const url = ( browser.openBrowser as ReturnType< typeof vi.fn > ).mock.calls[ 0 ][ 0 ];
+		const title = new URL( url ).searchParams.get( 'title' ) ?? '';
+		expect( title.length ).toBeLessThanOrEqual( 80 );
+		expect( title.endsWith( '…' ) ).toBe( true );
+		// The full description still goes into summary, untruncated.
+		expect( new URL( url ).searchParams.get( 'summary' ) ).toBe( longLine );
+	} );
+
+	it( 'derives the title from only the first line of a multi-line description', async () => {
+		const ui = makeUi();
+		ui.askUser
+			.mockResolvedValueOnce( {
+				'Describe the issue or feedback': 'short headline\nlots of detail on the next line',
+			} )
+			.mockResolvedValueOnce( { 'Open GitHub with this report?': 'Submit on GitHub' } );
+
+		await cmd.handler!( '/feedback', makeCtx( ui ) );
+
+		const browser = await import( 'cli/lib/browser' );
+		const url = ( browser.openBrowser as ReturnType< typeof vi.fn > ).mock.calls[ 0 ][ 0 ];
+		expect( new URL( url ).searchParams.get( 'title' ) ).toBe( 'short headline' );
+	} );
+
+	it( 'pre-fills the platform dropdown when running on a known platform', async () => {
+		const originalPlatform = process.platform;
+		const originalArch = process.arch;
+		Object.defineProperty( process, 'platform', { value: 'darwin', configurable: true } );
+		Object.defineProperty( process, 'arch', { value: 'arm64', configurable: true } );
+		try {
+			const ui = makeUi();
+			ui.askUser
+				.mockResolvedValueOnce( { 'Describe the issue or feedback': 'mac silicon issue' } )
+				.mockResolvedValueOnce( { 'Open GitHub with this report?': 'Submit on GitHub' } );
+
+			await cmd.handler!( '/feedback', makeCtx( ui ) );
+
+			const browser = await import( 'cli/lib/browser' );
+			const url = ( browser.openBrowser as ReturnType< typeof vi.fn > ).mock.calls[ 0 ][ 0 ];
+			expect( new URL( url ).searchParams.get( 'site-type' ) ).toBe( 'Mac Silicon' );
+		} finally {
+			Object.defineProperty( process, 'platform', { value: originalPlatform } );
+			Object.defineProperty( process, 'arch', { value: originalArch } );
+		}
+	} );
+
+	it( 'omits the platform dropdown on platforms without a matching template option', async () => {
+		const originalPlatform = process.platform;
+		Object.defineProperty( process, 'platform', { value: 'linux', configurable: true } );
+		try {
+			const ui = makeUi();
+			ui.askUser
+				.mockResolvedValueOnce( { 'Describe the issue or feedback': 'on linux' } )
+				.mockResolvedValueOnce( { 'Open GitHub with this report?': 'Submit on GitHub' } );
+
+			await cmd.handler!( '/feedback', makeCtx( ui ) );
+
+			const browser = await import( 'cli/lib/browser' );
+			const url = ( browser.openBrowser as ReturnType< typeof vi.fn > ).mock.calls[ 0 ][ 0 ];
+			expect( new URL( url ).searchParams.has( 'site-type' ) ).toBe( false );
+		} finally {
+			Object.defineProperty( process, 'platform', { value: originalPlatform } );
+		}
 	} );
 
 	it( 'does not open the browser when the user picks Cancel at confirmation', async () => {

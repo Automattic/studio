@@ -231,15 +231,55 @@ function formatFeedbackEnvironment( ctx: SlashCommandContext ): string {
 	return `${ process.platform }/${ process.arch }, Node ${ process.version }, Studio CLI ${ __STUDIO_CLI_VERSION__ }, ${ ctx.currentProvider }/${ ctx.currentModel }`;
 }
 
-function buildFeedbackUrl( summary: string, environmentLine: string ): string {
-	const params = new URLSearchParams();
-	const trimmed = summary.trim();
-	if ( trimmed ) {
-		// `summary` and `logs` are field ids in bug_report.yml — GitHub issue
-		// forms accept query params keyed by field id.
-		params.set( 'summary', trimmed );
+const FEEDBACK_TITLE_MAX_LENGTH = 80;
+
+function deduceFeedbackTitle( summary: string ): string {
+	const firstLine = summary.split( '\n' )[ 0 ].trim();
+	if ( firstLine.length <= FEEDBACK_TITLE_MAX_LENGTH ) {
+		return firstLine;
 	}
-	params.set( 'logs', environmentLine );
+	return firstLine.slice( 0, FEEDBACK_TITLE_MAX_LENGTH - 1 ).trimEnd() + '…';
+}
+
+// Maps to the dropdown labels in .github/ISSUE_TEMPLATE/bug_report.yml. Linux
+// has no matching option there, so we just skip pre-fill on that platform.
+function deducePlatformLabel(): string | null {
+	if ( process.platform === 'darwin' ) {
+		return process.arch === 'arm64' ? 'Mac Silicon' : 'Mac Intel';
+	}
+	if ( process.platform === 'win32' ) {
+		return 'Windows';
+	}
+	return null;
+}
+
+interface FeedbackPrefill {
+	title: string;
+	summary: string;
+	platform: string | null;
+	environmentLine: string;
+}
+
+function deduceFeedbackPrefill( summary: string, ctx: SlashCommandContext ): FeedbackPrefill {
+	return {
+		title: deduceFeedbackTitle( summary ),
+		summary,
+		platform: deducePlatformLabel(),
+		environmentLine: formatFeedbackEnvironment( ctx ),
+	};
+}
+
+function buildFeedbackUrl( prefill: FeedbackPrefill ): string {
+	// Field ids match .github/ISSUE_TEMPLATE/bug_report.yml — GitHub issue
+	// forms accept query params keyed by field id (and `title` for the issue
+	// title itself).
+	const params = new URLSearchParams();
+	params.set( 'title', prefill.title );
+	params.set( 'summary', prefill.summary );
+	if ( prefill.platform ) {
+		params.set( 'site-type', prefill.platform );
+	}
+	params.set( 'logs', prefill.environmentLine );
 	return `${ STUDIO_BUG_REPORT_URL }&${ params.toString() }`;
 }
 
@@ -283,26 +323,43 @@ async function runFeedbackSlashCommand(
 		return cancelFeedback( ctx );
 	}
 
-	const environmentLine = formatFeedbackEnvironment( ctx );
-	ctx.ui.showInfo(
-		[
-			__( 'Submit Feedback / Bug Report' ),
-			'',
-			__( 'This report will pre-fill GitHub with:' ),
+	const prefill = deduceFeedbackPrefill( summary, ctx );
+	const previewLines = [
+		__( 'Submit Feedback / Bug Report' ),
+		'',
+		__( 'This report will pre-fill GitHub with:' ),
+		sprintf(
+			/* translators: %s: deduced issue title */
+			__( '  - Title: %s' ),
+			prefill.title
+		),
+		sprintf(
+			/* translators: %s: the user's feedback text */
+			__( '  - Description: %s' ),
+			prefill.summary
+		),
+	];
+	if ( prefill.platform ) {
+		previewLines.push(
 			sprintf(
-				/* translators: %s: the user's feedback text */
-				__( '  - Your description: %s' ),
-				summary
-			),
-			sprintf(
-				/* translators: %s: environment summary like "darwin/arm64, Node v22.18.0, …" */
-				__( '  - Environment: %s' ),
-				environmentLine
-			),
-			'',
-			__( "You'll review and submit the issue on github.com." ),
-		].join( '\n' )
+				/* translators: %s: detected platform like "Mac Silicon" */
+				__( '  - Platform: %s' ),
+				prefill.platform
+			)
+		);
+	}
+	previewLines.push(
+		sprintf(
+			/* translators: %s: environment summary like "darwin/arm64, Node v22.18.0, …" */
+			__( '  - Environment: %s' ),
+			prefill.environmentLine
+		),
+		'',
+		__(
+			"You'll still need to fill in steps to reproduce, expected/actual behavior, and impact on github.com."
+		)
 	);
+	ctx.ui.showInfo( previewLines.join( '\n' ) );
 
 	let confirmed: boolean;
 	try {
@@ -317,7 +374,7 @@ async function runFeedbackSlashCommand(
 		return cancelFeedback( ctx );
 	}
 
-	await openBrowser( buildFeedbackUrl( summary, environmentLine ) );
+	await openBrowser( buildFeedbackUrl( prefill ) );
 	ctx.ui.showSuccess(
 		__( 'Opening GitHub with your feedback pre-filled — finish the form to submit.' )
 	);

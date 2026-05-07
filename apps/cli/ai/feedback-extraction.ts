@@ -1,5 +1,6 @@
 import { getAiModelFamily, type AiModelFamily, type AiModelId } from '@studio/common/ai/models';
 import { resolveAiEnvironment } from 'cli/ai/auth';
+import { parseAnthropicHeaderEnv, parseJsonHeaderEnv } from 'cli/ai/header-env';
 import type { AiProviderId } from 'cli/ai/providers';
 
 // Hard-coded against the bug_report.yml dropdown labels — keep in sync with
@@ -77,21 +78,17 @@ export async function extractFeedbackFields(
 		return null;
 	}
 
-	const controller = new AbortController();
-	const timer = setTimeout( () => controller.abort(), FEEDBACK_EXTRACTION_TIMEOUT_MS );
 	try {
 		const text = await callExtractionModel(
 			getAiModelFamily( ctx.model ),
 			ctx.model,
 			env,
 			description,
-			controller.signal
+			AbortSignal.timeout( FEEDBACK_EXTRACTION_TIMEOUT_MS )
 		);
 		return text ? parseFeedbackExtraction( text ) : null;
 	} catch {
 		return null;
-	} finally {
-		clearTimeout( timer );
 	}
 }
 
@@ -128,7 +125,7 @@ async function callAnthropicMessages(
 	const headers: Record< string, string > = {
 		'content-type': 'application/json',
 		'anthropic-version': ANTHROPIC_API_VERSION,
-		...parseAnthropicLineHeaders( env.ANTHROPIC_CUSTOM_HEADERS ),
+		...( parseAnthropicHeaderEnv( env.ANTHROPIC_CUSTOM_HEADERS ) ?? {} ),
 	};
 	// wpcom routes Anthropic via Bearer; direct Anthropic uses x-api-key.
 	if ( authToken ) {
@@ -173,7 +170,7 @@ async function callOpenAiCompletions(
 	const headers: Record< string, string > = {
 		'content-type': 'application/json',
 		authorization: `Bearer ${ apiKey }`,
-		...parseJsonHeaders( env.STUDIO_OPENAI_DEFAULT_HEADERS ),
+		...( parseJsonHeaderEnv( env.STUDIO_OPENAI_DEFAULT_HEADERS ) ?? {} ),
 	};
 
 	const response = await fetch( `${ baseUrl.replace( /\/+$/, '' ) }/chat/completions`, {
@@ -201,41 +198,6 @@ async function callOpenAiCompletions(
 	return json.choices?.[ 0 ]?.message?.content ?? null;
 }
 
-// `ANTHROPIC_CUSTOM_HEADERS` is encoded by `buildAnthropicCustomHeaders` in
-// providers.ts as `Name: Value\nName: Value` — NOT JSON. Mirrors the runtime's
-// `parseAnthropicHeaderEnv` so the wpcom feature header reaches the proxy.
-function parseAnthropicLineHeaders( raw: string | undefined ): Record< string, string > {
-	if ( ! raw ) {
-		return {};
-	}
-	const out: Record< string, string > = {};
-	for ( const line of raw.split( '\n' ) ) {
-		const idx = line.indexOf( ':' );
-		if ( idx <= 0 ) {
-			continue;
-		}
-		const name = line.slice( 0, idx ).trim();
-		const value = line.slice( idx + 1 ).trim();
-		if ( name && value ) {
-			out[ name ] = value;
-		}
-	}
-	return out;
-}
-
-// `STUDIO_OPENAI_DEFAULT_HEADERS` is JSON.stringify'd in providers.ts.
-function parseJsonHeaders( raw: string | undefined ): Record< string, string > {
-	if ( ! raw ) {
-		return {};
-	}
-	try {
-		const parsed = JSON.parse( raw );
-		return parsed && typeof parsed === 'object' ? ( parsed as Record< string, string > ) : {};
-	} catch {
-		return {};
-	}
-}
-
 export function parseFeedbackExtraction( text: string ): ExtractedFeedbackFields | null {
 	// Strip code fences if the model wraps its JSON despite the instructions.
 	const stripped = text
@@ -249,7 +211,7 @@ export function parseFeedbackExtraction( text: string ): ExtractedFeedbackFields
 	} catch {
 		return null;
 	}
-	if ( ! parsed || typeof parsed !== 'object' ) {
+	if ( ! parsed || typeof parsed !== 'object' || Array.isArray( parsed ) ) {
 		return null;
 	}
 
@@ -272,11 +234,8 @@ function sanitizeString( value: unknown ): string | null {
 	return trimmed ? trimmed : null;
 }
 
-function matchEnum< T extends readonly string[] >(
-	value: unknown,
-	allowed: T
-): T[ number ] | null {
+function matchEnum< T extends string >( value: unknown, allowed: readonly T[] ): T | null {
 	return typeof value === 'string' && ( allowed as readonly string[] ).includes( value )
-		? ( value as T[ number ] )
+		? ( value as T )
 		: null;
 }

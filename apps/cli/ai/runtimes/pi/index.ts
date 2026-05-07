@@ -27,6 +27,7 @@ import {
 	type AiModelFamily,
 	type AiModelId,
 } from '@studio/common/ai/models';
+import { parseAnthropicHeaderEnv, parseJsonHeaderEnv } from 'cli/ai/header-env';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
@@ -448,40 +449,4 @@ function buildAgentTools(
 		...skillTool,
 		...piTools,
 	];
-}
-
-function parseJsonHeaderEnv( value: string | undefined ): Record< string, string > | undefined {
-	if ( ! value ) return undefined;
-	try {
-		const parsed: unknown = JSON.parse( value );
-		if ( parsed && typeof parsed === 'object' && ! Array.isArray( parsed ) ) {
-			const entries = Object.entries( parsed as Record< string, unknown > ).filter(
-				( [ , v ] ) => typeof v === 'string'
-			) as [ string, string ][];
-			return entries.length ? Object.fromEntries( entries ) : undefined;
-		}
-		console.warn(
-			'STUDIO_OPENAI_DEFAULT_HEADERS must be a JSON object of string→string pairs; ignoring custom headers.'
-		);
-	} catch {
-		console.warn(
-			'STUDIO_OPENAI_DEFAULT_HEADERS contained malformed JSON; ignoring custom headers.'
-		);
-	}
-	return undefined;
-}
-
-function parseAnthropicHeaderEnv(
-	value: string | undefined
-): Record< string, string > | undefined {
-	if ( ! value ) return undefined;
-	const out: Record< string, string > = {};
-	for ( const line of value.split( '\n' ) ) {
-		const idx = line.indexOf( ':' );
-		if ( idx <= 0 ) continue;
-		const name = line.slice( 0, idx ).trim();
-		const v = line.slice( idx + 1 ).trim();
-		if ( name && v ) out[ name ] = v;
-	}
-	return Object.keys( out ).length ? out : undefined;
 }

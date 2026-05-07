@@ -10,12 +10,11 @@ describe( 'parseFeedbackExtraction', () => {
 		expect( parseFeedbackExtraction( 'sorry, I can only respond with JSON' ) ).toBeNull();
 	} );
 
-	it( 'returns null for valid JSON that is not an object', () => {
+	it( 'returns null for valid JSON that is not a plain object', () => {
 		expect( parseFeedbackExtraction( '"a string"' ) ).toBeNull();
-		expect( parseFeedbackExtraction( '[1, 2, 3]' ) ).not.toBeNull();
-		// Arrays are objects in JS — but downstream readers will see all-null
-		// fields, which is harmless. The strict guard is the enum/string
-		// validation.
+		expect( parseFeedbackExtraction( '[1, 2, 3]' ) ).toBeNull();
+		expect( parseFeedbackExtraction( '42' ) ).toBeNull();
+		expect( parseFeedbackExtraction( 'null' ) ).toBeNull();
 	} );
 
 	it( 'strips ```json fences if the model wraps its output despite instructions', () => {

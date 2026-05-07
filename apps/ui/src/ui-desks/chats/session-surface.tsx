@@ -33,12 +33,10 @@ function Frame( { composer, scrollRef, children }: FrameProps ) {
 	return (
 		<div className={ clsx( sessionStyles.root, styles.sessionSurface ) }>
 			<div className={ sessionStyles.chatColumn }>
-				<div ref={ scrollRef } className={ clsx( sessionStyles.scroll, styles.sessionScroll ) }>
+				<div ref={ scrollRef } className={ sessionStyles.scroll }>
 					{ children }
 				</div>
-				<div className={ clsx( sessionStyles.composerOuter, styles.sessionComposerOuter ) }>
-					{ composer }
-				</div>
+				<div className={ sessionStyles.composerOuter }>{ composer }</div>
 			</div>
 		</div>
 	);
@@ -151,13 +149,7 @@ function DeskSessionSurfaceContent( {
 			}
 		>
 			{ isEmpty ? <EmptyBackground /> : null }
-			<div
-				className={ clsx(
-					sessionStyles.column,
-					sessionStyles.conversationSpacing,
-					styles.sessionConversation
-				) }
-			>
+			<div className={ sessionStyles.column }>
 				<Conversation
 					data={ data }
 					isRunning={ isRunning }

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { DeskActionsProvider } from './actions';
 import { UserDeskChats } from './chats';
 import { DeskChrome } from './chrome';
 import {
@@ -45,63 +46,67 @@ export function DesksUiApp() {
 		setCreateChatRequestId( ( requestId ) => requestId + 1 );
 	};
 
+	const deskActions = {
+		createChat: handleCreateChat,
+		openCreateSite: showOnboardingHome,
+		openImportSite: showImportFlow,
+		openUserDashboard: showUserDesk,
+	};
+
 	const isUserDesk = screen.type === 'user-desk';
 
 	return (
-		<div data-ui-mode="desks">
-			{ isUserDesk ? (
-				<>
-					<DeskChrome
-						chatsOpen={ chatsOpen }
-						onToggleChats={ () => setChatsOpen( ( open ) => ! open ) }
-						onCreateChat={ handleCreateChat }
-						onCreateSite={ showOnboardingHome }
-						onImportSite={ showImportFlow }
+		<DeskActionsProvider actions={ deskActions }>
+			<div data-ui-mode="desks">
+				{ isUserDesk ? (
+					<>
+						<DeskChrome
+							chatsOpen={ chatsOpen }
+							onToggleChats={ () => setChatsOpen( ( open ) => ! open ) }
+						/>
+						<UserDeskChats
+							open={ chatsOpen }
+							onOpenChange={ setChatsOpen }
+							createChatRequestId={ createChatRequestId }
+						/>
+					</>
+				) : null }
+				{ screen.type === 'user-desk' && <UserDesk /> }
+				{ screen.type === 'site-desk' && <SiteDesk siteId={ screen.siteId } /> }
+				{ screen.type === 'onboarding-home' && (
+					<DeskOnboardingHome
+						onClose={ showUserDesk }
+						onCreate={ showCreateFlow }
+						onBlueprint={ showBlueprintFlow }
+						onImport={ showImportFlow }
 					/>
-					<UserDeskChats
-						open={ chatsOpen }
-						onOpenChange={ setChatsOpen }
-						createChatRequestId={ createChatRequestId }
+				) }
+				{ screen.type === 'onboarding-create' && (
+					<DeskOnboardingCreate
+						onClose={ showUserDesk }
+						onCancel={ showOnboardingHome }
+						onSiteCreated={ showSiteDesk }
 					/>
-				</>
-			) : null }
-			{ screen.type === 'user-desk' && <UserDesk /> }
-			{ screen.type === 'site-desk' && (
-				<SiteDesk siteId={ screen.siteId } onUserDashboard={ showUserDesk } />
-			) }
-			{ screen.type === 'onboarding-home' && (
-				<DeskOnboardingHome
-					onClose={ showUserDesk }
-					onCreate={ showCreateFlow }
-					onBlueprint={ showBlueprintFlow }
-					onImport={ showImportFlow }
-				/>
-			) }
-			{ screen.type === 'onboarding-create' && (
-				<DeskOnboardingCreate
-					onClose={ showUserDesk }
-					onCancel={ showOnboardingHome }
-					onSiteCreated={ showSiteDesk }
-				/>
-			) }
-			{ screen.type === 'onboarding-blueprint' && (
-				<DeskOnboardingBlueprint
-					step={ screen.step }
-					onStepChange={ ( step ) => setScreen( { type: 'onboarding-blueprint', step } ) }
-					onClose={ showUserDesk }
-					onCancel={ showOnboardingHome }
-					onSiteCreated={ showSiteDesk }
-				/>
-			) }
-			{ screen.type === 'onboarding-import' && (
-				<DeskOnboardingImport
-					step={ screen.step }
-					onStepChange={ ( step ) => setScreen( { type: 'onboarding-import', step } ) }
-					onClose={ showUserDesk }
-					onCancel={ showOnboardingHome }
-					onSiteCreated={ showSiteDesk }
-				/>
-			) }
-		</div>
+				) }
+				{ screen.type === 'onboarding-blueprint' && (
+					<DeskOnboardingBlueprint
+						step={ screen.step }
+						onStepChange={ ( step ) => setScreen( { type: 'onboarding-blueprint', step } ) }
+						onClose={ showUserDesk }
+						onCancel={ showOnboardingHome }
+						onSiteCreated={ showSiteDesk }
+					/>
+				) }
+				{ screen.type === 'onboarding-import' && (
+					<DeskOnboardingImport
+						step={ screen.step }
+						onStepChange={ ( step ) => setScreen( { type: 'onboarding-import', step } ) }
+						onClose={ showUserDesk }
+						onCancel={ showOnboardingHome }
+						onSiteCreated={ showSiteDesk }
+					/>
+				) }
+			</div>
+		</DeskActionsProvider>
 	);
 }

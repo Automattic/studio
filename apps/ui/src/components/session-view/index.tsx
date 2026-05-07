@@ -110,10 +110,12 @@ function SessionFrame( { header, composer, preview, scrollRef, children }: Sessi
 		<div className={ styles.root }>
 			<div className={ styles.chatColumn }>
 				{ header }
-				<div ref={ scrollRef } className={ styles.scroll }>
+				<div ref={ scrollRef } className={ clsx( styles.scroll, styles.classicScroll ) }>
 					{ children }
 				</div>
-				<div className={ styles.composerOuter }>{ composer }</div>
+				<div className={ clsx( styles.composerOuter, styles.classicComposerOuter ) }>
+					{ composer }
+				</div>
 			</div>
 			{ preview }
 		</div>
@@ -272,7 +274,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			}
 		>
 			{ isEmpty ? <EmptyBackground /> : null }
-			<div className={ clsx( styles.column, styles.conversationSpacing ) }>
+			<div className={ clsx( styles.column, styles.classicConversationSpacing ) }>
 				<Conversation
 					data={ data }
 					isRunning={ isRunning }

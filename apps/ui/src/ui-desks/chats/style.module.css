@@ -122,18 +122,6 @@
 	padding: var(--desk-chats-session-edge-padding);
 }
 
-.sessionScroll {
-	padding: 0;
-}
-
-.sessionConversation {
-	padding: 0;
-}
-
-.sessionComposerOuter {
-	padding: 0;
-}
-
 .emptyChat {
 	height: 100%;
 	display: flex;

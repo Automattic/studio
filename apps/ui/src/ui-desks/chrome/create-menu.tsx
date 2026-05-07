@@ -2,19 +2,12 @@ import { __ } from '@wordpress/i18n';
 import { comment, download, globe, plus } from '@wordpress/icons';
 import { Icon, IconButton } from '@wordpress/ui';
 import * as Menu from '@/components/menu';
+import { useDeskActions } from '../actions';
 import styles from './style.module.css';
 
-interface DeskCreateMenuProps {
-	onCreateChat: () => void;
-	onCreateSite: () => void;
-	onImportSite: () => void;
-}
+export function DeskCreateMenu() {
+	const { createChat, openCreateSite, openImportSite } = useDeskActions();
 
-export function DeskCreateMenu( {
-	onCreateChat,
-	onCreateSite,
-	onImportSite,
-}: DeskCreateMenuProps ) {
 	return (
 		<Menu.Root modal={ false }>
 			<Menu.Trigger
@@ -30,15 +23,15 @@ export function DeskCreateMenu( {
 				}
 			/>
 			<Menu.Popup side="bottom" align="start" className={ styles.popup }>
-				<Menu.Item onClick={ onCreateChat }>
+				<Menu.Item onClick={ createChat }>
 					<Icon icon={ comment } />
 					<span>{ __( 'New chat' ) }</span>
 				</Menu.Item>
-				<Menu.Item onClick={ onCreateSite }>
+				<Menu.Item onClick={ openCreateSite }>
 					<Icon icon={ globe } />
 					<span>{ __( 'New site' ) }</span>
 				</Menu.Item>
-				<Menu.Item onClick={ onImportSite }>
+				<Menu.Item onClick={ openImportSite }>
 					<Icon icon={ download } />
 					<span>{ __( 'Import from…' ) }</span>
 				</Menu.Item>

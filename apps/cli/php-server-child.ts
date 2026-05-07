@@ -18,7 +18,6 @@ import {
 	NativePhpSupportedVersion,
 	validateNativePhpVersion,
 } from '@studio/common/lib/php-binary-metadata';
-import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { z } from 'zod';
 import {
 	managerMessageSchema,

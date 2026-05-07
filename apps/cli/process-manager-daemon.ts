@@ -104,7 +104,7 @@ export class ProcessManagerDaemon {
 		process.on( 'SIGINT', () => void this.shutdown( 'signal' ) );
 		process.on( 'SIGTERM', () => void this.shutdown( 'signal' ) );
 		process.on( 'exit', () => {
-			this.forceCleanupChildren();
+			void this.forceCleanupChildren();
 		} );
 	}
 
@@ -295,7 +295,7 @@ export class ProcessManagerDaemon {
 
 		await new Promise< void >( ( resolve ) => {
 			const timeoutId = setTimeout( () => {
-				this.signalProcessGroup( managedProcess, 'SIGKILL' );
+				void this.signalProcessGroup( managedProcess, 'SIGKILL' );
 			}, STOP_TIMEOUT_MS );
 
 			managedProcess.child.once( 'exit', () => {
@@ -310,7 +310,7 @@ export class ProcessManagerDaemon {
 				resolve();
 			} );
 
-			this.signalProcessGroup( managedProcess, 'SIGTERM' );
+			void this.signalProcessGroup( managedProcess, 'SIGTERM' );
 		} );
 	}
 
@@ -415,16 +415,19 @@ export class ProcessManagerDaemon {
 		};
 	}
 
-	private forceCleanupChildren() {
+	private async forceCleanupChildren() {
 		for ( const managedProcess of this.managedProcesses.values() ) {
 			if ( managedProcess.settled ) {
 				continue;
 			}
-			this.signalProcessGroup( managedProcess, 'SIGKILL' );
+			await this.signalProcessGroup( managedProcess, 'SIGKILL' );
 		}
 	}
 
-	private async signalProcessGroup( managedProcess: ManagedProcess, signal: NodeJS.Signals ): void {
+	private async signalProcessGroup(
+		managedProcess: ManagedProcess,
+		signal: NodeJS.Signals
+	): Promise< void > {
 		const pid = managedProcess.child.pid;
 		if ( ! pid ) {
 			return;

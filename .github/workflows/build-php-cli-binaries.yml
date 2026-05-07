@@ -59,14 +59,14 @@ jobs:
             runner: macos-15
             artifact_platform: macos
             artifact_arch: aarch64
-            archive_extension: tar.gz
+            archive_extension: zip
             binary_name: php
             extensions: &macos_php_extensions apcu,bcmath,calendar,ctype,curl,dba,dom,exif,fileinfo,filter,ftp,gd,gettext,iconv,igbinary,imagick,intl,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pcntl,pdo,pdo_mysql,pdo_sqlite,phar,posix,readline,redis,session,shmop,simplexml,sockets,sodium,sqlite3,ssh2,tokenizer,xml,xmlreader,xmlwriter,xsl,yaml,zip,zlib
           - target: macos-x86_64
             runner: macos-15-intel
             artifact_platform: macos
             artifact_arch: x86_64
-            archive_extension: tar.gz
+            archive_extension: zip
             binary_name: php
             extensions: *macos_php_extensions
           - target: windows-x86_64
@@ -175,7 +175,7 @@ jobs:
           cp "$GITHUB_WORKSPACE/.cache/static-php-cli/buildroot/bin/$PHP_CLI_BINARY_NAME" "$RUNNER_TEMP/php"
           chmod +x "$RUNNER_TEMP/php"
           xattr -cr "$RUNNER_TEMP/php"
-          tar -czf "$out_dir/$artifact" -C "$RUNNER_TEMP" php
+          ( cd "$RUNNER_TEMP" && zip -q "$out_dir/$artifact" php )
           shasum -a 256 "$out_dir/$artifact" | awk '{print $1}' > "$out_dir/$artifact.sha256"
 
       - name: Package Windows artifact

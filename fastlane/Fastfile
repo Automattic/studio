@@ -663,12 +663,12 @@ end
 def php_cli_cdn_builds(version:)
   [
     {
-      file_name: "php-#{version}-cli-macos-aarch64.tar.gz",
+      file_name: "php-#{version}-cli-macos-aarch64.zip",
       name: 'macOS arm64',
       platform: 'Mac - Silicon'
     },
     {
-      file_name: "php-#{version}-cli-macos-x86_64.tar.gz",
+      file_name: "php-#{version}-cli-macos-x86_64.zip",
       name: 'macOS x64',
       platform: 'Mac - Intel'
     },

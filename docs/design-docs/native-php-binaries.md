@@ -7,8 +7,8 @@ and `spc build`, then uploads archives with `.sha256` sidecars.
 
 The manual workflow currently builds:
 
-- `php-8.4.20-cli-macos-aarch64.tar.gz`
-- `php-8.4.20-cli-macos-x86_64.tar.gz`
+- `php-8.4.20-cli-macos-aarch64.zip`
+- `php-8.4.20-cli-macos-x86_64.zip`
 - `php-8.4.20-cli-windows-x86_64.zip`
 
 Windows ARM64 Studio builds use the Windows x64 PHP binary under Windows 11
@@ -20,8 +20,8 @@ Apps CDN stores the same checksum in the generated manifest for the separate
 
 `https://appscdn.wordpress.com/builds/wordpress-com-studio-php-cli/releases.json`
 
-For internal Studio validation, the workflow can upload the unsigned archives
-directly to Apps CDN:
+For internal Studio validation, the workflow can upload the unsigned `.zip`
+archives directly to Apps CDN:
 
 1. Run the manual GitHub Actions `Build PHP CLI Binaries` workflow.
 2. Set `publish_to_apps_cdn` to `true`.

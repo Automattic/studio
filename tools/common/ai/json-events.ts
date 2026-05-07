@@ -1,3 +1,5 @@
+import type { AgentSessionEvent } from '@mariozechner/pi-coding-agent';
+
 export type TurnCompletedStatus = 'success' | 'error' | 'paused' | 'max_turns';
 
 // Transient UI directives emitted by the agent's preview_* tools to
@@ -17,8 +19,14 @@ export interface MediaShareEvent {
 	caption?: string;
 }
 
+export interface AgentMessageJsonEvent {
+	type: 'message';
+	timestamp: string;
+	message: AgentSessionEvent;
+}
+
 export type JsonEvent =
-	| { type: 'message'; timestamp: string; message: unknown }
+	| AgentMessageJsonEvent
 	| { type: 'progress'; timestamp: string; message: string }
 	| { type: 'info'; timestamp: string; message: string }
 	| { type: 'error'; timestamp: string; message: string }

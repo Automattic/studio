@@ -1,5 +1,8 @@
 import { type ChildProcess, spawn } from 'child_process';
 import readline from 'readline';
+import { findLastAssistant } from '@studio/common/ai/session-events';
+import type { AgentMessage } from '@mariozechner/pi-agent-core';
+import type { AgentSessionEvent } from '@mariozechner/pi-coding-agent';
 import type { JsonEvent, TurnCompletedStatus } from '@studio/common/ai/json-events';
 import type { RemoteSessionLogger } from 'cli/remote-session/logger';
 
@@ -59,25 +62,9 @@ const STALE_SESSION_PATTERNS = [
 	/resume.*session.*(failed|invalid)/i,
 ];
 
-// The CLI now wraps native pi `AgentSessionEvent` payloads inside the
-// `'message'` envelope; `agent_end` is the terminal event carrying the
-// full message tail. Pull the last assistant message's text + error
-// state from there. (The pre-pi-migration shape was a synthetic SDK
-// `result` message — replaced wholesale.)
-interface PiAgentEndEnvelope {
-	type?: unknown;
-	messages?: unknown;
-}
-
-interface PiAgentSessionEventLike {
-	type?: unknown;
-	message?: unknown;
-	messages?: unknown;
-	toolName?: unknown;
-	args?: unknown;
-	isError?: unknown;
-}
-
+// The CLI wraps native pi `AgentSessionEvent` payloads inside the `'message'`
+// envelope; `agent_end` is the terminal event carrying the full message tail.
+// Pull the last assistant message's text + error state from there.
 interface PiAgentMessageLike {
 	role?: unknown;
 	content?: unknown;
@@ -118,8 +105,8 @@ function previewToolInput( input: unknown ): string {
  * Extract concatenated text from a native pi assistant message. Used as a
  * fallback if the terminal `agent_end` arrives without final text.
  */
-function extractAssistantText( raw: unknown ): string {
-	const message = raw as PiAgentMessageLike | null | undefined;
+function extractAssistantText( raw: AgentMessage ): string {
+	const message = raw as PiAgentMessageLike;
 	if ( ! message || typeof message !== 'object' || message.role !== 'assistant' ) {
 		return '';
 	}
@@ -147,8 +134,8 @@ function extractAssistantText( raw: unknown ): string {
  * block (text snippet, tool call name+input preview, tool result error flag).
  * Empty array when the message has no useful content to summarize.
  */
-function summarizeAgentMessage( raw: unknown ): string[] {
-	const message = raw as PiAgentMessageLike | null | undefined;
+function summarizeAgentMessage( raw: AgentMessage ): string[] {
+	const message = raw as PiAgentMessageLike;
 	if ( ! message || typeof message !== 'object' ) {
 		return [];
 	}
@@ -198,11 +185,7 @@ function summarizeAgentMessage( raw: unknown ): string[] {
 	return lines;
 }
 
-function summarizeMessageContent( raw: unknown ): string[] {
-	const event = raw as PiAgentSessionEventLike | null | undefined;
-	if ( ! event || typeof event !== 'object' || typeof event.type !== 'string' ) {
-		return [];
-	}
+function summarizeMessageContent( event: AgentSessionEvent ): string[] {
 	if ( event.type === 'message_end' ) {
 		return summarizeAgentMessage( event.message );
 	}
@@ -219,9 +202,8 @@ function summarizeMessageContent( raw: unknown ): string[] {
 	return [];
 }
 
-function extractAssistantTextFromEvent( raw: unknown ): string {
-	const event = raw as PiAgentSessionEventLike | null | undefined;
-	if ( ! event || typeof event !== 'object' || event.type !== 'message_end' ) {
+function extractAssistantTextFromEvent( event: AgentSessionEvent ): string {
+	if ( event.type !== 'message_end' ) {
 		return '';
 	}
 	return extractAssistantText( event.message );
@@ -236,21 +218,11 @@ function extractResultPayload( event: Extract< JsonEvent, { type: 'message' } > 
 	isError: boolean;
 	stopReason?: string | null;
 } | null {
-	const wrapped = event.message as PiAgentEndEnvelope | null | undefined;
-	if ( ! wrapped || typeof wrapped !== 'object' || wrapped.type !== 'agent_end' ) {
+	const wrapped = event.message;
+	if ( wrapped.type !== 'agent_end' ) {
 		return null;
 	}
-	const messages = Array.isArray( wrapped.messages ) ? wrapped.messages : [];
-	let lastAssistant:
-		| { stopReason?: unknown; errorMessage?: unknown; content?: unknown }
-		| undefined;
-	for ( let i = messages.length - 1; i >= 0; i -= 1 ) {
-		const m = messages[ i ] as { role?: unknown };
-		if ( m && m.role === 'assistant' ) {
-			lastAssistant = m as typeof lastAssistant;
-			break;
-		}
-	}
+	const lastAssistant = findLastAssistant( wrapped.messages );
 	if ( ! lastAssistant ) {
 		return { isError: false };
 	}

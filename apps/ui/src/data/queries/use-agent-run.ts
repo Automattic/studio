@@ -286,10 +286,12 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 					} );
 					return;
 				case 'message': {
-					// `event.message` is an `AgentSessionEvent`; only the
-					// message-bearing variants need optimistic entries.
-					const inner = event.message as { type?: string; message?: { role?: string } } | undefined;
-					if ( inner?.type === 'message_end' && inner.message?.role === 'assistant' ) {
+					// Only message-bearing pi event variants need optimistic entries.
+					const inner = event.message;
+					if (
+						inner.type === 'message_end' &&
+						( inner.message as { role?: string } ).role === 'assistant'
+					) {
 						updateCache( ( entries ) => [
 							...entries,
 							{
@@ -300,8 +302,8 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 								message: inner.message,
 							} as unknown as SessionEntry,
 						] );
-					} else if ( inner?.type === 'turn_end' ) {
-						const toolResults = ( inner as { toolResults?: unknown[] } ).toolResults;
+					} else if ( inner.type === 'turn_end' ) {
+						const toolResults = inner.toolResults;
 						if ( Array.isArray( toolResults ) && toolResults.length > 0 ) {
 							updateCache( ( entries ) => [
 								...entries,

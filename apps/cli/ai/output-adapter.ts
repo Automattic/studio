@@ -133,9 +133,8 @@ export class JsonAdapter implements AiOutputAdapter {
 
 	handleEvent( event: AgentSessionEvent ): void {
 		// Forward the event verbatim so the desktop main process can re-derive
-		// state without loading the JSONL itself. The wire keeps the legacy
-		// `'message'` envelope for compatibility with the renderer's parser,
-		// but the inner payload is now the native AgentSessionEvent.
+		// state without loading the JSONL itself. The wire keeps the existing
+		// `'message'` envelope, with a native AgentSessionEvent as the payload.
 		emitEvent( { type: 'message', timestamp: new Date().toISOString(), message: event } );
 	}
 

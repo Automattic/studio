@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { parseStudioCodeEvent } from '../studio-code-event-parser';
+import type { AgentSessionEvent } from '@mariozechner/pi-coding-agent';
 import type { StudioCodeEvent } from 'src/modules/studio-code/studio-code-event-types';
 
 const ts = '2026-05-06T00:00:00.000Z';
 
 function envelope< T >( message: T ): StudioCodeEvent {
-	return { type: 'message', timestamp: ts, message: message as unknown } as StudioCodeEvent;
+	return { type: 'message', timestamp: ts, message: message as AgentSessionEvent };
 }
 
 describe( 'parseStudioCodeEvent — pi event shapes', () => {

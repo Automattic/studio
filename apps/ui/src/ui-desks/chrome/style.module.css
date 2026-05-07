@@ -1,8 +1,9 @@
 .root {
 	--desk-user-menu-size: 40px;
+	--desk-user-menu-y-nudge: 2px;
 
 	position: fixed;
-	top: calc((46px - var(--desk-user-menu-size)) / 2);
+	top: calc((46px - var(--desk-user-menu-size)) / 2 + var(--desk-user-menu-y-nudge));
 	/* Matches the classic header's reserved macOS traffic-light space. */
 	left: 94px;
 	z-index: 20;

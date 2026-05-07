@@ -186,6 +186,8 @@ export { getDefaultSiteDirectory, saveDefaultSiteDirectory };
 
 export { importSite, exportSite } from 'src/modules/import-export/lib/ipc-handlers';
 
+export { getUserDeskConfig, saveUserDeskConfig } from 'src/modules/desks/lib/ipc-handlers';
+
 export {
 	studioCodeSendMessage,
 	studioCodeRespondToPermission,

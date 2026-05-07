@@ -1,5 +1,5 @@
-import styles from './style.module.css';
+import { UserDesk } from './user-desk';
 
 export function DesksUiApp() {
-	return <main className={ styles.canvas } />;
+	return <UserDesk />;
 }

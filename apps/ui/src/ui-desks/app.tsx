@@ -1,5 +1,11 @@
-import styles from './style.module.css';
+import { DeskChrome } from './chrome';
+import { UserDesk } from './user-desk';
 
 export function DesksUiApp() {
-	return <main className={ styles.canvas } />;
+	return (
+		<>
+			<DeskChrome />
+			<UserDesk />
+		</>
+	);
 }

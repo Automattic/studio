@@ -2,11 +2,10 @@ import { AI_MODELS, getAiModelFamily, getAiModelLabel } from '@studio/common/ai/
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
 import { useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { arrowUp, chevronDownSmall } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
-import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
@@ -55,6 +54,8 @@ interface ComposerProps {
 	// family swap; if absent we fall back to the in-place model change so the
 	// dropdown still works for unowned sessions.
 	ownerSiteId?: string;
+	onSwitchSession?: ( sessionId: string ) => void;
+	autoFocus?: boolean;
 }
 
 /**
@@ -83,6 +84,8 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		liveSite,
 		entries,
 		ownerSiteId,
+		onSwitchSession,
+		autoFocus = false,
 	},
 	ref
 ) {
@@ -90,13 +93,18 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const textareaRef = useRef< HTMLTextAreaElement | null >( null );
 	const connector = useConnector();
 	const queryClient = useQueryClient();
-	const navigate = useNavigate();
 
 	// Cross-family swap state. We hold the picked model here while the
 	// confirmation dialog is open; nothing is persisted until the user
 	// confirms.
 	const [ pendingFamilyChange, setPendingFamilyChange ] = useState< AiModelId | null >( null );
 	const [ familySwitchInFlight, setFamilySwitchInFlight ] = useState( false );
+
+	useEffect( () => {
+		if ( autoFocus ) {
+			textareaRef.current?.focus();
+		}
+	}, [ autoFocus, sessionId ] );
 
 	useImperativeHandle(
 		ref,
@@ -224,11 +232,11 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 				.catch( () => undefined );
 			void queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } );
 			setPendingFamilyChange( null );
-			void navigate( { to: '/sessions/$sessionId', params: { sessionId: newSession.id } } );
+			onSwitchSession?.( newSession.id );
 		} finally {
 			setFamilySwitchInFlight( false );
 		}
-	}, [ connector, navigate, ownerSiteId, pendingFamilyChange, queryClient ] );
+	}, [ connector, onSwitchSession, ownerSiteId, pendingFamilyChange, queryClient ] );
 
 	const canSend = value.trim().length > 0;
 	const placeholder = busy

@@ -1,6 +1,7 @@
 import { Menu as BaseMenu } from '@base-ui/react/menu';
 import { privateApis } from '@wordpress/theme';
 import { forwardRef } from 'react';
+import motionStyles from '@/components/floating-surface-motion/style.module.css';
 import { unlock } from '@/lock-unlock';
 import styles from './style.module.css';
 import type { ComponentPropsWithoutRef, ElementRef, ReactNode } from 'react';
@@ -49,7 +50,9 @@ export function Popup( {
 					establish the density context here so icons inside the
 					popup render at 16px like the rest of the app. */ }
 				<ThemeProvider density="compact">
-					<BaseMenu.Popup className={ `${ styles.popup } ${ className ?? '' }` }>
+					<BaseMenu.Popup
+						className={ `${ styles.popup } ${ motionStyles.motion } ${ className ?? '' }` }
+					>
 						{ children }
 					</BaseMenu.Popup>
 				</ThemeProvider>

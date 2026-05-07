@@ -7,6 +7,9 @@
 	/* Matches the classic header's reserved macOS traffic-light space. */
 	left: 94px;
 	z-index: 20;
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-md);
 }
 
 .fullscreen {
@@ -14,15 +17,35 @@
 }
 
 .trigger {
+	--desk-chrome-button-background: var(--wpds-color-bg-surface-neutral-strong);
+	--desk-chrome-button-border: var(--wpds-color-stroke-surface-neutral-weak);
+	--desk-chrome-button-foreground: var(--wpds-color-fg-content-neutral);
+	--wp-ui-button-background-color: var(--desk-chrome-button-background);
+	--wp-ui-button-background-color-active: var(--desk-chrome-button-background);
+	--wp-ui-button-border-color: var(--desk-chrome-button-border);
+	--wp-ui-button-border-color-active: var(--desk-chrome-button-border);
+	--wp-ui-button-foreground-color: var(--desk-chrome-button-foreground);
+	--wp-ui-button-foreground-color-active: var(--desk-chrome-button-foreground);
+
 	width: var(--desk-user-menu-size);
 	height: var(--desk-user-menu-size);
 	min-width: var(--desk-user-menu-size);
 	padding: 0;
 	justify-content: center;
-	background: var(--wpds-color-bg-surface-neutral-strong);
-	border-color: var(--wpds-color-stroke-surface-neutral-weak);
+	background: var(--desk-chrome-button-background);
+	border-color: var(--desk-chrome-button-border);
 	border-radius: 50%;
 	box-shadow: var(--wpds-elevation-md);
+	color: var(--desk-chrome-button-foreground);
+}
+
+.trigger:hover,
+.trigger:focus,
+.trigger:active,
+.trigger[aria-pressed='true'] {
+	background: var(--desk-chrome-button-background);
+	border-color: var(--desk-chrome-button-border);
+	color: var(--desk-chrome-button-foreground);
 }
 
 .avatar,

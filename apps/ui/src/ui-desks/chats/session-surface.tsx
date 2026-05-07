@@ -31,7 +31,7 @@ interface FrameProps {
 
 function Frame( { composer, scrollRef, children }: FrameProps ) {
 	return (
-		<div className={ sessionStyles.root }>
+		<div className={ clsx( sessionStyles.root, styles.sessionSurface ) }>
 			<div className={ sessionStyles.chatColumn }>
 				<div ref={ scrollRef } className={ clsx( sessionStyles.scroll, styles.sessionScroll ) }>
 					{ children }

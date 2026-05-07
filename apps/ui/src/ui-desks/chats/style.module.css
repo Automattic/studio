@@ -117,16 +117,21 @@
 	position: relative;
 }
 
+.sessionSurface {
+	box-sizing: border-box;
+	padding: var(--desk-chats-session-edge-padding);
+}
+
 .sessionScroll {
-	padding-inline: var(--desk-chats-session-edge-padding);
+	padding: 0;
 }
 
 .sessionConversation {
-	padding-block: var(--desk-chats-session-edge-padding);
+	padding: 0;
 }
 
 .sessionComposerOuter {
-	padding: 0 var(--desk-chats-session-edge-padding) var(--desk-chats-session-edge-padding);
+	padding: 0;
 }
 
 .emptyChat {

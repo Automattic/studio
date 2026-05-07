@@ -527,7 +527,7 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 	},
 	{
 		name: 'swag',
-		description: __( 'Open the WordPress merch store in the browser' ),
+		description: __( 'Treat yourself to some WordPress swag' ),
 		handler: async () => {
 			await openBrowser( 'https://mercantile.wordpress.org/' );
 			return 'continue';

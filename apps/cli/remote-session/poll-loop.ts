@@ -223,6 +223,15 @@ async function handleTurn(
 	const deliveredMedia = mediaSummary.posted > 0;
 
 	if ( reply === null && ! deliveredMedia ) {
+		deps.logger.warn( 'No reply produced; posting fallback', {
+			chat_id: target.chatId,
+			status: outcome.status,
+			exit_code: outcome.exitCode,
+			is_error: outcome.isError,
+			reply_text_chars: outcome.replyText?.length ?? 0,
+			questions: outcome.questions?.length ?? 0,
+			stderr_tail: outcome.stderrTail ? outcome.stderrTail.slice( -500 ) : '',
+		} );
 		await postBestEffort( deps, config, target, '⚠️ Local agent did not return a result.' );
 		return;
 	}

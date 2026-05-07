@@ -11,8 +11,8 @@ type ApiResponse = any;
  * Strips oversized fields from API responses that can't be filtered via query params.
  *
  * Special case: the WP.com /sites/{id} endpoint returns a `plan` object whose
- * `features` sub-field alone is 60K+ characters, which pushes the tool result past
- * Claude Code's MCP output limit (~100k chars). The v1.1 API doesn't support
+ * `features` sub-field alone is 60K+ characters, which can push the tool result past
+ * the agent's output budget. The v1.1 API doesn't support
  * sub-field filtering (e.g. `fields=plan.product_slug`), so we can't solve this
  * via query params. The agent only needs a few plan properties to gate features
  * since the system prompt hardcodes what each plan tier can do.

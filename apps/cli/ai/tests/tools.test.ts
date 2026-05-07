@@ -191,21 +191,7 @@ describe( 'Studio AI MCP tools', () => {
 	} );
 
 	describe( 'share_screenshot gating', () => {
-		const originalValue = process.env.STUDIO_ENABLE_REMOTE_SESSION;
-
-		beforeEach( () => {
-			delete process.env.STUDIO_ENABLE_REMOTE_SESSION;
-		} );
-
-		afterEach( () => {
-			if ( originalValue === undefined ) {
-				delete process.env.STUDIO_ENABLE_REMOTE_SESSION;
-			} else {
-				process.env.STUDIO_ENABLE_REMOTE_SESSION = originalValue;
-			}
-		} );
-
-		it( 'omits share_screenshot when STUDIO_ENABLE_REMOTE_SESSION is unset', () => {
+		it( 'omits share_screenshot when remoteSession is not set', () => {
 			const names = resolveStudioToolDefinitions( { enablePreviewSteering: true } ).map(
 				( tool ) => tool.name
 			);
@@ -213,11 +199,19 @@ describe( 'Studio AI MCP tools', () => {
 			expect( names ).toContain( 'take_screenshot' );
 		} );
 
-		it( 'includes share_screenshot when STUDIO_ENABLE_REMOTE_SESSION=true', () => {
-			process.env.STUDIO_ENABLE_REMOTE_SESSION = 'true';
-			const names = resolveStudioToolDefinitions( { enablePreviewSteering: true } ).map(
-				( tool ) => tool.name
-			);
+		it( 'omits share_screenshot when remoteSession is false', () => {
+			const names = resolveStudioToolDefinitions( {
+				enablePreviewSteering: true,
+				remoteSession: false,
+			} ).map( ( tool ) => tool.name );
+			expect( names ).not.toContain( 'share_screenshot' );
+		} );
+
+		it( 'includes share_screenshot when remoteSession is true', () => {
+			const names = resolveStudioToolDefinitions( {
+				enablePreviewSteering: true,
+				remoteSession: true,
+			} ).map( ( tool ) => tool.name );
 			expect( names ).toContain( 'share_screenshot' );
 		} );
 	} );

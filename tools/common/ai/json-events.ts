@@ -1,6 +1,6 @@
 export type TurnCompletedStatus = 'success' | 'error' | 'paused' | 'max_turns';
 
-// Transient UI directives emitted by the agent's preview_* MCP tools to
+// Transient UI directives emitted by the agent's preview_* tools to
 // steer the site preview iframe. They are not persisted to the session
 // JSONL — if no UI is listening (e.g. plain CLI runs) they are no-ops.
 export type PreviewCommand = { kind: 'navigate'; path: string } | { kind: 'reload' };

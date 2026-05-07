@@ -1,3 +1,4 @@
+import { getToolDisplayName } from '@studio/common/ai/tools';
 import { __ } from '@wordpress/i18n';
 import { chevronDown, chevronRight, Icon } from '@wordpress/icons';
 import { useState } from 'react';
@@ -5,13 +6,7 @@ import { cx } from 'src/lib/cx';
 import type { ToolCallState } from './studio-code-ui-types';
 
 function formatToolName( name: string ): string {
-	// Convert "mcp__studio__site_create" → "Site Create"
-	const parts = name.split( '__' );
-	const lastPart = parts[ parts.length - 1 ];
-	return lastPart
-		.split( '_' )
-		.map( ( word ) => word.charAt( 0 ).toUpperCase() + word.slice( 1 ) )
-		.join( ' ' );
+	return getToolDisplayName( name );
 }
 
 function StatusIcon( { status }: { status: ToolCallState[ 'status' ] } ) {

@@ -21,6 +21,24 @@ on:
         required: true
         type: boolean
         default: false
+      publish_to_apps_cdn:
+        description: Upload the unsigned archives to Apps CDN after the build
+        required: true
+        type: boolean
+        default: false
+      apps_cdn_visibility:
+        description: Apps CDN visibility for the upload
+        required: true
+        type: choice
+        options:
+          - internal
+          - external
+        default: internal
+      dry_run:
+        description: Run the Apps CDN publish lane without uploading
+        required: true
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -188,3 +206,72 @@ jobs:
           name: spc-logs-${{ matrix.target }}
           path: .cache/static-php-cli/log/*.log
           if-no-files-found: ignore
+
+  publish-apps-cdn:
+    name: Publish Apps CDN artifacts
+    needs: build
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_to_apps_cdn }}
+    runs-on: ubuntu-latest
+    env:
+      PHP_VERSION: ${{ inputs.php_version }}
+      PHP_CLI_VISIBILITY: ${{ inputs.apps_cdn_visibility }}
+      DRY_RUN: ${{ inputs.dry_run }}
+      WPCOM_API_TOKEN: ${{ secrets.WPCOM_API_TOKEN }}
+    steps:
+      - name: Checkout Studio
+        uses: actions/checkout@v6
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      - name: Download PHP CLI artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: php-${{ env.PHP_VERSION }}-cli-*
+          path: out/php-binaries
+          merge-multiple: true
+
+      - name: Summarize PHP CLI artifacts
+        run: |
+          set -euo pipefail
+
+          echo "### PHP CLI artifacts" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| File | Size | SHA-256 |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| --- | ---: | --- |" >> "$GITHUB_STEP_SUMMARY"
+
+          find out/php-binaries -maxdepth 1 -type f ! -name '*.sha256' -print | sort | while read -r file; do
+            sidecar="${file}.sha256"
+            if [ ! -f "$sidecar" ]; then
+              echo "Missing SHA-256 sidecar for $file"
+              exit 1
+            fi
+
+            size_bytes="$(wc -c < "$file" | tr -d ' ')"
+            sha="$(tr -d '[:space:]' < "$sidecar")"
+            echo "| $(basename "$file") | ${size_bytes} bytes | \`${sha}\` |" >> "$GITHUB_STEP_SUMMARY"
+          done
+
+      - name: Publish PHP CLI artifacts to Apps CDN
+        run: |
+          set -euo pipefail
+
+          if [ "$DRY_RUN" != "true" ] && [ -z "${WPCOM_API_TOKEN:-}" ]; then
+            echo "WPCOM_API_TOKEN secret is required to upload PHP CLI artifacts to Apps CDN."
+            exit 1
+          fi
+
+          bundle exec fastlane publish_php_cli_binaries \
+            version:"${PHP_VERSION}" \
+            artifacts_dir:"${PWD}/out/php-binaries" \
+            visibility:"${PHP_CLI_VISIBILITY}"
+
+          echo "### Apps CDN PHP CLI upload" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "Dry run completed for PHP ${PHP_VERSION} CLI artifacts with ${PHP_CLI_VISIBILITY} visibility." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Uploaded PHP ${PHP_VERSION} CLI artifacts with ${PHP_CLI_VISIBILITY} visibility." >> "$GITHUB_STEP_SUMMARY"
+          fi

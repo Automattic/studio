@@ -15,6 +15,7 @@ UI.user_error!('Please run fastlane via `bundle exec`') unless FastlaneCore::Hel
 PROJECT_ROOT_FOLDER = File.dirname(File.expand_path(__dir__))
 SECRETS_FOLDER = File.join(Dir.home, '.configure', 'studio', 'secrets')
 BUILDS_FOLDER = File.join(PROJECT_ROOT_FOLDER, 'apps', 'studio', 'out')
+PHP_CLI_BUILDS_FOLDER = File.join(PROJECT_ROOT_FOLDER, 'out', 'php-binaries')
 
 # Enable dry run mode through environment variable
 DRY_RUN = ENV['DRY_RUN'] == 'true'
@@ -39,6 +40,7 @@ APPLE_API_KEY_PATH = File.join(SECRETS_FOLDER, 'app_store_connect_fastlane_api_k
 
 # Site ID for WordPress.com Studio in the Apps CDN
 WPCOM_STUDIO_SITE_ID = '239164481'
+WPCOM_STUDIO_PHP_CLI_PRODUCT = 'WordPress.com Studio PHP CLI'
 
 GITHUB_REPO = 'Automattic/studio'
 MAIN_BRANCH = 'trunk'
@@ -162,6 +164,16 @@ lane :distribute_release_build do |version: read_package_json_version|
       ':studio-app-icon-mac: Release available for': builds.each_value.map { |b| "[#{b[:name]}](#{b[:cdn_url]})" }.join(', ')
     },
     default_payloads: []
+  )
+end
+
+desc 'Upload Studio PHP CLI binaries to Apps CDN'
+lane :publish_php_cli_binaries do |version:, artifacts_dir: PHP_CLI_BUILDS_FOLDER, visibility: 'internal', error_on_duplicate: true|
+  upload_php_cli_binaries_to_apps_cdn(
+    version:,
+    artifacts_dir:,
+    visibility:,
+    error_on_duplicate: error_on_duplicate.to_s != 'false'
   )
 end
 
@@ -646,6 +658,104 @@ def upload_file_to_apps_cdn(site_id:, product:, file_path:, platform:, arch:, bu
   UI.message("✅ Uploaded file: #{versioned_file_path} to #{result[:media_url]}")
 
   result
+end
+
+def php_cli_cdn_builds(version:)
+  [
+    {
+      file_name: "php-#{version}-cli-macos-aarch64.tar.gz",
+      name: 'macOS arm64',
+      platform: 'Mac - Silicon'
+    },
+    {
+      file_name: "php-#{version}-cli-macos-x86_64.tar.gz",
+      name: 'macOS x64',
+      platform: 'Mac - Intel'
+    },
+    {
+      file_name: "php-#{version}-cli-windows-x86_64.zip",
+      name: 'Windows x64',
+      platform: 'Windows - x64'
+    }
+  ]
+end
+
+def read_sha256_sidecar(file_path:)
+  sidecar_path = "#{file_path}.sha256"
+  UI.user_error!("SHA-256 sidecar #{sidecar_path} does not exist") unless File.exist?(sidecar_path)
+
+  sha = File.read(sidecar_path).split(/\s+/).first.to_s.downcase
+  unless sha.match?(/\A[a-f0-9]{64}\z/)
+    UI.user_error!("SHA-256 sidecar #{sidecar_path} does not contain a valid SHA-256 hash")
+  end
+
+  actual_sha = Digest::SHA256.file(file_path).hexdigest
+  unless sha == actual_sha
+    UI.user_error!("SHA-256 sidecar #{sidecar_path} does not match #{file_path}")
+  end
+
+  sha
+end
+
+def upload_php_cli_binaries_to_apps_cdn(version:, artifacts_dir:, visibility:, error_on_duplicate:, dry_run: DRY_RUN)
+  normalized_visibility = visibility.to_s.downcase
+  unless %w[internal external].include?(normalized_visibility)
+    UI.user_error!("visibility must be 'internal' or 'external'")
+  end
+
+  builds = {}
+  php_cli_cdn_builds(version:).each do |build|
+    file_path = File.join(artifacts_dir, build[:file_name])
+    UI.user_error!("File #{file_path} does not exist") unless File.exist?(file_path)
+
+    sha = read_sha256_sidecar(file_path:)
+    release_notes = "PHP #{version} CLI binary for #{build[:name]}"
+    UI.message("Uploading PHP CLI binary: #{build[:file_name]}")
+
+    if dry_run
+      media_url = 'https://appscdn.wordpress.com/builds/wordpress-com-studio-php-cli/releases.json'
+      UI.message('[DRY RUN] Upload step skipped due to dry run mode.')
+      UI.message("           File exists at: #{file_path}")
+      UI.message("           file size: #{File.size(file_path) / 1024 / 1024} MB")
+      UI.message("           product: #{WPCOM_STUDIO_PHP_CLI_PRODUCT}")
+      UI.message("           platform: #{build[:platform]}")
+      UI.message('           build type: Production')
+      UI.message('           install type: Update')
+      UI.message("           visibility: #{normalized_visibility.capitalize}")
+      UI.message("           version: #{version}")
+      UI.message("           release notes: #{release_notes}")
+      UI.message("           sha: #{sha}")
+      UI.message("           error on duplicate: #{error_on_duplicate}")
+      result = { media_url: }
+    else
+      result = upload_build_to_apps_cdn(
+        site_id: WPCOM_STUDIO_SITE_ID,
+        product: WPCOM_STUDIO_PHP_CLI_PRODUCT,
+        platform: build[:platform],
+        build_type: 'Production',
+        install_type: 'Update',
+        visibility: normalized_visibility.capitalize,
+        version:,
+        build_number: nil,
+        release_notes:,
+        sha:,
+        file_path:,
+        error_on_duplicate:
+      )
+
+      UI.message('--------------------------------')
+      UI.message("✅ Uploaded PHP CLI binary: #{file_path} to #{result[:media_url]}")
+    end
+
+    builds[build[:file_name]] = {
+      name: build[:name],
+      platform: build[:platform],
+      cdn_url: result[:media_url],
+      sha:
+    }
+  end
+
+  builds
 end
 
 ########################################################################

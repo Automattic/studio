@@ -1,7 +1,4 @@
-import {
-	RECTANGLE_WIDGET_SHAPE_TYPE,
-	type RectangleWidgetShapeProps,
-} from '@/ui-desks/shapes/rectangle-widget/types';
+import type { RectangleWidgetShapeProps } from '@/ui-desks/shapes/rectangle-widget/types';
 import type { DeskWidgetBase } from '@studio/common/types/desk';
 
 export const NOTE_WIDGET_TYPE = 'note';
@@ -15,7 +12,6 @@ export type NoteWidgetProps = {
 
 export type NoteWidget = DeskWidgetBase<
 	typeof NOTE_WIDGET_TYPE,
-	typeof RECTANGLE_WIDGET_SHAPE_TYPE,
 	RectangleWidgetShapeProps,
 	NoteWidgetProps
 >;

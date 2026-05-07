@@ -13,7 +13,7 @@ export interface DeskWidgetComponentProps<
 
 export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBase > {
 	type: TWidget[ 'type' ];
-	shapeType: TWidget[ 'shapeType' ];
+	shapeType: string;
 	Component: ComponentType< DeskWidgetComponentProps< TWidget[ 'widgetProps' ] > >;
 	isWidgetProps: ( props: unknown ) => props is TWidget[ 'widgetProps' ];
 }

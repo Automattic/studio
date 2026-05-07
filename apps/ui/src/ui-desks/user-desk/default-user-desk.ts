@@ -7,7 +7,6 @@ export const defaultUserDesk: DeskConfig = {
 		{
 			id: 'welcome-note',
 			type: 'note',
-			shapeType: 'studio-rectangle-widget',
 			x: 160,
 			y: 120,
 			zIndex: 'a1',

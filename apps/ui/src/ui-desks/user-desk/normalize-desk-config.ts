@@ -51,15 +51,17 @@ function normalizeDeskWidget( value: unknown ): DeskWidget | undefined {
 		return undefined;
 	}
 
+	if ( isPreviousNoteWidgetWithShapeType( value ) ) {
+		return createNoteWidgetFromNormalizedParts( value );
+	}
+
 	if ( isCurrentNoteWidget( value ) ) {
 		return value;
 	}
 
 	if ( isLegacyNoteWidget( value ) ) {
-		return {
+		return createNoteWidgetFromNormalizedParts( {
 			id: value.id,
-			type: NOTE_WIDGET_TYPE,
-			shapeType: RECTANGLE_WIDGET_SHAPE_TYPE,
 			x: value.x,
 			y: value.y,
 			rotation: value.rotation,
@@ -72,7 +74,7 @@ function normalizeDeskWidget( value: unknown ): DeskWidget | undefined {
 				text: value.props.text,
 				color: value.props.color,
 			},
-		};
+		} );
 	}
 
 	return undefined;
@@ -80,9 +82,29 @@ function normalizeDeskWidget( value: unknown ): DeskWidget | undefined {
 
 function isCurrentNoteWidget( value: unknown ): value is NoteWidget {
 	return (
+		hasNoteWidgetFields( value ) &&
+		value.shapeType === undefined &&
+		isNoteWidgetProps( value.widgetProps )
+	);
+}
+
+function isPreviousNoteWidgetWithShapeType( value: unknown ): value is Omit<
+	NoteWidget,
+	'type'
+> & {
+	type: typeof NOTE_WIDGET_TYPE;
+	shapeType: typeof RECTANGLE_WIDGET_SHAPE_TYPE;
+} {
+	return hasNoteWidgetFields( value ) && value.shapeType === RECTANGLE_WIDGET_SHAPE_TYPE;
+}
+
+function hasNoteWidgetFields( value: unknown ): value is Omit< NoteWidget, 'type' > & {
+	type: typeof NOTE_WIDGET_TYPE;
+	shapeType?: unknown;
+} {
+	return (
 		isRecord( value ) &&
 		value.type === NOTE_WIDGET_TYPE &&
-		value.shapeType === RECTANGLE_WIDGET_SHAPE_TYPE &&
 		typeof value.id === 'string' &&
 		typeof value.x === 'number' &&
 		typeof value.y === 'number' &&
@@ -93,6 +115,19 @@ function isCurrentNoteWidget( value: unknown ): value is NoteWidget {
 		typeof value.shapeProps.h === 'number' &&
 		isNoteWidgetProps( value.widgetProps )
 	);
+}
+
+function createNoteWidgetFromNormalizedParts( value: Omit< NoteWidget, 'type' > ): NoteWidget {
+	return {
+		id: value.id,
+		type: NOTE_WIDGET_TYPE,
+		x: value.x,
+		y: value.y,
+		rotation: value.rotation,
+		zIndex: value.zIndex,
+		shapeProps: value.shapeProps,
+		widgetProps: value.widgetProps,
+	};
 }
 
 function isLegacyNoteWidget( value: Record< string, unknown > ): value is Record<

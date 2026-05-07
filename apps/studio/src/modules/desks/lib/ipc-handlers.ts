@@ -18,7 +18,6 @@ function isDeskWidget( value: unknown ): value is DeskWidgetBase {
 	return (
 		typeof value.id === 'string' &&
 		typeof value.type === 'string' &&
-		typeof value.shapeType === 'string' &&
 		typeof value.x === 'number' &&
 		typeof value.y === 'number' &&
 		typeof value.zIndex === 'string' &&

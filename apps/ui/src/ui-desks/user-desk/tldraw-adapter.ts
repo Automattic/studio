@@ -11,9 +11,14 @@ import type { DeskWidget } from '@/ui-desks/widgets/types';
 const SHAPE_ID_PREFIX = 'shape:';
 
 export function deskWidgetToCanvasShape( widget: DeskWidget ): TLShapePartial {
+	const definition = getWidgetDefinition( widget.type );
+	if ( ! definition ) {
+		throw new Error( `Unknown desk widget type: ${ widget.type }.` );
+	}
+
 	return {
 		id: createShapeId( widget.id ),
-		type: widget.shapeType,
+		type: definition.shapeType,
 		x: widget.x,
 		y: widget.y,
 		rotation: widget.rotation ?? 0,
@@ -48,7 +53,6 @@ export function canvasShapeToDeskWidget( shape: TLShape ): DeskWidget | null {
 			? shape.id.slice( SHAPE_ID_PREFIX.length )
 			: shape.id,
 		type: shape.props.widgetType,
-		shapeType: shape.type,
 		x: shape.x,
 		y: shape.y,
 		rotation: shape.rotation || undefined,

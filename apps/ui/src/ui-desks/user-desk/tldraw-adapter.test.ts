@@ -13,7 +13,6 @@ describe( 'tldraw adapter', () => {
 		const widget: NoteWidget = {
 			id: 'note-1',
 			type: 'note',
-			shapeType: RECTANGLE_WIDGET_SHAPE_TYPE,
 			x: 10,
 			y: 20,
 			zIndex: 'a1',
@@ -71,7 +70,6 @@ describe( 'tldraw adapter', () => {
 		expect( canvasShapeToDeskWidget( shape ) ).toEqual( {
 			id: 'note-1',
 			type: 'note',
-			shapeType: RECTANGLE_WIDGET_SHAPE_TYPE,
 			x: 30,
 			y: 40,
 			rotation: undefined,

@@ -2,13 +2,11 @@ export const DESK_CONFIG_VERSION = 1;
 
 export interface DeskWidgetBase<
 	TType extends string = string,
-	TShapeType extends string = string,
 	TShapeProps extends Record< string, unknown > = Record< string, unknown >,
 	TWidgetProps extends Record< string, unknown > = Record< string, unknown >,
 > {
 	id: string;
 	type: TType;
-	shapeType: TShapeType;
 	x: number;
 	y: number;
 	rotation?: number;

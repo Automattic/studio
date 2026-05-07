@@ -1,19 +1,18 @@
 import { useCallback, useEffect, useRef, type KeyboardEvent, type PointerEvent } from 'react';
-import { getPointerInfo, stopEventPropagation, useEditor, useIsEditing } from 'tldraw';
 import {
-	NOTE_WIDGET_CANVAS_TYPE,
-	NOTE_WIDGET_TYPE,
-	type NoteShape,
-	type NoteWidget,
-} from '@/ui-desks/widgets/note/types';
+	getPointerInfo,
+	stopEventPropagation,
+	useEditor,
+	useIsEditing,
+	type TLUnknownShape,
+} from 'tldraw';
+import { NOTE_WIDGET_TYPE, type NoteWidgetProps } from '@/ui-desks/widgets/note/types';
 import styles from './style.module.css';
+import type { DeskWidgetComponentProps } from '@/ui-desks/widgets/types';
 
-interface NoteWidgetComponentProps {
-	id: NoteShape[ 'id' ];
-	props: NoteWidget[ 'props' ];
-}
+type NoteWidgetComponentProps = DeskWidgetComponentProps< NoteWidgetProps >;
 
-export function NoteWidgetComponent( { id, props }: NoteWidgetComponentProps ) {
+export function NoteWidgetComponent( { id, shapeType, widgetProps }: NoteWidgetComponentProps ) {
 	const editor = useEditor();
 	const isEditing = useIsEditing( id );
 	const textareaRef = useRef< HTMLTextAreaElement >( null );
@@ -44,15 +43,18 @@ export function NoteWidgetComponent( { id, props }: NoteWidgetComponentProps ) {
 				return;
 			}
 
-			editor.updateShape< NoteShape >( {
+			editor.updateShape< TLUnknownShape >( {
 				id,
-				type: NOTE_WIDGET_CANVAS_TYPE,
+				type: shapeType,
 				props: {
-					text,
+					widgetProps: {
+						...widgetProps,
+						text,
+					},
 				},
 			} );
 		},
-		[ editor, id ]
+		[ editor, id, shapeType, widgetProps ]
 	);
 
 	const handlePointerDown = useCallback(
@@ -88,7 +90,7 @@ export function NoteWidgetComponent( { id, props }: NoteWidgetComponentProps ) {
 	return (
 		<div
 			className={ styles.note }
-			data-color={ props.color }
+			data-color={ widgetProps.color }
 			data-is-editing={ isEditing }
 			data-studio-desk-widget={ NOTE_WIDGET_TYPE }
 		>
@@ -96,15 +98,15 @@ export function NoteWidgetComponent( { id, props }: NoteWidgetComponentProps ) {
 				<textarea
 					ref={ textareaRef }
 					className={ styles.textarea }
-					value={ props.text }
+					value={ widgetProps.text }
 					spellCheck
 					onChange={ ( event ) => updateText( event.currentTarget.value ) }
 					onKeyDown={ handleKeyDown }
 					onPointerDown={ handlePointerDown }
 					onBlur={ () => editor.complete() }
 				/>
-			) : props.text ? (
-				<div className={ styles.text }>{ props.text }</div>
+			) : widgetProps.text ? (
+				<div className={ styles.text }>{ widgetProps.text }</div>
 			) : (
 				<div className={ styles.placeholder }>Type a note...</div>
 			) }

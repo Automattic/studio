@@ -12,12 +12,13 @@ function isRecord( value: unknown ): value is Record< string, unknown > {
 }
 
 function isDeskWidget( value: unknown ): value is DeskWidgetBase {
-	if ( ! isRecord( value ) || ! isRecord( value.props ) ) {
+	if ( ! isRecord( value ) || ! isRecord( value.shapeProps ) || ! isRecord( value.widgetProps ) ) {
 		return false;
 	}
 	return (
 		typeof value.id === 'string' &&
 		typeof value.type === 'string' &&
+		typeof value.shapeType === 'string' &&
 		typeof value.x === 'number' &&
 		typeof value.y === 'number' &&
 		typeof value.zIndex === 'string' &&

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Tldraw, type Editor, type TldrawOptions } from 'tldraw';
 import 'tldraw/tldraw.css';
 import { DESK_CONFIG_VERSION, type DeskConfig } from '@/ui-desks/desk/types';
-import { widgetShapeUtils } from '@/ui-desks/widgets/registry';
+import { deskShapeUtils } from '@/ui-desks/shapes/registry';
 import styles from './style.module.css';
 import {
 	canvasCameraToDeskViewport,
@@ -101,7 +101,7 @@ export function UserDeskCanvas( { desk, onChange }: UserDeskCanvasProps ) {
 				hideUi
 				autoFocus
 				options={ deskCanvasOptions }
-				shapeUtils={ widgetShapeUtils }
+				shapeUtils={ deskShapeUtils }
 				onMount={ handleMount }
 			/>
 		</div>

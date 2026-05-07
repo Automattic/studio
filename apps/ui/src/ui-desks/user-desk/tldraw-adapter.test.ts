@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { RECTANGLE_WIDGET_SHAPE_TYPE } from '@/ui-desks/shapes/rectangle-widget/types';
 import { createNoteWidget } from '@/ui-desks/widgets/note/defaults';
-import { NOTE_WIDGET_CANVAS_TYPE } from '@/ui-desks/widgets/note/types';
 import {
 	canvasCameraToDeskViewport,
 	canvasShapeToDeskWidget,
@@ -20,15 +20,20 @@ describe( 'tldraw adapter', () => {
 
 		expect( deskWidgetToCanvasShape( widget ) ).toMatchObject( {
 			id: 'shape:note-1',
-			type: NOTE_WIDGET_CANVAS_TYPE,
+			type: RECTANGLE_WIDGET_SHAPE_TYPE,
 			x: 10,
 			y: 20,
 			index: 'a1',
 			props: {
-				w: 260,
-				h: 220,
-				text: 'Hello',
-				color: 'yellow',
+				widgetType: 'note',
+				shapeProps: {
+					w: 260,
+					h: 220,
+				},
+				widgetProps: {
+					text: 'Hello',
+					color: 'yellow',
+				},
 			},
 		} );
 	} );
@@ -36,29 +41,37 @@ describe( 'tldraw adapter', () => {
 	it( 'maps a canvas note shape back to a desk widget', () => {
 		const shape = {
 			id: 'shape:note-1',
-			type: NOTE_WIDGET_CANVAS_TYPE,
+			type: RECTANGLE_WIDGET_SHAPE_TYPE,
 			x: 30,
 			y: 40,
 			rotation: 0,
 			index: 'a2',
 			props: {
-				w: 300,
-				h: 240,
-				text: 'Updated',
-				color: 'blue',
+				widgetType: 'note',
+				shapeProps: {
+					w: 300,
+					h: 240,
+				},
+				widgetProps: {
+					text: 'Updated',
+					color: 'blue',
+				},
 			},
 		} as unknown as TLShape;
 
 		expect( canvasShapeToDeskWidget( shape ) ).toEqual( {
 			id: 'note-1',
 			type: 'note',
+			shapeType: RECTANGLE_WIDGET_SHAPE_TYPE,
 			x: 30,
 			y: 40,
 			rotation: undefined,
 			zIndex: 'a2',
-			props: {
+			shapeProps: {
 				w: 300,
 				h: 240,
+			},
+			widgetProps: {
 				text: 'Updated',
 				color: 'blue',
 			},

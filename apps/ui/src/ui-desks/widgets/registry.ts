@@ -1,3 +1,9 @@
-import { NoteShapeUtil } from '@/ui-desks/widgets/note/shape-util';
+import { noteWidgetDefinition } from '@/ui-desks/widgets/note/definition';
 
-export const widgetShapeUtils = [ NoteShapeUtil ];
+export const widgetDefinitions = {
+	[ noteWidgetDefinition.type ]: noteWidgetDefinition,
+};
+
+export function getWidgetDefinition( type: string ) {
+	return widgetDefinitions[ type as keyof typeof widgetDefinitions ];
+}

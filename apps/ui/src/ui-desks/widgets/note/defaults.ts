@@ -1,3 +1,4 @@
+import { RECTANGLE_WIDGET_SHAPE_TYPE } from '@/ui-desks/shapes/rectangle-widget/types';
 import { NOTE_WIDGET_TYPE, type NoteWidget } from '@/ui-desks/widgets/note/types';
 
 interface CreateNoteWidgetOptions {
@@ -18,12 +19,15 @@ export function createNoteWidget( {
 	return {
 		id,
 		type: NOTE_WIDGET_TYPE,
+		shapeType: RECTANGLE_WIDGET_SHAPE_TYPE,
 		x,
 		y,
 		zIndex,
-		props: {
+		shapeProps: {
 			w: 260,
 			h: 220,
+		},
+		widgetProps: {
 			text,
 			color: 'yellow',
 		},

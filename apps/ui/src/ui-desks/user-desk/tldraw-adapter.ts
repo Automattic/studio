@@ -1,45 +1,61 @@
 import { createShapeId, type TLCamera, type TLShape, type TLShapePartial } from 'tldraw';
 import {
-	NOTE_WIDGET_CANVAS_TYPE,
-	NOTE_WIDGET_TYPE,
-	type NoteWidget,
-	type NoteColor,
-} from '@/ui-desks/widgets/note/types';
+	isRectangleWidgetShapeProps,
+	RECTANGLE_WIDGET_SHAPE_TYPE,
+	type RectangleWidgetCanvasProps,
+} from '@/ui-desks/shapes/rectangle-widget/types';
+import { getWidgetDefinition } from '@/ui-desks/widgets/registry';
 import type { DeskViewport } from '@/ui-desks/desk/types';
 import type { DeskWidget } from '@/ui-desks/widgets/types';
 
 const SHAPE_ID_PREFIX = 'shape:';
-const CANVAS_TYPE_PREFIX = 'studio-';
 
 export function deskWidgetToCanvasShape( widget: DeskWidget ): TLShapePartial {
 	return {
 		id: createShapeId( widget.id ),
-		type: `${ CANVAS_TYPE_PREFIX }${ widget.type }`,
+		type: widget.shapeType,
 		x: widget.x,
 		y: widget.y,
 		rotation: widget.rotation ?? 0,
 		index: widget.zIndex as TLShapePartial[ 'index' ],
-		props: widget.props,
+		props: {
+			widgetType: widget.type,
+			shapeProps: widget.shapeProps,
+			widgetProps: widget.widgetProps,
+		},
 	};
 }
 
 export function canvasShapeToDeskWidget( shape: TLShape ): DeskWidget | null {
-	if ( shape.type !== NOTE_WIDGET_CANVAS_TYPE || ! isNoteWidgetProps( shape.props ) ) {
+	if (
+		shape.type !== RECTANGLE_WIDGET_SHAPE_TYPE ||
+		! isRectangleWidgetCanvasProps( shape.props )
+	) {
 		return null;
 	}
 
-	const widget: NoteWidget = {
+	const definition = getWidgetDefinition( shape.props.widgetType );
+	if (
+		! definition ||
+		definition.shapeType !== shape.type ||
+		! definition.isWidgetProps( shape.props.widgetProps )
+	) {
+		return null;
+	}
+
+	return {
 		id: shape.id.startsWith( SHAPE_ID_PREFIX )
 			? shape.id.slice( SHAPE_ID_PREFIX.length )
 			: shape.id,
-		type: NOTE_WIDGET_TYPE,
+		type: shape.props.widgetType,
+		shapeType: shape.type,
 		x: shape.x,
 		y: shape.y,
 		rotation: shape.rotation || undefined,
 		zIndex: shape.index,
-		props: shape.props,
-	};
-	return widget;
+		shapeProps: shape.props.shapeProps,
+		widgetProps: shape.props.widgetProps,
+	} as DeskWidget;
 }
 
 export function canvasCameraToDeskViewport(
@@ -52,16 +68,14 @@ export function canvasCameraToDeskViewport(
 	};
 }
 
-function isNoteColor( value: unknown ): value is NoteColor {
-	return value === 'yellow' || value === 'blue' || value === 'green' || value === 'pink';
-}
-
-function isNoteWidgetProps( props: TLShape[ 'props' ] ): props is NoteWidget[ 'props' ] {
-	const candidate = props as Partial< NoteWidget[ 'props' ] >;
+function isRectangleWidgetCanvasProps(
+	props: TLShape[ 'props' ]
+): props is RectangleWidgetCanvasProps {
+	const candidate = props as Partial< RectangleWidgetCanvasProps >;
 	return (
-		typeof candidate.w === 'number' &&
-		typeof candidate.h === 'number' &&
-		typeof candidate.text === 'string' &&
-		isNoteColor( candidate.color )
+		typeof candidate.widgetType === 'string' &&
+		isRectangleWidgetShapeProps( candidate.shapeProps ) &&
+		Boolean( candidate.widgetProps ) &&
+		typeof candidate.widgetProps === 'object'
 	);
 }

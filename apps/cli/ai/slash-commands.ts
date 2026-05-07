@@ -10,6 +10,7 @@ import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { runCommand as runLogoutCommand } from 'cli/commands/auth/logout';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
+import { openBrowser } from 'cli/lib/browser';
 import { isRemoteSessionEnabled } from 'cli/lib/feature-flags';
 import { getSnapshotsFromConfig, isSnapshotExpired } from 'cli/lib/snapshots';
 import { LoggerError } from 'cli/logger';
@@ -217,6 +218,131 @@ async function pickRemoteSessionSubcommand(
 		}
 		throw error;
 	}
+}
+
+// Mirrors apps/studio/src/constants.ts BUG_REPORT_URL — the desktop user-menu
+// link points users at the same Studio bug-report template. Hard-coded here
+// rather than imported so the CLI surface stays decoupled from the desktop
+// constants module.
+const STUDIO_BUG_REPORT_URL =
+	'https://github.com/Automattic/studio/issues/new?assignees=&labels=Needs+triage%2C%5BType%5D+Bug&projects=&template=bug_report.yml';
+
+interface FeedbackEnvironment {
+	platform: string;
+	arch: string;
+	nodeVersion: string;
+	cliVersion: string;
+	provider: AiProviderId;
+	model: AiModelId;
+}
+
+function collectFeedbackEnvironment( ctx: SlashCommandContext ): FeedbackEnvironment {
+	return {
+		platform: process.platform,
+		arch: process.arch,
+		nodeVersion: process.version,
+		cliVersion: __STUDIO_CLI_VERSION__,
+		provider: ctx.currentProvider,
+		model: ctx.currentModel,
+	};
+}
+
+function formatEnvironmentLine( env: FeedbackEnvironment ): string {
+	return `${ env.platform }/${ env.arch }, Node ${ env.nodeVersion }, Studio CLI ${ env.cliVersion }, ${ env.provider }/${ env.model }`;
+}
+
+function buildFeedbackUrl( summary: string, env: FeedbackEnvironment ): string {
+	const params = new URLSearchParams();
+	const trimmed = summary.trim();
+	if ( trimmed ) {
+		// `summary` is the id of the first textarea in bug_report.yml — GitHub
+		// issue forms accept query params keyed by field id. The `logs` field is
+		// the optional textarea at the bottom of the same template.
+		params.set( 'summary', trimmed );
+	}
+	params.set( 'logs', formatEnvironmentLine( env ) );
+	return `${ STUDIO_BUG_REPORT_URL }&${ params.toString() }`;
+}
+
+async function confirmFeedbackSubmission( ctx: SlashCommandContext ): Promise< boolean > {
+	const answer = await ctx.ui.askUser( [
+		{
+			question: __( 'Open GitHub with this report?' ),
+			options: [
+				{
+					label: __( 'Submit on GitHub' ),
+					description: __( 'Open the pre-filled bug report' ),
+				},
+				{ label: __( 'Cancel' ), description: __( 'Discard the feedback' ) },
+			],
+		},
+	] );
+	const selected = ( Object.values( answer )[ 0 ] as string | undefined )?.toLowerCase() ?? '';
+	return selected.startsWith( 'submit' );
+}
+
+async function runFeedbackSlashCommand(
+	_prompt: string,
+	ctx: SlashCommandContext
+): Promise< 'continue' | 'break' > {
+	const descriptionQ = __( 'Describe the issue or feedback' );
+	let answers: Record< string, string >;
+	try {
+		answers = await ctx.ui.askUser( [ { question: descriptionQ, options: [] } ] );
+	} catch ( error ) {
+		if ( isPromptAbortError( error ) ) {
+			ctx.ui.showInfo( __( 'Feedback canceled.' ) );
+			return 'continue';
+		}
+		throw error;
+	}
+	const summary = ( answers[ descriptionQ ] ?? '' ).trim();
+	if ( ! summary ) {
+		ctx.ui.showInfo( __( 'Feedback canceled.' ) );
+		return 'continue';
+	}
+
+	const env = collectFeedbackEnvironment( ctx );
+	ctx.ui.showInfo(
+		[
+			__( 'Submit Feedback / Bug Report' ),
+			'',
+			__( 'This report will pre-fill GitHub with:' ),
+			sprintf(
+				/* translators: %s: the user's feedback text */
+				__( '  - Your description: %s' ),
+				summary
+			),
+			sprintf(
+				/* translators: %s: environment summary like "darwin/arm64, Node v22.18.0, …" */
+				__( '  - Environment: %s' ),
+				formatEnvironmentLine( env )
+			),
+			'',
+			__( "You'll review and submit the issue on github.com." ),
+		].join( '\n' )
+	);
+
+	let confirmed: boolean;
+	try {
+		confirmed = await confirmFeedbackSubmission( ctx );
+	} catch ( error ) {
+		if ( isPromptAbortError( error ) ) {
+			ctx.ui.showInfo( __( 'Feedback canceled.' ) );
+			return 'continue';
+		}
+		throw error;
+	}
+	if ( ! confirmed ) {
+		ctx.ui.showInfo( __( 'Feedback canceled.' ) );
+		return 'continue';
+	}
+
+	await openBrowser( buildFeedbackUrl( summary, env ) );
+	ctx.ui.showSuccess(
+		__( 'Opening GitHub with your feedback pre-filled — finish the form to submit.' )
+	);
+	return 'continue';
 }
 
 async function runRemoteSessionSlashCommand(
@@ -523,6 +649,11 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 			return items.filter( ( item ) => item.value.startsWith( lower ) );
 		},
 		handler: runRemoteSessionSlashCommand,
+	},
+	{
+		name: 'feedback',
+		description: __( 'Report a bug or share feedback about Studio' ),
+		handler: runFeedbackSlashCommand,
 	},
 	{
 		name: 'exit',

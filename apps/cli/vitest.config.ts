@@ -7,6 +7,7 @@ export default mergeConfig(
 	defineProject( {
 		define: {
 			__IS_PACKAGED_FOR_NPM__: true,
+			__STUDIO_CLI_VERSION__: JSON.stringify( 'test' ),
 		},
 		test: {
 			name: 'cli',

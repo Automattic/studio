@@ -84,6 +84,7 @@ vi.mock( 'cli/commands/auth/login', () => ( { runCommand: vi.fn() } ) );
 vi.mock( 'cli/commands/auth/logout', () => ( { runCommand: vi.fn() } ) );
 vi.mock( 'cli/commands/preview/create', () => ( { runCommand: vi.fn() } ) );
 vi.mock( 'cli/commands/preview/update', () => ( { runCommand: vi.fn() } ) );
+vi.mock( 'cli/lib/browser', () => ( { openBrowser: vi.fn() } ) );
 vi.mock( '@studio/common/lib/shared-config', () => ( { readAuthToken: vi.fn() } ) );
 
 vi.mock( 'cli/remote-session/daemon', () => {
@@ -446,5 +447,100 @@ describe( '/model slash command', () => {
 		// Same model picked → no swap, no persist.
 		expect( ctx.currentModel ).toBe( 'gpt-5.5' );
 		expect( persistMock ).not.toHaveBeenCalled();
+	} );
+} );
+
+describe( '/feedback slash command', () => {
+	const cmd = AI_CHAT_SLASH_COMMANDS.find( ( c ) => c.name === 'feedback' )!;
+
+	function makeUi() {
+		return {
+			showInfo: vi.fn(),
+			showError: vi.fn(),
+			showSuccess: vi.fn(),
+			askUser: vi.fn(),
+		};
+	}
+	function makeCtx( ui: ReturnType< typeof makeUi > ): SlashCommandContext {
+		return {
+			ui: ui as unknown as SlashCommandContext[ 'ui' ],
+			currentModel: 'claude-sonnet-4-6' as SlashCommandContext[ 'currentModel' ],
+			currentProvider: 'wpcom' as SlashCommandContext[ 'currentProvider' ],
+			showCapabilitiesOnConnect: false,
+			switchProvider: vi.fn().mockResolvedValue( undefined ),
+			prepareProviderSelection: vi.fn().mockResolvedValue( undefined ),
+			maybeAutoSwitchProvider: vi.fn().mockResolvedValue( undefined ),
+			persistSessionContext: vi.fn().mockResolvedValue( undefined ),
+			clearSession: vi.fn().mockResolvedValue( undefined ),
+		};
+	}
+
+	beforeEach( async () => {
+		const browser = await import( 'cli/lib/browser' );
+		( browser.openBrowser as ReturnType< typeof vi.fn > ).mockReset();
+		( browser.openBrowser as ReturnType< typeof vi.fn > ).mockResolvedValue( undefined );
+	} );
+
+	it( 'is registered with a handler and description', () => {
+		expect( cmd ).toBeDefined();
+		expect( typeof cmd.handler ).toBe( 'function' );
+		expect( cmd.description ).toBeTruthy();
+	} );
+
+	it( 'opens GitHub with the feedback pre-filled when the user confirms', async () => {
+		const ui = makeUi();
+		ui.askUser
+			.mockResolvedValueOnce( { 'Describe the issue or feedback': 'something is broken' } )
+			.mockResolvedValueOnce( { 'Open GitHub with this report?': 'Submit on GitHub' } );
+
+		const result = await cmd.handler!( '/feedback', makeCtx( ui ) );
+
+		const browser = await import( 'cli/lib/browser' );
+		expect( browser.openBrowser ).toHaveBeenCalledOnce();
+		const url = ( browser.openBrowser as ReturnType< typeof vi.fn > ).mock.calls[ 0 ][ 0 ];
+		expect( url ).toContain( 'github.com/Automattic/studio/issues/new' );
+		expect( url ).toContain( 'template=bug_report.yml' );
+		expect( url ).toContain( 'summary=something+is+broken' );
+		expect( url ).toContain( 'logs=' );
+		expect( ui.showSuccess ).toHaveBeenCalledOnce();
+		expect( result ).toBe( 'continue' );
+	} );
+
+	it( 'does not open the browser when the user picks Cancel at confirmation', async () => {
+		const ui = makeUi();
+		ui.askUser
+			.mockResolvedValueOnce( { 'Describe the issue or feedback': 'minor nit' } )
+			.mockResolvedValueOnce( { 'Open GitHub with this report?': 'Cancel' } );
+
+		await cmd.handler!( '/feedback', makeCtx( ui ) );
+
+		const browser = await import( 'cli/lib/browser' );
+		expect( browser.openBrowser ).not.toHaveBeenCalled();
+		expect( ui.showInfo ).toHaveBeenCalledWith( expect.stringContaining( 'canceled' ) );
+	} );
+
+	it( 'cancels when the description is empty', async () => {
+		const ui = makeUi();
+		ui.askUser.mockResolvedValueOnce( { 'Describe the issue or feedback': '   ' } );
+
+		await cmd.handler!( '/feedback', makeCtx( ui ) );
+
+		const browser = await import( 'cli/lib/browser' );
+		expect( browser.openBrowser ).not.toHaveBeenCalled();
+		// Only the description was prompted — confirmation step was skipped.
+		expect( ui.askUser ).toHaveBeenCalledOnce();
+	} );
+
+	it( 'cancels gracefully when the prompt is aborted (Esc)', async () => {
+		const ui = makeUi();
+		const abortError = Object.assign( new Error( 'aborted' ), { name: 'AbortPromptError' } );
+		ui.askUser.mockRejectedValueOnce( abortError );
+
+		const result = await cmd.handler!( '/feedback', makeCtx( ui ) );
+
+		const browser = await import( 'cli/lib/browser' );
+		expect( browser.openBrowser ).not.toHaveBeenCalled();
+		expect( ui.showInfo ).toHaveBeenCalledWith( expect.stringContaining( 'canceled' ) );
+		expect( result ).toBe( 'continue' );
 	} );
 } );

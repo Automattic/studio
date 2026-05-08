@@ -110,7 +110,7 @@ a:focus:not(:focus-visible),
    density only shrinks padding/gap tokens, not icon sizes. Override the
    svg width/height attributes with CSS until the design system exposes
    a density-aware icon token. Ideally this lives in ThemeProvider. */
-[data-wpds-density='compact'] svg {
+[data-wpds-density='compact'] [data-ui-mode='classic'] svg {
 	width: 16px;
 	height: 16px;
 }
@@ -140,4 +140,3 @@ a:focus:not(:focus-visible),
 		scroll-behavior: auto !important;
 	}
 }
-

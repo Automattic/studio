@@ -1,18 +1,18 @@
 import { AI_MODELS, getAiModelFamily, getAiModelLabel } from '@studio/common/ai/models';
+import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
 import { useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { arrowUp, chevronDownSmall } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
-import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { EnvironmentPill } from './environment-pill';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';
-import type { AiModelId, AiSessionEvent, LoadedAiSession, SyncSite } from '@/data/core';
+import type { AiModelId, LoadedAiSession, SessionEntry, SyncSite } from '@/data/core';
 
 /**
  * Invisible structural placeholder that mirrors Composer's outer DOM (shell +
@@ -48,15 +48,14 @@ interface ComposerProps {
 	sessionId?: string;
 	effectiveEnvironment?: 'local' | 'live';
 	liveSite?: SyncSite;
-	// Session events drive the cross-family confirmation logic — we skip the
-	// dialog when the session is empty (nothing to lose) and use them for the
-	// optimistic `session.model_selected` cache update on same-family swaps.
-	events?: AiSessionEvent[];
+	entries?: SessionEntry[];
 	// Local owner site id, when the session is anchored to one. Required to
 	// spin up a fresh session via `connector.createSession` on a confirmed
 	// family swap; if absent we fall back to the in-place model change so the
 	// dropdown still works for unowned sessions.
 	ownerSiteId?: string;
+	onSwitchSession?: ( sessionId: string ) => void;
+	autoFocus?: boolean;
 }
 
 /**
@@ -83,8 +82,10 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		sessionId,
 		effectiveEnvironment = 'local',
 		liveSite,
-		events,
+		entries,
 		ownerSiteId,
+		onSwitchSession,
+		autoFocus = false,
 	},
 	ref
 ) {
@@ -92,13 +93,18 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const textareaRef = useRef< HTMLTextAreaElement | null >( null );
 	const connector = useConnector();
 	const queryClient = useQueryClient();
-	const navigate = useNavigate();
 
 	// Cross-family swap state. We hold the picked model here while the
 	// confirmation dialog is open; nothing is persisted until the user
 	// confirms.
 	const [ pendingFamilyChange, setPendingFamilyChange ] = useState< AiModelId | null >( null );
 	const [ familySwitchInFlight, setFamilySwitchInFlight ] = useState( false );
+
+	useEffect( () => {
+		if ( autoFocus ) {
+			textareaRef.current?.focus();
+		}
+	}, [ autoFocus, sessionId ] );
 
 	useImperativeHandle(
 		ref,
@@ -139,10 +145,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		}
 	}, [ value, onSend ] );
 
-	// Same-family swap: optimistically append a `session.model_selected` event
-	// so the composer reflects the new pick immediately. The main process
-	// writes the same event to the JSONL; if that write fails we fall back
-	// to the prior state via query invalidation.
+	// Same-family swap: optimistic `model_change` entry; refetch on write fail.
 	const applySameFamilyModel = useCallback(
 		( picked: AiModelId ) => {
 			if ( ! sessionId ) {
@@ -155,9 +158,16 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 					prev
 						? {
 								...prev,
-								events: [
-									...prev.events,
-									{ type: 'session.model_selected', timestamp, model: picked },
+								entries: [
+									...( prev.entries ?? [] ),
+									{
+										type: 'model_change',
+										id: Math.random().toString( 36 ).slice( 2, 10 ),
+										parentId: null,
+										timestamp,
+										provider: '',
+										modelId: picked,
+									} as unknown as SessionEntry,
 								],
 						  }
 						: prev
@@ -185,14 +195,16 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 			//     pass to `createSession`, so the fresh-session path can't
 			//     run; fall back to the in-place switch instead of blocking
 			//     the dropdown).
-			const hasTurns = ( events ?? [] ).some( ( event ) => event.type === 'user.message' );
+			const hasTurns = ( entries ?? [] ).some( ( entry ) =>
+				isStudioCustomEntryOfType( entry, 'studio.user_prompt' )
+			);
 			if ( getAiModelFamily( model ) !== getAiModelFamily( picked ) && ownerSiteId && hasTurns ) {
 				setPendingFamilyChange( picked );
 				return;
 			}
 			applySameFamilyModel( picked );
 		},
-		[ applySameFamilyModel, events, model, ownerSiteId ]
+		[ applySameFamilyModel, entries, model, ownerSiteId ]
 	);
 
 	const cancelFamilyChange = useCallback( () => {
@@ -220,11 +232,11 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 				.catch( () => undefined );
 			void queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } );
 			setPendingFamilyChange( null );
-			void navigate( { to: '/sessions/$sessionId', params: { sessionId: newSession.id } } );
+			onSwitchSession?.( newSession.id );
 		} finally {
 			setFamilySwitchInFlight( false );
 		}
-	}, [ connector, navigate, ownerSiteId, pendingFamilyChange, queryClient ] );
+	}, [ connector, onSwitchSession, ownerSiteId, pendingFamilyChange, queryClient ] );
 
 	const canSend = value.trim().length > 0;
 	const placeholder = busy

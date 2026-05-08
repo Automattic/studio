@@ -32,8 +32,16 @@ const NATIVE_PHP_EXCLUDED_MU_PLUGINS = new Set( [
 	'0-http-request-timeout.php',
 ] );
 
+function escapePhpSingleQuotedString( value: string ): string {
+	return value.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
+}
+
+function unescapePhpSingleQuotedString( value: string ): string {
+	return value.replace( /\\\\/g, '\\' ).replace( /\\'/g, "'" );
+}
+
 function getLoaderMuPluginContent( muPluginsDir: string ): string {
-	const encodedMuPluginsDir = JSON.stringify( muPluginsDir );
+	const escapedMuPluginsDir = escapePhpSingleQuotedString( muPluginsDir );
 
 	return `<?php
 		/**
@@ -54,7 +62,7 @@ function getLoaderMuPluginContent( muPluginsDir: string ): string {
 		// Set environment type to local if not already defined
 		if ( ! defined( 'WP_ENVIRONMENT_TYPE' ) ) define( 'WP_ENVIRONMENT_TYPE', 'local' );
 
-		$studio_mu_plugins_dir = json_decode( '${ encodedMuPluginsDir }' );
+		$studio_mu_plugins_dir = '${ escapedMuPluginsDir }';
 
 		if ( is_dir( $studio_mu_plugins_dir ) ) {
 			$files = glob( $studio_mu_plugins_dir . '/*.php' );
@@ -82,18 +90,12 @@ async function getExistingNativePhpMuPluginsDir(
 		return null;
 	}
 
-	const match = loaderContent.match( /\$studio_mu_plugins_dir = json_decode\( '(.*?)' \);/ );
+	const match = loaderContent.match( /\$studio_mu_plugins_dir = '((?:\\\\|\\'|[^'])*)';/ );
 	if ( ! match ) {
 		return null;
 	}
 
-	let muPluginsDir: string;
-	try {
-		muPluginsDir = JSON.parse( match[ 1 ] );
-	} catch {
-		return null;
-	}
-
+	const muPluginsDir = unescapePhpSingleQuotedString( match[ 1 ] );
 	if ( loaderContent !== getLoaderMuPluginContent( muPluginsDir ) ) {
 		return null;
 	}

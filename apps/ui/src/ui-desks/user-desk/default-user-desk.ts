@@ -11,12 +11,12 @@ export const defaultUserDesk: DeskConfig = {
 			y: 120,
 			zIndex: 'a1',
 			shapeProps: {
-				w: 260,
-				h: 220,
+				w: 200,
+				h: 200,
 			},
 			widgetProps: {
 				text: '',
-				color: 'yellow',
+				tone: 'yellow',
 			},
 		},
 	],

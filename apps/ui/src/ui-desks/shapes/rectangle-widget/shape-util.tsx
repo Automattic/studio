@@ -97,12 +97,20 @@ export class RectangleWidgetShapeUtil extends ShapeUtil< RectangleWidgetShape > 
 	}
 
 	override indicator( shape: RectangleWidgetShape ) {
+		const definition = getWidgetDefinition( shape.props.widgetType );
+		const indicator =
+			definition && definition.isWidgetProps( shape.props.widgetProps )
+				? definition.getIndicator?.( shape.props.widgetProps )
+				: undefined;
+
 		return (
 			<rect
 				width={ shape.props.shapeProps.w }
 				height={ shape.props.shapeProps.h }
-				rx={ 18 }
-				ry={ 18 }
+				rx={ indicator?.cornerRadius ?? 14 }
+				ry={ indicator?.cornerRadius ?? 14 }
+				fill="none"
+				stroke={ indicator?.stroke }
 			/>
 		);
 	}

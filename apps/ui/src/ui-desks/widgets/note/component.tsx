@@ -1,48 +1,43 @@
-import { useCallback, useEffect, useRef, type KeyboardEvent, type PointerEvent } from 'react';
+import { select, type AnyConfig, type StoreDescriptor } from '@wordpress/data';
 import {
-	getPointerInfo,
-	stopEventPropagation,
-	useEditor,
-	useIsEditing,
-	type TLUnknownShape,
-} from 'tldraw';
+	__unstableUseRichText as useRichText,
+	registerFormatType,
+	store as richTextStore,
+	toggleFormat,
+	type RichTextValue,
+} from '@wordpress/rich-text';
+import { useCallback, useEffect, useRef, type KeyboardEvent, type PointerEvent } from 'react';
+import { useEditor, useIsEditing, type TLUnknownShape } from 'tldraw';
 import { NOTE_WIDGET_TYPE, type NoteWidgetProps } from '@/ui-desks/widgets/note/types';
 import styles from './style.module.css';
 import type { DeskWidgetComponentProps } from '@/ui-desks/widgets/types';
 
 type NoteWidgetComponentProps = DeskWidgetComponentProps< NoteWidgetProps >;
 
+type RichTextFormatSelectors = {
+	getFormatType: ( name: string ) => unknown;
+};
+
+const NOTE_TEXT_FORMATS = [
+	{ name: 'core/bold', title: 'Bold', tagName: 'strong', shortcut: 'b' },
+	{ name: 'core/italic', title: 'Italic', tagName: 'em', shortcut: 'i' },
+] as const;
+
+type NoteTextFormatName = ( typeof NOTE_TEXT_FORMATS )[ number ][ 'name' ];
+
+const NOTE_FORMAT_BY_SHORTCUT = Object.fromEntries(
+	NOTE_TEXT_FORMATS.map( ( format ) => [ format.shortcut, format.name ] )
+) as Record< string, NoteTextFormatName >;
+
+registerNoteFormats();
+
 export function NoteWidgetComponent( { id, shapeType, widgetProps }: NoteWidgetComponentProps ) {
 	const editor = useEditor();
 	const isEditing = useIsEditing( id );
-	const textareaRef = useRef< HTMLTextAreaElement >( null );
-
-	useEffect( () => {
-		if ( ! isEditing ) {
-			return;
-		}
-
-		const frame = window.requestAnimationFrame( () => {
-			const textarea = textareaRef.current;
-			if ( ! textarea ) {
-				return;
-			}
-
-			textarea.focus();
-			textarea.select();
-		} );
-
-		return () => {
-			window.cancelAnimationFrame( frame );
-		};
-	}, [ isEditing ] );
+	const editorRef = useRef< HTMLDivElement | null >( null );
 
 	const updateText = useCallback(
 		( text: string ) => {
-			if ( editor.getEditingShapeId() !== id ) {
-				return;
-			}
-
 			editor.updateShape< TLUnknownShape >( {
 				id,
 				type: shapeType,
@@ -57,59 +52,132 @@ export function NoteWidgetComponent( { id, shapeType, widgetProps }: NoteWidgetC
 		[ editor, id, shapeType, widgetProps ]
 	);
 
-	const handlePointerDown = useCallback(
-		( event: PointerEvent< HTMLTextAreaElement > ) => {
-			const shape = editor.getShape( id );
-			if ( shape ) {
-				editor.dispatch( {
-					...getPointerInfo( event ),
-					type: 'pointer',
-					name: 'pointer_down',
-					target: 'shape',
-					shape,
-				} );
+	const richText = useRichText( {
+		value: widgetProps.text,
+		placeholder: 'Type a note...',
+		onChange: updateText,
+		onSelectionChange: () => undefined,
+		__unstableIsSelected: isEditing,
+	} );
+	const { ref: richTextRef, getValue: getRichTextValue, onChange: setRichTextValue } = richText;
+
+	const setEditorRef = useCallback(
+		( node: HTMLDivElement | null ) => {
+			editorRef.current = node;
+			richTextRef( node ?? undefined );
+		},
+		[ richTextRef ]
+	);
+
+	useEffect( () => {
+		if ( ! isEditing ) {
+			return;
+		}
+
+		const frame = window.requestAnimationFrame( () => {
+			const noteEditor = editorRef.current;
+			if ( ! noteEditor ) {
+				return;
 			}
 
-			stopEventPropagation( event );
+			noteEditor.focus();
+			const range = document.createRange();
+			range.selectNodeContents( noteEditor );
+			range.collapse( false );
+			const selection = window.getSelection();
+			selection?.removeAllRanges();
+			selection?.addRange( range );
+		} );
+
+		return () => {
+			window.cancelAnimationFrame( frame );
+		};
+	}, [ isEditing ] );
+
+	const handlePointerDown = useCallback(
+		( event: PointerEvent< HTMLDivElement > ) => {
+			if ( isEditing ) {
+				event.stopPropagation();
+			}
 		},
-		[ editor, id ]
+		[ isEditing ]
+	);
+
+	const toggleTextFormat = useCallback(
+		( format: NoteTextFormatName ) => {
+			const value = getRichTextValue() as RichTextValue | undefined;
+			if ( ! value ) {
+				return;
+			}
+
+			setRichTextValue( toggleFormat( value, { type: format } ) );
+		},
+		[ getRichTextValue, setRichTextValue ]
 	);
 
 	const handleKeyDown = useCallback(
-		( event: KeyboardEvent< HTMLTextAreaElement > ) => {
+		( event: KeyboardEvent< HTMLDivElement > ) => {
 			event.stopPropagation();
 
-			if ( event.key === 'Enter' && ( event.metaKey || event.ctrlKey ) ) {
+			const isMod = event.metaKey || event.ctrlKey;
+			if ( ! isMod ) {
+				return;
+			}
+
+			const format = NOTE_FORMAT_BY_SHORTCUT[ event.key.toLowerCase() ];
+			if ( format ) {
+				event.preventDefault();
+				toggleTextFormat( format );
+				return;
+			}
+
+			if ( event.key === 'Enter' ) {
 				event.preventDefault();
 				editor.complete();
 			}
 		},
-		[ editor ]
+		[ editor, toggleTextFormat ]
 	);
 
 	return (
 		<div
 			className={ styles.note }
-			data-color={ widgetProps.color }
+			data-tone={ widgetProps.tone }
 			data-is-editing={ isEditing }
 			data-studio-desk-widget={ NOTE_WIDGET_TYPE }
 		>
-			{ isEditing ? (
-				<textarea
-					ref={ textareaRef }
-					className={ styles.textarea }
-					value={ widgetProps.text }
-					spellCheck
-					onChange={ ( event ) => updateText( event.currentTarget.value ) }
-					onKeyDown={ handleKeyDown }
-					onPointerDown={ handlePointerDown }
-					onBlur={ () => editor.complete() }
-				/>
-			) : widgetProps.text ? (
-				<div className={ styles.text }>{ widgetProps.text }</div>
-			) : (
-				<div className={ styles.placeholder }>Type a note...</div>
-			) }
+			<div
+				ref={ setEditorRef }
+				className={ styles.editor }
+				contentEditable={ isEditing }
+				suppressContentEditableWarning
+				spellCheck={ false }
+				onBlur={ () => editor.complete() }
+				onKeyDown={ handleKeyDown }
+				onPointerDown={ handlePointerDown }
+			/>
 		</div>
 	);
+}
+
+function registerNoteFormats() {
+	const { getFormatType } = select(
+		richTextStore as StoreDescriptor< AnyConfig >
+	) as unknown as RichTextFormatSelectors;
+
+	for ( const { name, title, tagName } of NOTE_TEXT_FORMATS ) {
+		if ( getFormatType( name ) ) {
+			continue;
+		}
+
+		registerFormatType( name, {
+			name,
+			title,
+			tagName,
+			interactive: false,
+			object: false,
+			className: null,
+			edit: () => null,
+		} );
+	}
 }

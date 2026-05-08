@@ -22,7 +22,7 @@ describe( 'tldraw adapter', () => {
 			},
 			widgetProps: {
 				text: 'Hello',
-				color: 'yellow',
+				tone: 'note',
 			},
 		};
 
@@ -40,7 +40,7 @@ describe( 'tldraw adapter', () => {
 				},
 				widgetProps: {
 					text: 'Hello',
-					color: 'yellow',
+					tone: 'note',
 				},
 			},
 		} );
@@ -62,7 +62,7 @@ describe( 'tldraw adapter', () => {
 				},
 				widgetProps: {
 					text: 'Updated',
-					color: 'blue',
+					tone: 'note-blue',
 				},
 			},
 		} as unknown as TLShape;
@@ -80,7 +80,7 @@ describe( 'tldraw adapter', () => {
 			},
 			widgetProps: {
 				text: 'Updated',
-				color: 'blue',
+				tone: 'note-blue',
 			},
 		} );
 	} );

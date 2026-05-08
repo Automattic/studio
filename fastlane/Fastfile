@@ -5,6 +5,7 @@ fastlane_require 'zip'
 fastlane_require 'aws-sdk-cloudfront'
 fastlane_require 'json'
 fastlane_require 'net/http'
+fastlane_require 'open3'
 fastlane_require 'uri'
 
 require_relative 'lib/studio_release_version'
@@ -228,12 +229,13 @@ end
 # workflow.
 #
 # Run this after the {prepare_npm_release} PR has merged into `trunk`. The lane:
-# - Locates the squash-merge commit on `trunk` that bumped both `apps/studio/package.json` and
-#   `apps/cli/package.json` to the target version. Tagging that specific commit (rather than
-#   trunk's HEAD) means PRs that land on trunk between the prep merge and the publish run are
-#   not silently included in the published artifact.
-# - Verifies both package.json files at that commit declare the target version, so a half-applied
-#   prep PR (only one workspace bumped) is caught before tagging.
+# - Locates the commit on `trunk` where both `apps/studio/package.json` and
+#   `apps/cli/package.json` declare the target version. The search walks history newest-to-oldest
+#   so a later commit that bumped *past* the version (deleting its line) is correctly skipped in
+#   favor of the introduction commit. A half-applied prep PR (only one workspace bumped) leaves
+#   no candidate where both match, so the lane errors out before tagging. Tagging that specific
+#   commit (rather than trunk's HEAD) means PRs that land on trunk between the prep merge and
+#   the publish run are not silently included in the published artifact.
 # - Tags the bump commit as `v<version>` and pushes the tag. Idempotent: if the tag already
 #   exists at the expected commit, the lane logs and reuses it (this is the recovery path for a
 #   workflow dispatch that succeeded at tagging but failed afterwards).
@@ -258,11 +260,11 @@ lane :publish_npm_package do |version: nil, skip_confirm: false|
   bump_commit = find_npm_release_bump_commit(version: version)
   if bump_commit.nil?
     UI.user_error!(
-      "Could not find a commit on `#{MAIN_BRANCH}` that bumped apps/studio/package.json to " \
-      "#{version}. Did the prepare_npm_release PR merge into trunk?"
+      "Could not find a commit on `#{MAIN_BRANCH}` where both `apps/studio/package.json` and " \
+      "`apps/cli/package.json` declare version #{version}. Did the prepare_npm_release PR " \
+      'merge into trunk with both workspaces bumped?'
     )
   end
-  verify_npm_release_versions_at_commit(commit: bump_commit, version: version)
   short_sha = bump_commit[0..8]
 
   UI.important <<~PROMPT
@@ -805,37 +807,52 @@ def read_trunk_package_json_version
   JSON.parse(json)['version']
 end
 
-# Find the most recent commit on `origin/<MAIN_BRANCH>` that introduced the target version into
-# `apps/studio/package.json`. Returns the commit SHA, or nil if no such commit exists.
+# Read the `version` field from `<commit>:<path>`. Returns nil if the file does not exist at
+# the commit, the `git show` command fails, or the contents are not valid JSON. Used to probe
+# candidate commits in {find_npm_release_bump_commit} without raising on missing files.
+def package_json_version_at(commit:, path:)
+  output, status = Open3.capture2('git', 'show', "#{commit}:#{path}")
+  return nil unless status.success?
+
+  JSON.parse(output)['version']
+rescue JSON::ParserError
+  nil
+end
+
+# Find the commit on `origin/<MAIN_BRANCH>` that introduced the target version into both
+# workspace `package.json` files. Returns the commit SHA, or nil if no such commit exists.
 # Caller must call {fetch_main_branch} first.
 #
-# Studio uses squash-merge for PRs, so the commit returned here is the trunk-side merge commit
-# of the prepare_npm_release PR — which is what `git tag` should be applied to (rather than
-# trunk's HEAD, which may include unrelated PRs that merged afterwards).
+# `git log -S` reports any commit that *changes the count* of the search string in the file.
+# That includes both the commit that introduces the version (count 0 → 1) and a later commit
+# that bumps away from it (count 1 → 0). For example, after trunk has moved from 1.8.1 to
+# 1.8.2, searching for `"version": "1.8.1"` finds both the introduction of 1.8.1 *and* the
+# bump to 1.8.2 (which removed the 1.8.1 line). Picking the most recent candidate would tag
+# the wrong commit.
+#
+# To pick the introduction, walk candidates newest-to-oldest and return the first commit where
+# every workspace package.json actually declares the requested version. The bump-away candidate
+# fails the check (its package.json shows the *next* version), and a half-applied prep PR
+# (only one workspace bumped) is skipped over too. If no candidate matches, returns nil so the
+# caller can surface a clear error.
+#
+# Studio uses squash-merge for PRs, so the introduction commit is the trunk-side merge commit
+# of the prepare_npm_release PR — exactly what `git tag` should be applied to.
 def find_npm_release_bump_commit(version:)
   search = "\"version\": \"#{version}\""
-  sha = sh(
-    'git', 'log', '-1', '--format=%H',
+  output = sh(
+    'git', 'log', '--format=%H',
     '-S', search,
     "origin/#{MAIN_BRANCH}",
     '--', 'apps/studio/package.json',
     log: false
   ).strip
-  sha.empty? ? nil : sha
-end
+  return nil if output.empty?
 
-# Verify that every workspace `package.json` at the given commit declares the requested version.
-# Surfaces a fastlane error if any path is missing the version (e.g. a half-applied prep PR that
-# only bumped one of the workspaces).
-def verify_npm_release_versions_at_commit(commit:, version:)
-  NPM_RELEASE_PACKAGE_JSON_PATHS.each do |path|
-    actual = JSON.parse(sh('git', 'show', "#{commit}:#{path}", log: false))['version']
-    next if actual == version
-
-    UI.user_error!(
-      "#{path} at #{commit[0..8]} has version #{actual.inspect}, expected #{version.inspect}. " \
-      'Both `studio-app` and `wp-studio` must be bumped together before publishing.'
-    )
+  output.lines.map(&:strip).find do |sha|
+    NPM_RELEASE_PACKAGE_JSON_PATHS.all? do |path|
+      package_json_version_at(commit: sha, path: path) == version
+    end
   end
 end
 

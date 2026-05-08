@@ -107,7 +107,9 @@ function NavigationContent( props: NavigationContentProps ) {
 	const { __ } = useI18n();
 	const { enableBlueprints } = useFeatureFlags();
 	const [ blueprintFileError, setBlueprintFileError ] = useState< string | undefined >();
-	const [ selectedGalleryBlueprint, setSelectedGalleryBlueprint ] = useState< GalleryBlueprint | undefined >();
+	const [ selectedGalleryBlueprint, setSelectedGalleryBlueprint ] = useState<
+		GalleryBlueprint | undefined
+	>();
 	const [ gallerySelectionError, setGallerySelectionError ] = useState< string | undefined >();
 	const {
 		data: galleryBlueprints,

@@ -683,7 +683,7 @@ export async function getMuPlugins( options: MuPluginOptions = {} ): Promise< [ 
 export async function writeStudioMuPluginsForNativePhpRuntime(
 	siteFolder: string,
 	isWpAutoUpdating: MuPluginOptions[ 'isWpAutoUpdating' ]
-): Promise< void > {
+): Promise< string > {
 	const muPluginsDir = path.join( siteFolder, 'wp-content', 'mu-plugins' );
 	await mkdir( muPluginsDir, { recursive: true } );
 	const loaderPath = path.join( muPluginsDir, STUDIO_LOADER_MU_PLUGIN_FILENAME );
@@ -694,7 +694,7 @@ export async function writeStudioMuPluginsForNativePhpRuntime(
 	};
 	const existingMuPluginsDir = await getExistingNativePhpMuPluginsDir( loaderPath, options );
 	if ( existingMuPluginsDir ) {
-		return;
+		return existingMuPluginsDir;
 	}
 
 	// `getMuPlugins` writes the plugin files to a temp directory and produces
@@ -702,8 +702,9 @@ export async function writeStudioMuPluginsForNativePhpRuntime(
 	// copy the loader into wp-content/mu-plugins/ — WordPress auto-loads it
 	// at runtime and it pulls the rest in from the temp directory, keeping
 	// the user's mu-plugins/ nearly empty.
-	const [ , loaderHostPath ] = await getMuPlugins( options );
+	const [ tmpMuPluginsDir, loaderHostPath ] = await getMuPlugins( options );
 	await copyFile( loaderHostPath, loaderPath );
+	return tmpMuPluginsDir;
 }
 
 /**

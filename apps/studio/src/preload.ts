@@ -221,6 +221,8 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'answerAiAgentQuestion', runId, answers ),
 	setSessionEnvironment: ( sessionId, environment ) =>
 		ipcRendererInvoke( 'setSessionEnvironment', sessionId, environment ),
+	getUserDeskConfig: () => ipcRendererInvoke( 'getUserDeskConfig' ),
+	saveUserDeskConfig: ( config ) => ipcRendererInvoke( 'saveUserDeskConfig', config ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

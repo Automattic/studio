@@ -19,8 +19,6 @@ BUILDS_FOLDER = File.join(PROJECT_ROOT_FOLDER, 'apps', 'studio', 'out')
 # Enable dry run mode through environment variable
 DRY_RUN = ENV['DRY_RUN'] == 'true'
 
-# Make sure the WPCOM API token is set
-UI.user_error!('Environment variable WPCOM_API_TOKEN is not set') if ENV['WPCOM_API_TOKEN'].nil? && !DRY_RUN
 UI.message("Running in #{DRY_RUN ? 'DRY RUN' : 'NORMAL'} mode")
 
 # Path to the Studio app's package.json (monorepo workspace)
@@ -163,6 +161,26 @@ lane :distribute_release_build do |version: read_package_json_version|
     },
     default_payloads: []
   )
+end
+
+# Trigger the GitHub Actions workflow that publishes the wp-studio npm package.
+#
+# @param ref [String] The git ref (branch or tag) to run the workflow on (e.g., 'release/1.7.4' or 'v1.7.4')
+# @param npm_tag [String, nil] The npm dist-tag (e.g., 'next' for prereleases, nil for 'latest')
+# @param skip_confirm [Boolean] Skip interactive confirmation prompts (default: false)
+#
+lane :publish_npm_package do |ref:, npm_tag: nil, skip_confirm: false|
+  npm_tag = nil if npm_tag.to_s.empty?
+  tag_label = npm_tag || 'latest'
+
+  UI.important <<~PROMPT
+    Triggering npm publish from #{ref}. This will:
+    - Dispatch the `publish-npm-package.yml` GitHub Actions workflow
+    - Publish `wp-studio` to npm with the `#{tag_label}` dist-tag
+  PROMPT
+  next unless skip_confirm || UI.confirm('Continue?')
+
+  trigger_npm_publish(ref:, npm_tag:)
 end
 
 ########################################################################
@@ -443,6 +461,8 @@ def distribute_builds(
   build_number: get_required_env('BUILDKITE_BUILD_NUMBER'),
   release_tag: nil
 )
+  get_required_env('WPCOM_API_TOKEN')
+
   build_type = if release_tag.nil?
                  'Nightly'
                elsif release_tag.downcase.include?('beta')

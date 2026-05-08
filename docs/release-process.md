@@ -64,7 +64,11 @@ Builds are signed, notarized (macOS), and uploaded to the Apps CDN automatically
 
 ## Running Lanes Locally
 
-Lanes can be run locally for testing (requires Ruby + Bundler + GITHUB_TOKEN + BUILDKITE_TOKEN):
+Lanes can be run locally for testing. Common requirements are Ruby and Bundler. Additional credentials depend on the lane:
+
+- `publish_npm_package` requires `GITHUB_TOKEN`
+- Build-upload lanes such as `distribute_release_build` require `WPCOM_API_TOKEN`
+- Lanes that trigger Buildkite builds from a local machine require `BUILDKITE_TOKEN`
 
 ```sh
 
@@ -73,6 +77,10 @@ bundle exec fastlane code_freeze version:"1.8.0"
 bundle exec fastlane new_beta_release version:"1.8.0"
 bundle exec fastlane finalize_release version:"1.8.0"
 bundle exec fastlane publish_release version:"1.8.0"
+
+# Trigger CLI publish directly from an existing git ref
+bundle exec fastlane publish_npm_package ref:"v1.8.0"
+bundle exec fastlane publish_npm_package ref:"release/1.8.0" npm_tag:"next"
 ```
 
 ## Reference

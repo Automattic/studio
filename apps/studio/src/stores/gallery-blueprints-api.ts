@@ -24,7 +24,7 @@ const galleryIndexEntrySchema = z.object( {
 	description: z.string(),
 	author: z.string(),
 	categories: z.array( z.string() ).optional().default( [] ),
-	screenshot_url: z.string(),
+	screenshot_url: z.string().optional().default( '' ),
 	featured: z.boolean(),
 } );
 

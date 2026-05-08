@@ -106,14 +106,11 @@ describe( 'writeStudioMuPluginsForNativePhpRuntime', () => {
 			STUDIO_LOADER_MU_PLUGIN_FILENAME
 		);
 		const loaderContent = await readFile( loaderPath, 'utf8' );
-		const encodedMuPluginsDir = loaderContent.match(
-			/\$studio_mu_plugins_dir = json_decode\( '(.*?)' \);/
-		)?.[ 1 ];
+		const muPluginsDir = loaderContent.match( /\$studio_mu_plugins_dir = '([^']+)';/ )?.[ 1 ];
 
-		expect( encodedMuPluginsDir ).toBeTruthy();
+		expect( muPluginsDir ).toBeTruthy();
 
-		const muPluginsDir = JSON.parse( encodedMuPluginsDir as string );
-		const generatedPlugins = await readdir( muPluginsDir );
+		const generatedPlugins = await readdir( muPluginsDir as string );
 		expect( generatedPlugins ).toContain( '0-enable-auto-updates.php' );
 		expect( generatedPlugins ).not.toContain( '0-disable-auto-updates.php' );
 	} );

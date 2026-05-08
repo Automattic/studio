@@ -17,6 +17,19 @@ interface UserDeskChatsProps {
 	createChatRequestId: number;
 }
 
+interface SiteDeskChatsProps extends UserDeskChatsProps {
+	siteId: string;
+	sitePath: string | undefined;
+}
+
+export type DeskChatsOwner =
+	| { type: 'user' }
+	| { type: 'site'; siteId: string; sitePath: string | undefined };
+
+interface DeskChatsProps extends UserDeskChatsProps {
+	owner: DeskChatsOwner;
+}
+
 function getSessionTitle( session: AiSessionSummary ) {
 	return session.firstPrompt?.trim() || __( 'New chat' );
 }
@@ -29,7 +42,21 @@ function getSessionSubtitle( session: AiSessionSummary ) {
 	return formatRelativeTime( session.updatedAt );
 }
 
-export function UserDeskChats( { open, onOpenChange, createChatRequestId }: UserDeskChatsProps ) {
+export function getDeskSessions( sessions: AiSessionSummary[] | undefined, owner: DeskChatsOwner ) {
+	const allSessions = sessions ?? [];
+	const filteredSessions =
+		owner.type === 'site'
+			? owner.sitePath
+				? allSessions.filter( ( session ) => session.ownerSitePath === owner.sitePath )
+				: []
+			: allSessions.filter( ( session ) => ! session.ownerSitePath );
+
+	return [ ...filteredSessions ].sort(
+		( a, b ) => Date.parse( b.updatedAt ) - Date.parse( a.updatedAt )
+	);
+}
+
+function DeskChats( { open, onOpenChange, createChatRequestId, owner }: DeskChatsProps ) {
 	const { data: sessions } = useSessions();
 	const isFullscreen = useFullscreen();
 	const createSession = useCreateSession();
@@ -37,14 +64,8 @@ export function UserDeskChats( { open, onOpenChange, createChatRequestId }: User
 	const [ selectedSessionId, setSelectedSessionId ] = useState< string | undefined >( undefined );
 	const [ expanded, setExpanded ] = useState( false );
 	const [ autoFocusSessionId, setAutoFocusSessionId ] = useState< string | undefined >( undefined );
-	const userDeskSessions = useMemo(
-		() =>
-			[ ...( sessions ?? [] ).filter( ( session ) => ! session.ownerSitePath ) ].sort(
-				( a, b ) => Date.parse( b.updatedAt ) - Date.parse( a.updatedAt )
-			),
-		[ sessions ]
-	);
-	const selectedSession = userDeskSessions.find( ( session ) => session.id === selectedSessionId );
+	const deskSessions = useMemo( () => getDeskSessions( sessions, owner ), [ sessions, owner ] );
+	const selectedSession = deskSessions.find( ( session ) => session.id === selectedSessionId );
 
 	useEffect( () => {
 		if ( selectedSessionId && ! selectedSession ) {
@@ -60,11 +81,13 @@ export function UserDeskChats( { open, onOpenChange, createChatRequestId }: User
 	};
 
 	const handleNewChat = useCallback( async () => {
-		const session = await createSession.mutateAsync( undefined );
+		const session = await createSession.mutateAsync(
+			owner.type === 'site' ? owner.siteId : undefined
+		);
 		setSelectedSessionId( session.id );
 		setExpanded( true );
 		setAutoFocusSessionId( session.id );
-	}, [ createSession ] );
+	}, [ createSession, owner ] );
 
 	useEffect( () => {
 		if ( createChatRequestId === lastCreateChatRequestId.current ) {
@@ -99,7 +122,7 @@ export function UserDeskChats( { open, onOpenChange, createChatRequestId }: User
 							<h2>{ __( 'Conversations' ) }</h2>
 						</header>
 						<div className={ styles.list }>
-							{ userDeskSessions.map( ( session ) => (
+							{ deskSessions.map( ( session ) => (
 								<button
 									key={ session.id }
 									type="button"
@@ -150,4 +173,17 @@ export function UserDeskChats( { open, onOpenChange, createChatRequestId }: User
 			</Dialog.Portal>
 		</Dialog.Root>
 	);
+}
+
+export function UserDeskChats( props: UserDeskChatsProps ) {
+	const owner = useMemo< DeskChatsOwner >( () => ( { type: 'user' } ), [] );
+	return <DeskChats { ...props } owner={ owner } />;
+}
+
+export function SiteDeskChats( { siteId, sitePath, ...props }: SiteDeskChatsProps ) {
+	const owner = useMemo< DeskChatsOwner >(
+		() => ( { type: 'site', siteId, sitePath } ),
+		[ siteId, sitePath ]
+	);
+	return <DeskChats { ...props } owner={ owner } />;
 }

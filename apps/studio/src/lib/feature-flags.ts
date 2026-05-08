@@ -16,7 +16,7 @@ export const FEATURE_FLAGS: Record< keyof FeatureFlags, FeatureFlagDefinition > 
 		label: 'Enable Blueprints Gallery',
 		env: 'ENABLE_BLUEPRINTS_GALLERY',
 		flag: 'enableBlueprintsGallery',
-		default: false,
+		default: true,
 	},
 	enableStudioCodeUi: {
 		label: 'Enable Studio Code UI',

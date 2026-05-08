@@ -48,26 +48,6 @@ describe( 'getActiveSlashCommands feature gate', () => {
 	} );
 } );
 
-describe( '/swag slash command', () => {
-	const cmd = AI_CHAT_SLASH_COMMANDS.find( ( c ) => c.name === 'swag' );
-
-	it( 'is registered with a handler and description', () => {
-		expect( cmd ).toBeDefined();
-		expect( typeof cmd!.handler ).toBe( 'function' );
-		expect( cmd!.description ).toBeTruthy();
-	} );
-
-	it( 'opens the WordPress merch store and continues the loop', async () => {
-		const { openBrowser } = await import( 'cli/lib/browser' );
-		const openBrowserMock = vi.mocked( openBrowser );
-		openBrowserMock.mockClear();
-		openBrowserMock.mockResolvedValue( undefined );
-		const result = await cmd!.handler!( '/swag', {} as SlashCommandContext );
-		expect( openBrowserMock ).toHaveBeenCalledWith( 'https://mercantile.wordpress.org/' );
-		expect( result ).toBe( 'continue' );
-	} );
-} );
-
 describe( '/remote-session slash command registration', () => {
 	const cmd = AI_CHAT_SLASH_COMMANDS.find( ( c ) => c.name === 'remote-session' );
 
@@ -105,7 +85,6 @@ vi.mock( 'cli/commands/auth/login', () => ( { runCommand: vi.fn() } ) );
 vi.mock( 'cli/commands/auth/logout', () => ( { runCommand: vi.fn() } ) );
 vi.mock( 'cli/commands/preview/create', () => ( { runCommand: vi.fn() } ) );
 vi.mock( 'cli/commands/preview/update', () => ( { runCommand: vi.fn() } ) );
-vi.mock( 'cli/lib/browser', () => ( { openBrowser: vi.fn() } ) );
 vi.mock( '@studio/common/lib/shared-config', () => ( { readAuthToken: vi.fn() } ) );
 
 vi.mock( 'cli/remote-session/daemon', () => {

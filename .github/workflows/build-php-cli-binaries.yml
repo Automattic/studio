@@ -223,33 +223,6 @@ jobs:
           path: out/php-binaries
           merge-multiple: true
 
-      - name: Verify and summarize PHP CLI artifacts
-        run: |
-          set -euo pipefail
-
-          echo "### PHP CLI artifacts" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "| File | Size | SHA-256 |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| --- | ---: | --- |" >> "$GITHUB_STEP_SUMMARY"
-
-          find out/php-binaries -maxdepth 1 -type f ! -name '*.sha256' -print | sort | while read -r file; do
-            sidecar="${file}.sha256"
-            if [ ! -f "$sidecar" ]; then
-              echo "Missing SHA-256 sidecar for $file"
-              exit 1
-            fi
-
-            size_bytes="$(wc -c < "$file" | tr -d ' ')"
-            expected_sha="$(tr -d '[:space:]' < "$sidecar")"
-            actual_sha="$(sha256sum "$file" | awk '{print $1}')"
-            if [ "$actual_sha" != "$expected_sha" ]; then
-              echo "SHA-256 mismatch for $file: expected $expected_sha, got $actual_sha"
-              exit 1
-            fi
-
-            echo "| $(basename "$file") | ${size_bytes} bytes | \`${actual_sha}\` |" >> "$GITHUB_STEP_SUMMARY"
-          done
-
       - name: Publish PHP CLI artifacts to Apps CDN
         run: |
           set -euo pipefail

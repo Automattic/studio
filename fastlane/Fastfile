@@ -7,6 +7,8 @@ fastlane_require 'json'
 fastlane_require 'net/http'
 fastlane_require 'uri'
 
+require_relative 'lib/studio_release_version'
+
 UI.user_error!('Please run fastlane via `bundle exec`') unless FastlaneCore::Helper.bundler?
 
 ########################################################################
@@ -139,7 +141,7 @@ lane :distribute_release_build do |version: read_package_json_version|
 
   # Create the tag or draft GitHub release only after the build succeeds.
   # This avoids orphan tags or draft releases if the build fails.
-  if version.include?('beta')
+  if StudioReleaseVersion.prerelease?(version)
     add_git_tag(tag: release_tag)
     push_git_tags(tag: release_tag)
 
@@ -252,12 +254,12 @@ end
 #
 lane :new_beta_release do |version:, skip_confirm: false, github_username: nil|
   current_version = read_package_json_version
-  current_beta = current_version[/beta(\d+)$/, 1].to_i
+  current_beta = StudioReleaseVersion.beta_number(current_version) || 0
 
   # Guard against version mismatch (e.g. package.json has 1.7.4-beta3 but version param is 1.8.0)
   # Skip the check when current_beta is 0, meaning this is the first beta (before any bump).
   if current_beta.positive?
-    base_version = current_version.sub(/-beta\d+$/, '')
+    base_version = StudioReleaseVersion.base_version(current_version)
     UI.user_error!("Version mismatch: package.json has #{current_version} but expected #{version}-betaN") unless base_version == version
   end
 
@@ -390,7 +392,7 @@ lane :new_hotfix_release do |version:, skip_confirm: false|
 
   # Determine the base for the hotfix branch: either a tag or a release branch
   previous_release_branch = "release/#{short_version}"
-  base_ref = if previous_tag && !previous_tag.include?('beta')
+  base_ref = if previous_tag && !StudioReleaseVersion.prerelease?(previous_tag)
                previous_tag
              elsif Fastlane::Helper::GitHelper.branch_exists_on_remote?(branch_name: previous_release_branch)
                UI.message("Tag for version '#{short_version}' not found. Using release branch '#{previous_release_branch}' as the base for the hotfix.")
@@ -465,7 +467,7 @@ def distribute_builds(
 
   build_type = if release_tag.nil?
                  'Nightly'
-               elsif release_tag.downcase.include?('beta')
+               elsif StudioReleaseVersion.prerelease?(release_tag)
                  'Beta'
                else
                  'Production'
@@ -823,7 +825,7 @@ def create_draft_github_release(version:, release_tag:, builds:)
   release_notes_path = File.join(PROJECT_ROOT_FOLDER, 'fastlane', 'github_release_notes.txt')
   File.write(release_notes_path, body)
 
-  base_version = version.sub(/-beta\d+$/, '')
+  base_version = StudioReleaseVersion.base_version(version)
   create_github_release(
     repository: GITHUB_REPO,
     version: release_tag,
@@ -843,7 +845,7 @@ end
 # Uses `buildkite_add_trigger_step` on CI (to create a separate build with proper Git mirroring)
 # and `buildkite_trigger_build` when running locally.
 def trigger_release_build(version:)
-  base_version = version.sub(/-beta\d+$/, '')
+  base_version = StudioReleaseVersion.base_version(version)
   branch = "release/#{base_version}"
 
   environment = {

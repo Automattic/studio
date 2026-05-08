@@ -68,9 +68,9 @@
 	-webkit-user-select: none;
 }
 
-.editor[data-empty='true']:not(:focus)::before {
+.editor [data-rich-text-placeholder]::after {
 	color: rgba(15, 23, 42, 0.35);
-	content: attr(data-placeholder);
+	content: attr(data-rich-text-placeholder);
 	pointer-events: none;
 }
 

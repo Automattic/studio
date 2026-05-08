@@ -1,4 +1,9 @@
-import { create, registerFormatType, toHTMLString } from '@wordpress/rich-text';
+import {
+	__unstableUseRichText as useRichText,
+	registerFormatType,
+	toggleFormat,
+	type RichTextValue,
+} from '@wordpress/rich-text';
 import { useCallback, useEffect, useRef, type KeyboardEvent, type PointerEvent } from 'react';
 import { useEditor, useIsEditing, type TLUnknownShape } from 'tldraw';
 import { NOTE_WIDGET_TYPE, type NoteWidgetProps } from '@/ui-desks/widgets/note/types';
@@ -7,23 +12,56 @@ import type { DeskWidgetComponentProps } from '@/ui-desks/widgets/types';
 
 type NoteWidgetComponentProps = DeskWidgetComponentProps< NoteWidgetProps >;
 
-registerCoreFormats();
+const NOTE_TEXT_FORMATS = [
+	{ name: 'core/bold', title: 'Bold', tagName: 'strong', shortcut: 'b' },
+	{ name: 'core/italic', title: 'Italic', tagName: 'em', shortcut: 'i' },
+] as const;
+
+type NoteTextFormatName = ( typeof NOTE_TEXT_FORMATS )[ number ][ 'name' ];
+
+const NOTE_FORMAT_BY_SHORTCUT = Object.fromEntries(
+	NOTE_TEXT_FORMATS.map( ( format ) => [ format.shortcut, format.name ] )
+) as Record< string, NoteTextFormatName >;
+
+registerNoteFormats();
 
 export function NoteWidgetComponent( { id, shapeType, widgetProps }: NoteWidgetComponentProps ) {
 	const editor = useEditor();
 	const isEditing = useIsEditing( id );
-	const editorRef = useRef< HTMLDivElement >( null );
+	const editorRef = useRef< HTMLDivElement | null >( null );
 
-	useEffect( () => {
-		const noteEditor = editorRef.current;
-		if ( ! noteEditor || isEditing ) {
-			return;
-		}
+	const updateText = useCallback(
+		( text: string ) => {
+			editor.updateShape< TLUnknownShape >( {
+				id,
+				type: shapeType,
+				props: {
+					widgetProps: {
+						...widgetProps,
+						text,
+					},
+				},
+			} );
+		},
+		[ editor, id, shapeType, widgetProps ]
+	);
 
-		if ( noteEditor.innerHTML !== widgetProps.text ) {
-			noteEditor.innerHTML = widgetProps.text;
-		}
-	}, [ isEditing, widgetProps.text ] );
+	const richText = useRichText( {
+		value: widgetProps.text,
+		placeholder: 'Type a note...',
+		onChange: updateText,
+		onSelectionChange: () => undefined,
+		__unstableIsSelected: isEditing,
+	} );
+	const { ref: richTextRef, getValue: getRichTextValue, onChange: setRichTextValue } = richText;
+
+	const setEditorRef = useCallback(
+		( node: HTMLDivElement | null ) => {
+			editorRef.current = node;
+			richTextRef( node ?? undefined );
+		},
+		[ richTextRef ]
+	);
 
 	useEffect( () => {
 		if ( ! isEditing ) {
@@ -50,30 +88,6 @@ export function NoteWidgetComponent( { id, shapeType, widgetProps }: NoteWidgetC
 		};
 	}, [ isEditing ] );
 
-	const commitText = useCallback( () => {
-		const noteEditor = editorRef.current;
-		if ( ! noteEditor ) {
-			return;
-		}
-
-		const value = create( { element: noteEditor } );
-		const text = toHTMLString( { value } );
-		if ( text === widgetProps.text ) {
-			return;
-		}
-
-		editor.updateShape< TLUnknownShape >( {
-			id,
-			type: shapeType,
-			props: {
-				widgetProps: {
-					...widgetProps,
-					text,
-				},
-			},
-		} );
-	}, [ editor, id, shapeType, widgetProps ] );
-
 	const handlePointerDown = useCallback(
 		( event: PointerEvent< HTMLDivElement > ) => {
 			if ( isEditing ) {
@@ -81,6 +95,18 @@ export function NoteWidgetComponent( { id, shapeType, widgetProps }: NoteWidgetC
 			}
 		},
 		[ isEditing ]
+	);
+
+	const toggleTextFormat = useCallback(
+		( format: NoteTextFormatName ) => {
+			const value = getRichTextValue() as RichTextValue | undefined;
+			if ( ! value ) {
+				return;
+			}
+
+			setRichTextValue( toggleFormat( value, { type: format } ) );
+		},
+		[ getRichTextValue, setRichTextValue ]
 	);
 
 	const handleKeyDown = useCallback(
@@ -92,17 +118,19 @@ export function NoteWidgetComponent( { id, shapeType, widgetProps }: NoteWidgetC
 				return;
 			}
 
-			if ( event.key === 'b' || event.key === 'i' ) {
+			const format = NOTE_FORMAT_BY_SHORTCUT[ event.key.toLowerCase() ];
+			if ( format ) {
 				event.preventDefault();
-				document.execCommand( event.key === 'b' ? 'bold' : 'italic' );
-				commitText();
-			} else if ( event.key === 'Enter' ) {
+				toggleTextFormat( format );
+				return;
+			}
+
+			if ( event.key === 'Enter' ) {
 				event.preventDefault();
-				commitText();
 				editor.complete();
 			}
 		},
-		[ commitText, editor ]
+		[ editor, toggleTextFormat ]
 	);
 
 	return (
@@ -113,44 +141,39 @@ export function NoteWidgetComponent( { id, shapeType, widgetProps }: NoteWidgetC
 			data-studio-desk-widget={ NOTE_WIDGET_TYPE }
 		>
 			<div
-				ref={ editorRef }
+				ref={ setEditorRef }
 				className={ styles.editor }
 				contentEditable={ isEditing }
 				suppressContentEditableWarning
 				spellCheck={ false }
-				onInput={ commitText }
-				onBlur={ () => {
-					commitText();
-					editor.complete();
-				} }
+				onBlur={ () => editor.complete() }
 				onKeyDown={ handleKeyDown }
 				onPointerDown={ handlePointerDown }
-				data-empty={ ! widgetProps.text ? 'true' : 'false' }
-				data-placeholder="Type a note..."
 			/>
 		</div>
 	);
 }
 
-function registerCoreFormats() {
-	const formats: Array< { name: string; title: string; tagName: string } > = [
-		{ name: 'core/bold', title: 'Bold', tagName: 'strong' },
-		{ name: 'core/italic', title: 'Italic', tagName: 'em' },
-	];
+function registerNoteFormats() {
+	const globalObject = globalThis as typeof globalThis & {
+		__studioNoteFormatsRegistered?: boolean;
+	};
 
-	for ( const format of formats ) {
-		try {
-			registerFormatType( format.name, {
-				name: format.name,
-				title: format.title,
-				tagName: format.tagName,
-				className: null,
-				interactive: false,
-				object: false,
-				edit: () => null,
-			} );
-		} catch {
-			// The rich-text registry is global, so HMR can register these first.
-		}
+	if ( globalObject.__studioNoteFormatsRegistered ) {
+		return;
 	}
+
+	for ( const { name, title, tagName } of NOTE_TEXT_FORMATS ) {
+		registerFormatType( name, {
+			name,
+			title,
+			tagName,
+			interactive: false,
+			object: false,
+			className: null,
+			edit: () => null,
+		} );
+	}
+
+	globalObject.__studioNoteFormatsRegistered = true;
 }

@@ -96,7 +96,7 @@ When the user wants a feature that no core block cleanly provides — slideshows
 Specific Jetpack rules above (e.g. Forms) take precedence; this rule only applies when none of them cover the request. When it does apply:
 
 1. Make sure Jetpack is active: \`wp_cli plugin install jetpack --activate\`.
-2. Discover the candidate block by listing what Jetpack has registered. Skip blocks that opt out of the inserter (\`supports.inserter === false\`) — the user can't insert those from the editor, so they aren't candidates regardless of why they're hidden (parent-only, programmatic, deprecated for back-compat, etc.):
+2. Discover the candidate block by listing what Jetpack has registered. Skip blocks that opt out of the inserter (\`supports.inserter === false\`) — the user can't insert those from the editor:
 \`\`\`
 wp_cli eval 'foreach (\\WP_Block_Type_Registry::get_instance()->get_all_registered() as $n => $b) if (strpos($n, "jetpack/") === 0 && (!isset($b->supports["inserter"]) || $b->supports["inserter"] !== false)) echo $n . PHP_EOL;'
 \`\`\`

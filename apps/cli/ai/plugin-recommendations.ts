@@ -98,7 +98,7 @@ Specific Jetpack rules above (e.g. Forms) take precedence; this rule only applie
 1. Make sure Jetpack is active: \`wp_cli plugin install jetpack --activate\`.
 2. Discover the candidate block by listing what Jetpack has registered:
 \`\`\`
-wp_cli eval 'foreach (\\WP_Block_Type_Registry::get_instance()->get_all_registered() as $n => $b) if (strpos($n, "jetpack/") === 0) echo $n . PHP_EOL;'
+wp_cli eval 'foreach (\\WP_Block_Type_Registry::get_instance()->get_all_registered() as $n => $b) if (strpos($n, "jetpack/") === 0 && (!isset($b->supports["inserter"]) || $b->supports["inserter"] !== false)) echo $n . PHP_EOL;'
 \`\`\`
    If the block you expect isn't listed, the relevant Jetpack module is probably inactive. Run \`wp_cli jetpack module list\` to see the matrix and \`wp_cli jetpack module activate <slug>\` to turn it on, then re-list.
 3. Use the block in the page markup and validate with \`validate_blocks\`.

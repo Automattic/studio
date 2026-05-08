@@ -55,7 +55,7 @@ function PreviewLink( { url }: { url: string } ) {
 				e.stopPropagation();
 				getIpcApi().openURL( url );
 			} }
-			className="!absolute bottom-2 right-2 z-10 !px-2 !py-1 !h-auto !min-h-0 text-[11px] !bg-white/90 hover:!bg-white !text-a8c-gray-900 hover:!text-a8c-gray-900 !shadow-none whitespace-nowrap"
+			className="!absolute bottom-2 right-2 z-10 !px-2 !py-1 !h-auto !min-h-0 text-[11px] !bg-black/60 hover:!bg-black/80 !text-white hover:!text-white !shadow-none whitespace-nowrap"
 		>
 			{ __( 'Live Preview' ) }
 			<ArrowIcon />
@@ -248,6 +248,7 @@ function GalleryBlueprintCard( {
 						{ blueprint.title }
 					</div>
 				) }
+				{ blueprint.playgroundUrl && <PreviewLink url={ blueprint.playgroundUrl } /> }
 			</div>
 			<div className="px-3 pt-3 pb-3">
 				<Heading level={ 3 } className="text-[13px] text-frame-text mb-1" weight={ 500 }>

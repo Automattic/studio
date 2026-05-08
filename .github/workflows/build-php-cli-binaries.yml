@@ -263,10 +263,13 @@ jobs:
             exit 1
           fi
 
+          upload_results_file="${PWD}/out/php-binaries/apps-cdn-upload-results.json"
+
           bundle exec fastlane publish_php_cli_binaries \
             version:"${PHP_VERSION}" \
             artifacts_dir:"${PWD}/out/php-binaries" \
-            visibility:"${PHP_CLI_VISIBILITY}"
+            visibility:"${PHP_CLI_VISIBILITY}" \
+            output_file:"${upload_results_file}"
 
           echo "### Apps CDN PHP CLI upload" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
@@ -275,3 +278,19 @@ jobs:
           else
             echo "Uploaded PHP ${PHP_VERSION} CLI artifacts with ${PHP_CLI_VISIBILITY} visibility." >> "$GITHUB_STEP_SUMMARY"
           fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          PHP_CLI_UPLOAD_RESULTS_FILE="$upload_results_file" ruby -rjson -e '
+            results = JSON.parse(File.read(ENV.fetch("PHP_CLI_UPLOAD_RESULTS_FILE")))
+
+            File.open(ENV.fetch("GITHUB_STEP_SUMMARY"), "a") do |summary|
+              summary.puts "| File | Apps CDN URL | SHA-256 |"
+              summary.puts "| --- | --- | --- |"
+
+              results.each do |file_name, result|
+                url = result["cdn_url"].to_s
+                url_output = url.empty? ? "Dry run (not uploaded)" : "<#{url}>"
+                summary.puts "| `#{file_name}` | #{url_output} | `#{result["sha"]}` |"
+              end
+            end
+          '

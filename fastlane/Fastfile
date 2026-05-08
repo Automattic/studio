@@ -168,12 +168,13 @@ lane :distribute_release_build do |version: read_package_json_version|
 end
 
 desc 'Upload Studio PHP CLI binaries to Apps CDN'
-lane :publish_php_cli_binaries do |version:, artifacts_dir: PHP_CLI_BUILDS_FOLDER, visibility: 'internal', error_on_duplicate: true|
+lane :publish_php_cli_binaries do |version:, artifacts_dir: PHP_CLI_BUILDS_FOLDER, visibility: 'internal', error_on_duplicate: true, output_file: nil|
   upload_php_cli_binaries_to_apps_cdn(
     version:,
     artifacts_dir:,
     visibility:,
-    error_on_duplicate: error_on_duplicate.to_s != 'false'
+    error_on_duplicate: error_on_duplicate.to_s != 'false',
+    output_file:
   )
 end
 
@@ -697,7 +698,7 @@ def read_sha256_sidecar(file_path:)
   sha
 end
 
-def upload_php_cli_binaries_to_apps_cdn(version:, artifacts_dir:, visibility:, error_on_duplicate:, dry_run: DRY_RUN)
+def upload_php_cli_binaries_to_apps_cdn(version:, artifacts_dir:, visibility:, error_on_duplicate:, output_file: nil, dry_run: DRY_RUN)
   normalized_visibility = visibility.to_s.downcase
   unless %w[internal external].include?(normalized_visibility)
     UI.user_error!("visibility must be 'internal' or 'external'")
@@ -711,9 +712,9 @@ def upload_php_cli_binaries_to_apps_cdn(version:, artifacts_dir:, visibility:, e
     sha = read_sha256_sidecar(file_path:)
     release_notes = "PHP #{version} CLI binary for #{build[:name]}"
     UI.message("Uploading PHP CLI binary: #{build[:file_name]}")
+    media_url = nil
 
     if dry_run
-      media_url = 'https://appscdn.wordpress.com/builds/wordpress-com-studio-php-cli/releases.json'
       UI.message('[DRY RUN] Upload step skipped due to dry run mode.')
       UI.message("           File exists at: #{file_path}")
       UI.message("           file size: #{File.size(file_path) / 1024 / 1024} MB")
@@ -726,7 +727,6 @@ def upload_php_cli_binaries_to_apps_cdn(version:, artifacts_dir:, visibility:, e
       UI.message("           release notes: #{release_notes}")
       UI.message("           sha: #{sha}")
       UI.message("           error on duplicate: #{error_on_duplicate}")
-      result = { media_url: }
     else
       result = upload_build_to_apps_cdn(
         site_id: WPCOM_STUDIO_SITE_ID,
@@ -742,17 +742,25 @@ def upload_php_cli_binaries_to_apps_cdn(version:, artifacts_dir:, visibility:, e
         file_path:,
         error_on_duplicate:
       )
+      media_url = result[:media_url] || result['media_url']
+      UI.user_error!('Apps CDN upload response did not include media_url') if media_url.to_s.empty?
 
       UI.message('--------------------------------')
-      UI.message("✅ Uploaded PHP CLI binary: #{file_path} to #{result[:media_url]}")
+      UI.message("✅ Uploaded PHP CLI binary: #{file_path} to #{media_url}")
     end
 
     builds[build[:file_name]] = {
       name: build[:name],
       platform: build[:platform],
-      cdn_url: result[:media_url],
+      cdn_url: media_url,
       sha:
     }
+  end
+
+  unless output_file.to_s.empty?
+    FileUtils.mkdir_p(File.dirname(output_file))
+    File.write(output_file, JSON.pretty_generate(builds))
+    UI.message("Wrote PHP CLI Apps CDN upload results to #{output_file}")
   end
 
   builds

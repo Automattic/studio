@@ -240,13 +240,13 @@ jobs:
             results = JSON.parse(File.read(ENV.fetch("PHP_CLI_UPLOAD_RESULTS_FILE")))
 
             File.open(ENV.fetch("GITHUB_STEP_SUMMARY"), "a") do |summary|
-              summary.puts "| File | Apps CDN URL | SHA-256 |"
-              summary.puts "| --- | --- | --- |"
+              summary.puts "| File | Apps CDN URL |"
+              summary.puts "| --- | --- |"
 
               results.each do |file_name, result|
                 url = result["cdn_url"].to_s
                 url_output = url.empty? ? "Dry run (not uploaded)" : "<#{url}>"
-                summary.puts "| `#{file_name}` | #{url_output} | `#{result["sha"]}` |"
+                summary.puts "| `#{file_name}` | #{url_output} |"
               end
             end
           '

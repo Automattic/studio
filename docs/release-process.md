@@ -118,7 +118,7 @@ bundle exec fastlane publish_release version:"1.8.0"
 # Standalone wp-studio npm release (CLI-only patch, no app release)
 bundle exec fastlane prepare_npm_release version:"1.8.1"   # bump + open PR
 # After the PR merges:
-bundle exec fastlane publish_npm_package version:"1.8.1"   # tag trunk + dispatch workflow
+bundle exec fastlane publish_npm_package version:"1.8.1"   # tag the bump commit + dispatch workflow
 
 # Beta of the same flow (publishes with --tag next):
 bundle exec fastlane prepare_npm_release version:"1.8.1-beta1"

@@ -178,8 +178,8 @@ end
 # - Bumps `apps/studio/package.json` and `apps/cli/package.json` to <version>
 # - Commits, pushes, and opens a PR against `trunk`
 #
-# After the PR is reviewed and merged, run {publish_npm_package} to tag trunk and trigger the
-# GitHub Actions workflow that publishes to npm.
+# After the PR is reviewed and merged, run {publish_npm_package} to tag the version-bump commit
+# and trigger the GitHub Actions workflow that publishes to npm.
 #
 # @param version [String, nil] The release version (e.g., '1.7.4' or '1.7.4-beta1'). When omitted,
 #   defaults to the next patch version after `trunk`'s current version (any `-betaN` suffix is

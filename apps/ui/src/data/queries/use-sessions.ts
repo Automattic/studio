@@ -1,25 +1,11 @@
 import { deriveEffectiveEnvironment } from '@studio/common/ai/sessions/effective-site';
-import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { useConnector } from '@/data/core';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import type { AiSessionSummary, LoadedAiSession } from '@/data/core';
 
 export const SESSIONS_QUERY_KEY = [ 'sessions' ] as const;
-
-export function upsertSessionSummary( queryClient: QueryClient, session: AiSessionSummary ) {
-	queryClient.setQueryData< AiSessionSummary[] >( SESSIONS_QUERY_KEY, ( previous ) => {
-		if ( ! previous ) {
-			return [ session ];
-		}
-
-		if ( previous.some( ( existing ) => existing.id === session.id ) ) {
-			return previous.map( ( existing ) => ( existing.id === session.id ? session : existing ) );
-		}
-
-		return [ session, ...previous ];
-	} );
-}
 
 export function useSessions() {
 	const connector = useConnector();
@@ -58,10 +44,7 @@ export function useCreateSession() {
 	const queryClient = useQueryClient();
 	return useMutation( {
 		mutationFn: ( siteId?: string ) => connector.createSession( siteId ),
-		onSuccess: ( session ) => {
-			upsertSessionSummary( queryClient, session );
-			void queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } );
-		},
+		onSuccess: () => queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } ),
 	} );
 }
 

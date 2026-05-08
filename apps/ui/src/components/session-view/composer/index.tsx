@@ -8,7 +8,7 @@ import { Icon } from '@wordpress/ui';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
-import { SESSIONS_QUERY_KEY, upsertSessionSummary } from '@/data/queries/use-sessions';
+import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { EnvironmentPill } from './environment-pill';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';
@@ -231,8 +231,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 			await connector
 				.setSessionModel( newSession.id, pendingFamilyChange )
 				.catch( () => undefined );
-			upsertSessionSummary( queryClient, newSession );
-			void queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } );
+			await queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } );
 			setPendingFamilyChange( null );
 			onSwitchSession( newSession.id );
 		} finally {

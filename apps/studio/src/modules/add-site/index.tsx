@@ -39,7 +39,6 @@ import Stepper from './components/stepper';
 import { UploadBlueprintButton } from './components/upload-blueprint-button';
 import { useFindAvailableSiteName } from './hooks/use-find-available-site-name';
 import { applyBlueprintFormValues } from './lib/apply-blueprint-form-values';
-import NavigationContentClassic from './navigation-content-classic';
 
 type BlueprintsData = ReturnType< typeof useGetBlueprints >[ 'data' ];
 
@@ -449,7 +448,6 @@ export function AddSiteModalContent( {
 	} = useGetBlueprints( { locale } );
 
 	const { sites, loadingSites } = useSiteDetails();
-	const { enableBlueprintsGallery } = useFeatureFlags();
 
 	const {
 		handleCreateSite,
@@ -457,7 +455,6 @@ export function AddSiteModalContent( {
 		generateProposedPath,
 		deeplinkPhpVersion,
 		deeplinkWpVersion,
-		fileForImport,
 		setFileForImport,
 		selectedBlueprint,
 		setSelectedBlueprint,
@@ -614,17 +611,6 @@ export function AddSiteModalContent( {
 		setIsDeeplinkFlow,
 		startOver,
 	};
-
-	if ( ! enableBlueprintsGallery ) {
-		return (
-			<Navigator
-				className={ className ?? 'w-full h-full app-no-drag-region' }
-				initialPath={ initialNavigatorPath }
-			>
-				<NavigationContentClassic { ...sharedNavigationProps } fileForImport={ fileForImport } />
-			</Navigator>
-		);
-	}
 
 	return (
 		<>

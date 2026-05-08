@@ -38,20 +38,22 @@ function useGravatarUrl( email: string | undefined, isDark: boolean ): string | 
 type GravatarProps = {
 	email: string;
 	isDark: boolean;
+	className?: string;
 };
 
-export function Gravatar( { email, isDark }: GravatarProps ) {
+export function Gravatar( { email, isDark, className }: GravatarProps ) {
 	const url = useGravatarUrl( email, isDark );
 	const [ errored, setErrored ] = useState( false );
+	const rootClassName = `${ styles.root } ${ className ?? '' }`;
 
 	if ( ! url || errored ) {
-		return <span aria-hidden="true" className={ styles.root } />;
+		return <span aria-hidden="true" className={ rootClassName } />;
 	}
 
 	return (
 		<img
 			aria-hidden="true"
-			className={ styles.root }
+			className={ rootClassName }
 			src={ url }
 			alt=""
 			onError={ () => setErrored( true ) }

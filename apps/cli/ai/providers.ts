@@ -130,14 +130,6 @@ function createBaseEnvironment(): Record< string, string > {
 	delete env.OPENAI_API_KEY;
 	delete env.OPENAI_BASE_URL;
 	delete env.STUDIO_OPENAI_DEFAULT_HEADERS;
-	delete env.CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS;
-	delete env.CLAUDE_CODE_MAX_RETRIES;
-
-	// Fail fast on transient API errors so the user-mediated retry prompt can
-	// intervene instead of the SDK burning through its default 10 retries.
-	if ( ! env.CLAUDE_CODE_MAX_RETRIES ) {
-		env.CLAUDE_CODE_MAX_RETRIES = '1';
-	}
 
 	return env;
 }
@@ -165,7 +157,7 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 			const env = createBaseEnvironment();
 			const gatewayBaseUrl = getWpcomAiGatewayBaseUrl();
 
-			// Anthropic path — consumed by the Claude Agent SDK runtime.
+			// Anthropic messages path through the WP.com AI gateway.
 			env.ANTHROPIC_BASE_URL = gatewayBaseUrl;
 			env.ANTHROPIC_AUTH_TOKEN = accessToken;
 			const anthropicHeaders: Record< string, string > = {
@@ -175,15 +167,8 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 				anthropicHeaders[ 'X-WPCOM-Session-ID' ] = options.sessionId;
 			}
 			env.ANTHROPIC_CUSTOM_HEADERS = buildAnthropicCustomHeaders( anthropicHeaders );
-			env.CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS = '1';
-			// The default agent retry count (10) causes the CLI to hang for
-			// minutes when the WPCOM proxy returns a 429 (e.g. usage cap
-			// reached). Retries don't recover the cap, so fail fast and let
-			// the UI surface the error.
-			env.CLAUDE_CODE_MAX_RETRIES = '0';
 
-			// OpenAI path — consumed by the Vercel AI SDK runtime. The wpcom
-			// proxy accepts the same bearer token for both protocols; it
+			// OpenAI completions path. The wpcom proxy accepts the same bearer token and
 			// dispatches to the right upstream based on the request path.
 			// @ai-sdk/openai expects baseURL to include /v1 (like the real
 			// OpenAI API), so the request path becomes /v1/chat/completions —

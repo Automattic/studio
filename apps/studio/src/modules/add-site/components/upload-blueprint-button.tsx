@@ -34,42 +34,70 @@ export function UploadBlueprintButton( {
 		const file = event.target.files?.[ 0 ];
 		onError( undefined );
 
-		if ( file && file.type === 'application/json' ) {
-			try {
+		if ( ! file ) {
+			return;
+		}
+
+		try {
+			const isZip = file.type === 'application/zip' || file.name.endsWith( '.zip' );
+			const isJson = file.type === 'application/json' || file.name.endsWith( '.json' );
+
+			let blueprintJson: Record< string, unknown >;
+			let filePath: string;
+
+			if ( isZip ) {
+				const zipPath = getIpcApi().getPathForFile( file );
+				const extracted = await getIpcApi().extractBlueprintBundle( zipPath );
+				blueprintJson = extracted.blueprintJson;
+				filePath = extracted.blueprintJsonPath;
+			} else if ( isJson ) {
 				const text = await file.text();
-				const blueprintJson = JSON.parse( text );
+				blueprintJson = JSON.parse( text );
+				filePath = getIpcApi().getPathForFile( file );
+			} else {
+				return;
+			}
 
-				if ( blueprintJson.version === 2 ) {
-					onError( __( 'Blueprint v2 format is not supported yet. Please use v1.' ) );
-					return;
-				}
+			const meta = blueprintJson as {
+				version?: number;
+				meta?: { title?: string; description?: string };
+			};
 
-				const validation = await getIpcApi().validateBlueprint( blueprintJson );
-				if ( ! validation.valid ) {
-					onError( validation.error || __( 'Invalid Blueprint format' ) );
-					return;
-				}
+			if ( meta.version === 2 ) {
+				onError( __( 'Blueprint v2 format is not supported yet. Please use v1.' ) );
+				return;
+			}
 
-				const fileBlueprint: Blueprint = {
-					slug: `file:${ file.name }`,
-					title: blueprintJson.meta?.title || file.name.replace( '.json', '' ),
-					excerpt:
-						blueprintJson.meta?.description || generateDefaultBlueprintDescription( blueprintJson ),
-					image: '',
-					playground_url: '',
-					blueprint: blueprintJson,
-					filePath: getIpcApi().getPathForFile( file ),
-				};
+			const validation = await getIpcApi().validateBlueprint( blueprintJson );
+			if ( ! validation.valid ) {
+				onError( validation.error || __( 'Invalid Blueprint format' ) );
+				return;
+			}
 
-				onFileBlueprintSelect( fileBlueprint );
-			} catch ( error ) {
-				if ( error instanceof SyntaxError ) {
-					onError( sprintf( __( 'Invalid JSON: %s' ), error.message ) );
-				} else {
-					onError( __( 'Failed to load Blueprint file.' ) );
-				}
+			const baseName = file.name.replace( /\.(json|zip)$/, '' );
+			const fileBlueprint: Blueprint = {
+				slug: `file:${ file.name }`,
+				title: meta.meta?.title || baseName,
+				excerpt:
+					meta.meta?.description ||
+					generateDefaultBlueprintDescription(
+						blueprintJson as Parameters< typeof generateDefaultBlueprintDescription >[ 0 ]
+					),
+				image: '',
+				playground_url: '',
+				blueprint: blueprintJson,
+				filePath,
+			};
+
+			onFileBlueprintSelect( fileBlueprint );
+		} catch ( error ) {
+			if ( error instanceof SyntaxError ) {
+				onError( sprintf( __( 'Invalid JSON: %s' ), error.message ) );
+			} else {
+				onError( __( 'Failed to load Blueprint file.' ) );
 			}
 		}
+
 		if ( fileRef.current ) {
 			fileRef.current.value = '';
 		}
@@ -80,7 +108,7 @@ export function UploadBlueprintButton( {
 			<input
 				ref={ fileRef }
 				type="file"
-				accept=".json,application/json"
+				accept=".json,.zip,application/json,application/zip"
 				onChange={ handleFileSelect }
 				className="hidden"
 			/>

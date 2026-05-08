@@ -1,15 +1,8 @@
 import { __ } from '@wordpress/i18n';
 
-// Strip the legacy `mcp__studio__` prefix from SDK-era tool names so the
-// dictionary below can stay keyed on pi-runtime bare names while still
-// matching tool calls replayed from older session JSONL.
-function stripMcpPrefix( name: string ): string {
-	return name.startsWith( 'mcp__studio__' ) ? name.slice( 'mcp__studio__'.length ) : name;
-}
-
 /**
  * Human-facing display name for a tool, localized.
- * Falls back to the raw tool name (e.g. an unknown MCP tool) so the UI/CLI
+ * Falls back to the raw tool name (e.g. an unknown tool) so the UI/CLI
  * always has something to show.
  */
 export function getToolDisplayName( name: string ): string {
@@ -51,7 +44,7 @@ export function getToolDisplayName( name: string ): string {
 		Task: __( 'Run task' ),
 		TodoWrite: __( 'Update todo list' ),
 	};
-	return displayNames[ stripMcpPrefix( name ) ] ?? name;
+	return displayNames[ name ] ?? name;
 }
 
 const BASH_DETAIL_MAX_LENGTH = 60;
@@ -66,7 +59,7 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 	if ( ! input ) {
 		return '';
 	}
-	switch ( stripMcpPrefix( name ) ) {
+	switch ( name ) {
 		case 'site_create':
 			return typeof input.name === 'string' ? input.name : '';
 		case 'site_info':
@@ -126,94 +119,4 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 export interface NormalizedToolResult {
 	text: string;
 	isError: boolean;
-}
-
-function normalizeResultContent( content: unknown ): string {
-	if ( typeof content === 'string' ) {
-		return content;
-	}
-	if ( Array.isArray( content ) ) {
-		return content
-			.map( ( block ) => {
-				if ( block && typeof block === 'object' && 'text' in block ) {
-					const text = ( block as { text?: unknown } ).text;
-					return typeof text === 'string' ? text : '';
-				}
-				return '';
-			} )
-			.filter( Boolean )
-			.join( '\n' );
-	}
-	if ( content === undefined || content === null ) {
-		return '';
-	}
-	return String( content );
-}
-
-/**
- * Normalize a tool result payload — either an Anthropic `tool_result` block
- * (`{ content, is_error }`) or one of Studio's MCP-tool result shapes
- * (`{ stdout, stderr, is_error }`) — into a single `{ text, isError }` pair.
- * Returns `null` for unrecognized shapes.
- */
-export function extractToolResult( result: unknown ): NormalizedToolResult | null {
-	if ( ! result || typeof result !== 'object' ) {
-		return null;
-	}
-	const obj = result as Record< string, unknown >;
-
-	if ( 'content' in obj || 'isError' in obj || 'is_error' in obj ) {
-		return {
-			text: normalizeResultContent( obj.content ),
-			isError: obj.isError === true || obj.is_error === true,
-		};
-	}
-
-	if ( 'stdout' in obj || 'stderr' in obj || 'noOutputExpected' in obj ) {
-		const stdout = typeof obj.stdout === 'string' ? obj.stdout : '';
-		const stderr = typeof obj.stderr === 'string' ? obj.stderr : '';
-		const parts = [ stdout, stderr ? `stderr: ${ stderr }` : '' ].filter( Boolean );
-		return {
-			text: parts.join( '\n' ),
-			isError: obj.is_error === true,
-		};
-	}
-
-	return null;
-}
-
-/**
- * Pull all `tool_result` content blocks out of a `user`-type SDK message and
- * return them keyed by `tool_use_id`, normalized via `extractToolResult`.
- * Returns an empty map when the message isn't a user tool-result carrier.
- */
-export function extractToolResultsFromUserMessage(
-	message: unknown
-): Map< string, NormalizedToolResult > {
-	const results = new Map< string, NormalizedToolResult >();
-	const msg = message as { type?: string; message?: { content?: unknown } } | null;
-	if ( ! msg || msg.type !== 'user' ) {
-		return results;
-	}
-	const content = msg.message?.content;
-	if ( ! Array.isArray( content ) ) {
-		return results;
-	}
-	for ( const block of content ) {
-		if ( ! block || typeof block !== 'object' ) {
-			continue;
-		}
-		const typed = block as {
-			type?: unknown;
-			tool_use_id?: unknown;
-		};
-		if ( typed.type !== 'tool_result' || typeof typed.tool_use_id !== 'string' ) {
-			continue;
-		}
-		const normalized = extractToolResult( block );
-		if ( normalized ) {
-			results.set( typed.tool_use_id, normalized );
-		}
-	}
-	return results;
 }

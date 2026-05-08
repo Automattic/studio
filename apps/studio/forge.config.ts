@@ -212,16 +212,65 @@ const config: ForgeConfig = {
 			console.log( `Removing native binaries for other platforms from CLI bundle...` );
 			const cliNodeModules = path.join( repoRoot, 'apps', 'cli', 'dist', 'cli', 'node_modules' );
 
-			// Clean up koffi binaries (uses {platform}_{arch} format)
+			// Clean up koffi binaries (uses {platform}_{arch} format).
 			const koffiBuildDir = path.join( cliNodeModules, 'koffi', 'build', 'koffi' );
-			const platformPrefix = `${ platform }_`;
+			const koffiTarget = `${ platform }_${ arch }`;
 			if ( fs.existsSync( koffiBuildDir ) ) {
-				for ( const platformArchDir of fs.readdirSync( koffiBuildDir ) ) {
-					if ( ! platformArchDir.startsWith( platformPrefix ) ) {
-						const dirToRemove = path.join( koffiBuildDir, platformArchDir );
-						if ( fs.statSync( dirToRemove ).isDirectory() ) {
-							fs.rmSync( dirToRemove, { recursive: true, force: true } );
-							console.log( `Removed koffi/build/koffi/${ platformArchDir }` );
+				const koffiDirs = fs.readdirSync( koffiBuildDir );
+				const koffiTargetPath = path.join( koffiBuildDir, koffiTarget );
+				// Refuse to delete anything unless the target arch is present *as a directory* —
+				// guards against a koffi naming/layout change silently nuking every prebuilt.
+				const targetIsDir =
+					fs.existsSync( koffiTargetPath ) &&
+					fs.statSync( koffiTargetPath ).isDirectory();
+				if ( ! targetIsDir ) {
+					console.warn(
+						`Skipping koffi cleanup: no directory named ${ koffiTarget } in ${ koffiBuildDir }`
+					);
+				} else {
+					for ( const platformArchDir of koffiDirs ) {
+						if ( platformArchDir !== koffiTarget ) {
+							const dirToRemove = path.join( koffiBuildDir, platformArchDir );
+							if ( fs.statSync( dirToRemove ).isDirectory() ) {
+								fs.rmSync( dirToRemove, { recursive: true, force: true } );
+								console.log( `Removed koffi/build/koffi/${ platformArchDir }` );
+							}
+						}
+					}
+				}
+			}
+
+			// Clean up fs-ext-extra-prebuilt binaries (file format:
+			// fs-ext-{platform}-{arch}-{runtime}-{version}.node). The root postinstall
+			// already filtered by platform; this strips the unused arch for the target build.
+			const fsExtBinDir = path.join(
+				cliNodeModules,
+				'fs-ext-extra-prebuilt',
+				'binaries'
+			);
+			const fsExtPrefix = `fs-ext-${ platform }-${ arch }-`;
+			if ( fs.existsSync( fsExtBinDir ) ) {
+				const fsExtFiles = fs.readdirSync( fsExtBinDir );
+				if ( ! fsExtFiles.some( ( f ) => f.startsWith( fsExtPrefix ) ) ) {
+					console.warn(
+						`Skipping fs-ext cleanup: no file starting with ${ fsExtPrefix } in ${ fsExtBinDir }`
+					);
+				} else {
+					for ( const file of fsExtFiles ) {
+						if ( ! file.startsWith( fsExtPrefix ) ) {
+							// Tolerate transient failures (Windows AV locks, permissions) — this
+							// cleanup is a size optimization; aborting packaging over a stuck file
+							// would be worse than shipping a few hundred extra KB. Mirrors the
+							// behavior of scripts/remove-fs-ext-other-platform-binaries.mjs.
+							try {
+								fs.unlinkSync( path.join( fsExtBinDir, file ) );
+								console.log( `Removed fs-ext-extra-prebuilt/binaries/${ file }` );
+							} catch ( e ) {
+								const message = e instanceof Error ? e.message : String( e );
+								console.warn(
+									`Could not remove fs-ext-extra-prebuilt/binaries/${ file }: ${ message }`
+								);
+							}
 						}
 					}
 				}

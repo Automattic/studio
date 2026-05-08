@@ -29,6 +29,18 @@ function writeStoredUiMode( mode: UiMode ) {
 	}
 }
 
+function resetRouterPath() {
+	if ( typeof window === 'undefined' ) {
+		return;
+	}
+
+	if ( window.location.pathname === '/' && ! window.location.search && ! window.location.hash ) {
+		return;
+	}
+
+	window.history.replaceState( window.history.state, '', '/' );
+}
+
 function isEditableTarget( target: EventTarget | null ) {
 	if ( ! ( target instanceof HTMLElement ) ) {
 		return false;
@@ -46,8 +58,13 @@ export function useUiMode() {
 	const [ mode, setModeState ] = useState< UiMode >( readStoredUiMode );
 
 	const setMode = useCallback( ( nextMode: UiMode ) => {
-		setModeState( nextMode );
-		writeStoredUiMode( nextMode );
+		setModeState( ( currentMode ) => {
+			if ( currentMode !== nextMode ) {
+				resetRouterPath();
+			}
+			writeStoredUiMode( nextMode );
+			return nextMode;
+		} );
 	}, [] );
 
 	useEffect( () => {
@@ -65,6 +82,7 @@ export function useUiMode() {
 			event.preventDefault();
 			setModeState( ( currentMode ) => {
 				const nextMode = currentMode === 'classic' ? 'desks' : 'classic';
+				resetRouterPath();
 				writeStoredUiMode( nextMode );
 				return nextMode;
 			} );

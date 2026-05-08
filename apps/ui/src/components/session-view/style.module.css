@@ -87,11 +87,14 @@
 	min-height: 0;
 	overflow-y: auto;
 	position: relative;
-	padding: 0 var(--wpds-dimension-padding-xl);
 	/* Reserve scrollbar space symmetrically so the centered 760px column
 	   doesn't shift left when the scrollbar appears — keeping it aligned
 	   with the (non-scrolling) composer. */
 	scrollbar-gutter: stable both-edges;
+}
+
+.classicScroll {
+	padding: 0 var(--wpds-dimension-padding-xl);
 }
 
 /* Shared 760px column used by both the conversation and composer so their
@@ -101,11 +104,11 @@
 	margin: 0 auto;
 }
 
-.conversationSpacing {
+.classicConversationSpacing {
 	padding-top: var(--wpds-dimension-padding-xl);
 	padding-bottom: var(--wpds-dimension-padding-2xl);
 }
 
-.composerOuter {
+.classicComposerOuter {
 	padding: 0 calc(var(--wpds-dimension-padding-2xl) * 2) var(--wpds-dimension-padding-xl);
 }

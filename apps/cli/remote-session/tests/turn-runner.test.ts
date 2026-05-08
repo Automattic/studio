@@ -50,7 +50,7 @@ describe( 'runTurn', () => {
 		expect( outcome.exitCode ).toBe( 1 );
 	} );
 
-	it( 'falls back to last assistant text when SDK result has empty result field', async () => {
+	it( 'falls back to last assistant text when agent_end has no reply text', async () => {
 		const outcome = await run( 'empty-result-with-text' );
 		expect( outcome.status ).toBe( 'success' );
 		expect( outcome.isError ).toBe( false );

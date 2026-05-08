@@ -63,11 +63,61 @@ type SpawnPhpProcessOptions = {
 	mode?: 'pipe' | 'capture-stdout';
 };
 
+// Process-scoped opcache dir, created lazily and removed when the process exits
+let opcacheRootDir: string | null = null;
+
+function getOpcacheRootDir(): string {
+	if ( opcacheRootDir ) {
+		return opcacheRootDir;
+	}
+
+	// Resolve to the long-form path on Windows. `os.tmpdir()` can return an 8.3
+	// short name (e.g. C:\Users\BUILDK~1\AppData\…) when the user has a long
+	// username, and PHP's INI scanner treats `~` as a special token, breaking
+	// `-d opcache.file_cache=<path>` parsing.
+	const tmpRoot =
+		process.platform === 'win32' ? fs.realpathSync.native( os.tmpdir() ) : os.tmpdir();
+	opcacheRootDir = fs.mkdtempSync( path.join( tmpRoot, 'studio-opcache-' ) );
+	const dirToClean = opcacheRootDir;
+	process.once( 'exit', () => {
+		try {
+			fs.rmSync( dirToClean, { recursive: true, force: true } );
+		} catch {
+			// Best effort. The OS will reap tmp eventually.
+		}
+	} );
+	return opcacheRootDir;
+}
+
+function getDefaultPhpArgs( phpVersion: NativePhpSupportedVersion ): string[] {
+	if ( process.platform !== 'win32' ) {
+		return [];
+	}
+
+	// Partition the file_cache by PHP version: opcache's on-disk script blob
+	// format isn't stable across minor versions, and reusing a cache populated
+	// by a different PHP can crash the server at startup on Windows.
+	const cacheId = `php${ phpVersion }`;
+	const cacheDirectory = path.join( getOpcacheRootDir(), cacheId );
+	fs.mkdirSync( cacheDirectory, { recursive: true } );
+
+	return [
+		'-d',
+		`opcache.file_cache="${ cacheDirectory }"`,
+		'-d',
+		'opcache.file_cache_fallback=1',
+		'-d',
+		`opcache.cache_id="studio-${ cacheId }"`,
+	];
+}
+
 function spawnPhpProcess(
 	args: string[],
 	{ phpVersion, cwd, signal, mode = 'pipe' }: SpawnPhpProcessOptions
 ): ChildProcess {
-	const phpScriptProcess = spawn( getPhpBinaryPath( phpVersion ), args, {
+	const defaultArgs = getDefaultPhpArgs( phpVersion );
+	const phpArgs = [ ...defaultArgs, ...args ];
+	const phpScriptProcess = spawn( getPhpBinaryPath( phpVersion ), phpArgs, {
 		cwd,
 		stdio: [ 'ignore', 'pipe', 'pipe' ],
 		signal,
@@ -627,6 +677,8 @@ async function ipcMessageHandler( packet: unknown ) {
 		};
 		process.send!( response );
 
+		// If the `stopServer` function ran successfully, the last open handle should be the IPC channel.
+		// Disconnect so that the process can exit cleanly.
 		if ( validMessage.topic === 'stop-server' && result === StopServerResult.OK ) {
 			process.disconnect();
 		}
@@ -663,7 +715,11 @@ function shutdownOnSignal( signal: NodeJS.Signals ): void {
 // If this node process is going down (normal exit or IPC disconnect), make sure PHP goes with it.
 process.on( 'exit', killPhpProcess );
 process.on( 'disconnect', () => {
+	logToConsole( 'IPC channel disconnected, shutting down' );
 	killPhpProcess();
+	// Without an explicit exit, the wrapper would linger until the event loop drains,
+	// which delays the daemon's stop sequence and risks the force-kill timer firing.
+	process.exit( 0 );
 } );
 
 // Without explicit signal handlers, the process is terminated abruptly and the 'exit' event

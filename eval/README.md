@@ -17,6 +17,7 @@ npm run eval:view
 - **identity** — Agent identifies itself correctly (verified by an LLM judge).
 - **site-creation** — Agent calls `site_create` and it succeeds.
 - **single-page-build-turn-cadence** — Agent builds a simple one-page site. Asserts (a) every individual turn stays under 60s (wall-clock between successive assistant messages) and (b) no `wp_cli` call uses `--post_content-file=` (which silently fails inside PHP-WASM).
+- **jetpack-catchall-slideshow** — Agent reaches for Jetpack on a slideshow request. Asserts the generated page content uses a `jetpack/*` block (i.e. the catch-all rule fired instead of the agent falling back to raw HTML).
 
 ## Adding tests
 

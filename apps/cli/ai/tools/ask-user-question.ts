@@ -1,7 +1,7 @@
 import { Type } from 'typebox';
 import { defineTool } from './define-tool';
 import type { AgentTool } from '@mariozechner/pi-agent-core';
-import type { AskUserQuestion } from 'cli/ai/agent';
+import type { AskUserQuestion } from 'cli/ai/types';
 import type { TSchema } from 'typebox';
 
 // Factory because the tool closes over `onAskUser` (the active AiChatUI

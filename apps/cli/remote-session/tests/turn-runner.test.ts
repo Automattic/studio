@@ -65,6 +65,13 @@ describe( 'runTurn', () => {
 		expect( outcome.exitCode ).toBe( 1 );
 	} );
 
+	it( 'detects a stale --resume-session via JSON error event', async () => {
+		const outcome = await run( 'stale-resume-error-event', 'bogus-sess-id' );
+		expect( outcome.staleSession ).toBe( true );
+		expect( outcome.exitCode ).toBe( 1 );
+		expect( outcome.stderrTail ).toBe( '' );
+	} );
+
 	it( 'times out and kills the child when it never emits turn.completed', async () => {
 		const outcome = await run( 'hang', undefined, 400 );
 		expect( outcome.status ).toBe( 'timeout' );

@@ -1,12 +1,12 @@
 import { useLocation, useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { Button } from '@wordpress/ui';
 import { Gravatar } from '@/components/gravatar';
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
+import { DeskHeaderButton } from './header-button';
 import styles from './style.module.css';
 
 const WPCOM_PROFILE_URL = 'https://wordpress.com/me';
@@ -37,16 +37,12 @@ export function DeskUserMenu() {
 
 	if ( ! user ) {
 		return (
-			<Button
-				variant="minimal"
-				tone="neutral"
-				size="small"
-				className={ styles.trigger }
-				aria-label={ __( 'Log in with WordPress.com' ) }
+			<DeskHeaderButton
+				label={ __( 'Log in with WordPress.com' ) }
 				onClick={ () => login.mutate() }
 			>
 				<span className={ styles.loginAvatar } aria-hidden="true" />
-			</Button>
+			</DeskHeaderButton>
 		);
 	}
 
@@ -54,16 +50,9 @@ export function DeskUserMenu() {
 		<Menu.Root modal={ false }>
 			<Menu.Trigger
 				render={
-					<Button
-						variant="minimal"
-						tone="neutral"
-						size="small"
-						className={ styles.trigger }
-						aria-label={ __( 'User menu' ) }
-						title={ user.displayName }
-					>
+					<DeskHeaderButton label={ __( 'User menu' ) } tooltipLabel={ user.displayName }>
 						<Gravatar className={ styles.avatar } email={ user.email } isDark={ themeIsDark } />
-					</Button>
+					</DeskHeaderButton>
 				}
 			/>
 			<Menu.Popup side="bottom" align="start" className={ styles.popup }>

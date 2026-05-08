@@ -5,6 +5,7 @@ import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import motionStyles from '@/components/floating-surface-motion/style.module.css';
 import { useCreateSession, useSessions } from '@/data/queries/use-sessions';
+import { useFullscreen } from '@/hooks/use-fullscreen';
 import { formatRelativeTime } from '@/lib/format-relative-time';
 import { DeskSessionSurface } from './session-surface';
 import styles from './style.module.css';
@@ -30,6 +31,7 @@ function getSessionSubtitle( session: AiSessionSummary ) {
 
 export function UserDeskChats( { open, onOpenChange, createChatRequestId }: UserDeskChatsProps ) {
 	const { data: sessions } = useSessions();
+	const isFullscreen = useFullscreen();
 	const createSession = useCreateSession();
 	const lastCreateChatRequestId = useRef( createChatRequestId );
 	const [ selectedSessionId, setSelectedSessionId ] = useState< string | undefined >( undefined );
@@ -84,7 +86,12 @@ export function UserDeskChats( { open, onOpenChange, createChatRequestId }: User
 				<Dialog.Popup
 					initialFocus={ false }
 					finalFocus={ false }
-					className={ clsx( styles.panel, motionStyles.motion, expanded && styles.panelExpanded ) }
+					className={ clsx(
+						styles.panel,
+						isFullscreen && styles.panelFullscreen,
+						motionStyles.motion,
+						expanded && styles.panelExpanded
+					) }
 					aria-label={ __( 'Conversations' ) }
 				>
 					<div className={ styles.listPane }>

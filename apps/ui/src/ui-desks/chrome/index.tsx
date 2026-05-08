@@ -1,3 +1,4 @@
+import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useFullscreen } from '@/hooks/use-fullscreen';
 import { DeskChatsButton } from './chats-button';
@@ -15,9 +16,12 @@ export function DeskChrome( { chatsOpen, onToggleChats }: DeskChromeProps ) {
 
 	return (
 		<div className={ clsx( styles.root, isFullscreen && styles.fullscreen ) }>
-			<DeskUserMenu />
-			<DeskChatsButton open={ chatsOpen } onToggle={ onToggleChats } />
-			<DeskCreateMenu />
+			<span className={ styles.title }>{ __( 'Studio' ) }</span>
+			<div className={ styles.actions }>
+				<DeskUserMenu />
+				<DeskChatsButton open={ chatsOpen } onToggle={ onToggleChats } />
+				<DeskCreateMenu />
+			</div>
 		</div>
 	);
 }

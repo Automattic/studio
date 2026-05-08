@@ -3,17 +3,20 @@ import type { DeskWidgetBase } from '@studio/common/types/desk';
 
 export const NOTE_WIDGET_TYPE = 'note';
 
-export type NoteTone =
-	| 'note'
-	| 'note-mint'
-	| 'note-blue'
-	| 'note-orange'
-	| 'note-violet'
-	| 'note-neon-yellow'
-	| 'note-neon-green'
-	| 'note-neon-violet'
-	| 'note-neon-orange'
-	| 'note-neon-blue';
+export const NOTE_TONES = [
+	'yellow',
+	'mint',
+	'blue',
+	'orange',
+	'violet',
+	'neon-yellow',
+	'neon-green',
+	'neon-violet',
+	'neon-orange',
+	'neon-blue',
+] as const;
+
+export type NoteTone = ( typeof NOTE_TONES )[ number ];
 
 export type NoteWidgetProps = {
 	text: string;
@@ -36,16 +39,5 @@ export function isNoteWidgetProps( value: unknown ): value is NoteWidgetProps {
 }
 
 export function isNoteTone( value: unknown ): value is NoteTone {
-	return (
-		value === 'note' ||
-		value === 'note-mint' ||
-		value === 'note-blue' ||
-		value === 'note-orange' ||
-		value === 'note-violet' ||
-		value === 'note-neon-yellow' ||
-		value === 'note-neon-green' ||
-		value === 'note-neon-violet' ||
-		value === 'note-neon-orange' ||
-		value === 'note-neon-blue'
-	);
+	return NOTE_TONES.includes( value as NoteTone );
 }

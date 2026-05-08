@@ -16,7 +16,7 @@ export const defaultUserDesk: DeskConfig = {
 			},
 			widgetProps: {
 				text: '',
-				tone: 'note',
+				tone: 'yellow',
 			},
 		},
 	],

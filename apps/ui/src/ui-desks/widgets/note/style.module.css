@@ -15,39 +15,39 @@
 	user-select: none;
 }
 
-.note[data-tone='note-mint'] {
+.note[data-tone='mint'] {
 	background: #d9f5e1;
 }
 
-.note[data-tone='note-blue'] {
+.note[data-tone='blue'] {
 	background: #c5deff;
 }
 
-.note[data-tone='note-orange'] {
+.note[data-tone='orange'] {
 	background: #ffd8b0;
 }
 
-.note[data-tone='note-violet'] {
+.note[data-tone='violet'] {
 	background: #e0c8ff;
 }
 
-.note[data-tone='note-neon-yellow'] {
+.note[data-tone='neon-yellow'] {
 	background: rgb(255, 236, 61);
 }
 
-.note[data-tone='note-neon-green'] {
+.note[data-tone='neon-green'] {
 	background: #6cda76;
 }
 
-.note[data-tone='note-neon-violet'] {
+.note[data-tone='neon-violet'] {
 	background: #be89ec;
 }
 
-.note[data-tone='note-neon-orange'] {
+.note[data-tone='neon-orange'] {
 	background: #f5b047;
 }
 
-.note[data-tone='note-neon-blue'] {
+.note[data-tone='neon-blue'] {
 	background: #52aeff;
 }
 

@@ -18,6 +18,7 @@
 		"@tanstack/react-query-persist-client": "^5.96.2",
 		"@tanstack/react-router": "^1.120.14",
 		"@wordpress/components": "33.0.0",
+		"@wordpress/data": "^10.45.0",
 		"@wordpress/dataviews": "^14.2.0",
 		"@wordpress/i18n": "^6.18.0",
 		"@wordpress/icons": "^13.0.0",

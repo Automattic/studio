@@ -1,6 +1,8 @@
+import { select, type AnyConfig, type StoreDescriptor } from '@wordpress/data';
 import {
 	__unstableUseRichText as useRichText,
 	registerFormatType,
+	store as richTextStore,
 	toggleFormat,
 	type RichTextValue,
 } from '@wordpress/rich-text';
@@ -11,6 +13,10 @@ import styles from './style.module.css';
 import type { DeskWidgetComponentProps } from '@/ui-desks/widgets/types';
 
 type NoteWidgetComponentProps = DeskWidgetComponentProps< NoteWidgetProps >;
+
+type RichTextFormatSelectors = {
+	getFormatType: ( name: string ) => unknown;
+};
 
 const NOTE_TEXT_FORMATS = [
 	{ name: 'core/bold', title: 'Bold', tagName: 'strong', shortcut: 'b' },
@@ -155,15 +161,15 @@ export function NoteWidgetComponent( { id, shapeType, widgetProps }: NoteWidgetC
 }
 
 function registerNoteFormats() {
-	const globalObject = globalThis as typeof globalThis & {
-		__studioNoteFormatsRegistered?: boolean;
-	};
-
-	if ( globalObject.__studioNoteFormatsRegistered ) {
-		return;
-	}
+	const { getFormatType } = select(
+		richTextStore as StoreDescriptor< AnyConfig >
+	) as unknown as RichTextFormatSelectors;
 
 	for ( const { name, title, tagName } of NOTE_TEXT_FORMATS ) {
+		if ( getFormatType( name ) ) {
+			continue;
+		}
+
 		registerFormatType( name, {
 			name,
 			title,
@@ -174,6 +180,4 @@ function registerNoteFormats() {
 			edit: () => null,
 		} );
 	}
-
-	globalObject.__studioNoteFormatsRegistered = true;
 }

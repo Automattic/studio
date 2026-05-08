@@ -1,4 +1,5 @@
 import { Dialog } from '@base-ui/react/dialog';
+import { useNavigate, useSearch } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { Button } from '@wordpress/ui';
 import { clsx } from 'clsx';
@@ -8,14 +9,13 @@ import { useCreateSession, useSessions } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import { useFullscreen } from '@/hooks/use-fullscreen';
 import { formatRelativeTime } from '@/lib/format-relative-time';
+import { DeskChatsButton } from '../chrome/chats-button';
+import { validateDeskChatsSearch, type DeskChatsSearch } from './search';
 import { DeskSessionSurface } from './session-surface';
 import styles from './style.module.css';
 import type { AiSessionSummary } from '@/data/core';
 
 interface DeskChatsProps {
-	open: boolean;
-	onOpenChange: ( open: boolean ) => void;
-	createChatRequestId: number;
 	siteId?: string;
 }
 
@@ -31,7 +31,38 @@ function getSessionSubtitle( session: AiSessionSummary ) {
 	return formatRelativeTime( session.updatedAt );
 }
 
-export function DeskChats( { open, onOpenChange, createChatRequestId, siteId }: DeskChatsProps ) {
+function useDeskChatsSearch() {
+	const search = validateDeskChatsSearch(
+		useSearch( { strict: false } ) as Record< string, unknown >
+	);
+	const navigate = useNavigate();
+	const open = search.chats === true;
+	const createChatRequestId = search.newChat ?? 0;
+
+	const setOpen = useCallback(
+		( nextOpen: boolean ) => {
+			void navigate( {
+				to: '.',
+				search: ( previous: DeskChatsSearch ) => ( {
+					...previous,
+					chats: nextOpen ? true : undefined,
+				} ),
+			} );
+		},
+		[ navigate ]
+	);
+
+	return { open, setOpen, createChatRequestId };
+}
+
+export function DeskChatsTrigger() {
+	const { open, setOpen } = useDeskChatsSearch();
+
+	return <DeskChatsButton open={ open } onToggle={ () => setOpen( ! open ) } />;
+}
+
+export function DeskChats( { siteId }: DeskChatsProps ) {
+	const { open, setOpen, createChatRequestId } = useDeskChatsSearch();
 	const { data: sessions } = useSessions();
 	const { data: sites } = useSites();
 	const isFullscreen = useFullscreen();
@@ -81,12 +112,7 @@ export function DeskChats( { open, onOpenChange, createChatRequestId, siteId }: 
 	}, [ createChatRequestId, handleNewChat ] );
 
 	return (
-		<Dialog.Root
-			open={ open }
-			onOpenChange={ onOpenChange }
-			modal={ false }
-			disablePointerDismissal
-		>
+		<Dialog.Root open={ open } onOpenChange={ setOpen } modal={ false } disablePointerDismissal>
 			<Dialog.Portal>
 				<Dialog.Popup
 					initialFocus={ false }

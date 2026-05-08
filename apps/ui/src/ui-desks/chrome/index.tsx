@@ -1,16 +1,11 @@
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useFullscreen } from '@/hooks/use-fullscreen';
-import { DeskChatsButton } from './chats-button';
+import { DeskChatsTrigger } from '../chats';
 import { DeskCreateMenu } from './create-menu';
 import styles from './style.module.css';
 import { DeskMenu } from './user-menu';
 import type { ReactNode } from 'react';
-
-interface DeskChromeProps {
-	chatsOpen: boolean;
-	onToggleChats: () => void;
-}
 
 interface DeskHeaderProps {
 	children: ReactNode;
@@ -27,11 +22,11 @@ export function DeskHeader( { children }: DeskHeaderProps ) {
 	);
 }
 
-export function DeskChrome( { chatsOpen, onToggleChats }: DeskChromeProps ) {
+export function DeskChrome() {
 	return (
 		<DeskHeader>
 			<DeskMenu />
-			<DeskChatsButton open={ chatsOpen } onToggle={ onToggleChats } />
+			<DeskChatsTrigger />
 			<DeskCreateMenu />
 		</DeskHeader>
 	);

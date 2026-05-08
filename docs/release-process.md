@@ -62,6 +62,43 @@ Builds are signed, notarized (macOS), and uploaded to the Apps CDN automatically
 - Bumps the version number
 - After committing fixes, use `finalize_release` and `publish_release` as normal
 
+## Standalone wp-studio npm Release
+
+The Studio CLI npm package (`wp-studio`) is normally published as part of the regular app release flow — `distribute_release_build` triggers it for betas (with the `next` dist-tag) and `publish_release` triggers it for stable releases (as `latest`).
+
+To publish `wp-studio` to npm **without** running a full app release (e.g. a CLI-only patch), use the two-step flow below. Both `studio-app` and `wp-studio` are bumped to the same version so the desktop app keeps pinning the matching CLI exactly.
+
+**Fastlane lanes**: `prepare_npm_release` → merge PR → `publish_npm_package`
+
+1. **Prepare** — `prepare_npm_release [version:"1.X.Y"]`
+    - When `version:` is omitted, defaults to `trunk`'s current version with the patch bumped by one (any `-betaN` suffix is stripped first). Pass `version:` explicitly to bump minor/major or to ship a beta.
+    - Creates `npm-release/<version>` from `trunk`
+    - Bumps `apps/studio/package.json` and `apps/cli/package.json` to `<version>`
+    - Pushes the branch and opens a PR against `trunk`
+2. **Review and merge** the PR like any other change.
+3. **Publish** — `publish_npm_package [version:"1.X.Y"]`
+    - When `version:` is omitted, defaults to `trunk`'s current `package.json` version — i.e. whatever the prepare PR set it to.
+    - Pulls `trunk` and verifies `package.json` matches `<version>`
+    - Tags `trunk` HEAD as `v<version>` and pushes the tag
+    - Dispatches `publish-npm-package.yml` (publishes to npm with provenance via OIDC trusted publishing)
+    - For `X.Y.Z-betaN` the package is published with `--tag next`; otherwise as `latest`
+4. **Update the public changelog** at https://developer.wordpress.com/docs/developer-tools/studio/changelog/. The CLI displays a nudge pointing to that page.
+
+### Sanity-checking the npm release lanes locally
+
+Run the lanes end-to-end with `DRY_RUN=true` to see the full plan without touching the remote — local commits still happen so you can inspect the diff, but the branch push, the PR creation, the tag push, and the workflow dispatch are all skipped:
+
+```sh
+DRY_RUN=true bundle exec fastlane prepare_npm_release version:"1.8.99"
+DRY_RUN=true bundle exec fastlane publish_npm_package  version:"1.8.99"
+```
+
+Pure helpers used across the release lanes (`valid_version?`, `next_patch_version`, `npm_dist_tag_for`, `prerelease?`, `base_version`, `beta_number`) live in `fastlane/lib/studio_release_version.rb` and have a Minitest sanity check that runs without bundling fastlane:
+
+```sh
+ruby fastlane/test/studio_release_version_test.rb
+```
+
 ## Running Lanes Locally
 
 Lanes can be run locally for testing. Common requirements are Ruby and Bundler. Additional credentials depend on the lane:
@@ -78,9 +115,14 @@ bundle exec fastlane new_beta_release version:"1.8.0"
 bundle exec fastlane finalize_release version:"1.8.0"
 bundle exec fastlane publish_release version:"1.8.0"
 
-# Trigger CLI publish directly from an existing git ref
-bundle exec fastlane publish_npm_package ref:"v1.8.0"
-bundle exec fastlane publish_npm_package ref:"release/1.8.0" npm_tag:"next"
+# Standalone wp-studio npm release (CLI-only patch, no app release)
+bundle exec fastlane prepare_npm_release version:"1.8.1"   # bump + open PR
+# After the PR merges:
+bundle exec fastlane publish_npm_package version:"1.8.1"   # tag trunk + dispatch workflow
+
+# Beta of the same flow (publishes with --tag next):
+bundle exec fastlane prepare_npm_release version:"1.8.1-beta1"
+bundle exec fastlane publish_npm_package version:"1.8.1-beta1"
 ```
 
 ## Reference

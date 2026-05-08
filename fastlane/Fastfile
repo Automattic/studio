@@ -5,9 +5,9 @@ fastlane_require 'zip'
 fastlane_require 'aws-sdk-cloudfront'
 fastlane_require 'json'
 fastlane_require 'net/http'
-fastlane_require 'open3'
 fastlane_require 'uri'
 
+require_relative 'lib/studio_release_git'
 require_relative 'lib/studio_release_version'
 
 UI.user_error!('Please run fastlane via `bundle exec`') unless FastlaneCore::Helper.bundler?
@@ -257,7 +257,9 @@ lane :publish_npm_package do |version: nil, skip_confirm: false|
   npm_tag = StudioReleaseVersion.npm_dist_tag_for(version)
   tag_label = npm_tag || 'latest'
 
-  bump_commit = find_npm_release_bump_commit(version: version)
+  bump_commit = StudioReleaseGit.find_npm_release_bump_commit(
+    branch: "origin/#{MAIN_BRANCH}", version: version
+  )
   if bump_commit.nil?
     UI.user_error!(
       "Could not find a commit on `#{MAIN_BRANCH}` where both `apps/studio/package.json` and " \
@@ -790,11 +792,6 @@ def validate_npm_release_version!(version)
   UI.user_error!("Invalid version '#{version.inspect}'. Expected `X.Y.Z` or `X.Y.Z-betaN`.")
 end
 
-NPM_RELEASE_PACKAGE_JSON_PATHS = [
-  'apps/studio/package.json',
-  'apps/cli/package.json'
-].freeze
-
 # Update the local origin/MAIN_BRANCH ref so subsequent reads of `origin/<MAIN_BRANCH>` are fresh.
 def fetch_main_branch
   sh('git', 'fetch', '--quiet', 'origin', MAIN_BRANCH, log: false)
@@ -805,76 +802,6 @@ end
 def read_trunk_package_json_version
   json = sh('git', 'show', "origin/#{MAIN_BRANCH}:apps/studio/package.json", log: false)
   JSON.parse(json)['version']
-end
-
-# Read the `version` field from `<commit>:<path>`. Returns nil if the file does not exist at
-# the commit, the `git show` command fails, or the contents are not valid JSON. Used to probe
-# candidate commits in {find_npm_release_bump_commit} without raising on missing files.
-def package_json_version_at(commit:, path:)
-  output, status = Open3.capture2('git', 'show', "#{commit}:#{path}")
-  return nil unless status.success?
-
-  JSON.parse(output)['version']
-rescue JSON::ParserError
-  nil
-end
-
-# Find the commit on `origin/<MAIN_BRANCH>` that introduced the target version into both
-# workspace `package.json` files. Returns the commit SHA, or nil if no such commit exists.
-# Caller must call {fetch_main_branch} first.
-#
-# `git log -S` reports any commit that *changes the count* of the search string in the file.
-# That includes both the commit that introduces the version (count 0 → 1) and a later commit
-# that bumps away from it (count 1 → 0). For example, after trunk has moved from 1.8.1 to
-# 1.8.2, searching for `"version": "1.8.1"` finds both the introduction of 1.8.1 *and* the
-# bump to 1.8.2 (which removed the 1.8.1 line). Picking the most recent candidate would tag
-# the wrong commit.
-#
-# To pick the introduction, walk candidates newest-to-oldest and return the first commit where
-# every workspace package.json actually declares the requested version. The bump-away candidate
-# fails the check (its package.json shows the *next* version), and a half-applied prep PR
-# (only one workspace bumped) is skipped over too. If no candidate matches, returns nil so the
-# caller can surface a clear error.
-#
-# Studio uses squash-merge for PRs, so the introduction commit is the trunk-side merge commit
-# of the prepare_npm_release PR — exactly what `git tag` should be applied to.
-def find_npm_release_bump_commit(version:)
-  search = "\"version\": \"#{version}\""
-  output = sh(
-    'git', 'log', '--format=%H',
-    '-S', search,
-    "origin/#{MAIN_BRANCH}",
-    '--', 'apps/studio/package.json',
-    log: false
-  ).strip
-  return nil if output.empty?
-
-  output.lines.map(&:strip).find do |sha|
-    NPM_RELEASE_PACKAGE_JSON_PATHS.all? do |path|
-      package_json_version_at(commit: sha, path: path) == version
-    end
-  end
-end
-
-# Resolve a remote tag to the commit it points at, handling both tag types:
-# - Lightweight tags: the tag ref points directly at the commit, so `ls-remote refs/tags/X`
-#   returns the commit SHA.
-# - Annotated tags (what `add_git_tag` creates): `ls-remote refs/tags/X` returns the tag object
-#   SHA, while the peeled `refs/tags/X^{}` ref returns the target commit. Comparing the bare
-#   ref against a commit SHA would always mismatch on annotated tags, so we prefer the peeled
-#   line and fall back to the bare ref only when there's no peeled line (lightweight tag).
-# Returns nil if the tag does not exist on origin.
-def remote_tag_commit_sha(tag)
-  output = sh(
-    'git', 'ls-remote', 'origin',
-    "refs/tags/#{tag}", "refs/tags/#{tag}^{}",
-    log: false
-  ).strip
-  return nil if output.empty?
-
-  lines = output.lines
-  peeled = lines.find { |l| l.include?('^{}') }
-  (peeled || lines.first).split.first
 end
 
 # Ensure `release_tag` exists on `origin` and points at `commit`.
@@ -890,7 +817,7 @@ end
 # - Tag absent on origin and stale local tag at the wrong commit → raise with a cleanup hint.
 # - Tag absent everywhere → create and push.
 def ensure_release_tag(release_tag:, commit:)
-  remote_sha = remote_tag_commit_sha(release_tag)
+  remote_sha = StudioReleaseGit.remote_tag_commit_sha(release_tag)
   if remote_sha
     if remote_sha == commit
       UI.message("Tag #{release_tag} already exists on origin at #{commit[0..8]}; reusing it.")

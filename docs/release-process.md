@@ -93,10 +93,16 @@ DRY_RUN=true bundle exec fastlane prepare_npm_release version:"1.8.99"
 DRY_RUN=true bundle exec fastlane publish_npm_package  version:"1.8.99"
 ```
 
-Pure helpers used across the release lanes (`valid_version?`, `next_patch_version`, `npm_dist_tag_for`, `prerelease?`, `base_version`, `beta_number`) live in `fastlane/lib/studio_release_version.rb` and have a Minitest sanity check that runs without bundling fastlane:
+Pure helpers used across the release lanes live in `fastlane/lib/`:
+
+- `studio_release_version.rb` — version-string helpers (`valid_version?`, `next_patch_version`, `npm_dist_tag_for`, `prerelease?`, `base_version`, `beta_number`).
+- `studio_release_git.rb` — git lookups for the npm release lane (`package_json_version_at`, `remote_tag_commit_sha`, `find_npm_release_bump_commit`).
+
+Both have Minitest sanity checks that run without bundling fastlane. The git suite builds a fixture repo per test (requires `git` on `PATH`):
 
 ```sh
 ruby fastlane/test/studio_release_version_test.rb
+ruby fastlane/test/studio_release_git_test.rb
 ```
 
 ## Running Lanes Locally

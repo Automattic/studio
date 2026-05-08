@@ -1,8 +1,14 @@
 .panel {
 	--desk-chats-panel-gap: var(--wpds-dimension-padding-xl);
+	--desk-chrome-button-size: 40px;
+	--desk-chrome-titlebar-height: 46px;
+	--desk-chrome-popup-offset: 4px;
 
 	position: fixed;
-	top: calc(46px + var(--wpds-dimension-padding-lg));
+	top: calc(
+		var(--desk-chrome-titlebar-height) + var(--wpds-dimension-padding-sm) +
+			var(--desk-chrome-button-size) + var(--desk-chrome-popup-offset)
+	);
 	left: var(--desk-chats-panel-gap);
 	bottom: var(--desk-chats-panel-gap);
 	z-index: 15;
@@ -23,6 +29,13 @@
 .panelExpanded {
 	width: min(960px, calc(100vw - 2 * var(--desk-chats-panel-gap)));
 	grid-template-columns: 320px minmax(0, 1fr);
+}
+
+.panelFullscreen {
+	top: calc(
+		var(--desk-chats-panel-gap) + var(--desk-chrome-button-size) +
+			var(--desk-chrome-popup-offset)
+	);
 }
 
 .listPane {

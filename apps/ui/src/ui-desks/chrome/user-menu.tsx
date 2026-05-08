@@ -1,31 +1,47 @@
-import { useLocation, useNavigate } from '@tanstack/react-router';
-import { __ } from '@wordpress/i18n';
+import { useNavigate } from '@tanstack/react-router';
+import { __, sprintf } from '@wordpress/i18n';
+import { chevronDownSmall } from '@wordpress/icons';
+import { Icon } from '@wordpress/ui';
 import { Gravatar } from '@/components/gravatar';
 import * as Menu from '@/components/menu';
+import { SiteIcon } from '@/components/site-icon';
 import { useConnector } from '@/data/core';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
+import { useSites } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
 import { DeskHeaderButton } from './header-button';
 import styles from './style.module.css';
+import type { SiteDetails } from '@/data/core';
 
 const WPCOM_PROFILE_URL = 'https://wordpress.com/me';
-const DOCS_URL = 'https://developer.wordpress.com/docs/developer-tools/studio/';
-const REPORT_ISSUE_URL = 'https://github.com/Automattic/studio/issues/new/choose';
 
-export function DeskUserMenu() {
+interface DeskMenuProps {
+	activeSiteId?: string;
+}
+
+function getSiteIconSeed( site: SiteDetails ) {
+	return `${ site.id }:${ site.name }:${ site.path }`;
+}
+
+export function DeskMenu( { activeSiteId }: DeskMenuProps ) {
 	const navigate = useNavigate();
-	const location = useLocation();
 	const connector = useConnector();
 	const { data: user } = useAuthUser();
 	const { data: preferences } = useUserPreferences();
+	const { data: sites, isLoading: sitesLoading } = useSites();
 	const login = useLogin();
 	const logout = useLogout();
 	const effectiveScheme = usePrefersColorScheme();
 	const savedScheme = preferences?.colorScheme;
 	const themeIsDark =
 		savedScheme === 'dark' || ( savedScheme !== 'light' && effectiveScheme === 'dark' );
-	const showUserDashboardItem = location.pathname !== '/';
+	const activeSite = sites?.find( ( candidate ) => candidate.id === activeSiteId );
+	const activeSiteName = activeSite?.name ?? __( 'Site' );
+	const activeSiteIconSeed = activeSite ? getSiteIconSeed( activeSite ) : activeSiteId;
+	const switcherSites = activeSite
+		? [ activeSite, ...( sites ?? [] ).filter( ( candidate ) => candidate.id !== activeSite.id ) ]
+		: sites ?? [];
 
 	const openLink = ( url: string ) => {
 		void connector.openExternalUrl( url );
@@ -35,45 +51,83 @@ export function DeskUserMenu() {
 		void navigate( { to: '/' } );
 	};
 
-	if ( ! user ) {
-		return (
-			<DeskHeaderButton
-				label={ __( 'Log in with WordPress.com' ) }
-				onClick={ () => login.mutate() }
-			>
+	const openSite = ( nextSiteId: string ) => {
+		if ( nextSiteId === activeSiteId ) {
+			return;
+		}
+		void navigate( { to: '/sites/$siteId', params: { siteId: nextSiteId } } );
+	};
+
+	const trigger = activeSiteId ? (
+		<button
+			type="button"
+			className={ styles.siteTrigger }
+			aria-label={ sprintf(
+				/* translators: %s: current site name. */
+				__( 'Desk menu. Current site is %s.' ),
+				activeSiteName
+			) }
+		>
+			<SiteIcon
+				className={ styles.siteIcon }
+				seed={ activeSiteIconSeed }
+				imageSrc={ activeSite?.siteIcon }
+			/>
+			<span className={ styles.siteName } title={ activeSiteName }>
+				{ activeSiteName }
+			</span>
+			<Icon icon={ chevronDownSmall } size={ 20 } />
+		</button>
+	) : (
+		<DeskHeaderButton label={ __( 'Desk menu' ) } tooltipLabel={ user?.displayName }>
+			{ user ? (
+				<Gravatar className={ styles.avatar } email={ user.email } isDark={ themeIsDark } />
+			) : (
 				<span className={ styles.loginAvatar } aria-hidden="true" />
-			</DeskHeaderButton>
-		);
-	}
+			) }
+		</DeskHeaderButton>
+	);
 
 	return (
 		<Menu.Root modal={ false }>
-			<Menu.Trigger
-				render={
-					<DeskHeaderButton label={ __( 'User menu' ) } tooltipLabel={ user.displayName }>
-						<Gravatar className={ styles.avatar } email={ user.email } isDark={ themeIsDark } />
-					</DeskHeaderButton>
-				}
-			/>
+			<Menu.Trigger render={ trigger } />
 			<Menu.Popup side="bottom" align="start" className={ styles.popup }>
-				{ showUserDashboardItem ? (
+				{ user ? (
+					<Menu.Item
+						className={ styles.email }
+						title={ user.email }
+						onClick={ () => openLink( WPCOM_PROFILE_URL ) }
+					>
+						{ user.email }
+					</Menu.Item>
+				) : (
+					<Menu.Item onClick={ () => login.mutate() }>
+						{ login.isPending ? __( 'Logging in…' ) : __( 'Log in with WordPress.com' ) }
+					</Menu.Item>
+				) }
+				<Menu.Item onClick={ openUserDashboard }>{ __( 'User desk' ) }</Menu.Item>
+				<Menu.Separator />
+				{ sitesLoading ? (
+					<Menu.Item disabled>{ __( 'Loading…' ) }</Menu.Item>
+				) : switcherSites.length > 0 ? (
+					switcherSites.map( ( site ) => (
+						<Menu.Item
+							key={ site.id }
+							aria-current={ site.id === activeSiteId ? 'page' : undefined }
+							onClick={ () => openSite( site.id ) }
+						>
+							<span title={ site.name }>{ site.name }</span>
+						</Menu.Item>
+					) )
+				) : (
+					<Menu.Item disabled>{ __( 'No sites yet' ) }</Menu.Item>
+				) }
+				{ user ? (
 					<>
-						<Menu.Item onClick={ openUserDashboard }>{ __( 'User Dashboard' ) }</Menu.Item>
 						<Menu.Separator />
+						<Menu.Item onClick={ () => logout.mutate() }>{ __( 'Log out' ) }</Menu.Item>
 					</>
 				) : null }
-				<div className={ styles.email } title={ user.email }>
-					{ user.email }
-				</div>
-				<Menu.Item onClick={ () => openLink( WPCOM_PROFILE_URL ) }>
-					{ __( 'Edit WordPress.com profile' ) }
-				</Menu.Item>
-				<Menu.Item onClick={ () => openLink( DOCS_URL ) }>{ __( 'Documentation' ) }</Menu.Item>
-				<Menu.Item onClick={ () => openLink( REPORT_ISSUE_URL ) }>
-					{ __( 'Report an issue' ) }
-				</Menu.Item>
-				<Menu.Separator />
-				<Menu.Item onClick={ () => logout.mutate() }>{ __( 'Log out' ) }</Menu.Item>
 			</Menu.Popup>
 		</Menu.Root>
 	);

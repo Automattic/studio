@@ -22,7 +22,7 @@ on:
         type: boolean
         default: false
       publish_to_apps_cdn:
-        description: Upload the unsigned archives to Apps CDN after the build
+        description: Upload unsigned archives to Apps CDN after the build
         required: true
         type: boolean
         default: false
@@ -59,21 +59,18 @@ jobs:
             runner: macos-15
             artifact_platform: macos
             artifact_arch: aarch64
-            archive_extension: zip
             binary_name: php
             extensions: &macos_php_extensions apcu,bcmath,calendar,ctype,curl,dba,dom,exif,fileinfo,filter,ftp,gd,gettext,iconv,igbinary,imagick,intl,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pcntl,pdo,pdo_mysql,pdo_sqlite,phar,posix,readline,redis,session,shmop,simplexml,sockets,sodium,sqlite3,ssh2,tokenizer,xml,xmlreader,xmlwriter,xsl,yaml,zip,zlib
           - target: macos-x86_64
             runner: macos-15-intel
             artifact_platform: macos
             artifact_arch: x86_64
-            archive_extension: zip
             binary_name: php
             extensions: *macos_php_extensions
           - target: windows-x86_64
             runner: windows-latest
             artifact_platform: windows
             artifact_arch: x86_64
-            archive_extension: zip
             binary_name: php.exe
             # static-php-cli 2.8.5 has Windows builders for intl and sodium, but not gettext/libxslt.
             extensions: apcu,bcmath,calendar,ctype,curl,dba,dom,exif,fileinfo,filter,ftp,gd,iconv,igbinary,intl,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pdo,pdo_mysql,pdo_sqlite,phar,redis,session,shmop,simplexml,sockets,sodium,sqlite3,ssh2,tokenizer,xml,xmlreader,xmlwriter,yaml,zip,zlib
@@ -83,7 +80,6 @@ jobs:
       PHP_CLI_EXTENSIONS: ${{ matrix.extensions }}
       PHP_CLI_ARTIFACT_PLATFORM: ${{ matrix.artifact_platform }}
       PHP_CLI_ARTIFACT_ARCH: ${{ matrix.artifact_arch }}
-      PHP_CLI_ARCHIVE_EXTENSION: ${{ matrix.archive_extension }}
       PHP_CLI_BINARY_NAME: ${{ matrix.binary_name }}
       PREFER_PRE_BUILT: ${{ github.event_name != 'workflow_dispatch' || inputs.prefer_pre_built }}
       SPC_DEBUG: ${{ github.event_name == 'workflow_dispatch' && inputs.debug || false }}
@@ -169,7 +165,7 @@ jobs:
           set -euo pipefail
 
           out_dir="$GITHUB_WORKSPACE/out/php-binaries"
-          artifact="php-${PHP_VERSION}-cli-${PHP_CLI_ARTIFACT_PLATFORM}-${PHP_CLI_ARTIFACT_ARCH}.${PHP_CLI_ARCHIVE_EXTENSION}"
+          artifact="php-${PHP_VERSION}-cli-${PHP_CLI_ARTIFACT_PLATFORM}-${PHP_CLI_ARTIFACT_ARCH}.zip"
 
           mkdir -p "$out_dir"
           cp "$GITHUB_WORKSPACE/.cache/static-php-cli/buildroot/bin/$PHP_CLI_BINARY_NAME" "$RUNNER_TEMP/php"
@@ -183,7 +179,7 @@ jobs:
         shell: pwsh
         run: |
           $outDir = Join-Path $env:GITHUB_WORKSPACE 'out/php-binaries'
-          $artifact = "php-$env:PHP_VERSION-cli-$env:PHP_CLI_ARTIFACT_PLATFORM-$env:PHP_CLI_ARTIFACT_ARCH.$env:PHP_CLI_ARCHIVE_EXTENSION"
+          $artifact = "php-$env:PHP_VERSION-cli-$env:PHP_CLI_ARTIFACT_PLATFORM-$env:PHP_CLI_ARTIFACT_ARCH.zip"
           $source = Join-Path $env:GITHUB_WORKSPACE ".cache/static-php-cli/buildroot/bin/$env:PHP_CLI_BINARY_NAME"
           $dest = Join-Path $env:RUNNER_TEMP $env:PHP_CLI_BINARY_NAME
           $archive = Join-Path $outDir $artifact
@@ -233,7 +229,7 @@ jobs:
           path: out/php-binaries
           merge-multiple: true
 
-      - name: Summarize PHP CLI artifacts
+      - name: Verify and summarize PHP CLI artifacts
         run: |
           set -euo pipefail
 
@@ -250,8 +246,14 @@ jobs:
             fi
 
             size_bytes="$(wc -c < "$file" | tr -d ' ')"
-            sha="$(tr -d '[:space:]' < "$sidecar")"
-            echo "| $(basename "$file") | ${size_bytes} bytes | \`${sha}\` |" >> "$GITHUB_STEP_SUMMARY"
+            expected_sha="$(tr -d '[:space:]' < "$sidecar")"
+            actual_sha="$(sha256sum "$file" | awk '{print $1}')"
+            if [ "$actual_sha" != "$expected_sha" ]; then
+              echo "SHA-256 mismatch for $file: expected $expected_sha, got $actual_sha"
+              exit 1
+            fi
+
+            echo "| $(basename "$file") | ${size_bytes} bytes | \`${actual_sha}\` |" >> "$GITHUB_STEP_SUMMARY"
           done
 
       - name: Publish PHP CLI artifacts to Apps CDN

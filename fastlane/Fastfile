@@ -721,7 +721,7 @@ def upload_php_cli_binaries_to_apps_cdn(version:, artifacts_dir:, visibility:, e
       UI.message("           product: #{WPCOM_STUDIO_PHP_CLI_PRODUCT}")
       UI.message("           platform: #{build[:platform]}")
       UI.message('           build type: Production')
-      UI.message('           install type: Update')
+      UI.message('           install type: Full Install')
       UI.message("           visibility: #{normalized_visibility.capitalize}")
       UI.message("           version: #{version}")
       UI.message("           release notes: #{release_notes}")
@@ -733,7 +733,7 @@ def upload_php_cli_binaries_to_apps_cdn(version:, artifacts_dir:, visibility:, e
         product: WPCOM_STUDIO_PHP_CLI_PRODUCT,
         platform: build[:platform],
         build_type: 'Production',
-        install_type: 'Update',
+        install_type: 'Full Install',
         visibility: normalized_visibility.capitalize,
         version:,
         build_number: nil,

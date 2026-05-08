@@ -14,9 +14,9 @@ The manual workflow currently builds:
 Windows ARM64 Studio builds use the Windows x64 PHP binary under Windows 11
 emulation. Native Windows ARM64 PHP binaries are not built.
 
-The `.sha256` sidecars are used to verify downloaded artifacts before upload.
-Apps CDN stores the same checksum in the generated manifest for the separate
-`WordPress.com Studio PHP CLI` product:
+The publish job verifies each downloaded archive against its `.sha256` sidecar
+before upload. Apps CDN stores the same checksum in the generated manifest for
+the separate `WordPress.com Studio PHP CLI` product:
 
 `https://appscdn.wordpress.com/builds/wordpress-com-studio-php-cli/releases.json`
 
@@ -58,17 +58,17 @@ them as:
 - product: `WordPress.com Studio PHP CLI`
 - resource type: `Build` (set by the release toolkit upload action)
 - build type: `Production`
-- install type: `Update`
+- install type: `Full Install`
 - platform: `Mac - Silicon`, `Mac - Intel`, or `Windows - x64`
 
-Use `visibility:internal` for upload metadata validation. Switch to
-`visibility:external` before validating unauthenticated downloads from the Apps
-CDN manifest.
+Use `visibility:internal` for upload metadata validation by authenticated
+Automattic users. Switch to `visibility:external` only when validating
+unauthenticated download URLs from the Apps CDN manifest.
 
 Required GitHub Actions secret:
 
 - `WPCOM_API_TOKEN`
 
 These archives are intentionally unsigned for the internal validation path. Add
-macOS signing/notarization and Windows Azure Trusted Signing before relying on
-these binaries as a broadly distributed external dependency.
+macOS signing/notarization and Windows Azure Trusted Signing before uploading
+externally distributed binaries to Apps CDN.

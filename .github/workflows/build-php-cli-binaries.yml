@@ -11,23 +11,18 @@ on:
         description: static-php-cli ref
         required: true
         default: 2.8.5
-      prefer_pre_built:
-        description: Prefer pre-built static-php-cli libraries
-        required: true
-        type: boolean
-        default: true
       debug:
-        description: Enable static-php-cli debug logs
+        description: Enable debug logs
         required: true
         type: boolean
         default: false
-      dry_run:
-        description: Run the Apps CDN publish lane without uploading
+      upload_to_apps_cdn:
+        description: Upload to Apps CDN
         required: true
         type: boolean
-        default: true
+        default: false
       apps_cdn_visibility:
-        description: Apps CDN visibility for the publish lane
+        description: Apps CDN visibility
         required: true
         type: choice
         options:
@@ -76,7 +71,6 @@ jobs:
       PHP_CLI_ARTIFACT_PLATFORM: ${{ matrix.artifact_platform }}
       PHP_CLI_ARTIFACT_ARCH: ${{ matrix.artifact_arch }}
       PHP_CLI_BINARY_NAME: ${{ matrix.binary_name }}
-      PREFER_PRE_BUILT: ${{ github.event_name != 'workflow_dispatch' || inputs.prefer_pre_built }}
       SPC_DEBUG: ${{ github.event_name == 'workflow_dispatch' && inputs.debug || false }}
 
     steps:
@@ -112,12 +106,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          download_args=(--with-php="$PHP_VERSION" --for-extensions="$PHP_CLI_EXTENSIONS" --ignore-cache-sources=php-src)
+          download_args=(--with-php="$PHP_VERSION" --for-extensions="$PHP_CLI_EXTENSIONS" --ignore-cache-sources=php-src --prefer-pre-built)
           build_args=("$PHP_CLI_EXTENSIONS" --build-cli)
-
-          if [ "$PREFER_PRE_BUILT" = "true" ]; then
-            download_args+=(--prefer-pre-built)
-          fi
 
           if [ "$SPC_DEBUG" = "true" ]; then
             download_args+=(--debug)
@@ -136,13 +126,10 @@ jobs:
           $downloadArgs = @(
             "--with-php=$env:PHP_VERSION",
             "--for-extensions=$env:PHP_CLI_EXTENSIONS",
-            "--ignore-cache-sources=php-src"
+            "--ignore-cache-sources=php-src",
+            "--prefer-pre-built"
           )
           $buildArgs = @( $env:PHP_CLI_EXTENSIONS, "--build-cli" )
-
-          if ( $env:PREFER_PRE_BUILT -eq "true" ) {
-            $downloadArgs += "--prefer-pre-built"
-          }
 
           if ( $env:SPC_DEBUG -eq "true" ) {
             $downloadArgs += "--debug"
@@ -205,7 +192,7 @@ jobs:
     env:
       PHP_VERSION: ${{ inputs.php_version }}
       PHP_CLI_VISIBILITY: ${{ inputs.apps_cdn_visibility }}
-      DRY_RUN: ${{ inputs.dry_run }}
+      DRY_RUN: ${{ inputs.upload_to_apps_cdn && 'false' || 'true' }}
       WPCOM_API_TOKEN: ${{ secrets.WPCOM_API_TOKEN }}
     steps:
       - name: Checkout Studio

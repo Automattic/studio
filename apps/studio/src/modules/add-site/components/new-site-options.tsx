@@ -248,6 +248,7 @@ function GalleryBlueprintCard( {
 						{ blueprint.title }
 					</div>
 				) }
+				{ blueprint.playgroundUrl && <PreviewLink url={ blueprint.playgroundUrl } /> }
 			</div>
 			<div className="px-3 pt-3 pb-3">
 				<Heading level={ 3 } className="text-[13px] text-frame-text mb-1" weight={ 500 }>

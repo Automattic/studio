@@ -20,6 +20,7 @@ import os from 'os';
 import path from 'path';
 import { extract } from 'tar';
 import { z } from 'zod';
+import { isZipArchive } from '../tools/common/lib/archive-format';
 import { downloadFile } from '../tools/common/lib/download-file';
 import { extractZip } from '../tools/common/lib/extract-zip';
 import { isErrnoException } from '../tools/common/lib/is-errno-exception';
@@ -65,7 +66,6 @@ void main();
 async function main(): Promise< void > {
 	const patchVersion = PHP_PATCH_VERSIONS[ version ];
 	const isWindows = args.platform === 'win32';
-	const downloadInfo = await resolvePhpBinaryDownloadInfo();
 	const binDir = path.join( getConfigDirectory(), 'php-bin', version );
 	const binaryName = isWindows ? 'php.exe' : 'php';
 	const destPath = path.join( binDir, binaryName );
@@ -78,6 +78,8 @@ async function main(): Promise< void > {
 			);
 			return;
 		}
+
+		const downloadInfo = await resolvePhpBinaryDownloadInfo();
 
 		// Ensure ~/.studio/php-bin/ exists, then atomically claim this version's slot.
 		fs.mkdirSync( path.dirname( binDir ), { recursive: true } );
@@ -117,7 +119,7 @@ async function main(): Promise< void > {
 			// Extract
 			console.log( 'Extracting PHP binary…' );
 			const tmpDir = os.tmpdir();
-			if ( isZipArchive( downloadPath ) ) {
+			if ( await isZipArchive( downloadPath ) ) {
 				const extractDir = fs.mkdtempSync( path.join( tmpDir, `php-${ patchVersion }-` ) );
 				const expectedBinary = isWindows ? 'php.exe' : 'php';
 				try {
@@ -177,27 +179,34 @@ async function main(): Promise< void > {
 }
 
 async function resolvePhpBinaryDownloadInfo(): Promise< PhpBinaryDownloadInfo > {
+	let response: Response;
 	try {
-		const response = await fetch( PHP_BINARY_MANIFEST_URL );
-		if ( ! response.ok ) {
-			throw new Error( `status ${ response.status }` );
-		}
-		const manifest = await response.json();
-		const appsCdnDownload = getPhpBinaryManifestDownloadInfo(
-			manifest,
-			version,
-			args.platform,
-			args.arch
-		);
-		if ( appsCdnDownload ) {
-			return appsCdnDownload;
-		}
+		response = await fetch( PHP_BINARY_MANIFEST_URL );
 	} catch {
-		throw new Error( 'Could not check PHP availability. Please try again later.' );
+		throw new Error( `Could not fetch ${ PHP_BINARY_MANIFEST_URL }.` );
+	}
+	if ( ! response.ok ) {
+		throw new Error(
+			`Could not fetch ${ PHP_BINARY_MANIFEST_URL }: status ${ response.status } ${ response.statusText }`
+		);
 	}
 
+	const manifest = await response.json();
+	const appsCdnDownload = getPhpBinaryManifestDownloadInfo(
+		manifest,
+		version,
+		args.platform,
+		args.arch
+	);
+	if ( appsCdnDownload ) {
+		return appsCdnDownload;
+	}
+
+	const manifestEntries = Array.isArray( manifest ) ? manifest.length : 'unknown';
 	throw new Error(
-		`PHP ${ PHP_PATCH_VERSIONS[ version ] } is not available for this device yet. Please try again later.`
+		`PHP ${ PHP_PATCH_VERSIONS[ version ] } is not listed in the public Apps CDN manifest for ` +
+			`${ args.platform }-${ effectiveArch }. Found ${ manifestEntries } release entries at ` +
+			`${ PHP_BINARY_MANIFEST_URL }.`
 	);
 }
 
@@ -207,8 +216,4 @@ function getArchiveFileName( url: string ): string {
 	} catch {
 		return path.basename( url );
 	}
-}
-
-function isZipArchive( archivePath: string ): boolean {
-	return archivePath.toLowerCase().endsWith( '.zip' );
 }

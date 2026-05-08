@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { isZipArchive } from '@studio/common/lib/archive-format';
 import { downloadFile } from '@studio/common/lib/download-file';
 import { extractZip } from '@studio/common/lib/extract-zip';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
@@ -138,10 +139,6 @@ function getArchiveFileName( url: string ): string {
 	}
 }
 
-function isZipArchive( archivePath: string ): boolean {
-	return archivePath.toLowerCase().endsWith( '.zip' );
-}
-
 async function verifyHash(
 	filePath: string,
 	expected: string,
@@ -173,7 +170,7 @@ async function extractAndInstall(
 	const tmpDir = os.tmpdir();
 	const binaryName = isWindows ? 'php.exe' : 'php';
 
-	if ( isZipArchive( archivePath ) ) {
+	if ( await isZipArchive( archivePath ) ) {
 		const extractDir = fs.mkdtempSync( path.join( tmpDir, `php-${ patchVersion }-` ) );
 		try {
 			await extractZip( archivePath, extractDir );

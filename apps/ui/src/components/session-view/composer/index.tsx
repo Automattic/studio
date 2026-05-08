@@ -8,7 +8,7 @@ import { Icon } from '@wordpress/ui';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
-import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
+import { SESSIONS_QUERY_KEY, upsertSessionSummary } from '@/data/queries/use-sessions';
 import { EnvironmentPill } from './environment-pill';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';
@@ -189,22 +189,23 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 			// Cross-family switch: defer until the user confirms in the dialog
 			// — the runtimes don't share a transcript, so continuing the same
 			// JSONL across families would make the on-screen history disagree
-			// with the agent's actual memory. We skip the prompt when:
-			//   - the session has no user turns yet (nothing to lose), or
-			//   - the session has no local owner site (we have no `siteId` to
-			//     pass to `createSession`, so the fresh-session path can't
-			//     run; fall back to the in-place switch instead of blocking
-			//     the dropdown).
+			// with the agent's actual memory. We skip the prompt when the
+			// session has no user turns yet, or when the parent cannot switch
+			// to a freshly created session.
 			const hasTurns = ( entries ?? [] ).some( ( entry ) =>
 				isStudioCustomEntryOfType( entry, 'studio.user_prompt' )
 			);
-			if ( getAiModelFamily( model ) !== getAiModelFamily( picked ) && ownerSiteId && hasTurns ) {
+			if (
+				getAiModelFamily( model ) !== getAiModelFamily( picked ) &&
+				onSwitchSession &&
+				hasTurns
+			) {
 				setPendingFamilyChange( picked );
 				return;
 			}
 			applySameFamilyModel( picked );
 		},
-		[ applySameFamilyModel, entries, model, ownerSiteId ]
+		[ applySameFamilyModel, entries, model, onSwitchSession ]
 	);
 
 	const cancelFamilyChange = useCallback( () => {
@@ -215,7 +216,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	}, [ familySwitchInFlight ] );
 
 	const confirmFamilyChange = useCallback( async () => {
-		if ( ! pendingFamilyChange || ! ownerSiteId ) {
+		if ( ! pendingFamilyChange || ! onSwitchSession ) {
 			return;
 		}
 		setFamilySwitchInFlight( true );
@@ -230,9 +231,10 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 			await connector
 				.setSessionModel( newSession.id, pendingFamilyChange )
 				.catch( () => undefined );
+			upsertSessionSummary( queryClient, newSession );
 			void queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } );
 			setPendingFamilyChange( null );
-			onSwitchSession?.( newSession.id );
+			onSwitchSession( newSession.id );
 		} finally {
 			setFamilySwitchInFlight( false );
 		}

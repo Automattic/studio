@@ -63,7 +63,7 @@ export function DeskChatsTrigger() {
 
 export function DeskChats( { siteId }: DeskChatsProps ) {
 	const { open, setOpen, createChatRequestId } = useDeskChatsSearch();
-	const { data: sessions } = useSessions();
+	const { data: sessions, isFetching: isFetchingSessions } = useSessions();
 	const { data: sites } = useSites();
 	const isFullscreen = useFullscreen();
 	const createSession = useCreateSession();
@@ -83,17 +83,23 @@ export function DeskChats( { siteId }: DeskChatsProps ) {
 	const selectedSession = deskSessions.find( ( session ) => session.id === selectedSessionId );
 
 	useEffect( () => {
-		if ( selectedSessionId && ! selectedSession ) {
+		if ( selectedSessionId && sessions && ! isFetchingSessions && ! selectedSession ) {
 			setSelectedSessionId( undefined );
 			setExpanded( false );
 		}
-	}, [ selectedSession, selectedSessionId ] );
+	}, [ isFetchingSessions, selectedSession, selectedSessionId, sessions ] );
 
 	const handleSelectSession = ( sessionId: string ) => {
 		setSelectedSessionId( sessionId );
 		setExpanded( true );
 		setAutoFocusSessionId( undefined );
 	};
+
+	const handleSwitchSession = useCallback( ( sessionId: string ) => {
+		setSelectedSessionId( sessionId );
+		setExpanded( true );
+		setAutoFocusSessionId( sessionId );
+	}, [] );
 
 	const handleNewChat = useCallback( async () => {
 		const session = await createSession.mutateAsync( siteId );
@@ -167,7 +173,7 @@ export function DeskChats( { siteId }: DeskChatsProps ) {
 								<DeskSessionSurface
 									key={ selectedSessionId }
 									sessionId={ selectedSessionId }
-									onSwitchSession={ setSelectedSessionId }
+									onSwitchSession={ handleSwitchSession }
 									autoFocus={ autoFocusSessionId === selectedSessionId }
 								/>
 							) : (

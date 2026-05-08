@@ -1,10 +1,5 @@
-import { Navigate, createRootRoute, Outlet } from '@tanstack/react-router';
-
-function ResetToUserDesk() {
-	return <Navigate to="/" replace />;
-}
+import { createRootRoute, Outlet } from '@tanstack/react-router';
 
 export const desksRootRoute = createRootRoute< unknown >( {
 	component: () => <Outlet />,
-	notFoundComponent: ResetToUserDesk,
 } );

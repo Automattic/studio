@@ -55,7 +55,7 @@ export default function Stepper( {
 			{ leftSlot && <div className="absolute bottom-5 left-5 z-10">{ leftSlot }</div> }
 			<div className="absolute bottom-5 right-5 z-10 flex items-center gap-4">
 				{ currentPath && currentPath !== '/' && onBack && (
-					<Button variant="tertiary" onClick={ onBack }>
+					<Button variant="secondary" onClick={ onBack }>
 						{ __( 'Back' ) }
 					</Button>
 				) }

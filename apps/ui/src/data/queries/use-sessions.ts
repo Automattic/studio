@@ -43,7 +43,7 @@ export function useCreateSession() {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	return useMutation( {
-		mutationFn: ( siteId: string ) => connector.createSession( siteId ),
+		mutationFn: ( siteId?: string ) => connector.createSession( siteId ),
 		onSuccess: () => queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } ),
 	} );
 }

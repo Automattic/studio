@@ -11,5 +11,9 @@ interface ClassicUiAppProps {
 export function ClassicUiApp( { connector }: ClassicUiAppProps ) {
 	const router = useMemo( () => createAppRouter( { queryClient, connector } ), [ connector ] );
 
-	return <RouterProvider router={ router } />;
+	return (
+		<div data-ui-mode="classic">
+			<RouterProvider router={ router } />
+		</div>
+	);
 }

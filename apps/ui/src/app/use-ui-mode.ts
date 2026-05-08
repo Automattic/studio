@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export type UiMode = 'classic' | 'desks';
 
@@ -39,6 +39,11 @@ function resetRouterPath() {
 	}
 
 	window.history.replaceState( window.history.state, '', '/' );
+	const event =
+		typeof PopStateEvent === 'function'
+			? new PopStateEvent( 'popstate', { state: window.history.state } )
+			: new Event( 'popstate' );
+	window.dispatchEvent( event );
 }
 
 function isEditableTarget( target: EventTarget | null ) {
@@ -56,15 +61,15 @@ function isEditableTarget( target: EventTarget | null ) {
 
 export function useUiMode() {
 	const [ mode, setModeState ] = useState< UiMode >( readStoredUiMode );
+	const modeRef = useRef( mode );
 
 	const setMode = useCallback( ( nextMode: UiMode ) => {
-		setModeState( ( currentMode ) => {
-			if ( currentMode !== nextMode ) {
-				resetRouterPath();
-			}
-			writeStoredUiMode( nextMode );
-			return nextMode;
-		} );
+		if ( modeRef.current !== nextMode ) {
+			resetRouterPath();
+		}
+		modeRef.current = nextMode;
+		writeStoredUiMode( nextMode );
+		setModeState( nextMode );
 	}, [] );
 
 	useEffect( () => {
@@ -80,17 +85,13 @@ export function useUiMode() {
 			}
 
 			event.preventDefault();
-			setModeState( ( currentMode ) => {
-				const nextMode = currentMode === 'classic' ? 'desks' : 'classic';
-				resetRouterPath();
-				writeStoredUiMode( nextMode );
-				return nextMode;
-			} );
+			const nextMode = modeRef.current === 'classic' ? 'desks' : 'classic';
+			setMode( nextMode );
 		}
 
 		window.addEventListener( 'keydown', handleKeyDown );
 		return () => window.removeEventListener( 'keydown', handleKeyDown );
-	}, [] );
+	}, [ setMode ] );
 
 	return { mode, setMode };
 }

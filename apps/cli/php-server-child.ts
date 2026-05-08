@@ -105,21 +105,16 @@ type RunPhpCommandOptions = SpawnPhpProcessOptions;
 
 async function runPhpCommand(
 	args: string[],
-	{ phpVersion, siteFolder, signal, mode = 'pipe' }: RunPhpCommandOptions
+	options: RunPhpCommandOptions
 ): Promise< { stdout: string } > {
 	return await new Promise< { stdout: string } >( ( resolve, reject ) => {
-		const phpScriptProcess = spawnPhpProcess( args, {
-			phpVersion,
-			siteFolder,
-			signal,
-			mode,
-		} );
+		const phpScriptProcess = spawnPhpProcess( args, options );
 
 		let stdout = '';
 		const reportActivity = () => process.send?.( { topic: 'activity' } );
 		phpScriptProcess.stdout?.on( 'data', ( chunk ) => {
 			reportActivity();
-			if ( mode === 'capture-stdout' ) {
+			if ( options.mode === 'capture-stdout' ) {
 				stdout += chunk.toString();
 			}
 		} );
@@ -351,7 +346,7 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		const serverChild = spawnPhpProcess( [ '-S', phpAddress, ROUTER_PATH ], {
 			phpVersion,
 			siteFolder: config.sitePath,
-			onlyPathsThatPhpCanAccess: [ config.sitePath, ROUTER_PATH, muPluginsPath ],
+			onlyPathsThatPhpCanAccess: [ config.sitePath, ROUTER_PATH, muPluginsPath, os.tmpdir() ],
 			disallowRiskyFunctions: true,
 		} );
 		spawnedChild = serverChild;

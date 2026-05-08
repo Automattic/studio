@@ -1,3 +1,4 @@
+import { useLocation, useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { Button } from '@wordpress/ui';
 import { Gravatar } from '@/components/gravatar';
@@ -13,6 +14,8 @@ const DOCS_URL = 'https://developer.wordpress.com/docs/developer-tools/studio/';
 const REPORT_ISSUE_URL = 'https://github.com/Automattic/studio/issues/new/choose';
 
 export function DeskUserMenu() {
+	const navigate = useNavigate();
+	const location = useLocation();
 	const connector = useConnector();
 	const { data: user } = useAuthUser();
 	const { data: preferences } = useUserPreferences();
@@ -22,9 +25,14 @@ export function DeskUserMenu() {
 	const savedScheme = preferences?.colorScheme;
 	const themeIsDark =
 		savedScheme === 'dark' || ( savedScheme !== 'light' && effectiveScheme === 'dark' );
+	const showUserDashboardItem = location.pathname !== '/';
 
 	const openLink = ( url: string ) => {
 		void connector.openExternalUrl( url );
+	};
+
+	const openUserDashboard = () => {
+		void navigate( { to: '/' } );
 	};
 
 	if ( ! user ) {
@@ -59,6 +67,12 @@ export function DeskUserMenu() {
 				}
 			/>
 			<Menu.Popup side="bottom" align="start" className={ styles.popup }>
+				{ showUserDashboardItem ? (
+					<>
+						<Menu.Item onClick={ openUserDashboard }>{ __( 'User Dashboard' ) }</Menu.Item>
+						<Menu.Separator />
+					</>
+				) : null }
 				<div className={ styles.email } title={ user.email }>
 					{ user.email }
 				</div>

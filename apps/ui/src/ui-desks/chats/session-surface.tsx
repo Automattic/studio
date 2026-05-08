@@ -15,6 +15,7 @@ import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-s
 import { useSites } from '@/data/queries/use-sites';
 import { useSessionCommands } from '@/hooks/use-session-commands';
 import { SessionUIProvider } from '@/hooks/use-session-ui';
+import styles from './style.module.css';
 
 interface DeskSessionSurfaceProps {
 	sessionId: string;
@@ -30,7 +31,7 @@ interface FrameProps {
 
 function Frame( { composer, scrollRef, children }: FrameProps ) {
 	return (
-		<div className={ sessionStyles.root }>
+		<div className={ clsx( sessionStyles.root, styles.sessionSurface ) }>
 			<div className={ sessionStyles.chatColumn }>
 				<div ref={ scrollRef } className={ sessionStyles.scroll }>
 					{ children }
@@ -148,7 +149,7 @@ function DeskSessionSurfaceContent( {
 			}
 		>
 			{ isEmpty ? <EmptyBackground /> : null }
-			<div className={ clsx( sessionStyles.column, sessionStyles.conversationSpacing ) }>
+			<div className={ sessionStyles.column }>
 				<Conversation
 					data={ data }
 					isRunning={ isRunning }

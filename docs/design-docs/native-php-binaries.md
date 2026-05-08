@@ -24,9 +24,10 @@ For internal Studio validation, the workflow can upload the unsigned `.zip`
 archives directly to Apps CDN:
 
 1. Run the manual GitHub Actions `Build PHP CLI Binaries` workflow.
-2. Set `publish_to_apps_cdn` to `true`.
-3. Set `apps_cdn_visibility` to `internal` for validation or `external` for the
-   Studio download smoke test.
+2. Keep `dry_run` enabled for lane validation, or disable it for an Apps CDN
+   upload.
+3. Set `apps_cdn_visibility` to `internal` for upload metadata validation or
+   `external` for the Studio download smoke test.
 
 After the three build jobs finish, GitHub Actions downloads the workflow
 artifacts and calls:

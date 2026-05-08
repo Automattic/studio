@@ -21,24 +21,19 @@ on:
         required: true
         type: boolean
         default: false
-      publish_to_apps_cdn:
-        description: Upload unsigned archives to Apps CDN after the build
+      dry_run:
+        description: Run the Apps CDN publish lane without uploading
         required: true
         type: boolean
-        default: false
+        default: true
       apps_cdn_visibility:
-        description: Apps CDN visibility for the upload
+        description: Apps CDN visibility for the publish lane
         required: true
         type: choice
         options:
           - internal
           - external
         default: internal
-      dry_run:
-        description: Run the Apps CDN publish lane without uploading
-        required: true
-        type: boolean
-        default: true
 
 permissions:
   contents: read
@@ -206,7 +201,6 @@ jobs:
   publish-apps-cdn:
     name: Publish Apps CDN artifacts
     needs: build
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_to_apps_cdn }}
     runs-on: ubuntu-latest
     env:
       PHP_VERSION: ${{ inputs.php_version }}

@@ -50,7 +50,7 @@ type BlueprintsData = ReturnType< typeof useGetBlueprints >[ 'data' ];
 // - Content centers with small breathing padding. When content is taller than
 //   the viewport it scrolls under the frosted overlays.
 function ScreenContent( { children }: { children: React.ReactNode } ) {
-	return <div className="min-h-full flex flex-col justify-center py-8">{ children }</div>;
+	return <div className="min-h-full flex flex-col justify-top py-8">{ children }</div>;
 }
 
 interface NavigationContentProps {

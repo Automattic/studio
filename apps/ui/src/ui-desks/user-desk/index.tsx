@@ -1,7 +1,7 @@
 import { createRoute, useNavigate } from '@tanstack/react-router';
 import { useEffect } from 'react';
 import { useSaveUserDeskConfig, useUserDeskConfig } from '@/data/queries/use-desk-config';
-import { UserDeskChats } from '../chats';
+import { DeskChats } from '../chats';
 import { DeskChrome } from '../chrome';
 import { desksRootRoute } from '../router/root';
 import { defaultUserDesk } from './default-user-desk';
@@ -41,7 +41,7 @@ function UserDeskRoute() {
 	return (
 		<>
 			<DeskChrome chatsOpen={ chatsOpen } onToggleChats={ () => setChatsOpen( ! chatsOpen ) } />
-			<UserDeskChats
+			<DeskChats
 				open={ chatsOpen }
 				onOpenChange={ setChatsOpen }
 				createChatRequestId={ newChat ?? 0 }

@@ -1,7 +1,6 @@
 import { createRoute, useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { useSites } from '@/data/queries/use-sites';
-import { SiteDeskChats } from '../chats';
+import { DeskChats } from '../chats';
 import { DeskHeader } from '../chrome';
 import { DeskChatsButton } from '../chrome/chats-button';
 import { DeskMenu } from '../chrome/user-menu';
@@ -26,8 +25,6 @@ export function SiteDesk() {
 	const { siteId } = siteDeskRoute.useParams();
 	const { chats, newChat } = siteDeskRoute.useSearch() as SiteDeskSearch;
 	const navigate = useNavigate();
-	const { data: sites } = useSites();
-	const site = sites?.find( ( candidate ) => candidate.id === siteId );
 	const chatsOpen = chats === true;
 
 	const setChatsOpen = ( open: boolean ) => {
@@ -43,12 +40,11 @@ export function SiteDesk() {
 
 	return (
 		<>
-			<SiteDeskChats
+			<DeskChats
 				open={ chatsOpen }
 				onOpenChange={ setChatsOpen }
 				createChatRequestId={ newChat ?? 0 }
 				siteId={ siteId }
-				sitePath={ site?.path }
 			/>
 			<main className={ styles.root } aria-label={ __( 'Site desk' ) } data-site-id={ siteId }>
 				<DeskHeader>

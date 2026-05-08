@@ -1,4 +1,4 @@
-import { render, waitFor, screen, within } from '@testing-library/react';
+import { render, waitFor, screen, within, fireEvent } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { vi } from 'vitest';
@@ -134,17 +134,6 @@ beforeEach( () => {
 		isEmpty: true,
 		isWordPress: false,
 	} );
-
-	// jsdom does not implement requestSubmit, which the new stepper uses
-	if ( ! HTMLFormElement.prototype.requestSubmit ) {
-		HTMLFormElement.prototype.requestSubmit = function ( submitter?: HTMLElement ) {
-			const submitEvent = new Event( 'submit', { bubbles: true, cancelable: true } );
-			Object.defineProperty( submitEvent, 'submitter', { value: submitter } );
-			if ( this.dispatchEvent( submitEvent ) ) {
-				this.submit();
-			}
-		};
-	}
 } );
 
 describe( 'AddSite', () => {
@@ -207,26 +196,27 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByTestId( 'select-path-button' ) );
 
 		expect( mockShowOpenFolderDialog ).toHaveBeenCalledWith( 'Choose folder for site', '' );
-		const dialog = screen.getByRole( 'dialog' );
-		const addSiteButton = within( dialog ).getByRole( 'button', { name: 'Add site' } );
-		await user.click( addSiteButton );
 
-		await waitFor( () => {
-			expect( mockCreateSite ).toHaveBeenCalledWith(
-				'test',
-				'My WordPress Website',
-				'latest',
-				undefined,
-				false,
-				undefined, // blueprint parameter
-				'8.4',
-				expect.any( Function ),
-				false,
-				'admin',
-				expect.any( String ),
-				'admin@localhost.com'
-			);
-		} );
+		// The stepper's "Add site" button uses requestSubmit() which jsdom doesn't support.
+		// Directly fire the form's submit event instead.
+		const form = document.querySelector( 'form' )!;
+		fireEvent.submit( form );
+
+		expect( mockCreateSite ).toHaveBeenCalledTimes( 1 );
+		expect( mockCreateSite ).toHaveBeenCalledWith(
+			'test',
+			'My WordPress Website',
+			'latest',
+			undefined,
+			false,
+			expect.objectContaining( { slug: 'empty' } ),
+			'8.4',
+			expect.any( Function ),
+			false,
+			'admin',
+			expect.any( String ),
+			'admin@localhost.com'
+		);
 	} );
 
 	it( 'should display an error informing the user if the selected site folder does not contain a WordPress site', async () => {

@@ -3,7 +3,7 @@
 Use the manual `Build PHP CLI Binaries` GitHub Actions workflow to build Studio
 PHP CLI artifacts. The workflow checks out `crazywhalecc/static-php-cli`, pins
 the requested SPC ref, passes Studio's extension list directly to `spc download`
-and `spc build`, then uploads archives with `.sha256` sidecars.
+and `spc build`, then builds archives with `.sha256` sidecars.
 
 The manual workflow currently builds:
 
@@ -26,8 +26,8 @@ archives directly to Apps CDN:
 1. Run the manual GitHub Actions `Build PHP CLI Binaries` workflow.
 2. Keep `dry_run` enabled for lane validation, or disable it for an Apps CDN
    upload.
-3. Set `apps_cdn_visibility` to `internal` for upload metadata validation or
-   `external` for the Studio download smoke test.
+3. Set `apps_cdn_visibility` to `internal` for internal testing or
+   `external` for public publishing.
 
 After the three build jobs finish, GitHub Actions downloads the workflow
 artifacts and calls:
@@ -61,15 +61,3 @@ them as:
 - build type: `Production`
 - install type: `Full Install`
 - platform: `Mac - Silicon`, `Mac - Intel`, or `Windows - x64`
-
-Use `visibility:internal` for upload metadata validation by authenticated
-Automattic users. Switch to `visibility:external` only when validating
-unauthenticated download URLs from the Apps CDN manifest.
-
-Required GitHub Actions secret:
-
-- `WPCOM_API_TOKEN`
-
-These archives are intentionally unsigned for the internal validation path. Add
-macOS signing/notarization and Windows Azure Trusted Signing before uploading
-externally distributed binaries to Apps CDN.

@@ -1,0 +1,4 @@
+.root {
+	min-height: 100vh;
+	background: var(--wpds-color-bg-canvas, #e9ecef);
+}

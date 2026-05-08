@@ -738,6 +738,14 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		handler: runFeedbackSlashCommand,
 	},
 	{
+		name: 'swag',
+		description: __( 'Treat yourself to some WordPress swag' ),
+		handler: async () => {
+			await openBrowser( 'https://mercantile.wordpress.org/' );
+			return 'continue';
+		},
+	},
+	{
 		name: 'exit',
 		description: __( 'Exit the chat' ),
 		handler: async () => 'break',

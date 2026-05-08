@@ -44,6 +44,8 @@ describe( 'getActiveSlashCommands feature gate', () => {
 		expect( names ).toContain( 'clear' );
 		expect( names ).toContain( 'login' );
 		expect( names ).toContain( 'exit' );
+		expect( names ).toContain( 'swag' );
+		expect( names ).toContain( 'feedback' );
 	} );
 } );
 

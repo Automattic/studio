@@ -42,8 +42,6 @@ vi.mock( 'src/stores/sync', async () => {
 			error: null,
 			isLoading: false,
 		} ),
-		connectedSitesSelectors: actual.connectedSitesSelectors,
-		connectedSitesActions: actual.connectedSitesActions,
 		syncOperationsThunks: {
 			...actual.syncOperationsThunks,
 			pullSite: mockPullSiteThunk,

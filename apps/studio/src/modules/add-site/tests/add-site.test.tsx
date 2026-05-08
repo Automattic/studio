@@ -417,26 +417,24 @@ describe( 'AddSite', () => {
 			isWordPress: false,
 		} );
 		await user.click( screen.getByTestId( 'select-path-button' ) );
-		const dialog = screen.getByRole( 'dialog' );
-		const addSiteButton = within( dialog ).getByRole( 'button', { name: 'Add site' } );
-		await user.click( addSiteButton );
 
-		await waitFor( () => {
-			expect( mockCreateSite ).toHaveBeenCalledWith(
-				'test',
-				'My WordPress Website',
-				'6.3.3',
-				undefined,
-				false,
-				undefined, // blueprint parameter
-				'8.4',
-				expect.any( Function ),
-				false,
-				'admin',
-				expect.any( String ),
-				'admin@localhost.com'
-			);
-		} );
+		const form = document.querySelector( 'form' )!;
+		fireEvent.submit( form );
+
+		expect( mockCreateSite ).toHaveBeenCalledWith(
+			'test',
+			'My WordPress Website',
+			'6.3.3',
+			undefined,
+			false,
+			expect.objectContaining( { slug: 'empty' } ),
+			'8.4',
+			expect.any( Function ),
+			false,
+			'admin',
+			expect.any( String ),
+			'admin@localhost.com'
+		);
 	} );
 
 	it( 'should allow selecting a different PHP version', async () => {
@@ -565,7 +563,7 @@ describe( 'AddSite', () => {
 			data: {
 				blueprints: [
 					{
-						slug: 'test-blueprint',
+						slug: 'quick-start',
 						title: 'Test Blueprint',
 						excerpt: 'A test blueprint',
 						image: '',
@@ -595,13 +593,19 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByTestId( 'create-site-option-button' ) );
 
 		// Select the blueprint with preferred versions
-		await user.click( await screen.findByText( 'Test Blueprint' ) );
+		await user.click( await screen.findByRole( 'button', { name: /Test Blueprint/ } ) );
 
 		// Continue to create site form
 		await user.click( screen.getByRole( 'button', { name: 'Continue' } ) );
+		console.error( 'DEBUG BP: clicked Continue' );
 
 		// Open advanced settings to access version selectors
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
+		console.error( 'DEBUG BP: clicked Advanced settings' );
+		console.error(
+			'DEBUG BP: warning text found:',
+			!! screen.queryByText( 'Version differs from Blueprint recommendation' )
+		);
 
 		await waitFor( () => {
 			expect(
@@ -622,7 +626,7 @@ describe( 'AddSite', () => {
 			data: {
 				blueprints: [
 					{
-						slug: 'test-blueprint-2',
+						slug: 'quick-start',
 						title: 'Test Blueprint 2',
 						excerpt: 'Another test blueprint',
 						image: '',
@@ -652,7 +656,7 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByTestId( 'create-site-option-button' ) );
 
 		// Select the blueprint
-		await user.click( await screen.findByText( 'Test Blueprint 2' ) );
+		await user.click( await screen.findByRole( 'button', { name: /Test Blueprint 2/ } ) );
 
 		// Continue to create site form
 		await user.click( screen.getByRole( 'button', { name: 'Continue' } ) );

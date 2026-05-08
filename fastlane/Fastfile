@@ -839,33 +839,74 @@ def verify_npm_release_versions_at_commit(commit:, version:)
   end
 end
 
+# Resolve a remote tag to the commit it points at, handling both tag types:
+# - Lightweight tags: the tag ref points directly at the commit, so `ls-remote refs/tags/X`
+#   returns the commit SHA.
+# - Annotated tags (what `add_git_tag` creates): `ls-remote refs/tags/X` returns the tag object
+#   SHA, while the peeled `refs/tags/X^{}` ref returns the target commit. Comparing the bare
+#   ref against a commit SHA would always mismatch on annotated tags, so we prefer the peeled
+#   line and fall back to the bare ref only when there's no peeled line (lightweight tag).
+# Returns nil if the tag does not exist on origin.
+def remote_tag_commit_sha(tag)
+  output = sh(
+    'git', 'ls-remote', 'origin',
+    "refs/tags/#{tag}", "refs/tags/#{tag}^{}",
+    log: false
+  ).strip
+  return nil if output.empty?
+
+  lines = output.lines
+  peeled = lines.find { |l| l.include?('^{}') }
+  (peeled || lines.first).split.first
+end
+
 # Ensure `release_tag` exists on `origin` and points at `commit`.
 #
-# Idempotent: if the tag already exists at the expected commit, logs and returns — so re-running
-# `publish_npm_package` after a failed workflow dispatch (or any later step) safely picks up
-# where it left off without trying to recreate the tag. If the tag exists but points elsewhere,
-# raises so the operator can investigate before publishing the wrong code.
+# Idempotent across partial-failure scenarios. Re-running picks up wherever the previous run
+# stopped:
+# - Tag already on origin at the expected commit → log and return (skip re-create + workflow
+#   dispatch resumes downstream).
+# - Tag already on origin at a *different* commit → raise so the operator can investigate
+#   before publishing the wrong code.
+# - Tag absent on origin but present locally at the expected commit (previous run created the
+#   tag but `push_git_tags` failed) → push the existing local tag.
+# - Tag absent on origin and stale local tag at the wrong commit → raise with a cleanup hint.
+# - Tag absent everywhere → create and push.
 def ensure_release_tag(release_tag:, commit:)
-  output = sh('git', 'ls-remote', 'origin', "refs/tags/#{release_tag}", log: false).strip
-  unless output.empty?
-    existing = output.split.first
-    if existing == commit
+  remote_sha = remote_tag_commit_sha(release_tag)
+  if remote_sha
+    if remote_sha == commit
       UI.message("Tag #{release_tag} already exists on origin at #{commit[0..8]}; reusing it.")
       return
     end
 
     UI.user_error!(
-      "Tag #{release_tag} already exists on origin at #{existing[0..8]}, but expected " \
+      "Tag #{release_tag} already exists on origin at #{remote_sha[0..8]}, but expected " \
       "#{commit[0..8]}. Inspect the tag and the commit before continuing."
     )
   end
 
-  if DRY_RUN
+  if git_tag_exists(tag: release_tag)
+    local_sha = sh('git', 'rev-list', '-n', '1', release_tag, log: false).strip
+    unless local_sha == commit
+      UI.user_error!(
+        "Local tag #{release_tag} points at #{local_sha[0..8]}, but expected #{commit[0..8]}. " \
+        "Delete it (`git tag -d #{release_tag}`) and rerun."
+      )
+    end
+    UI.message("Local tag #{release_tag} already exists at #{commit[0..8]}; pushing it.")
+  elsif DRY_RUN
     UI.message("[DRY RUN] Would tag #{commit[0..8]} as #{release_tag} and push it to origin")
+    return
+  else
+    add_git_tag(tag: release_tag, commit: commit)
+  end
+
+  if DRY_RUN
+    UI.message("[DRY RUN] Would push tag #{release_tag} to origin")
     return
   end
 
-  add_git_tag(tag: release_tag, commit: commit)
   push_git_tags(tag: release_tag)
 end
 

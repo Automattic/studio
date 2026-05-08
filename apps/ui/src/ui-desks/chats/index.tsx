@@ -1,19 +1,22 @@
 import { Dialog } from '@base-ui/react/dialog';
+import { useNavigate, useSearch } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { Button } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import motionStyles from '@/components/floating-surface-motion/style.module.css';
 import { useCreateSession, useSessions } from '@/data/queries/use-sessions';
+import { useSites } from '@/data/queries/use-sites';
+import { useFullscreen } from '@/hooks/use-fullscreen';
 import { formatRelativeTime } from '@/lib/format-relative-time';
+import { DeskChatsButton } from '../chrome/chats-button';
+import { validateDeskChatsSearch, type DeskChatsSearch } from './search';
 import { DeskSessionSurface } from './session-surface';
 import styles from './style.module.css';
 import type { AiSessionSummary } from '@/data/core';
 
-interface UserDeskChatsProps {
-	open: boolean;
-	onOpenChange: ( open: boolean ) => void;
-	createChatRequestId: number;
+interface DeskChatsProps {
+	siteId?: string;
 }
 
 function getSessionTitle( session: AiSessionSummary ) {
@@ -28,21 +31,56 @@ function getSessionSubtitle( session: AiSessionSummary ) {
 	return formatRelativeTime( session.updatedAt );
 }
 
-export function UserDeskChats( { open, onOpenChange, createChatRequestId }: UserDeskChatsProps ) {
+function useDeskChatsSearch() {
+	const search = validateDeskChatsSearch(
+		useSearch( { strict: false } ) as Record< string, unknown >
+	);
+	const navigate = useNavigate();
+	const open = search.chats === true;
+	const createChatRequestId = search.newChat ?? 0;
+
+	const setOpen = useCallback(
+		( nextOpen: boolean ) => {
+			void navigate( {
+				to: '.',
+				search: ( previous: DeskChatsSearch ) => ( {
+					...previous,
+					chats: nextOpen ? true : undefined,
+				} ),
+			} );
+		},
+		[ navigate ]
+	);
+
+	return { open, setOpen, createChatRequestId };
+}
+
+export function DeskChatsTrigger() {
+	const { open, setOpen } = useDeskChatsSearch();
+
+	return <DeskChatsButton open={ open } onToggle={ () => setOpen( ! open ) } />;
+}
+
+export function DeskChats( { siteId }: DeskChatsProps ) {
+	const { open, setOpen, createChatRequestId } = useDeskChatsSearch();
 	const { data: sessions } = useSessions();
+	const { data: sites } = useSites();
+	const isFullscreen = useFullscreen();
 	const createSession = useCreateSession();
 	const lastCreateChatRequestId = useRef( createChatRequestId );
 	const [ selectedSessionId, setSelectedSessionId ] = useState< string | undefined >( undefined );
 	const [ expanded, setExpanded ] = useState( false );
 	const [ autoFocusSessionId, setAutoFocusSessionId ] = useState< string | undefined >( undefined );
-	const userDeskSessions = useMemo(
-		() =>
-			[ ...( sessions ?? [] ).filter( ( session ) => ! session.ownerSitePath ) ].sort(
-				( a, b ) => Date.parse( b.updatedAt ) - Date.parse( a.updatedAt )
-			),
-		[ sessions ]
+	const site = siteId ? sites?.find( ( candidate ) => candidate.id === siteId ) : undefined;
+	const filteredSessions = siteId
+		? site?.path
+			? ( sessions ?? [] ).filter( ( session ) => session.ownerSitePath === site.path )
+			: []
+		: ( sessions ?? [] ).filter( ( session ) => ! session.ownerSitePath );
+	const deskSessions = [ ...filteredSessions ].sort(
+		( a, b ) => Date.parse( b.updatedAt ) - Date.parse( a.updatedAt )
 	);
-	const selectedSession = userDeskSessions.find( ( session ) => session.id === selectedSessionId );
+	const selectedSession = deskSessions.find( ( session ) => session.id === selectedSessionId );
 
 	useEffect( () => {
 		if ( selectedSessionId && ! selectedSession ) {
@@ -58,11 +96,11 @@ export function UserDeskChats( { open, onOpenChange, createChatRequestId }: User
 	};
 
 	const handleNewChat = useCallback( async () => {
-		const session = await createSession.mutateAsync( undefined );
+		const session = await createSession.mutateAsync( siteId );
 		setSelectedSessionId( session.id );
 		setExpanded( true );
 		setAutoFocusSessionId( session.id );
-	}, [ createSession ] );
+	}, [ createSession, siteId ] );
 
 	useEffect( () => {
 		if ( createChatRequestId === lastCreateChatRequestId.current ) {
@@ -74,17 +112,17 @@ export function UserDeskChats( { open, onOpenChange, createChatRequestId }: User
 	}, [ createChatRequestId, handleNewChat ] );
 
 	return (
-		<Dialog.Root
-			open={ open }
-			onOpenChange={ onOpenChange }
-			modal={ false }
-			disablePointerDismissal
-		>
+		<Dialog.Root open={ open } onOpenChange={ setOpen } modal={ false } disablePointerDismissal>
 			<Dialog.Portal>
 				<Dialog.Popup
 					initialFocus={ false }
 					finalFocus={ false }
-					className={ clsx( styles.panel, motionStyles.motion, expanded && styles.panelExpanded ) }
+					className={ clsx(
+						styles.panel,
+						isFullscreen && styles.panelFullscreen,
+						motionStyles.motion,
+						expanded && styles.panelExpanded
+					) }
 					aria-label={ __( 'Conversations' ) }
 				>
 					<div className={ styles.listPane }>
@@ -92,7 +130,7 @@ export function UserDeskChats( { open, onOpenChange, createChatRequestId }: User
 							<h2>{ __( 'Conversations' ) }</h2>
 						</header>
 						<div className={ styles.list }>
-							{ userDeskSessions.map( ( session ) => (
+							{ deskSessions.map( ( session ) => (
 								<button
 									key={ session.id }
 									type="button"

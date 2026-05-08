@@ -1,0 +1,59 @@
+.root {
+	min-height: 100vh;
+	background: var(--wpds-color-bg-canvas, #e9ecef);
+}
+
+.chrome {
+	--desk-user-menu-size: 40px;
+	--desk-site-pill-edge-offset: var(--wpds-dimension-padding-xl);
+	--desk-site-pill-y-nudge: 2px;
+
+	position: fixed;
+	top: calc((46px - var(--desk-user-menu-size)) / 2 + var(--desk-site-pill-y-nudge));
+	left: 94px;
+	z-index: 20;
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-md);
+	max-width: calc(100vw - 118px);
+}
+
+.chromeFullscreen {
+	top: var(--desk-site-pill-edge-offset);
+	left: var(--desk-site-pill-edge-offset);
+	max-width: calc(100vw - 2 * var(--desk-site-pill-edge-offset));
+}
+
+.sitePill {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-sm);
+	box-sizing: border-box;
+	max-width: min(320px, 100%);
+	height: var(--desk-user-menu-size);
+	padding: 0 var(--wpds-dimension-padding-md);
+	background: var(--wpds-color-bg-surface-neutral-strong);
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
+	border-radius: calc(var(--desk-user-menu-size) / 2);
+	box-shadow: var(--wpds-elevation-md);
+	color: var(--wpds-color-fg-content-neutral);
+	min-width: 0;
+	transform: translateY(1px);
+	-webkit-app-region: no-drag;
+}
+
+.siteIcon {
+	width: 24px;
+	height: 24px;
+	border-radius: var(--wpds-border-radius-md);
+}
+
+.siteName {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: var(--wpds-typography-line-height-md);
+	font-weight: var(--wpds-typography-font-weight-medium);
+}

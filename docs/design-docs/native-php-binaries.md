@@ -14,15 +14,16 @@ The manual workflow currently builds:
 Windows ARM64 Studio builds use the Windows x64 PHP binary under Windows 11
 emulation. Native Windows ARM64 PHP binaries are not built.
 
-The `.sha256` sidecars are used to verify downloaded artifacts. When these
-artifacts are published to the Apps CDN, copy those checksums into
-`tools/common/lib/php-binary-metadata.ts`.
-Before publishing macOS artifacts, sign and notarize the `php` binary with the
-existing Studio Developer ID setup.
+The `.sha256` sidecars are used to verify downloaded artifacts. Studio first
+checks the Apps CDN manifest for the separate `WordPress.com Studio PHP CLI`
+product:
 
-Regular Studio app builds upload to the Apps CDN through `fastlane/Fastfile`:
-`upload_file_to_apps_cdn` wraps `upload_build_to_apps_cdn` from
-`fastlane-plugin-wpmreleasetoolkit`. That path requires `WPCOM_API_TOKEN`, the
-Studio Apps CDN site ID, build metadata, and a file path. CDN upload for PHP
-binary artifacts should be added separately after the manual GitHub Actions
-builds are proven.
+`https://appscdn.wordpress.com/builds/wordpress-com-studio-php-cli/releases.json`
+
+If the manifest has a matching URL and SHA for the requested PHP patch version,
+platform, and architecture, Studio downloads that archive. Otherwise the native
+PHP install fails; Apps CDN is the source of truth for these binaries.
+
+Apps CDN archives can be `.zip` or `.tar.gz`; Studio picks the extractor from
+the archive extension. Current signed Apps CDN artifacts are ZIP files for macOS
+and Windows.

@@ -6,10 +6,11 @@ import { downloadFile } from '@studio/common/lib/download-file';
 import { extractZip } from '@studio/common/lib/extract-zip';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import {
-	buildPhpBinaryUrl,
-	getPhpBinaryHash,
+	getPhpBinaryManifestDownloadInfo,
+	PHP_BINARY_MANIFEST_URL,
 	validateNativePhpVersion,
 	PHP_PATCH_VERSIONS,
+	type PhpBinaryDownloadInfo,
 	type NativePhpSupportedVersion,
 } from '@studio/common/lib/php-binary-metadata';
 import { extract } from 'tar';
@@ -55,7 +56,7 @@ async function downloadAndInstall(
 	const arch = process.arch;
 	const isWindows = platform === 'win32';
 
-	// Windows ARM64 has no upstream binary — falls back to x64 under OS emulation.
+	// Windows ARM64 uses the Windows x64 PHP binary under OS emulation.
 	if ( arch === 'arm64' && isWindows ) {
 		console.warn(
 			'Warning: no Windows ARM64 PHP binary available. Downloading x64 binary instead (runs under Windows 11 emulation).'
@@ -83,13 +84,13 @@ async function downloadAndInstall(
 
 	// We own the slot — clean up the directory on failure so the next attempt
 	// can claim it and retry.
-	const url = buildPhpBinaryUrl( version, platform, arch );
 	const patchVersion = PHP_PATCH_VERSIONS[ version ];
-	const downloadPath = path.join( destDir, path.basename( url ) );
+	const downloadInfo = await resolvePhpBinaryDownloadInfo( version, platform, arch );
+	const downloadPath = path.join( destDir, getArchiveFileName( downloadInfo.url ) );
 
 	try {
-		await downloadFile( url, downloadPath, onProgress );
-		await verifyHash( downloadPath, version, platform, arch );
+		await downloadFile( downloadInfo.url, downloadPath, onProgress );
+		await verifyHash( downloadPath, downloadInfo.sha, version, platform, arch );
 		await extractAndInstall( downloadPath, destPath, patchVersion, platform, arch );
 	} catch ( err ) {
 		fs.rmSync( destDir, { recursive: true, force: true } );
@@ -101,20 +102,53 @@ async function downloadAndInstall(
 	}
 }
 
+export async function resolvePhpBinaryDownloadInfo(
+	version: NativePhpSupportedVersion,
+	platform: NodeJS.Platform,
+	arch: string
+): Promise< PhpBinaryDownloadInfo > {
+	const manifest = await fetchPhpBinaryManifest();
+	const appsCdnDownload = getPhpBinaryManifestDownloadInfo( manifest, version, platform, arch );
+	if ( appsCdnDownload ) {
+		return appsCdnDownload;
+	}
+
+	throw new Error(
+		`PHP ${ PHP_PATCH_VERSIONS[ version ] } is not available for this device yet. Please try again later.`
+	);
+}
+
+async function fetchPhpBinaryManifest(): Promise< unknown > {
+	try {
+		const response = await fetch( PHP_BINARY_MANIFEST_URL );
+		if ( ! response.ok ) {
+			throw new Error( `status ${ response.status }` );
+		}
+		return await response.json();
+	} catch {
+		throw new Error( 'Could not check PHP availability. Please try again later.' );
+	}
+}
+
+function getArchiveFileName( url: string ): string {
+	try {
+		return path.basename( new URL( url ).pathname );
+	} catch {
+		return path.basename( url );
+	}
+}
+
+function isZipArchive( archivePath: string ): boolean {
+	return archivePath.toLowerCase().endsWith( '.zip' );
+}
+
 async function verifyHash(
 	filePath: string,
+	expected: string,
 	version: NativePhpSupportedVersion,
 	platform: NodeJS.Platform,
 	arch: string
 ): Promise< void > {
-	const expected = getPhpBinaryHash( version, platform, arch );
-	if ( ! expected ) {
-		throw new Error(
-			`No pinned SHA-256 hash for PHP ${ version } on ${ platform }-${ arch }. ` +
-				`Cannot verify binary integrity. Run: shasum -a 256 ${ filePath }`
-		);
-	}
-
 	const data = await fs.promises.readFile( filePath );
 	const actual = crypto.createHash( 'sha256' ).update( data ).digest( 'hex' );
 	if ( actual !== expected ) {
@@ -137,15 +171,28 @@ async function extractAndInstall(
 	const isWindows = platform === 'win32';
 	const effectiveArch = isWindows ? 'x64' : arch;
 	const tmpDir = os.tmpdir();
+	const binaryName = isWindows ? 'php.exe' : 'php';
+
+	if ( isZipArchive( archivePath ) ) {
+		const extractDir = fs.mkdtempSync( path.join( tmpDir, `php-${ patchVersion }-` ) );
+		try {
+			await extractZip( archivePath, extractDir );
+			const src = path.join( extractDir, binaryName );
+			if ( ! fs.existsSync( src ) ) {
+				throw new Error( `${ binaryName } not found after extraction. Archive may be corrupt.` );
+			}
+			fs.copyFileSync( src, destPath );
+			if ( ! isWindows ) {
+				fs.chmodSync( destPath, 0o755 );
+			}
+		} finally {
+			fs.rmSync( extractDir, { recursive: true, force: true } );
+		}
+		return;
+	}
 
 	if ( isWindows ) {
-		await extractZip( archivePath, tmpDir );
-		const src = path.join( tmpDir, 'php.exe' );
-		if ( ! fs.existsSync( src ) ) {
-			throw new Error( `php.exe not found after extraction. Archive may be corrupt.` );
-		}
-		fs.copyFileSync( src, destPath );
-		fs.unlinkSync( src );
+		throw new Error( `Windows PHP binary archive must be a .zip file.` );
 	} else {
 		const extractDir = path.join(
 			tmpDir,

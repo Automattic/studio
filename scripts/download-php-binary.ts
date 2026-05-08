@@ -1,11 +1,9 @@
 #!/usr/bin/env ts-node
 /**
- * Download a static PHP binary for local development.
+ * Download a Studio PHP CLI binary for local development.
  * NOT used in production builds — binaries are not bundled with Studio or the CLI.
  *
- * Source CDN: https://dl.static-php.dev/static-php-cli/
- *   - macOS / Linux: `common` variant (pdo_sqlite, curl, gd, zip, redis + most WP requirements)
- *   - Windows x64:   `windows/spc-max` variant (pdo_sqlite + opcache)
+ * Source manifest: https://appscdn.wordpress.com/builds/wordpress-com-studio-php-cli/releases.json
  *
  * Usage:
  *   npx ts-node scripts/download-php-binary.ts [version] [platform] [arch]
@@ -14,7 +12,6 @@
  *   npx ts-node scripts/download-php-binary.ts            # defaults to RecommendedPHPVersion
  *   npx ts-node scripts/download-php-binary.ts 8.3
  *   npx ts-node scripts/download-php-binary.ts 8.3 darwin arm64
- *   npx ts-node scripts/download-php-binary.ts --compute-hashes 8.3 darwin arm64
  */
 
 import crypto from 'crypto';
@@ -27,11 +24,12 @@ import { downloadFile } from '../tools/common/lib/download-file';
 import { extractZip } from '../tools/common/lib/extract-zip';
 import { isErrnoException } from '../tools/common/lib/is-errno-exception';
 import {
-	buildPhpBinaryUrl,
-	getPhpBinaryHash,
+	getPhpBinaryManifestDownloadInfo,
+	PHP_BINARY_MANIFEST_URL,
 	PHP_PATCH_VERSIONS,
 	NativePhpSupportedVersions,
 	NativePhpSupportedVersion,
+	PhpBinaryDownloadInfo,
 } from '../tools/common/lib/php-binary-metadata';
 import { getConfigDirectory } from '../tools/common/lib/well-known-paths';
 import { RecommendedPHPVersion } from '../tools/common/types/php-versions';
@@ -43,9 +41,7 @@ const archSchema = z.enum( [ 'x64', 'arm64' ] );
 type Platform = z.infer< typeof platformSchema >;
 type Arch = z.infer< typeof archSchema >;
 
-const rawArgs = process.argv.slice( 2 );
-const computeHashesMode = rawArgs[ 0 ] === '--compute-hashes';
-const positionalArgs = computeHashesMode ? rawArgs.slice( 1 ) : rawArgs;
+const positionalArgs = process.argv.slice( 2 );
 
 const { version, ...args } = z
 	.tuple( [
@@ -56,43 +52,20 @@ const { version, ...args } = z
 	.transform( ( [ version, platform, arch ] ) => ( { version, platform, arch } ) )
 	.parse( [ positionalArgs[ 0 ], positionalArgs[ 1 ], positionalArgs[ 2 ] ] );
 
-// Windows ARM64 has no pre-built binary upstream; run x64 under OS emulation.
+// Windows ARM64 uses the Windows x64 PHP binary under OS emulation.
 const effectiveArch: Arch = args.platform === 'win32' ? 'x64' : args.arch;
 if ( args.arch === 'arm64' && args.platform === 'win32' ) {
 	console.warn(
-		'Warning: no Windows ARM64 binary available upstream. Downloading x64 binary instead (runs under Windows 11 emulation).'
+		'Warning: no Windows ARM64 PHP binary available. Downloading x64 binary instead (runs under Windows 11 emulation).'
 	);
 }
 
-if ( computeHashesMode ) {
-	void computeAndPrintHash();
-} else {
-	void main();
-}
-
-async function computeAndPrintHash(): Promise< void > {
-	const url = buildPhpBinaryUrl( version, args.platform, args.arch );
-	const tmpPath = path.join( os.tmpdir(), `${ process.pid }-${ path.basename( url ) }` );
-
-	console.log( `Downloading ${ path.basename( url ) } to compute hash…` );
-	try {
-		await downloadFile( url, tmpPath );
-		const data = await fs.promises.readFile( tmpPath );
-		const hash = crypto.createHash( 'sha256' ).update( data ).digest( 'hex' );
-		const key = `'${ version }-${ args.platform }-${ effectiveArch }'`;
-		console.log( `${ key }: '${ hash }',` );
-		console.log(
-			`\nAdd this entry to PHP_BINARY_HASHES in tools/common/lib/php-binary-metadata.ts`
-		);
-	} finally {
-		fs.rmSync( tmpPath, { force: true } );
-	}
-}
+void main();
 
 async function main(): Promise< void > {
 	const patchVersion = PHP_PATCH_VERSIONS[ version ];
 	const isWindows = args.platform === 'win32';
-	const url = buildPhpBinaryUrl( version, args.platform, args.arch );
+	const downloadInfo = await resolvePhpBinaryDownloadInfo();
 	const binDir = path.join( getConfigDirectory(), 'php-bin', version );
 	const binaryName = isWindows ? 'php.exe' : 'php';
 	const destPath = path.join( binDir, binaryName );
@@ -118,12 +91,12 @@ async function main(): Promise< void > {
 			throw err;
 		}
 
-		const downloadPath = path.join( binDir, path.basename( url ) );
+		const downloadPath = path.join( binDir, getArchiveFileName( downloadInfo.url ) );
 
 		try {
 			console.log( `Downloading PHP ${ version } (${ patchVersion }) for ${ platformKey }…` );
-			console.log( `  URL: ${ url }` );
-			await downloadFile( url, downloadPath, ( downloaded, total ) => {
+			console.log( `  URL: ${ downloadInfo.url }` );
+			await downloadFile( downloadInfo.url, downloadPath, ( downloaded, total ) => {
 				const dl = ( downloaded / 1024 / 1024 ).toFixed( 1 );
 				const tot = total ? ` / ${ ( total / 1024 / 1024 ).toFixed( 1 ) } MB` : '';
 				process.stdout.write( `\r  ${ dl } MB${ tot }` );
@@ -131,33 +104,37 @@ async function main(): Promise< void > {
 			console.log( '\nDownload complete.' );
 
 			// Verify SHA-256
-			const expected = getPhpBinaryHash( version, args.platform, args.arch );
-			if ( expected ) {
-				console.log( 'Verifying SHA-256…' );
-				const data = await fs.promises.readFile( downloadPath );
-				const actual = crypto.createHash( 'sha256' ).update( data ).digest( 'hex' );
-				if ( actual !== expected ) {
-					throw new Error( `SHA-256 mismatch:\n  expected ${ expected }\n  got      ${ actual }` );
-				}
-				console.log( '  Hash OK.' );
-			} else {
-				console.warn(
-					`Warning: no pinned hash for ${ version }-${ platformKey }. Skipping verification.\n` +
-						`         Compute it with: npx ts-node scripts/download-php-binary.ts --compute-hashes ${ version } ${ args.platform } ${ args.arch }`
+			console.log( 'Verifying SHA-256…' );
+			const data = await fs.promises.readFile( downloadPath );
+			const actual = crypto.createHash( 'sha256' ).update( data ).digest( 'hex' );
+			if ( actual !== downloadInfo.sha ) {
+				throw new Error(
+					`SHA-256 mismatch:\n  expected ${ downloadInfo.sha }\n  got      ${ actual }`
 				);
 			}
+			console.log( '  Hash OK.' );
 
 			// Extract
 			console.log( 'Extracting PHP binary…' );
 			const tmpDir = os.tmpdir();
-			if ( isWindows ) {
-				await extractZip( downloadPath, tmpDir );
-				const src = path.join( tmpDir, 'php.exe' );
-				if ( ! fs.existsSync( src ) ) {
-					throw new Error( `php.exe not found after extraction.` );
+			if ( isZipArchive( downloadPath ) ) {
+				const extractDir = fs.mkdtempSync( path.join( tmpDir, `php-${ patchVersion }-` ) );
+				const expectedBinary = isWindows ? 'php.exe' : 'php';
+				try {
+					await extractZip( downloadPath, extractDir );
+					const src = path.join( extractDir, expectedBinary );
+					if ( ! fs.existsSync( src ) ) {
+						throw new Error( `${ expectedBinary } not found after extraction.` );
+					}
+					fs.copyFileSync( src, destPath );
+					if ( ! isWindows ) {
+						fs.chmodSync( destPath, 0o755 );
+					}
+				} finally {
+					fs.rmSync( extractDir, { recursive: true, force: true } );
 				}
-				fs.copyFileSync( src, destPath );
-				fs.unlinkSync( src );
+			} else if ( isWindows ) {
+				throw new Error( `Windows PHP binary archive must be a .zip file.` );
 			} else {
 				const extractDir = path.join(
 					tmpDir,
@@ -197,4 +174,41 @@ async function main(): Promise< void > {
 			`The native-php runtime will not be available. Run \`npm run download:php-binary\` to retry.`
 		);
 	}
+}
+
+async function resolvePhpBinaryDownloadInfo(): Promise< PhpBinaryDownloadInfo > {
+	try {
+		const response = await fetch( PHP_BINARY_MANIFEST_URL );
+		if ( ! response.ok ) {
+			throw new Error( `status ${ response.status }` );
+		}
+		const manifest = await response.json();
+		const appsCdnDownload = getPhpBinaryManifestDownloadInfo(
+			manifest,
+			version,
+			args.platform,
+			args.arch
+		);
+		if ( appsCdnDownload ) {
+			return appsCdnDownload;
+		}
+	} catch {
+		throw new Error( 'Could not check PHP availability. Please try again later.' );
+	}
+
+	throw new Error(
+		`PHP ${ PHP_PATCH_VERSIONS[ version ] } is not available for this device yet. Please try again later.`
+	);
+}
+
+function getArchiveFileName( url: string ): string {
+	try {
+		return path.basename( new URL( url ).pathname );
+	} catch {
+		return path.basename( url );
+	}
+}
+
+function isZipArchive( archivePath: string ): boolean {
+	return archivePath.toLowerCase().endsWith( '.zip' );
 }

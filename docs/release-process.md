@@ -78,8 +78,9 @@ To publish `wp-studio` to npm **without** running a full app release (e.g. a CLI
 2. **Review and merge** the PR like any other change.
 3. **Publish** — `publish_npm_package [version:"1.X.Y"]`
     - When `version:` is omitted, defaults to `trunk`'s current `package.json` version — i.e. whatever the prepare PR set it to.
-    - Pulls `trunk` and verifies `package.json` matches `<version>`
-    - Tags `trunk` HEAD as `v<version>` and pushes the tag
+    - Locates the squash-merge commit on `trunk` that bumped both `apps/studio/package.json` and `apps/cli/package.json` to `<version>`. Tagging that specific commit (not `trunk` HEAD) means unrelated PRs landing on `trunk` between the prep merge and the publish run are **not** included in the published artifact.
+    - Verifies both `package.json` files at the bump commit match `<version>`. A half-applied prep PR (only one workspace bumped) errors out before tagging.
+    - Tags the bump commit as `v<version>` and pushes the tag. Idempotent: if the tag already exists at the expected commit, the lane reuses it — so re-running after a failed workflow dispatch picks up where it left off rather than failing on a duplicate-tag error. If the tag exists at a different commit, the lane errors out for manual investigation.
     - Dispatches `publish-npm-package.yml` (publishes to npm with provenance via OIDC trusted publishing)
     - For `X.Y.Z-betaN` the package is published with `--tag next`; otherwise as `latest`
 4. **Update the public changelog** at https://developer.wordpress.com/docs/developer-tools/studio/changelog/. The CLI displays a nudge pointing to that page.

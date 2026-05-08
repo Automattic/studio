@@ -186,6 +186,7 @@ end
 # @param skip_confirm [Boolean] Skip interactive confirmation prompts (default: false)
 #
 lane :prepare_npm_release do |version: nil, skip_confirm: false|
+  fetch_main_branch
   trunk_version = read_trunk_package_json_version
   version ||= StudioReleaseVersion.next_patch_version(trunk_version)
   validate_npm_release_version!(version)
@@ -223,12 +224,22 @@ lane :prepare_npm_release do |version: nil, skip_confirm: false|
   NEXT
 end
 
-# Publish wp-studio to npm by tagging trunk and triggering the GitHub Actions workflow.
+# Publish wp-studio to npm by tagging the version-bump commit and triggering the GitHub Actions
+# workflow.
 #
-# Run this after the {prepare_npm_release} PR has merged into `trunk`. It tags trunk's HEAD as
-# `v<version>`, pushes the tag, and dispatches `publish-npm-package.yml` — which builds the
-# package and publishes it to npm with provenance via OIDC trusted publishing. Versions ending
-# in `-betaN` are published with the `next` dist-tag; everything else publishes as `latest`.
+# Run this after the {prepare_npm_release} PR has merged into `trunk`. The lane:
+# - Locates the squash-merge commit on `trunk` that bumped both `apps/studio/package.json` and
+#   `apps/cli/package.json` to the target version. Tagging that specific commit (rather than
+#   trunk's HEAD) means PRs that land on trunk between the prep merge and the publish run are
+#   not silently included in the published artifact.
+# - Verifies both package.json files at that commit declare the target version, so a half-applied
+#   prep PR (only one workspace bumped) is caught before tagging.
+# - Tags the bump commit as `v<version>` and pushes the tag. Idempotent: if the tag already
+#   exists at the expected commit, the lane logs and reuses it (this is the recovery path for a
+#   workflow dispatch that succeeded at tagging but failed afterwards).
+# - Dispatches `publish-npm-package.yml` to build and publish to npm with provenance via OIDC
+#   trusted publishing. Versions ending in `-betaN` publish with the `next` dist-tag; everything
+#   else publishes as `latest`.
 #
 # @param version [String, nil] The release version (e.g., '1.7.4' or '1.7.4-beta1'). When omitted,
 #   defaults to `trunk`'s current `package.json` version — i.e. whatever the prepare_npm_release
@@ -236,6 +247,7 @@ end
 # @param skip_confirm [Boolean] Skip interactive confirmation prompts (default: false)
 #
 lane :publish_npm_package do |version: nil, skip_confirm: false|
+  fetch_main_branch
   version ||= read_trunk_package_json_version
   validate_npm_release_version!(version)
 
@@ -243,10 +255,21 @@ lane :publish_npm_package do |version: nil, skip_confirm: false|
   npm_tag = StudioReleaseVersion.npm_dist_tag_for(version)
   tag_label = npm_tag || 'latest'
 
+  bump_commit = find_npm_release_bump_commit(version: version)
+  if bump_commit.nil?
+    UI.user_error!(
+      "Could not find a commit on `#{MAIN_BRANCH}` that bumped apps/studio/package.json to " \
+      "#{version}. Did the prepare_npm_release PR merge into trunk?"
+    )
+  end
+  verify_npm_release_versions_at_commit(commit: bump_commit, version: version)
+  short_sha = bump_commit[0..8]
+
   UI.important <<~PROMPT
     Publishing wp-studio #{version} to npm. This will:
-    - Pull `#{MAIN_BRANCH}` and verify package.json is on #{version}
-    - Tag `#{MAIN_BRANCH}`'s HEAD as `#{release_tag}` and push the tag
+    - Tag the version-bump commit #{short_sha} on `#{MAIN_BRANCH}` as `#{release_tag}`
+      (reused if it already exists at that commit, e.g. recovery from a failed dispatch)
+    - Push the tag to `origin`
     - Dispatch the `publish-npm-package.yml` GitHub Actions workflow
     - Publish `wp-studio` to npm with the `#{tag_label}` dist-tag
 
@@ -255,26 +278,7 @@ lane :publish_npm_package do |version: nil, skip_confirm: false|
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
 
-  Fastlane::Helper::GitHelper.checkout_and_pull(MAIN_BRANCH)
-
-  current_version = read_package_json_version
-  unless current_version == version
-    UI.user_error!(
-      "`#{MAIN_BRANCH}` is on version #{current_version}, expected #{version}. " \
-      'Did the prepare_npm_release PR merge into trunk?'
-    )
-  end
-
-  if git_tag_exists(tag: release_tag, remote: true, remote_name: 'origin')
-    UI.user_error!("Tag #{release_tag} already exists on the remote.")
-  end
-
-  add_git_tag(tag: release_tag)
-  if DRY_RUN
-    UI.message("[DRY RUN] Would push tag #{release_tag} to origin")
-  else
-    push_git_tags(tag: release_tag)
-  end
+  ensure_release_tag(release_tag: release_tag, commit: bump_commit)
 
   trigger_npm_publish(ref: release_tag, npm_tag: npm_tag)
 
@@ -784,12 +788,85 @@ def validate_npm_release_version!(version)
   UI.user_error!("Invalid version '#{version.inspect}'. Expected `X.Y.Z` or `X.Y.Z-betaN`.")
 end
 
+NPM_RELEASE_PACKAGE_JSON_PATHS = [
+  'apps/studio/package.json',
+  'apps/cli/package.json'
+].freeze
+
+# Update the local origin/MAIN_BRANCH ref so subsequent reads of `origin/<MAIN_BRANCH>` are fresh.
+def fetch_main_branch
+  sh('git', 'fetch', '--quiet', 'origin', MAIN_BRANCH, log: false)
+end
+
 # Read the current version recorded on `trunk`'s package.json without changing the working tree.
-# Used to compute defaults for the npm release lanes. Fetches origin first so the read is fresh.
+# Used to compute defaults for the npm release lanes. Caller must call {fetch_main_branch} first.
 def read_trunk_package_json_version
-  sh('git', 'fetch', '--quiet', 'origin', MAIN_BRANCH)
   json = sh('git', 'show', "origin/#{MAIN_BRANCH}:apps/studio/package.json", log: false)
   JSON.parse(json)['version']
+end
+
+# Find the most recent commit on `origin/<MAIN_BRANCH>` that introduced the target version into
+# `apps/studio/package.json`. Returns the commit SHA, or nil if no such commit exists.
+# Caller must call {fetch_main_branch} first.
+#
+# Studio uses squash-merge for PRs, so the commit returned here is the trunk-side merge commit
+# of the prepare_npm_release PR — which is what `git tag` should be applied to (rather than
+# trunk's HEAD, which may include unrelated PRs that merged afterwards).
+def find_npm_release_bump_commit(version:)
+  search = "\"version\": \"#{version}\""
+  sha = sh(
+    'git', 'log', '-1', '--format=%H',
+    '-S', search,
+    "origin/#{MAIN_BRANCH}",
+    '--', 'apps/studio/package.json',
+    log: false
+  ).strip
+  sha.empty? ? nil : sha
+end
+
+# Verify that every workspace `package.json` at the given commit declares the requested version.
+# Surfaces a fastlane error if any path is missing the version (e.g. a half-applied prep PR that
+# only bumped one of the workspaces).
+def verify_npm_release_versions_at_commit(commit:, version:)
+  NPM_RELEASE_PACKAGE_JSON_PATHS.each do |path|
+    actual = JSON.parse(sh('git', 'show', "#{commit}:#{path}", log: false))['version']
+    next if actual == version
+
+    UI.user_error!(
+      "#{path} at #{commit[0..8]} has version #{actual.inspect}, expected #{version.inspect}. " \
+      'Both `studio-app` and `wp-studio` must be bumped together before publishing.'
+    )
+  end
+end
+
+# Ensure `release_tag` exists on `origin` and points at `commit`.
+#
+# Idempotent: if the tag already exists at the expected commit, logs and returns — so re-running
+# `publish_npm_package` after a failed workflow dispatch (or any later step) safely picks up
+# where it left off without trying to recreate the tag. If the tag exists but points elsewhere,
+# raises so the operator can investigate before publishing the wrong code.
+def ensure_release_tag(release_tag:, commit:)
+  output = sh('git', 'ls-remote', 'origin', "refs/tags/#{release_tag}", log: false).strip
+  unless output.empty?
+    existing = output.split.first
+    if existing == commit
+      UI.message("Tag #{release_tag} already exists on origin at #{commit[0..8]}; reusing it.")
+      return
+    end
+
+    UI.user_error!(
+      "Tag #{release_tag} already exists on origin at #{existing[0..8]}, but expected " \
+      "#{commit[0..8]}. Inspect the tag and the commit before continuing."
+    )
+  end
+
+  if DRY_RUN
+    UI.message("[DRY RUN] Would tag #{commit[0..8]} as #{release_tag} and push it to origin")
+    return
+  end
+
+  add_git_tag(tag: release_tag, commit: commit)
+  push_git_tags(tag: release_tag)
 end
 
 # Open a PR against trunk for an npm release version bump from {prepare_npm_release}.

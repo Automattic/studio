@@ -42,7 +42,7 @@ interface NewSiteOptionsProps {
 	isLoadingGallery?: boolean;
 	galleryErrorMessage?: string;
 	onGalleryBlueprintSelect?: ( blueprint: GalleryBlueprint ) => void;
-	isSelectingGalleryBlueprint?: boolean;
+	selectedGalleryBlueprint?: string | null;
 	gallerySelectionError?: string;
 }
 
@@ -218,21 +218,20 @@ function renameBlueprintsForDisplay(
 
 function GalleryBlueprintCard( {
 	blueprint,
+	isSelected,
 	onClick,
-	disabled,
 }: {
 	blueprint: GalleryBlueprint;
+	isSelected: boolean;
 	onClick: () => void;
-	disabled: boolean;
 } ) {
 	return (
 		<button
 			onClick={ onClick }
-			disabled={ disabled }
 			className={ cx(
 				'flex flex-col h-full rounded-lg border overflow-hidden text-left transition-colors',
-				disabled
-					? 'opacity-50 cursor-not-allowed border-frame-border'
+				isSelected
+					? 'border-frame-theme ring-2 ring-offset-2 ring-frame-theme ring-offset-frame'
 					: 'border-frame-border hover:border-frame-text-secondary'
 			) }
 		>
@@ -278,7 +277,7 @@ export function NewSiteOptions( {
 	isLoadingGallery = false,
 	galleryErrorMessage,
 	onGalleryBlueprintSelect,
-	isSelectingGalleryBlueprint = false,
+	selectedGalleryBlueprint,
 	gallerySelectionError,
 }: NewSiteOptionsProps ) {
 	const { __ } = useI18n();
@@ -393,16 +392,10 @@ export function NewSiteOptions( {
 								<GalleryBlueprintCard
 									key={ blueprint.slug }
 									blueprint={ blueprint }
+									isSelected={ selectedGalleryBlueprint === blueprint.slug }
 									onClick={ () => onGalleryBlueprintSelect( blueprint ) }
-									disabled={ isSelectingGalleryBlueprint }
 								/>
 							) ) }
-						</div>
-					) }
-
-					{ isSelectingGalleryBlueprint && (
-						<div className="flex items-center justify-center py-4">
-							<Spinner />
 						</div>
 					) }
 				</>

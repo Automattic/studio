@@ -29,6 +29,18 @@ function writeStoredUiMode( mode: UiMode ) {
 	}
 }
 
+function resetRouteAndReload() {
+	if ( typeof window === 'undefined' ) {
+		return;
+	}
+
+	if ( window.location.pathname !== '/' || window.location.search || window.location.hash ) {
+		window.history.replaceState( window.history.state, '', '/' );
+	}
+
+	window.location.reload();
+}
+
 function isEditableTarget( target: EventTarget | null ) {
 	if ( ! ( target instanceof HTMLElement ) ) {
 		return false;
@@ -45,10 +57,18 @@ function isEditableTarget( target: EventTarget | null ) {
 export function useUiMode() {
 	const [ mode, setModeState ] = useState< UiMode >( readStoredUiMode );
 
-	const setMode = useCallback( ( nextMode: UiMode ) => {
-		setModeState( nextMode );
-		writeStoredUiMode( nextMode );
-	}, [] );
+	const setMode = useCallback(
+		( nextMode: UiMode ) => {
+			if ( mode === nextMode ) {
+				return;
+			}
+
+			setModeState( nextMode );
+			writeStoredUiMode( nextMode );
+			resetRouteAndReload();
+		},
+		[ mode ]
+	);
 
 	useEffect( () => {
 		function handleKeyDown( event: KeyboardEvent ) {
@@ -63,16 +83,12 @@ export function useUiMode() {
 			}
 
 			event.preventDefault();
-			setModeState( ( currentMode ) => {
-				const nextMode = currentMode === 'classic' ? 'desks' : 'classic';
-				writeStoredUiMode( nextMode );
-				return nextMode;
-			} );
+			setMode( mode === 'classic' ? 'desks' : 'classic' );
 		}
 
 		window.addEventListener( 'keydown', handleKeyDown );
 		return () => window.removeEventListener( 'keydown', handleKeyDown );
-	}, [] );
+	}, [ mode, setMode ] );
 
 	return { mode, setMode };
 }

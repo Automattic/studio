@@ -4,10 +4,11 @@ export const widgetDefinitions = {
 	[ noteWidgetDefinition.type ]: noteWidgetDefinition,
 };
 
-type RegisteredWidgetDefinition = ( typeof widgetDefinitions )[ keyof typeof widgetDefinitions ];
-export type CreatableWidgetDefinition = RegisteredWidgetDefinition;
-
 export function getWidgetDefinition( type: string ) {
+	if ( ! Object.prototype.hasOwnProperty.call( widgetDefinitions, type ) ) {
+		return undefined;
+	}
+
 	return widgetDefinitions[ type as keyof typeof widgetDefinitions ];
 }
 

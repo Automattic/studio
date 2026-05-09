@@ -9,11 +9,7 @@ import { DeskHeaderIconButton } from './header-button';
 import styles from './style.module.css';
 import type { DeskChatsSearch } from '../chats/search';
 
-interface DeskCreateMenuProps {
-	siteId?: string;
-}
-
-export function DeskCreateMenu( _props: DeskCreateMenuProps ) {
+export function DeskCreateMenu() {
 	const navigate = useNavigate();
 	const desk = useDesk();
 	const creatableWidgetDefinitions = getCreatableWidgetDefinitions();
@@ -43,21 +39,17 @@ export function DeskCreateMenu( _props: DeskCreateMenuProps ) {
 				render={ <DeskHeaderIconButton icon={ plus } label={ __( 'Create new' ) } /> }
 			/>
 			<Menu.Popup side="bottom" align="start" className={ styles.popup }>
-				{ desk && (
-					<>
-						{ creatableWidgetDefinitions.map( ( definition ) => (
-							<Menu.Item
-								key={ definition.type }
-								disabled={ ! desk.canAddWidgets }
-								onClick={ () => desk.addWidget( definition.type ) }
-							>
-								{ definition.icon && <Icon icon={ definition.icon } /> }
-								<span>{ definition.labels.add() }</span>
-							</Menu.Item>
-						) ) }
-						{ creatableWidgetDefinitions.length > 0 && <Menu.Separator /> }
-					</>
-				) }
+				{ creatableWidgetDefinitions.map( ( definition ) => (
+					<Menu.Item
+						key={ definition.type }
+						disabled={ ! desk.canAddWidgets }
+						onClick={ () => desk.addWidget( definition.type ) }
+					>
+						{ definition.icon && <Icon icon={ definition.icon } /> }
+						<span>{ definition.labels.add() }</span>
+					</Menu.Item>
+				) ) }
+				{ creatableWidgetDefinitions.length > 0 && <Menu.Separator /> }
 				<Menu.Item onClick={ createChat }>
 					<Icon icon={ comment } />
 					<span>{ __( 'New chat' ) }</span>

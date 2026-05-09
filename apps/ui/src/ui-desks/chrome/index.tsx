@@ -30,8 +30,8 @@ export function DeskChrome( { siteId }: DeskChromeProps ) {
 	return (
 		<DeskHeader>
 			<DeskMenu siteId={ siteId } />
-			<DeskChatsTrigger siteId={ siteId } />
-			<DeskCreateMenu siteId={ siteId } />
+			<DeskChatsTrigger />
+			<DeskCreateMenu />
 		</DeskHeader>
 	);
 }

@@ -55,7 +55,7 @@ function useDeskChatsSearch() {
 	return { open, setOpen, createChatRequestId };
 }
 
-export function DeskChatsTrigger( _props: DeskChatsProps ) {
+export function DeskChatsTrigger() {
 	const { open, setOpen } = useDeskChatsSearch();
 
 	return <DeskChatsButton open={ open } onToggle={ () => setOpen( ! open ) } />;

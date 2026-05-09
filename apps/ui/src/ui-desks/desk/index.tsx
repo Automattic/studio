@@ -1,6 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { DeskChats } from '../chats';
 import { DeskChrome } from '../chrome';
+import { DeskWidgetToolbar } from '../widgets/toolbar';
 import { DeskCanvas } from './canvas';
 import { DeskProvider } from './provider';
 import styles from './style.module.css';
@@ -27,6 +28,7 @@ function DeskShell( { siteId, children }: DeskProps & { children: ReactNode } ) 
 			<main className={ styles.root } aria-label={ getDeskLabel( siteId ) } data-site-id={ siteId }>
 				<DeskChrome siteId={ siteId } />
 				{ children }
+				<DeskWidgetToolbar />
 			</main>
 		</>
 	);

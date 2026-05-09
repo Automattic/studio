@@ -1,9 +1,9 @@
 import { createShapeId, type TLCamera, type TLShape, type TLShapePartial } from 'tldraw';
 import {
-	isRectangleWidgetShapeProps,
 	RECTANGLE_WIDGET_SHAPE_TYPE,
 	type RectangleWidgetCanvasProps,
 } from '@/ui-desks/shapes/rectangle-widget/types';
+import { isRectangleWidgetShapeProps } from '@/ui-desks/widgets/geometry';
 import { getWidgetDefinition } from '@/ui-desks/widgets/registry';
 import type { DeskViewport } from '@/ui-desks/desk/types';
 import type { DeskWidget } from '@/ui-desks/widgets/types';

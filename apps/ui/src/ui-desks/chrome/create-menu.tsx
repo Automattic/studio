@@ -1,11 +1,11 @@
 import { useNavigate } from '@tanstack/react-router';
 import { useEntityRecords, type Post as CoreDataPost } from '@wordpress/core-data';
+import { decodeEntities } from '@wordpress/html-entities';
 import { __ } from '@wordpress/i18n';
 import { chevronLeft, comment, download, globe, plus } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { useMemo, useState } from 'react';
 import { useSites } from '@/data/queries/use-sites';
-import { getRenderedText } from '@/data/wordpress/html';
 import { IconControlButton, Menu } from '@/ui-desks/components';
 import { useDesk } from '@/ui-desks/desk/provider';
 import { postWidgetDefinition } from '@/ui-desks/widgets/post/definition';
@@ -170,7 +170,7 @@ function PostPickerMenuItems( { onBack }: { onBack: () => void } ) {
 				<div className={ styles.postPickerStatus }>{ __( 'Unable to load posts.' ) }</div>
 			) }
 			{ records?.map( ( postRecord ) => {
-				const title = getRenderedText( postRecord.title ) || __( 'Untitled' );
+				const title = decodeEntities( postRecord.title?.rendered ?? '' ).trim() || __( 'Untitled' );
 				return (
 					<Menu.Item
 						key={ postRecord.id }

@@ -172,6 +172,7 @@ export function DeskChats( { siteId }: DeskChatsProps ) {
 							{ selectedSessionId ? (
 								<DeskSessionSurface
 									key={ selectedSessionId }
+									siteId={ siteId }
 									sessionId={ selectedSessionId }
 									onSwitchSession={ handleSwitchSession }
 									autoFocus={ autoFocusSessionId === selectedSessionId }

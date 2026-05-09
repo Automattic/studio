@@ -60,6 +60,12 @@ function assertDeskConfig( value: unknown ): asserts value is DeskConfig {
 	}
 }
 
+function assertSiteId( siteId: unknown ): asserts siteId is string {
+	if ( typeof siteId !== 'string' || ! siteId ) {
+		throw new Error( 'Invalid site desk config: expected site id.' );
+	}
+}
+
 export async function getUserDeskConfig(
 	_event: IpcMainInvokeEvent
 ): Promise< DeskConfig | undefined > {
@@ -80,6 +86,40 @@ export async function saveUserDeskConfig(
 			desks: {
 				...userData.desks,
 				user: config,
+			},
+		} );
+	} finally {
+		await unlockAppdata();
+	}
+}
+
+export async function getSiteDeskConfig(
+	_event: IpcMainInvokeEvent,
+	siteId: string
+): Promise< DeskConfig | undefined > {
+	assertSiteId( siteId );
+	const userData = await loadUserData();
+	return userData.desks?.sites?.[ siteId ];
+}
+
+export async function saveSiteDeskConfig(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	config: DeskConfig
+): Promise< void > {
+	assertSiteId( siteId );
+	assertDeskConfig( config );
+	await lockAppdata();
+	try {
+		const userData = await loadUserData();
+		await saveUserData( {
+			...userData,
+			desks: {
+				...userData.desks,
+				sites: {
+					...userData.desks?.sites,
+					[ siteId ]: config,
+				},
 			},
 		} );
 	} finally {

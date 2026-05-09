@@ -1,3 +1,9 @@
+.root,
+.loading {
+	min-height: 100vh;
+	background: rgb(232, 234, 235);
+}
+
 .canvas,
 .loading {
 	width: 100vw;

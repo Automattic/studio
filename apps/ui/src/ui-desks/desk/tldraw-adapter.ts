@@ -18,7 +18,7 @@ export function deskWidgetToCanvasShape( widget: DeskWidget ): TLShapePartial {
 
 	return {
 		id: createShapeId( widget.id ),
-		type: definition.shapeType,
+		type: RECTANGLE_WIDGET_SHAPE_TYPE,
 		x: widget.x,
 		y: widget.y,
 		rotation: widget.rotation ?? 0,
@@ -40,11 +40,7 @@ export function canvasShapeToDeskWidget( shape: TLShape ): DeskWidget | null {
 	}
 
 	const definition = getWidgetDefinition( shape.props.widgetType );
-	if (
-		! definition ||
-		definition.shapeType !== shape.type ||
-		! definition.isWidgetProps( shape.props.widgetProps )
-	) {
+	if ( ! definition || ! definition.isWidgetProps( shape.props.widgetProps ) ) {
 		return null;
 	}
 

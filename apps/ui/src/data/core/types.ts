@@ -235,6 +235,8 @@ export interface Connector {
 	// Desks
 	getUserDeskConfig(): Promise< DeskConfig | undefined >;
 	saveUserDeskConfig( config: DeskConfig ): Promise< void >;
+	getSiteDeskConfig( siteId: string ): Promise< DeskConfig | undefined >;
+	saveSiteDeskConfig( siteId: string, config: DeskConfig ): Promise< void >;
 
 	// Open the given site's folder in the system file manager, preferred
 	// editor, or preferred terminal. When no editor/terminal preference is

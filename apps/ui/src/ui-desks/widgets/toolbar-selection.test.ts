@@ -86,7 +86,7 @@ function createPostWidget(): DeskWidget {
 		zIndex: 'a1',
 		shapeProps: {
 			w: 280,
-			h: 360,
+			h: 380,
 		},
 		widgetProps: {
 			postId: 42,

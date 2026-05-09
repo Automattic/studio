@@ -1,7 +1,6 @@
 import { useEntityRecords, type Post as CoreDataPost } from '@wordpress/core-data';
 import { __ } from '@wordpress/i18n';
 import { useMemo } from 'react';
-import { getRenderedText } from '@/data/wordpress/html';
 import styles from './style.module.css';
 import type { PostWidgetProps } from './types';
 import type { DeskWidgetComponentProps } from '@/ui-desks/widgets/types';
@@ -14,7 +13,7 @@ export function PostWidgetComponent( { id, widgetProps }: PostWidgetComponentPro
 			include: [ widgetProps.postId ],
 			per_page: 1,
 			context: 'view',
-			_fields: 'id,title,excerpt,status,date,link',
+			_fields: 'id,title,excerpt',
 		} ),
 		[ widgetProps.postId ]
 	);
@@ -29,9 +28,7 @@ export function PostWidgetComponent( { id, widgetProps }: PostWidgetComponentPro
 	const hasError = resolutionStatus === 'ERROR';
 
 	const title = getPostTitle( record, isResolving, hasError );
-	const excerpt = getRenderedText( record?.excerpt );
-	const status = record?.status;
-	const date = getFormattedDate( record?.date );
+	const excerpt = record?.excerpt?.rendered ?? '';
 
 	return (
 		<article
@@ -40,20 +37,17 @@ export function PostWidgetComponent( { id, widgetProps }: PostWidgetComponentPro
 			data-studio-desk-widget="post"
 			data-studio-desk-widget-id={ id }
 		>
-			<div className={ styles.meta }>
-				<span className={ styles.type }>{ __( 'Post' ) }</span>
-				{ status && <span className={ styles.status }>{ status }</span> }
-			</div>
-			<h2 className={ styles.title }>{ title }</h2>
-			{ excerpt && <p className={ styles.excerpt }>{ excerpt }</p> }
-			{ date && <time className={ styles.date }>{ date }</time> }
+			<h2 className={ styles.title } dangerouslySetInnerHTML={ { __html: title } } />
+			{ excerpt && (
+				<div className={ styles.body } dangerouslySetInnerHTML={ { __html: excerpt } } />
+			) }
 		</article>
 	);
 }
 
 function getPostTitle( postRecord: CoreDataPost | null, isResolving: boolean, hasError: boolean ) {
 	if ( postRecord ) {
-		return getRenderedText( postRecord.title ) || __( 'Untitled' );
+		return postRecord.title?.rendered || __( 'Untitled' );
 	}
 
 	if ( hasError ) {
@@ -61,21 +55,4 @@ function getPostTitle( postRecord: CoreDataPost | null, isResolving: boolean, ha
 	}
 
 	return isResolving ? __( 'Loading post…' ) : __( 'Post unavailable' );
-}
-
-function getFormattedDate( date: string | null | undefined ) {
-	if ( ! date ) {
-		return '';
-	}
-
-	const parsedDate = new Date( date );
-	if ( Number.isNaN( parsedDate.getTime() ) ) {
-		return '';
-	}
-
-	return new Intl.DateTimeFormat( undefined, {
-		month: 'short',
-		day: 'numeric',
-		year: 'numeric',
-	} ).format( parsedDate );
 }

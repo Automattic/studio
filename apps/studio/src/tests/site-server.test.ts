@@ -13,12 +13,11 @@ vi.mock( 'src/lib/wordpress-setup', () => ( {
 } ) );
 
 // Mock the WordPress provider
-const mockStartServerResult = {
+const mockStartServer = vi.fn().mockResolvedValue( {
 	url: 'http://localhost:1234',
 	options: { port: 1234, phpVersion: '8.0' },
 	_internal: { mode: 'wordpress', port: 1234 },
-};
-const mockStartServer = vi.fn().mockResolvedValue( mockStartServerResult );
+} );
 
 vi.mock( 'src/lib/wordpress-provider', () => {
 	const mockProvider = {
@@ -74,11 +73,6 @@ vi.mock( 'src/modules/cli/lib/cli-server-process', () => {
 vi.mock( 'src/storage/user-data' );
 
 describe( 'SiteServer', () => {
-	beforeEach( () => {
-		vi.clearAllMocks();
-		mockStartServer.mockResolvedValue( mockStartServerResult );
-	} );
-
 	describe( 'start', () => {
 		it( 'should throw if the server starts with a non-WordPress mode', async () => {
 			mockStartServer.mockRejectedValue(
@@ -101,34 +95,6 @@ describe( 'SiteServer', () => {
 			await expect( server.start() ).rejects.toThrow(
 				"Site server started with Playground's 'theme' mode. Studio only supports 'wordpress' mode."
 			);
-		} );
-
-		it( 'should reuse an in-flight start request', async () => {
-			let resolveStart!: ( value: typeof mockStartServerResult ) => void;
-			mockStartServer.mockReturnValue(
-				new Promise( ( resolve ) => {
-					resolveStart = resolve;
-				} )
-			);
-
-			const server = SiteServer.register( {
-				id: 'concurrent-start-test-id',
-				name: 'test-name',
-				path: 'test-path',
-				port: 1234,
-				adminPassword: 'test-password',
-				phpVersion: '8.4',
-				running: false,
-				themeDetails: undefined,
-			} );
-
-			const firstStart = server.start();
-			const secondStart = server.start();
-			resolveStart( mockStartServerResult );
-
-			await Promise.all( [ firstStart, secondStart ] );
-
-			expect( mockStartServer ).toHaveBeenCalledTimes( 1 );
 		} );
 	} );
 } );

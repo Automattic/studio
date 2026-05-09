@@ -67,11 +67,11 @@ describe( 'createDeskWidget', () => {
 			id: 'post-1',
 			type: 'post',
 			x: 360,
-			y: 220,
+			y: 210,
 			zIndex: 'a3',
 			shapeProps: {
 				w: 280,
-				h: 360,
+				h: 380,
 			},
 			widgetProps: {
 				postId: 42,

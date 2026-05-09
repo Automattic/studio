@@ -100,7 +100,7 @@ describe( 'tldraw adapter', () => {
 			zIndex: 'a3',
 			shapeProps: {
 				w: 280,
-				h: 360,
+				h: 380,
 			},
 			widgetProps: {
 				postId: 42,
@@ -119,7 +119,7 @@ describe( 'tldraw adapter', () => {
 				widgetType: 'post',
 				shapeProps: {
 					w: 280,
-					h: 360,
+					h: 380,
 				},
 				widgetProps: {
 					postId: 42,

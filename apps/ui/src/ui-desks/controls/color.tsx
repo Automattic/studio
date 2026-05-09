@@ -1,5 +1,6 @@
 import { color as colorIcon } from '@wordpress/icons';
-import { Icon } from '@wordpress/ui';
+import { IconButton } from '@wordpress/ui';
+import * as Menu from '@/components/menu';
 import styles from './style.module.css';
 import type { ControlConfig, ControlRendererProps } from './types';
 import type { CSSProperties } from 'react';
@@ -18,37 +19,37 @@ export function ColorControl( {
 	const currentValue = props[ control.property ];
 
 	return (
-		<div className={ styles.control }>
-			<button
-				type="button"
-				className={ styles.button }
-				data-active={ isOpen ? 'true' : 'false' }
-				title={ control.label }
-				aria-label={ control.label }
-				onClick={ () => setIsOpen( ! isOpen ) }
-			>
-				<Icon icon={ colorIcon } size={ 24 } />
-			</button>
-			{ isOpen && (
-				<div className={ styles.popover }>
-					{ control.options.map( ( option ) => (
-						<button
-							key={ option.value }
-							type="button"
-							className={ styles.swatch }
-							style={ getSwatchStyle( option.color ) }
-							data-active={ currentValue === option.value ? 'true' : 'false' }
-							title={ option.label }
-							aria-label={ option.label }
-							onClick={ () => {
-								updateProps( { [ control.property ]: option.value } );
-								setIsOpen( false );
-							} }
-						/>
-					) ) }
-				</div>
-			) }
-		</div>
+		<Menu.Root modal={ false } open={ isOpen } orientation="horizontal" onOpenChange={ setIsOpen }>
+			<Menu.Trigger
+				render={
+					<IconButton
+						icon={ colorIcon }
+						label={ control.label }
+						size="compact"
+						tone="neutral"
+						variant="minimal"
+						aria-pressed={ isOpen }
+						className={ styles.button }
+					/>
+				}
+			/>
+			<Menu.Popup side="top" align="center" sideOffset={ 18 } className={ styles.swatchMenu }>
+				{ control.options.map( ( option ) => (
+					<Menu.Item
+						key={ option.value }
+						className={ styles.swatch }
+						style={ getSwatchStyle( option.color ) }
+						data-active={ currentValue === option.value ? 'true' : 'false' }
+						title={ option.label }
+						aria-label={ option.label }
+						label={ option.label }
+						onClick={ () => {
+							updateProps( { [ control.property ]: option.value } );
+						} }
+					/>
+				) ) }
+			</Menu.Popup>
+		</Menu.Root>
 	);
 }
 

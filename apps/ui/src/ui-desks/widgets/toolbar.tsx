@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { trash } from '@wordpress/icons';
-import { Icon } from '@wordpress/ui';
+import { IconButton } from '@wordpress/ui';
 import { useEffect, useState } from 'react';
 import { ControlRenderer } from '@/ui-desks/controls/registry';
 import controlStyles from '@/ui-desks/controls/style.module.css';
@@ -53,15 +53,15 @@ export function DeskWidgetToolbar() {
 				/>
 			) ) }
 			<div className={ styles.toolbarDivider } />
-			<button
-				type="button"
+			<IconButton
+				icon={ trash }
+				label={ __( 'Remove widget' ) }
+				size="compact"
+				tone="neutral"
+				variant="minimal"
 				className={ controlStyles.button }
-				title={ __( 'Remove widget' ) }
-				aria-label={ __( 'Remove widget' ) }
 				onClick={ removeSelectedWidget }
-			>
-				<Icon icon={ trash } size={ 24 } />
-			</button>
+			/>
 		</div>
 	);
 }

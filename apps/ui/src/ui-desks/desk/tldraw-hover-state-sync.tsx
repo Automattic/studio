@@ -5,6 +5,8 @@ export function TldrawHoverStateSync() {
 	const editor = useEditor();
 
 	useEffect( () => {
+		// Work around a tldraw bug where a canvas mounted under an existing cursor can miss
+		// pointerenter, leaving hover indicators hidden until focus changes.
 		const markHoveringCanvas = ( info: TLEventInfo ) => {
 			if ( info.type !== 'pointer' || info.name !== 'pointer_move' ) {
 				return;

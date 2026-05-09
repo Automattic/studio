@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { StackProvider } from '@/ui-desks/stacks/provider';
+import { StackAnimationContext } from '@/ui-desks/stacks/context';
+import {
+	useStackInteractions,
+	type StackInteractionState,
+} from '@/ui-desks/stacks/use-stack-interactions';
 import {
 	DeskContext,
 	DeskEditorRegistrationContext,
@@ -29,9 +33,24 @@ export function DeskProvider( { siteId, children }: DeskProviderProps ) {
 	const [ isHydrated, setIsHydrated ] = useState( false );
 	const [ selectedWidgetToolbarItem, setSelectedWidgetToolbarItem ] =
 		useState< SelectedWidgetToolbarItem | null >( null );
+	const [ pressedStackId, setPressedStackId ] = useState< string | null >( null );
 	const hydratedRef = useRef( false );
 	const creationOffsetRef = useRef( 0 );
 	const saveTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
+	const stackPressTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
+	const isStackPointerSessionRef = useRef( false );
+	const pointerDownStackIdRef = useRef< string | null >( null );
+	const movedStackShapeIdsRef = useRef( new Set< string >() );
+	const stackInteractionState = useMemo< StackInteractionState >(
+		() => ( {
+			isPointerSessionRef: isStackPointerSessionRef,
+			pointerDownStackIdRef,
+			movedShapeIdsRef: movedStackShapeIdsRef,
+		} ),
+		[ isStackPointerSessionRef, movedStackShapeIdsRef, pointerDownStackIdRef ]
+	);
+
+	useStackInteractions( editor, stackInteractionState );
 
 	useEffect( () => {
 		if ( ! editor || isLoading || hydratedRef.current ) {
@@ -100,7 +119,37 @@ export function DeskProvider( { siteId, children }: DeskProviderProps ) {
 			hydratedRef.current = false;
 			setIsHydrated( false );
 			setSelectedWidgetToolbarItem( null );
+			setPressedStackId( null );
+			if ( stackPressTimerRef.current ) {
+				clearTimeout( stackPressTimerRef.current );
+				stackPressTimerRef.current = null;
+			}
+			isStackPointerSessionRef.current = false;
+			pointerDownStackIdRef.current = null;
+			movedStackShapeIdsRef.current.clear();
 		}
+	}, [] );
+
+	const pressStack = useCallback( ( stackId: string ) => {
+		if ( stackPressTimerRef.current ) {
+			clearTimeout( stackPressTimerRef.current );
+		}
+
+		setPressedStackId( stackId );
+		stackPressTimerRef.current = setTimeout( () => {
+			stackPressTimerRef.current = null;
+			setPressedStackId( ( currentStackId ) =>
+				currentStackId === stackId ? null : currentStackId
+			);
+		}, 180 );
+	}, [] );
+
+	useEffect( () => {
+		return () => {
+			if ( stackPressTimerRef.current ) {
+				clearTimeout( stackPressTimerRef.current );
+			}
+		};
 	}, [] );
 
 	const addWidget = useCallback(
@@ -190,11 +239,20 @@ export function DeskProvider( { siteId, children }: DeskProviderProps ) {
 			updateSelectedWidgetProps,
 		]
 	);
+	const stackAnimationContextValue = useMemo(
+		() => ( {
+			pressedStackId,
+			pressStack,
+		} ),
+		[ pressStack, pressedStackId ]
+	);
 
 	return (
 		<DeskEditorRegistrationContext.Provider value={ registerEditor }>
 			<DeskContext.Provider value={ value }>
-				<StackProvider editor={ editor }>{ children }</StackProvider>
+				<StackAnimationContext.Provider value={ stackAnimationContextValue }>
+					{ children }
+				</StackAnimationContext.Provider>
 			</DeskContext.Provider>
 		</DeskEditorRegistrationContext.Provider>
 	);

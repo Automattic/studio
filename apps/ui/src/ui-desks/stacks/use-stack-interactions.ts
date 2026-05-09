@@ -1,11 +1,18 @@
 import { useEffect } from 'react';
 import { collapseAllExpandedStacksInEditor, expandStackInEditor } from './editor-commands';
 import { getStackId, isStackExpanded } from './utils';
+import type { MutableRefObject } from 'react';
 import type { Editor, TLEventInfo } from 'tldraw';
 
-export function useStackInteractions( editor: Editor | null ) {
+export interface StackInteractionState {
+	isPointerSessionRef: MutableRefObject< boolean >;
+	pointerDownStackIdRef: MutableRefObject< string | null >;
+	movedShapeIdsRef: MutableRefObject< Set< string > >;
+}
+
+export function useStackInteractions( editor: Editor | null, state: StackInteractionState ) {
 	useStackDragSelection( editor );
-	useStackClickToOpen( editor );
+	useStackClickToOpen( editor, state );
 }
 
 function useStackDragSelection( editor: Editor | null ) {
@@ -40,19 +47,16 @@ function useStackDragSelection( editor: Editor | null ) {
 	}, [ editor ] );
 }
 
-function useStackClickToOpen( editor: Editor | null ) {
+function useStackClickToOpen( editor: Editor | null, state: StackInteractionState ) {
 	useEffect( () => {
 		if ( ! editor ) {
 			return;
 		}
 
-		let isPointerSession = false;
-		let pointerDownStackId: string | null = null;
-		const movedShapeIds = new Set< string >();
 		const unsubscribeShapeChanges = editor.sideEffects.registerAfterChangeHandler(
 			'shape',
 			( previousShape, nextShape ) => {
-				if ( ! isPointerSession ) {
+				if ( ! state.isPointerSessionRef.current ) {
 					return;
 				}
 
@@ -61,7 +65,7 @@ function useStackClickToOpen( editor: Editor | null ) {
 					previousShape.y !== nextShape.y ||
 					previousShape.rotation !== nextShape.rotation
 				) {
-					movedShapeIds.add( nextShape.id );
+					state.movedShapeIdsRef.current.add( nextShape.id );
 				}
 			}
 		);
@@ -76,25 +80,25 @@ function useStackClickToOpen( editor: Editor | null ) {
 					return;
 				}
 
-				isPointerSession = true;
-				pointerDownStackId = getCollapsedStackIdAtPointer( editor );
-				movedShapeIds.clear();
+				state.isPointerSessionRef.current = true;
+				state.pointerDownStackIdRef.current = getCollapsedStackIdAtPointer( editor );
+				state.movedShapeIdsRef.current.clear();
 				return;
 			}
 
-			if ( info.name !== 'pointer_up' || ! isPointerSession ) {
+			if ( info.name !== 'pointer_up' || ! state.isPointerSessionRef.current ) {
 				return;
 			}
 
-			isPointerSession = false;
-			const clickedStackId = pointerDownStackId;
-			pointerDownStackId = null;
+			state.isPointerSessionRef.current = false;
+			const clickedStackId = state.pointerDownStackIdRef.current;
+			state.pointerDownStackIdRef.current = null;
 			if ( clickedStackId ) {
 				const movedStack = editor
 					.getCurrentPageShapes()
 					.filter( ( shape ) => getStackId( shape ) === clickedStackId )
-					.some( ( shape ) => movedShapeIds.has( shape.id ) );
-				movedShapeIds.clear();
+					.some( ( shape ) => state.movedShapeIdsRef.current.has( shape.id ) );
+				state.movedShapeIdsRef.current.clear();
 				if ( movedStack ) {
 					return;
 				}
@@ -108,15 +112,18 @@ function useStackClickToOpen( editor: Editor | null ) {
 			if ( selectedShapeIds.length === 0 ) {
 				collapseAllExpandedStacksInEditor( editor );
 			}
-			movedShapeIds.clear();
+			state.movedShapeIdsRef.current.clear();
 		};
 
 		editor.on( 'event', handleStackClick );
 		return () => {
+			state.isPointerSessionRef.current = false;
+			state.pointerDownStackIdRef.current = null;
+			state.movedShapeIdsRef.current.clear();
 			editor.off( 'event', handleStackClick );
 			unsubscribeShapeChanges();
 		};
-	}, [ editor ] );
+	}, [ editor, state ] );
 }
 
 function getCollapsedStackIdAtPointer( editor: Editor ) {

@@ -14,6 +14,8 @@ export interface DeskContextValue {
 	selectedWidgetToolbarItem: SelectedWidgetToolbarItem | null;
 	addWidget: ( type: string, options?: AddDeskWidgetOptions ) => boolean;
 	updateSelectedWidgetProps: ( widgetProps: Record< string, unknown > ) => boolean;
+	stackSelectedWidgets: () => boolean;
+	unstackSelectedWidgets: () => boolean;
 	removeSelectedWidget: () => boolean;
 }
 
@@ -37,6 +39,8 @@ const defaultDeskContext: DeskContextValue = {
 	selectedWidgetToolbarItem: null,
 	addWidget: () => false,
 	updateSelectedWidgetProps: () => false,
+	stackSelectedWidgets: () => false,
+	unstackSelectedWidgets: () => false,
 	removeSelectedWidget: () => false,
 };
 

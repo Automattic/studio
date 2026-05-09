@@ -14,8 +14,12 @@ describe( 'widget toolbar selection', () => {
 	it( 'returns the toolbar item for a single note widget selection', () => {
 		const selectedItem = getSelectedWidgetToolbarItem( [ createNoteWidget() ] );
 
-		expect( selectedItem?.definition.type ).toBe( NOTE_WIDGET_TYPE );
-		expect( selectedItem?.widget.widgetProps ).toEqual( {
+		expect( selectedItem ).toMatchObject( { kind: 'single-widget' } );
+		if ( selectedItem?.kind !== 'single-widget' ) {
+			throw new Error( 'Expected a single widget toolbar item.' );
+		}
+		expect( selectedItem.definition.type ).toBe( NOTE_WIDGET_TYPE );
+		expect( selectedItem.widget.widgetProps ).toEqual( {
 			text: 'Hello',
 			tone: 'yellow',
 		} );
@@ -24,9 +28,13 @@ describe( 'widget toolbar selection', () => {
 	it( 'returns the toolbar item for a single post widget selection', () => {
 		const selectedItem = getSelectedWidgetToolbarItem( [ createPostWidget() ] );
 
-		expect( selectedItem?.definition.type ).toBe( POST_WIDGET_TYPE );
-		expect( selectedItem?.definition.controls?.[ 0 ]?.type ).toBe( 'custom' );
-		expect( selectedItem?.widget.widgetProps ).toEqual( {
+		expect( selectedItem ).toMatchObject( { kind: 'single-widget' } );
+		if ( selectedItem?.kind !== 'single-widget' ) {
+			throw new Error( 'Expected a single widget toolbar item.' );
+		}
+		expect( selectedItem.definition.type ).toBe( POST_WIDGET_TYPE );
+		expect( selectedItem.definition.controls?.[ 0 ]?.type ).toBe( 'custom' );
+		expect( selectedItem.widget.widgetProps ).toEqual( {
 			postId: 42,
 		} );
 	} );
@@ -34,19 +42,40 @@ describe( 'widget toolbar selection', () => {
 	it( 'returns the toolbar item for a single page widget selection', () => {
 		const selectedItem = getSelectedWidgetToolbarItem( [ createPageWidget() ] );
 
-		expect( selectedItem?.definition.type ).toBe( PAGE_WIDGET_TYPE );
-		expect( selectedItem?.definition.controls?.[ 0 ]?.type ).toBe( 'color' );
-		expect( selectedItem?.widget.widgetProps ).toEqual( {
+		expect( selectedItem ).toMatchObject( { kind: 'single-widget' } );
+		if ( selectedItem?.kind !== 'single-widget' ) {
+			throw new Error( 'Expected a single widget toolbar item.' );
+		}
+		expect( selectedItem.definition.type ).toBe( PAGE_WIDGET_TYPE );
+		expect( selectedItem.definition.controls?.[ 0 ]?.type ).toBe( 'color' );
+		expect( selectedItem.widget.widgetProps ).toEqual( {
 			pageId: 84,
 			tone: 'blue',
 		} );
 	} );
 
-	it( 'ignores empty and multi-widget selections', () => {
+	it( 'ignores empty selections and returns stack actions for multi-widget selections', () => {
 		const widget = createNoteWidget();
 
 		expect( getSelectedWidgetToolbarItem( [] ) ).toBeNull();
-		expect( getSelectedWidgetToolbarItem( [ widget, widget ] ) ).toBeNull();
+		expect( getSelectedWidgetToolbarItem( [ widget, widget ] ) ).toMatchObject( {
+			kind: 'multi-widget',
+			canStack: true,
+			canUnstack: false,
+		} );
+	} );
+
+	it( 'returns unstack actions for selections with stack members', () => {
+		const widget = createNoteWidget();
+
+		expect(
+			getSelectedWidgetToolbarItem( [ widget, widget ], { stackIds: [ 'stack-1' ] } )
+		).toMatchObject( {
+			kind: 'multi-widget',
+			canStack: false,
+			canUnstack: true,
+			stackIds: [ 'stack-1' ],
+		} );
 	} );
 
 	it( 'ignores unsupported widgets', () => {

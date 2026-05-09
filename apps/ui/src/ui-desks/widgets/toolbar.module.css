@@ -20,3 +20,12 @@
 	pointer-events: none;
 	transform: translate( -50%, 4px ) scale( 0.99 );
 }
+
+.label {
+	padding: 0 8px;
+	color: var(--ui-desks-muted, #6b7280);
+	font-size: 12px;
+	font-weight: 500;
+	line-height: 36px;
+	white-space: nowrap;
+}

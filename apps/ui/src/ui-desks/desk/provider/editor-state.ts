@@ -1,18 +1,25 @@
+import { getIndexAbove, sortByIndex, type Editor, type JsonObject, type TLShape } from 'tldraw';
 import {
 	RECTANGLE_WIDGET_SHAPE_TYPE,
 	type RectangleWidgetShape,
 } from '@/ui-desks/shapes/rectangle-widget/types';
+import {
+	stackSelectedWidgetsInEditor as stackSelectionInEditor,
+	unstackSelectedWidgetsInEditor as unstackSelectionInEditor,
+} from '@/ui-desks/stacks/editor-commands';
+import { getStackId } from '@/ui-desks/stacks/utils';
 import { createDeskWidget } from '@/ui-desks/widgets/create-widget';
 import { getSelectedWidgetToolbarItem } from '@/ui-desks/widgets/toolbar-selection';
 import {
 	canvasCameraToDeskViewport,
 	canvasShapeToDeskWidget,
+	canvasShapesToDeskStacks,
+	deskConfigToCanvasShapes,
 	deskWidgetToCanvasShape,
 } from '../tldraw-adapter';
 import { DESK_CONFIG_VERSION, type DeskConfig } from '../types';
 import type { SelectedWidgetToolbarItem, AddDeskWidgetOptions } from './context';
 import type { DeskWidget } from '@/ui-desks/widgets/types';
-import type { Editor, JsonObject, TLShape } from 'tldraw';
 
 interface CanvasStoreChanges {
 	added: Record< string, unknown >;
@@ -26,7 +33,7 @@ export function hydrateEditorFromDesk( editor: Editor, desk: DeskConfig ) {
 		editor.deleteShapes( existingShapes.map( ( shape ) => shape.id ) );
 	}
 	if ( desk.widgets.length > 0 ) {
-		editor.createShapes( desk.widgets.map( deskWidgetToCanvasShape ) );
+		editor.createShapes( deskConfigToCanvasShapes( desk ) );
 	}
 	if ( desk.viewport ) {
 		editor.setCamera( desk.viewport, { immediate: true } );
@@ -37,11 +44,13 @@ export function hydrateEditorFromDesk( editor: Editor, desk: DeskConfig ) {
 }
 
 export function createDeskConfigFromEditor( editor: Editor ): DeskConfig {
+	const stacks = getCurrentDeskStacks( editor );
 	return {
 		version: DESK_CONFIG_VERSION,
 		updatedAt: new Date().toISOString(),
 		viewport: canvasCameraToDeskViewport( editor.getCamera() ),
 		widgets: getCurrentDeskWidgets( editor ),
+		...( stacks.length > 0 ? { stacks } : {} ),
 	};
 }
 
@@ -64,7 +73,7 @@ export function addWidgetToEditor(
 			x: viewportCenter.x + offset,
 			y: viewportCenter.y + offset,
 		},
-		zIndex: getNextZIndex( getCurrentDeskWidgets( editor ) ),
+		zIndex: getNextZIndexFromShapes( editor.getCurrentPageShapes() ),
 		shapeProps: options.shapeProps,
 		widgetProps: options.widgetProps,
 	} );
@@ -91,11 +100,12 @@ export function updateSelectedWidgetPropsInEditor(
 	widgetProps: Record< string, unknown >
 ): SelectedWidgetToolbarItem | null {
 	const selection = getCurrentSelectedWidgetSelection( editor );
-	if ( ! selection ) {
+	if ( ! selection || selection.item.kind !== 'single-widget' ) {
 		return null;
 	}
 
-	const { item, shape } = selection;
+	const { item, shapes } = selection;
+	const [ shape ] = shapes;
 	const nextWidgetProps = {
 		...item.widget.widgetProps,
 		...widgetProps,
@@ -127,8 +137,24 @@ export function removeSelectedWidgetFromEditor( editor: Editor ) {
 		return false;
 	}
 
-	editor.deleteShapes( [ selection.shape.id ] );
+	editor.deleteShapes( selection.shapes.map( ( shape ) => shape.id ) );
 	return true;
+}
+
+export function stackSelectedWidgetsInEditor( editor: Editor ) {
+	const selection = getCurrentSelectedWidgetSelection( editor );
+	return stackSelectionInEditor(
+		editor,
+		selection ? { ...selection.item, shapes: selection.shapes } : null
+	);
+}
+
+export function unstackSelectedWidgetsInEditor( editor: Editor ) {
+	const selection = getCurrentSelectedWidgetSelection( editor );
+	return unstackSelectionInEditor(
+		editor,
+		selection ? { ...selection.item, shapes: selection.shapes } : null
+	);
 }
 
 export function hasCameraChange( changes: CanvasStoreChanges ) {
@@ -143,28 +169,35 @@ export function hasCameraChange( changes: CanvasStoreChanges ) {
 
 function getCurrentSelectedWidgetSelection( editor: Editor ) {
 	const selectedShapeIds = editor.getSelectedShapeIds();
-	if ( selectedShapeIds.length !== 1 ) {
+	if ( selectedShapeIds.length === 0 ) {
 		return null;
 	}
 
-	const shape = editor.getShape( selectedShapeIds[ 0 ] );
-	if ( ! shape ) {
+	const shapes = selectedShapeIds.map( ( shapeId ) => editor.getShape( shapeId ) );
+	if ( shapes.some( ( shape ) => ! shape ) ) {
 		return null;
 	}
 
-	const widget = canvasShapeToDeskWidget( shape );
-	if ( ! widget ) {
+	const widgets = shapes.map( ( shape ) => canvasShapeToDeskWidget( shape as TLShape ) );
+	if ( widgets.some( ( widget ) => ! widget ) ) {
 		return null;
 	}
 
-	const item = getSelectedWidgetToolbarItem( [ widget ] );
+	const stackIds = Array.from(
+		new Set(
+			( shapes as TLShape[] )
+				.map( getStackId )
+				.filter( ( stackId ): stackId is string => stackId !== null )
+		)
+	);
+	const item = getSelectedWidgetToolbarItem( widgets as DeskWidget[], { stackIds } );
 	if ( ! item ) {
 		return null;
 	}
 
 	return {
 		item,
-		shape: shape as TLShape,
+		shapes: shapes as TLShape[],
 	};
 }
 
@@ -173,6 +206,10 @@ function getCurrentDeskWidgets( editor: Editor ) {
 		.getCurrentPageShapes()
 		.map( canvasShapeToDeskWidget )
 		.filter( ( widget ) => widget !== null );
+}
+
+function getCurrentDeskStacks( editor: Editor ) {
+	return canvasShapesToDeskStacks( editor.getCurrentPageShapes() );
 }
 
 function isCameraRecord( value: unknown ) {
@@ -200,14 +237,12 @@ function ensureContentVisible( editor: Editor ) {
 	}
 }
 
-function getNextZIndex( widgets: DeskWidget[] ) {
-	const nextIndex =
-		widgets.reduce( ( max, widget ) => {
-			const numericIndex = Number( widget.zIndex.replace( /^a/, '' ) );
-			return Number.isFinite( numericIndex ) ? Math.max( max, numericIndex ) : max;
-		}, 0 ) + 1;
+function getHighestShapeIndex( shapes: Pick< TLShape, 'index' >[] ) {
+	return [ ...shapes ].sort( sortByIndex ).at( -1 )?.index;
+}
 
-	return `a${ nextIndex }`;
+function getNextZIndexFromShapes( shapes: TLShape[] ) {
+	return getIndexAbove( getHighestShapeIndex( shapes ) );
 }
 
 function createWidgetId() {

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useStackInteractions } from '@/ui-desks/stacks/use-stack-interactions';
+import { useStackPressAnimation } from '@/ui-desks/stacks/use-stack-press-animation';
 import {
 	DeskContext,
-	DeskEditorRegistrationContext,
 	type AddDeskWidgetOptions,
 	type DeskProviderProps,
 	type SelectedWidgetToolbarItem,
@@ -13,6 +14,8 @@ import {
 	hasCameraChange,
 	hydrateEditorFromDesk,
 	removeSelectedWidgetFromEditor,
+	stackSelectedWidgetsInEditor,
+	unstackSelectedWidgetsInEditor,
 	updateSelectedWidgetPropsInEditor,
 } from './editor-state';
 import { useDeskPersistence } from './persistence';
@@ -26,9 +29,13 @@ export function DeskProvider( { siteId, children }: DeskProviderProps ) {
 	const [ isHydrated, setIsHydrated ] = useState( false );
 	const [ selectedWidgetToolbarItem, setSelectedWidgetToolbarItem ] =
 		useState< SelectedWidgetToolbarItem | null >( null );
+	const [ pressedStackId, setPressedStackId ] = useState< string | null >( null );
 	const hydratedRef = useRef( false );
 	const creationOffsetRef = useRef( 0 );
 	const saveTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
+	const { pressStack, clearPressedStack } = useStackPressAnimation( setPressedStackId );
+
+	useStackInteractions( editor );
 
 	useEffect( () => {
 		if ( ! editor || isLoading || hydratedRef.current ) {
@@ -91,14 +98,18 @@ export function DeskProvider( { siteId, children }: DeskProviderProps ) {
 		};
 	}, [ editor, saveDeskConfig ] );
 
-	const registerEditor = useCallback( ( nextEditor: Editor | null ) => {
-		setEditor( nextEditor );
-		if ( ! nextEditor ) {
-			hydratedRef.current = false;
-			setIsHydrated( false );
-			setSelectedWidgetToolbarItem( null );
-		}
-	}, [] );
+	const registerEditor = useCallback(
+		( nextEditor: Editor | null ) => {
+			setEditor( nextEditor );
+			if ( ! nextEditor ) {
+				hydratedRef.current = false;
+				setIsHydrated( false );
+				setSelectedWidgetToolbarItem( null );
+				clearPressedStack();
+			}
+		},
+		[ clearPressedStack ]
+	);
 
 	const addWidget = useCallback(
 		( type: string, options?: AddDeskWidgetOptions ) => {
@@ -135,6 +146,24 @@ export function DeskProvider( { siteId, children }: DeskProviderProps ) {
 		[ editor, isHydrated ]
 	);
 
+	const stackSelectedWidgets = useCallback( () => {
+		if ( ! editor || ! isHydrated || ! stackSelectedWidgetsInEditor( editor ) ) {
+			return false;
+		}
+
+		setSelectedWidgetToolbarItem( getCurrentSelectedWidgetToolbarItem( editor ) );
+		return true;
+	}, [ editor, isHydrated ] );
+
+	const unstackSelectedWidgets = useCallback( () => {
+		if ( ! editor || ! isHydrated || ! unstackSelectedWidgetsInEditor( editor ) ) {
+			return false;
+		}
+
+		setSelectedWidgetToolbarItem( getCurrentSelectedWidgetToolbarItem( editor ) );
+		return true;
+	}, [ editor, isHydrated ] );
+
 	const removeSelectedWidget = useCallback( () => {
 		if ( ! editor || ! isHydrated || ! removeSelectedWidgetFromEditor( editor ) ) {
 			return false;
@@ -150,8 +179,13 @@ export function DeskProvider( { siteId, children }: DeskProviderProps ) {
 			isLoading,
 			canAddWidgets: Boolean( editor ) && isHydrated,
 			selectedWidgetToolbarItem,
+			pressedStackId,
+			registerEditor,
+			pressStack,
 			addWidget,
 			updateSelectedWidgetProps,
+			stackSelectedWidgets,
+			unstackSelectedWidgets,
 			removeSelectedWidget,
 		} ),
 		[
@@ -159,16 +193,17 @@ export function DeskProvider( { siteId, children }: DeskProviderProps ) {
 			editor,
 			isHydrated,
 			isLoading,
+			pressStack,
+			pressedStackId,
+			registerEditor,
 			removeSelectedWidget,
 			selectedWidgetToolbarItem,
+			stackSelectedWidgets,
 			siteId,
+			unstackSelectedWidgets,
 			updateSelectedWidgetProps,
 		]
 	);
 
-	return (
-		<DeskEditorRegistrationContext.Provider value={ registerEditor }>
-			<DeskContext.Provider value={ value }>{ children }</DeskContext.Provider>
-		</DeskEditorRegistrationContext.Provider>
-	);
+	return <DeskContext.Provider value={ value }>{ children }</DeskContext.Provider>;
 }

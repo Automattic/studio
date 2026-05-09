@@ -10,6 +10,8 @@ import {
 	type RecordProps,
 	type TLResizeInfo,
 } from 'tldraw';
+import { useStackShapeInteraction } from '@/ui-desks/stacks/use-stack-shape-interaction';
+import { getStackId, isStackExpanded } from '@/ui-desks/stacks/utils';
 import { getWidgetDefinition } from '@/ui-desks/widgets/registry';
 import {
 	RECTANGLE_WIDGET_SHAPE_TYPE,
@@ -98,6 +100,10 @@ export class RectangleWidgetShapeUtil extends ShapeUtil< RectangleWidgetShape > 
 	}
 
 	override indicator( shape: RectangleWidgetShape ) {
+		if ( getStackId( shape ) && ! isStackExpanded( shape ) ) {
+			return null;
+		}
+
 		const definition = getWidgetDefinition( shape.props.widgetType );
 		const indicator = getWidgetIndicator( definition, shape.props.widgetProps );
 
@@ -134,6 +140,7 @@ function RectangleWidgetComponent( {
 } ) {
 	const editor = useEditor();
 	const isEditing = useIsEditing( shape.id );
+	const stackInteraction = useStackShapeInteraction( shape );
 	const WidgetComponent = definition.Component as unknown as ComponentType<
 		DeskWidgetComponentProps< JsonObject >
 	>;
@@ -149,13 +156,15 @@ function RectangleWidgetComponent( {
 	};
 
 	return (
-		<WidgetComponent
-			id={ getWidgetIdFromShapeId( shape.id ) }
-			widgetProps={ shape.props.widgetProps }
-			isEditing={ isEditing }
-			onWidgetPropsChange={ handleWidgetPropsChange }
-			onEditComplete={ () => editor.complete() }
-		/>
+		<div style={ stackInteraction.style } onPointerDown={ stackInteraction.onPointerDown }>
+			<WidgetComponent
+				id={ getWidgetIdFromShapeId( shape.id ) }
+				widgetProps={ shape.props.widgetProps }
+				isEditing={ isEditing }
+				onWidgetPropsChange={ handleWidgetPropsChange }
+				onEditComplete={ () => editor.complete() }
+			/>
+		</div>
 	);
 }
 

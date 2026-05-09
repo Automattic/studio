@@ -1,6 +1,7 @@
 import {
 	DESK_CONFIG_VERSION,
 	type DeskConfig,
+	type DeskStack,
 	type DeskViewport,
 	type DeskWidgetBase,
 } from '@studio/common/types/desk';
@@ -22,6 +23,23 @@ function isDeskWidget( value: unknown ): value is DeskWidgetBase {
 		typeof value.y === 'number' &&
 		typeof value.zIndex === 'string' &&
 		( value.rotation === undefined || typeof value.rotation === 'number' )
+	);
+}
+
+function isDeskStack( value: unknown ): value is DeskStack {
+	if ( ! isRecord( value ) || ! Array.isArray( value.memberIds ) ) {
+		return false;
+	}
+	return (
+		typeof value.id === 'string' &&
+		value.id.length > 0 &&
+		typeof value.x === 'number' &&
+		Number.isFinite( value.x ) &&
+		typeof value.y === 'number' &&
+		Number.isFinite( value.y ) &&
+		typeof value.zIndex === 'string' &&
+		value.memberIds.length >= 2 &&
+		value.memberIds.every( ( memberId ) => typeof memberId === 'string' )
 	);
 }
 
@@ -54,6 +72,12 @@ function assertDeskConfig( value: unknown ): asserts value is DeskConfig {
 	}
 	if ( ! Array.isArray( value.widgets ) || ! value.widgets.every( isDeskWidget ) ) {
 		throw new Error( 'Invalid desk config: expected widgets array.' );
+	}
+	if (
+		value.stacks !== undefined &&
+		( ! Array.isArray( value.stacks ) || ! value.stacks.every( isDeskStack ) )
+	) {
+		throw new Error( 'Invalid desk config: expected stacks array.' );
 	}
 	if ( value.viewport !== undefined && ! isDeskViewport( value.viewport ) ) {
 		throw new Error( 'Invalid desk config: expected viewport object.' );

@@ -1,18 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { collapseAllExpandedStacksInEditor, expandStackInEditor } from './editor-commands';
 import { getStackId, isStackExpanded } from './utils';
-import type { MutableRefObject } from 'react';
 import type { Editor, TLEventInfo } from 'tldraw';
 
-export interface StackInteractionState {
-	isPointerSessionRef: MutableRefObject< boolean >;
-	pointerDownStackIdRef: MutableRefObject< string | null >;
-	movedShapeIdsRef: MutableRefObject< Set< string > >;
-}
-
-export function useStackInteractions( editor: Editor | null, state: StackInteractionState ) {
+export function useStackInteractions( editor: Editor | null ) {
 	useStackDragSelection( editor );
-	useStackClickToOpen( editor, state );
+	useStackClickToOpen( editor );
 }
 
 function useStackDragSelection( editor: Editor | null ) {
@@ -47,16 +40,21 @@ function useStackDragSelection( editor: Editor | null ) {
 	}, [ editor ] );
 }
 
-function useStackClickToOpen( editor: Editor | null, state: StackInteractionState ) {
+function useStackClickToOpen( editor: Editor | null ) {
+	const isPointerSessionRef = useRef( false );
+	const pointerDownStackIdRef = useRef< string | null >( null );
+	const movedShapeIdsRef = useRef( new Set< string >() );
+
 	useEffect( () => {
 		if ( ! editor ) {
 			return;
 		}
 
+		const movedShapeIds = movedShapeIdsRef.current;
 		const unsubscribeShapeChanges = editor.sideEffects.registerAfterChangeHandler(
 			'shape',
 			( previousShape, nextShape ) => {
-				if ( ! state.isPointerSessionRef.current ) {
+				if ( ! isPointerSessionRef.current ) {
 					return;
 				}
 
@@ -65,7 +63,7 @@ function useStackClickToOpen( editor: Editor | null, state: StackInteractionStat
 					previousShape.y !== nextShape.y ||
 					previousShape.rotation !== nextShape.rotation
 				) {
-					state.movedShapeIdsRef.current.add( nextShape.id );
+					movedShapeIds.add( nextShape.id );
 				}
 			}
 		);
@@ -80,25 +78,25 @@ function useStackClickToOpen( editor: Editor | null, state: StackInteractionStat
 					return;
 				}
 
-				state.isPointerSessionRef.current = true;
-				state.pointerDownStackIdRef.current = getCollapsedStackIdAtPointer( editor );
-				state.movedShapeIdsRef.current.clear();
+				isPointerSessionRef.current = true;
+				pointerDownStackIdRef.current = getCollapsedStackIdAtPointer( editor );
+				movedShapeIds.clear();
 				return;
 			}
 
-			if ( info.name !== 'pointer_up' || ! state.isPointerSessionRef.current ) {
+			if ( info.name !== 'pointer_up' || ! isPointerSessionRef.current ) {
 				return;
 			}
 
-			state.isPointerSessionRef.current = false;
-			const clickedStackId = state.pointerDownStackIdRef.current;
-			state.pointerDownStackIdRef.current = null;
+			isPointerSessionRef.current = false;
+			const clickedStackId = pointerDownStackIdRef.current;
+			pointerDownStackIdRef.current = null;
 			if ( clickedStackId ) {
 				const movedStack = editor
 					.getCurrentPageShapes()
 					.filter( ( shape ) => getStackId( shape ) === clickedStackId )
-					.some( ( shape ) => state.movedShapeIdsRef.current.has( shape.id ) );
-				state.movedShapeIdsRef.current.clear();
+					.some( ( shape ) => movedShapeIds.has( shape.id ) );
+				movedShapeIds.clear();
 				if ( movedStack ) {
 					return;
 				}
@@ -112,18 +110,18 @@ function useStackClickToOpen( editor: Editor | null, state: StackInteractionStat
 			if ( selectedShapeIds.length === 0 ) {
 				collapseAllExpandedStacksInEditor( editor );
 			}
-			state.movedShapeIdsRef.current.clear();
+			movedShapeIds.clear();
 		};
 
 		editor.on( 'event', handleStackClick );
 		return () => {
-			state.isPointerSessionRef.current = false;
-			state.pointerDownStackIdRef.current = null;
-			state.movedShapeIdsRef.current.clear();
+			isPointerSessionRef.current = false;
+			pointerDownStackIdRef.current = null;
+			movedShapeIds.clear();
 			editor.off( 'event', handleStackClick );
 			unsubscribeShapeChanges();
 		};
-	}, [ editor, state ] );
+	}, [ editor ] );
 }
 
 function getCollapsedStackIdAtPointer( editor: Editor ) {

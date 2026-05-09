@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-	useStackInteractions,
-	type StackInteractionState,
-} from '@/ui-desks/stacks/use-stack-interactions';
+import { useStackInteractions } from '@/ui-desks/stacks/use-stack-interactions';
+import { useStackPressAnimation } from '@/ui-desks/stacks/use-stack-press-animation';
 import {
 	DeskContext,
 	type AddDeskWidgetOptions,
@@ -35,20 +33,9 @@ export function DeskProvider( { siteId, children }: DeskProviderProps ) {
 	const hydratedRef = useRef( false );
 	const creationOffsetRef = useRef( 0 );
 	const saveTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
-	const stackPressTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
-	const isStackPointerSessionRef = useRef( false );
-	const pointerDownStackIdRef = useRef< string | null >( null );
-	const movedStackShapeIdsRef = useRef( new Set< string >() );
-	const stackInteractionState = useMemo< StackInteractionState >(
-		() => ( {
-			isPointerSessionRef: isStackPointerSessionRef,
-			pointerDownStackIdRef,
-			movedShapeIdsRef: movedStackShapeIdsRef,
-		} ),
-		[ isStackPointerSessionRef, movedStackShapeIdsRef, pointerDownStackIdRef ]
-	);
+	const { pressStack, clearPressedStack } = useStackPressAnimation( setPressedStackId );
 
-	useStackInteractions( editor, stackInteractionState );
+	useStackInteractions( editor );
 
 	useEffect( () => {
 		if ( ! editor || isLoading || hydratedRef.current ) {
@@ -111,44 +98,18 @@ export function DeskProvider( { siteId, children }: DeskProviderProps ) {
 		};
 	}, [ editor, saveDeskConfig ] );
 
-	const registerEditor = useCallback( ( nextEditor: Editor | null ) => {
-		setEditor( nextEditor );
-		if ( ! nextEditor ) {
-			hydratedRef.current = false;
-			setIsHydrated( false );
-			setSelectedWidgetToolbarItem( null );
-			setPressedStackId( null );
-			if ( stackPressTimerRef.current ) {
-				clearTimeout( stackPressTimerRef.current );
-				stackPressTimerRef.current = null;
+	const registerEditor = useCallback(
+		( nextEditor: Editor | null ) => {
+			setEditor( nextEditor );
+			if ( ! nextEditor ) {
+				hydratedRef.current = false;
+				setIsHydrated( false );
+				setSelectedWidgetToolbarItem( null );
+				clearPressedStack();
 			}
-			isStackPointerSessionRef.current = false;
-			pointerDownStackIdRef.current = null;
-			movedStackShapeIdsRef.current.clear();
-		}
-	}, [] );
-
-	const pressStack = useCallback( ( stackId: string ) => {
-		if ( stackPressTimerRef.current ) {
-			clearTimeout( stackPressTimerRef.current );
-		}
-
-		setPressedStackId( stackId );
-		stackPressTimerRef.current = setTimeout( () => {
-			stackPressTimerRef.current = null;
-			setPressedStackId( ( currentStackId ) =>
-				currentStackId === stackId ? null : currentStackId
-			);
-		}, 180 );
-	}, [] );
-
-	useEffect( () => {
-		return () => {
-			if ( stackPressTimerRef.current ) {
-				clearTimeout( stackPressTimerRef.current );
-			}
-		};
-	}, [] );
+		},
+		[ clearPressedStack ]
+	);
 
 	const addWidget = useCallback(
 		( type: string, options?: AddDeskWidgetOptions ) => {

@@ -1,10 +1,12 @@
 import { noteWidgetDefinition } from '@/ui-desks/widgets/note/definition';
+import { pageWidgetDefinition } from '@/ui-desks/widgets/page/definition';
 import { postWidgetDefinition } from '@/ui-desks/widgets/post/definition';
 import type { DeskWidgetDefinition } from './types';
 
 export const widgetDefinitions = {
 	[ noteWidgetDefinition.type ]: noteWidgetDefinition,
 	[ postWidgetDefinition.type ]: postWidgetDefinition,
+	[ pageWidgetDefinition.type ]: pageWidgetDefinition,
 } satisfies Record< string, DeskWidgetDefinition >;
 
 export function getWidgetDefinition( type: string ) {

@@ -78,4 +78,36 @@ describe( 'createDeskWidget', () => {
 			},
 		} );
 	} );
+
+	it( 'creates a page widget with supplied page props', () => {
+		const createdWidget = createDeskWidget( {
+			id: 'page-1',
+			type: 'page',
+			center: {
+				x: 500,
+				y: 400,
+			},
+			zIndex: 'a4',
+			widgetProps: {
+				pageId: 84,
+				tone: 'blue',
+			},
+		} );
+
+		expect( createdWidget ).toEqual( {
+			id: 'page-1',
+			type: 'page',
+			x: 360,
+			y: 210,
+			zIndex: 'a4',
+			shapeProps: {
+				w: 280,
+				h: 380,
+			},
+			widgetProps: {
+				pageId: 84,
+				tone: 'blue',
+			},
+		} );
+	} );
 } );

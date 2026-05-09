@@ -8,6 +8,8 @@ import { useMemo, useState } from 'react';
 import { useSites } from '@/data/queries/use-sites';
 import { IconControlButton, Menu } from '@/ui-desks/components';
 import { useDesk } from '@/ui-desks/desk/provider';
+import { pageWidgetDefinition } from '@/ui-desks/widgets/page/definition';
+import { PAGE_WIDGET_TYPE } from '@/ui-desks/widgets/page/types';
 import { postWidgetDefinition } from '@/ui-desks/widgets/post/definition';
 import { POST_WIDGET_TYPE } from '@/ui-desks/widgets/post/types';
 import { getCreatableWidgetDefinitions } from '@/ui-desks/widgets/registry';
@@ -19,7 +21,7 @@ export function DeskCreateMenu() {
 	const navigate = useNavigate();
 	const desk = useDesk();
 	const creatableWidgetDefinitions = getCreatableWidgetDefinitions();
-	const [ mode, setMode ] = useState< 'menu' | 'pick-post' >( 'menu' );
+	const [ mode, setMode ] = useState< 'menu' | 'pick-post' | 'pick-page' >( 'menu' );
 	const { data: sites } = useSites();
 	const site = sites?.find( ( candidate ) => candidate.id === desk.siteId );
 	const isSiteRunning = Boolean( site?.running );
@@ -49,7 +51,7 @@ export function DeskCreateMenu() {
 			<Menu.Popup
 				side="bottom"
 				align="start"
-				className={ `${ styles.popup } ${ mode === 'pick-post' ? styles.postPickerPopup : '' }` }
+				className={ `${ styles.popup } ${ mode !== 'menu' ? styles.postPickerPopup : '' }` }
 			>
 				{ mode === 'menu' ? (
 					<>
@@ -68,21 +70,38 @@ export function DeskCreateMenu() {
 							</Menu.Item>
 						) ) }
 						{ desk.siteId && (
-							<Menu.Item
-								disabled={ isWidgetCreationDisabled(
-									postWidgetDefinition,
-									desk.canAddWidgets,
-									isSiteRunning
-								) }
-								closeOnClick={ false }
-								onClick={ ( event ) => {
-									event.preventDefault();
-									setMode( 'pick-post' );
-								} }
-							>
-								{ postWidgetDefinition.icon && <Icon icon={ postWidgetDefinition.icon } /> }
-								<span>{ postWidgetDefinition.labels.add() }</span>
-							</Menu.Item>
+							<>
+								<Menu.Item
+									disabled={ isWidgetCreationDisabled(
+										postWidgetDefinition,
+										desk.canAddWidgets,
+										isSiteRunning
+									) }
+									closeOnClick={ false }
+									onClick={ ( event ) => {
+										event.preventDefault();
+										setMode( 'pick-post' );
+									} }
+								>
+									{ postWidgetDefinition.icon && <Icon icon={ postWidgetDefinition.icon } /> }
+									<span>{ postWidgetDefinition.labels.add() }</span>
+								</Menu.Item>
+								<Menu.Item
+									disabled={ isWidgetCreationDisabled(
+										pageWidgetDefinition,
+										desk.canAddWidgets,
+										isSiteRunning
+									) }
+									closeOnClick={ false }
+									onClick={ ( event ) => {
+										event.preventDefault();
+										setMode( 'pick-page' );
+									} }
+								>
+									{ pageWidgetDefinition.icon && <Icon icon={ pageWidgetDefinition.icon } /> }
+									<span>{ pageWidgetDefinition.labels.add() }</span>
+								</Menu.Item>
+							</>
 						) }
 						{ ( creatableWidgetDefinitions.length > 0 || desk.siteId ) && <Menu.Separator /> }
 						<Menu.Item onClick={ createChat }>
@@ -99,7 +118,10 @@ export function DeskCreateMenu() {
 						</Menu.Item>
 					</>
 				) : (
-					<PostPickerMenuItems onBack={ () => setMode( 'menu' ) } />
+					<ExistingContentPickerMenuItems
+						type={ mode === 'pick-page' ? 'page' : 'post' }
+						onBack={ () => setMode( 'menu' ) }
+					/>
 				) }
 			</Menu.Popup>
 		</Menu.Root>
@@ -114,7 +136,13 @@ function isWidgetCreationDisabled(
 	return ! canAddWidgets || ( definition.requiresRunningSite && ! isSiteRunning );
 }
 
-function PostPickerMenuItems( { onBack }: { onBack: () => void } ) {
+function ExistingContentPickerMenuItems( {
+	type,
+	onBack,
+}: {
+	type: 'post' | 'page';
+	onBack: () => void;
+} ) {
 	const desk = useDesk();
 	const { data: sites, isLoading: isLoadingSites } = useSites();
 	const site = sites?.find( ( candidate ) => candidate.id === desk.siteId );
@@ -123,18 +151,18 @@ function PostPickerMenuItems( { onBack }: { onBack: () => void } ) {
 		() => ( {
 			per_page: 20,
 			context: 'view',
-			orderby: 'date',
-			order: 'desc',
-			_fields: 'id,title,excerpt,status,date,link',
+			orderby: type === 'page' ? 'menu_order' : 'date',
+			order: type === 'page' ? 'asc' : 'desc',
+			_fields: 'id,title,excerpt,status,date,link,slug',
 		} ),
-		[]
+		[ type ]
 	);
 
 	const {
 		records,
 		isResolving,
 		status: resolutionStatus,
-	} = useEntityRecords< CoreDataPost >( 'postType', 'post', query, {
+	} = useEntityRecords< CoreDataPost >( 'postType', type, query, {
 		enabled: canQueryPosts,
 	} );
 
@@ -161,34 +189,40 @@ function PostPickerMenuItems( { onBack }: { onBack: () => void } ) {
 				<div className={ styles.postPickerStatus }>{ __( 'Site is not running.' ) }</div>
 			) }
 			{ canQueryPosts && isResolving && ! records && (
-				<div className={ styles.postPickerStatus }>{ __( 'Loading posts…' ) }</div>
+				<div className={ styles.postPickerStatus }>
+					{ type === 'page' ? __( 'Loading pages…' ) : __( 'Loading posts…' ) }
+				</div>
 			) }
 			{ canQueryPosts && records && records.length === 0 && (
-				<div className={ styles.postPickerStatus }>{ __( 'No posts found.' ) }</div>
+				<div className={ styles.postPickerStatus }>
+					{ type === 'page' ? __( 'No pages found.' ) : __( 'No posts found.' ) }
+				</div>
 			) }
 			{ canQueryPosts && resolutionStatus === 'ERROR' && (
-				<div className={ styles.postPickerStatus }>{ __( 'Unable to load posts.' ) }</div>
+				<div className={ styles.postPickerStatus }>
+					{ type === 'page' ? __( 'Unable to load pages.' ) : __( 'Unable to load posts.' ) }
+				</div>
 			) }
-			{ records?.map( ( postRecord ) => {
-				const title = decodeEntities( postRecord.title?.rendered ?? '' ).trim() || __( 'Untitled' );
+			{ records?.map( ( record ) => {
+				const title = decodeEntities( record.title?.rendered ?? '' ).trim() || __( 'Untitled' );
 				return (
 					<Menu.Item
-						key={ postRecord.id }
+						key={ record.id }
 						className={ styles.postPickerItem }
 						disabled={ ! desk.canAddWidgets }
 						onClick={ () =>
-							desk.addWidget( POST_WIDGET_TYPE, {
+							desk.addWidget( type === 'page' ? PAGE_WIDGET_TYPE : POST_WIDGET_TYPE, {
 								widgetProps: {
-									postId: postRecord.id,
+									...( type === 'page'
+										? { pageId: record.id, tone: 'neutral' }
+										: { postId: record.id } ),
 								},
 								shouldStartEditing: false,
 							} )
 						}
 					>
 						<span className={ styles.postPickerTitle }>{ title }</span>
-						{ postRecord.status && (
-							<span className={ styles.postPickerMeta }>{ postRecord.status }</span>
-						) }
+						{ record.status && <span className={ styles.postPickerMeta }>{ record.status }</span> }
 					</Menu.Item>
 				);
 			} ) }

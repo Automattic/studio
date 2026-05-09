@@ -1,4 +1,4 @@
-import { useCallback, useEffect, type MouseEvent } from 'react';
+import { useCallback, useEffect } from 'react';
 import { Tldraw, type Editor, type TLComponents, type TldrawOptions } from 'tldraw';
 import 'tldraw/tldraw.css';
 import { deskShapeUtils } from '@/ui-desks/shapes/registry';
@@ -35,7 +35,7 @@ export function DeskCanvas() {
 	}
 
 	return (
-		<div className={ styles.canvas } onContextMenu={ preventContextMenu }>
+		<div className={ styles.canvas }>
 			<Tldraw
 				hideUi
 				autoFocus
@@ -46,8 +46,4 @@ export function DeskCanvas() {
 			/>
 		</div>
 	);
-}
-
-function preventContextMenu( event: MouseEvent ) {
-	event.preventDefault();
 }

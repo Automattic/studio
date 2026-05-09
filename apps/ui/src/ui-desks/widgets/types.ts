@@ -1,3 +1,4 @@
+import type { ControlConfig } from '@/ui-desks/controls/types';
 import type { NoteWidget } from '@/ui-desks/widgets/note/types';
 import type { DeskWidgetBase } from '@studio/common/types/desk';
 import type { ComponentProps, ComponentType, ReactElement } from 'react';
@@ -26,6 +27,7 @@ export interface WidgetLabels {
 export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBase > {
 	type: TWidget[ 'type' ];
 	Component: ComponentType< DeskWidgetComponentProps< TWidget[ 'widgetProps' ] > >;
+	controls?: Array< ControlConfig< TWidget[ 'widgetProps' ] > >;
 	isWidgetProps: ( props: unknown ) => props is TWidget[ 'widgetProps' ];
 	labels: WidgetLabels;
 	icon?: WidgetIcon;

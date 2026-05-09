@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react';
-import { Tldraw, type Editor, type TldrawOptions } from 'tldraw';
+import { Tldraw, type Editor, type TLComponents, type TldrawOptions } from 'tldraw';
 import 'tldraw/tldraw.css';
 import { deskShapeUtils } from '@/ui-desks/shapes/registry';
 import { useDesk, useRegisterDeskEditor } from './provider';
@@ -8,6 +8,10 @@ import styles from './style.module.css';
 const deskCanvasOptions = {
 	createTextOnCanvasDoubleClick: false,
 } satisfies Partial< TldrawOptions >;
+
+const deskCanvasComponents = {
+	ContextMenu: null,
+} satisfies Partial< TLComponents >;
 
 export function DeskCanvas() {
 	const { isLoading } = useDesk();
@@ -36,6 +40,7 @@ export function DeskCanvas() {
 				hideUi
 				autoFocus
 				options={ deskCanvasOptions }
+				components={ deskCanvasComponents }
 				shapeUtils={ deskShapeUtils }
 				onMount={ handleMount }
 			/>

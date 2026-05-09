@@ -1,10 +1,10 @@
 import { useEditor, useValue, type TLShape } from 'tldraw';
-import { useStackAnimation } from './context';
+import { useDesk } from '@/ui-desks/desk/provider/context';
 import { getStackId, getStackOrder, isStackExpanded } from './utils';
 
 export function useStackShapeInteraction( shape: TLShape ) {
 	const editor = useEditor();
-	const { pressedStackId, pressStack } = useStackAnimation();
+	const { pressedStackId, pressStack } = useDesk();
 	const stackId = getStackId( shape );
 	const isExpanded = isStackExpanded( shape );
 	const hoveredStackId = useValue(

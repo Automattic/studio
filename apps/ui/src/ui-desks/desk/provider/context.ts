@@ -7,11 +7,16 @@ export type SelectedWidgetToolbarItem = NonNullable<
 	ReturnType< typeof getSelectedWidgetToolbarItem >
 >;
 
+export type RegisterDeskEditor = ( editor: Editor | null ) => void;
+
 export interface DeskContextValue {
 	siteId?: string;
 	isLoading: boolean;
 	canAddWidgets: boolean;
 	selectedWidgetToolbarItem: SelectedWidgetToolbarItem | null;
+	pressedStackId: string | null;
+	registerEditor: RegisterDeskEditor;
+	pressStack: ( stackId: string ) => void;
 	addWidget: ( type: string, options?: AddDeskWidgetOptions ) => boolean;
 	updateSelectedWidgetProps: ( widgetProps: Record< string, unknown > ) => boolean;
 	stackSelectedWidgets: () => boolean;
@@ -30,13 +35,14 @@ export interface DeskProviderProps {
 	children: ReactNode;
 }
 
-export type RegisterDeskEditor = ( editor: Editor | null ) => void;
-
 const defaultDeskContext: DeskContextValue = {
 	siteId: undefined,
 	isLoading: true,
 	canAddWidgets: false,
 	selectedWidgetToolbarItem: null,
+	pressedStackId: null,
+	registerEditor: noopRegisterEditor,
+	pressStack: noopPressStack,
 	addWidget: () => false,
 	updateSelectedWidgetProps: () => false,
 	stackSelectedWidgets: () => false,
@@ -45,15 +51,14 @@ const defaultDeskContext: DeskContextValue = {
 };
 
 export const DeskContext = createContext< DeskContextValue >( defaultDeskContext );
-export const DeskEditorRegistrationContext =
-	createContext< RegisterDeskEditor >( noopRegisterEditor );
 
 export function useDesk() {
 	return useContext( DeskContext );
 }
 
 export function useRegisterDeskEditor() {
-	return useContext( DeskEditorRegistrationContext );
+	return useDesk().registerEditor;
 }
 
 function noopRegisterEditor() {}
+function noopPressStack() {}

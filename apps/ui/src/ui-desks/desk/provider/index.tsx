@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { StackAnimationContext } from '@/ui-desks/stacks/context';
 import {
 	useStackInteractions,
 	type StackInteractionState,
 } from '@/ui-desks/stacks/use-stack-interactions';
 import {
 	DeskContext,
-	DeskEditorRegistrationContext,
 	type AddDeskWidgetOptions,
 	type DeskProviderProps,
 	type SelectedWidgetToolbarItem,
@@ -220,6 +218,9 @@ export function DeskProvider( { siteId, children }: DeskProviderProps ) {
 			isLoading,
 			canAddWidgets: Boolean( editor ) && isHydrated,
 			selectedWidgetToolbarItem,
+			pressedStackId,
+			registerEditor,
+			pressStack,
 			addWidget,
 			updateSelectedWidgetProps,
 			stackSelectedWidgets,
@@ -231,6 +232,9 @@ export function DeskProvider( { siteId, children }: DeskProviderProps ) {
 			editor,
 			isHydrated,
 			isLoading,
+			pressStack,
+			pressedStackId,
+			registerEditor,
 			removeSelectedWidget,
 			selectedWidgetToolbarItem,
 			stackSelectedWidgets,
@@ -239,21 +243,6 @@ export function DeskProvider( { siteId, children }: DeskProviderProps ) {
 			updateSelectedWidgetProps,
 		]
 	);
-	const stackAnimationContextValue = useMemo(
-		() => ( {
-			pressedStackId,
-			pressStack,
-		} ),
-		[ pressStack, pressedStackId ]
-	);
 
-	return (
-		<DeskEditorRegistrationContext.Provider value={ registerEditor }>
-			<DeskContext.Provider value={ value }>
-				<StackAnimationContext.Provider value={ stackAnimationContextValue }>
-					{ children }
-				</StackAnimationContext.Provider>
-			</DeskContext.Provider>
-		</DeskEditorRegistrationContext.Provider>
-	);
+	return <DeskContext.Provider value={ value }>{ children }</DeskContext.Provider>;
 }

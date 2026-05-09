@@ -6,6 +6,7 @@ import {
 	deskWidgetToCanvasShape,
 } from './tldraw-adapter';
 import type { NoteWidget } from '@/ui-desks/widgets/note/types';
+import type { PageWidget } from '@/ui-desks/widgets/page/types';
 import type { PostWidget } from '@/ui-desks/widgets/post/types';
 import type { TLShape } from 'tldraw';
 
@@ -123,6 +124,49 @@ describe( 'tldraw adapter', () => {
 				},
 				widgetProps: {
 					postId: 42,
+				},
+			},
+		} );
+		expect( canvasShapeToDeskWidget( shape ) ).toEqual( {
+			...widget,
+			rotation: undefined,
+		} );
+	} );
+
+	it( 'maps a page widget through the canvas shape adapter', () => {
+		const widget: PageWidget = {
+			id: 'page-1',
+			type: 'page',
+			x: 60,
+			y: 70,
+			zIndex: 'a4',
+			shapeProps: {
+				w: 280,
+				h: 380,
+			},
+			widgetProps: {
+				pageId: 84,
+				tone: 'violet',
+			},
+		};
+
+		const shape = deskWidgetToCanvasShape( widget ) as TLShape;
+
+		expect( shape ).toMatchObject( {
+			id: 'shape:page-1',
+			type: RECTANGLE_WIDGET_SHAPE_TYPE,
+			x: 60,
+			y: 70,
+			index: 'a4',
+			props: {
+				widgetType: 'page',
+				shapeProps: {
+					w: 280,
+					h: 380,
+				},
+				widgetProps: {
+					pageId: 84,
+					tone: 'violet',
 				},
 			},
 		} );

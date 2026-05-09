@@ -9,6 +9,8 @@ interface CreateDeskWidgetOptions {
 		y: number;
 	};
 	zIndex: string;
+	shapeProps?: Record< string, unknown >;
+	widgetProps?: Record< string, unknown >;
 }
 
 export function createDeskWidget( {
@@ -16,6 +18,8 @@ export function createDeskWidget( {
 	type,
 	center,
 	zIndex,
+	shapeProps,
+	widgetProps,
 }: CreateDeskWidgetOptions ): DeskWidget | null {
 	const definition = getWidgetDefinition( type );
 	if ( ! definition ) {
@@ -23,7 +27,18 @@ export function createDeskWidget( {
 	}
 
 	const initialWidget = definition.getInitialWidget();
-	const size = getWidgetSize( initialWidget.shapeProps );
+	const nextShapeProps = {
+		...initialWidget.shapeProps,
+		...shapeProps,
+	};
+	const nextWidgetProps = {
+		...initialWidget.widgetProps,
+		...widgetProps,
+	};
+	if ( ! definition.isWidgetProps( nextWidgetProps ) ) {
+		return null;
+	}
+	const size = getWidgetSize( nextShapeProps );
 
 	return {
 		id,
@@ -31,8 +46,8 @@ export function createDeskWidget( {
 		x: center.x - size.w / 2,
 		y: center.y - size.h / 2,
 		zIndex,
-		shapeProps: initialWidget.shapeProps,
-		widgetProps: initialWidget.widgetProps,
+		shapeProps: nextShapeProps,
+		widgetProps: nextWidgetProps,
 	} as DeskWidget;
 }
 

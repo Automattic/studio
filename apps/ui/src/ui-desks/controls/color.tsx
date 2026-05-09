@@ -1,12 +1,12 @@
 import { color as colorIcon } from '@wordpress/icons';
 import { IconControlButton, Menu } from '@/ui-desks/components';
 import styles from './style.module.css';
-import type { ControlConfig, ControlRendererProps } from './types';
+import type { AnyColorControlConfig, ControlRendererProps } from './types';
 import type { CSSProperties } from 'react';
 
-type ColorControlConfig = Extract< ControlConfig, { type: 'color' } >;
-
-type ColorControlProps = ControlRendererProps< ColorControlConfig >;
+type ColorControlProps = ControlRendererProps & {
+	control: AnyColorControlConfig;
+};
 
 export function ColorControl( {
 	control,

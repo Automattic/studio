@@ -8,12 +8,19 @@ export type SelectedWidgetToolbarItem = NonNullable<
 >;
 
 export interface DeskContextValue {
+	siteId?: string;
 	isLoading: boolean;
 	canAddWidgets: boolean;
 	selectedWidgetToolbarItem: SelectedWidgetToolbarItem | null;
-	addWidget: ( type: string ) => boolean;
+	addWidget: ( type: string, options?: AddDeskWidgetOptions ) => boolean;
 	updateSelectedWidgetProps: ( widgetProps: Record< string, unknown > ) => boolean;
 	removeSelectedWidget: () => boolean;
+}
+
+export interface AddDeskWidgetOptions {
+	shapeProps?: Record< string, unknown >;
+	widgetProps?: Record< string, unknown >;
+	shouldStartEditing?: boolean;
 }
 
 export interface DeskProviderProps {
@@ -24,6 +31,7 @@ export interface DeskProviderProps {
 export type RegisterDeskEditor = ( editor: Editor | null ) => void;
 
 const defaultDeskContext: DeskContextValue = {
+	siteId: undefined,
 	isLoading: true,
 	canAddWidgets: false,
 	selectedWidgetToolbarItem: null,

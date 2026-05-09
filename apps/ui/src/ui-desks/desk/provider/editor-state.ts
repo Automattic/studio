@@ -10,7 +10,7 @@ import {
 	deskWidgetToCanvasShape,
 } from '../tldraw-adapter';
 import { DESK_CONFIG_VERSION, type DeskConfig } from '../types';
-import type { SelectedWidgetToolbarItem } from './context';
+import type { SelectedWidgetToolbarItem, AddDeskWidgetOptions } from './context';
 import type { DeskWidget } from '@/ui-desks/widgets/types';
 import type { Editor, JsonObject, TLShape } from 'tldraw';
 
@@ -49,7 +49,12 @@ export function getCurrentSelectedWidgetToolbarItem( editor: Editor ) {
 	return getCurrentSelectedWidgetSelection( editor )?.item ?? null;
 }
 
-export function addWidgetToEditor( editor: Editor, type: string, creationOffset: number ) {
+export function addWidgetToEditor(
+	editor: Editor,
+	type: string,
+	creationOffset: number,
+	options: AddDeskWidgetOptions = {}
+) {
 	const viewportCenter = editor.getViewportPageBounds().center;
 	const offset = ( creationOffset % 6 ) * 24;
 	const widget = createDeskWidget( {
@@ -60,6 +65,8 @@ export function addWidgetToEditor( editor: Editor, type: string, creationOffset:
 			y: viewportCenter.y + offset,
 		},
 		zIndex: getNextZIndex( getCurrentDeskWidgets( editor ) ),
+		shapeProps: options.shapeProps,
+		widgetProps: options.widgetProps,
 	} );
 
 	if ( ! widget ) {
@@ -72,7 +79,9 @@ export function addWidgetToEditor( editor: Editor, type: string, creationOffset:
 	}
 
 	editor.createShape( shape ).select( shape.id );
-	editor.setEditingShape( shape.id );
+	if ( options.shouldStartEditing ?? true ) {
+		editor.setEditingShape( shape.id );
+	}
 	editor.focus();
 	return true;
 }

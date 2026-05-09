@@ -55,7 +55,7 @@ export function canvasShapeToDeskWidget( shape: TLShape ): DeskWidget | null {
 		zIndex: shape.index,
 		shapeProps: shape.props.shapeProps,
 		widgetProps: shape.props.widgetProps,
-	} as DeskWidget;
+	} as unknown as DeskWidget;
 }
 
 export function canvasCameraToDeskViewport(

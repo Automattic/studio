@@ -80,6 +80,7 @@ type SiteServerMeta = {
 
 export class SiteServer {
 	server: CliServerProcess;
+	private startPromise?: Promise< void >;
 
 	private constructor(
 		public details: SiteDetails,
@@ -217,9 +218,15 @@ export class SiteServer {
 		if ( this.details.running ) {
 			return;
 		}
+		if ( this.startPromise ) {
+			return this.startPromise;
+		}
 
 		console.log( `Starting server for '${ this.details.name }'` );
-		await this.server.start();
+		this.startPromise = this.server.start().finally( () => {
+			this.startPromise = undefined;
+		} );
+		return this.startPromise;
 	}
 
 	updateSiteDetails( site: SiteDetails ) {

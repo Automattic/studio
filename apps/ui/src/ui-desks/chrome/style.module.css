@@ -93,6 +93,45 @@
 	min-width: 220px;
 }
 
+.postPickerPopup {
+	width: 280px;
+	max-height: 420px;
+	overflow-y: auto;
+}
+
+.postPickerStatus {
+	padding: var(--wpds-dimension-padding-sm);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.postPickerItem {
+	align-items: flex-start;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.postPickerTitle,
+.postPickerMeta {
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.postPickerTitle {
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.postPickerMeta {
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
 .email {
 	padding: 8px 12px 6px;
 	font-weight: 400;

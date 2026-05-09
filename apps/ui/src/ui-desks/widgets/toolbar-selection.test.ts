@@ -1,7 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { NOTE_WIDGET_TYPE } from '@/ui-desks/widgets/note/types';
+import { POST_WIDGET_TYPE } from '@/ui-desks/widgets/post/types';
 import { getSelectedWidgetToolbarItem } from './toolbar-selection';
 import type { DeskWidget } from '@/ui-desks/widgets/types';
+
+vi.mock( '@wordpress/core-data', () => ( {
+	useEntityRecord: () => ( { record: null, isResolving: false } ),
+	useEntityRecords: () => ( { records: null, isResolving: false, status: 'IDLE' } ),
+} ) );
 
 describe( 'widget toolbar selection', () => {
 	it( 'returns the toolbar item for a single note widget selection', () => {
@@ -11,6 +17,16 @@ describe( 'widget toolbar selection', () => {
 		expect( selectedItem?.widget.widgetProps ).toEqual( {
 			text: 'Hello',
 			tone: 'yellow',
+		} );
+	} );
+
+	it( 'returns the toolbar item for a single post widget selection', () => {
+		const selectedItem = getSelectedWidgetToolbarItem( [ createPostWidget() ] );
+
+		expect( selectedItem?.definition.type ).toBe( POST_WIDGET_TYPE );
+		expect( selectedItem?.definition.controls?.[ 0 ]?.type ).toBe( 'custom' );
+		expect( selectedItem?.widget.widgetProps ).toEqual( {
+			postId: 42,
 		} );
 	} );
 
@@ -57,6 +73,23 @@ function createNoteWidget(): DeskWidget {
 		widgetProps: {
 			text: 'Hello',
 			tone: 'yellow',
+		},
+	};
+}
+
+function createPostWidget(): DeskWidget {
+	return {
+		id: 'post-1',
+		type: POST_WIDGET_TYPE,
+		x: 0,
+		y: 0,
+		zIndex: 'a1',
+		shapeProps: {
+			w: 280,
+			h: 380,
+		},
+		widgetProps: {
+			postId: 42,
 		},
 	};
 }

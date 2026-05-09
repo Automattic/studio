@@ -1,5 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createDeskWidget } from './create-widget';
+
+vi.mock( '@wordpress/core-data', () => ( {
+	useEntityRecord: () => ( { record: null, isResolving: false } ),
+	useEntityRecords: () => ( { records: null, isResolving: false, status: 'IDLE' } ),
+} ) );
 
 describe( 'createDeskWidget', () => {
 	it( 'creates a note widget centered on the requested point', () => {
@@ -42,5 +47,35 @@ describe( 'createDeskWidget', () => {
 				zIndex: 'a1',
 			} )
 		).toBeNull();
+	} );
+
+	it( 'creates a post widget with supplied post props', () => {
+		const createdWidget = createDeskWidget( {
+			id: 'post-1',
+			type: 'post',
+			center: {
+				x: 500,
+				y: 400,
+			},
+			zIndex: 'a3',
+			widgetProps: {
+				postId: 42,
+			},
+		} );
+
+		expect( createdWidget ).toEqual( {
+			id: 'post-1',
+			type: 'post',
+			x: 360,
+			y: 210,
+			zIndex: 'a3',
+			shapeProps: {
+				w: 280,
+				h: 380,
+			},
+			widgetProps: {
+				postId: 42,
+			},
+		} );
 	} );
 } );

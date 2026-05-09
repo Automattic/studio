@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
 	DeskContext,
 	DeskEditorRegistrationContext,
+	type AddDeskWidgetOptions,
 	type DeskProviderProps,
 	type SelectedWidgetToolbarItem,
 } from './context';
@@ -100,12 +101,12 @@ export function DeskProvider( { siteId, children }: DeskProviderProps ) {
 	}, [] );
 
 	const addWidget = useCallback(
-		( type: string ) => {
+		( type: string, options?: AddDeskWidgetOptions ) => {
 			if ( ! editor || ! isHydrated ) {
 				return false;
 			}
 
-			const didAddWidget = addWidgetToEditor( editor, type, creationOffsetRef.current );
+			const didAddWidget = addWidgetToEditor( editor, type, creationOffsetRef.current, options );
 			if ( didAddWidget ) {
 				creationOffsetRef.current += 1;
 			}
@@ -145,6 +146,7 @@ export function DeskProvider( { siteId, children }: DeskProviderProps ) {
 
 	const value = useMemo(
 		() => ( {
+			siteId,
 			isLoading,
 			canAddWidgets: Boolean( editor ) && isHydrated,
 			selectedWidgetToolbarItem,
@@ -159,6 +161,7 @@ export function DeskProvider( { siteId, children }: DeskProviderProps ) {
 			isLoading,
 			removeSelectedWidget,
 			selectedWidgetToolbarItem,
+			siteId,
 			updateSelectedWidgetProps,
 		]
 	);

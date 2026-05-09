@@ -1,11 +1,16 @@
 import { createRoute } from '@tanstack/react-router';
+import { WordPressDataProvider } from '@/data/wordpress/provider';
 import { Desk } from '../desk';
 import { desksRootRoute } from '../router/root';
 
 export function SiteDesk() {
 	const { siteId } = siteDeskRoute.useParams();
 
-	return <Desk siteId={ siteId } />;
+	return (
+		<WordPressDataProvider key={ siteId } siteId={ siteId }>
+			<Desk siteId={ siteId } />
+		</WordPressDataProvider>
+	);
 }
 
 export const siteDeskRoute = createRoute( {

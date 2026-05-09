@@ -16,7 +16,7 @@ import {
 	type RectangleWidgetShape,
 	type RectangleWidgetShapeProps,
 } from './types';
-import type { DeskWidgetComponentProps } from '@/ui-desks/widgets/types';
+import type { DeskWidgetComponentProps, WidgetIndicator } from '@/ui-desks/widgets/types';
 import type { ComponentType } from 'react';
 
 type RegisteredWidgetDefinition = NonNullable< ReturnType< typeof getWidgetDefinition > >;
@@ -99,10 +99,7 @@ export class RectangleWidgetShapeUtil extends ShapeUtil< RectangleWidgetShape > 
 
 	override indicator( shape: RectangleWidgetShape ) {
 		const definition = getWidgetDefinition( shape.props.widgetType );
-		const indicator =
-			definition && definition.isWidgetProps( shape.props.widgetProps )
-				? definition.getIndicator?.( shape.props.widgetProps )
-				: undefined;
+		const indicator = getWidgetIndicator( definition, shape.props.widgetProps );
 
 		return (
 			<rect
@@ -115,6 +112,17 @@ export class RectangleWidgetShapeUtil extends ShapeUtil< RectangleWidgetShape > 
 			/>
 		);
 	}
+}
+
+function getWidgetIndicator(
+	definition: RegisteredWidgetDefinition | undefined,
+	widgetProps: JsonObject
+) {
+	if ( ! definition || ! definition.isWidgetProps( widgetProps ) || ! definition.getIndicator ) {
+		return undefined;
+	}
+
+	return ( definition.getIndicator as ( props: JsonObject ) => WidgetIndicator )( widgetProps );
 }
 
 function RectangleWidgetComponent( {

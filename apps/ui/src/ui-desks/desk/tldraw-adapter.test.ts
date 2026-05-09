@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { RECTANGLE_WIDGET_SHAPE_TYPE } from '@/ui-desks/shapes/rectangle-widget/types';
 import {
 	canvasCameraToDeskViewport,
@@ -6,7 +6,13 @@ import {
 	deskWidgetToCanvasShape,
 } from './tldraw-adapter';
 import type { NoteWidget } from '@/ui-desks/widgets/note/types';
+import type { PostWidget } from '@/ui-desks/widgets/post/types';
 import type { TLShape } from 'tldraw';
+
+vi.mock( '@wordpress/core-data', () => ( {
+	useEntityRecord: () => ( { record: null, isResolving: false } ),
+	useEntityRecords: () => ( { records: null, isResolving: false, status: 'IDLE' } ),
+} ) );
 
 describe( 'tldraw adapter', () => {
 	it( 'maps a desk note widget to a canvas shape', () => {
@@ -82,6 +88,47 @@ describe( 'tldraw adapter', () => {
 				text: 'Updated',
 				tone: 'blue',
 			},
+		} );
+	} );
+
+	it( 'maps a post widget through the canvas shape adapter', () => {
+		const widget: PostWidget = {
+			id: 'post-1',
+			type: 'post',
+			x: 40,
+			y: 50,
+			zIndex: 'a3',
+			shapeProps: {
+				w: 280,
+				h: 380,
+			},
+			widgetProps: {
+				postId: 42,
+			},
+		};
+
+		const shape = deskWidgetToCanvasShape( widget ) as TLShape;
+
+		expect( shape ).toMatchObject( {
+			id: 'shape:post-1',
+			type: RECTANGLE_WIDGET_SHAPE_TYPE,
+			x: 40,
+			y: 50,
+			index: 'a3',
+			props: {
+				widgetType: 'post',
+				shapeProps: {
+					w: 280,
+					h: 380,
+				},
+				widgetProps: {
+					postId: 42,
+				},
+			},
+		} );
+		expect( canvasShapeToDeskWidget( shape ) ).toEqual( {
+			...widget,
+			rotation: undefined,
 		} );
 	} );
 

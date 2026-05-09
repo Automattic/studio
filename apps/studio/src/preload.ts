@@ -226,6 +226,7 @@ const api: IpcApi = {
 	getSiteDeskConfig: ( siteId ) => ipcRendererInvoke( 'getSiteDeskConfig', siteId ),
 	saveSiteDeskConfig: ( siteId, config ) =>
 		ipcRendererInvoke( 'saveSiteDeskConfig', siteId, config ),
+	fetchSiteRestApi: ( siteId, request ) => ipcRendererInvoke( 'fetchSiteRestApi', siteId, request ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

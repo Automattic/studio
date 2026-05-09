@@ -1,5 +1,6 @@
 import type { ControlConfig } from '@/ui-desks/controls/types';
 import type { NoteWidget } from '@/ui-desks/widgets/note/types';
+import type { PostWidget } from '@/ui-desks/widgets/post/types';
 import type { DeskWidgetBase } from '@studio/common/types/desk';
 import type { ComponentProps, ComponentType, ReactElement } from 'react';
 
@@ -31,8 +32,11 @@ export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBa
 	isWidgetProps: ( props: unknown ) => props is TWidget[ 'widgetProps' ];
 	labels: WidgetLabels;
 	icon?: WidgetIcon;
+	isCreatable?: boolean;
+	requiresRunningSite?: boolean;
 	getInitialWidget: () => Pick< TWidget, 'shapeProps' | 'widgetProps' >;
 	getIndicator?: ( widgetProps: TWidget[ 'widgetProps' ] ) => WidgetIndicator;
 }
 
-export type DeskWidget = NoteWidget;
+export type DeskWidget = NoteWidget | PostWidget;
+export type DeskWidgetDefinition = WidgetDefinition< NoteWidget > | WidgetDefinition< PostWidget >;

@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 export interface ColorControlOption< TValue extends string = string > {
 	value: TValue;
 	label: string;
@@ -20,11 +22,45 @@ export type ColorControlConfig<
 	};
 }[ StringControlPropKey< TProps > ];
 
-export type ControlConfig< TProps extends Record< string, unknown > = Record< string, string > > =
-	ColorControlConfig< TProps >;
+export interface ControlRenderContext<
+	TProps extends Record< string, unknown > = Record< string, unknown >,
+> {
+	isOpen: boolean;
+	setIsOpen: ( isOpen: boolean ) => void;
+	updateProps: ( props: Record< string, unknown > ) => void;
+	props: TProps;
+}
 
-export interface ControlRendererProps< TControl extends ControlConfig = ControlConfig > {
-	control: TControl;
+type CustomControlComponent< TProps extends Record< string, unknown > > = {
+	bivarianceHack( props: ControlRenderContext< TProps > ): ReactElement | null;
+}[ 'bivarianceHack' ];
+
+export interface CustomControlConfig<
+	TProps extends Record< string, unknown > = Record< string, unknown >,
+> {
+	type: 'custom';
+	id: string;
+	Component: CustomControlComponent< TProps >;
+}
+
+export type ControlConfig< TProps extends Record< string, unknown > = Record< string, string > > =
+	| ColorControlConfig< TProps >
+	| CustomControlConfig< TProps >;
+
+export interface AnyColorControlConfig {
+	type: 'color';
+	id: string;
+	property: string;
+	label: string;
+	options: Array< ColorControlOption< string > >;
+}
+
+export type AnyControlConfig =
+	| AnyColorControlConfig
+	| CustomControlConfig< Record< string, unknown > >;
+
+export interface ControlRendererProps {
+	control: AnyControlConfig;
 	isOpen: boolean;
 	setIsOpen: ( isOpen: boolean ) => void;
 	updateProps: ( props: Record< string, unknown > ) => void;

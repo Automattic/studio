@@ -1,6 +1,5 @@
 import { __ } from '@wordpress/i18n';
 import { pencil } from '@wordpress/icons';
-import { RECTANGLE_WIDGET_SHAPE_TYPE } from '@/ui-desks/shapes/rectangle-widget/types';
 import { NoteWidgetComponent } from '@/ui-desks/widgets/note/component';
 import {
 	isNoteWidgetProps,
@@ -25,30 +24,24 @@ const NOTE_TONE_STROKE: Record< NoteTone, string > = {
 
 export const noteWidgetDefinition = {
 	type: NOTE_WIDGET_TYPE,
-	shapeType: RECTANGLE_WIDGET_SHAPE_TYPE,
 	Component: NoteWidgetComponent,
 	isWidgetProps: isNoteWidgetProps,
 	getIndicator: ( widgetProps ) => ( {
 		cornerRadius: 14,
 		stroke: NOTE_TONE_STROKE[ widgetProps.tone ],
 	} ),
-	creation: {
-		getLabel: () => __( 'New sticky note' ),
-		icon: pencil,
-		getInitialWidget: () => ( {
-			shapeProps: {
-				w: 200,
-				h: 200,
-			},
-			widgetProps: {
-				text: '',
-				tone: 'yellow',
-			},
-		} ),
-		getInitialSize: ( shapeProps ) => ( {
-			w: shapeProps.w,
-			h: shapeProps.h,
-		} ),
-		startEditing: true,
+	labels: {
+		add: () => __( 'New sticky note' ),
 	},
+	icon: pencil,
+	getInitialWidget: () => ( {
+		shapeProps: {
+			w: 200,
+			h: 200,
+		},
+		widgetProps: {
+			text: '',
+			tone: 'yellow',
+		},
+	} ),
 } satisfies WidgetDefinition< NoteWidget >;

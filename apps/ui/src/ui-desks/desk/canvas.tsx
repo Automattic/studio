@@ -3,7 +3,7 @@ import { Tldraw, type Editor, type TldrawOptions } from 'tldraw';
 import 'tldraw/tldraw.css';
 import { DESK_CONFIG_VERSION, type DeskConfig } from '@/ui-desks/desk/types';
 import { deskShapeUtils } from '@/ui-desks/shapes/registry';
-import { useRegisterDeskEditor } from './actions-context';
+import { useRegisterDeskEditor } from './provider';
 import styles from './style.module.css';
 import {
 	canvasCameraToDeskViewport,
@@ -90,7 +90,7 @@ export function DeskCanvas( { desk, onChange }: DeskCanvasProps ) {
 		};
 
 		const unsubscribeDocument = editor.store.listen( queueSave, { scope: 'document' } );
-		const unsubscribeCamera = editor.store.listen(
+		const unsubscribeSession = editor.store.listen(
 			( { changes } ) => {
 				if ( hasCameraChange( changes ) ) {
 					queueSave();
@@ -103,7 +103,7 @@ export function DeskCanvas( { desk, onChange }: DeskCanvasProps ) {
 				clearTimeout( saveTimerRef.current );
 			}
 			unsubscribeDocument();
-			unsubscribeCamera();
+			unsubscribeSession();
 		};
 	}, [ editor, onChange ] );
 

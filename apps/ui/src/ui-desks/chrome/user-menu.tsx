@@ -17,14 +17,14 @@ import type { SiteDetails } from '@/data/core';
 const WPCOM_PROFILE_URL = 'https://wordpress.com/me';
 
 interface DeskMenuProps {
-	activeSiteId?: string;
+	siteId?: string;
 }
 
 function getSiteIconSeed( site: SiteDetails ) {
 	return `${ site.id }:${ site.name }:${ site.path }`;
 }
 
-export function DeskMenu( { activeSiteId }: DeskMenuProps ) {
+export function DeskMenu( { siteId }: DeskMenuProps ) {
 	const navigate = useNavigate();
 	const connector = useConnector();
 	const { data: user } = useAuthUser();
@@ -36,9 +36,9 @@ export function DeskMenu( { activeSiteId }: DeskMenuProps ) {
 	const savedScheme = preferences?.colorScheme;
 	const themeIsDark =
 		savedScheme === 'dark' || ( savedScheme !== 'light' && effectiveScheme === 'dark' );
-	const activeSite = sites?.find( ( candidate ) => candidate.id === activeSiteId );
+	const activeSite = sites?.find( ( candidate ) => candidate.id === siteId );
 	const activeSiteName = activeSite?.name ?? __( 'Site' );
-	const activeSiteIconSeed = activeSite ? getSiteIconSeed( activeSite ) : activeSiteId;
+	const activeSiteIconSeed = activeSite ? getSiteIconSeed( activeSite ) : siteId;
 	const switcherSites = activeSite
 		? [ activeSite, ...( sites ?? [] ).filter( ( candidate ) => candidate.id !== activeSite.id ) ]
 		: sites ?? [];
@@ -52,13 +52,13 @@ export function DeskMenu( { activeSiteId }: DeskMenuProps ) {
 	};
 
 	const openSite = ( nextSiteId: string ) => {
-		if ( nextSiteId === activeSiteId ) {
+		if ( nextSiteId === siteId ) {
 			return;
 		}
 		void navigate( { to: '/sites/$siteId', params: { siteId: nextSiteId } } );
 	};
 
-	const trigger = activeSiteId ? (
+	const trigger = siteId ? (
 		<button
 			type="button"
 			className={ styles.siteTrigger }
@@ -113,7 +113,7 @@ export function DeskMenu( { activeSiteId }: DeskMenuProps ) {
 					switcherSites.map( ( site ) => (
 						<Menu.Item
 							key={ site.id }
-							aria-current={ site.id === activeSiteId ? 'page' : undefined }
+							aria-current={ site.id === siteId ? 'page' : undefined }
 							onClick={ () => openSite( site.id ) }
 						>
 							<span title={ site.name }>{ site.name }</span>

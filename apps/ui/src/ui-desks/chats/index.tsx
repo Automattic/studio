@@ -55,7 +55,7 @@ function useDeskChatsSearch() {
 	return { open, setOpen, createChatRequestId };
 }
 
-export function DeskChatsTrigger() {
+export function DeskChatsTrigger( _props: DeskChatsProps ) {
 	const { open, setOpen } = useDeskChatsSearch();
 
 	return <DeskChatsButton open={ open } onToggle={ () => setOpen( ! open ) } />;
@@ -172,6 +172,7 @@ export function DeskChats( { siteId }: DeskChatsProps ) {
 							{ selectedSessionId ? (
 								<DeskSessionSurface
 									key={ selectedSessionId }
+									siteId={ siteId }
 									sessionId={ selectedSessionId }
 									onSwitchSession={ handleSwitchSession }
 									autoFocus={ autoFocusSessionId === selectedSessionId }

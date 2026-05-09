@@ -3,15 +3,19 @@ import { __ } from '@wordpress/i18n';
 import { comment, download, globe, plus } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import * as Menu from '@/components/menu';
-import { useDeskActions } from '@/ui-desks/desk/actions-context';
+import { useDesk } from '@/ui-desks/desk/provider';
 import { getCreatableWidgetDefinitions } from '@/ui-desks/widgets/registry';
 import { DeskHeaderIconButton } from './header-button';
 import styles from './style.module.css';
 import type { DeskChatsSearch } from '../chats/search';
 
-export function DeskCreateMenu() {
+interface DeskCreateMenuProps {
+	siteId?: string;
+}
+
+export function DeskCreateMenu( _props: DeskCreateMenuProps ) {
 	const navigate = useNavigate();
-	const deskActions = useDeskActions();
+	const desk = useDesk();
 	const creatableWidgetDefinitions = getCreatableWidgetDefinitions();
 
 	const createChat = () => {
@@ -39,16 +43,16 @@ export function DeskCreateMenu() {
 				render={ <DeskHeaderIconButton icon={ plus } label={ __( 'Create new' ) } /> }
 			/>
 			<Menu.Popup side="bottom" align="start" className={ styles.popup }>
-				{ deskActions && (
+				{ desk && (
 					<>
 						{ creatableWidgetDefinitions.map( ( definition ) => (
 							<Menu.Item
 								key={ definition.type }
-								disabled={ ! deskActions.canCreateWidgets }
-								onClick={ () => deskActions.createWidget( definition.type ) }
+								disabled={ ! desk.canAddWidgets }
+								onClick={ () => desk.addWidget( definition.type ) }
 							>
-								{ definition.creation.icon && <Icon icon={ definition.creation.icon } /> }
-								<span>{ definition.creation.getLabel() }</span>
+								{ definition.icon && <Icon icon={ definition.icon } /> }
+								<span>{ definition.labels.add() }</span>
 							</Menu.Item>
 						) ) }
 						{ creatableWidgetDefinitions.length > 0 && <Menu.Separator /> }

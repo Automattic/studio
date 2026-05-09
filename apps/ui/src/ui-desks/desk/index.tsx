@@ -3,27 +3,24 @@ import { useEffect, useMemo } from 'react';
 import { useDeskConfig, useSaveDeskConfig } from '@/data/queries/use-desk-config';
 import { DeskChats } from '../chats';
 import { DeskChrome } from '../chrome';
-import { DeskActionsProvider } from './actions-context';
 import { DeskCanvas as TldrawDeskCanvas } from './canvas';
 import { defaultUserDesk } from './default-desk';
+import { DeskProvider } from './provider';
 import styles from './style.module.css';
 import { DESK_CONFIG_VERSION, type DeskConfig } from './types';
+import type { ReactNode } from 'react';
 
 interface DeskProps {
 	siteId?: string;
 }
 
 export function Desk( { siteId }: DeskProps ) {
-	const canvasKey = siteId ?? 'user';
-
 	return (
-		<DeskActionsProvider>
-			<DeskChats siteId={ siteId } />
-			<main className={ styles.root } aria-label={ getDeskLabel( siteId ) } data-site-id={ siteId }>
-				<DeskChrome activeSiteId={ siteId } />
-				<DeskCanvas key={ canvasKey } siteId={ siteId } />
-			</main>
-		</DeskActionsProvider>
+		<DeskProvider>
+			<DeskShell siteId={ siteId }>
+				<DeskCanvas key={ siteId ?? 'user' } siteId={ siteId } />
+			</DeskShell>
+		</DeskProvider>
 	);
 }
 
@@ -44,6 +41,18 @@ function DeskCanvas( { siteId }: DeskProps ) {
 	}
 
 	return <TldrawDeskCanvas desk={ desk } onChange={ saveDeskConfig } />;
+}
+
+function DeskShell( { siteId, children }: DeskProps & { children: ReactNode } ) {
+	return (
+		<>
+			<DeskChats siteId={ siteId } />
+			<main className={ styles.root } aria-label={ getDeskLabel( siteId ) } data-site-id={ siteId }>
+				<DeskChrome siteId={ siteId } />
+				{ children }
+			</main>
+		</>
+	);
 }
 
 function createDefaultDeskConfig( siteId?: string ): DeskConfig {

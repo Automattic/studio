@@ -1,50 +1,45 @@
-import { createShapeId } from 'tldraw';
 import { describe, expect, it } from 'vitest';
-import { RECTANGLE_WIDGET_SHAPE_TYPE } from '@/ui-desks/shapes/rectangle-widget/types';
-import { createWidgetShape } from './create-widget';
+import { createDeskWidget } from './create-widget';
 
-describe( 'createWidgetShape', () => {
-	it( 'creates a note widget shape centered on the requested point', () => {
-		const createdWidget = createWidgetShape( {
-			id: createShapeId( 'note-1' ),
+describe( 'createDeskWidget', () => {
+	it( 'creates a note widget centered on the requested point', () => {
+		const createdWidget = createDeskWidget( {
+			id: 'note-1',
 			type: 'note',
 			center: {
 				x: 400,
 				y: 300,
 			},
+			zIndex: 'a2',
 		} );
 
 		expect( createdWidget ).toEqual( {
-			shape: {
-				id: 'shape:note-1',
-				type: RECTANGLE_WIDGET_SHAPE_TYPE,
-				x: 300,
-				y: 200,
-				props: {
-					widgetType: 'note',
-					shapeProps: {
-						w: 200,
-						h: 200,
-					},
-					widgetProps: {
-						text: '',
-						tone: 'yellow',
-					},
-				},
+			id: 'note-1',
+			type: 'note',
+			x: 300,
+			y: 200,
+			zIndex: 'a2',
+			shapeProps: {
+				w: 200,
+				h: 200,
 			},
-			startEditing: true,
+			widgetProps: {
+				text: '',
+				tone: 'yellow',
+			},
 		} );
 	} );
 
-	it( 'ignores widget types without creation metadata', () => {
+	it( 'ignores unsupported widget types', () => {
 		expect(
-			createWidgetShape( {
-				id: createShapeId( 'unsupported' ),
+			createDeskWidget( {
+				id: 'unsupported',
 				type: 'unsupported',
 				center: {
 					x: 0,
 					y: 0,
 				},
+				zIndex: 'a1',
 			} )
 		).toBeNull();
 	} );

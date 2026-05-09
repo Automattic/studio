@@ -1,45 +1,46 @@
 import { getWidgetDefinition } from './registry';
-import type { TLShapeId, TLShapePartial, TLUnknownShape } from 'tldraw';
+import type { DeskWidget } from './types';
 
-interface CreateWidgetShapeOptions {
-	id: TLShapeId;
+interface CreateDeskWidgetOptions {
+	id: string;
 	type: string;
 	center: {
 		x: number;
 		y: number;
 	};
+	zIndex: string;
 }
 
-export interface CreatedWidgetShape {
-	shape: TLShapePartial< TLUnknownShape >;
-	startEditing: boolean;
-}
-
-export function createWidgetShape( {
+export function createDeskWidget( {
 	id,
 	type,
 	center,
-}: CreateWidgetShapeOptions ): CreatedWidgetShape | null {
+	zIndex,
+}: CreateDeskWidgetOptions ): DeskWidget | null {
 	const definition = getWidgetDefinition( type );
-	if ( ! definition?.creation ) {
+	if ( ! definition ) {
 		return null;
 	}
 
-	const initialWidget = definition.creation.getInitialWidget();
-	const size = definition.creation.getInitialSize( initialWidget.shapeProps );
+	const initialWidget = definition.getInitialWidget();
+	const size = getWidgetSize( initialWidget.shapeProps );
 
 	return {
-		shape: {
-			id,
-			type: definition.shapeType,
-			x: center.x - size.w / 2,
-			y: center.y - size.h / 2,
-			props: {
-				widgetType: definition.type,
-				shapeProps: initialWidget.shapeProps,
-				widgetProps: initialWidget.widgetProps,
-			},
-		},
-		startEditing: Boolean( definition.creation.startEditing ),
+		id,
+		type: definition.type,
+		x: center.x - size.w / 2,
+		y: center.y - size.h / 2,
+		zIndex,
+		shapeProps: initialWidget.shapeProps,
+		widgetProps: initialWidget.widgetProps,
+	} as DeskWidget;
+}
+
+function getWidgetSize( shapeProps: Record< string, unknown > ) {
+	const { w, h } = shapeProps;
+
+	return {
+		w: typeof w === 'number' ? w : 0,
+		h: typeof h === 'number' ? h : 0,
 	};
 }

@@ -8,6 +8,7 @@ import { useCreateSession, useSessions } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import { useFullscreen } from '@/hooks/use-fullscreen';
 import { formatRelativeTime } from '@/lib/format-relative-time';
+import { ActionButton, List, ListItem } from '@/ui-desks/components';
 import { DeskChatsButton } from '../chrome/chats-button';
 import { validateDeskChatsSearch, type DeskChatsSearch } from './search';
 import { DeskSessionSurface } from './session-surface';
@@ -134,34 +135,26 @@ export function DeskChats( { siteId }: DeskChatsProps ) {
 						<header className={ styles.header }>
 							<h2>{ __( 'Conversations' ) }</h2>
 						</header>
-						<div className={ styles.list }>
+						<List className={ styles.list }>
 							{ deskSessions.map( ( session ) => (
-								<button
+								<ListItem
 									key={ session.id }
-									type="button"
-									className={ clsx(
-										styles.sessionItem,
-										session.id === selectedSessionId && styles.sessionItemActive
-									) }
+									active={ session.id === selectedSessionId }
+									label={ getSessionTitle( session ) }
+									description={ getSessionSubtitle( session ) }
 									onClick={ () => handleSelectSession( session.id ) }
-								>
-									<span className={ styles.sessionTitle }>{ getSessionTitle( session ) }</span>
-									<span className={ styles.sessionSubtitle }>
-										{ getSessionSubtitle( session ) }
-									</span>
-								</button>
+								/>
 							) ) }
-						</div>
+						</List>
 						<footer className={ styles.footer }>
-							<button
-								type="button"
-								className={ styles.newChatButton }
+							<ActionButton
+								fullWidth
 								disabled={ createSession.isPending }
 								aria-busy={ createSession.isPending }
 								onClick={ () => void handleNewChat() }
 							>
 								{ createSession.isPending ? __( 'Creating chat…' ) : __( '+ New chat' ) }
-							</button>
+							</ActionButton>
 						</footer>
 					</div>
 					{ expanded ? (

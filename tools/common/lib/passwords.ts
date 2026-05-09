@@ -1,7 +1,47 @@
-import { generatePassword } from '@automattic/generate-password';
 import { __ } from '@wordpress/i18n';
 
-export { generatePassword };
+const ALPHABET = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const DIGITS = '0123456789';
+const SPECIAL_CHARS = '!@#$%^&*()';
+const EXTRA_SPECIAL_CHARS = '-_ []{}<>~`+=,.;:/?|';
+
+/**
+ * Generates a cryptographically secure random password.
+ */
+export function generatePassword( {
+	length = 24,
+	useNumbers = true,
+	useSpecialChars = true,
+	useExtraSpecialChars = false,
+}: {
+	length?: number;
+	useNumbers?: boolean;
+	useSpecialChars?: boolean;
+	useExtraSpecialChars?: boolean;
+} = {} ): string {
+	let characterPool = ALPHABET;
+	if ( useNumbers ) {
+		characterPool += DIGITS;
+	}
+	if ( useSpecialChars ) {
+		characterPool += SPECIAL_CHARS;
+	}
+	if ( useExtraSpecialChars ) {
+		characterPool += EXTRA_SPECIAL_CHARS;
+	}
+
+	const randomNumber = new Uint8Array( 1 );
+	let password = '';
+
+	for ( let i = 0; i < length; i++ ) {
+		do {
+			globalThis.crypto.getRandomValues( randomNumber );
+		} while ( randomNumber[ 0 ] >= characterPool.length );
+		password += characterPool[ randomNumber[ 0 ] ];
+	}
+
+	return password;
+}
 
 /**
  * Generates a random, Base64-encoded password.

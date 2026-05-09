@@ -1,9 +1,8 @@
 import { __ } from '@wordpress/i18n';
 import { trash } from '@wordpress/icons';
-import { IconButton } from '@wordpress/ui';
 import { useEffect, useState } from 'react';
+import { Divider, IconControlButton, Surface } from '@/ui-desks/components';
 import { ControlRenderer } from '@/ui-desks/controls/registry';
-import controlStyles from '@/ui-desks/controls/style.module.css';
 import { useDesk } from '@/ui-desks/desk/provider';
 import styles from './toolbar.module.css';
 import type { getSelectedWidgetToolbarItem } from '@/ui-desks/widgets/toolbar-selection';
@@ -34,7 +33,8 @@ export function DeskWidgetToolbar() {
 	}
 
 	return (
-		<div
+		<Surface
+			variant="glass"
 			className={ styles.toolbar }
 			data-visible={ visible ? 'true' : 'false' }
 			role="toolbar"
@@ -52,16 +52,13 @@ export function DeskWidgetToolbar() {
 					updateProps={ updateSelectedWidgetProps }
 				/>
 			) ) }
-			<div className={ styles.toolbarDivider } />
-			<IconButton
+			<Divider />
+			<IconControlButton
 				icon={ trash }
 				label={ __( 'Remove widget' ) }
-				size="compact"
-				tone="neutral"
-				variant="minimal"
-				className={ controlStyles.button }
+				variant="toolbar"
 				onClick={ removeSelectedWidget }
 			/>
-		</div>
+		</Surface>
 	);
 }

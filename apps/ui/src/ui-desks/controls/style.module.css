@@ -1,30 +1,5 @@
-.button {
-	--wp-ui-button-height: 36px;
-	--wp-ui-button-background-color: transparent;
-	--wp-ui-button-background-color-active: rgba( 15, 23, 42, 0.07 );
-	--wp-ui-button-border-color: transparent;
-	--wp-ui-button-border-color-active: transparent;
-	--wp-ui-button-foreground-color: #14171a;
-	--wp-ui-button-foreground-color-active: #14171a;
-
-	width: 36px;
-	min-width: 36px;
-	border-radius: 12px;
-}
-
-.button[aria-pressed='true'] {
-	--wp-ui-button-background-color: rgba( 15, 23, 42, 0.07 );
-	--wp-ui-button-background-color-active: rgba( 15, 23, 42, 0.07 );
-	--wp-ui-button-foreground-color: #14171a;
-	--wp-ui-button-foreground-color-active: #14171a;
-}
-
 .swatchMenu {
-	min-width: auto;
-	flex-direction: row;
-	gap: 6px;
-	padding: 6px;
-	border-radius: 18px;
+	border-radius: var(--ui-desks-radius-surface, 18px);
 }
 
 .swatch,
@@ -32,12 +7,18 @@
 .swatch:hover {
 	width: 30px;
 	height: 30px;
+	box-sizing: border-box;
+	display: inline-flex;
 	padding: 0;
 	border: 1px solid rgba( 15, 23, 42, 0.12 );
 	border-radius: 10px;
-	background: var( --control-swatch-color );
+	corner-shape: var(--ui-desks-corner-shape, superellipse(1.42));
+	-webkit-corner-shape: var(--ui-desks-corner-shape, superellipse(1.42));
+	background: var(--control-swatch-color);
 	box-shadow: 0 6px 18px rgba( 15, 23, 42, 0.1 );
 	color: transparent;
+	cursor: pointer;
+	outline: none;
 	transition:
 		box-shadow 160ms ease,
 		transform 160ms ease;
@@ -50,6 +31,6 @@
 }
 
 .swatch[data-active='true'] {
-	outline: 2px solid #3858e9;
+	outline: 2px solid var(--ui-desks-focus, #3858e9);
 	outline-offset: 2px;
 }

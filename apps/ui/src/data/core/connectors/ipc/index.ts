@@ -606,6 +606,14 @@ export function createIpcConnector(): Connector {
 			await ipcApi.saveUserDeskConfig( config );
 		},
 
+		async getSiteDeskConfig( siteId ): Promise< DeskConfig | undefined > {
+			return ( await ipcApi.getSiteDeskConfig( siteId ) ) as DeskConfig | undefined;
+		},
+
+		async saveSiteDeskConfig( siteId, config ): Promise< void > {
+			await ipcApi.saveSiteDeskConfig( siteId, config );
+		},
+
 		async openSiteFolder( siteId ): Promise< void > {
 			const sitePath = await resolveSiteFolder( siteId );
 			ipcApi.openLocalPath( sitePath );

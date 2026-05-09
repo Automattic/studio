@@ -22,10 +22,14 @@ export function DeskHeader( { children }: DeskHeaderProps ) {
 	);
 }
 
-export function DeskChrome() {
+interface DeskChromeProps {
+	activeSiteId?: string;
+}
+
+export function DeskChrome( { activeSiteId }: DeskChromeProps ) {
 	return (
 		<DeskHeader>
-			<DeskMenu />
+			<DeskMenu activeSiteId={ activeSiteId } />
 			<DeskChatsTrigger />
 			<DeskCreateMenu />
 		</DeskHeader>

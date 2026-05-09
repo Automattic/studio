@@ -3,6 +3,7 @@ import { Tldraw, type Editor, type TldrawOptions } from 'tldraw';
 import 'tldraw/tldraw.css';
 import { DESK_CONFIG_VERSION, type DeskConfig } from '@/ui-desks/desk/types';
 import { deskShapeUtils } from '@/ui-desks/shapes/registry';
+import { useRegisterDeskEditor } from './actions-context';
 import styles from './style.module.css';
 import {
 	canvasCameraToDeskViewport,
@@ -14,19 +15,30 @@ const deskCanvasOptions = {
 	createTextOnCanvasDoubleClick: false,
 } satisfies Partial< TldrawOptions >;
 
-interface UserDeskCanvasProps {
+interface DeskCanvasProps {
 	desk: DeskConfig;
 	onChange: ( desk: DeskConfig ) => void;
 }
 
-export function UserDeskCanvas( { desk, onChange }: UserDeskCanvasProps ) {
+export function DeskCanvas( { desk, onChange }: DeskCanvasProps ) {
 	const [ editor, setEditor ] = useState< Editor | null >( null );
 	const hydratedRef = useRef( false );
 	const saveTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
+	const registerEditor = useRegisterDeskEditor();
 
-	const handleMount = useCallback( ( nextEditor: Editor ) => {
-		setEditor( nextEditor );
-	}, [] );
+	const handleMount = useCallback(
+		( nextEditor: Editor ) => {
+			setEditor( nextEditor );
+			registerEditor( nextEditor );
+		},
+		[ registerEditor ]
+	);
+
+	useEffect( () => {
+		return () => {
+			registerEditor( null );
+		};
+	}, [ registerEditor ] );
 
 	useEffect( () => {
 		if ( ! editor || hydratedRef.current ) {

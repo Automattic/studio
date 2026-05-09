@@ -86,3 +86,43 @@ export async function saveUserDeskConfig(
 		await unlockAppdata();
 	}
 }
+
+export async function getSiteDeskConfig(
+	_event: IpcMainInvokeEvent,
+	siteId: string
+): Promise< DeskConfig | undefined > {
+	if ( typeof siteId !== 'string' || ! siteId ) {
+		throw new Error( 'Invalid site desk config: expected site id.' );
+	}
+
+	const userData = await loadUserData();
+	return userData.desks?.sites?.[ siteId ];
+}
+
+export async function saveSiteDeskConfig(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	config: DeskConfig
+): Promise< void > {
+	if ( typeof siteId !== 'string' || ! siteId ) {
+		throw new Error( 'Invalid site desk config: expected site id.' );
+	}
+
+	assertDeskConfig( config );
+	await lockAppdata();
+	try {
+		const userData = await loadUserData();
+		await saveUserData( {
+			...userData,
+			desks: {
+				...userData.desks,
+				sites: {
+					...userData.desks?.sites,
+					[ siteId ]: config,
+				},
+			},
+		} );
+	} finally {
+		await unlockAppdata();
+	}
+}

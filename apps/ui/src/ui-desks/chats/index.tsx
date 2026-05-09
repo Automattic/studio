@@ -1,7 +1,6 @@
 import { Dialog } from '@base-ui/react/dialog';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { Button } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import motionStyles from '@/components/floating-surface-motion/style.module.css';
@@ -154,17 +153,15 @@ export function DeskChats( { siteId }: DeskChatsProps ) {
 							) ) }
 						</div>
 						<footer className={ styles.footer }>
-							<Button
-								variant="minimal"
-								tone="neutral"
-								size="small"
+							<button
+								type="button"
 								className={ styles.newChatButton }
-								loading={ createSession.isPending }
-								loadingAnnouncement={ __( 'Creating chat' ) }
+								disabled={ createSession.isPending }
+								aria-busy={ createSession.isPending }
 								onClick={ () => void handleNewChat() }
 							>
-								{ __( '+ New chat' ) }
-							</Button>
+								{ createSession.isPending ? __( 'Creating chat…' ) : __( '+ New chat' ) }
+							</button>
 						</footer>
 					</div>
 					{ expanded ? (

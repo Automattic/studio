@@ -2,10 +2,9 @@ import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { comment, download, globe, plus } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
-import * as Menu from '@/components/menu';
+import { IconControlButton, Menu } from '@/ui-desks/components';
 import { useDesk } from '@/ui-desks/desk/provider';
 import { getCreatableWidgetDefinitions } from '@/ui-desks/widgets/registry';
-import { DeskHeaderIconButton } from './header-button';
 import styles from './style.module.css';
 import type { DeskChatsSearch } from '../chats/search';
 
@@ -35,9 +34,7 @@ export function DeskCreateMenu() {
 
 	return (
 		<Menu.Root modal={ false }>
-			<Menu.Trigger
-				render={ <DeskHeaderIconButton icon={ plus } label={ __( 'Create new' ) } /> }
-			/>
+			<Menu.Trigger render={ <IconControlButton icon={ plus } label={ __( 'Create new' ) } /> } />
 			<Menu.Popup side="bottom" align="start" className={ styles.popup }>
 				{ creatableWidgetDefinitions.map( ( definition ) => (
 					<Menu.Item

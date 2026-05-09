@@ -1,6 +1,5 @@
 import { color as colorIcon } from '@wordpress/icons';
-import { IconButton } from '@wordpress/ui';
-import * as Menu from '@/components/menu';
+import { IconControlButton, Menu } from '@/ui-desks/components';
 import styles from './style.module.css';
 import type { ControlConfig, ControlRendererProps } from './types';
 import type { CSSProperties } from 'react';
@@ -22,21 +21,26 @@ export function ColorControl( {
 		<Menu.Root modal={ false } open={ isOpen } orientation="horizontal" onOpenChange={ setIsOpen }>
 			<Menu.Trigger
 				render={
-					<IconButton
+					<IconControlButton
 						icon={ colorIcon }
 						label={ control.label }
-						size="compact"
-						tone="neutral"
-						variant="minimal"
+						variant="toolbar"
 						aria-pressed={ isOpen }
-						className={ styles.button }
 					/>
 				}
 			/>
-			<Menu.Popup side="top" align="center" sideOffset={ 18 } className={ styles.swatchMenu }>
+			<Menu.Popup
+				side="top"
+				align="center"
+				sideOffset={ 18 }
+				layout="row"
+				width="content"
+				className={ styles.swatchMenu }
+			>
 				{ control.options.map( ( option ) => (
 					<Menu.Item
 						key={ option.value }
+						variant="custom"
 						className={ styles.swatch }
 						style={ getSwatchStyle( option.color ) }
 						data-active={ currentValue === option.value ? 'true' : 'false' }

@@ -3,14 +3,13 @@ import { __, sprintf } from '@wordpress/i18n';
 import { chevronDownSmall } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { Gravatar } from '@/components/gravatar';
-import * as Menu from '@/components/menu';
 import { SiteIcon } from '@/components/site-icon';
 import { useConnector } from '@/data/core';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
 import { useSites } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
-import { DeskHeaderButton } from './header-button';
+import { ControlButton, Menu } from '@/ui-desks/components';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 
@@ -59,14 +58,14 @@ export function DeskMenu( { siteId }: DeskMenuProps ) {
 	};
 
 	const trigger = siteId ? (
-		<button
-			type="button"
+		<ControlButton
 			className={ styles.siteTrigger }
-			aria-label={ sprintf(
+			label={ sprintf(
 				/* translators: %s: current site name. */
 				__( 'Desk menu. Current site is %s.' ),
 				activeSiteName
 			) }
+			tooltipLabel={ false }
 		>
 			<SiteIcon
 				className={ styles.siteIcon }
@@ -76,16 +75,16 @@ export function DeskMenu( { siteId }: DeskMenuProps ) {
 			<span className={ styles.siteName } title={ activeSiteName }>
 				{ activeSiteName }
 			</span>
-			<Icon icon={ chevronDownSmall } size={ 20 } />
-		</button>
+			<Icon icon={ chevronDownSmall } size={ 20 } className={ styles.siteCaret } />
+		</ControlButton>
 	) : (
-		<DeskHeaderButton label={ __( 'Desk menu' ) } tooltipLabel={ user?.displayName }>
+		<ControlButton label={ __( 'Desk menu' ) } tooltipLabel={ user?.displayName }>
 			{ user ? (
 				<Gravatar className={ styles.avatar } email={ user.email } isDark={ themeIsDark } />
 			) : (
 				<span className={ styles.loginAvatar } aria-hidden="true" />
 			) }
-		</DeskHeaderButton>
+		</ControlButton>
 	);
 
 	return (

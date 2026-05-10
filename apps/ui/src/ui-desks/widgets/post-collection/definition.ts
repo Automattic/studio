@@ -51,6 +51,10 @@ type PostCollectionResolutionIdentity = {
 	posts: CoreDataPost[] | null;
 };
 
+const COLLECTION_SOURCE_SHAPE_PROPS = {
+	w: 1,
+	h: 1,
+};
 const POST_CARD_SHAPE_PROPS = postWidgetDefinition.getInitialWidget().shapeProps;
 
 export const postCollectionWidgetDefinition = {
@@ -76,7 +80,7 @@ export const postCollectionWidgetDefinition = {
 	},
 	icon: post,
 	getInitialWidget: () => ( {
-		shapeProps: POST_CARD_SHAPE_PROPS,
+		shapeProps: COLLECTION_SOURCE_SHAPE_PROPS,
 		widgetProps: {
 			query: {
 				postType: 'post',
@@ -87,6 +91,7 @@ export const postCollectionWidgetDefinition = {
 			},
 		},
 	} ),
+	getLoadingShapeProps: () => POST_CARD_SHAPE_PROPS,
 	resolver: {
 		resolve: async ( widget, context ) => {
 			const query = getEntityRecordsQuery( widget.widgetProps.query );

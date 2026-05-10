@@ -97,6 +97,7 @@ export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBa
 	requiresRunningSite?: boolean;
 	shouldStartEditingOnCreate?: boolean;
 	getInitialWidget: () => Pick< TWidget, 'shapeProps' | 'widgetProps' >;
+	getLoadingShapeProps?: ( widget: TWidget ) => TWidget[ 'shapeProps' ];
 	getIndicator?: ( widgetProps: TWidget[ 'widgetProps' ] ) => WidgetIndicator;
 	resolver?: WidgetResolver< TWidget >;
 }

@@ -134,7 +134,7 @@ async function resolveDeskWidgets(
 				editor,
 				widget.id,
 				'loading',
-				definition.getInitialWidget().shapeProps
+				getLoadingShapeProps( definition, widget )
 			);
 		}
 
@@ -146,7 +146,12 @@ async function resolveDeskWidgets(
 			) ) as WidgetResolution;
 		} catch ( error ) {
 			if ( isInitialResolve ) {
-				setSourceWidgetResolutionState( editor, widget.id );
+				setSourceWidgetResolutionState(
+					editor,
+					widget.id,
+					undefined,
+					definition.getInitialWidget().shapeProps
+				);
 			}
 			console.warn( `Failed to resolve desk widget "${ widget.id }".`, error );
 			if ( ! previousState ) {
@@ -161,7 +166,12 @@ async function resolveDeskWidgets(
 			continue;
 		}
 		if ( isInitialResolve ) {
-			setSourceWidgetResolutionState( editor, widget.id );
+			setSourceWidgetResolutionState(
+				editor,
+				widget.id,
+				undefined,
+				definition.getInitialWidget().shapeProps
+			);
 		}
 		const widgets = resolution.widgets.filter(
 			( resolvedWidget ): resolvedWidget is ResolvedDeskWidget< DeskWidget > =>
@@ -210,6 +220,15 @@ function shouldResolveWidget(
 
 function getAuthoredDeskWidgets( editor: Editor ) {
 	return getCurrentDeskWidgets( editor );
+}
+
+function getLoadingShapeProps(
+	definition: NonNullable< ReturnType< typeof getWidgetDefinition > >,
+	widget: DeskWidget
+) {
+	return (
+		definition.getLoadingShapeProps?.( widget as never ) ?? definition.getInitialWidget().shapeProps
+	);
 }
 
 function reconcileResolvedWidgets(

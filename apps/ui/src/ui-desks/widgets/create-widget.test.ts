@@ -153,12 +153,12 @@ describe( 'createDeskWidget', () => {
 		expect( createdWidget ).toEqual( {
 			id: 'post-collection-1',
 			type: 'post-collection',
-			x: 360,
-			y: 210,
+			x: 499.5,
+			y: 399.5,
 			zIndex: 'a5',
 			shapeProps: {
-				w: 280,
-				h: 380,
+				w: 1,
+				h: 1,
 			},
 			widgetProps: {
 				query: {

@@ -7,7 +7,13 @@ import {
 	stackSelectedWidgetsInEditor as stackSelectionInEditor,
 	unstackSelectedWidgetsInEditor as unstackSelectionInEditor,
 } from '@/ui-desks/stacks/editor-commands';
-import { getStackId } from '@/ui-desks/stacks/utils';
+import {
+	getStackAnchorFromMember,
+	getStackHome,
+	getStackId,
+	getStackOrder,
+	getStackZIndexFromMember,
+} from '@/ui-desks/stacks/utils';
 import { createDeskWidget } from '@/ui-desks/widgets/create-widget';
 import { getSelectedWidgetToolbarItem } from '@/ui-desks/widgets/toolbar-selection';
 import {
@@ -16,6 +22,9 @@ import {
 	canvasShapesToDeskStacks,
 	deskConfigToCanvasShapes,
 	deskWidgetToCanvasShape,
+	getDerivedDeskCanvasRecordSourceId,
+	isDerivedDeskCanvasRecord,
+	isPersistentDeskCanvasShape,
 } from '../tldraw-adapter';
 import { DESK_CONFIG_VERSION, type DeskConfig } from '../types';
 import type { SelectedWidgetToolbarItem, AddDeskWidgetOptions } from './context';
@@ -25,6 +34,12 @@ interface CanvasStoreChanges {
 	added: Record< string, unknown >;
 	updated: Record< string, readonly [ unknown, unknown ] >;
 	removed: Record< string, unknown >;
+}
+
+interface DerivedWidgetAnchor {
+	x: number;
+	y: number;
+	zIndex?: string;
 }
 
 export function hydrateEditorFromDesk( editor: Editor, desk: DeskConfig ) {
@@ -133,7 +148,7 @@ export function updateSelectedWidgetPropsInEditor(
 
 export function removeSelectedWidgetFromEditor( editor: Editor ) {
 	const selection = getCurrentSelectedWidgetSelection( editor );
-	if ( ! selection ) {
+	if ( ! selection || ! selection.item.canRemove ) {
 		return false;
 	}
 
@@ -167,6 +182,33 @@ export function hasCameraChange( changes: CanvasStoreChanges ) {
 	return records.some( isCameraRecord );
 }
 
+export function hasPersistentDocumentChange( changes: CanvasStoreChanges ) {
+	const addedOrRemovedRecords = [
+		...Object.values( changes.added ),
+		...Object.values( changes.removed ),
+	];
+	if ( addedOrRemovedRecords.some( isPersistentDocumentRecord ) ) {
+		return true;
+	}
+
+	return Object.values( changes.updated ).some( ( [ previousRecord, nextRecord ] ) => {
+		if ( isShapeRecord( previousRecord ) || isShapeRecord( nextRecord ) ) {
+			if (
+				isDerivedDeskCanvasRecord( previousRecord ) ||
+				isDerivedDeskCanvasRecord( nextRecord )
+			) {
+				return hasDerivedShapePersistenceChange( previousRecord, nextRecord );
+			}
+
+			return (
+				isPersistentDocumentRecord( previousRecord ) || isPersistentDocumentRecord( nextRecord )
+			);
+		}
+
+		return true;
+	} );
+}
+
 function getCurrentSelectedWidgetSelection( editor: Editor ) {
 	const selectedShapeIds = editor.getSelectedShapeIds();
 	if ( selectedShapeIds.length === 0 ) {
@@ -176,6 +218,11 @@ function getCurrentSelectedWidgetSelection( editor: Editor ) {
 	const shapes = selectedShapeIds.map( ( shapeId ) => editor.getShape( shapeId ) );
 	if ( shapes.some( ( shape ) => ! shape ) ) {
 		return null;
+	}
+
+	const derivedSourceSelection = getDerivedSourceWidgetSelection( editor, shapes as TLShape[] );
+	if ( derivedSourceSelection ) {
+		return derivedSourceSelection;
 	}
 
 	const widgets = shapes.map( ( shape ) => canvasShapeToDeskWidget( shape as TLShape ) );
@@ -201,11 +248,18 @@ function getCurrentSelectedWidgetSelection( editor: Editor ) {
 	};
 }
 
-function getCurrentDeskWidgets( editor: Editor ) {
-	return editor
-		.getCurrentPageShapes()
+export function getCurrentDeskWidgets( editor: Editor ) {
+	const shapes = editor.getCurrentPageShapes();
+	const derivedAnchors = getDerivedWidgetAnchorsBySourceId( shapes );
+
+	return shapes
+		.filter( isPersistentDeskCanvasShape )
 		.map( canvasShapeToDeskWidget )
-		.filter( ( widget ) => widget !== null );
+		.filter( ( widget ): widget is DeskWidget => widget !== null )
+		.map( ( widget ) => {
+			const anchor = derivedAnchors.get( widget.id );
+			return anchor ? { ...widget, ...anchor } : widget;
+		} );
 }
 
 function getCurrentDeskStacks( editor: Editor ) {
@@ -218,6 +272,155 @@ function isCameraRecord( value: unknown ) {
 		typeof value === 'object' &&
 		( value as { typeName?: unknown } ).typeName === 'camera'
 	);
+}
+
+function isShapeRecord( value: unknown ) {
+	return (
+		Boolean( value ) &&
+		typeof value === 'object' &&
+		( value as { typeName?: unknown } ).typeName === 'shape'
+	);
+}
+
+function isPersistentDocumentRecord( value: unknown ) {
+	if ( isShapeRecord( value ) ) {
+		return ! isDerivedDeskCanvasRecord( value );
+	}
+
+	return true;
+}
+
+function hasDerivedShapePersistenceChange( previousRecord: unknown, nextRecord: unknown ) {
+	if (
+		! isDerivedDeskCanvasRecord( previousRecord ) ||
+		! isDerivedDeskCanvasRecord( nextRecord )
+	) {
+		return false;
+	}
+
+	return (
+		getDerivedShapePersistenceSignature( previousRecord ) !==
+		getDerivedShapePersistenceSignature( nextRecord )
+	);
+}
+
+function getDerivedShapePersistenceSignature( value: unknown ) {
+	const shape = value as Partial< TLShape >;
+	const meta = ( shape.meta ?? {} ) as Record< string, unknown >;
+
+	return JSON.stringify( {
+		x: shape.x,
+		y: shape.y,
+		rotation: shape.rotation,
+		index: shape.index,
+		deskStackExpanded: meta.deskStackExpanded,
+		deskStackHomeX: meta.deskStackHomeX,
+		deskStackHomeY: meta.deskStackHomeY,
+		deskStackHomeZIndex: meta.deskStackHomeZIndex,
+	} );
+}
+
+function getDerivedSourceWidgetSelection( editor: Editor, shapes: TLShape[] ) {
+	const sourceWidgetId = getDerivedSelectionSourceWidgetId( shapes );
+	if ( ! sourceWidgetId ) {
+		return null;
+	}
+
+	const sourceShape = editor
+		.getCurrentPageShapes()
+		.find( ( shape ) => canvasShapeToDeskWidget( shape )?.id === sourceWidgetId );
+	if ( ! sourceShape ) {
+		return null;
+	}
+
+	const sourceWidget = canvasShapeToDeskWidget( sourceShape );
+	if ( ! sourceWidget ) {
+		return null;
+	}
+
+	const item = getSelectedWidgetToolbarItem( [ sourceWidget ], {
+		stackIds: [],
+		canRemove: false,
+	} );
+	if ( ! item ) {
+		return null;
+	}
+
+	return {
+		item,
+		shapes: [ sourceShape ],
+	};
+}
+
+function getDerivedSelectionSourceWidgetId( shapes: TLShape[] ) {
+	let sourceWidgetId: string | null = null;
+	for ( const shape of shapes ) {
+		const nextSourceWidgetId = getDerivedDeskCanvasRecordSourceId( shape );
+		if ( ! nextSourceWidgetId ) {
+			return null;
+		}
+
+		if ( sourceWidgetId === null ) {
+			sourceWidgetId = nextSourceWidgetId;
+		} else if ( sourceWidgetId !== nextSourceWidgetId ) {
+			return null;
+		}
+	}
+
+	return sourceWidgetId;
+}
+
+function getDerivedWidgetAnchorsBySourceId( shapes: TLShape[] ) {
+	const shapesBySourceId = new Map< string, TLShape[] >();
+	for ( const shape of shapes ) {
+		const sourceWidgetId = getDerivedDeskCanvasRecordSourceId( shape );
+		if ( ! sourceWidgetId ) {
+			continue;
+		}
+
+		shapesBySourceId.set( sourceWidgetId, [
+			...( shapesBySourceId.get( sourceWidgetId ) ?? [] ),
+			shape,
+		] );
+	}
+
+	return new Map(
+		Array.from( shapesBySourceId, ( [ sourceWidgetId, sourceShapes ] ) => [
+			sourceWidgetId,
+			getDerivedWidgetAnchor( sourceShapes ),
+		] ).filter( ( entry ): entry is [ string, DerivedWidgetAnchor ] => entry[ 1 ] !== null )
+	);
+}
+
+function getDerivedWidgetAnchor( shapes: TLShape[] ): DerivedWidgetAnchor | null {
+	const firstShape = [ ...shapes ].sort( ( first, second ) => {
+		const firstStackOrder = getStackOrder( first );
+		const secondStackOrder = getStackOrder( second );
+		return firstStackOrder - secondStackOrder || sortByIndex( second, first );
+	} )[ 0 ];
+	if ( ! firstShape ) {
+		return null;
+	}
+
+	const stackId = getStackId( firstShape );
+	if ( ! stackId ) {
+		return {
+			x: firstShape.x,
+			y: firstShape.y,
+			zIndex: firstShape.index,
+		};
+	}
+
+	const order = getStackOrder( firstShape );
+	const home = getStackHome( firstShape );
+	if ( home ) {
+		return home;
+	}
+
+	return {
+		...getStackAnchorFromMember( firstShape, order ),
+		zIndex: getStackZIndexFromMember( firstShape.index, order ),
+	};
 }
 
 function ensureContentVisible( editor: Editor ) {

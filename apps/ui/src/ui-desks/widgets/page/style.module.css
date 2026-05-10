@@ -9,6 +9,7 @@
 	display: flex;
 	flex-direction: column;
 	gap: 12px;
+	justify-content: flex-start;
 	margin: 0;
 	background: #fff;
 	border-radius: 18px;
@@ -18,6 +19,18 @@
 	color: var(--page-tone-color);
 	overflow: hidden;
 	font-family: inherit;
+}
+
+.page[data-is-loading='true'] {
+	--loading-placeholder-text-color: var(--page-tone-color);
+	--loading-placeholder-line-color: color-mix(in srgb, var(--page-tone-color) 20%, white);
+	--loading-placeholder-line-highlight-color: color-mix(
+		in srgb,
+		var(--page-tone-color) 6%,
+		white
+	);
+
+	justify-content: flex-end;
 }
 
 .page::before {

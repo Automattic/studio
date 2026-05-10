@@ -1,6 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { useEffect, useRef, useState } from 'react';
 import { useSites } from '@/data/queries/use-sites';
+import { LoadingPlaceholder } from '@/ui-desks/components';
 import { useDesk } from '@/ui-desks/desk/provider';
 import styles from './style.module.css';
 import { getSitePreviewUrl, urlLabelFor, withPreviewFlag } from './url';
@@ -23,12 +24,18 @@ export function SitePreviewWidgetComponent( {
 	const sitePreviewUrl = getSitePreviewUrl( site, widgetProps.path );
 	const previewFrameUrl = sitePreviewUrl ? withPreviewFlag( sitePreviewUrl ) : '';
 	const [ liveUrl, setLiveUrl ] = useState( sitePreviewUrl );
+	const [ isFrameLoading, setIsFrameLoading ] = useState( false );
 
 	useEffect( () => {
 		setLiveUrl( sitePreviewUrl );
 	}, [ sitePreviewUrl ] );
 
+	useEffect( () => {
+		setIsFrameLoading( Boolean( previewFrameUrl ) );
+	}, [ previewFrameUrl ] );
+
 	const handleIframeLoad = () => {
+		setIsFrameLoading( false );
 		try {
 			const href = iframeRef.current?.contentWindow?.location.href;
 			if ( href ) {
@@ -64,17 +71,30 @@ export function SitePreviewWidgetComponent( {
 			) }
 			<div className={ styles.preview } data-is-editing={ isEditing ? 'true' : 'false' }>
 				{ previewFrameUrl ? (
-					<iframe
-						ref={ iframeRef }
-						className={ styles.frame }
-						src={ previewFrameUrl }
-						title={ __( 'Site preview' ) }
-						sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
-						referrerPolicy="no-referrer"
-						onLoad={ handleIframeLoad }
-					/>
+					<>
+						<iframe
+							ref={ iframeRef }
+							className={ styles.frame }
+							src={ previewFrameUrl }
+							title={ __( 'Site preview' ) }
+							sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
+							referrerPolicy="no-referrer"
+							onLoad={ handleIframeLoad }
+						/>
+						{ isFrameLoading && (
+							<div className={ styles.loading }>
+								<LoadingPlaceholder text={ __( 'Loading site preview' ) } />
+							</div>
+						) }
+					</>
 				) : (
-					<div className={ styles.empty }>{ emptyMessage }</div>
+					<div className={ isLoading ? styles.loading : styles.empty }>
+						{ isLoading ? (
+							<LoadingPlaceholder text={ __( 'Loading site preview' ) } />
+						) : (
+							emptyMessage
+						) }
+					</div>
 				) }
 				{ ! isEditing && <div className={ styles.shield } aria-hidden="true" /> }
 			</div>

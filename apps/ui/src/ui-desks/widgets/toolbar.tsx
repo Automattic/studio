@@ -85,13 +85,17 @@ export function DeskWidgetToolbar() {
 					onClick={ unstackSelectedWidgets }
 				/>
 			) }
-			<Divider />
-			<IconControlButton
-				icon={ trash }
-				label={ __( 'Remove widget selection' ) }
-				variant="toolbar"
-				onClick={ removeSelectedWidget }
-			/>
+			{ renderSelection.canRemove && (
+				<>
+					<Divider />
+					<IconControlButton
+						icon={ trash }
+						label={ __( 'Remove widget selection' ) }
+						variant="toolbar"
+						onClick={ removeSelectedWidget }
+					/>
+				</>
+			) }
 		</Surface>
 	);
 }

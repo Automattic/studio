@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createDeskWidget } from './create-widget';
 
 vi.mock( '@wordpress/core-data', () => ( {
+	store: {},
 	useEntityRecord: () => ( { record: null, isResolving: false } ),
 	useEntityRecords: () => ( { records: null, isResolving: false, status: 'IDLE' } ),
 } ) );
@@ -134,6 +135,39 @@ describe( 'createDeskWidget', () => {
 			},
 			widgetProps: {
 				path: '/',
+			},
+		} );
+	} );
+
+	it( 'creates a post collection widget with default query props', () => {
+		const createdWidget = createDeskWidget( {
+			id: 'post-collection-1',
+			type: 'post-collection',
+			center: {
+				x: 500,
+				y: 400,
+			},
+			zIndex: 'a5',
+		} );
+
+		expect( createdWidget ).toEqual( {
+			id: 'post-collection-1',
+			type: 'post-collection',
+			x: 499.5,
+			y: 399.5,
+			zIndex: 'a5',
+			shapeProps: {
+				w: 1,
+				h: 1,
+			},
+			widgetProps: {
+				query: {
+					postType: 'post',
+					perPage: 5,
+					status: 'publish',
+					orderby: 'date',
+					order: 'desc',
+				},
 			},
 		} );
 	} );

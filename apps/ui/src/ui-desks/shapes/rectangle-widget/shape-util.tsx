@@ -11,8 +11,12 @@ import {
 	type RecordProps,
 	type TLResizeInfo,
 } from 'tldraw';
+import {
+	getDeskCanvasRecordResolutionState,
+	isDerivedDeskCanvasRecord,
+} from '@/ui-desks/desk/tldraw-adapter';
 import { useStackShapeInteraction } from '@/ui-desks/stacks/use-stack-shape-interaction';
-import { getStackId, isStackExpanded } from '@/ui-desks/stacks/utils';
+import { getStackId, getStackOrder, isStackExpanded } from '@/ui-desks/stacks/utils';
 import { getWidgetDefinition } from '@/ui-desks/widgets/registry';
 import {
 	RECTANGLE_WIDGET_SHAPE_TYPE,
@@ -174,6 +178,11 @@ function RectangleWidgetComponent( {
 				isEditing={ isEditing }
 				isHovered={ isHovered }
 				isSelected={ isSelected }
+				runtime={ {
+					isDerived: isDerivedDeskCanvasRecord( shape ),
+					resolutionState: getDeskCanvasRecordResolutionState( shape ),
+					stackOrder: getStackId( shape ) ? getStackOrder( shape ) : undefined,
+				} }
 				onWidgetPropsChange={ handleWidgetPropsChange }
 				onEditComplete={ () => editor.complete() }
 			/>

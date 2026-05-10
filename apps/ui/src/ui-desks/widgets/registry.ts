@@ -1,6 +1,7 @@
 import { noteWidgetDefinition } from '@/ui-desks/widgets/note/definition';
 import { pageWidgetDefinition } from '@/ui-desks/widgets/page/definition';
 import { postWidgetDefinition } from '@/ui-desks/widgets/post/definition';
+import { postCollectionWidgetDefinition } from '@/ui-desks/widgets/post-collection/definition';
 import { sitePreviewWidgetDefinition } from '@/ui-desks/widgets/site-preview/definition';
 import type { DeskWidgetDefinition } from './types';
 
@@ -8,6 +9,7 @@ export const widgetDefinitions = {
 	[ noteWidgetDefinition.type ]: noteWidgetDefinition,
 	[ postWidgetDefinition.type ]: postWidgetDefinition,
 	[ pageWidgetDefinition.type ]: pageWidgetDefinition,
+	[ postCollectionWidgetDefinition.type ]: postCollectionWidgetDefinition,
 	[ sitePreviewWidgetDefinition.type ]: sitePreviewWidgetDefinition,
 } satisfies Record< string, DeskWidgetDefinition >;
 

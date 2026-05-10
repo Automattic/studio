@@ -2,13 +2,23 @@ import type { ControlConfig } from '@/ui-desks/controls/types';
 import type { NoteWidget } from '@/ui-desks/widgets/note/types';
 import type { PageWidget } from '@/ui-desks/widgets/page/types';
 import type { PostWidget } from '@/ui-desks/widgets/post/types';
+import type { PostCollectionWidget } from '@/ui-desks/widgets/post-collection/types';
 import type { SitePreviewWidget } from '@/ui-desks/widgets/site-preview/types';
-import type { DeskWidgetBase } from '@studio/common/types/desk';
+import type { DeskStack, DeskWidgetBase } from '@studio/common/types/desk';
+import type { createRegistry } from '@wordpress/data';
 import type { ComponentProps, ComponentType, ReactElement } from 'react';
 
 export interface WidgetIndicator {
 	cornerRadius?: number;
 	stroke?: string;
+}
+
+export type WidgetResolutionState = 'loading';
+
+export interface DeskWidgetRuntimeState {
+	isDerived: boolean;
+	resolutionState?: WidgetResolutionState;
+	stackOrder?: number;
 }
 
 export interface DeskWidgetComponentProps<
@@ -19,6 +29,7 @@ export interface DeskWidgetComponentProps<
 	isEditing: boolean;
 	isHovered: boolean;
 	isSelected: boolean;
+	runtime: DeskWidgetRuntimeState;
 	onWidgetPropsChange: ( widgetProps: TWidgetProps ) => void;
 	onEditComplete: () => void;
 }
@@ -27,6 +38,53 @@ export type WidgetIcon = ReactElement< ComponentProps< 'svg' > >;
 
 export interface WidgetLabels {
 	add: () => string;
+}
+
+export type WidgetResolverRegistry = ReturnType< typeof createRegistry >;
+
+export interface WidgetResolverContext {
+	registry: WidgetResolverRegistry;
+}
+
+export type ResolvedDeskWidgetOrigin =
+	| { kind: 'authored' }
+	| {
+			kind: 'derived';
+			sourceWidgetId: string;
+			key: string;
+			state?: WidgetResolutionState;
+	  };
+
+export interface ResolvedDeskWidget< TWidget extends DeskWidgetBase = DeskWidgetBase > {
+	widget: TWidget;
+	origin: ResolvedDeskWidgetOrigin;
+}
+
+export interface ResolvedDeskStack {
+	stack: DeskStack;
+	origin: Extract< ResolvedDeskWidgetOrigin, { kind: 'derived' } >;
+}
+
+export interface WidgetResolution< TIdentity = unknown > {
+	widgets: ResolvedDeskWidget[];
+	stacks?: ResolvedDeskStack[];
+	identity: TIdentity;
+}
+
+export interface WidgetResolver<
+	TWidget extends DeskWidgetBase = DeskWidgetBase,
+	TIdentity = unknown,
+> {
+	resolve: (
+		widget: TWidget,
+		context: WidgetResolverContext
+	) => Promise< WidgetResolution< TIdentity > >;
+	getLoadingResolution?: ( widget: TWidget ) => Omit< WidgetResolution< never >, 'identity' >;
+	invalidate: (
+		widget: TWidget,
+		previousIdentity: TIdentity,
+		context: WidgetResolverContext
+	) => boolean;
 }
 
 export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBase > {
@@ -41,11 +99,18 @@ export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBa
 	shouldStartEditingOnCreate?: boolean;
 	getInitialWidget: () => Pick< TWidget, 'shapeProps' | 'widgetProps' >;
 	getIndicator?: ( widgetProps: TWidget[ 'widgetProps' ] ) => WidgetIndicator;
+	resolver?: WidgetResolver< TWidget >;
 }
 
-export type DeskWidget = NoteWidget | PostWidget | PageWidget | SitePreviewWidget;
+export type DeskWidget =
+	| NoteWidget
+	| PostWidget
+	| PageWidget
+	| PostCollectionWidget
+	| SitePreviewWidget;
 export type DeskWidgetDefinition =
 	| WidgetDefinition< NoteWidget >
 	| WidgetDefinition< PostWidget >
 	| WidgetDefinition< PageWidget >
+	| WidgetDefinition< PostCollectionWidget >
 	| WidgetDefinition< SitePreviewWidget >;

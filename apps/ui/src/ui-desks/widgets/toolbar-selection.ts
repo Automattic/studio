@@ -3,6 +3,7 @@ import type { DeskWidget } from '@/ui-desks/widgets/types';
 
 interface SelectedWidgetToolbarOptions {
 	stackIds?: string[];
+	canRemove?: boolean;
 }
 
 interface SelectedWidgetToolbarBase {
@@ -10,6 +11,7 @@ interface SelectedWidgetToolbarBase {
 	stackIds: string[];
 	canStack: boolean;
 	canUnstack: boolean;
+	canRemove: boolean;
 }
 
 export type SelectedWidgetToolbarItem =
@@ -36,6 +38,7 @@ export function getSelectedWidgetToolbarItem(
 		stackIds,
 		canStack: widgets.length >= 2 && stackIds.length === 0,
 		canUnstack: stackIds.length > 0,
+		canRemove: options.canRemove ?? true,
 	};
 
 	if ( widgets.length !== 1 ) {

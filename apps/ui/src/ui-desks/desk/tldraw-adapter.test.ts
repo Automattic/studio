@@ -12,6 +12,7 @@ import type { DeskConfig } from './types';
 import type { NoteWidget } from '@/ui-desks/widgets/note/types';
 import type { PageWidget } from '@/ui-desks/widgets/page/types';
 import type { PostWidget } from '@/ui-desks/widgets/post/types';
+import type { SitePreviewWidget } from '@/ui-desks/widgets/site-preview/types';
 
 vi.mock( '@wordpress/core-data', () => ( {
 	useEntityRecord: () => ( { record: null, isResolving: false } ),
@@ -170,6 +171,47 @@ describe( 'tldraw adapter', () => {
 				widgetProps: {
 					pageId: 84,
 					tone: 'violet',
+				},
+			},
+		} );
+		expect( canvasShapeToDeskWidget( shape ) ).toEqual( {
+			...widget,
+			rotation: undefined,
+		} );
+	} );
+
+	it( 'maps a site preview widget through the canvas shape adapter', () => {
+		const widget: SitePreviewWidget = {
+			id: 'site-preview-1',
+			type: 'site-preview',
+			x: 80,
+			y: 90,
+			zIndex: 'a5',
+			shapeProps: {
+				w: 480,
+				h: 360,
+			},
+			widgetProps: {
+				path: '/',
+			},
+		};
+
+		const shape = deskWidgetToCanvasShape( widget ) as TLShape;
+
+		expect( shape ).toMatchObject( {
+			id: 'shape:site-preview-1',
+			type: RECTANGLE_WIDGET_SHAPE_TYPE,
+			x: 80,
+			y: 90,
+			index: 'a5',
+			props: {
+				widgetType: 'site-preview',
+				shapeProps: {
+					w: 480,
+					h: 360,
+				},
+				widgetProps: {
+					path: '/',
 				},
 			},
 		} );

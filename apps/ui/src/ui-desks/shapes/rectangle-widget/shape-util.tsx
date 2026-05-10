@@ -6,6 +6,7 @@ import {
 	resizeBox,
 	useEditor,
 	useIsEditing,
+	useValue,
 	type JsonObject,
 	type RecordProps,
 	type TLResizeInfo,
@@ -141,6 +142,16 @@ function RectangleWidgetComponent( {
 	const editor = useEditor();
 	const isEditing = useIsEditing( shape.id );
 	const stackInteraction = useStackShapeInteraction( shape );
+	const isHovered = useValue(
+		`rectangle-widget-is-hovered:${ shape.id }`,
+		() => editor.getHoveredShapeId() === shape.id,
+		[ editor, shape.id ]
+	);
+	const isSelected = useValue(
+		`rectangle-widget-is-selected:${ shape.id }`,
+		() => editor.getSelectedShapeIds().includes( shape.id ),
+		[ editor, shape.id ]
+	);
 	const WidgetComponent = definition.Component as unknown as ComponentType<
 		DeskWidgetComponentProps< JsonObject >
 	>;
@@ -161,6 +172,8 @@ function RectangleWidgetComponent( {
 				id={ getWidgetIdFromShapeId( shape.id ) }
 				widgetProps={ shape.props.widgetProps }
 				isEditing={ isEditing }
+				isHovered={ isHovered }
+				isSelected={ isSelected }
 				onWidgetPropsChange={ handleWidgetPropsChange }
 				onEditComplete={ () => editor.complete() }
 			/>

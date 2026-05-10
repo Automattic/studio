@@ -1,6 +1,7 @@
 import { useEntityRecords, type Post as CoreDataPost } from '@wordpress/core-data';
 import { __ } from '@wordpress/i18n';
 import { useMemo } from 'react';
+import { LoadingPlaceholder } from '@/ui-desks/components';
 import styles from './style.module.css';
 import type { PageWidgetProps } from './types';
 import type { DeskWidgetComponentProps } from '@/ui-desks/widgets/types';
@@ -26,6 +27,22 @@ export function PageWidgetComponent( { id, widgetProps }: PageWidgetComponentPro
 	} );
 	const record = records?.[ 0 ] ?? null;
 	const hasError = resolutionStatus === 'ERROR';
+	const isLoading = isResolving && ! record;
+
+	if ( isLoading ) {
+		return (
+			<article
+				className={ styles.page }
+				data-tone={ widgetProps.tone }
+				data-is-loading="true"
+				data-studio-desk-widget="page"
+				data-studio-desk-widget-id={ id }
+				aria-busy="true"
+			>
+				<LoadingPlaceholder text={ __( 'Loading page' ) } />
+			</article>
+		);
+	}
 
 	const title = getPageTitle( record, isResolving, hasError );
 	const excerpt = record?.excerpt?.rendered ?? '';
@@ -35,7 +52,7 @@ export function PageWidgetComponent( { id, widgetProps }: PageWidgetComponentPro
 		<article
 			className={ styles.page }
 			data-tone={ widgetProps.tone }
-			data-is-loading={ isResolving && ! record ? 'true' : 'false' }
+			data-is-loading="false"
 			data-studio-desk-widget="page"
 			data-studio-desk-widget-id={ id }
 		>

@@ -2,11 +2,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { NOTE_WIDGET_TYPE } from '@/ui-desks/widgets/note/types';
 import { PAGE_WIDGET_TYPE } from '@/ui-desks/widgets/page/types';
 import { POST_WIDGET_TYPE } from '@/ui-desks/widgets/post/types';
+import { POST_COLLECTION_WIDGET_TYPE } from '@/ui-desks/widgets/post-collection/types';
 import { SITE_PREVIEW_WIDGET_TYPE } from '@/ui-desks/widgets/site-preview/types';
 import { getSelectedWidgetToolbarItem } from './toolbar-selection';
 import type { DeskWidget } from '@/ui-desks/widgets/types';
 
 vi.mock( '@wordpress/core-data', () => ( {
+	store: {},
 	useEntityRecord: () => ( { record: null, isResolving: false } ),
 	useEntityRecords: () => ( { records: null, isResolving: false, status: 'IDLE' } ),
 } ) );
@@ -20,6 +22,7 @@ describe( 'widget toolbar selection', () => {
 			throw new Error( 'Expected a single widget toolbar item.' );
 		}
 		expect( selectedItem.definition.type ).toBe( NOTE_WIDGET_TYPE );
+		expect( selectedItem.canRemove ).toBe( true );
 		expect( selectedItem.widget.widgetProps ).toEqual( {
 			text: 'Hello',
 			tone: 'yellow',
@@ -57,7 +60,6 @@ describe( 'widget toolbar selection', () => {
 
 	it( 'returns the toolbar item for a single site preview widget selection', () => {
 		const selectedItem = getSelectedWidgetToolbarItem( [ createSitePreviewWidget() ] );
-
 		expect( selectedItem ).toMatchObject( { kind: 'single-widget' } );
 		if ( selectedItem?.kind !== 'single-widget' ) {
 			throw new Error( 'Expected a single widget toolbar item.' );
@@ -66,6 +68,37 @@ describe( 'widget toolbar selection', () => {
 		expect( selectedItem.definition.controls?.[ 0 ]?.type ).toBe( 'custom' );
 		expect( selectedItem.widget.widgetProps ).toEqual( {
 			path: '/',
+		} );
+	} );
+
+	it( 'returns the toolbar item for a single post collection widget selection', () => {
+		const selectedItem = getSelectedWidgetToolbarItem( [ createPostCollectionWidget() ] );
+
+		expect( selectedItem ).toMatchObject( { kind: 'single-widget' } );
+		if ( selectedItem?.kind !== 'single-widget' ) {
+			throw new Error( 'Expected a single widget toolbar item.' );
+		}
+		expect( selectedItem.definition.type ).toBe( POST_COLLECTION_WIDGET_TYPE );
+		expect( selectedItem.definition.controls?.[ 0 ]?.type ).toBe( 'custom' );
+		expect( selectedItem.widget.widgetProps ).toEqual( {
+			query: {
+				postType: 'post',
+				perPage: 5,
+				status: 'publish',
+				orderby: 'date',
+				order: 'desc',
+			},
+		} );
+	} );
+
+	it( 'can disable removal for protected selections', () => {
+		const selectedItem = getSelectedWidgetToolbarItem( [ createPostCollectionWidget() ], {
+			canRemove: false,
+		} );
+
+		expect( selectedItem ).toMatchObject( {
+			kind: 'single-widget',
+			canRemove: false,
 		} );
 	} );
 
@@ -181,6 +214,29 @@ function createSitePreviewWidget(): DeskWidget {
 		},
 		widgetProps: {
 			path: '/',
+		},
+	};
+}
+
+function createPostCollectionWidget(): DeskWidget {
+	return {
+		id: 'collection-1',
+		type: POST_COLLECTION_WIDGET_TYPE,
+		x: 0,
+		y: 0,
+		zIndex: 'a1',
+		shapeProps: {
+			w: 1,
+			h: 1,
+		},
+		widgetProps: {
+			query: {
+				postType: 'post',
+				perPage: 5,
+				status: 'publish',
+				orderby: 'date',
+				order: 'desc',
+			},
 		},
 	};
 }

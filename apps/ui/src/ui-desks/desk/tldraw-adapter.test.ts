@@ -7,14 +7,21 @@ import {
 	canvasShapesToDeskStacks,
 	deskConfigToCanvasShapes,
 	deskWidgetToCanvasShape,
+	getDeskCanvasRecordMetaWithResolutionState,
+	getDeskCanvasRecordResolutionState,
+	hasOnlyDeskCanvasRecordResolutionStateChange,
+	isPersistentDeskCanvasShape,
+	resolvedDeskWidgetToCanvasShape,
 } from './tldraw-adapter';
 import type { DeskConfig } from './types';
 import type { NoteWidget } from '@/ui-desks/widgets/note/types';
 import type { PageWidget } from '@/ui-desks/widgets/page/types';
 import type { PostWidget } from '@/ui-desks/widgets/post/types';
 import type { SitePreviewWidget } from '@/ui-desks/widgets/site-preview/types';
+import type { ResolvedDeskWidget } from '@/ui-desks/widgets/types';
 
 vi.mock( '@wordpress/core-data', () => ( {
+	store: {},
 	useEntityRecord: () => ( { record: null, isResolving: false } ),
 	useEntityRecords: () => ( { records: null, isResolving: false, status: 'IDLE' } ),
 } ) );
@@ -443,6 +450,132 @@ describe( 'tldraw adapter', () => {
 				memberIds: [ 'note-1', 'note-2' ],
 			},
 		] );
+	} );
+
+	it( 'marks derived widgets as non-persistent canvas shapes', () => {
+		const resolvedWidget: ResolvedDeskWidget< PostWidget > = {
+			origin: {
+				kind: 'derived',
+				sourceWidgetId: 'collection-1',
+				key: 'post:42',
+			},
+			widget: {
+				id: 'collection-1:post:42',
+				type: 'post',
+				x: 40,
+				y: 50,
+				zIndex: 'a3',
+				shapeProps: {
+					w: 280,
+					h: 380,
+				},
+				widgetProps: {
+					postId: 42,
+				},
+			},
+		};
+
+		const shape = resolvedDeskWidgetToCanvasShape( resolvedWidget ) as TLShape;
+
+		expect( shape ).toMatchObject( {
+			id: 'shape:collection-1:post:42',
+			meta: {
+				studioDeskOrigin: 'derived',
+				studioDeskPersist: false,
+				studioDeskSourceWidgetId: 'collection-1',
+				studioDeskDerivedKey: 'post:42',
+			},
+		} );
+		expect( isPersistentDeskCanvasShape( shape ) ).toBe( false );
+		expect( canvasShapeToDeskWidget( shape ) ).toEqual( {
+			...resolvedWidget.widget,
+			rotation: undefined,
+		} );
+	} );
+
+	it( 'reads loading resolution state from canvas metadata', () => {
+		const shape = {
+			meta: getDeskCanvasRecordMetaWithResolutionState( {}, 'loading' ),
+		};
+
+		expect( getDeskCanvasRecordResolutionState( shape ) ).toBe( 'loading' );
+		expect(
+			getDeskCanvasRecordResolutionState( {
+				meta: getDeskCanvasRecordMetaWithResolutionState( shape ),
+			} )
+		).toBeUndefined();
+	} );
+
+	it( 'detects resolution state-only canvas metadata changes', () => {
+		const shape = {
+			id: 'shape:post-collection-1',
+			x: 40,
+			y: 50,
+			meta: {},
+		};
+		const loadingShape = {
+			...shape,
+			meta: getDeskCanvasRecordMetaWithResolutionState( shape, 'loading' ),
+		};
+
+		expect( hasOnlyDeskCanvasRecordResolutionStateChange( shape, loadingShape ) ).toBe( true );
+		expect(
+			hasOnlyDeskCanvasRecordResolutionStateChange( shape, {
+				...loadingShape,
+				x: 41,
+			} )
+		).toBe( false );
+	} );
+
+	it( 'maps derived stack members through stack metadata', () => {
+		const resolvedWidget: ResolvedDeskWidget< PostWidget > = {
+			origin: {
+				kind: 'derived',
+				sourceWidgetId: 'collection-1',
+				key: 'post:42',
+			},
+			widget: {
+				id: 'collection-1:post:42',
+				type: 'post',
+				x: 40,
+				y: 50,
+				zIndex: 'a3',
+				shapeProps: {
+					w: 280,
+					h: 380,
+				},
+				widgetProps: {
+					postId: 42,
+				},
+			},
+		};
+
+		const shape = resolvedDeskWidgetToCanvasShape( resolvedWidget, {
+			stack: {
+				id: 'stack-1',
+				x: 100,
+				y: 200,
+				zIndex: 'a7',
+				memberIds: [ 'collection-1:post:41', 'collection-1:post:42' ],
+			},
+			order: 1,
+		} ) as TLShape;
+
+		expect( shape ).toMatchObject( {
+			x: 110,
+			y: 208,
+			rotation: 0.052,
+			index: 'a6.999',
+			meta: {
+				deskStackId: 'stack-1',
+				deskStackOrder: 1,
+				deskStackOriginalZIndex: 'a3',
+				studioDeskOrigin: 'derived',
+				studioDeskPersist: false,
+				studioDeskSourceWidgetId: 'collection-1',
+				studioDeskDerivedKey: 'post:42',
+			},
+		} );
 	} );
 
 	it( 'ignores unsupported canvas shapes', () => {

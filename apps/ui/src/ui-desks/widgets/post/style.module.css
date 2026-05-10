@@ -6,6 +6,7 @@
 	display: flex;
 	flex-direction: column;
 	gap: 12px;
+	justify-content: flex-start;
 	margin: 0;
 	background: #fff;
 	border-radius: 18px;
@@ -15,6 +16,12 @@
 	color: #14171a;
 	overflow: hidden;
 	font-family: inherit;
+}
+
+.post[data-is-loading='true'] {
+	justify-content: flex-end;
+	border: 1px solid #dcdcde;
+	box-shadow: 0 10px 24px rgb(0 0 0 / 8%);
 }
 
 .title {

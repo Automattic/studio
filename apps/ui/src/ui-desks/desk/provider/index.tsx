@@ -12,6 +12,7 @@ import {
 	createDeskConfigFromEditor,
 	getCurrentSelectedWidgetToolbarItem,
 	hasCameraChange,
+	hasPersistentDocumentChange,
 	hydrateEditorFromDesk,
 	removeSelectedWidgetFromEditor,
 	stackSelectedWidgetsInEditor,
@@ -19,6 +20,7 @@ import {
 	updateSelectedWidgetPropsInEditor,
 } from './editor-state';
 import { useDeskPersistence } from './persistence';
+import { useDeskWidgetResolvers } from './resolvers';
 import type { Editor } from 'tldraw';
 
 export { useDesk, useRegisterDeskEditor } from './context';
@@ -72,8 +74,10 @@ export function DeskProvider( { siteId, children }: DeskProviderProps ) {
 		};
 
 		const unsubscribeDocument = editor.store.listen(
-			() => {
-				queueSave();
+			( { changes } ) => {
+				if ( hasPersistentDocumentChange( changes ) ) {
+					queueSave();
+				}
 				syncSelectedWidgetToolbarItem();
 			},
 			{ scope: 'document' }
@@ -204,6 +208,11 @@ export function DeskProvider( { siteId, children }: DeskProviderProps ) {
 			updateSelectedWidgetProps,
 		]
 	);
+
+	useDeskWidgetResolvers( {
+		editor,
+		isEnabled: Boolean( siteId && isHydrated ),
+	} );
 
 	return <DeskContext.Provider value={ value }>{ children }</DeskContext.Provider>;
 }

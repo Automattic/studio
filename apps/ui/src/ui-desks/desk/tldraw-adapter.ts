@@ -25,9 +25,23 @@ import {
 import { isRectangleWidgetShapeProps } from '@/ui-desks/widgets/geometry';
 import { getWidgetDefinition } from '@/ui-desks/widgets/registry';
 import type { DeskConfig, DeskStack, DeskViewport } from '@/ui-desks/desk/types';
-import type { DeskWidget } from '@/ui-desks/widgets/types';
+import type {
+	DeskWidget,
+	ResolvedDeskWidget,
+	WidgetResolutionState,
+} from '@/ui-desks/widgets/types';
 
 const SHAPE_ID_PREFIX = 'shape:';
+const DERIVED_WIDGET_ORIGIN = 'derived';
+const DERIVED_WIDGET_PERSIST = false;
+
+interface DeskCanvasMeta {
+	studioDeskOrigin?: typeof DERIVED_WIDGET_ORIGIN;
+	studioDeskPersist?: typeof DERIVED_WIDGET_PERSIST;
+	studioDeskSourceWidgetId?: string;
+	studioDeskDerivedKey?: string;
+	studioDeskResolutionState?: WidgetResolutionState;
+}
 
 interface DeskStackMember {
 	stack: DeskStack;
@@ -108,6 +122,27 @@ export function deskWidgetToCanvasShape(
 			widgetType: widget.type,
 			shapeProps: widget.shapeProps,
 			widgetProps: widget.widgetProps,
+		},
+	};
+}
+
+export function resolvedDeskWidgetToCanvasShape(
+	resolvedWidget: ResolvedDeskWidget< DeskWidget >,
+	stackMember?: DeskStackMember
+): TLShapePartial {
+	const shape = deskWidgetToCanvasShape( resolvedWidget.widget, stackMember );
+	if ( resolvedWidget.origin.kind !== 'derived' ) {
+		return shape;
+	}
+
+	return {
+		...shape,
+		meta: {
+			...( shape.meta ?? {} ),
+			studioDeskOrigin: DERIVED_WIDGET_ORIGIN,
+			studioDeskPersist: DERIVED_WIDGET_PERSIST,
+			studioDeskSourceWidgetId: resolvedWidget.origin.sourceWidgetId,
+			studioDeskDerivedKey: resolvedWidget.origin.key,
 		},
 	};
 }
@@ -197,7 +232,7 @@ export function canvasShapesToDeskStacks( shapes: TLShape[] ): DeskStack[] {
 	const shapesByStackId = new Map< string, TLShape[] >();
 
 	for ( const shape of shapes ) {
-		if ( canvasShapeToDeskWidget( shape ) === null ) {
+		if ( ! isPersistentDeskCanvasShape( shape ) || canvasShapeToDeskWidget( shape ) === null ) {
 			continue;
 		}
 
@@ -212,6 +247,64 @@ export function canvasShapesToDeskStacks( shapes: TLShape[] ): DeskStack[] {
 	return Array.from( shapesByStackId, ( [ stackId, stackShapes ] ) =>
 		canvasShapesToDeskStack( stackId, stackShapes )
 	).filter( ( stack ): stack is DeskStack => stack !== null );
+}
+
+export function isPersistentDeskCanvasShape( shape: TLShape ) {
+	return ! isDerivedDeskCanvasRecord( shape );
+}
+
+export function isDerivedDeskCanvasRecord( value: unknown ) {
+	const meta = getRecordMeta( value ) as DeskCanvasMeta | null;
+	return (
+		meta?.studioDeskOrigin === DERIVED_WIDGET_ORIGIN &&
+		meta.studioDeskPersist === DERIVED_WIDGET_PERSIST
+	);
+}
+
+export function getDerivedDeskCanvasRecordSourceId( value: unknown ) {
+	const meta = getRecordMeta( value ) as DeskCanvasMeta | null;
+	if ( ! isDerivedDeskCanvasRecord( value ) ) {
+		return null;
+	}
+	return typeof meta?.studioDeskSourceWidgetId === 'string' ? meta.studioDeskSourceWidgetId : null;
+}
+
+export function getDerivedDeskCanvasRecordKey( value: unknown ) {
+	const meta = getRecordMeta( value ) as DeskCanvasMeta | null;
+	if ( ! isDerivedDeskCanvasRecord( value ) ) {
+		return null;
+	}
+	return typeof meta?.studioDeskDerivedKey === 'string' ? meta.studioDeskDerivedKey : null;
+}
+
+export function getDeskCanvasRecordResolutionState( value: unknown ) {
+	const meta = getRecordMeta( value ) as DeskCanvasMeta | null;
+	return meta?.studioDeskResolutionState === 'loading' ? meta.studioDeskResolutionState : undefined;
+}
+
+export function getDeskCanvasRecordMetaWithResolutionState(
+	value: unknown,
+	resolutionState?: WidgetResolutionState
+): TLShapePartial[ 'meta' ] {
+	const nextMeta = { ...( getRecordMeta( value ) ?? {} ) };
+	if ( resolutionState ) {
+		nextMeta.studioDeskResolutionState = resolutionState;
+	} else {
+		nextMeta.studioDeskResolutionState = null;
+	}
+	return nextMeta as TLShapePartial[ 'meta' ];
+}
+
+export function hasOnlyDeskCanvasRecordResolutionStateChange(
+	previousRecord: unknown,
+	nextRecord: unknown
+) {
+	return (
+		getDeskCanvasRecordResolutionState( previousRecord ) !==
+			getDeskCanvasRecordResolutionState( nextRecord ) &&
+		JSON.stringify( getRecordWithoutResolutionState( previousRecord ) ) ===
+			JSON.stringify( getRecordWithoutResolutionState( nextRecord ) )
+	);
 }
 
 export function canvasCameraToDeskViewport(
@@ -315,4 +408,24 @@ function isRectangleWidgetCanvasProps(
 		Boolean( candidate.widgetProps ) &&
 		typeof candidate.widgetProps === 'object'
 	);
+}
+
+function getRecordMeta( value: unknown ) {
+	if ( ! value || typeof value !== 'object' ) {
+		return null;
+	}
+
+	const meta = ( value as { meta?: unknown } ).meta;
+	return meta && typeof meta === 'object' ? ( meta as Record< string, unknown > ) : null;
+}
+
+function getRecordWithoutResolutionState( value: unknown ) {
+	if ( ! value || typeof value !== 'object' ) {
+		return value;
+	}
+
+	return {
+		...( value as Record< string, unknown > ),
+		meta: getDeskCanvasRecordMetaWithResolutionState( value ),
+	};
 }

@@ -20,7 +20,9 @@ import type { DeskWidgetDefinition } from '@/ui-desks/widgets/types';
 export function DeskCreateMenu() {
 	const navigate = useNavigate();
 	const desk = useDesk();
-	const creatableWidgetDefinitions = getCreatableWidgetDefinitions();
+	const creatableWidgetDefinitions = getCreatableWidgetDefinitions().filter( ( definition ) =>
+		isWidgetAvailableInDeskContext( definition, Boolean( desk.siteId ) )
+	);
 	const [ mode, setMode ] = useState< 'menu' | 'pick-post' | 'pick-page' >( 'menu' );
 	const { data: sites } = useSites();
 	const site = sites?.find( ( candidate ) => candidate.id === desk.siteId );
@@ -63,7 +65,11 @@ export function DeskCreateMenu() {
 									desk.canAddWidgets,
 									isSiteRunning
 								) }
-								onClick={ () => desk.addWidget( definition.type ) }
+								onClick={ () =>
+									desk.addWidget( definition.type, {
+										shouldStartEditing: definition.shouldStartEditingOnCreate,
+									} )
+								}
 							>
 								{ definition.icon && <Icon icon={ definition.icon } /> }
 								<span>{ definition.labels.add() }</span>
@@ -126,6 +132,13 @@ export function DeskCreateMenu() {
 			</Menu.Popup>
 		</Menu.Root>
 	);
+}
+
+function isWidgetAvailableInDeskContext(
+	definition: DeskWidgetDefinition,
+	hasSiteContext: boolean
+) {
+	return hasSiteContext || ! definition.requiresRunningSite;
 }
 
 function isWidgetCreationDisabled(

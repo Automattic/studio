@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { NOTE_WIDGET_TYPE } from '@/ui-desks/widgets/note/types';
 import { PAGE_WIDGET_TYPE } from '@/ui-desks/widgets/page/types';
 import { POST_WIDGET_TYPE } from '@/ui-desks/widgets/post/types';
+import { SITE_PREVIEW_WIDGET_TYPE } from '@/ui-desks/widgets/site-preview/types';
 import { getSelectedWidgetToolbarItem } from './toolbar-selection';
 import type { DeskWidget } from '@/ui-desks/widgets/types';
 
@@ -51,6 +52,20 @@ describe( 'widget toolbar selection', () => {
 		expect( selectedItem.widget.widgetProps ).toEqual( {
 			pageId: 84,
 			tone: 'blue',
+		} );
+	} );
+
+	it( 'returns the toolbar item for a single site preview widget selection', () => {
+		const selectedItem = getSelectedWidgetToolbarItem( [ createSitePreviewWidget() ] );
+
+		expect( selectedItem ).toMatchObject( { kind: 'single-widget' } );
+		if ( selectedItem?.kind !== 'single-widget' ) {
+			throw new Error( 'Expected a single widget toolbar item.' );
+		}
+		expect( selectedItem.definition.type ).toBe( SITE_PREVIEW_WIDGET_TYPE );
+		expect( selectedItem.definition.controls?.[ 0 ]?.type ).toBe( 'custom' );
+		expect( selectedItem.widget.widgetProps ).toEqual( {
+			path: '/',
 		} );
 	} );
 
@@ -149,6 +164,23 @@ function createPageWidget(): DeskWidget {
 		widgetProps: {
 			pageId: 84,
 			tone: 'blue',
+		},
+	};
+}
+
+function createSitePreviewWidget(): DeskWidget {
+	return {
+		id: 'site-preview-1',
+		type: SITE_PREVIEW_WIDGET_TYPE,
+		x: 0,
+		y: 0,
+		zIndex: 'a1',
+		shapeProps: {
+			w: 480,
+			h: 360,
+		},
+		widgetProps: {
+			path: '/',
 		},
 	};
 }

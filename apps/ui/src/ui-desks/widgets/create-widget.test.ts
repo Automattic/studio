@@ -110,4 +110,31 @@ describe( 'createDeskWidget', () => {
 			},
 		} );
 	} );
+
+	it( 'creates a site preview widget centered on the requested point', () => {
+		const createdWidget = createDeskWidget( {
+			id: 'site-preview-1',
+			type: 'site-preview',
+			center: {
+				x: 500,
+				y: 400,
+			},
+			zIndex: 'a5',
+		} );
+
+		expect( createdWidget ).toEqual( {
+			id: 'site-preview-1',
+			type: 'site-preview',
+			x: 220,
+			y: 190,
+			zIndex: 'a5',
+			shapeProps: {
+				w: 560,
+				h: 420,
+			},
+			widgetProps: {
+				path: '/',
+			},
+		} );
+	} );
 } );

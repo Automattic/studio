@@ -2,6 +2,7 @@ import type { ControlConfig } from '@/ui-desks/controls/types';
 import type { NoteWidget } from '@/ui-desks/widgets/note/types';
 import type { PageWidget } from '@/ui-desks/widgets/page/types';
 import type { PostWidget } from '@/ui-desks/widgets/post/types';
+import type { SitePreviewWidget } from '@/ui-desks/widgets/site-preview/types';
 import type { DeskWidgetBase } from '@studio/common/types/desk';
 import type { ComponentProps, ComponentType, ReactElement } from 'react';
 
@@ -16,6 +17,8 @@ export interface DeskWidgetComponentProps<
 	id: string;
 	widgetProps: TWidgetProps;
 	isEditing: boolean;
+	isHovered: boolean;
+	isSelected: boolean;
 	onWidgetPropsChange: ( widgetProps: TWidgetProps ) => void;
 	onEditComplete: () => void;
 }
@@ -35,12 +38,14 @@ export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBa
 	icon?: WidgetIcon;
 	isCreatable?: boolean;
 	requiresRunningSite?: boolean;
+	shouldStartEditingOnCreate?: boolean;
 	getInitialWidget: () => Pick< TWidget, 'shapeProps' | 'widgetProps' >;
 	getIndicator?: ( widgetProps: TWidget[ 'widgetProps' ] ) => WidgetIndicator;
 }
 
-export type DeskWidget = NoteWidget | PostWidget | PageWidget;
+export type DeskWidget = NoteWidget | PostWidget | PageWidget | SitePreviewWidget;
 export type DeskWidgetDefinition =
 	| WidgetDefinition< NoteWidget >
 	| WidgetDefinition< PostWidget >
-	| WidgetDefinition< PageWidget >;
+	| WidgetDefinition< PageWidget >
+	| WidgetDefinition< SitePreviewWidget >;

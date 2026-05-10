@@ -11,19 +11,20 @@ import {
 	type RecordProps,
 	type TLResizeInfo,
 } from 'tldraw';
-import {
-	getDeskCanvasRecordResolutionState,
-	isDerivedDeskCanvasRecord,
-} from '@/ui-desks/desk/tldraw-adapter';
+import { getDeskCanvasRecordResolutionState } from '@/ui-desks/desk/tldraw-adapter';
 import { useStackShapeInteraction } from '@/ui-desks/stacks/use-stack-shape-interaction';
-import { getStackId, getStackOrder, isStackExpanded } from '@/ui-desks/stacks/utils';
+import { getStackId, isStackExpanded } from '@/ui-desks/stacks/utils';
 import { getWidgetDefinition } from '@/ui-desks/widgets/registry';
 import {
 	RECTANGLE_WIDGET_SHAPE_TYPE,
 	type RectangleWidgetShape,
 	type RectangleWidgetShapeProps,
 } from './types';
-import type { DeskWidgetComponentProps, WidgetIndicator } from '@/ui-desks/widgets/types';
+import type {
+	DeskWidgetComponentProps,
+	DeskWidgetLoadingComponentProps,
+	WidgetIndicator,
+} from '@/ui-desks/widgets/types';
 import type { ComponentType } from 'react';
 
 type RegisteredWidgetDefinition = NonNullable< ReturnType< typeof getWidgetDefinition > >;
@@ -159,6 +160,11 @@ function RectangleWidgetComponent( {
 	const WidgetComponent = definition.Component as unknown as ComponentType<
 		DeskWidgetComponentProps< JsonObject >
 	>;
+	const LoadingComponent = definition.loading as
+		| ComponentType< DeskWidgetLoadingComponentProps< JsonObject > >
+		| undefined;
+	const isLoading = getDeskCanvasRecordResolutionState( shape ) === 'loading';
+	const widgetId = getWidgetIdFromShapeId( shape.id );
 
 	const handleWidgetPropsChange = ( widgetProps: JsonObject ) => {
 		editor.updateShape< RectangleWidgetShape >( {
@@ -172,20 +178,19 @@ function RectangleWidgetComponent( {
 
 	return (
 		<div style={ stackInteraction.style } onPointerDown={ stackInteraction.onPointerDown }>
-			<WidgetComponent
-				id={ getWidgetIdFromShapeId( shape.id ) }
-				widgetProps={ shape.props.widgetProps }
-				isEditing={ isEditing }
-				isHovered={ isHovered }
-				isSelected={ isSelected }
-				runtime={ {
-					isDerived: isDerivedDeskCanvasRecord( shape ),
-					resolutionState: getDeskCanvasRecordResolutionState( shape ),
-					stackOrder: getStackId( shape ) ? getStackOrder( shape ) : undefined,
-				} }
-				onWidgetPropsChange={ handleWidgetPropsChange }
-				onEditComplete={ () => editor.complete() }
-			/>
+			{ isLoading && LoadingComponent ? (
+				<LoadingComponent id={ widgetId } widgetProps={ shape.props.widgetProps } />
+			) : (
+				<WidgetComponent
+					id={ widgetId }
+					widgetProps={ shape.props.widgetProps }
+					isEditing={ isEditing }
+					isHovered={ isHovered }
+					isSelected={ isSelected }
+					onWidgetPropsChange={ handleWidgetPropsChange }
+					onEditComplete={ () => editor.complete() }
+				/>
+			) }
 		</div>
 	);
 }

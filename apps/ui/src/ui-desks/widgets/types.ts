@@ -15,12 +15,6 @@ export interface WidgetIndicator {
 
 export type WidgetResolutionState = 'loading';
 
-export interface DeskWidgetRuntimeState {
-	isDerived: boolean;
-	resolutionState?: WidgetResolutionState;
-	stackOrder?: number;
-}
-
 export interface DeskWidgetComponentProps<
 	TWidgetProps extends Record< string, unknown > = Record< string, unknown >,
 > {
@@ -29,9 +23,15 @@ export interface DeskWidgetComponentProps<
 	isEditing: boolean;
 	isHovered: boolean;
 	isSelected: boolean;
-	runtime: DeskWidgetRuntimeState;
 	onWidgetPropsChange: ( widgetProps: TWidgetProps ) => void;
 	onEditComplete: () => void;
+}
+
+export interface DeskWidgetLoadingComponentProps<
+	TWidgetProps extends Record< string, unknown > = Record< string, unknown >,
+> {
+	id: string;
+	widgetProps: TWidgetProps;
 }
 
 export type WidgetIcon = ReactElement< ComponentProps< 'svg' > >;
@@ -52,7 +52,6 @@ export type ResolvedDeskWidgetOrigin =
 			kind: 'derived';
 			sourceWidgetId: string;
 			key: string;
-			state?: WidgetResolutionState;
 	  };
 
 export interface ResolvedDeskWidget< TWidget extends DeskWidgetBase = DeskWidgetBase > {
@@ -79,7 +78,6 @@ export interface WidgetResolver<
 		widget: TWidget,
 		context: WidgetResolverContext
 	) => Promise< WidgetResolution< TIdentity > >;
-	getLoadingResolution?: ( widget: TWidget ) => Omit< WidgetResolution< never >, 'identity' >;
 	invalidate: (
 		widget: TWidget,
 		previousIdentity: TIdentity,
@@ -90,6 +88,7 @@ export interface WidgetResolver<
 export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBase > {
 	type: TWidget[ 'type' ];
 	Component: ComponentType< DeskWidgetComponentProps< TWidget[ 'widgetProps' ] > >;
+	loading?: ComponentType< DeskWidgetLoadingComponentProps< TWidget[ 'widgetProps' ] > >;
 	controls?: Array< ControlConfig< TWidget[ 'widgetProps' ] > >;
 	isWidgetProps: ( props: unknown ) => props is TWidget[ 'widgetProps' ];
 	labels: WidgetLabels;

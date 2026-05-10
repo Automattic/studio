@@ -4,6 +4,8 @@ import {
 	canvasShapeToDeskWidget,
 	getDerivedDeskCanvasRecordKey,
 	getDerivedDeskCanvasRecordSourceId,
+	getDeskCanvasRecordMetaWithResolutionState,
+	hasOnlyDeskCanvasRecordResolutionStateChange,
 	isDerivedDeskCanvasRecord,
 	resolvedDeskWidgetToCanvasShape,
 } from '@/ui-desks/desk/tldraw-adapter';
@@ -16,6 +18,7 @@ import type {
 	ResolvedDeskWidget,
 	WidgetResolverContext,
 	WidgetResolution,
+	WidgetResolutionState,
 } from '@/ui-desks/widgets/types';
 import type { Editor, TLShape, TLShapePartial } from 'tldraw';
 
@@ -124,17 +127,15 @@ async function resolveDeskWidgets(
 		if ( previousState && ! shouldResolveWidget( definition, widget, previousState, context ) ) {
 			continue;
 		}
+		const isInitialResolve = ! previousState;
 
-		if ( ! previousState && getDerivedShapesForSource( editor, widget.id ).length === 0 ) {
-			const loadingResolution = getLoadingResolution( definition, widget );
-			if ( loadingResolution ) {
-				reconcileResolvedWidgets(
-					editor,
-					widget.id,
-					loadingResolution.widgets as Array< ResolvedDeskWidget< DeskWidget > >,
-					loadingResolution.stacks ?? []
-				);
-			}
+		if ( isInitialResolve && definition.loading ) {
+			setSourceWidgetResolutionState(
+				editor,
+				widget.id,
+				'loading',
+				definition.getInitialWidget().shapeProps
+			);
 		}
 
 		let resolution: WidgetResolution;
@@ -144,6 +145,9 @@ async function resolveDeskWidgets(
 				context
 			) ) as WidgetResolution;
 		} catch ( error ) {
+			if ( isInitialResolve ) {
+				setSourceWidgetResolutionState( editor, widget.id );
+			}
 			console.warn( `Failed to resolve desk widget "${ widget.id }".`, error );
 			if ( ! previousState ) {
 				deleteDerivedWidgetsForSource( editor, widget.id );
@@ -155,6 +159,9 @@ async function resolveDeskWidgets(
 		}
 		if ( ! getAuthoredDeskWidgets( editor ).some( ( candidate ) => candidate.id === widget.id ) ) {
 			continue;
+		}
+		if ( isInitialResolve ) {
+			setSourceWidgetResolutionState( editor, widget.id );
 		}
 		const widgets = resolution.widgets.filter(
 			( resolvedWidget ): resolvedWidget is ResolvedDeskWidget< DeskWidget > =>
@@ -203,13 +210,6 @@ function shouldResolveWidget(
 
 function getAuthoredDeskWidgets( editor: Editor ) {
 	return getCurrentDeskWidgets( editor );
-}
-
-function getLoadingResolution(
-	definition: NonNullable< ReturnType< typeof getWidgetDefinition > >,
-	widget: DeskWidget
-) {
-	return definition.resolver?.getLoadingResolution?.( widget as never );
 }
 
 function reconcileResolvedWidgets(
@@ -303,6 +303,33 @@ function deleteDerivedWidgetsForSource( editor: Editor, sourceWidgetId: string )
 	if ( shapes.length > 0 ) {
 		editor.deleteShapes( shapes.map( ( shape ) => shape.id ) );
 	}
+}
+
+function setSourceWidgetResolutionState(
+	editor: Editor,
+	sourceWidgetId: string,
+	resolutionState?: WidgetResolutionState,
+	shapeProps?: DeskWidget[ 'shapeProps' ]
+) {
+	const sourceShape = editor
+		.getCurrentPageShapes()
+		.find( ( shape ) => canvasShapeToDeskWidget( shape )?.id === sourceWidgetId );
+	if ( ! sourceShape ) {
+		return;
+	}
+
+	editor.updateShape( {
+		id: sourceShape.id,
+		type: sourceShape.type,
+		meta: getDeskCanvasRecordMetaWithResolutionState( sourceShape, resolutionState ),
+		...( shapeProps
+			? {
+					props: {
+						shapeProps,
+					},
+			  }
+			: {} ),
+	} );
 }
 
 function getDerivedShapesForSource( editor: Editor, sourceWidgetId: string ) {
@@ -401,17 +428,19 @@ function getResolvedStackMembers(
 }
 
 function hasResolverRelevantDocumentChange( changes: CanvasStoreChanges ) {
-	const records = [
-		...Object.values( changes.added ),
-		...Object.values( changes.removed ),
-		...Object.values( changes.updated ).flatMap( ( [ previousRecord, nextRecord ] ) => [
-			previousRecord,
-			nextRecord,
-		] ),
-	];
+	if (
+		[ ...Object.values( changes.added ), ...Object.values( changes.removed ) ].some(
+			( record ) => isShapeRecord( record ) && ! isDerivedDeskCanvasRecord( record )
+		)
+	) {
+		return true;
+	}
 
-	return records.some(
-		( record ) => isShapeRecord( record ) && ! isDerivedDeskCanvasRecord( record )
+	return Object.values( changes.updated ).some(
+		( [ previousRecord, nextRecord ] ) =>
+			! hasOnlyDeskCanvasRecordResolutionStateChange( previousRecord, nextRecord ) &&
+			( ( isShapeRecord( previousRecord ) && ! isDerivedDeskCanvasRecord( previousRecord ) ) ||
+				( isShapeRecord( nextRecord ) && ! isDerivedDeskCanvasRecord( nextRecord ) ) )
 	);
 }
 

@@ -7,7 +7,9 @@ import {
 	canvasShapesToDeskStacks,
 	deskConfigToCanvasShapes,
 	deskWidgetToCanvasShape,
+	getDeskCanvasRecordMetaWithResolutionState,
 	getDeskCanvasRecordResolutionState,
+	hasOnlyDeskCanvasRecordResolutionStateChange,
 	isPersistentDeskCanvasShape,
 	resolvedDeskWidgetToCanvasShape,
 } from './tldraw-adapter';
@@ -456,7 +458,6 @@ describe( 'tldraw adapter', () => {
 				kind: 'derived',
 				sourceWidgetId: 'collection-1',
 				key: 'post:42',
-				state: 'loading',
 			},
 			widget: {
 				id: 'collection-1:post:42',
@@ -483,15 +484,47 @@ describe( 'tldraw adapter', () => {
 				studioDeskPersist: false,
 				studioDeskSourceWidgetId: 'collection-1',
 				studioDeskDerivedKey: 'post:42',
-				studioDeskResolutionState: 'loading',
 			},
 		} );
 		expect( isPersistentDeskCanvasShape( shape ) ).toBe( false );
-		expect( getDeskCanvasRecordResolutionState( shape ) ).toBe( 'loading' );
 		expect( canvasShapeToDeskWidget( shape ) ).toEqual( {
 			...resolvedWidget.widget,
 			rotation: undefined,
 		} );
+	} );
+
+	it( 'reads loading resolution state from canvas metadata', () => {
+		const shape = {
+			meta: getDeskCanvasRecordMetaWithResolutionState( {}, 'loading' ),
+		};
+
+		expect( getDeskCanvasRecordResolutionState( shape ) ).toBe( 'loading' );
+		expect(
+			getDeskCanvasRecordResolutionState( {
+				meta: getDeskCanvasRecordMetaWithResolutionState( shape ),
+			} )
+		).toBeUndefined();
+	} );
+
+	it( 'detects resolution state-only canvas metadata changes', () => {
+		const shape = {
+			id: 'shape:post-collection-1',
+			x: 40,
+			y: 50,
+			meta: {},
+		};
+		const loadingShape = {
+			...shape,
+			meta: getDeskCanvasRecordMetaWithResolutionState( shape, 'loading' ),
+		};
+
+		expect( hasOnlyDeskCanvasRecordResolutionStateChange( shape, loadingShape ) ).toBe( true );
+		expect(
+			hasOnlyDeskCanvasRecordResolutionStateChange( shape, {
+				...loadingShape,
+				x: 41,
+			} )
+		).toBe( false );
 	} );
 
 	it( 'maps derived stack members through stack metadata', () => {

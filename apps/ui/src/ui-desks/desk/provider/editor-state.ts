@@ -23,6 +23,7 @@ import {
 	deskConfigToCanvasShapes,
 	deskWidgetToCanvasShape,
 	getDerivedDeskCanvasRecordSourceId,
+	hasOnlyDeskCanvasRecordResolutionStateChange,
 	isDerivedDeskCanvasRecord,
 	isPersistentDeskCanvasShape,
 } from '../tldraw-adapter';
@@ -193,6 +194,10 @@ export function hasPersistentDocumentChange( changes: CanvasStoreChanges ) {
 
 	return Object.values( changes.updated ).some( ( [ previousRecord, nextRecord ] ) => {
 		if ( isShapeRecord( previousRecord ) || isShapeRecord( nextRecord ) ) {
+			if ( hasOnlyDeskCanvasRecordResolutionStateChange( previousRecord, nextRecord ) ) {
+				return false;
+			}
+
 			if (
 				isDerivedDeskCanvasRecord( previousRecord ) ||
 				isDerivedDeskCanvasRecord( nextRecord )

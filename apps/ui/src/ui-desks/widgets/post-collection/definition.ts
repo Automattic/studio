@@ -1,8 +1,12 @@
 import { store as coreDataStore, type Post as CoreDataPost } from '@wordpress/core-data';
 import { __ } from '@wordpress/i18n';
 import { post } from '@wordpress/icons';
+import { postWidgetDefinition } from '@/ui-desks/widgets/post/definition';
 import { POST_WIDGET_TYPE, type PostWidget } from '@/ui-desks/widgets/post/types';
-import { PostCollectionWidgetComponent } from '@/ui-desks/widgets/post-collection/component';
+import {
+	PostCollectionLoadingComponent,
+	PostCollectionWidgetComponent,
+} from '@/ui-desks/widgets/post-collection/component';
 import { PostCollectionEditControl } from '@/ui-desks/widgets/post-collection/edit-control';
 import {
 	isPostCollectionWidgetProps,
@@ -47,12 +51,12 @@ type PostCollectionResolutionIdentity = {
 	posts: CoreDataPost[] | null;
 };
 
-const POST_CARD_WIDTH = 280;
-const POST_CARD_HEIGHT = 380;
+const POST_CARD_SHAPE_PROPS = postWidgetDefinition.getInitialWidget().shapeProps;
 
 export const postCollectionWidgetDefinition = {
 	type: POST_COLLECTION_WIDGET_TYPE,
 	Component: PostCollectionWidgetComponent,
+	loading: PostCollectionLoadingComponent,
 	controls: [
 		{
 			type: 'custom',
@@ -72,10 +76,7 @@ export const postCollectionWidgetDefinition = {
 	},
 	icon: post,
 	getInitialWidget: () => ( {
-		shapeProps: {
-			w: 1,
-			h: 1,
-		},
+		shapeProps: POST_CARD_SHAPE_PROPS,
 		widgetProps: {
 			query: {
 				postType: 'post',
@@ -87,29 +88,6 @@ export const postCollectionWidgetDefinition = {
 		},
 	} ),
 	resolver: {
-		getLoadingResolution: ( widget ) => {
-			const widgets = [ createLoadingWidget( widget, 0 ), createLoadingWidget( widget, 1 ) ];
-			return {
-				widgets,
-				stacks: [
-					{
-						origin: {
-							kind: 'derived',
-							sourceWidgetId: widget.id,
-							key: 'loading',
-							state: 'loading',
-						},
-						stack: {
-							id: `post-collection:${ widget.id }:loading`,
-							x: widget.x,
-							y: widget.y,
-							zIndex: getDerivedZIndex( widget.zIndex, widgets.length ),
-							memberIds: widgets.map( ( resolvedWidget ) => resolvedWidget.widget.id ),
-						},
-					},
-				],
-			};
-		},
 		resolve: async ( widget, context ) => {
 			const query = getEntityRecordsQuery( widget.widgetProps.query );
 			const posts =
@@ -177,39 +155,10 @@ function createDerivedPostWidget(
 			x: collection.x,
 			y: collection.y,
 			zIndex: getDerivedZIndex( collection.zIndex, index ),
-			shapeProps: {
-				w: POST_CARD_WIDTH,
-				h: POST_CARD_HEIGHT,
-			},
+			shapeProps: POST_CARD_SHAPE_PROPS,
 			widgetProps: {
 				postId,
 			},
-		},
-	};
-}
-
-function createLoadingWidget(
-	collection: PostCollectionWidget,
-	index: number
-): ResolvedDeskWidget< PostCollectionWidget > {
-	return {
-		origin: {
-			kind: 'derived',
-			sourceWidgetId: collection.id,
-			key: `loading:${ index }`,
-			state: 'loading',
-		},
-		widget: {
-			id: `${ collection.id }:loading:${ index }`,
-			type: POST_COLLECTION_WIDGET_TYPE,
-			x: collection.x,
-			y: collection.y,
-			zIndex: getDerivedZIndex( collection.zIndex, index ),
-			shapeProps: {
-				w: POST_CARD_WIDTH,
-				h: POST_CARD_HEIGHT,
-			},
-			widgetProps: collection.widgetProps,
 		},
 	};
 }

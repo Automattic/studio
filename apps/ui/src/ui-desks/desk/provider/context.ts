@@ -1,4 +1,5 @@
 import { createContext, useContext } from 'react';
+import type { DeskConfig } from '../types';
 import type { getSelectedWidgetToolbarItem } from '@/ui-desks/widgets/toolbar-selection';
 import type { ReactNode } from 'react';
 import type { Editor } from 'tldraw';
@@ -12,6 +13,8 @@ export type RegisterDeskEditor = ( editor: Editor | null ) => void;
 export interface DeskContextValue {
 	siteId?: string;
 	isLoading: boolean;
+	isReadOnly: boolean;
+	statusMessage?: string;
 	canAddWidgets: boolean;
 	selectedWidgetToolbarItem: SelectedWidgetToolbarItem | null;
 	pressedStackId: string | null;
@@ -38,11 +41,19 @@ export interface AddDeskWidgetOptions {
 export interface DeskProviderProps {
 	siteId?: string;
 	children: ReactNode;
+	deskConfig?: DeskConfig;
+	deskConfigKey?: string;
+	initialViewportMode?: 'site-map';
+	isLoading?: boolean;
+	isReadOnly?: boolean;
+	statusMessage?: string;
 }
 
 const defaultDeskContext: DeskContextValue = {
 	siteId: undefined,
 	isLoading: true,
+	isReadOnly: false,
+	statusMessage: undefined,
 	canAddWidgets: false,
 	selectedWidgetToolbarItem: null,
 	pressedStackId: null,

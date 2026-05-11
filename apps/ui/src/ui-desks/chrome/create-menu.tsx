@@ -14,7 +14,7 @@ import { postWidgetDefinition } from '@/ui-desks/widgets/post/definition';
 import { POST_WIDGET_TYPE } from '@/ui-desks/widgets/post/types';
 import { getCreatableWidgetDefinitions } from '@/ui-desks/widgets/registry';
 import styles from './style.module.css';
-import type { DeskChatsSearch } from '../chats/search';
+import type { ChatsSearch } from '../chats/search';
 import type { DeskWidgetDefinition } from '@/ui-desks/widgets/types';
 
 export function DeskCreateMenu() {
@@ -31,7 +31,7 @@ export function DeskCreateMenu() {
 	const createChat = () => {
 		void navigate( {
 			to: '.',
-			search: ( previous: DeskChatsSearch ) => ( {
+			search: ( previous: ChatsSearch ) => ( {
 				...previous,
 				chats: true,
 				newChat: Date.now(),

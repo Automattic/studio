@@ -33,22 +33,60 @@ import { useDeskWidgetResolvers } from './resolvers';
 
 export { useDesk, useRegisterDeskEditor } from './context';
 
-export function DeskProvider( { siteId, children }: DeskProviderProps ) {
+export function DeskProvider( {
+	siteId,
+	children,
+	deskConfig,
+	deskConfigKey,
+	initialViewportMode,
+	isLoading: externalIsLoading,
+	isReadOnly = false,
+	statusMessage,
+}: DeskProviderProps ) {
+	const hasExternalDeskConfig = Boolean( deskConfig );
+	const {
+		desk: persistedDesk,
+		isLoading: isLoadingPersistedDesk,
+		saveDeskConfig,
+	} = useDeskPersistence( siteId, {
+		enabled: ! hasExternalDeskConfig,
+	} );
+	const desk = deskConfig ?? persistedDesk;
+	const isLoading = externalIsLoading ?? isLoadingPersistedDesk;
 	const { data: sites } = useSites();
-	const { desk, isLoading, saveDeskConfig } = useDeskPersistence( siteId );
 	const site = sites?.find( ( candidate ) => candidate.id === siteId );
-	const canUploadMedia = Boolean( siteId && site?.running );
+	const canUploadMedia = Boolean( ! isReadOnly && siteId && site?.running );
 	const [ editor, setEditor ] = useState< Editor | null >( null );
 	const [ isHydrated, setIsHydrated ] = useState( false );
 	const [ selectedWidgetToolbarItem, setSelectedWidgetToolbarItem ] =
 		useState< SelectedWidgetToolbarItem | null >( null );
 	const [ pressedStackId, setPressedStackId ] = useState< string | null >( null );
 	const hydratedRef = useRef( false );
+	const deskConfigKeyRef = useRef< string | undefined >( undefined );
 	const creationOffsetRef = useRef( 0 );
 	const saveTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
 	const { pressStack, clearPressedStack } = useStackPressAnimation( setPressedStackId );
+	const toolbarStateOptions = useMemo(
+		() => ( {
+			canStack: ! isReadOnly,
+			canUnstack: ! isReadOnly,
+			canRemove: ! isReadOnly,
+		} ),
+		[ isReadOnly ]
+	);
 
 	useStackInteractions( editor );
+
+	useEffect( () => {
+		if ( deskConfigKeyRef.current === deskConfigKey ) {
+			return;
+		}
+
+		deskConfigKeyRef.current = deskConfigKey;
+		hydratedRef.current = false;
+		setIsHydrated( false );
+		setSelectedWidgetToolbarItem( null );
+	}, [ deskConfigKey ] );
 
 	useEffect( () => {
 		if ( ! editor || isLoading || hydratedRef.current ) {
@@ -56,10 +94,33 @@ export function DeskProvider( { siteId, children }: DeskProviderProps ) {
 		}
 
 		hydratedRef.current = true;
-		hydrateEditorFromDesk( editor, desk );
+		hydrateEditorFromDesk( editor, desk, { initialViewportMode } );
 		setIsHydrated( true );
-		setSelectedWidgetToolbarItem( getCurrentSelectedWidgetToolbarItem( editor ) );
-	}, [ desk, editor, isLoading ] );
+		setSelectedWidgetToolbarItem(
+			getCurrentSelectedWidgetToolbarItem( editor, toolbarStateOptions )
+		);
+	}, [ desk, editor, initialViewportMode, isLoading, toolbarStateOptions ] );
+
+	useEffect( () => {
+		if ( ! editor || ! isReadOnly ) {
+			return;
+		}
+
+		const stopShapeChanges = editor.sideEffects.registerBeforeChangeHandler(
+			'shape',
+			( previousShape, nextShape ) => {
+				if ( ! editor.inputs.isDragging ) {
+					return nextShape;
+				}
+
+				return previousShape;
+			}
+		);
+
+		return () => {
+			stopShapeChanges();
+		};
+	}, [ editor, isReadOnly ] );
 
 	useEffect( () => {
 		if ( ! editor ) {
@@ -67,7 +128,7 @@ export function DeskProvider( { siteId, children }: DeskProviderProps ) {
 		}
 
 		const queueSave = () => {
-			if ( ! hydratedRef.current ) {
+			if ( isReadOnly || ! hydratedRef.current ) {
 				return;
 			}
 
@@ -81,7 +142,9 @@ export function DeskProvider( { siteId, children }: DeskProviderProps ) {
 			}, 500 );
 		};
 		const syncSelectedWidgetToolbarItem = () => {
-			setSelectedWidgetToolbarItem( getCurrentSelectedWidgetToolbarItem( editor ) );
+			setSelectedWidgetToolbarItem(
+				getCurrentSelectedWidgetToolbarItem( editor, toolbarStateOptions )
+			);
 		};
 
 		const unsubscribeDocument = editor.store.listen(
@@ -111,7 +174,7 @@ export function DeskProvider( { siteId, children }: DeskProviderProps ) {
 			unsubscribeDocument();
 			unsubscribeSession();
 		};
-	}, [ editor, saveDeskConfig ] );
+	}, [ editor, isReadOnly, saveDeskConfig, toolbarStateOptions ] );
 
 	useEffect( () => {
 		if ( ! editor || ! isHydrated ) {
@@ -226,7 +289,7 @@ export function DeskProvider( { siteId, children }: DeskProviderProps ) {
 
 	const addWidget = useCallback(
 		( type: string, options?: AddDeskWidgetOptions ) => {
-			if ( ! editor || ! isHydrated ) {
+			if ( isReadOnly || ! editor || ! isHydrated ) {
 				return false;
 			}
 
@@ -236,12 +299,12 @@ export function DeskProvider( { siteId, children }: DeskProviderProps ) {
 			}
 			return didAddWidget;
 		},
-		[ editor, isHydrated ]
+		[ editor, isHydrated, isReadOnly ]
 	);
 
 	const updateSelectedWidgetProps = useCallback(
 		( widgetProps: Record< string, unknown > ) => {
-			if ( ! editor || ! isHydrated ) {
+			if ( isReadOnly || ! editor || ! isHydrated ) {
 				return false;
 			}
 
@@ -256,41 +319,47 @@ export function DeskProvider( { siteId, children }: DeskProviderProps ) {
 			setSelectedWidgetToolbarItem( nextSelectedWidgetToolbarItem );
 			return true;
 		},
-		[ editor, isHydrated ]
+		[ editor, isHydrated, isReadOnly ]
 	);
 
 	const stackSelectedWidgets = useCallback( () => {
-		if ( ! editor || ! isHydrated || ! stackSelectedWidgetsInEditor( editor ) ) {
+		if ( isReadOnly || ! editor || ! isHydrated || ! stackSelectedWidgetsInEditor( editor ) ) {
 			return false;
 		}
 
-		setSelectedWidgetToolbarItem( getCurrentSelectedWidgetToolbarItem( editor ) );
+		setSelectedWidgetToolbarItem(
+			getCurrentSelectedWidgetToolbarItem( editor, toolbarStateOptions )
+		);
 		return true;
-	}, [ editor, isHydrated ] );
+	}, [ editor, isHydrated, isReadOnly, toolbarStateOptions ] );
 
 	const unstackSelectedWidgets = useCallback( () => {
-		if ( ! editor || ! isHydrated || ! unstackSelectedWidgetsInEditor( editor ) ) {
+		if ( isReadOnly || ! editor || ! isHydrated || ! unstackSelectedWidgetsInEditor( editor ) ) {
 			return false;
 		}
 
-		setSelectedWidgetToolbarItem( getCurrentSelectedWidgetToolbarItem( editor ) );
+		setSelectedWidgetToolbarItem(
+			getCurrentSelectedWidgetToolbarItem( editor, toolbarStateOptions )
+		);
 		return true;
-	}, [ editor, isHydrated ] );
+	}, [ editor, isHydrated, isReadOnly, toolbarStateOptions ] );
 
 	const removeSelectedWidget = useCallback( () => {
-		if ( ! editor || ! isHydrated || ! removeSelectedWidgetFromEditor( editor ) ) {
+		if ( isReadOnly || ! editor || ! isHydrated || ! removeSelectedWidgetFromEditor( editor ) ) {
 			return false;
 		}
 
 		setSelectedWidgetToolbarItem( null );
 		return true;
-	}, [ editor, isHydrated ] );
+	}, [ editor, isHydrated, isReadOnly ] );
 
 	const value = useMemo(
 		() => ( {
 			siteId,
 			isLoading,
-			canAddWidgets: Boolean( editor ) && isHydrated,
+			isReadOnly,
+			statusMessage,
+			canAddWidgets: ! isReadOnly && Boolean( editor ) && isHydrated,
 			selectedWidgetToolbarItem,
 			pressedStackId,
 			registerEditor,
@@ -305,6 +374,7 @@ export function DeskProvider( { siteId, children }: DeskProviderProps ) {
 			addWidget,
 			editor,
 			isHydrated,
+			isReadOnly,
 			isLoading,
 			pressStack,
 			pressedStackId,
@@ -313,6 +383,7 @@ export function DeskProvider( { siteId, children }: DeskProviderProps ) {
 			selectedWidgetToolbarItem,
 			stackSelectedWidgets,
 			siteId,
+			statusMessage,
 			unstackSelectedWidgets,
 			updateSelectedWidgetProps,
 		]

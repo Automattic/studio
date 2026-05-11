@@ -35,6 +35,28 @@
 	pointer-events: auto;
 }
 
+.rightActions {
+	position: fixed;
+	top: calc(var(--desk-titlebar-height) + var(--wpds-dimension-padding-sm));
+	right: var(--desk-chrome-edge-offset);
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-md);
+	pointer-events: auto;
+}
+
+.centerActions {
+	position: fixed;
+	top: calc(var(--desk-titlebar-height) + var(--wpds-dimension-padding-sm));
+	left: 50%;
+	display: flex;
+	align-items: center;
+	height: 36px;
+	max-width: min(360px, calc(100vw - 320px));
+	transform: translateX(-50%);
+	pointer-events: none;
+}
+
 .fullscreen .title {
 	display: none;
 }
@@ -42,6 +64,44 @@
 .fullscreen .actions {
 	top: var(--desk-chrome-edge-offset);
 	left: var(--desk-chrome-edge-offset);
+}
+
+.fullscreen .rightActions {
+	top: var(--desk-chrome-edge-offset);
+}
+
+.fullscreen .centerActions {
+	top: var(--desk-chrome-edge-offset);
+}
+
+.siteMapTitle {
+	display: flex;
+	min-width: 0;
+	align-items: baseline;
+	justify-content: center;
+	gap: 8px;
+	color: var(--wpds-color-fg-content-neutral);
+	text-align: center;
+	white-space: nowrap;
+}
+
+.siteMapTitle h1,
+.siteMapTitle span {
+	margin: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.siteMapTitle h1 {
+	font-size: var(--wpds-typography-font-size-md);
+	font-weight: var(--wpds-typography-font-weight-semibold, 600);
+	line-height: var(--wpds-typography-line-height-md);
+}
+
+.siteMapTitle span {
+	color: var(--wpds-color-fg-content-neutral-weak, rgba(15, 23, 42, 0.55));
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
 }
 
 .siteTrigger {

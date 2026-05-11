@@ -5,6 +5,8 @@ import {
 	canvasCameraToDeskViewport,
 	canvasShapeToDeskWidget,
 	canvasShapesToDeskStacks,
+	deskConfigToCanvasConnectorBindings,
+	deskConfigToCanvasConnectorShapes,
 	deskConfigToCanvasShapes,
 	deskWidgetToCanvasShape,
 	getDeskCanvasRecordMetaWithResolutionState,
@@ -345,6 +347,76 @@ describe( 'tldraw adapter', () => {
 		] );
 	} );
 
+	it( 'maps desk connectors to locked arrow shapes and arrow bindings', () => {
+		const desk: DeskConfig = {
+			version: 1,
+			updatedAt: '2026-05-09T00:00:00.000Z',
+			widgets: [
+				{
+					...createNoteWidget(),
+					id: 'parent',
+					zIndex: 'a2',
+				},
+				{
+					...createNoteWidget(),
+					id: 'child',
+					zIndex: 'a3',
+				},
+			],
+			connectors: [
+				{
+					id: 'parent-to-child',
+					from: {
+						widgetId: 'parent',
+						normalizedAnchor: { x: 0.5, y: 1 },
+					},
+					to: {
+						widgetId: 'child',
+						normalizedAnchor: { x: 0.5, y: 0 },
+					},
+					bend: 24,
+				},
+			],
+		};
+		const widgetShapes = deskConfigToCanvasShapes( desk );
+		const connectorShapes = deskConfigToCanvasConnectorShapes( desk, widgetShapes );
+		const connectorShape = getCanvasShape( connectorShapes, 'shape:connector:parent-to-child' );
+		const parentShape = getCanvasShape( widgetShapes, 'shape:parent' );
+		const bindings = deskConfigToCanvasConnectorBindings( desk );
+
+		expect( connectorShape ).toMatchObject( {
+			id: 'shape:connector:parent-to-child',
+			type: 'arrow',
+			isLocked: true,
+			meta: {
+				studioDeskOrigin: 'derived',
+				studioDeskPersist: false,
+				studioDeskConnector: true,
+			},
+			props: {
+				arrowheadStart: 'none',
+				arrowheadEnd: 'none',
+				bend: 24,
+			},
+		} );
+		expect( sortByIndex( connectorShape, parentShape ) ).toBeLessThan( 0 );
+		expect( bindings ).toEqual( [
+			expect.objectContaining( {
+				type: 'arrow',
+				fromId: 'shape:connector:parent-to-child',
+				toId: 'shape:parent',
+				props: expect.objectContaining( { terminal: 'start' } ),
+			} ),
+			expect.objectContaining( {
+				type: 'arrow',
+				fromId: 'shape:connector:parent-to-child',
+				toId: 'shape:child',
+				props: expect.objectContaining( { terminal: 'end' } ),
+			} ),
+		] );
+		expect( isPersistentDeskCanvasShape( connectorShape as TLShape ) ).toBe( false );
+	} );
+
 	it( 'persists a stacked widget original z-index instead of the stack z-index', () => {
 		const shape = {
 			...deskWidgetToCanvasShape( createNoteWidget( 'note-1' ) ),
@@ -624,6 +696,53 @@ describe( 'tldraw adapter', () => {
 				studioDeskDerivedKey: 'post:42',
 			},
 		} );
+	} );
+
+	it( 'gives derived stack members distinct indices below non-numeric stack z-indexes', () => {
+		const resolvedWidget: ResolvedDeskWidget< PostWidget > = {
+			origin: {
+				kind: 'derived',
+				sourceWidgetId: 'collection-1',
+				key: 'post:42',
+			},
+			widget: {
+				id: 'collection-1:post:42',
+				type: 'post',
+				x: 40,
+				y: 50,
+				zIndex: 'aC5ns',
+				shapeProps: {
+					w: 280,
+					h: 380,
+				},
+				widgetProps: {
+					postId: 42,
+				},
+			},
+		};
+		const stack = {
+			id: 'stack-1',
+			x: 100,
+			y: 200,
+			zIndex: 'aF3j5',
+			memberIds: [ 'collection-1:post:40', 'collection-1:post:41', 'collection-1:post:42' ],
+		};
+		const topShape = resolvedDeskWidgetToCanvasShape( resolvedWidget, {
+			stack,
+			order: 0,
+		} ) as TLShape;
+		const middleShape = resolvedDeskWidgetToCanvasShape( resolvedWidget, {
+			stack,
+			order: 1,
+		} ) as TLShape;
+		const bottomShape = resolvedDeskWidgetToCanvasShape( resolvedWidget, {
+			stack,
+			order: 2,
+		} ) as TLShape;
+
+		expect( new Set( [ topShape.index, middleShape.index, bottomShape.index ] ).size ).toBe( 3 );
+		expect( sortByIndex( middleShape, topShape ) ).toBeLessThan( 0 );
+		expect( sortByIndex( bottomShape, middleShape ) ).toBeLessThan( 0 );
 	} );
 
 	it( 'ignores unsupported canvas shapes', () => {

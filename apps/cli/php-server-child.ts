@@ -30,6 +30,7 @@ import {
 	getWpCliPharPath,
 } from './lib/dependency-management/paths';
 import { getDefaultPhpArgs } from './lib/native-php';
+import { SymlinkWatcher, collectSymlinkAllowlistEntries } from './lib/symlinks';
 
 const ROUTER_PATH = path.resolve( import.meta.dirname, 'php', 'router.php' );
 const SET_DEFAULT_PERMALINKS_PATH = path.resolve(
@@ -48,6 +49,18 @@ let phpProcess: ChildProcess | null = null;
 let startupAbortController: AbortController | null = null;
 let startingPromise: Promise< void > | null = null;
 let blueprintQueue: Promise< unknown > = Promise.resolve();
+
+// Symlink-aware open_basedir state. PHP's open_basedir cannot be extended at
+// runtime, so when a new symlink appears under the site directory we have to
+// restart the PHP server with an updated allowlist.
+const currentOpenBasedirAllowlist: Set< string > = new Set();
+let symlinkWatcher: SymlinkWatcher | null = null;
+let symlinkRestartTimer: NodeJS.Timeout | null = null;
+let symlinkRestartQueue: Promise< void > = Promise.resolve();
+let runningConfig: ServerConfig | null = null;
+
+const SYMLINK_RESTART_DEBOUNCE_MS = 750;
+const STOP_SERVER_TIMEOUT = 5000;
 
 function logToConsole( ...args: Parameters< typeof console.log > ) {
 	console.log( `[PHP Server]`, ...args );
@@ -90,12 +103,12 @@ function spawnPhpProcess(
 	} );
 
 	if ( mode === 'pipe' ) {
-		phpScriptProcess.stdout?.pipe( process.stdout );
+		phpScriptProcess.stdout?.pipe( process.stdout, { end: false } );
 	}
 
 	// Keep stderr visible in all modes for easier debugging.
 	if ( mode === 'pipe' || mode === 'capture-stdout' ) {
-		phpScriptProcess.stderr?.pipe( process.stderr );
+		phpScriptProcess.stderr?.pipe( process.stderr, { end: false } );
 	}
 
 	return phpScriptProcess;
@@ -226,18 +239,18 @@ echo is_blog_installed() ? '1' : '0';
 	return status === '1';
 }
 
-async function waitForServerReady( url: string, signal: AbortSignal ): Promise< void > {
+async function waitForServerReady( url: string, signal?: AbortSignal ): Promise< void > {
 	const pollIntervalMs = 50;
 	const timeoutMs = 30_000;
 	const deadline = Date.now() + timeoutMs;
 
 	while ( true ) {
-		signal.throwIfAborted();
+		signal?.throwIfAborted();
 		try {
 			await fetch( url, { signal } );
 			return;
 		} catch {
-			signal.throwIfAborted();
+			signal?.throwIfAborted();
 			if ( Date.now() > deadline ) {
 				throw new Error( `PHP server did not start within ${ timeoutMs }ms` );
 			}
@@ -253,7 +266,7 @@ async function installWordPress(
 ): Promise< void > {
 	const alreadyInstalled = await isWordPressInstalled( config.sitePath, phpVersion, signal );
 	if ( alreadyInstalled ) {
-		logToConsole( `WordPress already installed for site ${ config.siteId }; skipping installer` );
+		logToConsole( `WordPress already installed; skipping installer` );
 		return;
 	}
 
@@ -312,16 +325,103 @@ async function installWordPress(
 	}
 }
 
+// The symlink watcher is used to detect new symlinks in wp-content and its subdirectories. When a
+// new symlink is detected, it is added to the open_basedir allow list and the server is restarted.
+function startSymlinkWatcher( sitePath: string ): void {
+	if ( symlinkWatcher ) {
+		return;
+	}
+
+	const watcher = new SymlinkWatcher();
+	watcher.on( 'symlink', ( target, symlinkPath ) => {
+		if ( currentOpenBasedirAllowlist.has( target ) ) {
+			return;
+		}
+
+		logToConsole( `Detected new symlink at ${ symlinkPath } -> ${ target }` );
+		currentOpenBasedirAllowlist.add( target );
+		scheduleAllowlistRestart();
+	} );
+
+	watcher.on( 'error', ( error ) => {
+		errorToConsole( 'Symlink watcher error:', error );
+	} );
+
+	// Watch wp-content and its subdirectories for symlinks
+	watcher.start( path.join( sitePath, 'wp-content' ), 2 );
+	symlinkWatcher = watcher;
+}
+
+async function stopSymlinkWatcher(): Promise< void > {
+	if ( symlinkRestartTimer ) {
+		clearTimeout( symlinkRestartTimer );
+		symlinkRestartTimer = null;
+	}
+
+	const watcher = symlinkWatcher;
+	symlinkWatcher = null;
+	if ( watcher ) {
+		try {
+			await watcher.stop();
+		} catch ( error ) {
+			errorToConsole( 'Failed to close symlink watcher:', error );
+		}
+	}
+}
+
+function scheduleAllowlistRestart(): void {
+	if ( symlinkRestartTimer ) {
+		return;
+	}
+	symlinkRestartTimer = setTimeout( () => {
+		symlinkRestartTimer = null;
+		logToConsole( `open_basedir extended with new symlink target(s); restarting PHP server` );
+
+		// Serialize restarts so a burst of new symlinks doesn't stack child processes.
+		symlinkRestartQueue = symlinkRestartQueue.catch( () => {} ).then( () => restartPhpServer() );
+	}, SYMLINK_RESTART_DEBOUNCE_MS );
+}
+
+async function restartPhpServer(): Promise< void > {
+	if ( ! phpProcess || ! runningConfig ) {
+		return;
+	}
+
+	const oldChild = phpProcess;
+	phpProcess = null;
+
+	// Detach so the imminent SIGTERM is not reported as an unexpected crash.
+	oldChild.removeAllListeners( 'exit' );
+	oldChild.kill( 'SIGTERM' );
+	await new Promise< void >( ( resolve ) => {
+		const timeout = setTimeout( () => {
+			if ( ! oldChild.killed ) {
+				oldChild.kill( 'SIGKILL' );
+			}
+		}, STOP_SERVER_TIMEOUT );
+		oldChild.once( 'close', () => {
+			clearTimeout( timeout );
+			resolve();
+		} );
+	} );
+
+	try {
+		phpProcess = await doStartServer( runningConfig, currentOpenBasedirAllowlist );
+	} catch ( error ) {
+		errorToConsole( `Failed to restart PHP server:`, error );
+		process.exit( 1 );
+	}
+}
+
 async function startServer( config: ServerConfig, signal: AbortSignal ): Promise< void > {
 	if ( phpProcess ) {
-		logToConsole( `Server already running for site ${ config.siteId }` );
+		logToConsole( `Server already running` );
 		return;
 	}
 
 	const phpVersion = validateNativePhpVersion( config.phpVersion ?? '' );
 	startupAbortController = new AbortController();
 	const stopSignal = AbortSignal.any( [ signal, startupAbortController.signal ] );
-	let spawnedChild: ChildProcess | null = null;
 
 	try {
 		stopSignal.throwIfAborted();
@@ -340,44 +440,24 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 			stopSignal.throwIfAborted();
 		}
 
-		const phpAddress = `localhost:${ config.port }`;
-		logToConsole( `Spawning PHP built-in server on ${ phpAddress } for site ${ config.siteId }` );
-
-		const serverChild = spawnPhpProcess( [ '-S', phpAddress, ROUTER_PATH ], {
-			phpVersion,
-			siteFolder: config.sitePath,
-			onlyPathsThatPhpCanAccess: [ config.sitePath, ROUTER_PATH, muPluginsPath, os.tmpdir() ],
-			disallowRiskyFunctions: true,
-		} );
-		spawnedChild = serverChild;
-
-		await new Promise< void >( ( resolve, reject ) => {
-			serverChild.once( 'spawn', () => {
-				resolve();
-			} );
-			serverChild.once( 'error', ( error: Error ) => {
-				reject( error );
-			} );
-			stopSignal.addEventListener( 'abort', () => {
-				reject( new DOMException( 'Aborted', 'AbortError' ) );
-			} );
-		} );
-
-		serverChild.once( 'exit', ( code, signalName ) => {
-			errorToConsole(
-				`PHP child process exited unexpectedly (code: ${ code }, signal: ${ signalName })`
-			);
-			process.exit( code ?? 1 );
-		} );
-
+		// Snapshot existing symlink targets so open_basedir grants them upfront. New
+		// symlinks added while the server runs are picked up by startSymlinkWatcher
+		// below and trigger a debounced restart with an extended allowlist.
+		const symlinkAllowlistEntries = await collectSymlinkAllowlistEntries( config.sitePath );
 		stopSignal.throwIfAborted();
-		await waitForServerReady( `http://localhost:${ config.port }/`, stopSignal );
 
-		phpProcess = serverChild;
+		currentOpenBasedirAllowlist.add( config.sitePath );
+		currentOpenBasedirAllowlist.add( ROUTER_PATH );
+		currentOpenBasedirAllowlist.add( muPluginsPath );
+		currentOpenBasedirAllowlist.add( os.tmpdir() );
+		symlinkAllowlistEntries.forEach( ( entry ) => currentOpenBasedirAllowlist.add( entry ) );
+
+		runningConfig = config;
+
+		phpProcess = await doStartServer( config, currentOpenBasedirAllowlist, stopSignal );
 	} catch ( error ) {
-		if ( spawnedChild && ! spawnedChild.killed ) {
-			spawnedChild.kill( 'SIGKILL' );
-		}
+		runningConfig = null;
+		currentOpenBasedirAllowlist.clear();
 
 		if ( stopSignal.aborted ) {
 			logToConsole( `Aborted start server operation:`, error );
@@ -391,7 +471,65 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 	}
 }
 
-const STOP_SERVER_TIMEOUT = 5000;
+async function doStartServer(
+	config: ServerConfig,
+	openBasedirAllowlist: Set< string >,
+	stopSignal?: AbortSignal
+): Promise< ChildProcess > {
+	const phpAddress = `localhost:${ config.port }`;
+	const phpVersion = validateNativePhpVersion( config.phpVersion ?? '' );
+	let spawnedChild: ChildProcess | null = null;
+
+	logToConsole(
+		`Spawning PHP built-in server on ${ phpAddress } with PHP version ${ phpVersion }`
+	);
+
+	try {
+		const serverChild = spawnPhpProcess( [ '-S', phpAddress, ROUTER_PATH ], {
+			phpVersion,
+			siteFolder: config.sitePath,
+			onlyPathsThatPhpCanAccess: Array.from( openBasedirAllowlist ),
+			disallowRiskyFunctions: true,
+		} );
+		spawnedChild = serverChild;
+
+		await new Promise< void >( ( resolve, reject ) => {
+			serverChild.once( 'spawn', () => {
+				resolve();
+			} );
+			serverChild.once( 'error', ( error: Error ) => {
+				reject( error );
+			} );
+			stopSignal?.addEventListener( 'abort', () => {
+				reject( new DOMException( 'Aborted', 'AbortError' ) );
+			} );
+		} );
+
+		serverChild.once( 'exit', ( code, signalName ) => {
+			errorToConsole(
+				`PHP child process exited unexpectedly (code: ${ code }, signal: ${ signalName })`
+			);
+			process.exit( code ?? 1 );
+		} );
+
+		stopSignal?.throwIfAborted();
+		await waitForServerReady( `http://localhost:${ config.port }/`, stopSignal );
+
+		// Watch for symlinks created after startup. open_basedir cannot be extended
+		// at runtime, so the watcher triggers a debounced restart with an updated
+		// allowlist when a new symlink target is discovered.
+		startSymlinkWatcher( config.sitePath );
+
+		return spawnedChild;
+	} catch ( error ) {
+		if ( spawnedChild && ! spawnedChild.killed ) {
+			spawnedChild.kill( 'SIGKILL' );
+		}
+		await stopSymlinkWatcher();
+
+		throw error;
+	}
+}
 
 enum StopServerResult {
 	ABORTED_STARTUP = 'ABORTED_STARTUP',
@@ -404,6 +542,10 @@ async function stopServer(): Promise< StopServerResult > {
 		startupAbortController.abort();
 		return StopServerResult.ABORTED_STARTUP;
 	}
+
+	await stopSymlinkWatcher();
+	runningConfig = null;
+	currentOpenBasedirAllowlist.clear();
 
 	if ( ! phpProcess ) {
 		logToConsole( 'No server running, nothing to stop' );

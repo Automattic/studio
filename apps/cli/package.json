@@ -43,6 +43,7 @@
 		"@wp-playground/wordpress": "3.1.28",
 		"archiver": "^7.0.1",
 		"atomically": "^2.1.1",
+		"chokidar": "^5.0.0",
 		"cli-table3": "^0.6.5",
 		"fs-extra": "^11.3.4",
 		"http-proxy": "^1.18.1",

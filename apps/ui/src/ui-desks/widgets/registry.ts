@@ -1,4 +1,5 @@
 import { blogWidgetDefinition } from '@/ui-desks/widgets/blog/definition';
+import { loadingWidgetDefinition } from '@/ui-desks/widgets/loading/definition';
 import { mediaWidgetDefinition } from '@/ui-desks/widgets/media/definition';
 import { noteWidgetDefinition } from '@/ui-desks/widgets/note/definition';
 import { pageWidgetDefinition } from '@/ui-desks/widgets/page/definition';
@@ -9,6 +10,7 @@ import type { DeskWidgetDefinition } from './types';
 
 export const widgetDefinitions = {
 	[ blogWidgetDefinition.type ]: blogWidgetDefinition,
+	[ loadingWidgetDefinition.type ]: loadingWidgetDefinition,
 	[ noteWidgetDefinition.type ]: noteWidgetDefinition,
 	[ mediaWidgetDefinition.type ]: mediaWidgetDefinition,
 	[ postWidgetDefinition.type ]: postWidgetDefinition,

@@ -27,6 +27,7 @@ import {
 	getStackZIndexFromMember,
 } from '@/ui-desks/stacks/utils';
 import { isRectangleWidgetShapeProps } from '@/ui-desks/widgets/geometry';
+import { LOADING_WIDGET_TYPE } from '@/ui-desks/widgets/loading/types';
 import { getWidgetDefinition } from '@/ui-desks/widgets/registry';
 import type { DeskConfig, DeskStack, DeskViewport } from '@/ui-desks/desk/types';
 import type {
@@ -343,7 +344,7 @@ export function canvasShapesToDeskStacks( shapes: TLShape[] ): DeskStack[] {
 }
 
 export function isPersistentDeskCanvasShape( shape: TLShape ) {
-	return ! isDerivedDeskCanvasRecord( shape );
+	return ! isDerivedDeskCanvasRecord( shape ) && ! isLoadingDeskCanvasRecord( shape );
 }
 
 export function isDerivedDeskCanvasRecord( value: unknown ) {
@@ -386,6 +387,17 @@ export function getDeskCanvasRecordMetaWithResolutionState(
 		nextMeta.studioDeskResolutionState = null;
 	}
 	return nextMeta as TLShapePartial[ 'meta' ];
+}
+
+export function getTemporaryDeskCanvasRecordMeta(
+	value: unknown,
+	resolutionState?: WidgetResolutionState
+): TLShapePartial[ 'meta' ] {
+	return {
+		...( getDeskCanvasRecordMetaWithResolutionState( value, resolutionState ) ?? {} ),
+		studioDeskOrigin: DERIVED_WIDGET_ORIGIN,
+		studioDeskPersist: DERIVED_WIDGET_PERSIST,
+	};
 }
 
 export function hasOnlyDeskCanvasRecordResolutionStateChange(
@@ -500,6 +512,15 @@ function isRectangleWidgetCanvasProps(
 		isRectangleWidgetShapeProps( candidate.shapeProps ) &&
 		Boolean( candidate.widgetProps ) &&
 		typeof candidate.widgetProps === 'object'
+	);
+}
+
+function isLoadingDeskCanvasRecord( value: unknown ) {
+	return (
+		Boolean( value ) &&
+		typeof value === 'object' &&
+		( value as { type?: unknown } ).type === RECTANGLE_WIDGET_SHAPE_TYPE &&
+		( value as { props?: { widgetType?: unknown } } ).props?.widgetType === LOADING_WIDGET_TYPE
 	);
 }
 

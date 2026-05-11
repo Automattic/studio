@@ -46,37 +46,29 @@ export const mediaWidgetDefinition = {
 			accept: {
 				mimeTypes: [ 'image/*', 'video/*' ],
 			},
+			loading: {
+				label: __( 'Uploading media' ),
+				shapeProps: {
+					w: 320,
+					h: 320,
+				},
+			},
 			requiresRunningSite: true,
-			createWidget: ( file ) => {
+			handle: async ( file ) => {
 				const mediaKind = getDroppedMediaKind( file );
 				if ( ! mediaKind ) {
 					return null;
 				}
+				const uploadedMedia = await uploadSiteMedia( file );
 
 				return {
 					widgetProps: {
-						url: '',
+						url: uploadedMedia.source_url,
 						mediaKind,
-						alt: file.name,
-						mediaId: null,
+						alt: uploadedMedia.alt_text || file.name,
+						mediaId: uploadedMedia.id,
 					},
 					shouldStartEditing: false,
-					onWidgetCreated: async ( { updateWidget, deleteWidget } ) => {
-						try {
-							const uploadedMedia = await uploadSiteMedia( file );
-							updateWidget( {
-								widgetProps: {
-									url: uploadedMedia.source_url,
-									mediaKind,
-									alt: uploadedMedia.alt_text || file.name,
-									mediaId: uploadedMedia.id,
-								},
-							} );
-						} catch ( error ) {
-							console.warn( 'Failed to upload dropped media.', error );
-							deleteWidget();
-						}
-					},
 				};
 			},
 		},

@@ -1,10 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
+import { uploadSiteMedia } from '@/data/wordpress/media';
 import { doesFileMatchAccept, getWidgetFileHandler } from './file-handlers';
 
 vi.mock( '@wordpress/core-data', () => ( {
 	store: {},
 	useEntityRecord: () => ( { record: null, isResolving: false } ),
 	useEntityRecords: () => ( { records: null, isResolving: false, status: 'IDLE' } ),
+} ) );
+
+vi.mock( '@/data/wordpress/media', () => ( {
+	uploadSiteMedia: vi.fn(),
 } ) );
 
 describe( 'widget file handlers', () => {
@@ -47,18 +52,23 @@ describe( 'widget file handlers', () => {
 		).toBe( false );
 	} );
 
-	it( 'creates initial media widget props from the media file handler', async () => {
+	it( 'creates uploaded media widget props from the media file handler', async () => {
 		const video = new File( [ 'video' ], 'clip.mp4', { type: 'video/mp4' } );
 		const match = getWidgetFileHandler( video, { isRunningSite: true } );
+		vi.mocked( uploadSiteMedia ).mockResolvedValueOnce( {
+			id: 123,
+			source_url: 'https://example.com/clip.mp4',
+			alt_text: '',
+		} as Awaited< ReturnType< typeof uploadSiteMedia > > );
 
-		const result = await match?.handler.createWidget( video, { siteId: 'site-1' } );
+		const result = await match?.handler.handle( video, { siteId: 'site-1' } );
 
 		expect( result ).toMatchObject( {
 			widgetProps: {
-				url: '',
+				url: 'https://example.com/clip.mp4',
 				mediaKind: 'video',
 				alt: 'clip.mp4',
-				mediaId: null,
+				mediaId: 123,
 			},
 			shouldStartEditing: false,
 		} );

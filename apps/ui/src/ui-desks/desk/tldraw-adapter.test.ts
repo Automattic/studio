@@ -11,6 +11,7 @@ import {
 	deskWidgetToCanvasShape,
 	getDeskCanvasRecordMetaWithResolutionState,
 	getDeskCanvasRecordResolutionState,
+	getTemporaryDeskCanvasRecordMeta,
 	hasOnlyDeskCanvasRecordResolutionStateChange,
 	isPersistentDeskCanvasShape,
 	resolvedDeskWidgetToCanvasShape,
@@ -645,6 +646,36 @@ describe( 'tldraw adapter', () => {
 				x: 41,
 			} )
 		).toBe( false );
+	} );
+
+	it( 'marks temporary canvas records as non-persistent', () => {
+		const shape = {
+			id: 'shape:loading-1',
+			type: RECTANGLE_WIDGET_SHAPE_TYPE,
+			meta: getTemporaryDeskCanvasRecordMeta( {}, 'loading' ),
+		} as unknown as TLShape;
+
+		expect( getDeskCanvasRecordResolutionState( shape ) ).toBe( 'loading' );
+		expect( isPersistentDeskCanvasShape( shape ) ).toBe( false );
+	} );
+
+	it( 'never persists loading widget canvas records', () => {
+		const shape = {
+			id: 'shape:loading-1',
+			type: RECTANGLE_WIDGET_SHAPE_TYPE,
+			props: {
+				widgetType: 'loading',
+				shapeProps: {
+					w: 320,
+					h: 220,
+				},
+				widgetProps: {
+					label: 'Loading',
+				},
+			},
+		} as unknown as TLShape;
+
+		expect( isPersistentDeskCanvasShape( shape ) ).toBe( false );
 	} );
 
 	it( 'maps derived stack members through stack metadata', () => {

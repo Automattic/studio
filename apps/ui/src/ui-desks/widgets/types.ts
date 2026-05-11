@@ -1,5 +1,6 @@
 import type { ControlConfig } from '@/ui-desks/controls/types';
 import type { BlogWidget } from '@/ui-desks/widgets/blog/types';
+import type { LoadingWidget } from '@/ui-desks/widgets/loading/types';
 import type { MediaWidget } from '@/ui-desks/widgets/media/types';
 import type { NoteWidget } from '@/ui-desks/widgets/note/types';
 import type { PageWidget } from '@/ui-desks/widgets/page/types';
@@ -61,39 +62,31 @@ export interface WidgetFileHandlerContext {
 	siteId?: string;
 }
 
-export interface WidgetFileHandlerUpdate< TWidget extends DeskWidgetBase = DeskWidgetBase > {
-	shapeProps?: Partial< TWidget[ 'shapeProps' ] >;
-	widgetProps?: Partial< TWidget[ 'widgetProps' ] >;
+export interface WidgetFileHandlerLoading {
+	label?: string;
+	shapeProps?: Record< string, unknown >;
 }
 
-export interface WidgetFileHandlerCreatedContext< TWidget extends DeskWidgetBase = DeskWidgetBase >
-	extends WidgetFileHandlerContext {
-	file: File;
-	widgetId: string;
-	updateWidget: ( update: WidgetFileHandlerUpdate< TWidget > ) => boolean;
-	deleteWidget: () => void;
-}
-
-export interface WidgetFileHandlerResult< TWidget extends DeskWidgetBase = DeskWidgetBase > {
+export interface WidgetFileHandlerWidget< TWidget extends DeskWidgetBase = DeskWidgetBase > {
+	id?: string;
 	shapeProps?: Partial< TWidget[ 'shapeProps' ] >;
 	widgetProps?: Partial< TWidget[ 'widgetProps' ] >;
 	shouldStartEditing?: boolean;
-	onWidgetCreated?: (
-		context: WidgetFileHandlerCreatedContext< TWidget >
-	) => void | Promise< void >;
 }
+
+export type WidgetFileHandlerResult< TWidget extends DeskWidgetBase = DeskWidgetBase > =
+	| WidgetFileHandlerWidget< TWidget >
+	| Array< WidgetFileHandlerWidget< TWidget > >;
 
 export interface WidgetFileHandler< TWidget extends DeskWidgetBase = DeskWidgetBase > {
 	id: string;
 	accept: WidgetFileAccept;
+	loading?: WidgetFileHandlerLoading;
 	requiresRunningSite?: boolean;
-	createWidget: (
+	handle: (
 		file: File,
 		context: WidgetFileHandlerContext
-	) =>
-		| WidgetFileHandlerResult< TWidget >
-		| Promise< WidgetFileHandlerResult< TWidget > | null >
-		| null;
+	) => Promise< WidgetFileHandlerResult< TWidget > | null >;
 }
 
 export type ResolvedDeskWidgetOrigin =
@@ -156,6 +149,7 @@ export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBa
 
 export type DeskWidget =
 	| BlogWidget
+	| LoadingWidget
 	| NoteWidget
 	| MediaWidget
 	| PostWidget
@@ -164,6 +158,7 @@ export type DeskWidget =
 	| SitePreviewWidget;
 export type DeskWidgetDefinition =
 	| WidgetDefinition< BlogWidget >
+	| WidgetDefinition< LoadingWidget >
 	| WidgetDefinition< NoteWidget >
 	| WidgetDefinition< MediaWidget >
 	| WidgetDefinition< PostWidget >

@@ -2,24 +2,31 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useConnector } from '@/data/core';
 import type { DeskConfig } from '@/data/core';
 
-export const USER_DESK_CONFIG_QUERY_KEY = [ 'desk-config', 'user' ] as const;
+const userDeskConfigQueryKey = [ 'desk-config', 'user' ] as const;
+const siteDeskConfigQueryKey = ( siteId: string ) => [ 'desk-config', 'site', siteId ] as const;
+const deskConfigQueryKey = ( siteId?: string ) =>
+	siteId ? siteDeskConfigQueryKey( siteId ) : userDeskConfigQueryKey;
 
-export function useUserDeskConfig() {
+export function useDeskConfig( siteId?: string ) {
 	const connector = useConnector();
 	return useQuery( {
-		queryKey: USER_DESK_CONFIG_QUERY_KEY,
-		queryFn: () => connector.getUserDeskConfig(),
+		queryKey: deskConfigQueryKey( siteId ),
+		queryFn: () =>
+			siteId ? connector.getSiteDeskConfig( siteId ) : connector.getUserDeskConfig(),
 	} );
 }
 
-export function useSaveUserDeskConfig() {
+export function useSaveDeskConfig( siteId?: string ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	return useMutation( {
 		mutationFn: ( config: DeskConfig ) =>
-			connector.saveUserDeskConfig( config ).then( () => config ),
+			( siteId
+				? connector.saveSiteDeskConfig( siteId, config )
+				: connector.saveUserDeskConfig( config )
+			).then( () => config ),
 		onSuccess: ( config ) => {
-			queryClient.setQueryData( USER_DESK_CONFIG_QUERY_KEY, config );
+			queryClient.setQueryData( deskConfigQueryKey( siteId ), config );
 		},
 	} );
 }

@@ -138,6 +138,22 @@ jobs:
 
           php bin/spc doctor --auto-fix
           php bin/spc download @downloadArgs
+
+          if ( $env:PHP_VERSION -eq "8.3" -or $env:PHP_VERSION -like "8.3.*" ) {
+            $intlConfig = "source/php-src/ext/intl/config.w32"
+            $intlConfigContent = Get-Content -Raw $intlConfig
+            $intlFlags = 'ADD_FLAG("CFLAGS_INTL", "/EHsc /DUNISTR_FROM_CHAR_EXPLICIT=explicit /DUNISTR_FROM_STRING_EXPLICIT=explicit /DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 /DU_HIDE_OBSOLETE_UTF_OLD_H=1");'
+            $patchedIntlFlags = 'ADD_FLAG("CFLAGS_INTL", "/std:c++17 /EHsc /DUNISTR_FROM_CHAR_EXPLICIT=explicit /DUNISTR_FROM_STRING_EXPLICIT=explicit /DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 /DU_HIDE_OBSOLETE_UTF_OLD_H=1");'
+
+            if ( $intlConfigContent -notmatch "/std:c\+\+17" ) {
+              $patchedIntlConfigContent = $intlConfigContent.Replace($intlFlags, $patchedIntlFlags)
+              if ( $patchedIntlConfigContent -eq $intlConfigContent ) {
+                throw "Unable to patch PHP 8.3 intl Windows compiler flags."
+              }
+              Set-Content -NoNewline -Path $intlConfig -Value $patchedIntlConfigContent
+            }
+          }
+
           php bin/spc build @buildArgs
 
       - name: Package macOS artifact

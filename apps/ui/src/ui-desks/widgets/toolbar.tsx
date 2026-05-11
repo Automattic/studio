@@ -11,7 +11,6 @@ type SelectedWidgetToolbarItem = NonNullable< ReturnType< typeof getSelectedWidg
 
 export function DeskWidgetToolbar() {
 	const {
-		isReadOnly,
 		selectedWidgetToolbarItem,
 		stackSelectedWidgets,
 		unstackSelectedWidgets,
@@ -34,11 +33,7 @@ export function DeskWidgetToolbar() {
 	}
 
 	const controls =
-		renderSelection.kind === 'single-widget'
-			? renderSelection.definition.controls?.filter(
-					( control ) => ! isReadOnly || control.type === 'custom'
-			  )
-			: undefined;
+		renderSelection.kind === 'single-widget' ? renderSelection.definition.controls : undefined;
 	const canRenderControls =
 		renderSelection.kind === 'single-widget' &&
 		Boolean( controls?.length ) &&

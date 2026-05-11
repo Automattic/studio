@@ -19,9 +19,13 @@ export function Desk( { siteId }: DeskProps ) {
 		return <SiteDesk siteId={ siteId } />;
 	}
 
+	return <UserDesk />;
+}
+
+function UserDesk() {
 	return (
-		<DeskProvider key="user" siteId={ siteId }>
-			<DeskShell siteId={ siteId }>
+		<DeskProvider key="user">
+			<DeskShell>
 				<DeskCanvas />
 			</DeskShell>
 		</DeskProvider>

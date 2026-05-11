@@ -105,22 +105,9 @@ export function DeskProvider( {
 				return previousShape;
 			}
 		);
-		const handleKeyDown = ( event: KeyboardEvent ) => {
-			if (
-				( event.key !== 'Backspace' && event.key !== 'Delete' ) ||
-				isEditableKeyboardTarget( event.target )
-			) {
-				return;
-			}
 
-			event.preventDefault();
-			event.stopPropagation();
-		};
-
-		window.addEventListener( 'keydown', handleKeyDown, { capture: true } );
 		return () => {
 			stopShapeChanges();
-			window.removeEventListener( 'keydown', handleKeyDown, { capture: true } );
 		};
 	}, [ editor, isReadOnly ] );
 
@@ -299,17 +286,4 @@ export function DeskProvider( {
 	} );
 
 	return <DeskContext.Provider value={ value }>{ children }</DeskContext.Provider>;
-}
-
-function isEditableKeyboardTarget( target: EventTarget | null ) {
-	if ( ! target || ! ( target instanceof HTMLElement ) ) {
-		return false;
-	}
-
-	return (
-		target.isContentEditable ||
-		target.tagName === 'INPUT' ||
-		target.tagName === 'TEXTAREA' ||
-		target.tagName === 'SELECT'
-	);
 }

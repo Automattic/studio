@@ -1,6 +1,8 @@
+import { normalizeDeskSettings } from '@studio/common/lib/desk-settings';
 import {
 	DESK_CONFIG_VERSION,
 	type DeskConfig,
+	type DeskSettings,
 	type DeskStack,
 	type DeskViewport,
 	type DeskWidgetBase,
@@ -95,6 +97,35 @@ export async function getUserDeskConfig(
 ): Promise< DeskConfig | undefined > {
 	const userData = await loadUserData();
 	return userData.desks?.user;
+}
+
+export async function getDeskSettings( _event: IpcMainInvokeEvent ): Promise< DeskSettings > {
+	const userData = await loadUserData();
+	return normalizeDeskSettings( userData.desks?.settings );
+}
+
+export async function saveDeskSettings(
+	_event: IpcMainInvokeEvent,
+	settings: DeskSettings
+): Promise< void > {
+	if ( ! isRecord( settings ) ) {
+		throw new Error( 'Invalid desk settings: expected an object.' );
+	}
+
+	const normalizedSettings = normalizeDeskSettings( settings );
+	await lockAppdata();
+	try {
+		const userData = await loadUserData();
+		await saveUserData( {
+			...userData,
+			desks: {
+				...userData.desks,
+				settings: normalizedSettings,
+			},
+		} );
+	} finally {
+		await unlockAppdata();
+	}
 }
 
 export async function saveUserDeskConfig(

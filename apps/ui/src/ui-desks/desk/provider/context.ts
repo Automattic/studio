@@ -22,6 +22,7 @@ export interface DeskContextValue {
 	pressStack: ( stackId: string ) => void;
 	addWidget: ( type: string, options?: AddDeskWidgetOptions ) => boolean;
 	updateSelectedWidgetProps: ( widgetProps: Record< string, unknown > ) => boolean;
+	fitSelectedWidgetToContent: () => boolean;
 	stackSelectedWidgets: () => boolean;
 	unstackSelectedWidgets: () => boolean;
 	removeSelectedWidget: () => boolean;
@@ -61,6 +62,7 @@ const defaultDeskContext: DeskContextValue = {
 	pressStack: noopPressStack,
 	addWidget: () => false,
 	updateSelectedWidgetProps: () => false,
+	fitSelectedWidgetToContent: () => false,
 	stackSelectedWidgets: () => false,
 	unstackSelectedWidgets: () => false,
 	removeSelectedWidget: () => false,

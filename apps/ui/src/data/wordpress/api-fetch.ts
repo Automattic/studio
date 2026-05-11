@@ -67,7 +67,7 @@ function normalizeHeaders( headers: APIFetchOptions[ 'headers' ] ) {
 
 async function serializeBody(
 	body: APIFetchOptions[ 'body' ]
-): Promise< Pick< SiteRestRequest, 'body' | 'bodyBase64' > > {
+): Promise< Pick< SiteRestRequest, 'body' > > {
 	if ( typeof body === 'string' ) {
 		return { body };
 	}
@@ -77,34 +77,24 @@ async function serializeBody(
 	}
 
 	if ( body instanceof Blob ) {
-		return { bodyBase64: arrayBufferToBase64( await body.arrayBuffer() ) };
+		return { body: await body.arrayBuffer() };
 	}
 
 	if ( body instanceof ArrayBuffer ) {
-		return { bodyBase64: arrayBufferToBase64( body ) };
+		return { body };
 	}
 
 	if ( ArrayBuffer.isView( body ) ) {
-		return {
-			bodyBase64: arrayBufferToBase64(
-				body.buffer.slice( body.byteOffset, body.byteOffset + body.byteLength )
-			),
-		};
+		return { body: copyArrayBufferView( body ) };
 	}
 
 	return {};
 }
 
-function arrayBufferToBase64( buffer: ArrayBuffer ) {
-	const bytes = new Uint8Array( buffer );
-	const chunkSize = 0x8000;
-	let binary = '';
-
-	for ( let offset = 0; offset < bytes.length; offset += chunkSize ) {
-		binary += String.fromCharCode( ...bytes.subarray( offset, offset + chunkSize ) );
-	}
-
-	return btoa( binary );
+function copyArrayBufferView( view: ArrayBufferView ) {
+	const copy = new Uint8Array( view.byteLength );
+	copy.set( new Uint8Array( view.buffer, view.byteOffset, view.byteLength ) );
+	return copy.buffer;
 }
 
 async function parseJson( response: Response ) {

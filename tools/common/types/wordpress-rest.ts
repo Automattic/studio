@@ -3,8 +3,7 @@ export interface SiteRestRequest {
 	url?: string;
 	method?: string;
 	headers?: Record< string, string >;
-	body?: string;
-	bodyBase64?: string;
+	body?: string | ArrayBuffer;
 	data?: unknown;
 	parse?: boolean;
 }

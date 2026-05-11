@@ -1,4 +1,3 @@
-import { Buffer } from 'node:buffer';
 import { SiteServer } from 'src/site-server';
 import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wordpress-rest';
 import type { IpcMainInvokeEvent } from 'electron';
@@ -127,10 +126,6 @@ function hasHeader( headers: Record< string, string >, headerName: string ) {
 }
 
 function getRequestBody( request: SiteRestRequest ) {
-	if ( request.bodyBase64 !== undefined ) {
-		return Buffer.from( request.bodyBase64, 'base64' );
-	}
-
 	if ( request.body !== undefined ) {
 		return request.body;
 	}

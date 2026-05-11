@@ -6,6 +6,7 @@ import type { WidgetDefinition } from '@/ui-desks/widgets/types';
 
 export const loadingWidgetDefinition = {
 	type: LOADING_WIDGET_TYPE,
+	name: () => __( 'Loading' ),
 	Component: LoadingWidgetComponent,
 	isCreatable: false,
 	isWidgetProps: isLoadingWidgetProps,
@@ -22,6 +23,7 @@ export const loadingWidgetDefinition = {
 			label: __( 'Loading' ),
 		},
 	} ),
+	getSummary: ( widgetProps ) => widgetProps.label,
 	getIndicator: () => ( {
 		cornerRadius: 18,
 		stroke: 'transparent',

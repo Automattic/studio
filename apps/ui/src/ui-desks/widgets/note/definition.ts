@@ -41,6 +41,7 @@ const NOTE_TONE_OPTIONS: Array< { value: NoteTone; label: string; color: string 
 
 export const noteWidgetDefinition = {
 	type: NOTE_WIDGET_TYPE,
+	name: () => __( 'Note' ),
 	Component: NoteWidgetComponent,
 	thumbnail: NoteWidgetThumbnailComponent,
 	controls: [
@@ -81,4 +82,21 @@ export const noteWidgetDefinition = {
 			tone: 'yellow',
 		},
 	} ),
+	getSummary: ( widgetProps ) =>
+		truncateText( stripMarkup( widgetProps.text ), 72 ) || __( 'Empty note' ),
 } satisfies WidgetDefinition< NoteWidget >;
+
+function stripMarkup( value: string ) {
+	return value
+		.replace( /<[^>]*>/g, ' ' )
+		.replace( /\s+/g, ' ' )
+		.trim();
+}
+
+function truncateText( value: string, maxLength: number ) {
+	if ( value.length <= maxLength ) {
+		return value;
+	}
+
+	return `${ value.slice( 0, maxLength - 3 ).trimEnd() }...`;
+}

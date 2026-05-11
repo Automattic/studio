@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'react';
 import type { DeskConfig } from '../types';
 import type { getSelectedWidgetToolbarItem } from '@/ui-desks/widgets/toolbar-selection';
+import type { WidgetPastePayload } from '@/ui-desks/widgets/types';
 import type { ReactNode } from 'react';
 import type { Editor } from 'tldraw';
 
@@ -21,6 +22,10 @@ export interface DeskContextValue {
 	registerEditor: RegisterDeskEditor;
 	pressStack: ( stackId: string ) => void;
 	addWidget: ( type: string, options?: AddDeskWidgetOptions ) => boolean;
+	addPastedContent: (
+		payload: WidgetPastePayload,
+		options?: AddDeskWidgetOptions
+	) => Promise< boolean >;
 	updateSelectedWidgetProps: ( widgetProps: Record< string, unknown > ) => boolean;
 	fitSelectedWidgetToContent: () => boolean;
 	stackSelectedWidgets: () => boolean;
@@ -61,6 +66,7 @@ const defaultDeskContext: DeskContextValue = {
 	registerEditor: noopRegisterEditor,
 	pressStack: noopPressStack,
 	addWidget: () => false,
+	addPastedContent: () => Promise.resolve( false ),
 	updateSelectedWidgetProps: () => false,
 	fitSelectedWidgetToContent: () => false,
 	stackSelectedWidgets: () => false,

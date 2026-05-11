@@ -1,4 +1,4 @@
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { post } from '@wordpress/icons';
 import { PostWidgetComponent } from '@/ui-desks/widgets/post/component';
 import { PostEditControl } from '@/ui-desks/widgets/post/edit-control';
@@ -7,6 +7,7 @@ import type { WidgetDefinition } from '@/ui-desks/widgets/types';
 
 export const postWidgetDefinition = {
 	type: POST_WIDGET_TYPE,
+	name: () => __( 'Post' ),
 	Component: PostWidgetComponent,
 	controls: [
 		{
@@ -35,4 +36,10 @@ export const postWidgetDefinition = {
 			postId: 0,
 		},
 	} ),
+	getSummary: ( widgetProps ) =>
+		sprintf(
+			/* translators: %d: WordPress post ID. */
+			__( 'Post #%d' ),
+			widgetProps.postId
+		),
 } satisfies WidgetDefinition< PostWidget >;

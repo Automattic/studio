@@ -1,4 +1,6 @@
 import { blogWidgetDefinition } from '@/ui-desks/widgets/blog/definition';
+import { bookmarkWidgetDefinition } from '@/ui-desks/widgets/bookmark/definition';
+import { embedWidgetDefinition } from '@/ui-desks/widgets/embed/definition';
 import { loadingWidgetDefinition } from '@/ui-desks/widgets/loading/definition';
 import { mediaWidgetDefinition } from '@/ui-desks/widgets/media/definition';
 import { noteWidgetDefinition } from '@/ui-desks/widgets/note/definition';
@@ -9,6 +11,8 @@ import { sitePreviewWidgetDefinition } from '@/ui-desks/widgets/site-preview/def
 import type { DeskWidgetDefinition } from './types';
 
 export const widgetDefinitions = {
+	[ embedWidgetDefinition.type ]: embedWidgetDefinition,
+	[ bookmarkWidgetDefinition.type ]: bookmarkWidgetDefinition,
 	[ blogWidgetDefinition.type ]: blogWidgetDefinition,
 	[ loadingWidgetDefinition.type ]: loadingWidgetDefinition,
 	[ noteWidgetDefinition.type ]: noteWidgetDefinition,

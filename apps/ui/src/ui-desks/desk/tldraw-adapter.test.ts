@@ -17,6 +17,7 @@ import {
 	resolvedDeskWidgetToCanvasShape,
 } from './tldraw-adapter';
 import type { DeskConfig } from './types';
+import type { EmbedWidget } from '@/ui-desks/widgets/embed/types';
 import type { MediaWidget } from '@/ui-desks/widgets/media/types';
 import type { NoteWidget } from '@/ui-desks/widgets/note/types';
 import type { PageWidget } from '@/ui-desks/widgets/page/types';
@@ -270,6 +271,47 @@ describe( 'tldraw adapter', () => {
 					mediaKind: 'image',
 					alt: 'Example image',
 					mediaId: 123,
+				},
+			},
+		} );
+		expect( canvasShapeToDeskWidget( shape ) ).toEqual( {
+			...widget,
+			rotation: undefined,
+		} );
+	} );
+
+	it( 'maps an embed widget through the canvas shape adapter', () => {
+		const widget: EmbedWidget = {
+			id: 'embed-1',
+			type: 'embed',
+			x: 120,
+			y: 130,
+			zIndex: 'a7',
+			shapeProps: {
+				w: 800,
+				h: 450,
+			},
+			widgetProps: {
+				url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+			},
+		};
+
+		const shape = deskWidgetToCanvasShape( widget ) as TLShape;
+
+		expect( shape ).toMatchObject( {
+			id: 'shape:embed-1',
+			type: RECTANGLE_WIDGET_SHAPE_TYPE,
+			x: 120,
+			y: 130,
+			index: 'a7',
+			props: {
+				widgetType: 'embed',
+				shapeProps: {
+					w: 800,
+					h: 450,
+				},
+				widgetProps: {
+					url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
 				},
 			},
 		} );

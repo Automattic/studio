@@ -11,6 +11,7 @@ import type { WidgetDefinition } from '@/ui-desks/widgets/types';
 
 export const sitePreviewWidgetDefinition = {
 	type: SITE_PREVIEW_WIDGET_TYPE,
+	name: () => __( 'Preview' ),
 	Component: SitePreviewWidgetComponent,
 	controls: [
 		{
@@ -40,4 +41,5 @@ export const sitePreviewWidgetDefinition = {
 			path: '/',
 		},
 	} ),
+	getSummary: ( widgetProps ) => widgetProps.path || '/',
 } satisfies WidgetDefinition< SitePreviewWidget >;

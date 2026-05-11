@@ -107,7 +107,9 @@ function NavigationContent( props: NavigationContentProps ) {
 	const { __ } = useI18n();
 	const { enableBlueprints } = useFeatureFlags();
 	const [ blueprintFileError, setBlueprintFileError ] = useState< string | undefined >();
-	const [ isSelectingGalleryBlueprint, setIsSelectingGalleryBlueprint ] = useState( false );
+	const [ selectedGalleryBlueprint, setSelectedGalleryBlueprint ] = useState<
+		GalleryBlueprint | undefined
+	>();
 	const [ gallerySelectionError, setGallerySelectionError ] = useState< string | undefined >();
 	const {
 		data: galleryBlueprints,
@@ -173,12 +175,6 @@ function NavigationContent( props: NavigationContentProps ) {
 		[ goTo ]
 	);
 
-	const handleBlueprintContinue = useCallback( () => {
-		if ( selectedBlueprint ) {
-			goTo( '/new/create' );
-		}
-	}, [ selectedBlueprint, goTo ] );
-
 	const handleBackupFileSelect = useCallback(
 		( file?: File ) => {
 			setFileForImport( file || null );
@@ -228,6 +224,7 @@ function NavigationContent( props: NavigationContentProps ) {
 		}
 		if ( location.path === '/new' ) {
 			setSelectedBlueprint();
+			setSelectedGalleryBlueprint( undefined );
 			setBlueprintPreferredVersions?.( undefined );
 			setBlueprintSuggestedSiteName?.( undefined );
 			setBlueprintFileError( undefined );
@@ -278,6 +275,7 @@ function NavigationContent( props: NavigationContentProps ) {
 
 	const handleBlueprintChange = useCallback(
 		( blueprintId: string ) => {
+			setSelectedGalleryBlueprint( undefined );
 			if ( blueprintId === 'empty' ) {
 				setSelectedBlueprint( {
 					slug: 'empty',
@@ -306,11 +304,19 @@ function NavigationContent( props: NavigationContentProps ) {
 	);
 
 	const handleGalleryBlueprintSelect = useCallback(
-		async ( gallery: GalleryBlueprint ) => {
-			setIsSelectingGalleryBlueprint( true );
+		( gallery: GalleryBlueprint ) => {
+			setSelectedGalleryBlueprint( gallery );
+			setSelectedBlueprint();
+			setGallerySelectionError( undefined );
+		},
+		[ setSelectedBlueprint ]
+	);
+
+	const handleBlueprintContinue = useCallback( async () => {
+		if ( selectedGalleryBlueprint ) {
 			setGallerySelectionError( undefined );
 			try {
-				const response = await fetch( gallery.blueprintUrl );
+				const response = await fetch( selectedGalleryBlueprint.blueprintUrl );
 				if ( ! response.ok ) {
 					throw new Error( __( 'Failed to download blueprint.' ) );
 				}
@@ -323,13 +329,13 @@ function NavigationContent( props: NavigationContentProps ) {
 				}
 
 				const blueprint = {
-					slug: `gallery:${ gallery.slug }`,
-					title: gallery.title,
-					excerpt: gallery.description,
-					image: gallery.screenshotUrl,
-					playground_url: gallery.playgroundUrl,
+					slug: `gallery:${ selectedGalleryBlueprint.slug }`,
+					title: selectedGalleryBlueprint.title,
+					excerpt: selectedGalleryBlueprint.description,
+					image: selectedGalleryBlueprint.screenshotUrl,
+					playground_url: selectedGalleryBlueprint.playgroundUrl,
 					blueprint: blueprintJson,
-					filePath: gallery.blueprintUrl,
+					filePath: selectedGalleryBlueprint.blueprintUrl,
 				} as Blueprint;
 
 				handleBlueprintFormValues( blueprint );
@@ -338,12 +344,13 @@ function NavigationContent( props: NavigationContentProps ) {
 				setGallerySelectionError(
 					error instanceof Error ? error.message : __( 'Failed to load blueprint.' )
 				);
-			} finally {
-				setIsSelectingGalleryBlueprint( false );
 			}
-		},
-		[ __, goTo, handleBlueprintFormValues ]
-	);
+			return;
+		}
+		if ( selectedBlueprint ) {
+			goTo( '/new/create' );
+		}
+	}, [ selectedBlueprint, selectedGalleryBlueprint, goTo, __, handleBlueprintFormValues ] );
 
 	// Build default values with blueprint preferred versions applied
 	const { data: wpVersions = [] } = useGetWordPressVersions( {
@@ -412,7 +419,7 @@ function NavigationContent( props: NavigationContentProps ) {
 						isLoadingGallery={ isLoadingGallery }
 						galleryErrorMessage={ galleryError ? __( 'Could not load blueprints.' ) : undefined }
 						onGalleryBlueprintSelect={ handleGalleryBlueprintSelect }
-						isSelectingGalleryBlueprint={ isSelectingGalleryBlueprint }
+						selectedGalleryBlueprint={ selectedGalleryBlueprint?.slug }
 						gallerySelectionError={ gallerySelectionError }
 					/>
 				</ScreenContent>
@@ -466,7 +473,7 @@ function NavigationContent( props: NavigationContentProps ) {
 				onCreateSubmit={ () => {
 					formRef.current?.requestSubmit();
 				} }
-				canSubmitBlueprint={ !! selectedBlueprint }
+				canSubmitBlueprint={ !! selectedBlueprint || !! selectedGalleryBlueprint }
 				canSubmitBlueprintDeeplink={ !! selectedBlueprint }
 				canSubmitPullRemote={ !! selectedRemoteSite }
 				canSubmitCreate={ canSubmit }

@@ -37,7 +37,7 @@ function escapePhpSingleQuotedString( value: string ): string {
 }
 
 function unescapePhpSingleQuotedString( value: string ): string {
-	return value.replace( /\\\\/g, '\\' ).replace( /\\'/g, "'" );
+	return value.replace( /\\'/g, "'" ).replace( /\\\\/g, '\\' );
 }
 
 function getLoaderMuPluginContent( muPluginsDir: string ): string {

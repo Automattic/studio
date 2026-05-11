@@ -8,7 +8,7 @@ Unreleased
 * Improved Studio Code remote sessions #3315, #3300, #3347, #3366, #3365
 * Added GPT 5.5 support and a scaffold_theme tool for the CLI agent #3328, #3348
 * Improved Studio Code agent reliability #3330, #3337, #3352, #3351
-* Fixed Sync modal site limits, image rendering, W logo display, Blueprint ZIP uploads, and first-site port assignment #3356, #3317, #3316, #3372, #3422
+* Fixed several Studio UI, Blueprint upload, and site creation issues #3356, #3317, #3316, #3372, #3422
 * Always ask before stopping running sites when quitting Studio #3350
 * Improved Linux packaging and installer size #3335, #3364, #3371
 * Updated multiple dependencies, including WordPress packages, WP Playground, and PHP-WASM

@@ -1,6 +1,7 @@
 import {
 	DESK_CONFIG_VERSION,
 	type DeskConfig,
+	type DeskStack,
 	type DeskViewport,
 	type DeskWidgetBase,
 } from '@studio/common/types/desk';
@@ -22,6 +23,23 @@ function isDeskWidget( value: unknown ): value is DeskWidgetBase {
 		typeof value.y === 'number' &&
 		typeof value.zIndex === 'string' &&
 		( value.rotation === undefined || typeof value.rotation === 'number' )
+	);
+}
+
+function isDeskStack( value: unknown ): value is DeskStack {
+	if ( ! isRecord( value ) || ! Array.isArray( value.memberIds ) ) {
+		return false;
+	}
+	return (
+		typeof value.id === 'string' &&
+		value.id.length > 0 &&
+		typeof value.x === 'number' &&
+		Number.isFinite( value.x ) &&
+		typeof value.y === 'number' &&
+		Number.isFinite( value.y ) &&
+		typeof value.zIndex === 'string' &&
+		value.memberIds.length >= 2 &&
+		value.memberIds.every( ( memberId ) => typeof memberId === 'string' )
 	);
 }
 
@@ -55,8 +73,20 @@ function assertDeskConfig( value: unknown ): asserts value is DeskConfig {
 	if ( ! Array.isArray( value.widgets ) || ! value.widgets.every( isDeskWidget ) ) {
 		throw new Error( 'Invalid desk config: expected widgets array.' );
 	}
+	if (
+		value.stacks !== undefined &&
+		( ! Array.isArray( value.stacks ) || ! value.stacks.every( isDeskStack ) )
+	) {
+		throw new Error( 'Invalid desk config: expected stacks array.' );
+	}
 	if ( value.viewport !== undefined && ! isDeskViewport( value.viewport ) ) {
 		throw new Error( 'Invalid desk config: expected viewport object.' );
+	}
+}
+
+function assertSiteId( siteId: unknown ): asserts siteId is string {
+	if ( typeof siteId !== 'string' || ! siteId ) {
+		throw new Error( 'Invalid site desk config: expected site id.' );
 	}
 }
 
@@ -80,6 +110,40 @@ export async function saveUserDeskConfig(
 			desks: {
 				...userData.desks,
 				user: config,
+			},
+		} );
+	} finally {
+		await unlockAppdata();
+	}
+}
+
+export async function getSiteDeskConfig(
+	_event: IpcMainInvokeEvent,
+	siteId: string
+): Promise< DeskConfig | undefined > {
+	assertSiteId( siteId );
+	const userData = await loadUserData();
+	return userData.desks?.sites?.[ siteId ];
+}
+
+export async function saveSiteDeskConfig(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	config: DeskConfig
+): Promise< void > {
+	assertSiteId( siteId );
+	assertDeskConfig( config );
+	await lockAppdata();
+	try {
+		const userData = await loadUserData();
+		await saveUserData( {
+			...userData,
+			desks: {
+				...userData.desks,
+				sites: {
+					...userData.desks?.sites,
+					[ siteId ]: config,
+				},
 			},
 		} );
 	} finally {

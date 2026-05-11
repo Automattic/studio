@@ -7,7 +7,6 @@ import {
 	type RichTextValue,
 } from '@wordpress/rich-text';
 import { useCallback, useEffect, useRef, type KeyboardEvent, type PointerEvent } from 'react';
-import { useEditor, useIsEditing, type TLUnknownShape } from 'tldraw';
 import { NOTE_WIDGET_TYPE, type NoteWidgetProps } from '@/ui-desks/widgets/note/types';
 import styles from './style.module.css';
 import type { DeskWidgetComponentProps } from '@/ui-desks/widgets/types';
@@ -31,25 +30,23 @@ const NOTE_FORMAT_BY_SHORTCUT = Object.fromEntries(
 
 registerNoteFormats();
 
-export function NoteWidgetComponent( { id, shapeType, widgetProps }: NoteWidgetComponentProps ) {
-	const editor = useEditor();
-	const isEditing = useIsEditing( id );
+export function NoteWidgetComponent( {
+	id,
+	widgetProps,
+	isEditing,
+	onWidgetPropsChange,
+	onEditComplete,
+}: NoteWidgetComponentProps ) {
 	const editorRef = useRef< HTMLDivElement | null >( null );
 
 	const updateText = useCallback(
 		( text: string ) => {
-			editor.updateShape< TLUnknownShape >( {
-				id,
-				type: shapeType,
-				props: {
-					widgetProps: {
-						...widgetProps,
-						text,
-					},
-				},
+			onWidgetPropsChange( {
+				...widgetProps,
+				text,
 			} );
 		},
-		[ editor, id, shapeType, widgetProps ]
+		[ onWidgetPropsChange, widgetProps ]
 	);
 
 	const richText = useRichText( {
@@ -133,10 +130,10 @@ export function NoteWidgetComponent( { id, shapeType, widgetProps }: NoteWidgetC
 
 			if ( event.key === 'Enter' ) {
 				event.preventDefault();
-				editor.complete();
+				onEditComplete();
 			}
 		},
-		[ editor, toggleTextFormat ]
+		[ onEditComplete, toggleTextFormat ]
 	);
 
 	return (
@@ -145,6 +142,7 @@ export function NoteWidgetComponent( { id, shapeType, widgetProps }: NoteWidgetC
 			data-tone={ widgetProps.tone }
 			data-is-editing={ isEditing }
 			data-studio-desk-widget={ NOTE_WIDGET_TYPE }
+			data-studio-desk-widget-id={ id }
 		>
 			<div
 				ref={ setEditorRef }
@@ -152,7 +150,7 @@ export function NoteWidgetComponent( { id, shapeType, widgetProps }: NoteWidgetC
 				contentEditable={ isEditing }
 				suppressContentEditableWarning
 				spellCheck={ false }
-				onBlur={ () => editor.complete() }
+				onBlur={ onEditComplete }
 				onKeyDown={ handleKeyDown }
 				onPointerDown={ handlePointerDown }
 			/>

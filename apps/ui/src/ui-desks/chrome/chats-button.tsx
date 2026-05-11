@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { comment } from '@wordpress/icons';
-import { DeskHeaderIconButton } from './header-button';
+import { IconControlButton } from '@/ui-desks/components';
 
 interface DeskChatsButtonProps {
 	open: boolean;
@@ -9,7 +9,7 @@ interface DeskChatsButtonProps {
 
 export function DeskChatsButton( { open, onToggle }: DeskChatsButtonProps ) {
 	return (
-		<DeskHeaderIconButton
+		<IconControlButton
 			icon={ comment }
 			label={ open ? __( 'Hide conversations' ) : __( 'Show conversations' ) }
 			aria-pressed={ open }

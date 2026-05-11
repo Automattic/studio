@@ -1,9 +1,14 @@
 import { decodeEntities } from '@wordpress/html-entities';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { arrowUp } from '@wordpress/icons';
 import { useEffect, useRef, useState, type ComponentType, type CSSProperties } from 'react';
 import { useChats } from '@/ui-desks/chats/context';
-import { IconControlButton } from '@/ui-desks/components';
+import {
+	PromptDialog,
+	PromptDialogError,
+	PromptDialogRow,
+	PromptDialogSubmit,
+	promptDialogInputClassName,
+} from '@/ui-desks/components';
 import { getWidgetDefinition } from '@/ui-desks/widgets/registry';
 import styles from './style.module.css';
 import type { DeskWidget, DeskWidgetComponentProps } from '@/ui-desks/widgets/types';
@@ -55,67 +60,44 @@ export function SelectionChatDialog( { widgets, onClose }: SelectionChatDialogPr
 	};
 
 	return (
-		<div
-			className={ styles.backdrop }
-			onPointerDown={ ( event ) => {
-				event.stopPropagation();
-				if ( event.target === event.currentTarget ) {
-					onClose();
-				}
-			} }
-			onKeyDown={ ( event ) => {
-				if ( event.key === 'Escape' ) {
-					event.preventDefault();
-					onClose();
-				}
+		<PromptDialog
+			ariaLabel={ __( 'Chat about selection' ) }
+			onClose={ onClose }
+			onSubmit={ ( event ) => {
+				event.preventDefault();
+				void submitPrompt();
 			} }
 		>
-			<form
-				className={ styles.dialog }
-				role="dialog"
-				aria-modal="true"
-				aria-label={ __( 'Chat about selection' ) }
-				onSubmit={ ( event ) => {
-					event.preventDefault();
-					void submitPrompt();
-				} }
-			>
-				<div className={ styles.promptRow }>
-					<textarea
-						ref={ textareaRef }
-						className={ styles.promptInput }
-						value={ prompt }
-						rows={ 1 }
-						placeholder={ __( 'Ask about this selection...' ) }
-						onChange={ ( event ) => setPrompt( event.target.value ) }
-						onKeyDown={ ( event ) => {
-							if ( event.key === 'Enter' && ( event.metaKey || event.ctrlKey ) ) {
-								event.preventDefault();
-								void submitPrompt();
-							}
-						} }
-					/>
-					<IconControlButton
-						icon={ arrowUp }
-						iconSize={ 24 }
-						className={ styles.sendButton }
-						label={ isCreatingChat ? __( 'Creating chat' ) : __( 'Send' ) }
-						disabled={ ! canSubmit }
-						aria-busy={ isCreatingChat }
-						variant="toolbar"
-						tooltipSide="left"
-						onClick={ () => void submitPrompt() }
-					/>
-				</div>
-				<div className={ styles.thumbnails } aria-label={ __( 'Selected widgets' ) }>
-					{ visibleWidgets.map( ( widget ) => (
-						<SelectionWidgetThumbnail key={ widget.id } widget={ widget } />
-					) ) }
-					{ hiddenWidgetCount > 0 && <SelectionMoreThumbnail count={ hiddenWidgetCount } /> }
-				</div>
-				{ error && <div className={ styles.error }>{ error }</div> }
-			</form>
-		</div>
+			<PromptDialogRow>
+				<textarea
+					ref={ textareaRef }
+					className={ promptDialogInputClassName }
+					value={ prompt }
+					rows={ 1 }
+					placeholder={ __( 'Ask about this selection...' ) }
+					onChange={ ( event ) => setPrompt( event.target.value ) }
+					onKeyDown={ ( event ) => {
+						if ( event.key === 'Enter' && ( event.metaKey || event.ctrlKey ) ) {
+							event.preventDefault();
+							void submitPrompt();
+						}
+					} }
+				/>
+				<PromptDialogSubmit
+					label={ isCreatingChat ? __( 'Creating chat' ) : __( 'Send' ) }
+					disabled={ ! canSubmit }
+					aria-busy={ isCreatingChat }
+					onClick={ () => void submitPrompt() }
+				/>
+			</PromptDialogRow>
+			<div className={ styles.thumbnails } aria-label={ __( 'Selected widgets' ) }>
+				{ visibleWidgets.map( ( widget ) => (
+					<SelectionWidgetThumbnail key={ widget.id } widget={ widget } />
+				) ) }
+				{ hiddenWidgetCount > 0 && <SelectionMoreThumbnail count={ hiddenWidgetCount } /> }
+			</div>
+			{ error && <PromptDialogError>{ error }</PromptDialogError> }
+		</PromptDialog>
 	);
 }
 
@@ -241,8 +223,12 @@ function summarizeWidgetList( widgets: DeskWidget[] ) {
 
 function getWidgetTypeLabel( widget: DeskWidget ) {
 	switch ( widget.type ) {
+		case 'bookmark':
+			return __( 'Link' );
 		case 'blog':
 			return __( 'Blog' );
+		case 'embed':
+			return __( 'Embed' );
 		case 'note':
 			return __( 'Note' );
 		case 'post':
@@ -263,6 +249,10 @@ function getWidgetDisplayLabel( widget: DeskWidget ) {
 
 function getWidgetSummary( widget: DeskWidget ) {
 	switch ( widget.type ) {
+		case 'bookmark':
+			return widget.widgetProps.url;
+		case 'embed':
+			return widget.widgetProps.url;
 		case 'blog':
 			return widget.widgetProps.slug
 				? `${ widget.widgetProps.title } /${ widget.widgetProps.slug }`
@@ -295,6 +285,14 @@ function getWidgetSummary( widget: DeskWidget ) {
 
 function getWidgetPromptContext( widget: DeskWidget ) {
 	switch ( widget.type ) {
+		case 'bookmark':
+			return formatPromptContext( widget, {
+				url: widget.widgetProps.url,
+			} );
+		case 'embed':
+			return formatPromptContext( widget, {
+				url: widget.widgetProps.url,
+			} );
 		case 'blog':
 			return formatPromptContext( widget, {
 				title: widget.widgetProps.title,

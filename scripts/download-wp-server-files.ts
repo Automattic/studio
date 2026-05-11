@@ -11,6 +11,14 @@ import { SQLITE_DATABASE_INTEGRATION_RELEASE_URL } from '../apps/studio/src/cons
 import { extractZip } from '../tools/common/lib/extract-zip';
 
 const WP_SERVER_FILES_PATH = path.join( __dirname, '..', 'wp-files' );
+const PHPMYADMIN_PATCH_FILES_PATH = path.join( __dirname, '..', 'apps', 'cli', 'php' );
+const PHPMYADMIN_LOCAL_PATCH_FILES = new Map< string, string >( [
+	[ 'config.inc.php', path.join( PHPMYADMIN_PATCH_FILES_PATH, 'config.inc.php' ) ],
+	[
+		'libraries/classes/Dbal/DbiMysqli.php',
+		path.join( PHPMYADMIN_PATCH_FILES_PATH, 'DbiMysqli.php' ),
+	],
+] );
 
 const partialGithubReleaseSchema = z.object( {
 	tag_name: z.string(),
@@ -165,7 +173,9 @@ async function downloadFile( file: FileToDownload ): Promise< void > {
 				const destFile = path.join( extractedPath, relativePath );
 				await fs.ensureDir( path.dirname( destFile ) );
 
-				await fs.writeFile( destFile, step.data );
+				const localPatchFile = PHPMYADMIN_LOCAL_PATCH_FILES.get( relativePath );
+				const patchData = localPatchFile ? await fs.readFile( localPatchFile, 'utf8' ) : step.data;
+				await fs.writeFile( destFile, patchData );
 			}
 		}
 	} else {

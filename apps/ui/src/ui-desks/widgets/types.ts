@@ -1,4 +1,5 @@
 import type { ControlConfig } from '@/ui-desks/controls/types';
+import type { BlogWidget } from '@/ui-desks/widgets/blog/types';
 import type { NoteWidget } from '@/ui-desks/widgets/note/types';
 import type { PageWidget } from '@/ui-desks/widgets/page/types';
 import type { PostWidget } from '@/ui-desks/widgets/post/types';
@@ -103,12 +104,14 @@ export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBa
 }
 
 export type DeskWidget =
+	| BlogWidget
 	| NoteWidget
 	| PostWidget
 	| PageWidget
 	| PostCollectionWidget
 	| SitePreviewWidget;
 export type DeskWidgetDefinition =
+	| WidgetDefinition< BlogWidget >
 	| WidgetDefinition< NoteWidget >
 	| WidgetDefinition< PostWidget >
 	| WidgetDefinition< PageWidget >

@@ -3,6 +3,8 @@ import type { DeskWidget } from '@/ui-desks/widgets/types';
 
 interface SelectedWidgetToolbarOptions {
 	stackIds?: string[];
+	canStack?: boolean;
+	canUnstack?: boolean;
 	canRemove?: boolean;
 }
 
@@ -36,8 +38,8 @@ export function getSelectedWidgetToolbarItem(
 	const base = {
 		widgets,
 		stackIds,
-		canStack: widgets.length >= 2 && stackIds.length === 0,
-		canUnstack: stackIds.length > 0,
+		canStack: ( options.canStack ?? true ) && widgets.length >= 2 && stackIds.length === 0,
+		canUnstack: ( options.canUnstack ?? true ) && stackIds.length > 0,
 		canRemove: options.canRemove ?? true,
 	};
 

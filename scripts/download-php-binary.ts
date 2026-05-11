@@ -18,9 +18,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { extract } from 'tar';
 import { z } from 'zod';
-import { isZipArchive } from '../tools/common/lib/archive-format';
 import { downloadFile } from '../tools/common/lib/download-file';
 import { extractZip } from '../tools/common/lib/extract-zip';
 import { isErrnoException } from '../tools/common/lib/is-errno-exception';
@@ -119,41 +117,20 @@ async function main(): Promise< void > {
 			// Extract
 			console.log( 'Extracting PHP binary…' );
 			const tmpDir = os.tmpdir();
-			if ( await isZipArchive( downloadPath ) ) {
-				const extractDir = fs.mkdtempSync( path.join( tmpDir, `php-${ patchVersion }-` ) );
-				const expectedBinary = isWindows ? 'php.exe' : 'php';
-				try {
-					await extractZip( downloadPath, extractDir );
-					const src = path.join( extractDir, expectedBinary );
-					if ( ! fs.existsSync( src ) ) {
-						throw new Error( `${ expectedBinary } not found after extraction.` );
-					}
-					fs.copyFileSync( src, destPath );
-					if ( ! isWindows ) {
-						fs.chmodSync( destPath, 0o755 );
-					}
-				} finally {
-					fs.rmSync( extractDir, { recursive: true, force: true } );
+			const extractDir = fs.mkdtempSync( path.join( tmpDir, `php-${ patchVersion }-` ) );
+			const expectedBinary = isWindows ? 'php.exe' : 'php';
+			try {
+				await extractZip( downloadPath, extractDir );
+				const src = path.join( extractDir, expectedBinary );
+				if ( ! fs.existsSync( src ) ) {
+					throw new Error( `${ expectedBinary } not found after extraction.` );
 				}
-			} else if ( isWindows ) {
-				throw new Error( `Windows PHP binary archive must be a .zip file.` );
-			} else {
-				const extractDir = path.join(
-					tmpDir,
-					`php-${ patchVersion }-${ args.platform }-${ effectiveArch }`
-				);
-				fs.mkdirSync( extractDir, { recursive: true } );
-				try {
-					await extract( { file: downloadPath, cwd: extractDir } );
-					const src = path.join( extractDir, 'php' );
-					if ( ! fs.existsSync( src ) ) {
-						throw new Error( `php binary not found after extraction.` );
-					}
-					fs.copyFileSync( src, destPath );
+				fs.copyFileSync( src, destPath );
+				if ( ! isWindows ) {
 					fs.chmodSync( destPath, 0o755 );
-				} finally {
-					fs.rmSync( extractDir, { recursive: true, force: true } );
 				}
+			} finally {
+				fs.rmSync( extractDir, { recursive: true, force: true } );
 			}
 
 			const stats = fs.statSync( destPath );

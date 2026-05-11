@@ -2,7 +2,6 @@ import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { isZipArchive } from '@studio/common/lib/archive-format';
 import { downloadFile } from '@studio/common/lib/download-file';
 import { extractZip } from '@studio/common/lib/extract-zip';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
@@ -14,7 +13,6 @@ import {
 	type PhpBinaryDownloadInfo,
 	type NativePhpSupportedVersion,
 } from '@studio/common/lib/php-binary-metadata';
-import { extract } from 'tar';
 import { getPhpBinaryPath } from './paths';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 
@@ -92,7 +90,7 @@ async function downloadAndInstall(
 	try {
 		await downloadFile( downloadInfo.url, downloadPath, onProgress );
 		await verifyHash( downloadPath, downloadInfo.sha, version, platform, arch );
-		await extractAndInstall( downloadPath, destPath, patchVersion, platform, arch );
+		await extractAndInstall( downloadPath, destPath, patchVersion, platform );
 	} catch ( err ) {
 		fs.rmSync( destDir, { recursive: true, force: true } );
 		throw err;
@@ -162,50 +160,24 @@ async function extractAndInstall(
 	archivePath: string,
 	destPath: string,
 	patchVersion: string,
-	platform: NodeJS.Platform,
-	arch: string
+	platform: NodeJS.Platform
 ): Promise< void > {
 	const isWindows = platform === 'win32';
-	const effectiveArch = isWindows ? 'x64' : arch;
 	const tmpDir = os.tmpdir();
 	const binaryName = isWindows ? 'php.exe' : 'php';
 
-	if ( await isZipArchive( archivePath ) ) {
-		const extractDir = fs.mkdtempSync( path.join( tmpDir, `php-${ patchVersion }-` ) );
-		try {
-			await extractZip( archivePath, extractDir );
-			const src = path.join( extractDir, binaryName );
-			if ( ! fs.existsSync( src ) ) {
-				throw new Error( `${ binaryName } not found after extraction. Archive may be corrupt.` );
-			}
-			fs.copyFileSync( src, destPath );
-			if ( ! isWindows ) {
-				fs.chmodSync( destPath, 0o755 );
-			}
-		} finally {
-			fs.rmSync( extractDir, { recursive: true, force: true } );
+	const extractDir = fs.mkdtempSync( path.join( tmpDir, `php-${ patchVersion }-` ) );
+	try {
+		await extractZip( archivePath, extractDir );
+		const src = path.join( extractDir, binaryName );
+		if ( ! fs.existsSync( src ) ) {
+			throw new Error( `${ binaryName } not found after extraction. Archive may be corrupt.` );
 		}
-		return;
-	}
-
-	if ( isWindows ) {
-		throw new Error( `Windows PHP binary archive must be a .zip file.` );
-	} else {
-		const extractDir = path.join(
-			tmpDir,
-			`php-${ patchVersion }-${ platform }-${ effectiveArch }`
-		);
-		fs.mkdirSync( extractDir, { recursive: true } );
-		try {
-			await extract( { file: archivePath, cwd: extractDir } );
-			const src = path.join( extractDir, 'php' );
-			if ( ! fs.existsSync( src ) ) {
-				throw new Error( `php binary not found after extraction. Archive may be corrupt.` );
-			}
-			fs.copyFileSync( src, destPath );
+		fs.copyFileSync( src, destPath );
+		if ( ! isWindows ) {
 			fs.chmodSync( destPath, 0o755 );
-		} finally {
-			fs.rmSync( extractDir, { recursive: true, force: true } );
 		}
+	} finally {
+		fs.rmSync( extractDir, { recursive: true, force: true } );
 	}
 }

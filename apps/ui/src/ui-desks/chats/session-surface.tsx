@@ -18,6 +18,7 @@ import { SessionUIProvider } from '@/hooks/use-session-ui';
 import styles from './style.module.css';
 
 interface DeskSessionSurfaceProps {
+	siteId?: string;
 	sessionId: string;
 	onSwitchSession: ( sessionId: string ) => void;
 	autoFocus?: boolean;
@@ -43,6 +44,7 @@ function Frame( { composer, scrollRef, children }: FrameProps ) {
 }
 
 function DeskSessionSurfaceContent( {
+	siteId,
 	sessionId,
 	onSwitchSession,
 	autoFocus = false,
@@ -53,9 +55,10 @@ function DeskSessionSurfaceContent( {
 	const ownerSite = ownerSitePath
 		? sites?.find( ( candidate ) => candidate.path === ownerSitePath )
 		: undefined;
-	const { data: connectedSites } = useConnectedWpcomSites( ownerSite?.id );
+	const ownerSiteId = ownerSite?.id ?? siteId;
+	const { data: connectedSites } = useConnectedWpcomSites( ownerSiteId );
 	const liveSite = pickLiveSite( connectedSites );
-	const effectiveEnvironment = useSessionEffectiveEnvironment( data?.summary, ownerSite?.id );
+	const effectiveEnvironment = useSessionEffectiveEnvironment( data?.summary, ownerSiteId );
 	const {
 		isRunning,
 		hasActiveRun,
@@ -141,7 +144,7 @@ function DeskSessionSurfaceContent( {
 						effectiveEnvironment={ effectiveEnvironment }
 						liveSite={ liveSite }
 						entries={ data.entries }
-						ownerSiteId={ ownerSite?.id }
+						ownerSiteId={ ownerSiteId }
 						onSwitchSession={ onSwitchSession }
 						autoFocus={ autoFocus }
 					/>

@@ -56,7 +56,6 @@ let blueprintQueue: Promise< unknown > = Promise.resolve();
 const currentOpenBasedirAllowlist: Set< string > = new Set();
 let symlinkWatcher: SymlinkWatcher | null = null;
 let symlinkRestartTimer: NodeJS.Timeout | null = null;
-let symlinkRestartQueue: Promise< void > = Promise.resolve();
 let runningConfig: ServerConfig | null = null;
 
 const SYMLINK_RESTART_DEBOUNCE_MS = 750;
@@ -371,14 +370,12 @@ async function stopSymlinkWatcher(): Promise< void > {
 
 function scheduleAllowlistRestart(): void {
 	if ( symlinkRestartTimer ) {
-		return;
+		clearTimeout( symlinkRestartTimer );
 	}
 	symlinkRestartTimer = setTimeout( () => {
 		symlinkRestartTimer = null;
 		logToConsole( `open_basedir extended with new symlink target(s); restarting PHP server` );
-
-		// Serialize restarts so a burst of new symlinks doesn't stack child processes.
-		symlinkRestartQueue = symlinkRestartQueue.catch( () => {} ).then( () => restartPhpServer() );
+		void restartPhpServer();
 	}, SYMLINK_RESTART_DEBOUNCE_MS );
 }
 

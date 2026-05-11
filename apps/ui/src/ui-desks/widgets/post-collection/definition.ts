@@ -1,6 +1,7 @@
 import { store as coreDataStore, type Post as CoreDataPost } from '@wordpress/core-data';
 import { __ } from '@wordpress/i18n';
 import { post } from '@wordpress/icons';
+import { getIndicesAbove, type TLShapePartial } from 'tldraw';
 import { postWidgetDefinition } from '@/ui-desks/widgets/post/definition';
 import { POST_WIDGET_TYPE, type PostWidget } from '@/ui-desks/widgets/post/types';
 import {
@@ -100,6 +101,7 @@ export const postCollectionWidgetDefinition = {
 			const posts =
 				( await getCoreDataResolvers( context ).getEntityRecords( 'postType', 'post', query ) ) ??
 				[];
+			const zIndices = getDerivedZIndices( widget.zIndex, posts.length + 1 );
 
 			return {
 				identity: {
@@ -107,9 +109,12 @@ export const postCollectionWidgetDefinition = {
 					posts,
 				},
 				widgets: posts.map( ( postRecord, index ) =>
-					createDerivedPostWidget( widget, postRecord.id, index )
+					createDerivedPostWidget( widget, postRecord.id, zIndices[ index ] )
 				),
-				stacks: posts.length > 0 ? [ createDerivedPostStack( widget, posts ) ] : [],
+				stacks:
+					posts.length > 0
+						? [ createDerivedPostStack( widget, posts, zIndices[ posts.length ] ) ]
+						: [],
 			};
 		},
 		invalidate: ( widget, previousIdentity, context ) => {
@@ -148,7 +153,7 @@ function getEntityRecordsQuery( query: PostCollectionQuery ): EntityRecordsQuery
 function createDerivedPostWidget(
 	collection: PostCollectionWidget,
 	postId: number,
-	index: number
+	zIndex: string
 ): ResolvedDeskWidget< PostWidget > {
 	return {
 		origin: {
@@ -161,7 +166,7 @@ function createDerivedPostWidget(
 			type: POST_WIDGET_TYPE,
 			x: collection.x,
 			y: collection.y,
-			zIndex: getDerivedZIndex( collection.zIndex, index ),
+			zIndex,
 			shapeProps: POST_CARD_SHAPE_PROPS,
 			widgetProps: {
 				postId,
@@ -172,7 +177,8 @@ function createDerivedPostWidget(
 
 function createDerivedPostStack(
 	collection: PostCollectionWidget,
-	posts: CoreDataPost[]
+	posts: CoreDataPost[],
+	zIndex: string
 ): ResolvedDeskStack {
 	return {
 		origin: {
@@ -184,13 +190,12 @@ function createDerivedPostStack(
 			id: `post-collection:${ collection.id }`,
 			x: collection.x,
 			y: collection.y,
-			zIndex: getDerivedZIndex( collection.zIndex, posts.length ),
+			zIndex,
 			memberIds: posts.map( ( postRecord ) => `${ collection.id }:post:${ postRecord.id }` ),
 		},
 	};
 }
 
-function getDerivedZIndex( zIndex: string, index: number ) {
-	const numericIndex = Number( zIndex.replace( /^a/, '' ) );
-	return `a${ Number.isFinite( numericIndex ) ? numericIndex + index + 1 : index + 1 }`;
+function getDerivedZIndices( zIndex: string, count: number ) {
+	return getIndicesAbove( zIndex as TLShapePartial[ 'index' ], count ) as string[];
 }

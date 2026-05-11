@@ -241,6 +241,8 @@ function summarizeWidgetList( widgets: DeskWidget[] ) {
 
 function getWidgetTypeLabel( widget: DeskWidget ) {
 	switch ( widget.type ) {
+		case 'blog':
+			return __( 'Blog' );
 		case 'note':
 			return __( 'Note' );
 		case 'post':
@@ -261,6 +263,10 @@ function getWidgetDisplayLabel( widget: DeskWidget ) {
 
 function getWidgetSummary( widget: DeskWidget ) {
 	switch ( widget.type ) {
+		case 'blog':
+			return widget.widgetProps.slug
+				? `${ widget.widgetProps.title } /${ widget.widgetProps.slug }`
+				: widget.widgetProps.title;
 		case 'note':
 			return truncateText( stripMarkup( widget.widgetProps.text ), 72 ) || __( 'Empty note' );
 		case 'post':
@@ -289,6 +295,11 @@ function getWidgetSummary( widget: DeskWidget ) {
 
 function getWidgetPromptContext( widget: DeskWidget ) {
 	switch ( widget.type ) {
+		case 'blog':
+			return formatPromptContext( widget, {
+				title: widget.widgetProps.title,
+				slug: widget.widgetProps.slug,
+			} );
 		case 'note':
 			return formatPromptContext( widget, {
 				text: stripMarkup( widget.widgetProps.text ),

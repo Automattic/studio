@@ -146,12 +146,7 @@ async function resolveDeskWidgets(
 			) ) as WidgetResolution;
 		} catch ( error ) {
 			if ( isInitialResolve ) {
-				setSourceWidgetResolutionState(
-					editor,
-					widget.id,
-					undefined,
-					definition.getInitialWidget().shapeProps
-				);
+				setSourceWidgetResolutionState( editor, widget.id, undefined, widget.shapeProps );
 			}
 			console.warn( `Failed to resolve desk widget "${ widget.id }".`, error );
 			if ( ! previousState ) {
@@ -166,12 +161,7 @@ async function resolveDeskWidgets(
 			continue;
 		}
 		if ( isInitialResolve ) {
-			setSourceWidgetResolutionState(
-				editor,
-				widget.id,
-				undefined,
-				definition.getInitialWidget().shapeProps
-			);
+			setSourceWidgetResolutionState( editor, widget.id, undefined, widget.shapeProps );
 		}
 		const widgets = resolution.widgets.filter(
 			( resolvedWidget ): resolvedWidget is ResolvedDeskWidget< DeskWidget > =>

@@ -27,7 +27,6 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useBlueprintDeeplink } from 'src/modules/add-site/hooks/use-blueprint-deeplink';
 import { useRootSelector, useAppDispatch, useI18nLocale } from 'src/stores';
 import { formatRtkError } from 'src/stores/format-rtk-error';
-import { useGetGalleryBlueprints, GalleryBlueprint } from 'src/stores/gallery-blueprints-api';
 import { openAddSiteModal, closeAddSiteModal, selectIsAddSiteModalOpen } from 'src/stores/ui-slice';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
 import { useGetBlueprints, Blueprint } from 'src/stores/wpcom-api';
@@ -40,7 +39,6 @@ import Stepper from './components/stepper';
 import { UploadBlueprintButton } from './components/upload-blueprint-button';
 import { useFindAvailableSiteName } from './hooks/use-find-available-site-name';
 import { applyBlueprintFormValues } from './lib/apply-blueprint-form-values';
-import NavigationContentClassic from './navigation-content-classic';
 
 type BlueprintsData = ReturnType< typeof useGetBlueprints >[ 'data' ];
 
@@ -107,15 +105,6 @@ function NavigationContent( props: NavigationContentProps ) {
 	const { __ } = useI18n();
 	const { enableBlueprints } = useFeatureFlags();
 	const [ blueprintFileError, setBlueprintFileError ] = useState< string | undefined >();
-	const [ selectedGalleryBlueprint, setSelectedGalleryBlueprint ] = useState<
-		GalleryBlueprint | undefined
-	>();
-	const [ gallerySelectionError, setGallerySelectionError ] = useState< string | undefined >();
-	const {
-		data: galleryBlueprints,
-		isLoading: isLoadingGallery,
-		error: galleryError,
-	} = useGetGalleryBlueprints();
 	const {
 		startOver,
 		blueprintsData,
@@ -175,6 +164,12 @@ function NavigationContent( props: NavigationContentProps ) {
 		[ goTo ]
 	);
 
+	const handleBlueprintContinue = useCallback( () => {
+		if ( selectedBlueprint ) {
+			goTo( '/new/create' );
+		}
+	}, [ selectedBlueprint, goTo ] );
+
 	const handleBackupFileSelect = useCallback(
 		( file?: File ) => {
 			setFileForImport( file || null );
@@ -224,7 +219,6 @@ function NavigationContent( props: NavigationContentProps ) {
 		}
 		if ( location.path === '/new' ) {
 			setSelectedBlueprint();
-			setSelectedGalleryBlueprint( undefined );
 			setBlueprintPreferredVersions?.( undefined );
 			setBlueprintSuggestedSiteName?.( undefined );
 			setBlueprintFileError( undefined );
@@ -275,7 +269,6 @@ function NavigationContent( props: NavigationContentProps ) {
 
 	const handleBlueprintChange = useCallback(
 		( blueprintId: string ) => {
-			setSelectedGalleryBlueprint( undefined );
 			if ( blueprintId === 'empty' ) {
 				setSelectedBlueprint( {
 					slug: 'empty',
@@ -302,55 +295,6 @@ function NavigationContent( props: NavigationContentProps ) {
 		},
 		[ handleBlueprintFormValues, goTo ]
 	);
-
-	const handleGalleryBlueprintSelect = useCallback(
-		( gallery: GalleryBlueprint ) => {
-			setSelectedGalleryBlueprint( gallery );
-			setSelectedBlueprint();
-			setGallerySelectionError( undefined );
-		},
-		[ setSelectedBlueprint ]
-	);
-
-	const handleBlueprintContinue = useCallback( async () => {
-		if ( selectedGalleryBlueprint ) {
-			setGallerySelectionError( undefined );
-			try {
-				const response = await fetch( selectedGalleryBlueprint.blueprintUrl );
-				if ( ! response.ok ) {
-					throw new Error( __( 'Failed to download blueprint.' ) );
-				}
-				const blueprintJson = await response.json();
-
-				const validation = await getIpcApi().validateBlueprint( blueprintJson );
-				if ( ! validation.valid ) {
-					setGallerySelectionError( validation.error || __( 'Invalid Blueprint format' ) );
-					return;
-				}
-
-				const blueprint = {
-					slug: `gallery:${ selectedGalleryBlueprint.slug }`,
-					title: selectedGalleryBlueprint.title,
-					excerpt: selectedGalleryBlueprint.description,
-					image: selectedGalleryBlueprint.screenshotUrl,
-					playground_url: selectedGalleryBlueprint.playgroundUrl,
-					blueprint: blueprintJson,
-					filePath: selectedGalleryBlueprint.blueprintUrl,
-				} as Blueprint;
-
-				handleBlueprintFormValues( blueprint );
-				goTo( '/new/create' );
-			} catch ( error ) {
-				setGallerySelectionError(
-					error instanceof Error ? error.message : __( 'Failed to load blueprint.' )
-				);
-			}
-			return;
-		}
-		if ( selectedBlueprint ) {
-			goTo( '/new/create' );
-		}
-	}, [ selectedBlueprint, selectedGalleryBlueprint, goTo, __, handleBlueprintFormValues ] );
 
 	// Build default values with blueprint preferred versions applied
 	const { data: wpVersions = [] } = useGetWordPressVersions( {
@@ -415,12 +359,6 @@ function NavigationContent( props: NavigationContentProps ) {
 								/>
 							) : undefined
 						}
-						galleryBlueprints={ galleryBlueprints ?? [] }
-						isLoadingGallery={ isLoadingGallery }
-						galleryErrorMessage={ galleryError ? __( 'Could not load blueprints.' ) : undefined }
-						onGalleryBlueprintSelect={ handleGalleryBlueprintSelect }
-						selectedGalleryBlueprint={ selectedGalleryBlueprint?.slug }
-						gallerySelectionError={ gallerySelectionError }
 					/>
 				</ScreenContent>
 			</Navigator.Screen>
@@ -473,7 +411,7 @@ function NavigationContent( props: NavigationContentProps ) {
 				onCreateSubmit={ () => {
 					formRef.current?.requestSubmit();
 				} }
-				canSubmitBlueprint={ !! selectedBlueprint || !! selectedGalleryBlueprint }
+				canSubmitBlueprint={ !! selectedBlueprint }
 				canSubmitBlueprintDeeplink={ !! selectedBlueprint }
 				canSubmitPullRemote={ !! selectedRemoteSite }
 				canSubmitCreate={ canSubmit }
@@ -510,7 +448,6 @@ export function AddSiteModalContent( {
 	} = useGetBlueprints( { locale } );
 
 	const { sites, loadingSites } = useSiteDetails();
-	const { enableBlueprintsGallery } = useFeatureFlags();
 
 	const {
 		handleCreateSite,
@@ -518,7 +455,6 @@ export function AddSiteModalContent( {
 		generateProposedPath,
 		deeplinkPhpVersion,
 		deeplinkWpVersion,
-		fileForImport,
 		setFileForImport,
 		selectedBlueprint,
 		setSelectedBlueprint,
@@ -675,17 +611,6 @@ export function AddSiteModalContent( {
 		setIsDeeplinkFlow,
 		startOver,
 	};
-
-	if ( ! enableBlueprintsGallery ) {
-		return (
-			<Navigator
-				className={ className ?? 'w-full h-full app-no-drag-region' }
-				initialPath={ initialNavigatorPath }
-			>
-				<NavigationContentClassic { ...sharedNavigationProps } fileForImport={ fileForImport } />
-			</Navigator>
-		);
-	}
 
 	return (
 		<>

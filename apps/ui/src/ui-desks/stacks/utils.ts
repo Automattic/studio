@@ -1,5 +1,5 @@
+import { getIndicesAbove, getIndicesBelow, type TLShape, type TLShapePartial } from 'tldraw';
 import type { DeskStack } from '@/ui-desks/desk/types';
-import type { TLShape, TLShapePartial } from 'tldraw';
 
 export const STACK_TRANSLATE_X = 10;
 export const STACK_TRANSLATE_Y = 8;
@@ -92,7 +92,14 @@ export function getStackAnchorFromMember( shape: Pick< TLShape, 'x' | 'y' >, ord
 export function getStackMemberZIndex( zIndex: string, order: number ) {
 	const numericIndex = parseDeskZIndex( zIndex );
 	if ( numericIndex === null ) {
-		return zIndex as TLShapePartial[ 'index' ];
+		if ( order === 0 ) {
+			return zIndex as TLShapePartial[ 'index' ];
+		}
+
+		return (
+			getIndicesBelow( zIndex as TLShapePartial[ 'index' ], order ).at( 0 ) ??
+			( zIndex as TLShapePartial[ 'index' ] )
+		);
 	}
 
 	return formatDeskZIndex( numericIndex - order * STACK_Z_INDEX_STEP ) as TLShapePartial[ 'index' ];
@@ -101,7 +108,11 @@ export function getStackMemberZIndex( zIndex: string, order: number ) {
 export function getStackZIndexFromMember( zIndex: string, order: number ) {
 	const numericIndex = parseDeskZIndex( zIndex );
 	if ( numericIndex === null ) {
-		return zIndex;
+		if ( order === 0 ) {
+			return zIndex;
+		}
+
+		return getIndicesAbove( zIndex as TLShapePartial[ 'index' ], order ).at( -1 ) ?? zIndex;
 	}
 
 	return formatDeskZIndex( numericIndex + order * STACK_Z_INDEX_STEP );

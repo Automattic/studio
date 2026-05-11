@@ -30,7 +30,7 @@ function DeskCanvasOverlays() {
 }
 
 export function DeskCanvas() {
-	const { isLoading } = useDesk();
+	const { isLoading, statusMessage } = useDesk();
 	const registerEditor = useRegisterDeskEditor();
 
 	const handleMount = useCallback(
@@ -60,6 +60,7 @@ export function DeskCanvas() {
 				shapeUtils={ deskShapeUtils }
 				onMount={ handleMount }
 			/>
+			{ statusMessage && <div className={ styles.statusMessage }>{ statusMessage }</div> }
 		</div>
 	);
 }

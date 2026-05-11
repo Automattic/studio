@@ -114,6 +114,13 @@
 	line-height: 16px;
 }
 
+.tip {
+	margin: 0;
+	color: var(--ui-desks-muted, #6b7280);
+	font-size: 12px;
+	line-height: 1.4;
+}
+
 @keyframes fadeIn {
 	from {
 		opacity: 0;

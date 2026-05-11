@@ -10,6 +10,7 @@ import type { WidgetDefinition } from '@/ui-desks/widgets/types';
 
 export const bookmarkWidgetDefinition = {
 	type: BOOKMARK_WIDGET_TYPE,
+	name: () => __( 'Link' ),
 	Component: BookmarkWidgetComponent,
 	thumbnail: BookmarkWidgetThumbnailComponent,
 	controls: [
@@ -39,6 +40,7 @@ export const bookmarkWidgetDefinition = {
 			url: '',
 		},
 	} ),
+	getSummary: ( widgetProps ) => widgetProps.url,
 	pasteHandlers: [
 		{
 			id: 'bookmark-url',

@@ -5,6 +5,7 @@ import {
 	PromptDialogError,
 	PromptDialogRow,
 	PromptDialogSubmit,
+	PromptDialogTip,
 	promptDialogInputClassName,
 } from '@/ui-desks/components';
 import { useDesk } from '@/ui-desks/desk/provider';
@@ -69,6 +70,9 @@ export function LinkFromUrlDialog( { onClose }: LinkFromUrlDialogProps ) {
 					onClick={ () => void submit() }
 				/>
 			</PromptDialogRow>
+			<PromptDialogTip>
+				{ __( 'Tip: you can also paste a URL anywhere on the canvas to drop it directly.' ) }
+			</PromptDialogTip>
 			{ error && <PromptDialogError>{ error }</PromptDialogError> }
 		</PromptDialog>
 	);

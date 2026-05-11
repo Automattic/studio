@@ -2,7 +2,6 @@ import {
 	DEFAULT_EMBED_DEFINITIONS,
 	embedShapePermissionDefaults,
 	getEmbedInfo,
-	type ResizeBoxOptions,
 	type TLEmbedResult,
 	type TLEmbedShapePermissions,
 } from 'tldraw';
@@ -19,13 +18,4 @@ export function getEmbedSandboxPermissions( overridePermissions?: TLEmbedShapePe
 		.filter( ( [ , isEnabled ] ) => isEnabled )
 		.map( ( [ permission ] ) => permission )
 		.join( ' ' );
-}
-
-export function getEmbedResizeConstraints( url: string ): ResizeBoxOptions {
-	const embedDefinition = getUrlEmbedInfo( url )?.definition;
-
-	return {
-		minWidth: embedDefinition?.minWidth ?? 200,
-		minHeight: embedDefinition?.minHeight ?? 200,
-	};
 }

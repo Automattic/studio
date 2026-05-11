@@ -7,6 +7,7 @@ export {
 	PromptDialogError,
 	PromptDialogRow,
 	PromptDialogSubmit,
+	PromptDialogTip,
 	promptDialogInputClassName,
 } from './prompt-dialog';
 export { Divider, Surface } from './surface';

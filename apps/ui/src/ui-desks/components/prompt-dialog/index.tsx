@@ -99,4 +99,8 @@ export function PromptDialogError( { children }: { children: ReactNode } ) {
 	return <div className={ styles.error }>{ children }</div>;
 }
 
+export function PromptDialogTip( { children }: { children: ReactNode } ) {
+	return <p className={ styles.tip }>{ children }</p>;
+}
+
 export const promptDialogInputClassName = styles.input;

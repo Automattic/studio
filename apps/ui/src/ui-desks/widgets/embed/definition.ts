@@ -4,13 +4,14 @@ import {
 	EmbedWidgetComponent,
 	EmbedWidgetThumbnailComponent,
 } from '@/ui-desks/widgets/embed/component';
-import { getEmbedResizeConstraints, getUrlEmbedInfo } from '@/ui-desks/widgets/embed/embed-info';
+import { getUrlEmbedInfo } from '@/ui-desks/widgets/embed/embed-info';
 import { EmbedOpenControl } from './open-control';
 import { EMBED_WIDGET_TYPE, isEmbedWidgetProps, type EmbedWidget } from './types';
 import type { WidgetDefinition } from '@/ui-desks/widgets/types';
 
 export const embedWidgetDefinition = {
 	type: EMBED_WIDGET_TYPE,
+	name: () => __( 'Embed' ),
 	Component: EmbedWidgetComponent,
 	thumbnail: EmbedWidgetThumbnailComponent,
 	controls: [
@@ -27,10 +28,6 @@ export const embedWidgetDefinition = {
 		cornerRadius: getUrlEmbedInfo( widgetProps.url )?.definition.overrideOutlineRadius ?? 8,
 		stroke: '#14171a',
 	} ),
-	getResizeConstraints: ( widgetProps ) => getEmbedResizeConstraints( widgetProps.url ),
-	canResize: ( widgetProps ) => getUrlEmbedInfo( widgetProps.url )?.definition.doesResize ?? false,
-	isAspectRatioLocked: ( widgetProps ) =>
-		getUrlEmbedInfo( widgetProps.url )?.definition.isAspectRatioLocked ?? false,
 	labels: {
 		add: () => __( 'New embed' ),
 	},
@@ -44,6 +41,7 @@ export const embedWidgetDefinition = {
 			url: '',
 		},
 	} ),
+	getSummary: ( widgetProps ) => widgetProps.url,
 	pasteHandlers: [
 		{
 			id: 'embed-url',

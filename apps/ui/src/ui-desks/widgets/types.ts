@@ -132,11 +132,6 @@ export interface WidgetPasteHandler< TWidget extends DeskWidgetBase = DeskWidget
 	) => Promise< WidgetPasteHandlerResult< TWidget > | null >;
 }
 
-export interface WidgetResizeConstraints {
-	minWidth?: number;
-	minHeight?: number;
-}
-
 export type ResolvedDeskWidgetOrigin =
 	| { kind: 'authored' }
 	| {
@@ -178,6 +173,7 @@ export interface WidgetResolver<
 
 export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBase > {
 	type: TWidget[ 'type' ];
+	name: () => string;
 	Component: ComponentType< DeskWidgetComponentProps< TWidget[ 'widgetProps' ] > >;
 	thumbnail?: ComponentType< DeskWidgetThumbnailComponentProps< TWidget[ 'widgetProps' ] > >;
 	loading?: ComponentType< DeskWidgetLoadingComponentProps< TWidget[ 'widgetProps' ] > >;
@@ -189,11 +185,9 @@ export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBa
 	requiresRunningSite?: boolean;
 	shouldStartEditingOnCreate?: boolean;
 	getInitialWidget: () => Pick< TWidget, 'shapeProps' | 'widgetProps' >;
+	getSummary?: ( widgetProps: TWidget[ 'widgetProps' ] ) => string;
 	getLoadingShapeProps?: ( widget: TWidget ) => TWidget[ 'shapeProps' ];
 	getIndicator?: ( widgetProps: TWidget[ 'widgetProps' ] ) => WidgetIndicator;
-	canResize?: ( widgetProps: TWidget[ 'widgetProps' ] ) => boolean;
-	getResizeConstraints?: ( widgetProps: TWidget[ 'widgetProps' ] ) => WidgetResizeConstraints;
-	isAspectRatioLocked?: ( widgetProps: TWidget[ 'widgetProps' ] ) => boolean;
 	resolver?: WidgetResolver< TWidget >;
 	fileHandlers?: Array< WidgetFileHandler< TWidget > >;
 	pasteHandlers?: Array< WidgetPasteHandler< TWidget > >;

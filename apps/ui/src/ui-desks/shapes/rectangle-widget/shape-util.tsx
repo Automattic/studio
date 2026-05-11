@@ -9,7 +9,6 @@ import {
 	useValue,
 	type JsonObject,
 	type RecordProps,
-	type ResizeBoxOptions,
 	type TLResizeInfo,
 } from 'tldraw';
 import { getDeskCanvasRecordResolutionState } from '@/ui-desks/desk/tldraw-adapter';
@@ -53,8 +52,8 @@ export class RectangleWidgetShapeUtil extends ShapeUtil< RectangleWidgetShape > 
 		};
 	}
 
-	override canResize( shape: RectangleWidgetShape ): boolean {
-		return getWidgetCanResize( shape );
+	override canResize(): boolean {
+		return true;
 	}
 
 	override canEdit(): boolean {
@@ -70,14 +69,12 @@ export class RectangleWidgetShapeUtil extends ShapeUtil< RectangleWidgetShape > 
 	}
 
 	override onResize( shape: RectangleWidgetShape, info: TLResizeInfo< RectangleWidgetShape > ) {
-		const resizeOptions = getWidgetResizeOptions( shape );
 		const resizedShape = resizeBox(
 			{
 				...shape,
 				props: shape.props.shapeProps,
 			},
-			info as TLResizeInfo< typeof shape & { props: RectangleWidgetShapeProps } >,
-			resizeOptions
+			info as TLResizeInfo< typeof shape & { props: RectangleWidgetShapeProps } >
 		);
 
 		return {
@@ -87,10 +84,6 @@ export class RectangleWidgetShapeUtil extends ShapeUtil< RectangleWidgetShape > 
 				shapeProps: resizedShape.props,
 			},
 		};
-	}
-
-	override isAspectRatioLocked( shape: RectangleWidgetShape ) {
-		return getWidgetIsAspectRatioLocked( shape );
 	}
 
 	override component( shape: RectangleWidgetShape ) {
@@ -131,64 +124,6 @@ export class RectangleWidgetShapeUtil extends ShapeUtil< RectangleWidgetShape > 
 			/>
 		);
 	}
-}
-
-function getWidgetResizeOptions( shape: RectangleWidgetShape ): ResizeBoxOptions {
-	const definition = getWidgetDefinition( shape.props.widgetType );
-	if (
-		! definition ||
-		! definition.isWidgetProps( shape.props.widgetProps ) ||
-		! definition.getResizeConstraints
-	) {
-		return {};
-	}
-
-	const getResizeConstraints = definition.getResizeConstraints as (
-		props: JsonObject
-	) => ResizeBoxOptions;
-	const constraints = getResizeConstraints( shape.props.widgetProps );
-	const isAspectRatioLocked = getWidgetIsAspectRatioLocked( shape );
-	if ( ! isAspectRatioLocked ) {
-		return constraints;
-	}
-
-	const aspectRatio = shape.props.shapeProps.w / shape.props.shapeProps.h;
-	const minWidth = constraints.minWidth ?? 1;
-	const minHeight = constraints.minHeight ?? 1;
-
-	return {
-		...constraints,
-		minWidth: aspectRatio > 1 ? minWidth * aspectRatio : minWidth,
-		minHeight: aspectRatio > 1 ? minHeight : minHeight / aspectRatio,
-	};
-}
-
-function getWidgetCanResize( shape: RectangleWidgetShape ) {
-	const definition = getWidgetDefinition( shape.props.widgetType );
-	if (
-		! definition ||
-		! definition.isWidgetProps( shape.props.widgetProps ) ||
-		! definition.canResize
-	) {
-		return true;
-	}
-
-	return ( definition.canResize as ( props: JsonObject ) => boolean )( shape.props.widgetProps );
-}
-
-function getWidgetIsAspectRatioLocked( shape: RectangleWidgetShape ) {
-	const definition = getWidgetDefinition( shape.props.widgetType );
-	if (
-		! definition ||
-		! definition.isWidgetProps( shape.props.widgetProps ) ||
-		! definition.isAspectRatioLocked
-	) {
-		return false;
-	}
-
-	return ( definition.isAspectRatioLocked as ( props: JsonObject ) => boolean )(
-		shape.props.widgetProps
-	);
 }
 
 function getWidgetIndicator(

@@ -1,5 +1,5 @@
 import { store as coreDataStore, type Post as CoreDataPost } from '@wordpress/core-data';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { post } from '@wordpress/icons';
 import { getIndicesAbove, type TLShapePartial } from 'tldraw';
 import { postWidgetDefinition } from '@/ui-desks/widgets/post/definition';
@@ -61,6 +61,7 @@ const POST_CARD_SHAPE_PROPS = postWidgetDefinition.getInitialWidget().shapeProps
 
 export const postCollectionWidgetDefinition = {
 	type: POST_COLLECTION_WIDGET_TYPE,
+	name: () => __( 'Posts' ),
 	Component: PostCollectionWidgetComponent,
 	thumbnail: PostCollectionThumbnailComponent,
 	loading: PostCollectionLoadingComponent,
@@ -94,6 +95,13 @@ export const postCollectionWidgetDefinition = {
 			},
 		},
 	} ),
+	getSummary: ( widgetProps ) =>
+		sprintf(
+			/* translators: 1: number of posts, 2: post status. */
+			__( '%1$d %2$s posts' ),
+			widgetProps.query.perPage,
+			widgetProps.query.status
+		),
 	getLoadingShapeProps: () => POST_CARD_SHAPE_PROPS,
 	resolver: {
 		resolve: async ( widget, context ) => {

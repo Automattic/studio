@@ -1,4 +1,3 @@
-import { decodeEntities } from '@wordpress/html-entities';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { useEffect, useRef, useState, type ComponentType, type CSSProperties } from 'react';
 import { useChats } from '@/ui-desks/chats/context';
@@ -182,7 +181,18 @@ function getMoreWidgetsLabel( count: number ) {
 
 function buildSelectionPrompt( userPrompt: string, widgets: DeskWidget[] ) {
 	const context = widgets
-		.map( ( widget, index ) => `${ index + 1 }. ${ getWidgetPromptContext( widget ) }` )
+		.map(
+			( widget, index ) =>
+				`${ index + 1 }. ${ JSON.stringify( {
+					widgetId: widget.id,
+					type: widget.type,
+					position: {
+						x: widget.x,
+						y: widget.y,
+					},
+					widgetProps: widget.widgetProps,
+				} ) }`
+		)
 		.join( '\n' );
 
 	return [
@@ -222,24 +232,7 @@ function summarizeWidgetList( widgets: DeskWidget[] ) {
 }
 
 function getWidgetTypeLabel( widget: DeskWidget ) {
-	switch ( widget.type ) {
-		case 'bookmark':
-			return __( 'Link' );
-		case 'blog':
-			return __( 'Blog' );
-		case 'embed':
-			return __( 'Embed' );
-		case 'note':
-			return __( 'Note' );
-		case 'post':
-			return __( 'Post' );
-		case 'page':
-			return __( 'Page' );
-		case 'post-collection':
-			return __( 'Posts' );
-		case 'site-preview':
-			return __( 'Preview' );
-	}
+	return getWidgetDefinition( widget.type )?.name() ?? widget.type;
 }
 
 function getWidgetDisplayLabel( widget: DeskWidget ) {
@@ -248,108 +241,16 @@ function getWidgetDisplayLabel( widget: DeskWidget ) {
 }
 
 function getWidgetSummary( widget: DeskWidget ) {
-	switch ( widget.type ) {
-		case 'bookmark':
-			return widget.widgetProps.url;
-		case 'embed':
-			return widget.widgetProps.url;
-		case 'blog':
-			return widget.widgetProps.slug
-				? `${ widget.widgetProps.title } /${ widget.widgetProps.slug }`
-				: widget.widgetProps.title;
-		case 'note':
-			return truncateText( stripMarkup( widget.widgetProps.text ), 72 ) || __( 'Empty note' );
-		case 'post':
-			return sprintf(
-				/* translators: %d: WordPress post ID. */
-				__( 'Post #%d' ),
-				widget.widgetProps.postId
-			);
-		case 'page':
-			return sprintf(
-				/* translators: %d: WordPress page ID. */
-				__( 'Page #%d' ),
-				widget.widgetProps.pageId
-			);
-		case 'post-collection':
-			return sprintf(
-				/* translators: 1: number of posts, 2: post status. */
-				__( '%1$d %2$s posts' ),
-				widget.widgetProps.query.perPage,
-				widget.widgetProps.query.status
-			);
-		case 'site-preview':
-			return widget.widgetProps.path || '/';
-	}
-}
-
-function getWidgetPromptContext( widget: DeskWidget ) {
-	switch ( widget.type ) {
-		case 'bookmark':
-			return formatPromptContext( widget, {
-				url: widget.widgetProps.url,
-			} );
-		case 'embed':
-			return formatPromptContext( widget, {
-				url: widget.widgetProps.url,
-			} );
-		case 'blog':
-			return formatPromptContext( widget, {
-				title: widget.widgetProps.title,
-				slug: widget.widgetProps.slug,
-			} );
-		case 'note':
-			return formatPromptContext( widget, {
-				text: stripMarkup( widget.widgetProps.text ),
-				tone: widget.widgetProps.tone,
-			} );
-		case 'post':
-			return formatPromptContext( widget, {
-				postId: widget.widgetProps.postId,
-			} );
-		case 'page':
-			return formatPromptContext( widget, {
-				pageId: widget.widgetProps.pageId,
-				tone: widget.widgetProps.tone,
-			} );
-		case 'post-collection':
-			return formatPromptContext( widget, {
-				query: widget.widgetProps.query,
-			} );
-		case 'site-preview':
-			return formatPromptContext( widget, {
-				path: widget.widgetProps.path,
-			} );
-	}
-}
-
-function formatPromptContext( widget: DeskWidget, details: Record< string, unknown > ) {
-	return JSON.stringify( {
-		widgetId: widget.id,
-		type: widget.type,
-		position: {
-			x: widget.x,
-			y: widget.y,
-		},
-		...details,
-	} );
-}
-
-function stripMarkup( value: string ) {
-	return decodeEntities(
-		value
-			.replace( /<[^>]*>/g, ' ' )
-			.replace( /\s+/g, ' ' )
-			.trim()
-	);
-}
-
-function truncateText( value: string, maxLength: number ) {
-	if ( value.length <= maxLength ) {
-		return value;
+	const definition = getWidgetDefinition( widget.type );
+	if ( ! definition || ! definition.isWidgetProps( widget.widgetProps ) ) {
+		return '';
 	}
 
-	return `${ value.slice( 0, maxLength - 3 ).trimEnd() }...`;
+	const getSummary = definition.getSummary as
+		| ( ( widgetProps: DeskWidget[ 'widgetProps' ] ) => string )
+		| undefined;
+
+	return getSummary?.( widget.widgetProps ) ?? '';
 }
 
 function noopWidgetPropsChange() {}

@@ -276,7 +276,7 @@ export function NewSiteOptions( {
 				</div>
 			) }
 
-			<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-2xl mx-auto pb-1">
+			<div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-2xl mx-auto pb-1">
 				<EmptySiteCard isSelected={ selectedBlueprint === 'empty' } onClick={ handleEmptyClick } />
 				{ isLoadingBlueprints ? (
 					<div className="flex items-center justify-center">
@@ -318,7 +318,7 @@ export function NewSiteOptions( {
 							{ __( 'No blueprints found.' ) }
 						</div>
 					) : (
-						<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-2xl mx-auto pb-1">
+						<div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-2xl mx-auto pb-1">
 							{ filteredExploreBlueprints.map( ( item ) => (
 								<BlueprintCard
 									key={ item.slug }

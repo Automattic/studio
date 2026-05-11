@@ -16,7 +16,7 @@ export const ActionButton = forwardRef< ElementRef< typeof Button >, ActionButto
 		return (
 			<Button
 				ref={ ref }
-				variant="minimal"
+				variant="unstyled"
 				tone="neutral"
 				size="small"
 				className={ clsx( styles.button, fullWidth && styles.fullWidth, className ) }

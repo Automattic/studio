@@ -14,7 +14,7 @@ export default class AddSiteModal {
 	}
 
 	get blueprintButton() {
-		return this.page.locator( 'button:has-text("Start from a Blueprint")' ).first();
+		return this.page.getByTestId( 'create-site-option-button' );
 	}
 
 	get importButton() {

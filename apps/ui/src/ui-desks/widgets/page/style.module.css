@@ -1,0 +1,116 @@
+.page {
+	--page-tone-color: #14171a;
+
+	box-sizing: border-box;
+	position: relative;
+	width: 100%;
+	height: 100%;
+	padding: 36px 32px;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	justify-content: flex-start;
+	margin: 0;
+	background: #fff;
+	border-radius: 18px;
+	box-shadow:
+		0 1px 2px rgba(15, 23, 42, 0.04),
+		0 18px 44px rgba(15, 23, 42, 0.09);
+	color: var(--page-tone-color);
+	overflow: hidden;
+	font-family: inherit;
+}
+
+.page[data-is-loading='true'] {
+	--loading-placeholder-text-color: var(--page-tone-color);
+	--loading-placeholder-line-color: color-mix(in srgb, var(--page-tone-color) 20%, white);
+	--loading-placeholder-line-highlight-color: color-mix(
+		in srgb,
+		var(--page-tone-color) 6%,
+		white
+	);
+
+	justify-content: flex-end;
+}
+
+.page::before {
+	content: '';
+	position: absolute;
+	inset: 12px;
+	border: 3px solid var(--page-tone-color);
+	border-radius: 8px;
+	pointer-events: none;
+}
+
+.page[data-tone='orange'] {
+	--page-tone-color: #e86a00;
+}
+
+.page[data-tone='red'] {
+	--page-tone-color: #e5484d;
+}
+
+.page[data-tone='violet'] {
+	--page-tone-color: #8703e7;
+}
+
+.page[data-tone='blue'] {
+	--page-tone-color: #2200e0;
+}
+
+.page[data-tone='sky'] {
+	--page-tone-color: #0081f3;
+}
+
+.page[data-tone='green'] {
+	--page-tone-color: #00a96c;
+}
+
+.title {
+	margin: 0;
+	font-size: 22px;
+	line-height: 1.18;
+	font-weight: 600;
+	letter-spacing: 0;
+	color: var(--page-tone-color);
+	overflow-wrap: anywhere;
+}
+
+.body {
+	max-height: 0;
+	margin: 0;
+	font-size: 13px;
+	line-height: 1.5;
+	color: var(--page-tone-color);
+	overflow: hidden;
+	opacity: 0;
+	transition:
+		max-height 280ms cubic-bezier(0.32, 0.72, 0.24, 1),
+		opacity 240ms ease;
+}
+
+.page:hover .body {
+	max-height: 480px;
+	opacity: 1;
+}
+
+.body p {
+	margin: 0 0 8px;
+}
+
+.body p:last-child {
+	margin-bottom: 0;
+}
+
+.slug {
+	margin-top: auto;
+	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+	font-size: 15px;
+	line-height: 1.4;
+	font-feature-settings: 'tnum' 1;
+	letter-spacing: 0;
+	color: var(--page-tone-color);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}

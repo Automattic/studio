@@ -3,80 +3,15 @@ Unreleased
 
 1.9.0
 =====
-<!-- Release notes generated using configuration in .github/release.yml at HEAD -->
-* CLI: capture eval-runner failures and timeouts in result #3330
-* Add GPT 5.5 support without modifying the system prompt #3328
-* CLI agent: align pi-tui with other pi-* deps and restore annotation tools #3336
-* Bump @wp-playground/* and @php-wasm/* to 3.1.26 #3325
-* Add Linux make scripts for cross-architecture builds #3326
-* Share connected WP.com sites between Studio app and CLI #3227
-* Studio Code: run the remote-session bridge as a background daemon #3300
-* Fix E2E tests on macOS when `STUDIO_RUNTIME=native-php` #3301
-* Fix Studio app metadata for Linux software stores #3335
-* apps/ui: auto-open site preview when the agent navigates #3342
-* Unify CLI agent on a single pi-based runtime #3337
-* Add release notes for 1.7.9, 1.7.10, 1.7.11 CLI patches #3344
-* Studio Code: add /remote-session slash command #3315
-* Studio Code: don't wipe in-progress typing on turn boundaries #3352
-* build(deps): bump the wordpress group across 1 directory with 28 updates #3302
-* Studio Code: detach remote-session by default and add `attach` subcommand #3347
-* build(deps): bump simple-git from 3.33.0 to 3.36.0 #3354
-* Fix Sync modal capping at 20 sites on the Sync modal #3356
-* Studio Code: remove `--remote-session` CLI flag #3357
-* Bump Playground and PHP-WASM packages to 3.1.28 #3353
-* Studio: Ensure that images render correctly with the new library #3317
-* Always ask before stopping running sites on quit #3350
-* CLI agent: add scaffold_theme tool #3348
-* Rename wordpress components patch to account for 33.0.0 version update #3355
-* Steer agent to use Jetpack Forms instead of raw HTML forms #3351
-* Fix w logo display #3316
-* Add Linux dev build group to Buildkite pipeline #3327
-* remote-session: show agent output in attach (STU-1696) #3366
-* Studio Code: don't expose share_screenshot outside the remote-session runtime #3365
-* Build static macOS PHP CLI binaries #3297
-* build(deps): bump nokogiri from 1.19.1 to 1.19.3 #3368
-* AI sessions: adopt pi-coding-agent SessionManager end-to-end #3360
-* Run unit tests on Linux in Buildkite #3370
-* Cleanup: Type agent JSON message events #3373
-* Fix blueprints zip uploads in the new add site design #3372
-* Make `native-php` E2E tests pass on Windows #3343
-* apps/ui: Introduce a desks UI shell alongside the classic app #3380
-* Add persisted user desk notes #3382
-* apps/ui: Add user desk chats panel #3385
-* apps/ui: Add desks site creation flow #3387
-* Add Jetpack catch-all rule for non-core feature requests #3362
-* build(deps): bump the testing group with 10 updates #3392
-* build(deps): bump actions/upload-artifact from 4 to 7 #3390
-* Studio: Add search to current library #3384
-* Add /swag slash command to open the WordPress merch store #3379
-* apps/ui: Reset route when switching UI modes #3394
-* apps/ui: Align desks chrome buttons and tooltip behavior with macOS titlebar #3396
-* apps/ui: Unify desk menu with site switching #3397
-* Strip unused-arch native prebuilts from packaged installers #3371
-* Add site desk chats attached to the current site #3398
-* Studio Blueprints Gallery: Hide incompatible blueprints #3400
-* Blueprints Gallery Library: Improve Back button visibility #3395
-* Blueprints Gallery Library: Add preview links to public blueprints #3402
-* Skip inserter-hidden Jetpack blocks in catch-all discovery #3389
-* apps/ui: Fix desks chat model-switch dialog and preserve session expansion #3401
-* Make sure blueprints validation does not happen in preflight #3404
-* Replace placeholder note widget with desk-style sticky note #3399
-* apps/ui: Share the desk shell across user and site desks and add the new widget buttons #3410
-* apps/ui: Add widget toolbar overlay and note delete action #3409
-* apps/ui: Disable the default tldraw context menu on the desk canvas #3411
-* apps/ui: Align desk chrome controls with shared primitives #3412
-* Add site desk post widgets with WordPress-backed controls #3413
-* apps/ui: Add page widgets to the desk UI #3414
-* apps/ui: Add desk stacks with expand, collapse, and hover interactions #3415
-* apps/ui: Add site preview widgets #3418
-* apps/ui: Add dynamic post collection widgets to the desk UI #3419
-* apps/ui: Add read-only site map view to desk #3420
-* Fix .deb policykit dependency for Debian trixie / Kali #3364
-* Studio: Process zip blueprints through API #3361
-* Fix site creation assigning port 0 on first site #3422
-* apps/ui: Add selection-aware chat context for desk widgets #3425
-* apps/ui: Add media widget and file-drop media uploads to desks #3423
-**Full Changelog**: https://github.com/Automattic/studio/compare/v1.8.2...v1.9.0
+* Introduced the Blueprints Gallery #3384, #3400, #3402
+* Shared connected WordPress.com sites between the Studio app and CLI #3227
+* Improved Studio Code remote sessions #3315, #3300, #3347, #3366, #3365
+* Added GPT 5.5 support and a scaffold_theme tool for the CLI agent #3328, #3348
+* Improved Studio Code agent reliability #3330, #3337, #3352, #3351
+* Fixed several Studio UI, Blueprint upload, and site creation issues #3356, #3317, #3316, #3372, #3422
+* Always ask before stopping running sites when quitting Studio #3350
+* Improved Linux packaging and installer size #3335, #3364, #3371
+* Updated multiple dependencies, including WordPress packages, WP Playground, and PHP-WASM
 
 1.8.2 (CLI only)
 =====

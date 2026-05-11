@@ -99,6 +99,12 @@ jobs:
         working-directory: .cache/static-php-cli
         run: composer install --no-dev --no-interaction --prefer-dist --classmap-authoritative
 
+      - name: Patch static-php-cli Windows CLI build
+        if: runner.os == 'Windows'
+        working-directory: .cache/static-php-cli
+        shell: pwsh
+        run: git apply --unidiff-zero "$env:GITHUB_WORKSPACE/.github/patches/static-php-cli-windows-msvc-cxx17.patch"
+
       - name: Build PHP CLI on macOS
         if: runner.os == 'macOS'
         working-directory: .cache/static-php-cli
@@ -138,9 +144,6 @@ jobs:
 
           php bin/spc doctor --auto-fix
           php bin/spc download @downloadArgs
-
-          # ICU 78 headers require C++17 for ext/intl on MSVC; keep this after dependency setup.
-          $env:CL = "/std:c++17 $env:CL".Trim()
           php bin/spc build @buildArgs
 
       - name: Package macOS artifact

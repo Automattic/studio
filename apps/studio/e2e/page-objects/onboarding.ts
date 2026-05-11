@@ -22,6 +22,10 @@ export default class Onboarding {
 		const modal = new AddSiteModal( this.page );
 		await modal.createSiteButton.click();
 
+		// Select "Empty site" and continue to the create form
+		await this.page.getByRole( 'button', { name: /Empty site/ } ).click();
+		await modal.continueButton.click();
+
 		if ( customSiteName ) {
 			await modal.siteNameInput.fill( customSiteName );
 		}

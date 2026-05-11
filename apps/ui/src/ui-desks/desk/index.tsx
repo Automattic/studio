@@ -1,13 +1,21 @@
+import {
+	DEFAULT_DESK_TOOLBAR_LAYOUT,
+	createDefaultDeskSettings,
+	normalizeDeskSettings,
+} from '@studio/common/lib/desk-settings';
 import { __ } from '@wordpress/i18n';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useDeskSettings, useSaveDeskSettings } from '@/data/queries/use-desk-config';
 import { Chats, ChatsProvider } from '../chats';
 import { DeskChrome } from '../chrome';
+import { DeskSettingsModal } from '../chrome/settings-modal';
 import { LoadingPlaceholder } from '../components';
 import { useSiteMapDeskConfig } from '../site-map/use-site-map-desk-config';
 import { DeskWidgetToolbar } from '../widgets/toolbar';
 import { DeskCanvas } from './canvas';
 import { DeskProvider } from './provider';
 import styles from './style.module.css';
+import type { DeskSettings, DeskToolbarLayout } from '@studio/common/types/desk';
 import type { ReactNode } from 'react';
 
 interface DeskProps {
@@ -75,19 +83,86 @@ function DeskShell( {
 	onToggleSiteMap?: () => void;
 	children: ReactNode;
 } ) {
+	const { data: savedDeskSettings } = useDeskSettings();
+	const fallbackDeskSettings = useMemo( () => createDefaultDeskSettings(), [] );
+	const deskSettings = savedDeskSettings ?? fallbackDeskSettings;
+	const saveDeskSettings = useSaveDeskSettings();
+	const [ settingsOpen, setSettingsOpen ] = useState( false );
+	const [ editingToolbar, setEditingToolbar ] = useState( false );
+
+	const updateDeskSettings = ( patch: Partial< DeskSettings > ) => {
+		saveDeskSettings.mutate(
+			normalizeDeskSettings( {
+				...deskSettings,
+				...patch,
+				updatedAt: new Date().toISOString(),
+			} )
+		);
+	};
+
+	const updateToolbarLayout = ( toolbarLayout: DeskToolbarLayout ) => {
+		updateDeskSettings( { toolbarLayout } );
+	};
+
 	return (
 		<ChatsProvider siteId={ siteId }>
 			<Chats siteId={ siteId } />
-			<main className={ styles.root } aria-label={ getDeskLabel( siteId ) } data-site-id={ siteId }>
+			<main
+				className={ styles.root }
+				aria-label={ getDeskLabel( siteId ) }
+				data-site-id={ siteId }
+				data-toolbar-editing={ editingToolbar ? 'true' : 'false' }
+			>
 				<DeskChrome
 					siteId={ siteId }
 					siteMapOpen={ siteMapOpen }
 					siteMapPageCount={ siteMapPageCount }
+					settings={ deskSettings }
+					settingsOpen={ settingsOpen }
+					editingToolbar={ editingToolbar }
 					onToggleSiteMap={ onToggleSiteMap }
+					onToggleSettings={ () => setSettingsOpen( ( open ) => ! open ) }
+					onChangeToolbarLayout={ updateToolbarLayout }
 				/>
 				{ children }
 				{ siteMapIsLoading && <SiteMapLoadingWidget /> }
 				<DeskWidgetToolbar />
+				{ settingsOpen && (
+					<DeskSettingsModal
+						settings={ deskSettings }
+						onChange={ updateDeskSettings }
+						onClose={ () => setSettingsOpen( false ) }
+						onEditToolbar={ () => setEditingToolbar( true ) }
+					/>
+				) }
+				{ editingToolbar && (
+					<>
+						<button
+							type="button"
+							className={ styles.toolbarEditBackdrop }
+							aria-label={ __( 'Exit toolbar editing' ) }
+							onClick={ () => setEditingToolbar( false ) }
+						/>
+						<div className={ styles.toolbarEditActions }>
+							<button
+								type="button"
+								className={ styles.toolbarEditButton }
+								onClick={ () => setEditingToolbar( false ) }
+							>
+								{ __( 'Done' ) }
+							</button>
+							<button
+								type="button"
+								className={ styles.toolbarEditButton }
+								onClick={ () =>
+									updateDeskSettings( { toolbarLayout: DEFAULT_DESK_TOOLBAR_LAYOUT } )
+								}
+							>
+								{ __( 'Reset' ) }
+							</button>
+						</div>
+					</>
+				) }
 			</main>
 		</ChatsProvider>
 	);

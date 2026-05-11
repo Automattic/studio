@@ -14,12 +14,16 @@ import {
 	getStackOrder,
 	getStackZIndexFromMember,
 } from '@/ui-desks/stacks/utils';
+import { BLOG_WIDGET_TYPE } from '@/ui-desks/widgets/blog/types';
 import { createDeskWidget } from '@/ui-desks/widgets/create-widget';
+import { PAGE_WIDGET_TYPE } from '@/ui-desks/widgets/page/types';
 import { getSelectedWidgetToolbarItem } from '@/ui-desks/widgets/toolbar-selection';
 import {
 	canvasCameraToDeskViewport,
 	canvasShapeToDeskWidget,
 	canvasShapesToDeskStacks,
+	deskConfigToCanvasConnectorBindings,
+	deskConfigToCanvasConnectorShapes,
 	deskConfigToCanvasShapes,
 	deskWidgetToCanvasShape,
 	getDerivedDeskCanvasRecordSourceId,
@@ -43,16 +47,46 @@ interface DerivedWidgetAnchor {
 	zIndex?: string;
 }
 
-export function hydrateEditorFromDesk( editor: Editor, desk: DeskConfig ) {
+interface WidgetToolbarStateOptions {
+	canStack?: boolean;
+	canUnstack?: boolean;
+	canRemove?: boolean;
+}
+
+interface HydrateEditorOptions {
+	initialViewportMode?: 'site-map';
+}
+
+const SITE_MAP_DEFAULT_ZOOM = 0.72;
+const SITE_MAP_MIN_ZOOM = 0.4;
+const SITE_MAP_MAX_ZOOM = 0.76;
+const SITE_MAP_HORIZONTAL_PADDING = 96;
+const SITE_MAP_BOTTOM_PADDING = 96;
+const SITE_MAP_HOME_TOP = 126;
+
+export function hydrateEditorFromDesk(
+	editor: Editor,
+	desk: DeskConfig,
+	options: HydrateEditorOptions = {}
+) {
 	const existingShapes = editor.getCurrentPageShapes();
 	if ( existingShapes.length > 0 ) {
-		editor.deleteShapes( existingShapes.map( ( shape ) => shape.id ) );
+		editor.run( () => editor.deleteShapes( existingShapes.map( ( shape ) => shape.id ) ), {
+			ignoreShapeLock: true,
+		} );
 	}
 	if ( desk.widgets.length > 0 ) {
-		editor.createShapes( deskConfigToCanvasShapes( desk ) );
+		const widgetShapes = deskConfigToCanvasShapes( desk );
+		editor.createShapes( [
+			...deskConfigToCanvasConnectorShapes( desk, widgetShapes ),
+			...widgetShapes,
+		] );
+		editor.createBindings( deskConfigToCanvasConnectorBindings( desk ) );
 	}
 	if ( desk.viewport ) {
 		editor.setCamera( desk.viewport, { immediate: true } );
+	} else if ( options.initialViewportMode === 'site-map' && desk.widgets.length > 0 ) {
+		setInitialSiteMapCamera( editor );
 	} else if ( desk.widgets.length > 0 ) {
 		ensureContentVisible( editor );
 	}
@@ -70,8 +104,11 @@ export function createDeskConfigFromEditor( editor: Editor ): DeskConfig {
 	};
 }
 
-export function getCurrentSelectedWidgetToolbarItem( editor: Editor ) {
-	return getCurrentSelectedWidgetSelection( editor )?.item ?? null;
+export function getCurrentSelectedWidgetToolbarItem(
+	editor: Editor,
+	options: WidgetToolbarStateOptions = {}
+) {
+	return getCurrentSelectedWidgetSelection( editor, options )?.item ?? null;
 }
 
 export function addWidgetToEditor(
@@ -214,7 +251,10 @@ export function hasPersistentDocumentChange( changes: CanvasStoreChanges ) {
 	} );
 }
 
-function getCurrentSelectedWidgetSelection( editor: Editor ) {
+function getCurrentSelectedWidgetSelection(
+	editor: Editor,
+	options: WidgetToolbarStateOptions = {}
+) {
 	const selectedShapeIds = editor.getSelectedShapeIds();
 	if ( selectedShapeIds.length === 0 ) {
 		return null;
@@ -225,7 +265,11 @@ function getCurrentSelectedWidgetSelection( editor: Editor ) {
 		return null;
 	}
 
-	const derivedSourceSelection = getDerivedSourceWidgetSelection( editor, shapes as TLShape[] );
+	const derivedSourceSelection = getDerivedSourceWidgetSelection(
+		editor,
+		shapes as TLShape[],
+		options
+	);
 	if ( derivedSourceSelection ) {
 		return derivedSourceSelection;
 	}
@@ -242,7 +286,12 @@ function getCurrentSelectedWidgetSelection( editor: Editor ) {
 				.filter( ( stackId ): stackId is string => stackId !== null )
 		)
 	);
-	const item = getSelectedWidgetToolbarItem( widgets as DeskWidget[], { stackIds } );
+	const item = getSelectedWidgetToolbarItem( widgets as DeskWidget[], {
+		stackIds,
+		canStack: options.canStack,
+		canUnstack: options.canUnstack,
+		canRemove: options.canRemove,
+	} );
 	if ( ! item ) {
 		return null;
 	}
@@ -325,7 +374,11 @@ function getDerivedShapePersistenceSignature( value: unknown ) {
 	} );
 }
 
-function getDerivedSourceWidgetSelection( editor: Editor, shapes: TLShape[] ) {
+function getDerivedSourceWidgetSelection(
+	editor: Editor,
+	shapes: TLShape[],
+	options: WidgetToolbarStateOptions = {}
+) {
 	const sourceWidgetId = getDerivedSelectionSourceWidgetId( shapes );
 	if ( ! sourceWidgetId ) {
 		return null;
@@ -345,6 +398,8 @@ function getDerivedSourceWidgetSelection( editor: Editor, shapes: TLShape[] ) {
 
 	const item = getSelectedWidgetToolbarItem( [ sourceWidget ], {
 		stackIds: [],
+		canStack: options.canStack,
+		canUnstack: options.canUnstack,
 		canRemove: false,
 	} );
 	if ( ! item ) {
@@ -443,6 +498,121 @@ function ensureContentVisible( editor: Editor ) {
 	if ( ! hasVisibleShape ) {
 		editor.zoomToFit( { animation: { duration: 0 } } );
 	}
+}
+
+function setInitialSiteMapCamera( editor: Editor ) {
+	const homeShape = getSiteMapHomeShape( editor );
+	const homeBounds = homeShape ? editor.getShapePageBounds( homeShape.id ) : null;
+	if ( ! homeBounds ) {
+		ensureContentVisible( editor );
+		return;
+	}
+
+	const screenBounds = editor.getViewportScreenBounds();
+	const zoom = getInitialSiteMapZoom( editor );
+	const homeCenterX = ( homeBounds.minX + homeBounds.maxX ) / 2;
+
+	editor.setCamera(
+		{
+			x: screenBounds.w / 2 / zoom - homeCenterX,
+			y: getSiteMapHomeScreenTop( screenBounds.h ) / zoom - homeBounds.minY,
+			z: zoom,
+		},
+		{ immediate: true }
+	);
+}
+
+function getSiteMapHomeShape( editor: Editor ) {
+	const pageShapes = getSiteMapPageShapes( editor );
+	return pageShapes
+		.map( ( shape ) => ( { shape, bounds: editor.getShapePageBounds( shape.id ) } ) )
+		.filter(
+			(
+				item
+			): item is {
+				shape: TLShape;
+				bounds: NonNullable< ReturnType< Editor[ 'getShapePageBounds' ] > >;
+			} => Boolean( item.bounds )
+		)
+		.sort(
+			( first, second ) =>
+				first.bounds.minY - second.bounds.minY ||
+				first.bounds.minX - second.bounds.minX ||
+				sortByIndex( first.shape, second.shape )
+		)[ 0 ]?.shape;
+}
+
+function getSiteMapPageShapes( editor: Editor ) {
+	return getSiteMapWidgetShapes( editor ).filter( ( shape ) => {
+		const widget = canvasShapeToDeskWidget( shape );
+		return widget?.type === PAGE_WIDGET_TYPE || widget?.type === BLOG_WIDGET_TYPE;
+	} );
+}
+
+function getSiteMapWidgetShapes( editor: Editor ) {
+	return editor
+		.getCurrentPageShapes()
+		.filter( ( shape ) => canvasShapeToDeskWidget( shape ) !== null );
+}
+
+function getInitialSiteMapZoom( editor: Editor ) {
+	const bounds = getSiteMapContentBounds( editor );
+	if ( ! bounds ) {
+		return SITE_MAP_DEFAULT_ZOOM;
+	}
+
+	const screenBounds = editor.getViewportScreenBounds();
+	const availableWidth = Math.max( 320, screenBounds.w - SITE_MAP_HORIZONTAL_PADDING * 2 );
+	const availableHeight = Math.max(
+		320,
+		screenBounds.h - getSiteMapHomeScreenTop( screenBounds.h ) - SITE_MAP_BOTTOM_PADDING
+	);
+	const fitZoom = Math.min( availableWidth / bounds.w, availableHeight / bounds.h );
+
+	return clamp( Math.min( SITE_MAP_DEFAULT_ZOOM, fitZoom ), SITE_MAP_MIN_ZOOM, SITE_MAP_MAX_ZOOM );
+}
+
+function getSiteMapContentBounds( editor: Editor ) {
+	const bounds = getSiteMapWidgetShapes( editor )
+		.map( ( shape ) => editor.getShapePageBounds( shape.id ) )
+		.filter( ( shapeBounds ): shapeBounds is NonNullable< typeof shapeBounds > =>
+			Boolean( shapeBounds )
+		);
+
+	if ( bounds.length === 0 ) {
+		return null;
+	}
+
+	return bounds.reduce(
+		( currentBounds, nextBounds ) => ( {
+			minX: Math.min( currentBounds.minX, nextBounds.minX ),
+			minY: Math.min( currentBounds.minY, nextBounds.minY ),
+			maxX: Math.max( currentBounds.maxX, nextBounds.maxX ),
+			maxY: Math.max( currentBounds.maxY, nextBounds.maxY ),
+			w:
+				Math.max( currentBounds.maxX, nextBounds.maxX ) -
+				Math.min( currentBounds.minX, nextBounds.minX ),
+			h:
+				Math.max( currentBounds.maxY, nextBounds.maxY ) -
+				Math.min( currentBounds.minY, nextBounds.minY ),
+		} ),
+		{
+			minX: bounds[ 0 ].minX,
+			minY: bounds[ 0 ].minY,
+			maxX: bounds[ 0 ].maxX,
+			maxY: bounds[ 0 ].maxY,
+			w: bounds[ 0 ].w,
+			h: bounds[ 0 ].h,
+		}
+	);
+}
+
+function getSiteMapHomeScreenTop( screenHeight: number ) {
+	return Math.min( SITE_MAP_HOME_TOP, Math.max( 104, screenHeight * 0.18 ) );
+}
+
+function clamp( value: number, min: number, max: number ) {
+	return Math.min( max, Math.max( min, value ) );
 }
 
 function getHighestShapeIndex( shapes: Pick< TLShape, 'index' >[] ) {

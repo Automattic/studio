@@ -1,10 +1,14 @@
+import { useRef } from 'react';
 import { useEditor, useValue, type TLShape } from 'tldraw';
 import { useDesk } from '@/ui-desks/desk/provider/context';
+import { expandStackInEditor } from './editor-commands';
 import { getStackId, getStackOrder, isStackExpanded } from './utils';
+import type { PointerEvent } from 'react';
 
 export function useStackShapeInteraction( shape: TLShape ) {
 	const editor = useEditor();
-	const { pressedStackId, pressStack } = useDesk();
+	const { isReadOnly, pressedStackId, pressStack } = useDesk();
+	const pointerDownPointRef = useRef< { x: number; y: number } | null >( null );
 	const stackId = getStackId( shape );
 	const isExpanded = isStackExpanded( shape );
 	const hoveredStackId = useValue(
@@ -36,10 +40,47 @@ export function useStackShapeInteraction( shape: TLShape ) {
 			transformOrigin: 'center',
 			transition: 'transform 220ms ease',
 		},
-		onPointerDown: () => {
+		onPointerDown: ( event: PointerEvent ) => {
 			if ( stackId && ! isExpanded ) {
 				pressStack( stackId );
+				if ( isReadOnly ) {
+					pointerDownPointRef.current = {
+						x: event.clientX,
+						y: event.clientY,
+					};
+					event.preventDefault();
+					event.stopPropagation();
+				}
+			}
+		},
+		onPointerUp: ( event: PointerEvent ) => {
+			if ( ! isReadOnly || ! stackId || isExpanded ) {
+				pointerDownPointRef.current = null;
+				return;
+			}
+
+			event.preventDefault();
+			event.stopPropagation();
+
+			if ( didPointerMove( pointerDownPointRef.current, event ) ) {
+				pointerDownPointRef.current = null;
+				return;
+			}
+
+			pointerDownPointRef.current = null;
+			if ( expandStackInEditor( editor, stackId ) ) {
+				editor.setSelectedShapes( [] );
 			}
 		},
 	};
+}
+
+function didPointerMove( origin: { x: number; y: number } | null, event: PointerEvent ) {
+	if ( ! origin ) {
+		return true;
+	}
+
+	const deltaX = event.clientX - origin.x;
+	const deltaY = event.clientY - origin.y;
+	return Math.hypot( deltaX, deltaY ) > 6;
 }

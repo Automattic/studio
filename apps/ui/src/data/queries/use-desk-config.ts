@@ -7,12 +7,13 @@ const siteDeskConfigQueryKey = ( siteId: string ) => [ 'desk-config', 'site', si
 const deskConfigQueryKey = ( siteId?: string ) =>
 	siteId ? siteDeskConfigQueryKey( siteId ) : userDeskConfigQueryKey;
 
-export function useDeskConfig( siteId?: string ) {
+export function useDeskConfig( siteId?: string, enabled = true ) {
 	const connector = useConnector();
 	return useQuery( {
 		queryKey: deskConfigQueryKey( siteId ),
 		queryFn: () =>
 			siteId ? connector.getSiteDeskConfig( siteId ) : connector.getUserDeskConfig(),
+		enabled,
 	} );
 }
 

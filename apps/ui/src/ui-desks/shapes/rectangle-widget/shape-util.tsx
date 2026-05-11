@@ -177,7 +177,11 @@ function RectangleWidgetComponent( {
 	};
 
 	return (
-		<div style={ stackInteraction.style } onPointerDown={ stackInteraction.onPointerDown }>
+		<div
+			style={ stackInteraction.style }
+			onPointerDown={ stackInteraction.onPointerDown }
+			onPointerUp={ stackInteraction.onPointerUp }
+		>
 			{ isLoading && LoadingComponent ? (
 				<LoadingComponent id={ widgetId } widgetProps={ shape.props.widgetProps } />
 			) : (

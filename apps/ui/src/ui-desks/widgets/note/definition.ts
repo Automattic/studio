@@ -1,6 +1,9 @@
 import { __ } from '@wordpress/i18n';
 import { pencil } from '@wordpress/icons';
-import { NoteWidgetComponent } from '@/ui-desks/widgets/note/component';
+import {
+	NoteWidgetComponent,
+	NoteWidgetThumbnailComponent,
+} from '@/ui-desks/widgets/note/component';
 import {
 	isNoteWidgetProps,
 	NOTE_WIDGET_TYPE,
@@ -38,6 +41,7 @@ const NOTE_TONE_OPTIONS: Array< { value: NoteTone; label: string; color: string 
 export const noteWidgetDefinition = {
 	type: NOTE_WIDGET_TYPE,
 	Component: NoteWidgetComponent,
+	thumbnail: NoteWidgetThumbnailComponent,
 	controls: [
 		{
 			type: 'color',

@@ -6,6 +6,7 @@ import { postWidgetDefinition } from '@/ui-desks/widgets/post/definition';
 import { POST_WIDGET_TYPE, type PostWidget } from '@/ui-desks/widgets/post/types';
 import {
 	PostCollectionLoadingComponent,
+	PostCollectionThumbnailComponent,
 	PostCollectionWidgetComponent,
 } from '@/ui-desks/widgets/post-collection/component';
 import { PostCollectionEditControl } from '@/ui-desks/widgets/post-collection/edit-control';
@@ -61,6 +62,7 @@ const POST_CARD_SHAPE_PROPS = postWidgetDefinition.getInitialWidget().shapeProps
 export const postCollectionWidgetDefinition = {
 	type: POST_COLLECTION_WIDGET_TYPE,
 	Component: PostCollectionWidgetComponent,
+	thumbnail: PostCollectionThumbnailComponent,
 	loading: PostCollectionLoadingComponent,
 	controls: [
 		{

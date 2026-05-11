@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { useState } from 'react';
-import { DeskChats } from '../chats';
+import { Chats, ChatsProvider } from '../chats';
 import { DeskChrome } from '../chrome';
 import { LoadingPlaceholder } from '../components';
 import { useSiteMapDeskConfig } from '../site-map/use-site-map-desk-config';
@@ -76,8 +76,8 @@ function DeskShell( {
 	children: ReactNode;
 } ) {
 	return (
-		<>
-			<DeskChats siteId={ siteId } />
+		<ChatsProvider siteId={ siteId }>
+			<Chats siteId={ siteId } />
 			<main className={ styles.root } aria-label={ getDeskLabel( siteId ) } data-site-id={ siteId }>
 				<DeskChrome
 					siteId={ siteId }
@@ -89,7 +89,7 @@ function DeskShell( {
 				{ siteMapIsLoading && <SiteMapLoadingWidget /> }
 				<DeskWidgetToolbar />
 			</main>
-		</>
+		</ChatsProvider>
 	);
 }
 

@@ -4,16 +4,30 @@ import {
 	ShapeUtil,
 	T,
 	resizeBox,
+	useEditor,
+	useIsEditing,
+	useValue,
 	type JsonObject,
 	type RecordProps,
 	type TLResizeInfo,
 } from 'tldraw';
+import { getDeskCanvasRecordResolutionState } from '@/ui-desks/desk/tldraw-adapter';
+import { useStackShapeInteraction } from '@/ui-desks/stacks/use-stack-shape-interaction';
+import { getStackId, isStackExpanded } from '@/ui-desks/stacks/utils';
 import { getWidgetDefinition } from '@/ui-desks/widgets/registry';
 import {
 	RECTANGLE_WIDGET_SHAPE_TYPE,
 	type RectangleWidgetShape,
 	type RectangleWidgetShapeProps,
 } from './types';
+import type {
+	DeskWidgetComponentProps,
+	DeskWidgetLoadingComponentProps,
+	WidgetIndicator,
+} from '@/ui-desks/widgets/types';
+import type { ComponentType } from 'react';
+
+type RegisteredWidgetDefinition = NonNullable< ReturnType< typeof getWidgetDefinition > >;
 
 export class RectangleWidgetShapeUtil extends ShapeUtil< RectangleWidgetShape > {
 	static override type = RECTANGLE_WIDGET_SHAPE_TYPE;
@@ -78,7 +92,6 @@ export class RectangleWidgetShapeUtil extends ShapeUtil< RectangleWidgetShape > 
 			return null;
 		}
 
-		const WidgetComponent = definition.Component;
 		return (
 			<HTMLContainer
 				style={ {
@@ -87,21 +100,18 @@ export class RectangleWidgetShapeUtil extends ShapeUtil< RectangleWidgetShape > 
 					pointerEvents: 'all',
 				} }
 			>
-				<WidgetComponent
-					id={ shape.id }
-					shapeType={ shape.type }
-					widgetProps={ shape.props.widgetProps }
-				/>
+				<RectangleWidgetComponent shape={ shape } definition={ definition } />
 			</HTMLContainer>
 		);
 	}
 
 	override indicator( shape: RectangleWidgetShape ) {
+		if ( getStackId( shape ) && ! isStackExpanded( shape ) ) {
+			return null;
+		}
+
 		const definition = getWidgetDefinition( shape.props.widgetType );
-		const indicator =
-			definition && definition.isWidgetProps( shape.props.widgetProps )
-				? definition.getIndicator?.( shape.props.widgetProps )
-				: undefined;
+		const indicator = getWidgetIndicator( definition, shape.props.widgetProps );
 
 		return (
 			<rect
@@ -114,4 +124,81 @@ export class RectangleWidgetShapeUtil extends ShapeUtil< RectangleWidgetShape > 
 			/>
 		);
 	}
+}
+
+function getWidgetIndicator(
+	definition: RegisteredWidgetDefinition | undefined,
+	widgetProps: JsonObject
+) {
+	if ( ! definition || ! definition.isWidgetProps( widgetProps ) || ! definition.getIndicator ) {
+		return undefined;
+	}
+
+	return ( definition.getIndicator as ( props: JsonObject ) => WidgetIndicator )( widgetProps );
+}
+
+function RectangleWidgetComponent( {
+	shape,
+	definition,
+}: {
+	shape: RectangleWidgetShape;
+	definition: RegisteredWidgetDefinition;
+} ) {
+	const editor = useEditor();
+	const isEditing = useIsEditing( shape.id );
+	const stackInteraction = useStackShapeInteraction( shape );
+	const isHovered = useValue(
+		`rectangle-widget-is-hovered:${ shape.id }`,
+		() => editor.getHoveredShapeId() === shape.id,
+		[ editor, shape.id ]
+	);
+	const isSelected = useValue(
+		`rectangle-widget-is-selected:${ shape.id }`,
+		() => editor.getSelectedShapeIds().includes( shape.id ),
+		[ editor, shape.id ]
+	);
+	const WidgetComponent = definition.Component as unknown as ComponentType<
+		DeskWidgetComponentProps< JsonObject >
+	>;
+	const LoadingComponent = definition.loading as
+		| ComponentType< DeskWidgetLoadingComponentProps< JsonObject > >
+		| undefined;
+	const isLoading = getDeskCanvasRecordResolutionState( shape ) === 'loading';
+	const widgetId = getWidgetIdFromShapeId( shape.id );
+
+	const handleWidgetPropsChange = ( widgetProps: JsonObject ) => {
+		editor.updateShape< RectangleWidgetShape >( {
+			id: shape.id,
+			type: shape.type,
+			props: {
+				widgetProps,
+			},
+		} );
+	};
+
+	return (
+		<div
+			style={ stackInteraction.style }
+			onPointerDown={ stackInteraction.onPointerDown }
+			onPointerUp={ stackInteraction.onPointerUp }
+		>
+			{ isLoading && LoadingComponent ? (
+				<LoadingComponent id={ widgetId } widgetProps={ shape.props.widgetProps } />
+			) : (
+				<WidgetComponent
+					id={ widgetId }
+					widgetProps={ shape.props.widgetProps }
+					isEditing={ isEditing }
+					isHovered={ isHovered }
+					isSelected={ isSelected }
+					onWidgetPropsChange={ handleWidgetPropsChange }
+					onEditComplete={ () => editor.complete() }
+				/>
+			) }
+		</div>
+	);
+}
+
+function getWidgetIdFromShapeId( shapeId: string ) {
+	return shapeId.startsWith( 'shape:' ) ? shapeId.slice( 'shape:'.length ) : shapeId;
 }

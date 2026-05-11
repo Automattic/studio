@@ -10,13 +10,6 @@ import { useFullscreen } from '@/hooks/use-fullscreen';
 import { formatRelativeTime } from '@/lib/format-relative-time';
 import { ActionButton, List, ListItem } from '@/ui-desks/components';
 import { DeskChatsButton } from '../chrome/chats-button';
-import {
-	DeskChatsContext,
-	useDeskChats,
-	type DeskChatPromptRequest,
-	type DeskChatsProviderProps,
-	type PendingDeskChatPrompt,
-} from './context';
 import { validateDeskChatsSearch, type DeskChatsSearch } from './search';
 import { DeskSessionSurface } from './session-surface';
 import styles from './style.module.css';
@@ -62,124 +55,22 @@ function useDeskChatsSearch() {
 	return { open, setOpen, createChatRequestId };
 }
 
-function createPendingPromptId() {
-	return `desk-chat-${ Date.now().toString( 36 ) }-${ Math.random().toString( 36 ).slice( 2, 8 ) }`;
-}
-
-export function DeskChatsProvider( { siteId, children }: DeskChatsProviderProps ) {
-	const { open, setOpen, createChatRequestId } = useDeskChatsSearch();
-	const createSession = useCreateSession();
-	const lastCreateChatRequestId = useRef( createChatRequestId );
-	const [ selectedSessionId, setSelectedSessionId ] = useState< string | undefined >( undefined );
-	const [ expanded, setExpanded ] = useState( false );
-	const [ autoFocusSessionId, setAutoFocusSessionId ] = useState< string | undefined >( undefined );
-	const [ pendingPrompt, setPendingPrompt ] = useState< PendingDeskChatPrompt | undefined >(
-		undefined
-	);
-
-	const selectSession = useCallback( ( sessionId: string ) => {
-		setSelectedSessionId( sessionId );
-		setExpanded( true );
-		setAutoFocusSessionId( undefined );
-	}, [] );
-
-	const switchSession = useCallback( ( sessionId: string ) => {
-		setSelectedSessionId( sessionId );
-		setExpanded( true );
-		setAutoFocusSessionId( sessionId );
-	}, [] );
-
-	const clearSelection = useCallback( () => {
-		setSelectedSessionId( undefined );
-		setExpanded( false );
-		setAutoFocusSessionId( undefined );
-	}, [] );
-
-	const startNewChat = useCallback( async () => {
-		const session = await createSession.mutateAsync( siteId );
-		setSelectedSessionId( session.id );
-		setExpanded( true );
-		setAutoFocusSessionId( session.id );
-		setOpen( true );
-	}, [ createSession, setOpen, siteId ] );
-
-	const startChatWithPrompt = useCallback(
-		async ( request: DeskChatPromptRequest ) => {
-			const session = await createSession.mutateAsync( siteId );
-			setSelectedSessionId( session.id );
-			setExpanded( true );
-			setAutoFocusSessionId( undefined );
-			setPendingPrompt( {
-				id: createPendingPromptId(),
-				sessionId: session.id,
-				prompt: request.prompt,
-				displayMessage: request.displayMessage ?? request.prompt,
-			} );
-			setOpen( true );
-		},
-		[ createSession, setOpen, siteId ]
-	);
-
-	const consumePendingPrompt = useCallback( ( promptId: string ) => {
-		setPendingPrompt( ( current ) => ( current?.id === promptId ? undefined : current ) );
-	}, [] );
-
-	useEffect( () => {
-		if ( createChatRequestId === lastCreateChatRequestId.current ) {
-			return;
-		}
-
-		lastCreateChatRequestId.current = createChatRequestId;
-		void startNewChat();
-	}, [ createChatRequestId, startNewChat ] );
-
-	return (
-		<DeskChatsContext.Provider
-			value={ {
-				open,
-				setOpen,
-				selectedSessionId,
-				expanded,
-				autoFocusSessionId,
-				isCreatingChat: createSession.isPending,
-				pendingPrompt,
-				selectSession,
-				switchSession,
-				clearSelection,
-				startNewChat,
-				startChatWithPrompt,
-				consumePendingPrompt,
-			} }
-		>
-			{ children }
-		</DeskChatsContext.Provider>
-	);
-}
-
 export function DeskChatsTrigger() {
-	const { open, setOpen } = useDeskChats();
+	const { open, setOpen } = useDeskChatsSearch();
 
 	return <DeskChatsButton open={ open } onToggle={ () => setOpen( ! open ) } />;
 }
 
 export function DeskChats( { siteId }: DeskChatsProps ) {
-	const {
-		open,
-		setOpen,
-		selectedSessionId,
-		expanded,
-		autoFocusSessionId,
-		isCreatingChat,
-		pendingPrompt,
-		selectSession,
-		switchSession,
-		clearSelection,
-		startNewChat,
-		consumePendingPrompt,
-	} = useDeskChats();
+	const { open, setOpen, createChatRequestId } = useDeskChatsSearch();
 	const { data: sessions, isFetching: isFetchingSessions } = useSessions();
 	const { data: sites } = useSites();
 	const isFullscreen = useFullscreen();
+	const createSession = useCreateSession();
+	const lastCreateChatRequestId = useRef( createChatRequestId );
+	const [ selectedSessionId, setSelectedSessionId ] = useState< string | undefined >( undefined );
+	const [ expanded, setExpanded ] = useState( false );
+	const [ autoFocusSessionId, setAutoFocusSessionId ] = useState< string | undefined >( undefined );
 	const site = siteId ? sites?.find( ( candidate ) => candidate.id === siteId ) : undefined;
 	const filteredSessions = siteId
 		? site?.path
@@ -193,9 +84,38 @@ export function DeskChats( { siteId }: DeskChatsProps ) {
 
 	useEffect( () => {
 		if ( selectedSessionId && sessions && ! isFetchingSessions && ! selectedSession ) {
-			clearSelection();
+			setSelectedSessionId( undefined );
+			setExpanded( false );
 		}
-	}, [ clearSelection, isFetchingSessions, selectedSession, selectedSessionId, sessions ] );
+	}, [ isFetchingSessions, selectedSession, selectedSessionId, sessions ] );
+
+	const handleSelectSession = ( sessionId: string ) => {
+		setSelectedSessionId( sessionId );
+		setExpanded( true );
+		setAutoFocusSessionId( undefined );
+	};
+
+	const handleSwitchSession = useCallback( ( sessionId: string ) => {
+		setSelectedSessionId( sessionId );
+		setExpanded( true );
+		setAutoFocusSessionId( sessionId );
+	}, [] );
+
+	const handleNewChat = useCallback( async () => {
+		const session = await createSession.mutateAsync( siteId );
+		setSelectedSessionId( session.id );
+		setExpanded( true );
+		setAutoFocusSessionId( session.id );
+	}, [ createSession, siteId ] );
+
+	useEffect( () => {
+		if ( createChatRequestId === lastCreateChatRequestId.current ) {
+			return;
+		}
+
+		lastCreateChatRequestId.current = createChatRequestId;
+		void handleNewChat();
+	}, [ createChatRequestId, handleNewChat ] );
 
 	return (
 		<Dialog.Root open={ open } onOpenChange={ setOpen } modal={ false } disablePointerDismissal>
@@ -222,18 +142,18 @@ export function DeskChats( { siteId }: DeskChatsProps ) {
 									active={ session.id === selectedSessionId }
 									label={ getSessionTitle( session ) }
 									description={ getSessionSubtitle( session ) }
-									onClick={ () => selectSession( session.id ) }
+									onClick={ () => handleSelectSession( session.id ) }
 								/>
 							) ) }
 						</List>
 						<footer className={ styles.footer }>
 							<ActionButton
 								fullWidth
-								disabled={ isCreatingChat }
-								aria-busy={ isCreatingChat }
-								onClick={ () => void startNewChat() }
+								disabled={ createSession.isPending }
+								aria-busy={ createSession.isPending }
+								onClick={ () => void handleNewChat() }
 							>
-								{ isCreatingChat ? __( 'Creating chat…' ) : __( '+ New chat' ) }
+								{ createSession.isPending ? __( 'Creating chat…' ) : __( '+ New chat' ) }
 							</ActionButton>
 						</footer>
 					</div>
@@ -244,12 +164,8 @@ export function DeskChats( { siteId }: DeskChatsProps ) {
 									key={ selectedSessionId }
 									siteId={ siteId }
 									sessionId={ selectedSessionId }
-									onSwitchSession={ switchSession }
+									onSwitchSession={ handleSwitchSession }
 									autoFocus={ autoFocusSessionId === selectedSessionId }
-									initialPrompt={
-										pendingPrompt?.sessionId === selectedSessionId ? pendingPrompt : undefined
-									}
-									onInitialPromptConsumed={ consumePendingPrompt }
 								/>
 							) : (
 								<div className={ styles.emptyChat }>

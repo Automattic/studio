@@ -189,9 +189,9 @@ export function DeskProvider( { siteId, children }: DeskProviderProps ) {
 							type: RECTANGLE_WIDGET_SHAPE_TYPE,
 							props: {
 								widgetProps: {
-									url: uploadedMedia.sourceUrl,
+									url: uploadedMedia.source_url,
 									mediaKind,
-									alt: uploadedMedia.altText || file.name,
+									alt: uploadedMedia.alt_text || file.name,
 									mediaId: uploadedMedia.id,
 								},
 							},

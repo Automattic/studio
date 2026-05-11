@@ -2,7 +2,7 @@ import { resolveSessionModel } from '@studio/common/ai/models';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { useEffect, useLayoutEffect, useMemo, useRef, type ReactNode, type Ref } from 'react';
+import { useLayoutEffect, useMemo, useRef, type ReactNode, type Ref } from 'react';
 import { Composer, ComposerSkeleton } from '@/components/session-view/composer';
 import { pickLiveSite } from '@/components/session-view/composer/environment-pill';
 import { Conversation } from '@/components/session-view/conversation';
@@ -16,15 +16,12 @@ import { useSites } from '@/data/queries/use-sites';
 import { useSessionCommands } from '@/hooks/use-session-commands';
 import { SessionUIProvider } from '@/hooks/use-session-ui';
 import styles from './style.module.css';
-import type { PendingDeskChatPrompt } from './context';
 
 interface DeskSessionSurfaceProps {
 	siteId?: string;
 	sessionId: string;
 	onSwitchSession: ( sessionId: string ) => void;
 	autoFocus?: boolean;
-	initialPrompt?: PendingDeskChatPrompt;
-	onInitialPromptConsumed?: ( promptId: string ) => void;
 }
 
 interface FrameProps {
@@ -51,8 +48,6 @@ function DeskSessionSurfaceContent( {
 	sessionId,
 	onSwitchSession,
 	autoFocus = false,
-	initialPrompt,
-	onInitialPromptConsumed,
 }: DeskSessionSurfaceProps ) {
 	const { data, isLoading, error } = useSession( sessionId );
 	const { data: sites } = useSites();
@@ -78,7 +73,6 @@ function DeskSessionSurfaceContent( {
 		answerQuestion,
 		removeQueuedPrompt,
 	} = useAgentRun( sessionId );
-	const sentInitialPromptIdsRef = useRef< Set< string > >( new Set() );
 	const currentModel = useMemo(
 		() => resolveSessionModel( data?.entries ?? [] ),
 		[ data?.entries ]
@@ -97,24 +91,6 @@ function DeskSessionSurfaceContent( {
 	);
 	const scrollRef = useRef< HTMLDivElement >( null );
 	useSessionCommands( sessionId );
-
-	useEffect( () => {
-		if ( ! data || ! initialPrompt || initialPrompt.sessionId !== sessionId ) {
-			return;
-		}
-		if ( sentInitialPromptIdsRef.current.has( initialPrompt.id ) ) {
-			return;
-		}
-
-		sentInitialPromptIdsRef.current.add( initialPrompt.id );
-		void sendMessage( initialPrompt.prompt, {
-			displayMessage: initialPrompt.displayMessage,
-		} )
-			.then( () => onInitialPromptConsumed?.( initialPrompt.id ) )
-			.catch( () => {
-				sentInitialPromptIdsRef.current.delete( initialPrompt.id );
-			} );
-	}, [ data, initialPrompt, onInitialPromptConsumed, sendMessage, sessionId ] );
 
 	useLayoutEffect( () => {
 		const node = scrollRef.current;

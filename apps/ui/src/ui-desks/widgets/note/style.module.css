@@ -51,26 +51,15 @@
 	background: #52aeff;
 }
 
-.editor,
-.thumbnail {
+.editor {
 	min-height: 100%;
 	outline: none;
+	cursor: text;
 	color: #14171a;
 	font-size: 14px;
 	line-height: 1.5;
-}
-
-.editor {
-	cursor: text;
 	user-select: text;
 	-webkit-user-select: text;
-}
-
-.thumbnail {
-	overflow: hidden;
-	pointer-events: none;
-	user-select: none;
-	-webkit-user-select: none;
 }
 
 .editor[contenteditable='false'] {
@@ -85,22 +74,18 @@
 	pointer-events: none;
 }
 
-.editor p,
-.thumbnail p {
+.editor p {
 	margin: 0 0 8px;
 }
 
-.editor p:last-child,
-.thumbnail p:last-child {
+.editor p:last-child {
 	margin-bottom: 0;
 }
 
-.editor strong,
-.thumbnail strong {
+.editor strong {
 	font-weight: 700;
 }
 
-.editor em,
-.thumbnail em {
+.editor em {
 	font-style: italic;
 }

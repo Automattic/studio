@@ -28,10 +28,6 @@ export interface DeskWidgetComponentProps<
 	onEditComplete: () => void;
 }
 
-export type DeskWidgetThumbnailComponentProps<
-	TWidgetProps extends Record< string, unknown > = Record< string, unknown >,
-> = DeskWidgetComponentProps< TWidgetProps >;
-
 export interface DeskWidgetLoadingComponentProps<
 	TWidgetProps extends Record< string, unknown > = Record< string, unknown >,
 > {
@@ -93,7 +89,6 @@ export interface WidgetResolver<
 export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBase > {
 	type: TWidget[ 'type' ];
 	Component: ComponentType< DeskWidgetComponentProps< TWidget[ 'widgetProps' ] > >;
-	thumbnail?: ComponentType< DeskWidgetThumbnailComponentProps< TWidget[ 'widgetProps' ] > >;
 	loading?: ComponentType< DeskWidgetLoadingComponentProps< TWidget[ 'widgetProps' ] > >;
 	controls?: Array< ControlConfig< TWidget[ 'widgetProps' ] > >;
 	isWidgetProps: ( props: unknown ) => props is TWidget[ 'widgetProps' ];

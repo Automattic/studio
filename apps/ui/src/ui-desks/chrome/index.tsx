@@ -1,7 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useFullscreen } from '@/hooks/use-fullscreen';
-import { DeskChatsTrigger } from '../chats';
+import { ChatsTrigger } from '../chats';
 import { DeskCreateMenu } from './create-menu';
 import styles from './style.module.css';
 import { DeskMenu } from './user-menu';
@@ -30,7 +30,7 @@ export function DeskChrome( { siteId }: DeskChromeProps ) {
 	return (
 		<DeskHeader>
 			<DeskMenu siteId={ siteId } />
-			<DeskChatsTrigger />
+			<ChatsTrigger />
 			<DeskCreateMenu />
 		</DeskHeader>
 	);

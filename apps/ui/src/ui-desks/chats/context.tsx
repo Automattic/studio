@@ -1,38 +1,38 @@
 import { createContext, useContext } from 'react';
 import type { ReactNode } from 'react';
 
-export interface DeskChatPromptRequest {
+export interface ChatPromptRequest {
 	prompt: string;
 	displayMessage?: string;
 }
 
-export interface PendingDeskChatPrompt extends Required< DeskChatPromptRequest > {
+export interface PendingChatPrompt extends Required< ChatPromptRequest > {
 	id: string;
 	sessionId: string;
 }
 
-export interface DeskChatsContextValue {
+export interface ChatsContextValue {
 	open: boolean;
 	setOpen: ( open: boolean ) => void;
 	selectedSessionId?: string;
 	expanded: boolean;
 	autoFocusSessionId?: string;
 	isCreatingChat: boolean;
-	pendingPrompt?: PendingDeskChatPrompt;
+	pendingPrompt?: PendingChatPrompt;
 	selectSession: ( sessionId: string ) => void;
 	switchSession: ( sessionId: string ) => void;
 	clearSelection: () => void;
 	startNewChat: () => Promise< void >;
-	startChatWithPrompt: ( request: DeskChatPromptRequest ) => Promise< void >;
+	startChatWithPrompt: ( request: ChatPromptRequest ) => Promise< void >;
 	consumePendingPrompt: ( promptId: string ) => void;
 }
 
-export interface DeskChatsProviderProps {
+export interface ChatsProviderProps {
 	siteId?: string;
 	children: ReactNode;
 }
 
-const defaultDeskChatsContext: DeskChatsContextValue = {
+const defaultChatsContext: ChatsContextValue = {
 	open: false,
 	setOpen: noopSetOpen,
 	selectedSessionId: undefined,
@@ -48,10 +48,10 @@ const defaultDeskChatsContext: DeskChatsContextValue = {
 	consumePendingPrompt: noopConsumePendingPrompt,
 };
 
-export const DeskChatsContext = createContext< DeskChatsContextValue >( defaultDeskChatsContext );
+export const ChatsContext = createContext< ChatsContextValue >( defaultChatsContext );
 
-export function useDeskChats() {
-	return useContext( DeskChatsContext );
+export function useChats() {
+	return useContext( ChatsContext );
 }
 
 function noopSetOpen() {}

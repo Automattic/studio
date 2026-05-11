@@ -16,14 +16,14 @@ import { useSites } from '@/data/queries/use-sites';
 import { useSessionCommands } from '@/hooks/use-session-commands';
 import { SessionUIProvider } from '@/hooks/use-session-ui';
 import styles from './style.module.css';
-import type { PendingDeskChatPrompt } from './context';
+import type { PendingChatPrompt } from './context';
 
-interface DeskSessionSurfaceProps {
+interface SessionSurfaceProps {
 	siteId?: string;
 	sessionId: string;
 	onSwitchSession: ( sessionId: string ) => void;
 	autoFocus?: boolean;
-	initialPrompt?: PendingDeskChatPrompt;
+	initialPrompt?: PendingChatPrompt;
 	onInitialPromptConsumed?: ( promptId: string ) => void;
 }
 
@@ -46,14 +46,14 @@ function Frame( { composer, scrollRef, children }: FrameProps ) {
 	);
 }
 
-function DeskSessionSurfaceContent( {
+function SessionSurfaceContent( {
 	siteId,
 	sessionId,
 	onSwitchSession,
 	autoFocus = false,
 	initialPrompt,
 	onInitialPromptConsumed,
-}: DeskSessionSurfaceProps ) {
+}: SessionSurfaceProps ) {
 	const { data, isLoading, error } = useSession( sessionId );
 	const { data: sites } = useSites();
 	const ownerSitePath = data?.summary.ownerSitePath;
@@ -190,10 +190,10 @@ function DeskSessionSurfaceContent( {
 	);
 }
 
-export function DeskSessionSurface( props: DeskSessionSurfaceProps ) {
+export function SessionSurface( props: SessionSurfaceProps ) {
 	return (
 		<SessionUIProvider>
-			<DeskSessionSurfaceContent { ...props } />
+			<SessionSurfaceContent { ...props } />
 		</SessionUIProvider>
 	);
 }

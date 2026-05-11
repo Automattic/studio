@@ -1,5 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { DeskChats, DeskChatsProvider } from '../chats';
+import { Chats, ChatsProvider } from '../chats';
 import { DeskChrome } from '../chrome';
 import { DeskWidgetToolbar } from '../widgets/toolbar';
 import { DeskCanvas } from './canvas';
@@ -23,14 +23,14 @@ export function Desk( { siteId }: DeskProps ) {
 
 function DeskShell( { siteId, children }: DeskProps & { children: ReactNode } ) {
 	return (
-		<DeskChatsProvider siteId={ siteId }>
-			<DeskChats siteId={ siteId } />
+		<ChatsProvider siteId={ siteId }>
+			<Chats siteId={ siteId } />
 			<main className={ styles.root } aria-label={ getDeskLabel( siteId ) } data-site-id={ siteId }>
 				<DeskChrome siteId={ siteId } />
 				{ children }
 				<DeskWidgetToolbar />
 			</main>
-		</DeskChatsProvider>
+		</ChatsProvider>
 	);
 }
 

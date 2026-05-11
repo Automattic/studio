@@ -8,6 +8,7 @@ import type { DeskConfig } from '@studio/common/types/desk';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { SyncSite } from '@studio/common/types/sync';
+import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wordpress-rest';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 export type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
@@ -235,6 +236,13 @@ export interface Connector {
 	// Desks
 	getUserDeskConfig(): Promise< DeskConfig | undefined >;
 	saveUserDeskConfig( config: DeskConfig ): Promise< void >;
+	getSiteDeskConfig( siteId: string ): Promise< DeskConfig | undefined >;
+	saveSiteDeskConfig( siteId: string, config: DeskConfig ): Promise< void >;
+
+	// Site WordPress REST API. The renderer uses this as the transport for
+	// @wordpress/api-fetch / @wordpress/core-data so WordPress entity semantics
+	// stay in the WordPress packages while Studio owns site resolution and auth.
+	fetchSiteRest( siteId: string, request: SiteRestRequest ): Promise< SiteRestResponse >;
 
 	// Open the given site's folder in the system file manager, preferred
 	// editor, or preferred terminal. When no editor/terminal preference is
@@ -245,6 +253,11 @@ export interface Connector {
 
 	// External links
 	openExternalUrl( url: string ): Promise< void >;
+	openSiteUrl(
+		siteId: string,
+		relativeUrl?: string,
+		options?: { autoLogin?: boolean }
+	): Promise< void >;
 
 	// Window state (macOS fullscreen hides traffic lights, so the UI needs
 	// to reclaim the space we normally leave for them).

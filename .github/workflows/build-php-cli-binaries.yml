@@ -138,6 +138,9 @@ jobs:
 
           php bin/spc doctor --auto-fix
           php bin/spc download @downloadArgs
+
+          # ICU 78 headers require C++17 for ext/intl on MSVC; keep this after dependency setup.
+          $env:CL = "/std:c++17 $env:CL".Trim()
           php bin/spc build @buildArgs
 
       - name: Package macOS artifact

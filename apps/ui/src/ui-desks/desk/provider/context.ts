@@ -28,6 +28,11 @@ export interface DeskContextValue {
 }
 
 export interface AddDeskWidgetOptions {
+	id?: string;
+	center?: {
+		x: number;
+		y: number;
+	};
 	shapeProps?: Record< string, unknown >;
 	widgetProps?: Record< string, unknown >;
 	shouldStartEditing?: boolean;

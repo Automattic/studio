@@ -1,6 +1,26 @@
+import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+	createShapeId,
+	getIndexAbove,
+	sortByIndex,
+	type Editor,
+	type TLShapePartial,
+} from 'tldraw';
+import { useSites } from '@/data/queries/use-sites';
+import {
+	getTemporaryDeskCanvasRecordMeta,
+	deskWidgetToCanvasShape,
+} from '@/ui-desks/desk/tldraw-adapter';
+import {
+	RECTANGLE_WIDGET_SHAPE_TYPE,
+	type RectangleWidgetShape,
+} from '@/ui-desks/shapes/rectangle-widget/types';
 import { useStackInteractions } from '@/ui-desks/stacks/use-stack-interactions';
 import { useStackPressAnimation } from '@/ui-desks/stacks/use-stack-press-animation';
+import { createDeskWidget } from '@/ui-desks/widgets/create-widget';
+import { getWidgetFileHandler } from '@/ui-desks/widgets/file-handlers';
+import { LOADING_WIDGET_TYPE } from '@/ui-desks/widgets/loading/types';
 import {
 	DeskContext,
 	type AddDeskWidgetOptions,
@@ -9,6 +29,7 @@ import {
 } from './context';
 import {
 	addWidgetToEditor,
+	createWidgetId,
 	createDeskConfigFromEditor,
 	getCurrentSelectedWidgetToolbarItem,
 	hasCameraChange,
@@ -21,7 +42,7 @@ import {
 } from './editor-state';
 import { useDeskPersistence } from './persistence';
 import { useDeskWidgetResolvers } from './resolvers';
-import type { Editor } from 'tldraw';
+import type { WidgetFileHandlerLoading, WidgetFileHandlerResult } from '@/ui-desks/widgets/types';
 
 export { useDesk, useRegisterDeskEditor } from './context';
 
@@ -45,6 +66,9 @@ export function DeskProvider( {
 	} );
 	const desk = deskConfig ?? persistedDesk;
 	const isLoading = externalIsLoading ?? isLoadingPersistedDesk;
+	const { data: sites } = useSites();
+	const site = sites?.find( ( candidate ) => candidate.id === siteId );
+	const isRunningSite = Boolean( siteId && site?.running );
 	const [ editor, setEditor ] = useState< Editor | null >( null );
 	const [ isHydrated, setIsHydrated ] = useState( false );
 	const [ selectedWidgetToolbarItem, setSelectedWidgetToolbarItem ] =
@@ -164,6 +188,64 @@ export function DeskProvider( {
 			unsubscribeSession();
 		};
 	}, [ editor, isReadOnly, saveDeskConfig, toolbarStateOptions ] );
+
+	useEffect( () => {
+		if ( ! editor || ! isHydrated || isReadOnly ) {
+			return;
+		}
+
+		editor.registerExternalContentHandler( 'files', async ( { files, point } ) => {
+			const handledFiles = files
+				.map( ( file ) => ( {
+					file,
+					match: getWidgetFileHandler( file, { isRunningSite } ),
+				} ) )
+				.filter( ( item ): item is HandledDroppedFile => item.match !== null );
+
+			if ( handledFiles.length === 0 ) {
+				return;
+			}
+
+			const dropPoint = point ?? editor.getViewportPageBounds().center;
+			let cursorX = dropPoint.x;
+			const cursorY = dropPoint.y;
+			const fileHandlers: Array< () => Promise< void > > = [];
+
+			for ( const { file, match } of handledFiles ) {
+				if ( editor.isDisposed ) {
+					return;
+				}
+
+				const placeholder = createTemporaryLoadingWidget( editor, {
+					center: {
+						x: cursorX,
+						y: cursorY,
+					},
+					loading: match.handler.loading,
+				} );
+				if ( ! placeholder ) {
+					continue;
+				}
+
+				cursorX += placeholder.size.w + 20;
+				fileHandlers.push( () =>
+					handleDroppedFile( {
+						editor,
+						file,
+						match,
+						placeholder,
+						siteId,
+					} )
+				);
+			}
+
+			await Promise.all( fileHandlers.map( ( handleFile ) => handleFile() ) );
+		} );
+
+		return () => {
+			editor.registerExternalContentHandler( 'files', null );
+		};
+	}, [ editor, isHydrated, isReadOnly, isRunningSite, siteId ] );
 
 	const registerEditor = useCallback(
 		( nextEditor: Editor | null ) => {
@@ -286,4 +368,154 @@ export function DeskProvider( {
 	} );
 
 	return <DeskContext.Provider value={ value }>{ children }</DeskContext.Provider>;
+}
+
+type HandledDroppedFile = {
+	file: File;
+	match: NonNullable< ReturnType< typeof getWidgetFileHandler > >;
+};
+
+interface TemporaryLoadingWidget {
+	shapeId: RectangleWidgetShape[ 'id' ];
+	size: {
+		w: number;
+		h: number;
+	};
+}
+
+async function handleDroppedFile( {
+	editor,
+	file,
+	match,
+	placeholder,
+	siteId,
+}: {
+	editor: Editor;
+	file: File;
+	match: NonNullable< ReturnType< typeof getWidgetFileHandler > >;
+	placeholder: TemporaryLoadingWidget;
+	siteId?: string;
+} ) {
+	try {
+		const result = await match.handler.handle( file, { siteId } );
+		if ( editor.isDisposed ) {
+			return;
+		}
+
+		const center = getShapeCenter( editor, placeholder.shapeId );
+		if ( ! center ) {
+			return;
+		}
+
+		deleteDroppedWidget( editor, placeholder.shapeId );
+		let cursorX = center.x;
+		const widgets = normalizeWidgetFileHandlerResult( result );
+		for ( const widget of widgets ) {
+			const widgetId = widget.id ?? createWidgetId();
+			const shapeId = createShapeId( widgetId ) as RectangleWidgetShape[ 'id' ];
+			const didAddWidget = addWidgetToEditor( editor, match.definition.type, 0, {
+				id: widgetId,
+				center: {
+					x: cursorX,
+					y: center.y,
+				},
+				shapeProps: widget.shapeProps,
+				widgetProps: widget.widgetProps,
+				shouldStartEditing: widget.shouldStartEditing,
+			} );
+			if ( didAddWidget ) {
+				cursorX += getDroppedWidgetSize( editor, shapeId ).w + 20;
+			}
+		}
+	} catch ( error ) {
+		console.warn( 'Failed to handle dropped file.', error );
+		deleteDroppedWidget( editor, placeholder.shapeId );
+	}
+}
+
+function normalizeWidgetFileHandlerResult( result: WidgetFileHandlerResult | null ) {
+	if ( ! result ) {
+		return [];
+	}
+
+	return Array.isArray( result ) ? result : [ result ];
+}
+
+function createTemporaryLoadingWidget(
+	editor: Editor,
+	{
+		center,
+		loading,
+	}: {
+		center: { x: number; y: number };
+		loading?: WidgetFileHandlerLoading;
+	}
+): TemporaryLoadingWidget | null {
+	const widgetId = createWidgetId();
+	const widget = createDeskWidget( {
+		id: widgetId,
+		type: LOADING_WIDGET_TYPE,
+		center,
+		zIndex: getNextZIndexFromEditor( editor ),
+		shapeProps: loading?.shapeProps,
+		widgetProps: {
+			label: loading?.label ?? __( 'Loading' ),
+		},
+	} );
+
+	if ( ! widget ) {
+		return null;
+	}
+
+	const shape = deskWidgetToCanvasShape( widget ) as TLShapePartial< RectangleWidgetShape >;
+	const shapeId = createShapeId( widgetId ) as RectangleWidgetShape[ 'id' ];
+	editor.createShape< RectangleWidgetShape >( {
+		...shape,
+		id: shapeId,
+		meta: getTemporaryDeskCanvasRecordMeta( shape, 'loading' ),
+	} );
+
+	return {
+		shapeId,
+		size: widget.shapeProps,
+	};
+}
+
+function deleteDroppedWidget( editor: Editor, shapeId: RectangleWidgetShape[ 'id' ] ) {
+	if ( ! editor.isDisposed && editor.getShape( shapeId ) ) {
+		editor.deleteShapes( [ shapeId ] );
+	}
+}
+
+function getDroppedWidgetSize( editor: Editor, shapeId: RectangleWidgetShape[ 'id' ] ) {
+	const shape = editor.getShape( shapeId );
+	if ( isRectangleWidgetShape( shape ) ) {
+		return shape.props.shapeProps;
+	}
+
+	return { w: 320, h: 320 };
+}
+
+function getShapeCenter( editor: Editor, shapeId: RectangleWidgetShape[ 'id' ] ) {
+	const shape = editor.getShape( shapeId );
+	if ( isRectangleWidgetShape( shape ) ) {
+		return {
+			x: shape.x + shape.props.shapeProps.w / 2,
+			y: shape.y + shape.props.shapeProps.h / 2,
+		};
+	}
+
+	return null;
+}
+
+function getNextZIndexFromEditor( editor: Editor ) {
+	return getIndexAbove( [ ...editor.getCurrentPageShapes() ].sort( sortByIndex ).at( -1 )?.index );
+}
+
+function isRectangleWidgetShape( shape: unknown ): shape is RectangleWidgetShape {
+	return (
+		Boolean( shape ) &&
+		typeof shape === 'object' &&
+		( shape as { type?: unknown } ).type === RECTANGLE_WIDGET_SHAPE_TYPE
+	);
 }

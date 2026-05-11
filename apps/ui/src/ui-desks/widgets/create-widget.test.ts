@@ -139,6 +139,42 @@ describe( 'createDeskWidget', () => {
 		} );
 	} );
 
+	it( 'creates a media widget with supplied media props', () => {
+		const createdWidget = createDeskWidget( {
+			id: 'media-1',
+			type: 'media',
+			center: {
+				x: 500,
+				y: 400,
+			},
+			zIndex: 'a6',
+			widgetProps: {
+				url: 'https://example.com/image.jpg',
+				mediaKind: 'image',
+				alt: 'Example image',
+				mediaId: 123,
+			},
+		} );
+
+		expect( createdWidget ).toEqual( {
+			id: 'media-1',
+			type: 'media',
+			x: 340,
+			y: 240,
+			zIndex: 'a6',
+			shapeProps: {
+				w: 320,
+				h: 320,
+			},
+			widgetProps: {
+				url: 'https://example.com/image.jpg',
+				mediaKind: 'image',
+				alt: 'Example image',
+				mediaId: 123,
+			},
+		} );
+	} );
+
 	it( 'creates a post collection widget with default query props', () => {
 		const createdWidget = createDeskWidget( {
 			id: 'post-collection-1',

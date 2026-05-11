@@ -5,6 +5,7 @@ import type {
 	AuthUser,
 	ColorScheme,
 	Connector,
+	DeskConfig,
 	ExtractedBlueprintBundle,
 	FeaturedBlueprint,
 	InstalledApps,
@@ -597,6 +598,26 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.getInstalledAppsAndTerminals() ) as InstalledApps;
 		},
 
+		async getUserDeskConfig(): Promise< DeskConfig | undefined > {
+			return ( await ipcApi.getUserDeskConfig() ) as DeskConfig | undefined;
+		},
+
+		async saveUserDeskConfig( config ): Promise< void > {
+			await ipcApi.saveUserDeskConfig( config );
+		},
+
+		async getSiteDeskConfig( siteId ): Promise< DeskConfig | undefined > {
+			return ( await ipcApi.getSiteDeskConfig( siteId ) ) as DeskConfig | undefined;
+		},
+
+		async saveSiteDeskConfig( siteId, config ): Promise< void > {
+			await ipcApi.saveSiteDeskConfig( siteId, config );
+		},
+
+		async fetchSiteRest( siteId, request ) {
+			return await ipcApi.fetchSiteRestApi( siteId, request );
+		},
+
 		async openSiteFolder( siteId ): Promise< void > {
 			const sitePath = await resolveSiteFolder( siteId );
 			ipcApi.openLocalPath( sitePath );
@@ -619,6 +640,10 @@ export function createIpcConnector(): Connector {
 		// External links
 		async openExternalUrl( url: string ): Promise< void > {
 			ipcApi.openURL( url );
+		},
+
+		async openSiteUrl( siteId, relativeUrl = '', options ): Promise< void > {
+			await ipcApi.openSiteURL( siteId, relativeUrl, options );
 		},
 
 		// Window state

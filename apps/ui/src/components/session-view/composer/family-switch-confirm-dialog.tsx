@@ -39,18 +39,20 @@ export function FamilySwitchConfirmDialog( {
 				<Dialog.Header>
 					<Dialog.Title>{ __( 'Start a new conversation?' ) }</Dialog.Title>
 				</Dialog.Header>
-				<p>
-					{ pendingModel
-						? sprintf(
-								/* translators: 1: current model name, 2: new model name */
-								__(
-									'Switching from %1$s to %2$s starts a fresh conversation — the two model families don\u2019t share memory. Your current chat stays in the sidebar.'
-								),
-								getAiModelLabel( currentModel ),
-								getAiModelLabel( pendingModel )
-						  )
-						: '' }
-				</p>
+				<Dialog.Content>
+					<Dialog.Description>
+						{ pendingModel
+							? sprintf(
+									/* translators: 1: current model name, 2: new model name */
+									__(
+										'Switching from %1$s to %2$s starts a fresh conversation — the two model families don\u2019t share memory. Your current chat stays in the sidebar.'
+									),
+									getAiModelLabel( currentModel ),
+									getAiModelLabel( pendingModel )
+							  )
+							: '' }
+					</Dialog.Description>
+				</Dialog.Content>
 				<Dialog.Footer>
 					<Dialog.Action variant="minimal" tone="neutral" disabled={ inFlight }>
 						{ __( 'Cancel' ) }

@@ -1,0 +1,207 @@
+.root {
+	--desk-titlebar-height: 46px;
+	--desk-title-y-nudge: 3px;
+	--desk-macos-traffic-light-x: 20px;
+	--desk-chrome-edge-offset: var(--wpds-dimension-padding-xl);
+
+	position: fixed;
+	top: 0;
+	left: 0;
+	z-index: 20;
+	pointer-events: none;
+}
+
+.title {
+	position: fixed;
+	top: var(--desk-title-y-nudge);
+	left: 94px;
+	display: flex;
+	align-items: center;
+	height: var(--desk-titlebar-height);
+	font-size: var(--wpds-typography-font-size-md);
+	font-weight: 600;
+	color: var(--wpds-color-fg-content-neutral);
+	pointer-events: auto;
+	-webkit-app-region: drag;
+}
+
+.actions {
+	position: fixed;
+	top: calc(var(--desk-titlebar-height) + var(--wpds-dimension-padding-sm));
+	left: var(--desk-macos-traffic-light-x);
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-md);
+	pointer-events: auto;
+}
+
+.rightActions {
+	position: fixed;
+	top: calc(var(--desk-titlebar-height) + var(--wpds-dimension-padding-sm));
+	right: var(--desk-chrome-edge-offset);
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-md);
+	pointer-events: auto;
+}
+
+.centerActions {
+	position: fixed;
+	top: calc(var(--desk-titlebar-height) + var(--wpds-dimension-padding-sm));
+	left: 50%;
+	display: flex;
+	align-items: center;
+	height: 36px;
+	max-width: min(360px, calc(100vw - 320px));
+	transform: translateX(-50%);
+	pointer-events: none;
+}
+
+.fullscreen .title {
+	display: none;
+}
+
+.fullscreen .actions {
+	top: var(--desk-chrome-edge-offset);
+	left: var(--desk-chrome-edge-offset);
+}
+
+.fullscreen .rightActions {
+	top: var(--desk-chrome-edge-offset);
+}
+
+.fullscreen .centerActions {
+	top: var(--desk-chrome-edge-offset);
+}
+
+.siteMapTitle {
+	display: flex;
+	min-width: 0;
+	align-items: baseline;
+	justify-content: center;
+	gap: 8px;
+	color: var(--wpds-color-fg-content-neutral);
+	text-align: center;
+	white-space: nowrap;
+}
+
+.siteMapTitle h1,
+.siteMapTitle span {
+	margin: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.siteMapTitle h1 {
+	font-size: var(--wpds-typography-font-size-md);
+	font-weight: var(--wpds-typography-font-weight-semibold, 600);
+	line-height: var(--wpds-typography-line-height-md);
+}
+
+.siteMapTitle span {
+	color: var(--wpds-color-fg-content-neutral-weak, rgba(15, 23, 42, 0.55));
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.siteTrigger {
+	box-sizing: border-box;
+	max-width: min(320px, 100%);
+	min-width: 52px;
+}
+
+.siteIcon {
+	width: 24px;
+	height: 24px;
+	border-radius: 9px;
+	corner-shape: var(--ui-desks-corner-shape, superellipse(1.42));
+	-webkit-corner-shape: var(--ui-desks-corner-shape, superellipse(1.42));
+	flex-shrink: 0;
+}
+
+.siteName {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: 13px;
+	line-height: 20px;
+	font-weight: var(--wpds-typography-font-weight-medium);
+}
+
+.siteCaret {
+	color: rgba(15, 23, 42, 0.4);
+	margin-left: 2px;
+}
+
+.siteCaret svg {
+	fill: currentColor;
+}
+
+.avatar,
+.loginAvatar {
+	width: 24px;
+	height: 24px;
+}
+
+.loginAvatar {
+	border-radius: 50%;
+	background: rgba(15, 23, 42, 0.06);
+}
+
+.popup {
+	min-width: 220px;
+}
+
+.postPickerPopup {
+	width: 280px;
+	max-height: 420px;
+	overflow-y: auto;
+}
+
+.postPickerStatus {
+	padding: var(--wpds-dimension-padding-sm);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.postPickerItem {
+	align-items: flex-start;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.postPickerTitle,
+.postPickerMeta {
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.postPickerTitle {
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.postPickerMeta {
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.email {
+	padding: 8px 12px 6px;
+	font-weight: 400;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.popup .email {
+	color: rgba(15, 23, 42, 0.42);
+	font-size: 11px;
+	line-height: 14px;
+}

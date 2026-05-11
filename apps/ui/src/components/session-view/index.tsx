@@ -1,4 +1,5 @@
 import { resolveSessionModel } from '@studio/common/ai/models';
+import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
@@ -109,10 +110,12 @@ function SessionFrame( { header, composer, preview, scrollRef, children }: Sessi
 		<div className={ styles.root }>
 			<div className={ styles.chatColumn }>
 				{ header }
-				<div ref={ scrollRef } className={ styles.scroll }>
+				<div ref={ scrollRef } className={ clsx( styles.scroll, styles.classicScroll ) }>
 					{ children }
 				</div>
-				<div className={ styles.composerOuter }>{ composer }</div>
+				<div className={ clsx( styles.composerOuter, styles.classicComposerOuter ) }>
+					{ composer }
+				</div>
 			</div>
 			{ preview }
 		</div>
@@ -128,6 +131,7 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 }
 
 function SessionViewContent( { sessionId }: { sessionId: string } ) {
+	const navigate = useNavigate();
 	const { data, isLoading, error } = useSession( sessionId );
 	const { data: sites } = useSites();
 	const ownerSitePath = data?.summary.ownerSitePath;
@@ -249,6 +253,12 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						liveSite={ liveSite }
 						entries={ data.entries }
 						ownerSiteId={ ownerSite?.id }
+						onSwitchSession={ ( nextSessionId ) =>
+							void navigate( {
+								to: '/sessions/$sessionId',
+								params: { sessionId: nextSessionId },
+							} )
+						}
 					/>
 				</div>
 			}
@@ -264,7 +274,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			}
 		>
 			{ isEmpty ? <EmptyBackground /> : null }
-			<div className={ clsx( styles.column, styles.conversationSpacing ) }>
+			<div className={ clsx( styles.column, styles.classicConversationSpacing ) }>
 				<Conversation
 					data={ data }
 					isRunning={ isRunning }

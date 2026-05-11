@@ -129,12 +129,13 @@ test.describe( 'Localization', () => {
 		await expect( addSiteModal.createSiteButton ).toBeVisible();
 		await addSiteModal.createSiteButton.click();
 
-		// Select "Empty site" and continue to the create form
-		const emptySiteButton = page.getByRole( 'button', { name: /Empty site/ } );
-		if ( await emptySiteButton.isVisible( { timeout: 2000 } ).catch( () => false ) ) {
-			await emptySiteButton.click();
-			await addSiteModal.continueButton.click();
-		}
+		// Select "Empty site" and continue to the create form.
+		// "Empty site" is untranslated so the English text works in all locales.
+		// Use force:true because the app-drag-region overlay intercepts pointer events.
+		const emptySiteBtn = session.mainWindow.getByRole( 'button', { name: /Empty site/ } );
+		await expect( emptySiteBtn ).toBeVisible( { timeout: 5000 } );
+		await emptySiteBtn.click( { force: true } );
+		await addSiteModal.continueButton.click();
 
 		// Fill in site name using data-testid
 		await expect( addSiteModal.siteNameInput ).toBeVisible( { timeout: 5000 } );

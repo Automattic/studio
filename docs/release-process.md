@@ -86,7 +86,7 @@ To publish `wp-studio` to npm **without** running a full app release (e.g. a CLI
 
 ### Sanity-checking the npm release lanes locally
 
-Run the lanes end-to-end with `DRY_RUN=true` to see the full plan without touching the remote — local commits still happen so you can inspect the diff, but the branch push, the PR creation, the tag push, and the workflow dispatch are all skipped:
+Run the lanes end-to-end with `DRY_RUN=true` to see the full plan with no remote side effects — read-only remote queries still happen (`git fetch`, `git ls-remote`) and local commits still happen so you can inspect the diff, but the branch push, the PR creation, the tag push, and the workflow dispatch are all skipped:
 
 ```sh
 DRY_RUN=true bundle exec fastlane prepare_npm_release version:"1.8.99"

@@ -567,7 +567,8 @@ def distribute_builds(
   build_number: get_required_env('BUILDKITE_BUILD_NUMBER'),
   release_tag: nil
 )
-  get_required_env('WPCOM_API_TOKEN')
+  # The CDN upload (and therefore the token) is skipped entirely in dry-run mode.
+  get_required_env('WPCOM_API_TOKEN') unless DRY_RUN
 
   build_type = if release_tag.nil?
                  'Nightly'
@@ -789,7 +790,7 @@ end
 def validate_npm_release_version!(version)
   return if StudioReleaseVersion.valid_version?(version)
 
-  UI.user_error!("Invalid version '#{version.inspect}'. Expected `X.Y.Z` or `X.Y.Z-betaN`.")
+  UI.user_error!("Invalid version #{version.inspect}. Expected `X.Y.Z` or `X.Y.Z-betaN`.")
 end
 
 # Update the local origin/MAIN_BRANCH ref so subsequent reads of `origin/<MAIN_BRANCH>` are fresh.

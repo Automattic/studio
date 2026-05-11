@@ -274,25 +274,12 @@
 	line-height: 14px;
 }
 
-.settingsBackdrop {
-	position: fixed;
-	inset: 0;
-	z-index: 50;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	padding: 24px;
-	background: rgba(15, 23, 42, 0.18);
-	backdrop-filter: blur(2px);
-	pointer-events: auto;
-}
+.settingsDialog {
+	--wp-ui-button-height: 36px;
 
-.settingsModal {
-	display: flex;
-	flex-direction: column;
 	width: min(440px, 92vw);
+	min-width: 0;
 	max-height: 80vh;
-	overflow: hidden;
 	color: var(--ui-desks-text, #14171a);
 	background: var(--ui-desks-material, #fff);
 	border-radius: 18px;
@@ -324,22 +311,10 @@
 	line-height: var(--wpds-typography-line-height-md);
 }
 
-.settingsCloseButton {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
+.settingsHeader [data-wp-ui-dialog-close-icon] {
 	width: 32px;
 	height: 32px;
-	padding: 0;
-	color: var(--ui-desks-text, #14171a);
-	background: transparent;
-	border: 0;
 	border-radius: var(--ui-desks-radius-button, 12px);
-	cursor: pointer;
-}
-
-.settingsCloseButton:hover {
-	background: var(--ui-desks-control-hover, rgba(15, 23, 42, 0.07));
 }
 
 .settingsBody {
@@ -348,7 +323,9 @@
 
 .settingsToggleRow {
 	display: flex;
+	width: fit-content;
 	align-items: center;
+	justify-content: flex-start;
 	gap: 10px;
 	color: var(--ui-desks-text, #14171a);
 	font-size: var(--wpds-typography-font-size-sm);
@@ -357,10 +334,12 @@
 	cursor: pointer;
 }
 
-.settingsToggleRow input {
+.settingsToggleRow input[type='checkbox'] {
+	flex: 0 0 auto;
 	width: 16px;
 	height: 16px;
 	margin: 0;
+	accent-color: var(--wp-admin-theme-color, #3858e9);
 	cursor: pointer;
 }
 
@@ -369,28 +348,22 @@
 	border-top: 1px solid var(--ui-desks-divider, rgba(15, 23, 42, 0.06));
 }
 
-.settingsFooterButton {
+.settingsPrimaryAction {
+	--action-button-background: var(--ui-desks-text, #14171a);
+	--wp-ui-button-height: 36px;
+
 	height: 36px;
+	justify-content: center;
 	padding: 0 14px;
-	color: var(--ui-desks-text, #14171a);
-	font: inherit;
+	border-radius: var(--ui-desks-radius-button, 12px);
+	color: #fff;
 	font-size: var(--wpds-typography-font-size-sm);
 	font-weight: var(--wpds-typography-font-weight-medium, 500);
-	background: var(--ui-desks-control-hover, rgba(15, 23, 42, 0.07));
-	border: 0;
-	border-radius: var(--ui-desks-radius-button, 12px);
-	cursor: pointer;
+	line-height: var(--wpds-typography-line-height-sm);
 }
 
-.settingsFooterButton:hover {
-	background: rgba(15, 23, 42, 0.1);
-}
+.settingsPrimaryAction:hover:not(:disabled) {
+	--action-button-background: #000;
 
-.settingsFooterButtonPrimary {
-	background: var(--ui-desks-text, #14171a);
 	color: #fff;
-}
-
-.settingsFooterButtonPrimary:hover {
-	background: #000;
 }

@@ -1,7 +1,5 @@
 import {
-	DEFAULT_DESK_TOOLBAR_LAYOUT,
 	createDefaultDeskSettings,
-	moveDeskToolbarButton,
 	normalizeDeskSettings,
 	normalizeDeskToolbarLayout,
 } from '../desk-settings';
@@ -12,26 +10,30 @@ describe( 'desk settings', () => {
 			version: 1,
 			updatedAt: '2026-05-11T00:00:00.000Z',
 			showSiteName: true,
-			toolbarLayout: DEFAULT_DESK_TOOLBAR_LAYOUT,
+			toolbarLayout: {
+				left: [],
+				right: [],
+			},
 		} );
 	} );
 
-	it( 'normalizes toolbar layouts and appends missing buttons to the right side', () => {
+	it( 'normalizes persisted toolbar layouts as deduped string arrays', () => {
 		expect(
 			normalizeDeskToolbarLayout( {
-				left: [ 'settings', 'chat', 'chat', 'unknown' ],
-				right: [ 'create' ],
+				left: [ 'settings', 'chat', 'chat', null, 'unknown' ],
+				right: [ 'create', 'settings', '' ],
 			} )
 		).toEqual( {
-			left: [ 'settings', 'chat' ],
-			right: [ 'create', 'site-map' ],
+			left: [ 'settings', 'chat', 'unknown' ],
+			right: [ 'create' ],
 		} );
 	} );
 
-	it( 'falls back to the default toolbar layout for invalid shapes', () => {
-		expect( normalizeDeskToolbarLayout( { left: [ 'chat' ], right: 'settings' } ) ).toEqual(
-			DEFAULT_DESK_TOOLBAR_LAYOUT
-		);
+	it( 'falls back to an empty toolbar layout for invalid persisted shapes', () => {
+		expect( normalizeDeskToolbarLayout( { left: [ 'chat' ], right: 'settings' } ) ).toEqual( {
+			left: [],
+			right: [],
+		} );
 	} );
 
 	it( 'normalizes saved settings', () => {
@@ -53,15 +55,6 @@ describe( 'desk settings', () => {
 				left: [ 'settings' ],
 				right: [ 'chat', 'create', 'site-map' ],
 			},
-		} );
-	} );
-
-	it( 'moves a toolbar button between sides', () => {
-		expect(
-			moveDeskToolbarButton( DEFAULT_DESK_TOOLBAR_LAYOUT, 'settings', 'left', 'chat' )
-		).toEqual( {
-			left: [ 'settings', 'chat', 'create' ],
-			right: [ 'site-map' ],
 		} );
 	} );
 } );

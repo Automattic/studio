@@ -1,5 +1,6 @@
 import { createDefaultDeskSettings, normalizeDeskSettings } from '@studio/common/lib/desk-settings';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useMemo } from 'react';
 import { useConnector } from '@/data/core';
 import type { DeskConfig, DeskSettings } from '@/data/core';
 
@@ -56,4 +57,24 @@ export function useSaveDeskSettings() {
 			queryClient.setQueryData( deskSettingsQueryKey, settings );
 		},
 	} );
+}
+
+export function useUpdateDeskSettings() {
+	const { data: savedDeskSettings } = useDeskSettings();
+	const fallbackDeskSettings = useMemo( () => createDefaultDeskSettings(), [] );
+	const deskSettings = savedDeskSettings ?? fallbackDeskSettings;
+	const saveDeskSettings = useSaveDeskSettings();
+
+	return useCallback(
+		( patch: Partial< DeskSettings > ) => {
+			saveDeskSettings.mutate(
+				normalizeDeskSettings( {
+					...deskSettings,
+					...patch,
+					updatedAt: new Date().toISOString(),
+				} )
+			);
+		},
+		[ deskSettings, saveDeskSettings ]
+	);
 }

@@ -1,13 +1,9 @@
 export const DESK_CONFIG_VERSION = 1;
 export const DESK_SETTINGS_VERSION = 1;
 
-export const DESK_TOOLBAR_BUTTONS = [ 'chat', 'create', 'site-map', 'settings' ] as const;
-
-export type DeskToolbarButtonId = ( typeof DESK_TOOLBAR_BUTTONS )[ number ];
-
 export interface DeskToolbarLayout {
-	left: DeskToolbarButtonId[];
-	right: DeskToolbarButtonId[];
+	left: string[];
+	right: string[];
 }
 
 export interface DeskSettings {

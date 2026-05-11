@@ -1,19 +1,21 @@
-import { moveDeskToolbarButton } from '@studio/common/lib/desk-settings';
+import { createDefaultDeskSettings } from '@studio/common/lib/desk-settings';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useDeskSettings, useUpdateDeskSettings } from '@/data/queries/use-desk-config';
 import { useFullscreen } from '@/hooks/use-fullscreen';
 import { ChatsTrigger } from '../chats';
 import { DeskCreateMenu } from './create-menu';
 import { DeskSettingsButton } from './settings-button';
 import { DeskSiteMapButton } from './site-map-button';
 import styles from './style.module.css';
+import {
+	moveDeskToolbarButton,
+	normalizeDeskToolbarSettings,
+	type DeskToolbarButtonId,
+	type DeskToolbarLayout,
+} from './toolbar-layout';
 import { DeskMenu } from './user-menu';
-import type {
-	DeskSettings,
-	DeskToolbarButtonId,
-	DeskToolbarLayout,
-} from '@studio/common/types/desk';
 import type { Dispatch, DragEvent, ReactNode, SetStateAction } from 'react';
 
 interface DeskHeaderProps {
@@ -39,25 +41,28 @@ interface DeskChromeProps {
 	siteId?: string;
 	siteMapOpen?: boolean;
 	siteMapPageCount?: number;
-	settings: DeskSettings;
 	settingsOpen: boolean;
 	editingToolbar: boolean;
 	onToggleSiteMap?: () => void;
 	onToggleSettings: () => void;
-	onChangeToolbarLayout: ( layout: DeskToolbarLayout ) => void;
 }
 
 export function DeskChrome( {
 	siteId,
 	siteMapOpen = false,
 	siteMapPageCount,
-	settings,
 	settingsOpen,
 	editingToolbar,
 	onToggleSiteMap,
 	onToggleSettings,
-	onChangeToolbarLayout,
 }: DeskChromeProps ) {
+	const { data: savedSettings } = useDeskSettings();
+	const fallbackSettings = useMemo( () => createDefaultDeskSettings(), [] );
+	const settings = useMemo(
+		() => normalizeDeskToolbarSettings( savedSettings ?? fallbackSettings ),
+		[ fallbackSettings, savedSettings ]
+	);
+	const updateDeskSettings = useUpdateDeskSettings();
 	const [ dragState, setDragState ] = useState< ToolbarDragState >( EMPTY_DRAG_STATE );
 	const clearDragState = useCallback( () => setDragState( EMPTY_DRAG_STATE ), [] );
 
@@ -86,9 +91,14 @@ export function DeskChrome( {
 		side: keyof DeskToolbarLayout,
 		beforeButtonId: DeskToolbarButtonId | null
 	) => {
-		onChangeToolbarLayout(
-			moveDeskToolbarButton( settings.toolbarLayout, buttonId, side, beforeButtonId )
-		);
+		updateDeskSettings( {
+			toolbarLayout: moveDeskToolbarButton(
+				settings.toolbarLayout,
+				buttonId,
+				side,
+				beforeButtonId
+			),
+		} );
 	};
 
 	return (

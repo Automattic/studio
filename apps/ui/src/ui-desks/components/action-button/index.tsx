@@ -1,22 +1,30 @@
+import { Button } from '@wordpress/ui';
 import { clsx } from 'clsx';
+import { forwardRef } from 'react';
 import styles from './style.module.css';
-import type { ComponentPropsWithoutRef } from 'react';
+import type { ComponentProps, ElementRef } from 'react';
 
-type ActionButtonProps = ComponentPropsWithoutRef< 'button' > & {
+type ActionButtonProps = Omit< ComponentProps< typeof Button >, 'variant' | 'tone' | 'size' > & {
 	fullWidth?: boolean;
 };
 
-export function ActionButton( {
-	className,
-	fullWidth = false,
-	type = 'button',
-	...props
-}: ActionButtonProps ) {
-	return (
-		<button
-			{ ...props }
-			className={ clsx( styles.button, fullWidth && styles.fullWidth, className ) }
-			type={ type }
-		/>
-	);
-}
+export const ActionButton = forwardRef< ElementRef< typeof Button >, ActionButtonProps >(
+	function ActionButton(
+		{ className, fullWidth = false, nativeButton, render, type = 'button', ...props },
+		ref
+	) {
+		return (
+			<Button
+				ref={ ref }
+				variant="minimal"
+				tone="neutral"
+				size="small"
+				className={ clsx( styles.button, fullWidth && styles.fullWidth, className ) }
+				nativeButton={ nativeButton ?? ! render }
+				render={ render }
+				type={ type }
+				{ ...props }
+			/>
+		);
+	}
+);

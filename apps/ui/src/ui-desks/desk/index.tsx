@@ -1,21 +1,16 @@
-import {
-	DEFAULT_DESK_TOOLBAR_LAYOUT,
-	createDefaultDeskSettings,
-	normalizeDeskSettings,
-} from '@studio/common/lib/desk-settings';
 import { __ } from '@wordpress/i18n';
-import { useMemo, useState } from 'react';
-import { useDeskSettings, useSaveDeskSettings } from '@/data/queries/use-desk-config';
+import { useState } from 'react';
+import { useUpdateDeskSettings } from '@/data/queries/use-desk-config';
 import { Chats, ChatsProvider } from '../chats';
 import { DeskChrome } from '../chrome';
 import { DeskSettingsModal } from '../chrome/settings-modal';
-import { LoadingPlaceholder } from '../components';
+import { DEFAULT_DESK_TOOLBAR_LAYOUT } from '../chrome/toolbar-layout';
+import { ActionButton, LoadingPlaceholder } from '../components';
 import { useSiteMapDeskConfig } from '../site-map/use-site-map-desk-config';
 import { DeskWidgetToolbar } from '../widgets/toolbar';
 import { DeskCanvas } from './canvas';
 import { DeskProvider } from './provider';
 import styles from './style.module.css';
-import type { DeskSettings, DeskToolbarLayout } from '@studio/common/types/desk';
 import type { ReactNode } from 'react';
 
 interface DeskProps {
@@ -83,26 +78,9 @@ function DeskShell( {
 	onToggleSiteMap?: () => void;
 	children: ReactNode;
 } ) {
-	const { data: savedDeskSettings } = useDeskSettings();
-	const fallbackDeskSettings = useMemo( () => createDefaultDeskSettings(), [] );
-	const deskSettings = savedDeskSettings ?? fallbackDeskSettings;
-	const saveDeskSettings = useSaveDeskSettings();
+	const updateDeskSettings = useUpdateDeskSettings();
 	const [ settingsOpen, setSettingsOpen ] = useState( false );
 	const [ editingToolbar, setEditingToolbar ] = useState( false );
-
-	const updateDeskSettings = ( patch: Partial< DeskSettings > ) => {
-		saveDeskSettings.mutate(
-			normalizeDeskSettings( {
-				...deskSettings,
-				...patch,
-				updatedAt: new Date().toISOString(),
-			} )
-		);
-	};
-
-	const updateToolbarLayout = ( toolbarLayout: DeskToolbarLayout ) => {
-		updateDeskSettings( { toolbarLayout } );
-	};
 
 	return (
 		<ChatsProvider siteId={ siteId }>
@@ -117,24 +95,19 @@ function DeskShell( {
 					siteId={ siteId }
 					siteMapOpen={ siteMapOpen }
 					siteMapPageCount={ siteMapPageCount }
-					settings={ deskSettings }
 					settingsOpen={ settingsOpen }
 					editingToolbar={ editingToolbar }
 					onToggleSiteMap={ onToggleSiteMap }
 					onToggleSettings={ () => setSettingsOpen( ( open ) => ! open ) }
-					onChangeToolbarLayout={ updateToolbarLayout }
 				/>
 				{ children }
 				{ siteMapIsLoading && <SiteMapLoadingWidget /> }
 				<DeskWidgetToolbar />
-				{ settingsOpen && (
-					<DeskSettingsModal
-						settings={ deskSettings }
-						onChange={ updateDeskSettings }
-						onClose={ () => setSettingsOpen( false ) }
-						onEditToolbar={ () => setEditingToolbar( true ) }
-					/>
-				) }
+				<DeskSettingsModal
+					open={ settingsOpen }
+					onOpenChange={ setSettingsOpen }
+					onEditToolbar={ () => setEditingToolbar( true ) }
+				/>
 				{ editingToolbar && (
 					<>
 						<button
@@ -144,14 +117,14 @@ function DeskShell( {
 							onClick={ () => setEditingToolbar( false ) }
 						/>
 						<div className={ styles.toolbarEditActions }>
-							<button
+							<ActionButton
 								type="button"
 								className={ styles.toolbarEditButton }
 								onClick={ () => setEditingToolbar( false ) }
 							>
 								{ __( 'Done' ) }
-							</button>
-							<button
+							</ActionButton>
+							<ActionButton
 								type="button"
 								className={ styles.toolbarEditButton }
 								onClick={ () =>
@@ -159,7 +132,7 @@ function DeskShell( {
 								}
 							>
 								{ __( 'Reset' ) }
-							</button>
+							</ActionButton>
 						</div>
 					</>
 				) }

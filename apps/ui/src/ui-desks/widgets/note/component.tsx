@@ -9,7 +9,10 @@ import {
 import { useCallback, useEffect, useRef, type KeyboardEvent, type PointerEvent } from 'react';
 import { NOTE_WIDGET_TYPE, type NoteWidgetProps } from '@/ui-desks/widgets/note/types';
 import styles from './style.module.css';
-import type { DeskWidgetComponentProps } from '@/ui-desks/widgets/types';
+import type {
+	DeskWidgetComponentProps,
+	DeskWidgetThumbnailComponentProps,
+} from '@/ui-desks/widgets/types';
 
 type NoteWidgetComponentProps = DeskWidgetComponentProps< NoteWidgetProps >;
 
@@ -153,6 +156,26 @@ export function NoteWidgetComponent( {
 				onBlur={ onEditComplete }
 				onKeyDown={ handleKeyDown }
 				onPointerDown={ handlePointerDown }
+			/>
+		</div>
+	);
+}
+
+export function NoteWidgetThumbnailComponent( {
+	id,
+	widgetProps,
+}: DeskWidgetThumbnailComponentProps< NoteWidgetProps > ) {
+	return (
+		<div
+			className={ styles.note }
+			data-tone={ widgetProps.tone }
+			data-is-editing="false"
+			data-studio-desk-widget={ NOTE_WIDGET_TYPE }
+			data-studio-desk-widget-id={ id }
+		>
+			<div
+				className={ styles.thumbnail }
+				dangerouslySetInnerHTML={ { __html: widgetProps.text } }
 			/>
 		</div>
 	);

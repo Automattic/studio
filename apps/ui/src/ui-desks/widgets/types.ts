@@ -1,4 +1,5 @@
 import type { ControlConfig } from '@/ui-desks/controls/types';
+import type { MediaWidget } from '@/ui-desks/widgets/media/types';
 import type { NoteWidget } from '@/ui-desks/widgets/note/types';
 import type { PageWidget } from '@/ui-desks/widgets/page/types';
 import type { PostWidget } from '@/ui-desks/widgets/post/types';
@@ -26,6 +27,10 @@ export interface DeskWidgetComponentProps<
 	onWidgetPropsChange: ( widgetProps: TWidgetProps ) => void;
 	onEditComplete: () => void;
 }
+
+export type DeskWidgetThumbnailComponentProps<
+	TWidgetProps extends Record< string, unknown > = Record< string, unknown >,
+> = DeskWidgetComponentProps< TWidgetProps >;
 
 export interface DeskWidgetLoadingComponentProps<
 	TWidgetProps extends Record< string, unknown > = Record< string, unknown >,
@@ -88,6 +93,7 @@ export interface WidgetResolver<
 export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBase > {
 	type: TWidget[ 'type' ];
 	Component: ComponentType< DeskWidgetComponentProps< TWidget[ 'widgetProps' ] > >;
+	thumbnail?: ComponentType< DeskWidgetThumbnailComponentProps< TWidget[ 'widgetProps' ] > >;
 	loading?: ComponentType< DeskWidgetLoadingComponentProps< TWidget[ 'widgetProps' ] > >;
 	controls?: Array< ControlConfig< TWidget[ 'widgetProps' ] > >;
 	isWidgetProps: ( props: unknown ) => props is TWidget[ 'widgetProps' ];
@@ -104,12 +110,14 @@ export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBa
 
 export type DeskWidget =
 	| NoteWidget
+	| MediaWidget
 	| PostWidget
 	| PageWidget
 	| PostCollectionWidget
 	| SitePreviewWidget;
 export type DeskWidgetDefinition =
 	| WidgetDefinition< NoteWidget >
+	| WidgetDefinition< MediaWidget >
 	| WidgetDefinition< PostWidget >
 	| WidgetDefinition< PageWidget >
 	| WidgetDefinition< PostCollectionWidget >

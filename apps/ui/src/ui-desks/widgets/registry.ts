@@ -1,3 +1,4 @@
+import { mediaWidgetDefinition } from '@/ui-desks/widgets/media/definition';
 import { noteWidgetDefinition } from '@/ui-desks/widgets/note/definition';
 import { pageWidgetDefinition } from '@/ui-desks/widgets/page/definition';
 import { postWidgetDefinition } from '@/ui-desks/widgets/post/definition';
@@ -7,6 +8,7 @@ import type { DeskWidgetDefinition } from './types';
 
 export const widgetDefinitions = {
 	[ noteWidgetDefinition.type ]: noteWidgetDefinition,
+	[ mediaWidgetDefinition.type ]: mediaWidgetDefinition,
 	[ postWidgetDefinition.type ]: postWidgetDefinition,
 	[ pageWidgetDefinition.type ]: pageWidgetDefinition,
 	[ postCollectionWidgetDefinition.type ]: postCollectionWidgetDefinition,

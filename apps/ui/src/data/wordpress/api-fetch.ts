@@ -1,4 +1,5 @@
 import type { Connector } from '@/data/core';
+import type { SiteRestRequest } from '@studio/common/types/wordpress-rest';
 import type { APIFetchOptions, FetchHandler } from '@wordpress/api-fetch';
 
 export function createSiteApiFetchHandler( connector: Connector, siteId: string ): FetchHandler {
@@ -30,12 +31,13 @@ async function createResponse(
 	siteId: string,
 	options: APIFetchOptions
 ): Promise< Response > {
+	const body = await serializeBody( options.body );
 	const restResponse = await connector.fetchSiteRest( siteId, {
 		path: options.path,
 		url: options.url,
 		method: options.method,
 		headers: normalizeHeaders( options.headers ),
-		body: serializeBody( options.body ),
+		...body,
 		data: options.data,
 		parse: options.parse,
 	} );
@@ -63,8 +65,46 @@ function normalizeHeaders( headers: APIFetchOptions[ 'headers' ] ) {
 	return headers;
 }
 
-function serializeBody( body: APIFetchOptions[ 'body' ] ) {
-	return typeof body === 'string' ? body : undefined;
+async function serializeBody(
+	body: APIFetchOptions[ 'body' ]
+): Promise< Pick< SiteRestRequest, 'body' | 'bodyBase64' > > {
+	if ( typeof body === 'string' ) {
+		return { body };
+	}
+
+	if ( body instanceof URLSearchParams ) {
+		return { body: body.toString() };
+	}
+
+	if ( body instanceof Blob ) {
+		return { bodyBase64: arrayBufferToBase64( await body.arrayBuffer() ) };
+	}
+
+	if ( body instanceof ArrayBuffer ) {
+		return { bodyBase64: arrayBufferToBase64( body ) };
+	}
+
+	if ( ArrayBuffer.isView( body ) ) {
+		return {
+			bodyBase64: arrayBufferToBase64(
+				body.buffer.slice( body.byteOffset, body.byteOffset + body.byteLength )
+			),
+		};
+	}
+
+	return {};
+}
+
+function arrayBufferToBase64( buffer: ArrayBuffer ) {
+	const bytes = new Uint8Array( buffer );
+	const chunkSize = 0x8000;
+	let binary = '';
+
+	for ( let offset = 0; offset < bytes.length; offset += chunkSize ) {
+		binary += String.fromCharCode( ...bytes.subarray( offset, offset + chunkSize ) );
+	}
+
+	return btoa( binary );
 }
 
 async function parseJson( response: Response ) {

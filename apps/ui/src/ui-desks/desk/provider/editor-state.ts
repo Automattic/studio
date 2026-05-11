@@ -82,13 +82,14 @@ export function addWidgetToEditor(
 ) {
 	const viewportCenter = editor.getViewportPageBounds().center;
 	const offset = ( creationOffset % 6 ) * 24;
+	const center = options.center ?? {
+		x: viewportCenter.x + offset,
+		y: viewportCenter.y + offset,
+	};
 	const widget = createDeskWidget( {
-		id: createWidgetId(),
+		id: options.id ?? createWidgetId(),
 		type,
-		center: {
-			x: viewportCenter.x + offset,
-			y: viewportCenter.y + offset,
-		},
+		center,
 		zIndex: getNextZIndexFromShapes( editor.getCurrentPageShapes() ),
 		shapeProps: options.shapeProps,
 		widgetProps: options.widgetProps,
@@ -453,6 +454,6 @@ function getNextZIndexFromShapes( shapes: TLShape[] ) {
 	return getIndexAbove( getHighestShapeIndex( shapes ) );
 }
 
-function createWidgetId() {
+export function createWidgetId() {
 	return globalThis.crypto?.randomUUID?.() ?? `widget-${ Date.now().toString( 36 ) }`;
 }

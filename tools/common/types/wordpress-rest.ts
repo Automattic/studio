@@ -4,6 +4,7 @@ export interface SiteRestRequest {
 	method?: string;
 	headers?: Record< string, string >;
 	body?: string;
+	bodyBase64?: string;
 	data?: unknown;
 	parse?: boolean;
 }

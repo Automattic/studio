@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { MEDIA_WIDGET_TYPE } from '@/ui-desks/widgets/media/types';
 import { NOTE_WIDGET_TYPE } from '@/ui-desks/widgets/note/types';
 import { PAGE_WIDGET_TYPE } from '@/ui-desks/widgets/page/types';
 import { POST_WIDGET_TYPE } from '@/ui-desks/widgets/post/types';
@@ -68,6 +69,22 @@ describe( 'widget toolbar selection', () => {
 		expect( selectedItem.definition.controls?.[ 0 ]?.type ).toBe( 'custom' );
 		expect( selectedItem.widget.widgetProps ).toEqual( {
 			path: '/',
+		} );
+	} );
+
+	it( 'returns the toolbar item for a single media widget selection', () => {
+		const selectedItem = getSelectedWidgetToolbarItem( [ createMediaWidget() ] );
+		expect( selectedItem ).toMatchObject( { kind: 'single-widget' } );
+		if ( selectedItem?.kind !== 'single-widget' ) {
+			throw new Error( 'Expected a single widget toolbar item.' );
+		}
+		expect( selectedItem.definition.type ).toBe( MEDIA_WIDGET_TYPE );
+		expect( selectedItem.definition.controls?.[ 0 ]?.type ).toBe( 'custom' );
+		expect( selectedItem.widget.widgetProps ).toEqual( {
+			url: 'https://example.com/image.jpg',
+			mediaKind: 'image',
+			alt: 'Example image',
+			mediaId: 123,
 		} );
 	} );
 
@@ -214,6 +231,26 @@ function createSitePreviewWidget(): DeskWidget {
 		},
 		widgetProps: {
 			path: '/',
+		},
+	};
+}
+
+function createMediaWidget(): DeskWidget {
+	return {
+		id: 'media-1',
+		type: MEDIA_WIDGET_TYPE,
+		x: 0,
+		y: 0,
+		zIndex: 'a1',
+		shapeProps: {
+			w: 320,
+			h: 320,
+		},
+		widgetProps: {
+			url: 'https://example.com/image.jpg',
+			mediaKind: 'image',
+			alt: 'Example image',
+			mediaId: 123,
 		},
 	};
 }

@@ -14,6 +14,7 @@ import {
 	resolvedDeskWidgetToCanvasShape,
 } from './tldraw-adapter';
 import type { DeskConfig } from './types';
+import type { MediaWidget } from '@/ui-desks/widgets/media/types';
 import type { NoteWidget } from '@/ui-desks/widgets/note/types';
 import type { PageWidget } from '@/ui-desks/widgets/page/types';
 import type { PostWidget } from '@/ui-desks/widgets/post/types';
@@ -219,6 +220,53 @@ describe( 'tldraw adapter', () => {
 				},
 				widgetProps: {
 					path: '/',
+				},
+			},
+		} );
+		expect( canvasShapeToDeskWidget( shape ) ).toEqual( {
+			...widget,
+			rotation: undefined,
+		} );
+	} );
+
+	it( 'maps a media widget through the canvas shape adapter', () => {
+		const widget: MediaWidget = {
+			id: 'media-1',
+			type: 'media',
+			x: 100,
+			y: 110,
+			zIndex: 'a6',
+			shapeProps: {
+				w: 320,
+				h: 320,
+			},
+			widgetProps: {
+				url: 'https://example.com/image.jpg',
+				mediaKind: 'image',
+				alt: 'Example image',
+				mediaId: 123,
+			},
+		};
+
+		const shape = deskWidgetToCanvasShape( widget ) as TLShape;
+
+		expect( shape ).toMatchObject( {
+			id: 'shape:media-1',
+			type: RECTANGLE_WIDGET_SHAPE_TYPE,
+			x: 100,
+			y: 110,
+			index: 'a6',
+			props: {
+				widgetType: 'media',
+				shapeProps: {
+					w: 320,
+					h: 320,
+				},
+				widgetProps: {
+					url: 'https://example.com/image.jpg',
+					mediaKind: 'image',
+					alt: 'Example image',
+					mediaId: 123,
 				},
 			},
 		} );

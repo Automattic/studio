@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createShapeId, type Editor } from 'tldraw';
+import { createShapeId, type Editor, type JsonObject } from 'tldraw';
 import { useSites } from '@/data/queries/use-sites';
-import { uploadSiteMedia } from '@/data/wordpress/media';
 import {
 	RECTANGLE_WIDGET_SHAPE_TYPE,
 	type RectangleWidgetShape,
 } from '@/ui-desks/shapes/rectangle-widget/types';
 import { useStackInteractions } from '@/ui-desks/stacks/use-stack-interactions';
 import { useStackPressAnimation } from '@/ui-desks/stacks/use-stack-press-animation';
-import { MEDIA_WIDGET_TYPE, type MediaKind } from '@/ui-desks/widgets/media/types';
+import { getWidgetFileHandler } from '@/ui-desks/widgets/file-handlers';
 import {
 	DeskContext,
 	type AddDeskWidgetOptions,
@@ -30,6 +29,12 @@ import {
 } from './editor-state';
 import { useDeskPersistence } from './persistence';
 import { useDeskWidgetResolvers } from './resolvers';
+import type {
+	DeskWidget,
+	DeskWidgetDefinition,
+	WidgetFileHandlerCreatedContext,
+	WidgetFileHandlerUpdate,
+} from '@/ui-desks/widgets/types';
 
 export { useDesk, useRegisterDeskEditor } from './context';
 
@@ -55,7 +60,7 @@ export function DeskProvider( {
 	const isLoading = externalIsLoading ?? isLoadingPersistedDesk;
 	const { data: sites } = useSites();
 	const site = sites?.find( ( candidate ) => candidate.id === siteId );
-	const canUploadMedia = Boolean( ! isReadOnly && siteId && site?.running );
+	const isRunningSite = Boolean( siteId && site?.running );
 	const [ editor, setEditor ] = useState< Editor | null >( null );
 	const [ isHydrated, setIsHydrated ] = useState( false );
 	const [ selectedWidgetToolbarItem, setSelectedWidgetToolbarItem ] =
@@ -177,102 +182,86 @@ export function DeskProvider( {
 	}, [ editor, isReadOnly, saveDeskConfig, toolbarStateOptions ] );
 
 	useEffect( () => {
-		if ( ! editor || ! isHydrated ) {
+		if ( ! editor || ! isHydrated || isReadOnly ) {
 			return;
 		}
 
 		editor.registerExternalContentHandler( 'files', async ( { files, point } ) => {
-			if ( ! siteId || ! canUploadMedia ) {
-				return;
-			}
+			const handledFiles = files
+				.map( ( file ) => ( {
+					file,
+					match: getWidgetFileHandler( file, { isRunningSite } ),
+				} ) )
+				.filter( ( item ): item is HandledDroppedFile => item.match !== null );
 
-			const mediaFiles = files
-				.map( ( file ) => ( { file, mediaKind: getDroppedMediaKind( file ) } ) )
-				.filter(
-					( item ): item is { file: File; mediaKind: MediaKind } => item.mediaKind !== null
-				);
-
-			if ( mediaFiles.length === 0 ) {
+			if ( handledFiles.length === 0 ) {
 				return;
 			}
 
 			const dropPoint = point ?? editor.getViewportPageBounds().center;
 			let cursorX = dropPoint.x;
 			const cursorY = dropPoint.y;
-			const queuedUploads: Array< {
-				file: File;
-				mediaKind: MediaKind;
-				shapeId: RectangleWidgetShape[ 'id' ];
-			} > = [];
+			const createdHandlers: Array< () => Promise< void > > = [];
 
-			for ( const { file, mediaKind } of mediaFiles ) {
+			for ( const { file, match } of handledFiles ) {
 				if ( editor.isDisposed ) {
 					return;
 				}
 
-				const widgetId = createWidgetId();
-				const shapeId = createShapeId( widgetId ) as RectangleWidgetShape[ 'id' ];
-				const didAddWidget = addWidgetToEditor( editor, MEDIA_WIDGET_TYPE, 0, {
-					id: widgetId,
-					center: {
-						x: cursorX,
-						y: cursorY,
-					},
-					widgetProps: {
-						url: '',
-						mediaKind,
-						alt: file.name,
-						mediaId: null,
-					},
-					shouldStartEditing: false,
-				} );
+				try {
+					const result = await match.handler.createWidget( file, { siteId } );
+					if ( ! result ) {
+						continue;
+					}
 
-				if ( ! didAddWidget ) {
-					continue;
+					const widgetId = createWidgetId();
+					const shapeId = createShapeId( widgetId ) as RectangleWidgetShape[ 'id' ];
+					const didAddWidget = addWidgetToEditor( editor, match.definition.type, 0, {
+						id: widgetId,
+						center: {
+							x: cursorX,
+							y: cursorY,
+						},
+						shapeProps: result.shapeProps,
+						widgetProps: result.widgetProps,
+						shouldStartEditing: result.shouldStartEditing,
+					} );
+
+					if ( ! didAddWidget ) {
+						continue;
+					}
+
+					const size = getDroppedWidgetSize( editor, shapeId );
+					cursorX += size.w + 20;
+
+					if ( result.onWidgetCreated ) {
+						createdHandlers.push( () =>
+							Promise.resolve(
+								result.onWidgetCreated?.(
+									createWidgetFileHandlerCreatedContext( {
+										editor,
+										definition: match.definition,
+										file,
+										shapeId,
+										siteId,
+										widgetId,
+									} )
+								)
+							)
+						);
+					}
+				} catch ( error ) {
+					console.warn( 'Failed to create dropped file widget.', error );
 				}
-
-				queuedUploads.push( {
-					file,
-					mediaKind,
-					shapeId,
-				} );
-				cursorX += 340;
 			}
 
-			await Promise.all(
-				queuedUploads.map( async ( { file, mediaKind, shapeId } ) => {
-					try {
-						const uploadedMedia = await uploadSiteMedia( file );
-						if ( editor.isDisposed ) {
-							return;
-						}
-
-						editor.updateShape< RectangleWidgetShape >( {
-							id: shapeId,
-							type: RECTANGLE_WIDGET_SHAPE_TYPE,
-							props: {
-								widgetProps: {
-									url: uploadedMedia.source_url,
-									mediaKind,
-									alt: uploadedMedia.alt_text || file.name,
-									mediaId: uploadedMedia.id,
-								},
-							},
-						} );
-					} catch ( error ) {
-						console.warn( 'Failed to upload dropped media.', error );
-						if ( ! editor.isDisposed && editor.getShape( shapeId ) ) {
-							editor.deleteShapes( [ shapeId ] );
-						}
-					}
-				} )
-			);
+			await Promise.all( createdHandlers.map( ( handleCreated ) => handleCreated() ) );
 		} );
 
 		return () => {
 			editor.registerExternalContentHandler( 'files', null );
 		};
-	}, [ canUploadMedia, editor, isHydrated, siteId ] );
+	}, [ editor, isHydrated, isReadOnly, isRunningSite, siteId ] );
 
 	const registerEditor = useCallback(
 		( nextEditor: Editor | null ) => {
@@ -397,14 +386,93 @@ export function DeskProvider( {
 	return <DeskContext.Provider value={ value }>{ children }</DeskContext.Provider>;
 }
 
-function getDroppedMediaKind( file: File ): MediaKind | null {
-	if ( file.type.startsWith( 'image/' ) ) {
-		return 'image';
+type HandledDroppedFile = {
+	file: File;
+	match: NonNullable< ReturnType< typeof getWidgetFileHandler > >;
+};
+
+function createWidgetFileHandlerCreatedContext( {
+	editor,
+	definition,
+	file,
+	shapeId,
+	siteId,
+	widgetId,
+}: {
+	editor: Editor;
+	definition: DeskWidgetDefinition;
+	file: File;
+	shapeId: RectangleWidgetShape[ 'id' ];
+	siteId?: string;
+	widgetId: string;
+} ): WidgetFileHandlerCreatedContext< DeskWidget > {
+	return {
+		file,
+		siteId,
+		widgetId,
+		updateWidget: ( update ) => updateDroppedWidget( editor, definition, shapeId, update ),
+		deleteWidget: () => deleteDroppedWidget( editor, shapeId ),
+	};
+}
+
+function updateDroppedWidget(
+	editor: Editor,
+	definition: DeskWidgetDefinition,
+	shapeId: RectangleWidgetShape[ 'id' ],
+	update: WidgetFileHandlerUpdate< DeskWidget >
+) {
+	if ( editor.isDisposed ) {
+		return false;
 	}
 
-	if ( file.type.startsWith( 'video/' ) ) {
-		return 'video';
+	const shape = editor.getShape( shapeId );
+	if ( ! isRectangleWidgetShape( shape ) ) {
+		return false;
 	}
 
-	return null;
+	const shapeProps = {
+		...shape.props.shapeProps,
+		...update.shapeProps,
+	};
+	const widgetProps = {
+		...shape.props.widgetProps,
+		...update.widgetProps,
+	};
+	if ( ! definition.isWidgetProps( widgetProps ) ) {
+		return false;
+	}
+
+	editor.updateShape< RectangleWidgetShape >( {
+		id: shapeId,
+		type: RECTANGLE_WIDGET_SHAPE_TYPE,
+		props: {
+			...( update.shapeProps ? { shapeProps } : {} ),
+			...( update.widgetProps ? { widgetProps: widgetProps as JsonObject } : {} ),
+		},
+	} );
+
+	return true;
+}
+
+function deleteDroppedWidget( editor: Editor, shapeId: RectangleWidgetShape[ 'id' ] ) {
+	if ( ! editor.isDisposed && editor.getShape( shapeId ) ) {
+		editor.deleteShapes( [ shapeId ] );
+	}
+}
+
+function getDroppedWidgetSize( editor: Editor, shapeId: RectangleWidgetShape[ 'id' ] ) {
+	const shape = editor.getShape( shapeId );
+	if ( isRectangleWidgetShape( shape ) ) {
+		return shape.props.shapeProps;
+	}
+
+	return { w: 320, h: 320 };
+}
+
+function isRectangleWidgetShape( shape: unknown ): shape is RectangleWidgetShape {
+	return (
+		Boolean( shape ) &&
+		typeof shape === 'object' &&
+		( shape as { type?: unknown } ).type === RECTANGLE_WIDGET_SHAPE_TYPE
+	);
 }

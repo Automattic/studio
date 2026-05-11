@@ -52,6 +52,50 @@ export interface WidgetResolverContext {
 	registry: WidgetResolverRegistry;
 }
 
+export interface WidgetFileAccept {
+	mimeTypes?: string[];
+	extensions?: string[];
+}
+
+export interface WidgetFileHandlerContext {
+	siteId?: string;
+}
+
+export interface WidgetFileHandlerUpdate< TWidget extends DeskWidgetBase = DeskWidgetBase > {
+	shapeProps?: Partial< TWidget[ 'shapeProps' ] >;
+	widgetProps?: Partial< TWidget[ 'widgetProps' ] >;
+}
+
+export interface WidgetFileHandlerCreatedContext< TWidget extends DeskWidgetBase = DeskWidgetBase >
+	extends WidgetFileHandlerContext {
+	file: File;
+	widgetId: string;
+	updateWidget: ( update: WidgetFileHandlerUpdate< TWidget > ) => boolean;
+	deleteWidget: () => void;
+}
+
+export interface WidgetFileHandlerResult< TWidget extends DeskWidgetBase = DeskWidgetBase > {
+	shapeProps?: Partial< TWidget[ 'shapeProps' ] >;
+	widgetProps?: Partial< TWidget[ 'widgetProps' ] >;
+	shouldStartEditing?: boolean;
+	onWidgetCreated?: (
+		context: WidgetFileHandlerCreatedContext< TWidget >
+	) => void | Promise< void >;
+}
+
+export interface WidgetFileHandler< TWidget extends DeskWidgetBase = DeskWidgetBase > {
+	id: string;
+	accept: WidgetFileAccept;
+	requiresRunningSite?: boolean;
+	createWidget: (
+		file: File,
+		context: WidgetFileHandlerContext
+	) =>
+		| WidgetFileHandlerResult< TWidget >
+		| Promise< WidgetFileHandlerResult< TWidget > | null >
+		| null;
+}
+
 export type ResolvedDeskWidgetOrigin =
 	| { kind: 'authored' }
 	| {
@@ -107,6 +151,7 @@ export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBa
 	getLoadingShapeProps?: ( widget: TWidget ) => TWidget[ 'shapeProps' ];
 	getIndicator?: ( widgetProps: TWidget[ 'widgetProps' ] ) => WidgetIndicator;
 	resolver?: WidgetResolver< TWidget >;
+	fileHandlers?: Array< WidgetFileHandler< TWidget > >;
 }
 
 export type DeskWidget =

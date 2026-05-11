@@ -140,17 +140,31 @@ jobs:
           php bin/spc download @downloadArgs
 
           if ( $env:PHP_VERSION -eq "8.3" -or $env:PHP_VERSION -like "8.3.*" ) {
-            $intlConfig = "source/php-src/ext/intl/config.w32"
-            $intlConfigContent = Get-Content -Raw $intlConfig
-            $intlFlags = 'ADD_FLAG("CFLAGS_INTL", "/EHsc /DUNISTR_FROM_CHAR_EXPLICIT=explicit /DUNISTR_FROM_STRING_EXPLICIT=explicit /DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 /DU_HIDE_OBSOLETE_UTF_OLD_H=1");'
-            $patchedIntlFlags = 'ADD_FLAG("CFLAGS_INTL", "/std:c++17 /EHsc /DUNISTR_FROM_CHAR_EXPLICIT=explicit /DUNISTR_FROM_STRING_EXPLICIT=explicit /DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 /DU_HIDE_OBSOLETE_UTF_OLD_H=1");'
+            $sourcePatcher = "src/SPC/store/SourcePatcher.php"
+            $sourcePatcherContent = Get-Content -Raw $sourcePatcher
+            $needle = "        // Fix PHP VS version"
+            $replacement = @'
+                  if ($builder instanceof WindowsBuilder && $builder->getPHPVersionID() >= 80300 && $builder->getPHPVersionID() < 80400) {
+                      logger()->info('Patching PHP 8.3 Windows intl C++17 flags');
+                      $intl_config = SOURCE_PATH . '/php-src/ext/intl/config.w32';
+                      if (!str_contains(file_get_contents($intl_config), '/std:c++17')) {
+                          FileSystem::replaceFileStr(
+                              $intl_config,
+                              'ADD_FLAG("CFLAGS_INTL", "/EHsc /DUNISTR_FROM_CHAR_EXPLICIT=explicit /DUNISTR_FROM_STRING_EXPLICIT=explicit /DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 /DU_HIDE_OBSOLETE_UTF_OLD_H=1");',
+                              'ADD_FLAG("CFLAGS_INTL", "/std:c++17 /EHsc /DUNISTR_FROM_CHAR_EXPLICIT=explicit /DUNISTR_FROM_STRING_EXPLICIT=explicit /DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 /DU_HIDE_OBSOLETE_UTF_OLD_H=1");'
+                          );
+                      }
+                  }
 
-            if ( $intlConfigContent -notmatch "/std:c\+\+17" ) {
-              $patchedIntlConfigContent = $intlConfigContent.Replace($intlFlags, $patchedIntlFlags)
-              if ( $patchedIntlConfigContent -eq $intlConfigContent ) {
-                throw "Unable to patch PHP 8.3 intl Windows compiler flags."
+                  // Fix PHP VS version
+          '@
+
+            if ( -not $sourcePatcherContent.Contains("Patching PHP 8.3 Windows intl C++17 flags") ) {
+              $patchedSourcePatcherContent = $sourcePatcherContent.Replace($needle, $replacement)
+              if ( $patchedSourcePatcherContent -eq $sourcePatcherContent ) {
+                throw "Unable to patch static-php-cli PHP 8.3 intl hook."
               }
-              Set-Content -NoNewline -Path $intlConfig -Value $patchedIntlConfigContent
+              Set-Content -NoNewline -Path $sourcePatcher -Value $patchedSourcePatcherContent
             }
           }
 

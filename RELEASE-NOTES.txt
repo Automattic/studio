@@ -3,7 +3,7 @@ Unreleased
 
 1.9.0
 =====
-* Added search, preview links, and compatibility filtering to the Blueprints Gallery #3384, #3400, #3402
+* Introduced the Blueprints Gallery #3384, #3400, #3402
 * Shared connected WordPress.com sites between the Studio app and CLI #3227
 * Improved Studio Code remote sessions with /remote-session, background daemon support, attach output, and safer runtime behavior #3315, #3300, #3347, #3366, #3365
 * Added GPT 5.5 support and a scaffold_theme tool for the CLI agent #3328, #3348

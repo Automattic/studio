@@ -16,6 +16,8 @@ import {
 } from '@/ui-desks/stacks/utils';
 import { BLOG_WIDGET_TYPE } from '@/ui-desks/widgets/blog/types';
 import { createDeskWidget } from '@/ui-desks/widgets/create-widget';
+import { getFittedNoteHeight } from '@/ui-desks/widgets/note/text-sizing';
+import { isNoteWidgetProps, NOTE_WIDGET_TYPE } from '@/ui-desks/widgets/note/types';
 import { PAGE_WIDGET_TYPE } from '@/ui-desks/widgets/page/types';
 import { getSelectedWidgetToolbarItem } from '@/ui-desks/widgets/toolbar-selection';
 import {
@@ -185,6 +187,39 @@ export function updateSelectedWidgetPropsInEditor(
 	};
 }
 
+export function fitSelectedWidgetToContentInEditor( editor: Editor ) {
+	const selection = getCurrentSelectedWidgetSelection( editor );
+	if ( ! selection || selection.item.kind !== 'single-widget' ) {
+		return false;
+	}
+
+	const { item, shapes } = selection;
+	const [ shape ] = shapes;
+	if (
+		item.widget.type !== NOTE_WIDGET_TYPE ||
+		! isNoteWidgetProps( item.widget.widgetProps ) ||
+		! isRectangleWidgetShape( shape )
+	) {
+		return false;
+	}
+
+	const nextHeight = getFittedNoteHeight( item.widget.widgetProps, shape.props.shapeProps );
+	const centerY = shape.y + shape.props.shapeProps.h / 2;
+	editor.updateShape< RectangleWidgetShape >( {
+		id: shape.id,
+		type: RECTANGLE_WIDGET_SHAPE_TYPE,
+		y: centerY - nextHeight / 2,
+		props: {
+			shapeProps: {
+				...shape.props.shapeProps,
+				h: nextHeight,
+			},
+		},
+	} );
+
+	return true;
+}
+
 export function removeSelectedWidgetFromEditor( editor: Editor ) {
 	const selection = getCurrentSelectedWidgetSelection( editor );
 	if ( ! selection || ! selection.item.canRemove ) {
@@ -301,6 +336,14 @@ function getCurrentSelectedWidgetSelection(
 		item,
 		shapes: shapes as TLShape[],
 	};
+}
+
+function isRectangleWidgetShape( shape: unknown ): shape is RectangleWidgetShape {
+	return (
+		Boolean( shape ) &&
+		typeof shape === 'object' &&
+		( shape as { type?: unknown } ).type === RECTANGLE_WIDGET_SHAPE_TYPE
+	);
 }
 
 export function getCurrentDeskWidgets( editor: Editor ) {

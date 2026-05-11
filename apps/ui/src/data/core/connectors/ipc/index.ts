@@ -6,6 +6,7 @@ import type {
 	ColorScheme,
 	Connector,
 	DeskConfig,
+	DeskSettings,
 	ExtractedBlueprintBundle,
 	FeaturedBlueprint,
 	InstalledApps,
@@ -596,6 +597,14 @@ export function createIpcConnector(): Connector {
 
 		async getInstalledApps(): Promise< InstalledApps > {
 			return ( await ipcApi.getInstalledAppsAndTerminals() ) as InstalledApps;
+		},
+
+		async getDeskSettings(): Promise< DeskSettings > {
+			return ( await ipcApi.getDeskSettings() ) as DeskSettings;
+		},
+
+		async saveDeskSettings( settings ): Promise< void > {
+			await ipcApi.saveDeskSettings( settings );
 		},
 
 		async getUserDeskConfig(): Promise< DeskConfig | undefined > {

@@ -7,6 +7,7 @@ import {
 	type RichTextValue,
 } from '@wordpress/rich-text';
 import { useCallback, useEffect, useRef, type KeyboardEvent, type PointerEvent } from 'react';
+import { getNoteTextSize } from '@/ui-desks/widgets/note/text-sizing';
 import { NOTE_WIDGET_TYPE, type NoteWidgetProps } from '@/ui-desks/widgets/note/types';
 import styles from './style.module.css';
 import type {
@@ -144,6 +145,7 @@ export function NoteWidgetComponent( {
 			className={ styles.note }
 			data-tone={ widgetProps.tone }
 			data-is-editing={ isEditing }
+			data-text-size={ getNoteTextSize( widgetProps ) }
 			data-studio-desk-widget={ NOTE_WIDGET_TYPE }
 			data-studio-desk-widget-id={ id }
 		>
@@ -170,6 +172,7 @@ export function NoteWidgetThumbnailComponent( {
 			className={ styles.note }
 			data-tone={ widgetProps.tone }
 			data-is-editing="false"
+			data-text-size={ getNoteTextSize( widgetProps ) }
 			data-studio-desk-widget={ NOTE_WIDGET_TYPE }
 			data-studio-desk-widget-id={ id }
 		>

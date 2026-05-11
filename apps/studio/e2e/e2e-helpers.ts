@@ -121,8 +121,16 @@ export class E2ESession {
 			executablePath = executablePath.replace( 'Squirrel.exe', 'Studio.exe' );
 		}
 
+		// Linux E2E runs as a non-root user inside a Docker container with
+		// chrome-sandbox removed and no SYS_ADMIN capability, so neither the
+		// SUID sandbox nor the user-namespace sandbox can initialize. Without
+		// --no-sandbox Chromium aborts with "No usable sandbox!" before any
+		// window is created. Playwright auto-adds this flag only when the
+		// launching user is root, so we add it explicitly here.
+		const linuxFlags = appInfo.platform === 'linux' ? [ '--no-sandbox' ] : [];
+
 		this.electronApp = await electron.launch( {
-			args: [ appInfo.main ],
+			args: [ ...linuxFlags, appInfo.main ],
 			executablePath,
 			env: {
 				...process.env,

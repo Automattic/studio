@@ -606,6 +606,18 @@ export function createIpcConnector(): Connector {
 			await ipcApi.saveUserDeskConfig( config );
 		},
 
+		async getSiteDeskConfig( siteId ): Promise< DeskConfig | undefined > {
+			return ( await ipcApi.getSiteDeskConfig( siteId ) ) as DeskConfig | undefined;
+		},
+
+		async saveSiteDeskConfig( siteId, config ): Promise< void > {
+			await ipcApi.saveSiteDeskConfig( siteId, config );
+		},
+
+		async fetchSiteRest( siteId, request ) {
+			return await ipcApi.fetchSiteRestApi( siteId, request );
+		},
+
 		async openSiteFolder( siteId ): Promise< void > {
 			const sitePath = await resolveSiteFolder( siteId );
 			ipcApi.openLocalPath( sitePath );
@@ -628,6 +640,10 @@ export function createIpcConnector(): Connector {
 		// External links
 		async openExternalUrl( url: string ): Promise< void > {
 			ipcApi.openURL( url );
+		},
+
+		async openSiteUrl( siteId, relativeUrl = '', options ): Promise< void > {
+			await ipcApi.openSiteURL( siteId, relativeUrl, options );
 		},
 
 		// Window state

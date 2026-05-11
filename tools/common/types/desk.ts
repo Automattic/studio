@@ -21,11 +21,20 @@ export interface DeskViewport {
 	z: number;
 }
 
+export interface DeskStack {
+	id: string;
+	x: number;
+	y: number;
+	zIndex: string;
+	memberIds: string[];
+}
+
 export interface DeskConfig< TWidget extends DeskWidgetBase = DeskWidgetBase > {
 	version: typeof DESK_CONFIG_VERSION;
 	updatedAt: string;
 	viewport?: DeskViewport;
 	widgets: TWidget[];
+	stacks?: DeskStack[];
 }
 
 export interface DesksConfig {

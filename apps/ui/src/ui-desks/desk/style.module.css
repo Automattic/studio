@@ -1,13 +1,19 @@
+.root,
+.loading {
+	min-height: 100vh;
+	background: var(--ui-desks-bg, rgb(232, 234, 235));
+}
+
 .canvas,
 .loading {
 	width: 100vw;
 	height: 100vh;
-	background: rgb(232, 234, 235);
+	background: var(--ui-desks-bg, rgb(232, 234, 235));
 	overflow: hidden;
 }
 
 .canvas :global(.tl-background) {
-	background: rgb(232, 234, 235) !important;
+	background: var(--ui-desks-bg, rgb(232, 234, 235)) !important;
 }
 
 .canvas :global(.tl-grid) {

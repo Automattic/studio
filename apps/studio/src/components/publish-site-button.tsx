@@ -1,9 +1,9 @@
+import { generateCheckoutUrl } from '@studio/common/lib/generate-checkout-url';
 import { cloudUpload } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback } from 'react';
 import { useAuth } from 'src/hooks/use-auth';
 import { useSiteDetails } from 'src/hooks/use-site-details';
-import { generateCheckoutUrl } from 'src/lib/generate-checkout-url';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ConnectButton } from 'src/modules/sync/components/connect-button';
 import { useRootSelector } from 'src/stores';

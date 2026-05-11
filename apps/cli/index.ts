@@ -6,6 +6,7 @@ import yargs from 'yargs';
 import { registerCommand as registerExportCommand } from 'cli/commands/export';
 import { registerCommand as registerImportCommand } from 'cli/commands/import';
 import { registerCommand as registerMcpCommand } from 'cli/commands/mcp';
+import { registerCommand as registerPublishCommand } from 'cli/commands/publish';
 import { registerCommand as registerPullCommand } from 'cli/commands/pull';
 import { registerCommand as registerPullReprintCommand } from 'cli/commands/pull-reprint';
 import { registerCommand as registerPushCommand } from 'cli/commands/push';
@@ -186,6 +187,7 @@ async function main() {
 		previewYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );
 	} );
 
+	registerPublishCommand( studioArgv );
 	registerPullCommand( studioArgv );
 	if ( process.env.STUDIO_ENABLE_PULL_REPRINT ) {
 		registerPullReprintCommand( studioArgv );

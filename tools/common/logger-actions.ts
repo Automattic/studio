@@ -84,3 +84,8 @@ export enum SyncCommandLoggerAction {
 	DOWNLOAD = 'download',
 	IMPORT = 'import',
 }
+
+export enum PublishCommandLoggerAction {
+	LOAD_SITES = 'loadSites',
+	WAITING_FOR_SETUP = 'waitingForSetup',
+}

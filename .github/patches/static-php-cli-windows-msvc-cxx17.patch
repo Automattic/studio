@@ -1,7 +1,0 @@
-diff --git a/src/SPC/builder/windows/WindowsBuilder.php b/src/SPC/builder/windows/WindowsBuilder.php
-index 7a2db7f..46e1c40 100644
---- a/src/SPC/builder/windows/WindowsBuilder.php
-+++ b/src/SPC/builder/windows/WindowsBuilder.php
-@@ -160 +160 @@ class WindowsBuilder extends BuilderBase
--        FileSystem::writeFile(SOURCE_PATH . '\php-src\nmake_cli_wrapper.bat', "nmake /nologo {$debug_overrides}LIBS_CLI=\"ws2_32.lib shell32.lib {$extra_libs}\" EXTRA_LD_FLAGS_PROGRAM= %*");
-+        FileSystem::writeFile(SOURCE_PATH . '\php-src\nmake_cli_wrapper.bat', "set \"CL=/std:c++17 %CL%\"\r\nnmake /nologo {$debug_overrides}LIBS_CLI=\"ws2_32.lib shell32.lib {$extra_libs}\" EXTRA_LD_FLAGS_PROGRAM= %*");

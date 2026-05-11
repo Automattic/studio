@@ -535,7 +535,7 @@ export async function runTurn( options: TurnRunOptions ): Promise< TurnOutcome >
 		} );
 	}
 
-	const status: TurnOutcomeStatus = completedStatus ?? ( isError ? 'error' : 'error' );
+	const status: TurnOutcomeStatus = completedStatus ?? 'error';
 	const staleSession =
 		options.sessionId !== undefined &&
 		detectStaleSession( stderrTail, replyText, lastErrorEventMessage );

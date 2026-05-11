@@ -2,7 +2,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { useEntityRecords, type Post as CoreDataPost } from '@wordpress/core-data';
 import { decodeEntities } from '@wordpress/html-entities';
 import { __ } from '@wordpress/i18n';
-import { chevronLeft, comment, download, globe, link, plus } from '@wordpress/icons';
+import { chevronLeft, download, globe, link, plus } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { useMemo, useState } from 'react';
 import { useSites } from '@/data/queries/use-sites';
@@ -15,7 +15,6 @@ import { POST_WIDGET_TYPE } from '@/ui-desks/widgets/post/types';
 import { getCreatableWidgetDefinitions } from '@/ui-desks/widgets/registry';
 import { LinkFromUrlDialog } from './link-from-url-dialog';
 import styles from './style.module.css';
-import type { ChatsSearch } from '../chats/search';
 import type { DeskWidgetDefinition } from '@/ui-desks/widgets/types';
 
 export function DeskCreateMenu() {
@@ -29,17 +28,6 @@ export function DeskCreateMenu() {
 	const { data: sites } = useSites();
 	const site = sites?.find( ( candidate ) => candidate.id === desk.siteId );
 	const isSiteRunning = Boolean( site?.running );
-
-	const createChat = () => {
-		void navigate( {
-			to: '.',
-			search: ( previous: ChatsSearch ) => ( {
-				...previous,
-				chats: true,
-				newChat: Date.now(),
-			} ),
-		} );
-	};
 
 	const openCreateSite = () => {
 		void navigate( { to: '/onboarding' } );
@@ -120,10 +108,6 @@ export function DeskCreateMenu() {
 								</>
 							) }
 							{ ( creatableWidgetDefinitions.length > 0 || desk.siteId ) && <Menu.Separator /> }
-							<Menu.Item onClick={ createChat }>
-								<Icon icon={ comment } />
-								<span>{ __( 'New chat' ) }</span>
-							</Menu.Item>
 							<Menu.Item onClick={ openCreateSite }>
 								<Icon icon={ globe } />
 								<span>{ __( 'New site' ) }</span>

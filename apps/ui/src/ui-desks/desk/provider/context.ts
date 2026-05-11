@@ -27,6 +27,7 @@ export interface DeskContextValue {
 		options?: AddDeskWidgetOptions
 	) => Promise< boolean >;
 	updateSelectedWidgetProps: ( widgetProps: Record< string, unknown > ) => boolean;
+	fitSelectedWidgetToContent: () => boolean;
 	stackSelectedWidgets: () => boolean;
 	unstackSelectedWidgets: () => boolean;
 	removeSelectedWidget: () => boolean;
@@ -67,6 +68,7 @@ const defaultDeskContext: DeskContextValue = {
 	addWidget: () => false,
 	addPastedContent: () => Promise.resolve( false ),
 	updateSelectedWidgetProps: () => false,
+	fitSelectedWidgetToContent: () => false,
 	stackSelectedWidgets: () => false,
 	unstackSelectedWidgets: () => false,
 	removeSelectedWidget: () => false,

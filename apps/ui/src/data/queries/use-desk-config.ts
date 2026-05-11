@@ -1,7 +1,10 @@
+import { createDefaultDeskSettings, normalizeDeskSettings } from '@studio/common/lib/desk-settings';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useMemo } from 'react';
 import { useConnector } from '@/data/core';
-import type { DeskConfig } from '@/data/core';
+import type { DeskConfig, DeskSettings } from '@/data/core';
 
+const deskSettingsQueryKey = [ 'desk-settings' ] as const;
 const userDeskConfigQueryKey = [ 'desk-config', 'user' ] as const;
 const siteDeskConfigQueryKey = ( siteId: string ) => [ 'desk-config', 'site', siteId ] as const;
 const deskConfigQueryKey = ( siteId?: string ) =>
@@ -30,4 +33,48 @@ export function useSaveDeskConfig( siteId?: string ) {
 			queryClient.setQueryData( deskConfigQueryKey( siteId ), config );
 		},
 	} );
+}
+
+export function useDeskSettings() {
+	const connector = useConnector();
+	return useQuery( {
+		queryKey: deskSettingsQueryKey,
+		queryFn: async () => normalizeDeskSettings( await connector.getDeskSettings() ),
+		placeholderData: () => createDefaultDeskSettings(),
+	} );
+}
+
+export function useSaveDeskSettings() {
+	const connector = useConnector();
+	const queryClient = useQueryClient();
+	return useMutation( {
+		mutationFn: ( settings: DeskSettings ) =>
+			connector.saveDeskSettings( settings ).then( () => settings ),
+		onMutate: ( settings ) => {
+			queryClient.setQueryData( deskSettingsQueryKey, settings );
+		},
+		onSuccess: ( settings ) => {
+			queryClient.setQueryData( deskSettingsQueryKey, settings );
+		},
+	} );
+}
+
+export function useUpdateDeskSettings() {
+	const { data: savedDeskSettings } = useDeskSettings();
+	const fallbackDeskSettings = useMemo( () => createDefaultDeskSettings(), [] );
+	const deskSettings = savedDeskSettings ?? fallbackDeskSettings;
+	const saveDeskSettings = useSaveDeskSettings();
+
+	return useCallback(
+		( patch: Partial< DeskSettings > ) => {
+			saveDeskSettings.mutate(
+				normalizeDeskSettings( {
+					...deskSettings,
+					...patch,
+					updatedAt: new Date().toISOString(),
+				} )
+			);
+		},
+		[ deskSettings, saveDeskSettings ]
+	);
 }

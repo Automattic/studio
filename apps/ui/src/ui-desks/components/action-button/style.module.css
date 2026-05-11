@@ -8,8 +8,10 @@
 	display: inline-flex;
 	align-items: center;
 	justify-content: flex-start;
+	min-width: 0;
 	padding: 10px 12px;
 	border: 0;
+	border-color: transparent;
 	border-radius: var(--ui-desks-radius-button, 12px);
 	corner-shape: var(--ui-desks-corner-shape, superellipse(1.42));
 	-webkit-corner-shape: var(--ui-desks-corner-shape, superellipse(1.42));

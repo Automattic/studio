@@ -5,6 +5,7 @@ import {
 	getIndexAbove,
 	sortByIndex,
 	type Editor,
+	type TLShape,
 	type TLShapePartial,
 } from 'tldraw';
 import { useSites } from '@/data/queries/use-sites';
@@ -21,6 +22,7 @@ import { useStackPressAnimation } from '@/ui-desks/stacks/use-stack-press-animat
 import { createDeskWidget } from '@/ui-desks/widgets/create-widget';
 import { getWidgetFileHandler } from '@/ui-desks/widgets/file-handlers';
 import { LOADING_WIDGET_TYPE } from '@/ui-desks/widgets/loading/types';
+import { NOTE_WIDGET_TYPE } from '@/ui-desks/widgets/note/types';
 import {
 	DeskContext,
 	type AddDeskWidgetOptions,
@@ -31,6 +33,7 @@ import {
 	addWidgetToEditor,
 	createWidgetId,
 	createDeskConfigFromEditor,
+	fitSelectedWidgetToContentInEditor,
 	getCurrentSelectedWidgetToolbarItem,
 	hasCameraChange,
 	hasPersistentDocumentChange,
@@ -247,6 +250,22 @@ export function DeskProvider( {
 		};
 	}, [ editor, isHydrated, isReadOnly, isRunningSite, siteId ] );
 
+	useEffect( () => {
+		if ( ! editor || ! isHydrated || isReadOnly ) {
+			return;
+		}
+
+		return editor.sideEffects.registerAfterCreateHandler( 'shape', ( shape, source ) => {
+			if ( source !== 'user' || shape.type !== 'text' ) {
+				return;
+			}
+
+			queueMicrotask( () => {
+				replaceTextShapeWithNote( editor, shape );
+			} );
+		} );
+	}, [ editor, isHydrated, isReadOnly ] );
+
 	const registerEditor = useCallback(
 		( nextEditor: Editor | null ) => {
 			setEditor( nextEditor );
@@ -295,6 +314,22 @@ export function DeskProvider( {
 		[ editor, isHydrated, isReadOnly ]
 	);
 
+	const fitSelectedWidgetToContent = useCallback( () => {
+		if (
+			isReadOnly ||
+			! editor ||
+			! isHydrated ||
+			! fitSelectedWidgetToContentInEditor( editor )
+		) {
+			return false;
+		}
+
+		setSelectedWidgetToolbarItem(
+			getCurrentSelectedWidgetToolbarItem( editor, toolbarStateOptions )
+		);
+		return true;
+	}, [ editor, isHydrated, isReadOnly, toolbarStateOptions ] );
+
 	const stackSelectedWidgets = useCallback( () => {
 		if ( isReadOnly || ! editor || ! isHydrated || ! stackSelectedWidgetsInEditor( editor ) ) {
 			return false;
@@ -339,6 +374,7 @@ export function DeskProvider( {
 			pressStack,
 			addWidget,
 			updateSelectedWidgetProps,
+			fitSelectedWidgetToContent,
 			stackSelectedWidgets,
 			unstackSelectedWidgets,
 			removeSelectedWidget,
@@ -346,6 +382,7 @@ export function DeskProvider( {
 		[
 			addWidget,
 			editor,
+			fitSelectedWidgetToContent,
 			isHydrated,
 			isReadOnly,
 			isLoading,
@@ -368,6 +405,21 @@ export function DeskProvider( {
 	} );
 
 	return <DeskContext.Provider value={ value }>{ children }</DeskContext.Provider>;
+}
+
+function replaceTextShapeWithNote( editor: Editor, shape: TLShape ) {
+	if ( editor.isDisposed || ! editor.getShape( shape.id ) ) {
+		return;
+	}
+
+	editor.deleteShape( shape.id );
+	editor.setCurrentTool( 'select' );
+	addWidgetToEditor( editor, NOTE_WIDGET_TYPE, 0, {
+		center: {
+			x: shape.x,
+			y: shape.y,
+		},
+	} );
 }
 
 type HandledDroppedFile = {

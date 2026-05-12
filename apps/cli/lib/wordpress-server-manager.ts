@@ -27,6 +27,7 @@ import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-bina
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { ServerConfig, ManagerMessagePayload } from 'cli/lib/types/wordpress-server-ipc';
 import { Logger } from 'cli/logger';
+import { ensureMailpitConfig } from './mailpit';
 import { validatePhpVersion } from './utils';
 import type { WordPressInstallMode } from '@wp-playground/wordpress';
 
@@ -156,6 +157,10 @@ function buildServerConfig(
 		serverConfig.enableDebugDisplay = true;
 	}
 
+	if ( site.mailpit ) {
+		serverConfig.mailpit = site.mailpit;
+	}
+
 	return serverConfig;
 }
 
@@ -197,15 +202,16 @@ export async function startWordPressServer(
 	}
 
 	await ensurePhpBinaryAvailableIfNeeded( site, logger );
+	const siteWithMailpit = await ensureMailpitConfig( site );
 
 	const startMessage = options?.blueprint
 		? __( 'Starting WordPress server and applying Blueprint…' )
 		: __( 'Starting WordPress server…' );
 	logger.reportStart( SiteCommandLoggerAction.START_SITE, startMessage );
 
-	const wordPressServerChildPath = getChildScriptPath( site.runtime );
-	const processName = getProcessName( site.id );
-	const serverConfig = buildServerConfig( site, options );
+	const wordPressServerChildPath = getChildScriptPath( siteWithMailpit.runtime );
+	const processName = getProcessName( siteWithMailpit.id );
+	const serverConfig = buildServerConfig( siteWithMailpit, options );
 
 	const readyOrExit = await subscribeForReadyOrExit( processName );
 	try {
@@ -520,11 +526,12 @@ export async function runBlueprint(
 	options: RunBlueprintOptions
 ): Promise< void > {
 	await ensurePhpBinaryAvailableIfNeeded( site, logger );
+	const siteWithMailpit = await ensureMailpitConfig( site );
 	logger.reportStart( SiteCommandLoggerAction.APPLY_BLUEPRINT, __( 'Applying Blueprint…' ) );
 
-	const wordPressServerChildPath = getChildScriptPath( site.runtime );
-	const processName = getProcessName( site.id );
-	const serverConfig = buildServerConfig( site, options );
+	const wordPressServerChildPath = getChildScriptPath( siteWithMailpit.runtime );
+	const processName = getProcessName( siteWithMailpit.id );
+	const serverConfig = buildServerConfig( siteWithMailpit, options );
 
 	const readyOrExit = await subscribeForReadyOrExit( processName );
 	try {

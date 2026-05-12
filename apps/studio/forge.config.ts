@@ -201,6 +201,9 @@ const config: ForgeConfig = {
 			console.log( 'Downloading language packs ...' );
 			await execAsync( 'npm run download-language-packs' );
 
+			console.log( `Downloading MailPit for ${ platform }/${ arch } ...` );
+			await execAsync( `npm run download-mailpit -- ${ platform } ${ arch }` );
+
 			console.log( 'Building CLI (with bundled node_modules) ...' );
 			// NOTE: The `cli:package` script mutates the `apps/cli/node_modules` directory. You may need to
 			// rerun `npm ci` from the repo root to reset the dependency tree after packaging.

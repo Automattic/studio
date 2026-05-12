@@ -1,4 +1,5 @@
 import path from 'path';
+import { getMailpitBinaryName, getMailpitInstallDirName } from '@studio/common/lib/mailpit';
 import { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
 import { getConfigDirectory, getServerFilesPath } from '@studio/common/lib/well-known-paths';
 
@@ -54,4 +55,13 @@ export function getPhpMyAdminPath(): string {
 
 export function getBlueprintsPharPath(): string {
 	return path.join( getWpFilesPath(), 'blueprints', 'blueprints.phar' );
+}
+
+export function getMailpitBinaryPath(): string {
+	return path.join(
+		getWpFilesPath(),
+		'mailpit',
+		getMailpitInstallDirName( process.platform, process.arch ),
+		getMailpitBinaryName( process.platform )
+	);
 }

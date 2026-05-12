@@ -1,3 +1,4 @@
+import { mailpitSchema } from '@studio/common/lib/mailpit';
 import { z } from 'zod';
 
 // Zod schemas for validating IPC messages from wordpress-server-manager
@@ -29,6 +30,7 @@ const serverConfig = z.object( {
 	enableXdebug: z.boolean().optional(),
 	enableDebugLog: z.boolean().optional(),
 	enableDebugDisplay: z.boolean().optional(),
+	mailpit: mailpitSchema.optional(),
 	blueprint: z
 		.object( {
 			contents: z.any(), // Blueprint type is complex, allow any for now

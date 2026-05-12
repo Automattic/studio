@@ -29,6 +29,7 @@ import {
 	getPhpBinaryPath,
 	getWpCliPharPath,
 } from './lib/dependency-management/paths';
+import { startMailpit, stopMailpit } from './lib/mailpit';
 
 const ROUTER_PATH = path.resolve( import.meta.dirname, 'php', 'router.php' );
 const SET_DEFAULT_PERMALINKS_PATH = path.resolve(
@@ -44,9 +45,14 @@ const WP_CONFIG_TRANSFORMER_PATH = path.resolve(
 const DEFAULT_WP_CONFIG_CONSTANTS = { DB_NAME: 'wordpress' } as const;
 
 let phpProcess: ChildProcess | null = null;
+let mailpitProcess: ChildProcess | null = null;
 let startupAbortController: AbortController | null = null;
 let startingPromise: Promise< void > | null = null;
 let blueprintQueue: Promise< unknown > = Promise.resolve();
+
+process.once( 'exit', () => {
+	stopMailpit( mailpitProcess );
+} );
 
 function logToConsole( ...args: Parameters< typeof console.log > ) {
 	console.log( `[PHP Server]`, ...args );
@@ -366,7 +372,11 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		stopSignal.throwIfAborted();
 		await ensureWpConfig( config.sitePath, phpVersion, stopSignal, config );
 		stopSignal.throwIfAborted();
-		await writeStudioMuPluginsForNativePhpRuntime( config.sitePath, config.isWpAutoUpdating );
+		await writeStudioMuPluginsForNativePhpRuntime(
+			config.sitePath,
+			config.isWpAutoUpdating,
+			config.mailpit
+		);
 		stopSignal.throwIfAborted();
 		await installWordPress( config, phpVersion, stopSignal );
 		stopSignal.throwIfAborted();
@@ -378,6 +388,11 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 
 		const phpAddress = `localhost:${ config.port }`;
 		logToConsole( `Spawning PHP built-in server on ${ phpAddress } for site ${ config.siteId }` );
+		mailpitProcess = await startMailpit( {
+			id: config.siteId,
+			name: config.siteTitle ?? config.siteId,
+			mailpit: config.mailpit,
+		} );
 
 		const serverChild = spawnPhpProcess( [ '-S', phpAddress, ROUTER_PATH ], {
 			phpVersion,
@@ -401,6 +416,8 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 			errorToConsole(
 				`PHP child process exited unexpectedly (code: ${ code }, signal: ${ signalName })`
 			);
+			stopMailpit( mailpitProcess );
+			mailpitProcess = null;
 			process.exit( code ?? 1 );
 		} );
 
@@ -412,6 +429,8 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		if ( spawnedChild && ! spawnedChild.killed ) {
 			spawnedChild.kill( 'SIGKILL' );
 		}
+		stopMailpit( mailpitProcess );
+		mailpitProcess = null;
 
 		if ( stopSignal.aborted ) {
 			logToConsole( `Aborted start server operation:`, error );
@@ -441,11 +460,15 @@ async function stopServer(): Promise< StopServerResult > {
 
 	if ( ! phpProcess ) {
 		logToConsole( 'No server running, nothing to stop' );
+		stopMailpit( mailpitProcess );
+		mailpitProcess = null;
 		return StopServerResult.OK;
 	}
 
 	if ( phpProcess.exitCode !== null || phpProcess.signalCode !== null ) {
 		logToConsole( 'Server already stopped' );
+		stopMailpit( mailpitProcess );
+		mailpitProcess = null;
 		return StopServerResult.OK;
 	}
 
@@ -471,6 +494,8 @@ async function stopServer(): Promise< StopServerResult > {
 	} );
 
 	logToConsole( 'Server stopped gracefully' );
+	stopMailpit( mailpitProcess );
+	mailpitProcess = null;
 	return StopServerResult.OK;
 }
 
@@ -644,7 +669,8 @@ async function ipcMessageHandler( packet: unknown ) {
 				);
 				await writeStudioMuPluginsForNativePhpRuntime(
 					blueprintConfig.sitePath,
-					blueprintConfig.isWpAutoUpdating
+					blueprintConfig.isWpAutoUpdating,
+					blueprintConfig.mailpit
 				);
 				await installWordPress( blueprintConfig, blueprintPhpVersion, abortController.signal );
 				if ( ! blueprintConfig.blueprint ) {

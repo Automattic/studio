@@ -72,6 +72,53 @@ function getAbsoluteUrl( details: SiteDetails ): string {
 	return `http://localhost:${ details.port }`;
 }
 
+const STUDIO_ONLY_DETAIL_KEYS = [
+	'tlsKey',
+	'tlsCert',
+	'themeDetails',
+	'siteIconPath',
+	'siteIcon',
+	'sortOrder',
+	'isAddingSite',
+	'latestCliPid',
+] as const satisfies readonly ( keyof SiteDetails )[];
+
+function pickStudioOnlyDetails( details?: SiteDetails ): Partial< SiteDetails > {
+	if ( ! details ) {
+		return {};
+	}
+	const picked: Partial< SiteDetails > = {};
+	for ( const key of STUDIO_ONLY_DETAIL_KEYS ) {
+		const value = details[ key ];
+		if ( value !== undefined ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			( picked as any )[ key ] = value;
+		}
+	}
+	return picked;
+}
+
+function siteListItemToServerDetails(
+	site: SiteListItem,
+	existingDetails?: SiteDetails
+): SiteDetails {
+	const studioOnlyDetails = pickStudioOnlyDetails( existingDetails );
+	if ( site.running ) {
+		return {
+			...studioOnlyDetails,
+			...site,
+			running: true,
+		};
+	}
+
+	const { running, url, ...stoppedSite } = site;
+	return {
+		...studioOnlyDetails,
+		...stoppedSite,
+		running: false,
+	};
+}
+
 // We use SiteDetails for storing it in appdata-v1.json, so this meta was introduced for extra data which is not stored locally
 type SiteServerMeta = {
 	wpVersion?: string;
@@ -143,8 +190,12 @@ export class SiteServer {
 			} );
 
 			for ( const site of sites ) {
-				if ( ! SiteServer.get( site.id ) ) {
-					SiteServer.register( site );
+				const existingServer = SiteServer.get( site.id ) ?? SiteServer.getByPath( site.path );
+				if ( existingServer ) {
+					existingServer.details = siteListItemToServerDetails( site, existingServer.details );
+					existingServer.server.url = getAbsoluteUrl( existingServer.details );
+				} else {
+					SiteServer.register( siteListItemToServerDetails( site ) );
 				}
 			}
 		} catch ( error ) {
@@ -182,6 +233,7 @@ export class SiteServer {
 		const result = await createSiteViaCli( { ...options, siteId } );
 
 		server.details.port = result.port;
+		server.details.mailpit = result.mailpit;
 		if ( result.running ) {
 			const url = getAbsoluteUrl( server.details );
 			const startedDetails: StartedSiteDetails = {
@@ -242,6 +294,7 @@ export class SiteServer {
 			tlsKey: site.tlsKey,
 			tlsCert: site.tlsCert,
 			enableXdebug: site.enableXdebug,
+			mailpit: site.mailpit ?? this.details.mailpit,
 		};
 
 		if ( this.server && this.details.running ) {

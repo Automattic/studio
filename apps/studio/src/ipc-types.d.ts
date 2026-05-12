@@ -7,6 +7,12 @@ interface ShowNotificationOptions extends Electron.NotificationConstructorOption
 
 type SiteRuntime = 'playground' | 'native-php';
 
+interface MailpitDetails {
+	enabled: boolean;
+	httpPort: number;
+	smtpPort: number;
+}
+
 interface StoppedSiteDetails {
 	running: false;
 
@@ -47,6 +53,7 @@ interface StoppedSiteDetails {
 	sortOrder?: number;
 	landingPage?: string;
 	runtime?: SiteRuntime;
+	mailpit?: MailpitDetails;
 }
 
 interface StartedSiteDetails extends StoppedSiteDetails {

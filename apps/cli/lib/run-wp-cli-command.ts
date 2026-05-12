@@ -123,7 +123,7 @@ async function runNativeWpCliCommand(
 ): Promise< DisposableWpCliResponse > {
 	const nativeArgs = applyWpCliCommandOptions( 'native', args, options );
 	const phpVersion = validateNativePhpVersion( options.phpVersion ?? DEFAULT_PHP_VERSION );
-	await writeStudioMuPluginsForNativePhpRuntime( site.path, site.isWpAutoUpdating );
+	await writeStudioMuPluginsForNativePhpRuntime( site.path, site.isWpAutoUpdating, site.mailpit );
 	const child = spawn(
 		getPhpBinaryPath( phpVersion ),
 		[ getWpCliPharPath(), `--path=${ site.path }`, ...nativeArgs ],
@@ -219,6 +219,7 @@ export async function runWpCliCommand(
 		// Mount mu-plugins
 		const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {
 			isWpAutoUpdating: false,
+			mailpit: site.mailpit,
 		} );
 		await php.mount(
 			'/internal/studio/mu-plugins',

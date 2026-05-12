@@ -14,6 +14,9 @@ vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/dependency-management/php-binary', () => ( {
 	ensurePhpBinaryAvailable: vi.fn().mockResolvedValue( undefined ),
 } ) );
+vi.mock( 'cli/lib/mailpit', () => ( {
+	ensureMailpitConfig: vi.fn( async ( site ) => site ),
+} ) );
 
 describe( 'WordPress Server Manager', () => {
 	const mockLogger = {

@@ -5,6 +5,7 @@ import {
 	code,
 	desktop,
 	grid,
+	inbox,
 	pencil,
 	layout,
 	navigation,
@@ -195,6 +196,22 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 			);
 		},
 	} );
+
+	const mailpit = selectedSite.mailpit;
+	if ( mailpit?.enabled ) {
+		buttonsArray.push( {
+			label: __( 'Email Inbox' ),
+			className: 'text-nowrap',
+			icon: inbox,
+			disabled: isServerLoading,
+			onClick: async () => {
+				if ( ! selectedSite.running ) {
+					await startServer( selectedSite );
+				}
+				getIpcApi().openURL( `http://127.0.0.1:${ mailpit.httpPort }` );
+			},
+		} );
+	}
 
 	return <ButtonsSection buttonsArray={ buttonsArray } title={ __( 'Open in…' ) } />;
 }

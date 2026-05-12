@@ -147,7 +147,9 @@ describe( 'CLI: studio site create', () => {
 		vi.mocked( isWordPressDirectory ).mockReturnValue( false );
 		vi.mocked( arePathsEqual ).mockImplementation( ( a, b ) => a === b );
 		vi.mocked( recursiveCopyDirectory ).mockResolvedValue( undefined );
-		vi.mocked( portFinder.getOpenPort ).mockResolvedValue( mockPort );
+		vi.mocked( portFinder.getOpenPort ).mockImplementation( async ( startPort?: number ) => {
+			return startPort ?? mockPort;
+		} );
 		vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
 			version: 1,
 			sites: [ ...mockAppdata.sites ],
@@ -304,6 +306,24 @@ describe( 'CLI: studio site create', () => {
 			);
 			// blogname is now set by playground-server-child via buildSetupSteps, not create.ts
 			expect( startWordPressServer ).toHaveBeenCalled();
+		} );
+
+		it( 'should create site with MailPit configuration', async () => {
+			await runCommand( mockSitePath, { ...defaultTestOptions } );
+
+			expect( saveCliConfig ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					sites: expect.arrayContaining( [
+						expect.objectContaining( {
+							mailpit: {
+								enabled: true,
+								httpPort: 8025,
+								smtpPort: 1025,
+							},
+						} ),
+					] ),
+				} )
+			);
 		} );
 
 		it( 'should NOT override blogname when adding existing WordPress directory with wp-config.php and name', async () => {

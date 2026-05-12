@@ -6,6 +6,7 @@
  */
 import { z } from 'zod';
 import { authTokenSchema } from '@studio/common/lib/auth-token-schema';
+import { mailpitSchema } from '@studio/common/lib/mailpit';
 import { snapshotSchema } from '@studio/common/types/snapshot';
 
 export const siteRuntimeSchema = z.enum( [ 'playground', 'native-php' ] );
@@ -35,6 +36,7 @@ export const siteDetailsSchema = z.object( {
 	runtimeBlueprintPath: z.string().optional(),
 	landingPage: z.string().optional(),
 	runtime: siteRuntimeSchema.optional(),
+	mailpit: mailpitSchema.optional(),
 } );
 
 export type SiteDetails = z.infer< typeof siteDetailsSchema >;

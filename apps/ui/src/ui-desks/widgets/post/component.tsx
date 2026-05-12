@@ -4,7 +4,7 @@ import { comment } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { useMemo } from 'react';
 import { LoadingPlaceholder } from '@/ui-desks/components';
-import { getPostStatusInfo } from '@/ui-desks/widgets/post-status';
+import { CONTENT_CARD_STATUSES, getPostStatusInfo } from '@/ui-desks/widgets/post-status';
 import styles from './style.module.css';
 import { useCommentCount } from './use-comment-count';
 import type { PostWidgetProps } from './types';
@@ -30,6 +30,7 @@ export function PostWidgetComponent( { id, widgetProps }: PostWidgetComponentPro
 			include: [ widgetProps.postId ],
 			per_page: 1,
 			context: 'edit',
+			status: CONTENT_CARD_STATUSES,
 			_embed: true,
 			_fields: 'id,title,excerpt,status,featured_media,_links,_embedded',
 		} ),

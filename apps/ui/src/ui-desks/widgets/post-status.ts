@@ -1,5 +1,7 @@
 import { __ } from '@wordpress/i18n';
 
+export const CONTENT_CARD_STATUSES = [ 'publish', 'draft', 'pending', 'future', 'private' ];
+
 export function getPostStatusInfo( status: string | undefined ): { color: string; label: string } {
 	switch ( status ) {
 		case 'publish':

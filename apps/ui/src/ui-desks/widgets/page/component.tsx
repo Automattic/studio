@@ -2,7 +2,7 @@ import { useEntityRecords, type Post as CoreDataPost } from '@wordpress/core-dat
 import { __ } from '@wordpress/i18n';
 import { useMemo } from 'react';
 import { LoadingPlaceholder } from '@/ui-desks/components';
-import { getPostStatusInfo } from '@/ui-desks/widgets/post-status';
+import { CONTENT_CARD_STATUSES, getPostStatusInfo } from '@/ui-desks/widgets/post-status';
 import styles from './style.module.css';
 import type { PageWidgetProps } from './types';
 import type { DeskWidgetComponentProps } from '@/ui-desks/widgets/types';
@@ -19,6 +19,7 @@ export function PageWidgetComponent( { id, widgetProps }: PageWidgetComponentPro
 			include: [ widgetProps.pageId ],
 			per_page: 1,
 			context: 'edit',
+			status: CONTENT_CARD_STATUSES,
 			_fields: 'id,title,excerpt,slug,status',
 		} ),
 		[ widgetProps.pageId ]

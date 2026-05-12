@@ -30,15 +30,15 @@ msgstr ""
 #: apps/cli/ai/slash-commands.ts:112
 #. %d: daemon PID
 msgid ""
-"Remote-session started (PID %d). Message Dolly (@wordpress_com_bot) on "
-"Telegram to work with Studio."
+"Remote-session started (PID %d). Message WordPress Agent "
+"(@wordpressagentbot) on Telegram to work with Studio."
 msgstr ""
 
 #: apps/cli/ai/slash-commands.ts:124
 #. %d: daemon PID
 msgid ""
-"Remote-session already running (PID %d). Message Dolly (@wordpress_com_bot) "
-"on Telegram to work with Studio."
+"Remote-session already running (PID %d). Message WordPress Agent "
+"(@wordpressagentbot) on Telegram to work with Studio."
 msgstr ""
 
 #: apps/cli/ai/slash-commands.ts:137

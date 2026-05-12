@@ -26,6 +26,8 @@ export interface DeskContextValue {
 		payload: WidgetPastePayload,
 		options?: AddDeskWidgetOptions
 	) => Promise< boolean >;
+	startDrawing: () => boolean;
+	finishDrawing: () => Promise< boolean >;
 	updateSelectedWidgetProps: ( widgetProps: Record< string, unknown > ) => boolean;
 	fitSelectedWidgetToContent: () => boolean;
 	stackSelectedWidgets: () => boolean;
@@ -67,6 +69,8 @@ const defaultDeskContext: DeskContextValue = {
 	pressStack: noopPressStack,
 	addWidget: () => false,
 	addPastedContent: () => Promise.resolve( false ),
+	startDrawing: () => false,
+	finishDrawing: async () => false,
 	updateSelectedWidgetProps: () => false,
 	fitSelectedWidgetToContent: () => false,
 	stackSelectedWidgets: () => false,

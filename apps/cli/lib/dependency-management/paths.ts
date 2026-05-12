@@ -2,9 +2,9 @@ import fs from 'fs';
 import path from 'path';
 import {
 	comparePhpPatchVersionsDescending,
+	isPhpPatchVersion,
 	isPhpPatchVersionForMinor,
 	NativePhpSupportedVersion,
-	parsePhpPatchVersion,
 } from '@studio/common/lib/php-binary-metadata';
 import { getConfigDirectory, getServerFilesPath } from '@studio/common/lib/well-known-paths';
 
@@ -39,7 +39,7 @@ export function getInstalledPhpBinaryPath(
 // PHP binaries live in ~/.studio/php-bin/<patch>/ — downloaded on demand when a site
 // using that minor version is first started. Not bundled in production builds.
 export function getPhpBinaryPath( version: NativePhpSupportedVersion | string ): string {
-	if ( parsePhpPatchVersion( version ) ) {
+	if ( isPhpPatchVersion( version ) ) {
 		return getExactPhpBinaryPath( version );
 	}
 

@@ -1,18 +1,20 @@
 import { PHP_BINARY_MANIFEST_URL } from '@studio/common/lib/php-binary-metadata';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import nock from 'nock';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resolvePhpBinaryDownloadInfo } from 'cli/lib/dependency-management/php-binary';
 
-function mockFetchJson( json: unknown ): void {
-	vi.stubGlobal(
-		'fetch',
-		vi.fn().mockResolvedValue( {
-			ok: true,
-			json: vi.fn().mockResolvedValue( json ),
-		} )
-	);
+const nockFetch = require( 'isomorphic-fetch' ) as typeof fetch;
+const manifestUrl = new URL( PHP_BINARY_MANIFEST_URL );
+
+function mockManifest( json: Record< string, unknown > ): void {
+	nock( manifestUrl.origin ).get( manifestUrl.pathname ).reply( 200, json );
 }
 
 describe( 'resolvePhpBinaryDownloadInfo', () => {
+	beforeEach( () => {
+		vi.stubGlobal( 'fetch', nockFetch );
+	} );
+
 	afterEach( () => {
 		vi.unstubAllGlobals();
 	} );
@@ -21,7 +23,7 @@ describe( 'resolvePhpBinaryDownloadInfo', () => {
 		const sha = 'a'.repeat( 64 );
 		const url = 'https://appscdn.wordpress.com/builds/wordpress-com-studio-php-cli/example.zip';
 
-		mockFetchJson( {
+		mockManifest( {
 			'8.4.20': {
 				darwin: {
 					arm64: { url, sha, size: 123 },
@@ -35,7 +37,6 @@ describe( 'resolvePhpBinaryDownloadInfo', () => {
 			sha,
 			size: 123,
 		} );
-		expect( fetch ).toHaveBeenCalledWith( PHP_BINARY_MANIFEST_URL );
 	} );
 
 	it( 'uses the latest matching PHP patch from the Apps CDN manifest', async () => {
@@ -45,7 +46,7 @@ describe( 'resolvePhpBinaryDownloadInfo', () => {
 		const latestUrl =
 			'https://appscdn.wordpress.com/builds/wordpress-com-studio-php-cli/latest.zip';
 
-		mockFetchJson( {
+		mockManifest( {
 			'8.4.20': {
 				darwin: {
 					arm64: { url: oldUrl, sha: oldSha },
@@ -74,7 +75,7 @@ describe( 'resolvePhpBinaryDownloadInfo', () => {
 		const sha = 'b'.repeat( 64 );
 		const url = 'https://appscdn.wordpress.com/builds/wordpress-com-studio-php-cli/example.zip';
 
-		mockFetchJson( {
+		mockManifest( {
 			'8.4.20': {
 				win32: {
 					x64: { url, sha },
@@ -90,7 +91,7 @@ describe( 'resolvePhpBinaryDownloadInfo', () => {
 	} );
 
 	it( 'rejects when the manifest is missing a SHA', async () => {
-		mockFetchJson( {
+		mockManifest( {
 			'8.4.20': {
 				darwin: {
 					arm64: { url: 'https://appscdn.wordpress.com/example.zip' },
@@ -104,8 +105,6 @@ describe( 'resolvePhpBinaryDownloadInfo', () => {
 	} );
 
 	it( 'rejects when the manifest cannot be fetched', async () => {
-		vi.stubGlobal( 'fetch', vi.fn().mockRejectedValue( new Error( 'offline' ) ) );
-
 		await expect( resolvePhpBinaryDownloadInfo( '8.4', 'darwin', 'arm64' ) ).rejects.toThrow(
 			'Could not check PHP availability. Please try again later.'
 		);

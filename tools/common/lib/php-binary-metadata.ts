@@ -1,4 +1,5 @@
 import { sprintf } from '@wordpress/i18n';
+import semver from 'semver';
 import { z } from 'zod';
 import { SupportedPHPVersions } from '@studio/common/types/php-versions';
 
@@ -25,47 +26,38 @@ export function validateNativePhpVersion( version: string ): NativePhpSupportedV
 	return result.data;
 }
 
-export type PhpBinaryDownloadInfo = {
-	patchVersion: string;
-	url: string;
-	sha: string;
-	size?: number;
-};
+const phpBinaryManifestSchema = z.record( z.string(), z.unknown() );
+const phpBinaryManifestDownloadSchema = z.object( {
+	url: z.string().min( 1 ),
+	sha: z.string().min( 1 ),
+	size: z.number().optional(),
+} );
+const phpBinaryVersionManifestSchema = z.record(
+	z.string(),
+	z.record( z.string(), phpBinaryManifestDownloadSchema )
+);
 
-function isRecord( value: unknown ): value is Record< string, unknown > {
-	return typeof value === 'object' && value !== null && ! Array.isArray( value );
-}
+export type PhpBinaryDownloadInfo = z.infer< typeof phpBinaryManifestDownloadSchema > & {
+	patchVersion: string;
+};
 
 export function getEffectivePhpBinaryArch( platform: NodeJS.Platform, arch: string ): string {
 	return platform === 'win32' ? 'x64' : arch;
 }
 
-export function parsePhpPatchVersion( version: string ): [ number, number, number ] | undefined {
-	const parts = version.split( '.' );
-	if ( parts.length !== 3 || parts.some( ( part ) => ! /^\d+$/.test( part ) ) ) {
-		return undefined;
-	}
-	return parts.map( Number ) as [ number, number, number ];
+export function isPhpPatchVersion( version: string ): boolean {
+	return !! semver.valid( version );
 }
 
 export function comparePhpPatchVersionsDescending( a: string, b: string ): number {
-	const parsedA = parsePhpPatchVersion( a );
-	const parsedB = parsePhpPatchVersion( b );
-	if ( ! parsedA || ! parsedB ) {
-		return 0;
-	}
-	return parsedB[ 0 ] - parsedA[ 0 ] || parsedB[ 1 ] - parsedA[ 1 ] || parsedB[ 2 ] - parsedA[ 2 ];
+	return semver.rcompare( a, b );
 }
 
 export function isPhpPatchVersionForMinor(
 	patchVersion: string,
 	version: NativePhpSupportedVersion
 ): boolean {
-	const parsedPatchVersion = parsePhpPatchVersion( patchVersion );
-	const [ major, minor ] = version.split( '.' ).map( Number );
-	return (
-		!! parsedPatchVersion && parsedPatchVersion[ 0 ] === major && parsedPatchVersion[ 1 ] === minor
-	);
+	return semver.satisfies( patchVersion, `${ version }.x` );
 }
 
 function getManifestDownloadInfoForPatch(
@@ -74,32 +66,20 @@ function getManifestDownloadInfoForPatch(
 	platform: NodeJS.Platform,
 	arch: string
 ): PhpBinaryDownloadInfo | undefined {
-	const versionEntry = manifest[ patchVersion ];
-	if ( ! isRecord( versionEntry ) ) {
+	const versionEntry = phpBinaryVersionManifestSchema.safeParse( manifest[ patchVersion ] );
+	if ( ! versionEntry.success ) {
 		return undefined;
 	}
 
-	const platformEntry = versionEntry[ platform ];
-	if ( ! isRecord( platformEntry ) ) {
-		return undefined;
-	}
-
-	const downloadInfo = platformEntry[ getEffectivePhpBinaryArch( platform, arch ) ];
-	if ( ! isRecord( downloadInfo ) ) {
-		return undefined;
-	}
-
-	const url = downloadInfo.url;
-	const sha = downloadInfo.sha;
-	if ( typeof url !== 'string' || ! url || typeof sha !== 'string' || ! sha ) {
+	const downloadInfo =
+		versionEntry.data[ platform ]?.[ getEffectivePhpBinaryArch( platform, arch ) ];
+	if ( ! downloadInfo ) {
 		return undefined;
 	}
 
 	return {
 		patchVersion,
-		url,
-		sha,
-		size: typeof downloadInfo.size === 'number' ? downloadInfo.size : undefined,
+		...downloadInfo,
 	};
 }
 
@@ -109,19 +89,21 @@ export function getPhpBinaryManifestDownloadInfo(
 	platform: NodeJS.Platform,
 	arch: string
 ): PhpBinaryDownloadInfo | undefined {
-	if ( ! isRecord( manifest ) ) {
+	const parsedManifest = phpBinaryManifestSchema.safeParse( manifest );
+	if ( ! parsedManifest.success ) {
 		return undefined;
 	}
 
-	const patchVersion = Object.keys( manifest )
+	const manifestData = parsedManifest.data;
+	const patchVersion = Object.keys( manifestData )
 		.filter( ( candidate ) => isPhpPatchVersionForMinor( candidate, version ) )
 		.sort( comparePhpPatchVersionsDescending )
 		.find(
-			( candidate ) => !! getManifestDownloadInfoForPatch( manifest, candidate, platform, arch )
+			( candidate ) => !! getManifestDownloadInfoForPatch( manifestData, candidate, platform, arch )
 		);
 	if ( ! patchVersion ) {
 		return undefined;
 	}
 
-	return getManifestDownloadInfoForPatch( manifest, patchVersion, platform, arch );
+	return getManifestDownloadInfoForPatch( manifestData, patchVersion, platform, arch );
 }

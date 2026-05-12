@@ -1,6 +1,7 @@
 import type { ControlConfig } from '@/ui-desks/controls/types';
 import type { BlogWidget } from '@/ui-desks/widgets/blog/types';
 import type { BookmarkWidget } from '@/ui-desks/widgets/bookmark/types';
+import type { DrawingWidget } from '@/ui-desks/widgets/drawing/types';
 import type { EmbedWidget } from '@/ui-desks/widgets/embed/types';
 import type { LoadingWidget } from '@/ui-desks/widgets/loading/types';
 import type { MediaWidget } from '@/ui-desks/widgets/media/types';
@@ -160,6 +161,11 @@ export interface WidgetResolver<
 	TWidget extends DeskWidgetBase = DeskWidgetBase,
 	TIdentity = unknown,
 > {
+	/**
+	 * Derived widgets should treat the source widget's x/y as the top-left origin of
+	 * the primary resolved shape. Persistence writes that same primary origin back
+	 * to the source widget, so center-based resolver layouts will drift on reload.
+	 */
 	resolve: (
 		widget: TWidget,
 		context: WidgetResolverContext
@@ -170,6 +176,15 @@ export interface WidgetResolver<
 		context: WidgetResolverContext
 	) => boolean;
 }
+
+export interface WidgetFitContentContext< TWidget extends DeskWidgetBase = DeskWidgetBase > {
+	widgetProps: TWidget[ 'widgetProps' ];
+	shapeProps: TWidget[ 'shapeProps' ];
+}
+
+export type WidgetFitContentResult< TWidget extends DeskWidgetBase = DeskWidgetBase > =
+	| TWidget[ 'shapeProps' ]
+	| null;
 
 export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBase > {
 	type: TWidget[ 'type' ];
@@ -188,6 +203,9 @@ export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBa
 	getSummary?: ( widgetProps: TWidget[ 'widgetProps' ] ) => string;
 	getLoadingShapeProps?: ( widget: TWidget ) => TWidget[ 'shapeProps' ];
 	getIndicator?: ( widgetProps: TWidget[ 'widgetProps' ] ) => WidgetIndicator;
+	getFittedShapeProps?: (
+		context: WidgetFitContentContext< TWidget >
+	) => WidgetFitContentResult< TWidget > | Promise< WidgetFitContentResult< TWidget > >;
 	resolver?: WidgetResolver< TWidget >;
 	fileHandlers?: Array< WidgetFileHandler< TWidget > >;
 	pasteHandlers?: Array< WidgetPasteHandler< TWidget > >;
@@ -196,6 +214,7 @@ export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBa
 export type DeskWidget =
 	| BookmarkWidget
 	| BlogWidget
+	| DrawingWidget
 	| EmbedWidget
 	| LoadingWidget
 	| NoteWidget
@@ -207,6 +226,7 @@ export type DeskWidget =
 export type DeskWidgetDefinition =
 	| WidgetDefinition< BookmarkWidget >
 	| WidgetDefinition< BlogWidget >
+	| WidgetDefinition< DrawingWidget >
 	| WidgetDefinition< EmbedWidget >
 	| WidgetDefinition< LoadingWidget >
 	| WidgetDefinition< NoteWidget >

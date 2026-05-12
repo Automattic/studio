@@ -32,6 +32,7 @@ import {
 } from './context';
 import {
 	addWidgetToEditor,
+	convertDrawShapesToDrawingWidget,
 	createWidgetId,
 	createDeskConfigFromEditor,
 	fitSelectedWidgetToContentInEditor,
@@ -39,7 +40,9 @@ import {
 	hasCameraChange,
 	hasPersistentDocumentChange,
 	hydrateEditorFromDesk,
+	isDrawShape,
 	removeSelectedWidgetFromEditor,
+	setSelectedStackViewInEditor,
 	stackSelectedWidgetsInEditor,
 	unstackSelectedWidgetsInEditor,
 	updateSelectedWidgetPropsInEditor,
@@ -85,12 +88,14 @@ export function DeskProvider( {
 	const hydratedRef = useRef( false );
 	const deskConfigKeyRef = useRef< string | undefined >( undefined );
 	const creationOffsetRef = useRef( 0 );
+	const drawingStartShapeIdsRef = useRef< Set< string > | null >( null );
 	const saveTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
 	const { pressStack, clearPressedStack } = useStackPressAnimation( setPressedStackId );
 	const toolbarStateOptions = useMemo(
 		() => ( {
 			canStack: ! isReadOnly,
 			canUnstack: ! isReadOnly,
+			canSetStackView: ! isReadOnly,
 			canRemove: ! isReadOnly,
 		} ),
 		[ isReadOnly ]
@@ -107,6 +112,7 @@ export function DeskProvider( {
 		hydratedRef.current = false;
 		setIsHydrated( false );
 		setSelectedWidgetToolbarItem( null );
+		drawingStartShapeIdsRef.current = null;
 	}, [ deskConfigKey ] );
 
 	useEffect( () => {
@@ -330,6 +336,7 @@ export function DeskProvider( {
 				setIsHydrated( false );
 				setSelectedWidgetToolbarItem( null );
 				clearPressedStack();
+				drawingStartShapeIdsRef.current = null;
 			}
 		},
 		[ clearPressedStack ]
@@ -382,6 +389,43 @@ export function DeskProvider( {
 		[ editor, isHydrated, isReadOnly, isRunningSite, siteId ]
 	);
 
+	const startDrawing = useCallback( () => {
+		if ( isReadOnly || ! editor || ! isHydrated ) {
+			return false;
+		}
+
+		drawingStartShapeIdsRef.current = new Set(
+			editor.getCurrentPageShapes().map( ( shape ) => shape.id )
+		);
+		editor.setCurrentTool( 'draw' );
+		editor.focus();
+		return true;
+	}, [ editor, isHydrated, isReadOnly ] );
+
+	const finishDrawing = useCallback( async () => {
+		if ( isReadOnly || ! editor || ! isHydrated ) {
+			return false;
+		}
+
+		const startingShapeIds = drawingStartShapeIdsRef.current ?? new Set< string >();
+		const drawShapes = editor
+			.getCurrentPageShapes()
+			.filter( isDrawShape )
+			.filter( ( shape ) => ! startingShapeIds.has( shape.id ) );
+
+		drawingStartShapeIdsRef.current = null;
+		editor.setCurrentTool( 'select' );
+
+		if ( drawShapes.length === 0 ) {
+			editor.focus();
+			return true;
+		}
+
+		const didConvertDrawing = await convertDrawShapesToDrawingWidget( editor, drawShapes );
+		editor.focus();
+		return didConvertDrawing;
+	}, [ editor, isHydrated, isReadOnly ] );
+
 	const updateSelectedWidgetProps = useCallback(
 		( widgetProps: Record< string, unknown > ) => {
 			if ( isReadOnly || ! editor || ! isHydrated ) {
@@ -402,12 +446,12 @@ export function DeskProvider( {
 		[ editor, isHydrated, isReadOnly ]
 	);
 
-	const fitSelectedWidgetToContent = useCallback( () => {
+	const fitSelectedWidgetToContent = useCallback( async () => {
 		if (
 			isReadOnly ||
 			! editor ||
 			! isHydrated ||
-			! fitSelectedWidgetToContentInEditor( editor )
+			! ( await fitSelectedWidgetToContentInEditor( editor ) )
 		) {
 			return false;
 		}
@@ -440,6 +484,25 @@ export function DeskProvider( {
 		return true;
 	}, [ editor, isHydrated, isReadOnly, toolbarStateOptions ] );
 
+	const setSelectedStackView = useCallback(
+		( viewMode: Parameters< typeof setSelectedStackViewInEditor >[ 1 ] ) => {
+			if (
+				isReadOnly ||
+				! editor ||
+				! isHydrated ||
+				! setSelectedStackViewInEditor( editor, viewMode )
+			) {
+				return false;
+			}
+
+			setSelectedWidgetToolbarItem(
+				getCurrentSelectedWidgetToolbarItem( editor, toolbarStateOptions )
+			);
+			return true;
+		},
+		[ editor, isHydrated, isReadOnly, toolbarStateOptions ]
+	);
+
 	const removeSelectedWidget = useCallback( () => {
 		if ( isReadOnly || ! editor || ! isHydrated || ! removeSelectedWidgetFromEditor( editor ) ) {
 			return false;
@@ -462,10 +525,13 @@ export function DeskProvider( {
 			pressStack,
 			addWidget,
 			addPastedContent,
+			startDrawing,
+			finishDrawing,
 			updateSelectedWidgetProps,
 			fitSelectedWidgetToContent,
 			stackSelectedWidgets,
 			unstackSelectedWidgets,
+			setSelectedStackView,
 			removeSelectedWidget,
 		} ),
 		[
@@ -473,6 +539,7 @@ export function DeskProvider( {
 			addWidget,
 			editor,
 			fitSelectedWidgetToContent,
+			finishDrawing,
 			isHydrated,
 			isReadOnly,
 			isLoading,
@@ -481,7 +548,9 @@ export function DeskProvider( {
 			registerEditor,
 			removeSelectedWidget,
 			selectedWidgetToolbarItem,
+			setSelectedStackView,
 			stackSelectedWidgets,
+			startDrawing,
 			siteId,
 			statusMessage,
 			unstackSelectedWidgets,

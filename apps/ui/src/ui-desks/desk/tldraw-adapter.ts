@@ -20,10 +20,10 @@ import {
 	getStackHome,
 	getStackId,
 	getStackMemberLayout,
-	getStackMemberZIndex,
 	getStackOriginalZIndex,
 	getStackPushOrigin,
 	getStackOrder,
+	getStackViewMode,
 	getStackZIndexFromMember,
 } from '@/ui-desks/stacks/utils';
 import { isRectangleWidgetShapeProps } from '@/ui-desks/widgets/geometry';
@@ -84,13 +84,11 @@ export function deskConfigToCanvasShapes( desk: DeskConfig ): TLShapePartial[] {
 			if ( ! stackMember ) {
 				continue;
 			}
-			shapes.push(
-				deskWidgetToCanvasShape(
-					widget,
-					stackMember,
-					memberIndices[ item.widgets.length - stackMember.order - 1 ]
-				)
-			);
+			const renderIndex =
+				stackMember.stack.viewMode === 'tiles'
+					? ( widget.zIndex as TLShapePartial[ 'index' ] )
+					: memberIndices[ item.widgets.length - stackMember.order - 1 ];
+			shapes.push( deskWidgetToCanvasShape( widget, stackMember, renderIndex ) );
 		}
 		indexCursor += item.widgets.length;
 	}
@@ -184,9 +182,7 @@ export function deskWidgetToCanvasShape(
 		throw new Error( `Unknown desk widget type: ${ widget.type }.` );
 	}
 
-	const stackLayout = stackMember
-		? getStackMemberLayout( stackMember.stack, stackMember.order )
-		: null;
+	const stackLayout = stackMember ? getCanvasStackMemberLayout( widget, stackMember ) : null;
 
 	return {
 		id: createShapeId( widget.id ),
@@ -194,13 +190,14 @@ export function deskWidgetToCanvasShape(
 		x: stackLayout?.x ?? widget.x,
 		y: stackLayout?.y ?? widget.y,
 		rotation: stackLayout?.rotation ?? widget.rotation ?? 0,
-		index:
-			renderIndex ??
-			( stackMember
-				? getStackMemberZIndex( stackMember.stack.zIndex, stackMember.order )
-				: ( widget.zIndex as TLShapePartial[ 'index' ] ) ),
+		index: renderIndex ?? ( widget.zIndex as TLShapePartial[ 'index' ] ),
 		meta: stackMember
-			? createStackMeta( stackMember.stack.id, stackMember.order, widget.zIndex )
+			? createStackMeta(
+					stackMember.stack.id,
+					stackMember.order,
+					widget.zIndex,
+					stackMember.stack.viewMode
+			  )
 			: undefined,
 		props: {
 			widgetType: widget.type,
@@ -214,13 +211,18 @@ export function resolvedDeskWidgetToCanvasShape(
 	resolvedWidget: ResolvedDeskWidget< DeskWidget >,
 	stackMember?: DeskStackMember
 ): TLShapePartial {
-	const shape = deskWidgetToCanvasShape( resolvedWidget.widget, stackMember );
+	const shape = deskWidgetToCanvasShape(
+		resolvedWidget.widget,
+		stackMember,
+		stackMember ? ( resolvedWidget.widget.zIndex as TLShapePartial[ 'index' ] ) : undefined
+	);
 	if ( resolvedWidget.origin.kind !== 'derived' ) {
 		return shape;
 	}
 
+	const { index: _index, ...shapeWithoutIndex } = shape;
 	return {
-		...shape,
+		...shapeWithoutIndex,
 		meta: {
 			...( shape.meta ?? {} ),
 			studioDeskOrigin: DERIVED_WIDGET_ORIGIN,
@@ -437,6 +439,18 @@ function getStackMembersByWidgetId( stacks: DeskStack[] | undefined ) {
 	return stackMembers;
 }
 
+function getCanvasStackMemberLayout( widget: DeskWidget, stackMember: DeskStackMember ) {
+	if ( stackMember.stack.viewMode === 'tiles' ) {
+		return {
+			x: widget.x,
+			y: widget.y,
+			rotation: widget.rotation ?? 0,
+		};
+	}
+
+	return getStackMemberLayout( stackMember.stack, stackMember.order );
+}
+
 function canvasShapesToDeskStack( stackId: string, shapes: TLShape[] ): DeskStack | null {
 	const sortedShapes = shapes
 		.map( ( shape ) => ( {
@@ -460,6 +474,18 @@ function canvasShapesToDeskStack( stackId: string, shapes: TLShape[] ): DeskStac
 	}
 
 	const firstMember = sortedShapes[ 0 ];
+	const viewMode = getStackViewMode( firstMember.shape );
+	if ( viewMode === 'tiles' ) {
+		return {
+			id: stackId,
+			x: firstMember.shape.x,
+			y: firstMember.shape.y,
+			zIndex: firstMember.shape.index,
+			memberIds: sortedShapes.map( ( { widget } ) => widget.id ),
+			viewMode,
+		};
+	}
+
 	const home = getStackHome( firstMember.shape );
 	const anchor =
 		home ??
@@ -481,6 +507,13 @@ function canvasShapesToDeskStack( stackId: string, shapes: TLShape[] ): DeskStac
 }
 
 function getPersistedShapePosition( shape: TLShape ) {
+	if ( getStackId( shape ) && getStackViewMode( shape ) === 'tiles' ) {
+		return {
+			x: shape.x,
+			y: shape.y,
+		};
+	}
+
 	const pushOrigin = getStackPushOrigin( shape );
 	if ( pushOrigin ) {
 		return {
@@ -497,6 +530,10 @@ function getPersistedShapePosition( shape: TLShape ) {
 
 function getPersistedShapeZIndex( shape: TLShape ) {
 	if ( getStackId( shape ) ) {
+		if ( getStackViewMode( shape ) === 'tiles' ) {
+			return shape.index;
+		}
+
 		return getStackOriginalZIndex( shape ) ?? shape.index;
 	}
 

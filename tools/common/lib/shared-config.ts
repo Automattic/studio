@@ -25,12 +25,22 @@ export class SharedConfigVersionMismatchError extends Error {
 // increment SHARED_CONFIG_VERSION and add a data migration function.
 const SHARED_CONFIG_VERSION = 1;
 
+export const sharedSessionMetadataSchema = z
+	.object( {
+		starred: z.boolean().optional(),
+		archived: z.boolean().optional(),
+	} )
+	.loose();
+
+export type SharedSessionMetadata = z.infer< typeof sharedSessionMetadataSchema >;
+
 export const sharedConfigSchema = z
 	.object( {
 		version: z.literal( SHARED_CONFIG_VERSION ),
 		authToken: authTokenSchema.optional(),
 		locale: z.string().optional(),
 		selectedSkills: z.array( z.string() ).optional(),
+		sessions: z.record( z.string(), sharedSessionMetadataSchema ).optional(),
 		// WordPress.com sites connected to local sites, keyed by user id.
 		// Both Studio and the Studio CLI read and write this field through
 		// the helpers in `./connected-sites.ts`.
@@ -104,6 +114,77 @@ export async function updateSharedConfig( update: Partial< SharedConfig > ): Pro
 		const config = await readSharedConfig();
 		const updated = { ...config, ...update };
 		await saveSharedConfig( updated );
+	} finally {
+		await unlockSharedConfig();
+	}
+}
+
+function pruneSharedSessionMetadata( metadata: SharedSessionMetadata ): void {
+	if ( ! metadata.starred ) {
+		delete metadata.starred;
+	}
+	if ( ! metadata.archived ) {
+		delete metadata.archived;
+	}
+}
+
+function pruneEmptySharedSessions( config: SharedConfig ): void {
+	if ( ! config.sessions ) {
+		return;
+	}
+
+	for ( const [ sessionId, metadata ] of Object.entries( config.sessions ) ) {
+		pruneSharedSessionMetadata( metadata );
+		if ( Object.keys( metadata ).length === 0 ) {
+			delete config.sessions[ sessionId ];
+		}
+	}
+
+	if ( Object.keys( config.sessions ).length === 0 ) {
+		delete config.sessions;
+	}
+}
+
+export async function readSharedSessions(): Promise< Record< string, SharedSessionMetadata > > {
+	const config = await readSharedConfig();
+	return config.sessions ?? {};
+}
+
+export async function readSharedSession(
+	sessionId: string
+): Promise< SharedSessionMetadata | undefined > {
+	const sessions = await readSharedSessions();
+	return sessions[ sessionId ];
+}
+
+export async function updateSharedSession(
+	sessionId: string,
+	patch: Partial< SharedSessionMetadata >
+): Promise< SharedSessionMetadata | undefined > {
+	try {
+		await lockSharedConfig();
+		const config = await readSharedConfig();
+		config.sessions ??= {};
+		config.sessions[ sessionId ] ??= {};
+		Object.assign( config.sessions[ sessionId ], patch );
+		pruneEmptySharedSessions( config );
+		await saveSharedConfig( config );
+		return config.sessions?.[ sessionId ];
+	} finally {
+		await unlockSharedConfig();
+	}
+}
+
+export async function deleteSharedSession( sessionId: string ): Promise< void > {
+	try {
+		await lockSharedConfig();
+		const config = await readSharedConfig();
+		if ( ! config.sessions?.[ sessionId ] ) {
+			return;
+		}
+		delete config.sessions[ sessionId ];
+		pruneEmptySharedSessions( config );
+		await saveSharedConfig( config );
 	} finally {
 		await unlockSharedConfig();
 	}

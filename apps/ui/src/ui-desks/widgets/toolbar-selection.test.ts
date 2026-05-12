@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { DRAWING_WIDGET_TYPE } from '@/ui-desks/widgets/drawing/types';
 import { EMBED_WIDGET_TYPE } from '@/ui-desks/widgets/embed/types';
 import { MEDIA_WIDGET_TYPE } from '@/ui-desks/widgets/media/types';
 import { NOTE_WIDGET_TYPE } from '@/ui-desks/widgets/note/types';
@@ -24,6 +25,7 @@ describe( 'widget toolbar selection', () => {
 			throw new Error( 'Expected a single widget toolbar item.' );
 		}
 		expect( selectedItem.definition.type ).toBe( NOTE_WIDGET_TYPE );
+		expect( selectedItem.definition.getFittedShapeProps ).toBeTypeOf( 'function' );
 		expect( selectedItem.canRemove ).toBe( true );
 		expect( selectedItem.widget.widgetProps ).toEqual( {
 			text: 'Hello',
@@ -81,6 +83,10 @@ describe( 'widget toolbar selection', () => {
 		}
 		expect( selectedItem.definition.type ).toBe( MEDIA_WIDGET_TYPE );
 		expect( selectedItem.definition.controls?.[ 0 ]?.type ).toBe( 'custom' );
+		expect( selectedItem.definition.controls?.map( ( control ) => control.id ) ).toEqual( [
+			'open-media',
+		] );
+		expect( selectedItem.definition.getFittedShapeProps ).toBeTypeOf( 'function' );
 		expect( selectedItem.widget.widgetProps ).toEqual( {
 			url: 'https://example.com/image.jpg',
 			mediaKind: 'image',
@@ -91,14 +97,34 @@ describe( 'widget toolbar selection', () => {
 
 	it( 'returns the toolbar item for a single embed widget selection', () => {
 		const selectedItem = getSelectedWidgetToolbarItem( [ createEmbedWidget() ] );
+
 		expect( selectedItem ).toMatchObject( { kind: 'single-widget' } );
 		if ( selectedItem?.kind !== 'single-widget' ) {
 			throw new Error( 'Expected a single widget toolbar item.' );
 		}
 		expect( selectedItem.definition.type ).toBe( EMBED_WIDGET_TYPE );
 		expect( selectedItem.definition.controls?.[ 0 ]?.type ).toBe( 'custom' );
+		expect( selectedItem.definition.controls?.map( ( control ) => control.id ) ).toEqual( [
+			'open-embed',
+		] );
+		expect( selectedItem.definition.getFittedShapeProps ).toBeTypeOf( 'function' );
 		expect( selectedItem.widget.widgetProps ).toEqual( {
 			url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+		} );
+	} );
+
+	it( 'returns remove controls for a single drawing widget selection', () => {
+		const selectedItem = getSelectedWidgetToolbarItem( [ createDrawingWidget() ] );
+
+		expect( selectedItem ).toMatchObject( { kind: 'single-widget' } );
+		if ( selectedItem?.kind !== 'single-widget' ) {
+			throw new Error( 'Expected a single widget toolbar item.' );
+		}
+		expect( selectedItem.definition.type ).toBe( DRAWING_WIDGET_TYPE );
+		expect( selectedItem.definition.controls ).toBeUndefined();
+		expect( selectedItem.canRemove ).toBe( true );
+		expect( selectedItem.widget.widgetProps ).toEqual( {
+			svg: '<svg viewBox="0 0 320 240" />',
 		} );
 	} );
 
@@ -110,7 +136,8 @@ describe( 'widget toolbar selection', () => {
 			throw new Error( 'Expected a single widget toolbar item.' );
 		}
 		expect( selectedItem.definition.type ).toBe( POST_COLLECTION_WIDGET_TYPE );
-		expect( selectedItem.definition.controls?.[ 0 ]?.type ).toBe( 'custom' );
+		expect( selectedItem.definition.controls?.[ 0 ]?.type ).toBe( 'select' );
+		expect( selectedItem.definition.controls?.[ 1 ]?.type ).toBe( 'custom' );
 		expect( selectedItem.widget.widgetProps ).toEqual( {
 			query: {
 				postType: 'post',
@@ -154,6 +181,21 @@ describe( 'widget toolbar selection', () => {
 			canStack: false,
 			canUnstack: true,
 			stackIds: [ 'stack-1' ],
+		} );
+	} );
+
+	it( 'returns stack view controls for selections from a single stack', () => {
+		const widget = createNoteWidget();
+
+		expect(
+			getSelectedWidgetToolbarItem( [ widget, widget ], {
+				stackIds: [ 'stack-1' ],
+				stackViewMode: 'tiles',
+			} )
+		).toMatchObject( {
+			kind: 'multi-widget',
+			canSetStackView: true,
+			stackViewMode: 'tiles',
 		} );
 	} );
 
@@ -282,6 +324,23 @@ function createEmbedWidget(): DeskWidget {
 		},
 		widgetProps: {
 			url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+		},
+	};
+}
+
+function createDrawingWidget(): DeskWidget {
+	return {
+		id: 'drawing-1',
+		type: DRAWING_WIDGET_TYPE,
+		x: 0,
+		y: 0,
+		zIndex: 'a1',
+		shapeProps: {
+			w: 320,
+			h: 240,
+		},
+		widgetProps: {
+			svg: '<svg viewBox="0 0 320 240" />',
 		},
 	};
 }

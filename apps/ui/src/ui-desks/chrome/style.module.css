@@ -235,7 +235,15 @@
 }
 
 .postPickerItem {
-	align-items: flex-start;
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 8px;
+}
+
+.postPickerContent {
+	display: flex;
+	min-width: 0;
 	flex-direction: column;
 	gap: 2px;
 }
@@ -258,6 +266,13 @@
 	font-size: var(--wpds-typography-font-size-xs);
 	line-height: var(--wpds-typography-line-height-xs);
 	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.postPickerStatusDot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9);
 }
 
 .email {

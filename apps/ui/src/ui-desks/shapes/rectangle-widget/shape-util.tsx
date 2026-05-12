@@ -13,7 +13,7 @@ import {
 } from 'tldraw';
 import { getDeskCanvasRecordResolutionState } from '@/ui-desks/desk/tldraw-adapter';
 import { useStackShapeInteraction } from '@/ui-desks/stacks/use-stack-shape-interaction';
-import { getStackId, isStackExpanded } from '@/ui-desks/stacks/utils';
+import { getStackId, getStackViewMode, isStackExpanded } from '@/ui-desks/stacks/utils';
 import { getWidgetDefinition } from '@/ui-desks/widgets/registry';
 import {
 	RECTANGLE_WIDGET_SHAPE_TYPE,
@@ -106,7 +106,11 @@ export class RectangleWidgetShapeUtil extends ShapeUtil< RectangleWidgetShape > 
 	}
 
 	override indicator( shape: RectangleWidgetShape ) {
-		if ( getStackId( shape ) && ! isStackExpanded( shape ) ) {
+		if (
+			getStackId( shape ) &&
+			! isStackExpanded( shape ) &&
+			getStackViewMode( shape ) !== 'tiles'
+		) {
 			return null;
 		}
 

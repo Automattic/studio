@@ -6,6 +6,7 @@ import {
 } from '@/ui-desks/widgets/embed/component';
 import { getUrlEmbedInfo } from '@/ui-desks/widgets/embed/embed-info';
 import { EmbedOpenControl } from './open-control';
+import { getFittedEmbedShapeProps } from './sizing';
 import { EMBED_WIDGET_TYPE, isEmbedWidgetProps, type EmbedWidget } from './types';
 import type { WidgetDefinition } from '@/ui-desks/widgets/types';
 
@@ -42,6 +43,8 @@ export const embedWidgetDefinition = {
 		},
 	} ),
 	getSummary: ( widgetProps ) => widgetProps.url,
+	getFittedShapeProps: ( { widgetProps, shapeProps } ) =>
+		getFittedEmbedShapeProps( widgetProps, shapeProps ),
 	pasteHandlers: [
 		{
 			id: 'embed-url',

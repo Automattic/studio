@@ -2,7 +2,12 @@ import type { SessionEntry } from '@mariozechner/pi-coding-agent';
 
 export type TurnStatus = 'success' | 'error' | 'max_turns' | 'interrupted';
 
-export interface AiSessionSummary {
+export interface AiSessionMetadata {
+	starred?: boolean;
+	archived?: boolean;
+}
+
+export interface AiSessionSummary extends AiSessionMetadata {
 	id: string;
 	filePath: string;
 	createdAt: string;

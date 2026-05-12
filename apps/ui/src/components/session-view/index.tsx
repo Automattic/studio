@@ -208,7 +208,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			<SessionFrame
 				header={ <div className={ styles.header } /> }
 				composer={
-					<div className={ styles.column }>
+					<div className={ styles.classicColumn }>
 						<ComposerSkeleton />
 					</div>
 				}
@@ -239,7 +239,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 				/>
 			}
 			composer={
-				<div className={ styles.column }>
+				<div className={ styles.classicColumn }>
 					<QueuedPrompts prompts={ queuedPrompts } onRemove={ removeQueuedPrompt } />
 					<Composer
 						busy={ composerBusy }
@@ -274,7 +274,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			}
 		>
 			{ isEmpty ? <EmptyBackground /> : null }
-			<div className={ clsx( styles.column, styles.classicConversationSpacing ) }>
+			<div className={ clsx( styles.classicColumn, styles.classicConversationSpacing ) }>
 				<Conversation
 					data={ data }
 					isRunning={ isRunning }

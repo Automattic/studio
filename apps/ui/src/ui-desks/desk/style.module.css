@@ -81,6 +81,52 @@
 	pointer-events: none;
 }
 
+.drawingToolbar {
+	position: absolute;
+	bottom: 48px;
+	left: 50%;
+	z-index: 11;
+	gap: 8px;
+	padding: 6px 6px 6px 14px;
+	pointer-events: auto;
+	transform-origin: bottom center;
+	transition:
+		transform 260ms cubic-bezier( 0.32, 0.72, 0.24, 1 ),
+		opacity 220ms cubic-bezier( 0.32, 0.72, 0.24, 1 );
+}
+
+.drawingToolbar[data-visible='true'] {
+	opacity: 1;
+	transform: translate( -50%, 0 ) scale( 1 );
+}
+
+.drawingToolbar[data-visible='false'] {
+	opacity: 0;
+	pointer-events: none;
+	transform: translate( -50%, 4px ) scale( 0.99 );
+}
+
+.drawingToolbarStatus {
+	display: inline-flex;
+	align-items: center;
+	color: var(--ui-desks-muted, #6b7280);
+}
+
+.drawingDoneButton {
+	width: auto;
+	min-width: 64px;
+	padding: 0 14px;
+	color: #fff;
+	font-size: 13px;
+	font-weight: 500;
+	--control-button-background: var(--ui-desks-text, #14171a);
+	--control-button-foreground: #fff;
+}
+
+.drawingDoneButton:hover:not(:disabled) {
+	--control-button-background: #000;
+}
+
 .siteMapLoadingWidget {
 	--loading-placeholder-text-color: #14171a;
 	--loading-placeholder-line-color: #e5e7eb;

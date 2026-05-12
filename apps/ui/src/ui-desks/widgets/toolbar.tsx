@@ -1,5 +1,5 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { group, trash, ungroup } from '@wordpress/icons';
+import { category, group, trash, ungroup, update } from '@wordpress/icons';
 import { useEffect, useState } from 'react';
 import { ChatButton } from '@/ui-desks/chats/chat-button';
 import { SelectionChatDialog } from '@/ui-desks/chats/selection-chat-dialog';
@@ -7,10 +7,25 @@ import { Divider, IconControlButton, Surface } from '@/ui-desks/components';
 import { ControlRenderer } from '@/ui-desks/controls/registry';
 import { useDesk } from '@/ui-desks/desk/provider';
 import styles from './toolbar.module.css';
+import type { AnySelectControlConfig } from '@/ui-desks/controls/types';
+import type { StackViewMode } from '@/ui-desks/stacks/utils';
 import type { getSelectedWidgetToolbarItem } from '@/ui-desks/widgets/toolbar-selection';
 import type { DeskWidget } from '@/ui-desks/widgets/types';
 
 type SelectedWidgetToolbarItem = NonNullable< ReturnType< typeof getSelectedWidgetToolbarItem > >;
+
+const STACK_VIEW_MODE_CONTROL: AnySelectControlConfig = {
+	type: 'select',
+	id: 'stack-view-mode',
+	property: 'viewMode',
+	label: __( 'Display' ),
+	icon: category,
+	defaultValue: 'stack',
+	options: [
+		{ value: 'stack', label: __( 'Stack' ) },
+		{ value: 'tiles', label: __( 'Tiles' ) },
+	],
+};
 
 export function DeskWidgetToolbar() {
 	const {
@@ -18,6 +33,7 @@ export function DeskWidgetToolbar() {
 		fitSelectedWidgetToContent,
 		stackSelectedWidgets,
 		unstackSelectedWidgets,
+		setSelectedStackView,
 		updateSelectedWidgetProps,
 		removeSelectedWidget,
 	} = useDesk();
@@ -39,6 +55,10 @@ export function DeskWidgetToolbar() {
 
 	const controls =
 		renderSelection.kind === 'single-widget' ? renderSelection.definition.controls : undefined;
+	const canFitSelectedWidgetToContent =
+		renderSelection.kind === 'single-widget' &&
+		Boolean( renderSelection.definition.getFittedShapeProps ) &&
+		renderSelection.definition.isWidgetProps( renderSelection.widget.widgetProps );
 	const canRenderControls =
 		renderSelection.kind === 'single-widget' &&
 		Boolean( controls?.length ) &&
@@ -63,19 +83,45 @@ export function DeskWidgetToolbar() {
 						) }
 					</span>
 				) }
+				{ canFitSelectedWidgetToContent && (
+					<IconControlButton
+						icon={ update }
+						label={ __( 'Fit to size' ) }
+						variant="toolbar"
+						onClick={ () => {
+							void fitSelectedWidgetToContent();
+						} }
+					/>
+				) }
 				{ canRenderControls &&
 					controls?.map( ( control ) => (
 						<ControlRenderer
 							key={ control.id }
 							control={ control }
-							fitSelectedWidgetToContent={ fitSelectedWidgetToContent }
 							isOpen={ openControlId === control.id }
 							props={ renderSelection.widget.widgetProps }
 							setIsOpen={ ( isOpen ) => setOpenControlId( isOpen ? control.id : null ) }
 							updateProps={ updateSelectedWidgetProps }
 						/>
 					) ) }
-				{ ( renderSelection.canStack || renderSelection.canUnstack ) && <Divider /> }
+				{ renderSelection.canSetStackView && (
+					<ControlRenderer
+						control={ STACK_VIEW_MODE_CONTROL }
+						isOpen={ openControlId === STACK_VIEW_MODE_CONTROL.id }
+						props={ { viewMode: renderSelection.stackViewMode ?? 'stack' } }
+						setIsOpen={ ( isOpen ) =>
+							setOpenControlId( isOpen ? STACK_VIEW_MODE_CONTROL.id : null )
+						}
+						updateProps={ ( nextProps ) => {
+							if ( isStackViewMode( nextProps.viewMode ) ) {
+								setSelectedStackView( nextProps.viewMode );
+							}
+						} }
+					/>
+				) }
+				{ ( renderSelection.canStack ||
+					renderSelection.canUnstack ||
+					renderSelection.canSetStackView ) && <Divider /> }
 				{ renderSelection.canStack && (
 					<IconControlButton
 						icon={ group }
@@ -111,4 +157,8 @@ export function DeskWidgetToolbar() {
 			) }
 		</>
 	);
+}
+
+function isStackViewMode( value: unknown ): value is StackViewMode {
+	return value === 'stack' || value === 'tiles';
 }

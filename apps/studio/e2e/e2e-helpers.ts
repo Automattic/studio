@@ -155,6 +155,38 @@ export class E2ESession {
 			timeout: 60_000,
 		} );
 
+		// Disable CSS animations, transitions, and smooth scrolling in every
+		// renderer window. On headless Linux CI the GPU process is disabled
+		// and Chromium rasterizes via SwiftShader on CPU — modal-entry
+		// transitions can take seconds to settle, which breaks Playwright's
+		// actionability checks ("element is not stable") and click acks
+		// (renderer never produces the next frame). Registered via the
+		// context so it applies to all current and future pages.
+		await this.electronApp.context().addInitScript( () => {
+			const inject = () => {
+				if ( document.getElementById( 'e2e-disable-animations' ) ) {
+					return;
+				}
+				const style = document.createElement( 'style' );
+				style.id = 'e2e-disable-animations';
+				style.textContent = `
+					*, *::before, *::after {
+						animation-duration: 0.0001s !important;
+						animation-delay: 0s !important;
+						transition-duration: 0.0001s !important;
+						transition-delay: 0s !important;
+						scroll-behavior: auto !important;
+					}
+				`;
+				( document.head || document.documentElement ).appendChild( style );
+			};
+			if ( document.readyState === 'loading' ) {
+				document.addEventListener( 'DOMContentLoaded', inject );
+			} else {
+				inject();
+			}
+		} );
+
 		this.startCapturingMainProcessLogs();
 
 		this.mainWindow = await this.electronApp.firstWindow( { timeout: 60_000 } );

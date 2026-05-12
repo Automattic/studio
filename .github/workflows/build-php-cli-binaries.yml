@@ -325,6 +325,8 @@ jobs:
           }
 
           bundle_macos_dependencies
+          echo "Bundled dylibs:"
+          find "$staging_dir/lib" -name '*.dylib' -print
           find_macho_files | while read -r file; do
             if otool -L "$file" | grep -E '/opt/homebrew/|/usr/local/'; then
               echo "Found non-portable Homebrew dependency in $file" >&2
@@ -362,15 +364,25 @@ jobs:
             -d "xdebug.mode=debug" \
             --ri xdebug
 
-          "$staging_dir/bin/php" -n \
-            -d "extension_dir=$extension_dir" \
-            -d "extension=curl" \
-            -d "extension=gd" \
-            -d "extension=mbstring" \
-            -d "extension=pdo" \
-            -d "extension=pdo_sqlite" \
-            -d "extension=sqlite3" \
-            -r 'echo PHP_VERSION, PHP_EOL;'
+          smoke_extensions=(curl gd mbstring pdo pdo_sqlite sqlite3)
+          for extension in "${smoke_extensions[@]}"; do
+            echo "Smoke testing extension: $extension"
+            otool -L "$extension_dir/$extension.so"
+            "$staging_dir/bin/php" -n \
+              -d "extension_dir=$extension_dir" \
+              -d "extension=$extension" \
+              -r 'echo PHP_VERSION, PHP_EOL;'
+          done
+
+          smoke_extension_args=()
+          for extension in "${smoke_extensions[@]}"; do
+            smoke_extension_args+=(-d "extension=$extension")
+            echo "Smoke testing extension set: ${smoke_extensions[*]:0:${#smoke_extension_args[@]}}"
+            "$staging_dir/bin/php" -n \
+              -d "extension_dir=$extension_dir" \
+              "${smoke_extension_args[@]}" \
+              -r 'echo PHP_VERSION, PHP_EOL;'
+          done
 
       - name: Package macOS artifact
         if: runner.os == 'macOS'

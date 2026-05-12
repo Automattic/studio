@@ -1,5 +1,8 @@
 import type { ControlConfig } from '@/ui-desks/controls/types';
 import type { BlogWidget } from '@/ui-desks/widgets/blog/types';
+import type { BookmarkWidget } from '@/ui-desks/widgets/bookmark/types';
+import type { DrawingWidget } from '@/ui-desks/widgets/drawing/types';
+import type { EmbedWidget } from '@/ui-desks/widgets/embed/types';
 import type { LoadingWidget } from '@/ui-desks/widgets/loading/types';
 import type { MediaWidget } from '@/ui-desks/widgets/media/types';
 import type { NoteWidget } from '@/ui-desks/widgets/note/types';
@@ -62,21 +65,27 @@ export interface WidgetFileHandlerContext {
 	siteId?: string;
 }
 
-export interface WidgetFileHandlerLoading {
+export interface WidgetHandlerLoading {
 	label?: string;
 	shapeProps?: Record< string, unknown >;
 }
 
-export interface WidgetFileHandlerWidget< TWidget extends DeskWidgetBase = DeskWidgetBase > {
+export interface WidgetHandlerWidget< TWidget extends DeskWidgetBase = DeskWidgetBase > {
 	id?: string;
 	shapeProps?: Partial< TWidget[ 'shapeProps' ] >;
 	widgetProps?: Partial< TWidget[ 'widgetProps' ] >;
 	shouldStartEditing?: boolean;
 }
 
+export type WidgetHandlerResult< TWidget extends DeskWidgetBase = DeskWidgetBase > =
+	| WidgetHandlerWidget< TWidget >
+	| Array< WidgetHandlerWidget< TWidget > >;
+
+export type WidgetFileHandlerLoading = WidgetHandlerLoading;
+export type WidgetFileHandlerWidget< TWidget extends DeskWidgetBase = DeskWidgetBase > =
+	WidgetHandlerWidget< TWidget >;
 export type WidgetFileHandlerResult< TWidget extends DeskWidgetBase = DeskWidgetBase > =
-	| WidgetFileHandlerWidget< TWidget >
-	| Array< WidgetFileHandlerWidget< TWidget > >;
+	WidgetHandlerResult< TWidget >;
 
 export interface WidgetFileHandler< TWidget extends DeskWidgetBase = DeskWidgetBase > {
 	id: string;
@@ -87,6 +96,41 @@ export interface WidgetFileHandler< TWidget extends DeskWidgetBase = DeskWidgetB
 		file: File,
 		context: WidgetFileHandlerContext
 	) => Promise< WidgetFileHandlerResult< TWidget > | null >;
+}
+
+export type WidgetPasteKind = 'url';
+
+export type WidgetPastePayload = {
+	kind: 'url';
+	text: string;
+	url: string;
+};
+
+export interface WidgetPasteAccept {
+	kinds?: WidgetPasteKind[];
+	protocols?: string[];
+}
+
+export interface WidgetPasteHandlerContext {
+	siteId?: string;
+}
+
+export type WidgetPasteHandlerLoading = WidgetHandlerLoading;
+export type WidgetPasteHandlerWidget< TWidget extends DeskWidgetBase = DeskWidgetBase > =
+	WidgetHandlerWidget< TWidget >;
+export type WidgetPasteHandlerResult< TWidget extends DeskWidgetBase = DeskWidgetBase > =
+	WidgetHandlerResult< TWidget >;
+
+export interface WidgetPasteHandler< TWidget extends DeskWidgetBase = DeskWidgetBase > {
+	id: string;
+	accept: WidgetPasteAccept;
+	loading?: WidgetPasteHandlerLoading;
+	requiresRunningSite?: boolean;
+	canHandle?: ( payload: WidgetPastePayload, context: WidgetPasteHandlerContext ) => boolean;
+	handle: (
+		payload: WidgetPastePayload,
+		context: WidgetPasteHandlerContext
+	) => Promise< WidgetPasteHandlerResult< TWidget > | null >;
 }
 
 export type ResolvedDeskWidgetOrigin =
@@ -128,8 +172,18 @@ export interface WidgetResolver<
 	) => boolean;
 }
 
+export interface WidgetFitContentContext< TWidget extends DeskWidgetBase = DeskWidgetBase > {
+	widgetProps: TWidget[ 'widgetProps' ];
+	shapeProps: TWidget[ 'shapeProps' ];
+}
+
+export type WidgetFitContentResult< TWidget extends DeskWidgetBase = DeskWidgetBase > =
+	| TWidget[ 'shapeProps' ]
+	| null;
+
 export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBase > {
 	type: TWidget[ 'type' ];
+	name: () => string;
 	Component: ComponentType< DeskWidgetComponentProps< TWidget[ 'widgetProps' ] > >;
 	thumbnail?: ComponentType< DeskWidgetThumbnailComponentProps< TWidget[ 'widgetProps' ] > >;
 	loading?: ComponentType< DeskWidgetLoadingComponentProps< TWidget[ 'widgetProps' ] > >;
@@ -141,14 +195,22 @@ export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBa
 	requiresRunningSite?: boolean;
 	shouldStartEditingOnCreate?: boolean;
 	getInitialWidget: () => Pick< TWidget, 'shapeProps' | 'widgetProps' >;
+	getSummary?: ( widgetProps: TWidget[ 'widgetProps' ] ) => string;
 	getLoadingShapeProps?: ( widget: TWidget ) => TWidget[ 'shapeProps' ];
 	getIndicator?: ( widgetProps: TWidget[ 'widgetProps' ] ) => WidgetIndicator;
+	getFittedShapeProps?: (
+		context: WidgetFitContentContext< TWidget >
+	) => WidgetFitContentResult< TWidget > | Promise< WidgetFitContentResult< TWidget > >;
 	resolver?: WidgetResolver< TWidget >;
 	fileHandlers?: Array< WidgetFileHandler< TWidget > >;
+	pasteHandlers?: Array< WidgetPasteHandler< TWidget > >;
 }
 
 export type DeskWidget =
+	| BookmarkWidget
 	| BlogWidget
+	| DrawingWidget
+	| EmbedWidget
 	| LoadingWidget
 	| NoteWidget
 	| MediaWidget
@@ -157,7 +219,10 @@ export type DeskWidget =
 	| PostCollectionWidget
 	| SitePreviewWidget;
 export type DeskWidgetDefinition =
+	| WidgetDefinition< BookmarkWidget >
 	| WidgetDefinition< BlogWidget >
+	| WidgetDefinition< DrawingWidget >
+	| WidgetDefinition< EmbedWidget >
 	| WidgetDefinition< LoadingWidget >
 	| WidgetDefinition< NoteWidget >
 	| WidgetDefinition< MediaWidget >

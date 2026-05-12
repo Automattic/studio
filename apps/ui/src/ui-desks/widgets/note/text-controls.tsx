@@ -1,5 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { plus, reset, update } from '@wordpress/icons';
+import { plus, reset } from '@wordpress/icons';
 import { IconControlButton } from '@/ui-desks/components';
 import { getNoteTextSize } from './text-sizing';
 import { NOTE_TEXT_SIZE_COUNT, type NoteWidgetProps } from './types';
@@ -28,19 +28,5 @@ export function NoteTextSizeControl( {
 				onClick={ () => updateProps( { textSize: textSize + 1 } ) }
 			/>
 		</>
-	);
-}
-
-export function NoteFitTextControl( {
-	fitSelectedWidgetToContent,
-}: ControlRenderContext< NoteWidgetProps > ) {
-	return (
-		<IconControlButton
-			icon={ update }
-			label={ __( 'Fit text' ) }
-			variant="toolbar"
-			disabled={ ! fitSelectedWidgetToContent }
-			onClick={ fitSelectedWidgetToContent }
-		/>
 	);
 }

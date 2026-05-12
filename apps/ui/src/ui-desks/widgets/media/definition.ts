@@ -3,11 +3,13 @@ import { image } from '@wordpress/icons';
 import { uploadSiteMedia } from '@/data/wordpress/media';
 import { MediaWidgetComponent } from './component';
 import { MediaOpenControl } from './open-control';
+import { getFittedMediaShapeProps } from './sizing';
 import { isMediaWidgetProps, MEDIA_WIDGET_TYPE, type MediaKind, type MediaWidget } from './types';
 import type { WidgetDefinition } from '@/ui-desks/widgets/types';
 
 export const mediaWidgetDefinition = {
 	type: MEDIA_WIDGET_TYPE,
+	name: () => __( 'Media' ),
 	Component: MediaWidgetComponent,
 	controls: [
 		{
@@ -40,6 +42,9 @@ export const mediaWidgetDefinition = {
 			mediaId: null,
 		},
 	} ),
+	getSummary: ( widgetProps ) => widgetProps.alt || widgetProps.url,
+	getFittedShapeProps: ( { widgetProps, shapeProps } ) =>
+		getFittedMediaShapeProps( widgetProps, shapeProps ),
 	fileHandlers: [
 		{
 			id: 'media-upload',

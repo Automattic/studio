@@ -1,3 +1,4 @@
+import { DRAWING_WIDGET_TYPE } from '@/ui-desks/widgets/drawing/types';
 import { getWidgetDefinition } from '@/ui-desks/widgets/registry';
 import type { DeskWidget } from '@/ui-desks/widgets/types';
 
@@ -52,10 +53,14 @@ export function getSelectedWidgetToolbarItem(
 
 	const [ widget ] = widgets;
 	const definition = getWidgetDefinition( widget.type );
+	if ( ! definition || ! definition.isWidgetProps( widget.widgetProps ) ) {
+		return null;
+	}
+
 	if (
-		! definition ||
-		! definition.controls?.length ||
-		! definition.isWidgetProps( widget.widgetProps )
+		! definition.controls?.length &&
+		! definition.getFittedShapeProps &&
+		widget.type !== DRAWING_WIDGET_TYPE
 	) {
 		return null;
 	}

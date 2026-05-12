@@ -4,7 +4,8 @@ import {
 	NoteWidgetComponent,
 	NoteWidgetThumbnailComponent,
 } from '@/ui-desks/widgets/note/component';
-import { NoteFitTextControl, NoteTextSizeControl } from '@/ui-desks/widgets/note/text-controls';
+import { NoteTextSizeControl } from '@/ui-desks/widgets/note/text-controls';
+import { getFittedNoteHeight } from '@/ui-desks/widgets/note/text-sizing';
 import {
 	isNoteWidgetProps,
 	NOTE_WIDGET_TYPE,
@@ -41,6 +42,7 @@ const NOTE_TONE_OPTIONS: Array< { value: NoteTone; label: string; color: string 
 
 export const noteWidgetDefinition = {
 	type: NOTE_WIDGET_TYPE,
+	name: () => __( 'Note' ),
 	Component: NoteWidgetComponent,
 	thumbnail: NoteWidgetThumbnailComponent,
 	controls: [
@@ -48,11 +50,6 @@ export const noteWidgetDefinition = {
 			type: 'custom',
 			id: 'text-size',
 			Component: NoteTextSizeControl,
-		},
-		{
-			type: 'custom',
-			id: 'fit-text',
-			Component: NoteFitTextControl,
 		},
 		{
 			type: 'color',
@@ -81,4 +78,25 @@ export const noteWidgetDefinition = {
 			tone: 'yellow',
 		},
 	} ),
+	getSummary: ( widgetProps ) =>
+		truncateText( stripMarkup( widgetProps.text ), 72 ) || __( 'Empty note' ),
+	getFittedShapeProps: ( { widgetProps, shapeProps } ) => ( {
+		...shapeProps,
+		h: getFittedNoteHeight( widgetProps, shapeProps ),
+	} ),
 } satisfies WidgetDefinition< NoteWidget >;
+
+function stripMarkup( value: string ) {
+	return value
+		.replace( /<[^>]*>/g, ' ' )
+		.replace( /\s+/g, ' ' )
+		.trim();
+}
+
+function truncateText( value: string, maxLength: number ) {
+	if ( value.length <= maxLength ) {
+		return value;
+	}
+
+	return `${ value.slice( 0, maxLength - 3 ).trimEnd() }...`;
+}

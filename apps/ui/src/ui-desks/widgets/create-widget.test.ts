@@ -36,6 +36,70 @@ describe( 'createDeskWidget', () => {
 		} );
 	} );
 
+	it( 'creates a bookmark widget with supplied URL props', () => {
+		const createdWidget = createDeskWidget( {
+			id: 'bookmark-1',
+			type: 'bookmark',
+			center: {
+				x: 500,
+				y: 400,
+			},
+			zIndex: 'a1',
+			widgetProps: {
+				url: 'https://example.com/',
+			},
+		} );
+
+		expect( createdWidget ).toEqual( {
+			id: 'bookmark-1',
+			type: 'bookmark',
+			x: 350,
+			y: 349.5,
+			zIndex: 'a1',
+			shapeProps: {
+				w: 300,
+				h: 101,
+			},
+			widgetProps: {
+				url: 'https://example.com/',
+			},
+		} );
+	} );
+
+	it( 'creates an embed widget with supplied URL props', () => {
+		const createdWidget = createDeskWidget( {
+			id: 'embed-1',
+			type: 'embed',
+			center: {
+				x: 500,
+				y: 400,
+			},
+			zIndex: 'a7',
+			shapeProps: {
+				w: 800,
+				h: 450,
+			},
+			widgetProps: {
+				url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+			},
+		} );
+
+		expect( createdWidget ).toEqual( {
+			id: 'embed-1',
+			type: 'embed',
+			x: 100,
+			y: 175,
+			zIndex: 'a7',
+			shapeProps: {
+				w: 800,
+				h: 450,
+			},
+			widgetProps: {
+				url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+			},
+		} );
+	} );
+
 	it( 'ignores unsupported widget types', () => {
 		expect(
 			createDeskWidget( {
@@ -135,6 +199,40 @@ describe( 'createDeskWidget', () => {
 			},
 			widgetProps: {
 				path: '/',
+			},
+		} );
+	} );
+
+	it( 'creates a drawing widget with supplied SVG props', () => {
+		const createdWidget = createDeskWidget( {
+			id: 'drawing-1',
+			type: 'drawing',
+			center: {
+				x: 400,
+				y: 300,
+			},
+			zIndex: 'a6',
+			shapeProps: {
+				w: 240,
+				h: 180,
+			},
+			widgetProps: {
+				svg: '<svg viewBox="0 0 240 180" />',
+			},
+		} );
+
+		expect( createdWidget ).toEqual( {
+			id: 'drawing-1',
+			type: 'drawing',
+			x: 280,
+			y: 210,
+			zIndex: 'a6',
+			shapeProps: {
+				w: 240,
+				h: 180,
+			},
+			widgetProps: {
+				svg: '<svg viewBox="0 0 240 180" />',
 			},
 		} );
 	} );

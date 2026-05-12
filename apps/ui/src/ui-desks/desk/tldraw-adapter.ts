@@ -1,8 +1,12 @@
 import {
 	createShapeId,
 	getIndicesAbove,
+	getIndicesBelow,
 	sortByIndex,
 	type TLCamera,
+	type TLArrowBinding,
+	type TLArrowShape,
+	type TLBindingCreate,
 	type TLShape,
 	type TLShapePartial,
 } from 'tldraw';
@@ -23,6 +27,7 @@ import {
 	getStackZIndexFromMember,
 } from '@/ui-desks/stacks/utils';
 import { isRectangleWidgetShapeProps } from '@/ui-desks/widgets/geometry';
+import { LOADING_WIDGET_TYPE } from '@/ui-desks/widgets/loading/types';
 import { getWidgetDefinition } from '@/ui-desks/widgets/registry';
 import type { DeskConfig, DeskStack, DeskViewport } from '@/ui-desks/desk/types';
 import type {
@@ -32,8 +37,10 @@ import type {
 } from '@/ui-desks/widgets/types';
 
 const SHAPE_ID_PREFIX = 'shape:';
+const CONNECTOR_SHAPE_ID_PREFIX = 'connector:';
 const DERIVED_WIDGET_ORIGIN = 'derived';
 const DERIVED_WIDGET_PERSIST = false;
+const CONNECTOR_COLOR = 'grey';
 
 interface DeskCanvasMeta {
 	studioDeskOrigin?: typeof DERIVED_WIDGET_ORIGIN;
@@ -41,6 +48,7 @@ interface DeskCanvasMeta {
 	studioDeskSourceWidgetId?: string;
 	studioDeskDerivedKey?: string;
 	studioDeskResolutionState?: WidgetResolutionState;
+	studioDeskConnector?: boolean;
 }
 
 interface DeskStackMember {
@@ -88,6 +96,82 @@ export function deskConfigToCanvasShapes( desk: DeskConfig ): TLShapePartial[] {
 	}
 
 	return shapes;
+}
+
+export function deskConfigToCanvasConnectorShapes(
+	desk: DeskConfig,
+	widgetShapes = deskConfigToCanvasShapes( desk )
+): TLShapePartial< TLArrowShape >[] {
+	if ( ! desk.connectors?.length ) {
+		return [];
+	}
+
+	const lowestWidgetIndex = getLowestShapeIndex( widgetShapes );
+	const connectorIndices = lowestWidgetIndex
+		? getIndicesBelow( lowestWidgetIndex, desk.connectors.length )
+		: getIndicesAbove( null, desk.connectors.length );
+
+	return desk.connectors.map( ( connector, index ) => ( {
+		id: createShapeId( `${ CONNECTOR_SHAPE_ID_PREFIX }${ connector.id }` ),
+		type: 'arrow',
+		index: connectorIndices[ index ],
+		isLocked: true,
+		opacity: 0.72,
+		meta: {
+			studioDeskOrigin: DERIVED_WIDGET_ORIGIN,
+			studioDeskPersist: DERIVED_WIDGET_PERSIST,
+			studioDeskConnector: true,
+		},
+		props: {
+			kind: 'arc',
+			color: CONNECTOR_COLOR,
+			dash: 'solid',
+			size: 'm',
+			bend: connector.bend ?? 24,
+			arrowheadStart: 'none',
+			arrowheadEnd: 'none',
+			start: { x: 0, y: 0 },
+			end: { x: 2, y: 0 },
+		},
+	} ) );
+}
+
+export function deskConfigToCanvasConnectorBindings(
+	desk: DeskConfig
+): TLBindingCreate< TLArrowBinding >[] {
+	if ( ! desk.connectors?.length ) {
+		return [];
+	}
+
+	return desk.connectors.flatMap( ( connector ) => {
+		const arrowId = createShapeId( `${ CONNECTOR_SHAPE_ID_PREFIX }${ connector.id }` );
+		return [
+			{
+				type: 'arrow' as const,
+				fromId: arrowId,
+				toId: createShapeId( connector.from.widgetId ),
+				props: {
+					terminal: 'start' as const,
+					normalizedAnchor: connector.from.normalizedAnchor,
+					isExact: false,
+					isPrecise: false,
+					snap: 'none' as const,
+				},
+			},
+			{
+				type: 'arrow' as const,
+				fromId: arrowId,
+				toId: createShapeId( connector.to.widgetId ),
+				props: {
+					terminal: 'end' as const,
+					normalizedAnchor: connector.to.normalizedAnchor,
+					isExact: false,
+					isPrecise: false,
+					snap: 'none' as const,
+				},
+			},
+		];
+	} );
 }
 
 export function deskWidgetToCanvasShape(
@@ -202,6 +286,16 @@ function getTopLevelDeskItems( desk: DeskConfig ) {
 	);
 }
 
+function getLowestShapeIndex( shapes: TLShapePartial[] ) {
+	return [ ...shapes ]
+		.filter(
+			( shape ): shape is TLShapePartial & { index: NonNullable< TLShapePartial[ 'index' ] > } =>
+				Boolean( shape.index )
+		)
+		.sort( sortByIndex )
+		.at( 0 )?.index;
+}
+
 export function canvasShapeToDeskWidget( shape: TLShape ): DeskWidget | null {
 	if (
 		shape.type !== RECTANGLE_WIDGET_SHAPE_TYPE ||
@@ -250,7 +344,7 @@ export function canvasShapesToDeskStacks( shapes: TLShape[] ): DeskStack[] {
 }
 
 export function isPersistentDeskCanvasShape( shape: TLShape ) {
-	return ! isDerivedDeskCanvasRecord( shape );
+	return ! isDerivedDeskCanvasRecord( shape ) && ! isLoadingDeskCanvasRecord( shape );
 }
 
 export function isDerivedDeskCanvasRecord( value: unknown ) {
@@ -293,6 +387,17 @@ export function getDeskCanvasRecordMetaWithResolutionState(
 		nextMeta.studioDeskResolutionState = null;
 	}
 	return nextMeta as TLShapePartial[ 'meta' ];
+}
+
+export function getTemporaryDeskCanvasRecordMeta(
+	value: unknown,
+	resolutionState?: WidgetResolutionState
+): TLShapePartial[ 'meta' ] {
+	return {
+		...( getDeskCanvasRecordMetaWithResolutionState( value, resolutionState ) ?? {} ),
+		studioDeskOrigin: DERIVED_WIDGET_ORIGIN,
+		studioDeskPersist: DERIVED_WIDGET_PERSIST,
+	};
 }
 
 export function hasOnlyDeskCanvasRecordResolutionStateChange(
@@ -407,6 +512,15 @@ function isRectangleWidgetCanvasProps(
 		isRectangleWidgetShapeProps( candidate.shapeProps ) &&
 		Boolean( candidate.widgetProps ) &&
 		typeof candidate.widgetProps === 'object'
+	);
+}
+
+function isLoadingDeskCanvasRecord( value: unknown ) {
+	return (
+		Boolean( value ) &&
+		typeof value === 'object' &&
+		( value as { type?: unknown } ).type === RECTANGLE_WIDGET_SHAPE_TYPE &&
+		( value as { props?: { widgetType?: unknown } } ).props?.widgetType === LOADING_WIDGET_TYPE
 	);
 }
 

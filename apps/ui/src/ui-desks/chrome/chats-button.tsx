@@ -2,12 +2,12 @@ import { __ } from '@wordpress/i18n';
 import { comment } from '@wordpress/icons';
 import { IconControlButton } from '@/ui-desks/components';
 
-interface DeskChatsButtonProps {
+interface ChatsButtonProps {
 	open: boolean;
 	onToggle: () => void;
 }
 
-export function DeskChatsButton( { open, onToggle }: DeskChatsButtonProps ) {
+export function ChatsButton( { open, onToggle }: ChatsButtonProps ) {
 	return (
 		<IconControlButton
 			icon={ comment }

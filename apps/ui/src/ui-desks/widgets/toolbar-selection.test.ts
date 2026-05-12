@@ -1,4 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
+import { DRAWING_WIDGET_TYPE } from '@/ui-desks/widgets/drawing/types';
+import { EMBED_WIDGET_TYPE } from '@/ui-desks/widgets/embed/types';
+import { MEDIA_WIDGET_TYPE } from '@/ui-desks/widgets/media/types';
 import { NOTE_WIDGET_TYPE } from '@/ui-desks/widgets/note/types';
 import { PAGE_WIDGET_TYPE } from '@/ui-desks/widgets/page/types';
 import { POST_WIDGET_TYPE } from '@/ui-desks/widgets/post/types';
@@ -68,6 +71,51 @@ describe( 'widget toolbar selection', () => {
 		expect( selectedItem.definition.controls?.[ 0 ]?.type ).toBe( 'custom' );
 		expect( selectedItem.widget.widgetProps ).toEqual( {
 			path: '/',
+		} );
+	} );
+
+	it( 'returns the toolbar item for a single media widget selection', () => {
+		const selectedItem = getSelectedWidgetToolbarItem( [ createMediaWidget() ] );
+		expect( selectedItem ).toMatchObject( { kind: 'single-widget' } );
+		if ( selectedItem?.kind !== 'single-widget' ) {
+			throw new Error( 'Expected a single widget toolbar item.' );
+		}
+		expect( selectedItem.definition.type ).toBe( MEDIA_WIDGET_TYPE );
+		expect( selectedItem.definition.controls?.[ 0 ]?.type ).toBe( 'custom' );
+		expect( selectedItem.widget.widgetProps ).toEqual( {
+			url: 'https://example.com/image.jpg',
+			mediaKind: 'image',
+			alt: 'Example image',
+			mediaId: 123,
+		} );
+	} );
+
+	it( 'returns the toolbar item for a single embed widget selection', () => {
+		const selectedItem = getSelectedWidgetToolbarItem( [ createEmbedWidget() ] );
+
+		expect( selectedItem ).toMatchObject( { kind: 'single-widget' } );
+		if ( selectedItem?.kind !== 'single-widget' ) {
+			throw new Error( 'Expected a single widget toolbar item.' );
+		}
+		expect( selectedItem.definition.type ).toBe( EMBED_WIDGET_TYPE );
+		expect( selectedItem.definition.controls?.[ 0 ]?.type ).toBe( 'custom' );
+		expect( selectedItem.widget.widgetProps ).toEqual( {
+			url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+		} );
+	} );
+
+	it( 'returns remove controls for a single drawing widget selection', () => {
+		const selectedItem = getSelectedWidgetToolbarItem( [ createDrawingWidget() ] );
+
+		expect( selectedItem ).toMatchObject( { kind: 'single-widget' } );
+		if ( selectedItem?.kind !== 'single-widget' ) {
+			throw new Error( 'Expected a single widget toolbar item.' );
+		}
+		expect( selectedItem.definition.type ).toBe( DRAWING_WIDGET_TYPE );
+		expect( selectedItem.definition.controls ).toBeUndefined();
+		expect( selectedItem.canRemove ).toBe( true );
+		expect( selectedItem.widget.widgetProps ).toEqual( {
+			svg: '<svg viewBox="0 0 320 240" />',
 		} );
 	} );
 
@@ -214,6 +262,60 @@ function createSitePreviewWidget(): DeskWidget {
 		},
 		widgetProps: {
 			path: '/',
+		},
+	};
+}
+
+function createMediaWidget(): DeskWidget {
+	return {
+		id: 'media-1',
+		type: MEDIA_WIDGET_TYPE,
+		x: 0,
+		y: 0,
+		zIndex: 'a1',
+		shapeProps: {
+			w: 320,
+			h: 320,
+		},
+		widgetProps: {
+			url: 'https://example.com/image.jpg',
+			mediaKind: 'image',
+			alt: 'Example image',
+			mediaId: 123,
+		},
+	};
+}
+
+function createEmbedWidget(): DeskWidget {
+	return {
+		id: 'embed-1',
+		type: EMBED_WIDGET_TYPE,
+		x: 0,
+		y: 0,
+		zIndex: 'a1',
+		shapeProps: {
+			w: 800,
+			h: 450,
+		},
+		widgetProps: {
+			url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+		},
+	};
+}
+
+function createDrawingWidget(): DeskWidget {
+	return {
+		id: 'drawing-1',
+		type: DRAWING_WIDGET_TYPE,
+		x: 0,
+		y: 0,
+		zIndex: 'a1',
+		shapeProps: {
+			w: 320,
+			h: 240,
+		},
+		widgetProps: {
+			svg: '<svg viewBox="0 0 320 240" />',
 		},
 	};
 }

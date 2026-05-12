@@ -1,8 +1,11 @@
+import { DRAWING_WIDGET_TYPE } from '@/ui-desks/widgets/drawing/types';
 import { getWidgetDefinition } from '@/ui-desks/widgets/registry';
 import type { DeskWidget } from '@/ui-desks/widgets/types';
 
 interface SelectedWidgetToolbarOptions {
 	stackIds?: string[];
+	canStack?: boolean;
+	canUnstack?: boolean;
 	canRemove?: boolean;
 }
 
@@ -36,8 +39,8 @@ export function getSelectedWidgetToolbarItem(
 	const base = {
 		widgets,
 		stackIds,
-		canStack: widgets.length >= 2 && stackIds.length === 0,
-		canUnstack: stackIds.length > 0,
+		canStack: ( options.canStack ?? true ) && widgets.length >= 2 && stackIds.length === 0,
+		canUnstack: ( options.canUnstack ?? true ) && stackIds.length > 0,
 		canRemove: options.canRemove ?? true,
 	};
 
@@ -50,11 +53,11 @@ export function getSelectedWidgetToolbarItem(
 
 	const [ widget ] = widgets;
 	const definition = getWidgetDefinition( widget.type );
-	if (
-		! definition ||
-		! definition.controls?.length ||
-		! definition.isWidgetProps( widget.widgetProps )
-	) {
+	if ( ! definition || ! definition.isWidgetProps( widget.widgetProps ) ) {
+		return null;
+	}
+
+	if ( ! definition.controls?.length && widget.type !== DRAWING_WIDGET_TYPE ) {
 		return null;
 	}
 

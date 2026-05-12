@@ -17,13 +17,15 @@ const WPCOM_PROFILE_URL = 'https://wordpress.com/me';
 
 interface DeskMenuProps {
 	siteId?: string;
+	disabled?: boolean;
+	showSiteName?: boolean;
 }
 
 function getSiteIconSeed( site: SiteDetails ) {
 	return `${ site.id }:${ site.name }:${ site.path }`;
 }
 
-export function DeskMenu( { siteId }: DeskMenuProps ) {
+export function DeskMenu( { siteId, disabled = false, showSiteName = true }: DeskMenuProps ) {
 	const navigate = useNavigate();
 	const connector = useConnector();
 	const { data: user } = useAuthUser();
@@ -60,6 +62,7 @@ export function DeskMenu( { siteId }: DeskMenuProps ) {
 	const trigger = siteId ? (
 		<ControlButton
 			className={ styles.siteTrigger }
+			disabled={ disabled }
 			label={ sprintf(
 				/* translators: %s: current site name. */
 				__( 'Desk menu. Current site is %s.' ),
@@ -72,13 +75,19 @@ export function DeskMenu( { siteId }: DeskMenuProps ) {
 				seed={ activeSiteIconSeed }
 				imageSrc={ activeSite?.siteIcon }
 			/>
-			<span className={ styles.siteName } title={ activeSiteName }>
-				{ activeSiteName }
-			</span>
+			{ showSiteName && (
+				<span className={ styles.siteName } title={ activeSiteName }>
+					{ activeSiteName }
+				</span>
+			) }
 			<Icon icon={ chevronDownSmall } size={ 20 } className={ styles.siteCaret } />
 		</ControlButton>
 	) : (
-		<ControlButton label={ __( 'Desk menu' ) } tooltipLabel={ user?.displayName }>
+		<ControlButton
+			disabled={ disabled }
+			label={ __( 'Desk menu' ) }
+			tooltipLabel={ user?.displayName }
+		>
 			{ user ? (
 				<Gravatar className={ styles.avatar } email={ user.email } isDark={ themeIsDark } />
 			) : (

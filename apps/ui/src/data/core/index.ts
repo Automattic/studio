@@ -8,6 +8,7 @@ export type {
 	Connector,
 	CreateSiteParams,
 	DeskConfig,
+	DeskSettings,
 	DeskWidgetBase,
 	ExtractedBlueprintBundle,
 	FeaturedBlueprint,

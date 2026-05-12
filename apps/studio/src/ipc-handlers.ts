@@ -75,6 +75,7 @@ import {
 	isRootCATrusted,
 	trustRootCA,
 } from 'src/lib/certificate-manager';
+import { download } from 'src/lib/download';
 import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
 import { buildFeatureFlags } from 'src/lib/feature-flags';
 import { getImageData } from 'src/lib/get-image-data';
@@ -187,8 +188,10 @@ export { getDefaultSiteDirectory, saveDefaultSiteDirectory };
 export { importSite, exportSite } from 'src/modules/import-export/lib/ipc-handlers';
 
 export {
+	getDeskSettings,
 	getSiteDeskConfig,
 	getUserDeskConfig,
+	saveDeskSettings,
 	saveSiteDeskConfig,
 	saveUserDeskConfig,
 } from 'src/modules/desks/lib/ipc-handlers';
@@ -684,6 +687,16 @@ export async function createSite(
 	const metric = getBlueprintMetric( blueprint?.slug );
 	bumpStat( StatsGroup.STUDIO_SITE_CREATE, metric );
 
+	// If the blueprint has a bundle_url (API blueprints with bundled resources like zips),
+	// download and extract the bundle so bundled resources can be resolved locally.
+	let bundleTempDir: string | undefined;
+	let blueprintFilePath = blueprint?.filePath;
+	if ( blueprint?.bundle_url && ! blueprintFilePath ) {
+		const result = await downloadAndExtractBlueprintBundle( blueprint.bundle_url );
+		bundleTempDir = result.tempDir;
+		blueprintFilePath = result.blueprintJsonPath;
+	}
+
 	try {
 		const { server } = await SiteServer.create(
 			{
@@ -695,7 +708,7 @@ export async function createSite(
 				enableHttps,
 				siteId,
 				blueprint: blueprint?.blueprint,
-				originalBlueprintPath: blueprint?.filePath,
+				originalBlueprintPath: blueprintFilePath,
 				adminUsername,
 				adminPassword,
 				adminEmail,
@@ -754,7 +767,9 @@ export async function createSite(
 
 		throw error;
 	} finally {
-		if ( blueprint?.filePath ) {
+		if ( bundleTempDir ) {
+			await removeBlueprintTempDir( bundleTempDir ).catch( () => {} );
+		} else if ( blueprint?.filePath ) {
 			const blueprintDir = nodePath.dirname( nodePath.resolve( blueprint.filePath ) );
 			await removeBlueprintTempDir( blueprintDir ).catch( () => {} );
 		}
@@ -2038,6 +2053,59 @@ export async function listLocalFileTree(
 	} catch ( err ) {
 		console.error( `Failed to list raw file tree for path ${ path }:`, err );
 		return [];
+	}
+}
+
+/**
+ * Downloads a blueprint bundle zip from a URL, extracts it to a temp directory,
+ * and returns the path to the extracted blueprint.json.
+ * Used for API blueprints that reference bundled resources (e.g. theme zips, WXR files).
+ */
+async function downloadAndExtractBlueprintBundle( bundleUrl: string ): Promise< {
+	blueprintJsonPath: string;
+	tempDir: string;
+} > {
+	const tempDir = await fsPromises.mkdtemp(
+		nodePath.join( os.tmpdir(), 'studio-blueprint-bundle-' )
+	);
+	const tempZipPath = nodePath.join( tempDir, 'bundle.zip' );
+
+	try {
+		await download( bundleUrl, tempZipPath );
+		await extractZip( tempZipPath, tempDir );
+		await fsPromises.unlink( tempZipPath ).catch( () => {} );
+
+		// Find blueprint.json in the extracted contents
+		let blueprintJsonPath = nodePath.join( tempDir, 'blueprint.json' );
+		try {
+			await fsPromises.access( blueprintJsonPath );
+		} catch {
+			// Some zips have a single root directory — check one level deeper
+			const files = await fsPromises.readdir( tempDir );
+			for ( const file of files ) {
+				const nestedPath = nodePath.join( tempDir, file, 'blueprint.json' );
+				try {
+					await fsPromises.access( nestedPath );
+					blueprintJsonPath = nestedPath;
+					break;
+				} catch {
+					// continue checking
+				}
+			}
+		}
+
+		try {
+			await fsPromises.access( blueprintJsonPath );
+		} catch {
+			throw new Error(
+				'No blueprint.json found in the downloaded bundle. Ensure the bundle zip contains a blueprint.json.'
+			);
+		}
+
+		return { blueprintJsonPath, tempDir };
+	} catch ( error ) {
+		await fsPromises.rm( tempDir, { recursive: true, force: true } ).catch( () => {} );
+		throw error;
 	}
 }
 

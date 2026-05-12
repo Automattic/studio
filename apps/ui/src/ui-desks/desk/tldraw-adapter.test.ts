@@ -5,15 +5,21 @@ import {
 	canvasCameraToDeskViewport,
 	canvasShapeToDeskWidget,
 	canvasShapesToDeskStacks,
+	deskConfigToCanvasConnectorBindings,
+	deskConfigToCanvasConnectorShapes,
 	deskConfigToCanvasShapes,
 	deskWidgetToCanvasShape,
 	getDeskCanvasRecordMetaWithResolutionState,
 	getDeskCanvasRecordResolutionState,
+	getTemporaryDeskCanvasRecordMeta,
 	hasOnlyDeskCanvasRecordResolutionStateChange,
 	isPersistentDeskCanvasShape,
 	resolvedDeskWidgetToCanvasShape,
 } from './tldraw-adapter';
 import type { DeskConfig } from './types';
+import type { DrawingWidget } from '@/ui-desks/widgets/drawing/types';
+import type { EmbedWidget } from '@/ui-desks/widgets/embed/types';
+import type { MediaWidget } from '@/ui-desks/widgets/media/types';
 import type { NoteWidget } from '@/ui-desks/widgets/note/types';
 import type { PageWidget } from '@/ui-desks/widgets/page/types';
 import type { PostWidget } from '@/ui-desks/widgets/post/types';
@@ -101,6 +107,44 @@ describe( 'tldraw adapter', () => {
 				tone: 'blue',
 			},
 		} );
+	} );
+
+	it( 'maps a drawing widget through the canvas shape adapter', () => {
+		const widget: DrawingWidget = {
+			id: 'drawing-1',
+			type: 'drawing',
+			x: 12,
+			y: 34,
+			zIndex: 'a3',
+			shapeProps: {
+				w: 320,
+				h: 240,
+			},
+			widgetProps: {
+				svg: '<svg viewBox="0 0 320 240" />',
+			},
+		};
+
+		const shape = deskWidgetToCanvasShape( widget ) as TLShape;
+
+		expect( shape ).toMatchObject( {
+			id: 'shape:drawing-1',
+			type: RECTANGLE_WIDGET_SHAPE_TYPE,
+			x: 12,
+			y: 34,
+			index: 'a3',
+			props: {
+				widgetType: 'drawing',
+				shapeProps: {
+					w: 320,
+					h: 240,
+				},
+				widgetProps: {
+					svg: '<svg viewBox="0 0 320 240" />',
+				},
+			},
+		} );
+		expect( canvasShapeToDeskWidget( shape ) ).toEqual( widget );
 	} );
 
 	it( 'maps a post widget through the canvas shape adapter', () => {
@@ -228,6 +272,94 @@ describe( 'tldraw adapter', () => {
 		} );
 	} );
 
+	it( 'maps a media widget through the canvas shape adapter', () => {
+		const widget: MediaWidget = {
+			id: 'media-1',
+			type: 'media',
+			x: 100,
+			y: 110,
+			zIndex: 'a6',
+			shapeProps: {
+				w: 320,
+				h: 320,
+			},
+			widgetProps: {
+				url: 'https://example.com/image.jpg',
+				mediaKind: 'image',
+				alt: 'Example image',
+				mediaId: 123,
+			},
+		};
+
+		const shape = deskWidgetToCanvasShape( widget ) as TLShape;
+
+		expect( shape ).toMatchObject( {
+			id: 'shape:media-1',
+			type: RECTANGLE_WIDGET_SHAPE_TYPE,
+			x: 100,
+			y: 110,
+			index: 'a6',
+			props: {
+				widgetType: 'media',
+				shapeProps: {
+					w: 320,
+					h: 320,
+				},
+				widgetProps: {
+					url: 'https://example.com/image.jpg',
+					mediaKind: 'image',
+					alt: 'Example image',
+					mediaId: 123,
+				},
+			},
+		} );
+		expect( canvasShapeToDeskWidget( shape ) ).toEqual( {
+			...widget,
+			rotation: undefined,
+		} );
+	} );
+
+	it( 'maps an embed widget through the canvas shape adapter', () => {
+		const widget: EmbedWidget = {
+			id: 'embed-1',
+			type: 'embed',
+			x: 120,
+			y: 130,
+			zIndex: 'a7',
+			shapeProps: {
+				w: 800,
+				h: 450,
+			},
+			widgetProps: {
+				url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+			},
+		};
+
+		const shape = deskWidgetToCanvasShape( widget ) as TLShape;
+
+		expect( shape ).toMatchObject( {
+			id: 'shape:embed-1',
+			type: RECTANGLE_WIDGET_SHAPE_TYPE,
+			x: 120,
+			y: 130,
+			index: 'a7',
+			props: {
+				widgetType: 'embed',
+				shapeProps: {
+					w: 800,
+					h: 450,
+				},
+				widgetProps: {
+					url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+				},
+			},
+		} );
+		expect( canvasShapeToDeskWidget( shape ) ).toEqual( {
+			...widget,
+			rotation: undefined,
+		} );
+	} );
+
 	it( 'projects stacked widgets from the stack position', () => {
 		const desk: DeskConfig = {
 			version: 1,
@@ -295,6 +427,76 @@ describe( 'tldraw adapter', () => {
 			'shape:note-2',
 			'shape:note-1',
 		] );
+	} );
+
+	it( 'maps desk connectors to locked arrow shapes and arrow bindings', () => {
+		const desk: DeskConfig = {
+			version: 1,
+			updatedAt: '2026-05-09T00:00:00.000Z',
+			widgets: [
+				{
+					...createNoteWidget(),
+					id: 'parent',
+					zIndex: 'a2',
+				},
+				{
+					...createNoteWidget(),
+					id: 'child',
+					zIndex: 'a3',
+				},
+			],
+			connectors: [
+				{
+					id: 'parent-to-child',
+					from: {
+						widgetId: 'parent',
+						normalizedAnchor: { x: 0.5, y: 1 },
+					},
+					to: {
+						widgetId: 'child',
+						normalizedAnchor: { x: 0.5, y: 0 },
+					},
+					bend: 24,
+				},
+			],
+		};
+		const widgetShapes = deskConfigToCanvasShapes( desk );
+		const connectorShapes = deskConfigToCanvasConnectorShapes( desk, widgetShapes );
+		const connectorShape = getCanvasShape( connectorShapes, 'shape:connector:parent-to-child' );
+		const parentShape = getCanvasShape( widgetShapes, 'shape:parent' );
+		const bindings = deskConfigToCanvasConnectorBindings( desk );
+
+		expect( connectorShape ).toMatchObject( {
+			id: 'shape:connector:parent-to-child',
+			type: 'arrow',
+			isLocked: true,
+			meta: {
+				studioDeskOrigin: 'derived',
+				studioDeskPersist: false,
+				studioDeskConnector: true,
+			},
+			props: {
+				arrowheadStart: 'none',
+				arrowheadEnd: 'none',
+				bend: 24,
+			},
+		} );
+		expect( sortByIndex( connectorShape, parentShape ) ).toBeLessThan( 0 );
+		expect( bindings ).toEqual( [
+			expect.objectContaining( {
+				type: 'arrow',
+				fromId: 'shape:connector:parent-to-child',
+				toId: 'shape:parent',
+				props: expect.objectContaining( { terminal: 'start' } ),
+			} ),
+			expect.objectContaining( {
+				type: 'arrow',
+				fromId: 'shape:connector:parent-to-child',
+				toId: 'shape:child',
+				props: expect.objectContaining( { terminal: 'end' } ),
+			} ),
+		] );
+		expect( isPersistentDeskCanvasShape( connectorShape as TLShape ) ).toBe( false );
 	} );
 
 	it( 'persists a stacked widget original z-index instead of the stack z-index', () => {
@@ -527,6 +729,36 @@ describe( 'tldraw adapter', () => {
 		).toBe( false );
 	} );
 
+	it( 'marks temporary canvas records as non-persistent', () => {
+		const shape = {
+			id: 'shape:loading-1',
+			type: RECTANGLE_WIDGET_SHAPE_TYPE,
+			meta: getTemporaryDeskCanvasRecordMeta( {}, 'loading' ),
+		} as unknown as TLShape;
+
+		expect( getDeskCanvasRecordResolutionState( shape ) ).toBe( 'loading' );
+		expect( isPersistentDeskCanvasShape( shape ) ).toBe( false );
+	} );
+
+	it( 'never persists loading widget canvas records', () => {
+		const shape = {
+			id: 'shape:loading-1',
+			type: RECTANGLE_WIDGET_SHAPE_TYPE,
+			props: {
+				widgetType: 'loading',
+				shapeProps: {
+					w: 320,
+					h: 220,
+				},
+				widgetProps: {
+					label: 'Loading',
+				},
+			},
+		} as unknown as TLShape;
+
+		expect( isPersistentDeskCanvasShape( shape ) ).toBe( false );
+	} );
+
 	it( 'maps derived stack members through stack metadata', () => {
 		const resolvedWidget: ResolvedDeskWidget< PostWidget > = {
 			origin: {
@@ -576,6 +808,53 @@ describe( 'tldraw adapter', () => {
 				studioDeskDerivedKey: 'post:42',
 			},
 		} );
+	} );
+
+	it( 'gives derived stack members distinct indices below non-numeric stack z-indexes', () => {
+		const resolvedWidget: ResolvedDeskWidget< PostWidget > = {
+			origin: {
+				kind: 'derived',
+				sourceWidgetId: 'collection-1',
+				key: 'post:42',
+			},
+			widget: {
+				id: 'collection-1:post:42',
+				type: 'post',
+				x: 40,
+				y: 50,
+				zIndex: 'aC5ns',
+				shapeProps: {
+					w: 280,
+					h: 380,
+				},
+				widgetProps: {
+					postId: 42,
+				},
+			},
+		};
+		const stack = {
+			id: 'stack-1',
+			x: 100,
+			y: 200,
+			zIndex: 'aF3j5',
+			memberIds: [ 'collection-1:post:40', 'collection-1:post:41', 'collection-1:post:42' ],
+		};
+		const topShape = resolvedDeskWidgetToCanvasShape( resolvedWidget, {
+			stack,
+			order: 0,
+		} ) as TLShape;
+		const middleShape = resolvedDeskWidgetToCanvasShape( resolvedWidget, {
+			stack,
+			order: 1,
+		} ) as TLShape;
+		const bottomShape = resolvedDeskWidgetToCanvasShape( resolvedWidget, {
+			stack,
+			order: 2,
+		} ) as TLShape;
+
+		expect( new Set( [ topShape.index, middleShape.index, bottomShape.index ] ).size ).toBe( 3 );
+		expect( sortByIndex( middleShape, topShape ) ).toBeLessThan( 0 );
+		expect( sortByIndex( bottomShape, middleShape ) ).toBeLessThan( 0 );
 	} );
 
 	it( 'ignores unsupported canvas shapes', () => {

@@ -1,10 +1,12 @@
 import { store as coreDataStore, type Post as CoreDataPost } from '@wordpress/core-data';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { post } from '@wordpress/icons';
+import { getIndicesAbove, type TLShapePartial } from 'tldraw';
 import { postWidgetDefinition } from '@/ui-desks/widgets/post/definition';
 import { POST_WIDGET_TYPE, type PostWidget } from '@/ui-desks/widgets/post/types';
 import {
 	PostCollectionLoadingComponent,
+	PostCollectionThumbnailComponent,
 	PostCollectionWidgetComponent,
 } from '@/ui-desks/widgets/post-collection/component';
 import { PostCollectionEditControl } from '@/ui-desks/widgets/post-collection/edit-control';
@@ -59,7 +61,9 @@ const POST_CARD_SHAPE_PROPS = postWidgetDefinition.getInitialWidget().shapeProps
 
 export const postCollectionWidgetDefinition = {
 	type: POST_COLLECTION_WIDGET_TYPE,
+	name: () => __( 'Posts' ),
 	Component: PostCollectionWidgetComponent,
+	thumbnail: PostCollectionThumbnailComponent,
 	loading: PostCollectionLoadingComponent,
 	controls: [
 		{
@@ -91,6 +95,13 @@ export const postCollectionWidgetDefinition = {
 			},
 		},
 	} ),
+	getSummary: ( widgetProps ) =>
+		sprintf(
+			/* translators: 1: number of posts, 2: post status. */
+			__( '%1$d %2$s posts' ),
+			widgetProps.query.perPage,
+			widgetProps.query.status
+		),
 	getLoadingShapeProps: () => POST_CARD_SHAPE_PROPS,
 	resolver: {
 		resolve: async ( widget, context ) => {
@@ -98,6 +109,7 @@ export const postCollectionWidgetDefinition = {
 			const posts =
 				( await getCoreDataResolvers( context ).getEntityRecords( 'postType', 'post', query ) ) ??
 				[];
+			const zIndices = getDerivedZIndices( widget.zIndex, posts.length + 1 );
 
 			return {
 				identity: {
@@ -105,9 +117,12 @@ export const postCollectionWidgetDefinition = {
 					posts,
 				},
 				widgets: posts.map( ( postRecord, index ) =>
-					createDerivedPostWidget( widget, postRecord.id, index )
+					createDerivedPostWidget( widget, postRecord.id, zIndices[ index ] )
 				),
-				stacks: posts.length > 0 ? [ createDerivedPostStack( widget, posts ) ] : [],
+				stacks:
+					posts.length > 0
+						? [ createDerivedPostStack( widget, posts, zIndices[ posts.length ] ) ]
+						: [],
 			};
 		},
 		invalidate: ( widget, previousIdentity, context ) => {
@@ -146,7 +161,7 @@ function getEntityRecordsQuery( query: PostCollectionQuery ): EntityRecordsQuery
 function createDerivedPostWidget(
 	collection: PostCollectionWidget,
 	postId: number,
-	index: number
+	zIndex: string
 ): ResolvedDeskWidget< PostWidget > {
 	return {
 		origin: {
@@ -159,7 +174,7 @@ function createDerivedPostWidget(
 			type: POST_WIDGET_TYPE,
 			x: collection.x,
 			y: collection.y,
-			zIndex: getDerivedZIndex( collection.zIndex, index ),
+			zIndex,
 			shapeProps: POST_CARD_SHAPE_PROPS,
 			widgetProps: {
 				postId,
@@ -170,7 +185,8 @@ function createDerivedPostWidget(
 
 function createDerivedPostStack(
 	collection: PostCollectionWidget,
-	posts: CoreDataPost[]
+	posts: CoreDataPost[],
+	zIndex: string
 ): ResolvedDeskStack {
 	return {
 		origin: {
@@ -182,13 +198,12 @@ function createDerivedPostStack(
 			id: `post-collection:${ collection.id }`,
 			x: collection.x,
 			y: collection.y,
-			zIndex: getDerivedZIndex( collection.zIndex, posts.length ),
+			zIndex,
 			memberIds: posts.map( ( postRecord ) => `${ collection.id }:post:${ postRecord.id }` ),
 		},
 	};
 }
 
-function getDerivedZIndex( zIndex: string, index: number ) {
-	const numericIndex = Number( zIndex.replace( /^a/, '' ) );
-	return `a${ Number.isFinite( numericIndex ) ? numericIndex + index + 1 : index + 1 }`;
+function getDerivedZIndices( zIndex: string, count: number ) {
+	return getIndicesAbove( zIndex as TLShapePartial[ 'index' ], count ) as string[];
 }

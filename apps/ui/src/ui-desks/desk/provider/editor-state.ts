@@ -9,6 +9,7 @@ import {
 } from 'tldraw';
 import {
 	RECTANGLE_WIDGET_SHAPE_TYPE,
+	isRectangleWidgetShapeProps,
 	type RectangleWidgetShape,
 } from '@/ui-desks/shapes/rectangle-widget/types';
 import {
@@ -25,8 +26,6 @@ import {
 import { BLOG_WIDGET_TYPE } from '@/ui-desks/widgets/blog/types';
 import { createDeskWidget } from '@/ui-desks/widgets/create-widget';
 import { DRAWING_WIDGET_TYPE } from '@/ui-desks/widgets/drawing/types';
-import { getFittedNoteHeight } from '@/ui-desks/widgets/note/text-sizing';
-import { isNoteWidgetProps, NOTE_WIDGET_TYPE } from '@/ui-desks/widgets/note/types';
 import { PAGE_WIDGET_TYPE } from '@/ui-desks/widgets/page/types';
 import { getSelectedWidgetToolbarItem } from '@/ui-desks/widgets/toolbar-selection';
 import {
@@ -45,6 +44,11 @@ import {
 import { DESK_CONFIG_VERSION, type DeskConfig } from '../types';
 import type { SelectedWidgetToolbarItem, AddDeskWidgetOptions } from './context';
 import type { DeskWidget } from '@/ui-desks/widgets/types';
+
+type RectangleWidgetFitContentHandler = ( context: {
+	widgetProps: Record< string, unknown >;
+	shapeProps: RectangleWidgetShape[ 'props' ][ 'shapeProps' ];
+} ) => Record< string, unknown > | null | Promise< Record< string, unknown > | null >;
 
 interface CanvasStoreChanges {
 	added: Record< string, unknown >;
@@ -238,7 +242,7 @@ export function updateSelectedWidgetPropsInEditor(
 	};
 }
 
-export function fitSelectedWidgetToContentInEditor( editor: Editor ) {
+export async function fitSelectedWidgetToContentInEditor( editor: Editor ) {
 	const selection = getCurrentSelectedWidgetSelection( editor );
 	if ( ! selection || selection.item.kind !== 'single-widget' ) {
 		return false;
@@ -246,24 +250,32 @@ export function fitSelectedWidgetToContentInEditor( editor: Editor ) {
 
 	const { item, shapes } = selection;
 	const [ shape ] = shapes;
-	if (
-		item.widget.type !== NOTE_WIDGET_TYPE ||
-		! isNoteWidgetProps( item.widget.widgetProps ) ||
-		! isRectangleWidgetShape( shape )
-	) {
+	const getFittedShapeProps = item.definition.getFittedShapeProps as
+		| RectangleWidgetFitContentHandler
+		| undefined;
+	if ( ! getFittedShapeProps || ! isRectangleWidgetShape( shape ) ) {
 		return false;
 	}
 
-	const nextHeight = getFittedNoteHeight( item.widget.widgetProps, shape.props.shapeProps );
+	const nextShapeProps = await getFittedShapeProps( {
+		widgetProps: item.widget.widgetProps,
+		shapeProps: shape.props.shapeProps,
+	} );
+	if ( editor.isDisposed || ! nextShapeProps || ! isRectangleWidgetShapeProps( nextShapeProps ) ) {
+		return false;
+	}
+
+	const centerX = shape.x + shape.props.shapeProps.w / 2;
 	const centerY = shape.y + shape.props.shapeProps.h / 2;
 	editor.updateShape< RectangleWidgetShape >( {
 		id: shape.id,
 		type: RECTANGLE_WIDGET_SHAPE_TYPE,
-		y: centerY - nextHeight / 2,
+		x: centerX - nextShapeProps.w / 2,
+		y: centerY - nextShapeProps.h / 2,
 		props: {
 			shapeProps: {
 				...shape.props.shapeProps,
-				h: nextHeight,
+				...nextShapeProps,
 			},
 		},
 	} );

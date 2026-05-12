@@ -40,7 +40,9 @@ export function NoteFitTextControl( {
 			label={ __( 'Fit text' ) }
 			variant="toolbar"
 			disabled={ ! fitSelectedWidgetToContent }
-			onClick={ fitSelectedWidgetToContent }
+			onClick={ () => {
+				void fitSelectedWidgetToContent?.();
+			} }
 		/>
 	);
 }

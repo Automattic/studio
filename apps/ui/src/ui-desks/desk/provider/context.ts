@@ -29,7 +29,7 @@ export interface DeskContextValue {
 	startDrawing: () => boolean;
 	finishDrawing: () => Promise< boolean >;
 	updateSelectedWidgetProps: ( widgetProps: Record< string, unknown > ) => boolean;
-	fitSelectedWidgetToContent: () => boolean;
+	fitSelectedWidgetToContent: () => Promise< boolean >;
 	stackSelectedWidgets: () => boolean;
 	unstackSelectedWidgets: () => boolean;
 	removeSelectedWidget: () => boolean;
@@ -72,7 +72,7 @@ const defaultDeskContext: DeskContextValue = {
 	startDrawing: () => false,
 	finishDrawing: async () => false,
 	updateSelectedWidgetProps: () => false,
-	fitSelectedWidgetToContent: () => false,
+	fitSelectedWidgetToContent: () => Promise.resolve( false ),
 	stackSelectedWidgets: () => false,
 	unstackSelectedWidgets: () => false,
 	removeSelectedWidget: () => false,

@@ -82,6 +82,10 @@ describe( 'widget toolbar selection', () => {
 		}
 		expect( selectedItem.definition.type ).toBe( MEDIA_WIDGET_TYPE );
 		expect( selectedItem.definition.controls?.[ 0 ]?.type ).toBe( 'custom' );
+		expect( selectedItem.definition.controls?.map( ( control ) => control.id ) ).toEqual( [
+			'fit-size',
+			'open-media',
+		] );
 		expect( selectedItem.widget.widgetProps ).toEqual( {
 			url: 'https://example.com/image.jpg',
 			mediaKind: 'image',
@@ -99,6 +103,10 @@ describe( 'widget toolbar selection', () => {
 		}
 		expect( selectedItem.definition.type ).toBe( EMBED_WIDGET_TYPE );
 		expect( selectedItem.definition.controls?.[ 0 ]?.type ).toBe( 'custom' );
+		expect( selectedItem.definition.controls?.map( ( control ) => control.id ) ).toEqual( [
+			'fit-size',
+			'open-embed',
+		] );
 		expect( selectedItem.widget.widgetProps ).toEqual( {
 			url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
 		} );

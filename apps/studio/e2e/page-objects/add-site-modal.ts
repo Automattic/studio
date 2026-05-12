@@ -31,6 +31,10 @@ export default class AddSiteModal {
 		);
 	}
 
+	get uploadBlueprintButton() {
+		return this.page.getByRole( 'button', { name: 'Upload a blueprint' } );
+	}
+
 	get backupFileInput() {
 		const fileTypes = ACCEPTED_IMPORT_FILE_TYPES.join( ',' );
 		return this.page.locator( `input[type="file"][accept="${ fileTypes }"]` );
@@ -57,7 +61,12 @@ export default class AddSiteModal {
 	}
 
 	async selectBlueprintFile( filePath: string ) {
-		await this.fileInput.setInputFiles( filePath, { timeout: 60_000 } );
+		// UploadBlueprintButton only mounts after useGetBlueprints resolves
+		// (apps/studio/src/modules/add-site/index.tsx:354), so wait for the
+		// visible trigger before driving its hidden file input — otherwise
+		// setInputFiles polls for an element that doesn't exist yet.
+		await this.uploadBlueprintButton.waitFor( { state: 'visible' } );
+		await this.fileInput.setInputFiles( filePath );
 	}
 
 	async selectBackupFile( filePath: string ) {

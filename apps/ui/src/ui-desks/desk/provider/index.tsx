@@ -5,6 +5,7 @@ import {
 	getIndexAbove,
 	sortByIndex,
 	type Editor,
+	type TLShape,
 	type TLShapePartial,
 } from 'tldraw';
 import { useSites } from '@/data/queries/use-sites';
@@ -21,6 +22,8 @@ import { useStackPressAnimation } from '@/ui-desks/stacks/use-stack-press-animat
 import { createDeskWidget } from '@/ui-desks/widgets/create-widget';
 import { getWidgetFileHandler } from '@/ui-desks/widgets/file-handlers';
 import { LOADING_WIDGET_TYPE } from '@/ui-desks/widgets/loading/types';
+import { NOTE_WIDGET_TYPE } from '@/ui-desks/widgets/note/types';
+import { createUrlPastePayload, getWidgetPasteHandler } from '@/ui-desks/widgets/paste-handlers';
 import {
 	DeskContext,
 	type AddDeskWidgetOptions,
@@ -31,6 +34,7 @@ import {
 	addWidgetToEditor,
 	createWidgetId,
 	createDeskConfigFromEditor,
+	fitSelectedWidgetToContentInEditor,
 	getCurrentSelectedWidgetToolbarItem,
 	hasCameraChange,
 	hasPersistentDocumentChange,
@@ -42,7 +46,11 @@ import {
 } from './editor-state';
 import { useDeskPersistence } from './persistence';
 import { useDeskWidgetResolvers } from './resolvers';
-import type { WidgetFileHandlerLoading, WidgetFileHandlerResult } from '@/ui-desks/widgets/types';
+import type {
+	WidgetHandlerLoading,
+	WidgetHandlerResult,
+	WidgetPastePayload,
+} from '@/ui-desks/widgets/types';
 
 export { useDesk, useRegisterDeskEditor } from './context';
 
@@ -209,7 +217,7 @@ export function DeskProvider( {
 			const dropPoint = point ?? editor.getViewportPageBounds().center;
 			let cursorX = dropPoint.x;
 			const cursorY = dropPoint.y;
-			const fileHandlers: Array< () => Promise< void > > = [];
+			const fileHandlers: Array< () => Promise< unknown > > = [];
 
 			for ( const { file, match } of handledFiles ) {
 				if ( editor.isDisposed ) {
@@ -247,6 +255,73 @@ export function DeskProvider( {
 		};
 	}, [ editor, isHydrated, isReadOnly, isRunningSite, siteId ] );
 
+	useEffect( () => {
+		if ( ! editor || ! isHydrated || isReadOnly ) {
+			return;
+		}
+
+		editor.registerExternalContentHandler( 'url', async ( { url, point } ) => {
+			const payload = createUrlPastePayload( url );
+			if ( ! payload ) {
+				return;
+			}
+
+			const match = getWidgetPasteHandler( payload, { isRunningSite, siteId } );
+			if ( ! match ) {
+				return;
+			}
+
+			await handlePastedContent( {
+				editor,
+				payload,
+				match,
+				center: point ?? editor.getViewportPageBounds().center,
+				siteId,
+			} );
+		} );
+
+		const handlePaste = ( event: ClipboardEvent ) => {
+			if ( shouldIgnorePasteEvent( event ) ) {
+				return;
+			}
+
+			const payload = createUrlPastePayload( event.clipboardData?.getData( 'text/plain' ) ?? '' );
+			if ( ! payload || ! getWidgetPasteHandler( payload, { isRunningSite, siteId } ) ) {
+				return;
+			}
+
+			event.preventDefault();
+			void editor.putExternalContent( {
+				type: 'url',
+				url: payload.url,
+				point: editor.getViewportPageBounds().center,
+			} );
+		};
+
+		window.addEventListener( 'paste', handlePaste );
+
+		return () => {
+			window.removeEventListener( 'paste', handlePaste );
+			editor.registerExternalContentHandler( 'url', null );
+		};
+	}, [ editor, isHydrated, isReadOnly, isRunningSite, siteId ] );
+
+	useEffect( () => {
+		if ( ! editor || ! isHydrated || isReadOnly ) {
+			return;
+		}
+
+		return editor.sideEffects.registerAfterCreateHandler( 'shape', ( shape, source ) => {
+			if ( source !== 'user' || shape.type !== 'text' ) {
+				return;
+			}
+
+			queueMicrotask( () => {
+				replaceTextShapeWithNote( editor, shape );
+			} );
+		} );
+	}, [ editor, isHydrated, isReadOnly ] );
+
 	const registerEditor = useCallback(
 		( nextEditor: Editor | null ) => {
 			setEditor( nextEditor );
@@ -275,6 +350,38 @@ export function DeskProvider( {
 		[ editor, isHydrated, isReadOnly ]
 	);
 
+	const addPastedContent = useCallback(
+		async ( payload: WidgetPastePayload, options?: AddDeskWidgetOptions ) => {
+			if ( isReadOnly || ! editor || ! isHydrated ) {
+				return false;
+			}
+
+			const match = getWidgetPasteHandler( payload, { isRunningSite, siteId } );
+			if ( ! match ) {
+				return false;
+			}
+
+			const viewportCenter = editor.getViewportPageBounds().center;
+			const offset = ( creationOffsetRef.current % 6 ) * 24;
+			const center = options?.center ?? {
+				x: viewportCenter.x + offset,
+				y: viewportCenter.y + offset,
+			};
+			const didAddWidget = await handlePastedContent( {
+				editor,
+				payload,
+				match,
+				center,
+				siteId,
+			} );
+			if ( didAddWidget ) {
+				creationOffsetRef.current += 1;
+			}
+			return didAddWidget;
+		},
+		[ editor, isHydrated, isReadOnly, isRunningSite, siteId ]
+	);
+
 	const updateSelectedWidgetProps = useCallback(
 		( widgetProps: Record< string, unknown > ) => {
 			if ( isReadOnly || ! editor || ! isHydrated ) {
@@ -294,6 +401,22 @@ export function DeskProvider( {
 		},
 		[ editor, isHydrated, isReadOnly ]
 	);
+
+	const fitSelectedWidgetToContent = useCallback( () => {
+		if (
+			isReadOnly ||
+			! editor ||
+			! isHydrated ||
+			! fitSelectedWidgetToContentInEditor( editor )
+		) {
+			return false;
+		}
+
+		setSelectedWidgetToolbarItem(
+			getCurrentSelectedWidgetToolbarItem( editor, toolbarStateOptions )
+		);
+		return true;
+	}, [ editor, isHydrated, isReadOnly, toolbarStateOptions ] );
 
 	const stackSelectedWidgets = useCallback( () => {
 		if ( isReadOnly || ! editor || ! isHydrated || ! stackSelectedWidgetsInEditor( editor ) ) {
@@ -338,14 +461,18 @@ export function DeskProvider( {
 			registerEditor,
 			pressStack,
 			addWidget,
+			addPastedContent,
 			updateSelectedWidgetProps,
+			fitSelectedWidgetToContent,
 			stackSelectedWidgets,
 			unstackSelectedWidgets,
 			removeSelectedWidget,
 		} ),
 		[
+			addPastedContent,
 			addWidget,
 			editor,
+			fitSelectedWidgetToContent,
 			isHydrated,
 			isReadOnly,
 			isLoading,
@@ -368,6 +495,21 @@ export function DeskProvider( {
 	} );
 
 	return <DeskContext.Provider value={ value }>{ children }</DeskContext.Provider>;
+}
+
+function replaceTextShapeWithNote( editor: Editor, shape: TLShape ) {
+	if ( editor.isDisposed || ! editor.getShape( shape.id ) ) {
+		return;
+	}
+
+	editor.deleteShape( shape.id );
+	editor.setCurrentTool( 'select' );
+	addWidgetToEditor( editor, NOTE_WIDGET_TYPE, 0, {
+		center: {
+			x: shape.x,
+			y: shape.y,
+		},
+	} );
 }
 
 type HandledDroppedFile = {
@@ -399,41 +541,100 @@ async function handleDroppedFile( {
 	try {
 		const result = await match.handler.handle( file, { siteId } );
 		if ( editor.isDisposed ) {
-			return;
+			return false;
 		}
 
 		const center = getShapeCenter( editor, placeholder.shapeId );
 		if ( ! center ) {
-			return;
+			return false;
 		}
 
-		deleteDroppedWidget( editor, placeholder.shapeId );
-		let cursorX = center.x;
-		const widgets = normalizeWidgetFileHandlerResult( result );
-		for ( const widget of widgets ) {
-			const widgetId = widget.id ?? createWidgetId();
-			const shapeId = createShapeId( widgetId ) as RectangleWidgetShape[ 'id' ];
-			const didAddWidget = addWidgetToEditor( editor, match.definition.type, 0, {
-				id: widgetId,
-				center: {
-					x: cursorX,
-					y: center.y,
-				},
-				shapeProps: widget.shapeProps,
-				widgetProps: widget.widgetProps,
-				shouldStartEditing: widget.shouldStartEditing,
-			} );
-			if ( didAddWidget ) {
-				cursorX += getDroppedWidgetSize( editor, shapeId ).w + 20;
-			}
-		}
+		deleteTemporaryWidget( editor, placeholder.shapeId );
+		return addHandledWidgetsToEditor( editor, match.definition.type, result, center ) > 0;
 	} catch ( error ) {
 		console.warn( 'Failed to handle dropped file.', error );
-		deleteDroppedWidget( editor, placeholder.shapeId );
+		deleteTemporaryWidget( editor, placeholder.shapeId );
+		return false;
 	}
 }
 
-function normalizeWidgetFileHandlerResult( result: WidgetFileHandlerResult | null ) {
+async function handlePastedContent( {
+	editor,
+	payload,
+	match,
+	center,
+	siteId,
+}: {
+	editor: Editor;
+	payload: WidgetPastePayload;
+	match: NonNullable< ReturnType< typeof getWidgetPasteHandler > >;
+	center: { x: number; y: number };
+	siteId?: string;
+} ) {
+	const placeholder = match.handler.loading
+		? createTemporaryLoadingWidget( editor, {
+				center,
+				loading: match.handler.loading,
+		  } )
+		: null;
+
+	try {
+		const result = await match.handler.handle( payload, { siteId } );
+		if ( editor.isDisposed ) {
+			return false;
+		}
+
+		const widgetCenter = placeholder ? getShapeCenter( editor, placeholder.shapeId ) : center;
+		if ( ! widgetCenter ) {
+			return false;
+		}
+
+		if ( placeholder ) {
+			deleteTemporaryWidget( editor, placeholder.shapeId );
+		}
+
+		return addHandledWidgetsToEditor( editor, match.definition.type, result, widgetCenter ) > 0;
+	} catch ( error ) {
+		console.warn( 'Failed to handle pasted content.', error );
+		if ( placeholder ) {
+			deleteTemporaryWidget( editor, placeholder.shapeId );
+		}
+		return false;
+	}
+}
+
+function addHandledWidgetsToEditor(
+	editor: Editor,
+	type: string,
+	result: WidgetHandlerResult | null,
+	center: { x: number; y: number }
+) {
+	let addedWidgetCount = 0;
+	let cursorX = center.x;
+	const widgets = normalizeWidgetHandlerResult( result );
+	for ( const widget of widgets ) {
+		const widgetId = widget.id ?? createWidgetId();
+		const shapeId = createShapeId( widgetId ) as RectangleWidgetShape[ 'id' ];
+		const didAddWidget = addWidgetToEditor( editor, type, 0, {
+			id: widgetId,
+			center: {
+				x: cursorX,
+				y: center.y,
+			},
+			shapeProps: widget.shapeProps,
+			widgetProps: widget.widgetProps,
+			shouldStartEditing: widget.shouldStartEditing,
+		} );
+		if ( didAddWidget ) {
+			addedWidgetCount += 1;
+			cursorX += getHandledWidgetSize( editor, shapeId ).w + 20;
+		}
+	}
+
+	return addedWidgetCount;
+}
+
+function normalizeWidgetHandlerResult( result: WidgetHandlerResult | null ) {
 	if ( ! result ) {
 		return [];
 	}
@@ -448,7 +649,7 @@ function createTemporaryLoadingWidget(
 		loading,
 	}: {
 		center: { x: number; y: number };
-		loading?: WidgetFileHandlerLoading;
+		loading?: WidgetHandlerLoading;
 	}
 ): TemporaryLoadingWidget | null {
 	const widgetId = createWidgetId();
@@ -481,13 +682,13 @@ function createTemporaryLoadingWidget(
 	};
 }
 
-function deleteDroppedWidget( editor: Editor, shapeId: RectangleWidgetShape[ 'id' ] ) {
+function deleteTemporaryWidget( editor: Editor, shapeId: RectangleWidgetShape[ 'id' ] ) {
 	if ( ! editor.isDisposed && editor.getShape( shapeId ) ) {
 		editor.deleteShapes( [ shapeId ] );
 	}
 }
 
-function getDroppedWidgetSize( editor: Editor, shapeId: RectangleWidgetShape[ 'id' ] ) {
+function getHandledWidgetSize( editor: Editor, shapeId: RectangleWidgetShape[ 'id' ] ) {
 	const shape = editor.getShape( shapeId );
 	if ( isRectangleWidgetShape( shape ) ) {
 		return shape.props.shapeProps;
@@ -506,6 +707,20 @@ function getShapeCenter( editor: Editor, shapeId: RectangleWidgetShape[ 'id' ] )
 	}
 
 	return null;
+}
+
+function shouldIgnorePasteEvent( event: ClipboardEvent ) {
+	const target = event.target as HTMLElement | null;
+	if ( ! target ) {
+		return false;
+	}
+
+	return (
+		target.tagName === 'INPUT' ||
+		target.tagName === 'TEXTAREA' ||
+		target.tagName === 'SELECT' ||
+		target.isContentEditable
+	);
 }
 
 function getNextZIndexFromEditor( editor: Editor ) {

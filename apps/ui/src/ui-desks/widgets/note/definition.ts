@@ -66,6 +66,7 @@ export const noteWidgetDefinition = {
 	} ),
 	labels: {
 		add: () => __( 'New sticky note' ),
+		fitContent: () => __( 'Fit text' ),
 	},
 	icon: pencil,
 	getInitialWidget: () => ( {
@@ -80,6 +81,7 @@ export const noteWidgetDefinition = {
 	} ),
 	getSummary: ( widgetProps ) =>
 		truncateText( stripMarkup( widgetProps.text ), 72 ) || __( 'Empty note' ),
+	getEditAction: () => ( { kind: 'canvas-editing' } ),
 	getFittedShapeProps: ( { widgetProps, shapeProps } ) => ( {
 		...shapeProps,
 		h: getFittedNoteHeight( widgetProps, shapeProps ),

@@ -17,6 +17,7 @@ import {
 	resolvedDeskWidgetToCanvasShape,
 } from './tldraw-adapter';
 import type { DeskConfig } from './types';
+import type { ArtefactWidget } from '@/ui-desks/widgets/artefact/types';
 import type { DrawingWidget } from '@/ui-desks/widgets/drawing/types';
 import type { EmbedWidget } from '@/ui-desks/widgets/embed/types';
 import type { MediaWidget } from '@/ui-desks/widgets/media/types';
@@ -351,6 +352,53 @@ describe( 'tldraw adapter', () => {
 				},
 				widgetProps: {
 					url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+				},
+			},
+		} );
+		expect( canvasShapeToDeskWidget( shape ) ).toEqual( {
+			...widget,
+			rotation: undefined,
+		} );
+	} );
+
+	it( 'maps an artefact widget through the canvas shape adapter', () => {
+		const widget: ArtefactWidget = {
+			id: 'artefact-1',
+			type: 'sd-artefact',
+			x: 140,
+			y: 150,
+			zIndex: 'a8',
+			shapeProps: {
+				w: 568,
+				h: 524,
+			},
+			widgetProps: {
+				html: '<!doctype html><html><body><h1>Example</h1></body></html>',
+				title: 'Example artefact',
+				scope: 'block',
+				description: 'Render this HTML.',
+			},
+		};
+
+		const shape = deskWidgetToCanvasShape( widget ) as TLShape;
+
+		expect( shape ).toMatchObject( {
+			id: 'shape:artefact-1',
+			type: RECTANGLE_WIDGET_SHAPE_TYPE,
+			x: 140,
+			y: 150,
+			index: 'a8',
+			props: {
+				widgetType: 'sd-artefact',
+				shapeProps: {
+					w: 568,
+					h: 524,
+				},
+				widgetProps: {
+					html: '<!doctype html><html><body><h1>Example</h1></body></html>',
+					title: 'Example artefact',
+					scope: 'block',
+					description: 'Render this HTML.',
 				},
 			},
 		} );

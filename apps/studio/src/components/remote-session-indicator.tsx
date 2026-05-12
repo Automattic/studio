@@ -25,7 +25,11 @@ function RemoteSessionIndicatorActive() {
 	const { status, isLoading, start, stop } = useRemoteSessionStatus();
 
 	const isRunning = status?.running === true;
-	const tooltipText = isRunning ? __( 'Remote sessions are on' ) : __( 'Remote sessions are off' );
+	// On copy mirrors the CLI's `/remote-session attach` success message so
+	// users on either surface see the same "what now?" instruction.
+	const tooltipText = isRunning
+		? __( 'Remote session is on. Message Dolly (@wordpress_com_bot) on Telegram to work with Studio.' )
+		: __( 'Remote session is off' );
 	const ariaLabel = isRunning ? __( 'Stop remote session' ) : __( 'Start remote session' );
 
 	const handleClick = async () => {

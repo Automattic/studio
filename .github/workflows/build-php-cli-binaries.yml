@@ -263,6 +263,13 @@ jobs:
           done
 
           xattr -cr "$staging_dir"
+          for file in "$staging_dir"/lib/*.dylib "$staging_dir"/ext/*.so "$staging_dir/php"; do
+            [ -e "$file" ] || continue
+            if file "$file" | grep -q 'Mach-O'; then
+              codesign --force --sign - "$file"
+              codesign --verify --strict "$file"
+            fi
+          done
 
           cat > "$staging_dir/runtime.json" <<JSON
           {

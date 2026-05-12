@@ -1,6 +1,8 @@
 import { resolveSessionModel } from '@studio/common/ai/models';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import { __ } from '@wordpress/i18n';
+import { box, chevronLeft, chevronRight, previous, starEmpty, starFilled } from '@wordpress/icons';
+import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useEffect, useLayoutEffect, useMemo, useRef, type ReactNode, type Ref } from 'react';
 import { Composer, ComposerSkeleton } from '@/components/session-view/composer';
@@ -11,7 +13,11 @@ import { QueuedPrompts } from '@/components/session-view/queued-prompts';
 import sessionStyles from '@/components/session-view/style.module.css';
 import { useAgentRun } from '@/data/queries/use-agent-run';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
-import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
+import {
+	useSession,
+	useSessionEffectiveEnvironment,
+	useUpdateSessionMetadata,
+} from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import { useSessionCommands } from '@/hooks/use-session-commands';
 import { SessionUIProvider } from '@/hooks/use-session-ui';
@@ -21,6 +27,10 @@ import type { PendingChatPrompt } from './context';
 interface SessionSurfaceProps {
 	siteId?: string;
 	sessionId: string;
+	side: 'left' | 'right';
+	listCollapsed: boolean;
+	onExpandList: () => void;
+	onCollapseList: () => void;
 	onSwitchSession: ( sessionId: string ) => void;
 	autoFocus?: boolean;
 	initialPrompt?: PendingChatPrompt;
@@ -28,15 +38,31 @@ interface SessionSurfaceProps {
 }
 
 interface FrameProps {
+	header?: ReactNode;
 	composer?: ReactNode;
 	scrollRef?: Ref< HTMLDivElement >;
 	children?: ReactNode;
 }
 
-function Frame( { composer, scrollRef, children }: FrameProps ) {
+const chatDateFormatter = new Intl.DateTimeFormat( undefined, {
+	month: 'short',
+	day: 'numeric',
+	year: 'numeric',
+} );
+
+function formatChatDate( value: string ) {
+	const timestamp = Date.parse( value );
+	if ( Number.isNaN( timestamp ) ) {
+		return '';
+	}
+	return chatDateFormatter.format( new Date( timestamp ) );
+}
+
+function Frame( { header, composer, scrollRef, children }: FrameProps ) {
 	return (
 		<div className={ clsx( sessionStyles.root, styles.sessionSurface ) }>
 			<div className={ sessionStyles.chatColumn }>
+				{ header }
 				<div ref={ scrollRef } className={ sessionStyles.scroll }>
 					{ children }
 				</div>
@@ -49,6 +75,10 @@ function Frame( { composer, scrollRef, children }: FrameProps ) {
 function SessionSurfaceContent( {
 	siteId,
 	sessionId,
+	side,
+	listCollapsed,
+	onExpandList,
+	onCollapseList,
 	onSwitchSession,
 	autoFocus = false,
 	initialPrompt,
@@ -79,6 +109,7 @@ function SessionSurfaceContent( {
 		removeQueuedPrompt,
 	} = useAgentRun( sessionId );
 	const sentInitialPromptIdsRef = useRef< Set< string > >( new Set() );
+	const updateSessionMetadata = useUpdateSessionMetadata();
 	const currentModel = useMemo(
 		() => resolveSessionModel( data?.entries ?? [] ),
 		[ data?.entries ]
@@ -97,6 +128,20 @@ function SessionSurfaceContent( {
 	);
 	const scrollRef = useRef< HTMLDivElement >( null );
 	useSessionCommands( sessionId );
+
+	const toggleStar = () => {
+		void updateSessionMetadata.mutateAsync( {
+			sessionId,
+			patch: { starred: ! data?.summary.starred },
+		} );
+	};
+
+	const archiveConversation = () => {
+		void updateSessionMetadata.mutateAsync( {
+			sessionId,
+			patch: { archived: true },
+		} );
+	};
 
 	useEffect( () => {
 		if ( ! data || ! initialPrompt || initialPrompt.sessionId !== sessionId ) {
@@ -132,7 +177,7 @@ function SessionSurfaceContent( {
 		return (
 			<Frame
 				composer={
-					<div className={ sessionStyles.column }>
+					<div>
 						<ComposerSkeleton />
 					</div>
 				}
@@ -153,9 +198,65 @@ function SessionSurfaceContent( {
 
 	return (
 		<Frame
+			header={
+				<div className={ styles.conversationHeader }>
+					<div className={ styles.conversationHeaderSlot }>
+						{ listCollapsed ? (
+							<button
+								type="button"
+								className={ styles.conversationBackButton }
+								onClick={ onExpandList }
+							>
+								<Icon icon={ side === 'left' ? chevronLeft : chevronRight } size={ 18 } />
+								<span>{ __( 'All chats' ) }</span>
+							</button>
+						) : (
+							<button
+								type="button"
+								className={ styles.conversationCollapseButton }
+								aria-label={ __( 'Collapse list' ) }
+								title={ __( 'Collapse list' ) }
+								onClick={ onCollapseList }
+							>
+								<Icon icon={ previous } size={ 20 } />
+							</button>
+						) }
+					</div>
+					<span className={ styles.conversationDate }>
+						{ formatChatDate( data.summary.createdAt ) }
+					</span>
+					<div className={ styles.conversationActions }>
+						<button
+							type="button"
+							className={ styles.conversationAction }
+							aria-label={ __( 'Archive conversation' ) }
+							title={ __( 'Archive conversation' ) }
+							disabled={ updateSessionMetadata.isPending }
+							onClick={ archiveConversation }
+						>
+							<Icon icon={ box } size={ 20 } />
+						</button>
+						<button
+							type="button"
+							className={ styles.conversationAction }
+							data-active={ data.summary.starred ? 'true' : 'false' }
+							aria-label={
+								data.summary.starred ? __( 'Unstar conversation' ) : __( 'Star conversation' )
+							}
+							title={
+								data.summary.starred ? __( 'Unstar conversation' ) : __( 'Star conversation' )
+							}
+							disabled={ updateSessionMetadata.isPending }
+							onClick={ toggleStar }
+						>
+							<Icon icon={ data.summary.starred ? starFilled : starEmpty } size={ 20 } />
+						</button>
+					</div>
+				</div>
+			}
 			scrollRef={ scrollRef }
 			composer={
-				<div className={ sessionStyles.column }>
+				<div>
 					<QueuedPrompts prompts={ queuedPrompts } onRemove={ removeQueuedPrompt } />
 					<Composer
 						busy={ composerBusy }
@@ -176,7 +277,7 @@ function SessionSurfaceContent( {
 			}
 		>
 			{ isEmpty ? <EmptyBackground /> : null }
-			<div className={ sessionStyles.column }>
+			<div>
 				<Conversation
 					data={ data }
 					isRunning={ isRunning }

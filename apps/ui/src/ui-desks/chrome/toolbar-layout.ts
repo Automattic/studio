@@ -70,6 +70,14 @@ export function normalizeDeskToolbarSettings( settings: DeskSettings ): DeskTool
 	};
 }
 
+export function getDeskToolbarButtonSide(
+	layout: PersistedDeskToolbarLayout,
+	buttonId: DeskToolbarButtonId
+): keyof DeskToolbarLayout {
+	const normalized = normalizeDeskToolbarLayout( layout );
+	return normalized.left.includes( buttonId ) ? 'left' : 'right';
+}
+
 export function moveDeskToolbarButton(
 	layout: PersistedDeskToolbarLayout,
 	buttonId: DeskToolbarButtonId,

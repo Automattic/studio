@@ -57,7 +57,7 @@ export default class AddSiteModal {
 	}
 
 	async selectBlueprintFile( filePath: string ) {
-		await this.fileInput.setInputFiles( filePath );
+		await this.fileInput.setInputFiles( filePath, { timeout: 60_000 } );
 	}
 
 	async selectBackupFile( filePath: string ) {

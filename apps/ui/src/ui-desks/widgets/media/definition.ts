@@ -8,6 +8,7 @@ import type { WidgetDefinition } from '@/ui-desks/widgets/types';
 
 export const mediaWidgetDefinition = {
 	type: MEDIA_WIDGET_TYPE,
+	name: () => __( 'Media' ),
 	Component: MediaWidgetComponent,
 	controls: [
 		{
@@ -40,6 +41,7 @@ export const mediaWidgetDefinition = {
 			mediaId: null,
 		},
 	} ),
+	getSummary: ( widgetProps ) => widgetProps.alt || widgetProps.url,
 	fileHandlers: [
 		{
 			id: 'media-upload',

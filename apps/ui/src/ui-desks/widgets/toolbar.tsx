@@ -15,6 +15,7 @@ type SelectedWidgetToolbarItem = NonNullable< ReturnType< typeof getSelectedWidg
 export function DeskWidgetToolbar() {
 	const {
 		selectedWidgetToolbarItem,
+		fitSelectedWidgetToContent,
 		stackSelectedWidgets,
 		unstackSelectedWidgets,
 		updateSelectedWidgetProps,
@@ -67,6 +68,7 @@ export function DeskWidgetToolbar() {
 						<ControlRenderer
 							key={ control.id }
 							control={ control }
+							fitSelectedWidgetToContent={ fitSelectedWidgetToContent }
 							isOpen={ openControlId === control.id }
 							props={ renderSelection.widget.widgetProps }
 							setIsOpen={ ( isOpen ) => setOpenControlId( isOpen ? control.id : null ) }

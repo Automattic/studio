@@ -1,4 +1,4 @@
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { page } from '@wordpress/icons';
 import { PageWidgetComponent } from '@/ui-desks/widgets/page/component';
 import { PageEditControl } from '@/ui-desks/widgets/page/edit-control';
@@ -27,6 +27,7 @@ const PAGE_TONE_OPTIONS: Array< { value: PageTone; label: string; color: string 
 
 export const pageWidgetDefinition = {
 	type: PAGE_WIDGET_TYPE,
+	name: () => __( 'Page' ),
 	Component: PageWidgetComponent,
 	controls: [
 		{
@@ -66,4 +67,10 @@ export const pageWidgetDefinition = {
 			tone: 'neutral',
 		},
 	} ),
+	getSummary: ( widgetProps ) =>
+		sprintf(
+			/* translators: %d: WordPress page ID. */
+			__( 'Page #%d' ),
+			widgetProps.pageId
+		),
 } satisfies WidgetDefinition< PageWidget >;

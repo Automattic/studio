@@ -8,6 +8,7 @@ const BLOG_COLOR = '#8703e7';
 
 export const blogWidgetDefinition = {
 	type: BLOG_WIDGET_TYPE,
+	name: () => __( 'Blog' ),
 	Component: BlogWidgetComponent,
 	isCreatable: false,
 	requiresRunningSite: true,
@@ -29,4 +30,6 @@ export const blogWidgetDefinition = {
 			title: __( 'Blog' ),
 		},
 	} ),
+	getSummary: ( widgetProps ) =>
+		widgetProps.slug ? `${ widgetProps.title } /${ widgetProps.slug }` : widgetProps.title,
 } satisfies WidgetDefinition< BlogWidget >;

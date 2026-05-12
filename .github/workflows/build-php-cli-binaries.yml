@@ -11,6 +11,10 @@ on:
         description: Xdebug version to package
         required: true
         default: 3.5.1
+      spc_ref:
+        description: static-php-cli ref to use for macOS dependency builds
+        required: true
+        default: 2.8.5
       debug:
         description: Enable verbose build logs
         required: true
@@ -50,6 +54,7 @@ jobs:
     env:
       PHP_VERSION: ${{ inputs.php_version }}
       XDEBUG_VERSION: ${{ inputs.xdebug_version }}
+      SPC_REF: ${{ inputs.spc_ref }}
       PHP_CLI_ARTIFACT_PLATFORM: ${{ matrix.artifact_platform }}
       PHP_CLI_ARTIFACT_ARCH: ${{ matrix.artifact_arch }}
       PHP_CLI_ARCHIVE_EXTENSION: ${{ matrix.archive_extension }}
@@ -59,6 +64,14 @@ jobs:
     steps:
       - name: Checkout Studio
         uses: actions/checkout@v6
+
+      - name: Checkout static-php-cli
+        if: runner.os == 'macOS'
+        uses: actions/checkout@v6
+        with:
+          repository: crazywhalecc/static-php-cli
+          ref: ${{ env.SPC_REF }}
+          path: .cache/static-php-cli
 
       - name: Validate PHP version
         shell: bash
@@ -83,23 +96,52 @@ jobs:
           brew update
           brew install \
             autoconf \
+            automake \
             bison \
-            bzip2 \
-            curl \
-            freetype \
-            gettext \
-            icu4c \
-            jpeg-turbo \
-            libiconv \
-            libpng \
-            libxml2 \
-            libzip \
-            oniguruma \
-            openssl@3 \
+            cmake \
+            libtool \
+            ninja \
             pkg-config \
-            re2c \
-            sqlite \
-            zlib
+            re2c
+
+      - name: Setup PHP for static-php-cli
+        if: runner.os == 'macOS'
+        uses: shivammathur/setup-php@v2
+        with:
+          coverage: none
+          tools: composer:v2
+          php-version: 8.4
+          ini-values: memory_limit=-1
+          extensions: curl, openssl, mbstring
+        env:
+          phpts: nts
+
+      - name: Install static-php-cli dependencies
+        if: runner.os == 'macOS'
+        working-directory: .cache/static-php-cli
+        run: composer install --no-dev --no-interaction --prefer-dist --classmap-authoritative
+
+      - name: Build macOS PHP dependencies with static-php-cli
+        if: runner.os == 'macOS'
+        working-directory: .cache/static-php-cli
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "$BUILD_DEBUG" = "true" ]; then
+            set -x
+          fi
+
+          php_extensions="bz2,curl,dom,gd,iconv,intl,mbstring,mysqli,openssl,pdo_mysql,pdo_sqlite,simplexml,sqlite3,xml,xmlreader,xmlwriter,zip,zlib"
+          libraries="bzip2,curl,freetype,icu,libiconv,libjpeg,libpng,libxml2,libzip,onig,openssl,sqlite,zlib"
+
+          php bin/spc doctor --auto-fix
+          php bin/spc download \
+            --with-php="$PHP_VERSION" \
+            --for-extensions="$php_extensions" \
+            --for-libs="$libraries" \
+            --ignore-cache-sources=php-src
+          php bin/spc build:libs "$libraries"
 
       - name: Build PHP runtime on macOS
         if: runner.os == 'macOS'
@@ -114,26 +156,29 @@ jobs:
           source_url="https://www.php.net/distributions/php-${PHP_VERSION}.tar.gz"
           xdebug_url="https://xdebug.org/files/xdebug-${XDEBUG_VERSION}.tgz"
           work_dir="$RUNNER_TEMP/php-build"
-          install_dir="$RUNNER_TEMP/php-install"
           staging_dir="$RUNNER_TEMP/php-artifact"
+          spc_root="$GITHUB_WORKSPACE/.cache/static-php-cli/buildroot"
 
-          rm -rf "$work_dir" "$install_dir" "$staging_dir"
-          mkdir -p "$work_dir" "$install_dir" "$staging_dir/ext"
+          rm -rf "$work_dir" "$staging_dir"
+          mkdir -p "$work_dir" "$staging_dir"
 
           curl --fail --location --retry 3 "$source_url" --output "$work_dir/php.tar.gz"
           tar -xzf "$work_dir/php.tar.gz" -C "$work_dir"
 
-          export PATH="$(brew --prefix bison)/bin:$PATH"
-          export PKG_CONFIG_PATH="$(brew --prefix curl)/lib/pkgconfig:$(brew --prefix openssl@3)/lib/pkgconfig:$(brew --prefix icu4c)/lib/pkgconfig:$(brew --prefix libxml2)/lib/pkgconfig:$(brew --prefix sqlite)/lib/pkgconfig:$(brew --prefix libzip)/lib/pkgconfig:$(brew --prefix oniguruma)/lib/pkgconfig:$(brew --prefix zlib)/lib/pkgconfig:$(brew --prefix bzip2)/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
-          export CPPFLAGS="-I$(brew --prefix libiconv)/include -I$(brew --prefix gettext)/include -I$(brew --prefix bzip2)/include -I$(brew --prefix zlib)/include ${CPPFLAGS:-}"
-          export LDFLAGS="-L$(brew --prefix libiconv)/lib -L$(brew --prefix gettext)/lib -L$(brew --prefix bzip2)/lib -L$(brew --prefix zlib)/lib ${LDFLAGS:-}"
+          export PATH="$(brew --prefix bison)/bin:$spc_root/bin:$PATH"
+          export PKG_CONFIG="$spc_root/bin/pkg-config --static"
+          export PKG_CONFIG_LIBDIR="$spc_root/lib/pkgconfig"
+          export PKG_CONFIG_PATH="$spc_root/lib/pkgconfig"
+          export CPPFLAGS="-I$spc_root/include ${CPPFLAGS:-}"
+          export LDFLAGS="-L$spc_root/lib ${LDFLAGS:-}"
+          export LIBRARY_PATH="$spc_root/lib:${LIBRARY_PATH:-}"
 
           cd "$work_dir/php-${PHP_VERSION}"
           ./buildconf --force
           ./configure \
-            --prefix="$install_dir" \
-            --with-config-file-path="$install_dir" \
-            --with-config-file-scan-dir="$install_dir/conf.d" \
+            --prefix="$staging_dir" \
+            --with-config-file-path="$staging_dir/etc" \
+            --with-config-file-scan-dir="$staging_dir/etc/conf.d" \
             --disable-cgi \
             --disable-debug \
             --disable-phpdbg \
@@ -157,10 +202,10 @@ jobs:
             --enable-xml=shared \
             --enable-xmlreader=shared \
             --enable-xmlwriter=shared \
-            --with-bz2=shared,$(brew --prefix bzip2) \
+            --with-bz2=shared,$spc_root \
             --with-curl=shared \
             --with-freetype \
-            --with-iconv=shared,$(brew --prefix libiconv) \
+            --with-iconv=shared,$spc_root \
             --with-jpeg \
             --with-mysqli=shared,mysqlnd \
             --with-openssl=shared \
@@ -168,36 +213,41 @@ jobs:
             --with-pdo-sqlite=shared \
             --with-sqlite3=shared \
             --with-zip=shared \
-            --with-zlib=shared,$(brew --prefix zlib)
+            --with-zlib=shared,$spc_root
 
           make -j"$(sysctl -n hw.ncpu)"
           make install
+          mkdir -p "$staging_dir/etc/conf.d"
 
           curl --fail --location --retry 3 "$xdebug_url" --output "$work_dir/xdebug.tgz"
           tar -xzf "$work_dir/xdebug.tgz" -C "$work_dir"
           xdebug_source="$(find "$work_dir" -maxdepth 1 -type d -name 'xdebug-*' | head -n 1)"
 
           cd "$xdebug_source"
-          "$install_dir/bin/phpize"
-          ./configure --with-php-config="$install_dir/bin/php-config"
+          "$staging_dir/bin/phpize"
+          ./configure --with-php-config="$staging_dir/bin/php-config"
           make -j"$(sysctl -n hw.ncpu)"
           make install
 
-          extension_dir="$("$install_dir/bin/php" -r 'echo ini_get("extension_dir");')"
-          cp "$install_dir/bin/php" "$staging_dir/php"
-          chmod +x "$staging_dir/php"
-          cp "$extension_dir"/*.so "$staging_dir/ext/"
+          extension_dir="$("$staging_dir/bin/php-config" --extension-dir)"
+          relative_extension_dir="${extension_dir#"$staging_dir"/}"
+
+          find_macho_files() {
+            find "$staging_dir" -type f \( -name '*.dylib' -o -name '*.so' -o -perm -111 \) -print | while read -r candidate; do
+              if file "$candidate" | grep -q 'Mach-O'; then
+                printf '%s\n' "$candidate"
+              fi
+            done
+          }
 
           bundle_macos_dependencies() {
             local queue_file="$work_dir/dylib-queue.txt"
             local seen_file="$work_dir/dylib-seen.txt"
             local dep dep_base dep_dest file replacement
 
-            : > "$queue_file"
+            find_macho_files > "$queue_file"
             : > "$seen_file"
             mkdir -p "$staging_dir/lib"
-
-            printf '%s\n' "$staging_dir/php" "$staging_dir"/ext/*.so >> "$queue_file"
 
             while [ -s "$queue_file" ]; do
               file="$(head -n 1 "$queue_file")"
@@ -206,7 +256,7 @@ jobs:
 
               otool -L "$file" | awk 'NR > 1 { print $1 }' | while read -r dep; do
                 case "$dep" in
-                  /opt/homebrew/*|/usr/local/*)
+                  /opt/homebrew/*|/usr/local/*|"$spc_root"/*)
                     if grep -Fxq "$dep" "$seen_file"; then
                       continue
                     fi
@@ -227,25 +277,20 @@ jobs:
               done
             done
 
-            for file in "$staging_dir/php" "$staging_dir"/ext/*.so "$staging_dir"/lib/*.dylib; do
-              [ -e "$file" ] || continue
-
+            find_macho_files | while read -r file; do
               case "$file" in
-                "$staging_dir/php")
-                  replacement='@loader_path/lib'
-                  ;;
-                "$staging_dir"/ext/*)
-                  replacement='@loader_path/../lib'
-                  ;;
-                "$staging_dir"/lib/*)
+                "$staging_dir"/lib/*.dylib)
                   replacement='@loader_path'
                   install_name_tool -id "@loader_path/$(basename "$file")" "$file"
+                  ;;
+                *)
+                  replacement='@executable_path/../lib'
                   ;;
               esac
 
               otool -L "$file" | awk 'NR > 1 { print $1 }' | while read -r dep; do
                 case "$dep" in
-                  /opt/homebrew/*|/usr/local/*)
+                  /opt/homebrew/*|/usr/local/*|"$spc_root"/*)
                     install_name_tool -change "$dep" "$replacement/$(basename "$dep")" "$file"
                     ;;
                 esac
@@ -254,21 +299,21 @@ jobs:
           }
 
           bundle_macos_dependencies
-          for file in "$staging_dir/php" "$staging_dir"/ext/*.so "$staging_dir"/lib/*.dylib; do
-            [ -e "$file" ] || continue
+          find_macho_files | while read -r file; do
             if otool -L "$file" | grep -E '/opt/homebrew/|/usr/local/'; then
               echo "Found non-portable Homebrew dependency in $file" >&2
+              exit 1
+            fi
+            if otool -L "$file" | grep -F "$spc_root"; then
+              echo "Found non-portable static-php-cli dependency in $file" >&2
               exit 1
             fi
           done
 
           xattr -cr "$staging_dir"
-          for file in "$staging_dir"/lib/*.dylib "$staging_dir"/ext/*.so "$staging_dir/php"; do
-            [ -e "$file" ] || continue
-            if file "$file" | grep -q 'Mach-O'; then
-              codesign --force --sign - "$file"
-              codesign --verify --strict "$file"
-            fi
+          find_macho_files | while read -r file; do
+            codesign --force --sign - "$file"
+            codesign --verify --strict "$file"
           done
 
           cat > "$staging_dir/runtime.json" <<JSON
@@ -278,21 +323,21 @@ jobs:
             "threadSafety": "nts",
             "platform": "$PHP_CLI_ARTIFACT_PLATFORM",
             "arch": "$PHP_CLI_ARTIFACT_ARCH",
-            "binary": "php",
-            "extensionDir": "ext",
+            "binary": "bin/php",
+            "extensionDir": "$relative_extension_dir",
             "libraryDir": "lib",
-            "xdebug": "ext/xdebug.so"
+            "xdebug": "$relative_extension_dir/xdebug.so"
           }
           JSON
 
-          "$staging_dir/php" -n \
-            -d "extension_dir=$staging_dir/ext" \
-            -d "zend_extension=$staging_dir/ext/xdebug.so" \
+          "$staging_dir/bin/php" -n \
+            -d "extension_dir=$extension_dir" \
+            -d "zend_extension=$extension_dir/xdebug.so" \
             -d "xdebug.mode=debug" \
             --ri xdebug
 
-          "$staging_dir/php" -n \
-            -d "extension_dir=$staging_dir/ext" \
+          "$staging_dir/bin/php" -n \
+            -d "extension_dir=$extension_dir" \
             -d "extension=curl" \
             -d "extension=gd" \
             -d "extension=mbstring" \

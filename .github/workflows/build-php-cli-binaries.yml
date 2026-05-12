@@ -145,6 +145,7 @@ jobs:
             --enable-exif=shared \
             --enable-fileinfo=shared \
             --enable-filter=shared \
+            --enable-gd=shared \
             --enable-intl=shared \
             --enable-mbstring=shared \
             --enable-opcache=shared \
@@ -158,7 +159,7 @@ jobs:
             --enable-xmlwriter=shared \
             --with-bz2=shared,$(brew --prefix bzip2) \
             --with-curl=shared \
-            --with-gd=shared \
+            --with-freetype \
             --with-iconv=shared,$(brew --prefix libiconv) \
             --with-jpeg \
             --with-mysqli=shared,mysqlnd \
@@ -204,11 +205,13 @@ jobs:
           "$staging_dir/php" -n \
             -d "extension_dir=$staging_dir/ext" \
             -d "zend_extension=$staging_dir/ext/xdebug.so" \
+            -d "xdebug.mode=debug" \
             --ri xdebug
 
           "$staging_dir/php" -n \
             -d "extension_dir=$staging_dir/ext" \
             -d "extension=curl" \
+            -d "extension=gd" \
             -d "extension=mbstring" \
             -d "extension=pdo" \
             -d "extension=pdo_sqlite" \
@@ -292,6 +295,7 @@ jobs:
           & (Join-Path $stagingDir 'php.exe') -n `
             -d "extension_dir=$(Join-Path $stagingDir 'ext')" `
             -d "zend_extension=$xdebugPath" `
+            -d "xdebug.mode=debug" `
             --ri xdebug
           if ( $LASTEXITCODE -ne 0 ) {
             exit $LASTEXITCODE
@@ -300,6 +304,7 @@ jobs:
           & (Join-Path $stagingDir 'php.exe') -n `
             -d "extension_dir=$(Join-Path $stagingDir 'ext')" `
             -d "extension=curl" `
+            -d "extension=gd" `
             -d "extension=mbstring" `
             -d "extension=pdo" `
             -d "extension=pdo_sqlite" `

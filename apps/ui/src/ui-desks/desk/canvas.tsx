@@ -6,6 +6,7 @@ import {
 	StackAwareSelectionForeground,
 	StackCanvasOverlays,
 } from '@/ui-desks/stacks/canvas-components';
+import { DeskDrawingToolbar } from './drawing-toolbar';
 import { useDesk, useRegisterDeskEditor } from './provider';
 import styles from './style.module.css';
 import { TldrawHoverStateSync } from './tldraw-hover-state-sync';
@@ -21,6 +22,7 @@ function DeskCanvasOverlays() {
 		<>
 			<TldrawHoverStateSync />
 			<StackCanvasOverlays />
+			<DeskDrawingToolbar />
 		</>
 	);
 }

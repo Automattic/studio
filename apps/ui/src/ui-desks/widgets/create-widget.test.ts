@@ -203,6 +203,40 @@ describe( 'createDeskWidget', () => {
 		} );
 	} );
 
+	it( 'creates a drawing widget with supplied SVG props', () => {
+		const createdWidget = createDeskWidget( {
+			id: 'drawing-1',
+			type: 'drawing',
+			center: {
+				x: 400,
+				y: 300,
+			},
+			zIndex: 'a6',
+			shapeProps: {
+				w: 240,
+				h: 180,
+			},
+			widgetProps: {
+				svg: '<svg viewBox="0 0 240 180" />',
+			},
+		} );
+
+		expect( createdWidget ).toEqual( {
+			id: 'drawing-1',
+			type: 'drawing',
+			x: 280,
+			y: 210,
+			zIndex: 'a6',
+			shapeProps: {
+				w: 240,
+				h: 180,
+			},
+			widgetProps: {
+				svg: '<svg viewBox="0 0 240 180" />',
+			},
+		} );
+	} );
+
 	it( 'creates a media widget with supplied media props', () => {
 		const createdWidget = createDeskWidget( {
 			id: 'media-1',

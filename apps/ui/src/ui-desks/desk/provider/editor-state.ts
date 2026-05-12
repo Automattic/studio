@@ -1,4 +1,12 @@
-import { getIndexAbove, sortByIndex, type Editor, type JsonObject, type TLShape } from 'tldraw';
+import {
+	getIndexAbove,
+	sortByIndex,
+	type Editor,
+	type JsonObject,
+	type TLDrawShape,
+	type TLShape,
+	type TLShapeId,
+} from 'tldraw';
 import {
 	RECTANGLE_WIDGET_SHAPE_TYPE,
 	type RectangleWidgetShape,
@@ -16,6 +24,7 @@ import {
 } from '@/ui-desks/stacks/utils';
 import { BLOG_WIDGET_TYPE } from '@/ui-desks/widgets/blog/types';
 import { createDeskWidget } from '@/ui-desks/widgets/create-widget';
+import { DRAWING_WIDGET_TYPE } from '@/ui-desks/widgets/drawing/types';
 import { getFittedNoteHeight } from '@/ui-desks/widgets/note/text-sizing';
 import { isNoteWidgetProps, NOTE_WIDGET_TYPE } from '@/ui-desks/widgets/note/types';
 import { PAGE_WIDGET_TYPE } from '@/ui-desks/widgets/page/types';
@@ -65,6 +74,7 @@ const SITE_MAP_MAX_ZOOM = 0.76;
 const SITE_MAP_HORIZONTAL_PADDING = 96;
 const SITE_MAP_BOTTOM_PADDING = 96;
 const SITE_MAP_HOME_TOP = 126;
+const DRAWING_WIDGET_PADDING = 16;
 
 export function hydrateEditorFromDesk(
 	editor: Editor,
@@ -149,6 +159,47 @@ export function addWidgetToEditor(
 	}
 	editor.focus();
 	return true;
+}
+
+export async function convertDrawShapesToDrawingWidget(
+	editor: Editor,
+	drawShapes: TLDrawShape[]
+) {
+	if ( drawShapes.length === 0 ) {
+		return false;
+	}
+
+	const drawShapeIds = drawShapes.map( ( shape ) => shape.id );
+	const bounds = getCombinedShapePageBounds( editor, drawShapeIds );
+	if ( ! bounds ) {
+		return false;
+	}
+
+	const svg = await editor.getSvgString( drawShapeIds, {
+		background: false,
+		padding: DRAWING_WIDGET_PADDING,
+		preserveAspectRatio: 'xMidYMid meet',
+	} );
+	if ( ! svg ) {
+		return false;
+	}
+
+	editor.deleteShapes( drawShapeIds );
+
+	return addWidgetToEditor( editor, DRAWING_WIDGET_TYPE, 0, {
+		center: {
+			x: bounds.minX + bounds.w / 2,
+			y: bounds.minY + bounds.h / 2,
+		},
+		shapeProps: {
+			w: Math.max( 1, svg.width ),
+			h: Math.max( 1, svg.height ),
+		},
+		widgetProps: {
+			svg: svg.svg,
+		},
+		shouldStartEditing: false,
+	} );
 }
 
 export function updateSelectedWidgetPropsInEditor(
@@ -599,6 +650,10 @@ function getSiteMapWidgetShapes( editor: Editor ) {
 		.filter( ( shape ) => canvasShapeToDeskWidget( shape ) !== null );
 }
 
+export function isDrawShape( shape: TLShape ): shape is TLDrawShape {
+	return shape.type === 'draw';
+}
+
 function getInitialSiteMapZoom( editor: Editor ) {
 	const bounds = getSiteMapContentBounds( editor );
 	if ( ! bounds ) {
@@ -669,4 +724,39 @@ function getNextZIndexFromShapes( shapes: TLShape[] ) {
 
 export function createWidgetId() {
 	return globalThis.crypto?.randomUUID?.() ?? `widget-${ Date.now().toString( 36 ) }`;
+}
+
+function getCombinedShapePageBounds( editor: Editor, shapeIds: TLShapeId[] ) {
+	const bounds = shapeIds
+		.map( ( shapeId ) => editor.getShapePageBounds( shapeId ) )
+		.filter( ( shapeBounds ): shapeBounds is NonNullable< typeof shapeBounds > =>
+			Boolean( shapeBounds )
+		);
+
+	if ( bounds.length === 0 ) {
+		return null;
+	}
+
+	return bounds.reduce(
+		( currentBounds, nextBounds ) => ( {
+			minX: Math.min( currentBounds.minX, nextBounds.minX ),
+			minY: Math.min( currentBounds.minY, nextBounds.minY ),
+			maxX: Math.max( currentBounds.maxX, nextBounds.maxX ),
+			maxY: Math.max( currentBounds.maxY, nextBounds.maxY ),
+			w:
+				Math.max( currentBounds.maxX, nextBounds.maxX ) -
+				Math.min( currentBounds.minX, nextBounds.minX ),
+			h:
+				Math.max( currentBounds.maxY, nextBounds.maxY ) -
+				Math.min( currentBounds.minY, nextBounds.minY ),
+		} ),
+		{
+			minX: bounds[ 0 ].minX,
+			minY: bounds[ 0 ].minY,
+			maxX: bounds[ 0 ].maxX,
+			maxY: bounds[ 0 ].maxY,
+			w: bounds[ 0 ].w,
+			h: bounds[ 0 ].h,
+		}
+	);
 }

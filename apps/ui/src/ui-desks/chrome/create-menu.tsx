@@ -2,7 +2,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { useEntityRecords, type Post as CoreDataPost } from '@wordpress/core-data';
 import { decodeEntities } from '@wordpress/html-entities';
 import { __ } from '@wordpress/i18n';
-import { chevronLeft, download, globe, link, plus } from '@wordpress/icons';
+import { chevronLeft, download, globe, link, plus, verse } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { useMemo, useState } from 'react';
 import { useSites } from '@/data/queries/use-sites';
@@ -72,6 +72,10 @@ export function DeskCreateMenu() {
 							>
 								<Icon icon={ link } />
 								<span>{ __( 'New link from URL' ) }</span>
+							</Menu.Item>
+							<Menu.Item disabled={ ! desk.canAddWidgets } onClick={ desk.startDrawing }>
+								<Icon icon={ verse } />
+								<span>{ __( 'New drawing' ) }</span>
 							</Menu.Item>
 							{ desk.siteId && (
 								<>

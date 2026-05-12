@@ -1,0 +1,16 @@
+.drawing {
+	box-sizing: border-box;
+	width: 100%;
+	height: 100%;
+	overflow: hidden;
+	background: transparent;
+}
+
+.image {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+	pointer-events: none;
+	user-select: none;
+}

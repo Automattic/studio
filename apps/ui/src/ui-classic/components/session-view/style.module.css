@@ -93,6 +93,10 @@
 	scrollbar-gutter: stable both-edges;
 }
 
+.composerOuter {
+	flex: 0 0 auto;
+}
+
 .classicScroll {
 	padding: 0 var(--wpds-dimension-padding-xl);
 }

@@ -11,7 +11,7 @@ import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useMemo, useState } from 'react';
 import { Markdown } from '@/components/markdown';
-import { ThinkingIndicator } from '@/components/session-view/thinking-indicator';
+import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
 import type { LoadedAiSession } from '@/data/core';
 import type { SessionEntry } from '@mariozechner/pi-coding-agent';
@@ -55,8 +55,6 @@ interface PiToolResultLike {
 }
 
 function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
-	// First pass: collect tool_call_id → tool_result pairings so each
-	// `toolCall` row can render its output inline.
 	const resultsByToolCallId = new Map< string, NormalizedToolResult >();
 	for ( const entry of entries ) {
 		if ( entry.type !== 'message' ) continue;
@@ -139,15 +137,12 @@ function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 					key: `${ entryIndex }:interrupted`,
 				} );
 			}
-			return;
 		}
 	} );
 
 	return items;
 }
 
-// Progress from earlier turns must not leak into the current indicator, so
-// the scan stops at the nearest turn boundary.
 function findLatestProgressMessage( entries: SessionEntry[] ): string | null {
 	for ( let i = entries.length - 1; i >= 0; i -= 1 ) {
 		const entry = entries[ i ];
@@ -165,16 +160,22 @@ function findLatestProgressMessage( entries: SessionEntry[] ): string | null {
 	return null;
 }
 
-function UserTurn( { text }: { text: string } ) {
+function UserMessage( { text }: { text: string } ) {
 	return (
-		<div className={ styles.userTurn }>
-			<div className={ styles.userText }>{ text }</div>
+		<div className={ clsx( styles.messageGroup, styles.userGroup ) }>
+			<div className={ clsx( styles.message, styles.userMessage ) }>{ text }</div>
 		</div>
 	);
 }
 
-function AssistantText( { text }: { text: string } ) {
-	return <Markdown>{ text }</Markdown>;
+function AssistantMessage( { text }: { text: string } ) {
+	return (
+		<div className={ clsx( styles.messageGroup, styles.assistantGroup ) }>
+			<div className={ clsx( styles.message, styles.assistantMessage ) }>
+				<Markdown className={ styles.assistantMarkdown }>{ text }</Markdown>
+			</div>
+		</div>
+	);
 }
 
 const TOOL_RESULT_PREVIEW_MAX_LINES = 12;
@@ -196,33 +197,35 @@ function ToolUseRow( {
 	const isLong = resultText.split( '\n' ).length > TOOL_RESULT_PREVIEW_MAX_LINES;
 
 	return (
-		<div className={ styles.toolBlock }>
-			<div className={ styles.toolRow }>
-				<span className={ styles.toolLabel }>{ label }</span>
-				{ detail ? <span className={ styles.toolDetail }>{ detail }</span> : null }
-			</div>
-			{ hasOutput ? (
-				<div className={ styles.toolOutputWrap }>
-					<pre
-						className={ clsx(
-							styles.toolOutput,
-							result?.isError && styles.toolOutputError,
-							! expanded && isLong && styles.toolOutputCollapsed
-						) }
-					>
-						{ resultText }
-					</pre>
-					{ isLong ? (
-						<button
-							type="button"
-							className={ styles.toolOutputToggle }
-							onClick={ () => setExpanded( ( prev ) => ! prev ) }
-						>
-							{ expanded ? __( 'Show less' ) : __( 'Show more' ) }
-						</button>
-					) : null }
+		<div className={ clsx( styles.messageGroup, styles.assistantGroup ) }>
+			<div className={ styles.toolBlock }>
+				<div className={ styles.toolRow }>
+					<span className={ styles.toolLabel }>{ label }</span>
+					{ detail ? <span className={ styles.toolDetail }>{ detail }</span> : null }
 				</div>
-			) : null }
+				{ hasOutput ? (
+					<div className={ styles.toolOutputWrap }>
+						<pre
+							className={ clsx(
+								styles.toolOutput,
+								result?.isError && styles.toolOutputError,
+								! expanded && isLong && styles.toolOutputCollapsed
+							) }
+						>
+							{ resultText }
+						</pre>
+						{ isLong ? (
+							<button
+								type="button"
+								className={ styles.toolOutputToggle }
+								onClick={ () => setExpanded( ( prev ) => ! prev ) }
+							>
+								{ expanded ? __( 'Show less' ) : __( 'Show more' ) }
+							</button>
+						) : null }
+					</div>
+				) : null }
+			</div>
 		</div>
 	);
 }
@@ -241,28 +244,33 @@ function AgentQuestion( {
 	onAnswer: ( label: string ) => void;
 } ) {
 	return (
-		<div className={ styles.question }>
-			<p className={ styles.questionText }>{ question }</p>
-			{ options.length > 0 ? (
-				<ul className={ styles.questionOptions }>
-					{ options.map( ( option, index ) => {
-						const picked = option.label === pickedLabel;
-						return (
-							<li key={ index }>
-								<button
-									type="button"
-									className={ clsx( styles.questionOption, picked && styles.questionOptionPicked ) }
-									disabled={ ! isInteractive }
-									onClick={ () => onAnswer( option.label ) }
-									title={ option.description }
-								>
-									{ option.label }
-								</button>
-							</li>
-						);
-					} ) }
-				</ul>
-			) : null }
+		<div className={ clsx( styles.messageGroup, styles.assistantGroup ) }>
+			<div className={ styles.question }>
+				<p className={ styles.questionText }>{ question }</p>
+				{ options.length > 0 ? (
+					<ul className={ styles.questionOptions }>
+						{ options.map( ( option, index ) => {
+							const picked = option.label === pickedLabel;
+							return (
+								<li key={ index }>
+									<button
+										type="button"
+										className={ clsx(
+											styles.questionOption,
+											picked && styles.questionOptionPicked
+										) }
+										disabled={ ! isInteractive }
+										onClick={ () => onAnswer( option.label ) }
+										title={ option.description }
+									>
+										{ option.label }
+									</button>
+								</li>
+							);
+						} ) }
+					</ul>
+				) : null }
+			</div>
 		</div>
 	);
 }
@@ -294,9 +302,9 @@ export function Conversation( {
 			{ items.map( ( item ) => {
 				switch ( item.kind ) {
 					case 'user-text':
-						return <UserTurn key={ item.key } text={ item.text } />;
+						return <UserMessage key={ item.key } text={ item.text } />;
 					case 'assistant-text':
-						return <AssistantText key={ item.key } text={ item.text } />;
+						return <AssistantMessage key={ item.key } text={ item.text } />;
 					case 'tool-use':
 						return (
 							<ToolUseRow
@@ -327,11 +335,13 @@ export function Conversation( {
 						return null;
 				}
 			} ) }
-			<ThinkingIndicator
-				active={ isRunning && pendingQuestions.size === 0 }
-				startedAt={ startedAt }
-				progressMessage={ progressMessage }
-			/>
+			<div className={ styles.thinking }>
+				<ThinkingIndicator
+					active={ isRunning && pendingQuestions.size === 0 }
+					startedAt={ startedAt }
+					progressMessage={ progressMessage }
+				/>
+			</div>
 		</div>
 	);
 }

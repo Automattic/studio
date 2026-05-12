@@ -96,7 +96,11 @@
 }
 
 .header {
-	padding: 16px 18px 12px;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 16px 24px 12px;
+	color: var(--ui-desks-text, #14171a);
 }
 
 .header h2 {
@@ -104,12 +108,20 @@
 	font-size: 14px;
 	line-height: 20px;
 	font-weight: 600;
+	letter-spacing: 0;
 }
 
 .list {
 	flex: 1;
 	min-height: 0;
 	overflow-y: auto;
+}
+
+.emptyList {
+	padding: 12px 0;
+	color: var(--ui-desks-muted, #6b7280);
+	font-size: 13px;
+	line-height: 18px;
 }
 
 .footer {
@@ -141,6 +153,47 @@
 	padding-top: 48px;
 	color: var(--ui-desks-muted, #6b7280);
 	font-size: 13px;
+}
+
+.emptyConversation {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 16px;
+	margin-top: 40px;
+	padding: 0 12px;
+}
+
+.emptyConversationPrompt {
+	color: var(--ui-desks-muted, #6b7280);
+	font-size: 13px;
+	text-align: center;
+}
+
+.emptyConversationExamples {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: 8px;
+}
+
+.emptyConversationExample {
+	border: 1px solid var(--ui-desks-divider, rgba(15, 23, 42, 0.06));
+	background: rgba(255, 255, 255, 0.6);
+	color: var(--ui-desks-text, #14171a);
+	font: inherit;
+	font-size: 12px;
+	line-height: 16px;
+	padding: 8px 12px;
+	border-radius: 10px;
+	cursor: pointer;
+	transition: background 140ms ease, border-color 140ms ease;
+}
+
+.emptyConversationExample:hover,
+.emptyConversationExample:focus-visible {
+	background: #fff;
+	border-color: rgba(15, 23, 42, 0.16);
 }
 
 .resizeHandle {

@@ -93,6 +93,37 @@
 	--control-button-background: var(--ui-desks-control-hover, rgba(15, 23, 42, 0.07));
 }
 
+.prompt {
+	height: 32px;
+	min-width: 0;
+	padding: 0 8px;
+	gap: 4px;
+	border-radius: var(--ui-desks-radius-button, 12px);
+	corner-shape: var(--ui-desks-corner-shape, superellipse(1.42));
+	-webkit-corner-shape: var(--ui-desks-corner-shape, superellipse(1.42));
+	font-size: 12px;
+	font-weight: 400;
+	line-height: 16px;
+	transition: background 140ms ease;
+}
+
+.prompt:hover:not(:disabled),
+.prompt[aria-pressed='true'] {
+	--control-button-background: var(--ui-desks-control-hover, rgba(15, 23, 42, 0.07));
+}
+
+.prompt > span {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.prompt svg {
+	fill: currentColor;
+	flex: 0 0 auto;
+}
+
 .icon {
 	flex: 0 0 auto;
 }

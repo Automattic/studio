@@ -4,15 +4,6 @@ import { __ } from '@wordpress/i18n';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useLayoutEffect, useMemo, useRef, type ReactNode, type Ref } from 'react';
-import {
-	formatAnnotationsAsPrompt,
-	formatAnnotationsSubmittedMessage,
-} from '@/components/session-view/annotations';
-import { Composer, ComposerSkeleton } from '@/components/session-view/composer';
-import { pickLiveSite } from '@/components/session-view/composer/environment-pill';
-import { Conversation } from '@/components/session-view/conversation';
-import { EmptyBackground } from '@/components/session-view/empty-background';
-import { QueuedPrompts } from '@/components/session-view/queued-prompts';
 import { SiteDropdown } from '@/components/site-dropdown';
 import { SiteIcon } from '@/components/site-icon';
 import { SitePreview } from '@/components/site-preview';
@@ -26,6 +17,12 @@ import { useSessionCommands } from '@/hooks/use-session-commands';
 import { SessionUIProvider, useSessionPreviewUI } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { drawerIcon } from '@/lib/icons';
+import { formatAnnotationsAsPrompt, formatAnnotationsSubmittedMessage } from './annotations';
+import { Composer, ComposerSkeleton } from './composer';
+import { pickLiveSite } from './composer/environment-pill';
+import { Conversation } from './conversation';
+import { EmptyBackground } from './empty-background';
+import { QueuedPrompts } from './queued-prompts';
 import styles from './style.module.css';
 import type { AiSessionSummary } from '@/data/core';
 

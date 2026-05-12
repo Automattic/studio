@@ -116,18 +116,47 @@
 }
 
 .postPickerItem {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 8px;
 	padding-right: 12px;
 }
 
+.postPickerContent {
+	display: flex;
+	min-width: 0;
+	flex-direction: column;
+	gap: 2px;
+	overflow: visible;
+	white-space: normal;
+}
+
+.postPickerTitle,
+.postPickerMeta {
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
 .postPickerTitle {
-	flex: 1 1 auto;
+	font-size: 13px;
+	line-height: 18px;
+	color: var(--ui-desks-text, #14171a);
 }
 
 .postPickerMeta {
-	flex: 0 0 auto;
-	margin-left: auto;
 	color: var(--ui-desks-text-muted, rgba(15, 23, 42, 0.56));
 	font-size: 12px;
+	line-height: 16px;
+}
+
+.postPickerStatusDot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	box-shadow: 0 0 0 2px var(--ui-desks-material, #fff);
 }
 
 @keyframes context-menu-rise {

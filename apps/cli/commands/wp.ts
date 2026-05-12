@@ -9,6 +9,7 @@ import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getPhpBinaryPath, getWpCliPharPath } from 'cli/lib/dependency-management/paths';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
+import { getSiteRuntime } from 'cli/lib/feature-flags';
 import { runWpCliCommand, runGlobalWpCliCommand, WpCliResponse } from 'cli/lib/run-wp-cli-command';
 import { validatePhpVersion } from 'cli/lib/utils';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
@@ -82,7 +83,9 @@ export async function runCommand(
 ): Promise< void > {
 	// Handle global WP-CLI commands that don't require a site path (--studio-no-path)
 	if ( mode === Mode.GLOBAL ) {
-		await using command = await runGlobalWpCliCommand( args );
+		await using command = await runGlobalWpCliCommand( args, {
+			runtime: getSiteRuntime() === 'native-php' ? 'native-php' : 'wasm',
+		} );
 
 		await pipePHPResponse( command.response );
 		process.exitCode = await command.response.exitCode;
@@ -92,7 +95,7 @@ export async function runCommand(
 
 	const site = await getSiteByFolder( siteFolder );
 
-	if ( site.runtime === 'native-php' ) {
+	if ( getSiteRuntime() === 'native-php' ) {
 		await runNativePhpWpCliCommand( site, args );
 		return;
 	}

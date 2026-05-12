@@ -519,48 +519,6 @@ describe( 'CLI: studio site create', () => {
 		} );
 	} );
 
-	describe( 'Runtime (STUDIO_RUNTIME env var)', () => {
-		afterEach( () => {
-			vi.unstubAllEnvs();
-		} );
-
-		it( 'persists runtime=native-php when STUDIO_RUNTIME=native-php', async () => {
-			vi.stubEnv( 'STUDIO_RUNTIME', 'native-php' );
-
-			await runCommand( mockSitePath, { ...defaultTestOptions } );
-
-			expect( saveCliConfig ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					sites: expect.arrayContaining( [ expect.objectContaining( { runtime: 'native-php' } ) ] ),
-				} )
-			);
-		} );
-
-		it( 'defaults to playground when STUDIO_RUNTIME is unset', async () => {
-			vi.stubEnv( 'STUDIO_RUNTIME', undefined );
-
-			await runCommand( mockSitePath, { ...defaultTestOptions } );
-
-			expect( saveCliConfig ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					sites: expect.arrayContaining( [ expect.objectContaining( { runtime: 'playground' } ) ] ),
-				} )
-			);
-		} );
-
-		it( 'falls back to playground when STUDIO_RUNTIME has an unknown value', async () => {
-			vi.stubEnv( 'STUDIO_RUNTIME', 'nonsense' );
-
-			await runCommand( mockSitePath, { ...defaultTestOptions } );
-
-			expect( saveCliConfig ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					sites: expect.arrayContaining( [ expect.objectContaining( { runtime: 'playground' } ) ] ),
-				} )
-			);
-		} );
-	} );
-
 	describe( 'Multisite Validation', () => {
 		it( 'should error when enableMultisite step is present without custom domain', async () => {
 			const multisiteBlueprint: Blueprint = {

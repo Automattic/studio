@@ -11,6 +11,7 @@ import {
 	startProxyProcess,
 	stopProxyProcess,
 } from 'cli/lib/daemon-client';
+import { getSiteRuntime } from 'cli/lib/feature-flags';
 import { addDomainToHosts } from 'cli/lib/hosts-file';
 import { isServerRunning, SITE_PROCESS_PREFIX } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
@@ -56,7 +57,7 @@ export async function openSiteInBrowser( site: SiteData ): Promise< void > {
 		const targetPath = site.landingPage || '/wp-admin/';
 		const target = new URL( targetPath, siteUrl ).toString();
 		const autoLoginUrl =
-			site.runtime === 'playground' ? buildAutoLoginUrl( siteUrl, target ) : `${ siteUrl }/`;
+			getSiteRuntime() === 'playground' ? buildAutoLoginUrl( siteUrl, target ) : `${ siteUrl }/`;
 		await openBrowser( autoLoginUrl );
 	} catch ( error ) {
 		// Silently fail if browser can't be opened

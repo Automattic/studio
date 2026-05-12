@@ -29,6 +29,7 @@ import {
 	hasActiveSyncOperations,
 	hasUploadingPushOperations,
 } from 'src/lib/active-sync-operations';
+import { getBetaFeatures } from 'src/lib/beta-features';
 import {
 	bumpStat,
 	bumpAggregatedUniqueStat,
@@ -341,6 +342,7 @@ async function appBoot() {
 		await runMigrations( migrations ).catch( Sentry.captureException );
 
 		await setupSentryUserId();
+		await getBetaFeatures();
 
 		// Fetch data from CLI and subscribe to CLI events before starting the user data
 		// watcher. The watcher can trigger getMainWindow() which creates the window early,

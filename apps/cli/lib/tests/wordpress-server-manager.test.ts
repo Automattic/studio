@@ -54,6 +54,7 @@ describe( 'WordPress Server Manager', () => {
 	} );
 
 	afterEach( () => {
+		vi.unstubAllEnvs();
 		vi.restoreAllMocks();
 	} );
 
@@ -125,10 +126,11 @@ describe( 'WordPress Server Manager', () => {
 			expect( result ).toEqual( mockProcessDescription );
 		} );
 
-		it( 'should use the native-php child script when site.runtime is native-php', async () => {
+		it( 'should use the native-php child script when STUDIO_RUNTIME is native-php', async () => {
+			vi.stubEnv( 'STUDIO_RUNTIME', 'native-php' );
 			setupIpcMocks();
 
-			await startWordPressServer( { ...mockSiteData, runtime: 'native-php' }, mockLogger );
+			await startWordPressServer( mockSiteData, mockLogger );
 
 			expect( vi.mocked( daemonClient.startProcess ) ).toHaveBeenCalledWith(
 				'studio-site-test-site-id',
@@ -136,10 +138,10 @@ describe( 'WordPress Server Manager', () => {
 			);
 		} );
 
-		it( 'should use the playground child script when site.runtime is undefined', async () => {
+		it( 'should use the playground child script when STUDIO_RUNTIME is unset', async () => {
 			setupIpcMocks();
 
-			await startWordPressServer( { ...mockSiteData, runtime: undefined }, mockLogger );
+			await startWordPressServer( mockSiteData, mockLogger );
 
 			expect( vi.mocked( daemonClient.startProcess ) ).toHaveBeenCalledWith(
 				'studio-site-test-site-id',

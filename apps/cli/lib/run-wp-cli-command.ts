@@ -27,6 +27,7 @@ import {
 	getSqliteCommandPath,
 	getWpCliPharPath,
 } from 'cli/lib/dependency-management/paths';
+import { getSiteRuntime } from 'cli/lib/feature-flags';
 import { validatePhpVersion } from 'cli/lib/utils';
 import type { SiteData } from 'cli/lib/cli-config/core';
 import type { ReadableStream as WebReadableStream } from 'node:stream/web';
@@ -178,7 +179,7 @@ export async function runWpCliCommand(
 ): Promise< DisposableWpCliResponse > {
 	const siteFolder = site.path;
 
-	if ( site.runtime === 'native-php' ) {
+	if ( getSiteRuntime() === 'native-php' ) {
 		return runNativeWpCliCommand( site, args, options );
 	}
 

@@ -1,3 +1,8 @@
+import { z } from 'zod';
+
+const siteRuntimeSchema = z.enum( [ 'playground', 'native-php' ] );
+export type SiteRuntime = z.infer< typeof siteRuntimeSchema >;
+
 /**
  * CLI feature flags, read from runtime environment variables.
  *
@@ -8,4 +13,8 @@
 
 export function isRemoteSessionEnabled(): boolean {
 	return process.env.STUDIO_ENABLE_REMOTE_SESSION === 'true';
+}
+
+export function getSiteRuntime(): SiteRuntime {
+	return siteRuntimeSchema.catch( 'playground' ).parse( process.env.STUDIO_RUNTIME );
 }

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { isRemoteSessionEnabled } from 'cli/lib/feature-flags';
+import { getSiteRuntime, isRemoteSessionEnabled } from 'cli/lib/feature-flags';
 
 describe( 'isRemoteSessionEnabled', () => {
 	const originalValue = process.env.STUDIO_ENABLE_REMOTE_SESSION;
@@ -32,4 +32,34 @@ describe( 'isRemoteSessionEnabled', () => {
 			expect( isRemoteSessionEnabled() ).toBe( false );
 		}
 	);
+} );
+
+describe( 'getSiteRuntime', () => {
+	const originalValue = process.env.STUDIO_RUNTIME;
+
+	beforeEach( () => {
+		delete process.env.STUDIO_RUNTIME;
+	} );
+
+	afterEach( () => {
+		if ( originalValue === undefined ) {
+			delete process.env.STUDIO_RUNTIME;
+		} else {
+			process.env.STUDIO_RUNTIME = originalValue;
+		}
+	} );
+
+	it( 'defaults to playground when the env var is unset', () => {
+		expect( getSiteRuntime() ).toBe( 'playground' );
+	} );
+
+	it( 'returns native-php when STUDIO_RUNTIME=native-php', () => {
+		process.env.STUDIO_RUNTIME = 'native-php';
+		expect( getSiteRuntime() ).toBe( 'native-php' );
+	} );
+
+	it( 'falls back to playground for unknown values', () => {
+		process.env.STUDIO_RUNTIME = 'nonsense';
+		expect( getSiteRuntime() ).toBe( 'playground' );
+	} );
 } );

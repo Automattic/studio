@@ -164,7 +164,7 @@ async function getAppMenu(
 				{
 					label: __( 'Beta Features' ),
 					submenu: betaFeaturesMenu,
-					enabled: false,
+					enabled: betaFeaturesMenu.length > 0,
 				},
 				{ type: 'separator' },
 				...( process.platform === 'win32'

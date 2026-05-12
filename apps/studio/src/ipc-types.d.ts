@@ -5,8 +5,6 @@ interface ShowNotificationOptions extends Electron.NotificationConstructorOption
 	showIcon: boolean;
 }
 
-type SiteRuntime = 'playground' | 'native-php';
-
 interface StoppedSiteDetails {
 	running: false;
 
@@ -46,7 +44,6 @@ interface StoppedSiteDetails {
 	enableDebugDisplay?: boolean;
 	sortOrder?: number;
 	landingPage?: string;
-	runtime?: SiteRuntime;
 }
 
 interface StartedSiteDetails extends StoppedSiteDetails {
@@ -102,8 +99,9 @@ interface FeatureFlags {
 	enableStudioCodeUi: boolean;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-interface BetaFeatures {}
+interface BetaFeatures {
+	nativePhpRuntime?: boolean;
+}
 
 interface AppGlobals extends FeatureFlags {
 	platform: NodeJS.Platform;

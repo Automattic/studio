@@ -14,7 +14,7 @@ import {
 import { SiteCommandLoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
-import { SiteData, SiteRuntime } from 'cli/lib/cli-config/core';
+import { SiteData } from 'cli/lib/cli-config/core';
 import {
 	isProcessRunning,
 	startProcess,
@@ -24,6 +24,7 @@ import {
 	sendMessageToProcess,
 } from 'cli/lib/daemon-client';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
+import { getSiteRuntime, type SiteRuntime } from 'cli/lib/feature-flags';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { ServerConfig, ManagerMessagePayload } from 'cli/lib/types/wordpress-server-ipc';
 import { Logger } from 'cli/logger';
@@ -42,8 +43,8 @@ export function getProcessName( siteId: string ): string {
 	return `${ SITE_PROCESS_PREFIX }${ siteId }`;
 }
 
-function getChildScriptPath( runtime: SiteRuntime | undefined ): string {
-	switch ( runtime ?? 'playground' ) {
+function getChildScriptPath( runtime: SiteRuntime ): string {
+	switch ( runtime ) {
 		case 'native-php':
 			return path.resolve( import.meta.dirname, 'php-server-child.mjs' );
 		case 'playground':
@@ -161,9 +162,10 @@ function buildServerConfig(
 
 async function ensurePhpBinaryAvailableIfNeeded(
 	site: SiteData,
-	logger: Logger< string >
+	logger: Logger< string >,
+	runtime: SiteRuntime
 ): Promise< void > {
-	if ( site.runtime === 'native-php' && site.phpVersion ) {
+	if ( runtime === 'native-php' && site.phpVersion ) {
 		logger.reportStart(
 			SiteCommandLoggerAction.ENSURE_PHP_BINARY,
 			`Checking PHP ${ site.phpVersion } binary…`
@@ -196,14 +198,15 @@ export async function startWordPressServer(
 		}
 	}
 
-	await ensurePhpBinaryAvailableIfNeeded( site, logger );
+	const runtime = getSiteRuntime();
+	await ensurePhpBinaryAvailableIfNeeded( site, logger, runtime );
 
 	const startMessage = options?.blueprint
 		? __( 'Starting WordPress server and applying Blueprint…' )
 		: __( 'Starting WordPress server…' );
 	logger.reportStart( SiteCommandLoggerAction.START_SITE, startMessage );
 
-	const wordPressServerChildPath = getChildScriptPath( site.runtime );
+	const wordPressServerChildPath = getChildScriptPath( runtime );
 	const processName = getProcessName( site.id );
 	const serverConfig = buildServerConfig( site, options );
 
@@ -519,10 +522,11 @@ export async function runBlueprint(
 	logger: Logger< string >,
 	options: RunBlueprintOptions
 ): Promise< void > {
-	await ensurePhpBinaryAvailableIfNeeded( site, logger );
+	const runtime = getSiteRuntime();
+	await ensurePhpBinaryAvailableIfNeeded( site, logger, runtime );
 	logger.reportStart( SiteCommandLoggerAction.APPLY_BLUEPRINT, __( 'Applying Blueprint…' ) );
 
-	const wordPressServerChildPath = getChildScriptPath( site.runtime );
+	const wordPressServerChildPath = getChildScriptPath( runtime );
 	const processName = getProcessName( site.id );
 	const serverConfig = buildServerConfig( site, options );
 

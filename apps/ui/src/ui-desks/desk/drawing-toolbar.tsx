@@ -40,12 +40,12 @@ export function DeskDrawingToolbar() {
 			<ControlButton
 				className={ styles.drawingDoneButton }
 				disabled={ isFinishing }
-				label={ __( 'Done drawing' ) }
+				label={ __( 'Stop drawing' ) }
 				tooltipLabel={ false }
 				variant="toolbar"
 				onClick={ () => void handleFinishDrawing() }
 			>
-				{ __( 'Done' ) }
+				{ __( 'Stop drawing' ) }
 			</ControlButton>
 		</Surface>
 	);

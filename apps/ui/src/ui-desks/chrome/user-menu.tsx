@@ -9,7 +9,7 @@ import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
 import { useSites } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
-import { ControlButton, Menu } from '@/ui-desks/components';
+import { Button, Menu } from '@/ui-desks/components';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 
@@ -60,7 +60,7 @@ export function DeskMenu( { siteId, disabled = false, showSiteName = true }: Des
 	};
 
 	const trigger = siteId ? (
-		<ControlButton
+		<Button
 			className={ styles.siteTrigger }
 			disabled={ disabled }
 			label={ sprintf(
@@ -81,19 +81,15 @@ export function DeskMenu( { siteId, disabled = false, showSiteName = true }: Des
 				</span>
 			) }
 			<Icon icon={ chevronDownSmall } size={ 20 } className={ styles.siteCaret } />
-		</ControlButton>
+		</Button>
 	) : (
-		<ControlButton
-			disabled={ disabled }
-			label={ __( 'Desk menu' ) }
-			tooltipLabel={ user?.displayName }
-		>
+		<Button disabled={ disabled } label={ __( 'Desk menu' ) } tooltipLabel={ user?.displayName }>
 			{ user ? (
 				<Gravatar className={ styles.avatar } email={ user.email } isDark={ themeIsDark } />
 			) : (
 				<span className={ styles.loginAvatar } aria-hidden="true" />
 			) }
-		</ControlButton>
+		</Button>
 	);
 
 	return (

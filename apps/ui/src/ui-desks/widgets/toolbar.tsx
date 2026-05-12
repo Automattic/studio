@@ -3,7 +3,7 @@ import { category, group, pencil, trash, ungroup, update } from '@wordpress/icon
 import { useEffect, useState } from 'react';
 import { ChatButton } from '@/ui-desks/chats/chat-button';
 import { SelectionChatDialog } from '@/ui-desks/chats/selection-chat-dialog';
-import { Divider, IconControlButton, Surface } from '@/ui-desks/components';
+import { Divider, Button, Surface } from '@/ui-desks/components';
 import { ControlRenderer } from '@/ui-desks/controls/registry';
 import { useDesk } from '@/ui-desks/desk/provider';
 import styles from './toolbar.module.css';
@@ -87,18 +87,20 @@ export function DeskWidgetToolbar() {
 					</span>
 				) }
 				{ canRenderEditControl && (
-					<IconControlButton
+					<Button
 						icon={ pencil }
 						label={ renderSelection.definition.labels.edit?.() ?? __( 'Edit' ) }
-						variant="toolbar"
+						variant="quiet"
+						size="medium"
 						onClick={ editSelectedWidget }
 					/>
 				) }
 				{ canFitSelectedWidgetToContent && (
-					<IconControlButton
+					<Button
 						icon={ update }
 						label={ __( 'Fit to size' ) }
-						variant="toolbar"
+						variant="quiet"
+						size="medium"
 						onClick={ () => {
 							void fitSelectedWidgetToContent();
 						} }
@@ -134,18 +136,20 @@ export function DeskWidgetToolbar() {
 					renderSelection.canUnstack ||
 					renderSelection.canSetStackView ) && <Divider /> }
 				{ renderSelection.canStack && (
-					<IconControlButton
+					<Button
 						icon={ group }
 						label={ __( 'Stack widgets' ) }
-						variant="toolbar"
+						variant="quiet"
+						size="medium"
 						onClick={ stackSelectedWidgets }
 					/>
 				) }
 				{ renderSelection.canUnstack && (
-					<IconControlButton
+					<Button
 						icon={ ungroup }
 						label={ __( 'Unstack widgets' ) }
-						variant="toolbar"
+						variant="quiet"
+						size="medium"
 						onClick={ unstackSelectedWidgets }
 					/>
 				) }
@@ -154,10 +158,11 @@ export function DeskWidgetToolbar() {
 				{ renderSelection.canRemove && (
 					<>
 						<Divider />
-						<IconControlButton
+						<Button
 							icon={ trash }
 							label={ __( 'Remove widget selection' ) }
-							variant="toolbar"
+							variant="quiet"
+							size="medium"
 							onClick={ removeSelectedWidget }
 						/>
 					</>

@@ -1,11 +1,12 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
+import { arrowUp } from '@wordpress/icons';
 import { useEffect, useRef, useState, type ComponentType, type CSSProperties } from 'react';
 import { useChats } from '@/ui-desks/chats/context';
 import {
+	Button,
 	PromptDialog,
 	PromptDialogError,
 	PromptDialogRow,
-	PromptDialogSubmit,
 	promptDialogInputClassName,
 } from '@/ui-desks/components';
 import { getWidgetDefinition } from '@/ui-desks/widgets/registry';
@@ -82,11 +83,16 @@ export function SelectionChatDialog( { widgets, onClose }: SelectionChatDialogPr
 						}
 					} }
 				/>
-				<PromptDialogSubmit
+				<Button
+					icon={ arrowUp }
 					label={ isCreatingChat ? __( 'Creating chat' ) : __( 'Send' ) }
 					disabled={ ! canSubmit }
 					aria-busy={ isCreatingChat }
 					onClick={ () => void submitPrompt() }
+					tooltipSide="left"
+					variant="filled"
+					tone="primary"
+					size="large"
 				/>
 			</PromptDialogRow>
 			<div className={ styles.thumbnails } aria-label={ __( 'Selected widgets' ) }>

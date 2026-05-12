@@ -28,14 +28,3 @@
 .actions {
 	justify-content: flex-end;
 }
-
-.primaryAction {
-	--action-button-background: #3858e9;
-
-	justify-content: center;
-	color: #fff;
-}
-
-.primaryAction:hover:not(:disabled) {
-	--action-button-background: #2448e2;
-}

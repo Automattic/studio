@@ -1,10 +1,11 @@
 import { __ } from '@wordpress/i18n';
+import { arrowUp } from '@wordpress/icons';
 import { useEffect, useRef, useState } from 'react';
 import {
+	Button,
 	PromptDialog,
 	PromptDialogError,
 	PromptDialogRow,
-	PromptDialogSubmit,
 	PromptDialogTip,
 	promptDialogInputClassName,
 } from '@/ui-desks/components';
@@ -68,10 +69,15 @@ export function LinkFromUrlDialog( { center, onClose }: LinkFromUrlDialogProps )
 					placeholder={ __( 'Paste a URL...' ) }
 					onChange={ ( event ) => setText( event.target.value ) }
 				/>
-				<PromptDialogSubmit
+				<Button
+					icon={ arrowUp }
 					label={ __( 'Create link' ) }
 					disabled={ ! canSubmit }
 					onClick={ () => void submit() }
+					tooltipSide="left"
+					variant="filled"
+					tone="primary"
+					size="large"
 				/>
 			</PromptDialogRow>
 			<PromptDialogTip>

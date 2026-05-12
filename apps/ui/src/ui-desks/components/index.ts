@@ -1,12 +1,10 @@
-export { ActionButton } from './action-button';
-export { ControlButton, IconControlButton } from './control-button';
+export { Button } from './button';
 export { LoadingPlaceholder } from './loading-placeholder';
 export { List, ListItem } from './list';
 export {
 	PromptDialog,
 	PromptDialogError,
 	PromptDialogRow,
-	PromptDialogSubmit,
 	PromptDialogTip,
 	promptDialogInputClassName,
 } from './prompt-dialog';

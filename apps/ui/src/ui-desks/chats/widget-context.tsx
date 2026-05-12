@@ -56,7 +56,7 @@ export function WidgetContextThumbnail( { widget }: { widget: DeskWidget } ) {
 	const innerStyle = {
 		width: `${ geometry.sourceWidth }px`,
 		height: `${ geometry.sourceHeight }px`,
-		transform: `scale(${ geometry.scale })`,
+		transform: `translate(-50%, -50%) scale(${ geometry.scale })`,
 	} satisfies CSSProperties;
 	const label = getWidgetDisplayLabel( widget );
 
@@ -151,8 +151,8 @@ function getWidgetThumbnailGeometry( widget: DeskWidget ) {
 		sourceWidth,
 		sourceHeight,
 		scale,
-		width: sourceWidth * scale,
-		height: sourceHeight * scale,
+		width: WIDGET_THUMBNAIL_MAX_SIZE,
+		height: WIDGET_THUMBNAIL_FALLBACK_SIZE,
 	};
 }
 

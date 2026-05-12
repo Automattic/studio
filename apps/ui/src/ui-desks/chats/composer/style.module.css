@@ -33,41 +33,21 @@
 	display: flex;
 	flex-wrap: wrap;
 	align-items: flex-start;
-	gap: 10px;
-	max-height: 180px;
-	overflow-y: auto;
-	padding: 0 2px 2px 0;
+	gap: 8px;
+	margin-top: 2px;
 }
 
 .attachment {
-	position: relative;
 	flex: 0 0 auto;
-	min-width: 24px;
-	min-height: 24px;
-}
-
-.removeAttachment {
-	position: absolute;
-	top: -8px;
-	right: -8px;
-	width: 22px;
-	height: 22px;
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
 	padding: 0;
-	border: 1px solid rgba(15, 23, 42, 0.1);
-	border-radius: 999px;
-	background: rgba(255, 255, 255, 0.94);
-	color: var(--ui-desks-muted, #6b7280);
-	box-shadow: 0 3px 8px rgba(15, 23, 42, 0.12);
+	border: 0;
+	background: transparent;
 	cursor: pointer;
 }
 
-.removeAttachment:hover,
-.removeAttachment:focus-visible {
-	color: var(--ui-desks-text, #14171a);
-	border-color: rgba(15, 23, 42, 0.18);
+.attachment:hover,
+.attachment:focus-visible {
+	opacity: 0.82;
 }
 
 .input {

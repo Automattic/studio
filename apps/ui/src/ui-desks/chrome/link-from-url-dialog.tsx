@@ -12,10 +12,14 @@ import { useDesk } from '@/ui-desks/desk/provider';
 import { createUrlPastePayload } from '@/ui-desks/widgets/paste-handlers';
 
 interface LinkFromUrlDialogProps {
+	center?: {
+		x: number;
+		y: number;
+	};
 	onClose: () => void;
 }
 
-export function LinkFromUrlDialog( { onClose }: LinkFromUrlDialogProps ) {
+export function LinkFromUrlDialog( { center, onClose }: LinkFromUrlDialogProps ) {
 	const desk = useDesk();
 	const inputRef = useRef< HTMLInputElement | null >( null );
 	const [ text, setText ] = useState( '' );
@@ -34,7 +38,7 @@ export function LinkFromUrlDialog( { onClose }: LinkFromUrlDialogProps ) {
 		}
 
 		setError( null );
-		const didAdd = await desk.addPastedContent( payload );
+		const didAdd = await desk.addPastedContent( payload, center ? { center } : undefined );
 		if ( didAdd ) {
 			onClose();
 			return;

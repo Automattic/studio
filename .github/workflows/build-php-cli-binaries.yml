@@ -234,7 +234,7 @@ jobs:
           bundler-cache: true
 
       - name: Download PHP CLI artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: php-${{ env.PHP_VERSION }}-cli-*
           path: out/php-binaries

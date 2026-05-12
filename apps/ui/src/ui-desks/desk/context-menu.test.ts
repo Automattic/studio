@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { resolveDeskContextMenuState } from './context-menu';
+import { resolveDeskContextMenuState } from './context-menu-state';
 import type { Editor, TLShape, TLShapeId } from 'tldraw';
 
 describe( 'resolveDeskContextMenuState', () => {

@@ -6,11 +6,8 @@ import {
 	StackAwareSelectionForeground,
 	StackCanvasOverlays,
 } from '@/ui-desks/stacks/canvas-components';
-import {
-	DeskCanvasContextMenu,
-	resolveDeskContextMenuState,
-	type DeskContextMenuState,
-} from './context-menu';
+import { DeskCanvasContextMenu } from './context-menu';
+import { resolveDeskContextMenuState, type DeskContextMenuState } from './context-menu-state';
 import { DeskDrawingToolbar } from './drawing-toolbar';
 import { useDesk, useRegisterDeskEditor } from './provider';
 import styles from './style.module.css';

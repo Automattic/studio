@@ -35,21 +35,9 @@ import { getCreatableWidgetDefinitions, getWidgetDefinition } from '@/ui-desks/w
 import { SITE_PREVIEW_WIDGET_TYPE } from '@/ui-desks/widgets/site-preview/types';
 import styles from './context-menu.module.css';
 import { useDesk } from './provider';
+import type { DeskContextMenuState } from './context-menu-state';
 import type { DeskWidget, DeskWidgetDefinition } from '@/ui-desks/widgets/types';
 import type { Editor, TLShape, TLShapeId } from 'tldraw';
-
-export type DeskContextMenuKind = 'empty' | 'single' | 'multi';
-
-export interface DeskContextMenuState {
-	kind: DeskContextMenuKind;
-	x: number;
-	y: number;
-	pagePoint: {
-		x: number;
-		y: number;
-	};
-	shapeIds: TLShapeId[];
-}
 
 type MenuMode = 'main' | 'show-as' | 'insert' | 'pick-post' | 'pick-page';
 
@@ -58,16 +46,6 @@ interface DeskCanvasContextMenuProps {
 	state: DeskContextMenuState;
 	onClose: () => void;
 }
-
-type ContextMenuResolverEditor = Pick<
-	Editor,
-	| 'getCurrentPageShapes'
-	| 'getSelectedShapeIds'
-	| 'getShape'
-	| 'getShapeAtPoint'
-	| 'screenToPage'
-	| 'setSelectedShapes'
->;
 
 const MENU_WIDTH = 240;
 const PICKER_WIDTH = 300;
@@ -674,41 +652,6 @@ function ContextMenuBackItem( { onClick }: { onClick: () => void } ) {
 
 function ContextMenuSeparator() {
 	return <div className={ styles.separator } role="separator" />;
-}
-
-export function resolveDeskContextMenuState(
-	editor: ContextMenuResolverEditor,
-	x: number,
-	y: number
-): DeskContextMenuState {
-	const pagePoint = editor.screenToPage( { x, y } );
-	const shape = editor.getShapeAtPoint( pagePoint, {
-		hitInside: true,
-		renderingOnly: true,
-	} ) as TLShape | undefined;
-
-	if ( ! shape ) {
-		editor.setSelectedShapes( [] );
-		return { kind: 'empty', shapeIds: [], pagePoint, x, y };
-	}
-
-	const stackId = getStackId( shape );
-	if ( stackId ) {
-		const memberIds = editor
-			.getCurrentPageShapes()
-			.filter( ( member ) => getStackId( member ) === stackId )
-			.map( ( member ) => member.id );
-		editor.setSelectedShapes( memberIds );
-		return { kind: 'multi', shapeIds: memberIds, pagePoint, x, y };
-	}
-
-	const currentSelection = editor.getSelectedShapeIds();
-	if ( currentSelection.includes( shape.id ) && currentSelection.length > 1 ) {
-		return { kind: 'multi', shapeIds: currentSelection, pagePoint, x, y };
-	}
-
-	editor.setSelectedShapes( [ shape.id ] );
-	return { kind: 'single', shapeIds: [ shape.id ], pagePoint, x, y };
 }
 
 function getMenuPosition( state: DeskContextMenuState, menuMode: MenuMode ) {

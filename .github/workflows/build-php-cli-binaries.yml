@@ -24,6 +24,9 @@ on:
 permissions:
   contents: read
 
+env:
+  GITHUB_TOKEN: ${{ github.token }}
+
 jobs:
   build:
     name: Build ${{ matrix.target }}

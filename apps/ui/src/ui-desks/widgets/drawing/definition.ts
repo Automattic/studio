@@ -19,10 +19,6 @@ export const drawingWidgetDefinition = {
 	icon: verse,
 	isCreatable: false,
 	getSummary: () => __( 'Freehand drawing' ),
-	getIndicator: () => ( {
-		cornerRadius: 12,
-		stroke: '#6b7280',
-	} ),
 	getInitialWidget: () => ( {
 		shapeProps: {
 			w: 320,

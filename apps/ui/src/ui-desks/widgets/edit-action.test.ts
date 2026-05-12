@@ -24,6 +24,7 @@ vi.mock( '@/ui-desks/widgets/site-preview/open-control', () => ( {
 } ) );
 vi.mock( '@/ui-desks/widgets/site-preview/component', () => ( {
 	SitePreviewWidgetComponent: () => null,
+	SitePreviewWidgetThumbnailComponent: () => null,
 } ) );
 
 describe( 'widget edit actions', () => {

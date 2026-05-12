@@ -6,7 +6,10 @@ import { useDesk } from '@/ui-desks/desk/provider';
 import styles from './style.module.css';
 import { getSitePreviewUrl, urlLabelFor, withPreviewFlag } from './url';
 import type { SitePreviewWidgetProps } from './types';
-import type { DeskWidgetComponentProps } from '@/ui-desks/widgets/types';
+import type {
+	DeskWidgetComponentProps,
+	DeskWidgetThumbnailComponentProps,
+} from '@/ui-desks/widgets/types';
 
 type SitePreviewWidgetComponentProps = DeskWidgetComponentProps< SitePreviewWidgetProps >;
 
@@ -102,6 +105,21 @@ export function SitePreviewWidgetComponent( {
 	);
 }
 
+export function SitePreviewWidgetThumbnailComponent( {
+	id,
+	widgetProps,
+}: DeskWidgetThumbnailComponentProps< SitePreviewWidgetProps > ) {
+	return (
+		<div
+			className={ styles.thumbnail }
+			data-studio-desk-widget="site-preview"
+			data-studio-desk-widget-id={ id }
+		>
+			<div className={ styles.thumbnailDomain }>{ formatPathLabel( widgetProps.path ) }</div>
+		</div>
+	);
+}
+
 function getEmptyMessage( {
 	hasSiteId,
 	isLoading,
@@ -130,4 +148,13 @@ function getEmptyMessage( {
 	}
 
 	return __( 'Site preview unavailable' );
+}
+
+function formatPathLabel( path: string ) {
+	const trimmed = path.trim();
+	if ( ! trimmed || trimmed === '/' ) {
+		return __( 'Site' );
+	}
+
+	return trimmed.startsWith( '/' ) ? trimmed : `/${ trimmed }`;
 }

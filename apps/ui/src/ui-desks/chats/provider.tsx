@@ -4,10 +4,13 @@ import { useCreateSession } from '@/data/queries/use-sessions';
 import {
 	ChatsContext,
 	type ChatPromptRequest,
+	type ComposerWidgetDragPreview,
+	type ComposerWidgetAttachmentRequest,
 	type ChatsProviderProps,
 	type PendingChatPrompt,
 } from './context';
 import { validateChatsSearch, type ChatsSearch } from './search';
+import type { DeskWidget } from '@/ui-desks/widgets/types';
 
 function useChatsSearch() {
 	const search = validateChatsSearch( useSearch( { strict: false } ) as Record< string, unknown > );
@@ -35,6 +38,10 @@ function createPendingPromptId() {
 	return `chat-${ Date.now().toString( 36 ) }-${ Math.random().toString( 36 ).slice( 2, 8 ) }`;
 }
 
+function createComposerWidgetAttachmentRequestId() {
+	return `widgets-${ Date.now().toString( 36 ) }-${ Math.random().toString( 36 ).slice( 2, 8 ) }`;
+}
+
 export function ChatsProvider( { siteId, children }: ChatsProviderProps ) {
 	const { open, setOpen, createChatRequestId } = useChatsSearch();
 	const createSession = useCreateSession();
@@ -45,6 +52,13 @@ export function ChatsProvider( { siteId, children }: ChatsProviderProps ) {
 	const [ pendingPrompt, setPendingPrompt ] = useState< PendingChatPrompt | undefined >(
 		undefined
 	);
+	const [ composerWidgetAttachmentRequest, setComposerWidgetAttachmentRequest ] = useState<
+		ComposerWidgetAttachmentRequest | undefined
+	>( undefined );
+	const [ composerWidgetDragPreview, setComposerWidgetDragPreview ] = useState<
+		ComposerWidgetDragPreview | undefined
+	>( undefined );
+	const [ isComposerWidgetDragTarget, setComposerWidgetDragTarget ] = useState( false );
 
 	const selectSession = useCallback( ( sessionId: string ) => {
 		setSelectedSessionId( sessionId );
@@ -93,6 +107,27 @@ export function ChatsProvider( { siteId, children }: ChatsProviderProps ) {
 		setPendingPrompt( ( current ) => ( current?.id === promptId ? undefined : current ) );
 	}, [] );
 
+	const attachWidgetsToComposer = useCallback(
+		( widgets: DeskWidget[] ) => {
+			if ( ! selectedSessionId || widgets.length === 0 ) {
+				return;
+			}
+
+			setComposerWidgetAttachmentRequest( {
+				id: createComposerWidgetAttachmentRequestId(),
+				sessionId: selectedSessionId,
+				widgets,
+			} );
+		},
+		[ selectedSessionId ]
+	);
+
+	const consumeComposerWidgetAttachmentRequest = useCallback( ( requestId: string ) => {
+		setComposerWidgetAttachmentRequest( ( current ) =>
+			current?.id === requestId ? undefined : current
+		);
+	}, [] );
+
 	useEffect( () => {
 		if ( createChatRequestId === lastCreateChatRequestId.current ) {
 			return;
@@ -112,12 +147,19 @@ export function ChatsProvider( { siteId, children }: ChatsProviderProps ) {
 				autoFocusSessionId,
 				isCreatingChat: createSession.isPending,
 				pendingPrompt,
+				composerWidgetAttachmentRequest,
+				composerWidgetDragPreview,
+				isComposerWidgetDragTarget,
 				selectSession,
 				switchSession,
 				clearSelection,
 				startNewChat,
 				startChatWithPrompt,
 				consumePendingPrompt,
+				attachWidgetsToComposer,
+				consumeComposerWidgetAttachmentRequest,
+				setComposerWidgetDragPreview,
+				setComposerWidgetDragTarget,
 			} }
 		>
 			{ children }

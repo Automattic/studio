@@ -15,6 +15,7 @@ import { useChats } from './context';
 import { SessionSurface } from './session-surface';
 import styles from './style.module.css';
 import { useChatPanelResize } from './use-chat-panel-resize';
+import { WidgetContextThumbnailList } from './widget-context';
 import type { AiSessionSummary } from '@/data/core';
 import type { CSSProperties } from 'react';
 
@@ -47,6 +48,7 @@ export function Chats( { siteId }: ChatsProps ) {
 		autoFocusSessionId,
 		isCreatingChat,
 		pendingPrompt,
+		composerWidgetDragPreview,
 		selectSession,
 		switchSession,
 		clearSelection,
@@ -101,6 +103,7 @@ export function Chats( { siteId }: ChatsProps ) {
 					data-expanded={ expanded ? 'true' : 'false' }
 					data-list-collapsed={ isListCollapsed ? 'true' : 'false' }
 					data-resizing={ isResizing ? 'true' : 'false' }
+					data-ui-desks-chat-dropzone={ expanded && selectedSessionId ? 'true' : undefined }
 					style={
 						expanded
 							? ( {
@@ -180,6 +183,23 @@ export function Chats( { siteId }: ChatsProps ) {
 						aria-hidden={ ! expanded }
 					/>
 				</Dialog.Popup>
+				{ composerWidgetDragPreview && (
+					<div
+						className={ styles.widgetDragPreview }
+						style={
+							{
+								'--desk-widget-drag-preview-x': `${ composerWidgetDragPreview.x }px`,
+								'--desk-widget-drag-preview-y': `${ composerWidgetDragPreview.y }px`,
+							} as CSSProperties
+						}
+						aria-hidden="true"
+					>
+						<WidgetContextThumbnailList
+							widgets={ composerWidgetDragPreview.widgets }
+							className={ styles.widgetDragPreviewThumbnails }
+						/>
+					</div>
+				) }
 			</Dialog.Portal>
 		</Dialog.Root>
 	);

@@ -1,6 +1,9 @@
 import { DRAWING_WIDGET_TYPE, type DrawingWidgetProps } from '@/ui-desks/widgets/drawing/types';
 import styles from './style.module.css';
-import type { DeskWidgetComponentProps } from '@/ui-desks/widgets/types';
+import type {
+	DeskWidgetComponentProps,
+	DeskWidgetThumbnailComponentProps,
+} from '@/ui-desks/widgets/types';
 import type { CSSProperties } from 'react';
 
 type DrawingWidgetComponentProps = DeskWidgetComponentProps< DrawingWidgetProps >;
@@ -41,6 +44,27 @@ export function DrawingWidgetComponent( {
 						/>
 					) }
 				</>
+			) }
+		</div>
+	);
+}
+
+export function DrawingWidgetThumbnailComponent( {
+	id,
+	widgetProps,
+}: DeskWidgetThumbnailComponentProps< DrawingWidgetProps > ) {
+	const svgSource = widgetProps.svg
+		? `data:image/svg+xml;charset=utf-8,${ encodeURIComponent( widgetProps.svg ) }`
+		: null;
+
+	return (
+		<div
+			className={ styles.thumbnail }
+			data-studio-desk-widget={ DRAWING_WIDGET_TYPE }
+			data-studio-desk-widget-id={ id }
+		>
+			{ svgSource && (
+				<img alt="" className={ styles.thumbnailImage } draggable={ false } src={ svgSource } />
 			) }
 		</div>
 	);

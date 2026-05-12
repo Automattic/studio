@@ -1,6 +1,9 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { page } from '@wordpress/icons';
-import { PageWidgetComponent } from '@/ui-desks/widgets/page/component';
+import {
+	PageWidgetComponent,
+	PageWidgetThumbnailComponent,
+} from '@/ui-desks/widgets/page/component';
 import { isPageWidgetProps, PAGE_WIDGET_TYPE, type PageTone, type PageWidget } from './types';
 import type { WidgetDefinition } from '@/ui-desks/widgets/types';
 
@@ -28,6 +31,7 @@ export const pageWidgetDefinition = {
 	type: PAGE_WIDGET_TYPE,
 	name: () => __( 'Page' ),
 	Component: PageWidgetComponent,
+	thumbnail: PageWidgetThumbnailComponent,
 	controls: [
 		{
 			type: 'color',

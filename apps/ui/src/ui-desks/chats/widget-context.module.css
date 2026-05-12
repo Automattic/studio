@@ -8,15 +8,18 @@
 .thumbnail {
 	position: relative;
 	flex: 0 0 auto;
-	overflow: visible;
+	overflow: hidden;
 	pointer-events: none;
+	border-radius: 10px;
+	corner-shape: var(--ui-desks-corner-shape, superellipse(1.42));
+	-webkit-corner-shape: var(--ui-desks-corner-shape, superellipse(1.42));
 }
 
 .thumbnailInner {
 	position: absolute;
-	top: 0;
-	left: 0;
-	transform-origin: top left;
+	top: 50%;
+	left: 50%;
+	transform-origin: center;
 	pointer-events: none;
 }
 

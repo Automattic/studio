@@ -1,6 +1,9 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { post } from '@wordpress/icons';
-import { PostWidgetComponent } from '@/ui-desks/widgets/post/component';
+import {
+	PostWidgetComponent,
+	PostWidgetThumbnailComponent,
+} from '@/ui-desks/widgets/post/component';
 import { isPostWidgetProps, POST_WIDGET_TYPE, type PostWidget } from './types';
 import type { WidgetDefinition } from '@/ui-desks/widgets/types';
 
@@ -8,6 +11,7 @@ export const postWidgetDefinition = {
 	type: POST_WIDGET_TYPE,
 	name: () => __( 'Post' ),
 	Component: PostWidgetComponent,
+	thumbnail: PostWidgetThumbnailComponent,
 	isCreatable: false,
 	requiresRunningSite: true,
 	isWidgetProps: isPostWidgetProps,

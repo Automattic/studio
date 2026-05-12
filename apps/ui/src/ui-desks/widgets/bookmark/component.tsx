@@ -94,7 +94,20 @@ export function BookmarkWidgetThumbnailComponent( {
 	id,
 	widgetProps,
 }: DeskWidgetThumbnailComponentProps< BookmarkWidgetProps > ) {
-	return <BookmarkCard id={ id } url={ widgetProps.url } />;
+	const hostname = getUrlHostname( widgetProps.url );
+
+	return (
+		<div
+			className={ styles.contextThumbnail }
+			data-studio-desk-widget={ BOOKMARK_WIDGET_TYPE }
+			data-studio-desk-widget-id={ id }
+		>
+			<span className={ styles.contextThumbnailIcon } aria-hidden="true">
+				<Icon icon={ link } size={ 20 } />
+			</span>
+			<div className={ styles.contextThumbnailHost }>{ hostname || widgetProps.url }</div>
+		</div>
+	);
 }
 
 function BookmarkCard( {

@@ -1,7 +1,7 @@
 import { store as coreDataStore, type Post as CoreDataPost } from '@wordpress/core-data';
 import { __, sprintf } from '@wordpress/i18n';
-import { post } from '@wordpress/icons';
-import { getIndicesAbove, type TLShapePartial } from 'tldraw';
+import { category, post } from '@wordpress/icons';
+import { getStackTileLayoutsFromFirstTile } from '@/ui-desks/stacks/utils';
 import { postWidgetDefinition } from '@/ui-desks/widgets/post/definition';
 import { POST_WIDGET_TYPE, type PostWidget } from '@/ui-desks/widgets/post/types';
 import {
@@ -15,6 +15,7 @@ import {
 	POST_COLLECTION_WIDGET_TYPE,
 	type PostCollectionQuery,
 	type PostCollectionWidget,
+	type PostCollectionWidgetProps,
 } from './types';
 import type {
 	ResolvedDeskStack,
@@ -58,6 +59,13 @@ const COLLECTION_SOURCE_SHAPE_PROPS = {
 	h: 1,
 };
 const POST_CARD_SHAPE_PROPS = postWidgetDefinition.getInitialWidget().shapeProps;
+const STACK_VIEW_MODE_OPTIONS: Array< {
+	value: NonNullable< PostCollectionWidgetProps[ 'viewMode' ] >;
+	label: string;
+} > = [
+	{ value: 'stack', label: __( 'Stack' ) },
+	{ value: 'tiles', label: __( 'Tiles' ) },
+];
 
 export const postCollectionWidgetDefinition = {
 	type: POST_COLLECTION_WIDGET_TYPE,
@@ -66,6 +74,15 @@ export const postCollectionWidgetDefinition = {
 	thumbnail: PostCollectionThumbnailComponent,
 	loading: PostCollectionLoadingComponent,
 	controls: [
+		{
+			type: 'select',
+			id: 'view-mode',
+			property: 'viewMode',
+			label: __( 'Display' ),
+			icon: category,
+			defaultValue: 'stack',
+			options: STACK_VIEW_MODE_OPTIONS,
+		},
 		{
 			type: 'custom',
 			id: 'open-posts',
@@ -109,7 +126,7 @@ export const postCollectionWidgetDefinition = {
 			const posts =
 				( await getCoreDataResolvers( context ).getEntityRecords( 'postType', 'post', query ) ) ??
 				[];
-			const zIndices = getDerivedZIndices( widget.zIndex, posts.length + 1 );
+			const positions = getDerivedPostWidgetPositions( widget, posts.length );
 
 			return {
 				identity: {
@@ -117,12 +134,9 @@ export const postCollectionWidgetDefinition = {
 					posts,
 				},
 				widgets: posts.map( ( postRecord, index ) =>
-					createDerivedPostWidget( widget, postRecord.id, zIndices[ index ] )
+					createDerivedPostWidget( widget, postRecord.id, positions[ index ] )
 				),
-				stacks:
-					posts.length > 0
-						? [ createDerivedPostStack( widget, posts, zIndices[ posts.length ] ) ]
-						: [],
+				stacks: posts.length > 0 ? [ createDerivedPostStack( widget, posts ) ] : [],
 			};
 		},
 		invalidate: ( widget, previousIdentity, context ) => {
@@ -161,7 +175,7 @@ function getEntityRecordsQuery( query: PostCollectionQuery ): EntityRecordsQuery
 function createDerivedPostWidget(
 	collection: PostCollectionWidget,
 	postId: number,
-	zIndex: string
+	position: { x: number; y: number }
 ): ResolvedDeskWidget< PostWidget > {
 	return {
 		origin: {
@@ -172,9 +186,9 @@ function createDerivedPostWidget(
 		widget: {
 			id: `${ collection.id }:post:${ postId }`,
 			type: POST_WIDGET_TYPE,
-			x: collection.x,
-			y: collection.y,
-			zIndex,
+			x: position.x,
+			y: position.y,
+			zIndex: collection.zIndex,
 			shapeProps: POST_CARD_SHAPE_PROPS,
 			widgetProps: {
 				postId,
@@ -185,8 +199,7 @@ function createDerivedPostWidget(
 
 function createDerivedPostStack(
 	collection: PostCollectionWidget,
-	posts: CoreDataPost[],
-	zIndex: string
+	posts: CoreDataPost[]
 ): ResolvedDeskStack {
 	return {
 		origin: {
@@ -198,12 +211,27 @@ function createDerivedPostStack(
 			id: `post-collection:${ collection.id }`,
 			x: collection.x,
 			y: collection.y,
-			zIndex,
+			zIndex: collection.zIndex,
 			memberIds: posts.map( ( postRecord ) => `${ collection.id }:post:${ postRecord.id }` ),
+			...( collection.widgetProps.viewMode === 'tiles' ? { viewMode: 'tiles' as const } : {} ),
 		},
 	};
 }
 
-function getDerivedZIndices( zIndex: string, count: number ) {
-	return getIndicesAbove( zIndex as TLShapePartial[ 'index' ], count ) as string[];
+function getDerivedPostWidgetPositions( collection: PostCollectionWidget, count: number ) {
+	if ( collection.widgetProps.viewMode !== 'tiles' ) {
+		return Array.from( { length: count }, () => ( {
+			x: collection.x,
+			y: collection.y,
+		} ) );
+	}
+
+	const sizes = Array.from( { length: count }, () => POST_CARD_SHAPE_PROPS );
+	return getStackTileLayoutsFromFirstTile( sizes, {
+		x: collection.x,
+		y: collection.y,
+	} ).map( ( layout ) => ( {
+		x: layout.x,
+		y: layout.y,
+	} ) );
 }

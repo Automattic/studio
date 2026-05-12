@@ -2,7 +2,7 @@ import { useRef } from 'react';
 import { useEditor, useValue, type TLShape } from 'tldraw';
 import { useDesk } from '@/ui-desks/desk/provider/context';
 import { expandStackInEditor } from './editor-commands';
-import { getStackId, getStackOrder, isStackExpanded } from './utils';
+import { getStackId, getStackOrder, getStackViewMode, isStackExpanded } from './utils';
 import type { PointerEvent } from 'react';
 
 export function useStackShapeInteraction( shape: TLShape ) {
@@ -11,17 +11,22 @@ export function useStackShapeInteraction( shape: TLShape ) {
 	const pointerDownPointRef = useRef< { x: number; y: number } | null >( null );
 	const stackId = getStackId( shape );
 	const isExpanded = isStackExpanded( shape );
+	const isTiles = getStackViewMode( shape ) === 'tiles';
 	const hoveredStackId = useValue(
 		'desk-stack-hovered-stack-id',
 		() => {
 			const hoveredShape = editor.getHoveredShape();
 			const hoveredShapeStackId = getStackId( hoveredShape );
-			return hoveredShapeStackId && ! isStackExpanded( hoveredShape ) ? hoveredShapeStackId : null;
+			return hoveredShapeStackId &&
+				! isStackExpanded( hoveredShape ) &&
+				getStackViewMode( hoveredShape ) !== 'tiles'
+				? hoveredShapeStackId
+				: null;
 		},
 		[ editor ]
 	);
-	const isHovered = Boolean( stackId ) && ! isExpanded && hoveredStackId === stackId;
-	const isPressed = Boolean( stackId ) && ! isExpanded && pressedStackId === stackId;
+	const isHovered = Boolean( stackId ) && ! isExpanded && ! isTiles && hoveredStackId === stackId;
+	const isPressed = Boolean( stackId ) && ! isExpanded && ! isTiles && pressedStackId === stackId;
 	const order = getStackOrder( shape );
 	const members = stackId
 		? editor.getCurrentPageShapes().filter( ( member ) => getStackId( member ) === stackId )
@@ -41,7 +46,7 @@ export function useStackShapeInteraction( shape: TLShape ) {
 			transition: 'transform 220ms ease',
 		},
 		onPointerDown: ( event: PointerEvent ) => {
-			if ( stackId && ! isExpanded ) {
+			if ( stackId && ! isExpanded && ! isTiles ) {
 				pressStack( stackId );
 				if ( isReadOnly ) {
 					pointerDownPointRef.current = {
@@ -54,7 +59,7 @@ export function useStackShapeInteraction( shape: TLShape ) {
 			}
 		},
 		onPointerUp: ( event: PointerEvent ) => {
-			if ( ! isReadOnly || ! stackId || isExpanded ) {
+			if ( ! isReadOnly || ! stackId || isExpanded || isTiles ) {
 				pointerDownPointRef.current = null;
 				return;
 			}

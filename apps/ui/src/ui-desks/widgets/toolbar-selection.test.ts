@@ -136,7 +136,8 @@ describe( 'widget toolbar selection', () => {
 			throw new Error( 'Expected a single widget toolbar item.' );
 		}
 		expect( selectedItem.definition.type ).toBe( POST_COLLECTION_WIDGET_TYPE );
-		expect( selectedItem.definition.controls?.[ 0 ]?.type ).toBe( 'custom' );
+		expect( selectedItem.definition.controls?.[ 0 ]?.type ).toBe( 'select' );
+		expect( selectedItem.definition.controls?.[ 1 ]?.type ).toBe( 'custom' );
 		expect( selectedItem.widget.widgetProps ).toEqual( {
 			query: {
 				postType: 'post',
@@ -180,6 +181,21 @@ describe( 'widget toolbar selection', () => {
 			canStack: false,
 			canUnstack: true,
 			stackIds: [ 'stack-1' ],
+		} );
+	} );
+
+	it( 'returns stack view controls for selections from a single stack', () => {
+		const widget = createNoteWidget();
+
+		expect(
+			getSelectedWidgetToolbarItem( [ widget, widget ], {
+				stackIds: [ 'stack-1' ],
+				stackViewMode: 'tiles',
+			} )
+		).toMatchObject( {
+			kind: 'multi-widget',
+			canSetStackView: true,
+			stackViewMode: 'tiles',
 		} );
 	} );
 

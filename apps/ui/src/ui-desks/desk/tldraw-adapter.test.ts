@@ -407,6 +407,7 @@ describe( 'tldraw adapter', () => {
 			meta: {
 				deskStackId: 'stack-1',
 				deskStackOrder: 0,
+				deskStackViewMode: null,
 				deskStackOriginalZIndex: 'a1',
 			},
 		} );
@@ -418,6 +419,7 @@ describe( 'tldraw adapter', () => {
 			meta: {
 				deskStackId: 'stack-1',
 				deskStackOrder: 1,
+				deskStackViewMode: null,
 				deskStackOriginalZIndex: 'a3',
 			},
 		} );
@@ -427,6 +429,61 @@ describe( 'tldraw adapter', () => {
 			'shape:note-2',
 			'shape:note-1',
 		] );
+	} );
+
+	it( 'projects tiled stack widgets from their persisted widget positions', () => {
+		const desk: DeskConfig = {
+			version: 1,
+			updatedAt: '2026-05-09T00:00:00.000Z',
+			widgets: [
+				{
+					...createNoteWidget( 'note-1' ),
+					x: 100,
+					y: 200,
+				},
+				{
+					...createNoteWidget( 'note-2' ),
+					x: 420,
+					y: 200,
+					zIndex: 'a3',
+				},
+			],
+			stacks: [
+				{
+					id: 'stack-1',
+					x: 100,
+					y: 200,
+					zIndex: 'a5',
+					memberIds: [ 'note-1', 'note-2' ],
+					viewMode: 'tiles',
+				},
+			],
+		};
+
+		const shapes = deskConfigToCanvasShapes( desk );
+		const firstStackMember = getCanvasShape( shapes, 'shape:note-1' );
+		const secondStackMember = getCanvasShape( shapes, 'shape:note-2' );
+
+		expect( firstStackMember ).toMatchObject( {
+			x: 100,
+			y: 200,
+			rotation: 0,
+			meta: {
+				deskStackId: 'stack-1',
+				deskStackOrder: 0,
+				deskStackViewMode: 'tiles',
+			},
+		} );
+		expect( secondStackMember ).toMatchObject( {
+			x: 420,
+			y: 200,
+			rotation: 0,
+			meta: {
+				deskStackId: 'stack-1',
+				deskStackOrder: 1,
+				deskStackViewMode: 'tiles',
+			},
+		} );
 	} );
 
 	it( 'maps desk connectors to locked arrow shapes and arrow bindings', () => {
@@ -547,6 +604,50 @@ describe( 'tldraw adapter', () => {
 				y: 200,
 				zIndex: 'a5',
 				memberIds: [ 'note-1', 'note-2' ],
+			},
+		] );
+	} );
+
+	it( 'extracts tiled stack geometry from actual member positions', () => {
+		const shapes = [
+			{
+				...deskWidgetToCanvasShape( createNoteWidget( 'note-1' ) ),
+				x: 100,
+				y: 200,
+				index: 'a5',
+				meta: {
+					deskStackId: 'stack-1',
+					deskStackOrder: 0,
+					deskStackViewMode: 'tiles',
+				},
+			},
+			{
+				...deskWidgetToCanvasShape( createNoteWidget( 'note-2' ) ),
+				x: 420,
+				y: 200,
+				index: 'a4.999',
+				meta: {
+					deskStackId: 'stack-1',
+					deskStackOrder: 1,
+					deskStackViewMode: 'tiles',
+				},
+			},
+		] as unknown as TLShape[];
+
+		expect( canvasShapeToDeskWidget( shapes[ 0 ] ) ).toMatchObject( {
+			id: 'note-1',
+			x: 100,
+			y: 200,
+			zIndex: 'a5',
+		} );
+		expect( canvasShapesToDeskStacks( shapes ) ).toEqual( [
+			{
+				id: 'stack-1',
+				x: 100,
+				y: 200,
+				zIndex: 'a5',
+				memberIds: [ 'note-1', 'note-2' ],
+				viewMode: 'tiles',
 			},
 		] );
 	} );
@@ -688,8 +789,9 @@ describe( 'tldraw adapter', () => {
 				studioDeskDerivedKey: 'post:42',
 			},
 		} );
+		expect( shape.index ).toBeUndefined();
 		expect( isPersistentDeskCanvasShape( shape ) ).toBe( false );
-		expect( canvasShapeToDeskWidget( shape ) ).toEqual( {
+		expect( canvasShapeToDeskWidget( { ...shape, index: 'a3' } as TLShape ) ).toEqual( {
 			...resolvedWidget.widget,
 			rotation: undefined,
 		} );
@@ -791,16 +893,16 @@ describe( 'tldraw adapter', () => {
 				memberIds: [ 'collection-1:post:41', 'collection-1:post:42' ],
 			},
 			order: 1,
-		} ) as TLShape;
+		} );
 
 		expect( shape ).toMatchObject( {
 			x: 110,
 			y: 208,
 			rotation: 0.052,
-			index: 'a6.999',
 			meta: {
 				deskStackId: 'stack-1',
 				deskStackOrder: 1,
+				deskStackViewMode: null,
 				deskStackOriginalZIndex: 'a3',
 				studioDeskOrigin: 'derived',
 				studioDeskPersist: false,
@@ -808,9 +910,10 @@ describe( 'tldraw adapter', () => {
 				studioDeskDerivedKey: 'post:42',
 			},
 		} );
+		expect( shape.index ).toBeUndefined();
 	} );
 
-	it( 'gives derived stack members distinct indices below non-numeric stack z-indexes', () => {
+	it( 'lets tldraw manage derived stack member indices', () => {
 		const resolvedWidget: ResolvedDeskWidget< PostWidget > = {
 			origin: {
 				kind: 'derived',
@@ -836,25 +939,16 @@ describe( 'tldraw adapter', () => {
 			id: 'stack-1',
 			x: 100,
 			y: 200,
-			zIndex: 'aF3j5',
-			memberIds: [ 'collection-1:post:40', 'collection-1:post:41', 'collection-1:post:42' ],
+			zIndex: 'any-stack-index',
+			memberIds: [ 'collection-1:post:41', 'collection-1:post:42' ],
 		};
-		const topShape = resolvedDeskWidgetToCanvasShape( resolvedWidget, {
-			stack,
-			order: 0,
-		} ) as TLShape;
-		const middleShape = resolvedDeskWidgetToCanvasShape( resolvedWidget, {
+
+		const shape = resolvedDeskWidgetToCanvasShape( resolvedWidget, {
 			stack,
 			order: 1,
-		} ) as TLShape;
-		const bottomShape = resolvedDeskWidgetToCanvasShape( resolvedWidget, {
-			stack,
-			order: 2,
-		} ) as TLShape;
+		} );
 
-		expect( new Set( [ topShape.index, middleShape.index, bottomShape.index ] ).size ).toBe( 3 );
-		expect( sortByIndex( middleShape, topShape ) ).toBeLessThan( 0 );
-		expect( sortByIndex( bottomShape, middleShape ) ).toBeLessThan( 0 );
+		expect( shape.index ).toBeUndefined();
 	} );
 
 	it( 'ignores unsupported canvas shapes', () => {

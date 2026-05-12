@@ -9,7 +9,7 @@ import {
 	isDerivedDeskCanvasRecord,
 	resolvedDeskWidgetToCanvasShape,
 } from '@/ui-desks/desk/tldraw-adapter';
-import { isStackExpanded } from '@/ui-desks/stacks/utils';
+import { getStackViewMode, isStackExpanded } from '@/ui-desks/stacks/utils';
 import { getWidgetDefinition } from '@/ui-desks/widgets/registry';
 import { getCurrentDeskWidgets } from './editor-state';
 import type {
@@ -294,7 +294,12 @@ function preserveExpandedStackMemberState(
 	existingShape: TLShape,
 	nextShape: TLShapePartial
 ): TLShapePartial {
-	if ( ! isStackExpanded( existingShape ) ) {
+	const nextViewMode = getStackViewMode( nextShape as TLShape );
+	const shouldPreserveTileState =
+		getStackViewMode( existingShape ) === 'tiles' && nextViewMode === 'tiles';
+	const shouldPreserveExpandedState = isStackExpanded( existingShape ) && nextViewMode === 'stack';
+
+	if ( ! shouldPreserveExpandedState && ! shouldPreserveTileState ) {
 		return nextShape;
 	}
 
@@ -395,7 +400,9 @@ function shouldUpdateShape( currentShape: TLShape, nextShape: TLShapePartial ) {
 
 function hasMatchingMeta( shape: TLShape, meta: TLShapePartial[ 'meta' ] ) {
 	const currentMeta = shape.meta as Record< string, unknown >;
-	return Object.entries( meta ?? {} ).every( ( [ key, value ] ) => currentMeta[ key ] === value );
+	return Object.entries( meta ?? {} ).every( ( [ key, value ] ) =>
+		value === null ? currentMeta[ key ] == null : currentMeta[ key ] === value
+	);
 }
 
 function isDerivedFromWidget( resolvedWidget: ResolvedDeskWidget, sourceWidgetId: string ) {

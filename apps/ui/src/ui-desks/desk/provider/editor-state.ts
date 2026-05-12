@@ -13,6 +13,7 @@ import {
 	type RectangleWidgetShape,
 } from '@/ui-desks/shapes/rectangle-widget/types';
 import {
+	setStackViewInEditor,
 	stackSelectedWidgetsInEditor as stackSelectionInEditor,
 	unstackSelectedWidgetsInEditor as unstackSelectionInEditor,
 } from '@/ui-desks/stacks/editor-commands';
@@ -21,7 +22,9 @@ import {
 	getStackHome,
 	getStackId,
 	getStackOrder,
+	getStackViewMode,
 	getStackZIndexFromMember,
+	type StackViewMode,
 } from '@/ui-desks/stacks/utils';
 import { BLOG_WIDGET_TYPE } from '@/ui-desks/widgets/blog/types';
 import { createDeskWidget } from '@/ui-desks/widgets/create-widget';
@@ -65,6 +68,7 @@ interface DerivedWidgetAnchor {
 interface WidgetToolbarStateOptions {
 	canStack?: boolean;
 	canUnstack?: boolean;
+	canSetStackView?: boolean;
 	canRemove?: boolean;
 }
 
@@ -309,6 +313,20 @@ export function unstackSelectedWidgetsInEditor( editor: Editor ) {
 	);
 }
 
+export function setSelectedStackViewInEditor( editor: Editor, viewMode: StackViewMode ) {
+	const selection = getCurrentSelectedWidgetSelection( editor );
+	const stackId =
+		selection?.item.canSetStackView && selection.item.stackIds.length === 1
+			? selection.item.stackIds[ 0 ]
+			: null;
+
+	if ( ! stackId ) {
+		return false;
+	}
+
+	return setStackViewInEditor( editor, stackId, viewMode );
+}
+
 export function hasCameraChange( changes: CanvasStoreChanges ) {
 	const updatedRecords = Object.values( changes.updated ).map( ( [ , nextRecord ] ) => nextRecord );
 	const records = [
@@ -364,32 +382,31 @@ function getCurrentSelectedWidgetSelection(
 		return null;
 	}
 
-	const derivedSourceSelection = getDerivedSourceWidgetSelection(
-		editor,
-		shapes as TLShape[],
-		options
-	);
+	const typedShapes = shapes as TLShape[];
+	const derivedSourceSelection = getDerivedSourceWidgetSelection( editor, typedShapes, options );
 	if ( derivedSourceSelection ) {
 		return derivedSourceSelection;
 	}
 
-	const widgets = shapes.map( ( shape ) => canvasShapeToDeskWidget( shape as TLShape ) );
+	const widgets = typedShapes.map( ( shape ) => canvasShapeToDeskWidget( shape ) );
 	if ( widgets.some( ( widget ) => ! widget ) ) {
 		return null;
 	}
+	const hasDerivedShapes = typedShapes.some( isDerivedDeskCanvasRecord );
 
 	const stackIds = Array.from(
 		new Set(
-			( shapes as TLShape[] )
-				.map( getStackId )
-				.filter( ( stackId ): stackId is string => stackId !== null )
+			typedShapes.map( getStackId ).filter( ( stackId ): stackId is string => stackId !== null )
 		)
 	);
+	const selectedStackState = getSelectedStackState( editor, typedShapes );
 	const item = getSelectedWidgetToolbarItem( widgets as DeskWidget[], {
 		stackIds,
-		canStack: options.canStack,
-		canUnstack: options.canUnstack,
-		canRemove: options.canRemove,
+		stackViewMode: selectedStackState?.viewMode,
+		canStack: ( options.canStack ?? true ) && ! hasDerivedShapes,
+		canUnstack: ( options.canUnstack ?? true ) && ! hasDerivedShapes,
+		canSetStackView: options.canSetStackView,
+		canRemove: hasDerivedShapes ? false : options.canRemove,
 	} );
 	if ( ! item ) {
 		return null;
@@ -407,6 +424,45 @@ function isRectangleWidgetShape( shape: unknown ): shape is RectangleWidgetShape
 		typeof shape === 'object' &&
 		( shape as { type?: unknown } ).type === RECTANGLE_WIDGET_SHAPE_TYPE
 	);
+}
+
+function getSelectedStackState( editor: Editor, shapes: TLShape[] ) {
+	let stackId: string | null = null;
+
+	for ( const shape of shapes ) {
+		const nextStackId = getStackId( shape );
+		if ( ! nextStackId ) {
+			return null;
+		}
+
+		if ( stackId === null ) {
+			stackId = nextStackId;
+		} else if ( stackId !== nextStackId ) {
+			return null;
+		}
+	}
+
+	const firstShape = shapes[ 0 ];
+	if ( ! stackId || ! firstShape ) {
+		return null;
+	}
+
+	const selectedShapeIds = new Set( shapes.map( ( shape ) => shape.id ) );
+	const stackMemberIds = editor
+		.getCurrentPageShapes()
+		.filter( ( shape ) => getStackId( shape ) === stackId )
+		.map( ( shape ) => shape.id );
+	if (
+		stackMemberIds.length < 2 ||
+		stackMemberIds.some( ( shapeId ) => ! selectedShapeIds.has( shapeId ) )
+	) {
+		return null;
+	}
+
+	return {
+		id: stackId,
+		viewMode: getStackViewMode( firstShape ),
+	};
 }
 
 export function getCurrentDeskWidgets( editor: Editor ) {
@@ -478,6 +534,7 @@ function getDerivedShapePersistenceSignature( value: unknown ) {
 		deskStackHomeX: meta.deskStackHomeX,
 		deskStackHomeY: meta.deskStackHomeY,
 		deskStackHomeZIndex: meta.deskStackHomeZIndex,
+		deskStackViewMode: meta.deskStackViewMode,
 	} );
 }
 
@@ -486,6 +543,10 @@ function getDerivedSourceWidgetSelection(
 	shapes: TLShape[],
 	options: WidgetToolbarStateOptions = {}
 ) {
+	if ( ! isCompleteDerivedStackSelection( editor, shapes ) ) {
+		return null;
+	}
+
 	const sourceWidgetId = getDerivedSelectionSourceWidgetId( shapes );
 	if ( ! sourceWidgetId ) {
 		return null;
@@ -517,6 +578,37 @@ function getDerivedSourceWidgetSelection(
 		item,
 		shapes: [ sourceShape ],
 	};
+}
+
+function isCompleteDerivedStackSelection( editor: Editor, shapes: TLShape[] ) {
+	if ( shapes.length < 2 || shapes.some( ( shape ) => ! isDerivedDeskCanvasRecord( shape ) ) ) {
+		return false;
+	}
+
+	let stackId: string | null = null;
+	for ( const shape of shapes ) {
+		const nextStackId = getStackId( shape );
+		if ( ! nextStackId ) {
+			return false;
+		}
+
+		if ( stackId === null ) {
+			stackId = nextStackId;
+		} else if ( stackId !== nextStackId ) {
+			return false;
+		}
+	}
+
+	const selectedShapeIds = new Set( shapes.map( ( shape ) => shape.id ) );
+	const stackMemberIds = editor
+		.getCurrentPageShapes()
+		.filter( ( shape ) => getStackId( shape ) === stackId )
+		.map( ( shape ) => shape.id );
+
+	return (
+		stackMemberIds.length === selectedShapeIds.size &&
+		stackMemberIds.every( ( shapeId ) => selectedShapeIds.has( shapeId ) )
+	);
 }
 
 function getDerivedSelectionSourceWidgetId( shapes: TLShape[] ) {
@@ -571,6 +663,14 @@ function getDerivedWidgetAnchor( shapes: TLShape[] ): DerivedWidgetAnchor | null
 
 	const stackId = getStackId( firstShape );
 	if ( ! stackId ) {
+		return {
+			x: firstShape.x,
+			y: firstShape.y,
+			zIndex: firstShape.index,
+		};
+	}
+
+	if ( getStackViewMode( firstShape ) === 'tiles' ) {
 		return {
 			x: firstShape.x,
 			y: firstShape.y,

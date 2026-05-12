@@ -42,6 +42,7 @@ import {
 	hydrateEditorFromDesk,
 	isDrawShape,
 	removeSelectedWidgetFromEditor,
+	setSelectedStackViewInEditor,
 	stackSelectedWidgetsInEditor,
 	unstackSelectedWidgetsInEditor,
 	updateSelectedWidgetPropsInEditor,
@@ -94,6 +95,7 @@ export function DeskProvider( {
 		() => ( {
 			canStack: ! isReadOnly,
 			canUnstack: ! isReadOnly,
+			canSetStackView: ! isReadOnly,
 			canRemove: ! isReadOnly,
 		} ),
 		[ isReadOnly ]
@@ -482,6 +484,25 @@ export function DeskProvider( {
 		return true;
 	}, [ editor, isHydrated, isReadOnly, toolbarStateOptions ] );
 
+	const setSelectedStackView = useCallback(
+		( viewMode: Parameters< typeof setSelectedStackViewInEditor >[ 1 ] ) => {
+			if (
+				isReadOnly ||
+				! editor ||
+				! isHydrated ||
+				! setSelectedStackViewInEditor( editor, viewMode )
+			) {
+				return false;
+			}
+
+			setSelectedWidgetToolbarItem(
+				getCurrentSelectedWidgetToolbarItem( editor, toolbarStateOptions )
+			);
+			return true;
+		},
+		[ editor, isHydrated, isReadOnly, toolbarStateOptions ]
+	);
+
 	const removeSelectedWidget = useCallback( () => {
 		if ( isReadOnly || ! editor || ! isHydrated || ! removeSelectedWidgetFromEditor( editor ) ) {
 			return false;
@@ -510,6 +531,7 @@ export function DeskProvider( {
 			fitSelectedWidgetToContent,
 			stackSelectedWidgets,
 			unstackSelectedWidgets,
+			setSelectedStackView,
 			removeSelectedWidget,
 		} ),
 		[
@@ -526,6 +548,7 @@ export function DeskProvider( {
 			registerEditor,
 			removeSelectedWidget,
 			selectedWidgetToolbarItem,
+			setSelectedStackView,
 			stackSelectedWidgets,
 			startDrawing,
 			siteId,

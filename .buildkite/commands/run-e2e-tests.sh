@@ -148,7 +148,11 @@ if [ "$PLATFORM" = "linux" ]; then
     echo "Installing Playwright Chromium..."
     npx playwright install chromium
     echo "Running Playwright tests..."
-    xvfb-run -a npx playwright test --max-failures=1 --output=/tmp/test-results
+    # Explicit screen size: xvfb-run defaults to 1280x1024, which can leave
+    # right-edge content (e.g. the preferences Save button) below the fold
+    # for Studio's split-pane layouts. 1920x1080 matches a typical desktop.
+    xvfb-run -a -s "-screen 0 1920x1080x24" \
+      npx playwright test --max-failures=1 --output=/tmp/test-results
   ' || test_exit=$?
 
   if [ -d /tmp/test-results ]; then

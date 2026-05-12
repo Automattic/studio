@@ -127,7 +127,18 @@ export class E2ESession {
 		// --no-sandbox Chromium aborts with "No usable sandbox!" before any
 		// window is created. Playwright auto-adds this flag only when the
 		// launching user is root, so we add it explicitly here.
-		const linuxFlags = appInfo.platform === 'linux' ? [ '--no-sandbox' ] : [];
+		//
+		// --disable-gpu + --use-gl=swiftshader force CPU-based software
+		// rendering. xvfb has no real GPU, and Chromium's default fallback
+		// path in containers can leave the compositor hung — the renderer
+		// populates the DOM but no frames are painted, so Playwright sees
+		// elements that are technically present but never become "visible".
+		// SwiftShader is the deterministic software GL driver Chromium ships
+		// for exactly this case.
+		const linuxFlags =
+			appInfo.platform === 'linux'
+				? [ '--no-sandbox', '--disable-gpu', '--use-gl=swiftshader' ]
+				: [];
 
 		this.electronApp = await electron.launch( {
 			args: [ ...linuxFlags, appInfo.main ],

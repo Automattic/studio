@@ -201,33 +201,18 @@
 .conversationAction,
 .conversationBackButton,
 .conversationCollapseButton {
-	border: 0;
-	background: transparent;
 	color: var(--ui-desks-muted, #6b7280);
-	border-radius: 8px;
-	cursor: pointer;
-	transition:
-		background 140ms ease,
-		color 140ms ease,
-		opacity 120ms ease;
 	-webkit-app-region: no-drag;
 }
 
 .conversationAction,
 .conversationCollapseButton {
-	width: 32px;
-	height: 32px;
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
+	transition: opacity 120ms ease;
 }
 
 .conversationBackButton {
-	display: inline-flex;
-	align-items: center;
 	gap: 2px;
 	padding: 4px 8px 4px 4px;
-	font: inherit;
 	font-size: 12px;
 }
 
@@ -248,26 +233,4 @@
 .conversationAction[data-active='true']:focus-visible {
 	opacity: 1;
 	color: #f5b400;
-}
-
-.conversationAction:hover:not(:disabled),
-.conversationBackButton:hover,
-.conversationCollapseButton:hover,
-.conversationAction:focus-visible,
-.conversationBackButton:focus-visible,
-.conversationCollapseButton:focus-visible {
-	background: var(--ui-desks-control-hover, rgba(15, 23, 42, 0.07));
-	color: var(--ui-desks-text, #14171a);
-	outline: none;
-}
-
-.conversationAction:disabled {
-	cursor: default;
-	opacity: 0.45;
-}
-
-.conversationAction svg,
-.conversationBackButton svg,
-.conversationCollapseButton svg {
-	fill: currentColor;
 }

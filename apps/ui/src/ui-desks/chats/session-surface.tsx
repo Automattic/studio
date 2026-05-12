@@ -2,7 +2,7 @@ import { resolveSessionModel } from '@studio/common/ai/models';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import { __ } from '@wordpress/i18n';
 import { box, chevronLeft, chevronRight, previous, starEmpty, starFilled } from '@wordpress/icons';
-import { Icon } from '@wordpress/ui';
+import { Button, Icon, IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useEffect, useLayoutEffect, useMemo, useRef, type ReactNode, type Ref } from 'react';
 import { Composer, ComposerSkeleton } from '@/components/session-view/composer';
@@ -202,55 +202,55 @@ function SessionSurfaceContent( {
 				<div className={ styles.conversationHeader }>
 					<div className={ styles.conversationHeaderSlot }>
 						{ listCollapsed ? (
-							<button
-								type="button"
+							<Button
+								variant="minimal"
+								tone="neutral"
+								size="small"
 								className={ styles.conversationBackButton }
 								onClick={ onExpandList }
 							>
 								<Icon icon={ side === 'left' ? chevronLeft : chevronRight } size={ 18 } />
 								<span>{ __( 'All chats' ) }</span>
-							</button>
+							</Button>
 						) : (
-							<button
-								type="button"
+							<IconButton
+								variant="minimal"
+								tone="neutral"
+								size="small"
 								className={ styles.conversationCollapseButton }
-								aria-label={ __( 'Collapse list' ) }
-								title={ __( 'Collapse list' ) }
+								icon={ previous }
+								label={ __( 'Collapse list' ) }
 								onClick={ onCollapseList }
-							>
-								<Icon icon={ previous } size={ 20 } />
-							</button>
+							/>
 						) }
 					</div>
 					<span className={ styles.conversationDate }>
 						{ formatChatDate( data.summary.createdAt ) }
 					</span>
 					<div className={ styles.conversationActions }>
-						<button
-							type="button"
+						<IconButton
+							variant="minimal"
+							tone="neutral"
+							size="small"
 							className={ styles.conversationAction }
-							aria-label={ __( 'Archive conversation' ) }
-							title={ __( 'Archive conversation' ) }
+							icon={ box }
+							label={ __( 'Archive conversation' ) }
 							disabled={ updateSessionMetadata.isPending }
 							onClick={ archiveConversation }
-						>
-							<Icon icon={ box } size={ 20 } />
-						</button>
-						<button
-							type="button"
+						/>
+						<IconButton
+							variant="minimal"
+							tone="neutral"
+							size="small"
 							className={ styles.conversationAction }
 							data-active={ data.summary.starred ? 'true' : 'false' }
-							aria-label={
-								data.summary.starred ? __( 'Unstar conversation' ) : __( 'Star conversation' )
-							}
-							title={
+							icon={ data.summary.starred ? starFilled : starEmpty }
+							label={
 								data.summary.starred ? __( 'Unstar conversation' ) : __( 'Star conversation' )
 							}
 							disabled={ updateSessionMetadata.isPending }
 							onClick={ toggleStar }
-						>
-							<Icon icon={ data.summary.starred ? starFilled : starEmpty } size={ 20 } />
-						</button>
+						/>
 					</div>
 				</div>
 			}

@@ -201,9 +201,12 @@ function getMailpitMuPlugin( mailpit: MailpitConfig ): MuPlugin {
 				'From'    => studio_mailpit_get_from( $headers ),
 				'To'      => studio_mailpit_parse_recipients( isset( $atts['to'] ) ? $atts['to'] : array() ),
 				'Subject' => isset( $atts['subject'] ) ? (string) $atts['subject'] : '',
-				'Headers' => $parsed_headers,
 				'Tags'    => array( 'Studio' ),
 			);
+
+			if ( ! empty( $parsed_headers ) ) {
+				$payload['Headers'] = $parsed_headers;
+			}
 
 			if ( $is_html || $message !== wp_strip_all_tags( $message ) ) {
 				$payload['HTML'] = $message;

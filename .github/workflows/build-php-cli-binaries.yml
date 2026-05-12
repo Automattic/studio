@@ -168,8 +168,15 @@ jobs:
           curl --fail --location --retry 3 "$source_url" --output "$work_dir/php.tar.gz"
           tar -xzf "$work_dir/php.tar.gz" -C "$work_dir"
 
+          pkg_config_static="$work_dir/pkg-config-static"
+          cat > "$pkg_config_static" <<SH
+          #!/bin/sh
+          exec "$spc_root/bin/pkg-config" --static "\$@"
+          SH
+          chmod +x "$pkg_config_static"
+
           export PATH="$(brew --prefix bison)/bin:$spc_root/bin:$PATH"
-          export PKG_CONFIG="$spc_root/bin/pkg-config --static"
+          export PKG_CONFIG="$pkg_config_static"
           export PKG_CONFIG_LIBDIR="$spc_root/lib/pkgconfig"
           export PKG_CONFIG_PATH="$spc_root/lib/pkgconfig"
           export CPPFLAGS="-I$spc_root/include ${CPPFLAGS:-}"

@@ -1,0 +1,21 @@
+.button {
+	--control-button-background: #3858e9;
+	--control-button-foreground: #fff;
+
+	box-shadow: 0 6px 18px rgba(56, 88, 233, 0.45);
+	transition:
+		background 140ms ease,
+		box-shadow 160ms ease,
+		transform 160ms ease;
+}
+
+.button:hover:not(:disabled) {
+	--control-button-background: #3858e9;
+
+	box-shadow: 0 8px 22px rgba(56, 88, 233, 0.55);
+	transform: translateY(-1px);
+}
+
+.button svg {
+	fill: #fff;
+}

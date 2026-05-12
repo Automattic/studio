@@ -30,11 +30,44 @@ describe( 'resolvePhpBinaryDownloadInfo', () => {
 		} );
 
 		await expect( resolvePhpBinaryDownloadInfo( '8.4', 'darwin', 'arm64' ) ).resolves.toEqual( {
+			patchVersion: '8.4.20',
 			url,
 			sha,
 			size: 123,
 		} );
 		expect( fetch ).toHaveBeenCalledWith( PHP_BINARY_MANIFEST_URL );
+	} );
+
+	it( 'uses the latest matching PHP patch from the Apps CDN manifest', async () => {
+		const oldSha = 'a'.repeat( 64 );
+		const latestSha = 'b'.repeat( 64 );
+		const oldUrl = 'https://appscdn.wordpress.com/builds/wordpress-com-studio-php-cli/old.zip';
+		const latestUrl =
+			'https://appscdn.wordpress.com/builds/wordpress-com-studio-php-cli/latest.zip';
+
+		mockFetchJson( {
+			'8.4.20': {
+				darwin: {
+					arm64: { url: oldUrl, sha: oldSha },
+				},
+			},
+			'8.4.21': {
+				darwin: {
+					arm64: { url: latestUrl, sha: latestSha },
+				},
+			},
+			'8.3.30': {
+				darwin: {
+					arm64: { url: oldUrl, sha: oldSha },
+				},
+			},
+		} );
+
+		await expect( resolvePhpBinaryDownloadInfo( '8.4', 'darwin', 'arm64' ) ).resolves.toEqual( {
+			patchVersion: '8.4.21',
+			url: latestUrl,
+			sha: latestSha,
+		} );
 	} );
 
 	it( 'uses the Windows x64 Apps CDN binary on Windows ARM64', async () => {
@@ -50,6 +83,7 @@ describe( 'resolvePhpBinaryDownloadInfo', () => {
 		} );
 
 		await expect( resolvePhpBinaryDownloadInfo( '8.4', 'win32', 'arm64' ) ).resolves.toEqual( {
+			patchVersion: '8.4.20',
 			url,
 			sha,
 		} );
@@ -59,13 +93,13 @@ describe( 'resolvePhpBinaryDownloadInfo', () => {
 		mockFetchJson( {
 			'8.4.20': {
 				darwin: {
-					arm64: { url: 'https://appscdn.wordpress.com/example.tar.gz' },
+					arm64: { url: 'https://appscdn.wordpress.com/example.zip' },
 				},
 			},
 		} );
 
 		await expect( resolvePhpBinaryDownloadInfo( '8.4', 'darwin', 'arm64' ) ).rejects.toThrow(
-			'PHP 8.4.20 is not available for this device yet. Please try again later.'
+			'PHP 8.4 is not available for this device yet. Please try again later.'
 		);
 	} );
 

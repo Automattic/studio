@@ -1,0 +1,49 @@
+.button {
+	--action-button-background: rgba(15, 23, 42, 0.05);
+	--wp-ui-button-background-color: var(--action-button-background);
+	--wp-ui-button-background-color-active: var(--action-button-background);
+	--wp-ui-button-border-color: transparent;
+	--wp-ui-button-border-color-active: transparent;
+
+	display: inline-flex;
+	align-items: center;
+	justify-content: flex-start;
+	min-width: 0;
+	padding: 10px 12px;
+	border: 0;
+	border-color: transparent;
+	border-radius: var(--ui-desks-radius-button, 12px);
+	corner-shape: var(--ui-desks-corner-shape, superellipse(1.42));
+	-webkit-corner-shape: var(--ui-desks-corner-shape, superellipse(1.42));
+	background-color: var(--action-button-background);
+	color: var(--ui-desks-text, #14171a);
+	font: inherit;
+	font-size: 13px;
+	line-height: 18px;
+	cursor: pointer;
+	-webkit-app-region: no-drag;
+}
+
+.button:hover:not(:disabled) {
+	--action-button-background: rgba(15, 23, 42, 0.08);
+}
+
+.button:focus:not(:focus-visible) {
+	outline: none;
+	background-color: var(--action-button-background);
+	border-color: transparent;
+}
+
+.button:disabled {
+	cursor: default;
+	opacity: 0.5;
+}
+
+.button:focus-visible {
+	outline: 2px solid var(--ui-desks-focus, #3858e9);
+	outline-offset: 2px;
+}
+
+.fullWidth {
+	width: 100%;
+}

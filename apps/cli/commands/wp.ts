@@ -8,6 +8,7 @@ import { SiteData } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getPhpBinaryPath, getWpCliPharPath } from 'cli/lib/dependency-management/paths';
+import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
 import { runWpCliCommand, runGlobalWpCliCommand, WpCliResponse } from 'cli/lib/run-wp-cli-command';
 import { validatePhpVersion } from 'cli/lib/utils';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
@@ -44,6 +45,7 @@ enum Mode {
 
 async function runNativePhpWpCliCommand( site: SiteData, args: string[] ): Promise< void > {
 	const phpVersion = validateNativePhpVersion( site.phpVersion );
+	await ensurePhpBinaryAvailable( phpVersion );
 	await writeStudioMuPluginsForNativePhpRuntime( site.path, site.isWpAutoUpdating );
 	const child = spawn(
 		getPhpBinaryPath( phpVersion ),

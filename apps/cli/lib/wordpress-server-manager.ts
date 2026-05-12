@@ -12,6 +12,7 @@ import {
 	PLAYGROUND_CLI_MAX_TIMEOUT,
 } from '@studio/common/constants';
 import { SiteCommandLoggerAction } from '@studio/common/logger-actions';
+import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
 import { SiteData, SiteRuntime } from 'cli/lib/cli-config/core';
 import {
@@ -196,6 +197,11 @@ export async function startWordPressServer(
 	}
 
 	await ensurePhpBinaryAvailableIfNeeded( site, logger );
+
+	const startMessage = options?.blueprint
+		? __( 'Starting WordPress server and applying Blueprint…' )
+		: __( 'Starting WordPress server…' );
+	logger.reportStart( SiteCommandLoggerAction.START_SITE, startMessage );
 
 	const wordPressServerChildPath = getChildScriptPath( site.runtime );
 	const processName = getProcessName( site.id );
@@ -514,6 +520,7 @@ export async function runBlueprint(
 	options: RunBlueprintOptions
 ): Promise< void > {
 	await ensurePhpBinaryAvailableIfNeeded( site, logger );
+	logger.reportStart( SiteCommandLoggerAction.APPLY_BLUEPRINT, __( 'Applying Blueprint…' ) );
 
 	const wordPressServerChildPath = getChildScriptPath( site.runtime );
 	const processName = getProcessName( site.id );

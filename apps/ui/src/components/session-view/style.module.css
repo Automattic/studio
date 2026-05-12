@@ -87,25 +87,28 @@
 	min-height: 0;
 	overflow-y: auto;
 	position: relative;
-	padding: 0 var(--wpds-dimension-padding-xl);
 	/* Reserve scrollbar space symmetrically so the centered 760px column
 	   doesn't shift left when the scrollbar appears — keeping it aligned
 	   with the (non-scrolling) composer. */
 	scrollbar-gutter: stable both-edges;
 }
 
-/* Shared 760px column used by both the conversation and composer so their
-   content edges line up at every viewport width. */
-.column {
+.classicScroll {
+	padding: 0 var(--wpds-dimension-padding-xl);
+}
+
+/* Classic session screen: keep the conversation + composer aligned to the
+   legacy 760px reading column. */
+.classicColumn {
 	max-width: 760px;
 	margin: 0 auto;
 }
 
-.conversationSpacing {
+.classicConversationSpacing {
 	padding-top: var(--wpds-dimension-padding-xl);
 	padding-bottom: var(--wpds-dimension-padding-2xl);
 }
 
-.composerOuter {
+.classicComposerOuter {
 	padding: 0 calc(var(--wpds-dimension-padding-2xl) * 2) var(--wpds-dimension-padding-xl);
 }

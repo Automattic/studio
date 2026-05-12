@@ -25,7 +25,6 @@ import { isErrnoException } from '../tools/common/lib/is-errno-exception';
 import {
 	getPhpBinaryManifestDownloadInfo,
 	PHP_BINARY_MANIFEST_URL,
-	PHP_PATCH_VERSIONS,
 	NativePhpSupportedVersions,
 	NativePhpSupportedVersion,
 	PhpBinaryDownloadInfo,
@@ -62,22 +61,21 @@ if ( args.arch === 'arm64' && args.platform === 'win32' ) {
 void main();
 
 async function main(): Promise< void > {
-	const patchVersion = PHP_PATCH_VERSIONS[ version ];
 	const isWindows = args.platform === 'win32';
-	const binDir = path.join( getConfigDirectory(), 'php-bin', version );
 	const binaryName = isWindows ? 'php.exe' : 'php';
-	const destPath = path.join( binDir, binaryName );
 	const platformKey = `${ args.platform }-${ effectiveArch }`;
 
 	try {
+		const downloadInfo = await resolvePhpBinaryDownloadInfo();
+		const binDir = path.join( getConfigDirectory(), 'php-bin', downloadInfo.patchVersion );
+		const destPath = path.join( binDir, binaryName );
+
 		if ( fs.existsSync( destPath ) ) {
 			console.log(
-				`PHP ${ version } binary already exists at ${ destPath }. Delete it to re-download.`
+				`PHP ${ version } (${ downloadInfo.patchVersion }) binary already exists at ${ destPath }. Delete it to re-download.`
 			);
 			return;
 		}
-
-		const downloadInfo = await resolvePhpBinaryDownloadInfo();
 
 		// Ensure ~/.studio/php-bin/ exists, then atomically claim this version's slot.
 		fs.mkdirSync( path.dirname( binDir ), { recursive: true } );
@@ -94,7 +92,9 @@ async function main(): Promise< void > {
 		const downloadPath = path.join( binDir, getArchiveFileName( downloadInfo.url ) );
 
 		try {
-			console.log( `Downloading PHP ${ version } (${ patchVersion }) for ${ platformKey }…` );
+			console.log(
+				`Downloading PHP ${ version } (${ downloadInfo.patchVersion }) for ${ platformKey }…`
+			);
 			console.log( `  URL: ${ downloadInfo.url }` );
 			await downloadFile( downloadInfo.url, downloadPath, ( downloaded, total ) => {
 				const dl = ( downloaded / 1024 / 1024 ).toFixed( 1 );
@@ -117,7 +117,9 @@ async function main(): Promise< void > {
 			// Extract
 			console.log( 'Extracting PHP binary…' );
 			const tmpDir = os.tmpdir();
-			const extractDir = fs.mkdtempSync( path.join( tmpDir, `php-${ patchVersion }-` ) );
+			const extractDir = fs.mkdtempSync(
+				path.join( tmpDir, `php-${ downloadInfo.patchVersion }-` )
+			);
 			const expectedBinary = isWindows ? 'php.exe' : 'php';
 			try {
 				await extractZip( downloadPath, extractDir );
@@ -181,7 +183,7 @@ async function resolvePhpBinaryDownloadInfo(): Promise< PhpBinaryDownloadInfo > 
 
 	const manifestEntries = Array.isArray( manifest ) ? manifest.length : 'unknown';
 	throw new Error(
-		`PHP ${ PHP_PATCH_VERSIONS[ version ] } is not listed in the public Apps CDN manifest for ` +
+		`PHP ${ version } is not listed in the public Apps CDN manifest for ` +
 			`${ args.platform }-${ effectiveArch }. Found ${ manifestEntries } release entries at ` +
 			`${ PHP_BINARY_MANIFEST_URL }.`
 	);

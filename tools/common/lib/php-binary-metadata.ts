@@ -1,4 +1,4 @@
-import { __, _n, sprintf } from '@wordpress/i18n';
+import { sprintf } from '@wordpress/i18n';
 import { z } from 'zod';
 import { SupportedPHPVersions } from '@studio/common/types/php-versions';
 
@@ -25,17 +25,8 @@ export function validateNativePhpVersion( version: string ): NativePhpSupportedV
 	return result.data;
 }
 
-// Pinned patch versions per PHP minor. Bump when publishing new PHP CLI binaries.
-export const PHP_PATCH_VERSIONS: Record< NativePhpSupportedVersion, string > = {
-	'8.5': '8.5.5',
-	'8.4': '8.4.20',
-	'8.3': '8.3.30',
-	'8.2': '8.2.30',
-	'8.1': '8.1.34',
-	'8.0': '8.0.30',
-};
-
 export type PhpBinaryDownloadInfo = {
+	patchVersion: string;
 	url: string;
 	sha: string;
 	size?: number;
@@ -49,17 +40,41 @@ export function getEffectivePhpBinaryArch( platform: NodeJS.Platform, arch: stri
 	return platform === 'win32' ? 'x64' : arch;
 }
 
-export function getPhpBinaryManifestDownloadInfo(
-	manifest: unknown,
-	version: NativePhpSupportedVersion,
+export function parsePhpPatchVersion( version: string ): [ number, number, number ] | undefined {
+	const parts = version.split( '.' );
+	if ( parts.length !== 3 || parts.some( ( part ) => ! /^\d+$/.test( part ) ) ) {
+		return undefined;
+	}
+	return parts.map( Number ) as [ number, number, number ];
+}
+
+export function comparePhpPatchVersionsDescending( a: string, b: string ): number {
+	const parsedA = parsePhpPatchVersion( a );
+	const parsedB = parsePhpPatchVersion( b );
+	if ( ! parsedA || ! parsedB ) {
+		return 0;
+	}
+	return parsedB[ 0 ] - parsedA[ 0 ] || parsedB[ 1 ] - parsedA[ 1 ] || parsedB[ 2 ] - parsedA[ 2 ];
+}
+
+export function isPhpPatchVersionForMinor(
+	patchVersion: string,
+	version: NativePhpSupportedVersion
+): boolean {
+	const parsedPatchVersion = parsePhpPatchVersion( patchVersion );
+	const [ major, minor ] = version.split( '.' ).map( Number );
+	return (
+		!! parsedPatchVersion && parsedPatchVersion[ 0 ] === major && parsedPatchVersion[ 1 ] === minor
+	);
+}
+
+function getManifestDownloadInfoForPatch(
+	manifest: Record< string, unknown >,
+	patchVersion: string,
 	platform: NodeJS.Platform,
 	arch: string
 ): PhpBinaryDownloadInfo | undefined {
-	if ( ! isRecord( manifest ) ) {
-		return undefined;
-	}
-
-	const versionEntry = manifest[ PHP_PATCH_VERSIONS[ version ] ];
+	const versionEntry = manifest[ patchVersion ];
 	if ( ! isRecord( versionEntry ) ) {
 		return undefined;
 	}
@@ -81,8 +96,32 @@ export function getPhpBinaryManifestDownloadInfo(
 	}
 
 	return {
+		patchVersion,
 		url,
 		sha,
 		size: typeof downloadInfo.size === 'number' ? downloadInfo.size : undefined,
 	};
+}
+
+export function getPhpBinaryManifestDownloadInfo(
+	manifest: unknown,
+	version: NativePhpSupportedVersion,
+	platform: NodeJS.Platform,
+	arch: string
+): PhpBinaryDownloadInfo | undefined {
+	if ( ! isRecord( manifest ) ) {
+		return undefined;
+	}
+
+	const patchVersion = Object.keys( manifest )
+		.filter( ( candidate ) => isPhpPatchVersionForMinor( candidate, version ) )
+		.sort( comparePhpPatchVersionsDescending )
+		.find(
+			( candidate ) => !! getManifestDownloadInfoForPatch( manifest, candidate, platform, arch )
+		);
+	if ( ! patchVersion ) {
+		return undefined;
+	}
+
+	return getManifestDownloadInfoForPatch( manifest, patchVersion, platform, arch );
 }

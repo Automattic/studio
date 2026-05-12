@@ -9,7 +9,6 @@ import {
 	getPhpBinaryManifestDownloadInfo,
 	PHP_BINARY_MANIFEST_URL,
 	validateNativePhpVersion,
-	PHP_PATCH_VERSIONS,
 	type PhpBinaryDownloadInfo,
 	type NativePhpSupportedVersion,
 } from '@studio/common/lib/php-binary-metadata';
@@ -24,11 +23,6 @@ export async function ensurePhpBinaryAvailable(
 	onProgress?: ( downloaded: number, total: number ) => void
 ): Promise< void > {
 	const validatedVersion = validateNativePhpVersion( version );
-
-	if ( fs.existsSync( getPhpBinaryPath( validatedVersion ) ) ) {
-		return;
-	}
-
 	await downloadAndInstall( validatedVersion, onProgress );
 }
 
@@ -62,7 +56,8 @@ async function downloadAndInstall(
 		);
 	}
 
-	const destPath = getPhpBinaryPath( version );
+	const downloadInfo = await resolvePhpBinaryDownloadInfo( version, platform, arch );
+	const destPath = getPhpBinaryPath( downloadInfo.patchVersion );
 	const destDir = path.dirname( destPath );
 	const phpBinRoot = path.dirname( destDir );
 
@@ -83,14 +78,12 @@ async function downloadAndInstall(
 
 	// We own the slot — clean up the directory on failure so the next attempt
 	// can claim it and retry.
-	const patchVersion = PHP_PATCH_VERSIONS[ version ];
-	const downloadInfo = await resolvePhpBinaryDownloadInfo( version, platform, arch );
 	const downloadPath = path.join( destDir, getArchiveFileName( downloadInfo.url ) );
 
 	try {
 		await downloadFile( downloadInfo.url, downloadPath, onProgress );
-		await verifyHash( downloadPath, downloadInfo.sha, version, platform, arch );
-		await extractAndInstall( downloadPath, destPath, patchVersion, platform );
+		await verifyHash( downloadPath, downloadInfo.sha, version, platform, arch, destDir );
+		await extractAndInstall( downloadPath, destPath, downloadInfo.patchVersion, platform );
 	} catch ( err ) {
 		fs.rmSync( destDir, { recursive: true, force: true } );
 		throw err;
@@ -113,7 +106,7 @@ export async function resolvePhpBinaryDownloadInfo(
 	}
 
 	throw new Error(
-		`PHP ${ PHP_PATCH_VERSIONS[ version ] } is not available for this device yet. Please try again later.`
+		`PHP ${ version } is not available for this device yet. Please try again later.`
 	);
 }
 
@@ -142,7 +135,8 @@ async function verifyHash(
 	expected: string,
 	version: NativePhpSupportedVersion,
 	platform: NodeJS.Platform,
-	arch: string
+	arch: string,
+	destDir: string
 ): Promise< void > {
 	const data = await fs.promises.readFile( filePath );
 	const actual = crypto.createHash( 'sha256' ).update( data ).digest( 'hex' );
@@ -151,7 +145,7 @@ async function verifyHash(
 			`SHA-256 mismatch for PHP ${ version } on ${ platform }-${ arch }:\n` +
 				`  expected ${ expected }\n` +
 				`  got      ${ actual }\n` +
-				`Delete ${ path.dirname( getPhpBinaryPath( version ) ) } and retry.`
+				`Delete ${ destDir } and retry.`
 		);
 	}
 }

@@ -1,13 +1,52 @@
+import fs from 'fs';
 import path from 'path';
-import { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
+import {
+	comparePhpPatchVersionsDescending,
+	isPhpPatchVersionForMinor,
+	NativePhpSupportedVersion,
+	parsePhpPatchVersion,
+} from '@studio/common/lib/php-binary-metadata';
 import { getConfigDirectory, getServerFilesPath } from '@studio/common/lib/well-known-paths';
 
 const PHP_BINARY_FILENAME = process.platform === 'win32' ? 'php.exe' : 'php';
 
-// PHP binaries live in ~/.studio/php-bin/<version>/ — downloaded on demand when a site
-// using that version is first started. Not bundled in production builds.
-export function getPhpBinaryPath( version: NativePhpSupportedVersion ): string {
-	return path.join( getConfigDirectory(), 'php-bin', version, PHP_BINARY_FILENAME );
+function getPhpBinaryRoot(): string {
+	return path.join( getConfigDirectory(), 'php-bin' );
+}
+
+function getExactPhpBinaryPath( version: string ): string {
+	return path.join( getPhpBinaryRoot(), version, PHP_BINARY_FILENAME );
+}
+
+export function getInstalledPhpBinaryPath(
+	version: NativePhpSupportedVersion
+): string | undefined {
+	const phpBinRoot = getPhpBinaryRoot();
+	if ( ! fs.existsSync( phpBinRoot ) ) {
+		return undefined;
+	}
+
+	const patchVersion = fs
+		.readdirSync( phpBinRoot, { withFileTypes: true } )
+		.filter( ( entry ) => entry.isDirectory() && isPhpPatchVersionForMinor( entry.name, version ) )
+		.map( ( entry ) => entry.name )
+		.sort( comparePhpPatchVersionsDescending )
+		.find( ( candidate ) => fs.existsSync( getExactPhpBinaryPath( candidate ) ) );
+
+	return patchVersion ? getExactPhpBinaryPath( patchVersion ) : undefined;
+}
+
+// PHP binaries live in ~/.studio/php-bin/<patch>/ — downloaded on demand when a site
+// using that minor version is first started. Not bundled in production builds.
+export function getPhpBinaryPath( version: NativePhpSupportedVersion | string ): string {
+	if ( parsePhpPatchVersion( version ) ) {
+		return getExactPhpBinaryPath( version );
+	}
+
+	return (
+		getInstalledPhpBinaryPath( version as NativePhpSupportedVersion ) ??
+		getExactPhpBinaryPath( version )
+	);
 }
 
 const WP_CLI_PHAR_FILENAME = 'wp-cli.phar';

@@ -42,6 +42,7 @@ vi.mock( 'cli/lib/cli-config/sites', async () => {
 		updateSiteLatestCliPid: vi.fn().mockResolvedValue( undefined ),
 	};
 } );
+vi.mock( 'cli/lib/certificate-manager' );
 vi.mock( 'cli/lib/hosts-file' );
 vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/run-wp-cli-command' );

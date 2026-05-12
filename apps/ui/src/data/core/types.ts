@@ -1,22 +1,33 @@
-import type { AgentRunEvent } from './agent-events';
+import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiModelId } from '@studio/common/ai/models';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
+import type { DeskConfig, DeskSettings } from '@studio/common/types/desk';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { SyncSite } from '@studio/common/types/sync';
+import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wordpress-rest';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
+export type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+export type { SessionEntry } from '@mariozechner/pi-coding-agent';
 export type {
-	AiSessionSummary,
-	LoadedAiSession,
-	AiSessionEvent,
-} from '@studio/common/ai/sessions/types';
+	StudioCustomEntry,
+	StudioCustomEntryType,
+	StudioCustomEntryDataMap,
+	StudioSiteSelectedData,
+	StudioToolProgressData,
+	StudioAgentQuestionData,
+	StudioTurnClosedData,
+	StudioSessionContextData,
+	StudioUserPromptData,
+} from '@studio/common/ai/sessions/entry-types';
 export type { AiModelId } from '@studio/common/ai/models';
 export type { Snapshot } from '@studio/common/types/snapshot';
 export type { SyncSite } from '@studio/common/types/sync';
+export type { DeskConfig, DeskSettings, DeskWidgetBase } from '@studio/common/types/desk';
 export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 export type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 export type { SupportedLocale } from '@studio/common/lib/locale';
@@ -183,11 +194,14 @@ export interface Connector {
 	getSessions(): Promise< AiSessionSummary[] >;
 	getSession( sessionId: string ): Promise< LoadedAiSession >;
 	deleteSession( sessionId: string ): Promise< void >;
+	updateSessionMetadata(
+		sessionId: string,
+		patch: Pick< AiSessionSummary, 'starred' | 'archived' >
+	): Promise< AiSessionSummary >;
 
-	// Create an empty session file attached to a site, so the new session
-	// appears in the sidebar immediately. The first prompt flows through
-	// `continueSession` as usual.
-	createSession( siteId: string ): Promise< AiSessionSummary >;
+	// Create an empty session file so it appears immediately. When `siteId`
+	// is omitted, the session is a user-desk chat with no owner site.
+	createSession( siteId?: string ): Promise< AiSessionSummary >;
 
 	// Continue an existing session by sending a new prompt. Returns a `runId`
 	// that identifies the in-flight agent run; live events for that run stream
@@ -223,6 +237,19 @@ export interface Connector {
 	// installed.
 	getInstalledApps(): Promise< InstalledApps >;
 
+	// Desks
+	getDeskSettings(): Promise< DeskSettings >;
+	saveDeskSettings( settings: DeskSettings ): Promise< void >;
+	getUserDeskConfig(): Promise< DeskConfig | undefined >;
+	saveUserDeskConfig( config: DeskConfig ): Promise< void >;
+	getSiteDeskConfig( siteId: string ): Promise< DeskConfig | undefined >;
+	saveSiteDeskConfig( siteId: string, config: DeskConfig ): Promise< void >;
+
+	// Site WordPress REST API. The renderer uses this as the transport for
+	// @wordpress/api-fetch / @wordpress/core-data so WordPress entity semantics
+	// stay in the WordPress packages while Studio owns site resolution and auth.
+	fetchSiteRest( siteId: string, request: SiteRestRequest ): Promise< SiteRestResponse >;
+
 	// Open the given site's folder in the system file manager, preferred
 	// editor, or preferred terminal. When no editor/terminal preference is
 	// set these reject — callers are expected to route the user to Settings.
@@ -232,6 +259,11 @@ export interface Connector {
 
 	// External links
 	openExternalUrl( url: string ): Promise< void >;
+	openSiteUrl(
+		siteId: string,
+		relativeUrl?: string,
+		options?: { autoLogin?: boolean }
+	): Promise< void >;
 
 	// Window state (macOS fullscreen hides traffic lights, so the UI needs
 	// to reclaim the space we normally leave for them).

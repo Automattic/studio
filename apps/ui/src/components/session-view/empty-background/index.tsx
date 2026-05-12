@@ -31,8 +31,7 @@ export function EmptyBackground() {
 		const dpr = window.devicePixelRatio || 1;
 		canvas.width = CANVAS_SIZE * dpr;
 		canvas.height = CANVAS_SIZE * dpr;
-		canvas.style.width = `${ CANVAS_SIZE }px`;
-		canvas.style.height = `${ CANVAS_SIZE }px`;
+		canvas.style.setProperty( '--empty-background-canvas-size', `${ CANVAS_SIZE }px` );
 		const ctx = canvas.getContext( '2d' );
 		if ( ! ctx ) {
 			return;
@@ -181,8 +180,9 @@ export function EmptyBackground() {
 
 		const onMove = ( event: MouseEvent ) => {
 			const rect = canvas.getBoundingClientRect();
-			mouseX = event.clientX - rect.left;
-			mouseY = event.clientY - rect.top;
+			const scale = rect.width > 0 ? CANVAS_SIZE / rect.width : 1;
+			mouseX = ( event.clientX - rect.left ) * scale;
+			mouseY = ( event.clientY - rect.top ) * scale;
 		};
 		const onEnter = () => {
 			hover = true;

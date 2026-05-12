@@ -43,7 +43,7 @@ jobs:
             artifact_arch: aarch64
             archive_extension: tar.gz
             binary_name: php
-            extensions: &macos_php_extensions apcu,bcmath,calendar,ctype,curl,dba,dom,exif,fileinfo,filter,ftp,gd,gettext,iconv,igbinary,imagick,intl,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pcntl,pdo,pdo_mysql,pdo_sqlite,phar,posix,readline,redis,session,shmop,simplexml,sockets,sodium,sqlite3,ssh2,tokenizer,xml,xmlreader,xmlwriter,xsl,yaml,zip,zlib
+            extensions: &macos_php_extensions apcu,bcmath,calendar,ctype,curl,dba,dom,exif,fileinfo,filter,ftp,gd,gettext,iconv,igbinary,imagick,intl,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pcntl,pdo,pdo_mysql,pdo_sqlite,phar,posix,readline,redis,session,shmop,simplexml,sockets,sodium,sqlite3,ssh2,tokenizer,xdebug,xml,xmlreader,xmlwriter,xsl,yaml,zip,zlib
           - target: macos-x86_64
             runner: macos-15-intel
             artifact_platform: macos
@@ -58,7 +58,7 @@ jobs:
             archive_extension: zip
             binary_name: php.exe
             # static-php-cli 2.8.5 has Windows builders for intl and sodium, but not gettext/libxslt.
-            extensions: apcu,bcmath,calendar,ctype,curl,dba,dom,exif,fileinfo,filter,ftp,gd,iconv,igbinary,intl,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pdo,pdo_mysql,pdo_sqlite,phar,redis,session,shmop,simplexml,sockets,sodium,sqlite3,ssh2,tokenizer,xml,xmlreader,xmlwriter,yaml,zip,zlib
+            extensions: apcu,bcmath,calendar,ctype,curl,dba,dom,exif,fileinfo,filter,ftp,gd,iconv,igbinary,intl,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pdo,pdo_mysql,pdo_sqlite,phar,redis,session,shmop,simplexml,sockets,sodium,sqlite3,ssh2,tokenizer,xdebug,xml,xmlreader,xmlwriter,yaml,zip,zlib
     env:
       PHP_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.php_version || '8.4.20' }}
       SPC_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.spc_ref || '2.8.5' }}

@@ -191,8 +191,15 @@ jobs:
 
           "$PKG_CONFIG" --version
           "$PKG_CONFIG" --modversion libxml-2.0
+          export CURL_CFLAGS="$("$PKG_CONFIG" --cflags libcurl)"
+          export CURL_LIBS="$("$PKG_CONFIG" --libs libcurl) -framework CoreFoundation -framework CoreServices -framework SystemConfiguration"
 
           cd "$work_dir/php-${PHP_VERSION}"
+          curl_config="$PWD/ext/curl/config.m4"
+          perl -0pi -e 's/(PHP_CHECK_LIBRARY\(\[curl\],\s*\[curl_easy_perform\],)/save_LIBS="\$LIBS"\n  LIBS="\$LIBS \$CURL_LIBS"\n\1/s' "$curl_config"
+          perl -0pi -e 's/(PHP_CHECK_LIBRARY\(\[curl\],\s*\[curl_easy_perform\],.*?\)\n)/\1  LIBS="\$save_LIBS"\n/s' "$curl_config"
+          grep -q 'LIBS="$LIBS $CURL_LIBS"' "$curl_config"
+
           ./buildconf --force
           ./configure \
             --prefix="$staging_dir" \

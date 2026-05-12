@@ -168,10 +168,16 @@ jobs:
           curl --fail --location --retry 3 "$source_url" --output "$work_dir/php.tar.gz"
           tar -xzf "$work_dir/php.tar.gz" -C "$work_dir"
 
+          spc_pkg_config="$(find "$GITHUB_WORKSPACE/.cache/static-php-cli/pkgroot" -path '*/bin/pkg-config' -type f -perm -111 | head -n 1)"
+          if [ -z "$spc_pkg_config" ]; then
+            echo "static-php-cli pkg-config was not found in pkgroot" >&2
+            exit 1
+          fi
+
           pkg_config_static="$work_dir/pkg-config-static"
           cat > "$pkg_config_static" <<SH
           #!/bin/sh
-          exec "$spc_root/bin/pkg-config" --static "\$@"
+          exec "$spc_pkg_config" --static "\$@"
           SH
           chmod +x "$pkg_config_static"
 
@@ -182,6 +188,9 @@ jobs:
           export CPPFLAGS="-I$spc_root/include ${CPPFLAGS:-}"
           export LDFLAGS="-L$spc_root/lib ${LDFLAGS:-}"
           export LIBRARY_PATH="$spc_root/lib:${LIBRARY_PATH:-}"
+
+          "$PKG_CONFIG" --version
+          "$PKG_CONFIG" --modversion libxml-2.0
 
           cd "$work_dir/php-${PHP_VERSION}"
           ./buildconf --force

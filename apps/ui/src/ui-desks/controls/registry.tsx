@@ -10,7 +10,6 @@ export function ControlRenderer( props: ControlRendererProps ) {
 			return (
 				<Component
 					isOpen={ props.isOpen }
-					fitSelectedWidgetToContent={ props.fitSelectedWidgetToContent }
 					props={ props.props }
 					setIsOpen={ props.setIsOpen }
 					updateProps={ props.updateProps }

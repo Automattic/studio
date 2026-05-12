@@ -4,7 +4,7 @@ import {
 	NoteWidgetComponent,
 	NoteWidgetThumbnailComponent,
 } from '@/ui-desks/widgets/note/component';
-import { NoteFitTextControl, NoteTextSizeControl } from '@/ui-desks/widgets/note/text-controls';
+import { NoteTextSizeControl } from '@/ui-desks/widgets/note/text-controls';
 import { getFittedNoteHeight } from '@/ui-desks/widgets/note/text-sizing';
 import {
 	isNoteWidgetProps,
@@ -50,11 +50,6 @@ export const noteWidgetDefinition = {
 			type: 'custom',
 			id: 'text-size',
 			Component: NoteTextSizeControl,
-		},
-		{
-			type: 'custom',
-			id: 'fit-text',
-			Component: NoteFitTextControl,
 		},
 		{
 			type: 'color',

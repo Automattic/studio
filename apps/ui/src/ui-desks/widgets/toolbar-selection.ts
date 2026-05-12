@@ -57,7 +57,11 @@ export function getSelectedWidgetToolbarItem(
 		return null;
 	}
 
-	if ( ! definition.controls?.length && widget.type !== DRAWING_WIDGET_TYPE ) {
+	if (
+		! definition.controls?.length &&
+		! definition.getFittedShapeProps &&
+		widget.type !== DRAWING_WIDGET_TYPE
+	) {
 		return null;
 	}
 

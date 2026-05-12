@@ -2,7 +2,6 @@ import { __ } from '@wordpress/i18n';
 import { image } from '@wordpress/icons';
 import { uploadSiteMedia } from '@/data/wordpress/media';
 import { MediaWidgetComponent } from './component';
-import { MediaFitSizeControl } from './fit-control';
 import { MediaOpenControl } from './open-control';
 import { getFittedMediaShapeProps } from './sizing';
 import { isMediaWidgetProps, MEDIA_WIDGET_TYPE, type MediaKind, type MediaWidget } from './types';
@@ -13,11 +12,6 @@ export const mediaWidgetDefinition = {
 	name: () => __( 'Media' ),
 	Component: MediaWidgetComponent,
 	controls: [
-		{
-			type: 'custom',
-			id: 'fit-size',
-			Component: MediaFitSizeControl,
-		},
 		{
 			type: 'custom',
 			id: 'open-media',

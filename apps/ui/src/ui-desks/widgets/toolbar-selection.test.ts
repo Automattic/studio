@@ -25,6 +25,7 @@ describe( 'widget toolbar selection', () => {
 			throw new Error( 'Expected a single widget toolbar item.' );
 		}
 		expect( selectedItem.definition.type ).toBe( NOTE_WIDGET_TYPE );
+		expect( selectedItem.definition.getFittedShapeProps ).toBeTypeOf( 'function' );
 		expect( selectedItem.canRemove ).toBe( true );
 		expect( selectedItem.widget.widgetProps ).toEqual( {
 			text: 'Hello',
@@ -83,9 +84,9 @@ describe( 'widget toolbar selection', () => {
 		expect( selectedItem.definition.type ).toBe( MEDIA_WIDGET_TYPE );
 		expect( selectedItem.definition.controls?.[ 0 ]?.type ).toBe( 'custom' );
 		expect( selectedItem.definition.controls?.map( ( control ) => control.id ) ).toEqual( [
-			'fit-size',
 			'open-media',
 		] );
+		expect( selectedItem.definition.getFittedShapeProps ).toBeTypeOf( 'function' );
 		expect( selectedItem.widget.widgetProps ).toEqual( {
 			url: 'https://example.com/image.jpg',
 			mediaKind: 'image',
@@ -104,9 +105,9 @@ describe( 'widget toolbar selection', () => {
 		expect( selectedItem.definition.type ).toBe( EMBED_WIDGET_TYPE );
 		expect( selectedItem.definition.controls?.[ 0 ]?.type ).toBe( 'custom' );
 		expect( selectedItem.definition.controls?.map( ( control ) => control.id ) ).toEqual( [
-			'fit-size',
 			'open-embed',
 		] );
+		expect( selectedItem.definition.getFittedShapeProps ).toBeTypeOf( 'function' );
 		expect( selectedItem.widget.widgetProps ).toEqual( {
 			url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
 		} );

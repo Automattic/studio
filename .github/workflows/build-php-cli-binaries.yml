@@ -266,67 +266,6 @@ jobs:
             done
           }
 
-          bundle_macos_dependencies() {
-            local queue_file="$work_dir/dylib-queue.txt"
-            local seen_file="$work_dir/dylib-seen.txt"
-            local dep dep_base dep_dest file replacement
-
-            find_macho_files > "$queue_file"
-            : > "$seen_file"
-            mkdir -p "$staging_dir/lib"
-
-            while [ -s "$queue_file" ]; do
-              file="$(head -n 1 "$queue_file")"
-              tail -n +2 "$queue_file" > "$queue_file.tmp"
-              mv "$queue_file.tmp" "$queue_file"
-
-              otool -L "$file" | awk 'NR > 1 { print $1 }' | while read -r dep; do
-                case "$dep" in
-                  /opt/homebrew/*|/usr/local/*|"$spc_root"/*)
-                    if grep -Fxq "$dep" "$seen_file"; then
-                      continue
-                    fi
-
-                    if [ ! -f "$dep" ]; then
-                      echo "Required dependency not found: $dep" >&2
-                      exit 1
-                    fi
-
-                    dep_base="$(basename "$dep")"
-                    dep_dest="$staging_dir/lib/$dep_base"
-                    echo "$dep" >> "$seen_file"
-                    cp -L "$dep" "$dep_dest"
-                    chmod u+w "$dep_dest"
-                    echo "$dep_dest" >> "$queue_file"
-                    ;;
-                esac
-              done
-            done
-
-            find_macho_files | while read -r file; do
-              case "$file" in
-                "$staging_dir"/lib/*.dylib)
-                  replacement='@loader_path'
-                  install_name_tool -id "@loader_path/$(basename "$file")" "$file"
-                  ;;
-                *)
-                  replacement='@executable_path/../lib'
-                  ;;
-              esac
-
-              otool -L "$file" | awk 'NR > 1 { print $1 }' | while read -r dep; do
-                case "$dep" in
-                  /opt/homebrew/*|/usr/local/*|"$spc_root"/*)
-                    install_name_tool -change "$dep" "$replacement/$(basename "$dep")" "$file"
-                    ;;
-                esac
-              done
-            done
-          }
-
-          bundle_macos_dependencies
-          echo "Bundled dylibs:"
-          find "$staging_dir/lib" -name '*.dylib' -print
           find_macho_files | while read -r file; do
             if otool -L "$file" | grep -E '/opt/homebrew/|/usr/local/'; then
               echo "Found non-portable Homebrew dependency in $file" >&2

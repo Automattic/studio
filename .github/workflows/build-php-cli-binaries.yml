@@ -187,6 +187,81 @@ jobs:
           cp "$install_dir/bin/php" "$staging_dir/php"
           chmod +x "$staging_dir/php"
           cp "$extension_dir"/*.so "$staging_dir/ext/"
+
+          bundle_macos_dependencies() {
+            local queue_file="$work_dir/dylib-queue.txt"
+            local seen_file="$work_dir/dylib-seen.txt"
+            local dep dep_base dep_dest file replacement
+
+            : > "$queue_file"
+            : > "$seen_file"
+            mkdir -p "$staging_dir/lib"
+
+            printf '%s\n' "$staging_dir/php" "$staging_dir"/ext/*.so >> "$queue_file"
+
+            while [ -s "$queue_file" ]; do
+              file="$(head -n 1 "$queue_file")"
+              tail -n +2 "$queue_file" > "$queue_file.tmp"
+              mv "$queue_file.tmp" "$queue_file"
+
+              otool -L "$file" | awk 'NR > 1 { print $1 }' | while read -r dep; do
+                case "$dep" in
+                  /opt/homebrew/*|/usr/local/*)
+                    if grep -Fxq "$dep" "$seen_file"; then
+                      continue
+                    fi
+
+                    if [ ! -f "$dep" ]; then
+                      echo "Required dependency not found: $dep" >&2
+                      exit 1
+                    fi
+
+                    dep_base="$(basename "$dep")"
+                    dep_dest="$staging_dir/lib/$dep_base"
+                    echo "$dep" >> "$seen_file"
+                    cp -L "$dep" "$dep_dest"
+                    chmod u+w "$dep_dest"
+                    echo "$dep_dest" >> "$queue_file"
+                    ;;
+                esac
+              done
+            done
+
+            for file in "$staging_dir/php" "$staging_dir"/ext/*.so "$staging_dir"/lib/*.dylib; do
+              [ -e "$file" ] || continue
+
+              case "$file" in
+                "$staging_dir/php")
+                  replacement='@loader_path/lib'
+                  ;;
+                "$staging_dir"/ext/*)
+                  replacement='@loader_path/../lib'
+                  ;;
+                "$staging_dir"/lib/*)
+                  replacement='@loader_path'
+                  install_name_tool -id "@loader_path/$(basename "$file")" "$file"
+                  ;;
+              esac
+
+              otool -L "$file" | awk 'NR > 1 { print $1 }' | while read -r dep; do
+                case "$dep" in
+                  /opt/homebrew/*|/usr/local/*)
+                    install_name_tool -change "$dep" "$replacement/$(basename "$dep")" "$file"
+                    ;;
+                esac
+              done
+            done
+          }
+
+          bundle_macos_dependencies
+          for file in "$staging_dir/php" "$staging_dir"/ext/*.so "$staging_dir"/lib/*.dylib; do
+            [ -e "$file" ] || continue
+            if otool -L "$file" | grep -E '/opt/homebrew/|/usr/local/'; then
+              echo "Found non-portable Homebrew dependency in $file" >&2
+              exit 1
+            fi
+          done
+
           xattr -cr "$staging_dir"
 
           cat > "$staging_dir/runtime.json" <<JSON
@@ -198,6 +273,7 @@ jobs:
             "arch": "$PHP_CLI_ARTIFACT_ARCH",
             "binary": "php",
             "extensionDir": "ext",
+            "libraryDir": "lib",
             "xdebug": "ext/xdebug.so"
           }
           JSON

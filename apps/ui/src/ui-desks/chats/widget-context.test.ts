@@ -49,13 +49,15 @@ describe( 'widget chat context', () => {
 			createWidget( 'note-2', { text: 'Pull quote' } ),
 			createWidget( 'note-3', { text: 'CTA' } ),
 			createWidget( 'note-4', { text: 'Footer' } ),
+			createWidget( 'note-5', { text: 'Sidebar' } ),
+			createWidget( 'note-6', { text: 'Archive' } ),
 		];
 
 		expect( summarizeWidgetList( widgets ) ).toBe(
-			'Note: Draft intro, Note: Pull quote, Note: CTA + 1 more'
+			'Note: Draft intro, Note: Pull quote, Note: CTA, Note: Footer + 2 more'
 		);
 		expect( buildWidgetContextDisplayMessage( 'Review these', widgets ) ).toBe(
-			'Review these\n\nSelected context: Note: Draft intro, Note: Pull quote, Note: CTA + 1 more'
+			'Review these\n\nSelected context: Note: Draft intro, Note: Pull quote, Note: CTA, Note: Footer + 2 more'
 		);
 	} );
 } );

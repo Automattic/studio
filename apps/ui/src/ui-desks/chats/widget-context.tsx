@@ -9,7 +9,7 @@ type WidgetThumbnailComponent = ComponentType<
 	DeskWidgetComponentProps< Record< string, unknown > >
 >;
 
-export const MAX_VISIBLE_CHAT_WIDGETS = 3;
+export const MAX_VISIBLE_CHAT_WIDGETS = 4;
 
 const WIDGET_THUMBNAIL_MAX_SIZE = 72;
 const WIDGET_THUMBNAIL_FALLBACK_SIZE = 96;
@@ -131,7 +131,7 @@ export function buildWidgetContextDisplayMessage( userPrompt: string, widgets: D
 }
 
 export function summarizeWidgetList( widgets: DeskWidget[] ) {
-	const visibleWidgets = widgets.slice( 0, 3 );
+	const visibleWidgets = widgets.slice( 0, MAX_VISIBLE_CHAT_WIDGETS );
 	const labels = visibleWidgets.map( getWidgetDisplayLabel );
 	const hiddenCount = widgets.length - visibleWidgets.length;
 	if ( hiddenCount <= 0 ) {

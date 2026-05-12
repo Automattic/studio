@@ -14,6 +14,8 @@ import {
 	buildWidgetContextDisplayMessage,
 	buildWidgetContextPrompt,
 	getWidgetDisplayLabel,
+	MAX_VISIBLE_CHAT_WIDGETS,
+	WidgetContextMoreThumbnail,
 	WidgetContextThumbnail,
 } from '@/ui-desks/chats/widget-context';
 import { Button, Menu } from '@/ui-desks/components';
@@ -246,6 +248,8 @@ export function Composer( {
 
 	const canSend = value.trim().length > 0;
 	const sendAriaLabel = busy ? __( 'Queue' ) : __( 'Send' );
+	const visibleContextWidgets = contextWidgets.slice( 0, MAX_VISIBLE_CHAT_WIDGETS );
+	const hiddenContextWidgetCount = contextWidgets.length - visibleContextWidgets.length;
 
 	return (
 		<>
@@ -255,7 +259,7 @@ export function Composer( {
 			>
 				{ contextWidgets.length > 0 && (
 					<div className={ styles.attachments } aria-label={ __( 'Attached canvas widgets' ) }>
-						{ contextWidgets.map( ( widget ) => (
+						{ visibleContextWidgets.map( ( widget ) => (
 							<div
 								key={ widget.id }
 								className={ styles.attachment }
@@ -274,6 +278,9 @@ export function Composer( {
 								</button>
 							</div>
 						) ) }
+						{ hiddenContextWidgetCount > 0 && (
+							<WidgetContextMoreThumbnail count={ hiddenContextWidgetCount } />
+						) }
 					</div>
 				) }
 				<form

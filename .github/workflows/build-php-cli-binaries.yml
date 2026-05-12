@@ -233,7 +233,7 @@ jobs:
             --enable-xmlreader=shared \
             --enable-xmlwriter=shared \
             --with-bz2=shared,$spc_root \
-            --with-curl=shared \
+            --with-curl \
             --with-freetype \
             --with-iconv=shared,$spc_root \
             --with-jpeg \
@@ -307,7 +307,11 @@ jobs:
             -d "xdebug.mode=debug" \
             --ri xdebug
 
-          smoke_extensions=(curl gd mbstring pdo pdo_sqlite sqlite3)
+          echo "Smoke testing built-in extension: curl"
+          "$staging_dir/bin/php" -n \
+            -r 'if ( ! extension_loaded( "curl" ) ) { fwrite( STDERR, "curl is not loaded\n" ); exit( 1 ); } echo PHP_VERSION, PHP_EOL;'
+
+          smoke_extensions=(gd mbstring pdo pdo_sqlite sqlite3)
           for extension in "${smoke_extensions[@]}"; do
             echo "Smoke testing extension: $extension"
             otool -L "$extension_dir/$extension.so"

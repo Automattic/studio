@@ -12,6 +12,7 @@ import { pageWidgetDefinition } from '@/ui-desks/widgets/page/definition';
 import { PAGE_WIDGET_TYPE } from '@/ui-desks/widgets/page/types';
 import { postWidgetDefinition } from '@/ui-desks/widgets/post/definition';
 import { POST_WIDGET_TYPE } from '@/ui-desks/widgets/post/types';
+import { getPostStatusInfo } from '@/ui-desks/widgets/post-status';
 import { getCreatableWidgetDefinitions } from '@/ui-desks/widgets/registry';
 import { LinkFromUrlDialog } from './link-from-url-dialog';
 import styles from './style.module.css';
@@ -163,7 +164,8 @@ function ExistingContentPickerMenuItems( {
 	const query = useMemo(
 		() => ( {
 			per_page: 20,
-			context: 'view',
+			context: 'edit',
+			status: [ 'publish', 'draft', 'pending', 'future', 'private' ],
 			orderby: type === 'page' ? 'menu_order' : 'date',
 			order: type === 'page' ? 'asc' : 'desc',
 			_fields: 'id,title,excerpt,status,date,link,slug',
@@ -218,6 +220,7 @@ function ExistingContentPickerMenuItems( {
 			) }
 			{ records?.map( ( record ) => {
 				const title = decodeEntities( record.title?.rendered ?? '' ).trim() || __( 'Untitled' );
+				const statusInfo = getPostStatusInfo( record.status );
 				return (
 					<Menu.Item
 						key={ record.id }
@@ -234,8 +237,20 @@ function ExistingContentPickerMenuItems( {
 							} )
 						}
 					>
-						<span className={ styles.postPickerTitle }>{ title }</span>
-						{ record.status && <span className={ styles.postPickerMeta }>{ record.status }</span> }
+						<span className={ styles.postPickerContent }>
+							<span className={ styles.postPickerTitle }>{ title }</span>
+							{ record.status && (
+								<span className={ styles.postPickerMeta }>{ statusInfo.label }</span>
+							) }
+						</span>
+						{ record.status && (
+							<span
+								className={ styles.postPickerStatusDot }
+								style={ { background: statusInfo.color } }
+								title={ statusInfo.label }
+								aria-label={ statusInfo.label }
+							/>
+						) }
 					</Menu.Item>
 				);
 			} ) }

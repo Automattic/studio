@@ -133,15 +133,20 @@ if [ "$PLATFORM" = "linux" ]; then
   # TODO(rsm-2593): --max-failures=1 is a temporary debug aid so the suite
   # bails on the first failing test instead of retrying through all of them
   # (~40 min on a broken Electron launch). Remove before merging.
-  # Skip `npx playwright install` on Linux: our E2E suite drives the packaged
-  # Electron app via Playwright's `_electron` API, which uses Electron's own
-  # bundled Chromium. Playwright's standalone Chromium/Firefox/Webkit
-  # downloads aren't used and trigger a noisy "missing dependencies"
-  # validation against libs (gstreamer/flite/gtk-4/etc.) we don't need.
+  # Install only Chromium, not Firefox/Webkit. Our tests drive Electron via
+  # Playwright's `_electron` API, but `test()` from `@playwright/test` still
+  # auto-spins a Chromium-headless-shell for the default `page` fixture even
+  # when the test body never touches it — so a Chromium install is required.
+  # Skipping Firefox/Webkit avoids the noisy "missing dependencies"
+  # validation against libs (gstreamer/flite/gtk-4/libavif/etc.) we don't
+  # need. Run inside the `su node` block so the browser lands in the same
+  # `~/.cache/ms-playwright` that the test process reads from.
   test_exit=0
   su -s /bin/bash node -c '
     set -euo pipefail
     cd /workdir
+    echo "Installing Playwright Chromium..."
+    npx playwright install chromium
     echo "Running Playwright tests..."
     xvfb-run -a npx playwright test --max-failures=1 --output=/tmp/test-results
   ' || test_exit=$?

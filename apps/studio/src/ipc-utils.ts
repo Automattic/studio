@@ -7,6 +7,7 @@ import { getMainWindow } from 'src/main-window';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { JsonEvent as StudioCodeEvent } from '@studio/common/ai/json-events';
 import type { StoredAuthToken } from '@studio/common/lib/shared-config';
+import type { DaemonStatus } from 'cli/remote-session/daemon';
 
 type SnapshotEventData = {
 	action: PreviewCommandLoggerAction;
@@ -63,6 +64,7 @@ export interface IpcEvents {
 	'beta-features-updated': [ void ];
 	'ai-agent-event': [ AgentRunEvent ];
 	'studio-code-event': [ { siteId: string; event: StudioCodeEvent } ];
+	'remote-session-status': [ DaemonStatus ];
 }
 
 export async function sendIpcEventToRenderer< T extends keyof IpcEvents >(

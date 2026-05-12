@@ -3,6 +3,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import Button from 'src/components/button';
 import { Gravatar } from 'src/components/gravatar';
 import offlineIcon from 'src/components/offline-icon';
+import { RemoteSessionIndicator } from 'src/components/remote-session-indicator';
 import { Tooltip } from 'src/components/tooltip';
 import { WordPressLogo } from 'src/components/wordpress-logo';
 import { useAuth } from 'src/hooks/use-auth';
@@ -138,6 +139,7 @@ export default function TopBar( { onToggleSidebar }: TopBarProps ) {
 			</div>
 
 			<div className="app-no-drag-region flex items-center space-x-1.5 rtl:space-x-reverse">
+				<RemoteSessionIndicator />
 				<Authentication />
 				<SettingsButton />
 				<Tooltip text={ __( 'Get help' ) } placement="bottom-end">

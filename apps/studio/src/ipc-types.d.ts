@@ -100,6 +100,7 @@ type IpcApi = {
 interface FeatureFlags {
 	enableBlueprints: boolean;
 	enableStudioCodeUi: boolean;
+	enableRemoteSessionUi: boolean;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type

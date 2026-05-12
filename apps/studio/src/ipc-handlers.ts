@@ -68,6 +68,14 @@ import { shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import {
+	getDaemonStatus,
+	startDaemon,
+	stopDaemon,
+	type DaemonStatus,
+	type StartDaemonResult,
+	type StopDaemonResult,
+} from 'cli/remote-session/daemon';
+import {
 	MACOS_TRAFFIC_LIGHT_POSITION,
 	MAIN_MIN_WIDTH,
 	SIDEBAR_WIDTH,
@@ -127,7 +135,7 @@ import { linuxFindTerminalPath } from 'src/modules/user-settings/lib/linux-termi
 import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { SiteServer, stopAllServers as triggerStopAllServers } from 'src/site-server';
-import { getSiteThumbnailPath } from 'src/storage/paths';
+import { getBundledNodeBinaryPath, getCliPath, getSiteThumbnailPath } from 'src/storage/paths';
 import {
 	loadUserData,
 	lockAppdata,
@@ -2319,4 +2327,39 @@ export async function updateSitesSortOrder(
 	} finally {
 		await unlockAppdata();
 	}
+}
+
+export async function getRemoteSessionDaemonStatus(
+	_event: IpcMainInvokeEvent
+): Promise< DaemonStatus > {
+	return getDaemonStatus();
+}
+
+export async function startRemoteSessionDaemon(
+	_event: IpcMainInvokeEvent
+): Promise< StartDaemonResult > {
+	// From Electron main, `process.execPath` is the Electron binary and `process.argv[1]`
+	// is Studio's bundled entry — neither is the CLI. Pass explicit overrides so the
+	// detached child spawns Node executing the CLI's `code remote-session start` entry.
+	//
+	// `STUDIO_ENABLE_REMOTE_SESSION=true` is required: the CLI gates the entire
+	// `code remote-session` subcommand tree behind that env var (see
+	// `apps/cli/lib/feature-flags.ts`). Without it, the spawned child fails with
+	// "Unknown arguments: remote-session, start" before it can write its PID file,
+	// and the parent times out with DaemonStartTimeoutError. Studio's UI gate
+	// (`enableRemoteSessionUi`) is the user-facing opt-in, so we lift the CLI gate
+	// in the spawned child rather than asking users to also set the env var manually.
+	return startDaemon( {
+		execPath: getBundledNodeBinaryPath(),
+		cliEntry: getCliPath(),
+		env: {
+			STUDIO_ENABLE_REMOTE_SESSION: 'true',
+		},
+	} );
+}
+
+export async function stopRemoteSessionDaemon(
+	_event: IpcMainInvokeEvent
+): Promise< StopDaemonResult > {
+	return stopDaemon();
 }

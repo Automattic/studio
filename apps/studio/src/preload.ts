@@ -173,6 +173,9 @@ const api: IpcApi = {
 	setTitleBarBackdropEffect: ( enabled ) =>
 		ipcRendererInvoke( 'setTitleBarBackdropEffect', enabled ),
 	updateSitesSortOrder: ( updates ) => ipcRendererInvoke( 'updateSitesSortOrder', updates ),
+	getRemoteSessionDaemonStatus: () => ipcRendererInvoke( 'getRemoteSessionDaemonStatus' ),
+	startRemoteSessionDaemon: () => ipcRendererInvoke( 'startRemoteSessionDaemon' ),
+	stopRemoteSessionDaemon: () => ipcRendererInvoke( 'stopRemoteSessionDaemon' ),
 	isStudioCliInstalled: () => ipcRendererInvoke( 'isStudioCliInstalled' ),
 	installStudioCli: () => ipcRendererInvoke( 'installStudioCli' ),
 	uninstallStudioCli: () => ipcRendererInvoke( 'uninstallStudioCli' ),

@@ -25,6 +25,7 @@ import { LinkFromUrlDialog } from '@/ui-desks/chrome/link-from-url-dialog';
 import { canvasShapeToDeskWidget } from '@/ui-desks/desk/tldraw-adapter';
 import { collapseStackInEditor, expandStackInEditor } from '@/ui-desks/stacks/editor-commands';
 import { createStackId, getStackId, isStackExpanded } from '@/ui-desks/stacks/utils';
+import { ARTEFACT_WIDGET_TYPE } from '@/ui-desks/widgets/artefact/types';
 import { NOTE_WIDGET_TYPE } from '@/ui-desks/widgets/note/types';
 import { pageWidgetDefinition } from '@/ui-desks/widgets/page/definition';
 import { PAGE_WIDGET_TYPE } from '@/ui-desks/widgets/page/types';
@@ -451,7 +452,8 @@ export function DeskCanvasContextMenu( { editor, state, onClose }: DeskCanvasCon
 
 		if (
 			singleWidget.type === NOTE_WIDGET_TYPE ||
-			singleWidget.type === SITE_PREVIEW_WIDGET_TYPE
+			singleWidget.type === SITE_PREVIEW_WIDGET_TYPE ||
+			singleWidget.type === ARTEFACT_WIDGET_TYPE
 		) {
 			editor.setEditingShape( singleShape.id );
 			return;
@@ -714,7 +716,11 @@ function canEditWidget(
 	widget: DeskWidget,
 	{ hasRunningSite, hasSiteId }: { hasRunningSite: boolean; hasSiteId: boolean }
 ) {
-	if ( widget.type === NOTE_WIDGET_TYPE || widget.type === SITE_PREVIEW_WIDGET_TYPE ) {
+	if (
+		widget.type === NOTE_WIDGET_TYPE ||
+		widget.type === SITE_PREVIEW_WIDGET_TYPE ||
+		widget.type === ARTEFACT_WIDGET_TYPE
+	) {
 		return true;
 	}
 

@@ -1,4 +1,5 @@
 import type { ControlConfig } from '@/ui-desks/controls/types';
+import type { ArtefactWidget } from '@/ui-desks/widgets/artefact/types';
 import type { BlogWidget } from '@/ui-desks/widgets/blog/types';
 import type { BookmarkWidget } from '@/ui-desks/widgets/bookmark/types';
 import type { DrawingWidget } from '@/ui-desks/widgets/drawing/types';
@@ -212,6 +213,7 @@ export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBa
 }
 
 export type DeskWidget =
+	| ArtefactWidget
 	| BookmarkWidget
 	| BlogWidget
 	| DrawingWidget
@@ -224,6 +226,7 @@ export type DeskWidget =
 	| PostCollectionWidget
 	| SitePreviewWidget;
 export type DeskWidgetDefinition =
+	| WidgetDefinition< ArtefactWidget >
 	| WidgetDefinition< BookmarkWidget >
 	| WidgetDefinition< BlogWidget >
 	| WidgetDefinition< DrawingWidget >

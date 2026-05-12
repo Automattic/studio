@@ -27,7 +27,6 @@ export interface ControlRenderContext<
 > {
 	isOpen: boolean;
 	setIsOpen: ( isOpen: boolean ) => void;
-	fitSelectedWidgetToContent?: () => boolean;
 	updateProps: ( props: Record< string, unknown > ) => void;
 	props: TProps;
 }
@@ -64,7 +63,6 @@ export interface ControlRendererProps {
 	control: AnyControlConfig;
 	isOpen: boolean;
 	setIsOpen: ( isOpen: boolean ) => void;
-	fitSelectedWidgetToContent?: () => boolean;
 	updateProps: ( props: Record< string, unknown > ) => void;
 	props: Record< string, unknown >;
 }

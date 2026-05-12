@@ -444,12 +444,12 @@ export function DeskProvider( {
 		[ editor, isHydrated, isReadOnly ]
 	);
 
-	const fitSelectedWidgetToContent = useCallback( () => {
+	const fitSelectedWidgetToContent = useCallback( async () => {
 		if (
 			isReadOnly ||
 			! editor ||
 			! isHydrated ||
-			! fitSelectedWidgetToContentInEditor( editor )
+			! ( await fitSelectedWidgetToContentInEditor( editor ) )
 		) {
 			return false;
 		}

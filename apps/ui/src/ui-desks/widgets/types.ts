@@ -172,6 +172,15 @@ export interface WidgetResolver<
 	) => boolean;
 }
 
+export interface WidgetFitContentContext< TWidget extends DeskWidgetBase = DeskWidgetBase > {
+	widgetProps: TWidget[ 'widgetProps' ];
+	shapeProps: TWidget[ 'shapeProps' ];
+}
+
+export type WidgetFitContentResult< TWidget extends DeskWidgetBase = DeskWidgetBase > =
+	| TWidget[ 'shapeProps' ]
+	| null;
+
 export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBase > {
 	type: TWidget[ 'type' ];
 	name: () => string;
@@ -189,6 +198,9 @@ export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBa
 	getSummary?: ( widgetProps: TWidget[ 'widgetProps' ] ) => string;
 	getLoadingShapeProps?: ( widget: TWidget ) => TWidget[ 'shapeProps' ];
 	getIndicator?: ( widgetProps: TWidget[ 'widgetProps' ] ) => WidgetIndicator;
+	getFittedShapeProps?: (
+		context: WidgetFitContentContext< TWidget >
+	) => WidgetFitContentResult< TWidget > | Promise< WidgetFitContentResult< TWidget > >;
 	resolver?: WidgetResolver< TWidget >;
 	fileHandlers?: Array< WidgetFileHandler< TWidget > >;
 	pasteHandlers?: Array< WidgetPasteHandler< TWidget > >;

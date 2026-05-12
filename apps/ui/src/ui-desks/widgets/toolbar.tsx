@@ -1,5 +1,5 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { group, trash, ungroup } from '@wordpress/icons';
+import { group, trash, ungroup, update } from '@wordpress/icons';
 import { useEffect, useState } from 'react';
 import { ChatButton } from '@/ui-desks/chats/chat-button';
 import { SelectionChatDialog } from '@/ui-desks/chats/selection-chat-dialog';
@@ -39,6 +39,10 @@ export function DeskWidgetToolbar() {
 
 	const controls =
 		renderSelection.kind === 'single-widget' ? renderSelection.definition.controls : undefined;
+	const canFitSelectedWidgetToContent =
+		renderSelection.kind === 'single-widget' &&
+		Boolean( renderSelection.definition.getFittedShapeProps ) &&
+		renderSelection.definition.isWidgetProps( renderSelection.widget.widgetProps );
 	const canRenderControls =
 		renderSelection.kind === 'single-widget' &&
 		Boolean( controls?.length ) &&
@@ -63,12 +67,21 @@ export function DeskWidgetToolbar() {
 						) }
 					</span>
 				) }
+				{ canFitSelectedWidgetToContent && (
+					<IconControlButton
+						icon={ update }
+						label={ __( 'Fit to size' ) }
+						variant="toolbar"
+						onClick={ () => {
+							void fitSelectedWidgetToContent();
+						} }
+					/>
+				) }
 				{ canRenderControls &&
 					controls?.map( ( control ) => (
 						<ControlRenderer
 							key={ control.id }
 							control={ control }
-							fitSelectedWidgetToContent={ fitSelectedWidgetToContent }
 							isOpen={ openControlId === control.id }
 							props={ renderSelection.widget.widgetProps }
 							setIsOpen={ ( isOpen ) => setOpenControlId( isOpen ? control.id : null ) }

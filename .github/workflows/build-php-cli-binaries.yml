@@ -156,10 +156,10 @@ jobs:
             --enable-xml=shared \
             --enable-xmlreader=shared \
             --enable-xmlwriter=shared \
-            --with-bz2=shared \
+            --with-bz2=shared,$(brew --prefix bzip2) \
             --with-curl=shared \
             --with-gd=shared \
-            --with-iconv=shared \
+            --with-iconv=shared,$(brew --prefix libiconv) \
             --with-jpeg \
             --with-mysqli=shared,mysqlnd \
             --with-openssl=shared \
@@ -167,7 +167,7 @@ jobs:
             --with-pdo-sqlite=shared \
             --with-sqlite3=shared \
             --with-zip=shared \
-            --with-zlib=shared
+            --with-zlib=shared,$(brew --prefix zlib)
 
           make -j"$(sysctl -n hw.ncpu)"
           make install

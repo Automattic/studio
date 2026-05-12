@@ -201,6 +201,10 @@ jobs:
           grep -q 'LIBS="$LIBS $CURL_LIBS"' "$curl_config"
 
           ./buildconf --force
+          curl_static_link="$spc_root/lib/libcurl.a -framework CoreFoundation -framework CoreServices -framework SystemConfiguration"
+          CURL_STATIC_LINK="$curl_static_link" perl -0pi -e 's/-lcurl/$ENV{CURL_STATIC_LINK}/g' configure
+          grep -Fq "$spc_root/lib/libcurl.a" configure
+
           ./configure \
             --prefix="$staging_dir" \
             --with-config-file-path="$staging_dir/etc" \

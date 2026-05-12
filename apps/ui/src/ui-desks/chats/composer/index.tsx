@@ -3,7 +3,7 @@ import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-type
 import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
 import { useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
-import { arrowUp, chevronDownSmall, code } from '@wordpress/icons';
+import { arrowUp, chevronDownSmall, closeSmall, code } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -253,6 +253,29 @@ export function Composer( {
 				className={ styles.root }
 				data-active={ canSend || contextWidgets.length > 0 ? 'true' : 'false' }
 			>
+				{ contextWidgets.length > 0 && (
+					<div className={ styles.attachments } aria-label={ __( 'Attached canvas widgets' ) }>
+						{ contextWidgets.map( ( widget ) => (
+							<div
+								key={ widget.id }
+								className={ styles.attachment }
+								aria-label={ getWidgetDisplayLabel( widget ) }
+								title={ getWidgetDisplayLabel( widget ) }
+							>
+								<WidgetContextThumbnail widget={ widget } />
+								<button
+									type="button"
+									className={ styles.removeAttachment }
+									aria-label={ getRemoveWidgetAttachmentLabel( widget ) }
+									title={ getRemoveWidgetAttachmentLabel( widget ) }
+									onClick={ () => removeContextWidget( widget.id ) }
+								>
+									<Icon icon={ closeSmall } size={ 16 } />
+								</button>
+							</div>
+						) ) }
+					</div>
+				) }
 				<form
 					className={ styles.prompt }
 					data-ui-desks-composer-dropzone
@@ -387,22 +410,6 @@ export function Composer( {
 							</button>
 						</div>
 					</div>
-					{ contextWidgets.length > 0 && (
-						<div className={ styles.attachments } aria-label={ __( 'Attached canvas widgets' ) }>
-							{ contextWidgets.map( ( widget ) => (
-								<button
-									key={ widget.id }
-									type="button"
-									className={ styles.attachment }
-									aria-label={ getRemoveWidgetAttachmentLabel( widget ) }
-									title={ getRemoveWidgetAttachmentLabel( widget ) }
-									onClick={ () => removeContextWidget( widget.id ) }
-								>
-									<WidgetContextThumbnail widget={ widget } />
-								</button>
-							) ) }
-						</div>
-					) }
 				</form>
 				{ error ? <div className={ styles.error }>{ error }</div> : null }
 			</div>

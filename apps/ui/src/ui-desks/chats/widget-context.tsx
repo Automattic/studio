@@ -46,9 +46,10 @@ export function WidgetContextThumbnail( { widget }: { widget: DeskWidget } ) {
 		return null;
 	}
 
+	const hasCustomThumbnail = Boolean( definition.thumbnail );
 	const Thumbnail = ( definition.thumbnail ??
 		definition.Component ) as unknown as WidgetThumbnailComponent;
-	const geometry = getWidgetThumbnailGeometry( widget );
+	const geometry = getWidgetThumbnailGeometry( widget, hasCustomThumbnail );
 	const frameStyle = {
 		width: `${ geometry.width }px`,
 		height: `${ geometry.height }px`,
@@ -60,19 +61,27 @@ export function WidgetContextThumbnail( { widget }: { widget: DeskWidget } ) {
 	} satisfies CSSProperties;
 	const label = getWidgetDisplayLabel( widget );
 
+	const thumbnail = (
+		<Thumbnail
+			id={ widget.id }
+			widgetProps={ widget.widgetProps }
+			isEditing={ false }
+			isHovered={ false }
+			isSelected={ false }
+			onWidgetPropsChange={ noopWidgetPropsChange }
+			onEditComplete={ noopWidgetEditComplete }
+		/>
+	);
+
 	return (
 		<div className={ styles.thumbnail } style={ frameStyle } aria-label={ label } title={ label }>
-			<div className={ styles.thumbnailInner } style={ innerStyle }>
-				<Thumbnail
-					id={ widget.id }
-					widgetProps={ widget.widgetProps }
-					isEditing={ false }
-					isHovered={ false }
-					isSelected={ false }
-					onWidgetPropsChange={ noopWidgetPropsChange }
-					onEditComplete={ noopWidgetEditComplete }
-				/>
-			</div>
+			{ hasCustomThumbnail ? (
+				thumbnail
+			) : (
+				<div className={ styles.thumbnailInner } style={ innerStyle }>
+					{ thumbnail }
+				</div>
+			) }
 		</div>
 	);
 }
@@ -142,7 +151,17 @@ export function getWidgetDisplayLabel( widget: DeskWidget ) {
 	return summary ? `${ getWidgetTypeLabel( widget ) }: ${ summary }` : getWidgetTypeLabel( widget );
 }
 
-function getWidgetThumbnailGeometry( widget: DeskWidget ) {
+function getWidgetThumbnailGeometry( widget: DeskWidget, hasCustomThumbnail: boolean ) {
+	if ( hasCustomThumbnail ) {
+		return {
+			sourceWidth: WIDGET_THUMBNAIL_MAX_SIZE,
+			sourceHeight: WIDGET_THUMBNAIL_FALLBACK_SIZE,
+			scale: 1,
+			width: WIDGET_THUMBNAIL_MAX_SIZE,
+			height: WIDGET_THUMBNAIL_FALLBACK_SIZE,
+		};
+	}
+
 	const sourceWidth = getThumbnailSourceSize( widget.shapeProps.w );
 	const sourceHeight = getThumbnailSourceSize( widget.shapeProps.h );
 	const scale = Math.min( 1, WIDGET_THUMBNAIL_MAX_SIZE / Math.max( sourceWidth, sourceHeight ) );

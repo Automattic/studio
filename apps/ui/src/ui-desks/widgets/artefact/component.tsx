@@ -1,7 +1,9 @@
 import { __ } from '@wordpress/i18n';
+import { blockDefault, page, reusableBlock } from '@wordpress/icons';
+import { Icon } from '@wordpress/ui';
 import { useCallback, useEffect, useRef, type KeyboardEvent, type PointerEvent } from 'react';
 import styles from './style.module.css';
-import { ARTEFACT_WIDGET_TYPE, type ArtefactWidgetProps } from './types';
+import { ARTEFACT_WIDGET_TYPE, type ArtefactScope, type ArtefactWidgetProps } from './types';
 import type {
 	DeskWidgetComponentProps,
 	DeskWidgetThumbnailComponentProps,
@@ -152,24 +154,19 @@ export function ArtefactWidgetThumbnailComponent( {
 			data-studio-desk-widget={ ARTEFACT_WIDGET_TYPE }
 			data-studio-desk-widget-id={ id }
 		>
-			<div className={ styles.thumbnailPreview }>
-				{ widgetProps.html ? (
-					<iframe
-						className={ styles.thumbnailFrame }
-						title={ widgetProps.title || __( 'Artefact' ) }
-						srcDoc={ widgetProps.html }
-						sandbox=""
-						referrerPolicy="no-referrer"
-						tabIndex={ -1 }
-					/>
-				) : (
-					<div className={ styles.thumbnailEmpty }>{ __( 'Empty artefact' ) }</div>
-				) }
-				<div className={ styles.thumbnailShield } aria-hidden="true" />
-			</div>
-			<div className={ styles.thumbnailTitle }>
-				{ widgetProps.title || __( 'Untitled artefact' ) }
-			</div>
+			<Icon icon={ getArtefactScopeIcon( widgetProps.scope ) } size={ 24 } />
+			<div className={ styles.thumbnailTitle }>{ widgetProps.title || __( 'Artefact' ) }</div>
 		</div>
 	);
+}
+
+function getArtefactScopeIcon( scope: ArtefactScope ) {
+	switch ( scope ) {
+		case 'page':
+			return page;
+		case 'pattern':
+			return reusableBlock;
+		case 'block':
+			return blockDefault;
+	}
 }

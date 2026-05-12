@@ -5,7 +5,10 @@ import { LoadingPlaceholder } from '@/ui-desks/components';
 import { CONTENT_CARD_STATUSES, getPostStatusInfo } from '@/ui-desks/widgets/post-status';
 import styles from './style.module.css';
 import type { PageWidgetProps } from './types';
-import type { DeskWidgetComponentProps } from '@/ui-desks/widgets/types';
+import type {
+	DeskWidgetComponentProps,
+	DeskWidgetThumbnailComponentProps,
+} from '@/ui-desks/widgets/types';
 
 type PageWidgetComponentProps = DeskWidgetComponentProps< PageWidgetProps >;
 type PageCardRecord = CoreDataPost & {
@@ -80,6 +83,47 @@ export function PageWidgetComponent( { id, widgetProps }: PageWidgetComponentPro
 				</div>
 			) }
 			{ slug && <div className={ styles.slug }>/{ slug }</div> }
+		</article>
+	);
+}
+
+export function PageWidgetThumbnailComponent( {
+	id,
+	widgetProps,
+}: DeskWidgetThumbnailComponentProps< PageWidgetProps > ) {
+	const query = useMemo(
+		() => ( {
+			include: [ widgetProps.pageId ],
+			per_page: 1,
+			context: 'edit',
+			status: CONTENT_CARD_STATUSES,
+			_fields: 'id,title,slug,status',
+		} ),
+		[ widgetProps.pageId ]
+	);
+	const {
+		records,
+		isResolving,
+		status: resolutionStatus,
+	} = useEntityRecords< PageCardRecord >( 'postType', 'page', query, {
+		enabled: widgetProps.pageId > 0,
+	} );
+	const record = records?.[ 0 ] ?? null;
+	const title = getPageTitle( record, isResolving, resolutionStatus === 'ERROR' );
+	const slug = record?.slug ? `/${ record.slug }` : '';
+
+	return (
+		<article
+			className={ styles.contextThumbnail }
+			data-tone={ widgetProps.tone }
+			data-studio-desk-widget="page"
+			data-studio-desk-widget-id={ id }
+		>
+			<div
+				className={ styles.contextThumbnailTitle }
+				dangerouslySetInnerHTML={ { __html: title } }
+			/>
+			{ slug && <div className={ styles.contextThumbnailSlug }>{ slug }</div> }
 		</article>
 	);
 }

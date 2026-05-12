@@ -1,6 +1,9 @@
 import { __ } from '@wordpress/i18n';
 import { verse } from '@wordpress/icons';
-import { DrawingWidgetComponent } from '@/ui-desks/widgets/drawing/component';
+import {
+	DrawingWidgetComponent,
+	DrawingWidgetThumbnailComponent,
+} from '@/ui-desks/widgets/drawing/component';
 import {
 	DRAWING_WIDGET_TYPE,
 	isDrawingWidgetProps,
@@ -12,6 +15,7 @@ export const drawingWidgetDefinition = {
 	type: DRAWING_WIDGET_TYPE,
 	name: () => __( 'Drawing' ),
 	Component: DrawingWidgetComponent,
+	thumbnail: DrawingWidgetThumbnailComponent,
 	isWidgetProps: isDrawingWidgetProps,
 	labels: {
 		add: () => __( 'New drawing' ),

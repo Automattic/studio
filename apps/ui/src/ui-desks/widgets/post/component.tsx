@@ -8,7 +8,10 @@ import { CONTENT_CARD_STATUSES, getPostStatusInfo } from '@/ui-desks/widgets/pos
 import styles from './style.module.css';
 import { useCommentCount } from './use-comment-count';
 import type { PostWidgetProps } from './types';
-import type { DeskWidgetComponentProps } from '@/ui-desks/widgets/types';
+import type {
+	DeskWidgetComponentProps,
+	DeskWidgetThumbnailComponentProps,
+} from '@/ui-desks/widgets/types';
 
 type PostWidgetComponentProps = DeskWidgetComponentProps< PostWidgetProps >;
 type EmbeddedFeaturedMedia = {
@@ -108,6 +111,43 @@ export function PostWidgetComponent( { id, widgetProps }: PostWidgetComponentPro
 					) }
 				</div>
 			) }
+		</article>
+	);
+}
+
+export function PostWidgetThumbnailComponent( {
+	id,
+	widgetProps,
+}: DeskWidgetThumbnailComponentProps< PostWidgetProps > ) {
+	const query = useMemo(
+		() => ( {
+			include: [ widgetProps.postId ],
+			per_page: 1,
+			context: 'edit',
+			status: CONTENT_CARD_STATUSES,
+			_fields: 'id,title,status',
+		} ),
+		[ widgetProps.postId ]
+	);
+	const {
+		records,
+		isResolving,
+		status: resolutionStatus,
+	} = useEntityRecords< PostCardRecord >( 'postType', 'post', query, {
+		enabled: widgetProps.postId > 0,
+	} );
+	const title = getPostTitle( records?.[ 0 ] ?? null, isResolving, resolutionStatus === 'ERROR' );
+
+	return (
+		<article
+			className={ styles.contextThumbnail }
+			data-studio-desk-widget="post"
+			data-studio-desk-widget-id={ id }
+		>
+			<div
+				className={ styles.contextThumbnailTitle }
+				dangerouslySetInnerHTML={ { __html: title } }
+			/>
 		</article>
 	);
 }

@@ -43,7 +43,8 @@ jobs:
             artifact_arch: aarch64
             archive_extension: tar.gz
             binary_name: php
-            extensions: &macos_php_extensions apcu,bcmath,calendar,ctype,curl,dba,dom,exif,fileinfo,filter,ftp,gd,gettext,iconv,igbinary,imagick,intl,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pcntl,pdo,pdo_mysql,pdo_sqlite,phar,posix,readline,redis,session,shmop,simplexml,sockets,sodium,sqlite3,ssh2,tokenizer,xdebug,xml,xmlreader,xmlwriter,xsl,yaml,zip,zlib
+            extensions: &macos_php_extensions apcu,bcmath,calendar,ctype,curl,dba,dom,exif,fileinfo,filter,ftp,gd,gettext,iconv,igbinary,imagick,intl,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pcntl,pdo,pdo_mysql,pdo_sqlite,phar,posix,readline,redis,session,shmop,simplexml,sockets,sodium,sqlite3,ssh2,tokenizer,xml,xmlreader,xmlwriter,xsl,yaml,zip,zlib
+            shared_extensions: xdebug
           - target: macos-x86_64
             runner: macos-15-intel
             artifact_platform: macos
@@ -51,6 +52,7 @@ jobs:
             archive_extension: tar.gz
             binary_name: php
             extensions: *macos_php_extensions
+            shared_extensions: xdebug
           - target: windows-x86_64
             runner: windows-latest
             artifact_platform: windows
@@ -58,7 +60,10 @@ jobs:
             archive_extension: zip
             binary_name: php.exe
             # static-php-cli 2.8.5 has Windows builders for intl and sodium, but not gettext/libxslt.
-            extensions: apcu,bcmath,calendar,ctype,curl,dba,dom,exif,fileinfo,filter,ftp,gd,iconv,igbinary,intl,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pdo,pdo_mysql,pdo_sqlite,phar,redis,session,shmop,simplexml,sockets,sodium,sqlite3,ssh2,tokenizer,xdebug,xml,xmlreader,xmlwriter,yaml,zip,zlib
+            # Xdebug is only buildable as a shared extension, and static-php-cli's
+            # Windows static PHP cannot load normal dynamic extension DLLs.
+            extensions: apcu,bcmath,calendar,ctype,curl,dba,dom,exif,fileinfo,filter,ftp,gd,iconv,igbinary,intl,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pdo,pdo_mysql,pdo_sqlite,phar,redis,session,shmop,simplexml,sockets,sodium,sqlite3,ssh2,tokenizer,xml,xmlreader,xmlwriter,yaml,zip,zlib
+            shared_extensions: ''
     env:
       PHP_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.php_version || '8.4.20' }}
       SPC_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.spc_ref || '2.8.5' }}
@@ -67,6 +72,7 @@ jobs:
       PHP_CLI_ARTIFACT_ARCH: ${{ matrix.artifact_arch }}
       PHP_CLI_ARCHIVE_EXTENSION: ${{ matrix.archive_extension }}
       PHP_CLI_BINARY_NAME: ${{ matrix.binary_name }}
+      PHP_CLI_SHARED_EXTENSIONS: ${{ matrix.shared_extensions }}
       PREFER_PRE_BUILT: ${{ github.event_name != 'workflow_dispatch' || inputs.prefer_pre_built }}
       SPC_DEBUG: ${{ github.event_name == 'workflow_dispatch' && inputs.debug || false }}
 
@@ -103,8 +109,17 @@ jobs:
         run: |
           set -euo pipefail
 
-          download_args=(--with-php="$PHP_VERSION" --for-extensions="$PHP_CLI_EXTENSIONS" --ignore-cache-sources=php-src)
+          extensions_to_download="$PHP_CLI_EXTENSIONS"
+          if [ -n "$PHP_CLI_SHARED_EXTENSIONS" ]; then
+            extensions_to_download="$extensions_to_download,$PHP_CLI_SHARED_EXTENSIONS"
+          fi
+
+          download_args=(--with-php="$PHP_VERSION" --for-extensions="$extensions_to_download" --ignore-cache-sources=php-src)
           build_args=("$PHP_CLI_EXTENSIONS" --build-cli)
+
+          if [ -n "$PHP_CLI_SHARED_EXTENSIONS" ]; then
+            build_args+=(--build-shared="$PHP_CLI_SHARED_EXTENSIONS")
+          fi
 
           if [ "$PREFER_PRE_BUILT" = "true" ]; then
             download_args+=(--prefer-pre-built)
@@ -119,17 +134,37 @@ jobs:
           php bin/spc download "${download_args[@]}"
           php bin/spc build "${build_args[@]}"
 
+      - name: Verify Xdebug extension
+        if: env.PHP_CLI_SHARED_EXTENSIONS == 'xdebug'
+        working-directory: .cache/static-php-cli
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          xdebug_extension="buildroot/modules/xdebug.so"
+          test -f "$xdebug_extension"
+          buildroot/bin/php -d "zend_extension=$xdebug_extension" --ri xdebug
+
       - name: Build PHP CLI on Windows
         if: runner.os == 'Windows'
         working-directory: .cache/static-php-cli
         shell: pwsh
         run: |
+          $extensionsToDownload = $env:PHP_CLI_EXTENSIONS
+          if ( -not [string]::IsNullOrEmpty( $env:PHP_CLI_SHARED_EXTENSIONS ) ) {
+            $extensionsToDownload = "$extensionsToDownload,$env:PHP_CLI_SHARED_EXTENSIONS"
+          }
+
           $downloadArgs = @(
             "--with-php=$env:PHP_VERSION",
-            "--for-extensions=$env:PHP_CLI_EXTENSIONS",
+            "--for-extensions=$extensionsToDownload",
             "--ignore-cache-sources=php-src"
           )
           $buildArgs = @( $env:PHP_CLI_EXTENSIONS, "--build-cli" )
+
+          if ( -not [string]::IsNullOrEmpty( $env:PHP_CLI_SHARED_EXTENSIONS ) ) {
+            $buildArgs += "--build-shared=$env:PHP_CLI_SHARED_EXTENSIONS"
+          }
 
           if ( $env:PREFER_PRE_BUILT -eq "true" ) {
             $downloadArgs += "--prefer-pre-built"
@@ -152,12 +187,24 @@ jobs:
 
           out_dir="$GITHUB_WORKSPACE/out/php-binaries"
           artifact="php-${PHP_VERSION}-cli-${PHP_CLI_ARTIFACT_PLATFORM}-${PHP_CLI_ARTIFACT_ARCH}.${PHP_CLI_ARCHIVE_EXTENSION}"
+          staging_dir="$RUNNER_TEMP/php-artifact"
 
           mkdir -p "$out_dir"
-          cp "$GITHUB_WORKSPACE/.cache/static-php-cli/buildroot/bin/$PHP_CLI_BINARY_NAME" "$RUNNER_TEMP/php"
-          chmod +x "$RUNNER_TEMP/php"
-          xattr -cr "$RUNNER_TEMP/php"
-          tar -czf "$out_dir/$artifact" -C "$RUNNER_TEMP" php
+          rm -rf "$staging_dir"
+          mkdir -p "$staging_dir"
+
+          cp "$GITHUB_WORKSPACE/.cache/static-php-cli/buildroot/bin/$PHP_CLI_BINARY_NAME" "$staging_dir/php"
+          chmod +x "$staging_dir/php"
+          xattr -cr "$staging_dir/php"
+          artifact_files=(php)
+
+          if [ -n "$PHP_CLI_SHARED_EXTENSIONS" ]; then
+            cp "$GITHUB_WORKSPACE/.cache/static-php-cli/buildroot/modules/xdebug.so" "$staging_dir/xdebug.so"
+            xattr -cr "$staging_dir/xdebug.so"
+            artifact_files+=(xdebug.so)
+          fi
+
+          tar -czf "$out_dir/$artifact" -C "$staging_dir" "${artifact_files[@]}"
           shasum -a 256 "$out_dir/$artifact" | awk '{print $1}' > "$out_dir/$artifact.sha256"
 
       - name: Package Windows artifact

@@ -191,8 +191,10 @@ jobs:
 
           "$PKG_CONFIG" --version
           "$PKG_CONFIG" --modversion libxml-2.0
+          curl_frameworks="-framework CoreFoundation -framework CoreServices -framework SystemConfiguration"
           export CURL_CFLAGS="$("$PKG_CONFIG" --cflags libcurl)"
-          export CURL_LIBS="$("$PKG_CONFIG" --libs libcurl) -framework CoreFoundation -framework CoreServices -framework SystemConfiguration"
+          export CURL_LIBS="$("$PKG_CONFIG" --libs libcurl) $curl_frameworks"
+          export LIBS="$curl_frameworks ${LIBS:-}"
 
           cd "$work_dir/php-${PHP_VERSION}"
           curl_config="$PWD/ext/curl/config.m4"
@@ -201,7 +203,7 @@ jobs:
           grep -q 'LIBS="$LIBS $CURL_LIBS"' "$curl_config"
 
           ./buildconf --force
-          curl_static_link="$spc_root/lib/libcurl.a -framework CoreFoundation -framework CoreServices -framework SystemConfiguration"
+          curl_static_link="$spc_root/lib/libcurl.a $curl_frameworks"
           CURL_STATIC_LINK="$curl_static_link" perl -0pi -e 's/-lcurl/$ENV{CURL_STATIC_LINK}/g' configure
           grep -Fq "$spc_root/lib/libcurl.a" configure
 
@@ -244,6 +246,8 @@ jobs:
             --with-sqlite3=shared \
             --with-zip=shared \
             --with-zlib=shared,$spc_root
+
+          grep -E 'CoreFoundation|SystemConfiguration|CoreServices' Makefile
 
           make -j"$(sysctl -n hw.ncpu)"
           make install

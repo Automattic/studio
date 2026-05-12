@@ -445,7 +445,7 @@ Telegram caps message bodies at 4096 chars. Use `max_message_chars` (default 380
 
 ### Markdown handling
 
-`studio code` returns Markdown via the result event. Pass through unchanged in v1; the server-side already handles Markdown→Telegram-HTML conversion for the existing Dolly path. The implementing agent MUST verify this against the `/local-agent-respond` endpoint before coding (see Open question 1 below).
+`studio code` returns Markdown via the result event. Pass through unchanged in v1; the server-side already handles Markdown→Telegram-HTML conversion for the existing WordPress Agent path (formerly known as Dolly). The implementing agent MUST verify this against the `/local-agent-respond` endpoint before coding (see Open question 1 below).
 
 If conversion is NOT done server-side, do minimal local processing: strip ANSI escape codes, leave Markdown as-is.
 

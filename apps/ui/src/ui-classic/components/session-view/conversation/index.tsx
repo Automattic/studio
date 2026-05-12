@@ -11,7 +11,7 @@ import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useMemo, useState } from 'react';
 import { Markdown } from '@/components/markdown';
-import { ThinkingIndicator } from '@/components/session-view/thinking-indicator';
+import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
 import type { LoadedAiSession } from '@/data/core';
 import type { SessionEntry } from '@mariozechner/pi-coding-agent';

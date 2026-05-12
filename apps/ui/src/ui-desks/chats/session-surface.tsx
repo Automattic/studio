@@ -13,9 +13,6 @@ import {
 	type ReactNode,
 	type Ref,
 } from 'react';
-import { EmptyBackground } from '@/components/session-view/empty-background';
-import { QueuedPrompts } from '@/components/session-view/queued-prompts';
-import sessionStyles from '@/components/session-view/style.module.css';
 import { useAgentRun } from '@/data/queries/use-agent-run';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import {
@@ -29,6 +26,9 @@ import { SessionUIProvider } from '@/hooks/use-session-ui';
 import { Composer, ComposerSkeleton } from './composer';
 import { pickLiveSite } from './composer/environment-pill';
 import { Conversation } from './conversation';
+import { EmptyBackground } from './empty-background';
+import { QueuedPrompts } from './queued-prompts';
+import sessionStyles from './session-layout.module.css';
 import styles from './style.module.css';
 import type { PendingChatPrompt } from './context';
 

@@ -8,7 +8,6 @@ import {
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo, useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
-import StudioButton from 'src/components/button';
 import { EMPTY_SITE_PLAYGROUND_URL } from 'src/constants';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -42,17 +41,18 @@ interface NewSiteOptionsProps {
 function PreviewLink( { url }: { url: string } ) {
 	const { __ } = useI18n();
 	return (
-		<StudioButton
-			variant="secondary"
-			onClick={ ( e: React.MouseEvent< HTMLButtonElement > ) => {
+		<a
+			href={ url }
+			onClick={ ( e: React.MouseEvent< HTMLAnchorElement > ) => {
+				e.preventDefault();
 				e.stopPropagation();
 				getIpcApi().openURL( url );
 			} }
-			className="!absolute bottom-2 right-2 z-10 !px-2 !py-1 !h-auto !min-h-0 text-[11px] !bg-white/90 hover:!bg-white !text-a8c-gray-900 hover:!text-a8c-gray-900 !shadow-none whitespace-nowrap"
+			className="!absolute bottom-2 right-2 z-10 inline-flex items-center gap-1 !px-2 !py-1 !h-auto !min-h-0 text-[11px] !bg-white/90 hover:!bg-white !text-a8c-gray-900 hover:!text-a8c-gray-900 !shadow-none whitespace-nowrap rounded-sm no-underline border border-a8c-gray-5"
 		>
 			{ __( 'Live Preview' ) }
 			<ArrowIcon />
-		</StudioButton>
+		</a>
 	);
 }
 

@@ -1,8 +1,8 @@
 import { getAiModelFamily } from '@studio/common/ai/models';
+import { getAiModelLabel, type AiModelId } from '@studio/common/ai/models';
 import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, sprintf } from '@wordpress/i18n';
-import { getAiModelLabel, type AiModelId } from 'cli/ai/agent';
 import { getAvailableAiProviders, isAiProviderReady } from 'cli/ai/auth';
 import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
 import { captureCommandOutput } from 'cli/ai/tools';
@@ -10,6 +10,7 @@ import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { runCommand as runLogoutCommand } from 'cli/commands/auth/logout';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
+import { openBrowser } from 'cli/lib/browser';
 import { isRemoteSessionEnabled } from 'cli/lib/feature-flags';
 import { getSnapshotsFromConfig, isSnapshotExpired } from 'cli/lib/snapshots';
 import { LoggerError } from 'cli/logger';
@@ -523,6 +524,14 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 			return items.filter( ( item ) => item.value.startsWith( lower ) );
 		},
 		handler: runRemoteSessionSlashCommand,
+	},
+	{
+		name: 'swag',
+		description: __( 'Treat yourself to some WordPress swag' ),
+		handler: async () => {
+			await openBrowser( 'https://mercantile.wordpress.org/' );
+			return 'continue';
+		},
 	},
 	{
 		name: 'exit',

@@ -59,9 +59,8 @@ test.describe( 'Blueprints', () => {
 		// Upload blueprint file
 		await modal.selectBlueprintFile( blueprintPath );
 
-		// Wait for file to be processed and continue button to be enabled
-		await expect( modal.continueButton ).toBeEnabled( { timeout: 5000 } );
-		await modal.continueButton.click();
+		// Wait for the create form to appear (file upload navigates directly to it)
+		await expect( modal.siteNameInput ).toBeVisible( { timeout: 5000 } );
 
 		// Fill in site name
 		await modal.siteNameInput.fill( siteName );
@@ -95,9 +94,8 @@ test.describe( 'Blueprints', () => {
 		// Upload blueprint file
 		await modal.selectBlueprintFile( blueprintPath );
 
-		// Wait for file to be processed and continue button to be enabled
-		await expect( modal.continueButton ).toBeEnabled( { timeout: 5000 } );
-		await modal.continueButton.click();
+		// Wait for the create form to appear (file upload navigates directly to it)
+		await expect( modal.siteNameInput ).toBeVisible( { timeout: 5000 } );
 
 		// Fill in site name
 		await modal.siteNameInput.fill( siteName );
@@ -133,9 +131,8 @@ test.describe( 'Blueprints', () => {
 		// Upload blueprint file
 		await modal.selectBlueprintFile( blueprintPath );
 
-		// Wait for file to be processed and continue button to be enabled
-		await expect( modal.continueButton ).toBeEnabled( { timeout: 5000 } );
-		await modal.continueButton.click();
+		// Wait for the create form to appear (file upload navigates directly to it)
+		await expect( modal.siteNameInput ).toBeVisible( { timeout: 5000 } );
 
 		// Fill in site name
 		await modal.siteNameInput.fill( siteName );
@@ -169,9 +166,8 @@ test.describe( 'Blueprints', () => {
 		// Upload blueprint file
 		await modal.selectBlueprintFile( blueprintPath );
 
-		// Wait for file to be processed and continue button to be enabled
-		await expect( modal.continueButton ).toBeEnabled( { timeout: 5000 } );
-		await modal.continueButton.click();
+		// Wait for the create form to appear (file upload navigates directly to it)
+		await expect( modal.siteNameInput ).toBeVisible( { timeout: 5000 } );
 
 		// Fill in site name
 		await modal.siteNameInput.fill( siteName );
@@ -208,9 +204,8 @@ test.describe( 'Blueprints', () => {
 		// Upload blueprint file
 		await modal.selectBlueprintFile( blueprintPath );
 
-		// Wait for file to be processed and continue button to be enabled
-		await expect( modal.continueButton ).toBeEnabled( { timeout: 5000 } );
-		await modal.continueButton.click();
+		// Wait for the create form to appear (file upload navigates directly to it)
+		await expect( modal.siteNameInput ).toBeVisible( { timeout: 5000 } );
 
 		// Fill in site name
 		await modal.siteNameInput.fill( siteName );
@@ -247,9 +242,8 @@ test.describe( 'Blueprints', () => {
 		// Upload blueprint file
 		await modal.selectBlueprintFile( blueprintPath );
 
-		// Wait for file to be processed and continue button to be enabled
-		await expect( modal.continueButton ).toBeEnabled( { timeout: 5000 } );
-		await modal.continueButton.click();
+		// Wait for the create form to appear (file upload navigates directly to it)
+		await expect( modal.siteNameInput ).toBeVisible( { timeout: 5000 } );
 
 		// Fill in site name
 		await modal.siteNameInput.fill( siteName );

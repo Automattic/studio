@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { fork, type ChildProcess } from 'node:child_process';
 import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
-import type { AgentRunEvent } from './types';
+import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { JsonEvent } from '@studio/common/ai/json-events';
 import type { WebContents } from 'electron';
 
@@ -84,7 +84,7 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 	child.on( 'message', ( message ) => {
 		// The CLI's `Logger` also writes to this IPC channel with a different
 		// shape (`{ action, status, message }`) on error paths. Forward only
-		// messages that look like a JsonEvent.
+		// messages that look like the CLI JSON transport envelope.
 		if ( message && typeof message === 'object' && 'type' in message ) {
 			sendEvent( run, message as JsonEvent );
 		}

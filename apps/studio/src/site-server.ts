@@ -181,8 +181,16 @@ export class SiteServer {
 
 		const result = await createSiteViaCli( { ...options, siteId } );
 
+		server.details.port = result.port;
 		if ( result.running ) {
-			server.details.running = true;
+			const url = getAbsoluteUrl( server.details );
+			const startedDetails: StartedSiteDetails = {
+				...server.details,
+				running: true,
+				url,
+			};
+			server.details = startedDetails;
+			server.server.url = url;
 		}
 
 		return { server, details: server.details };

@@ -1,5 +1,8 @@
 import { type ChildProcess, spawn } from 'child_process';
 import readline from 'readline';
+import { findLastAssistant } from '@studio/common/ai/session-events';
+import type { AgentMessage } from '@mariozechner/pi-agent-core';
+import type { AgentSessionEvent } from '@mariozechner/pi-coding-agent';
 import type { JsonEvent, TurnCompletedStatus } from '@studio/common/ai/json-events';
 import type { RemoteSessionLogger } from 'cli/remote-session/logger';
 
@@ -13,11 +16,12 @@ export type TurnOutcomeStatus = TurnCompletedStatus | 'timeout' | 'spawn_error';
 export interface TurnOutcome {
 	status: TurnOutcomeStatus;
 	sessionId?: string;
-	/** `result` field from the SDK result event, or error text assembled from `errors[]`. */
+	/** Last assistant text from the terminal `agent_end`, or the message's
+	 * `errorMessage` when the turn errored without producing text. */
 	replyText?: string;
 	/** Flattened question + options when the turn ends with a paused AskUserQuestion. */
 	questions?: QuestionAsked[];
-	/** True when the underlying SDK result had `is_error: true`. */
+	/** True when the last assistant message's `stopReason` was `error` or `aborted`. */
 	isError: boolean;
 	/** Last ~2KB of stderr output from the child. */
 	stderrTail: string;
@@ -58,30 +62,24 @@ const STALE_SESSION_PATTERNS = [
 	/resume.*session.*(failed|invalid)/i,
 ];
 
-interface SdkResultLike {
-	type?: unknown;
-	subtype?: unknown;
-	result?: unknown;
-	session_id?: unknown;
-	is_error?: unknown;
-	errors?: unknown;
-	stop_reason?: unknown;
-	num_turns?: unknown;
+// The CLI wraps native pi `AgentSessionEvent` payloads inside the `'message'`
+// envelope; `agent_end` is the terminal event carrying the full message tail.
+// Pull the last assistant message's text + error state from there.
+interface PiAgentMessageLike {
+	role?: unknown;
+	content?: unknown;
+	stopReason?: unknown;
+	errorMessage?: unknown;
+	toolName?: unknown;
+	isError?: unknown;
 }
 
-interface SdkContentBlockLike {
+interface PiContentBlockLike {
 	type?: unknown;
 	text?: unknown;
 	name?: unknown;
+	arguments?: unknown;
 	input?: unknown;
-	tool_use_id?: unknown;
-	content?: unknown;
-	is_error?: unknown;
-}
-
-interface SdkAssistantOrUserLike {
-	type?: unknown;
-	message?: { content?: unknown } | null;
 }
 
 const STEP_TEXT_PREVIEW_CHARS = 200;
@@ -104,22 +102,20 @@ function previewToolInput( input: unknown ): string {
 }
 
 /**
- * Extract the concatenated text content from an SDK assistant message. Returns
- * an empty string when the message is not from the assistant or contains no
- * text blocks. Used as a fallback when the SDK result event arrives with an
- * empty `result` field (see issue: pi runtime emits empty result on agent_end).
+ * Extract concatenated text from a native pi assistant message. Used as a
+ * fallback if the terminal `agent_end` arrives without final text.
  */
-function extractAssistantText( raw: unknown ): string {
-	const wrapped = raw as SdkAssistantOrUserLike | null | undefined;
-	if ( ! wrapped || typeof wrapped !== 'object' || wrapped.type !== 'assistant' ) {
+function extractAssistantText( raw: AgentMessage ): string {
+	const message = raw as PiAgentMessageLike;
+	if ( ! message || typeof message !== 'object' || message.role !== 'assistant' ) {
 		return '';
 	}
-	const blocks = wrapped.message?.content;
+	const blocks = message.content;
 	if ( ! Array.isArray( blocks ) ) {
 		return '';
 	}
 	const parts: string[] = [];
-	for ( const block of blocks as SdkContentBlockLike[] ) {
+	for ( const block of blocks as PiContentBlockLike[] ) {
 		if (
 			block &&
 			typeof block === 'object' &&
@@ -133,26 +129,40 @@ function extractAssistantText( raw: unknown ): string {
 }
 
 /**
- * Extract a short, human-readable summary of an assistant or user SDK message
+ * Extract a short, human-readable summary of a native pi message or tool event
  * for logging to the remote-session log file. Returns one line per content
- * block (text snippet, tool_use name+input preview, tool_result is_error flag).
+ * block (text snippet, tool call name+input preview, tool result error flag).
  * Empty array when the message has no useful content to summarize.
  */
-function summarizeMessageContent( raw: unknown ): string[] {
-	const wrapped = raw as SdkAssistantOrUserLike | null | undefined;
-	if ( ! wrapped || typeof wrapped !== 'object' ) {
+function summarizeAgentMessage( raw: AgentMessage ): string[] {
+	const message = raw as PiAgentMessageLike;
+	if ( ! message || typeof message !== 'object' ) {
 		return [];
 	}
-	const sdkType = typeof wrapped.type === 'string' ? wrapped.type : '';
-	if ( sdkType !== 'assistant' && sdkType !== 'user' ) {
+	const role = typeof message.role === 'string' ? message.role : '';
+	if ( role !== 'assistant' && role !== 'user' && role !== 'toolResult' ) {
 		return [];
 	}
-	const blocks = wrapped.message?.content;
+
+	if ( role === 'toolResult' ) {
+		const name = typeof message.toolName === 'string' ? message.toolName : '<unknown>';
+		const errFlag = message.isError === true ? ' (error)' : '';
+		return [ `tool_result: ${ name }${ errFlag }` ];
+	}
+
+	const blocks = message.content;
+	const lines: string[] = [];
+	if ( typeof blocks === 'string' ) {
+		const snippet = blocks.replace( /\s+/g, ' ' ).trim();
+		if ( snippet.length > 0 ) {
+			lines.push( `text: ${ truncatePreview( snippet, STEP_TEXT_PREVIEW_CHARS ) }` );
+		}
+		return lines;
+	}
 	if ( ! Array.isArray( blocks ) ) {
 		return [];
 	}
-	const lines: string[] = [];
-	for ( const block of blocks as SdkContentBlockLike[] ) {
+	for ( const block of blocks as PiContentBlockLike[] ) {
 		if ( ! block || typeof block !== 'object' ) {
 			continue;
 		}
@@ -161,18 +171,13 @@ function summarizeMessageContent( raw: unknown ): string[] {
 			if ( snippet.length === 0 ) {
 				continue;
 			}
-			const truncated =
-				snippet.length > STEP_TEXT_PREVIEW_CHARS
-					? `${ snippet.slice( 0, STEP_TEXT_PREVIEW_CHARS - 1 ) }…`
-					: snippet;
-			lines.push( `text: ${ truncated }` );
-		} else if ( block.type === 'tool_use' ) {
+			lines.push( `text: ${ truncatePreview( snippet, STEP_TEXT_PREVIEW_CHARS ) }` );
+		} else if ( block.type === 'toolCall' ) {
 			const name = typeof block.name === 'string' ? block.name : '<unknown>';
-			const inputPreview = previewToolInput( block.input );
-			lines.push( inputPreview ? `tool_use: ${ name } ${ inputPreview }` : `tool_use: ${ name }` );
-		} else if ( block.type === 'tool_result' ) {
-			const errFlag = block.is_error === true ? ' (error)' : '';
-			lines.push( `tool_result${ errFlag }` );
+			const inputPreview = previewToolInput( block.arguments );
+			lines.push(
+				inputPreview ? `tool_call: ${ name } ${ inputPreview }` : `tool_call: ${ name }`
+			);
 		} else if ( block.type === 'thinking' ) {
 			lines.push( 'thinking' );
 		}
@@ -180,38 +185,68 @@ function summarizeMessageContent( raw: unknown ): string[] {
 	return lines;
 }
 
+function summarizeMessageContent( event: AgentSessionEvent ): string[] {
+	if ( event.type === 'message_end' ) {
+		return summarizeAgentMessage( event.message );
+	}
+	if ( event.type === 'tool_execution_start' ) {
+		const name = typeof event.toolName === 'string' ? event.toolName : '<unknown>';
+		const inputPreview = previewToolInput( event.args );
+		return [ inputPreview ? `tool_call: ${ name } ${ inputPreview }` : `tool_call: ${ name }` ];
+	}
+	if ( event.type === 'tool_execution_end' ) {
+		const name = typeof event.toolName === 'string' ? event.toolName : '<unknown>';
+		const errFlag = event.isError === true ? ' (error)' : '';
+		return [ `tool_result: ${ name }${ errFlag }` ];
+	}
+	return [];
+}
+
+function extractAssistantTextFromEvent( event: AgentSessionEvent ): string {
+	if ( event.type !== 'message_end' ) {
+		return '';
+	}
+	return extractAssistantText( event.message );
+}
+
+function truncatePreview( text: string, maxLength: number ): string {
+	return text.length > maxLength ? `${ text.slice( 0, maxLength - 1 ) }…` : text;
+}
+
 function extractResultPayload( event: Extract< JsonEvent, { type: 'message' } > ): {
-	sessionId?: string;
 	replyText?: string;
 	isError: boolean;
-	subtype?: string;
 	stopReason?: string | null;
-	numTurns?: number;
 } | null {
-	const wrapped = event.message as SdkResultLike | null | undefined;
-	if ( ! wrapped || typeof wrapped !== 'object' || wrapped.type !== 'result' ) {
+	const wrapped = event.message;
+	if ( wrapped.type !== 'agent_end' ) {
 		return null;
 	}
-	const isError = wrapped.is_error === true;
-	const sessionId = typeof wrapped.session_id === 'string' ? wrapped.session_id : undefined;
-	const subtype = typeof wrapped.subtype === 'string' ? wrapped.subtype : undefined;
-	const stopReason =
-		typeof wrapped.stop_reason === 'string' || wrapped.stop_reason === null
-			? ( wrapped.stop_reason as string | null )
-			: undefined;
-	const numTurns = typeof wrapped.num_turns === 'number' ? wrapped.num_turns : undefined;
-	let replyText: string | undefined;
-	if ( typeof wrapped.result === 'string' && wrapped.result.length > 0 ) {
-		replyText = wrapped.result;
-	} else if ( isError && Array.isArray( wrapped.errors ) ) {
-		const msgs = ( wrapped.errors as unknown[] )
-			.filter( ( e ): e is string => typeof e === 'string' )
-			.join( '\n' );
-		if ( msgs.length > 0 ) {
-			replyText = msgs;
-		}
+	const lastAssistant = findLastAssistant( wrapped.messages );
+	if ( ! lastAssistant ) {
+		return { isError: false };
 	}
-	return { sessionId, replyText, isError, subtype, stopReason, numTurns };
+
+	const isError = lastAssistant.stopReason === 'error' || lastAssistant.stopReason === 'aborted';
+	const stopReason =
+		typeof lastAssistant.stopReason === 'string' || lastAssistant.stopReason === null
+			? ( lastAssistant.stopReason as string | null )
+			: undefined;
+
+	let replyText: string | undefined;
+	if ( Array.isArray( lastAssistant.content ) ) {
+		const text = ( lastAssistant.content as PiContentBlockLike[] )
+			.filter( ( b ) => b?.type === 'text' && typeof b.text === 'string' )
+			.map( ( b ) => b.text as string )
+			.join( '\n' )
+			.trim();
+		if ( text.length > 0 ) replyText = text;
+	}
+	if ( ! replyText && typeof lastAssistant.errorMessage === 'string' ) {
+		const trimmed = lastAssistant.errorMessage.trim();
+		if ( trimmed.length > 0 ) replyText = trimmed;
+	}
+	return { replyText, isError, stopReason };
 }
 
 function parseEvent( line: string ): JsonEvent | null {
@@ -241,12 +276,9 @@ function appendStderrTail( current: string, chunk: Buffer ): string {
 function detectStaleSession(
 	stderrTail: string,
 	lastReply: string | undefined,
-	isError: boolean
+	errorEventMessage: string | undefined
 ): boolean {
-	const haystack = `${ stderrTail }\n${ lastReply ?? '' }`;
-	if ( ! isError && ! STALE_SESSION_PATTERNS.some( ( r ) => r.test( haystack ) ) ) {
-		return false;
-	}
+	const haystack = [ stderrTail, lastReply, errorEventMessage ].filter( Boolean ).join( '\n' );
 	return STALE_SESSION_PATTERNS.some( ( r ) => r.test( haystack ) );
 }
 
@@ -320,11 +352,12 @@ export async function runTurn( options: TurnRunOptions ): Promise< TurnOutcome >
 	let timedOut = false;
 	let aborted = false;
 	const eventCounts: Record< string, number > = {};
-	let resultEventSeen = false;
-	let resultEventEmptyReply = false;
+	let agentEndEventSeen = false;
+	let agentEndEventEmptyReply = false;
 	let nonJsonStdoutLines = 0;
 	let lastAssistantText = '';
 	let usedAssistantTextFallback = false;
+	let lastErrorEventMessage: string | undefined;
 
 	const rl = readline.createInterface( { input: child.stdout! } );
 	rl.on( 'line', ( line ) => {
@@ -345,6 +378,7 @@ export async function runTurn( options: TurnRunOptions ): Promise< TurnOutcome >
 		if ( event.type === 'progress' || event.type === 'info' ) {
 			logger?.event( event.type, event.message );
 		} else if ( event.type === 'error' ) {
+			lastErrorEventMessage = event.message;
 			logger?.event( 'error', event.message );
 		}
 
@@ -355,34 +389,27 @@ export async function runTurn( options: TurnRunOptions ): Promise< TurnOutcome >
 				for ( const line of stepLines ) {
 					logger?.event( 'agent.step', line );
 				}
-				const assistantText = extractAssistantText( event.message );
+				const assistantText = extractAssistantTextFromEvent( event.message );
 				if ( assistantText ) {
 					lastAssistantText = assistantText;
 				}
 			}
 			if ( extracted ) {
-				resultEventSeen = true;
-				if ( extracted.sessionId ) {
-					capturedSessionId = extracted.sessionId;
-				}
+				agentEndEventSeen = true;
 				if ( extracted.replyText ) {
 					replyText = extracted.replyText;
 					logger?.event( extracted.isError ? 'reply.error' : 'reply', extracted.replyText );
 				} else {
-					resultEventEmptyReply = true;
-					logger?.warn( 'Result event had empty reply', {
+					agentEndEventEmptyReply = true;
+					logger?.warn( 'agent_end event had empty reply', {
 						...logContext,
 						is_error: extracted.isError,
-						session_id: extracted.sessionId,
-						subtype: extracted.subtype,
 						stop_reason: extracted.stopReason,
-						num_turns: extracted.numTurns,
 					} );
 				}
 				isError = isError || extracted.isError;
-				logger?.debug( 'Event: message/result', {
+				logger?.debug( 'Event: message/agent_end', {
 					...logContext,
-					session_id: extracted.sessionId,
 					is_error: extracted.isError,
 					result_chars: extracted.replyText?.length ?? 0,
 				} );
@@ -491,29 +518,27 @@ export async function runTurn( options: TurnRunOptions ): Promise< TurnOutcome >
 		};
 	}
 
-	// Workaround for pi-runtime bug: when the runtime yields `agent_end` it
-	// constructs the SDK result message with an empty `result` field even when
-	// the agent emitted a final assistant text block earlier in the turn. If we
-	// captured that text along the way, surface it as the reply instead of
-	// posting "did not return a result" to the user. See:
-	// docs/notes/empty-result-reply-fallback.md (Option A — fix at the source).
+	// If `agent_end` arrives without final text but we saw an assistant
+	// `message_end` earlier in the turn, surface that text instead of posting
+	// "did not return a result" to the user.
 	if (
-		resultEventEmptyReply &&
+		agentEndEventEmptyReply &&
 		! isError &&
 		replyText === undefined &&
 		lastAssistantText.length > 0
 	) {
 		replyText = lastAssistantText;
 		usedAssistantTextFallback = true;
-		logger?.warn( 'Using last assistant text as reply (empty SDK result)', {
+		logger?.warn( 'Using last assistant text as reply (empty agent_end)', {
 			...logContext,
 			fallback_chars: lastAssistantText.length,
 		} );
 	}
 
-	const status: TurnOutcomeStatus = completedStatus ?? ( isError ? 'error' : 'error' );
+	const status: TurnOutcomeStatus = completedStatus ?? 'error';
 	const staleSession =
-		options.sessionId !== undefined && detectStaleSession( stderrTail, replyText, isError );
+		options.sessionId !== undefined &&
+		detectStaleSession( stderrTail, replyText, lastErrorEventMessage );
 
 	logger?.info( 'Turn outcome', {
 		...logContext,
@@ -526,8 +551,8 @@ export async function runTurn( options: TurnRunOptions ): Promise< TurnOutcome >
 		stale_session: staleSession,
 		stderr_tail: stderrTail ? stderrTail.slice( -500 ) : '',
 		event_counts: eventCounts,
-		result_event_seen: resultEventSeen,
-		result_event_empty_reply: resultEventEmptyReply,
+		agent_end_event_seen: agentEndEventSeen,
+		agent_end_event_empty_reply: agentEndEventEmptyReply,
 		non_json_stdout_lines: nonJsonStdoutLines,
 		turn_completed_seen: completedStatus !== undefined,
 		used_assistant_text_fallback: usedAssistantTextFallback,

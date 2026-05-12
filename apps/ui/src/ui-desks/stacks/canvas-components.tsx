@@ -5,7 +5,7 @@ import {
 	useValue,
 } from 'tldraw';
 import { StackBadges } from './badges';
-import { getStackId, isStackExpanded } from './utils';
+import { getStackId, getStackViewMode, isStackExpanded } from './utils';
 
 export function StackCanvasOverlays() {
 	return <StackBadges />;
@@ -23,6 +23,7 @@ export function StackAwareSelectionForeground( props: TLSelectionForegroundProps
 
 			let selectedStackId: string | null = null;
 			let hasExpandedStackMember = false;
+			let hasTiledStackMember = false;
 			for ( const shapeId of selectedShapeIds ) {
 				const shape = editor.getShape( shapeId );
 				const stackId = getStackId( shape );
@@ -37,9 +38,10 @@ export function StackAwareSelectionForeground( props: TLSelectionForegroundProps
 				}
 
 				hasExpandedStackMember = hasExpandedStackMember || isStackExpanded( shape );
+				hasTiledStackMember = hasTiledStackMember || getStackViewMode( shape ) === 'tiles';
 			}
 
-			return selectedStackId !== null && ! hasExpandedStackMember;
+			return selectedStackId !== null && ! hasExpandedStackMember && ! hasTiledStackMember;
 		},
 		[ editor ]
 	);

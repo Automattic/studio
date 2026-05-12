@@ -78,6 +78,7 @@ function createDeskContext( overrides: Partial< DeskContextValue > = {} ): DeskC
 		fitSelectedWidgetToContent: vi.fn().mockResolvedValue( false ),
 		stackSelectedWidgets: vi.fn(),
 		unstackSelectedWidgets: vi.fn(),
+		setSelectedStackView: vi.fn(),
 		removeSelectedWidget: vi.fn(),
 		...overrides,
 	};
@@ -105,6 +106,7 @@ function createSingleWidgetSelection(
 		stackIds: [],
 		canStack: false,
 		canUnstack: false,
+		canSetStackView: false,
 		canRemove: true,
 		widget,
 		definition: {

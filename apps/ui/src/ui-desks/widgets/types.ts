@@ -161,6 +161,11 @@ export interface WidgetResolver<
 	TWidget extends DeskWidgetBase = DeskWidgetBase,
 	TIdentity = unknown,
 > {
+	/**
+	 * Derived widgets should treat the source widget's x/y as the top-left origin of
+	 * the primary resolved shape. Persistence writes that same primary origin back
+	 * to the source widget, so center-based resolver layouts will drift on reload.
+	 */
 	resolve: (
 		widget: TWidget,
 		context: WidgetResolverContext

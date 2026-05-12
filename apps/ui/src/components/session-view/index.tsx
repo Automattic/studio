@@ -8,9 +8,6 @@ import {
 	formatAnnotationsAsPrompt,
 	formatAnnotationsSubmittedMessage,
 } from '@/components/session-view/annotations';
-import { Composer, ComposerSkeleton } from '@/components/session-view/composer';
-import { pickLiveSite } from '@/components/session-view/composer/environment-pill';
-import { Conversation } from '@/components/session-view/conversation';
 import { EmptyBackground } from '@/components/session-view/empty-background';
 import { QueuedPrompts } from '@/components/session-view/queued-prompts';
 import { SiteDropdown } from '@/components/site-dropdown';
@@ -26,6 +23,9 @@ import { useSessionCommands } from '@/hooks/use-session-commands';
 import { SessionUIProvider, useSessionPreviewUI } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { drawerIcon } from '@/lib/icons';
+import { Composer, ComposerSkeleton } from '@/ui-classic/components/session-view/composer';
+import { pickLiveSite } from '@/ui-classic/components/session-view/composer/environment-pill';
+import { Conversation } from '@/ui-classic/components/session-view/conversation';
 import styles from './style.module.css';
 import type { AiSessionSummary } from '@/data/core';
 

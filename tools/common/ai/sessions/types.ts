@@ -13,6 +13,7 @@ export interface AiSessionSummary extends AiSessionMetadata {
 	createdAt: string;
 	updatedAt: string;
 	firstPrompt?: string;
+	assistantReplyPreview?: string;
 	// The first local site the session attached to. Acts as the session's owner
 	// in the UI sidebar. Undefined for sessions that only ever selected remote
 	// sites, or that never selected any site at all.

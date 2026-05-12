@@ -4,7 +4,7 @@ import { forwardRef } from 'react';
 import styles from './style.module.css';
 import type { ComponentProps, ComponentPropsWithoutRef, ReactNode } from 'react';
 
-type ControlButtonVariant = 'chrome' | 'toolbar';
+type ControlButtonVariant = 'chrome' | 'toolbar' | 'prompt';
 
 type ControlButtonProps = Omit< ComponentPropsWithoutRef< 'button' >, 'children' > & {
 	children: ReactNode;

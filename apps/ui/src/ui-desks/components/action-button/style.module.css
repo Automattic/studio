@@ -1,5 +1,5 @@
 .button {
-	--action-button-background: rgba(15, 23, 42, 0.05);
+	--action-button-background: transparent;
 	--wp-ui-button-background-color: var(--action-button-background);
 	--wp-ui-button-background-color-active: var(--action-button-background);
 	--wp-ui-button-border-color: transparent;
@@ -24,8 +24,18 @@
 	-webkit-app-region: no-drag;
 }
 
-.button:hover:not(:disabled) {
+.filled {
+	--action-button-background: rgba(15, 23, 42, 0.05);
+}
+
+.button:hover:not(:disabled),
+.ghost:hover:not(:disabled) {
 	--action-button-background: rgba(15, 23, 42, 0.08);
+}
+
+.large {
+	min-height: 46px;
+	padding: 0 14px;
 }
 
 .button:focus:not(:focus-visible) {

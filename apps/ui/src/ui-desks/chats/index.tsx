@@ -8,7 +8,6 @@ import { useDeskSettings } from '@/data/queries/use-desk-config';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import { useFullscreen } from '@/hooks/use-fullscreen';
-import { formatRelativeTime } from '@/lib/format-relative-time';
 import { ActionButton, List, ListItem } from '@/ui-desks/components';
 import { ChatsButton } from '../chrome/chats-button';
 import { getDeskToolbarButtonSide, normalizeDeskToolbarSettings } from '../chrome/toolbar-layout';
@@ -30,11 +29,7 @@ function getSessionTitle( session: AiSessionSummary ) {
 }
 
 function getSessionSubtitle( session: AiSessionSummary ) {
-	if ( ! session.firstPrompt ) {
-		return __( 'Ask Studio anything to get started.' );
-	}
-
-	return formatRelativeTime( session.updatedAt );
+	return session.assistantReplyPreview ?? __( 'Ask Studio anything to get started.' );
 }
 
 export function ChatsTrigger() {
@@ -121,24 +116,30 @@ export function Chats( { siteId }: ChatsProps ) {
 								<h2>{ __( 'Conversations' ) }</h2>
 							</header>
 							<List className={ styles.list }>
-								{ chatSessions.map( ( session ) => (
-									<ListItem
-										key={ session.id }
-										active={ session.id === selectedSessionId }
-										label={ getSessionTitle( session ) }
-										description={ getSessionSubtitle( session ) }
-										onClick={ () => selectSession( session.id ) }
-									/>
-								) ) }
+								{ chatSessions.length > 0 ? (
+									chatSessions.map( ( session ) => (
+										<ListItem
+											key={ session.id }
+											active={ session.id === selectedSessionId }
+											label={ getSessionTitle( session ) }
+											description={ getSessionSubtitle( session ) }
+											onClick={ () => selectSession( session.id ) }
+										/>
+									) )
+								) : (
+									<div className={ styles.emptyList }>{ __( 'No conversations yet.' ) }</div>
+								) }
 							</List>
 							<footer className={ styles.footer }>
 								<ActionButton
 									fullWidth
+									size="large"
+									variant="ghost"
 									disabled={ isCreatingChat }
 									aria-busy={ isCreatingChat }
 									onClick={ () => void startNewChat() }
 								>
-									{ isCreatingChat ? __( 'Creating chat…' ) : __( '+ New chat' ) }
+									{ isCreatingChat ? __( 'Creating chat...' ) : __( '+ New chat' ) }
 								</ActionButton>
 							</footer>
 							<div className={ styles.listDivider } aria-hidden />

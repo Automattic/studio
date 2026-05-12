@@ -2,7 +2,7 @@ import { __ } from '@wordpress/i18n';
 import { chevronDownSmall } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { useSetSessionEnvironment } from '@/data/queries/use-sessions';
-import { ControlButton, Menu } from '@/ui-desks/components';
+import { Button, Menu } from '@/ui-desks/components';
 import styles from './style.module.css';
 import type { SyncSite } from '@/data/core';
 
@@ -46,10 +46,11 @@ export function EnvironmentPill( {
 
 	if ( disabled ) {
 		return (
-			<ControlButton
+			<Button
 				label={ __( 'Select environment' ) }
 				tooltipLabel={ false }
-				variant="prompt"
+				variant="quiet"
+				size="small"
 				disabled
 			>
 				<span
@@ -58,7 +59,7 @@ export function EnvironmentPill( {
 				/>
 				<span>{ label }</span>
 				<Icon icon={ chevronDownSmall } size={ 14 } />
-			</ControlButton>
+			</Button>
 		);
 	}
 
@@ -66,10 +67,11 @@ export function EnvironmentPill( {
 		<Menu.Root modal={ false }>
 			<Menu.Trigger
 				render={
-					<ControlButton
+					<Button
 						label={ __( 'Select environment' ) }
 						tooltipLabel={ false }
-						variant="prompt"
+						variant="quiet"
+						size="small"
 					>
 						<span
 							className={ `${ styles.environmentDot } ${
@@ -79,7 +81,7 @@ export function EnvironmentPill( {
 						/>
 						<span>{ label }</span>
 						<Icon icon={ chevronDownSmall } size={ 14 } />
-					</ControlButton>
+					</Button>
 				}
 			/>
 			<Menu.Popup side="top" align="start" width="content" className={ styles.environmentMenu }>

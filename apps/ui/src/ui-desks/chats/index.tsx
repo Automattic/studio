@@ -8,7 +8,7 @@ import { useDeskSettings } from '@/data/queries/use-desk-config';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import { useFullscreen } from '@/hooks/use-fullscreen';
-import { ActionButton, List, ListItem } from '@/ui-desks/components';
+import { Button, List, ListItem } from '@/ui-desks/components';
 import { ChatsButton } from '../chrome/chats-button';
 import { getDeskToolbarButtonSide, normalizeDeskToolbarSettings } from '../chrome/toolbar-layout';
 import { useChats } from './context';
@@ -131,16 +131,17 @@ export function Chats( { siteId }: ChatsProps ) {
 								) }
 							</List>
 							<footer className={ styles.footer }>
-								<ActionButton
-									fullWidth
-									size="large"
-									variant="ghost"
+								<Button
+									className={ styles.newChatButton }
+									label={ __( 'New chat' ) }
+									size="xlarge"
 									disabled={ isCreatingChat }
 									aria-busy={ isCreatingChat }
 									onClick={ () => void startNewChat() }
+									variant="quiet"
 								>
 									{ isCreatingChat ? __( 'Creating chat...' ) : __( '+ New chat' ) }
-								</ActionButton>
+								</Button>
 							</footer>
 							<div className={ styles.listDivider } aria-hidden />
 						</div>

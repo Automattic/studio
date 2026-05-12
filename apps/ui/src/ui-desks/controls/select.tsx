@@ -1,4 +1,4 @@
-import { IconControlButton, Menu } from '@/ui-desks/components';
+import { Button, Menu } from '@/ui-desks/components';
 import type { AnySelectControlConfig, ControlRendererProps } from './types';
 
 type SelectControlProps = ControlRendererProps & {
@@ -21,10 +21,11 @@ export function SelectControl( {
 		<Menu.Root modal={ false } open={ isOpen } orientation="horizontal" onOpenChange={ setIsOpen }>
 			<Menu.Trigger
 				render={
-					<IconControlButton
+					<Button
 						icon={ control.icon }
 						label={ control.label }
-						variant="toolbar"
+						variant="quiet"
+						size="medium"
 						aria-pressed={ isOpen }
 					/>
 				}

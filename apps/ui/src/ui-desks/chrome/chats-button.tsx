@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { comment } from '@wordpress/icons';
-import { IconControlButton } from '@/ui-desks/components';
+import { Button } from '@/ui-desks/components';
 
 interface ChatsButtonProps {
 	open: boolean;
@@ -9,7 +9,7 @@ interface ChatsButtonProps {
 
 export function ChatsButton( { open, onToggle }: ChatsButtonProps ) {
 	return (
-		<IconControlButton
+		<Button
 			icon={ comment }
 			label={ open ? __( 'Hide conversations' ) : __( 'Show conversations' ) }
 			aria-pressed={ open }

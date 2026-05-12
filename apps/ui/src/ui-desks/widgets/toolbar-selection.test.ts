@@ -41,7 +41,8 @@ describe( 'widget toolbar selection', () => {
 			throw new Error( 'Expected a single widget toolbar item.' );
 		}
 		expect( selectedItem.definition.type ).toBe( POST_WIDGET_TYPE );
-		expect( selectedItem.definition.controls?.[ 0 ]?.type ).toBe( 'custom' );
+		expect( selectedItem.definition.controls ).toBeUndefined();
+		expect( selectedItem.definition.getEditAction ).toBeTypeOf( 'function' );
 		expect( selectedItem.widget.widgetProps ).toEqual( {
 			postId: 42,
 		} );
@@ -137,7 +138,8 @@ describe( 'widget toolbar selection', () => {
 		}
 		expect( selectedItem.definition.type ).toBe( POST_COLLECTION_WIDGET_TYPE );
 		expect( selectedItem.definition.controls?.[ 0 ]?.type ).toBe( 'select' );
-		expect( selectedItem.definition.controls?.[ 1 ]?.type ).toBe( 'custom' );
+		expect( selectedItem.definition.controls ).toHaveLength( 1 );
+		expect( selectedItem.definition.getEditAction ).toBeTypeOf( 'function' );
 		expect( selectedItem.widget.widgetProps ).toEqual( {
 			query: {
 				postType: 'post',

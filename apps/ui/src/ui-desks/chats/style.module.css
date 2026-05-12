@@ -129,6 +129,11 @@
 	border-top: 1px solid var(--ui-desks-divider, rgba(15, 23, 42, 0.06));
 }
 
+.newChatButton {
+	width: 100%;
+	justify-content: flex-start;
+}
+
 .chatPane {
 	display: flex;
 	flex: 1;

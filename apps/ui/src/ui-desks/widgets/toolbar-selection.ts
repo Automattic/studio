@@ -70,6 +70,7 @@ export function getSelectedWidgetToolbarItem(
 	if (
 		! definition.controls?.length &&
 		! definition.getFittedShapeProps &&
+		! definition.getEditAction &&
 		widget.type !== DRAWING_WIDGET_TYPE
 	) {
 		return null;

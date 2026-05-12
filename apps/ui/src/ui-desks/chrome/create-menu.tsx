@@ -6,7 +6,7 @@ import { chevronLeft, download, globe, link, plus, verse } from '@wordpress/icon
 import { Icon } from '@wordpress/ui';
 import { useMemo, useState } from 'react';
 import { useSites } from '@/data/queries/use-sites';
-import { IconControlButton, Menu } from '@/ui-desks/components';
+import { Button, Menu } from '@/ui-desks/components';
 import { useDesk } from '@/ui-desks/desk/provider';
 import { pageWidgetDefinition } from '@/ui-desks/widgets/page/definition';
 import { PAGE_WIDGET_TYPE } from '@/ui-desks/widgets/page/types';
@@ -41,7 +41,7 @@ export function DeskCreateMenu() {
 	return (
 		<>
 			<Menu.Root modal={ false } onOpenChange={ ( open ) => ! open && setMode( 'menu' ) }>
-				<Menu.Trigger render={ <IconControlButton icon={ plus } label={ __( 'Create new' ) } /> } />
+				<Menu.Trigger render={ <Button icon={ plus } label={ __( 'Create new' ) } /> } />
 				<Menu.Popup
 					side="bottom"
 					align="start"

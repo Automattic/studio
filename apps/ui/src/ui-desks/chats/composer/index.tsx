@@ -9,7 +9,7 @@ import { clsx } from 'clsx';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
-import { ControlButton, Menu } from '@/ui-desks/components';
+import { Button, Menu } from '@/ui-desks/components';
 import { EnvironmentPill } from './environment-pill';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';
@@ -238,8 +238,9 @@ export function Composer( {
 								<Menu.Root modal={ false }>
 									<Menu.Trigger
 										render={
-											<ControlButton
-												variant="prompt"
+											<Button
+												variant="quiet"
+												size="small"
 												className={ styles.iconTool }
 												label={ __( 'Commands' ) }
 												tooltipLabel={ false }
@@ -247,7 +248,7 @@ export function Composer( {
 												title={ __( 'Commands' ) }
 											>
 												<Icon icon={ code } size={ 20 } />
-											</ControlButton>
+											</Button>
 										}
 									/>
 									<Menu.Popup side="top" align="start" className={ styles.commandsMenuPopup }>
@@ -282,8 +283,9 @@ export function Composer( {
 								<Menu.Root modal={ false }>
 									<Menu.Trigger
 										render={
-											<ControlButton
-												variant="prompt"
+											<Button
+												variant="quiet"
+												size="small"
 												className={ styles.modelTool }
 												label={ __( 'Select model' ) }
 												tooltipLabel={ false }
@@ -292,7 +294,7 @@ export function Composer( {
 											>
 												<span>{ getAiModelLabel( model ) }</span>
 												<Icon icon={ chevronDownSmall } size={ 14 } />
-											</ControlButton>
+											</Button>
 										}
 									/>
 									<Menu.Popup side="top" align="end" width="content">

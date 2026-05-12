@@ -74,40 +74,6 @@
 	color: var(--ui-desks-muted, #6b7280);
 }
 
-.submit {
-	--control-button-background: #3858e9;
-	--control-button-foreground: #fff;
-
-	width: 40px;
-	min-width: 40px;
-	height: 40px;
-	flex: 0 0 auto;
-	border-radius: 12px;
-	box-shadow: 0 6px 18px rgba(56, 88, 233, 0.45);
-	transition:
-		opacity 200ms ease,
-		transform 280ms cubic-bezier(0.32, 0.72, 0.24, 1),
-		box-shadow 160ms ease;
-}
-
-.submit:hover:not(:disabled) {
-	--control-button-background: #3858e9;
-
-	box-shadow: 0 8px 22px rgba(56, 88, 233, 0.55);
-	transform: translateY(-1px);
-}
-
-.submit.submit:disabled {
-	opacity: 0;
-	pointer-events: none;
-	box-shadow: none;
-	transform: scale(0.6);
-}
-
-.submit svg {
-	fill: #fff;
-}
-
 .error {
 	color: #b32d2e;
 	font-size: 12px;

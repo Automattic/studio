@@ -3,17 +3,25 @@ import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-type
 import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
 import { useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
-import { arrowUp, chevronDownSmall, code } from '@wordpress/icons';
+import { arrowUp, chevronDownSmall, closeSmall, code } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
+import { useChats } from '@/ui-desks/chats/context';
+import {
+	buildWidgetContextDisplayMessage,
+	buildWidgetContextPrompt,
+	getWidgetDisplayLabel,
+	WidgetContextThumbnail,
+} from '@/ui-desks/chats/widget-context';
 import { Button, Menu } from '@/ui-desks/components';
 import { EnvironmentPill } from './environment-pill';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';
 import type { AiModelId, LoadedAiSession, SessionEntry, SyncSite } from '@/data/core';
+import type { DeskWidget } from '@/ui-desks/widgets/types';
 
 export function ComposerSkeleton() {
 	return (
@@ -41,7 +49,7 @@ interface ComposerProps {
 	isInterrupting?: boolean;
 	error: string | null;
 	model: AiModelId;
-	onSend: ( prompt: string ) => Promise< void >;
+	onSend: ( prompt: string, options?: { displayMessage?: string } ) => Promise< void >;
 	onInterrupt: () => Promise< void >;
 	sessionId?: string;
 	effectiveEnvironment?: 'local' | 'live';
@@ -75,10 +83,16 @@ export function Composer( {
 	draftPrompt,
 }: ComposerProps ) {
 	const [ value, setValue ] = useState( '' );
+	const [ contextWidgets, setContextWidgets ] = useState< DeskWidget[] >( [] );
 	const textareaRef = useRef< HTMLTextAreaElement | null >( null );
 	const appliedDraftPromptIdRef = useRef< number | null >( null );
 	const connector = useConnector();
 	const queryClient = useQueryClient();
+	const {
+		composerWidgetAttachmentRequest,
+		consumeComposerWidgetAttachmentRequest,
+		isComposerWidgetDragTarget,
+	} = useChats();
 	const [ pendingFamilyChange, setPendingFamilyChange ] = useState< AiModelId | null >( null );
 	const [ familySwitchInFlight, setFamilySwitchInFlight ] = useState( false );
 
@@ -110,13 +124,44 @@ export function Composer( {
 		if ( ! trimmed ) {
 			return;
 		}
+		const widgetsToSend = contextWidgets;
 		setValue( '' );
+		setContextWidgets( [] );
 		try {
+			if ( widgetsToSend.length > 0 ) {
+				await onSend( buildWidgetContextPrompt( trimmed, widgetsToSend ), {
+					displayMessage: buildWidgetContextDisplayMessage( trimmed, widgetsToSend ),
+				} );
+				return;
+			}
+
 			await onSend( trimmed );
 		} catch {
 			setValue( trimmed );
+			setContextWidgets( widgetsToSend );
 		}
-	}, [ onSend, value ] );
+	}, [ contextWidgets, onSend, value ] );
+
+	useEffect( () => {
+		if (
+			! composerWidgetAttachmentRequest ||
+			composerWidgetAttachmentRequest.sessionId !== sessionId
+		) {
+			return;
+		}
+
+		setContextWidgets( ( currentWidgets ) =>
+			mergeWidgetAttachments( currentWidgets, composerWidgetAttachmentRequest.widgets )
+		);
+		consumeComposerWidgetAttachmentRequest( composerWidgetAttachmentRequest.id );
+		textareaRef.current?.focus();
+	}, [ composerWidgetAttachmentRequest, consumeComposerWidgetAttachmentRequest, sessionId ] );
+
+	const removeContextWidget = useCallback( ( widgetId: string ) => {
+		setContextWidgets( ( currentWidgets ) =>
+			currentWidgets.filter( ( widget ) => widget.id !== widgetId )
+		);
+	}, [] );
 
 	const applySameFamilyModel = useCallback(
 		( picked: AiModelId ) => {
@@ -204,14 +249,37 @@ export function Composer( {
 
 	return (
 		<>
-			<div className={ styles.root } data-active={ canSend ? 'true' : 'false' }>
+			<div
+				className={ styles.root }
+				data-active={ canSend || contextWidgets.length > 0 ? 'true' : 'false' }
+			>
 				<form
 					className={ styles.prompt }
+					data-ui-desks-composer-dropzone
+					data-widget-drag-over={ isComposerWidgetDragTarget ? 'true' : 'false' }
 					onSubmit={ ( event ) => {
 						event.preventDefault();
 						void send();
 					} }
 				>
+					{ contextWidgets.length > 0 && (
+						<div className={ styles.attachments } aria-label={ __( 'Attached canvas widgets' ) }>
+							{ contextWidgets.map( ( widget ) => (
+								<div key={ widget.id } className={ styles.attachment }>
+									<WidgetContextThumbnail widget={ widget } />
+									<button
+										type="button"
+										className={ styles.removeAttachment }
+										aria-label={ getRemoveWidgetAttachmentLabel( widget ) }
+										title={ getRemoveWidgetAttachmentLabel( widget ) }
+										onClick={ () => removeContextWidget( widget.id ) }
+									>
+										<Icon icon={ closeSmall } size={ 16 } />
+									</button>
+								</div>
+							) ) }
+						</div>
+					) }
 					<textarea
 						ref={ textareaRef }
 						className={ styles.input }
@@ -349,4 +417,16 @@ export function Composer( {
 			/>
 		</>
 	);
+}
+
+function mergeWidgetAttachments( currentWidgets: DeskWidget[], incomingWidgets: DeskWidget[] ) {
+	const widgetsById = new Map( currentWidgets.map( ( widget ) => [ widget.id, widget ] ) );
+	for ( const widget of incomingWidgets ) {
+		widgetsById.set( widget.id, widget );
+	}
+	return Array.from( widgetsById.values() );
+}
+
+function getRemoveWidgetAttachmentLabel( widget: DeskWidget ) {
+	return `${ __( 'Remove' ) } ${ getWidgetDisplayLabel( widget ) }`;
 }

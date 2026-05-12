@@ -42,4 +42,5 @@ export const sitePreviewWidgetDefinition = {
 		},
 	} ),
 	getSummary: ( widgetProps ) => widgetProps.path || '/',
+	getEditAction: () => ( { kind: 'canvas-editing' } ),
 } satisfies WidgetDefinition< SitePreviewWidget >;

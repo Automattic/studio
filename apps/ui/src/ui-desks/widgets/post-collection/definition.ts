@@ -9,7 +9,6 @@ import {
 	PostCollectionThumbnailComponent,
 	PostCollectionWidgetComponent,
 } from '@/ui-desks/widgets/post-collection/component';
-import { PostCollectionEditControl } from '@/ui-desks/widgets/post-collection/edit-control';
 import {
 	isPostCollectionWidgetProps,
 	POST_COLLECTION_WIDGET_TYPE,
@@ -83,11 +82,6 @@ export const postCollectionWidgetDefinition = {
 			defaultValue: 'stack',
 			options: STACK_VIEW_MODE_OPTIONS,
 		},
-		{
-			type: 'custom',
-			id: 'open-posts',
-			Component: PostCollectionEditControl,
-		},
 	],
 	requiresRunningSite: true,
 	shouldStartEditingOnCreate: false,
@@ -98,6 +92,7 @@ export const postCollectionWidgetDefinition = {
 	} ),
 	labels: {
 		add: () => __( 'New posts collection' ),
+		edit: () => __( 'Open posts' ),
 	},
 	icon: post,
 	getInitialWidget: () => ( {
@@ -119,6 +114,8 @@ export const postCollectionWidgetDefinition = {
 			widgetProps.query.perPage,
 			widgetProps.query.status
 		),
+	getEditAction: ( { hasSiteId, hasRunningSite } ) =>
+		hasSiteId && hasRunningSite ? { kind: 'site-url', path: '/wp-admin/edit.php' } : null,
 	getLoadingShapeProps: () => POST_CARD_SHAPE_PROPS,
 	resolver: {
 		resolve: async ( widget, context ) => {

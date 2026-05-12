@@ -41,5 +41,6 @@ export const artefactWidgetDefinition = {
 		},
 	} ),
 	getSummary: ( widgetProps ) => widgetProps.title || __( 'Untitled artefact' ),
+	getEditAction: () => ( { kind: 'canvas-editing' } ),
 	getFittedShapeProps: getFittedArtefactShapeProps,
 } satisfies WidgetDefinition< ArtefactWidget >;

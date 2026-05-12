@@ -49,6 +49,8 @@ export type WidgetIcon = ReactElement< ComponentProps< 'svg' > >;
 
 export interface WidgetLabels {
 	add: () => string;
+	edit?: () => string;
+	fitContent?: () => string;
 }
 
 export type WidgetResolverRegistry = ReturnType< typeof createRegistry >;
@@ -187,6 +189,14 @@ export type WidgetFitContentResult< TWidget extends DeskWidgetBase = DeskWidgetB
 	| TWidget[ 'shapeProps' ]
 	| null;
 
+export type WidgetEditAction = { kind: 'canvas-editing' } | { kind: 'site-url'; path: string };
+
+export interface WidgetEditActionContext< TWidget extends DeskWidgetBase = DeskWidgetBase > {
+	widget: TWidget;
+	hasSiteId: boolean;
+	hasRunningSite: boolean;
+}
+
 export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBase > {
 	type: TWidget[ 'type' ];
 	name: () => string;
@@ -207,6 +217,7 @@ export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBa
 	getFittedShapeProps?: (
 		context: WidgetFitContentContext< TWidget >
 	) => WidgetFitContentResult< TWidget > | Promise< WidgetFitContentResult< TWidget > >;
+	getEditAction?: ( context: WidgetEditActionContext< TWidget > ) => WidgetEditAction | null;
 	resolver?: WidgetResolver< TWidget >;
 	fileHandlers?: Array< WidgetFileHandler< TWidget > >;
 	pasteHandlers?: Array< WidgetPasteHandler< TWidget > >;

@@ -1,5 +1,5 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { category, group, trash, ungroup, update } from '@wordpress/icons';
+import { category, group, pencil, trash, ungroup, update } from '@wordpress/icons';
 import { useEffect, useState } from 'react';
 import { ChatButton } from '@/ui-desks/chats/chat-button';
 import { SelectionChatDialog } from '@/ui-desks/chats/selection-chat-dialog';
@@ -35,6 +35,8 @@ export function DeskWidgetToolbar() {
 		unstackSelectedWidgets,
 		setSelectedStackView,
 		updateSelectedWidgetProps,
+		canEditSelectedWidget,
+		editSelectedWidget,
 		removeSelectedWidget,
 	} = useDesk();
 	const visible = Boolean( selectedWidgetToolbarItem );
@@ -63,6 +65,7 @@ export function DeskWidgetToolbar() {
 		renderSelection.kind === 'single-widget' &&
 		Boolean( controls?.length ) &&
 		renderSelection.definition.isWidgetProps( renderSelection.widget.widgetProps );
+	const canRenderEditControl = renderSelection.kind === 'single-widget' && canEditSelectedWidget;
 
 	return (
 		<>
@@ -82,6 +85,14 @@ export function DeskWidgetToolbar() {
 							renderSelection.widgets.length
 						) }
 					</span>
+				) }
+				{ canRenderEditControl && (
+					<IconControlButton
+						icon={ pencil }
+						label={ renderSelection.definition.labels.edit?.() ?? __( 'Edit' ) }
+						variant="toolbar"
+						onClick={ editSelectedWidget }
+					/>
 				) }
 				{ canFitSelectedWidgetToContent && (
 					<IconControlButton

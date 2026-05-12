@@ -25,15 +25,12 @@ import { LinkFromUrlDialog } from '@/ui-desks/chrome/link-from-url-dialog';
 import { canvasShapeToDeskWidget } from '@/ui-desks/desk/tldraw-adapter';
 import { collapseStackInEditor, expandStackInEditor } from '@/ui-desks/stacks/editor-commands';
 import { createStackId, getStackId, isStackExpanded } from '@/ui-desks/stacks/utils';
-import { ARTEFACT_WIDGET_TYPE } from '@/ui-desks/widgets/artefact/types';
-import { NOTE_WIDGET_TYPE } from '@/ui-desks/widgets/note/types';
+import { getWidgetEditAction } from '@/ui-desks/widgets/edit-action';
 import { pageWidgetDefinition } from '@/ui-desks/widgets/page/definition';
 import { PAGE_WIDGET_TYPE } from '@/ui-desks/widgets/page/types';
 import { postWidgetDefinition } from '@/ui-desks/widgets/post/definition';
 import { POST_WIDGET_TYPE } from '@/ui-desks/widgets/post/types';
-import { POST_COLLECTION_WIDGET_TYPE } from '@/ui-desks/widgets/post-collection/types';
 import { getCreatableWidgetDefinitions, getWidgetDefinition } from '@/ui-desks/widgets/registry';
-import { SITE_PREVIEW_WIDGET_TYPE } from '@/ui-desks/widgets/site-preview/types';
 import styles from './context-menu.module.css';
 import { useDesk } from './provider';
 import type { DeskContextMenuState } from './context-menu-state';
@@ -63,20 +60,20 @@ export function DeskCanvasContextMenu( { editor, state, onClose }: DeskCanvasCon
 		state.kind === 'single' && state.shapeIds[ 0 ] ? editor.getShape( state.shapeIds[ 0 ] ) : null;
 	const singleWidget = singleShape ? canvasShapeToDeskWidget( singleShape ) : null;
 	const singleDefinition = singleWidget ? getWidgetDefinition( singleWidget.type ) : undefined;
+	const singleEditAction =
+		singleWidget && singleDefinition
+			? getWidgetEditAction( singleDefinition, singleWidget, {
+					hasSiteId: Boolean( desk.siteId ),
+					hasRunningSite: isSiteRunning,
+			  } )
+			: null;
 	const [ menuMode, setMenuMode ] = useState< MenuMode >( 'main' );
 	const [ isLinkDialogOpen, setIsLinkDialogOpen ] = useState( false );
 	const [ chatWidgets, setChatWidgets ] = useState< DeskWidget[] | null >( null );
 	const creatableWidgetDefinitions = getCreatableWidgetDefinitions().filter( ( definition ) =>
 		isWidgetAvailableInDeskContext( definition, Boolean( desk.siteId ) )
 	);
-	const canEditSingle = Boolean(
-		singleShape &&
-			singleWidget &&
-			canEditWidget( singleWidget, {
-				hasRunningSite: isSiteRunning,
-				hasSiteId: Boolean( desk.siteId ),
-			} )
-	);
+	const canEditSingle = Boolean( singleShape && singleEditAction );
 	const canFitSingle = Boolean(
 		singleWidget && singleDefinition?.getFittedShapeProps && state.kind === 'single'
 	);
@@ -177,11 +174,7 @@ export function DeskCanvasContextMenu( { editor, state, onClose }: DeskCanvasCon
 									} )
 								}
 							>
-								<span>
-									{ singleWidget?.type === NOTE_WIDGET_TYPE
-										? __( 'Fit text' )
-										: __( 'Fit to size' ) }
-								</span>
+								<span>{ singleDefinition?.labels.fitContent?.() ?? __( 'Fit to size' ) }</span>
 								<Icon icon={ update } />
 							</ContextMenuItem>
 						) }
@@ -446,41 +439,17 @@ export function DeskCanvasContextMenu( { editor, state, onClose }: DeskCanvasCon
 	);
 
 	function handleEditWidget() {
-		if ( ! singleShape || ! singleWidget ) {
+		if ( ! singleShape || ! singleEditAction ) {
 			return;
 		}
 
-		if (
-			singleWidget.type === NOTE_WIDGET_TYPE ||
-			singleWidget.type === SITE_PREVIEW_WIDGET_TYPE ||
-			singleWidget.type === ARTEFACT_WIDGET_TYPE
-		) {
+		if ( singleEditAction.kind === 'canvas-editing' ) {
 			editor.setEditingShape( singleShape.id );
 			return;
 		}
 
-		if ( ! desk.siteId ) {
-			return;
-		}
-
-		if ( singleWidget.type === POST_WIDGET_TYPE && singleWidget.widgetProps.postId > 0 ) {
-			void connector.openSiteUrl(
-				desk.siteId,
-				`/wp-admin/post.php?post=${ singleWidget.widgetProps.postId }&action=edit`
-			);
-			return;
-		}
-
-		if ( singleWidget.type === PAGE_WIDGET_TYPE && singleWidget.widgetProps.pageId > 0 ) {
-			void connector.openSiteUrl(
-				desk.siteId,
-				`/wp-admin/post.php?post=${ singleWidget.widgetProps.pageId }&action=edit`
-			);
-			return;
-		}
-
-		if ( singleWidget.type === POST_COLLECTION_WIDGET_TYPE ) {
-			void connector.openSiteUrl( desk.siteId, '/wp-admin/edit.php' );
+		if ( desk.siteId ) {
+			void connector.openSiteUrl( desk.siteId, singleEditAction.path );
 		}
 	}
 
@@ -710,33 +679,6 @@ function getWidgetsForShapeIds( editor: Editor, shapeIds: TLShapeId[] ) {
 		.map( ( shapeId ) => editor.getShape( shapeId ) )
 		.map( ( shape ) => ( shape ? canvasShapeToDeskWidget( shape ) : null ) )
 		.filter( ( widget ): widget is DeskWidget => widget !== null );
-}
-
-function canEditWidget(
-	widget: DeskWidget,
-	{ hasRunningSite, hasSiteId }: { hasRunningSite: boolean; hasSiteId: boolean }
-) {
-	if (
-		widget.type === NOTE_WIDGET_TYPE ||
-		widget.type === SITE_PREVIEW_WIDGET_TYPE ||
-		widget.type === ARTEFACT_WIDGET_TYPE
-	) {
-		return true;
-	}
-
-	if ( ! hasSiteId || ! hasRunningSite ) {
-		return false;
-	}
-
-	if ( widget.type === POST_WIDGET_TYPE ) {
-		return widget.widgetProps.postId > 0;
-	}
-
-	if ( widget.type === PAGE_WIDGET_TYPE ) {
-		return widget.widgetProps.pageId > 0;
-	}
-
-	return widget.type === POST_COLLECTION_WIDGET_TYPE;
 }
 
 function isWidgetAvailableInDeskContext(

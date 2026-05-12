@@ -7,14 +7,6 @@ vi.mock( '@wordpress/core-data', () => ( {
 	store: {},
 } ) );
 
-vi.mock( '@/ui-desks/widgets/post-collection/edit-control', () => ( {
-	PostCollectionEditControl: () => null,
-} ) );
-
-vi.mock( '@/ui-desks/widgets/post/edit-control', () => ( {
-	PostEditControl: () => null,
-} ) );
-
 describe( 'post collection widget definition', () => {
 	it( 'keeps tiled post positions stable when resolving from a persisted first tile anchor', async () => {
 		const collection = createPostCollectionWidget( {

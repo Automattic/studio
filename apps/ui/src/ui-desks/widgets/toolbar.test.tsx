@@ -23,10 +23,34 @@ const useDeskMock = vi.mocked( useDesk );
 
 describe( 'DeskWidgetToolbar', () => {
 	const fitSelectedWidgetToContent = vi.fn();
+	const editSelectedWidget = vi.fn();
 
 	beforeEach( () => {
+		editSelectedWidget.mockReturnValue( true );
 		fitSelectedWidgetToContent.mockResolvedValue( true );
 		useDeskMock.mockReturnValue( createDeskContext() );
+	} );
+
+	it( 'renders a standard edit button when the selected widget has an edit action', () => {
+		useDeskMock.mockReturnValue(
+			createDeskContext( {
+				selectedWidgetToolbarItem: createSingleWidgetSelection( {
+					labels: {
+						add: () => 'New test widget',
+						edit: () => 'Edit test widget',
+					},
+					getEditAction: () => ( { kind: 'canvas-editing' as const } ),
+				} ),
+				canEditSelectedWidget: true,
+				editSelectedWidget,
+			} )
+		);
+
+		render( <DeskWidgetToolbar /> );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Edit test widget' } ) );
+
+		expect( editSelectedWidget ).toHaveBeenCalledTimes( 1 );
 	} );
 
 	it( 'renders a generic fit button when the selected widget definition supports fitting', () => {
@@ -75,6 +99,8 @@ function createDeskContext( overrides: Partial< DeskContextValue > = {} ): DeskC
 		startDrawing: vi.fn(),
 		finishDrawing: vi.fn().mockResolvedValue( false ),
 		updateSelectedWidgetProps: vi.fn(),
+		canEditSelectedWidget: false,
+		editSelectedWidget: vi.fn(),
 		fitSelectedWidgetToContent: vi.fn().mockResolvedValue( false ),
 		stackSelectedWidgets: vi.fn(),
 		unstackSelectedWidgets: vi.fn(),

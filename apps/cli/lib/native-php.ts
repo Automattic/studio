@@ -96,6 +96,8 @@ export function getDefaultPhpArgs(
 	fs.mkdirSync( cacheDirectory, { recursive: true } );
 
 	const args = [
+		// Avoid loading php.ini config files to prevent other PHP installations from affecting Studio
+		'-n',
 		'-d',
 		'memory_limit=512M',
 		'-d',

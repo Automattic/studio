@@ -1,8 +1,8 @@
 import { DESK_CONFIG_VERSION, type DeskConfig } from '@/ui-desks/desk/types';
-import { getArtefactShapePropsForScope } from '@/ui-desks/widgets/artefact/sizing';
-import { ARTEFACT_WIDGET_TYPE } from '@/ui-desks/widgets/artefact/types';
+import { getScratchpadShapePropsForScope } from '@/ui-desks/widgets/scratchpad/sizing';
+import { SCRATCHPAD_WIDGET_TYPE } from '@/ui-desks/widgets/scratchpad/types';
 
-const EXAMPLE_ARTEFACT_HTML = `<!doctype html>
+const EXAMPLE_SCRATCHPAD_HTML = `<!doctype html>
 <html>
 <head>
 <meta charset="utf-8">
@@ -46,7 +46,7 @@ const EXAMPLE_ARTEFACT_HTML = `<!doctype html>
 </head>
 <body>
 	<main>
-		<h1>Artefact preview</h1>
+		<h1>Scratchpad preview</h1>
 		<p>This HTML is rendered inside an iframe on the desk canvas.</p>
 	</main>
 </body>
@@ -72,17 +72,17 @@ export const defaultUserDesk: DeskConfig = {
 			},
 		},
 		{
-			id: 'example-artefact',
-			type: ARTEFACT_WIDGET_TYPE,
+			id: 'example-scratchpad',
+			type: SCRATCHPAD_WIDGET_TYPE,
 			x: 420,
 			y: 80,
 			zIndex: 'a2',
-			shapeProps: getArtefactShapePropsForScope( 'block' ),
+			shapeProps: getScratchpadShapePropsForScope( 'block' ),
 			widgetProps: {
-				html: EXAMPLE_ARTEFACT_HTML,
-				title: 'Example artefact',
+				html: EXAMPLE_SCRATCHPAD_HTML,
+				title: 'Example scratchpad',
 				scope: 'block',
-				description: 'Sample HTML artefact for testing iframe rendering and prompt editing.',
+				description: 'Sample HTML scratchpad for testing iframe rendering and prompt editing.',
 			},
 		},
 	],

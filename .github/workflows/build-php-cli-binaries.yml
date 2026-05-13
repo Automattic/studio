@@ -13,7 +13,7 @@ on:
         required: true
         default: 3.5.1
       spc_ref:
-        description: static-php-cli ref to use for macOS dependency builds
+        description: static-php-cli ref to use for the macOS build
         required: true
         default: 2.8.5
       debug:
@@ -54,7 +54,7 @@ jobs:
             runner: macos-15
             artifact_platform: macos
             artifact_arch: aarch64
-            extensions: &macos_extensions apcu,bcmath,calendar,ctype,curl,dba,dom,exif,fileinfo,filter,ftp,gd,gettext,iconv,igbinary,imagick,intl,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pcntl,pdo,pdo_mysql,pdo_sqlite,phar,posix,readline,redis,session,shmop,simplexml,sockets,sodium,sqlite3,ssh2,tokenizer,xml,xmlreader,xmlwriter,xsl,yaml,zip,zlib
+            extensions: &macos_extensions apcu,bcmath,calendar,ctype,curl,dba,dom,exif,fileinfo,filter,ftp,gd,gettext,iconv,igbinary,intl,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pcntl,pdo,pdo_mysql,pdo_sqlite,phar,posix,readline,redis,session,shmop,simplexml,sockets,sodium,sqlite3,ssh2,tokenizer,xml,xmlreader,xmlwriter,xsl,yaml,zip,zlib
           - target: macos-x86_64
             runner: macos-15-intel
             artifact_platform: macos
@@ -100,23 +100,6 @@ jobs:
           php_minor="${PHP_VERSION%.*}"
           echo "PHP_MINOR=$php_minor" >> "$GITHUB_ENV"
 
-      - name: Install macOS build dependencies
-        if: runner.os == 'macOS'
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          brew update
-          brew install \
-            autoconf \
-            automake \
-            bison \
-            cmake \
-            libtool \
-            ninja \
-            pkg-config \
-            re2c
-
       - name: Setup PHP for static-php-cli
         if: runner.os == 'macOS'
         uses: shivammathur/setup-php@v2
@@ -134,7 +117,7 @@ jobs:
         working-directory: .cache/static-php-cli
         run: composer install --no-dev --no-interaction --prefer-dist --classmap-authoritative
 
-      - name: Build macOS PHP dependencies with static-php-cli
+      - name: Build macOS PHP runtime with static-php-cli
         if: runner.os == 'macOS'
         working-directory: .cache/static-php-cli
         shell: bash
@@ -145,180 +128,73 @@ jobs:
             set -x
           fi
 
-          php_extensions="bz2,curl,dom,gd,gettext,iconv,intl,mbstring,mysqli,openssl,pdo_mysql,pdo_sqlite,readline,simplexml,sodium,sqlite3,xml,xmlreader,xmlwriter,xsl,zip,zlib"
-          libraries="bzip2,curl,freetype,gettext,icu,imagemagick,libiconv,libjpeg,libpng,libsodium,libssh2,libxml2,libxslt,libyaml,libzip,onig,openssl,readline,sqlite,zlib"
+          # Per SPC's config/ext.json, these extensions declare target: ["static"]
+          # and must be baked into PHP. Everything else (including Xdebug, which is
+          # target: ["shared"]) is built as a loadable .so under buildroot/modules.
+          forced_static_exts="mbregex readline zlib"
+
+          static_list=()
+          shared_list=()
+          IFS=',' read -ra all_exts <<< "$PHP_CLI_EXTENSIONS"
+          for ext in "${all_exts[@]}"; do
+            ext_trimmed="${ext// /}"
+            is_static=false
+            for s in $forced_static_exts; do
+              if [ "$ext_trimmed" = "$s" ]; then
+                is_static=true
+                break
+              fi
+            done
+            if $is_static; then
+              static_list+=("$ext_trimmed")
+            else
+              shared_list+=("$ext_trimmed")
+            fi
+          done
+          static_extensions=$(IFS=','; echo "${static_list[*]}")
+          shared_extensions=$(IFS=','; echo "${shared_list[*]}")
+
+          download_args=(
+            --with-php="$PHP_VERSION"
+            --for-extensions="${PHP_CLI_EXTENSIONS}"
+            --custom-url="xdebug:https://xdebug.org/files/xdebug-${XDEBUG_VERSION}.tgz"
+            --ignore-cache-sources=php-src
+            --prefer-pre-built
+          )
+          build_args=(
+            "$static_extensions"
+            --build-shared="$shared_extensions"
+            --build-cli
+          )
+
+          if [ "$BUILD_DEBUG" = "true" ]; then
+            download_args+=(--debug)
+            build_args+=(--debug)
+          fi
 
           php bin/spc doctor --auto-fix
-          php bin/spc download \
-            --with-php="$PHP_VERSION" \
-            --for-extensions="$php_extensions" \
-            --for-libs="$libraries" \
-            --ignore-cache-sources=php-src \
-            --prefer-pre-built
-          php bin/spc build:libs "$libraries"
+          php bin/spc download "${download_args[@]}"
+          php bin/spc build "${build_args[@]}"
 
-      - name: Build PHP runtime on macOS
+      - name: Package macOS artifact
         if: runner.os == 'macOS'
         shell: bash
         run: |
           set -euo pipefail
 
-          if [ "$BUILD_DEBUG" = "true" ]; then
-            set -x
-          fi
-
-          source_url="https://www.php.net/distributions/php-${PHP_VERSION}.tar.gz"
-          xdebug_url="https://xdebug.org/files/xdebug-${XDEBUG_VERSION}.tgz"
-          work_dir="$RUNNER_TEMP/php-build"
-          install_dir="$RUNNER_TEMP/php-install"
-          staging_dir="$RUNNER_TEMP/php-artifact"
           spc_root="$GITHUB_WORKSPACE/.cache/static-php-cli/buildroot"
+          staging_dir="$RUNNER_TEMP/php-artifact"
+          out_dir="$GITHUB_WORKSPACE/out/php-binaries"
+          artifact="php-${PHP_VERSION}-cli-${PHP_CLI_ARTIFACT_PLATFORM}-${PHP_CLI_ARTIFACT_ARCH}.zip"
 
-          rm -rf "$work_dir" "$install_dir" "$staging_dir"
-          mkdir -p "$work_dir" "$install_dir" "$staging_dir/ext"
+          rm -rf "$staging_dir"
+          mkdir -p "$staging_dir/ext" "$out_dir"
 
-          curl --fail --location --retry 3 "$source_url" --output "$work_dir/php.tar.gz"
-          tar -xzf "$work_dir/php.tar.gz" -C "$work_dir"
-
-          spc_pkg_config="$(find "$GITHUB_WORKSPACE/.cache/static-php-cli/pkgroot" -path '*/bin/pkg-config' -type f -perm -111 | head -n 1)"
-          if [ -z "$spc_pkg_config" ]; then
-            echo "static-php-cli pkg-config was not found in pkgroot" >&2
-            exit 1
-          fi
-
-          pkg_config_static="$work_dir/pkg-config-static"
-          cat > "$pkg_config_static" <<SH
-          #!/bin/sh
-          exec "$spc_pkg_config" --static "\$@"
-          SH
-          chmod +x "$pkg_config_static"
-
-          export PATH="$(brew --prefix bison)/bin:$spc_root/bin:$PATH"
-          export PKG_CONFIG="$pkg_config_static"
-          export PKG_CONFIG_LIBDIR="$spc_root/lib/pkgconfig"
-          export PKG_CONFIG_PATH="$spc_root/lib/pkgconfig"
-          export CPPFLAGS="-I$spc_root/include ${CPPFLAGS:-}"
-          export LDFLAGS="-L$spc_root/lib ${LDFLAGS:-}"
-          export LIBRARY_PATH="$spc_root/lib:${LIBRARY_PATH:-}"
-
-          "$PKG_CONFIG" --version
-          "$PKG_CONFIG" --modversion libxml-2.0
-
-          # Ask static-php-cli for curl's full static link line: libcurl.a + transitive
-          # static deps + the macOS frameworks declared in its lib.json. Keeps framework
-          # knowledge (CoreFoundation/CoreServices/SystemConfiguration today, plus whatever
-          # SPC adds for krb5/idn2/etc. later) out of this workflow.
-          curl_static_link="$(cd "$GITHUB_WORKSPACE/.cache/static-php-cli" && php bin/spc spc-config curl --libs --absolute-libs --no-php)"
-          curl_frameworks="$(printf '%s' "$curl_static_link" | grep -oE '\-framework [A-Za-z]+' | tr '\n' ' ')"
-          export CURL_LIBS="$curl_static_link"
-          export LIBS="$curl_frameworks ${LIBS:-}"
-
-          cd "$work_dir/php-${PHP_VERSION}"
-          curl_config="$PWD/ext/curl/config.m4"
-          perl -0pi -e 's/(PHP_CHECK_LIBRARY\(\[curl\],\s*\[curl_easy_perform\],)/save_LIBS="\$LIBS"\n  LIBS="\$LIBS \$CURL_LIBS"\n\1/s' "$curl_config"
-          perl -0pi -e 's/(PHP_CHECK_LIBRARY\(\[curl\],\s*\[curl_easy_perform\],.*?\)\n)/\1  LIBS="\$save_LIBS"\n/s' "$curl_config"
-          grep -q 'LIBS="$LIBS $CURL_LIBS"' "$curl_config"
-          grep -q 'LIBS="$save_LIBS"' "$curl_config"
-
-          ./buildconf --force
-          CURL_STATIC_LINK="$curl_static_link" perl -0pi -e 's/-lcurl/$ENV{CURL_STATIC_LINK}/g' configure
-          grep -Fq "$spc_root/lib/libcurl.a" configure
-
-          ./configure \
-            --prefix="$install_dir" \
-            --with-config-file-path="$install_dir/etc" \
-            --with-config-file-scan-dir="$install_dir/etc/conf.d" \
-            --disable-cgi \
-            --disable-debug \
-            --disable-phpdbg \
-            --enable-bcmath=shared \
-            --enable-calendar=shared \
-            --enable-cli \
-            --enable-ctype=shared \
-            --enable-dba=shared \
-            --enable-dom=shared \
-            --enable-exif=shared \
-            --enable-fileinfo=shared \
-            --enable-filter=shared \
-            --enable-ftp=shared \
-            --enable-gd=shared \
-            --enable-intl=shared \
-            --enable-mbstring=shared \
-            --enable-opcache=shared \
-            --enable-pcntl=shared \
-            --enable-pdo=shared \
-            --enable-phar=shared \
-            --enable-posix=shared \
-            --enable-session=shared \
-            --enable-shmop=shared \
-            --enable-simplexml=shared \
-            --enable-sockets=shared \
-            --enable-tokenizer=shared \
-            --enable-xml=shared \
-            --enable-xmlreader=shared \
-            --enable-xmlwriter=shared \
-            --with-bz2=shared,$spc_root \
-            --with-curl \
-            --with-freetype \
-            --with-gettext=shared,$spc_root \
-            --with-iconv=shared,$spc_root \
-            --with-jpeg \
-            --with-mysqli=shared,mysqlnd \
-            --with-openssl=shared \
-            --with-pdo-mysql=shared,mysqlnd \
-            --with-pdo-sqlite=shared \
-            --with-readline=shared,$spc_root \
-            --with-sodium=shared,$spc_root \
-            --with-sqlite3=shared \
-            --with-xsl=shared \
-            --with-zip=shared \
-            --with-zlib=shared,$spc_root
-
-          grep -E 'CoreFoundation|SystemConfiguration|CoreServices' Makefile
-
-          make -j"$(sysctl -n hw.ncpu)"
-          make install
-          mkdir -p "$install_dir/etc/conf.d"
-
-          ext_work_dir="$work_dir/ext-src"
-          mkdir -p "$ext_work_dir"
-
-          build_external_extension() {
-            local name="$1"
-            local version="$2"
-            local url="$3"
-            shift 3
-            local configure_args=("$@")
-
-            echo "::group::Build $name $version"
-            local tarball="$ext_work_dir/${name}-${version}.tgz"
-            curl --fail --location --retry 3 "$url" --output "$tarball"
-            tar -xzf "$tarball" -C "$ext_work_dir"
-
-            pushd "$ext_work_dir/${name}-${version}" >/dev/null
-            "$install_dir/bin/phpize"
-            ./configure --with-php-config="$install_dir/bin/php-config" "${configure_args[@]}"
-            make -j"$(sysctl -n hw.ncpu)"
-            make install
-            popd >/dev/null
-            echo "::endgroup::"
-          }
-
-          build_external_extension xdebug "$XDEBUG_VERSION" "$xdebug_url"
-          build_external_extension APCu 5.1.24 https://pecl.php.net/get/APCu-5.1.24.tgz --enable-apcu
-          build_external_extension igbinary 3.2.16 https://pecl.php.net/get/igbinary-3.2.16.tgz
-          build_external_extension ssh2 1.4.1 https://pecl.php.net/get/ssh2-1.4.1.tgz "--with-ssh2=$spc_root"
-          build_external_extension yaml 2.2.4 https://pecl.php.net/get/yaml-2.2.4.tgz "--with-yaml=$spc_root"
-          build_external_extension imagick 3.7.0 https://pecl.php.net/get/imagick-3.7.0.tgz "--with-imagick=$spc_root"
-          build_external_extension redis 6.0.2 https://pecl.php.net/get/redis-6.0.2.tgz --enable-redis --enable-redis-igbinary
-
-          install_extension_dir="$("$install_dir/bin/php-config" --extension-dir)"
-          cp "$install_dir/bin/php" "$staging_dir/php"
+          cp "$spc_root/bin/php" "$staging_dir/php"
           chmod +x "$staging_dir/php"
-          cp "$install_extension_dir"/*.so "$staging_dir/ext/"
+          cp "$spc_root/modules"/*.so "$staging_dir/ext/"
 
           extension_dir="$staging_dir/ext"
-          relative_extension_dir="ext"
 
           find_macho_files() {
             find "$staging_dir" -type f \( -name '*.dylib' -o -name '*.so' -o -perm -111 \) -print | while read -r candidate; do
@@ -353,8 +229,8 @@ jobs:
             "platform": "$PHP_CLI_ARTIFACT_PLATFORM",
             "arch": "$PHP_CLI_ARTIFACT_ARCH",
             "binary": "php",
-            "extensionDir": "$relative_extension_dir",
-            "xdebug": "$relative_extension_dir/xdebug.so"
+            "extensionDir": "ext",
+            "xdebug": "ext/xdebug.so"
           }
           JSON
 
@@ -368,7 +244,7 @@ jobs:
           "$staging_dir/php" -n \
             -r 'if ( ! extension_loaded( "curl" ) ) { fwrite( STDERR, "curl is not loaded\n" ); exit( 1 ); } echo PHP_VERSION, PHP_EOL;'
 
-          smoke_extensions=(apcu gd gettext igbinary imagick mbstring pdo pdo_sqlite redis sodium sqlite3 ssh2 xsl yaml)
+          smoke_extensions=(apcu gd gettext igbinary mbstring pdo pdo_sqlite redis sodium sqlite3 ssh2 xsl yaml)
           for extension in "${smoke_extensions[@]}"; do
             echo "Smoke testing extension: $extension"
             otool -L "$extension_dir/$extension.so"
@@ -390,17 +266,6 @@ jobs:
               -r 'echo PHP_VERSION, PHP_EOL;'
           done
 
-      - name: Package macOS artifact
-        if: runner.os == 'macOS'
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          out_dir="$GITHUB_WORKSPACE/out/php-binaries"
-          staging_dir="$RUNNER_TEMP/php-artifact"
-          artifact="php-${PHP_VERSION}-cli-${PHP_CLI_ARTIFACT_PLATFORM}-${PHP_CLI_ARTIFACT_ARCH}.zip"
-
-          mkdir -p "$out_dir"
           ( cd "$staging_dir" && zip -qr "$out_dir/$artifact" . )
           shasum -a 256 "$out_dir/$artifact" | awk '{print $1}' > "$out_dir/$artifact.sha256"
 
@@ -543,6 +408,14 @@ jobs:
         with:
           name: php-${{ env.PHP_VERSION }}-cli-${{ matrix.target }}
           path: out/php-binaries/*
+
+      - name: Upload static-php-cli logs
+        if: ${{ failure() && runner.os == 'macOS' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: spc-logs-${{ matrix.target }}
+          path: .cache/static-php-cli/log/*.log
+          if-no-files-found: ignore
 
   publish-apps-cdn:
     name: Publish Apps CDN artifacts

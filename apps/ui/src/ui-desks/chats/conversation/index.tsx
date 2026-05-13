@@ -18,6 +18,7 @@ import { clsx } from 'clsx';
 import { useMemo, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { Markdown } from '@/components/markdown';
+import { Button } from '@/ui-desks/components';
 import { useDesk } from '@/ui-desks/desk/provider';
 import { createDeskWidget } from '@/ui-desks/widget-actions/create-widget';
 import { ThinkingIndicator } from '../thinking-indicator';
@@ -247,13 +248,15 @@ function ToolUseRow( {
 							{ resultText }
 						</pre>
 						{ isLong ? (
-							<button
-								type="button"
+							<Button
+								variant="quiet"
+								size="xsmall"
 								className={ styles.toolOutputToggle }
+								label={ expanded ? __( 'Show less' ) : __( 'Show more' ) }
 								onClick={ () => setExpanded( ( prev ) => ! prev ) }
 							>
 								{ expanded ? __( 'Show less' ) : __( 'Show more' ) }
-							</button>
+							</Button>
 						) : null }
 					</div>
 				) : null }
@@ -471,18 +474,20 @@ function AgentQuestion( {
 							const picked = option.label === pickedLabel;
 							return (
 								<li key={ index }>
-									<button
-										type="button"
+									<Button
+										variant="quiet"
+										size="xsmall"
 										className={ clsx(
 											styles.questionOption,
 											picked && styles.questionOptionPicked
 										) }
+										label={ option.label }
 										disabled={ ! isInteractive }
 										onClick={ () => onAnswer( option.label ) }
 										title={ option.description }
 									>
 										{ option.label }
-									</button>
+									</Button>
 								</li>
 							);
 						} ) }

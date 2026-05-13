@@ -86,20 +86,6 @@ jobs:
           ref: ${{ env.SPC_REF }}
           path: .cache/static-php-cli
 
-      - name: Validate PHP version
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if [[ ! "$PHP_VERSION" =~ ^8\.(2|3|4|5)\.[0-9]+$ ]]; then
-            echo "Unsupported PHP version: $PHP_VERSION" >&2
-            echo "Supported PHP minors: 8.2, 8.3, 8.4, 8.5" >&2
-            exit 1
-          fi
-
-          php_minor="${PHP_VERSION%.*}"
-          echo "PHP_MINOR=$php_minor" >> "$GITHUB_ENV"
-
       - name: Setup PHP for static-php-cli
         if: runner.os == 'macOS'
         uses: shivammathur/setup-php@v2
@@ -278,6 +264,8 @@ jobs:
         run: |
           $phpMinor = $env:PHP_MINOR
           switch ( $phpMinor ) {
+            '8.0' { $vsVersion = 'vs16' }
+            '8.1' { $vsVersion = 'vs16' }
             '8.2' { $vsVersion = 'vs16' }
             '8.3' { $vsVersion = 'vs16' }
             '8.4' { $vsVersion = 'vs17' }

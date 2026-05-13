@@ -43,6 +43,9 @@
 }
 
 .removeAttachment {
+	--button-background: rgba(255, 255, 255, 0.94);
+	--button-foreground: var(--ui-desks-muted, #6b7280);
+
 	position: absolute;
 	top: -8px;
 	right: -8px;
@@ -54,8 +57,6 @@
 	padding: 0;
 	border: 1px solid rgba(15, 23, 42, 0.1);
 	border-radius: 999px;
-	background: rgba(255, 255, 255, 0.94);
-	color: var(--ui-desks-muted, #6b7280);
 	box-shadow: 0 3px 8px rgba(15, 23, 42, 0.12);
 	cursor: pointer;
 	opacity: 0;
@@ -73,7 +74,9 @@
 
 .removeAttachment:hover,
 .removeAttachment:focus-visible {
-	color: var(--ui-desks-text, #14171a);
+	--button-background: rgba(255, 255, 255, 0.98);
+	--button-foreground: var(--ui-desks-text, #14171a);
+
 	border-color: rgba(15, 23, 42, 0.18);
 }
 
@@ -188,13 +191,16 @@
 }
 
 .sendButton {
-	background: var(--ui-desks-focus, #3858e9);
-	color: #fff;
+	--button-background: var(--ui-desks-focus, #3858e9);
+	--button-foreground: #fff;
+
 	box-shadow: 0 6px 18px rgba(56, 88, 233, 0.45);
 }
 
 .sendButton:hover:not(:disabled),
 .sendButton:focus-visible:not(:disabled) {
+	--button-background: var(--ui-desks-focus, #3858e9);
+
 	box-shadow: 0 8px 22px rgba(56, 88, 233, 0.55);
 	transform: translateY(-1px);
 }
@@ -210,13 +216,16 @@
 }
 
 .stopButton {
-	background: var(--ui-desks-text, #14171a);
-	color: #fff;
+	--button-background: var(--ui-desks-text, #14171a);
+	--button-foreground: #fff;
+
 	box-shadow: 0 4px 14px rgba(15, 23, 42, 0.18);
 }
 
 .stopButton:hover,
 .stopButton:focus-visible {
+	--button-background: var(--ui-desks-text, #14171a);
+
 	box-shadow: 0 6px 18px rgba(15, 23, 42, 0.24);
 	transform: translateY(-1px);
 }
@@ -243,24 +252,8 @@
 	pointer-events: none;
 }
 
-.environmentDot {
-	width: 6px;
-	height: 6px;
-	border-radius: 50%;
-	background-color: #16a34a;
-	flex: 0 0 auto;
-}
-
-.environmentDotLive {
-	background-color: var(--ui-desks-focus, #3858e9);
-}
-
 .commandsMenuPopup {
 	min-width: 280px;
-}
-
-.environmentMenu {
-	min-width: 140px;
 }
 
 .commandMenuItem > .commandItem {

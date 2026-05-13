@@ -36,21 +36,24 @@ export const createSiteTool = defineTool(
 
 			const site = await resolveSite( args.name );
 			const url = getSiteUrl( site );
-			return textResult(
-				JSON.stringify(
-					{
-						name: site.name,
-						path: site.path,
-						url,
-						adminUrl: `${ url }/wp-admin`,
-						username: 'admin',
-						password: site.adminPassword,
-						phpVersion: site.phpVersion,
-					},
-					null,
-					2
-				)
-			);
+			return {
+				...textResult(
+					JSON.stringify(
+						{
+							name: site.name,
+							path: site.path,
+							url,
+							adminUrl: `${ url }/wp-admin`,
+							username: 'admin',
+							password: site.adminPassword,
+							phpVersion: site.phpVersion,
+						},
+						null,
+						2
+					)
+				),
+				studioArtifacts: [ { type: 'site-preview', widgetProps: { path: '/' } } ],
+			};
 		} catch ( error ) {
 			throw new Error(
 				`Failed to create site: ${ error instanceof Error ? error.message : String( error ) }`

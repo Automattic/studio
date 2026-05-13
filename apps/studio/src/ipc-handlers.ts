@@ -1332,6 +1332,61 @@ export function showItemInFolder( _event: IpcMainInvokeEvent, path: string ) {
 	shell.showItemInFolder( path );
 }
 
+export async function readLocalMediaFile(
+	_event: IpcMainInvokeEvent,
+	path: string
+): Promise< { name: string; mimeType: string; data: ArrayBuffer } > {
+	const stats = await fsPromises.stat( path );
+	if ( ! stats.isFile() ) {
+		throw new Error( 'Local media path must be a file.' );
+	}
+
+	const mimeType = getLocalMediaMimeType( path );
+	if ( ! mimeType ) {
+		throw new Error( 'Local media file type is not supported.' );
+	}
+
+	const buffer = await fsPromises.readFile( path );
+	return {
+		name: nodePath.basename( path ),
+		mimeType,
+		data: buffer.buffer.slice(
+			buffer.byteOffset,
+			buffer.byteOffset + buffer.byteLength
+		) as ArrayBuffer,
+	};
+}
+
+function getLocalMediaMimeType( path: string ) {
+	const extension = nodePath.extname( path ).toLowerCase().slice( 1 );
+	const mimeTypes: Record< string, string > = {
+		avif: 'image/avif',
+		avi: 'video/x-msvideo',
+		bmp: 'image/bmp',
+		gif: 'image/gif',
+		heic: 'image/heic',
+		heif: 'image/heif',
+		ico: 'image/x-icon',
+		jpeg: 'image/jpeg',
+		jpg: 'image/jpeg',
+		m4v: 'video/x-m4v',
+		mkv: 'video/x-matroska',
+		mov: 'video/quicktime',
+		mp4: 'video/mp4',
+		mpeg: 'video/mpeg',
+		mpg: 'video/mpeg',
+		ogv: 'video/ogg',
+		png: 'image/png',
+		svg: 'image/svg+xml',
+		tif: 'image/tiff',
+		tiff: 'image/tiff',
+		webm: 'video/webm',
+		webp: 'image/webp',
+	};
+
+	return mimeTypes[ extension ] ?? '';
+}
+
 // Update a site's theme details and thumbnail. Emit the appropriate IPC events to the renderer
 // process.
 export async function loadThemeDetails(

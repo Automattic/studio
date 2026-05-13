@@ -135,9 +135,20 @@ export class E2ESession {
 		// elements that are technically present but never become "visible".
 		// SwiftShader is the deterministic software GL driver Chromium ships
 		// for exactly this case.
+		//
+		// --disable-dev-shm-usage avoids Docker's small default /dev/shm
+		// mount. The Linux Buildkite step is already headless, so using /tmp
+		// for Chromium shared memory is a better tradeoff than intermittent
+		// renderer or helper-process instability under load.
 		const linuxFlags =
 			appInfo.platform === 'linux'
-				? [ '--no-sandbox', '--disable-gpu', '--use-gl=swiftshader' ]
+				? [
+						'--no-sandbox',
+						'--disable-gpu',
+						'--use-gl=swiftshader',
+						'--disable-dev-shm-usage',
+						'--host-resolver-rules=MAP localhost 127.0.0.1',
+				  ]
 				: [];
 
 		this.electronApp = await electron.launch( {

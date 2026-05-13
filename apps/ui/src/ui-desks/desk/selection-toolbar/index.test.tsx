@@ -95,6 +95,7 @@ function createDeskContext( overrides: Partial< DeskContextValue > = {} ): DeskC
 		registerEditor: vi.fn(),
 		pressStack: vi.fn(),
 		addWidget: vi.fn(),
+		addWidgetAtScreenPoint: vi.fn(),
 		addPastedContent: vi.fn().mockResolvedValue( false ),
 		startDrawing: vi.fn(),
 		finishDrawing: vi.fn().mockResolvedValue( false ),

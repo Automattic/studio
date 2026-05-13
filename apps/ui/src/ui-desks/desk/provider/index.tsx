@@ -377,6 +377,24 @@ export function DeskProvider( {
 		[ editor, isHydrated, isReadOnly ]
 	);
 
+	const addWidgetAtScreenPoint = useCallback(
+		(
+			type: string,
+			point: { x: number; y: number },
+			options?: Omit< AddDeskWidgetOptions, 'center' >
+		) => {
+			if ( isReadOnly || ! editor || ! isHydrated ) {
+				return false;
+			}
+
+			return addWidgetToEditor( editor, type, 0, {
+				...options,
+				center: editor.screenToPage( point ),
+			} );
+		},
+		[ editor, isHydrated, isReadOnly ]
+	);
+
 	const addPastedContent = useCallback(
 		async ( payload: WidgetPastePayload, options?: AddDeskWidgetOptions ) => {
 			if ( isReadOnly || ! editor || ! isHydrated ) {
@@ -568,6 +586,7 @@ export function DeskProvider( {
 			registerEditor,
 			pressStack,
 			addWidget,
+			addWidgetAtScreenPoint,
 			addPastedContent,
 			startDrawing,
 			finishDrawing,
@@ -583,6 +602,7 @@ export function DeskProvider( {
 		[
 			addPastedContent,
 			addWidget,
+			addWidgetAtScreenPoint,
 			editor,
 			editSelectedWidget,
 			fitSelectedWidgetToContent,

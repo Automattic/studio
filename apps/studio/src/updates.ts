@@ -337,10 +337,14 @@ async function showLinuxUpdateAvailableNotice( version: string, downloadUrl: str
 
 function debFilenameFromUrl( downloadUrl: string ): string {
 	try {
-		return new URL( downloadUrl ).pathname.split( '/' ).pop() || '*.deb';
+		const filename = new URL( downloadUrl ).pathname.split( '/' ).pop() ?? '';
+		if ( /^[A-Za-z0-9._~+-]+\.deb$/.test( filename ) ) {
+			return filename;
+		}
 	} catch {
-		return '*.deb';
+		// ignore
 	}
+	return 'studio.deb';
 }
 
 function isAppRunningFromDMG(): boolean {

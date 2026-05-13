@@ -303,7 +303,7 @@ async function showLinuxUpdateAvailableNotice( version: string, downloadUrl: str
 	showManualCheckDialogs = false;
 	const mainWindow = await getMainWindow();
 
-	const command = `sudo apt install ./${ debFilenameFromUrl( downloadUrl ) }`;
+	const command = `sudo apt install ~/Downloads/${ debFilenameFromUrl( downloadUrl ) }`;
 	const introLine = __(
 		'After downloading, quit Studio and run this command from a terminal to install:'
 	);

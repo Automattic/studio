@@ -79,7 +79,7 @@ The `studio code` agent and the `studio migrate` command both delegate platform-
 `startDlaBridge` in `tools/dla/bridge.ts` spawns DLA's stdio MCP server as a child process and connects an MCP `Client` over stdio. The spawn pipeline:
 
 - `process.execPath` runs Node (the same Electron-as-Node binary the CLI itself uses).
-- `tsx` is loaded as the loader entry. The bridge resolves it as `tsx/dist/cli.mjs` via `createRequire(import.meta.url).resolve('tsx/dist/cli.mjs')`. The standalone `studio migrate` path in `apps/cli/commands/migrate/resolvers.ts` resolves the same binary via `tsx/cli` instead — the public exports key. Both paths land on the same file; the bridge's spelling depends on hoisting layout while `tsx/cli` is the canonical subpath. This discrepancy is harmless today but should be reconciled (prefer `tsx/cli`).
+- `tsx` is loaded as the loader entry. Both the bridge (`tools/dla/bridge.ts`) and the standalone `studio migrate` path (`apps/cli/commands/migrate/resolvers.ts`) resolve it as `tsx/cli` — the canonical key in tsx's package `exports` map. The deep `tsx/dist/cli.mjs` subpath is intentionally not exposed by `exports` and throws `ERR_PACKAGE_PATH_NOT_EXPORTED` at runtime; the regression tests in `tools/dla/tests/bridge.test.ts` (the `defaultTransportProvider — real require.resolve paths` block) lock both invariants in so the bridge can never silently regress back to the deep subpath.
 - DLA's MCP server is resolved via `require.resolve('data-liberation/src/mcp-server.ts')`.
 - The spawn passes a sanitised env: `PATH`, plus a passthrough allowlist (`LIBERATION_TOKEN`, `SHOPIFY_ADMIN_TOKEN`, `NODE_PATH`, `NODE_OPTIONS`), plus `STUDIO_WPCOM_TOKEN` injected from the session's resolved wpcom access token. The parent never has to set `STUDIO_WPCOM_TOKEN` on its own environment.
 - `listTools` is called with a 10-second `AbortSignal.timeout` cap. Failures to spawn or list resolve to a bridge handle with `degraded: true` and an empty `tools` array — a missing or broken DLA install warns and continues, never crashes session startup.
@@ -129,7 +129,7 @@ This is a candidate upstream issue against `Automattic/data-liberation-agent`. S
 
 ### Caveat: Playwright Chromium postinstall
 
-DLA depends on Playwright Chromium for the Wix and Squarespace platform adapters. The `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` env var is set in Studio's CI configs as defensive forward-compat, but it is currently **inert against modern Playwright**: neither `playwright` nor `playwright-core` has a postinstall hook, and DLA's own postinstall invokes `installBrowsers()` directly without consulting the env var. The setting still lands as zero-cost future-proofing. End-users pay the ~150 MB download cost on `npm install -g wp-studio`; Chromium auto-installs lazily on first use by the platform adapters that need it.
+DLA depends on Playwright Chromium for the Wix and Squarespace platform adapters. The `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` env var is set in Studio's CI configs as defensive forward-compat, but it is currently **inert against modern Playwright**: neither `playwright` nor `playwright-core` has a postinstall hook, and DLA's own postinstall invokes `installBrowsers()` directly without consulting the env var. The setting still lands as zero-cost future-proofing. End-users pay the ~150 MB download cost on `npm install -g wp-studio`, driven by DLA's `postinstall: "playwright install chromium"` hook.
 
 ### Update cadence
 

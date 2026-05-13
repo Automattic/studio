@@ -119,7 +119,7 @@ studio migrate https://example.com
 studio migrate https://example.com --output ./out --non-interactive
 ```
 
-Two source platforms need credentials before the extract step: Webflow requires `LIBERATION_TOKEN` (a Webflow site token) and Shopify requires `SHOPIFY_ADMIN_TOKEN` (a Shopify Admin API token with read access to products and orders). Set them in your shell before running either path. The first migration on a machine also downloads a Playwright Chromium build on demand (~150 MB), so expect a one-time delay before the first extract starts.
+Two source platforms need credentials before the extract step: Webflow requires `LIBERATION_TOKEN` (a Webflow site token) and Shopify requires `SHOPIFY_ADMIN_TOKEN` (a Shopify Admin API token with read access to products and orders). Set them in your shell before running either path. Installing the Studio CLI also downloads a Playwright Chromium build (~150 MB) used for the Wix and Squarespace adapters, so the initial `npm install -g wp-studio` pulls more than the base CLI does.
 
 ## Import and export
 

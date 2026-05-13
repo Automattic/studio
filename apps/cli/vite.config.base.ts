@@ -100,6 +100,7 @@ export const baseConfig = defineConfig( {
 		alias: {
 			cli: resolve( __dirname, '.' ),
 			'@studio/common': resolve( __dirname, '../../tools/common' ),
+			'@studio/dla': resolve( __dirname, '../../tools/dla' ),
 			'@wp-playground/blueprints/blueprint-schema-validator': resolve(
 				__dirname,
 				'../../node_modules/@wp-playground/blueprints/blueprint-schema-validator.js'

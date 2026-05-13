@@ -1,15 +1,11 @@
 {
 	"extends": "../../tsconfig.base.json",
 	"compilerOptions": {
-		"module": "ESNext",
-		"moduleResolution": "Bundler",
+		"composite": true,
 		"baseUrl": "../..",
-		"paths": {
-			"cli/*": [ "apps/cli/*" ],
-			"@studio/common/*": [ "tools/common/*" ],
-			"@studio/dla": [ "tools/dla/index.ts" ],
-			"@studio/dla/*": [ "tools/dla/*" ]
-		}
+		"outDir": "dist",
+		"declaration": true,
+		"emitDeclarationOnly": true
 	},
 	"include": [ "**/*" ],
 	"exclude": [

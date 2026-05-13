@@ -18,6 +18,7 @@ import {
 	SettingsManager,
 	type AgentSession,
 	type AgentSessionEvent,
+	type ExtensionFactory,
 	type SessionManager,
 	type ToolDefinition,
 } from '@mariozechner/pi-coding-agent';
@@ -27,6 +28,7 @@ import {
 	type AiModelFamily,
 	type AiModelId,
 } from '@studio/common/ai/models';
+import { createDlaPolicyFactory, defaultPolicyBuckets } from '@studio/dla';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
@@ -253,6 +255,7 @@ async function createStudioAgentSession(
 	const toolDefinitions = tools.map( toToolDefinition );
 	const { authStorage, modelRegistry } = createModelRegistry( model, family, creds );
 	const settingsManager = createSettingsManager( config.env );
+	const extensionFactories = resolveDlaExtensionFactories( config.env );
 	const resourceLoader = new DefaultResourceLoader( {
 		cwd: STUDIO_SITES_ROOT,
 		agentDir: STUDIO_AGENT_DIR,
@@ -263,6 +266,7 @@ async function createStudioAgentSession(
 		noThemes: true,
 		noContextFiles: true,
 		systemPrompt,
+		extensionFactories,
 	} );
 	await resourceLoader.reload();
 
@@ -385,6 +389,33 @@ function createSettingsManager( _env: Record< string, string > ): SettingsManage
 		defaultThinkingLevel: 'high',
 		compaction: STUDIO_COMPACTION_SETTINGS,
 	} );
+}
+
+/**
+ * Build the list of pi `ExtensionFactory` values to feed into
+ * `DefaultResourceLoader.extensionFactories` based on the session's env.
+ *
+ * Inline `extensionFactories` are loaded even when `noExtensions: true`
+ * is set on `DefaultResourceLoader` (verified at `resource-loader.js`'s
+ * `loadExtensionFactories` path), so the runtime keeps the rest of the
+ * extension discovery surface disabled while still mounting the DLA
+ * policy hook when the feature flag is on.
+ *
+ * The DLA policy factory is only mounted when
+ * `STUDIO_DLA_ENABLED === '1'`. v1 ships with the flag off by default;
+ * the same flag also gates the DLA bridge spawn in `runAgentSessionTurn`
+ * (handled separately) so the policy hook is a no-op when the bridge is
+ * inactive.
+ *
+ * @param env - The resolved process env for this session.
+ * @returns An array of factories to forward to `DefaultResourceLoader`.
+ *   Empty when DLA is disabled.
+ */
+function resolveDlaExtensionFactories( env: Record< string, string > ): ExtensionFactory[] {
+	if ( env.STUDIO_DLA_ENABLED !== '1' ) {
+		return [];
+	}
+	return [ createDlaPolicyFactory( defaultPolicyBuckets ) ];
 }
 
 function toToolDefinition( tool: AgentToolAny ): ToolDefinition {

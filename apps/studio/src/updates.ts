@@ -234,7 +234,7 @@ async function pollLinuxUpdates() {
 	updaterState = 'checking-for-update';
 
 	const url = new URL( 'https://public-api.wordpress.com/wpcom/v2/studio-app/updates' );
-	url.searchParams.append( 'platform', 'linux' );
+	url.searchParams.append( 'platform', process.platform );
 	url.searchParams.append( 'studioArch', process.arch );
 	url.searchParams.append( 'version', app.getVersion() );
 

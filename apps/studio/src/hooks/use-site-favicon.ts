@@ -22,34 +22,48 @@ export function useSiteFavicon( siteId: string, site: SiteDetails ): string | nu
 		() => faviconCache.get( siteId ) ?? null
 	);
 
+	const siteUrl = site.running ? ( site as StartedSiteDetails ).url : null;
+	const hasSiteIcon = Boolean( site.siteIcon );
+
 	useEffect( () => {
+		// If the site is not running, clear cache so we re-check on next start.
+		if ( ! siteUrl ) {
+			faviconCache.delete( siteId );
+			setFaviconUrl( null );
+			return;
+		}
+
 		// If the main process already resolved a site icon data URL, nothing to do.
-		if ( site.siteIcon ) {
+		if ( hasSiteIcon ) {
 			return;
 		}
 
-		if ( ! site.running || faviconCache.has( siteId ) ) {
+		// Already cached (including a cached `null` for "checked, nothing found").
+		if ( faviconCache.has( siteId ) ) {
+			setFaviconUrl( faviconCache.get( siteId ) ?? null );
 			return;
 		}
 
-		const url = `${ ( site as StartedSiteDetails ).url }/favicon.ico`;
+		const url = `${ siteUrl }/favicon.ico`;
 		let cancelled = false;
 
 		fetch( url, { method: 'HEAD' } )
 			.then( ( res ) => {
-				if ( cancelled ) return;
-
+				if ( cancelled ) {
+					return;
+				}
 				const contentType = res.headers.get( 'content-type' ) ?? '';
 				// WordPress returns text/html when no favicon is configured.
 				// Only treat the response as a valid favicon if it is an image.
 				const isImage = res.ok && contentType.startsWith( 'image/' );
-
 				const result = isImage ? url : null;
 				faviconCache.set( siteId, result );
 				setFaviconUrl( result );
 			} )
 			.catch( () => {
-				if ( cancelled ) return;
+				if ( cancelled ) {
+					return;
+				}
 				faviconCache.set( siteId, null );
 				setFaviconUrl( null );
 			} );
@@ -57,15 +71,7 @@ export function useSiteFavicon( siteId: string, site: SiteDetails ): string | nu
 		return () => {
 			cancelled = true;
 		};
-	}, [ siteId, site.siteIcon, site.running ] ); // eslint-disable-line react-hooks/exhaustive-deps
-
-	// Clear cached value when the site stops so we re-check on next start.
-	useEffect( () => {
-		if ( ! site.running ) {
-			faviconCache.delete( siteId );
-			setFaviconUrl( null );
-		}
-	}, [ siteId, site.running ] );
+	}, [ siteId, siteUrl, hasSiteIcon ] );
 
 	// Prefer the data URL already provided by the main process.
 	return site.siteIcon ?? faviconUrl;

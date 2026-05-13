@@ -168,10 +168,7 @@ function SiteFavicon( { site }: { site: SiteDetails } ) {
 
 	// Placeholder keeps the layout stable while we wait or when no icon exists
 	return (
-		<span
-			aria-hidden="true"
-			className="w-4 h-4 rounded-[3px] flex-shrink-0 bg-[#ffffff12] ms-2"
-		/>
+		<span aria-hidden="true" className="w-4 h-4 rounded-[3px] flex-shrink-0 bg-[#ffffff12] ms-2" />
 	);
 }
 

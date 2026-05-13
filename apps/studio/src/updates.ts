@@ -307,8 +307,11 @@ async function showLinuxUpdateAvailableNotice( version: string, downloadUrl: str
 		buttons: [ __( 'Download' ), __( 'Later' ) ],
 		title: __( 'New Version Available' ),
 		message: sprintf( __( 'Studio %s is available' ), version ),
-		detail: __(
-			'After downloading, quit Studio and run `sudo apt install ./studio_*.deb` from a terminal to install. On Linux Mint and some other distributions, double-clicking the downloaded file also works.'
+		detail: sprintf(
+			__(
+				'After downloading, quit Studio and run `sudo apt install ./%s` from a terminal to install. On some distributions, double-clicking the downloaded file may also work.'
+			),
+			debFilenameFromUrl( downloadUrl )
 		),
 		defaultId: 0,
 		cancelId: 1,
@@ -316,6 +319,14 @@ async function showLinuxUpdateAvailableNotice( version: string, downloadUrl: str
 
 	if ( response === 0 ) {
 		void shell.openExternal( downloadUrl );
+	}
+}
+
+function debFilenameFromUrl( downloadUrl: string ): string {
+	try {
+		return new URL( downloadUrl ).pathname.split( '/' ).pop() || '*.deb';
+	} catch {
+		return '*.deb';
 	}
 }
 

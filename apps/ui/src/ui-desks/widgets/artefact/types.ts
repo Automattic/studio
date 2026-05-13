@@ -1,4 +1,4 @@
-import type { RectangleWidgetShapeProps } from '@/ui-desks/widgets/geometry';
+import type { RectangleWidgetShapeProps } from '@/ui-desks/widget-actions/geometry';
 import type { DeskWidgetBase } from '@studio/common/types/desk';
 
 export const ARTEFACT_WIDGET_TYPE = 'sd-artefact';

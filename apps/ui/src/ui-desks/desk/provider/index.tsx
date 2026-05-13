@@ -266,6 +266,7 @@ export function DeskProvider( {
 					handleDroppedFile( {
 						editor,
 						file,
+						getFilePath: ( nextFile ) => connector.getFilePath( nextFile ),
 						match,
 						placeholder,
 						siteId,
@@ -279,7 +280,7 @@ export function DeskProvider( {
 		return () => {
 			editor.registerExternalContentHandler( 'files', null );
 		};
-	}, [ editor, isHydrated, isReadOnly, isRunningSite, siteId ] );
+	}, [ connector, editor, isHydrated, isReadOnly, isRunningSite, siteId ] );
 
 	useEffect( () => {
 		if ( ! editor || ! isHydrated || isReadOnly ) {
@@ -665,18 +666,20 @@ interface TemporaryLoadingWidget {
 async function handleDroppedFile( {
 	editor,
 	file,
+	getFilePath,
 	match,
 	placeholder,
 	siteId,
 }: {
 	editor: Editor;
 	file: File;
+	getFilePath: ( file: File ) => Promise< string >;
 	match: NonNullable< ReturnType< typeof getWidgetFileHandler > >;
 	placeholder: TemporaryLoadingWidget;
 	siteId?: string;
 } ) {
 	try {
-		const result = await match.handler.handle( file, { siteId } );
+		const result = await match.handler.handle( file, { getFilePath, siteId } );
 		if ( editor.isDisposed ) {
 			return false;
 		}

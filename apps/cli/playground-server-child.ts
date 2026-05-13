@@ -161,6 +161,17 @@ function logServerListeningDetails( server: RunCLIServer, args: RunCLIArgs, conf
 	);
 }
 
+function blueprintContainsWpCliStep( config: ServerConfig ): boolean {
+	const steps = config.blueprint?.contents?.steps;
+	return (
+		Array.isArray( steps ) &&
+		steps.some(
+			( step ) =>
+				typeof step === 'object' && step !== null && 'step' in step && step.step === 'wp-cli'
+		)
+	);
+}
+
 function normalizeWrittenChunk( chunk: unknown ): string {
 	if ( typeof chunk === 'string' ) {
 		return chunk;
@@ -403,6 +414,7 @@ async function getBaseRunCLIArgs(
 	} );
 
 	if ( ! useExactMountLayout ) {
+		const shouldMountBundledWpCli = ! blueprintContainsWpCliStep( config );
 		mountsBeforeInstall = [
 			...( config.mountsBeforeInstall ?? [
 				{
@@ -410,15 +422,25 @@ async function getBaseRunCLIArgs(
 					vfsPath: '/wordpress',
 				},
 			] ),
-			{
-				hostPath: getWpCliPharPath(),
-				vfsPath: '/tmp/wp-cli.phar',
-			},
+			...( shouldMountBundledWpCli
+				? [
+						{
+							hostPath: getWpCliPharPath(),
+							vfsPath: '/tmp/wp-cli.phar',
+						},
+				  ]
+				: [] ),
 			{
 				hostPath: getSqliteCommandPath(),
 				vfsPath: '/tmp/sqlite-command',
 			},
 		];
+
+		if ( ! shouldMountBundledWpCli ) {
+			logToConsole(
+				'Skipping bundled WP-CLI mount because Playground injects /tmp/wp-cli.phar for Blueprint wp-cli steps'
+			);
+		}
 	}
 
 	// Studio MU-plugins (auto-login, admin-api, etc.) must be mounted for

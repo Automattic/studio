@@ -1,3 +1,4 @@
+import { RichTextData } from '@wordpress/rich-text';
 import {
 	canvasShapeToDeskWidget,
 	isDeskConnectorCanvasShape,
@@ -122,7 +123,7 @@ export function getDeskWidgetConnectionLabel( widget: DeskWidget ) {
 		case 'page':
 			return typeof props.pageId === 'number' ? `Page #${ props.pageId }` : 'Page';
 		case 'note': {
-			const text = typeof props.text === 'string' ? stripHtml( props.text ).trim() : '';
+			const text = typeof props.text === 'string' ? getRichTextPlainText( props.text ).trim() : '';
 			return text || 'Note';
 		}
 		case 'site-preview':
@@ -171,6 +172,10 @@ function getUrlHostLabel( value: unknown ) {
 	}
 }
 
-function stripHtml( value: string ) {
-	return value.replace( /<[^>]+>/g, '' );
+function getRichTextPlainText( value: string ) {
+	if ( typeof document === 'undefined' ) {
+		return value;
+	}
+
+	return RichTextData.fromHTMLString( value ).toPlainText();
 }

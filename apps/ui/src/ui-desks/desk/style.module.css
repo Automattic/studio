@@ -39,12 +39,11 @@
 }
 
 .toolbarEditButton {
-	--action-button-background: var(--ui-desks-material, #fff);
+	--button-background: var(--ui-desks-material, #fff);
 
 	height: 40px;
 	padding: 0 16px;
 	justify-content: center;
-	background-color: var(--action-button-background);
 	border-radius: var(--ui-desks-radius-control, 16px);
 	corner-shape: var(--ui-desks-corner-shape, superellipse(1.42));
 	-webkit-corner-shape: var(--ui-desks-corner-shape, superellipse(1.42));
@@ -59,7 +58,7 @@
 }
 
 .toolbarEditButton:hover {
-	--action-button-background: var(--ui-desks-material, #fff);
+	--button-background: var(--ui-desks-material, #fff);
 
 	box-shadow: var(
 		--ui-desks-shadow-control-raised,
@@ -79,6 +78,52 @@
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
 	pointer-events: none;
+}
+
+.drawingToolbar {
+	position: absolute;
+	bottom: 48px;
+	left: 50%;
+	z-index: 11;
+	gap: 8px;
+	padding: 6px 6px 6px 14px;
+	pointer-events: auto;
+	transform-origin: bottom center;
+	transition:
+		transform 260ms cubic-bezier( 0.32, 0.72, 0.24, 1 ),
+		opacity 220ms cubic-bezier( 0.32, 0.72, 0.24, 1 );
+}
+
+.drawingToolbar[data-visible='true'] {
+	opacity: 1;
+	transform: translate( -50%, 0 ) scale( 1 );
+}
+
+.drawingToolbar[data-visible='false'] {
+	opacity: 0;
+	pointer-events: none;
+	transform: translate( -50%, 4px ) scale( 0.99 );
+}
+
+.drawingToolbarStatus {
+	display: inline-flex;
+	align-items: center;
+	color: var(--ui-desks-muted, #6b7280);
+}
+
+.drawingDoneButton {
+	width: auto;
+	min-width: 64px;
+	padding: 0 14px;
+	color: #fff;
+	font-size: 13px;
+	font-weight: 500;
+	--button-background: var(--ui-desks-text, #14171a);
+	--button-foreground: #fff;
+}
+
+.drawingDoneButton:hover:not(:disabled) {
+	--button-background: #000;
 }
 
 .siteMapLoadingWidget {

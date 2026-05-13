@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	DEFAULT_DESK_TOOLBAR_LAYOUT,
+	getDeskToolbarButtonSide,
 	moveDeskToolbarButton,
 	normalizeDeskToolbarLayout,
 	normalizeDeskToolbarSettings,
@@ -54,5 +55,18 @@ describe( 'desk toolbar layout', () => {
 			left: [ 'settings', 'chat', 'create' ],
 			right: [ 'site-map' ],
 		} );
+	} );
+
+	it( 'resolves the side for a toolbar button from normalized layout data', () => {
+		expect(
+			getDeskToolbarButtonSide(
+				{
+					left: [ 'settings' ],
+					right: [ 'chat', 'create' ],
+				},
+				'chat'
+			)
+		).toBe( 'right' );
+		expect( getDeskToolbarButtonSide( DEFAULT_DESK_TOOLBAR_LAYOUT, 'settings' ) ).toBe( 'right' );
 	} );
 } );

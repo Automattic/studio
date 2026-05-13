@@ -1,8 +1,9 @@
 import { __ } from '@wordpress/i18n';
 import { image } from '@wordpress/icons';
 import { uploadSiteMedia } from '@/data/wordpress/media';
-import { MediaWidgetComponent } from './component';
+import { MediaWidgetComponent, MediaWidgetThumbnailComponent } from './component';
 import { MediaOpenControl } from './open-control';
+import { getFittedMediaShapeProps } from './sizing';
 import { isMediaWidgetProps, MEDIA_WIDGET_TYPE, type MediaKind, type MediaWidget } from './types';
 import type { WidgetDefinition } from '@/ui-desks/widgets/types';
 
@@ -10,6 +11,7 @@ export const mediaWidgetDefinition = {
 	type: MEDIA_WIDGET_TYPE,
 	name: () => __( 'Media' ),
 	Component: MediaWidgetComponent,
+	thumbnail: MediaWidgetThumbnailComponent,
 	controls: [
 		{
 			type: 'custom',
@@ -42,6 +44,8 @@ export const mediaWidgetDefinition = {
 		},
 	} ),
 	getSummary: ( widgetProps ) => widgetProps.alt || widgetProps.url,
+	getFittedShapeProps: ( { widgetProps, shapeProps } ) =>
+		getFittedMediaShapeProps( widgetProps, shapeProps ),
 	fileHandlers: [
 		{
 			id: 'media-upload',

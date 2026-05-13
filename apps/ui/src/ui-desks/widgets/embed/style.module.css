@@ -96,3 +96,56 @@
 	font-size: 12px;
 	line-height: 16px;
 }
+
+.contextThumbnail {
+	box-sizing: border-box;
+	width: 100%;
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 5px;
+	padding: 8px;
+	background: #edf0f4;
+	border-radius: 10px;
+	corner-shape: superellipse(1.42);
+	-webkit-corner-shape: superellipse(1.42);
+	overflow: hidden;
+	text-align: center;
+	user-select: none;
+}
+
+.contextThumbnailIcon {
+	flex: 0 0 auto;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	color: rgba(15, 23, 42, 0.55);
+}
+
+.contextThumbnailIcon svg {
+	fill: currentColor;
+}
+
+.contextThumbnailTitle,
+.contextThumbnailHost {
+	max-width: 100%;
+	letter-spacing: 0;
+	line-height: 1.2;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.contextThumbnailTitle {
+	color: #14171a;
+	font-size: 9px;
+	font-weight: 600;
+}
+
+.contextThumbnailHost {
+	color: #6b7280;
+	font-size: 8px;
+	font-weight: 500;
+}

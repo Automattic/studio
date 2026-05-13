@@ -66,17 +66,15 @@ export function EmbedWidgetThumbnailComponent( {
 
 	return (
 		<div
-			className={ styles.thumbnail }
+			className={ styles.contextThumbnail }
 			data-studio-desk-widget={ EMBED_WIDGET_TYPE }
 			data-studio-desk-widget-id={ id }
 		>
-			<div className={ styles.thumbnailIcon } aria-hidden="true">
-				<Icon icon={ external } size={ 18 } />
-			</div>
-			<div className={ styles.thumbnailText }>
-				<div className={ styles.thumbnailTitle }>{ title }</div>
-				<div className={ styles.thumbnailHost }>{ hostname }</div>
-			</div>
+			<span className={ styles.contextThumbnailIcon } aria-hidden="true">
+				<Icon icon={ external } size={ 20 } />
+			</span>
+			<div className={ styles.contextThumbnailTitle }>{ title }</div>
+			<div className={ styles.contextThumbnailHost }>{ hostname }</div>
 		</div>
 	);
 }

@@ -1,5 +1,5 @@
 import { color as colorIcon } from '@wordpress/icons';
-import { IconControlButton, Menu } from '@/ui-desks/components';
+import { Button, Menu } from '@/ui-desks/components';
 import styles from './style.module.css';
 import type { AnyColorControlConfig, ControlRendererProps } from './types';
 import type { CSSProperties } from 'react';
@@ -21,10 +21,11 @@ export function ColorControl( {
 		<Menu.Root modal={ false } open={ isOpen } orientation="horizontal" onOpenChange={ setIsOpen }>
 			<Menu.Trigger
 				render={
-					<IconControlButton
+					<Button
 						icon={ colorIcon }
 						label={ control.label }
-						variant="toolbar"
+						variant="quiet"
+						size="medium"
 						aria-pressed={ isOpen }
 					/>
 				}

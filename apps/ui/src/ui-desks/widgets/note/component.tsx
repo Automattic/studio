@@ -169,15 +169,13 @@ export function NoteWidgetThumbnailComponent( {
 }: DeskWidgetThumbnailComponentProps< NoteWidgetProps > ) {
 	return (
 		<div
-			className={ styles.note }
+			className={ styles.contextThumbnail }
 			data-tone={ widgetProps.tone }
-			data-is-editing="false"
-			data-text-size={ getNoteTextSize( widgetProps ) }
 			data-studio-desk-widget={ NOTE_WIDGET_TYPE }
 			data-studio-desk-widget-id={ id }
 		>
 			<div
-				className={ styles.thumbnail }
+				className={ styles.contextThumbnailText }
 				dangerouslySetInnerHTML={ { __html: widgetProps.text } }
 			/>
 		</div>

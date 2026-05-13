@@ -1,18 +1,24 @@
+import { DRAWING_WIDGET_TYPE } from '@/ui-desks/widgets/drawing/types';
 import { getWidgetDefinition } from '@/ui-desks/widgets/registry';
+import type { StackViewMode } from '@/ui-desks/stacks/utils';
 import type { DeskWidget } from '@/ui-desks/widgets/types';
 
 interface SelectedWidgetToolbarOptions {
 	stackIds?: string[];
+	stackViewMode?: StackViewMode;
 	canStack?: boolean;
 	canUnstack?: boolean;
+	canSetStackView?: boolean;
 	canRemove?: boolean;
 }
 
 interface SelectedWidgetToolbarBase {
 	widgets: DeskWidget[];
 	stackIds: string[];
+	stackViewMode?: StackViewMode;
 	canStack: boolean;
 	canUnstack: boolean;
+	canSetStackView: boolean;
 	canRemove: boolean;
 }
 
@@ -38,8 +44,13 @@ export function getSelectedWidgetToolbarItem(
 	const base = {
 		widgets,
 		stackIds,
+		stackViewMode: options.stackViewMode,
 		canStack: ( options.canStack ?? true ) && widgets.length >= 2 && stackIds.length === 0,
 		canUnstack: ( options.canUnstack ?? true ) && stackIds.length > 0,
+		canSetStackView:
+			( options.canSetStackView ?? true ) &&
+			stackIds.length === 1 &&
+			Boolean( options.stackViewMode ),
 		canRemove: options.canRemove ?? true,
 	};
 
@@ -52,10 +63,15 @@ export function getSelectedWidgetToolbarItem(
 
 	const [ widget ] = widgets;
 	const definition = getWidgetDefinition( widget.type );
+	if ( ! definition || ! definition.isWidgetProps( widget.widgetProps ) ) {
+		return null;
+	}
+
 	if (
-		! definition ||
-		! definition.controls?.length ||
-		! definition.isWidgetProps( widget.widgetProps )
+		! definition.controls?.length &&
+		! definition.getFittedShapeProps &&
+		! definition.getEditAction &&
+		widget.type !== DRAWING_WIDGET_TYPE
 	) {
 		return null;
 	}

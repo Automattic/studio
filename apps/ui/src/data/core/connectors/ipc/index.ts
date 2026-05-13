@@ -517,6 +517,10 @@ export function createIpcConnector(): Connector {
 			await ipcApi.deleteAiSession( sessionId );
 		},
 
+		async updateSessionMetadata( sessionId, patch ): Promise< AiSessionSummary > {
+			return ( await ipcApi.updateAiSessionMetadata( sessionId, patch ) ) as AiSessionSummary;
+		},
+
 		async createSession( siteId ): Promise< AiSessionSummary > {
 			return ( await ipcApi.createAiSession( siteId ) ) as AiSessionSummary;
 		},

@@ -1,7 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { category } from '@wordpress/icons';
 import { useSites } from '@/data/queries/use-sites';
-import { IconControlButton } from '@/ui-desks/components';
+import { Button } from '@/ui-desks/components';
 
 interface DeskSiteMapButtonProps {
 	siteId: string;
@@ -16,7 +16,7 @@ export function DeskSiteMapButton( { siteId, open, onToggle }: DeskSiteMapButton
 	const disabled = ! open && ( isLoading || ! canOpen );
 
 	return (
-		<IconControlButton
+		<Button
 			icon={ category }
 			label={ __( 'Site map' ) }
 			tooltipLabel={ getTooltipLabel( isLoading, Boolean( site ), canOpen ) }

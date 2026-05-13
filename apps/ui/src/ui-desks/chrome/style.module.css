@@ -235,7 +235,15 @@
 }
 
 .postPickerItem {
-	align-items: flex-start;
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 8px;
+}
+
+.postPickerContent {
+	display: flex;
+	min-width: 0;
 	flex-direction: column;
 	gap: 2px;
 }
@@ -258,6 +266,13 @@
 	font-size: var(--wpds-typography-font-size-xs);
 	line-height: var(--wpds-typography-line-height-xs);
 	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.postPickerStatusDot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9);
 }
 
 .email {
@@ -349,21 +364,19 @@
 }
 
 .settingsPrimaryAction {
-	--action-button-background: var(--ui-desks-text, #14171a);
+	--button-background: var(--ui-desks-text, #14171a);
+	--button-foreground: #fff;
 	--wp-ui-button-height: 36px;
 
 	height: 36px;
 	justify-content: center;
 	padding: 0 14px;
 	border-radius: var(--ui-desks-radius-button, 12px);
-	color: #fff;
 	font-size: var(--wpds-typography-font-size-sm);
 	font-weight: var(--wpds-typography-font-weight-medium, 500);
 	line-height: var(--wpds-typography-line-height-sm);
 }
 
 .settingsPrimaryAction:hover:not(:disabled) {
-	--action-button-background: #000;
-
-	color: #fff;
+	--button-background: #000;
 }

@@ -100,6 +100,46 @@ describe( 'createDeskWidget', () => {
 		} );
 	} );
 
+	it( 'creates an artefact widget with supplied HTML props', () => {
+		const createdWidget = createDeskWidget( {
+			id: 'artefact-1',
+			type: 'sd-artefact',
+			center: {
+				x: 700,
+				y: 500,
+			},
+			zIndex: 'a8',
+			shapeProps: {
+				w: 568,
+				h: 524,
+			},
+			widgetProps: {
+				html: '<!doctype html><html><body><h1>Example</h1></body></html>',
+				title: 'Example artefact',
+				scope: 'block',
+				description: 'Render this HTML.',
+			},
+		} );
+
+		expect( createdWidget ).toEqual( {
+			id: 'artefact-1',
+			type: 'sd-artefact',
+			x: 416,
+			y: 238,
+			zIndex: 'a8',
+			shapeProps: {
+				w: 568,
+				h: 524,
+			},
+			widgetProps: {
+				html: '<!doctype html><html><body><h1>Example</h1></body></html>',
+				title: 'Example artefact',
+				scope: 'block',
+				description: 'Render this HTML.',
+			},
+		} );
+	} );
+
 	it( 'ignores unsupported widget types', () => {
 		expect(
 			createDeskWidget( {
@@ -199,6 +239,40 @@ describe( 'createDeskWidget', () => {
 			},
 			widgetProps: {
 				path: '/',
+			},
+		} );
+	} );
+
+	it( 'creates a drawing widget with supplied SVG props', () => {
+		const createdWidget = createDeskWidget( {
+			id: 'drawing-1',
+			type: 'drawing',
+			center: {
+				x: 400,
+				y: 300,
+			},
+			zIndex: 'a6',
+			shapeProps: {
+				w: 240,
+				h: 180,
+			},
+			widgetProps: {
+				svg: '<svg viewBox="0 0 240 180" />',
+			},
+		} );
+
+		expect( createdWidget ).toEqual( {
+			id: 'drawing-1',
+			type: 'drawing',
+			x: 280,
+			y: 210,
+			zIndex: 'a6',
+			shapeProps: {
+				w: 240,
+				h: 180,
+			},
+			widgetProps: {
+				svg: '<svg viewBox="0 0 240 180" />',
 			},
 		} );
 	} );

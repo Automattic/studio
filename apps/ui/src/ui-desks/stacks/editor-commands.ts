@@ -20,9 +20,12 @@ import {
 	getStackOrder,
 	getStackOriginalZIndex,
 	getStackPushOrigin,
+	getStackTileLayoutsFromCenter,
+	getStackViewMode,
 	getStackZIndexFromMember,
 	getWidgetIdFromShapeId,
 	isStackExpanded,
+	type StackViewMode,
 } from './utils';
 
 interface StackWidgetSelection {
@@ -77,7 +80,11 @@ export function stackSelectedWidgetsInEditor(
 
 export function expandStackInEditor( editor: Editor, stackId: string ) {
 	const members = getStackMembers( editor, stackId );
-	if ( members.length <= 1 || members.some( isStackExpanded ) ) {
+	if (
+		members.length <= 1 ||
+		members.some( isStackExpanded ) ||
+		getStackViewMode( members[ 0 ] ) === 'tiles'
+	) {
 		return false;
 	}
 
@@ -112,7 +119,11 @@ export function expandStackInEditor( editor: Editor, stackId: string ) {
 
 export function collapseStackInEditor( editor: Editor, stackId: string ) {
 	const members = getStackMembers( editor, stackId );
-	if ( members.length <= 1 || ! members.some( isStackExpanded ) ) {
+	if (
+		members.length <= 1 ||
+		! members.some( isStackExpanded ) ||
+		getStackViewMode( members[ 0 ] ) === 'tiles'
+	) {
 		return false;
 	}
 
@@ -149,6 +160,77 @@ export function collapseAllExpandedStacksInEditor( editor: Editor ) {
 		didCollapseStack = collapseStackInEditor( editor, stackId ) || didCollapseStack;
 	}
 	return didCollapseStack;
+}
+
+export function setStackViewInEditor( editor: Editor, stackId: string, viewMode: StackViewMode ) {
+	const members = getStackMembers( editor, stackId );
+	if ( members.length <= 1 ) {
+		return false;
+	}
+
+	const currentViewMode = getStackViewMode( members[ 0 ] );
+	if ( currentViewMode === viewMode ) {
+		return false;
+	}
+
+	const anchor = getStackAnchorCenter( members );
+	const restorePartials = getNeighborRestorePartials( editor, stackId );
+
+	if ( viewMode === 'tiles' ) {
+		editor.updateShapes(
+			members.map( ( shape ) => ( {
+				id: shape.id,
+				type: shape.type,
+				isLocked: false,
+				meta: {
+					...( shape.meta ?? {} ),
+					...clearExpandedStackMeta(),
+					deskStackViewMode: 'tiles',
+				},
+			} ) )
+		);
+
+		const tilePartials = getTiledStackPartials( members, anchor );
+		editor.animateShapes( withStackDimPartials( editor, [ ...tilePartials, ...restorePartials ] ), {
+			animation: { duration: STACK_ANIMATION_DURATION },
+		} );
+		return true;
+	}
+
+	const stack = {
+		id: stackId,
+		x: anchor.x - getShapeSize( members[ 0 ] ).w / 2,
+		y: anchor.y - getShapeSize( members[ 0 ] ).h / 2,
+		zIndex: getStackZIndexFromMember( members[ 0 ].index, getStackOrder( members[ 0 ] ) ),
+		memberIds: members.map( ( shape ) => getWidgetIdFromShapeId( shape.id ) ),
+	};
+
+	editor.updateShapes(
+		members.map( ( shape ) => ( {
+			id: shape.id,
+			type: shape.type,
+			isLocked: false,
+			meta: {
+				...( shape.meta ?? {} ),
+				deskStackViewMode: null,
+				...clearExpandedStackMeta(),
+			},
+		} ) )
+	);
+
+	const memberPartials = members.map( ( shape ) => {
+		const order = getStackOrder( shape );
+		return {
+			id: shape.id,
+			type: shape.type,
+			...getStackMemberLayout( stack, order ),
+		};
+	} );
+
+	editor.animateShapes( withStackDimPartials( editor, [ ...memberPartials, ...restorePartials ] ), {
+		animation: { duration: STACK_ANIMATION_DURATION },
+	} );
+	return true;
 }
 
 export function unstackSelectedWidgetsInEditor(
@@ -269,6 +351,26 @@ function getExpandedStackLayouts( members: TLShape[], stack: { x: number; y: num
 			y: startY + row * ( cellHeight + EXPANDED_STACK_GAP ) + ( cellHeight - size.h ) / 2,
 		};
 	} );
+}
+
+function getStackAnchorCenter( members: TLShape[] ) {
+	const firstMember = members[ 0 ];
+	const size = getShapeSize( firstMember );
+
+	return {
+		x: firstMember.x + size.w / 2,
+		y: firstMember.y + size.h / 2,
+	};
+}
+
+function getTiledStackPartials( members: TLShape[], center: { x: number; y: number } ) {
+	const layouts = getStackTileLayoutsFromCenter( members.map( getShapeSize ), center );
+
+	return members.map( ( shape, index ) => ( {
+		id: shape.id,
+		type: shape.type,
+		...layouts[ index ],
+	} ) );
 }
 
 function getExpandedStackDimensions( count: number ) {

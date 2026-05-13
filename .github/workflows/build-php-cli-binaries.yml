@@ -86,6 +86,19 @@ jobs:
           ref: ${{ env.SPC_REF }}
           path: .cache/static-php-cli
 
+      - name: Resolve PHP minor version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ ! "$PHP_VERSION" =~ ^8\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Unsupported PHP version: $PHP_VERSION (expected 8.x.y)" >&2
+            exit 1
+          fi
+
+          php_minor="${PHP_VERSION%.*}"
+          echo "PHP_MINOR=$php_minor" >> "$GITHUB_ENV"
+
       - name: Setup PHP for static-php-cli
         if: runner.os == 'macOS'
         uses: shivammathur/setup-php@v2

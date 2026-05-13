@@ -11,6 +11,11 @@ import {
 	PLAYGROUND_CLI_INACTIVITY_TIMEOUT,
 	PLAYGROUND_CLI_MAX_TIMEOUT,
 } from '@studio/common/constants';
+import {
+	SITE_RUNTIME_NATIVE_PHP,
+	SITE_RUNTIME_PLAYGROUND,
+	type SiteRuntime,
+} from '@studio/common/lib/site-runtime';
 import { SiteCommandLoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
@@ -24,7 +29,7 @@ import {
 	sendMessageToProcess,
 } from 'cli/lib/daemon-client';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
-import { getSiteRuntime, type SiteRuntime } from 'cli/lib/feature-flags';
+import { getSiteRuntime } from 'cli/lib/feature-flags';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { ServerConfig, ManagerMessagePayload } from 'cli/lib/types/wordpress-server-ipc';
 import { Logger } from 'cli/logger';
@@ -32,6 +37,10 @@ import { validatePhpVersion } from './utils';
 import type { WordPressInstallMode } from '@wp-playground/wordpress';
 
 export const SITE_PROCESS_PREFIX = 'studio-site-';
+
+export type SiteProcessDescription = ProcessDescription & {
+	runtime: SiteRuntime;
+};
 
 // Get an abort signal that's triggered on SIGINT/SIGTERM. This is useful for aborting and cleaning
 // up async operations.
@@ -45,17 +54,31 @@ export function getProcessName( siteId: string ): string {
 
 function getChildScriptPath( runtime: SiteRuntime ): string {
 	switch ( runtime ) {
-		case 'native-php':
+		case SITE_RUNTIME_NATIVE_PHP:
 			return path.resolve( import.meta.dirname, 'php-server-child.mjs' );
-		case 'playground':
+		case SITE_RUNTIME_PLAYGROUND:
 		default:
 			return path.resolve( import.meta.dirname, 'playground-server-child.mjs' );
 	}
 }
 
-export async function isServerRunning( siteId: string ): Promise< ProcessDescription | undefined > {
+function withSiteRuntime( processDescription: ProcessDescription ): SiteProcessDescription {
+	return {
+		...processDescription,
+		runtime: processDescription.runtime ?? SITE_RUNTIME_PLAYGROUND,
+	};
+}
+
+export async function isServerRunning(
+	siteId: string
+): Promise< SiteProcessDescription | undefined > {
 	const processName = getProcessName( siteId );
-	return isProcessRunning( processName );
+	const runningProcess = await isProcessRunning( processName );
+	return runningProcess ? withSiteRuntime( runningProcess ) : undefined;
+}
+
+function canReuseProcessForWpCli( processDescription: SiteProcessDescription ): boolean {
+	return processDescription.runtime === SITE_RUNTIME_PLAYGROUND;
 }
 
 /**
@@ -165,7 +188,7 @@ async function ensurePhpBinaryAvailableIfNeeded(
 	logger: Logger< string >,
 	runtime: SiteRuntime
 ): Promise< void > {
-	if ( runtime === 'native-php' && site.phpVersion ) {
+	if ( runtime === SITE_RUNTIME_NATIVE_PHP && site.phpVersion ) {
 		logger.reportStart(
 			SiteCommandLoggerAction.ENSURE_PHP_BINARY,
 			`Checking PHP ${ site.phpVersion } binary…`
@@ -183,7 +206,7 @@ export async function startWordPressServer(
 	site: SiteData,
 	logger: Logger< string >,
 	options?: StartServerOptions
-): Promise< ProcessDescription > {
+): Promise< SiteProcessDescription > {
 	// For sites imported via `studio pull-reprint`, the pull command
 	// persists the computed start options to start-options.json so the
 	// daemon doesn't need to recompute them (which would spin up PHP
@@ -212,7 +235,7 @@ export async function startWordPressServer(
 
 	const readyOrExit = await subscribeForReadyOrExit( processName );
 	try {
-		const processDesc = await startProcess( processName, wordPressServerChildPath );
+		const processDesc = await startProcess( processName, wordPressServerChildPath, { runtime } );
 		await readyOrExit.waitFor( processDesc.pmId );
 		await sendMessage(
 			processDesc.pmId,
@@ -224,7 +247,7 @@ export async function startWordPressServer(
 			{ logger }
 		);
 
-		return processDesc;
+		return withSiteRuntime( processDesc );
 	} finally {
 		readyOrExit.dispose();
 	}
@@ -532,7 +555,7 @@ export async function runBlueprint(
 
 	const readyOrExit = await subscribeForReadyOrExit( processName );
 	try {
-		const processDesc = await startProcess( processName, wordPressServerChildPath );
+		const processDesc = await startProcess( processName, wordPressServerChildPath, { runtime } );
 		try {
 			await readyOrExit.waitFor( processDesc.pmId );
 			await sendMessage(
@@ -564,10 +587,14 @@ export async function sendWpCliCommand(
 	args: string[]
 ): Promise< z.infer< typeof wpCliResultSchema > > {
 	const processName = getProcessName( siteId );
-	const runningProcess = await isProcessRunning( processName );
+	const runningProcess = await isServerRunning( siteId );
 
 	if ( ! runningProcess ) {
 		throw new Error( `WordPress server is not running` );
+	}
+
+	if ( ! canReuseProcessForWpCli( runningProcess ) ) {
+		throw new Error( `Running WordPress server does not support WP-CLI commands` );
 	}
 
 	const result = await sendMessage( runningProcess.pmId, processName, {

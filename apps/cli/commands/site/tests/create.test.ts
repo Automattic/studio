@@ -10,6 +10,7 @@ import {
 import { isOnline } from '@studio/common/lib/network-utils';
 import { portFinder } from '@studio/common/lib/port-finder';
 import { normalizeLineEndings } from '@studio/common/lib/remove-default-db-constants';
+import { SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import { Blueprint, BlueprintV1Declaration } from '@wp-playground/blueprints';
 import { vi, type MockInstance } from 'vitest';
@@ -27,8 +28,11 @@ import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
-import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
-import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
+import {
+	runBlueprint,
+	startWordPressServer,
+	type SiteProcessDescription,
+} from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
 import { runCommand } from '../create';
 
@@ -109,11 +113,12 @@ describe( 'CLI: studio site create', () => {
 		phpVersion: '8.0',
 	};
 
-	const mockProcessDescription: ProcessDescription = {
+	const mockProcessDescription: SiteProcessDescription = {
 		name: 'test-uuid-1234',
 		pmId: 0,
 		status: 'online',
 		pid: 12345,
+		runtime: SITE_RUNTIME_PLAYGROUND,
 	};
 
 	let consoleLogSpy: MockInstance;

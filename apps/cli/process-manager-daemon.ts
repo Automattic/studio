@@ -19,6 +19,7 @@ import {
 	daemonRequestSchema,
 } from 'cli/lib/types/process-manager-ipc';
 import { ManagerMessage } from 'cli/lib/types/wordpress-server-ipc';
+import type { SiteRuntime } from '@studio/common/lib/site-runtime';
 
 const SOCKET_TIMEOUT_MS = 2_500;
 const STOP_TIMEOUT_MS = 2_500;
@@ -34,6 +35,7 @@ type ManagedProcessBase = {
 	scriptPath: string;
 	args: string[];
 	env: NodeJS.ProcessEnv;
+	runtime?: SiteRuntime;
 	child: ChildProcess;
 	stdoutLogPath: string;
 	stderrLogPath: string;
@@ -150,7 +152,8 @@ export class ProcessManagerDaemon {
 					request.processName,
 					request.scriptPath,
 					request.env ?? {},
-					request.args ?? []
+					request.args ?? [],
+					request.runtime
 				);
 				return {
 					type: 'result',
@@ -200,7 +203,8 @@ export class ProcessManagerDaemon {
 		processName: string,
 		scriptPath: string,
 		env: NodeJS.ProcessEnv,
-		args: string[]
+		args: string[],
+		runtime?: SiteRuntime
 	): Promise< ProcessDescription > {
 		const existing = this.getManagedProcessByName( processName );
 		if ( existing && existing.status === 'online' ) {
@@ -227,6 +231,7 @@ export class ProcessManagerDaemon {
 			scriptPath,
 			args,
 			env,
+			runtime,
 			child,
 			// `child.pid` is only undefined if there's an error, in which case our error handler
 			// immediately changes the status and deletes the process from the map
@@ -399,11 +404,14 @@ export class ProcessManagerDaemon {
 	}
 
 	private toProcessDescription( managedProcess: ManagedProcess ): ProcessDescription {
+		const runtime = managedProcess.runtime ? { runtime: managedProcess.runtime } : {};
+
 		if ( managedProcess.status === 'stopped' ) {
 			return {
 				name: managedProcess.name,
 				pmId: managedProcess.pmId,
 				status: managedProcess.status,
+				...runtime,
 			};
 		}
 
@@ -412,6 +420,7 @@ export class ProcessManagerDaemon {
 			pmId: managedProcess.pmId,
 			status: managedProcess.status,
 			pid: managedProcess.pid,
+			...runtime,
 		};
 	}
 

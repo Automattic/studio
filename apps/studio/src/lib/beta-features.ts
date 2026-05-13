@@ -1,3 +1,4 @@
+import { SITE_RUNTIME_NATIVE_PHP, SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { __ } from '@wordpress/i18n';
 import { lockAppdata, unlockAppdata, loadUserData, saveUserData } from 'src/storage/user-data';
 
@@ -40,7 +41,9 @@ function buildBetaFeatures( userData: BetaFeatures | undefined ): BetaFeatures {
 }
 
 function applyBetaFeaturesToEnvironment( features: BetaFeatures ): void {
-	process.env.STUDIO_RUNTIME = features.nativePhpRuntime ? 'native-php' : 'playground';
+	process.env.STUDIO_RUNTIME = features.nativePhpRuntime
+		? SITE_RUNTIME_NATIVE_PHP
+		: SITE_RUNTIME_PLAYGROUND;
 }
 
 export async function getBetaFeatures(): Promise< BetaFeatures > {

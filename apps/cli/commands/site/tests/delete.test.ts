@@ -1,6 +1,7 @@
 import fs from 'fs';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
 import { readAuthToken } from '@studio/common/lib/shared-config';
+import { SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import trash from 'trash';
 import { vi } from 'vitest';
 import { deleteSnapshot } from 'cli/lib/api';
@@ -17,8 +18,11 @@ import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { getSnapshotsFromConfig, deleteSnapshotFromConfig } from 'cli/lib/snapshots';
-import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
-import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
+import {
+	isServerRunning,
+	stopWordPressServer,
+	type SiteProcessDescription,
+} from 'cli/lib/wordpress-server-manager';
 import { runCommand } from '../delete';
 
 vi.mock( 'fs' );
@@ -65,11 +69,12 @@ describe( 'CLI: studio site delete', () => {
 		...overrides,
 	} );
 
-	const testProcessDescription: ProcessDescription = {
+	const testProcessDescription: SiteProcessDescription = {
 		name: 'test-site-id',
 		pmId: 0,
 		status: 'online',
 		pid: 12345,
+		runtime: SITE_RUNTIME_PLAYGROUND,
 	};
 
 	const testAuthToken = {

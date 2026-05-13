@@ -1,3 +1,4 @@
+import { SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { vi } from 'vitest';
 import { SiteData, readCliConfig, saveCliConfig } from 'cli/lib/cli-config/core';
 import {
@@ -11,8 +12,11 @@ import {
 	killDaemonAndChildren,
 } from 'cli/lib/daemon-client';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
-import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
-import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
+import {
+	isServerRunning,
+	stopWordPressServer,
+	type SiteProcessDescription,
+} from 'cli/lib/wordpress-server-manager';
 import { Mode, runCommand } from '../stop';
 
 vi.mock( 'cli/lib/cli-config/core', async () => {
@@ -48,11 +52,12 @@ describe( 'CLI: studio site stop', () => {
 		adminPassword: 'password123',
 	};
 
-	const testProcessDescription: ProcessDescription = {
+	const testProcessDescription: SiteProcessDescription = {
 		name: 'studio-site-site-1',
 		pmId: 0,
 		pid: 12345,
 		status: 'online',
+		runtime: SITE_RUNTIME_PLAYGROUND,
 	};
 
 	beforeEach( () => {
@@ -210,11 +215,12 @@ describe( 'CLI: studio site stop --all', () => {
 		},
 	];
 
-	const testProcessDescription: ProcessDescription = {
+	const testProcessDescription: SiteProcessDescription = {
 		name: 'studio-site-site-1',
 		pmId: 0,
 		pid: 12345,
 		status: 'online',
+		runtime: SITE_RUNTIME_PLAYGROUND,
 	};
 
 	beforeEach( () => {

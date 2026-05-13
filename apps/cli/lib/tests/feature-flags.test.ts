@@ -1,3 +1,4 @@
+import { SITE_RUNTIME_NATIVE_PHP, SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { getSiteRuntime, isRemoteSessionEnabled } from 'cli/lib/feature-flags';
 
@@ -50,16 +51,16 @@ describe( 'getSiteRuntime', () => {
 	} );
 
 	it( 'defaults to playground when the env var is unset', () => {
-		expect( getSiteRuntime() ).toBe( 'playground' );
+		expect( getSiteRuntime() ).toBe( SITE_RUNTIME_PLAYGROUND );
 	} );
 
 	it( 'returns native-php when STUDIO_RUNTIME=native-php', () => {
-		process.env.STUDIO_RUNTIME = 'native-php';
-		expect( getSiteRuntime() ).toBe( 'native-php' );
+		process.env.STUDIO_RUNTIME = SITE_RUNTIME_NATIVE_PHP;
+		expect( getSiteRuntime() ).toBe( SITE_RUNTIME_NATIVE_PHP );
 	} );
 
 	it( 'falls back to playground for unknown values', () => {
 		process.env.STUDIO_RUNTIME = 'nonsense';
-		expect( getSiteRuntime() ).toBe( 'playground' );
+		expect( getSiteRuntime() ).toBe( SITE_RUNTIME_PLAYGROUND );
 	} );
 } );

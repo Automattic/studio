@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
+import { SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { vi } from 'vitest';
 import { emitEvent } from 'cli/ai/json-events';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
@@ -319,6 +320,7 @@ describe( 'Studio AI MCP tools', () => {
 			pmId: 1,
 			status: 'online',
 			pid: 1234,
+			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
 
 		await expect(
@@ -338,6 +340,7 @@ describe( 'Studio AI MCP tools', () => {
 			pmId: 1,
 			status: 'online',
 			pid: 1234,
+			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
 		vi.mocked( sendWpCliCommand ).mockResolvedValue( {
 			stdout: '123',
@@ -368,6 +371,7 @@ describe( 'Studio AI MCP tools', () => {
 			pmId: 1,
 			status: 'online',
 			pid: 1234,
+			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
 		vi.mocked( sendWpCliCommand ).mockResolvedValue( {
 			stdout: '123',
@@ -395,6 +399,7 @@ describe( 'Studio AI MCP tools', () => {
 			pmId: 1,
 			status: 'online',
 			pid: 1234,
+			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
 		vi.mocked( sendWpCliCommand ).mockResolvedValue( {
 			stdout: '123',
@@ -424,6 +429,7 @@ describe( 'Studio AI MCP tools', () => {
 			pmId: 1,
 			status: 'online',
 			pid: 1234,
+			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
 		vi.mocked( sendWpCliCommand ).mockResolvedValue( {
 			stdout: '123',
@@ -452,6 +458,7 @@ describe( 'Studio AI MCP tools', () => {
 			pmId: 1,
 			status: 'online',
 			pid: 1234,
+			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
 
 		await expect(
@@ -610,6 +617,7 @@ describe( 'Studio AI MCP tools', () => {
 				pmId: 1,
 				status: 'online',
 				pid: 1234,
+				runtime: SITE_RUNTIME_PLAYGROUND,
 			} );
 			vi.mocked( sendWpCliCommand ).mockResolvedValue( {
 				stdout: "Success: Switched to 'Acme Studio' theme.",
@@ -639,6 +647,7 @@ describe( 'Studio AI MCP tools', () => {
 				pmId: 1,
 				status: 'online',
 				pid: 1234,
+				runtime: SITE_RUNTIME_PLAYGROUND,
 			} );
 
 			const result = await getTool( 'scaffold_theme' ).rawHandler( {
@@ -675,6 +684,7 @@ describe( 'Studio AI MCP tools', () => {
 				pmId: 1,
 				status: 'online',
 				pid: 1234,
+				runtime: SITE_RUNTIME_PLAYGROUND,
 			} );
 			vi.mocked( sendWpCliCommand ).mockResolvedValue( {
 				stdout: '',

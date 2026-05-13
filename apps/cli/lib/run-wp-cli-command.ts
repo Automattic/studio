@@ -19,6 +19,7 @@ import {
 	writeStudioMuPluginsForNativePhpRuntime,
 } from '@studio/common/lib/mu-plugins';
 import { validateNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
+import { SITE_RUNTIME_NATIVE_PHP, type SiteRuntime } from '@studio/common/lib/site-runtime';
 import { LatestSupportedPHPVersion } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
 import { setupPlatformLevelMuPlugins } from '@wp-playground/wordpress';
@@ -179,7 +180,7 @@ export async function runWpCliCommand(
 ): Promise< DisposableWpCliResponse > {
 	const siteFolder = site.path;
 
-	if ( getSiteRuntime() === 'native-php' ) {
+	if ( getSiteRuntime() === SITE_RUNTIME_NATIVE_PHP ) {
 		return runNativeWpCliCommand( site, args, options );
 	}
 
@@ -282,7 +283,7 @@ async function runNativeGlobalWpCliCommand( args: string[] ): Promise< Disposabl
 }
 
 type RunGlobalWpCliCommandOptions = {
-	runtime?: 'wasm' | 'native-php';
+	runtime?: SiteRuntime;
 };
 
 /**
@@ -293,7 +294,7 @@ export async function runGlobalWpCliCommand(
 	args: string[],
 	options: RunGlobalWpCliCommandOptions = {}
 ): Promise< DisposableWpCliResponse > {
-	if ( options.runtime === 'native-php' ) {
+	if ( options.runtime === SITE_RUNTIME_NATIVE_PHP ) {
 		return runNativeGlobalWpCliCommand( args );
 	}
 

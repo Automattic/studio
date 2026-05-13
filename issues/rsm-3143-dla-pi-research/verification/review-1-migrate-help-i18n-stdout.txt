@@ -1,0 +1,15 @@
+studio migrate <url>
+
+Migrate a site from a closed platform using Data Liberation Agent
+
+Positionals:
+  url  URL of the site to migrate             [cadena de caracteres] [requerido]
+
+Opciones:
+  --help             Muestra ayuda                                    [booleano]
+  --version          Muestra número de versión                        [booleano]
+  --path             Ruta a los archivos de WordPress
+                             [cadena de caracteres] [defecto: Directorio actual]
+  --output           Output directory for extracted content (default: ./output)
+                                                          [cadena de caracteres]
+  --non-interactive  Skip the post-extraction import prompt           [booleano]

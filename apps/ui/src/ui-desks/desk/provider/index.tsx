@@ -614,11 +614,6 @@ export function DeskProvider( {
 				return;
 			}
 
-			if ( info.name === 'pointer_cancel' ) {
-				cleanup();
-				return;
-			}
-
 			if ( info.name === 'pointer_up' ) {
 				if ( didDrag && connectorPreviewId && activeTargetId ) {
 					completed = true;

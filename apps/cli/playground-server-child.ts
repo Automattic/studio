@@ -117,6 +117,7 @@ console.warn = ( ...args: unknown[] ) => {
 
 const originalStdoutWrite = process.stdout.write.bind( process.stdout );
 const originalStderrWrite = process.stderr.write.bind( process.stderr );
+const maxCapturedPlaygroundOutputLength = 24_000;
 
 process.stdout.write = function ( ...args: Parameters< typeof originalStdoutWrite > ) {
 	process.send!( { topic: 'activity' } );
@@ -160,14 +161,50 @@ function logServerListeningDetails( server: RunCLIServer, args: RunCLIArgs, conf
 	);
 }
 
+function normalizeWrittenChunk( chunk: unknown ): string {
+	if ( typeof chunk === 'string' ) {
+		return chunk;
+	}
+
+	if ( Buffer.isBuffer( chunk ) ) {
+		return chunk.toString( 'utf8' );
+	}
+
+	return String( chunk ?? '' );
+}
+
+function appendCapturedOutput( output: string, chunk: unknown ): string {
+	const nextOutput = output + normalizeWrittenChunk( chunk );
+	return nextOutput.length > maxCapturedPlaygroundOutputLength
+		? nextOutput.slice( -maxCapturedPlaygroundOutputLength )
+		: nextOutput;
+}
+
+function formatCapturedOutput( label: string, output: string ): string {
+	const trimmedOutput = output.trim();
+	if ( ! trimmedOutput ) {
+		return '';
+	}
+
+	return `Captured ${ label } before process.exit:\n${ trimmedOutput }`;
+}
+
 class PlaygroundProcessExitError extends Error {
-	constructor( code: string | number | null | undefined, args: RunCLIArgs, exitStack?: string ) {
+	constructor(
+		code: string | number | null | undefined,
+		args: RunCLIArgs,
+		exitStack?: string,
+		capturedStdout?: string,
+		capturedStderr?: string
+	) {
 		super(
 			[
 				`Playground CLI called process.exit(${ String( code ?? 0 ) }) while running "${
 					args.command
 				}".`,
 				`Sanitized args: ${ JSON.stringify( sanitizeRunCLIArgs( args ) ) }`,
+				formatCapturedOutput( 'stdout', capturedStdout ?? '' ),
+				formatCapturedOutput( 'stderr', capturedStderr ?? '' ),
 				exitStack ? `process.exit call stack:\n${ exitStack }` : '',
 			]
 				.filter( Boolean )
@@ -183,17 +220,54 @@ async function runCliWithExitDiagnostics( args: RunCLIArgs ): Promise< RunCLISer
 	}
 
 	const originalProcessExit = process.exit;
+	const currentStdoutWrite = process.stdout.write.bind( process.stdout );
+	const currentStderrWrite = process.stderr.write.bind( process.stderr );
+	let capturedStdout = '';
+	let capturedStderr = '';
+
+	const onUncaughtExceptionMonitor = ( error: Error, origin: NodeJS.UncaughtExceptionOrigin ) => {
+		errorToConsole(
+			'[Playground] uncaughtExceptionMonitor:',
+			origin,
+			error.stack ?? error.message
+		);
+	};
+	const onUnhandledRejection = ( reason: unknown ) => {
+		errorToConsole(
+			'[Playground] unhandledRejection:',
+			reason instanceof Error ? reason.stack ?? reason.message : reason
+		);
+	};
+
+	process.stdout.write = function ( ...writeArgs: Parameters< typeof currentStdoutWrite > ) {
+		capturedStdout = appendCapturedOutput( capturedStdout, writeArgs[ 0 ] );
+		return currentStdoutWrite( ...writeArgs );
+	} as typeof process.stdout.write;
+
+	process.stderr.write = function ( ...writeArgs: Parameters< typeof currentStderrWrite > ) {
+		capturedStderr = appendCapturedOutput( capturedStderr, writeArgs[ 0 ] );
+		return currentStderrWrite( ...writeArgs );
+	} as typeof process.stderr.write;
+
 	process.exit = ( ( code?: string | number | null | undefined ) => {
 		throw new PlaygroundProcessExitError(
 			code,
 			args,
-			new Error( 'process.exit intercepted' ).stack
+			new Error( 'process.exit intercepted' ).stack,
+			capturedStdout,
+			capturedStderr
 		);
 	} ) as typeof process.exit;
+	process.on( 'uncaughtExceptionMonitor', onUncaughtExceptionMonitor );
+	process.on( 'unhandledRejection', onUnhandledRejection );
 
 	try {
 		return await runCLI( args );
 	} finally {
+		process.off( 'uncaughtExceptionMonitor', onUncaughtExceptionMonitor );
+		process.off( 'unhandledRejection', onUnhandledRejection );
+		process.stdout.write = currentStdoutWrite;
+		process.stderr.write = currentStderrWrite;
 		process.exit = originalProcessExit;
 	}
 }

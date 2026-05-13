@@ -107,8 +107,8 @@ steps:
       - test-results/**/*error-context.md
     env:
       DEBUG: "pw:browser"
-      # TEMP(rsm-2593): force the worker count above Playground's deadlock warning threshold.
-      STUDIO_PLAYGROUND_WORKERS: "6"
+      # TEMP(rsm-2593): test whether the Linux x64 Playground exit depends on worker pooling.
+      STUDIO_PLAYGROUND_WORKERS: "1"
       # TEMP(rsm-2593): surface the swallowed Playground start-server failure in CI logs.
       STUDIO_PLAYGROUND_VERBOSITY: "debug"
       STUDIO_PLAYGROUND_DEBUG: "1"

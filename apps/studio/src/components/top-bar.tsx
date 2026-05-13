@@ -141,7 +141,6 @@ export default function TopBar( { onToggleSidebar }: TopBarProps ) {
 			<div className="app-no-drag-region flex items-center space-x-1.5 rtl:space-x-reverse">
 				<Authentication />
 				<SettingsButton />
-				<RemoteSessionIndicator />
 				<Tooltip text={ __( 'Get help' ) } placement="bottom-end">
 					<Button
 						onClick={ openDocs }
@@ -152,6 +151,7 @@ export default function TopBar( { onToggleSidebar }: TopBarProps ) {
 						<Icon className="text-white" size={ 24 } icon={ help } />
 					</Button>
 				</Tooltip>
+				<RemoteSessionIndicator />
 			</div>
 		</div>
 	);

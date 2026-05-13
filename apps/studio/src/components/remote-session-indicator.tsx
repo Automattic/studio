@@ -1,4 +1,4 @@
-import { Icon, commentContent } from '@wordpress/icons';
+import { Icon, rss } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useRef, useState } from 'react';
 import Button from 'src/components/button';
@@ -60,14 +60,14 @@ function RemoteSessionPill() {
 				data-testid="remote-session-indicator"
 				className="!p-1.5 !rounded-lg"
 			>
-				<span
+				<Icon
+					icon={ rss }
+					size={ 24 }
 					className={ cx(
-						'inline-flex items-center justify-center h-6 w-6 rounded-full bg-frame-running',
+						'!text-frame-running !fill-frame-running',
 						isPulsing && 'animate-pulse'
 					) }
-				>
-					<Icon icon={ commentContent } size={ 14 } className="fill-white" />
-				</span>
+				/>
 			</Button>
 		</Tooltip>
 	);

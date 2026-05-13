@@ -66,18 +66,21 @@ describe( 'RemoteSessionIndicator', () => {
 		expect( container ).toBeEmptyDOMElement();
 	} );
 
-	it( 'renders a green circular button labelled "Remote session active" when the daemon is running', () => {
+	it( 'renders a button labelled "Remote session active" with a green icon when the daemon is running', () => {
 		setupHooks( { remoteSession: true, isAuthenticated: true, isRunning: true } );
 
 		render( <RemoteSessionIndicator /> );
 
 		const button = screen.getByRole( 'button', { name: 'Remote session active' } );
 		expect( button ).toBeVisible();
-		// The visible circle is the inner span — sanity check that it carries the
-		// green token and is sized like the other top-bar icons.
-		const circle = button.querySelector( 'span' );
-		expect( circle ).toHaveClass( 'bg-frame-running' );
-		expect( circle ).toHaveClass( 'h-6', 'w-6', 'rounded-full' );
+		// The icon picks up Studio's green token via both `!text-frame-running`
+		// (sets `color`, which Gutenberg's `.components-button svg { fill: currentColor }`
+		// then picks up) and `!fill-frame-running` (belt-and-suspenders direct fill).
+		// The `!` prefix is the same specificity workaround used in action-button.tsx.
+		const icon = button.querySelector( 'svg' );
+		const className = icon?.getAttribute( 'class' ) ?? '';
+		expect( className ).toContain( '!text-frame-running' );
+		expect( className ).toContain( '!fill-frame-running' );
 	} );
 
 	it( 'clicking the indicator opens settings on the general tab scrolled to the toggle', async () => {
@@ -100,16 +103,16 @@ describe( 'RemoteSessionIndicator', () => {
 			setupHooks( { remoteSession: true, isAuthenticated: true, isRunning: true } );
 			rerender( <RemoteSessionIndicator /> );
 
-			const circle = screen
+			const icon = screen
 				.getByRole( 'button', { name: 'Remote session active' } )
-				.querySelector( 'span' );
-			expect( circle ).toHaveClass( 'animate-pulse' );
+				.querySelector( 'svg' );
+			expect( icon ).toHaveClass( 'animate-pulse' );
 
 			act( () => {
 				vi.advanceTimersByTime( 3000 );
 			} );
 
-			expect( circle ).not.toHaveClass( 'animate-pulse' );
+			expect( icon ).not.toHaveClass( 'animate-pulse' );
 		} finally {
 			vi.useRealTimers();
 		}

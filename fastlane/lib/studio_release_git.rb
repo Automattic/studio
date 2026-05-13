@@ -59,7 +59,7 @@ module StudioReleaseGit
   # bumps where only one workspace is at the target version).
   #
   # The search anchor (`-- <path>` argument to `git log`) is the first entry in `paths`.
-  def find_npm_release_bump_commit(branch:, version:, paths: NPM_RELEASE_PACKAGE_JSON_PATHS)
+  def find_npm_release_bump_commit!(branch:, version:, paths: NPM_RELEASE_PACKAGE_JSON_PATHS)
     raise ArgumentError, 'paths must not be empty' if paths.empty?
 
     search = "\"version\": \"#{version}\""

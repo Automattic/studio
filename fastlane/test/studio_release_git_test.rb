@@ -91,7 +91,7 @@ class StudioReleaseGitTest < Minitest::Test
     sha_intro = commit_packages(studio: '1.0.1', cli: '1.0.1', message: 'bump to 1.0.1')
     commit_packages(studio: '1.0.2', cli: '1.0.2', message: 'bump to 1.0.2')
 
-    result = StudioReleaseGit.find_npm_release_bump_commit(branch: 'HEAD', version: '1.0.1')
+    result = StudioReleaseGit.find_npm_release_bump_commit!(branch: 'HEAD', version: '1.0.1')
     assert_equal sha_intro, result
   end
 
@@ -100,7 +100,7 @@ class StudioReleaseGitTest < Minitest::Test
     commit_packages(studio: '1.0.0', cli: '1.0.0', message: 'first')
     commit_packages(studio: '1.0.1', cli: '1.0.0', message: 'half-applied')
 
-    result = StudioReleaseGit.find_npm_release_bump_commit(branch: 'HEAD', version: '1.0.1')
+    result = StudioReleaseGit.find_npm_release_bump_commit!(branch: 'HEAD', version: '1.0.1')
     assert_nil result
   end
 
@@ -116,19 +116,19 @@ class StudioReleaseGitTest < Minitest::Test
     sha_intro = commit_packages(studio: '1.0.1', cli: '1.0.1', message: 'B')
     commit_packages(studio: '1.0.2', cli: '1.0.1', message: 'C')
 
-    result = StudioReleaseGit.find_npm_release_bump_commit(branch: 'HEAD', version: '1.0.1')
+    result = StudioReleaseGit.find_npm_release_bump_commit!(branch: 'HEAD', version: '1.0.1')
     assert_equal sha_intro, result
   end
 
   def test_find_returns_nil_for_unknown_version
     commit_packages(studio: '1.0.0', cli: '1.0.0', message: 'first')
-    result = StudioReleaseGit.find_npm_release_bump_commit(branch: 'HEAD', version: '99.99.99')
+    result = StudioReleaseGit.find_npm_release_bump_commit!(branch: 'HEAD', version: '99.99.99')
     assert_nil result
   end
 
   def test_find_raises_for_empty_paths
     assert_raises(ArgumentError) do
-      StudioReleaseGit.find_npm_release_bump_commit(branch: 'HEAD', version: '1.0.0', paths: [])
+      StudioReleaseGit.find_npm_release_bump_commit!(branch: 'HEAD', version: '1.0.0', paths: [])
     end
   end
 
@@ -148,7 +148,7 @@ class StudioReleaseGitTest < Minitest::Test
       run_git('commit', '-am', 'bump foo to 0.2.0')
     end
 
-    result = StudioReleaseGit.find_npm_release_bump_commit(
+    result = StudioReleaseGit.find_npm_release_bump_commit!(
       branch: 'HEAD', version: '0.1.0', paths: ['packages/foo/package.json']
     )
     assert_equal sha_intro, result

@@ -38,36 +38,36 @@ class StudioReleaseVersionTest < Minitest::Test
   # ---------- next_patch_version (strict) ----------
 
   def test_next_patch_version_stable
-    assert_equal '1.8.1', StudioReleaseVersion.next_patch_version('1.8.0')
-    assert_equal '1.8.10', StudioReleaseVersion.next_patch_version('1.8.9')
-    assert_equal '2.0.1', StudioReleaseVersion.next_patch_version('2.0.0')
+    assert_equal '1.8.1', StudioReleaseVersion.next_patch_version!('1.8.0')
+    assert_equal '1.8.10', StudioReleaseVersion.next_patch_version!('1.8.9')
+    assert_equal '2.0.1', StudioReleaseVersion.next_patch_version!('2.0.0')
   end
 
   def test_next_patch_version_strips_beta
-    assert_equal '1.8.1', StudioReleaseVersion.next_patch_version('1.8.0-beta1')
-    assert_equal '1.8.5', StudioReleaseVersion.next_patch_version('1.8.4-beta3')
+    assert_equal '1.8.1', StudioReleaseVersion.next_patch_version!('1.8.0-beta1')
+    assert_equal '1.8.5', StudioReleaseVersion.next_patch_version!('1.8.4-beta3')
   end
 
   def test_next_patch_version_rejects_invalid
-    assert_raises(ArgumentError) { StudioReleaseVersion.next_patch_version('1.8') }
-    assert_raises(ArgumentError) { StudioReleaseVersion.next_patch_version('v1.8.0') }
-    assert_raises(ArgumentError) { StudioReleaseVersion.next_patch_version(nil) }
+    assert_raises(ArgumentError) { StudioReleaseVersion.next_patch_version!('1.8') }
+    assert_raises(ArgumentError) { StudioReleaseVersion.next_patch_version!('v1.8.0') }
+    assert_raises(ArgumentError) { StudioReleaseVersion.next_patch_version!(nil) }
   end
 
   # ---------- npm_dist_tag_for (strict) ----------
 
   def test_npm_dist_tag_for_stable_returns_nil
-    assert_nil StudioReleaseVersion.npm_dist_tag_for('1.8.0')
-    assert_nil StudioReleaseVersion.npm_dist_tag_for('10.20.30')
+    assert_nil StudioReleaseVersion.npm_dist_tag_for!('1.8.0')
+    assert_nil StudioReleaseVersion.npm_dist_tag_for!('10.20.30')
   end
 
   def test_npm_dist_tag_for_beta_returns_next
-    assert_equal 'next', StudioReleaseVersion.npm_dist_tag_for('1.8.0-beta1')
-    assert_equal 'next', StudioReleaseVersion.npm_dist_tag_for('1.8.0-beta12')
+    assert_equal 'next', StudioReleaseVersion.npm_dist_tag_for!('1.8.0-beta1')
+    assert_equal 'next', StudioReleaseVersion.npm_dist_tag_for!('1.8.0-beta12')
   end
 
   def test_npm_dist_tag_for_rejects_invalid
-    assert_raises(ArgumentError) { StudioReleaseVersion.npm_dist_tag_for('1.8') }
+    assert_raises(ArgumentError) { StudioReleaseVersion.npm_dist_tag_for!('1.8') }
   end
 
   # ---------- prerelease? (lenient) ----------

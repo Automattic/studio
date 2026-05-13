@@ -3,13 +3,10 @@
 # Pure-Ruby helpers for Studio release versions and tags.
 #
 # Studio release versions follow `X.Y.Z` for stable releases and `X.Y.Z-betaN` for prereleases.
-# Most helpers here are lenient about the input shape (strings such as `v1.7.4-beta1` or
-# `release/1.7.4-beta1` are accepted by `prerelease?`, `base_version`, and `beta_number`) so they
-# can be used uniformly on versions, tags, and branch names.
-#
-# A few helpers stay strict — `valid_version?`, `next_patch_version`, `npm_dist_tag_for` — and
-# raise on non-canonical input. They are intended for the npm release lane where typos should
-# fail loudly.
+# Methods suffixed with `!` (`next_patch_version!`, `npm_dist_tag_for!`) require canonical input
+# and raise `ArgumentError` on anything else, as used by the npm release lane where typos should
+# fail loudly. The remaining helpers (`prerelease?`, `base_version`, `beta_number`) are lenient
+# and accept tag/branch-style inputs like `v1.7.4-beta1` or `release/1.7.4-beta1` too.
 #
 # Extracted from the Fastfile so they can be unit-tested without booting fastlane.
 # See fastlane/test/studio_release_version_test.rb.
@@ -19,8 +16,6 @@ module StudioReleaseVersion
 
   module_function
 
-  # ---------- Strict helpers (canonical X.Y.Z[-betaN] only) ----------
-
   # Whether the given version string matches the canonical Studio release format
   # (`X.Y.Z` or `X.Y.Z-betaN`).
   def valid_version?(version)
@@ -29,10 +24,10 @@ module StudioReleaseVersion
     !!version.match?(VERSION_PATTERN)
   end
 
-  # Strip any `-betaN` suffix and bump the patch component by one. Raises ArgumentError when the
-  # input is not a canonical version (`X.Y.Z` or `X.Y.Z-betaN`).
+  # Strip any `-betaN` suffix and bump the patch component by one. Raises `ArgumentError` when
+  # the input is not a canonical version (`X.Y.Z` or `X.Y.Z-betaN`).
   # E.g. "1.8.0" -> "1.8.1", "1.8.0-beta1" -> "1.8.1", "1.8.4-beta3" -> "1.8.5".
-  def next_patch_version(version)
+  def next_patch_version!(version)
     raise ArgumentError, "Invalid version '#{version}'" unless valid_version?(version)
 
     major, minor, patch = base_version(version).split('.').map(&:to_i)
@@ -40,15 +35,13 @@ module StudioReleaseVersion
   end
 
   # Resolve the npm dist-tag for a given release version. Returns `'next'` for prereleases,
-  # `nil` for stable (npm interprets a missing `--tag` as `latest`). Raises ArgumentError on
+  # `nil` for stable (npm interprets a missing `--tag` as `latest`). Raises `ArgumentError` on
   # non-canonical input.
-  def npm_dist_tag_for(version)
+  def npm_dist_tag_for!(version)
     raise ArgumentError, "Invalid version '#{version}'" unless valid_version?(version)
 
     prerelease?(version) ? 'next' : nil
   end
-
-  # ---------- Lenient helpers (work on versions, tags, and branch names) ----------
 
   # True when the input ends with a `-betaN` suffix. Lenient: accepts version strings, tag
   # strings (`v1.7.4-beta1`), and branch names (`release/1.7.4-beta1`). Returns false for nil.

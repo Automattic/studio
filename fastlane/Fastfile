@@ -190,8 +190,8 @@ end
 #
 lane :prepare_npm_release do |version: nil, skip_confirm: false|
   fetch_main_branch
-  trunk_version = read_trunk_package_json_version
-  version ||= StudioReleaseVersion.next_patch_version(trunk_version)
+  main_branch_version = read_main_branch_package_json_version
+  version ||= StudioReleaseVersion.next_patch_version!(main_branch_version)
   validate_npm_release_version!(version)
 
   branch_name = "npm-release/#{version}"
@@ -202,7 +202,7 @@ lane :prepare_npm_release do |version: nil, skip_confirm: false|
   end
 
   UI.important <<~PROMPT
-    Preparing wp-studio npm release #{version} (trunk is on #{trunk_version}). This will:
+    Preparing wp-studio npm release #{version} (`#{MAIN_BRANCH}` is on #{main_branch_version}). This will:
     - Create branch `#{branch_name}` from `#{MAIN_BRANCH}`
     - Bump `studio-app` and `wp-studio` packages to #{version}
     - Commit, push, and open a PR against `#{MAIN_BRANCH}`
@@ -252,23 +252,22 @@ end
 #
 lane :publish_npm_package do |version: nil, skip_confirm: false|
   fetch_main_branch
-  version ||= read_trunk_package_json_version
+  version ||= read_main_branch_package_json_version
   validate_npm_release_version!(version)
 
   release_tag = "v#{version}"
-  npm_tag = StudioReleaseVersion.npm_dist_tag_for(version)
+  npm_tag = StudioReleaseVersion.npm_dist_tag_for!(version)
   tag_label = npm_tag || 'latest'
 
-  bump_commit = StudioReleaseGit.find_npm_release_bump_commit(
+  bump_commit = StudioReleaseGit.find_npm_release_bump_commit!(
     branch: "origin/#{MAIN_BRANCH}", version: version
   )
-  if bump_commit.nil?
-    UI.user_error!(
-      "Could not find a commit on `#{MAIN_BRANCH}` where both `apps/studio/package.json` and " \
-      "`apps/cli/package.json` declare version #{version}. Did the prepare_npm_release PR " \
-      'merge into trunk with both workspaces bumped?'
-    )
-  end
+  UI.user_error!(
+    "Could not find a commit on `#{MAIN_BRANCH}` where both `apps/studio/package.json` and " \
+    "`apps/cli/package.json` declare version #{version}. Did the prepare_npm_release PR " \
+    'merge into trunk with both workspaces bumped?'
+  ) if bump_commit.nil?
+
   short_sha = bump_commit[0..8]
 
   UI.important <<~PROMPT
@@ -287,8 +286,6 @@ lane :publish_npm_package do |version: nil, skip_confirm: false|
   ensure_release_tag(release_tag: release_tag, commit: bump_commit)
 
   trigger_npm_publish(ref: release_tag, npm_tag: npm_tag)
-
-  UI.success("Published wp-studio #{release_tag}")
 end
 
 desc 'Upload Studio PHP CLI binaries to Apps CDN'
@@ -916,9 +913,10 @@ def fetch_main_branch
   sh('git', 'fetch', '--quiet', 'origin', MAIN_BRANCH, log: false)
 end
 
-# Read the current version recorded on `trunk`'s package.json without changing the working tree.
-# Used to compute defaults for the npm release lanes. Caller must call {fetch_main_branch} first.
-def read_trunk_package_json_version
+# Read the current version recorded on the main branch's package.json without changing the
+# working tree. Used to compute defaults for the npm release lanes. Caller must call
+# {fetch_main_branch} first.
+def read_main_branch_package_json_version
   json = sh('git', 'show', "origin/#{MAIN_BRANCH}:apps/studio/package.json", log: false)
   JSON.parse(json)['version']
 end

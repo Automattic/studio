@@ -1,4 +1,5 @@
 import type { Connector } from '@/data/core';
+import type { SiteRestRequest } from '@studio/common/types/wordpress-rest';
 import type { APIFetchOptions, FetchHandler } from '@wordpress/api-fetch';
 
 export function createSiteApiFetchHandler( connector: Connector, siteId: string ): FetchHandler {
@@ -30,12 +31,13 @@ async function createResponse(
 	siteId: string,
 	options: APIFetchOptions
 ): Promise< Response > {
+	const body = await serializeBody( options.body );
 	const restResponse = await connector.fetchSiteRest( siteId, {
 		path: options.path,
 		url: options.url,
 		method: options.method,
 		headers: normalizeHeaders( options.headers ),
-		body: serializeBody( options.body ),
+		...body,
 		data: options.data,
 		parse: options.parse,
 	} );
@@ -63,8 +65,36 @@ function normalizeHeaders( headers: APIFetchOptions[ 'headers' ] ) {
 	return headers;
 }
 
-function serializeBody( body: APIFetchOptions[ 'body' ] ) {
-	return typeof body === 'string' ? body : undefined;
+async function serializeBody(
+	body: APIFetchOptions[ 'body' ]
+): Promise< Pick< SiteRestRequest, 'body' > > {
+	if ( typeof body === 'string' ) {
+		return { body };
+	}
+
+	if ( body instanceof URLSearchParams ) {
+		return { body: body.toString() };
+	}
+
+	if ( body instanceof Blob ) {
+		return { body: await body.arrayBuffer() };
+	}
+
+	if ( body instanceof ArrayBuffer ) {
+		return { body };
+	}
+
+	if ( ArrayBuffer.isView( body ) ) {
+		return { body: copyArrayBufferView( body ) };
+	}
+
+	return {};
+}
+
+function copyArrayBufferView( view: ArrayBufferView ) {
+	const copy = new Uint8Array( view.byteLength );
+	copy.set( new Uint8Array( view.buffer, view.byteOffset, view.byteLength ) );
+	return copy.buffer;
 }
 
 async function parseJson( response: Response ) {

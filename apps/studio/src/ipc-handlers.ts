@@ -54,7 +54,14 @@ import { isMultisite } from '@studio/common/lib/is-multisite';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
-import { readSharedConfig, updateSharedConfig } from '@studio/common/lib/shared-config';
+import {
+	deleteSharedSession,
+	readSharedConfig,
+	readSharedSession,
+	readSharedSessions,
+	updateSharedConfig,
+	updateSharedSession,
+} from '@studio/common/lib/shared-config';
 import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
 import { shouldExcludeFromSync } from '@studio/common/lib/sync/exclude-from-sync';
 import { shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
@@ -75,6 +82,7 @@ import {
 	isRootCATrusted,
 	trustRootCA,
 } from 'src/lib/certificate-manager';
+import { download } from 'src/lib/download';
 import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
 import { buildFeatureFlags } from 'src/lib/feature-flags';
 import { getImageData } from 'src/lib/get-image-data';
@@ -187,8 +195,10 @@ export { getDefaultSiteDirectory, saveDefaultSiteDirectory };
 export { importSite, exportSite } from 'src/modules/import-export/lib/ipc-handlers';
 
 export {
+	getDeskSettings,
 	getSiteDeskConfig,
 	getUserDeskConfig,
+	saveDeskSettings,
 	saveSiteDeskConfig,
 	saveUserDeskConfig,
 } from 'src/modules/desks/lib/ipc-handlers';
@@ -201,22 +211,57 @@ export {
 	studioCodeCheckProvider,
 } from 'src/modules/studio-code/ipc-handlers';
 
+function hydrateAiSessionSummary(
+	summary: AiSessionSummary,
+	metadata?: Pick< AiSessionSummary, 'starred' | 'archived' >
+): AiSessionSummary {
+	return {
+		...summary,
+		starred: metadata?.starred,
+		archived: metadata?.archived,
+	};
+}
+
+async function listHydratedAiSessions( rootDirectory: string ): Promise< AiSessionSummary[] > {
+	const [ sessions, sessionMetadata ] = await Promise.all( [
+		listAiSessionsFromStore( rootDirectory ),
+		readSharedSessions(),
+	] );
+	return sessions.map( ( session ) =>
+		hydrateAiSessionSummary( session, sessionMetadata[ session.id ] )
+	);
+}
+
+async function loadHydratedAiSession(
+	rootDirectory: string,
+	sessionIdOrPrefix: string
+): Promise< LoadedAiSession > {
+	const session = await loadAiSessionFromStore( rootDirectory, sessionIdOrPrefix );
+	const metadata = await readSharedSession( session.summary.id );
+	return {
+		...session,
+		summary: hydrateAiSessionSummary( session.summary, metadata ),
+	};
+}
+
 export async function listAiSessions( _event: IpcMainInvokeEvent ): Promise< AiSessionSummary[] > {
-	return listAiSessionsFromStore( getAiSessionsRootDirectory() );
+	return listHydratedAiSessions( getAiSessionsRootDirectory() );
 }
 
 export async function loadAiSession(
 	_event: IpcMainInvokeEvent,
 	sessionIdOrPrefix: string
 ): Promise< LoadedAiSession > {
-	return loadAiSessionFromStore( getAiSessionsRootDirectory(), sessionIdOrPrefix );
+	return loadHydratedAiSession( getAiSessionsRootDirectory(), sessionIdOrPrefix );
 }
 
 export async function deleteAiSession(
 	_event: IpcMainInvokeEvent,
 	sessionIdOrPrefix: string
 ): Promise< AiSessionSummary > {
-	return deleteAiSessionFromStore( getAiSessionsRootDirectory(), sessionIdOrPrefix );
+	const deleted = await deleteAiSessionFromStore( getAiSessionsRootDirectory(), sessionIdOrPrefix );
+	await deleteSharedSession( deleted.id );
+	return deleted;
 }
 
 export async function createAiSession(
@@ -225,16 +270,18 @@ export async function createAiSession(
 ): Promise< AiSessionSummary > {
 	const sitesRoot = getAiSessionsRootDirectory();
 	if ( ! siteId ) {
-		const existing = await listAiSessionsFromStore( sitesRoot );
+		const existing = await listHydratedAiSessions( sitesRoot );
 		const emptyUserDeskSession = existing
-			.filter( ( session ) => ! session.ownerSitePath && ! session.firstPrompt )
+			.filter(
+				( session ) => ! session.ownerSitePath && ! session.firstPrompt && ! session.archived
+			)
 			.sort( ( a, b ) => Date.parse( b.updatedAt ) - Date.parse( a.updatedAt ) )[ 0 ];
 
 		if ( emptyUserDeskSession ) {
 			return emptyUserDeskSession;
 		}
 
-		return createAiSessionInStore( sitesRoot );
+		return hydrateAiSessionSummary( await createAiSessionInStore( sitesRoot ) );
 	}
 
 	const server = SiteServer.get( siteId );
@@ -247,20 +294,38 @@ export async function createAiSession(
 	// never received a user prompt) instead of creating another one. This
 	// lets `/sites/$siteId/new` act as a stable "draft slot" per site — the
 	// UI can redirect to it eagerly without piling up orphan sessions.
-	const existing = await listAiSessionsFromStore( sitesRoot );
+	const existing = await listHydratedAiSessions( sitesRoot );
 	const emptyForSite = existing
-		.filter( ( session ) => session.ownerSitePath === sitePath && ! session.firstPrompt )
+		.filter(
+			( session ) =>
+				session.ownerSitePath === sitePath && ! session.firstPrompt && ! session.archived
+		)
 		.sort( ( a, b ) => Date.parse( b.updatedAt ) - Date.parse( a.updatedAt ) )[ 0 ];
 	if ( emptyForSite ) {
 		return emptyForSite;
 	}
 
-	return createAiSessionInStore( sitesRoot, {
-		site: {
-			name: server.details.name,
-			path: sitePath,
-		},
-	} );
+	return hydrateAiSessionSummary(
+		await createAiSessionInStore( sitesRoot, {
+			site: {
+				name: server.details.name,
+				path: sitePath,
+			},
+		} )
+	);
+}
+
+export async function updateAiSessionMetadata(
+	_event: IpcMainInvokeEvent,
+	sessionIdOrPrefix: string,
+	patch: Pick< AiSessionSummary, 'starred' | 'archived' >
+): Promise< AiSessionSummary > {
+	const { summary } = await loadAiSessionFromStore(
+		getAiSessionsRootDirectory(),
+		sessionIdOrPrefix
+	);
+	const metadata = await updateSharedSession( summary.id, patch );
+	return hydrateAiSessionSummary( summary, metadata );
 }
 
 /**
@@ -408,7 +473,10 @@ export async function setSessionEnvironment(
 			environment: 'live',
 			url: liveSite.url,
 			wpcomSiteId: liveSite.id,
-			summary: refreshed.summary,
+			summary: hydrateAiSessionSummary(
+				refreshed.summary,
+				await readSharedSession( refreshed.summary.id )
+			),
 		};
 	}
 
@@ -422,7 +490,10 @@ export async function setSessionEnvironment(
 	const refreshed = await loadAiSessionFromStore( getAiSessionsRootDirectory(), sessionId );
 	return {
 		environment: 'local',
-		summary: refreshed.summary,
+		summary: hydrateAiSessionSummary(
+			refreshed.summary,
+			await readSharedSession( refreshed.summary.id )
+		),
 	};
 }
 
@@ -684,6 +755,16 @@ export async function createSite(
 	const metric = getBlueprintMetric( blueprint?.slug );
 	bumpStat( StatsGroup.STUDIO_SITE_CREATE, metric );
 
+	// If the blueprint has a bundle_url (API blueprints with bundled resources like zips),
+	// download and extract the bundle so bundled resources can be resolved locally.
+	let bundleTempDir: string | undefined;
+	let blueprintFilePath = blueprint?.filePath;
+	if ( blueprint?.bundle_url && ! blueprintFilePath ) {
+		const result = await downloadAndExtractBlueprintBundle( blueprint.bundle_url );
+		bundleTempDir = result.tempDir;
+		blueprintFilePath = result.blueprintJsonPath;
+	}
+
 	try {
 		const { server } = await SiteServer.create(
 			{
@@ -695,7 +776,7 @@ export async function createSite(
 				enableHttps,
 				siteId,
 				blueprint: blueprint?.blueprint,
-				originalBlueprintPath: blueprint?.filePath,
+				originalBlueprintPath: blueprintFilePath,
 				adminUsername,
 				adminPassword,
 				adminEmail,
@@ -754,7 +835,9 @@ export async function createSite(
 
 		throw error;
 	} finally {
-		if ( blueprint?.filePath ) {
+		if ( bundleTempDir ) {
+			await removeBlueprintTempDir( bundleTempDir ).catch( () => {} );
+		} else if ( blueprint?.filePath ) {
 			const blueprintDir = nodePath.dirname( nodePath.resolve( blueprint.filePath ) );
 			await removeBlueprintTempDir( blueprintDir ).catch( () => {} );
 		}
@@ -2038,6 +2121,59 @@ export async function listLocalFileTree(
 	} catch ( err ) {
 		console.error( `Failed to list raw file tree for path ${ path }:`, err );
 		return [];
+	}
+}
+
+/**
+ * Downloads a blueprint bundle zip from a URL, extracts it to a temp directory,
+ * and returns the path to the extracted blueprint.json.
+ * Used for API blueprints that reference bundled resources (e.g. theme zips, WXR files).
+ */
+async function downloadAndExtractBlueprintBundle( bundleUrl: string ): Promise< {
+	blueprintJsonPath: string;
+	tempDir: string;
+} > {
+	const tempDir = await fsPromises.mkdtemp(
+		nodePath.join( os.tmpdir(), 'studio-blueprint-bundle-' )
+	);
+	const tempZipPath = nodePath.join( tempDir, 'bundle.zip' );
+
+	try {
+		await download( bundleUrl, tempZipPath );
+		await extractZip( tempZipPath, tempDir );
+		await fsPromises.unlink( tempZipPath ).catch( () => {} );
+
+		// Find blueprint.json in the extracted contents
+		let blueprintJsonPath = nodePath.join( tempDir, 'blueprint.json' );
+		try {
+			await fsPromises.access( blueprintJsonPath );
+		} catch {
+			// Some zips have a single root directory — check one level deeper
+			const files = await fsPromises.readdir( tempDir );
+			for ( const file of files ) {
+				const nestedPath = nodePath.join( tempDir, file, 'blueprint.json' );
+				try {
+					await fsPromises.access( nestedPath );
+					blueprintJsonPath = nestedPath;
+					break;
+				} catch {
+					// continue checking
+				}
+			}
+		}
+
+		try {
+			await fsPromises.access( blueprintJsonPath );
+		} catch {
+			throw new Error(
+				'No blueprint.json found in the downloaded bundle. Ensure the bundle zip contains a blueprint.json.'
+			);
+		}
+
+		return { blueprintJsonPath, tempDir };
+	} catch ( error ) {
+		await fsPromises.rm( tempDir, { recursive: true, force: true } ).catch( () => {} );
+		throw error;
 	}
 }
 

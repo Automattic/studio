@@ -1,7 +1,9 @@
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { page } from '@wordpress/icons';
-import { PageWidgetComponent } from '@/ui-desks/widgets/page/component';
-import { PageEditControl } from '@/ui-desks/widgets/page/edit-control';
+import {
+	PageWidgetComponent,
+	PageWidgetThumbnailComponent,
+} from '@/ui-desks/widgets/page/component';
 import { isPageWidgetProps, PAGE_WIDGET_TYPE, type PageTone, type PageWidget } from './types';
 import type { WidgetDefinition } from '@/ui-desks/widgets/types';
 
@@ -27,7 +29,9 @@ const PAGE_TONE_OPTIONS: Array< { value: PageTone; label: string; color: string 
 
 export const pageWidgetDefinition = {
 	type: PAGE_WIDGET_TYPE,
+	name: () => __( 'Page' ),
 	Component: PageWidgetComponent,
+	thumbnail: PageWidgetThumbnailComponent,
 	controls: [
 		{
 			type: 'color',
@@ -35,11 +39,6 @@ export const pageWidgetDefinition = {
 			property: 'tone',
 			label: __( 'Color' ),
 			options: PAGE_TONE_OPTIONS,
-		},
-		{
-			type: 'custom',
-			id: 'edit-in-wp',
-			Component: PageEditControl,
 		},
 	],
 	isCreatable: false,
@@ -54,6 +53,7 @@ export const pageWidgetDefinition = {
 	},
 	labels: {
 		add: () => __( 'Add existing page…' ),
+		edit: () => __( 'Edit in WP' ),
 	},
 	icon: page,
 	getInitialWidget: () => ( {
@@ -66,4 +66,17 @@ export const pageWidgetDefinition = {
 			tone: 'neutral',
 		},
 	} ),
+	getSummary: ( widgetProps ) =>
+		sprintf(
+			/* translators: %d: WordPress page ID. */
+			__( 'Page #%d' ),
+			widgetProps.pageId
+		),
+	getEditAction: ( { widget, hasSiteId, hasRunningSite } ) =>
+		hasSiteId && hasRunningSite && widget.widgetProps.pageId > 0
+			? {
+					kind: 'site-url',
+					path: `/wp-admin/post.php?post=${ widget.widgetProps.pageId }&action=edit`,
+			  }
+			: null,
 } satisfies WidgetDefinition< PageWidget >;

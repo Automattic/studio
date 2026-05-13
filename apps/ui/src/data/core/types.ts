@@ -4,7 +4,7 @@ import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessio
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
-import type { DeskConfig } from '@studio/common/types/desk';
+import type { DeskConfig, DeskSettings } from '@studio/common/types/desk';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { SyncSite } from '@studio/common/types/sync';
@@ -27,7 +27,7 @@ export type {
 export type { AiModelId } from '@studio/common/ai/models';
 export type { Snapshot } from '@studio/common/types/snapshot';
 export type { SyncSite } from '@studio/common/types/sync';
-export type { DeskConfig, DeskWidgetBase } from '@studio/common/types/desk';
+export type { DeskConfig, DeskSettings, DeskWidgetBase } from '@studio/common/types/desk';
 export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 export type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 export type { SupportedLocale } from '@studio/common/lib/locale';
@@ -194,6 +194,10 @@ export interface Connector {
 	getSessions(): Promise< AiSessionSummary[] >;
 	getSession( sessionId: string ): Promise< LoadedAiSession >;
 	deleteSession( sessionId: string ): Promise< void >;
+	updateSessionMetadata(
+		sessionId: string,
+		patch: Pick< AiSessionSummary, 'starred' | 'archived' >
+	): Promise< AiSessionSummary >;
 
 	// Create an empty session file so it appears immediately. When `siteId`
 	// is omitted, the session is a user-desk chat with no owner site.
@@ -234,6 +238,8 @@ export interface Connector {
 	getInstalledApps(): Promise< InstalledApps >;
 
 	// Desks
+	getDeskSettings(): Promise< DeskSettings >;
+	saveDeskSettings( settings: DeskSettings ): Promise< void >;
 	getUserDeskConfig(): Promise< DeskConfig | undefined >;
 	saveUserDeskConfig( config: DeskConfig ): Promise< void >;
 	getSiteDeskConfig( siteId: string ): Promise< DeskConfig | undefined >;

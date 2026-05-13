@@ -1,4 +1,56 @@
 import { DESK_CONFIG_VERSION, type DeskConfig } from '@/ui-desks/desk/types';
+import { getArtefactShapePropsForScope } from '@/ui-desks/widgets/artefact/sizing';
+import { ARTEFACT_WIDGET_TYPE } from '@/ui-desks/widgets/artefact/types';
+
+const EXAMPLE_ARTEFACT_HTML = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+	* {
+		box-sizing: border-box;
+	}
+
+	body {
+		margin: 0;
+		min-height: 100vh;
+		display: grid;
+		place-items: center;
+		background: linear-gradient(135deg, #f8fafc, #fef3c7);
+		font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+		color: #14171a;
+	}
+
+	main {
+		width: min(360px, calc(100vw - 48px));
+		padding: 32px;
+		border-radius: 14px;
+		background: #fff;
+		box-shadow: 0 18px 44px rgba(15, 23, 42, 0.12);
+		text-align: center;
+	}
+
+	h1 {
+		margin: 0 0 12px;
+		font-size: 30px;
+		line-height: 1.1;
+	}
+
+	p {
+		margin: 0;
+		color: #4b5563;
+		font-size: 15px;
+		line-height: 1.5;
+	}
+</style>
+</head>
+<body>
+	<main>
+		<h1>Artefact preview</h1>
+		<p>This HTML is rendered inside an iframe on the desk canvas.</p>
+	</main>
+</body>
+</html>`;
 
 export const defaultUserDesk: DeskConfig = {
 	version: DESK_CONFIG_VERSION,
@@ -17,6 +69,20 @@ export const defaultUserDesk: DeskConfig = {
 			widgetProps: {
 				text: '',
 				tone: 'yellow',
+			},
+		},
+		{
+			id: 'example-artefact',
+			type: ARTEFACT_WIDGET_TYPE,
+			x: 420,
+			y: 80,
+			zIndex: 'a2',
+			shapeProps: getArtefactShapePropsForScope( 'block' ),
+			widgetProps: {
+				html: EXAMPLE_ARTEFACT_HTML,
+				title: 'Example artefact',
+				scope: 'block',
+				description: 'Sample HTML artefact for testing iframe rendering and prompt editing.',
 			},
 		},
 	],

@@ -3,17 +3,22 @@ import { useDeskConfig, useSaveDeskConfig } from '@/data/queries/use-desk-config
 import { defaultUserDesk } from '../default-desk';
 import { DESK_CONFIG_VERSION, type DeskConfig } from '../types';
 
-export function useDeskPersistence( siteId?: string ) {
-	const { data: savedDesk, isLoading } = useDeskConfig( siteId );
+interface DeskPersistenceOptions {
+	enabled?: boolean;
+}
+
+export function useDeskPersistence( siteId?: string, options: DeskPersistenceOptions = {} ) {
+	const enabled = options.enabled ?? true;
+	const { data: savedDesk, isLoading } = useDeskConfig( siteId, enabled );
 	const { mutate: saveDeskConfig } = useSaveDeskConfig( siteId );
 	const defaultDesk = useMemo( () => createDefaultDeskConfig( siteId ), [ siteId ] );
 	const desk = ( savedDesk as DeskConfig | undefined ) ?? defaultDesk;
 
 	useEffect( () => {
-		if ( ! isLoading && ! savedDesk ) {
+		if ( enabled && ! isLoading && ! savedDesk ) {
 			saveDeskConfig( defaultDesk );
 		}
-	}, [ defaultDesk, isLoading, savedDesk, saveDeskConfig ] );
+	}, [ defaultDesk, enabled, isLoading, savedDesk, saveDeskConfig ] );
 
 	return {
 		desk,

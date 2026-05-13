@@ -212,6 +212,8 @@ const api: IpcApi = {
 	deleteAiSession: ( sessionIdOrPrefix ) =>
 		ipcRendererInvoke( 'deleteAiSession', sessionIdOrPrefix ),
 	createAiSession: ( siteId ) => ipcRendererInvoke( 'createAiSession', siteId ),
+	updateAiSessionMetadata: ( sessionIdOrPrefix, patch ) =>
+		ipcRendererInvoke( 'updateAiSessionMetadata', sessionIdOrPrefix, patch ),
 	continueAiSession: ( sessionId, prompt, options ) =>
 		ipcRendererInvoke( 'continueAiSession', sessionId, prompt, options ),
 	setAiSessionModel: ( sessionId, model ) =>
@@ -221,6 +223,8 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'answerAiAgentQuestion', runId, answers ),
 	setSessionEnvironment: ( sessionId, environment ) =>
 		ipcRendererInvoke( 'setSessionEnvironment', sessionId, environment ),
+	getDeskSettings: () => ipcRendererInvoke( 'getDeskSettings' ),
+	saveDeskSettings: ( settings ) => ipcRendererInvoke( 'saveDeskSettings', settings ),
 	getUserDeskConfig: () => ipcRendererInvoke( 'getUserDeskConfig' ),
 	saveUserDeskConfig: ( config ) => ipcRendererInvoke( 'saveUserDeskConfig', config ),
 	getSiteDeskConfig: ( siteId ) => ipcRendererInvoke( 'getSiteDeskConfig', siteId ),

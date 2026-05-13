@@ -1,14 +1,23 @@
-import type { DeskStack } from '@/ui-desks/desk/types';
-import type { TLShape, TLShapePartial } from 'tldraw';
+import { getIndicesAbove, type TLShape, type TLShapePartial } from 'tldraw';
+import type { DeskStack, DeskStackViewMode } from '@/ui-desks/desk/types';
 
 export const STACK_TRANSLATE_X = 10;
 export const STACK_TRANSLATE_Y = 8;
 export const STACK_ROTATION = 0.052;
+export const STACK_TILE_GAP = 16;
 const STACK_Z_INDEX_STEP = 0.001;
+
+export type StackViewMode = DeskStackViewMode;
+
+export interface StackTileSize {
+	w: number;
+	h: number;
+}
 
 export interface DeskStackShapeMeta {
 	deskStackId?: unknown;
 	deskStackOrder?: unknown;
+	deskStackViewMode?: unknown;
 	deskStackExpanded?: unknown;
 	deskStackHomeX?: unknown;
 	deskStackHomeY?: unknown;
@@ -33,6 +42,11 @@ export function getStackOrder( shape: TLShape | null | undefined ) {
 export function isStackExpanded( shape: TLShape | null | undefined ) {
 	const meta = shape?.meta as DeskStackShapeMeta | undefined;
 	return meta?.deskStackExpanded === true;
+}
+
+export function getStackViewMode( shape: TLShape | null | undefined ): StackViewMode {
+	const meta = shape?.meta as DeskStackShapeMeta | undefined;
+	return meta?.deskStackViewMode === 'tiles' ? 'tiles' : 'stack';
 }
 
 export function getStackHome( shape: TLShape | null | undefined ) {
@@ -89,28 +103,114 @@ export function getStackAnchorFromMember( shape: Pick< TLShape, 'x' | 'y' >, ord
 	};
 }
 
-export function getStackMemberZIndex( zIndex: string, order: number ) {
-	const numericIndex = parseDeskZIndex( zIndex );
-	if ( numericIndex === null ) {
-		return zIndex as TLShapePartial[ 'index' ];
+export function getStackTileLayoutsFromCenter(
+	sizes: StackTileSize[],
+	center: { x: number; y: number }
+) {
+	const dimensions = getStackTileDimensions( sizes.length );
+	const cellWidth = Math.max( ...sizes.map( ( size ) => size.w ), 1 );
+	const cellHeight = Math.max( ...sizes.map( ( size ) => size.h ), 1 );
+	const totalWidth = dimensions.columns * cellWidth + ( dimensions.columns - 1 ) * STACK_TILE_GAP;
+	const totalHeight = dimensions.rows * cellHeight + ( dimensions.rows - 1 ) * STACK_TILE_GAP;
+	const startX = center.x - totalWidth / 2;
+	const startY = center.y - totalHeight / 2;
+
+	return sizes.map( ( size, index ) => {
+		const column = index % dimensions.columns;
+		const row = Math.floor( index / dimensions.columns );
+		const cellX = startX + column * ( cellWidth + STACK_TILE_GAP );
+		const cellY = startY + row * ( cellHeight + STACK_TILE_GAP );
+
+		return {
+			x: cellX + ( cellWidth - size.w ) / 2,
+			y: cellY + ( cellHeight - size.h ) / 2,
+			rotation: 0,
+		};
+	} );
+}
+
+function getStackTileCenterFromFirstTile(
+	sizes: StackTileSize[],
+	firstTile: { x: number; y: number }
+) {
+	const dimensions = getStackTileDimensions( sizes.length );
+	const firstSize = sizes[ 0 ] ?? { w: 1, h: 1 };
+	const cellWidth = Math.max( ...sizes.map( ( size ) => size.w ), firstSize.w, 1 );
+	const cellHeight = Math.max( ...sizes.map( ( size ) => size.h ), firstSize.h, 1 );
+	const totalWidth = dimensions.columns * cellWidth + ( dimensions.columns - 1 ) * STACK_TILE_GAP;
+	const totalHeight = dimensions.rows * cellHeight + ( dimensions.rows - 1 ) * STACK_TILE_GAP;
+
+	return {
+		x: firstTile.x - ( cellWidth - firstSize.w ) / 2 + totalWidth / 2,
+		y: firstTile.y - ( cellHeight - firstSize.h ) / 2 + totalHeight / 2,
+	};
+}
+
+export function getStackTileLayoutsFromFirstTile(
+	sizes: StackTileSize[],
+	firstTile: { x: number; y: number }
+) {
+	return getStackTileLayoutsFromCenter(
+		sizes,
+		getStackTileCenterFromFirstTile( sizes, firstTile )
+	);
+}
+
+function getStackTileDimensions( count: number ) {
+	if ( count <= 3 ) {
+		return {
+			rows: 1,
+			columns: Math.max( 1, count ),
+		};
+	}
+	if ( count <= 4 ) {
+		return {
+			rows: 2,
+			columns: 2,
+		};
+	}
+	if ( count <= 6 ) {
+		return {
+			rows: 2,
+			columns: 3,
+		};
+	}
+	if ( count <= 9 ) {
+		return {
+			rows: 3,
+			columns: 3,
+		};
 	}
 
-	return formatDeskZIndex( numericIndex - order * STACK_Z_INDEX_STEP ) as TLShapePartial[ 'index' ];
+	return {
+		rows: Math.ceil( count / 4 ),
+		columns: 4,
+	};
 }
 
 export function getStackZIndexFromMember( zIndex: string, order: number ) {
 	const numericIndex = parseDeskZIndex( zIndex );
 	if ( numericIndex === null ) {
-		return zIndex;
+		if ( order === 0 ) {
+			return zIndex;
+		}
+
+		return getIndicesAbove( zIndex as TLShapePartial[ 'index' ], order ).at( -1 ) ?? zIndex;
 	}
 
 	return formatDeskZIndex( numericIndex + order * STACK_Z_INDEX_STEP );
 }
 
-export function createStackMeta( stackId: string, order: number, originalZIndex?: string ) {
+export function createStackMeta(
+	stackId: string,
+	order: number,
+	originalZIndex?: string,
+	viewMode: StackViewMode = 'stack'
+) {
 	return {
 		deskStackId: stackId,
 		deskStackOrder: order,
+		deskStackViewMode: viewMode === 'tiles' ? 'tiles' : null,
 		...( originalZIndex ? { deskStackOriginalZIndex: originalZIndex } : {} ),
 	};
 }
@@ -155,6 +255,7 @@ export function clearStackMeta() {
 	return {
 		deskStackId: null,
 		deskStackOrder: null,
+		deskStackViewMode: null,
 		deskStackOriginalZIndex: null,
 		...clearExpandedStackMeta(),
 		...clearStackPushMeta(),

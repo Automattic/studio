@@ -13,7 +13,8 @@ import {
 } from 'tldraw';
 import { getDeskCanvasRecordResolutionState } from '@/ui-desks/desk/tldraw-adapter';
 import { useStackShapeInteraction } from '@/ui-desks/stacks/use-stack-shape-interaction';
-import { getStackId, isStackExpanded } from '@/ui-desks/stacks/utils';
+import { getStackId, getStackViewMode, isStackExpanded } from '@/ui-desks/stacks/utils';
+import { DRAWING_WIDGET_TYPE } from '@/ui-desks/widgets/drawing/types';
 import { getWidgetDefinition } from '@/ui-desks/widgets/registry';
 import {
 	RECTANGLE_WIDGET_SHAPE_TYPE,
@@ -106,24 +107,52 @@ export class RectangleWidgetShapeUtil extends ShapeUtil< RectangleWidgetShape > 
 	}
 
 	override indicator( shape: RectangleWidgetShape ) {
-		if ( getStackId( shape ) && ! isStackExpanded( shape ) ) {
-			return null;
-		}
-
-		const definition = getWidgetDefinition( shape.props.widgetType );
-		const indicator = getWidgetIndicator( definition, shape.props.widgetProps );
-
-		return (
-			<rect
-				width={ shape.props.shapeProps.w }
-				height={ shape.props.shapeProps.h }
-				rx={ indicator?.cornerRadius ?? 14 }
-				ry={ indicator?.cornerRadius ?? 14 }
-				fill="none"
-				stroke={ indicator?.stroke }
-			/>
-		);
+		return <RectangleWidgetIndicator shape={ shape } />;
 	}
+}
+
+function RectangleWidgetIndicator( { shape }: { shape: RectangleWidgetShape } ) {
+	const editor = useEditor();
+	const isSelected = useValue(
+		`rectangle-widget-indicator-selected:${ shape.id }`,
+		() => editor.getSelectedShapeIds().includes( shape.id ),
+		[ editor, shape.id ]
+	);
+
+	if (
+		getStackId( shape ) &&
+		! isStackExpanded( shape ) &&
+		getStackViewMode( shape ) !== 'tiles'
+	) {
+		return null;
+	}
+
+	if ( shape.props.widgetType === DRAWING_WIDGET_TYPE ) {
+		return null;
+	}
+
+	const definition = getWidgetDefinition( shape.props.widgetType );
+	const indicator = getWidgetIndicator( definition, shape.props.widgetProps );
+
+	return (
+		<rect
+			width={ shape.props.shapeProps.w }
+			height={ shape.props.shapeProps.h }
+			rx={ indicator?.cornerRadius ?? 14 }
+			ry={ indicator?.cornerRadius ?? 14 }
+			fill="none"
+			stroke={ indicator?.stroke }
+			style={ { strokeWidth: indicatorStrokeWidth( isSelected ) } }
+		/>
+	);
+}
+
+const INDICATOR_STROKE_WIDTH_HOVER = 1.5;
+const INDICATOR_STROKE_WIDTH_SELECTED = 3;
+
+function indicatorStrokeWidth( isSelected: boolean ): string {
+	const width = isSelected ? INDICATOR_STROKE_WIDTH_SELECTED : INDICATOR_STROKE_WIDTH_HOVER;
+	return `calc(${ width }px * var(--tl-scale))`;
 }
 
 function getWidgetIndicator(
@@ -177,7 +206,11 @@ function RectangleWidgetComponent( {
 	};
 
 	return (
-		<div style={ stackInteraction.style } onPointerDown={ stackInteraction.onPointerDown }>
+		<div
+			style={ stackInteraction.style }
+			onPointerDown={ stackInteraction.onPointerDown }
+			onPointerUp={ stackInteraction.onPointerUp }
+		>
 			{ isLoading && LoadingComponent ? (
 				<LoadingComponent id={ widgetId } widgetProps={ shape.props.widgetProps } />
 			) : (

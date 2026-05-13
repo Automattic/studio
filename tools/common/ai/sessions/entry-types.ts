@@ -2,11 +2,13 @@
 // `SessionEntry` schema. The renderer never imports pi at runtime — these
 // types are only used at the type-check boundary (`import type` is erased).
 
+import type { StudioChatArtifactData } from '../chat-artifacts';
 import type { CustomEntry, SessionEntry } from '@mariozechner/pi-coding-agent';
 
 export type StudioCustomEntryType =
 	| 'studio.site_selected'
 	| 'studio.tool_progress'
+	| 'studio.chat_artifact'
 	| 'studio.agent_question'
 	| 'studio.turn_closed'
 	| 'studio.session_context'
@@ -51,6 +53,7 @@ export interface StudioUserPromptData {
 export interface StudioCustomEntryDataMap {
 	'studio.site_selected': StudioSiteSelectedData;
 	'studio.tool_progress': StudioToolProgressData;
+	'studio.chat_artifact': StudioChatArtifactData;
 	'studio.agent_question': StudioAgentQuestionData;
 	'studio.turn_closed': StudioTurnClosedData;
 	'studio.session_context': StudioSessionContextData;

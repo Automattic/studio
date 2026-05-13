@@ -1,6 +1,11 @@
 import { __ } from '@wordpress/i18n';
 import { pencil } from '@wordpress/icons';
-import { NoteWidgetComponent } from '@/ui-desks/widgets/note/component';
+import {
+	NoteWidgetComponent,
+	NoteWidgetThumbnailComponent,
+} from '@/ui-desks/widgets/note/component';
+import { NoteTextSizeControl } from '@/ui-desks/widgets/note/text-controls';
+import { getFittedNoteHeight } from '@/ui-desks/widgets/note/text-sizing';
 import {
 	isNoteWidgetProps,
 	NOTE_WIDGET_TYPE,
@@ -37,8 +42,15 @@ const NOTE_TONE_OPTIONS: Array< { value: NoteTone; label: string; color: string 
 
 export const noteWidgetDefinition = {
 	type: NOTE_WIDGET_TYPE,
+	name: () => __( 'Note' ),
 	Component: NoteWidgetComponent,
+	thumbnail: NoteWidgetThumbnailComponent,
 	controls: [
+		{
+			type: 'custom',
+			id: 'text-size',
+			Component: NoteTextSizeControl,
+		},
 		{
 			type: 'color',
 			id: 'tone',
@@ -54,6 +66,7 @@ export const noteWidgetDefinition = {
 	} ),
 	labels: {
 		add: () => __( 'New sticky note' ),
+		fitContent: () => __( 'Fit text' ),
 	},
 	icon: pencil,
 	getInitialWidget: () => ( {
@@ -66,4 +79,26 @@ export const noteWidgetDefinition = {
 			tone: 'yellow',
 		},
 	} ),
+	getSummary: ( widgetProps ) =>
+		truncateText( stripMarkup( widgetProps.text ), 72 ) || __( 'Empty note' ),
+	getEditAction: () => ( { kind: 'canvas-editing' } ),
+	getFittedShapeProps: ( { widgetProps, shapeProps } ) => ( {
+		...shapeProps,
+		h: getFittedNoteHeight( widgetProps, shapeProps ),
+	} ),
 } satisfies WidgetDefinition< NoteWidget >;
+
+function stripMarkup( value: string ) {
+	return value
+		.replace( /<[^>]*>/g, ' ' )
+		.replace( /\s+/g, ' ' )
+		.trim();
+}
+
+function truncateText( value: string, maxLength: number ) {
+	if ( value.length <= maxLength ) {
+		return value;
+	}
+
+	return `${ value.slice( 0, maxLength - 3 ).trimEnd() }...`;
+}

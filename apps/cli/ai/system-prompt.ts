@@ -10,10 +10,8 @@ const AGENT_IDENTITY = `You are WordPress Studio Code, the AI agent built into W
 
 export interface BuildSystemPromptOptions {
 	remoteSite?: RemoteSiteContext;
-	// Whether the runtime exposes the preview_navigate / preview_reload
-	// tools to the agent. When false, the "Keep the preview in sync" section
-	// is omitted so we don't document tools the agent can't actually call.
-	previewSteering?: boolean;
+	// True when a Studio UI is attached and can receive chat artifact events.
+	chatArtifactsEnabled?: boolean;
 	// True when the agent is being driven by the Telegram remote-session bridge.
 	// Adds guidance about delivering screenshots via `share_screenshot` and
 	// offering a preview-site follow-up.
@@ -32,7 +30,9 @@ ${ REMOTE_DESIGN_GUIDELINES }${ remoteSessionAddendum }
 `;
 	}
 
-	return `${ buildLocalIntro( { previewSteering: options?.previewSteering ?? false } ) }
+	return `${ buildLocalIntro( {
+		chatArtifactsEnabled: options?.chatArtifactsEnabled ?? false,
+	} ) }
 
 ${ buildLocalContentGuidelines() }
 
@@ -110,24 +110,13 @@ Use \`per_page\` and \`page\` for pagination. Use \`status\` to filter by publis
 - Explore the API — if you're unsure about an endpoint, try a GET request first to discover available data.`;
 }
 
-function buildLocalIntro( options: { previewSteering: boolean } ): string {
-	const previewSteeringTools = options.previewSteering
-		? `
-- preview_navigate: Steer the Studio site preview iframe to a specific page on the active site (site-relative path like "/", "/about/", "/?p=42"). Call this right after you finish editing a specific page/post/template so the user immediately sees the result.
-- preview_reload: Reload the preview iframe at its current URL. Call this after editing the active theme, CSS, template parts, or anything that affects the page the user is currently viewing.`
-		: '';
-
-	const previewSteeringSection = options.previewSteering
+function buildLocalIntro( options: { chatArtifactsEnabled: boolean } ): string {
+	const artifactSection = options.chatArtifactsEnabled
 		? `
 
-## Keep the preview in sync with your work
+## Visual artifacts
 
-Call \`preview_navigate\` / \`preview_reload\` as a side effect of your editing loop — they are cheap, cannot fail destructively, and are ignored when the preview pane is closed, so calling them always is safer than calling them sparingly.
-
-- After editing the homepage, front page template, or global theme assets (style.css, functions.php, template parts): call \`preview_reload\` (the user is most likely on "/").
-- After editing or creating a specific page or post: call \`preview_navigate\` with that page's path (e.g. \`/about/\`) — use the slug from \`wp_cli post list\` or your own \`post_name\` to build the URL.
-- After editing a single template like \`single-product.php\` or a CPT page: navigate to an example URL that uses that template.
-- Do not call these tools on a remote WordPress.com site.`
+Studio tools may show visual artifacts automatically when they create something the UI can render, such as a new site, page, or post. No extra action is needed: these artifacts come from successful tool results, not from a separate artifact tool.`
 		: '';
 
 	return `${ AGENT_IDENTITY } You manage and modify local WordPress sites using your Studio tools and generate content for these sites.
@@ -190,7 +179,7 @@ One \`Write\` or \`Edit\` per turn (read-only \`site_info\`, \`site_list\`, \`wp
 - site_push: Push a local site to a WordPress.com site. Requires authentication (studio auth login). Specify the remote site URL or ID and sync options (all, sqls, uploads, plugins, themes, contents).
 - site_pull: Pull a WordPress.com site to a local site. Requires authentication. Specify the remote site URL or ID and sync options.
 - site_import: Import a backup file (.zip, .tar.gz, .sql, .wpress) into a local site.
-- site_export: Export a local site to a backup file. Supports full-site (.zip, .tar.gz) or database-only (.sql) exports.${ previewSteeringTools }${ previewSteeringSection }
+- site_export: Export a local site to a backup file. Supports full-site (.zip, .tar.gz) or database-only (.sql) exports.${ artifactSection }
 
 ## General rules
 

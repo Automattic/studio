@@ -1,5 +1,5 @@
 import { createRoute } from '@tanstack/react-router';
-import { SessionView } from '@/components/session-view';
+import { SessionView } from '@/ui-classic/components/session-view';
 import { dashboardLayoutRoute } from '../layout-dashboard';
 
 function SessionDetail() {

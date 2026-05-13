@@ -1,7 +1,10 @@
 // Run tests: npm test -- src/hooks/tests/use-remote-session-status.test.tsx
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { vi } from 'vitest';
-import { useRemoteSessionStatus } from 'src/hooks/use-remote-session-status';
+import {
+	_resetRemoteSessionStatusStateForTests,
+	useRemoteSessionStatus,
+} from 'src/hooks/use-remote-session-status';
 import type { DaemonStatus } from 'cli/remote-session/daemon';
 import type { IpcRendererEvent } from 'electron';
 
@@ -29,6 +32,7 @@ beforeEach( () => {
 	mockStart.mockReset();
 	mockStop.mockReset();
 	mockShowErrorMessageBox.mockReset();
+	_resetRemoteSessionStatusStateForTests();
 
 	window.ipcListener = {
 		subscribe: vi.fn( ( channel, listener ) => {
@@ -211,5 +215,39 @@ describe( 'useRemoteSessionStatus', () => {
 			resolveStart( { pid: 1, pidFile: '/tmp/pid' } );
 		} );
 		await waitFor( () => expect( result.current.isLoading ).toBe( false ) );
+	} );
+
+	it( 'shares state across hook instances so an optimistic flip in one reaches the other', async () => {
+		mockGetStatus.mockResolvedValue( { running: false, pidFile: '/tmp/pid' } );
+		let resolveStart: ( value: { pid: number; pidFile: string } ) => void = () => undefined;
+		mockStart.mockImplementation(
+			() =>
+				new Promise( ( resolve ) => {
+					resolveStart = resolve;
+				} )
+		);
+
+		const { result: toggle } = renderHook( () => useRemoteSessionStatus() );
+		const { result: indicator } = renderHook( () => useRemoteSessionStatus() );
+
+		await waitFor( () => expect( toggle.current.isRunning ).toBe( false ) );
+		expect( indicator.current.isRunning ).toBe( false );
+
+		// One consumer kicks off start(); the OTHER must see the optimistic flip
+		// without waiting for the daemon poll.
+		act( () => {
+			void toggle.current.start();
+		} );
+
+		expect( toggle.current.isRunning ).toBe( true );
+		expect( indicator.current.isRunning ).toBe( true );
+
+		mockGetStatus.mockResolvedValueOnce( { running: true, pid: 1, pidFile: '/tmp/pid' } );
+		await act( async () => {
+			resolveStart( { pid: 1, pidFile: '/tmp/pid' } );
+		} );
+		await waitFor( () => expect( toggle.current.isLoading ).toBe( false ) );
+
+		expect( indicator.current.isRunning ).toBe( true );
 	} );
 } );

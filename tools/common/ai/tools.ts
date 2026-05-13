@@ -26,8 +26,6 @@ export function getToolDisplayName( name: string ): string {
 		validate_blocks: __( 'Validate blocks' ),
 		take_screenshot: __( 'Take screenshot' ),
 		share_screenshot: __( 'Share screenshot' ),
-		preview_navigate: __( 'Navigate preview' ),
-		preview_reload: __( 'Reload preview' ),
 		need_for_speed: __( 'Audit performance' ),
 		rank_me_up: __( 'Audit SEO' ),
 		install_taxonomy_scripts: __( 'Install taxonomy scripts' ),
@@ -88,8 +86,6 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 		case 'take_screenshot':
 		case 'share_screenshot':
 			return typeof input.url === 'string' ? input.url : '';
-		case 'preview_navigate':
-			return typeof input.path === 'string' ? input.path : '';
 		case 'Read':
 		case 'Write':
 		case 'Edit': {

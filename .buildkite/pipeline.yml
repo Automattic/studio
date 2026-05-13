@@ -107,12 +107,12 @@ steps:
       - test-results/**/*error-context.md
     env:
       DEBUG: "pw:browser"
-      # TEMP(rsm-2593): trial toggles to isolate the Linux PHP-WASM child-process exit.
-      STUDIO_DISABLE_PLAYGROUND_WASM_SERVICES: "1"
       # TEMP(rsm-2593): force the worker count above Playground's deadlock warning threshold.
       STUDIO_PLAYGROUND_WORKERS: "6"
-      # TEMP(rsm-2593): test whether setcap/AT_SECURE affects the packaged Node child.
-      SKIP_LINUX_E2E_NODE_SETCAP: "1"
+      # TEMP(rsm-2593): surface the swallowed Playground start-server failure in CI logs.
+      STUDIO_PLAYGROUND_VERBOSITY: "debug"
+      STUDIO_PLAYGROUND_DEBUG: "1"
+      STUDIO_INTERCEPT_PLAYGROUND_EXIT: "1"
     # TEMP(rsm-2593): if: removed to force E2E on every push while iterating on Linux E2E setup. Revert before merge.
     notify:
       - github_commit_status:

@@ -39,6 +39,7 @@ if [ "$PLATFORM" = "linux" ]; then
     libcairo2 \
     libxss1 \
     procps \
+    iproute2 \
     file
   npm ci --unsafe-perm --no-audit --no-progress --maxsockets 1
 else
@@ -177,7 +178,9 @@ if [ "$PLATFORM" = "linux" ]; then
     cd /workdir
     echo "STUDIO_DISABLE_PLAYGROUND_WASM_SERVICES=${STUDIO_DISABLE_PLAYGROUND_WASM_SERVICES:-0}"
     echo "STUDIO_PLAYGROUND_WORKERS=${STUDIO_PLAYGROUND_WORKERS:-auto}"
-    echo "SKIP_LINUX_E2E_NODE_SETCAP=${SKIP_LINUX_E2E_NODE_SETCAP:-0}"
+    echo "STUDIO_PLAYGROUND_VERBOSITY=${STUDIO_PLAYGROUND_VERBOSITY:-normal}"
+    echo "STUDIO_PLAYGROUND_DEBUG=${STUDIO_PLAYGROUND_DEBUG:-0}"
+    echo "STUDIO_INTERCEPT_PLAYGROUND_EXIT=${STUDIO_INTERCEPT_PLAYGROUND_EXIT:-0}"
     echo "Installing Playwright Chromium..."
     npx playwright install chromium
     echo "Running Playwright tests..."
@@ -198,15 +201,26 @@ if [ "$PLATFORM" = "linux" ]; then
       cat "$f" || true
     fi
   done
+  ss -tlnp 2>/dev/null || netstat -tlnp 2>/dev/null || true
   ps -ef --forest 2>/dev/null | head -60 || true
   dmesg 2>/dev/null | tail -200 || true
 
-  if find /tmp -path '/tmp/studio-app-e2e-session-*/process-manager/logs/*.log' -print -quit | grep -q .; then
+  if [ "$test_exit" -ne 0 ]; then
+    echo '--- :memo: Process manager logs from failed Linux E2E'
+    find /tmp -path '/tmp/s-pm-*/logs/*.log' -exec sh -c '
+      for log_path do
+        echo "--- ${log_path} ---"
+        tail -400 "${log_path}" || true
+      done
+    ' sh {} + || true
+  fi
+
+  if find /tmp -path '/tmp/s-pm-*/logs/*.log' -print -quit | grep -q .; then
     echo '--- :file_folder: Copy process manager logs for artifact upload'
     mkdir -p /tmp/test-results/process-manager-logs
     (
       cd /tmp
-      find studio-app-e2e-session-*/process-manager/logs -type f -name '*.log' \
+      find s-pm-*/logs -type f -name '*.log' \
         -exec cp --parents {} /tmp/test-results/process-manager-logs/ \;
     ) || true
   fi

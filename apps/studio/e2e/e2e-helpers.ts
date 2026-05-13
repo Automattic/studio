@@ -28,12 +28,13 @@ export class E2ESession {
 	private childProcess?: ChildProcess;
 
 	public constructor() {
-		this.sessionPath = path.join( tmpdir(), `studio-app-e2e-session-${ randomUUID() }` );
+		const sessionId = randomUUID();
+		this.sessionPath = path.join( tmpdir(), `studio-app-e2e-session-${ sessionId }` );
 		this.appDataPath = path.join( this.sessionPath, 'appData' );
 		this.homePath = path.join( this.sessionPath, 'home' );
 		this.cliConfigPath = path.join( this.sessionPath, 'cliConfig' );
 		this.sharedConfigPath = path.join( this.sessionPath, 'sharedConfig' );
-		this.processManagerHomePath = path.join( this.sessionPath, 'process-manager' );
+		this.processManagerHomePath = path.join( tmpdir(), `s-pm-${ sessionId.slice( 0, 12 ) }` );
 	}
 
 	async launch( testEnv: NodeJS.ProcessEnv = {} ) {
@@ -99,11 +100,16 @@ export class E2ESession {
 
 	async cleanup() {
 		await this.closeApp();
+		await this.removePathWithRetries( this.sessionPath );
+		await this.removePathWithRetries( this.processManagerHomePath );
+	}
+
+	private async removePathWithRetries( targetPath: string ) {
 		// Retry on ENOTEMPTY: CLI child processes (e.g. copying skills to server-files) may still be
 		// writing to the session directory briefly after the Electron process exits.
 		for ( let attempt = 0; attempt < 5; attempt++ ) {
 			try {
-				await rimraf( this.sessionPath );
+				await rimraf( targetPath );
 				return;
 			} catch ( error ) {
 				if ( ! isErrnoException( error ) || error.code !== 'ENOTEMPTY' || attempt === 4 ) {
@@ -147,7 +153,13 @@ export class E2ESession {
 		// renderer or helper-process exits under load.
 		const linuxFlags =
 			appInfo.platform === 'linux'
-				? [ '--no-sandbox', '--disable-gpu', '--use-gl=swiftshader', '--disable-dev-shm-usage' ]
+				? [
+						'--no-sandbox',
+						'--disable-gpu',
+						'--use-gl=swiftshader',
+						'--disable-dev-shm-usage',
+						'--host-resolver-rules=MAP localhost 127.0.0.1',
+				  ]
 				: [];
 
 		this.electronApp = await electron.launch( {

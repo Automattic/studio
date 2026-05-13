@@ -162,7 +162,7 @@ export class ProcessManagerDaemon {
 				};
 			}
 			case 'stop-process':
-				await this.stopProcess( request.processName );
+				await this.stopProcess( request.processName, 'stop-process request' );
 				return {
 					type: 'result',
 					payload: {},
@@ -290,7 +290,10 @@ export class ProcessManagerDaemon {
 		return this.toProcessDescription( managedProcess );
 	}
 
-	private async stopProcess( processName: string ): Promise< void > {
+	private async stopProcess(
+		processName: string,
+		reason = 'stop-process request'
+	): Promise< void > {
 		const managedProcess = this.getManagedProcessByName( processName );
 
 		if ( ! managedProcess || managedProcess.settled ) {
@@ -299,7 +302,11 @@ export class ProcessManagerDaemon {
 
 		await new Promise< void >( ( resolve ) => {
 			const timeoutId = setTimeout( () => {
-				void this.signalProcessGroup( managedProcess, 'SIGKILL' );
+				void this.signalProcessGroup(
+					managedProcess,
+					'SIGKILL',
+					`${ reason }; stop timeout after ${ STOP_TIMEOUT_MS }ms`
+				);
 			}, STOP_TIMEOUT_MS );
 
 			managedProcess.child.once( 'exit', () => {
@@ -314,7 +321,7 @@ export class ProcessManagerDaemon {
 				resolve();
 			} );
 
-			void this.signalProcessGroup( managedProcess, 'SIGTERM' );
+			void this.signalProcessGroup( managedProcess, 'SIGTERM', reason );
 		} );
 	}
 
@@ -429,18 +436,21 @@ export class ProcessManagerDaemon {
 			if ( managedProcess.settled ) {
 				continue;
 			}
-			await this.signalProcessGroup( managedProcess, 'SIGKILL' );
+			await this.signalProcessGroup( managedProcess, 'SIGKILL', 'process manager exit cleanup' );
 		}
 	}
 
 	private async signalProcessGroup(
 		managedProcess: ManagedProcess,
-		signal: NodeJS.Signals
+		signal: NodeJS.Signals,
+		reason: string
 	): Promise< void > {
 		const pid = managedProcess.child.pid;
 		if ( ! pid ) {
 			return;
 		}
+
+		this.logProcessSignal( managedProcess, signal, reason );
 
 		if ( process.platform === 'win32' ) {
 			if ( signal === 'SIGKILL' ) {
@@ -490,6 +500,27 @@ export class ProcessManagerDaemon {
 		}
 	}
 
+	private logProcessSignal(
+		managedProcess: ManagedProcess,
+		signal: NodeJS.Signals,
+		reason: string
+	): void {
+		const stack = new Error().stack?.split( '\n' ).slice( 2 ).join( '\n' );
+		const message = [
+			`[process-manager] Sending ${ signal } to "${ managedProcess.name }" (pmId=${
+				managedProcess.pmId
+			}, pid=${ managedProcess.child.pid ?? 'unknown' }). Reason: ${ reason }.`,
+			stack ? `Signal source stack:\n${ stack }` : undefined,
+		]
+			.filter( Boolean )
+			.join( '\n' );
+
+		writeTimestampedLines( managedProcess.stderrStream, message );
+		for ( const line of message.split( '\n' ) ) {
+			this.recordStderrLine( managedProcess, line );
+		}
+	}
+
 	private async shutdown( reason?: string ): Promise< void > {
 		await this.beginShutdownByKillingChildren( reason );
 		await this.finalizeShutdownByClosingSocketServersAndExiting();
@@ -499,7 +530,7 @@ export class ProcessManagerDaemon {
 		const stopAllChildren = async (): Promise< void > => {
 			await Promise.allSettled(
 				Array.from( this.managedProcesses.values() ).map( ( managedProcess ) =>
-					this.stopProcess( managedProcess.name )
+					this.stopProcess( managedProcess.name, `daemon shutdown (${ reason ?? 'unknown' })` )
 				)
 			);
 

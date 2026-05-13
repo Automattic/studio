@@ -66,6 +66,30 @@ function getConfiguredPlaygroundWorkers(): RunCLIArgs[ 'workers' ] | undefined {
 	return undefined;
 }
 
+function getConfiguredPlaygroundVerbosity(): RunCLIArgs[ 'verbosity' ] | undefined {
+	const verbosity = process.env.STUDIO_PLAYGROUND_VERBOSITY;
+	if ( ! verbosity ) {
+		return undefined;
+	}
+
+	if ( verbosity === 'quiet' || verbosity === 'normal' || verbosity === 'debug' ) {
+		return verbosity;
+	}
+
+	console.warn(
+		`Ignoring STUDIO_PLAYGROUND_VERBOSITY=${ verbosity }; expected quiet, normal, or debug.`
+	);
+	return undefined;
+}
+
+function isPlaygroundDebugEnabled(): boolean {
+	return process.env.STUDIO_PLAYGROUND_DEBUG === '1';
+}
+
+function shouldInterceptPlaygroundExit(): boolean {
+	return process.env.STUDIO_INTERCEPT_PLAYGROUND_EXIT === '1';
+}
+
 // Intercept and prefix all console output from playground-cli
 const originalConsoleLog = console.log;
 const originalConsoleError = console.error;
@@ -110,6 +134,58 @@ function logToConsole( ...args: Parameters< typeof console.log > ) {
 
 function errorToConsole( ...args: Parameters< typeof console.error > ) {
 	originalConsoleError( `[Playground Server]`, ...args );
+}
+
+function formatServerAddress(
+	address: ReturnType< RunCLIServer[ 'server' ][ 'address' ] >
+): string {
+	if ( ! address ) {
+		return 'unavailable';
+	}
+
+	if ( typeof address === 'string' ) {
+		return address;
+	}
+
+	return `${ address.address }:${ address.port } (${ address.family })`;
+}
+
+function logServerListeningDetails( server: RunCLIServer, args: RunCLIArgs, config: ServerConfig ) {
+	logToConsole(
+		`Server listening for site ${ config.siteId }: serverUrl=${
+			server.serverUrl
+		}, address=${ formatServerAddress( server.server.address() ) }, configuredPort=${
+			config.port
+		}, siteUrl=${ args[ 'site-url' ] ?? 'default' }`
+	);
+}
+
+class PlaygroundProcessExitError extends Error {
+	constructor( code: string | number | null | undefined, args: RunCLIArgs ) {
+		super(
+			`Playground CLI called process.exit(${ String( code ?? 0 ) }) while running "${
+				args.command
+			}". Sanitized args: ${ JSON.stringify( sanitizeRunCLIArgs( args ) ) }`
+		);
+		this.name = 'PlaygroundProcessExitError';
+	}
+}
+
+async function runCliWithExitDiagnostics( args: RunCLIArgs ): Promise< RunCLIServer | void > {
+	if ( ! shouldInterceptPlaygroundExit() ) {
+		return runCLI( args );
+	}
+
+	const originalProcessExit = process.exit;
+	process.exit = ( ( code?: string | number | null | undefined ) => {
+		throw new PlaygroundProcessExitError( code, args );
+	} ) as typeof process.exit;
+
+	try {
+		return await runCLI( args );
+	} finally {
+		process.exit = originalProcessExit;
+	}
 }
 
 function escapePhpString( str: string ): string {
@@ -277,6 +353,7 @@ async function getBaseRunCLIArgs(
 	const enableDebugLog = config.enableDebugLog ?? false;
 	const enableDebugDisplay = config.enableDebugDisplay ?? false;
 	const configuredPlaygroundWorkers = getConfiguredPlaygroundWorkers();
+	const configuredPlaygroundVerbosity = getConfiguredPlaygroundVerbosity();
 
 	const defaultConstants: Record< string, boolean | string > = {
 		// Fallback for sites where DB_NAME was stripped from wp-config.php.
@@ -358,6 +435,8 @@ async function getBaseRunCLIArgs(
 		redis: IS_JSPI_AVAILABLE && arePlaygroundWasmServicesEnabled,
 		memcached: IS_JSPI_AVAILABLE && arePlaygroundWasmServicesEnabled,
 		...( configuredPlaygroundWorkers ? { workers: configuredPlaygroundWorkers } : {} ),
+		...( configuredPlaygroundVerbosity ? { verbosity: configuredPlaygroundVerbosity } : {} ),
+		...( isPlaygroundDebugEnabled() ? { debug: true } : {} ),
 	};
 
 	if ( config.wpVersion ) {
@@ -430,7 +509,12 @@ const startServer = wrapWithStartingPromise(
 			// entire child process. The daemon will restart it, but the
 			// error message is lost. Filed upstream:
 			// https://github.com/WordPress/wordpress-playground/issues/3520
-			server = await runCLI( args );
+			const cliServer = await runCliWithExitDiagnostics( args );
+			if ( ! cliServer ) {
+				throw new Error( 'Playground CLI server command returned without a server.' );
+			}
+			server = cliServer;
+			logServerListeningDetails( server, args, config );
 
 			stopSignal.throwIfAborted();
 
@@ -511,7 +595,7 @@ async function runBlueprint( config: ServerConfig, signal: AbortSignal ): Promis
 		signal.throwIfAborted();
 
 		const args = await getBaseRunCLIArgs( 'run-blueprint', config );
-		await runCLI( args );
+		await runCliWithExitDiagnostics( args );
 
 		signal.throwIfAborted();
 

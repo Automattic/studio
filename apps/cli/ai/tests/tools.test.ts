@@ -163,6 +163,10 @@ describe( 'Studio AI MCP tools', () => {
 		expect( namesWithArtifacts ).toContain( 'site_create' );
 		expect( namesWithArtifacts ).toContain( 'wp_cli' );
 		expect( studioPresent?.description ).toContain( '- site-code-scratchpad:' );
+		expect( studioPresent?.description ).toContain( 'after any successful Write or Edit' );
+		expect( studioPresent?.description ).toContain(
+			'call studio_present with exactly one note widget'
+		);
 		expect( studioPresent?.description ).toContain( '- saved-local-media:' );
 		expect( studioPresent?.description ).toContain(
 			'For generated SVGs, write a complete .svg file'

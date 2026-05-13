@@ -1,7 +1,14 @@
 import { STUDIO_CHAT_ARTIFACT_VERSION } from '@studio/common/ai/chat-artifacts';
-import { describe, expect, it, vi } from 'vitest';
-import { entriesToRenderItems } from './index';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { createElement } from 'react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ChatArtifact, entriesToRenderItems } from './index';
 import type { SessionEntry } from '@mariozechner/pi-coding-agent';
+
+const deskMocks = vi.hoisted( () => ( {
+	addWidget: vi.fn(),
+	addWidgetAtScreenPoint: vi.fn(),
+} ) );
 
 vi.mock( '@/components/markdown', () => ( {
 	Markdown: () => null,
@@ -13,17 +20,34 @@ vi.mock( '@/ui-desks/components', () => ( {
 
 vi.mock( '@/ui-desks/desk/provider', () => ( {
 	useDesk: () => ( {
-		addWidget: vi.fn(),
-		addWidgetAtScreenPoint: vi.fn(),
+		addWidget: deskMocks.addWidget,
+		addWidgetAtScreenPoint: deskMocks.addWidgetAtScreenPoint,
 		canAddWidgets: true,
 	} ),
 } ) );
 
 vi.mock( '@/ui-desks/widget-actions/create-widget', () => ( {
-	createDeskWidget: () => null,
+	createDeskWidget: vi.fn(
+		( options: {
+			id: string;
+			type: string;
+			zIndex: string;
+			shapeProps?: Record< string, unknown >;
+			widgetProps?: Record< string, unknown >;
+		} ) => ( {
+			id: options.id,
+			type: options.type,
+			x: 0,
+			y: 0,
+			zIndex: options.zIndex,
+			shapeProps: { w: 120, h: 96, ...options.shapeProps },
+			widgetProps: options.widgetProps ?? {},
+		} )
+	),
 } ) );
 
 vi.mock( '@wordpress/icons', () => ( {
+	check: {},
 	plus: {},
 } ) );
 
@@ -37,10 +61,17 @@ vi.mock( '../thinking-indicator', () => ( {
 
 vi.mock( '../widget-context', () => ( {
 	summarizeWidgetList: () => '',
+	getWidgetDisplayLabel: ( widget: { type: string } ) => `${ widget.type } widget`,
+	WidgetContextThumbnail: () => null,
 	WidgetContextThumbnailList: () => null,
 } ) );
 
 describe( 'desks conversation render items', () => {
+	beforeEach( () => {
+		deskMocks.addWidget.mockReset();
+		deskMocks.addWidgetAtScreenPoint.mockReset();
+	} );
+
 	it( 'hides studio_present tool rows while keeping the artifact', () => {
 		const items = entriesToRenderItems( [
 			assistantToolCallEntry( 'studio_present' ),
@@ -66,6 +97,56 @@ describe( 'desks conversation render items', () => {
 					result: expect.objectContaining( { text: 'Success' } ),
 				} ),
 			] )
+		);
+	} );
+
+	it( 'adds widgets from multi-widget artifacts independently', () => {
+		deskMocks.addWidget.mockReturnValue( true );
+
+		render(
+			createElement( ChatArtifact, {
+				artifact: {
+					version: STUDIO_CHAT_ARTIFACT_VERSION,
+					id: 'artifact-2',
+					widgets: [
+						{
+							type: 'note',
+							widgetProps: { text: 'First note', tone: 'yellow' },
+						},
+						{
+							type: 'bookmark',
+							widgetProps: { url: 'https://example.com' },
+						},
+					],
+				},
+			} )
+		);
+
+		fireEvent.click(
+			screen.getByRole( 'button', { name: 'Add widget 2 to canvas: bookmark widget' } )
+		);
+
+		expect( deskMocks.addWidget ).toHaveBeenCalledTimes( 1 );
+		expect( deskMocks.addWidget ).toHaveBeenCalledWith(
+			'bookmark',
+			expect.objectContaining( {
+				widgetProps: { url: 'https://example.com' },
+				shouldStartEditing: false,
+			} )
+		);
+		expect(
+			screen.getByRole( 'button', { name: 'Added widget 2 to canvas: bookmark widget' } )
+		).toBeDisabled();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Add remaining' } ) );
+
+		expect( deskMocks.addWidget ).toHaveBeenCalledTimes( 2 );
+		expect( deskMocks.addWidget ).toHaveBeenLastCalledWith(
+			'note',
+			expect.objectContaining( {
+				widgetProps: { text: 'First note', tone: 'yellow' },
+				shouldStartEditing: false,
+			} )
 		);
 	} );
 } );

@@ -9,7 +9,11 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).toContain( '- post-lists:' );
 		expect( prompt ).toContain( 'one post-collection widget' );
 		expect( prompt ).toContain( '- site-code-scratchpad:' );
-		expect( prompt ).toContain( 'note widget as a scratchpad-style summary' );
+		expect( prompt ).toContain( 'after any successful Write or Edit' );
+		expect( prompt ).toContain( 'creates or changes HTML, CSS, block markup' );
+		expect( prompt ).toContain( 'JSX/TSX markup' );
+		expect( prompt ).toContain( 'call studio_present with exactly one note widget' );
+		expect( prompt ).toContain( 'sections/selectors touched' );
 		expect( prompt ).toContain( 'Use sd-artefact for standalone rendered HTML drafts' );
 		expect( prompt ).toContain( '- saved-local-media:' );
 		expect( prompt ).toContain( 'For generated SVGs, write a complete .svg file' );

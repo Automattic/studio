@@ -49,7 +49,7 @@ export const STUDIO_PRESENTATION_RULES: StudioPresentationRule[] = [
 	{
 		id: 'site-code-scratchpad',
 		description:
-			'During site creation or redesign work, after meaningful HTML, block markup, CSS, or theme-file edits, use a note widget as a scratchpad-style summary of changed files, sections/selectors, and design intent. Keep it compact and do not paste full files. Use sd-artefact for standalone rendered HTML drafts, and site-preview after a visible site or page milestone.',
+			'During site creation or redesign work, after any successful Write or Edit that creates or changes HTML, CSS, block markup, JSX/TSX markup, inline styles, theme.json design tokens, frontend JS behavior, or theme/plugin code that shapes markup or styling, call studio_present with exactly one note widget as a scratchpad summary. Include the changed file path or basename, the sections/selectors touched, and the design intent or next checkpoint. Keep it compact and do not paste full files. Skip only trivial mechanical edits, generated lockfiles, or config changes unrelated to HTML, CSS, layout, styling, or frontend behavior. Use sd-artefact for standalone rendered HTML drafts, and site-preview after a visible site or page milestone.',
 	},
 	{
 		id: 'saved-local-media',

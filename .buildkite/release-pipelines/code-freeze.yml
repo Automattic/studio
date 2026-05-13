@@ -1,8 +1,13 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/buildkite/pipeline-schema/main/schema.json
 ---
 
+# PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 prevents the `playwright install chromium`
+# postinstall (pulled in transitively by the `data-liberation` agent dep) from
+# downloading ~150 MB of Chromium during the code-freeze `npm install`. The
+# DLA runtime bootstraps Chromium lazily on first use, so CI never needs it.
 env:
   IMAGE_ID: $IMAGE_ID
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
 
 steps:
   - label: ":snowflake: Code Freeze"

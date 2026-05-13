@@ -37,10 +37,31 @@ if [ "$PLATFORM" = "linux" ]; then
     libxrandr2 \
     libpango-1.0-0 \
     libcairo2 \
-    libxss1
+    libxss1 \
+    procps
   npm ci --unsafe-perm --no-audit --no-progress --maxsockets 1
 else
   bash .buildkite/commands/install-node-dependencies.sh
+fi
+
+if [ "$PLATFORM" = "linux" ]; then
+  echo '--- :mag: Linux container diagnostics'
+  uname -a
+  id
+  node --version
+  npm --version
+  df -h /dev/shm /tmp /workdir || true
+  for f in \
+    /sys/fs/cgroup/memory.max \
+    /sys/fs/cgroup/memory.current \
+    /sys/fs/cgroup/pids.max \
+    /sys/fs/cgroup/pids.current; do
+    if [ -f "$f" ]; then
+      echo "$f=$(cat "$f")"
+    fi
+  done
+  ulimit -a || true
+  free -h || true
 fi
 
 export IS_DEV_BUILD=true
@@ -91,11 +112,14 @@ if [ "$PLATFORM" = "linux" ]; then
   # doesn't run for `electron-forge package` output. Without this, custom-
   # domain HTTP/HTTPS tests fail to bind in the non-root test process.
   BUNDLED_NODE="apps/studio/out/Studio-linux-${ARCH}/resources/bin/node"
-  if [ -x "$BUNDLED_NODE" ]; then
+  if [ "${SKIP_LINUX_E2E_NODE_SETCAP:-0}" = "1" ]; then
+    echo '--- :shield: Skipping bundled node setcap for Linux E2E trial'
+  elif [ -x "$BUNDLED_NODE" ]; then
     echo '--- :shield: Grant cap_net_bind_service to bundled node'
     setcap 'cap_net_bind_service=+ep' "$BUNDLED_NODE" || \
       echo "warning: setcap failed on $BUNDLED_NODE; privileged-port tests may fail to bind." >&2
   fi
+  getcap "$BUNDLED_NODE" || true
 fi
 
 echo '--- :mag: Verify CLI build artifacts'
@@ -145,6 +169,7 @@ if [ "$PLATFORM" = "linux" ]; then
   su -s /bin/bash node -c '
     set -euo pipefail
     cd /workdir
+    echo "STUDIO_DISABLE_PLAYGROUND_WASM_SERVICES=${STUDIO_DISABLE_PLAYGROUND_WASM_SERVICES:-0}"
     echo "Installing Playwright Chromium..."
     npx playwright install chromium
     echo "Running Playwright tests..."
@@ -155,6 +180,13 @@ if [ "$PLATFORM" = "linux" ]; then
     xvfb-run -a -s "-screen 0 1920x1080x24" \
       npx playwright test --max-failures=1 --output=/tmp/test-results
   ' || test_exit=$?
+
+  if find /tmp -path '/tmp/studio-app-e2e-session-*/process-manager/logs/*.log' -print -quit | grep -q .; then
+    echo '--- :file_folder: Copy process manager logs for artifact upload'
+    mkdir -p /tmp/test-results/process-manager-logs
+    find /tmp -path '/tmp/studio-app-e2e-session-*/process-manager/logs/*.log' \
+      -exec cp --parents {} /tmp/test-results/process-manager-logs/ \; || true
+  fi
 
   if [ -d /tmp/test-results ]; then
     echo '--- :file_folder: Copy test results for artifact upload'

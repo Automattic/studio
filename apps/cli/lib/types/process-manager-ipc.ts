@@ -101,6 +101,8 @@ export const processEventSchema = z.object( {
 	// Tail of the child's stderr captured during this invocation. Only populated on `exit`
 	// events; undefined for any other event.
 	stderrTail: z.string().optional(),
+	exitCode: z.number().nullable().optional(),
+	signal: z.string().nullable().optional(),
 } );
 
 const daemonProcessEventSchema = z.object( {

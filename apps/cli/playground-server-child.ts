@@ -47,6 +47,9 @@ import {
 
 let server: RunCLIServer | null = null;
 let lastCliArgs: Record< string, unknown > | null = null;
+// Diagnostic kill switch for CI while investigating Linux x64 PHP-WASM child exits.
+const arePlaygroundWasmServicesEnabled =
+	process.env.STUDIO_DISABLE_PLAYGROUND_WASM_SERVICES !== '1';
 
 // Intercept and prefix all console output from playground-cli
 const originalConsoleLog = console.log;
@@ -336,8 +339,8 @@ async function getBaseRunCLIArgs(
 		'site-url': config.absoluteUrl || `http://localhost:${ config.port }`,
 		blueprint: blueprintBundle,
 		wordpressInstallMode,
-		redis: IS_JSPI_AVAILABLE,
-		memcached: IS_JSPI_AVAILABLE,
+		redis: IS_JSPI_AVAILABLE && arePlaygroundWasmServicesEnabled,
+		memcached: IS_JSPI_AVAILABLE && arePlaygroundWasmServicesEnabled,
 	};
 
 	if ( config.wpVersion ) {

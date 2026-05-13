@@ -18,8 +18,11 @@ export class E2ESession {
 	homePath: string;
 	cliConfigPath: string;
 	sharedConfigPath: string;
+	processManagerHomePath: string;
 	private mainProcessLogs: string[] = [];
 	private readonly maxMainProcessLogChunks = 500;
+	private readonly maxProcessManagerLogFiles = 20;
+	private readonly maxProcessManagerLogLines = 200;
 	private stdoutListener?: ( chunk: Buffer | string ) => void;
 	private stderrListener?: ( chunk: Buffer | string ) => void;
 	private childProcess?: ChildProcess;
@@ -30,6 +33,7 @@ export class E2ESession {
 		this.homePath = path.join( this.sessionPath, 'home' );
 		this.cliConfigPath = path.join( this.sessionPath, 'cliConfig' );
 		this.sharedConfigPath = path.join( this.sessionPath, 'sharedConfig' );
+		this.processManagerHomePath = path.join( this.sessionPath, 'process-manager' );
 	}
 
 	async launch( testEnv: NodeJS.ProcessEnv = {} ) {
@@ -37,6 +41,7 @@ export class E2ESession {
 		await fs.mkdir( this.homePath, { recursive: true } );
 		await fs.mkdir( this.cliConfigPath, { recursive: true } );
 		await fs.mkdir( this.sharedConfigPath, { recursive: true } );
+		await fs.mkdir( this.processManagerHomePath, { recursive: true } );
 
 		// Pre-create appdata file with beta features enabled for CLI testing
 		// Path must include 'Studio' subfolder to match Electron app's path structure
@@ -135,9 +140,14 @@ export class E2ESession {
 		// elements that are technically present but never become "visible".
 		// SwiftShader is the deterministic software GL driver Chromium ships
 		// for exactly this case.
+		//
+		// --disable-dev-shm-usage avoids Docker's small default /dev/shm
+		// mount. The Linux Buildkite step is already headless, so using /tmp
+		// for Chromium shared memory is a better tradeoff than intermittent
+		// renderer or helper-process exits under load.
 		const linuxFlags =
 			appInfo.platform === 'linux'
-				? [ '--no-sandbox', '--disable-gpu', '--use-gl=swiftshader' ]
+				? [ '--no-sandbox', '--disable-gpu', '--use-gl=swiftshader', '--disable-dev-shm-usage' ]
 				: [];
 
 		this.electronApp = await electron.launch( {
@@ -151,6 +161,7 @@ export class E2ESession {
 				E2E_HOME_PATH: this.homePath,
 				E2E_CLI_CONFIG_PATH: this.cliConfigPath,
 				E2E_SHARED_CONFIG_PATH: this.sharedConfigPath,
+				STUDIO_PROCESS_MANAGER_HOME: this.processManagerHomePath,
 			},
 			timeout: 60_000,
 		} );
@@ -176,6 +187,14 @@ export class E2ESession {
 			body: Buffer.from( report, 'utf8' ),
 			contentType: 'text/plain',
 		} );
+
+		const processManagerLogs = await this.getProcessManagerLogs();
+		if ( processManagerLogs ) {
+			await testInfo.attach( 'process-manager.log', {
+				body: Buffer.from( processManagerLogs, 'utf8' ),
+				contentType: 'text/plain',
+			} );
+		}
 	}
 
 	private startCapturingMainProcessLogs() {
@@ -219,5 +238,35 @@ export class E2ESession {
 
 	private getMainProcessLogs() {
 		return this.mainProcessLogs.join( '' ).trim();
+	}
+
+	private async getProcessManagerLogs() {
+		const logsDir = path.join( this.processManagerHomePath, 'logs' );
+		try {
+			if ( ! ( await fs.pathExists( logsDir ) ) ) {
+				return '';
+			}
+
+			const logFiles = ( await fs.readdir( logsDir ) )
+				.filter( ( entry ) => entry.endsWith( '.log' ) )
+				.sort()
+				.slice( -this.maxProcessManagerLogFiles );
+
+			const reports = await Promise.all(
+				logFiles.map( async ( logFile ) => {
+					const logPath = path.join( logsDir, logFile );
+					const content = await fs.readFile( logPath, 'utf8' );
+					const lines = content
+						.split( '\n' )
+						.filter( ( line ) => line.trim() )
+						.slice( -this.maxProcessManagerLogLines );
+					return [ `--- ${ logFile } ---`, ...lines ].join( '\n' );
+				} )
+			);
+
+			return reports.join( '\n\n' ).trim();
+		} catch {
+			return '';
+		}
 	}
 }

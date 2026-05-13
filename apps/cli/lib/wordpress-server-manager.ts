@@ -227,8 +227,28 @@ export async function startWordPressServer(
 	}
 }
 
-function buildChildExitedError( processName: string, stderrTail?: string ): Error {
-	let message = `Server child process "${ processName }" exited before becoming ready.`;
+function formatProcessExitDetails( exitCode?: number | null, signal?: string | null ): string {
+	const details = [];
+	if ( exitCode !== undefined && exitCode !== null ) {
+		details.push( `exit code ${ exitCode }` );
+	}
+	if ( signal ) {
+		details.push( `signal ${ signal }` );
+	}
+	return details.length ? ` (${ details.join( ', ' ) })` : '';
+}
+
+function buildChildExitedError(
+	processName: string,
+	context: string,
+	stderrTail?: string,
+	exitCode?: number | null,
+	signal?: string | null
+): Error {
+	let message = `Server child process "${ processName }" ${ context }${ formatProcessExitDetails(
+		exitCode,
+		signal
+	) }.`;
 	if ( stderrTail?.trim() ) {
 		message += `\n${ stderrTail.trimEnd() }`;
 	}
@@ -250,7 +270,7 @@ async function subscribeForReadyOrExit( processName: string ): Promise< {
 	const pendingReady: Array< DaemonBusEventMap[ 'process-message' ] > = [];
 	const pendingExits: Array< DaemonBusEventMap[ 'process-event' ] > = [];
 	let onReady: () => void = () => {};
-	let onExit: ( stderrTail?: string ) => void = () => {};
+	let onExit: ( event: DaemonBusEventMap[ 'process-event' ] ) => void = () => {};
 	let waiting = false;
 
 	const messageHandler = ( packet: DaemonBusEventMap[ 'process-message' ] ) => {
@@ -268,7 +288,7 @@ async function subscribeForReadyOrExit( processName: string ): Promise< {
 			return;
 		}
 		if ( waiting ) {
-			onExit( event.stderrTail );
+			onExit( event );
 		} else {
 			pendingExits.push( event );
 		}
@@ -292,14 +312,23 @@ async function subscribeForReadyOrExit( processName: string ): Promise< {
 			};
 
 			onReady = () => resolve();
-			onExit = ( stderrTail ) => reject( buildChildExitedError( processName, stderrTail ) );
+			onExit = ( event ) =>
+				reject(
+					buildChildExitedError(
+						processName,
+						'exited before becoming ready',
+						event.stderrTail,
+						event.exitCode,
+						event.signal
+					)
+				);
 
 			abortController.signal.addEventListener( 'abort', abortListener );
 
 			// Replay any events we buffered before pmId was known.
 			const bufferedExit = pendingExits.find( ( event ) => event.process.pm_id === pmId );
 			if ( bufferedExit ) {
-				onExit( bufferedExit.stderrTail );
+				onExit( bufferedExit );
 				return;
 			}
 			const bufferedReady = pendingReady.find( ( packet ) => packet.process.pm_id === pmId );
@@ -388,9 +417,21 @@ export async function sendMessage(
 		} );
 
 		processEventHandler = ( event ) => {
-			if ( event.process.name === processName && event.event === 'exit' ) {
+			if (
+				event.process.name === processName &&
+				event.process.pm_id === pmId &&
+				event.event === 'exit'
+			) {
 				exitRejectTimeoutId = setTimeout( () => {
-					reject( new Error( 'WordPress server process exited unexpectedly' ) );
+					reject(
+						buildChildExitedError(
+							processName,
+							`exited while handling message "${ message.topic }"`,
+							event.stderrTail,
+							event.exitCode,
+							event.signal
+						)
+					);
 				}, CHILD_EXIT_ERROR_GRACE_MS );
 			}
 		};

@@ -584,7 +584,8 @@ export async function removeWordPressSkillFromAllSites(
 }
 
 const DEBUG_LOG_MAX_LINES = 50;
-const PROCESS_MANAGER_HOME = nodePath.join( os.homedir(), '.studio', 'daemon' );
+const PROCESS_MANAGER_HOME =
+	process.env.STUDIO_PROCESS_MANAGER_HOME ?? nodePath.join( os.homedir(), '.studio', 'daemon' );
 const DEFAULT_ENCODED_PASSWORD = encodePassword( 'password' );
 
 function readLastLines( filePath: string, maxLines: number ): string[] | undefined {
@@ -605,14 +606,34 @@ function readWordPressDebugLog( sitePath: string ): string[] | undefined {
 	return readLastLines( debugLogPath, DEBUG_LOG_MAX_LINES );
 }
 
+function findProcessManagerLogPath( logsDir: string, siteId: string, stream: 'out' | 'error' ) {
+	const legacyPath = nodePath.join( logsDir, `studio-site-${ siteId }-${ stream }.log` );
+	if ( fs.existsSync( legacyPath ) ) {
+		return legacyPath;
+	}
+
+	try {
+		const prefix = `studio-site-${ siteId }-${ stream }-`;
+		const matches = fs
+			.readdirSync( logsDir )
+			.filter( ( entry ) => entry.startsWith( prefix ) && entry.endsWith( '.log' ) )
+			.sort();
+
+		const latest = matches.at( -1 );
+		return latest ? nodePath.join( logsDir, latest ) : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
 function readProcessManagerLogs( siteId: string ): { stdout?: string[]; stderr?: string[] } {
 	const logsDir = nodePath.join( PROCESS_MANAGER_HOME, 'logs' );
-	const stdoutPath = nodePath.join( logsDir, `studio-site-${ siteId }-out.log` );
-	const stderrPath = nodePath.join( logsDir, `studio-site-${ siteId }-error.log` );
+	const stdoutPath = findProcessManagerLogPath( logsDir, siteId, 'out' );
+	const stderrPath = findProcessManagerLogPath( logsDir, siteId, 'error' );
 
 	return {
-		stdout: readLastLines( stdoutPath, DEBUG_LOG_MAX_LINES ),
-		stderr: readLastLines( stderrPath, DEBUG_LOG_MAX_LINES ),
+		stdout: stdoutPath ? readLastLines( stdoutPath, DEBUG_LOG_MAX_LINES ) : undefined,
+		stderr: stderrPath ? readLastLines( stderrPath, DEBUG_LOG_MAX_LINES ) : undefined,
 	};
 }
 

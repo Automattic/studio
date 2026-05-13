@@ -51,6 +51,10 @@ type ManagedProcessStopped = ManagedProcessBase & {
 	status: 'stopped';
 };
 type ManagedProcess = ManagedProcessRunning | ManagedProcessStopped;
+type ProcessExitDetails = {
+	exitCode?: number | null;
+	signal?: NodeJS.Signals | null;
+};
 
 function formatLogDateTag( date: Date ): string {
 	const year = date.getFullYear();
@@ -271,8 +275,8 @@ export class ProcessManagerDaemon {
 			void this.handleProcessExit( managedProcess );
 		} );
 
-		child.on( 'exit', () => {
-			void this.handleProcessExit( managedProcess );
+		child.on( 'exit', ( exitCode, signal ) => {
+			void this.handleProcessExit( managedProcess, { exitCode, signal } );
 		} );
 
 		await this.broadcastEvent( {
@@ -314,7 +318,10 @@ export class ProcessManagerDaemon {
 		} );
 	}
 
-	private async handleProcessExit( managedProcess: ManagedProcess ) {
+	private async handleProcessExit(
+		managedProcess: ManagedProcess,
+		exitDetails: ProcessExitDetails = {}
+	) {
 		if ( managedProcess.settled ) {
 			return;
 		}
@@ -333,6 +340,8 @@ export class ProcessManagerDaemon {
 				process: { name: managedProcess.name, pm_id: managedProcess.pmId },
 				event: 'exit',
 				...( stderrTail ? { stderrTail } : {} ),
+				...( exitDetails.exitCode !== undefined ? { exitCode: exitDetails.exitCode } : {} ),
+				...( exitDetails.signal !== undefined ? { signal: exitDetails.signal } : {} ),
 			},
 		} );
 	}

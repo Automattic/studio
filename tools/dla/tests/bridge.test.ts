@@ -6,8 +6,10 @@
  * stub that returns a mocked MCP client and a fake pid, then assert on
  * the bridge's behaviour around it.
  */
+import { createRequire } from 'node:module';
+import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { startDlaBridge, type BridgeTransportProvider } from '../bridge';
+import { defaultTransportProvider, startDlaBridge, type BridgeTransportProvider } from '../bridge';
 
 interface MockClient {
 	callTool: ReturnType< typeof vi.fn >;
@@ -228,6 +230,99 @@ describe( 'startDlaBridge', () => {
 		expect( killSpy ).toHaveBeenCalledWith( 12, 'SIGKILL' );
 		killSpy.mockRestore();
 	} );
+} );
+
+describe( 'defaultTransportProvider — real require.resolve paths', () => {
+	/**
+	 * Regression test for `ERR_PACKAGE_PATH_NOT_EXPORTED`: the bridge previously
+	 * resolved `tsx/dist/cli.mjs`, which is not listed in `tsx`'s package
+	 * `exports` map and throws at runtime. We assert the canonical exports
+	 * key (`tsx/cli`) and DLA's MCP server entry both resolve without
+	 * throwing. Resolution is exercised through the same `createRequire`
+	 * anchor the bridge uses (`tools/dla/bridge.ts`) so test and production
+	 * walk the same `node_modules` chain.
+	 */
+	it( 'resolves tsx/cli and data-liberation/src/mcp-server.ts via the bridge module require', () => {
+		// The vitest environment is jsdom, so `import.meta.url` is a
+		// `http://localhost:...` URL that `createRequire` rejects. Anchor
+		// to an absolute filesystem path instead — `process.cwd()` is the
+		// repo root when vitest runs from the root config.
+		const bridgePath = path.resolve( process.cwd(), 'tools/dla/bridge.ts' );
+		const bridgeRequire = createRequire( bridgePath );
+		expect( () => bridgeRequire.resolve( 'tsx/cli' ) ).not.toThrow();
+		expect( () => bridgeRequire.resolve( 'data-liberation/src/mcp-server.ts' ) ).not.toThrow();
+	} );
+
+	/**
+	 * The deep `tsx/dist/cli.mjs` subpath must remain unreachable so the
+	 * bridge can never silently regress back to the pre-fix import. If
+	 * upstream `tsx` ever re-exposes the subpath, this assertion will
+	 * fail and prompt us to reconsider which spelling to prefer.
+	 */
+	it( 'tsx/dist/cli.mjs subpath is not exported by tsx (regression guard)', () => {
+		// The vitest environment is jsdom, so `import.meta.url` is a
+		// `http://localhost:...` URL that `createRequire` rejects. Anchor
+		// to an absolute filesystem path instead — `process.cwd()` is the
+		// repo root when vitest runs from the root config.
+		const bridgePath = path.resolve( process.cwd(), 'tools/dla/bridge.ts' );
+		const bridgeRequire = createRequire( bridgePath );
+		expect( () => bridgeRequire.resolve( 'tsx/dist/cli.mjs' ) ).toThrow(
+			/not defined by "exports"/
+		);
+	} );
+
+	/**
+	 * End-to-end check that the production transport provider survives
+	 * the real `require.resolve` calls inside its `connect()` and the
+	 * subsequent `StdioClientTransport` construction. We don't drive a
+	 * real DLA child to completion (that needs network/secrets); we
+	 * connect, then immediately tear down. A `Promise.race` against a
+	 * short timer ensures the test fails fast if the bridge enters the
+	 * degraded path because of resolution errors.
+	 */
+	it( 'connect() does not throw a path-resolution error before transport handshake', async () => {
+		// `connect()` will fork a real Node + tsx + DLA process. We don't
+		// want to leave one running on a green test, so we wrap it in a
+		// short race: if the connect promise resolves, we close the
+		// client immediately; if it rejects, we surface the error so a
+		// resolution regression is loud.
+		const connectPromise = defaultTransportProvider.connect( {
+			PATH: process.env.PATH ?? '',
+		} );
+
+		let connected: Awaited< ReturnType< typeof defaultTransportProvider.connect > > | null = null;
+		try {
+			connected = await connectPromise;
+		} catch ( error ) {
+			// The only failure mode we actively guard against is
+			// `ERR_PACKAGE_PATH_NOT_EXPORTED` from `require.resolve`.
+			// Any other failure (e.g. DLA's mcp-server failing to boot
+			// because of a missing secret) is acceptable — the bridge's
+			// degraded-path tests above cover that.
+			const code = ( error as NodeJS.ErrnoException ).code ?? '';
+			const message = error instanceof Error ? error.message : String( error );
+			expect( code ).not.toBe( 'ERR_PACKAGE_PATH_NOT_EXPORTED' );
+			expect( message ).not.toMatch( /not defined by "exports"/ );
+			return;
+		}
+
+		try {
+			expect( connected.pid ).not.toBeNull();
+		} finally {
+			try {
+				await connected.client.close();
+			} catch {
+				// Closing a half-connected client can throw; we don't care.
+			}
+			if ( connected.pid !== null && connected.pid > 0 ) {
+				try {
+					process.kill( connected.pid, 'SIGKILL' );
+				} catch {
+					// Already exited.
+				}
+			}
+		}
+	}, 15_000 );
 } );
 
 describe( 'startDlaBridge — integration with adapter', () => {

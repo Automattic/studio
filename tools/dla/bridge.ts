@@ -258,13 +258,15 @@ function buildChildEnv( opts: StartDlaBridgeOptions ): Record< string, string > 
  *
  * Path resolution uses `createRequire` against `import.meta.url` so the
  * bridge works whether it ships from `tools/dla/` (dev) or from the
- * bundled CLI at `apps/cli/dist/cli/`. `tsx/dist/cli.mjs` is a stable
- * absolute path that does not depend on `npm` hoisting `tsx` to the
- * project root `.bin/` directory.
+ * bundled CLI at `apps/cli/dist/cli/`. The `tsx` package is spelled as
+ * `tsx/cli` (its public `exports` key) rather than `tsx/dist/cli.mjs`,
+ * because the package's `exports` map does not expose the `dist/`
+ * subpath directly — the deep path throws `ERR_PACKAGE_PATH_NOT_EXPORTED`
+ * at runtime.
  */
 export const defaultTransportProvider: BridgeTransportProvider = {
 	async connect( env ) {
-		const tsxCli = require.resolve( 'tsx/dist/cli.mjs' );
+		const tsxCli = require.resolve( 'tsx/cli' );
 		const mcpServerEntry = require.resolve( 'data-liberation/src/mcp-server.ts' );
 
 		const transport = new StdioClientTransport( {

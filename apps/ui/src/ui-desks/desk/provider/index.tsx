@@ -8,6 +8,7 @@ import {
 	type TLShape,
 	type TLShapePartial,
 } from 'tldraw';
+import { useConnector } from '@/data/core';
 import { useSites } from '@/data/queries/use-sites';
 import {
 	getTemporaryDeskCanvasRecordMeta,
@@ -19,11 +20,15 @@ import {
 } from '@/ui-desks/shapes/rectangle-widget/types';
 import { useStackInteractions } from '@/ui-desks/stacks/use-stack-interactions';
 import { useStackPressAnimation } from '@/ui-desks/stacks/use-stack-press-animation';
-import { createDeskWidget } from '@/ui-desks/widgets/create-widget';
-import { getWidgetFileHandler } from '@/ui-desks/widgets/file-handlers';
+import { createDeskWidget } from '@/ui-desks/widget-actions/create-widget';
+import { getWidgetEditAction } from '@/ui-desks/widget-actions/edit-action';
+import { getWidgetFileHandler } from '@/ui-desks/widget-actions/file-handlers';
+import {
+	createUrlPastePayload,
+	getWidgetPasteHandler,
+} from '@/ui-desks/widget-actions/paste-handlers';
 import { LOADING_WIDGET_TYPE } from '@/ui-desks/widgets/loading/types';
 import { NOTE_WIDGET_TYPE } from '@/ui-desks/widgets/note/types';
-import { createUrlPastePayload, getWidgetPasteHandler } from '@/ui-desks/widgets/paste-handlers';
 import {
 	DeskContext,
 	type AddDeskWidgetOptions,
@@ -77,6 +82,7 @@ export function DeskProvider( {
 	} );
 	const desk = deskConfig ?? persistedDesk;
 	const isLoading = externalIsLoading ?? isLoadingPersistedDesk;
+	const connector = useConnector();
 	const { data: sites } = useSites();
 	const site = sites?.find( ( candidate ) => candidate.id === siteId );
 	const isRunningSite = Boolean( siteId && site?.running );
@@ -100,6 +106,20 @@ export function DeskProvider( {
 		} ),
 		[ isReadOnly ]
 	);
+	const selectedWidgetEditAction = useMemo( () => {
+		if ( selectedWidgetToolbarItem?.kind !== 'single-widget' ) {
+			return null;
+		}
+
+		return getWidgetEditAction(
+			selectedWidgetToolbarItem.definition,
+			selectedWidgetToolbarItem.widget,
+			{
+				hasSiteId: Boolean( siteId ),
+				hasRunningSite: isRunningSite,
+			}
+		);
+	}, [ isRunningSite, selectedWidgetToolbarItem, siteId ] );
 
 	useStackInteractions( editor );
 
@@ -446,6 +466,30 @@ export function DeskProvider( {
 		[ editor, isHydrated, isReadOnly ]
 	);
 
+	const editSelectedWidget = useCallback( () => {
+		if ( ! editor || ! selectedWidgetEditAction ) {
+			return false;
+		}
+
+		if ( selectedWidgetEditAction.kind === 'canvas-editing' ) {
+			const [ selectedShapeId ] = editor.getSelectedShapeIds();
+			if ( ! selectedShapeId ) {
+				return false;
+			}
+
+			editor.setEditingShape( selectedShapeId );
+			editor.focus();
+			return true;
+		}
+
+		if ( ! siteId ) {
+			return false;
+		}
+
+		void connector.openSiteUrl( siteId, selectedWidgetEditAction.path );
+		return true;
+	}, [ connector, editor, selectedWidgetEditAction, siteId ] );
+
 	const fitSelectedWidgetToContent = useCallback( async () => {
 		if (
 			isReadOnly ||
@@ -528,6 +572,8 @@ export function DeskProvider( {
 			startDrawing,
 			finishDrawing,
 			updateSelectedWidgetProps,
+			canEditSelectedWidget: Boolean( selectedWidgetEditAction ),
+			editSelectedWidget,
 			fitSelectedWidgetToContent,
 			stackSelectedWidgets,
 			unstackSelectedWidgets,
@@ -538,6 +584,7 @@ export function DeskProvider( {
 			addPastedContent,
 			addWidget,
 			editor,
+			editSelectedWidget,
 			fitSelectedWidgetToContent,
 			finishDrawing,
 			isHydrated,
@@ -548,6 +595,7 @@ export function DeskProvider( {
 			registerEditor,
 			removeSelectedWidget,
 			selectedWidgetToolbarItem,
+			selectedWidgetEditAction,
 			setSelectedStackView,
 			stackSelectedWidgets,
 			startDrawing,

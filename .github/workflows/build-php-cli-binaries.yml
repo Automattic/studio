@@ -131,9 +131,13 @@ jobs:
           # config/ext.json and must be baked into PHP. mbstring is forced static
           # to work around a missing-space bug in SPC's mbregex validation
           # (src/SPC/builder/extension/mbregex.php:25 emits `php -n-d ...` when
-          # mbstring is shared). Everything else — including Xdebug, which is
-          # target: ["shared"] — is built as a loadable .so under buildroot/modules.
-          forced_static_exts="mbregex mbstring readline zlib"
+          # mbstring is shared). dom is forced static because PHP 8.4+ bundles
+          # lexbor for its HTML5 parser and only the main PHP configure knows
+          # how to build it; the phpize-shared path lacks lexbor headers on its
+          # include line, so `dom.so` fails to compile. Everything else —
+          # including Xdebug, which is target: ["shared"] — is built as a
+          # loadable .so under buildroot/modules.
+          forced_static_exts="dom mbregex mbstring readline zlib"
 
           static_list=()
           shared_list=()

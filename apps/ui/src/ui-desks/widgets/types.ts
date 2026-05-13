@@ -9,6 +9,7 @@ import type { NoteWidget } from '@/ui-desks/widgets/note/types';
 import type { PageWidget } from '@/ui-desks/widgets/page/types';
 import type { PostWidget } from '@/ui-desks/widgets/post/types';
 import type { PostCollectionWidget } from '@/ui-desks/widgets/post-collection/types';
+import type { ScratchpadWidget } from '@/ui-desks/widgets/scratchpad/types';
 import type { SitePreviewWidget } from '@/ui-desks/widgets/site-preview/types';
 import type { DeskStack, DeskWidgetBase } from '@studio/common/types/desk';
 import type { createRegistry } from '@wordpress/data';
@@ -48,6 +49,8 @@ export type WidgetIcon = ReactElement< ComponentProps< 'svg' > >;
 
 export interface WidgetLabels {
 	add: () => string;
+	edit?: () => string;
+	fitContent?: () => string;
 }
 
 export type WidgetResolverRegistry = ReturnType< typeof createRegistry >;
@@ -63,6 +66,7 @@ export interface WidgetFileAccept {
 
 export interface WidgetFileHandlerContext {
 	siteId?: string;
+	getFilePath?: ( file: File ) => Promise< string >;
 }
 
 export interface WidgetHandlerLoading {
@@ -186,6 +190,14 @@ export type WidgetFitContentResult< TWidget extends DeskWidgetBase = DeskWidgetB
 	| TWidget[ 'shapeProps' ]
 	| null;
 
+export type WidgetEditAction = { kind: 'canvas-editing' } | { kind: 'site-url'; path: string };
+
+export interface WidgetEditActionContext< TWidget extends DeskWidgetBase = DeskWidgetBase > {
+	widget: TWidget;
+	hasSiteId: boolean;
+	hasRunningSite: boolean;
+}
+
 export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBase > {
 	type: TWidget[ 'type' ];
 	name: () => string;
@@ -206,12 +218,14 @@ export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBa
 	getFittedShapeProps?: (
 		context: WidgetFitContentContext< TWidget >
 	) => WidgetFitContentResult< TWidget > | Promise< WidgetFitContentResult< TWidget > >;
+	getEditAction?: ( context: WidgetEditActionContext< TWidget > ) => WidgetEditAction | null;
 	resolver?: WidgetResolver< TWidget >;
 	fileHandlers?: Array< WidgetFileHandler< TWidget > >;
 	pasteHandlers?: Array< WidgetPasteHandler< TWidget > >;
 }
 
 export type DeskWidget =
+	| ScratchpadWidget
 	| BookmarkWidget
 	| BlogWidget
 	| DrawingWidget
@@ -224,6 +238,7 @@ export type DeskWidget =
 	| PostCollectionWidget
 	| SitePreviewWidget;
 export type DeskWidgetDefinition =
+	| WidgetDefinition< ScratchpadWidget >
 	| WidgetDefinition< BookmarkWidget >
 	| WidgetDefinition< BlogWidget >
 	| WidgetDefinition< DrawingWidget >

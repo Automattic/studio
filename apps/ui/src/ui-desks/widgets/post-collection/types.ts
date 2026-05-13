@@ -1,4 +1,4 @@
-import type { RectangleWidgetShapeProps } from '@/ui-desks/widgets/geometry';
+import type { RectangleWidgetShapeProps } from '@/ui-desks/widget-actions/geometry';
 import type { DeskStackViewMode, DeskWidgetBase } from '@studio/common/types/desk';
 
 export const POST_COLLECTION_WIDGET_TYPE = 'post-collection';

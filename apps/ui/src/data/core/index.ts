@@ -13,6 +13,7 @@ export type {
 	ExtractedBlueprintBundle,
 	FeaturedBlueprint,
 	InstalledApps,
+	LocalMediaFile,
 	LoadedAiSession,
 	ProposedSitePath,
 	SelectedSiteFolder,

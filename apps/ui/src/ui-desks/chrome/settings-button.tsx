@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { cog } from '@wordpress/icons';
-import { IconControlButton } from '@/ui-desks/components';
+import { Button } from '@/ui-desks/components';
 
 interface DeskSettingsButtonProps {
 	open: boolean;
@@ -9,7 +9,7 @@ interface DeskSettingsButtonProps {
 
 export function DeskSettingsButton( { open, onToggle }: DeskSettingsButtonProps ) {
 	return (
-		<IconControlButton
+		<Button
 			icon={ cog }
 			label={ open ? __( 'Close desk settings' ) : __( 'Open desk settings' ) }
 			aria-pressed={ open }

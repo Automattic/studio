@@ -107,33 +107,6 @@ describe( 'AiChatUI auto site selection', () => {
 		} as never );
 		vi.mocked( isSiteRunning ).mockResolvedValue( false );
 
-		await ui.autoSelectSiteFromToolResult( 'mcp__studio__site_create', { name: 'toto' } );
-
-		expect( ui._activeSite ).toMatchObject( {
-			name: 'toto',
-			path: '/Users/test/Studio/toto',
-			running: true,
-		} );
-		expect( ui.editor ).toMatchObject( { activeSiteName: 'toto' } );
-		expect( ui.siteSelectedCallback ).toHaveBeenCalledWith(
-			expect.objectContaining( { name: 'toto', path: '/Users/test/Studio/toto', running: true } )
-		);
-	} );
-
-	it( 'selects a created site after the bare-name (OpenAI runtime) site_create succeeds', async () => {
-		const ui = createUiStub();
-		const siteData = {
-			name: 'toto',
-			path: '/Users/test/Studio/toto',
-			port: 8881,
-		};
-
-		vi.mocked( readCliConfig ).mockResolvedValue( {
-			sites: [ siteData ],
-		} as never );
-		vi.mocked( isSiteRunning ).mockResolvedValue( false );
-
-		// pi-agent-core registers tools by their bare name (no MCP prefix).
 		await ui.autoSelectSiteFromToolResult( 'site_create', { name: 'toto' } );
 
 		expect( ui._activeSite ).toMatchObject( {
@@ -164,7 +137,7 @@ describe( 'AiChatUI auto site selection', () => {
 		} as never );
 		vi.mocked( isSiteRunning ).mockResolvedValue( true );
 
-		await ui.autoSelectSiteFromToolResult( 'mcp__studio__site_stop', { nameOrPath: 'tata' } );
+		await ui.autoSelectSiteFromToolResult( 'site_stop', { nameOrPath: 'tata' } );
 
 		expect( ui._activeSite ).toMatchObject( {
 			name: 'tata',
@@ -281,56 +254,42 @@ describe( 'AiChatUI interrupt handling', () => {
 	} );
 } );
 
-describe( 'AiChatUI.handleMessage', () => {
+describe( 'AiChatUI.handleEvent', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 	} );
 
-	it( 'falls back to the latest pending tool call when tool results have no parent id', () => {
-		const ui = Object.create( AiChatUI.prototype ) as {
-			handleMessage: ( message: unknown ) => void;
-			[ key: string ]: unknown;
-		};
-		const showToolResult = vi.fn();
-
-		ui.pendingToolCalls = new Map( [
-			[
-				'tool-1',
-				{
-					name: 'mcp__studio__site_stop',
-					input: { nameOrPath: 'aura' },
-				},
-			],
-		] );
-		ui.pendingTodoRenders = new Map();
-		ui.pendingTodoRenderOrder = [];
-		ui.showTodoToolResult = vi.fn();
-		ui.showToolResult = showToolResult;
-		ui.currentMarkdown = null;
-		ui.currentResponseText = '';
-
-		ui.handleMessage( {
-			type: 'user',
-			parent_tool_use_id: null,
-			tool_use_result: {
-				content: 'Site "aura" stopped.',
+	const buildAssistantMessageEnd = (
+		overrides: {
+			text?: string;
+			errorMessage?: string;
+			stopReason?: 'stop' | 'error' | 'aborted' | 'toolUse' | 'length';
+		} = {}
+	) => ( {
+		type: 'message_end' as const,
+		message: {
+			role: 'assistant' as const,
+			content: overrides.text ? [ { type: 'text' as const, text: overrides.text } ] : [],
+			api: 'anthropic-messages',
+			provider: 'anthropic',
+			model: 'claude',
+			usage: {
+				input: 0,
+				output: 0,
+				cacheRead: 0,
+				cacheWrite: 0,
+				totalTokens: 0,
+				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
 			},
-			message: {
-				content: [],
-			},
-		} );
-
-		expect( showToolResult ).toHaveBeenCalledWith(
-			expect.objectContaining( { parent_tool_use_id: null } ),
-			'mcp__studio__site_stop',
-			{ nameOrPath: 'aura' }
-		);
-		expect( ui.pendingToolCalls ).toEqual( new Map() );
+			stopReason: overrides.stopReason ?? 'stop',
+			errorMessage: overrides.errorMessage,
+			timestamp: 0,
+		},
 	} );
 
-	it( 'surfaces the cap message when an assistant error contains an API Error: 429 text block', () => {
+	it( 'surfaces the cap message when an assistant error carries a 429 marker', () => {
 		const ui = Object.create( AiChatUI.prototype ) as {
-			handleMessage: ( message: unknown ) => unknown;
+			handleEvent: ( e: unknown ) => unknown;
 			[ key: string ]: unknown;
 		};
 		const hideLoader = vi.fn();
@@ -345,23 +304,13 @@ describe( 'AiChatUI.handleMessage', () => {
 		ui.currentResponseText = 'previous content';
 		ui.usageCapReached = false;
 
-		const result = ui.handleMessage( {
-			type: 'assistant',
-			error: 'unknown',
-			message: {
-				content: [
-					{
-						type: 'text',
-						text: 'API Error: 429 {"error":{"message":"You have exceeded your AI usage cap."}}',
-					},
-				],
-			},
-			parent_tool_use_id: null,
-			uuid: 'uuid',
-			session_id: 'sess',
-		} );
+		ui.handleEvent(
+			buildAssistantMessageEnd( {
+				stopReason: 'error',
+				errorMessage: 'API Error: 429 {"error":{"message":"You have exceeded your AI usage cap."}}',
+			} )
+		);
 
-		expect( result ).toBeUndefined();
 		expect( hideLoader ).toHaveBeenCalled();
 		expect( showError ).toHaveBeenCalledWith( expect.stringContaining( 'AI usage cap reached' ) );
 		expect( showInfo ).toHaveBeenCalledWith( expect.stringContaining( '/provider' ) );
@@ -372,7 +321,7 @@ describe( 'AiChatUI.handleMessage', () => {
 
 	it( 'does not trigger cap detection for non-wpcom providers even with a 429 error', () => {
 		const ui = Object.create( AiChatUI.prototype ) as {
-			handleMessage: ( message: unknown ) => unknown;
+			handleEvent: ( e: unknown ) => unknown;
 			[ key: string ]: unknown;
 		};
 		const showError = vi.fn();
@@ -390,25 +339,14 @@ describe( 'AiChatUI.handleMessage', () => {
 		ui.hasShownResponseMarker = false;
 		ui.messages = { addChild };
 		ui.tui = { requestRender };
-		// Replay mode skips the showLoader call at the end of the assistant
-		// branch, which would otherwise need extensive tui stubs.
 		ui.replayMode = true;
 
-		ui.handleMessage( {
-			type: 'assistant',
-			error: 'unknown',
-			message: {
-				content: [
-					{
-						type: 'text',
-						text: 'API Error: 429 {"error":{"message":"cap"}}',
-					},
-				],
-			},
-			parent_tool_use_id: null,
-			uuid: 'uuid',
-			session_id: 'sess',
-		} );
+		ui.handleEvent(
+			buildAssistantMessageEnd( {
+				stopReason: 'error',
+				errorMessage: 'API Error: 429 {"error":{"message":"cap"}}',
+			} )
+		);
 
 		expect( showError ).not.toHaveBeenCalled();
 		expect( showInfo ).not.toHaveBeenCalled();
@@ -417,7 +355,7 @@ describe( 'AiChatUI.handleMessage', () => {
 
 	it( 'skips the "Done" success indicator when the usage cap was reached', () => {
 		const ui = Object.create( AiChatUI.prototype ) as {
-			handleMessage: ( message: unknown ) => unknown;
+			handleEvent: ( e: unknown ) => unknown;
 			[ key: string ]: unknown;
 		};
 		const addChild = vi.fn();
@@ -429,18 +367,16 @@ describe( 'AiChatUI.handleMessage', () => {
 		ui.hasShownResponseMarker = false;
 		ui.nowMs = () => 5000;
 		ui.turnStartTime = 0;
+		ui.numTurns = 1;
 		ui.messages = { addChild };
 
-		const result = ui.handleMessage( {
-			type: 'result',
-			subtype: 'success',
-			session_id: 'sess',
-			num_turns: 1,
+		ui.handleEvent( {
+			type: 'agent_end',
+			messages: [],
 		} );
 
 		expect( addChild ).not.toHaveBeenCalled();
 		expect( showInfo ).not.toHaveBeenCalled();
-		expect( result ).toEqual( { type: 'result', sessionId: 'sess', success: false } );
 	} );
 
 	it( 'reports hasErrorBeenSurfaced based on usageCapReached', () => {
@@ -454,9 +390,9 @@ describe( 'AiChatUI.handleMessage', () => {
 		expect( ui.hasErrorBeenSurfaced() ).toBe( true );
 	} );
 
-	it( 'does not trip the cap branch when an assistant error has no 429 text block', () => {
+	it( 'does not trip the cap branch when an assistant error has no 429 marker', () => {
 		const ui = Object.create( AiChatUI.prototype ) as {
-			handleMessage: ( message: unknown ) => unknown;
+			handleEvent: ( e: unknown ) => unknown;
 			[ key: string ]: unknown;
 		};
 		const showError = vi.fn();
@@ -469,19 +405,12 @@ describe( 'AiChatUI.handleMessage', () => {
 		ui.currentMarkdown = null;
 		ui.currentResponseText = '';
 		ui.usageCapReached = false;
-		// Empty content + replay mode bypasses the rendering path; this test
-		// only guards that the cap branch isn't taken without a 429 text block.
 		ui.replayMode = true;
 		ui.loaderVisible = true;
 
-		ui.handleMessage( {
-			type: 'assistant',
-			error: 'unknown',
-			message: { content: [] },
-			parent_tool_use_id: null,
-			uuid: 'uuid',
-			session_id: 'sess',
-		} );
+		ui.handleEvent(
+			buildAssistantMessageEnd( { stopReason: 'error', errorMessage: 'something else' } )
+		);
 
 		expect( showError ).not.toHaveBeenCalled();
 		expect( showInfo ).not.toHaveBeenCalled();

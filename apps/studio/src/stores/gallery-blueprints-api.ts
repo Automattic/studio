@@ -24,11 +24,14 @@ const galleryIndexEntrySchema = z.object( {
 	description: z.string(),
 	author: z.string(),
 	categories: z.array( z.string() ).optional().default( [] ),
-	screenshot_url: z.string(),
+	screenshot_url: z.string().optional().default( '' ),
 	featured: z.boolean(),
 } );
 
 const galleryIndexSchema = z.record( z.string(), galleryIndexEntrySchema );
+
+// Blueprints that are not compatible with Studio's PHP WASM runtime
+const HIDDEN_BLUEPRINT_SLUGS = new Set( [ 'brewcommerce', 'blocky-formats', 'beta-rc' ] );
 
 function transformGalleryIndex( raw: unknown ): GalleryBlueprint[] {
 	const parseResult = galleryIndexSchema.safeParse( raw );
@@ -43,6 +46,9 @@ function transformGalleryIndex( raw: unknown ): GalleryBlueprint[] {
 			return [];
 		}
 		const slug = match[ 1 ];
+		if ( HIDDEN_BLUEPRINT_SLUGS.has( slug ) ) {
+			return [];
+		}
 		const blueprintUrl = `${ GITHUB_RAW_BASE_URL }blueprints/${ slug }/blueprint.json`;
 		const playgroundUrl = `${ PLAYGROUND_BASE_URL }?blueprint-url=${ encodeURIComponent(
 			blueprintUrl

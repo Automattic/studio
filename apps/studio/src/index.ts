@@ -46,7 +46,6 @@ import {
 	startCliEventsSubscriber,
 	stopCliEventsSubscriber,
 } from 'src/modules/cli/lib/cli-events-subscriber';
-import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { autoInstallLinuxCliIfNeeded } from 'src/modules/cli/lib/linux-installation-manager';
 import { autoInstallMacOSCliIfNeeded } from 'src/modules/cli/lib/macos-installation-manager';
 import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
@@ -306,7 +305,7 @@ async function appBoot() {
 			const basePolicies = [
 				"default-src 'self'", // Allow resources from these domains
 				"script-src-attr 'none'",
-				"img-src 'self' https://*.gravatar.com https://*.wp.com https://blueprintlibrary.wordpress.com https://wordpress.github.io https://raw.githubusercontent.com data:",
+				"img-src 'self' https://*.gravatar.com https://*.wp.com https://blueprintlibrary.wordpress.com https://blueprintslibraryv2.wpcomstaging.com https://wordpress.github.io https://raw.githubusercontent.com data:",
 				"style-src 'self' 'unsafe-inline'", // unsafe-inline used by tailwindcss in development, and also in production after the app rename
 				"script-src 'self' 'wasm-unsafe-eval'", // allow WebAssembly to compile and instantiate
 				// Site preview uses `<webview>` to host local WordPress sites
@@ -444,7 +443,6 @@ async function appBoot() {
 
 			void ( async () => {
 				const userData = await loadUserData();
-				const isCliInstalled = await isStudioCliInstalled();
 
 				if ( userData.stopSitesOnQuit !== undefined ) {
 					shouldStopSitesOnQuit = userData.stopSitesOnQuit;
@@ -453,13 +451,14 @@ async function appBoot() {
 					return;
 				}
 
-				if ( ! isCliInstalled || process.env.E2E ) {
+				if ( process.env.E2E ) {
 					isQuittingConfirmed = true;
 					app.quit();
 					return;
 				}
 
 				const STOP_SITES_BUTTON_INDEX = 0;
+				const LEAVE_RUNNING_BUTTON_INDEX = 1;
 				const CANCEL_BUTTON_INDEX = 2;
 
 				const { response, checkboxChecked } = await dialog.showMessageBox( {
@@ -476,7 +475,7 @@ async function appBoot() {
 					buttons: [ __( 'Stop sites' ), __( 'Leave running' ), __( 'Cancel' ) ],
 					checkboxLabel: __( "Don't ask again" ),
 					cancelId: CANCEL_BUTTON_INDEX,
-					defaultId: STOP_SITES_BUTTON_INDEX,
+					defaultId: LEAVE_RUNNING_BUTTON_INDEX,
 				} );
 
 				if ( response === CANCEL_BUTTON_INDEX ) {

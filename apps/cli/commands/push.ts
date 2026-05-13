@@ -1,6 +1,10 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import {
+	addConnectedWpcomSite,
+	markConnectedWpcomSiteSynced,
+} from '@studio/common/lib/connected-sites';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import {
@@ -249,6 +253,15 @@ export async function runCommand(
 			throw new LoggerError(
 				sprintf( __( 'Import timed out on %s — no progress detected' ), remoteSite.name )
 			);
+		}
+
+		// Remember this connection so future push/pull runs (and the Desktop UI)
+		// can surface it without re-selecting from the full site list.
+		try {
+			await addConnectedWpcomSite( site.id, { ...remoteSite, localSiteId: site.id } );
+			await markConnectedWpcomSiteSynced( site.id, remoteSite.id, 'push' );
+		} catch ( error ) {
+			logger.reportError( new LoggerError( 'Failed to save connected site', error ), false );
 		}
 
 		logger.reportSuccess(

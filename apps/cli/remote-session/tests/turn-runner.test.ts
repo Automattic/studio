@@ -50,11 +50,26 @@ describe( 'runTurn', () => {
 		expect( outcome.exitCode ).toBe( 1 );
 	} );
 
+	it( 'falls back to last assistant text when agent_end has no reply text', async () => {
+		const outcome = await run( 'empty-result-with-text' );
+		expect( outcome.status ).toBe( 'success' );
+		expect( outcome.isError ).toBe( false );
+		expect( outcome.replyText ).toBe( 'Final answer from assistant.' );
+		expect( outcome.exitCode ).toBe( 0 );
+	} );
+
 	it( 'detects a stale --resume-session via stderr pattern', async () => {
 		const outcome = await run( 'stale-resume', 'bogus-sess-id' );
 		expect( outcome.staleSession ).toBe( true );
 		expect( outcome.stderrTail ).toMatch( /No AI session found/ );
 		expect( outcome.exitCode ).toBe( 1 );
+	} );
+
+	it( 'detects a stale --resume-session via JSON error event', async () => {
+		const outcome = await run( 'stale-resume-error-event', 'bogus-sess-id' );
+		expect( outcome.staleSession ).toBe( true );
+		expect( outcome.exitCode ).toBe( 1 );
+		expect( outcome.stderrTail ).toBe( '' );
 	} );
 
 	it( 'times out and kills the child when it never emits turn.completed', async () => {

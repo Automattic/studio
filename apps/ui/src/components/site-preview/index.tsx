@@ -20,10 +20,12 @@ export type { Annotation } from './types';
 
 interface SitePreviewProps {
 	site: SiteDetails;
-	// When present, the preview subscribes to the agent event stream for this
-	// session and reacts to `preview.command` events emitted by the agent's
-	// preview_navigate / preview_reload tools.
-	sessionId?: string;
+	// Path to display within the previewed site, controlled by the parent so
+	// it can be updated by chat artifact events even when the panel was
+	// previously collapsed.
+	path: string;
+	// Bumped by the parent to force a webview reload.
+	reloadNonce: number;
 	// Called when the user clicks "Submit" in the inspector toolbar. Receives
 	// the full annotation payload assembled inside the webview's guest page.
 	onAnnotationsDone?: ( annotations: Annotation[] ) => void;
@@ -54,15 +56,13 @@ const isElectron = (): boolean => {
 	return /\bElectron\//.test( navigator.userAgent );
 };
 
-export function SitePreview( { site, sessionId, onAnnotationsDone }: SitePreviewProps ) {
+export function SitePreview( { site, path, reloadNonce, onAnnotationsDone }: SitePreviewProps ) {
 	const connector = useConnector();
 	const startSite = useStartSite();
 	const isStarting = useIsSiteStarting( site.id );
 	const siteUrl = getSiteUrl( site );
 	const canPreview = site.running;
-	const [ currentPath, setCurrentPath ] = useState( '/' );
-	const [ reloadNonce, setReloadNonce ] = useState( 0 );
-	const fullUrl = `${ siteUrl }${ currentPath }`;
+	const fullUrl = `${ siteUrl }${ path }`;
 	const previewResize = useResizablePanel( {
 		config: PREVIEW_PANEL_CONFIG,
 		edge: 'left',
@@ -71,19 +71,6 @@ export function SitePreview( { site, sessionId, onAnnotationsDone }: SitePreview
 	const previewStyle = {
 		'--site-preview-width': `${ previewResize.width }px`,
 	} as CSSProperties;
-
-	useEffect( () => {
-		if ( ! sessionId ) return;
-		return connector.onAgentEvent( ( payload ) => {
-			if ( payload.sessionId !== sessionId ) return;
-			const event = payload.event;
-			if ( event.type !== 'preview.command' ) return;
-			if ( event.kind === 'navigate' ) {
-				setCurrentPath( event.path );
-			}
-			setReloadNonce( ( n ) => n + 1 );
-		} );
-	}, [ connector, sessionId ] );
 
 	return (
 		<aside className={ styles.root } style={ previewStyle } aria-label={ __( 'Site preview' ) }>

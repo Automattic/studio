@@ -81,7 +81,7 @@ describe( 'ProgressStreamer', () => {
 	it( 'ignores non-info / non-progress events', () => {
 		const { streamer, respond } = makeStreamer();
 		streamer.onEvent( { type: 'turn.started', timestamp: 't' } );
-		streamer.onEvent( { type: 'message', timestamp: 't', message: { type: 'result' } } );
+		streamer.onEvent( { type: 'message', timestamp: 't', message: { type: 'turn_start' } } );
 		streamer.onEvent( {
 			type: 'turn.completed',
 			timestamp: 't',

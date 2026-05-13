@@ -1,6 +1,6 @@
 import { StatsMetric } from 'src/lib/bump-stats';
 import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
-import type { SyncSite } from '@studio/common/types/sync';
+import type { DesksConfig } from '@studio/common/types/desk';
 import type { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 
 export interface WindowBounds {
@@ -25,7 +25,6 @@ export interface UserData {
 	onboardingCompleted?: boolean;
 	lastBumpStats?: Record< string, Partial< Record< StatsMetric, number > > >;
 	promptWindowsSpeedUpResult?: PromptWindowsSpeedUpResult;
-	connectedWpcomSites?: { [ userId: number ]: SyncSite[] };
 	sentryUserId?: string;
 	lastSeenVersion?: string;
 	preferredTerminal?: SupportedTerminal;
@@ -36,6 +35,7 @@ export interface UserData {
 	defaultSiteDirectory?: string;
 	cliAutoInstalled?: boolean;
 	wapuuScore?: number;
+	desks?: DesksConfig;
 }
 
 export interface PromptWindowsSpeedUpResult {

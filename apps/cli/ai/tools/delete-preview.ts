@@ -1,19 +1,19 @@
-import { tool } from '@anthropic-ai/claude-agent-sdk';
-import { z } from 'zod/v4';
+import { Type } from 'typebox';
 import {
 	Mode as PreviewDeleteMode,
 	runCommand as runDeletePreviewCommand,
 } from 'cli/commands/preview/delete';
 import { normalizeHostname } from 'cli/lib/utils';
+import { defineTool } from './define-tool';
 import { runPreviewCommand } from './preview-helpers';
 
-export const deletePreviewTool = tool(
+export const deletePreviewTool = defineTool(
 	'preview_delete',
 	'Deletes a WordPress.com preview site by hostname or URL. Requires WordPress.com authentication.',
 	{
-		host: z
-			.string()
-			.describe( 'The preview hostname or URL to delete, for example "site.wordpress.com"' ),
+		host: Type.String( {
+			description: 'The preview hostname or URL to delete, for example "site.wordpress.com"',
+		} ),
 	},
 	async ( args ) => {
 		const normalizedHost = normalizeHostname( args.host );

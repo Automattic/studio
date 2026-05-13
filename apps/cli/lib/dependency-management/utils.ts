@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import ignore from 'ignore';
 
 export { downloadFile } from '@studio/common/lib/download-file';
@@ -17,7 +18,17 @@ async function collectDirectoryMetadata(
 	basePath = directoryPath
 ): Promise< Map< string, FileMetadata > > {
 	const files = new Map< string, FileMetadata >();
-	const entries = await fs.promises.readdir( directoryPath, { withFileTypes: true } );
+	let entries: fs.Dirent[];
+	try {
+		entries = await fs.promises.readdir( directoryPath, { withFileTypes: true } );
+	} catch ( error ) {
+		// Directory disappeared between the parent's readdir and our entry into it.
+		// Treat as empty so the caller can still compare what remains.
+		if ( isErrnoException( error ) && error.code === 'ENOENT' ) {
+			return files;
+		}
+		throw error;
+	}
 
 	for ( const entry of entries ) {
 		const fullPath = path.join( directoryPath, entry.name );
@@ -39,8 +50,16 @@ async function collectDirectoryMetadata(
 			continue;
 		}
 
-		const stats = await fs.promises.lstat( fullPath );
-		files.set( relativePath, { size: stats.size, mtimeMs: Math.floor( stats.mtimeMs ) } );
+		try {
+			const stats = await fs.promises.lstat( fullPath );
+			files.set( relativePath, { size: stats.size, mtimeMs: Math.floor( stats.mtimeMs ) } );
+		} catch ( error ) {
+			// File vanished between readdir and lstat (e.g. concurrent cleanup). Skip it.
+			if ( isErrnoException( error ) && error.code === 'ENOENT' ) {
+				continue;
+			}
+			throw error;
+		}
 	}
 
 	return files;

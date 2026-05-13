@@ -1,3 +1,7 @@
+import { mkdtemp, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
 
 /**
@@ -29,17 +33,16 @@ export const SHARE_VIEWPORTS = {
 export const SHARE_DEVICE_SCALE_FACTOR = 2;
 
 /**
- * Capture a PNG screenshot of `url` at the given viewport and return it as
- * a base64 string. Shared by both `take_screenshot` (full-page, intended for
- * the agent's own visual reasoning) and `share_screenshot` (configurable
- * fullPage + DPR, fire-and-forget delivery to the user via the remote
- * session bridge).
+ * Capture a PNG screenshot of `url` at the given viewport and return it as a
+ * Buffer. Shared by both `take_screenshot` and `share_screenshot`; callers
+ * decide whether to expose the image as base64, a temp local file, or an
+ * external media event.
  */
-export async function captureScreenshotPng(
+export async function captureScreenshotPngBuffer(
 	url: string,
 	viewport: { width: number; height: number },
 	options: { fullPage: boolean; deviceScaleFactor?: number }
-): Promise< string > {
+): Promise< Buffer > {
 	const browser = await getSharedBrowser();
 	const page = await browser.newPage( {
 		viewport,
@@ -103,8 +106,40 @@ export async function captureScreenshotPng(
 		} );
 
 		const buffer = await page.screenshot( { fullPage: options.fullPage, type: 'png' } );
-		return buffer.toString( 'base64' );
+		return Buffer.from( buffer );
 	} finally {
 		await page.close();
 	}
+}
+
+/**
+ * Capture a PNG screenshot of `url` at the given viewport and return it as
+ * a base64 string. Used by `share_screenshot`, where the remote-session
+ * media event carries image bytes directly.
+ */
+export async function captureScreenshotPng(
+	url: string,
+	viewport: { width: number; height: number },
+	options: { fullPage: boolean; deviceScaleFactor?: number }
+): Promise< string > {
+	const buffer = await captureScreenshotPngBuffer( url, viewport, options );
+	return buffer.toString( 'base64' );
+}
+
+export async function saveScreenshotPngToTempFile(
+	buffer: Buffer,
+	options: { viewportType: string }
+): Promise< { path: string; fileUrl: string; name: string; mimeType: 'image/png' } > {
+	const directory = await mkdtemp( path.join( os.tmpdir(), 'studio-screenshot-' ) );
+	const name = `screenshot-${ options.viewportType }.png`;
+	const filePath = path.join( directory, name );
+
+	await writeFile( filePath, buffer );
+
+	return {
+		path: filePath,
+		fileUrl: pathToFileURL( filePath ).href,
+		name,
+		mimeType: 'image/png',
+	};
 }

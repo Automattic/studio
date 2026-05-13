@@ -1,25 +1,14 @@
-import { tool } from '@anthropic-ai/claude-agent-sdk';
-import { z } from 'zod/v4';
+import { Type } from 'typebox';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getUnsupportedWpCliPostContentMessage } from 'cli/lib/rewrite-wp-cli-post-content';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
-import { errorResult, resolveSite } from './utils';
+import { defineTool } from './define-tool';
+import { resolveSite } from './utils';
+import type { StudioChatArtifactWidgetDraft } from '@studio/common/ai/chat-artifacts';
 
-/**
- * Split a command string into arguments, respecting quoted strings.
- *
- * Handles both single and double quotes, e.g.:
- *   post create --post_title="Ember & Oak" --post_type=page
- *   → ['post', 'create', '--post_title=Ember & Oak', '--post_type=page']
- *
- * Special-cases `--post_content=`: large block payloads are commonly emitted
- * without shell quoting, so we treat everything after the marker as a single
- * literal argument and strip any matching outer quotes.
- *
- * Private to wp-cli.ts: this is the only caller, and the heuristics here
- * are tightly coupled to how WP-CLI's argument parser interprets shell-ish
- * input.
- */
+// Split a shell-ish command into args, respecting quotes. Quotes are only
+// recognized at arg start or right after `=` so values like `Ember & Oak`
+// in `--post_title="Ember & Oak"` come through whole.
 function splitBasicCommandArgs( command: string ): string[] {
 	const args: string[] = [];
 	let current = '';
@@ -70,17 +59,9 @@ function stripMatchingOuterQuotes( value: string ): string {
 	return value;
 }
 
-/**
- * Handle a command containing `--post_content=`. The marker can be followed
- * by either a quoted payload (in which case flags after the closing quote
- * still need to be parsed as separate args) or an unquoted block-markup
- * payload (in which case everything after the marker is one literal arg).
- *
- * Mirrors trunk #3264 — the simpler "consume the rest of the command"
- * heuristic was wrong for callers that emit `--porcelain` after a quoted
- * post_content; we now scan for a closing quote and split the trailing
- * flags out when one is found.
- */
+// Quoted post_content needs trailing flags split out (e.g. `--porcelain`
+// after the closing quote); unquoted block markup is treated as a single
+// literal arg through end-of-command.
 function splitPostContentCommandArgs( command: string, postContentIndex: number ): string[] {
 	const postContentMarker = '--post_content=';
 	const prefix = command.slice( 0, postContentIndex ).trim();
@@ -124,12 +105,8 @@ function splitCommandArgs( command: string ): string[] {
 	return splitBasicCommandArgs( command );
 }
 
-/**
- * Detect typographic-dash flag prefixes (e.g. `‐porcelain`, `–color`) that
- * arrive when an LLM auto-formats hyphens to en/em dashes. WP-CLI silently
- * ignores these as garbage input; we reject up-front so the agent gets a
- * clear error to retry with the right characters. Mirrors trunk #3264.
- */
+// LLMs sometimes emit en/em dashes (`‐porcelain`, `–color`); WP-CLI silently
+// ignores them, so reject up-front and let the agent retry with ASCII hyphens.
 function getUnsupportedWpCliOptionMessage( args: string[] ): string | null {
 	const unsupportedOption = args.find( ( arg ) => /^[‐-―]\S+/.test( arg ) );
 	if ( ! unsupportedOption ) {
@@ -138,18 +115,71 @@ function getUnsupportedWpCliOptionMessage( args: string[] ): string | null {
 	return `Unsupported WP-CLI option "${ unsupportedOption }": use ASCII hyphens, for example "--porcelain", not a typographic dash.`;
 }
 
+function getWpCliOptionValue( args: string[], optionName: string ): string | undefined {
+	const prefix = `${ optionName }=`;
+	for ( let index = 0; index < args.length; index++ ) {
+		const arg = args[ index ];
+		if ( arg === optionName ) {
+			return args[ index + 1 ];
+		}
+		if ( arg.startsWith( prefix ) ) {
+			return arg.slice( prefix.length );
+		}
+	}
+	return undefined;
+}
+
+function getCreatedPostIdFromOutput( stdout: string ): number | null {
+	const trimmed = stdout.trim();
+	const directId = Number.parseInt( trimmed, 10 );
+	if ( /^\d+$/.test( trimmed ) && directId > 0 ) {
+		return directId;
+	}
+
+	const successMatch = trimmed.match( /Created (?:post|page) (\d+)/i );
+	if ( successMatch ) {
+		const parsed = Number.parseInt( successMatch[ 1 ], 10 );
+		return parsed > 0 ? parsed : null;
+	}
+
+	return null;
+}
+
+function getWpCliArtifacts(
+	args: string[],
+	stdout: string
+): StudioChatArtifactWidgetDraft[] | undefined {
+	if ( args[ 0 ] !== 'post' || args[ 1 ] !== 'create' ) {
+		return undefined;
+	}
+
+	const postId = getCreatedPostIdFromOutput( stdout );
+	if ( ! postId ) {
+		return undefined;
+	}
+
+	const postType = getWpCliOptionValue( args, '--post_type' ) ?? 'post';
+	if ( postType === 'page' ) {
+		return [ { type: 'page', widgetProps: { pageId: postId, tone: 'neutral' } } ];
+	}
+	if ( postType === 'post' ) {
+		return [ { type: 'post', widgetProps: { postId } } ];
+	}
+
+	return undefined;
+}
+
 // Note: wp.ts runCommand calls process.exit(), so we use the lower-level sendWpCliCommand directly.
-export const runWpCliTool = tool(
+export const runWpCliTool = defineTool(
 	'wp_cli',
 	'Runs a WP-CLI command on a specific WordPress site. The site must be running. ' +
 		'Examples: "plugin install woocommerce --activate", "option get blogname", "user list".',
 	{
-		nameOrPath: z.string().describe( 'The site name or file system path to the site' ),
-		command: z
-			.string()
-			.describe(
-				'The WP-CLI command to run (without the "wp" prefix). Example: "plugin list --status=active"'
-			),
+		nameOrPath: Type.String( { description: 'The site name or file system path to the site' } ),
+		command: Type.String( {
+			description:
+				'The WP-CLI command to run (without the "wp" prefix). Example: "plugin list --status=active"',
+		} ),
 	},
 	async ( args ) => {
 		try {
@@ -160,7 +190,7 @@ export const runWpCliTool = tool(
 
 				const runningProcess = await isServerRunning( site.id );
 				if ( ! runningProcess ) {
-					return errorResult(
+					throw new Error(
 						`Site "${ site.name }" is not running. Start it first using site_start.`
 					);
 				}
@@ -168,11 +198,11 @@ export const runWpCliTool = tool(
 				const wpCliArgs = splitCommandArgs( args.command );
 				const unsupportedOptionMessage = getUnsupportedWpCliOptionMessage( wpCliArgs );
 				if ( unsupportedOptionMessage ) {
-					return errorResult( unsupportedOptionMessage );
+					throw new Error( unsupportedOptionMessage );
 				}
 				const unsupportedPostContentMessage = getUnsupportedWpCliPostContentMessage( wpCliArgs );
 				if ( unsupportedPostContentMessage ) {
-					return errorResult( unsupportedPostContentMessage );
+					throw new Error( unsupportedPostContentMessage );
 				}
 
 				const result = await sendWpCliCommand( site.id, wpCliArgs );
@@ -188,17 +218,20 @@ export const runWpCliTool = tool(
 					output += `\nExit code: ${ result.exitCode }`;
 				}
 
+				if ( result.exitCode !== 0 ) {
+					throw new Error( output || `WP-CLI exited with code ${ result.exitCode }` );
+				}
 				return {
 					content: [
 						{ type: 'text' as const, text: output || 'Command completed with no output.' },
 					],
-					isError: result.exitCode !== 0,
+					studioArtifacts: getWpCliArtifacts( wpCliArgs, result.stdout ),
 				};
 			} finally {
 				await disconnectFromDaemon();
 			}
 		} catch ( error ) {
-			return errorResult(
+			throw new Error(
 				`Failed to run WP-CLI command: ${
 					error instanceof Error ? error.message : String( error )
 				}`

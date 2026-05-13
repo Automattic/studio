@@ -2,6 +2,10 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { confirm } from '@inquirer/prompts';
+import {
+	addConnectedWpcomSite,
+	markConnectedWpcomSiteSynced,
+} from '@studio/common/lib/connected-sites';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import {
 	SYNC_MAX_STALLED_ATTEMPTS,
@@ -188,6 +192,15 @@ export async function runCommand(
 			// on the first request. Send that first request from here to hide the error from the user.
 			const siteUrl = getSiteUrl( site );
 			await fetch( siteUrl ).catch( () => {} );
+
+			// Remember this connection so future push/pull runs (and the Desktop UI)
+			// can surface it without re-selecting from the full site list.
+			try {
+				await addConnectedWpcomSite( site.id, { ...remoteSite, localSiteId: site.id } );
+				await markConnectedWpcomSiteSynced( site.id, remoteSite.id, 'pull' );
+			} catch ( error ) {
+				logger.reportError( new LoggerError( 'Failed to save connected site', error ), false );
+			}
 
 			logger.reportSuccess(
 				sprintf( __( 'Pulled from %s (%s)' ), remoteSite.name, remoteSite.url )

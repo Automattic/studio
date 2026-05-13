@@ -161,11 +161,17 @@ function logServerListeningDetails( server: RunCLIServer, args: RunCLIArgs, conf
 }
 
 class PlaygroundProcessExitError extends Error {
-	constructor( code: string | number | null | undefined, args: RunCLIArgs ) {
+	constructor( code: string | number | null | undefined, args: RunCLIArgs, exitStack?: string ) {
 		super(
-			`Playground CLI called process.exit(${ String( code ?? 0 ) }) while running "${
-				args.command
-			}". Sanitized args: ${ JSON.stringify( sanitizeRunCLIArgs( args ) ) }`
+			[
+				`Playground CLI called process.exit(${ String( code ?? 0 ) }) while running "${
+					args.command
+				}".`,
+				`Sanitized args: ${ JSON.stringify( sanitizeRunCLIArgs( args ) ) }`,
+				exitStack ? `process.exit call stack:\n${ exitStack }` : '',
+			]
+				.filter( Boolean )
+				.join( '\n' )
 		);
 		this.name = 'PlaygroundProcessExitError';
 	}
@@ -178,7 +184,11 @@ async function runCliWithExitDiagnostics( args: RunCLIArgs ): Promise< RunCLISer
 
 	const originalProcessExit = process.exit;
 	process.exit = ( ( code?: string | number | null | undefined ) => {
-		throw new PlaygroundProcessExitError( code, args );
+		throw new PlaygroundProcessExitError(
+			code,
+			args,
+			new Error( 'process.exit intercepted' ).stack
+		);
 	} ) as typeof process.exit;
 
 	try {

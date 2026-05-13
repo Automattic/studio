@@ -199,7 +199,14 @@ export class E2ESession {
 
 		const processManagerLogs = await this.getProcessManagerLogs();
 		if ( processManagerLogs ) {
-			await this.attachLogFile( testInfo, 'process-manager.log', processManagerLogs );
+			const processManagerReport = [
+				`Process manager logs for failed test: ${ testInfo.title }`,
+				'',
+				processManagerLogs,
+			].join( '\n' );
+
+			console.error( processManagerReport );
+			await this.attachLogFile( testInfo, 'process-manager.log', processManagerReport );
 		}
 	}
 

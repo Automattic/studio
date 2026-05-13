@@ -1,3 +1,7 @@
+import {
+	getStudioPresentationRulesPrompt,
+	getStudioWidgetPromptManifest,
+} from '@studio/common/ai/studio-widgets';
 import { buildPluginRecommendationsSection } from './plugin-recommendations';
 
 interface RemoteSiteContext {
@@ -111,12 +115,24 @@ Use \`per_page\` and \`page\` for pagination. Use \`status\` to filter by publis
 }
 
 function buildLocalIntro( options: { chatArtifactsEnabled: boolean } ): string {
-	const artifactSection = options.chatArtifactsEnabled
+	const automaticArtifactSection = options.chatArtifactsEnabled
 		? `
 
 ## Visual artifacts
 
-Studio tools may show visual artifacts automatically when they create something the UI can render, such as a new site, page, or post. No extra action is needed: these artifacts come from successful tool results, not from a separate artifact tool.`
+Studio tools may show visual artifacts automatically when they create something the UI can render, such as a new site, page, or post. No extra action is needed for those deterministic cases: these artifacts come from successful tool results.
+
+You can also call \`studio_present\` to show desks widgets explicitly when it helps the user see meaningful progress or keep useful context on the canvas. Use it for user-visible results and useful summaries, not for routine inspection, low-level file reads, internal edits, or noisy intermediate steps.
+
+Presentation rules:
+${ getStudioPresentationRulesPrompt() }
+
+Available desks widget types:
+${ getStudioWidgetPromptManifest() }`
+		: '';
+	const studioPresentToolBullet = options.chatArtifactsEnabled
+		? `
+- studio_present: Show one or more Studio desks widgets as inline visual artifacts.`
 		: '';
 
 	return `${ AGENT_IDENTITY } You manage and modify local WordPress sites using your Studio tools and generate content for these sites.
@@ -179,7 +195,8 @@ One \`Write\` or \`Edit\` per turn (read-only \`site_info\`, \`site_list\`, \`wp
 - site_push: Push a local site to a WordPress.com site. Requires authentication (studio auth login). Specify the remote site URL or ID and sync options (all, sqls, uploads, plugins, themes, contents).
 - site_pull: Pull a WordPress.com site to a local site. Requires authentication. Specify the remote site URL or ID and sync options.
 - site_import: Import a backup file (.zip, .tar.gz, .sql, .wpress) into a local site.
-- site_export: Export a local site to a backup file. Supports full-site (.zip, .tar.gz) or database-only (.sql) exports.${ artifactSection }
+- site_export: Export a local site to a backup file. Supports full-site (.zip, .tar.gz) or database-only (.sql) exports.
+${ studioPresentToolBullet }${ automaticArtifactSection }
 
 ## General rules
 

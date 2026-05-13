@@ -19,6 +19,7 @@ import { shareScreenshotTool } from './share-screenshot';
 import { getSiteInfoTool } from './site-info';
 import { startSiteTool } from './start-site';
 import { stopSiteTool } from './stop-site';
+import { studioPresentTool } from './studio-present';
 import { takeScreenshotTool } from './take-screenshot';
 import { updatePreviewTool } from './update-preview';
 import { validateBlocksTool } from './validate-blocks';
@@ -73,7 +74,12 @@ export interface CreateStudioToolsOptions {
 export function resolveStudioToolDefinitions(
 	options: CreateStudioToolsOptions = {}
 ): AnyStudioAgentTool[] {
-	return studioToolDefinitions.flatMap( ( candidate ) => {
+	const definitions =
+		options.emitChatArtifacts === true
+			? [ ...studioToolDefinitions, studioPresentTool ]
+			: studioToolDefinitions;
+
+	return definitions.flatMap( ( candidate ) => {
 		if ( candidate.name === shareScreenshotTool.name && ! options.remoteSession ) {
 			return [];
 		}

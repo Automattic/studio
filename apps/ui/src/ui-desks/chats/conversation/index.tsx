@@ -11,8 +11,8 @@ import {
 	getToolDisplayName,
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
-import { __ } from '@wordpress/i18n';
-import { plus } from '@wordpress/icons';
+import { __, sprintf } from '@wordpress/i18n';
+import { check, plus } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useMemo, useState, type PointerEvent as ReactPointerEvent } from 'react';
@@ -22,7 +22,12 @@ import { Button } from '@/ui-desks/components';
 import { useDesk } from '@/ui-desks/desk/provider';
 import { createDeskWidget } from '@/ui-desks/widget-actions/create-widget';
 import { ThinkingIndicator } from '../thinking-indicator';
-import { summarizeWidgetList, WidgetContextThumbnailList } from '../widget-context';
+import {
+	getWidgetDisplayLabel,
+	summarizeWidgetList,
+	WidgetContextThumbnail,
+	WidgetContextThumbnailList,
+} from '../widget-context';
 import styles from './style.module.css';
 import type { LoadedAiSession } from '@/data/core';
 import type { DeskWidget } from '@/ui-desks/widgets/types';
@@ -67,7 +72,9 @@ interface PiToolResultLike {
 	isError?: boolean;
 }
 
-function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
+const HIDDEN_TOOL_ROWS = new Set( [ 'studio_present' ] );
+
+export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 	const resultsByToolCallId = new Map< string, NormalizedToolResult >();
 	for ( const entry of entries ) {
 		if ( entry.type !== 'message' ) continue;
@@ -116,7 +123,8 @@ function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 				} else if (
 					block.type === 'toolCall' &&
 					typeof block.id === 'string' &&
-					typeof block.name === 'string'
+					typeof block.name === 'string' &&
+					! HIDDEN_TOOL_ROWS.has( block.name )
 				) {
 					items.push( {
 						kind: 'tool-use',
@@ -265,9 +273,11 @@ function ToolUseRow( {
 	);
 }
 
-function ChatArtifact( { artifact }: { artifact: StudioChatArtifactData } ) {
+export function ChatArtifact( { artifact }: { artifact: StudioChatArtifactData } ) {
 	const { addWidget, addWidgetAtScreenPoint, canAddWidgets } = useDesk();
-	const [ added, setAdded ] = useState( false );
+	const [ addedWidgetIds, setAddedWidgetIds ] = useState< ReadonlySet< string > >(
+		() => new Set()
+	);
 	const [ dragState, setDragState ] = useState< ArtifactDragState | null >( null );
 	const widgets = useMemo(
 		() =>
@@ -291,36 +301,74 @@ function ChatArtifact( { artifact }: { artifact: StudioChatArtifactData } ) {
 	}
 
 	const summary = summarizeWidgetList( widgets );
+	const allAdded = widgets.every( ( widget ) => addedWidgetIds.has( widget.id ) );
+	const hasAddedSome = widgets.some( ( widget ) => addedWidgetIds.has( widget.id ) );
+	const markWidgetsAdded = ( widgetIds: string[] ) => {
+		if ( widgetIds.length === 0 ) {
+			return;
+		}
+
+		setAddedWidgetIds( ( previousIds ) => {
+			const nextIds = new Set( previousIds );
+			widgetIds.forEach( ( widgetId ) => nextIds.add( widgetId ) );
+			return nextIds;
+		} );
+	};
+	const insertWidgetOnCanvas = ( widget: DeskWidget, screenPoint?: { x: number; y: number } ) => {
+		const options = {
+			shapeProps: widget.shapeProps,
+			widgetProps: widget.widgetProps,
+			shouldStartEditing: false,
+		};
+		if ( screenPoint ) {
+			return addWidgetAtScreenPoint( widget.type, screenPoint, options );
+		}
+
+		return addWidget( widget.type, options );
+	};
+	const addWidgetToCanvas = ( widget: DeskWidget, screenPoint?: { x: number; y: number } ) => {
+		if ( addedWidgetIds.has( widget.id ) ) {
+			return false;
+		}
+
+		const didAdd = insertWidgetOnCanvas( widget, screenPoint );
+		if ( didAdd ) {
+			markWidgetsAdded( [ widget.id ] );
+		}
+		return didAdd;
+	};
 	const addWidgetsToCanvas = ( screenPoint?: { x: number; y: number } ) => {
-		let didAddAny = false;
+		const addedIds: string[] = [];
 		widgets.forEach( ( widget, index ) => {
-			const options = {
-				shapeProps: widget.shapeProps,
-				widgetProps: widget.widgetProps,
-				shouldStartEditing: false,
-			};
-			if ( screenPoint ) {
-				didAddAny =
-					addWidgetAtScreenPoint(
-						widget.type,
-						{
+			if ( addedWidgetIds.has( widget.id ) ) {
+				return;
+			}
+
+			const didAdd = insertWidgetOnCanvas(
+				widget,
+				screenPoint
+					? {
 							x: screenPoint.x + index * ARTIFACT_DRAG_SPACING,
 							y: screenPoint.y,
-						},
-						options
-					) || didAddAny;
-			} else {
-				didAddAny = addWidget( widget.type, options ) || didAddAny;
+					  }
+					: undefined
+			);
+			if ( didAdd ) {
+				addedIds.push( widget.id );
 			}
 		} );
-		if ( didAddAny ) {
-			setAdded( true );
-		}
-		return didAddAny;
+		markWidgetsAdded( addedIds );
+		return addedIds.length > 0;
 	};
 
 	const handlePointerDown = ( event: ReactPointerEvent< HTMLDivElement > ) => {
-		if ( event.button !== 0 || ! canAddWidgets || isInteractiveArtifactTarget( event.target ) ) {
+		const draggableWidgets = widgets.filter( ( widget ) => ! addedWidgetIds.has( widget.id ) );
+		if (
+			event.button !== 0 ||
+			! canAddWidgets ||
+			draggableWidgets.length === 0 ||
+			isInteractiveArtifactTarget( event.target )
+		) {
 			return;
 		}
 
@@ -340,7 +388,7 @@ function ChatArtifact( { artifact }: { artifact: StudioChatArtifactData } ) {
 
 		const syncDragState = ( pointerEvent: PointerEvent ) => {
 			setDragState( {
-				widgets,
+				widgets: draggableWidgets,
 				x: pointerEvent.clientX,
 				y: pointerEvent.clientY,
 				isOverCanvas: isCanvasDropTargetAtPoint( pointerEvent.clientX, pointerEvent.clientY ),
@@ -397,29 +445,93 @@ function ChatArtifact( { artifact }: { artifact: StudioChatArtifactData } ) {
 				onPointerDown={ handlePointerDown }
 				title={ summary }
 			>
-				<WidgetContextThumbnailList
-					widgets={ widgets }
-					className={ styles.artifactThumbnails }
-					ariaLabel={ summary }
-				/>
+				<div className={ styles.artifactThumbnails } aria-label={ summary }>
+					{ widgets.map( ( widget, index ) => {
+						const isAdded = addedWidgetIds.has( widget.id );
+						const widgetLabel = getWidgetDisplayLabel( widget );
+						const addLabel = getWidgetAddActionLabel( widget, index, isAdded );
+						return (
+							<div
+								key={ widget.id }
+								className={ styles.artifactThumbnail }
+								aria-label={ widgetLabel }
+								title={ widgetLabel }
+							>
+								<WidgetContextThumbnail widget={ widget } />
+								{ widgets.length > 1 && (
+									<button
+										type="button"
+										className={ styles.artifactThumbnailAdd }
+										disabled={ ! canAddWidgets || isAdded }
+										data-added={ isAdded ? 'true' : undefined }
+										title={ addLabel }
+										aria-label={ addLabel }
+										onClick={ ( event ) => {
+											event.stopPropagation();
+											addWidgetToCanvas( widget );
+										} }
+									>
+										<Icon icon={ isAdded ? check : plus } size={ 14 } />
+									</button>
+								) }
+							</div>
+						);
+					} ) }
+				</div>
 			</div>
 			<div className={ styles.artifactActions }>
-				<button
-					type="button"
-					className={ styles.artifactAction }
-					disabled={ ! canAddWidgets || added }
-					title={ summary }
-					onClick={ () => addWidgetsToCanvas() }
-				>
-					<Icon icon={ plus } size={ 16 } />
-					<span>{ added ? __( 'Added' ) : __( 'Add to canvas' ) }</span>
-				</button>
+				{ widgets.length > 1 ? (
+					<button
+						type="button"
+						className={ styles.artifactAction }
+						disabled={ ! canAddWidgets || allAdded }
+						title={ summary }
+						onClick={ () => addWidgetsToCanvas() }
+					>
+						<Icon icon={ plus } size={ 16 } />
+						<span>
+							{ allAdded
+								? __( 'Added all' )
+								: hasAddedSome
+								? __( 'Add remaining' )
+								: __( 'Add all' ) }
+						</span>
+					</button>
+				) : (
+					<button
+						type="button"
+						className={ styles.artifactAction }
+						disabled={ ! canAddWidgets || allAdded }
+						title={ summary }
+						onClick={ () => addWidgetToCanvas( widgets[ 0 ] ) }
+					>
+						<Icon icon={ plus } size={ 16 } />
+						<span>{ allAdded ? __( 'Added' ) : __( 'Add to canvas' ) }</span>
+					</button>
+				) }
 			</div>
 			{ dragState && typeof document !== 'undefined'
 				? createPortal( <ArtifactDragOverlay state={ dragState } />, document.body )
 				: null }
 		</div>
 	);
+}
+
+function getWidgetAddActionLabel( widget: DeskWidget, index: number, isAdded: boolean ) {
+	const widgetLabel = getWidgetDisplayLabel( widget );
+	return isAdded
+		? sprintf(
+				/* translators: 1: widget number in the artifact, 2: widget label. */
+				__( 'Added widget %1$d to canvas: %2$s' ),
+				index + 1,
+				widgetLabel
+		  )
+		: sprintf(
+				/* translators: 1: widget number in the artifact, 2: widget label. */
+				__( 'Add widget %1$d to canvas: %2$s' ),
+				index + 1,
+				widgetLabel
+		  );
 }
 
 function ArtifactDragOverlay( { state }: { state: ArtifactDragState } ) {

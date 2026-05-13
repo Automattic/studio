@@ -177,6 +177,7 @@ if [ "$PLATFORM" = "linux" ]; then
     cd /workdir
     echo "STUDIO_DISABLE_PLAYGROUND_WASM_SERVICES=${STUDIO_DISABLE_PLAYGROUND_WASM_SERVICES:-0}"
     echo "STUDIO_PLAYGROUND_WORKERS=${STUDIO_PLAYGROUND_WORKERS:-auto}"
+    echo "SKIP_LINUX_E2E_NODE_SETCAP=${SKIP_LINUX_E2E_NODE_SETCAP:-0}"
     echo "Installing Playwright Chromium..."
     npx playwright install chromium
     echo "Running Playwright tests..."

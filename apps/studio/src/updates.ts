@@ -1,4 +1,4 @@
-import { app, autoUpdater, dialog } from 'electron';
+import { app, autoUpdater, dialog, shell } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import { sprintf, __ } from '@wordpress/i18n';
 import { AUTO_UPDATE_INTERVAL_MS } from 'src/constants';
@@ -30,6 +30,14 @@ export function setupUpdates() {
 	if ( process.env.E2E ) {
 		console.log( 'Skipping update server setup in E2E tests' );
 		updaterState = 'done';
+		return;
+	}
+
+	if ( process.platform === 'linux' ) {
+		// Electron's built-in autoUpdater is macOS/Windows only. On Linux we
+		// poll the same WPCOM endpoint ourselves and show a dialog pointing
+		// the user at the .deb to install manually.
+		setupLinuxUpdates();
 		return;
 	}
 
@@ -135,6 +143,12 @@ export async function manualCheckForUpdates() {
 	// to the event handler that it should show a dialog.
 	showManualCheckDialogs = true;
 
+	if ( process.platform === 'linux' ) {
+		console.log( 'Manually polling for Linux update' );
+		void pollLinuxUpdates();
+		return;
+	}
+
 	if ( updaterState === 'checking-for-update' ) {
 		console.log( 'Manually checking for update, but discovered an check is already in progress' );
 	} else {
@@ -199,6 +213,109 @@ async function showUpdateReadyToInstallNotice() {
 
 	if ( response === 0 ) {
 		autoUpdater.quitAndInstall();
+	}
+}
+
+function setupLinuxUpdates() {
+	if ( ! shouldPoll ) {
+		console.log( 'Skipping Linux auto-updates', {
+			env: process.env.NODE_ENV,
+			isPackaged: app.isPackaged,
+			version: app.getVersion(),
+		} );
+		return;
+	}
+
+	console.log( 'Polling for Linux update on app launch' );
+	void pollLinuxUpdates();
+}
+
+async function pollLinuxUpdates() {
+	updaterState = 'checking-for-update';
+
+	const url = new URL( 'https://public-api.wordpress.com/wpcom/v2/studio-app/updates' );
+	url.searchParams.append( 'platform', 'linux' );
+	url.searchParams.append( 'studioArch', process.arch );
+	url.searchParams.append( 'version', app.getVersion() );
+
+	try {
+		const response = await fetch( url.toString() );
+
+		if ( response.status === 204 ) {
+			// No update available — endpoint serves 204 whether the client is current
+			// or no Linux build exists yet for this arch.
+			if ( showManualCheckDialogs ) {
+				await showUpdateUnavailableNotice();
+			}
+			rescheduleLinuxOrFinish();
+			return;
+		}
+
+		if ( response.status === 404 ) {
+			// Should not happen: Studio only sends process.arch values that map to
+			// supported Linux architectures. If it does, log and treat as no-op so
+			// users aren't blocked.
+			Sentry.captureException(
+				new Error( `Linux updates endpoint returned 404 (arch=${ process.arch })` )
+			);
+			rescheduleLinuxOrFinish();
+			return;
+		}
+
+		if ( ! response.ok ) {
+			Sentry.captureException(
+				new Error( `Linux updates endpoint returned HTTP ${ response.status }` )
+			);
+			rescheduleLinuxOrFinish();
+			return;
+		}
+
+		const data = ( await response.json() ) as { version?: string; downloadUrl?: string };
+
+		if ( ! data?.version || ! data?.downloadUrl ) {
+			Sentry.captureException( new Error( 'Linux updates endpoint returned malformed response' ) );
+			rescheduleLinuxOrFinish();
+			return;
+		}
+
+		await showLinuxUpdateAvailableNotice( data.version, data.downloadUrl );
+		rescheduleLinuxOrFinish();
+	} catch ( err ) {
+		console.error( err );
+		Sentry.captureException( err );
+		rescheduleLinuxOrFinish();
+	}
+}
+
+function rescheduleLinuxOrFinish() {
+	if ( ! shouldPoll ) {
+		updaterState = 'done';
+		return;
+	}
+	updaterState = 'polling';
+	timeout = setTimeout( () => {
+		console.log( 'Automatically polling for Linux update' );
+		void pollLinuxUpdates();
+	}, AUTO_UPDATE_INTERVAL_MS );
+}
+
+async function showLinuxUpdateAvailableNotice( version: string, downloadUrl: string ) {
+	showManualCheckDialogs = false;
+	const mainWindow = await getMainWindow();
+	const { response } = await dialog.showMessageBox( mainWindow, {
+		type: 'info',
+		buttons: [ __( 'Download' ), __( 'Later' ) ],
+		title: __( 'New Version Available' ),
+		message: sprintf( __( 'Studio %s is available' ), version ),
+		detail: __(
+			'After downloading, quit Studio and run `sudo apt install ./studio_*.deb` from a terminal to install. On Linux Mint and some other distributions, double-clicking the downloaded file also works.'
+		),
+		defaultId: 0,
+		cancelId: 1,
+	} );
+
+	if ( response === 0 ) {
+		void shell.openExternal( downloadUrl );
 	}
 }
 

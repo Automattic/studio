@@ -129,7 +129,11 @@ export async function getWapuuScore(): Promise< number | undefined > {
 	return userData.wapuuScore;
 }
 
-export function showUserSettings( event: IpcMainInvokeEvent, tabName?: UserSettingsTabName ) {
+export function showUserSettings(
+	event: IpcMainInvokeEvent,
+	tabName?: UserSettingsTabName,
+	anchor?: string
+) {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	sendIpcEventToRendererWithWindow( parentWindow, 'user-settings', { tabName } );
+	sendIpcEventToRendererWithWindow( parentWindow, 'user-settings', { tabName, anchor } );
 }

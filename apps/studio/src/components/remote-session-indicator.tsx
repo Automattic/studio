@@ -1,10 +1,15 @@
-import { Icon, mobile } from '@wordpress/icons';
+import { Icon, commentContent } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
+import { useEffect, useRef, useState } from 'react';
+import Button from 'src/components/button';
 import { Tooltip } from 'src/components/tooltip';
 import { useAuth } from 'src/hooks/use-auth';
 import { useBetaFeatures } from 'src/hooks/use-beta-features';
 import { useRemoteSessionStatus } from 'src/hooks/use-remote-session-status';
 import { cx } from 'src/lib/cx';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+
+const PULSE_DURATION_MS = 3000;
 
 export function RemoteSessionIndicator() {
 	const { remoteSession } = useBetaFeatures();
@@ -12,71 +17,58 @@ export function RemoteSessionIndicator() {
 
 	// Gate before the hook that triggers IPC. Logged-out users (or users who
 	// haven't opted into the beta feature) see no chrome change at all — no
-	// disabled affordance, no tooltip, no IPC traffic.
+	// pill, no tooltip, no IPC traffic. The settings pane is the only place
+	// where the daemon can be started or stopped from the UI.
 	if ( ! remoteSession || ! isAuthenticated ) {
 		return null;
 	}
 
-	return <RemoteSessionIndicatorActive />;
+	return <RemoteSessionPill />;
 }
 
-function RemoteSessionIndicatorActive() {
+function RemoteSessionPill() {
 	const { __ } = useI18n();
-	const { status, isLoading, start, stop } = useRemoteSessionStatus();
+	const { isRunning } = useRemoteSessionStatus();
+	const wasRunning = useRef( false );
+	const [ isPulsing, setIsPulsing ] = useState( false );
 
-	const isRunning = status?.running === true;
-	// On copy mirrors the CLI's `/remote-session attach` success message so
-	// users on either surface see the same "what now?" instruction.
-	const tooltipText = isRunning
-		? __(
-				'Remote session is on. Message Dolly (@wordpress_com_bot) on Telegram to work with Studio.'
-		  )
-		: __( 'Remote session is off' );
-	const ariaLabel = isRunning ? __( 'Stop remote session' ) : __( 'Start remote session' );
-
-	const handleClick = async () => {
-		if ( isLoading ) {
+	// Pulse briefly on the off → on transition so users notice the new affordance.
+	// After ~3s we settle into the static "on" state to keep the chrome calm.
+	useEffect( () => {
+		const transitionedOn = isRunning && ! wasRunning.current;
+		wasRunning.current = isRunning;
+		if ( ! transitionedOn ) {
 			return;
 		}
-		if ( isRunning ) {
-			await stop();
-		} else {
-			await start();
-		}
-	};
+		setIsPulsing( true );
+		const timer = setTimeout( () => setIsPulsing( false ), PULSE_DURATION_MS );
+		return () => clearTimeout( timer );
+	}, [ isRunning ] );
+
+	if ( ! isRunning ) {
+		return null;
+	}
+
+	const label = __( 'Remote session active' );
 
 	return (
-		<Tooltip text={ tooltipText } placement="bottom-end">
-			<button
-				type="button"
-				role="switch"
-				aria-checked={ isRunning }
-				aria-label={ ariaLabel }
-				onClick={ handleClick }
-				disabled={ isLoading }
+		<Tooltip text={ label } placement="bottom-end">
+			<Button
+				onClick={ () => void getIpcApi().showUserSettings( 'general', 'remote-session' ) }
+				aria-label={ label }
+				variant="icon"
 				data-testid="remote-session-indicator"
-				className={ cx(
-					'relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full',
-					'transition-colors duration-200 ease-in-out',
-					'focus:outline-none focus-visible:ring-2 focus-visible:ring-frame-theme focus-visible:ring-offset-1',
-					'disabled:opacity-40 disabled:cursor-not-allowed',
-					isRunning ? 'bg-frame-theme' : 'bg-white/40'
-				) }
+				className="!p-1.5 !rounded-lg"
 			>
 				<span
 					className={ cx(
-						'inline-flex h-4 w-4 items-center justify-center rounded-full bg-white shadow',
-						'transition-transform duration-200 ease-in-out',
-						isRunning ? 'translate-x-[18px]' : 'translate-x-0.5'
+						'inline-flex items-center justify-center h-6 w-6 rounded-full bg-frame-running',
+						isPulsing && 'animate-pulse'
 					) }
 				>
-					<Icon
-						icon={ mobile }
-						size={ 12 }
-						className={ cx( isRunning ? 'fill-frame-theme' : 'fill-frame-text-secondary' ) }
-					/>
+					<Icon icon={ commentContent } size={ 14 } className="fill-white" />
 				</span>
-			</button>
+			</Button>
 		</Tooltip>
 	);
 }

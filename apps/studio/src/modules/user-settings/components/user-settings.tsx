@@ -28,6 +28,7 @@ export default function UserSettings() {
 
 	const [ needsToOpenUserSettings, setNeedsToOpenUserSettings ] = useState( false );
 	const [ selectedTabName, setSelectedTabName ] = useState< string | undefined >();
+	const [ pendingAnchor, setPendingAnchor ] = useState< string | undefined >();
 
 	const [ deleteAllSnapshots, { isLoading: isDeletingAllSnapshots } ] = useDeleteAllSnapshots();
 
@@ -36,10 +37,12 @@ export default function UserSettings() {
 	const resetLocalState = useCallback( () => {
 		setNeedsToOpenUserSettings( false );
 		setSelectedTabName( undefined );
+		setPendingAnchor( undefined );
 	}, [] );
 
-	useIpcListener( 'user-settings', ( _event, { tabName } ) => {
+	useIpcListener( 'user-settings', ( _event, { tabName, anchor } ) => {
 		setSelectedTabName( tabName );
+		setPendingAnchor( anchor );
 		setNeedsToOpenUserSettings( ! needsToOpenUserSettings );
 	} );
 
@@ -118,7 +121,9 @@ export default function UserSettings() {
 					>
 						{ ( { name } ) => (
 							<div className="mt-6 px-8 pb-8 flex gap-4 flex-col">
-								{ name === 'general' && <PreferencesTab onClose={ resetLocalState } /> }
+								{ name === 'general' && (
+									<PreferencesTab onClose={ resetLocalState } anchor={ pendingAnchor } />
+								) }
 								{ name === 'skills' && <SkillsTab /> }
 								{ name === 'mcp' && <McpSettings /> }
 								{ name === 'account' && (

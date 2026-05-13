@@ -79,7 +79,7 @@ const api: IpcApi = {
 	getDefaultSiteDirectory: () => ipcRendererInvoke( 'getDefaultSiteDirectory' ),
 	saveDefaultSiteDirectory: ( directory ) =>
 		ipcRendererInvoke( 'saveDefaultSiteDirectory', directory ),
-	showUserSettings: ( tabName ) => ipcRendererInvoke( 'showUserSettings', tabName ),
+	showUserSettings: ( tabName, anchor ) => ipcRendererInvoke( 'showUserSettings', tabName, anchor ),
 	startServer: ( id ) => ipcRendererInvoke( 'startServer', id ),
 	stopServer: ( id ) => ipcRendererInvoke( 'stopServer', id ),
 	stopAllServers: () => ipcRendererInvoke( 'stopAllServers' ),

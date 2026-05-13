@@ -90,7 +90,7 @@ describe( 'useRemoteSessionStatus', () => {
 		expect( result.current.isLoading ).toBe( false );
 	} );
 
-	it( 'surfaces start failures via showErrorMessageBox and leaves status unchanged (AE7)', async () => {
+	it( 'surfaces start failures via showErrorMessageBox and reconciles isRunning back to false', async () => {
 		mockGetStatus.mockResolvedValue( { running: false, pidFile: '/tmp/pid' } );
 		mockStart.mockRejectedValue( new Error( 'spawn timed out' ) );
 
@@ -104,8 +104,67 @@ describe( 'useRemoteSessionStatus', () => {
 		expect( mockShowErrorMessageBox ).toHaveBeenCalledWith(
 			expect.objectContaining( { message: 'spawn timed out' } )
 		);
-		// Status was not flipped optimistically — the next poll tick is the source of truth.
+		// The optimistic flip is overwritten by the post-error refreshStatus,
+		// which sees the daemon still off and clears `isRunning`.
 		expect( result.current.status?.running ).toBe( false );
+		expect( result.current.isRunning ).toBe( false );
+	} );
+
+	it( 'flips isRunning optimistically the moment start() is invoked', async () => {
+		mockGetStatus.mockResolvedValue( { running: false, pidFile: '/tmp/pid' } );
+		let resolveStart: ( value: { pid: number; pidFile: string } ) => void = () => undefined;
+		mockStart.mockImplementation(
+			() =>
+				new Promise( ( resolve ) => {
+					resolveStart = resolve;
+				} )
+		);
+
+		const { result } = renderHook( () => useRemoteSessionStatus() );
+		await waitFor( () => expect( result.current.isRunning ).toBe( false ) );
+
+		act( () => {
+			void result.current.start();
+		} );
+
+		// Optimistic flip happens before the IPC resolves.
+		expect( result.current.isRunning ).toBe( true );
+
+		mockGetStatus.mockResolvedValueOnce( { running: true, pid: 1, pidFile: '/tmp/pid' } );
+		await act( async () => {
+			resolveStart( { pid: 1, pidFile: '/tmp/pid' } );
+		} );
+
+		await waitFor( () => expect( result.current.isLoading ).toBe( false ) );
+		expect( result.current.isRunning ).toBe( true );
+	} );
+
+	it( 'flips isRunning optimistically the moment stop() is invoked', async () => {
+		mockGetStatus.mockResolvedValue( { running: true, pid: 7, pidFile: '/tmp/pid' } );
+		let resolveStop: ( value: { stopped: true } ) => void = () => undefined;
+		mockStop.mockImplementation(
+			() =>
+				new Promise( ( resolve ) => {
+					resolveStop = resolve;
+				} )
+		);
+
+		const { result } = renderHook( () => useRemoteSessionStatus() );
+		await waitFor( () => expect( result.current.isRunning ).toBe( true ) );
+
+		act( () => {
+			void result.current.stop();
+		} );
+
+		expect( result.current.isRunning ).toBe( false );
+
+		mockGetStatus.mockResolvedValueOnce( { running: false, pidFile: '/tmp/pid' } );
+		await act( async () => {
+			resolveStop( { stopped: true } );
+		} );
+
+		await waitFor( () => expect( result.current.isLoading ).toBe( false ) );
+		expect( result.current.isRunning ).toBe( false );
 	} );
 
 	it( 'stop() invokes stopRemoteSessionDaemon and surfaces failures via showErrorMessageBox', async () => {

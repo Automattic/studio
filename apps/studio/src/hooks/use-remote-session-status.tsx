@@ -6,6 +6,14 @@ import type { DaemonStatus } from 'cli/remote-session/daemon';
 
 export interface UseRemoteSessionStatus {
 	status: DaemonStatus | undefined;
+	/**
+	 * `isRunning` is optimistic-aware: it flips immediately when the user
+	 * invokes `start()`/`stop()` and stays that way until the daemon actually
+	 * reaches the expected state (via `refreshStatus` or a poll event). Use
+	 * this for any UI gating; consult `status` only when the underlying
+	 * `pid`/`pidFile` matters.
+	 */
+	isRunning: boolean;
 	isLoading: boolean;
 	start: () => Promise< void >;
 	stop: () => Promise< void >;
@@ -27,12 +35,15 @@ function getErrorMessage( error: unknown ): string {
  * already pushed its initial tick.
  *
  * `start`/`stop` invoke their IPC counterparts. Failures surface via the existing
- * `showErrorMessageBox` dialog (Studio has no toast surface today). The hook's
- * `status` is **not** flipped optimistically — the next poll tick is the source
- * of truth, so the indicator's visual state stays consistent with on-disk reality.
+ * `showErrorMessageBox` dialog (Studio has no toast surface today). While a call
+ * is in flight, `isRunning` is flipped optimistically so the indicator and the
+ * settings toggle reflect the user's intent immediately. Real state is reconciled
+ * by `refreshStatus` after the call completes; on error, the optimistic value is
+ * overwritten by the actual daemon state.
  */
 export function useRemoteSessionStatus(): UseRemoteSessionStatus {
 	const [ status, setStatus ] = useState< DaemonStatus | undefined >( undefined );
+	const [ optimisticRunning, setOptimisticRunning ] = useState< boolean | null >( null );
 	const [ isLoading, setIsLoading ] = useState( false );
 	// A ref tracks in-flight state synchronously so two clicks within the same
 	// React tick can't both pass the `isLoading` gate — the second one would
@@ -43,6 +54,7 @@ export function useRemoteSessionStatus(): UseRemoteSessionStatus {
 		try {
 			const current = await getIpcApi().getRemoteSessionDaemonStatus();
 			setStatus( current );
+			setOptimisticRunning( null );
 		} catch ( error ) {
 			console.error( 'Failed to read remote-session status', error );
 		}
@@ -54,6 +66,11 @@ export function useRemoteSessionStatus(): UseRemoteSessionStatus {
 
 	useIpcListener( 'remote-session-status', ( _event, incoming ) => {
 		setStatus( incoming );
+		// Reconcile only if the poll confirms the optimistic guess; otherwise
+		// keep showing the user's intent until the in-flight call returns.
+		setOptimisticRunning( ( prev ) =>
+			prev === null || prev === incoming.running ? null : prev
+		);
 	} );
 
 	const start = useCallback( async () => {
@@ -61,6 +78,7 @@ export function useRemoteSessionStatus(): UseRemoteSessionStatus {
 			return;
 		}
 		inFlightRef.current = true;
+		setOptimisticRunning( true );
 		setIsLoading( true );
 		try {
 			await getIpcApi().startRemoteSessionDaemon();
@@ -86,6 +104,7 @@ export function useRemoteSessionStatus(): UseRemoteSessionStatus {
 			return;
 		}
 		inFlightRef.current = true;
+		setOptimisticRunning( false );
 		setIsLoading( true );
 		try {
 			await getIpcApi().stopRemoteSessionDaemon();
@@ -101,5 +120,7 @@ export function useRemoteSessionStatus(): UseRemoteSessionStatus {
 		}
 	}, [ refreshStatus ] );
 
-	return { status, isLoading, start, stop };
+	const isRunning = optimisticRunning ?? status?.running === true;
+
+	return { status, isRunning, isLoading, start, stop };
 }

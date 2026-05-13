@@ -1,159 +1,117 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { vi } from 'vitest';
 import { RemoteSessionIndicator } from 'src/components/remote-session-indicator';
 import { useAuth } from 'src/hooks/use-auth';
 import { useBetaFeatures } from 'src/hooks/use-beta-features';
 import { useRemoteSessionStatus } from 'src/hooks/use-remote-session-status';
-import type { DaemonStatus } from 'cli/remote-session/daemon';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 
 vi.mock( 'src/hooks/use-auth' );
 vi.mock( 'src/hooks/use-beta-features' );
 vi.mock( 'src/hooks/use-remote-session-status' );
-
-const mockStart = vi.fn();
-const mockStop = vi.fn();
+vi.mock( 'src/lib/get-ipc-api' );
 
 function setupHooks( {
 	remoteSession,
 	isAuthenticated,
-	status,
-	isLoading = false,
+	isRunning,
 }: {
 	remoteSession: boolean;
 	isAuthenticated: boolean;
-	status?: DaemonStatus;
-	isLoading?: boolean;
+	isRunning: boolean;
 } ) {
 	vi.mocked( useBetaFeatures ).mockReturnValue( { remoteSession } );
 	vi.mocked( useAuth, { partial: true } ).mockReturnValue( { isAuthenticated } );
 	vi.mocked( useRemoteSessionStatus ).mockReturnValue( {
-		status,
-		isLoading,
-		start: mockStart,
-		stop: mockStop,
+		status: isRunning ? { running: true, pid: 42, pidFile: '/tmp/pid' } : undefined,
+		isRunning,
+		isLoading: false,
+		start: vi.fn(),
+		stop: vi.fn(),
 	} );
 }
 
+const mockShowUserSettings = vi.fn();
+
 beforeEach( () => {
-	mockStart.mockReset().mockResolvedValue( undefined );
-	mockStop.mockReset().mockResolvedValue( undefined );
+	mockShowUserSettings.mockReset();
+	vi.mocked( getIpcApi ).mockReturnValue( {
+		showUserSettings: mockShowUserSettings,
+	} as unknown as ReturnType< typeof getIpcApi > );
 } );
 
 describe( 'RemoteSessionIndicator', () => {
-	it( 'renders nothing when the beta feature is off (AE2)', () => {
-		setupHooks( { remoteSession: false, isAuthenticated: true } );
+	it( 'renders nothing when the beta feature is off', () => {
+		setupHooks( { remoteSession: false, isAuthenticated: true, isRunning: true } );
 
 		const { container } = render( <RemoteSessionIndicator /> );
 
 		expect( container ).toBeEmptyDOMElement();
 	} );
 
-	it( 'renders nothing when the user is logged out, even if the daemon is running (AE1)', () => {
-		setupHooks( {
-			remoteSession: true,
-			isAuthenticated: false,
-			status: { running: true, pid: 42, pidFile: '/tmp/pid' },
-		} );
+	it( 'renders nothing when the user is logged out, even if the daemon is running', () => {
+		setupHooks( { remoteSession: true, isAuthenticated: false, isRunning: true } );
 
 		const { container } = render( <RemoteSessionIndicator /> );
 
 		expect( container ).toBeEmptyDOMElement();
 	} );
 
-	it( 'shows the "off" tooltip when the daemon is not running', () => {
-		setupHooks( {
-			remoteSession: true,
-			isAuthenticated: true,
-			status: { running: false, pidFile: '/tmp/pid' },
-		} );
+	it( 'renders nothing when the daemon is not running', () => {
+		setupHooks( { remoteSession: true, isAuthenticated: true, isRunning: false } );
+
+		const { container } = render( <RemoteSessionIndicator /> );
+
+		expect( container ).toBeEmptyDOMElement();
+	} );
+
+	it( 'renders a green circular button labelled "Remote session active" when the daemon is running', () => {
+		setupHooks( { remoteSession: true, isAuthenticated: true, isRunning: true } );
 
 		render( <RemoteSessionIndicator /> );
 
-		expect( screen.getByRole( 'switch', { name: 'Start remote session' } ) ).toBeVisible();
+		const button = screen.getByRole( 'button', { name: 'Remote session active' } );
+		expect( button ).toBeVisible();
+		// The visible circle is the inner span — sanity check that it carries the
+		// green token and is sized like the other top-bar icons.
+		const circle = button.querySelector( 'span' );
+		expect( circle ).toHaveClass( 'bg-frame-running' );
+		expect( circle ).toHaveClass( 'h-6', 'w-6', 'rounded-full' );
 	} );
 
-	it( 'shows the "active" tooltip when the daemon is running', () => {
-		setupHooks( {
-			remoteSession: true,
-			isAuthenticated: true,
-			status: { running: true, pid: 42, pidFile: '/tmp/pid' },
-		} );
-
-		render( <RemoteSessionIndicator /> );
-
-		expect( screen.getByRole( 'switch', { name: 'Stop remote session' } ) ).toBeVisible();
-	} );
-
-	it( 'clicking when off invokes start() (AE3)', async () => {
+	it( 'clicking the indicator opens settings on the general tab scrolled to the toggle', async () => {
 		const user = userEvent.setup();
-		setupHooks( {
-			remoteSession: true,
-			isAuthenticated: true,
-			status: { running: false, pidFile: '/tmp/pid' },
-		} );
+		setupHooks( { remoteSession: true, isAuthenticated: true, isRunning: true } );
 
 		render( <RemoteSessionIndicator /> );
 
-		await user.click( screen.getByRole( 'switch', { name: 'Start remote session' } ) );
-		expect( mockStart ).toHaveBeenCalledOnce();
-		expect( mockStop ).not.toHaveBeenCalled();
+		await user.click( screen.getByRole( 'button', { name: 'Remote session active' } ) );
+
+		expect( mockShowUserSettings ).toHaveBeenCalledWith( 'general', 'remote-session' );
 	} );
 
-	it( 'clicking when running invokes stop()', async () => {
-		const user = userEvent.setup();
-		setupHooks( {
-			remoteSession: true,
-			isAuthenticated: true,
-			status: { running: true, pid: 42, pidFile: '/tmp/pid' },
-		} );
+	it( 'pulses briefly on the off → on transition and settles to static', () => {
+		vi.useFakeTimers();
+		try {
+			setupHooks( { remoteSession: true, isAuthenticated: true, isRunning: false } );
+			const { rerender } = render( <RemoteSessionIndicator /> );
 
-		render( <RemoteSessionIndicator /> );
+			setupHooks( { remoteSession: true, isAuthenticated: true, isRunning: true } );
+			rerender( <RemoteSessionIndicator /> );
 
-		await user.click( screen.getByRole( 'switch', { name: 'Stop remote session' } ) );
-		expect( mockStop ).toHaveBeenCalledOnce();
-		expect( mockStart ).not.toHaveBeenCalled();
-	} );
+			const circle = screen
+				.getByRole( 'button', { name: 'Remote session active' } )
+				.querySelector( 'span' );
+			expect( circle ).toHaveClass( 'animate-pulse' );
 
-	it( 'leaves the indicator in the "off" visual state after a start attempt (AE7)', async () => {
-		// AE7: when start fails, the indicator must stay in the off state. The
-		// hook is responsible for catching the error and surfacing it via
-		// showErrorMessageBox — see use-remote-session-status.test.tsx. By the
-		// time the component's click handler awaits the hook's `start`, the
-		// promise has resolved normally. The indicator never optimistically
-		// flips its state; visual reconciliation comes from the next poll tick.
-		const user = userEvent.setup();
-		setupHooks( {
-			remoteSession: true,
-			isAuthenticated: true,
-			status: { running: false, pidFile: '/tmp/pid' },
-		} );
+			act( () => {
+				vi.advanceTimersByTime( 3000 );
+			} );
 
-		render( <RemoteSessionIndicator /> );
-
-		await user.click( screen.getByRole( 'switch', { name: 'Start remote session' } ) );
-
-		await waitFor( () => expect( mockStart ).toHaveBeenCalledOnce() );
-		expect( screen.getByRole( 'switch', { name: 'Start remote session' } ) ).toBeVisible();
-	} );
-
-	it( 'is disabled while a start/stop call is in flight (debounce)', async () => {
-		const user = userEvent.setup();
-		setupHooks( {
-			remoteSession: true,
-			isAuthenticated: true,
-			status: { running: false, pidFile: '/tmp/pid' },
-			isLoading: true,
-		} );
-
-		render( <RemoteSessionIndicator /> );
-
-		const button = screen.getByRole( 'switch', { name: 'Start remote session' } );
-		expect( button ).toBeDisabled();
-
-		await act( async () => {
-			await user.click( button );
-		} );
-		expect( mockStart ).not.toHaveBeenCalled();
+			expect( circle ).not.toHaveClass( 'animate-pulse' );
+		} finally {
+			vi.useRealTimers();
+		}
 	} );
 } );

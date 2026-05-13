@@ -174,15 +174,18 @@ describe( 'Studio AI MCP tools', () => {
 		expect( studioPresent?.description ).not.toContain( '- drawing:' );
 	} );
 
-	it( 'guides screenshots toward captured media widgets instead of site previews', () => {
+	it( 'keeps screenshot presentation guidance out of the screenshot tool description', () => {
 		const takeScreenshot = resolveStudioToolDefinitions( {
 			emitChatArtifacts: true,
 		} ).find( ( tool ) => tool.name === 'take_screenshot' );
 		const studioPresent = resolveStudioToolDefinitions( {
 			emitChatArtifacts: true,
 		} ).find( ( tool ) => tool.name === 'studio_present' );
-		expect( takeScreenshot?.description ).toContain( 'actual captured PNG' );
-		expect( takeScreenshot?.description ).toContain(
+		expect( takeScreenshot?.description ).toContain( 'ready-to-use media widget payload' );
+		expect( takeScreenshot?.description ).not.toContain(
+			'This does not automatically show the screenshot to the user'
+		);
+		expect( takeScreenshot?.description ).not.toContain(
 			'Do not use a site-preview widget as a substitute for the screenshot'
 		);
 		expect( studioPresent?.description ).toContain(

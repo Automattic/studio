@@ -12,7 +12,6 @@ export const takeScreenshotTool = defineTool(
 	'Takes a full-page screenshot of a URL. Returns the screenshot as an image that you can analyze visually. ' +
 		'Also saves the screenshot as a temporary local PNG and returns a ready-to-use media widget payload. ' +
 		'Supports desktop and mobile viewports. Use this to verify the site looks correct after building it. ' +
-		'This does not automatically show the screenshot to the user. If the user asked to take, show, or capture a screenshot, call `studio_present` with the returned media widget payload so the user sees the actual captured PNG. Do not use a site-preview widget as a substitute for the screenshot. ' +
 		'Use `share_screenshot` instead only in remote sessions where you need to deliver the rendered page outside the Studio UI.',
 	{
 		url: Type.String( { description: 'The URL to screenshot' } ),

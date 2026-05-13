@@ -61,7 +61,56 @@ type SpawnPhpProcessOptions = {
 	cwd?: string;
 	signal?: AbortSignal;
 	mode?: 'pipe' | 'capture-stdout';
+	enableXdebug?: boolean;
 };
+
+// Extensions to enable on Windows via `-d extension=<name>`. Mirrors the
+// windows-x86_64 matrix.extensions entry in
+// .github/workflows/build-php-cli-binaries.yml, with three classes filtered out:
+//   - mbregex: not a runtime extension, it's an mbstring feature flag
+//   - mysqlnd: linked into php.exe as a core dependency of mysqli/pdo_mysql
+//   - zlib:    linked into php.exe
+//   - opcache: a Zend extension, loaded separately via zend_extension below
+// On macOS every extension is baked into the `php` binary by static-php-cli,
+// so this list is irrelevant there.
+const WINDOWS_PHP_EXTENSIONS = [
+	'apcu',
+	'bcmath',
+	'calendar',
+	'ctype',
+	'curl',
+	'dba',
+	'dom',
+	'exif',
+	'fileinfo',
+	'filter',
+	'ftp',
+	'gd',
+	'iconv',
+	'igbinary',
+	'intl',
+	'mbstring',
+	'mysqli',
+	'openssl',
+	'pdo',
+	'pdo_mysql',
+	'pdo_sqlite',
+	'phar',
+	'redis',
+	'session',
+	'shmop',
+	'simplexml',
+	'sockets',
+	'sodium',
+	'sqlite3',
+	'ssh2',
+	'tokenizer',
+	'xml',
+	'xmlreader',
+	'xmlwriter',
+	'yaml',
+	'zip',
+] as const;
 
 // Process-scoped opcache dir, created lazily and removed when the process exits
 let opcacheRootDir: string | null = null;
@@ -89,33 +138,72 @@ function getOpcacheRootDir(): string {
 	return opcacheRootDir;
 }
 
-function getDefaultPhpArgs( phpVersion: NativePhpSupportedVersion ): string[] {
-	if ( process.platform !== 'win32' ) {
-		return [];
+function getExtensionDir( phpVersion: NativePhpSupportedVersion ): string {
+	return path.join( path.dirname( getPhpBinaryPath( phpVersion ) ), 'ext' );
+}
+
+function getXdebugFilename(): string {
+	return process.platform === 'win32' ? 'php_xdebug.dll' : 'xdebug.so';
+}
+
+function getDefaultPhpArgs(
+	phpVersion: NativePhpSupportedVersion,
+	enableXdebug: boolean
+): string[] {
+	const args: string[] = [];
+	const extensionDir = getExtensionDir( phpVersion );
+
+	if ( process.platform === 'win32' ) {
+		// Partition the file_cache by PHP version: opcache's on-disk script blob
+		// format isn't stable across minor versions, and reusing a cache populated
+		// by a different PHP can crash the server at startup on Windows.
+		const cacheId = `php${ phpVersion }`;
+		const cacheDirectory = path.join( getOpcacheRootDir(), cacheId );
+		fs.mkdirSync( cacheDirectory, { recursive: true } );
+
+		args.push(
+			'-d',
+			`opcache.file_cache="${ cacheDirectory }"`,
+			'-d',
+			'opcache.file_cache_fallback=1',
+			'-d',
+			`opcache.cache_id="studio-${ cacheId }"`
+		);
+
+		// Load every bundled DLL from the artifact's ext/ directory.
+		// windows.php.net's prebuilt php.exe doesn't auto-load extensions;
+		// each one needs an explicit `extension=` (or `zend_extension=` for
+		// opcache) directive.
+		args.push( '-d', `extension_dir="${ extensionDir }"` );
+		args.push( '-d', `zend_extension=opcache` );
+		for ( const extension of WINDOWS_PHP_EXTENSIONS ) {
+			args.push( '-d', `extension=${ extension }` );
+		}
 	}
 
-	// Partition the file_cache by PHP version: opcache's on-disk script blob
-	// format isn't stable across minor versions, and reusing a cache populated
-	// by a different PHP can crash the server at startup on Windows.
-	const cacheId = `php${ phpVersion }`;
-	const cacheDirectory = path.join( getOpcacheRootDir(), cacheId );
-	fs.mkdirSync( cacheDirectory, { recursive: true } );
+	if ( enableXdebug ) {
+		// On macOS the `php` binary has every other extension baked in and ext/
+		// contains only xdebug.so; on Windows extension_dir is already set
+		// above. Either way the Zend extension path is ext/<filename>.
+		if ( process.platform !== 'win32' ) {
+			args.push( '-d', `extension_dir="${ extensionDir }"` );
+		}
+		args.push(
+			'-d',
+			`zend_extension="${ path.join( extensionDir, getXdebugFilename() ) }"`,
+			'-d',
+			'xdebug.mode=debug'
+		);
+	}
 
-	return [
-		'-d',
-		`opcache.file_cache="${ cacheDirectory }"`,
-		'-d',
-		'opcache.file_cache_fallback=1',
-		'-d',
-		`opcache.cache_id="studio-${ cacheId }"`,
-	];
+	return args;
 }
 
 function spawnPhpProcess(
 	args: string[],
-	{ phpVersion, cwd, signal, mode = 'pipe' }: SpawnPhpProcessOptions
+	{ phpVersion, cwd, signal, mode = 'pipe', enableXdebug = false }: SpawnPhpProcessOptions
 ): ChildProcess {
-	const defaultArgs = getDefaultPhpArgs( phpVersion );
+	const defaultArgs = getDefaultPhpArgs( phpVersion, enableXdebug );
 	const phpArgs = [ ...defaultArgs, ...args ];
 	const phpScriptProcess = spawn( getPhpBinaryPath( phpVersion ), phpArgs, {
 		cwd,
@@ -382,6 +470,7 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		const serverChild = spawnPhpProcess( [ '-S', phpAddress, ROUTER_PATH ], {
 			phpVersion,
 			cwd: config.sitePath,
+			enableXdebug: config.enableXdebug,
 		} );
 		spawnedChild = serverChild;
 

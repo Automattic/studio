@@ -168,11 +168,12 @@ jobs:
           source_url="https://www.php.net/distributions/php-${PHP_VERSION}.tar.gz"
           xdebug_url="https://xdebug.org/files/xdebug-${XDEBUG_VERSION}.tgz"
           work_dir="$RUNNER_TEMP/php-build"
+          install_dir="$RUNNER_TEMP/php-install"
           staging_dir="$RUNNER_TEMP/php-artifact"
           spc_root="$GITHUB_WORKSPACE/.cache/static-php-cli/buildroot"
 
-          rm -rf "$work_dir" "$staging_dir"
-          mkdir -p "$work_dir" "$staging_dir"
+          rm -rf "$work_dir" "$install_dir" "$staging_dir"
+          mkdir -p "$work_dir" "$install_dir" "$staging_dir/ext"
 
           curl --fail --location --retry 3 "$source_url" --output "$work_dir/php.tar.gz"
           tar -xzf "$work_dir/php.tar.gz" -C "$work_dir"
@@ -217,9 +218,9 @@ jobs:
           grep -Fq "$spc_root/lib/libcurl.a" configure
 
           ./configure \
-            --prefix="$staging_dir" \
-            --with-config-file-path="$staging_dir/etc" \
-            --with-config-file-scan-dir="$staging_dir/etc/conf.d" \
+            --prefix="$install_dir" \
+            --with-config-file-path="$install_dir/etc" \
+            --with-config-file-scan-dir="$install_dir/etc/conf.d" \
             --disable-cgi \
             --disable-debug \
             --disable-phpdbg \
@@ -260,20 +261,25 @@ jobs:
 
           make -j"$(sysctl -n hw.ncpu)"
           make install
-          mkdir -p "$staging_dir/etc/conf.d"
+          mkdir -p "$install_dir/etc/conf.d"
 
           curl --fail --location --retry 3 "$xdebug_url" --output "$work_dir/xdebug.tgz"
           tar -xzf "$work_dir/xdebug.tgz" -C "$work_dir"
           xdebug_source="$(find "$work_dir" -maxdepth 1 -type d -name 'xdebug-*' | head -n 1)"
 
           cd "$xdebug_source"
-          "$staging_dir/bin/phpize"
-          ./configure --with-php-config="$staging_dir/bin/php-config"
+          "$install_dir/bin/phpize"
+          ./configure --with-php-config="$install_dir/bin/php-config"
           make -j"$(sysctl -n hw.ncpu)"
           make install
 
-          extension_dir="$("$staging_dir/bin/php-config" --extension-dir)"
-          relative_extension_dir="${extension_dir#"$staging_dir"/}"
+          install_extension_dir="$("$install_dir/bin/php-config" --extension-dir)"
+          cp "$install_dir/bin/php" "$staging_dir/php"
+          chmod +x "$staging_dir/php"
+          cp "$install_extension_dir"/*.so "$staging_dir/ext/"
+
+          extension_dir="$staging_dir/ext"
+          relative_extension_dir="ext"
 
           find_macho_files() {
             find "$staging_dir" -type f \( -name '*.dylib' -o -name '*.so' -o -perm -111 \) -print | while read -r candidate; do
@@ -307,28 +313,27 @@ jobs:
             "threadSafety": "nts",
             "platform": "$PHP_CLI_ARTIFACT_PLATFORM",
             "arch": "$PHP_CLI_ARTIFACT_ARCH",
-            "binary": "bin/php",
+            "binary": "php",
             "extensionDir": "$relative_extension_dir",
-            "libraryDir": "lib",
             "xdebug": "$relative_extension_dir/xdebug.so"
           }
           JSON
 
-          "$staging_dir/bin/php" -n \
+          "$staging_dir/php" -n \
             -d "extension_dir=$extension_dir" \
             -d "zend_extension=$extension_dir/xdebug.so" \
             -d "xdebug.mode=debug" \
             --ri xdebug
 
           echo "Smoke testing built-in extension: curl"
-          "$staging_dir/bin/php" -n \
+          "$staging_dir/php" -n \
             -r 'if ( ! extension_loaded( "curl" ) ) { fwrite( STDERR, "curl is not loaded\n" ); exit( 1 ); } echo PHP_VERSION, PHP_EOL;'
 
           smoke_extensions=(gd mbstring pdo pdo_sqlite sqlite3)
           for extension in "${smoke_extensions[@]}"; do
             echo "Smoke testing extension: $extension"
             otool -L "$extension_dir/$extension.so"
-            "$staging_dir/bin/php" -n \
+            "$staging_dir/php" -n \
               -d "extension_dir=$extension_dir" \
               -d "extension=$extension" \
               -r 'echo PHP_VERSION, PHP_EOL;'
@@ -338,7 +343,7 @@ jobs:
           for extension in "${smoke_extensions[@]}"; do
             smoke_extension_args+=(-d "extension=$extension")
             echo "Smoke testing extension set: ${smoke_extensions[*]:0:${#smoke_extension_args[@]}}"
-            "$staging_dir/bin/php" -n \
+            "$staging_dir/php" -n \
               -d "extension_dir=$extension_dir" \
               "${smoke_extension_args[@]}" \
               -r 'echo PHP_VERSION, PHP_EOL;'

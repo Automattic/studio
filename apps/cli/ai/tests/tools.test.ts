@@ -4,6 +4,7 @@ import path from 'path';
 import { vi } from 'vitest';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
 import { emitEvent } from 'cli/ai/json-events';
+import { setLocalSiteSelectedCallback } from 'cli/ai/site-selection';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
 import {
 	Mode as PreviewDeleteMode,
@@ -135,6 +136,7 @@ describe( 'Studio AI MCP tools', () => {
 
 	afterEach( () => {
 		setProgressCallback( null );
+		setLocalSiteSelectedCallback( null );
 	} );
 
 	it( 'includes preview tools in the MCP registry', () => {
@@ -415,11 +417,35 @@ describe( 'Studio AI MCP tools', () => {
 			expect.objectContaining( {
 				type: 'chat.artifact',
 				artifact: expect.objectContaining( {
-					widgets: [ { type: 'site-preview', widgetProps: { path: '/' } } ],
+					widgets: [
+						{
+							type: 'site-preview',
+							widgetProps: expect.objectContaining( {
+								path: '/',
+								siteId: 'site-123',
+								siteName: 'My Site',
+								sitePath: '/sites/my-site',
+							} ),
+						},
+					],
 				} ),
 			} )
 		);
+		expect( getTextContent( result ) ).toContain( '"id": "site-123"' );
 		expect( getTextContent( result ) ).toContain( '"name": "My Site"' );
+	} );
+
+	it( 'notifies JSON-mode callers when site_create selects the created site', async () => {
+		const onSiteSelected = vi.fn();
+		setLocalSiteSelectedCallback( onSiteSelected );
+
+		await getTool( 'site_create' ).rawHandler( { name: 'My Site' } as never );
+
+		expect( onSiteSelected ).toHaveBeenCalledWith( {
+			name: 'My Site',
+			path: '/sites/my-site',
+			running: true,
+		} );
 	} );
 
 	it( 'lists previews as JSON for a resolved local site', async () => {

@@ -1,5 +1,14 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useReducer, useRef } from 'react';
+import {
+	createContext,
+	useCallback,
+	useContext,
+	useEffect,
+	useMemo,
+	useReducer,
+	useRef,
+	type PropsWithChildren,
+} from 'react';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import type { AgentEvent, AgentRunEvent, LoadedAiSession, SessionEntry } from '@/data/core';
@@ -33,15 +42,15 @@ export interface SendMessageOptions {
 }
 
 export interface LiveAgentEvents {
-	// Agent loop is working — drives the thinking indicator. Clears at
+	// Agent loop is working - drives the thinking indicator. Clears at
 	// `turn.completed`, before the subprocess has finished winding down.
 	isRunning: boolean;
-	// Subprocess is still alive — blocks starting a new turn. Clears at
+	// Subprocess is still alive - blocks starting a new turn. Clears at
 	// `run.exited`/`run.interrupted`, which can lag `turn.completed` by
 	// the persist-queue drain time.
 	hasActiveRun: boolean;
 	// User has clicked Stop and we're waiting for the child to wind down.
-	// Gives the Stop button immediate "Stopping…" feedback.
+	// Gives the Stop button immediate "Stopping..." feedback.
 	isInterrupting: boolean;
 	startedAt: number | null;
 	error: string | null;
@@ -59,11 +68,10 @@ export interface LiveAgentEvents {
 	removeQueuedPrompt: ( id: string ) => void;
 }
 
-// `starting` → prompt was submitted and the subprocess run id is being created.
-// `running` → agent loop is working (thinking indicator shown).
-// `winding_down` → turn completed, subprocess still draining; composer
-// stays disabled so the user can't start a new turn mid-exit.
-// `idle` → no active run.
+// `starting` means the prompt was submitted and the subprocess run id is being created.
+// `running` means the agent loop is working (thinking indicator shown).
+// `winding_down` means the turn completed, but the subprocess is still draining.
+// `idle` means no active run.
 type RunPhase = 'idle' | 'starting' | 'running' | 'winding_down';
 
 interface State {
@@ -89,7 +97,7 @@ const initialState: State = {
 };
 
 type Action =
-	| { type: 'reset' }
+	| { type: 'hydrate_active_run'; runId: string; startedAt: number; interrupting: boolean }
 	| { type: 'send_pending'; startedAt: number }
 	| { type: 'send_start'; runId: string; startedAt: number }
 	| { type: 'error_set'; message: string | null }
@@ -106,8 +114,15 @@ type Action =
 
 function reducer( state: State, action: Action ): State {
 	switch ( action.type ) {
-		case 'reset':
-			return initialState;
+		case 'hydrate_active_run':
+			return {
+				...state,
+				phase: 'running',
+				runId: action.runId,
+				startedAt: action.startedAt,
+				error: null,
+				isInterrupting: action.interrupting,
+			};
 		case 'send_pending':
 			return {
 				...state,
@@ -175,47 +190,60 @@ function reducer( state: State, action: Action ): State {
 	}
 }
 
-export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
+type StatesBySession = Record< string, State >;
+
+type StoreAction = {
+	sessionId: string;
+	action: Action;
+};
+
+function storeReducer(
+	state: StatesBySession,
+	{ sessionId, action }: StoreAction
+): StatesBySession {
+	const previous = state[ sessionId ] ?? initialState;
+	const next = reducer( previous, action );
+	if ( next === previous ) {
+		return state;
+	}
+	return { ...state, [ sessionId ]: next };
+}
+
+function getTimestampMs( timestamp: string ): number {
+	const parsed = Date.parse( timestamp );
+	return Number.isNaN( parsed ) ? Date.now() : parsed;
+}
+
+interface AgentRunStore {
+	states: StatesBySession;
+	dispatchSession: ( sessionId: string, action: Action ) => void;
+	startRun: ( sessionId: string, prompt: string, options?: SendMessageOptions ) => Promise< void >;
+	interrupt: ( sessionId: string ) => Promise< void >;
+	answerQuestion: ( sessionId: string, question: string, answer: string ) => void;
+}
+
+const AgentRunContext = createContext< AgentRunStore | null >( null );
+
+export function AgentRunProvider( { children }: PropsWithChildren ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
-
-	const [ state, dispatch ] = useReducer( reducer, initialState );
-	const {
-		phase,
-		runId,
-		startedAt,
-		error,
-		isInterrupting,
-		pendingQuestions,
-		pendingAnswers,
-		queuedPrompts,
-	} = state;
-
-	// Subscribed until `run.exited` so trailing events for a run whose turn
-	// has already completed still match the filter.
-	const subscribedRunIdRef = useRef< string | null >( null );
+	const [ states, dispatch ] = useReducer( storeReducer, {} );
+	const statesRef = useRef< StatesBySession >( states );
+	const subscribedRunIdsBySessionRef = useRef< Map< string, string > >( new Map() );
 	const ignoredRunIdsRef = useRef< Set< string > >( new Set() );
-	const interruptRequestRef = useRef< Promise< void > | null >( null );
-	const interruptPendingStartRef = useRef( false );
-	// Re-entry guard for the queue auto-dispatch effect. The effect's deps
-	// re-fire on every queue/phase change; without this guard a second render
-	// between the async start-call and `send_start` could kick off a duplicate
-	// run for the same queued prompt.
-	const dispatchingQueuedRef = useRef( false );
+	const interruptRequestsBySessionRef = useRef< Map< string, Promise< void > > >( new Map() );
+	const interruptPendingStartSessionIdsRef = useRef< Set< string > >( new Set() );
 
 	useEffect( () => {
-		dispatch( { type: 'reset' } );
-		subscribedRunIdRef.current = null;
-		ignoredRunIdsRef.current = new Set();
-		interruptRequestRef.current = null;
-		interruptPendingStartRef.current = false;
-	}, [ sessionId ] );
+		statesRef.current = states;
+	}, [ states ] );
+
+	const dispatchSession = useCallback( ( sessionId: string, action: Action ) => {
+		dispatch( { sessionId, action } );
+	}, [] );
 
 	const updateCache = useCallback(
-		( updater: ( entries: SessionEntry[] ) => SessionEntry[] ) => {
-			if ( ! sessionId ) {
-				return;
-			}
+		( sessionId: string, updater: ( entries: SessionEntry[] ) => SessionEntry[] ) => {
 			queryClient.setQueryData< LoadedAiSession >(
 				[ ...SESSIONS_QUERY_KEY, sessionId ],
 				( prev ) => {
@@ -228,45 +256,78 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 				}
 			);
 		},
-		[ queryClient, sessionId ]
+		[ queryClient ]
 	);
 
 	useEffect( () => {
-		if ( ! sessionId ) {
-			return;
-		}
-		const unsubscribe = connector.onAgentEvent( ( payload: AgentRunEvent ) => {
-			if ( payload.sessionId !== sessionId ) {
-				return;
-			}
+		let cancelled = false;
+
+		void connector
+			.getActiveAgentRuns()
+			.then( ( runs ) => {
+				if ( cancelled ) {
+					return;
+				}
+				for ( const run of runs ) {
+					subscribedRunIdsBySessionRef.current.set( run.sessionId, run.runId );
+					dispatchSession( run.sessionId, {
+						type: 'hydrate_active_run',
+						runId: run.runId,
+						startedAt: run.startedAt,
+						interrupting: run.phase === 'interrupting',
+					} );
+				}
+			} )
+			.catch( () => {
+				// A failed snapshot should not break normal live event handling.
+			} );
+
+		return () => {
+			cancelled = true;
+		};
+	}, [ connector, dispatchSession ] );
+
+	useEffect( () => {
+		return connector.onAgentEvent( ( payload: AgentRunEvent ) => {
 			if ( ignoredRunIdsRef.current.has( payload.runId ) ) {
 				if ( payload.event.type === 'run.exited' || payload.event.type === 'run.interrupted' ) {
 					ignoredRunIdsRef.current.delete( payload.runId );
 				}
 				return;
 			}
-			if ( subscribedRunIdRef.current && payload.runId !== subscribedRunIdRef.current ) {
+
+			const subscribedRunId = subscribedRunIdsBySessionRef.current.get( payload.sessionId );
+			if ( subscribedRunId && payload.runId !== subscribedRunId ) {
 				return;
 			}
 
 			const event: AgentEvent = payload.event;
 
 			switch ( event.type ) {
+				case 'run.started':
+					subscribedRunIdsBySessionRef.current.set( payload.sessionId, payload.runId );
+					dispatchSession( payload.sessionId, {
+						type: 'hydrate_active_run',
+						runId: payload.runId,
+						startedAt: getTimestampMs( event.timestamp ),
+						interrupting: false,
+					} );
+					return;
 				case 'error':
-					dispatch( { type: 'error_set', message: event.message } );
+					dispatchSession( payload.sessionId, { type: 'error_set', message: event.message } );
 					return;
 				case 'turn.completed':
-					dispatch( { type: 'turn_completed' } );
+					dispatchSession( payload.sessionId, { type: 'turn_completed' } );
 					return;
 				case 'run.interrupting':
-					dispatch( { type: 'interrupt_requested' } );
+					dispatchSession( payload.sessionId, { type: 'interrupt_requested' } );
 					return;
 				case 'run.exited':
 				case 'run.interrupted':
 					if ( event.type === 'run.interrupted' ) {
 						// Synthetic studio.turn_closed for immediate "Interrupted
 						// by you" rendering; the CLI also writes a real one.
-						updateCache( ( entries ) => [
+						updateCache( payload.sessionId, ( entries ) => [
 							...entries,
 							{
 								type: 'custom',
@@ -278,8 +339,8 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 							} as SessionEntry,
 						] );
 					}
-					dispatch( { type: 'run_ended' } );
-					subscribedRunIdRef.current = null;
+					dispatchSession( payload.sessionId, { type: 'run_ended' } );
+					subscribedRunIdsBySessionRef.current.delete( payload.sessionId );
 					// Refetch to replace optimistic entries with disk-backed ones.
 					void queryClient.invalidateQueries( {
 						queryKey: SESSIONS_QUERY_KEY,
@@ -292,7 +353,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 						inner.type === 'message_end' &&
 						( inner.message as { role?: string } ).role === 'assistant'
 					) {
-						updateCache( ( entries ) => [
+						updateCache( payload.sessionId, ( entries ) => [
 							...entries,
 							{
 								type: 'message',
@@ -305,7 +366,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 					} else if ( inner.type === 'turn_end' ) {
 						const toolResults = inner.toolResults;
 						if ( Array.isArray( toolResults ) && toolResults.length > 0 ) {
-							updateCache( ( entries ) => [
+							updateCache( payload.sessionId, ( entries ) => [
 								...entries,
 								...toolResults.map(
 									( tr ) =>
@@ -323,7 +384,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 					return;
 				}
 				case 'progress':
-					updateCache( ( entries ) => [
+					updateCache( payload.sessionId, ( entries ) => [
 						...entries,
 						{
 							type: 'custom',
@@ -336,7 +397,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 					] );
 					return;
 				case 'chat.artifact':
-					updateCache( ( entries ) => [
+					updateCache( payload.sessionId, ( entries ) => [
 						...entries,
 						{
 							type: 'custom',
@@ -350,7 +411,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 					return;
 				case 'question.asked':
 					if ( event.questions.length === 0 ) return;
-					updateCache( ( entries ) => [
+					updateCache( payload.sessionId, ( entries ) => [
 						...entries,
 						...event.questions.map(
 							( q ) =>
@@ -364,23 +425,19 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 								} ) as SessionEntry
 						),
 					] );
-					dispatch( { type: 'questions_added', questions: event.questions } );
+					dispatchSession( payload.sessionId, {
+						type: 'questions_added',
+						questions: event.questions,
+					} );
 					return;
 			}
 		} );
-		return unsubscribe;
-	}, [ connector, queryClient, sessionId, updateCache ] );
+	}, [ connector, dispatchSession, queryClient, updateCache ] );
 
-	// Core "start a new turn" path. Shared by direct sends (`sendMessage` when
-	// idle) and the queue auto-dispatch effect. Throws on error so the direct
-	// caller can restore the composer draft; the queue path catches and clears.
 	const startRun = useCallback(
-		async ( prompt: string, options: SendMessageOptions = {} ) => {
-			if ( ! sessionId ) {
-				throw new Error( 'No session selected' );
-			}
+		async ( sessionId: string, prompt: string, options: SendMessageOptions = {} ) => {
 			const displayMessage = options.displayMessage ?? prompt;
-			dispatch( { type: 'error_set', message: null } );
+			dispatchSession( sessionId, { type: 'error_set', message: null } );
 
 			const optimisticEntry: SessionEntry = {
 				type: 'custom',
@@ -390,46 +447,156 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 				customType: 'studio.user_prompt',
 				data: { text: displayMessage, source: 'prompt' },
 			} as SessionEntry;
-			updateCache( ( entries ) => [ ...entries, optimisticEntry ] );
-			dispatch( { type: 'send_pending', startedAt: Date.now() } );
+			updateCache( sessionId, ( entries ) => [ ...entries, optimisticEntry ] );
+			dispatchSession( sessionId, { type: 'send_pending', startedAt: Date.now() } );
 
 			try {
-				await interruptRequestRef.current;
+				await interruptRequestsBySessionRef.current.get( sessionId );
 				const { runId: newRunId } = await connector.continueSession( sessionId, prompt, {
 					displayMessage,
 				} );
-				if ( interruptPendingStartRef.current ) {
-					interruptPendingStartRef.current = false;
+				if ( interruptPendingStartSessionIdsRef.current.has( sessionId ) ) {
+					interruptPendingStartSessionIdsRef.current.delete( sessionId );
 					ignoredRunIdsRef.current.add( newRunId );
 					const interruptRequest = connector.interruptAgentRun( newRunId ).finally( () => {
-						if ( interruptRequestRef.current === interruptRequest ) {
-							interruptRequestRef.current = null;
+						if ( interruptRequestsBySessionRef.current.get( sessionId ) === interruptRequest ) {
+							interruptRequestsBySessionRef.current.delete( sessionId );
 						}
 					} );
-					interruptRequestRef.current = interruptRequest;
+					interruptRequestsBySessionRef.current.set( sessionId, interruptRequest );
 					return;
 				}
-				dispatch( { type: 'send_start', runId: newRunId, startedAt: Date.now() } );
-				subscribedRunIdRef.current = newRunId;
+				dispatchSession( sessionId, {
+					type: 'send_start',
+					runId: newRunId,
+					startedAt: Date.now(),
+				} );
+				subscribedRunIdsBySessionRef.current.set( sessionId, newRunId );
 			} catch ( err ) {
-				updateCache( ( entries ) => {
+				updateCache( sessionId, ( entries ) => {
 					const idx = entries.lastIndexOf( optimisticEntry );
 					if ( idx === -1 ) return entries;
 					return [ ...entries.slice( 0, idx ), ...entries.slice( idx + 1 ) ];
 				} );
 				const message = err instanceof Error ? err.message : String( err );
-				dispatch( { type: 'error_set', message } );
+				dispatchSession( sessionId, { type: 'error_set', message } );
 				throw err;
 			}
 		},
-		[ connector, sessionId, updateCache ]
+		[ connector, dispatchSession, updateCache ]
 	);
+
+	const interrupt = useCallback(
+		async ( sessionId: string ) => {
+			const state = statesRef.current[ sessionId ] ?? initialState;
+			if ( state.phase === 'idle' ) {
+				return;
+			}
+			const interruptedRunId = state.runId;
+			if ( interruptedRunId ) {
+				ignoredRunIdsRef.current.add( interruptedRunId );
+			} else {
+				interruptPendingStartSessionIdsRef.current.add( sessionId );
+			}
+			subscribedRunIdsBySessionRef.current.delete( sessionId );
+			updateCache( sessionId, ( entries ) => [
+				...entries,
+				{
+					type: 'custom',
+					id: shortEntryId(),
+					parentId: null,
+					timestamp: nowIso(),
+					customType: 'studio.turn_closed',
+					data: { status: 'interrupted' },
+				} as SessionEntry,
+			] );
+			// Optimistic feedback: the main-process `run.interrupting` event will
+			// also set this, but flipping state on the click keeps the button
+			// from lingering in its active style while the IPC is in flight.
+			dispatchSession( sessionId, { type: 'interrupt_requested' } );
+			if ( ! interruptedRunId ) {
+				return;
+			}
+			const interruptRequest = connector.interruptAgentRun( interruptedRunId ).finally( () => {
+				if ( interruptRequestsBySessionRef.current.get( sessionId ) === interruptRequest ) {
+					interruptRequestsBySessionRef.current.delete( sessionId );
+				}
+			} );
+			interruptRequestsBySessionRef.current.set( sessionId, interruptRequest );
+			await interruptRequest;
+		},
+		[ connector, dispatchSession, updateCache ]
+	);
+
+	const answerQuestion = useCallback(
+		( sessionId: string, question: string, answer: string ) => {
+			const state = statesRef.current[ sessionId ] ?? initialState;
+			if ( ! state.runId ) {
+				return;
+			}
+			const nextAnswers = { ...state.pendingAnswers, [ question ]: answer };
+			const complete = state.pendingQuestions.every(
+				( q ) => typeof nextAnswers[ q.question ] === 'string'
+			);
+			if ( complete ) {
+				dispatchSession( sessionId, { type: 'batch_dispatched' } );
+				void connector.answerAgentQuestion( state.runId, nextAnswers );
+			} else {
+				dispatchSession( sessionId, { type: 'question_answered', question, answer } );
+			}
+		},
+		[ connector, dispatchSession ]
+	);
+
+	const value = useMemo< AgentRunStore >(
+		() => ( {
+			states,
+			dispatchSession,
+			startRun,
+			interrupt,
+			answerQuestion,
+		} ),
+		[ answerQuestion, dispatchSession, interrupt, startRun, states ]
+	);
+
+	return <AgentRunContext.Provider value={ value }>{ children }</AgentRunContext.Provider>;
+}
+
+export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
+	const store = useContext( AgentRunContext );
+	if ( ! store ) {
+		throw new Error( 'useAgentRun must be used within AgentRunProvider' );
+	}
+
+	const {
+		states,
+		dispatchSession,
+		startRun,
+		interrupt: interruptRun,
+		answerQuestion: answerRunQuestion,
+	} = store;
+	const state = sessionId ? states[ sessionId ] ?? initialState : initialState;
+	const {
+		phase,
+		startedAt,
+		error,
+		isInterrupting,
+		pendingQuestions,
+		pendingAnswers,
+		queuedPrompts,
+	} = state;
+
+	// Re-entry guard for the queue auto-dispatch effect. The effect's deps
+	// re-fire on every queue/phase change; without this guard a second render
+	// between the async start-call and `send_start` could kick off a duplicate
+	// run for the same queued prompt.
+	const dispatchingQueuedRef = useRef( false );
 
 	// Auto-dispatch the head of the queue once the previous run ends. On
 	// success, shift; on failure, drop the whole queue so a broken backend
 	// doesn't cascade errors.
 	useEffect( () => {
-		if ( phase !== 'idle' || queuedPrompts.length === 0 ) {
+		if ( ! sessionId || phase !== 'idle' || queuedPrompts.length === 0 ) {
 			return;
 		}
 		if ( dispatchingQueuedRef.current ) {
@@ -439,96 +606,62 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		dispatchingQueuedRef.current = true;
 		void ( async () => {
 			try {
-				await startRun( next.prompt, { displayMessage: next.displayMessage } );
-				dispatch( { type: 'queue_shift' } );
+				await startRun( sessionId, next.prompt, { displayMessage: next.displayMessage } );
+				dispatchSession( sessionId, { type: 'queue_shift' } );
 			} catch {
-				dispatch( { type: 'queue_clear' } );
+				dispatchSession( sessionId, { type: 'queue_clear' } );
 			} finally {
 				dispatchingQueuedRef.current = false;
 			}
 		} )();
-	}, [ phase, queuedPrompts, startRun ] );
+	}, [ dispatchSession, phase, queuedPrompts, sessionId, startRun ] );
 
 	const sendMessage = useCallback(
 		async ( prompt: string, options: SendMessageOptions = {} ) => {
+			if ( ! sessionId ) {
+				throw new Error( 'No session selected' );
+			}
 			// Queue if anything is in flight, if we're waiting on question
 			// answers, or if earlier queued prompts haven't been dispatched yet
 			// (preserves FIFO order).
 			if ( phase !== 'idle' || pendingQuestions.length > 0 || queuedPrompts.length > 0 ) {
-				dispatch( {
+				dispatchSession( sessionId, {
 					type: 'queue_append',
 					prompt: { id: newId(), prompt, displayMessage: options.displayMessage },
 				} );
 				return;
 			}
-			await startRun( prompt, options );
+			await startRun( sessionId, prompt, options );
 		},
-		[ phase, pendingQuestions.length, queuedPrompts.length, startRun ]
+		[ dispatchSession, phase, pendingQuestions.length, queuedPrompts.length, sessionId, startRun ]
 	);
 
 	const interrupt = useCallback( async () => {
-		if ( phase === 'idle' ) {
+		if ( ! sessionId ) {
 			return;
 		}
-		const interruptedRunId = runId;
-		if ( interruptedRunId ) {
-			ignoredRunIdsRef.current.add( interruptedRunId );
-		} else {
-			interruptPendingStartRef.current = true;
-		}
-		subscribedRunIdRef.current = null;
-		updateCache( ( entries ) => [
-			...entries,
-			{
-				type: 'custom',
-				id: shortEntryId(),
-				parentId: null,
-				timestamp: nowIso(),
-				customType: 'studio.turn_closed',
-				data: { status: 'interrupted' },
-			} as SessionEntry,
-		] );
-		// Optimistic feedback: the main-process `run.interrupting` event will
-		// also set this, but flipping state on the click keeps the button
-		// from lingering in its active style while the IPC is in flight.
-		dispatch( { type: 'interrupt_requested' } );
-		if ( ! interruptedRunId ) {
-			return;
-		}
-		const interruptRequest = connector.interruptAgentRun( interruptedRunId ).finally( () => {
-			if ( interruptRequestRef.current === interruptRequest ) {
-				interruptRequestRef.current = null;
-			}
-		} );
-		interruptRequestRef.current = interruptRequest;
-		await interruptRequest;
-	}, [ connector, phase, runId, updateCache ] );
+		await interruptRun( sessionId );
+	}, [ interruptRun, sessionId ] );
 
-	// Dispatch the batch once every question has an answer. Done inline here
-	// (rather than via a useEffect watching `pendingAnswers`) because the
-	// "all-answered → send" decision is a direct consequence of this click.
 	const answerQuestion = useCallback(
 		( question: string, answer: string ) => {
-			if ( ! runId ) {
+			if ( ! sessionId ) {
 				return;
 			}
-			const nextAnswers = { ...pendingAnswers, [ question ]: answer };
-			const complete = pendingQuestions.every(
-				( q ) => typeof nextAnswers[ q.question ] === 'string'
-			);
-			if ( complete ) {
-				dispatch( { type: 'batch_dispatched' } );
-				void connector.answerAgentQuestion( runId, nextAnswers );
-			} else {
-				dispatch( { type: 'question_answered', question, answer } );
-			}
+			answerRunQuestion( sessionId, question, answer );
 		},
-		[ connector, runId, pendingAnswers, pendingQuestions ]
+		[ answerRunQuestion, sessionId ]
 	);
 
-	const removeQueuedPrompt = useCallback( ( id: string ) => {
-		dispatch( { type: 'queue_remove', id } );
-	}, [] );
+	const removeQueuedPrompt = useCallback(
+		( id: string ) => {
+			if ( ! sessionId ) {
+				return;
+			}
+			dispatchSession( sessionId, { type: 'queue_remove', id } );
+		},
+		[ dispatchSession, sessionId ]
+	);
 
 	return {
 		isRunning: phase === 'starting' || phase === 'running',

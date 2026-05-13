@@ -285,10 +285,6 @@ async function pollLinuxUpdates() {
 }
 
 function rescheduleLinuxOrFinish() {
-	if ( timeout ) {
-		clearTimeout( timeout );
-		timeout = null;
-	}
 	if ( ! shouldPoll ) {
 		updaterState = 'done';
 		return;

@@ -1,14 +1,17 @@
-export { ActionButton } from './action-button';
-export { ControlButton, IconControlButton } from './control-button';
+export { Button } from './button';
+export {
+	Dialog,
+	DialogCloseButton,
+	DialogContent,
+	DialogError,
+	DialogFooter,
+	DialogHeader,
+	DialogRow,
+	DialogTip,
+	DialogTitle,
+	dialogInputClassName,
+} from './dialog';
 export { LoadingPlaceholder } from './loading-placeholder';
 export { List, ListItem } from './list';
-export {
-	PromptDialog,
-	PromptDialogError,
-	PromptDialogRow,
-	PromptDialogSubmit,
-	PromptDialogTip,
-	promptDialogInputClassName,
-} from './prompt-dialog';
 export { Divider, Surface } from './surface';
 export * as Menu from './menu';

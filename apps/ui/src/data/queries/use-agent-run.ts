@@ -335,6 +335,19 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 						} as SessionEntry,
 					] );
 					return;
+				case 'chat.artifact':
+					updateCache( ( entries ) => [
+						...entries,
+						{
+							type: 'custom',
+							id: shortEntryId(),
+							parentId: null,
+							timestamp: event.timestamp,
+							customType: 'studio.chat_artifact',
+							data: event.artifact,
+						} as SessionEntry,
+					] );
+					return;
 				case 'question.asked':
 					if ( event.questions.length === 0 ) return;
 					updateCache( ( entries ) => [

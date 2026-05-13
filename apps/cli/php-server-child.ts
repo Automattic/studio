@@ -29,6 +29,8 @@ import {
 	getPhpBinaryPath,
 	getWpCliPharPath,
 } from './lib/dependency-management/paths';
+import { getDefaultPhpArgs } from './lib/native-php';
+import { SymlinkWatcher, collectSymlinkAllowlistEntries } from './lib/symlinks';
 
 const ROUTER_PATH = path.resolve( import.meta.dirname, 'php', 'router.php' );
 const SET_DEFAULT_PERMALINKS_PATH = path.resolve(
@@ -48,6 +50,17 @@ let startupAbortController: AbortController | null = null;
 let startingPromise: Promise< void > | null = null;
 let blueprintQueue: Promise< unknown > = Promise.resolve();
 
+// Symlink-aware open_basedir state. PHP's open_basedir cannot be extended at
+// runtime, so when a new symlink appears under the site directory we have to
+// restart the PHP server with an updated allowlist.
+const currentOpenBasedirAllowlist: Set< string > = new Set();
+let symlinkWatcher: SymlinkWatcher | null = null;
+let symlinkRestartTimer: NodeJS.Timeout | null = null;
+let runningConfig: ServerConfig | null = null;
+
+const SYMLINK_RESTART_DEBOUNCE_MS = 750;
+const STOP_SERVER_TIMEOUT = 5000;
+
 function logToConsole( ...args: Parameters< typeof console.log > ) {
 	console.log( `[PHP Server]`, ...args );
 }
@@ -57,164 +70,47 @@ function errorToConsole( ...args: Parameters< typeof console.error > ) {
 }
 
 type SpawnPhpProcessOptions = {
-	phpVersion: NativePhpSupportedVersion;
-	cwd?: string;
-	signal?: AbortSignal;
+	disallowRiskyFunctions?: boolean;
 	mode?: 'pipe' | 'capture-stdout';
 	enableXdebug?: boolean;
+	onlyPathsThatPhpCanAccess?: string[];
+	phpVersion: NativePhpSupportedVersion;
+	siteFolder?: string;
+	signal?: AbortSignal;
 };
-
-// Extensions to enable on Windows via `-d extension=<name>`. Computed as the
-// intersection of two sets:
-//   1. php_*.dll files that ship as separate DLLs in windows.php.net's
-//      prebuilt zip (plus the PECL DLLs the workflow overlays: apcu, igbinary,
-//      redis, ssh2, yaml). Everything else from the macOS list is baked into
-//      php.exe itself (bcmath, calendar, ctype, dom, filter, iconv, mbregex,
-//      mysqlnd, pdo, phar, session, simplexml, tokenizer, xml*, zlib) and
-//      would emit "Module already loaded" warnings if we tried to enable it
-//      with `extension=`.
-//   2. The curated macOS extension list in .github/workflows/build-php-cli-binaries.yml.
-//      windows.php.net also ships bz2, com_dotnet, enchant, ffi, gmp, ldap,
-//      odbc, pdo_firebird, pdo_odbc, pdo_pgsql, pgsql, snmp, soap, sysvshm,
-//      and tidy, but Studio doesn't ship those on macOS, so we don't enable
-//      them on Windows either to keep behavior symmetric.
-// opcache and xdebug are Zend extensions and loaded separately via
-// `zend_extension=` (the latter only when config.enableXdebug is true). On
-// macOS every extension is baked into the `php` binary by static-php-cli, so
-// this list is irrelevant there.
-const WINDOWS_PHP_EXTENSIONS = [
-	'apcu',
-	'curl',
-	'dba',
-	'exif',
-	'fileinfo',
-	'ftp',
-	'gd',
-	'gettext',
-	'igbinary',
-	'intl',
-	'mbstring',
-	'mysqli',
-	'openssl',
-	'pdo_mysql',
-	'pdo_sqlite',
-	'redis',
-	'shmop',
-	'sockets',
-	'sodium',
-	'sqlite3',
-	'ssh2',
-	'xsl',
-	'yaml',
-	'zip',
-] as const;
-
-// Process-scoped opcache dir, created lazily and removed when the process exits
-let opcacheRootDir: string | null = null;
-
-function getOpcacheRootDir(): string {
-	if ( opcacheRootDir ) {
-		return opcacheRootDir;
-	}
-
-	// Resolve to the long-form path on Windows. `os.tmpdir()` can return an 8.3
-	// short name (e.g. C:\Users\BUILDK~1\AppData\…) when the user has a long
-	// username, and PHP's INI scanner treats `~` as a special token, breaking
-	// `-d opcache.file_cache=<path>` parsing.
-	const tmpRoot =
-		process.platform === 'win32' ? fs.realpathSync.native( os.tmpdir() ) : os.tmpdir();
-	opcacheRootDir = fs.mkdtempSync( path.join( tmpRoot, 'studio-opcache-' ) );
-	const dirToClean = opcacheRootDir;
-	process.once( 'exit', () => {
-		try {
-			fs.rmSync( dirToClean, { recursive: true, force: true } );
-		} catch {
-			// Best effort. The OS will reap tmp eventually.
-		}
-	} );
-	return opcacheRootDir;
-}
-
-function getExtensionDir( phpVersion: NativePhpSupportedVersion ): string {
-	return path.join( path.dirname( getPhpBinaryPath( phpVersion ) ), 'ext' );
-}
-
-function getXdebugFilename(): string {
-	return process.platform === 'win32' ? 'php_xdebug.dll' : 'xdebug.so';
-}
-
-function getDefaultPhpArgs(
-	phpVersion: NativePhpSupportedVersion,
-	enableXdebug: boolean
-): string[] {
-	const args: string[] = [];
-	const extensionDir = getExtensionDir( phpVersion );
-
-	if ( process.platform === 'win32' ) {
-		// Partition the file_cache by PHP version: opcache's on-disk script blob
-		// format isn't stable across minor versions, and reusing a cache populated
-		// by a different PHP can crash the server at startup on Windows.
-		const cacheId = `php${ phpVersion }`;
-		const cacheDirectory = path.join( getOpcacheRootDir(), cacheId );
-		fs.mkdirSync( cacheDirectory, { recursive: true } );
-
-		args.push(
-			'-d',
-			`opcache.file_cache="${ cacheDirectory }"`,
-			'-d',
-			'opcache.file_cache_fallback=1',
-			'-d',
-			`opcache.cache_id="studio-${ cacheId }"`
-		);
-
-		// Load every bundled DLL from the artifact's ext/ directory.
-		// windows.php.net's prebuilt php.exe doesn't auto-load extensions;
-		// each one needs an explicit `extension=` (or `zend_extension=` for
-		// opcache) directive.
-		args.push( '-d', `extension_dir="${ extensionDir }"` );
-		args.push( '-d', `zend_extension=opcache` );
-		for ( const extension of WINDOWS_PHP_EXTENSIONS ) {
-			args.push( '-d', `extension=${ extension }` );
-		}
-	}
-
-	if ( enableXdebug ) {
-		// On macOS the `php` binary has every other extension baked in and ext/
-		// contains only xdebug.so; on Windows extension_dir is already set
-		// above. Either way the Zend extension path is ext/<filename>.
-		if ( process.platform !== 'win32' ) {
-			args.push( '-d', `extension_dir="${ extensionDir }"` );
-		}
-		args.push(
-			'-d',
-			`zend_extension="${ path.join( extensionDir, getXdebugFilename() ) }"`,
-			'-d',
-			'xdebug.mode=debug'
-		);
-	}
-
-	return args;
-}
 
 function spawnPhpProcess(
 	args: string[],
-	{ phpVersion, cwd, signal, mode = 'pipe', enableXdebug = false }: SpawnPhpProcessOptions
+	{
+		phpVersion,
+		siteFolder,
+		signal,
+		mode = 'pipe',
+		enableXdebug = false,
+		onlyPathsThatPhpCanAccess = [],
+		disallowRiskyFunctions = false,
+	}: SpawnPhpProcessOptions
 ): ChildProcess {
-	const defaultArgs = getDefaultPhpArgs( phpVersion, enableXdebug );
+	const defaultArgs = getDefaultPhpArgs(
+		phpVersion,
+		onlyPathsThatPhpCanAccess,
+		disallowRiskyFunctions,
+		enableXdebug
+	);
 	const phpArgs = [ ...defaultArgs, ...args ];
 	const phpScriptProcess = spawn( getPhpBinaryPath( phpVersion ), phpArgs, {
-		cwd,
+		cwd: siteFolder,
 		stdio: [ 'ignore', 'pipe', 'pipe' ],
 		signal,
 	} );
 
 	if ( mode === 'pipe' ) {
-		phpScriptProcess.stdout?.pipe( process.stdout );
+		phpScriptProcess.stdout?.pipe( process.stdout, { end: false } );
 	}
 
 	// Keep stderr visible in all modes for easier debugging.
 	if ( mode === 'pipe' || mode === 'capture-stdout' ) {
-		phpScriptProcess.stderr?.pipe( process.stderr );
+		phpScriptProcess.stderr?.pipe( process.stderr, { end: false } );
 	}
 
 	return phpScriptProcess;
@@ -224,21 +120,16 @@ type RunPhpCommandOptions = SpawnPhpProcessOptions;
 
 async function runPhpCommand(
 	args: string[],
-	{ phpVersion, cwd, signal, mode = 'pipe' }: RunPhpCommandOptions
+	options: RunPhpCommandOptions
 ): Promise< { stdout: string } > {
 	return await new Promise< { stdout: string } >( ( resolve, reject ) => {
-		const phpScriptProcess = spawnPhpProcess( args, {
-			phpVersion,
-			cwd,
-			signal,
-			mode,
-		} );
+		const phpScriptProcess = spawnPhpProcess( args, options );
 
 		let stdout = '';
 		const reportActivity = () => process.send?.( { topic: 'activity' } );
 		phpScriptProcess.stdout?.on( 'data', ( chunk ) => {
 			reportActivity();
-			if ( mode === 'capture-stdout' ) {
+			if ( options.mode === 'capture-stdout' ) {
 				stdout += chunk.toString();
 			}
 		} );
@@ -333,7 +224,7 @@ echo is_blog_installed() ? '1' : '0';
 	try {
 		const result = await runPhpCommand( [ '-r', installationCheckScript ], {
 			phpVersion,
-			cwd: siteFolder,
+			siteFolder,
 			signal,
 			mode: 'capture-stdout',
 		} );
@@ -350,18 +241,18 @@ echo is_blog_installed() ? '1' : '0';
 	return status === '1';
 }
 
-async function waitForServerReady( url: string, signal: AbortSignal ): Promise< void > {
+async function waitForServerReady( url: string, signal?: AbortSignal ): Promise< void > {
 	const pollIntervalMs = 50;
 	const timeoutMs = 30_000;
 	const deadline = Date.now() + timeoutMs;
 
 	while ( true ) {
-		signal.throwIfAborted();
+		signal?.throwIfAborted();
 		try {
 			await fetch( url, { signal } );
 			return;
 		} catch {
-			signal.throwIfAborted();
+			signal?.throwIfAborted();
 			if ( Date.now() > deadline ) {
 				throw new Error( `PHP server did not start within ${ timeoutMs }ms` );
 			}
@@ -377,7 +268,7 @@ async function installWordPress(
 ): Promise< void > {
 	const alreadyInstalled = await isWordPressInstalled( config.sitePath, phpVersion, signal );
 	if ( alreadyInstalled ) {
-		logToConsole( `WordPress already installed for site ${ config.siteId }; skipping installer` );
+		logToConsole( `WordPress already installed; skipping installer` );
 		return;
 	}
 
@@ -424,7 +315,7 @@ async function installWordPress(
 	try {
 		await runPhpCommand( [ SET_DEFAULT_PERMALINKS_PATH ], {
 			phpVersion,
-			cwd: config.sitePath,
+			siteFolder: config.sitePath,
 			signal,
 		} );
 	} catch ( error ) {
@@ -436,22 +327,110 @@ async function installWordPress(
 	}
 }
 
+// The symlink watcher is used to detect new symlinks in wp-content and its subdirectories. When a
+// new symlink is detected, it is added to the open_basedir allow list and the server is restarted.
+function startSymlinkWatcher( sitePath: string ): void {
+	if ( symlinkWatcher ) {
+		return;
+	}
+
+	const watcher = new SymlinkWatcher();
+	watcher.on( 'symlink', ( target, symlinkPath ) => {
+		if ( currentOpenBasedirAllowlist.has( target ) ) {
+			return;
+		}
+
+		logToConsole( `Detected new symlink at ${ symlinkPath } -> ${ target }` );
+		currentOpenBasedirAllowlist.add( target );
+		scheduleAllowlistRestart();
+	} );
+
+	watcher.on( 'error', ( error ) => {
+		errorToConsole( 'Symlink watcher error:', error );
+	} );
+
+	// Watch wp-content and its subdirectories for symlinks
+	watcher.start( path.join( sitePath, 'wp-content' ), 2 );
+	symlinkWatcher = watcher;
+}
+
+async function stopSymlinkWatcher(): Promise< void > {
+	if ( symlinkRestartTimer ) {
+		clearTimeout( symlinkRestartTimer );
+		symlinkRestartTimer = null;
+	}
+
+	const watcher = symlinkWatcher;
+	symlinkWatcher = null;
+	if ( watcher ) {
+		try {
+			await watcher.stop();
+		} catch ( error ) {
+			errorToConsole( 'Failed to close symlink watcher:', error );
+		}
+	}
+}
+
+function scheduleAllowlistRestart(): void {
+	if ( symlinkRestartTimer ) {
+		clearTimeout( symlinkRestartTimer );
+	}
+	symlinkRestartTimer = setTimeout( () => {
+		symlinkRestartTimer = null;
+		logToConsole( `open_basedir extended with new symlink target(s); restarting PHP server` );
+		void restartPhpServer();
+	}, SYMLINK_RESTART_DEBOUNCE_MS );
+}
+
+async function restartPhpServer(): Promise< void > {
+	if ( ! phpProcess || ! runningConfig ) {
+		return;
+	}
+
+	const oldChild = phpProcess;
+	phpProcess = null;
+
+	// Detach so the imminent SIGTERM is not reported as an unexpected crash.
+	oldChild.removeAllListeners( 'exit' );
+	oldChild.kill( 'SIGTERM' );
+	await new Promise< void >( ( resolve ) => {
+		const timeout = setTimeout( () => {
+			if ( ! oldChild.killed ) {
+				oldChild.kill( 'SIGKILL' );
+			}
+		}, STOP_SERVER_TIMEOUT );
+		oldChild.once( 'close', () => {
+			clearTimeout( timeout );
+			resolve();
+		} );
+	} );
+
+	try {
+		phpProcess = await doStartServer( runningConfig, currentOpenBasedirAllowlist );
+	} catch ( error ) {
+		errorToConsole( `Failed to restart PHP server:`, error );
+		process.exit( 1 );
+	}
+}
+
 async function startServer( config: ServerConfig, signal: AbortSignal ): Promise< void > {
 	if ( phpProcess ) {
-		logToConsole( `Server already running for site ${ config.siteId }` );
+		logToConsole( `Server already running` );
 		return;
 	}
 
 	const phpVersion = validateNativePhpVersion( config.phpVersion ?? '' );
 	startupAbortController = new AbortController();
 	const stopSignal = AbortSignal.any( [ signal, startupAbortController.signal ] );
-	let spawnedChild: ChildProcess | null = null;
 
 	try {
 		stopSignal.throwIfAborted();
 		await ensureWpConfig( config.sitePath, phpVersion, stopSignal, config );
 		stopSignal.throwIfAborted();
-		await writeStudioMuPluginsForNativePhpRuntime( config.sitePath, config.isWpAutoUpdating );
+		const muPluginsPath = await writeStudioMuPluginsForNativePhpRuntime(
+			config.sitePath,
+			config.isWpAutoUpdating
+		);
 		stopSignal.throwIfAborted();
 		await installWordPress( config, phpVersion, stopSignal );
 		stopSignal.throwIfAborted();
@@ -461,43 +440,24 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 			stopSignal.throwIfAborted();
 		}
 
-		const phpAddress = `localhost:${ config.port }`;
-		logToConsole( `Spawning PHP built-in server on ${ phpAddress } for site ${ config.siteId }` );
-
-		const serverChild = spawnPhpProcess( [ '-S', phpAddress, ROUTER_PATH ], {
-			phpVersion,
-			cwd: config.sitePath,
-			enableXdebug: config.enableXdebug,
-		} );
-		spawnedChild = serverChild;
-
-		await new Promise< void >( ( resolve, reject ) => {
-			serverChild.once( 'spawn', () => {
-				resolve();
-			} );
-			serverChild.once( 'error', ( error: Error ) => {
-				reject( error );
-			} );
-			stopSignal.addEventListener( 'abort', () => {
-				reject( new DOMException( 'Aborted', 'AbortError' ) );
-			} );
-		} );
-
-		serverChild.once( 'exit', ( code, signalName ) => {
-			errorToConsole(
-				`PHP child process exited unexpectedly (code: ${ code }, signal: ${ signalName })`
-			);
-			process.exit( code ?? 1 );
-		} );
-
+		// Snapshot existing symlink targets so open_basedir grants them upfront. New
+		// symlinks added while the server runs are picked up by startSymlinkWatcher
+		// below and trigger a debounced restart with an extended allowlist.
+		const symlinkAllowlistEntries = await collectSymlinkAllowlistEntries( config.sitePath );
 		stopSignal.throwIfAborted();
-		await waitForServerReady( `http://localhost:${ config.port }/`, stopSignal );
 
-		phpProcess = serverChild;
+		currentOpenBasedirAllowlist.add( config.sitePath );
+		currentOpenBasedirAllowlist.add( ROUTER_PATH );
+		currentOpenBasedirAllowlist.add( muPluginsPath );
+		currentOpenBasedirAllowlist.add( os.tmpdir() );
+		symlinkAllowlistEntries.forEach( ( entry ) => currentOpenBasedirAllowlist.add( entry ) );
+
+		runningConfig = config;
+
+		phpProcess = await doStartServer( config, currentOpenBasedirAllowlist, stopSignal );
 	} catch ( error ) {
-		if ( spawnedChild && ! spawnedChild.killed ) {
-			spawnedChild.kill( 'SIGKILL' );
-		}
+		runningConfig = null;
+		currentOpenBasedirAllowlist.clear();
 
 		if ( stopSignal.aborted ) {
 			logToConsole( `Aborted start server operation:`, error );
@@ -511,7 +471,66 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 	}
 }
 
-const STOP_SERVER_TIMEOUT = 5000;
+async function doStartServer(
+	config: ServerConfig,
+	openBasedirAllowlist: Set< string >,
+	stopSignal?: AbortSignal
+): Promise< ChildProcess > {
+	const phpAddress = `localhost:${ config.port }`;
+	const phpVersion = validateNativePhpVersion( config.phpVersion ?? '' );
+	let spawnedChild: ChildProcess | null = null;
+
+	logToConsole(
+		`Spawning PHP built-in server on ${ phpAddress } with PHP version ${ phpVersion }`
+	);
+
+	try {
+		const serverChild = spawnPhpProcess( [ '-S', phpAddress, ROUTER_PATH ], {
+			phpVersion,
+			siteFolder: config.sitePath,
+			onlyPathsThatPhpCanAccess: Array.from( openBasedirAllowlist ),
+			disallowRiskyFunctions: true,
+			enableXdebug: config.enableXdebug,
+		} );
+		spawnedChild = serverChild;
+
+		await new Promise< void >( ( resolve, reject ) => {
+			serverChild.once( 'spawn', () => {
+				resolve();
+			} );
+			serverChild.once( 'error', ( error: Error ) => {
+				reject( error );
+			} );
+			stopSignal?.addEventListener( 'abort', () => {
+				reject( new DOMException( 'Aborted', 'AbortError' ) );
+			} );
+		} );
+
+		serverChild.once( 'exit', ( code, signalName ) => {
+			errorToConsole(
+				`PHP child process exited unexpectedly (code: ${ code }, signal: ${ signalName })`
+			);
+			process.exit( code ?? 1 );
+		} );
+
+		stopSignal?.throwIfAborted();
+		await waitForServerReady( `http://localhost:${ config.port }/`, stopSignal );
+
+		// Watch for symlinks created after startup. open_basedir cannot be extended
+		// at runtime, so the watcher triggers a debounced restart with an updated
+		// allowlist when a new symlink target is discovered.
+		startSymlinkWatcher( config.sitePath );
+
+		return spawnedChild;
+	} catch ( error ) {
+		if ( spawnedChild && ! spawnedChild.killed ) {
+			spawnedChild.kill( 'SIGKILL' );
+		}
+		await stopSymlinkWatcher();
+
+		throw error;
+	}
+}
 
 enum StopServerResult {
 	ABORTED_STARTUP = 'ABORTED_STARTUP',
@@ -524,6 +543,10 @@ async function stopServer(): Promise< StopServerResult > {
 		startupAbortController.abort();
 		return StopServerResult.ABORTED_STARTUP;
 	}
+
+	await stopSymlinkWatcher();
+	runningConfig = null;
+	currentOpenBasedirAllowlist.clear();
 
 	if ( ! phpProcess ) {
 		logToConsole( 'No server running, nothing to stop' );

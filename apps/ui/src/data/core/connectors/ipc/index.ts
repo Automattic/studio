@@ -10,6 +10,7 @@ import type {
 	ExtractedBlueprintBundle,
 	FeaturedBlueprint,
 	InstalledApps,
+	LocalMediaFile,
 	LoadedAiSession,
 	ProposedSitePath,
 	SelectedSiteFolder,
@@ -335,6 +336,10 @@ export function createIpcConnector(): Connector {
 			// to leave room for non-Electron connectors that might resolve the
 			// path asynchronously.
 			return ( ipcApi.getPathForFile( file ) as string ) ?? '';
+		},
+
+		async readLocalMediaFile( path ): Promise< LocalMediaFile > {
+			return ( await ipcApi.readLocalMediaFile( path ) ) as LocalMediaFile;
 		},
 
 		async extractBlueprintBundle( zipFilePath ): Promise< ExtractedBlueprintBundle > {

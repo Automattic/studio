@@ -315,14 +315,50 @@ jobs:
           $xdebugPath = Join-Path $stagingDir 'ext\php_xdebug.dll'
           Invoke-WebRequest -Uri $xdebugUrl -OutFile $xdebugPath
 
-          function Add-PECLExtension {
-            param(
-              [Parameter(Mandatory)][string]$Name,
-              [Parameter(Mandatory)][string]$Version
-            )
+          # Find the newest PECL release of $Name that publishes a Windows build
+          # for the current PHP minor + VS toolchain. Pins like "apcu 5.1.24" go
+          # stale every time PHP releases a new minor, so resolve at build time
+          # by walking the directory listing on windows.php.net.
+          function Find-LatestPECLVersion {
+            param([Parameter(Mandatory)][string]$Name)
 
-            Write-Host "::group::Fetch PECL $Name $Version"
-            $url = "https://windows.php.net/downloads/pecl/releases/$Name/$Version/php_$Name-$Version-$env:PHP_MINOR-nts-$env:PHP_WINDOWS_VS_VERSION-x64.zip"
+            $indexUrl = "https://downloads.php.net/~windows/pecl/releases/$Name/"
+            $response = Invoke-WebRequest -Uri $indexUrl -UseBasicParsing -ErrorAction Stop
+
+            $versions = [regex]::Matches(
+              $response.Content,
+              'href="(\d+\.\d+\.\d+(?:[A-Za-z0-9.\-]*)?)/"'
+            ) | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique
+
+            if ( -not $versions ) {
+              throw "No versions listed at $indexUrl"
+            }
+
+            $sorted = $versions | Sort-Object -Descending {
+              $stable = ($_ -split '[A-Za-z\-]')[0]
+              try { [version]$stable } catch { [version]'0.0.0' }
+            }
+
+            foreach ($v in $sorted) {
+              $zipUrl = "https://downloads.php.net/~windows/pecl/releases/$Name/$v/php_$Name-$v-$env:PHP_MINOR-nts-$env:PHP_WINDOWS_VS_VERSION-x64.zip"
+              try {
+                Invoke-WebRequest -Uri $zipUrl -Method Head -UseBasicParsing -ErrorAction Stop | Out-Null
+                Write-Host "PECL $Name -> $v (matches PHP $env:PHP_MINOR / $env:PHP_WINDOWS_VS_VERSION)"
+                return $v
+              } catch {
+                # No build at this version for the current PHP minor / VS; try the next one
+              }
+            }
+
+            throw "No Windows PECL build of $Name found for PHP $env:PHP_MINOR / $env:PHP_WINDOWS_VS_VERSION"
+          }
+
+          function Add-PECLExtension {
+            param([Parameter(Mandatory)][string]$Name)
+
+            $version = Find-LatestPECLVersion -Name $Name
+            Write-Host "::group::Fetch PECL $Name $version"
+            $url = "https://downloads.php.net/~windows/pecl/releases/$Name/$version/php_$Name-$version-$env:PHP_MINOR-nts-$env:PHP_WINDOWS_VS_VERSION-x64.zip"
             $zipPath = Join-Path $workDir "pecl-$Name.zip"
             $extractDir = Join-Path $workDir "pecl-$Name"
 
@@ -332,7 +368,7 @@ jobs:
 
             $extDll = Get-ChildItem -Path $extractDir -Filter "php_$Name.dll" -Recurse | Select-Object -First 1
             if ( $null -eq $extDll ) {
-              throw "Expected php_$Name.dll in PECL package for $Name $Version"
+              throw "Expected php_$Name.dll in PECL package for $Name $version"
             }
             Copy-Item -Path $extDll.FullName -Destination (Join-Path $stagingDir "ext\php_$Name.dll") -Force
 
@@ -342,11 +378,11 @@ jobs:
             Write-Host "::endgroup::"
           }
 
-          Add-PECLExtension -Name apcu -Version 5.1.24
-          Add-PECLExtension -Name igbinary -Version 3.2.16
-          Add-PECLExtension -Name redis -Version 6.0.2
-          Add-PECLExtension -Name ssh2 -Version 1.4.1
-          Add-PECLExtension -Name yaml -Version 2.2.4
+          Add-PECLExtension -Name apcu
+          Add-PECLExtension -Name igbinary
+          Add-PECLExtension -Name redis
+          Add-PECLExtension -Name ssh2
+          Add-PECLExtension -Name yaml
 
           $runtimeJson = @{
             phpVersion = $env:PHP_VERSION

@@ -302,17 +302,21 @@ function rescheduleLinuxOrFinish() {
 async function showLinuxUpdateAvailableNotice( version: string, downloadUrl: string ) {
 	showManualCheckDialogs = false;
 	const mainWindow = await getMainWindow();
+
+	const command = `sudo apt install ./${ debFilenameFromUrl( downloadUrl ) }`;
+	const introLine = __(
+		'After downloading, quit Studio and run this command from a terminal to install:'
+	);
+	const doubleClickHint = __(
+		'On some distributions, double-clicking the downloaded file may also work.'
+	);
+
 	const { response } = await dialog.showMessageBox( mainWindow, {
 		type: 'info',
 		buttons: [ __( 'Download' ), __( 'Later' ) ],
 		title: __( 'New Version Available' ),
 		message: sprintf( __( 'Studio %s is available' ), version ),
-		detail: sprintf(
-			__(
-				'After downloading, quit Studio and run `sudo apt install ./%s` from a terminal to install. On some distributions, double-clicking the downloaded file may also work.'
-			),
-			debFilenameFromUrl( downloadUrl )
-		),
+		detail: `${ introLine }\n\n${ command }\n\n${ doubleClickHint }`,
 		defaultId: 0,
 		cancelId: 1,
 	} );

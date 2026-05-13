@@ -18,12 +18,6 @@ export const FEATURE_FLAGS: Record< keyof FeatureFlags, FeatureFlagDefinition > 
 		flag: 'enableStudioCodeUi',
 		default: false,
 	},
-	enableRemoteSessionUi: {
-		label: 'Enable Remote-Session UI',
-		env: 'ENABLE_REMOTE_SESSION_UI',
-		flag: 'enableRemoteSessionUi',
-		default: false,
-	},
 } as const;
 
 export function getFeatureFlagFromEnv( flag: keyof FeatureFlags ): boolean {

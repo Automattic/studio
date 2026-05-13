@@ -100,11 +100,11 @@ type IpcApi = {
 interface FeatureFlags {
 	enableBlueprints: boolean;
 	enableStudioCodeUi: boolean;
-	enableRemoteSessionUi: boolean;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-interface BetaFeatures {}
+interface BetaFeatures {
+	remoteSession: boolean;
+}
 
 interface AppGlobals extends FeatureFlags {
 	platform: NodeJS.Platform;

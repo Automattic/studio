@@ -2346,9 +2346,9 @@ export async function startRemoteSessionDaemon(
 	// `code remote-session` subcommand tree behind that env var (see
 	// `apps/cli/lib/feature-flags.ts`). Without it, the spawned child fails with
 	// "Unknown arguments: remote-session, start" before it can write its PID file,
-	// and the parent times out with DaemonStartTimeoutError. Studio's UI gate
-	// (`enableRemoteSessionUi`) is the user-facing opt-in, so we lift the CLI gate
-	// in the spawned child rather than asking users to also set the env var manually.
+	// and the parent times out with DaemonStartTimeoutError. The `remoteSession`
+	// beta feature is the user-facing opt-in, so we lift the CLI gate in the
+	// spawned child rather than asking users to also set the env var manually.
 	return startDaemon( {
 		execPath: getBundledNodeBinaryPath(),
 		cliEntry: getCliPath(),

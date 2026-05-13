@@ -2,18 +2,18 @@ import { Icon, mobile } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { Tooltip } from 'src/components/tooltip';
 import { useAuth } from 'src/hooks/use-auth';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
+import { useBetaFeatures } from 'src/hooks/use-beta-features';
 import { useRemoteSessionStatus } from 'src/hooks/use-remote-session-status';
 import { cx } from 'src/lib/cx';
 
 export function RemoteSessionIndicator() {
-	const { enableRemoteSessionUi } = useFeatureFlags();
+	const { remoteSession } = useBetaFeatures();
 	const { isAuthenticated } = useAuth();
 
-	// Gate before the hook that triggers IPC. Logged-out users (or users
-	// without the flag) see no chrome change at all — no disabled affordance,
-	// no tooltip, no IPC traffic.
-	if ( ! enableRemoteSessionUi || ! isAuthenticated ) {
+	// Gate before the hook that triggers IPC. Logged-out users (or users who
+	// haven't opted into the beta feature) see no chrome change at all — no
+	// disabled affordance, no tooltip, no IPC traffic.
+	if ( ! remoteSession || ! isAuthenticated ) {
 		return null;
 	}
 
@@ -28,7 +28,9 @@ function RemoteSessionIndicatorActive() {
 	// On copy mirrors the CLI's `/remote-session attach` success message so
 	// users on either surface see the same "what now?" instruction.
 	const tooltipText = isRunning
-		? __( 'Remote session is on. Message Dolly (@wordpress_com_bot) on Telegram to work with Studio.' )
+		? __(
+				'Remote session is on. Message Dolly (@wordpress_com_bot) on Telegram to work with Studio.'
+		  )
 		: __( 'Remote session is off' );
 	const ariaLabel = isRunning ? __( 'Stop remote session' ) : __( 'Start remote session' );
 

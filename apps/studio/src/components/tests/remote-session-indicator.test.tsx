@@ -3,33 +3,29 @@ import { userEvent } from '@testing-library/user-event';
 import { vi } from 'vitest';
 import { RemoteSessionIndicator } from 'src/components/remote-session-indicator';
 import { useAuth } from 'src/hooks/use-auth';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
+import { useBetaFeatures } from 'src/hooks/use-beta-features';
 import { useRemoteSessionStatus } from 'src/hooks/use-remote-session-status';
 import type { DaemonStatus } from 'cli/remote-session/daemon';
 
 vi.mock( 'src/hooks/use-auth' );
-vi.mock( 'src/hooks/use-feature-flags' );
+vi.mock( 'src/hooks/use-beta-features' );
 vi.mock( 'src/hooks/use-remote-session-status' );
 
 const mockStart = vi.fn();
 const mockStop = vi.fn();
 
 function setupHooks( {
-	enableRemoteSessionUi,
+	remoteSession,
 	isAuthenticated,
 	status,
 	isLoading = false,
 }: {
-	enableRemoteSessionUi: boolean;
+	remoteSession: boolean;
 	isAuthenticated: boolean;
 	status?: DaemonStatus;
 	isLoading?: boolean;
 } ) {
-	vi.mocked( useFeatureFlags ).mockReturnValue( {
-		enableBlueprints: true,
-		enableStudioCodeUi: false,
-		enableRemoteSessionUi,
-	} );
+	vi.mocked( useBetaFeatures ).mockReturnValue( { remoteSession } );
 	vi.mocked( useAuth, { partial: true } ).mockReturnValue( { isAuthenticated } );
 	vi.mocked( useRemoteSessionStatus ).mockReturnValue( {
 		status,
@@ -45,8 +41,8 @@ beforeEach( () => {
 } );
 
 describe( 'RemoteSessionIndicator', () => {
-	it( 'renders nothing when the feature flag is off (AE2)', () => {
-		setupHooks( { enableRemoteSessionUi: false, isAuthenticated: true } );
+	it( 'renders nothing when the beta feature is off (AE2)', () => {
+		setupHooks( { remoteSession: false, isAuthenticated: true } );
 
 		const { container } = render( <RemoteSessionIndicator /> );
 
@@ -55,7 +51,7 @@ describe( 'RemoteSessionIndicator', () => {
 
 	it( 'renders nothing when the user is logged out, even if the daemon is running (AE1)', () => {
 		setupHooks( {
-			enableRemoteSessionUi: true,
+			remoteSession: true,
 			isAuthenticated: false,
 			status: { running: true, pid: 42, pidFile: '/tmp/pid' },
 		} );
@@ -67,7 +63,7 @@ describe( 'RemoteSessionIndicator', () => {
 
 	it( 'shows the "off" tooltip when the daemon is not running', () => {
 		setupHooks( {
-			enableRemoteSessionUi: true,
+			remoteSession: true,
 			isAuthenticated: true,
 			status: { running: false, pidFile: '/tmp/pid' },
 		} );
@@ -79,7 +75,7 @@ describe( 'RemoteSessionIndicator', () => {
 
 	it( 'shows the "active" tooltip when the daemon is running', () => {
 		setupHooks( {
-			enableRemoteSessionUi: true,
+			remoteSession: true,
 			isAuthenticated: true,
 			status: { running: true, pid: 42, pidFile: '/tmp/pid' },
 		} );
@@ -92,7 +88,7 @@ describe( 'RemoteSessionIndicator', () => {
 	it( 'clicking when off invokes start() (AE3)', async () => {
 		const user = userEvent.setup();
 		setupHooks( {
-			enableRemoteSessionUi: true,
+			remoteSession: true,
 			isAuthenticated: true,
 			status: { running: false, pidFile: '/tmp/pid' },
 		} );
@@ -107,7 +103,7 @@ describe( 'RemoteSessionIndicator', () => {
 	it( 'clicking when running invokes stop()', async () => {
 		const user = userEvent.setup();
 		setupHooks( {
-			enableRemoteSessionUi: true,
+			remoteSession: true,
 			isAuthenticated: true,
 			status: { running: true, pid: 42, pidFile: '/tmp/pid' },
 		} );
@@ -128,7 +124,7 @@ describe( 'RemoteSessionIndicator', () => {
 		// flips its state; visual reconciliation comes from the next poll tick.
 		const user = userEvent.setup();
 		setupHooks( {
-			enableRemoteSessionUi: true,
+			remoteSession: true,
 			isAuthenticated: true,
 			status: { running: false, pidFile: '/tmp/pid' },
 		} );
@@ -144,7 +140,7 @@ describe( 'RemoteSessionIndicator', () => {
 	it( 'is disabled while a start/stop call is in flight (debounce)', async () => {
 		const user = userEvent.setup();
 		setupHooks( {
-			enableRemoteSessionUi: true,
+			remoteSession: true,
 			isAuthenticated: true,
 			status: { running: false, pidFile: '/tmp/pid' },
 			isLoading: true,

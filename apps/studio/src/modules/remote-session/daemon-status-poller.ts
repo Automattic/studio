@@ -1,12 +1,10 @@
 import { getDaemonStatus, type DaemonStatus } from 'cli/remote-session/daemon';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
-import { getFeatureFlagFromEnv } from 'src/lib/feature-flags';
 
 const DEFAULT_POLL_INTERVAL_MS = 5000;
 
 export interface RemoteSessionStatusPollerOptions {
 	intervalMs?: number;
-	isEnabled?: () => boolean;
 	readStatus?: () => DaemonStatus;
 	pushStatus?: ( status: DaemonStatus ) => void;
 }
@@ -24,6 +22,11 @@ export interface RemoteSessionStatusPollerOptions {
  * - Pushes to the renderer **only when `running` flips**. Identical states are
  *   silent — no renderer churn every 5s.
  *
+ * The poller always runs because reading the PID file is cheap and the daemon
+ * may already be running outside Studio (started from the CLI). The renderer
+ * gates display on the `remoteSession` beta feature, so users who haven't
+ * opted in never see the indicator even though status events still fire.
+ *
  * The returned stop function clears the interval. It deliberately does NOT
  * touch the daemon itself — R9 of the brainstorm requires the daemon's
  * lifecycle to be independent from Studio's.
@@ -31,11 +34,6 @@ export interface RemoteSessionStatusPollerOptions {
 export function startRemoteSessionStatusPolling(
 	options: RemoteSessionStatusPollerOptions = {}
 ): () => void {
-	const isEnabled = options.isEnabled ?? ( () => getFeatureFlagFromEnv( 'enableRemoteSessionUi' ) );
-	if ( ! isEnabled() ) {
-		return () => undefined;
-	}
-
 	const readStatus = options.readStatus ?? ( () => getDaemonStatus() );
 	const pushStatus =
 		options.pushStatus ??

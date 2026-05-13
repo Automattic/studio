@@ -19,28 +19,11 @@ afterEach( () => {
 } );
 
 describe( 'startRemoteSessionStatusPolling', () => {
-	it( 'is a no-op when the feature flag is off', () => {
-		const readStatus = vi.fn();
-		const pushStatus = vi.fn();
-
-		const stop = startRemoteSessionStatusPolling( {
-			isEnabled: () => false,
-			readStatus,
-			pushStatus,
-		} );
-
-		vi.advanceTimersByTime( 60_000 );
-		expect( readStatus ).not.toHaveBeenCalled();
-		expect( pushStatus ).not.toHaveBeenCalled();
-		stop();
-	} );
-
 	it( 'fires an initial synchronous tick before scheduling the interval', () => {
 		const readStatus = vi.fn().mockReturnValue( off() );
 		const pushStatus = vi.fn();
 
 		const stop = startRemoteSessionStatusPolling( {
-			isEnabled: () => true,
 			readStatus,
 			pushStatus,
 		} );
@@ -59,7 +42,6 @@ describe( 'startRemoteSessionStatusPolling', () => {
 
 		const stop = startRemoteSessionStatusPolling( {
 			intervalMs: 1000,
-			isEnabled: () => true,
 			readStatus,
 			pushStatus,
 		} );
@@ -79,7 +61,6 @@ describe( 'startRemoteSessionStatusPolling', () => {
 
 		const stop = startRemoteSessionStatusPolling( {
 			intervalMs: 1000,
-			isEnabled: () => true,
 			readStatus,
 			pushStatus,
 		} );
@@ -99,7 +80,6 @@ describe( 'startRemoteSessionStatusPolling', () => {
 
 		const stop = startRemoteSessionStatusPolling( {
 			intervalMs: 1000,
-			isEnabled: () => true,
 			readStatus,
 			pushStatus,
 		} );
@@ -124,7 +104,6 @@ describe( 'startRemoteSessionStatusPolling', () => {
 
 		const stop = startRemoteSessionStatusPolling( {
 			intervalMs: 1000,
-			isEnabled: () => true,
 			readStatus,
 			pushStatus,
 		} );
@@ -147,7 +126,6 @@ describe( 'startRemoteSessionStatusPolling', () => {
 
 		const stop = startRemoteSessionStatusPolling( {
 			intervalMs: 1000,
-			isEnabled: () => true,
 			readStatus,
 			pushStatus,
 		} );
@@ -178,7 +156,6 @@ describe( 'startRemoteSessionStatusPolling', () => {
 
 		const stop = startRemoteSessionStatusPolling( {
 			intervalMs: 1000,
-			isEnabled: () => true,
 			readStatus,
 			pushStatus,
 		} );

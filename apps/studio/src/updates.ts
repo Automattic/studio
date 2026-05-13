@@ -242,8 +242,6 @@ async function pollLinuxUpdates() {
 		const response = await fetch( url.toString() );
 
 		if ( response.status === 204 ) {
-			// No update available — endpoint serves 204 whether the client is current
-			// or no Linux build exists yet for this arch.
 			if ( showManualCheckDialogs ) {
 				await showUpdateUnavailableNotice();
 			}
@@ -252,9 +250,6 @@ async function pollLinuxUpdates() {
 		}
 
 		if ( response.status === 404 ) {
-			// Should not happen: Studio only sends process.arch values that map to
-			// supported Linux architectures. If it does, log and treat as no-op so
-			// users aren't blocked.
 			Sentry.captureException(
 				new Error( `Linux updates endpoint returned 404 (arch=${ process.arch })` )
 			);

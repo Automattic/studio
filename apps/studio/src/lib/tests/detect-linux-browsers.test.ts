@@ -3,15 +3,17 @@
  */
 import fs from 'node:fs';
 import { vi } from 'vitest';
+import { findOnPath } from 'src/lib/find-on-path';
 import { isFirefoxInstalledOnLinux } from '../detect-linux-browsers';
-import { findOnPath } from '../find-on-path';
 
 vi.mock( 'node:fs', () => ( {
 	default: { existsSync: vi.fn() },
 	existsSync: vi.fn(),
 } ) );
 
-vi.mock( '../find-on-path', () => ( {
+// Match the specifier used by the implementation so vi.mock targets the
+// same module identity regardless of how the resolver normalises paths.
+vi.mock( 'src/lib/find-on-path', () => ( {
 	findOnPath: vi.fn(),
 } ) );
 

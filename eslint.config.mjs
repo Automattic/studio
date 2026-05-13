@@ -39,7 +39,10 @@ export default defineConfig(
 			sourceType: 'commonjs',
 			parserOptions: {
 				projectService: {
-					allowDefaultProject: [ 'apps/studio/tailwind.config.js' ],
+					allowDefaultProject: [
+						'apps/studio/tailwind.config.js',
+						'tools/dla/vitest.config.ts',
+					],
 				},
 			},
 		},
@@ -53,6 +56,7 @@ export default defineConfig(
 						path.join( import.meta.dirname, 'apps/studio/tsconfig.json' ),
 						path.join( import.meta.dirname, 'apps/ui/tsconfig.json' ),
 						path.join( import.meta.dirname, 'tools/common/tsconfig.json' ),
+						path.join( import.meta.dirname, 'tools/dla/tsconfig.json' ),
 						path.join( import.meta.dirname, 'tools/compare-perf/tsconfig.json' ),
 						path.join( import.meta.dirname, 'tools/metrics/tsconfig.json' ),
 					],
@@ -83,6 +87,8 @@ export default defineConfig(
 					ignore: [
 						'@wp-playground/blueprints/blueprint-schema-validator',
 						'@modelcontextprotocol/sdk/server/stdio\\.js$',
+						'@modelcontextprotocol/sdk/client/index\\.js$',
+						'@modelcontextprotocol/sdk/client/stdio\\.js$',
 					],
 				},
 			],

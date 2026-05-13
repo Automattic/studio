@@ -4,6 +4,9 @@
 		"composite": true,
 		"baseUrl": "../..",
 		"outDir": "dist",
+		"module": "ESNext",
+		"moduleResolution": "Bundler",
+		"target": "ES2022",
 		"declaration": true,
 		"emitDeclarationOnly": true
 	},

@@ -1,16 +1,56 @@
 /**
- * Entry point for the `@studio/dla` workspace package.
+ * Public entry point for the `@studio/dla` workspace package.
  *
- * This package will host the Data Liberation Agent MCP-stdio bridge that
- * proxies the upstream `data-liberation` MCP server into the Studio CLI's
- * pi-agent runtime. The bridge implementation lands in a follow-up task;
- * for now this module only exposes a placeholder so the package can be
- * imported by consumers (apps/cli) ahead of the wiring work.
+ * The package wraps Data Liberation Agent's stdio MCP server as a set
+ * of pi-coding-agent `ToolDefinition`s suitable for the Studio CLI's
+ * `customTools` slot, alongside a policy `ExtensionFactory` that the
+ * pi runtime can mount via `DefaultResourceLoader.extensionFactories`.
+ *
+ * Three public surfaces:
+ *
+ * - {@link startDlaBridge}: spawn DLA's MCP server, list tools, return a
+ *   bridge handle whose `tools` are pi-ready and whose `dispose()` tears
+ *   down the child.
+ * - {@link createDlaPolicyFactory}: build the pi extension factory that
+ *   enforces per-tool permission buckets at the runtime layer.
+ * - {@link defaultPolicyBuckets}: the canonical bucket assignments for
+ *   DLA's 13 tools, mirroring the RSM-3139 spec.
+ *
+ * Implementation details — `bridge.ts`, `agent-tool-adapter.ts`,
+ * `content-adapter.ts`, `policy.ts` — are private to the package.
  */
 
-/**
- * Marker export used by the import-smoke test to confirm that the
- * `@studio/dla` alias resolves through both TypeScript and the bundler.
- * It will be replaced by real bridge exports in a follow-up task.
- */
-export const PLACEHOLDER = true;
+export {
+	startDlaBridge,
+	defaultTransportProvider,
+	type DlaBridge,
+	type StartDlaBridgeOptions,
+	type BridgeTransportProvider,
+} from './bridge';
+
+export {
+	adaptMcpToolToPi,
+	DlaPolicyError,
+	type RemoteMcpTool,
+	type AdaptMcpToolOptions,
+} from './agent-tool-adapter';
+
+export {
+	adaptMcpContent,
+	adaptMcpContentBlock,
+	type McpContentBlock,
+	type McpTextBlock,
+	type McpImageBlock,
+	type McpAudioBlock,
+	type McpResourceBlock,
+	type McpResourceLinkBlock,
+} from './content-adapter';
+
+export {
+	createDlaPolicyFactory,
+	defaultPolicyBuckets,
+	shouldBlock,
+	type DlaPermissionBucket,
+	type DlaPolicyBuckets,
+	type DlaPolicyDecision,
+} from './policy';

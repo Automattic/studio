@@ -63,3 +63,74 @@ This approach of forking CLI processes to run business logic has both pros and c
 The biggest pro is that when the CLI becomes capable of running Studio sites, we can move the Playground dependencies entirely to the CLI and avoid bundling them twice (which would increase the size of the app by several hundred MBs). Moreover, it consolidates the business logic and creates increased incentives for developers to focus on the CLI when shipping new features.
 
 The biggest con is that it decreases control in the Studio code, particularly when it comes to error handling. We mitigate this by creating as clear a structure as possible around the `process.send` IPC calls.
+
+## Data Liberation Agent integration
+
+The `studio code` agent and the `studio migrate` command both delegate platform-extraction work to the [Data Liberation Agent](https://github.com/Automattic/data-liberation-agent) (DLA). This section documents the integration internals. For the user-facing surface, see `apps/cli/README.md`. For the trade-off rationale, see `issues/rsm-3143-dla-pi-research/research-report.md`.
+
+### Topology
+
+- DLA ships as a `github:` npm dependency pinned by SHA in `apps/cli/package.json` (`data-liberation: github:Automattic/data-liberation-agent#<sha>`). Bumping is a one-line edit — DLA has no semver releases and no automatic version tracking.
+- Once installed, DLA lives at `node_modules/data-liberation/`. Its MCP server entry is `data-liberation/src/mcp-server.ts` and its standalone CLI entry is `data-liberation/src/cli.ts`.
+- Studio's integration layer is a workspace package at `tools/dla/` (`@studio/dla`), consumed from `apps/cli/ai/runtimes/pi/index.ts`. The package owns three modules: `bridge.ts` (process spawn + MCP client), `agent-tool-adapter.ts` (MCP-tool → pi `ToolDefinition` shape conversion), and `policy.ts` (permission buckets + extension factory).
+
+### Bridge spawn
+
+`startDlaBridge` in `tools/dla/bridge.ts` spawns DLA's stdio MCP server as a child process and connects an MCP `Client` over stdio. The spawn pipeline:
+
+- `process.execPath` runs Node (the same Electron-as-Node binary the CLI itself uses).
+- `tsx` is loaded as the loader entry. The bridge resolves it as `tsx/dist/cli.mjs` via `createRequire(import.meta.url).resolve('tsx/dist/cli.mjs')`. The standalone `studio migrate` path in `apps/cli/commands/migrate/resolvers.ts` resolves the same binary via `tsx/cli` instead — the public exports key. Both paths land on the same file; the bridge's spelling depends on hoisting layout while `tsx/cli` is the canonical subpath. This discrepancy is harmless today but should be reconciled (prefer `tsx/cli`).
+- DLA's MCP server is resolved via `require.resolve('data-liberation/src/mcp-server.ts')`.
+- The spawn passes a sanitised env: `PATH`, plus a passthrough allowlist (`LIBERATION_TOKEN`, `SHOPIFY_ADMIN_TOKEN`, `NODE_PATH`, `NODE_OPTIONS`), plus `STUDIO_WPCOM_TOKEN` injected from the session's resolved wpcom access token. The parent never has to set `STUDIO_WPCOM_TOKEN` on its own environment.
+- `listTools` is called with a 10-second `AbortSignal.timeout` cap. Failures to spawn or list resolve to a bridge handle with `degraded: true` and an empty `tools` array — a missing or broken DLA install warns and continues, never crashes session startup.
+- `dispose()` calls `client.close()` (sends EOF on the child's stdin), then schedules a SIGKILL on the child pid after a 2-second grace period. DLA's MCP server normally exits on stdin EOF, but `liberate_extract` can hold a long-running adapter loop open, so the SIGKILL is the safety net.
+
+### Tool wrapping
+
+`tools/dla/agent-tool-adapter.ts` exports `adaptMcpToolToPi`, which converts each MCP `Tool` descriptor returned by `listTools` into a pi `ToolDefinition`:
+
+- `inputSchema` is forwarded as-is via `inputSchema as unknown as TSchema`. This cast is safe because pi-ai's `validateToolArguments` accepts plain JSON Schema — no TypeBox metadata required at runtime. This is the inverse of Studio's existing pi → MCP shim at `apps/cli/ai/mcp-server.ts`, which uses the same idiom in the other direction.
+- The wrapper's `execute()` consults the policy via `shouldBlock` before forwarding, then calls `client.callTool` with pi's `AbortSignal` plumbed through `RequestOptions.signal`. MCP's SDK emits `notifications/cancelled` on abort — see the orphan-work caveat below for what DLA does with it.
+- Returned `CallToolResult.content[]` blocks are adapted to pi's narrower content shape via `content-adapter.ts`; `structuredContent` surfaces as `AgentToolResult.details`. `result.isError === true` is rethrown so pi's `executePreparedToolCall` reports it as a tool-call error in the model transcript.
+
+### Permission gating
+
+`tools/dla/policy.ts` provides two cooperating policy layers:
+
+- **Adapter-layer**: `shouldBlock(toolName, input, buckets)` runs inside each adapted tool's `execute()` wrapper. Tools are assigned a bucket (`read-only`, `network-read`, `fs-write`, `destructive`, `delegate-only`); unknown tool names default to a hard block. The destructive bucket (today only `liberate_import`) is blocked unless the call carries `delegate: true`.
+- **Runtime-layer**: `createDlaPolicyFactory(buckets)` returns a pi `ExtensionFactory` that subscribes to `pi.on('tool_call', handler)` and returns `{ block: true, reason }` for the same set of blocking decisions. Defence in depth — any future tool registration path that bypasses the adapter still hits the runtime hook.
+
+The runtime factory is wired in `apps/cli/ai/runtimes/pi/index.ts` via `resolveDlaExtensionFactories`, which is passed into `DefaultResourceLoader`'s `extensionFactories` slot. Inline `extensionFactories` are loaded even when `noExtensions: true` (which Studio sets to disable user-installed extensions), so no other resource-loader flag flips.
+
+### Feature flag
+
+The v1 integration is gated behind `STUDIO_DLA_ENABLED=1`. Both the bridge spawn (`maybeStartDlaBridge` in `apps/cli/ai/runtimes/pi/index.ts`) and the runtime-layer policy factory (`resolveDlaExtensionFactories`) check the same env var. With the flag unset the runtime behaves identically to pre-integration: no child process is spawned, no DLA tools land in `customTools`, and the extension factory list is empty.
+
+### Tool name surface
+
+DLA's tools are exposed as plain pi `customTools`. They surface to the model under their bare names — `liberate_inspect`, `liberate_extract`, `liberate_setup`, `liberate_import`, etc. — and **not** under the `mcp__data-liberation__*` prefix that pi reserves for first-party MCP registrations. The wrapper skill at `apps/cli/ai/skills/migrate/SKILL.md` references the bare names.
+
+### `delegate: true` handoff
+
+`liberate_setup` and `liberate_import` accept a `delegate: true` argument. In delegate mode DLA returns a manifest of artifact paths — `wxrFile`, `outputDir`, `mediaDir`, `productsCsv?`, `redirectMap`, `importAuthors` — without writing to any live WordPress site. Studio's own tools then act on the manifest: `site_create` consumes the WXR via an inline `importWxr` blueprint step (routed through Playground to dodge the WP-CLI IPC 120-second no-activity timeout), and `wp_cli` handles follow-up steps like author creation and product import. The destructive `liberate_import` bucket forces this contract — calling it without `delegate: true` is blocked by both policy layers.
+
+### Surfaces: `/migrate` slash and standalone CLI
+
+DLA is reachable through two independent surfaces:
+
+- **`/migrate` skill inside `studio code`**: the agent walks the user through detect → extract → verify → site-create → import using the bridged DLA tools and Studio's own tools, with `AskUserQuestion` confirmations between heavier steps. Routes through the agent + bridge.
+- **`studio migrate <url>`**: a thin yargs wrapper in `apps/cli/commands/migrate/index.ts` that spawns DLA's CLI (`data-liberation/src/cli.ts`) directly via `process.execPath` + `tsx`, inheriting stdio. No agent is involved; DLA's own Ink UI streams to the terminal. Useful for CI, bulk runs, and any context where an LLM loop is unwanted. The standalone path prunes `STUDIO_WPCOM_TOKEN` from the child env because DLA's CLI does not read it (only DLA's MCP server does).
+
+### Caveat: orphan in-flight work on abort
+
+DLA's MCP server **does not honor `notifications/cancelled` from the client**. When a user aborts a tool call (e.g. cancels `liberate_extract` mid-flight), the cancellation reaches the bridge (`client.callTool`'s `AbortSignal` triggers, the MCP SDK emits `notifications/cancelled`), but DLA's server-side work continues to completion. The filesystem footprint is bounded by DLA's resume-safe protocol — partial extracts are recoverable on the next run rather than orphaned indefinitely — but the child process keeps spending CPU and network after the user's "cancel" until either the work finishes or the bridge's `dispose()` SIGKILLs the process at session teardown.
+
+This is a candidate upstream issue against `Automattic/data-liberation-agent`. Studio's bridge cannot fix it client-side.
+
+### Caveat: Playwright Chromium postinstall
+
+DLA depends on Playwright Chromium for the Wix and Squarespace platform adapters. The `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` env var is set in Studio's CI configs as defensive forward-compat, but it is currently **inert against modern Playwright**: neither `playwright` nor `playwright-core` has a postinstall hook, and DLA's own postinstall invokes `installBrowsers()` directly without consulting the env var. The setting still lands as zero-cost future-proofing. End-users pay the ~150 MB download cost on `npm install -g wp-studio`; Chromium auto-installs lazily on first use by the platform adapters that need it.
+
+### Update cadence
+
+DLA is pinned by SHA in `apps/cli/package.json`. Bumping is a one-line edit, but there is no automatic version-tracking because DLA does not publish semver releases. Each bump should re-verify the `defaultPolicyBuckets` table in `tools/dla/policy.ts` against DLA's current `mcp-server.ts` tool list — new tools without a bucket assignment hard-block by default, which is safe but surprising.

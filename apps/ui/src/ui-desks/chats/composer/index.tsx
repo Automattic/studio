@@ -267,15 +267,16 @@ export function Composer( {
 								title={ getWidgetDisplayLabel( widget ) }
 							>
 								<WidgetContextThumbnail widget={ widget } />
-								<button
-									type="button"
+								<Button
+									variant="quiet"
+									size="xsmall"
 									className={ styles.removeAttachment }
-									aria-label={ getRemoveWidgetAttachmentLabel( widget ) }
+									icon={ closeSmall }
+									label={ getRemoveWidgetAttachmentLabel( widget ) }
+									tooltipLabel={ false }
 									title={ getRemoveWidgetAttachmentLabel( widget ) }
 									onClick={ () => removeContextWidget( widget.id ) }
-								>
-									<Icon icon={ closeSmall } size={ 16 } />
-								</button>
+								/>
 							</div>
 						) ) }
 						{ hiddenContextWidgetCount > 0 && (
@@ -394,27 +395,31 @@ export function Composer( {
 						</div>
 						<div className={ styles.promptActions }>
 							{ busy ? (
-								<button
-									type="button"
+								<Button
+									variant="quiet"
+									size="small"
 									className={ styles.stopButton }
+									label={ isInterrupting ? __( 'Stopping' ) : __( 'Stop' ) }
+									tooltipLabel={ false }
 									onClick={ () => void onInterrupt() }
-									aria-label={ isInterrupting ? __( 'Stopping' ) : __( 'Stop' ) }
 									aria-busy={ isInterrupting }
 									title={
 										isInterrupting ? __( 'Stopping… click again to force stop' ) : __( 'Stop' )
 									}
 								>
 									<span className={ styles.stopGlyph } aria-hidden="true" />
-								</button>
+								</Button>
 							) : null }
-							<button
+							<Button
 								type="submit"
+								variant="quiet"
+								size="small"
 								className={ styles.sendButton }
 								disabled={ ! canSend }
-								aria-label={ sendAriaLabel }
-							>
-								<Icon icon={ arrowUp } size={ 24 } />
-							</button>
+								icon={ arrowUp }
+								label={ sendAriaLabel }
+								tooltipLabel={ false }
+							/>
 						</div>
 					</div>
 				</form>

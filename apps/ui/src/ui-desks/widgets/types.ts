@@ -66,6 +66,7 @@ export interface WidgetFileAccept {
 
 export interface WidgetFileHandlerContext {
 	siteId?: string;
+	getFilePath?: ( file: File ) => Promise< string >;
 }
 
 export interface WidgetHandlerLoading {

@@ -1,6 +1,6 @@
 import { getAiModelLabel } from '@studio/common/ai/models';
 import { __, sprintf } from '@wordpress/i18n';
-import { Button, PromptDialog, PromptDialogRow } from '@/ui-desks/components';
+import { Button, Dialog, DialogRow } from '@/ui-desks/components';
 import styles from './style.module.css';
 import type { AiModelId } from '@/data/core';
 
@@ -31,8 +31,9 @@ export function FamilySwitchConfirmDialog( {
 	);
 
 	return (
-		<PromptDialog
+		<Dialog
 			ariaLabel={ __( 'Start a new conversation?' ) }
+			as="form"
 			className={ styles.dialog }
 			gap="compact"
 			onClose={ () => {
@@ -52,7 +53,7 @@ export function FamilySwitchConfirmDialog( {
 				<h2 className={ styles.title }>{ __( 'Start a new conversation?' ) }</h2>
 				<p className={ styles.description }>{ description }</p>
 			</div>
-			<PromptDialogRow align="center" className={ styles.actions }>
+			<DialogRow align="center" className={ styles.actions }>
 				<Button
 					variant="filled"
 					label={ __( 'Cancel' ) }
@@ -71,7 +72,7 @@ export function FamilySwitchConfirmDialog( {
 				>
 					{ inFlight ? __( 'Starting...' ) : __( 'Start new conversation' ) }
 				</Button>
-			</PromptDialogRow>
-		</PromptDialog>
+			</DialogRow>
+		</Dialog>
 	);
 }

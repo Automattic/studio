@@ -2,7 +2,6 @@ import { resolveSessionModel } from '@studio/common/ai/models';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import { __ } from '@wordpress/i18n';
 import { box, chevronLeft, chevronRight, previous, starEmpty, starFilled } from '@wordpress/icons';
-import { Button, Icon, IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
 	useEffect,
@@ -23,6 +22,7 @@ import {
 import { useSites } from '@/data/queries/use-sites';
 import { useSessionCommands } from '@/hooks/use-session-commands';
 import { SessionUIProvider } from '@/hooks/use-session-ui';
+import { Button } from '@/ui-desks/components';
 import { Composer, ComposerSkeleton } from '../composer';
 import { pickLiveSite } from '../composer/environment-pill';
 import { Conversation } from '../conversation';
@@ -126,10 +126,12 @@ function EmptyConversation( {
 			</div>
 			<div className={ styles.emptyConversationExamples }>
 				{ EXAMPLE_PROMPTS.map( ( example ) => (
-					<button
+					<Button
 						key={ example.short }
-						type="button"
+						variant="quiet"
+						size="small"
 						className={ styles.emptyConversationExample }
+						label={ example.short }
 						title={ example.full }
 						onMouseEnter={ () => onPreviewPrompt( example.full ) }
 						onMouseLeave={ onClearPreview }
@@ -141,7 +143,7 @@ function EmptyConversation( {
 						} }
 					>
 						{ example.short }
-					</button>
+					</Button>
 				) ) }
 			</div>
 		</div>
@@ -298,19 +300,19 @@ function SessionSurfaceContent( {
 					<div className={ styles.conversationHeaderSlot }>
 						{ listCollapsed ? (
 							<Button
-								variant="minimal"
-								tone="neutral"
+								variant="quiet"
 								size="small"
 								className={ styles.conversationBackButton }
+								icon={ side === 'left' ? chevronLeft : chevronRight }
+								label={ __( 'All chats' ) }
+								tooltipLabel={ false }
 								onClick={ onExpandList }
 							>
-								<Icon icon={ side === 'left' ? chevronLeft : chevronRight } size={ 18 } />
 								<span>{ __( 'All chats' ) }</span>
 							</Button>
 						) : (
-							<IconButton
-								variant="minimal"
-								tone="neutral"
+							<Button
+								variant="quiet"
 								size="small"
 								className={ styles.conversationCollapseButton }
 								icon={ previous }
@@ -323,9 +325,8 @@ function SessionSurfaceContent( {
 						{ formatChatDate( data.summary.createdAt ) }
 					</span>
 					<div className={ styles.conversationActions }>
-						<IconButton
-							variant="minimal"
-							tone="neutral"
+						<Button
+							variant="quiet"
 							size="small"
 							className={ styles.conversationAction }
 							icon={ box }
@@ -333,9 +334,8 @@ function SessionSurfaceContent( {
 							disabled={ updateSessionMetadata.isPending }
 							onClick={ archiveConversation }
 						/>
-						<IconButton
-							variant="minimal"
-							tone="neutral"
+						<Button
+							variant="quiet"
 							size="small"
 							className={ styles.conversationAction }
 							data-active={ data.summary.starred ? 'true' : 'false' }

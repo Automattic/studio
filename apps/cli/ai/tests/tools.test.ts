@@ -10,6 +10,7 @@ import {
 } from 'cli/commands/preview/delete';
 import { runCommand as runListPreviewCommand } from 'cli/commands/preview/list';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
+import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
@@ -116,6 +117,10 @@ describe( 'Studio AI MCP tools', () => {
 		const firstContent = result.content?.[ 0 ];
 		return firstContent && 'text' in firstContent ? firstContent.text : undefined;
 	};
+	const executeTool = (
+		tool: ReturnType< typeof resolveStudioToolDefinitions >[ number ],
+		args: Record< string, unknown >
+	) => tool.execute( 'tool-call-1', args as never, new AbortController().signal, () => {} );
 
 	beforeEach( () => {
 		vi.resetAllMocks();
@@ -138,70 +143,30 @@ describe( 'Studio AI MCP tools', () => {
 				'preview_list',
 				'preview_update',
 				'preview_delete',
-				'preview_navigate',
-				'preview_reload',
 			] )
 		);
 	} );
 
-	it( 'emits a preview navigate command with a normalized path', async () => {
-		const result = await getTool( 'preview_navigate' ).rawHandler( { path: 'about/' } as never );
-
-		expect( emitEvent ).toHaveBeenCalledWith(
-			expect.objectContaining( {
-				type: 'preview.command',
-				kind: 'navigate',
-				path: '/about/',
-			} )
-		);
-		expect( getTextContent( result ) ).toContain( '/about/' );
-	} );
-
-	it( 'falls back to "/" when preview_navigate receives an empty path', async () => {
-		await getTool( 'preview_navigate' ).rawHandler( { path: '   ' } as never );
-
-		expect( emitEvent ).toHaveBeenCalledWith(
-			expect.objectContaining( { kind: 'navigate', path: '/' } )
-		);
-	} );
-
-	it( 'emits a preview reload command', async () => {
-		await getTool( 'preview_reload' ).rawHandler( {} as never );
-
-		expect( emitEvent ).toHaveBeenCalledWith(
-			expect.objectContaining( { type: 'preview.command', kind: 'reload' } )
-		);
-	} );
-
-	it( 'omits preview-steering tools when preview steering is disabled', () => {
+	it( 'does not expose a generic artifact tool', () => {
 		const names = resolveStudioToolDefinitions().map( ( tool ) => tool.name );
-		expect( names ).not.toContain( 'preview_navigate' );
-		expect( names ).not.toContain( 'preview_reload' );
-		// Baseline Studio tools still present.
-		expect( names ).toContain( 'site_create' );
-		expect( names ).toContain( 'wp_cli' );
-	} );
-
-	it( 'includes preview-steering tools when enabled', () => {
-		const names = resolveStudioToolDefinitions( { enablePreviewSteering: true } ).map(
-			( tool ) => tool.name
-		);
-		expect( names ).toContain( 'preview_navigate' );
-		expect( names ).toContain( 'preview_reload' );
+		expect( names ).not.toContain( 'show_artifact' );
+		const namesWithArtifacts = resolveStudioToolDefinitions( {
+			emitChatArtifacts: true,
+		} ).map( ( tool ) => tool.name );
+		expect( namesWithArtifacts ).not.toContain( 'show_artifact' );
+		expect( namesWithArtifacts ).toContain( 'site_create' );
+		expect( namesWithArtifacts ).toContain( 'wp_cli' );
 	} );
 
 	describe( 'share_screenshot gating', () => {
 		it( 'omits share_screenshot when remoteSession is not set', () => {
-			const names = resolveStudioToolDefinitions( { enablePreviewSteering: true } ).map(
-				( tool ) => tool.name
-			);
+			const names = resolveStudioToolDefinitions().map( ( tool ) => tool.name );
 			expect( names ).not.toContain( 'share_screenshot' );
 			expect( names ).toContain( 'take_screenshot' );
 		} );
 
 		it( 'omits share_screenshot when remoteSession is false', () => {
 			const names = resolveStudioToolDefinitions( {
-				enablePreviewSteering: true,
 				remoteSession: false,
 			} ).map( ( tool ) => tool.name );
 			expect( names ).not.toContain( 'share_screenshot' );
@@ -209,7 +174,6 @@ describe( 'Studio AI MCP tools', () => {
 
 		it( 'includes share_screenshot when remoteSession is true', () => {
 			const names = resolveStudioToolDefinitions( {
-				enablePreviewSteering: true,
 				remoteSession: true,
 			} ).map( ( tool ) => tool.name );
 			expect( names ).toContain( 'share_screenshot' );
@@ -223,6 +187,33 @@ describe( 'Studio AI MCP tools', () => {
 
 		expect( runCreatePreviewCommand ).toHaveBeenCalledWith( '/sites/my-site' );
 		expect( getTextContent( result ) ).toContain( 'Preview site created for "My Site".' );
+	} );
+
+	it( 'emits a site preview artifact when site_create succeeds with chat artifacts enabled', async () => {
+		const tool = resolveStudioToolDefinitions( {
+			emitChatArtifacts: true,
+		} ).find( ( definition ) => definition.name === 'site_create' );
+		expect( tool ).toBeDefined();
+
+		const result = await executeTool( tool!, { name: 'My Site' } );
+
+		expect( runCreateSiteCommand ).toHaveBeenCalledWith(
+			expect.stringMatching( /my-site$/ ),
+			expect.objectContaining( {
+				name: 'My Site',
+				noStart: false,
+				skipBrowser: true,
+			} )
+		);
+		expect( emitEvent ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				type: 'chat.artifact',
+				artifact: expect.objectContaining( {
+					widgets: [ { type: 'site-preview', widgetProps: { path: '/' } } ],
+				} ),
+			} )
+		);
+		expect( getTextContent( result ) ).toContain( '"name": "My Site"' );
 	} );
 
 	it( 'lists previews as JSON for a resolved local site', async () => {
@@ -444,6 +435,70 @@ describe( 'Studio AI MCP tools', () => {
 			'--post_content=',
 			'--porcelain',
 		] );
+	} );
+
+	it( 'emits a page artifact when wp_cli creates a page with chat artifacts enabled', async () => {
+		vi.mocked( isServerRunning ).mockResolvedValue( {
+			name: 'site-123',
+			pmId: 1,
+			status: 'online',
+			pid: 1234,
+		} );
+		vi.mocked( sendWpCliCommand ).mockResolvedValue( {
+			stdout: '123',
+			stderr: '',
+			exitCode: 0,
+		} );
+		const tool = resolveStudioToolDefinitions( {
+			emitChatArtifacts: true,
+		} ).find( ( definition ) => definition.name === 'wp_cli' );
+		expect( tool ).toBeDefined();
+
+		await executeTool( tool!, {
+			nameOrPath: 'My Site',
+			command: 'post create --post_type=page --post_title="About" --porcelain',
+		} );
+
+		expect( emitEvent ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				type: 'chat.artifact',
+				artifact: expect.objectContaining( {
+					widgets: [ { type: 'page', widgetProps: { pageId: 123, tone: 'neutral' } } ],
+				} ),
+			} )
+		);
+	} );
+
+	it( 'emits automatic tool artifacts without filtering by widget type', async () => {
+		vi.mocked( isServerRunning ).mockResolvedValue( {
+			name: 'site-123',
+			pmId: 1,
+			status: 'online',
+			pid: 1234,
+		} );
+		vi.mocked( sendWpCliCommand ).mockResolvedValue( {
+			stdout: '123',
+			stderr: '',
+			exitCode: 0,
+		} );
+		const tool = resolveStudioToolDefinitions( {
+			emitChatArtifacts: true,
+		} ).find( ( definition ) => definition.name === 'wp_cli' );
+		expect( tool ).toBeDefined();
+
+		await executeTool( tool!, {
+			nameOrPath: 'My Site',
+			command: 'post create --post_title="Hello" --porcelain',
+		} );
+
+		expect( emitEvent ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				type: 'chat.artifact',
+				artifact: expect.objectContaining( {
+					widgets: [ { type: 'post', widgetProps: { postId: 123 } } ],
+				} ),
+			} )
+		);
 	} );
 
 	it( 'rejects typographic dash options before dispatching to WP-CLI', async () => {

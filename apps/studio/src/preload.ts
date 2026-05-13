@@ -147,6 +147,7 @@ const api: IpcApi = {
 	getDirectorySize: ( id, subdir ) => ipcRendererInvoke( 'getDirectorySize', id, subdir ),
 	getFileSize: ( id, filePath ) => ipcRendererInvoke( 'getFileSize', id, filePath ),
 	getPathForFile: ( file ) => webUtils.getPathForFile( file ),
+	readLocalMediaFile: ( path ) => ipcRendererInvoke( 'readLocalMediaFile', path ),
 	isFullscreen: () => ipcRendererInvoke( 'isFullscreen' ),
 	getAllCustomDomains: () => ipcRendererInvoke( 'getAllCustomDomains' ),
 	saveUserTerminal: ( preferredTerminal ) =>

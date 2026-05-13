@@ -23,6 +23,11 @@ export interface DeskContextValue {
 	registerEditor: RegisterDeskEditor;
 	pressStack: ( stackId: string ) => void;
 	addWidget: ( type: string, options?: AddDeskWidgetOptions ) => boolean;
+	addWidgetAtScreenPoint: (
+		type: string,
+		point: { x: number; y: number },
+		options?: Omit< AddDeskWidgetOptions, 'center' >
+	) => boolean;
 	addPastedContent: (
 		payload: WidgetPastePayload,
 		options?: AddDeskWidgetOptions
@@ -72,6 +77,7 @@ const defaultDeskContext: DeskContextValue = {
 	registerEditor: noopRegisterEditor,
 	pressStack: noopPressStack,
 	addWidget: () => false,
+	addWidgetAtScreenPoint: () => false,
 	addPastedContent: () => Promise.resolve( false ),
 	startDrawing: () => false,
 	finishDrawing: async () => false,

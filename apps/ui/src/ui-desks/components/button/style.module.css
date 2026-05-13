@@ -45,6 +45,14 @@
 	outline-offset: 2px;
 }
 
+.xsmall {
+	min-height: 22px;
+	padding: 0 6px;
+	gap: 4px;
+	font-size: 12px;
+	line-height: 16px;
+}
+
 .small {
 	min-height: 32px;
 	padding: 0 8px;
@@ -75,6 +83,14 @@
 	gap: 6px;
 	font-size: 13px;
 	line-height: 18px;
+}
+
+.quiet[data-icon-only='true'].xsmall,
+.filled[data-icon-only='true'].xsmall {
+	width: 22px;
+	min-width: 22px;
+	height: 22px;
+	padding: 0;
 }
 
 .quiet[data-icon-only='true'].small,

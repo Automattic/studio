@@ -266,6 +266,7 @@ export function DeskProvider( {
 					handleDroppedFile( {
 						editor,
 						file,
+						getFilePath: ( nextFile ) => connector.getFilePath( nextFile ),
 						match,
 						placeholder,
 						siteId,
@@ -279,7 +280,7 @@ export function DeskProvider( {
 		return () => {
 			editor.registerExternalContentHandler( 'files', null );
 		};
-	}, [ editor, isHydrated, isReadOnly, isRunningSite, siteId ] );
+	}, [ connector, editor, isHydrated, isReadOnly, isRunningSite, siteId ] );
 
 	useEffect( () => {
 		if ( ! editor || ! isHydrated || isReadOnly ) {
@@ -373,6 +374,24 @@ export function DeskProvider( {
 				creationOffsetRef.current += 1;
 			}
 			return didAddWidget;
+		},
+		[ editor, isHydrated, isReadOnly ]
+	);
+
+	const addWidgetAtScreenPoint = useCallback(
+		(
+			type: string,
+			point: { x: number; y: number },
+			options?: Omit< AddDeskWidgetOptions, 'center' >
+		) => {
+			if ( isReadOnly || ! editor || ! isHydrated ) {
+				return false;
+			}
+
+			return addWidgetToEditor( editor, type, 0, {
+				...options,
+				center: editor.screenToPage( point ),
+			} );
 		},
 		[ editor, isHydrated, isReadOnly ]
 	);
@@ -568,6 +587,7 @@ export function DeskProvider( {
 			registerEditor,
 			pressStack,
 			addWidget,
+			addWidgetAtScreenPoint,
 			addPastedContent,
 			startDrawing,
 			finishDrawing,
@@ -583,6 +603,7 @@ export function DeskProvider( {
 		[
 			addPastedContent,
 			addWidget,
+			addWidgetAtScreenPoint,
 			editor,
 			editSelectedWidget,
 			fitSelectedWidgetToContent,
@@ -645,18 +666,20 @@ interface TemporaryLoadingWidget {
 async function handleDroppedFile( {
 	editor,
 	file,
+	getFilePath,
 	match,
 	placeholder,
 	siteId,
 }: {
 	editor: Editor;
 	file: File;
+	getFilePath: ( file: File ) => Promise< string >;
 	match: NonNullable< ReturnType< typeof getWidgetFileHandler > >;
 	placeholder: TemporaryLoadingWidget;
 	siteId?: string;
 } ) {
 	try {
-		const result = await match.handler.handle( file, { siteId } );
+		const result = await match.handler.handle( file, { getFilePath, siteId } );
 		if ( editor.isDisposed ) {
 			return false;
 		}

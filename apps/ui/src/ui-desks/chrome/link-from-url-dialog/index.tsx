@@ -3,11 +3,11 @@ import { arrowUp } from '@wordpress/icons';
 import { useEffect, useRef, useState } from 'react';
 import {
 	Button,
-	PromptDialog,
-	PromptDialogError,
-	PromptDialogRow,
-	PromptDialogTip,
-	promptDialogInputClassName,
+	Dialog,
+	DialogError,
+	DialogRow,
+	DialogTip,
+	dialogInputClassName,
 } from '@/ui-desks/components';
 import { useDesk } from '@/ui-desks/desk/provider';
 import { createUrlPastePayload } from '@/ui-desks/widget-actions/paste-handlers';
@@ -49,8 +49,9 @@ export function LinkFromUrlDialog( { center, onClose }: LinkFromUrlDialogProps )
 	};
 
 	return (
-		<PromptDialog
+		<Dialog
 			ariaLabel={ __( 'New link from URL' ) }
+			as="form"
 			gap="compact"
 			onClose={ onClose }
 			size="narrow"
@@ -59,12 +60,12 @@ export function LinkFromUrlDialog( { center, onClose }: LinkFromUrlDialogProps )
 				void submit();
 			} }
 		>
-			<PromptDialogRow align="center">
+			<DialogRow align="center">
 				<input
 					ref={ inputRef }
 					type="text"
 					inputMode="url"
-					className={ promptDialogInputClassName }
+					className={ dialogInputClassName }
 					value={ text }
 					placeholder={ __( 'Paste a URL...' ) }
 					onChange={ ( event ) => setText( event.target.value ) }
@@ -79,11 +80,11 @@ export function LinkFromUrlDialog( { center, onClose }: LinkFromUrlDialogProps )
 					tone="primary"
 					size="large"
 				/>
-			</PromptDialogRow>
-			<PromptDialogTip>
+			</DialogRow>
+			<DialogTip>
 				{ __( 'Tip: you can also paste a URL anywhere on the canvas to drop it directly.' ) }
-			</PromptDialogTip>
-			{ error && <PromptDialogError>{ error }</PromptDialogError> }
-		</PromptDialog>
+			</DialogTip>
+			{ error && <DialogError>{ error }</DialogError> }
+		</Dialog>
 	);
 }

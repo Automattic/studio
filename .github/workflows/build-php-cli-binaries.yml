@@ -229,11 +229,7 @@ jobs:
             -d "xdebug.mode=debug" \
             --ri xdebug
 
-          echo "Smoke testing built-in extension: curl"
-          "$staging_dir/php" -n \
-            -r 'if ( ! extension_loaded( "curl" ) ) { fwrite( STDERR, "curl is not loaded\n" ); exit( 1 ); } echo PHP_VERSION, PHP_EOL;'
-
-          smoke_extensions=(apcu gd gettext igbinary pdo pdo_sqlite redis sodium sqlite3 ssh2 xsl yaml)
+          smoke_extensions=(apcu curl gd gettext igbinary pdo pdo_sqlite redis sodium sqlite3 ssh2 xsl yaml)
           for extension in "${smoke_extensions[@]}"; do
             echo "Smoke testing extension: $extension"
             otool -L "$extension_dir/$extension.so"

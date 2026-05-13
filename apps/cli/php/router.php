@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Router script for PHP's built-in web server.
  *

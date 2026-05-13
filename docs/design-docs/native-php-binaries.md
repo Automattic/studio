@@ -1,9 +1,9 @@
 # Native PHP Binaries
 
 Use the manual `Build PHP CLI Binaries` GitHub Actions workflow to build Studio
-PHP CLI artifacts. The workflow checks out `crazywhalecc/static-php-cli`, pins
-the requested SPC ref, passes Studio's extension list directly to `spc download`
-and `spc build`, then builds archives with `.sha256` sidecars.
+PHP CLI artifacts. The workflow assembles PHP runtimes with Xdebug, uses
+`crazywhalecc/static-php-cli` for macOS dependency builds, then builds archives
+with `.sha256` sidecars.
 
 The manual workflow currently builds:
 

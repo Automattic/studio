@@ -358,10 +358,10 @@ jobs:
 
           out_dir="$GITHUB_WORKSPACE/out/php-binaries"
           staging_dir="$RUNNER_TEMP/php-artifact"
-          artifact="php-${PHP_VERSION}-cli-${PHP_CLI_ARTIFACT_PLATFORM}-${PHP_CLI_ARTIFACT_ARCH}.${PHP_CLI_ARCHIVE_EXTENSION}"
+          artifact="php-${PHP_VERSION}-cli-${PHP_CLI_ARTIFACT_PLATFORM}-${PHP_CLI_ARTIFACT_ARCH}.zip"
 
           mkdir -p "$out_dir"
-          tar -czf "$out_dir/$artifact" -C "$staging_dir" .
+          ( cd "$staging_dir" && zip -qr "$out_dir/$artifact" . )
           shasum -a 256 "$out_dir/$artifact" | awk '{print $1}' > "$out_dir/$artifact.sha256"
 
       - name: Resolve Windows runtime metadata
@@ -452,7 +452,7 @@ jobs:
         run: |
           $outDir = Join-Path $env:GITHUB_WORKSPACE 'out/php-binaries'
           $stagingDir = Join-Path $env:RUNNER_TEMP 'php-artifact'
-          $artifact = "php-$env:PHP_VERSION-cli-$env:PHP_CLI_ARTIFACT_PLATFORM-$env:PHP_CLI_ARTIFACT_ARCH.$env:PHP_CLI_ARCHIVE_EXTENSION"
+          $artifact = "php-$env:PHP_VERSION-cli-$env:PHP_CLI_ARTIFACT_PLATFORM-$env:PHP_CLI_ARTIFACT_ARCH.zip"
           $archive = Join-Path $outDir $artifact
 
           New-Item -ItemType Directory -Force $outDir | Out-Null

@@ -48,7 +48,7 @@ async function runNativePhpWpCliCommand( site: SiteData, args: string[] ): Promi
 	const phpVersion = validateNativePhpVersion( site.phpVersion );
 	await ensurePhpBinaryAvailable( phpVersion );
 	await writeStudioMuPluginsForNativePhpRuntime( site.path, site.isWpAutoUpdating );
-	// Don't apply open_basedir or risky functions to the WP-CLI process
+	// Don't apply open_basedir or disable_functions to the WP-CLI process
 	const defaultArgs = getDefaultPhpArgs( phpVersion );
 	const child = spawn(
 		getPhpBinaryPath( phpVersion ),

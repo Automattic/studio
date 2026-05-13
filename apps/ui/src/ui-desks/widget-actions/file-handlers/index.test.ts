@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { uploadSiteMedia } from '@/data/wordpress/media';
 import { doesFileMatchAccept, getWidgetFileHandler } from './index';
 
@@ -13,6 +13,10 @@ vi.mock( '@/data/wordpress/media', () => ( {
 } ) );
 
 describe( 'widget file handlers', () => {
+	beforeEach( () => {
+		vi.clearAllMocks();
+	} );
+
 	it( 'matches media uploads for image and video files when the site is running', () => {
 		const image = new File( [ 'image' ], 'photo.png', { type: 'image/png' } );
 		const video = new File( [ 'video' ], 'clip.mp4', { type: 'video/mp4' } );
@@ -27,10 +31,13 @@ describe( 'widget file handlers', () => {
 		} );
 	} );
 
-	it( 'does not match handlers that require a running site when the site is stopped', () => {
+	it( 'matches local media files when the site is not running', () => {
 		const image = new File( [ 'image' ], 'photo.png', { type: 'image/png' } );
 
-		expect( getWidgetFileHandler( image, { isRunningSite: false } ) ).toBeNull();
+		expect( getWidgetFileHandler( image, { isRunningSite: false } ) ).toMatchObject( {
+			definition: { type: 'media' },
+			handler: { id: 'media-local-file' },
+		} );
 	} );
 
 	it( 'supports exact MIME types, MIME wildcards, and extensions', () => {
@@ -69,6 +76,32 @@ describe( 'widget file handlers', () => {
 				mediaKind: 'video',
 				alt: 'clip.mp4',
 				mediaId: 123,
+			},
+			shouldStartEditing: false,
+		} );
+	} );
+
+	it( 'creates local media widget props from the local media file handler', async () => {
+		const image = new File( [ 'image' ], 'photo.png', { type: 'image/png' } );
+		const match = getWidgetFileHandler( image, { isRunningSite: false } );
+
+		const result = await match?.handler.handle( image, {
+			getFilePath: async () => '/Users/example/Pictures/photo.png',
+		} );
+
+		expect( uploadSiteMedia ).not.toHaveBeenCalled();
+		expect( result ).toMatchObject( {
+			widgetProps: {
+				url: 'file:///Users/example/Pictures/photo.png',
+				mediaKind: 'image',
+				alt: 'photo.png',
+				mediaId: null,
+				source: {
+					type: 'local',
+					path: '/Users/example/Pictures/photo.png',
+					name: 'photo.png',
+					mimeType: 'image/png',
+				},
 			},
 			shouldStartEditing: false,
 		} );

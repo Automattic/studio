@@ -62,6 +62,12 @@ export interface SiteDetails {
 	siteIcon?: string | null;
 }
 
+export interface LocalMediaFile {
+	name: string;
+	mimeType: string;
+	data: ArrayBuffer;
+}
+
 export interface AuthUser {
 	id: number;
 	email: string;
@@ -129,6 +135,7 @@ export interface Connector {
 	// in the renderer. Returns an empty string when the underlying file lacks
 	// a real path (synthetic blobs, non-Electron environments).
 	getFilePath( file: File ): Promise< string >;
+	readLocalMediaFile( path: string ): Promise< LocalMediaFile >;
 
 	// Extracts a Blueprint ZIP bundle to a temp directory and returns the
 	// parsed `blueprint.json`. The caller is responsible for calling

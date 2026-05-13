@@ -20,8 +20,12 @@ vi.mock( 'src/lib/find-on-path', () => ( {
 const HOME = '/home/tester';
 
 function mockExistingPaths( paths: string[] ) {
+	// Normalise separators so the test passes on Windows CI, where
+	// path.join in the implementation produces backslashes.
+	const normalize = ( p: string ) => p.replace( /\\/g, '/' );
+	const expected = paths.map( normalize );
 	vi.mocked( fs.existsSync ).mockImplementation( ( candidate: fs.PathLike ) =>
-		paths.includes( String( candidate ) )
+		expected.includes( normalize( String( candidate ) ) )
 	);
 }
 

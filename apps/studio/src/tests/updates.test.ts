@@ -1,10 +1,21 @@
 /**
  * @vitest-environment node
  */
-import { app, dialog, shell } from 'electron';
+import { app, dialog, shell, type MessageBoxOptions } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import { vi } from 'vitest';
 import { manualCheckForUpdates } from 'src/updates';
+
+// vitest types `dialog.showMessageBox`'s mock.calls using its single-arg
+// overload, but our code uses the two-arg form (mainWindow, options).
+// Cast through `unknown` to read the options off the second tuple slot.
+function getLastDialogOptions(): MessageBoxOptions {
+	const lastCall = vi.mocked( dialog.showMessageBox ).mock.lastCall as unknown as [
+		unknown,
+		MessageBoxOptions,
+	];
+	return lastCall[ 1 ];
+}
 
 vi.mock( 'src/main-window', () => ( {
 	getMainWindow: vi.fn().mockResolvedValue( {} ),
@@ -51,7 +62,7 @@ describe( 'Linux updater', () => {
 			expect( dialog.showMessageBox ).toHaveBeenCalled();
 		} );
 
-		const args = vi.mocked( dialog.showMessageBox ).mock.calls[ 0 ][ 1 ];
+		const args = getLastDialogOptions();
 		expect( args.message ).toContain( '1.9.0' );
 		expect( args.detail ).toContain( 'sudo apt install ~/Downloads/studio_1.9.0_arm64.deb' );
 
@@ -76,7 +87,7 @@ describe( 'Linux updater', () => {
 			expect( dialog.showMessageBox ).toHaveBeenCalled();
 		} );
 
-		const args = vi.mocked( dialog.showMessageBox ).mock.calls[ 0 ][ 1 ];
+		const args = getLastDialogOptions();
 		expect( args.message ).toBe( 'No updates available' );
 		expect( shell.openExternal ).not.toHaveBeenCalled();
 	} );

@@ -127,49 +127,35 @@ jobs:
             set -x
           fi
 
-          # mbregex, readline, and zlib declare target: ["static"] in SPC's
-          # config/ext.json and must be baked into PHP. mbstring is forced static
-          # to work around a missing-space bug in SPC's mbregex validation
-          # (src/SPC/builder/extension/mbregex.php:25 emits `php -n-d ...` when
-          # mbstring is shared). dom is forced static because PHP 8.4+ bundles
-          # lexbor for its HTML5 parser and only the main PHP configure knows
-          # how to build it; the phpize-shared path lacks lexbor headers on its
-          # include line, so `dom.so` fails to compile. Everything else —
-          # including Xdebug, which is target: ["shared"] — is built as a
-          # loadable .so under buildroot/modules.
-          forced_static_exts="dom mbregex mbstring readline zlib"
-
+          # Build PHP with every extension statically linked into the binary,
+          # except Xdebug. Xdebug declares target: ["shared"] in SPC's
+          # config/ext.json — it's a Zend extension that hooks into the engine
+          # at startup via dlopen, so it has to be loadable from outside the
+          # main binary. Everything else lives inside php itself, which is
+          # SPC's well-trodden code path. This sidesteps the per-extension
+          # --build-shared quirks on Darwin (lexbor for dom, $ext_dir for phar,
+          # mbregex CLI bug, etc.) at the cost of artifact-shape divergence
+          # from Windows.
+          IFS=',' read -ra _all_exts <<< "$PHP_CLI_EXTENSIONS"
           static_list=()
-          shared_list=()
-          IFS=',' read -ra all_exts <<< "$PHP_CLI_EXTENSIONS"
-          for ext in "${all_exts[@]}"; do
+          for ext in "${_all_exts[@]}"; do
             ext_trimmed="${ext// /}"
-            is_static=false
-            for s in $forced_static_exts; do
-              if [ "$ext_trimmed" = "$s" ]; then
-                is_static=true
-                break
-              fi
-            done
-            if $is_static; then
-              static_list+=("$ext_trimmed")
-            else
-              shared_list+=("$ext_trimmed")
-            fi
+            # xdebug only supports shared per SPC's ext.json; exclude from static.
+            [ "$ext_trimmed" = "xdebug" ] && continue
+            static_list+=("$ext_trimmed")
           done
           static_extensions=$(IFS=','; echo "${static_list[*]}")
-          shared_extensions=$(IFS=','; echo "${shared_list[*]}")
 
           download_args=(
             --with-php="$PHP_VERSION"
-            --for-extensions="${PHP_CLI_EXTENSIONS}"
+            --for-extensions="$PHP_CLI_EXTENSIONS"
             --custom-url="xdebug:https://xdebug.org/files/xdebug-${XDEBUG_VERSION}.tgz"
             --ignore-cache-sources=php-src
             --prefer-pre-built
           )
           build_args=(
             "$static_extensions"
-            --build-shared="$shared_extensions"
+            --build-shared=xdebug
             --build-cli
           )
 
@@ -180,27 +166,6 @@ jobs:
 
           php bin/spc doctor --auto-fix
           php bin/spc download "${download_args[@]}"
-
-          # `spc download` only fetches archives; extraction normally happens
-          # inside `spc build`. Force it now so we can patch php-src sources
-          # before the build sees them.
-          php bin/spc extract php-src
-
-          # SPC's phar.php patches ext/phar/config.m4 to use ${ext_dir}phar.1
-          # instead of $ext_dir/phar.1 before a shared build, but that patch is
-          # gated to LinuxBuilder. On macOS $ext_dir ends up empty and configure
-          # fails with "cannot find input file: '/phar.1.in'". Apply the same
-          # substitution unconditionally here. Use sed (not perl) so ${ext_dir}
-          # in the replacement is taken literally rather than interpolated as
-          # an empty perl variable.
-          phar_config="source/php-src/ext/phar/config.m4"
-          sed -i.bak \
-            -e 's|\$ext_dir/phar\.1|${ext_dir}phar.1|g' \
-            -e 's|\$ext_dir/phar\.phar\.1|${ext_dir}phar.phar.1|g' \
-            "$phar_config"
-          rm -f "$phar_config.bak"
-          grep -Fq '${ext_dir}phar.1' "$phar_config"
-
           php bin/spc build "${build_args[@]}"
 
       - name: Package macOS artifact
@@ -219,7 +184,7 @@ jobs:
 
           cp "$spc_root/bin/php" "$staging_dir/php"
           chmod +x "$staging_dir/php"
-          cp "$spc_root/modules"/*.so "$staging_dir/ext/"
+          cp "$spc_root/modules/xdebug.so" "$staging_dir/ext/xdebug.so"
 
           extension_dir="$staging_dir/ext"
 
@@ -261,33 +226,17 @@ jobs:
           }
           JSON
 
+          # SPC's post-build sanity pass (UnixBuilderBase::sanityCheck) has
+          # already verified every extension loads via `php -n --ri <ext>`.
+          # Re-run a minimal pair of checks after codesigning to catch the
+          # unlikely case where ad-hoc signing breaks the binary or the
+          # shared Xdebug load.
+          "$staging_dir/php" -n --version
           "$staging_dir/php" -n \
             -d "extension_dir=$extension_dir" \
             -d "zend_extension=$extension_dir/xdebug.so" \
             -d "xdebug.mode=debug" \
             --ri xdebug
-
-          smoke_extensions=(apcu curl gd gettext igbinary pdo pdo_sqlite redis sodium sqlite3 ssh2 xsl yaml)
-          for extension in "${smoke_extensions[@]}"; do
-            echo "Smoke testing extension: $extension"
-            otool -L "$extension_dir/$extension.so"
-            "$staging_dir/php" -n \
-              -d "extension_dir=$extension_dir" \
-              -d "extension=$extension" \
-              -r 'echo PHP_VERSION, PHP_EOL;'
-          done
-
-          smoke_extension_args=()
-          loaded_count=0
-          for extension in "${smoke_extensions[@]}"; do
-            smoke_extension_args+=(-d "extension=$extension")
-            loaded_count=$((loaded_count + 1))
-            echo "Smoke testing extension set: ${smoke_extensions[*]:0:loaded_count}"
-            "$staging_dir/php" -n \
-              -d "extension_dir=$extension_dir" \
-              "${smoke_extension_args[@]}" \
-              -r 'echo PHP_VERSION, PHP_EOL;'
-          done
 
           ( cd "$staging_dir" && zip -qr "$out_dir/$artifact" . )
           shasum -a 256 "$out_dir/$artifact" | awk '{print $1}' > "$out_dir/$artifact.sha256"

@@ -28,18 +28,3 @@
 	align-items: center;
 	color: var(--ui-desks-muted, #6b7280);
 }
-
-.drawingDoneButton {
-	width: auto;
-	min-width: 64px;
-	padding: 0 14px;
-	color: #fff;
-	font-size: 13px;
-	font-weight: 500;
-	--button-background: var(--ui-desks-text, #14171a);
-	--button-foreground: #fff;
-}
-
-.drawingDoneButton:hover:not(:disabled) {
-	--button-background: #000;
-}

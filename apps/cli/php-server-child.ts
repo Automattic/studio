@@ -64,50 +64,47 @@ type SpawnPhpProcessOptions = {
 	enableXdebug?: boolean;
 };
 
-// Extensions to enable on Windows via `-d extension=<name>`. Mirrors the
-// windows-x86_64 matrix.extensions entry in
-// .github/workflows/build-php-cli-binaries.yml, with three classes filtered out:
-//   - mbregex: not a runtime extension, it's an mbstring feature flag
-//   - mysqlnd: linked into php.exe as a core dependency of mysqli/pdo_mysql
-//   - zlib:    linked into php.exe
-//   - opcache: a Zend extension, loaded separately via zend_extension below
-// On macOS every extension is baked into the `php` binary by static-php-cli,
-// so this list is irrelevant there.
+// Extensions to enable on Windows via `-d extension=<name>`. Computed as the
+// intersection of two sets:
+//   1. php_*.dll files that ship as separate DLLs in windows.php.net's
+//      prebuilt zip (plus the PECL DLLs the workflow overlays: apcu, igbinary,
+//      redis, ssh2, yaml). Everything else from the macOS list is baked into
+//      php.exe itself (bcmath, calendar, ctype, dom, filter, iconv, mbregex,
+//      mysqlnd, pdo, phar, session, simplexml, tokenizer, xml*, zlib) and
+//      would emit "Module already loaded" warnings if we tried to enable it
+//      with `extension=`.
+//   2. The curated macOS extension list in .github/workflows/build-php-cli-binaries.yml.
+//      windows.php.net also ships bz2, com_dotnet, enchant, ffi, gmp, ldap,
+//      odbc, pdo_firebird, pdo_odbc, pdo_pgsql, pgsql, snmp, soap, sysvshm,
+//      and tidy, but Studio doesn't ship those on macOS, so we don't enable
+//      them on Windows either to keep behavior symmetric.
+// opcache and xdebug are Zend extensions and loaded separately via
+// `zend_extension=` (the latter only when config.enableXdebug is true). On
+// macOS every extension is baked into the `php` binary by static-php-cli, so
+// this list is irrelevant there.
 const WINDOWS_PHP_EXTENSIONS = [
 	'apcu',
-	'bcmath',
-	'calendar',
-	'ctype',
 	'curl',
 	'dba',
-	'dom',
 	'exif',
 	'fileinfo',
-	'filter',
 	'ftp',
 	'gd',
-	'iconv',
+	'gettext',
 	'igbinary',
 	'intl',
 	'mbstring',
 	'mysqli',
 	'openssl',
-	'pdo',
 	'pdo_mysql',
 	'pdo_sqlite',
-	'phar',
 	'redis',
-	'session',
 	'shmop',
-	'simplexml',
 	'sockets',
 	'sodium',
 	'sqlite3',
 	'ssh2',
-	'tokenizer',
-	'xml',
-	'xmlreader',
-	'xmlwriter',
+	'xsl',
 	'yaml',
 	'zip',
 ] as const;

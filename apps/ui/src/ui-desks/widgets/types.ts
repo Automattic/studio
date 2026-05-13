@@ -1,5 +1,4 @@
 import type { ControlConfig } from '@/ui-desks/controls/types';
-import type { ArtefactWidget } from '@/ui-desks/widgets/artefact/types';
 import type { BlogWidget } from '@/ui-desks/widgets/blog/types';
 import type { BookmarkWidget } from '@/ui-desks/widgets/bookmark/types';
 import type { DrawingWidget } from '@/ui-desks/widgets/drawing/types';
@@ -10,6 +9,7 @@ import type { NoteWidget } from '@/ui-desks/widgets/note/types';
 import type { PageWidget } from '@/ui-desks/widgets/page/types';
 import type { PostWidget } from '@/ui-desks/widgets/post/types';
 import type { PostCollectionWidget } from '@/ui-desks/widgets/post-collection/types';
+import type { ScratchpadWidget } from '@/ui-desks/widgets/scratchpad/types';
 import type { SitePreviewWidget } from '@/ui-desks/widgets/site-preview/types';
 import type { DeskStack, DeskWidgetBase } from '@studio/common/types/desk';
 import type { createRegistry } from '@wordpress/data';
@@ -224,7 +224,7 @@ export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBa
 }
 
 export type DeskWidget =
-	| ArtefactWidget
+	| ScratchpadWidget
 	| BookmarkWidget
 	| BlogWidget
 	| DrawingWidget
@@ -237,7 +237,7 @@ export type DeskWidget =
 	| PostCollectionWidget
 	| SitePreviewWidget;
 export type DeskWidgetDefinition =
-	| WidgetDefinition< ArtefactWidget >
+	| WidgetDefinition< ScratchpadWidget >
 	| WidgetDefinition< BookmarkWidget >
 	| WidgetDefinition< BlogWidget >
 	| WidgetDefinition< DrawingWidget >

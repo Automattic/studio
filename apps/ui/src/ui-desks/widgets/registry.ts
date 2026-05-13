@@ -1,4 +1,3 @@
-import { artefactWidgetDefinition } from '@/ui-desks/widgets/artefact/definition';
 import { blogWidgetDefinition } from '@/ui-desks/widgets/blog/definition';
 import { bookmarkWidgetDefinition } from '@/ui-desks/widgets/bookmark/definition';
 import { drawingWidgetDefinition } from '@/ui-desks/widgets/drawing/definition';
@@ -9,11 +8,12 @@ import { noteWidgetDefinition } from '@/ui-desks/widgets/note/definition';
 import { pageWidgetDefinition } from '@/ui-desks/widgets/page/definition';
 import { postWidgetDefinition } from '@/ui-desks/widgets/post/definition';
 import { postCollectionWidgetDefinition } from '@/ui-desks/widgets/post-collection/definition';
+import { scratchpadWidgetDefinition } from '@/ui-desks/widgets/scratchpad/definition';
 import { sitePreviewWidgetDefinition } from '@/ui-desks/widgets/site-preview/definition';
 import type { DeskWidgetDefinition } from './types';
 
 export const widgetDefinitions = {
-	[ artefactWidgetDefinition.type ]: artefactWidgetDefinition,
+	[ scratchpadWidgetDefinition.type ]: scratchpadWidgetDefinition,
 	[ embedWidgetDefinition.type ]: embedWidgetDefinition,
 	[ bookmarkWidgetDefinition.type ]: bookmarkWidgetDefinition,
 	[ blogWidgetDefinition.type ]: blogWidgetDefinition,

@@ -17,13 +17,13 @@ import {
 	resolvedDeskWidgetToCanvasShape,
 } from './index';
 import type { DeskConfig } from '../types';
-import type { ArtefactWidget } from '@/ui-desks/widgets/artefact/types';
 import type { DrawingWidget } from '@/ui-desks/widgets/drawing/types';
 import type { EmbedWidget } from '@/ui-desks/widgets/embed/types';
 import type { MediaWidget } from '@/ui-desks/widgets/media/types';
 import type { NoteWidget } from '@/ui-desks/widgets/note/types';
 import type { PageWidget } from '@/ui-desks/widgets/page/types';
 import type { PostWidget } from '@/ui-desks/widgets/post/types';
+import type { ScratchpadWidget } from '@/ui-desks/widgets/scratchpad/types';
 import type { SitePreviewWidget } from '@/ui-desks/widgets/site-preview/types';
 import type { ResolvedDeskWidget } from '@/ui-desks/widgets/types';
 
@@ -361,10 +361,10 @@ describe( 'tldraw adapter', () => {
 		} );
 	} );
 
-	it( 'maps an artefact widget through the canvas shape adapter', () => {
-		const widget: ArtefactWidget = {
-			id: 'artefact-1',
-			type: 'sd-artefact',
+	it( 'maps a scratchpad widget through the canvas shape adapter', () => {
+		const widget: ScratchpadWidget = {
+			id: 'scratchpad-1',
+			type: 'scratchpad',
 			x: 140,
 			y: 150,
 			zIndex: 'a8',
@@ -374,7 +374,7 @@ describe( 'tldraw adapter', () => {
 			},
 			widgetProps: {
 				html: '<!doctype html><html><body><h1>Example</h1></body></html>',
-				title: 'Example artefact',
+				title: 'Example scratchpad',
 				scope: 'block',
 				description: 'Render this HTML.',
 			},
@@ -383,20 +383,20 @@ describe( 'tldraw adapter', () => {
 		const shape = deskWidgetToCanvasShape( widget ) as TLShape;
 
 		expect( shape ).toMatchObject( {
-			id: 'shape:artefact-1',
+			id: 'shape:scratchpad-1',
 			type: RECTANGLE_WIDGET_SHAPE_TYPE,
 			x: 140,
 			y: 150,
 			index: 'a8',
 			props: {
-				widgetType: 'sd-artefact',
+				widgetType: 'scratchpad',
 				shapeProps: {
 					w: 568,
 					h: 524,
 				},
 				widgetProps: {
 					html: '<!doctype html><html><body><h1>Example</h1></body></html>',
-					title: 'Example artefact',
+					title: 'Example scratchpad',
 					scope: 'block',
 					description: 'Render this HTML.',
 				},

@@ -27,7 +27,7 @@ Use variants by intent:
 - `quiet`: low-emphasis actions, icon-only utility actions, and controls that should visually recede until hovered or active.
 - `filled`: emphasized local actions, form actions, and primary dialog actions.
 
-Prefer `tone="primary"` when the action needs primary color treatment instead of overriding button colors locally.
+Prefer `tone` when the action needs a semantic color treatment instead of overriding button colors locally. Use `tone="primary"` for brand-colored primary actions and `tone="inverse"` for strong black/white actions.
 
 Local button classes are acceptable for layout constraints such as width, positioning, or contextual spacing. Avoid local classes that recreate button states, icon sizing, hover treatment, or disabled treatment. If the same visual override appears in multiple places, add a Button variant or a small shared wrapper instead.
 

@@ -39,7 +39,7 @@ export function ComposerSkeleton() {
 							<span className={ clsx( styles.skeletonTool, styles.skeletonTextTool ) } />
 						</div>
 					</div>
-					<span className={ styles.sendButton } />
+					<span className={ clsx( styles.skeletonTool, styles.skeletonAction ) } />
 				</div>
 			</form>
 		</div>
@@ -268,7 +268,7 @@ export function Composer( {
 							>
 								<WidgetContextThumbnail widget={ widget } />
 								<Button
-									variant="quiet"
+									variant="filled"
 									size="xsmall"
 									className={ styles.removeAttachment }
 									icon={ closeSmall }
@@ -396,7 +396,8 @@ export function Composer( {
 						<div className={ styles.promptActions }>
 							{ busy ? (
 								<Button
-									variant="quiet"
+									tone="inverse"
+									variant="filled"
 									size="small"
 									className={ styles.stopButton }
 									label={ isInterrupting ? __( 'Stopping' ) : __( 'Stop' ) }
@@ -412,9 +413,9 @@ export function Composer( {
 							) : null }
 							<Button
 								type="submit"
-								variant="quiet"
+								tone="primary"
+								variant="filled"
 								size="small"
-								className={ styles.sendButton }
 								disabled={ ! canSend }
 								icon={ arrowUp }
 								label={ sendAriaLabel }

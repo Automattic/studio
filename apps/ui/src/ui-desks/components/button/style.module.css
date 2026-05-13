@@ -182,9 +182,20 @@
 	--button-foreground: #fff;
 }
 
+.filled.inverse,
+.chrome.inverse {
+	--button-background: var(--ui-desks-text, #14171a);
+	--button-foreground: #fff;
+}
+
 .filled.primary:hover:not(:disabled),
 .chrome.primary:hover:not(:disabled) {
 	--button-background: #2448e2;
+}
+
+.filled.inverse:hover:not(:disabled),
+.chrome.inverse:hover:not(:disabled) {
+	--button-background: #000;
 }
 
 .filled.primary[data-icon-only='true'] {

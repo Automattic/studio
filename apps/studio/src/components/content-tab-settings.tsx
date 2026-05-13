@@ -15,12 +15,14 @@ import { SettingsMenuItem } from 'src/components/settings-site-menu';
 import { useDeleteSite } from 'src/hooks/use-delete-site';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { useSiteDetails } from 'src/hooks/use-site-details';
+import { isLinux } from 'src/lib/app-globals';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import EditSiteDetails from 'src/modules/site-settings/edit-site-details';
 import { useAppDispatch } from 'src/stores';
 import {
 	certificateTrustApi,
 	useCheckCertificateTrustQuery,
+	useGetLinuxBrowserCertSupportStatusQuery,
 } from 'src/stores/certificate-trust-api';
 
 interface ContentTabSettingsProps {
@@ -42,6 +44,9 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 	const dispatch = useAppDispatch();
 	const { __ } = useI18n();
 	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
+	const { data: linuxBrowserCertStatus } = useGetLinuxBrowserCertSupportStatusQuery( undefined, {
+		skip: ! isLinux(),
+	} );
 	const username = selectedSite.adminUsername || 'admin';
 	// Empty strings account for legacy sites lacking a stored password.
 	const storedPassword = decodePassword( selectedSite.adminPassword ?? '' );
@@ -151,6 +156,18 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 								<LearnHowLink docsLinksKey="docsSslInStudio" />
 							</div>
 						) }
+						{ ! isCertificateTrusted &&
+							selectedSite.enableHttps &&
+							linuxBrowserCertStatus?.firefoxDetected && (
+								<div className="mt-1 max-w-96" data-testid="trust-cert-firefox-notice">
+									<span className="text-frame-text-secondary mt-1">
+										{ __(
+											'Firefox uses its own certificate store. If Firefox doesn’t recognize the certificate, import it manually to avoid the security warning.'
+										) }
+									</span>{ ' ' }
+									<LearnHowLink docsLinksKey="docsSslLinuxFirefox" />
+								</div>
+							) }
 					</SettingsRow>
 					<SettingsRow label={ __( 'Local path' ) }>
 						<CopyTextButton

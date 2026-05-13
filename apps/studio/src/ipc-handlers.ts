@@ -82,6 +82,7 @@ import {
 	isRootCATrusted,
 	trustRootCA,
 } from 'src/lib/certificate-manager';
+import { isFirefoxInstalledOnLinux } from 'src/lib/detect-linux-browsers';
 import { download } from 'src/lib/download';
 import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
 import { buildFeatureFlags } from 'src/lib/feature-flags';
@@ -1769,6 +1770,15 @@ export function openCertificate( _event: IpcMainInvokeEvent ) {
 
 export async function isCATrusted(): Promise< boolean > {
 	return isRootCATrusted();
+}
+
+export async function getLinuxBrowserCertSupportStatus(): Promise< {
+	firefoxDetected: boolean;
+} > {
+	if ( process.platform !== 'linux' ) {
+		return { firefoxDetected: false };
+	}
+	return { firefoxDetected: isFirefoxInstalledOnLinux() };
 }
 
 export async function trustCertificate( event: IpcMainInvokeEvent ): Promise< void > {

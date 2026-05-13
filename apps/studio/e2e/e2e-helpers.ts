@@ -183,18 +183,21 @@ export class E2ESession {
 		);
 
 		console.error( report );
-		await testInfo.attach( 'main-process.log', {
-			body: Buffer.from( report, 'utf8' ),
-			contentType: 'text/plain',
-		} );
+		await this.attachLogFile( testInfo, 'main-process.log', report );
 
 		const processManagerLogs = await this.getProcessManagerLogs();
 		if ( processManagerLogs ) {
-			await testInfo.attach( 'process-manager.log', {
-				body: Buffer.from( processManagerLogs, 'utf8' ),
-				contentType: 'text/plain',
-			} );
+			await this.attachLogFile( testInfo, 'process-manager.log', processManagerLogs );
 		}
+	}
+
+	private async attachLogFile( testInfo: TestInfo, name: string, content: string ) {
+		const logPath = testInfo.outputPath( name );
+		await fs.outputFile( logPath, content, 'utf8' );
+		await testInfo.attach( name, {
+			path: logPath,
+			contentType: 'text/plain',
+		} );
 	}
 
 	private startCapturingMainProcessLogs() {

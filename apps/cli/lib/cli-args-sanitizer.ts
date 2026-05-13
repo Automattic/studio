@@ -119,6 +119,7 @@ export function sanitizeRunCLIArgs( args: RunCLIArgs ): Record< string, unknown 
 		port: args.port,
 		debug: args.debug,
 		verbosity: args.verbosity,
+		workers: args.workers,
 		wordpressInstallMode: args.wordpressInstallMode,
 		skipSqliteSetup: args.skipSqliteSetup,
 		followSymlinks: args.followSymlinks,

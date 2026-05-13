@@ -176,6 +176,7 @@ if [ "$PLATFORM" = "linux" ]; then
     set -euo pipefail
     cd /workdir
     echo "STUDIO_DISABLE_PLAYGROUND_WASM_SERVICES=${STUDIO_DISABLE_PLAYGROUND_WASM_SERVICES:-0}"
+    echo "STUDIO_PLAYGROUND_WORKERS=${STUDIO_PLAYGROUND_WORKERS:-auto}"
     echo "Installing Playwright Chromium..."
     npx playwright install chromium
     echo "Running Playwright tests..."

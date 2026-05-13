@@ -51,6 +51,21 @@ let lastCliArgs: Record< string, unknown > | null = null;
 const arePlaygroundWasmServicesEnabled =
 	process.env.STUDIO_DISABLE_PLAYGROUND_WASM_SERVICES !== '1';
 
+function getConfiguredPlaygroundWorkers(): RunCLIArgs[ 'workers' ] | undefined {
+	const workers = process.env.STUDIO_PLAYGROUND_WORKERS;
+	if ( ! workers ) {
+		return undefined;
+	}
+
+	const parsedWorkers = Number( workers );
+	if ( Number.isInteger( parsedWorkers ) && parsedWorkers > 0 ) {
+		return parsedWorkers;
+	}
+
+	console.warn( `Ignoring STUDIO_PLAYGROUND_WORKERS=${ workers }; expected a positive integer.` );
+	return undefined;
+}
+
 // Intercept and prefix all console output from playground-cli
 const originalConsoleLog = console.log;
 const originalConsoleError = console.error;
@@ -261,6 +276,7 @@ async function getBaseRunCLIArgs(
 
 	const enableDebugLog = config.enableDebugLog ?? false;
 	const enableDebugDisplay = config.enableDebugDisplay ?? false;
+	const configuredPlaygroundWorkers = getConfiguredPlaygroundWorkers();
 
 	const defaultConstants: Record< string, boolean | string > = {
 		// Fallback for sites where DB_NAME was stripped from wp-config.php.
@@ -341,6 +357,7 @@ async function getBaseRunCLIArgs(
 		wordpressInstallMode,
 		redis: IS_JSPI_AVAILABLE && arePlaygroundWasmServicesEnabled,
 		memcached: IS_JSPI_AVAILABLE && arePlaygroundWasmServicesEnabled,
+		...( configuredPlaygroundWorkers ? { workers: configuredPlaygroundWorkers } : {} ),
 	};
 
 	if ( config.wpVersion ) {

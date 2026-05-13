@@ -28,7 +28,12 @@ import {
 	type AiModelFamily,
 	type AiModelId,
 } from '@studio/common/ai/models';
-import { createDlaPolicyFactory, defaultPolicyBuckets } from '@studio/dla';
+import {
+	createDlaPolicyFactory,
+	defaultPolicyBuckets,
+	startDlaBridge,
+	type DlaBridge,
+} from '@studio/dla';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
@@ -205,8 +210,9 @@ async function runAgentSessionTurn(
 
 	let session: AgentSession | undefined;
 	let unsubscribe: ( () => void ) | undefined;
+	const dlaBridge = await maybeStartDlaBridge( config );
 	try {
-		session = await createStudioAgentSession( config, family, resolved.creds );
+		session = await createStudioAgentSession( config, family, resolved.creds, dlaBridge );
 		setActiveSession( session );
 		unsubscribe = session.subscribe( config.onEvent );
 
@@ -225,13 +231,61 @@ async function runAgentSessionTurn(
 		unsubscribe?.();
 		session?.dispose();
 		setActiveSession( undefined );
+		await dlaBridge?.dispose();
+	}
+}
+
+/**
+ * Bring up the Data Liberation Agent (DLA) MCP bridge for this session,
+ * gated on `STUDIO_DLA_ENABLED === '1'`.
+ *
+ * Failures to spawn or connect the bridge are non-fatal: a warning is
+ * logged and `undefined` is returned so the session still starts with the
+ * usual Studio tools. The bridge itself also degrades gracefully (returning
+ * `degraded: true` with an empty tool list) when `listTools` fails — in
+ * that case the bridge handle is still returned so the caller can dispose
+ * it during teardown.
+ *
+ * The wpcom access token, when present in the session config, is forwarded
+ * to the DLA child as `STUDIO_WPCOM_TOKEN` so DLA can authenticate against
+ * WordPress.com APIs when surfacing remote-site flows.
+ *
+ * @param config - The resolved session config for this turn.
+ * @returns A `DlaBridge` handle, or `undefined` when DLA is disabled or
+ *   the bridge could not be constructed at all.
+ */
+async function maybeStartDlaBridge(
+	config: ResolvedStudioAgentTurnConfig
+): Promise< DlaBridge | undefined > {
+	if ( config.env.STUDIO_DLA_ENABLED !== '1' ) {
+		return undefined;
+	}
+	try {
+		const bridge = await startDlaBridge( {
+			wpcomToken: config.wpcomAccessToken,
+		} );
+		if ( bridge.degraded ) {
+			console.warn(
+				`[studio code] DLA bridge degraded; continuing without DLA tools (${
+					bridge.degradationReason ?? 'unknown reason'
+				}).`
+			);
+		}
+		return bridge;
+	} catch ( error ) {
+		const reason = error instanceof Error ? error.message : String( error );
+		console.warn(
+			`[studio code] DLA bridge failed to start; continuing without DLA tools (${ reason }).`
+		);
+		return undefined;
 	}
 }
 
 async function createStudioAgentSession(
 	config: ResolvedStudioAgentTurnConfig,
 	family: AiModelFamily,
-	creds: ResolvedCredentials
+	creds: ResolvedCredentials,
+	dlaBridge?: DlaBridge
 ): Promise< AgentSession > {
 	const model = buildModel( config.model, family, creds );
 	const isRemoteSite = Boolean( config.activeSite?.remote && config.activeSite?.wpcomSiteId );
@@ -251,8 +305,7 @@ async function createStudioAgentSession(
 			: { previewSteering: isForkedByDesktop, remoteSession }
 	);
 
-	const tools = buildAgentTools( config, isForkedByDesktop, remoteSession );
-	const toolDefinitions = tools.map( toToolDefinition );
+	const toolDefinitions = buildAgentTools( config, isForkedByDesktop, remoteSession, dlaBridge );
 	const { authStorage, modelRegistry } = createModelRegistry( model, family, creds );
 	const settingsManager = createSettingsManager( config.env );
 	const extensionFactories = resolveDlaExtensionFactories( config.env );
@@ -431,11 +484,34 @@ function toToolDefinition( tool: AgentToolAny ): ToolDefinition {
 	};
 }
 
+/**
+ * Build the `customTools` list passed to pi's `createAgentSession`. The
+ * Studio-native tools (returned as `AgentTool` values) are converted to
+ * pi's `ToolDefinition` shape via `toToolDefinition`, and the bridged DLA
+ * tools — already `ToolDefinition[]` — are spliced into the local-site
+ * tool list when `dlaBridge` is supplied.
+ *
+ * The DLA tools intentionally do not appear in the remote-site branch
+ * because the remote flow already steers callers toward WordPress.com
+ * APIs (`wpcom_request`), and bridging DLA there risks recursive migration
+ * loops back into Studio itself.
+ *
+ * @param config - The resolved per-turn session config.
+ * @param enablePreviewSteering - Whether the runtime is forked by the
+ *   desktop app (which steers users toward the Preview Site flow).
+ * @param remoteSession - Whether this is a remote, WPCOM-backed session.
+ * @param dlaBridge - Optional DLA bridge handle; when present, its
+ *   `tools` are spliced into the local-site tool list. When absent
+ *   (e.g. `STUDIO_DLA_ENABLED` is unset or the bridge failed to spawn)
+ *   the result matches the legacy tool list exactly.
+ * @returns The fully assembled `ToolDefinition[]` for the session.
+ */
 function buildAgentTools(
 	config: ResolvedStudioAgentTurnConfig,
 	enablePreviewSteering: boolean,
-	remoteSession: boolean
-): AgentToolAny[] {
+	remoteSession: boolean,
+	dlaBridge?: DlaBridge
+): ToolDefinition[] {
 	const isRemoteSite = Boolean(
 		config.activeSite?.remote && config.activeSite?.wpcomSiteId && config.wpcomAccessToken
 	);
@@ -448,7 +524,7 @@ function buildAgentTools(
 	const skillTool: AgentToolAny[] = skillToolDef ? [ skillToolDef ] : [];
 
 	if ( isRemoteSite ) {
-		return [
+		const remoteTools: AgentToolAny[] = [
 			createWpcomRequestTool( config.wpcomAccessToken!, config.activeSite!.wpcomSiteId! ),
 			takeScreenshotTool,
 			createSiteTool,
@@ -456,6 +532,7 @@ function buildAgentTools(
 			...askUserTool,
 			...skillTool,
 		];
+		return remoteTools.map( toToolDefinition );
 	}
 
 	const renameTool = ( tool: AgentToolAny, name: string ): AgentToolAny => ( {
@@ -473,12 +550,13 @@ function buildAgentTools(
 		renameTool( createFindTool( STUDIO_SITES_ROOT ), 'Glob' ),
 		renameTool( createLsTool( STUDIO_SITES_ROOT ), 'Ls' ),
 	];
-	return [
+	const studioTools: AgentToolAny[] = [
 		...resolveStudioToolDefinitions( { enablePreviewSteering, remoteSession } ),
 		...askUserTool,
 		...skillTool,
 		...piTools,
 	];
+	return [ ...studioTools.map( toToolDefinition ), ...( dlaBridge?.tools ?? [] ) ];
 }
 
 function parseJsonHeaderEnv( value: string | undefined ): Record< string, string > | undefined {

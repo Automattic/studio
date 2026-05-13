@@ -194,6 +194,10 @@ export interface Connector {
 	getSessions(): Promise< AiSessionSummary[] >;
 	getSession( sessionId: string ): Promise< LoadedAiSession >;
 	deleteSession( sessionId: string ): Promise< void >;
+	updateSessionMetadata(
+		sessionId: string,
+		patch: Pick< AiSessionSummary, 'starred' | 'archived' >
+	): Promise< AiSessionSummary >;
 
 	// Create an empty session file so it appears immediately. When `siteId`
 	// is omitted, the session is a user-desk chat with no owner site.

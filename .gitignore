@@ -95,10 +95,7 @@ typings/
 out/
 
 # The latest WordPress files downloaded from the web
-wp-files/*
-!wp-files/blueprints/
-wp-files/blueprints/*
-!wp-files/blueprints/blueprints.phar
+wp-files/
 
 # Release Tooling
 vendor/*

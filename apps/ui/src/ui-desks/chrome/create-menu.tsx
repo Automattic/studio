@@ -6,12 +6,13 @@ import { chevronLeft, download, globe, link, plus, verse } from '@wordpress/icon
 import { Icon } from '@wordpress/ui';
 import { useMemo, useState } from 'react';
 import { useSites } from '@/data/queries/use-sites';
-import { IconControlButton, Menu } from '@/ui-desks/components';
+import { Button, Menu } from '@/ui-desks/components';
 import { useDesk } from '@/ui-desks/desk/provider';
 import { pageWidgetDefinition } from '@/ui-desks/widgets/page/definition';
 import { PAGE_WIDGET_TYPE } from '@/ui-desks/widgets/page/types';
 import { postWidgetDefinition } from '@/ui-desks/widgets/post/definition';
 import { POST_WIDGET_TYPE } from '@/ui-desks/widgets/post/types';
+import { CONTENT_CARD_STATUSES, getPostStatusInfo } from '@/ui-desks/widgets/post-status';
 import { getCreatableWidgetDefinitions } from '@/ui-desks/widgets/registry';
 import { LinkFromUrlDialog } from './link-from-url-dialog';
 import styles from './style.module.css';
@@ -40,7 +41,7 @@ export function DeskCreateMenu() {
 	return (
 		<>
 			<Menu.Root modal={ false } onOpenChange={ ( open ) => ! open && setMode( 'menu' ) }>
-				<Menu.Trigger render={ <IconControlButton icon={ plus } label={ __( 'Create new' ) } /> } />
+				<Menu.Trigger render={ <Button icon={ plus } label={ __( 'Create new' ) } /> } />
 				<Menu.Popup
 					side="bottom"
 					align="start"
@@ -163,7 +164,8 @@ function ExistingContentPickerMenuItems( {
 	const query = useMemo(
 		() => ( {
 			per_page: 20,
-			context: 'view',
+			context: 'edit',
+			status: CONTENT_CARD_STATUSES,
 			orderby: type === 'page' ? 'menu_order' : 'date',
 			order: type === 'page' ? 'asc' : 'desc',
 			_fields: 'id,title,excerpt,status,date,link,slug',
@@ -218,6 +220,7 @@ function ExistingContentPickerMenuItems( {
 			) }
 			{ records?.map( ( record ) => {
 				const title = decodeEntities( record.title?.rendered ?? '' ).trim() || __( 'Untitled' );
+				const statusInfo = getPostStatusInfo( record.status );
 				return (
 					<Menu.Item
 						key={ record.id }
@@ -234,8 +237,20 @@ function ExistingContentPickerMenuItems( {
 							} )
 						}
 					>
-						<span className={ styles.postPickerTitle }>{ title }</span>
-						{ record.status && <span className={ styles.postPickerMeta }>{ record.status }</span> }
+						<span className={ styles.postPickerContent }>
+							<span className={ styles.postPickerTitle }>{ title }</span>
+							{ record.status && (
+								<span className={ styles.postPickerMeta }>{ statusInfo.label }</span>
+							) }
+						</span>
+						{ record.status && (
+							<span
+								className={ styles.postPickerStatusDot }
+								style={ { background: statusInfo.color } }
+								title={ statusInfo.label }
+								aria-label={ statusInfo.label }
+							/>
+						) }
 					</Menu.Item>
 				);
 			} ) }

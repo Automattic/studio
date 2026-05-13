@@ -2,7 +2,10 @@ import { __ } from '@wordpress/i18n';
 import { useRef } from 'react';
 import styles from './style.module.css';
 import { MEDIA_WIDGET_TYPE, type MediaWidgetProps } from './types';
-import type { DeskWidgetComponentProps } from '@/ui-desks/widgets/types';
+import type {
+	DeskWidgetComponentProps,
+	DeskWidgetThumbnailComponentProps,
+} from '@/ui-desks/widgets/types';
 
 type MediaWidgetComponentProps = DeskWidgetComponentProps< MediaWidgetProps >;
 
@@ -57,6 +60,35 @@ export function MediaWidgetComponent( { id, widgetProps, isEditing }: MediaWidge
 			) }
 			{ ! widgetProps.url && <div className={ styles.empty }>{ __( 'Uploading…' ) }</div> }
 			{ ! isEditing && <div className={ styles.shield } aria-hidden="true" /> }
+		</div>
+	);
+}
+
+export function MediaWidgetThumbnailComponent( {
+	id,
+	widgetProps,
+}: DeskWidgetThumbnailComponentProps< MediaWidgetProps > ) {
+	const isImage = widgetProps.mediaKind === 'image' && widgetProps.url;
+
+	return (
+		<div
+			className={ styles.thumbnail }
+			data-kind={ widgetProps.mediaKind }
+			data-studio-desk-widget={ MEDIA_WIDGET_TYPE }
+			data-studio-desk-widget-id={ id }
+			style={
+				isImage
+					? {
+							backgroundImage: `url(${ widgetProps.url })`,
+					  }
+					: undefined
+			}
+		>
+			{ ! isImage && (
+				<span className={ styles.thumbnailText }>
+					{ widgetProps.alt || widgetProps.url || __( 'Media' ) }
+				</span>
+			) }
 		</div>
 	);
 }

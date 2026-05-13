@@ -1,18 +1,23 @@
 import { Dialog } from '@base-ui/react/dialog';
+import { createDefaultDeskSettings } from '@studio/common/lib/desk-settings';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import motionStyles from '@/components/floating-surface-motion/style.module.css';
+import { useDeskSettings } from '@/data/queries/use-desk-config';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import { useFullscreen } from '@/hooks/use-fullscreen';
-import { formatRelativeTime } from '@/lib/format-relative-time';
-import { ActionButton, List, ListItem } from '@/ui-desks/components';
+import { Button, List, ListItem } from '@/ui-desks/components';
 import { ChatsButton } from '../chrome/chats-button';
+import { getDeskToolbarButtonSide, normalizeDeskToolbarSettings } from '../chrome/toolbar-layout';
 import { useChats } from './context';
 import { SessionSurface } from './session-surface';
 import styles from './style.module.css';
+import { useChatPanelResize } from './use-chat-panel-resize';
+import { WidgetContextThumbnailList } from './widget-context';
 import type { AiSessionSummary } from '@/data/core';
+import type { CSSProperties } from 'react';
 
 export { ChatsProvider } from './provider';
 
@@ -25,11 +30,7 @@ function getSessionTitle( session: AiSessionSummary ) {
 }
 
 function getSessionSubtitle( session: AiSessionSummary ) {
-	if ( ! session.firstPrompt ) {
-		return __( 'Ask Studio anything to get started.' );
-	}
-
-	return formatRelativeTime( session.updatedAt );
+	return session.assistantReplyPreview ?? __( 'Ask Studio anything to get started.' );
 }
 
 export function ChatsTrigger() {
@@ -47,25 +48,38 @@ export function Chats( { siteId }: ChatsProps ) {
 		autoFocusSessionId,
 		isCreatingChat,
 		pendingPrompt,
+		composerWidgetDragPreview,
 		selectSession,
 		switchSession,
 		clearSelection,
 		startNewChat,
 		consumePendingPrompt,
 	} = useChats();
+	const { data: savedDeskSettings } = useDeskSettings();
 	const { data: sessions, isFetching: isFetchingSessions } = useSessions();
 	const { data: sites } = useSites();
 	const isFullscreen = useFullscreen();
+	const fallbackDeskSettings = useMemo( () => createDefaultDeskSettings(), [] );
+	const deskSettings = useMemo(
+		() => normalizeDeskToolbarSettings( savedDeskSettings ?? fallbackDeskSettings ),
+		[ fallbackDeskSettings, savedDeskSettings ]
+	);
+	const side = getDeskToolbarButtonSide( deskSettings.toolbarLayout, 'chat' );
+	const { width, isResizing, listCollapsed, collapseList, expandList, startResize } =
+		useChatPanelResize( side );
 	const site = siteId ? sites?.find( ( candidate ) => candidate.id === siteId ) : undefined;
 	const filteredSessions = siteId
 		? site?.path
-			? ( sessions ?? [] ).filter( ( session ) => session.ownerSitePath === site.path )
+			? ( sessions ?? [] ).filter(
+					( session ) => session.ownerSitePath === site.path && ! session.archived
+			  )
 			: []
-		: ( sessions ?? [] ).filter( ( session ) => ! session.ownerSitePath );
+		: ( sessions ?? [] ).filter( ( session ) => ! session.ownerSitePath && ! session.archived );
 	const chatSessions = [ ...filteredSessions ].sort(
 		( a, b ) => Date.parse( b.updatedAt ) - Date.parse( a.updatedAt )
 	);
 	const selectedSession = chatSessions.find( ( session ) => session.id === selectedSessionId );
+	const isListCollapsed = expanded && listCollapsed;
 
 	useEffect( () => {
 		if ( selectedSessionId && sessions && ! isFetchingSessions && ! selectedSession ) {
@@ -85,34 +99,56 @@ export function Chats( { siteId }: ChatsProps ) {
 						motionStyles.motion,
 						expanded && styles.panelExpanded
 					) }
+					data-side={ side }
+					data-expanded={ expanded ? 'true' : 'false' }
+					data-list-collapsed={ isListCollapsed ? 'true' : 'false' }
+					data-resizing={ isResizing ? 'true' : 'false' }
+					data-ui-desks-chat-dropzone={ expanded && selectedSessionId ? 'true' : undefined }
+					style={
+						expanded
+							? ( {
+									'--desk-chats-panel-width': `${ width }px`,
+							  } as CSSProperties )
+							: undefined
+					}
 					aria-label={ __( 'Conversations' ) }
 				>
-					<div className={ styles.listPane }>
-						<header className={ styles.header }>
-							<h2>{ __( 'Conversations' ) }</h2>
-						</header>
-						<List className={ styles.list }>
-							{ chatSessions.map( ( session ) => (
-								<ListItem
-									key={ session.id }
-									active={ session.id === selectedSessionId }
-									label={ getSessionTitle( session ) }
-									description={ getSessionSubtitle( session ) }
-									onClick={ () => selectSession( session.id ) }
-								/>
-							) ) }
-						</List>
-						<footer className={ styles.footer }>
-							<ActionButton
-								fullWidth
-								disabled={ isCreatingChat }
-								aria-busy={ isCreatingChat }
-								onClick={ () => void startNewChat() }
-							>
-								{ isCreatingChat ? __( 'Creating chat…' ) : __( '+ New chat' ) }
-							</ActionButton>
-						</footer>
-					</div>
+					{ ! isListCollapsed ? (
+						<div className={ styles.listPane }>
+							<header className={ styles.header }>
+								<h2>{ __( 'Conversations' ) }</h2>
+							</header>
+							<List className={ styles.list }>
+								{ chatSessions.length > 0 ? (
+									chatSessions.map( ( session ) => (
+										<ListItem
+											key={ session.id }
+											active={ session.id === selectedSessionId }
+											label={ getSessionTitle( session ) }
+											description={ getSessionSubtitle( session ) }
+											onClick={ () => selectSession( session.id ) }
+										/>
+									) )
+								) : (
+									<div className={ styles.emptyList }>{ __( 'No conversations yet.' ) }</div>
+								) }
+							</List>
+							<footer className={ styles.footer }>
+								<Button
+									className={ styles.newChatButton }
+									label={ __( 'New chat' ) }
+									size="xlarge"
+									disabled={ isCreatingChat }
+									aria-busy={ isCreatingChat }
+									onClick={ () => void startNewChat() }
+									variant="quiet"
+								>
+									{ isCreatingChat ? __( 'Creating chat...' ) : __( '+ New chat' ) }
+								</Button>
+							</footer>
+							<div className={ styles.listDivider } aria-hidden />
+						</div>
+					) : null }
 					{ expanded ? (
 						<div className={ styles.chatPane }>
 							{ selectedSessionId ? (
@@ -120,6 +156,10 @@ export function Chats( { siteId }: ChatsProps ) {
 									key={ selectedSessionId }
 									siteId={ siteId }
 									sessionId={ selectedSessionId }
+									side={ side }
+									listCollapsed={ isListCollapsed }
+									onExpandList={ expandList }
+									onCollapseList={ collapseList }
 									onSwitchSession={ switchSession }
 									autoFocus={ autoFocusSessionId === selectedSessionId }
 									initialPrompt={
@@ -134,7 +174,32 @@ export function Chats( { siteId }: ChatsProps ) {
 							) }
 						</div>
 					) : null }
+					<div
+						className={ styles.resizeHandle }
+						onPointerDown={ startResize }
+						role="separator"
+						aria-orientation="vertical"
+						aria-label={ __( 'Resize conversations' ) }
+						aria-hidden={ ! expanded }
+					/>
 				</Dialog.Popup>
+				{ composerWidgetDragPreview && (
+					<div
+						className={ styles.widgetDragPreview }
+						style={
+							{
+								'--desk-widget-drag-preview-x': `${ composerWidgetDragPreview.x }px`,
+								'--desk-widget-drag-preview-y': `${ composerWidgetDragPreview.y }px`,
+							} as CSSProperties
+						}
+						aria-hidden="true"
+					>
+						<WidgetContextThumbnailList
+							widgets={ composerWidgetDragPreview.widgets }
+							className={ styles.widgetDragPreviewThumbnails }
+						/>
+					</div>
+				) }
 			</Dialog.Portal>
 		</Dialog.Root>
 	);

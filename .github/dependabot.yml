@@ -10,6 +10,9 @@ updates:
     schedule:
       interval: "weekly"
 
+    cooldown:
+      default-days: 1
+
     allow:
       # Automattic packages
       - dependency-name: "@automattic/*"

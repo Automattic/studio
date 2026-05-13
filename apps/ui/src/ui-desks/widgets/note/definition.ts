@@ -4,7 +4,8 @@ import {
 	NoteWidgetComponent,
 	NoteWidgetThumbnailComponent,
 } from '@/ui-desks/widgets/note/component';
-import { NoteFitTextControl, NoteTextSizeControl } from '@/ui-desks/widgets/note/text-controls';
+import { NoteTextSizeControl } from '@/ui-desks/widgets/note/text-controls';
+import { getFittedNoteHeight } from '@/ui-desks/widgets/note/text-sizing';
 import {
 	isNoteWidgetProps,
 	NOTE_WIDGET_TYPE,
@@ -51,11 +52,6 @@ export const noteWidgetDefinition = {
 			Component: NoteTextSizeControl,
 		},
 		{
-			type: 'custom',
-			id: 'fit-text',
-			Component: NoteFitTextControl,
-		},
-		{
 			type: 'color',
 			id: 'tone',
 			property: 'tone',
@@ -70,6 +66,7 @@ export const noteWidgetDefinition = {
 	} ),
 	labels: {
 		add: () => __( 'New sticky note' ),
+		fitContent: () => __( 'Fit text' ),
 	},
 	icon: pencil,
 	getInitialWidget: () => ( {
@@ -84,6 +81,11 @@ export const noteWidgetDefinition = {
 	} ),
 	getSummary: ( widgetProps ) =>
 		truncateText( stripMarkup( widgetProps.text ), 72 ) || __( 'Empty note' ),
+	getEditAction: () => ( { kind: 'canvas-editing' } ),
+	getFittedShapeProps: ( { widgetProps, shapeProps } ) => ( {
+		...shapeProps,
+		h: getFittedNoteHeight( widgetProps, shapeProps ),
+	} ),
 } satisfies WidgetDefinition< NoteWidget >;
 
 function stripMarkup( value: string ) {

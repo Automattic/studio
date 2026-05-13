@@ -1,10 +1,11 @@
 import { __ } from '@wordpress/i18n';
+import { arrowUp } from '@wordpress/icons';
 import { useEffect, useRef, useState } from 'react';
 import {
+	Button,
 	PromptDialog,
 	PromptDialogError,
 	PromptDialogRow,
-	PromptDialogSubmit,
 	PromptDialogTip,
 	promptDialogInputClassName,
 } from '@/ui-desks/components';
@@ -12,10 +13,14 @@ import { useDesk } from '@/ui-desks/desk/provider';
 import { createUrlPastePayload } from '@/ui-desks/widgets/paste-handlers';
 
 interface LinkFromUrlDialogProps {
+	center?: {
+		x: number;
+		y: number;
+	};
 	onClose: () => void;
 }
 
-export function LinkFromUrlDialog( { onClose }: LinkFromUrlDialogProps ) {
+export function LinkFromUrlDialog( { center, onClose }: LinkFromUrlDialogProps ) {
 	const desk = useDesk();
 	const inputRef = useRef< HTMLInputElement | null >( null );
 	const [ text, setText ] = useState( '' );
@@ -34,7 +39,7 @@ export function LinkFromUrlDialog( { onClose }: LinkFromUrlDialogProps ) {
 		}
 
 		setError( null );
-		const didAdd = await desk.addPastedContent( payload );
+		const didAdd = await desk.addPastedContent( payload, center ? { center } : undefined );
 		if ( didAdd ) {
 			onClose();
 			return;
@@ -64,10 +69,15 @@ export function LinkFromUrlDialog( { onClose }: LinkFromUrlDialogProps ) {
 					placeholder={ __( 'Paste a URL...' ) }
 					onChange={ ( event ) => setText( event.target.value ) }
 				/>
-				<PromptDialogSubmit
+				<Button
+					icon={ arrowUp }
 					label={ __( 'Create link' ) }
 					disabled={ ! canSubmit }
 					onClick={ () => void submit() }
+					tooltipSide="left"
+					variant="filled"
+					tone="primary"
+					size="large"
 				/>
 			</PromptDialogRow>
 			<PromptDialogTip>

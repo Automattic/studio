@@ -25,6 +25,7 @@ describe( 'widget toolbar selection', () => {
 			throw new Error( 'Expected a single widget toolbar item.' );
 		}
 		expect( selectedItem.definition.type ).toBe( NOTE_WIDGET_TYPE );
+		expect( selectedItem.definition.getFittedShapeProps ).toBeTypeOf( 'function' );
 		expect( selectedItem.canRemove ).toBe( true );
 		expect( selectedItem.widget.widgetProps ).toEqual( {
 			text: 'Hello',
@@ -40,7 +41,8 @@ describe( 'widget toolbar selection', () => {
 			throw new Error( 'Expected a single widget toolbar item.' );
 		}
 		expect( selectedItem.definition.type ).toBe( POST_WIDGET_TYPE );
-		expect( selectedItem.definition.controls?.[ 0 ]?.type ).toBe( 'custom' );
+		expect( selectedItem.definition.controls ).toBeUndefined();
+		expect( selectedItem.definition.getEditAction ).toBeTypeOf( 'function' );
 		expect( selectedItem.widget.widgetProps ).toEqual( {
 			postId: 42,
 		} );
@@ -82,6 +84,10 @@ describe( 'widget toolbar selection', () => {
 		}
 		expect( selectedItem.definition.type ).toBe( MEDIA_WIDGET_TYPE );
 		expect( selectedItem.definition.controls?.[ 0 ]?.type ).toBe( 'custom' );
+		expect( selectedItem.definition.controls?.map( ( control ) => control.id ) ).toEqual( [
+			'open-media',
+		] );
+		expect( selectedItem.definition.getFittedShapeProps ).toBeTypeOf( 'function' );
 		expect( selectedItem.widget.widgetProps ).toEqual( {
 			url: 'https://example.com/image.jpg',
 			mediaKind: 'image',
@@ -99,6 +105,10 @@ describe( 'widget toolbar selection', () => {
 		}
 		expect( selectedItem.definition.type ).toBe( EMBED_WIDGET_TYPE );
 		expect( selectedItem.definition.controls?.[ 0 ]?.type ).toBe( 'custom' );
+		expect( selectedItem.definition.controls?.map( ( control ) => control.id ) ).toEqual( [
+			'open-embed',
+		] );
+		expect( selectedItem.definition.getFittedShapeProps ).toBeTypeOf( 'function' );
 		expect( selectedItem.widget.widgetProps ).toEqual( {
 			url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
 		} );
@@ -127,7 +137,9 @@ describe( 'widget toolbar selection', () => {
 			throw new Error( 'Expected a single widget toolbar item.' );
 		}
 		expect( selectedItem.definition.type ).toBe( POST_COLLECTION_WIDGET_TYPE );
-		expect( selectedItem.definition.controls?.[ 0 ]?.type ).toBe( 'custom' );
+		expect( selectedItem.definition.controls?.[ 0 ]?.type ).toBe( 'select' );
+		expect( selectedItem.definition.controls ).toHaveLength( 1 );
+		expect( selectedItem.definition.getEditAction ).toBeTypeOf( 'function' );
 		expect( selectedItem.widget.widgetProps ).toEqual( {
 			query: {
 				postType: 'post',
@@ -171,6 +183,21 @@ describe( 'widget toolbar selection', () => {
 			canStack: false,
 			canUnstack: true,
 			stackIds: [ 'stack-1' ],
+		} );
+	} );
+
+	it( 'returns stack view controls for selections from a single stack', () => {
+		const widget = createNoteWidget();
+
+		expect(
+			getSelectedWidgetToolbarItem( [ widget, widget ], {
+				stackIds: [ 'stack-1' ],
+				stackViewMode: 'tiles',
+			} )
+		).toMatchObject( {
+			kind: 'multi-widget',
+			canSetStackView: true,
+			stackViewMode: 'tiles',
 		} );
 	} );
 

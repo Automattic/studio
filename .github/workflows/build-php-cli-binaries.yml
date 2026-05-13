@@ -11,16 +11,24 @@ on:
         description: static-php-cli ref
         required: true
         default: 2.8.5
-      prefer_pre_built:
-        description: Prefer pre-built static-php-cli libraries
-        required: true
-        type: boolean
-        default: true
       debug:
-        description: Enable static-php-cli debug logs
+        description: Enable debug logs
         required: true
         type: boolean
         default: false
+      upload_to_apps_cdn:
+        description: Upload to Apps CDN
+        required: true
+        type: boolean
+        default: false
+      apps_cdn_visibility:
+        description: Apps CDN visibility
+        required: true
+        type: choice
+        options:
+          - internal
+          - external
+        default: internal
 
 permissions:
   contents: read
@@ -41,21 +49,18 @@ jobs:
             runner: macos-15
             artifact_platform: macos
             artifact_arch: aarch64
-            archive_extension: tar.gz
             binary_name: php
             extensions: &macos_php_extensions apcu,bcmath,calendar,ctype,curl,dba,dom,exif,fileinfo,filter,ftp,gd,gettext,iconv,igbinary,imagick,intl,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pcntl,pdo,pdo_mysql,pdo_sqlite,phar,posix,readline,redis,session,shmop,simplexml,sockets,sodium,sqlite3,ssh2,tokenizer,xml,xmlreader,xmlwriter,xsl,yaml,zip,zlib
           - target: macos-x86_64
             runner: macos-15-intel
             artifact_platform: macos
             artifact_arch: x86_64
-            archive_extension: tar.gz
             binary_name: php
             extensions: *macos_php_extensions
           - target: windows-x86_64
             runner: windows-latest
             artifact_platform: windows
             artifact_arch: x86_64
-            archive_extension: zip
             binary_name: php.exe
             # static-php-cli 2.8.5 has Windows builders for intl and sodium, but not gettext/libxslt.
             extensions: apcu,bcmath,calendar,ctype,curl,dba,dom,exif,fileinfo,filter,ftp,gd,iconv,igbinary,intl,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pdo,pdo_mysql,pdo_sqlite,phar,redis,session,shmop,simplexml,sockets,sodium,sqlite3,ssh2,tokenizer,xml,xmlreader,xmlwriter,yaml,zip,zlib
@@ -65,9 +70,7 @@ jobs:
       PHP_CLI_EXTENSIONS: ${{ matrix.extensions }}
       PHP_CLI_ARTIFACT_PLATFORM: ${{ matrix.artifact_platform }}
       PHP_CLI_ARTIFACT_ARCH: ${{ matrix.artifact_arch }}
-      PHP_CLI_ARCHIVE_EXTENSION: ${{ matrix.archive_extension }}
       PHP_CLI_BINARY_NAME: ${{ matrix.binary_name }}
-      PREFER_PRE_BUILT: ${{ github.event_name != 'workflow_dispatch' || inputs.prefer_pre_built }}
       SPC_DEBUG: ${{ github.event_name == 'workflow_dispatch' && inputs.debug || false }}
 
     steps:
@@ -103,12 +106,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          download_args=(--with-php="$PHP_VERSION" --for-extensions="$PHP_CLI_EXTENSIONS" --ignore-cache-sources=php-src)
+          download_args=(--with-php="$PHP_VERSION" --for-extensions="$PHP_CLI_EXTENSIONS" --ignore-cache-sources=php-src --prefer-pre-built)
           build_args=("$PHP_CLI_EXTENSIONS" --build-cli)
-
-          if [ "$PREFER_PRE_BUILT" = "true" ]; then
-            download_args+=(--prefer-pre-built)
-          fi
 
           if [ "$SPC_DEBUG" = "true" ]; then
             download_args+=(--debug)
@@ -127,13 +126,10 @@ jobs:
           $downloadArgs = @(
             "--with-php=$env:PHP_VERSION",
             "--for-extensions=$env:PHP_CLI_EXTENSIONS",
-            "--ignore-cache-sources=php-src"
+            "--ignore-cache-sources=php-src",
+            "--prefer-pre-built"
           )
           $buildArgs = @( $env:PHP_CLI_EXTENSIONS, "--build-cli" )
-
-          if ( $env:PREFER_PRE_BUILT -eq "true" ) {
-            $downloadArgs += "--prefer-pre-built"
-          }
 
           if ( $env:SPC_DEBUG -eq "true" ) {
             $downloadArgs += "--debug"
@@ -142,6 +138,36 @@ jobs:
 
           php bin/spc doctor --auto-fix
           php bin/spc download @downloadArgs
+
+          if ( $env:PHP_VERSION -eq "8.3" -or $env:PHP_VERSION -like "8.3.*" ) {
+            $sourcePatcher = "src/SPC/store/SourcePatcher.php"
+            $sourcePatcherContent = Get-Content -Raw $sourcePatcher
+            $needle = "        // Fix PHP VS version"
+            $replacement = @'
+                  if ($builder instanceof WindowsBuilder && $builder->getPHPVersionID() >= 80300 && $builder->getPHPVersionID() < 80400) {
+                      logger()->info('Patching PHP 8.3 Windows intl C++17 flags');
+                      $intl_config = SOURCE_PATH . '/php-src/ext/intl/config.w32';
+                      if (!str_contains(file_get_contents($intl_config), '/std:c++17')) {
+                          FileSystem::replaceFileStr(
+                              $intl_config,
+                              'ADD_FLAG("CFLAGS_INTL", "/EHsc /DUNISTR_FROM_CHAR_EXPLICIT=explicit /DUNISTR_FROM_STRING_EXPLICIT=explicit /DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 /DU_HIDE_OBSOLETE_UTF_OLD_H=1");',
+                              'ADD_FLAG("CFLAGS_INTL", "/std:c++17 /EHsc /DUNISTR_FROM_CHAR_EXPLICIT=explicit /DUNISTR_FROM_STRING_EXPLICIT=explicit /DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 /DU_HIDE_OBSOLETE_UTF_OLD_H=1");'
+                          );
+                      }
+                  }
+
+                  // Fix PHP VS version
+          '@
+
+            if ( -not $sourcePatcherContent.Contains("Patching PHP 8.3 Windows intl C++17 flags") ) {
+              $patchedSourcePatcherContent = $sourcePatcherContent.Replace($needle, $replacement)
+              if ( $patchedSourcePatcherContent -eq $sourcePatcherContent ) {
+                throw "Unable to patch static-php-cli PHP 8.3 intl hook."
+              }
+              Set-Content -NoNewline -Path $sourcePatcher -Value $patchedSourcePatcherContent
+            }
+          }
+
           php bin/spc build @buildArgs
 
       - name: Package macOS artifact
@@ -151,13 +177,13 @@ jobs:
           set -euo pipefail
 
           out_dir="$GITHUB_WORKSPACE/out/php-binaries"
-          artifact="php-${PHP_VERSION}-cli-${PHP_CLI_ARTIFACT_PLATFORM}-${PHP_CLI_ARTIFACT_ARCH}.${PHP_CLI_ARCHIVE_EXTENSION}"
+          artifact="php-${PHP_VERSION}-cli-${PHP_CLI_ARTIFACT_PLATFORM}-${PHP_CLI_ARTIFACT_ARCH}.zip"
 
           mkdir -p "$out_dir"
           cp "$GITHUB_WORKSPACE/.cache/static-php-cli/buildroot/bin/$PHP_CLI_BINARY_NAME" "$RUNNER_TEMP/php"
           chmod +x "$RUNNER_TEMP/php"
           xattr -cr "$RUNNER_TEMP/php"
-          tar -czf "$out_dir/$artifact" -C "$RUNNER_TEMP" php
+          ( cd "$RUNNER_TEMP" && zip -q "$out_dir/$artifact" php )
           shasum -a 256 "$out_dir/$artifact" | awk '{print $1}' > "$out_dir/$artifact.sha256"
 
       - name: Package Windows artifact
@@ -165,7 +191,7 @@ jobs:
         shell: pwsh
         run: |
           $outDir = Join-Path $env:GITHUB_WORKSPACE 'out/php-binaries'
-          $artifact = "php-$env:PHP_VERSION-cli-$env:PHP_CLI_ARTIFACT_PLATFORM-$env:PHP_CLI_ARTIFACT_ARCH.$env:PHP_CLI_ARCHIVE_EXTENSION"
+          $artifact = "php-$env:PHP_VERSION-cli-$env:PHP_CLI_ARTIFACT_PLATFORM-$env:PHP_CLI_ARTIFACT_ARCH.zip"
           $source = Join-Path $env:GITHUB_WORKSPACE ".cache/static-php-cli/buildroot/bin/$env:PHP_CLI_BINARY_NAME"
           $dest = Join-Path $env:RUNNER_TEMP $env:PHP_CLI_BINARY_NAME
           $archive = Join-Path $outDir $artifact
@@ -188,3 +214,69 @@ jobs:
           name: spc-logs-${{ matrix.target }}
           path: .cache/static-php-cli/log/*.log
           if-no-files-found: ignore
+
+  publish-apps-cdn:
+    name: Publish Apps CDN artifacts
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      PHP_VERSION: ${{ inputs.php_version }}
+      PHP_CLI_VISIBILITY: ${{ inputs.apps_cdn_visibility }}
+      DRY_RUN: ${{ inputs.upload_to_apps_cdn && 'false' || 'true' }}
+      WPCOM_API_TOKEN: ${{ secrets.WPCOM_API_TOKEN }}
+    steps:
+      - name: Checkout Studio
+        uses: actions/checkout@v6
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      - name: Download PHP CLI artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: php-${{ env.PHP_VERSION }}-cli-*
+          path: out/php-binaries
+          merge-multiple: true
+
+      - name: Publish PHP CLI artifacts to Apps CDN
+        run: |
+          set -euo pipefail
+
+          if [ "$DRY_RUN" != "true" ] && [ -z "${WPCOM_API_TOKEN:-}" ]; then
+            echo "WPCOM_API_TOKEN secret is required to upload PHP CLI artifacts to Apps CDN."
+            exit 1
+          fi
+
+          upload_results_file="${PWD}/out/php-binaries/apps-cdn-upload-results.json"
+
+          bundle exec fastlane publish_php_cli_binaries \
+            version:"${PHP_VERSION}" \
+            artifacts_dir:"${PWD}/out/php-binaries" \
+            visibility:"${PHP_CLI_VISIBILITY}" \
+            output_file:"${upload_results_file}"
+
+          echo "### Apps CDN PHP CLI upload" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "Dry run completed for PHP ${PHP_VERSION} CLI artifacts with ${PHP_CLI_VISIBILITY} visibility." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Uploaded PHP ${PHP_VERSION} CLI artifacts with ${PHP_CLI_VISIBILITY} visibility." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          PHP_CLI_UPLOAD_RESULTS_FILE="$upload_results_file" ruby -rjson -e '
+            results = JSON.parse(File.read(ENV.fetch("PHP_CLI_UPLOAD_RESULTS_FILE")))
+
+            File.open(ENV.fetch("GITHUB_STEP_SUMMARY"), "a") do |summary|
+              summary.puts "| File | Apps CDN URL |"
+              summary.puts "| --- | --- |"
+
+              results.each do |file_name, result|
+                url = result["cdn_url"].to_s
+                url_output = url.empty? ? "Dry run (not uploaded)" : "<#{url}>"
+                summary.puts "| `#{file_name}` | #{url_output} |"
+              end
+            end
+          '

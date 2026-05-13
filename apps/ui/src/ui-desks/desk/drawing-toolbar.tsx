@@ -3,7 +3,7 @@ import { verse } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { useState } from 'react';
 import { useEditor, useValue } from 'tldraw';
-import { ControlButton, Surface } from '@/ui-desks/components';
+import { Button, Surface } from '@/ui-desks/components';
 import { useDesk } from './provider';
 import styles from './style.module.css';
 
@@ -37,16 +37,17 @@ export function DeskDrawingToolbar() {
 			<span className={ styles.drawingToolbarStatus }>
 				<Icon icon={ verse } size={ 20 } />
 			</span>
-			<ControlButton
+			<Button
 				className={ styles.drawingDoneButton }
 				disabled={ isFinishing }
 				label={ __( 'Stop drawing' ) }
 				tooltipLabel={ false }
-				variant="toolbar"
+				variant="quiet"
+				size="medium"
 				onClick={ () => void handleFinishDrawing() }
 			>
 				{ __( 'Stop drawing' ) }
-			</ControlButton>
+			</Button>
 		</Surface>
 	);
 }

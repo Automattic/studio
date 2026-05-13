@@ -1,6 +1,9 @@
 import styles from '@/ui-desks/widgets/page/style.module.css';
 import type { BlogWidgetProps } from './types';
-import type { DeskWidgetComponentProps } from '@/ui-desks/widgets/types';
+import type {
+	DeskWidgetComponentProps,
+	DeskWidgetThumbnailComponentProps,
+} from '@/ui-desks/widgets/types';
 
 type BlogWidgetComponentProps = DeskWidgetComponentProps< BlogWidgetProps >;
 
@@ -17,6 +20,25 @@ export function BlogWidgetComponent( { id, widgetProps }: BlogWidgetComponentPro
 		>
 			<h2 className={ styles.title }>{ widgetProps.title }</h2>
 			{ slug && <div className={ styles.slug }>{ slug }</div> }
+		</article>
+	);
+}
+
+export function BlogWidgetThumbnailComponent( {
+	id,
+	widgetProps,
+}: DeskWidgetThumbnailComponentProps< BlogWidgetProps > ) {
+	const slug = formatSlug( widgetProps.slug );
+
+	return (
+		<article
+			className={ styles.contextThumbnail }
+			data-tone="violet"
+			data-studio-desk-widget="blog"
+			data-studio-desk-widget-id={ id }
+		>
+			<div className={ styles.contextThumbnailTitle }>{ widgetProps.title }</div>
+			{ slug && <div className={ styles.contextThumbnailSlug }>{ slug }</div> }
 		</article>
 	);
 }

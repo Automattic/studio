@@ -9,9 +9,11 @@ import {
 } from 'tldraw';
 import {
 	RECTANGLE_WIDGET_SHAPE_TYPE,
+	isRectangleWidgetShapeProps,
 	type RectangleWidgetShape,
 } from '@/ui-desks/shapes/rectangle-widget/types';
 import {
+	setStackViewInEditor,
 	stackSelectedWidgetsInEditor as stackSelectionInEditor,
 	unstackSelectedWidgetsInEditor as unstackSelectionInEditor,
 } from '@/ui-desks/stacks/editor-commands';
@@ -20,13 +22,13 @@ import {
 	getStackHome,
 	getStackId,
 	getStackOrder,
+	getStackViewMode,
 	getStackZIndexFromMember,
+	type StackViewMode,
 } from '@/ui-desks/stacks/utils';
 import { BLOG_WIDGET_TYPE } from '@/ui-desks/widgets/blog/types';
 import { createDeskWidget } from '@/ui-desks/widgets/create-widget';
 import { DRAWING_WIDGET_TYPE } from '@/ui-desks/widgets/drawing/types';
-import { getFittedNoteHeight } from '@/ui-desks/widgets/note/text-sizing';
-import { isNoteWidgetProps, NOTE_WIDGET_TYPE } from '@/ui-desks/widgets/note/types';
 import { PAGE_WIDGET_TYPE } from '@/ui-desks/widgets/page/types';
 import { getSelectedWidgetToolbarItem } from '@/ui-desks/widgets/toolbar-selection';
 import {
@@ -46,6 +48,11 @@ import { DESK_CONFIG_VERSION, type DeskConfig } from '../types';
 import type { SelectedWidgetToolbarItem, AddDeskWidgetOptions } from './context';
 import type { DeskWidget } from '@/ui-desks/widgets/types';
 
+type RectangleWidgetFitContentHandler = ( context: {
+	widgetProps: Record< string, unknown >;
+	shapeProps: RectangleWidgetShape[ 'props' ][ 'shapeProps' ];
+} ) => Record< string, unknown > | null | Promise< Record< string, unknown > | null >;
+
 interface CanvasStoreChanges {
 	added: Record< string, unknown >;
 	updated: Record< string, readonly [ unknown, unknown ] >;
@@ -61,6 +68,7 @@ interface DerivedWidgetAnchor {
 interface WidgetToolbarStateOptions {
 	canStack?: boolean;
 	canUnstack?: boolean;
+	canSetStackView?: boolean;
 	canRemove?: boolean;
 }
 
@@ -238,7 +246,7 @@ export function updateSelectedWidgetPropsInEditor(
 	};
 }
 
-export function fitSelectedWidgetToContentInEditor( editor: Editor ) {
+export async function fitSelectedWidgetToContentInEditor( editor: Editor ) {
 	const selection = getCurrentSelectedWidgetSelection( editor );
 	if ( ! selection || selection.item.kind !== 'single-widget' ) {
 		return false;
@@ -246,24 +254,32 @@ export function fitSelectedWidgetToContentInEditor( editor: Editor ) {
 
 	const { item, shapes } = selection;
 	const [ shape ] = shapes;
-	if (
-		item.widget.type !== NOTE_WIDGET_TYPE ||
-		! isNoteWidgetProps( item.widget.widgetProps ) ||
-		! isRectangleWidgetShape( shape )
-	) {
+	const getFittedShapeProps = item.definition.getFittedShapeProps as
+		| RectangleWidgetFitContentHandler
+		| undefined;
+	if ( ! getFittedShapeProps || ! isRectangleWidgetShape( shape ) ) {
 		return false;
 	}
 
-	const nextHeight = getFittedNoteHeight( item.widget.widgetProps, shape.props.shapeProps );
+	const nextShapeProps = await getFittedShapeProps( {
+		widgetProps: item.widget.widgetProps,
+		shapeProps: shape.props.shapeProps,
+	} );
+	if ( editor.isDisposed || ! nextShapeProps || ! isRectangleWidgetShapeProps( nextShapeProps ) ) {
+		return false;
+	}
+
+	const centerX = shape.x + shape.props.shapeProps.w / 2;
 	const centerY = shape.y + shape.props.shapeProps.h / 2;
 	editor.updateShape< RectangleWidgetShape >( {
 		id: shape.id,
 		type: RECTANGLE_WIDGET_SHAPE_TYPE,
-		y: centerY - nextHeight / 2,
+		x: centerX - nextShapeProps.w / 2,
+		y: centerY - nextShapeProps.h / 2,
 		props: {
 			shapeProps: {
 				...shape.props.shapeProps,
-				h: nextHeight,
+				...nextShapeProps,
 			},
 		},
 	} );
@@ -295,6 +311,20 @@ export function unstackSelectedWidgetsInEditor( editor: Editor ) {
 		editor,
 		selection ? { ...selection.item, shapes: selection.shapes } : null
 	);
+}
+
+export function setSelectedStackViewInEditor( editor: Editor, viewMode: StackViewMode ) {
+	const selection = getCurrentSelectedWidgetSelection( editor );
+	const stackId =
+		selection?.item.canSetStackView && selection.item.stackIds.length === 1
+			? selection.item.stackIds[ 0 ]
+			: null;
+
+	if ( ! stackId ) {
+		return false;
+	}
+
+	return setStackViewInEditor( editor, stackId, viewMode );
 }
 
 export function hasCameraChange( changes: CanvasStoreChanges ) {
@@ -352,32 +382,31 @@ function getCurrentSelectedWidgetSelection(
 		return null;
 	}
 
-	const derivedSourceSelection = getDerivedSourceWidgetSelection(
-		editor,
-		shapes as TLShape[],
-		options
-	);
+	const typedShapes = shapes as TLShape[];
+	const derivedSourceSelection = getDerivedSourceWidgetSelection( editor, typedShapes, options );
 	if ( derivedSourceSelection ) {
 		return derivedSourceSelection;
 	}
 
-	const widgets = shapes.map( ( shape ) => canvasShapeToDeskWidget( shape as TLShape ) );
+	const widgets = typedShapes.map( ( shape ) => canvasShapeToDeskWidget( shape ) );
 	if ( widgets.some( ( widget ) => ! widget ) ) {
 		return null;
 	}
+	const hasDerivedShapes = typedShapes.some( isDerivedDeskCanvasRecord );
 
 	const stackIds = Array.from(
 		new Set(
-			( shapes as TLShape[] )
-				.map( getStackId )
-				.filter( ( stackId ): stackId is string => stackId !== null )
+			typedShapes.map( getStackId ).filter( ( stackId ): stackId is string => stackId !== null )
 		)
 	);
+	const selectedStackState = getSelectedStackState( editor, typedShapes );
 	const item = getSelectedWidgetToolbarItem( widgets as DeskWidget[], {
 		stackIds,
-		canStack: options.canStack,
-		canUnstack: options.canUnstack,
-		canRemove: options.canRemove,
+		stackViewMode: selectedStackState?.viewMode,
+		canStack: ( options.canStack ?? true ) && ! hasDerivedShapes,
+		canUnstack: ( options.canUnstack ?? true ) && ! hasDerivedShapes,
+		canSetStackView: options.canSetStackView,
+		canRemove: hasDerivedShapes ? false : options.canRemove,
 	} );
 	if ( ! item ) {
 		return null;
@@ -395,6 +424,45 @@ function isRectangleWidgetShape( shape: unknown ): shape is RectangleWidgetShape
 		typeof shape === 'object' &&
 		( shape as { type?: unknown } ).type === RECTANGLE_WIDGET_SHAPE_TYPE
 	);
+}
+
+function getSelectedStackState( editor: Editor, shapes: TLShape[] ) {
+	let stackId: string | null = null;
+
+	for ( const shape of shapes ) {
+		const nextStackId = getStackId( shape );
+		if ( ! nextStackId ) {
+			return null;
+		}
+
+		if ( stackId === null ) {
+			stackId = nextStackId;
+		} else if ( stackId !== nextStackId ) {
+			return null;
+		}
+	}
+
+	const firstShape = shapes[ 0 ];
+	if ( ! stackId || ! firstShape ) {
+		return null;
+	}
+
+	const selectedShapeIds = new Set( shapes.map( ( shape ) => shape.id ) );
+	const stackMemberIds = editor
+		.getCurrentPageShapes()
+		.filter( ( shape ) => getStackId( shape ) === stackId )
+		.map( ( shape ) => shape.id );
+	if (
+		stackMemberIds.length < 2 ||
+		stackMemberIds.some( ( shapeId ) => ! selectedShapeIds.has( shapeId ) )
+	) {
+		return null;
+	}
+
+	return {
+		id: stackId,
+		viewMode: getStackViewMode( firstShape ),
+	};
 }
 
 export function getCurrentDeskWidgets( editor: Editor ) {
@@ -466,6 +534,7 @@ function getDerivedShapePersistenceSignature( value: unknown ) {
 		deskStackHomeX: meta.deskStackHomeX,
 		deskStackHomeY: meta.deskStackHomeY,
 		deskStackHomeZIndex: meta.deskStackHomeZIndex,
+		deskStackViewMode: meta.deskStackViewMode,
 	} );
 }
 
@@ -474,6 +543,10 @@ function getDerivedSourceWidgetSelection(
 	shapes: TLShape[],
 	options: WidgetToolbarStateOptions = {}
 ) {
+	if ( ! isCompleteDerivedStackSelection( editor, shapes ) ) {
+		return null;
+	}
+
 	const sourceWidgetId = getDerivedSelectionSourceWidgetId( shapes );
 	if ( ! sourceWidgetId ) {
 		return null;
@@ -505,6 +578,37 @@ function getDerivedSourceWidgetSelection(
 		item,
 		shapes: [ sourceShape ],
 	};
+}
+
+function isCompleteDerivedStackSelection( editor: Editor, shapes: TLShape[] ) {
+	if ( shapes.length < 2 || shapes.some( ( shape ) => ! isDerivedDeskCanvasRecord( shape ) ) ) {
+		return false;
+	}
+
+	let stackId: string | null = null;
+	for ( const shape of shapes ) {
+		const nextStackId = getStackId( shape );
+		if ( ! nextStackId ) {
+			return false;
+		}
+
+		if ( stackId === null ) {
+			stackId = nextStackId;
+		} else if ( stackId !== nextStackId ) {
+			return false;
+		}
+	}
+
+	const selectedShapeIds = new Set( shapes.map( ( shape ) => shape.id ) );
+	const stackMemberIds = editor
+		.getCurrentPageShapes()
+		.filter( ( shape ) => getStackId( shape ) === stackId )
+		.map( ( shape ) => shape.id );
+
+	return (
+		stackMemberIds.length === selectedShapeIds.size &&
+		stackMemberIds.every( ( shapeId ) => selectedShapeIds.has( shapeId ) )
+	);
 }
 
 function getDerivedSelectionSourceWidgetId( shapes: TLShape[] ) {
@@ -559,6 +663,14 @@ function getDerivedWidgetAnchor( shapes: TLShape[] ): DerivedWidgetAnchor | null
 
 	const stackId = getStackId( firstShape );
 	if ( ! stackId ) {
+		return {
+			x: firstShape.x,
+			y: firstShape.y,
+			zIndex: firstShape.index,
+		};
+	}
+
+	if ( getStackViewMode( firstShape ) === 'tiles' ) {
 		return {
 			x: firstShape.x,
 			y: firstShape.y,

@@ -1,6 +1,9 @@
 import { __ } from '@wordpress/i18n';
 import { page } from '@wordpress/icons';
-import { BlogWidgetComponent } from '@/ui-desks/widgets/blog/component';
+import {
+	BlogWidgetComponent,
+	BlogWidgetThumbnailComponent,
+} from '@/ui-desks/widgets/blog/component';
 import { BLOG_WIDGET_TYPE, isBlogWidgetProps, type BlogWidget } from './types';
 import type { WidgetDefinition } from '@/ui-desks/widgets/types';
 
@@ -10,6 +13,7 @@ export const blogWidgetDefinition = {
 	type: BLOG_WIDGET_TYPE,
 	name: () => __( 'Blog' ),
 	Component: BlogWidgetComponent,
+	thumbnail: BlogWidgetThumbnailComponent,
 	isCreatable: false,
 	requiresRunningSite: true,
 	isWidgetProps: isBlogWidgetProps,

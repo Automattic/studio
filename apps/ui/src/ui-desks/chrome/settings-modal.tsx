@@ -3,7 +3,7 @@ import { __ } from '@wordpress/i18n';
 import { Dialog, Field } from '@wordpress/ui';
 import { useMemo } from 'react';
 import { useDeskSettings, useUpdateDeskSettings } from '@/data/queries/use-desk-config';
-import { ActionButton } from '@/ui-desks/components';
+import { Button } from '@/ui-desks/components';
 import styles from './style.module.css';
 
 interface DeskSettingsModalProps {
@@ -36,16 +36,19 @@ export function DeskSettingsModal( { open, onOpenChange, onEditToolbar }: DeskSe
 					</Field.Root>
 				</Dialog.Content>
 				<Dialog.Footer className={ styles.settingsFooter }>
-					<ActionButton
+					<Button
 						type="button"
 						className={ styles.settingsPrimaryAction }
+						label={ __( 'Edit toolbar' ) }
+						variant="filled"
+						size="medium"
 						onClick={ () => {
 							onOpenChange( false );
 							onEditToolbar();
 						} }
 					>
 						{ __( 'Edit toolbar' ) }
-					</ActionButton>
+					</Button>
 				</Dialog.Footer>
 			</Dialog.Popup>
 		</Dialog.Root>

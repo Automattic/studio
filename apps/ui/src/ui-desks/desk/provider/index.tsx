@@ -8,6 +8,7 @@ import {
 	type TLShape,
 	type TLShapePartial,
 } from 'tldraw';
+import { useConnector } from '@/data/core';
 import { useSites } from '@/data/queries/use-sites';
 import {
 	getTemporaryDeskCanvasRecordMeta,
@@ -20,6 +21,7 @@ import {
 import { useStackInteractions } from '@/ui-desks/stacks/use-stack-interactions';
 import { useStackPressAnimation } from '@/ui-desks/stacks/use-stack-press-animation';
 import { createDeskWidget } from '@/ui-desks/widgets/create-widget';
+import { getWidgetEditAction } from '@/ui-desks/widgets/edit-action';
 import { getWidgetFileHandler } from '@/ui-desks/widgets/file-handlers';
 import { LOADING_WIDGET_TYPE } from '@/ui-desks/widgets/loading/types';
 import { NOTE_WIDGET_TYPE } from '@/ui-desks/widgets/note/types';
@@ -42,6 +44,7 @@ import {
 	hydrateEditorFromDesk,
 	isDrawShape,
 	removeSelectedWidgetFromEditor,
+	setSelectedStackViewInEditor,
 	stackSelectedWidgetsInEditor,
 	unstackSelectedWidgetsInEditor,
 	updateSelectedWidgetPropsInEditor,
@@ -76,6 +79,7 @@ export function DeskProvider( {
 	} );
 	const desk = deskConfig ?? persistedDesk;
 	const isLoading = externalIsLoading ?? isLoadingPersistedDesk;
+	const connector = useConnector();
 	const { data: sites } = useSites();
 	const site = sites?.find( ( candidate ) => candidate.id === siteId );
 	const isRunningSite = Boolean( siteId && site?.running );
@@ -94,10 +98,25 @@ export function DeskProvider( {
 		() => ( {
 			canStack: ! isReadOnly,
 			canUnstack: ! isReadOnly,
+			canSetStackView: ! isReadOnly,
 			canRemove: ! isReadOnly,
 		} ),
 		[ isReadOnly ]
 	);
+	const selectedWidgetEditAction = useMemo( () => {
+		if ( selectedWidgetToolbarItem?.kind !== 'single-widget' ) {
+			return null;
+		}
+
+		return getWidgetEditAction(
+			selectedWidgetToolbarItem.definition,
+			selectedWidgetToolbarItem.widget,
+			{
+				hasSiteId: Boolean( siteId ),
+				hasRunningSite: isRunningSite,
+			}
+		);
+	}, [ isRunningSite, selectedWidgetToolbarItem, siteId ] );
 
 	useStackInteractions( editor );
 
@@ -444,12 +463,36 @@ export function DeskProvider( {
 		[ editor, isHydrated, isReadOnly ]
 	);
 
-	const fitSelectedWidgetToContent = useCallback( () => {
+	const editSelectedWidget = useCallback( () => {
+		if ( ! editor || ! selectedWidgetEditAction ) {
+			return false;
+		}
+
+		if ( selectedWidgetEditAction.kind === 'canvas-editing' ) {
+			const [ selectedShapeId ] = editor.getSelectedShapeIds();
+			if ( ! selectedShapeId ) {
+				return false;
+			}
+
+			editor.setEditingShape( selectedShapeId );
+			editor.focus();
+			return true;
+		}
+
+		if ( ! siteId ) {
+			return false;
+		}
+
+		void connector.openSiteUrl( siteId, selectedWidgetEditAction.path );
+		return true;
+	}, [ connector, editor, selectedWidgetEditAction, siteId ] );
+
+	const fitSelectedWidgetToContent = useCallback( async () => {
 		if (
 			isReadOnly ||
 			! editor ||
 			! isHydrated ||
-			! fitSelectedWidgetToContentInEditor( editor )
+			! ( await fitSelectedWidgetToContentInEditor( editor ) )
 		) {
 			return false;
 		}
@@ -482,6 +525,25 @@ export function DeskProvider( {
 		return true;
 	}, [ editor, isHydrated, isReadOnly, toolbarStateOptions ] );
 
+	const setSelectedStackView = useCallback(
+		( viewMode: Parameters< typeof setSelectedStackViewInEditor >[ 1 ] ) => {
+			if (
+				isReadOnly ||
+				! editor ||
+				! isHydrated ||
+				! setSelectedStackViewInEditor( editor, viewMode )
+			) {
+				return false;
+			}
+
+			setSelectedWidgetToolbarItem(
+				getCurrentSelectedWidgetToolbarItem( editor, toolbarStateOptions )
+			);
+			return true;
+		},
+		[ editor, isHydrated, isReadOnly, toolbarStateOptions ]
+	);
+
 	const removeSelectedWidget = useCallback( () => {
 		if ( isReadOnly || ! editor || ! isHydrated || ! removeSelectedWidgetFromEditor( editor ) ) {
 			return false;
@@ -507,15 +569,19 @@ export function DeskProvider( {
 			startDrawing,
 			finishDrawing,
 			updateSelectedWidgetProps,
+			canEditSelectedWidget: Boolean( selectedWidgetEditAction ),
+			editSelectedWidget,
 			fitSelectedWidgetToContent,
 			stackSelectedWidgets,
 			unstackSelectedWidgets,
+			setSelectedStackView,
 			removeSelectedWidget,
 		} ),
 		[
 			addPastedContent,
 			addWidget,
 			editor,
+			editSelectedWidget,
 			fitSelectedWidgetToContent,
 			finishDrawing,
 			isHydrated,
@@ -526,6 +592,8 @@ export function DeskProvider( {
 			registerEditor,
 			removeSelectedWidget,
 			selectedWidgetToolbarItem,
+			selectedWidgetEditAction,
+			setSelectedStackView,
 			stackSelectedWidgets,
 			startDrawing,
 			siteId,

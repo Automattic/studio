@@ -78,6 +78,7 @@
 
 .body {
 	max-height: 0;
+	min-height: 0;
 	margin: 0;
 	font-size: 13px;
 	line-height: 1.5;
@@ -102,6 +103,40 @@
 	margin-bottom: 0;
 }
 
+.metadata {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-height: 18px;
+	margin-top: auto;
+	color: var(--page-tone-color);
+	font-size: 12px;
+	line-height: 1.3;
+	opacity: 0.72;
+}
+
+.status {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	min-width: 0;
+}
+
+.statusDot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	flex: 0 0 auto;
+	box-shadow: 0 0 0 2px #fff;
+}
+
+.statusLabel {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
 .slug {
 	margin-top: auto;
 	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
@@ -113,4 +148,81 @@
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+}
+
+.metadata + .slug {
+	margin-top: 0;
+}
+
+.contextThumbnail {
+	--page-tone-color: #14171a;
+
+	box-sizing: border-box;
+	width: 100%;
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	padding: 8px;
+	background: #fff;
+	border: 1px solid rgba(15, 23, 42, 0.08);
+	border-radius: 10px;
+	corner-shape: superellipse(1.42);
+	-webkit-corner-shape: superellipse(1.42);
+	box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+	color: var(--page-tone-color);
+	outline: 2px solid var(--page-tone-color);
+	outline-offset: -6px;
+	overflow: hidden;
+	user-select: none;
+}
+
+.contextThumbnail[data-tone='orange'] {
+	--page-tone-color: #e86a00;
+}
+
+.contextThumbnail[data-tone='red'] {
+	--page-tone-color: #e5484d;
+}
+
+.contextThumbnail[data-tone='violet'] {
+	--page-tone-color: #8703e7;
+}
+
+.contextThumbnail[data-tone='blue'] {
+	--page-tone-color: #2200e0;
+}
+
+.contextThumbnail[data-tone='sky'] {
+	--page-tone-color: #0081f3;
+}
+
+.contextThumbnail[data-tone='green'] {
+	--page-tone-color: #00a96c;
+}
+
+.contextThumbnailTitle {
+	color: var(--page-tone-color);
+	display: -webkit-box;
+	font-size: 9px;
+	font-weight: 600;
+	letter-spacing: 0;
+	line-height: 1.2;
+	overflow: hidden;
+	overflow-wrap: anywhere;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 5;
+}
+
+.contextThumbnailSlug {
+	max-width: 100%;
+	margin-top: auto;
+	color: var(--page-tone-color);
+	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+		monospace;
+	font-size: 8px;
+	letter-spacing: 0;
+	line-height: 1.2;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }

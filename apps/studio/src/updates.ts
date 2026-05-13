@@ -1,7 +1,8 @@
-import { app, autoUpdater, dialog, shell } from 'electron';
+import { app, autoUpdater, dialog } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import { sprintf, __ } from '@wordpress/i18n';
 import { AUTO_UPDATE_INTERVAL_MS } from 'src/constants';
+import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { isDevRelease } from 'src/lib/version-utils';
 import { getMainWindow } from 'src/main-window';
 
@@ -144,6 +145,10 @@ export async function manualCheckForUpdates() {
 	showManualCheckDialogs = true;
 
 	if ( process.platform === 'linux' ) {
+		if ( updaterState === 'checking-for-update' ) {
+			console.log( 'Manually polling for Linux update, but a check is already in progress' );
+			return;
+		}
 		console.log( 'Manually polling for Linux update' );
 		void pollLinuxUpdates();
 		return;
@@ -245,7 +250,6 @@ async function pollLinuxUpdates() {
 			if ( showManualCheckDialogs ) {
 				await showUpdateUnavailableNotice();
 			}
-			rescheduleLinuxOrFinish();
 			return;
 		}
 
@@ -253,7 +257,6 @@ async function pollLinuxUpdates() {
 			Sentry.captureException(
 				new Error( `Linux updates endpoint returned 404 (arch=${ process.arch })` )
 			);
-			rescheduleLinuxOrFinish();
 			return;
 		}
 
@@ -261,7 +264,6 @@ async function pollLinuxUpdates() {
 			Sentry.captureException(
 				new Error( `Linux updates endpoint returned HTTP ${ response.status }` )
 			);
-			rescheduleLinuxOrFinish();
 			return;
 		}
 
@@ -269,20 +271,24 @@ async function pollLinuxUpdates() {
 
 		if ( ! data?.version || ! data?.downloadUrl ) {
 			Sentry.captureException( new Error( 'Linux updates endpoint returned malformed response' ) );
-			rescheduleLinuxOrFinish();
 			return;
 		}
 
 		await showLinuxUpdateAvailableNotice( data.version, data.downloadUrl );
-		rescheduleLinuxOrFinish();
 	} catch ( err ) {
 		console.error( err );
 		Sentry.captureException( err );
+	} finally {
+		showManualCheckDialogs = false;
 		rescheduleLinuxOrFinish();
 	}
 }
 
 function rescheduleLinuxOrFinish() {
+	if ( timeout ) {
+		clearTimeout( timeout );
+		timeout = null;
+	}
 	if ( ! shouldPoll ) {
 		updaterState = 'done';
 		return;
@@ -295,7 +301,6 @@ function rescheduleLinuxOrFinish() {
 }
 
 async function showLinuxUpdateAvailableNotice( version: string, downloadUrl: string ) {
-	showManualCheckDialogs = false;
 	const mainWindow = await getMainWindow();
 
 	const command = `sudo apt install ~/Downloads/${ debFilenameFromUrl( downloadUrl ) }`;
@@ -316,8 +321,21 @@ async function showLinuxUpdateAvailableNotice( version: string, downloadUrl: str
 		cancelId: 1,
 	} );
 
-	if ( response === 0 ) {
-		void shell.openExternal( downloadUrl );
+	if ( response !== 0 ) {
+		return;
+	}
+
+	try {
+		const parsedUrl = new URL( downloadUrl );
+		if ( ! [ 'http:', 'https:' ].includes( parsedUrl.protocol ) ) {
+			Sentry.captureException(
+				new Error( `Unexpected protocol in downloadUrl: ${ parsedUrl.protocol }` )
+			);
+			return;
+		}
+		void shellOpenExternalWrapper( parsedUrl.toString() );
+	} catch {
+		Sentry.captureException( new Error( `Malformed downloadUrl: ${ downloadUrl }` ) );
 	}
 }
 

@@ -108,7 +108,7 @@ steps:
     # TEMP(rsm-2593): if: removed to force E2E on every push while iterating on Linux E2E setup. Revert before merge.
     notify:
       - github_commit_status:
-          context: E2E Tests
+          context: E2E Tests on linux-x64
 
   - label: ":chart_with_upwards_trend: Performance Metrics"
     key: metrics

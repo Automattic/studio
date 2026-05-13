@@ -18,18 +18,16 @@ const faviconCache = new Map< string, string | null >();
  * Returns `null` when no favicon is available so callers render a placeholder.
  */
 export function useSiteFavicon( siteId: string, site: SiteDetails ): string | null {
-	// Prefer the data URL already provided by the main process.
-	if ( site.siteIcon ) {
-		return site.siteIcon;
-	}
-
-	// eslint-disable-next-line react-hooks/rules-of-hooks
 	const [ faviconUrl, setFaviconUrl ] = useState< string | null >(
 		() => faviconCache.get( siteId ) ?? null
 	);
 
-	// eslint-disable-next-line react-hooks/rules-of-hooks
 	useEffect( () => {
+		// If the main process already resolved a site icon data URL, nothing to do.
+		if ( site.siteIcon ) {
+			return;
+		}
+
 		if ( ! site.running || faviconCache.has( siteId ) ) {
 			return;
 		}
@@ -59,10 +57,9 @@ export function useSiteFavicon( siteId: string, site: SiteDetails ): string | nu
 		return () => {
 			cancelled = true;
 		};
-	}, [ siteId, site.running ] ); // eslint-disable-line react-hooks/exhaustive-deps
+	}, [ siteId, site.siteIcon, site.running ] ); // eslint-disable-line react-hooks/exhaustive-deps
 
 	// Clear cached value when the site stops so we re-check on next start.
-	// eslint-disable-next-line react-hooks/rules-of-hooks
 	useEffect( () => {
 		if ( ! site.running ) {
 			faviconCache.delete( siteId );
@@ -70,5 +67,6 @@ export function useSiteFavicon( siteId: string, site: SiteDetails ): string | nu
 		}
 	}, [ siteId, site.running ] );
 
-	return faviconUrl;
+	// Prefer the data URL already provided by the main process.
+	return site.siteIcon ?? faviconUrl;
 }

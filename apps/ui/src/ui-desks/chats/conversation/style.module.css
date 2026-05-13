@@ -150,6 +150,82 @@
 	text-decoration: underline;
 }
 
+.artifact {
+	display: inline-flex;
+	max-width: 100%;
+	cursor: grab;
+	user-select: none;
+	touch-action: none;
+}
+
+.artifact:active {
+	cursor: grabbing;
+}
+
+.artifactThumbnails {
+	min-width: 0;
+	flex: 0 1 auto;
+}
+
+.artifactActions {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.artifactAction {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	border: 0;
+	border-radius: 10px;
+	corner-shape: var(--ui-desks-corner-shape, superellipse(1.42));
+	-webkit-corner-shape: var(--ui-desks-corner-shape, superellipse(1.42));
+	background: #e5e7eb;
+	color: var(--ui-desks-text, #14171a);
+	font: inherit;
+	font-size: 12px;
+	font-weight: 500;
+	line-height: 16px;
+	padding: 6px 10px;
+	cursor: pointer;
+	transition: background 140ms ease;
+}
+
+.artifactAction:hover:not(:disabled),
+.artifactAction:focus-visible:not(:disabled) {
+	background: #d1d5db;
+}
+
+.artifactAction:disabled {
+	cursor: default;
+	opacity: 0.55;
+}
+
+.artifactDragOverlay {
+	position: fixed;
+	z-index: 100000;
+	transform: translate(-50%, -50%);
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity 120ms ease, transform 120ms ease;
+}
+
+.artifactDragOverlayInner {
+	transform: scale(0.88);
+	transform-origin: center;
+	transition: transform 120ms ease;
+	filter: drop-shadow(0 18px 28px rgba(15, 23, 42, 0.16));
+}
+
+.artifactDragOverlay[data-over='canvas'] {
+	opacity: 1;
+}
+
+.artifactDragOverlay[data-over='canvas'] .artifactDragOverlayInner {
+	transform: scale(1);
+}
+
 .question {
 	display: flex;
 	flex-direction: column;

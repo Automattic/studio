@@ -38,7 +38,8 @@ if [ "$PLATFORM" = "linux" ]; then
     libpango-1.0-0 \
     libcairo2 \
     libxss1 \
-    procps
+    procps \
+    file
   npm ci --unsafe-perm --no-audit --no-progress --maxsockets 1
 else
   bash .buildkite/commands/install-node-dependencies.sh
@@ -119,6 +120,11 @@ if [ "$PLATFORM" = "linux" ]; then
     setcap 'cap_net_bind_service=+ep' "$BUNDLED_NODE" || \
       echo "warning: setcap failed on $BUNDLED_NODE; privileged-port tests may fail to bind." >&2
   fi
+
+  echo '--- :mag: Bundled Node diagnostics'
+  file "$BUNDLED_NODE" || true
+  ldd "$BUNDLED_NODE" | head -20 || true
+  "$BUNDLED_NODE" --version || true
   getcap "$BUNDLED_NODE" || true
 fi
 
@@ -181,11 +187,26 @@ if [ "$PLATFORM" = "linux" ]; then
       npx playwright test --max-failures=1 --output=/tmp/test-results
   ' || test_exit=$?
 
+  echo '--- :mag: Linux post-test diagnostics'
+  for f in \
+    /sys/fs/cgroup/memory.events \
+    /sys/fs/cgroup/memory.peak; do
+    if [ -f "$f" ]; then
+      echo "$f:"
+      cat "$f" || true
+    fi
+  done
+  ps -ef --forest 2>/dev/null | head -60 || true
+  dmesg 2>/dev/null | tail -200 || true
+
   if find /tmp -path '/tmp/studio-app-e2e-session-*/process-manager/logs/*.log' -print -quit | grep -q .; then
     echo '--- :file_folder: Copy process manager logs for artifact upload'
     mkdir -p /tmp/test-results/process-manager-logs
-    find /tmp -path '/tmp/studio-app-e2e-session-*/process-manager/logs/*.log' \
-      -exec cp --parents {} /tmp/test-results/process-manager-logs/ \; || true
+    (
+      cd /tmp
+      find studio-app-e2e-session-*/process-manager/logs -type f -name '*.log' \
+        -exec cp --parents {} /tmp/test-results/process-manager-logs/ \;
+    ) || true
   fi
 
   if [ -d /tmp/test-results ]; then

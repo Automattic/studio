@@ -1,5 +1,5 @@
+import type { RectangleWidgetShapeProps } from '@/ui-desks/widget-actions/geometry';
 import type { ArtefactScope, ArtefactWidgetProps } from '@/ui-desks/widgets/artefact/types';
-import type { RectangleWidgetShapeProps } from '@/ui-desks/widgets/geometry';
 
 const ARTEFACT_PADDING = 44;
 const ARTEFACT_DESCRIPTION_GAP = 28;

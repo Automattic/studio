@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react';
 import type { DeskConfig } from '../types';
+import type { getSelectedWidgetToolbarItem } from '@/ui-desks/desk/selection-toolbar/selection';
 import type { StackViewMode } from '@/ui-desks/stacks/utils';
-import type { getSelectedWidgetToolbarItem } from '@/ui-desks/widgets/toolbar-selection';
 import type { WidgetPastePayload } from '@/ui-desks/widgets/types';
 import type { ReactNode } from 'react';
 import type { Editor } from 'tldraw';

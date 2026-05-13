@@ -243,24 +243,8 @@
 	pointer-events: none;
 }
 
-.environmentDot {
-	width: 6px;
-	height: 6px;
-	border-radius: 50%;
-	background-color: #16a34a;
-	flex: 0 0 auto;
-}
-
-.environmentDotLive {
-	background-color: var(--ui-desks-focus, #3858e9);
-}
-
 .commandsMenuPopup {
 	min-width: 280px;
-}
-
-.environmentMenu {
-	min-width: 140px;
 }
 
 .commandMenuItem > .commandItem {

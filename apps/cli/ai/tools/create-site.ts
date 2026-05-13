@@ -1,6 +1,7 @@
 import path from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { Type } from 'typebox';
+import { emitLocalSiteSelected } from 'cli/ai/site-selection';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
@@ -36,10 +37,16 @@ export const createSiteTool = defineTool(
 
 			const site = await resolveSite( args.name );
 			const url = getSiteUrl( site );
+			await emitLocalSiteSelected( {
+				name: site.name,
+				path: site.path,
+				running: true,
+			} );
 			return {
 				...textResult(
 					JSON.stringify(
 						{
+							id: site.id,
 							name: site.name,
 							path: site.path,
 							url,
@@ -52,7 +59,18 @@ export const createSiteTool = defineTool(
 						2
 					)
 				),
-				studioArtifacts: [ { type: 'site-preview', widgetProps: { path: '/' } } ],
+				studioArtifacts: [
+					{
+						type: 'site-preview',
+						widgetProps: {
+							path: '/',
+							siteId: site.id,
+							siteName: site.name,
+							sitePath: site.path,
+							url,
+						},
+					},
+				],
 			};
 		} catch ( error ) {
 			throw new Error(

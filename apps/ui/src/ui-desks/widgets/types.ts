@@ -137,6 +137,14 @@ export interface WidgetPasteHandler< TWidget extends DeskWidgetBase = DeskWidget
 	) => Promise< WidgetPasteHandlerResult< TWidget > | null >;
 }
 
+export interface WidgetConnectorDropHandler {
+	id: string;
+	type: 'connector';
+	sourceTypes?: string[];
+}
+
+export type WidgetDropHandler = WidgetConnectorDropHandler;
+
 export type ResolvedDeskWidgetOrigin =
 	| { kind: 'authored' }
 	| {
@@ -222,6 +230,7 @@ export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBa
 	resolver?: WidgetResolver< TWidget >;
 	fileHandlers?: Array< WidgetFileHandler< TWidget > >;
 	pasteHandlers?: Array< WidgetPasteHandler< TWidget > >;
+	dropHandlers?: WidgetDropHandler[];
 }
 
 export type DeskWidget =

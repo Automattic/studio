@@ -4,6 +4,7 @@ import { RECTANGLE_WIDGET_SHAPE_TYPE } from '@/ui-desks/shapes/rectangle-widget/
 import {
 	canvasCameraToDeskViewport,
 	canvasShapeToDeskWidget,
+	canvasShapesToDeskConnectors,
 	canvasShapesToDeskStacks,
 	deskConfigToCanvasConnectorBindings,
 	deskConfigToCanvasConnectorShapes,
@@ -574,15 +575,13 @@ describe( 'tldraw adapter', () => {
 		expect( connectorShape ).toMatchObject( {
 			id: 'shape:connector:parent-to-child',
 			type: 'arrow',
-			isLocked: true,
 			meta: {
-				studioDeskOrigin: 'derived',
-				studioDeskPersist: false,
 				studioDeskConnector: true,
 			},
 			props: {
-				arrowheadStart: 'none',
-				arrowheadEnd: 'none',
+				arrowheadStart: 'dot',
+				arrowheadEnd: 'arrow',
+				dash: 'dashed',
 				bend: 24,
 			},
 		} );
@@ -601,7 +600,49 @@ describe( 'tldraw adapter', () => {
 				props: expect.objectContaining( { terminal: 'end' } ),
 			} ),
 		] );
-		expect( isPersistentDeskCanvasShape( connectorShape as TLShape ) ).toBe( false );
+		expect( isPersistentDeskCanvasShape( connectorShape as TLShape ) ).toBe( true );
+	} );
+
+	it( 'extracts desk connectors from canvas arrows and arrow bindings', () => {
+		const desk: DeskConfig = {
+			version: 1,
+			updatedAt: '2026-05-09T00:00:00.000Z',
+			widgets: [
+				{
+					...createNoteWidget(),
+					id: 'parent',
+					zIndex: 'a2',
+				},
+				{
+					...createNoteWidget(),
+					id: 'child',
+					zIndex: 'a3',
+				},
+			],
+			connectors: [
+				{
+					id: 'parent-to-child',
+					from: {
+						widgetId: 'parent',
+						normalizedAnchor: { x: 0.5, y: 1 },
+					},
+					to: {
+						widgetId: 'child',
+						normalizedAnchor: { x: 0.5, y: 0 },
+					},
+					bend: 24,
+				},
+			],
+		};
+		const widgetShapes = deskConfigToCanvasShapes( desk ) as TLShape[];
+		const connectorShapes = deskConfigToCanvasConnectorShapes( desk, widgetShapes ) as TLShape[];
+		const bindings = deskConfigToCanvasConnectorBindings( desk );
+
+		expect(
+			canvasShapesToDeskConnectors( [ ...widgetShapes, ...connectorShapes ], ( shapeId ) =>
+				bindings.filter( ( binding ) => binding.fromId === shapeId )
+			)
+		).toEqual( desk.connectors );
 	} );
 
 	it( 'persists a stacked widget original z-index instead of the stack z-index', () => {

@@ -1,0 +1,7 @@
+-rw-r--r--  1 iamposti  staff  7963 May 14 00:40 apps/cli/dist/cli/skills/migrate/SKILL.md
+annotate
+migrate
+need-for-speed
+rank-me-up
+site-spec
+taxonomist

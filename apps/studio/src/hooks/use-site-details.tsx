@@ -271,7 +271,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					message = __(
 						'The selected Blueprint failed to execute properly. This could be due to invalid PHP code, missing plugins, or other issues in the Blueprint file. Please check your Blueprint file and try again.'
 					);
-					errorToShow = undefined;
+					errorToShow = simplifyErrorForDisplay( error );
 				} else {
 					title = __( 'Failed to create site' );
 					message = __(
@@ -285,7 +285,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					title,
 					message,
 					error: errorToShow,
-					showOpenLogs: ! isBlueprintError || ! hasBlueprint,
+					showOpenLogs: true,
 				} );
 
 				// Remove the temporary site immediately, but with a minor delay to ensure state updates properly

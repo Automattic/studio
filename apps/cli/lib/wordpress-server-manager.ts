@@ -390,7 +390,11 @@ export async function sendMessage(
 		processEventHandler = ( event ) => {
 			if ( event.process.name === processName && event.event === 'exit' ) {
 				exitRejectTimeoutId = setTimeout( () => {
-					reject( new Error( 'WordPress server process exited unexpectedly' ) );
+					let errorMessage = 'WordPress server process exited unexpectedly';
+					if ( event.stderrTail?.trim() ) {
+						errorMessage += `\n${ event.stderrTail.trimEnd() }`;
+					}
+					reject( new Error( errorMessage ) );
 				}, CHILD_EXIT_ERROR_GRACE_MS );
 			}
 		};

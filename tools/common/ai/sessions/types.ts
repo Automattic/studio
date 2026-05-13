@@ -2,12 +2,18 @@ import type { SessionEntry } from '@mariozechner/pi-coding-agent';
 
 export type TurnStatus = 'success' | 'error' | 'max_turns' | 'interrupted';
 
-export interface AiSessionSummary {
+export interface AiSessionMetadata {
+	starred?: boolean;
+	archived?: boolean;
+}
+
+export interface AiSessionSummary extends AiSessionMetadata {
 	id: string;
 	filePath: string;
 	createdAt: string;
 	updatedAt: string;
 	firstPrompt?: string;
+	assistantReplyPreview?: string;
 	// The first local site the session attached to. Acts as the session's owner
 	// in the UI sidebar. Undefined for sessions that only ever selected remote
 	// sites, or that never selected any site at all.

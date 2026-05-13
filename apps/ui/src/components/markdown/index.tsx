@@ -1,3 +1,4 @@
+import { clsx } from 'clsx';
 import { useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -45,7 +46,7 @@ const baseComponents: Components = {
 	pre: ( { children } ) => <pre className={ styles.pre }>{ children }</pre>,
 };
 
-export function Markdown( { children }: { children: string } ) {
+export function Markdown( { children, className }: { children: string; className?: string } ) {
 	const connector = useConnector();
 
 	const components = useMemo< Components >( () => {
@@ -77,7 +78,7 @@ export function Markdown( { children }: { children: string } ) {
 	}, [ connector ] );
 
 	return (
-		<div className={ styles.root }>
+		<div className={ clsx( styles.root, className ) }>
 			<ReactMarkdown remarkPlugins={ [ remarkGfm ] } components={ components }>
 				{ children }
 			</ReactMarkdown>

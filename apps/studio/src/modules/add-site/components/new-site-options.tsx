@@ -8,11 +8,9 @@ import {
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo, useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
-import StudioButton from 'src/components/button';
 import { EMPTY_SITE_PLAYGROUND_URL } from 'src/constants';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { GalleryBlueprint } from 'src/stores/gallery-blueprints-api';
 
 const SearchControl = process.env.NODE_ENV === 'test' ? () => null : SearchControlWp;
 
@@ -38,28 +36,23 @@ interface NewSiteOptionsProps {
 	onBlueprintChange: ( blueprintId: string ) => void;
 	blueprintFileError?: string;
 	uploadButton?: React.ReactNode;
-	galleryBlueprints?: GalleryBlueprint[];
-	isLoadingGallery?: boolean;
-	galleryErrorMessage?: string;
-	onGalleryBlueprintSelect?: ( blueprint: GalleryBlueprint ) => void;
-	selectedGalleryBlueprint?: string | null;
-	gallerySelectionError?: string;
 }
 
 function PreviewLink( { url }: { url: string } ) {
 	const { __ } = useI18n();
 	return (
-		<StudioButton
-			variant="secondary"
-			onClick={ ( e: React.MouseEvent< HTMLButtonElement > ) => {
+		<a
+			href={ url }
+			onClick={ ( e: React.MouseEvent< HTMLAnchorElement > ) => {
+				e.preventDefault();
 				e.stopPropagation();
 				getIpcApi().openURL( url );
 			} }
-			className="!absolute bottom-2 right-2 z-10 !px-2 !py-1 !h-auto !min-h-0 text-[11px] !bg-black/60 hover:!bg-black/80 !text-white hover:!text-white !shadow-none whitespace-nowrap"
+			className="!absolute bottom-2 right-2 z-10 inline-flex items-center gap-1 !px-2 !py-1 !h-auto !min-h-0 text-[11px] !bg-white/90 hover:!bg-white !text-a8c-gray-900 hover:!text-a8c-gray-900 !shadow-none whitespace-nowrap rounded-sm no-underline border border-a8c-gray-5"
 		>
 			{ __( 'Live Preview' ) }
 			<ArrowIcon />
-		</StudioButton>
+		</a>
 	);
 }
 
@@ -202,6 +195,8 @@ const BLUEPRINT_ORDER: Record< string, number > = {
 	Development: 3,
 };
 
+const FEATURED_BLUEPRINT_SLUGS = new Set( [ 'woo-shop', 'development', 'quick-start' ] );
+
 function renameBlueprintsForDisplay(
 	blueprints: Blueprint[],
 	__: ( text: string ) => string
@@ -209,60 +204,11 @@ function renameBlueprintsForDisplay(
 	const excerptOverrides = getBlueprintExcerptOverrides( __ );
 	return [ ...blueprints ]
 		.sort( ( a, b ) => ( BLUEPRINT_ORDER[ a.title ] ?? 99 ) - ( BLUEPRINT_ORDER[ b.title ] ?? 99 ) )
-		.map( ( bp ) => ( {
-			...bp,
-			excerpt: excerptOverrides[ bp.title ] || bp.excerpt,
-			title: BLUEPRINT_DISPLAY_NAMES[ bp.title ] || bp.title,
+		.map( ( item ) => ( {
+			...item,
+			excerpt: excerptOverrides[ item.title ] || item.excerpt,
+			title: BLUEPRINT_DISPLAY_NAMES[ item.title ] || item.title,
 		} ) );
-}
-
-function GalleryBlueprintCard( {
-	blueprint,
-	isSelected,
-	onClick,
-}: {
-	blueprint: GalleryBlueprint;
-	isSelected: boolean;
-	onClick: () => void;
-} ) {
-	return (
-		<button
-			onClick={ onClick }
-			className={ cx(
-				'flex flex-col h-full rounded-lg border overflow-hidden text-left transition-colors',
-				isSelected
-					? 'border-frame-theme ring-2 ring-offset-2 ring-frame-theme ring-offset-frame'
-					: 'border-frame-border hover:border-frame-text-secondary'
-			) }
-		>
-			<div className="relative w-full h-24 [@media(min-height:680px)]:h-36 bg-frame-surface overflow-hidden">
-				{ blueprint.screenshotUrl ? (
-					<img
-						src={ blueprint.screenshotUrl }
-						alt={ blueprint.title }
-						className="w-full h-full object-cover object-center"
-					/>
-				) : (
-					<div className="w-full h-full flex items-center justify-center text-frame-text-tertiary">
-						{ blueprint.title }
-					</div>
-				) }
-				{ blueprint.playgroundUrl && <PreviewLink url={ blueprint.playgroundUrl } /> }
-			</div>
-			<div className="px-3 pt-3 pb-3">
-				<Heading level={ 3 } className="text-[13px] text-frame-text mb-1" weight={ 500 }>
-					{ blueprint.title }
-				</Heading>
-				<Text
-					className="text-[12px] text-frame-text-secondary leading-[18px] text-pretty"
-					weight={ 400 }
-					title={ blueprint.description }
-				>
-					{ blueprint.description }
-				</Text>
-			</div>
-		</button>
-	);
 }
 
 export function NewSiteOptions( {
@@ -274,30 +220,31 @@ export function NewSiteOptions( {
 	onBlueprintChange,
 	blueprintFileError,
 	uploadButton,
-	galleryBlueprints = [],
-	isLoadingGallery = false,
-	galleryErrorMessage,
-	onGalleryBlueprintSelect,
-	selectedGalleryBlueprint,
-	gallerySelectionError,
 }: NewSiteOptionsProps ) {
 	const { __ } = useI18n();
 	const [ searchQuery, setSearchQuery ] = useState( '' );
 
-	const filteredGalleryBlueprints = useMemo( () => {
+	const featuredBlueprints = blueprints.filter( ( blueprint ) =>
+		FEATURED_BLUEPRINT_SLUGS.has( blueprint.slug )
+	);
+	const exploreBlueprints = blueprints.filter(
+		( blueprint ) => ! FEATURED_BLUEPRINT_SLUGS.has( blueprint.slug )
+	);
+
+	const filteredExploreBlueprints = useMemo( () => {
 		const query = searchQuery.toLowerCase().trim();
 		if ( ! query ) {
-			return galleryBlueprints;
+			return exploreBlueprints;
 		}
-		return galleryBlueprints.filter( ( blueprint ) => {
+		return exploreBlueprints.filter( ( blueprint ) => {
 			const titleMatch = blueprint.title.toLowerCase().includes( query );
-			const descriptionMatch = blueprint.description.toLowerCase().includes( query );
-			const categoryMatch = blueprint.categories.some( ( category ) =>
+			const excerptMatch = blueprint.excerpt.toLowerCase().includes( query );
+			const categoryMatch = blueprint.blueprint?.meta?.categories?.some( ( category ) =>
 				category.toLowerCase().includes( query )
 			);
-			return titleMatch || descriptionMatch || categoryMatch;
+			return titleMatch || excerptMatch || categoryMatch;
 		} );
-	}, [ galleryBlueprints, searchQuery ] );
+	}, [ exploreBlueprints, searchQuery ] );
 
 	const handleEmptyClick = useCallback( () => {
 		onBlueprintChange( 'empty' );
@@ -341,60 +288,43 @@ export function NewSiteOptions( {
 					</div>
 				) : (
 					enableBlueprints &&
-					renameBlueprintsForDisplay( blueprints, __ ).map( ( bp ) => (
+					renameBlueprintsForDisplay( featuredBlueprints, __ ).map( ( item ) => (
 						<BlueprintCard
-							key={ bp.slug }
-							blueprint={ bp }
-							isSelected={ selectedBlueprint === bp.slug }
-							onClick={ () => handleBlueprintClick( bp.slug ) }
+							key={ item.slug }
+							blueprint={ item }
+							isSelected={ selectedBlueprint === item.slug }
+							onClick={ () => handleBlueprintClick( item.slug ) }
 						/>
 					) )
 				) }
 			</div>
 
-			{ onGalleryBlueprintSelect && (
+			{ enableBlueprints && ! isLoadingBlueprints && exploreBlueprints.length > 0 && (
 				<>
 					<div className="flex items-center justify-between w-full max-w-2xl mx-auto mt-8 mb-4">
 						<Heading className="text-[18px] text-frame-text" weight={ 500 }>
 							{ __( 'Explore more blueprints' ) }
 						</Heading>
-						{ ! isLoadingGallery && ! galleryErrorMessage && (
-							<SearchControl
-								className="!w-48 text-frame-text"
-								placeholder={ __( 'Search blueprints' ) }
-								onChange={ setSearchQuery }
-								value={ searchQuery }
-								__nextHasNoMarginBottom={ true }
-							/>
-						) }
+						<SearchControl
+							className="!w-48 text-frame-text"
+							placeholder={ __( 'Search blueprints' ) }
+							onChange={ setSearchQuery }
+							value={ searchQuery }
+							__nextHasNoMarginBottom={ true }
+						/>
 					</div>
-
-					{ gallerySelectionError && (
-						<div className="bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200 text-sm rounded-lg px-4 py-3 mb-4 max-w-2xl mx-auto w-full">
-							{ gallerySelectionError }
-						</div>
-					) }
-
-					{ isLoadingGallery ? (
-						<div className="flex items-center justify-center py-8">
-							<Spinner />
-						</div>
-					) : galleryErrorMessage ? (
-						<div className="flex items-center justify-center text-sm text-frame-text-secondary py-8">
-							{ galleryErrorMessage }
-						</div>
-					) : filteredGalleryBlueprints.length === 0 ? (
+					{ filteredExploreBlueprints.length === 0 ? (
 						<div className="flex items-center justify-center text-sm text-frame-text-secondary py-8 max-w-2xl mx-auto">
 							{ __( 'No blueprints found.' ) }
 						</div>
 					) : (
 						<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-2xl mx-auto pb-1">
-							{ filteredGalleryBlueprints.map( ( blueprint ) => (
-								<GalleryBlueprintCard
-									key={ blueprint.slug }
-									blueprint={ blueprint }
-									isSelected={ selectedGalleryBlueprint === blueprint.slug }
-									onClick={ () => onGalleryBlueprintSelect( blueprint ) }
+							{ filteredExploreBlueprints.map( ( item ) => (
+								<BlueprintCard
+									key={ item.slug }
+									blueprint={ item }
+									isSelected={ selectedBlueprint === item.slug }
+									onClick={ () => handleBlueprintClick( item.slug ) }
 								/>
 							) ) }
 						</div>

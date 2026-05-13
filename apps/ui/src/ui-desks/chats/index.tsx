@@ -1,21 +1,27 @@
 import { Dialog } from '@base-ui/react/dialog';
-import { useNavigate, useSearch } from '@tanstack/react-router';
+import { createDefaultDeskSettings } from '@studio/common/lib/desk-settings';
 import { __ } from '@wordpress/i18n';
-import { Button } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import motionStyles from '@/components/floating-surface-motion/style.module.css';
-import { useCreateSession, useSessions } from '@/data/queries/use-sessions';
+import { useDeskSettings } from '@/data/queries/use-desk-config';
+import { useSessions } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import { useFullscreen } from '@/hooks/use-fullscreen';
-import { formatRelativeTime } from '@/lib/format-relative-time';
-import { DeskChatsButton } from '../chrome/chats-button';
-import { validateDeskChatsSearch, type DeskChatsSearch } from './search';
-import { DeskSessionSurface } from './session-surface';
+import { Button, List, ListItem } from '@/ui-desks/components';
+import { ChatsButton } from '../chrome/chats-button';
+import { getDeskToolbarButtonSide, normalizeDeskToolbarSettings } from '../chrome/toolbar-layout';
+import { useChats } from './context';
+import { SessionSurface } from './session-surface';
 import styles from './style.module.css';
+import { useChatPanelResize } from './use-chat-panel-resize';
+import { WidgetContextThumbnailList } from './widget-context';
 import type { AiSessionSummary } from '@/data/core';
+import type { CSSProperties } from 'react';
 
-interface DeskChatsProps {
+export { ChatsProvider } from './provider';
+
+interface ChatsProps {
 	siteId?: string;
 }
 
@@ -24,98 +30,62 @@ function getSessionTitle( session: AiSessionSummary ) {
 }
 
 function getSessionSubtitle( session: AiSessionSummary ) {
-	if ( ! session.firstPrompt ) {
-		return __( 'Ask Studio Desk anything to get started.' );
-	}
-
-	return formatRelativeTime( session.updatedAt );
+	return session.assistantReplyPreview ?? __( 'Ask Studio anything to get started.' );
 }
 
-function useDeskChatsSearch() {
-	const search = validateDeskChatsSearch(
-		useSearch( { strict: false } ) as Record< string, unknown >
-	);
-	const navigate = useNavigate();
-	const open = search.chats === true;
-	const createChatRequestId = search.newChat ?? 0;
+export function ChatsTrigger() {
+	const { open, setOpen } = useChats();
 
-	const setOpen = useCallback(
-		( nextOpen: boolean ) => {
-			void navigate( {
-				to: '.',
-				search: ( previous: DeskChatsSearch ) => ( {
-					...previous,
-					chats: nextOpen ? true : undefined,
-				} ),
-			} );
-		},
-		[ navigate ]
-	);
-
-	return { open, setOpen, createChatRequestId };
+	return <ChatsButton open={ open } onToggle={ () => setOpen( ! open ) } />;
 }
 
-export function DeskChatsTrigger() {
-	const { open, setOpen } = useDeskChatsSearch();
-
-	return <DeskChatsButton open={ open } onToggle={ () => setOpen( ! open ) } />;
-}
-
-export function DeskChats( { siteId }: DeskChatsProps ) {
-	const { open, setOpen, createChatRequestId } = useDeskChatsSearch();
+export function Chats( { siteId }: ChatsProps ) {
+	const {
+		open,
+		setOpen,
+		selectedSessionId,
+		expanded,
+		autoFocusSessionId,
+		isCreatingChat,
+		pendingPrompt,
+		composerWidgetDragPreview,
+		selectSession,
+		switchSession,
+		clearSelection,
+		startNewChat,
+		consumePendingPrompt,
+	} = useChats();
+	const { data: savedDeskSettings } = useDeskSettings();
 	const { data: sessions, isFetching: isFetchingSessions } = useSessions();
 	const { data: sites } = useSites();
 	const isFullscreen = useFullscreen();
-	const createSession = useCreateSession();
-	const lastCreateChatRequestId = useRef( createChatRequestId );
-	const [ selectedSessionId, setSelectedSessionId ] = useState< string | undefined >( undefined );
-	const [ expanded, setExpanded ] = useState( false );
-	const [ autoFocusSessionId, setAutoFocusSessionId ] = useState< string | undefined >( undefined );
+	const fallbackDeskSettings = useMemo( () => createDefaultDeskSettings(), [] );
+	const deskSettings = useMemo(
+		() => normalizeDeskToolbarSettings( savedDeskSettings ?? fallbackDeskSettings ),
+		[ fallbackDeskSettings, savedDeskSettings ]
+	);
+	const side = getDeskToolbarButtonSide( deskSettings.toolbarLayout, 'chat' );
+	const { width, isResizing, listCollapsed, collapseList, expandList, startResize } =
+		useChatPanelResize( side );
 	const site = siteId ? sites?.find( ( candidate ) => candidate.id === siteId ) : undefined;
 	const filteredSessions = siteId
 		? site?.path
-			? ( sessions ?? [] ).filter( ( session ) => session.ownerSitePath === site.path )
+			? ( sessions ?? [] ).filter(
+					( session ) => session.ownerSitePath === site.path && ! session.archived
+			  )
 			: []
-		: ( sessions ?? [] ).filter( ( session ) => ! session.ownerSitePath );
-	const deskSessions = [ ...filteredSessions ].sort(
+		: ( sessions ?? [] ).filter( ( session ) => ! session.ownerSitePath && ! session.archived );
+	const chatSessions = [ ...filteredSessions ].sort(
 		( a, b ) => Date.parse( b.updatedAt ) - Date.parse( a.updatedAt )
 	);
-	const selectedSession = deskSessions.find( ( session ) => session.id === selectedSessionId );
+	const selectedSession = chatSessions.find( ( session ) => session.id === selectedSessionId );
+	const isListCollapsed = expanded && listCollapsed;
 
 	useEffect( () => {
 		if ( selectedSessionId && sessions && ! isFetchingSessions && ! selectedSession ) {
-			setSelectedSessionId( undefined );
-			setExpanded( false );
+			clearSelection();
 		}
-	}, [ isFetchingSessions, selectedSession, selectedSessionId, sessions ] );
-
-	const handleSelectSession = ( sessionId: string ) => {
-		setSelectedSessionId( sessionId );
-		setExpanded( true );
-		setAutoFocusSessionId( undefined );
-	};
-
-	const handleSwitchSession = useCallback( ( sessionId: string ) => {
-		setSelectedSessionId( sessionId );
-		setExpanded( true );
-		setAutoFocusSessionId( sessionId );
-	}, [] );
-
-	const handleNewChat = useCallback( async () => {
-		const session = await createSession.mutateAsync( siteId );
-		setSelectedSessionId( session.id );
-		setExpanded( true );
-		setAutoFocusSessionId( session.id );
-	}, [ createSession, siteId ] );
-
-	useEffect( () => {
-		if ( createChatRequestId === lastCreateChatRequestId.current ) {
-			return;
-		}
-
-		lastCreateChatRequestId.current = createChatRequestId;
-		void handleNewChat();
-	}, [ createChatRequestId, handleNewChat ] );
+	}, [ clearSelection, isFetchingSessions, selectedSession, selectedSessionId, sessions ] );
 
 	return (
 		<Dialog.Root open={ open } onOpenChange={ setOpen } modal={ false } disablePointerDismissal>
@@ -129,61 +99,107 @@ export function DeskChats( { siteId }: DeskChatsProps ) {
 						motionStyles.motion,
 						expanded && styles.panelExpanded
 					) }
+					data-side={ side }
+					data-expanded={ expanded ? 'true' : 'false' }
+					data-list-collapsed={ isListCollapsed ? 'true' : 'false' }
+					data-resizing={ isResizing ? 'true' : 'false' }
+					data-ui-desks-chat-dropzone={ expanded && selectedSessionId ? 'true' : undefined }
+					style={
+						expanded
+							? ( {
+									'--desk-chats-panel-width': `${ width }px`,
+							  } as CSSProperties )
+							: undefined
+					}
 					aria-label={ __( 'Conversations' ) }
 				>
-					<div className={ styles.listPane }>
-						<header className={ styles.header }>
-							<h2>{ __( 'Conversations' ) }</h2>
-						</header>
-						<div className={ styles.list }>
-							{ deskSessions.map( ( session ) => (
-								<button
-									key={ session.id }
-									type="button"
-									className={ clsx(
-										styles.sessionItem,
-										session.id === selectedSessionId && styles.sessionItemActive
-									) }
-									onClick={ () => handleSelectSession( session.id ) }
+					{ ! isListCollapsed ? (
+						<div className={ styles.listPane }>
+							<header className={ styles.header }>
+								<h2>{ __( 'Conversations' ) }</h2>
+							</header>
+							<List className={ styles.list }>
+								{ chatSessions.length > 0 ? (
+									chatSessions.map( ( session ) => (
+										<ListItem
+											key={ session.id }
+											active={ session.id === selectedSessionId }
+											label={ getSessionTitle( session ) }
+											description={ getSessionSubtitle( session ) }
+											onClick={ () => selectSession( session.id ) }
+										/>
+									) )
+								) : (
+									<div className={ styles.emptyList }>{ __( 'No conversations yet.' ) }</div>
+								) }
+							</List>
+							<footer className={ styles.footer }>
+								<Button
+									className={ styles.newChatButton }
+									label={ __( 'New chat' ) }
+									size="xlarge"
+									disabled={ isCreatingChat }
+									aria-busy={ isCreatingChat }
+									onClick={ () => void startNewChat() }
+									variant="quiet"
 								>
-									<span className={ styles.sessionTitle }>{ getSessionTitle( session ) }</span>
-									<span className={ styles.sessionSubtitle }>
-										{ getSessionSubtitle( session ) }
-									</span>
-								</button>
-							) ) }
+									{ isCreatingChat ? __( 'Creating chat...' ) : __( '+ New chat' ) }
+								</Button>
+							</footer>
+							<div className={ styles.listDivider } aria-hidden />
 						</div>
-						<footer className={ styles.footer }>
-							<Button
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								className={ styles.newChatButton }
-								loading={ createSession.isPending }
-								loadingAnnouncement={ __( 'Creating chat' ) }
-								onClick={ () => void handleNewChat() }
-							>
-								{ __( '+ New chat' ) }
-							</Button>
-						</footer>
-					</div>
+					) : null }
 					{ expanded ? (
 						<div className={ styles.chatPane }>
 							{ selectedSessionId ? (
-								<DeskSessionSurface
+								<SessionSurface
 									key={ selectedSessionId }
+									siteId={ siteId }
 									sessionId={ selectedSessionId }
-									onSwitchSession={ handleSwitchSession }
+									side={ side }
+									listCollapsed={ isListCollapsed }
+									onExpandList={ expandList }
+									onCollapseList={ collapseList }
+									onSwitchSession={ switchSession }
 									autoFocus={ autoFocusSessionId === selectedSessionId }
+									initialPrompt={
+										pendingPrompt?.sessionId === selectedSessionId ? pendingPrompt : undefined
+									}
+									onInitialPromptConsumed={ consumePendingPrompt }
 								/>
 							) : (
 								<div className={ styles.emptyChat }>
-									{ __( 'Ask Studio Desk anything to get started.' ) }
+									{ __( 'Ask Studio anything to get started.' ) }
 								</div>
 							) }
 						</div>
 					) : null }
+					<div
+						className={ styles.resizeHandle }
+						onPointerDown={ startResize }
+						role="separator"
+						aria-orientation="vertical"
+						aria-label={ __( 'Resize conversations' ) }
+						aria-hidden={ ! expanded }
+					/>
 				</Dialog.Popup>
+				{ composerWidgetDragPreview && (
+					<div
+						className={ styles.widgetDragPreview }
+						style={
+							{
+								'--desk-widget-drag-preview-x': `${ composerWidgetDragPreview.x }px`,
+								'--desk-widget-drag-preview-y': `${ composerWidgetDragPreview.y }px`,
+							} as CSSProperties
+						}
+						aria-hidden="true"
+					>
+						<WidgetContextThumbnailList
+							widgets={ composerWidgetDragPreview.widgets }
+							className={ styles.widgetDragPreviewThumbnails }
+						/>
+					</div>
+				) }
 			</Dialog.Portal>
 		</Dialog.Root>
 	);

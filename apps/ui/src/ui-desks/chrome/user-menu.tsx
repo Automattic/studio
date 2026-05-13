@@ -3,28 +3,29 @@ import { __, sprintf } from '@wordpress/i18n';
 import { chevronDownSmall } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { Gravatar } from '@/components/gravatar';
-import * as Menu from '@/components/menu';
 import { SiteIcon } from '@/components/site-icon';
 import { useConnector } from '@/data/core';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
 import { useSites } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
-import { DeskHeaderButton } from './header-button';
+import { Button, Menu } from '@/ui-desks/components';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 
 const WPCOM_PROFILE_URL = 'https://wordpress.com/me';
 
 interface DeskMenuProps {
-	activeSiteId?: string;
+	siteId?: string;
+	disabled?: boolean;
+	showSiteName?: boolean;
 }
 
 function getSiteIconSeed( site: SiteDetails ) {
 	return `${ site.id }:${ site.name }:${ site.path }`;
 }
 
-export function DeskMenu( { activeSiteId }: DeskMenuProps ) {
+export function DeskMenu( { siteId, disabled = false, showSiteName = true }: DeskMenuProps ) {
 	const navigate = useNavigate();
 	const connector = useConnector();
 	const { data: user } = useAuthUser();
@@ -36,9 +37,9 @@ export function DeskMenu( { activeSiteId }: DeskMenuProps ) {
 	const savedScheme = preferences?.colorScheme;
 	const themeIsDark =
 		savedScheme === 'dark' || ( savedScheme !== 'light' && effectiveScheme === 'dark' );
-	const activeSite = sites?.find( ( candidate ) => candidate.id === activeSiteId );
+	const activeSite = sites?.find( ( candidate ) => candidate.id === siteId );
 	const activeSiteName = activeSite?.name ?? __( 'Site' );
-	const activeSiteIconSeed = activeSite ? getSiteIconSeed( activeSite ) : activeSiteId;
+	const activeSiteIconSeed = activeSite ? getSiteIconSeed( activeSite ) : siteId;
 	const switcherSites = activeSite
 		? [ activeSite, ...( sites ?? [] ).filter( ( candidate ) => candidate.id !== activeSite.id ) ]
 		: sites ?? [];
@@ -52,40 +53,43 @@ export function DeskMenu( { activeSiteId }: DeskMenuProps ) {
 	};
 
 	const openSite = ( nextSiteId: string ) => {
-		if ( nextSiteId === activeSiteId ) {
+		if ( nextSiteId === siteId ) {
 			return;
 		}
 		void navigate( { to: '/sites/$siteId', params: { siteId: nextSiteId } } );
 	};
 
-	const trigger = activeSiteId ? (
-		<button
-			type="button"
+	const trigger = siteId ? (
+		<Button
 			className={ styles.siteTrigger }
-			aria-label={ sprintf(
+			disabled={ disabled }
+			label={ sprintf(
 				/* translators: %s: current site name. */
 				__( 'Desk menu. Current site is %s.' ),
 				activeSiteName
 			) }
+			tooltipLabel={ false }
 		>
 			<SiteIcon
 				className={ styles.siteIcon }
 				seed={ activeSiteIconSeed }
 				imageSrc={ activeSite?.siteIcon }
 			/>
-			<span className={ styles.siteName } title={ activeSiteName }>
-				{ activeSiteName }
-			</span>
-			<Icon icon={ chevronDownSmall } size={ 20 } />
-		</button>
+			{ showSiteName && (
+				<span className={ styles.siteName } title={ activeSiteName }>
+					{ activeSiteName }
+				</span>
+			) }
+			<Icon icon={ chevronDownSmall } size={ 20 } className={ styles.siteCaret } />
+		</Button>
 	) : (
-		<DeskHeaderButton label={ __( 'Desk menu' ) } tooltipLabel={ user?.displayName }>
+		<Button disabled={ disabled } label={ __( 'Desk menu' ) } tooltipLabel={ user?.displayName }>
 			{ user ? (
 				<Gravatar className={ styles.avatar } email={ user.email } isDark={ themeIsDark } />
 			) : (
 				<span className={ styles.loginAvatar } aria-hidden="true" />
 			) }
-		</DeskHeaderButton>
+		</Button>
 	);
 
 	return (
@@ -113,7 +117,7 @@ export function DeskMenu( { activeSiteId }: DeskMenuProps ) {
 					switcherSites.map( ( site ) => (
 						<Menu.Item
 							key={ site.id }
-							aria-current={ site.id === activeSiteId ? 'page' : undefined }
+							aria-current={ site.id === siteId ? 'page' : undefined }
 							onClick={ () => openSite( site.id ) }
 						>
 							<span title={ site.name }>{ site.name }</span>

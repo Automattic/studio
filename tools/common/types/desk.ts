@@ -1,4 +1,17 @@
 export const DESK_CONFIG_VERSION = 1;
+export const DESK_SETTINGS_VERSION = 1;
+
+export interface DeskToolbarLayout {
+	left: string[];
+	right: string[];
+}
+
+export interface DeskSettings {
+	version: typeof DESK_SETTINGS_VERSION;
+	updatedAt: string;
+	showSiteName: boolean;
+	toolbarLayout: DeskToolbarLayout;
+}
 
 export interface DeskWidgetBase<
 	TType extends string = string,
@@ -21,14 +34,27 @@ export interface DeskViewport {
 	z: number;
 }
 
+export type DeskStackViewMode = 'stack' | 'tiles';
+
+export interface DeskStack {
+	id: string;
+	x: number;
+	y: number;
+	zIndex: string;
+	memberIds: string[];
+	viewMode?: DeskStackViewMode;
+}
+
 export interface DeskConfig< TWidget extends DeskWidgetBase = DeskWidgetBase > {
 	version: typeof DESK_CONFIG_VERSION;
 	updatedAt: string;
 	viewport?: DeskViewport;
 	widgets: TWidget[];
+	stacks?: DeskStack[];
 }
 
 export interface DesksConfig {
+	settings?: DeskSettings;
 	user?: DeskConfig;
 	sites?: Record< string, DeskConfig >;
 }

@@ -1,0 +1,15 @@
+.root {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	pointer-events: none;
+}
+
+.canvas {
+	display: block;
+	width: min(100%, var(--empty-background-canvas-size, 580px));
+	height: auto;
+	pointer-events: auto;
+}

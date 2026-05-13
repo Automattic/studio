@@ -6,6 +6,7 @@ import type {
 	ColorScheme,
 	Connector,
 	DeskConfig,
+	DeskSettings,
 	ExtractedBlueprintBundle,
 	FeaturedBlueprint,
 	InstalledApps,
@@ -516,6 +517,10 @@ export function createIpcConnector(): Connector {
 			await ipcApi.deleteAiSession( sessionId );
 		},
 
+		async updateSessionMetadata( sessionId, patch ): Promise< AiSessionSummary > {
+			return ( await ipcApi.updateAiSessionMetadata( sessionId, patch ) ) as AiSessionSummary;
+		},
+
 		async createSession( siteId ): Promise< AiSessionSummary > {
 			return ( await ipcApi.createAiSession( siteId ) ) as AiSessionSummary;
 		},
@@ -598,12 +603,32 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.getInstalledAppsAndTerminals() ) as InstalledApps;
 		},
 
+		async getDeskSettings(): Promise< DeskSettings > {
+			return ( await ipcApi.getDeskSettings() ) as DeskSettings;
+		},
+
+		async saveDeskSettings( settings ): Promise< void > {
+			await ipcApi.saveDeskSettings( settings );
+		},
+
 		async getUserDeskConfig(): Promise< DeskConfig | undefined > {
 			return ( await ipcApi.getUserDeskConfig() ) as DeskConfig | undefined;
 		},
 
 		async saveUserDeskConfig( config ): Promise< void > {
 			await ipcApi.saveUserDeskConfig( config );
+		},
+
+		async getSiteDeskConfig( siteId ): Promise< DeskConfig | undefined > {
+			return ( await ipcApi.getSiteDeskConfig( siteId ) ) as DeskConfig | undefined;
+		},
+
+		async saveSiteDeskConfig( siteId, config ): Promise< void > {
+			await ipcApi.saveSiteDeskConfig( siteId, config );
+		},
+
+		async fetchSiteRest( siteId, request ) {
+			return await ipcApi.fetchSiteRestApi( siteId, request );
 		},
 
 		async openSiteFolder( siteId ): Promise< void > {
@@ -628,6 +653,10 @@ export function createIpcConnector(): Connector {
 		// External links
 		async openExternalUrl( url: string ): Promise< void > {
 			ipcApi.openURL( url );
+		},
+
+		async openSiteUrl( siteId, relativeUrl = '', options ): Promise< void > {
+			await ipcApi.openSiteURL( siteId, relativeUrl, options );
 		},
 
 		// Window state

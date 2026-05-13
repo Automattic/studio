@@ -14,6 +14,7 @@
 
 .dialog {
 	width: min(560px, calc(100vw - 48px));
+	max-height: min(80vh, calc(100vh - 48px));
 	display: flex;
 	flex-direction: column;
 	gap: 16px;
@@ -37,14 +38,51 @@
 	width: min(520px, calc(100vw - 48px));
 }
 
+.small {
+	width: min(440px, calc(100vw - 48px));
+}
+
 .compact {
 	gap: 10px;
 }
 
+.header,
+.footer,
 .row {
 	display: flex;
-	align-items: flex-end;
+	align-items: center;
 	gap: 8px;
+}
+
+.header {
+	justify-content: space-between;
+}
+
+.title {
+	margin: 0;
+	font-size: var(--wpds-typography-font-size-md);
+	font-weight: var(--wpds-typography-font-weight-semibold, 600);
+	line-height: var(--wpds-typography-line-height-md);
+}
+
+.closeButton {
+	margin-right: -6px;
+}
+
+.content {
+	min-height: 0;
+}
+
+.footer {
+	justify-content: flex-end;
+}
+
+.footerCenter {
+	justify-content: center;
+}
+
+.row {
+	align-items: flex-end;
 }
 
 .rowCenter {

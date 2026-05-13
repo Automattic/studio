@@ -1,9 +1,17 @@
 import { createDefaultDeskSettings } from '@studio/common/lib/desk-settings';
 import { __ } from '@wordpress/i18n';
-import { Dialog, Field } from '@wordpress/ui';
+import { Field } from '@wordpress/ui';
 import { useMemo } from 'react';
 import { useDeskSettings, useUpdateDeskSettings } from '@/data/queries/use-desk-config';
-import { Button } from '@/ui-desks/components';
+import {
+	Button,
+	Dialog,
+	DialogCloseButton,
+	DialogContent,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from '@/ui-desks/components';
 import styles from './style.module.css';
 
 interface DeskSettingsModalProps {
@@ -19,38 +27,42 @@ export function DeskSettingsModal( { open, onOpenChange, onEditToolbar }: DeskSe
 	const updateDeskSettings = useUpdateDeskSettings();
 
 	return (
-		<Dialog.Root open={ open } onOpenChange={ onOpenChange }>
-			<Dialog.Popup size="small" className={ styles.settingsDialog }>
-				<Dialog.Header className={ styles.settingsHeader }>
-					<Dialog.Title>{ __( 'Settings' ) }</Dialog.Title>
-					<Dialog.CloseIcon />
-				</Dialog.Header>
-				<Dialog.Content className={ styles.settingsBody }>
-					<Field.Root className={ styles.settingsToggleRow } render={ <div /> }>
-						<Field.Control
-							type="checkbox"
-							checked={ settings.showSiteName }
-							onChange={ ( event ) => updateDeskSettings( { showSiteName: event.target.checked } ) }
-						/>
-						<Field.Label variant="plain">{ __( 'Show site name' ) }</Field.Label>
-					</Field.Root>
-				</Dialog.Content>
-				<Dialog.Footer className={ styles.settingsFooter }>
-					<Button
-						type="button"
-						className={ styles.settingsPrimaryAction }
-						label={ __( 'Edit toolbar' ) }
-						variant="filled"
-						size="medium"
-						onClick={ () => {
-							onOpenChange( false );
-							onEditToolbar();
-						} }
-					>
-						{ __( 'Edit toolbar' ) }
-					</Button>
-				</Dialog.Footer>
-			</Dialog.Popup>
-		</Dialog.Root>
+		<Dialog
+			ariaLabel={ __( 'Settings' ) }
+			gap="compact"
+			onClose={ () => onOpenChange( false ) }
+			open={ open }
+			size="small"
+		>
+			<DialogHeader>
+				<DialogTitle>{ __( 'Settings' ) }</DialogTitle>
+				<DialogCloseButton onClose={ () => onOpenChange( false ) } />
+			</DialogHeader>
+			<DialogContent>
+				<Field.Root className={ styles.settingsToggleRow } render={ <div /> }>
+					<Field.Control
+						type="checkbox"
+						checked={ settings.showSiteName }
+						onChange={ ( event ) => updateDeskSettings( { showSiteName: event.target.checked } ) }
+					/>
+					<Field.Label variant="plain">{ __( 'Show site name' ) }</Field.Label>
+				</Field.Root>
+			</DialogContent>
+			<DialogFooter>
+				<Button
+					type="button"
+					label={ __( 'Edit toolbar' ) }
+					tone="primary"
+					variant="filled"
+					size="medium"
+					onClick={ () => {
+						onOpenChange( false );
+						onEditToolbar();
+					} }
+				>
+					{ __( 'Edit toolbar' ) }
+				</Button>
+			</DialogFooter>
+		</Dialog>
 	);
 }

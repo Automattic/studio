@@ -1,6 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { globe } from '@wordpress/icons';
 import { SitePreviewAnnotateControl } from '@/ui-desks/widgets/site-preview/annotate-control';
+import { SitePreviewAnnotationToolbar } from '@/ui-desks/widgets/site-preview/annotations/toolbar';
 import {
 	SitePreviewWidgetComponent,
 	SitePreviewWidgetThumbnailComponent,
@@ -59,4 +60,6 @@ export const sitePreviewWidgetDefinition = {
 	} ),
 	getSummary: ( widgetProps ) => widgetProps.path || '/',
 	getEditAction: () => ( { kind: 'canvas-editing' } ),
+	focusModeToolbar: SitePreviewAnnotationToolbar,
+	focusModeToolbarLabel: () => __( 'Annotate actions' ),
 } satisfies WidgetDefinition< SitePreviewWidget >;

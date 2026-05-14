@@ -49,6 +49,7 @@ import {
 } from '@/ui-desks/widget-actions/paste-handlers';
 import { LOADING_WIDGET_TYPE } from '@/ui-desks/widgets/loading/types';
 import { NOTE_WIDGET_TYPE } from '@/ui-desks/widgets/note/types';
+import { getWidgetDefinition } from '@/ui-desks/widgets/registry';
 import {
 	DeskContext,
 	type AddDeskWidgetOptions,
@@ -168,6 +169,10 @@ export function DeskProvider( {
 			}
 		);
 	}, [ isRunningSite, selectedWidgetToolbarItem, siteId ] );
+	const focusedWidgetDefinition = useMemo(
+		() => ( focusedWidget ? getWidgetDefinition( focusedWidget.type ) ?? null : null ),
+		[ focusedWidget ]
+	);
 
 	useStackInteractions( editor );
 	useConnectorInteractions( {
@@ -930,6 +935,7 @@ export function DeskProvider( {
 			isConnectingWidget: pendingConnectorSourceId !== null,
 			focusMode,
 			focusedWidget,
+			focusedWidgetDefinition,
 			pressedStackId,
 			registerEditor,
 			pressStack,
@@ -964,6 +970,7 @@ export function DeskProvider( {
 			finishDrawing,
 			focusConnectedWidget,
 			focusedWidget,
+			focusedWidgetDefinition,
 			focusMode,
 			getFocusDeskSnapshot,
 			isHydrated,

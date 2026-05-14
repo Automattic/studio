@@ -1,13 +1,7 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { category, connection, group, pencil, trash, ungroup, update } from '@wordpress/icons';
 import { useEffect, useState } from 'react';
-import { useAnnotations } from '@/ui-desks/annotations/context';
-import {
-	formatAnnotationsAsPrompt,
-	formatAnnotationsSubmittedMessage,
-} from '@/ui-desks/annotations/prompt';
 import { ChatButton } from '@/ui-desks/chats/chat-button';
-import { useChats } from '@/ui-desks/chats/context';
 import { SelectionChatDialog } from '@/ui-desks/chats/selection-chat-dialog';
 import { Divider, Button, Surface } from '@/ui-desks/components';
 import { ControlRenderer } from '@/ui-desks/controls/registry';
@@ -18,7 +12,8 @@ import type { getSelectedWidgetToolbarItem } from './selection';
 import type { DeskWidgetConnectionTarget } from '@/ui-desks/connectors/utils';
 import type { AnySelectControlConfig } from '@/ui-desks/controls/types';
 import type { StackViewMode } from '@/ui-desks/stacks/utils';
-import type { DeskWidget } from '@/ui-desks/widgets/types';
+import type { DeskWidget, WidgetFocusModeToolbarProps } from '@/ui-desks/widgets/types';
+import type { ComponentType } from 'react';
 
 type SelectedWidgetToolbarItem = NonNullable< ReturnType< typeof getSelectedWidgetToolbarItem > >;
 
@@ -50,8 +45,10 @@ export function DeskWidgetToolbar() {
 		selectedWidgetConnectionTargets,
 		removeSelectedConnector,
 		focusConnectedWidget,
+		focusMode,
+		focusedWidget,
+		focusedWidgetDefinition,
 	} = useDesk();
-	const { annotatingWidgetId } = useAnnotations();
 	const visible = Boolean(
 		selectedWidgetToolbarItem ||
 			selectedConnectorToolbarItem ||
@@ -65,6 +62,9 @@ export function DeskWidgetToolbar() {
 	>( [] );
 	const [ openControlId, setOpenControlId ] = useState< string | null >( null );
 	const [ chatWidgets, setChatWidgets ] = useState< DeskWidget[] | null >( null );
+	const FocusModeToolbar = focusedWidgetDefinition?.focusModeToolbar as
+		| ComponentType< WidgetFocusModeToolbarProps >
+		| undefined;
 
 	useEffect( () => {
 		if ( selectedWidgetToolbarItem ) {
@@ -78,8 +78,19 @@ export function DeskWidgetToolbar() {
 		}
 	}, [ selectedConnectorToolbarItem, selectedWidgetConnectionTargets, selectedWidgetToolbarItem ] );
 
-	if ( annotatingWidgetId ) {
-		return <AnnotateToolbar />;
+	if ( focusMode && focusedWidget && FocusModeToolbar ) {
+		return (
+			<Surface
+				variant="glass"
+				className={ styles.toolbar }
+				data-visible="true"
+				role="toolbar"
+				aria-label={ focusedWidgetDefinition?.focusModeToolbarLabel?.() ?? __( 'Focus actions' ) }
+				onPointerDown={ ( event ) => event.stopPropagation() }
+			>
+				<FocusModeToolbar widget={ focusedWidget } />
+			</Surface>
+		);
 	}
 
 	const renderSelection = visible ? selectedWidgetToolbarItem : lastSelection;
@@ -235,142 +246,6 @@ export function DeskWidgetToolbar() {
 			) }
 		</>
 	);
-}
-
-function AnnotateToolbar() {
-	const {
-		annotationCount,
-		selectedAnnotationWidgetId,
-		stopAnnotatingPreview,
-		removeSelectedAnnotation,
-		collectAnnotationSubmission,
-	} = useAnnotations();
-	const { startChatWithPrompt, isCreatingChat } = useChats();
-	const [ isSubmitting, setIsSubmitting ] = useState( false );
-	const isBusy = isCreatingChat || isSubmitting;
-
-	const cancel = () => {
-		if ( annotationCount > 0 ) {
-			const shouldDiscard = window.confirm(
-				sprintf(
-					_n( 'Discard %d annotation?', 'Discard %d annotations?', annotationCount ),
-					annotationCount
-				)
-			);
-			if ( ! shouldDiscard ) {
-				return;
-			}
-		}
-		stopAnnotatingPreview();
-	};
-
-	const submit = async () => {
-		if ( annotationCount === 0 || isBusy ) {
-			return;
-		}
-		const submission = collectAnnotationSubmission();
-		if ( ! submission ) {
-			return;
-		}
-
-		setIsSubmitting( true );
-		try {
-			const annotationPrompt = formatAnnotationsAsPrompt( submission.annotations );
-			await startChatWithPrompt( {
-				prompt: submission.previewWidget
-					? buildAnnotationWidgetContextPrompt( annotationPrompt, [ submission.previewWidget ] )
-					: annotationPrompt,
-				displayMessage: formatAnnotationsSubmittedMessage( submission.annotations.length ),
-			} );
-			stopAnnotatingPreview();
-		} catch ( error ) {
-			console.warn( 'Unable to submit annotations.', error );
-		} finally {
-			setIsSubmitting( false );
-		}
-	};
-
-	return (
-		<Surface
-			variant="glass"
-			className={ styles.toolbar }
-			data-visible="true"
-			role="toolbar"
-			aria-label={ __( 'Annotate actions' ) }
-			onPointerDown={ ( event ) => event.stopPropagation() }
-		>
-			<Button
-				label={ __( 'Cancel' ) }
-				variant="quiet"
-				size="medium"
-				tooltipLabel={ false }
-				onClick={ cancel }
-			>
-				{ __( 'Cancel' ) }
-			</Button>
-			{ annotationCount > 0 && (
-				<>
-					<Divider />
-					<Button
-						label={ sprintf(
-							_n( 'Submit %d change', 'Submit %d changes', annotationCount ),
-							annotationCount
-						) }
-						variant="filled"
-						tone="primary"
-						size="medium"
-						tooltipLabel={ false }
-						disabled={ isBusy }
-						onClick={ () => void submit() }
-					>
-						{ sprintf(
-							_n( 'Submit %d change', 'Submit %d changes', annotationCount ),
-							annotationCount
-						) }
-					</Button>
-				</>
-			) }
-			{ selectedAnnotationWidgetId && (
-				<>
-					<Divider />
-					<Button
-						icon={ trash }
-						label={ __( 'Remove annotation' ) }
-						variant="quiet"
-						size="medium"
-						onClick={ removeSelectedAnnotation }
-					/>
-				</>
-			) }
-		</Surface>
-	);
-}
-
-function buildAnnotationWidgetContextPrompt( userPrompt: string, widgets: DeskWidget[] ) {
-	const context = widgets
-		.map(
-			( widget, index ) =>
-				`${ index + 1 }. ${ JSON.stringify( {
-					widgetId: widget.id,
-					type: widget.type,
-					position: {
-						x: widget.x,
-						y: widget.y,
-					},
-					widgetProps: widget.widgetProps,
-				} ) }`
-		)
-		.join( '\n' );
-
-	return [
-		'Use the following Studio canvas selection as context.',
-		'The selected items are canvas widgets. Refer to widget IDs and WordPress entity IDs when helpful.',
-		'',
-		context,
-		'',
-		'User request:',
-		userPrompt,
-	].join( '\n' );
 }
 
 function ConnectedToControl( {

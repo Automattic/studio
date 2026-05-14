@@ -1,13 +1,11 @@
 import { __ } from '@wordpress/i18n';
 import { pencil } from '@wordpress/icons';
-import { useAnnotations } from '@/ui-desks/annotations/context';
 import { Button } from '@/ui-desks/components';
 import { useDesk } from '@/ui-desks/desk/provider';
 import { SITE_PREVIEW_WIDGET_TYPE } from './types';
 
 export function SitePreviewAnnotateControl() {
-	const { selectedWidgetToolbarItem } = useDesk();
-	const { startAnnotatingPreview } = useAnnotations();
+	const { selectedWidgetToolbarItem, startFocusMode } = useDesk();
 	const widget =
 		selectedWidgetToolbarItem?.kind === 'single-widget' &&
 		selectedWidgetToolbarItem.widget.type === SITE_PREVIEW_WIDGET_TYPE
@@ -23,7 +21,7 @@ export function SitePreviewAnnotateControl() {
 			disabled={ ! widget }
 			onClick={ () => {
 				if ( widget ) {
-					startAnnotatingPreview( widget.id );
+					startFocusMode( widget.id );
 				}
 			} }
 		/>

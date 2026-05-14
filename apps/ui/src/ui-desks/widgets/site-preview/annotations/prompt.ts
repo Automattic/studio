@@ -1,4 +1,5 @@
 import { _n, sprintf } from '@wordpress/i18n';
+import type { DeskWidget } from '@/ui-desks/widgets/types';
 
 export interface DeskSitePreviewAnnotation {
 	id: string;
@@ -80,4 +81,31 @@ export function formatAnnotationsAsPrompt( annotations: DeskSitePreviewAnnotatio
 	} );
 
 	return lines.join( '\n' ).trimEnd();
+}
+
+export function createAnnotationWidgetContextPrompt( userPrompt: string, widgets: DeskWidget[] ) {
+	const context = widgets
+		.map(
+			( widget, index ) =>
+				`${ index + 1 }. ${ JSON.stringify( {
+					widgetId: widget.id,
+					type: widget.type,
+					position: {
+						x: widget.x,
+						y: widget.y,
+					},
+					widgetProps: widget.widgetProps,
+				} ) }`
+		)
+		.join( '\n' );
+
+	return [
+		'Use the following Studio canvas selection as context.',
+		'The selected items are canvas widgets. Refer to widget IDs and WordPress entity IDs when helpful.',
+		'',
+		context,
+		'',
+		'User request:',
+		userPrompt,
+	].join( '\n' );
 }

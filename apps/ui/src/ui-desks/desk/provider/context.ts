@@ -7,7 +7,11 @@ import type {
 import type { getSelectedWidgetToolbarItem } from '@/ui-desks/desk/selection-toolbar/selection';
 import type { DeskFocusDesk, DeskFocusMode } from '@/ui-desks/focus-mode/types';
 import type { StackViewMode } from '@/ui-desks/stacks/utils';
-import type { DeskWidget, WidgetPastePayload } from '@/ui-desks/widgets/types';
+import type {
+	DeskWidget,
+	DeskWidgetDefinition,
+	WidgetPastePayload,
+} from '@/ui-desks/widgets/types';
 import type { ReactNode } from 'react';
 import type { Editor, TLShapeId } from 'tldraw';
 
@@ -29,6 +33,7 @@ export interface DeskContextValue {
 	isConnectingWidget: boolean;
 	focusMode: DeskFocusMode | null;
 	focusedWidget: DeskWidget | null;
+	focusedWidgetDefinition: DeskWidgetDefinition | null;
 	pressedStackId: string | null;
 	registerEditor: RegisterDeskEditor;
 	pressStack: ( stackId: string ) => void;
@@ -95,6 +100,7 @@ const defaultDeskContext: DeskContextValue = {
 	isConnectingWidget: false,
 	focusMode: null,
 	focusedWidget: null,
+	focusedWidgetDefinition: null,
 	pressedStackId: null,
 	registerEditor: noopRegisterEditor,
 	pressStack: noopPressStack,

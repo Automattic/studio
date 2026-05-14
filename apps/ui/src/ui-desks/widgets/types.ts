@@ -206,6 +206,10 @@ export interface WidgetEditActionContext< TWidget extends DeskWidgetBase = DeskW
 	hasRunningSite: boolean;
 }
 
+export interface WidgetFocusModeToolbarProps< TWidget extends DeskWidgetBase = DeskWidgetBase > {
+	widget: TWidget;
+}
+
 export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBase > {
 	type: TWidget[ 'type' ];
 	name: () => string;
@@ -227,6 +231,8 @@ export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBa
 		context: WidgetFitContentContext< TWidget >
 	) => WidgetFitContentResult< TWidget > | Promise< WidgetFitContentResult< TWidget > >;
 	getEditAction?: ( context: WidgetEditActionContext< TWidget > ) => WidgetEditAction | null;
+	focusModeToolbar?: ComponentType< WidgetFocusModeToolbarProps< TWidget > >;
+	focusModeToolbarLabel?: () => string;
 	resolver?: WidgetResolver< TWidget >;
 	fileHandlers?: Array< WidgetFileHandler< TWidget > >;
 	pasteHandlers?: Array< WidgetPasteHandler< TWidget > >;

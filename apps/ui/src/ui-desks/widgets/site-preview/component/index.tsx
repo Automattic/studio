@@ -1,7 +1,9 @@
 import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSites } from '@/data/queries/use-sites';
-import { useAnnotations } from '@/ui-desks/annotations/context';
+import { LoadingPlaceholder } from '@/ui-desks/components';
+import { useDesk } from '@/ui-desks/desk/provider';
+import { AnnotationCommentDialog } from '@/ui-desks/widgets/site-preview/annotations/comment-dialog';
 import {
 	ANNOTATION_INSPECTOR_BRIDGE_PREFIX,
 	ANNOTATION_INSPECTOR_CLEANUP_SCRIPT,
@@ -9,12 +11,11 @@ import {
 	mountInspector,
 	type AnnotationInspectorEvent,
 	type AnnotationPayload,
-} from '@/ui-desks/annotations/inspector';
-import { LoadingPlaceholder } from '@/ui-desks/components';
-import { useDesk } from '@/ui-desks/desk/provider';
+} from '@/ui-desks/widgets/site-preview/annotations/inspector';
+import { createAnnotationFocusEntry } from '@/ui-desks/widgets/site-preview/annotations/notes';
+import { SITE_PREVIEW_WIDGET_TYPE, type SitePreviewWidgetProps } from '../types';
 import { getSitePreviewUrl, urlLabelFor, withPreviewFlag } from '../url';
 import styles from './style.module.css';
-import type { SitePreviewWidgetProps } from '../types';
 import type {
 	DeskWidgetComponentProps,
 	DeskWidgetThumbnailComponentProps,
@@ -50,15 +51,22 @@ export function SitePreviewWidgetComponent( {
 	isSelected,
 }: SitePreviewWidgetComponentProps ) {
 	const iframeRef = useRef< HTMLIFrameElement | null >( null );
-	const { siteId } = useDesk();
-	const { annotatingWidgetId, requestAnnotation } = useAnnotations();
+	const { focusMode, focusedWidget, getFocusDeskSnapshot, isReadOnly, setFocusDesk, siteId } =
+		useDesk();
 	const { data: sites, isLoading } = useSites();
-	const isAnnotating = annotatingWidgetId === id;
+	const focusedPreviewWidget =
+		focusMode?.widgetId === id &&
+		focusedWidget?.id === id &&
+		focusedWidget.type === SITE_PREVIEW_WIDGET_TYPE
+			? focusedWidget
+			: null;
+	const isAnnotating = Boolean( focusedPreviewWidget );
 	const site = sites?.find( ( currentSite ) => currentSite.id === siteId );
 	const sitePreviewUrl = getSitePreviewUrl( site, widgetProps.path );
 	const previewFrameUrl = sitePreviewUrl ? withPreviewFlag( sitePreviewUrl ) : '';
 	const [ liveUrl, setLiveUrl ] = useState( sitePreviewUrl );
 	const [ isFrameLoading, setIsFrameLoading ] = useState( false );
+	const [ pendingAnnotation, setPendingAnnotation ] = useState< AnnotationPayload | null >( null );
 
 	useEffect( () => {
 		setLiveUrl( sitePreviewUrl );
@@ -80,6 +88,60 @@ export function SitePreviewWidgetComponent( {
 		}
 	};
 
+	const requestAnnotation = useCallback(
+		( payload: AnnotationPayload ) => {
+			if ( ! isAnnotating ) {
+				return;
+			}
+			setPendingAnnotation( payload );
+		},
+		[ isAnnotating ]
+	);
+
+	const confirmPendingAnnotation = useCallback(
+		( comment: string ) => {
+			if ( isReadOnly || ! pendingAnnotation || ! focusedPreviewWidget ) {
+				return false;
+			}
+			const snapshot = getFocusDeskSnapshot() ?? focusMode?.focusDesk;
+			if ( ! snapshot ) {
+				return false;
+			}
+			const entry = createAnnotationFocusEntry(
+				focusedPreviewWidget,
+				pendingAnnotation,
+				comment,
+				snapshot
+			);
+			if ( ! entry ) {
+				return false;
+			}
+			const didUpdate = setFocusDesk( {
+				...snapshot,
+				widgets: [ ...snapshot.widgets, entry.widget ],
+				connectors: [ ...( snapshot.connectors ?? [] ), entry.connector ],
+			} );
+			if ( didUpdate ) {
+				setPendingAnnotation( null );
+			}
+			return didUpdate;
+		},
+		[
+			focusMode?.focusDesk,
+			focusedPreviewWidget,
+			getFocusDeskSnapshot,
+			isReadOnly,
+			pendingAnnotation,
+			setFocusDesk,
+		]
+	);
+
+	useEffect( () => {
+		if ( ! isAnnotating ) {
+			setPendingAnnotation( null );
+		}
+	}, [ isAnnotating ] );
+
 	useEffect( () => {
 		if ( ! isAnnotating || isElectron() ) {
 			return;
@@ -99,7 +161,7 @@ export function SitePreviewWidgetComponent( {
 					return;
 				}
 				teardown = mountInspector( doc, ( payload ) => {
-					requestAnnotation( id, payload );
+					requestAnnotation( payload );
 				} );
 			} catch {
 				// Electron uses webview injection for cross-origin local sites.
@@ -112,7 +174,7 @@ export function SitePreviewWidgetComponent( {
 			iframe.removeEventListener( 'load', attach );
 			teardown?.();
 		};
-	}, [ id, isAnnotating, requestAnnotation ] );
+	}, [ isAnnotating, requestAnnotation ] );
 
 	const emptyMessage = getEmptyMessage( {
 		hasSiteId: Boolean( siteId ),
@@ -149,7 +211,7 @@ export function SitePreviewWidgetComponent( {
 								key={ previewFrameUrl }
 								url={ previewFrameUrl }
 								isAnnotating={ isAnnotating }
-								onAnnotationPick={ ( payload ) => requestAnnotation( id, payload ) }
+								onAnnotationPick={ requestAnnotation }
 								onLoadedUrl={ setLiveUrl }
 								onLoadComplete={ () => setIsFrameLoading( false ) }
 							/>
@@ -181,6 +243,13 @@ export function SitePreviewWidgetComponent( {
 				) }
 				{ ! isEditing && ! isAnnotating && <div className={ styles.shield } aria-hidden="true" /> }
 			</div>
+			{ pendingAnnotation && (
+				<AnnotationCommentDialog
+					payload={ pendingAnnotation }
+					onAdd={ confirmPendingAnnotation }
+					onCancel={ () => setPendingAnnotation( null ) }
+				/>
+			) }
 		</div>
 	);
 }

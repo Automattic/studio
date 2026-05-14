@@ -80,7 +80,7 @@ describe( 'CLI: studio site status', () => {
 					{
 						siteUrl: 'http://localhost:8080/',
 						sitePath: '/path/to/site',
-						status: '🔴 Offline',
+						status: 'Offline',
 						phpVersion: '8.0',
 						wpVersion: '6.4',
 						xdebug: 'Disabled',
@@ -113,7 +113,7 @@ describe( 'CLI: studio site status', () => {
 						siteUrl: 'http://localhost:8080/',
 						autoLoginUrl: 'http://localhost:8080/studio-auto-login?redirect_to=%2Fwp-admin%2F',
 						sitePath: '/path/to/site',
-						status: '🟢 Online',
+						status: 'Online',
 						phpVersion: '8.0',
 						wpVersion: '6.4',
 						xdebug: 'Disabled',
@@ -154,7 +154,7 @@ describe( 'CLI: studio site status', () => {
 					{
 						siteUrl: 'http://localhost:8080/',
 						sitePath: '/path/to/site',
-						status: '🔴 Offline',
+						status: 'Offline',
 						wpVersion: '6.4',
 						xdebug: 'Disabled',
 						adminUsername: 'admin',

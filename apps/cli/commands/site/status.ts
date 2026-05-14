@@ -23,7 +23,8 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 		logger.reportSuccess( __( 'Site loaded' ) );
 
 		const isOnline = Boolean( await isServerRunning( site.id ) );
-		const status = isOnline ? `🟢 ${ __( 'Online' ) }` : `🔴 ${ __( 'Offline' ) }`;
+		const status = isOnline ? __( 'Online' ) : __( 'Offline' );
+		const displayStatus = isOnline ? `🟢 ${ status }` : `🔴 ${ status }`;
 		const siteUrl = getSiteUrl( site );
 		const sitePath = getPrettyPath( site.path );
 		const wpVersion = getWordPressVersion( site.path );
@@ -37,6 +38,7 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 			key: string;
 			jsonKey: string;
 			value: string | undefined;
+			displayValue?: string;
 			type?: string;
 			hidden?: boolean;
 		}[] = [
@@ -54,7 +56,7 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 				hidden: ! isOnline,
 			},
 			{ key: __( 'Site Path' ), jsonKey: 'sitePath', value: sitePath },
-			{ key: __( 'Status' ), jsonKey: 'status', value: status },
+			{ key: __( 'Status' ), jsonKey: 'status', value: status, displayValue: displayStatus },
 			{ key: __( 'PHP version' ), jsonKey: 'phpVersion', value: site.phpVersion },
 			{ key: __( 'WP version' ), jsonKey: 'wpVersion', value: wpVersion },
 			{ key: __( 'Xdebug' ), jsonKey: 'xdebug', value: xdebugStatus },
@@ -81,8 +83,12 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 				},
 			} );
 
-			for ( const { key, value, type } of siteData ) {
-				table.push( [ key, type === 'url' ? { href: value, content: value } : value ] );
+			for ( const { key, value, displayValue, type } of siteData ) {
+				const tableValue = displayValue ?? value;
+				table.push( [
+					key,
+					type === 'url' ? { href: tableValue, content: tableValue } : tableValue,
+				] );
 			}
 
 			console.table( table.toString() );

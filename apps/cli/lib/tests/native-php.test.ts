@@ -3,6 +3,7 @@ import path from 'path';
 import { describe, expect, it } from 'vitest';
 import {
 	createNativePhpSubprocessIniDirectory,
+	getDefaultPhpArgs,
 	getNativePhpCaBundleArgs,
 	getNativePhpCaBundlePath,
 	getNativePhpSubprocessIniContents,
@@ -39,6 +40,16 @@ describe( 'native PHP helpers', () => {
 			'-d',
 			expect.stringContaining( 'curl.cainfo=' ),
 		] );
+	} );
+
+	it( 'omits the no-ini flag when php.ini loading is enabled', () => {
+		const args = getDefaultPhpArgs( '8.4', [], false, false, { loadPhpIni: true } );
+
+		expect( getDefaultPhpArgs( '8.4' ) ).toContain( '-n' );
+		expect( args ).not.toContain( '-n' );
+		if ( process.platform === 'win32' ) {
+			expect( args ).not.toContain( 'extension=pdo_sqlite' );
+		}
 	} );
 
 	it( 'loads bundled Windows extensions in subprocess php.ini contents', () => {

@@ -201,7 +201,8 @@ export function getDefaultPhpArgs(
 	phpVersion: NativePhpSupportedVersion,
 	openBasedir: string[] = [],
 	disallowRiskyFunctions: boolean = false,
-	enableXdebug: boolean = false
+	enableXdebug: boolean = false,
+	options: { loadPhpIni?: boolean } = {}
 ): string[] {
 	// Partition the file_cache by PHP version: opcache's on-disk script blob
 	// format isn't stable across minor versions, and reusing a cache populated
@@ -212,7 +213,7 @@ export function getDefaultPhpArgs(
 
 	const args = [
 		// Avoid loading php.ini config files to prevent other PHP installations from affecting Studio
-		'-n',
+		...( options.loadPhpIni ? [] : [ '-n' ] ),
 		'-d',
 		'memory_limit=512M',
 		'-d',
@@ -223,7 +224,7 @@ export function getDefaultPhpArgs(
 
 	const extensionDir = getExtensionDir( phpVersion );
 
-	if ( process.platform === 'win32' ) {
+	if ( process.platform === 'win32' && ! options.loadPhpIni ) {
 		// Load every bundled DLL from the artifact's ext/ directory.
 		// windows.php.net's prebuilt php.exe doesn't auto-load extensions;
 		// each one needs an explicit `extension=` (or `zend_extension=` for

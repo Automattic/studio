@@ -80,6 +80,7 @@ type SpawnPhpProcessOptions = {
 	enableXdebug?: boolean;
 	env?: NodeJS.ProcessEnv;
 	extraPhpArgs?: string[];
+	loadPhpIni?: boolean;
 	onlyPathsThatPhpCanAccess?: string[];
 	phpVersion: NativePhpSupportedVersion;
 	siteFolder?: string;
@@ -96,6 +97,7 @@ function spawnPhpProcess(
 		enableXdebug = false,
 		env,
 		extraPhpArgs = [],
+		loadPhpIni = false,
 		onlyPathsThatPhpCanAccess = [],
 		disallowRiskyFunctions = false,
 	}: SpawnPhpProcessOptions
@@ -104,7 +106,8 @@ function spawnPhpProcess(
 		phpVersion,
 		onlyPathsThatPhpCanAccess,
 		disallowRiskyFunctions,
-		enableXdebug
+		enableXdebug,
+		{ loadPhpIni }
 	);
 	const phpArgs = [ ...defaultArgs, ...extraPhpArgs, ...args ];
 	const phpScriptProcess = spawn( getPhpBinaryPath( phpVersion ), phpArgs, {
@@ -693,8 +696,13 @@ async function runBlueprint(
 			{
 				phpVersion,
 				signal,
-				env: { PHPRC: phpIniDirectory },
-				extraPhpArgs: getNativePhpCaBundleArgs( getNativePhpCaBundlePath( phpIniDirectory ) ),
+				env: { PHPRC: phpIniDirectory, PHP_INI_SCAN_DIR: '' },
+				extraPhpArgs: [
+					'-c',
+					phpIniDirectory,
+					...getNativePhpCaBundleArgs( getNativePhpCaBundlePath( phpIniDirectory ) ),
+				],
+				loadPhpIni: true,
 			}
 		);
 	} finally {

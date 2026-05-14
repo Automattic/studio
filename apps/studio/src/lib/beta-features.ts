@@ -61,6 +61,9 @@ export async function updateBetaFeature(
 		await lockAppdata();
 		const userData = await loadUserData();
 		const betaFeatures = await getBetaFeatures();
+		// If `BetaFeatures` is empty, `key` will be `never`, and we cannot use it to
+		// assign to `betaFeatures`. That's fine. Just rely on type checking when this
+		// function is called.
 		betaFeatures[ key ] = value;
 		userData.betaFeatures = betaFeatures;
 		applyBetaFeaturesToEnvironment( betaFeatures );

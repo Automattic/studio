@@ -18,11 +18,8 @@ import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { getSnapshotsFromConfig, deleteSnapshotFromConfig } from 'cli/lib/snapshots';
-import {
-	isServerRunning,
-	stopWordPressServer,
-	type SiteProcessDescription,
-} from 'cli/lib/wordpress-server-manager';
+import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
+import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { runCommand } from '../delete';
 
 vi.mock( 'fs' );
@@ -69,7 +66,7 @@ describe( 'CLI: studio site delete', () => {
 		...overrides,
 	} );
 
-	const testProcessDescription: SiteProcessDescription = {
+	const testProcessDescription: ProcessDescription = {
 		name: 'test-site-id',
 		pmId: 0,
 		status: 'online',

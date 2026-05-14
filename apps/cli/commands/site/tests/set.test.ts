@@ -9,11 +9,11 @@ import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { updateDomainInHosts } from 'cli/lib/hosts-file';
 import { runWpCliCommand, WpCliResponse } from 'cli/lib/run-wp-cli-command';
 import { setupCustomDomain } from 'cli/lib/site-utils';
+import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import {
 	isServerRunning,
 	startWordPressServer,
 	stopWordPressServer,
-	type SiteProcessDescription,
 } from 'cli/lib/wordpress-server-manager';
 import { runCommand } from '../set';
 
@@ -69,7 +69,7 @@ describe( 'CLI: studio site set', () => {
 		enableHttps: false,
 	} );
 
-	const testProcessDescription: SiteProcessDescription = {
+	const testProcessDescription: ProcessDescription = {
 		name: 'test-site',
 		pmId: 0,
 		status: 'online',

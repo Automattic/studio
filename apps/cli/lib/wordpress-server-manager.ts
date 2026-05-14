@@ -38,10 +38,6 @@ import type { WordPressInstallMode } from '@wp-playground/wordpress';
 
 export const SITE_PROCESS_PREFIX = 'studio-site-';
 
-export type SiteProcessDescription = ProcessDescription & {
-	runtime: SiteRuntime;
-};
-
 // Get an abort signal that's triggered on SIGINT/SIGTERM. This is useful for aborting and cleaning
 // up async operations.
 const abortController = new AbortController();
@@ -62,22 +58,20 @@ function getChildScriptPath( runtime: SiteRuntime ): string {
 	}
 }
 
-function withSiteRuntime( processDescription: ProcessDescription ): SiteProcessDescription {
+function withSiteRuntime( processDescription: ProcessDescription ): ProcessDescription {
 	return {
 		...processDescription,
 		runtime: processDescription.runtime ?? SITE_RUNTIME_PLAYGROUND,
 	};
 }
 
-export async function isServerRunning(
-	siteId: string
-): Promise< SiteProcessDescription | undefined > {
+export async function isServerRunning( siteId: string ): Promise< ProcessDescription | undefined > {
 	const processName = getProcessName( siteId );
 	const runningProcess = await isProcessRunning( processName );
 	return runningProcess ? withSiteRuntime( runningProcess ) : undefined;
 }
 
-function canReuseProcessForWpCli( processDescription: SiteProcessDescription ): boolean {
+function canReuseProcessForWpCli( processDescription: ProcessDescription ): boolean {
 	return processDescription.runtime === SITE_RUNTIME_PLAYGROUND;
 }
 
@@ -206,7 +200,7 @@ export async function startWordPressServer(
 	site: SiteData,
 	logger: Logger< string >,
 	options?: StartServerOptions
-): Promise< SiteProcessDescription > {
+): Promise< ProcessDescription > {
 	// For sites imported via `studio pull-reprint`, the pull command
 	// persists the computed start options to start-options.json so the
 	// daemon doesn't need to recompute them (which would spin up PHP

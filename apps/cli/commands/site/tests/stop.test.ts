@@ -12,11 +12,8 @@ import {
 	killDaemonAndChildren,
 } from 'cli/lib/daemon-client';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
-import {
-	isServerRunning,
-	stopWordPressServer,
-	type SiteProcessDescription,
-} from 'cli/lib/wordpress-server-manager';
+import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
+import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Mode, runCommand } from '../stop';
 
 vi.mock( 'cli/lib/cli-config/core', async () => {
@@ -52,7 +49,7 @@ describe( 'CLI: studio site stop', () => {
 		adminPassword: 'password123',
 	};
 
-	const testProcessDescription: SiteProcessDescription = {
+	const testProcessDescription: ProcessDescription = {
 		name: 'studio-site-site-1',
 		pmId: 0,
 		pid: 12345,
@@ -215,7 +212,7 @@ describe( 'CLI: studio site stop --all', () => {
 		},
 	];
 
-	const testProcessDescription: SiteProcessDescription = {
+	const testProcessDescription: ProcessDescription = {
 		name: 'studio-site-site-1',
 		pmId: 0,
 		pid: 12345,

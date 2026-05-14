@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { type RemoteSessionConfig } from 'cli/remote-session/config';
 import type { RemoteSessionLogger } from 'cli/remote-session/logger';
 
@@ -56,6 +57,41 @@ function buildUrl( baseUrl: string, pathName: string ): string {
 	const base = normalizeBase( baseUrl );
 	const joined = new URL( pathName.replace( /^\//, '' ), base );
 	return joined.toString();
+}
+
+const STUDIO_MOBILE_BOT_PREFIX = 'studio_mobile_';
+const TELEGRAM_BOT_BASE_PATH_RE = /\/telegram-bot(\/?$)/;
+
+interface MobileTarget {
+	bot: string;
+	machineId: string;
+}
+
+/**
+ * If `bot` is the transitional `studio_mobile_<machine_id>` encoding the CLI
+ * uses while it still drives the Telegram poll loop, return the bot + machine
+ * id. Otherwise return `null` to fall through to the Telegram path. Throws if
+ * the prefix is present but the suffix is empty — that would route to a
+ * nonsense machine on wpcom. See studio-mobile SPEC.md → "Transport contract".
+ */
+function resolveMobileTarget( bot: string | undefined ): MobileTarget | null {
+	if ( typeof bot !== 'string' || ! bot.startsWith( STUDIO_MOBILE_BOT_PREFIX ) ) {
+		return null;
+	}
+	const machineId = bot.slice( STUDIO_MOBILE_BOT_PREFIX.length );
+	if ( ! machineId ) {
+		throw new Error(
+			'Studio mobile bot is missing a machine_id (expected `studio_mobile_<machine_id>`)'
+		);
+	}
+	return { bot, machineId };
+}
+
+function buildMobileRespondUrl( baseUrl: string ): string {
+	// Swap the trailing `telegram-bot` segment so dev hosts (sandbox, etc.) still
+	// resolve to the right service.
+	const mobileBase = baseUrl.replace( TELEGRAM_BOT_BASE_PATH_RE, '/studio-mobile-client$1' );
+	return buildUrl( mobileBase, 'respond' );
 }
 
 /**
@@ -226,18 +262,27 @@ interface RespondResponseBody {
 }
 
 /**
- * POST a message back to Telegram. Retries up to 3 times on 5xx with exponential backoff.
+ * POST a message back to the user. Retries up to 3 times on 5xx with exponential backoff.
  * 4xx responses are surfaced as TelegramBadRequestError and should be logged but not retried.
  *
- * Transports:
- *   - Text-only: `application/json` body — `{ chat_id, bot, text }`.
- *   - Photo (with optional caption / follow-up text): `multipart/form-data` with a
- *     binary `photo` file part plus text fields. The server validates the photo
- *     bytes (size + magic bytes) before forwarding to Telegram.
+ * Two wire formats, picked from the `bot` field:
  *
- * The server always answers with HTTP 200 and a JSON body indicating partial outcomes
- * (`success`, `photo_sent`, `text_sent`, `error`). We log a warning when `success` is
- * false but do not throw — the caller has already committed to best-effort delivery.
+ * 1. Telegram (default):
+ *    - Text-only: `application/json` body — `{ chat_id, bot, text }`.
+ *    - Photo (with optional caption / follow-up text): `multipart/form-data` with a
+ *      binary `photo` file part plus text fields. The server validates the photo
+ *      bytes (size + magic bytes) before forwarding to Telegram.
+ *
+ * 2. Studio mobile (`bot` starts with `studio_mobile_`):
+ *    - Always `application/json` — `{ machine_id, envelope: { type: 'agent_message', id, text } }`.
+ *    - Photos are out-of-scope for the mobile PoC (see studio-mobile SPEC.md
+ *      "Out of scope for v1"); we fold any caption/text into the envelope and
+ *      log + drop the image bytes.
+ *
+ * The Telegram server always answers with HTTP 200 and a JSON body indicating partial
+ * outcomes (`success`, `photo_sent`, `text_sent`, `error`); we log a warning when
+ * `success` is false but do not throw. The mobile `/respond` endpoint just returns
+ * 200 with no body on success.
  */
 export async function respondMessage(
 	config: RemoteSessionConfig,
@@ -253,19 +298,31 @@ export async function respondMessage(
 		throw new Error( 'respondMessage requires `text`, `photo`, or both' );
 	}
 
-	const url = buildUrl( config.base_url, 'local-agent-respond' );
+	const bot = params.bot ?? config.bot;
+	const mobileTarget = resolveMobileTarget( bot );
+	const url = mobileTarget
+		? buildMobileRespondUrl( config.base_url )
+		: buildUrl( config.base_url, 'local-agent-respond' );
 	const allowedHost = new URL( config.base_url ).host;
 	assertSameHost( url, allowedHost );
-
-	const bot = params.bot ?? config.bot;
-	const { body, contentType } = buildRespondBody( {
-		chatId: params.chatId,
-		bot,
-		text,
-		photo,
-		photoMimeType: params.photoMimeType,
-		caption: params.caption,
-	} );
+	const { body, contentType } = mobileTarget
+		? buildMobileRespondBody( {
+				chatId: params.chatId,
+				bot: mobileTarget.bot,
+				machineId: mobileTarget.machineId,
+				text,
+				photo,
+				caption: params.caption,
+				logger: options.logger,
+		  } )
+		: buildTelegramRespondBody( {
+				chatId: params.chatId,
+				bot,
+				text,
+				photo,
+				photoMimeType: params.photoMimeType,
+				caption: params.caption,
+		  } );
 
 	const maxRetries = options.maxRetries ?? 3;
 	let attempt = 0;
@@ -385,13 +442,23 @@ export async function respondMessage(
 	throw new TelegramTransientError( 'Respond failed after retries' );
 }
 
-interface BuildBodyParams {
+interface TelegramBodyParams {
 	chatId: number;
 	bot?: string;
 	text?: string;
 	photo?: string;
 	photoMimeType?: 'image/png' | 'image/jpeg';
 	caption?: string;
+}
+
+interface MobileBodyParams {
+	chatId: number;
+	bot: string;
+	machineId: string;
+	text?: string;
+	photo?: string;
+	caption?: string;
+	logger?: RemoteSessionLogger;
 }
 
 // Telegram caps captions at 1024 characters and the wpcom endpoint rejects
@@ -409,7 +476,7 @@ function clampCaption( caption: string | undefined ): string | undefined {
 	return `${ caption.slice( 0, CAPTION_MAX_CHARS - 1 ) }…`;
 }
 
-function buildRespondBody( params: BuildBodyParams ): {
+function buildTelegramRespondBody( params: TelegramBodyParams ): {
 	body: string | FormData;
 	/** Set for the JSON path; `undefined` for multipart so fetch fills the boundary in. */
 	contentType?: string;
@@ -442,6 +509,57 @@ function buildRespondBody( params: BuildBodyParams ): {
 		json.text = params.text;
 	}
 	return { body: JSON.stringify( json ), contentType: 'application/json' };
+}
+
+/**
+ * Collapse a photo's text + caption into a single envelope text. Photos aren't
+ * part of the mobile v1 surface (see studio-mobile SPEC.md "Out of scope for
+ * v1"), so we drop the bytes and keep whatever copy the agent emitted alongside.
+ */
+function flattenPhotoToText( text: string | undefined, caption: string | undefined ): string {
+	const trimmedCaption = caption?.trim();
+	if ( text && trimmedCaption ) {
+		return `${ text }\n\n${ trimmedCaption }`;
+	}
+	return text || trimmedCaption || '📷 (image omitted)';
+}
+
+function buildMobileRespondBody( params: MobileBodyParams ): {
+	body: string;
+	contentType: string;
+} {
+	let text = params.text;
+	if ( params.photo ) {
+		params.logger?.warn(
+			'Dropping photo for studio_mobile bot (photos are out-of-scope for mobile v1)',
+			{
+				machine_id: params.machineId,
+				photo_base64_chars: params.photo.length,
+				had_caption: Boolean( params.caption ),
+			}
+		);
+		text = flattenPhotoToText( text, params.caption );
+	}
+
+	if ( ! text ) {
+		throw new Error( 'Studio mobile respond requires `text` (photos are not supported yet)' );
+	}
+
+	const envelope = { type: 'agent_message', id: randomUUID(), text };
+	// `chat_id` + `bot` are the wpcom-side routing keys (memcache queue is keyed
+	// by `(user_id, chat_id, bot)` per studio-mobile-client-endpoints.php).
+	// `machine_id` is sent for forward-compat — the wpcom side accepts it
+	// optionally today and will key on it once Phase 2 of the SPEC migrates the
+	// queue away from `(chat_id, bot)`.
+	return {
+		body: JSON.stringify( {
+			chat_id: params.chatId,
+			bot: params.bot,
+			machine_id: params.machineId,
+			envelope,
+		} ),
+		contentType: 'application/json',
+	};
 }
 
 async function readRespondOutcome( response: Response ): Promise< RespondResponseBody | null > {

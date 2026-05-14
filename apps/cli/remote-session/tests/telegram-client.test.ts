@@ -128,6 +128,69 @@ describe( 'respondMessage', () => {
 		expect( init.headers.Authorization ).toBe( 'Bearer abc' );
 	} );
 
+	it( 'routes studio_mobile_* bots to the studio-mobile-client /respond endpoint with envelope body', async () => {
+		fetchMock.mockResolvedValueOnce( new Response( '', { status: 200 } ) );
+		await respondMessage(
+			{ ...baseConfig, bot: undefined },
+			{ chatId: 7, bot: 'studio_mobile_abc123', text: 'hi' }
+		);
+		const [ url, init ] = fetchMock.mock.calls[ 0 ];
+		expect( url ).toBe( 'https://api.example.test/wpcom/v2/studio-mobile-client/respond' );
+		expect( init.headers[ 'Content-Type' ] ).toBe( 'application/json' );
+		const body = JSON.parse( init.body as string );
+		// Routing keys the wpcom side queues on today.
+		expect( body.chat_id ).toBe( 7 );
+		expect( body.bot ).toBe( 'studio_mobile_abc123' );
+		// Forward-compat: wpcom ignores machine_id today but accepts it.
+		expect( body.machine_id ).toBe( 'abc123' );
+		// Envelope is the new contract (Phase 2 of the SPEC).
+		expect( body.envelope.type ).toBe( 'agent_message' );
+		expect( body.envelope.text ).toBe( 'hi' );
+		expect( typeof body.envelope.id ).toBe( 'string' );
+		expect( body.envelope.id.length ).toBeGreaterThan( 0 );
+		// Top-level `text` is gone — the new schema reads it from `envelope.text`.
+		expect( body ).not.toHaveProperty( 'text' );
+	} );
+
+	it( 'demotes a photo to a text envelope for studio_mobile bots, preserving the caption', async () => {
+		fetchMock.mockResolvedValueOnce( new Response( '', { status: 200 } ) );
+		await respondMessage(
+			{ ...baseConfig, bot: undefined },
+			{
+				chatId: 7,
+				bot: 'studio_mobile_abc123',
+				photo: 'BASE64DATA',
+				caption: 'Screenshot of the homepage',
+			}
+		);
+		const [ url, init ] = fetchMock.mock.calls[ 0 ];
+		expect( url ).toBe( 'https://api.example.test/wpcom/v2/studio-mobile-client/respond' );
+		expect( init.body ).toBeTypeOf( 'string' );
+		const body = JSON.parse( init.body as string );
+		expect( body.envelope.text ).toBe( 'Screenshot of the homepage' );
+	} );
+
+	it( 'rejects studio_mobile bots without a machine_id suffix', async () => {
+		await expect(
+			respondMessage(
+				{ ...baseConfig, bot: undefined },
+				{ chatId: 7, bot: 'studio_mobile_', text: 'hi' }
+			)
+		).rejects.toThrow( /machine_id/ );
+		expect( fetchMock ).not.toHaveBeenCalled();
+	} );
+
+	it( 'sends a placeholder envelope when a studio_mobile bot has only a photo (no text or caption)', async () => {
+		fetchMock.mockResolvedValueOnce( new Response( '', { status: 200 } ) );
+		await respondMessage(
+			{ ...baseConfig, bot: undefined },
+			{ chatId: 7, bot: 'studio_mobile_abc123', photo: 'BASE64DATA' }
+		);
+		const [ , init ] = fetchMock.mock.calls[ 0 ];
+		const body = JSON.parse( init.body as string );
+		expect( body.envelope.text ).toMatch( /image omitted/i );
+	} );
+
 	it( 'retries on 5xx then succeeds', async () => {
 		fetchMock
 			.mockResolvedValueOnce( new Response( '', { status: 503 } ) )

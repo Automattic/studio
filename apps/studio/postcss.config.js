@@ -1,8 +1,8 @@
 const path = require( 'path' );
 const tailwindcss = require( 'tailwindcss' );
 
-const unwrapAgentticBaseLayer = {
-	postcssPlugin: 'unwrap-agenttic-base-layer',
+const preserveAgentticBaseLayer = {
+	postcssPlugin: 'preserve-agenttic-base-layer',
 	Once( root ) {
 		const inputPath = root.source?.input.file ?? '';
 		const isAgentticCss = inputPath.includes(
@@ -15,7 +15,7 @@ const unwrapAgentticBaseLayer = {
 
 		root.walkAtRules( 'layer', ( rule ) => {
 			if ( rule.params === 'base' && rule.nodes ) {
-				rule.replaceWith( ...rule.nodes );
+				rule.params = 'agenttic-base';
 			}
 		} );
 	},
@@ -23,7 +23,7 @@ const unwrapAgentticBaseLayer = {
 
 module.exports = {
 	plugins: [
-		unwrapAgentticBaseLayer,
+		preserveAgentticBaseLayer,
 		tailwindcss( {
 			config: path.join( __dirname, 'tailwind.config.js' ),
 		} ),

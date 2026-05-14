@@ -356,13 +356,63 @@ describe( 'ContentTabAssistant', () => {
 		expect( getGuidelinesLink() ).toHaveTextContent( 'Powered by experimental AI.' );
 	} );
 
-	it( 'renders the Dolly send button without an empty clear action', () => {
+	it( 'renders the Dolly send button without an empty clear action', async () => {
 		renderWithContext( { component: 'wpcom-site' } );
 
-		expect( screen.getByRole( 'button', { name: 'Send message' } ) ).toBeInTheDocument();
+		const sendButton = screen.getByRole( 'button', { name: 'Send message' } );
+		await waitFor( () => {
+			expect( sendButton ).toBeVisible();
+		} );
+		expect( sendButton ).toBeDisabled();
 		expect(
 			screen.queryByRole( 'button', { name: 'Clear conversation' } )
 		).not.toBeInTheDocument();
+	} );
+
+	it( 'submits typed Dolly messages from the send button without a clear action', async () => {
+		const { requestBodies } = mockDollyFetch( () => ( {
+			result: {
+				id: 'task-1',
+				sessionId: 'session-1',
+				status: {
+					state: 'completed',
+					message: {
+						parts: [
+							{
+								type: 'text',
+								text: 'Hello response',
+							},
+						],
+					},
+				},
+			},
+		} ) );
+
+		renderWithContext( { component: 'wpcom-site' } );
+
+		const textInput = getInput();
+		fireEvent.change( textInput, { target: { value: 'Hello Dolly' } } );
+		const sendButton = screen.getByRole( 'button', { name: 'Send message' } );
+
+		await waitFor( () => {
+			expect( sendButton ).toBeEnabled();
+		} );
+		expect(
+			screen.queryByRole( 'button', { name: 'Clear conversation' } )
+		).not.toBeInTheDocument();
+		fireEvent.click( sendButton );
+
+		await waitFor( () => {
+			expect( getChatMessageText( 'Hello response' ) ).toBeVisible();
+		} );
+		expect( requestBodies[ 0 ].params?.message?.parts ).toEqual(
+			expect.arrayContaining( [
+				expect.objectContaining( {
+					type: 'text',
+					text: 'Hello Dolly',
+				} ),
+			] )
+		);
 	} );
 
 	it( 'starts a fresh Dolly backend session when the selected WP.com site changes', async () => {
@@ -1314,7 +1364,10 @@ describe( 'ContentTabAssistant', () => {
 					type: 'data',
 					data: expect.objectContaining( {
 						clientContext: expect.objectContaining( {
-							frontendAbilities: [ 'wpworkspace/preview' ],
+							frontendAbilities: expect.arrayContaining( [
+								'wpworkspace/preview',
+								'wpworkspace/refresh_preview',
+							] ),
 						} ),
 					} ),
 				} ),
@@ -1362,6 +1415,130 @@ describe( 'ContentTabAssistant', () => {
 		expect(
 			continuationParts.filter( ( part ) => part.data?.toolCallId === 'tool-call-1' )
 		).toHaveLength( 2 );
+	} );
+
+	it( 'refreshes the WP.com-only preview when Dolly uses the refresh preview ability', async () => {
+		const { requestBodies } = mockDollyFetch( ( { callIndex } ) =>
+			callIndex === 0
+				? {
+						result: {
+							id: 'task-1',
+							sessionId: 'session-1',
+							status: {
+								state: 'input-required',
+								message: {
+									parts: [
+										{
+											type: 'data',
+											data: {
+												toolCallId: 'tool-refresh-1',
+												toolId: 'wpworkspace__refresh_preview',
+												arguments: {
+													reason: 'site content changed',
+												},
+											},
+										},
+									],
+								},
+							},
+						},
+				  }
+				: {
+						result: {
+							id: 'task-1',
+							sessionId: 'session-1',
+							status: {
+								state: 'completed',
+								message: {
+									parts: [
+										{
+											type: 'text',
+											text: 'Updated and refreshed.',
+										},
+									],
+								},
+							},
+						},
+				  }
+		);
+		const dollyClient = {
+			req: {
+				get: vi.fn( ( _params, callback ) => {
+					callback( null, [] );
+				} ),
+			},
+		} as unknown as WPCOM;
+
+		renderWithContext( {
+			component: 'wpcom-site',
+			selectedWpcomSite: firstWpcomSite,
+			auth: {
+				client: dollyClient,
+			},
+		} );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Show preview' } ) );
+		const initialPreview = screen.getByTitle( 'Dolly Site preview' );
+		const textInput = getInput();
+		fireEvent.change( textInput, { target: { value: 'Update the page' } } );
+		fireEvent.keyDown( textInput, { key: 'Enter', code: 'Enter' } );
+
+		await waitFor( () => {
+			expect( getChatMessageText( 'Updated and refreshed.' ) ).toBeVisible();
+		} );
+		expect( screen.getByTitle( 'Dolly Site preview' ) ).not.toBe( initialPreview );
+
+		const initialParts = requestBodies[ 0 ].params?.message?.parts ?? [];
+		expect( initialParts ).toEqual(
+			expect.arrayContaining( [
+				expect.objectContaining( {
+					type: 'data',
+					data: expect.objectContaining( {
+						name: 'wpworkspace/refresh_preview',
+						label: 'Refresh Preview',
+					} ),
+				} ),
+				expect.objectContaining( {
+					type: 'data',
+					data: expect.objectContaining( {
+						clientContext: expect.objectContaining( {
+							wpworkspace: expect.objectContaining( {
+								previewRefreshPolicy: expect.objectContaining( {
+									afterVisibleSiteChange: expect.any( String ),
+								} ),
+							} ),
+						} ),
+					} ),
+				} ),
+			] )
+		);
+
+		const continuationParts = requestBodies[ 1 ].params?.message?.parts ?? [];
+		expect( continuationParts ).toEqual(
+			expect.arrayContaining( [
+				expect.objectContaining( {
+					type: 'data',
+					data: expect.objectContaining( {
+						toolCallId: 'tool-refresh-1',
+						toolId: 'wpworkspace__refresh_preview',
+						arguments: {
+							reason: 'site content changed',
+						},
+					} ),
+				} ),
+				expect.objectContaining( {
+					type: 'data',
+					data: expect.objectContaining( {
+						toolCallId: 'tool-refresh-1',
+						toolId: 'wpworkspace__refresh_preview',
+						result: expect.objectContaining( {
+							success: true,
+							refreshed: true,
+						} ),
+					} ),
+				} ),
+			] )
+		);
 	} );
 
 	it( 'reloads the WP.com-only preview when Dolly marks the site as changed', async () => {

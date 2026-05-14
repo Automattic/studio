@@ -65,6 +65,8 @@ const DOLLY_AGENT_URL_ORIGIN = 'https://public-api.wordpress.com/wpcom/v2';
 const DOLLY_HISTORY_CLIENT = 'wpworkspace';
 const DOLLY_HISTORY_BOT_ID = 'wpcom-agent-dolly';
 const DOLLY_PREVIEW_TOOL_ID = 'wpworkspace/preview';
+const DOLLY_REFRESH_PREVIEW_TOOL_ID = 'wpworkspace/refresh_preview';
+const DOLLY_FRONTEND_ABILITIES = [ DOLLY_PREVIEW_TOOL_ID, DOLLY_REFRESH_PREVIEW_TOOL_ID ];
 const DOLLY_PREVIEW_PANEL_DEFAULT_WIDTH = 520;
 const DOLLY_PREVIEW_PANEL_MIN_WIDTH = 360;
 const DOLLY_PREVIEW_PANEL_MAX_WIDTH = 820;
@@ -73,10 +75,6 @@ const DOLLY_REQUEST_TIMEOUT_MS = 90_000;
 const DOLLY_HISTORY_SUMMARY_ITEMS_PER_PAGE = 20;
 const DOLLY_HISTORY_CHAT_ITEMS_PER_PAGE = 100;
 const DOLLY_HISTORY_MAX_PAGES = 10;
-const AGENTTIC_DOLLY_STYLE = {
-	'--text-base--tracking': '0',
-} as React.CSSProperties;
-
 type DollySite = {
 	id: number;
 	name: string;
@@ -890,6 +888,15 @@ const normalizeToolId = ( value: string ) => value.trim().toLowerCase().replace(
 const isPreviewToolId = ( value: string ) =>
 	[ DOLLY_PREVIEW_TOOL_ID, 'wpstudio/preview', 'preview' ].includes( normalizeToolId( value ) );
 
+const isRefreshPreviewToolId = ( value: string ) =>
+	[
+		DOLLY_REFRESH_PREVIEW_TOOL_ID,
+		'wpworkspace/preview_refresh',
+		'wpworkspace/reload_preview',
+		'refresh_preview',
+		'reload_preview',
+	].includes( normalizeToolId( value ) );
+
 const parseToolArguments = ( value: unknown ): Record< string, unknown > => {
 	if ( isRecord( value ) ) {
 		return value;
@@ -993,6 +1000,50 @@ const createDollyPreviewAbility = (): Ability => ( {
 	},
 } );
 
+const createDollyRefreshPreviewAbility = (): Ability => ( {
+	name: DOLLY_REFRESH_PREVIEW_TOOL_ID,
+	label: 'Refresh Preview',
+	description:
+		'Refresh the currently open WordPress Studio side preview panel after the selected WordPress.com site has changed. Does not open the preview when it is hidden.',
+	category: 'interface',
+	input_schema: {
+		type: 'object',
+		properties: {
+			url: {
+				type: 'string',
+				description:
+					'Optional absolute http or https URL, or path relative to the selected WordPress.com site. When omitted, Studio refreshes the currently open preview URL.',
+			},
+			title: {
+				type: 'string',
+				description: 'Optional short title to show in the preview header.',
+			},
+			reason: {
+				type: 'string',
+				description: 'Short reason the preview needs to refresh.',
+			},
+		},
+	},
+	output_schema: {
+		type: 'object',
+		properties: {
+			success: { type: 'boolean' },
+			refreshed: { type: 'boolean' },
+			url: { type: 'string' },
+			message: { type: 'string' },
+		},
+	},
+	meta: {
+		annotations: {
+			instructions:
+				'Use immediately after successfully changing visible site content, pages, posts, navigation, templates, theme, plugins, settings, or other selected-site state when clientContext.preview.isOpen is true. Call before the final user-facing reply so the open preview reflects the change. Do not call for read-only lookups or when the preview is hidden.',
+			readonly: false,
+			destructive: false,
+			idempotent: true,
+		},
+	},
+} );
+
 const createDollyClientContext = (
 	siteId: number,
 	selectedSite: SyncSite,
@@ -1005,14 +1056,20 @@ const createDollyClientContext = (
 	selectedSiteId: siteId,
 	preview: previewContext,
 	studioSiteAssociation: siteAssociation,
-	frontendAbilities: [ DOLLY_PREVIEW_TOOL_ID ],
+	frontendAbilities: DOLLY_FRONTEND_ABILITIES,
 	wpworkspace: {
 		appName: window.appGlobals?.appName ?? 'WordPress Studio',
 		currentActivity: 'Working on a WordPress.com site selected from Studio',
 		clientVersion: window.appGlobals?.appVersion,
 		preview: previewContext,
 		studioSiteAssociation: siteAssociation,
-		frontendAbilities: [ DOLLY_PREVIEW_TOOL_ID ],
+		frontendAbilities: DOLLY_FRONTEND_ABILITIES,
+		previewRefreshPolicy: {
+			afterVisibleSiteChange:
+				'When a successful action changes the selected site and preview.isOpen is true, call wpworkspace/refresh_preview before the final reply.',
+			hiddenPreviewBehavior:
+				'Do not open a hidden preview just to auto-refresh. Use wpworkspace/preview only when the user asks to open or show a preview.',
+		},
 		selectedSite: {
 			id: selectedSite.id,
 			name: selectedSite.name,
@@ -1062,7 +1119,7 @@ const createDollyAbilityDataPart = ( ability: Ability ): AgentRequestPart => {
 const createDollyToolProvider = (
 	executeFrontendTool: ( toolCall: DollyToolCall ) => Promise< DollyToolExecution >
 ): ToolProvider => ( {
-	getAbilities: async () => [ createDollyPreviewAbility() ],
+	getAbilities: async () => [ createDollyPreviewAbility(), createDollyRefreshPreviewAbility() ],
 	executeTool: async (
 		toolId,
 		args,
@@ -2522,13 +2579,59 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 
 	const executeFrontendTool = useCallback(
 		async ( toolCall: DollyToolCall ): Promise< DollyToolExecution > => {
-			if ( ! isPreviewToolId( toolCall.toolId ) ) {
+			const isPreviewTool = isPreviewToolId( toolCall.toolId );
+			const isRefreshPreviewTool = isRefreshPreviewToolId( toolCall.toolId );
+
+			if ( ! isPreviewTool && ! isRefreshPreviewTool ) {
 				return {
 					toolResult: {
 						toolCallId: toolCall.toolCallId,
 						toolId: toolCall.toolId,
 						error: `WordPress Studio does not provide a frontend ability named ${ toolCall.toolId }.`,
 					},
+				};
+			}
+
+			if ( isRefreshPreviewTool ) {
+				const requestedUrl = getStringValue( toolCall.arguments, [ 'url', 'URL', 'uri', 'path' ] );
+				const title =
+					getStringValue( toolCall.arguments, [ 'title', 'name' ] ) ?? previewState.title;
+				const refreshUrl = requestedUrl || previewState.currentUrl || previewState.pathOrUrl || '/';
+				const normalizedUrl = normalizePreviewUrl( activeWpcomSite.url, refreshUrl );
+
+				if ( ! previewState.open ) {
+					return {
+						toolResult: {
+							toolCallId: toolCall.toolCallId,
+							toolId: toolCall.toolId,
+							result: {
+								success: true,
+								refreshed: false,
+								url: normalizedUrl,
+								message: __( 'Preview is hidden, so there was nothing to refresh.' ),
+							},
+						},
+					};
+				}
+
+				openPreview( refreshUrl, title, {
+					forceReload: true,
+				} );
+				const displayTitle = title || new URL( normalizedUrl ).host || normalizedUrl;
+				const message = sprintf( __( 'Refreshed preview: %s' ), displayTitle );
+
+				return {
+					toolResult: {
+						toolCallId: toolCall.toolCallId,
+						toolId: toolCall.toolId,
+						result: {
+							success: true,
+							refreshed: true,
+							url: normalizedUrl,
+							message,
+						},
+					},
+					agentMessage: message,
 				};
 			}
 
@@ -2564,7 +2667,14 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 				agentMessage: message,
 			};
 		},
-		[ activeWpcomSite.url, openPreview ]
+		[
+			activeWpcomSite.url,
+			openPreview,
+			previewState.currentUrl,
+			previewState.open,
+			previewState.pathOrUrl,
+			previewState.title,
+		]
 	);
 
 	const syncBackendActiveWpcomSite = useCallback(
@@ -2824,7 +2934,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 							'aria-label': __( 'Clear conversation' ),
 						},
 				  ]
-				: [],
+				: undefined,
 		[ confirmAndClearConversation, messages.length ]
 	);
 
@@ -2839,15 +2949,6 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 	};
 
 	const disabled = isOffline || ! isAuthenticated || ! client || isAssistantThinking;
-	const agentticInputDisabled = disabled ? true : undefined;
-	const handleDollyInputKeyDown = useCallback(
-		( event: React.KeyboardEvent< HTMLTextAreaElement > ) => {
-			if ( disabled ) {
-				event.preventDefault();
-			}
-		},
-		[ disabled ]
-	);
 
 	return (
 		<div className="relative h-full min-w-0 flex flex-1 overflow-hidden bg-frame-surface">
@@ -2879,7 +2980,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 					className={ cx( 'min-h-0 flex-1', ! isAuthenticated && 'overflow-y-auto p-8 pb-2' ) }
 				>
 					{ isAuthenticated ? (
-						<div className="agenttic h-full min-h-0" style={ AGENTTIC_DOLLY_STYLE }>
+						<div className="agenttic h-full min-h-0">
 							<AgentUI.Container
 								messages={ agentticMessages }
 								isProcessing={ isAssistantThinking }
@@ -2905,14 +3006,10 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 									) }
 									<AgentUI.Footer className="mx-2 bg-white">
 										<AgentUI.Notice />
-										<div className={ disabled ? 'pointer-events-none opacity-60' : undefined }>
-											<AgentUI.Input
-												disabled={ agentticInputDisabled }
-												layout="stacked"
-												customActions={ dollyInputActions }
-												onKeyDown={ handleDollyInputKeyDown }
-											/>
-										</div>
+										<AgentUI.Input
+											disabled={ disabled ? true : undefined }
+											customActions={ dollyInputActions }
+										/>
 									</AgentUI.Footer>
 									<div
 										data-testid="guidelines-link"

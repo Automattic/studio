@@ -52,7 +52,7 @@ export function RemoteSessionToggle() {
 				</label>
 				<div className="a8c-body-small text-frame-text-secondary">
 					{ __(
-						'Show a toolbar control to start and pause remote control of Studio from Telegram. Message Dolly (@wordpress_com_bot) once a session is active.'
+						'Show a toolbar control to start and stop remote control of Studio from Telegram. Message Dolly (@wordpress_com_bot) once a session is active.'
 					) }
 				</div>
 			</div>

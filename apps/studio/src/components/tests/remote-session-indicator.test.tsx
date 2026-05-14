@@ -57,7 +57,7 @@ describe( 'RemoteSessionIndicator', () => {
 		expect( container ).toBeEmptyDOMElement();
 	} );
 
-	it( 'shows the paused state with white icon when the daemon is off', () => {
+	it( 'shows the stopped state with white icon when the daemon is off', () => {
 		setupHooks( { remoteSession: true, isAuthenticated: true, isRunning: false } );
 
 		render( <RemoteSessionIndicator /> );
@@ -78,7 +78,7 @@ describe( 'RemoteSessionIndicator', () => {
 
 		render( <RemoteSessionIndicator /> );
 
-		const button = screen.getByRole( 'button', { name: 'Pause remote session' } );
+		const button = screen.getByRole( 'button', { name: 'Stop remote session' } );
 		expect( button ).toBeVisible();
 		expect( button ).not.toHaveAttribute( 'aria-pressed' );
 		const icon = button.querySelector( 'svg' );
@@ -104,7 +104,7 @@ describe( 'RemoteSessionIndicator', () => {
 
 		render( <RemoteSessionIndicator /> );
 
-		await user.click( screen.getByRole( 'button', { name: 'Pause remote session' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Stop remote session' } ) );
 
 		expect( mockStop ).toHaveBeenCalledOnce();
 		expect( mockStart ).not.toHaveBeenCalled();
@@ -130,7 +130,7 @@ describe( 'RemoteSessionIndicator', () => {
 		rerender( <RemoteSessionIndicator /> );
 
 		const icon = screen
-			.getByRole( 'button', { name: 'Pause remote session' } )
+			.getByRole( 'button', { name: 'Stop remote session' } )
 			.querySelector( 'svg' );
 		expect( icon?.getAttribute( 'class' ) ).toContain( 'animate-pulse' );
 
@@ -144,7 +144,7 @@ describe( 'RemoteSessionIndicator', () => {
 		rerender( <RemoteSessionIndicator /> );
 
 		const settled = screen
-			.getByRole( 'button', { name: 'Pause remote session' } )
+			.getByRole( 'button', { name: 'Stop remote session' } )
 			.querySelector( 'svg' );
 		expect( settled?.getAttribute( 'class' ) ).not.toContain( 'animate-pulse' );
 	} );

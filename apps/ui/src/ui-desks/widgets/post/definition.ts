@@ -1,7 +1,9 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { post } from '@wordpress/icons';
-import { PostWidgetComponent } from '@/ui-desks/widgets/post/component';
-import { PostEditControl } from '@/ui-desks/widgets/post/edit-control';
+import {
+	PostWidgetComponent,
+	PostWidgetThumbnailComponent,
+} from '@/ui-desks/widgets/post/component';
 import { isPostWidgetProps, POST_WIDGET_TYPE, type PostWidget } from './types';
 import type { WidgetDefinition } from '@/ui-desks/widgets/types';
 
@@ -9,13 +11,7 @@ export const postWidgetDefinition = {
 	type: POST_WIDGET_TYPE,
 	name: () => __( 'Post' ),
 	Component: PostWidgetComponent,
-	controls: [
-		{
-			type: 'custom',
-			id: 'edit-in-wp',
-			Component: PostEditControl,
-		},
-	],
+	thumbnail: PostWidgetThumbnailComponent,
 	isCreatable: false,
 	requiresRunningSite: true,
 	isWidgetProps: isPostWidgetProps,
@@ -25,6 +21,7 @@ export const postWidgetDefinition = {
 	} ),
 	labels: {
 		add: () => __( 'Add existing post…' ),
+		edit: () => __( 'Edit in WP' ),
 	},
 	icon: post,
 	getInitialWidget: () => ( {
@@ -42,4 +39,11 @@ export const postWidgetDefinition = {
 			__( 'Post #%d' ),
 			widgetProps.postId
 		),
+	getEditAction: ( { widget, hasSiteId, hasRunningSite } ) =>
+		hasSiteId && hasRunningSite && widget.widgetProps.postId > 0
+			? {
+					kind: 'site-url',
+					path: `/wp-admin/post.php?post=${ widget.widgetProps.postId }&action=edit`,
+			  }
+			: null,
 } satisfies WidgetDefinition< PostWidget >;

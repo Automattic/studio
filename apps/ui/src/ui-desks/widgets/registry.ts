@@ -1,3 +1,4 @@
+import { artefactWidgetDefinition } from '@/ui-desks/widgets/artefact/definition';
 import { blogWidgetDefinition } from '@/ui-desks/widgets/blog/definition';
 import { bookmarkWidgetDefinition } from '@/ui-desks/widgets/bookmark/definition';
 import { drawingWidgetDefinition } from '@/ui-desks/widgets/drawing/definition';
@@ -12,6 +13,7 @@ import { sitePreviewWidgetDefinition } from '@/ui-desks/widgets/site-preview/def
 import type { DeskWidgetDefinition } from './types';
 
 export const widgetDefinitions = {
+	[ artefactWidgetDefinition.type ]: artefactWidgetDefinition,
 	[ embedWidgetDefinition.type ]: embedWidgetDefinition,
 	[ bookmarkWidgetDefinition.type ]: bookmarkWidgetDefinition,
 	[ blogWidgetDefinition.type ]: blogWidgetDefinition,

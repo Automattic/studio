@@ -1,6 +1,4 @@
-import { arrowUp } from '@wordpress/icons';
 import { clsx } from 'clsx';
-import { IconControlButton } from '@/ui-desks/components/control-button';
 import styles from './style.module.css';
 import type { ComponentPropsWithoutRef, ReactNode } from 'react';
 
@@ -74,24 +72,6 @@ export function PromptDialogRow( {
 		<div className={ clsx( styles.row, align === 'center' && styles.rowCenter, className ) }>
 			{ children }
 		</div>
-	);
-}
-
-type PromptDialogSubmitProps = Omit<
-	ComponentPropsWithoutRef< typeof IconControlButton >,
-	'icon' | 'iconSize' | 'variant' | 'tooltipSide'
->;
-
-export function PromptDialogSubmit( { className, ...props }: PromptDialogSubmitProps ) {
-	return (
-		<IconControlButton
-			{ ...props }
-			icon={ arrowUp }
-			iconSize={ 24 }
-			className={ clsx( styles.submit, className ) }
-			variant="toolbar"
-			tooltipSide="left"
-		/>
 	);
 }
 

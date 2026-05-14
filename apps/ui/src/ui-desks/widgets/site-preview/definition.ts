@@ -1,6 +1,9 @@
 import { __ } from '@wordpress/i18n';
 import { globe } from '@wordpress/icons';
-import { SitePreviewWidgetComponent } from '@/ui-desks/widgets/site-preview/component';
+import {
+	SitePreviewWidgetComponent,
+	SitePreviewWidgetThumbnailComponent,
+} from '@/ui-desks/widgets/site-preview/component';
 import { SitePreviewOpenControl } from '@/ui-desks/widgets/site-preview/open-control';
 import {
 	isSitePreviewWidgetProps,
@@ -13,6 +16,7 @@ export const sitePreviewWidgetDefinition = {
 	type: SITE_PREVIEW_WIDGET_TYPE,
 	name: () => __( 'Preview' ),
 	Component: SitePreviewWidgetComponent,
+	thumbnail: SitePreviewWidgetThumbnailComponent,
 	controls: [
 		{
 			type: 'custom',
@@ -42,4 +46,5 @@ export const sitePreviewWidgetDefinition = {
 		},
 	} ),
 	getSummary: ( widgetProps ) => widgetProps.path || '/',
+	getEditAction: () => ( { kind: 'canvas-editing' } ),
 } satisfies WidgetDefinition< SitePreviewWidget >;

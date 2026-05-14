@@ -87,6 +87,14 @@
 	gap: 4px;
 }
 
+.identityLoading {
+	width: 100%;
+	max-width: 260px;
+	--loading-placeholder-text-color: #5f6673;
+	--loading-placeholder-line-color: rgba(15, 23, 42, 0.08);
+	--loading-placeholder-line-highlight-color: rgba(255, 255, 255, 0.9);
+}
+
 .title {
 	color: #14171a;
 	font-size: 20px;

@@ -11,7 +11,6 @@ import type { PageWidget } from '@/ui-desks/widgets/page/types';
 import type { PostWidget } from '@/ui-desks/widgets/post/types';
 import type { PostCollectionWidget } from '@/ui-desks/widgets/post-collection/types';
 import type { ScratchpadWidget } from '@/ui-desks/widgets/scratchpad/types';
-import type { SiteCardWidget } from '@/ui-desks/widgets/site-card/types';
 import type { SitePreviewWidget } from '@/ui-desks/widgets/site-preview/types';
 import type { WidgetDefinition } from '@/ui-desks/widgets/types';
 import type { DeskWidgetBase } from '@studio/common/types/desk';
@@ -67,13 +66,7 @@ describe( 'widget edit actions', () => {
 	} );
 
 	it( 'does not expose a generic edit action for site identity card editing', () => {
-		expect(
-			getEditAction( siteCardWidgetDefinition )( {
-				widget: createSiteCardWidget(),
-				hasSiteId: false,
-				hasRunningSite: false,
-			} )
-		).toBeNull();
+		expect( 'getEditAction' in siteCardWidgetDefinition ).toBe( false );
 	} );
 
 	it( 'uses WordPress admin URLs for site-backed widgets', () => {
@@ -157,15 +150,6 @@ function createSitePreviewWidget(): SitePreviewWidget {
 		...createWidgetBase( 'site-preview' ),
 		widgetProps: {
 			path: '/',
-		},
-	};
-}
-
-function createSiteCardWidget(): SiteCardWidget {
-	return {
-		...createWidgetBase( 'site-card' ),
-		widgetProps: {
-			previewVisible: false,
 		},
 	};
 }

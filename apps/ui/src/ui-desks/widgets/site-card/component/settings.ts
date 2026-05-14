@@ -7,8 +7,9 @@ export interface SiteIdentitySettings {
 	siteIconUrl: string;
 }
 
-export function parseSiteIdentitySettings( body: string ): SiteIdentitySettings {
-	const parsed = parseJsonObject( body ) ?? {};
+export function parseSiteIdentitySettings( value: unknown ): SiteIdentitySettings {
+	const parsed =
+		typeof value === 'string' ? parseJsonObject( value ) ?? {} : getJsonObject( value ) ?? {};
 
 	return {
 		title: typeof parsed.title === 'string' ? decodeEntities( parsed.title ) : '',
@@ -21,10 +22,16 @@ export function parseSiteIdentitySettings( body: string ): SiteIdentitySettings 
 export function parseJsonObject( body: string ): Record< string, unknown > | null {
 	try {
 		const parsed = JSON.parse( body );
-		return parsed && typeof parsed === 'object' && ! Array.isArray( parsed ) ? parsed : null;
+		return getJsonObject( parsed );
 	} catch {
 		return null;
 	}
+}
+
+function getJsonObject( value: unknown ): Record< string, unknown > | null {
+	return value && typeof value === 'object' && ! Array.isArray( value )
+		? ( value as Record< string, unknown > )
+		: null;
 }
 
 function getSiteIconUrl( parsed: Record< string, unknown > ) {

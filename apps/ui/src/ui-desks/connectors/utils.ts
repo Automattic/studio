@@ -199,8 +199,8 @@ export function getDeskWidgetConnectionLabel( widget: DeskWidget ) {
 			return typeof props.mediaKind === 'string' && props.mediaKind === 'video' ? 'Video' : 'Image';
 		case 'drawing':
 			return 'Drawing';
-		case 'sd-artefact':
-			return 'Artefact';
+		case 'scratchpad':
+			return 'Scratchpad';
 		case 'blog':
 			return 'Blog';
 		case 'post-collection':

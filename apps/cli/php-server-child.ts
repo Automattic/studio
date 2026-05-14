@@ -80,7 +80,6 @@ type SpawnPhpProcessOptions = {
 	enableXdebug?: boolean;
 	env?: NodeJS.ProcessEnv;
 	extraPhpArgs?: string[];
-	loadPhpIni?: boolean;
 	onlyPathsThatPhpCanAccess?: string[];
 	phpVersion: NativePhpSupportedVersion;
 	siteFolder?: string;
@@ -97,7 +96,6 @@ function spawnPhpProcess(
 		enableXdebug = false,
 		env,
 		extraPhpArgs = [],
-		loadPhpIni = false,
 		onlyPathsThatPhpCanAccess = [],
 		disallowRiskyFunctions = false,
 	}: SpawnPhpProcessOptions
@@ -106,8 +104,7 @@ function spawnPhpProcess(
 		phpVersion,
 		onlyPathsThatPhpCanAccess,
 		disallowRiskyFunctions,
-		enableXdebug,
-		{ loadPhpIni }
+		enableXdebug
 	);
 	const phpArgs = [ ...defaultArgs, ...extraPhpArgs, ...args ];
 	const phpScriptProcess = spawn( getPhpBinaryPath( phpVersion ), phpArgs, {
@@ -683,6 +680,11 @@ async function runBlueprint(
 
 	try {
 		phpIniDirectory = await createNativePhpSubprocessIniDirectory( phpVersion );
+		// The parent PHAR process still runs with Studio's normal `-n` isolation from
+		// getDefaultPhpArgs(), so it receives required config through explicit `-d`
+		// args. PHPRC is for PHP subprocesses launched inside blueprints.phar; those
+		// subprocesses do not inherit our parent argv and need the generated php.ini
+		// to load bundled Windows extensions such as pdo_sqlite/sqlite3.
 		await runPhpCommand(
 			[
 				getBlueprintsPharPath(),
@@ -696,13 +698,8 @@ async function runBlueprint(
 			{
 				phpVersion,
 				signal,
-				env: { PHPRC: phpIniDirectory, PHP_INI_SCAN_DIR: '' },
-				extraPhpArgs: [
-					'-c',
-					phpIniDirectory,
-					...getNativePhpCaBundleArgs( getNativePhpCaBundlePath( phpIniDirectory ) ),
-				],
-				loadPhpIni: true,
+				env: { PHPRC: phpIniDirectory },
+				extraPhpArgs: getNativePhpCaBundleArgs( getNativePhpCaBundlePath( phpIniDirectory ) ),
 			}
 		);
 	} finally {

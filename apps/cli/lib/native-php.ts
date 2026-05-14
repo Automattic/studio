@@ -151,6 +151,9 @@ export function getNativePhpSubprocessIniContents(
 	return `${ directives.join( os.EOL ) }${ os.EOL }`;
 }
 
+// blueprints.phar spawns its own PHP subprocesses while applying a blueprint.
+// Those subprocesses inherit PHPRC but not the parent process's `-d` argv, so
+// this php.ini carries the bundled extension and CA settings they need.
 export async function createNativePhpSubprocessIniDirectory(
 	phpVersion: NativePhpSupportedVersion
 ): Promise< string > {
@@ -201,8 +204,7 @@ export function getDefaultPhpArgs(
 	phpVersion: NativePhpSupportedVersion,
 	openBasedir: string[] = [],
 	disallowRiskyFunctions: boolean = false,
-	enableXdebug: boolean = false,
-	options: { loadPhpIni?: boolean } = {}
+	enableXdebug: boolean = false
 ): string[] {
 	// Partition the file_cache by PHP version: opcache's on-disk script blob
 	// format isn't stable across minor versions, and reusing a cache populated
@@ -213,7 +215,7 @@ export function getDefaultPhpArgs(
 
 	const args = [
 		// Avoid loading php.ini config files to prevent other PHP installations from affecting Studio
-		...( options.loadPhpIni ? [] : [ '-n' ] ),
+		'-n',
 		'-d',
 		'memory_limit=512M',
 		'-d',
@@ -224,7 +226,7 @@ export function getDefaultPhpArgs(
 
 	const extensionDir = getExtensionDir( phpVersion );
 
-	if ( process.platform === 'win32' && ! options.loadPhpIni ) {
+	if ( process.platform === 'win32' ) {
 		// Load every bundled DLL from the artifact's ext/ directory.
 		// windows.php.net's prebuilt php.exe doesn't auto-load extensions;
 		// each one needs an explicit `extension=` (or `zend_extension=` for

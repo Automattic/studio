@@ -42,13 +42,12 @@ describe( 'native PHP helpers', () => {
 		] );
 	} );
 
-	it( 'omits the no-ini flag when php.ini loading is enabled', () => {
-		const args = getDefaultPhpArgs( '8.4', [], false, false, { loadPhpIni: true } );
+	it( 'keeps parent PHP invocations isolated from php.ini files', () => {
+		const args = getDefaultPhpArgs( '8.4' );
 
-		expect( getDefaultPhpArgs( '8.4' ) ).toContain( '-n' );
-		expect( args ).not.toContain( '-n' );
+		expect( args ).toContain( '-n' );
 		if ( process.platform === 'win32' ) {
-			expect( args ).not.toContain( 'extension=pdo_sqlite' );
+			expect( args ).toContain( 'extension=pdo_sqlite' );
 		}
 	} );
 

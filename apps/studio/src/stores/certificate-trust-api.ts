@@ -23,20 +23,7 @@ export const certificateTrustApi = createApi( {
 			},
 			providesTags: [ 'CertificateTrust' ],
 		} ),
-		getLinuxBrowserCertSupportStatus: builder.query< { firefoxDetected: boolean }, void >( {
-			queryFn: async () => {
-				try {
-					const status = await getIpcApi().getLinuxBrowserCertSupportStatus();
-					return { data: status };
-				} catch ( error ) {
-					console.error( 'Failed to get Linux browser cert support status:', error );
-					return { data: { firefoxDetected: false } };
-				}
-			},
-			providesTags: [ 'CertificateTrust' ],
-		} ),
 	} ),
 } );
 
-export const { useCheckCertificateTrustQuery, useGetLinuxBrowserCertSupportStatusQuery } =
-	certificateTrustApi;
+export const { useCheckCertificateTrustQuery } = certificateTrustApi;

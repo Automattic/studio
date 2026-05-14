@@ -1246,6 +1246,23 @@ const getDollyUploadErrorMessage = ( data: unknown ) => {
 		.find( Boolean );
 };
 
+const createDollyRequestAbortError = () => {
+	const message = 'Dolly request was stopped.';
+	if ( typeof DOMException !== 'undefined' ) {
+		return new DOMException( message, 'AbortError' );
+	}
+
+	const error = new Error( message );
+	error.name = 'AbortError';
+	return error;
+};
+
+const throwIfDollyRequestAborted = ( abortSignal?: AbortSignal ) => {
+	if ( abortSignal?.aborted ) {
+		throw createDollyRequestAbortError();
+	}
+};
+
 const normalizeDollyUploadedImage = (
 	rawMedia: unknown,
 	originalImage: DollyPendingImage
@@ -1285,13 +1302,15 @@ const normalizeDollyUploadedImage = (
 
 const uploadDollyImages = async (
 	siteId: number,
-	images: DollyPendingImage[]
+	images: DollyPendingImage[],
+	abortSignal?: AbortSignal
 ): Promise< DollyUploadedImage[] > => {
 	if ( images.length === 0 ) {
 		return [];
 	}
 
 	const token = await getIpcApi().getAuthenticationToken();
+	throwIfDollyRequestAborted( abortSignal );
 	if ( ! token?.accessToken ) {
 		throw new Error( __( 'Log in to WordPress.com before uploading images.' ) );
 	}
@@ -1309,6 +1328,7 @@ const uploadDollyImages = async (
 			Authorization: `Bearer ${ token.accessToken }`,
 		},
 		body: formData,
+		signal: abortSignal,
 	} );
 	const data: unknown = await response.json().catch( () => undefined );
 
@@ -1402,12 +1422,33 @@ const preloadDollyImageUrls = ( images: DollyVisibleImage[] ) =>
 const getErrorMessage = ( error: unknown ) =>
 	error instanceof Error ? error.message : String( error );
 
+const isDollyRequestAbortError = ( error: unknown ) =>
+	( typeof DOMException !== 'undefined' &&
+		error instanceof DOMException &&
+		error.name === 'AbortError' ) ||
+	( error instanceof Error && error.name === 'AbortError' );
+
 const shouldRetryDollyMediaRequest = ( error: unknown, uploadedImages: DollyUploadedImage[] ) =>
 	uploadedImages.length > 0 &&
 	getErrorMessage( error ).toLowerCase().includes( 'processing the request' );
 
-const delay = ( milliseconds: number ) =>
-	new Promise< void >( ( resolve ) => window.setTimeout( resolve, milliseconds ) );
+const delay = ( milliseconds: number, abortSignal?: AbortSignal ) =>
+	new Promise< void >( ( resolve, reject ) => {
+		if ( abortSignal?.aborted ) {
+			reject( createDollyRequestAbortError() );
+			return;
+		}
+
+		const timeoutId = window.setTimeout( () => {
+			abortSignal?.removeEventListener( 'abort', abort );
+			resolve();
+		}, milliseconds );
+		function abort() {
+			window.clearTimeout( timeoutId );
+			reject( createDollyRequestAbortError() );
+		}
+		abortSignal?.addEventListener( 'abort', abort, { once: true } );
+	} );
 
 const createDollyAbilityDataPart = ( ability: Ability ): AgentRequestPart => {
 	const abilityData = { ...ability } as Record< string, unknown >;
@@ -1646,6 +1687,7 @@ const sendDollyMessage = async ( {
 	selectedSite,
 	sessionId,
 	siteId,
+	abortSignal,
 }: {
 	executeFrontendTool: ( toolCall: DollyToolCall ) => Promise< DollyToolExecution >;
 	message: string;
@@ -1655,6 +1697,7 @@ const sendDollyMessage = async ( {
 	selectedSite: SyncSite;
 	sessionId?: string;
 	siteId: number;
+	abortSignal?: AbortSignal;
 } ): Promise< DollyAgentResponse > => {
 	const taskId = crypto.randomUUID();
 	const initialSessionId = sessionId ?? taskId;
@@ -1683,6 +1726,7 @@ const sendDollyMessage = async ( {
 				message: createDollyUserMessage( await createInitialMessageParts() ),
 				sessionId: nextSessionId,
 				taskId: nextTaskId,
+				abortSignal,
 			} ),
 			nextTaskId,
 			nextSessionId
@@ -1702,11 +1746,16 @@ const sendDollyMessage = async ( {
 				) {
 					throw error;
 				}
-				await delay( DOLLY_MEDIA_RETRY_DELAYS_MS[ attempt ] );
+				await delay( DOLLY_MEDIA_RETRY_DELAYS_MS[ attempt ], abortSignal );
 			}
 		}
 	} catch ( error ) {
-		if ( ! sessionId || ! isDollyToolResultProtocolError( error ) ) {
+		if (
+			isDollyRequestAbortError( error ) ||
+			abortSignal?.aborted ||
+			! sessionId ||
+			! isDollyToolResultProtocolError( error )
+		) {
 			throw error;
 		}
 
@@ -1731,9 +1780,11 @@ const sendDollyMessage = async ( {
 			};
 		}
 
+		throwIfDollyRequestAborted( abortSignal );
 		const executions = await Promise.all(
 			response.toolCalls.map( ( toolCall ) => executeDollyToolCall( toolProvider, toolCall ) )
 		);
+		throwIfDollyRequestAborted( abortSignal );
 		const fallbackToolMessage = executions
 			.map( ( execution ) => execution.agentMessage )
 			.filter( ( value ): value is string => Boolean( value ) )
@@ -1749,6 +1800,7 @@ const sendDollyMessage = async ( {
 					message: createDollyUserMessage( continuationParts ),
 					sessionId: currentSessionId,
 					taskId: response.taskId,
+					abortSignal,
 				} ),
 				response.taskId,
 				currentSessionId
@@ -2711,6 +2763,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 	const imageUploaderRef = useRef< ImageUploaderHandle >( null );
 	const dollyDropZoneRef = useRef< HTMLDivElement >( null );
 	const pendingImagesRef = useRef< DollyPendingImage[] >( pendingImages );
+	const dollyRequestAbortControllerRef = useRef< AbortController | undefined >( undefined );
 	const activeWpcomSiteRef = useRef< SyncSite >( activeWpcomSite );
 	const selectedWpcomSiteIdRef = useRef( selectedWpcomSite.id );
 	const conversationIdRef = useRef( initialSessionState.id );
@@ -2877,6 +2930,8 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		return () => {
 			isMountedRef.current = false;
 			activeTurnIdRef.current += 1;
+			dollyRequestAbortControllerRef.current?.abort();
+			dollyRequestAbortControllerRef.current = undefined;
 		};
 	}, [] );
 
@@ -2887,6 +2942,8 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 
 		selectionRevisionRef.current += 1;
 		activeTurnIdRef.current += 1;
+		dollyRequestAbortControllerRef.current?.abort();
+		dollyRequestAbortControllerRef.current = undefined;
 		selectedWpcomSiteIdRef.current = selectedWpcomSite.id;
 		const nextSessionState = getWpcomSiteAssistantSessionState(
 			sessionCacheKey,
@@ -3142,6 +3199,8 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 				( imagesToSend.length > 0 ? createDollyImagePrompt( imagesToSend.length ) : '' );
 			const newMessageId = isRetry ? messages.length - 1 : messages.length;
 			const optimisticImagesPromise = createDollyPendingVisibleImages( imagesToSend );
+			const abortController = new AbortController();
+			dollyRequestAbortControllerRef.current = abortController;
 
 			if ( ! isRetry && imagesToSend.length > 0 ) {
 				setPendingImages( [] );
@@ -3187,7 +3246,11 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 						);
 					} );
 
-					const uploadedImages = await uploadDollyImages( activeWpcomSite.id, imagesToSend );
+					const uploadedImages = await uploadDollyImages(
+						activeWpcomSite.id,
+						imagesToSend,
+						abortController.signal
+					);
 					if ( uploadedImages.length > 0 ) {
 						const uploadedVisibleImages = uploadedImages.map( ( image ) => ( {
 							name: image.name,
@@ -3230,6 +3293,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 					}
 
 					const response = await sendDollyMessage( {
+						abortSignal: abortController.signal,
 						executeFrontendTool,
 						message: messageToSend,
 						uploadedImages,
@@ -3273,6 +3337,9 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 					if ( ! isMountedRef.current ) {
 						return;
 					}
+					if ( isDollyRequestAbortError( error ) || abortController.signal.aborted ) {
+						return;
+					}
 					console.error( error );
 					setImageUploadError( getErrorMessage( error ) );
 					if ( ! isRetry ) {
@@ -3286,8 +3353,12 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 						)
 					);
 				} finally {
-					if ( isMountedRef.current ) {
-						setIsAssistantThinking( false );
+					const isCurrentRequest = dollyRequestAbortControllerRef.current === abortController;
+					if ( isCurrentRequest ) {
+						dollyRequestAbortControllerRef.current = undefined;
+						if ( isMountedRef.current ) {
+							setIsAssistantThinking( false );
+						}
 					}
 				}
 			} )();
@@ -3402,6 +3473,10 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		}
 	}, [ failedMessageContent, submitPrompt ] );
 
+	const interruptDollyRequest = useCallback( () => {
+		dollyRequestAbortControllerRef.current?.abort();
+	}, [] );
+
 	const dollyNotice = useMemo< AgentticNoticeConfig | undefined >( () => {
 		if ( isOffline ) {
 			return {
@@ -3436,7 +3511,9 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		return undefined;
 	}, [ hasFailedMessage, imageUploadError, isOffline, retryFailedMessage ] );
 
-	const disabled = isOffline || ! isAuthenticated || ! client || isAssistantThinking;
+	const isInputUnavailable = isOffline || ! isAuthenticated || ! client;
+	const isInputDisabled = isInputUnavailable && ! isAssistantThinking;
+	const isInputActionDisabled = isInputUnavailable || isAssistantThinking;
 
 	const dollyInputActions = useMemo(
 		() => [
@@ -3445,7 +3522,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 				icon: <Icon icon={ imageIcon } size={ 18 } />,
 				onClick: () => imageUploaderRef.current?.openFileDialog(),
 				variant: 'ghost' as const,
-				disabled,
+				disabled: isInputActionDisabled,
 				'aria-label': __( 'Upload image' ),
 			},
 			...( messages.length > 0
@@ -3462,7 +3539,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 				  ]
 				: [] ),
 		],
-		[ confirmAndClearConversation, disabled, messages.length ]
+		[ confirmAndClearConversation, isInputActionDisabled, messages.length ]
 	);
 
 	const dollyEmptyView = useMemo( () => <DollyEmptyView />, [] );
@@ -3512,6 +3589,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 								isProcessing={ isAssistantThinking }
 								error={ null }
 								onSubmit={ submitPrompt }
+								onStop={ interruptDollyRequest }
 								variant="embedded"
 								placeholder={ __( 'Ask Dolly about this site' ) }
 								notice={ dollyNotice }
@@ -3544,7 +3622,9 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 											onError={ setImageUploadError }
 										/>
 										<AgentUI.Input
-											disabled={ disabled ? true : pendingImages.length > 0 ? false : undefined }
+											disabled={
+												isInputDisabled ? true : pendingImages.length > 0 ? false : undefined
+											}
 											customActions={ dollyInputActions }
 											layout="inline"
 										/>

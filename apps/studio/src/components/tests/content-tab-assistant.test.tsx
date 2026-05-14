@@ -462,6 +462,44 @@ describe( 'ContentTabAssistant', () => {
 		);
 	} );
 
+	it( 'stops an active Dolly request from the input button', async () => {
+		let requestSignal: AbortSignal | undefined;
+		mockDollyFetch(
+			( { init } ) =>
+				new Promise( ( _resolve, reject ) => {
+					requestSignal = init.signal as AbortSignal;
+					if ( ! requestSignal ) {
+						reject( new Error( 'Missing Dolly abort signal' ) );
+						return;
+					}
+					requestSignal.addEventListener( 'abort', () => {
+						const error = new Error( 'Request aborted' );
+						error.name = 'AbortError';
+						reject( error );
+					} );
+				} )
+		);
+		renderWithContext( { component: 'wpcom-site' } );
+
+		const textInput = getInput();
+		fireEvent.change( textInput, { target: { value: 'Please wait' } } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
+
+		const stopButton = await screen.findByRole( 'button', { name: 'Stop processing' } );
+		expect( stopButton ).toBeEnabled();
+		fireEvent.click( stopButton );
+
+		await waitFor( () => {
+			expect( requestSignal?.aborted ).toBe( true );
+		} );
+		await waitFor( () => {
+			expect( screen.getByRole( 'button', { name: 'Send message' } ) ).toBeDisabled();
+		} );
+		expect(
+			screen.queryByText( "Oops! We couldn't get a response from Dolly." )
+		).not.toBeInTheDocument();
+	} );
+
 	it( 'submits selected Dolly images from the upload affordance', async () => {
 		let finishMediaUpload: () => void = () => {};
 		const mediaUploadReady = new Promise< void >( ( resolve ) => {

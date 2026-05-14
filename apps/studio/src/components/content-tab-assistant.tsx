@@ -151,22 +151,6 @@ type DollyUploadedImage = {
 	title?: string;
 };
 
-type DollyToolCall = {
-	toolCallId: string;
-	toolId: string;
-	arguments: Record< string, unknown >;
-};
-
-type DollyToolExecution = {
-	toolResult: {
-		toolCallId: string;
-		toolId: string;
-		result?: unknown;
-		error?: string;
-	};
-	agentMessage?: string;
-};
-
 type OpenPreviewOptions = {
 	forceReload?: boolean;
 };
@@ -179,6 +163,12 @@ type DollyPreviewState = {
 	pageTitle?: string;
 	isLoading: boolean;
 	reloadNonce: number;
+};
+
+type DollyPreviewAbilityContext = {
+	activeWpcomSite: SyncSite;
+	previewState: DollyPreviewState;
+	openPreview: ( pathOrUrl?: string, title?: string, options?: OpenPreviewOptions ) => void;
 };
 
 type WpcomSiteAssistantConversationKey = {
@@ -912,37 +902,6 @@ const hydrateWpcomSiteAssistantSessionState = async (
 	);
 };
 
-const normalizeToolId = ( value: string ) => value.trim().toLowerCase().replace( /__/g, '/' );
-
-const isPreviewToolId = ( value: string ) =>
-	[ DOLLY_PREVIEW_TOOL_ID, 'wpstudio/preview', 'preview' ].includes( normalizeToolId( value ) );
-
-const isRefreshPreviewToolId = ( value: string ) =>
-	[
-		DOLLY_REFRESH_PREVIEW_TOOL_ID,
-		'wpworkspace/preview_refresh',
-		'wpworkspace/reload_preview',
-		'refresh_preview',
-		'reload_preview',
-	].includes( normalizeToolId( value ) );
-
-const parseToolArguments = ( value: unknown ): Record< string, unknown > => {
-	if ( isRecord( value ) ) {
-		return value;
-	}
-
-	if ( typeof value !== 'string' ) {
-		return {};
-	}
-
-	try {
-		const parsed = JSON.parse( value );
-		return isRecord( parsed ) ? parsed : {};
-	} catch {
-		return {};
-	}
-};
-
 const getStringValue = (
 	record: Record< string, unknown >,
 	possibleKeys: string[]
@@ -984,7 +943,7 @@ const shouldForcePreviewReload = ( toolArguments: Record< string, unknown > ): b
 		'preview_needs_refresh',
 	] ) === true;
 
-const createDollyPreviewAbility = (): Ability => ( {
+const createDollyPreviewAbility = ( callback: NonNullable< Ability[ 'callback' ] > ): Ability => ( {
 	name: DOLLY_PREVIEW_TOOL_ID,
 	label: 'Preview URL',
 	description:
@@ -1027,9 +986,12 @@ const createDollyPreviewAbility = (): Ability => ( {
 			idempotent: true,
 		},
 	},
+	callback,
 } );
 
-const createDollyRefreshPreviewAbility = (): Ability => ( {
+const createDollyRefreshPreviewAbility = (
+	callback: NonNullable< Ability[ 'callback' ] >
+): Ability => ( {
 	name: DOLLY_REFRESH_PREVIEW_TOOL_ID,
 	label: 'Refresh Preview',
 	description:
@@ -1071,6 +1033,65 @@ const createDollyRefreshPreviewAbility = (): Ability => ( {
 			idempotent: true,
 		},
 	},
+	callback,
+} );
+
+const createDollyPreviewToolProvider = ( {
+	activeWpcomSite,
+	previewState,
+	openPreview,
+}: DollyPreviewAbilityContext ): ToolProvider => ( {
+	getAbilities: async () => [
+		createDollyPreviewAbility( ( input: Record< string, unknown > ) => {
+			const requestedUrl = getStringValue( input, [ 'url', 'URL', 'uri', 'path' ] );
+			if ( ! requestedUrl ) {
+				return {
+					success: false,
+					error: 'Preview needs a valid URL or WordPress.com site path.',
+				};
+			}
+
+			const title = getStringValue( input, [ 'title', 'name' ] );
+			const normalizedUrl = normalizePreviewUrl( activeWpcomSite.url, requestedUrl );
+			openPreview( requestedUrl, title, {
+				forceReload: shouldForcePreviewReload( input ),
+			} );
+			const displayTitle = title || new URL( normalizedUrl ).host || normalizedUrl;
+
+			return {
+				success: true,
+				url: normalizedUrl,
+				message: sprintf( __( 'Opened preview: %s' ), displayTitle ),
+			};
+		} ),
+		createDollyRefreshPreviewAbility( ( input: Record< string, unknown > ) => {
+			const requestedUrl = getStringValue( input, [ 'url', 'URL', 'uri', 'path' ] );
+			const title = getStringValue( input, [ 'title', 'name' ] ) ?? previewState.title;
+			const refreshUrl = requestedUrl || previewState.currentUrl || previewState.pathOrUrl || '/';
+			const normalizedUrl = normalizePreviewUrl( activeWpcomSite.url, refreshUrl );
+
+			if ( ! previewState.open ) {
+				return {
+					success: true,
+					refreshed: false,
+					url: normalizedUrl,
+					message: __( 'Preview is hidden, so there was nothing to refresh.' ),
+				};
+			}
+
+			openPreview( refreshUrl, title, {
+				forceReload: true,
+			} );
+			const displayTitle = title || new URL( normalizedUrl ).host || normalizedUrl;
+
+			return {
+				success: true,
+				refreshed: true,
+				url: normalizedUrl,
+				message: sprintf( __( 'Refreshed preview: %s' ), displayTitle ),
+			};
+		} ),
+	],
 } );
 
 const createDollyClientContext = (
@@ -1428,32 +1449,6 @@ const delay = ( milliseconds: number, abortSignal?: AbortSignal ) =>
 		abortSignal?.addEventListener( 'abort', abort, { once: true } );
 	} );
 
-const createDollyToolProvider = (
-	executeFrontendTool: ( toolCall: DollyToolCall ) => Promise< DollyToolExecution >
-): ToolProvider => ( {
-	getAbilities: async () =>
-		[ createDollyPreviewAbility(), createDollyRefreshPreviewAbility() ].map( ( ability ) => ( {
-			...ability,
-			callback: async ( input: Record< string, unknown > ) => {
-				const execution = await executeFrontendTool( {
-					toolCallId:
-						getStringValue( input, [ 'toolCallId', 'tool_call_id' ] ) ?? crypto.randomUUID(),
-					toolId: getStringValue( input, [ 'toolId', 'tool_id' ] ) ?? ability.name,
-					arguments: parseToolArguments( input ),
-				} );
-
-				if ( execution.toolResult.error ) {
-					return {
-						success: false,
-						error: execution.toolResult.error,
-					};
-				}
-
-				return execution.toolResult.result;
-			},
-		} ) ),
-} );
-
 const parseDollyTaskUpdate = (
 	response: TaskUpdate,
 	fallbackSessionId: string
@@ -1483,7 +1478,6 @@ const isDollyToolResultProtocolError = ( error: unknown ) => {
 };
 
 const sendDollyMessage = async ( {
-	executeFrontendTool,
 	message,
 	uploadedImages,
 	previewContext,
@@ -1491,9 +1485,9 @@ const sendDollyMessage = async ( {
 	selectedSite,
 	sessionId,
 	siteId,
+	toolProvider,
 	abortSignal,
 }: {
-	executeFrontendTool: ( toolCall: DollyToolCall ) => Promise< DollyToolExecution >;
 	message: string;
 	uploadedImages?: DollyUploadedImage[];
 	previewContext?: DollyPreviewContext;
@@ -1501,11 +1495,11 @@ const sendDollyMessage = async ( {
 	selectedSite: SyncSite;
 	sessionId?: string;
 	siteId: number;
+	toolProvider: ToolProvider;
 	abortSignal?: AbortSignal;
 } ): Promise< DollyAgentResponse > => {
 	const taskId = crypto.randomUUID();
 	const initialSessionId = sessionId ?? taskId;
-	const toolProvider = createDollyToolProvider( executeFrontendTool );
 	const agentClient = createClient( {
 		agentId: DOLLY_AGENT_ID,
 		agentUrl: createDollyAgentUrl( siteId ),
@@ -2798,104 +2792,14 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		[]
 	);
 
-	const executeFrontendTool = useCallback(
-		async ( toolCall: DollyToolCall ): Promise< DollyToolExecution > => {
-			const isPreviewTool = isPreviewToolId( toolCall.toolId );
-			const isRefreshPreviewTool = isRefreshPreviewToolId( toolCall.toolId );
-
-			if ( ! isPreviewTool && ! isRefreshPreviewTool ) {
-				return {
-					toolResult: {
-						toolCallId: toolCall.toolCallId,
-						toolId: toolCall.toolId,
-						error: `WordPress Studio does not provide a frontend ability named ${ toolCall.toolId }.`,
-					},
-				};
-			}
-
-			if ( isRefreshPreviewTool ) {
-				const requestedUrl = getStringValue( toolCall.arguments, [ 'url', 'URL', 'uri', 'path' ] );
-				const title =
-					getStringValue( toolCall.arguments, [ 'title', 'name' ] ) ?? previewState.title;
-				const refreshUrl = requestedUrl || previewState.currentUrl || previewState.pathOrUrl || '/';
-				const normalizedUrl = normalizePreviewUrl( activeWpcomSite.url, refreshUrl );
-
-				if ( ! previewState.open ) {
-					return {
-						toolResult: {
-							toolCallId: toolCall.toolCallId,
-							toolId: toolCall.toolId,
-							result: {
-								success: true,
-								refreshed: false,
-								url: normalizedUrl,
-								message: __( 'Preview is hidden, so there was nothing to refresh.' ),
-							},
-						},
-					};
-				}
-
-				openPreview( refreshUrl, title, {
-					forceReload: true,
-				} );
-				const displayTitle = title || new URL( normalizedUrl ).host || normalizedUrl;
-				const message = sprintf( __( 'Refreshed preview: %s' ), displayTitle );
-
-				return {
-					toolResult: {
-						toolCallId: toolCall.toolCallId,
-						toolId: toolCall.toolId,
-						result: {
-							success: true,
-							refreshed: true,
-							url: normalizedUrl,
-							message,
-						},
-					},
-					agentMessage: message,
-				};
-			}
-
-			const requestedUrl = getStringValue( toolCall.arguments, [ 'url', 'URL', 'uri', 'path' ] );
-			if ( ! requestedUrl ) {
-				return {
-					toolResult: {
-						toolCallId: toolCall.toolCallId,
-						toolId: toolCall.toolId,
-						error: 'Preview needs a valid URL or WordPress.com site path.',
-					},
-				};
-			}
-
-			const title = getStringValue( toolCall.arguments, [ 'title', 'name' ] );
-			const normalizedUrl = normalizePreviewUrl( activeWpcomSite.url, requestedUrl );
-			openPreview( requestedUrl, title, {
-				forceReload: shouldForcePreviewReload( toolCall.arguments ),
-			} );
-			const displayTitle = title || new URL( normalizedUrl ).host || normalizedUrl;
-			const message = sprintf( __( 'Opened preview: %s' ), displayTitle );
-
-			return {
-				toolResult: {
-					toolCallId: toolCall.toolCallId,
-					toolId: toolCall.toolId,
-					result: {
-						success: true,
-						url: normalizedUrl,
-						message,
-					},
-				},
-				agentMessage: message,
-			};
-		},
-		[
-			activeWpcomSite.url,
-			openPreview,
-			previewState.currentUrl,
-			previewState.open,
-			previewState.pathOrUrl,
-			previewState.title,
-		]
+	const dollyToolProvider = useMemo(
+		() =>
+			createDollyPreviewToolProvider( {
+				activeWpcomSite,
+				previewState,
+				openPreview,
+			} ),
+		[ activeWpcomSite, openPreview, previewState ]
 	);
 
 	const syncBackendActiveWpcomSite = useCallback(
@@ -3038,7 +2942,6 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 
 					const response = await sendDollyMessage( {
 						abortSignal: abortController.signal,
-						executeFrontendTool,
 						message: messageToSend,
 						uploadedImages,
 						previewContext,
@@ -3046,6 +2949,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 						selectedSite: activeWpcomSite,
 						sessionId,
 						siteId: activeWpcomSite.id,
+						toolProvider: dollyToolProvider,
 					} );
 
 					if ( ! isMountedRef.current ) {
@@ -3109,7 +3013,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		},
 		[
 			client,
-			executeFrontendTool,
+			dollyToolProvider,
 			isAssistantThinking,
 			messages.length,
 			activeWpcomSite,

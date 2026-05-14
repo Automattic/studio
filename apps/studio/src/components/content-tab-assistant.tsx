@@ -1,9 +1,11 @@
 import {
 	createClient,
+	createTextMessage,
 	extractTextFromMessage,
+	useClientAbilities,
 	type Ability,
 	type ContextProvider,
-	type Message as AgentticMessage,
+	type FilePart,
 	type TaskUpdate,
 	type ToolProvider,
 } from '@automattic/agenttic-client';
@@ -101,31 +103,8 @@ type DollySite = {
 type DollyAgentResponse = {
 	text: string;
 	sessionId?: string;
-	resetSession?: boolean;
 	selectedSiteId?: number;
 };
-
-type AgentRequestPart =
-	| {
-			type: 'text';
-			text: string;
-			metadata?: Record< string, unknown >;
-	  }
-	| {
-			type: 'file';
-			file: {
-				name: string;
-				mimeType?: string;
-				bytes?: string;
-				uri?: string;
-			};
-			metadata?: Record< string, unknown >;
-	  }
-	| {
-			type: 'data';
-			data: Record< string, unknown >;
-			metadata?: Record< string, unknown >;
-	  };
 
 type DollyPendingImage = UploadedImage & {
 	file: File;
@@ -1036,63 +1015,61 @@ const createDollyRefreshPreviewAbility = (
 	callback,
 } );
 
-const createDollyPreviewToolProvider = ( {
+const createDollyPreviewAbilities = ( {
 	activeWpcomSite,
 	previewState,
 	openPreview,
-}: DollyPreviewAbilityContext ): ToolProvider => ( {
-	getAbilities: async () => [
-		createDollyPreviewAbility( ( input: Record< string, unknown > ) => {
-			const requestedUrl = getStringValue( input, [ 'url', 'URL', 'uri', 'path' ] );
-			if ( ! requestedUrl ) {
-				return {
-					success: false,
-					error: 'Preview needs a valid URL or WordPress.com site path.',
-				};
-			}
+}: DollyPreviewAbilityContext ): Ability[] => [
+	createDollyPreviewAbility( ( input: Record< string, unknown > ) => {
+		const requestedUrl = getStringValue( input, [ 'url', 'URL', 'uri', 'path' ] );
+		if ( ! requestedUrl ) {
+			return {
+				success: false,
+				error: 'Preview needs a valid URL or WordPress.com site path.',
+			};
+		}
 
-			const title = getStringValue( input, [ 'title', 'name' ] );
-			const normalizedUrl = normalizePreviewUrl( activeWpcomSite.url, requestedUrl );
-			openPreview( requestedUrl, title, {
-				forceReload: shouldForcePreviewReload( input ),
-			} );
-			const displayTitle = title || new URL( normalizedUrl ).host || normalizedUrl;
+		const title = getStringValue( input, [ 'title', 'name' ] );
+		const normalizedUrl = normalizePreviewUrl( activeWpcomSite.url, requestedUrl );
+		openPreview( requestedUrl, title, {
+			forceReload: shouldForcePreviewReload( input ),
+		} );
+		const displayTitle = title || new URL( normalizedUrl ).host || normalizedUrl;
 
+		return {
+			success: true,
+			url: normalizedUrl,
+			message: sprintf( __( 'Opened preview: %s' ), displayTitle ),
+		};
+	} ),
+	createDollyRefreshPreviewAbility( ( input: Record< string, unknown > ) => {
+		const requestedUrl = getStringValue( input, [ 'url', 'URL', 'uri', 'path' ] );
+		const title = getStringValue( input, [ 'title', 'name' ] ) ?? previewState.title;
+		const refreshUrl = requestedUrl || previewState.currentUrl || previewState.pathOrUrl || '/';
+		const normalizedUrl = normalizePreviewUrl( activeWpcomSite.url, refreshUrl );
+
+		if ( ! previewState.open ) {
 			return {
 				success: true,
+				refreshed: false,
 				url: normalizedUrl,
-				message: sprintf( __( 'Opened preview: %s' ), displayTitle ),
+				message: __( 'Preview is hidden, so there was nothing to refresh.' ),
 			};
-		} ),
-		createDollyRefreshPreviewAbility( ( input: Record< string, unknown > ) => {
-			const requestedUrl = getStringValue( input, [ 'url', 'URL', 'uri', 'path' ] );
-			const title = getStringValue( input, [ 'title', 'name' ] ) ?? previewState.title;
-			const refreshUrl = requestedUrl || previewState.currentUrl || previewState.pathOrUrl || '/';
-			const normalizedUrl = normalizePreviewUrl( activeWpcomSite.url, refreshUrl );
+		}
 
-			if ( ! previewState.open ) {
-				return {
-					success: true,
-					refreshed: false,
-					url: normalizedUrl,
-					message: __( 'Preview is hidden, so there was nothing to refresh.' ),
-				};
-			}
+		openPreview( refreshUrl, title, {
+			forceReload: true,
+		} );
+		const displayTitle = title || new URL( normalizedUrl ).host || normalizedUrl;
 
-			openPreview( refreshUrl, title, {
-				forceReload: true,
-			} );
-			const displayTitle = title || new URL( normalizedUrl ).host || normalizedUrl;
-
-			return {
-				success: true,
-				refreshed: true,
-				url: normalizedUrl,
-				message: sprintf( __( 'Refreshed preview: %s' ), displayTitle ),
-			};
-		} ),
-	],
-} );
+		return {
+			success: true,
+			refreshed: true,
+			url: normalizedUrl,
+			message: sprintf( __( 'Refreshed preview: %s' ), displayTitle ),
+		};
+	} ),
+];
 
 const createDollyClientContext = (
 	siteId: number,
@@ -1148,14 +1125,7 @@ const createDollyAuthProvider = () => async (): Promise< Record< string, string 
 const createDollyAgentUrl = ( siteId: number ) =>
 	`${ DOLLY_AGENT_URL_ORIGIN }/sites/${ siteId }/ai/agent`;
 
-const createDollyUserMessage = ( parts: AgentRequestPart[] ): AgentticMessage => ( {
-	role: 'user',
-	kind: 'message',
-	messageId: `msg-${ crypto.randomUUID() }`,
-	parts,
-} );
-
-const createDollyFilePart = ( image: DollyUploadedImage ): AgentRequestPart => ( {
+const createDollyFilePart = ( image: DollyUploadedImage ): FilePart => ( {
 	type: 'file',
 	file: {
 		name: image.name,
@@ -1172,6 +1142,14 @@ const createDollyFilePart = ( image: DollyUploadedImage ): AgentRequestPart => (
 		fileType: image.mimeType,
 	},
 } );
+
+const createDollyMessage = ( message: string, uploadedImages: DollyUploadedImage[] = [] ) => {
+	const agentticMessage = createTextMessage( message );
+	return {
+		...agentticMessage,
+		parts: [ ...agentticMessage.parts, ...uploadedImages.map( createDollyFilePart ) ],
+	};
+};
 
 const revokeDollyPendingImageUrls = ( images: DollyPendingImage[] ) => {
 	images.forEach( ( image ) => URL.revokeObjectURL( image.url ) );
@@ -1495,7 +1473,7 @@ const sendDollyMessage = async ( {
 	selectedSite: SyncSite;
 	sessionId?: string;
 	siteId: number;
-	toolProvider: ToolProvider;
+	toolProvider?: ToolProvider;
 	abortSignal?: AbortSignal;
 } ): Promise< DollyAgentResponse > => {
 	const taskId = crypto.randomUUID();
@@ -1513,14 +1491,10 @@ const sendDollyMessage = async ( {
 		toolProvider,
 		timeout: DOLLY_REQUEST_TIMEOUT_MS,
 	} );
-	const createInitialMessageParts = (): AgentRequestPart[] => [
-		...( message ? [ { type: 'text' as const, text: message } ] : [] ),
-		...( uploadedImages ?? [] ).map( createDollyFilePart ),
-	];
 	const sendInitialMessage = async ( nextTaskId: string, nextSessionId: string ) => {
 		let finalUpdate: TaskUpdate | undefined;
 		for await ( const update of agentClient.sendMessageStream( {
-			message: createDollyUserMessage( createInitialMessageParts() ),
+			message: createDollyMessage( message, uploadedImages ),
 			sessionId: nextSessionId,
 			taskId: nextTaskId,
 			abortSignal,
@@ -2495,7 +2469,6 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 	const [ optimisticMessageImages, setOptimisticMessageImages ] = useState<
 		Record< string, DollyMessageImageAttachment >
 	>( {} );
-	const activeTurnIdRef = useRef( 0 );
 	const selectionRevisionRef = useRef( 0 );
 	const isMountedRef = useRef( true );
 	const imageUploaderRef = useRef< ImageUploaderHandle >( null );
@@ -2667,7 +2640,6 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		isMountedRef.current = true;
 		return () => {
 			isMountedRef.current = false;
-			activeTurnIdRef.current += 1;
 			dollyRequestAbortControllerRef.current?.abort();
 			dollyRequestAbortControllerRef.current = undefined;
 		};
@@ -2679,7 +2651,6 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		}
 
 		selectionRevisionRef.current += 1;
-		activeTurnIdRef.current += 1;
 		dollyRequestAbortControllerRef.current?.abort();
 		dollyRequestAbortControllerRef.current = undefined;
 		selectedWpcomSiteIdRef.current = selectedWpcomSite.id;
@@ -2792,15 +2763,16 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		[]
 	);
 
-	const dollyToolProvider = useMemo(
-		() =>
-			createDollyPreviewToolProvider( {
+	const getDollyPreviewAbilities = useCallback(
+		async () =>
+			createDollyPreviewAbilities( {
 				activeWpcomSite,
 				previewState,
 				openPreview,
 			} ),
 		[ activeWpcomSite, openPreview, previewState ]
 	);
+	const dollyToolProvider = useClientAbilities( getDollyPreviewAbilities );
 
 	const syncBackendActiveWpcomSite = useCallback(
 		async ( backendSelectedSiteId: number | undefined, requestSelectionRevision: number ) => {
@@ -2956,9 +2928,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 						return;
 					}
 
-					if ( response.resetSession ) {
-						setSessionId( undefined );
-					} else if ( response.sessionId ) {
+					if ( response.sessionId ) {
 						setSessionId( response.sessionId );
 					}
 
@@ -2969,18 +2939,13 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 						] );
 					}
 
-					if ( ! response.resetSession ) {
-						void resolveBackendSelectedSiteId( client, response, sessionId ).then(
-							( backendSelectedSiteId ) => {
-								if ( isCurrentTurn() ) {
-									void syncBackendActiveWpcomSite(
-										backendSelectedSiteId,
-										requestSelectionRevision
-									);
-								}
+					void resolveBackendSelectedSiteId( client, response, sessionId ).then(
+						( backendSelectedSiteId ) => {
+							if ( isCurrentTurn() ) {
+								void syncBackendActiveWpcomSite( backendSelectedSiteId, requestSelectionRevision );
 							}
-						);
-					}
+						}
+					);
 				} catch ( error ) {
 					if ( ! isMountedRef.current ) {
 						return;

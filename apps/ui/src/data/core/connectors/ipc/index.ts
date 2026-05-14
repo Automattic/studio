@@ -1,7 +1,9 @@
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import { __ } from '@wordpress/i18n';
 import type {
+	ActiveAgentRun,
 	AiSessionSummary,
+	AiSessionPlacementUpdatedEvent,
 	AuthUser,
 	ColorScheme,
 	Connector,
@@ -10,6 +12,7 @@ import type {
 	ExtractedBlueprintBundle,
 	FeaturedBlueprint,
 	InstalledApps,
+	LocalMediaFile,
 	LoadedAiSession,
 	ProposedSitePath,
 	SelectedSiteFolder,
@@ -337,6 +340,10 @@ export function createIpcConnector(): Connector {
 			return ( ipcApi.getPathForFile( file ) as string ) ?? '';
 		},
 
+		async readLocalMediaFile( path ): Promise< LocalMediaFile > {
+			return ( await ipcApi.readLocalMediaFile( path ) ) as LocalMediaFile;
+		},
+
 		async extractBlueprintBundle( zipFilePath ): Promise< ExtractedBlueprintBundle > {
 			return ( await ipcApi.extractBlueprintBundle( zipFilePath ) ) as ExtractedBlueprintBundle;
 		},
@@ -531,6 +538,10 @@ export function createIpcConnector(): Connector {
 			};
 		},
 
+		async getActiveAgentRuns(): Promise< ActiveAgentRun[] > {
+			return ( await ipcApi.listActiveAiAgentRuns() ) as ActiveAgentRun[];
+		},
+
 		async setSessionModel( sessionId, model ) {
 			await ipcApi.setAiSessionModel( sessionId, model );
 		},
@@ -561,6 +572,15 @@ export function createIpcConnector(): Connector {
 			const ipcListener = ( window as any ).ipcListener;
 			return ipcListener.subscribe( 'ai-agent-event', ( _event: unknown, payload: AgentRunEvent ) =>
 				listener( payload )
+			);
+		},
+
+		onSessionPlacementUpdated( listener ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ipcListener = ( window as any ).ipcListener;
+			return ipcListener.subscribe(
+				'ai-session-placement-updated',
+				( _event: unknown, payload: AiSessionPlacementUpdatedEvent ) => listener( payload )
 			);
 		},
 

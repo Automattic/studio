@@ -54,7 +54,9 @@ interface PiToolResultLike {
 	isError?: boolean;
 }
 
-function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
+const HIDDEN_TOOL_ROWS = new Set( [ 'studio_present' ] );
+
+export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 	// First pass: collect tool_call_id → tool_result pairings so each
 	// `toolCall` row can render its output inline.
 	const resultsByToolCallId = new Map< string, NormalizedToolResult >();
@@ -105,7 +107,8 @@ function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 				} else if (
 					block.type === 'toolCall' &&
 					typeof block.id === 'string' &&
-					typeof block.name === 'string'
+					typeof block.name === 'string' &&
+					! HIDDEN_TOOL_ROWS.has( block.name )
 				) {
 					items.push( {
 						kind: 'tool-use',

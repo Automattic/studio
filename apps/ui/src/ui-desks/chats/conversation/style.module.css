@@ -135,19 +135,165 @@
 }
 
 .toolOutputToggle {
+	--button-background: transparent;
+	--button-foreground: var(--ui-desks-focus, #3858e9);
+
 	align-self: flex-start;
 	border: 0;
-	background: transparent;
-	color: var(--ui-desks-focus, #3858e9);
 	font: inherit;
 	font-size: 12px;
 	cursor: pointer;
 	padding: 0;
 }
 
-.toolOutputToggle:hover,
-.toolOutputToggle:focus-visible {
+.toolOutputToggle.toolOutputToggle:hover:not(:disabled),
+.toolOutputToggle.toolOutputToggle:focus-visible {
+	--button-background: transparent;
+
 	text-decoration: underline;
+}
+
+.artifact {
+	display: inline-flex;
+	max-width: 100%;
+	cursor: grab;
+	user-select: none;
+	touch-action: none;
+}
+
+.artifact:active {
+	cursor: grabbing;
+}
+
+.artifactThumbnails {
+	min-width: 0;
+	flex: 0 1 auto;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	gap: 8px;
+}
+
+.artifactThumbnail {
+	position: relative;
+	flex: 0 0 auto;
+}
+
+.artifactThumbnailAdd {
+	position: absolute;
+	top: -8px;
+	right: -8px;
+	width: 22px;
+	height: 22px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	border: 1px solid rgba(15, 23, 42, 0.1);
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.94);
+	box-shadow: 0 3px 8px rgba(15, 23, 42, 0.12);
+	color: var(--ui-desks-muted, #6b7280);
+	cursor: pointer;
+	opacity: 0;
+	transform: scale(0.92);
+	transition:
+		opacity 120ms ease,
+		transform 120ms ease;
+	z-index: 1;
+}
+
+.artifactThumbnail:hover .artifactThumbnailAdd,
+.artifactThumbnail:focus-within .artifactThumbnailAdd,
+.artifactThumbnailAdd[data-added='true'] {
+	opacity: 1;
+	transform: scale(1);
+}
+
+.artifactThumbnailAdd:hover:not(:disabled),
+.artifactThumbnailAdd:focus-visible:not(:disabled) {
+	background: rgba(255, 255, 255, 0.98);
+	border-color: rgba(15, 23, 42, 0.18);
+	color: var(--ui-desks-text, #14171a);
+}
+
+.artifactThumbnailAdd:disabled:not([data-added='true']) {
+	cursor: default;
+	opacity: 0.55;
+}
+
+.artifactThumbnailAdd[data-added='true'] {
+	background: rgba(255, 255, 255, 0.98);
+	border-color: rgba(15, 23, 42, 0.18);
+	color: var(--ui-desks-text, #14171a);
+	cursor: default;
+	opacity: 1;
+	transform: scale(1);
+}
+
+.artifactActions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	max-width: 100%;
+}
+
+.artifactAction {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	border: 0;
+	border-radius: 10px;
+	corner-shape: var(--ui-desks-corner-shape, superellipse(1.42));
+	-webkit-corner-shape: var(--ui-desks-corner-shape, superellipse(1.42));
+	background: #e5e7eb;
+	color: var(--ui-desks-text, #14171a);
+	font: inherit;
+	font-size: 12px;
+	font-weight: 500;
+	line-height: 16px;
+	padding: 6px 10px;
+	cursor: pointer;
+	transition: background 140ms ease;
+}
+
+.artifactAction span {
+	white-space: nowrap;
+}
+
+.artifactAction:hover:not(:disabled),
+.artifactAction:focus-visible:not(:disabled) {
+	background: #d1d5db;
+}
+
+.artifactAction:disabled {
+	cursor: default;
+	opacity: 0.55;
+}
+
+.artifactDragOverlay {
+	position: fixed;
+	z-index: 100000;
+	transform: translate(-50%, -50%);
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity 120ms ease, transform 120ms ease;
+}
+
+.artifactDragOverlayInner {
+	transform: scale(0.88);
+	transform-origin: center;
+	transition: transform 120ms ease;
+	filter: drop-shadow(0 18px 28px rgba(15, 23, 42, 0.16));
+}
+
+.artifactDragOverlay[data-over='canvas'] {
+	opacity: 1;
+}
+
+.artifactDragOverlay[data-over='canvas'] .artifactDragOverlayInner {
+	transform: scale(1);
 }
 
 .question {
@@ -174,9 +320,10 @@
 }
 
 .questionOption {
+	--button-background: rgba(255, 255, 255, 0.6);
+	--button-foreground: var(--ui-desks-text, #14171a);
+
 	border: 1px solid var(--ui-desks-divider, rgba(15, 23, 42, 0.06));
-	background: rgba(255, 255, 255, 0.6);
-	color: var(--ui-desks-text, #14171a);
 	font: inherit;
 	font-size: 12px;
 	line-height: 16px;
@@ -188,7 +335,8 @@
 
 .questionOption:hover:not(:disabled),
 .questionOption:focus-visible:not(:disabled) {
-	background: #fff;
+	--button-background: #fff;
+
 	border-color: rgba(15, 23, 42, 0.16);
 }
 
@@ -199,9 +347,10 @@
 
 .questionOptionPicked,
 .questionOptionPicked:disabled {
+	--button-background: rgba(56, 88, 233, 0.08);
+	--button-foreground: var(--ui-desks-focus, #3858e9);
+
 	border-color: rgba(56, 88, 233, 0.28);
-	background: rgba(56, 88, 233, 0.08);
-	color: var(--ui-desks-focus, #3858e9);
 	opacity: 1;
 }
 

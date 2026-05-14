@@ -79,7 +79,9 @@ export function Chats( { siteId }: ChatsProps ) {
 	const chatSessions = [ ...filteredSessions ].sort(
 		( a, b ) => Date.parse( b.updatedAt ) - Date.parse( a.updatedAt )
 	);
-	const selectedSession = chatSessions.find( ( session ) => session.id === selectedSessionId );
+	const selectedSession =
+		chatSessions.find( ( session ) => session.id === selectedSessionId ) ??
+		( sessions ?? [] ).find( ( session ) => session.id === selectedSessionId );
 	const isListCollapsed = expanded && listCollapsed;
 
 	useEffect( () => {

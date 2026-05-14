@@ -11,6 +11,7 @@ import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getPhpBinaryPath, getWpCliPharPath } from 'cli/lib/dependency-management/paths';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
 import { getSiteRuntime } from 'cli/lib/feature-flags';
+import { getDefaultPhpArgs } from 'cli/lib/native-php';
 import { runWpCliCommand, runGlobalWpCliCommand, WpCliResponse } from 'cli/lib/run-wp-cli-command';
 import { validatePhpVersion } from 'cli/lib/utils';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
@@ -49,9 +50,11 @@ async function runNativePhpWpCliCommand( site: SiteData, args: string[] ): Promi
 	const phpVersion = validateNativePhpVersion( site.phpVersion );
 	await ensurePhpBinaryAvailable( phpVersion );
 	await writeStudioMuPluginsForNativePhpRuntime( site.path, site.isWpAutoUpdating );
+	// Don't apply open_basedir or disable_functions to the WP-CLI process
+	const defaultArgs = getDefaultPhpArgs( phpVersion );
 	const child = spawn(
 		getPhpBinaryPath( phpVersion ),
-		[ getWpCliPharPath(), `--path=${ site.path }`, ...args ],
+		[ ...defaultArgs, getWpCliPharPath(), `--path=${ site.path }`, ...args ],
 		{
 			cwd: site.path,
 			stdio: 'inherit',

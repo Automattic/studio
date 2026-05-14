@@ -1,4 +1,4 @@
-.artefact,
+.scratchpad,
 .thumbnail {
 	position: relative;
 	width: 100%;
@@ -19,7 +19,7 @@
 	overflow: hidden;
 }
 
-.artefact {
+.scratchpad {
 	display: flex;
 	flex-direction: column;
 	gap: 28px;
@@ -79,7 +79,7 @@
 	color: #14171a;
 }
 
-.artefact[data-is-editing='true'] .description {
+.scratchpad[data-is-editing='true'] .description {
 	cursor: text;
 }
 

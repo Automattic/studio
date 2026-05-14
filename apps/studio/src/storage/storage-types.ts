@@ -17,6 +17,13 @@ export interface AppdataSiteData {
 	sortOrder?: number;
 }
 
+export interface AiSessionSitePlacement {
+	kind: 'site';
+	siteId: string;
+	sitePath: string;
+	siteName: string;
+}
+
 export interface UserData {
 	version: 1;
 	siteMetadata: Record< string, AppdataSiteData >;
@@ -36,6 +43,7 @@ export interface UserData {
 	cliAutoInstalled?: boolean;
 	wapuuScore?: number;
 	desks?: DesksConfig;
+	aiSessionPlacements?: Record< string, AiSessionSitePlacement >;
 }
 
 export interface PromptWindowsSpeedUpResult {

@@ -1,6 +1,8 @@
 import { normalizeDeskSettings } from '@studio/common/lib/desk-settings';
 import {
 	DESK_CONFIG_VERSION,
+	type DeskConnector,
+	type DeskConnectorEndpoint,
 	type DeskConfig,
 	type DeskSettings,
 	type DeskStack,
@@ -62,6 +64,41 @@ function isDeskViewport( value: unknown ): value is DeskViewport {
 	);
 }
 
+function isDeskConnectorEndpoint( value: unknown ): value is DeskConnectorEndpoint {
+	if ( ! isRecord( value ) || ! isRecord( value.normalizedAnchor ) ) {
+		return false;
+	}
+
+	const { x, y } = value.normalizedAnchor;
+	return (
+		typeof value.widgetId === 'string' &&
+		value.widgetId.length > 0 &&
+		typeof x === 'number' &&
+		Number.isFinite( x ) &&
+		x >= 0 &&
+		x <= 1 &&
+		typeof y === 'number' &&
+		Number.isFinite( y ) &&
+		y >= 0 &&
+		y <= 1
+	);
+}
+
+function isDeskConnector( value: unknown ): value is DeskConnector {
+	if ( ! isRecord( value ) ) {
+		return false;
+	}
+
+	return (
+		typeof value.id === 'string' &&
+		value.id.length > 0 &&
+		isDeskConnectorEndpoint( value.from ) &&
+		isDeskConnectorEndpoint( value.to ) &&
+		( value.bend === undefined ||
+			( typeof value.bend === 'number' && Number.isFinite( value.bend ) ) )
+	);
+}
+
 function assertDeskConfig( value: unknown ): asserts value is DeskConfig {
 	if ( ! isRecord( value ) ) {
 		throw new Error( 'Invalid desk config: expected an object.' );
@@ -83,6 +120,12 @@ function assertDeskConfig( value: unknown ): asserts value is DeskConfig {
 	}
 	if ( value.viewport !== undefined && ! isDeskViewport( value.viewport ) ) {
 		throw new Error( 'Invalid desk config: expected viewport object.' );
+	}
+	if (
+		value.connectors !== undefined &&
+		( ! Array.isArray( value.connectors ) || ! value.connectors.every( isDeskConnector ) )
+	) {
+		throw new Error( 'Invalid desk config: expected connectors array.' );
 	}
 }
 

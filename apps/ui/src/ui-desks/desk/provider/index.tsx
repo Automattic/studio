@@ -6,10 +6,22 @@ import {
 	sortByIndex,
 	type Editor,
 	type TLShape,
+	type TLShapeId,
 	type TLShapePartial,
 } from 'tldraw';
 import { useConnector } from '@/data/core';
 import { useSites } from '@/data/queries/use-sites';
+import {
+	focusConnectedWidgetInEditor,
+	removeSelectedConnectorFromEditor,
+	startConnectingWidgetInEditor,
+} from '@/ui-desks/connectors/editor-commands';
+import { useConnectorInteractions } from '@/ui-desks/connectors/use-connector-interactions';
+import {
+	getCurrentSelectedWidgetConnectionTargets,
+	getOutgoingWidgetConnections,
+	getSelectedDeskConnectorToolbarItem,
+} from '@/ui-desks/connectors/utils';
 import {
 	getTemporaryDeskCanvasRecordMeta,
 	deskWidgetToCanvasShape,
@@ -90,6 +102,14 @@ export function DeskProvider( {
 	const [ isHydrated, setIsHydrated ] = useState( false );
 	const [ selectedWidgetToolbarItem, setSelectedWidgetToolbarItem ] =
 		useState< SelectedWidgetToolbarItem | null >( null );
+	const [ selectedConnectorToolbarItem, setSelectedConnectorToolbarItem ] =
+		useState< ReturnType< typeof getSelectedDeskConnectorToolbarItem > >( null );
+	const [ selectedWidgetConnectionTargets, setSelectedWidgetConnectionTargets ] = useState<
+		ReturnType< typeof getOutgoingWidgetConnections >
+	>( [] );
+	const [ pendingConnectorSourceId, setPendingConnectorSourceId ] = useState< TLShapeId | null >(
+		null
+	);
 	const [ pressedStackId, setPressedStackId ] = useState< string | null >( null );
 	const hydratedRef = useRef( false );
 	const deskConfigKeyRef = useRef< string | undefined >( undefined );
@@ -122,6 +142,13 @@ export function DeskProvider( {
 	}, [ isRunningSite, selectedWidgetToolbarItem, siteId ] );
 
 	useStackInteractions( editor );
+	useConnectorInteractions( {
+		editor,
+		isHydrated,
+		isReadOnly,
+		pendingConnectorSourceId,
+		setPendingConnectorSourceId,
+	} );
 
 	useEffect( () => {
 		if ( deskConfigKeyRef.current === deskConfigKey ) {
@@ -132,6 +159,9 @@ export function DeskProvider( {
 		hydratedRef.current = false;
 		setIsHydrated( false );
 		setSelectedWidgetToolbarItem( null );
+		setSelectedConnectorToolbarItem( null );
+		setSelectedWidgetConnectionTargets( [] );
+		setPendingConnectorSourceId( null );
 		drawingStartShapeIdsRef.current = null;
 	}, [ deskConfigKey ] );
 
@@ -146,6 +176,8 @@ export function DeskProvider( {
 		setSelectedWidgetToolbarItem(
 			getCurrentSelectedWidgetToolbarItem( editor, toolbarStateOptions )
 		);
+		setSelectedConnectorToolbarItem( getSelectedDeskConnectorToolbarItem( editor ) );
+		setSelectedWidgetConnectionTargets( getCurrentSelectedWidgetConnectionTargets( editor ) );
 	}, [ desk, editor, initialViewportMode, isLoading, toolbarStateOptions ] );
 
 	useEffect( () => {
@@ -163,7 +195,6 @@ export function DeskProvider( {
 				return previousShape;
 			}
 		);
-
 		return () => {
 			stopShapeChanges();
 		};
@@ -192,6 +223,8 @@ export function DeskProvider( {
 			setSelectedWidgetToolbarItem(
 				getCurrentSelectedWidgetToolbarItem( editor, toolbarStateOptions )
 			);
+			setSelectedConnectorToolbarItem( getSelectedDeskConnectorToolbarItem( editor ) );
+			setSelectedWidgetConnectionTargets( getCurrentSelectedWidgetConnectionTargets( editor ) );
 		};
 
 		const unsubscribeDocument = editor.store.listen(
@@ -266,6 +299,7 @@ export function DeskProvider( {
 					handleDroppedFile( {
 						editor,
 						file,
+						getFilePath: ( nextFile ) => connector.getFilePath( nextFile ),
 						match,
 						placeholder,
 						siteId,
@@ -279,7 +313,7 @@ export function DeskProvider( {
 		return () => {
 			editor.registerExternalContentHandler( 'files', null );
 		};
-	}, [ editor, isHydrated, isReadOnly, isRunningSite, siteId ] );
+	}, [ connector, editor, isHydrated, isReadOnly, isRunningSite, siteId ] );
 
 	useEffect( () => {
 		if ( ! editor || ! isHydrated || isReadOnly ) {
@@ -355,6 +389,9 @@ export function DeskProvider( {
 				hydratedRef.current = false;
 				setIsHydrated( false );
 				setSelectedWidgetToolbarItem( null );
+				setSelectedConnectorToolbarItem( null );
+				setSelectedWidgetConnectionTargets( [] );
+				setPendingConnectorSourceId( null );
 				clearPressedStack();
 				drawingStartShapeIdsRef.current = null;
 			}
@@ -373,6 +410,24 @@ export function DeskProvider( {
 				creationOffsetRef.current += 1;
 			}
 			return didAddWidget;
+		},
+		[ editor, isHydrated, isReadOnly ]
+	);
+
+	const addWidgetAtScreenPoint = useCallback(
+		(
+			type: string,
+			point: { x: number; y: number },
+			options?: Omit< AddDeskWidgetOptions, 'center' >
+		) => {
+			if ( isReadOnly || ! editor || ! isHydrated ) {
+				return false;
+			}
+
+			return addWidgetToEditor( editor, type, 0, {
+				...options,
+				center: editor.screenToPage( point ),
+			} );
 		},
 		[ editor, isHydrated, isReadOnly ]
 	);
@@ -556,6 +611,46 @@ export function DeskProvider( {
 		return true;
 	}, [ editor, isHydrated, isReadOnly ] );
 
+	const removeSelectedConnector = useCallback( () => {
+		if ( isReadOnly || ! editor || ! isHydrated ) {
+			return false;
+		}
+
+		if ( ! removeSelectedConnectorFromEditor( editor ) ) {
+			return false;
+		}
+
+		setSelectedConnectorToolbarItem( null );
+		return true;
+	}, [ editor, isHydrated, isReadOnly ] );
+
+	const startConnectingWidget = useCallback(
+		( shapeId: TLShapeId ) => {
+			if ( isReadOnly || ! editor || ! isHydrated ) {
+				return false;
+			}
+
+			if ( ! startConnectingWidgetInEditor( editor, shapeId ) ) {
+				return false;
+			}
+
+			setPendingConnectorSourceId( shapeId );
+			return true;
+		},
+		[ editor, isHydrated, isReadOnly ]
+	);
+
+	const focusConnectedWidget = useCallback(
+		( shapeId: TLShapeId ) => {
+			if ( ! editor || ! isHydrated ) {
+				return false;
+			}
+
+			return focusConnectedWidgetInEditor( editor, shapeId );
+		},
+		[ editor, isHydrated ]
+	);
+
 	const value = useMemo(
 		() => ( {
 			siteId,
@@ -564,10 +659,14 @@ export function DeskProvider( {
 			statusMessage,
 			canAddWidgets: ! isReadOnly && Boolean( editor ) && isHydrated,
 			selectedWidgetToolbarItem,
+			selectedConnectorToolbarItem,
+			selectedWidgetConnectionTargets,
+			isConnectingWidget: pendingConnectorSourceId !== null,
 			pressedStackId,
 			registerEditor,
 			pressStack,
 			addWidget,
+			addWidgetAtScreenPoint,
 			addPastedContent,
 			startDrawing,
 			finishDrawing,
@@ -579,26 +678,36 @@ export function DeskProvider( {
 			unstackSelectedWidgets,
 			setSelectedStackView,
 			removeSelectedWidget,
+			removeSelectedConnector,
+			startConnectingWidget,
+			focusConnectedWidget,
 		} ),
 		[
 			addPastedContent,
 			addWidget,
+			addWidgetAtScreenPoint,
 			editor,
 			editSelectedWidget,
 			fitSelectedWidgetToContent,
 			finishDrawing,
+			focusConnectedWidget,
 			isHydrated,
 			isReadOnly,
 			isLoading,
+			pendingConnectorSourceId,
 			pressStack,
 			pressedStackId,
 			registerEditor,
+			removeSelectedConnector,
 			removeSelectedWidget,
+			selectedConnectorToolbarItem,
+			selectedWidgetConnectionTargets,
 			selectedWidgetToolbarItem,
 			selectedWidgetEditAction,
 			setSelectedStackView,
 			stackSelectedWidgets,
 			startDrawing,
+			startConnectingWidget,
 			siteId,
 			statusMessage,
 			unstackSelectedWidgets,
@@ -645,18 +754,20 @@ interface TemporaryLoadingWidget {
 async function handleDroppedFile( {
 	editor,
 	file,
+	getFilePath,
 	match,
 	placeholder,
 	siteId,
 }: {
 	editor: Editor;
 	file: File;
+	getFilePath: ( file: File ) => Promise< string >;
 	match: NonNullable< ReturnType< typeof getWidgetFileHandler > >;
 	placeholder: TemporaryLoadingWidget;
 	siteId?: string;
 } ) {
 	try {
-		const result = await match.handler.handle( file, { siteId } );
+		const result = await match.handler.handle( file, { getFilePath, siteId } );
 		if ( editor.isDisposed ) {
 			return false;
 		}

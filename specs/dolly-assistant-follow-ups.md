@@ -10,6 +10,7 @@
 - Server hydration: WordPress.com live-site chats load the latest matching Dolly server conversation on mount, preserve its `remoteChatId`/`sessionId`, and continue future sends in that hydrated session.
 - Live-site safety signals: WordPress.com live-site chats show a heading badge for the selected site's environment, a WP.com badge, and a warning that Dolly can make changes directly to the live site.
 - Preview resize drag capture: dragging the WordPress.com preview splitter keeps pointer capture above the embedded preview so shrinking does not get stuck and releases cleanly.
+- Sidebar WordPress.com item polish: live WordPress.com site rows align with local site rows and use a subtle WordPress icon affordance instead of nested indentation.
 
 ## Remaining Prioritized Plan
 
@@ -21,7 +22,7 @@ Required behavior:
 
 - Add right-click options on the top-level WordPress.com sidebar group for filtering and list controls.
 - Add right-click options on individual WordPress.com sidebar sites, including an action to sync/pull the site locally.
-- Add subtle visual affordances that distinguish local Studio sites from live WordPress.com sites without making the sidebar noisy.
+- Add richer list controls only where needed; the basic live-site visual distinction is in place.
 
 Do this after live-site safety language is settled so the sidebar status treatment matches the main content area.
 

@@ -2,7 +2,7 @@ import * as Sentry from '@sentry/electron/renderer';
 import { speak } from '@wordpress/a11y';
 import { Spinner } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
-import { chevronDown, chevronRight, Icon } from '@wordpress/icons';
+import { chevronDown, chevronRight, Icon, wordpress } from '@wordpress/icons';
 import { useEffect, useMemo, useState } from 'react';
 import { XDebugIcon } from 'src/components/icons/xdebug-icon';
 import { Tooltip } from 'src/components/tooltip';
@@ -267,11 +267,20 @@ function WpcomSiteItem( { site }: { site: SyncSite } ) {
 		>
 			<button
 				type="button"
-				className="p-2 pl-6 text-xs rounded whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme"
+				className="p-2 text-xs rounded-tl rounded-bl whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme"
 				onClick={ () => setSelectedWpcomSite( site ) }
 			>
 				{ site.name }
 			</button>
+			<Tooltip text={ __( 'Live WordPress.com site' ) }>
+				<div
+					role="img"
+					aria-label={ __( 'Live WordPress.com site' ) }
+					className="me-2 grid h-5 w-5 shrink-0 place-items-center rounded-full text-a8c-gray-400 opacity-80 [&_path]:fill-current"
+				>
+					<Icon icon={ wordpress } size={ 14 } />
+				</div>
+			</Tooltip>
 		</li>
 	);
 }
@@ -486,28 +495,32 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 				/>
 			</ul>
 			{ isAuthenticated && ( unconnectedWpcomSites.length > 0 || isFetchingWpcomSites ) && (
-				<div className="mt-2">
+				<div className="mt-3 border-t border-white/10 pt-2">
 					<button
 						type="button"
 						className={ cx(
-							'flex h-7 min-w-[168px] items-center gap-1 rounded px-2 text-left text-[11px] font-medium uppercase text-a8c-gray-600 hover:bg-[#ffffff0C] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme',
+							'flex h-8 min-w-[168px] items-center justify-between gap-2 rounded px-2 text-left text-[11px] font-medium uppercase text-a8c-gray-600 hover:bg-[#ffffff0C] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme',
 							isMac() ? 'me-5 ms-1' : 'me-4 ms-1'
 						) }
 						aria-expanded={ isWpcomSectionExpanded }
 						onClick={ () => setIsWpcomSectionExpanded( ( isExpanded ) => ! isExpanded ) }
 					>
-						<Icon icon={ isWpcomSectionExpanded ? chevronDown : chevronRight } size={ 16 } />
-						{ __( 'WordPress.com' ) }
+						<span className="truncate">{ __( 'WordPress.com' ) }</span>
+						<Icon
+							icon={ isWpcomSectionExpanded ? chevronDown : chevronRight }
+							size={ 16 }
+							className="shrink-0 text-a8c-gray-600 [&_path]:fill-current"
+						/>
 					</button>
 					{ isWpcomSectionExpanded && (
-						<ul>
+						<ul className="pt-px">
 							{ unconnectedWpcomSites.map( ( site ) => (
 								<WpcomSiteItem key={ site.id } site={ site } />
 							) ) }
 							{ isFetchingWpcomSites && unconnectedWpcomSites.length === 0 && (
 								<li
 									className={ cx(
-										'flex h-8 min-w-[168px] items-center px-8 text-xs text-a8c-gray-600',
+										'flex h-8 min-w-[168px] items-center px-2 text-xs text-a8c-gray-600',
 										isMac() ? 'me-5 ms-1' : 'me-4 ms-1'
 									) }
 								>

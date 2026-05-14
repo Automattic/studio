@@ -6,6 +6,7 @@ import MainSidebar from 'src/components/main-sidebar';
 import { useAuth } from 'src/hooks/use-auth';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { store } from 'src/stores';
+import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
 
 vi.mock( 'src/hooks/use-auth' );
 
@@ -41,6 +42,19 @@ vi.mock( 'src/stores/wpcom-api', async () => {
 		} ),
 	};
 } );
+
+vi.mock( 'src/stores/sync/wpcom-sites', () => ( {
+	wpcomSitesApi: {
+		reducerPath: 'wpcomSitesApi',
+		reducer: () => ( {} ),
+		middleware: () => ( next: ( action: unknown ) => unknown ) => ( action: unknown ) =>
+			next( action ),
+	},
+	useGetWpComSitesQuery: vi.fn( () => ( {
+		data: { sites: [] },
+		isFetching: false,
+	} ) ),
+} ) );
 
 vi.mock( 'src/lib/get-ipc-api', () => ( {
 	__esModule: true,
@@ -93,6 +107,8 @@ const siteDetailsMocked = {
 	startServer: vi.fn(),
 	stopServer: vi.fn(),
 	isSiteDeleting: vi.fn( () => false ),
+	selectedWpcomSite: undefined,
+	setSelectedWpcomSite: vi.fn(),
 };
 vi.mock( 'src/hooks/use-site-details', () => ( {
 	useSiteDetails: () => ( { ...siteDetailsMocked } ),
@@ -109,9 +125,13 @@ const renderWithProvider = ( children: React.ReactElement ) => {
 describe( 'MainSidebar Footer', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
+		vi.mocked( useAuth, { partial: true } ).mockReturnValue( { isAuthenticated: false } );
+		vi.mocked( useGetWpComSitesQuery, { partial: true } ).mockReturnValue( {
+			data: { sites: [] },
+			isFetching: false,
+		} );
 	} );
 	it( 'Has add site button', async () => {
-		vi.mocked( useAuth, { partial: true } ).mockReturnValue( { isAuthenticated: false } );
 		await act( async () => renderWithProvider( <MainSidebar /> ) );
 		expect( screen.getByRole( 'button', { name: 'Add site' } ) ).toBeVisible();
 	} );
@@ -169,6 +189,51 @@ describe( 'MainSidebar Site Menu', () => {
 		await user.click( greenDotFirstSite );
 		expect( siteDetailsMocked.stopServer ).toHaveBeenCalledWith(
 			'0e9e237b-335a-43fa-b439-9b078a613333'
+		);
+	} );
+
+	it( 'renders WordPress.com sites as flat live-site rows', async () => {
+		const user = userEvent.setup();
+		vi.mocked( useAuth, { partial: true } ).mockReturnValue( {
+			isAuthenticated: true,
+			user: {
+				id: 1,
+				email: 'dsmart@example.com',
+				displayName: 'D Smart',
+			},
+		} );
+		vi.mocked( useGetWpComSitesQuery, { partial: true } ).mockReturnValue( {
+			data: {
+				sites: [
+					{
+						id: 101,
+						name: 'Auro Atelier',
+						url: 'https://auro.example',
+					},
+				],
+			},
+			isFetching: false,
+		} );
+
+		await act( async () => renderWithProvider( <MainSidebar /> ) );
+
+		const wpcomSectionButton = screen.getByRole( 'button', { name: 'WordPress.com' } );
+		expect( wpcomSectionButton ).toBeVisible();
+		expect( wpcomSectionButton ).toHaveAttribute( 'aria-expanded', 'true' );
+		const wpcomSiteButton = screen.getByRole( 'button', { name: 'Auro Atelier' } );
+		expect( wpcomSiteButton ).toBeVisible();
+		expect( wpcomSiteButton ).toHaveClass( 'p-2' );
+		expect( wpcomSiteButton ).not.toHaveClass( 'pl-6' );
+		expect( screen.getByRole( 'img', { name: 'Live WordPress.com site' } ) ).toBeVisible();
+
+		await user.click( wpcomSectionButton );
+		expect( wpcomSectionButton ).toHaveAttribute( 'aria-expanded', 'false' );
+		expect( screen.queryByRole( 'button', { name: 'Auro Atelier' } ) ).not.toBeInTheDocument();
+
+		await user.click( wpcomSectionButton );
+		await user.click( screen.getByRole( 'button', { name: 'Auro Atelier' } ) );
+		expect( siteDetailsMocked.setSelectedWpcomSite ).toHaveBeenCalledWith(
+			expect.objectContaining( { id: 101, name: 'Auro Atelier' } )
 		);
 	} );
 } );

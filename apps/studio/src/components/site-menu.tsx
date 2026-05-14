@@ -21,6 +21,7 @@ import { useGetUserEditorQuery, useGetUserTerminalQuery } from 'src/stores/insta
 import { syncOperationsSelectors } from 'src/stores/sync';
 import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
 import type { SyncSite } from '@studio/common/types/sync';
+import type { WpcomSiteActivity } from 'src/hooks/use-site-details';
 
 interface SiteMenuProps {
 	className?: string;
@@ -345,17 +346,77 @@ function WpcomSiteTargetSummary( { workspace }: { workspace: WpcomSiteWorkspace 
 	);
 }
 
+const getWpcomSiteActivityLabel = ( activity?: WpcomSiteActivity ) => {
+	if ( activity?.isCreatingStagingSite ) {
+		return __( 'Creating staging site' );
+	}
+
+	if ( activity?.isAssistantThinking ) {
+		return __( 'Dolly is thinking' );
+	}
+
+	return undefined;
+};
+
+const getWorkspaceActivity = (
+	workspace: WpcomSiteWorkspace,
+	wpcomSiteActivity: Record< number, WpcomSiteActivity >
+) => {
+	const siteCreatingStaging = workspace.sites.find(
+		( site ) => wpcomSiteActivity[ site.id ]?.isCreatingStagingSite
+	);
+
+	if ( siteCreatingStaging ) {
+		return wpcomSiteActivity[ siteCreatingStaging.id ];
+	}
+
+	const siteWithAssistantThinking = workspace.sites.find(
+		( site ) => wpcomSiteActivity[ site.id ]?.isAssistantThinking
+	);
+
+	return siteWithAssistantThinking ? wpcomSiteActivity[ siteWithAssistantThinking.id ] : undefined;
+};
+
+function WpcomSiteActivityIndicator( {
+	activity,
+	className,
+}: {
+	activity?: WpcomSiteActivity;
+	className?: string;
+} ) {
+	const label = getWpcomSiteActivityLabel( activity );
+
+	if ( ! label ) {
+		return null;
+	}
+
+	return (
+		<span
+			role="status"
+			aria-label={ label }
+			title={ label }
+			className={ cx( 'grid h-5 w-5 shrink-0 place-items-center', className ) }
+		>
+			<Spinner className="!m-0 !h-3 !w-3 [&>circle]:stroke-a8c-gray-400" />
+		</span>
+	);
+}
+
 function WpcomSiteTargetItem( {
 	site,
 	label,
 	isSelected,
 	onSelect,
+	activity,
 }: {
 	site: SyncSite;
 	label: string;
 	isSelected: boolean;
 	onSelect: ( site: SyncSite ) => void;
+	activity?: WpcomSiteActivity;
 } ) {
+	const activityLabel = getWpcomSiteActivityLabel( activity );
+
 	return (
 		<li
 			className={ cx(
@@ -385,13 +446,17 @@ function WpcomSiteTargetItem( {
 					>
 						{ site.url }
 					</span>
-					<span
-						aria-hidden="true"
-						className={ cx(
-							'h-2 w-2 shrink-0 rounded-full',
-							site.isStaging ? 'bg-circle-env-staging' : 'bg-circle-env-production'
-						) }
-					/>
+					{ activityLabel ? (
+						<WpcomSiteActivityIndicator activity={ activity } className="-me-1" />
+					) : (
+						<span
+							aria-hidden="true"
+							className={ cx(
+								'h-2 w-2 shrink-0 rounded-full',
+								site.isStaging ? 'bg-circle-env-staging' : 'bg-circle-env-production'
+							) }
+						/>
+					) }
 				</button>
 			</Tooltip>
 		</li>
@@ -399,7 +464,7 @@ function WpcomSiteTargetItem( {
 }
 
 function WpcomSiteItem( { workspace }: { workspace: WpcomSiteWorkspace } ) {
-	const { selectedWpcomSite, setSelectedWpcomSite } = useSiteDetails();
+	const { selectedWpcomSite, setSelectedWpcomSite, wpcomSiteActivity } = useSiteDetails();
 	const selectedWorkspaceSite = workspace.sites.find(
 		( site ) => site.id === selectedWpcomSite?.id
 	);
@@ -407,6 +472,7 @@ function WpcomSiteItem( { workspace }: { workspace: WpcomSiteWorkspace } ) {
 	const siteToOpen = selectedWorkspaceSite ?? workspace.primarySite;
 	const hasMultipleTargets = workspace.sites.length > 1;
 	const showTargets = hasMultipleTargets && isSelected;
+	const workspaceActivity = getWorkspaceActivity( workspace, wpcomSiteActivity );
 
 	if ( showTargets ) {
 		return (
@@ -432,6 +498,7 @@ function WpcomSiteItem( { workspace }: { workspace: WpcomSiteWorkspace } ) {
 							label={ __( 'Production' ) }
 							isSelected={ selectedWpcomSite?.id === workspace.productionSite.id }
 							onSelect={ setSelectedWpcomSite }
+							activity={ wpcomSiteActivity[ workspace.productionSite.id ] }
 						/>
 					) }
 					{ workspace.stagingSites.map( ( stagingSite, index ) => (
@@ -445,6 +512,7 @@ function WpcomSiteItem( { workspace }: { workspace: WpcomSiteWorkspace } ) {
 							}
 							isSelected={ selectedWpcomSite?.id === stagingSite.id }
 							onSelect={ setSelectedWpcomSite }
+							activity={ wpcomSiteActivity[ stagingSite.id ] }
 						/>
 					) ) }
 				</ul>
@@ -467,7 +535,9 @@ function WpcomSiteItem( { workspace }: { workspace: WpcomSiteWorkspace } ) {
 			>
 				{ workspace.name }
 			</button>
-			{ hasMultipleTargets ? (
+			{ getWpcomSiteActivityLabel( workspaceActivity ) ? (
+				<WpcomSiteActivityIndicator activity={ workspaceActivity } className="me-2" />
+			) : hasMultipleTargets ? (
 				<WpcomSiteTargetSummary workspace={ workspace } />
 			) : (
 				<Tooltip text={ __( 'Live WordPress.com site' ) } placement={ SITE_MENU_TOOLTIP_PLACEMENT }>

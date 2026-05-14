@@ -10,7 +10,12 @@ export const DOLLY_HISTORY_CLIENT = 'wpworkspace';
 export const DOLLY_HISTORY_BOT_ID = 'wpcom-agent-dolly';
 export const DOLLY_PREVIEW_TOOL_ID = 'wpworkspace/preview';
 export const DOLLY_REFRESH_PREVIEW_TOOL_ID = 'wpworkspace/refresh_preview';
-export const DOLLY_FRONTEND_ABILITIES = [ DOLLY_PREVIEW_TOOL_ID, DOLLY_REFRESH_PREVIEW_TOOL_ID ];
+export const DOLLY_MANAGE_STAGING_SITE_TOOL_ID = 'wpworkspace/manage_staging_site';
+export const DOLLY_FRONTEND_ABILITIES = [
+	DOLLY_PREVIEW_TOOL_ID,
+	DOLLY_REFRESH_PREVIEW_TOOL_ID,
+	DOLLY_MANAGE_STAGING_SITE_TOOL_ID,
+];
 export const DOLLY_REQUEST_TIMEOUT_MS = 90_000;
 export const DOLLY_HISTORY_SUMMARY_ITEMS_PER_PAGE = 20;
 export const DOLLY_HISTORY_CHAT_ITEMS_PER_PAGE = 100;

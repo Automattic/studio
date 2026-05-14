@@ -1,4 +1,4 @@
-import { render, act, screen } from '@testing-library/react';
+import { render, act, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { vi } from 'vitest';
@@ -110,6 +110,8 @@ const siteDetailsMocked = {
 	isSiteDeleting: vi.fn( () => false ),
 	selectedWpcomSite: undefined as SyncSite | undefined,
 	setSelectedWpcomSite: vi.fn(),
+	wpcomSiteActivity: {},
+	setWpcomSiteActivity: vi.fn(),
 };
 vi.mock( 'src/hooks/use-site-details', () => ( {
 	useSiteDetails: () => ( { ...siteDetailsMocked } ),
@@ -127,6 +129,7 @@ beforeEach( () => {
 	vi.clearAllMocks();
 	site2.running = false;
 	siteDetailsMocked.selectedWpcomSite = undefined;
+	siteDetailsMocked.wpcomSiteActivity = {};
 	vi.mocked( useAuth, { partial: true } ).mockReturnValue( { isAuthenticated: false } );
 	vi.mocked( useGetWpComSitesQuery, { partial: true } ).mockReturnValue( {
 		data: { sites: [] },
@@ -349,6 +352,101 @@ describe( 'MainSidebar Site Menu', () => {
 			screen.queryByRole( 'button', {
 				name: 'Select Staging site: https://staging-mariachi.wpcomstaging.com',
 			} )
+		).not.toBeInTheDocument();
+	} );
+
+	it( 'shows a progress indicator for a WordPress.com site while Dolly is thinking', async () => {
+		siteDetailsMocked.wpcomSiteActivity = {
+			101: { isAssistantThinking: true },
+		};
+		vi.mocked( useAuth, { partial: true } ).mockReturnValue( {
+			isAuthenticated: true,
+			user: {
+				id: 1,
+				email: 'dsmart@example.com',
+				displayName: 'D Smart',
+			},
+		} );
+		vi.mocked( useGetWpComSitesQuery, { partial: true } ).mockReturnValue( {
+			data: {
+				sites: [
+					{
+						id: 101,
+						name: 'Auro Atelier',
+						url: 'https://auro.example',
+					},
+				],
+			},
+			isFetching: false,
+		} );
+
+		await act( async () => renderWithProvider( <MainSidebar /> ) );
+
+		expect( screen.getByRole( 'status', { name: 'Dolly is thinking' } ) ).toBeVisible();
+		expect(
+			screen.queryByRole( 'img', { name: 'Live WordPress.com site' } )
+		).not.toBeInTheDocument();
+	} );
+
+	it( 'shows a progress indicator for the active nested target while staging is being created', async () => {
+		siteDetailsMocked.selectedWpcomSite = {
+			id: 101,
+			localSiteId: '',
+			name: 'Auro Atelier',
+			url: 'https://auro.example',
+			isStaging: false,
+			isPressable: false,
+			syncSupport: 'syncable',
+			lastPullTimestamp: null,
+			lastPushTimestamp: null,
+		};
+		siteDetailsMocked.wpcomSiteActivity = {
+			101: { isCreatingStagingSite: true },
+		};
+		vi.mocked( useAuth, { partial: true } ).mockReturnValue( {
+			isAuthenticated: true,
+			user: {
+				id: 1,
+				email: 'dsmart@example.com',
+				displayName: 'D Smart',
+			},
+		} );
+		vi.mocked( useGetWpComSitesQuery, { partial: true } ).mockReturnValue( {
+			data: {
+				sites: [
+					{
+						id: 101,
+						name: 'Auro Atelier',
+						url: 'https://auro.example',
+						isStaging: false,
+						stagingSiteIds: [ 202 ],
+					},
+					{
+						id: 202,
+						name: 'Auro Atelier Staging',
+						url: 'https://staging-auro.example',
+						isStaging: true,
+						productionSiteId: 101,
+					},
+				],
+			},
+			isFetching: false,
+		} );
+
+		await act( async () => renderWithProvider( <MainSidebar /> ) );
+
+		const productionButton = screen.getByRole( 'button', {
+			name: 'Select Production site: https://auro.example',
+		} );
+		expect(
+			within( productionButton ).getByRole( 'status', { name: 'Creating staging site' } )
+		).toBeVisible();
+		expect(
+			within(
+				screen.getByRole( 'button', {
+					name: 'Select Staging site: https://staging-auro.example',
+				} )
+			).queryByRole( 'status' )
 		).not.toBeInTheDocument();
 	} );
 

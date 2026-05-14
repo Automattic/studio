@@ -439,7 +439,7 @@ describe( 'ContentTabAssistant', () => {
 		expect( screen.getByText( 'Live site' ) ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'Create staging site' } ) ).toBeVisible();
 		expect( screen.getByTestId( 'wpcom-live-site-safety-signal' ) ).toHaveTextContent(
-			'Dolly can edit this production site.'
+			'Live site'
 		);
 	} );
 
@@ -457,12 +457,19 @@ describe( 'ContentTabAssistant', () => {
 			screen.queryByRole( 'button', { name: 'Create staging site' } )
 		).not.toBeInTheDocument();
 		expect( screen.getByTestId( 'wpcom-live-site-safety-signal' ) ).toHaveTextContent(
-			'Dolly can edit this staging site.'
+			'Live site'
 		);
 	} );
 
 	it( 'creates a staging site from the WP.com-only production site header', async () => {
 		const user = userEvent.setup();
+		const dollyClient = {
+			req: {
+				get: vi.fn( ( _params, callback ) => {
+					callback( null, [] );
+				} ),
+			},
+		} as unknown as WPCOM;
 		const createScope = nock( 'https://public-api.wordpress.com' )
 			.post( '/wpcom/v2/sites/123/staging-site' )
 			.reply( 200, {
@@ -474,7 +481,7 @@ describe( 'ContentTabAssistant', () => {
 			.get( '/wpcom/v2/sites/789/atomic/transfers/latest' )
 			.reply( 200, { status: 'completed' } );
 
-		renderWithContext( { component: 'wpcom-site' } );
+		renderWithContext( { component: 'wpcom-site', auth: { client: dollyClient } } );
 
 		await user.click( screen.getByRole( 'button', { name: 'Create staging site' } ) );
 
@@ -482,14 +489,112 @@ describe( 'ContentTabAssistant', () => {
 			expect( screen.getByText( 'https://staging-dolly.example' ) ).toBeVisible()
 		);
 		expect( screen.getByText( 'Staging' ) ).toBeVisible();
+		expect( queryChatMessageText( 'Make a staging site' ) ).toBeNull();
+		expect( queryChatMessageText( /Done! Here's your staging site/ ) ).toBeNull();
 		expect(
 			screen.queryByRole( 'button', { name: 'Create staging site' } )
 		).not.toBeInTheDocument();
 		expect( createScope.isDone() ).toBe( true );
 	} );
 
+	it( 'disables the staging site header button while Dolly is thinking', async () => {
+		let finishDollyRequest: () => void = () => {};
+		const dollyClient = {
+			req: {
+				get: vi.fn( ( _params, callback ) => {
+					callback( null, [] );
+				} ),
+			},
+		} as unknown as WPCOM;
+		mockDollyFetch(
+			() =>
+				new Promise( ( resolve ) => {
+					finishDollyRequest = () =>
+						resolve( {
+							result: {
+								id: 'task-1',
+								sessionId: 'session-1',
+								status: {
+									state: 'completed',
+									message: {
+										parts: [
+											{
+												type: 'text',
+												text: 'Done thinking.',
+											},
+										],
+									},
+								},
+							},
+						} );
+				} )
+		);
+		renderWithContext( { component: 'wpcom-site', auth: { client: dollyClient } } );
+
+		const createStagingSiteButton = screen.getByRole( 'button', {
+			name: 'Create staging site',
+		} );
+		expect( createStagingSiteButton ).toBeEnabled();
+
+		const textInput = getInput();
+		fireEvent.change( textInput, { target: { value: 'Think for a moment' } } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
+
+		await screen.findByRole( 'button', { name: 'Stop processing' } );
+		expect( screen.getByRole( 'button', { name: 'Create staging site' } ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
+
+		finishDollyRequest();
+		await waitFor( () => {
+			expect( getChatMessageText( 'Done thinking.' ) ).toBeVisible();
+		} );
+	} );
+
+	it( 'creates a staging site from the empty chat suggestion', async () => {
+		const user = userEvent.setup();
+		const dollyClient = {
+			req: {
+				get: vi.fn( ( _params, callback ) => {
+					callback( null, [] );
+				} ),
+			},
+		} as unknown as WPCOM;
+		const createScope = nock( 'https://public-api.wordpress.com' )
+			.post( '/wpcom/v2/sites/123/staging-site' )
+			.reply( 200, {
+				id: 790,
+				name: 'Dolly Site Staging',
+				url: 'https://staging-suggestion.example',
+				user_has_permission: true,
+			} )
+			.get( '/wpcom/v2/sites/790/atomic/transfers/latest' )
+			.reply( 200, { status: 'completed' } );
+
+		renderWithContext( { component: 'wpcom-site', auth: { client: dollyClient } } );
+
+		await user.click( screen.getByRole( 'button', { name: 'Make a staging site' } ) );
+
+		await waitFor( () =>
+			expect( screen.getByText( 'https://staging-suggestion.example' ) ).toBeVisible()
+		);
+		expect( screen.getByTestId( 'assistant-chat' ) ).toHaveTextContent( 'Make a staging site' );
+		expect( screen.getByTestId( 'assistant-chat' ) ).toHaveTextContent(
+			/Done! Here's your staging site.*safely make changes/
+		);
+		expect( createScope.isDone() ).toBe( true );
+	} );
+
 	it( 'shows a structured staging site creation error from WordPress.com', async () => {
 		const user = userEvent.setup();
+		const dollyClient = {
+			req: {
+				get: vi.fn( ( _params, callback ) => {
+					callback( null, [] );
+				} ),
+			},
+		} as unknown as WPCOM;
 		const createScope = nock( 'https://public-api.wordpress.com' )
 			.post( '/wpcom/v2/sites/123/staging-site' )
 			.reply( 403, {
@@ -498,7 +603,7 @@ describe( 'ContentTabAssistant', () => {
 				data: { status: 403 },
 			} );
 
-		renderWithContext( { component: 'wpcom-site' } );
+		renderWithContext( { component: 'wpcom-site', auth: { client: dollyClient } } );
 
 		await user.click( screen.getByRole( 'button', { name: 'Create staging site' } ) );
 
@@ -1731,6 +1836,7 @@ describe( 'ContentTabAssistant', () => {
 							frontendAbilities: expect.arrayContaining( [
 								'wpworkspace/preview',
 								'wpworkspace/refresh_preview',
+								'wpworkspace/manage_staging_site',
 							] ),
 						} ),
 					} ),
@@ -1903,6 +2009,119 @@ describe( 'ContentTabAssistant', () => {
 				} ),
 			] )
 		);
+	} );
+
+	it( 'creates a staging site when Dolly uses the staging frontend ability', async () => {
+		const { requestBodies } = mockDollyFetch( ( { callIndex } ) =>
+			callIndex === 0
+				? {
+						result: {
+							id: 'task-1',
+							sessionId: 'session-1',
+							status: {
+								state: 'input-required',
+								message: {
+									parts: [
+										{
+											type: 'data',
+											data: {
+												toolCallId: 'tool-staging-1',
+												toolId: 'wpworkspace__manage_staging_site',
+												arguments: {
+													action: 'create',
+												},
+											},
+										},
+									],
+								},
+							},
+						},
+				  }
+				: {
+						result: {
+							id: 'task-1',
+							sessionId: 'session-1',
+							status: {
+								state: 'completed',
+								message: {
+									parts: [
+										{
+											type: 'text',
+											text: 'Created the staging site.',
+										},
+									],
+								},
+							},
+						},
+				  }
+		);
+		const dollyClient = {
+			req: {
+				get: vi.fn( ( _params, callback ) => {
+					callback( null, [] );
+				} ),
+			},
+		} as unknown as WPCOM;
+		const createScope = nock( 'https://public-api.wordpress.com' )
+			.post( '/wpcom/v2/sites/123/staging-site' )
+			.reply( 200, {
+				id: 791,
+				name: 'Dolly Site Staging',
+				url: 'https://staging-ability.example',
+				user_has_permission: true,
+			} )
+			.get( '/wpcom/v2/sites/791/atomic/transfers/latest' )
+			.reply( 200, { status: 'completed' } );
+
+		renderWithContext( {
+			component: 'wpcom-site',
+			selectedWpcomSite: firstWpcomSite,
+			auth: {
+				client: dollyClient,
+			},
+		} );
+
+		const textInput = getInput();
+		fireEvent.change( textInput, { target: { value: 'Make a staging site' } } );
+		fireEvent.keyDown( textInput, { key: 'Enter', code: 'Enter' } );
+
+		await waitFor( () => {
+			expect( getChatMessageText( 'Created the staging site.' ) ).toBeVisible();
+		} );
+		expect( screen.getByText( 'https://staging-ability.example' ) ).toBeVisible();
+
+		const initialParts = requestBodies[ 0 ].params?.message?.parts ?? [];
+		expect( initialParts ).toEqual(
+			expect.arrayContaining( [
+				expect.objectContaining( {
+					type: 'data',
+					data: expect.objectContaining( {
+						name: 'wpworkspace/manage_staging_site',
+						label: 'Manage Staging Site',
+					} ),
+				} ),
+			] )
+		);
+
+		const continuationParts = requestBodies[ 1 ].params?.message?.parts ?? [];
+		expect( continuationParts ).toEqual(
+			expect.arrayContaining( [
+				expect.objectContaining( {
+					type: 'data',
+					data: expect.objectContaining( {
+						toolCallId: 'tool-staging-1',
+						toolId: 'wpworkspace__manage_staging_site',
+						result: expect.objectContaining( {
+							success: true,
+							action: 'create',
+							stagingSiteId: 791,
+							url: 'https://staging-ability.example',
+						} ),
+					} ),
+				} ),
+			] )
+		);
+		expect( createScope.isDone() ).toBe( true );
 	} );
 
 	it( 'reloads the WP.com-only preview when Dolly marks the site as changed', async () => {

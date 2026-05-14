@@ -18,6 +18,11 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import type { SyncSite } from '@studio/common/types/sync';
 import type { Blueprint } from 'src/stores/wpcom-api';
 
+export type WpcomSiteActivity = {
+	isAssistantThinking?: boolean;
+	isCreatingStagingSite?: boolean;
+};
+
 interface SiteDetailsContext {
 	selectedSite: SiteDetails | null;
 	selectedWpcomSite: SyncSite | null;
@@ -26,6 +31,8 @@ interface SiteDetailsContext {
 	sites: SiteDetails[];
 	setSelectedSiteId: ( selectedSiteId: string ) => void;
 	setSelectedWpcomSite: ( site: SyncSite | null ) => void;
+	wpcomSiteActivity: Record< number, WpcomSiteActivity >;
+	setWpcomSiteActivity: ( siteId: number, activity: WpcomSiteActivity ) => void;
 	createSite: (
 		path: string,
 		siteName?: string,
@@ -68,6 +75,8 @@ const defaultContext: SiteDetailsContext = {
 	siteCreationMessages: {},
 	setSelectedSiteId: () => undefined,
 	setSelectedWpcomSite: () => undefined,
+	wpcomSiteActivity: {},
+	setWpcomSiteActivity: () => undefined,
 	createSite: async () => undefined,
 	copySite: async () => undefined,
 	startServer: async () => undefined,
@@ -137,6 +146,9 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	);
 	const { selectedSiteId, setSelectedSiteId } = useSelectedSite( firstSite?.id );
 	const [ selectedWpcomSite, setSelectedWpcomSiteState ] = useState< SyncSite | null >( null );
+	const [ wpcomSiteActivity, setWpcomSiteActivityState ] = useState<
+		Record< number, WpcomSiteActivity >
+	>( {} );
 	const [ uploadingSites, setUploadingSites ] = useState< { [ siteId: string ]: boolean } >( {} );
 	const [ isDeleting, setIsDeleting ] = useState< Record< string, boolean > >( {} );
 	const { setSelectedTab, selectedTab } = useContentTabs();
@@ -151,6 +163,26 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 	const setSelectedWpcomSite = useCallback( ( site: SyncSite | null ) => {
 		setSelectedWpcomSiteState( site );
+	}, [] );
+
+	const setWpcomSiteActivity = useCallback( ( siteId: number, activity: WpcomSiteActivity ) => {
+		setWpcomSiteActivityState( ( currentActivity ) => {
+			const nextSiteActivity = {
+				...currentActivity[ siteId ],
+				...activity,
+			};
+			const hasActiveWork = Object.values( nextSiteActivity ).some( Boolean );
+
+			if ( ! hasActiveWork ) {
+				const { [ siteId ]: _removedActivity, ...nextActivity } = currentActivity;
+				return nextActivity;
+			}
+
+			return {
+				...currentActivity,
+				[ siteId ]: nextSiteActivity,
+			};
+		} );
 	}, [] );
 
 	useIpcListener( 'on-site-create-progress', ( _, { siteId, message } ) => {
@@ -625,6 +657,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			sites,
 			setSelectedSiteId: selectLocalSite,
 			setSelectedWpcomSite,
+			wpcomSiteActivity,
+			setWpcomSiteActivity,
 			createSite,
 			copySite,
 			updateSite,
@@ -652,6 +686,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			sites,
 			selectLocalSite,
 			setSelectedWpcomSite,
+			wpcomSiteActivity,
+			setWpcomSiteActivity,
 			createSite,
 			copySite,
 			updateSite,

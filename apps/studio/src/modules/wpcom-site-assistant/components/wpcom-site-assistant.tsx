@@ -1,5 +1,5 @@
 import { useClientAbilities } from '@automattic/agenttic-client';
-import { AgentUI, ImageUploader } from '@automattic/agenttic-ui';
+import { AgentUI, ImageUploader, Suggestions } from '@automattic/agenttic-ui';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { desktop, Icon, image as imageIcon, trash } from '@wordpress/icons';
@@ -54,6 +54,11 @@ import {
 	wpcomSiteAssistantSessionStateCache,
 } from 'src/modules/wpcom-site-assistant/lib/session';
 import {
+	createDollyManageStagingSiteAbility,
+	getKnownStagingCreationBlocker,
+	getStagingCreationErrorMessage,
+} from 'src/modules/wpcom-site-assistant/lib/staging';
+import {
 	getErrorMessage,
 	isDollyRequestAbortError,
 	sendDollyMessage,
@@ -76,6 +81,7 @@ import type {
 	ImageUploaderHandle,
 	MessageAction,
 	NoticeConfig as AgentticNoticeConfig,
+	Suggestion,
 	UploadedImage,
 } from '@automattic/agenttic-ui';
 import type { SyncSite } from '@studio/common/types/sync';
@@ -145,12 +151,23 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 );
 
 const DollyEmptyView = ( {
-	onSuggestionClick: _onSuggestionClick,
+	suggestions,
+	onSuggestionClick,
 }: {
-	onSuggestionClick?: unknown;
+	suggestions?: Suggestion[];
+	onSuggestionClick?: (
+		selectedSuggestion: Suggestion,
+		availableSuggestions: Suggestion[]
+	) => void;
 } ) => (
-	<div className="flex h-full items-end px-4 py-3 text-sm text-frame-text-secondary">
-		{ __( 'Ask Dolly about this WordPress.com site.' ) }
+	<div className="flex h-full flex-col justify-end gap-3 px-4 py-3 text-sm text-frame-text-secondary">
+		<div>{ __( 'Ask Dolly about this WordPress.com site.' ) }</div>
+		<Suggestions
+			suggestions={ suggestions }
+			onSubmit={ onSuggestionClick }
+			layout="vertical"
+			translateY={ 0 }
+		/>
 	</div>
 );
 
@@ -168,94 +185,23 @@ const getLiveSiteSafetyMessage = ( selectedSite: SyncSite ) => {
 	return __( 'Dolly can edit this production site.' );
 };
 
-const getRecord = ( value: unknown ) =>
-	value && typeof value === 'object' ? ( value as Record< string, unknown > ) : undefined;
-
-const getStringValue = ( value: unknown ) => ( typeof value === 'string' ? value : undefined );
-
-const getNumberValue = ( value: unknown ) => ( typeof value === 'number' ? value : undefined );
-
-const getStagingCreationErrorDetails = ( error: unknown ) => {
-	const errorRecord = getRecord( error );
-	const data = errorRecord && 'data' in errorRecord ? errorRecord.data : error;
-	const dataRecord = getRecord( data );
-	const nestedDataRecord = getRecord( dataRecord?.data );
-
-	return {
-		code:
-			getStringValue( dataRecord?.code ) ??
-			getStringValue( dataRecord?.error ) ??
-			getStringValue( errorRecord?.code ) ??
-			getStringValue( errorRecord?.error ),
-		message:
-			data instanceof Error
-				? data.message
-				: getStringValue( dataRecord?.message ) ??
-				  getStringValue( errorRecord?.message ) ??
-				  ( error instanceof Error ? error.message : undefined ),
-		status:
-			getNumberValue( errorRecord?.status ) ??
-			getNumberValue( dataRecord?.status ) ??
-			getNumberValue( dataRecord?.statusCode ) ??
-			getNumberValue( nestedDataRecord?.status ),
-	};
-};
-
-const getStagingCreationErrorHint = ( code?: string ) => {
-	switch ( code ) {
-		case 'rest_cannot_view':
-			return __(
-				'This looks like an API permission restriction. The site may be eligible, but this OAuth client may not be allowed to manage staging sites for it yet.'
-			);
-		case 'staging_site_cannot_create':
-			return __( 'WordPress.com says this site is not eligible for a staging site.' );
-		case 'staging_site_cannot_create_more':
-			return __( 'This production site already has the maximum number of staging sites.' );
-		case 'staging_site_cannot_create_locked':
-			return __( 'A staging-site creation is already in progress for this site.' );
-		case 'staging_site_cannot_create_space_quota':
-			return __( 'The site needs at least 50% free storage before staging can be created.' );
-		case 'staging_site_cannot_create_jetpack_database_connection':
-			return __(
-				'Jetpack could not connect to the site database, so WordPress.com could not create the staging site.'
-			);
-		default:
-			return undefined;
-	}
-};
-
-const getKnownStagingCreationBlocker = ( site: SyncSite ) => {
-	if ( site.canManageOptions === false ) {
-		return __( 'Your WordPress.com user needs admin access to create a staging site.' );
+const getCreateStagingSiteUnavailableMessage = ( site: SyncSite ) => {
+	if ( site.isStaging ) {
+		return __( 'This is already a staging site.' );
 	}
 
-	if ( site.hasStagingSiteFeature === false ) {
-		return __( "This site's plan does not include staging sites." );
+	if ( site.stagingSiteIds?.length ) {
+		return __( 'This production site already has a staging site.' );
 	}
 
-	if ( site.isWpcomAtomic === false && site.hasStagingSiteFeature !== true ) {
-		return __( 'This site does not appear to have WordPress.com hosting features enabled.' );
+	if ( site.isPressable ) {
+		return __( 'Staging-site creation is only available for WordPress.com sites.' );
 	}
 
-	return undefined;
-};
-
-const getStagingCreationErrorMessage = ( error: unknown, site: SyncSite ) => {
-	const { code, message, status } = getStagingCreationErrorDetails( error );
-	const details = [
-		message ?? __( 'Studio could not create a staging site. Please try again.' ),
-		code || status
-			? sprintf(
-					/* translators: %1$s is a WordPress.com API error code, %2$s is an HTTP status code. */
-					__( 'WordPress.com returned %1$s%2$s.' ),
-					code ? `code "${ code }"` : __( 'an error' ),
-					status ? ` (${ status })` : ''
-			  )
-			: undefined,
-		getStagingCreationErrorHint( code ) ?? getKnownStagingCreationBlocker( site ),
-	].filter( ( value ): value is string => Boolean( value ) );
-
-	return details.join( '\n\n' );
+	return (
+		getKnownStagingCreationBlocker( site ) ??
+		__( 'A staging site cannot be created for this site.' )
+	);
 };
 
 const LiveSiteSafetySignal = ( { selectedSite }: { selectedSite: SyncSite } ) => (
@@ -278,7 +224,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 	const { isAuthenticated, authenticate, user, client } = useAuth();
 	const userId = user?.id;
 	const isOffline = useOffline();
-	const { setSelectedWpcomSite } = useSiteDetails();
+	const { setSelectedWpcomSite, setWpcomSiteActivity } = useSiteDetails();
 	const [ createWpcomStagingSite, createWpcomStagingSiteResult ] =
 		useCreateWpcomStagingSiteMutation();
 	const sessionCacheKey = createWpcomSiteAssistantSessionKey( selectedWpcomSite.id );
@@ -307,6 +253,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 	const isMountedRef = useRef( true );
 	const imageUploaderRef = useRef< ImageUploaderHandle >( null );
 	const dollyDropZoneRef = useRef< HTMLDivElement >( null );
+	const messagesRef = useRef< MessageType[] >( messages );
 	const pendingImagesRef = useRef< DollyPendingImage[] >( pendingImages );
 	const dollyRequestAbortControllerRef = useRef< AbortController | undefined >( undefined );
 	const activeWpcomSiteRef = useRef< SyncSite >( activeWpcomSite );
@@ -440,11 +387,30 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		pendingImagesRef.current = pendingImages;
 	}, [ pendingImages ] );
 
+	useEffect( () => {
+		messagesRef.current = messages;
+	}, [ messages ] );
+
 	useEffect( () => () => revokeDollyPendingImageUrls( pendingImagesRef.current ), [] );
 
 	useEffect( () => {
 		isAssistantThinkingRef.current = isAssistantThinking;
 	}, [ isAssistantThinking ] );
+
+	useEffect( () => {
+		const siteId = activeWpcomSite.id;
+		setWpcomSiteActivity( siteId, {
+			isAssistantThinking,
+			isCreatingStagingSite,
+		} );
+
+		return () => {
+			setWpcomSiteActivity( siteId, {
+				isAssistantThinking: false,
+				isCreatingStagingSite: false,
+			} );
+		};
+	}, [ activeWpcomSite.id, isAssistantThinking, isCreatingStagingSite, setWpcomSiteActivity ] );
 
 	useEffect( () => {
 		if ( selectedWpcomSiteIdRef.current !== selectedWpcomSite.id ) {
@@ -605,16 +571,79 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		[]
 	);
 
-	const getDollyPreviewAbilities = useCallback(
-		async () =>
-			createDollyPreviewAbilities( {
+	const createStagingSiteForActiveSite = useCallback(
+		async ( { selectWpcomSite = false }: { selectWpcomSite?: boolean } = {} ) => {
+			const site = activeWpcomSiteRef.current;
+			const blocker = getKnownStagingCreationBlocker( site );
+			const canCreate =
+				! site.isStaging && ! site.isPressable && ! site.stagingSiteIds?.length && ! blocker;
+
+			if ( ! canCreate ) {
+				throw new Error( getCreateStagingSiteUnavailableMessage( site ) );
+			}
+
+			const stagingSite = await createWpcomStagingSite( {
+				site,
+				userId,
+			} ).unwrap();
+
+			if ( isMountedRef.current && activeWpcomSiteRef.current.id === site.id ) {
+				setActiveWpcomSite( stagingSite );
+				if ( selectWpcomSite ) {
+					setSelectedWpcomSite( stagingSite );
+				}
+			}
+
+			return stagingSite;
+		},
+		[ createWpcomStagingSite, setSelectedWpcomSite, userId ]
+	);
+
+	const getDollyClientAbilities = useCallback(
+		async () => [
+			...createDollyPreviewAbilities( {
 				activeWpcomSite,
 				previewState,
 				openPreview,
 			} ),
-		[ activeWpcomSite, openPreview, previewState ]
+			createDollyManageStagingSiteAbility( async ( input: Record< string, unknown > ) => {
+				const action = typeof input.action === 'string' ? input.action : 'create';
+				const site = activeWpcomSiteRef.current;
+
+				if ( action !== 'create' ) {
+					return {
+						success: false,
+						action,
+						siteId: site.id,
+						error: __( 'Studio only supports creating staging sites right now.' ),
+					};
+				}
+
+				try {
+					const stagingSite = await createStagingSiteForActiveSite( {
+						selectWpcomSite: true,
+					} );
+					return {
+						success: true,
+						action,
+						siteId: site.id,
+						stagingSiteId: stagingSite.id,
+						url: stagingSite.url,
+						message: sprintf( __( 'Created staging site: %s' ), stagingSite.url ),
+					};
+				} catch ( error ) {
+					return {
+						success: false,
+						action,
+						siteId: site.id,
+						error: getStagingCreationErrorMessage( error, site ),
+					};
+				}
+			} ),
+		],
+		[ activeWpcomSite, createStagingSiteForActiveSite, openPreview, previewState ]
 	);
-	const dollyToolProvider = useClientAbilities( getDollyPreviewAbilities );
+	const dollyToolProvider = useClientAbilities( getDollyClientAbilities );
 
 	const syncBackendActiveWpcomSite = useCallback(
 		async ( backendSelectedSiteId: number | undefined, requestSelectionRevision: number ) => {
@@ -932,23 +961,38 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		dollyRequestAbortControllerRef.current?.abort();
 	}, [] );
 
-	const createStagingSite = useCallback( async () => {
-		if ( ! canCreateStagingSite || isCreatingStagingSite ) {
+	const persistStagingSiteConversation = useCallback(
+		( stagingSite: SyncSite, nextMessages: MessageType[] ) => {
+			const stagingSessionKey = createWpcomSiteAssistantSessionKey( stagingSite.id );
+			wpcomSiteAssistantSessionStateCache.set( stagingSessionKey, {
+				id: createWpcomSiteAssistantConversationId(),
+				key: {
+					siteId: stagingSite.id,
+					agentId: DOLLY_AGENT_ID,
+				},
+				remoteChatId: undefined,
+				serverHydrationDisabled: true,
+				input: '',
+				messages: nextMessages,
+				sessionId: undefined,
+				activeWpcomSite: stagingSite,
+				previewState: initialPreviewState(),
+				lastUpdated: Date.now(),
+			} );
+			persistWpcomSiteAssistantSessionStateCache();
+		},
+		[]
+	);
+
+	const createStagingSiteFromHeader = useCallback( async () => {
+		if ( ! canCreateStagingSite || isCreatingStagingSite || isAssistantThinkingRef.current ) {
 			return;
 		}
 
+		const site = activeWpcomSiteRef.current;
+
 		try {
-			const stagingSite = await createWpcomStagingSite( {
-				site: activeWpcomSite,
-				userId,
-			} ).unwrap();
-
-			if ( ! isMountedRef.current ) {
-				return;
-			}
-
-			setActiveWpcomSite( stagingSite );
-			setSelectedWpcomSite( stagingSite );
+			await createStagingSiteForActiveSite( { selectWpcomSite: true } );
 		} catch ( error ) {
 			if ( ! isMountedRef.current ) {
 				return;
@@ -956,16 +1000,81 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 
 			getIpcApi().showErrorMessageBox( {
 				title: __( 'Could not create staging site' ),
-				message: getStagingCreationErrorMessage( error, activeWpcomSite ),
+				message: getStagingCreationErrorMessage( error, site ),
 			} );
 		}
+	}, [ canCreateStagingSite, createStagingSiteForActiveSite, isCreatingStagingSite ] );
+
+	const createStagingSiteFromChat = useCallback( async () => {
+		if ( ! canCreateStagingSite || isCreatingStagingSite || isAssistantThinkingRef.current ) {
+			return;
+		}
+
+		const site = activeWpcomSiteRef.current;
+		const prompt = __( 'Make a staging site' );
+		const startingMessages = messagesRef.current.map( ( message ) => ( {
+			...message,
+			failedMessage: false,
+		} ) );
+		const userMessage = generateMessage( prompt, 'user', startingMessages.length );
+		const messagesWithUserPrompt = [ ...startingMessages, userMessage ];
+
+		messagesRef.current = messagesWithUserPrompt;
+		setInput( '' );
+		setMessages( messagesWithUserPrompt );
+		setIsAssistantThinking( true );
+
+		try {
+			const stagingSite = await createStagingSiteForActiveSite();
+
+			if ( ! isMountedRef.current ) {
+				return;
+			}
+
+			const assistantMessage = generateMessage(
+				sprintf(
+					__(
+						"Done! Here's your staging site: %s\n\nYou can safely make changes here without impacting your production site. What do you want to do?"
+					),
+					stagingSite.url
+				),
+				'assistant',
+				messagesWithUserPrompt.length
+			);
+			const finalMessages = [ ...messagesWithUserPrompt, assistantMessage ];
+			messagesRef.current = finalMessages;
+			setMessages( finalMessages );
+			setIsAssistantThinking( false );
+			persistStagingSiteConversation( stagingSite, finalMessages );
+			setSelectedWpcomSite( stagingSite );
+		} catch ( error ) {
+			if ( ! isMountedRef.current ) {
+				return;
+			}
+
+			const assistantMessage = generateMessage(
+				sprintf(
+					/* translators: %s is the WordPress.com staging site creation error message. */
+					__( "I couldn't create a staging site.\n\n%s" ),
+					getStagingCreationErrorMessage( error, site )
+				),
+				'assistant',
+				messagesWithUserPrompt.length
+			);
+			const finalMessages = [ ...messagesWithUserPrompt, assistantMessage ];
+			messagesRef.current = finalMessages;
+			setMessages( finalMessages );
+		} finally {
+			if ( isMountedRef.current ) {
+				setIsAssistantThinking( false );
+			}
+		}
 	}, [
-		activeWpcomSite,
 		canCreateStagingSite,
-		createWpcomStagingSite,
+		createStagingSiteForActiveSite,
 		isCreatingStagingSite,
+		persistStagingSiteConversation,
 		setSelectedWpcomSite,
-		userId,
 	] );
 
 	const dollyNotice = useMemo< AgentticNoticeConfig | undefined >( () => {
@@ -1005,6 +1114,16 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 	const isInputUnavailable = isOffline || ! isAuthenticated || ! client;
 	const isInputDisabled = isInputUnavailable && ! isAssistantThinking;
 	const isInputActionDisabled = isInputUnavailable || isAssistantThinking;
+	const isCreateStagingSiteButtonDisabled =
+		! canCreateStagingSite ||
+		isCreatingStagingSite ||
+		isAssistantThinking ||
+		isOffline ||
+		! isAuthenticated ||
+		! client;
+	const createStagingSiteTooltip = isAssistantThinking
+		? __( 'Wait for Dolly to finish before creating a staging site.' )
+		: stagingCreationBlocker;
 
 	const dollyInputActions = useMemo(
 		() => [
@@ -1033,7 +1152,28 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		[ confirmAndClearConversation, isInputActionDisabled, messages.length ]
 	);
 
-	const dollyEmptyView = useMemo( () => <DollyEmptyView />, [] );
+	const dollySuggestions = useMemo< Suggestion[] >(
+		() =>
+			messages.length === 0 && canCreateStagingSite && ! isInputUnavailable
+				? [
+						{
+							id: 'create-staging-site',
+							label: __( 'Make a staging site' ),
+							prompt: __( 'Make a staging site' ),
+							action: async () => {
+								await createStagingSiteFromChat();
+								return false;
+							},
+						},
+				  ]
+				: [],
+		[ canCreateStagingSite, createStagingSiteFromChat, isInputUnavailable, messages.length ]
+	);
+
+	const dollyEmptyView = useMemo(
+		() => <DollyEmptyView suggestions={ dollySuggestions } />,
+		[ dollySuggestions ]
+	);
 
 	const renderConversationReminder = () => {
 		if ( isAuthenticated && messages.length > 0 ) {
@@ -1066,22 +1206,10 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 						{ showCreateStagingSiteButton && (
 							<Button
 								variant="secondary"
-								onClick={ () => void createStagingSite() }
-								disabled={
-									! canCreateStagingSite ||
-									isCreatingStagingSite ||
-									isOffline ||
-									! isAuthenticated ||
-									! client
-								}
-								aria-disabled={
-									! canCreateStagingSite ||
-									isCreatingStagingSite ||
-									isOffline ||
-									! isAuthenticated ||
-									! client
-								}
-								tooltipText={ stagingCreationBlocker }
+								onClick={ () => void createStagingSiteFromHeader() }
+								disabled={ isCreateStagingSiteButtonDisabled }
+								aria-disabled={ isCreateStagingSiteButtonDisabled }
+								tooltipText={ createStagingSiteTooltip }
 							>
 								{ isCreatingStagingSite
 									? __( 'Creating staging...' )
@@ -1113,6 +1241,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 								placeholder={ __( 'Ask Dolly about this site' ) }
 								notice={ dollyNotice }
 								emptyView={ dollyEmptyView }
+								suggestions={ dollySuggestions }
 								messagesPosition="bottom"
 								inputValue={ input }
 								onInputChange={ setInput }

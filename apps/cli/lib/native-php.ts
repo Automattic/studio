@@ -1,4 +1,5 @@
 import fs from 'fs';
+import { rootCertificates } from 'node:tls';
 import os from 'os';
 import path from 'path';
 import { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
@@ -103,8 +104,67 @@ const WINDOWS_PHP_EXTENSIONS = [
 	'zip',
 ] as const;
 
+const CA_BUNDLE_FILENAME = 'ca-bundle.crt';
+
 function getExtensionDir( phpVersion: NativePhpSupportedVersion ): string {
 	return path.join( path.dirname( getPhpBinaryPath( phpVersion ) ), 'ext' );
+}
+
+function toPhpIniPath( filePath: string ): string {
+	return filePath.replace( /\\/g, '/' ).replace( /"/g, '\\"' );
+}
+
+export function getNativePhpCaBundlePath( phpIniDirectory: string ): string {
+	return path.join( phpIniDirectory, CA_BUNDLE_FILENAME );
+}
+
+export function getNativePhpCaBundleArgs( caBundlePath: string ): string[] {
+	const normalizedCaBundlePath = toPhpIniPath( caBundlePath );
+	return [
+		'-d',
+		`openssl.cafile="${ normalizedCaBundlePath }"`,
+		'-d',
+		`curl.cainfo="${ normalizedCaBundlePath }"`,
+	];
+}
+
+export function getNativePhpSubprocessIniContents(
+	phpVersion: NativePhpSupportedVersion,
+	caBundlePath?: string
+): string {
+	const directives = [ 'memory_limit=512M' ];
+
+	if ( process.platform === 'win32' ) {
+		directives.push( `extension_dir="${ toPhpIniPath( getExtensionDir( phpVersion ) ) }"` );
+		for ( const extension of WINDOWS_PHP_EXTENSIONS ) {
+			directives.push( `extension=${ extension }` );
+		}
+	}
+
+	if ( caBundlePath ) {
+		directives.push(
+			`openssl.cafile="${ toPhpIniPath( caBundlePath ) }"`,
+			`curl.cainfo="${ toPhpIniPath( caBundlePath ) }"`
+		);
+	}
+
+	return `${ directives.join( os.EOL ) }${ os.EOL }`;
+}
+
+export async function createNativePhpSubprocessIniDirectory(
+	phpVersion: NativePhpSupportedVersion
+): Promise< string > {
+	const tempRoot =
+		process.platform === 'win32' ? fs.realpathSync.native( os.tmpdir() ) : os.tmpdir();
+	const phpIniDirectory = await fs.promises.mkdtemp( path.join( tempRoot, 'studio-native-php-' ) );
+	const caBundlePath = getNativePhpCaBundlePath( phpIniDirectory );
+	await fs.promises.writeFile( caBundlePath, rootCertificates.join( os.EOL ), 'utf8' );
+	await fs.promises.writeFile(
+		path.join( phpIniDirectory, 'php.ini' ),
+		getNativePhpSubprocessIniContents( phpVersion, caBundlePath ),
+		'utf8'
+	);
+	return phpIniDirectory;
 }
 
 function getXdebugFilename(): string {

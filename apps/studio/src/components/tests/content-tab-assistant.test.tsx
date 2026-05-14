@@ -194,6 +194,20 @@ describe( 'ContentTabAssistant', () => {
 		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 			showMessageBox: vi.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ),
 			executeWPCLiInline: vi.fn().mockResolvedValue( { stdout: '', stderr: 'Error' } ),
+			getConnectedWpcomSites: vi.fn().mockResolvedValue( [
+				{
+					id: 123,
+					localSiteId: runningSite.id,
+					name: 'Dolly Site',
+					url: 'https://dolly.example',
+					isStaging: false,
+					isPressable: false,
+					syncSupport: 'syncable',
+					lastPullTimestamp: null,
+					lastPushTimestamp: null,
+				},
+			] ),
+			openURL: vi.fn(),
 		} );
 		vi.mocked( useGetWpVersion ).mockReturnValue( [ '6.4.3', vi.fn() ] );
 	} );
@@ -220,6 +234,11 @@ describe( 'ContentTabAssistant', () => {
 								ID: 123,
 								name: 'Dolly Site',
 								URL: 'https://dolly.example',
+							},
+							{
+								ID: 456,
+								name: 'Another Dolly Site',
+								URL: 'https://another-dolly.example',
 							},
 						],
 					} );
@@ -275,6 +294,316 @@ describe( 'ContentTabAssistant', () => {
 				} ),
 			} ),
 			expect.any( Function )
+		);
+	} );
+
+	it( 'opens a live site preview from the Dolly assistant tab', async () => {
+		const dollyClient = {
+			req: {
+				get: vi.fn( ( _params, callback ) => {
+					callback( null, {
+						sites: [
+							{
+								ID: 123,
+								name: 'Dolly Site',
+								URL: 'https://dolly.example',
+							},
+							{
+								ID: 456,
+								name: 'Another Dolly Site',
+								URL: 'https://another-dolly.example',
+							},
+						],
+					} );
+				} ),
+				post: vi.fn(),
+			},
+		} as unknown as WPCOM;
+
+		renderWithContext( {
+			component: 'content-tab',
+			auth: {
+				client: dollyClient,
+			},
+		} );
+
+		await waitFor( () => {
+			expect( screen.getByRole( 'button', { name: 'Show preview' } ) ).toBeVisible();
+		} );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Show preview' } ) );
+
+		const preview = screen.getByTitle( 'Test Site preview' );
+		expect( preview ).toBeVisible();
+		expect( preview ).toHaveAttribute( 'src', 'https://dolly.example/' );
+		expect( screen.getByRole( 'button', { name: 'Hide preview' } ) ).toBeVisible();
+	} );
+
+	it( 'only shows Studio-connected WordPress.com sites in the selector', async () => {
+		const dollyClient = {
+			req: {
+				get: vi.fn( ( _params, callback ) => {
+					callback( null, {
+						sites: [
+							{
+								ID: 123,
+								name: 'Dolly Site',
+								URL: 'https://dolly.example',
+							},
+							{
+								ID: 456,
+								name: 'Unassociated Site',
+								URL: 'https://unassociated.example',
+							},
+						],
+					} );
+				} ),
+				post: vi.fn(),
+			},
+		} as unknown as WPCOM;
+
+		renderWithContext( {
+			component: 'content-tab',
+			auth: {
+				client: dollyClient,
+			},
+		} );
+
+		await waitFor( () => {
+			expect( screen.getByText( 'Ask Dolly about this WordPress.com site.' ) ).toBeVisible();
+		} );
+
+		expect(
+			screen.getByRole( 'option', { name: 'Dolly Site (https://dolly.example)' } )
+		).toBeInTheDocument();
+		expect(
+			screen.queryByRole( 'option', { name: 'Unassociated Site (https://unassociated.example)' } )
+		).not.toBeInTheDocument();
+	} );
+
+	it( 'asks local-only sites to deploy to WordPress.com before using Dolly', async () => {
+		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+			showMessageBox: vi.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ),
+			executeWPCLiInline: vi.fn().mockResolvedValue( { stdout: '', stderr: 'Error' } ),
+			getConnectedWpcomSites: vi.fn().mockResolvedValue( [] ),
+			openURL: vi.fn(),
+		} );
+		const dollyClient = {
+			req: {
+				get: vi.fn( ( _params, callback ) => {
+					callback( null, {
+						sites: [
+							{
+								ID: 123,
+								name: 'Dolly Site',
+								URL: 'https://dolly.example',
+							},
+							{
+								ID: 456,
+								name: 'Another Dolly Site',
+								URL: 'https://another-dolly.example',
+							},
+						],
+					} );
+				} ),
+				post: vi.fn( ( _params, callback ) => {
+					callback( null, {
+						result: {
+							id: 'task-1',
+							sessionId: 'session-1',
+							status: {
+								state: 'completed',
+								message: {
+									parts: [
+										{
+											type: 'text',
+											text: 'I can discuss this local site, but Dolly management needs WordPress.com.',
+										},
+									],
+								},
+							},
+						},
+					} );
+				} ),
+			},
+		} as unknown as WPCOM;
+
+		renderWithContext( {
+			component: 'content-tab',
+			auth: {
+				client: dollyClient,
+			},
+		} );
+
+		await waitFor( () => {
+			expect(
+				screen.getByText(
+					'Publish this site to WordPress.com when you want Dolly to manage it. You can still ask Dolly questions about the local site.'
+				)
+			).toBeVisible();
+		} );
+
+		expect(
+			screen.queryByRole( 'combobox', { name: 'WordPress.com site' } )
+		).not.toBeInTheDocument();
+		expect( screen.getByText( 'Test Site' ) ).toBeVisible();
+		expect( screen.getByText( 'Not connected to WordPress.com' ) ).toBeVisible();
+		expect(
+			screen.queryByRole( 'button', { name: 'Deploy to WordPress.com' } )
+		).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Show preview' } ) ).toBeVisible();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Show preview' } ) );
+		expect( screen.getByTitle( 'Test Site preview' ) ).toHaveAttribute(
+			'src',
+			expect.stringContaining( 'http://localhost:8881/studio-auto-login' )
+		);
+
+		const textInput = getInput();
+		expect( textInput ).toBeEnabled();
+		fireEvent.change( textInput, { target: { value: 'Can Dolly manage this local site?' } } );
+		fireEvent.keyDown( textInput, { key: 'Enter', code: 'Enter' } );
+
+		await waitFor( () => {
+			expect(
+				screen.getByText(
+					'I can discuss this local site, but Dolly management needs WordPress.com.'
+				)
+			).toBeVisible();
+		} );
+
+		const request = vi.mocked( dollyClient.req.post ).mock.calls[ 0 ][ 0 ] as {
+			body: {
+				params: {
+					message: {
+						parts: Array< {
+							data?: { clientContext?: { studioSiteAssociation?: { status?: string } } };
+						} >;
+					};
+				};
+			};
+		};
+		const requestBody = request.body;
+		expect( requestBody.params.message.parts ).toContainEqual(
+			expect.objectContaining( {
+				data: expect.objectContaining( {
+					clientContext: expect.objectContaining( {
+						studioSiteAssociation: expect.objectContaining( {
+							status: 'local_only',
+						} ),
+					} ),
+				} ),
+			} )
+		);
+	} );
+
+	it( 'lets Dolly open the site preview through the frontend preview ability', async () => {
+		const dollyClient = {
+			req: {
+				get: vi.fn( ( _params, callback ) => {
+					callback( null, {
+						sites: [
+							{
+								ID: 123,
+								name: 'Dolly Site',
+								URL: 'https://dolly.example',
+							},
+						],
+					} );
+				} ),
+				post: vi
+					.fn()
+					.mockImplementationOnce( ( _params, callback ) => {
+						callback( null, {
+							result: {
+								id: 'task-1',
+								sessionId: 'session-1',
+								status: {
+									state: 'input-required',
+									message: {
+										parts: [
+											{
+												type: 'data',
+												data: {
+													toolCallId: 'tool-call-1',
+													toolId: 'wpworkspace/preview',
+													arguments: {
+														url: '/wp-admin/',
+														title: 'Dashboard',
+													},
+												},
+											},
+										],
+									},
+								},
+							},
+						} );
+					} )
+					.mockImplementationOnce( ( _params, callback ) => {
+						callback( null, {
+							result: {
+								id: 'task-1',
+								sessionId: 'session-1',
+								status: {
+									state: 'completed',
+									message: {
+										parts: [
+											{
+												type: 'text',
+												text: 'The dashboard preview is open.',
+											},
+										],
+									},
+								},
+							},
+						} );
+					} ),
+			},
+		} as unknown as WPCOM;
+
+		renderWithContext( {
+			component: 'content-tab',
+			auth: {
+				client: dollyClient,
+			},
+		} );
+
+		await waitFor( () => {
+			expect( screen.getByText( 'Ask Dolly about this WordPress.com site.' ) ).toBeVisible();
+		} );
+
+		const textInput = getInput();
+		fireEvent.change( textInput, { target: { value: 'Open the dashboard preview' } } );
+		fireEvent.keyDown( textInput, { key: 'Enter', code: 'Enter' } );
+
+		await waitFor( () => {
+			expect( screen.getByTitle( 'Test Site preview' ) ).toBeVisible();
+			expect( screen.getByText( 'The dashboard preview is open.' ) ).toBeVisible();
+		} );
+
+		const continuationRequest = vi.mocked( dollyClient.req.post ).mock.calls[ 1 ][ 0 ] as {
+			body: unknown;
+		};
+		const continuationBody = continuationRequest.body;
+		expect( continuationBody ).toEqual(
+			expect.objectContaining( {
+				params: expect.objectContaining( {
+					id: 'task-1',
+					message: expect.objectContaining( {
+						parts: expect.arrayContaining( [
+							expect.objectContaining( {
+								data: expect.objectContaining( {
+									toolCallId: 'tool-call-1',
+									toolId: 'wpworkspace/preview',
+									result: expect.objectContaining( {
+										success: true,
+										url: 'https://dolly.example/wp-admin/',
+									} ),
+								} ),
+							} ),
+						] ),
+					} ),
+				} ),
+			} )
 		);
 	} );
 

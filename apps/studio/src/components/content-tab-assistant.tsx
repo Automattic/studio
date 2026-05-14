@@ -1,5 +1,4 @@
 import {
-	SelectControl,
 	__unstableAnimatePresence as AnimatePresence,
 	__unstableMotion as motion,
 } from '@wordpress/components';
@@ -18,6 +17,7 @@ import { ChatMessage, MarkDownWithCode } from 'src/components/chat-message';
 import { ChatRating } from 'src/components/chat-rating';
 import { LearnMoreLink } from 'src/components/learn-more';
 import offlineIcon from 'src/components/offline-icon';
+import { StudioCodeChat } from 'src/components/studio-code-chat';
 import WelcomeComponent from 'src/components/welcome-message-prompt';
 import {
 	LIMIT_OF_PROMPTS_PER_USER,
@@ -26,11 +26,11 @@ import {
 	TELEX_UTM_PARAMS,
 } from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useOffline } from 'src/hooks/use-offline';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { getSiteUrl } from 'src/lib/get-site-url';
 import { addUrlParams } from 'src/lib/url-utils';
 import { useAppDispatch, useRootSelector } from 'src/stores';
 import {
@@ -40,7 +40,6 @@ import {
 	chatActions,
 	chatSelectors,
 } from 'src/stores/chat-slice';
-import { useGetConnectedSitesForLocalSiteQuery } from 'src/stores/sync/connected-sites';
 import { useGetAssistantQuota, useGetWelcomeMessages } from 'src/stores/wpcom-api';
 import type { SyncSite } from '@studio/common/types/sync';
 import type { WPCOM } from 'wpcom/types';
@@ -65,10 +64,6 @@ type DollySite = {
 	name: string;
 	url?: string;
 	slug?: string;
-};
-
-type ConnectedDollySite = DollySite & {
-	connectedSite: SyncSite;
 };
 
 type DollyAgentResponse = {
@@ -181,7 +176,7 @@ type DollyPreviewContext = {
 };
 
 type DollySiteAssociationContext = {
-	status: 'connected' | 'local_only' | 'unassociated' | 'unavailable' | 'wpcom_only';
+	status: 'wpcom_only';
 	localSiteId: string;
 	localSiteName: string;
 	localSitePath: string;
@@ -1012,36 +1007,17 @@ const createDollyClientContext = (
 	frontendAbilities: [ DOLLY_PREVIEW_TOOL_ID ],
 	wpworkspace: {
 		appName: window.appGlobals?.appName ?? 'WordPress Studio',
-		currentActivity:
-			siteAssociation?.status === 'wpcom_only'
-				? 'Working on a WordPress.com site selected from Studio'
-				: siteAssociation?.status === 'local_only'
-				? 'Discussing a local-only Studio site that is not hosted on WordPress.com'
-				: siteAssociation?.status === 'unassociated'
-				? 'Discussing a Studio site that is not associated with the selected WordPress.com routing site'
-				: selectedSite.running
-				? 'Working on a running Studio site with an embedded preview available'
-				: 'Working in Studio',
+		currentActivity: 'Working on a WordPress.com site selected from Studio',
 		clientVersion: window.appGlobals?.appVersion,
 		preview: previewContext,
 		studioSiteAssociation: siteAssociation,
 		frontendAbilities: [ DOLLY_PREVIEW_TOOL_ID ],
-		localWorkspace: {
+		selectedSite: {
 			id: selectedSite.id,
 			name: selectedSite.name,
+			url: getSiteDetailsUrl( selectedSite ),
 			siteId,
-			instructions:
-				siteAssociation?.instructions ??
-				'This conversation is running inside WordPress Studio. Use the wpworkspace/preview frontend ability when the user asks to show, inspect, or keep a URL visible beside the chat.',
-			projects: [
-				{
-					id: selectedSite.id,
-					name: selectedSite.name,
-					kind: 'studio-site',
-					writePolicy: 'read_only',
-					rootName: selectedSite.path.split( '/' ).filter( Boolean ).pop() ?? selectedSite.name,
-				},
-			],
+			kind: 'wpcom-site',
 		},
 	},
 } );
@@ -1376,75 +1352,8 @@ const createPreviewContext = (
 	isLoading: previewState.isLoading,
 } );
 
-const createSiteAssociationContext = ( {
-	activeDollySiteId,
-	activeDollySiteUrl,
-	connectedDollySite,
-	hasConnectedSites,
-	selectedSite,
-}: {
-	activeDollySiteId?: number;
-	activeDollySiteUrl?: string;
-	connectedDollySite?: ConnectedDollySite;
-	hasConnectedSites: boolean;
-	selectedSite: SiteDetails;
-} ): DollySiteAssociationContext => {
-	if ( connectedDollySite ) {
-		return {
-			status: 'connected',
-			localSiteId: selectedSite.id,
-			localSiteName: selectedSite.name,
-			localSitePath: selectedSite.path,
-			localPreviewUrl: getSiteUrl( selectedSite ),
-			routingWpcomSiteId: connectedDollySite.id,
-			routingWpcomSiteUrl: connectedDollySite.connectedSite.url,
-			connectedWpcomSiteId: connectedDollySite.connectedSite.id,
-			connectedWpcomSiteUrl: connectedDollySite.connectedSite.url,
-			instructions:
-				'The active Studio site is connected to this WordPress.com site. Dolly may manage the WordPress.com site and may use frontend abilities for preview actions.',
-		};
-	}
-
-	if ( activeDollySiteId ) {
-		const status = hasConnectedSites ? 'unassociated' : 'local_only';
-		return {
-			status,
-			localSiteId: selectedSite.id,
-			localSiteName: selectedSite.name,
-			localSitePath: selectedSite.path,
-			localPreviewUrl: getSiteUrl( selectedSite ),
-			routingWpcomSiteId: activeDollySiteId,
-			routingWpcomSiteUrl: activeDollySiteUrl,
-			instructions:
-				status === 'local_only'
-					? 'The active Studio site is local-only and is not associated with a WordPress.com site. The WordPress.com site id on this request is only a Dolly routing context, not the local site being discussed. Dolly cannot manage this local site through WordPress.com until it is deployed or connected to WordPress.com. If the user asks Dolly to manage or publish changes for this site, explain that it needs to be hosted on WordPress.com first.'
-					: 'The selected WordPress.com site is not associated with the active local Studio site. The selected WordPress.com site id is only a Dolly routing context for this request, not the local site being discussed. Do not claim Dolly can manage this local site through that WordPress.com site. If the user wants Dolly to manage the local site, tell them to switch to the connected WordPress.com site or connect/deploy this site on WordPress.com.',
-		};
-	}
-
-	if ( hasConnectedSites ) {
-		return {
-			status: 'unassociated',
-			localSiteId: selectedSite.id,
-			localSiteName: selectedSite.name,
-			localSitePath: selectedSite.path,
-			localPreviewUrl: getSiteUrl( selectedSite ),
-			instructions:
-				'The active Studio site has a WordPress.com relationship, but no selected WordPress.com routing site is available in this request. Do not claim Dolly can manage it until the user chooses the associated WordPress.com site.',
-		};
-	}
-
-	return {
-		status: 'unavailable',
-		localSiteId: selectedSite.id,
-		localSiteName: selectedSite.name,
-		localSitePath: selectedSite.path,
-		localPreviewUrl: getSiteUrl( selectedSite ),
-		routingWpcomSiteId: activeDollySiteId,
-		instructions:
-			'The active Studio site is not available to Dolly. Do not claim Dolly can manage it.',
-	};
-};
+const getSiteDetailsUrl = ( selectedSite: SiteDetails ) =>
+	'url' in selectedSite && typeof selectedSite.url === 'string' ? selectedSite.url : undefined;
 
 const createWpcomOnlySiteDetails = ( selectedWpcomSite: SyncSite ): SiteDetails => ( {
 	id: `wpcom-${ selectedWpcomSite.id }`,
@@ -1688,12 +1597,10 @@ interface PreviewWebviewTitleEvent extends Event {
 
 interface DollyPreviewPanelProps {
 	selectedSite: SiteDetails;
-	previewMode: 'live' | 'local';
 	previewState: DollyPreviewState;
 	previewUrl?: string;
 	onClose: () => void;
 	onRefresh: () => void;
-	onStartSite?: () => void | Promise< void >;
 	onUpdateState: ( state: Partial< DollyPreviewState > ) => void;
 }
 
@@ -1720,27 +1627,16 @@ const DollyPreviewPanelPortal = ( { children }: { children: React.ReactNode } ) 
 
 function DollyPreviewPanel( {
 	selectedSite,
-	previewMode,
 	previewState,
 	previewUrl,
 	onClose,
 	onRefresh,
-	onStartSite,
 	onUpdateState,
 }: DollyPreviewPanelProps ) {
 	const [ width, setWidth ] = useState( DOLLY_PREVIEW_PANEL_DEFAULT_WIDTH );
-	const [ isStartingSite, setIsStartingSite ] = useState( false );
 	const title = previewState.pageTitle || previewState.title || __( 'Site preview' );
-	const displayUrl = previewState.currentUrl || previewUrl || getSiteUrl( selectedSite );
-	const canStartLocalSite = previewMode === 'local' && ! selectedSite.running && onStartSite;
-
-	const startSite = () => {
-		if ( ! onStartSite ) {
-			return;
-		}
-		setIsStartingSite( true );
-		void Promise.resolve( onStartSite() ).finally( () => setIsStartingSite( false ) );
-	};
+	const displayUrl =
+		previewState.currentUrl || previewUrl || getSiteDetailsUrl( selectedSite ) || '';
 
 	const handleResizeStart = ( event: React.PointerEvent< HTMLButtonElement > ) => {
 		event.preventDefault();
@@ -1838,23 +1734,12 @@ function DollyPreviewPanel( {
 						<Icon icon={ desktop } size={ 32 } className="fill-frame-text-secondary" />
 						<div>
 							<div className="text-sm font-medium text-frame-text">
-								{ previewMode === 'local'
-									? __( 'Start the site to see a local preview.' )
-									: __( 'Choose a connected WordPress.com site to see a live preview.' ) }
+								{ __( 'Preview needs a valid WordPress.com site URL.' ) }
 							</div>
 							<div className="mt-1 text-xs text-frame-text-secondary">
-								{ previewMode === 'local'
-									? __(
-											'Dolly can discuss this local site, but management requires WordPress.com.'
-									  )
-									: __( 'Dolly previews the live WordPress.com site that it can manage.' ) }
+								{ __( 'Dolly previews the live WordPress.com site that it can manage.' ) }
 							</div>
 						</div>
-						{ canStartLocalSite && (
-							<Button variant="primary" onClick={ startSite } isBusy={ isStartingSite }>
-								{ __( 'Start site' ) }
-							</Button>
-						) }
 					</div>
 				) }
 				{ previewState.isLoading && previewUrl ? (
@@ -2271,605 +2156,17 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 );
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
-	return <DollyAssistant selectedSite={ selectedSite } />;
+	const { enableStudioCodeUi } = useFeatureFlags();
+
+	if ( enableStudioCodeUi ) {
+		return <StudioCodeChat selectedSite={ selectedSite } />;
+	}
+
+	return <WpcomAssistant selectedSite={ selectedSite } />;
 }
 
 interface WpcomSiteAssistantProps {
 	selectedWpcomSite: SyncSite;
-}
-
-function DollyAssistant( { selectedSite }: ContentTabAssistantProps ) {
-	const inputRef = useRef< HTMLTextAreaElement >( null );
-	const wrapperRef = useRef< HTMLDivElement >( null );
-	const { isAuthenticated, authenticate, user, client } = useAuth();
-	const isOffline = useOffline();
-	const [ input, setInput ] = useState( '' );
-	const [ dollySites, setDollySites ] = useState< DollySite[] >( [] );
-	const [ selectedDollySiteId, setSelectedDollySiteId ] = useState< number | undefined >();
-	const [ isLoadingSites, setIsLoadingSites ] = useState( false );
-	const [ sitesError, setSitesError ] = useState< string | undefined >();
-	const [ messages, setMessages ] = useState< MessageType[] >( [] );
-	const [ sessionId, setSessionId ] = useState< string | undefined >();
-	const [ isAssistantThinking, setIsAssistantThinking ] = useState( false );
-	const [ previewState, setPreviewState ] = useState< DollyPreviewState >( initialPreviewState );
-	const activeTurnIdRef = useRef( 0 );
-	const selectionRevisionRef = useRef( 0 );
-	const preserveConversationOnNextSiteChangeRef = useRef( false );
-	const selectableDollySiteIdsRef = useRef< number[] >( [] );
-	const activeDollySiteIdRef = useRef< number | undefined >( undefined );
-	const { data: connectedSites = [], isLoading: isLoadingConnectedSites } =
-		useGetConnectedSitesForLocalSiteQuery( {
-			localSiteId: selectedSite.id,
-			userId: user?.id,
-		} );
-	const connectedDollySites = useMemo< ConnectedDollySite[] >(
-		() =>
-			connectedSites
-				.map( ( connectedSite ) => {
-					const dollySite = dollySites.find( ( site ) => site.id === connectedSite.id );
-					return dollySite ? { ...dollySite, connectedSite } : undefined;
-				} )
-				.filter( ( site ): site is ConnectedDollySite => Boolean( site ) ),
-		[ connectedSites, dollySites ]
-	);
-	const selectedConnectedDollySite = useMemo(
-		() => connectedDollySites.find( ( site ) => site.id === selectedDollySiteId ),
-		[ connectedDollySites, selectedDollySiteId ]
-	);
-	const hasConnectedSites = connectedSites.length > 0;
-	const isLocalOnlySite = ! isLoadingConnectedSites && ! hasConnectedSites;
-	const activeDollySite =
-		selectedConnectedDollySite ??
-		( isLocalOnlySite
-			? dollySites.find( ( site ) => site.id === selectedDollySiteId ) ?? dollySites[ 0 ]
-			: undefined );
-	const activeDollySiteId = activeDollySite?.id;
-	const activeDollySiteUrl = activeDollySite?.url;
-	const selectedDollySiteUrl =
-		selectedConnectedDollySite?.connectedSite.url || selectedConnectedDollySite?.url;
-	const previewMode: 'live' | 'local' = selectedDollySiteUrl ? 'live' : 'local';
-	const selectableDollySiteIds = useMemo(
-		() =>
-			connectedDollySites.length > 0
-				? connectedDollySites.map( ( site ) => site.id )
-				: isLocalOnlySite
-				? dollySites.map( ( site ) => site.id )
-				: [],
-		[ connectedDollySites, dollySites, isLocalOnlySite ]
-	);
-	const instanceId = user?.id
-		? `dolly_${ user.id }_${ selectedSite.id }_${ activeDollySiteId ?? 'none' }`
-		: `dolly_${ selectedSite.id }_${ activeDollySiteId ?? 'none' }`;
-	const hasFailedMessage = messages.some( ( msg ) => msg.failedMessage );
-	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];
-	const previewUrl = useMemo( () => {
-		if ( selectedDollySiteUrl ) {
-			return normalizePreviewUrl( selectedDollySiteUrl, previewState.pathOrUrl );
-		}
-		if ( isLocalOnlySite && activeDollySiteId && selectedSite.running ) {
-			return normalizePreviewUrl( getSiteUrl( selectedSite ), previewState.pathOrUrl, {
-				autoLoginSameOrigin: true,
-			} );
-		}
-		return undefined;
-	}, [
-		activeDollySiteId,
-		isLocalOnlySite,
-		previewState.pathOrUrl,
-		selectedDollySiteUrl,
-		selectedSite,
-	] );
-	const siteAssociation = useMemo(
-		() =>
-			createSiteAssociationContext( {
-				activeDollySiteId,
-				activeDollySiteUrl,
-				connectedDollySite: selectedConnectedDollySite,
-				hasConnectedSites,
-				selectedSite,
-			} ),
-		[
-			activeDollySiteId,
-			activeDollySiteUrl,
-			hasConnectedSites,
-			selectedConnectedDollySite,
-			selectedSite,
-		]
-	);
-	const previewContext = useMemo(
-		() => createPreviewContext( selectedSite, previewState, previewUrl ),
-		[ previewState, previewUrl, selectedSite ]
-	);
-
-	const updatePreviewState = useCallback( ( nextState: Partial< DollyPreviewState > ) => {
-		setPreviewState( ( currentState ) => ( { ...currentState, ...nextState } ) );
-	}, [] );
-
-	useEffect( () => {
-		selectableDollySiteIdsRef.current = selectableDollySiteIds;
-	}, [ selectableDollySiteIds ] );
-
-	useEffect( () => {
-		activeDollySiteIdRef.current = activeDollySiteId;
-	}, [ activeDollySiteId ] );
-
-	const setUserSelectedDollySiteId = useCallback( ( siteId: number ) => {
-		selectionRevisionRef.current += 1;
-		preserveConversationOnNextSiteChangeRef.current = false;
-		setSelectedDollySiteId( siteId );
-	}, [] );
-
-	const syncBackendSelectedDollySite = useCallback(
-		( backendSelectedSiteId: number | undefined, requestSelectionRevision: number ) => {
-			if (
-				! backendSelectedSiteId ||
-				selectionRevisionRef.current !== requestSelectionRevision ||
-				! selectableDollySiteIdsRef.current.includes( backendSelectedSiteId ) ||
-				selectedDollySiteId === backendSelectedSiteId
-			) {
-				return;
-			}
-
-			preserveConversationOnNextSiteChangeRef.current = true;
-			setSelectedDollySiteId( backendSelectedSiteId );
-		},
-		[ selectedDollySiteId ]
-	);
-
-	useEffect( () => {
-		if ( ! isAuthenticated || ! client || isOffline ) {
-			return;
-		}
-
-		let isCurrent = true;
-		setIsLoadingSites( true );
-		setSitesError( undefined );
-
-		wpcomGet< unknown >( client, '/ai/agent/dolly/sites' )
-			.then( ( response ) => {
-				if ( ! isCurrent ) {
-					return;
-				}
-				setDollySites( parseDollySites( response ) );
-			} )
-			.catch( ( error ) => {
-				if ( ! isCurrent ) {
-					return;
-				}
-				console.error( error );
-				setSitesError(
-					error instanceof Error ? error.message : __( 'Failed to load Dolly sites.' )
-				);
-			} )
-			.finally( () => {
-				if ( isCurrent ) {
-					setIsLoadingSites( false );
-				}
-			} );
-
-		return () => {
-			isCurrent = false;
-		};
-	}, [ client, isAuthenticated, isOffline ] );
-
-	useEffect( () => {
-		if ( connectedDollySites.length === 0 ) {
-			if ( isLocalOnlySite && dollySites.length > 0 ) {
-				setSelectedDollySiteId( ( currentSiteId ) => {
-					if ( currentSiteId && dollySites.some( ( site ) => site.id === currentSiteId ) ) {
-						return currentSiteId;
-					}
-					return dollySites[ 0 ].id;
-				} );
-				return;
-			}
-			setSelectedDollySiteId( undefined );
-			return;
-		}
-
-		setSelectedDollySiteId( ( currentSiteId ) => {
-			if ( currentSiteId && connectedDollySites.some( ( site ) => site.id === currentSiteId ) ) {
-				return currentSiteId;
-			}
-
-			return connectedDollySites[ 0 ].id;
-		} );
-	}, [ connectedDollySites, dollySites, isLocalOnlySite ] );
-
-	useEffect( () => {
-		if ( preserveConversationOnNextSiteChangeRef.current ) {
-			preserveConversationOnNextSiteChangeRef.current = false;
-			return;
-		}
-
-		activeTurnIdRef.current += 1;
-		setMessages( [] );
-		setSessionId( undefined );
-		setInput( '' );
-		setIsAssistantThinking( false );
-		setPreviewState( initialPreviewState() );
-	}, [ selectedDollySiteId ] );
-
-	useEffect( () => {
-		setPreviewState( initialPreviewState() );
-	}, [ selectedSite.id ] );
-
-	const openPreview = useCallback(
-		( pathOrUrl = '/', title?: string, { forceReload = false }: OpenPreviewOptions = {} ) => {
-			setPreviewState( ( currentState ) => {
-				const shouldLoad =
-					forceReload || ! currentState.open || currentState.pathOrUrl !== pathOrUrl;
-
-				return {
-					...currentState,
-					open: true,
-					pathOrUrl,
-					title,
-					pageTitle: shouldLoad ? undefined : currentState.pageTitle,
-					currentUrl: shouldLoad ? undefined : currentState.currentUrl,
-					isLoading: shouldLoad
-						? Boolean(
-								selectedDollySiteUrl ||
-									( isLocalOnlySite && activeDollySiteId && selectedSite.running )
-						  )
-						: currentState.isLoading,
-					reloadNonce: forceReload ? currentState.reloadNonce + 1 : currentState.reloadNonce,
-				};
-			} );
-		},
-		[ activeDollySiteId, isLocalOnlySite, selectedDollySiteUrl, selectedSite.running ]
-	);
-
-	const executeFrontendTool = useCallback(
-		async ( toolCall: DollyToolCall ): Promise< DollyToolExecution > => {
-			if ( ! isPreviewToolId( toolCall.toolId ) ) {
-				return {
-					toolResult: {
-						toolCallId: toolCall.toolCallId,
-						toolId: toolCall.toolId,
-						error: `WordPress Studio does not provide a frontend ability named ${ toolCall.toolId }.`,
-					},
-				};
-			}
-
-			const requestedUrl = getStringValue( toolCall.arguments, [ 'url', 'URL', 'uri', 'path' ] );
-			if ( ! requestedUrl ) {
-				return {
-					toolResult: {
-						toolCallId: toolCall.toolCallId,
-						toolId: toolCall.toolId,
-						error: 'Preview needs a valid URL or local site path.',
-					},
-				};
-			}
-
-			const title = getStringValue( toolCall.arguments, [ 'title', 'name' ] );
-			const previewBaseUrl = selectedDollySiteUrl ?? getSiteUrl( selectedSite );
-			if ( ! selectedDollySiteUrl && ! activeDollySiteId ) {
-				return {
-					toolResult: {
-						toolCallId: toolCall.toolCallId,
-						toolId: toolCall.toolId,
-						error: 'Preview needs a connected WordPress.com site.',
-					},
-				};
-			}
-
-			const normalizedUrl = normalizePreviewUrl( previewBaseUrl, requestedUrl, {
-				autoLoginSameOrigin: ! selectedDollySiteUrl,
-			} );
-			openPreview( requestedUrl, title, {
-				forceReload: shouldForcePreviewReload( toolCall.arguments ),
-			} );
-			const displayTitle = title || new URL( normalizedUrl ).host || normalizedUrl;
-			const message = sprintf( __( 'Opened preview: %s' ), displayTitle );
-
-			return {
-				toolResult: {
-					toolCallId: toolCall.toolCallId,
-					toolId: toolCall.toolId,
-					result: {
-						success: true,
-						url: normalizedUrl,
-						message,
-					},
-				},
-				agentMessage: message,
-			};
-		},
-		[ activeDollySiteId, openPreview, selectedDollySiteUrl, selectedSite ]
-	);
-
-	const submitPrompt = useCallback(
-		( chatMessage: string, isRetry?: boolean ) => {
-			const trimmedMessage = chatMessage.trim();
-			if ( ! trimmedMessage || ! client || ! activeDollySiteId || isAssistantThinking ) {
-				return;
-			}
-
-			if ( ! isRetry ) {
-				setInput( '' );
-			}
-
-			const newMessageId = isRetry ? messages.length - 1 : messages.length;
-			const message = generateMessage( trimmedMessage, 'user', newMessageId );
-
-			setMessages( ( currentMessages ) => {
-				if ( ! isRetry ) {
-					return [ ...currentMessages, message ];
-				}
-
-				return currentMessages.map( ( currentMessage ) =>
-					currentMessage.id === message.id
-						? { ...currentMessage, failedMessage: false }
-						: currentMessage
-				);
-			} );
-			setIsAssistantThinking( true );
-			const turnId = activeTurnIdRef.current + 1;
-			const requestSiteId = activeDollySiteId;
-			const requestSelectionRevision = selectionRevisionRef.current;
-			activeTurnIdRef.current = turnId;
-			const isCurrentTurn = () =>
-				activeTurnIdRef.current === turnId && activeDollySiteIdRef.current === requestSiteId;
-			const isRequestSiteStillActive = () => activeDollySiteIdRef.current === requestSiteId;
-
-			void ( async () => {
-				try {
-					const response = await sendDollyMessage( {
-						client,
-						executeFrontendTool,
-						message: trimmedMessage,
-						previewContext,
-						siteAssociation,
-						selectedSite,
-						sessionId,
-						siteId: activeDollySiteId,
-					} );
-
-					if ( ! isRequestSiteStillActive() ) {
-						return;
-					}
-
-					if ( response.sessionId ) {
-						setSessionId( response.sessionId );
-					}
-
-					if ( response.text.trim() ) {
-						setMessages( ( currentMessages ) => [
-							...currentMessages,
-							generateMessage( response.text, 'assistant', currentMessages.length ),
-						] );
-					}
-
-					void resolveBackendSelectedSiteId( client, response, sessionId ).then(
-						( backendSelectedSiteId ) => {
-							if ( isCurrentTurn() ) {
-								syncBackendSelectedDollySite( backendSelectedSiteId, requestSelectionRevision );
-							}
-						}
-					);
-				} catch ( error ) {
-					if ( ! isRequestSiteStillActive() ) {
-						return;
-					}
-					console.error( error );
-					setMessages( ( currentMessages ) =>
-						currentMessages.map( ( currentMessage ) =>
-							currentMessage.id === message.id
-								? { ...currentMessage, failedMessage: true }
-								: currentMessage
-						)
-					);
-				} finally {
-					setIsAssistantThinking( false );
-				}
-			} )();
-		},
-		[
-			client,
-			activeDollySiteId,
-			executeFrontendTool,
-			isAssistantThinking,
-			messages.length,
-			previewContext,
-			siteAssociation,
-			selectedSite,
-			sessionId,
-			syncBackendSelectedDollySite,
-		]
-	);
-
-	const clearConversation = useCallback( () => {
-		setInput( '' );
-		setMessages( [] );
-		setSessionId( undefined );
-	}, [] );
-
-	const renderNotice = () => {
-		if ( isOffline ) {
-			return <OfflineModeView />;
-		}
-		if ( isAuthenticated && messages.length > 0 ) {
-			return (
-				<ClearHistoryReminder lastMessage={ lastMessage } clearConversation={ clearConversation } />
-			);
-		}
-	};
-
-	const renderEmptyState = () => {
-		if ( ! isAuthenticated || messages.length > 0 ) {
-			return null;
-		}
-
-		let content: string = String( __( 'Loading Dolly…' ) );
-		if ( sitesError ) {
-			content = sitesError;
-		} else if ( isLoadingSites || isLoadingConnectedSites ) {
-			content = String( __( 'Loading Dolly…' ) );
-		} else if ( connectedSites.length === 0 ) {
-			content = String(
-				__(
-					'Publish this site to WordPress.com when you want Dolly to manage it. You can still ask Dolly questions about the local site.'
-				)
-			);
-		} else if ( ! activeDollySiteId ) {
-			content = String( __( 'Dolly did not return any WordPress.com sites for this account.' ) );
-		} else if ( connectedDollySites.length === 0 ) {
-			content = String(
-				__(
-					'This Studio site is connected to WordPress.com, but Dolly is not available for that site.'
-				)
-			);
-		} else if ( selectedDollySiteId ) {
-			content = String( __( 'Ask Dolly about this WordPress.com site.' ) );
-		}
-
-		return (
-			<ChatMessage
-				id="message-dolly-welcome"
-				message={ generateMessage( content, 'assistant', 0 ) }
-				instanceId={ instanceId }
-			>
-				{ content }
-			</ChatMessage>
-		);
-	};
-
-	const disabled =
-		isOffline ||
-		! isAuthenticated ||
-		! activeDollySiteId ||
-		isLoadingSites ||
-		isLoadingConnectedSites ||
-		isAssistantThinking ||
-		hasFailedMessage;
-	const showAssistantControls =
-		isAuthenticated &&
-		! isLoadingSites &&
-		! isLoadingConnectedSites &&
-		( connectedDollySites.length > 0 || ( isLocalOnlySite && dollySites.length > 0 ) );
-	const canShowPreview = Boolean(
-		selectedDollySiteUrl || ( isLocalOnlySite && activeDollySiteId )
-	);
-
-	return (
-		<div className="relative min-h-full flex overflow-hidden">
-			<div className="min-w-0 flex-1 flex flex-col" ref={ wrapperRef }>
-				{ showAssistantControls && (
-					<div className="px-8 pt-4 flex items-end gap-3">
-						<div className="min-w-0 flex-1">
-							{ connectedDollySites.length > 0 ? (
-								<SelectControl
-									label={ __( 'WordPress.com site' ) }
-									value={ String( selectedDollySiteId ?? '' ) }
-									options={ connectedDollySites.map( ( site ) => ( {
-										label: site.connectedSite.url
-											? `${ site.name } (${ site.connectedSite.url })`
-											: site.name,
-										value: String( site.id ),
-									} ) ) }
-									onChange={ ( value ) => setUserSelectedDollySiteId( Number( value ) ) }
-									__nextHasNoMarginBottom
-									__next40pxDefaultSize
-								/>
-							) : (
-								<div className="text-xs leading-4 text-frame-text-secondary">
-									<div className="a8c-label-semibold text-frame-text">{ selectedSite.name }</div>
-									{ __( 'Not connected to WordPress.com' ) }
-								</div>
-							) }
-						</div>
-						<Button
-							variant={ previewState.open ? 'primary' : 'secondary' }
-							disabled={ ! canShowPreview }
-							onClick={ () =>
-								previewState.open
-									? updatePreviewState( { open: false } )
-									: openPreview( previewState.pathOrUrl )
-							}
-							aria-pressed={ previewState.open }
-						>
-							<Icon icon={ desktop } size={ 18 } />
-							{ previewState.open ? __( 'Hide preview' ) : __( 'Show preview' ) }
-						</Button>
-					</div>
-				) }
-				<div
-					data-testid="assistant-chat"
-					className={ cx(
-						'min-h-0 flex-1 overflow-y-auto p-8 pb-2 flex flex-col-reverse',
-						! isAuthenticated && 'flex items-start'
-					) }
-				>
-					<div className="mt-auto w-full">
-						{ isAuthenticated ? (
-							<>
-								{ renderEmptyState() }
-								<AuthenticatedView
-									messages={ messages }
-									isAssistantThinking={ isAssistantThinking }
-									instanceId={ instanceId }
-									siteId={ selectedSite.id }
-									submitPrompt={ submitPrompt }
-									wrapperRef={ wrapperRef }
-								/>
-							</>
-						) : (
-							! isOffline && <UnauthenticatedView onAuthenticate={ authenticate } />
-						) }
-						{ renderNotice() }
-					</div>
-				</div>
-
-				<div className="sticky bottom-0 bg-frame/80 backdrop-blur-sm w-full px-8 pt-4 flex items-center">
-					<div className="w-full flex flex-col items-center">
-						<AIInput
-							ref={ inputRef }
-							disabled={ disabled }
-							input={ input }
-							setInput={ setInput }
-							handleSend={ () => {
-								submitPrompt( inputRef.current?.value ?? '' );
-							} }
-							handleKeyDown={ () => undefined }
-							clearConversation={ clearConversation }
-							isAssistantThinking={ isAssistantThinking }
-							showTelexLink={ false }
-						/>
-						<div data-testid="guidelines-link" className="text-frame-text-secondary self-end py-2">
-							{ __( 'Powered by Dolly.' ) }
-						</div>
-					</div>
-				</div>
-			</div>
-			{ previewState.open && (
-				<DollyPreviewPanelPortal>
-					<DollyPreviewPanel
-						selectedSite={ selectedSite }
-						previewMode={ previewMode }
-						previewState={ previewState }
-						previewUrl={ previewUrl }
-						onClose={ () => updatePreviewState( { open: false } ) }
-						onRefresh={ () =>
-							setPreviewState( ( currentState ) => ( {
-								...currentState,
-								isLoading: Boolean(
-									selectedDollySiteUrl ||
-										( isLocalOnlySite && activeDollySiteId && selectedSite.running )
-								),
-								reloadNonce: currentState.reloadNonce + 1,
-							} ) )
-						}
-						onStartSite={
-							previewMode === 'local' ? () => getIpcApi().startServer( selectedSite.id ) : undefined
-						}
-						onUpdateState={ updatePreviewState }
-					/>
-				</DollyPreviewPanelPortal>
-			) }
-		</div>
-	);
 }
 
 export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantProps ) {
@@ -3383,7 +2680,6 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 				<DollyPreviewPanelPortal>
 					<DollyPreviewPanel
 						selectedSite={ selectedSite }
-						previewMode="live"
 						previewState={ previewState }
 						previewUrl={ previewUrl }
 						onClose={ () => updatePreviewState( { open: false } ) }
@@ -3402,7 +2698,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 	);
 }
 
-export function WpcomAssistant( { selectedSite }: ContentTabAssistantProps ) {
+function WpcomAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	const inputRef = useRef< HTMLTextAreaElement >( null );
 	const wrapperRef = useRef< HTMLDivElement >( null );
 	const dispatch = useAppDispatch();

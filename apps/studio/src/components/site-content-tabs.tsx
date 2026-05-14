@@ -86,48 +86,43 @@ export function SiteContentTabs() {
 	}
 
 	return (
-		<div className="flex w-full h-full app-no-drag-region overflow-hidden">
-			<div className="min-w-0 flex flex-1 flex-col pt-8 overflow-y-auto">
-				<Header />
-				<TabPanel
-					className={ `mt-6 h-full flex flex-col overflow-hidden ${ MIN_WIDTH_CLASS_TO_MEASURE }` }
-					tabs={ tabs }
-					orientation="horizontal"
-					onSelect={ ( tabName ) => {
-						// Mark this as a user-initiated change BEFORE calling setSelectedTab
-						// so the useEffect can detect it was user-initiated
-						if ( tabName !== effectiveTab ) {
-							lastChangeWasUser.current = true;
-						}
-						setSelectedTab( tabName as TabName );
-					} }
-					initialTabName={ effectiveTab }
-					key={ `${ selectedSite.id }-${ keyCounter }-${ programmaticTab }` }
-				>
-					{ ( { name } ) => (
-						<div
-							className={ cx(
-								'h-full overflow-y-auto',
-								effectiveTab === 'assistant' && 'bg-frame-surface'
-							) }
-							style={ {
-								scrollbarWidth: 'thin',
-								scrollbarGutter: 'stable',
-							} }
-						>
-							{ name === 'overview' && <ContentTabOverview selectedSite={ selectedSite } /> }
-							{ name === 'previews' && <ContentTabPreviews selectedSite={ selectedSite } /> }
-							{ name === 'sync' && <ContentTabSync selectedSite={ selectedSite } /> }
-							{ name === 'settings' && <ContentTabSettings selectedSite={ selectedSite } /> }
-							{ name === 'assistant' && <ContentTabAssistant selectedSite={ selectedSite } /> }
-							{ name === 'import-export' && (
-								<ContentTabImportExport selectedSite={ selectedSite } />
-							) }
-						</div>
-					) }
-				</TabPanel>
-			</div>
-			<div id="assistant-preview-panel-root" className="h-full shrink-0" />
+		<div className="w-full h-full flex flex-col pt-8 overflow-y-auto app-no-drag-region">
+			<Header />
+			<TabPanel
+				className={ `mt-6 h-full flex flex-col overflow-hidden ${ MIN_WIDTH_CLASS_TO_MEASURE }` }
+				tabs={ tabs }
+				orientation="horizontal"
+				onSelect={ ( tabName ) => {
+					// Mark this as a user-initiated change BEFORE calling setSelectedTab
+					// so the useEffect can detect it was user-initiated
+					if ( tabName !== effectiveTab ) {
+						lastChangeWasUser.current = true;
+					}
+					setSelectedTab( tabName as TabName );
+				} }
+				initialTabName={ effectiveTab }
+				key={ `${ selectedSite.id }-${ keyCounter }-${ programmaticTab }` }
+			>
+				{ ( { name } ) => (
+					<div
+						className={ cx(
+							'h-full overflow-y-auto',
+							effectiveTab === 'assistant' && 'bg-frame-surface'
+						) }
+						style={ {
+							scrollbarWidth: 'thin',
+							scrollbarGutter: 'stable',
+						} }
+					>
+						{ name === 'overview' && <ContentTabOverview selectedSite={ selectedSite } /> }
+						{ name === 'previews' && <ContentTabPreviews selectedSite={ selectedSite } /> }
+						{ name === 'sync' && <ContentTabSync selectedSite={ selectedSite } /> }
+						{ name === 'settings' && <ContentTabSettings selectedSite={ selectedSite } /> }
+						{ name === 'assistant' && <ContentTabAssistant selectedSite={ selectedSite } /> }
+						{ name === 'import-export' && <ContentTabImportExport selectedSite={ selectedSite } /> }
+					</div>
+				) }
+			</TabPanel>
 		</div>
 	);
 }

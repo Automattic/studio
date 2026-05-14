@@ -1,3 +1,12 @@
+import {
+	createClient,
+	extractTextFromMessage,
+	type Ability,
+	type ContextProvider,
+	type Message as AgentticMessage,
+	type TaskUpdate,
+	type ToolProvider,
+} from '@automattic/agenttic-client';
 import { AgentUI } from '@automattic/agenttic-ui';
 import {
 	__unstableAnimatePresence as AnimatePresence,
@@ -52,6 +61,7 @@ import type { WPCOM } from 'wpcom/types';
 
 export const MIMIC_CONVERSATION_DELAY = 500;
 const DOLLY_AGENT_ID = 'dolly';
+const DOLLY_AGENT_URL_ORIGIN = 'https://public-api.wordpress.com/wpcom/v2';
 const DOLLY_HISTORY_CLIENT = 'wpworkspace';
 const DOLLY_HISTORY_BOT_ID = 'wpcom-agent-dolly';
 const DOLLY_PREVIEW_TOOL_ID = 'wpworkspace/preview';
@@ -60,7 +70,6 @@ const DOLLY_PREVIEW_PANEL_MIN_WIDTH = 360;
 const DOLLY_PREVIEW_PANEL_MAX_WIDTH = 820;
 const MAX_FRONTEND_TOOL_ROUNDS = 3;
 const DOLLY_REQUEST_TIMEOUT_MS = 90_000;
-const DOLLY_TOOL_CONTINUATION_TIMEOUT_MS = 15_000;
 const DOLLY_HISTORY_SUMMARY_ITEMS_PER_PAGE = 20;
 const DOLLY_HISTORY_CHAT_ITEMS_PER_PAGE = 100;
 const DOLLY_HISTORY_MAX_PAGES = 10;
@@ -78,6 +87,7 @@ type DollySite = {
 type DollyAgentResponse = {
 	text: string;
 	sessionId?: string;
+	resetSession?: boolean;
 	selectedSiteId?: number;
 	taskId: string;
 	state: string;
@@ -96,12 +106,17 @@ type AgentResponsePart = {
 	};
 };
 
-type AgentRequestPart = {
-	type: 'text' | 'data';
-	text?: string;
-	data?: Record< string, unknown >;
-	metadata?: Record< string, unknown >;
-};
+type AgentRequestPart =
+	| {
+			type: 'text';
+			text: string;
+			metadata?: Record< string, unknown >;
+	  }
+	| {
+			type: 'data';
+			data: Record< string, unknown >;
+			metadata?: Record< string, unknown >;
+	  };
 
 type DollyToolCall = {
 	toolCallId: string;
@@ -113,9 +128,15 @@ type DollyToolExecution = {
 	toolResult: {
 		toolCallId: string;
 		toolId: string;
-		result?: Record< string, unknown >;
+		result?: unknown;
 		error?: string;
 	};
+	agentMessage?: string;
+};
+
+type DollyToolProviderResult = {
+	result?: unknown;
+	returnToAgent?: boolean;
 	agentMessage?: string;
 };
 
@@ -864,30 +885,7 @@ const hydrateWpcomSiteAssistantSessionState = async (
 	);
 };
 
-const wpcomPost = async < T, >(
-	client: WPCOM,
-	path: string,
-	body: unknown,
-	timeoutMs = DOLLY_REQUEST_TIMEOUT_MS
-): Promise< T > =>
-	createWpcomRequest< T >( `Dolly request to ${ path }`, timeoutMs, ( resolve, reject ) => {
-		void client.req.post(
-			{
-				path,
-				apiNamespace: 'wpcom/v2',
-				body,
-			},
-			( error: Error | null, data: unknown ) => {
-				if ( error ) {
-					reject( error );
-					return;
-				}
-				resolve( data as T );
-			}
-		);
-	} );
-
-const normalizeToolId = ( value: string ) => value.trim().toLowerCase();
+const normalizeToolId = ( value: string ) => value.trim().toLowerCase().replace( /__/g, '/' );
 
 const isPreviewToolId = ( value: string ) =>
 	[ DOLLY_PREVIEW_TOOL_ID, 'wpstudio/preview', 'preview' ].includes( normalizeToolId( value ) );
@@ -950,7 +948,7 @@ const shouldForcePreviewReload = ( toolArguments: Record< string, unknown > ): b
 		'preview_needs_refresh',
 	] ) === true;
 
-const createDollyPreviewAbility = () => ( {
+const createDollyPreviewAbility = (): Ability => ( {
 	name: DOLLY_PREVIEW_TOOL_ID,
 	label: 'Preview URL',
 	description:
@@ -1025,162 +1023,260 @@ const createDollyClientContext = (
 	},
 } );
 
-const extractResponseParts = ( response: unknown ): AgentResponsePart[] => {
-	if ( ! isRecord( response ) || ! isRecord( response.result ) ) {
-		return [];
-	}
-	const status = response.result.status;
-	if (
-		! isRecord( status ) ||
-		! isRecord( status.message ) ||
-		! Array.isArray( status.message.parts )
-	) {
-		return [];
-	}
-
-	return status.message.parts.filter( isRecord ) as AgentResponsePart[];
-};
-
-const extractToolCalls = ( parts: AgentResponsePart[] ): DollyToolCall[] =>
-	parts
-		.map< DollyToolCall | undefined >( ( part ) => {
-			if ( part.type !== 'data' || ! isRecord( part.data ) ) {
-				return undefined;
-			}
-
-			const toolCallId =
-				typeof part.data.toolCallId === 'string'
-					? part.data.toolCallId
-					: typeof part.data.tool_call_id === 'string'
-					? part.data.tool_call_id
-					: undefined;
-			const toolId =
-				typeof part.data.toolId === 'string'
-					? part.data.toolId
-					: typeof part.data.tool_id === 'string'
-					? part.data.tool_id
-					: undefined;
-
-			if ( ! toolCallId || ! toolId ) {
-				return undefined;
-			}
-
-			return {
-				toolCallId,
-				toolId,
-				arguments: parseToolArguments( part.data.arguments ),
-			};
-		} )
-		.filter( ( toolCall ): toolCall is DollyToolCall => Boolean( toolCall ) );
-
-const parseDollyAgentResponse = (
-	response: unknown,
-	fallbackTaskId: string
-): DollyAgentResponse => {
-	if ( isRecord( response ) && isRecord( response.error ) ) {
-		const message =
-			typeof response.error.message === 'string'
-				? response.error.message
-				: 'Dolly returned an error.';
-		throw new Error( message );
-	}
-	if (
-		! isRecord( response ) ||
-		! isRecord( response.result ) ||
-		! isRecord( response.result.status )
-	) {
-		throw new Error( 'Invalid Dolly response' );
-	}
-
-	const parts = extractResponseParts( response );
-	const text = parts
-		.filter( ( part ) => part.type === 'text' && typeof part.text === 'string' )
-		.map( ( part ) => part.text )
-		.join( '\n' )
-		.trim();
-	const toolCalls = extractToolCalls( parts );
-
-	const fallbackText = toolCalls.length > 0 ? '' : __( 'Dolly did not return a text response.' );
-
-	return {
-		text: text || fallbackText,
-		sessionId:
-			typeof response.result.sessionId === 'string' ? response.result.sessionId : undefined,
-		selectedSiteId: extractBackendSelectedSiteId( response ),
-		taskId: typeof response.result.id === 'string' ? response.result.id : fallbackTaskId,
-		state:
-			typeof response.result.status.state === 'string' ? response.result.status.state : 'unknown',
-		toolCalls,
-	};
-};
-
-const createDollyMessageBody = ( {
-	taskId,
-	sessionId,
-	parts,
-}: {
-	taskId?: string;
-	sessionId?: string;
-	parts: AgentRequestPart[];
-} ) => ( {
-	jsonrpc: '2.0',
-	id: crypto.randomUUID(),
-	method: 'message/send',
-	params: {
-		...( taskId ? { id: taskId } : {} ),
-		...( sessionId ? { sessionId } : {} ),
-		message: {
-			role: 'user',
-			parts,
-		},
-	},
-} );
-
-const createDollyClientContextPart = (
+const createDollyContextProvider = (
 	siteId: number,
 	selectedSite: SyncSite,
 	previewContext?: DollyPreviewContext,
 	siteAssociation?: DollySiteAssociationContext
-): AgentRequestPart => ( {
+): ContextProvider => ( {
+	getClientContext: () =>
+		createDollyClientContext( siteId, selectedSite, previewContext, siteAssociation ),
+} );
+
+const createDollyAuthProvider = () => async (): Promise< Record< string, string > > => {
+	const token = await getIpcApi().getAuthenticationToken();
+	return token?.accessToken ? { Authorization: `Bearer ${ token.accessToken }` } : {};
+};
+
+const createDollyAgentUrl = ( siteId: number ) =>
+	`${ DOLLY_AGENT_URL_ORIGIN }/sites/${ siteId }/ai/agent`;
+
+const createDollyUserMessage = ( parts: AgentRequestPart[] ): AgentticMessage => ( {
+	role: 'user',
+	kind: 'message',
+	messageId: `msg-${ crypto.randomUUID() }`,
+	parts,
+} );
+
+const createDollyAbilityDataPart = ( ability: Ability ): AgentRequestPart => {
+	const abilityData = { ...ability } as Record< string, unknown >;
+	delete abilityData.callback;
+	delete abilityData.permissionCallback;
+
+	return {
+		type: 'data',
+		data: abilityData,
+	};
+};
+
+const createDollyToolProvider = (
+	executeFrontendTool: ( toolCall: DollyToolCall ) => Promise< DollyToolExecution >
+): ToolProvider => ( {
+	getAbilities: async () => [ createDollyPreviewAbility() ],
+	executeTool: async (
+		toolId,
+		args,
+		_messageId,
+		toolCallId
+	): Promise< DollyToolProviderResult > => {
+		const execution = await executeFrontendTool( {
+			toolCallId: toolCallId ?? crypto.randomUUID(),
+			toolId,
+			arguments: parseToolArguments( args ),
+		} );
+
+		if ( execution.toolResult.error ) {
+			return {
+				result: {
+					success: false,
+					error: execution.toolResult.error,
+				},
+				agentMessage: execution.agentMessage,
+			};
+		}
+
+		return {
+			result: execution.toolResult.result,
+			agentMessage: execution.agentMessage,
+		};
+	},
+} );
+
+const getDollyAbilityParts = async ( toolProvider: ToolProvider ): Promise< AgentRequestPart[] > =>
+	( await toolProvider.getAbilities?.() )?.map( createDollyAbilityDataPart ) ?? [];
+
+const normalizeDollyToolProviderResult = ( result: unknown ): DollyToolProviderResult => {
+	if ( isRecord( result ) && 'result' in result ) {
+		return result as DollyToolProviderResult;
+	}
+
+	return {
+		result,
+	};
+};
+
+const executeDollyToolCall = async (
+	toolProvider: ToolProvider,
+	toolCall: DollyToolCall
+): Promise< DollyToolExecution > => {
+	if ( ! toolProvider.executeTool ) {
+		return {
+			toolResult: {
+				toolCallId: toolCall.toolCallId,
+				toolId: toolCall.toolId,
+				error: `WordPress Studio does not provide a frontend ability named ${ toolCall.toolId }.`,
+			},
+		};
+	}
+
+	try {
+		const result = normalizeDollyToolProviderResult(
+			await toolProvider.executeTool(
+				toolCall.toolId,
+				toolCall.arguments,
+				undefined,
+				toolCall.toolCallId
+			)
+		);
+
+		return {
+			toolResult: {
+				toolCallId: toolCall.toolCallId,
+				toolId: toolCall.toolId,
+				result: result.result,
+			},
+			agentMessage: result.agentMessage,
+		};
+	} catch ( error ) {
+		return {
+			toolResult: {
+				toolCallId: toolCall.toolCallId,
+				toolId: toolCall.toolId,
+				error: error instanceof Error ? error.message : String( error ),
+			},
+		};
+	}
+};
+
+const extractResponseParts = ( response: TaskUpdate ): AgentResponsePart[] => {
+	const parts = response.status.message?.parts;
+	return Array.isArray( parts ) ? ( parts.filter( isRecord ) as AgentResponsePart[] ) : [];
+};
+
+const extractToolCalls = ( parts: AgentResponsePart[] ): DollyToolCall[] =>
+	Array.from(
+		parts
+			.reduce< Map< string, DollyToolCall > >( ( toolCalls, part ) => {
+				if ( part.type !== 'data' || ! isRecord( part.data ) ) {
+					return toolCalls;
+				}
+
+				if ( ! ( 'arguments' in part.data ) ) {
+					return toolCalls;
+				}
+
+				const toolCallId =
+					typeof part.data.toolCallId === 'string'
+						? part.data.toolCallId
+						: typeof part.data.tool_call_id === 'string'
+						? part.data.tool_call_id
+						: undefined;
+				const toolId =
+					typeof part.data.toolId === 'string'
+						? part.data.toolId
+						: typeof part.data.tool_id === 'string'
+						? part.data.tool_id
+						: undefined;
+
+				if ( ! toolCallId || ! toolId ) {
+					return toolCalls;
+				}
+
+				toolCalls.set( toolCallId, {
+					toolCallId,
+					toolId,
+					arguments: parseToolArguments( part.data.arguments ),
+				} );
+
+				return toolCalls;
+			}, new Map() )
+			.values()
+	);
+
+const createDollyToolCallPart = ( toolCall: DollyToolCall ): AgentRequestPart => ( {
 	type: 'data',
 	data: {
-		clientContext: createDollyClientContext(
-			siteId,
-			selectedSite,
-			previewContext,
-			siteAssociation
-		),
+		toolCallId: toolCall.toolCallId,
+		toolId: toolCall.toolId,
+		arguments: toolCall.arguments,
 	},
+} );
+
+const createDollyToolResultPart = ( execution: DollyToolExecution ): AgentRequestPart => ( {
+	type: 'data',
+	data: {
+		toolCallId: execution.toolResult.toolCallId,
+		toolId: execution.toolResult.toolId,
+		result: execution.toolResult.error
+			? {
+					success: false,
+					error: execution.toolResult.error,
+			  }
+			: execution.toolResult.result,
+	},
+	...( execution.toolResult.error ? { metadata: { error: execution.toolResult.error } } : {} ),
 } );
 
 const createDollyToolResultParts = (
 	toolCalls: DollyToolCall[],
 	executions: DollyToolExecution[]
-): AgentRequestPart[] => [
-	...toolCalls.map< AgentRequestPart >( ( toolCall ) => ( {
-		type: 'data',
-		data: {
-			toolCallId: toolCall.toolCallId,
-			toolId: toolCall.toolId,
-			arguments: toolCall.arguments,
+): AgentRequestPart[] => {
+	const executionsByToolCallId = executions.reduce< Map< string, DollyToolExecution > >(
+		( toolExecutions, execution ) => {
+			toolExecutions.set( execution.toolResult.toolCallId, execution );
+			return toolExecutions;
 		},
-	} ) ),
-	...executions.map< AgentRequestPart >( ( execution ) => ( {
-		type: 'data',
-		data: {
-			toolCallId: execution.toolResult.toolCallId,
-			toolId: execution.toolResult.toolId,
-			result: execution.toolResult.result,
-		},
-		...( execution.toolResult.error ? { metadata: { error: execution.toolResult.error } } : {} ),
-	} ) ),
-];
+		new Map()
+	);
+
+	return toolCalls.flatMap< AgentRequestPart >( ( toolCall ) => {
+		const execution = executionsByToolCallId.get( toolCall.toolCallId );
+		if ( ! execution ) {
+			return [];
+		}
+
+		return [ createDollyToolCallPart( toolCall ), createDollyToolResultPart( execution ) ];
+	} );
+};
 
 const combineDollyText = ( first: string, second: string ) =>
 	[ first.trim(), second.trim() ].filter( Boolean ).join( '\n\n' );
 
+const parseDollyTaskUpdate = (
+	response: TaskUpdate,
+	fallbackTaskId: string,
+	fallbackSessionId: string
+): DollyAgentResponse => {
+	if ( response.status.error ) {
+		throw new Error( response.status.error.message || 'Dolly returned an error.' );
+	}
+
+	const messageText = response.status.message
+		? extractTextFromMessage( response.status.message )
+		: response.text;
+	const text = messageText.trim();
+	const toolCalls = extractToolCalls( extractResponseParts( response ) );
+	const fallbackText = toolCalls.length > 0 ? '' : __( 'Dolly did not return a text response.' );
+
+	return {
+		text: text || fallbackText,
+		sessionId: response.sessionId ?? fallbackSessionId,
+		selectedSiteId: extractBackendSelectedSiteId( response ),
+		taskId: response.id || fallbackTaskId,
+		state: response.status.state,
+		toolCalls,
+	};
+};
+
+const isDollyToolResultProtocolError = ( error: unknown ) => {
+	const message = error instanceof Error ? error.message : String( error );
+	return (
+		message.includes( 'Tool calls without results' ) ||
+		message.includes( 'Protocol request error: Invalid message' )
+	);
+};
+
 const sendDollyMessage = async ( {
-	client,
 	executeFrontendTool,
 	message,
 	previewContext,
@@ -1189,7 +1285,6 @@ const sendDollyMessage = async ( {
 	sessionId,
 	siteId,
 }: {
-	client: WPCOM;
 	executeFrontendTool: ( toolCall: DollyToolCall ) => Promise< DollyToolExecution >;
 	message: string;
 	previewContext?: DollyPreviewContext;
@@ -1200,29 +1295,51 @@ const sendDollyMessage = async ( {
 } ): Promise< DollyAgentResponse > => {
 	const taskId = crypto.randomUUID();
 	const initialSessionId = sessionId ?? taskId;
-	const createClientContextPart = () =>
-		createDollyClientContextPart( siteId, selectedSite, previewContext, siteAssociation );
-	const initialParts: AgentRequestPart[] = [
-		{
-			type: 'text',
-			text: message,
-		},
-		{
-			type: 'data',
-			data: createDollyPreviewAbility(),
-		},
-		createClientContextPart(),
-	];
-
-	let response = parseDollyAgentResponse(
-		await wpcomPost< unknown >(
-			client,
-			`/sites/${ siteId }/ai/agent/${ DOLLY_AGENT_ID }`,
-			createDollyMessageBody( { taskId, sessionId: initialSessionId, parts: initialParts } )
-		),
-		taskId
+	const contextProvider = createDollyContextProvider(
+		siteId,
+		selectedSite,
+		previewContext,
+		siteAssociation
 	);
-	let currentSessionId = response.sessionId ?? initialSessionId;
+	const toolProvider = createDollyToolProvider( executeFrontendTool );
+	const agentClient = createClient( {
+		agentId: DOLLY_AGENT_ID,
+		agentUrl: createDollyAgentUrl( siteId ),
+		authProvider: createDollyAuthProvider(),
+		contextProvider,
+		timeout: DOLLY_REQUEST_TIMEOUT_MS,
+	} );
+	const sendInitialMessage = async ( nextTaskId: string, nextSessionId: string ) =>
+		parseDollyTaskUpdate(
+			await agentClient.sendMessage( {
+				message: createDollyUserMessage( [
+					{
+						type: 'text',
+						text: message,
+					},
+					...( await getDollyAbilityParts( toolProvider ) ),
+				] ),
+				sessionId: nextSessionId,
+				taskId: nextTaskId,
+			} ),
+			nextTaskId,
+			nextSessionId
+		);
+	// Keep Studio in charge of continuation so Dolly's final non-streaming text is preserved.
+	let response: DollyAgentResponse;
+	let effectiveInitialSessionId = initialSessionId;
+	try {
+		response = await sendInitialMessage( taskId, initialSessionId );
+	} catch ( error ) {
+		if ( ! sessionId || ! isDollyToolResultProtocolError( error ) ) {
+			throw error;
+		}
+
+		const freshTaskId = crypto.randomUUID();
+		effectiveInitialSessionId = freshTaskId;
+		response = await sendInitialMessage( freshTaskId, freshTaskId );
+	}
+	let currentSessionId = response.sessionId ?? effectiveInitialSessionId;
 	let currentSelectedSiteId = response.selectedSiteId;
 	let accumulatedText = response.text;
 
@@ -1236,29 +1353,27 @@ const sendDollyMessage = async ( {
 			};
 		}
 
-		const executions = await Promise.all( response.toolCalls.map( executeFrontendTool ) );
+		const executions = await Promise.all(
+			response.toolCalls.map( ( toolCall ) => executeDollyToolCall( toolProvider, toolCall ) )
+		);
 		const fallbackToolMessage = executions
 			.map( ( execution ) => execution.agentMessage )
 			.filter( ( value ): value is string => Boolean( value ) )
 			.join( '\n' );
 		const continuationParts = [
 			...createDollyToolResultParts( response.toolCalls, executions ),
-			createClientContextPart(),
+			...( await getDollyAbilityParts( toolProvider ) ),
 		];
 
 		try {
-			response = parseDollyAgentResponse(
-				await wpcomPost< unknown >(
-					client,
-					`/sites/${ siteId }/ai/agent/${ DOLLY_AGENT_ID }`,
-					createDollyMessageBody( {
-						taskId: response.taskId,
-						sessionId: currentSessionId,
-						parts: continuationParts,
-					} ),
-					DOLLY_TOOL_CONTINUATION_TIMEOUT_MS
-				),
-				response.taskId
+			response = parseDollyTaskUpdate(
+				await agentClient.sendMessage( {
+					message: createDollyUserMessage( continuationParts ),
+					sessionId: currentSessionId,
+					taskId: response.taskId,
+				} ),
+				response.taskId,
+				currentSessionId
 			);
 			currentSessionId = response.sessionId ?? currentSessionId;
 			currentSelectedSiteId = response.selectedSiteId ?? currentSelectedSiteId;
@@ -1268,7 +1383,8 @@ const sendDollyMessage = async ( {
 				return {
 					...response,
 					text: combineDollyText( accumulatedText, fallbackToolMessage ),
-					sessionId: currentSessionId,
+					sessionId: undefined,
+					resetSession: true,
 					selectedSiteId: response.selectedSiteId ?? currentSelectedSiteId,
 					toolCalls: [],
 				};
@@ -1390,7 +1506,10 @@ const cloneWpcomSiteAssistantSessionState = (
 ): WpcomSiteAssistantSessionState => ( {
 	...sessionState,
 	key: { ...sessionState.key },
-	messages: [ ...sessionState.messages ],
+	messages: sessionState.messages.map( ( message ) => {
+		const { failedMessage: _failedMessage, ...messageWithoutRuntimeState } = message;
+		return messageWithoutRuntimeState;
+	} ),
 	activeWpcomSite: { ...sessionState.activeWpcomSite },
 	previewState: { ...sessionState.previewState },
 } );
@@ -1433,7 +1552,12 @@ const normalizePersistedWpcomSiteAssistantSessionState = (
 		serverHydrationDisabled:
 			typeof value.serverHydrationDisabled === 'boolean' ? value.serverHydrationDisabled : false,
 		input: typeof value.input === 'string' ? value.input : '',
-		messages: Array.isArray( value.messages ) ? ( value.messages as MessageType[] ) : [],
+		messages: Array.isArray( value.messages )
+			? ( value.messages as MessageType[] ).map( ( message ) => {
+					const { failedMessage: _failedMessage, ...messageWithoutRuntimeState } = message;
+					return messageWithoutRuntimeState;
+			  } )
+			: [],
 		sessionId: typeof value.sessionId === 'string' ? value.sessionId : undefined,
 		activeWpcomSite: value.activeWpcomSite as SyncSite,
 		previewState: {
@@ -2154,6 +2278,16 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 	</ChatMessage>
 );
 
+const DollyEmptyView = ( {
+	onSuggestionClick: _onSuggestionClick,
+}: {
+	onSuggestionClick?: unknown;
+} ) => (
+	<div className="flex h-full items-end px-4 py-3 text-sm text-frame-text-secondary">
+		{ __( 'Ask Dolly about this WordPress.com site.' ) }
+	</div>
+);
+
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	const { enableStudioCodeUi } = useFeatureFlags();
 
@@ -2477,7 +2611,13 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 
 			setMessages( ( currentMessages ) => {
 				if ( ! isRetry ) {
-					return [ ...currentMessages, message ];
+					return [
+						...currentMessages.map( ( currentMessage ) => ( {
+							...currentMessage,
+							failedMessage: false,
+						} ) ),
+						message,
+					];
 				}
 
 				return currentMessages.map( ( currentMessage ) =>
@@ -2494,7 +2634,6 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 			void ( async () => {
 				try {
 					const response = await sendDollyMessage( {
-						client,
 						executeFrontendTool,
 						message: trimmedMessage,
 						previewContext,
@@ -2508,7 +2647,9 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 						return;
 					}
 
-					if ( response.sessionId ) {
+					if ( response.resetSession ) {
+						setSessionId( undefined );
+					} else if ( response.sessionId ) {
 						setSessionId( response.sessionId );
 					}
 
@@ -2519,13 +2660,18 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 						] );
 					}
 
-					void resolveBackendSelectedSiteId( client, response, sessionId ).then(
-						( backendSelectedSiteId ) => {
-							if ( isCurrentTurn() ) {
-								void syncBackendActiveWpcomSite( backendSelectedSiteId, requestSelectionRevision );
+					if ( ! response.resetSession ) {
+						void resolveBackendSelectedSiteId( client, response, sessionId ).then(
+							( backendSelectedSiteId ) => {
+								if ( isCurrentTurn() ) {
+									void syncBackendActiveWpcomSite(
+										backendSelectedSiteId,
+										requestSelectionRevision
+									);
+								}
 							}
-						}
-					);
+						);
+					}
 				} catch ( error ) {
 					if ( ! isMountedRef.current ) {
 						return;
@@ -2682,14 +2828,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		[ confirmAndClearConversation, messages.length ]
 	);
 
-	const dollyEmptyView = useMemo(
-		() => (
-			<div className="flex h-full items-end px-4 py-3 text-sm text-frame-text-secondary">
-				{ __( 'Ask Dolly about this WordPress.com site.' ) }
-			</div>
-		),
-		[]
-	);
+	const dollyEmptyView = useMemo( () => <DollyEmptyView />, [] );
 
 	const renderConversationReminder = () => {
 		if ( isAuthenticated && messages.length > 0 ) {
@@ -2699,8 +2838,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		}
 	};
 
-	const disabled =
-		isOffline || ! isAuthenticated || ! client || isAssistantThinking || hasFailedMessage;
+	const disabled = isOffline || ! isAuthenticated || ! client || isAssistantThinking;
 	const agentticInputDisabled = disabled ? true : undefined;
 	const handleDollyInputKeyDown = useCallback(
 		( event: React.KeyboardEvent< HTMLTextAreaElement > ) => {

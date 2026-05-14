@@ -219,6 +219,56 @@ describe( 'ContentTabAssistant', () => {
 			.queryAllByText( text )
 			.find( ( element ) => element.closest( '[data-slot="messages"]' ) ) ?? null;
 
+	type DollyFetchHandler = ( args: {
+		body: {
+			params?: {
+				id?: string;
+				sessionId?: string;
+				message?: { parts?: Array< { text?: string; data?: Record< string, unknown > } > };
+			};
+		};
+		init: RequestInit;
+		url: string;
+		callIndex: number;
+	} ) => unknown | Promise< unknown >;
+
+	const createDollyFetchResponse = ( data: unknown ) =>
+		new Response( JSON.stringify( data ), {
+			status: 200,
+			headers: {
+				'Content-Type': 'application/json',
+			},
+		} );
+
+	const mockDollyFetch = ( handler: DollyFetchHandler ) => {
+		const requestBodies: Array< Parameters< DollyFetchHandler >[ 0 ][ 'body' ] > = [];
+		const requestUrls: string[] = [];
+		const fetchMock = vi.fn( async ( input: RequestInfo | URL, init?: RequestInit ) => {
+			const url = String( input );
+			const body = JSON.parse( String( init?.body ?? '{}' ) );
+			const callIndex = requestBodies.length;
+			requestBodies.push( body );
+			requestUrls.push( url );
+
+			return createDollyFetchResponse(
+				await handler( {
+					body,
+					init: init ?? {},
+					url,
+					callIndex,
+				} )
+			);
+		} );
+
+		vi.stubGlobal( 'fetch', fetchMock );
+
+		return {
+			fetchMock,
+			requestBodies,
+			requestUrls,
+		};
+	};
+
 	beforeAll( () => {
 		nock.cleanAll();
 		mockAssistantChat();
@@ -253,6 +303,14 @@ describe( 'ContentTabAssistant', () => {
 		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 			showMessageBox: vi.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ),
 			executeWPCLiInline: vi.fn().mockResolvedValue( { stdout: '', stderr: 'Error' } ),
+			getAuthenticationToken: vi.fn().mockResolvedValue( {
+				accessToken: 'test-token',
+				expiresIn: 1209600,
+				expirationTime: Date.now() + 1209600000,
+				id: 1,
+				email: 'test@example.com',
+				displayName: 'Test User',
+			} ),
 			getConnectedWpcomSites: vi.fn().mockResolvedValue( [
 				{
 					id: 123,
@@ -268,10 +326,17 @@ describe( 'ContentTabAssistant', () => {
 			] ),
 			openURL: vi.fn(),
 		} );
+		vi.stubGlobal(
+			'fetch',
+			vi.fn( async () => {
+				throw new Error( 'Unexpected fetch request' );
+			} )
+		);
 		vi.mocked( useGetWpVersion ).mockReturnValue( [ '6.4.3', vi.fn() ] );
 	} );
 
 	afterAll( () => {
+		vi.unstubAllGlobals();
 		nock.cleanAll();
 	} );
 
@@ -301,50 +366,24 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	it( 'starts a fresh Dolly backend session when the selected WP.com site changes', async () => {
-		const dollyClient = {
-			req: {
-				post: vi
-					.fn()
-					.mockImplementationOnce( ( _params, callback ) => {
-						callback( null, {
-							result: {
-								id: 'task-1',
-								sessionId: 'session-for-first-site',
-								status: {
-									state: 'completed',
-									message: {
-										parts: [
-											{
-												type: 'text',
-												text: 'First site response',
-											},
-										],
-									},
-								},
+		const { fetchMock, requestBodies, requestUrls } = mockDollyFetch( ( { callIndex } ) => ( {
+			result: {
+				id: callIndex === 0 ? 'task-1' : 'task-2',
+				sessionId: callIndex === 0 ? 'session-for-first-site' : 'session-for-second-site',
+				status: {
+					state: 'completed',
+					message: {
+						parts: [
+							{
+								type: 'text',
+								text: callIndex === 0 ? 'First site response' : 'Second site response',
 							},
-						} );
-					} )
-					.mockImplementationOnce( ( _params, callback ) => {
-						callback( null, {
-							result: {
-								id: 'task-2',
-								sessionId: 'session-for-second-site',
-								status: {
-									state: 'completed',
-									message: {
-										parts: [
-											{
-												type: 'text',
-												text: 'Second site response',
-											},
-										],
-									},
-								},
-							},
-						} );
-					} ),
+						],
+					},
+				},
 			},
-		} as unknown as WPCOM;
+		} ) );
+		const dollyClient = { req: {} } as unknown as WPCOM;
 
 		const { rerender } = renderWithContext( {
 			component: 'wpcom-site',
@@ -380,67 +419,57 @@ describe( 'ContentTabAssistant', () => {
 			expect( getChatMessageText( 'Second site response' ) ).toBeVisible();
 		} );
 
-		const secondRequest = vi.mocked( dollyClient.req.post ).mock.calls[ 1 ][ 0 ] as {
-			path: string;
-			body: {
-				params: {
-					id?: string;
-					sessionId?: string;
-					message: {
-						parts: Array< {
-							data?: { clientContext?: { selectedSiteId?: number } };
-						} >;
-					};
-				};
-			};
-		};
-		const secondClientContextPart = secondRequest.body.params.message.parts.find(
+		const secondRequest = requestBodies[ 1 ];
+		const secondClientContextPart = secondRequest.params?.message?.parts?.find(
 			( part ) => part.data?.clientContext
 		);
+		const secondRequestHeaders = fetchMock.mock.calls[ 1 ][ 1 ]?.headers as Record<
+			string,
+			string
+		>;
 
-		expect( secondRequest.path ).toBe( '/sites/456/ai/agent/dolly' );
-		expect( secondRequest.body.params.sessionId ).toBe( secondRequest.body.params.id );
-		expect( secondClientContextPart?.data?.clientContext?.selectedSiteId ).toBe( 456 );
+		expect( requestUrls[ 1 ] ).toBe(
+			'https://public-api.wordpress.com/wpcom/v2/sites/456/ai/agent/dolly'
+		);
+		expect( secondRequestHeaders.Authorization ).toBe( 'Bearer test-token' );
+		expect( secondRequest.params?.sessionId ).toBe( secondRequest.params?.id );
+		expect(
+			( secondClientContextPart?.data?.clientContext as { selectedSiteId?: number } | undefined )
+				?.selectedSiteId
+		).toBe( 456 );
 	} );
 
 	it( 'does not cache the previous WP.com-only session under the next selected site', async () => {
-		const requestBodies: unknown[] = [];
+		const { requestBodies } = mockDollyFetch( ( { body, callIndex } ) => {
+			const textPart = body.params?.message?.parts?.find(
+				( part ) => typeof part.text === 'string'
+			);
+			const messageText = textPart?.text;
+			const selectedSiteId = messageText === 'Second hello' ? 456 : 123;
+
+			return {
+				result: {
+					id: `task-${ callIndex + 1 }`,
+					sessionId: selectedSiteId === 456 ? 'session-second' : 'session-first',
+					selectedSiteId,
+					status: {
+						state: 'completed',
+						message: {
+							parts: [
+								{
+									type: 'text',
+									text: `${ messageText } response`,
+								},
+							],
+						},
+					},
+				},
+			};
+		} );
 		const dollyClient = {
 			req: {
 				get: vi.fn( ( _params, callback ) => {
 					callback( null, [] );
-				} ),
-				post: vi.fn( ( params, callback ) => {
-					requestBodies.push( params.body );
-					const body = params.body as {
-						params?: {
-							message?: { parts?: Array< { text?: string } > };
-						};
-					};
-					const textPart = body.params?.message?.parts?.find(
-						( part ) => typeof part.text === 'string'
-					);
-					const messageText = textPart?.text;
-					const selectedSiteId = messageText === 'Second hello' ? 456 : 123;
-
-					callback( null, {
-						result: {
-							id: `task-${ requestBodies.length }`,
-							sessionId: selectedSiteId === 456 ? 'session-second' : 'session-first',
-							selectedSiteId,
-							status: {
-								state: 'completed',
-								message: {
-									parts: [
-										{
-											type: 'text',
-											text: `${ messageText } response`,
-										},
-									],
-								},
-							},
-						},
-					} );
 				} ),
 			},
 		} as unknown as WPCOM;
@@ -491,46 +520,38 @@ describe( 'ContentTabAssistant', () => {
 			expect( getChatMessageText( 'Second hello response' ) ).toBeVisible();
 		} );
 
-		const secondRequest = requestBodies[ 1 ] as {
-			params?: {
-				id?: string;
-				sessionId?: string;
-				message?: { parts?: Array< { data?: unknown } > };
-			};
-		};
+		const secondRequest = requestBodies[ 1 ];
 		expect( secondRequest.params?.sessionId ).toBe( secondRequest.params?.id );
 	} );
 
 	it( 'renders a completed Dolly response in the WP.com-only live site chat', async () => {
+		mockDollyFetch( () => ( {
+			jsonrpc: '2.0',
+			id: 'rpc-1',
+			result: {
+				id: 'task-1',
+				status: {
+					state: 'completed',
+					message: {
+						kind: 'message',
+						messageId: 'msg-1',
+						role: 'agent',
+						parts: [
+							{
+								type: 'text',
+								text: "hey Big D \u{1f44b} what's up?",
+							},
+						],
+					},
+					timestamp: '2026-05-14T13:20:16+00:00',
+				},
+				sessionId: 'session-1',
+			},
+		} ) );
 		const dollyClient = {
 			req: {
 				get: vi.fn( ( _params, callback ) => {
 					callback( null, [] );
-				} ),
-				post: vi.fn( ( _params, callback ) => {
-					callback( null, {
-						jsonrpc: '2.0',
-						id: 'rpc-1',
-						result: {
-							id: 'task-1',
-							status: {
-								state: 'completed',
-								message: {
-									kind: 'message',
-									messageId: 'msg-1',
-									role: 'agent',
-									parts: [
-										{
-											type: 'text',
-											text: "hey Big D \u{1f44b} what's up?",
-										},
-									],
-								},
-								timestamp: '2026-05-14T13:20:16+00:00',
-							},
-							sessionId: 'session-1',
-						},
-					} );
 				} ),
 			},
 		} as unknown as WPCOM;
@@ -555,6 +576,24 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	it( 'updates the active WP.com-only site when Dolly reports a backend site change', async () => {
+		mockDollyFetch( () => ( {
+			result: {
+				id: 'task-1',
+				sessionId: 'session-1',
+				selectedSiteId: 456,
+				status: {
+					state: 'completed',
+					message: {
+						parts: [
+							{
+								type: 'text',
+								text: 'Now working on the second site.',
+							},
+						],
+					},
+				},
+			},
+		} ) );
 		const dollyClient = {
 			req: {
 				get: vi.fn( ( _params, callback ) => {
@@ -571,26 +610,6 @@ describe( 'ContentTabAssistant', () => {
 								primary_domain: 'second-dolly.example',
 							},
 						],
-					} );
-				} ),
-				post: vi.fn( ( _params, callback ) => {
-					callback( null, {
-						result: {
-							id: 'task-1',
-							sessionId: 'session-1',
-							selectedSiteId: 456,
-							status: {
-								state: 'completed',
-								message: {
-									parts: [
-										{
-											type: 'text',
-											text: 'Now working on the second site.',
-										},
-									],
-								},
-							},
-						},
 					} );
 				} ),
 			},
@@ -638,49 +657,41 @@ describe( 'ContentTabAssistant', () => {
 	} );
 
 	it( 'preserves WP.com-only chat state and Dolly session per selected live site', async () => {
-		const requestBodies: unknown[] = [];
+		const { requestBodies } = mockDollyFetch( ( { body, callIndex } ) => {
+			const textPart = body.params?.message?.parts?.find(
+				( part ) => typeof part.text === 'string'
+			);
+			const messageText = textPart?.text;
+			const selectedSiteId = messageText === 'Second hello' ? 456 : 123;
+			const sessionId = selectedSiteId === 456 ? 'session-second' : 'session-first';
+			const responseText =
+				messageText === 'Follow up first'
+					? 'First follow-up response'
+					: `${ messageText } response`;
+
+			return {
+				result: {
+					id: `task-${ callIndex + 1 }`,
+					sessionId,
+					selectedSiteId,
+					status: {
+						state: 'completed',
+						message: {
+							parts: [
+								{
+									type: 'text',
+									text: responseText,
+								},
+							],
+						},
+					},
+				},
+			};
+		} );
 		const dollyClient = {
 			req: {
 				get: vi.fn( ( _params, callback ) => {
 					callback( null, [] );
-				} ),
-				post: vi.fn( ( params, callback ) => {
-					requestBodies.push( params.body );
-					const body = params.body as {
-						params?: {
-							sessionId?: string;
-							message?: { parts?: Array< { text?: string } > };
-						};
-					};
-					const textPart = body.params?.message?.parts?.find(
-						( part ) => typeof part.text === 'string'
-					);
-					const messageText = textPart?.text;
-					const selectedSiteId = messageText === 'Second hello' ? 456 : 123;
-					const sessionId = selectedSiteId === 456 ? 'session-second' : 'session-first';
-					const responseText =
-						messageText === 'Follow up first'
-							? 'First follow-up response'
-							: `${ messageText } response`;
-
-					callback( null, {
-						result: {
-							id: `task-${ requestBodies.length }`,
-							sessionId,
-							selectedSiteId,
-							status: {
-								state: 'completed',
-								message: {
-									parts: [
-										{
-											type: 'text',
-											text: responseText,
-										},
-									],
-								},
-							},
-						},
-					} );
 				} ),
 			},
 		} as unknown as WPCOM;
@@ -745,48 +756,41 @@ describe( 'ContentTabAssistant', () => {
 			expect( getChatMessageText( 'First follow-up response' ) ).toBeVisible();
 		} );
 
-		const followUpRequest = requestBodies[ 2 ] as { params?: { sessionId?: string } };
+		const followUpRequest = requestBodies[ 2 ];
 		expect( followUpRequest.params?.sessionId ).toBe( 'session-first' );
 	} );
 
 	it( 'clears the WP.com-only chat state and starts the next Dolly turn without a session', async () => {
 		localStorage.setItem( 'dontShowClearMessagesWarning', 'true' );
-		const requestBodies: unknown[] = [];
+		const { requestBodies } = mockDollyFetch( ( { body, callIndex } ) => {
+			const textPart = body.params?.message?.parts?.find(
+				( part ) => typeof part.text === 'string'
+			);
+			const messageText = textPart?.text;
+
+			return {
+				result: {
+					id: `task-${ callIndex + 1 }`,
+					sessionId: `session-${ callIndex + 1 }`,
+					selectedSiteId: 123,
+					status: {
+						state: 'completed',
+						message: {
+							parts: [
+								{
+									type: 'text',
+									text: `${ messageText } response`,
+								},
+							],
+						},
+					},
+				},
+			};
+		} );
 		const dollyClient = {
 			req: {
 				get: vi.fn( ( _params, callback ) => {
 					callback( null, [] );
-				} ),
-				post: vi.fn( ( params, callback ) => {
-					requestBodies.push( params.body );
-					const body = params.body as {
-						params?: {
-							message?: { parts?: Array< { text?: string } > };
-						};
-					};
-					const textPart = body.params?.message?.parts?.find(
-						( part ) => typeof part.text === 'string'
-					);
-					const messageText = textPart?.text;
-
-					callback( null, {
-						result: {
-							id: `task-${ requestBodies.length }`,
-							sessionId: `session-${ requestBodies.length }`,
-							selectedSiteId: 123,
-							status: {
-								state: 'completed',
-								message: {
-									parts: [
-										{
-											type: 'text',
-											text: `${ messageText } response`,
-										},
-									],
-								},
-							},
-						},
-					} );
 				} ),
 			},
 		} as unknown as WPCOM;
@@ -819,7 +823,7 @@ describe( 'ContentTabAssistant', () => {
 			expect( getChatMessageText( 'Fresh hello response' ) ).toBeVisible();
 		} );
 
-		const freshRequest = requestBodies[ 1 ] as { params?: { id?: string; sessionId?: string } };
+		const freshRequest = requestBodies[ 1 ];
 		expect( freshRequest.params?.sessionId ).toBe( freshRequest.params?.id );
 	} );
 
@@ -849,7 +853,24 @@ describe( 'ContentTabAssistant', () => {
 			} )
 		);
 
-		const requestBodies: unknown[] = [];
+		const { requestBodies } = mockDollyFetch( () => ( {
+			result: {
+				id: 'task-1',
+				sessionId: 'server-session',
+				selectedSiteId: 123,
+				status: {
+					state: 'completed',
+					message: {
+						parts: [
+							{
+								type: 'text',
+								text: 'Continuation answer',
+							},
+						],
+					},
+				},
+			},
+		} ) );
 		const dollyClient = {
 			req: {
 				get: vi.fn( ( params, callback ) => {
@@ -944,27 +965,6 @@ describe( 'ContentTabAssistant', () => {
 
 					callback( null, [] );
 				} ),
-				post: vi.fn( ( params, callback ) => {
-					requestBodies.push( params.body );
-					callback( null, {
-						result: {
-							id: 'task-1',
-							sessionId: 'server-session',
-							selectedSiteId: 123,
-							status: {
-								state: 'completed',
-								message: {
-									parts: [
-										{
-											type: 'text',
-											text: 'Continuation answer',
-										},
-									],
-								},
-							},
-						},
-					} );
-				} ),
 			},
 		} as unknown as WPCOM;
 
@@ -1002,12 +1002,29 @@ describe( 'ContentTabAssistant', () => {
 			expect( getChatMessageText( 'Continuation answer' ) ).toBeVisible();
 		} );
 
-		const continuationRequest = requestBodies[ 0 ] as { params?: { sessionId?: string } };
+		const continuationRequest = requestBodies[ 0 ];
 		expect( continuationRequest.params?.sessionId ).toBe( 'server-session' );
 	} );
 
 	it( 'starts a fresh WP.com-only session on first send even when server history exists', async () => {
-		const requestBodies: unknown[] = [];
+		const { requestBodies } = mockDollyFetch( () => ( {
+			result: {
+				id: 'task-1',
+				sessionId: 'fresh-server-session',
+				selectedSiteId: 123,
+				status: {
+					state: 'completed',
+					message: {
+						parts: [
+							{
+								type: 'text',
+								text: 'Fresh answer',
+							},
+						],
+					},
+				},
+			},
+		} ) );
 		const dollyClient = {
 			req: {
 				get: vi.fn( ( params, callback ) => {
@@ -1037,27 +1054,6 @@ describe( 'ContentTabAssistant', () => {
 
 					callback( null, [] );
 				} ),
-				post: vi.fn( ( params, callback ) => {
-					requestBodies.push( params.body );
-					callback( null, {
-						result: {
-							id: 'task-1',
-							sessionId: 'fresh-server-session',
-							selectedSiteId: 123,
-							status: {
-								state: 'completed',
-								message: {
-									parts: [
-										{
-											type: 'text',
-											text: 'Fresh answer',
-										},
-									],
-								},
-							},
-						},
-					} );
-				} ),
 			},
 		} as unknown as WPCOM;
 
@@ -1080,7 +1076,7 @@ describe( 'ContentTabAssistant', () => {
 			expect( getChatMessageText( 'Fresh answer' ) ).toBeVisible();
 		} );
 
-		const firstRequest = requestBodies[ 0 ] as { params?: { id?: string; sessionId?: string } };
+		const firstRequest = requestBodies[ 0 ];
 		expect( firstRequest.params?.id ).toMatch(
 			/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 		);
@@ -1088,58 +1084,200 @@ describe( 'ContentTabAssistant', () => {
 		expect( firstRequest.params?.sessionId ).toBe( firstRequest.params?.id );
 	} );
 
-	it( 'does not reload the WP.com-only preview for same-url preview tool calls without a site change', async () => {
+	it( 'recovers with a fresh Dolly session when a cached session has unresolved tool calls', async () => {
+		localStorage.setItem(
+			LOCAL_STORAGE_DOLLY_WPCOM_SITE_CONVERSATIONS_KEY,
+			JSON.stringify( {
+				'wpcom-site:123': {
+					id: 'local:poisoned',
+					key: {
+						siteId: 123,
+						agentId: 'dolly',
+					},
+					input: '',
+					messages: [ generateMessage( 'Previous question', 'user', 0 ) ],
+					sessionId: 'poisoned-session',
+					activeWpcomSite: firstWpcomSite,
+					previewState: {
+						open: false,
+						pathOrUrl: '/',
+						isLoading: false,
+						reloadNonce: 0,
+					},
+					lastUpdated: Date.now(),
+				},
+			} )
+		);
+		const { requestBodies } = mockDollyFetch( ( { callIndex } ) =>
+			callIndex === 0
+				? {
+						error: {
+							code: -32600,
+							message: 'Invalid message: Tool calls without results: toolu_123',
+						},
+				  }
+				: {
+						result: {
+							id: 'fresh-task',
+							sessionId: 'fresh-session',
+							selectedSiteId: 123,
+							status: {
+								state: 'completed',
+								message: {
+									parts: [
+										{
+											type: 'text',
+											text: 'Recovered answer',
+										},
+									],
+								},
+							},
+						},
+				  }
+		);
 		const dollyClient = {
 			req: {
 				get: vi.fn( ( _params, callback ) => {
 					callback( null, [] );
 				} ),
-				post: vi
-					.fn()
-					.mockImplementationOnce( ( _params, callback ) => {
-						callback( null, {
-							result: {
-								id: 'task-1',
-								sessionId: 'session-1',
-								status: {
-									state: 'input-required',
-									message: {
-										parts: [
-											{
-												type: 'data',
-												data: {
-													toolCallId: 'tool-call-1',
-													toolId: 'wpworkspace/preview',
-													arguments: {
-														url: '/',
-													},
+			},
+		} as unknown as WPCOM;
+
+		renderWithContext( {
+			component: 'wpcom-site',
+			selectedWpcomSite: firstWpcomSite,
+			auth: {
+				client: dollyClient,
+			},
+		} );
+
+		fireEvent.change( getInput(), { target: { value: 'Recover this chat' } } );
+		fireEvent.keyDown( getInput(), { key: 'Enter', code: 'Enter' } );
+
+		await waitFor( () => {
+			expect( getChatMessageText( 'Recovered answer' ) ).toBeVisible();
+		} );
+
+		expect( requestBodies[ 0 ].params?.sessionId ).toBe( 'poisoned-session' );
+		expect( requestBodies[ 1 ].params?.sessionId ).toBe( requestBodies[ 1 ].params?.id );
+		expect( requestBodies[ 1 ].params?.sessionId ).not.toBe( 'poisoned-session' );
+	} );
+
+	it( 'keeps the WP.com-only input usable after a Dolly request error', async () => {
+		const { requestBodies } = mockDollyFetch( ( { callIndex } ) =>
+			callIndex === 0
+				? {
+						error: {
+							code: -32603,
+							message: 'Dolly failed.',
+						},
+				  }
+				: {
+						result: {
+							id: 'task-2',
+							sessionId: 'session-2',
+							selectedSiteId: 123,
+							status: {
+								state: 'completed',
+								message: {
+									parts: [
+										{
+											type: 'text',
+											text: 'Second answer',
+										},
+									],
+								},
+							},
+						},
+				  }
+		);
+		const dollyClient = {
+			req: {
+				get: vi.fn( ( _params, callback ) => {
+					callback( null, [] );
+				} ),
+			},
+		} as unknown as WPCOM;
+
+		renderWithContext( {
+			component: 'wpcom-site',
+			selectedWpcomSite: firstWpcomSite,
+			auth: {
+				client: dollyClient,
+			},
+		} );
+
+		fireEvent.change( getInput(), { target: { value: 'This fails' } } );
+		fireEvent.keyDown( getInput(), { key: 'Enter', code: 'Enter' } );
+
+		await waitFor( () => {
+			expect( screen.getByText( "Oops! We couldn't get a response from Dolly." ) ).toBeVisible();
+		} );
+		expect( getInput() ).toBeEnabled();
+		await waitFor( () => {
+			expect(
+				localStorage.getItem( LOCAL_STORAGE_DOLLY_WPCOM_SITE_CONVERSATIONS_KEY )
+			).not.toContain( 'failedMessage' );
+		} );
+
+		fireEvent.change( getInput(), { target: { value: 'Try a different message' } } );
+		fireEvent.keyDown( getInput(), { key: 'Enter', code: 'Enter' } );
+
+		await waitFor( () => {
+			expect( getChatMessageText( 'Second answer' ) ).toBeVisible();
+		} );
+		expect( requestBodies ).toHaveLength( 2 );
+	} );
+
+	it( 'does not reload the WP.com-only preview for same-url preview tool calls without a site change', async () => {
+		const { requestBodies } = mockDollyFetch( ( { callIndex } ) =>
+			callIndex === 0
+				? {
+						result: {
+							id: 'task-1',
+							sessionId: 'session-1',
+							status: {
+								state: 'input-required',
+								message: {
+									parts: [
+										{
+											type: 'data',
+											data: {
+												toolCallId: 'tool-call-1',
+												toolId: 'wpworkspace__preview',
+												arguments: {
+													url: '/',
 												},
 											},
-										],
-									},
+										},
+									],
 								},
 							},
-						} );
-					} )
-					.mockImplementationOnce( ( _params, callback ) => {
-						callback( null, {
-							result: {
-								id: 'task-1',
-								sessionId: 'session-1',
-								status: {
-									state: 'completed',
-									message: {
-										parts: [
-											{
-												type: 'text',
-												text: 'The preview is already open.',
-											},
-										],
-									},
+						},
+				  }
+				: {
+						result: {
+							id: 'task-1',
+							sessionId: 'session-1',
+							status: {
+								state: 'completed',
+								message: {
+									parts: [
+										{
+											type: 'text',
+											text: 'The preview is already open.',
+										},
+									],
 								},
 							},
-						} );
-					} ),
+						},
+				  }
+		);
+		const dollyClient = {
+			req: {
+				get: vi.fn( ( _params, callback ) => {
+					callback( null, [] );
+				} ),
 			},
 		} as unknown as WPCOM;
 
@@ -1161,61 +1299,121 @@ describe( 'ContentTabAssistant', () => {
 			expect( getChatMessageText( 'The preview is already open.' ) ).toBeVisible();
 		} );
 		expect( screen.getByTitle( 'Dolly Site preview' ) ).toBe( initialPreview );
+
+		const initialParts = requestBodies[ 0 ].params?.message?.parts ?? [];
+		expect( initialParts ).toEqual(
+			expect.arrayContaining( [
+				expect.objectContaining( {
+					type: 'data',
+					data: expect.objectContaining( {
+						name: 'wpworkspace/preview',
+						label: 'Preview URL',
+					} ),
+				} ),
+				expect.objectContaining( {
+					type: 'data',
+					data: expect.objectContaining( {
+						clientContext: expect.objectContaining( {
+							frontendAbilities: [ 'wpworkspace/preview' ],
+						} ),
+					} ),
+				} ),
+			] )
+		);
+
+		const continuationParts = requestBodies[ 1 ].params?.message?.parts ?? [];
+		expect( continuationParts ).toEqual(
+			expect.arrayContaining( [
+				expect.objectContaining( {
+					type: 'data',
+					data: expect.objectContaining( {
+						toolCallId: 'tool-call-1',
+						toolId: 'wpworkspace__preview',
+						arguments: {
+							url: '/',
+						},
+					} ),
+				} ),
+				expect.objectContaining( {
+					type: 'data',
+					data: expect.objectContaining( {
+						toolCallId: 'tool-call-1',
+						toolId: 'wpworkspace__preview',
+						result: expect.objectContaining( {
+							success: true,
+						} ),
+					} ),
+				} ),
+				expect.objectContaining( {
+					type: 'data',
+					data: expect.objectContaining( {
+						clientContext: expect.any( Object ),
+					} ),
+				} ),
+				expect.objectContaining( {
+					type: 'data',
+					data: expect.objectContaining( {
+						name: 'wpworkspace/preview',
+						label: 'Preview URL',
+					} ),
+				} ),
+			] )
+		);
+		expect(
+			continuationParts.filter( ( part ) => part.data?.toolCallId === 'tool-call-1' )
+		).toHaveLength( 2 );
 	} );
 
 	it( 'reloads the WP.com-only preview when Dolly marks the site as changed', async () => {
+		const { requestBodies } = mockDollyFetch( ( { callIndex } ) =>
+			callIndex === 0
+				? {
+						result: {
+							id: 'task-1',
+							sessionId: 'session-1',
+							status: {
+								state: 'input-required',
+								message: {
+									parts: [
+										{
+											type: 'data',
+											data: {
+												toolCallId: 'tool-call-1',
+												toolId: 'wpworkspace/preview',
+												arguments: {
+													url: '/',
+													siteChanged: true,
+												},
+											},
+										},
+									],
+								},
+							},
+						},
+				  }
+				: {
+						result: {
+							id: 'task-1',
+							sessionId: 'session-1',
+							status: {
+								state: 'completed',
+								message: {
+									parts: [
+										{
+											type: 'text',
+											text: 'I updated the site.',
+										},
+									],
+								},
+							},
+						},
+				  }
+		);
 		const dollyClient = {
 			req: {
 				get: vi.fn( ( _params, callback ) => {
 					callback( null, [] );
 				} ),
-				post: vi
-					.fn()
-					.mockImplementationOnce( ( _params, callback ) => {
-						callback( null, {
-							result: {
-								id: 'task-1',
-								sessionId: 'session-1',
-								status: {
-									state: 'input-required',
-									message: {
-										parts: [
-											{
-												type: 'data',
-												data: {
-													toolCallId: 'tool-call-1',
-													toolId: 'wpworkspace/preview',
-													arguments: {
-														url: '/',
-														siteChanged: true,
-													},
-												},
-											},
-										],
-									},
-								},
-							},
-						} );
-					} )
-					.mockImplementationOnce( ( _params, callback ) => {
-						callback( null, {
-							result: {
-								id: 'task-1',
-								sessionId: 'session-1',
-								status: {
-									state: 'completed',
-									message: {
-										parts: [
-											{
-												type: 'text',
-												text: 'I updated the site.',
-											},
-										],
-									},
-								},
-							},
-						} );
-					} ),
 			},
 		} as unknown as WPCOM;
 
@@ -1237,6 +1435,36 @@ describe( 'ContentTabAssistant', () => {
 			expect( getChatMessageText( 'I updated the site.' ) ).toBeVisible();
 		} );
 		expect( screen.getByTitle( 'Dolly Site preview' ) ).not.toBe( initialPreview );
+
+		const continuationParts = requestBodies[ 1 ].params?.message?.parts ?? [];
+		expect( continuationParts ).toEqual(
+			expect.arrayContaining( [
+				expect.objectContaining( {
+					type: 'data',
+					data: expect.objectContaining( {
+						toolCallId: 'tool-call-1',
+						toolId: 'wpworkspace/preview',
+						arguments: {
+							url: '/',
+							siteChanged: true,
+						},
+					} ),
+				} ),
+				expect.objectContaining( {
+					type: 'data',
+					data: expect.objectContaining( {
+						toolCallId: 'tool-call-1',
+						toolId: 'wpworkspace/preview',
+						result: expect.objectContaining( {
+							success: true,
+						} ),
+					} ),
+				} ),
+			] )
+		);
+		expect(
+			continuationParts.filter( ( part ) => part.data?.toolCallId === 'tool-call-1' )
+		).toHaveLength( 2 );
 	} );
 
 	it( 'renders guideline section', () => {

@@ -1,8 +1,8 @@
 import { __ } from '@wordpress/i18n';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { Button, Dialog, DialogRow, dialogInputClassName } from '@/ui-desks/components';
-import styles from './annotation-comment-dialog.module.css';
-import type { AnnotationPayload } from './annotation-inspector';
+import styles from './style.module.css';
+import type { AnnotationPayload } from '../inspector';
 import type { FormEvent, KeyboardEvent } from 'react';
 
 interface AnnotationCommentDialogProps {

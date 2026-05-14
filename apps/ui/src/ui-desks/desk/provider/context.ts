@@ -1,13 +1,12 @@
 import { createContext, useContext } from 'react';
 import type { DeskConfig } from '../types';
-import type { Annotation } from '@/components/site-preview/types';
 import type {
 	DeskWidgetConnectionTarget,
 	SelectedDeskConnectorToolbarItem,
 } from '@/ui-desks/connectors/utils';
 import type { getSelectedWidgetToolbarItem } from '@/ui-desks/desk/selection-toolbar/selection';
+import type { DeskFocusDesk, DeskFocusMode } from '@/ui-desks/focus-mode/types';
 import type { StackViewMode } from '@/ui-desks/stacks/utils';
-import type { AnnotationPayload } from '@/ui-desks/widgets/site-preview/annotation-inspector';
 import type { DeskWidget, WidgetPastePayload } from '@/ui-desks/widgets/types';
 import type { ReactNode } from 'react';
 import type { Editor, TLShapeId } from 'tldraw';
@@ -17,11 +16,6 @@ export type SelectedWidgetToolbarItem = NonNullable<
 >;
 
 export type RegisterDeskEditor = ( editor: Editor | null ) => void;
-
-export interface DeskAnnotationSubmission {
-	annotations: Annotation[];
-	previewWidget?: DeskWidget;
-}
 
 export interface DeskContextValue {
 	siteId?: string;
@@ -33,10 +27,8 @@ export interface DeskContextValue {
 	selectedConnectorToolbarItem: SelectedDeskConnectorToolbarItem | null;
 	selectedWidgetConnectionTargets: DeskWidgetConnectionTarget[];
 	isConnectingWidget: boolean;
-	annotatingPreviewShapeId: TLShapeId | null;
-	annotationCount: number;
-	selectedAnnotationNoteShapeId: TLShapeId | null;
-	pendingAnnotation: { previewShapeId: TLShapeId; payload: AnnotationPayload } | null;
+	focusMode: DeskFocusMode | null;
+	focusedWidget: DeskWidget | null;
 	pressedStackId: string | null;
 	registerEditor: RegisterDeskEditor;
 	pressStack: ( stackId: string ) => void;
@@ -63,13 +55,10 @@ export interface DeskContextValue {
 	removeSelectedConnector: () => boolean;
 	startConnectingWidget: ( shapeId: TLShapeId ) => boolean;
 	focusConnectedWidget: ( shapeId: TLShapeId ) => boolean;
-	startAnnotatingPreview: ( shapeId: TLShapeId ) => boolean;
-	stopAnnotatingPreview: () => boolean;
-	requestAnnotation: ( previewShapeId: TLShapeId, payload: AnnotationPayload ) => void;
-	confirmPendingAnnotation: ( comment: string ) => boolean;
-	cancelPendingAnnotation: () => void;
-	removeSelectedAnnotation: () => boolean;
-	collectAnnotationSubmission: () => DeskAnnotationSubmission | null;
+	startFocusMode: ( widgetId: string, focusDesk?: DeskFocusDesk ) => boolean;
+	setFocusDesk: ( focusDesk: DeskFocusDesk ) => boolean;
+	getFocusDeskSnapshot: () => DeskFocusDesk | null;
+	stopFocusMode: () => boolean;
 }
 
 export interface AddDeskWidgetOptions {
@@ -104,10 +93,8 @@ const defaultDeskContext: DeskContextValue = {
 	selectedConnectorToolbarItem: null,
 	selectedWidgetConnectionTargets: [],
 	isConnectingWidget: false,
-	annotatingPreviewShapeId: null,
-	annotationCount: 0,
-	selectedAnnotationNoteShapeId: null,
-	pendingAnnotation: null,
+	focusMode: null,
+	focusedWidget: null,
 	pressedStackId: null,
 	registerEditor: noopRegisterEditor,
 	pressStack: noopPressStack,
@@ -127,13 +114,10 @@ const defaultDeskContext: DeskContextValue = {
 	removeSelectedConnector: () => false,
 	startConnectingWidget: () => false,
 	focusConnectedWidget: () => false,
-	startAnnotatingPreview: () => false,
-	stopAnnotatingPreview: () => false,
-	requestAnnotation: noopRequestAnnotation,
-	confirmPendingAnnotation: () => false,
-	cancelPendingAnnotation: noopCancelPendingAnnotation,
-	removeSelectedAnnotation: () => false,
-	collectAnnotationSubmission: () => null,
+	startFocusMode: () => false,
+	setFocusDesk: () => false,
+	getFocusDeskSnapshot: () => null,
+	stopFocusMode: () => false,
 };
 
 export const DeskContext = createContext< DeskContextValue >( defaultDeskContext );
@@ -148,5 +132,3 @@ export function useRegisterDeskEditor() {
 
 function noopRegisterEditor() {}
 function noopPressStack() {}
-function noopRequestAnnotation() {}
-function noopCancelPendingAnnotation() {}

@@ -1,10 +1,11 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { category, connection, group, pencil, trash, ungroup, update } from '@wordpress/icons';
 import { useEffect, useState } from 'react';
+import { useAnnotations } from '@/ui-desks/annotations/context';
 import {
 	formatAnnotationsAsPrompt,
 	formatAnnotationsSubmittedMessage,
-} from '@/components/site-preview/annotations';
+} from '@/ui-desks/annotations/prompt';
 import { ChatButton } from '@/ui-desks/chats/chat-button';
 import { useChats } from '@/ui-desks/chats/context';
 import { SelectionChatDialog } from '@/ui-desks/chats/selection-chat-dialog';
@@ -49,8 +50,8 @@ export function DeskWidgetToolbar() {
 		selectedWidgetConnectionTargets,
 		removeSelectedConnector,
 		focusConnectedWidget,
-		annotatingPreviewShapeId,
 	} = useDesk();
+	const { annotatingWidgetId } = useAnnotations();
 	const visible = Boolean(
 		selectedWidgetToolbarItem ||
 			selectedConnectorToolbarItem ||
@@ -77,7 +78,7 @@ export function DeskWidgetToolbar() {
 		}
 	}, [ selectedConnectorToolbarItem, selectedWidgetConnectionTargets, selectedWidgetToolbarItem ] );
 
-	if ( annotatingPreviewShapeId ) {
+	if ( annotatingWidgetId ) {
 		return <AnnotateToolbar />;
 	}
 
@@ -239,11 +240,11 @@ export function DeskWidgetToolbar() {
 function AnnotateToolbar() {
 	const {
 		annotationCount,
-		selectedAnnotationNoteShapeId,
+		selectedAnnotationWidgetId,
 		stopAnnotatingPreview,
 		removeSelectedAnnotation,
 		collectAnnotationSubmission,
-	} = useDesk();
+	} = useAnnotations();
 	const { startChatWithPrompt, isCreatingChat } = useChats();
 	const [ isSubmitting, setIsSubmitting ] = useState( false );
 	const isBusy = isCreatingChat || isSubmitting;
@@ -329,7 +330,7 @@ function AnnotateToolbar() {
 					</Button>
 				</>
 			) }
-			{ selectedAnnotationNoteShapeId && (
+			{ selectedAnnotationWidgetId && (
 				<>
 					<Divider />
 					<Button

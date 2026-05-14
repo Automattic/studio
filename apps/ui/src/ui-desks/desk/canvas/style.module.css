@@ -28,7 +28,7 @@
 	transition: background 220ms ease;
 }
 
-.canvas[data-ui-desks-annotating] :global(.tl-background) {
+.canvas[data-ui-desks-focus-mode] :global(.tl-background) {
 	background: #ced0d3 !important;
 }
 

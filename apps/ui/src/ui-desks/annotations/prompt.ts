@@ -1,5 +1,16 @@
 import { _n, sprintf } from '@wordpress/i18n';
-import type { Annotation } from './types';
+
+export interface DeskSitePreviewAnnotation {
+	id: string;
+	comment: string;
+	selector?: string;
+	tag?: string;
+	nearbyText?: string;
+	url?: string;
+	pathname?: string;
+	timestamp?: number;
+	[ key: string ]: unknown;
+}
 
 function describeCount( count: number ): string {
 	return count === 1 ? '1 visual annotation' : `${ count } visual annotations`;
@@ -16,16 +27,15 @@ function truncateText( text: string, maxLength: number ): string {
 	return `${ text.slice( 0, maxLength - 1 ) }...`;
 }
 
-function stringifyAnnotation( annotation: Annotation ): string {
+function stringifyAnnotation( annotation: DeskSitePreviewAnnotation ): string {
 	return JSON.stringify( annotation, null, 2 );
 }
 
 /**
- * Builds the submitted annotation prompt for the agent. The prompt mirrors the
- * CLI `/annotate` workflow: summarize first, ask for confirmation, then create
- * a TodoWrite list before making any site changes.
+ * Builds the submitted annotation prompt for the agent. Keep this local to
+ * desks so its workflow can diverge from classic UI without shared coupling.
  */
-export function formatAnnotationsAsPrompt( annotations: Annotation[] ): string {
+export function formatAnnotationsAsPrompt( annotations: DeskSitePreviewAnnotation[] ): string {
 	const lines: string[] = [
 		`The user submitted ${ describeCount( annotations.length ) } from the site preview.`,
 		'',

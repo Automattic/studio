@@ -38,6 +38,7 @@ export type NoteAnnotation = {
 		height: number;
 	};
 	previewShapeId?: string;
+	previewWidgetId?: string;
 };
 
 export type NoteWidgetProps = {
@@ -94,6 +95,7 @@ function isOptionalNoteAnnotation( value: unknown ): value is NoteAnnotation | u
 		isOptionalString( annotation.pathname ) &&
 		isOptionalString( annotation.url ) &&
 		isOptionalString( annotation.previewShapeId ) &&
+		isOptionalString( annotation.previewWidgetId ) &&
 		( annotation.timestamp === undefined || typeof annotation.timestamp === 'number' ) &&
 		( boundingBox === undefined ||
 			( typeof boundingBox.top === 'number' &&

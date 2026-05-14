@@ -1,4 +1,4 @@
-import { __, _n, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
 	Box,
@@ -24,9 +24,16 @@ import {
 	getSelectedDeskConnectorToolbarItem,
 } from '@/ui-desks/connectors/utils';
 import {
-	getTemporaryDeskCanvasRecordMeta,
+	canvasShapeToDeskWidget,
+	CONNECTOR_SHAPE_ID_PREFIX,
+	deskConfigToCanvasConnectorBindings,
+	deskConfigToCanvasConnectorShapes,
+	deskConfigToCanvasShapes,
 	deskWidgetToCanvasShape,
+	getTemporaryDeskCanvasRecordMeta,
 } from '@/ui-desks/desk/tldraw-adapter';
+import { DESK_CONFIG_VERSION, type DeskConfig } from '@/ui-desks/desk/types';
+import { createEmptyFocusDesk } from '@/ui-desks/focus-mode/types';
 import {
 	RECTANGLE_WIDGET_SHAPE_TYPE,
 	type RectangleWidgetShape,
@@ -42,15 +49,6 @@ import {
 } from '@/ui-desks/widget-actions/paste-handlers';
 import { LOADING_WIDGET_TYPE } from '@/ui-desks/widgets/loading/types';
 import { NOTE_WIDGET_TYPE } from '@/ui-desks/widgets/note/types';
-import {
-	createAnnotationNote,
-	deleteAnnotationNotes,
-	getAnnotationNoteShapes,
-	getAnnotationSubmission,
-	getSelectedAnnotationNoteShapeId,
-	isAnnotationConnectorShape,
-} from '@/ui-desks/widgets/site-preview/annotation-notes';
-import { SITE_PREVIEW_WIDGET_TYPE } from '@/ui-desks/widgets/site-preview/types';
 import {
 	DeskContext,
 	type AddDeskWidgetOptions,
@@ -76,8 +74,9 @@ import {
 } from './editor-state';
 import { useDeskPersistence } from './persistence';
 import { useDeskWidgetResolvers } from './resolvers';
-import type { AnnotationPayload } from '@/ui-desks/widgets/site-preview/annotation-inspector';
+import type { DeskFocusDesk, DeskFocusMode } from '@/ui-desks/focus-mode/types';
 import type {
+	DeskWidget,
 	WidgetHandlerLoading,
 	WidgetHandlerResult,
 	WidgetPastePayload,
@@ -85,7 +84,15 @@ import type {
 
 export { useDesk, useRegisterDeskEditor } from './context';
 
-const ANNOTATE_DIM_OPACITY = 0.08;
+const FOCUS_DIM_OPACITY = 0.08;
+const FOCUS_CAMERA_ANIMATION_DURATION = 320;
+const FOCUS_PERSISTENCE_RESUME_DELAY = FOCUS_CAMERA_ANIMATION_DURATION + 80;
+
+interface FocusShapeRestoreSnapshot {
+	type: string;
+	opacity: number;
+	isLocked: boolean;
+}
 
 export function DeskProvider( {
 	siteId,
@@ -123,22 +130,19 @@ export function DeskProvider( {
 	const [ pendingConnectorSourceId, setPendingConnectorSourceId ] = useState< TLShapeId | null >(
 		null
 	);
-	const [ annotatingPreviewShapeId, setAnnotatingPreviewShapeId ] = useState< TLShapeId | null >(
-		null
-	);
-	const [ pendingAnnotation, setPendingAnnotation ] = useState< {
-		previewShapeId: TLShapeId;
-		payload: AnnotationPayload;
-	} | null >( null );
-	const [ annotationCount, setAnnotationCount ] = useState( 0 );
-	const [ selectedAnnotationNoteShapeId, setSelectedAnnotationNoteShapeId ] =
-		useState< TLShapeId | null >( null );
+	const [ focusMode, setFocusModeState ] = useState< DeskFocusMode | null >( null );
+	const [ focusedWidget, setFocusedWidget ] = useState< DeskWidget | null >( null );
 	const [ pressedStackId, setPressedStackId ] = useState< string | null >( null );
 	const hydratedRef = useRef( false );
 	const deskConfigKeyRef = useRef< string | undefined >( undefined );
 	const creationOffsetRef = useRef( 0 );
 	const drawingStartShapeIdsRef = useRef< Set< string > | null >( null );
-	const annotateRestoreCameraRef = useRef< { x: number; y: number; z: number } | null >( null );
+	const focusRestoreCameraRef = useRef< { x: number; y: number; z: number } | null >( null );
+	const focusShapeIdsRef = useRef< Set< TLShapeId > >( new Set() );
+	const focusShapeRestoreRef = useRef< Map< TLShapeId, FocusShapeRestoreSnapshot > >( new Map() );
+	const focusDimmingActiveRef = useRef( false );
+	const focusPersistencePausedRef = useRef( false );
+	const focusPersistenceResumeTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
 	const saveTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
 	const { pressStack, clearPressedStack } = useStackPressAnimation( setPressedStackId );
 	const toolbarStateOptions = useMemo(
@@ -175,74 +179,6 @@ export function DeskProvider( {
 	} );
 
 	useEffect( () => {
-		if ( ! editor ) {
-			return;
-		}
-
-		return editor.sideEffects.registerBeforeChangeHandler(
-			'shape',
-			( previousShape, nextShape ) => {
-				if ( ! isAnnotationConnectorShape( nextShape ) ) {
-					return nextShape;
-				}
-				if ( previousShape.x === nextShape.x && previousShape.y === nextShape.y ) {
-					return nextShape;
-				}
-				return {
-					...nextShape,
-					x: previousShape.x,
-					y: previousShape.y,
-				};
-			}
-		);
-	}, [ editor ] );
-
-	useEffect( () => {
-		if ( ! editor ) {
-			return;
-		}
-
-		return editor.sideEffects.registerAfterDeleteHandler( 'binding', ( binding ) => {
-			if ( binding.type !== 'arrow' ) {
-				return;
-			}
-			const connectorShape = editor.getShape( binding.fromId );
-			if ( isAnnotationConnectorShape( connectorShape ) ) {
-				editor.deleteShape( connectorShape.id );
-			}
-		} );
-	}, [ editor ] );
-
-	useEffect( () => {
-		if ( ! editor ) {
-			return;
-		}
-
-		return editor.sideEffects.registerAfterChangeHandler( 'shape', ( previousShape, nextShape ) => {
-			if (
-				! isSitePreviewShape( nextShape ) ||
-				( previousShape.x === nextShape.x && previousShape.y === nextShape.y )
-			) {
-				return;
-			}
-			const deltaX = nextShape.x - previousShape.x;
-			const deltaY = nextShape.y - previousShape.y;
-			const annotationNotes = getAnnotationNoteShapes( editor, nextShape.id );
-			if ( annotationNotes.length === 0 ) {
-				return;
-			}
-			editor.updateShapes(
-				annotationNotes.map( ( note ) => ( {
-					id: note.id,
-					type: note.type,
-					x: note.x + deltaX,
-					y: note.y + deltaY,
-				} ) )
-			);
-		} );
-	}, [ editor ] );
-
-	useEffect( () => {
 		if ( deskConfigKeyRef.current === deskConfigKey ) {
 			return;
 		}
@@ -254,13 +190,24 @@ export function DeskProvider( {
 		setSelectedConnectorToolbarItem( null );
 		setSelectedWidgetConnectionTargets( [] );
 		setPendingConnectorSourceId( null );
-		setAnnotatingPreviewShapeId( null );
-		setPendingAnnotation( null );
-		setAnnotationCount( 0 );
-		setSelectedAnnotationNoteShapeId( null );
-		annotateRestoreCameraRef.current = null;
+		setFocusModeState( null );
+		setFocusedWidget( null );
+		focusDimmingActiveRef.current = false;
+		focusPersistencePausedRef.current = false;
+		if ( focusPersistenceResumeTimerRef.current ) {
+			clearTimeout( focusPersistenceResumeTimerRef.current );
+			focusPersistenceResumeTimerRef.current = null;
+		}
+		if ( editor ) {
+			restoreFocusModeShapeState( editor, focusShapeRestoreRef.current );
+			focusShapeIdsRef.current = syncFocusDeskToEditor( editor, null, focusShapeIdsRef.current );
+		} else {
+			focusShapeIdsRef.current = new Set();
+		}
+		focusRestoreCameraRef.current = null;
+		focusShapeRestoreRef.current.clear();
 		drawingStartShapeIdsRef.current = null;
-	}, [ deskConfigKey ] );
+	}, [ deskConfigKey, editor ] );
 
 	useEffect( () => {
 		if ( ! editor || isLoading || hydratedRef.current ) {
@@ -303,7 +250,7 @@ export function DeskProvider( {
 		}
 
 		const queueSave = () => {
-			if ( isReadOnly || ! hydratedRef.current ) {
+			if ( isReadOnly || ! hydratedRef.current || focusPersistencePausedRef.current ) {
 				return;
 			}
 
@@ -313,6 +260,9 @@ export function DeskProvider( {
 
 			saveTimerRef.current = setTimeout( () => {
 				saveTimerRef.current = null;
+				if ( focusPersistencePausedRef.current ) {
+					return;
+				}
 				saveDeskConfig( createDeskConfigFromEditor( editor ) );
 			}, 500 );
 		};
@@ -352,30 +302,6 @@ export function DeskProvider( {
 			unsubscribeSession();
 		};
 	}, [ editor, isReadOnly, saveDeskConfig, toolbarStateOptions ] );
-
-	useEffect( () => {
-		if ( ! editor || ! annotatingPreviewShapeId ) {
-			setAnnotationCount( 0 );
-			setSelectedAnnotationNoteShapeId( null );
-			return;
-		}
-
-		const syncAnnotationState = () => {
-			setAnnotationCount( getAnnotationNoteShapes( editor, annotatingPreviewShapeId ).length );
-			setSelectedAnnotationNoteShapeId(
-				getSelectedAnnotationNoteShapeId( editor, annotatingPreviewShapeId )
-			);
-		};
-
-		syncAnnotationState();
-		const unsubscribeDocument = editor.store.listen( syncAnnotationState, { scope: 'document' } );
-		const unsubscribeSession = editor.store.listen( syncAnnotationState, { scope: 'session' } );
-
-		return () => {
-			unsubscribeDocument();
-			unsubscribeSession();
-		};
-	}, [ annotatingPreviewShapeId, editor ] );
 
 	useEffect( () => {
 		if ( ! editor || ! isHydrated || isReadOnly ) {
@@ -513,11 +439,17 @@ export function DeskProvider( {
 				setSelectedConnectorToolbarItem( null );
 				setSelectedWidgetConnectionTargets( [] );
 				setPendingConnectorSourceId( null );
-				setAnnotatingPreviewShapeId( null );
-				setPendingAnnotation( null );
-				setAnnotationCount( 0 );
-				setSelectedAnnotationNoteShapeId( null );
-				annotateRestoreCameraRef.current = null;
+				setFocusModeState( null );
+				setFocusedWidget( null );
+				focusRestoreCameraRef.current = null;
+				focusShapeIdsRef.current = new Set();
+				focusShapeRestoreRef.current.clear();
+				focusDimmingActiveRef.current = false;
+				focusPersistencePausedRef.current = false;
+				if ( focusPersistenceResumeTimerRef.current ) {
+					clearTimeout( focusPersistenceResumeTimerRef.current );
+					focusPersistenceResumeTimerRef.current = null;
+				}
 				clearPressedStack();
 				drawingStartShapeIdsRef.current = null;
 			}
@@ -777,21 +709,30 @@ export function DeskProvider( {
 		[ editor, isHydrated ]
 	);
 
-	const startAnnotatingPreview = useCallback(
-		( shapeId: TLShapeId ) => {
+	const startFocusMode = useCallback(
+		( widgetId: string, initialFocusDesk: DeskFocusDesk = createEmptyFocusDesk() ) => {
 			if ( isReadOnly || ! editor || ! isHydrated ) {
 				return false;
 			}
+			const shapeId = createShapeId( widgetId );
 			const shape = editor.getShape( shapeId );
-			if ( ! isSitePreviewShape( shape ) ) {
-				return false;
-			}
+			const widget = shape ? canvasShapeToDeskWidget( shape ) : null;
 			const bounds = editor.getShapePageBounds( shapeId );
-			if ( ! bounds ) {
+			if ( ! widget || ! bounds ) {
 				return false;
 			}
 
-			annotateRestoreCameraRef.current = { ...editor.getCamera() };
+			if ( saveTimerRef.current ) {
+				clearTimeout( saveTimerRef.current );
+				saveTimerRef.current = null;
+				saveDeskConfig( createDeskConfigFromEditor( editor ) );
+			}
+			if ( focusPersistenceResumeTimerRef.current ) {
+				clearTimeout( focusPersistenceResumeTimerRef.current );
+				focusPersistenceResumeTimerRef.current = null;
+			}
+			focusPersistencePausedRef.current = true;
+			focusRestoreCameraRef.current = { ...editor.getCamera() };
 			const padX = 260;
 			const padTop = 80;
 			const padBottom = 200;
@@ -802,151 +743,131 @@ export function DeskProvider( {
 				bounds.h + padTop + padBottom
 			);
 			editor.complete();
-			editor.zoomToBounds( paddedBounds, { animation: { duration: 320 } } );
+			editor.zoomToBounds( paddedBounds, {
+				animation: { duration: FOCUS_CAMERA_ANIMATION_DURATION },
+			} );
 			editor.setSelectedShapes( [ shapeId ] );
 			editor.setCameraOptions( { ...editor.getCameraOptions(), isLocked: true } );
 			setPendingConnectorSourceId( null );
-			setPendingAnnotation( null );
-			setAnnotatingPreviewShapeId( shapeId );
+			setFocusedWidget( widget );
+			setFocusModeState( { widgetId, focusDesk: initialFocusDesk } );
 			editor.focus();
 			return true;
 		},
-		[ editor, isHydrated, isReadOnly ]
+		[ editor, isHydrated, isReadOnly, saveDeskConfig ]
 	);
 
-	const stopAnnotatingPreview = useCallback( () => {
+	const setFocusDesk = useCallback( ( nextFocusDesk: DeskFocusDesk ) => {
+		let didUpdate = false;
+		setFocusModeState( ( current ) => {
+			if ( ! current ) {
+				return current;
+			}
+			didUpdate = true;
+			return {
+				...current,
+				focusDesk: nextFocusDesk,
+			};
+		} );
+		return didUpdate;
+	}, [] );
+
+	const getFocusDeskSnapshot = useCallback( (): DeskFocusDesk | null => {
+		if ( ! editor || ! focusMode ) {
+			return null;
+		}
+
+		return {
+			...focusMode.focusDesk,
+			widgets: focusMode.focusDesk.widgets
+				.map( ( widget ) => {
+					const shape = editor.getShape( createShapeId( widget.id ) );
+					return shape ? canvasShapeToDeskWidget( shape ) ?? widget : widget;
+				} )
+				.filter( ( widget ): widget is DeskWidget => Boolean( widget ) ),
+		};
+	}, [ editor, focusMode ] );
+
+	const stopFocusMode = useCallback( () => {
 		if ( ! editor ) {
 			return false;
 		}
-		const previewShapeId = annotatingPreviewShapeId;
-		if ( previewShapeId ) {
-			deleteAnnotationNotes( editor, previewShapeId );
-		}
+		focusDimmingActiveRef.current = false;
+		restoreFocusModeShapeState( editor, focusShapeRestoreRef.current );
+		focusShapeRestoreRef.current.clear();
+		focusShapeIdsRef.current = syncFocusDeskToEditor( editor, null, focusShapeIdsRef.current );
+		document
+			.querySelector( '[data-ui-desks-canvas]' )
+			?.removeAttribute( 'data-ui-desks-focus-mode' );
 		editor.setCameraOptions( { ...editor.getCameraOptions(), isLocked: false } );
-		const restoreCamera = annotateRestoreCameraRef.current;
+		const restoreCamera = focusRestoreCameraRef.current;
 		if ( restoreCamera ) {
-			editor.setCamera( restoreCamera, { animation: { duration: 320 }, force: true } );
-			annotateRestoreCameraRef.current = null;
+			editor.setCamera( restoreCamera, {
+				animation: { duration: FOCUS_CAMERA_ANIMATION_DURATION },
+				force: true,
+			} );
+			focusRestoreCameraRef.current = null;
 		}
-		setAnnotatingPreviewShapeId( null );
-		setPendingAnnotation( null );
-		setAnnotationCount( 0 );
-		setSelectedAnnotationNoteShapeId( null );
+		if ( focusPersistenceResumeTimerRef.current ) {
+			clearTimeout( focusPersistenceResumeTimerRef.current );
+		}
+		focusPersistenceResumeTimerRef.current = setTimeout( () => {
+			focusPersistencePausedRef.current = false;
+			focusPersistenceResumeTimerRef.current = null;
+		}, FOCUS_PERSISTENCE_RESUME_DELAY );
+		setFocusModeState( null );
+		setFocusedWidget( null );
 		editor.focus();
 		return true;
-	}, [ annotatingPreviewShapeId, editor ] );
-
-	const requestAnnotation = useCallback(
-		( previewShapeId: TLShapeId, payload: AnnotationPayload ) => {
-			setPendingAnnotation( { previewShapeId, payload } );
-		},
-		[]
-	);
-
-	const confirmPendingAnnotation = useCallback(
-		( comment: string ) => {
-			if ( isReadOnly || ! editor || ! pendingAnnotation ) {
-				return false;
-			}
-			const previewShape = editor.getShape( pendingAnnotation.previewShapeId );
-			if ( ! isSitePreviewShape( previewShape ) ) {
-				return false;
-			}
-			const noteShapeId = createAnnotationNote(
-				editor,
-				previewShape,
-				pendingAnnotation.payload,
-				comment
-			);
-			setPendingAnnotation( null );
-			return Boolean( noteShapeId );
-		},
-		[ editor, isReadOnly, pendingAnnotation ]
-	);
-
-	const cancelPendingAnnotation = useCallback( () => {
-		setPendingAnnotation( null );
-	}, [] );
-
-	const removeSelectedAnnotation = useCallback( () => {
-		if ( isReadOnly || ! editor || ! annotatingPreviewShapeId || ! selectedAnnotationNoteShapeId ) {
-			return false;
-		}
-		deleteAnnotationNotes( editor, annotatingPreviewShapeId, [ selectedAnnotationNoteShapeId ] );
-		editor.setSelectedShapes( [ annotatingPreviewShapeId ] );
-		editor.focus();
-		return true;
-	}, [ annotatingPreviewShapeId, editor, isReadOnly, selectedAnnotationNoteShapeId ] );
-
-	const collectAnnotationSubmission = useCallback( () => {
-		if ( ! editor || ! annotatingPreviewShapeId ) {
-			return null;
-		}
-		return getAnnotationSubmission( editor, annotatingPreviewShapeId );
-	}, [ annotatingPreviewShapeId, editor ] );
+	}, [ editor ] );
 
 	useEffect( () => {
-		if ( annotatingPreviewShapeId === null || ! editor ) {
+		if ( ! editor ) {
 			return;
 		}
 
-		const handleKeyDown = ( event: KeyboardEvent ) => {
-			if ( event.key !== 'Escape' ) {
-				return;
-			}
-			if ( pendingAnnotation ) {
-				event.preventDefault();
-				setPendingAnnotation( null );
-				return;
-			}
-			const count = getAnnotationNoteShapes( editor, annotatingPreviewShapeId ).length;
-			if ( count > 0 ) {
-				event.preventDefault();
-				const shouldDiscard = window.confirm(
-					sprintf( _n( 'Discard %d annotation?', 'Discard %d annotations?', count ), count )
-				);
-				if ( ! shouldDiscard ) {
-					return;
-				}
-			}
-			event.preventDefault();
-			stopAnnotatingPreview();
-		};
+		focusShapeIdsRef.current = syncFocusDeskToEditor(
+			editor,
+			focusMode?.focusDesk ?? null,
+			focusShapeIdsRef.current
+		);
+	}, [ editor, focusMode?.focusDesk ] );
 
-		window.addEventListener( 'keydown', handleKeyDown );
-		return () => {
-			window.removeEventListener( 'keydown', handleKeyDown );
-		};
-	}, [ annotatingPreviewShapeId, editor, pendingAnnotation, stopAnnotatingPreview ] );
-
+	const focusedWidgetId = focusMode?.widgetId ?? null;
 	useEffect( () => {
 		const canvas = document.querySelector( '[data-ui-desks-canvas]' );
 		if ( canvas ) {
-			if ( annotatingPreviewShapeId ) {
-				canvas.setAttribute( 'data-ui-desks-annotating', String( annotatingPreviewShapeId ) );
+			if ( focusedWidgetId ) {
+				canvas.setAttribute( 'data-ui-desks-focus-mode', focusedWidgetId );
 			} else {
-				canvas.removeAttribute( 'data-ui-desks-annotating' );
+				canvas.removeAttribute( 'data-ui-desks-focus-mode' );
 			}
 		}
 
-		if ( ! editor || ! annotatingPreviewShapeId ) {
+		if ( ! editor || ! focusedWidgetId ) {
 			return;
 		}
 
-		const originals = new Map< TLShapeId, { type: string; opacity: number; isLocked: boolean } >();
-		for ( const shape of editor.getCurrentPageShapes() ) {
-			originals.set( shape.id, {
-				type: shape.type,
-				opacity: shape.opacity,
-				isLocked: shape.isLocked,
-			} );
-		}
+		const focusRootShapeId = createShapeId( focusedWidgetId );
+		const restoreState = focusShapeRestoreRef.current;
+		focusDimmingActiveRef.current = true;
 
 		const computePartials = () => {
+			if ( ! focusDimmingActiveRef.current ) {
+				return [];
+			}
 			const partials: TLShapePartial[] = [];
+			const focusShapeIds = getFocusSessionShapeIds( focusRootShapeId, focusShapeIdsRef.current );
 			for ( const shape of editor.getCurrentPageShapes() ) {
-				const keep = isAnnotationSessionShape( editor, shape, annotatingPreviewShapeId );
-				const targetOpacity = keep ? 1 : ANNOTATE_DIM_OPACITY;
+				if ( ! restoreState.has( shape.id ) ) {
+					restoreState.set( shape.id, {
+						type: shape.type,
+						opacity: shape.opacity,
+						isLocked: shape.isLocked,
+					} );
+				}
+				const keep = focusShapeIds.has( shape.id );
+				const targetOpacity = keep ? 1 : FOCUS_DIM_OPACITY;
 				const targetLocked = ! keep;
 				const opacityChanged = Math.abs( shape.opacity - targetOpacity ) > 0.001;
 				const lockChanged = shape.isLocked !== targetLocked;
@@ -965,7 +886,7 @@ export function DeskProvider( {
 
 		const initialPartials = computePartials();
 		if ( initialPartials.length > 0 ) {
-			editor.animateShapes( initialPartials, { animation: { duration: 320 } } );
+			updateFocusModeShapes( editor, initialPartials, true );
 		}
 
 		let frame = 0;
@@ -977,42 +898,24 @@ export function DeskProvider( {
 				frame = 0;
 				const partials = computePartials();
 				if ( partials.length > 0 ) {
-					editor.updateShapes( partials );
+					updateFocusModeShapes( editor, partials, false );
 				}
 			} );
 		};
 		const unsubscribe = editor.store.listen( scheduleSync, { scope: 'document' } );
 
 		return () => {
+			focusDimmingActiveRef.current = false;
 			unsubscribe();
 			if ( frame ) {
 				cancelAnimationFrame( frame );
 			}
-			const restorePartials: TLShapePartial[] = [];
-			for ( const [ shapeId, original ] of originals.entries() ) {
-				const shape = editor.getShape( shapeId );
-				if ( ! shape ) {
-					continue;
-				}
-				const opacityChanged = Math.abs( shape.opacity - original.opacity ) > 0.001;
-				const lockChanged = shape.isLocked !== original.isLocked;
-				if ( ! opacityChanged && ! lockChanged ) {
-					continue;
-				}
-				restorePartials.push( {
-					id: shapeId,
-					type: shape.type,
-					...( opacityChanged ? { opacity: original.opacity } : {} ),
-					...( lockChanged ? { isLocked: original.isLocked } : {} ),
-				} );
-			}
-			if ( restorePartials.length > 0 ) {
-				editor.animateShapes( restorePartials, { animation: { duration: 320 } } );
-			}
+			restoreFocusModeShapeState( editor, restoreState );
+			restoreState.clear();
 			const nextCanvas = document.querySelector( '[data-ui-desks-canvas]' );
-			nextCanvas?.removeAttribute( 'data-ui-desks-annotating' );
+			nextCanvas?.removeAttribute( 'data-ui-desks-focus-mode' );
 		};
-	}, [ annotatingPreviewShapeId, editor ] );
+	}, [ editor, focusedWidgetId ] );
 
 	const value = useMemo(
 		() => ( {
@@ -1025,10 +928,8 @@ export function DeskProvider( {
 			selectedConnectorToolbarItem,
 			selectedWidgetConnectionTargets,
 			isConnectingWidget: pendingConnectorSourceId !== null,
-			annotatingPreviewShapeId,
-			annotationCount,
-			selectedAnnotationNoteShapeId,
-			pendingAnnotation,
+			focusMode,
+			focusedWidget,
 			pressedStackId,
 			registerEditor,
 			pressStack,
@@ -1048,53 +949,45 @@ export function DeskProvider( {
 			removeSelectedConnector,
 			startConnectingWidget,
 			focusConnectedWidget,
-			startAnnotatingPreview,
-			stopAnnotatingPreview,
-			requestAnnotation,
-			confirmPendingAnnotation,
-			cancelPendingAnnotation,
-			removeSelectedAnnotation,
-			collectAnnotationSubmission,
+			startFocusMode,
+			setFocusDesk,
+			getFocusDeskSnapshot,
+			stopFocusMode,
 		} ),
 		[
 			addPastedContent,
 			addWidget,
 			addWidgetAtScreenPoint,
-			annotatingPreviewShapeId,
-			annotationCount,
-			cancelPendingAnnotation,
-			collectAnnotationSubmission,
-			confirmPendingAnnotation,
 			editor,
 			editSelectedWidget,
 			fitSelectedWidgetToContent,
 			finishDrawing,
 			focusConnectedWidget,
+			focusedWidget,
+			focusMode,
+			getFocusDeskSnapshot,
 			isHydrated,
 			isReadOnly,
 			isLoading,
-			pendingAnnotation,
 			pendingConnectorSourceId,
 			pressStack,
 			pressedStackId,
 			registerEditor,
-			removeSelectedAnnotation,
 			removeSelectedConnector,
 			removeSelectedWidget,
-			requestAnnotation,
-			selectedAnnotationNoteShapeId,
 			selectedConnectorToolbarItem,
 			selectedWidgetConnectionTargets,
 			selectedWidgetToolbarItem,
 			selectedWidgetEditAction,
+			setFocusDesk,
 			setSelectedStackView,
 			stackSelectedWidgets,
-			startAnnotatingPreview,
 			startDrawing,
 			startConnectingWidget,
+			startFocusMode,
 			siteId,
 			statusMessage,
-			stopAnnotatingPreview,
+			stopFocusMode,
 			unstackSelectedWidgets,
 			updateSelectedWidgetProps,
 		]
@@ -1108,61 +1001,112 @@ export function DeskProvider( {
 	return <DeskContext.Provider value={ value }>{ children }</DeskContext.Provider>;
 }
 
-function isSitePreviewShape( shape: unknown ): shape is RectangleWidgetShape {
-	return (
-		Boolean( shape ) &&
-		typeof shape === 'object' &&
-		( shape as Partial< TLShape > ).type === RECTANGLE_WIDGET_SHAPE_TYPE &&
-		( shape as Partial< RectangleWidgetShape > ).props?.widgetType === SITE_PREVIEW_WIDGET_TYPE
-	);
-}
-
-function isAnnotationSessionShape(
+function syncFocusDeskToEditor(
 	editor: Editor,
-	shape: TLShape,
-	previewShapeId: TLShapeId
-): boolean {
-	if ( shape.id === previewShapeId ) {
-		return true;
-	}
-	if ( isAnnotationNoteShapeForPreview( shape, previewShapeId ) ) {
-		return true;
-	}
-	if ( ! isAnnotationConnectorShape( shape ) ) {
-		return false;
+	focusDesk: DeskFocusDesk | null,
+	previousShapeIds: Set< TLShapeId >
+) {
+	const nextShapeIds = focusDesk ? getFocusDeskShapeIds( focusDesk ) : new Set< TLShapeId >();
+	const shapeIdsToDelete = [ ...previousShapeIds ].filter(
+		( shapeId ) => ! nextShapeIds.has( shapeId ) && Boolean( editor.getShape( shapeId ) )
+	);
+	if ( shapeIdsToDelete.length > 0 ) {
+		editor.run( () => editor.deleteShapes( shapeIdsToDelete ), { ignoreShapeLock: true } );
 	}
 
-	const bindings = editor.getBindingsFromShape( shape.id, 'arrow' );
-	const startBinding = bindings.find(
-		( binding ) => getArrowBindingTerminal( binding.props ) === 'start'
+	if ( ! focusDesk || focusDesk.widgets.length === 0 ) {
+		return nextShapeIds;
+	}
+
+	const deskConfig: DeskConfig = {
+		version: DESK_CONFIG_VERSION,
+		updatedAt: new Date().toISOString(),
+		widgets: focusDesk.widgets,
+		...( focusDesk.stacks?.length ? { stacks: focusDesk.stacks } : {} ),
+		...( focusDesk.connectors?.length ? { connectors: focusDesk.connectors } : {} ),
+	};
+	const widgetShapes = deskConfigToCanvasShapes( deskConfig ).map( withTemporaryFocusMeta );
+	const connectorShapes = deskConfigToCanvasConnectorShapes( deskConfig, widgetShapes ).map(
+		withTemporaryFocusMeta
 	);
-	const endBinding = bindings.find(
-		( binding ) => getArrowBindingTerminal( binding.props ) === 'end'
+	const nextShapes = [ ...connectorShapes, ...widgetShapes ];
+	const existingShapeIds = new Set(
+		nextShapes
+			.map( ( shape ) => shape.id )
+			.filter(
+				( shapeId ): shapeId is TLShapeId =>
+					Boolean( shapeId ) && Boolean( editor.getShape( shapeId ) )
+			)
 	);
-	const endShape = endBinding ? editor.getShape( endBinding.toId ) : null;
-	return (
-		startBinding?.toId === previewShapeId &&
-		Boolean( endShape && isAnnotationNoteShapeForPreview( endShape, previewShapeId ) )
+	const shapeIdsToReplace = [ ...existingShapeIds ];
+	if ( shapeIdsToReplace.length > 0 ) {
+		editor.run( () => editor.deleteShapes( shapeIdsToReplace ), { ignoreShapeLock: true } );
+	}
+	editor.createShapes( nextShapes );
+	editor.createBindings( deskConfigToCanvasConnectorBindings( deskConfig ) );
+	return nextShapeIds;
+}
+
+function withTemporaryFocusMeta< TShape extends TLShapePartial >( shape: TShape ): TShape {
+	return {
+		...shape,
+		meta: getTemporaryDeskCanvasRecordMeta( shape ),
+	};
+}
+
+function updateFocusModeShapes( editor: Editor, partials: TLShapePartial[], animated: boolean ) {
+	editor.run(
+		() => {
+			if ( animated ) {
+				editor.animateShapes( partials, { animation: { duration: 320 } } );
+				return;
+			}
+			editor.updateShapes( partials );
+		},
+		{ ignoreShapeLock: true }
 	);
 }
 
-function isAnnotationNoteShapeForPreview( shape: unknown, previewShapeId: TLShapeId ): boolean {
-	if (
-		! shape ||
-		typeof shape !== 'object' ||
-		( shape as Partial< TLShape > ).type !== RECTANGLE_WIDGET_SHAPE_TYPE
-	) {
-		return false;
+function restoreFocusModeShapeState(
+	editor: Editor,
+	restoreState: Map< TLShapeId, FocusShapeRestoreSnapshot >
+) {
+	const restorePartials: TLShapePartial[] = [];
+	for ( const [ shapeId, original ] of restoreState.entries() ) {
+		const shape = editor.getShape( shapeId );
+		if ( ! shape ) {
+			continue;
+		}
+		const opacityChanged = Math.abs( shape.opacity - original.opacity ) > 0.001;
+		const lockChanged = shape.isLocked !== original.isLocked;
+		if ( ! opacityChanged && ! lockChanged ) {
+			continue;
+		}
+		restorePartials.push( {
+			id: shapeId,
+			type: original.type,
+			...( opacityChanged ? { opacity: original.opacity } : {} ),
+			...( lockChanged ? { isLocked: original.isLocked } : {} ),
+		} );
 	}
-	const rectangleShape = shape as Partial< RectangleWidgetShape >;
-	const widgetProps = rectangleShape.props?.widgetProps as
-		| { annotation?: { previewShapeId?: unknown } }
-		| undefined;
-	return widgetProps?.annotation?.previewShapeId === previewShapeId;
+	if ( restorePartials.length > 0 ) {
+		updateFocusModeShapes( editor, restorePartials, false );
+	}
 }
 
-function getArrowBindingTerminal( props: object ) {
-	return ( props as { terminal?: unknown } ).terminal;
+function getFocusSessionShapeIds( rootShapeId: TLShapeId, focusDeskShapeIds: Set< TLShapeId > ) {
+	return new Set< TLShapeId >( [ rootShapeId, ...focusDeskShapeIds ] );
+}
+
+function getFocusDeskShapeIds( focusDesk: DeskFocusDesk ) {
+	return new Set< TLShapeId >( [
+		...focusDesk.widgets.map( ( widget ) => createShapeId( widget.id ) ),
+		...( focusDesk.connectors ?? [] ).map( ( connector ) => getConnectorShapeId( connector.id ) ),
+	] );
+}
+
+function getConnectorShapeId( connectorId: string ) {
+	return createShapeId( `${ CONNECTOR_SHAPE_ID_PREFIX }${ connectorId }` );
 }
 
 function replaceTextShapeWithNote( editor: Editor, shape: TLShape ) {

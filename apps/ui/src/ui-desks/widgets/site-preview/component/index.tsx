@@ -1,9 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { createShapeId } from 'tldraw';
 import { useSites } from '@/data/queries/use-sites';
-import { LoadingPlaceholder } from '@/ui-desks/components';
-import { useDesk } from '@/ui-desks/desk/provider';
+import { useAnnotations } from '@/ui-desks/annotations/context';
 import {
 	ANNOTATION_INSPECTOR_BRIDGE_PREFIX,
 	ANNOTATION_INSPECTOR_CLEANUP_SCRIPT,
@@ -11,7 +9,9 @@ import {
 	mountInspector,
 	type AnnotationInspectorEvent,
 	type AnnotationPayload,
-} from '../annotation-inspector';
+} from '@/ui-desks/annotations/inspector';
+import { LoadingPlaceholder } from '@/ui-desks/components';
+import { useDesk } from '@/ui-desks/desk/provider';
 import { getSitePreviewUrl, urlLabelFor, withPreviewFlag } from '../url';
 import styles from './style.module.css';
 import type { SitePreviewWidgetProps } from '../types';
@@ -50,10 +50,10 @@ export function SitePreviewWidgetComponent( {
 	isSelected,
 }: SitePreviewWidgetComponentProps ) {
 	const iframeRef = useRef< HTMLIFrameElement | null >( null );
-	const { siteId, annotatingPreviewShapeId, requestAnnotation } = useDesk();
+	const { siteId } = useDesk();
+	const { annotatingWidgetId, requestAnnotation } = useAnnotations();
 	const { data: sites, isLoading } = useSites();
-	const shapeId = createShapeId( id );
-	const isAnnotating = annotatingPreviewShapeId === shapeId;
+	const isAnnotating = annotatingWidgetId === id;
 	const site = sites?.find( ( currentSite ) => currentSite.id === siteId );
 	const sitePreviewUrl = getSitePreviewUrl( site, widgetProps.path );
 	const previewFrameUrl = sitePreviewUrl ? withPreviewFlag( sitePreviewUrl ) : '';
@@ -99,7 +99,7 @@ export function SitePreviewWidgetComponent( {
 					return;
 				}
 				teardown = mountInspector( doc, ( payload ) => {
-					requestAnnotation( shapeId, payload );
+					requestAnnotation( id, payload );
 				} );
 			} catch {
 				// Electron uses webview injection for cross-origin local sites.
@@ -112,7 +112,7 @@ export function SitePreviewWidgetComponent( {
 			iframe.removeEventListener( 'load', attach );
 			teardown?.();
 		};
-	}, [ isAnnotating, requestAnnotation, shapeId ] );
+	}, [ id, isAnnotating, requestAnnotation ] );
 
 	const emptyMessage = getEmptyMessage( {
 		hasSiteId: Boolean( siteId ),
@@ -149,7 +149,7 @@ export function SitePreviewWidgetComponent( {
 								key={ previewFrameUrl }
 								url={ previewFrameUrl }
 								isAnnotating={ isAnnotating }
-								onAnnotationPick={ ( payload ) => requestAnnotation( shapeId, payload ) }
+								onAnnotationPick={ ( payload ) => requestAnnotation( id, payload ) }
 								onLoadedUrl={ setLiveUrl }
 								onLoadComplete={ () => setIsFrameLoading( false ) }
 							/>

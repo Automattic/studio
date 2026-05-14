@@ -1,15 +1,16 @@
 import { __ } from '@wordpress/i18n';
 import { useState } from 'react';
 import { useUpdateDeskSettings } from '@/data/queries/use-desk-config';
+import { AnnotationCommentDialog } from '@/ui-desks/annotations/comment-dialog';
+import { AnnotationsProvider, useAnnotations } from '@/ui-desks/annotations/context';
 import { Chats, ChatsProvider } from '../chats';
 import { DeskChrome } from '../chrome';
 import { DeskSettingsModal } from '../chrome/settings-modal';
 import { DEFAULT_DESK_TOOLBAR_LAYOUT } from '../chrome/toolbar-layout';
 import { Button, LoadingPlaceholder } from '../components';
 import { useSiteMapDeskConfig } from '../site-map/use-site-map-desk-config';
-import { AnnotationCommentDialog } from '../widgets/site-preview/annotation-comment-dialog';
 import { DeskCanvas } from './canvas';
-import { DeskProvider, useDesk } from './provider';
+import { DeskProvider } from './provider';
 import { DeskWidgetToolbar } from './selection-toolbar';
 import styles from './style.module.css';
 import type { ReactNode } from 'react';
@@ -85,70 +86,72 @@ function DeskShell( {
 
 	return (
 		<ChatsProvider siteId={ siteId }>
-			<Chats siteId={ siteId } />
-			<main
-				className={ styles.root }
-				aria-label={ getDeskLabel( siteId ) }
-				data-site-id={ siteId }
-				data-toolbar-editing={ editingToolbar ? 'true' : 'false' }
-			>
-				<DeskChrome
-					siteId={ siteId }
-					siteMapOpen={ siteMapOpen }
-					siteMapPageCount={ siteMapPageCount }
-					settingsOpen={ settingsOpen }
-					editingToolbar={ editingToolbar }
-					onToggleSiteMap={ onToggleSiteMap }
-					onToggleSettings={ () => setSettingsOpen( ( open ) => ! open ) }
-				/>
-				{ children }
-				{ siteMapIsLoading && <SiteMapLoadingWidget /> }
-				<DeskWidgetToolbar />
-				<AnnotationCommentDialogSlot />
-				<DeskSettingsModal
-					open={ settingsOpen }
-					onOpenChange={ setSettingsOpen }
-					onEditToolbar={ () => setEditingToolbar( true ) }
-				/>
-				{ editingToolbar && (
-					<>
-						<button
-							type="button"
-							className={ styles.toolbarEditBackdrop }
-							aria-label={ __( 'Exit toolbar editing' ) }
-							onClick={ () => setEditingToolbar( false ) }
-						/>
-						<div className={ styles.toolbarEditActions }>
-							<Button
+			<AnnotationsProvider>
+				<Chats siteId={ siteId } />
+				<main
+					className={ styles.root }
+					aria-label={ getDeskLabel( siteId ) }
+					data-site-id={ siteId }
+					data-toolbar-editing={ editingToolbar ? 'true' : 'false' }
+				>
+					<DeskChrome
+						siteId={ siteId }
+						siteMapOpen={ siteMapOpen }
+						siteMapPageCount={ siteMapPageCount }
+						settingsOpen={ settingsOpen }
+						editingToolbar={ editingToolbar }
+						onToggleSiteMap={ onToggleSiteMap }
+						onToggleSettings={ () => setSettingsOpen( ( open ) => ! open ) }
+					/>
+					{ children }
+					{ siteMapIsLoading && <SiteMapLoadingWidget /> }
+					<DeskWidgetToolbar />
+					<AnnotationCommentDialogSlot />
+					<DeskSettingsModal
+						open={ settingsOpen }
+						onOpenChange={ setSettingsOpen }
+						onEditToolbar={ () => setEditingToolbar( true ) }
+					/>
+					{ editingToolbar && (
+						<>
+							<button
 								type="button"
-								label={ __( 'Done' ) }
-								variant="chrome"
-								size="large"
+								className={ styles.toolbarEditBackdrop }
+								aria-label={ __( 'Exit toolbar editing' ) }
 								onClick={ () => setEditingToolbar( false ) }
-							>
-								{ __( 'Done' ) }
-							</Button>
-							<Button
-								type="button"
-								label={ __( 'Reset' ) }
-								variant="chrome"
-								size="large"
-								onClick={ () =>
-									updateDeskSettings( { toolbarLayout: DEFAULT_DESK_TOOLBAR_LAYOUT } )
-								}
-							>
-								{ __( 'Reset' ) }
-							</Button>
-						</div>
-					</>
-				) }
-			</main>
+							/>
+							<div className={ styles.toolbarEditActions }>
+								<Button
+									type="button"
+									label={ __( 'Done' ) }
+									variant="chrome"
+									size="large"
+									onClick={ () => setEditingToolbar( false ) }
+								>
+									{ __( 'Done' ) }
+								</Button>
+								<Button
+									type="button"
+									label={ __( 'Reset' ) }
+									variant="chrome"
+									size="large"
+									onClick={ () =>
+										updateDeskSettings( { toolbarLayout: DEFAULT_DESK_TOOLBAR_LAYOUT } )
+									}
+								>
+									{ __( 'Reset' ) }
+								</Button>
+							</div>
+						</>
+					) }
+				</main>
+			</AnnotationsProvider>
 		</ChatsProvider>
 	);
 }
 
 function AnnotationCommentDialogSlot() {
-	const { pendingAnnotation, confirmPendingAnnotation, cancelPendingAnnotation } = useDesk();
+	const { pendingAnnotation, confirmPendingAnnotation, cancelPendingAnnotation } = useAnnotations();
 	if ( ! pendingAnnotation ) {
 		return null;
 	}

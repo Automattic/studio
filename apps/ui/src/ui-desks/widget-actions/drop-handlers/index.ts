@@ -11,7 +11,8 @@ export function getWidgetDropHandler(
 	return (
 		handlers.find(
 			( handler ) =>
-				! handler.sourceTypes?.length || handler.sourceTypes.includes( sourceWidget.type )
+				( ! handler.sourceTypes?.length || handler.sourceTypes.includes( sourceWidget.type ) ) &&
+				( ! handler.canHandle || handler.canHandle( sourceWidget, targetWidget ) )
 		) ?? null
 	);
 }

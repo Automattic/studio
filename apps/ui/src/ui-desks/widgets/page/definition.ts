@@ -1,11 +1,17 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { page } from '@wordpress/icons';
+import { getSiteContentMediaDropActions } from '@/ui-desks/widget-actions/drop-handlers/site-content-media-actions';
+import { isMediaWidgetProps, MEDIA_WIDGET_TYPE } from '@/ui-desks/widgets/media/types';
 import {
 	PageWidgetComponent,
 	PageWidgetThumbnailComponent,
 } from '@/ui-desks/widgets/page/component';
 import { isPageWidgetProps, PAGE_WIDGET_TYPE, type PageTone, type PageWidget } from './types';
-import type { WidgetDefinition } from '@/ui-desks/widgets/types';
+import type {
+	WidgetCustomDropActionContext,
+	WidgetCustomDropActionIntent,
+	WidgetDefinition,
+} from '@/ui-desks/widgets/types';
 
 const PAGE_TONE_COLORS: Record< PageTone, string > = {
 	neutral: '#14171a',
@@ -79,4 +85,45 @@ export const pageWidgetDefinition = {
 					path: `/wp-admin/post.php?post=${ widget.widgetProps.pageId }&action=edit`,
 			  }
 			: null,
+	dropHandlers: [
+		{
+			id: 'media-actions-for-page',
+			type: 'custom',
+			sourceTypes: [ MEDIA_WIDGET_TYPE ],
+			canHandle: ( sourceWidget, targetWidget ) =>
+				isMediaWidgetProps( sourceWidget.widgetProps ) &&
+				sourceWidget.widgetProps.mediaId !== null &&
+				isPageWidgetProps( targetWidget.widgetProps ) &&
+				targetWidget.widgetProps.pageId > 0,
+			getActions: getPageMediaDropActions,
+		},
+	],
 } satisfies WidgetDefinition< PageWidget >;
+
+function getPageMediaDropActions(
+	intent: WidgetCustomDropActionIntent,
+	context: WidgetCustomDropActionContext
+) {
+	const mediaProps = intent.sourceWidget.widgetProps;
+	const pageProps = intent.targetWidget.widgetProps;
+	if (
+		! isMediaWidgetProps( mediaProps ) ||
+		mediaProps.mediaId === null ||
+		! isPageWidgetProps( pageProps )
+	) {
+		return [];
+	}
+
+	return getSiteContentMediaDropActions( {
+		kind: 'page',
+		contentId: pageProps.pageId,
+		attachLabel: __( 'Attach to page' ),
+		media: {
+			id: mediaProps.mediaId,
+			url: mediaProps.url,
+			alt: mediaProps.alt,
+			kind: mediaProps.mediaKind,
+		},
+		context,
+	} );
+}

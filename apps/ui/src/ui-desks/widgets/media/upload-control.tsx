@@ -5,7 +5,7 @@ import { useConnector } from '@/data/core';
 import { useSites } from '@/data/queries/use-sites';
 import { uploadSiteMedia } from '@/data/wordpress/media';
 import { Button } from '@/ui-desks/components';
-import { useDesk } from '@/ui-desks/desk/provider';
+import { useDesk } from '@/ui-desks/desk/provider/context';
 import {
 	getLocalMediaPath,
 	getMediaKindForFilename,

@@ -34,7 +34,6 @@ type CoreDataSiteIdentitySettings = {
 	site_icon_url?: string;
 	site_logo_url?: string;
 };
-type CoreDataResolutionStatus = 'IDLE' | 'RESOLVING' | 'SUCCESS' | 'ERROR';
 type CoreDataResolutionState =
 	| {
 			status: 'resolving' | 'finished';
@@ -418,7 +417,6 @@ export function SiteCardWidgetThumbnailComponent( {
 function useSiteIdentitySettings( enabled: boolean ): {
 	settings: SiteIdentitySettings | undefined;
 	isLoading: boolean;
-	status: CoreDataResolutionStatus;
 } {
 	return useSelect(
 		( select ) => {
@@ -426,7 +424,6 @@ function useSiteIdentitySettings( enabled: boolean ): {
 				return {
 					settings: undefined,
 					isLoading: false,
-					status: 'IDLE' as CoreDataResolutionStatus,
 				};
 			}
 
@@ -438,34 +435,14 @@ function useSiteIdentitySettings( enabled: boolean ): {
 				'getEntityRecord',
 				SITE_IDENTITY_ENTITY_ARGS
 			) as CoreDataResolutionState | undefined;
-			const status = getCoreDataResolutionStatus( resolutionState?.status );
 
 			return {
 				settings: record ? parseSiteIdentitySettings( record ) : undefined,
-				isLoading: ! record && ( status === 'IDLE' || status === 'RESOLVING' ),
-				status,
+				isLoading: ! record && ( ! resolutionState || resolutionState.status === 'resolving' ),
 			};
 		},
 		[ enabled ]
 	);
-}
-
-function getCoreDataResolutionStatus(
-	status: CoreDataResolutionState[ 'status' ] | undefined
-): CoreDataResolutionStatus {
-	if ( status === 'resolving' ) {
-		return 'RESOLVING';
-	}
-
-	if ( status === 'finished' ) {
-		return 'SUCCESS';
-	}
-
-	if ( status === 'error' ) {
-		return 'ERROR';
-	}
-
-	return 'IDLE';
 }
 
 function stopCanvasPointer( event: PointerEvent< HTMLElement > ) {

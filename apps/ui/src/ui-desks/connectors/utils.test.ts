@@ -53,7 +53,7 @@ function createSiteCardWidget(): DeskWidget {
 		zIndex: 'a2',
 		shapeProps: {
 			w: 360,
-			h: 300,
+			h: 200,
 		},
 		widgetProps: {
 			siteId: 'site-1',

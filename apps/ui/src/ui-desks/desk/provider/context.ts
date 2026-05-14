@@ -53,6 +53,7 @@ export interface DeskContextValue {
 	startDrawing: () => boolean;
 	finishDrawing: () => Promise< boolean >;
 	updateSelectedWidgetProps: ( widgetProps: Record< string, unknown > ) => boolean;
+	updateSelectedWidgetShapeProps: ( shapeProps: Record< string, unknown > ) => boolean;
 	canEditSelectedWidget: boolean;
 	editSelectedWidget: () => boolean;
 	requestSiteCardEditAction: ( action: 'save' | 'cancel' ) => boolean;
@@ -126,6 +127,7 @@ const defaultDeskContext: DeskContextValue = {
 	startDrawing: () => false,
 	finishDrawing: async () => false,
 	updateSelectedWidgetProps: () => false,
+	updateSelectedWidgetShapeProps: () => false,
 	canEditSelectedWidget: false,
 	editSelectedWidget: () => false,
 	requestSiteCardEditAction: () => false,

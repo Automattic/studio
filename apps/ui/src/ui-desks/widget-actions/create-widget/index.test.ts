@@ -261,11 +261,11 @@ describe( 'createDeskWidget', () => {
 			id: 'site-card-1',
 			type: 'site-card',
 			x: 320,
-			y: 250,
+			y: 300,
 			zIndex: 'a9',
 			shapeProps: {
 				w: 360,
-				h: 300,
+				h: 200,
 			},
 			widgetProps: {
 				previewVisible: false,

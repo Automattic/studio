@@ -284,7 +284,7 @@ describe( 'tldraw adapter', () => {
 			zIndex: 'a6',
 			shapeProps: {
 				w: 360,
-				h: 300,
+				h: 200,
 			},
 			widgetProps: {
 				siteId: 'site-123',
@@ -304,7 +304,7 @@ describe( 'tldraw adapter', () => {
 				widgetType: 'site-card',
 				shapeProps: {
 					w: 360,
-					h: 300,
+					h: 200,
 				},
 				widgetProps: {
 					siteId: 'site-123',

@@ -119,18 +119,21 @@ describe( 'DeskWidgetToolbar', () => {
 
 	it( 'renders the site-card camera preview control in the selection toolbar', () => {
 		const updateSelectedWidgetProps = vi.fn();
+		const updateSelectedWidgetShapeProps = vi.fn();
 		useDeskMock.mockReturnValue(
 			createDeskContext( {
 				selectedWidgetToolbarItem: createSiteCardSelection(),
 				updateSelectedWidgetProps,
+				updateSelectedWidgetShapeProps,
 			} )
 		);
 
 		render( <DeskWidgetToolbar /> );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Show inline preview' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Show preview' } ) );
 
 		expect( updateSelectedWidgetProps ).toHaveBeenCalledWith( { previewVisible: true } );
+		expect( updateSelectedWidgetShapeProps ).toHaveBeenCalledWith( { h: 440 } );
 	} );
 
 	it( 'renders site-card save and cancel actions as focus mode controls', () => {
@@ -241,6 +244,7 @@ function createDeskContext( overrides: Partial< DeskContextValue > = {} ): DeskC
 		startDrawing: vi.fn(),
 		finishDrawing: vi.fn().mockResolvedValue( false ),
 		updateSelectedWidgetProps: vi.fn(),
+		updateSelectedWidgetShapeProps: vi.fn(),
 		canEditSelectedWidget: false,
 		editSelectedWidget: vi.fn(),
 		requestSiteCardEditAction: vi.fn(),
@@ -341,7 +345,7 @@ function createSiteCardWidget() {
 		zIndex: 'a1',
 		shapeProps: {
 			w: 360,
-			h: 300,
+			h: 200,
 		},
 		widgetProps: {
 			previewVisible: false,
@@ -370,7 +374,7 @@ function createSiteCardWidgetDefinition(
 		getInitialWidget: () => ( {
 			shapeProps: {
 				w: 360,
-				h: 300,
+				h: 200,
 			},
 			widgetProps: {
 				previewVisible: false,

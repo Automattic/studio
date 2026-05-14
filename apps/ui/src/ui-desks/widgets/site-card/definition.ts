@@ -39,7 +39,7 @@ export const siteCardWidgetDefinition = {
 	getInitialWidget: () => ( {
 		shapeProps: {
 			w: 360,
-			h: 300,
+			h: 200,
 		},
 		widgetProps: {
 			previewVisible: false,

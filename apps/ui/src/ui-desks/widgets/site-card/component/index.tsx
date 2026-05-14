@@ -1,12 +1,12 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
-import { closeSmall, image } from '@wordpress/icons';
+import { Icon, image } from '@wordpress/icons';
 import { useEffect, useRef, useState } from 'react';
 import { SiteIcon } from '@/components/site-icon';
 import { useConnector } from '@/data/core';
 import { SITES_QUERY_KEY, useSites } from '@/data/queries/use-sites';
 import { getSiteDisplayUrl } from '@/lib/get-site-url';
-import { Button, LoadingPlaceholder } from '@/ui-desks/components';
+import { LoadingPlaceholder } from '@/ui-desks/components';
 import { useDesk } from '@/ui-desks/desk/provider';
 import { getSitePreviewUrl, withPreviewFlag } from '@/ui-desks/widgets/site-preview/url';
 import { SITE_CARD_WIDGET_TYPE, type SiteCardWidgetProps } from '../types';
@@ -281,93 +281,64 @@ export function SiteCardWidgetComponent( {
 							) }
 						</div>
 					) }
-					<div className={ styles.header }>
-						<button
-							type="button"
-							className={ styles.iconButton }
-							aria-label={ __( 'Change site icon' ) }
-							title={ __( 'Change site icon' ) }
-							disabled={ ! isEditingIdentity || isSaving || ! canUseSiteRest }
-							onPointerDown={ stopCanvasPointer }
-							onClick={ () => iconInputRef.current?.click() }
-						>
+					<button
+						type="button"
+						className={ styles.iconButton }
+						aria-disabled={ ! isEditingIdentity || isSaving || ! canUseSiteRest }
+						aria-label={ __( 'Change site icon' ) }
+						title={ __( 'Change site icon' ) }
+						onPointerDown={ stopCanvasPointer }
+						onClick={ () => {
+							if ( isEditingIdentity && ! isSaving && canUseSiteRest ) {
+								iconInputRef.current?.click();
+							}
+						} }
+					>
+						{ displayedIconSrc ? (
 							<SiteIcon
 								className={ styles.icon }
 								seed={ site ? `${ site.id }:${ site.name }:${ site.path }` : 'site-card' }
 								imageSrc={ displayedIconSrc }
 							/>
-						</button>
-						<div className={ styles.identity }>
-							<div
-								ref={ titleRef }
-								className={ styles.title }
-								contentEditable={ isEditingIdentity && canUseSiteRest && ! isSaving }
-								suppressContentEditableWarning
-								spellCheck={ false }
-								title={ draftTitle }
-								data-empty={ draftTitle.trim() ? 'false' : 'true' }
-								data-placeholder={ __( 'Site title' ) }
-								onInput={ () => setDraftTitle( titleRef.current?.textContent ?? '' ) }
-								onPointerDown={ isEditingIdentity ? stopCanvasPointer : undefined }
-							/>
-							<div
-								ref={ taglineRef }
-								className={ styles.tagline }
-								contentEditable={ isEditingIdentity && canUseSiteRest && ! isSaving }
-								suppressContentEditableWarning
-								spellCheck={ false }
-								title={ draftTagline || emptyMessage }
-								data-empty={ draftTagline.trim() ? 'false' : 'true' }
-								data-placeholder={ isEditingIdentity ? __( 'Tagline' ) : emptyMessage }
-								onInput={ () => setDraftTagline( taglineRef.current?.textContent ?? '' ) }
-								onPointerDown={ isEditingIdentity ? stopCanvasPointer : undefined }
-							/>
+						) : (
+							<Icon icon={ image } size={ 28 } />
+						) }
+					</button>
+					<input
+						ref={ iconInputRef }
+						className={ styles.fileInput }
+						type="file"
+						accept="image/*"
+						disabled={ ! isEditingIdentity || isSaving }
+						onChange={ handleIconChange }
+						onPointerDown={ stopCanvasPointer }
+					/>
+					<div className={ styles.identity }>
+						<div
+							ref={ titleRef }
+							className={ styles.title }
+							contentEditable={ isEditingIdentity && canUseSiteRest && ! isSaving }
+							suppressContentEditableWarning
+							spellCheck={ false }
+							data-empty={ draftTitle.trim() ? 'false' : 'true' }
+							data-placeholder={ __( 'Site title' ) }
+							onInput={ () => setDraftTitle( titleRef.current?.textContent ?? '' ) }
+							onPointerDown={ isEditingIdentity ? stopCanvasPointer : undefined }
+						/>
+						<div
+							ref={ taglineRef }
+							className={ styles.tagline }
+							contentEditable={ isEditingIdentity && canUseSiteRest && ! isSaving }
+							suppressContentEditableWarning
+							spellCheck={ false }
+							data-empty={ draftTagline.trim() ? 'false' : 'true' }
+							data-placeholder={ __( 'Tagline' ) }
+							onInput={ () => setDraftTagline( taglineRef.current?.textContent ?? '' ) }
+							onPointerDown={ isEditingIdentity ? stopCanvasPointer : undefined }
+						/>
+						<div className={ styles.url } title={ site ? getSiteDisplayUrl( site ) : undefined }>
+							{ site ? getSiteDisplayUrl( site ) : '' }
 						</div>
-					</div>
-					{ isEditingIdentity && (
-						<div className={ styles.iconToolbar }>
-							<input
-								ref={ iconInputRef }
-								className={ styles.fileInput }
-								type="file"
-								accept="image/*"
-								disabled={ isSaving }
-								onChange={ handleIconChange }
-								onPointerDown={ stopCanvasPointer }
-							/>
-							<Button
-								icon={ image }
-								label={ __( 'Change icon' ) }
-								size="small"
-								variant="filled"
-								disabled={ isSaving || ! canUseSiteRest }
-								onPointerDown={ stopCanvasPointer }
-								onClick={ () => iconInputRef.current?.click() }
-							>
-								<span>{ __( 'Icon' ) }</span>
-							</Button>
-							<Button
-								icon={ closeSmall }
-								label={ __( 'Remove icon' ) }
-								size="small"
-								variant="quiet"
-								disabled={ isSaving || ! canUseSiteRest || ! displayedIconSrc }
-								onPointerDown={ stopCanvasPointer }
-								onClick={ () => {
-									setDraftIconFile( null );
-									setDraftIconPreview( null );
-									setIsIconRemoved( true );
-								} }
-							/>
-						</div>
-					) }
-					<div className={ styles.metaRow }>
-						<span className={ styles.url } title={ site ? getSiteDisplayUrl( site ) : undefined }>
-							{ site ? getSiteDisplayUrl( site ) : __( 'No site selected' ) }
-						</span>
-						<span className={ styles.status } data-running={ site?.running ? 'true' : 'false' }>
-							{ site?.running ? __( 'Running' ) : __( 'Stopped' ) }
-						</span>
 					</div>
 					{ error && <div className={ styles.error }>{ error }</div> }
 				</>

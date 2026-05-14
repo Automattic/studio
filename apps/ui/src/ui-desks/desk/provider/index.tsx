@@ -74,6 +74,7 @@ import {
 	stackSelectedWidgetsInEditor,
 	unstackSelectedWidgetsInEditor,
 	updateSelectedWidgetPropsInEditor,
+	updateSelectedWidgetShapePropsInEditor,
 } from './editor-state';
 import { useDeskPersistence } from './persistence';
 import { useDeskWidgetResolvers } from './resolvers';
@@ -597,6 +598,26 @@ export function DeskProvider( {
 		[ editor, isHydrated, isReadOnly ]
 	);
 
+	const updateSelectedWidgetShapeProps = useCallback(
+		( shapeProps: Record< string, unknown > ) => {
+			if ( isReadOnly || ! editor || ! isHydrated ) {
+				return false;
+			}
+
+			const nextSelectedWidgetToolbarItem = updateSelectedWidgetShapePropsInEditor(
+				editor,
+				shapeProps
+			);
+			if ( ! nextSelectedWidgetToolbarItem ) {
+				return false;
+			}
+
+			setSelectedWidgetToolbarItem( nextSelectedWidgetToolbarItem );
+			return true;
+		},
+		[ editor, isHydrated, isReadOnly ]
+	);
+
 	const fitSelectedWidgetToContent = useCallback( async () => {
 		if (
 			isReadOnly ||
@@ -1046,6 +1067,7 @@ export function DeskProvider( {
 			startDrawing,
 			finishDrawing,
 			updateSelectedWidgetProps,
+			updateSelectedWidgetShapeProps,
 			canEditSelectedWidget: Boolean( selectedWidgetEditAction ),
 			editSelectedWidget,
 			requestSiteCardEditAction,
@@ -1109,6 +1131,7 @@ export function DeskProvider( {
 			stopFocusMode,
 			unstackSelectedWidgets,
 			updateSelectedWidgetProps,
+			updateSelectedWidgetShapeProps,
 		]
 	);
 

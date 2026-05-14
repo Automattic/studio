@@ -34,6 +34,9 @@ export interface DeskContextValue {
 	focusMode: DeskFocusMode | null;
 	focusedWidget: DeskWidget | null;
 	focusedWidgetDefinition: DeskWidgetDefinition | null;
+	siteCardEditAction: SiteCardEditAction | null;
+	isSiteCardEditDirty: boolean;
+	isSiteCardEditSaving: boolean;
 	pressedStackId: string | null;
 	registerEditor: RegisterDeskEditor;
 	pressStack: ( stackId: string ) => void;
@@ -52,6 +55,10 @@ export interface DeskContextValue {
 	updateSelectedWidgetProps: ( widgetProps: Record< string, unknown > ) => boolean;
 	canEditSelectedWidget: boolean;
 	editSelectedWidget: () => boolean;
+	requestSiteCardEditAction: ( action: 'save' | 'cancel' ) => boolean;
+	completeSiteCardEdit: ( widgetId: string ) => void;
+	setSiteCardEditDirty: ( widgetId: string, isDirty: boolean ) => void;
+	setSiteCardEditSaving: ( widgetId: string, isSaving: boolean ) => void;
 	fitSelectedWidgetToContent: () => Promise< boolean >;
 	stackSelectedWidgets: () => boolean;
 	unstackSelectedWidgets: () => boolean;
@@ -64,6 +71,12 @@ export interface DeskContextValue {
 	setFocusDesk: ( focusDesk: DeskFocusDesk ) => boolean;
 	getFocusDeskSnapshot: () => DeskFocusDesk | null;
 	stopFocusMode: () => boolean;
+}
+
+export interface SiteCardEditAction {
+	widgetId: string;
+	action: 'save' | 'cancel';
+	token: number;
 }
 
 export interface AddDeskWidgetOptions {
@@ -101,6 +114,9 @@ const defaultDeskContext: DeskContextValue = {
 	focusMode: null,
 	focusedWidget: null,
 	focusedWidgetDefinition: null,
+	siteCardEditAction: null,
+	isSiteCardEditDirty: false,
+	isSiteCardEditSaving: false,
 	pressedStackId: null,
 	registerEditor: noopRegisterEditor,
 	pressStack: noopPressStack,
@@ -112,6 +128,10 @@ const defaultDeskContext: DeskContextValue = {
 	updateSelectedWidgetProps: () => false,
 	canEditSelectedWidget: false,
 	editSelectedWidget: () => false,
+	requestSiteCardEditAction: () => false,
+	completeSiteCardEdit: noopCompleteSiteCardEdit,
+	setSiteCardEditDirty: noopSetSiteCardEditDirty,
+	setSiteCardEditSaving: noopSetSiteCardEditSaving,
 	fitSelectedWidgetToContent: () => Promise.resolve( false ),
 	stackSelectedWidgets: () => false,
 	unstackSelectedWidgets: () => false,
@@ -138,3 +158,6 @@ export function useRegisterDeskEditor() {
 
 function noopRegisterEditor() {}
 function noopPressStack() {}
+function noopCompleteSiteCardEdit() {}
+function noopSetSiteCardEditDirty() {}
+function noopSetSiteCardEditSaving() {}

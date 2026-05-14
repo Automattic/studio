@@ -243,6 +243,37 @@ describe( 'createDeskWidget', () => {
 		} );
 	} );
 
+	it( 'creates a site card widget with optional site identity props', () => {
+		const createdWidget = createDeskWidget( {
+			id: 'site-card-1',
+			type: 'site-card',
+			center: {
+				x: 500,
+				y: 400,
+			},
+			zIndex: 'a9',
+			widgetProps: {
+				siteId: 'site-123',
+			},
+		} );
+
+		expect( createdWidget ).toEqual( {
+			id: 'site-card-1',
+			type: 'site-card',
+			x: 320,
+			y: 250,
+			zIndex: 'a9',
+			shapeProps: {
+				w: 360,
+				h: 300,
+			},
+			widgetProps: {
+				previewVisible: false,
+				siteId: 'site-123',
+			},
+		} );
+	} );
+
 	it( 'creates a drawing widget with supplied SVG props', () => {
 		const createdWidget = createDeskWidget( {
 			id: 'drawing-1',

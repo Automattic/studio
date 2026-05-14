@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { NOTE_WIDGET_TYPE } from '@/ui-desks/widgets/note/types';
+import { SITE_CARD_WIDGET_TYPE } from '@/ui-desks/widgets/site-card/types';
 import { getDeskWidgetConnectionLabel } from './utils';
 import type { DeskWidget } from '@/ui-desks/widgets/types';
 
@@ -19,6 +20,10 @@ describe( 'desk connections', () => {
 	it( 'falls back to the default note label when note text is empty', () => {
 		expect( getDeskWidgetConnectionLabel( createNoteWidget( '' ) ) ).toBe( 'Note' );
 	} );
+
+	it( 'uses the site card label for site card connections', () => {
+		expect( getDeskWidgetConnectionLabel( createSiteCardWidget() ) ).toBe( 'Site card' );
+	} );
 } );
 
 function createNoteWidget( text: string ): DeskWidget {
@@ -35,6 +40,24 @@ function createNoteWidget( text: string ): DeskWidget {
 		widgetProps: {
 			text,
 			tone: 'yellow',
+		},
+	};
+}
+
+function createSiteCardWidget(): DeskWidget {
+	return {
+		id: 'site-card-1',
+		type: SITE_CARD_WIDGET_TYPE,
+		x: 0,
+		y: 0,
+		zIndex: 'a2',
+		shapeProps: {
+			w: 360,
+			h: 300,
+		},
+		widgetProps: {
+			siteId: 'site-1',
+			previewVisible: false,
 		},
 	};
 }

@@ -181,7 +181,7 @@ export function focusOnDeskShape( editor: Editor, shapeId: TLShapeId ) {
 
 export function getDeskWidgetConnectionLabel( widget: DeskWidget ) {
 	const props = widget.widgetProps as Record< string, unknown >;
-	switch ( widget.type ) {
+	switch ( widget.type as string ) {
 		case 'post':
 			return typeof props.postId === 'number' ? `Post #${ props.postId }` : 'Post';
 		case 'page':
@@ -192,6 +192,8 @@ export function getDeskWidgetConnectionLabel( widget: DeskWidget ) {
 		}
 		case 'site-preview':
 			return typeof props.path === 'string' && props.path ? props.path : 'Preview';
+		case 'site-card':
+			return 'Site card';
 		case 'bookmark':
 		case 'embed':
 			return getUrlHostLabel( props.url ) ?? ( widget.type === 'embed' ? 'Embed' : 'Bookmark' );

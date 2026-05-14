@@ -10,6 +10,7 @@ import type { PageWidget } from '@/ui-desks/widgets/page/types';
 import type { PostWidget } from '@/ui-desks/widgets/post/types';
 import type { PostCollectionWidget } from '@/ui-desks/widgets/post-collection/types';
 import type { ScratchpadWidget } from '@/ui-desks/widgets/scratchpad/types';
+import type { SiteCardWidget } from '@/ui-desks/widgets/site-card/types';
 import type { SitePreviewWidget } from '@/ui-desks/widgets/site-preview/types';
 import type { DeskStack, DeskWidgetBase } from '@studio/common/types/desk';
 import type { createRegistry } from '@wordpress/data';
@@ -198,7 +199,10 @@ export type WidgetFitContentResult< TWidget extends DeskWidgetBase = DeskWidgetB
 	| TWidget[ 'shapeProps' ]
 	| null;
 
-export type WidgetEditAction = { kind: 'canvas-editing' } | { kind: 'site-url'; path: string };
+export type WidgetEditAction =
+	| { kind: 'canvas-editing' }
+	| { kind: 'focus-mode' }
+	| { kind: 'site-url'; path: string };
 
 export interface WidgetEditActionContext< TWidget extends DeskWidgetBase = DeskWidgetBase > {
 	widget: TWidget;
@@ -247,6 +251,7 @@ export type DeskWidget =
 	| PostWidget
 	| PageWidget
 	| PostCollectionWidget
+	| SiteCardWidget
 	| SitePreviewWidget;
 export type DeskWidgetDefinition =
 	| WidgetDefinition< ScratchpadWidget >
@@ -260,4 +265,5 @@ export type DeskWidgetDefinition =
 	| WidgetDefinition< PostWidget >
 	| WidgetDefinition< PageWidget >
 	| WidgetDefinition< PostCollectionWidget >
+	| WidgetDefinition< SiteCardWidget >
 	| WidgetDefinition< SitePreviewWidget >;

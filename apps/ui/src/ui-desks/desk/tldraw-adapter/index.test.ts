@@ -25,6 +25,7 @@ import type { NoteWidget } from '@/ui-desks/widgets/note/types';
 import type { PageWidget } from '@/ui-desks/widgets/page/types';
 import type { PostWidget } from '@/ui-desks/widgets/post/types';
 import type { ScratchpadWidget } from '@/ui-desks/widgets/scratchpad/types';
+import type { SiteCardWidget } from '@/ui-desks/widgets/site-card/types';
 import type { SitePreviewWidget } from '@/ui-desks/widgets/site-preview/types';
 import type { ResolvedDeskWidget } from '@/ui-desks/widgets/types';
 
@@ -265,6 +266,49 @@ describe( 'tldraw adapter', () => {
 				},
 				widgetProps: {
 					path: '/',
+				},
+			},
+		} );
+		expect( canvasShapeToDeskWidget( shape ) ).toEqual( {
+			...widget,
+			rotation: undefined,
+		} );
+	} );
+
+	it( 'maps a site card widget through the canvas shape adapter', () => {
+		const widget: SiteCardWidget = {
+			id: 'site-card-1',
+			type: 'site-card',
+			x: 90,
+			y: 100,
+			zIndex: 'a6',
+			shapeProps: {
+				w: 360,
+				h: 300,
+			},
+			widgetProps: {
+				siteId: 'site-123',
+				previewVisible: true,
+			},
+		};
+
+		const shape = deskWidgetToCanvasShape( widget ) as TLShape;
+
+		expect( shape ).toMatchObject( {
+			id: 'shape:site-card-1',
+			type: RECTANGLE_WIDGET_SHAPE_TYPE,
+			x: 90,
+			y: 100,
+			index: 'a6',
+			props: {
+				widgetType: 'site-card',
+				shapeProps: {
+					w: 360,
+					h: 300,
+				},
+				widgetProps: {
+					siteId: 'site-123',
+					previewVisible: true,
 				},
 			},
 		} );

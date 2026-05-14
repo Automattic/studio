@@ -2,6 +2,12 @@ import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useDesk } from '@/ui-desks/desk/provider';
+import {
+	SiteCardEditCancelControl,
+	SiteCardEditSaveControl,
+} from '@/ui-desks/widgets/site-card/edit-controls';
+import { SiteCardPreviewControl } from '@/ui-desks/widgets/site-card/preview-control';
+import { isSiteCardWidgetProps, SITE_CARD_WIDGET_TYPE } from '@/ui-desks/widgets/site-card/types';
 import { DeskWidgetToolbar } from './index';
 import type { SelectedWidgetToolbarItem } from './selection';
 import type { DeskContextValue } from '@/ui-desks/desk/provider/context';
@@ -110,6 +116,103 @@ describe( 'DeskWidgetToolbar', () => {
 		expect( screen.getByRole( 'toolbar', { name: 'Focused test actions' } ) ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'Focus action' } ) ).toBeVisible();
 	} );
+
+	it( 'renders the site-card camera preview control in the selection toolbar', () => {
+		const updateSelectedWidgetProps = vi.fn();
+		useDeskMock.mockReturnValue(
+			createDeskContext( {
+				selectedWidgetToolbarItem: createSiteCardSelection(),
+				updateSelectedWidgetProps,
+			} )
+		);
+
+		render( <DeskWidgetToolbar /> );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Show inline preview' } ) );
+
+		expect( updateSelectedWidgetProps ).toHaveBeenCalledWith( { previewVisible: true } );
+	} );
+
+	it( 'renders site-card save and cancel actions as focus mode controls', () => {
+		const requestSiteCardEditAction = vi.fn();
+		const focusedWidget = createSiteCardWidget();
+		useDeskMock.mockReturnValue(
+			createDeskContext( {
+				focusMode: {
+					widgetId: focusedWidget.id,
+					focusDesk: { widgets: [] },
+				},
+				focusedWidget: focusedWidget as DeskWidget,
+				focusedWidgetDefinition: createSiteCardWidgetDefinition( {
+					focusModeControls: [
+						{
+							type: 'custom',
+							id: 'cancel-site-card-edit',
+							Component: SiteCardEditCancelControl,
+						},
+						{
+							type: 'custom',
+							id: 'save-site-card-edit',
+							Component: SiteCardEditSaveControl,
+						},
+					],
+					focusModeControlsLabel: () => 'Edit site identity actions',
+				} ),
+				isSiteCardEditDirty: true,
+				requestSiteCardEditAction,
+			} )
+		);
+
+		render( <DeskWidgetToolbar /> );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Save' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Cancel' } ) );
+
+		expect( requestSiteCardEditAction ).toHaveBeenCalledWith( 'save' );
+		expect( requestSiteCardEditAction ).toHaveBeenCalledWith( 'cancel' );
+	} );
+
+	it( 'shows a busy save button while the site card is saving', () => {
+		const requestSiteCardEditAction = vi.fn();
+		const focusedWidget = createSiteCardWidget();
+		useDeskMock.mockReturnValue(
+			createDeskContext( {
+				focusMode: {
+					widgetId: focusedWidget.id,
+					focusDesk: { widgets: [] },
+				},
+				focusedWidget: focusedWidget as DeskWidget,
+				focusedWidgetDefinition: createSiteCardWidgetDefinition( {
+					focusModeControls: [
+						{
+							type: 'custom',
+							id: 'cancel-site-card-edit',
+							Component: SiteCardEditCancelControl,
+						},
+						{
+							type: 'custom',
+							id: 'save-site-card-edit',
+							Component: SiteCardEditSaveControl,
+						},
+					],
+					focusModeControlsLabel: () => 'Edit site identity actions',
+				} ),
+				isSiteCardEditDirty: true,
+				isSiteCardEditSaving: true,
+				requestSiteCardEditAction,
+			} )
+		);
+
+		render( <DeskWidgetToolbar /> );
+
+		const saveButton = screen.getByRole( 'button', { name: 'Saving site identity' } );
+
+		expect( saveButton ).toBeDisabled();
+		expect( saveButton ).toHaveAttribute( 'aria-busy', 'true' );
+		expect( screen.getByText( 'Saving' ) ).toBeVisible();
+		fireEvent.click( saveButton );
+		expect( requestSiteCardEditAction ).not.toHaveBeenCalled();
+	} );
 } );
 
 function createDeskContext( overrides: Partial< DeskContextValue > = {} ): DeskContextValue {
@@ -126,6 +229,9 @@ function createDeskContext( overrides: Partial< DeskContextValue > = {} ): DeskC
 		focusMode: null,
 		focusedWidget: null,
 		focusedWidgetDefinition: null,
+		siteCardEditAction: null,
+		isSiteCardEditDirty: false,
+		isSiteCardEditSaving: false,
 		pressedStackId: null,
 		registerEditor: vi.fn(),
 		pressStack: vi.fn(),
@@ -137,6 +243,10 @@ function createDeskContext( overrides: Partial< DeskContextValue > = {} ): DeskC
 		updateSelectedWidgetProps: vi.fn(),
 		canEditSelectedWidget: false,
 		editSelectedWidget: vi.fn(),
+		requestSiteCardEditAction: vi.fn(),
+		completeSiteCardEdit: vi.fn(),
+		setSiteCardEditDirty: vi.fn(),
+		setSiteCardEditSaving: vi.fn(),
 		fitSelectedWidgetToContent: vi.fn().mockResolvedValue( false ),
 		stackSelectedWidgets: vi.fn(),
 		unstackSelectedWidgets: vi.fn(),
@@ -201,6 +311,70 @@ function createWidgetDefinition( overrides: Partial< DeskWidgetDefinition > = {}
 				h: 200,
 			},
 			widgetProps: {},
+		} ),
+		...overrides,
+	} as DeskWidgetDefinition;
+}
+
+function createSiteCardSelection(): SelectedWidgetToolbarItem {
+	const widget = createSiteCardWidget();
+
+	return {
+		kind: 'single-widget',
+		widgets: [ widget ],
+		stackIds: [],
+		canStack: false,
+		canUnstack: false,
+		canSetStackView: false,
+		canRemove: true,
+		widget,
+		definition: createSiteCardWidgetDefinition(),
+	} as unknown as SelectedWidgetToolbarItem;
+}
+
+function createSiteCardWidget() {
+	return {
+		id: 'site-card-1',
+		type: SITE_CARD_WIDGET_TYPE,
+		x: 0,
+		y: 0,
+		zIndex: 'a1',
+		shapeProps: {
+			w: 360,
+			h: 300,
+		},
+		widgetProps: {
+			previewVisible: false,
+		},
+	};
+}
+
+function createSiteCardWidgetDefinition(
+	overrides: Partial< DeskWidgetDefinition > = {}
+): DeskWidgetDefinition {
+	return {
+		type: SITE_CARD_WIDGET_TYPE,
+		name: () => 'Site card',
+		Component: () => null,
+		controls: [
+			{
+				type: 'custom',
+				id: 'site-card-preview',
+				Component: SiteCardPreviewControl,
+			},
+		],
+		isWidgetProps: isSiteCardWidgetProps,
+		labels: {
+			add: () => 'New site card',
+		},
+		getInitialWidget: () => ( {
+			shapeProps: {
+				w: 360,
+				h: 300,
+			},
+			widgetProps: {
+				previewVisible: false,
+			},
 		} ),
 		...overrides,
 	} as DeskWidgetDefinition;

@@ -17,7 +17,10 @@ import {
 	removeSelectedConnectorFromEditor,
 	startConnectingWidgetInEditor,
 } from '@/ui-desks/connectors/editor-commands';
-import { useConnectorInteractions } from '@/ui-desks/connectors/use-connector-interactions';
+import {
+	useConnectorInteractions,
+	type WidgetCustomDropIntent,
+} from '@/ui-desks/connectors/use-connector-interactions';
 import {
 	getCurrentSelectedWidgetConnectionTargets,
 	getOutgoingWidgetConnections,
@@ -41,6 +44,8 @@ import {
 import { useStackInteractions } from '@/ui-desks/stacks/use-stack-interactions';
 import { useStackPressAnimation } from '@/ui-desks/stacks/use-stack-press-animation';
 import { createDeskWidget } from '@/ui-desks/widget-actions/create-widget';
+import { DropActionMenu } from '@/ui-desks/widget-actions/drop-handlers/drop-action-menu';
+import { useWidgetCustomDropActions } from '@/ui-desks/widget-actions/drop-handlers/use-widget-custom-drop-actions';
 import { getWidgetEditAction } from '@/ui-desks/widget-actions/edit-action';
 import { getWidgetFileHandler } from '@/ui-desks/widget-actions/file-handlers';
 import {
@@ -134,6 +139,9 @@ export function DeskProvider( {
 	const [ focusMode, setFocusModeState ] = useState< DeskFocusMode | null >( null );
 	const [ focusedWidget, setFocusedWidget ] = useState< DeskWidget | null >( null );
 	const [ pressedStackId, setPressedStackId ] = useState< string | null >( null );
+	const [ customDropIntent, setCustomDropIntent ] = useState< WidgetCustomDropIntent | null >(
+		null
+	);
 	const hydratedRef = useRef( false );
 	const deskConfigKeyRef = useRef< string | undefined >( undefined );
 	const creationOffsetRef = useRef( 0 );
@@ -174,6 +182,18 @@ export function DeskProvider( {
 		[ focusedWidget ]
 	);
 
+	const handleCustomDrop = useCallback( ( drop: WidgetCustomDropIntent ) => {
+		setCustomDropIntent( drop );
+	}, [] );
+	const closeCustomDropMenu = useCallback( () => {
+		setCustomDropIntent( null );
+	}, [] );
+	const customDropActions = useWidgetCustomDropActions( {
+		editor,
+		intent: customDropIntent,
+		closeMenu: closeCustomDropMenu,
+	} );
+
 	useStackInteractions( editor );
 	useConnectorInteractions( {
 		editor,
@@ -181,6 +201,7 @@ export function DeskProvider( {
 		isReadOnly,
 		pendingConnectorSourceId,
 		setPendingConnectorSourceId,
+		onCustomDrop: handleCustomDrop,
 	} );
 
 	useEffect( () => {
@@ -1005,7 +1026,18 @@ export function DeskProvider( {
 		isEnabled: Boolean( siteId && isHydrated ),
 	} );
 
-	return <DeskContext.Provider value={ value }>{ children }</DeskContext.Provider>;
+	return (
+		<DeskContext.Provider value={ value }>
+			{ children }
+			{ customDropIntent && customDropActions.length > 0 && (
+				<DropActionMenu
+					screenPoint={ customDropIntent.screenPoint }
+					actions={ customDropActions }
+					onCancel={ closeCustomDropMenu }
+				/>
+			) }
+		</DeskContext.Provider>
+	);
 }
 
 function syncFocusDeskToEditor(

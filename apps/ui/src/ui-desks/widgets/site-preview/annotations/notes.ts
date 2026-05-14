@@ -251,13 +251,7 @@ function createAnnotationWidgetId() {
 
 function stripHtmlToText( html: string ) {
 	if ( typeof document === 'undefined' ) {
-		return decodeHtmlEntities(
-			html
-				.replace( /<(p|br|div|li)\b[^>]*>/gi, '\n' )
-				.replace( /<[^>]+>/g, '' )
-				.replace( /\n{2,}/g, '\n' )
-				.trim()
-		);
+		return html;
 	}
 
 	const element = document.createElement( 'div' );
@@ -266,16 +260,6 @@ function stripHtmlToText( html: string ) {
 		child.insertAdjacentText( 'beforebegin', '\n' );
 	} );
 	return ( element.textContent || '' ).replace( /\n{2,}/g, '\n' ).trim();
-}
-
-function decodeHtmlEntities( value: string ) {
-	return value
-		.replace( /&nbsp;/g, ' ' )
-		.replace( /&amp;/g, '&' )
-		.replace( /&lt;/g, '<' )
-		.replace( /&gt;/g, '>' )
-		.replace( /&quot;/g, '"' )
-		.replace( /&#39;/g, "'" );
 }
 
 function escapeHtml( value: string ) {

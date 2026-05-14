@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { NOTE_WIDGET_TYPE } from '@/ui-desks/widgets/note/types';
-import { getDeskWidgetConnectionLabel } from './connections';
+import { getDeskWidgetConnectionLabel } from './utils';
 import type { DeskWidget } from '@/ui-desks/widgets/types';
 
 vi.mock( '@wordpress/core-data', () => ( {

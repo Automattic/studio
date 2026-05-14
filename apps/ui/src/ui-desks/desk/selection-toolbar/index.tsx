@@ -8,8 +8,8 @@ import { ControlRenderer } from '@/ui-desks/controls/registry';
 import { useDesk } from '@/ui-desks/desk/provider';
 import styles from './style.module.css';
 import type { getSelectedWidgetToolbarItem } from './selection';
+import type { DeskWidgetConnectionTarget } from '@/ui-desks/connectors/utils';
 import type { AnySelectControlConfig } from '@/ui-desks/controls/types';
-import type { DeskWidgetConnectionTarget } from '@/ui-desks/desk/connections';
 import type { StackViewMode } from '@/ui-desks/stacks/utils';
 import type { DeskWidget } from '@/ui-desks/widgets/types';
 

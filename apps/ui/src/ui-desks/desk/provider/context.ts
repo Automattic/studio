@@ -3,7 +3,7 @@ import type { DeskConfig } from '../types';
 import type {
 	DeskWidgetConnectionTarget,
 	SelectedDeskConnectorToolbarItem,
-} from '@/ui-desks/desk/connections';
+} from '@/ui-desks/connectors/utils';
 import type { getSelectedWidgetToolbarItem } from '@/ui-desks/desk/selection-toolbar/selection';
 import type { StackViewMode } from '@/ui-desks/stacks/utils';
 import type { WidgetPastePayload } from '@/ui-desks/widgets/types';

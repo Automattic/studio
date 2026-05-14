@@ -101,6 +101,7 @@ vi.mock( 'cli/lib/wordpress-server-manager', () => ( {
 } ) );
 
 describe( 'Studio AI MCP tools', () => {
+	const previousScratchpadWidgetType = 'sd-' + 'artefact';
 	const mockSite = {
 		id: 'site-123',
 		name: 'My Site',
@@ -170,6 +171,8 @@ describe( 'Studio AI MCP tools', () => {
 		expect( studioPresent?.description ).toContain(
 			'call studio_present with exactly one note widget'
 		);
+		expect( studioPresent?.description ).toContain( '- scratchpad:' );
+		expect( studioPresent?.description ).not.toContain( previousScratchpadWidgetType );
 		expect( studioPresent?.description ).toContain( '- saved-local-media:' );
 		expect( studioPresent?.description ).toContain(
 			'For generated SVGs, write a complete .svg file'

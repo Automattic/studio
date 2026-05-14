@@ -6,6 +6,7 @@ import { SelectionChatDialog } from '@/ui-desks/chats/selection-chat-dialog';
 import { Divider, Button, Surface } from '@/ui-desks/components';
 import { ControlRenderer } from '@/ui-desks/controls/registry';
 import { useDesk } from '@/ui-desks/desk/provider';
+import { SITE_PREVIEW_WIDGET_TYPE } from '@/ui-desks/widgets/site-preview/types';
 import styles from './style.module.css';
 import type { getSelectedWidgetToolbarItem } from './selection';
 import type { DeskWidgetConnectionTarget } from '@/ui-desks/connectors/utils';
@@ -43,6 +44,9 @@ export function DeskWidgetToolbar() {
 		selectedWidgetConnectionTargets,
 		removeSelectedConnector,
 		focusConnectedWidget,
+		focusMode,
+		focusedWidget,
+		focusedWidgetDefinition,
 	} = useDesk();
 	const visible = Boolean(
 		selectedWidgetToolbarItem ||
@@ -57,6 +61,12 @@ export function DeskWidgetToolbar() {
 	>( [] );
 	const [ openControlId, setOpenControlId ] = useState< string | null >( null );
 	const [ chatWidgets, setChatWidgets ] = useState< DeskWidget[] | null >( null );
+	const focusModeControls =
+		focusMode &&
+		focusedWidget &&
+		focusedWidgetDefinition?.isWidgetProps( focusedWidget.widgetProps )
+			? focusedWidgetDefinition.focusModeControls
+			: undefined;
 
 	useEffect( () => {
 		if ( selectedWidgetToolbarItem ) {
@@ -69,6 +79,30 @@ export function DeskWidgetToolbar() {
 			setLastConnectionTargets( selectedWidgetConnectionTargets );
 		}
 	}, [ selectedConnectorToolbarItem, selectedWidgetConnectionTargets, selectedWidgetToolbarItem ] );
+
+	if ( focusedWidget && focusModeControls?.length ) {
+		return (
+			<Surface
+				variant="glass"
+				className={ styles.toolbar }
+				data-visible="true"
+				role="toolbar"
+				aria-label={ focusedWidgetDefinition?.focusModeControlsLabel?.() ?? __( 'Focus actions' ) }
+				onPointerDown={ ( event ) => event.stopPropagation() }
+			>
+				{ focusModeControls.map( ( control ) => (
+					<ControlRenderer
+						key={ control.id }
+						control={ control }
+						isOpen={ openControlId === control.id }
+						props={ focusedWidget.widgetProps }
+						setIsOpen={ ( isOpen ) => setOpenControlId( isOpen ? control.id : null ) }
+						updateProps={ updateSelectedWidgetProps }
+					/>
+				) ) }
+			</Surface>
+		);
+	}
 
 	const renderSelection = visible ? selectedWidgetToolbarItem : lastSelection;
 	const renderConnectorSelection = visible ? selectedConnectorToolbarItem : lastConnectorSelection;
@@ -87,7 +121,10 @@ export function DeskWidgetToolbar() {
 		renderSelection?.kind === 'single-widget' &&
 		Boolean( controls?.length ) &&
 		renderSelection.definition.isWidgetProps( renderSelection.widget.widgetProps );
-	const canRenderEditControl = renderSelection?.kind === 'single-widget' && canEditSelectedWidget;
+	const canRenderEditControl =
+		renderSelection?.kind === 'single-widget' &&
+		canEditSelectedWidget &&
+		renderSelection.widget.type !== SITE_PREVIEW_WIDGET_TYPE;
 
 	return (
 		<>

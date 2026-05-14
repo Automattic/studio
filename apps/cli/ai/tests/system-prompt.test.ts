@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { buildSystemPrompt } from '../system-prompt';
 
 describe( 'buildSystemPrompt', () => {
+	const previousScratchpadWidgetType = 'sd-' + 'artefact';
+
 	it( 'includes Studio presentation rules when chat artifacts are enabled', () => {
 		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
 
@@ -14,7 +16,9 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).toContain( 'JSX/TSX markup' );
 		expect( prompt ).toContain( 'call studio_present with exactly one note widget' );
 		expect( prompt ).toContain( 'sections/selectors touched' );
-		expect( prompt ).toContain( 'Use sd-artefact for standalone rendered HTML drafts' );
+		expect( prompt ).toContain( 'Use scratchpad for standalone rendered HTML drafts' );
+		expect( prompt ).toContain( '- scratchpad:' );
+		expect( prompt ).not.toContain( previousScratchpadWidgetType );
 		expect( prompt ).toContain( '- saved-local-media:' );
 		expect( prompt ).toContain( 'For generated SVGs, write a complete .svg file' );
 		expect( prompt ).toContain( 'Do not present generated SVG code as a drawing widget' );

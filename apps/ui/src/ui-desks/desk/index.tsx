@@ -27,11 +27,13 @@ export function Desk( { siteId }: DeskProps ) {
 
 function UserDesk() {
 	return (
-		<DeskProvider key="user">
-			<DeskShell>
-				<DeskCanvas />
-			</DeskShell>
-		</DeskProvider>
+		<ChatsProvider>
+			<DeskProvider key="user">
+				<DeskShell>
+					<DeskCanvas />
+				</DeskShell>
+			</DeskProvider>
+		</ChatsProvider>
 	);
 }
 
@@ -41,26 +43,28 @@ function SiteDesk( { siteId }: Required< DeskProps > ) {
 	const providerKey = siteMapOpen ? `${ siteId }:site-map:${ siteMap.signature }` : siteId;
 
 	return (
-		<DeskProvider
-			key={ providerKey }
-			siteId={ siteId }
-			deskConfig={ siteMapOpen ? siteMap.config : undefined }
-			deskConfigKey={ providerKey }
-			initialViewportMode={ siteMapOpen ? 'site-map' : undefined }
-			isLoading={ siteMapOpen ? siteMap.isLoading : undefined }
-			isReadOnly={ siteMapOpen }
-			statusMessage={ siteMapOpen ? siteMap.message : undefined }
-		>
-			<DeskShell
+		<ChatsProvider siteId={ siteId }>
+			<DeskProvider
+				key={ providerKey }
 				siteId={ siteId }
-				siteMapOpen={ siteMapOpen }
-				siteMapIsLoading={ siteMapOpen && siteMap.isLoading }
-				siteMapPageCount={ siteMapOpen && ! siteMap.isLoading ? siteMap.pageCount : undefined }
-				onToggleSiteMap={ () => setSiteMapOpen( ( open ) => ! open ) }
+				deskConfig={ siteMapOpen ? siteMap.config : undefined }
+				deskConfigKey={ providerKey }
+				initialViewportMode={ siteMapOpen ? 'site-map' : undefined }
+				isLoading={ siteMapOpen ? siteMap.isLoading : undefined }
+				isReadOnly={ siteMapOpen }
+				statusMessage={ siteMapOpen ? siteMap.message : undefined }
 			>
-				<DeskCanvas />
-			</DeskShell>
-		</DeskProvider>
+				<DeskShell
+					siteId={ siteId }
+					siteMapOpen={ siteMapOpen }
+					siteMapIsLoading={ siteMapOpen && siteMap.isLoading }
+					siteMapPageCount={ siteMapOpen && ! siteMap.isLoading ? siteMap.pageCount : undefined }
+					onToggleSiteMap={ () => setSiteMapOpen( ( open ) => ! open ) }
+				>
+					<DeskCanvas />
+				</DeskShell>
+			</DeskProvider>
+		</ChatsProvider>
 	);
 }
 
@@ -83,7 +87,7 @@ function DeskShell( {
 	const [ editingToolbar, setEditingToolbar ] = useState( false );
 
 	return (
-		<ChatsProvider siteId={ siteId }>
+		<>
 			<Chats siteId={ siteId } />
 			<main
 				className={ styles.root }
@@ -141,7 +145,7 @@ function DeskShell( {
 					</>
 				) }
 			</main>
-		</ChatsProvider>
+		</>
 	);
 }
 

@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { MEDIA_WIDGET_TYPE } from '@/ui-desks/widgets/media/types';
 import { NOTE_WIDGET_TYPE } from '@/ui-desks/widgets/note/types';
+import { PAGE_WIDGET_TYPE } from '@/ui-desks/widgets/page/types';
+import { POST_WIDGET_TYPE } from '@/ui-desks/widgets/post/types';
+import { SCRATCHPAD_WIDGET_TYPE } from '@/ui-desks/widgets/scratchpad/types';
 import { SITE_PREVIEW_WIDGET_TYPE } from '@/ui-desks/widgets/site-preview/types';
 import { getWidgetDropHandler } from './index';
 import type { DeskWidget } from '@/ui-desks/widgets/types';
@@ -26,9 +29,50 @@ describe( 'widget drop handlers', () => {
 	it( 'does not return a handler when the target has no drop handlers', () => {
 		expect( getWidgetDropHandler( createNoteWidget(), createSitePreviewWidget() ) ).toBeNull();
 	} );
+
+	it( 'returns custom media handlers for post, page, and scratchpad targets', () => {
+		const postHandler = getWidgetDropHandler(
+			createMediaWidget( { mediaId: 123 } ),
+			createPostWidget()
+		);
+		const pageHandler = getWidgetDropHandler(
+			createMediaWidget( { mediaId: 123 } ),
+			createPageWidget()
+		);
+		const scratchpadHandler = getWidgetDropHandler( createMediaWidget(), createScratchpadWidget() );
+
+		expect( postHandler ).toMatchObject( {
+			id: 'media-actions-for-post',
+			type: 'custom',
+		} );
+		expect( pageHandler ).toMatchObject( {
+			id: 'media-actions-for-page',
+			type: 'custom',
+		} );
+		expect( scratchpadHandler ).toMatchObject( {
+			id: 'media-actions-for-scratchpad',
+			type: 'custom',
+		} );
+		expect( postHandler?.type === 'custom' ? postHandler.getActions : null ).toEqual(
+			expect.any( Function )
+		);
+		expect( pageHandler?.type === 'custom' ? pageHandler.getActions : null ).toEqual(
+			expect.any( Function )
+		);
+		expect( scratchpadHandler?.type === 'custom' ? scratchpadHandler.getActions : null ).toEqual(
+			expect.any( Function )
+		);
+	} );
+
+	it( 'does not return post or page media actions for local-only media', () => {
+		const localMediaWidget = createMediaWidget( { mediaId: null } );
+
+		expect( getWidgetDropHandler( localMediaWidget, createPostWidget() ) ).toBeNull();
+		expect( getWidgetDropHandler( localMediaWidget, createPageWidget() ) ).toBeNull();
+	} );
 } );
 
-function createMediaWidget(): DeskWidget {
+function createMediaWidget( props: { mediaId?: number | null } = {} ): DeskWidget {
 	return {
 		id: 'media-1',
 		type: MEDIA_WIDGET_TYPE,
@@ -43,7 +87,7 @@ function createMediaWidget(): DeskWidget {
 			url: 'https://example.com/image.png',
 			mediaKind: 'image',
 			alt: '',
-			mediaId: null,
+			mediaId: props.mediaId ?? null,
 		},
 	};
 }
@@ -79,6 +123,61 @@ function createSitePreviewWidget(): DeskWidget {
 		},
 		widgetProps: {
 			path: '/',
+		},
+	};
+}
+
+function createPostWidget(): DeskWidget {
+	return {
+		id: 'post-1',
+		type: POST_WIDGET_TYPE,
+		x: 0,
+		y: 0,
+		zIndex: 'a3',
+		shapeProps: {
+			w: 280,
+			h: 380,
+		},
+		widgetProps: {
+			postId: 123,
+		},
+	};
+}
+
+function createPageWidget(): DeskWidget {
+	return {
+		id: 'page-1',
+		type: PAGE_WIDGET_TYPE,
+		x: 0,
+		y: 0,
+		zIndex: 'a4',
+		shapeProps: {
+			w: 280,
+			h: 380,
+		},
+		widgetProps: {
+			pageId: 456,
+			tone: 'neutral',
+		},
+	};
+}
+
+function createScratchpadWidget(): DeskWidget {
+	return {
+		id: 'scratchpad-1',
+		type: SCRATCHPAD_WIDGET_TYPE,
+		x: 0,
+		y: 0,
+		zIndex: 'a5',
+		shapeProps: {
+			w: 480,
+			h: 360,
+		},
+		widgetProps: {
+			html: '',
+			title: '',
+			scope: 'block',
+			description: '',
 		},
 	};
 }

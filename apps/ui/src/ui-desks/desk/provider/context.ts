@@ -5,8 +5,13 @@ import type {
 	SelectedDeskConnectorToolbarItem,
 } from '@/ui-desks/connectors/utils';
 import type { getSelectedWidgetToolbarItem } from '@/ui-desks/desk/selection-toolbar/selection';
+import type { DeskFocusDesk, DeskFocusMode } from '@/ui-desks/focus-mode/types';
 import type { StackViewMode } from '@/ui-desks/stacks/utils';
-import type { WidgetPastePayload } from '@/ui-desks/widgets/types';
+import type {
+	DeskWidget,
+	DeskWidgetDefinition,
+	WidgetPastePayload,
+} from '@/ui-desks/widgets/types';
 import type { ReactNode } from 'react';
 import type { Editor, TLShapeId } from 'tldraw';
 
@@ -26,6 +31,9 @@ export interface DeskContextValue {
 	selectedConnectorToolbarItem: SelectedDeskConnectorToolbarItem | null;
 	selectedWidgetConnectionTargets: DeskWidgetConnectionTarget[];
 	isConnectingWidget: boolean;
+	focusMode: DeskFocusMode | null;
+	focusedWidget: DeskWidget | null;
+	focusedWidgetDefinition: DeskWidgetDefinition | null;
 	pressedStackId: string | null;
 	registerEditor: RegisterDeskEditor;
 	pressStack: ( stackId: string ) => void;
@@ -52,6 +60,10 @@ export interface DeskContextValue {
 	removeSelectedConnector: () => boolean;
 	startConnectingWidget: ( shapeId: TLShapeId ) => boolean;
 	focusConnectedWidget: ( shapeId: TLShapeId ) => boolean;
+	startFocusMode: ( widgetId: string, focusDesk?: DeskFocusDesk ) => boolean;
+	setFocusDesk: ( focusDesk: DeskFocusDesk ) => boolean;
+	getFocusDeskSnapshot: () => DeskFocusDesk | null;
+	stopFocusMode: () => boolean;
 }
 
 export interface AddDeskWidgetOptions {
@@ -86,6 +98,9 @@ const defaultDeskContext: DeskContextValue = {
 	selectedConnectorToolbarItem: null,
 	selectedWidgetConnectionTargets: [],
 	isConnectingWidget: false,
+	focusMode: null,
+	focusedWidget: null,
+	focusedWidgetDefinition: null,
 	pressedStackId: null,
 	registerEditor: noopRegisterEditor,
 	pressStack: noopPressStack,
@@ -105,6 +120,10 @@ const defaultDeskContext: DeskContextValue = {
 	removeSelectedConnector: () => false,
 	startConnectingWidget: () => false,
 	focusConnectedWidget: () => false,
+	startFocusMode: () => false,
+	setFocusDesk: () => false,
+	getFocusDeskSnapshot: () => null,
+	stopFocusMode: () => false,
 };
 
 export const DeskContext = createContext< DeskContextValue >( defaultDeskContext );

@@ -5,7 +5,7 @@ import { useDesk } from '@/ui-desks/desk/provider';
 import { DeskWidgetToolbar } from './index';
 import type { SelectedWidgetToolbarItem } from './selection';
 import type { DeskContextValue } from '@/ui-desks/desk/provider/context';
-import type { DeskWidgetDefinition } from '@/ui-desks/widgets/types';
+import type { DeskWidget, DeskWidgetDefinition } from '@/ui-desks/widgets/types';
 
 vi.mock( '@/ui-desks/chats/chat-button', () => ( {
 	ChatButton: () => <button type="button">Chat</button>,
@@ -81,6 +81,35 @@ describe( 'DeskWidgetToolbar', () => {
 
 		expect( screen.queryByRole( 'button', { name: 'Fit to size' } ) ).not.toBeInTheDocument();
 	} );
+
+	it( 'renders focus mode controls from the focused widget definition', () => {
+		const focusedWidget = createWidget();
+		useDeskMock.mockReturnValue(
+			createDeskContext( {
+				focusMode: {
+					widgetId: focusedWidget.id,
+					focusDesk: { widgets: [] },
+				},
+				focusedWidget: focusedWidget as unknown as DeskWidget,
+				focusedWidgetDefinition: {
+					...createWidgetDefinition(),
+					focusModeControls: [
+						{
+							type: 'custom',
+							id: 'focus-action',
+							Component: () => <button type="button">Focus action</button>,
+						},
+					],
+					focusModeControlsLabel: () => 'Focused test actions',
+				} as DeskWidgetDefinition,
+			} )
+		);
+
+		render( <DeskWidgetToolbar /> );
+
+		expect( screen.getByRole( 'toolbar', { name: 'Focused test actions' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Focus action' } ) ).toBeVisible();
+	} );
 } );
 
 function createDeskContext( overrides: Partial< DeskContextValue > = {} ): DeskContextValue {
@@ -94,6 +123,9 @@ function createDeskContext( overrides: Partial< DeskContextValue > = {} ): DeskC
 		selectedConnectorToolbarItem: null,
 		selectedWidgetConnectionTargets: [],
 		isConnectingWidget: false,
+		focusMode: null,
+		focusedWidget: null,
+		focusedWidgetDefinition: null,
 		pressedStackId: null,
 		registerEditor: vi.fn(),
 		pressStack: vi.fn(),
@@ -113,6 +145,10 @@ function createDeskContext( overrides: Partial< DeskContextValue > = {} ): DeskC
 		removeSelectedConnector: vi.fn(),
 		startConnectingWidget: vi.fn(),
 		focusConnectedWidget: vi.fn(),
+		startFocusMode: vi.fn(),
+		setFocusDesk: vi.fn(),
+		getFocusDeskSnapshot: vi.fn(),
+		stopFocusMode: vi.fn(),
 		...overrides,
 	};
 }
@@ -120,7 +156,23 @@ function createDeskContext( overrides: Partial< DeskContextValue > = {} ): DeskC
 function createSingleWidgetSelection(
 	definitionOverrides: Partial< DeskWidgetDefinition > = {}
 ): SelectedWidgetToolbarItem {
-	const widget = {
+	const widget = createWidget();
+
+	return {
+		kind: 'single-widget',
+		widgets: [ widget ],
+		stackIds: [],
+		canStack: false,
+		canUnstack: false,
+		canSetStackView: false,
+		canRemove: true,
+		widget,
+		definition: createWidgetDefinition( definitionOverrides ),
+	} as unknown as SelectedWidgetToolbarItem;
+}
+
+function createWidget() {
+	return {
 		id: 'widget-1',
 		type: 'test-widget',
 		x: 0,
@@ -132,32 +184,24 @@ function createSingleWidgetSelection(
 		},
 		widgetProps: {},
 	};
+}
 
+function createWidgetDefinition( overrides: Partial< DeskWidgetDefinition > = {} ) {
 	return {
-		kind: 'single-widget',
-		widgets: [ widget ],
-		stackIds: [],
-		canStack: false,
-		canUnstack: false,
-		canSetStackView: false,
-		canRemove: true,
-		widget,
-		definition: {
-			type: 'test-widget',
-			name: () => 'Test widget',
-			Component: () => null,
-			isWidgetProps: () => true,
-			labels: {
-				add: () => 'New test widget',
+		type: 'test-widget',
+		name: () => 'Test widget',
+		Component: () => null,
+		isWidgetProps: () => true,
+		labels: {
+			add: () => 'New test widget',
+		},
+		getInitialWidget: () => ( {
+			shapeProps: {
+				w: 200,
+				h: 200,
 			},
-			getInitialWidget: () => ( {
-				shapeProps: {
-					w: 200,
-					h: 200,
-				},
-				widgetProps: {},
-			} ),
-			...definitionOverrides,
-		} as DeskWidgetDefinition,
-	} as unknown as SelectedWidgetToolbarItem;
+			widgetProps: {},
+		} ),
+		...overrides,
+	} as DeskWidgetDefinition;
 }

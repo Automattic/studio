@@ -2,7 +2,7 @@ import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSites } from '@/data/queries/use-sites';
 import { LoadingPlaceholder } from '@/ui-desks/components';
-import { useDesk } from '@/ui-desks/desk/provider';
+import { useDesk } from '@/ui-desks/desk/provider/context';
 import { AnnotationCommentDialog } from '@/ui-desks/widgets/site-preview/annotations/comment-dialog';
 import {
 	ANNOTATION_INSPECTOR_BRIDGE_PREFIX,

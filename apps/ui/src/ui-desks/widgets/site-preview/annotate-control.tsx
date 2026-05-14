@@ -1,7 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { pencil } from '@wordpress/icons';
 import { Button } from '@/ui-desks/components';
-import { useDesk } from '@/ui-desks/desk/provider';
+import { useDesk } from '@/ui-desks/desk/provider/context';
 import { SITE_PREVIEW_WIDGET_TYPE } from './types';
 
 export function SitePreviewAnnotateControl() {

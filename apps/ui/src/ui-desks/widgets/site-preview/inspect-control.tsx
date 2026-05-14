@@ -1,7 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { search } from '@wordpress/icons';
 import { Button } from '@/ui-desks/components';
-import { useDesk } from '@/ui-desks/desk/provider';
+import { useDesk } from '@/ui-desks/desk/provider/context';
 
 export function SitePreviewInspectControl() {
 	const { editSelectedWidget } = useDesk();

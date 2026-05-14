@@ -3,7 +3,7 @@ import { trash } from '@wordpress/icons';
 import { useEffect, useState } from 'react';
 import { useChats } from '@/ui-desks/chats/context';
 import { Button, Divider } from '@/ui-desks/components';
-import { useDesk } from '@/ui-desks/desk/provider';
+import { useDesk } from '@/ui-desks/desk/provider/context';
 import { SITE_PREVIEW_WIDGET_TYPE } from '../types';
 import { getAnnotationSubmission, getAnnotationWidgets, removeAnnotationWidget } from './notes';
 import {

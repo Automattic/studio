@@ -39,7 +39,19 @@ Required behavior:
 
 Do this before deeper chrome polish because it affects the heading hierarchy and the user's risk model.
 
-### 4. Preview Layout Stability
+### 4. Sidebar IA And Context Menus
+
+Round out the WordPress.com section in the left sidebar so it behaves like a first-class site directory, not just a temporary list.
+
+Required behavior:
+
+- Add right-click options on the top-level WordPress.com sidebar group for filtering and list controls.
+- Add right-click options on individual WordPress.com sidebar sites, including an action to sync/pull the site locally.
+- Add subtle visual affordances that distinguish local Studio sites from live WordPress.com sites without making the sidebar noisy.
+
+Do this after live-site safety language is settled so the sidebar status treatment matches the main content area.
+
+### 5. Preview Layout Stability
 
 Fix the preview layout before refining the chrome.
 
@@ -51,19 +63,19 @@ Required behavior:
 
 Do this before auto-refresh because preview reload behavior should be built on stable layout constraints.
 
-### 5. Preview Chrome Polish
+### 6. Preview Chrome Polish
 
 Improve the preview panel chrome. The current v1 proves the layout, but the header, controls, resize affordance, loading state, and visual hierarchy need a dedicated pass.
 
 Do this after the layout constraints are stable so the polish work is not reworked.
 
-### 6. Preview Auto-Refresh
+### 7. Preview Auto-Refresh
 
 Add an auto-refresh path for the preview when Dolly or another live-site action changes the selected WordPress.com site.
 
 Do this after site/session correctness and preview stability, since refresh triggers need to target the right site and a stable preview surface.
 
-### 7. Shared Chat UI Evaluation
+### 8. Shared Chat UI Evaluation
 
 Evaluate replacing the custom chat surface with `@automattic/agenttic-ui` so Studio aligns with the shared agent UI patterns.
 

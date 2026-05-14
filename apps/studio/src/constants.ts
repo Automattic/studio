@@ -34,6 +34,7 @@ export const FEATURE_REQUEST_URL =
 export const WPCOM_PROFILE_URL = 'https://wordpress.com/me';
 export const LOCAL_STORAGE_CHAT_MESSAGES_KEY = 'ai_chat_messages';
 export const LOCAL_STORAGE_CHAT_API_IDS_KEY = 'ai_chat_ids';
+export const LOCAL_STORAGE_DOLLY_WPCOM_SITE_CONVERSATIONS_KEY = 'dolly_wpcom_site_conversations_v4';
 export const DEFAULT_TERMINAL = 'terminal';
 
 export const SYNC_OPTIONS = {

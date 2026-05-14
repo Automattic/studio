@@ -1,6 +1,7 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { vi } from 'vitest';
+import { clearWpcomSiteAssistantStateCacheForTests } from 'src/components/content-tab-assistant';
 import { SiteContentTabs } from 'src/components/site-content-tabs';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { useSiteDetails } from 'src/hooks/use-site-details';
@@ -82,6 +83,7 @@ store.replaceReducer( testReducer );
 describe( 'SiteContentTabs', () => {
 	beforeEach( () => {
 		vi.clearAllMocks(); // Clear mock call history between tests
+		clearWpcomSiteAssistantStateCacheForTests();
 		store.dispatch( testActions.resetState() );
 	} );
 	const renderWithProvider = ( component: React.ReactElement ) => {
@@ -134,7 +136,11 @@ describe( 'SiteContentTabs', () => {
 		expect( screen.getByText( 'Remote Site' ) ).toBeVisible();
 		expect( screen.getByText( 'https://remote-site.wordpress.com' ) ).toBeVisible();
 		expect( screen.getByText( 'Ask Dolly about this WordPress.com site.' ) ).toBeVisible();
-		expect( screen.getByRole( 'button', { name: 'Hide preview' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Show preview' } ) ).toBeVisible();
+		expect( screen.queryByTitle( 'Remote Site preview' ) ).not.toBeInTheDocument();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Show preview' } ) );
+
 		expect( screen.getByTitle( 'Remote Site preview' ) ).toHaveAttribute(
 			'src',
 			'https://remote-site.wordpress.com/'

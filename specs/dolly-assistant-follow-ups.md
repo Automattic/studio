@@ -1,33 +1,17 @@
 # Dolly Assistant Follow-ups
 
-## Prioritized Plan
+## Completed
 
-### 1. Site-Scoped Sessions
+- Site-scoped sessions: switching WordPress.com sites remounts/isolates the assistant so a prior site's messages or `sessionId` are not reused.
+- Backend site selection sync: after a Dolly turn, Studio detects the backend-selected site from the response or session history, updates the active UI site when Dolly switched it, and avoids clobbering explicit user selections made while a turn is in flight.
+- Preview refresh guard: Dolly preview tool calls are idempotent for the currently open URL and only force a same-URL reload when Dolly marks `siteChanged`.
+- Preview default state: WordPress.com live-site chats start with the preview hidden and only open when the user or Dolly requests a preview.
+- Live-site chat state: each WordPress.com site keeps its own persisted local Dolly conversation id, messages, draft input, session id, backend-selected active site, and preview state while switching between live-site tabs.
+- Server hydration: WordPress.com live-site chats load the latest matching Dolly server conversation on mount, preserve its `remoteChatId`/`sessionId`, and continue future sends in that hydrated session.
 
-Treat the selected WordPress.com site, loaded chat state, Dolly session id, preview URL, and backend request route as one site-scoped conversation identity, similar to WP Workspace's `(siteID, agentID)` conversation key.
+## Remaining Prioritized Plan
 
-Required behavior:
-
-- Switching sites loads that site's existing local chat/session state or creates a fresh session for that site.
-- Continuing a chat never sends the previous site's `sessionId` or messages to the newly selected site's backend route.
-- Clear/start-new controls reset only the selected site's chat state.
-
-Do this first because every other chat UX decision depends on preserving site/session correctness.
-
-### 2. Backend Site Selection Sync
-
-The Studio Dolly chat UI can choose a WordPress.com site before sending a message, and that works for requests initiated from the UI. Dolly can also switch the active site itself during a conversation and persist that site selection on the backend.
-
-Required behavior:
-
-- Detect or fetch the backend-selected site after a turn.
-- Update the UI-selected site if Dolly changed it server-side.
-- Avoid leaving `selectedDollySiteId` pointing at a stale site.
-- Avoid clobbering an explicit user selection made while a turn is in flight.
-
-Do this after site-scoped sessions so backend-driven site changes cannot pollute the wrong local chat state.
-
-### 3. Live-Site Safety Signals
+### 1. Live-Site Safety Signals
 
 Make it obvious when Dolly is acting on a live WordPress.com site rather than a disposable local preview.
 
@@ -39,7 +23,7 @@ Required behavior:
 
 Do this before deeper chrome polish because it affects the heading hierarchy and the user's risk model.
 
-### 4. Sidebar IA And Context Menus
+### 2. Sidebar IA And Context Menus
 
 Round out the WordPress.com section in the left sidebar so it behaves like a first-class site directory, not just a temporary list.
 
@@ -51,7 +35,7 @@ Required behavior:
 
 Do this after live-site safety language is settled so the sidebar status treatment matches the main content area.
 
-### 5. Preview Layout Stability
+### 3. Preview Layout Stability
 
 Fix the preview layout before refining the chrome.
 
@@ -63,19 +47,21 @@ Required behavior:
 
 Do this before auto-refresh because preview reload behavior should be built on stable layout constraints.
 
-### 6. Preview Chrome Polish
+### 4. Preview Chrome Polish
 
 Improve the preview panel chrome. The current v1 proves the layout, but the header, controls, resize affordance, loading state, and visual hierarchy need a dedicated pass.
 
 Do this after the layout constraints are stable so the polish work is not reworked.
 
-### 7. Preview Auto-Refresh
+### 5. Preview Auto-Refresh
 
 Add an auto-refresh path for the preview when Dolly or another live-site action changes the selected WordPress.com site.
 
+The refresh trigger should be tied to an explicit site-change signal, not to every completed Dolly response or same-URL preview tool call.
+
 Do this after site/session correctness and preview stability, since refresh triggers need to target the right site and a stable preview surface.
 
-### 8. Shared Chat UI Evaluation
+### 6. Shared Chat UI Evaluation
 
 Evaluate replacing the custom chat surface with `@automattic/agenttic-ui` so Studio aligns with the shared agent UI patterns.
 

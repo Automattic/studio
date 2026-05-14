@@ -19,7 +19,12 @@ import { ChatRating } from 'src/components/chat-rating';
 import { LearnMoreLink } from 'src/components/learn-more';
 import offlineIcon from 'src/components/offline-icon';
 import WelcomeComponent from 'src/components/welcome-message-prompt';
-import { LIMIT_OF_PROMPTS_PER_USER, TELEX_HOSTNAME, TELEX_UTM_PARAMS } from 'src/constants';
+import {
+	LIMIT_OF_PROMPTS_PER_USER,
+	LOCAL_STORAGE_DOLLY_WPCOM_SITE_CONVERSATIONS_KEY,
+	TELEX_HOSTNAME,
+	TELEX_UTM_PARAMS,
+} from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
@@ -43,11 +48,17 @@ import type { WPCOM } from 'wpcom/types';
 export const MIMIC_CONVERSATION_DELAY = 500;
 const DOLLY_AGENT_ID = 'dolly';
 const DOLLY_HISTORY_CLIENT = 'wpworkspace';
+const DOLLY_HISTORY_BOT_ID = 'wpcom-agent-dolly';
 const DOLLY_PREVIEW_TOOL_ID = 'wpworkspace/preview';
 const DOLLY_PREVIEW_PANEL_DEFAULT_WIDTH = 520;
 const DOLLY_PREVIEW_PANEL_MIN_WIDTH = 360;
 const DOLLY_PREVIEW_PANEL_MAX_WIDTH = 820;
 const MAX_FRONTEND_TOOL_ROUNDS = 3;
+const DOLLY_REQUEST_TIMEOUT_MS = 90_000;
+const DOLLY_TOOL_CONTINUATION_TIMEOUT_MS = 15_000;
+const DOLLY_HISTORY_SUMMARY_ITEMS_PER_PAGE = 20;
+const DOLLY_HISTORY_CHAT_ITEMS_PER_PAGE = 100;
+const DOLLY_HISTORY_MAX_PAGES = 10;
 
 type DollySite = {
 	id: number;
@@ -63,6 +74,7 @@ type ConnectedDollySite = DollySite & {
 type DollyAgentResponse = {
 	text: string;
 	sessionId?: string;
+	selectedSiteId?: number;
 	taskId: string;
 	state: string;
 	toolCalls: DollyToolCall[];
@@ -103,6 +115,10 @@ type DollyToolExecution = {
 	agentMessage?: string;
 };
 
+type OpenPreviewOptions = {
+	forceReload?: boolean;
+};
+
 type DollyPreviewState = {
 	open: boolean;
 	pathOrUrl: string;
@@ -111,6 +127,48 @@ type DollyPreviewState = {
 	pageTitle?: string;
 	isLoading: boolean;
 	reloadNonce: number;
+};
+
+type WpcomSiteAssistantConversationKey = {
+	siteId: number;
+	agentId: string;
+};
+
+type WpcomSiteAssistantSessionState = {
+	id: string;
+	key: WpcomSiteAssistantConversationKey;
+	remoteChatId?: number;
+	serverHydrationDisabled?: boolean;
+	input: string;
+	messages: MessageType[];
+	sessionId?: string;
+	activeWpcomSite: SyncSite;
+	previewState: DollyPreviewState;
+	lastUpdated: number;
+};
+
+type DollyHistoryMessage = {
+	content: string;
+	role: 'user' | 'assistant';
+	createdAt: number;
+	messageApiId?: number;
+};
+
+type DollyHistorySummary = {
+	chatId: number;
+	sessionId?: string;
+	siteId?: number;
+	createdAt?: number;
+	firstMessage?: Record< string, unknown >;
+	lastMessage?: Record< string, unknown >;
+};
+
+type DollyHistoryChat = {
+	chatId: number;
+	sessionId?: string;
+	siteId?: number;
+	createdAt?: number;
+	messages: DollyHistoryMessage[];
 };
 
 type DollyPreviewContext = {
@@ -149,6 +207,70 @@ const flexibleNumber = ( value: unknown ): number | undefined => {
 	return undefined;
 };
 
+const getFlexibleNumberValue = (
+	record: Record< string, unknown >,
+	possibleKeys: string[]
+): number | undefined => {
+	for ( const key of possibleKeys ) {
+		const value = flexibleNumber( record[ key ] );
+		if ( value && value > 0 ) {
+			return value;
+		}
+	}
+};
+
+const getStringFromRecord = (
+	record: Record< string, unknown >,
+	possibleKeys: string[]
+): string | undefined => {
+	for ( const key of possibleKeys ) {
+		const value = record[ key ];
+		if ( typeof value === 'string' && value.trim() ) {
+			return value.trim();
+		}
+	}
+};
+
+const hasHttpProtocol = ( url: URL ) => url.protocol === 'http:' || url.protocol === 'https:';
+
+const formatSiteBaseUrl = ( url: URL ) => {
+	if ( url.pathname === '/' && ! url.search && ! url.hash ) {
+		return url.origin;
+	}
+	return url.toString();
+};
+
+const normalizeSiteBaseUrl = ( value?: string ): string | undefined => {
+	const trimmedValue = value?.trim();
+	if ( ! trimmedValue ) {
+		return undefined;
+	}
+
+	const parseUrl = ( candidate: string ) => {
+		try {
+			const url = new URL( candidate );
+			return hasHttpProtocol( url ) ? formatSiteBaseUrl( url ) : undefined;
+		} catch {
+			return undefined;
+		}
+	};
+
+	const normalizedUrl = parseUrl( trimmedValue );
+	if ( normalizedUrl ) {
+		return normalizedUrl;
+	}
+
+	if ( trimmedValue.startsWith( '//' ) ) {
+		return parseUrl( `https:${ trimmedValue }` );
+	}
+
+	if ( trimmedValue.startsWith( '/' ) ) {
+		return undefined;
+	}
+
+	return parseUrl( `https://${ trimmedValue }` );
+};
+
 const parseDollySites = ( response: unknown ): DollySite[] => {
 	if ( ! isRecord( response ) || ! Array.isArray( response.sites ) ) {
 		throw new Error( 'Invalid Dolly sites response' );
@@ -171,13 +293,14 @@ const parseDollySites = ( response: unknown ): DollySite[] => {
 			const primaryDomain =
 				typeof site.primary_domain === 'string' ? site.primary_domain : undefined;
 			const slug = typeof site.slug === 'string' ? site.slug : primaryDomain;
+			const normalizedUrl = normalizeSiteBaseUrl( url ) ?? normalizeSiteBaseUrl( primaryDomain );
 			const dollySite: DollySite = {
 				id,
-				name: name.trim() || slug || url || String( id ),
+				name: name.trim() || slug || normalizedUrl || String( id ),
 			};
 
-			if ( url || primaryDomain ) {
-				dollySite.url = url || primaryDomain;
+			if ( normalizedUrl ) {
+				dollySite.url = normalizedUrl;
 			}
 			if ( slug ) {
 				dollySite.slug = slug;
@@ -188,8 +311,64 @@ const parseDollySites = ( response: unknown ): DollySite[] => {
 		.filter( ( site ): site is DollySite => Boolean( site ) );
 };
 
-const wpcomGet = async < T, >( client: WPCOM, path: string ): Promise< T > =>
+const createSyncSiteFromDollySite = ( site: DollySite ): SyncSite | undefined => {
+	const url = normalizeSiteBaseUrl( site.url );
+	if ( ! url ) {
+		return undefined;
+	}
+
+	return {
+		id: site.id,
+		localSiteId: '',
+		name: site.name,
+		url,
+		isStaging: false,
+		isPressable: false,
+		syncSupport: 'syncable',
+		lastPullTimestamp: null,
+		lastPushTimestamp: null,
+	};
+};
+
+const createWpcomRequest = < T, >(
+	description: string,
+	timeoutMs: number,
+	executor: ( resolve: ( data: T ) => void, reject: ( error: Error ) => void ) => void
+): Promise< T > =>
 	new Promise( ( resolve, reject ) => {
+		let isSettled = false;
+		const timeout = setTimeout( () => {
+			if ( isSettled ) {
+				return;
+			}
+			isSettled = true;
+			reject( new Error( `${ description } timed out.` ) );
+		}, timeoutMs );
+		const settle = ( callback: () => void ) => {
+			if ( isSettled ) {
+				return;
+			}
+			isSettled = true;
+			clearTimeout( timeout );
+			callback();
+		};
+
+		try {
+			executor(
+				( data ) => settle( () => resolve( data ) ),
+				( error ) => settle( () => reject( error ) )
+			);
+		} catch ( error ) {
+			settle( () => reject( error instanceof Error ? error : new Error( description ) ) );
+		}
+	} );
+
+const wpcomGet = async < T, >(
+	client: WPCOM,
+	path: string,
+	timeoutMs = DOLLY_REQUEST_TIMEOUT_MS
+): Promise< T > =>
+	createWpcomRequest< T >( `Dolly request to ${ path }`, timeoutMs, ( resolve, reject ) => {
 		void client.req.get(
 			{
 				path,
@@ -205,8 +384,495 @@ const wpcomGet = async < T, >( client: WPCOM, path: string ): Promise< T > =>
 		);
 	} );
 
-const wpcomPost = async < T, >( client: WPCOM, path: string, body: unknown ): Promise< T > =>
-	new Promise( ( resolve, reject ) => {
+const extractBackendSelectedSiteIdFromRecord = (
+	record: Record< string, unknown >
+): number | undefined =>
+	getFlexibleNumberValue( record, [
+		'selectedSiteId',
+		'selected_site_id',
+		'siteId',
+		'site_id',
+		'blog_id',
+		'blogID',
+	] );
+
+const extractBackendSelectedSiteId = ( response: unknown ): number | undefined => {
+	if ( ! isRecord( response ) ) {
+		return undefined;
+	}
+
+	return (
+		extractBackendSelectedSiteIdFromRecord( response ) ??
+		( isRecord( response.result )
+			? extractBackendSelectedSiteIdFromRecord( response.result )
+			: undefined )
+	);
+};
+
+const extractDollyHistoryEntries = ( response: unknown ): Record< string, unknown >[] => {
+	if ( Array.isArray( response ) ) {
+		return response.filter( isRecord );
+	}
+	if ( ! isRecord( response ) ) {
+		return [];
+	}
+	for ( const key of [ 'chats', 'conversations', 'data' ] ) {
+		const value = response[ key ];
+		if ( Array.isArray( value ) ) {
+			return value.filter( isRecord );
+		}
+	}
+	return [];
+};
+
+const parseDollySessionSiteId = ( response: unknown, sessionId: string ): number | undefined => {
+	const entries = extractDollyHistoryEntries( response );
+	const matchingEntry = entries.find(
+		( entry ) => getStringFromRecord( entry, [ 'sessionId', 'session_id' ] ) === sessionId
+	);
+
+	return matchingEntry ? extractBackendSelectedSiteIdFromRecord( matchingEntry ) : undefined;
+};
+
+const fetchDollySessionSiteId = async (
+	client: WPCOM,
+	sessionId?: string
+): Promise< number | undefined > => {
+	if ( ! sessionId || typeof ( client.req as { get?: unknown } ).get !== 'function' ) {
+		return undefined;
+	}
+
+	try {
+		const query = new URLSearchParams( {
+			truncation_method: 'last_message',
+			page_number: '1',
+			items_per_page: '20',
+		} );
+		const response = await wpcomGet< unknown >(
+			client,
+			`/ai/chats/${ DOLLY_HISTORY_BOT_ID }?${ query.toString() }`
+		);
+		return parseDollySessionSiteId( response, sessionId );
+	} catch ( error ) {
+		console.error( error );
+		return undefined;
+	}
+};
+
+const resolveBackendSelectedSiteId = async (
+	client: WPCOM,
+	response: DollyAgentResponse,
+	previousSessionId?: string
+): Promise< number | undefined > =>
+	response.selectedSiteId ??
+	fetchDollySessionSiteId( client, response.sessionId ?? previousSessionId );
+
+const fetchDollySite = async ( client: WPCOM, siteId: number ): Promise< SyncSite | undefined > => {
+	try {
+		const response = await wpcomGet< unknown >( client, '/ai/agent/dolly/sites' );
+		const site = parseDollySites( response ).find( ( candidate ) => candidate.id === siteId );
+		return site ? createSyncSiteFromDollySite( site ) : undefined;
+	} catch ( error ) {
+		console.error( error );
+		return undefined;
+	}
+};
+
+const parseDollyHistoryDate = ( value: unknown ): number | undefined => {
+	if ( typeof value !== 'string' || ! value.trim() ) {
+		return undefined;
+	}
+
+	const trimmedValue = value.trim();
+	if ( /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test( trimmedValue ) ) {
+		const parsedUtcDate = Date.parse( `${ trimmedValue.replace( ' ', 'T' ) }Z` );
+		return Number.isFinite( parsedUtcDate ) ? parsedUtcDate : undefined;
+	}
+
+	const parsedDate = Date.parse( trimmedValue );
+	if ( Number.isFinite( parsedDate ) ) {
+		return parsedDate;
+	}
+
+	const parsedUtcDate = Date.parse( `${ trimmedValue.replace( ' ', 'T' ) }Z` );
+	return Number.isFinite( parsedUtcDate ) ? parsedUtcDate : undefined;
+};
+
+const visibleDollyHistoryMessageText = ( value: string ) => {
+	const trimmedValue = value.trim();
+	if ( ! trimmedValue.startsWith( 'Local workspace context:' ) ) {
+		return trimmedValue;
+	}
+
+	const marker = '\nUser message:\n';
+	const markerIndex = trimmedValue.lastIndexOf( marker );
+	if ( markerIndex === -1 ) {
+		return trimmedValue;
+	}
+
+	const visibleText = trimmedValue.slice( markerIndex + marker.length ).trim();
+	return visibleText || trimmedValue;
+};
+
+const parseDollyHistoryMessage = ( value: unknown ): DollyHistoryMessage | undefined => {
+	if ( ! isRecord( value ) ) {
+		return undefined;
+	}
+
+	const rawContent = getStringFromRecord( value, [ 'content', 'text', 'message' ] );
+	if ( ! rawContent ) {
+		return undefined;
+	}
+
+	const rawRole = getStringFromRecord( value, [ 'role' ] )?.toLowerCase();
+	const role =
+		rawRole === 'user'
+			? 'user'
+			: rawRole === 'bot' || rawRole === 'assistant' || rawRole === 'agent'
+			? 'assistant'
+			: undefined;
+	if ( ! role ) {
+		return undefined;
+	}
+
+	const content =
+		role === 'user' ? visibleDollyHistoryMessageText( rawContent ) : rawContent.trim();
+	if ( ! content ) {
+		return undefined;
+	}
+
+	return {
+		content,
+		role,
+		createdAt: parseDollyHistoryDate( value.created_at ?? value.createdAt ) ?? Date.now(),
+		messageApiId: getFlexibleNumberValue( value, [ 'message_id', 'messageID', 'id' ] ),
+	};
+};
+
+const createMessagesFromDollyHistory = ( messages: DollyHistoryMessage[] ): MessageType[] =>
+	messages.map( ( message, index ) => ( {
+		id: index,
+		content: message.content,
+		role: message.role,
+		createdAt: message.createdAt,
+		feedbackReceived: false,
+		messageApiId: message.messageApiId,
+	} ) );
+
+const createDollyHistoryMessageKey = ( message: DollyHistoryMessage ) =>
+	message.messageApiId !== undefined
+		? `id:${ message.messageApiId }`
+		: `fallback:${ message.createdAt }:${ message.role }:${ message.content }`;
+
+const sortDollyHistoryMessages = ( messages: DollyHistoryMessage[] ) =>
+	[ ...messages ].sort( ( first, second ) => {
+		const dateComparison = first.createdAt - second.createdAt;
+		if ( dateComparison !== 0 ) {
+			return dateComparison;
+		}
+		return ( first.messageApiId ?? 0 ) - ( second.messageApiId ?? 0 );
+	} );
+
+const deduplicateDollyHistoryMessages = ( messages: DollyHistoryMessage[] ) => {
+	const seenMessages = new Set< string >();
+	return sortDollyHistoryMessages( messages ).filter( ( message ) => {
+		const key = createDollyHistoryMessageKey( message );
+		if ( seenMessages.has( key ) ) {
+			return false;
+		}
+		seenMessages.add( key );
+		return true;
+	} );
+};
+
+const createDollyHistoryFallbackMessages = ( summary: DollyHistorySummary ) =>
+	[ summary.firstMessage, summary.lastMessage ]
+		.map( parseDollyHistoryMessage )
+		.filter( ( message ): message is DollyHistoryMessage => Boolean( message ) );
+
+const parseDollyHistorySummary = ( value: unknown ): DollyHistorySummary | undefined => {
+	if ( ! isRecord( value ) ) {
+		return undefined;
+	}
+
+	const chatId = getFlexibleNumberValue( value, [ 'chat_id', 'chatID', 'id' ] );
+	if ( ! chatId ) {
+		return undefined;
+	}
+
+	return {
+		chatId,
+		sessionId: getStringFromRecord( value, [ 'session_id', 'sessionId' ] ),
+		siteId: extractBackendSelectedSiteIdFromRecord( value ),
+		createdAt: parseDollyHistoryDate( value.created_at ?? value.createdAt ),
+		firstMessage: isRecord( value.first_message ) ? value.first_message : undefined,
+		lastMessage: isRecord( value.last_message ) ? value.last_message : undefined,
+	};
+};
+
+const parseDollyHistoryChat = (
+	value: unknown,
+	summary: DollyHistorySummary,
+	includeFallbackMessages = true
+): DollyHistoryChat | undefined => {
+	if ( ! isRecord( value ) ) {
+		return undefined;
+	}
+
+	const chatId = getFlexibleNumberValue( value, [ 'chat_id', 'chatID', 'id' ] ) ?? summary.chatId;
+	const rawMessages = Array.isArray( value.messages ) ? value.messages : [];
+	const messages = rawMessages
+		.map( parseDollyHistoryMessage )
+		.filter( ( message ): message is DollyHistoryMessage => Boolean( message ) );
+	const fallbackMessages = includeFallbackMessages
+		? createDollyHistoryFallbackMessages( summary )
+		: [];
+
+	return {
+		chatId,
+		sessionId: getStringFromRecord( value, [ 'session_id', 'sessionId' ] ) ?? summary.sessionId,
+		siteId: extractBackendSelectedSiteIdFromRecord( value ) ?? summary.siteId,
+		createdAt: parseDollyHistoryDate( value.created_at ?? value.createdAt ) ?? summary.createdAt,
+		messages: messages.length > 0 ? messages : fallbackMessages,
+	};
+};
+
+const createWpcomSiteAssistantSessionStateFromHistory = (
+	selectedWpcomSite: SyncSite,
+	summary: DollyHistorySummary,
+	chat?: DollyHistoryChat
+): WpcomSiteAssistantSessionState | undefined => {
+	const fallbackMessages = createDollyHistoryFallbackMessages( summary );
+	const messages = chat?.messages.length ? chat.messages : fallbackMessages;
+	if ( messages.length === 0 ) {
+		return undefined;
+	}
+
+	const lastUpdated =
+		messages[ messages.length - 1 ]?.createdAt ??
+		chat?.createdAt ??
+		summary.createdAt ??
+		Date.now();
+
+	return {
+		id: `wpcom:${ DOLLY_AGENT_ID }:${ summary.chatId }`,
+		key: {
+			siteId: selectedWpcomSite.id,
+			agentId: DOLLY_AGENT_ID,
+		},
+		remoteChatId: summary.chatId,
+		serverHydrationDisabled: false,
+		input: '',
+		messages: createMessagesFromDollyHistory( messages ),
+		sessionId: chat?.sessionId ?? summary.sessionId,
+		activeWpcomSite: selectedWpcomSite,
+		previewState: initialPreviewState(),
+		lastUpdated,
+	};
+};
+
+const createWpcomSiteAssistantSessionStateFromHistoryItems = (
+	selectedWpcomSite: SyncSite,
+	historyItems: Array< { summary: DollyHistorySummary; chat?: DollyHistoryChat } >
+): WpcomSiteAssistantSessionState | undefined => {
+	const sortedHistoryItems = [ ...historyItems ].sort(
+		( first, second ) => ( second.summary.createdAt ?? 0 ) - ( first.summary.createdAt ?? 0 )
+	);
+	const latestHistoryItem = sortedHistoryItems[ 0 ];
+	if ( ! latestHistoryItem ) {
+		return undefined;
+	}
+
+	const messages = deduplicateDollyHistoryMessages(
+		historyItems.flatMap( ( { summary, chat } ) =>
+			chat?.messages.length ? chat.messages : createDollyHistoryFallbackMessages( summary )
+		)
+	);
+	if ( messages.length === 0 ) {
+		return undefined;
+	}
+
+	const chatWithSession = sortedHistoryItems.find( ( { chat } ) => chat?.sessionId );
+	const lastUpdated =
+		messages[ messages.length - 1 ]?.createdAt ??
+		latestHistoryItem.chat?.createdAt ??
+		latestHistoryItem.summary.createdAt ??
+		Date.now();
+
+	return {
+		id: `wpcom:${ DOLLY_AGENT_ID }:${ latestHistoryItem.summary.chatId }`,
+		key: {
+			siteId: selectedWpcomSite.id,
+			agentId: DOLLY_AGENT_ID,
+		},
+		remoteChatId: latestHistoryItem.summary.chatId,
+		serverHydrationDisabled: false,
+		input: '',
+		messages: createMessagesFromDollyHistory( messages ),
+		sessionId: chatWithSession?.chat?.sessionId ?? latestHistoryItem.summary.sessionId,
+		activeWpcomSite: selectedWpcomSite,
+		previewState: initialPreviewState(),
+		lastUpdated,
+	};
+};
+
+const fetchDollyHistorySummaries = async (
+	client: WPCOM,
+	itemsPerPage = DOLLY_HISTORY_SUMMARY_ITEMS_PER_PAGE,
+	maxPages = DOLLY_HISTORY_MAX_PAGES
+): Promise< DollyHistorySummary[] > => {
+	const summaries: DollyHistorySummary[] = [];
+	const seenChatIds = new Set< number >();
+
+	for ( let pageNumber = 1; pageNumber <= maxPages; pageNumber += 1 ) {
+		const query = new URLSearchParams( {
+			truncation_method: 'last_message',
+			page_number: String( pageNumber ),
+			items_per_page: String( itemsPerPage ),
+		} );
+		const response = await wpcomGet< unknown >(
+			client,
+			`/ai/chats/${ DOLLY_HISTORY_BOT_ID }?${ query.toString() }`
+		);
+		const pageSummaries = extractDollyHistoryEntries( response )
+			.map( parseDollyHistorySummary )
+			.filter( ( summary ): summary is DollyHistorySummary => Boolean( summary ) );
+
+		for ( const summary of pageSummaries ) {
+			if ( seenChatIds.has( summary.chatId ) ) {
+				continue;
+			}
+			seenChatIds.add( summary.chatId );
+			summaries.push( summary );
+		}
+
+		if ( pageSummaries.length < itemsPerPage ) {
+			break;
+		}
+	}
+
+	return summaries;
+};
+
+const fetchDollyHistoryChatPage = async (
+	client: WPCOM,
+	summary: DollyHistorySummary,
+	pageNumber: number,
+	itemsPerPage: number
+): Promise< DollyHistoryChat | undefined > => {
+	const query = new URLSearchParams( {
+		page_number: String( pageNumber ),
+		items_per_page: String( itemsPerPage ),
+	} );
+	const response = await wpcomGet< unknown >(
+		client,
+		`/ai/chat/${ DOLLY_HISTORY_BOT_ID }/${ summary.chatId }?${ query.toString() }`
+	);
+	return parseDollyHistoryChat( response, summary, pageNumber === 1 );
+};
+
+const fetchDollyHistoryChat = async (
+	client: WPCOM,
+	summary: DollyHistorySummary,
+	itemsPerPage = DOLLY_HISTORY_CHAT_ITEMS_PER_PAGE,
+	maxPages = DOLLY_HISTORY_MAX_PAGES
+): Promise< DollyHistoryChat | undefined > => {
+	const messages: DollyHistoryMessage[] = [];
+	let mergedChat: DollyHistoryChat | undefined;
+
+	for ( let pageNumber = 1; pageNumber <= maxPages; pageNumber += 1 ) {
+		const chatPage = await fetchDollyHistoryChatPage( client, summary, pageNumber, itemsPerPage );
+		if ( ! chatPage ) {
+			break;
+		}
+
+		mergedChat = {
+			...chatPage,
+			sessionId: mergedChat?.sessionId ?? chatPage.sessionId,
+			siteId: mergedChat?.siteId ?? chatPage.siteId,
+			createdAt: mergedChat?.createdAt ?? chatPage.createdAt,
+			messages,
+		};
+		messages.push( ...chatPage.messages );
+
+		if ( chatPage.messages.length < itemsPerPage ) {
+			break;
+		}
+	}
+
+	if ( ! mergedChat ) {
+		return undefined;
+	}
+
+	return {
+		...mergedChat,
+		messages: deduplicateDollyHistoryMessages( messages ),
+	};
+};
+
+const hydrateWpcomSiteAssistantSessionState = async (
+	client: WPCOM,
+	selectedWpcomSite: SyncSite,
+	preferredSessionId?: string
+): Promise< WpcomSiteAssistantSessionState | undefined > => {
+	const summaries = await fetchDollyHistorySummaries( client );
+	const normalizedPreferredSessionId = normalizeDollySessionId( preferredSessionId );
+	const sortedSummaries = [ ...summaries ].sort(
+		( first, second ) => ( second.createdAt ?? 0 ) - ( first.createdAt ?? 0 )
+	);
+	const preferredSessionSummaries = normalizedPreferredSessionId
+		? sortedSummaries.filter(
+				( summary ) =>
+					normalizeDollySessionId( summary.sessionId ) === normalizedPreferredSessionId &&
+					( summary.siteId === selectedWpcomSite.id || summary.siteId === undefined )
+		  )
+		: [];
+	const siteSummaries = sortedSummaries
+		.filter( ( summary ) => summary.siteId === selectedWpcomSite.id )
+		.sort( ( first, second ) => ( second.createdAt ?? 0 ) - ( first.createdAt ?? 0 ) );
+	const summary = preferredSessionSummaries[ 0 ] ?? siteSummaries[ 0 ];
+	if ( ! summary ) {
+		return undefined;
+	}
+
+	const normalizedSessionId =
+		normalizeDollySessionId( summary.sessionId ) ?? normalizedPreferredSessionId;
+	const targetSummaries = normalizedSessionId
+		? sortedSummaries.filter(
+				( candidate ) =>
+					normalizeDollySessionId( candidate.sessionId ) === normalizedSessionId &&
+					( candidate.siteId === selectedWpcomSite.id ||
+						candidate.siteId === undefined ||
+						candidate.chatId === summary.chatId )
+		  )
+		: [ summary ];
+	const historyItems: Array< { summary: DollyHistorySummary; chat?: DollyHistoryChat } > = [];
+
+	for ( const targetSummary of targetSummaries ) {
+		try {
+			historyItems.push( {
+				summary: targetSummary,
+				chat: await fetchDollyHistoryChat( client, targetSummary ),
+			} );
+		} catch ( error ) {
+			console.error( error );
+			historyItems.push( { summary: targetSummary } );
+		}
+	}
+
+	return (
+		createWpcomSiteAssistantSessionStateFromHistoryItems( selectedWpcomSite, historyItems ) ??
+		createWpcomSiteAssistantSessionStateFromHistory( selectedWpcomSite, summary )
+	);
+};
+
+const wpcomPost = async < T, >(
+	client: WPCOM,
+	path: string,
+	body: unknown,
+	timeoutMs = DOLLY_REQUEST_TIMEOUT_MS
+): Promise< T > =>
+	createWpcomRequest< T >( `Dolly request to ${ path }`, timeoutMs, ( resolve, reject ) => {
 		void client.req.post(
 			{
 				path,
@@ -257,11 +923,40 @@ const getStringValue = (
 	}
 };
 
+const getBooleanValue = (
+	record: Record< string, unknown >,
+	possibleKeys: string[]
+): boolean | undefined => {
+	for ( const key of possibleKeys ) {
+		const value = record[ key ];
+		if ( typeof value === 'boolean' ) {
+			return value;
+		}
+		if ( typeof value === 'string' ) {
+			const normalizedValue = value.trim().toLowerCase();
+			if ( normalizedValue === 'true' ) {
+				return true;
+			}
+			if ( normalizedValue === 'false' ) {
+				return false;
+			}
+		}
+	}
+};
+
+const shouldForcePreviewReload = ( toolArguments: Record< string, unknown > ): boolean =>
+	getBooleanValue( toolArguments, [
+		'siteChanged',
+		'site_changed',
+		'previewNeedsRefresh',
+		'preview_needs_refresh',
+	] ) === true;
+
 const createDollyPreviewAbility = () => ( {
 	name: DOLLY_PREVIEW_TOOL_ID,
 	label: 'Preview URL',
 	description:
-		'Open a web URL in the WordPress Studio side preview panel. Replaces any preview that is already open.',
+		'Open a web URL in the WordPress Studio side preview panel. Replaces any preview that is already open, but does not reload the current URL unless siteChanged is true.',
 	category: 'interface',
 	input_schema: {
 		type: 'object',
@@ -274,6 +969,11 @@ const createDollyPreviewAbility = () => ( {
 			title: {
 				type: 'string',
 				description: 'Optional short title to show in the preview header.',
+			},
+			siteChanged: {
+				type: 'boolean',
+				description:
+					'Set true only after changing the selected WordPress.com site so Studio refreshes the current preview.',
 			},
 		},
 		required: [ 'url' ],
@@ -289,7 +989,7 @@ const createDollyPreviewAbility = () => ( {
 	meta: {
 		annotations: {
 			instructions:
-				'Use when the user asks to open, show, inspect, preview, or keep a URL visible beside the chat.',
+				'Use when the user asks to open, show, inspect, preview, or keep a URL visible beside the chat. Set siteChanged=true only when a preceding action changed site content, settings, theme, plugins, or other visible state that should be reloaded.',
 			readonly: false,
 			destructive: false,
 			idempotent: true,
@@ -427,6 +1127,7 @@ const parseDollyAgentResponse = (
 		text: text || fallbackText,
 		sessionId:
 			typeof response.result.sessionId === 'string' ? response.result.sessionId : undefined,
+		selectedSiteId: extractBackendSelectedSiteId( response ),
 		taskId: typeof response.result.id === 'string' ? response.result.id : fallbackTaskId,
 		state:
 			typeof response.result.status.state === 'string' ? response.result.status.state : 'unknown',
@@ -439,7 +1140,7 @@ const createDollyMessageBody = ( {
 	sessionId,
 	parts,
 }: {
-	taskId: string;
+	taskId?: string;
 	sessionId?: string;
 	parts: AgentRequestPart[];
 } ) => ( {
@@ -447,8 +1148,8 @@ const createDollyMessageBody = ( {
 	id: crypto.randomUUID(),
 	method: 'message/send',
 	params: {
-		id: taskId,
-		sessionId,
+		...( taskId ? { id: taskId } : {} ),
+		...( sessionId ? { sessionId } : {} ),
 		message: {
 			role: 'user',
 			parts,
@@ -519,6 +1220,7 @@ const sendDollyMessage = async ( {
 	siteId: number;
 } ): Promise< DollyAgentResponse > => {
 	const taskId = crypto.randomUUID();
+	const initialSessionId = sessionId ?? taskId;
 	const createClientContextPart = () =>
 		createDollyClientContextPart( siteId, selectedSite, previewContext, siteAssociation );
 	const initialParts: AgentRequestPart[] = [
@@ -537,11 +1239,12 @@ const sendDollyMessage = async ( {
 		await wpcomPost< unknown >(
 			client,
 			`/sites/${ siteId }/ai/agent/${ DOLLY_AGENT_ID }`,
-			createDollyMessageBody( { taskId, sessionId, parts: initialParts } )
+			createDollyMessageBody( { taskId, sessionId: initialSessionId, parts: initialParts } )
 		),
 		taskId
 	);
-	let currentSessionId = response.sessionId ?? sessionId;
+	let currentSessionId = response.sessionId ?? initialSessionId;
+	let currentSelectedSiteId = response.selectedSiteId;
 	let accumulatedText = response.text;
 
 	for ( let round = 0; round < MAX_FRONTEND_TOOL_ROUNDS; round++ ) {
@@ -550,6 +1253,7 @@ const sendDollyMessage = async ( {
 				...response,
 				text: accumulatedText,
 				sessionId: currentSessionId,
+				selectedSiteId: response.selectedSiteId ?? currentSelectedSiteId,
 			};
 		}
 
@@ -572,11 +1276,13 @@ const sendDollyMessage = async ( {
 						taskId: response.taskId,
 						sessionId: currentSessionId,
 						parts: continuationParts,
-					} )
+					} ),
+					DOLLY_TOOL_CONTINUATION_TIMEOUT_MS
 				),
 				response.taskId
 			);
 			currentSessionId = response.sessionId ?? currentSessionId;
+			currentSelectedSiteId = response.selectedSiteId ?? currentSelectedSiteId;
 			accumulatedText = combineDollyText( accumulatedText, response.text );
 		} catch ( error ) {
 			if ( fallbackToolMessage ) {
@@ -584,6 +1290,7 @@ const sendDollyMessage = async ( {
 					...response,
 					text: combineDollyText( accumulatedText, fallbackToolMessage ),
 					sessionId: currentSessionId,
+					selectedSiteId: response.selectedSiteId ?? currentSelectedSiteId,
 					toolCalls: [],
 				};
 			}
@@ -595,6 +1302,7 @@ const sendDollyMessage = async ( {
 		...response,
 		text: accumulatedText || __( 'Dolly asked Studio to run too many frontend preview actions.' ),
 		sessionId: currentSessionId,
+		selectedSiteId: response.selectedSiteId ?? currentSelectedSiteId,
 		toolCalls: [],
 	};
 };
@@ -609,7 +1317,7 @@ const isElectron = (): boolean => {
 const isHttpUrl = ( value: string ) => {
 	try {
 		const url = new URL( value );
-		return url.protocol === 'http:' || url.protocol === 'https:';
+		return hasHttpProtocol( url );
 	} catch {
 		return false;
 	}
@@ -621,17 +1329,28 @@ const normalizePreviewUrl = (
 	{ autoLoginSameOrigin = false }: { autoLoginSameOrigin?: boolean } = {}
 ) => {
 	const trimmedValue = rawValue.trim();
+	const normalizedBaseUrl = normalizeSiteBaseUrl( baseUrl );
 	let targetUrl: URL;
 
 	if ( isHttpUrl( trimmedValue ) ) {
 		targetUrl = new URL( trimmedValue );
 	} else if ( trimmedValue.includes( '.' ) && ! trimmedValue.startsWith( '/' ) ) {
-		targetUrl = new URL( `https://${ trimmedValue }` );
+		const normalizedRawUrl = normalizeSiteBaseUrl( trimmedValue );
+		if ( ! normalizedRawUrl ) {
+			return 'about:blank';
+		}
+		targetUrl = new URL( normalizedRawUrl );
+	} else if ( normalizedBaseUrl ) {
+		targetUrl = new URL( trimmedValue || '/', normalizedBaseUrl );
 	} else {
-		targetUrl = new URL( trimmedValue || '/', baseUrl );
+		return 'about:blank';
 	}
 
-	const siteOrigin = new URL( baseUrl ).origin;
+	if ( ! normalizedBaseUrl ) {
+		return targetUrl.toString();
+	}
+
+	const siteOrigin = new URL( normalizedBaseUrl ).origin;
 	if ( targetUrl.origin !== siteOrigin || ! autoLoginSameOrigin ) {
 		return targetUrl.toString();
 	}
@@ -639,7 +1358,7 @@ const normalizePreviewUrl = (
 		return targetUrl.toString();
 	}
 
-	const autoLoginUrl = new URL( '/studio-auto-login', baseUrl );
+	const autoLoginUrl = new URL( '/studio-auto-login', normalizedBaseUrl );
 	autoLoginUrl.searchParams.set( 'redirect_to', targetUrl.toString() );
 	return autoLoginUrl.toString();
 };
@@ -759,6 +1478,202 @@ const initialPreviewState = (): DollyPreviewState => ( {
 	isLoading: false,
 	reloadNonce: 0,
 } );
+
+const wpcomSiteAssistantSessionStateCache = new Map< string, WpcomSiteAssistantSessionState >();
+let hasLoadedWpcomSiteAssistantSessionStateCache = false;
+
+export const clearWpcomSiteAssistantStateCacheForTests = () => {
+	wpcomSiteAssistantSessionStateCache.clear();
+	hasLoadedWpcomSiteAssistantSessionStateCache = false;
+	localStorage.removeItem( LOCAL_STORAGE_DOLLY_WPCOM_SITE_CONVERSATIONS_KEY );
+};
+
+const createWpcomSiteAssistantSessionKey = ( siteId: number ) => `wpcom-site:${ siteId }`;
+
+const createWpcomSiteAssistantConversationId = () => `local:${ crypto.randomUUID() }`;
+
+const cloneWpcomSiteAssistantSessionState = (
+	sessionState: WpcomSiteAssistantSessionState
+): WpcomSiteAssistantSessionState => ( {
+	...sessionState,
+	key: { ...sessionState.key },
+	messages: [ ...sessionState.messages ],
+	activeWpcomSite: { ...sessionState.activeWpcomSite },
+	previewState: { ...sessionState.previewState },
+} );
+
+const normalizePersistedWpcomSiteAssistantSessionState = (
+	value: unknown
+): WpcomSiteAssistantSessionState | undefined => {
+	if ( ! isRecord( value ) || ! isRecord( value.key ) || ! isRecord( value.activeWpcomSite ) ) {
+		return undefined;
+	}
+
+	const siteId = flexibleNumber( value.key.siteId );
+	const agentId = typeof value.key.agentId === 'string' ? value.key.agentId : undefined;
+	const activeSiteId = flexibleNumber( value.activeWpcomSite.id );
+	const activeSiteUrl =
+		typeof value.activeWpcomSite.url === 'string' ? value.activeWpcomSite.url : undefined;
+
+	if ( ! siteId || ! agentId || ! activeSiteId || ! activeSiteUrl ) {
+		return undefined;
+	}
+
+	const id =
+		typeof value.id === 'string' && value.id.trim()
+			? value.id
+			: createWpcomSiteAssistantConversationId();
+	const previewState = isRecord( value.previewState )
+		? {
+				...initialPreviewState(),
+				...value.previewState,
+		  }
+		: initialPreviewState();
+
+	return {
+		id,
+		key: {
+			siteId,
+			agentId,
+		},
+		remoteChatId: flexibleNumber( value.remoteChatId ),
+		serverHydrationDisabled:
+			typeof value.serverHydrationDisabled === 'boolean' ? value.serverHydrationDisabled : false,
+		input: typeof value.input === 'string' ? value.input : '',
+		messages: Array.isArray( value.messages ) ? ( value.messages as MessageType[] ) : [],
+		sessionId: typeof value.sessionId === 'string' ? value.sessionId : undefined,
+		activeWpcomSite: value.activeWpcomSite as SyncSite,
+		previewState: {
+			open: Boolean( previewState.open ),
+			pathOrUrl: typeof previewState.pathOrUrl === 'string' ? previewState.pathOrUrl : '/',
+			title: typeof previewState.title === 'string' ? previewState.title : undefined,
+			currentUrl: typeof previewState.currentUrl === 'string' ? previewState.currentUrl : undefined,
+			pageTitle: typeof previewState.pageTitle === 'string' ? previewState.pageTitle : undefined,
+			isLoading: false,
+			reloadNonce: flexibleNumber( previewState.reloadNonce ) ?? 0,
+		},
+		lastUpdated: flexibleNumber( value.lastUpdated ) ?? Date.now(),
+	};
+};
+
+const loadWpcomSiteAssistantSessionStateCache = () => {
+	if ( hasLoadedWpcomSiteAssistantSessionStateCache ) {
+		return;
+	}
+
+	hasLoadedWpcomSiteAssistantSessionStateCache = true;
+	const rawCache = localStorage.getItem( LOCAL_STORAGE_DOLLY_WPCOM_SITE_CONVERSATIONS_KEY );
+	if ( ! rawCache ) {
+		return;
+	}
+
+	try {
+		const parsed = JSON.parse( rawCache );
+		const persistedStates = isRecord( parsed ) ? Object.values( parsed ) : [];
+		for ( const value of persistedStates ) {
+			const sessionState = normalizePersistedWpcomSiteAssistantSessionState( value );
+			if ( sessionState ) {
+				wpcomSiteAssistantSessionStateCache.set(
+					createWpcomSiteAssistantSessionKey( sessionState.key.siteId ),
+					sessionState
+				);
+			}
+		}
+	} catch ( error ) {
+		console.error( error );
+	}
+};
+
+const persistWpcomSiteAssistantSessionStateCache = () => {
+	const cache = Object.fromEntries(
+		Array.from( wpcomSiteAssistantSessionStateCache.entries() ).map( ( [ key, value ] ) => [
+			key,
+			cloneWpcomSiteAssistantSessionState( value ),
+		] )
+	);
+	localStorage.setItem( LOCAL_STORAGE_DOLLY_WPCOM_SITE_CONVERSATIONS_KEY, JSON.stringify( cache ) );
+};
+
+const createWpcomSiteAssistantSessionState = (
+	selectedWpcomSite: SyncSite
+): WpcomSiteAssistantSessionState => ( {
+	id: createWpcomSiteAssistantConversationId(),
+	key: {
+		siteId: selectedWpcomSite.id,
+		agentId: DOLLY_AGENT_ID,
+	},
+	remoteChatId: undefined,
+	serverHydrationDisabled: true,
+	input: '',
+	messages: [],
+	sessionId: undefined,
+	activeWpcomSite: selectedWpcomSite,
+	previewState: initialPreviewState(),
+	lastUpdated: Date.now(),
+} );
+
+const getWpcomSiteAssistantSessionState = (
+	sessionKey: string,
+	selectedWpcomSite: SyncSite
+): WpcomSiteAssistantSessionState => {
+	loadWpcomSiteAssistantSessionStateCache();
+	const cachedSessionState = wpcomSiteAssistantSessionStateCache.get( sessionKey );
+
+	if ( ! cachedSessionState ) {
+		return createWpcomSiteAssistantSessionState( selectedWpcomSite );
+	}
+
+	const sessionState = cloneWpcomSiteAssistantSessionState( cachedSessionState );
+	return {
+		...sessionState,
+		activeWpcomSite:
+			sessionState.activeWpcomSite.id === selectedWpcomSite.id
+				? selectedWpcomSite
+				: sessionState.activeWpcomSite,
+	};
+};
+
+const normalizeDollySessionId = ( value?: string ) => {
+	const trimmedValue = value?.trim();
+	return trimmedValue || undefined;
+};
+
+const shouldApplyWpcomSiteAssistantHydration = (
+	currentSessionState: WpcomSiteAssistantSessionState,
+	hydratedSessionState: WpcomSiteAssistantSessionState
+) => {
+	const remoteChatMatches =
+		currentSessionState.remoteChatId !== undefined &&
+		currentSessionState.remoteChatId === hydratedSessionState.remoteChatId;
+	const currentSessionId = normalizeDollySessionId( currentSessionState.sessionId );
+	const hydratedSessionId = normalizeDollySessionId( hydratedSessionState.sessionId );
+	const sessionMatches =
+		currentSessionId !== undefined &&
+		hydratedSessionId !== undefined &&
+		currentSessionId === hydratedSessionId;
+
+	if ( currentSessionState.serverHydrationDisabled && ! remoteChatMatches && ! sessionMatches ) {
+		return false;
+	}
+
+	if ( currentSessionState.messages.length === 0 ) {
+		return true;
+	}
+
+	if ( remoteChatMatches || sessionMatches ) {
+		return true;
+	}
+
+	if ( currentSessionState.input.trim() ) {
+		return false;
+	}
+
+	if ( currentSessionState.remoteChatId === undefined ) {
+		return true;
+	}
+
+	return hydratedSessionState.lastUpdated > currentSessionState.lastUpdated;
+};
 
 interface PreviewWebviewTag extends HTMLElement {
 	loadURL( url: string ): Promise< void >;
@@ -1217,6 +2132,7 @@ const AuthenticatedView = memo(
 		const messagesToRender =
 			messages[ messages.length - 1 ]?.role === 'assistant' ? messages.slice( 0, -1 ) : messages;
 		const showLastMessage = lastMessage?.role === 'assistant';
+		const lastMessageRole = messages[ messages.length - 1 ]?.role;
 		const previousMessagesLength = useRef( messages.length );
 		const isInitialRenderRef = useRef( true );
 
@@ -1258,13 +2174,15 @@ const AuthenticatedView = memo(
 
 		useEffect( () => {
 			let timer: NodeJS.Timeout;
-			if ( isAssistantThinking ) {
+			if ( lastMessageRole === 'assistant' ) {
+				setShowThinking( false );
+			} else if ( isAssistantThinking ) {
 				timer = setTimeout( () => setShowThinking( true ), MIMIC_CONVERSATION_DELAY );
 			} else {
 				setShowThinking( false );
 			}
 			return () => clearTimeout( timer );
-		}, [ isAssistantThinking ] );
+		}, [ isAssistantThinking, lastMessageRole ] );
 
 		const RenderMessage = useCallback(
 			( { message }: { message: MessageType } ) => (
@@ -1374,6 +2292,11 @@ function DollyAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	const [ sessionId, setSessionId ] = useState< string | undefined >();
 	const [ isAssistantThinking, setIsAssistantThinking ] = useState( false );
 	const [ previewState, setPreviewState ] = useState< DollyPreviewState >( initialPreviewState );
+	const activeTurnIdRef = useRef( 0 );
+	const selectionRevisionRef = useRef( 0 );
+	const preserveConversationOnNextSiteChangeRef = useRef( false );
+	const selectableDollySiteIdsRef = useRef< number[] >( [] );
+	const activeDollySiteIdRef = useRef< number | undefined >( undefined );
 	const { data: connectedSites = [], isLoading: isLoadingConnectedSites } =
 		useGetConnectedSitesForLocalSiteQuery( {
 			localSiteId: selectedSite.id,
@@ -1405,6 +2328,15 @@ function DollyAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	const selectedDollySiteUrl =
 		selectedConnectedDollySite?.connectedSite.url || selectedConnectedDollySite?.url;
 	const previewMode: 'live' | 'local' = selectedDollySiteUrl ? 'live' : 'local';
+	const selectableDollySiteIds = useMemo(
+		() =>
+			connectedDollySites.length > 0
+				? connectedDollySites.map( ( site ) => site.id )
+				: isLocalOnlySite
+				? dollySites.map( ( site ) => site.id )
+				: [],
+		[ connectedDollySites, dollySites, isLocalOnlySite ]
+	);
 	const instanceId = user?.id
 		? `dolly_${ user.id }_${ selectedSite.id }_${ activeDollySiteId ?? 'none' }`
 		: `dolly_${ selectedSite.id }_${ activeDollySiteId ?? 'none' }`;
@@ -1452,6 +2384,37 @@ function DollyAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	const updatePreviewState = useCallback( ( nextState: Partial< DollyPreviewState > ) => {
 		setPreviewState( ( currentState ) => ( { ...currentState, ...nextState } ) );
 	}, [] );
+
+	useEffect( () => {
+		selectableDollySiteIdsRef.current = selectableDollySiteIds;
+	}, [ selectableDollySiteIds ] );
+
+	useEffect( () => {
+		activeDollySiteIdRef.current = activeDollySiteId;
+	}, [ activeDollySiteId ] );
+
+	const setUserSelectedDollySiteId = useCallback( ( siteId: number ) => {
+		selectionRevisionRef.current += 1;
+		preserveConversationOnNextSiteChangeRef.current = false;
+		setSelectedDollySiteId( siteId );
+	}, [] );
+
+	const syncBackendSelectedDollySite = useCallback(
+		( backendSelectedSiteId: number | undefined, requestSelectionRevision: number ) => {
+			if (
+				! backendSelectedSiteId ||
+				selectionRevisionRef.current !== requestSelectionRevision ||
+				! selectableDollySiteIdsRef.current.includes( backendSelectedSiteId ) ||
+				selectedDollySiteId === backendSelectedSiteId
+			) {
+				return;
+			}
+
+			preserveConversationOnNextSiteChangeRef.current = true;
+			setSelectedDollySiteId( backendSelectedSiteId );
+		},
+		[ selectedDollySiteId ]
+	);
 
 	useEffect( () => {
 		if ( ! isAuthenticated || ! client || isOffline ) {
@@ -1514,9 +2477,16 @@ function DollyAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	}, [ connectedDollySites, dollySites, isLocalOnlySite ] );
 
 	useEffect( () => {
+		if ( preserveConversationOnNextSiteChangeRef.current ) {
+			preserveConversationOnNextSiteChangeRef.current = false;
+			return;
+		}
+
+		activeTurnIdRef.current += 1;
 		setMessages( [] );
 		setSessionId( undefined );
 		setInput( '' );
+		setIsAssistantThinking( false );
 		setPreviewState( initialPreviewState() );
 	}, [ selectedDollySiteId ] );
 
@@ -1525,19 +2495,27 @@ function DollyAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	}, [ selectedSite.id ] );
 
 	const openPreview = useCallback(
-		( pathOrUrl = '/', title?: string ) => {
-			setPreviewState( ( currentState ) => ( {
-				...currentState,
-				open: true,
-				pathOrUrl,
-				title,
-				pageTitle: undefined,
-				currentUrl: undefined,
-				isLoading: Boolean(
-					selectedDollySiteUrl || ( isLocalOnlySite && activeDollySiteId && selectedSite.running )
-				),
-				reloadNonce: currentState.reloadNonce + 1,
-			} ) );
+		( pathOrUrl = '/', title?: string, { forceReload = false }: OpenPreviewOptions = {} ) => {
+			setPreviewState( ( currentState ) => {
+				const shouldLoad =
+					forceReload || ! currentState.open || currentState.pathOrUrl !== pathOrUrl;
+
+				return {
+					...currentState,
+					open: true,
+					pathOrUrl,
+					title,
+					pageTitle: shouldLoad ? undefined : currentState.pageTitle,
+					currentUrl: shouldLoad ? undefined : currentState.currentUrl,
+					isLoading: shouldLoad
+						? Boolean(
+								selectedDollySiteUrl ||
+									( isLocalOnlySite && activeDollySiteId && selectedSite.running )
+						  )
+						: currentState.isLoading,
+					reloadNonce: forceReload ? currentState.reloadNonce + 1 : currentState.reloadNonce,
+				};
+			} );
 		},
 		[ activeDollySiteId, isLocalOnlySite, selectedDollySiteUrl, selectedSite.running ]
 	);
@@ -1580,7 +2558,9 @@ function DollyAssistant( { selectedSite }: ContentTabAssistantProps ) {
 			const normalizedUrl = normalizePreviewUrl( previewBaseUrl, requestedUrl, {
 				autoLoginSameOrigin: ! selectedDollySiteUrl,
 			} );
-			openPreview( requestedUrl, title );
+			openPreview( requestedUrl, title, {
+				forceReload: shouldForcePreviewReload( toolCall.arguments ),
+			} );
 			const displayTitle = title || new URL( normalizedUrl ).host || normalizedUrl;
 			const message = sprintf( __( 'Opened preview: %s' ), displayTitle );
 
@@ -1626,18 +2606,31 @@ function DollyAssistant( { selectedSite }: ContentTabAssistantProps ) {
 				);
 			} );
 			setIsAssistantThinking( true );
+			const turnId = activeTurnIdRef.current + 1;
+			const requestSiteId = activeDollySiteId;
+			const requestSelectionRevision = selectionRevisionRef.current;
+			activeTurnIdRef.current = turnId;
+			const isCurrentTurn = () =>
+				activeTurnIdRef.current === turnId && activeDollySiteIdRef.current === requestSiteId;
+			const isRequestSiteStillActive = () => activeDollySiteIdRef.current === requestSiteId;
 
-			void sendDollyMessage( {
-				client,
-				executeFrontendTool,
-				message: trimmedMessage,
-				previewContext,
-				siteAssociation,
-				selectedSite,
-				sessionId,
-				siteId: activeDollySiteId,
-			} )
-				.then( ( response ) => {
+			void ( async () => {
+				try {
+					const response = await sendDollyMessage( {
+						client,
+						executeFrontendTool,
+						message: trimmedMessage,
+						previewContext,
+						siteAssociation,
+						selectedSite,
+						sessionId,
+						siteId: activeDollySiteId,
+					} );
+
+					if ( ! isRequestSiteStillActive() ) {
+						return;
+					}
+
 					if ( response.sessionId ) {
 						setSessionId( response.sessionId );
 					}
@@ -1648,8 +2641,18 @@ function DollyAssistant( { selectedSite }: ContentTabAssistantProps ) {
 							generateMessage( response.text, 'assistant', currentMessages.length ),
 						] );
 					}
-				} )
-				.catch( ( error ) => {
+
+					void resolveBackendSelectedSiteId( client, response, sessionId ).then(
+						( backendSelectedSiteId ) => {
+							if ( isCurrentTurn() ) {
+								syncBackendSelectedDollySite( backendSelectedSiteId, requestSelectionRevision );
+							}
+						}
+					);
+				} catch ( error ) {
+					if ( ! isRequestSiteStillActive() ) {
+						return;
+					}
 					console.error( error );
 					setMessages( ( currentMessages ) =>
 						currentMessages.map( ( currentMessage ) =>
@@ -1658,10 +2661,10 @@ function DollyAssistant( { selectedSite }: ContentTabAssistantProps ) {
 								: currentMessage
 						)
 					);
-				} )
-				.finally( () => {
+				} finally {
 					setIsAssistantThinking( false );
-				} );
+				}
+			} )();
 		},
 		[
 			client,
@@ -1673,6 +2676,7 @@ function DollyAssistant( { selectedSite }: ContentTabAssistantProps ) {
 			siteAssociation,
 			selectedSite,
 			sessionId,
+			syncBackendSelectedDollySite,
 		]
 	);
 
@@ -1765,7 +2769,7 @@ function DollyAssistant( { selectedSite }: ContentTabAssistantProps ) {
 											: site.name,
 										value: String( site.id ),
 									} ) ) }
-									onChange={ ( value ) => setSelectedDollySiteId( Number( value ) ) }
+									onChange={ ( value ) => setUserSelectedDollySiteId( Number( value ) ) }
 									__nextHasNoMarginBottom
 									__next40pxDefaultSize
 								/>
@@ -1873,29 +2877,49 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 	const wrapperRef = useRef< HTMLDivElement >( null );
 	const { isAuthenticated, authenticate, user, client } = useAuth();
 	const isOffline = useOffline();
-	const [ input, setInput ] = useState( '' );
-	const [ messages, setMessages ] = useState< MessageType[] >( [] );
-	const [ sessionId, setSessionId ] = useState< string | undefined >();
+	const sessionCacheKey = createWpcomSiteAssistantSessionKey( selectedWpcomSite.id );
+	const initialSessionState = getWpcomSiteAssistantSessionState(
+		sessionCacheKey,
+		selectedWpcomSite
+	);
+	const [ input, setInput ] = useState( initialSessionState.input );
+	const [ messages, setMessages ] = useState< MessageType[] >( initialSessionState.messages );
+	const [ sessionId, setSessionId ] = useState< string | undefined >(
+		initialSessionState.sessionId
+	);
 	const [ isAssistantThinking, setIsAssistantThinking ] = useState( false );
-	const [ previewState, setPreviewState ] = useState< DollyPreviewState >( () => ( {
-		...initialPreviewState(),
-		open: true,
-		isLoading: true,
-	} ) );
+	const [ activeWpcomSite, setActiveWpcomSite ] = useState< SyncSite >(
+		initialSessionState.activeWpcomSite
+	);
+	const [ previewState, setPreviewState ] = useState< DollyPreviewState >(
+		initialSessionState.previewState
+	);
+	const activeTurnIdRef = useRef( 0 );
+	const selectionRevisionRef = useRef( 0 );
+	const isMountedRef = useRef( true );
+	const activeWpcomSiteRef = useRef< SyncSite >( activeWpcomSite );
+	const selectedWpcomSiteIdRef = useRef( selectedWpcomSite.id );
+	const conversationIdRef = useRef( initialSessionState.id );
+	const remoteChatIdRef = useRef( initialSessionState.remoteChatId );
+	const serverHydrationDisabledRef = useRef(
+		Boolean( initialSessionState.serverHydrationDisabled )
+	);
+	const isAssistantThinkingRef = useRef( isAssistantThinking );
+	const hydratedSessionKeysRef = useRef( new Set< string >() );
 	const selectedSite = useMemo(
-		() => createWpcomOnlySiteDetails( selectedWpcomSite ),
-		[ selectedWpcomSite ]
+		() => createWpcomOnlySiteDetails( activeWpcomSite ),
+		[ activeWpcomSite ]
 	);
 	const instanceId = user?.id
-		? `dolly_${ user.id }_wpcom_${ selectedWpcomSite.id }`
-		: `dolly_wpcom_${ selectedWpcomSite.id }`;
+		? `dolly_${ user.id }_wpcom_${ activeWpcomSite.id }`
+		: `dolly_wpcom_${ activeWpcomSite.id }`;
 	const previewUrl = useMemo(
-		() => normalizePreviewUrl( selectedWpcomSite.url, previewState.pathOrUrl ),
-		[ previewState.pathOrUrl, selectedWpcomSite.url ]
+		() => normalizePreviewUrl( activeWpcomSite.url, previewState.pathOrUrl ),
+		[ activeWpcomSite.url, previewState.pathOrUrl ]
 	);
 	const siteAssociation = useMemo(
-		() => createWpcomOnlySiteAssociationContext( selectedWpcomSite ),
-		[ selectedWpcomSite ]
+		() => createWpcomOnlySiteAssociationContext( activeWpcomSite ),
+		[ activeWpcomSite ]
 	);
 	const previewContext = useMemo(
 		() => createPreviewContext( selectedSite, previewState, previewUrl ),
@@ -1909,29 +2933,167 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 	}, [] );
 
 	useEffect( () => {
-		setInput( '' );
-		setMessages( [] );
-		setSessionId( undefined );
-		setIsAssistantThinking( false );
-		setPreviewState( {
-			...initialPreviewState(),
-			open: true,
-			isLoading: true,
-		} );
-	}, [ selectedWpcomSite.id ] );
+		activeWpcomSiteRef.current = activeWpcomSite;
+	}, [ activeWpcomSite ] );
 
-	const openPreview = useCallback( ( pathOrUrl = '/', title?: string ) => {
-		setPreviewState( ( currentState ) => ( {
-			...currentState,
-			open: true,
-			pathOrUrl,
-			title,
-			pageTitle: undefined,
-			currentUrl: undefined,
-			isLoading: true,
-			reloadNonce: currentState.reloadNonce + 1,
-		} ) );
+	useEffect( () => {
+		isAssistantThinkingRef.current = isAssistantThinking;
+	}, [ isAssistantThinking ] );
+
+	useEffect( () => {
+		if ( selectedWpcomSiteIdRef.current !== selectedWpcomSite.id ) {
+			return;
+		}
+
+		const sessionState: WpcomSiteAssistantSessionState = {
+			id: conversationIdRef.current,
+			key: {
+				siteId: selectedWpcomSite.id,
+				agentId: DOLLY_AGENT_ID,
+			},
+			remoteChatId: remoteChatIdRef.current,
+			serverHydrationDisabled: serverHydrationDisabledRef.current,
+			input,
+			messages,
+			sessionId,
+			activeWpcomSite,
+			previewState,
+			lastUpdated: Date.now(),
+		};
+		wpcomSiteAssistantSessionStateCache.set( sessionCacheKey, sessionState );
+		persistWpcomSiteAssistantSessionStateCache();
+	}, [
+		activeWpcomSite,
+		input,
+		messages,
+		previewState,
+		selectedWpcomSite.id,
+		sessionCacheKey,
+		sessionId,
+	] );
+
+	useEffect( () => {
+		isMountedRef.current = true;
+		return () => {
+			isMountedRef.current = false;
+			activeTurnIdRef.current += 1;
+		};
 	}, [] );
+
+	useEffect( () => {
+		if ( selectedWpcomSiteIdRef.current === selectedWpcomSite.id ) {
+			return;
+		}
+
+		selectionRevisionRef.current += 1;
+		activeTurnIdRef.current += 1;
+		selectedWpcomSiteIdRef.current = selectedWpcomSite.id;
+		const nextSessionState = getWpcomSiteAssistantSessionState(
+			sessionCacheKey,
+			selectedWpcomSite
+		);
+		conversationIdRef.current = nextSessionState.id;
+		remoteChatIdRef.current = nextSessionState.remoteChatId;
+		serverHydrationDisabledRef.current = Boolean( nextSessionState.serverHydrationDisabled );
+		setActiveWpcomSite( nextSessionState.activeWpcomSite );
+		setInput( nextSessionState.input );
+		setMessages( nextSessionState.messages );
+		setSessionId( nextSessionState.sessionId );
+		setIsAssistantThinking( false );
+		setPreviewState( nextSessionState.previewState );
+	}, [ selectedWpcomSite, sessionCacheKey ] );
+
+	useEffect( () => {
+		if (
+			! isAuthenticated ||
+			isOffline ||
+			! client ||
+			typeof ( client.req as { get?: unknown } ).get !== 'function' ||
+			hydratedSessionKeysRef.current.has( sessionCacheKey )
+		) {
+			return;
+		}
+
+		hydratedSessionKeysRef.current.add( sessionCacheKey );
+		let isCurrentHydration = true;
+
+		void ( async () => {
+			try {
+				const cachedSessionState =
+					wpcomSiteAssistantSessionStateCache.get( sessionCacheKey ) ??
+					getWpcomSiteAssistantSessionState( sessionCacheKey, selectedWpcomSite );
+				const hydratedSessionState = await hydrateWpcomSiteAssistantSessionState(
+					client,
+					selectedWpcomSite,
+					cachedSessionState.sessionId
+				);
+
+				if (
+					! hydratedSessionState ||
+					! isCurrentHydration ||
+					! isMountedRef.current ||
+					isAssistantThinkingRef.current
+				) {
+					return;
+				}
+
+				const currentSessionState =
+					wpcomSiteAssistantSessionStateCache.get( sessionCacheKey ) ??
+					getWpcomSiteAssistantSessionState( sessionCacheKey, selectedWpcomSite );
+				if (
+					! shouldApplyWpcomSiteAssistantHydration( currentSessionState, hydratedSessionState )
+				) {
+					return;
+				}
+
+				const nextSessionState: WpcomSiteAssistantSessionState = {
+					...hydratedSessionState,
+					input: currentSessionState.input,
+					activeWpcomSite: currentSessionState.activeWpcomSite,
+					previewState: currentSessionState.previewState,
+					serverHydrationDisabled: false,
+				};
+
+				conversationIdRef.current = nextSessionState.id;
+				remoteChatIdRef.current = nextSessionState.remoteChatId;
+				serverHydrationDisabledRef.current = false;
+				wpcomSiteAssistantSessionStateCache.set( sessionCacheKey, nextSessionState );
+				persistWpcomSiteAssistantSessionStateCache();
+				setActiveWpcomSite( nextSessionState.activeWpcomSite );
+				setInput( nextSessionState.input );
+				setMessages( nextSessionState.messages );
+				setSessionId( nextSessionState.sessionId );
+				setPreviewState( nextSessionState.previewState );
+			} catch ( error ) {
+				console.error( error );
+			}
+		} )();
+
+		return () => {
+			isCurrentHydration = false;
+		};
+	}, [ client, isAuthenticated, isOffline, selectedWpcomSite, sessionCacheKey ] );
+
+	const openPreview = useCallback(
+		( pathOrUrl = '/', title?: string, { forceReload = false }: OpenPreviewOptions = {} ) => {
+			setPreviewState( ( currentState ) => {
+				const shouldLoad =
+					forceReload || ! currentState.open || currentState.pathOrUrl !== pathOrUrl;
+
+				return {
+					...currentState,
+					open: true,
+					pathOrUrl,
+					title,
+					pageTitle: shouldLoad ? undefined : currentState.pageTitle,
+					currentUrl: shouldLoad ? undefined : currentState.currentUrl,
+					isLoading: shouldLoad ? true : currentState.isLoading,
+					reloadNonce: forceReload ? currentState.reloadNonce + 1 : currentState.reloadNonce,
+				};
+			} );
+		},
+		[]
+	);
 
 	const executeFrontendTool = useCallback(
 		async ( toolCall: DollyToolCall ): Promise< DollyToolExecution > => {
@@ -1957,8 +3119,10 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 			}
 
 			const title = getStringValue( toolCall.arguments, [ 'title', 'name' ] );
-			const normalizedUrl = normalizePreviewUrl( selectedWpcomSite.url, requestedUrl );
-			openPreview( requestedUrl, title );
+			const normalizedUrl = normalizePreviewUrl( activeWpcomSite.url, requestedUrl );
+			openPreview( requestedUrl, title, {
+				forceReload: shouldForcePreviewReload( toolCall.arguments ),
+			} );
 			const displayTitle = title || new URL( normalizedUrl ).host || normalizedUrl;
 			const message = sprintf( __( 'Opened preview: %s' ), displayTitle );
 
@@ -1975,13 +3139,41 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 				agentMessage: message,
 			};
 		},
-		[ openPreview, selectedWpcomSite.url ]
+		[ activeWpcomSite.url, openPreview ]
+	);
+
+	const syncBackendActiveWpcomSite = useCallback(
+		async ( backendSelectedSiteId: number | undefined, requestSelectionRevision: number ) => {
+			if (
+				! client ||
+				! backendSelectedSiteId ||
+				activeWpcomSiteRef.current.id === backendSelectedSiteId ||
+				selectionRevisionRef.current !== requestSelectionRevision
+			) {
+				return;
+			}
+
+			const nextSite = await fetchDollySite( client, backendSelectedSiteId );
+			if (
+				nextSite &&
+				isMountedRef.current &&
+				selectionRevisionRef.current === requestSelectionRevision
+			) {
+				setActiveWpcomSite( nextSite );
+			}
+		},
+		[ client ]
 	);
 
 	const submitPrompt = useCallback(
 		( chatMessage: string, isRetry?: boolean ) => {
 			const trimmedMessage = chatMessage.trim();
-			if ( ! trimmedMessage || ! client || isAssistantThinking ) {
+			if (
+				! trimmedMessage ||
+				! client ||
+				isAssistantThinking ||
+				selectedWpcomSiteIdRef.current !== selectedWpcomSite.id
+			) {
 				return;
 			}
 
@@ -2004,18 +3196,27 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 				);
 			} );
 			setIsAssistantThinking( true );
+			const requestSelectionRevision = selectionRevisionRef.current;
+			const isCurrentTurn = () =>
+				isMountedRef.current && selectionRevisionRef.current === requestSelectionRevision;
 
-			void sendDollyMessage( {
-				client,
-				executeFrontendTool,
-				message: trimmedMessage,
-				previewContext,
-				siteAssociation,
-				selectedSite,
-				sessionId,
-				siteId: selectedWpcomSite.id,
-			} )
-				.then( ( response ) => {
+			void ( async () => {
+				try {
+					const response = await sendDollyMessage( {
+						client,
+						executeFrontendTool,
+						message: trimmedMessage,
+						previewContext,
+						siteAssociation,
+						selectedSite,
+						sessionId,
+						siteId: activeWpcomSite.id,
+					} );
+
+					if ( ! isMountedRef.current ) {
+						return;
+					}
+
 					if ( response.sessionId ) {
 						setSessionId( response.sessionId );
 					}
@@ -2026,8 +3227,18 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 							generateMessage( response.text, 'assistant', currentMessages.length ),
 						] );
 					}
-				} )
-				.catch( ( error ) => {
+
+					void resolveBackendSelectedSiteId( client, response, sessionId ).then(
+						( backendSelectedSiteId ) => {
+							if ( isCurrentTurn() ) {
+								void syncBackendActiveWpcomSite( backendSelectedSiteId, requestSelectionRevision );
+							}
+						}
+					);
+				} catch ( error ) {
+					if ( ! isMountedRef.current ) {
+						return;
+					}
 					console.error( error );
 					setMessages( ( currentMessages ) =>
 						currentMessages.map( ( currentMessage ) =>
@@ -2036,12 +3247,15 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 								: currentMessage
 						)
 					);
-				} )
-				.finally( () => {
-					setIsAssistantThinking( false );
-				} );
+				} finally {
+					if ( isMountedRef.current ) {
+						setIsAssistantThinking( false );
+					}
+				}
+			} )();
 		},
 		[
+			activeWpcomSite.id,
 			client,
 			executeFrontendTool,
 			isAssistantThinking,
@@ -2051,14 +3265,20 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 			selectedWpcomSite.id,
 			sessionId,
 			siteAssociation,
+			syncBackendActiveWpcomSite,
 		]
 	);
 
 	const clearConversation = useCallback( () => {
+		conversationIdRef.current = createWpcomSiteAssistantConversationId();
+		remoteChatIdRef.current = undefined;
+		serverHydrationDisabledRef.current = true;
 		setInput( '' );
 		setMessages( [] );
 		setSessionId( undefined );
-	}, [] );
+		setActiveWpcomSite( selectedWpcomSite );
+		setPreviewState( initialPreviewState() );
+	}, [ selectedWpcomSite ] );
 
 	const renderNotice = () => {
 		if ( isOffline ) {
@@ -2080,10 +3300,10 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 				<div className="shrink-0 border-b border-a8c-gray-5 bg-white px-8 py-5 flex items-start gap-4">
 					<div className="min-w-0 flex-1">
 						<h1 className="m-0 truncate text-xl font-semibold text-frame-text">
-							{ selectedWpcomSite.name }
+							{ activeWpcomSite.name }
 						</h1>
 						<div className="mt-1 truncate text-sm text-frame-text-secondary">
-							{ selectedWpcomSite.url }
+							{ activeWpcomSite.url }
 						</div>
 					</div>
 					<Button

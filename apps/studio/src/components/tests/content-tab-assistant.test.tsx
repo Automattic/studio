@@ -4,6 +4,7 @@ import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import nock from 'nock';
+import { StrictMode } from 'react';
 import { Provider } from 'react-redux';
 import { Dispatch } from 'redux';
 import { vi } from 'vitest';
@@ -13,8 +14,13 @@ import {
 	MIMIC_CONVERSATION_DELAY,
 	WpcomAssistant,
 	WpcomSiteAssistant,
+	clearWpcomSiteAssistantStateCacheForTests,
 } from 'src/components/content-tab-assistant';
-import { LOCAL_STORAGE_CHAT_MESSAGES_KEY, CLEAR_HISTORY_REMINDER_TIME } from 'src/constants';
+import {
+	LOCAL_STORAGE_CHAT_MESSAGES_KEY,
+	LOCAL_STORAGE_DOLLY_WPCOM_SITE_CONVERSATIONS_KEY,
+	CLEAR_HISTORY_REMINDER_TIME,
+} from 'src/constants';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { useOffline } from 'src/hooks/use-offline';
 import { ThemeDetailsProvider } from 'src/hooks/use-theme-details';
@@ -129,6 +135,8 @@ describe( 'ContentTabAssistant', () => {
 		selectedWpcomSite?: SyncSite;
 		auth?: Partial< AuthContextType >;
 		component?: 'content-tab' | 'wpcom' | 'wpcom-site';
+		strictMode?: boolean;
+		keyWpcomSiteAssistant?: boolean;
 	};
 
 	const firstWpcomSite: SyncSite = {
@@ -155,6 +163,8 @@ describe( 'ContentTabAssistant', () => {
 		selectedWpcomSite = firstWpcomSite,
 		auth = {},
 		component = 'wpcom',
+		strictMode = false,
+		keyWpcomSiteAssistant = true,
 	}: ContextState = {} ) => {
 		const authContextValue: AuthContextType = {
 			client: createWpcomClient(),
@@ -164,17 +174,21 @@ describe( 'ContentTabAssistant', () => {
 			...auth,
 		};
 
-		return (
+		const tree = (
 			<Provider store={ store }>
 				<AuthContext.Provider value={ authContextValue }>
 					<ThemeDetailsProvider>
 						{ component === 'content-tab' ? (
 							<ContentTabAssistant selectedSite={ selectedSite } />
 						) : component === 'wpcom-site' ? (
-							<WpcomSiteAssistant
-								key={ selectedWpcomSite.id }
-								selectedWpcomSite={ selectedWpcomSite }
-							/>
+							keyWpcomSiteAssistant ? (
+								<WpcomSiteAssistant
+									key={ selectedWpcomSite.id }
+									selectedWpcomSite={ selectedWpcomSite }
+								/>
+							) : (
+								<WpcomSiteAssistant selectedWpcomSite={ selectedWpcomSite } />
+							)
 						) : (
 							<WpcomAssistant selectedSite={ selectedSite } />
 						) }
@@ -182,6 +196,7 @@ describe( 'ContentTabAssistant', () => {
 				</AuthContext.Provider>
 			</Provider>
 		);
+		return strictMode ? <StrictMode>{ tree }</StrictMode> : tree;
 	};
 
 	const renderWithContext = ( options?: ContextState ) => render( buildContextTree( options ) );
@@ -197,6 +212,7 @@ describe( 'ContentTabAssistant', () => {
 
 	beforeEach( () => {
 		vi.clearAllMocks();
+		clearWpcomSiteAssistantStateCacheForTests();
 		window.HTMLElement.prototype.scrollIntoView = vi.fn();
 		localStorage.clear();
 
@@ -719,6 +735,7 @@ describe( 'ContentTabAssistant', () => {
 			path: string;
 			body: {
 				params: {
+					id?: string;
 					sessionId?: string;
 					message: {
 						parts: Array< {
@@ -733,8 +750,1109 @@ describe( 'ContentTabAssistant', () => {
 		);
 
 		expect( secondRequest.path ).toBe( '/sites/456/ai/agent/dolly' );
-		expect( secondRequest.body.params.sessionId ).toBeUndefined();
+		expect( secondRequest.body.params.sessionId ).toBe( secondRequest.body.params.id );
 		expect( secondClientContextPart?.data?.clientContext?.selectedSiteId ).toBe( 456 );
+	} );
+
+	it( 'does not cache the previous WP.com-only session under the next selected site', async () => {
+		const requestBodies: unknown[] = [];
+		const dollyClient = {
+			req: {
+				get: vi.fn( ( _params, callback ) => {
+					callback( null, [] );
+				} ),
+				post: vi.fn( ( params, callback ) => {
+					requestBodies.push( params.body );
+					const body = params.body as {
+						params?: {
+							message?: { parts?: Array< { text?: string } > };
+						};
+					};
+					const textPart = body.params?.message?.parts?.find(
+						( part ) => typeof part.text === 'string'
+					);
+					const messageText = textPart?.text;
+					const selectedSiteId = messageText === 'Second hello' ? 456 : 123;
+
+					callback( null, {
+						result: {
+							id: `task-${ requestBodies.length }`,
+							sessionId: selectedSiteId === 456 ? 'session-second' : 'session-first',
+							selectedSiteId,
+							status: {
+								state: 'completed',
+								message: {
+									parts: [
+										{
+											type: 'text',
+											text: `${ messageText } response`,
+										},
+									],
+								},
+							},
+						},
+					} );
+				} ),
+			},
+		} as unknown as WPCOM;
+
+		const { rerender } = render(
+			buildContextTree( {
+				component: 'wpcom-site',
+				selectedWpcomSite: firstWpcomSite,
+				keyWpcomSiteAssistant: false,
+				auth: {
+					client: dollyClient,
+				},
+			} )
+		);
+
+		fireEvent.change( getInput(), { target: { value: 'First hello' } } );
+		fireEvent.keyDown( getInput(), { key: 'Enter', code: 'Enter' } );
+
+		await waitFor( () => {
+			expect( screen.getByText( 'First hello response' ) ).toBeVisible();
+		} );
+
+		rerender(
+			buildContextTree( {
+				component: 'wpcom-site',
+				selectedWpcomSite: secondWpcomSite,
+				keyWpcomSiteAssistant: false,
+				auth: {
+					client: dollyClient,
+				},
+			} )
+		);
+
+		await waitFor( () => {
+			expect( screen.getByText( 'Second Dolly Site' ) ).toBeVisible();
+			expect( screen.queryByText( 'First hello response' ) ).not.toBeInTheDocument();
+		} );
+
+		const persistedConversationsAfterSwitch = JSON.parse(
+			localStorage.getItem( LOCAL_STORAGE_DOLLY_WPCOM_SITE_CONVERSATIONS_KEY ) || '{}'
+		) as Record< string, { sessionId?: string } >;
+		expect( persistedConversationsAfterSwitch[ 'wpcom-site:456' ]?.sessionId ).toBeUndefined();
+
+		fireEvent.change( getInput(), { target: { value: 'Second hello' } } );
+		fireEvent.keyDown( getInput(), { key: 'Enter', code: 'Enter' } );
+
+		await waitFor( () => {
+			expect( screen.getByText( 'Second hello response' ) ).toBeVisible();
+		} );
+
+		const secondRequest = requestBodies[ 1 ] as {
+			params?: {
+				id?: string;
+				sessionId?: string;
+				message?: { parts?: Array< { data?: unknown } > };
+			};
+		};
+		expect( secondRequest.params?.sessionId ).toBe( secondRequest.params?.id );
+	} );
+
+	it( 'renders a completed Dolly response in the WP.com-only live site chat', async () => {
+		const dollyClient = {
+			req: {
+				get: vi.fn( ( _params, callback ) => {
+					callback( null, [] );
+				} ),
+				post: vi.fn( ( _params, callback ) => {
+					callback( null, {
+						jsonrpc: '2.0',
+						id: 'rpc-1',
+						result: {
+							id: 'task-1',
+							status: {
+								state: 'completed',
+								message: {
+									kind: 'message',
+									messageId: 'msg-1',
+									role: 'agent',
+									parts: [
+										{
+											type: 'text',
+											text: "hey Big D \u{1f44b} what's up?",
+										},
+									],
+								},
+								timestamp: '2026-05-14T13:20:16+00:00',
+							},
+							sessionId: 'session-1',
+						},
+					} );
+				} ),
+			},
+		} as unknown as WPCOM;
+
+		renderWithContext( {
+			component: 'wpcom-site',
+			selectedWpcomSite: firstWpcomSite,
+			strictMode: true,
+			auth: {
+				client: dollyClient,
+			},
+		} );
+
+		const textInput = getInput();
+		fireEvent.change( textInput, { target: { value: 'hey' } } );
+		fireEvent.keyDown( textInput, { key: 'Enter', code: 'Enter' } );
+
+		await waitFor( () => {
+			expect( screen.getByText( "hey Big D \u{1f44b} what's up?" ) ).toBeVisible();
+			expect( getInput() ).toBeEnabled();
+		} );
+	} );
+
+	it( 'syncs the selected Dolly site from backend chat history after a turn', async () => {
+		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+			showMessageBox: vi.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ),
+			executeWPCLiInline: vi.fn().mockResolvedValue( { stdout: '', stderr: 'Error' } ),
+			getConnectedWpcomSites: vi.fn().mockResolvedValue( [
+				{
+					id: 123,
+					localSiteId: runningSite.id,
+					name: 'Dolly Site',
+					url: 'https://dolly.example',
+					isStaging: false,
+					isPressable: false,
+					syncSupport: 'syncable',
+					lastPullTimestamp: null,
+					lastPushTimestamp: null,
+				},
+				{
+					id: 456,
+					localSiteId: runningSite.id,
+					name: 'Second Dolly Site',
+					url: 'https://second-dolly.example',
+					isStaging: false,
+					isPressable: false,
+					syncSupport: 'syncable',
+					lastPullTimestamp: null,
+					lastPushTimestamp: null,
+				},
+			] ),
+			openURL: vi.fn(),
+		} );
+		const dollyClient = {
+			req: {
+				get: vi.fn( ( params, callback ) => {
+					if ( params.path.startsWith( '/ai/chats/' ) ) {
+						callback( null, [
+							{
+								session_id: 'session-1',
+								selected_site_id: 456,
+							},
+						] );
+						return;
+					}
+					callback( null, {
+						sites: [
+							{
+								ID: 123,
+								name: 'Dolly Site',
+								URL: 'https://dolly.example',
+							},
+							{
+								ID: 456,
+								name: 'Second Dolly Site',
+								primary_domain: 'second-dolly.example',
+							},
+						],
+					} );
+				} ),
+				post: vi.fn( ( _params, callback ) => {
+					callback( null, {
+						result: {
+							id: 'task-1',
+							sessionId: 'session-1',
+							status: {
+								state: 'completed',
+								message: {
+									parts: [
+										{
+											type: 'text',
+											text: 'Switched sites.',
+										},
+									],
+								},
+							},
+						},
+					} );
+				} ),
+			},
+		} as unknown as WPCOM;
+
+		renderWithContext( {
+			component: 'content-tab',
+			auth: {
+				client: dollyClient,
+			},
+		} );
+
+		await waitFor( () => {
+			expect( screen.getByRole( 'combobox', { name: 'WordPress.com site' } ) ).toHaveValue( '123' );
+		} );
+
+		const textInput = getInput();
+		fireEvent.change( textInput, { target: { value: 'Switch to another site' } } );
+		fireEvent.keyDown( textInput, { key: 'Enter', code: 'Enter' } );
+
+		await waitFor( () => {
+			expect( screen.getByText( 'Switched sites.' ) ).toBeVisible();
+			expect( screen.getByRole( 'combobox', { name: 'WordPress.com site' } ) ).toHaveValue( '456' );
+		} );
+	} );
+
+	it( 'finishes the chat turn when backend site sync history is still pending', async () => {
+		const dollyClient = {
+			req: {
+				get: vi.fn( ( params, callback ) => {
+					if ( params.path.startsWith( '/ai/chats/' ) ) {
+						return;
+					}
+					callback( null, {
+						sites: [
+							{
+								ID: 123,
+								name: 'Dolly Site',
+								URL: 'https://dolly.example',
+							},
+						],
+					} );
+				} ),
+				post: vi.fn( ( _params, callback ) => {
+					callback( null, {
+						result: {
+							id: 'task-1',
+							sessionId: 'session-1',
+							status: {
+								state: 'completed',
+								message: {
+									parts: [
+										{
+											type: 'text',
+											text: 'Main Dolly response',
+										},
+									],
+								},
+							},
+						},
+					} );
+				} ),
+			},
+		} as unknown as WPCOM;
+
+		renderWithContext( {
+			component: 'content-tab',
+			auth: {
+				client: dollyClient,
+			},
+		} );
+
+		await waitFor( () => {
+			expect( screen.getByText( 'Ask Dolly about this WordPress.com site.' ) ).toBeVisible();
+		} );
+
+		const textInput = getInput();
+		fireEvent.change( textInput, { target: { value: 'Hello Dolly' } } );
+		fireEvent.keyDown( textInput, { key: 'Enter', code: 'Enter' } );
+
+		await waitFor( () => {
+			expect( screen.getByText( 'Main Dolly response' ) ).toBeVisible();
+			expect( getInput() ).toBeEnabled();
+		} );
+	} );
+
+	it( 'does not apply a backend site sync after the user changes sites mid-turn', async () => {
+		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+			showMessageBox: vi.fn().mockResolvedValue( { response: 0, checkboxChecked: false } ),
+			executeWPCLiInline: vi.fn().mockResolvedValue( { stdout: '', stderr: 'Error' } ),
+			getConnectedWpcomSites: vi.fn().mockResolvedValue( [
+				{
+					id: 123,
+					localSiteId: runningSite.id,
+					name: 'Dolly Site',
+					url: 'https://dolly.example',
+					isStaging: false,
+					isPressable: false,
+					syncSupport: 'syncable',
+					lastPullTimestamp: null,
+					lastPushTimestamp: null,
+				},
+				{
+					id: 456,
+					localSiteId: runningSite.id,
+					name: 'Second Dolly Site',
+					url: 'https://second-dolly.example',
+					isStaging: false,
+					isPressable: false,
+					syncSupport: 'syncable',
+					lastPullTimestamp: null,
+					lastPushTimestamp: null,
+				},
+			] ),
+			openURL: vi.fn(),
+		} );
+		let resolvePost: ( data: unknown ) => void = () => undefined;
+		const postResponse = new Promise< unknown >( ( resolve ) => {
+			resolvePost = resolve;
+		} );
+		const dollyClient = {
+			req: {
+				get: vi.fn( ( _params, callback ) => {
+					callback( null, {
+						sites: [
+							{
+								ID: 123,
+								name: 'Dolly Site',
+								URL: 'https://dolly.example',
+							},
+							{
+								ID: 456,
+								name: 'Second Dolly Site',
+								primary_domain: 'second-dolly.example',
+							},
+						],
+					} );
+				} ),
+				post: vi.fn( ( _params, callback ) => {
+					void postResponse.then( ( response ) => callback( null, response ) );
+				} ),
+			},
+		} as unknown as WPCOM;
+
+		renderWithContext( {
+			component: 'content-tab',
+			auth: {
+				client: dollyClient,
+			},
+		} );
+
+		await waitFor( () => {
+			expect( screen.getByRole( 'combobox', { name: 'WordPress.com site' } ) ).toHaveValue( '123' );
+		} );
+
+		const textInput = getInput();
+		fireEvent.change( textInput, { target: { value: 'Switch slowly' } } );
+		fireEvent.keyDown( textInput, { key: 'Enter', code: 'Enter' } );
+		fireEvent.change( screen.getByRole( 'combobox', { name: 'WordPress.com site' } ), {
+			target: { value: '456' },
+		} );
+
+		await act( async () => {
+			resolvePost( {
+				result: {
+					id: 'task-1',
+					sessionId: 'session-1',
+					selectedSiteId: 123,
+					status: {
+						state: 'completed',
+						message: {
+							parts: [
+								{
+									type: 'text',
+									text: 'Old site response',
+								},
+							],
+						},
+					},
+				},
+			} );
+			await postResponse;
+		} );
+
+		await waitFor( () => {
+			expect( screen.getByRole( 'combobox', { name: 'WordPress.com site' } ) ).toHaveValue( '456' );
+		} );
+		expect( screen.queryByText( 'Old site response' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'updates the active WP.com-only site when Dolly reports a backend site change', async () => {
+		const dollyClient = {
+			req: {
+				get: vi.fn( ( _params, callback ) => {
+					callback( null, {
+						sites: [
+							{
+								ID: 123,
+								name: 'Dolly Site',
+								URL: 'https://dolly.example',
+							},
+							{
+								ID: 456,
+								name: 'Second Dolly Site',
+								primary_domain: 'second-dolly.example',
+							},
+						],
+					} );
+				} ),
+				post: vi.fn( ( _params, callback ) => {
+					callback( null, {
+						result: {
+							id: 'task-1',
+							sessionId: 'session-1',
+							selectedSiteId: 456,
+							status: {
+								state: 'completed',
+								message: {
+									parts: [
+										{
+											type: 'text',
+											text: 'Now working on the second site.',
+										},
+									],
+								},
+							},
+						},
+					} );
+				} ),
+			},
+		} as unknown as WPCOM;
+
+		renderWithContext( {
+			component: 'wpcom-site',
+			selectedWpcomSite: firstWpcomSite,
+			auth: {
+				client: dollyClient,
+			},
+		} );
+
+		const textInput = getInput();
+		fireEvent.change( textInput, { target: { value: 'Switch to the second site' } } );
+		fireEvent.keyDown( textInput, { key: 'Enter', code: 'Enter' } );
+
+		await waitFor( () => {
+			expect( screen.getByText( 'Now working on the second site.' ) ).toBeVisible();
+			expect( screen.getByText( 'Second Dolly Site' ) ).toBeVisible();
+			expect( screen.getByText( 'https://second-dolly.example' ) ).toBeVisible();
+			expect( screen.queryByTitle( 'Second Dolly Site preview' ) ).not.toBeInTheDocument();
+			expect( screen.getByRole( 'button', { name: 'Show preview' } ) ).toBeVisible();
+		} );
+	} );
+
+	it( 'keeps the WP.com-only preview hidden until the user opens it', () => {
+		renderWithContext( {
+			component: 'wpcom-site',
+			selectedWpcomSite: {
+				...firstWpcomSite,
+				url: 'dolly.example',
+			},
+		} );
+
+		expect( screen.queryByTitle( 'Dolly Site preview' ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Show preview' } ) ).toBeVisible();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Show preview' } ) );
+
+		expect( screen.getByTitle( 'Dolly Site preview' ) ).toHaveAttribute(
+			'src',
+			'https://dolly.example/'
+		);
+	} );
+
+	it( 'preserves WP.com-only chat state and Dolly session per selected live site', async () => {
+		const requestBodies: unknown[] = [];
+		const dollyClient = {
+			req: {
+				get: vi.fn( ( _params, callback ) => {
+					callback( null, [] );
+				} ),
+				post: vi.fn( ( params, callback ) => {
+					requestBodies.push( params.body );
+					const body = params.body as {
+						params?: {
+							sessionId?: string;
+							message?: { parts?: Array< { text?: string } > };
+						};
+					};
+					const textPart = body.params?.message?.parts?.find(
+						( part ) => typeof part.text === 'string'
+					);
+					const messageText = textPart?.text;
+					const selectedSiteId = messageText === 'Second hello' ? 456 : 123;
+					const sessionId = selectedSiteId === 456 ? 'session-second' : 'session-first';
+					const responseText =
+						messageText === 'Follow up first'
+							? 'First follow-up response'
+							: `${ messageText } response`;
+
+					callback( null, {
+						result: {
+							id: `task-${ requestBodies.length }`,
+							sessionId,
+							selectedSiteId,
+							status: {
+								state: 'completed',
+								message: {
+									parts: [
+										{
+											type: 'text',
+											text: responseText,
+										},
+									],
+								},
+							},
+						},
+					} );
+				} ),
+			},
+		} as unknown as WPCOM;
+
+		const { rerender } = render(
+			buildContextTree( {
+				component: 'wpcom-site',
+				selectedWpcomSite: firstWpcomSite,
+				auth: {
+					client: dollyClient,
+				},
+			} )
+		);
+
+		fireEvent.change( getInput(), { target: { value: 'First hello' } } );
+		fireEvent.keyDown( getInput(), { key: 'Enter', code: 'Enter' } );
+
+		await waitFor( () => {
+			expect( screen.getByText( 'First hello response' ) ).toBeVisible();
+		} );
+		const persistedConversations = JSON.parse(
+			localStorage.getItem( LOCAL_STORAGE_DOLLY_WPCOM_SITE_CONVERSATIONS_KEY ) || '{}'
+		) as Record< string, { id?: string; sessionId?: string } >;
+		expect( persistedConversations[ 'wpcom-site:123' ]?.id ).toMatch( /^local:/ );
+		expect( persistedConversations[ 'wpcom-site:123' ]?.sessionId ).toBe( 'session-first' );
+
+		rerender(
+			buildContextTree( {
+				component: 'wpcom-site',
+				selectedWpcomSite: secondWpcomSite,
+				auth: {
+					client: dollyClient,
+				},
+			} )
+		);
+
+		expect( screen.queryByText( 'First hello response' ) ).not.toBeInTheDocument();
+		fireEvent.change( getInput(), { target: { value: 'Second hello' } } );
+		fireEvent.keyDown( getInput(), { key: 'Enter', code: 'Enter' } );
+
+		await waitFor( () => {
+			expect( screen.getByText( 'Second hello response' ) ).toBeVisible();
+		} );
+
+		rerender(
+			buildContextTree( {
+				component: 'wpcom-site',
+				selectedWpcomSite: firstWpcomSite,
+				auth: {
+					client: dollyClient,
+				},
+			} )
+		);
+
+		expect( screen.getByText( 'First hello response' ) ).toBeVisible();
+		expect( screen.queryByText( 'Second hello response' ) ).not.toBeInTheDocument();
+
+		fireEvent.change( getInput(), { target: { value: 'Follow up first' } } );
+		fireEvent.keyDown( getInput(), { key: 'Enter', code: 'Enter' } );
+
+		await waitFor( () => {
+			expect( screen.getByText( 'First follow-up response' ) ).toBeVisible();
+		} );
+
+		const followUpRequest = requestBodies[ 2 ] as { params?: { sessionId?: string } };
+		expect( followUpRequest.params?.sessionId ).toBe( 'session-first' );
+	} );
+
+	it( 'clears the WP.com-only chat state and starts the next Dolly turn without a session', async () => {
+		localStorage.setItem( 'dontShowClearMessagesWarning', 'true' );
+		const requestBodies: unknown[] = [];
+		const dollyClient = {
+			req: {
+				get: vi.fn( ( _params, callback ) => {
+					callback( null, [] );
+				} ),
+				post: vi.fn( ( params, callback ) => {
+					requestBodies.push( params.body );
+					const body = params.body as {
+						params?: {
+							message?: { parts?: Array< { text?: string } > };
+						};
+					};
+					const textPart = body.params?.message?.parts?.find(
+						( part ) => typeof part.text === 'string'
+					);
+					const messageText = textPart?.text;
+
+					callback( null, {
+						result: {
+							id: `task-${ requestBodies.length }`,
+							sessionId: `session-${ requestBodies.length }`,
+							selectedSiteId: 123,
+							status: {
+								state: 'completed',
+								message: {
+									parts: [
+										{
+											type: 'text',
+											text: `${ messageText } response`,
+										},
+									],
+								},
+							},
+						},
+					} );
+				} ),
+			},
+		} as unknown as WPCOM;
+
+		renderWithContext( {
+			component: 'wpcom-site',
+			selectedWpcomSite: firstWpcomSite,
+			auth: {
+				client: dollyClient,
+			},
+		} );
+
+		fireEvent.change( getInput(), { target: { value: 'First hello' } } );
+		fireEvent.keyDown( getInput(), { key: 'Enter', code: 'Enter' } );
+
+		await waitFor( () => {
+			expect( screen.getByText( 'First hello response' ) ).toBeVisible();
+		} );
+
+		fireEvent.click( screen.getByLabelText( 'Assistant Menu' ) );
+		fireEvent.click( screen.getByTestId( 'clear-conversation-button' ) );
+
+		await waitFor( () => {
+			expect( screen.queryByText( 'First hello response' ) ).not.toBeInTheDocument();
+		} );
+
+		fireEvent.change( getInput(), { target: { value: 'Fresh hello' } } );
+		fireEvent.keyDown( getInput(), { key: 'Enter', code: 'Enter' } );
+
+		await waitFor( () => {
+			expect( screen.getByText( 'Fresh hello response' ) ).toBeVisible();
+		} );
+
+		const freshRequest = requestBodies[ 1 ] as { params?: { id?: string; sessionId?: string } };
+		expect( freshRequest.params?.sessionId ).toBe( freshRequest.params?.id );
+	} );
+
+	it( 'hydrates WP.com-only chat state from Dolly server history', async () => {
+		localStorage.setItem(
+			LOCAL_STORAGE_DOLLY_WPCOM_SITE_CONVERSATIONS_KEY,
+			JSON.stringify( {
+				'wpcom-site:123': {
+					id: 'local:server-session',
+					key: {
+						siteId: 123,
+						agentId: 'dolly',
+					},
+					input: '',
+					messages: [],
+					sessionId: 'server-session',
+					activeWpcomSite: firstWpcomSite,
+					previewState: {
+						open: false,
+						pathOrUrl: '/',
+						isLoading: false,
+						reloadNonce: 0,
+					},
+					lastUpdated: Date.parse( '2026-05-14T13:19:00Z' ),
+					serverHydrationDisabled: true,
+				},
+			} )
+		);
+
+		const requestBodies: unknown[] = [];
+		const dollyClient = {
+			req: {
+				get: vi.fn( ( params, callback ) => {
+					if ( params.path.startsWith( '/ai/chats/wpcom-agent-dolly' ) ) {
+						callback( null, [
+							{
+								chat_id: 900,
+								session_id: 'server-session',
+								created_at: '2026-05-14 13:10:00',
+								first_message: {
+									message_id: 10,
+									role: 'user',
+									content: 'Older summary question',
+									created_at: '2026-05-14 13:10:00',
+								},
+								last_message: {
+									message_id: 11,
+									role: 'bot',
+									content: 'Older summary answer',
+									created_at: '2026-05-14 13:11:00',
+								},
+							},
+							{
+								chat_id: 987,
+								session_id: 'server-session',
+								site_id: 123,
+								created_at: '2026-05-14 13:20:00',
+								first_message: {
+									message_id: 1,
+									role: 'user',
+									content: 'Server summary question',
+									created_at: '2026-05-14 13:20:00',
+								},
+								last_message: {
+									message_id: 2,
+									role: 'bot',
+									content: 'Server summary answer',
+									created_at: '2026-05-14 13:21:00',
+								},
+							},
+						] );
+						return;
+					}
+
+					if ( params.path.startsWith( '/ai/chat/wpcom-agent-dolly/900' ) ) {
+						callback( null, {
+							chat_id: 900,
+							session_id: 'server-session',
+							created_at: '2026-05-14 13:10:00',
+							messages: [
+								{
+									message_id: 10,
+									role: 'user',
+									content: 'Older server question',
+									created_at: '2026-05-14 13:10:00',
+								},
+								{
+									message_id: 11,
+									role: 'bot',
+									content: 'Older server answer',
+									created_at: '2026-05-14 13:11:00',
+								},
+							],
+						} );
+						return;
+					}
+
+					if ( params.path.startsWith( '/ai/chat/wpcom-agent-dolly/987' ) ) {
+						callback( null, {
+							chat_id: 987,
+							session_id: 'server-session',
+							site_id: 123,
+							created_at: '2026-05-14 13:20:00',
+							messages: [
+								{
+									message_id: 1,
+									role: 'user',
+									content:
+										'Local workspace context:\nSelected site: Dolly Site\n\nUser message:\nServer question',
+									created_at: '2026-05-14 13:20:00',
+								},
+								{
+									message_id: 2,
+									role: 'bot',
+									content: 'Server answer',
+									created_at: '2026-05-14 13:21:00',
+								},
+							],
+						} );
+						return;
+					}
+
+					callback( null, [] );
+				} ),
+				post: vi.fn( ( params, callback ) => {
+					requestBodies.push( params.body );
+					callback( null, {
+						result: {
+							id: 'task-1',
+							sessionId: 'server-session',
+							selectedSiteId: 123,
+							status: {
+								state: 'completed',
+								message: {
+									parts: [
+										{
+											type: 'text',
+											text: 'Continuation answer',
+										},
+									],
+								},
+							},
+						},
+					} );
+				} ),
+			},
+		} as unknown as WPCOM;
+
+		renderWithContext( {
+			component: 'wpcom-site',
+			selectedWpcomSite: firstWpcomSite,
+			auth: {
+				client: dollyClient,
+			},
+		} );
+
+		await waitFor( () => {
+			expect( screen.getByText( 'Older server question' ) ).toBeVisible();
+			expect( screen.getByText( 'Older server answer' ) ).toBeVisible();
+			expect( screen.getByText( 'Server question' ) ).toBeVisible();
+			expect( screen.getByText( 'Server answer' ) ).toBeVisible();
+		} );
+		expect( screen.queryByText( /Local workspace context:/ ) ).not.toBeInTheDocument();
+
+		const persistedConversations = JSON.parse(
+			localStorage.getItem( LOCAL_STORAGE_DOLLY_WPCOM_SITE_CONVERSATIONS_KEY ) || '{}'
+		) as Record< string, { id?: string; remoteChatId?: number; sessionId?: string } >;
+		expect( persistedConversations[ 'wpcom-site:123' ] ).toEqual(
+			expect.objectContaining( {
+				id: 'wpcom:dolly:987',
+				remoteChatId: 987,
+				sessionId: 'server-session',
+			} )
+		);
+
+		fireEvent.change( getInput(), { target: { value: 'Continue server chat' } } );
+		fireEvent.keyDown( getInput(), { key: 'Enter', code: 'Enter' } );
+
+		await waitFor( () => {
+			expect( screen.getByText( 'Continuation answer' ) ).toBeVisible();
+		} );
+
+		const continuationRequest = requestBodies[ 0 ] as { params?: { sessionId?: string } };
+		expect( continuationRequest.params?.sessionId ).toBe( 'server-session' );
+	} );
+
+	it( 'starts a fresh WP.com-only session on first send even when server history exists', async () => {
+		const requestBodies: unknown[] = [];
+		const dollyClient = {
+			req: {
+				get: vi.fn( ( params, callback ) => {
+					if ( params.path.startsWith( '/ai/chats/wpcom-agent-dolly' ) ) {
+						callback( null, [
+							{
+								chat_id: 987,
+								session_id: 'old-server-session',
+								site_id: 123,
+								created_at: '2026-05-14 13:20:00',
+								first_message: {
+									message_id: 1,
+									role: 'user',
+									content: 'Old server question',
+									created_at: '2026-05-14 13:20:00',
+								},
+								last_message: {
+									message_id: 2,
+									role: 'bot',
+									content: 'Old server answer',
+									created_at: '2026-05-14 13:21:00',
+								},
+							},
+						] );
+						return;
+					}
+
+					callback( null, [] );
+				} ),
+				post: vi.fn( ( params, callback ) => {
+					requestBodies.push( params.body );
+					callback( null, {
+						result: {
+							id: 'task-1',
+							sessionId: 'fresh-server-session',
+							selectedSiteId: 123,
+							status: {
+								state: 'completed',
+								message: {
+									parts: [
+										{
+											type: 'text',
+											text: 'Fresh answer',
+										},
+									],
+								},
+							},
+						},
+					} );
+				} ),
+			},
+		} as unknown as WPCOM;
+
+		renderWithContext( {
+			component: 'wpcom-site',
+			selectedWpcomSite: firstWpcomSite,
+			auth: {
+				client: dollyClient,
+			},
+		} );
+
+		await waitFor( () => {
+			expect( screen.queryByText( 'Old server answer' ) ).not.toBeInTheDocument();
+		} );
+
+		fireEvent.change( getInput(), { target: { value: 'First fresh message' } } );
+		fireEvent.keyDown( getInput(), { key: 'Enter', code: 'Enter' } );
+
+		await waitFor( () => {
+			expect( screen.getByText( 'Fresh answer' ) ).toBeVisible();
+		} );
+
+		const firstRequest = requestBodies[ 0 ] as { params?: { id?: string; sessionId?: string } };
+		expect( firstRequest.params?.id ).toMatch(
+			/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+		);
+		expect( firstRequest.params?.id ).not.toBe( 'old-server-session' );
+		expect( firstRequest.params?.sessionId ).toBe( firstRequest.params?.id );
+	} );
+
+	it( 'does not reload the WP.com-only preview for same-url preview tool calls without a site change', async () => {
+		const dollyClient = {
+			req: {
+				get: vi.fn( ( _params, callback ) => {
+					callback( null, [] );
+				} ),
+				post: vi
+					.fn()
+					.mockImplementationOnce( ( _params, callback ) => {
+						callback( null, {
+							result: {
+								id: 'task-1',
+								sessionId: 'session-1',
+								status: {
+									state: 'input-required',
+									message: {
+										parts: [
+											{
+												type: 'data',
+												data: {
+													toolCallId: 'tool-call-1',
+													toolId: 'wpworkspace/preview',
+													arguments: {
+														url: '/',
+													},
+												},
+											},
+										],
+									},
+								},
+							},
+						} );
+					} )
+					.mockImplementationOnce( ( _params, callback ) => {
+						callback( null, {
+							result: {
+								id: 'task-1',
+								sessionId: 'session-1',
+								status: {
+									state: 'completed',
+									message: {
+										parts: [
+											{
+												type: 'text',
+												text: 'The preview is already open.',
+											},
+										],
+									},
+								},
+							},
+						} );
+					} ),
+			},
+		} as unknown as WPCOM;
+
+		renderWithContext( {
+			component: 'wpcom-site',
+			selectedWpcomSite: firstWpcomSite,
+			auth: {
+				client: dollyClient,
+			},
+		} );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Show preview' } ) );
+		const initialPreview = screen.getByTitle( 'Dolly Site preview' );
+		const textInput = getInput();
+		fireEvent.change( textInput, { target: { value: 'Keep the preview open' } } );
+		fireEvent.keyDown( textInput, { key: 'Enter', code: 'Enter' } );
+
+		await waitFor( () => {
+			expect( screen.getByText( 'The preview is already open.' ) ).toBeVisible();
+		} );
+		expect( screen.getByTitle( 'Dolly Site preview' ) ).toBe( initialPreview );
+	} );
+
+	it( 'reloads the WP.com-only preview when Dolly marks the site as changed', async () => {
+		const dollyClient = {
+			req: {
+				get: vi.fn( ( _params, callback ) => {
+					callback( null, [] );
+				} ),
+				post: vi
+					.fn()
+					.mockImplementationOnce( ( _params, callback ) => {
+						callback( null, {
+							result: {
+								id: 'task-1',
+								sessionId: 'session-1',
+								status: {
+									state: 'input-required',
+									message: {
+										parts: [
+											{
+												type: 'data',
+												data: {
+													toolCallId: 'tool-call-1',
+													toolId: 'wpworkspace/preview',
+													arguments: {
+														url: '/',
+														siteChanged: true,
+													},
+												},
+											},
+										],
+									},
+								},
+							},
+						} );
+					} )
+					.mockImplementationOnce( ( _params, callback ) => {
+						callback( null, {
+							result: {
+								id: 'task-1',
+								sessionId: 'session-1',
+								status: {
+									state: 'completed',
+									message: {
+										parts: [
+											{
+												type: 'text',
+												text: 'I updated the site.',
+											},
+										],
+									},
+								},
+							},
+						} );
+					} ),
+			},
+		} as unknown as WPCOM;
+
+		renderWithContext( {
+			component: 'wpcom-site',
+			selectedWpcomSite: firstWpcomSite,
+			auth: {
+				client: dollyClient,
+			},
+		} );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Show preview' } ) );
+		const initialPreview = screen.getByTitle( 'Dolly Site preview' );
+		const textInput = getInput();
+		fireEvent.change( textInput, { target: { value: 'Update the site' } } );
+		fireEvent.keyDown( textInput, { key: 'Enter', code: 'Enter' } );
+
+		await waitFor( () => {
+			expect( screen.getByText( 'I updated the site.' ) ).toBeVisible();
+		} );
+		expect( screen.getByTitle( 'Dolly Site preview' ) ).not.toBe( initialPreview );
 	} );
 
 	it( 'renders guideline section', () => {

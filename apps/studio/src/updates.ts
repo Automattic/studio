@@ -223,7 +223,7 @@ async function showUpdateReadyToInstallNotice() {
 
 function setupLinuxUpdates() {
 	if ( ! shouldPoll ) {
-		console.log( 'Skipping Linux auto-updates', {
+		console.log( 'Skipping Linux update checks', {
 			env: process.env.NODE_ENV,
 			isPackaged: app.isPackaged,
 			version: app.getVersion(),

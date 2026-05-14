@@ -311,6 +311,7 @@ async function showLinuxUpdateAvailableNotice( version: string, downloadUrl: str
 		type: 'info',
 		buttons: [ __( 'Download' ), __( 'Later' ) ],
 		title: __( 'New Version Available' ),
+		// translators: %s is the version number, e.g. "1.9.0".
 		message: sprintf( __( 'Studio %s is available' ), version ),
 		detail: `${ introLine }\n\n${ command }\n\n${ doubleClickHint }`,
 		defaultId: 0,

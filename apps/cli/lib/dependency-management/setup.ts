@@ -1,11 +1,29 @@
 import fs from 'fs';
 import path from 'path';
+import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from '@studio/common/constants';
 import { recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
+import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
 import semver from 'semver';
 import { readCliConfig, updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
 import { getLanguagePacksPath, getWordPressVersionPath, getWpFilesPath } from './paths';
 import { areDirectoriesDifferentBySizeAndMtime } from './utils';
 import { getWordPressVersionFromInstallation, updateLatestWordPressVersion } from './wordpress';
+
+async function withLanguagePacksSetupLock< T >(
+	lockPath: string,
+	fn: () => Promise< T >
+): Promise< T > {
+	await fs.promises.mkdir( path.dirname( lockPath ), { recursive: true } );
+	await lockFileAsync( lockPath, {
+		wait: LOCKFILE_WAIT_TIME,
+		stale: LOCKFILE_STALE_TIME,
+	} );
+	try {
+		return await fn();
+	} finally {
+		await unlockFileAsync( lockPath );
+	}
+}
 
 // Compare the WordPress version in the bundled `wp-files/latest/wordpress` directory (that ships
 // with the CLI) to `~/.studio/server-files/wordpress-versions/latest`. If the bundled directory is
@@ -42,18 +60,20 @@ async function copyBundledLanguagePacks() {
 		return;
 	}
 	const targetLanguagePacksPath = getLanguagePacksPath();
-	const isSourceDirectoryDifferent = await areDirectoriesDifferentBySizeAndMtime(
-		sourceLanguagePacksPath,
-		targetLanguagePacksPath
-	);
-	if ( isSourceDirectoryDifferent ) {
-		try {
-			await fs.promises.rm( targetLanguagePacksPath, { recursive: true, force: true } );
-		} catch {
-			// Do nothing if the target directory is missing or corrupted
+	await withLanguagePacksSetupLock( `${ targetLanguagePacksPath }.lock`, async () => {
+		const isSourceDirectoryDifferent = await areDirectoriesDifferentBySizeAndMtime(
+			sourceLanguagePacksPath,
+			targetLanguagePacksPath
+		);
+		if ( isSourceDirectoryDifferent ) {
+			try {
+				await fs.promises.rm( targetLanguagePacksPath, { recursive: true, force: true } );
+			} catch {
+				// Do nothing if the target directory is missing or corrupted
+			}
+			await recursiveCopyDirectory( sourceLanguagePacksPath, targetLanguagePacksPath );
 		}
-		await recursiveCopyDirectory( sourceLanguagePacksPath, targetLanguagePacksPath );
-	}
+	} );
 }
 
 export async function setupServerFiles() {

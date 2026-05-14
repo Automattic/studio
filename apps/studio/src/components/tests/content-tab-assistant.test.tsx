@@ -118,6 +118,12 @@ const mockAssistantChat = () => {
 			}
 			return [ 200, chatResponse, quotaHeaders ];
 		} );
+
+	nock( 'https://public-api.wordpress.com' )
+		.persist()
+		.get( '/wpcom/v2/ai/chats/wpcom-agent-dolly' )
+		.query( true )
+		.reply( 200, [] );
 };
 
 const initialMessages = [
@@ -198,9 +204,20 @@ describe( 'ContentTabAssistant', () => {
 
 	const renderWithContext = ( options?: ContextState ) => render( buildContextTree( options ) );
 
-	const getInput = () => screen.getByTestId( 'ai-input-textarea' );
+	const getInput = () => screen.getByRole( 'textbox' );
 
 	const getGuidelinesLink = () => screen.getByTestId( 'guidelines-link' );
+
+	const getChatMessageText = ( text: string | RegExp ) =>
+		screen
+			.getAllByText( text )
+			.find( ( element ) => element.closest( '[data-slot="messages"]' ) ) ??
+		screen.getByText( text );
+
+	const queryChatMessageText = ( text: string | RegExp ) =>
+		screen
+			.queryAllByText( text )
+			.find( ( element ) => element.closest( '[data-slot="messages"]' ) ) ?? null;
 
 	beforeAll( () => {
 		nock.cleanAll();
@@ -211,6 +228,7 @@ describe( 'ContentTabAssistant', () => {
 		vi.clearAllMocks();
 		clearWpcomSiteAssistantStateCacheForTests();
 		window.HTMLElement.prototype.scrollIntoView = vi.fn();
+		window.HTMLElement.prototype.scrollTo = vi.fn();
 		localStorage.clear();
 
 		// Reset Redux store state
@@ -332,7 +350,7 @@ describe( 'ContentTabAssistant', () => {
 		fireEvent.keyDown( textInput, { key: 'Enter', code: 'Enter' } );
 
 		await waitFor( () => {
-			expect( screen.getByText( 'First site response' ) ).toBeVisible();
+			expect( getChatMessageText( 'First site response' ) ).toBeVisible();
 		} );
 
 		rerender(
@@ -350,7 +368,7 @@ describe( 'ContentTabAssistant', () => {
 		fireEvent.keyDown( textInput, { key: 'Enter', code: 'Enter' } );
 
 		await waitFor( () => {
-			expect( screen.getByText( 'Second site response' ) ).toBeVisible();
+			expect( getChatMessageText( 'Second site response' ) ).toBeVisible();
 		} );
 
 		const secondRequest = vi.mocked( dollyClient.req.post ).mock.calls[ 1 ][ 0 ] as {
@@ -433,7 +451,7 @@ describe( 'ContentTabAssistant', () => {
 		fireEvent.keyDown( getInput(), { key: 'Enter', code: 'Enter' } );
 
 		await waitFor( () => {
-			expect( screen.getByText( 'First hello response' ) ).toBeVisible();
+			expect( getChatMessageText( 'First hello response' ) ).toBeVisible();
 		} );
 
 		rerender(
@@ -449,7 +467,7 @@ describe( 'ContentTabAssistant', () => {
 
 		await waitFor( () => {
 			expect( screen.getByText( 'Second Dolly Site' ) ).toBeVisible();
-			expect( screen.queryByText( 'First hello response' ) ).not.toBeInTheDocument();
+			expect( queryChatMessageText( 'First hello response' ) ).not.toBeInTheDocument();
 		} );
 
 		const persistedConversationsAfterSwitch = JSON.parse(
@@ -461,7 +479,7 @@ describe( 'ContentTabAssistant', () => {
 		fireEvent.keyDown( getInput(), { key: 'Enter', code: 'Enter' } );
 
 		await waitFor( () => {
-			expect( screen.getByText( 'Second hello response' ) ).toBeVisible();
+			expect( getChatMessageText( 'Second hello response' ) ).toBeVisible();
 		} );
 
 		const secondRequest = requestBodies[ 1 ] as {
@@ -522,7 +540,7 @@ describe( 'ContentTabAssistant', () => {
 		fireEvent.keyDown( textInput, { key: 'Enter', code: 'Enter' } );
 
 		await waitFor( () => {
-			expect( screen.getByText( "hey Big D \u{1f44b} what's up?" ) ).toBeVisible();
+			expect( getChatMessageText( "hey Big D \u{1f44b} what's up?" ) ).toBeVisible();
 			expect( getInput() ).toBeEnabled();
 		} );
 	} );
@@ -582,7 +600,7 @@ describe( 'ContentTabAssistant', () => {
 		fireEvent.keyDown( textInput, { key: 'Enter', code: 'Enter' } );
 
 		await waitFor( () => {
-			expect( screen.getByText( 'Now working on the second site.' ) ).toBeVisible();
+			expect( getChatMessageText( 'Now working on the second site.' ) ).toBeVisible();
 			expect( screen.getByText( 'Second Dolly Site' ) ).toBeVisible();
 			expect( screen.getByText( 'https://second-dolly.example' ) ).toBeVisible();
 			expect( screen.queryByTitle( 'Second Dolly Site preview' ) ).not.toBeInTheDocument();
@@ -672,7 +690,7 @@ describe( 'ContentTabAssistant', () => {
 		fireEvent.keyDown( getInput(), { key: 'Enter', code: 'Enter' } );
 
 		await waitFor( () => {
-			expect( screen.getByText( 'First hello response' ) ).toBeVisible();
+			expect( getChatMessageText( 'First hello response' ) ).toBeVisible();
 		} );
 		const persistedConversations = JSON.parse(
 			localStorage.getItem( LOCAL_STORAGE_DOLLY_WPCOM_SITE_CONVERSATIONS_KEY ) || '{}'
@@ -690,12 +708,12 @@ describe( 'ContentTabAssistant', () => {
 			} )
 		);
 
-		expect( screen.queryByText( 'First hello response' ) ).not.toBeInTheDocument();
+		expect( queryChatMessageText( 'First hello response' ) ).not.toBeInTheDocument();
 		fireEvent.change( getInput(), { target: { value: 'Second hello' } } );
 		fireEvent.keyDown( getInput(), { key: 'Enter', code: 'Enter' } );
 
 		await waitFor( () => {
-			expect( screen.getByText( 'Second hello response' ) ).toBeVisible();
+			expect( getChatMessageText( 'Second hello response' ) ).toBeVisible();
 		} );
 
 		rerender(
@@ -708,14 +726,14 @@ describe( 'ContentTabAssistant', () => {
 			} )
 		);
 
-		expect( screen.getByText( 'First hello response' ) ).toBeVisible();
-		expect( screen.queryByText( 'Second hello response' ) ).not.toBeInTheDocument();
+		expect( getChatMessageText( 'First hello response' ) ).toBeInTheDocument();
+		expect( queryChatMessageText( 'Second hello response' ) ).not.toBeInTheDocument();
 
 		fireEvent.change( getInput(), { target: { value: 'Follow up first' } } );
 		fireEvent.keyDown( getInput(), { key: 'Enter', code: 'Enter' } );
 
 		await waitFor( () => {
-			expect( screen.getByText( 'First follow-up response' ) ).toBeVisible();
+			expect( getChatMessageText( 'First follow-up response' ) ).toBeVisible();
 		} );
 
 		const followUpRequest = requestBodies[ 2 ] as { params?: { sessionId?: string } };
@@ -776,21 +794,20 @@ describe( 'ContentTabAssistant', () => {
 		fireEvent.keyDown( getInput(), { key: 'Enter', code: 'Enter' } );
 
 		await waitFor( () => {
-			expect( screen.getByText( 'First hello response' ) ).toBeVisible();
+			expect( getChatMessageText( 'First hello response' ) ).toBeVisible();
 		} );
 
-		fireEvent.click( screen.getByLabelText( 'Assistant Menu' ) );
-		fireEvent.click( screen.getByTestId( 'clear-conversation-button' ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Clear conversation' } ) );
 
 		await waitFor( () => {
-			expect( screen.queryByText( 'First hello response' ) ).not.toBeInTheDocument();
+			expect( queryChatMessageText( 'First hello response' ) ).not.toBeInTheDocument();
 		} );
 
 		fireEvent.change( getInput(), { target: { value: 'Fresh hello' } } );
 		fireEvent.keyDown( getInput(), { key: 'Enter', code: 'Enter' } );
 
 		await waitFor( () => {
-			expect( screen.getByText( 'Fresh hello response' ) ).toBeVisible();
+			expect( getChatMessageText( 'Fresh hello response' ) ).toBeVisible();
 		} );
 
 		const freshRequest = requestBodies[ 1 ] as { params?: { id?: string; sessionId?: string } };
@@ -951,10 +968,10 @@ describe( 'ContentTabAssistant', () => {
 		} );
 
 		await waitFor( () => {
-			expect( screen.getByText( 'Older server question' ) ).toBeVisible();
-			expect( screen.getByText( 'Older server answer' ) ).toBeVisible();
-			expect( screen.getByText( 'Server question' ) ).toBeVisible();
-			expect( screen.getByText( 'Server answer' ) ).toBeVisible();
+			expect( getChatMessageText( 'Older server question' ) ).toBeVisible();
+			expect( getChatMessageText( 'Older server answer' ) ).toBeVisible();
+			expect( getChatMessageText( 'Server question' ) ).toBeVisible();
+			expect( getChatMessageText( 'Server answer' ) ).toBeVisible();
 		} );
 		expect( screen.queryByText( /Local workspace context:/ ) ).not.toBeInTheDocument();
 
@@ -973,7 +990,7 @@ describe( 'ContentTabAssistant', () => {
 		fireEvent.keyDown( getInput(), { key: 'Enter', code: 'Enter' } );
 
 		await waitFor( () => {
-			expect( screen.getByText( 'Continuation answer' ) ).toBeVisible();
+			expect( getChatMessageText( 'Continuation answer' ) ).toBeVisible();
 		} );
 
 		const continuationRequest = requestBodies[ 0 ] as { params?: { sessionId?: string } };
@@ -1044,14 +1061,14 @@ describe( 'ContentTabAssistant', () => {
 		} );
 
 		await waitFor( () => {
-			expect( screen.queryByText( 'Old server answer' ) ).not.toBeInTheDocument();
+			expect( queryChatMessageText( 'Old server answer' ) ).not.toBeInTheDocument();
 		} );
 
 		fireEvent.change( getInput(), { target: { value: 'First fresh message' } } );
 		fireEvent.keyDown( getInput(), { key: 'Enter', code: 'Enter' } );
 
 		await waitFor( () => {
-			expect( screen.getByText( 'Fresh answer' ) ).toBeVisible();
+			expect( getChatMessageText( 'Fresh answer' ) ).toBeVisible();
 		} );
 
 		const firstRequest = requestBodies[ 0 ] as { params?: { id?: string; sessionId?: string } };
@@ -1132,7 +1149,7 @@ describe( 'ContentTabAssistant', () => {
 		fireEvent.keyDown( textInput, { key: 'Enter', code: 'Enter' } );
 
 		await waitFor( () => {
-			expect( screen.getByText( 'The preview is already open.' ) ).toBeVisible();
+			expect( getChatMessageText( 'The preview is already open.' ) ).toBeVisible();
 		} );
 		expect( screen.getByTitle( 'Dolly Site preview' ) ).toBe( initialPreview );
 	} );
@@ -1208,7 +1225,7 @@ describe( 'ContentTabAssistant', () => {
 		fireEvent.keyDown( textInput, { key: 'Enter', code: 'Enter' } );
 
 		await waitFor( () => {
-			expect( screen.getByText( 'I updated the site.' ) ).toBeVisible();
+			expect( getChatMessageText( 'I updated the site.' ) ).toBeVisible();
 		} );
 		expect( screen.getByTitle( 'Dolly Site preview' ) ).not.toBe( initialPreview );
 	} );

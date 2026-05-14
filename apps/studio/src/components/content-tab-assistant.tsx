@@ -1,10 +1,11 @@
+import { AgentUI } from '@automattic/agenttic-ui';
 import {
 	__unstableAnimatePresence as AnimatePresence,
 	__unstableMotion as motion,
 } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { closeSmall, desktop, external, Icon, redo } from '@wordpress/icons';
+import { closeSmall, desktop, external, Icon, redo, reset } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef, memo, useCallback, useMemo, forwardRef } from 'react';
 import { createPortal } from 'react-dom';
@@ -41,6 +42,11 @@ import {
 	chatSelectors,
 } from 'src/stores/chat-slice';
 import { useGetAssistantQuota, useGetWelcomeMessages } from 'src/stores/wpcom-api';
+import type {
+	AgentUIProps,
+	MessageAction,
+	NoticeConfig as AgentticNoticeConfig,
+} from '@automattic/agenttic-ui';
 import type { SyncSite } from '@studio/common/types/sync';
 import type { WPCOM } from 'wpcom/types';
 
@@ -58,6 +64,9 @@ const DOLLY_TOOL_CONTINUATION_TIMEOUT_MS = 15_000;
 const DOLLY_HISTORY_SUMMARY_ITEMS_PER_PAGE = 20;
 const DOLLY_HISTORY_CHAT_ITEMS_PER_PAGE = 100;
 const DOLLY_HISTORY_MAX_PAGES = 10;
+const AGENTTIC_DOLLY_STYLE = {
+	'--text-base--tracking': '0',
+} as React.CSSProperties;
 
 type DollySite = {
 	id: number;
@@ -1855,6 +1864,22 @@ const ErrorNotice = ( {
 	);
 };
 
+const DollyChatRatingAction = ( {
+	instanceId,
+	messageApiId,
+	feedbackReceived,
+}: {
+	instanceId: string;
+	messageApiId: number;
+	feedbackReceived: boolean;
+} ) => (
+	<ChatRating
+		instanceId={ instanceId }
+		messageApiId={ messageApiId }
+		feedbackReceived={ feedbackReceived }
+	/>
+);
+
 const UsageLimitReached = () => {
 	const { data: assistantQuota } = useGetAssistantQuota();
 	const daysUntilReset = assistantQuota?.daysUntilReset ?? 0;
@@ -2144,8 +2169,6 @@ interface WpcomSiteAssistantProps {
 }
 
 export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantProps ) {
-	const inputRef = useRef< HTMLTextAreaElement >( null );
-	const wrapperRef = useRef< HTMLDivElement >( null );
 	const { isAuthenticated, authenticate, user, client } = useAuth();
 	const isOffline = useOffline();
 	const sessionCacheKey = createWpcomSiteAssistantSessionKey( selectedWpcomSite.id );
@@ -2177,7 +2200,6 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 	);
 	const isAssistantThinkingRef = useRef( isAssistantThinking );
 	const hydratedSessionKeysRef = useRef( new Set< string >() );
-	const activeWpcomSiteKey = `wpcom-${ activeWpcomSite.id }`;
 	const instanceId = user?.id
 		? `dolly_${ user.id }_wpcom_${ activeWpcomSite.id }`
 		: `dolly_wpcom_${ activeWpcomSite.id }`;
@@ -2194,6 +2216,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		[ activeWpcomSite, previewState, previewUrl ]
 	);
 	const hasFailedMessage = messages.some( ( msg ) => msg.failedMessage );
+	const failedMessageContent = messages.find( ( msg ) => msg.failedMessage )?.content;
 	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];
 
 	const updatePreviewState = useCallback( ( nextState: Partial< DollyPreviewState > ) => {
@@ -2547,10 +2570,126 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		setPreviewState( initialPreviewState() );
 	}, [ selectedWpcomSite ] );
 
-	const renderNotice = () => {
-		if ( isOffline ) {
-			return <OfflineModeView />;
+	const confirmAndClearConversation = useCallback( async () => {
+		if ( localStorage.getItem( 'dontShowClearMessagesWarning' ) === 'true' ) {
+			clearConversation();
+			return;
 		}
+
+		const CLEAR_CONVERSATION_BUTTON_INDEX = 0;
+		const CANCEL_BUTTON_INDEX = 1;
+
+		const { response, checkboxChecked } = await getIpcApi().showMessageBox( {
+			message: __( 'Are you sure you want to clear the conversation?' ),
+			checkboxLabel: __( "Don't show this warning again" ),
+			buttons: [ __( 'OK' ), __( 'Cancel' ) ],
+			cancelId: CANCEL_BUTTON_INDEX,
+		} );
+
+		if ( response === CLEAR_CONVERSATION_BUTTON_INDEX ) {
+			if ( checkboxChecked ) {
+				localStorage.setItem( 'dontShowClearMessagesWarning', 'true' );
+			}
+
+			clearConversation();
+		}
+	}, [ clearConversation ] );
+
+	const agentticMessages = useMemo< AgentUIProps[ 'messages' ] >(
+		() =>
+			messages.map( ( message ) => {
+				const actions: MessageAction[] = [];
+
+				if ( message.role === 'assistant' && message.messageApiId ) {
+					actions.push( {
+						type: 'component',
+						id: `rating-${ message.messageApiId }`,
+						label: __( 'Rate message' ),
+						component: DollyChatRatingAction,
+						componentProps: {
+							instanceId,
+							messageApiId: message.messageApiId,
+							feedbackReceived: Boolean( message.feedbackReceived ),
+						},
+					} );
+				}
+
+				return {
+					id: `${ message.role }-${ message.id ?? message.createdAt }`,
+					role: message.role === 'assistant' ? 'agent' : 'user',
+					content: [
+						{
+							type: 'text',
+							text: message.content,
+						},
+					],
+					timestamp: message.createdAt,
+					archived: false,
+					showIcon: message.role === 'assistant',
+					disabled: Boolean( message.failedMessage ),
+					actions: actions.length ? actions : undefined,
+				};
+			} ),
+		[ instanceId, messages ]
+	);
+
+	const retryFailedMessage = useCallback( () => {
+		if ( failedMessageContent ) {
+			submitPrompt( failedMessageContent, true );
+		}
+	}, [ failedMessageContent, submitPrompt ] );
+
+	const dollyNotice = useMemo< AgentticNoticeConfig | undefined >( () => {
+		if ( isOffline ) {
+			return {
+				icon: false,
+				message: __( 'The AI assistant requires an internet connection.' ),
+				status: 'warning',
+				dismissible: false,
+			};
+		}
+
+		if ( hasFailedMessage ) {
+			return {
+				message: __( "Oops! We couldn't get a response from Dolly." ),
+				action: {
+					label: __( 'Try again' ),
+					onClick: retryFailedMessage,
+				},
+				status: 'error',
+				dismissible: false,
+			};
+		}
+
+		return undefined;
+	}, [ hasFailedMessage, isOffline, retryFailedMessage ] );
+
+	const dollyInputActions = useMemo(
+		() => [
+			{
+				id: 'clear-conversation',
+				icon: <Icon icon={ reset } size={ 18 } />,
+				onClick: () => {
+					void confirmAndClearConversation();
+				},
+				variant: 'ghost' as const,
+				disabled: messages.length === 0,
+				'aria-label': __( 'Clear conversation' ),
+			},
+		],
+		[ confirmAndClearConversation, messages.length ]
+	);
+
+	const dollyEmptyView = useMemo(
+		() => (
+			<div className="flex h-full items-end px-4 py-3 text-sm text-frame-text-secondary">
+				{ __( 'Ask Dolly about this WordPress.com site.' ) }
+			</div>
+		),
+		[]
+	);
+
+	const renderConversationReminder = () => {
 		if ( isAuthenticated && messages.length > 0 ) {
 			return (
 				<ClearHistoryReminder lastMessage={ lastMessage } clearConversation={ clearConversation } />
@@ -2560,10 +2699,18 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 
 	const disabled =
 		isOffline || ! isAuthenticated || ! client || isAssistantThinking || hasFailedMessage;
+	const handleDollyInputKeyDown = useCallback(
+		( event: React.KeyboardEvent< HTMLTextAreaElement > ) => {
+			if ( disabled ) {
+				event.preventDefault();
+			}
+		},
+		[ disabled ]
+	);
 
 	return (
 		<div className="relative h-full min-w-0 flex flex-1 overflow-hidden bg-frame-surface">
-			<div className="min-w-0 flex-1 flex flex-col" ref={ wrapperRef }>
+			<div className="min-w-0 flex-1 flex flex-col">
 				<div className="shrink-0 border-b border-a8c-gray-5 bg-white px-8 py-5 flex items-start gap-4">
 					<div className="min-w-0 flex-1">
 						<h1 className="m-0 truncate text-xl font-semibold text-frame-text">
@@ -2588,62 +2735,62 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 				</div>
 				<div
 					data-testid="assistant-chat"
-					className={ cx(
-						'min-h-0 flex-1 overflow-y-auto p-8 pb-2 flex flex-col-reverse',
-						! isAuthenticated && 'flex items-start'
-					) }
+					className={ cx( 'min-h-0 flex-1', ! isAuthenticated && 'overflow-y-auto p-8 pb-2' ) }
 				>
-					<div className="mt-auto w-full">
-						{ isAuthenticated ? (
-							<>
-								{ messages.length === 0 && (
-									<ChatMessage
-										id="message-dolly-welcome"
-										message={ generateMessage(
-											__( 'Ask Dolly about this WordPress.com site.' ),
-											'assistant',
-											0
-										) }
-										instanceId={ instanceId }
+					{ isAuthenticated ? (
+						<div className="agenttic h-full min-h-0" style={ AGENTTIC_DOLLY_STYLE }>
+							<AgentUI.Container
+								messages={ agentticMessages }
+								isProcessing={ isAssistantThinking }
+								error={ null }
+								onSubmit={ submitPrompt }
+								variant="embedded"
+								placeholder={ __( 'Ask Dolly about this site' ) }
+								notice={ dollyNotice }
+								emptyView={ dollyEmptyView }
+								messagesPosition="bottom"
+								inputValue={ input }
+								onInputChange={ setInput }
+								maxInputLength={ 10000 }
+								thinkingMessage={ __( 'Thinking...' ) }
+								className="h-full min-h-0 bg-frame-surface"
+							>
+								<AgentUI.ConversationView showHeader={ false } className="min-h-0 px-6 py-6">
+									<AgentUI.Messages />
+									{ messages.length > 0 && (
+										<div className="px-4 pb-2 text-frame-text-secondary">
+											{ renderConversationReminder() }
+										</div>
+									) }
+									<AgentUI.Footer className="mx-2 bg-white">
+										<AgentUI.Notice />
+										<div className={ disabled ? 'pointer-events-none opacity-60' : undefined }>
+											<AgentUI.Input
+												disabled={ disabled }
+												layout="stacked"
+												customActions={ dollyInputActions }
+												onKeyDown={ handleDollyInputKeyDown }
+											/>
+										</div>
+									</AgentUI.Footer>
+									<div
+										data-testid="guidelines-link"
+										className="text-frame-text-secondary self-end pt-2 px-2"
 									>
-										{ __( 'Ask Dolly about this WordPress.com site.' ) }
-									</ChatMessage>
-								) }
-								<AuthenticatedView
-									messages={ messages }
-									isAssistantThinking={ isAssistantThinking }
-									instanceId={ instanceId }
-									siteId={ activeWpcomSiteKey }
-									submitPrompt={ submitPrompt }
-									wrapperRef={ wrapperRef }
-								/>
-							</>
-						) : (
-							! isOffline && <UnauthenticatedView onAuthenticate={ authenticate } />
-						) }
-						{ renderNotice() }
-					</div>
-				</div>
-
-				<div className="sticky bottom-0 bg-frame/80 backdrop-blur-sm w-full px-8 pt-4 flex items-center">
-					<div className="w-full flex flex-col items-center">
-						<AIInput
-							ref={ inputRef }
-							disabled={ disabled }
-							input={ input }
-							setInput={ setInput }
-							handleSend={ () => {
-								submitPrompt( inputRef.current?.value ?? '' );
-							} }
-							handleKeyDown={ () => undefined }
-							clearConversation={ clearConversation }
-							isAssistantThinking={ isAssistantThinking }
-							showTelexLink={ false }
-						/>
-						<div data-testid="guidelines-link" className="text-frame-text-secondary self-end py-2">
-							{ __( 'Powered by Dolly.' ) }
+										{ __( 'Powered by Dolly.' ) }
+									</div>
+								</AgentUI.ConversationView>
+							</AgentUI.Container>
 						</div>
-					</div>
+					) : (
+						<div className="mt-auto w-full">
+							{ isOffline ? (
+								<OfflineModeView />
+							) : (
+								<UnauthenticatedView onAuthenticate={ authenticate } />
+							) }
+						</div>
+					) }
 				</div>
 			</div>
 			{ previewState.open && (

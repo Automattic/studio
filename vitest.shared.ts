@@ -18,7 +18,7 @@ export default defineConfig( {
 		globalSetup: path.resolve( __dirname, './vitest.global-setup.ts' ),
 		server: {
 			deps: {
-				inline: [ '@php-wasm', '@wp-playground' ],
+				inline: [ '@automattic/agenttic-ui', '@php-wasm', '@wp-playground' ],
 				external: [ 'electron' ],
 			},
 		},

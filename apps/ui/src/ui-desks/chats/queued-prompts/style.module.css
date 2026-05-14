@@ -32,35 +32,6 @@
 }
 
 .remove {
-	--button-background: transparent;
-	--button-foreground: var(--wpds-color-fg-content-neutral-weak);
-
-	appearance: none;
 	flex-shrink: 0;
-	width: 22px;
-	height: 22px;
 	margin: -2px -6px -2px 0;
-	border: 0;
-	border-radius: 50%;
-	padding: 0;
-	font: inherit;
-	font-size: 16px;
-	line-height: 1;
-	cursor: pointer;
-	opacity: 0.6;
-}
-
-.item:hover .remove,
-.remove:focus-visible {
-	opacity: 1;
-}
-
-.remove:hover,
-.remove:focus-visible {
-	--button-background: color-mix(
-		in srgb,
-		var(--wpds-color-fg-interactive-brand, #2563eb) 12%,
-		transparent
-	);
-	--button-foreground: var(--wpds-color-fg-content-neutral);
 }

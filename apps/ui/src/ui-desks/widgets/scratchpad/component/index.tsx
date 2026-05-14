@@ -2,16 +2,16 @@ import { __ } from '@wordpress/i18n';
 import { blockDefault, page, reusableBlock } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { useCallback, useEffect, useRef, type KeyboardEvent, type PointerEvent } from 'react';
-import { ARTEFACT_WIDGET_TYPE, type ArtefactScope, type ArtefactWidgetProps } from '../types';
+import { SCRATCHPAD_WIDGET_TYPE, type ScratchpadScope, type ScratchpadWidgetProps } from '../types';
 import styles from './style.module.css';
 import type {
 	DeskWidgetComponentProps,
 	DeskWidgetThumbnailComponentProps,
 } from '@/ui-desks/widgets/types';
 
-type ArtefactWidgetComponentProps = DeskWidgetComponentProps< ArtefactWidgetProps >;
+type ScratchpadWidgetComponentProps = DeskWidgetComponentProps< ScratchpadWidgetProps >;
 
-export function ArtefactWidgetComponent( {
+export function ScratchpadWidgetComponent( {
 	id,
 	widgetProps,
 	isEditing,
@@ -19,7 +19,7 @@ export function ArtefactWidgetComponent( {
 	isSelected,
 	onWidgetPropsChange,
 	onEditComplete,
-}: ArtefactWidgetComponentProps ) {
+}: ScratchpadWidgetComponentProps ) {
 	const descriptionRef = useRef< HTMLDivElement | null >( null );
 	const labelVisible = isHovered || isSelected || isEditing;
 	const isInteractive = isEditing;
@@ -90,10 +90,10 @@ export function ArtefactWidgetComponent( {
 
 	return (
 		<div
-			className={ styles.artefact }
+			className={ styles.scratchpad }
 			data-scope={ widgetProps.scope }
 			data-is-editing={ isEditing ? 'true' : 'false' }
-			data-studio-desk-widget={ ARTEFACT_WIDGET_TYPE }
+			data-studio-desk-widget={ SCRATCHPAD_WIDGET_TYPE }
 			data-studio-desk-widget-id={ id }
 		>
 			{ widgetProps.title && (
@@ -108,7 +108,7 @@ export function ArtefactWidgetComponent( {
 			{ widgetProps.html ? (
 				<iframe
 					className={ styles.frame }
-					title={ widgetProps.title || __( 'Artefact' ) }
+					title={ widgetProps.title || __( 'Scratchpad' ) }
 					srcDoc={ widgetProps.html }
 					sandbox="allow-scripts"
 					referrerPolicy="no-referrer"
@@ -119,7 +119,7 @@ export function ArtefactWidgetComponent( {
 					} }
 				/>
 			) : (
-				<div className={ styles.empty }>{ __( 'Empty artefact' ) }</div>
+				<div className={ styles.empty }>{ __( 'Empty scratchpad' ) }</div>
 			) }
 			<div className={ styles.bottom }>
 				<div
@@ -129,7 +129,7 @@ export function ArtefactWidgetComponent( {
 					suppressContentEditableWarning
 					spellCheck={ false }
 					data-empty={ description ? 'false' : 'true' }
-					data-placeholder={ __( 'Describe what this artefact should become...' ) }
+					data-placeholder={ __( 'Describe what this scratchpad should become...' ) }
 					onBlur={ () => {
 						updateDescription();
 						onEditComplete();
@@ -144,23 +144,23 @@ export function ArtefactWidgetComponent( {
 	);
 }
 
-export function ArtefactWidgetThumbnailComponent( {
+export function ScratchpadWidgetThumbnailComponent( {
 	id,
 	widgetProps,
-}: DeskWidgetThumbnailComponentProps< ArtefactWidgetProps > ) {
+}: DeskWidgetThumbnailComponentProps< ScratchpadWidgetProps > ) {
 	return (
 		<div
 			className={ styles.thumbnail }
-			data-studio-desk-widget={ ARTEFACT_WIDGET_TYPE }
+			data-studio-desk-widget={ SCRATCHPAD_WIDGET_TYPE }
 			data-studio-desk-widget-id={ id }
 		>
-			<Icon icon={ getArtefactScopeIcon( widgetProps.scope ) } size={ 24 } />
-			<div className={ styles.thumbnailTitle }>{ widgetProps.title || __( 'Artefact' ) }</div>
+			<Icon icon={ getScratchpadScopeIcon( widgetProps.scope ) } size={ 24 } />
+			<div className={ styles.thumbnailTitle }>{ widgetProps.title || __( 'Scratchpad' ) }</div>
 		</div>
 	);
 }
 
-function getArtefactScopeIcon( scope: ArtefactScope ) {
+function getScratchpadScopeIcon( scope: ScratchpadScope ) {
 	switch ( scope ) {
 		case 'page':
 			return page;

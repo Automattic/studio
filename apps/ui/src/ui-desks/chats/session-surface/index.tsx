@@ -26,7 +26,6 @@ import { Button } from '@/ui-desks/components';
 import { Composer, ComposerSkeleton } from '../composer';
 import { pickLiveSite } from '../composer/environment-pill';
 import { Conversation } from '../conversation';
-import { EmptyBackground } from '../empty-background';
 import { QueuedPrompts } from '../queued-prompts';
 import styles from './style.module.css';
 import type { PendingChatPrompt } from '../context';
@@ -278,9 +277,7 @@ function SessionSurfaceContent( {
 						<ComposerSkeleton />
 					</div>
 				}
-			>
-				<EmptyBackground />
-			</Frame>
+			/>
 		);
 	}
 

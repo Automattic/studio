@@ -4,6 +4,7 @@ import {
 	chevronLeft,
 	chevronRight,
 	comment,
+	connection,
 	external,
 	group,
 	link,
@@ -200,6 +201,19 @@ export function DeskCanvasContextMenu( { editor, state, onClose }: DeskCanvasCon
 							disabled={ ! canChat }
 							onClick={ () => setChatWidgets( selectedWidgets ) }
 						/>
+						<ContextMenuItem
+							disabled={ ! desk.canAddWidgets || ! singleWidget || ! singleShape }
+							onClick={ () =>
+								closeAfter( () => {
+									if ( singleShape ) {
+										desk.startConnectingWidget( singleShape.id );
+									}
+								} )
+							}
+						>
+							<span>{ __( 'Connect…' ) }</span>
+							<Icon icon={ connection } />
+						</ContextMenuItem>
 						<ContextMenuSeparator />
 						<ContextMenuItem
 							onClick={ () =>

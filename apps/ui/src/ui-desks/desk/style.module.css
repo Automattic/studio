@@ -28,36 +28,6 @@
 	transform: translateX(-50%);
 }
 
-.toolbarEditButton {
-	--button-background: var(--ui-desks-material, #fff);
-
-	height: 40px;
-	padding: 0 16px;
-	justify-content: center;
-	border-radius: var(--ui-desks-radius-control, 16px);
-	corner-shape: var(--ui-desks-corner-shape, superellipse(1.42));
-	-webkit-corner-shape: var(--ui-desks-corner-shape, superellipse(1.42));
-	box-shadow: var(
-		--ui-desks-shadow-control,
-		0 1px 2px rgba(15, 23, 42, 0.04),
-		0 8px 24px rgba(15, 23, 42, 0.06)
-	);
-	transition:
-		box-shadow 160ms ease,
-		transform 160ms ease;
-}
-
-.toolbarEditButton:hover {
-	--button-background: var(--ui-desks-material, #fff);
-
-	box-shadow: var(
-		--ui-desks-shadow-control-raised,
-		0 1px 2px rgba(15, 23, 42, 0.04),
-		0 18px 44px rgba(15, 23, 42, 0.1)
-	);
-	transform: translateY(-1px);
-}
-
 .siteMapLoadingWidget {
 	--loading-placeholder-text-color: #14171a;
 	--loading-placeholder-line-color: #e5e7eb;

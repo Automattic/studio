@@ -52,7 +52,7 @@ export function DeskSettingsModal( { open, onOpenChange, onEditToolbar }: DeskSe
 				<Button
 					type="button"
 					label={ __( 'Edit toolbar' ) }
-					tone="primary"
+					tone="inverse"
 					variant="filled"
 					size="medium"
 					onClick={ () => {

@@ -5,7 +5,7 @@ import styles from './style.module.css';
 import type { ComponentProps, ComponentPropsWithoutRef, ReactNode } from 'react';
 
 type ButtonVariant = 'chrome' | 'quiet' | 'filled';
-type ButtonTone = 'neutral' | 'primary';
+type ButtonTone = 'neutral' | 'primary' | 'inverse';
 type ButtonSize = 'xsmall' | 'small' | 'medium' | 'large' | 'xlarge';
 
 const ICON_SIZE_BY_BUTTON_SIZE: Record< ButtonSize, number > = {
@@ -50,7 +50,7 @@ export const Button = forwardRef< HTMLButtonElement, ButtonProps >( function But
 		styles.button,
 		styles[ variant ],
 		styles[ size ],
-		tone === 'primary' && styles.primary,
+		tone !== 'neutral' && styles[ tone ],
 		className
 	);
 	const resolvedTooltipSide = tooltipSide ?? ( variant === 'quiet' ? 'top' : 'bottom' );

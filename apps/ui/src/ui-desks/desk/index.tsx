@@ -119,20 +119,18 @@ function DeskShell( {
 						<div className={ styles.toolbarEditActions }>
 							<Button
 								type="button"
-								className={ styles.toolbarEditButton }
 								label={ __( 'Done' ) }
-								variant="filled"
-								size="medium"
+								variant="chrome"
+								size="large"
 								onClick={ () => setEditingToolbar( false ) }
 							>
 								{ __( 'Done' ) }
 							</Button>
 							<Button
 								type="button"
-								className={ styles.toolbarEditButton }
 								label={ __( 'Reset' ) }
-								variant="filled"
-								size="medium"
+								variant="chrome"
+								size="large"
 								onClick={ () =>
 									updateDeskSettings( { toolbarLayout: DEFAULT_DESK_TOOLBAR_LAYOUT } )
 								}

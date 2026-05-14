@@ -1,4 +1,5 @@
 import fs from 'fs';
+import path from 'path';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import {
 	isEmptyDir,
@@ -296,8 +297,13 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should copy bundled preinstalled SQLite template for latest WordPress sites', async () => {
-			const templatePath = '/test/wp-files/preinstalled-sqlite/latest/.ht.sqlite';
-			const databasePath = '/test/site/new-site/wp-content/database/.ht.sqlite';
+			const templatePath = path.join(
+				'/test/wp-files',
+				'preinstalled-sqlite',
+				'latest',
+				'.ht.sqlite'
+			);
+			const databasePath = path.join( mockSitePath, 'wp-content', 'database', '.ht.sqlite' );
 			const existsSyncSpy = vi.spyOn( fs, 'existsSync' ).mockImplementation( ( filePath ) => {
 				return filePath === templatePath;
 			} );
@@ -307,7 +313,7 @@ describe( 'CLI: studio site create', () => {
 			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
 			expect( getWpFilesPath ).toHaveBeenCalled();
-			expect( mkdirSpy ).toHaveBeenCalledWith( '/test/site/new-site/wp-content/database', {
+			expect( mkdirSpy ).toHaveBeenCalledWith( path.dirname( databasePath ), {
 				recursive: true,
 			} );
 			expect( copyFileSpy ).toHaveBeenCalledWith( templatePath, databasePath );
@@ -328,7 +334,12 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should not copy bundled preinstalled SQLite template for no-start sites', async () => {
-			const templatePath = '/test/wp-files/preinstalled-sqlite/latest/.ht.sqlite';
+			const templatePath = path.join(
+				'/test/wp-files',
+				'preinstalled-sqlite',
+				'latest',
+				'.ht.sqlite'
+			);
 			const existsSyncSpy = vi.spyOn( fs, 'existsSync' ).mockImplementation( ( filePath ) => {
 				return filePath === templatePath;
 			} );

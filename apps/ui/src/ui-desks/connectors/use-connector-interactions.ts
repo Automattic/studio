@@ -15,7 +15,7 @@ import {
 	getWidgetDropTargetAtPagePoint,
 	getWidgetShapeAtPagePoint,
 } from './utils';
-import type { DeskWidget } from '@/ui-desks/widgets/types';
+import type { DeskWidget, WidgetDropHandler } from '@/ui-desks/widgets/types';
 import type { Editor, TLArrowShape, TLEventInfo, TLShape, TLShapeId } from 'tldraw';
 
 interface UseConnectorInteractionsOptions {
@@ -24,6 +24,7 @@ interface UseConnectorInteractionsOptions {
 	isReadOnly: boolean;
 	pendingConnectorSourceId: TLShapeId | null;
 	setPendingConnectorSourceId: ( shapeId: TLShapeId | null ) => void;
+	onCustomDrop?: ( drop: WidgetCustomDropIntent ) => void;
 }
 
 export function useConnectorInteractions( {
@@ -32,6 +33,7 @@ export function useConnectorInteractions( {
 	isReadOnly,
 	pendingConnectorSourceId,
 	setPendingConnectorSourceId,
+	onCustomDrop,
 }: UseConnectorInteractionsOptions ) {
 	useEffect( () => {
 		if ( ! editor ) {
@@ -208,7 +210,7 @@ export function useConnectorInteractions( {
 			y: number;
 		} | null = null;
 		let connectorPreviewId: TLArrowShape[ 'id' ] | null = null;
-		let activeTargetId: TLShapeId | null = null;
+		let activeTarget: WidgetDropTarget | null = null;
 		let didDrag = false;
 		let completed = false;
 
@@ -217,7 +219,7 @@ export function useConnectorInteractions( {
 				editor.deleteShape( connectorPreviewId );
 			}
 			connectorPreviewId = null;
-			activeTargetId = null;
+			activeTarget = null;
 		};
 
 		const restoreSourcePosition = () => {
@@ -244,7 +246,7 @@ export function useConnectorInteractions( {
 			}
 			source = null;
 			connectorPreviewId = null;
-			activeTargetId = null;
+			activeTarget = null;
 			didDrag = false;
 			completed = false;
 		};
@@ -262,7 +264,7 @@ export function useConnectorInteractions( {
 						? { shapeId: shape.id, widget, type: shape.type, x: shape.x, y: shape.y }
 						: null;
 				connectorPreviewId = null;
-				activeTargetId = null;
+				activeTarget = null;
 				didDrag = false;
 				completed = false;
 				return;
@@ -273,14 +275,26 @@ export function useConnectorInteractions( {
 			}
 
 			if ( info.name === 'pointer_up' ) {
-				if ( didDrag && connectorPreviewId && activeTargetId ) {
-					completed = true;
-					completeConnectorPreview( editor, connectorPreviewId, activeTargetId );
-					const targetBounds = editor.getShapePageBounds( activeTargetId );
-					if ( targetBounds ) {
-						updateConnectorEnd( editor, connectorPreviewId, toPlainPoint( targetBounds.center ) );
+				if ( didDrag && activeTarget ) {
+					if ( activeTarget.handler.type === 'connector' && connectorPreviewId ) {
+						completed = true;
+						completeConnectorPreview( editor, connectorPreviewId, activeTarget.shapeId );
+						const targetBounds = editor.getShapePageBounds( activeTarget.shapeId );
+						if ( targetBounds ) {
+							updateConnectorEnd( editor, connectorPreviewId, toPlainPoint( targetBounds.center ) );
+						}
+						restoreSourcePosition();
+					} else if ( activeTarget.handler.type === 'custom' ) {
+						restoreSourcePosition();
+						onCustomDrop?.( {
+							sourceShapeId: source.shapeId,
+							targetShapeId: activeTarget.shapeId,
+							sourceWidget: source.widget,
+							targetWidget: activeTarget.widget,
+							handler: activeTarget.handler,
+							screenPoint: getViewportScreenPoint( editor ),
+						} );
 					}
-					restoreSourcePosition();
 				}
 				cleanup();
 				return;
@@ -293,8 +307,27 @@ export function useConnectorInteractions( {
 			didDrag = true;
 			const point = toPlainPoint( editor.inputs.currentPagePoint );
 			const target = getWidgetDropTargetAtPagePoint( editor, point, source.shapeId, source.widget );
-			if ( ! target || target.handler.type !== 'connector' ) {
+			if ( ! target ) {
 				removeConnectorPreview();
+				return;
+			}
+
+			activeTarget = {
+				shapeId: target.shape.id,
+				widget: target.widget,
+				handler: target.handler,
+			};
+			restoreSourcePosition();
+
+			if ( target.handler.type !== 'connector' ) {
+				if ( connectorPreviewId ) {
+					removeConnectorPreview();
+					activeTarget = {
+						shapeId: target.shape.id,
+						widget: target.widget,
+						handler: target.handler,
+					};
+				}
 				return;
 			}
 
@@ -316,8 +349,11 @@ export function useConnectorInteractions( {
 				updateConnectorEnd( editor, connectorPreviewId, toPlainPoint( targetBounds.center ) );
 			}
 
-			activeTargetId = target.shape.id;
-			restoreSourcePosition();
+			activeTarget = {
+				shapeId: target.shape.id,
+				widget: target.widget,
+				handler: target.handler,
+			};
 		};
 
 		editor.on( 'event', handleEvent );
@@ -325,5 +361,32 @@ export function useConnectorInteractions( {
 			editor.off( 'event', handleEvent );
 			cleanup();
 		};
-	}, [ editor, isHydrated, isReadOnly ] );
+	}, [ editor, isHydrated, isReadOnly, onCustomDrop ] );
+}
+
+export interface WidgetCustomDropIntent {
+	sourceShapeId: TLShapeId;
+	targetShapeId: TLShapeId;
+	sourceWidget: DeskWidget;
+	targetWidget: DeskWidget;
+	handler: Extract< WidgetDropHandler, { type: 'custom' } >;
+	screenPoint: {
+		x: number;
+		y: number;
+	};
+}
+
+interface WidgetDropTarget {
+	shapeId: TLShapeId;
+	widget: DeskWidget;
+	handler: WidgetDropHandler;
+}
+
+function getViewportScreenPoint( editor: Editor ) {
+	const screenPoint = editor.inputs.currentScreenPoint;
+	const bounds = editor.getContainer().getBoundingClientRect();
+	return {
+		x: screenPoint.x + bounds.left,
+		y: screenPoint.y + bounds.top,
+	};
 }

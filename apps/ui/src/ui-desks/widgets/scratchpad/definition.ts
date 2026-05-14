@@ -1,5 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { external } from '@wordpress/icons';
+import { isMediaWidgetProps, MEDIA_WIDGET_TYPE } from '@/ui-desks/widgets/media/types';
 import {
 	ScratchpadWidgetComponent,
 	ScratchpadWidgetThumbnailComponent,
@@ -43,4 +44,12 @@ export const scratchpadWidgetDefinition = {
 	getSummary: ( widgetProps ) => widgetProps.title || __( 'Untitled scratchpad' ),
 	getEditAction: () => ( { kind: 'canvas-editing' } ),
 	getFittedShapeProps: getFittedScratchpadShapeProps,
+	dropHandlers: [
+		{
+			id: 'media-actions-for-scratchpad',
+			type: 'custom',
+			sourceTypes: [ MEDIA_WIDGET_TYPE ],
+			canHandle: ( sourceWidget ) => isMediaWidgetProps( sourceWidget.widgetProps ),
+		},
+	],
 } satisfies WidgetDefinition< ScratchpadWidget >;

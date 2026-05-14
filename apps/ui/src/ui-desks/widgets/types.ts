@@ -141,9 +141,17 @@ export interface WidgetConnectorDropHandler {
 	id: string;
 	type: 'connector';
 	sourceTypes?: string[];
+	canHandle?: ( sourceWidget: DeskWidgetBase, targetWidget: DeskWidgetBase ) => boolean;
 }
 
-export type WidgetDropHandler = WidgetConnectorDropHandler;
+export interface WidgetCustomDropHandler {
+	id: string;
+	type: 'custom';
+	sourceTypes?: string[];
+	canHandle?: ( sourceWidget: DeskWidgetBase, targetWidget: DeskWidgetBase ) => boolean;
+}
+
+export type WidgetDropHandler = WidgetConnectorDropHandler | WidgetCustomDropHandler;
 
 export type ResolvedDeskWidgetOrigin =
 	| { kind: 'authored' }

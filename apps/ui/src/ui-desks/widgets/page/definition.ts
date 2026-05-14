@@ -1,5 +1,6 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { page } from '@wordpress/icons';
+import { isMediaWidgetProps, MEDIA_WIDGET_TYPE } from '@/ui-desks/widgets/media/types';
 import {
 	PageWidgetComponent,
 	PageWidgetThumbnailComponent,
@@ -79,4 +80,16 @@ export const pageWidgetDefinition = {
 					path: `/wp-admin/post.php?post=${ widget.widgetProps.pageId }&action=edit`,
 			  }
 			: null,
+	dropHandlers: [
+		{
+			id: 'media-actions-for-page',
+			type: 'custom',
+			sourceTypes: [ MEDIA_WIDGET_TYPE ],
+			canHandle: ( sourceWidget, targetWidget ) =>
+				isMediaWidgetProps( sourceWidget.widgetProps ) &&
+				sourceWidget.widgetProps.mediaId !== null &&
+				isPageWidgetProps( targetWidget.widgetProps ) &&
+				targetWidget.widgetProps.pageId > 0,
+		},
+	],
 } satisfies WidgetDefinition< PageWidget >;

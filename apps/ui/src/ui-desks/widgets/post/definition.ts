@@ -1,5 +1,6 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { post } from '@wordpress/icons';
+import { isMediaWidgetProps, MEDIA_WIDGET_TYPE } from '@/ui-desks/widgets/media/types';
 import {
 	PostWidgetComponent,
 	PostWidgetThumbnailComponent,
@@ -46,4 +47,16 @@ export const postWidgetDefinition = {
 					path: `/wp-admin/post.php?post=${ widget.widgetProps.postId }&action=edit`,
 			  }
 			: null,
+	dropHandlers: [
+		{
+			id: 'media-actions-for-post',
+			type: 'custom',
+			sourceTypes: [ MEDIA_WIDGET_TYPE ],
+			canHandle: ( sourceWidget, targetWidget ) =>
+				isMediaWidgetProps( sourceWidget.widgetProps ) &&
+				sourceWidget.widgetProps.mediaId !== null &&
+				isPostWidgetProps( targetWidget.widgetProps ) &&
+				targetWidget.widgetProps.postId > 0,
+		},
+	],
 } satisfies WidgetDefinition< PostWidget >;

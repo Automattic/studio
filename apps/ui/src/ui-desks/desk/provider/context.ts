@@ -1,10 +1,14 @@
 import { createContext, useContext } from 'react';
 import type { DeskConfig } from '../types';
+import type {
+	DeskWidgetConnectionTarget,
+	SelectedDeskConnectorToolbarItem,
+} from '@/ui-desks/connectors/utils';
 import type { getSelectedWidgetToolbarItem } from '@/ui-desks/desk/selection-toolbar/selection';
 import type { StackViewMode } from '@/ui-desks/stacks/utils';
 import type { WidgetPastePayload } from '@/ui-desks/widgets/types';
 import type { ReactNode } from 'react';
-import type { Editor } from 'tldraw';
+import type { Editor, TLShapeId } from 'tldraw';
 
 export type SelectedWidgetToolbarItem = NonNullable<
 	ReturnType< typeof getSelectedWidgetToolbarItem >
@@ -19,6 +23,9 @@ export interface DeskContextValue {
 	statusMessage?: string;
 	canAddWidgets: boolean;
 	selectedWidgetToolbarItem: SelectedWidgetToolbarItem | null;
+	selectedConnectorToolbarItem: SelectedDeskConnectorToolbarItem | null;
+	selectedWidgetConnectionTargets: DeskWidgetConnectionTarget[];
+	isConnectingWidget: boolean;
 	pressedStackId: string | null;
 	registerEditor: RegisterDeskEditor;
 	pressStack: ( stackId: string ) => void;
@@ -42,6 +49,9 @@ export interface DeskContextValue {
 	unstackSelectedWidgets: () => boolean;
 	setSelectedStackView: ( viewMode: StackViewMode ) => boolean;
 	removeSelectedWidget: () => boolean;
+	removeSelectedConnector: () => boolean;
+	startConnectingWidget: ( shapeId: TLShapeId ) => boolean;
+	focusConnectedWidget: ( shapeId: TLShapeId ) => boolean;
 }
 
 export interface AddDeskWidgetOptions {
@@ -73,6 +83,9 @@ const defaultDeskContext: DeskContextValue = {
 	statusMessage: undefined,
 	canAddWidgets: false,
 	selectedWidgetToolbarItem: null,
+	selectedConnectorToolbarItem: null,
+	selectedWidgetConnectionTargets: [],
+	isConnectingWidget: false,
 	pressedStackId: null,
 	registerEditor: noopRegisterEditor,
 	pressStack: noopPressStack,
@@ -89,6 +102,9 @@ const defaultDeskContext: DeskContextValue = {
 	unstackSelectedWidgets: () => false,
 	setSelectedStackView: () => false,
 	removeSelectedWidget: () => false,
+	removeSelectedConnector: () => false,
+	startConnectingWidget: () => false,
+	focusConnectedWidget: () => false,
 };
 
 export const DeskContext = createContext< DeskContextValue >( defaultDeskContext );

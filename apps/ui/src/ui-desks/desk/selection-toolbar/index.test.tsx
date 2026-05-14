@@ -91,6 +91,9 @@ function createDeskContext( overrides: Partial< DeskContextValue > = {} ): DeskC
 		statusMessage: undefined,
 		canAddWidgets: true,
 		selectedWidgetToolbarItem: null,
+		selectedConnectorToolbarItem: null,
+		selectedWidgetConnectionTargets: [],
+		isConnectingWidget: false,
 		pressedStackId: null,
 		registerEditor: vi.fn(),
 		pressStack: vi.fn(),
@@ -107,6 +110,9 @@ function createDeskContext( overrides: Partial< DeskContextValue > = {} ): DeskC
 		unstackSelectedWidgets: vi.fn(),
 		setSelectedStackView: vi.fn(),
 		removeSelectedWidget: vi.fn(),
+		removeSelectedConnector: vi.fn(),
+		startConnectingWidget: vi.fn(),
+		focusConnectedWidget: vi.fn(),
 		...overrides,
 	};
 }

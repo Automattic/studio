@@ -103,20 +103,20 @@ studio code sessions resume
 
 The Studio CLI can move a site off a closed web platform — GoDaddy Websites & Marketing, Hostinger, HubSpot, Shopify, Squarespace, Webflow, Weebly, and Wix — into a fresh local WordPress site. The migration inspects the source, extracts its content into a WXR archive plus media, verifies the result, and lands everything in a new Studio site under `~/Studio/`. Powered by [Data Liberation Agent](https://github.com/Automattic/data-liberation-agent).
 
-The recommended path is the `/migrate` slash command inside `studio code`. The agent walks you through detect, extract, verify, site-create, and import, confirming each heavier step before it runs. This path is gated behind a feature flag while it stabilizes — start `studio code` with `STUDIO_DLA_ENABLED=1` to enable it, then invoke the skill with or without a URL:
+The recommended path is the `/liberate` slash command inside `studio code`. The agent walks you through detect, extract, verify, site-create, and import, confirming each heavier step before it runs. This path is gated behind a feature flag while it stabilizes — start `studio code` with `STUDIO_DLA_ENABLED=1` to enable it, then invoke the skill with or without a URL:
 
 ```bash
 STUDIO_DLA_ENABLED=1 studio code
 # inside the session:
-# /migrate
-# /migrate https://example.com
+# /liberate
+# /liberate https://example.com
 ```
 
 For headless or scripted use, run the standalone command instead. It spawns the Data Liberation Agent CLI directly with no agent in the loop, streaming progress straight to your terminal:
 
 ```bash
-studio migrate https://example.com
-studio migrate https://example.com --output ./out --non-interactive
+studio liberate https://example.com
+studio liberate https://example.com --output ./out --non-interactive
 ```
 
 Two source platforms need credentials before the extract step: Webflow requires `LIBERATION_TOKEN` (a Webflow site token) and Shopify requires `SHOPIFY_ADMIN_TOKEN` (a Shopify Admin API token with read access to products and orders). Set them in your shell before running either path. Installing the Studio CLI also downloads a Playwright Chromium build (~150 MB) used for the Wix and Squarespace adapters, so the initial `npm install -g wp-studio` pulls more than the base CLI does.

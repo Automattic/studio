@@ -21,12 +21,12 @@ vi.mock( 'child_process', () => {
 const resolveDlaCliEntryMock = vi.fn();
 const resolveTsxCliMock = vi.fn();
 
-vi.mock( 'cli/commands/migrate/resolvers', () => ( {
+vi.mock( 'cli/commands/liberate/resolvers', () => ( {
 	resolveDlaCliEntry: () => resolveDlaCliEntryMock(),
 	resolveTsxCli: () => resolveTsxCliMock(),
 } ) );
 
-describe( 'CLI: studio migrate', () => {
+describe( 'CLI: studio liberate', () => {
 	const tsxCliPath = '/abs/path/to/tsx/dist/cli.mjs';
 	const dlaCliPath = '/abs/path/to/data-liberation/src/cli.ts';
 	let child: MockChildProcess;
@@ -225,7 +225,7 @@ describe( 'CLI: studio migrate', () => {
 		consoleErrorSpy.mockRestore();
 	} );
 
-	it( 'registers the migrate command on yargs with the expected metadata', async () => {
+	it( 'registers the liberate command on yargs with the expected metadata', async () => {
 		const yargs = ( await import( 'yargs' ) ).default;
 		const { registerCommand } = await import( '../index' );
 
@@ -237,6 +237,6 @@ describe( 'CLI: studio migrate', () => {
 		registerCommand( argv as never );
 
 		const helpOutput = await argv.getHelp();
-		expect( helpOutput ).toMatch( /migrate <url>/ );
+		expect( helpOutput ).toMatch( /liberate <url>/ );
 	} );
 } );

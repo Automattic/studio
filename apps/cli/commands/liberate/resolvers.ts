@@ -1,5 +1,5 @@
 /**
- * Module-resolution helpers for the `studio migrate` command. Extracted
+ * Module-resolution helpers for the `studio liberate` command. Extracted
  * into their own file so tests can mock the resolution layer (which
  * normally walks `node_modules`) without touching the spawn pipeline.
  */

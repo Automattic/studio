@@ -1,5 +1,7 @@
 # RSM-3143: Re-research DLA integration into `studio code` against pi-coding-agent
 
+> **Note:** The command was renamed from `/migrate` to `/liberate` (and `studio migrate` to `studio liberate`) post-implementation per owner direction (see latest rename commit on this branch). This research artifact preserves the original `/migrate` name as evidence of the design conversation.
+
 **Status:** research, no code changes
 **Scope:** Studio CLI (`apps/cli/`) only. Electron-side touches are flagged, never proposed.
 **Supersedes:** RSM-1639 (research, Done), RSM-1675 (impl Approach A, Cancelled), RSM-3139 (impl Approach C, Cancelled), PR #3277 (closed).

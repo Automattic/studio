@@ -1,5 +1,5 @@
 /**
- * The `studio migrate` command is a thin yargs wrapper around the Data
+ * The `studio liberate` command is a thin yargs wrapper around the Data
  * Liberation Agent (DLA) CLI. It is the non-agent, headless escape-hatch
  * path for users who want DLA's full Ink-rendered UI without Studio's
  * AI agent in the loop.
@@ -13,7 +13,7 @@
  *   inherits the parent's stdio so DLA writes directly to the user's tty.
  * - Forwards SIGINT and SIGTERM to the child; exits with the child's
  *   exit code (or 128+signal for signal-terminated exits) so shell users
- *   can chain `studio migrate` like any other Unix command.
+ *   can chain `studio liberate` like any other Unix command.
  * - Passes through only `LIBERATION_TOKEN` and `SHOPIFY_ADMIN_TOKEN` from
  *   the environment, plus DLA's existing env vars (`WP_APP_PASSWORD`,
  *   `NO_COLOR`, etc.). `STUDIO_WPCOM_TOKEN` is explicitly *not* forwarded
@@ -28,7 +28,7 @@
 
 import { spawn, type ChildProcess } from 'child_process';
 import { __ } from '@wordpress/i18n';
-import { resolveDlaCliEntry, resolveTsxCli } from 'cli/commands/migrate/resolvers';
+import { resolveDlaCliEntry, resolveTsxCli } from 'cli/commands/liberate/resolvers';
 import { StudioArgv } from 'cli/types';
 
 /**
@@ -82,7 +82,7 @@ function buildChildEnv(): NodeJS.ProcessEnv {
  * Translate a child-process exit (`code`, `signal`) into the parent's
  * exit code. Mirrors the standard shell convention: a normal exit
  * propagates its code; a signal-terminated exit becomes `128 + N` so
- * shell users can chain `studio migrate || echo failed`.
+ * shell users can chain `studio liberate || echo failed`.
  *
  * @param code   - The child's numeric exit code, or `null` if it was killed by a signal.
  * @param signal - The signal that terminated the child, if any.
@@ -133,7 +133,7 @@ export async function runCommand( url: string, extraArgs: string[] ): Promise< v
 		const reason = error instanceof Error ? error.message : String( error );
 		console.error(
 			__(
-				'studio migrate could not locate the Data Liberation Agent CLI. Reinstall Studio or run `npm install` to restore the dependency.'
+				'studio liberate could not locate the Data Liberation Agent CLI. Reinstall Studio or run `npm install` to restore the dependency.'
 			)
 		);
 		console.error( reason );
@@ -173,7 +173,7 @@ export async function runCommand( url: string, extraArgs: string[] ): Promise< v
 			};
 			child.on( 'error', ( error ) => {
 				const reason = error instanceof Error ? error.message : String( error );
-				console.error( __( 'studio migrate failed to spawn the Data Liberation Agent CLI.' ) );
+				console.error( __( 'studio liberate failed to spawn the Data Liberation Agent CLI.' ) );
 				console.error( reason );
 				process.exitCode = 1;
 				settle();
@@ -191,7 +191,7 @@ export async function runCommand( url: string, extraArgs: string[] ): Promise< v
 }
 
 /**
- * Register the `studio migrate <url>` command on the given yargs
+ * Register the `studio liberate <url>` command on the given yargs
  * instance. Surfaces a minimal set of flags; unknown args flow through
  * to DLA so future DLA flags work without a Studio-side release.
  *
@@ -199,14 +199,14 @@ export async function runCommand( url: string, extraArgs: string[] ): Promise< v
  */
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
-		command: 'migrate <url>',
-		describe: __( 'Migrate a site from a closed platform using Data Liberation Agent' ),
+		command: 'liberate <url>',
+		describe: __( 'Liberate a site from a closed platform using Data Liberation Agent' ),
 		builder: ( yargs ) => {
 			return yargs
 				.positional( 'url', {
 					type: 'string',
 					demandOption: true,
-					describe: __( 'URL of the site to migrate' ),
+					describe: __( 'URL of the site to liberate' ),
 				} )
 				.option( 'output', {
 					type: 'string',

@@ -1,5 +1,7 @@
 # RSM-3164 Implementation Plan
 
+> **Note:** The command was renamed from `/migrate` to `/liberate` (and `studio migrate` to `studio liberate`) post-implementation per owner direction (see latest rename commit on this branch). This plan preserves the original `/migrate` task descriptions as evidence of the implementation conversation.
+
 Spec: `issues/rsm-3143-dla-pi-research/research-report.md` ("Recommendation" → 9 concrete next steps).
 
 Scope: `apps/cli/` and `tools/dla/` (new workspace package). No changes to `apps/studio/`.

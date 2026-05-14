@@ -1,9 +1,9 @@
 ---
-name: migrate
-description: Migrate a site from a closed web platform (GoDaddy Websites & Marketing, Hostinger, HubSpot, Shopify, Squarespace, Webflow, Weebly, Wix) into a fresh local WordPress site via the Data Liberation Agent toolchain.
+name: liberate
+description: Liberate a site from a closed web platform (GoDaddy Websites & Marketing, Hostinger, HubSpot, Shopify, Squarespace, Webflow, Weebly, Wix) into a fresh local WordPress site via the Data Liberation Agent toolchain.
 ---
 
-# Migrate
+# Liberate
 
 Move a site off a closed web platform and into a fresh local WordPress site. The skill orchestrates the Data Liberation Agent (DLA) tools to inspect the source, extract its content into a WXR archive plus media, then hands the artifacts off to Studio to create and populate the new site.
 
@@ -13,7 +13,7 @@ Based on the [Data Liberation Agent](https://github.com/Automattic/data-liberati
 
 When the user invokes this skill, introduce yourself:
 
-> **Welcome to Migrate!** I'll move your site off a closed platform (Wix, Squarespace, Shopify, Webflow, GoDaddy, HubSpot, Hostinger, or Weebly) into a fresh local WordPress site.
+> **Welcome to Liberate!** I'll move your site off a closed platform (Wix, Squarespace, Shopify, Webflow, GoDaddy, HubSpot, Hostinger, or Weebly) into a fresh local WordPress site.
 >
 > I'll inspect the source, extract its content and media, verify the result, and then create a new Studio site populated with everything I find. You confirm at each step before I run the heavier extract and import phases.
 
@@ -21,9 +21,9 @@ Then move to Step 1.
 
 ## Step 1: Identify the source
 
-If the user already gave a URL in their prompt (e.g. `/migrate https://example.com`), use it.
+If the user already gave a URL in their prompt (e.g. `/liberate https://example.com`), use it.
 
-Otherwise, ask the user for the source URL of the site they want to migrate. Plain prose is fine — wait for their reply before continuing.
+Otherwise, ask the user for the source URL of the site they want to liberate. Plain prose is fine — wait for their reply before continuing.
 
 ## Step 2: Inspect
 
@@ -137,4 +137,4 @@ If the user picks open, call the appropriate site-open tool to launch the new UR
 
 ## Headless mode
 
-Headless / non-interactive migration is not handled by this skill. For a one-shot, non-agent migration (CI scripts, bulk runs, etc.), point the user at the standalone `studio migrate <url>` CLI command instead — it spawns DLA's CLI directly and streams progress to the terminal without an agent in the loop.
+Headless / non-interactive liberation is not handled by this skill. For a one-shot, non-agent run (CI scripts, bulk runs, etc.), point the user at the standalone `studio liberate <url>` CLI command instead — it spawns DLA's CLI directly and streams progress to the terminal without an agent in the loop.

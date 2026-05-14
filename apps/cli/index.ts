@@ -5,8 +5,8 @@ import semver from 'semver';
 import yargs from 'yargs';
 import { registerCommand as registerExportCommand } from 'cli/commands/export';
 import { registerCommand as registerImportCommand } from 'cli/commands/import';
+import { registerCommand as registerLiberateCommand } from 'cli/commands/liberate';
 import { registerCommand as registerMcpCommand } from 'cli/commands/mcp';
-import { registerCommand as registerMigrateCommand } from 'cli/commands/migrate';
 import { registerCommand as registerPullCommand } from 'cli/commands/pull';
 import { registerCommand as registerPullReprintCommand } from 'cli/commands/pull-reprint';
 import { registerCommand as registerPushCommand } from 'cli/commands/push';
@@ -163,7 +163,7 @@ async function main() {
 	registerExportCommand( studioArgv );
 	registerImportCommand( studioArgv );
 	registerMcpCommand( studioArgv );
-	registerMigrateCommand( studioArgv );
+	registerLiberateCommand( studioArgv );
 
 	studioArgv.command( 'preview', __( 'Manage preview sites' ), async ( previewYargs ) => {
 		const [

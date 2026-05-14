@@ -66,7 +66,7 @@ The biggest con is that it decreases control in the Studio code, particularly wh
 
 ## Data Liberation Agent integration
 
-The `studio code` agent and the `studio migrate` command both delegate platform-extraction work to the [Data Liberation Agent](https://github.com/Automattic/data-liberation-agent) (DLA). This section documents the integration internals. For the user-facing surface, see `apps/cli/README.md`. For the trade-off rationale, see `issues/rsm-3143-dla-pi-research/research-report.md`.
+The `studio code` agent and the `studio liberate` command both delegate platform-extraction work to the [Data Liberation Agent](https://github.com/Automattic/data-liberation-agent) (DLA). This section documents the integration internals. For the user-facing surface, see `apps/cli/README.md`. For the trade-off rationale, see `issues/rsm-3143-dla-pi-research/research-report.md`.
 
 ### Topology
 
@@ -79,7 +79,7 @@ The `studio code` agent and the `studio migrate` command both delegate platform-
 `startDlaBridge` in `tools/dla/bridge.ts` spawns DLA's stdio MCP server as a child process and connects an MCP `Client` over stdio. The spawn pipeline:
 
 - `process.execPath` runs Node (the same Electron-as-Node binary the CLI itself uses).
-- `tsx` is loaded as the loader entry. Both the bridge (`tools/dla/bridge.ts`) and the standalone `studio migrate` path (`apps/cli/commands/migrate/resolvers.ts`) resolve it as `tsx/cli` — the canonical key in tsx's package `exports` map. The deep `tsx/dist/cli.mjs` subpath is intentionally not exposed by `exports` and throws `ERR_PACKAGE_PATH_NOT_EXPORTED` at runtime; the regression tests in `tools/dla/tests/bridge.test.ts` (the `defaultTransportProvider — real require.resolve paths` block) lock both invariants in so the bridge can never silently regress back to the deep subpath.
+- `tsx` is loaded as the loader entry. Both the bridge (`tools/dla/bridge.ts`) and the standalone `studio liberate` path (`apps/cli/commands/liberate/resolvers.ts`) resolve it as `tsx/cli` — the canonical key in tsx's package `exports` map. The deep `tsx/dist/cli.mjs` subpath is intentionally not exposed by `exports` and throws `ERR_PACKAGE_PATH_NOT_EXPORTED` at runtime; the regression tests in `tools/dla/tests/bridge.test.ts` (the `defaultTransportProvider — real require.resolve paths` block) lock both invariants in so the bridge can never silently regress back to the deep subpath.
 - DLA's MCP server is resolved via `require.resolve('data-liberation/src/mcp-server.ts')`.
 - The spawn passes a sanitised env: `PATH`, plus a passthrough allowlist (`LIBERATION_TOKEN`, `SHOPIFY_ADMIN_TOKEN`, `NODE_PATH`, `NODE_OPTIONS`), plus `STUDIO_WPCOM_TOKEN` injected from the session's resolved wpcom access token. The parent never has to set `STUDIO_WPCOM_TOKEN` on its own environment.
 - `listTools` is called with a 10-second `AbortSignal.timeout` cap. Failures to spawn or list resolve to a bridge handle with `degraded: true` and an empty `tools` array — a missing or broken DLA install warns and continues, never crashes session startup.
@@ -108,18 +108,18 @@ The v1 integration is gated behind `STUDIO_DLA_ENABLED=1`. Both the bridge spawn
 
 ### Tool name surface
 
-DLA's tools are exposed as plain pi `customTools`. They surface to the model under their bare names — `liberate_inspect`, `liberate_extract`, `liberate_setup`, `liberate_import`, etc. — and **not** under the `mcp__data-liberation__*` prefix that pi reserves for first-party MCP registrations. The wrapper skill at `apps/cli/ai/skills/migrate/SKILL.md` references the bare names.
+DLA's tools are exposed as plain pi `customTools`. They surface to the model under their bare names — `liberate_inspect`, `liberate_extract`, `liberate_setup`, `liberate_import`, etc. — and **not** under the `mcp__data-liberation__*` prefix that pi reserves for first-party MCP registrations. The wrapper skill at `apps/cli/ai/skills/liberate/SKILL.md` references the bare names.
 
 ### `delegate: true` handoff
 
 `liberate_setup` and `liberate_import` accept a `delegate: true` argument. In delegate mode DLA returns a manifest of artifact paths — `wxrFile`, `outputDir`, `mediaDir`, `productsCsv?`, `redirectMap`, `importAuthors` — without writing to any live WordPress site. Studio's own tools then act on the manifest: `site_create` consumes the WXR via an inline `importWxr` blueprint step (routed through Playground to dodge the WP-CLI IPC 120-second no-activity timeout), and `wp_cli` handles follow-up steps like author creation and product import. The destructive `liberate_import` bucket forces this contract — calling it without `delegate: true` is blocked by both policy layers.
 
-### Surfaces: `/migrate` slash and standalone CLI
+### Surfaces: `/liberate` slash and standalone CLI
 
 DLA is reachable through two independent surfaces:
 
-- **`/migrate` skill inside `studio code`**: the agent walks the user through detect → extract → verify → site-create → import using the bridged DLA tools and Studio's own tools, with `AskUserQuestion` confirmations between heavier steps. Routes through the agent + bridge.
-- **`studio migrate <url>`**: a thin yargs wrapper in `apps/cli/commands/migrate/index.ts` that spawns DLA's CLI (`data-liberation/src/cli.ts`) directly via `process.execPath` + `tsx`, inheriting stdio. No agent is involved; DLA's own Ink UI streams to the terminal. Useful for CI, bulk runs, and any context where an LLM loop is unwanted. The standalone path prunes `STUDIO_WPCOM_TOKEN` from the child env because DLA's CLI does not read it (only DLA's MCP server does).
+- **`/liberate` skill inside `studio code`**: the agent walks the user through detect → extract → verify → site-create → import using the bridged DLA tools and Studio's own tools, with `AskUserQuestion` confirmations between heavier steps. Routes through the agent + bridge.
+- **`studio liberate <url>`**: a thin yargs wrapper in `apps/cli/commands/liberate/index.ts` that spawns DLA's CLI (`data-liberation/src/cli.ts`) directly via `process.execPath` + `tsx`, inheriting stdio. No agent is involved; DLA's own Ink UI streams to the terminal. Useful for CI, bulk runs, and any context where an LLM loop is unwanted. The standalone path prunes `STUDIO_WPCOM_TOKEN` from the child env because DLA's CLI does not read it (only DLA's MCP server does).
 
 ### Caveat: orphan in-flight work on abort
 

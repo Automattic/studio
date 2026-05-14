@@ -1,5 +1,6 @@
 import { LOCAL_STORAGE_DOLLY_WPCOM_SITE_CONVERSATIONS_KEY } from 'src/constants';
 import { initialPreviewState } from 'src/modules/wpcom-site-assistant/lib/preview';
+import { clearWpcomSiteAssistantTurnsForTests } from 'src/modules/wpcom-site-assistant/lib/turns';
 import {
 	DOLLY_AGENT_ID,
 	type WpcomSiteAssistantSessionState,
@@ -20,6 +21,7 @@ let hasLoadedWpcomSiteAssistantSessionStateCache = false;
 
 export const clearWpcomSiteAssistantStateCacheForTests = () => {
 	wpcomSiteAssistantSessionStateCache.clear();
+	clearWpcomSiteAssistantTurnsForTests();
 	hasLoadedWpcomSiteAssistantSessionStateCache = false;
 	localStorage.removeItem( LOCAL_STORAGE_DOLLY_WPCOM_SITE_CONVERSATIONS_KEY );
 };

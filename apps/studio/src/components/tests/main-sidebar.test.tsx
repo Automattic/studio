@@ -388,6 +388,39 @@ describe( 'MainSidebar Site Menu', () => {
 		).not.toBeInTheDocument();
 	} );
 
+	it( 'shows an unread indicator for a WordPress.com site with a hidden Dolly reply', async () => {
+		siteDetailsMocked.wpcomSiteActivity = {
+			101: { hasUnreadAssistantMessage: true },
+		};
+		vi.mocked( useAuth, { partial: true } ).mockReturnValue( {
+			isAuthenticated: true,
+			user: {
+				id: 1,
+				email: 'dsmart@example.com',
+				displayName: 'D Smart',
+			},
+		} );
+		vi.mocked( useGetWpComSitesQuery, { partial: true } ).mockReturnValue( {
+			data: {
+				sites: [
+					{
+						id: 101,
+						name: 'Auro Atelier',
+						url: 'https://auro.example',
+					},
+				],
+			},
+			isFetching: false,
+		} );
+
+		await act( async () => renderWithProvider( <MainSidebar /> ) );
+
+		expect( screen.getByRole( 'status', { name: 'Unread Dolly response' } ) ).toBeVisible();
+		expect(
+			screen.queryByRole( 'img', { name: 'Live WordPress.com site' } )
+		).not.toBeInTheDocument();
+	} );
+
 	it( 'shows a progress indicator for the active nested target while staging is being created', async () => {
 		siteDetailsMocked.selectedWpcomSite = {
 			id: 101,

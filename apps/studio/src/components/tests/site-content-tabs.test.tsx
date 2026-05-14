@@ -130,6 +130,8 @@ describe( 'SiteContentTabs', () => {
 			selectedWpcomSite,
 			sites: [ selectedSite ],
 			loadingServer: {},
+			setSelectedWpcomSite: vi.fn(),
+			setWpcomSiteActivity: vi.fn(),
 		} );
 		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
 

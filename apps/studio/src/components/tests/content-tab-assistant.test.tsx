@@ -717,6 +717,166 @@ describe( 'ContentTabAssistant', () => {
 		).not.toBeInTheDocument();
 	} );
 
+	it( 'keeps an active Dolly request running when switching selected WP.com sites', async () => {
+		let firstRequestSignal: AbortSignal | undefined;
+		let resolveFirstRequest: ( value: unknown ) => void = () => {};
+		mockDollyFetch( ( { init } ) => {
+			firstRequestSignal = init.signal as AbortSignal;
+			return new Promise( ( resolve ) => {
+				resolveFirstRequest = resolve;
+			} );
+		} );
+		const dollyClient = {
+			req: {
+				get: vi.fn( ( _params, callback ) => {
+					callback( null, [] );
+				} ),
+			},
+		} as unknown as WPCOM;
+
+		const { rerender } = renderWithContext( {
+			component: 'wpcom-site',
+			selectedWpcomSite: firstWpcomSite,
+			keyWpcomSiteAssistant: false,
+			auth: {
+				client: dollyClient,
+			},
+		} );
+
+		fireEvent.change( getInput(), { target: { value: 'Keep working' } } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
+
+		await screen.findByRole( 'button', { name: 'Stop processing' } );
+
+		rerender(
+			buildContextTree( {
+				component: 'wpcom-site',
+				selectedWpcomSite: secondWpcomSite,
+				keyWpcomSiteAssistant: false,
+				auth: {
+					client: dollyClient,
+				},
+			} )
+		);
+
+		expect( firstRequestSignal?.aborted ).toBe( false );
+		expect( screen.getByText( 'Second Dolly Site' ) ).toBeVisible();
+
+		await act( async () => {
+			resolveFirstRequest( {
+				result: {
+					id: 'task-1',
+					sessionId: 'session-for-first-site',
+					status: {
+						state: 'completed',
+						message: {
+							parts: [
+								{
+									type: 'text',
+									text: 'First site finished while hidden',
+								},
+							],
+						},
+					},
+				},
+			} );
+		} );
+
+		expect( queryChatMessageText( 'First site finished while hidden' ) ).not.toBeInTheDocument();
+
+		rerender(
+			buildContextTree( {
+				component: 'wpcom-site',
+				selectedWpcomSite: firstWpcomSite,
+				keyWpcomSiteAssistant: false,
+				auth: {
+					client: dollyClient,
+				},
+			} )
+		);
+
+		await waitFor( () => {
+			expect( getChatMessageText( 'First site finished while hidden' ) ).toBeVisible();
+		} );
+	} );
+
+	it( 'shows a jump-to-latest affordance when a visible chat receives a reply while scrolled up', async () => {
+		mockDollyFetch( () => ( {
+			result: {
+				id: 'task-1',
+				status: {
+					state: 'completed',
+					message: {
+						parts: [
+							{
+								type: 'text',
+								text: 'Reply below the current scroll position',
+							},
+						],
+					},
+				},
+			},
+		} ) );
+		const dollyClient = {
+			req: {
+				get: vi.fn( ( _params, callback ) => {
+					callback( null, [] );
+				} ),
+			},
+		} as unknown as WPCOM;
+
+		renderWithContext( {
+			component: 'wpcom-site',
+			auth: {
+				client: dollyClient,
+			},
+		} );
+
+		const messagesArea = screen
+			.getByTestId( 'assistant-chat' )
+			.querySelector< HTMLElement >( '[data-slot="messages"]' );
+		expect( messagesArea ).not.toBeNull();
+		if ( ! messagesArea ) {
+			throw new Error( 'Expected messages area to render.' );
+		}
+		await act(
+			() =>
+				new Promise< void >( ( resolve ) => {
+					window.requestAnimationFrame( () => resolve() );
+				} )
+		);
+		Object.defineProperties( messagesArea, {
+			clientHeight: {
+				value: 300,
+				configurable: true,
+			},
+			scrollHeight: {
+				value: 1200,
+				configurable: true,
+			},
+			scrollTop: {
+				value: 100,
+				writable: true,
+				configurable: true,
+			},
+		} );
+		fireEvent.wheel( messagesArea );
+		fireEvent.scroll( messagesArea );
+
+		fireEvent.change( getInput(), { target: { value: 'Answer below' } } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
+
+		await waitFor( () => {
+			expect( getChatMessageText( 'Reply below the current scroll position' ) ).toBeVisible();
+		} );
+		expect( screen.getByRole( 'button', { name: 'Jump to latest message' } ) ).toBeVisible();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Jump to latest message' } ) );
+		expect(
+			screen.queryByRole( 'button', { name: 'Jump to latest message' } )
+		).not.toBeInTheDocument();
+	} );
+
 	it( 'submits selected Dolly images from the upload affordance', async () => {
 		let finishMediaUpload: () => void = () => {};
 		const mediaUploadReady = new Promise< void >( ( resolve ) => {

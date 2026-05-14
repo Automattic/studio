@@ -355,6 +355,14 @@ const getWpcomSiteActivityLabel = ( activity?: WpcomSiteActivity ) => {
 		return __( 'Dolly is thinking' );
 	}
 
+	if (
+		activity?.hasUnreadAssistantMessage &&
+		! activity.isCreatingStagingSite &&
+		! activity.isAssistantThinking
+	) {
+		return __( 'Unread Dolly response' );
+	}
+
 	return undefined;
 };
 
@@ -374,7 +382,17 @@ const getWorkspaceActivity = (
 		( site ) => wpcomSiteActivity[ site.id ]?.isAssistantThinking
 	);
 
-	return siteWithAssistantThinking ? wpcomSiteActivity[ siteWithAssistantThinking.id ] : undefined;
+	if ( siteWithAssistantThinking ) {
+		return wpcomSiteActivity[ siteWithAssistantThinking.id ];
+	}
+
+	const siteWithUnreadAssistantMessage = workspace.sites.find(
+		( site ) => wpcomSiteActivity[ site.id ]?.hasUnreadAssistantMessage
+	);
+
+	return siteWithUnreadAssistantMessage
+		? wpcomSiteActivity[ siteWithUnreadAssistantMessage.id ]
+		: undefined;
 };
 
 function WpcomSiteActivityIndicator( {
@@ -388,6 +406,23 @@ function WpcomSiteActivityIndicator( {
 
 	if ( ! label ) {
 		return null;
+	}
+
+	if (
+		activity?.hasUnreadAssistantMessage &&
+		! activity.isCreatingStagingSite &&
+		! activity.isAssistantThinking
+	) {
+		return (
+			<span
+				role="status"
+				aria-label={ label }
+				title={ label }
+				className={ cx( 'grid h-5 w-5 shrink-0 place-items-center', className ) }
+			>
+				<span className="h-2.5 w-2.5 rounded-full bg-frame-theme" />
+			</span>
+		);
 	}
 
 	return (

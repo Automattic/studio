@@ -11,6 +11,7 @@ import {
 	type DollyPreviewContext,
 	type DollyPreviewState,
 	type DollySiteAssociationContext,
+	type OpenPreviewOptions,
 } from 'src/modules/wpcom-site-assistant/lib/types';
 import { hasHttpProtocol, normalizeSiteBaseUrl } from 'src/modules/wpcom-site-assistant/lib/utils';
 import type { Ability, ContextProvider } from '@automattic/agenttic-client';
@@ -56,6 +57,26 @@ export const shouldForcePreviewReload = ( toolArguments: Record< string, unknown
 		'previewNeedsRefresh',
 		'preview_needs_refresh',
 	] ) === true;
+
+export const getNextPreviewState = (
+	currentState: DollyPreviewState,
+	pathOrUrl = '/',
+	title?: string,
+	{ forceReload = false }: OpenPreviewOptions = {}
+): DollyPreviewState => {
+	const shouldLoad = forceReload || ! currentState.open || currentState.pathOrUrl !== pathOrUrl;
+
+	return {
+		...currentState,
+		open: true,
+		pathOrUrl,
+		title,
+		pageTitle: shouldLoad ? undefined : currentState.pageTitle,
+		currentUrl: shouldLoad ? undefined : currentState.currentUrl,
+		isLoading: shouldLoad ? true : currentState.isLoading,
+		reloadNonce: forceReload ? currentState.reloadNonce + 1 : currentState.reloadNonce,
+	};
+};
 
 export const createDollyPreviewAbility = (
 	callback: NonNullable< Ability[ 'callback' ] >

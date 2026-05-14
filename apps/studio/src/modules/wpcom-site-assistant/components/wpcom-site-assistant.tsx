@@ -1,8 +1,7 @@
-import { useClientAbilities } from '@automattic/agenttic-client';
 import { AgentUI, ImageUploader, Suggestions } from '@automattic/agenttic-ui';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
-import { desktop, Icon, image as imageIcon, trash } from '@wordpress/icons';
+import { chevronDown, desktop, Icon, image as imageIcon, trash } from '@wordpress/icons';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ClearHistoryReminder from 'src/components/ai-clear-history-reminder';
 import { ArrowIcon } from 'src/components/arrow-icon';
@@ -42,6 +41,7 @@ import {
 	createDollyPreviewAbilities,
 	createPreviewContext,
 	createWpcomOnlySiteAssociationContext,
+	getNextPreviewState,
 	initialPreviewState,
 	normalizePreviewUrl,
 } from 'src/modules/wpcom-site-assistant/lib/preview';
@@ -64,6 +64,13 @@ import {
 	sendDollyMessage,
 } from 'src/modules/wpcom-site-assistant/lib/transport';
 import {
+	abortWpcomSiteAssistantTurn,
+	finishWpcomSiteAssistantTurn,
+	getWpcomSiteAssistantTurn,
+	startWpcomSiteAssistantTurn,
+	useWpcomSiteAssistantTurn,
+} from 'src/modules/wpcom-site-assistant/lib/turns';
+import {
 	DOLLY_AGENT_ID,
 	DOLLY_IMAGE_FILE_TYPES,
 	DOLLY_IMAGE_MAX_FILE_SIZE,
@@ -71,11 +78,13 @@ import {
 	type DollyMessageImageAttachment,
 	type DollyPendingImage,
 	type DollyPreviewState,
+	type DollyUploadedImage,
 	type OpenPreviewOptions,
 	type WpcomSiteAssistantSessionState,
 } from 'src/modules/wpcom-site-assistant/lib/types';
 import { generateMessage, Message as MessageType } from 'src/stores/chat-slice';
 import { useCreateWpcomStagingSiteMutation } from 'src/stores/sync/wpcom-sites';
+import type { ToolProvider } from '@automattic/agenttic-client';
 import type {
 	AgentUIProps,
 	ImageUploaderHandle,
@@ -246,16 +255,17 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 	);
 	const [ pendingImages, setPendingImages ] = useState< DollyPendingImage[] >( [] );
 	const [ imageUploadError, setImageUploadError ] = useState< string | undefined >();
+	const [ stagingCreationSiteId, setStagingCreationSiteId ] = useState< number | undefined >();
+	const [ showJumpToLatest, setShowJumpToLatest ] = useState( false );
 	const [ optimisticMessageImages, setOptimisticMessageImages ] = useState<
 		Record< string, DollyMessageImageAttachment >
 	>( {} );
-	const selectionRevisionRef = useRef( 0 );
 	const isMountedRef = useRef( true );
 	const imageUploaderRef = useRef< ImageUploaderHandle >( null );
 	const dollyDropZoneRef = useRef< HTMLDivElement >( null );
+	const conversationViewRef = useRef< HTMLDivElement >( null );
 	const messagesRef = useRef< MessageType[] >( messages );
 	const pendingImagesRef = useRef< DollyPendingImage[] >( pendingImages );
-	const dollyRequestAbortControllerRef = useRef< AbortController | undefined >( undefined );
 	const activeWpcomSiteRef = useRef< SyncSite >( activeWpcomSite );
 	const selectedWpcomSiteIdRef = useRef( selectedWpcomSite.id );
 	const conversationIdRef = useRef( initialSessionState.id );
@@ -291,6 +301,15 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 	const stagingCreationBlocker = getKnownStagingCreationBlocker( activeWpcomSite );
 	const canCreateStagingSite = showCreateStagingSiteButton && ! stagingCreationBlocker;
 	const isCreatingStagingSite = createWpcomStagingSiteResult.isLoading;
+	const isCreatingStagingSiteForActiveSite =
+		isCreatingStagingSite && stagingCreationSiteId === activeWpcomSite.id;
+	const hasActiveAssistantTurn = useWpcomSiteAssistantTurn( sessionCacheKey );
+	const isCurrentSessionAssistantThinking = isAssistantThinking || hasActiveAssistantTurn;
+	const hadActiveAssistantTurnRef = useRef( hasActiveAssistantTurn );
+	const locallyStartedTurnSessionKeysRef = useRef( new Set< string >() );
+	const stagingCreationSiteIdRef = useRef< number | undefined >( undefined );
+	const isAtLatestMessageRef = useRef( true );
+	const previousMessageCountRef = useRef( messages.length );
 
 	const updatePreviewState = useCallback( ( nextState: Partial< DollyPreviewState > ) => {
 		setPreviewState( ( currentState ) => ( { ...currentState, ...nextState } ) );
@@ -394,23 +413,51 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 	useEffect( () => () => revokeDollyPendingImageUrls( pendingImagesRef.current ), [] );
 
 	useEffect( () => {
-		isAssistantThinkingRef.current = isAssistantThinking;
-	}, [ isAssistantThinking ] );
+		isAssistantThinkingRef.current = isCurrentSessionAssistantThinking;
+	}, [ isCurrentSessionAssistantThinking ] );
 
 	useEffect( () => {
-		const siteId = activeWpcomSite.id;
-		setWpcomSiteActivity( siteId, {
-			isAssistantThinking,
-			isCreatingStagingSite,
+		setWpcomSiteActivity( selectedWpcomSite.id, {
+			hasUnreadAssistantMessage: false,
 		} );
+	}, [ selectedWpcomSite.id, setWpcomSiteActivity ] );
 
-		return () => {
-			setWpcomSiteActivity( siteId, {
-				isAssistantThinking: false,
-				isCreatingStagingSite: false,
-			} );
-		};
-	}, [ activeWpcomSite.id, isAssistantThinking, isCreatingStagingSite, setWpcomSiteActivity ] );
+	const getMessagesScrollArea = useCallback(
+		() =>
+			conversationViewRef.current?.querySelector< HTMLElement >( '[data-slot="messages"]' ) ?? null,
+		[]
+	);
+
+	const isMessagesScrollAreaAtLatest = useCallback( () => {
+		const scrollArea = getMessagesScrollArea();
+		if ( ! scrollArea ) {
+			return true;
+		}
+
+		return scrollArea.scrollHeight - scrollArea.scrollTop - scrollArea.clientHeight <= 48;
+	}, [ getMessagesScrollArea ] );
+
+	const scrollToLatestMessage = useCallback(
+		( behavior: ScrollBehavior = 'smooth' ) => {
+			const scrollArea = getMessagesScrollArea();
+			if ( ! scrollArea ) {
+				return;
+			}
+
+			if ( behavior === 'auto' ) {
+				scrollArea.scrollTop = scrollArea.scrollHeight;
+			} else {
+				scrollArea.scrollTo( {
+					top: scrollArea.scrollHeight,
+					behavior,
+				} );
+			}
+
+			isAtLatestMessageRef.current = true;
+			setShowJumpToLatest( false );
+		},
+		[ getMessagesScrollArea ]
+	);
 
 	useEffect( () => {
 		if ( selectedWpcomSiteIdRef.current !== selectedWpcomSite.id ) {
@@ -448,8 +495,6 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		isMountedRef.current = true;
 		return () => {
 			isMountedRef.current = false;
-			dollyRequestAbortControllerRef.current?.abort();
-			dollyRequestAbortControllerRef.current = undefined;
 		};
 	}, [] );
 
@@ -458,9 +503,6 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 			return;
 		}
 
-		selectionRevisionRef.current += 1;
-		dollyRequestAbortControllerRef.current?.abort();
-		dollyRequestAbortControllerRef.current = undefined;
 		selectedWpcomSiteIdRef.current = selectedWpcomSite.id;
 		const nextSessionState = getWpcomSiteAssistantSessionState(
 			sessionCacheKey,
@@ -469,14 +511,52 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		conversationIdRef.current = nextSessionState.id;
 		remoteChatIdRef.current = nextSessionState.remoteChatId;
 		serverHydrationDisabledRef.current = Boolean( nextSessionState.serverHydrationDisabled );
+		activeWpcomSiteRef.current = nextSessionState.activeWpcomSite;
+		messagesRef.current = nextSessionState.messages;
 		setActiveWpcomSite( nextSessionState.activeWpcomSite );
 		setInput( nextSessionState.input );
 		setMessages( nextSessionState.messages );
 		setOptimisticMessageImages( {} );
 		setSessionId( nextSessionState.sessionId );
-		setIsAssistantThinking( false );
+		setIsAssistantThinking( Boolean( getWpcomSiteAssistantTurn( sessionCacheKey ) ) );
 		setPreviewState( nextSessionState.previewState );
 	}, [ selectedWpcomSite, sessionCacheKey ] );
+
+	useEffect( () => {
+		previousMessageCountRef.current = messagesRef.current.length;
+		isAtLatestMessageRef.current = true;
+		setShowJumpToLatest( false );
+
+		const animationFrameId = window.requestAnimationFrame( () => {
+			scrollToLatestMessage( 'auto' );
+		} );
+
+		return () => {
+			window.cancelAnimationFrame( animationFrameId );
+		};
+	}, [ scrollToLatestMessage, sessionCacheKey ] );
+
+	useEffect( () => {
+		const previousMessageCount = previousMessageCountRef.current;
+		const latestMessage = messages[ messages.length - 1 ];
+		previousMessageCountRef.current = messages.length;
+
+		if ( messages.length <= previousMessageCount || latestMessage?.role !== 'assistant' ) {
+			return;
+		}
+
+		if ( isAtLatestMessageRef.current ) {
+			const animationFrameId = window.requestAnimationFrame( () => {
+				scrollToLatestMessage( 'smooth' );
+			} );
+
+			return () => {
+				window.cancelAnimationFrame( animationFrameId );
+			};
+		}
+
+		setShowJumpToLatest( true );
+	}, [ messages, scrollToLatestMessage ] );
 
 	useEffect( () => {
 		if (
@@ -552,28 +632,118 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 
 	const openPreview = useCallback(
 		( pathOrUrl = '/', title?: string, { forceReload = false }: OpenPreviewOptions = {} ) => {
-			setPreviewState( ( currentState ) => {
-				const shouldLoad =
-					forceReload || ! currentState.open || currentState.pathOrUrl !== pathOrUrl;
-
-				return {
-					...currentState,
-					open: true,
-					pathOrUrl,
-					title,
-					pageTitle: shouldLoad ? undefined : currentState.pageTitle,
-					currentUrl: shouldLoad ? undefined : currentState.currentUrl,
-					isLoading: shouldLoad ? true : currentState.isLoading,
-					reloadNonce: forceReload ? currentState.reloadNonce + 1 : currentState.reloadNonce,
-				};
-			} );
+			setPreviewState( ( currentState ) =>
+				getNextPreviewState( currentState, pathOrUrl, title, { forceReload } )
+			);
 		},
 		[]
 	);
 
-	const createStagingSiteForActiveSite = useCallback(
-		async ( { selectWpcomSite = false }: { selectWpcomSite?: boolean } = {} ) => {
-			const site = activeWpcomSiteRef.current;
+	const isVisibleSession = useCallback( ( targetSessionKey: string ) => {
+		return (
+			isMountedRef.current &&
+			createWpcomSiteAssistantSessionKey( selectedWpcomSiteIdRef.current ) === targetSessionKey
+		);
+	}, [] );
+
+	const writeCachedSessionState = useCallback(
+		(
+			targetSessionKey: string,
+			targetSelectedWpcomSite: SyncSite,
+			updater: (
+				currentSessionState: WpcomSiteAssistantSessionState
+			) => WpcomSiteAssistantSessionState
+		) => {
+			const currentSessionState =
+				wpcomSiteAssistantSessionStateCache.get( targetSessionKey ) ??
+				getWpcomSiteAssistantSessionState( targetSessionKey, targetSelectedWpcomSite );
+			const nextSessionState = {
+				...updater( currentSessionState ),
+				lastUpdated: Date.now(),
+			};
+			wpcomSiteAssistantSessionStateCache.set( targetSessionKey, nextSessionState );
+			persistWpcomSiteAssistantSessionStateCache();
+			return nextSessionState;
+		},
+		[]
+	);
+
+	const applyVisibleSessionState = useCallback(
+		(
+			targetSessionKey: string,
+			nextSessionState: WpcomSiteAssistantSessionState,
+			{ clearOptimisticImages = false }: { clearOptimisticImages?: boolean } = {}
+		) => {
+			if ( ! isVisibleSession( targetSessionKey ) ) {
+				return;
+			}
+
+			conversationIdRef.current = nextSessionState.id;
+			remoteChatIdRef.current = nextSessionState.remoteChatId;
+			serverHydrationDisabledRef.current = Boolean( nextSessionState.serverHydrationDisabled );
+			messagesRef.current = nextSessionState.messages;
+			setActiveWpcomSite( nextSessionState.activeWpcomSite );
+			setInput( nextSessionState.input );
+			setMessages( nextSessionState.messages );
+			setSessionId( nextSessionState.sessionId );
+			setPreviewState( nextSessionState.previewState );
+			if ( clearOptimisticImages ) {
+				setOptimisticMessageImages( {} );
+			}
+		},
+		[ isVisibleSession ]
+	);
+
+	useEffect( () => {
+		const hadActiveAssistantTurn = hadActiveAssistantTurnRef.current;
+		hadActiveAssistantTurnRef.current = hasActiveAssistantTurn;
+
+		if ( ! hadActiveAssistantTurn || hasActiveAssistantTurn || isAssistantThinking ) {
+			return;
+		}
+
+		if ( locallyStartedTurnSessionKeysRef.current.delete( sessionCacheKey ) ) {
+			return;
+		}
+
+		const nextSessionState = getWpcomSiteAssistantSessionState(
+			sessionCacheKey,
+			selectedWpcomSite
+		);
+		applyVisibleSessionState( sessionCacheKey, nextSessionState );
+		setIsAssistantThinking( false );
+	}, [
+		applyVisibleSessionState,
+		hasActiveAssistantTurn,
+		isAssistantThinking,
+		selectedWpcomSite,
+		sessionCacheKey,
+	] );
+
+	useEffect( () => {
+		const scrollArea = getMessagesScrollArea();
+		if ( ! scrollArea ) {
+			return;
+		}
+
+		const handleScroll = () => {
+			const isAtLatest = isMessagesScrollAreaAtLatest();
+			isAtLatestMessageRef.current = isAtLatest;
+			if ( isAtLatest ) {
+				setShowJumpToLatest( false );
+			}
+		};
+
+		scrollArea.addEventListener( 'scroll', handleScroll, { passive: true } );
+		handleScroll();
+
+		return () => {
+			scrollArea.removeEventListener( 'scroll', handleScroll );
+		};
+	}, [ getMessagesScrollArea, isMessagesScrollAreaAtLatest, sessionCacheKey ] );
+
+	const createStagingSiteForSite = useCallback(
+		async ( site: SyncSite, { selectWpcomSite = false }: { selectWpcomSite?: boolean } = {} ) => {
 			const blocker = getKnownStagingCreationBlocker( site );
 			const canCreate =
 				! site.isStaging && ! site.isPressable && ! site.stagingSiteIds?.length && ! blocker;
@@ -582,101 +752,186 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 				throw new Error( getCreateStagingSiteUnavailableMessage( site ) );
 			}
 
-			const stagingSite = await createWpcomStagingSite( {
-				site,
-				userId,
-			} ).unwrap();
+			stagingCreationSiteIdRef.current = site.id;
+			if ( isMountedRef.current ) {
+				setStagingCreationSiteId( site.id );
+			}
+			setWpcomSiteActivity( site.id, {
+				isCreatingStagingSite: true,
+			} );
 
-			if ( isMountedRef.current && activeWpcomSiteRef.current.id === site.id ) {
-				setActiveWpcomSite( stagingSite );
-				if ( selectWpcomSite ) {
-					setSelectedWpcomSite( stagingSite );
+			try {
+				const stagingSite = await createWpcomStagingSite( {
+					site,
+					userId,
+				} ).unwrap();
+
+				if ( isMountedRef.current && activeWpcomSiteRef.current.id === site.id ) {
+					setActiveWpcomSite( stagingSite );
+					if ( selectWpcomSite && selectedWpcomSiteIdRef.current === site.id ) {
+						setSelectedWpcomSite( stagingSite );
+					}
+				}
+
+				return stagingSite;
+			} finally {
+				setWpcomSiteActivity( site.id, {
+					isCreatingStagingSite: false,
+				} );
+
+				if ( stagingCreationSiteIdRef.current === site.id ) {
+					stagingCreationSiteIdRef.current = undefined;
+					if ( isMountedRef.current ) {
+						setStagingCreationSiteId( undefined );
+					}
 				}
 			}
-
-			return stagingSite;
 		},
-		[ createWpcomStagingSite, setSelectedWpcomSite, userId ]
+		[ createWpcomStagingSite, setSelectedWpcomSite, setWpcomSiteActivity, userId ]
 	);
 
-	const getDollyClientAbilities = useCallback(
-		async () => [
-			...createDollyPreviewAbilities( {
-				activeWpcomSite,
-				previewState,
-				openPreview,
-			} ),
-			createDollyManageStagingSiteAbility( async ( input: Record< string, unknown > ) => {
-				const action = typeof input.action === 'string' ? input.action : 'create';
-				const site = activeWpcomSiteRef.current;
-
-				if ( action !== 'create' ) {
-					return {
-						success: false,
-						action,
-						siteId: site.id,
-						error: __( 'Studio only supports creating staging sites right now.' ),
-					};
-				}
-
-				try {
-					const stagingSite = await createStagingSiteForActiveSite( {
-						selectWpcomSite: true,
-					} );
-					return {
-						success: true,
-						action,
-						siteId: site.id,
-						stagingSiteId: stagingSite.id,
-						url: stagingSite.url,
-						message: sprintf( __( 'Created staging site: %s' ), stagingSite.url ),
-					};
-				} catch ( error ) {
-					return {
-						success: false,
-						action,
-						siteId: site.id,
-						error: getStagingCreationErrorMessage( error, site ),
-					};
-				}
-			} ),
-		],
-		[ activeWpcomSite, createStagingSiteForActiveSite, openPreview, previewState ]
+	const createStagingSiteForActiveSite = useCallback(
+		( options?: { selectWpcomSite?: boolean } ) =>
+			createStagingSiteForSite( activeWpcomSiteRef.current, options ),
+		[ createStagingSiteForSite ]
 	);
-	const dollyToolProvider = useClientAbilities( getDollyClientAbilities );
+
+	const createDollyToolProviderForSession = useCallback(
+		( {
+			targetSessionKey,
+			targetSelectedWpcomSite,
+			targetActiveWpcomSite,
+			targetPreviewState,
+		}: {
+			targetSessionKey: string;
+			targetSelectedWpcomSite: SyncSite;
+			targetActiveWpcomSite: SyncSite;
+			targetPreviewState: DollyPreviewState;
+		} ): ToolProvider => ( {
+			getAbilities: async () => [
+				...createDollyPreviewAbilities( {
+					activeWpcomSite: targetActiveWpcomSite,
+					previewState: targetPreviewState,
+					openPreview: ( pathOrUrl = '/', title, options ) => {
+						const nextSessionState = writeCachedSessionState(
+							targetSessionKey,
+							targetSelectedWpcomSite,
+							( currentSessionState ) => ( {
+								...currentSessionState,
+								previewState: getNextPreviewState(
+									currentSessionState.previewState,
+									pathOrUrl,
+									title,
+									options
+								),
+							} )
+						);
+
+						if ( isVisibleSession( targetSessionKey ) ) {
+							setPreviewState( nextSessionState.previewState );
+						}
+					},
+				} ),
+				createDollyManageStagingSiteAbility( async ( input: Record< string, unknown > ) => {
+					const action = typeof input.action === 'string' ? input.action : 'create';
+					const site = targetActiveWpcomSite;
+
+					if ( action !== 'create' ) {
+						return {
+							success: false,
+							action,
+							siteId: site.id,
+							error: __( 'Studio only supports creating staging sites right now.' ),
+						};
+					}
+
+					try {
+						const stagingSite = await createStagingSiteForSite( site, {
+							selectWpcomSite: true,
+						} );
+						const nextSessionState = writeCachedSessionState(
+							targetSessionKey,
+							targetSelectedWpcomSite,
+							( currentSessionState ) => ( {
+								...currentSessionState,
+								activeWpcomSite: stagingSite,
+							} )
+						);
+						applyVisibleSessionState( targetSessionKey, nextSessionState );
+						return {
+							success: true,
+							action,
+							siteId: site.id,
+							stagingSiteId: stagingSite.id,
+							url: stagingSite.url,
+							message: sprintf( __( 'Created staging site: %s' ), stagingSite.url ),
+						};
+					} catch ( error ) {
+						return {
+							success: false,
+							action,
+							siteId: site.id,
+							error: getStagingCreationErrorMessage( error, site ),
+						};
+					}
+				} ),
+			],
+		} ),
+		[
+			applyVisibleSessionState,
+			createStagingSiteForSite,
+			isVisibleSession,
+			writeCachedSessionState,
+		]
+	);
 
 	const syncBackendActiveWpcomSite = useCallback(
-		async ( backendSelectedSiteId: number | undefined, requestSelectionRevision: number ) => {
+		async ( {
+			backendSelectedSiteId,
+			targetSessionKey,
+			targetSelectedWpcomSite,
+			targetActiveWpcomSite,
+		}: {
+			backendSelectedSiteId: number | undefined;
+			targetSessionKey: string;
+			targetSelectedWpcomSite: SyncSite;
+			targetActiveWpcomSite: SyncSite;
+		} ) => {
 			if (
 				! client ||
 				! backendSelectedSiteId ||
-				activeWpcomSiteRef.current.id === backendSelectedSiteId ||
-				selectionRevisionRef.current !== requestSelectionRevision
+				targetActiveWpcomSite.id === backendSelectedSiteId
 			) {
 				return;
 			}
 
 			const nextSite = await fetchDollySite( client, backendSelectedSiteId );
-			if (
-				nextSite &&
-				isMountedRef.current &&
-				selectionRevisionRef.current === requestSelectionRevision
-			) {
-				setActiveWpcomSite( nextSite );
+			if ( nextSite ) {
+				const nextSessionState = writeCachedSessionState(
+					targetSessionKey,
+					targetSelectedWpcomSite,
+					( currentSessionState ) => ( {
+						...currentSessionState,
+						activeWpcomSite: nextSite,
+					} )
+				);
+				applyVisibleSessionState( targetSessionKey, nextSessionState );
 			}
 		},
-		[ client ]
+		[ applyVisibleSessionState, client, writeCachedSessionState ]
 	);
 
 	const submitPrompt = useCallback(
 		( chatMessage: string, isRetry?: boolean ) => {
 			const trimmedMessage = chatMessage.trim();
 			const imagesToSend = isRetry ? [] : pendingImages;
+			const targetSessionKey = sessionCacheKey;
 			if (
 				( ! trimmedMessage && imagesToSend.length === 0 ) ||
 				! client ||
-				isAssistantThinking ||
-				selectedWpcomSiteIdRef.current !== selectedWpcomSite.id
+				isCurrentSessionAssistantThinking ||
+				selectedWpcomSiteIdRef.current !== selectedWpcomSite.id ||
+				getWpcomSiteAssistantTurn( targetSessionKey )
 			) {
 				return;
 			}
@@ -685,13 +940,31 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 				setInput( '' );
 			}
 
+			const targetSelectedWpcomSite = selectedWpcomSite;
+			const targetActiveWpcomSite = activeWpcomSite;
+			const targetPreviewState = previewState;
+			const targetPreviewContext = previewContext;
+			const targetSiteAssociation = siteAssociation;
+			const targetSessionId = sessionId;
+			const targetConversationId = conversationIdRef.current;
+			const targetRemoteChatId = remoteChatIdRef.current;
+			const targetServerHydrationDisabled = serverHydrationDisabledRef.current;
+			const startingMessages: MessageType[] = messagesRef.current.map( ( currentMessage ) => ( {
+				...currentMessage,
+				failedMessage: false,
+			} ) );
 			const messageToSend =
 				trimmedMessage ||
 				( imagesToSend.length > 0 ? createDollyImagePrompt( imagesToSend.length ) : '' );
-			const newMessageId = isRetry ? messages.length - 1 : messages.length;
+			const newMessageId = isRetry ? startingMessages.length - 1 : startingMessages.length;
 			const optimisticImagesPromise = createDollyPendingVisibleImages( imagesToSend );
 			const abortController = new AbortController();
-			dollyRequestAbortControllerRef.current = abortController;
+			const toolProvider = createDollyToolProviderForSession( {
+				targetSessionKey,
+				targetSelectedWpcomSite,
+				targetActiveWpcomSite,
+				targetPreviewState,
+			} );
 
 			if ( ! isRetry && imagesToSend.length > 0 ) {
 				setPendingImages( [] );
@@ -699,18 +972,28 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 				revokeDollyPendingImageUrls( imagesToSend );
 			}
 
-			setIsAssistantThinking( true );
-			const requestSelectionRevision = selectionRevisionRef.current;
-			const isCurrentTurn = () =>
-				isMountedRef.current && selectionRevisionRef.current === requestSelectionRevision;
+			startWpcomSiteAssistantTurn( {
+				sessionKey: targetSessionKey,
+				siteId: targetActiveWpcomSite.id,
+				abortController,
+			} );
+			locallyStartedTurnSessionKeysRef.current.add( targetSessionKey );
+			setWpcomSiteActivity( targetActiveWpcomSite.id, {
+				isAssistantThinking: true,
+			} );
+			if ( isVisibleSession( targetSessionKey ) ) {
+				setIsAssistantThinking( true );
+			}
 
 			void ( async () => {
 				let optimisticMessage: MessageType | undefined;
+				let messagesForResponse: MessageType[] = startingMessages;
+				let uploadedImages: DollyUploadedImage[] = [];
 				try {
 					const optimisticImages = await optimisticImagesPromise;
 					const nextOptimisticMessage = generateMessage( messageToSend, 'user', newMessageId );
 					optimisticMessage = nextOptimisticMessage;
-					if ( optimisticImages.length > 0 ) {
+					if ( optimisticImages.length > 0 && isVisibleSession( targetSessionKey ) ) {
 						setOptimisticMessageImages( ( currentImages ) => ( {
 							...currentImages,
 							[ nextOptimisticMessage.id ?? nextOptimisticMessage.createdAt ]: {
@@ -719,26 +1002,32 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 							},
 						} ) );
 					}
-					setMessages( ( currentMessages ) => {
-						if ( ! isRetry ) {
-							return [
-								...currentMessages.map( ( currentMessage ) => ( {
-									...currentMessage,
-									failedMessage: false,
-								} ) ),
-								nextOptimisticMessage,
-							];
-						}
+					messagesForResponse = isRetry
+						? startingMessages.map( ( currentMessage ) =>
+								currentMessage.id === nextOptimisticMessage.id
+									? { ...nextOptimisticMessage, failedMessage: false }
+									: currentMessage
+						  )
+						: [ ...startingMessages, nextOptimisticMessage ];
+					const sessionStateWithUserMessage = writeCachedSessionState(
+						targetSessionKey,
+						targetSelectedWpcomSite,
+						( currentSessionState ) => ( {
+							...currentSessionState,
+							id: targetConversationId,
+							remoteChatId: targetRemoteChatId,
+							serverHydrationDisabled: targetServerHydrationDisabled,
+							input: '',
+							messages: messagesForResponse,
+							sessionId: targetSessionId,
+							activeWpcomSite: targetActiveWpcomSite,
+							previewState: targetPreviewState,
+						} )
+					);
+					applyVisibleSessionState( targetSessionKey, sessionStateWithUserMessage );
 
-						return currentMessages.map( ( currentMessage ) =>
-							currentMessage.id === nextOptimisticMessage.id
-								? { ...nextOptimisticMessage, failedMessage: false }
-								: currentMessage
-						);
-					} );
-
-					const uploadedImages = await uploadDollyImages(
-						activeWpcomSite.id,
+					uploadedImages = await uploadDollyImages(
+						targetActiveWpcomSite.id,
 						imagesToSend,
 						abortController.signal
 					);
@@ -752,15 +1041,22 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 							uploadedVisibleImages,
 							imagesToSend.length
 						);
-						setMessages( ( currentMessages ) =>
-							currentMessages.map( ( currentMessage ) =>
-								currentMessage.id === optimisticMessage?.id
-									? { ...currentMessage, content: visibleMessage }
-									: currentMessage
-							)
+						messagesForResponse = messagesForResponse.map( ( currentMessage ) =>
+							currentMessage.id === optimisticMessage?.id
+								? { ...currentMessage, content: visibleMessage }
+								: currentMessage
 						);
+						const sessionStateWithUploadedImages = writeCachedSessionState(
+							targetSessionKey,
+							targetSelectedWpcomSite,
+							( currentSessionState ) => ( {
+								...currentSessionState,
+								messages: messagesForResponse,
+							} )
+						);
+						applyVisibleSessionState( targetSessionKey, sessionStateWithUploadedImages );
 						void preloadDollyImageUrls( uploadedVisibleImages ).then( () => {
-							if ( ! isCurrentTurn() ) {
+							if ( ! isVisibleSession( targetSessionKey ) ) {
 								return;
 							}
 
@@ -787,78 +1083,102 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 						abortSignal: abortController.signal,
 						message: messageToSend,
 						uploadedImages,
-						previewContext,
-						siteAssociation,
-						selectedSite: activeWpcomSite,
-						sessionId,
-						siteId: activeWpcomSite.id,
-						toolProvider: dollyToolProvider,
+						previewContext: targetPreviewContext,
+						siteAssociation: targetSiteAssociation,
+						selectedSite: targetActiveWpcomSite,
+						sessionId: targetSessionId,
+						siteId: targetActiveWpcomSite.id,
+						toolProvider,
 					} );
 
-					if ( ! isMountedRef.current ) {
-						return;
+					const responseMessages: MessageType[] = [ ...messagesForResponse ];
+					const hasAssistantReply = Boolean( response.text.trim() );
+					if ( hasAssistantReply ) {
+						responseMessages.push(
+							generateMessage( response.text, 'assistant', responseMessages.length )
+						);
 					}
 
-					if ( response.sessionId ) {
-						setSessionId( response.sessionId );
+					const nextSessionState = writeCachedSessionState(
+						targetSessionKey,
+						targetSelectedWpcomSite,
+						( currentSessionState ) => ( {
+							...currentSessionState,
+							messages: responseMessages,
+							sessionId: response.sessionId ?? targetSessionId,
+						} )
+					);
+					applyVisibleSessionState( targetSessionKey, nextSessionState );
+					if ( hasAssistantReply ) {
+						setWpcomSiteActivity( targetActiveWpcomSite.id, {
+							hasUnreadAssistantMessage: ! isVisibleSession( targetSessionKey ),
+						} );
 					}
 
-					if ( response.text.trim() ) {
-						setMessages( ( currentMessages ) => [
-							...currentMessages,
-							generateMessage( response.text, 'assistant', currentMessages.length ),
-						] );
-					}
-
-					void resolveBackendSelectedSiteId( client, response, sessionId ).then(
+					void resolveBackendSelectedSiteId( client, response, targetSessionId ).then(
 						( backendSelectedSiteId ) => {
-							if ( isCurrentTurn() ) {
-								void syncBackendActiveWpcomSite( backendSelectedSiteId, requestSelectionRevision );
-							}
+							void syncBackendActiveWpcomSite( {
+								backendSelectedSiteId,
+								targetSessionKey,
+								targetSelectedWpcomSite,
+								targetActiveWpcomSite,
+							} );
 						}
 					);
 				} catch ( error ) {
-					if ( ! isMountedRef.current ) {
-						return;
-					}
 					if ( isDollyRequestAbortError( error ) || abortController.signal.aborted ) {
 						return;
 					}
 					console.error( error );
-					setImageUploadError( getErrorMessage( error ) );
-					if ( ! isRetry ) {
-						setInput( chatMessage );
-					}
-					setMessages( ( currentMessages ) =>
-						currentMessages.map( ( currentMessage ) =>
-							currentMessage.id === optimisticMessage?.id
-								? { ...currentMessage, failedMessage: true }
-								: currentMessage
-						)
+					const errorMessage = getErrorMessage( error );
+					const nextMessages = optimisticMessage
+						? messagesForResponse.map( ( currentMessage ) =>
+								currentMessage.id === optimisticMessage?.id
+									? { ...currentMessage, failedMessage: true }
+									: currentMessage
+						  )
+						: messagesForResponse;
+					const nextSessionState = writeCachedSessionState(
+						targetSessionKey,
+						targetSelectedWpcomSite,
+						( currentSessionState ) => ( {
+							...currentSessionState,
+							input: isRetry ? currentSessionState.input : chatMessage,
+							messages: nextMessages,
+						} )
 					);
+					if ( isVisibleSession( targetSessionKey ) ) {
+						setImageUploadError( errorMessage );
+					}
+					applyVisibleSessionState( targetSessionKey, nextSessionState );
 				} finally {
-					const isCurrentRequest = dollyRequestAbortControllerRef.current === abortController;
-					if ( isCurrentRequest ) {
-						dollyRequestAbortControllerRef.current = undefined;
-						if ( isMountedRef.current ) {
-							setIsAssistantThinking( false );
-						}
+					finishWpcomSiteAssistantTurn( targetSessionKey, abortController );
+					setWpcomSiteActivity( targetActiveWpcomSite.id, {
+						isAssistantThinking: false,
+					} );
+					if ( isVisibleSession( targetSessionKey ) ) {
+						setIsAssistantThinking( false );
 					}
 				}
 			} )();
 		},
 		[
-			client,
-			dollyToolProvider,
-			isAssistantThinking,
-			messages.length,
 			activeWpcomSite,
+			applyVisibleSessionState,
+			client,
+			createDollyToolProviderForSession,
+			isCurrentSessionAssistantThinking,
+			isVisibleSession,
 			pendingImages,
 			previewContext,
-			selectedWpcomSite.id,
+			previewState,
+			selectedWpcomSite,
+			sessionCacheKey,
 			sessionId,
 			siteAssociation,
 			syncBackendActiveWpcomSite,
+			setWpcomSiteActivity,
+			writeCachedSessionState,
 		]
 	);
 
@@ -958,8 +1278,8 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 	}, [ failedMessageContent, submitPrompt ] );
 
 	const interruptDollyRequest = useCallback( () => {
-		dollyRequestAbortControllerRef.current?.abort();
-	}, [] );
+		abortWpcomSiteAssistantTurn( sessionCacheKey );
+	}, [ sessionCacheKey ] );
 
 	const persistStagingSiteConversation = useCallback(
 		( stagingSite: SyncSite, nextMessages: MessageType[] ) => {
@@ -1012,12 +1332,12 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 
 		const site = activeWpcomSiteRef.current;
 		const prompt = __( 'Make a staging site' );
-		const startingMessages = messagesRef.current.map( ( message ) => ( {
+		const startingMessages: MessageType[] = messagesRef.current.map( ( message ) => ( {
 			...message,
 			failedMessage: false,
 		} ) );
 		const userMessage = generateMessage( prompt, 'user', startingMessages.length );
-		const messagesWithUserPrompt = [ ...startingMessages, userMessage ];
+		const messagesWithUserPrompt: MessageType[] = [ ...startingMessages, userMessage ];
 
 		messagesRef.current = messagesWithUserPrompt;
 		setInput( '' );
@@ -1041,7 +1361,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 				'assistant',
 				messagesWithUserPrompt.length
 			);
-			const finalMessages = [ ...messagesWithUserPrompt, assistantMessage ];
+			const finalMessages: MessageType[] = [ ...messagesWithUserPrompt, assistantMessage ];
 			messagesRef.current = finalMessages;
 			setMessages( finalMessages );
 			setIsAssistantThinking( false );
@@ -1061,7 +1381,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 				'assistant',
 				messagesWithUserPrompt.length
 			);
-			const finalMessages = [ ...messagesWithUserPrompt, assistantMessage ];
+			const finalMessages: MessageType[] = [ ...messagesWithUserPrompt, assistantMessage ];
 			messagesRef.current = finalMessages;
 			setMessages( finalMessages );
 		} finally {
@@ -1112,16 +1432,16 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 	}, [ hasFailedMessage, imageUploadError, isOffline, retryFailedMessage ] );
 
 	const isInputUnavailable = isOffline || ! isAuthenticated || ! client;
-	const isInputDisabled = isInputUnavailable && ! isAssistantThinking;
-	const isInputActionDisabled = isInputUnavailable || isAssistantThinking;
+	const isInputDisabled = isInputUnavailable && ! isCurrentSessionAssistantThinking;
+	const isInputActionDisabled = isInputUnavailable || isCurrentSessionAssistantThinking;
 	const isCreateStagingSiteButtonDisabled =
 		! canCreateStagingSite ||
 		isCreatingStagingSite ||
-		isAssistantThinking ||
+		isCurrentSessionAssistantThinking ||
 		isOffline ||
 		! isAuthenticated ||
 		! client;
-	const createStagingSiteTooltip = isAssistantThinking
+	const createStagingSiteTooltip = isCurrentSessionAssistantThinking
 		? __( 'Wait for Dolly to finish before creating a staging site.' )
 		: stagingCreationBlocker;
 
@@ -1211,7 +1531,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 								aria-disabled={ isCreateStagingSiteButtonDisabled }
 								tooltipText={ createStagingSiteTooltip }
 							>
-								{ isCreatingStagingSite
+								{ isCreatingStagingSiteForActiveSite
 									? __( 'Creating staging...' )
 									: __( 'Create staging site' ) }
 							</Button>
@@ -1233,7 +1553,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 						<div className="agenttic dolly-agenttic-chat h-full min-h-0">
 							<AgentUI.Container
 								messages={ agentticMessages }
-								isProcessing={ isAssistantThinking }
+								isProcessing={ isCurrentSessionAssistantThinking }
 								error={ null }
 								onSubmit={ submitPrompt }
 								onStop={ interruptDollyRequest }
@@ -1249,8 +1569,24 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 								thinkingMessage={ __( 'Thinking...' ) }
 								className="h-full min-h-0 bg-frame-surface"
 							>
-								<AgentUI.ConversationView showHeader={ false } className="min-h-0 px-6 py-6">
-									<AgentUI.Messages />
+								<AgentUI.ConversationView
+									ref={ conversationViewRef }
+									showHeader={ false }
+									className="relative min-h-0 px-6 py-6"
+								>
+									<AgentUI.Messages key={ sessionCacheKey } />
+									{ showJumpToLatest && (
+										<div className="pointer-events-none absolute inset-x-0 bottom-28 z-20 flex justify-center">
+											<button
+												type="button"
+												aria-label={ __( 'Jump to latest message' ) }
+												onClick={ () => scrollToLatestMessage( 'smooth' ) }
+												className="pointer-events-auto grid h-9 w-9 place-items-center rounded-full border border-a8c-gray-5 bg-white text-frame-text-secondary shadow-sm transition hover:text-frame-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme"
+											>
+												<Icon icon={ chevronDown } size={ 20 } />
+											</button>
+										</div>
+									) }
 									{ messages.length > 0 && (
 										<div className="px-4 pb-2 text-frame-text-secondary">
 											{ renderConversationReminder() }

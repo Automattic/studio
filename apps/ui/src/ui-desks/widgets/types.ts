@@ -14,6 +14,7 @@ import type { SitePreviewWidget } from '@/ui-desks/widgets/site-preview/types';
 import type { DeskStack, DeskWidgetBase } from '@studio/common/types/desk';
 import type { createRegistry } from '@wordpress/data';
 import type { ComponentProps, ComponentType, ReactElement } from 'react';
+import type { Editor, TLShapeId } from 'tldraw';
 
 export interface WidgetIndicator {
 	cornerRadius?: number;
@@ -141,9 +142,54 @@ export interface WidgetConnectorDropHandler {
 	id: string;
 	type: 'connector';
 	sourceTypes?: string[];
+	canHandle?: ( sourceWidget: DeskWidgetBase, targetWidget: DeskWidgetBase ) => boolean;
 }
 
-export type WidgetDropHandler = WidgetConnectorDropHandler;
+export type WidgetCoreDataSaveEntityRecord = (
+	kind: string,
+	name: string,
+	record: Record< string, unknown >,
+	options?: {
+		throwOnError?: boolean;
+	}
+) => Promise< unknown >;
+
+export interface WidgetCustomDropActionIntent {
+	sourceShapeId: TLShapeId;
+	targetShapeId: TLShapeId;
+	sourceWidget: DeskWidget;
+	targetWidget: DeskWidget;
+	screenPoint: {
+		x: number;
+		y: number;
+	};
+}
+
+export interface WidgetCustomDropActionContext {
+	editor: Editor;
+	registry: WidgetResolverRegistry;
+	runAction: ( action: () => void | Promise< unknown > ) => void;
+	saveEntityRecord: WidgetCoreDataSaveEntityRecord;
+	startChatWithPrompt: ( request: { prompt: string; displayMessage?: string } ) => Promise< void >;
+}
+
+export interface WidgetCustomDropAction {
+	label: string;
+	onClick: () => void;
+}
+
+export interface WidgetCustomDropHandler {
+	id: string;
+	type: 'custom';
+	sourceTypes?: string[];
+	canHandle?: ( sourceWidget: DeskWidgetBase, targetWidget: DeskWidgetBase ) => boolean;
+	getActions?: (
+		intent: WidgetCustomDropActionIntent,
+		context: WidgetCustomDropActionContext
+	) => WidgetCustomDropAction[];
+}
+
+export type WidgetDropHandler = WidgetConnectorDropHandler | WidgetCustomDropHandler;
 
 export type ResolvedDeskWidgetOrigin =
 	| { kind: 'authored' }
@@ -227,6 +273,8 @@ export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBa
 		context: WidgetFitContentContext< TWidget >
 	) => WidgetFitContentResult< TWidget > | Promise< WidgetFitContentResult< TWidget > >;
 	getEditAction?: ( context: WidgetEditActionContext< TWidget > ) => WidgetEditAction | null;
+	focusModeControls?: Array< ControlConfig< TWidget[ 'widgetProps' ] > >;
+	focusModeControlsLabel?: () => string;
 	resolver?: WidgetResolver< TWidget >;
 	fileHandlers?: Array< WidgetFileHandler< TWidget > >;
 	pasteHandlers?: Array< WidgetPasteHandler< TWidget > >;

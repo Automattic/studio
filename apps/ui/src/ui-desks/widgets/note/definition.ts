@@ -20,6 +20,7 @@ import { POST_WIDGET_TYPE } from '@/ui-desks/widgets/post/types';
 import type { WidgetDefinition } from '@/ui-desks/widgets/types';
 
 const NOTE_TONE_STROKE: Record< NoteTone, string > = {
+	grey: '#9ca3af',
 	yellow: '#c4a300',
 	mint: '#3ca56f',
 	blue: '#2271b1',

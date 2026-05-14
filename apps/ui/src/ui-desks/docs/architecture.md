@@ -16,6 +16,7 @@ The goal is that medium and large things are easy to scan by folder name, while 
 ## Top-Level Boundaries
 
 - `desk`: canvas runtime, provider state, tldraw integration, drawing tools, selection toolbar, and desk-local context menu behavior.
+- `focus-mode`: generic focused-widget sessions, including the focused root widget and transient focus desk records that should not persist.
 - `chrome`: app-level desk controls around the canvas, such as header, toolbar rows, menus, settings, site-map title, and link dialogs.
 - `widgets`: widget types only. Each child folder represents a widget type and owns its component, definition, types, styles, and widget-local helpers.
 - `widget-actions`: cross-widget behavior such as creation, edit actions, file handling, paste handling, geometry, URL helpers, post status, and feature availability.
@@ -42,6 +43,8 @@ widgets/<type>/
   types.ts
   optional-widget-local-helper.ts
 ```
+
+Widget-specific focus mode behavior should stay inside the widget type folder. For example, site preview annotations live under `widgets/site-preview/annotations` and are exposed to the common desk toolbar through the widget definition focus-mode toolbar hook.
 
 Use nested folders for tested logic modules inside widget types:
 

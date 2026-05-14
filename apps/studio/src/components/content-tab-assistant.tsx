@@ -168,7 +168,7 @@ type DollyHistoryChat = {
 
 type DollyPreviewContext = {
 	isOpen: boolean;
-	siteId: string;
+	siteId: number;
 	openedURL?: string;
 	currentURL?: string;
 	title?: string;
@@ -177,14 +177,8 @@ type DollyPreviewContext = {
 
 type DollySiteAssociationContext = {
 	status: 'wpcom_only';
-	localSiteId: string;
-	localSiteName: string;
-	localSitePath: string;
-	localPreviewUrl: string;
-	routingWpcomSiteId?: number;
-	routingWpcomSiteUrl?: string;
-	connectedWpcomSiteId?: number;
-	connectedWpcomSiteUrl?: string;
+	wpcomSiteId: number;
+	wpcomSiteUrl: string;
 	instructions: string;
 };
 
@@ -959,7 +953,7 @@ const createDollyPreviewAbility = () => ( {
 			url: {
 				type: 'string',
 				description:
-					'The absolute http or https URL to preview. Studio also accepts local site paths such as / or /wp-admin/.',
+					'The absolute http or https URL to preview. Studio also accepts paths relative to the selected WordPress.com site, such as / or /wp-admin/.',
 			},
 			title: {
 				type: 'string',
@@ -994,7 +988,7 @@ const createDollyPreviewAbility = () => ( {
 
 const createDollyClientContext = (
 	siteId: number,
-	selectedSite: SiteDetails,
+	selectedSite: SyncSite,
 	previewContext?: DollyPreviewContext,
 	siteAssociation?: DollySiteAssociationContext
 ) => ( {
@@ -1015,7 +1009,7 @@ const createDollyClientContext = (
 		selectedSite: {
 			id: selectedSite.id,
 			name: selectedSite.name,
-			url: getSiteDetailsUrl( selectedSite ),
+			url: selectedSite.url,
 			siteId,
 			kind: 'wpcom-site',
 		},
@@ -1135,7 +1129,7 @@ const createDollyMessageBody = ( {
 
 const createDollyClientContextPart = (
 	siteId: number,
-	selectedSite: SiteDetails,
+	selectedSite: SyncSite,
 	previewContext?: DollyPreviewContext,
 	siteAssociation?: DollySiteAssociationContext
 ): AgentRequestPart => ( {
@@ -1191,7 +1185,7 @@ const sendDollyMessage = async ( {
 	message: string;
 	previewContext?: DollyPreviewContext;
 	siteAssociation?: DollySiteAssociationContext;
-	selectedSite: SiteDetails;
+	selectedSite: SyncSite;
 	sessionId?: string;
 	siteId: number;
 } ): Promise< DollyAgentResponse > => {
@@ -1340,7 +1334,7 @@ const normalizePreviewUrl = (
 };
 
 const createPreviewContext = (
-	selectedSite: SiteDetails,
+	selectedSite: SyncSite,
 	previewState: DollyPreviewState,
 	previewUrl?: string
 ): DollyPreviewContext => ( {
@@ -1352,31 +1346,12 @@ const createPreviewContext = (
 	isLoading: previewState.isLoading,
 } );
 
-const getSiteDetailsUrl = ( selectedSite: SiteDetails ) =>
-	'url' in selectedSite && typeof selectedSite.url === 'string' ? selectedSite.url : undefined;
-
-const createWpcomOnlySiteDetails = ( selectedWpcomSite: SyncSite ): SiteDetails => ( {
-	id: `wpcom-${ selectedWpcomSite.id }`,
-	name: selectedWpcomSite.name,
-	path: '',
-	port: 0,
-	phpVersion: '',
-	running: true,
-	url: selectedWpcomSite.url,
-} );
-
 const createWpcomOnlySiteAssociationContext = (
 	selectedWpcomSite: SyncSite
 ): DollySiteAssociationContext => ( {
 	status: 'wpcom_only',
-	localSiteId: '',
-	localSiteName: '',
-	localSitePath: '',
-	localPreviewUrl: selectedWpcomSite.url,
-	routingWpcomSiteId: selectedWpcomSite.id,
-	routingWpcomSiteUrl: selectedWpcomSite.url,
-	connectedWpcomSiteId: selectedWpcomSite.id,
-	connectedWpcomSiteUrl: selectedWpcomSite.url,
+	wpcomSiteId: selectedWpcomSite.id,
+	wpcomSiteUrl: selectedWpcomSite.url,
 	instructions:
 		'This is a WordPress.com site selected from Studio that is not connected to a local Studio site. Dolly may manage this WordPress.com site. Studio local site controls, sync tabs, and local filesystem actions do not apply to this selection.',
 } );
@@ -1596,7 +1571,7 @@ interface PreviewWebviewTitleEvent extends Event {
 }
 
 interface DollyPreviewPanelProps {
-	selectedSite: SiteDetails;
+	selectedSite: SyncSite;
 	previewState: DollyPreviewState;
 	previewUrl?: string;
 	onClose: () => void;
@@ -1635,8 +1610,7 @@ function DollyPreviewPanel( {
 }: DollyPreviewPanelProps ) {
 	const [ width, setWidth ] = useState( DOLLY_PREVIEW_PANEL_DEFAULT_WIDTH );
 	const title = previewState.pageTitle || previewState.title || __( 'Site preview' );
-	const displayUrl =
-		previewState.currentUrl || previewUrl || getSiteDetailsUrl( selectedSite ) || '';
+	const displayUrl = previewState.currentUrl || previewUrl || selectedSite.url;
 
 	const handleResizeStart = ( event: React.PointerEvent< HTMLButtonElement > ) => {
 		event.preventDefault();
@@ -2203,10 +2177,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 	);
 	const isAssistantThinkingRef = useRef( isAssistantThinking );
 	const hydratedSessionKeysRef = useRef( new Set< string >() );
-	const selectedSite = useMemo(
-		() => createWpcomOnlySiteDetails( activeWpcomSite ),
-		[ activeWpcomSite ]
-	);
+	const activeWpcomSiteKey = `wpcom-${ activeWpcomSite.id }`;
 	const instanceId = user?.id
 		? `dolly_${ user.id }_wpcom_${ activeWpcomSite.id }`
 		: `dolly_wpcom_${ activeWpcomSite.id }`;
@@ -2219,8 +2190,8 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		[ activeWpcomSite ]
 	);
 	const previewContext = useMemo(
-		() => createPreviewContext( selectedSite, previewState, previewUrl ),
-		[ previewState, previewUrl, selectedSite ]
+		() => createPreviewContext( activeWpcomSite, previewState, previewUrl ),
+		[ activeWpcomSite, previewState, previewUrl ]
 	);
 	const hasFailedMessage = messages.some( ( msg ) => msg.failedMessage );
 	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];
@@ -2410,7 +2381,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 					toolResult: {
 						toolCallId: toolCall.toolCallId,
 						toolId: toolCall.toolId,
-						error: 'Preview needs a valid URL or local site path.',
+						error: 'Preview needs a valid URL or WordPress.com site path.',
 					},
 				};
 			}
@@ -2505,7 +2476,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 						message: trimmedMessage,
 						previewContext,
 						siteAssociation,
-						selectedSite,
+						selectedSite: activeWpcomSite,
 						sessionId,
 						siteId: activeWpcomSite.id,
 					} );
@@ -2552,13 +2523,12 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 			} )();
 		},
 		[
-			activeWpcomSite.id,
 			client,
 			executeFrontendTool,
 			isAssistantThinking,
 			messages.length,
+			activeWpcomSite,
 			previewContext,
-			selectedSite,
 			selectedWpcomSite.id,
 			sessionId,
 			siteAssociation,
@@ -2643,7 +2613,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 									messages={ messages }
 									isAssistantThinking={ isAssistantThinking }
 									instanceId={ instanceId }
-									siteId={ selectedSite.id }
+									siteId={ activeWpcomSiteKey }
 									submitPrompt={ submitPrompt }
 									wrapperRef={ wrapperRef }
 								/>
@@ -2679,7 +2649,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 			{ previewState.open && (
 				<DollyPreviewPanelPortal>
 					<DollyPreviewPanel
-						selectedSite={ selectedSite }
+						selectedSite={ activeWpcomSite }
 						previewState={ previewState }
 						previewUrl={ previewUrl }
 						onClose={ () => updatePreviewState( { open: false } ) }

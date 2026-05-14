@@ -6,9 +6,6 @@ import * as Sentry from '@sentry/electron/main';
 import { vi } from 'vitest';
 import { manualCheckForUpdates } from 'src/updates';
 
-// vitest types `dialog.showMessageBox`'s mock.calls using its single-arg
-// overload, but our code uses the two-arg form (mainWindow, options).
-// Cast through `unknown` to read the options off the second tuple slot.
 function getLastDialogOptions(): MessageBoxOptions {
 	const lastCall = vi.mocked( dialog.showMessageBox ).mock.lastCall as unknown as [
 		unknown,

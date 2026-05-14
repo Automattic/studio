@@ -22,6 +22,7 @@ import {
 } from 'cli/lib/cli-config/core';
 import { removeSiteFromConfig, updateSiteAutoStart } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { getWpFilesPath } from 'cli/lib/dependency-management/paths';
 import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
@@ -67,6 +68,13 @@ vi.mock( 'cli/lib/cli-config/sites', async () => {
 vi.mock( 'cli/lib/language-packs' );
 vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/dependency-management/setup' );
+vi.mock( 'cli/lib/dependency-management/paths', async () => {
+	const actual = await vi.importActual( 'cli/lib/dependency-management/paths' );
+	return {
+		...actual,
+		getWpFilesPath: vi.fn().mockReturnValue( '/test/wp-files' ),
+	};
+} );
 vi.mock( import( '@studio/common/lib/well-known-paths' ), async ( importOriginal ) => {
 	const actual = await importOriginal();
 	return {
@@ -285,6 +293,52 @@ describe( 'CLI: studio site create', () => {
 
 			expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( mockSitePath );
 			expect( loggerReportSuccessSpy ).toHaveBeenCalledWith( 'SQLite integration skipped' );
+		} );
+
+		it( 'should copy bundled preinstalled SQLite template for latest WordPress sites', async () => {
+			const templatePath = '/test/wp-files/preinstalled-sqlite/latest/.ht.sqlite';
+			const databasePath = '/test/site/new-site/wp-content/database/.ht.sqlite';
+			const existsSyncSpy = vi.spyOn( fs, 'existsSync' ).mockImplementation( ( filePath ) => {
+				return filePath === templatePath;
+			} );
+			const mkdirSpy = vi.spyOn( fs.promises, 'mkdir' ).mockResolvedValue( undefined );
+			const copyFileSpy = vi.spyOn( fs.promises, 'copyFile' ).mockResolvedValue( undefined );
+
+			await runCommand( mockSitePath, { ...defaultTestOptions } );
+
+			expect( getWpFilesPath ).toHaveBeenCalled();
+			expect( mkdirSpy ).toHaveBeenCalledWith( '/test/site/new-site/wp-content/database', {
+				recursive: true,
+			} );
+			expect( copyFileSpy ).toHaveBeenCalledWith( templatePath, databasePath );
+
+			existsSyncSpy.mockRestore();
+		} );
+
+		it( 'should not copy bundled preinstalled SQLite template for specific WordPress versions', async () => {
+			const copyFileSpy = vi.spyOn( fs.promises, 'copyFile' ).mockResolvedValue( undefined );
+
+			await runCommand( mockSitePath, {
+				...defaultTestOptions,
+				wpVersion: '6.8',
+				noStart: true,
+			} );
+
+			expect( copyFileSpy ).not.toHaveBeenCalled();
+		} );
+
+		it( 'should not copy bundled preinstalled SQLite template for no-start sites', async () => {
+			const templatePath = '/test/wp-files/preinstalled-sqlite/latest/.ht.sqlite';
+			const existsSyncSpy = vi.spyOn( fs, 'existsSync' ).mockImplementation( ( filePath ) => {
+				return filePath === templatePath;
+			} );
+			const copyFileSpy = vi.spyOn( fs.promises, 'copyFile' ).mockResolvedValue( undefined );
+
+			await runCommand( mockSitePath, { ...defaultTestOptions, noStart: true } );
+
+			expect( copyFileSpy ).not.toHaveBeenCalled();
+
+			existsSyncSpy.mockRestore();
 		} );
 
 		it( 'should create site with custom name', async () => {

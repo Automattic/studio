@@ -61,7 +61,7 @@ import {
 	updateSiteLatestCliPid,
 } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
-import { getAiInstructionsPath } from 'cli/lib/dependency-management/paths';
+import { getAiInstructionsPath, getWpFilesPath } from 'cli/lib/dependency-management/paths';
 import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
@@ -77,6 +77,12 @@ import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
 const ALLOWED_PHP_VERSIONS = [ ...SupportedPHPVersions ];
+
+const PREINSTALLED_SQLITE_TEMPLATE_PATH = path.join(
+	'preinstalled-sqlite',
+	'latest',
+	'.ht.sqlite'
+);
 
 const logger = new Logger< LoggerAction >();
 
@@ -101,6 +107,34 @@ type CreateCommandOptions = {
 
 function resolveRuntimeFromEnv(): SiteRuntime {
 	return siteRuntimeSchema.catch( 'playground' ).parse( process.env.STUDIO_RUNTIME );
+}
+
+async function copyPreinstalledSqliteTemplateIfAvailable(
+	sitePath: string,
+	wpVersion: string,
+	noStart: boolean
+): Promise< boolean > {
+	if ( noStart ) {
+		return false;
+	}
+
+	if ( wpVersion !== DEFAULT_WORDPRESS_VERSION ) {
+		return false;
+	}
+
+	const templatePath = path.join( getWpFilesPath(), PREINSTALLED_SQLITE_TEMPLATE_PATH );
+	if ( ! fs.existsSync( templatePath ) ) {
+		return false;
+	}
+
+	const databasePath = path.join( sitePath, 'wp-content', 'database', '.ht.sqlite' );
+	if ( fs.existsSync( databasePath ) ) {
+		return false;
+	}
+
+	await fs.promises.mkdir( path.dirname( databasePath ), { recursive: true } );
+	await fs.promises.copyFile( templatePath, databasePath );
+	return true;
 }
 
 export async function runCommand(
@@ -231,6 +265,7 @@ export async function runCommand(
 
 		logger.reportStart( LoggerAction.INSTALL_SQLITE, __( 'Setting up SQLite integration…' ) );
 		const isSqliteUpdated = await keepSqliteIntegrationUpdated( sitePath );
+		await copyPreinstalledSqliteTemplateIfAvailable( sitePath, options.wpVersion, options.noStart );
 		logger.reportSuccess(
 			isSqliteUpdated ? __( 'SQLite integration configured' ) : __( 'SQLite integration skipped' )
 		);

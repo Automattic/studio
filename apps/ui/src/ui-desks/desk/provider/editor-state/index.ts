@@ -90,19 +90,20 @@ export function hydrateEditorFromDesk(
 	desk: DeskConfig,
 	options: HydrateEditorOptions = {}
 ) {
+	const widgetShapes = desk.widgets.length > 0 ? deskConfigToCanvasShapes( desk ) : [];
+	const connectorShapes =
+		desk.widgets.length > 0 ? deskConfigToCanvasConnectorShapes( desk, widgetShapes ) : [];
+	const connectorBindings =
+		desk.widgets.length > 0 ? deskConfigToCanvasConnectorBindings( desk ) : [];
 	const existingShapes = editor.getCurrentPageShapes();
 	if ( existingShapes.length > 0 ) {
 		editor.run( () => editor.deleteShapes( existingShapes.map( ( shape ) => shape.id ) ), {
 			ignoreShapeLock: true,
 		} );
 	}
-	if ( desk.widgets.length > 0 ) {
-		const widgetShapes = deskConfigToCanvasShapes( desk );
-		editor.createShapes( [
-			...deskConfigToCanvasConnectorShapes( desk, widgetShapes ),
-			...widgetShapes,
-		] );
-		editor.createBindings( deskConfigToCanvasConnectorBindings( desk ) );
+	if ( widgetShapes.length > 0 ) {
+		editor.createShapes( [ ...connectorShapes, ...widgetShapes ] );
+		editor.createBindings( connectorBindings );
 	}
 	if ( desk.viewport ) {
 		editor.setCamera( desk.viewport, { immediate: true } );

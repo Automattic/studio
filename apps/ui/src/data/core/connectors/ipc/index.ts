@@ -635,6 +635,14 @@ export function createIpcConnector(): Connector {
 			await ipcApi.saveDeskSettings( settings );
 		},
 
+		async exportDeskConfig( config, suggestedFilename ): Promise< string | null > {
+			return ( await ipcApi.exportDeskConfig( config, suggestedFilename ) ) as string | null;
+		},
+
+		async importDeskConfig(): Promise< DeskConfig | null > {
+			return ( await ipcApi.importDeskConfig() ) as DeskConfig | null;
+		},
+
 		async getUserDeskConfig(): Promise< DeskConfig | undefined > {
 			return ( await ipcApi.getUserDeskConfig() ) as DeskConfig | undefined;
 		},

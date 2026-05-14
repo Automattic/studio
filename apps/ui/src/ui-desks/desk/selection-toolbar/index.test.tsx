@@ -265,6 +265,8 @@ function createDeskContext( overrides: Partial< DeskContextValue > = {} ): DeskC
 		setFocusDesk: vi.fn(),
 		getFocusDeskSnapshot: vi.fn(),
 		stopFocusMode: vi.fn(),
+		getDeskConfigSnapshot: vi.fn(),
+		replaceDeskConfig: vi.fn().mockResolvedValue( false ),
 		...overrides,
 	};
 }

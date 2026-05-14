@@ -3,7 +3,7 @@ import { external } from '@wordpress/icons';
 import { useConnector } from '@/data/core';
 import { useSites } from '@/data/queries/use-sites';
 import { Button } from '@/ui-desks/components';
-import { useDesk } from '@/ui-desks/desk/provider';
+import { useDesk } from '@/ui-desks/desk/provider/context';
 import { getSitePreviewUrl } from './url';
 import type { SitePreviewWidgetProps } from './types';
 import type { ControlRenderContext } from '@/ui-desks/controls/types';

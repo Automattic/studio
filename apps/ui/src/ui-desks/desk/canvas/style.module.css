@@ -25,6 +25,11 @@
 
 .canvas :global(.tl-background) {
 	background: var(--ui-desks-bg, rgb(232, 234, 235)) !important;
+	transition: background 220ms ease;
+}
+
+.canvas[data-ui-desks-focus-mode] :global(.tl-background) {
+	background: #ced0d3 !important;
 }
 
 .canvas :global(.tl-grid) {

@@ -12,8 +12,6 @@ import { AuthContext, AuthContextType } from 'src/components/auth-provider';
 import {
 	ContentTabAssistant,
 	MIMIC_CONVERSATION_DELAY,
-	WpcomSiteAssistant,
-	clearWpcomSiteAssistantStateCacheForTests,
 } from 'src/components/content-tab-assistant';
 import {
 	LOCAL_STORAGE_CHAT_MESSAGES_KEY,
@@ -24,6 +22,10 @@ import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { useOffline } from 'src/hooks/use-offline';
 import { ThemeDetailsProvider } from 'src/hooks/use-theme-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import {
+	WpcomSiteAssistant,
+	clearWpcomSiteAssistantStateCacheForTests,
+} from 'src/modules/wpcom-site-assistant';
 import { store } from 'src/stores';
 import { generateMessage, chatActions } from 'src/stores/chat-slice';
 import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';

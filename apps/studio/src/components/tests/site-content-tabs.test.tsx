@@ -1,10 +1,10 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { vi } from 'vitest';
-import { clearWpcomSiteAssistantStateCacheForTests } from 'src/components/content-tab-assistant';
 import { SiteContentTabs } from 'src/components/site-content-tabs';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { useSiteDetails } from 'src/hooks/use-site-details';
+import { clearWpcomSiteAssistantStateCacheForTests } from 'src/modules/wpcom-site-assistant';
 import { store } from 'src/stores';
 import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 

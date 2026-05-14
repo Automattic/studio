@@ -1,7 +1,7 @@
 import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useRef, useState } from 'react';
-import { ContentTabAssistant, WpcomSiteAssistant } from 'src/components/content-tab-assistant';
+import { ContentTabAssistant } from 'src/components/content-tab-assistant';
 import { ContentTabImportExport } from 'src/components/content-tab-import-export';
 import { ContentTabOverview } from 'src/components/content-tab-overview';
 import { ContentTabPreviews } from 'src/components/content-tab-previews';
@@ -15,6 +15,7 @@ import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { ContentTabSync } from 'src/modules/sync';
+import { WpcomSiteAssistant } from 'src/modules/wpcom-site-assistant';
 
 export function SiteContentTabs() {
 	const { selectedSite, selectedWpcomSite, siteCreationMessages } = useSiteDetails();

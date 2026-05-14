@@ -37,9 +37,6 @@ const DOCS_LINKS = {
 	docsSslInStudio: {
 		en: 'https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/',
 	},
-	docsSslLinuxFirefox: {
-		en: 'https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/#linux-firefox',
-	},
 	docsMcp: {
 		en: 'https://developer.wordpress.com/docs/developer-tools/studio/mcp-on-studio/',
 	},

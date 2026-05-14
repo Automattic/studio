@@ -71,7 +71,6 @@ const api: IpcApi = {
 	showOpenFolderDialog: ( title, defaultDialogPath ) =>
 		ipcRendererInvoke( 'showOpenFolderDialog', title, defaultDialogPath ),
 	isCATrusted: () => ipcRenderer.invoke( 'isCATrusted' ),
-	getLinuxBrowserCertSupportStatus: () => ipcRenderer.invoke( 'getLinuxBrowserCertSupportStatus' ),
 	trustCertificate: () => ipcRenderer.invoke( 'trustCertificate' ),
 	showSaveAsDialog: ( options ) => ipcRendererInvoke( 'showSaveAsDialog', options ),
 	saveUserLocale: ( locale ) => ipcRendererInvoke( 'saveUserLocale', locale ),

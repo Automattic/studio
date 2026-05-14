@@ -125,7 +125,9 @@ export async function trustRootCA(): Promise< void > {
 			await importCAIntoUserNssDbsLinux( CA_CERT_PATH );
 			// Firefox keeps a per-profile NSS DB; the system + Chromium imports
 			// above don't reach it. Profiles that don't exist yet are skipped —
-			// the in-app notice covers that case until first Firefox launch.
+			// when the user later opens Firefox for the first time, the trust
+			// check flips back to untrusted on refetch and the user clicks Trust
+			// again to import into the newly created profile.
 			await importCAIntoFirefoxProfilesLinux( CA_CERT_PATH );
 		} else {
 			console.error( 'Unsupported platform for automatic certificate trust:', platform );

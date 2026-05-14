@@ -234,6 +234,16 @@ div:has( > progress ) > div:first-child {
 	text-decoration: underline;
 }
 
+.dolly-agenttic-chat [class*='Message-module_bubble'] img {
+	display: block;
+	width: auto;
+	max-width: min( 100%, 320px );
+	max-height: 320px;
+	height: auto;
+	border-radius: 8px;
+	object-fit: contain;
+}
+
 .assistant-markdown blockquote {
 	background-color: var( --color-frame-surface );
 	border-radius: 2px;

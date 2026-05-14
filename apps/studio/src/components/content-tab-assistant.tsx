@@ -7,14 +7,22 @@ import {
 	type TaskUpdate,
 	type ToolProvider,
 } from '@automattic/agenttic-client';
-import { AgentUI } from '@automattic/agenttic-ui';
+import { AgentUI, ImageUploader } from '@automattic/agenttic-ui';
 import {
 	__unstableAnimatePresence as AnimatePresence,
 	__unstableMotion as motion,
 } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { closeSmall, desktop, external, Icon, redo, trash } from '@wordpress/icons';
+import {
+	closeSmall,
+	desktop,
+	external,
+	Icon,
+	image as imageIcon,
+	redo,
+	trash,
+} from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef, memo, useCallback, useMemo, forwardRef } from 'react';
 import { createPortal } from 'react-dom';
@@ -53,8 +61,10 @@ import {
 import { useGetAssistantQuota, useGetWelcomeMessages } from 'src/stores/wpcom-api';
 import type {
 	AgentUIProps,
+	ImageUploaderHandle,
 	MessageAction,
 	NoticeConfig as AgentticNoticeConfig,
+	UploadedImage,
 } from '@automattic/agenttic-ui';
 import type { SyncSite } from '@studio/common/types/sync';
 import type { WPCOM } from 'wpcom/types';
@@ -62,6 +72,7 @@ import type { WPCOM } from 'wpcom/types';
 export const MIMIC_CONVERSATION_DELAY = 500;
 const DOLLY_AGENT_ID = 'dolly';
 const DOLLY_AGENT_URL_ORIGIN = 'https://public-api.wordpress.com/wpcom/v2';
+const DOLLY_MEDIA_UPLOAD_URL_ORIGIN = 'https://public-api.wordpress.com/rest/v1.1';
 const DOLLY_HISTORY_CLIENT = 'wpworkspace';
 const DOLLY_HISTORY_BOT_ID = 'wpcom-agent-dolly';
 const DOLLY_PREVIEW_TOOL_ID = 'wpworkspace/preview';
@@ -75,6 +86,12 @@ const DOLLY_REQUEST_TIMEOUT_MS = 90_000;
 const DOLLY_HISTORY_SUMMARY_ITEMS_PER_PAGE = 20;
 const DOLLY_HISTORY_CHAT_ITEMS_PER_PAGE = 100;
 const DOLLY_HISTORY_MAX_PAGES = 10;
+const DOLLY_IMAGE_FILE_TYPES = [ 'image/jpeg', 'image/png', 'image/gif', 'image/webp' ];
+const DOLLY_IMAGE_MAX_FILE_SIZE = 10 * 1024 * 1024;
+const DOLLY_IMAGE_MAX_FILES = 4;
+const DOLLY_MEDIA_RETRY_DELAYS_MS = [ 1500, 4000 ];
+const DOLLY_IMAGE_PRELOAD_TIMEOUT_MS = 750;
+
 type DollySite = {
 	id: number;
 	name: string;
@@ -111,10 +128,44 @@ type AgentRequestPart =
 			metadata?: Record< string, unknown >;
 	  }
 	| {
+			type: 'file';
+			file: {
+				name: string;
+				mimeType?: string;
+				bytes?: string;
+				uri?: string;
+			};
+			metadata?: Record< string, unknown >;
+	  }
+	| {
 			type: 'data';
 			data: Record< string, unknown >;
 			metadata?: Record< string, unknown >;
 	  };
+
+type DollyPendingImage = UploadedImage & {
+	file: File;
+	dataUrl?: string;
+};
+
+type DollyVisibleImage = {
+	name: string;
+	url: string;
+};
+
+type DollyMessageImageAttachment = {
+	text: string;
+	images: DollyVisibleImage[];
+};
+
+type DollyUploadedImage = {
+	id: number;
+	url: string;
+	name: string;
+	mimeType: string;
+	fileName?: string;
+	title?: string;
+};
 
 type DollyToolCall = {
 	toolCallId: string;
@@ -1105,6 +1156,259 @@ const createDollyUserMessage = ( parts: AgentRequestPart[] ): AgentticMessage =>
 	parts,
 } );
 
+const createDollyFilePart = ( image: DollyUploadedImage ): AgentRequestPart => ( {
+	type: 'file',
+	file: {
+		name: image.name,
+		mimeType: image.mimeType,
+		uri: image.url,
+	},
+	metadata: {
+		id: image.id,
+		url: image.url,
+		mimeType: image.mimeType,
+		name: image.name,
+		title: image.title ?? image.name,
+		fileName: image.fileName,
+		fileType: image.mimeType,
+	},
+} );
+
+const revokeDollyPendingImageUrls = ( images: DollyPendingImage[] ) => {
+	images.forEach( ( image ) => URL.revokeObjectURL( image.url ) );
+};
+
+const readFileAsDataUrl = ( file: File ) =>
+	new Promise< string >( ( resolve, reject ) => {
+		const reader = new FileReader();
+		reader.onload = () => {
+			if ( typeof reader.result === 'string' ) {
+				resolve( reader.result );
+				return;
+			}
+			reject( new Error( __( 'Unable to prepare image preview.' ) ) );
+		};
+		reader.onerror = () =>
+			reject( reader.error ?? new Error( __( 'Unable to prepare image preview.' ) ) );
+		reader.readAsDataURL( file );
+	} );
+
+const createDollyPendingVisibleImages = async (
+	images: DollyPendingImage[]
+): Promise< DollyVisibleImage[] > =>
+	Promise.all(
+		images.map( async ( image ) => ( {
+			name: image.name ?? image.file.name,
+			url: image.dataUrl ?? ( await readFileAsDataUrl( image.file ) ),
+		} ) )
+	);
+
+const getRawStringValue = ( value: unknown ) => ( typeof value === 'string' ? value : undefined );
+
+const getNumberValue = ( value: unknown ) => {
+	if ( typeof value === 'number' ) {
+		return value;
+	}
+	if ( typeof value === 'string' ) {
+		const parsedValue = Number.parseInt( value, 10 );
+		return Number.isNaN( parsedValue ) ? undefined : parsedValue;
+	}
+	return undefined;
+};
+
+const getFileNameFromUrl = ( url: string ) => {
+	try {
+		return decodeURIComponent( new URL( url ).pathname.split( '/' ).filter( Boolean ).pop() ?? '' );
+	} catch {
+		return '';
+	}
+};
+
+const removeFileExtension = ( fileName: string ) => fileName.replace( /\.[^.]+$/, '' );
+
+const getDollyUploadErrorMessage = ( data: unknown ) => {
+	if ( ! data || typeof data !== 'object' ) {
+		return undefined;
+	}
+
+	const errors = ( data as { errors?: unknown } ).errors;
+	if ( ! Array.isArray( errors ) ) {
+		return undefined;
+	}
+
+	return errors
+		.map( ( error ) => {
+			if ( ! error || typeof error !== 'object' ) {
+				return undefined;
+			}
+			return getRawStringValue( ( error as { message?: unknown } ).message );
+		} )
+		.find( Boolean );
+};
+
+const normalizeDollyUploadedImage = (
+	rawMedia: unknown,
+	originalImage: DollyPendingImage
+): DollyUploadedImage | undefined => {
+	if ( ! rawMedia || typeof rawMedia !== 'object' ) {
+		return undefined;
+	}
+
+	const media = rawMedia as Record< string, unknown >;
+	const id = getNumberValue( media.ID ) ?? getNumberValue( media.id ) ?? 0;
+	const url = getRawStringValue( media.URL ) ?? getRawStringValue( media.url ) ?? '';
+	const mimeType =
+		getRawStringValue( media.mime_type ) ||
+		getRawStringValue( media.mimeType ) ||
+		originalImage.file.type ||
+		'application/octet-stream';
+	const fileName = getRawStringValue( media.file ) ?? originalImage.file.name;
+	const title =
+		getRawStringValue( media.title ) ??
+		getRawStringValue( media.name ) ??
+		removeFileExtension( fileName );
+	const name = title || getFileNameFromUrl( url ) || originalImage.file.name;
+
+	if ( id <= 0 || ! url.trim() ) {
+		return undefined;
+	}
+
+	return {
+		id,
+		url,
+		name,
+		mimeType,
+		fileName,
+		title,
+	};
+};
+
+const uploadDollyImages = async (
+	siteId: number,
+	images: DollyPendingImage[]
+): Promise< DollyUploadedImage[] > => {
+	if ( images.length === 0 ) {
+		return [];
+	}
+
+	const token = await getIpcApi().getAuthenticationToken();
+	if ( ! token?.accessToken ) {
+		throw new Error( __( 'Log in to WordPress.com before uploading images.' ) );
+	}
+
+	const formData = new FormData();
+	images.forEach( ( image, index ) => {
+		formData.append( 'media[]', image.file, image.file.name );
+		formData.append( `attrs[${ index }][title]`, removeFileExtension( image.file.name ) );
+	} );
+
+	const response = await fetch( `${ DOLLY_MEDIA_UPLOAD_URL_ORIGIN }/sites/${ siteId }/media/new`, {
+		method: 'POST',
+		headers: {
+			Accept: 'application/json',
+			Authorization: `Bearer ${ token.accessToken }`,
+		},
+		body: formData,
+	} );
+	const data: unknown = await response.json().catch( () => undefined );
+
+	if ( ! response.ok ) {
+		throw new Error(
+			getDollyUploadErrorMessage( data ) ?? __( 'The image upload failed. Please try again.' )
+		);
+	}
+
+	const media =
+		data && typeof data === 'object' ? ( data as { media?: unknown } ).media : undefined;
+	if ( ! Array.isArray( media ) ) {
+		throw new Error( __( 'The image upload response was missing media details.' ) );
+	}
+
+	const uploadedImages = media
+		.map( ( rawMedia, index ) => normalizeDollyUploadedImage( rawMedia, images[ index ] ) )
+		.filter( ( image ): image is DollyUploadedImage => Boolean( image ) );
+
+	if ( uploadedImages.length !== images.length ) {
+		throw new Error( __( 'The image upload response was missing attachment metadata.' ) );
+	}
+
+	return uploadedImages;
+};
+
+const escapeMarkdownAltText = ( value: string ) => value.replace( /[[\]\\]/g, '\\$&' );
+
+const createDollyVisibleMessage = (
+	message: string,
+	images: DollyVisibleImage[],
+	fallbackImageCount: number
+) => {
+	const imageMarkdown = images
+		.map( ( image ) => `![${ escapeMarkdownAltText( image.name ) }](${ image.url })` )
+		.join( '\n' );
+	const attachmentLabel =
+		images.length > 0
+			? imageMarkdown
+			: fallbackImageCount > 0
+			? sprintf(
+					_n( '%d image attached', '%d images attached', fallbackImageCount ),
+					fallbackImageCount
+			  )
+			: '';
+
+	return [ message, attachmentLabel ].filter( Boolean ).join( '\n\n' );
+};
+
+const createDollyImagePrompt = ( imageCount: number ) =>
+	imageCount === 1
+		? __( 'Please look at the attached image.' )
+		: __( 'Please look at the attached images.' );
+
+const DollyOptimisticImages = ( { images = [] }: { images?: DollyVisibleImage[] } ) => (
+	<div className="flex flex-col gap-2">
+		{ images.map( ( image ) => (
+			<img key={ image.url } src={ image.url } alt={ image.name } loading="lazy" />
+		) ) }
+	</div>
+);
+
+const preloadDollyImageUrls = ( images: DollyVisibleImage[] ) =>
+	Promise.all(
+		images.map(
+			( image ) =>
+				new Promise< void >( ( resolve ) => {
+					if ( typeof Image === 'undefined' ) {
+						resolve();
+						return;
+					}
+
+					const preloadImage = new Image();
+					let didFinish = false;
+					const finish = () => {
+						if ( didFinish ) {
+							return;
+						}
+						didFinish = true;
+						window.clearTimeout( timeoutId );
+						resolve();
+					};
+					const timeoutId = window.setTimeout( finish, DOLLY_IMAGE_PRELOAD_TIMEOUT_MS );
+					preloadImage.onload = finish;
+					preloadImage.onerror = finish;
+					preloadImage.src = image.url;
+				} )
+		)
+	);
+
+const getErrorMessage = ( error: unknown ) =>
+	error instanceof Error ? error.message : String( error );
+
+const shouldRetryDollyMediaRequest = ( error: unknown, uploadedImages: DollyUploadedImage[] ) =>
+	uploadedImages.length > 0 &&
+	getErrorMessage( error ).toLowerCase().includes( 'processing the request' );
+
+const delay = ( milliseconds: number ) =>
+	new Promise< void >( ( resolve ) => window.setTimeout( resolve, milliseconds ) );
+
 const createDollyAbilityDataPart = ( ability: Ability ): AgentRequestPart => {
 	const abilityData = { ...ability } as Record< string, unknown >;
 	delete abilityData.callback;
@@ -1336,6 +1640,7 @@ const isDollyToolResultProtocolError = ( error: unknown ) => {
 const sendDollyMessage = async ( {
 	executeFrontendTool,
 	message,
+	uploadedImages,
 	previewContext,
 	siteAssociation,
 	selectedSite,
@@ -1344,6 +1649,7 @@ const sendDollyMessage = async ( {
 }: {
 	executeFrontendTool: ( toolCall: DollyToolCall ) => Promise< DollyToolExecution >;
 	message: string;
+	uploadedImages?: DollyUploadedImage[];
 	previewContext?: DollyPreviewContext;
 	siteAssociation?: DollySiteAssociationContext;
 	selectedSite: SyncSite;
@@ -1366,16 +1672,15 @@ const sendDollyMessage = async ( {
 		contextProvider,
 		timeout: DOLLY_REQUEST_TIMEOUT_MS,
 	} );
+	const createInitialMessageParts = async (): Promise< AgentRequestPart[] > => [
+		...( message ? [ { type: 'text' as const, text: message } ] : [] ),
+		...( uploadedImages ?? [] ).map( createDollyFilePart ),
+		...( await getDollyAbilityParts( toolProvider ) ),
+	];
 	const sendInitialMessage = async ( nextTaskId: string, nextSessionId: string ) =>
 		parseDollyTaskUpdate(
 			await agentClient.sendMessage( {
-				message: createDollyUserMessage( [
-					{
-						type: 'text',
-						text: message,
-					},
-					...( await getDollyAbilityParts( toolProvider ) ),
-				] ),
+				message: createDollyUserMessage( await createInitialMessageParts() ),
 				sessionId: nextSessionId,
 				taskId: nextTaskId,
 			} ),
@@ -1383,10 +1688,23 @@ const sendDollyMessage = async ( {
 			nextSessionId
 		);
 	// Keep Studio in charge of continuation so Dolly's final non-streaming text is preserved.
-	let response: DollyAgentResponse;
+	let response: DollyAgentResponse | undefined;
 	let effectiveInitialSessionId = initialSessionId;
 	try {
-		response = await sendInitialMessage( taskId, initialSessionId );
+		for ( let attempt = 0; ; attempt++ ) {
+			try {
+				response = await sendInitialMessage( taskId, initialSessionId );
+				break;
+			} catch ( error ) {
+				if (
+					attempt >= DOLLY_MEDIA_RETRY_DELAYS_MS.length ||
+					! shouldRetryDollyMediaRequest( error, uploadedImages ?? [] )
+				) {
+					throw error;
+				}
+				await delay( DOLLY_MEDIA_RETRY_DELAYS_MS[ attempt ] );
+			}
+		}
 	} catch ( error ) {
 		if ( ! sessionId || ! isDollyToolResultProtocolError( error ) ) {
 			throw error;
@@ -1395,6 +1713,9 @@ const sendDollyMessage = async ( {
 		const freshTaskId = crypto.randomUUID();
 		effectiveInitialSessionId = freshTaskId;
 		response = await sendInitialMessage( freshTaskId, freshTaskId );
+	}
+	if ( ! response ) {
+		throw new Error( __( 'Dolly did not return a response.' ) );
 	}
 	let currentSessionId = response.sessionId ?? effectiveInitialSessionId;
 	let currentSelectedSiteId = response.selectedSiteId;
@@ -2379,9 +2700,17 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 	const [ previewState, setPreviewState ] = useState< DollyPreviewState >(
 		initialSessionState.previewState
 	);
+	const [ pendingImages, setPendingImages ] = useState< DollyPendingImage[] >( [] );
+	const [ imageUploadError, setImageUploadError ] = useState< string | undefined >();
+	const [ optimisticMessageImages, setOptimisticMessageImages ] = useState<
+		Record< string, DollyMessageImageAttachment >
+	>( {} );
 	const activeTurnIdRef = useRef( 0 );
 	const selectionRevisionRef = useRef( 0 );
 	const isMountedRef = useRef( true );
+	const imageUploaderRef = useRef< ImageUploaderHandle >( null );
+	const dollyDropZoneRef = useRef< HTMLDivElement >( null );
+	const pendingImagesRef = useRef< DollyPendingImage[] >( pendingImages );
 	const activeWpcomSiteRef = useRef< SyncSite >( activeWpcomSite );
 	const selectedWpcomSiteIdRef = useRef( selectedWpcomSite.id );
 	const conversationIdRef = useRef( initialSessionState.id );
@@ -2414,9 +2743,98 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		setPreviewState( ( currentState ) => ( { ...currentState, ...nextState } ) );
 	}, [] );
 
+	const clearPendingImages = useCallback( () => {
+		setPendingImages( ( currentImages ) => {
+			revokeDollyPendingImageUrls( currentImages );
+			return [];
+		} );
+		setImageUploadError( undefined );
+	}, [] );
+
+	const removePendingImage = useCallback( ( image: UploadedImage ) => {
+		setPendingImages( ( currentImages ) => {
+			const removedImage = currentImages.find( ( currentImage ) => currentImage.id === image.id );
+			if ( removedImage ) {
+				revokeDollyPendingImageUrls( [ removedImage ] );
+			}
+			return currentImages.filter( ( currentImage ) => currentImage.id !== image.id );
+		} );
+	}, [] );
+
+	const addPendingImages = useCallback(
+		( files: File[] ) => {
+			const validFiles = files.filter( ( file ) => DOLLY_IMAGE_FILE_TYPES.includes( file.type ) );
+			const validSizedFiles = validFiles.filter(
+				( file ) => file.size <= DOLLY_IMAGE_MAX_FILE_SIZE
+			);
+			const remainingSlots = Math.max( DOLLY_IMAGE_MAX_FILES - pendingImages.length, 0 );
+			const filesToAdd = validSizedFiles.slice( 0, remainingSlots );
+
+			if ( files.length !== validFiles.length ) {
+				setImageUploadError( __( 'Only JPEG, PNG, GIF, or WebP images can be attached.' ) );
+			} else if ( validFiles.length !== validSizedFiles.length ) {
+				setImageUploadError( __( 'Images must be 10 MB or smaller.' ) );
+			} else if ( validSizedFiles.length > filesToAdd.length ) {
+				setImageUploadError(
+					sprintf( __( 'You can attach up to %d images at a time.' ), DOLLY_IMAGE_MAX_FILES )
+				);
+			} else if ( filesToAdd.length > 0 ) {
+				setImageUploadError( undefined );
+			}
+
+			if ( filesToAdd.length === 0 ) {
+				return;
+			}
+
+			const nextImages = filesToAdd.map( ( file ) => ( {
+				id: crypto.randomUUID(),
+				url: URL.createObjectURL( file ),
+				name: file.name,
+				title: file.name,
+				mime_type: file.type,
+				file,
+			} ) );
+
+			setPendingImages( ( currentImages ) => [ ...currentImages, ...nextImages ] );
+
+			void Promise.all(
+				nextImages.map( async ( image ) => ( {
+					sourceId: image.id,
+					dataUrl: await readFileAsDataUrl( image.file ),
+				} ) )
+			)
+				.then( ( imageDataUrls ) => {
+					if ( ! isMountedRef.current ) {
+						return;
+					}
+					const dataUrlsByImageId = new Map< string, string >(
+						imageDataUrls.map( ( image ) => [ image.sourceId, image.dataUrl ] )
+					);
+					setPendingImages( ( currentImages ) =>
+						currentImages.map( ( currentImage ) => ( {
+							...currentImage,
+							dataUrl: dataUrlsByImageId.get( currentImage.id ) ?? currentImage.dataUrl,
+						} ) )
+					);
+				} )
+				.catch( () => {
+					if ( isMountedRef.current ) {
+						setImageUploadError( __( 'Unable to prepare image preview.' ) );
+					}
+				} );
+		},
+		[ pendingImages.length ]
+	);
+
 	useEffect( () => {
 		activeWpcomSiteRef.current = activeWpcomSite;
 	}, [ activeWpcomSite ] );
+
+	useEffect( () => {
+		pendingImagesRef.current = pendingImages;
+	}, [ pendingImages ] );
+
+	useEffect( () => () => revokeDollyPendingImageUrls( pendingImagesRef.current ), [] );
 
 	useEffect( () => {
 		isAssistantThinkingRef.current = isAssistantThinking;
@@ -2480,6 +2898,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		setActiveWpcomSite( nextSessionState.activeWpcomSite );
 		setInput( nextSessionState.input );
 		setMessages( nextSessionState.messages );
+		setOptimisticMessageImages( {} );
 		setSessionId( nextSessionState.sessionId );
 		setIsAssistantThinking( false );
 		setPreviewState( nextSessionState.previewState );
@@ -2544,6 +2963,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 				setActiveWpcomSite( nextSessionState.activeWpcomSite );
 				setInput( nextSessionState.input );
 				setMessages( nextSessionState.messages );
+				setOptimisticMessageImages( {} );
 				setSessionId( nextSessionState.sessionId );
 				setPreviewState( nextSessionState.previewState );
 			} catch ( error ) {
@@ -2703,8 +3123,9 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 	const submitPrompt = useCallback(
 		( chatMessage: string, isRetry?: boolean ) => {
 			const trimmedMessage = chatMessage.trim();
+			const imagesToSend = isRetry ? [] : pendingImages;
 			if (
-				! trimmedMessage ||
+				( ! trimmedMessage && imagesToSend.length === 0 ) ||
 				! client ||
 				isAssistantThinking ||
 				selectedWpcomSiteIdRef.current !== selectedWpcomSite.id
@@ -2716,36 +3137,102 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 				setInput( '' );
 			}
 
+			const messageToSend =
+				trimmedMessage ||
+				( imagesToSend.length > 0 ? createDollyImagePrompt( imagesToSend.length ) : '' );
 			const newMessageId = isRetry ? messages.length - 1 : messages.length;
-			const message = generateMessage( trimmedMessage, 'user', newMessageId );
+			const optimisticImagesPromise = createDollyPendingVisibleImages( imagesToSend );
 
-			setMessages( ( currentMessages ) => {
-				if ( ! isRetry ) {
-					return [
-						...currentMessages.map( ( currentMessage ) => ( {
-							...currentMessage,
-							failedMessage: false,
-						} ) ),
-						message,
-					];
-				}
+			if ( ! isRetry && imagesToSend.length > 0 ) {
+				setPendingImages( [] );
+				setImageUploadError( undefined );
+				revokeDollyPendingImageUrls( imagesToSend );
+			}
 
-				return currentMessages.map( ( currentMessage ) =>
-					currentMessage.id === message.id
-						? { ...currentMessage, failedMessage: false }
-						: currentMessage
-				);
-			} );
 			setIsAssistantThinking( true );
 			const requestSelectionRevision = selectionRevisionRef.current;
 			const isCurrentTurn = () =>
 				isMountedRef.current && selectionRevisionRef.current === requestSelectionRevision;
 
 			void ( async () => {
+				let optimisticMessage: MessageType | undefined;
 				try {
+					const optimisticImages = await optimisticImagesPromise;
+					const nextOptimisticMessage = generateMessage( messageToSend, 'user', newMessageId );
+					optimisticMessage = nextOptimisticMessage;
+					if ( optimisticImages.length > 0 ) {
+						setOptimisticMessageImages( ( currentImages ) => ( {
+							...currentImages,
+							[ nextOptimisticMessage.id ?? nextOptimisticMessage.createdAt ]: {
+								text: messageToSend,
+								images: optimisticImages,
+							},
+						} ) );
+					}
+					setMessages( ( currentMessages ) => {
+						if ( ! isRetry ) {
+							return [
+								...currentMessages.map( ( currentMessage ) => ( {
+									...currentMessage,
+									failedMessage: false,
+								} ) ),
+								nextOptimisticMessage,
+							];
+						}
+
+						return currentMessages.map( ( currentMessage ) =>
+							currentMessage.id === nextOptimisticMessage.id
+								? { ...nextOptimisticMessage, failedMessage: false }
+								: currentMessage
+						);
+					} );
+
+					const uploadedImages = await uploadDollyImages( activeWpcomSite.id, imagesToSend );
+					if ( uploadedImages.length > 0 ) {
+						const uploadedVisibleImages = uploadedImages.map( ( image ) => ( {
+							name: image.name,
+							url: image.url,
+						} ) );
+						const visibleMessage = createDollyVisibleMessage(
+							messageToSend,
+							uploadedVisibleImages,
+							imagesToSend.length
+						);
+						setMessages( ( currentMessages ) =>
+							currentMessages.map( ( currentMessage ) =>
+								currentMessage.id === optimisticMessage?.id
+									? { ...currentMessage, content: visibleMessage }
+									: currentMessage
+							)
+						);
+						void preloadDollyImageUrls( uploadedVisibleImages ).then( () => {
+							if ( ! isCurrentTurn() ) {
+								return;
+							}
+
+							setOptimisticMessageImages( ( currentImages ) => {
+								const optimisticMessageKey = String(
+									optimisticMessage?.id ?? optimisticMessage?.createdAt ?? ''
+								);
+								if ( ! currentImages[ optimisticMessageKey ] ) {
+									return currentImages;
+								}
+
+								return {
+									...currentImages,
+									[ optimisticMessageKey ]: {
+										text: messageToSend,
+										images: uploadedVisibleImages,
+									},
+								};
+							} );
+						} );
+					}
+
 					const response = await sendDollyMessage( {
 						executeFrontendTool,
-						message: trimmedMessage,
+						message: messageToSend,
+						uploadedImages,
 						previewContext,
 						siteAssociation,
 						selectedSite: activeWpcomSite,
@@ -2787,9 +3274,13 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 						return;
 					}
 					console.error( error );
+					setImageUploadError( getErrorMessage( error ) );
+					if ( ! isRetry ) {
+						setInput( chatMessage );
+					}
 					setMessages( ( currentMessages ) =>
 						currentMessages.map( ( currentMessage ) =>
-							currentMessage.id === message.id
+							currentMessage.id === optimisticMessage?.id
 								? { ...currentMessage, failedMessage: true }
 								: currentMessage
 						)
@@ -2807,6 +3298,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 			isAssistantThinking,
 			messages.length,
 			activeWpcomSite,
+			pendingImages,
 			previewContext,
 			selectedWpcomSite.id,
 			sessionId,
@@ -2821,10 +3313,12 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		serverHydrationDisabledRef.current = true;
 		setInput( '' );
 		setMessages( [] );
+		setOptimisticMessageImages( {} );
 		setSessionId( undefined );
 		setActiveWpcomSite( selectedWpcomSite );
 		setPreviewState( initialPreviewState() );
-	}, [ selectedWpcomSite ] );
+		clearPendingImages();
+	}, [ clearPendingImages, selectedWpcomSite ] );
 
 	const confirmAndClearConversation = useCallback( async () => {
 		if ( localStorage.getItem( 'dontShowClearMessagesWarning' ) === 'true' ) {
@@ -2855,6 +3349,8 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		() =>
 			messages.map( ( message ) => {
 				const actions: MessageAction[] = [];
+				const messageKey = String( message.id ?? message.createdAt );
+				const optimisticImageAttachment = optimisticMessageImages[ messageKey ];
 
 				if ( message.role === 'assistant' && message.messageApiId ) {
 					actions.push( {
@@ -2876,8 +3372,19 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 					content: [
 						{
 							type: 'text',
-							text: message.content,
+							text: optimisticImageAttachment?.text ?? message.content,
 						},
+						...( optimisticImageAttachment?.images.length
+							? [
+									{
+										type: 'component' as const,
+										component: DollyOptimisticImages,
+										componentProps: {
+											images: optimisticImageAttachment.images,
+										},
+									},
+							  ]
+							: [] ),
 					],
 					timestamp: message.createdAt,
 					archived: false,
@@ -2886,7 +3393,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 					actions: actions.length ? actions : undefined,
 				};
 			} ),
-		[ instanceId, messages ]
+		[ instanceId, messages, optimisticMessageImages ]
 	);
 
 	const retryFailedMessage = useCallback( () => {
@@ -2917,12 +3424,31 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 			};
 		}
 
+		if ( imageUploadError ) {
+			return {
+				message: imageUploadError,
+				status: 'error',
+				dismissible: true,
+				onDismiss: () => setImageUploadError( undefined ),
+			};
+		}
+
 		return undefined;
-	}, [ hasFailedMessage, isOffline, retryFailedMessage ] );
+	}, [ hasFailedMessage, imageUploadError, isOffline, retryFailedMessage ] );
+
+	const disabled = isOffline || ! isAuthenticated || ! client || isAssistantThinking;
 
 	const dollyInputActions = useMemo(
-		() =>
-			messages.length > 0
+		() => [
+			{
+				id: 'upload-image',
+				icon: <Icon icon={ imageIcon } size={ 18 } />,
+				onClick: () => imageUploaderRef.current?.openFileDialog(),
+				variant: 'ghost' as const,
+				disabled,
+				'aria-label': __( 'Upload image' ),
+			},
+			...( messages.length > 0
 				? [
 						{
 							id: 'clear-conversation',
@@ -2934,8 +3460,9 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 							'aria-label': __( 'Clear conversation' ),
 						},
 				  ]
-				: undefined,
-		[ confirmAndClearConversation, messages.length ]
+				: [] ),
+		],
+		[ confirmAndClearConversation, disabled, messages.length ]
 	);
 
 	const dollyEmptyView = useMemo( () => <DollyEmptyView />, [] );
@@ -2947,8 +3474,6 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 			);
 		}
 	};
-
-	const disabled = isOffline || ! isAuthenticated || ! client || isAssistantThinking;
 
 	return (
 		<div className="relative h-full min-w-0 flex flex-1 overflow-hidden bg-frame-surface">
@@ -2977,10 +3502,11 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 				</div>
 				<div
 					data-testid="assistant-chat"
+					ref={ dollyDropZoneRef }
 					className={ cx( 'min-h-0 flex-1', ! isAuthenticated && 'overflow-y-auto p-8 pb-2' ) }
 				>
 					{ isAuthenticated ? (
-						<div className="agenttic h-full min-h-0">
+						<div className="agenttic dolly-agenttic-chat h-full min-h-0">
 							<AgentUI.Container
 								messages={ agentticMessages }
 								isProcessing={ isAssistantThinking }
@@ -3006,9 +3532,21 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 									) }
 									<AgentUI.Footer className="mx-2 bg-white">
 										<AgentUI.Notice />
+										<ImageUploader
+											ref={ imageUploaderRef }
+											images={ pendingImages }
+											onFilesSelected={ addPendingImages }
+											onRemoveImage={ removePendingImage }
+											acceptedFileTypes={ DOLLY_IMAGE_FILE_TYPES }
+											maxFileSize={ DOLLY_IMAGE_MAX_FILE_SIZE }
+											maxFiles={ DOLLY_IMAGE_MAX_FILES }
+											dropZoneRef={ dollyDropZoneRef }
+											onError={ setImageUploadError }
+										/>
 										<AgentUI.Input
-											disabled={ disabled ? true : undefined }
+											disabled={ disabled ? true : pendingImages.length > 0 ? false : undefined }
 											customActions={ dollyInputActions }
+											layout="inline"
 										/>
 									</AgentUI.Footer>
 									<div

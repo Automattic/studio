@@ -224,7 +224,14 @@ describe( 'ContentTabAssistant', () => {
 			params?: {
 				id?: string;
 				sessionId?: string;
-				message?: { parts?: Array< { text?: string; data?: Record< string, unknown > } > };
+				message?: {
+					parts?: Array< {
+						type?: string;
+						text?: string;
+						data?: Record< string, unknown >;
+						file?: Record< string, unknown >;
+					} >;
+				};
 			};
 		};
 		init: RequestInit;
@@ -240,11 +247,33 @@ describe( 'ContentTabAssistant', () => {
 			},
 		} );
 
-	const mockDollyFetch = ( handler: DollyFetchHandler ) => {
+	type MockDollyFetchOptions = {
+		mediaUploadResponse?: () => unknown | Promise< unknown >;
+	};
+
+	const mockDollyFetch = ( handler: DollyFetchHandler, options?: MockDollyFetchOptions ) => {
 		const requestBodies: Array< Parameters< DollyFetchHandler >[ 0 ][ 'body' ] > = [];
 		const requestUrls: string[] = [];
+		const mediaUploadRequests: Array< { url: string; init: RequestInit } > = [];
 		const fetchMock = vi.fn( async ( input: RequestInfo | URL, init?: RequestInit ) => {
 			const url = String( input );
+			if ( url.includes( '/rest/v1.1/sites/' ) && url.endsWith( '/media/new' ) ) {
+				mediaUploadRequests.push( { url, init: init ?? {} } );
+				return createDollyFetchResponse(
+					( await options?.mediaUploadResponse?.() ) ?? {
+						media: [
+							{
+								ID: 789,
+								URL: 'https://dolly.example/wp-content/uploads/2026/05/sample.png',
+								file: 'sample.png',
+								mime_type: 'image/png',
+								title: 'sample.png',
+							},
+						],
+					}
+				);
+			}
+
 			const body = JSON.parse( String( init?.body ?? '{}' ) );
 			const callIndex = requestBodies.length;
 			requestBodies.push( body );
@@ -264,6 +293,7 @@ describe( 'ContentTabAssistant', () => {
 
 		return {
 			fetchMock,
+			mediaUploadRequests,
 			requestBodies,
 			requestUrls,
 		};
@@ -279,6 +309,23 @@ describe( 'ContentTabAssistant', () => {
 		clearWpcomSiteAssistantStateCacheForTests();
 		window.HTMLElement.prototype.scrollIntoView = vi.fn();
 		window.HTMLElement.prototype.scrollTo = vi.fn();
+		Object.defineProperty( URL, 'createObjectURL', {
+			value: vi.fn( () => 'blob:studio-test-image' ),
+			configurable: true,
+		} );
+		Object.defineProperty( URL, 'revokeObjectURL', {
+			value: vi.fn(),
+			configurable: true,
+		} );
+		class TestImage {
+			onload: ( ( event: Event ) => void ) | null = null;
+			onerror: ( ( event: Event ) => void ) | null = null;
+
+			set src( _value: string ) {
+				queueMicrotask( () => this.onload?.( new Event( 'load' ) ) );
+			}
+		}
+		vi.stubGlobal( 'Image', TestImage );
 		localStorage.clear();
 
 		// Reset Redux store state
@@ -413,6 +460,122 @@ describe( 'ContentTabAssistant', () => {
 				} ),
 			] )
 		);
+	} );
+
+	it( 'submits selected Dolly images from the upload affordance', async () => {
+		let finishMediaUpload: () => void = () => {};
+		const mediaUploadReady = new Promise< void >( ( resolve ) => {
+			finishMediaUpload = resolve;
+		} );
+		const { mediaUploadRequests, requestBodies } = mockDollyFetch(
+			() => ( {
+				result: {
+					id: 'task-1',
+					sessionId: 'session-1',
+					status: {
+						state: 'completed',
+						message: {
+							parts: [
+								{
+									type: 'text',
+									text: 'I can see the image.',
+								},
+							],
+						},
+					},
+				},
+			} ),
+			{
+				mediaUploadResponse: async () => {
+					await mediaUploadReady;
+					return {
+						media: [
+							{
+								ID: 789,
+								URL: 'https://dolly.example/wp-content/uploads/2026/05/sample.png',
+								file: 'sample.png',
+								mime_type: 'image/png',
+								title: 'sample.png',
+							},
+						],
+					};
+				},
+			}
+		);
+		const { container } = renderWithContext( { component: 'wpcom-site' } );
+
+		expect( screen.getByRole( 'button', { name: 'Upload image' } ) ).toBeInTheDocument();
+		const fileInput = container.querySelector( 'input[type="file"]' );
+		const imageFile = new File( [ 'hello' ], 'sample.png', { type: 'image/png' } );
+
+		expect( fileInput ).toBeInstanceOf( HTMLInputElement );
+		fireEvent.change( fileInput as HTMLInputElement, {
+			target: {
+				files: [ imageFile ],
+			},
+		} );
+
+		await waitFor( () => {
+			expect( screen.getByText( 'sample.png' ) ).toBeVisible();
+		} );
+		const sendButton = screen.getByRole( 'button', { name: 'Send message' } );
+		await waitFor( () => {
+			expect( sendButton ).toBeEnabled();
+		} );
+		fireEvent.click( sendButton );
+
+		await waitFor( () => {
+			expect( getChatMessageText( 'Please look at the attached image.' ) ).toBeVisible();
+		} );
+		await waitFor( () => {
+			expect(
+				screen
+					.getAllByRole( 'img', { name: 'sample.png' } )
+					.some( ( image ) => image.getAttribute( 'src' ) === 'data:image/png;base64,aGVsbG8=' )
+			).toBe( true );
+		} );
+		await waitFor( () => {
+			expect( screen.queryByText( 'sample.png' ) ).not.toBeInTheDocument();
+		} );
+		finishMediaUpload();
+		await waitFor( () => {
+			expect( getChatMessageText( 'I can see the image.' ) ).toBeVisible();
+		} );
+		expect( mediaUploadRequests ).toHaveLength( 1 );
+		expect( mediaUploadRequests[ 0 ].url ).toBe(
+			'https://public-api.wordpress.com/rest/v1.1/sites/123/media/new'
+		);
+		expect( mediaUploadRequests[ 0 ].init.headers ).toMatchObject( {
+			Authorization: 'Bearer test-token',
+		} );
+		const filePart = requestBodies[ 0 ].params?.message?.parts?.find(
+			( part ) => part.type === 'file'
+		);
+		expect( filePart ).toEqual(
+			expect.objectContaining( {
+				type: 'file',
+				file: expect.objectContaining( {
+					name: 'sample.png',
+					mimeType: 'image/png',
+					uri: 'https://dolly.example/wp-content/uploads/2026/05/sample.png',
+				} ),
+				metadata: expect.objectContaining( {
+					url: 'https://dolly.example/wp-content/uploads/2026/05/sample.png',
+					fileType: 'image/png',
+				} ),
+			} )
+		);
+		await waitFor( () => {
+			expect(
+				screen
+					.getAllByRole( 'img', { name: 'sample.png' } )
+					.some(
+						( image ) =>
+							image.getAttribute( 'src' ) ===
+							'https://dolly.example/wp-content/uploads/2026/05/sample.png'
+					)
+			).toBe( true );
+		} );
 	} );
 
 	it( 'starts a fresh Dolly backend session when the selected WP.com site changes', async () => {

@@ -26,6 +26,8 @@ export const reconcileConnectedSites = (
 				url: site.url,
 				syncSupport: site.syncSupport,
 				isStaging: site.isStaging,
+				productionSiteId: site.productionSiteId,
+				stagingSiteIds: site.stagingSiteIds,
 				isPressable: site.isPressable,
 				environmentType: site.environmentType,
 			};

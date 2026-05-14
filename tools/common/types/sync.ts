@@ -9,6 +9,7 @@ export const sitesEndpointSiteSchema = z.object( {
 	jetpack: z.boolean().optional(),
 	is_deleted: z.boolean(),
 	hosting_provider_guess: z.string().optional(),
+	is_wpcom_staging_site: z.boolean().optional(),
 	environment_type: z
 		.enum( [ 'production', 'staging', 'development', 'sandbox', 'local' ] )
 		.nullable()
@@ -78,6 +79,8 @@ export const syncSiteSchema = z.object( {
 	name: z.string(),
 	url: z.string(),
 	isStaging: z.boolean(),
+	productionSiteId: z.number().optional(),
+	stagingSiteIds: z.array( z.number() ).optional(),
 	isPressable: z.boolean(),
 	environmentType: z.string().nullable().optional(),
 	syncSupport: z.enum( syncSupportValues ),

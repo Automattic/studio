@@ -11,6 +11,7 @@
 - Live-site safety signals: WordPress.com live-site chats show a heading badge for the selected site's environment, a WP.com badge, and a warning that Dolly can make changes directly to the live site.
 - Preview resize drag capture: dragging the WordPress.com preview splitter keeps pointer capture above the embedded preview so shrinking does not get stuck and releases cleanly.
 - Sidebar WordPress.com item polish: live WordPress.com site rows align with local site rows and use a subtle WordPress icon affordance instead of nested indentation.
+- Sidebar WordPress.com workspace grouping: production and staging sites keep their relationship in `SyncSite` and render as one workspace row with nested production/staging target rows instead of duplicate sibling site rows.
 
 ## Remaining Prioritized Plan
 
@@ -22,6 +23,7 @@ Required behavior:
 
 - Add right-click options on the top-level WordPress.com sidebar group for filtering and list controls.
 - Add right-click options on individual WordPress.com sidebar sites, including an action to sync/pull the site locally.
+- Add favorite/pin support at the workspace-row level, not per production/staging target.
 - Add richer list controls only where needed; the basic live-site visual distinction is in place.
 
 Do this after live-site safety language is settled so the sidebar status treatment matches the main content area.

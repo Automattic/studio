@@ -26,6 +26,8 @@ interface SiteMenuProps {
 	className?: string;
 }
 
+const SITE_MENU_TOOLTIP_PLACEMENT = 'right-start' as const;
+
 function ButtonToRun( site: SiteDetails ) {
 	const { running, id, name, enableXdebug } = site;
 	const { startServer, stopServer, loadingServer } = useSiteDetails();
@@ -89,7 +91,7 @@ function ButtonToRun( site: SiteDetails ) {
 		: __( 'Start site' );
 
 	return (
-		<Tooltip text={ tooltipText }>
+		<Tooltip text={ tooltipText } placement={ SITE_MENU_TOOLTIP_PLACEMENT }>
 			<button
 				type="button"
 				aria-disabled={ loadingServer[ id ] }
@@ -241,7 +243,7 @@ function SiteItem( {
 				{ site.name }
 			</button>
 			{ showSpinner ? (
-				<Tooltip text={ tooltipText }>
+				<Tooltip text={ tooltipText } placement={ SITE_MENU_TOOLTIP_PLACEMENT }>
 					<div className="grid place-items-center">
 						<Spinner className="!w-2.5 !h-2.5 !mt-0 !mr-2 [&>circle]:stroke-a8c-gray-70" />
 					</div>
@@ -253,9 +255,202 @@ function SiteItem( {
 	);
 }
 
-function WpcomSiteItem( { site }: { site: SyncSite } ) {
+type WpcomSiteWorkspace = {
+	id: string;
+	name: string;
+	primarySite: SyncSite;
+	productionSite?: SyncSite;
+	stagingSites: SyncSite[];
+	sites: SyncSite[];
+};
+
+const createWpcomSiteWorkspaces = ( sites: SyncSite[] ): WpcomSiteWorkspace[] => {
+	const sitesById = new Map( sites.map( ( site ) => [ site.id, site ] ) );
+	const groupedSiteIds = new Set< number >();
+	const workspaces: WpcomSiteWorkspace[] = [];
+	const normalizeSiteName = ( name: string ) => name.trim().toLowerCase().replace( /\s+/g, ' ' );
+	const getWorkspaceNameKey = ( name: string ) =>
+		normalizeSiteName( name ).replace( /\s+(staging|stage)$/, '' );
+	const unlinkedStagingSites = sites.filter(
+		( site ) => site.isStaging && ! site.productionSiteId
+	);
+
+	sites.forEach( ( site ) => {
+		if ( site.isStaging || groupedSiteIds.has( site.id ) ) {
+			return;
+		}
+
+		const stagingSites = ( site.stagingSiteIds ?? [] )
+			.map( ( stagingSiteId ) => sitesById.get( stagingSiteId ) )
+			.filter( ( stagingSite ): stagingSite is SyncSite => Boolean( stagingSite ) );
+		const fallbackStagingSites = unlinkedStagingSites.filter(
+			( stagingSite ) =>
+				getWorkspaceNameKey( stagingSite.name ) === getWorkspaceNameKey( site.name )
+		);
+		const allStagingSites = [ ...stagingSites, ...fallbackStagingSites ].filter(
+			( stagingSite, index, allSites ) =>
+				index === allSites.findIndex( ( candidate ) => candidate.id === stagingSite.id )
+		);
+
+		groupedSiteIds.add( site.id );
+		allStagingSites.forEach( ( stagingSite ) => groupedSiteIds.add( stagingSite.id ) );
+
+		workspaces.push( {
+			id: `wpcom-site-workspace:${ site.id }`,
+			name: site.name,
+			primarySite: site,
+			productionSite: site,
+			stagingSites: allStagingSites,
+			sites: [ site, ...allStagingSites ],
+		} );
+	} );
+
+	sites.forEach( ( site ) => {
+		if ( groupedSiteIds.has( site.id ) ) {
+			return;
+		}
+
+		workspaces.push( {
+			id: `wpcom-site-workspace:${ site.id }`,
+			name: site.name,
+			primarySite: site,
+			productionSite: site.isStaging ? undefined : site,
+			stagingSites: site.isStaging ? [ site ] : [],
+			sites: [ site ],
+		} );
+	} );
+
+	return workspaces;
+};
+
+function WpcomSiteTargetSummary( { workspace }: { workspace: WpcomSiteWorkspace } ) {
+	return (
+		<Tooltip
+			text={ __( 'Production and staging sites' ) }
+			placement={ SITE_MENU_TOOLTIP_PLACEMENT }
+		>
+			<div
+				role="img"
+				aria-label={ __( 'Production and staging sites' ) }
+				className="me-2 flex h-5 shrink-0 items-center gap-1"
+			>
+				{ workspace.productionSite && (
+					<span className="h-2 w-2 rounded-full bg-circle-env-production" aria-hidden="true" />
+				) }
+				{ workspace.stagingSites.length > 0 && (
+					<span className="h-2 w-2 rounded-full bg-circle-env-staging" aria-hidden="true" />
+				) }
+			</div>
+		</Tooltip>
+	);
+}
+
+function WpcomSiteTargetItem( {
+	site,
+	label,
+	isSelected,
+	onSelect,
+}: {
+	site: SyncSite;
+	label: string;
+	isSelected: boolean;
+	onSelect: ( site: SyncSite ) => void;
+} ) {
+	return (
+		<li
+			className={ cx(
+				'ms-1 flex h-7 min-w-0 items-center rounded transition-all hover:bg-[#ffffff0C]',
+				isSelected && 'bg-[#ffffff0C]'
+			) }
+		>
+			<Tooltip
+				text={ site.url }
+				placement={ SITE_MENU_TOOLTIP_PLACEMENT }
+				className="min-w-0 flex-1"
+			>
+				<button
+					type="button"
+					className="flex w-full min-w-0 items-center gap-2 rounded py-1 ps-2 pe-3.5 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme"
+					aria-label={ sprintf(
+						/* translators: 1: environment label, 2: site URL. */
+						__( 'Select %1$s site: %2$s' ),
+						label,
+						site.url
+					) }
+					onClick={ () => onSelect( site ) }
+				>
+					<span
+						className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-xs text-a8c-gray-50"
+						dir="ltr"
+					>
+						{ site.url }
+					</span>
+					<span
+						aria-hidden="true"
+						className={ cx(
+							'h-2 w-2 shrink-0 rounded-full',
+							site.isStaging ? 'bg-circle-env-staging' : 'bg-circle-env-production'
+						) }
+					/>
+				</button>
+			</Tooltip>
+		</li>
+	);
+}
+
+function WpcomSiteItem( { workspace }: { workspace: WpcomSiteWorkspace } ) {
 	const { selectedWpcomSite, setSelectedWpcomSite } = useSiteDetails();
-	const isSelected = selectedWpcomSite?.id === site.id;
+	const selectedWorkspaceSite = workspace.sites.find(
+		( site ) => site.id === selectedWpcomSite?.id
+	);
+	const isSelected = Boolean( selectedWorkspaceSite );
+	const siteToOpen = selectedWorkspaceSite ?? workspace.primarySite;
+	const hasMultipleTargets = workspace.sites.length > 1;
+	const showTargets = hasMultipleTargets && isSelected;
+
+	if ( showTargets ) {
+		return (
+			<li className={ cx( 'min-w-[168px] ms-1', isMac() ? 'me-5' : 'me-4' ) }>
+				<div
+					className={ cx(
+						'flex h-8 flex-row items-center rounded transition-all hover:bg-[#ffffff0C]',
+						isSelected && 'bg-[#ffffff0A]'
+					) }
+				>
+					<button
+						type="button"
+						className="p-2 text-xs rounded whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme"
+						onClick={ () => setSelectedWpcomSite( siteToOpen ) }
+					>
+						{ workspace.name }
+					</button>
+				</div>
+				<ul className="mb-1 ms-1 border-s border-white/10">
+					{ workspace.productionSite && (
+						<WpcomSiteTargetItem
+							site={ workspace.productionSite }
+							label={ __( 'Production' ) }
+							isSelected={ selectedWpcomSite?.id === workspace.productionSite.id }
+							onSelect={ setSelectedWpcomSite }
+						/>
+					) }
+					{ workspace.stagingSites.map( ( stagingSite, index ) => (
+						<WpcomSiteTargetItem
+							key={ stagingSite.id }
+							site={ stagingSite }
+							label={
+								workspace.stagingSites.length > 1
+									? sprintf( __( 'Staging %d' ), index + 1 )
+									: __( 'Staging' )
+							}
+							isSelected={ selectedWpcomSite?.id === stagingSite.id }
+							onSelect={ setSelectedWpcomSite }
+						/>
+					) ) }
+				</ul>
+			</li>
+		);
+	}
 
 	return (
 		<li
@@ -268,19 +463,23 @@ function WpcomSiteItem( { site }: { site: SyncSite } ) {
 			<button
 				type="button"
 				className="p-2 text-xs rounded-tl rounded-bl whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme"
-				onClick={ () => setSelectedWpcomSite( site ) }
+				onClick={ () => setSelectedWpcomSite( siteToOpen ) }
 			>
-				{ site.name }
+				{ workspace.name }
 			</button>
-			<Tooltip text={ __( 'Live WordPress.com site' ) }>
-				<div
-					role="img"
-					aria-label={ __( 'Live WordPress.com site' ) }
-					className="me-2 grid h-5 w-5 shrink-0 place-items-center rounded-full text-a8c-gray-400 opacity-80 [&_path]:fill-current"
-				>
-					<Icon icon={ wordpress } size={ 14 } />
-				</div>
-			</Tooltip>
+			{ hasMultipleTargets ? (
+				<WpcomSiteTargetSummary workspace={ workspace } />
+			) : (
+				<Tooltip text={ __( 'Live WordPress.com site' ) } placement={ SITE_MENU_TOOLTIP_PLACEMENT }>
+					<div
+						role="img"
+						aria-label={ __( 'Live WordPress.com site' ) }
+						className="me-2 grid h-5 w-5 shrink-0 place-items-center rounded-full text-a8c-gray-400 opacity-80 [&_path]:fill-current"
+					>
+						<Icon icon={ wordpress } size={ 14 } />
+					</div>
+				</Tooltip>
+			) }
 		</li>
 	);
 }
@@ -318,6 +517,10 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 				( site ) => ! connectedWpcomSiteIds.includes( site.id )
 			),
 		[ connectedWpcomSiteIds, wpcomSitesData?.sites ]
+	);
+	const wpcomSiteWorkspaces = useMemo(
+		() => createWpcomSiteWorkspaces( unconnectedWpcomSites ),
+		[ unconnectedWpcomSites ]
 	);
 
 	useEffect( () => {
@@ -494,7 +697,7 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 					onDrop={ ( e ) => handleDrop( e, sites.length ) }
 				/>
 			</ul>
-			{ isAuthenticated && ( unconnectedWpcomSites.length > 0 || isFetchingWpcomSites ) && (
+			{ isAuthenticated && ( wpcomSiteWorkspaces.length > 0 || isFetchingWpcomSites ) && (
 				<div className="mt-3 border-t border-white/10 pt-2">
 					<button
 						type="button"
@@ -514,10 +717,10 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 					</button>
 					{ isWpcomSectionExpanded && (
 						<ul className="pt-px">
-							{ unconnectedWpcomSites.map( ( site ) => (
-								<WpcomSiteItem key={ site.id } site={ site } />
+							{ wpcomSiteWorkspaces.map( ( workspace ) => (
+								<WpcomSiteItem key={ workspace.id } workspace={ workspace } />
 							) ) }
-							{ isFetchingWpcomSites && unconnectedWpcomSites.length === 0 && (
+							{ isFetchingWpcomSites && wpcomSiteWorkspaces.length === 0 && (
 								<li
 									className={ cx(
 										'flex h-8 min-w-[168px] items-center px-2 text-xs text-a8c-gray-600',

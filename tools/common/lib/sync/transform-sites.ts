@@ -2,10 +2,18 @@ import { sitesEndpointSiteSchema } from '@studio/common/types/sync';
 import { getSyncSupport, isPressableSite } from './sync-support';
 import type { SitesEndpointSite, SyncSite, SyncSupport } from '@studio/common/types/sync';
 
+export function isStagingSiteResponse( site: Pick< SitesEndpointSite, 'is_wpcom_staging_site' > ) {
+	return site.is_wpcom_staging_site === true;
+}
+
 export function transformSingleSiteResponse(
 	site: SitesEndpointSite,
 	syncSupport: SyncSupport,
-	isStaging: boolean
+	isStaging: boolean,
+	relationship?: {
+		productionSiteId?: number;
+		stagingSiteIds?: number[];
+	}
 ): SyncSite {
 	return {
 		id: site.ID,
@@ -13,6 +21,8 @@ export function transformSingleSiteResponse(
 		name: site.name,
 		url: site.URL,
 		isStaging,
+		productionSiteId: relationship?.productionSiteId,
+		stagingSiteIds: relationship?.stagingSiteIds,
 		isPressable: isPressableSite( site ),
 		environmentType: site.environment_type,
 		syncSupport,
@@ -51,9 +61,22 @@ export function transformSitesResponse(
 		}
 	}, [] );
 
-	const allStagingSiteIds = validatedSites.flatMap(
-		( site ) => site.options?.wpcom_staging_blog_ids ?? []
-	);
+	const stagingSiteIdsByProductionSiteId = new Map< number, number[] >();
+	const productionSiteIdByStagingSiteId = new Map< number, number >();
+
+	validatedSites.forEach( ( site ) => {
+		const stagingSiteIds = site.options?.wpcom_staging_blog_ids ?? [];
+		if ( stagingSiteIds.length === 0 ) {
+			return;
+		}
+
+		stagingSiteIdsByProductionSiteId.set( site.ID, stagingSiteIds );
+		stagingSiteIds.forEach( ( stagingSiteId ) => {
+			if ( ! productionSiteIdByStagingSiteId.has( stagingSiteId ) ) {
+				productionSiteIdByStagingSiteId.set( stagingSiteId, site.ID );
+			}
+		} );
+	} );
 
 	return validatedSites
 		.filter( ( site ) => ! site.is_a8c )
@@ -63,9 +86,14 @@ export function transformSitesResponse(
 				( connectedSiteIds.length > 0 && connectedSiteIds.some( ( id ) => id === site.ID ) )
 		)
 		.map( ( site ) => {
-			const isStaging = allStagingSiteIds.includes( site.ID );
+			const productionSiteId = productionSiteIdByStagingSiteId.get( site.ID );
+			const stagingSiteIds = stagingSiteIdsByProductionSiteId.get( site.ID );
+			const isStaging = productionSiteId !== undefined || isStagingSiteResponse( site );
 			const syncSupport = getSyncSupport( site, connectedSiteIds );
 
-			return transformSingleSiteResponse( site, syncSupport, isStaging );
+			return transformSingleSiteResponse( site, syncSupport, isStaging, {
+				productionSiteId,
+				stagingSiteIds,
+			} );
 		} );
 }

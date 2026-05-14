@@ -25,6 +25,7 @@ const SITE_FIELDS = [
 	'jetpack',
 	'is_deleted',
 	'is_a8c',
+	'is_wpcom_staging_site',
 	'hosting_provider_guess',
 	'environment_type',
 ].join( ',' );

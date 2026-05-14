@@ -2,6 +2,7 @@ import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import * as Sentry from '@sentry/electron/renderer';
 import { getSyncSupport } from '@studio/common/lib/sync/sync-support';
 import {
+	isStagingSiteResponse,
 	transformSingleSiteResponse,
 	transformSitesResponse,
 } from '@studio/common/lib/sync/transform-sites';
@@ -24,6 +25,7 @@ const SITE_FIELDS = [
 	'jetpack',
 	'is_deleted',
 	'is_a8c',
+	'is_wpcom_staging_site',
 	'hosting_provider_guess',
 	'environment_type',
 	'icon',
@@ -57,10 +59,9 @@ export const wpcomSitesApi = createApi( {
 
 					const allConnectedSites = await getIpcApi().getConnectedWpcomSites();
 
-					// Determine if staging by checking environment_type (can't access parent site's staging IDs without fetching /me/sites)
-					const isStaging =
-						parsedSite.environment_type === 'staging' ||
-						parsedSite.environment_type === 'development';
+					// Single-site responses do not include the parent site's staging ID list, so use
+					// the explicit staging flag returned for the site.
+					const isStaging = isStagingSiteResponse( parsedSite );
 
 					const syncSupport = getSyncSupport(
 						parsedSite,
@@ -166,9 +167,7 @@ export const wpcomSitesApi = createApi( {
 									);
 									const parsed = sitesEndpointSiteSchema.parse( singleResponse );
 									const syncSupport = getSyncSupport( parsed, connectedIds );
-									const isStaging =
-										parsed.environment_type === 'staging' ||
-										parsed.environment_type === 'development';
+									const isStaging = isStagingSiteResponse( parsed );
 									supplementalSites.push(
 										transformSingleSiteResponse( parsed, syncSupport, isStaging )
 									);

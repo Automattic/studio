@@ -7,6 +7,7 @@ import { useAuth } from 'src/hooks/use-auth';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { store } from 'src/stores';
 import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
+import type { SyncSite } from '@studio/common/types/sync';
 
 vi.mock( 'src/hooks/use-auth' );
 
@@ -107,7 +108,7 @@ const siteDetailsMocked = {
 	startServer: vi.fn(),
 	stopServer: vi.fn(),
 	isSiteDeleting: vi.fn( () => false ),
-	selectedWpcomSite: undefined,
+	selectedWpcomSite: undefined as SyncSite | undefined,
 	setSelectedWpcomSite: vi.fn(),
 };
 vi.mock( 'src/hooks/use-site-details', () => ( {
@@ -122,15 +123,18 @@ const renderWithProvider = ( children: React.ReactElement ) => {
 	);
 };
 
-describe( 'MainSidebar Footer', () => {
-	beforeEach( () => {
-		vi.clearAllMocks();
-		vi.mocked( useAuth, { partial: true } ).mockReturnValue( { isAuthenticated: false } );
-		vi.mocked( useGetWpComSitesQuery, { partial: true } ).mockReturnValue( {
-			data: { sites: [] },
-			isFetching: false,
-		} );
+beforeEach( () => {
+	vi.clearAllMocks();
+	site2.running = false;
+	siteDetailsMocked.selectedWpcomSite = undefined;
+	vi.mocked( useAuth, { partial: true } ).mockReturnValue( { isAuthenticated: false } );
+	vi.mocked( useGetWpComSitesQuery, { partial: true } ).mockReturnValue( {
+		data: { sites: [] },
+		isFetching: false,
 	} );
+} );
+
+describe( 'MainSidebar Footer', () => {
 	it( 'Has add site button', async () => {
 		await act( async () => renderWithProvider( <MainSidebar /> ) );
 		expect( screen.getByRole( 'button', { name: 'Add site' } ) ).toBeVisible();
@@ -235,5 +239,188 @@ describe( 'MainSidebar Site Menu', () => {
 		expect( siteDetailsMocked.setSelectedWpcomSite ).toHaveBeenCalledWith(
 			expect.objectContaining( { id: 101, name: 'Auro Atelier' } )
 		);
+	} );
+
+	it( 'groups WordPress.com production and staging sites into one workspace row', async () => {
+		const user = userEvent.setup();
+		siteDetailsMocked.selectedWpcomSite = {
+			id: 101,
+			localSiteId: '',
+			name: 'Auro Atelier',
+			url: 'https://auro.example',
+			isStaging: false,
+			isPressable: false,
+			syncSupport: 'syncable',
+			lastPullTimestamp: null,
+			lastPushTimestamp: null,
+		};
+		vi.mocked( useAuth, { partial: true } ).mockReturnValue( {
+			isAuthenticated: true,
+			user: {
+				id: 1,
+				email: 'dsmart@example.com',
+				displayName: 'D Smart',
+			},
+		} );
+		vi.mocked( useGetWpComSitesQuery, { partial: true } ).mockReturnValue( {
+			data: {
+				sites: [
+					{
+						id: 101,
+						name: 'Auro Atelier',
+						url: 'https://auro.example',
+						isStaging: false,
+						stagingSiteIds: [ 202 ],
+					},
+					{
+						id: 202,
+						name: 'Auro Atelier Staging',
+						url: 'https://staging-auro.example',
+						isStaging: true,
+						productionSiteId: 101,
+					},
+				],
+			},
+			isFetching: false,
+		} );
+
+		await act( async () => renderWithProvider( <MainSidebar /> ) );
+
+		expect( screen.getByRole( 'button', { name: 'Auro Atelier' } ) ).toBeVisible();
+		expect(
+			screen.queryByRole( 'button', { name: 'Auro Atelier Staging' } )
+		).not.toBeInTheDocument();
+		expect(
+			screen.getByRole( 'button', { name: 'Select Production site: https://auro.example' } )
+		).toHaveTextContent( 'https://auro.example' );
+		expect(
+			screen.getByRole( 'button', {
+				name: 'Select Staging site: https://staging-auro.example',
+			} )
+		).toHaveTextContent( 'https://staging-auro.example' );
+
+		await user.click(
+			screen.getByRole( 'button', { name: 'Select Staging site: https://staging-auro.example' } )
+		);
+		expect( siteDetailsMocked.setSelectedWpcomSite ).toHaveBeenCalledWith(
+			expect.objectContaining( { id: 202, name: 'Auro Atelier Staging' } )
+		);
+	} );
+
+	it( 'collapses grouped WordPress.com targets until the workspace is selected', async () => {
+		vi.mocked( useAuth, { partial: true } ).mockReturnValue( {
+			isAuthenticated: true,
+			user: {
+				id: 1,
+				email: 'dsmart@example.com',
+				displayName: 'D Smart',
+			},
+		} );
+		vi.mocked( useGetWpComSitesQuery, { partial: true } ).mockReturnValue( {
+			data: {
+				sites: [
+					{
+						id: 101,
+						name: 'Mariachi Market',
+						url: 'https://mariachi.example',
+						isStaging: false,
+						stagingSiteIds: [ 202 ],
+					},
+					{
+						id: 202,
+						name: 'Mariachi Market Staging',
+						url: 'https://staging-mariachi.wpcomstaging.com',
+						isStaging: true,
+						productionSiteId: 101,
+					},
+				],
+			},
+			isFetching: false,
+		} );
+
+		await act( async () => renderWithProvider( <MainSidebar /> ) );
+
+		expect( screen.getByRole( 'button', { name: 'Mariachi Market' } ) ).toBeVisible();
+		expect( screen.getByRole( 'img', { name: 'Production and staging sites' } ) ).toBeVisible();
+		expect(
+			screen.queryByRole( 'button', { name: 'Select Production site: https://mariachi.example' } )
+		).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole( 'button', {
+				name: 'Select Staging site: https://staging-mariachi.wpcomstaging.com',
+			} )
+		).not.toBeInTheDocument();
+	} );
+
+	it( 'groups same-name WordPress.com staging sites when relationship metadata is missing', async () => {
+		vi.mocked( useAuth, { partial: true } ).mockReturnValue( {
+			isAuthenticated: true,
+			user: {
+				id: 1,
+				email: 'dsmart@example.com',
+				displayName: 'D Smart',
+			},
+		} );
+		vi.mocked( useGetWpComSitesQuery, { partial: true } ).mockReturnValue( {
+			data: {
+				sites: [
+					{
+						id: 101,
+						name: 'My Store',
+						url: 'https://store.example',
+						isStaging: false,
+					},
+					{
+						id: 202,
+						name: 'My Store',
+						url: 'https://staging-store.wpcomstaging.com',
+						isStaging: true,
+					},
+				],
+			},
+			isFetching: false,
+		} );
+
+		await act( async () => renderWithProvider( <MainSidebar /> ) );
+
+		expect( screen.getAllByRole( 'button', { name: 'My Store' } ) ).toHaveLength( 1 );
+		expect( screen.getByRole( 'img', { name: 'Production and staging sites' } ) ).toBeVisible();
+	} );
+
+	it( 'does not group same-name WordPress.com sites unless one is marked staging', async () => {
+		vi.mocked( useAuth, { partial: true } ).mockReturnValue( {
+			isAuthenticated: true,
+			user: {
+				id: 1,
+				email: 'dsmart@example.com',
+				displayName: 'D Smart',
+			},
+		} );
+		vi.mocked( useGetWpComSitesQuery, { partial: true } ).mockReturnValue( {
+			data: {
+				sites: [
+					{
+						id: 101,
+						name: 'My Store',
+						url: 'https://store.example',
+						isStaging: false,
+					},
+					{
+						id: 202,
+						name: 'My Store',
+						url: 'https://another-store.wpcomstaging.com',
+						isStaging: false,
+					},
+				],
+			},
+			isFetching: false,
+		} );
+
+		await act( async () => renderWithProvider( <MainSidebar /> ) );
+
+		expect( screen.getAllByRole( 'button', { name: 'My Store' } ) ).toHaveLength( 2 );
+		expect(
+			screen.queryByRole( 'img', { name: 'Production and staging sites' } )
+		).not.toBeInTheDocument();
 	} );
 } );

@@ -5,7 +5,7 @@ import {
 } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { closeSmall, desktop, external, Icon, redo, reset } from '@wordpress/icons';
+import { closeSmall, desktop, external, Icon, redo, trash } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import React, { useState, useEffect, useRef, memo, useCallback, useMemo, forwardRef } from 'react';
 import { createPortal } from 'react-dom';
@@ -2665,18 +2665,20 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 	}, [ hasFailedMessage, isOffline, retryFailedMessage ] );
 
 	const dollyInputActions = useMemo(
-		() => [
-			{
-				id: 'clear-conversation',
-				icon: <Icon icon={ reset } size={ 18 } />,
-				onClick: () => {
-					void confirmAndClearConversation();
-				},
-				variant: 'ghost' as const,
-				disabled: messages.length === 0,
-				'aria-label': __( 'Clear conversation' ),
-			},
-		],
+		() =>
+			messages.length > 0
+				? [
+						{
+							id: 'clear-conversation',
+							icon: <Icon icon={ trash } size={ 18 } />,
+							onClick: () => {
+								void confirmAndClearConversation();
+							},
+							variant: 'ghost' as const,
+							'aria-label': __( 'Clear conversation' ),
+						},
+				  ]
+				: [],
 		[ confirmAndClearConversation, messages.length ]
 	);
 
@@ -2699,6 +2701,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 
 	const disabled =
 		isOffline || ! isAuthenticated || ! client || isAssistantThinking || hasFailedMessage;
+	const agentticInputDisabled = disabled ? true : undefined;
 	const handleDollyInputKeyDown = useCallback(
 		( event: React.KeyboardEvent< HTMLTextAreaElement > ) => {
 			if ( disabled ) {
@@ -2766,7 +2769,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 										<AgentUI.Notice />
 										<div className={ disabled ? 'pointer-events-none opacity-60' : undefined }>
 											<AgentUI.Input
-												disabled={ disabled }
+												disabled={ agentticInputDisabled }
 												layout="stacked"
 												customActions={ dollyInputActions }
 												onKeyDown={ handleDollyInputKeyDown }

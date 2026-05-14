@@ -291,6 +291,15 @@ describe( 'ContentTabAssistant', () => {
 		expect( getGuidelinesLink() ).toHaveTextContent( 'Powered by experimental AI.' );
 	} );
 
+	it( 'renders the Dolly send button without an empty clear action', () => {
+		renderWithContext( { component: 'wpcom-site' } );
+
+		expect( screen.getByRole( 'button', { name: 'Send message' } ) ).toBeInTheDocument();
+		expect(
+			screen.queryByRole( 'button', { name: 'Clear conversation' } )
+		).not.toBeInTheDocument();
+	} );
+
 	it( 'starts a fresh Dolly backend session when the selected WP.com site changes', async () => {
 		const dollyClient = {
 			req: {

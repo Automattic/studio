@@ -1,4 +1,5 @@
 import {
+	SelectControl,
 	__unstableAnimatePresence as AnimatePresence,
 	__unstableMotion as motion,
 } from '@wordpress/components';
@@ -16,11 +17,9 @@ import { ChatMessage, MarkDownWithCode } from 'src/components/chat-message';
 import { ChatRating } from 'src/components/chat-rating';
 import { LearnMoreLink } from 'src/components/learn-more';
 import offlineIcon from 'src/components/offline-icon';
-import { StudioCodeChat } from 'src/components/studio-code-chat';
 import WelcomeComponent from 'src/components/welcome-message-prompt';
 import { LIMIT_OF_PROMPTS_PER_USER, TELEX_HOSTNAME, TELEX_UTM_PARAMS } from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useOffline } from 'src/hooks/use-offline';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { cx } from 'src/lib/cx';
@@ -34,9 +33,269 @@ import {
 	chatActions,
 	chatSelectors,
 } from 'src/stores/chat-slice';
+import { useGetConnectedSitesForLocalSiteQuery } from 'src/stores/sync/connected-sites';
 import { useGetAssistantQuota, useGetWelcomeMessages } from 'src/stores/wpcom-api';
+import type { WPCOM } from 'wpcom/types';
 
 export const MIMIC_CONVERSATION_DELAY = 500;
+const DOLLY_AGENT_ID = 'dolly';
+const DOLLY_HISTORY_CLIENT = 'wpworkspace';
+
+type DollySite = {
+	id: number;
+	name: string;
+	url?: string;
+	slug?: string;
+};
+
+type DollyAgentResponse = {
+	text: string;
+	sessionId?: string;
+	taskId: string;
+	state: string;
+};
+
+type AgentResponsePart = {
+	type?: string;
+	text?: string;
+	data?: {
+		toolCallId?: string;
+		tool_call_id?: string;
+		toolId?: string;
+		tool_id?: string;
+	};
+};
+
+const isRecord = ( value: unknown ): value is Record< string, unknown > =>
+	typeof value === 'object' && value !== null;
+
+const flexibleNumber = ( value: unknown ): number | undefined => {
+	if ( typeof value === 'number' ) {
+		return value;
+	}
+	if ( typeof value === 'string' ) {
+		const parsed = Number( value );
+		return Number.isFinite( parsed ) ? parsed : undefined;
+	}
+	return undefined;
+};
+
+const parseDollySites = ( response: unknown ): DollySite[] => {
+	if ( ! isRecord( response ) || ! Array.isArray( response.sites ) ) {
+		throw new Error( 'Invalid Dolly sites response' );
+	}
+
+	return response.sites
+		.map< DollySite | undefined >( ( site ) => {
+			if ( ! isRecord( site ) ) {
+				return undefined;
+			}
+
+			const id =
+				flexibleNumber( site.ID ) ?? flexibleNumber( site.blog_id ) ?? flexibleNumber( site.id );
+			if ( ! id ) {
+				return undefined;
+			}
+
+			const name = typeof site.name === 'string' ? site.name : '';
+			const url = typeof site.URL === 'string' ? site.URL : undefined;
+			const primaryDomain =
+				typeof site.primary_domain === 'string' ? site.primary_domain : undefined;
+			const slug = typeof site.slug === 'string' ? site.slug : primaryDomain;
+			const dollySite: DollySite = {
+				id,
+				name: name.trim() || slug || url || String( id ),
+			};
+
+			if ( url || primaryDomain ) {
+				dollySite.url = url || primaryDomain;
+			}
+			if ( slug ) {
+				dollySite.slug = slug;
+			}
+
+			return dollySite;
+		} )
+		.filter( ( site ): site is DollySite => Boolean( site ) );
+};
+
+const wpcomGet = async < T, >( client: WPCOM, path: string ): Promise< T > =>
+	new Promise( ( resolve, reject ) => {
+		void client.req.get(
+			{
+				path,
+				apiNamespace: 'wpcom/v2',
+			},
+			( error: Error | null, data: unknown ) => {
+				if ( error ) {
+					reject( error );
+					return;
+				}
+				resolve( data as T );
+			}
+		);
+	} );
+
+const wpcomPost = async < T, >( client: WPCOM, path: string, body: unknown ): Promise< T > =>
+	new Promise( ( resolve, reject ) => {
+		void client.req.post(
+			{
+				path,
+				apiNamespace: 'wpcom/v2',
+				body,
+			},
+			( error: Error | null, data: unknown ) => {
+				if ( error ) {
+					reject( error );
+					return;
+				}
+				resolve( data as T );
+			}
+		);
+	} );
+
+const extractResponseParts = ( response: unknown ): AgentResponsePart[] => {
+	if ( ! isRecord( response ) || ! isRecord( response.result ) ) {
+		return [];
+	}
+	const status = response.result.status;
+	if (
+		! isRecord( status ) ||
+		! isRecord( status.message ) ||
+		! Array.isArray( status.message.parts )
+	) {
+		return [];
+	}
+
+	return status.message.parts.filter( isRecord ) as AgentResponsePart[];
+};
+
+const parseDollyAgentResponse = (
+	response: unknown,
+	fallbackTaskId: string
+): DollyAgentResponse => {
+	if ( isRecord( response ) && isRecord( response.error ) ) {
+		const message =
+			typeof response.error.message === 'string'
+				? response.error.message
+				: 'Dolly returned an error.';
+		throw new Error( message );
+	}
+	if (
+		! isRecord( response ) ||
+		! isRecord( response.result ) ||
+		! isRecord( response.result.status )
+	) {
+		throw new Error( 'Invalid Dolly response' );
+	}
+
+	const parts = extractResponseParts( response );
+	const text = parts
+		.filter( ( part ) => part.type === 'text' && typeof part.text === 'string' )
+		.map( ( part ) => part.text )
+		.join( '\n' )
+		.trim();
+	const toolCalls = parts.filter(
+		( part ) =>
+			part.type === 'data' &&
+			isRecord( part.data ) &&
+			( part.data.toolCallId || part.data.tool_call_id ) &&
+			( part.data.toolId || part.data.tool_id )
+	);
+
+	const fallbackText =
+		toolCalls.length > 0
+			? __(
+					'Dolly asked Studio to run a frontend tool, but this Studio integration only supports text chat right now.'
+			  )
+			: __( 'Dolly did not return a text response.' );
+
+	return {
+		text: text || fallbackText,
+		sessionId:
+			typeof response.result.sessionId === 'string' ? response.result.sessionId : undefined,
+		taskId: typeof response.result.id === 'string' ? response.result.id : fallbackTaskId,
+		state:
+			typeof response.result.status.state === 'string' ? response.result.status.state : 'unknown',
+	};
+};
+
+const createDollyClientContext = ( siteId: number, selectedSite: SiteDetails ) => ( {
+	constructorArguments: {
+		client: DOLLY_HISTORY_CLIENT,
+	},
+	selectedSiteId: siteId,
+	wpworkspace: {
+		appName: window.appGlobals?.appName ?? 'WordPress Studio',
+		currentActivity: selectedSite.running
+			? 'Working on a running Studio site'
+			: 'Working in Studio',
+		clientVersion: window.appGlobals?.appVersion,
+		localWorkspace: {
+			id: selectedSite.id,
+			name: selectedSite.name,
+			siteId,
+			instructions:
+				'This conversation is running inside WordPress Studio. The active local site can be inspected in Studio, but this integration has not exposed frontend tools yet.',
+			projects: [
+				{
+					id: selectedSite.id,
+					name: selectedSite.name,
+					kind: 'studio-site',
+					writePolicy: 'read_only',
+					rootName: selectedSite.path.split( '/' ).filter( Boolean ).pop() ?? selectedSite.name,
+				},
+			],
+		},
+	},
+} );
+
+const sendDollyMessage = async ( {
+	client,
+	message,
+	selectedSite,
+	sessionId,
+	siteId,
+}: {
+	client: WPCOM;
+	message: string;
+	selectedSite: SiteDetails;
+	sessionId?: string;
+	siteId: number;
+} ): Promise< DollyAgentResponse > => {
+	const taskId = crypto.randomUUID();
+	const body = {
+		jsonrpc: '2.0',
+		id: crypto.randomUUID(),
+		method: 'message/send',
+		params: {
+			id: taskId,
+			sessionId,
+			message: {
+				role: 'user',
+				parts: [
+					{
+						type: 'text',
+						text: message,
+					},
+					{
+						type: 'data',
+						data: {
+							clientContext: createDollyClientContext( siteId, selectedSite ),
+						},
+					},
+				],
+			},
+		},
+	};
+
+	const response = await wpcomPost< unknown >(
+		client,
+		`/sites/${ siteId }/ai/agent/${ DOLLY_AGENT_ID }`,
+		body
+	);
+	return parseDollyAgentResponse( response, taskId );
+};
 
 // Telex icon with red/orange background
 const TelexIcon = () => (
@@ -359,16 +618,272 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 );
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
-	const { enableStudioCodeUi } = useFeatureFlags();
-
-	if ( enableStudioCodeUi ) {
-		return <StudioCodeChat selectedSite={ selectedSite } />;
-	}
-
-	return <WpcomAssistant selectedSite={ selectedSite } />;
+	return <DollyAssistant selectedSite={ selectedSite } />;
 }
 
-function WpcomAssistant( { selectedSite }: ContentTabAssistantProps ) {
+function DollyAssistant( { selectedSite }: ContentTabAssistantProps ) {
+	const inputRef = useRef< HTMLTextAreaElement >( null );
+	const wrapperRef = useRef< HTMLDivElement >( null );
+	const { isAuthenticated, authenticate, user, client } = useAuth();
+	const isOffline = useOffline();
+	const [ input, setInput ] = useState( '' );
+	const [ dollySites, setDollySites ] = useState< DollySite[] >( [] );
+	const [ selectedDollySiteId, setSelectedDollySiteId ] = useState< number | undefined >();
+	const [ isLoadingSites, setIsLoadingSites ] = useState( false );
+	const [ sitesError, setSitesError ] = useState< string | undefined >();
+	const [ messages, setMessages ] = useState< MessageType[] >( [] );
+	const [ sessionId, setSessionId ] = useState< string | undefined >();
+	const [ isAssistantThinking, setIsAssistantThinking ] = useState( false );
+	const { data: connectedSites = [] } = useGetConnectedSitesForLocalSiteQuery( {
+		localSiteId: selectedSite.id,
+		userId: user?.id,
+	} );
+	const instanceId = user?.id
+		? `dolly_${ user.id }_${ selectedSite.id }_${ selectedDollySiteId ?? 'none' }`
+		: `dolly_${ selectedSite.id }_${ selectedDollySiteId ?? 'none' }`;
+	const hasFailedMessage = messages.some( ( msg ) => msg.failedMessage );
+	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];
+
+	useEffect( () => {
+		if ( ! isAuthenticated || ! client || isOffline ) {
+			return;
+		}
+
+		let isCurrent = true;
+		setIsLoadingSites( true );
+		setSitesError( undefined );
+
+		wpcomGet< unknown >( client, '/ai/agent/dolly/sites' )
+			.then( ( response ) => {
+				if ( ! isCurrent ) {
+					return;
+				}
+				setDollySites( parseDollySites( response ) );
+			} )
+			.catch( ( error ) => {
+				if ( ! isCurrent ) {
+					return;
+				}
+				console.error( error );
+				setSitesError(
+					error instanceof Error ? error.message : __( 'Failed to load Dolly sites.' )
+				);
+			} )
+			.finally( () => {
+				if ( isCurrent ) {
+					setIsLoadingSites( false );
+				}
+			} );
+
+		return () => {
+			isCurrent = false;
+		};
+	}, [ client, isAuthenticated, isOffline ] );
+
+	useEffect( () => {
+		if ( dollySites.length === 0 ) {
+			setSelectedDollySiteId( undefined );
+			return;
+		}
+
+		setSelectedDollySiteId( ( currentSiteId ) => {
+			if ( currentSiteId && dollySites.some( ( site ) => site.id === currentSiteId ) ) {
+				return currentSiteId;
+			}
+
+			const connectedSite = connectedSites.find( ( connectedSite ) =>
+				dollySites.some( ( site ) => site.id === connectedSite.id )
+			);
+			return connectedSite?.id ?? dollySites[ 0 ].id;
+		} );
+	}, [ connectedSites, dollySites ] );
+
+	useEffect( () => {
+		setMessages( [] );
+		setSessionId( undefined );
+		setInput( '' );
+	}, [ selectedDollySiteId ] );
+
+	const submitPrompt = useCallback(
+		( chatMessage: string, isRetry?: boolean ) => {
+			const trimmedMessage = chatMessage.trim();
+			if ( ! trimmedMessage || ! client || ! selectedDollySiteId || isAssistantThinking ) {
+				return;
+			}
+
+			if ( ! isRetry ) {
+				setInput( '' );
+			}
+
+			const newMessageId = isRetry ? messages.length - 1 : messages.length;
+			const message = generateMessage( trimmedMessage, 'user', newMessageId );
+
+			setMessages( ( currentMessages ) => {
+				if ( ! isRetry ) {
+					return [ ...currentMessages, message ];
+				}
+
+				return currentMessages.map( ( currentMessage ) =>
+					currentMessage.id === message.id
+						? { ...currentMessage, failedMessage: false }
+						: currentMessage
+				);
+			} );
+			setIsAssistantThinking( true );
+
+			void sendDollyMessage( {
+				client,
+				message: trimmedMessage,
+				selectedSite,
+				sessionId,
+				siteId: selectedDollySiteId,
+			} )
+				.then( ( response ) => {
+					if ( response.sessionId ) {
+						setSessionId( response.sessionId );
+					}
+
+					setMessages( ( currentMessages ) => [
+						...currentMessages,
+						generateMessage( response.text, 'assistant', currentMessages.length ),
+					] );
+				} )
+				.catch( ( error ) => {
+					console.error( error );
+					setMessages( ( currentMessages ) =>
+						currentMessages.map( ( currentMessage ) =>
+							currentMessage.id === message.id
+								? { ...currentMessage, failedMessage: true }
+								: currentMessage
+						)
+					);
+				} )
+				.finally( () => {
+					setIsAssistantThinking( false );
+				} );
+		},
+		[ client, isAssistantThinking, messages.length, selectedDollySiteId, selectedSite, sessionId ]
+	);
+
+	const clearConversation = useCallback( () => {
+		setInput( '' );
+		setMessages( [] );
+		setSessionId( undefined );
+	}, [] );
+
+	const renderNotice = () => {
+		if ( isOffline ) {
+			return <OfflineModeView />;
+		}
+		if ( isAuthenticated && messages.length > 0 ) {
+			return (
+				<ClearHistoryReminder lastMessage={ lastMessage } clearConversation={ clearConversation } />
+			);
+		}
+	};
+
+	const renderEmptyState = () => {
+		if ( ! isAuthenticated || messages.length > 0 ) {
+			return null;
+		}
+
+		let content: string = String( __( 'Loading Dolly…' ) );
+		if ( sitesError ) {
+			content = sitesError;
+		} else if ( ! isLoadingSites && dollySites.length === 0 ) {
+			content = String( __( 'Dolly did not return any WordPress.com sites for this account.' ) );
+		} else if ( selectedDollySiteId ) {
+			content = String( __( 'Ask Dolly about this WordPress.com site.' ) );
+		}
+
+		return (
+			<ChatMessage
+				id="message-dolly-welcome"
+				message={ generateMessage( content, 'assistant', 0 ) }
+				instanceId={ instanceId }
+			>
+				{ content }
+			</ChatMessage>
+		);
+	};
+
+	const disabled =
+		isOffline ||
+		! isAuthenticated ||
+		! selectedDollySiteId ||
+		isLoadingSites ||
+		isAssistantThinking ||
+		hasFailedMessage;
+
+	return (
+		<div className="relative min-h-full flex flex-col" ref={ wrapperRef }>
+			{ isAuthenticated && dollySites.length > 0 && (
+				<div className="px-8 pt-4">
+					<SelectControl
+						label={ __( 'Dolly site' ) }
+						value={ String( selectedDollySiteId ?? '' ) }
+						options={ dollySites.map( ( site ) => ( {
+							label: site.url ? `${ site.name } (${ site.url })` : site.name,
+							value: String( site.id ),
+						} ) ) }
+						onChange={ ( value ) => setSelectedDollySiteId( Number( value ) ) }
+						__nextHasNoMarginBottom
+						__next40pxDefaultSize
+					/>
+				</div>
+			) }
+			<div
+				data-testid="assistant-chat"
+				className={ cx(
+					'min-h-full flex-1 overflow-y-auto p-8 pb-2 flex flex-col-reverse',
+					! isAuthenticated && 'flex items-start'
+				) }
+			>
+				<div className="mt-auto w-full">
+					{ isAuthenticated ? (
+						<>
+							{ renderEmptyState() }
+							<AuthenticatedView
+								messages={ messages }
+								isAssistantThinking={ isAssistantThinking }
+								instanceId={ instanceId }
+								siteId={ selectedSite.id }
+								submitPrompt={ submitPrompt }
+								wrapperRef={ wrapperRef }
+							/>
+						</>
+					) : (
+						! isOffline && <UnauthenticatedView onAuthenticate={ authenticate } />
+					) }
+					{ renderNotice() }
+				</div>
+			</div>
+
+			<div className="sticky bottom-0 bg-frame/80 backdrop-blur-sm w-full px-8 pt-4 flex items-center">
+				<div className="w-full flex flex-col items-center">
+					<AIInput
+						ref={ inputRef }
+						disabled={ disabled }
+						input={ input }
+						setInput={ setInput }
+						handleSend={ () => {
+							submitPrompt( inputRef.current?.value ?? '' );
+						} }
+						handleKeyDown={ () => undefined }
+						clearConversation={ clearConversation }
+						isAssistantThinking={ isAssistantThinking }
+						showTelexLink={ false }
+					/>
+					<div data-testid="guidelines-link" className="text-frame-text-secondary self-end py-2">
+						{ __( 'Powered by Dolly.' ) }
+					</div>
+				</div>
+			</div>
+		</div>
+	);
+}
+
+export function WpcomAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	const inputRef = useRef< HTMLTextAreaElement >( null );
 	const wrapperRef = useRef< HTMLDivElement >( null );
 	const dispatch = useAppDispatch();

@@ -11,6 +11,7 @@ import { AuthContext, AuthContextType } from 'src/components/auth-provider';
 import {
 	ContentTabAssistant,
 	MIMIC_CONVERSATION_DELAY,
+	WpcomAssistant,
 } from 'src/components/content-tab-assistant';
 import { LOCAL_STORAGE_CHAT_MESSAGES_KEY, CLEAR_HISTORY_REMINDER_TIME } from 'src/constants';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
@@ -124,9 +125,14 @@ describe( 'ContentTabAssistant', () => {
 	type ContextState = {
 		selectedSite?: SiteDetails;
 		auth?: Partial< AuthContextType >;
+		component?: 'content-tab' | 'wpcom';
 	};
 
-	const buildContextTree = ( { selectedSite = runningSite, auth = {} }: ContextState = {} ) => {
+	const buildContextTree = ( {
+		selectedSite = runningSite,
+		auth = {},
+		component = 'wpcom',
+	}: ContextState = {} ) => {
 		const authContextValue: AuthContextType = {
 			client: createWpcomClient(),
 			isAuthenticated: true,
@@ -139,7 +145,11 @@ describe( 'ContentTabAssistant', () => {
 			<Provider store={ store }>
 				<AuthContext.Provider value={ authContextValue }>
 					<ThemeDetailsProvider>
-						<ContentTabAssistant selectedSite={ selectedSite } />
+						{ component === 'content-tab' ? (
+							<ContentTabAssistant selectedSite={ selectedSite } />
+						) : (
+							<WpcomAssistant selectedSite={ selectedSite } />
+						) }
 					</ThemeDetailsProvider>
 				</AuthContext.Provider>
 			</Provider>
@@ -198,6 +208,74 @@ describe( 'ContentTabAssistant', () => {
 		expect( textInput ).toBeVisible();
 		expect( textInput ).toBeEnabled();
 		expect( textInput ).toHaveAttribute( 'placeholder', 'What would you like to learn?' );
+	} );
+
+	it( 'sends messages to Dolly from the content tab', async () => {
+		const dollyClient = {
+			req: {
+				get: vi.fn( ( _params, callback ) => {
+					callback( null, {
+						sites: [
+							{
+								ID: 123,
+								name: 'Dolly Site',
+								URL: 'https://dolly.example',
+							},
+						],
+					} );
+				} ),
+				post: vi.fn( ( _params, callback ) => {
+					callback( null, {
+						result: {
+							id: 'task-1',
+							sessionId: 'session-1',
+							status: {
+								state: 'completed',
+								message: {
+									parts: [
+										{
+											type: 'text',
+											text: 'Hi from Dolly',
+										},
+									],
+								},
+							},
+						},
+					} );
+				} ),
+			},
+		} as unknown as WPCOM;
+
+		renderWithContext( {
+			component: 'content-tab',
+			auth: {
+				client: dollyClient,
+			},
+		} );
+
+		await waitFor( () => {
+			expect( screen.getByText( 'Ask Dolly about this WordPress.com site.' ) ).toBeVisible();
+		} );
+
+		const textInput = getInput();
+		fireEvent.change( textInput, { target: { value: 'Hello Dolly' } } );
+		fireEvent.keyDown( textInput, { key: 'Enter', code: 'Enter' } );
+
+		await waitFor( () => {
+			expect( screen.getByText( 'Hello Dolly' ) ).toBeVisible();
+			expect( screen.getByText( 'Hi from Dolly' ) ).toBeVisible();
+		} );
+
+		expect( dollyClient.req.post ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				apiNamespace: 'wpcom/v2',
+				path: '/sites/123/ai/agent/dolly',
+				body: expect.objectContaining( {
+					method: 'message/send',
+				} ),
+			} ),
+			expect.any( Function )
+		);
 	} );
 
 	it( 'renders guideline section', () => {

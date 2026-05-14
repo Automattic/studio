@@ -27,7 +27,7 @@ const NOTE_TONES = [
 	'neon-blue',
 ] as const;
 const NOTE_TEXT_SIZE_STEPS = [ 0, 1, 2, 3 ] as const;
-const ARTEFACT_SCOPES = [ 'page', 'pattern', 'block' ] as const;
+const SCRATCHPAD_SCOPES = [ 'page', 'pattern', 'block' ] as const;
 const MEDIA_KINDS = [ 'image', 'video' ] as const;
 const POST_COLLECTION_STATUSES = [ 'publish', 'draft', 'any' ] as const;
 const POST_COLLECTION_ORDER_BY = [ 'date', 'modified', 'title' ] as const;
@@ -49,7 +49,7 @@ export const STUDIO_PRESENTATION_RULES: StudioPresentationRule[] = [
 	{
 		id: 'site-code-scratchpad',
 		description:
-			'During site creation or redesign work, after any successful Write or Edit that creates or changes HTML, CSS, block markup, JSX/TSX markup, inline styles, theme.json design tokens, frontend JS behavior, or theme/plugin code that shapes markup or styling, call studio_present with exactly one note widget as a scratchpad summary. Include the changed file path or basename, the sections/selectors touched, and the design intent or next checkpoint. Keep it compact and do not paste full files. Skip only trivial mechanical edits, generated lockfiles, or config changes unrelated to HTML, CSS, layout, styling, or frontend behavior. Use sd-artefact for standalone rendered HTML drafts, and site-preview after a visible site or page milestone.',
+			'During site creation or redesign work, after any successful Write or Edit that creates or changes HTML, CSS, block markup, JSX/TSX markup, inline styles, theme.json design tokens, frontend JS behavior, or theme/plugin code that shapes markup or styling, call studio_present with exactly one note widget as a scratchpad summary. Include the changed file path or basename, the sections/selectors touched, and the design intent or next checkpoint. Keep it compact and do not paste full files. Skip only trivial mechanical edits, generated lockfiles, or config changes unrelated to HTML, CSS, layout, styling, or frontend behavior. Use scratchpad for standalone rendered HTML drafts, and site-preview after a visible site or page milestone.',
 	},
 	{
 		id: 'saved-local-media',
@@ -166,12 +166,12 @@ export const STUDIO_PRESENTABLE_WIDGET_SPECS: StudioWidgetSpec[] = [
 			( props.mediaId === null || isNonNegativeInteger( props.mediaId ) ),
 	},
 	{
-		type: 'sd-artefact',
-		description: 'A rendered HTML artefact for a page, pattern, or block concept.',
+		type: 'scratchpad',
+		description: 'A rendered HTML scratchpad for a page, pattern, or block concept.',
 		propsDescription:
 			'{ "html": "<main>...</main>", "title": "Landing page draft", "scope": "page", "description": "Optional notes" } where scope is page, pattern, or block.',
 		example: {
-			type: 'sd-artefact',
+			type: 'scratchpad',
 			widgetProps: {
 				html: '<main><h1>Draft</h1></main>',
 				title: 'Landing page draft',
@@ -181,7 +181,7 @@ export const STUDIO_PRESENTABLE_WIDGET_SPECS: StudioWidgetSpec[] = [
 		validateWidgetProps: ( props ) =>
 			typeof props.html === 'string' &&
 			typeof props.title === 'string' &&
-			isOneOf( props.scope, ARTEFACT_SCOPES ) &&
+			isOneOf( props.scope, SCRATCHPAD_SCOPES ) &&
 			( props.description === undefined || typeof props.description === 'string' ),
 	},
 ];

@@ -3,6 +3,8 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Button from 'src/components/button';
 import { FormPathInputComponent } from 'src/components/form-path-input';
+import { useAuth } from 'src/hooks/use-auth';
+import { useBetaFeatures } from 'src/hooks/use-beta-features';
 import { isWindowsStore } from 'src/lib/app-globals';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ColorSchemePicker } from 'src/modules/user-settings/components/color-scheme-picker';
@@ -33,6 +35,8 @@ export const PreferencesTab = ( { onClose, anchor }: { onClose: () => void; anch
 	const { __ } = useI18n();
 	const savedLocale = useI18nLocale();
 	const dispatch = useAppDispatch();
+	const { isAuthenticated } = useAuth();
+	const { remoteSession: remoteSessionBetaEnabled } = useBetaFeatures();
 	const { data: colorScheme } = useGetColorSchemeQuery();
 	const { data: editor } = useGetUserEditorQuery();
 	const { data: terminal } = useGetUserTerminalQuery();
@@ -162,9 +166,11 @@ export const PreferencesTab = ( { onClose, anchor }: { onClose: () => void; anch
 			{ ! isWindowsStore() && (
 				<StudioCliToggle value={ isCliInstalledSelection } onChange={ setDirtyIsCliInstalled } />
 			) }
-			<div id="remote-session">
-				<RemoteSessionToggle />
-			</div>
+			{ remoteSessionBetaEnabled && isAuthenticated && (
+				<div id="remote-session">
+					<RemoteSessionToggle />
+				</div>
+			) }
 			<div className="mt-auto pt-2 flex justify-end gap-3">
 				<Button
 					variant="tertiary"

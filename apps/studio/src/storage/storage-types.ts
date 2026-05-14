@@ -36,6 +36,7 @@ export interface UserData {
 	cliAutoInstalled?: boolean;
 	wapuuScore?: number;
 	desks?: DesksConfig;
+	showRemoteSessionInToolbar?: boolean;
 }
 
 export interface PromptWindowsSpeedUpResult {

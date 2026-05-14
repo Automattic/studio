@@ -6,6 +6,7 @@ import { useAuth } from 'src/hooks/use-auth';
 import { useBetaFeatures } from 'src/hooks/use-beta-features';
 import { useRemoteSessionStatus } from 'src/hooks/use-remote-session-status';
 import { cx } from 'src/lib/cx';
+import { useGetShowRemoteSessionInToolbarQuery } from 'src/stores/installed-apps-api';
 
 // Lightning-bolt glyph. `@wordpress/icons` doesn't ship one (332 icons scanned
 // at the time of writing), so we inline an SVG. Filled silhouette with rounded
@@ -28,12 +29,19 @@ const bolt = (
 export function RemoteSessionIndicator() {
 	const { remoteSession } = useBetaFeatures();
 	const { isAuthenticated } = useAuth();
+	const { data: showInToolbar = false } = useGetShowRemoteSessionInToolbarQuery( undefined, {
+		// Don't fire the IPC until the feature is even available to this user.
+		skip: ! remoteSession || ! isAuthenticated,
+	} );
 
-	// The toolbar control only renders when the user has opted into the
-	// beta feature (via Preferences) and is signed in. Once visible it is
-	// the sole entry point for starting/pausing the daemon — the settings
-	// toggle controls visibility plus the initial start.
-	if ( ! remoteSession || ! isAuthenticated ) {
+	// Three layered gates:
+	//   1. Beta feature must be enabled (via the Beta Features menu) — the whole
+	//      surface is opt-in.
+	//   2. User must be signed in — the daemon talks to WordPress.com.
+	//   3. User must have flipped the settings-modal toggle to put the control
+	//      in the toolbar. Without it, the only place to manage the session
+	//      lives in Settings → Preferences.
+	if ( ! remoteSession || ! isAuthenticated || ! showInToolbar ) {
 		return null;
 	}
 

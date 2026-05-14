@@ -129,6 +129,18 @@ export async function getWapuuScore(): Promise< number | undefined > {
 	return userData.wapuuScore;
 }
 
+export async function getShowRemoteSessionInToolbar(): Promise< boolean > {
+	const userData = await loadUserData();
+	return userData.showRemoteSessionInToolbar ?? false;
+}
+
+export async function saveShowRemoteSessionInToolbar(
+	_event: IpcMainInvokeEvent,
+	value: boolean
+): Promise< void > {
+	await updateAppdata( { showRemoteSessionInToolbar: value } );
+}
+
 export function showUserSettings(
 	event: IpcMainInvokeEvent,
 	tabName?: UserSettingsTabName,

@@ -81,12 +81,9 @@ import {
 	SIDEBAR_WIDTH,
 	WINDOWS_TITLEBAR_HEIGHT,
 } from 'src/constants';
-import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
+import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { getAiSessionsRootDirectory } from 'src/lib/ai-sessions';
-import {
-	getBetaFeatures as getBetaFeaturesFromLib,
-	updateBetaFeature as updateBetaFeatureLib,
-} from 'src/lib/beta-features';
+import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
 import { bumpStat, getBlueprintMetric, StatsGroup } from 'src/lib/bump-stats';
 import {
 	openCertificate as openCertificateDialog,
@@ -189,12 +186,14 @@ export {
 export {
 	getColorScheme,
 	getInstalledAppsAndTerminals,
+	getShowRemoteSessionInToolbar,
 	getUserEditor,
 	getUserLocale,
 	getUserTerminal,
 	getWapuuScore,
 	previewColorScheme,
 	saveColorScheme,
+	saveShowRemoteSessionInToolbar,
 	saveUserEditor,
 	saveUserLocale,
 	saveUserTerminal,
@@ -1412,17 +1411,6 @@ export async function saveOnboarding( event: IpcMainInvokeEvent, onboardingCompl
 
 export async function getBetaFeatures( _event: IpcMainInvokeEvent ): Promise< BetaFeatures > {
 	return await getBetaFeaturesFromLib();
-}
-
-export async function updateBetaFeature(
-	_event: IpcMainInvokeEvent,
-	key: keyof BetaFeatures,
-	value: boolean
-): Promise< void > {
-	await updateBetaFeatureLib( key, value );
-	// Notify the renderer so the Redux slice and any UI gated on this feature
-	// react immediately — same event the Beta Features menu emits.
-	void sendIpcEventToRenderer( 'beta-features-updated' );
 }
 
 export async function executeWPCLiInline(

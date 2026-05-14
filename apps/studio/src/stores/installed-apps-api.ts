@@ -22,6 +22,7 @@ export const installedAppsApi = createApi( {
 		'UserTerminal',
 		'ColorScheme',
 		'DefaultSiteDirectory',
+		'ShowRemoteSessionInToolbar',
 	],
 	endpoints: ( builder ) => ( {
 		getStudioCliIsInstalled: builder.query< boolean, void >( {
@@ -105,6 +106,20 @@ export const installedAppsApi = createApi( {
 			},
 			invalidatesTags: [ 'DefaultSiteDirectory' ],
 		} ),
+		getShowRemoteSessionInToolbar: builder.query< boolean, void >( {
+			queryFn: async () => {
+				const value = await getIpcApi().getShowRemoteSessionInToolbar();
+				return { data: value };
+			},
+			providesTags: [ 'ShowRemoteSessionInToolbar' ],
+		} ),
+		saveShowRemoteSessionInToolbar: builder.mutation< boolean, boolean >( {
+			queryFn: async ( value ) => {
+				await getIpcApi().saveShowRemoteSessionInToolbar( value );
+				return { data: value };
+			},
+			invalidatesTags: [ 'ShowRemoteSessionInToolbar' ],
+		} ),
 	} ),
 } );
 
@@ -120,6 +135,8 @@ export const {
 	useSaveColorSchemeMutation,
 	useGetDefaultSiteDirectoryQuery,
 	useSaveDefaultSiteDirectoryMutation,
+	useGetShowRemoteSessionInToolbarQuery,
+	useSaveShowRemoteSessionInToolbarMutation,
 } = installedAppsApi;
 
 export const selectInstalledEditors = createSelector(

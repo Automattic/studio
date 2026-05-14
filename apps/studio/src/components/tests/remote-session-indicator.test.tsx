@@ -5,10 +5,21 @@ import { RemoteSessionIndicator } from 'src/components/remote-session-indicator'
 import { useAuth } from 'src/hooks/use-auth';
 import { useBetaFeatures } from 'src/hooks/use-beta-features';
 import { useRemoteSessionStatus } from 'src/hooks/use-remote-session-status';
+import { useGetShowRemoteSessionInToolbarQuery } from 'src/stores/installed-apps-api';
 
 vi.mock( 'src/hooks/use-auth' );
 vi.mock( 'src/hooks/use-beta-features' );
 vi.mock( 'src/hooks/use-remote-session-status' );
+vi.mock( 'src/stores/installed-apps-api', async ( importOriginal ) => {
+	// Preserve the real module so other code paths (reducer, etc.) still work
+	// when multiple test files share a module registry; only stub the hook
+	// this component consumes.
+	const actual = await importOriginal< typeof import('src/stores/installed-apps-api') >();
+	return {
+		...actual,
+		useGetShowRemoteSessionInToolbarQuery: vi.fn(),
+	};
+} );
 
 const mockStart = vi.fn();
 const mockStop = vi.fn();
@@ -18,14 +29,20 @@ function setupHooks( {
 	isAuthenticated,
 	isRunning,
 	isLoading = false,
+	showInToolbar = true,
 }: {
 	remoteSession: boolean;
 	isAuthenticated: boolean;
 	isRunning: boolean;
 	isLoading?: boolean;
+	showInToolbar?: boolean;
 } ) {
 	vi.mocked( useBetaFeatures ).mockReturnValue( { remoteSession } );
 	vi.mocked( useAuth, { partial: true } ).mockReturnValue( { isAuthenticated } );
+	vi.mocked( useGetShowRemoteSessionInToolbarQuery ).mockReturnValue( {
+		data: showInToolbar,
+		refetch: vi.fn(),
+	} as unknown as ReturnType< typeof useGetShowRemoteSessionInToolbarQuery > );
 	vi.mocked( useRemoteSessionStatus ).mockReturnValue( {
 		status: isRunning ? { running: true, pid: 42, pidFile: '/tmp/pid' } : undefined,
 		isRunning,
@@ -51,6 +68,19 @@ describe( 'RemoteSessionIndicator', () => {
 
 	it( 'renders nothing when the user is logged out', () => {
 		setupHooks( { remoteSession: true, isAuthenticated: false, isRunning: true } );
+
+		const { container } = render( <RemoteSessionIndicator /> );
+
+		expect( container ).toBeEmptyDOMElement();
+	} );
+
+	it( 'renders nothing when the user has not enabled the toolbar control in settings', () => {
+		setupHooks( {
+			remoteSession: true,
+			isAuthenticated: true,
+			isRunning: true,
+			showInToolbar: false,
+		} );
 
 		const { container } = render( <RemoteSessionIndicator /> );
 

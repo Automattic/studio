@@ -1,7 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { comment } from '@wordpress/icons';
-import { IconControlButton } from '@/ui-desks/components';
-import styles from './style.module.css';
+import { Button } from '@/ui-desks/components';
 
 interface ChatButtonProps {
 	onClick: () => void;
@@ -9,11 +8,12 @@ interface ChatButtonProps {
 
 export function ChatButton( { onClick }: ChatButtonProps ) {
 	return (
-		<IconControlButton
+		<Button
 			icon={ comment }
-			className={ styles.button }
 			label={ __( 'Chat about selection' ) }
-			variant="toolbar"
+			size="medium"
+			tone="primary"
+			variant="filled"
 			onClick={ onClick }
 		/>
 	);

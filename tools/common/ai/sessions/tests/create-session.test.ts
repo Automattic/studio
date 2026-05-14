@@ -14,15 +14,16 @@ describe( 'createAiSession', () => {
 		}
 	} );
 
-	it( 'writes a pi-format session JSONL with site.selected as the owner site', async () => {
+	it( 'writes a pi-format session JSONL with site.selected as the active site', async () => {
 		rootDirectory = await fs.mkdtemp( path.join( os.tmpdir(), 'studio-create-session-' ) );
 
 		const summary = await createAiSession( rootDirectory, {
 			site: { name: 'My Site', path: '/tmp/my-site' },
 		} );
 
-		expect( summary.ownerSitePath ).toBe( '/tmp/my-site' );
-		expect( summary.ownerSiteName ).toBe( 'My Site' );
+		expect( summary.ownerSitePath ).toBeUndefined();
+		expect( summary.ownerSiteName ).toBeUndefined();
+		expect( summary.selectedSiteName ).toBe( 'My Site' );
 		expect( summary.activeEnvironment ).toBe( 'local' );
 		expect( summary.firstPrompt ).toBeUndefined();
 

@@ -5,11 +5,11 @@ import { Chats, ChatsProvider } from '../chats';
 import { DeskChrome } from '../chrome';
 import { DeskSettingsModal } from '../chrome/settings-modal';
 import { DEFAULT_DESK_TOOLBAR_LAYOUT } from '../chrome/toolbar-layout';
-import { ActionButton, LoadingPlaceholder } from '../components';
+import { Button, LoadingPlaceholder } from '../components';
 import { useSiteMapDeskConfig } from '../site-map/use-site-map-desk-config';
-import { DeskWidgetToolbar } from '../widgets/toolbar';
 import { DeskCanvas } from './canvas';
 import { DeskProvider } from './provider';
+import { DeskWidgetToolbar } from './selection-toolbar';
 import styles from './style.module.css';
 import type { ReactNode } from 'react';
 
@@ -117,22 +117,26 @@ function DeskShell( {
 							onClick={ () => setEditingToolbar( false ) }
 						/>
 						<div className={ styles.toolbarEditActions }>
-							<ActionButton
+							<Button
 								type="button"
-								className={ styles.toolbarEditButton }
+								label={ __( 'Done' ) }
+								variant="chrome"
+								size="large"
 								onClick={ () => setEditingToolbar( false ) }
 							>
 								{ __( 'Done' ) }
-							</ActionButton>
-							<ActionButton
+							</Button>
+							<Button
 								type="button"
-								className={ styles.toolbarEditButton }
+								label={ __( 'Reset' ) }
+								variant="chrome"
+								size="large"
 								onClick={ () =>
 									updateDeskSettings( { toolbarLayout: DEFAULT_DESK_TOOLBAR_LAYOUT } )
 								}
 							>
 								{ __( 'Reset' ) }
-							</ActionButton>
+							</Button>
 						</div>
 					</>
 				) }

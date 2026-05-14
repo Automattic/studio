@@ -54,7 +54,14 @@ import { isMultisite } from '@studio/common/lib/is-multisite';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
-import { readSharedConfig, updateSharedConfig } from '@studio/common/lib/shared-config';
+import {
+	deleteSharedSession,
+	readSharedConfig,
+	readSharedSession,
+	readSharedSessions,
+	updateSharedConfig,
+	updateSharedSession,
+} from '@studio/common/lib/shared-config';
 import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
 import { shouldExcludeFromSync } from '@studio/common/lib/sync/exclude-from-sync';
 import { shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
@@ -67,6 +74,13 @@ import {
 	WINDOWS_TITLEBAR_HEIGHT,
 } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
+import {
+	deleteAiSessionPlacement,
+	hydrateAiSessionSummaryWithPlacement,
+	readAiSessionPlacement,
+	readAiSessionPlacements,
+	setAiSessionSitePlacement,
+} from 'src/lib/ai-session-placement';
 import { getAiSessionsRootDirectory } from 'src/lib/ai-sessions';
 import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
 import { bumpStat, getBlueprintMetric, StatsGroup } from 'src/lib/bump-stats';
@@ -104,7 +118,12 @@ import {
 	removeSkillById,
 	type SkillStatus,
 } from 'src/modules/agent-instructions/lib/skills';
-import { answerAgentRun, interruptAgentRun, startAgentRun } from 'src/modules/ai-agent/run-manager';
+import {
+	answerAgentRun,
+	interruptAgentRun,
+	listActiveAgentRuns,
+	startAgentRun,
+} from 'src/modules/ai-agent/run-manager';
 import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
@@ -130,6 +149,7 @@ import {
 } from 'src/storage/user-data';
 import { Blueprint } from 'src/stores/wpcom-api';
 import { captureSiteThumbnail } from './lib/capture-site-thumbnail';
+import type { ActiveAgentRun } from '@studio/common/ai/agent-events';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { Ignore } from 'ignore';
@@ -204,22 +224,68 @@ export {
 	studioCodeCheckProvider,
 } from 'src/modules/studio-code/ipc-handlers';
 
+function hydrateAiSessionSummary(
+	summary: AiSessionSummary,
+	metadata?: Pick< AiSessionSummary, 'starred' | 'archived' >
+): AiSessionSummary {
+	return {
+		...summary,
+		starred: metadata?.starred,
+		archived: metadata?.archived,
+	};
+}
+
+async function listHydratedAiSessions( rootDirectory: string ): Promise< AiSessionSummary[] > {
+	const [ sessions, sessionMetadata, placements ] = await Promise.all( [
+		listAiSessionsFromStore( rootDirectory ),
+		readSharedSessions(),
+		readAiSessionPlacements(),
+	] );
+	return sessions.map( ( session ) =>
+		hydrateAiSessionSummary(
+			hydrateAiSessionSummaryWithPlacement( session, placements[ session.id ] ),
+			sessionMetadata[ session.id ]
+		)
+	);
+}
+
+async function loadHydratedAiSession(
+	rootDirectory: string,
+	sessionIdOrPrefix: string
+): Promise< LoadedAiSession > {
+	const session = await loadAiSessionFromStore( rootDirectory, sessionIdOrPrefix );
+	const [ metadata, placement ] = await Promise.all( [
+		readSharedSession( session.summary.id ),
+		readAiSessionPlacement( session.summary.id ),
+	] );
+	return {
+		...session,
+		summary: hydrateAiSessionSummary(
+			hydrateAiSessionSummaryWithPlacement( session.summary, placement ),
+			metadata
+		),
+	};
+}
+
 export async function listAiSessions( _event: IpcMainInvokeEvent ): Promise< AiSessionSummary[] > {
-	return listAiSessionsFromStore( getAiSessionsRootDirectory() );
+	return listHydratedAiSessions( getAiSessionsRootDirectory() );
 }
 
 export async function loadAiSession(
 	_event: IpcMainInvokeEvent,
 	sessionIdOrPrefix: string
 ): Promise< LoadedAiSession > {
-	return loadAiSessionFromStore( getAiSessionsRootDirectory(), sessionIdOrPrefix );
+	return loadHydratedAiSession( getAiSessionsRootDirectory(), sessionIdOrPrefix );
 }
 
 export async function deleteAiSession(
 	_event: IpcMainInvokeEvent,
 	sessionIdOrPrefix: string
 ): Promise< AiSessionSummary > {
-	return deleteAiSessionFromStore( getAiSessionsRootDirectory(), sessionIdOrPrefix );
+	const deleted = await deleteAiSessionFromStore( getAiSessionsRootDirectory(), sessionIdOrPrefix );
+	await deleteSharedSession( deleted.id );
+	await deleteAiSessionPlacement( deleted.id );
+	return deleted;
 }
 
 export async function createAiSession(
@@ -228,16 +294,18 @@ export async function createAiSession(
 ): Promise< AiSessionSummary > {
 	const sitesRoot = getAiSessionsRootDirectory();
 	if ( ! siteId ) {
-		const existing = await listAiSessionsFromStore( sitesRoot );
+		const existing = await listHydratedAiSessions( sitesRoot );
 		const emptyUserDeskSession = existing
-			.filter( ( session ) => ! session.ownerSitePath && ! session.firstPrompt )
+			.filter(
+				( session ) => ! session.ownerSitePath && ! session.firstPrompt && ! session.archived
+			)
 			.sort( ( a, b ) => Date.parse( b.updatedAt ) - Date.parse( a.updatedAt ) )[ 0 ];
 
 		if ( emptyUserDeskSession ) {
 			return emptyUserDeskSession;
 		}
 
-		return createAiSessionInStore( sitesRoot );
+		return hydrateAiSessionSummary( await createAiSessionInStore( sitesRoot ) );
 	}
 
 	const server = SiteServer.get( siteId );
@@ -250,20 +318,53 @@ export async function createAiSession(
 	// never received a user prompt) instead of creating another one. This
 	// lets `/sites/$siteId/new` act as a stable "draft slot" per site — the
 	// UI can redirect to it eagerly without piling up orphan sessions.
-	const existing = await listAiSessionsFromStore( sitesRoot );
+	const existing = await listHydratedAiSessions( sitesRoot );
 	const emptyForSite = existing
-		.filter( ( session ) => session.ownerSitePath === sitePath && ! session.firstPrompt )
+		.filter(
+			( session ) =>
+				session.ownerSitePath === sitePath && ! session.firstPrompt && ! session.archived
+		)
 		.sort( ( a, b ) => Date.parse( b.updatedAt ) - Date.parse( a.updatedAt ) )[ 0 ];
 	if ( emptyForSite ) {
 		return emptyForSite;
 	}
 
-	return createAiSessionInStore( sitesRoot, {
+	const created = await createAiSessionInStore( sitesRoot, {
 		site: {
 			name: server.details.name,
 			path: sitePath,
 		},
 	} );
+	await setAiSessionSitePlacement( created.id, {
+		siteId: server.details.id,
+		siteName: server.details.name,
+		sitePath,
+	} );
+	return hydrateAiSessionSummaryWithPlacement( created, {
+		kind: 'site',
+		siteId: server.details.id,
+		siteName: server.details.name,
+		sitePath,
+	} );
+}
+
+export async function updateAiSessionMetadata(
+	_event: IpcMainInvokeEvent,
+	sessionIdOrPrefix: string,
+	patch: Pick< AiSessionSummary, 'starred' | 'archived' >
+): Promise< AiSessionSummary > {
+	const { summary } = await loadAiSessionFromStore(
+		getAiSessionsRootDirectory(),
+		sessionIdOrPrefix
+	);
+	const [ metadata, placement ] = await Promise.all( [
+		updateSharedSession( summary.id, patch ),
+		readAiSessionPlacement( summary.id ),
+	] );
+	return hydrateAiSessionSummary(
+		hydrateAiSessionSummaryWithPlacement( summary, placement ),
+		metadata
+	);
 }
 
 /**
@@ -279,7 +380,7 @@ export async function createAiSession(
  */
 async function reconcileSessionEnvironmentBeforeRun( sessionId: string ): Promise< void > {
 	const root = getAiSessionsRootDirectory();
-	const { summary } = await loadAiSessionFromStore( root, sessionId );
+	const { summary } = await loadHydratedAiSession( root, sessionId );
 
 	if ( summary.activeEnvironment !== 'live' ) {
 		return;
@@ -340,6 +441,12 @@ export async function continueAiSession(
 	} );
 }
 
+export async function listActiveAiAgentRuns(
+	_event: IpcMainInvokeEvent
+): Promise< ActiveAgentRun[] > {
+	return listActiveAgentRuns();
+}
+
 export async function setAiSessionModel(
 	_event: IpcMainInvokeEvent,
 	sessionId: string,
@@ -372,7 +479,7 @@ export async function setSessionEnvironment(
 	sessionId: string,
 	environment: 'local' | 'live'
 ): Promise< SetSessionEnvironmentResult > {
-	const { summary } = await loadAiSessionFromStore( getAiSessionsRootDirectory(), sessionId );
+	const { summary } = await loadHydratedAiSession( getAiSessionsRootDirectory(), sessionId );
 
 	if ( ! summary.ownerSitePath || ! summary.ownerSiteName ) {
 		throw new Error( 'Cannot change environment: session has no owner site' );
@@ -397,16 +504,15 @@ export async function setSessionEnvironment(
 
 		await appendStudioEntry( getAiSessionsRootDirectory(), sessionId, 'studio.site_selected', {
 			siteName: liveSite.name,
-			// Keep the owner's path on remote picks too, so the renderer
-			// (which groups the sidebar by `ownerSitePath`) still resolves
-			// the session to its owner while the active environment is live.
+			// Keep the desktop placement path on remote picks too, so live/local
+			// environment flips still resolve against the same local site.
 			sitePath: summary.ownerSitePath,
 			remote: true,
 			url: liveSite.url,
 			wpcomSiteId: liveSite.id,
 		} );
 
-		const refreshed = await loadAiSessionFromStore( getAiSessionsRootDirectory(), sessionId );
+		const refreshed = await loadHydratedAiSession( getAiSessionsRootDirectory(), sessionId );
 		return {
 			environment: 'live',
 			url: liveSite.url,
@@ -422,7 +528,7 @@ export async function setSessionEnvironment(
 		url: 'url' in details ? details.url : undefined,
 	} );
 
-	const refreshed = await loadAiSessionFromStore( getAiSessionsRootDirectory(), sessionId );
+	const refreshed = await loadHydratedAiSession( getAiSessionsRootDirectory(), sessionId );
 	return {
 		environment: 'local',
 		summary: refreshed.summary,
@@ -1261,6 +1367,61 @@ export async function openLocalPath( _event: IpcMainInvokeEvent, path: string ) 
 
 export function showItemInFolder( _event: IpcMainInvokeEvent, path: string ) {
 	shell.showItemInFolder( path );
+}
+
+export async function readLocalMediaFile(
+	_event: IpcMainInvokeEvent,
+	path: string
+): Promise< { name: string; mimeType: string; data: ArrayBuffer } > {
+	const stats = await fsPromises.stat( path );
+	if ( ! stats.isFile() ) {
+		throw new Error( 'Local media path must be a file.' );
+	}
+
+	const mimeType = getLocalMediaMimeType( path );
+	if ( ! mimeType ) {
+		throw new Error( 'Local media file type is not supported.' );
+	}
+
+	const buffer = await fsPromises.readFile( path );
+	return {
+		name: nodePath.basename( path ),
+		mimeType,
+		data: buffer.buffer.slice(
+			buffer.byteOffset,
+			buffer.byteOffset + buffer.byteLength
+		) as ArrayBuffer,
+	};
+}
+
+function getLocalMediaMimeType( path: string ) {
+	const extension = nodePath.extname( path ).toLowerCase().slice( 1 );
+	const mimeTypes: Record< string, string > = {
+		avif: 'image/avif',
+		avi: 'video/x-msvideo',
+		bmp: 'image/bmp',
+		gif: 'image/gif',
+		heic: 'image/heic',
+		heif: 'image/heif',
+		ico: 'image/x-icon',
+		jpeg: 'image/jpeg',
+		jpg: 'image/jpeg',
+		m4v: 'video/x-m4v',
+		mkv: 'video/x-matroska',
+		mov: 'video/quicktime',
+		mp4: 'video/mp4',
+		mpeg: 'video/mpeg',
+		mpg: 'video/mpeg',
+		ogv: 'video/ogg',
+		png: 'image/png',
+		svg: 'image/svg+xml',
+		tif: 'image/tiff',
+		tiff: 'image/tiff',
+		webm: 'video/webm',
+		webp: 'image/webp',
+	};
+
+	return mimeTypes[ extension ] ?? '';
 }
 
 // Update a site's theme details and thumbnail. Emit the appropriate IPC events to the renderer

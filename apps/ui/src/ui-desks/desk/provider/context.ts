@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'react';
 import type { DeskConfig } from '../types';
-import type { getSelectedWidgetToolbarItem } from '@/ui-desks/widgets/toolbar-selection';
+import type { getSelectedWidgetToolbarItem } from '@/ui-desks/desk/selection-toolbar/selection';
+import type { StackViewMode } from '@/ui-desks/stacks/utils';
 import type { WidgetPastePayload } from '@/ui-desks/widgets/types';
 import type { ReactNode } from 'react';
 import type { Editor } from 'tldraw';
@@ -22,14 +23,24 @@ export interface DeskContextValue {
 	registerEditor: RegisterDeskEditor;
 	pressStack: ( stackId: string ) => void;
 	addWidget: ( type: string, options?: AddDeskWidgetOptions ) => boolean;
+	addWidgetAtScreenPoint: (
+		type: string,
+		point: { x: number; y: number },
+		options?: Omit< AddDeskWidgetOptions, 'center' >
+	) => boolean;
 	addPastedContent: (
 		payload: WidgetPastePayload,
 		options?: AddDeskWidgetOptions
 	) => Promise< boolean >;
+	startDrawing: () => boolean;
+	finishDrawing: () => Promise< boolean >;
 	updateSelectedWidgetProps: ( widgetProps: Record< string, unknown > ) => boolean;
-	fitSelectedWidgetToContent: () => boolean;
+	canEditSelectedWidget: boolean;
+	editSelectedWidget: () => boolean;
+	fitSelectedWidgetToContent: () => Promise< boolean >;
 	stackSelectedWidgets: () => boolean;
 	unstackSelectedWidgets: () => boolean;
+	setSelectedStackView: ( viewMode: StackViewMode ) => boolean;
 	removeSelectedWidget: () => boolean;
 }
 
@@ -66,11 +77,17 @@ const defaultDeskContext: DeskContextValue = {
 	registerEditor: noopRegisterEditor,
 	pressStack: noopPressStack,
 	addWidget: () => false,
+	addWidgetAtScreenPoint: () => false,
 	addPastedContent: () => Promise.resolve( false ),
+	startDrawing: () => false,
+	finishDrawing: async () => false,
 	updateSelectedWidgetProps: () => false,
-	fitSelectedWidgetToContent: () => false,
+	canEditSelectedWidget: false,
+	editSelectedWidget: () => false,
+	fitSelectedWidgetToContent: () => Promise.resolve( false ),
 	stackSelectedWidgets: () => false,
 	unstackSelectedWidgets: () => false,
+	setSelectedStackView: () => false,
 	removeSelectedWidget: () => false,
 };
 

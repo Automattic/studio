@@ -34,12 +34,15 @@ export interface DeskViewport {
 	z: number;
 }
 
+export type DeskStackViewMode = 'stack' | 'tiles';
+
 export interface DeskStack {
 	id: string;
 	x: number;
 	y: number;
 	zIndex: string;
 	memberIds: string[];
+	viewMode?: DeskStackViewMode;
 }
 
 export interface DeskConfig< TWidget extends DeskWidgetBase = DeskWidgetBase > {

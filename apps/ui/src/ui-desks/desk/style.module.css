@@ -1,19 +1,9 @@
-.root,
-.loading {
+.root {
 	min-height: 100vh;
 	background: var(--ui-desks-bg, rgb(232, 234, 235));
 }
 
-.canvas,
-.loading {
-	position: relative;
-	width: 100vw;
-	height: 100vh;
-	background: var(--ui-desks-bg, rgb(232, 234, 235));
-	overflow: hidden;
-}
-
-.root[data-toolbar-editing='true'] .canvas {
+.root[data-toolbar-editing='true'] [data-ui-desks-canvas] {
 	filter: blur(8px) brightness(0.96);
 	transition: filter 220ms ease;
 }
@@ -36,49 +26,6 @@
 	display: flex;
 	gap: 8px;
 	transform: translateX(-50%);
-}
-
-.toolbarEditButton {
-	--action-button-background: var(--ui-desks-material, #fff);
-
-	height: 40px;
-	padding: 0 16px;
-	justify-content: center;
-	background-color: var(--action-button-background);
-	border-radius: var(--ui-desks-radius-control, 16px);
-	corner-shape: var(--ui-desks-corner-shape, superellipse(1.42));
-	-webkit-corner-shape: var(--ui-desks-corner-shape, superellipse(1.42));
-	box-shadow: var(
-		--ui-desks-shadow-control,
-		0 1px 2px rgba(15, 23, 42, 0.04),
-		0 8px 24px rgba(15, 23, 42, 0.06)
-	);
-	transition:
-		box-shadow 160ms ease,
-		transform 160ms ease;
-}
-
-.toolbarEditButton:hover {
-	--action-button-background: var(--ui-desks-material, #fff);
-
-	box-shadow: var(
-		--ui-desks-shadow-control-raised,
-		0 1px 2px rgba(15, 23, 42, 0.04),
-		0 18px 44px rgba(15, 23, 42, 0.1)
-	);
-	transform: translateY(-1px);
-}
-
-.statusMessage {
-	position: absolute;
-	inset: 0;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	color: var(--wpds-color-fg-content-neutral-weak, rgba(15, 23, 42, 0.55));
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
-	pointer-events: none;
 }
 
 .siteMapLoadingWidget {
@@ -113,16 +60,4 @@
 	inset: 12px;
 	border: 3px solid #14171a;
 	border-radius: 8px;
-}
-
-.canvas :global(.tl-background) {
-	background: var(--ui-desks-bg, rgb(232, 234, 235)) !important;
-}
-
-.canvas :global(.tl-grid) {
-	display: none !important;
-}
-
-.canvas :global(.tl-watermark_SEE-LICENSE) {
-	display: none !important;
 }

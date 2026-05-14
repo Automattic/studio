@@ -2,22 +2,25 @@ import type { SessionEntry } from '@mariozechner/pi-coding-agent';
 
 export type TurnStatus = 'success' | 'error' | 'max_turns' | 'interrupted';
 
-export interface AiSessionSummary {
+export interface AiSessionMetadata {
+	starred?: boolean;
+	archived?: boolean;
+}
+
+export interface AiSessionSummary extends AiSessionMetadata {
 	id: string;
 	filePath: string;
 	createdAt: string;
 	updatedAt: string;
 	firstPrompt?: string;
-	// The first local site the session attached to. Acts as the session's owner
-	// in the UI sidebar. Undefined for sessions that only ever selected remote
-	// sites, or that never selected any site at all.
+	assistantReplyPreview?: string;
+	// Desktop-only placement, hydrated by the app from app.json. CLI session
+	// summaries do not infer ownership from active-site history.
 	ownerSitePath?: string;
 	ownerSiteName?: string;
-	// The most recently selected site during the session. May differ from the
-	// owner when the user switches between local and live (the owner stays
-	// anchored to the first local pick).
+	// The most recently selected execution target during the session.
 	selectedSiteName?: string;
-	// Side of the owner site the next turn acts on. `remote === true` → 'live'.
+	// Side of the current execution target the next turn acts on. `remote === true` → 'live'.
 	// Renderer's effective-env hook also checks `lastSelectedWpcomSiteId` against
 	// current connected sites for disconnect fall-back.
 	activeEnvironment: 'local' | 'live';

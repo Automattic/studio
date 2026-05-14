@@ -1,7 +1,9 @@
 import crypto from 'crypto';
 import { fork, type ChildProcess } from 'node:child_process';
+import { setAiSessionSitePlacement } from 'src/lib/ai-session-placement';
 import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
-import type { AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { StudioChatArtifactData } from '@studio/common/ai/chat-artifacts';
 import type { JsonEvent } from '@studio/common/ai/json-events';
 import type { WebContents } from 'electron';
 
@@ -12,6 +14,8 @@ interface AgentRun {
 	webContents: WebContents;
 	interrupted: boolean;
 	interruptAttempts: number;
+	eventQueue: Promise< void >;
+	startedAt: number;
 }
 
 // Two subprocesses resuming the same session id would race on the JSONL
@@ -35,6 +39,72 @@ function sendEvent( run: AgentRun, event: AgentRunEvent[ 'event' ] ): void {
 	run.webContents.send( 'ai-agent-event', payload );
 }
 
+function getCreatedSiteFromArtifact( artifact: StudioChatArtifactData ):
+	| {
+			siteId: string;
+			sitePath: string;
+			siteName: string;
+	  }
+	| undefined {
+	for ( const widget of artifact.widgets ) {
+		if ( widget.type !== 'site-preview' ) {
+			continue;
+		}
+		const { siteId, sitePath, siteName } = widget.widgetProps;
+		if (
+			typeof siteId === 'string' &&
+			typeof sitePath === 'string' &&
+			typeof siteName === 'string'
+		) {
+			return { siteId, sitePath, siteName };
+		}
+	}
+	return undefined;
+}
+
+async function applySessionPlacementFromEvent( run: AgentRun, event: JsonEvent ): Promise< void > {
+	if ( event.type !== 'chat.artifact' ) {
+		return;
+	}
+	const createdSite = getCreatedSiteFromArtifact( event.artifact );
+	if ( ! createdSite ) {
+		return;
+	}
+	const placement = await setAiSessionSitePlacement( run.sessionId, createdSite );
+	if ( run.webContents.isDestroyed() ) {
+		return;
+	}
+	run.webContents.send( 'ai-session-placement-updated', {
+		sessionId: run.sessionId,
+		placement,
+	} );
+}
+
+async function sendQueuedJsonEvent( run: AgentRun, event: JsonEvent ): Promise< void > {
+	try {
+		await applySessionPlacementFromEvent( run, event );
+	} catch ( error ) {
+		sendEvent( run, {
+			type: 'error',
+			timestamp: nowIso(),
+			message: error instanceof Error ? error.message : 'Failed to update session placement',
+		} );
+	}
+	sendEvent( run, event );
+}
+
+function enqueueJsonEvent( run: AgentRun, event: JsonEvent ): void {
+	run.eventQueue = run.eventQueue
+		.then( () => sendQueuedJsonEvent( run, event ) )
+		.catch( ( error ) => {
+			sendEvent( run, {
+				type: 'error',
+				timestamp: nowIso(),
+				message: error instanceof Error ? error.message : 'Failed to forward agent event',
+			} );
+		} );
+}
+
 export interface StartAgentRunOptions {
 	sessionId: string;
 	prompt: string;
@@ -50,6 +120,7 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 	}
 
 	const runId = crypto.randomUUID();
+	const startedAt = Date.now();
 	const cliPath = getCliPath();
 	const args = [ 'code', 'sessions', 'resume', sessionId, prompt, '--json', '--avoid-telemetry' ];
 	if ( displayMessage ) {
@@ -72,6 +143,8 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 		webContents,
 		interrupted: false,
 		interruptAttempts: 0,
+		eventQueue: Promise.resolve(),
+		startedAt,
 	};
 
 	runsBySessionId.set( sessionId, run );
@@ -86,7 +159,7 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 		// shape (`{ action, status, message }`) on error paths. Forward only
 		// messages that look like the CLI JSON transport envelope.
 		if ( message && typeof message === 'object' && 'type' in message ) {
-			sendEvent( run, message as JsonEvent );
+			enqueueJsonEvent( run, message as JsonEvent );
 		}
 	} );
 
@@ -94,14 +167,16 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 		runsBySessionId.delete( sessionId );
 		runsById.delete( runId );
 
-		if ( run.interrupted ) {
-			sendEvent( run, { type: 'run.interrupted', timestamp: nowIso() } );
-		}
-		sendEvent( run, {
-			type: 'run.exited',
-			timestamp: nowIso(),
-			status: code === 0 ? 'success' : 'error',
-			code,
+		void run.eventQueue.finally( () => {
+			if ( run.interrupted ) {
+				sendEvent( run, { type: 'run.interrupted', timestamp: nowIso() } );
+			}
+			sendEvent( run, {
+				type: 'run.exited',
+				timestamp: nowIso(),
+				status: code === 0 ? 'success' : 'error',
+				code,
+			} );
 		} );
 	};
 
@@ -124,6 +199,15 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 	webContents.once( 'destroyed', abortOnDestroy );
 
 	return { runId };
+}
+
+export function listActiveAgentRuns(): ActiveAgentRun[] {
+	return Array.from( runsBySessionId.values() ).map( ( run ) => ( {
+		runId: run.runId,
+		sessionId: run.sessionId,
+		startedAt: run.startedAt,
+		phase: run.interrupted ? 'interrupting' : 'running',
+	} ) );
 }
 
 const INTERRUPT_FORCE_KILL_TIMEOUT_MS = 2000;

@@ -1,11 +1,10 @@
 import {
-	createClient,
-	createTextMessage,
 	extractTextFromMessage,
+	getAgentManager,
 	useClientAbilities,
 	type Ability,
 	type ContextProvider,
-	type FilePart,
+	type SendMessageParams,
 	type TaskUpdate,
 	type ToolProvider,
 } from '@automattic/agenttic-client';
@@ -129,6 +128,8 @@ type DollyUploadedImage = {
 	fileName?: string;
 	title?: string;
 };
+
+type DollyAgentImageUrl = NonNullable< SendMessageParams[ 'imageUrls' ] >[ number ];
 
 type OpenPreviewOptions = {
 	forceReload?: boolean;
@@ -1125,31 +1126,21 @@ const createDollyAuthProvider = () => async (): Promise< Record< string, string 
 const createDollyAgentUrl = ( siteId: number ) =>
 	`${ DOLLY_AGENT_URL_ORIGIN }/sites/${ siteId }/ai/agent`;
 
-const createDollyFilePart = ( image: DollyUploadedImage ): FilePart => ( {
-	type: 'file',
-	file: {
-		name: image.name,
-		mimeType: image.mimeType,
-		uri: image.url,
-	},
+const createDollyAgentManagerKey = ( siteId: number ) =>
+	`${ DOLLY_AGENT_ID }:wpcom-site:${ siteId }`;
+
+const createDollyImageUrl = ( image: DollyUploadedImage ): DollyAgentImageUrl => ( {
+	url: image.url,
 	metadata: {
 		id: image.id,
 		url: image.url,
 		mimeType: image.mimeType,
 		name: image.name,
 		title: image.title ?? image.name,
-		fileName: image.fileName,
+		fileName: image.fileName ?? image.name,
 		fileType: image.mimeType,
 	},
 } );
-
-const createDollyMessage = ( message: string, uploadedImages: DollyUploadedImage[] = [] ) => {
-	const agentticMessage = createTextMessage( message );
-	return {
-		...agentticMessage,
-		parts: [ ...agentticMessage.parts, ...uploadedImages.map( createDollyFilePart ) ],
-	};
-};
 
 const revokeDollyPendingImageUrls = ( images: DollyPendingImage[] ) => {
 	images.forEach( ( image ) => URL.revokeObjectURL( image.url ) );
@@ -1478,36 +1469,49 @@ const sendDollyMessage = async ( {
 } ): Promise< DollyAgentResponse > => {
 	const taskId = crypto.randomUUID();
 	const initialSessionId = sessionId ?? taskId;
-	const agentClient = createClient( {
-		agentId: DOLLY_AGENT_ID,
-		agentUrl: createDollyAgentUrl( siteId ),
-		authProvider: createDollyAuthProvider(),
-		contextProvider: createDollyContextProvider(
-			siteId,
-			selectedSite,
-			previewContext,
-			siteAssociation
-		),
-		toolProvider,
-		timeout: DOLLY_REQUEST_TIMEOUT_MS,
-	} );
+	const agentManager = getAgentManager();
+	const agentManagerKey = createDollyAgentManagerKey( siteId );
 	const sendInitialMessage = async ( nextTaskId: string, nextSessionId: string ) => {
-		let finalUpdate: TaskUpdate | undefined;
-		for await ( const update of agentClient.sendMessageStream( {
-			message: createDollyMessage( message, uploadedImages ),
-			sessionId: nextSessionId,
-			taskId: nextTaskId,
-			abortSignal,
-			enableStreaming: false,
-		} ) ) {
-			finalUpdate = update;
-		}
+		agentManager.removeAgent( agentManagerKey );
+		await agentManager.createAgent( agentManagerKey, {
+			agentId: DOLLY_AGENT_ID,
+			agentUrl: createDollyAgentUrl( siteId ),
+			authProvider: createDollyAuthProvider(),
+			contextProvider: createDollyContextProvider(
+				siteId,
+				selectedSite,
+				previewContext,
+				siteAssociation
+			),
+			toolProvider,
+			timeout: DOLLY_REQUEST_TIMEOUT_MS,
+		} );
 
-		if ( ! finalUpdate ) {
-			throw new Error( __( 'Dolly did not return a response.' ) );
-		}
+		try {
+			let finalUpdate: TaskUpdate | undefined;
+			for await ( const update of agentManager.sendMessageStream( agentManagerKey, message, {
+				imageUrls: uploadedImages?.map( createDollyImageUrl ),
+				sessionId: nextSessionId,
+				taskId: nextTaskId,
+				abortSignal,
+				enableStreaming: false,
+			} ) ) {
+				finalUpdate = update;
+			}
 
-		return parseDollyTaskUpdate( finalUpdate, nextSessionId );
+			if ( ! finalUpdate ) {
+				throw new Error( __( 'Dolly did not return a response.' ) );
+			}
+
+			return parseDollyTaskUpdate( finalUpdate, nextSessionId );
+		} finally {
+			try {
+				await agentManager.resetConversation( agentManagerKey );
+			} catch {
+				// The Studio session cache is the source of truth; Agenttic manager state is per-request.
+			}
+			agentManager.removeAgent( agentManagerKey );
+		}
 	};
 	let response: DollyAgentResponse | undefined;
 	try {

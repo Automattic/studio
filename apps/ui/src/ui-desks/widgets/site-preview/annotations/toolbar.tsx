@@ -4,39 +4,20 @@ import { useEffect, useState } from 'react';
 import { useChats } from '@/ui-desks/chats/context';
 import { Button, Divider } from '@/ui-desks/components';
 import { useDesk } from '@/ui-desks/desk/provider';
+import { SITE_PREVIEW_WIDGET_TYPE } from '../types';
 import { getAnnotationSubmission, getAnnotationWidgets, removeAnnotationWidget } from './notes';
 import {
 	createAnnotationWidgetContextPrompt,
 	formatAnnotationsAsPrompt,
 	formatAnnotationsSubmittedMessage,
 } from './prompt';
-import type { SitePreviewWidget } from '../types';
-import type { WidgetFocusModeToolbarProps } from '@/ui-desks/widgets/types';
+import type { SitePreviewWidget, SitePreviewWidgetProps } from '../types';
+import type { ControlRenderContext } from '@/ui-desks/controls/types';
 
-export function SitePreviewAnnotationToolbar( {
-	widget,
-}: WidgetFocusModeToolbarProps< SitePreviewWidget > ) {
-	const {
-		focusMode,
-		getFocusDeskSnapshot,
-		isReadOnly,
-		selectedWidgetToolbarItem,
-		setFocusDesk,
-		stopFocusMode,
-	} = useDesk();
-	const { startChatWithPrompt, isCreatingChat } = useChats();
-	const [ isSubmitting, setIsSubmitting ] = useState( false );
-	const focusDesk = focusMode?.widgetId === widget.id ? focusMode.focusDesk : null;
-	const annotationWidgets = focusDesk ? getAnnotationWidgets( focusDesk ) : [];
-	const annotationCount = annotationWidgets.length;
-	const selectedAnnotationWidgetId =
-		selectedWidgetToolbarItem?.kind === 'single-widget' &&
-		annotationWidgets.some(
-			( annotationWidget ) => annotationWidget.id === selectedWidgetToolbarItem.widget.id
-		)
-			? selectedWidgetToolbarItem.widget.id
-			: null;
-	const isBusy = isCreatingChat || isSubmitting;
+export function SitePreviewAnnotationCancelControl(
+	_props: ControlRenderContext< SitePreviewWidgetProps >
+) {
+	const { annotationCount, stopFocusMode } = useSitePreviewAnnotationControls();
 
 	const cancel = () => {
 		if ( annotationCount > 0 ) {
@@ -53,19 +34,53 @@ export function SitePreviewAnnotationToolbar( {
 		stopFocusMode();
 	};
 
-	const removeSelectedAnnotation = () => {
-		if ( isReadOnly || ! selectedAnnotationWidgetId ) {
-			return;
-		}
-		const snapshot = getFocusDeskSnapshot() ?? focusDesk;
-		if ( ! snapshot ) {
-			return;
-		}
-		setFocusDesk( removeAnnotationWidget( snapshot, selectedAnnotationWidgetId ) );
-	};
+	useEffect( () => {
+		const handleKeyDown = ( event: KeyboardEvent ) => {
+			if (
+				event.key !== 'Escape' ||
+				event.defaultPrevented ||
+				document.activeElement?.closest( '[role="dialog"]' )
+			) {
+				return;
+			}
+			event.preventDefault();
+			cancel();
+		};
+
+		window.addEventListener( 'keydown', handleKeyDown );
+		return () => {
+			window.removeEventListener( 'keydown', handleKeyDown );
+		};
+	} );
+
+	return (
+		<Button
+			label={ __( 'Cancel' ) }
+			variant="quiet"
+			size="medium"
+			tooltipLabel={ false }
+			onClick={ cancel }
+		>
+			{ __( 'Cancel' ) }
+		</Button>
+	);
+}
+
+export function SitePreviewAnnotationSubmitControl(
+	_props: ControlRenderContext< SitePreviewWidgetProps >
+) {
+	const { annotationCount, focusDesk, getFocusDeskSnapshot, stopFocusMode, widget } =
+		useSitePreviewAnnotationControls();
+	const { startChatWithPrompt, isCreatingChat } = useChats();
+	const [ isSubmitting, setIsSubmitting ] = useState( false );
+	const isBusy = isCreatingChat || isSubmitting;
+
+	if ( ! widget || annotationCount === 0 ) {
+		return null;
+	}
 
 	const submit = async () => {
-		if ( annotationCount === 0 || isBusy ) {
+		if ( isBusy ) {
 			return;
 		}
 		const submission = getAnnotationSubmission( widget, getFocusDeskSnapshot() ?? focusDesk );
@@ -90,70 +105,100 @@ export function SitePreviewAnnotationToolbar( {
 		}
 	};
 
-	useEffect( () => {
-		const handleKeyDown = ( event: KeyboardEvent ) => {
-			if (
-				event.key !== 'Escape' ||
-				event.defaultPrevented ||
-				document.activeElement?.closest( '[role="dialog"]' )
-			) {
-				return;
-			}
-			event.preventDefault();
-			cancel();
-		};
+	return (
+		<>
+			<Divider />
+			<Button
+				label={ sprintf(
+					_n( 'Submit %d change', 'Submit %d changes', annotationCount ),
+					annotationCount
+				) }
+				variant="filled"
+				tone="primary"
+				size="medium"
+				tooltipLabel={ false }
+				disabled={ isBusy }
+				onClick={ () => void submit() }
+			>
+				{ sprintf(
+					_n( 'Submit %d change', 'Submit %d changes', annotationCount ),
+					annotationCount
+				) }
+			</Button>
+		</>
+	);
+}
 
-		window.addEventListener( 'keydown', handleKeyDown );
-		return () => {
-			window.removeEventListener( 'keydown', handleKeyDown );
-		};
-	} );
+export function SitePreviewAnnotationRemoveControl(
+	_props: ControlRenderContext< SitePreviewWidgetProps >
+) {
+	const { focusDesk, getFocusDeskSnapshot, isReadOnly, selectedAnnotationWidgetId, setFocusDesk } =
+		useSitePreviewAnnotationControls();
+
+	if ( ! selectedAnnotationWidgetId ) {
+		return null;
+	}
+
+	const removeSelectedAnnotation = () => {
+		if ( isReadOnly ) {
+			return;
+		}
+		const snapshot = getFocusDeskSnapshot() ?? focusDesk;
+		if ( ! snapshot ) {
+			return;
+		}
+		setFocusDesk( removeAnnotationWidget( snapshot, selectedAnnotationWidgetId ) );
+	};
 
 	return (
 		<>
+			<Divider />
 			<Button
-				label={ __( 'Cancel' ) }
+				icon={ trash }
+				label={ __( 'Remove annotation' ) }
 				variant="quiet"
 				size="medium"
-				tooltipLabel={ false }
-				onClick={ cancel }
-			>
-				{ __( 'Cancel' ) }
-			</Button>
-			{ annotationCount > 0 && (
-				<>
-					<Divider />
-					<Button
-						label={ sprintf(
-							_n( 'Submit %d change', 'Submit %d changes', annotationCount ),
-							annotationCount
-						) }
-						variant="filled"
-						tone="primary"
-						size="medium"
-						tooltipLabel={ false }
-						disabled={ isBusy }
-						onClick={ () => void submit() }
-					>
-						{ sprintf(
-							_n( 'Submit %d change', 'Submit %d changes', annotationCount ),
-							annotationCount
-						) }
-					</Button>
-				</>
-			) }
-			{ selectedAnnotationWidgetId && (
-				<>
-					<Divider />
-					<Button
-						icon={ trash }
-						label={ __( 'Remove annotation' ) }
-						variant="quiet"
-						size="medium"
-						onClick={ removeSelectedAnnotation }
-					/>
-				</>
-			) }
+				onClick={ removeSelectedAnnotation }
+			/>
 		</>
 	);
+}
+
+function useSitePreviewAnnotationControls() {
+	const {
+		focusMode,
+		focusedWidget,
+		getFocusDeskSnapshot,
+		isReadOnly,
+		selectedWidgetToolbarItem,
+		setFocusDesk,
+		stopFocusMode,
+	} = useDesk();
+	const widget =
+		focusedWidget &&
+		focusMode?.widgetId === focusedWidget.id &&
+		focusedWidget.type === SITE_PREVIEW_WIDGET_TYPE
+			? ( focusedWidget as SitePreviewWidget )
+			: null;
+	const focusDesk = widget ? focusMode?.focusDesk ?? null : null;
+	const annotationWidgets = focusDesk ? getAnnotationWidgets( focusDesk ) : [];
+	const annotationCount = annotationWidgets.length;
+	const selectedAnnotationWidgetId =
+		selectedWidgetToolbarItem?.kind === 'single-widget' &&
+		annotationWidgets.some(
+			( annotationWidget ) => annotationWidget.id === selectedWidgetToolbarItem.widget.id
+		)
+			? selectedWidgetToolbarItem.widget.id
+			: null;
+
+	return {
+		annotationCount,
+		focusDesk,
+		getFocusDeskSnapshot,
+		isReadOnly,
+		selectedAnnotationWidgetId,
+		setFocusDesk,
+		stopFocusMode,
+		widget,
+	};
 }

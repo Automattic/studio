@@ -82,7 +82,7 @@ describe( 'DeskWidgetToolbar', () => {
 		expect( screen.queryByRole( 'button', { name: 'Fit to size' } ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'renders a focused widget toolbar from the focused widget definition', () => {
+	it( 'renders focus mode controls from the focused widget definition', () => {
 		const focusedWidget = createWidget();
 		useDeskMock.mockReturnValue(
 			createDeskContext( {
@@ -93,8 +93,14 @@ describe( 'DeskWidgetToolbar', () => {
 				focusedWidget: focusedWidget as unknown as DeskWidget,
 				focusedWidgetDefinition: {
 					...createWidgetDefinition(),
-					focusModeToolbar: () => <button type="button">Focus action</button>,
-					focusModeToolbarLabel: () => 'Focused test actions',
+					focusModeControls: [
+						{
+							type: 'custom',
+							id: 'focus-action',
+							Component: () => <button type="button">Focus action</button>,
+						},
+					],
+					focusModeControlsLabel: () => 'Focused test actions',
 				} as DeskWidgetDefinition,
 			} )
 		);

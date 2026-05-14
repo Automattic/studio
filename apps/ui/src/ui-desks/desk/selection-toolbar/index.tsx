@@ -12,8 +12,7 @@ import type { getSelectedWidgetToolbarItem } from './selection';
 import type { DeskWidgetConnectionTarget } from '@/ui-desks/connectors/utils';
 import type { AnySelectControlConfig } from '@/ui-desks/controls/types';
 import type { StackViewMode } from '@/ui-desks/stacks/utils';
-import type { DeskWidget, WidgetFocusModeToolbarProps } from '@/ui-desks/widgets/types';
-import type { ComponentType } from 'react';
+import type { DeskWidget } from '@/ui-desks/widgets/types';
 
 type SelectedWidgetToolbarItem = NonNullable< ReturnType< typeof getSelectedWidgetToolbarItem > >;
 
@@ -62,9 +61,12 @@ export function DeskWidgetToolbar() {
 	>( [] );
 	const [ openControlId, setOpenControlId ] = useState< string | null >( null );
 	const [ chatWidgets, setChatWidgets ] = useState< DeskWidget[] | null >( null );
-	const FocusModeToolbar = focusedWidgetDefinition?.focusModeToolbar as
-		| ComponentType< WidgetFocusModeToolbarProps >
-		| undefined;
+	const focusModeControls =
+		focusMode &&
+		focusedWidget &&
+		focusedWidgetDefinition?.isWidgetProps( focusedWidget.widgetProps )
+			? focusedWidgetDefinition.focusModeControls
+			: undefined;
 
 	useEffect( () => {
 		if ( selectedWidgetToolbarItem ) {
@@ -78,17 +80,26 @@ export function DeskWidgetToolbar() {
 		}
 	}, [ selectedConnectorToolbarItem, selectedWidgetConnectionTargets, selectedWidgetToolbarItem ] );
 
-	if ( focusMode && focusedWidget && FocusModeToolbar ) {
+	if ( focusedWidget && focusModeControls?.length ) {
 		return (
 			<Surface
 				variant="glass"
 				className={ styles.toolbar }
 				data-visible="true"
 				role="toolbar"
-				aria-label={ focusedWidgetDefinition?.focusModeToolbarLabel?.() ?? __( 'Focus actions' ) }
+				aria-label={ focusedWidgetDefinition?.focusModeControlsLabel?.() ?? __( 'Focus actions' ) }
 				onPointerDown={ ( event ) => event.stopPropagation() }
 			>
-				<FocusModeToolbar widget={ focusedWidget } />
+				{ focusModeControls.map( ( control ) => (
+					<ControlRenderer
+						key={ control.id }
+						control={ control }
+						isOpen={ openControlId === control.id }
+						props={ focusedWidget.widgetProps }
+						setIsOpen={ ( isOpen ) => setOpenControlId( isOpen ? control.id : null ) }
+						updateProps={ updateSelectedWidgetProps }
+					/>
+				) ) }
 			</Surface>
 		);
 	}

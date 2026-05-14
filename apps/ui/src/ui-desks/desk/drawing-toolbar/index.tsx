@@ -38,11 +38,11 @@ export function DeskDrawingToolbar() {
 				<Icon icon={ verse } size={ 20 } />
 			</span>
 			<Button
-				className={ styles.drawingDoneButton }
 				disabled={ isFinishing }
 				label={ __( 'Stop drawing' ) }
 				tooltipLabel={ false }
-				variant="quiet"
+				tone="inverse"
+				variant="filled"
 				size="medium"
 				onClick={ () => void handleFinishDrawing() }
 			>

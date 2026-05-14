@@ -8,6 +8,7 @@ import {
 	type TLArrowShape,
 	type TLBindingCreate,
 	type TLShape,
+	type TLShapeId,
 	type TLShapePartial,
 } from 'tldraw';
 import {
@@ -29,7 +30,7 @@ import {
 import { isRectangleWidgetShapeProps } from '@/ui-desks/widget-actions/geometry';
 import { LOADING_WIDGET_TYPE } from '@/ui-desks/widgets/loading/types';
 import { getWidgetDefinition } from '@/ui-desks/widgets/registry';
-import type { DeskConfig, DeskStack, DeskViewport } from '@/ui-desks/desk/types';
+import type { DeskConfig, DeskConnector, DeskStack, DeskViewport } from '@/ui-desks/desk/types';
 import type {
 	DeskWidget,
 	ResolvedDeskWidget,
@@ -37,10 +38,12 @@ import type {
 } from '@/ui-desks/widgets/types';
 
 const SHAPE_ID_PREFIX = 'shape:';
-const CONNECTOR_SHAPE_ID_PREFIX = 'connector:';
+export const CONNECTOR_SHAPE_ID_PREFIX = 'connector:';
+export const CONNECTOR_DEFAULT_BEND = 72;
+export const CONNECTOR_COLOR = 'black';
+export const CONNECTOR_DASH = 'dashed';
 const DERIVED_WIDGET_ORIGIN = 'derived';
 const DERIVED_WIDGET_PERSIST = false;
-const CONNECTOR_COLOR = 'grey';
 
 interface DeskCanvasMeta {
 	studioDeskOrigin?: typeof DERIVED_WIDGET_ORIGIN;
@@ -50,6 +53,17 @@ interface DeskCanvasMeta {
 	studioDeskResolutionState?: WidgetResolutionState;
 	studioDeskConnector?: boolean;
 }
+
+interface ConnectorArrowBinding {
+	fromId: TLShapeId;
+	toId: TLShapeId;
+	props?: {
+		terminal?: unknown;
+		normalizedAnchor?: unknown;
+	};
+}
+
+type ConnectorBindingResolver = ( shapeId: TLShapeId ) => ConnectorArrowBinding[];
 
 interface DeskStackMember {
 	stack: DeskStack;
@@ -113,25 +127,45 @@ export function deskConfigToCanvasConnectorShapes(
 		id: createShapeId( `${ CONNECTOR_SHAPE_ID_PREFIX }${ connector.id }` ),
 		type: 'arrow',
 		index: connectorIndices[ index ],
-		isLocked: true,
-		opacity: 0.72,
 		meta: {
-			studioDeskOrigin: DERIVED_WIDGET_ORIGIN,
-			studioDeskPersist: DERIVED_WIDGET_PERSIST,
 			studioDeskConnector: true,
 		},
 		props: {
 			kind: 'arc',
 			color: CONNECTOR_COLOR,
-			dash: 'solid',
+			dash: CONNECTOR_DASH,
 			size: 'm',
-			bend: connector.bend ?? 24,
-			arrowheadStart: 'none',
-			arrowheadEnd: 'none',
+			bend: connector.bend ?? CONNECTOR_DEFAULT_BEND,
+			arrowheadStart: 'dot',
+			arrowheadEnd: 'arrow',
 			start: { x: 0, y: 0 },
 			end: { x: 2, y: 0 },
 		},
 	} ) );
+}
+
+export function canvasShapesToDeskConnectors(
+	shapes: TLShape[],
+	getBindingsFromShape: ConnectorBindingResolver
+): DeskConnector[] {
+	const shapesById = new Map( shapes.map( ( shape ) => [ shape.id, shape ] ) );
+
+	return shapes
+		.filter( isDeskConnectorCanvasShape )
+		.map( ( shape ) =>
+			canvasConnectorShapeToDeskConnector( shape, shapesById, getBindingsFromShape )
+		)
+		.filter( ( connector ): connector is DeskConnector => connector !== null );
+}
+
+export function isDeskConnectorCanvasShape( shape: unknown ): shape is TLArrowShape {
+	return (
+		Boolean( shape ) &&
+		typeof shape === 'object' &&
+		( shape as Partial< TLShape > ).type === 'arrow' &&
+		( ( shape as Partial< TLShape > ).meta as DeskCanvasMeta | undefined )?.studioDeskConnector ===
+			true
+	);
 }
 
 export function deskConfigToCanvasConnectorBindings(
@@ -296,6 +330,69 @@ function getLowestShapeIndex( shapes: TLShapePartial[] ) {
 		)
 		.sort( sortByIndex )
 		.at( 0 )?.index;
+}
+
+function canvasConnectorShapeToDeskConnector(
+	shape: TLArrowShape,
+	shapesById: Map< TLShapeId, TLShape >,
+	getBindingsFromShape: ConnectorBindingResolver
+): DeskConnector | null {
+	const bindings = getBindingsFromShape( shape.id );
+	const startBinding = bindings.find( ( binding ) => binding.props?.terminal === 'start' );
+	const endBinding = bindings.find( ( binding ) => binding.props?.terminal === 'end' );
+	if ( ! startBinding || ! endBinding ) {
+		return null;
+	}
+	const startAnchor = getConnectorBindingAnchor( startBinding );
+	const endAnchor = getConnectorBindingAnchor( endBinding );
+	if ( ! startAnchor || ! endAnchor ) {
+		return null;
+	}
+
+	const fromShape = shapesById.get( startBinding.toId );
+	const toShape = shapesById.get( endBinding.toId );
+	const fromWidget = fromShape ? canvasShapeToDeskWidget( fromShape ) : null;
+	const toWidget = toShape ? canvasShapeToDeskWidget( toShape ) : null;
+	if ( ! fromWidget || ! toWidget ) {
+		return null;
+	}
+
+	const bend = typeof shape.props.bend === 'number' ? shape.props.bend : undefined;
+	return {
+		id: getDeskConnectorIdFromCanvasShapeId( shape.id ),
+		from: {
+			widgetId: fromWidget.id,
+			normalizedAnchor: startAnchor,
+		},
+		to: {
+			widgetId: toWidget.id,
+			normalizedAnchor: endAnchor,
+		},
+		...( bend !== undefined ? { bend } : {} ),
+	};
+}
+
+function getConnectorBindingAnchor( binding: ConnectorArrowBinding ) {
+	const anchor = binding.props?.normalizedAnchor;
+	if ( ! anchor || typeof anchor !== 'object' ) {
+		return null;
+	}
+
+	const { x, y } = anchor as { x?: unknown; y?: unknown };
+	if ( typeof x !== 'number' || typeof y !== 'number' ) {
+		return null;
+	}
+
+	return { x, y };
+}
+
+function getDeskConnectorIdFromCanvasShapeId( shapeId: TLShapeId ) {
+	const id = shapeId.startsWith( SHAPE_ID_PREFIX )
+		? shapeId.slice( SHAPE_ID_PREFIX.length )
+		: shapeId;
+	return id.startsWith( CONNECTOR_SHAPE_ID_PREFIX )
+		? id.slice( CONNECTOR_SHAPE_ID_PREFIX.length )
+		: id;
 }
 
 export function canvasShapeToDeskWidget( shape: TLShape ): DeskWidget | null {

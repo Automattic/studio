@@ -76,14 +76,15 @@ export function MediaWidgetThumbnailComponent( {
 			data-kind={ widgetProps.mediaKind }
 			data-studio-desk-widget={ MEDIA_WIDGET_TYPE }
 			data-studio-desk-widget-id={ id }
-			style={
-				isImage
-					? {
-							backgroundImage: `url(${ widgetProps.url })`,
-					  }
-					: undefined
-			}
 		>
+			{ isImage && (
+				<img
+					className={ styles.thumbnailImage }
+					src={ widgetProps.url }
+					alt=""
+					draggable={ false }
+				/>
+			) }
 			{ ! isImage && (
 				<span className={ styles.thumbnailText }>
 					{ widgetProps.alt || widgetProps.url || __( 'Media' ) }

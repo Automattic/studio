@@ -1,7 +1,9 @@
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import { __ } from '@wordpress/i18n';
 import type {
+	ActiveAgentRun,
 	AiSessionSummary,
+	AiSessionPlacementUpdatedEvent,
 	AuthUser,
 	ColorScheme,
 	Connector,
@@ -536,6 +538,10 @@ export function createIpcConnector(): Connector {
 			};
 		},
 
+		async getActiveAgentRuns(): Promise< ActiveAgentRun[] > {
+			return ( await ipcApi.listActiveAiAgentRuns() ) as ActiveAgentRun[];
+		},
+
 		async setSessionModel( sessionId, model ) {
 			await ipcApi.setAiSessionModel( sessionId, model );
 		},
@@ -566,6 +572,15 @@ export function createIpcConnector(): Connector {
 			const ipcListener = ( window as any ).ipcListener;
 			return ipcListener.subscribe( 'ai-agent-event', ( _event: unknown, payload: AgentRunEvent ) =>
 				listener( payload )
+			);
+		},
+
+		onSessionPlacementUpdated( listener ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ipcListener = ( window as any ).ipcListener;
+			return ipcListener.subscribe(
+				'ai-session-placement-updated',
+				( _event: unknown, payload: AiSessionPlacementUpdatedEvent ) => listener( payload )
 			);
 		},
 

@@ -100,10 +100,10 @@ describe( 'createDeskWidget', () => {
 		} );
 	} );
 
-	it( 'creates an artefact widget with supplied HTML props', () => {
+	it( 'creates a scratchpad widget with supplied HTML props', () => {
 		const createdWidget = createDeskWidget( {
-			id: 'artefact-1',
-			type: 'sd-artefact',
+			id: 'scratchpad-1',
+			type: 'scratchpad',
 			center: {
 				x: 700,
 				y: 500,
@@ -115,15 +115,15 @@ describe( 'createDeskWidget', () => {
 			},
 			widgetProps: {
 				html: '<!doctype html><html><body><h1>Example</h1></body></html>',
-				title: 'Example artefact',
+				title: 'Example scratchpad',
 				scope: 'block',
 				description: 'Render this HTML.',
 			},
 		} );
 
 		expect( createdWidget ).toEqual( {
-			id: 'artefact-1',
-			type: 'sd-artefact',
+			id: 'scratchpad-1',
+			type: 'scratchpad',
 			x: 416,
 			y: 238,
 			zIndex: 'a8',
@@ -133,7 +133,7 @@ describe( 'createDeskWidget', () => {
 			},
 			widgetProps: {
 				html: '<!doctype html><html><body><h1>Example</h1></body></html>',
-				title: 'Example artefact',
+				title: 'Example scratchpad',
 				scope: 'block',
 				description: 'Render this HTML.',
 			},

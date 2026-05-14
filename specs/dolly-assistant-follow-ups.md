@@ -18,3 +18,5 @@ The selected WordPress.com site, loaded chat state, Dolly session id, preview UR
 - Preserve chat state when switching between selected WordPress.com sites, using the site-scoped session model above. Include clear/start-new controls that reset only the selected site's chat state.
 - Show whether the selected WordPress.com site is staging or production in the heading area. Prefer using fields from the existing sites endpoint response if they already include this.
 - Add an obvious affordance or warning state that the selected assistant is acting on a live WordPress.com site, not a disposable local preview.
+- Tune the default preview viewport. It currently renders too zoomed-in or mobile-like; it should start slightly zoomed out and the preview should claim more horizontal space by default.
+- Fix small-window resizing behavior. The chat and preview split gets buggy when the app window narrows, so the preview needs better min/max width constraints and responsive collapse behavior.

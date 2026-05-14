@@ -12,11 +12,6 @@ import {
 } from 'tldraw';
 import { useConnector } from '@/data/core';
 import { useSites } from '@/data/queries/use-sites';
-import {
-	appendSiteContentMediaBlock,
-	attachSiteMediaToContent,
-	setSiteContentFeaturedMedia,
-} from '@/data/wordpress/media';
 import { useChats } from '@/ui-desks/chats/context';
 import {
 	buildWidgetContextDisplayMessage,
@@ -55,6 +50,11 @@ import {
 	DropActionMenu,
 	type DropActionMenuAction,
 } from '@/ui-desks/widget-actions/drop-handlers/drop-action-menu';
+import {
+	useSiteContentMediaDropActions,
+	type SiteContentKind,
+	type SiteContentMediaBlock,
+} from '@/ui-desks/widget-actions/drop-handlers/use-site-content-media-drop-actions';
 import { getWidgetEditAction } from '@/ui-desks/widget-actions/edit-action';
 import { getWidgetFileHandler } from '@/ui-desks/widget-actions/file-handlers';
 import {
@@ -122,6 +122,7 @@ export function DeskProvider( {
 	const isLoading = externalIsLoading ?? isLoadingPersistedDesk;
 	const connector = useConnector();
 	const { startChatWithPrompt } = useChats();
+	const siteContentMediaDropActions = useSiteContentMediaDropActions();
 	const { data: sites } = useSites();
 	const site = sites?.find( ( candidate ) => candidate.id === siteId );
 	const isRunningSite = Boolean( siteId && site?.running );
@@ -183,10 +184,17 @@ export function DeskProvider( {
 				? getCustomDropActions( customDropIntent, {
 						editor,
 						closeMenu: closeCustomDropMenu,
+						siteContentMediaDropActions,
 						startChatWithPrompt,
 				  } )
 				: [],
-		[ closeCustomDropMenu, customDropIntent, editor, startChatWithPrompt ]
+		[
+			closeCustomDropMenu,
+			customDropIntent,
+			editor,
+			siteContentMediaDropActions,
+			startChatWithPrompt,
+		]
 	);
 
 	useStackInteractions( editor );
@@ -788,6 +796,7 @@ const BUILD_SOMETHING_LIKE_THIS_PROMPT = __( 'Build something like this' );
 interface CustomDropActionContext {
 	editor: Editor;
 	closeMenu: () => void;
+	siteContentMediaDropActions: ReturnType< typeof useSiteContentMediaDropActions >;
 	startChatWithPrompt: ( request: { prompt: string; displayMessage?: string } ) => Promise< void >;
 }
 
@@ -881,15 +890,10 @@ function getContentDropActions( {
 	media,
 	context,
 }: {
-	kind: 'post' | 'page';
+	kind: SiteContentKind;
 	contentId: number;
 	attachLabel: string;
-	media: {
-		id: number;
-		url: string;
-		alt: string;
-		kind: 'image' | 'video';
-	};
+	media: SiteContentMediaBlock;
 	context: CustomDropActionContext;
 } ): DropActionMenuAction[] {
 	return [
@@ -897,19 +901,21 @@ function getContentDropActions( {
 			label: __( 'Set as featured media' ),
 			onClick: () =>
 				runDropAction( context.closeMenu, () =>
-					setSiteContentFeaturedMedia( kind, contentId, media.id )
+					context.siteContentMediaDropActions.setFeaturedMedia( kind, contentId, media.id )
 				),
 		},
 		{
 			label: attachLabel,
 			onClick: () =>
-				runDropAction( context.closeMenu, () => attachSiteMediaToContent( media.id, contentId ) ),
+				runDropAction( context.closeMenu, () =>
+					context.siteContentMediaDropActions.attachMediaToContent( media.id, contentId )
+				),
 		},
 		{
 			label: __( 'Insert media block' ),
 			onClick: () =>
 				runDropAction( context.closeMenu, () =>
-					appendSiteContentMediaBlock( kind, contentId, media )
+					context.siteContentMediaDropActions.insertMediaBlock( kind, contentId, media )
 				),
 		},
 	];

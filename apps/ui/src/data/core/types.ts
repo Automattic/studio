@@ -267,6 +267,8 @@ export interface Connector {
 	// Desks
 	getDeskSettings(): Promise< DeskSettings >;
 	saveDeskSettings( settings: DeskSettings ): Promise< void >;
+	exportDeskConfig( config: DeskConfig, suggestedFilename: string ): Promise< string | null >;
+	importDeskConfig(): Promise< DeskConfig | null >;
 	getUserDeskConfig(): Promise< DeskConfig | undefined >;
 	saveUserDeskConfig( config: DeskConfig ): Promise< void >;
 	getSiteDeskConfig( siteId: string ): Promise< DeskConfig | undefined >;

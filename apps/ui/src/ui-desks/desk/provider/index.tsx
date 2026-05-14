@@ -943,6 +943,79 @@ export function DeskProvider( {
 		};
 	}, [ editor, focusedWidgetId ] );
 
+	const getDeskConfigSnapshot = useCallback( () => {
+		if ( ! editor || ! isHydrated ) {
+			return null;
+		}
+
+		return createDeskConfigFromEditor( editor );
+	}, [ editor, isHydrated ] );
+
+	const replaceDeskConfig = useCallback(
+		async ( config: DeskConfig ) => {
+			if ( isReadOnly || ! editor || ! isHydrated ) {
+				return false;
+			}
+
+			const previousDeskConfig = createDeskConfigFromEditor( editor );
+			if ( saveTimerRef.current ) {
+				clearTimeout( saveTimerRef.current );
+				saveTimerRef.current = null;
+			}
+			if ( focusPersistenceResumeTimerRef.current ) {
+				clearTimeout( focusPersistenceResumeTimerRef.current );
+				focusPersistenceResumeTimerRef.current = null;
+			}
+
+			restoreFocusModeShapeState( editor, focusShapeRestoreRef.current );
+			focusShapeRestoreRef.current.clear();
+			focusShapeIdsRef.current = syncFocusDeskToEditor( editor, null, focusShapeIdsRef.current );
+			document
+				.querySelector( '[data-ui-desks-canvas]' )
+				?.removeAttribute( 'data-ui-desks-focus-mode' );
+			editor.setCameraOptions( { ...editor.getCameraOptions(), isLocked: false } );
+			focusDimmingActiveRef.current = false;
+			focusPersistencePausedRef.current = false;
+			focusRestoreCameraRef.current = null;
+			drawingStartShapeIdsRef.current = null;
+			hydratedRef.current = false;
+			setIsHydrated( false );
+			setSelectedWidgetToolbarItem( null );
+			setSelectedConnectorToolbarItem( null );
+			setSelectedWidgetConnectionTargets( [] );
+			setPendingConnectorSourceId( null );
+			setFocusModeState( null );
+			setFocusedWidget( null );
+			clearPressedStack();
+
+			let didImport = false;
+			try {
+				hydrateEditorFromDesk( editor, {
+					...config,
+					updatedAt: new Date().toISOString(),
+				} );
+				saveDeskConfig( createDeskConfigFromEditor( editor ) );
+				didImport = true;
+			} catch ( error ) {
+				console.warn( 'Failed to import desk config.', error );
+				hydrateEditorFromDesk( editor, previousDeskConfig );
+				saveDeskConfig( previousDeskConfig );
+			} finally {
+				hydratedRef.current = true;
+				setIsHydrated( true );
+				setSelectedWidgetToolbarItem(
+					getCurrentSelectedWidgetToolbarItem( editor, toolbarStateOptions )
+				);
+				setSelectedConnectorToolbarItem( getSelectedDeskConnectorToolbarItem( editor ) );
+				setSelectedWidgetConnectionTargets( getCurrentSelectedWidgetConnectionTargets( editor ) );
+				editor.focus();
+			}
+
+			return didImport;
+		},
+		[ clearPressedStack, editor, isHydrated, isReadOnly, saveDeskConfig, toolbarStateOptions ]
+	);
+
 	const value = useMemo(
 		() => ( {
 			siteId,
@@ -980,6 +1053,8 @@ export function DeskProvider( {
 			setFocusDesk,
 			getFocusDeskSnapshot,
 			stopFocusMode,
+			getDeskConfigSnapshot,
+			replaceDeskConfig,
 		} ),
 		[
 			addPastedContent,
@@ -993,6 +1068,7 @@ export function DeskProvider( {
 			focusedWidget,
 			focusedWidgetDefinition,
 			focusMode,
+			getDeskConfigSnapshot,
 			getFocusDeskSnapshot,
 			isHydrated,
 			isReadOnly,
@@ -1000,6 +1076,7 @@ export function DeskProvider( {
 			pendingConnectorSourceId,
 			pressStack,
 			pressedStackId,
+			replaceDeskConfig,
 			registerEditor,
 			removeSelectedConnector,
 			removeSelectedWidget,

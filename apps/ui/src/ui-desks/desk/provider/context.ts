@@ -64,6 +64,8 @@ export interface DeskContextValue {
 	setFocusDesk: ( focusDesk: DeskFocusDesk ) => boolean;
 	getFocusDeskSnapshot: () => DeskFocusDesk | null;
 	stopFocusMode: () => boolean;
+	getDeskConfigSnapshot: () => DeskConfig | null;
+	replaceDeskConfig: ( config: DeskConfig ) => Promise< boolean >;
 }
 
 export interface AddDeskWidgetOptions {
@@ -124,6 +126,8 @@ const defaultDeskContext: DeskContextValue = {
 	setFocusDesk: () => false,
 	getFocusDeskSnapshot: () => null,
 	stopFocusMode: () => false,
+	getDeskConfigSnapshot: () => null,
+	replaceDeskConfig: () => Promise.resolve( false ),
 };
 
 export const DeskContext = createContext< DeskContextValue >( defaultDeskContext );

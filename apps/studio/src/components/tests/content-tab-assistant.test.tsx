@@ -424,6 +424,32 @@ describe( 'ContentTabAssistant', () => {
 		expect( getGuidelinesLink() ).toHaveTextContent( 'Powered by experimental AI.' );
 	} );
 
+	it( 'shows production live-site safety signals in the WP.com-only live site chat', () => {
+		renderWithContext( { component: 'wpcom-site' } );
+
+		expect( screen.getByText( 'Production' ) ).toBeVisible();
+		expect( screen.getByText( 'WordPress.com' ) ).toBeVisible();
+		expect( screen.getByText( 'Live site' ) ).toBeVisible();
+		expect( screen.getByTestId( 'wpcom-live-site-safety-signal' ) ).toHaveTextContent(
+			'Dolly can edit this production site.'
+		);
+	} );
+
+	it( 'shows staging live-site safety signals in the WP.com-only live site chat', () => {
+		renderWithContext( {
+			component: 'wpcom-site',
+			selectedWpcomSite: {
+				...firstWpcomSite,
+				isStaging: true,
+			},
+		} );
+
+		expect( screen.getByText( 'Staging' ) ).toBeVisible();
+		expect( screen.getByTestId( 'wpcom-live-site-safety-signal' ) ).toHaveTextContent(
+			'Dolly can edit this staging site.'
+		);
+	} );
+
 	it( 'renders the Dolly send button without an empty clear action', async () => {
 		renderWithContext( { component: 'wpcom-site' } );
 
@@ -937,6 +963,46 @@ describe( 'ContentTabAssistant', () => {
 			'src',
 			'https://dolly.example/'
 		);
+		expect( screen.queryByRole( 'button', { name: 'Show preview' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Hide preview' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'keeps WP.com-only preview resizing active while shrinking across the embedded page', () => {
+		renderWithContext( { component: 'wpcom-site' } );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Show preview' } ) );
+
+		const previewPanel = screen.getByLabelText( 'Assistant site preview' );
+		const resizeHandle = screen.getByRole( 'separator', { name: 'Resize site preview' } );
+
+		resizeHandle.focus();
+		expect( resizeHandle ).toHaveFocus();
+
+		fireEvent(
+			resizeHandle,
+			new MouseEvent( 'pointerdown', { bubbles: true, cancelable: true, clientX: 600 } )
+		);
+
+		expect( screen.getByTestId( 'wpcom-preview-resize-capture' ) ).toBeInTheDocument();
+		expect( document.body ).toHaveStyle( { cursor: 'col-resize' } );
+		expect( document.body ).toHaveStyle( { userSelect: 'none' } );
+
+		act( () => {
+			window.dispatchEvent(
+				new MouseEvent( 'pointermove', { bubbles: true, cancelable: true, clientX: 720 } )
+			);
+		} );
+
+		expect( previewPanel ).toHaveStyle( 'width: 400px' );
+
+		act( () => {
+			window.dispatchEvent( new MouseEvent( 'pointerup', { bubbles: true, cancelable: true } ) );
+		} );
+
+		expect( screen.queryByTestId( 'wpcom-preview-resize-capture' ) ).not.toBeInTheDocument();
+		expect( document.body ).toHaveStyle( { cursor: '' } );
+		expect( document.body ).toHaveStyle( { userSelect: '' } );
+		expect( resizeHandle ).not.toHaveFocus();
 	} );
 
 	it( 'preserves WP.com-only chat state and Dolly session per selected live site', async () => {

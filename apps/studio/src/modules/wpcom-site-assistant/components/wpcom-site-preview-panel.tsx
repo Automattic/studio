@@ -1,5 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { closeSmall, desktop, external, Icon, redo } from '@wordpress/icons';
+import { closeSmall, desktop, external, Icon, lockSmall, redo } from '@wordpress/icons';
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Button from 'src/components/button';
@@ -27,6 +27,12 @@ interface PreviewWebviewTag extends HTMLElement {
 
 interface PreviewWebviewTitleEvent extends Event {
 	title?: string;
+}
+
+interface PreviewResizeDrag {
+	startX: number;
+	startWidth: number;
+	maxWidth: number;
 }
 
 interface DollyPreviewPanelProps {
@@ -68,28 +74,58 @@ export function DollyPreviewPanel( {
 	onUpdateState,
 }: DollyPreviewPanelProps ) {
 	const [ width, setWidth ] = useState( DOLLY_PREVIEW_PANEL_DEFAULT_WIDTH );
+	const [ resizeDrag, setResizeDrag ] = useState< PreviewResizeDrag | null >( null );
+	const resizeHandleRef = useRef< HTMLButtonElement | null >( null );
 	const title = previewState.pageTitle || previewState.title || __( 'Site preview' );
 	const displayUrl = previewState.currentUrl || previewUrl || selectedSite.url;
 
 	const handleResizeStart = ( event: React.PointerEvent< HTMLButtonElement > ) => {
 		event.preventDefault();
+		event.stopPropagation();
 		const startX = event.clientX;
 		const startWidth = width;
 		const maxWidth = Math.min( DOLLY_PREVIEW_PANEL_MAX_WIDTH, window.innerWidth * 0.65 );
 
-		const handlePointerMove = ( pointerEvent: PointerEvent ) => {
-			const nextWidth = startWidth + startX - pointerEvent.clientX;
-			setWidth( Math.max( DOLLY_PREVIEW_PANEL_MIN_WIDTH, Math.min( maxWidth, nextWidth ) ) );
-		};
-
-		const handlePointerUp = () => {
-			window.removeEventListener( 'pointermove', handlePointerMove );
-			window.removeEventListener( 'pointerup', handlePointerUp );
-		};
-
-		window.addEventListener( 'pointermove', handlePointerMove );
-		window.addEventListener( 'pointerup', handlePointerUp );
+		setResizeDrag( { startX, startWidth, maxWidth } );
 	};
+
+	useEffect( () => {
+		if ( ! resizeDrag ) {
+			return;
+		}
+
+		const previousCursor = document.body.style.cursor;
+		const previousUserSelect = document.body.style.userSelect;
+
+		document.body.style.cursor = 'col-resize';
+		document.body.style.userSelect = 'none';
+
+		const finishResize = () => {
+			setResizeDrag( null );
+			resizeHandleRef.current?.blur();
+		};
+		const handlePointerMove = ( pointerEvent: PointerEvent ) => {
+			pointerEvent.preventDefault();
+			const nextWidth = resizeDrag.startWidth + resizeDrag.startX - pointerEvent.clientX;
+			setWidth(
+				Math.max( DOLLY_PREVIEW_PANEL_MIN_WIDTH, Math.min( resizeDrag.maxWidth, nextWidth ) )
+			);
+		};
+
+		window.addEventListener( 'pointermove', handlePointerMove, { passive: false } );
+		window.addEventListener( 'pointerup', finishResize );
+		window.addEventListener( 'pointercancel', finishResize );
+		window.addEventListener( 'blur', finishResize );
+
+		return () => {
+			document.body.style.cursor = previousCursor;
+			document.body.style.userSelect = previousUserSelect;
+			window.removeEventListener( 'pointermove', handlePointerMove );
+			window.removeEventListener( 'pointerup', finishResize );
+			window.removeEventListener( 'pointercancel', finishResize );
+			window.removeEventListener( 'blur', finishResize );
+		};
+	}, [ resizeDrag ] );
 
 	return (
 		<aside
@@ -98,6 +134,7 @@ export function DollyPreviewPanel( {
 			aria-label={ __( 'Assistant site preview' ) }
 		>
 			<button
+				ref={ resizeHandleRef }
 				type="button"
 				className="absolute left-0 top-0 h-full w-2 -translate-x-1 cursor-col-resize border-0 bg-transparent p-0"
 				aria-label={ __( 'Resize site preview' ) }
@@ -105,39 +142,53 @@ export function DollyPreviewPanel( {
 				role="separator"
 				onPointerDown={ handleResizeStart }
 			/>
-			<div className="h-12 shrink-0 border-b border-a8c-gray-5 px-3 flex items-center gap-2">
-				<div className="min-w-0 flex-1">
-					<div className="truncate text-[13px] leading-4 font-medium text-frame-text">
-						{ title }
+			{ resizeDrag && (
+				<div
+					data-testid="wpcom-preview-resize-capture"
+					className="fixed inset-0 z-[9999] cursor-col-resize select-none"
+					aria-hidden="true"
+				/>
+			) }
+			<div className="min-h-[120px] shrink-0 border-b border-a8c-gray-5 px-6 py-5 flex flex-col justify-end">
+				<div className="flex items-center gap-2">
+					<Button
+						variant="icon"
+						tooltipText={ __( 'Reload preview' ) }
+						disabled={ ! previewUrl }
+						onClick={ onRefresh }
+						aria-label={ __( 'Reload preview' ) }
+					>
+						<Icon icon={ redo } size={ 18 } />
+					</Button>
+					<div className="min-w-0 flex-1 rounded-full border border-a8c-gray-5 bg-a8c-gray-0 px-3 py-2 flex items-center gap-2">
+						<Icon icon={ lockSmall } size={ 16 } className="shrink-0 fill-frame-text-secondary" />
+						<div className="min-w-0 flex-1">
+							<div className="truncate text-xs leading-4 font-medium text-frame-text">
+								{ title }
+							</div>
+							<div className="truncate text-[11px] leading-4 text-frame-text-secondary">
+								{ displayUrl }
+							</div>
+						</div>
 					</div>
-					<div className="truncate text-xs leading-4 text-frame-text-secondary">{ displayUrl }</div>
+					<Button
+						variant="icon"
+						tooltipText={ __( 'Open in browser' ) }
+						disabled={ ! previewUrl }
+						onClick={ () => getIpcApi().openURL( previewState.currentUrl || previewUrl || '' ) }
+						aria-label={ __( 'Open in browser' ) }
+					>
+						<Icon icon={ external } size={ 18 } />
+					</Button>
+					<Button
+						variant="icon"
+						tooltipText={ __( 'Close preview' ) }
+						onClick={ onClose }
+						aria-label={ __( 'Close preview' ) }
+					>
+						<Icon icon={ closeSmall } size={ 20 } />
+					</Button>
 				</div>
-				<Button
-					variant="icon"
-					tooltipText={ __( 'Reload preview' ) }
-					disabled={ ! previewUrl }
-					onClick={ onRefresh }
-					aria-label={ __( 'Reload preview' ) }
-				>
-					<Icon icon={ redo } size={ 18 } />
-				</Button>
-				<Button
-					variant="icon"
-					tooltipText={ __( 'Open in browser' ) }
-					disabled={ ! previewUrl }
-					onClick={ () => getIpcApi().openURL( previewState.currentUrl || previewUrl || '' ) }
-					aria-label={ __( 'Open in browser' ) }
-				>
-					<Icon icon={ external } size={ 18 } />
-				</Button>
-				<Button
-					variant="icon"
-					tooltipText={ __( 'Close preview' ) }
-					onClick={ onClose }
-					aria-label={ __( 'Close preview' ) }
-				>
-					<Icon icon={ closeSmall } size={ 20 } />
-				</Button>
 			</div>
 			<div className="relative min-h-0 flex-1 bg-a8c-gray-0">
 				{ previewUrl ? (

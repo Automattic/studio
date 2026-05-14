@@ -8,22 +8,12 @@
 - Preview default state: WordPress.com live-site chats start with the preview hidden and only open when the user or Dolly requests a preview.
 - Live-site chat state: each WordPress.com site keeps its own persisted local Dolly conversation id, messages, draft input, session id, backend-selected active site, and preview state while switching between live-site tabs.
 - Server hydration: WordPress.com live-site chats load the latest matching Dolly server conversation on mount, preserve its `remoteChatId`/`sessionId`, and continue future sends in that hydrated session.
+- Live-site safety signals: WordPress.com live-site chats show a heading badge for the selected site's environment, a WP.com badge, and a warning that Dolly can make changes directly to the live site.
+- Preview resize drag capture: dragging the WordPress.com preview splitter keeps pointer capture above the embedded preview so shrinking does not get stuck and releases cleanly.
 
 ## Remaining Prioritized Plan
 
-### 1. Live-Site Safety Signals
-
-Make it obvious when Dolly is acting on a live WordPress.com site rather than a disposable local preview.
-
-Required behavior:
-
-- Add a clear visual affordance or warning state for live-site editing.
-- Show whether the selected WordPress.com site is staging or production in the heading area.
-- Prefer using fields from the existing sites endpoint response if they already include staging/production metadata.
-
-Do this before deeper chrome polish because it affects the heading hierarchy and the user's risk model.
-
-### 2. Sidebar IA And Context Menus
+### 1. Sidebar IA And Context Menus
 
 Round out the WordPress.com section in the left sidebar so it behaves like a first-class site directory, not just a temporary list.
 
@@ -35,7 +25,7 @@ Required behavior:
 
 Do this after live-site safety language is settled so the sidebar status treatment matches the main content area.
 
-### 3. Preview Layout Stability
+### 2. Preview Layout Stability
 
 Fix the preview layout before refining the chrome.
 
@@ -43,25 +33,17 @@ Required behavior:
 
 - Tune the default preview viewport. It currently renders too zoomed-in or mobile-like; it should start slightly zoomed out.
 - Let the preview claim more horizontal space by default.
-- Fix small-window resizing behavior. The chat and preview split gets buggy when the app window narrows, so the preview needs better min/max width constraints and responsive collapse behavior.
+- Finish small-window width constraints and responsive collapse behavior. The drag capture issue is fixed, but the preview still needs better constraints when the app window narrows.
 
 Do this before auto-refresh because preview reload behavior should be built on stable layout constraints.
 
-### 4. Preview Chrome Polish
+### 3. Preview Chrome Polish
 
 Improve the preview panel chrome. The current v1 proves the layout, but the header, controls, resize affordance, loading state, and visual hierarchy need a dedicated pass.
 
 Do this after the layout constraints are stable so the polish work is not reworked.
 
-### 5. Preview Auto-Refresh
-
-Add an auto-refresh path for the preview when Dolly or another live-site action changes the selected WordPress.com site.
-
-The refresh trigger should be tied to an explicit site-change signal, not to every completed Dolly response or same-URL preview tool call.
-
-Do this after site/session correctness and preview stability, since refresh triggers need to target the right site and a stable preview surface.
-
-### 6. Shared Chat UI Evaluation
+### 4. Shared Chat UI Evaluation
 
 Evaluate replacing the custom chat surface with `@automattic/agenttic-ui` so Studio aligns with the shared agent UI patterns.
 

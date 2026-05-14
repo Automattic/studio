@@ -6,6 +6,7 @@ import { desktop, Icon, image as imageIcon, trash } from '@wordpress/icons';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ClearHistoryReminder from 'src/components/ai-clear-history-reminder';
 import { ArrowIcon } from 'src/components/arrow-icon';
+import { Badge } from 'src/components/badge';
 import Button from 'src/components/button';
 import { ChatMessage } from 'src/components/chat-message';
 import { ChatRating } from 'src/components/chat-rating';
@@ -15,6 +16,8 @@ import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { EnvironmentBadge } from 'src/modules/sync/components/environment-badge';
+import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import {
 	DollyPreviewPanel,
 	DollyPreviewPanelPortal,
@@ -149,6 +152,32 @@ const DollyEmptyView = ( {
 	</div>
 );
 
+const getLiveSiteSafetyMessage = ( selectedSite: SyncSite ) => {
+	const environment = getSiteEnvironment( selectedSite );
+
+	if ( environment === 'staging' ) {
+		return __( 'Dolly can edit this staging site.' );
+	}
+
+	if ( environment === 'development' ) {
+		return __( 'Dolly can edit this development site.' );
+	}
+
+	return __( 'Dolly can edit this production site.' );
+};
+
+const LiveSiteSafetySignal = ( { selectedSite }: { selectedSite: SyncSite } ) => (
+	<div
+		data-testid="wpcom-live-site-safety-signal"
+		className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-5 text-frame-text-secondary"
+	>
+		<Badge className="border border-a8c-gray-5 bg-white text-frame-text-secondary">
+			{ __( 'Live site' ) }
+		</Badge>
+		<span>{ getLiveSiteSafetyMessage( selectedSite ) }</span>
+	</div>
+);
+
 interface WpcomSiteAssistantProps {
 	selectedWpcomSite: SyncSite;
 }
@@ -208,6 +237,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		() => createPreviewContext( activeWpcomSite, previewState, previewUrl ),
 		[ activeWpcomSite, previewState, previewUrl ]
 	);
+	const siteEnvironment = getSiteEnvironment( activeWpcomSite );
 	const hasFailedMessage = messages.some( ( msg ) => msg.failedMessage );
 	const failedMessageContent = messages.find( ( msg ) => msg.failedMessage )?.content;
 	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];
@@ -879,25 +909,26 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 			<div className="min-w-0 flex-1 flex flex-col">
 				<div className="shrink-0 border-b border-a8c-gray-5 bg-white px-8 py-5 flex items-start gap-4">
 					<div className="min-w-0 flex-1">
-						<h1 className="m-0 truncate text-xl font-semibold text-frame-text">
-							{ activeWpcomSite.name }
-						</h1>
+						<div className="flex min-w-0 flex-wrap items-center gap-2">
+							<h1 className="m-0 truncate text-xl font-semibold text-frame-text">
+								{ activeWpcomSite.name }
+							</h1>
+							<EnvironmentBadge type={ siteEnvironment } />
+							<Badge className="bg-frame-surface text-frame-text-secondary">
+								{ __( 'WordPress.com' ) }
+							</Badge>
+						</div>
 						<div className="mt-1 truncate text-sm text-frame-text-secondary">
 							{ activeWpcomSite.url }
 						</div>
+						<LiveSiteSafetySignal selectedSite={ activeWpcomSite } />
 					</div>
-					<Button
-						variant={ previewState.open ? 'primary' : 'secondary' }
-						onClick={ () =>
-							previewState.open
-								? updatePreviewState( { open: false } )
-								: openPreview( previewState.pathOrUrl )
-						}
-						aria-pressed={ previewState.open }
-					>
-						<Icon icon={ desktop } size={ 18 } />
-						{ previewState.open ? __( 'Hide preview' ) : __( 'Show preview' ) }
-					</Button>
+					{ ! previewState.open && (
+						<Button variant="secondary" onClick={ () => openPreview( previewState.pathOrUrl ) }>
+							<Icon icon={ desktop } size={ 18 } />
+							{ __( 'Show preview' ) }
+						</Button>
+					) }
 				</div>
 				<div
 					data-testid="assistant-chat"

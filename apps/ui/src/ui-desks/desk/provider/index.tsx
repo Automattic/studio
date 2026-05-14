@@ -1,6 +1,7 @@
-import { __ } from '@wordpress/i18n';
+import { __, _n, sprintf } from '@wordpress/i18n';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+	Box,
 	createShapeId,
 	getIndexAbove,
 	sortByIndex,
@@ -42,6 +43,15 @@ import {
 import { LOADING_WIDGET_TYPE } from '@/ui-desks/widgets/loading/types';
 import { NOTE_WIDGET_TYPE } from '@/ui-desks/widgets/note/types';
 import {
+	createAnnotationNote,
+	deleteAnnotationNotes,
+	getAnnotationNoteShapes,
+	getAnnotationSubmission,
+	getSelectedAnnotationNoteShapeId,
+	isAnnotationConnectorShape,
+} from '@/ui-desks/widgets/site-preview/annotation-notes';
+import { SITE_PREVIEW_WIDGET_TYPE } from '@/ui-desks/widgets/site-preview/types';
+import {
 	DeskContext,
 	type AddDeskWidgetOptions,
 	type DeskProviderProps,
@@ -66,6 +76,7 @@ import {
 } from './editor-state';
 import { useDeskPersistence } from './persistence';
 import { useDeskWidgetResolvers } from './resolvers';
+import type { AnnotationPayload } from '@/ui-desks/widgets/site-preview/annotation-inspector';
 import type {
 	WidgetHandlerLoading,
 	WidgetHandlerResult,
@@ -73,6 +84,8 @@ import type {
 } from '@/ui-desks/widgets/types';
 
 export { useDesk, useRegisterDeskEditor } from './context';
+
+const ANNOTATE_DIM_OPACITY = 0.08;
 
 export function DeskProvider( {
 	siteId,
@@ -110,11 +123,22 @@ export function DeskProvider( {
 	const [ pendingConnectorSourceId, setPendingConnectorSourceId ] = useState< TLShapeId | null >(
 		null
 	);
+	const [ annotatingPreviewShapeId, setAnnotatingPreviewShapeId ] = useState< TLShapeId | null >(
+		null
+	);
+	const [ pendingAnnotation, setPendingAnnotation ] = useState< {
+		previewShapeId: TLShapeId;
+		payload: AnnotationPayload;
+	} | null >( null );
+	const [ annotationCount, setAnnotationCount ] = useState( 0 );
+	const [ selectedAnnotationNoteShapeId, setSelectedAnnotationNoteShapeId ] =
+		useState< TLShapeId | null >( null );
 	const [ pressedStackId, setPressedStackId ] = useState< string | null >( null );
 	const hydratedRef = useRef( false );
 	const deskConfigKeyRef = useRef< string | undefined >( undefined );
 	const creationOffsetRef = useRef( 0 );
 	const drawingStartShapeIdsRef = useRef< Set< string > | null >( null );
+	const annotateRestoreCameraRef = useRef< { x: number; y: number; z: number } | null >( null );
 	const saveTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
 	const { pressStack, clearPressedStack } = useStackPressAnimation( setPressedStackId );
 	const toolbarStateOptions = useMemo(
@@ -151,6 +175,74 @@ export function DeskProvider( {
 	} );
 
 	useEffect( () => {
+		if ( ! editor ) {
+			return;
+		}
+
+		return editor.sideEffects.registerBeforeChangeHandler(
+			'shape',
+			( previousShape, nextShape ) => {
+				if ( ! isAnnotationConnectorShape( nextShape ) ) {
+					return nextShape;
+				}
+				if ( previousShape.x === nextShape.x && previousShape.y === nextShape.y ) {
+					return nextShape;
+				}
+				return {
+					...nextShape,
+					x: previousShape.x,
+					y: previousShape.y,
+				};
+			}
+		);
+	}, [ editor ] );
+
+	useEffect( () => {
+		if ( ! editor ) {
+			return;
+		}
+
+		return editor.sideEffects.registerAfterDeleteHandler( 'binding', ( binding ) => {
+			if ( binding.type !== 'arrow' ) {
+				return;
+			}
+			const connectorShape = editor.getShape( binding.fromId );
+			if ( isAnnotationConnectorShape( connectorShape ) ) {
+				editor.deleteShape( connectorShape.id );
+			}
+		} );
+	}, [ editor ] );
+
+	useEffect( () => {
+		if ( ! editor ) {
+			return;
+		}
+
+		return editor.sideEffects.registerAfterChangeHandler( 'shape', ( previousShape, nextShape ) => {
+			if (
+				! isSitePreviewShape( nextShape ) ||
+				( previousShape.x === nextShape.x && previousShape.y === nextShape.y )
+			) {
+				return;
+			}
+			const deltaX = nextShape.x - previousShape.x;
+			const deltaY = nextShape.y - previousShape.y;
+			const annotationNotes = getAnnotationNoteShapes( editor, nextShape.id );
+			if ( annotationNotes.length === 0 ) {
+				return;
+			}
+			editor.updateShapes(
+				annotationNotes.map( ( note ) => ( {
+					id: note.id,
+					type: note.type,
+					x: note.x + deltaX,
+					y: note.y + deltaY,
+				} ) )
+			);
+		} );
+	}, [ editor ] );
+
+	useEffect( () => {
 		if ( deskConfigKeyRef.current === deskConfigKey ) {
 			return;
 		}
@@ -162,6 +254,11 @@ export function DeskProvider( {
 		setSelectedConnectorToolbarItem( null );
 		setSelectedWidgetConnectionTargets( [] );
 		setPendingConnectorSourceId( null );
+		setAnnotatingPreviewShapeId( null );
+		setPendingAnnotation( null );
+		setAnnotationCount( 0 );
+		setSelectedAnnotationNoteShapeId( null );
+		annotateRestoreCameraRef.current = null;
 		drawingStartShapeIdsRef.current = null;
 	}, [ deskConfigKey ] );
 
@@ -255,6 +352,30 @@ export function DeskProvider( {
 			unsubscribeSession();
 		};
 	}, [ editor, isReadOnly, saveDeskConfig, toolbarStateOptions ] );
+
+	useEffect( () => {
+		if ( ! editor || ! annotatingPreviewShapeId ) {
+			setAnnotationCount( 0 );
+			setSelectedAnnotationNoteShapeId( null );
+			return;
+		}
+
+		const syncAnnotationState = () => {
+			setAnnotationCount( getAnnotationNoteShapes( editor, annotatingPreviewShapeId ).length );
+			setSelectedAnnotationNoteShapeId(
+				getSelectedAnnotationNoteShapeId( editor, annotatingPreviewShapeId )
+			);
+		};
+
+		syncAnnotationState();
+		const unsubscribeDocument = editor.store.listen( syncAnnotationState, { scope: 'document' } );
+		const unsubscribeSession = editor.store.listen( syncAnnotationState, { scope: 'session' } );
+
+		return () => {
+			unsubscribeDocument();
+			unsubscribeSession();
+		};
+	}, [ annotatingPreviewShapeId, editor ] );
 
 	useEffect( () => {
 		if ( ! editor || ! isHydrated || isReadOnly ) {
@@ -392,6 +513,11 @@ export function DeskProvider( {
 				setSelectedConnectorToolbarItem( null );
 				setSelectedWidgetConnectionTargets( [] );
 				setPendingConnectorSourceId( null );
+				setAnnotatingPreviewShapeId( null );
+				setPendingAnnotation( null );
+				setAnnotationCount( 0 );
+				setSelectedAnnotationNoteShapeId( null );
+				annotateRestoreCameraRef.current = null;
 				clearPressedStack();
 				drawingStartShapeIdsRef.current = null;
 			}
@@ -651,6 +777,243 @@ export function DeskProvider( {
 		[ editor, isHydrated ]
 	);
 
+	const startAnnotatingPreview = useCallback(
+		( shapeId: TLShapeId ) => {
+			if ( isReadOnly || ! editor || ! isHydrated ) {
+				return false;
+			}
+			const shape = editor.getShape( shapeId );
+			if ( ! isSitePreviewShape( shape ) ) {
+				return false;
+			}
+			const bounds = editor.getShapePageBounds( shapeId );
+			if ( ! bounds ) {
+				return false;
+			}
+
+			annotateRestoreCameraRef.current = { ...editor.getCamera() };
+			const padX = 260;
+			const padTop = 80;
+			const padBottom = 200;
+			const paddedBounds = new Box(
+				bounds.minX - padX,
+				bounds.minY - padTop,
+				bounds.w + padX * 2,
+				bounds.h + padTop + padBottom
+			);
+			editor.complete();
+			editor.zoomToBounds( paddedBounds, { animation: { duration: 320 } } );
+			editor.setSelectedShapes( [ shapeId ] );
+			editor.setCameraOptions( { ...editor.getCameraOptions(), isLocked: true } );
+			setPendingConnectorSourceId( null );
+			setPendingAnnotation( null );
+			setAnnotatingPreviewShapeId( shapeId );
+			editor.focus();
+			return true;
+		},
+		[ editor, isHydrated, isReadOnly ]
+	);
+
+	const stopAnnotatingPreview = useCallback( () => {
+		if ( ! editor ) {
+			return false;
+		}
+		const previewShapeId = annotatingPreviewShapeId;
+		if ( previewShapeId ) {
+			deleteAnnotationNotes( editor, previewShapeId );
+		}
+		editor.setCameraOptions( { ...editor.getCameraOptions(), isLocked: false } );
+		const restoreCamera = annotateRestoreCameraRef.current;
+		if ( restoreCamera ) {
+			editor.setCamera( restoreCamera, { animation: { duration: 320 }, force: true } );
+			annotateRestoreCameraRef.current = null;
+		}
+		setAnnotatingPreviewShapeId( null );
+		setPendingAnnotation( null );
+		setAnnotationCount( 0 );
+		setSelectedAnnotationNoteShapeId( null );
+		editor.focus();
+		return true;
+	}, [ annotatingPreviewShapeId, editor ] );
+
+	const requestAnnotation = useCallback(
+		( previewShapeId: TLShapeId, payload: AnnotationPayload ) => {
+			setPendingAnnotation( { previewShapeId, payload } );
+		},
+		[]
+	);
+
+	const confirmPendingAnnotation = useCallback(
+		( comment: string ) => {
+			if ( isReadOnly || ! editor || ! pendingAnnotation ) {
+				return false;
+			}
+			const previewShape = editor.getShape( pendingAnnotation.previewShapeId );
+			if ( ! isSitePreviewShape( previewShape ) ) {
+				return false;
+			}
+			const noteShapeId = createAnnotationNote(
+				editor,
+				previewShape,
+				pendingAnnotation.payload,
+				comment
+			);
+			setPendingAnnotation( null );
+			return Boolean( noteShapeId );
+		},
+		[ editor, isReadOnly, pendingAnnotation ]
+	);
+
+	const cancelPendingAnnotation = useCallback( () => {
+		setPendingAnnotation( null );
+	}, [] );
+
+	const removeSelectedAnnotation = useCallback( () => {
+		if ( isReadOnly || ! editor || ! annotatingPreviewShapeId || ! selectedAnnotationNoteShapeId ) {
+			return false;
+		}
+		deleteAnnotationNotes( editor, annotatingPreviewShapeId, [ selectedAnnotationNoteShapeId ] );
+		editor.setSelectedShapes( [ annotatingPreviewShapeId ] );
+		editor.focus();
+		return true;
+	}, [ annotatingPreviewShapeId, editor, isReadOnly, selectedAnnotationNoteShapeId ] );
+
+	const collectAnnotationSubmission = useCallback( () => {
+		if ( ! editor || ! annotatingPreviewShapeId ) {
+			return null;
+		}
+		return getAnnotationSubmission( editor, annotatingPreviewShapeId );
+	}, [ annotatingPreviewShapeId, editor ] );
+
+	useEffect( () => {
+		if ( annotatingPreviewShapeId === null || ! editor ) {
+			return;
+		}
+
+		const handleKeyDown = ( event: KeyboardEvent ) => {
+			if ( event.key !== 'Escape' ) {
+				return;
+			}
+			if ( pendingAnnotation ) {
+				event.preventDefault();
+				setPendingAnnotation( null );
+				return;
+			}
+			const count = getAnnotationNoteShapes( editor, annotatingPreviewShapeId ).length;
+			if ( count > 0 ) {
+				event.preventDefault();
+				const shouldDiscard = window.confirm(
+					sprintf( _n( 'Discard %d annotation?', 'Discard %d annotations?', count ), count )
+				);
+				if ( ! shouldDiscard ) {
+					return;
+				}
+			}
+			event.preventDefault();
+			stopAnnotatingPreview();
+		};
+
+		window.addEventListener( 'keydown', handleKeyDown );
+		return () => {
+			window.removeEventListener( 'keydown', handleKeyDown );
+		};
+	}, [ annotatingPreviewShapeId, editor, pendingAnnotation, stopAnnotatingPreview ] );
+
+	useEffect( () => {
+		const canvas = document.querySelector( '[data-ui-desks-canvas]' );
+		if ( canvas ) {
+			if ( annotatingPreviewShapeId ) {
+				canvas.setAttribute( 'data-ui-desks-annotating', String( annotatingPreviewShapeId ) );
+			} else {
+				canvas.removeAttribute( 'data-ui-desks-annotating' );
+			}
+		}
+
+		if ( ! editor || ! annotatingPreviewShapeId ) {
+			return;
+		}
+
+		const originals = new Map< TLShapeId, { type: string; opacity: number; isLocked: boolean } >();
+		for ( const shape of editor.getCurrentPageShapes() ) {
+			originals.set( shape.id, {
+				type: shape.type,
+				opacity: shape.opacity,
+				isLocked: shape.isLocked,
+			} );
+		}
+
+		const computePartials = () => {
+			const partials: TLShapePartial[] = [];
+			for ( const shape of editor.getCurrentPageShapes() ) {
+				const keep = isAnnotationSessionShape( editor, shape, annotatingPreviewShapeId );
+				const targetOpacity = keep ? 1 : ANNOTATE_DIM_OPACITY;
+				const targetLocked = ! keep;
+				const opacityChanged = Math.abs( shape.opacity - targetOpacity ) > 0.001;
+				const lockChanged = shape.isLocked !== targetLocked;
+				if ( ! opacityChanged && ! lockChanged ) {
+					continue;
+				}
+				partials.push( {
+					id: shape.id,
+					type: shape.type,
+					...( opacityChanged ? { opacity: targetOpacity } : {} ),
+					...( lockChanged ? { isLocked: targetLocked } : {} ),
+				} );
+			}
+			return partials;
+		};
+
+		const initialPartials = computePartials();
+		if ( initialPartials.length > 0 ) {
+			editor.animateShapes( initialPartials, { animation: { duration: 320 } } );
+		}
+
+		let frame = 0;
+		const scheduleSync = () => {
+			if ( frame ) {
+				return;
+			}
+			frame = requestAnimationFrame( () => {
+				frame = 0;
+				const partials = computePartials();
+				if ( partials.length > 0 ) {
+					editor.updateShapes( partials );
+				}
+			} );
+		};
+		const unsubscribe = editor.store.listen( scheduleSync, { scope: 'document' } );
+
+		return () => {
+			unsubscribe();
+			if ( frame ) {
+				cancelAnimationFrame( frame );
+			}
+			const restorePartials: TLShapePartial[] = [];
+			for ( const [ shapeId, original ] of originals.entries() ) {
+				const shape = editor.getShape( shapeId );
+				if ( ! shape ) {
+					continue;
+				}
+				const opacityChanged = Math.abs( shape.opacity - original.opacity ) > 0.001;
+				const lockChanged = shape.isLocked !== original.isLocked;
+				if ( ! opacityChanged && ! lockChanged ) {
+					continue;
+				}
+				restorePartials.push( {
+					id: shapeId,
+					type: shape.type,
+					...( opacityChanged ? { opacity: original.opacity } : {} ),
+					...( lockChanged ? { isLocked: original.isLocked } : {} ),
+				} );
+			}
+			if ( restorePartials.length > 0 ) {
+				editor.animateShapes( restorePartials, { animation: { duration: 320 } } );
+			}
+			const nextCanvas = document.querySelector( '[data-ui-desks-canvas]' );
+			nextCanvas?.removeAttribute( 'data-ui-desks-annotating' );
+		};
+	}, [ annotatingPreviewShapeId, editor ] );
+
 	const value = useMemo(
 		() => ( {
 			siteId,
@@ -662,6 +1025,10 @@ export function DeskProvider( {
 			selectedConnectorToolbarItem,
 			selectedWidgetConnectionTargets,
 			isConnectingWidget: pendingConnectorSourceId !== null,
+			annotatingPreviewShapeId,
+			annotationCount,
+			selectedAnnotationNoteShapeId,
+			pendingAnnotation,
 			pressedStackId,
 			registerEditor,
 			pressStack,
@@ -681,11 +1048,23 @@ export function DeskProvider( {
 			removeSelectedConnector,
 			startConnectingWidget,
 			focusConnectedWidget,
+			startAnnotatingPreview,
+			stopAnnotatingPreview,
+			requestAnnotation,
+			confirmPendingAnnotation,
+			cancelPendingAnnotation,
+			removeSelectedAnnotation,
+			collectAnnotationSubmission,
 		} ),
 		[
 			addPastedContent,
 			addWidget,
 			addWidgetAtScreenPoint,
+			annotatingPreviewShapeId,
+			annotationCount,
+			cancelPendingAnnotation,
+			collectAnnotationSubmission,
+			confirmPendingAnnotation,
 			editor,
 			editSelectedWidget,
 			fitSelectedWidgetToContent,
@@ -694,22 +1073,28 @@ export function DeskProvider( {
 			isHydrated,
 			isReadOnly,
 			isLoading,
+			pendingAnnotation,
 			pendingConnectorSourceId,
 			pressStack,
 			pressedStackId,
 			registerEditor,
+			removeSelectedAnnotation,
 			removeSelectedConnector,
 			removeSelectedWidget,
+			requestAnnotation,
+			selectedAnnotationNoteShapeId,
 			selectedConnectorToolbarItem,
 			selectedWidgetConnectionTargets,
 			selectedWidgetToolbarItem,
 			selectedWidgetEditAction,
 			setSelectedStackView,
 			stackSelectedWidgets,
+			startAnnotatingPreview,
 			startDrawing,
 			startConnectingWidget,
 			siteId,
 			statusMessage,
+			stopAnnotatingPreview,
 			unstackSelectedWidgets,
 			updateSelectedWidgetProps,
 		]
@@ -721,6 +1106,63 @@ export function DeskProvider( {
 	} );
 
 	return <DeskContext.Provider value={ value }>{ children }</DeskContext.Provider>;
+}
+
+function isSitePreviewShape( shape: unknown ): shape is RectangleWidgetShape {
+	return (
+		Boolean( shape ) &&
+		typeof shape === 'object' &&
+		( shape as Partial< TLShape > ).type === RECTANGLE_WIDGET_SHAPE_TYPE &&
+		( shape as Partial< RectangleWidgetShape > ).props?.widgetType === SITE_PREVIEW_WIDGET_TYPE
+	);
+}
+
+function isAnnotationSessionShape(
+	editor: Editor,
+	shape: TLShape,
+	previewShapeId: TLShapeId
+): boolean {
+	if ( shape.id === previewShapeId ) {
+		return true;
+	}
+	if ( isAnnotationNoteShapeForPreview( shape, previewShapeId ) ) {
+		return true;
+	}
+	if ( ! isAnnotationConnectorShape( shape ) ) {
+		return false;
+	}
+
+	const bindings = editor.getBindingsFromShape( shape.id, 'arrow' );
+	const startBinding = bindings.find(
+		( binding ) => getArrowBindingTerminal( binding.props ) === 'start'
+	);
+	const endBinding = bindings.find(
+		( binding ) => getArrowBindingTerminal( binding.props ) === 'end'
+	);
+	const endShape = endBinding ? editor.getShape( endBinding.toId ) : null;
+	return (
+		startBinding?.toId === previewShapeId &&
+		Boolean( endShape && isAnnotationNoteShapeForPreview( endShape, previewShapeId ) )
+	);
+}
+
+function isAnnotationNoteShapeForPreview( shape: unknown, previewShapeId: TLShapeId ): boolean {
+	if (
+		! shape ||
+		typeof shape !== 'object' ||
+		( shape as Partial< TLShape > ).type !== RECTANGLE_WIDGET_SHAPE_TYPE
+	) {
+		return false;
+	}
+	const rectangleShape = shape as Partial< RectangleWidgetShape >;
+	const widgetProps = rectangleShape.props?.widgetProps as
+		| { annotation?: { previewShapeId?: unknown } }
+		| undefined;
+	return widgetProps?.annotation?.previewShapeId === previewShapeId;
+}
+
+function getArrowBindingTerminal( props: object ) {
+	return ( props as { terminal?: unknown } ).terminal;
 }
 
 function replaceTextShapeWithNote( editor: Editor, shape: TLShape ) {

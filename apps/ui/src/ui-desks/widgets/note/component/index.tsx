@@ -42,6 +42,7 @@ export function NoteWidgetComponent( {
 	onEditComplete,
 }: NoteWidgetComponentProps ) {
 	const editorRef = useRef< HTMLDivElement | null >( null );
+	const annotation = widgetProps.annotation;
 
 	const updateText = useCallback(
 		( text: string ) => {
@@ -55,7 +56,7 @@ export function NoteWidgetComponent( {
 
 	const richText = useRichText( {
 		value: widgetProps.text,
-		placeholder: 'Type a note...',
+		placeholder: annotation ? 'Add a comment...' : 'Type a note...',
 		onChange: updateText,
 		onSelectionChange: () => undefined,
 		__unstableIsSelected: isEditing,
@@ -145,10 +146,23 @@ export function NoteWidgetComponent( {
 			className={ styles.note }
 			data-tone={ widgetProps.tone }
 			data-is-editing={ isEditing }
+			data-has-annotation={ annotation ? 'true' : 'false' }
 			data-text-size={ getNoteTextSize( widgetProps ) }
 			data-studio-desk-widget={ NOTE_WIDGET_TYPE }
 			data-studio-desk-widget-id={ id }
 		>
+			{ annotation && (
+				<div className={ styles.annotationHeader } title={ annotation.selector }>
+					{ 'On ' }
+					<code>{ annotation.displayName || annotation.selector }</code>
+					{ annotation.pathname && (
+						<>
+							{ ' from ' }
+							<code>{ annotation.pathname }</code>
+						</>
+					) }
+				</div>
+			) }
 			<div
 				ref={ setEditorRef }
 				className={ styles.editor }

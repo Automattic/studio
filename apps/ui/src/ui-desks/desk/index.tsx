@@ -7,8 +7,9 @@ import { DeskSettingsModal } from '../chrome/settings-modal';
 import { DEFAULT_DESK_TOOLBAR_LAYOUT } from '../chrome/toolbar-layout';
 import { Button, LoadingPlaceholder } from '../components';
 import { useSiteMapDeskConfig } from '../site-map/use-site-map-desk-config';
+import { AnnotationCommentDialog } from '../widgets/site-preview/annotation-comment-dialog';
 import { DeskCanvas } from './canvas';
-import { DeskProvider } from './provider';
+import { DeskProvider, useDesk } from './provider';
 import { DeskWidgetToolbar } from './selection-toolbar';
 import styles from './style.module.css';
 import type { ReactNode } from 'react';
@@ -103,6 +104,7 @@ function DeskShell( {
 				{ children }
 				{ siteMapIsLoading && <SiteMapLoadingWidget /> }
 				<DeskWidgetToolbar />
+				<AnnotationCommentDialogSlot />
 				<DeskSettingsModal
 					open={ settingsOpen }
 					onOpenChange={ setSettingsOpen }
@@ -142,6 +144,21 @@ function DeskShell( {
 				) }
 			</main>
 		</ChatsProvider>
+	);
+}
+
+function AnnotationCommentDialogSlot() {
+	const { pendingAnnotation, confirmPendingAnnotation, cancelPendingAnnotation } = useDesk();
+	if ( ! pendingAnnotation ) {
+		return null;
+	}
+
+	return (
+		<AnnotationCommentDialog
+			payload={ pendingAnnotation.payload }
+			onAdd={ confirmPendingAnnotation }
+			onCancel={ cancelPendingAnnotation }
+		/>
 	);
 }
 

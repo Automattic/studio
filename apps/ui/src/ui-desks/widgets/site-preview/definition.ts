@@ -1,9 +1,11 @@
 import { __ } from '@wordpress/i18n';
 import { globe } from '@wordpress/icons';
+import { SitePreviewAnnotateControl } from '@/ui-desks/widgets/site-preview/annotate-control';
 import {
 	SitePreviewWidgetComponent,
 	SitePreviewWidgetThumbnailComponent,
 } from '@/ui-desks/widgets/site-preview/component';
+import { SitePreviewInspectControl } from '@/ui-desks/widgets/site-preview/inspect-control';
 import { SitePreviewOpenControl } from '@/ui-desks/widgets/site-preview/open-control';
 import {
 	isSitePreviewWidgetProps,
@@ -22,6 +24,16 @@ export const sitePreviewWidgetDefinition = {
 			type: 'custom',
 			id: 'open-site-preview',
 			Component: SitePreviewOpenControl,
+		},
+		{
+			type: 'custom',
+			id: 'inspect-site-preview',
+			Component: SitePreviewInspectControl,
+		},
+		{
+			type: 'custom',
+			id: 'annotate-site-preview',
+			Component: SitePreviewAnnotateControl,
 		},
 	],
 	isCreatable: true,

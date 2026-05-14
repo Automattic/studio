@@ -1,11 +1,17 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { category, connection, group, pencil, trash, ungroup, update } from '@wordpress/icons';
 import { useEffect, useState } from 'react';
+import {
+	formatAnnotationsAsPrompt,
+	formatAnnotationsSubmittedMessage,
+} from '@/components/site-preview/annotations';
 import { ChatButton } from '@/ui-desks/chats/chat-button';
+import { useChats } from '@/ui-desks/chats/context';
 import { SelectionChatDialog } from '@/ui-desks/chats/selection-chat-dialog';
 import { Divider, Button, Surface } from '@/ui-desks/components';
 import { ControlRenderer } from '@/ui-desks/controls/registry';
 import { useDesk } from '@/ui-desks/desk/provider';
+import { SITE_PREVIEW_WIDGET_TYPE } from '@/ui-desks/widgets/site-preview/types';
 import styles from './style.module.css';
 import type { getSelectedWidgetToolbarItem } from './selection';
 import type { DeskWidgetConnectionTarget } from '@/ui-desks/connectors/utils';
@@ -43,6 +49,7 @@ export function DeskWidgetToolbar() {
 		selectedWidgetConnectionTargets,
 		removeSelectedConnector,
 		focusConnectedWidget,
+		annotatingPreviewShapeId,
 	} = useDesk();
 	const visible = Boolean(
 		selectedWidgetToolbarItem ||
@@ -70,6 +77,10 @@ export function DeskWidgetToolbar() {
 		}
 	}, [ selectedConnectorToolbarItem, selectedWidgetConnectionTargets, selectedWidgetToolbarItem ] );
 
+	if ( annotatingPreviewShapeId ) {
+		return <AnnotateToolbar />;
+	}
+
 	const renderSelection = visible ? selectedWidgetToolbarItem : lastSelection;
 	const renderConnectorSelection = visible ? selectedConnectorToolbarItem : lastConnectorSelection;
 	const renderConnectionTargets = visible ? selectedWidgetConnectionTargets : lastConnectionTargets;
@@ -87,7 +98,10 @@ export function DeskWidgetToolbar() {
 		renderSelection?.kind === 'single-widget' &&
 		Boolean( controls?.length ) &&
 		renderSelection.definition.isWidgetProps( renderSelection.widget.widgetProps );
-	const canRenderEditControl = renderSelection?.kind === 'single-widget' && canEditSelectedWidget;
+	const canRenderEditControl =
+		renderSelection?.kind === 'single-widget' &&
+		canEditSelectedWidget &&
+		renderSelection.widget.type !== SITE_PREVIEW_WIDGET_TYPE;
 
 	return (
 		<>
@@ -220,6 +234,142 @@ export function DeskWidgetToolbar() {
 			) }
 		</>
 	);
+}
+
+function AnnotateToolbar() {
+	const {
+		annotationCount,
+		selectedAnnotationNoteShapeId,
+		stopAnnotatingPreview,
+		removeSelectedAnnotation,
+		collectAnnotationSubmission,
+	} = useDesk();
+	const { startChatWithPrompt, isCreatingChat } = useChats();
+	const [ isSubmitting, setIsSubmitting ] = useState( false );
+	const isBusy = isCreatingChat || isSubmitting;
+
+	const cancel = () => {
+		if ( annotationCount > 0 ) {
+			const shouldDiscard = window.confirm(
+				sprintf(
+					_n( 'Discard %d annotation?', 'Discard %d annotations?', annotationCount ),
+					annotationCount
+				)
+			);
+			if ( ! shouldDiscard ) {
+				return;
+			}
+		}
+		stopAnnotatingPreview();
+	};
+
+	const submit = async () => {
+		if ( annotationCount === 0 || isBusy ) {
+			return;
+		}
+		const submission = collectAnnotationSubmission();
+		if ( ! submission ) {
+			return;
+		}
+
+		setIsSubmitting( true );
+		try {
+			const annotationPrompt = formatAnnotationsAsPrompt( submission.annotations );
+			await startChatWithPrompt( {
+				prompt: submission.previewWidget
+					? buildAnnotationWidgetContextPrompt( annotationPrompt, [ submission.previewWidget ] )
+					: annotationPrompt,
+				displayMessage: formatAnnotationsSubmittedMessage( submission.annotations.length ),
+			} );
+			stopAnnotatingPreview();
+		} catch ( error ) {
+			console.warn( 'Unable to submit annotations.', error );
+		} finally {
+			setIsSubmitting( false );
+		}
+	};
+
+	return (
+		<Surface
+			variant="glass"
+			className={ styles.toolbar }
+			data-visible="true"
+			role="toolbar"
+			aria-label={ __( 'Annotate actions' ) }
+			onPointerDown={ ( event ) => event.stopPropagation() }
+		>
+			<Button
+				label={ __( 'Cancel' ) }
+				variant="quiet"
+				size="medium"
+				tooltipLabel={ false }
+				onClick={ cancel }
+			>
+				{ __( 'Cancel' ) }
+			</Button>
+			{ annotationCount > 0 && (
+				<>
+					<Divider />
+					<Button
+						label={ sprintf(
+							_n( 'Submit %d change', 'Submit %d changes', annotationCount ),
+							annotationCount
+						) }
+						variant="filled"
+						tone="primary"
+						size="medium"
+						tooltipLabel={ false }
+						disabled={ isBusy }
+						onClick={ () => void submit() }
+					>
+						{ sprintf(
+							_n( 'Submit %d change', 'Submit %d changes', annotationCount ),
+							annotationCount
+						) }
+					</Button>
+				</>
+			) }
+			{ selectedAnnotationNoteShapeId && (
+				<>
+					<Divider />
+					<Button
+						icon={ trash }
+						label={ __( 'Remove annotation' ) }
+						variant="quiet"
+						size="medium"
+						onClick={ removeSelectedAnnotation }
+					/>
+				</>
+			) }
+		</Surface>
+	);
+}
+
+function buildAnnotationWidgetContextPrompt( userPrompt: string, widgets: DeskWidget[] ) {
+	const context = widgets
+		.map(
+			( widget, index ) =>
+				`${ index + 1 }. ${ JSON.stringify( {
+					widgetId: widget.id,
+					type: widget.type,
+					position: {
+						x: widget.x,
+						y: widget.y,
+					},
+					widgetProps: widget.widgetProps,
+				} ) }`
+		)
+		.join( '\n' );
+
+	return [
+		'Use the following Studio canvas selection as context.',
+		'The selected items are canvas widgets. Refer to widget IDs and WordPress entity IDs when helpful.',
+		'',
+		context,
+		'',
+		'User request:',
+		userPrompt,
+	].join( '\n' );
 }
 
 function ConnectedToControl( {

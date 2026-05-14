@@ -81,7 +81,6 @@ const DOLLY_FRONTEND_ABILITIES = [ DOLLY_PREVIEW_TOOL_ID, DOLLY_REFRESH_PREVIEW_
 const DOLLY_PREVIEW_PANEL_DEFAULT_WIDTH = 520;
 const DOLLY_PREVIEW_PANEL_MIN_WIDTH = 360;
 const DOLLY_PREVIEW_PANEL_MAX_WIDTH = 820;
-const MAX_FRONTEND_TOOL_ROUNDS = 3;
 const DOLLY_REQUEST_TIMEOUT_MS = 90_000;
 const DOLLY_HISTORY_SUMMARY_ITEMS_PER_PAGE = 20;
 const DOLLY_HISTORY_CHAT_ITEMS_PER_PAGE = 100;
@@ -104,21 +103,6 @@ type DollyAgentResponse = {
 	sessionId?: string;
 	resetSession?: boolean;
 	selectedSiteId?: number;
-	taskId: string;
-	state: string;
-	toolCalls: DollyToolCall[];
-};
-
-type AgentResponsePart = {
-	type?: string;
-	text?: string;
-	data?: {
-		toolCallId?: string;
-		tool_call_id?: string;
-		toolId?: string;
-		tool_id?: string;
-		arguments?: unknown;
-	};
 };
 
 type AgentRequestPart =
@@ -180,12 +164,6 @@ type DollyToolExecution = {
 		result?: unknown;
 		error?: string;
 	};
-	agentMessage?: string;
-};
-
-type DollyToolProviderResult = {
-	result?: unknown;
-	returnToAgent?: boolean;
 	agentMessage?: string;
 };
 
@@ -1450,203 +1428,34 @@ const delay = ( milliseconds: number, abortSignal?: AbortSignal ) =>
 		abortSignal?.addEventListener( 'abort', abort, { once: true } );
 	} );
 
-const createDollyAbilityDataPart = ( ability: Ability ): AgentRequestPart => {
-	const abilityData = { ...ability } as Record< string, unknown >;
-	delete abilityData.callback;
-	delete abilityData.permissionCallback;
-
-	return {
-		type: 'data',
-		data: abilityData,
-	};
-};
-
 const createDollyToolProvider = (
 	executeFrontendTool: ( toolCall: DollyToolCall ) => Promise< DollyToolExecution >
 ): ToolProvider => ( {
-	getAbilities: async () => [ createDollyPreviewAbility(), createDollyRefreshPreviewAbility() ],
-	executeTool: async (
-		toolId,
-		args,
-		_messageId,
-		toolCallId
-	): Promise< DollyToolProviderResult > => {
-		const execution = await executeFrontendTool( {
-			toolCallId: toolCallId ?? crypto.randomUUID(),
-			toolId,
-			arguments: parseToolArguments( args ),
-		} );
-
-		if ( execution.toolResult.error ) {
-			return {
-				result: {
-					success: false,
-					error: execution.toolResult.error,
-				},
-				agentMessage: execution.agentMessage,
-			};
-		}
-
-		return {
-			result: execution.toolResult.result,
-			agentMessage: execution.agentMessage,
-		};
-	},
-} );
-
-const getDollyAbilityParts = async ( toolProvider: ToolProvider ): Promise< AgentRequestPart[] > =>
-	( await toolProvider.getAbilities?.() )?.map( createDollyAbilityDataPart ) ?? [];
-
-const normalizeDollyToolProviderResult = ( result: unknown ): DollyToolProviderResult => {
-	if ( isRecord( result ) && 'result' in result ) {
-		return result as DollyToolProviderResult;
-	}
-
-	return {
-		result,
-	};
-};
-
-const executeDollyToolCall = async (
-	toolProvider: ToolProvider,
-	toolCall: DollyToolCall
-): Promise< DollyToolExecution > => {
-	if ( ! toolProvider.executeTool ) {
-		return {
-			toolResult: {
-				toolCallId: toolCall.toolCallId,
-				toolId: toolCall.toolId,
-				error: `WordPress Studio does not provide a frontend ability named ${ toolCall.toolId }.`,
-			},
-		};
-	}
-
-	try {
-		const result = normalizeDollyToolProviderResult(
-			await toolProvider.executeTool(
-				toolCall.toolId,
-				toolCall.arguments,
-				undefined,
-				toolCall.toolCallId
-			)
-		);
-
-		return {
-			toolResult: {
-				toolCallId: toolCall.toolCallId,
-				toolId: toolCall.toolId,
-				result: result.result,
-			},
-			agentMessage: result.agentMessage,
-		};
-	} catch ( error ) {
-		return {
-			toolResult: {
-				toolCallId: toolCall.toolCallId,
-				toolId: toolCall.toolId,
-				error: error instanceof Error ? error.message : String( error ),
-			},
-		};
-	}
-};
-
-const extractResponseParts = ( response: TaskUpdate ): AgentResponsePart[] => {
-	const parts = response.status.message?.parts;
-	return Array.isArray( parts ) ? ( parts.filter( isRecord ) as AgentResponsePart[] ) : [];
-};
-
-const extractToolCalls = ( parts: AgentResponsePart[] ): DollyToolCall[] =>
-	Array.from(
-		parts
-			.reduce< Map< string, DollyToolCall > >( ( toolCalls, part ) => {
-				if ( part.type !== 'data' || ! isRecord( part.data ) ) {
-					return toolCalls;
-				}
-
-				if ( ! ( 'arguments' in part.data ) ) {
-					return toolCalls;
-				}
-
-				const toolCallId =
-					typeof part.data.toolCallId === 'string'
-						? part.data.toolCallId
-						: typeof part.data.tool_call_id === 'string'
-						? part.data.tool_call_id
-						: undefined;
-				const toolId =
-					typeof part.data.toolId === 'string'
-						? part.data.toolId
-						: typeof part.data.tool_id === 'string'
-						? part.data.tool_id
-						: undefined;
-
-				if ( ! toolCallId || ! toolId ) {
-					return toolCalls;
-				}
-
-				toolCalls.set( toolCallId, {
-					toolCallId,
-					toolId,
-					arguments: parseToolArguments( part.data.arguments ),
+	getAbilities: async () =>
+		[ createDollyPreviewAbility(), createDollyRefreshPreviewAbility() ].map( ( ability ) => ( {
+			...ability,
+			callback: async ( input: Record< string, unknown > ) => {
+				const execution = await executeFrontendTool( {
+					toolCallId:
+						getStringValue( input, [ 'toolCallId', 'tool_call_id' ] ) ?? crypto.randomUUID(),
+					toolId: getStringValue( input, [ 'toolId', 'tool_id' ] ) ?? ability.name,
+					arguments: parseToolArguments( input ),
 				} );
 
-				return toolCalls;
-			}, new Map() )
-			.values()
-	);
+				if ( execution.toolResult.error ) {
+					return {
+						success: false,
+						error: execution.toolResult.error,
+					};
+				}
 
-const createDollyToolCallPart = ( toolCall: DollyToolCall ): AgentRequestPart => ( {
-	type: 'data',
-	data: {
-		toolCallId: toolCall.toolCallId,
-		toolId: toolCall.toolId,
-		arguments: toolCall.arguments,
-	},
+				return execution.toolResult.result;
+			},
+		} ) ),
 } );
-
-const createDollyToolResultPart = ( execution: DollyToolExecution ): AgentRequestPart => ( {
-	type: 'data',
-	data: {
-		toolCallId: execution.toolResult.toolCallId,
-		toolId: execution.toolResult.toolId,
-		result: execution.toolResult.error
-			? {
-					success: false,
-					error: execution.toolResult.error,
-			  }
-			: execution.toolResult.result,
-	},
-	...( execution.toolResult.error ? { metadata: { error: execution.toolResult.error } } : {} ),
-} );
-
-const createDollyToolResultParts = (
-	toolCalls: DollyToolCall[],
-	executions: DollyToolExecution[]
-): AgentRequestPart[] => {
-	const executionsByToolCallId = executions.reduce< Map< string, DollyToolExecution > >(
-		( toolExecutions, execution ) => {
-			toolExecutions.set( execution.toolResult.toolCallId, execution );
-			return toolExecutions;
-		},
-		new Map()
-	);
-
-	return toolCalls.flatMap< AgentRequestPart >( ( toolCall ) => {
-		const execution = executionsByToolCallId.get( toolCall.toolCallId );
-		if ( ! execution ) {
-			return [];
-		}
-
-		return [ createDollyToolCallPart( toolCall ), createDollyToolResultPart( execution ) ];
-	} );
-};
-
-const combineDollyText = ( first: string, second: string ) =>
-	[ first.trim(), second.trim() ].filter( Boolean ).join( '\n\n' );
 
 const parseDollyTaskUpdate = (
 	response: TaskUpdate,
-	fallbackTaskId: string,
 	fallbackSessionId: string
 ): DollyAgentResponse => {
 	if ( response.status.error ) {
@@ -1657,16 +1466,11 @@ const parseDollyTaskUpdate = (
 		? extractTextFromMessage( response.status.message )
 		: response.text;
 	const text = messageText.trim();
-	const toolCalls = extractToolCalls( extractResponseParts( response ) );
-	const fallbackText = toolCalls.length > 0 ? '' : __( 'Dolly did not return a text response.' );
 
 	return {
-		text: text || fallbackText,
+		text: text || __( 'Dolly did not return a text response.' ),
 		sessionId: response.sessionId ?? fallbackSessionId,
 		selectedSiteId: extractBackendSelectedSiteId( response ),
-		taskId: response.id || fallbackTaskId,
-		state: response.status.state,
-		toolCalls,
 	};
 };
 
@@ -1701,39 +1505,43 @@ const sendDollyMessage = async ( {
 } ): Promise< DollyAgentResponse > => {
 	const taskId = crypto.randomUUID();
 	const initialSessionId = sessionId ?? taskId;
-	const contextProvider = createDollyContextProvider(
-		siteId,
-		selectedSite,
-		previewContext,
-		siteAssociation
-	);
 	const toolProvider = createDollyToolProvider( executeFrontendTool );
 	const agentClient = createClient( {
 		agentId: DOLLY_AGENT_ID,
 		agentUrl: createDollyAgentUrl( siteId ),
 		authProvider: createDollyAuthProvider(),
-		contextProvider,
+		contextProvider: createDollyContextProvider(
+			siteId,
+			selectedSite,
+			previewContext,
+			siteAssociation
+		),
+		toolProvider,
 		timeout: DOLLY_REQUEST_TIMEOUT_MS,
 	} );
-	const createInitialMessageParts = async (): Promise< AgentRequestPart[] > => [
+	const createInitialMessageParts = (): AgentRequestPart[] => [
 		...( message ? [ { type: 'text' as const, text: message } ] : [] ),
 		...( uploadedImages ?? [] ).map( createDollyFilePart ),
-		...( await getDollyAbilityParts( toolProvider ) ),
 	];
-	const sendInitialMessage = async ( nextTaskId: string, nextSessionId: string ) =>
-		parseDollyTaskUpdate(
-			await agentClient.sendMessage( {
-				message: createDollyUserMessage( await createInitialMessageParts() ),
-				sessionId: nextSessionId,
-				taskId: nextTaskId,
-				abortSignal,
-			} ),
-			nextTaskId,
-			nextSessionId
-		);
-	// Keep Studio in charge of continuation so Dolly's final non-streaming text is preserved.
+	const sendInitialMessage = async ( nextTaskId: string, nextSessionId: string ) => {
+		let finalUpdate: TaskUpdate | undefined;
+		for await ( const update of agentClient.sendMessageStream( {
+			message: createDollyUserMessage( createInitialMessageParts() ),
+			sessionId: nextSessionId,
+			taskId: nextTaskId,
+			abortSignal,
+			enableStreaming: false,
+		} ) ) {
+			finalUpdate = update;
+		}
+
+		if ( ! finalUpdate ) {
+			throw new Error( __( 'Dolly did not return a response.' ) );
+		}
+
+		return parseDollyTaskUpdate( finalUpdate, nextSessionId );
+	};
 	let response: DollyAgentResponse | undefined;
-	let effectiveInitialSessionId = initialSessionId;
 	try {
 		for ( let attempt = 0; ; attempt++ ) {
 			try {
@@ -1760,76 +1568,12 @@ const sendDollyMessage = async ( {
 		}
 
 		const freshTaskId = crypto.randomUUID();
-		effectiveInitialSessionId = freshTaskId;
 		response = await sendInitialMessage( freshTaskId, freshTaskId );
 	}
 	if ( ! response ) {
 		throw new Error( __( 'Dolly did not return a response.' ) );
 	}
-	let currentSessionId = response.sessionId ?? effectiveInitialSessionId;
-	let currentSelectedSiteId = response.selectedSiteId;
-	let accumulatedText = response.text;
-
-	for ( let round = 0; round < MAX_FRONTEND_TOOL_ROUNDS; round++ ) {
-		if ( response.toolCalls.length === 0 ) {
-			return {
-				...response,
-				text: accumulatedText,
-				sessionId: currentSessionId,
-				selectedSiteId: response.selectedSiteId ?? currentSelectedSiteId,
-			};
-		}
-
-		throwIfDollyRequestAborted( abortSignal );
-		const executions = await Promise.all(
-			response.toolCalls.map( ( toolCall ) => executeDollyToolCall( toolProvider, toolCall ) )
-		);
-		throwIfDollyRequestAborted( abortSignal );
-		const fallbackToolMessage = executions
-			.map( ( execution ) => execution.agentMessage )
-			.filter( ( value ): value is string => Boolean( value ) )
-			.join( '\n' );
-		const continuationParts = [
-			...createDollyToolResultParts( response.toolCalls, executions ),
-			...( await getDollyAbilityParts( toolProvider ) ),
-		];
-
-		try {
-			response = parseDollyTaskUpdate(
-				await agentClient.sendMessage( {
-					message: createDollyUserMessage( continuationParts ),
-					sessionId: currentSessionId,
-					taskId: response.taskId,
-					abortSignal,
-				} ),
-				response.taskId,
-				currentSessionId
-			);
-			currentSessionId = response.sessionId ?? currentSessionId;
-			currentSelectedSiteId = response.selectedSiteId ?? currentSelectedSiteId;
-			accumulatedText = combineDollyText( accumulatedText, response.text );
-		} catch ( error ) {
-			if ( fallbackToolMessage ) {
-				return {
-					...response,
-					text: combineDollyText( accumulatedText, fallbackToolMessage ),
-					sessionId: undefined,
-					resetSession: true,
-					selectedSiteId: response.selectedSiteId ?? currentSelectedSiteId,
-					toolCalls: [],
-				};
-			}
-			throw error;
-		}
-	}
-
-	return {
-		...response,
-		text: accumulatedText || __( 'Dolly asked Studio to run too many frontend preview actions.' ),
-		sessionId: currentSessionId,
-		selectedSiteId: response.selectedSiteId ?? currentSelectedSiteId,
-		toolCalls: [],
-	};
+	return response;
 };
 
 const isElectron = (): boolean => {

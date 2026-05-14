@@ -239,13 +239,31 @@ describe( 'ContentTabAssistant', () => {
 		callIndex: number;
 	} ) => unknown | Promise< unknown >;
 
-	const createDollyFetchResponse = ( data: unknown ) =>
-		new Response( JSON.stringify( data ), {
+	const createDollyFetchResponse = ( data: unknown, requestBody?: { method?: string } ) => {
+		if ( requestBody?.method === 'message/stream' ) {
+			const encoder = new TextEncoder();
+			const stream = new ReadableStream( {
+				start( controller ) {
+					controller.enqueue( encoder.encode( `data: ${ JSON.stringify( data ) }\n\n` ) );
+					controller.close();
+				},
+			} );
+
+			return new Response( stream, {
+				status: 200,
+				headers: {
+					'Content-Type': 'text/event-stream',
+				},
+			} );
+		}
+
+		return new Response( JSON.stringify( data ), {
 			status: 200,
 			headers: {
 				'Content-Type': 'application/json',
 			},
 		} );
+	};
 
 	type MockDollyFetchOptions = {
 		mediaUploadResponse?: () => unknown | Promise< unknown >;
@@ -285,7 +303,8 @@ describe( 'ContentTabAssistant', () => {
 					init: init ?? {},
 					url,
 					callIndex,
-				} )
+				} ),
+				body
 			);
 		} );
 
@@ -847,7 +866,18 @@ describe( 'ContentTabAssistant', () => {
 		} ) );
 		const dollyClient = {
 			req: {
-				get: vi.fn( ( _params, callback ) => {
+				get: vi.fn( ( params, callback ) => {
+					if ( params.path.startsWith( '/ai/chats/' ) ) {
+						callback( null, [
+							{
+								chat_id: 1,
+								session_id: 'session-1',
+								selectedSiteId: 456,
+							},
+						] );
+						return;
+					}
+
 					callback( null, {
 						sites: [
 							{

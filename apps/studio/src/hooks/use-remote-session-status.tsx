@@ -2,7 +2,7 @@ import { __ } from '@wordpress/i18n';
 import { useEffect, useReducer } from 'react';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import type { DaemonStatus } from 'cli/remote-session/daemon';
+import type { DaemonStatus } from '@studio/common/lib/remote-session';
 
 export interface UseRemoteSessionStatus {
 	status: DaemonStatus | undefined;

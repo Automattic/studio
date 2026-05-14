@@ -1,4 +1,4 @@
-import { getDaemonStatus, type DaemonStatus } from 'cli/remote-session/daemon';
+import { getDaemonStatus, type DaemonStatus } from '@studio/common/lib/remote-session';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 
 const DEFAULT_POLL_INTERVAL_MS = 5000;

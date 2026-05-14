@@ -1,31 +1,49 @@
 /**
  * @vitest-environment node
  */
-import { DaemonAlreadyRunningError, DaemonStartTimeoutError } from 'cli/remote-session/daemon';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { TypedEventEmitter } from 'src/modules/cli/lib/typed-event-emitter';
 import type { IpcMainInvokeEvent } from 'electron';
 
-vi.mock( 'cli/remote-session/daemon', async () => {
-	const actual = await vi.importActual< typeof import('cli/remote-session/daemon') >(
-		'cli/remote-session/daemon'
+vi.mock( '@studio/common/lib/remote-session', async () => {
+	const actual = await vi.importActual< typeof import('@studio/common/lib/remote-session') >(
+		'@studio/common/lib/remote-session'
 	);
 	return {
 		...actual,
 		getDaemonStatus: vi.fn(),
-		startDaemon: vi.fn(),
-		stopDaemon: vi.fn(),
 	};
 } );
 
-// `src/storage/paths` is mocked globally in `vitest.setup.ts` with stable values:
-//   getBundledNodeBinaryPath -> '/mock/node/binary'
-//   getCliPath               -> '/mock/cli/path'
-// We assert against those values below so the override-passing regression test
-// reflects exactly what the renderer will see in test runs.
+vi.mock( 'src/modules/cli/lib/execute-command', () => ( {
+	executeCliCommand: vi.fn(),
+} ) );
+
+type CliEmitter = TypedEventEmitter< {
+	started: void;
+	error: { error: Error };
+	data: { data: unknown };
+	success: { result: unknown };
+	failure: { error: Error };
+} >;
 
 const mockIpcEvent = {
 	sender: { isDestroyed: vi.fn().mockReturnValue( false ) },
 } as unknown as IpcMainInvokeEvent;
+
+function stubExecuteCliCommand(
+	behavior: ( emitter: CliEmitter, args: string[], options: unknown ) => void
+) {
+	void ( async () => {
+		const { executeCliCommand } = await import( 'src/modules/cli/lib/execute-command' );
+		vi.mocked( executeCliCommand ).mockImplementation( ( ( args: string[], options: unknown ) => {
+			const emitter = new TypedEventEmitter() as CliEmitter;
+			// Defer so the IPC handler can subscribe before events fire.
+			queueMicrotask( () => behavior( emitter, args, options ) );
+			return [ emitter, {} as never ];
+		} ) as unknown as typeof executeCliCommand );
+	} )();
+}
 
 beforeEach( () => {
 	vi.clearAllMocks();
@@ -37,7 +55,7 @@ afterEach( () => {
 
 describe( 'getRemoteSessionDaemonStatus', () => {
 	it( 'returns the underlying daemon status', async () => {
-		const { getDaemonStatus } = await import( 'cli/remote-session/daemon' );
+		const { getDaemonStatus } = await import( '@studio/common/lib/remote-session' );
 		vi.mocked( getDaemonStatus ).mockReturnValue( {
 			running: true,
 			pid: 12345,
@@ -56,7 +74,7 @@ describe( 'getRemoteSessionDaemonStatus', () => {
 	} );
 
 	it( 'returns "not running" when no daemon is present', async () => {
-		const { getDaemonStatus } = await import( 'cli/remote-session/daemon' );
+		const { getDaemonStatus } = await import( '@studio/common/lib/remote-session' );
 		vi.mocked( getDaemonStatus ).mockReturnValue( {
 			running: false,
 			pidFile: '/tmp/remote-session.pid',
@@ -70,94 +88,94 @@ describe( 'getRemoteSessionDaemonStatus', () => {
 } );
 
 describe( 'startRemoteSessionDaemon', () => {
-	it( 'invokes startDaemon with explicit execPath and cliEntry overrides', async () => {
-		// REGRESSION GUARD: From Electron main, the defaults `process.execPath` and
-		// `process.argv[1]` resolve to the Electron binary and Studio's bundled
-		// entry — neither is the CLI. The handler must override both, otherwise
-		// "Start" silently spawns the Electron app as the daemon.
-		const { startDaemon } = await import( 'cli/remote-session/daemon' );
-		vi.mocked( startDaemon ).mockResolvedValue( {
-			pid: 99,
-			pidFile: '/tmp/remote-session.pid',
+	it( 'forks `code remote-session start` with the CLI feature flag enabled, then reads the live PID file', async () => {
+		const recordedCalls: { args: string[]; options: unknown }[] = [];
+		stubExecuteCliCommand( ( emitter, args, options ) => {
+			recordedCalls.push( { args, options } );
+			emitter.emit( 'success', { result: undefined } );
 		} );
 
-		const { startRemoteSessionDaemon } = await import( 'src/ipc-handlers' );
-		await startRemoteSessionDaemon( mockIpcEvent );
-
-		expect( startDaemon ).toHaveBeenCalledOnce();
-		expect( startDaemon ).toHaveBeenCalledWith( {
-			execPath: '/mock/node/binary',
-			cliEntry: '/mock/cli/path',
-			// REGRESSION GUARD #2: the CLI gates the entire `code remote-session`
-			// subcommand tree behind `STUDIO_ENABLE_REMOTE_SESSION=true`. Without
-			// passing it through to the spawned child, the daemon fails with
-			// "Unknown arguments: remote-session, start" and times out.
-			env: { STUDIO_ENABLE_REMOTE_SESSION: 'true' },
-		} );
-	} );
-
-	it( 'returns the daemon start result on success', async () => {
-		const { startDaemon } = await import( 'cli/remote-session/daemon' );
-		vi.mocked( startDaemon ).mockResolvedValue( {
-			pid: 42,
+		const { getDaemonStatus } = await import( '@studio/common/lib/remote-session' );
+		vi.mocked( getDaemonStatus ).mockReturnValue( {
+			running: true,
+			pid: 12345,
 			pidFile: '/tmp/remote-session.pid',
 		} );
 
 		const { startRemoteSessionDaemon } = await import( 'src/ipc-handlers' );
 		const result = await startRemoteSessionDaemon( mockIpcEvent );
 
-		expect( result ).toEqual( {
-			pid: 42,
+		expect( recordedCalls ).toHaveLength( 1 );
+		expect( recordedCalls[ 0 ].args ).toEqual( [ 'code', 'remote-session', 'start' ] );
+		expect( recordedCalls[ 0 ].options ).toMatchObject( {
+			output: 'capture',
+			env: { STUDIO_ENABLE_REMOTE_SESSION: 'true' },
+		} );
+		expect( result ).toEqual( { pid: 12345, pidFile: '/tmp/remote-session.pid' } );
+	} );
+
+	it( 'rejects with DaemonStartTimeoutError when the CLI exits 0 but no live PID file is on disk', async () => {
+		stubExecuteCliCommand( ( emitter ) => {
+			emitter.emit( 'success', { result: undefined } );
+		} );
+
+		const { getDaemonStatus, DaemonStartTimeoutError } = await import(
+			'@studio/common/lib/remote-session'
+		);
+		vi.mocked( getDaemonStatus ).mockReturnValue( {
+			running: false,
 			pidFile: '/tmp/remote-session.pid',
 		} );
-	} );
-
-	it( 'rethrows DaemonAlreadyRunningError so the renderer can present specific copy', async () => {
-		const { startDaemon } = await import( 'cli/remote-session/daemon' );
-		vi.mocked( startDaemon ).mockRejectedValue( new DaemonAlreadyRunningError( 7777 ) );
 
 		const { startRemoteSessionDaemon } = await import( 'src/ipc-handlers' );
-		await expect( startRemoteSessionDaemon( mockIpcEvent ) ).rejects.toBeInstanceOf(
-			DaemonAlreadyRunningError
-		);
-	} );
 
-	it( 'rethrows DaemonStartTimeoutError when the spawn never writes its PID file', async () => {
-		const { startDaemon } = await import( 'cli/remote-session/daemon' );
-		vi.mocked( startDaemon ).mockRejectedValue( new DaemonStartTimeoutError( 'timed out' ) );
-
-		const { startRemoteSessionDaemon } = await import( 'src/ipc-handlers' );
 		await expect( startRemoteSessionDaemon( mockIpcEvent ) ).rejects.toBeInstanceOf(
 			DaemonStartTimeoutError
 		);
 	} );
+
+	it( 'rejects with the CLI failure error when the subprocess exits non-zero', async () => {
+		const failure = new Error( 'CLI exited with code 1' );
+		stubExecuteCliCommand( ( emitter ) => {
+			emitter.emit( 'failure', { error: failure } );
+		} );
+
+		const { startRemoteSessionDaemon } = await import( 'src/ipc-handlers' );
+
+		await expect( startRemoteSessionDaemon( mockIpcEvent ) ).rejects.toBe( failure );
+	} );
 } );
 
 describe( 'stopRemoteSessionDaemon', () => {
-	it( 'delegates to stopDaemon and passes the result through', async () => {
-		const { stopDaemon } = await import( 'cli/remote-session/daemon' );
-		vi.mocked( stopDaemon ).mockResolvedValue( {
-			stopped: true,
-			pid: 12345,
+	it( 'forks `code remote-session stop` and returns a `stopped` result', async () => {
+		const recordedCalls: { args: string[] }[] = [];
+		stubExecuteCliCommand( ( emitter, args ) => {
+			recordedCalls.push( { args } );
+			emitter.emit( 'success', { result: undefined } );
+		} );
+
+		const { getDaemonStatus } = await import( '@studio/common/lib/remote-session' );
+		vi.mocked( getDaemonStatus ).mockReturnValue( {
+			running: false,
+			pidFile: '/tmp/remote-session.pid',
 		} );
 
 		const { stopRemoteSessionDaemon } = await import( 'src/ipc-handlers' );
 		const result = await stopRemoteSessionDaemon( mockIpcEvent );
 
-		expect( stopDaemon ).toHaveBeenCalledOnce();
-		expect( result ).toEqual( { stopped: true, pid: 12345 } );
+		expect( recordedCalls ).toHaveLength( 1 );
+		expect( recordedCalls[ 0 ].args ).toEqual( [ 'code', 'remote-session', 'stop' ] );
+		expect( result.stopped ).toBe( true );
 	} );
 
-	it( 'returns "already stopped" without raising when no daemon was running', async () => {
-		const { stopDaemon } = await import( 'cli/remote-session/daemon' );
-		vi.mocked( stopDaemon ).mockResolvedValue( {
-			stopped: true,
-			alreadyStopped: true,
+	it( 'rejects with the CLI failure error when the subprocess exits non-zero', async () => {
+		const failure = new Error( 'PID file refused to clean up' );
+		stubExecuteCliCommand( ( emitter ) => {
+			emitter.emit( 'failure', { error: failure } );
 		} );
 
 		const { stopRemoteSessionDaemon } = await import( 'src/ipc-handlers' );
-		const result = await stopRemoteSessionDaemon( mockIpcEvent );
 
-		expect( result ).toEqual( { stopped: true, alreadyStopped: true } );
+		await expect( stopRemoteSessionDaemon( mockIpcEvent ) ).rejects.toBe( failure );
 	} );
 } );

@@ -88,20 +88,22 @@ type CliCommandEventEmitter< CapturesOutput extends boolean > = TypedEventEmitte
 
 type ExecuteCliCommandOptionsIgnore = {
 	output: 'ignore';
+	env?: NodeJS.ProcessEnv;
 };
 type ExecuteCliCommandOptionsCapture = {
 	output: 'capture';
 	logPrefix?: string;
+	env?: NodeJS.ProcessEnv;
 };
 type ExecuteCliCommandOptions = ExecuteCliCommandOptionsIgnore | ExecuteCliCommandOptionsCapture;
 
 export function executeCliCommand(
 	args: string[],
-	options: { output: 'capture'; logPrefix?: string }
+	options: { output: 'capture'; logPrefix?: string; env?: NodeJS.ProcessEnv }
 ): [ CliCommandEventEmitter< true >, ChildProcess ];
 export function executeCliCommand(
 	args: string[],
-	options: { output: 'ignore'; logPrefix?: string }
+	options: { output: 'ignore'; logPrefix?: string; env?: NodeJS.ProcessEnv }
 ): [ CliCommandEventEmitter< false >, ChildProcess ];
 export function executeCliCommand(
 	args: string[],
@@ -129,7 +131,7 @@ export function executeCliCommand(
 		stdio,
 		execPath: getBundledNodeBinaryPath(),
 		execArgv: [ '--experimental-wasm-jspi' ],
-		env: { ...process.env },
+		env: { ...process.env, ...options.env },
 	} );
 	const eventEmitter = new TypedEventEmitter< CliCommandEventMap< boolean > >();
 

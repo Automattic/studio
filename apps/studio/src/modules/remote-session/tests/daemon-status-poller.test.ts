@@ -3,7 +3,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { startRemoteSessionStatusPolling } from 'src/modules/remote-session/daemon-status-poller';
-import type { DaemonStatus } from 'cli/remote-session/daemon';
+import type { DaemonStatus } from '@studio/common/lib/remote-session';
 
 const PID_FILE = '/tmp/remote-session.pid';
 

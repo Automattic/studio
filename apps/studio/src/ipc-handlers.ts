@@ -53,6 +53,13 @@ import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { isMultisite } from '@studio/common/lib/is-multisite';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
+import {
+	getDaemonStatus,
+	DaemonStartTimeoutError,
+	type DaemonStatus,
+	type StartDaemonResult,
+	type StopDaemonResult,
+} from '@studio/common/lib/remote-session';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
 	deleteSharedSession,
@@ -67,14 +74,6 @@ import { shouldExcludeFromSync } from '@studio/common/lib/sync/exclude-from-sync
 import { shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
-import {
-	getDaemonStatus,
-	startDaemon,
-	stopDaemon,
-	type DaemonStatus,
-	type StartDaemonResult,
-	type StopDaemonResult,
-} from 'cli/remote-session/daemon';
 import {
 	MACOS_TRAFFIC_LIGHT_POSITION,
 	MAIN_MIN_WIDTH,
@@ -121,6 +120,7 @@ import {
 } from 'src/modules/agent-instructions/lib/skills';
 import { answerAgentRun, interruptAgentRun, startAgentRun } from 'src/modules/ai-agent/run-manager';
 import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
+import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
@@ -135,7 +135,7 @@ import { linuxFindTerminalPath } from 'src/modules/user-settings/lib/linux-termi
 import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { SiteServer, stopAllServers as triggerStopAllServers } from 'src/site-server';
-import { getBundledNodeBinaryPath, getCliPath, getSiteThumbnailPath } from 'src/storage/paths';
+import { getSiteThumbnailPath } from 'src/storage/paths';
 import {
 	loadUserData,
 	lockAppdata,
@@ -2340,28 +2340,58 @@ export async function getRemoteSessionDaemonStatus(
 export async function startRemoteSessionDaemon(
 	_event: IpcMainInvokeEvent
 ): Promise< StartDaemonResult > {
-	// From Electron main, `process.execPath` is the Electron binary and `process.argv[1]`
-	// is Studio's bundled entry — neither is the CLI. Pass explicit overrides so the
-	// detached child spawns Node executing the CLI's `code remote-session start` entry.
+	// Treat the CLI as an external program (same pattern as every other
+	// CLI-backed operation in Studio): fork it as a child process and let it
+	// own the spawn/detach lifecycle. `cli code remote-session start` already
+	// does exactly that.
 	//
 	// `STUDIO_ENABLE_REMOTE_SESSION=true` is required: the CLI gates the entire
 	// `code remote-session` subcommand tree behind that env var (see
 	// `apps/cli/lib/feature-flags.ts`). Without it, the spawned child fails with
-	// "Unknown arguments: remote-session, start" before it can write its PID file,
-	// and the parent times out with DaemonStartTimeoutError. The `remoteSession`
-	// beta feature is the user-facing opt-in, so we lift the CLI gate in the
-	// spawned child rather than asking users to also set the env var manually.
-	return startDaemon( {
-		execPath: getBundledNodeBinaryPath(),
-		cliEntry: getCliPath(),
-		env: {
-			STUDIO_ENABLE_REMOTE_SESSION: 'true',
-		},
+	// "Unknown arguments: remote-session, start". The `remoteSession` beta
+	// feature is the user-facing opt-in, so we lift the CLI gate in the spawned
+	// child rather than asking users to set the env var manually.
+	return new Promise( ( resolve, reject ) => {
+		const [ emitter ] = executeCliCommand( [ 'code', 'remote-session', 'start' ], {
+			output: 'capture',
+			env: { STUDIO_ENABLE_REMOTE_SESSION: 'true' },
+		} );
+		emitter.on( 'success', () => {
+			// The CLI returns once the daemon has written its PID file. Re-read it
+			// here so the renderer gets a strongly-typed result with the live PID.
+			const status = getDaemonStatus();
+			if ( status.running && status.pid !== undefined ) {
+				resolve( { pid: status.pid, pidFile: status.pidFile } );
+				return;
+			}
+			reject(
+				new DaemonStartTimeoutError(
+					`Remote-session daemon CLI exited successfully but no live PID file was found at ${ status.pidFile }.`
+				)
+			);
+		} );
+		emitter.on( 'failure', ( { error } ) => reject( error ) );
+		emitter.on( 'error', ( { error } ) => reject( error ) );
 	} );
 }
 
 export async function stopRemoteSessionDaemon(
 	_event: IpcMainInvokeEvent
 ): Promise< StopDaemonResult > {
-	return stopDaemon();
+	return new Promise( ( resolve, reject ) => {
+		const [ emitter ] = executeCliCommand( [ 'code', 'remote-session', 'stop' ], {
+			output: 'capture',
+		} );
+		emitter.on( 'success', () => {
+			// CLI exit-code 0 indicates the daemon is no longer running (either
+			// stopped this invocation or was already gone). The CLI doesn't surface
+			// the granular SIGTERM/SIGKILL distinction over its IPC channel; we
+			// model the simple "stopped" case here. A non-zero exit (e.g. SIGKILL
+			// refused) lands in the `failure` branch via CliCommandError.
+			const status = getDaemonStatus();
+			resolve( { stopped: true, pid: status.pid, alreadyStopped: ! status.staleFileRemoved } );
+		} );
+		emitter.on( 'failure', ( { error } ) => reject( error ) );
+		emitter.on( 'error', ( { error } ) => reject( error ) );
+	} );
 }

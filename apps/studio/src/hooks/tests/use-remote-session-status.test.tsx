@@ -5,7 +5,7 @@ import {
 	_resetRemoteSessionStatusStateForTests,
 	useRemoteSessionStatus,
 } from 'src/hooks/use-remote-session-status';
-import type { DaemonStatus } from 'cli/remote-session/daemon';
+import type { DaemonStatus } from '@studio/common/lib/remote-session';
 import type { IpcRendererEvent } from 'electron';
 
 type IpcListener = ( event: IpcRendererEvent, status: DaemonStatus ) => void;

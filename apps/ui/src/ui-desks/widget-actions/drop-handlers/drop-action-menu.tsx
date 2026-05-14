@@ -1,18 +1,14 @@
 import { __ } from '@wordpress/i18n';
 import { useEffect } from 'react';
 import styles from './drop-action-menu.module.css';
-
-export interface DropActionMenuAction {
-	label: string;
-	onClick: () => void;
-}
+import type { WidgetCustomDropAction } from '@/ui-desks/widgets/types';
 
 interface DropActionMenuProps {
 	screenPoint: {
 		x: number;
 		y: number;
 	};
-	actions: DropActionMenuAction[];
+	actions: WidgetCustomDropAction[];
 	onCancel: () => void;
 }
 

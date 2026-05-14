@@ -15,7 +15,11 @@ import {
 	getWidgetDropTargetAtPagePoint,
 	getWidgetShapeAtPagePoint,
 } from './utils';
-import type { DeskWidget, WidgetDropHandler } from '@/ui-desks/widgets/types';
+import type {
+	DeskWidget,
+	WidgetCustomDropActionIntent,
+	WidgetDropHandler,
+} from '@/ui-desks/widgets/types';
 import type { Editor, TLArrowShape, TLEventInfo, TLShape, TLShapeId } from 'tldraw';
 
 interface UseConnectorInteractionsOptions {
@@ -364,16 +368,8 @@ export function useConnectorInteractions( {
 	}, [ editor, isHydrated, isReadOnly, onCustomDrop ] );
 }
 
-export interface WidgetCustomDropIntent {
-	sourceShapeId: TLShapeId;
-	targetShapeId: TLShapeId;
-	sourceWidget: DeskWidget;
-	targetWidget: DeskWidget;
+export interface WidgetCustomDropIntent extends WidgetCustomDropActionIntent {
 	handler: Extract< WidgetDropHandler, { type: 'custom' } >;
-	screenPoint: {
-		x: number;
-		y: number;
-	};
 }
 
 interface WidgetDropTarget {

@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
 	createShapeId,
 	getIndexAbove,
-	type JsonObject,
 	sortByIndex,
 	type Editor,
 	type TLShape,
@@ -12,19 +11,10 @@ import {
 } from 'tldraw';
 import { useConnector } from '@/data/core';
 import { useSites } from '@/data/queries/use-sites';
-import { useChats } from '@/ui-desks/chats/context';
 import {
-	buildWidgetContextDisplayMessage,
-	buildWidgetContextPrompt,
-} from '@/ui-desks/chats/widget-context';
-import {
-	completeConnectorPreview,
-	createConnectorPreview,
 	focusConnectedWidgetInEditor,
 	removeSelectedConnectorFromEditor,
 	startConnectingWidgetInEditor,
-	toPlainPoint,
-	updateConnectorEnd,
 } from '@/ui-desks/connectors/editor-commands';
 import {
 	useConnectorInteractions,
@@ -46,15 +36,8 @@ import {
 import { useStackInteractions } from '@/ui-desks/stacks/use-stack-interactions';
 import { useStackPressAnimation } from '@/ui-desks/stacks/use-stack-press-animation';
 import { createDeskWidget } from '@/ui-desks/widget-actions/create-widget';
-import {
-	DropActionMenu,
-	type DropActionMenuAction,
-} from '@/ui-desks/widget-actions/drop-handlers/drop-action-menu';
-import {
-	useSiteContentMediaDropActions,
-	type SiteContentKind,
-	type SiteContentMediaBlock,
-} from '@/ui-desks/widget-actions/drop-handlers/use-site-content-media-drop-actions';
+import { DropActionMenu } from '@/ui-desks/widget-actions/drop-handlers/drop-action-menu';
+import { useWidgetCustomDropActions } from '@/ui-desks/widget-actions/drop-handlers/use-widget-custom-drop-actions';
 import { getWidgetEditAction } from '@/ui-desks/widget-actions/edit-action';
 import { getWidgetFileHandler } from '@/ui-desks/widget-actions/file-handlers';
 import {
@@ -62,11 +45,7 @@ import {
 	getWidgetPasteHandler,
 } from '@/ui-desks/widget-actions/paste-handlers';
 import { LOADING_WIDGET_TYPE } from '@/ui-desks/widgets/loading/types';
-import { isMediaWidgetProps } from '@/ui-desks/widgets/media/types';
 import { NOTE_WIDGET_TYPE } from '@/ui-desks/widgets/note/types';
-import { isPageWidgetProps } from '@/ui-desks/widgets/page/types';
-import { isPostWidgetProps } from '@/ui-desks/widgets/post/types';
-import { isScratchpadWidgetProps } from '@/ui-desks/widgets/scratchpad/types';
 import {
 	DeskContext,
 	type AddDeskWidgetOptions,
@@ -121,8 +100,6 @@ export function DeskProvider( {
 	const desk = deskConfig ?? persistedDesk;
 	const isLoading = externalIsLoading ?? isLoadingPersistedDesk;
 	const connector = useConnector();
-	const { startChatWithPrompt } = useChats();
-	const siteContentMediaDropActions = useSiteContentMediaDropActions();
 	const { data: sites } = useSites();
 	const site = sites?.find( ( candidate ) => candidate.id === siteId );
 	const isRunningSite = Boolean( siteId && site?.running );
@@ -178,24 +155,11 @@ export function DeskProvider( {
 	const closeCustomDropMenu = useCallback( () => {
 		setCustomDropIntent( null );
 	}, [] );
-	const customDropActions = useMemo(
-		() =>
-			editor && customDropIntent
-				? getCustomDropActions( customDropIntent, {
-						editor,
-						closeMenu: closeCustomDropMenu,
-						siteContentMediaDropActions,
-						startChatWithPrompt,
-				  } )
-				: [],
-		[
-			closeCustomDropMenu,
-			customDropIntent,
-			editor,
-			siteContentMediaDropActions,
-			startChatWithPrompt,
-		]
-	);
+	const customDropActions = useWidgetCustomDropActions( {
+		editor,
+		intent: customDropIntent,
+		closeMenu: closeCustomDropMenu,
+	} );
 
 	useStackInteractions( editor );
 	useConnectorInteractions( {
@@ -789,199 +753,6 @@ export function DeskProvider( {
 			) }
 		</DeskContext.Provider>
 	);
-}
-
-const BUILD_SOMETHING_LIKE_THIS_PROMPT = __( 'Build something like this' );
-
-interface CustomDropActionContext {
-	editor: Editor;
-	closeMenu: () => void;
-	siteContentMediaDropActions: ReturnType< typeof useSiteContentMediaDropActions >;
-	startChatWithPrompt: ( request: { prompt: string; displayMessage?: string } ) => Promise< void >;
-}
-
-function getCustomDropActions(
-	intent: WidgetCustomDropIntent,
-	context: CustomDropActionContext
-): DropActionMenuAction[] {
-	const mediaProps = intent.sourceWidget.widgetProps;
-	if ( ! isMediaWidgetProps( mediaProps ) ) {
-		return [];
-	}
-
-	if ( isPostWidgetProps( intent.targetWidget.widgetProps ) ) {
-		const postId = intent.targetWidget.widgetProps.postId;
-		const mediaId = mediaProps.mediaId;
-		if ( mediaId === null ) {
-			return [];
-		}
-
-		return getContentDropActions( {
-			kind: 'post',
-			contentId: postId,
-			attachLabel: __( 'Attach to post' ),
-			media: {
-				id: mediaId,
-				url: mediaProps.url,
-				alt: mediaProps.alt,
-				kind: mediaProps.mediaKind,
-			},
-			context,
-		} );
-	}
-
-	if ( isPageWidgetProps( intent.targetWidget.widgetProps ) ) {
-		const pageId = intent.targetWidget.widgetProps.pageId;
-		const mediaId = mediaProps.mediaId;
-		if ( mediaId === null ) {
-			return [];
-		}
-
-		return getContentDropActions( {
-			kind: 'page',
-			contentId: pageId,
-			attachLabel: __( 'Attach to page' ),
-			media: {
-				id: mediaId,
-				url: mediaProps.url,
-				alt: mediaProps.alt,
-				kind: mediaProps.mediaKind,
-			},
-			context,
-		} );
-	}
-
-	if ( isScratchpadWidgetProps( intent.targetWidget.widgetProps ) ) {
-		return [
-			{
-				label: BUILD_SOMETHING_LIKE_THIS_PROMPT,
-				onClick: () =>
-					runDropAction( context.closeMenu, async () => {
-						updateScratchpadReference( context.editor, intent );
-						await context.startChatWithPrompt( {
-							prompt: buildWidgetContextPrompt( BUILD_SOMETHING_LIKE_THIS_PROMPT, [
-								intent.sourceWidget,
-								intent.targetWidget,
-							] ),
-							displayMessage: buildWidgetContextDisplayMessage( BUILD_SOMETHING_LIKE_THIS_PROMPT, [
-								intent.sourceWidget,
-								intent.targetWidget,
-							] ),
-						} );
-					} ),
-			},
-			{
-				label: __( 'Use this image' ),
-				onClick: () =>
-					runDropAction( context.closeMenu, () =>
-						createConnectorBetweenWidgets( context.editor, intent )
-					),
-			},
-		];
-	}
-
-	return [];
-}
-
-function getContentDropActions( {
-	kind,
-	contentId,
-	attachLabel,
-	media,
-	context,
-}: {
-	kind: SiteContentKind;
-	contentId: number;
-	attachLabel: string;
-	media: SiteContentMediaBlock;
-	context: CustomDropActionContext;
-} ): DropActionMenuAction[] {
-	return [
-		{
-			label: __( 'Set as featured media' ),
-			onClick: () =>
-				runDropAction( context.closeMenu, () =>
-					context.siteContentMediaDropActions.setFeaturedMedia( kind, contentId, media.id )
-				),
-		},
-		{
-			label: attachLabel,
-			onClick: () =>
-				runDropAction( context.closeMenu, () =>
-					context.siteContentMediaDropActions.attachMediaToContent( media.id, contentId )
-				),
-		},
-		{
-			label: __( 'Insert media block' ),
-			onClick: () =>
-				runDropAction( context.closeMenu, () =>
-					context.siteContentMediaDropActions.insertMediaBlock( kind, contentId, media )
-				),
-		},
-	];
-}
-
-function runDropAction( closeMenu: () => void, action: () => void | Promise< unknown > ) {
-	closeMenu();
-	let result: void | Promise< unknown >;
-	try {
-		result = action();
-	} catch ( error ) {
-		console.warn( 'Failed to handle widget drop action.', error );
-		return;
-	}
-	void Promise.resolve( result ).catch( ( error ) => {
-		console.warn( 'Failed to handle widget drop action.', error );
-	} );
-}
-
-function updateScratchpadReference( editor: Editor, intent: WidgetCustomDropIntent ) {
-	const mediaProps = intent.sourceWidget.widgetProps;
-	const targetShape = editor.getShape( intent.targetShapeId ) as RectangleWidgetShape | undefined;
-	if (
-		! isMediaWidgetProps( mediaProps ) ||
-		! targetShape ||
-		targetShape.type !== RECTANGLE_WIDGET_SHAPE_TYPE ||
-		! isScratchpadWidgetProps( targetShape.props.widgetProps )
-	) {
-		return;
-	}
-
-	const currentDescription = targetShape.props.widgetProps.description ?? '';
-	editor.updateShape< RectangleWidgetShape >( {
-		id: targetShape.id,
-		type: RECTANGLE_WIDGET_SHAPE_TYPE,
-		props: {
-			widgetProps: {
-				...targetShape.props.widgetProps,
-				description: currentDescription.trim()
-					? currentDescription
-					: BUILD_SOMETHING_LIKE_THIS_PROMPT,
-				reference: {
-					mediaId: mediaProps.mediaId,
-					url: mediaProps.url,
-					alt: mediaProps.alt,
-				},
-			} satisfies JsonObject,
-		},
-	} );
-}
-
-function createConnectorBetweenWidgets( editor: Editor, intent: WidgetCustomDropIntent ) {
-	const sourceBounds = editor.getShapePageBounds( intent.sourceShapeId );
-	const targetBounds = editor.getShapePageBounds( intent.targetShapeId );
-	if ( ! sourceBounds || ! targetBounds ) {
-		return;
-	}
-
-	const connectorShapeId = createConnectorPreview(
-		editor,
-		intent.sourceShapeId,
-		toPlainPoint( sourceBounds.center ),
-		toPlainPoint( targetBounds.center )
-	);
-	completeConnectorPreview( editor, connectorShapeId, intent.targetShapeId );
-	updateConnectorEnd( editor, connectorShapeId, toPlainPoint( targetBounds.center ) );
 }
 
 function replaceTextShapeWithNote( editor: Editor, shape: TLShape ) {

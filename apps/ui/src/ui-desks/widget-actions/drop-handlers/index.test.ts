@@ -31,22 +31,37 @@ describe( 'widget drop handlers', () => {
 	} );
 
 	it( 'returns custom media handlers for post, page, and scratchpad targets', () => {
-		expect(
-			getWidgetDropHandler( createMediaWidget( { mediaId: 123 } ), createPostWidget() )
-		).toMatchObject( {
+		const postHandler = getWidgetDropHandler(
+			createMediaWidget( { mediaId: 123 } ),
+			createPostWidget()
+		);
+		const pageHandler = getWidgetDropHandler(
+			createMediaWidget( { mediaId: 123 } ),
+			createPageWidget()
+		);
+		const scratchpadHandler = getWidgetDropHandler( createMediaWidget(), createScratchpadWidget() );
+
+		expect( postHandler ).toMatchObject( {
 			id: 'media-actions-for-post',
 			type: 'custom',
 		} );
-		expect(
-			getWidgetDropHandler( createMediaWidget( { mediaId: 123 } ), createPageWidget() )
-		).toMatchObject( {
+		expect( pageHandler ).toMatchObject( {
 			id: 'media-actions-for-page',
 			type: 'custom',
 		} );
-		expect( getWidgetDropHandler( createMediaWidget(), createScratchpadWidget() ) ).toMatchObject( {
+		expect( scratchpadHandler ).toMatchObject( {
 			id: 'media-actions-for-scratchpad',
 			type: 'custom',
 		} );
+		expect( postHandler?.type === 'custom' ? postHandler.getActions : null ).toEqual(
+			expect.any( Function )
+		);
+		expect( pageHandler?.type === 'custom' ? pageHandler.getActions : null ).toEqual(
+			expect.any( Function )
+		);
+		expect( scratchpadHandler?.type === 'custom' ? scratchpadHandler.getActions : null ).toEqual(
+			expect.any( Function )
+		);
 	} );
 
 	it( 'does not return post or page media actions for local-only media', () => {

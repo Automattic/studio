@@ -126,11 +126,50 @@ See the **Playwright env-var caveat** below for what this actually does today.
 
 ## Pre-merge Checklist
 
-- [ ] **Real-site lifecycle verified.** Reviewer manually runs `STUDIO_DLA_ENABLED=1 studio code` against at least one live Wix or Squarespace test site, walks through `/liberate <url>` end-to-end, and confirms the new Studio site contains the expected pages, posts, and media. This is the load-bearing check the orchestrator could not perform.
-- [ ] **Feature-flag default decided for v1.** Currently `STUDIO_DLA_ENABLED` is **off by default** — both the bridge spawn and the policy extension factory early-return when the flag is unset. Owner to confirm whether v1 ships off (current state) or on. If shipping on, the v1 release needs a docs update (the README explicitly mentions the flag) and the bug bar may move.
-- [ ] **Playwright Chromium download story.** T9 sets `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` in CI configs as defensive forward-compat, but the design doc (T11) flags that the env var is currently **inert against modern Playwright**: neither `playwright` nor `playwright-core` has a postinstall hook that honors it, and DLA's own postinstall is `playwright install chromium` which runs unconditionally. Decision needed: either accept the ~150 MB cost in CI (the env var is zero-cost insurance for the future), upstream a fix to DLA's postinstall, or vendor-patch DLA's postinstall in Studio's install pipeline.
-- [ ] **DLA SHA pin is current at merge time.** `apps/cli/package.json` pins `data-liberation` to commit `17219c42b0420267302b138bf402930508006e0e` (audited HEAD as of 2026-05-07). DLA has no semver releases; the pin should be re-verified against `Automattic/data-liberation-agent` `HEAD` before merge and bumped if needed. After bumping, re-check `tools/dla/policy.ts` `defaultPolicyBuckets` for any new tools.
-- [ ] **Orphan-work caveat surfaced for the next maintainer.** DLA's MCP server does not honor `notifications/cancelled`; cancelled `liberate_extract` keeps crawling server-side until the bridge's `dispose()` SIGKILLs the child at session teardown. Filesystem cleanup is bounded by DLA's resume-safe protocol (`extraction-log.jsonl`, `session.json`). Documented in `docs/design-docs/cli.md` and surfaced here so the reviewer is not surprised. Candidate upstream issue against `Automattic/data-liberation-agent`; team lead to file manually.
+Five gates require an explicit human decision before this PR is mergeable. Each gate explains the state of the world and why the decision can't be deferred past merge.
+
+### Gate 1 — Real-site `/liberate` lifecycle verified
+
+- [ ] Reviewer manually runs `STUDIO_DLA_ENABLED=1 studio code` against at least one live Wix or Squarespace test site, walks through `/liberate <url>` end-to-end, and confirms the new Studio site contains the expected pages, posts, and media.
+
+**What's happening:** All Studio CLI implementation work landed and passes the 1724-test unit/integration suite. The bridge spawns DLA, tools register, the policy gates work, the wrapper-skill body parses cleanly. **But none of the implementer agents nor the code-reviewer drove an actual `/liberate` flow against a real source site.** Doing so requires DLA's adapters to perform real network I/O against a closed platform, drive headless Chromium against Wix/Squarespace, produce a real WXR, and import it into a fresh Studio site.
+
+**Why it's a merge-time gate:** Unit tests exercise the bridge, the adapter, the policy, and the runtime wiring — they don't exercise DLA's adapter code paths or the agent's reasoning over real DLA outputs. There may be runtime issues that only surface end-to-end: a wrong tool-argument shape the wrapper skill emits, the content adapter mishandling some MCP response variant DLA produces against a real site, the `importWxr` blueprint failing on an unexpected WXR shape, the `delegate: true` manifest containing an unexpected field. The orchestrator's agents had no way to perform this test (no disposable test site, no credentials, no human in the loop to evaluate "did the migration actually work"). A human reviewer should do it once before merging.
+
+### Gate 2 — Feature-flag default decided for v1
+
+- [ ] Owner confirms whether `STUDIO_DLA_ENABLED` ships **off by default** (current state) or **on by default** for v1. If on, README and design-doc references to the flag must be updated.
+
+**What's happening:** Both the bridge spawn (in `runAgentSessionTurn`) and the policy extension factory (in `DefaultResourceLoader.extensionFactories`) check `STUDIO_DLA_ENABLED === '1'` and early-return when it's unset or `'0'`. With the flag off (the v1 default we shipped), the runtime is byte-for-byte identical to before this PR: no bridge child process, no DLA tools in `customTools`, no policy factory in the resource loader. Users running `studio code` see no `/liberate`, no DLA tools, nothing different.
+
+**Why it's a merge-time gate:** This is a product decision, not a code one. Shipping with the flag **off** means `/liberate` is invisible to users until someone manually sets the env var — fine for a staged rollout, but defeats the discovery story (no one will find `/liberate` by accident; the slash menu won't autocomplete it). Shipping with the flag **on** means every user gets `/liberate` by default — better discoverability, but takes on the bridge child-process lifecycle, the ~150 MB Chromium download, and the cancellation-orphan caveat (Gate 5) for the entire user base on first install. The reviewer should pick which posture matches the project's rollout plan. Could also be conditional (on for opt-in beta tracks, off for stable). Either choice is defensible; the orchestrator does not have the project context to choose.
+
+### Gate 3 — Playwright Chromium download story decided
+
+- [ ] Owner decides whether to accept the ~150 MB CI cost, upstream a fix to DLA's postinstall, vendor-patch DLA via `patch-package`, or pre-populate `PLAYWRIGHT_BROWSERS_PATH` from a CI cache.
+
+**What's happening:** DLA's `package.json` has `"postinstall": "playwright install chromium"`. When any `npm install` pulls DLA in (CI, dev machines, end-user `npm install -g wp-studio`), DLA's postinstall fires and downloads ~150 MB of headless Chromium binaries. Wix and Squarespace adapters use that Chromium to scrape JavaScript-rendered pages. T9 set `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` in `.buildkite/`, `.github/workflows/`, and the `install:bundle` script — the documented Playwright way to skip the download.
+
+**Why it's a merge-time gate:** The T9 implementer discovered empirically that **the env var is currently inert.** Modern Playwright (the one DLA pins) no longer has a postinstall hook of its own — that hook was the only place `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD` got consulted. DLA's postinstall calls Playwright's `installBrowsers()` function directly, which doesn't check the env var. So today, setting it has no effect — Chromium still downloads on every CI build. The env var landed anyway as zero-cost forward-compat (if Playwright re-adds postinstall behavior, or we patch DLA, it's already wired everywhere), but **the ~150 MB CI cost is currently unmitigated.** The reviewer should pick a mitigation strategy (or explicitly accept the cost) before merge so the gap is closed in the same release cycle, not deferred indefinitely.
+
+### Gate 4 — DLA SHA pin is current at merge time
+
+- [ ] Reviewer compares the pinned SHA to `Automattic/data-liberation-agent`'s `HEAD`. If DLA has shipped meaningful commits since 2026-05-07, bump the pin and re-run the smoke test. After bumping, re-check `tools/dla/policy.ts` `defaultPolicyBuckets` for any new tools.
+
+**What's happening:** DLA isn't published to npm and has no git tags. To get a reproducible install, we pinned it to a specific commit SHA: `"data-liberation": "github:Automattic/data-liberation-agent#17219c42b0420267302b138bf402930508006e0e"` in `apps/cli/package.json`. That SHA was the DLA HEAD on 2026-05-07 (when wave-1 audited DLA's source).
+
+**Why it's a merge-time gate:** DLA is actively developed. Between when we picked the SHA and the merge moment, DLA may have shipped useful fixes (e.g., `notifications/cancelled` support — Gate 5), or it may have shipped breaking changes our wrapper-skill or policy buckets assume the absence of. There's no automation here — no Dependabot, no Renovate, `github:` deps aren't auto-tracked. Bumping the pin is a one-line edit, but it must be a conscious decision at merge time, not "merge with the stale SHA because no one looked." Specifically: if DLA added a 14th MCP tool since 2026-05-07, our `defaultPolicyBuckets` (which enumerates all 13 known tools) will fall into the defensive "unknown DLA tool → deny" path for the new tool, making it unreachable through `/liberate` until the bucket table is extended.
+
+### Gate 5 — Upstream-DLA issue for `notifications/cancelled` filed
+
+- [ ] Team lead files an issue against `Automattic/data-liberation-agent` requesting that DLA's MCP server wire `notifications/cancelled` (and ideally `progressToken`) into its tool handlers.
+
+**What's happening:** MCP has a standard protocol message called `notifications/cancelled` that a client sends to the server when it wants to abort an in-flight tool call. Well-behaved MCP servers receive it and stop the work. Studio's bridge wires this correctly — when the agent's `AbortSignal` fires (Ctrl+C, model decides to bail), the bridge forwards the abort to DLA via `notifications/cancelled`. But DLA's MCP server doesn't honor it — DLA receives the message and keeps working.
+
+**Why it's a merge-time gate:** Concretely: if the agent kicks off `liberate_extract` against a Wix site and 30 seconds in the user cancels, Studio sees the tool call as cancelled and the agent moves on. From DLA's side, the extraction continues silently to completion, writing partial output to disk. This is bounded — DLA's resume-safe protocol (`extraction-log.jsonl`, `session.json`, `media-stubs.json`) detects and reuses those partial outputs on the next `liberate_extract` run, so it's not data loss. But it is wasted CPU/network/disk in the background and mildly surprising semantics (the user thinks they cancelled, but source-platform requests keep going for a while). The orchestrator left filing the upstream issue to a human because it's cross-team coordination, not an in-repo implementation change. Filing it before merge surfaces the gap, lets DLA's maintainers plan a fix, and tracks the eventual update to Studio's docs.
+
+### Standard checklist
+
 - [ ] Have you checked for TypeScript, React or other console errors? — Yes (`npm run typecheck` clean across all workspaces; lint clean on touched files).
 - [ ] Is the PR scoped? — Combined research + implementation, intentionally bundled by owner direction. The implementation is the **direct response** to the research recommendation; both artifacts read in tandem.
 - [ ] Does the PR avoid `apps/studio/` changes? — Yes (`git diff --stat 46d83870..HEAD -- 'apps/studio/'` is empty).

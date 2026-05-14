@@ -36,6 +36,7 @@ vi.mock( '@/ui-desks/widgets/site-card/preview-control', () => ( {
 	SiteCardPreviewControl: () => null,
 } ) );
 vi.mock( '@/ui-desks/widgets/site-card/edit-controls', () => ( {
+	SiteCardEditControl: () => null,
 	SiteCardEditCancelControl: () => null,
 	SiteCardEditSaveControl: () => null,
 } ) );
@@ -65,14 +66,14 @@ describe( 'widget edit actions', () => {
 		).toEqual( { kind: 'canvas-editing' } );
 	} );
 
-	it( 'uses focus mode for site identity card editing', () => {
+	it( 'does not expose a generic edit action for site identity card editing', () => {
 		expect(
 			getEditAction( siteCardWidgetDefinition )( {
 				widget: createSiteCardWidget(),
 				hasSiteId: false,
 				hasRunningSite: false,
 			} )
-		).toEqual( { kind: 'focus-mode' } );
+		).toBeNull();
 	} );
 
 	it( 'uses WordPress admin URLs for site-backed widgets', () => {

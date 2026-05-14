@@ -199,10 +199,7 @@ export type WidgetFitContentResult< TWidget extends DeskWidgetBase = DeskWidgetB
 	| TWidget[ 'shapeProps' ]
 	| null;
 
-export type WidgetEditAction =
-	| { kind: 'canvas-editing' }
-	| { kind: 'focus-mode' }
-	| { kind: 'site-url'; path: string };
+export type WidgetEditAction = { kind: 'canvas-editing' } | { kind: 'site-url'; path: string };
 
 export interface WidgetEditActionContext< TWidget extends DeskWidgetBase = DeskWidgetBase > {
 	widget: TWidget;

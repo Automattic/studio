@@ -6,6 +6,7 @@ import {
 	SiteCardEditCancelControl,
 	SiteCardEditSaveControl,
 } from '@/ui-desks/widgets/site-card/edit-controls';
+import { registerSiteCardEditSession } from '@/ui-desks/widgets/site-card/edit-session';
 import { SiteCardPreviewControl } from '@/ui-desks/widgets/site-card/preview-control';
 import { isSiteCardWidgetProps, SITE_CARD_WIDGET_TYPE } from '@/ui-desks/widgets/site-card/types';
 import { DeskWidgetToolbar } from './index';
@@ -119,12 +120,12 @@ describe( 'DeskWidgetToolbar', () => {
 
 	it( 'renders the site-card camera preview control in the selection toolbar', () => {
 		const updateSelectedWidgetProps = vi.fn();
-		const updateSelectedWidgetShapeProps = vi.fn();
+		const fitSelectedWidgetToContent = vi.fn().mockResolvedValue( true );
 		useDeskMock.mockReturnValue(
 			createDeskContext( {
 				selectedWidgetToolbarItem: createSiteCardSelection(),
 				updateSelectedWidgetProps,
-				updateSelectedWidgetShapeProps,
+				fitSelectedWidgetToContent,
 			} )
 		);
 
@@ -133,12 +134,18 @@ describe( 'DeskWidgetToolbar', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Show preview' } ) );
 
 		expect( updateSelectedWidgetProps ).toHaveBeenCalledWith( { previewVisible: true } );
-		expect( updateSelectedWidgetShapeProps ).toHaveBeenCalledWith( { h: 440 } );
+		expect( fitSelectedWidgetToContent ).toHaveBeenCalledTimes( 1 );
 	} );
 
 	it( 'renders site-card save and cancel actions as focus mode controls', () => {
-		const requestSiteCardEditAction = vi.fn();
+		const requestAction = vi.fn();
 		const focusedWidget = createSiteCardWidget();
+		const unregister = registerSiteCardEditSession( focusedWidget.id, {
+			isDirty: true,
+			isSaving: false,
+			canSave: true,
+			requestAction,
+		} );
 		useDeskMock.mockReturnValue(
 			createDeskContext( {
 				focusMode: {
@@ -161,8 +168,6 @@ describe( 'DeskWidgetToolbar', () => {
 					],
 					focusModeControlsLabel: () => 'Edit site identity actions',
 				} ),
-				isSiteCardEditDirty: true,
-				requestSiteCardEditAction,
 			} )
 		);
 
@@ -171,13 +176,20 @@ describe( 'DeskWidgetToolbar', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Save' } ) );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Cancel' } ) );
 
-		expect( requestSiteCardEditAction ).toHaveBeenCalledWith( 'save' );
-		expect( requestSiteCardEditAction ).toHaveBeenCalledWith( 'cancel' );
+		expect( requestAction ).toHaveBeenCalledWith( 'save' );
+		expect( requestAction ).toHaveBeenCalledWith( 'cancel' );
+		unregister();
 	} );
 
 	it( 'shows a busy save button while the site card is saving', () => {
-		const requestSiteCardEditAction = vi.fn();
+		const requestAction = vi.fn();
 		const focusedWidget = createSiteCardWidget();
+		const unregister = registerSiteCardEditSession( focusedWidget.id, {
+			isDirty: true,
+			isSaving: true,
+			canSave: true,
+			requestAction,
+		} );
 		useDeskMock.mockReturnValue(
 			createDeskContext( {
 				focusMode: {
@@ -200,9 +212,6 @@ describe( 'DeskWidgetToolbar', () => {
 					],
 					focusModeControlsLabel: () => 'Edit site identity actions',
 				} ),
-				isSiteCardEditDirty: true,
-				isSiteCardEditSaving: true,
-				requestSiteCardEditAction,
 			} )
 		);
 
@@ -214,7 +223,8 @@ describe( 'DeskWidgetToolbar', () => {
 		expect( saveButton ).toHaveAttribute( 'aria-busy', 'true' );
 		expect( screen.getByText( 'Saving' ) ).toBeVisible();
 		fireEvent.click( saveButton );
-		expect( requestSiteCardEditAction ).not.toHaveBeenCalled();
+		expect( requestAction ).not.toHaveBeenCalled();
+		unregister();
 	} );
 } );
 
@@ -232,9 +242,6 @@ function createDeskContext( overrides: Partial< DeskContextValue > = {} ): DeskC
 		focusMode: null,
 		focusedWidget: null,
 		focusedWidgetDefinition: null,
-		siteCardEditAction: null,
-		isSiteCardEditDirty: false,
-		isSiteCardEditSaving: false,
 		pressedStackId: null,
 		registerEditor: vi.fn(),
 		pressStack: vi.fn(),
@@ -244,13 +251,8 @@ function createDeskContext( overrides: Partial< DeskContextValue > = {} ): DeskC
 		startDrawing: vi.fn(),
 		finishDrawing: vi.fn().mockResolvedValue( false ),
 		updateSelectedWidgetProps: vi.fn(),
-		updateSelectedWidgetShapeProps: vi.fn(),
 		canEditSelectedWidget: false,
 		editSelectedWidget: vi.fn(),
-		requestSiteCardEditAction: vi.fn(),
-		completeSiteCardEdit: vi.fn(),
-		setSiteCardEditDirty: vi.fn(),
-		setSiteCardEditSaving: vi.fn(),
 		fitSelectedWidgetToContent: vi.fn().mockResolvedValue( false ),
 		stackSelectedWidgets: vi.fn(),
 		unstackSelectedWidgets: vi.fn(),

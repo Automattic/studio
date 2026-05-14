@@ -502,17 +502,12 @@ export function DeskCanvasContextMenu( { editor, state, onClose }: DeskCanvasCon
 	);
 
 	function handleEditWidget() {
-		if ( ! singleShape || ! singleWidget || ! singleEditAction ) {
+		if ( ! singleShape || ! singleEditAction ) {
 			return;
 		}
 
 		if ( singleEditAction.kind === 'canvas-editing' ) {
 			editor.setEditingShape( singleShape.id );
-			return;
-		}
-
-		if ( singleEditAction.kind === 'focus-mode' ) {
-			desk.startFocusMode( singleWidget.id );
 			return;
 		}
 

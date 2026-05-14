@@ -249,49 +249,6 @@ export function updateSelectedWidgetPropsInEditor(
 	};
 }
 
-export function updateSelectedWidgetShapePropsInEditor(
-	editor: Editor,
-	shapeProps: Record< string, unknown >
-): SelectedWidgetToolbarItem | null {
-	const selection = getCurrentSelectedWidgetSelection( editor );
-	if ( ! selection || selection.item.kind !== 'single-widget' ) {
-		return null;
-	}
-
-	const { item, shapes } = selection;
-	const [ shape ] = shapes;
-	if (
-		! isRectangleWidgetShape( shape ) ||
-		! isRectangleWidgetShapeProps( shape.props.shapeProps )
-	) {
-		return null;
-	}
-
-	const nextShapeProps = {
-		...shape.props.shapeProps,
-		...shapeProps,
-	};
-	if ( ! isRectangleWidgetShapeProps( nextShapeProps ) ) {
-		return null;
-	}
-
-	editor.updateShape< RectangleWidgetShape >( {
-		id: shape.id as RectangleWidgetShape[ 'id' ],
-		type: RECTANGLE_WIDGET_SHAPE_TYPE,
-		props: {
-			shapeProps: nextShapeProps,
-		},
-	} );
-
-	return {
-		...item,
-		widget: {
-			...item.widget,
-			shapeProps: nextShapeProps,
-		} as DeskWidget,
-	};
-}
-
 export async function fitSelectedWidgetToContentInEditor( editor: Editor ) {
 	const selection = getCurrentSelectedWidgetSelection( editor );
 	if ( ! selection || selection.item.kind !== 'single-widget' ) {

@@ -50,13 +50,11 @@ import {
 import { LOADING_WIDGET_TYPE } from '@/ui-desks/widgets/loading/types';
 import { NOTE_WIDGET_TYPE } from '@/ui-desks/widgets/note/types';
 import { getWidgetDefinition } from '@/ui-desks/widgets/registry';
-import { SITE_CARD_WIDGET_TYPE } from '@/ui-desks/widgets/site-card/types';
 import {
 	DeskContext,
 	type AddDeskWidgetOptions,
 	type DeskProviderProps,
 	type SelectedWidgetToolbarItem,
-	type SiteCardEditAction,
 } from './context';
 import {
 	addWidgetToEditor,
@@ -74,7 +72,6 @@ import {
 	stackSelectedWidgetsInEditor,
 	unstackSelectedWidgetsInEditor,
 	updateSelectedWidgetPropsInEditor,
-	updateSelectedWidgetShapePropsInEditor,
 } from './editor-state';
 import { useDeskPersistence } from './persistence';
 import { useDeskWidgetResolvers } from './resolvers';
@@ -136,11 +133,6 @@ export function DeskProvider( {
 	);
 	const [ focusMode, setFocusModeState ] = useState< DeskFocusMode | null >( null );
 	const [ focusedWidget, setFocusedWidget ] = useState< DeskWidget | null >( null );
-	const [ siteCardEditAction, setSiteCardEditAction ] = useState< SiteCardEditAction | null >(
-		null
-	);
-	const [ isSiteCardEditDirty, setIsSiteCardEditDirtyState ] = useState( false );
-	const [ isSiteCardEditSaving, setIsSiteCardEditSavingState ] = useState( false );
 	const [ pressedStackId, setPressedStackId ] = useState< string | null >( null );
 	const hydratedRef = useRef( false );
 	const deskConfigKeyRef = useRef< string | undefined >( undefined );
@@ -205,9 +197,6 @@ export function DeskProvider( {
 		setPendingConnectorSourceId( null );
 		setFocusModeState( null );
 		setFocusedWidget( null );
-		setSiteCardEditAction( null );
-		setIsSiteCardEditDirtyState( false );
-		setIsSiteCardEditSavingState( false );
 		focusDimmingActiveRef.current = false;
 		focusPersistencePausedRef.current = false;
 		if ( focusPersistenceResumeTimerRef.current ) {
@@ -457,9 +446,6 @@ export function DeskProvider( {
 				setPendingConnectorSourceId( null );
 				setFocusModeState( null );
 				setFocusedWidget( null );
-				setSiteCardEditAction( null );
-				setIsSiteCardEditDirtyState( false );
-				setIsSiteCardEditSavingState( false );
 				focusRestoreCameraRef.current = null;
 				focusShapeIdsRef.current = new Set();
 				focusShapeRestoreRef.current.clear();
@@ -598,25 +584,29 @@ export function DeskProvider( {
 		[ editor, isHydrated, isReadOnly ]
 	);
 
-	const updateSelectedWidgetShapeProps = useCallback(
-		( shapeProps: Record< string, unknown > ) => {
-			if ( isReadOnly || ! editor || ! isHydrated ) {
+	const editSelectedWidget = useCallback( () => {
+		if ( ! editor || ! selectedWidgetEditAction ) {
+			return false;
+		}
+
+		if ( selectedWidgetEditAction.kind === 'canvas-editing' ) {
+			const [ selectedShapeId ] = editor.getSelectedShapeIds();
+			if ( ! selectedShapeId ) {
 				return false;
 			}
 
-			const nextSelectedWidgetToolbarItem = updateSelectedWidgetShapePropsInEditor(
-				editor,
-				shapeProps
-			);
-			if ( ! nextSelectedWidgetToolbarItem ) {
-				return false;
-			}
-
-			setSelectedWidgetToolbarItem( nextSelectedWidgetToolbarItem );
+			editor.setEditingShape( selectedShapeId );
+			editor.focus();
 			return true;
-		},
-		[ editor, isHydrated, isReadOnly ]
-	);
+		}
+
+		if ( ! siteId ) {
+			return false;
+		}
+
+		void connector.openSiteUrl( siteId, selectedWidgetEditAction.path );
+		return true;
+	}, [ connector, editor, selectedWidgetEditAction, siteId ] );
 
 	const fitSelectedWidgetToContent = useCallback( async () => {
 		if (
@@ -764,9 +754,6 @@ export function DeskProvider( {
 			editor.setSelectedShapes( [ shapeId ] );
 			editor.setCameraOptions( { ...editor.getCameraOptions(), isLocked: true } );
 			setPendingConnectorSourceId( null );
-			setSiteCardEditAction( null );
-			setIsSiteCardEditDirtyState( false );
-			setIsSiteCardEditSavingState( false );
 			setFocusedWidget( widget );
 			setFocusModeState( { widgetId, focusDesk: initialFocusDesk } );
 			editor.focus();
@@ -774,45 +761,6 @@ export function DeskProvider( {
 		},
 		[ editor, isHydrated, isReadOnly, saveDeskConfig ]
 	);
-
-	const editSelectedWidget = useCallback( () => {
-		if ( ! editor || ! selectedWidgetEditAction ) {
-			return false;
-		}
-
-		if ( selectedWidgetEditAction.kind === 'canvas-editing' ) {
-			const [ selectedShapeId ] = editor.getSelectedShapeIds();
-			if ( ! selectedShapeId ) {
-				return false;
-			}
-
-			editor.setEditingShape( selectedShapeId );
-			editor.focus();
-			return true;
-		}
-
-		if ( selectedWidgetEditAction.kind === 'focus-mode' ) {
-			if ( selectedWidgetToolbarItem?.kind !== 'single-widget' ) {
-				return false;
-			}
-
-			return startFocusMode( selectedWidgetToolbarItem.widget.id );
-		}
-
-		if ( ! siteId ) {
-			return false;
-		}
-
-		void connector.openSiteUrl( siteId, selectedWidgetEditAction.path );
-		return true;
-	}, [
-		connector,
-		editor,
-		selectedWidgetEditAction,
-		selectedWidgetToolbarItem,
-		siteId,
-		startFocusMode,
-	] );
 
 	const setFocusDesk = useCallback( ( nextFocusDesk: DeskFocusDesk ) => {
 		let didUpdate = false;
@@ -874,76 +822,9 @@ export function DeskProvider( {
 		}, FOCUS_PERSISTENCE_RESUME_DELAY );
 		setFocusModeState( null );
 		setFocusedWidget( null );
-		setSiteCardEditAction( null );
-		setIsSiteCardEditDirtyState( false );
-		setIsSiteCardEditSavingState( false );
 		editor.focus();
 		return true;
 	}, [ editor ] );
-
-	const requestSiteCardEditAction = useCallback(
-		( action: 'save' | 'cancel' ) => {
-			if (
-				! focusMode ||
-				! focusedWidget ||
-				focusMode.widgetId !== focusedWidget.id ||
-				focusedWidget.type !== SITE_CARD_WIDGET_TYPE
-			) {
-				return false;
-			}
-			if ( action === 'save' && isSiteCardEditSaving ) {
-				return false;
-			}
-
-			setSiteCardEditAction( {
-				widgetId: focusedWidget.id,
-				action,
-				token: Date.now(),
-			} );
-			return true;
-		},
-		[ focusMode, focusedWidget, isSiteCardEditSaving ]
-	);
-
-	const completeSiteCardEdit = useCallback(
-		( widgetId: string ) => {
-			setSiteCardEditAction( ( currentAction ) =>
-				currentAction?.widgetId === widgetId ? null : currentAction
-			);
-			setIsSiteCardEditDirtyState( false );
-			setIsSiteCardEditSavingState( false );
-			if ( focusMode?.widgetId === widgetId ) {
-				stopFocusMode();
-			}
-		},
-		[ focusMode?.widgetId, stopFocusMode ]
-	);
-
-	const setSiteCardEditDirty = useCallback(
-		( widgetId: string, isDirty: boolean ) => {
-			setIsSiteCardEditDirtyState( ( currentIsDirty ) => {
-				return focusMode?.widgetId === widgetId &&
-					focusedWidget?.type === SITE_CARD_WIDGET_TYPE &&
-					currentIsDirty !== isDirty
-					? isDirty
-					: currentIsDirty;
-			} );
-		},
-		[ focusMode?.widgetId, focusedWidget?.type ]
-	);
-
-	const setSiteCardEditSaving = useCallback(
-		( widgetId: string, isSaving: boolean ) => {
-			setIsSiteCardEditSavingState( ( currentIsSaving ) => {
-				return focusMode?.widgetId === widgetId &&
-					focusedWidget?.type === SITE_CARD_WIDGET_TYPE &&
-					currentIsSaving !== isSaving
-					? isSaving
-					: currentIsSaving;
-			} );
-		},
-		[ focusMode?.widgetId, focusedWidget?.type ]
-	);
 
 	useEffect( () => {
 		if ( ! editor ) {
@@ -1055,9 +936,6 @@ export function DeskProvider( {
 			focusMode,
 			focusedWidget,
 			focusedWidgetDefinition,
-			siteCardEditAction,
-			isSiteCardEditDirty,
-			isSiteCardEditSaving,
 			pressedStackId,
 			registerEditor,
 			pressStack,
@@ -1067,13 +945,8 @@ export function DeskProvider( {
 			startDrawing,
 			finishDrawing,
 			updateSelectedWidgetProps,
-			updateSelectedWidgetShapeProps,
 			canEditSelectedWidget: Boolean( selectedWidgetEditAction ),
 			editSelectedWidget,
-			requestSiteCardEditAction,
-			completeSiteCardEdit,
-			setSiteCardEditDirty,
-			setSiteCardEditSaving,
 			fitSelectedWidgetToContent,
 			stackSelectedWidgets,
 			unstackSelectedWidgets,
@@ -1100,28 +973,21 @@ export function DeskProvider( {
 			focusedWidgetDefinition,
 			focusMode,
 			getFocusDeskSnapshot,
-			completeSiteCardEdit,
 			isHydrated,
 			isReadOnly,
 			isLoading,
-			isSiteCardEditDirty,
-			isSiteCardEditSaving,
 			pendingConnectorSourceId,
 			pressStack,
 			pressedStackId,
 			registerEditor,
 			removeSelectedConnector,
 			removeSelectedWidget,
-			requestSiteCardEditAction,
 			selectedConnectorToolbarItem,
 			selectedWidgetConnectionTargets,
 			selectedWidgetToolbarItem,
 			selectedWidgetEditAction,
 			setFocusDesk,
-			setSiteCardEditDirty,
-			setSiteCardEditSaving,
 			setSelectedStackView,
-			siteCardEditAction,
 			stackSelectedWidgets,
 			startDrawing,
 			startConnectingWidget,
@@ -1131,7 +997,6 @@ export function DeskProvider( {
 			stopFocusMode,
 			unstackSelectedWidgets,
 			updateSelectedWidgetProps,
-			updateSelectedWidgetShapeProps,
 		]
 	);
 

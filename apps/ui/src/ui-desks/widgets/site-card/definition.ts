@@ -5,10 +5,12 @@ import {
 	SiteCardWidgetThumbnailComponent,
 } from '@/ui-desks/widgets/site-card/component';
 import {
+	SiteCardEditControl,
 	SiteCardEditCancelControl,
 	SiteCardEditSaveControl,
 } from '@/ui-desks/widgets/site-card/edit-controls';
 import { SiteCardPreviewControl } from '@/ui-desks/widgets/site-card/preview-control';
+import { getFittedSiteCardShapeProps } from '@/ui-desks/widgets/site-card/sizing';
 import { isSiteCardWidgetProps, SITE_CARD_WIDGET_TYPE, type SiteCardWidget } from './types';
 import type { WidgetDefinition } from '@/ui-desks/widgets/types';
 
@@ -18,6 +20,11 @@ export const siteCardWidgetDefinition = {
 	Component: SiteCardWidgetComponent,
 	thumbnail: SiteCardWidgetThumbnailComponent,
 	controls: [
+		{
+			type: 'custom',
+			id: 'edit-site-card',
+			Component: SiteCardEditControl,
+		},
 		{
 			type: 'custom',
 			id: 'site-card-preview',
@@ -33,7 +40,6 @@ export const siteCardWidgetDefinition = {
 	} ),
 	labels: {
 		add: () => __( 'New site card' ),
-		edit: () => __( 'Edit site identity' ),
 	},
 	icon: globe,
 	getInitialWidget: () => ( {
@@ -46,7 +52,7 @@ export const siteCardWidgetDefinition = {
 		},
 	} ),
 	getSummary: () => __( 'Site card' ),
-	getEditAction: () => ( { kind: 'focus-mode' } ),
+	getFittedShapeProps: getFittedSiteCardShapeProps,
 	focusModeControls: [
 		{
 			type: 'custom',

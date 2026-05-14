@@ -9,6 +9,7 @@ import { getSiteDisplayUrl } from '@/lib/get-site-url';
 import { LoadingPlaceholder } from '@/ui-desks/components';
 import { useDesk } from '@/ui-desks/desk/provider';
 import { getSitePreviewUrl, withPreviewFlag } from '@/ui-desks/widgets/site-preview/url';
+import { registerSiteCardEditSession, type SiteCardEditAction } from '../edit-session';
 import { SITE_CARD_WIDGET_TYPE, type SiteCardWidgetProps } from '../types';
 import { parseJsonObject, parseSiteIdentitySettings, type SiteIdentitySettings } from './settings';
 import styles from './style.module.css';
@@ -57,8 +58,7 @@ export function SiteCardWidgetComponent( {
 	const taglineRef = useRef< HTMLDivElement | null >( null );
 	const previewUrl = getSitePreviewUrl( site, '/' );
 	const canUseSiteRest = Boolean( effectiveSiteId && site?.running );
-	const canSave =
-		canUseSiteRest && Boolean( draftTitle.trim() ) && ! isSaving && ! settingsQuery.isLoading;
+	const canSave = canUseSiteRest && Boolean( draftTitle.trim() ) && ! settingsQuery.isLoading;
 	const previewFrameUrl = previewUrl ? withPreviewFlag( previewUrl ) : '';
 	const displayedIconSrc = isIconRemoved ? null : draftIconPreview || currentIconSrc;
 	const isDirty =
@@ -131,21 +131,12 @@ export function SiteCardWidgetComponent( {
 		return () => window.cancelAnimationFrame( frame );
 	}, [ isEditingIdentity ] );
 
-	useEffect( () => {
-		if ( ! isFocusedSiteCard ) {
-			return;
+	const completeEditing = () => {
+		if ( isFocusedSiteCard ) {
+			desk.stopFocusMode();
 		}
-
-		desk.setSiteCardEditDirty( id, isDirty );
-	}, [ desk, id, isDirty, isFocusedSiteCard ] );
-
-	useEffect( () => {
-		if ( ! isFocusedSiteCard ) {
-			return;
-		}
-
-		desk.setSiteCardEditSaving( id, isSaving );
-	}, [ desk, id, isFocusedSiteCard, isSaving ] );
+		onEditComplete();
+	};
 
 	const cancelEditing = () => {
 		setDraftTitle( title );
@@ -154,12 +145,11 @@ export function SiteCardWidgetComponent( {
 		setDraftIconPreview( null );
 		setIsIconRemoved( false );
 		setError( null );
-		desk.completeSiteCardEdit( id );
-		onEditComplete();
+		completeEditing();
 	};
 
 	const saveIdentity = async () => {
-		if ( ! effectiveSiteId || ! site || ! canSave ) {
+		if ( ! effectiveSiteId || ! site || ! canSave || isSaving ) {
 			return;
 		}
 
@@ -198,8 +188,7 @@ export function SiteCardWidgetComponent( {
 			setDraftIconFile( null );
 			setDraftIconPreview( null );
 			setIsIconRemoved( false );
-			desk.completeSiteCardEdit( id );
-			onEditComplete();
+			completeEditing();
 		} catch ( saveError ) {
 			setError(
 				saveError instanceof Error ? saveError.message : __( 'Unable to save site identity.' )
@@ -210,19 +199,24 @@ export function SiteCardWidgetComponent( {
 	};
 
 	useEffect( () => {
-		const action = desk.siteCardEditAction;
-		if ( ! action || action.widgetId !== id ) {
+		if ( ! isFocusedSiteCard ) {
 			return;
 		}
 
-		if ( action.action === 'save' ) {
-			void saveIdentity();
-			return;
-		}
+		return registerSiteCardEditSession( id, {
+			isDirty,
+			isSaving,
+			canSave,
+			requestAction: ( action: SiteCardEditAction ) => {
+				if ( action === 'save' ) {
+					void saveIdentity();
+					return;
+				}
 
-		cancelEditing();
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [ desk.siteCardEditAction?.token ] );
+				cancelEditing();
+			},
+		} );
+	} );
 
 	const handleIconChange = ( event: ChangeEvent< HTMLInputElement > ) => {
 		const [ file ] = Array.from( event.target.files ?? [] );

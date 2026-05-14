@@ -12,6 +12,7 @@ import {
 	ContentTabAssistant,
 	MIMIC_CONVERSATION_DELAY,
 	WpcomAssistant,
+	WpcomSiteAssistant,
 } from 'src/components/content-tab-assistant';
 import { LOCAL_STORAGE_CHAT_MESSAGES_KEY, CLEAR_HISTORY_REMINDER_TIME } from 'src/constants';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
@@ -22,6 +23,7 @@ import { store } from 'src/stores';
 import { generateMessage, chatActions } from 'src/stores/chat-slice';
 import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 import { useGetAssistantQuota, useGetWelcomeMessages } from 'src/stores/wpcom-api';
+import type { SyncSite } from '@studio/common/types/sync';
 import type { WPCOM } from 'wpcom/types';
 
 store.replaceReducer( testReducer );
@@ -124,12 +126,33 @@ describe( 'ContentTabAssistant', () => {
 
 	type ContextState = {
 		selectedSite?: SiteDetails;
+		selectedWpcomSite?: SyncSite;
 		auth?: Partial< AuthContextType >;
-		component?: 'content-tab' | 'wpcom';
+		component?: 'content-tab' | 'wpcom' | 'wpcom-site';
+	};
+
+	const firstWpcomSite: SyncSite = {
+		id: 123,
+		localSiteId: '',
+		name: 'Dolly Site',
+		url: 'https://dolly.example',
+		isStaging: false,
+		isPressable: false,
+		syncSupport: 'syncable',
+		lastPullTimestamp: null,
+		lastPushTimestamp: null,
+	};
+
+	const secondWpcomSite: SyncSite = {
+		...firstWpcomSite,
+		id: 456,
+		name: 'Second Dolly Site',
+		url: 'https://second-dolly.example',
 	};
 
 	const buildContextTree = ( {
 		selectedSite = runningSite,
+		selectedWpcomSite = firstWpcomSite,
 		auth = {},
 		component = 'wpcom',
 	}: ContextState = {} ) => {
@@ -147,6 +170,11 @@ describe( 'ContentTabAssistant', () => {
 					<ThemeDetailsProvider>
 						{ component === 'content-tab' ? (
 							<ContentTabAssistant selectedSite={ selectedSite } />
+						) : component === 'wpcom-site' ? (
+							<WpcomSiteAssistant
+								key={ selectedWpcomSite.id }
+								selectedWpcomSite={ selectedWpcomSite }
+							/>
 						) : (
 							<WpcomAssistant selectedSite={ selectedSite } />
 						) }
@@ -605,6 +633,108 @@ describe( 'ContentTabAssistant', () => {
 				} ),
 			} )
 		);
+	} );
+
+	it( 'starts a fresh Dolly backend session when the selected WP.com site changes', async () => {
+		const dollyClient = {
+			req: {
+				post: vi
+					.fn()
+					.mockImplementationOnce( ( _params, callback ) => {
+						callback( null, {
+							result: {
+								id: 'task-1',
+								sessionId: 'session-for-first-site',
+								status: {
+									state: 'completed',
+									message: {
+										parts: [
+											{
+												type: 'text',
+												text: 'First site response',
+											},
+										],
+									},
+								},
+							},
+						} );
+					} )
+					.mockImplementationOnce( ( _params, callback ) => {
+						callback( null, {
+							result: {
+								id: 'task-2',
+								sessionId: 'session-for-second-site',
+								status: {
+									state: 'completed',
+									message: {
+										parts: [
+											{
+												type: 'text',
+												text: 'Second site response',
+											},
+										],
+									},
+								},
+							},
+						} );
+					} ),
+			},
+		} as unknown as WPCOM;
+
+		const { rerender } = renderWithContext( {
+			component: 'wpcom-site',
+			selectedWpcomSite: firstWpcomSite,
+			auth: {
+				client: dollyClient,
+			},
+		} );
+
+		let textInput = getInput();
+		fireEvent.change( textInput, { target: { value: 'Hello first site' } } );
+		fireEvent.keyDown( textInput, { key: 'Enter', code: 'Enter' } );
+
+		await waitFor( () => {
+			expect( screen.getByText( 'First site response' ) ).toBeVisible();
+		} );
+
+		rerender(
+			buildContextTree( {
+				component: 'wpcom-site',
+				selectedWpcomSite: secondWpcomSite,
+				auth: {
+					client: dollyClient,
+				},
+			} )
+		);
+
+		textInput = getInput();
+		fireEvent.change( textInput, { target: { value: 'Hello second site' } } );
+		fireEvent.keyDown( textInput, { key: 'Enter', code: 'Enter' } );
+
+		await waitFor( () => {
+			expect( screen.getByText( 'Second site response' ) ).toBeVisible();
+		} );
+
+		const secondRequest = vi.mocked( dollyClient.req.post ).mock.calls[ 1 ][ 0 ] as {
+			path: string;
+			body: {
+				params: {
+					sessionId?: string;
+					message: {
+						parts: Array< {
+							data?: { clientContext?: { selectedSiteId?: number } };
+						} >;
+					};
+				};
+			};
+		};
+		const secondClientContextPart = secondRequest.body.params.message.parts.find(
+			( part ) => part.data?.clientContext
+		);
+
+		expect( secondRequest.path ).toBe( '/sites/456/ai/agent/dolly' );
+		expect( secondRequest.body.params.sessionId ).toBeUndefined();
+		expect( secondClientContextPart?.data?.clientContext?.selectedSiteId ).toBe( 456 );
 	} );
 
 	it( 'renders guideline section', () => {

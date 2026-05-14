@@ -123,7 +123,7 @@ type DollyPreviewContext = {
 };
 
 type DollySiteAssociationContext = {
-	status: 'connected' | 'local_only' | 'unassociated' | 'unavailable';
+	status: 'connected' | 'local_only' | 'unassociated' | 'unavailable' | 'wpcom_only';
 	localSiteId: string;
 	localSiteName: string;
 	localSitePath: string;
@@ -313,7 +313,9 @@ const createDollyClientContext = (
 	wpworkspace: {
 		appName: window.appGlobals?.appName ?? 'WordPress Studio',
 		currentActivity:
-			siteAssociation?.status === 'local_only'
+			siteAssociation?.status === 'wpcom_only'
+				? 'Working on a WordPress.com site selected from Studio'
+				: siteAssociation?.status === 'local_only'
 				? 'Discussing a local-only Studio site that is not hosted on WordPress.com'
 				: siteAssociation?.status === 'unassociated'
 				? 'Discussing a Studio site that is not associated with the selected WordPress.com routing site'
@@ -725,6 +727,32 @@ const createSiteAssociationContext = ( {
 	};
 };
 
+const createWpcomOnlySiteDetails = ( selectedWpcomSite: SyncSite ): SiteDetails => ( {
+	id: `wpcom-${ selectedWpcomSite.id }`,
+	name: selectedWpcomSite.name,
+	path: '',
+	port: 0,
+	phpVersion: '',
+	running: true,
+	url: selectedWpcomSite.url,
+} );
+
+const createWpcomOnlySiteAssociationContext = (
+	selectedWpcomSite: SyncSite
+): DollySiteAssociationContext => ( {
+	status: 'wpcom_only',
+	localSiteId: '',
+	localSiteName: '',
+	localSitePath: '',
+	localPreviewUrl: selectedWpcomSite.url,
+	routingWpcomSiteId: selectedWpcomSite.id,
+	routingWpcomSiteUrl: selectedWpcomSite.url,
+	connectedWpcomSiteId: selectedWpcomSite.id,
+	connectedWpcomSiteUrl: selectedWpcomSite.url,
+	instructions:
+		'This is a WordPress.com site selected from Studio that is not connected to a local Studio site. Dolly may manage this WordPress.com site. Studio local site controls, sync tabs, and local filesystem actions do not apply to this selection.',
+} );
+
 const initialPreviewState = (): DollyPreviewState => ( {
 	open: false,
 	pathOrUrl: '/',
@@ -755,10 +783,18 @@ interface DollyPreviewPanelProps {
 }
 
 const DollyPreviewPanelPortal = ( { children }: { children: React.ReactNode } ) => {
-	const portalRoot =
+	const [ portalRoot, setPortalRoot ] = useState< HTMLElement | null >( () =>
 		typeof document === 'undefined'
 			? null
-			: document.getElementById( 'assistant-preview-panel-root' );
+			: document.getElementById( 'assistant-preview-panel-root' )
+	);
+
+	useEffect( () => {
+		if ( typeof document === 'undefined' ) {
+			return;
+		}
+		setPortalRoot( document.getElementById( 'assistant-preview-panel-root' ) );
+	}, [] );
 
 	if ( ! portalRoot ) {
 		return <>{ children }</>;
@@ -1320,6 +1356,10 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	return <DollyAssistant selectedSite={ selectedSite } />;
 }
 
+interface WpcomSiteAssistantProps {
+	selectedWpcomSite: SyncSite;
+}
+
 function DollyAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	const inputRef = useRef< HTMLTextAreaElement >( null );
 	const wrapperRef = useRef< HTMLDivElement >( null );
@@ -1819,6 +1859,320 @@ function DollyAssistant( { selectedSite }: ContentTabAssistantProps ) {
 						}
 						onStartSite={
 							previewMode === 'local' ? () => getIpcApi().startServer( selectedSite.id ) : undefined
+						}
+						onUpdateState={ updatePreviewState }
+					/>
+				</DollyPreviewPanelPortal>
+			) }
+		</div>
+	);
+}
+
+export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantProps ) {
+	const inputRef = useRef< HTMLTextAreaElement >( null );
+	const wrapperRef = useRef< HTMLDivElement >( null );
+	const { isAuthenticated, authenticate, user, client } = useAuth();
+	const isOffline = useOffline();
+	const [ input, setInput ] = useState( '' );
+	const [ messages, setMessages ] = useState< MessageType[] >( [] );
+	const [ sessionId, setSessionId ] = useState< string | undefined >();
+	const [ isAssistantThinking, setIsAssistantThinking ] = useState( false );
+	const [ previewState, setPreviewState ] = useState< DollyPreviewState >( () => ( {
+		...initialPreviewState(),
+		open: true,
+		isLoading: true,
+	} ) );
+	const selectedSite = useMemo(
+		() => createWpcomOnlySiteDetails( selectedWpcomSite ),
+		[ selectedWpcomSite ]
+	);
+	const instanceId = user?.id
+		? `dolly_${ user.id }_wpcom_${ selectedWpcomSite.id }`
+		: `dolly_wpcom_${ selectedWpcomSite.id }`;
+	const previewUrl = useMemo(
+		() => normalizePreviewUrl( selectedWpcomSite.url, previewState.pathOrUrl ),
+		[ previewState.pathOrUrl, selectedWpcomSite.url ]
+	);
+	const siteAssociation = useMemo(
+		() => createWpcomOnlySiteAssociationContext( selectedWpcomSite ),
+		[ selectedWpcomSite ]
+	);
+	const previewContext = useMemo(
+		() => createPreviewContext( selectedSite, previewState, previewUrl ),
+		[ previewState, previewUrl, selectedSite ]
+	);
+	const hasFailedMessage = messages.some( ( msg ) => msg.failedMessage );
+	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];
+
+	const updatePreviewState = useCallback( ( nextState: Partial< DollyPreviewState > ) => {
+		setPreviewState( ( currentState ) => ( { ...currentState, ...nextState } ) );
+	}, [] );
+
+	useEffect( () => {
+		setInput( '' );
+		setMessages( [] );
+		setSessionId( undefined );
+		setIsAssistantThinking( false );
+		setPreviewState( {
+			...initialPreviewState(),
+			open: true,
+			isLoading: true,
+		} );
+	}, [ selectedWpcomSite.id ] );
+
+	const openPreview = useCallback( ( pathOrUrl = '/', title?: string ) => {
+		setPreviewState( ( currentState ) => ( {
+			...currentState,
+			open: true,
+			pathOrUrl,
+			title,
+			pageTitle: undefined,
+			currentUrl: undefined,
+			isLoading: true,
+			reloadNonce: currentState.reloadNonce + 1,
+		} ) );
+	}, [] );
+
+	const executeFrontendTool = useCallback(
+		async ( toolCall: DollyToolCall ): Promise< DollyToolExecution > => {
+			if ( ! isPreviewToolId( toolCall.toolId ) ) {
+				return {
+					toolResult: {
+						toolCallId: toolCall.toolCallId,
+						toolId: toolCall.toolId,
+						error: `WordPress Studio does not provide a frontend ability named ${ toolCall.toolId }.`,
+					},
+				};
+			}
+
+			const requestedUrl = getStringValue( toolCall.arguments, [ 'url', 'URL', 'uri', 'path' ] );
+			if ( ! requestedUrl ) {
+				return {
+					toolResult: {
+						toolCallId: toolCall.toolCallId,
+						toolId: toolCall.toolId,
+						error: 'Preview needs a valid URL or local site path.',
+					},
+				};
+			}
+
+			const title = getStringValue( toolCall.arguments, [ 'title', 'name' ] );
+			const normalizedUrl = normalizePreviewUrl( selectedWpcomSite.url, requestedUrl );
+			openPreview( requestedUrl, title );
+			const displayTitle = title || new URL( normalizedUrl ).host || normalizedUrl;
+			const message = sprintf( __( 'Opened preview: %s' ), displayTitle );
+
+			return {
+				toolResult: {
+					toolCallId: toolCall.toolCallId,
+					toolId: toolCall.toolId,
+					result: {
+						success: true,
+						url: normalizedUrl,
+						message,
+					},
+				},
+				agentMessage: message,
+			};
+		},
+		[ openPreview, selectedWpcomSite.url ]
+	);
+
+	const submitPrompt = useCallback(
+		( chatMessage: string, isRetry?: boolean ) => {
+			const trimmedMessage = chatMessage.trim();
+			if ( ! trimmedMessage || ! client || isAssistantThinking ) {
+				return;
+			}
+
+			if ( ! isRetry ) {
+				setInput( '' );
+			}
+
+			const newMessageId = isRetry ? messages.length - 1 : messages.length;
+			const message = generateMessage( trimmedMessage, 'user', newMessageId );
+
+			setMessages( ( currentMessages ) => {
+				if ( ! isRetry ) {
+					return [ ...currentMessages, message ];
+				}
+
+				return currentMessages.map( ( currentMessage ) =>
+					currentMessage.id === message.id
+						? { ...currentMessage, failedMessage: false }
+						: currentMessage
+				);
+			} );
+			setIsAssistantThinking( true );
+
+			void sendDollyMessage( {
+				client,
+				executeFrontendTool,
+				message: trimmedMessage,
+				previewContext,
+				siteAssociation,
+				selectedSite,
+				sessionId,
+				siteId: selectedWpcomSite.id,
+			} )
+				.then( ( response ) => {
+					if ( response.sessionId ) {
+						setSessionId( response.sessionId );
+					}
+
+					if ( response.text.trim() ) {
+						setMessages( ( currentMessages ) => [
+							...currentMessages,
+							generateMessage( response.text, 'assistant', currentMessages.length ),
+						] );
+					}
+				} )
+				.catch( ( error ) => {
+					console.error( error );
+					setMessages( ( currentMessages ) =>
+						currentMessages.map( ( currentMessage ) =>
+							currentMessage.id === message.id
+								? { ...currentMessage, failedMessage: true }
+								: currentMessage
+						)
+					);
+				} )
+				.finally( () => {
+					setIsAssistantThinking( false );
+				} );
+		},
+		[
+			client,
+			executeFrontendTool,
+			isAssistantThinking,
+			messages.length,
+			previewContext,
+			selectedSite,
+			selectedWpcomSite.id,
+			sessionId,
+			siteAssociation,
+		]
+	);
+
+	const clearConversation = useCallback( () => {
+		setInput( '' );
+		setMessages( [] );
+		setSessionId( undefined );
+	}, [] );
+
+	const renderNotice = () => {
+		if ( isOffline ) {
+			return <OfflineModeView />;
+		}
+		if ( isAuthenticated && messages.length > 0 ) {
+			return (
+				<ClearHistoryReminder lastMessage={ lastMessage } clearConversation={ clearConversation } />
+			);
+		}
+	};
+
+	const disabled =
+		isOffline || ! isAuthenticated || ! client || isAssistantThinking || hasFailedMessage;
+
+	return (
+		<div className="relative h-full min-w-0 flex flex-1 overflow-hidden bg-frame-surface">
+			<div className="min-w-0 flex-1 flex flex-col" ref={ wrapperRef }>
+				<div className="shrink-0 border-b border-a8c-gray-5 bg-white px-8 py-5 flex items-start gap-4">
+					<div className="min-w-0 flex-1">
+						<h1 className="m-0 truncate text-xl font-semibold text-frame-text">
+							{ selectedWpcomSite.name }
+						</h1>
+						<div className="mt-1 truncate text-sm text-frame-text-secondary">
+							{ selectedWpcomSite.url }
+						</div>
+					</div>
+					<Button
+						variant={ previewState.open ? 'primary' : 'secondary' }
+						onClick={ () =>
+							previewState.open
+								? updatePreviewState( { open: false } )
+								: openPreview( previewState.pathOrUrl )
+						}
+						aria-pressed={ previewState.open }
+					>
+						<Icon icon={ desktop } size={ 18 } />
+						{ previewState.open ? __( 'Hide preview' ) : __( 'Show preview' ) }
+					</Button>
+				</div>
+				<div
+					data-testid="assistant-chat"
+					className={ cx(
+						'min-h-0 flex-1 overflow-y-auto p-8 pb-2 flex flex-col-reverse',
+						! isAuthenticated && 'flex items-start'
+					) }
+				>
+					<div className="mt-auto w-full">
+						{ isAuthenticated ? (
+							<>
+								{ messages.length === 0 && (
+									<ChatMessage
+										id="message-dolly-welcome"
+										message={ generateMessage(
+											__( 'Ask Dolly about this WordPress.com site.' ),
+											'assistant',
+											0
+										) }
+										instanceId={ instanceId }
+									>
+										{ __( 'Ask Dolly about this WordPress.com site.' ) }
+									</ChatMessage>
+								) }
+								<AuthenticatedView
+									messages={ messages }
+									isAssistantThinking={ isAssistantThinking }
+									instanceId={ instanceId }
+									siteId={ selectedSite.id }
+									submitPrompt={ submitPrompt }
+									wrapperRef={ wrapperRef }
+								/>
+							</>
+						) : (
+							! isOffline && <UnauthenticatedView onAuthenticate={ authenticate } />
+						) }
+						{ renderNotice() }
+					</div>
+				</div>
+
+				<div className="sticky bottom-0 bg-frame/80 backdrop-blur-sm w-full px-8 pt-4 flex items-center">
+					<div className="w-full flex flex-col items-center">
+						<AIInput
+							ref={ inputRef }
+							disabled={ disabled }
+							input={ input }
+							setInput={ setInput }
+							handleSend={ () => {
+								submitPrompt( inputRef.current?.value ?? '' );
+							} }
+							handleKeyDown={ () => undefined }
+							clearConversation={ clearConversation }
+							isAssistantThinking={ isAssistantThinking }
+							showTelexLink={ false }
+						/>
+						<div data-testid="guidelines-link" className="text-frame-text-secondary self-end py-2">
+							{ __( 'Powered by Dolly.' ) }
+						</div>
+					</div>
+				</div>
+			</div>
+			{ previewState.open && (
+				<DollyPreviewPanelPortal>
+					<DollyPreviewPanel
+						selectedSite={ selectedSite }
+						previewMode="live"
+						previewState={ previewState }
+						previewUrl={ previewUrl }
+						onClose={ () => updatePreviewState( { open: false } ) }
+						onRefresh={ () =>
+							setPreviewState( ( currentState ) => ( {
+								...currentState,
+								isLoading: true,
+								reloadNonce: currentState.reloadNonce + 1,
+							} ) )
 						}
 						onUpdateState={ updatePreviewState }
 					/>

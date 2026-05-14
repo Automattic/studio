@@ -2,9 +2,11 @@ import * as Sentry from '@sentry/electron/renderer';
 import { speak } from '@wordpress/a11y';
 import { Spinner } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
-import { useEffect, useState } from 'react';
+import { chevronDown, chevronRight, Icon } from '@wordpress/icons';
+import { useEffect, useMemo, useState } from 'react';
 import { XDebugIcon } from 'src/components/icons/xdebug-icon';
 import { Tooltip } from 'src/components/tooltip';
+import { useAuth } from 'src/hooks/use-auth';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useDeleteSite } from 'src/hooks/use-delete-site';
 import { useImportExport } from 'src/hooks/use-import-export';
@@ -17,6 +19,8 @@ import { getTerminalName } from 'src/modules/user-settings/lib/terminal';
 import { useRootSelector } from 'src/stores';
 import { useGetUserEditorQuery, useGetUserTerminalQuery } from 'src/stores/installed-apps-api';
 import { syncOperationsSelectors } from 'src/stores/sync';
+import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
+import type { SyncSite } from '@studio/common/types/sync';
 
 interface SiteMenuProps {
 	className?: string;
@@ -156,9 +160,15 @@ function SiteItem( {
 	onDragEnd: () => void;
 	isDragOver: boolean;
 } ) {
-	const { sites, selectedSite, setSelectedSiteId, loadingServer, isSiteDeleting } =
-		useSiteDetails();
-	const isSelected = site === selectedSite;
+	const {
+		sites,
+		selectedSite,
+		selectedWpcomSite,
+		setSelectedSiteId,
+		loadingServer,
+		isSiteDeleting,
+	} = useSiteDetails();
+	const isSelected = ! selectedWpcomSite && site === selectedSite;
 	const { isSiteImporting, isSiteExporting } = useImportExport();
 	const { data: editor } = useGetUserEditorQuery();
 	const { data: terminal } = useGetUserTerminalQuery();
@@ -243,6 +253,29 @@ function SiteItem( {
 	);
 }
 
+function WpcomSiteItem( { site }: { site: SyncSite } ) {
+	const { selectedWpcomSite, setSelectedWpcomSite } = useSiteDetails();
+	const isSelected = selectedWpcomSite?.id === site.id;
+
+	return (
+		<li
+			className={ cx(
+				'flex flex-row min-w-[168px] h-8 hover:bg-[#ffffff0C] rounded transition-all ms-1 items-center',
+				isMac() ? 'me-5' : 'me-4',
+				isSelected && 'bg-[#ffffff19] hover:bg-[#ffffff19]'
+			) }
+		>
+			<button
+				type="button"
+				className="p-2 pl-6 text-xs rounded whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme"
+				onClick={ () => setSelectedWpcomSite( site ) }
+			>
+				{ site.name }
+			</button>
+		</li>
+	);
+}
+
 export default function SiteMenu( { className }: SiteMenuProps ) {
 	const {
 		sites,
@@ -254,11 +287,52 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 		copySite,
 		updateSitesSortOrder,
 	} = useSiteDetails();
+	const { isAuthenticated, user } = useAuth();
 	const { setSelectedTab } = useContentTabs();
 	const { handleDeleteSite } = useDeleteSite();
 	const { data: editor } = useGetUserEditorQuery();
 	const [ draggedIndex, setDraggedIndex ] = useState< number | null >( null );
 	const [ dragOverIndex, setDragOverIndex ] = useState< number | null >( null );
+	const [ isWpcomSectionExpanded, setIsWpcomSectionExpanded ] = useState( true );
+	const [ connectedWpcomSiteIds, setConnectedWpcomSiteIds ] = useState< number[] >( [] );
+	const { data: wpcomSitesData, isFetching: isFetchingWpcomSites } = useGetWpComSitesQuery(
+		{
+			connectedSiteIds: connectedWpcomSiteIds,
+			userId: user?.id,
+			perPage: 100,
+		},
+		{ skip: ! isAuthenticated }
+	);
+	const unconnectedWpcomSites = useMemo(
+		() =>
+			( wpcomSitesData?.sites ?? [] ).filter(
+				( site ) => ! connectedWpcomSiteIds.includes( site.id )
+			),
+		[ connectedWpcomSiteIds, wpcomSitesData?.sites ]
+	);
+
+	useEffect( () => {
+		if ( ! isAuthenticated ) {
+			setConnectedWpcomSiteIds( [] );
+			return;
+		}
+
+		let isCurrent = true;
+		getIpcApi()
+			.getConnectedWpcomSites()
+			.then( ( connectedSites ) => {
+				if ( isCurrent ) {
+					setConnectedWpcomSiteIds( connectedSites.map( ( site ) => site.id ) );
+				}
+			} )
+			.catch( ( error ) => {
+				console.error( 'Failed to load connected WordPress.com sites:', error );
+			} );
+
+		return () => {
+			isCurrent = false;
+		};
+	}, [ isAuthenticated ] );
 
 	const handleDragStart = ( e: React.DragEvent, index: number ) => {
 		setDraggedIndex( index );
@@ -411,6 +485,39 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 					onDrop={ ( e ) => handleDrop( e, sites.length ) }
 				/>
 			</ul>
+			{ isAuthenticated && ( unconnectedWpcomSites.length > 0 || isFetchingWpcomSites ) && (
+				<div className="mt-2">
+					<button
+						type="button"
+						className={ cx(
+							'flex h-7 min-w-[168px] items-center gap-1 rounded px-2 text-left text-[11px] font-medium uppercase text-a8c-gray-600 hover:bg-[#ffffff0C] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme',
+							isMac() ? 'me-5 ms-1' : 'me-4 ms-1'
+						) }
+						aria-expanded={ isWpcomSectionExpanded }
+						onClick={ () => setIsWpcomSectionExpanded( ( isExpanded ) => ! isExpanded ) }
+					>
+						<Icon icon={ isWpcomSectionExpanded ? chevronDown : chevronRight } size={ 16 } />
+						{ __( 'WordPress.com' ) }
+					</button>
+					{ isWpcomSectionExpanded && (
+						<ul>
+							{ unconnectedWpcomSites.map( ( site ) => (
+								<WpcomSiteItem key={ site.id } site={ site } />
+							) ) }
+							{ isFetchingWpcomSites && unconnectedWpcomSites.length === 0 && (
+								<li
+									className={ cx(
+										'flex h-8 min-w-[168px] items-center px-8 text-xs text-a8c-gray-600',
+										isMac() ? 'me-5 ms-1' : 'me-4 ms-1'
+									) }
+								>
+									{ __( 'Loading...' ) }
+								</li>
+							) }
+						</ul>
+					) }
+				</div>
+			) }
 		</nav>
 	);
 }

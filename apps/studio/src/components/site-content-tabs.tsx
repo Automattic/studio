@@ -1,7 +1,7 @@
 import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useRef, useState } from 'react';
-import { ContentTabAssistant } from 'src/components/content-tab-assistant';
+import { ContentTabAssistant, WpcomSiteAssistant } from 'src/components/content-tab-assistant';
 import { ContentTabImportExport } from 'src/components/content-tab-import-export';
 import { ContentTabOverview } from 'src/components/content-tab-overview';
 import { ContentTabPreviews } from 'src/components/content-tab-previews';
@@ -17,7 +17,7 @@ import { cx } from 'src/lib/cx';
 import { ContentTabSync } from 'src/modules/sync';
 
 export function SiteContentTabs() {
-	const { selectedSite, siteCreationMessages } = useSiteDetails();
+	const { selectedSite, selectedWpcomSite, siteCreationMessages } = useSiteDetails();
 	const { importState } = useImportExport();
 	const { effectiveTab, selectedTab, setSelectedTab, tabs } = useEffectiveTab();
 	const { __ } = useI18n();
@@ -54,6 +54,15 @@ export function SiteContentTabs() {
 		setProgrammaticTab( selectedTab );
 		prevSelectedTab.current = selectedTab;
 	}, [ selectedTab ] );
+
+	if ( selectedWpcomSite ) {
+		return (
+			<div className="flex w-full h-full app-no-drag-region overflow-hidden">
+				<WpcomSiteAssistant key={ selectedWpcomSite.id } selectedWpcomSite={ selectedWpcomSite } />
+				<div id="assistant-preview-panel-root" className="h-full shrink-0" />
+			</div>
+		);
+	}
 
 	if ( ! selectedSite ) {
 		return (

@@ -16,6 +16,18 @@ const selectedSite: SiteDetails = {
 	phpVersion: '8.4',
 };
 
+const selectedWpcomSite = {
+	id: 123,
+	localSiteId: '',
+	name: 'Remote Site',
+	url: 'https://remote-site.wordpress.com',
+	isStaging: false,
+	isPressable: false,
+	syncSupport: 'syncable',
+	lastPullTimestamp: null,
+	lastPushTimestamp: null,
+} as const;
+
 vi.mock( 'src/hooks/use-site-details' );
 vi.mock( 'src/hooks/use-auth', () => ( {
 	useAuth: () => ( {
@@ -109,5 +121,26 @@ describe( 'SiteContentTabs', () => {
 		expect(
 			screen.queryByRole( 'tab', { name: 'Backup', selected: false } )
 		).not.toBeInTheDocument();
+	} );
+	it( 'renders a WP.com-only site without local site tabs', async () => {
+		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
+			selectedSite,
+			selectedWpcomSite,
+			sites: [ selectedSite ],
+			loadingServer: {},
+		} );
+		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
+
+		expect( screen.getByText( 'Remote Site' ) ).toBeVisible();
+		expect( screen.getByText( 'https://remote-site.wordpress.com' ) ).toBeVisible();
+		expect( screen.getByText( 'Ask Dolly about this WordPress.com site.' ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Hide preview' } ) ).toBeVisible();
+		expect( screen.getByTitle( 'Remote Site preview' ) ).toHaveAttribute(
+			'src',
+			'https://remote-site.wordpress.com/'
+		);
+		expect( screen.queryByRole( 'tab', { name: 'Overview' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'tab', { name: 'Sync' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'tab', { name: 'Assistant' } ) ).not.toBeInTheDocument();
 	} );
 } );

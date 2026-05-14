@@ -15,14 +15,17 @@ import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import type { SyncSite } from '@studio/common/types/sync';
 import type { Blueprint } from 'src/stores/wpcom-api';
 
 interface SiteDetailsContext {
 	selectedSite: SiteDetails | null;
+	selectedWpcomSite: SyncSite | null;
 	updateSite: ( site: SiteDetails, wpVersion?: string ) => Promise< void >;
 	updateSitesSortOrder: ( sites: SiteDetails[] ) => Promise< void >;
 	sites: SiteDetails[];
 	setSelectedSiteId: ( selectedSiteId: string ) => void;
+	setSelectedWpcomSite: ( site: SyncSite | null ) => void;
 	createSite: (
 		path: string,
 		siteName?: string,
@@ -58,11 +61,13 @@ interface SiteDetailsContext {
 
 const defaultContext: SiteDetailsContext = {
 	selectedSite: null,
+	selectedWpcomSite: null,
 	updateSite: async () => undefined,
 	updateSitesSortOrder: async () => undefined,
 	sites: [],
 	siteCreationMessages: {},
 	setSelectedSiteId: () => undefined,
+	setSelectedWpcomSite: () => undefined,
 	createSite: async () => undefined,
 	copySite: async () => undefined,
 	startServer: async () => undefined,
@@ -131,9 +136,22 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			: {}
 	);
 	const { selectedSiteId, setSelectedSiteId } = useSelectedSite( firstSite?.id );
+	const [ selectedWpcomSite, setSelectedWpcomSiteState ] = useState< SyncSite | null >( null );
 	const [ uploadingSites, setUploadingSites ] = useState< { [ siteId: string ]: boolean } >( {} );
 	const [ isDeleting, setIsDeleting ] = useState< Record< string, boolean > >( {} );
 	const { setSelectedTab, selectedTab } = useContentTabs();
+
+	const selectLocalSite = useCallback(
+		( selectedSiteId: string ) => {
+			setSelectedWpcomSiteState( null );
+			setSelectedSiteId( selectedSiteId );
+		},
+		[ setSelectedSiteId ]
+	);
+
+	const setSelectedWpcomSite = useCallback( ( site: SyncSite | null ) => {
+		setSelectedWpcomSiteState( site );
+	}, [] );
 
 	useIpcListener( 'on-site-create-progress', ( _, { siteId, message } ) => {
 		if ( siteId && message ) {
@@ -151,7 +169,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			if ( eventType === SITE_EVENTS.DELETED ) {
 				const newSites = prevSites.filter( ( s ) => s.id !== siteId );
 				if ( selectedSiteId === siteId ) {
-					setSelectedSiteId( newSites.length ? newSites[ 0 ].id : '' );
+					selectLocalSite( newSites.length ? newSites[ 0 ].id : '' );
 				}
 				return newSites;
 			}
@@ -311,7 +329,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					},
 				] )
 			);
-			setSelectedSiteId( tempSiteId ); // Set the temporary ID as the selected site
+			selectLocalSite( tempSiteId ); // Set the temporary ID as the selected site
 
 			let newSite: SiteDetails;
 			try {
@@ -372,7 +390,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				showError( error, !! blueprint );
 			}
 		},
-		[ selectedTab, setSelectedSiteId, setSelectedTab ]
+		[ selectedTab, selectLocalSite, setSelectedSiteId, setSelectedTab ]
 	);
 
 	const updateSite = useCallback( async ( site: SiteDetails, wpVersion?: string ) => {
@@ -511,7 +529,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				] )
 			);
 
-			setSelectedSiteId( tempSiteId );
+			selectLocalSite( tempSiteId );
 			if ( selectedTab !== 'overview' ) {
 				setSelectedTab( 'overview' );
 			}
@@ -531,7 +549,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					] )
 				);
 
-				setSelectedSiteId( newSite.id );
+				selectLocalSite( newSite.id );
 
 				getIpcApi().showNotification( {
 					title: newSite.name,
@@ -545,7 +563,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				showError( error );
 			}
 		},
-		[ sites, selectedTab, setSelectedSiteId, setSelectedTab, startServer ]
+		[ sites, selectedTab, selectLocalSite, setSelectedTab, startServer ]
 	);
 
 	// Auto start sites that are set to auto start when the component mounts
@@ -603,8 +621,10 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	const context = useMemo(
 		() => ( {
 			selectedSite,
+			selectedWpcomSite,
 			sites,
-			setSelectedSiteId,
+			setSelectedSiteId: selectLocalSite,
+			setSelectedWpcomSite,
 			createSite,
 			copySite,
 			updateSite,
@@ -628,8 +648,10 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		} ),
 		[
 			selectedSite,
+			selectedWpcomSite,
 			sites,
-			setSelectedSiteId,
+			selectLocalSite,
+			setSelectedWpcomSite,
 			createSite,
 			copySite,
 			updateSite,

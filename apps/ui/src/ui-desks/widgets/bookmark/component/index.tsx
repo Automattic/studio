@@ -4,7 +4,7 @@ import { Icon } from '@wordpress/ui';
 import { useEffect, useState } from 'react';
 import { useConnector, type Connector } from '@/data/core';
 import { LoadingPlaceholder } from '@/ui-desks/components';
-import { useDesk } from '@/ui-desks/desk/provider';
+import { useDesk } from '@/ui-desks/desk/provider/context';
 import { getFaviconUrl, getUrlHostname } from '@/ui-desks/widget-actions/url';
 import { BOOKMARK_WIDGET_TYPE, type BookmarkWidgetProps } from '../types';
 import styles from './style.module.css';

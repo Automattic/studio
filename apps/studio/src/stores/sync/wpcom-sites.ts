@@ -10,7 +10,7 @@ import { sitesEndpointSiteSchema, sitesEndpointResponseSchema } from '@studio/co
 import { z } from 'zod';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { reconcileConnectedSites } from 'src/modules/sync/lib/reconcile-connected-sites';
-import { withOfflineCheck } from 'src/stores/utils/with-offline-check';
+import { withOfflineCheck, withOfflineCheckMutation } from 'src/stores/utils/with-offline-check';
 import { getWpcomClient } from 'src/stores/wpcom-api';
 import type { SyncSite } from '@studio/common/types/sync';
 
@@ -30,6 +30,98 @@ const SITE_FIELDS = [
 	'environment_type',
 	'icon',
 ].join( ',' );
+
+const STAGING_SITE_TRANSFER_TIMEOUT_MS = 15 * 60 * 1000;
+const STAGING_SITE_TRANSFER_POLL_INTERVAL_MS = 5000;
+
+const stagingSiteResponseSchema = z.object( {
+	id: z.number(),
+	name: z.string(),
+	url: z.string(),
+	user_has_permission: z.boolean().optional(),
+} );
+
+const transferStatusResponseSchema = z.object( {
+	status: z.string(),
+} );
+
+const STAGING_SITE_TRANSFER_COMPLETE_STATUSES = new Set( [ 'complete', 'completed' ] );
+const STAGING_SITE_TRANSFER_FAILED_STATUSES = new Set( [
+	'error',
+	'failed',
+	'failure',
+	'reverted',
+] );
+
+function waitForStagingSiteTransfer( ms: number, signal: AbortSignal ) {
+	if ( signal.aborted ) {
+		return Promise.reject(
+			new DOMException( 'Staging site creation was cancelled.', 'AbortError' )
+		);
+	}
+
+	return new Promise< void >( ( resolve, reject ) => {
+		const timeout = window.setTimeout( () => {
+			signal.removeEventListener( 'abort', abort );
+			resolve();
+		}, ms );
+
+		function abort() {
+			window.clearTimeout( timeout );
+			signal.removeEventListener( 'abort', abort );
+			reject( new DOMException( 'Staging site creation was cancelled.', 'AbortError' ) );
+		}
+
+		signal.addEventListener( 'abort', abort, { once: true } );
+	} );
+}
+
+function getApiErrorStatus( error: unknown ) {
+	if ( error && typeof error === 'object' ) {
+		const status = ( error as { status?: unknown } ).status;
+		if ( typeof status === 'number' ) {
+			return status;
+		}
+
+		const statusCode = ( error as { statusCode?: unknown } ).statusCode;
+		if ( typeof statusCode === 'number' ) {
+			return statusCode;
+		}
+	}
+
+	return 500;
+}
+
+async function pollStagingSiteTransfer( stagingSiteId: number, signal: AbortSignal ) {
+	const wpcomClient = getWpcomClient();
+	if ( ! wpcomClient ) {
+		throw new Error( 'Not authenticated' );
+	}
+
+	const startedAt = Date.now();
+
+	while ( Date.now() - startedAt < STAGING_SITE_TRANSFER_TIMEOUT_MS ) {
+		signal.throwIfAborted();
+
+		const response = await wpcomClient.req.get( {
+			apiNamespace: 'wpcom/v2',
+			path: `/sites/${ stagingSiteId }/atomic/transfers/latest`,
+		} );
+		const { status } = transferStatusResponseSchema.parse( response );
+
+		if ( STAGING_SITE_TRANSFER_COMPLETE_STATUSES.has( status ) ) {
+			return;
+		}
+
+		if ( STAGING_SITE_TRANSFER_FAILED_STATUSES.has( status ) ) {
+			throw new Error( 'Staging site creation failed.' );
+		}
+
+		await waitForStagingSiteTransfer( STAGING_SITE_TRANSFER_POLL_INTERVAL_MS, signal );
+	}
+
+	throw new Error( 'Staging site creation timed out.' );
+}
 
 export const wpcomSitesApi = createApi( {
 	reducerPath: 'wpcomSitesApi',
@@ -247,15 +339,69 @@ export const wpcomSitesApi = createApi( {
 				{ type: 'WpComSites', id: arg.siteId },
 			],
 		} ),
+		createWpcomStagingSite: builder.mutation< SyncSite, { site: SyncSite; userId?: number } >( {
+			queryFn: async ( { site }, { signal } ) => {
+				const wpcomClient = getWpcomClient();
+				if ( ! wpcomClient ) {
+					return { error: { status: 401, data: 'Not authenticated' } };
+				}
+
+				try {
+					const response = await wpcomClient.req.post( {
+						apiNamespace: 'wpcom/v2',
+						path: `/sites/${ site.id }/staging-site`,
+					} );
+					const stagingSite = stagingSiteResponseSchema.parse( response );
+
+					await pollStagingSiteTransfer( stagingSite.id, signal );
+
+					return {
+						data: {
+							id: stagingSite.id,
+							localSiteId: site.localSiteId,
+							name: stagingSite.name,
+							url: stagingSite.url,
+							isStaging: true,
+							productionSiteId: site.id,
+							isPressable: false,
+							isWpcomAtomic: site.isWpcomAtomic,
+							canManageOptions: site.canManageOptions,
+							hasStagingSiteFeature: site.hasStagingSiteFeature,
+							environmentType: 'staging',
+							syncSupport: 'syncable',
+							lastPullTimestamp: null,
+							lastPushTimestamp: null,
+						},
+					};
+				} catch ( error ) {
+					Sentry.captureException( error );
+					console.error( error );
+					return {
+						error: {
+							status: getApiErrorStatus( error ),
+							data: error,
+						},
+					};
+				}
+			},
+			invalidatesTags: ( _result, _error, arg ) => [
+				{ type: 'WpComSites', userId: arg.userId },
+				{ type: 'WpComSites', id: arg.site.id },
+			],
+		} ),
 	} ),
 } );
 
 const {
 	useGetWpComSitesQuery: useGetWpComSitesQueryBase,
 	useGetPhpVersionQuery: useGetPhpVersionQueryBase,
+	useCreateWpcomStagingSiteMutation: useCreateWpcomStagingSiteMutationBase,
 } = wpcomSitesApi;
 
 // Wrap the query hook with offline check
 // Authentication is already handled in queryFn which checks wpcomClient
 export const useGetWpComSitesQuery = withOfflineCheck( useGetWpComSitesQueryBase );
 export const useGetPhpVersionQuery = withOfflineCheck( useGetPhpVersionQueryBase );
+export const useCreateWpcomStagingSiteMutation = withOfflineCheckMutation(
+	useCreateWpcomStagingSiteMutationBase
+);

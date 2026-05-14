@@ -39,6 +39,10 @@ vi.mock( 'src/hooks/use-offline' );
 vi.mock( 'src/lib/get-ipc-api' );
 vi.mock( 'src/hooks/use-get-wp-version' );
 
+const wpcomApiMocks = vi.hoisted( () => ( {
+	getWpcomClient: vi.fn(),
+} ) );
+
 vi.mock( 'src/lib/app-globals', () => ( {
 	getAppGlobals: () => ( {
 		locale: vi.fn,
@@ -48,6 +52,7 @@ vi.mock( 'src/lib/app-globals', () => ( {
 vi.mock( 'src/stores/wpcom-api', () => ( {
 	useGetWelcomeMessages: vi.fn(),
 	useGetAssistantQuota: vi.fn(),
+	getWpcomClient: wpcomApiMocks.getWpcomClient,
 	wpcomApi: {
 		reducerPath: 'wpcomApi',
 		reducer: () => ( {} ),
@@ -327,6 +332,7 @@ describe( 'ContentTabAssistant', () => {
 
 	beforeEach( () => {
 		vi.clearAllMocks();
+		wpcomApiMocks.getWpcomClient.mockReturnValue( createWpcomClient() );
 		clearWpcomSiteAssistantStateCacheForTests();
 		window.HTMLElement.prototype.scrollIntoView = vi.fn();
 		window.HTMLElement.prototype.scrollTo = vi.fn();
@@ -393,6 +399,7 @@ describe( 'ContentTabAssistant', () => {
 				},
 			] ),
 			openURL: vi.fn(),
+			showErrorMessageBox: vi.fn(),
 		} );
 		vi.stubGlobal(
 			'fetch',
@@ -430,6 +437,7 @@ describe( 'ContentTabAssistant', () => {
 		expect( screen.getByText( 'Production' ) ).toBeVisible();
 		expect( screen.getByText( 'WordPress.com' ) ).toBeVisible();
 		expect( screen.getByText( 'Live site' ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Create staging site' } ) ).toBeVisible();
 		expect( screen.getByTestId( 'wpcom-live-site-safety-signal' ) ).toHaveTextContent(
 			'Dolly can edit this production site.'
 		);
@@ -445,9 +453,66 @@ describe( 'ContentTabAssistant', () => {
 		} );
 
 		expect( screen.getByText( 'Staging' ) ).toBeVisible();
+		expect(
+			screen.queryByRole( 'button', { name: 'Create staging site' } )
+		).not.toBeInTheDocument();
 		expect( screen.getByTestId( 'wpcom-live-site-safety-signal' ) ).toHaveTextContent(
 			'Dolly can edit this staging site.'
 		);
+	} );
+
+	it( 'creates a staging site from the WP.com-only production site header', async () => {
+		const user = userEvent.setup();
+		const createScope = nock( 'https://public-api.wordpress.com' )
+			.post( '/wpcom/v2/sites/123/staging-site' )
+			.reply( 200, {
+				id: 789,
+				name: 'Dolly Site',
+				url: 'https://staging-dolly.example',
+				user_has_permission: true,
+			} )
+			.get( '/wpcom/v2/sites/789/atomic/transfers/latest' )
+			.reply( 200, { status: 'completed' } );
+
+		renderWithContext( { component: 'wpcom-site' } );
+
+		await user.click( screen.getByRole( 'button', { name: 'Create staging site' } ) );
+
+		await waitFor( () =>
+			expect( screen.getByText( 'https://staging-dolly.example' ) ).toBeVisible()
+		);
+		expect( screen.getByText( 'Staging' ) ).toBeVisible();
+		expect(
+			screen.queryByRole( 'button', { name: 'Create staging site' } )
+		).not.toBeInTheDocument();
+		expect( createScope.isDone() ).toBe( true );
+	} );
+
+	it( 'shows a structured staging site creation error from WordPress.com', async () => {
+		const user = userEvent.setup();
+		const createScope = nock( 'https://public-api.wordpress.com' )
+			.post( '/wpcom/v2/sites/123/staging-site' )
+			.reply( 403, {
+				code: 'rest_cannot_view',
+				message: 'Your client is not permitted to access this resource.',
+				data: { status: 403 },
+			} );
+
+		renderWithContext( { component: 'wpcom-site' } );
+
+		await user.click( screen.getByRole( 'button', { name: 'Create staging site' } ) );
+
+		const ipcApi = vi.mocked( getIpcApi )();
+		await waitFor( () => expect( ipcApi.showErrorMessageBox ).toHaveBeenCalledTimes( 1 ) );
+
+		const errorOptions = vi.mocked( ipcApi.showErrorMessageBox ).mock.calls[ 0 ][ 0 ];
+		expect( errorOptions ).toEqual( {
+			title: 'Could not create staging site',
+			message: expect.stringContaining( 'Your client is not permitted to access this resource.' ),
+		} );
+		expect( errorOptions.message ).toContain( 'code "rest_cannot_view" (403)' );
+		expect( errorOptions.message ).not.toContain( '[object Object]' );
+		expect( createScope.isDone() ).toBe( true );
 	} );
 
 	it( 'renders the Dolly send button without an empty clear action', async () => {

@@ -30,7 +30,7 @@ const createRawSite = ( {
 	},
 	plan: {
 		features: {
-			active: [],
+			active: [ 'staging-sites' ],
 		},
 		product_id: 1,
 		product_name_short: 'Business',
@@ -61,6 +61,8 @@ describe( 'transformSitesResponse', () => {
 				isStaging: false,
 				stagingSiteIds: [ 202 ],
 				productionSiteId: undefined,
+				isWpcomAtomic: true,
+				hasStagingSiteFeature: true,
 			} )
 		);
 		expect( sites[ 1 ] ).toEqual(

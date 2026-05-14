@@ -6,6 +6,8 @@ export function isStagingSiteResponse( site: Pick< SitesEndpointSite, 'is_wpcom_
 	return site.is_wpcom_staging_site === true;
 }
 
+const STAGING_SITE_FEATURE = 'staging-sites';
+
 export function transformSingleSiteResponse(
 	site: SitesEndpointSite,
 	syncSupport: SyncSupport,
@@ -24,6 +26,9 @@ export function transformSingleSiteResponse(
 		productionSiteId: relationship?.productionSiteId,
 		stagingSiteIds: relationship?.stagingSiteIds,
 		isPressable: isPressableSite( site ),
+		isWpcomAtomic: site.is_wpcom_atomic,
+		canManageOptions: site.capabilities?.manage_options,
+		hasStagingSiteFeature: site.plan?.features.active.includes( STAGING_SITE_FEATURE ),
 		environmentType: site.environment_type,
 		syncSupport,
 		lastPullTimestamp: null,

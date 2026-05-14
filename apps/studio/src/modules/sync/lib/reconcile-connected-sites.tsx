@@ -29,6 +29,9 @@ export const reconcileConnectedSites = (
 				productionSiteId: site.productionSiteId,
 				stagingSiteIds: site.stagingSiteIds,
 				isPressable: site.isPressable,
+				isWpcomAtomic: site.isWpcomAtomic,
+				canManageOptions: site.canManageOptions,
+				hasStagingSiteFeature: site.hasStagingSiteFeature,
 				environmentType: site.environmentType,
 			};
 		}

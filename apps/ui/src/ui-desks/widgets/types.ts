@@ -227,6 +227,8 @@ export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBa
 		context: WidgetFitContentContext< TWidget >
 	) => WidgetFitContentResult< TWidget > | Promise< WidgetFitContentResult< TWidget > >;
 	getEditAction?: ( context: WidgetEditActionContext< TWidget > ) => WidgetEditAction | null;
+	focusModeControls?: Array< ControlConfig< TWidget[ 'widgetProps' ] > >;
+	focusModeControlsLabel?: () => string;
 	resolver?: WidgetResolver< TWidget >;
 	fileHandlers?: Array< WidgetFileHandler< TWidget > >;
 	pasteHandlers?: Array< WidgetPasteHandler< TWidget > >;

@@ -151,6 +151,7 @@ export function canvasShapesToDeskConnectors(
 	const shapesById = new Map( shapes.map( ( shape ) => [ shape.id, shape ] ) );
 
 	return shapes
+		.filter( isPersistentDeskCanvasShape )
 		.filter( isDeskConnectorCanvasShape )
 		.map( ( shape ) =>
 			canvasConnectorShapeToDeskConnector( shape, shapesById, getBindingsFromShape )

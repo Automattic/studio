@@ -21,7 +21,7 @@ export const scratchpadWidgetDefinition = {
 	name: () => __( 'Scratchpad' ),
 	Component: ScratchpadWidgetComponent,
 	thumbnail: ScratchpadWidgetThumbnailComponent,
-	isCreatable: false,
+	isCreatable: true,
 	shouldStartEditingOnCreate: false,
 	isWidgetProps: isScratchpadWidgetProps,
 	getIndicator: () => ( {

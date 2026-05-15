@@ -1,7 +1,7 @@
 import { CheckboxControl, Icon, Spinner } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { cautionFilled, cloudDownload, cloudUpload } from '@wordpress/icons';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Button from 'src/components/button';
 import Modal from 'src/components/modal';
 import { Tooltip } from 'src/components/tooltip';
@@ -304,6 +304,7 @@ function EnvironmentSyncRow( {
 }
 
 export function WorkspaceSyncControl( { workspace }: WorkspaceSyncControlProps ) {
+	const dispatch = useAppDispatch();
 	const [ isPanelOpen, setIsPanelOpen ] = useState( false );
 	const [ environmentSyncDirection, setEnvironmentSyncDirection ] =
 		useState< StagingSyncDirection | null >( null );
@@ -318,6 +319,16 @@ export function WorkspaceSyncControl( { workspace }: WorkspaceSyncControlProps )
 	const isAnyLocalRemoteSyncing =
 		localProductionSyncState.isSyncing || localStagingSyncState.isSyncing;
 	const isEnvironmentSyncDisabled = ! productionSite || ! stagingSite || isAnyLocalRemoteSyncing;
+
+	useEffect( () => {
+		if ( ! isPanelOpen || ! productionSite?.id ) {
+			return;
+		}
+
+		void dispatch(
+			stagingSyncThunks.fetchStagingSiteSyncState( { productionSiteId: productionSite.id } )
+		);
+	}, [ dispatch, isPanelOpen, productionSite?.id ] );
 
 	if ( ! workspace || ( ! localSite && ! productionSite && ! stagingSite ) ) {
 		return null;

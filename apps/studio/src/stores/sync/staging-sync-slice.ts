@@ -22,7 +22,6 @@ type StagingSyncApiError = {
 	code?: string;
 	message: string;
 	status?: number;
-	raw?: unknown;
 };
 
 export type StagingSyncState = {
@@ -43,17 +42,35 @@ type StagingSyncSliceState = {
 	states: Record< number, StagingSyncState >;
 };
 
+const apiTimestampSchema = z
+	.union( [ z.string(), z.number() ] )
+	.nullable()
+	.optional()
+	.transform( ( value ) => {
+		if ( value === undefined || value === null || value === '' ) {
+			return undefined;
+		}
+
+		if ( typeof value === 'string' ) {
+			return value;
+		}
+
+		const milliseconds = value > 10_000_000_000 ? value : value * 1000;
+		const date = new Date( milliseconds );
+		return Number.isNaN( date.getTime() ) ? String( value ) : date.toISOString();
+	} );
+
 const stagingSyncStateResponseSchema = z.object( {
 	status: z.string(),
 	staging_blog_id: z.number().optional(),
 	restore_id: z.number().optional(),
 	last_restore_id: z.number().optional(),
 	production_blog_id: z.number(),
-	started_at: z.string().optional(),
-	completed_at: z.string().optional(),
+	started_at: apiTimestampSchema,
+	completed_at: apiTimestampSchema,
 	direction: z.enum( [ 'push', 'pull' ] ).optional(),
 	options: z.unknown().optional(),
-	updated_at: z.string().optional(),
+	updated_at: apiTimestampSchema,
 } );
 
 const successResponseSchema = z.object( {
@@ -88,6 +105,13 @@ function getApiErrorStatus( error: unknown ) {
 }
 
 export function getStagingSyncApiError( error: unknown ): StagingSyncApiError {
+	if ( error instanceof z.ZodError ) {
+		return {
+			code: 'invalid_sync_state_response',
+			message: __( 'The staging sync response was not in the expected format.' ),
+		};
+	}
+
 	if ( error && typeof error === 'object' ) {
 		const code = ( error as { code?: unknown } ).code;
 		const message = ( error as { message?: unknown } ).message;
@@ -99,14 +123,12 @@ export function getStagingSyncApiError( error: unknown ): StagingSyncApiError {
 					? message
 					: __( 'The staging sync could not be completed.' ),
 			status: getApiErrorStatus( error ),
-			raw: error,
 		};
 	}
 
 	return {
 		message:
 			error instanceof Error ? error.message : __( 'The staging sync could not be completed.' ),
-		raw: error,
 	};
 }
 

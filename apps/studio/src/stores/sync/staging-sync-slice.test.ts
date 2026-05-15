@@ -168,6 +168,31 @@ describe( 'staging sync reducer', () => {
 		} );
 	} );
 
+	it( 'normalizes numeric timestamps from staging sync state responses', async () => {
+		const get = vi.fn().mockResolvedValue( {
+			status: 'in-progress',
+			staging_blog_id: 202,
+			production_blog_id: 101,
+			direction: 'pull',
+			started_at: 1778766552,
+			updated_at: 1778766560,
+		} );
+		mockGetWpcomClient.mockReturnValue( {
+			req: { get },
+		} );
+		const store = configureStore( {
+			reducer: stagingSyncReducer,
+		} );
+
+		await store.dispatch( fetchStagingSiteSyncState( { productionSiteId: 101 } ) );
+
+		expect( store.getState().states[ 101 ] ).toMatchObject( {
+			status: 'in-progress',
+			startedAt: '2026-05-14T13:49:12.000Z',
+			updatedAt: '2026-05-14T13:49:20.000Z',
+		} );
+	} );
+
 	it( 'preserves WooCommerce database sync errors for confirm-and-retry handling', async () => {
 		const error = {
 			code: 'rest_sqls_option_not_supported',
@@ -202,5 +227,6 @@ describe( 'staging sync reducer', () => {
 			code: 'rest_sqls_option_not_supported',
 			status: 422,
 		} );
+		expect( result.payload ).not.toHaveProperty( 'raw' );
 	} );
 } );

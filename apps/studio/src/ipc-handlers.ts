@@ -718,29 +718,14 @@ function readWordPressDebugLog( sitePath: string ): string[] | undefined {
 
 function readProcessManagerLogs( siteId: string ): { stdout?: string[]; stderr?: string[] } {
 	const logsDir = nodePath.join( PROCESS_MANAGER_HOME, 'logs' );
+	const dateTag = new Date().toISOString().slice( 0, 10 ).replace( /-/g, '' );
 	const prefix = `studio-site-${ siteId }`;
-
-	// The daemon writes dated log files (e.g. `{name}-out-YYYYMMDD.log`). Fall back to the
-	// legacy non-dated name (`{name}-out.log`) for older installations.
-	function findLogFile( stream: 'out' | 'error' ): string | undefined {
-		const dateTag = new Date().toISOString().slice( 0, 10 ).replace( /-/g, '' );
-		const dated = nodePath.join( logsDir, `${ prefix }-${ stream }-${ dateTag }.log` );
-		if ( fs.existsSync( dated ) ) {
-			return dated;
-		}
-		const legacy = nodePath.join( logsDir, `${ prefix }-${ stream }.log` );
-		if ( fs.existsSync( legacy ) ) {
-			return legacy;
-		}
-		return undefined;
-	}
-
-	const stdoutPath = findLogFile( 'out' );
-	const stderrPath = findLogFile( 'error' );
+	const stdoutPath = nodePath.join( logsDir, `${ prefix }-out-${ dateTag }.log` );
+	const stderrPath = nodePath.join( logsDir, `${ prefix }-error-${ dateTag }.log` );
 
 	return {
-		stdout: stdoutPath ? readLastLines( stdoutPath, DEBUG_LOG_MAX_LINES ) : undefined,
-		stderr: stderrPath ? readLastLines( stderrPath, DEBUG_LOG_MAX_LINES ) : undefined,
+		stdout: readLastLines( stdoutPath, DEBUG_LOG_MAX_LINES ),
+		stderr: readLastLines( stderrPath, DEBUG_LOG_MAX_LINES ),
 	};
 }
 

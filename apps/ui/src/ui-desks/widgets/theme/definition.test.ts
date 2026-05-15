@@ -29,12 +29,15 @@ vi.mock( '@/ui-desks/widgets/theme/site-url-control', () => ( {
 } ) );
 
 describe( 'theme widget definition', () => {
-	it( 'uses only the reference toolbar Browse themes control', () => {
+	it( 'uses the reference theme toolbar controls', () => {
 		expect( 'getEditAction' in themeWidgetDefinition ).toBe( false );
 		expect( 'edit' in themeWidgetDefinition.labels ).toBe( false );
-		expect( themeWidgetDefinition.controls?.map( ( control ) => control.id ) ).toContain(
-			'theme-browser'
-		);
+		expect( themeWidgetDefinition.controls?.map( ( control ) => control.id ) ).toEqual( [
+			'theme-explore',
+			'theme-font-library',
+			'theme-styles',
+			'theme-browser',
+		] );
 	} );
 
 	it( 'resolves the theme material stack from active theme data', () => {

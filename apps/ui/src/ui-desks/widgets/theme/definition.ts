@@ -12,6 +12,7 @@ import {
 	ThemeWidgetLoadingComponent,
 	ThemeWidgetThumbnailComponent,
 } from '@/ui-desks/widgets/theme/component';
+import { moveThemeMaterialsStackWithThemeShapeInEditor } from '@/ui-desks/widgets/theme/drag';
 import {
 	ThemeExploreControl,
 	ThemeSiteUrlControl,
@@ -114,6 +115,11 @@ export const themeWidgetDefinition = {
 		resolve: async ( widget, context ) =>
 			createThemeResolution( widget, await getThemeMaterials( context ) ),
 		invalidate: () => false,
+	},
+	onShapeChange: ( { editor, previousShape, nextShape, isDragging } ) => {
+		if ( isDragging ) {
+			moveThemeMaterialsStackWithThemeShapeInEditor( editor, previousShape, nextShape );
+		}
 	},
 } satisfies WidgetDefinition< ThemeWidget >;
 

@@ -59,6 +59,7 @@ export interface DeskContextValue {
 	stackSelectedWidgets: () => boolean;
 	unstackSelectedWidgets: () => boolean;
 	setSelectedStackView: ( viewMode: StackViewMode ) => boolean;
+	runSelectedWidgetAction: ( actionId: string ) => boolean;
 	removeSelectedWidget: () => boolean;
 	removeSelectedConnector: () => boolean;
 	startConnectingWidget: ( shapeId: TLShapeId ) => boolean;
@@ -123,6 +124,7 @@ const defaultDeskContext: DeskContextValue = {
 	stackSelectedWidgets: () => false,
 	unstackSelectedWidgets: () => false,
 	setSelectedStackView: () => false,
+	runSelectedWidgetAction: () => false,
 	removeSelectedWidget: () => false,
 	removeSelectedConnector: () => false,
 	startConnectingWidget: () => false,

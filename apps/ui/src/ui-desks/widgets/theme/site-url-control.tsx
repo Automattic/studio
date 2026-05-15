@@ -25,8 +25,8 @@ export function ThemeExploreControl( _props: ControlRenderContext< ThemeWidgetPr
 			size="medium"
 			onClick={ () => {
 				// Future workspace: full desk for the active theme.
-				// Keep the reference affordance visible until that destination exists.
-				console.log( '[StudioDesk] Explore theme - coming soon' );
+				// Hooked once the destination exists; for now leaves the affordance discoverable.
+				console.log( '[StudioDesk] Explore theme \u2014 coming soon' );
 			} }
 		>
 			{ __( 'Explore theme' ) }

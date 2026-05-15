@@ -259,6 +259,7 @@ function createDeskContext( overrides: Partial< DeskContextValue > = {} ): DeskC
 		stackSelectedWidgets: vi.fn(),
 		unstackSelectedWidgets: vi.fn(),
 		setSelectedStackView: vi.fn(),
+		runSelectedWidgetAction: vi.fn(),
 		removeSelectedWidget: vi.fn(),
 		removeSelectedConnector: vi.fn(),
 		startConnectingWidget: vi.fn(),

@@ -87,6 +87,7 @@ import {
 	hydrateEditorFromDesk,
 	isDrawShape,
 	removeSelectedWidgetFromEditor,
+	runSelectedWidgetActionInEditor,
 	setSelectedStackViewInEditor,
 	stackSelectedWidgetsInEditor,
 	unstackSelectedWidgetsInEditor,
@@ -98,6 +99,7 @@ import type { DeskFocusDesk, DeskFocusMode } from '@/ui-desks/focus-mode/types';
 import type {
 	DeskWidget,
 	ActiveWidgetDropFeedback,
+	WidgetShapeChangeContext,
 	WidgetHandlerLoading,
 	WidgetHandlerResult,
 	WidgetPastePayload,
@@ -407,6 +409,32 @@ export function DeskProvider( {
 			stopShapeChanges();
 		};
 	}, [ editor, isReadOnly ] );
+
+	useEffect( () => {
+		if ( ! editor ) {
+			return;
+		}
+
+		return editor.sideEffects.registerAfterChangeHandler( 'shape', ( previousShape, nextShape ) => {
+			const previousWidget = canvasShapeToDeskWidget( previousShape );
+			const nextWidget = canvasShapeToDeskWidget( nextShape );
+			if ( ! previousWidget || ! nextWidget || previousWidget.type !== nextWidget.type ) {
+				return;
+			}
+
+			const onShapeChange = getWidgetDefinition( nextWidget.type )?.onShapeChange as
+				| ( ( context: WidgetShapeChangeContext< DeskWidget > ) => void )
+				| undefined;
+			onShapeChange?.( {
+				editor,
+				previousShape,
+				nextShape,
+				previousWidget,
+				widget: nextWidget,
+				isDragging: editor.inputs.isDragging,
+			} );
+		} );
+	}, [ editor ] );
 
 	useEffect( () => {
 		if ( ! editor ) {
@@ -824,6 +852,27 @@ export function DeskProvider( {
 		[ editor, isHydrated, isReadOnly, toolbarStateOptions ]
 	);
 
+	const runSelectedWidgetAction = useCallback(
+		( actionId: string ) => {
+			if (
+				isReadOnly ||
+				! editor ||
+				! isHydrated ||
+				! runSelectedWidgetActionInEditor( editor, actionId )
+			) {
+				return false;
+			}
+
+			setSelectedWidgetToolbarItem(
+				getCurrentSelectedWidgetToolbarItem( editor, toolbarStateOptions )
+			);
+			setSelectedConnectorToolbarItem( getSelectedDeskConnectorToolbarItem( editor ) );
+			setSelectedWidgetConnectionTargets( getCurrentSelectedWidgetConnectionTargets( editor ) );
+			return true;
+		},
+		[ editor, isHydrated, isReadOnly, toolbarStateOptions ]
+	);
+
 	const removeSelectedWidget = useCallback( () => {
 		if ( isReadOnly || ! editor || ! isHydrated || ! removeSelectedWidgetFromEditor( editor ) ) {
 			return false;
@@ -1185,6 +1234,7 @@ export function DeskProvider( {
 			stackSelectedWidgets,
 			unstackSelectedWidgets,
 			setSelectedStackView,
+			runSelectedWidgetAction,
 			removeSelectedWidget,
 			removeSelectedConnector,
 			startConnectingWidget,
@@ -1222,6 +1272,7 @@ export function DeskProvider( {
 			registerEditor,
 			removeSelectedConnector,
 			removeSelectedWidget,
+			runSelectedWidgetAction,
 			selectedConnectorToolbarItem,
 			selectedWidgetConnectionTargets,
 			selectedWidgetToolbarItem,

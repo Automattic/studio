@@ -48,7 +48,7 @@ import {
 } from '../../tldraw-adapter';
 import { DESK_CONFIG_VERSION, type DeskConfig } from '../../types';
 import type { SelectedWidgetToolbarItem, AddDeskWidgetOptions } from '../context';
-import type { DeskWidget } from '@/ui-desks/widgets/types';
+import type { DeskWidget, WidgetEditorAction } from '@/ui-desks/widgets/types';
 
 type RectangleWidgetFitContentHandler = ( context: {
 	widgetProps: Record< string, unknown >;
@@ -337,6 +337,34 @@ export function setSelectedStackViewInEditor( editor: Editor, viewMode: StackVie
 	}
 
 	return setStackViewInEditor( editor, stackId, viewMode );
+}
+
+export function runSelectedWidgetActionInEditor( editor: Editor, actionId: string ) {
+	const selectedShapeIds = editor.getSelectedShapeIds();
+	if ( selectedShapeIds.length !== 1 ) {
+		return false;
+	}
+
+	const selectedShape = editor.getShape( selectedShapeIds[ 0 ] );
+	const widget = selectedShape ? canvasShapeToDeskWidget( selectedShape ) : null;
+	if ( ! selectedShape || ! widget ) {
+		return false;
+	}
+
+	const action = (
+		getWidgetDefinition( widget.type )?.editorActions as
+			| Record< string, WidgetEditorAction< DeskWidget > >
+			| undefined
+	 )?.[ actionId ];
+	if ( ! action ) {
+		return false;
+	}
+
+	return action( {
+		editor,
+		shape: selectedShape,
+		widget,
+	} );
 }
 
 export function hasCameraChange( changes: CanvasStoreChanges ) {

@@ -26,9 +26,16 @@ export function setThemeMaterialsStackViewInEditor(
 	}
 
 	updateThemeWidgetViewMode( editor, themeShape, viewMode );
-	return setStackViewInEditor( editor, stackId, viewMode, {
-		anchorCenter: getThemeMaterialsStackAnchorCenter( themeShape ),
-	} );
+	return setStackViewInEditor(
+		editor,
+		stackId,
+		viewMode,
+		viewMode === 'stack'
+			? {
+					anchorCenter: getThemeMaterialsStackAnchorCenter( themeShape ),
+			  }
+			: undefined
+	);
 }
 
 export function collapseThemeMaterialsStackForShapeInEditor(

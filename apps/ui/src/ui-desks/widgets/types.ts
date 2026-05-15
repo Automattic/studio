@@ -20,7 +20,7 @@ import type { ThemeTemplateWidget } from '@/ui-desks/widgets/theme-template/type
 import type { DeskStack, DeskWidgetBase } from '@studio/common/types/desk';
 import type { createRegistry } from '@wordpress/data';
 import type { ComponentProps, ComponentType, ReactElement } from 'react';
-import type { Editor, JsonObject, TLShapeId } from 'tldraw';
+import type { Editor, JsonObject, TLShape, TLShapeId, TLShapePartial } from 'tldraw';
 
 export interface WidgetIndicator {
 	cornerRadius?: number;
@@ -286,6 +286,32 @@ export interface WidgetEditActionContext< TWidget extends DeskWidgetBase = DeskW
 	hasRunningSite: boolean;
 }
 
+export interface WidgetEditorActionContext< TWidget extends DeskWidgetBase = DeskWidgetBase > {
+	editor: Editor;
+	shape: TLShape;
+	widget: TWidget;
+}
+
+export interface WidgetShapeChangeContext< TWidget extends DeskWidgetBase = DeskWidgetBase > {
+	editor: Editor;
+	previousShape: TLShape;
+	nextShape: TLShape;
+	previousWidget: TWidget;
+	widget: TWidget;
+	isDragging: boolean;
+}
+
+export interface WidgetStackLayoutContext< TWidget extends DeskWidgetBase = DeskWidgetBase > {
+	members: Array< { shape: TLShape; widget: TWidget } >;
+	anchor: { x: number; y: number };
+}
+
+export type WidgetStackLayout = Array< Pick< TLShapePartial, 'x' | 'y' | 'rotation' > >;
+
+export type WidgetEditorAction< TWidget extends DeskWidgetBase = DeskWidgetBase > = (
+	context: WidgetEditorActionContext< TWidget >
+) => boolean;
+
 export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBase > {
 	type: TWidget[ 'type' ];
 	name: () => string;
@@ -307,6 +333,11 @@ export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBa
 		context: WidgetFitContentContext< TWidget >
 	) => WidgetFitContentResult< TWidget > | Promise< WidgetFitContentResult< TWidget > >;
 	getEditAction?: ( context: WidgetEditActionContext< TWidget > ) => WidgetEditAction | null;
+	editorActions?: Record< string, WidgetEditorAction< TWidget > >;
+	onShapeChange?: ( context: WidgetShapeChangeContext< TWidget > ) => void;
+	getStackExpandedLayout?: (
+		context: WidgetStackLayoutContext< TWidget >
+	) => WidgetStackLayout | null;
 	focusModeControls?: Array< ControlConfig< TWidget[ 'widgetProps' ] > >;
 	focusModeControlsLabel?: () => string;
 	preserveSourceWidgetPosition?: boolean;

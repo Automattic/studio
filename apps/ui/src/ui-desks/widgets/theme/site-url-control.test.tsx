@@ -5,7 +5,7 @@ import { useConnector } from '@/data/core';
 import { useSites } from '@/data/queries/use-sites';
 import { useDesk } from '@/ui-desks/desk/provider';
 import { useActiveTheme } from '@/ui-desks/widgets/theme/use-active-theme';
-import { ThemeSiteUrlControl } from './site-url-control';
+import { ThemeExploreControl, ThemeSiteUrlControl } from './site-url-control';
 import type { ThemeWidgetProps } from './types';
 import type { ControlRenderContext } from '@/ui-desks/controls/types';
 
@@ -53,6 +53,18 @@ describe( 'ThemeSiteUrlControl', () => {
 				},
 			],
 		} as never );
+	} );
+
+	it( 'renders the reference explore placeholder action', () => {
+		const logSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
+
+		render( <ThemeExploreControl { ...createControlContext() } /> );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Explore theme' } ) );
+
+		expect( logSpy ).toHaveBeenCalledWith( '[StudioDesk] Explore theme \u2014 coming soon' );
+
+		logSpy.mockRestore();
 	} );
 
 	it( 'opens the font library admin page without checking the theme type', () => {
@@ -139,6 +151,7 @@ function createControlContext(): ControlRenderContext< ThemeWidgetProps > {
 		isOpen: false,
 		setIsOpen: vi.fn(),
 		updateProps: vi.fn(),
+		runWidgetAction: vi.fn(),
 		props: {},
 	};
 }

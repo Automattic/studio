@@ -37,6 +37,7 @@ export function DeskWidgetToolbar() {
 		stackSelectedWidgets,
 		unstackSelectedWidgets,
 		setSelectedStackView,
+		runSelectedWidgetAction,
 		updateSelectedWidgetProps,
 		canEditSelectedWidget,
 		editSelectedWidget,
@@ -98,6 +99,7 @@ export function DeskWidgetToolbar() {
 						control={ control }
 						isOpen={ openControlId === control.id }
 						props={ focusedWidget.widgetProps }
+						runWidgetAction={ runSelectedWidgetAction }
 						setIsOpen={ ( isOpen ) => setOpenControlId( isOpen ? control.id : null ) }
 						updateProps={ updateSelectedWidgetProps }
 					/>
@@ -186,6 +188,7 @@ export function DeskWidgetToolbar() {
 							control={ control }
 							isOpen={ openControlId === control.id }
 							props={ renderSelection.widget.widgetProps }
+							runWidgetAction={ runSelectedWidgetAction }
 							setIsOpen={ ( isOpen ) => setOpenControlId( isOpen ? control.id : null ) }
 							updateProps={ updateSelectedWidgetProps }
 						/>
@@ -195,6 +198,7 @@ export function DeskWidgetToolbar() {
 						control={ STACK_VIEW_MODE_CONTROL }
 						isOpen={ openControlId === STACK_VIEW_MODE_CONTROL.id }
 						props={ { viewMode: renderSelection.stackViewMode ?? 'stack' } }
+						runWidgetAction={ runSelectedWidgetAction }
 						setIsOpen={ ( isOpen ) =>
 							setOpenControlId( isOpen ? STACK_VIEW_MODE_CONTROL.id : null )
 						}

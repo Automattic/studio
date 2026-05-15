@@ -14,6 +14,7 @@ import {
 import { getDeskCanvasRecordResolutionState } from '@/ui-desks/desk/tldraw-adapter';
 import { useStackShapeInteraction } from '@/ui-desks/stacks/use-stack-shape-interaction';
 import { getStackId, getStackViewMode, isStackExpanded } from '@/ui-desks/stacks/utils';
+import { useWidgetDropFeedback } from '@/ui-desks/widget-actions/drop-feedback-context';
 import { DRAWING_WIDGET_TYPE } from '@/ui-desks/widgets/drawing/types';
 import { getWidgetDefinition } from '@/ui-desks/widgets/registry';
 import {
@@ -194,6 +195,7 @@ function RectangleWidgetComponent( {
 		| undefined;
 	const isLoading = getDeskCanvasRecordResolutionState( shape ) === 'loading';
 	const widgetId = getWidgetIdFromShapeId( shape.id );
+	const dropFeedback = useWidgetDropFeedback( shape.id );
 
 	const handleWidgetPropsChange = ( widgetProps: JsonObject ) => {
 		editor.updateShape< RectangleWidgetShape >( {
@@ -221,6 +223,7 @@ function RectangleWidgetComponent( {
 					isEditing={ isEditing }
 					isHovered={ isHovered }
 					isSelected={ isSelected }
+					dropFeedback={ dropFeedback }
 					onWidgetPropsChange={ handleWidgetPropsChange }
 					onEditComplete={ () => editor.complete() }
 				/>

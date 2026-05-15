@@ -5,6 +5,10 @@ import { Icon } from '@wordpress/ui';
 import { useMemo } from 'react';
 import { LoadingPlaceholder } from '@/ui-desks/components';
 import { CONTENT_CARD_STATUSES, getPostStatusInfo } from '@/ui-desks/widget-actions/post-status';
+import {
+	getMediaDropPreviewPayload,
+	MediaDropPreview,
+} from '@/ui-desks/widgets/media/drop-preview';
 import { useCommentCount } from '../use-comment-count';
 import styles from './style.module.css';
 import type { PostWidgetProps } from '../types';
@@ -27,7 +31,7 @@ type PostCardRecord = CoreDataPost & {
 	};
 };
 
-export function PostWidgetComponent( { id, widgetProps }: PostWidgetComponentProps ) {
+export function PostWidgetComponent( { id, widgetProps, dropFeedback }: PostWidgetComponentProps ) {
 	const query = useMemo(
 		() => ( {
 			include: [ widgetProps.postId ],
@@ -50,6 +54,7 @@ export function PostWidgetComponent( { id, widgetProps }: PostWidgetComponentPro
 	const hasError = resolutionStatus === 'ERROR';
 	const isLoading = isResolving && ! record;
 	const commentCount = useCommentCount( record ? widgetProps.postId : null );
+	const morphMedia = getMediaDropPreviewPayload( dropFeedback );
 
 	if ( isLoading ) {
 		return (
@@ -80,7 +85,12 @@ export function PostWidgetComponent( { id, widgetProps }: PostWidgetComponentPro
 			data-studio-desk-widget-id={ id }
 		>
 			<h2 className={ styles.title } dangerouslySetInnerHTML={ { __html: title } } />
-			{ showFeaturedImage && featuredImage ? (
+			{ morphMedia ? (
+				<MediaDropPreview
+					media={ morphMedia }
+					className={ `${ styles.featuredImage } ${ styles.featuredImageMorph }` }
+				/>
+			) : showFeaturedImage && featuredImage ? (
 				<img className={ styles.featuredImage } src={ featuredImage } alt="" draggable={ false } />
 			) : excerpt ? (
 				<div className={ styles.body } dangerouslySetInnerHTML={ { __html: excerpt } } />

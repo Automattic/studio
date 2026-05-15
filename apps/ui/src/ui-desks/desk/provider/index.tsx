@@ -48,6 +48,7 @@ import {
 import { useStackInteractions } from '@/ui-desks/stacks/use-stack-interactions';
 import { useStackPressAnimation } from '@/ui-desks/stacks/use-stack-press-animation';
 import { createDeskWidget } from '@/ui-desks/widget-actions/create-widget';
+import { WidgetDropFeedbackProvider } from '@/ui-desks/widget-actions/drop-feedback-context';
 import { DropActionMenu } from '@/ui-desks/widget-actions/drop-handlers/drop-action-menu';
 import { useWidgetCustomDropActions } from '@/ui-desks/widget-actions/drop-handlers/use-widget-custom-drop-actions';
 import { getWidgetEditAction } from '@/ui-desks/widget-actions/edit-action';
@@ -58,6 +59,7 @@ import {
 } from '@/ui-desks/widget-actions/paste-handlers';
 import { LOADING_WIDGET_TYPE } from '@/ui-desks/widgets/loading/types';
 import { NOTE_WIDGET_TYPE } from '@/ui-desks/widgets/note/types';
+import { PageDitherFilters } from '@/ui-desks/widgets/page/page-dither-filters';
 import { isPageWidgetProps, PAGE_WIDGET_TYPE } from '@/ui-desks/widgets/page/types';
 import { isPostWidgetProps, POST_WIDGET_TYPE } from '@/ui-desks/widgets/post/types';
 import { getWidgetDefinition } from '@/ui-desks/widgets/registry';
@@ -95,6 +97,7 @@ import { useDeskWidgetResolvers } from './resolvers';
 import type { DeskFocusDesk, DeskFocusMode } from '@/ui-desks/focus-mode/types';
 import type {
 	DeskWidget,
+	ActiveWidgetDropFeedback,
 	WidgetHandlerLoading,
 	WidgetHandlerResult,
 	WidgetPastePayload,
@@ -175,6 +178,7 @@ export function DeskProvider( {
 	const [ customDropIntent, setCustomDropIntent ] = useState< WidgetCustomDropIntent | null >(
 		null
 	);
+	const [ dropFeedback, setDropFeedback ] = useState< ActiveWidgetDropFeedback | null >( null );
 	const hydratedRef = useRef( false );
 	const deskConfigKeyRef = useRef< string | undefined >( undefined );
 	const creationOffsetRef = useRef( 0 );
@@ -218,14 +222,40 @@ export function DeskProvider( {
 	const handleCustomDrop = useCallback( ( drop: WidgetCustomDropIntent ) => {
 		setCustomDropIntent( drop );
 	}, [] );
+	const restoreCustomDropSource = useCallback(
+		( drop: WidgetCustomDropIntent | null ) => {
+			if ( ! editor || ! drop ) {
+				return;
+			}
+
+			const shape = editor.getShape( drop.sourceShapeId );
+			if ( ! shape || Math.abs( shape.opacity - drop.sourceOpacity ) <= 0.001 ) {
+				return;
+			}
+
+			editor.updateShape( {
+				id: drop.sourceShapeId,
+				type: shape.type,
+				opacity: drop.sourceOpacity,
+			} );
+		},
+		[ editor ]
+	);
 	const closeCustomDropMenu = useCallback( () => {
+		restoreCustomDropSource( customDropIntent );
 		setCustomDropIntent( null );
-	}, [] );
+		setDropFeedback( null );
+	}, [ customDropIntent, restoreCustomDropSource ] );
 	const customDropActions = useWidgetCustomDropActions( {
 		editor,
 		intent: customDropIntent,
 		closeMenu: closeCustomDropMenu,
 	} );
+	useEffect( () => {
+		if ( customDropIntent && customDropActions.length === 0 ) {
+			closeCustomDropMenu();
+		}
+	}, [ closeCustomDropMenu, customDropActions.length, customDropIntent ] );
 	const canPreviewContentInSitePreview = Boolean(
 		! isReadOnly && editor && isHydrated && isRunningSite && getFirstSitePreviewShape( editor )
 	);
@@ -309,6 +339,7 @@ export function DeskProvider( {
 		setPendingConnectorSourceId,
 		onConnectorComplete: handleConnectorComplete,
 		onCustomDrop: handleCustomDrop,
+		onDropFeedbackChange: setDropFeedback,
 	} );
 
 	useEffect( () => {
@@ -1216,14 +1247,17 @@ export function DeskProvider( {
 
 	return (
 		<DeskContext.Provider value={ value }>
-			{ children }
-			{ customDropIntent && customDropActions.length > 0 && (
-				<DropActionMenu
-					screenPoint={ customDropIntent.screenPoint }
-					actions={ customDropActions }
-					onCancel={ closeCustomDropMenu }
-				/>
-			) }
+			<WidgetDropFeedbackProvider value={ dropFeedback }>
+				<PageDitherFilters />
+				{ children }
+				{ customDropIntent && customDropActions.length > 0 && (
+					<DropActionMenu
+						screenPoint={ customDropIntent.screenPoint }
+						actions={ customDropActions }
+						onCancel={ closeCustomDropMenu }
+					/>
+				) }
+			</WidgetDropFeedbackProvider>
 		</DeskContext.Provider>
 	);
 }

@@ -15,7 +15,7 @@ import type { SitePreviewWidget } from '@/ui-desks/widgets/site-preview/types';
 import type { DeskStack, DeskWidgetBase } from '@studio/common/types/desk';
 import type { createRegistry } from '@wordpress/data';
 import type { ComponentProps, ComponentType, ReactElement } from 'react';
-import type { Editor, TLShapeId } from 'tldraw';
+import type { Editor, JsonObject, TLShapeId } from 'tldraw';
 
 export interface WidgetIndicator {
 	cornerRadius?: number;
@@ -23,6 +23,24 @@ export interface WidgetIndicator {
 }
 
 export type WidgetResolutionState = 'loading';
+
+export type WidgetDropFeedbackPhase = 'hover' | 'menu';
+
+export interface WidgetDropFeedbackTarget {
+	kind: string;
+	props: JsonObject;
+	phase: WidgetDropFeedbackPhase;
+}
+
+export interface ActiveWidgetDropFeedback {
+	targetShapeId: TLShapeId;
+	feedback: WidgetDropFeedbackTarget;
+}
+
+export interface WidgetDropFeedback {
+	sourceOpacity?: number;
+	target?: Omit< WidgetDropFeedbackTarget, 'phase' >;
+}
 
 export interface DeskWidgetComponentProps<
 	TWidgetProps extends Record< string, unknown > = Record< string, unknown >,
@@ -33,6 +51,7 @@ export interface DeskWidgetComponentProps<
 	isEditing: boolean;
 	isHovered: boolean;
 	isSelected: boolean;
+	dropFeedback?: WidgetDropFeedbackTarget | null;
 	onWidgetPropsChange: ( widgetProps: TWidgetProps ) => void;
 	onEditComplete: () => void;
 }
@@ -167,6 +186,10 @@ export interface WidgetCustomDropActionIntent {
 	};
 }
 
+export interface WidgetDropFeedbackIntent extends WidgetCustomDropActionIntent {
+	phase: WidgetDropFeedbackPhase;
+}
+
 export interface WidgetCustomDropActionContext {
 	editor: Editor;
 	registry: WidgetResolverRegistry;
@@ -188,6 +211,7 @@ export interface WidgetCustomDropHandler {
 	type: 'custom';
 	sourceTypes?: string[];
 	canHandle?: ( sourceWidget: DeskWidgetBase, targetWidget: DeskWidgetBase ) => boolean;
+	getFeedback?: ( intent: WidgetDropFeedbackIntent ) => WidgetDropFeedback | null;
 	getActions?: (
 		intent: WidgetCustomDropActionIntent,
 		context: WidgetCustomDropActionContext

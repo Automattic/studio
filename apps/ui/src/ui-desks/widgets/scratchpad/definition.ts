@@ -4,6 +4,7 @@ import {
 	RECTANGLE_WIDGET_SHAPE_TYPE,
 	type RectangleWidgetShape,
 } from '@/ui-desks/shapes/rectangle-widget/types';
+import { createMediaDropPreviewTarget } from '@/ui-desks/widgets/media/drop-preview';
 import { isMediaWidgetProps, MEDIA_WIDGET_TYPE } from '@/ui-desks/widgets/media/types';
 import {
 	ScratchpadWidgetComponent,
@@ -21,6 +22,8 @@ import {
 import type {
 	WidgetCustomDropActionContext,
 	WidgetCustomDropActionIntent,
+	WidgetDropFeedback,
+	WidgetDropFeedbackIntent,
 	WidgetDefinition,
 } from '@/ui-desks/widgets/types';
 import type { Editor, JsonObject } from 'tldraw';
@@ -61,10 +64,25 @@ export const scratchpadWidgetDefinition = {
 			type: 'custom',
 			sourceTypes: [ MEDIA_WIDGET_TYPE ],
 			canHandle: ( sourceWidget ) => isMediaWidgetProps( sourceWidget.widgetProps ),
+			getFeedback: getScratchpadMediaDropFeedback,
 			getActions: getScratchpadMediaDropActions,
 		},
 	],
 } satisfies WidgetDefinition< ScratchpadWidget >;
+
+function getScratchpadMediaDropFeedback(
+	intent: WidgetDropFeedbackIntent
+): WidgetDropFeedback | null {
+	const mediaProps = intent.sourceWidget.widgetProps;
+	if ( ! isMediaWidgetProps( mediaProps ) ) {
+		return null;
+	}
+
+	return {
+		sourceOpacity: intent.phase === 'hover' ? 0 : 0.3,
+		target: createMediaDropPreviewTarget( mediaProps ),
+	};
+}
 
 function getScratchpadMediaDropActions(
 	intent: WidgetCustomDropActionIntent,

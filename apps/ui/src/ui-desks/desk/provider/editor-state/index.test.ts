@@ -1,10 +1,19 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+	deskWidgetToCanvasShape,
+	resolvedDeskWidgetToCanvasShape,
+} from '@/ui-desks/desk/tldraw-adapter';
+import {
 	RECTANGLE_WIDGET_SHAPE_TYPE,
 	type RectangleWidgetShape,
 } from '@/ui-desks/shapes/rectangle-widget/types';
-import { fitSelectedWidgetToContentInEditor } from './index';
-import type { Editor } from 'tldraw';
+import {
+	fitSelectedWidgetToContentInEditor,
+	getCurrentSelectedWidgetToolbarItem,
+	removeSelectedWidgetFromEditor,
+} from './index';
+import type { DeskWidget, ResolvedDeskWidget } from '@/ui-desks/widgets/types';
+import type { Editor, TLShape, TLShapeId } from 'tldraw';
 
 vi.mock( '@wordpress/core-data', () => ( {
 	store: {},
@@ -142,6 +151,42 @@ describe( 'editor state widget fitting', () => {
 	} );
 } );
 
+describe( 'editor state widget removal', () => {
+	it( 'allows toolbar removal for a complete derived post collection stack selection', () => {
+		const { editor } = createEditorWithPostCollectionDerivedSelection();
+
+		const item = getCurrentSelectedWidgetToolbarItem( editor );
+
+		expect( item ).toMatchObject( {
+			kind: 'single-widget',
+			canRemove: true,
+			widget: {
+				id: 'collection-1',
+				type: 'post-collection',
+			},
+		} );
+	} );
+
+	it( 'removes the selected derived post collection stack members from the toolbar', () => {
+		const { editor, derivedShapes, deletedShapeIds } =
+			createEditorWithPostCollectionDerivedSelection();
+
+		expect( removeSelectedWidgetFromEditor( editor ) ).toBe( true );
+		expect( deletedShapeIds ).toEqual( [ derivedShapes.map( ( shape ) => shape.id ) ] );
+	} );
+
+	it( 'keeps toolbar removal disabled when a complete derived selection cannot be removed', () => {
+		const { editor } = createEditorWithPostCollectionDerivedSelection();
+
+		const item = getCurrentSelectedWidgetToolbarItem( editor, { canRemove: false } );
+
+		expect( item ).toMatchObject( {
+			kind: 'single-widget',
+			canRemove: false,
+		} );
+	} );
+} );
+
 function createEditorWithSelectedShape( shape: RectangleWidgetShape ) {
 	const updates: unknown[] = [];
 	const editor = {
@@ -155,4 +200,75 @@ function createEditorWithSelectedShape( shape: RectangleWidgetShape ) {
 	} as unknown as Editor;
 
 	return { editor, updates };
+}
+
+function createEditorWithPostCollectionDerivedSelection() {
+	const sourceShape = deskWidgetToCanvasShape( {
+		id: 'collection-1',
+		type: 'post-collection',
+		x: 40,
+		y: 50,
+		zIndex: 'a1',
+		shapeProps: {
+			w: 1,
+			h: 1,
+		},
+		widgetProps: {
+			query: {
+				postType: 'post',
+				perPage: 5,
+				status: 'publish',
+				orderby: 'date',
+				order: 'desc',
+			},
+		},
+	} as DeskWidget ) as TLShape;
+	const stack = {
+		id: 'post-collection:collection-1',
+		x: 40,
+		y: 50,
+		zIndex: 'a1',
+		memberIds: [ 'collection-1:post:41', 'collection-1:post:42' ],
+	};
+	const derivedShapes = [ 41, 42 ].map(
+		( postId, order ) =>
+			resolvedDeskWidgetToCanvasShape(
+				{
+					origin: {
+						kind: 'derived',
+						sourceWidgetId: 'collection-1',
+						key: `post:${ postId }`,
+					},
+					widget: {
+						id: `collection-1:post:${ postId }`,
+						type: 'post',
+						x: 40,
+						y: 50,
+						zIndex: `a${ order + 2 }`,
+						shapeProps: {
+							w: 280,
+							h: 380,
+						},
+						widgetProps: {
+							postId,
+						},
+					},
+				} as ResolvedDeskWidget< DeskWidget >,
+				{ stack, order }
+			) as TLShape
+	);
+	const shapes = [ sourceShape, ...derivedShapes ];
+	const selectedShapeIds = derivedShapes.map( ( shape ) => shape.id );
+	const deletedShapeIds: TLShapeId[][] = [];
+	const editor = {
+		isDisposed: false,
+		getSelectedShapeIds: () => selectedShapeIds,
+		getShape: ( shapeId: TLShapeId ) => shapes.find( ( shape ) => shape.id === shapeId ),
+		getCurrentPageShapes: () => shapes,
+		deleteShapes: ( shapeIds: TLShapeId[] ) => {
+			deletedShapeIds.push( shapeIds );
+		},
+	} as unknown as Editor;
+
+	return { editor, derivedShapes, deletedShapeIds };
 }

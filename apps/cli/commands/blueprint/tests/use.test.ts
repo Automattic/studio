@@ -6,20 +6,7 @@ import { vi } from 'vitest';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand } from '../use';
 
-vi.mock( 'fs', async () => {
-	const actual = await vi.importActual( 'fs' );
-	return {
-		...actual,
-		default: {
-			...( actual as typeof fs ),
-			promises: {
-				...( actual as typeof fs ).promises,
-				mkdtemp: vi.fn().mockResolvedValue( '/tmp/studio-blueprint-bundle-test' ),
-				writeFile: vi.fn().mockResolvedValue( undefined ),
-			},
-		},
-	};
-} );
+vi.mock( 'fs' );
 vi.mock( '@studio/common/lib/network-utils' );
 vi.mock( '@studio/common/lib/shared-config' );
 vi.mock( '@studio/common/lib/studio-blueprints-api' );
@@ -78,6 +65,8 @@ describe( 'CLI: studio blueprint use', () => {
 		vi.mocked( readSharedConfig ).mockResolvedValue( { version: 1 } );
 		vi.mocked( fetchStudioBlueprints ).mockResolvedValue( testBlueprints );
 		vi.mocked( runCreateSiteCommand ).mockResolvedValue( undefined );
+		vi.mocked( fs.promises.mkdtemp ).mockResolvedValue( '/tmp/studio-blueprint-bundle-mock' );
+		vi.mocked( fs.promises.writeFile ).mockResolvedValue( undefined );
 	} );
 
 	afterEach( () => {

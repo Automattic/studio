@@ -227,13 +227,13 @@ export function ScratchpadWidgetComponent( {
 				/>
 			) : widgetProps.reference ? (
 				<img
-					className={ styles.reference }
+					className={ `${ styles.frame } ${ styles.reference }` }
 					src={ widgetProps.reference.url }
 					alt={ widgetProps.reference.alt }
 					draggable={ false }
 				/>
 			) : (
-				<div className={ styles.empty }>{ __( 'Empty scratchpad' ) }</div>
+				<div className={ styles.empty } aria-hidden="true" />
 			) }
 			<div className={ styles.bottom }>
 				<div className={ styles.descriptionWrap }>
@@ -244,7 +244,7 @@ export function ScratchpadWidgetComponent( {
 						suppressContentEditableWarning
 						spellCheck={ false }
 						data-empty={ description ? 'false' : 'true' }
-						data-placeholder={ __( 'Describe what this scratchpad should become...' ) }
+						data-placeholder={ __( 'Describe what you’d like the agent to make…' ) }
 						onBlur={ () => {
 							updateDescription();
 							onEditComplete();
@@ -330,7 +330,7 @@ const SCRATCHPAD_STATUS_ICON = {
 
 const SCRATCHPAD_STATUS_LABEL: Record< Exclude< ScratchpadAgentStatus, 'idle' >, string > = {
 	pending: __( 'Run agent on this' ),
-	running: __( 'Agent working...' ),
+	running: __( 'Agent working…' ),
 	done: __( 'Done' ),
 };
 

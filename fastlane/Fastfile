@@ -452,17 +452,23 @@ def get_windows_update_release_sha(arch: 'x64')
 end
 
 # `electron-installer-debian` writes one .deb per arch directory with the
-# version embedded in the filename (e.g. `studio_1.8.2~dev16_amd64.deb`), so
-# resolve it via glob rather than reconstructing the filename. The glob
-# matches the trailing `_<deb_arch>.deb` specifically — `create_versioned_file`
-# writes a sidecar copy alongside the original ending in `-<arch>-v<version>.deb`,
-# which this glob skips so retries don't see two `.deb` files.
+# version baked into the filename (e.g. `studio_1.8.2~dev16_amd64.deb`).
+# Renaming it to a clean `studio.deb` stem before upload lets
+# `create_versioned_file` produce a Mac-style `studio-<arch>-v<version>.deb`
+# filename — without the rename, it would mash the original arch+version
+# stamp with its own, yielding the unwieldy
+# `studio_1.8.2~dev16_amd64-x64-v1.8.2-dev16.deb`.
+# Idempotent so retries pick up the already-renamed file.
 def linux_deb_path(arch:)
   deb_arch = arch == 'x64' ? 'amd64' : arch
   dir = File.join(BUILDS_FOLDER, 'make', 'deb', arch)
+  clean_path = File.join(dir, 'studio.deb')
+  return clean_path if File.exist?(clean_path)
+
   matches = Dir.glob(File.join(dir, "studio_*_#{deb_arch}.deb"))
   UI.user_error!("Expected exactly 1 Linux #{arch} .deb in #{dir}, found #{matches.length}: #{matches.join(', ')}") unless matches.length == 1
-  matches.first
+  File.rename(matches.first, clean_path)
+  clean_path
 end
 
 def distribute_builds(

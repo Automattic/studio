@@ -58,9 +58,8 @@ export function SiteContentTabs() {
 
 	if ( selectedWpcomSite ) {
 		return (
-			<div className="flex w-full h-full app-no-drag-region overflow-hidden">
+			<div className="flex h-full min-h-0 w-full app-no-drag-region overflow-hidden">
 				<WpcomSiteAssistant selectedWpcomSite={ selectedWpcomSite } />
-				<div id="assistant-preview-panel-root" className="h-full shrink-0" />
 			</div>
 		);
 	}

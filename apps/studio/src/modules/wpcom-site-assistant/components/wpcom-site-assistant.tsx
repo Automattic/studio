@@ -1,27 +1,33 @@
 import { AgentUI, ImageUploader, Suggestions } from '@automattic/agenttic-ui';
+import { Popover } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
-import { chevronDown, desktop, Icon, image as imageIcon, plus } from '@wordpress/icons';
+import {
+	chevronDown,
+	closeSmall,
+	external,
+	Icon,
+	image as imageIcon,
+	lockSmall,
+	moreVertical,
+	plus,
+	redo,
+	trash,
+} from '@wordpress/icons';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import ClearHistoryReminder from 'src/components/ai-clear-history-reminder';
 import { ArrowIcon } from 'src/components/arrow-icon';
-import { Badge } from 'src/components/badge';
 import Button from 'src/components/button';
 import { ChatMessage } from 'src/components/chat-message';
 import { ChatRating } from 'src/components/chat-rating';
 import offlineIcon from 'src/components/offline-icon';
+import { Tooltip } from 'src/components/tooltip';
 import { LIMIT_OF_PROMPTS_PER_USER } from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { EnvironmentBadge } from 'src/modules/sync/components/environment-badge';
-import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
-import {
-	DollyPreviewPanel,
-	DollyPreviewPanelPortal,
-} from 'src/modules/wpcom-site-assistant/components/wpcom-site-preview-panel';
+import { DollyPreviewPanel } from 'src/modules/wpcom-site-assistant/components/wpcom-site-preview-panel';
 import {
 	fetchDollySite,
 	hydrateWpcomSiteAssistantConversationStates,
@@ -48,6 +54,7 @@ import {
 	createNewWpcomSiteAssistantConversation,
 	createWpcomSiteAssistantSessionKey,
 	createWpcomSiteAssistantSessionState,
+	deleteWpcomSiteAssistantConversation,
 	getWpcomSiteAssistantConversationsForSite,
 	getWpcomSiteAssistantSessionState,
 	getWpcomSiteAssistantTargetPreviewState,
@@ -189,20 +196,6 @@ const DollyEmptyView = ( {
 	</div>
 );
 
-const getLiveSiteSafetyMessage = ( selectedSite: SyncSite ) => {
-	const environment = getSiteEnvironment( selectedSite );
-
-	if ( environment === 'staging' ) {
-		return __( 'Dolly can edit this staging site.' );
-	}
-
-	if ( environment === 'development' ) {
-		return __( 'Dolly can edit this development site.' );
-	}
-
-	return __( 'Dolly can edit this production site.' );
-};
-
 const getCreateStagingSiteUnavailableMessage = ( site: SyncSite ) => {
 	if ( site.isStaging ) {
 		return __( 'This is already a staging site.' );
@@ -222,77 +215,165 @@ const getCreateStagingSiteUnavailableMessage = ( site: SyncSite ) => {
 	);
 };
 
-const LiveSiteSafetySignal = ( { selectedSite }: { selectedSite: SyncSite } ) => (
-	<div
-		data-testid="wpcom-live-site-safety-signal"
-		className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-5 text-frame-text-secondary"
-	>
-		<Badge className="border border-a8c-gray-5 bg-white text-frame-text-secondary">
-			{ __( 'Live site' ) }
-		</Badge>
-		<span>{ getLiveSiteSafetyMessage( selectedSite ) }</span>
-	</div>
-);
-
-const getTargetLabel = ( site: SyncSite, workspace: WpcomSiteWorkspace ) => {
-	if ( ! site.isStaging ) {
-		return __( 'Production' );
-	}
-
-	if ( workspace.stagingSites.length > 1 ) {
-		const stagingIndex = workspace.stagingSites.findIndex(
-			( stagingSite ) => stagingSite.id === site.id
-		);
-		return sprintf( __( 'Staging %d' ), stagingIndex + 1 );
-	}
-
-	return __( 'Staging' );
-};
-
 function WpcomTargetSwitcher( {
 	workspace,
 	selectedSite,
-	onSelect,
+	onSelectSite,
+	onCreateStagingSite,
+	canCreateStagingSite,
+	isCreatingStagingSite,
+	stagingDisabledReason,
 }: {
 	workspace?: WpcomSiteWorkspace;
 	selectedSite: SyncSite;
-	onSelect: ( site: SyncSite ) => void;
+	onSelectSite: ( site: SyncSite ) => void;
+	onCreateStagingSite: () => void;
+	canCreateStagingSite: boolean;
+	isCreatingStagingSite: boolean;
+	stagingDisabledReason?: string;
 } ) {
-	if ( ! workspace || workspace.sites.length < 2 ) {
-		return null;
-	}
+	const productionSite =
+		workspace?.productionSite ?? ( selectedSite.isStaging ? undefined : selectedSite );
+	const stagingSite =
+		workspace?.stagingSites[ 0 ] ?? ( selectedSite.isStaging ? selectedSite : undefined );
+	const isProductionSelected = productionSite?.id === selectedSite.id;
+	const isStagingSelected = stagingSite?.id === selectedSite.id || selectedSite.isStaging;
+	const isProductionDisabled = ! productionSite;
+	const isStagingDisabled = ! stagingSite && ( ! canCreateStagingSite || isCreatingStagingSite );
+	const productionTooltip = isProductionDisabled
+		? __( 'Production site details are not available yet.' )
+		: undefined;
+	const stagingTooltip =
+		stagingDisabledReason ??
+		( isCreatingStagingSite ? __( 'Creating staging site...' ) : undefined );
+
+	const getButtonClassName = ( isSelected: boolean ) =>
+		cx(
+			'inline-flex min-h-6 shrink-0 items-center gap-1.5 rounded px-2 py-0.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme disabled:cursor-not-allowed disabled:opacity-60',
+			isSelected
+				? 'bg-a8c-green-5 text-a8c-green-70'
+				: 'bg-frame-surface text-frame-text-secondary hover:text-frame-text'
+		);
 
 	return (
-		<div className="mt-3 flex flex-wrap items-center gap-2">
-			{ workspace.sites.map( ( site ) => {
-				const isSelected = site.id === selectedSite.id;
-				const label = getTargetLabel( site, workspace );
-				return (
-					<button
-						key={ site.id }
-						type="button"
-						className={ cx(
-							'inline-flex min-h-7 items-center gap-2 rounded border px-3 py-1 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme',
-							isSelected
-								? 'border-frame-theme bg-frame-theme text-white'
-								: 'border-a8c-gray-5 bg-white text-frame-text-secondary hover:text-frame-text'
-						) }
-						onClick={ () => onSelect( site ) }
-					>
-						<span
-							aria-hidden="true"
-							className={ cx(
-								'h-2 w-2 rounded-full',
-								site.isStaging ? 'bg-circle-env-staging' : 'bg-circle-env-production'
-							) }
-						/>
-						{ label }
-					</button>
-				);
-			} ) }
+		<div className="flex items-center gap-2 whitespace-nowrap">
+			<Tooltip text={ productionTooltip } disabled={ ! productionTooltip } placement="bottom-start">
+				<button
+					type="button"
+					className={ getButtonClassName( Boolean( isProductionSelected ) ) }
+					disabled={ isProductionDisabled }
+					onClick={ () => productionSite && onSelectSite( productionSite ) }
+				>
+					<span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-circle-env-production" />
+					{ __( 'Production' ) }
+				</button>
+			</Tooltip>
+			<Tooltip text={ stagingTooltip } disabled={ ! stagingTooltip } placement="bottom-start">
+				<button
+					type="button"
+					className={ getButtonClassName( Boolean( isStagingSelected ) ) }
+					disabled={ isStagingDisabled }
+					onClick={ () => {
+						if ( stagingSite ) {
+							onSelectSite( stagingSite );
+							return;
+						}
+
+						onCreateStagingSite();
+					} }
+				>
+					<span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-circle-env-staging" />
+					{ isCreatingStagingSite ? __( 'Creating staging...' ) : __( 'Staging' ) }
+				</button>
+			</Tooltip>
+			<Tooltip
+				text={ __( 'Local target support is not implemented yet.' ) }
+				placement="bottom-start"
+			>
+				<button type="button" className={ getButtonClassName( false ) } disabled>
+					<span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-a8c-gray-40" />
+					{ __( 'Local' ) }
+				</button>
+			</Tooltip>
 		</div>
 	);
 }
+
+function DollyPreviewHeaderControls( {
+	isOpen,
+	displayUrl,
+	previewUrl,
+	onOpen,
+	onClose,
+	onRefresh,
+}: {
+	isOpen: boolean;
+	displayUrl: string;
+	previewUrl?: string;
+	onOpen: () => void;
+	onClose: () => void;
+	onRefresh: () => void;
+} ) {
+	if ( ! isOpen ) {
+		return (
+			<button
+				type="button"
+				className="flex w-full min-w-0 max-w-[27rem] items-center gap-2 rounded-full border border-a8c-gray-5 bg-a8c-gray-0 px-3 py-2 text-left transition hover:border-a8c-gray-20 hover:bg-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme"
+				onClick={ onOpen }
+				aria-label={ __( 'Show preview' ) }
+			>
+				<Icon icon={ lockSmall } size={ 16 } className="shrink-0 fill-frame-text-secondary" />
+				<span className="truncate text-xs leading-4 text-frame-text-secondary">{ displayUrl }</span>
+			</button>
+		);
+	}
+
+	return (
+		<div className="flex w-full min-w-0 items-center justify-end gap-2">
+			<Button
+				variant="icon"
+				tooltipText={ __( 'Reload preview' ) }
+				disabled={ ! previewUrl }
+				onClick={ onRefresh }
+				aria-label={ __( 'Reload preview' ) }
+			>
+				<Icon icon={ redo } size={ 18 } />
+			</Button>
+			<div className="flex min-w-0 max-w-[27rem] flex-1 items-center gap-2 rounded-full border border-a8c-gray-5 bg-a8c-gray-0 px-3 py-2">
+				<Icon icon={ lockSmall } size={ 16 } className="shrink-0 fill-frame-text-secondary" />
+				<div className="truncate text-xs leading-4 text-frame-text-secondary">{ displayUrl }</div>
+			</div>
+			<Button
+				variant="icon"
+				tooltipText={ __( 'Open in browser' ) }
+				disabled={ ! previewUrl }
+				onClick={ () => getIpcApi().openURL( displayUrl ) }
+				aria-label={ __( 'Open in browser' ) }
+			>
+				<Icon icon={ external } size={ 18 } />
+			</Button>
+			<Button
+				variant="icon"
+				tooltipText={ __( 'Close preview' ) }
+				onClick={ onClose }
+				aria-label={ __( 'Close preview' ) }
+			>
+				<Icon icon={ closeSmall } size={ 20 } />
+			</Button>
+		</div>
+	);
+}
+
+const isBlankConversation = ( conversation: WpcomSiteAssistantSessionState ) =>
+	conversation.messages.length === 0 && ! conversation.input.trim();
+
+const getConversationUpdatedLabel = ( conversation: WpcomSiteAssistantSessionState ) =>
+	new Intl.DateTimeFormat( undefined, {
+		month: 'short',
+		day: 'numeric',
+		hour: 'numeric',
+		minute: '2-digit',
+	} ).format( new Date( conversation.lastUpdated ) );
 
 const getConversationLabel = ( conversation: WpcomSiteAssistantSessionState ) => {
 	const firstUserMessage = conversation.messages.find( ( message ) => message.role === 'user' );
@@ -310,49 +391,154 @@ const getConversationLabel = ( conversation: WpcomSiteAssistantSessionState ) =>
 	return sprintf( __( 'Chat from %s' ), fallbackDate );
 };
 
-function DollyConversationSwitcher( {
+const getConversationMenuLabel = ( conversation: WpcomSiteAssistantSessionState ) => {
+	const label = getConversationLabel( conversation );
+	const updated = getConversationUpdatedLabel( conversation );
+	return `${ label } · ${ updated }`;
+};
+
+const shouldShowConversationControls = (
+	conversations: WpcomSiteAssistantSessionState[],
+	selectedConversation?: WpcomSiteAssistantSessionState
+) => {
+	if ( ! selectedConversation ) {
+		return false;
+	}
+
+	return ! ( conversations.length === 1 && isBlankConversation( selectedConversation ) );
+};
+
+function DollyConversationMenu( {
+	anchor,
 	conversations,
 	selectedConversationId,
-	onSelect,
+	onClose,
 	onNewChat,
+	onSelect,
+	onDelete,
+	isConversationActive,
 }: {
+	anchor: Element | null;
 	conversations: WpcomSiteAssistantSessionState[];
 	selectedConversationId: string;
-	onSelect: ( conversationId: string ) => void;
+	onClose: () => void;
 	onNewChat: () => void;
+	onSelect: ( conversationId: string ) => void;
+	onDelete: ( conversationId: string ) => void;
+	isConversationActive: ( conversationId: string ) => boolean;
 } ) {
-	if ( conversations.length < 2 ) {
-		return (
-			<div className="flex justify-end border-b border-a8c-gray-5 bg-frame-surface px-8 py-2">
-				<Button variant="link" onClick={ onNewChat }>
-					<Icon icon={ plus } size={ 16 } />
-					{ __( 'New chat' ) }
-				</Button>
-			</div>
-		);
+	const menuRef = useRef< HTMLDivElement >( null );
+	const selectedConversation =
+		conversations.find( ( conversation ) => conversation.id === selectedConversationId ) ??
+		conversations[ 0 ];
+
+	useEffect( () => {
+		if ( ! anchor ) {
+			return;
+		}
+
+		const handlePointerDown = ( event: PointerEvent ) => {
+			const target = event.target;
+			if ( ! ( target instanceof Node ) ) {
+				return;
+			}
+
+			if ( anchor?.contains( target ) || menuRef.current?.contains( target ) ) {
+				return;
+			}
+
+			onClose();
+		};
+
+		document.addEventListener( 'pointerdown', handlePointerDown, true );
+		return () => document.removeEventListener( 'pointerdown', handlePointerDown, true );
+	}, [ anchor, onClose ] );
+
+	if ( ! anchor || ! shouldShowConversationControls( conversations, selectedConversation ) ) {
+		return null;
 	}
 
 	return (
-		<div className="flex flex-wrap items-center justify-between gap-2 border-b border-a8c-gray-5 bg-frame-surface px-8 py-2">
-			<label className="flex min-w-0 flex-1 items-center gap-2 text-xs text-frame-text-secondary">
-				<span className="shrink-0">{ __( 'Chat' ) }</span>
-				<select
-					className="min-w-0 flex-1 rounded border border-a8c-gray-5 bg-white px-2 py-1 text-xs text-frame-text"
-					value={ selectedConversationId }
-					onChange={ ( event ) => onSelect( event.target.value ) }
-				>
-					{ conversations.map( ( conversation ) => (
-						<option key={ conversation.id } value={ conversation.id }>
-							{ getConversationLabel( conversation ) }
-						</option>
-					) ) }
-				</select>
-			</label>
-			<Button variant="link" onClick={ onNewChat }>
-				<Icon icon={ plus } size={ 16 } />
-				{ __( 'New chat' ) }
-			</Button>
-		</div>
+		<Popover
+			anchor={ anchor }
+			placement="top-end"
+			onClose={ onClose }
+			resize
+			shift
+			offset={ 8 }
+			focusOnMount={ false }
+		>
+			<div
+				ref={ menuRef }
+				role="menu"
+				aria-label={ __( 'Chat options' ) }
+				className="max-h-80 w-80 overflow-y-auto py-1"
+			>
+				{ conversations.map( ( conversation ) => {
+					const isSelected = conversation.id === selectedConversationId;
+					const isActive = isConversationActive( conversation.id );
+
+					return (
+						<div
+							key={ conversation.id }
+							className={ cx(
+								'flex items-center gap-1 px-1 py-0.5',
+								isSelected && 'bg-frame-surface'
+							) }
+						>
+							<button
+								type="button"
+								role="menuitem"
+								className="min-w-0 flex-1 rounded px-3 py-2 text-left hover:bg-frame-surface focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme"
+								onClick={ () => {
+									onSelect( conversation.id );
+									onClose();
+								} }
+							>
+								<span className="block truncate text-sm font-medium text-frame-text">
+									{ getConversationLabel( conversation ) }
+								</span>
+								<span className="block truncate text-xs text-frame-text-secondary">
+									{ getConversationUpdatedLabel( conversation ) }
+								</span>
+							</button>
+							<Button
+								variant="icon"
+								className="h-8 w-8 shrink-0 text-frame-text-secondary hover:text-a8c-red-50"
+								disabled={ isActive }
+								aria-label={ sprintf(
+									/* translators: %s is a Dolly chat label. */
+									__( 'Delete chat: %s' ),
+									getConversationMenuLabel( conversation )
+								) }
+								tooltipText={
+									isActive ? __( 'Wait for Dolly to finish before deleting this chat.' ) : undefined
+								}
+								onClick={ () => {
+									onDelete( conversation.id );
+								} }
+							>
+								<Icon icon={ trash } size={ 18 } />
+							</Button>
+						</div>
+					);
+				} ) }
+				<div className="mt-1 border-t border-a8c-gray-5 px-1 pt-1">
+					<button
+						type="button"
+						role="menuitem"
+						className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm font-medium text-frame-theme hover:bg-frame-surface focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme"
+						onClick={ () => {
+							onNewChat();
+							onClose();
+						} }
+					>
+						<Icon icon={ plus } size={ 16 } />
+						{ __( 'New chat' ) }
+					</button>
+				</div>
+			</div>
+		</Popover>
 	);
 }
 
@@ -390,6 +576,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 	const [ imageUploadError, setImageUploadError ] = useState< string | undefined >();
 	const [ stagingCreationSiteId, setStagingCreationSiteId ] = useState< number | undefined >();
 	const [ showJumpToLatest, setShowJumpToLatest ] = useState( false );
+	const [ chatMenuAnchor, setChatMenuAnchor ] = useState< Element | null >( null );
 	const [ optimisticMessageImages, setOptimisticMessageImages ] = useState<
 		Record< string, DollyMessageImageAttachment >
 	>( {} );
@@ -414,6 +601,13 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		[ activeWpcomSite, wpcomSites ]
 	);
 	const conversationsForTarget = getWpcomSiteAssistantConversationsForSite( activeWpcomSite.id );
+	const selectedConversationForTarget =
+		conversationsForTarget.find( ( conversation ) => conversation.id === selectedConversationId ) ??
+		conversationsForTarget[ 0 ];
+	const showConversationControls = shouldShowConversationControls(
+		conversationsForTarget,
+		selectedConversationForTarget
+	);
 	const instanceId = userId
 		? `dolly_${ userId }_wpcom_${ activeWpcomSite.id }`
 		: `dolly_wpcom_${ activeWpcomSite.id }`;
@@ -421,6 +615,10 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		() => normalizePreviewUrl( activeWpcomSite.url, previewState.pathOrUrl ),
 		[ activeWpcomSite.url, previewState.pathOrUrl ]
 	);
+	const previewDisplayUrl = previewState.currentUrl || previewUrl || activeWpcomSite.url;
+	const previewHeaderDisplayUrl = previewState.open
+		? previewDisplayUrl
+		: previewState.currentUrl || activeWpcomSite.url;
 	const siteAssociation = useMemo(
 		() => createWpcomOnlySiteAssociationContext( activeWpcomSite ),
 		[ activeWpcomSite ]
@@ -429,19 +627,27 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		() => createPreviewContext( activeWpcomSite, previewState, previewUrl ),
 		[ activeWpcomSite, previewState, previewUrl ]
 	);
-	const siteEnvironment = getSiteEnvironment( activeWpcomSite );
 	const hasFailedMessage = messages.some( ( msg ) => msg.failedMessage );
 	const failedMessageContent = messages.find( ( msg ) => msg.failedMessage )?.content;
-	const lastMessage = messages.length === 0 ? undefined : messages[ messages.length - 1 ];
-	const showCreateStagingSiteButton =
-		! activeWpcomSite.isStaging &&
-		! activeWpcomSite.isPressable &&
-		! activeWpcomSite.stagingSiteIds?.length;
-	const stagingCreationBlocker = getKnownStagingCreationBlocker( activeWpcomSite );
-	const canCreateStagingSite = showCreateStagingSiteButton && ! stagingCreationBlocker;
+	const productionTargetSite =
+		wpcomSiteWorkspace?.productionSite ??
+		( activeWpcomSite.isStaging ? undefined : activeWpcomSite );
+	const stagingTargetSite =
+		wpcomSiteWorkspace?.stagingSites[ 0 ] ??
+		( activeWpcomSite.isStaging ? activeWpcomSite : undefined );
+	const stagingCreationBlocker = productionTargetSite
+		? getKnownStagingCreationBlocker( productionTargetSite )
+		: __( 'Production site details are not available yet.' );
+	const canCreateStagingSite =
+		Boolean( productionTargetSite ) &&
+		! stagingTargetSite &&
+		! productionTargetSite?.isStaging &&
+		! productionTargetSite?.isPressable &&
+		! productionTargetSite?.stagingSiteIds?.length &&
+		! stagingCreationBlocker;
 	const isCreatingStagingSite = createWpcomStagingSiteResult.isLoading;
-	const isCreatingStagingSiteForActiveSite =
-		isCreatingStagingSite && stagingCreationSiteId === activeWpcomSite.id;
+	const isCreatingStagingSiteForTarget =
+		isCreatingStagingSite && stagingCreationSiteId === productionTargetSite?.id;
 	const hasActiveAssistantTurn = useWpcomSiteAssistantTurn( selectedConversationId );
 	const isCurrentSessionAssistantThinking = isAssistantThinking || hasActiveAssistantTurn;
 	const hadActiveAssistantTurnRef = useRef( hasActiveAssistantTurn );
@@ -690,6 +896,12 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		setPreviewState( nextPreviewState );
 		refreshConversationList();
 	}, [ refreshConversationList, selectedWpcomSite, sessionCacheKey ] );
+
+	useEffect( () => {
+		if ( ! showConversationControls ) {
+			setChatMenuAnchor( null );
+		}
+	}, [ showConversationControls ] );
 
 	useEffect( () => {
 		previousMessageCountRef.current = messagesRef.current.length;
@@ -974,12 +1186,6 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 			}
 		},
 		[ createWpcomStagingSite, selectTargetSite, setWpcomSiteActivity, userId ]
-	);
-
-	const createStagingSiteForActiveSite = useCallback(
-		( options?: { selectWpcomSite?: boolean } ) =>
-			createStagingSiteForSite( activeWpcomSiteRef.current, options ),
-		[ createStagingSiteForSite ]
 	);
 
 	const createDollyToolProviderForSession = useCallback(
@@ -1357,23 +1563,29 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		]
 	);
 
+	const applySelectedConversationState = useCallback(
+		( nextSessionState: WpcomSiteAssistantSessionState ) => {
+			conversationIdRef.current = nextSessionState.id;
+			setSelectedConversationId( nextSessionState.id );
+			remoteChatIdRef.current = nextSessionState.remoteChatId;
+			serverHydrationDisabledRef.current = Boolean( nextSessionState.serverHydrationDisabled );
+			messagesRef.current = nextSessionState.messages;
+			setInput( nextSessionState.input );
+			setMessages( nextSessionState.messages );
+			setOptimisticMessageImages( {} );
+			setSessionId( nextSessionState.sessionId );
+			setActiveWpcomSite( nextSessionState.activeWpcomSite );
+			setIsAssistantThinking( Boolean( getWpcomSiteAssistantTurn( nextSessionState.id ) ) );
+			clearPendingImages();
+			refreshConversationList();
+		},
+		[ clearPendingImages, refreshConversationList ]
+	);
+
 	const startNewConversation = useCallback( () => {
 		const nextSessionState = createNewWpcomSiteAssistantConversation( selectedWpcomSite );
-		conversationIdRef.current = nextSessionState.id;
-		setSelectedConversationId( nextSessionState.id );
-		remoteChatIdRef.current = nextSessionState.remoteChatId;
-		serverHydrationDisabledRef.current = Boolean( nextSessionState.serverHydrationDisabled );
-		messagesRef.current = nextSessionState.messages;
-		setInput( '' );
-		setMessages( [] );
-		setOptimisticMessageImages( {} );
-		setSessionId( undefined );
-		setActiveWpcomSite( selectedWpcomSite );
-		clearPendingImages();
-		refreshConversationList();
-	}, [ clearPendingImages, refreshConversationList, selectedWpcomSite ] );
-
-	const clearConversation = startNewConversation;
+		applySelectedConversationState( nextSessionState );
+	}, [ applySelectedConversationState, selectedWpcomSite ] );
 
 	const selectConversation = useCallback(
 		( conversationId: string ) => {
@@ -1383,21 +1595,24 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 			}
 
 			setSelectedWpcomSiteAssistantConversationId( selectedWpcomSite.id, conversationId );
-			conversationIdRef.current = conversationId;
-			setSelectedConversationId( conversationId );
-			remoteChatIdRef.current = nextSessionState.remoteChatId;
-			serverHydrationDisabledRef.current = Boolean( nextSessionState.serverHydrationDisabled );
-			messagesRef.current = nextSessionState.messages;
-			setInput( nextSessionState.input );
-			setMessages( nextSessionState.messages );
-			setOptimisticMessageImages( {} );
-			setSessionId( nextSessionState.sessionId );
-			setActiveWpcomSite( nextSessionState.activeWpcomSite );
-			setIsAssistantThinking( Boolean( getWpcomSiteAssistantTurn( conversationId ) ) );
-			clearPendingImages();
-			refreshConversationList();
+			applySelectedConversationState( nextSessionState );
 		},
-		[ clearPendingImages, refreshConversationList, selectedWpcomSite.id ]
+		[ applySelectedConversationState, selectedWpcomSite.id ]
+	);
+
+	const deleteConversation = useCallback(
+		( conversationId: string ) => {
+			if ( getWpcomSiteAssistantTurn( conversationId ) ) {
+				return;
+			}
+
+			const nextSessionState = deleteWpcomSiteAssistantConversation(
+				conversationId,
+				selectedWpcomSite
+			);
+			applySelectedConversationState( nextSessionState );
+		},
+		[ applySelectedConversationState, selectedWpcomSite ]
 	);
 
 	const agentticMessages = useMemo< AgentUIProps[ 'messages' ] >(
@@ -1480,15 +1695,18 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		[]
 	);
 
-	const createStagingSiteFromHeader = useCallback( async () => {
+	const createStagingSiteFromTargetSwitcher = useCallback( async () => {
 		if ( ! canCreateStagingSite || isCreatingStagingSite || isAssistantThinkingRef.current ) {
 			return;
 		}
 
-		const site = activeWpcomSiteRef.current;
+		const site = productionTargetSite;
+		if ( ! site ) {
+			return;
+		}
 
 		try {
-			await createStagingSiteForActiveSite( { selectWpcomSite: true } );
+			await createStagingSiteForSite( site, { selectWpcomSite: true } );
 		} catch ( error ) {
 			if ( ! isMountedRef.current ) {
 				return;
@@ -1499,14 +1717,23 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 				message: getStagingCreationErrorMessage( error, site ),
 			} );
 		}
-	}, [ canCreateStagingSite, createStagingSiteForActiveSite, isCreatingStagingSite ] );
+	}, [
+		canCreateStagingSite,
+		createStagingSiteForSite,
+		isCreatingStagingSite,
+		productionTargetSite,
+	] );
 
 	const createStagingSiteFromChat = useCallback( async () => {
 		if ( ! canCreateStagingSite || isCreatingStagingSite || isAssistantThinkingRef.current ) {
 			return;
 		}
 
-		const site = activeWpcomSiteRef.current;
+		const site = productionTargetSite;
+		if ( ! site ) {
+			return;
+		}
+
 		const prompt = __( 'Make a staging site' );
 		const startingMessages: MessageType[] = messagesRef.current.map( ( message ) => ( {
 			...message,
@@ -1521,7 +1748,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		setIsAssistantThinking( true );
 
 		try {
-			const stagingSite = await createStagingSiteForActiveSite();
+			const stagingSite = await createStagingSiteForSite( site );
 
 			if ( ! isMountedRef.current ) {
 				return;
@@ -1567,9 +1794,10 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		}
 	}, [
 		canCreateStagingSite,
-		createStagingSiteForActiveSite,
+		createStagingSiteForSite,
 		isCreatingStagingSite,
 		persistStagingSiteConversation,
+		productionTargetSite,
 		selectTargetSite,
 	] );
 
@@ -1610,19 +1838,28 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 	const isInputUnavailable = isOffline || ! isAuthenticated || ! client;
 	const isInputDisabled = isInputUnavailable && ! isCurrentSessionAssistantThinking;
 	const isInputActionDisabled = isInputUnavailable || isCurrentSessionAssistantThinking;
-	const isCreateStagingSiteButtonDisabled =
-		! canCreateStagingSite ||
-		isCreatingStagingSite ||
-		isCurrentSessionAssistantThinking ||
-		isOffline ||
-		! isAuthenticated ||
-		! client;
-	const createStagingSiteTooltip = isCurrentSessionAssistantThinking
+	const stagingTargetDisabledReason = stagingTargetSite
+		? undefined
+		: isCurrentSessionAssistantThinking
 		? __( 'Wait for Dolly to finish before creating a staging site.' )
+		: isCreatingStagingSiteForTarget
+		? __( 'Creating staging site...' )
+		: isOffline
+		? __( 'Connect to the internet to create a staging site.' )
+		: ! isAuthenticated || ! client
+		? __( 'Log in to WordPress.com to create a staging site.' )
 		: stagingCreationBlocker;
+	const canUseStagingTarget =
+		Boolean( stagingTargetSite ) ||
+		( canCreateStagingSite &&
+			! isCreatingStagingSite &&
+			! isCurrentSessionAssistantThinking &&
+			! isOffline &&
+			isAuthenticated &&
+			Boolean( client ) );
 
-	const dollyInputActions = useMemo(
-		() => [
+	const dollyInputActions = useMemo( () => {
+		return [
 			{
 				id: 'upload-image',
 				icon: <Icon icon={ imageIcon } size={ 18 } />,
@@ -1631,20 +1868,25 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 				disabled: isInputActionDisabled,
 				'aria-label': __( 'Upload image' ),
 			},
-			...( messages.length > 0
+			...( showConversationControls
 				? [
 						{
-							id: 'new-chat',
-							icon: <Icon icon={ plus } size={ 18 } />,
-							onClick: startNewConversation,
+							id: 'chat-options',
+							icon: <Icon icon={ moreVertical } size={ 18 } />,
+							onClick: ( event?: React.MouseEvent< HTMLButtonElement > ) => {
+								const nextAnchor = event?.currentTarget ?? null;
+								setChatMenuAnchor( ( currentAnchor ) =>
+									currentAnchor === nextAnchor ? null : nextAnchor
+								);
+							},
 							variant: 'ghost' as const,
-							'aria-label': __( 'New chat' ),
+							disabled: false,
+							'aria-label': __( 'Chat options' ),
 						},
 				  ]
 				: [] ),
-		],
-		[ isInputActionDisabled, messages.length, startNewConversation ]
-	);
+		];
+	}, [ isInputActionDisabled, showConversationControls ] );
 
 	const dollySuggestions = useMemo< Suggestion[] >(
 		() =>
@@ -1669,172 +1911,148 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		[ dollySuggestions ]
 	);
 
-	const renderConversationReminder = () => {
-		if ( isAuthenticated && messages.length > 0 ) {
-			return (
-				<ClearHistoryReminder lastMessage={ lastMessage } clearConversation={ clearConversation } />
-			);
-		}
-	};
-
 	return (
-		<div className="relative h-full min-w-0 flex flex-1 overflow-hidden bg-frame-surface">
-			<div className="min-w-0 flex-1 flex flex-col">
-				<div className="shrink-0 border-b border-a8c-gray-5 bg-white px-8 py-5 flex items-start gap-4">
-					<div className="min-w-0 flex-1">
-						<div className="flex min-w-0 flex-wrap items-center gap-2">
-							<h1 className="m-0 truncate text-xl font-semibold text-frame-text">
-								{ activeWpcomSite.name }
-							</h1>
-							<EnvironmentBadge type={ siteEnvironment } />
-							<Badge className="bg-frame-surface text-frame-text-secondary">
-								{ __( 'WordPress.com' ) }
-							</Badge>
+		<div className="relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden bg-frame-surface">
+			<div className="flex min-h-0 min-w-0 flex-1 flex-col">
+				<div className="shrink-0 border-b border-a8c-gray-5 bg-white px-8 py-4">
+					<div className="grid min-w-0 gap-2">
+						<h1 className="m-0 truncate text-xl font-semibold text-frame-text">
+							{ activeWpcomSite.name }
+						</h1>
+						<div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(14rem,27rem)] items-center gap-4">
+							<WpcomTargetSwitcher
+								workspace={ wpcomSiteWorkspace }
+								selectedSite={ activeWpcomSite }
+								onSelectSite={ selectTargetSite }
+								onCreateStagingSite={ () => void createStagingSiteFromTargetSwitcher() }
+								canCreateStagingSite={ canUseStagingTarget }
+								isCreatingStagingSite={ isCreatingStagingSiteForTarget }
+								stagingDisabledReason={ stagingTargetDisabledReason }
+							/>
+							<div className="flex min-w-0 justify-end">
+								<DollyPreviewHeaderControls
+									isOpen={ previewState.open }
+									displayUrl={ previewHeaderDisplayUrl }
+									previewUrl={ previewUrl }
+									onOpen={ () => openPreview( previewState.pathOrUrl ) }
+									onClose={ () => updatePreviewState( { open: false } ) }
+									onRefresh={ () =>
+										updatePreviewState( {
+											isLoading: true,
+											reloadNonce: previewState.reloadNonce + 1,
+										} )
+									}
+								/>
+							</div>
 						</div>
-						<div className="mt-1 truncate text-sm text-frame-text-secondary">
-							{ activeWpcomSite.url }
-						</div>
-						<LiveSiteSafetySignal selectedSite={ activeWpcomSite } />
-						<WpcomTargetSwitcher
-							workspace={ wpcomSiteWorkspace }
-							selectedSite={ activeWpcomSite }
-							onSelect={ selectTargetSite }
-						/>
-					</div>
-					<div className="flex shrink-0 flex-wrap justify-end gap-2">
-						{ showCreateStagingSiteButton && (
-							<Button
-								variant="secondary"
-								onClick={ () => void createStagingSiteFromHeader() }
-								disabled={ isCreateStagingSiteButtonDisabled }
-								aria-disabled={ isCreateStagingSiteButtonDisabled }
-								tooltipText={ createStagingSiteTooltip }
-							>
-								{ isCreatingStagingSiteForActiveSite
-									? __( 'Creating staging...' )
-									: __( 'Create staging site' ) }
-							</Button>
-						) }
-						{ ! previewState.open && (
-							<Button variant="secondary" onClick={ () => openPreview( previewState.pathOrUrl ) }>
-								<Icon icon={ desktop } size={ 18 } />
-								{ __( 'Show preview' ) }
-							</Button>
-						) }
 					</div>
 				</div>
-				<div
-					data-testid="assistant-chat"
-					ref={ dollyDropZoneRef }
-					className={ cx( 'min-h-0 flex-1', ! isAuthenticated && 'overflow-y-auto p-8 pb-2' ) }
-				>
-					{ isAuthenticated ? (
-						<div className="agenttic dolly-agenttic-chat h-full min-h-0">
-							<AgentUI.Container
-								messages={ agentticMessages }
-								isProcessing={ isCurrentSessionAssistantThinking }
-								error={ null }
-								onSubmit={ submitPrompt }
-								onStop={ interruptDollyRequest }
-								variant="embedded"
-								placeholder={ __( 'Ask Dolly about this site' ) }
-								notice={ dollyNotice }
-								emptyView={ dollyEmptyView }
-								suggestions={ dollySuggestions }
-								messagesPosition="bottom"
-								inputValue={ input }
-								onInputChange={ setInput }
-								maxInputLength={ 10000 }
-								thinkingMessage={ __( 'Thinking...' ) }
-								className="h-full min-h-0 bg-frame-surface"
-							>
-								<DollyConversationSwitcher
-									conversations={ conversationsForTarget }
-									selectedConversationId={ selectedConversationId }
-									onSelect={ selectConversation }
-									onNewChat={ startNewConversation }
-								/>
-								<AgentUI.ConversationView
-									ref={ conversationViewRef }
-									showHeader={ false }
-									className="relative min-h-0 px-6 py-6"
+				<div className="flex min-h-0 flex-1">
+					<div
+						data-testid="assistant-chat"
+						ref={ dollyDropZoneRef }
+						className={ cx( 'min-h-0 flex-1', ! isAuthenticated && 'overflow-y-auto p-8 pb-2' ) }
+					>
+						{ isAuthenticated ? (
+							<div className="agenttic dolly-agenttic-chat h-full min-h-0 overflow-hidden">
+								<AgentUI.Container
+									messages={ agentticMessages }
+									isProcessing={ isCurrentSessionAssistantThinking }
+									error={ null }
+									onSubmit={ submitPrompt }
+									onStop={ interruptDollyRequest }
+									variant="embedded"
+									placeholder={ __( 'Ask Dolly about this site' ) }
+									notice={ dollyNotice }
+									emptyView={ dollyEmptyView }
+									suggestions={ dollySuggestions }
+									messagesPosition="bottom"
+									inputValue={ input }
+									onInputChange={ setInput }
+									maxInputLength={ 10000 }
+									thinkingMessage={ __( 'Thinking...' ) }
+									className="h-full min-h-0 bg-frame-surface"
 								>
-									<AgentUI.Messages key={ selectedConversationId } />
-									{ showJumpToLatest && (
-										<div className="pointer-events-none absolute inset-x-0 bottom-28 z-20 flex justify-center">
-											<button
-												type="button"
-												aria-label={ __( 'Jump to latest message' ) }
-												onClick={ () => scrollToLatestMessage( 'smooth' ) }
-												className="pointer-events-auto grid h-9 w-9 place-items-center rounded-full border border-a8c-gray-5 bg-white text-frame-text-secondary shadow-sm transition hover:text-frame-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme"
-											>
-												<Icon icon={ chevronDown } size={ 20 } />
-											</button>
-										</div>
-									) }
-									{ messages.length > 0 && (
-										<div className="px-4 pb-2 text-frame-text-secondary">
-											{ renderConversationReminder() }
-										</div>
-									) }
-									<AgentUI.Footer className="mx-2 bg-white">
-										<AgentUI.Notice />
-										<ImageUploader
-											ref={ imageUploaderRef }
-											images={ pendingImages }
-											onFilesSelected={ addPendingImages }
-											onRemoveImage={ removePendingImage }
-											acceptedFileTypes={ DOLLY_IMAGE_FILE_TYPES }
-											maxFileSize={ DOLLY_IMAGE_MAX_FILE_SIZE }
-											maxFiles={ DOLLY_IMAGE_MAX_FILES }
-											dropZoneRef={ dollyDropZoneRef }
-											onError={ setImageUploadError }
-										/>
-										<AgentUI.Input
-											disabled={
-												isInputDisabled ? true : pendingImages.length > 0 ? false : undefined
-											}
-											customActions={ dollyInputActions }
-											layout="inline"
-										/>
-									</AgentUI.Footer>
-									<div
-										data-testid="guidelines-link"
-										className="text-frame-text-secondary self-end pt-2 px-2"
+									<AgentUI.ConversationView
+										ref={ conversationViewRef }
+										showHeader={ false }
+										className="relative min-h-0 overflow-hidden px-6 pb-4 pt-6"
 									>
-										{ __( 'Powered by Dolly.' ) }
-									</div>
-								</AgentUI.ConversationView>
-							</AgentUI.Container>
-						</div>
-					) : (
-						<div className="mt-auto w-full">
-							{ isOffline ? (
-								<OfflineModeView />
-							) : (
-								<UnauthenticatedView onAuthenticate={ authenticate } />
-							) }
-						</div>
+										<AgentUI.Messages key={ selectedConversationId } />
+										{ showJumpToLatest && (
+											<div className="pointer-events-none absolute inset-x-0 bottom-28 z-20 flex justify-center">
+												<button
+													type="button"
+													aria-label={ __( 'Jump to latest message' ) }
+													onClick={ () => scrollToLatestMessage( 'smooth' ) }
+													className="pointer-events-auto grid h-9 w-9 place-items-center rounded-full border border-a8c-gray-5 bg-white text-frame-text-secondary shadow-sm transition hover:text-frame-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme"
+												>
+													<Icon icon={ chevronDown } size={ 20 } />
+												</button>
+											</div>
+										) }
+										<AgentUI.Footer className="mx-2 shrink-0 bg-white">
+											<AgentUI.Notice />
+											<ImageUploader
+												ref={ imageUploaderRef }
+												images={ pendingImages }
+												onFilesSelected={ addPendingImages }
+												onRemoveImage={ removePendingImage }
+												acceptedFileTypes={ DOLLY_IMAGE_FILE_TYPES }
+												maxFileSize={ DOLLY_IMAGE_MAX_FILE_SIZE }
+												maxFiles={ DOLLY_IMAGE_MAX_FILES }
+												dropZoneRef={ dollyDropZoneRef }
+												onError={ setImageUploadError }
+											/>
+											<AgentUI.Input
+												disabled={
+													isInputDisabled ? true : pendingImages.length > 0 ? false : undefined
+												}
+												customActions={ dollyInputActions }
+												layout="inline"
+											/>
+										</AgentUI.Footer>
+										<DollyConversationMenu
+											anchor={ chatMenuAnchor }
+											conversations={ conversationsForTarget }
+											selectedConversationId={ selectedConversationId }
+											onClose={ () => setChatMenuAnchor( null ) }
+											onNewChat={ startNewConversation }
+											onSelect={ selectConversation }
+											onDelete={ deleteConversation }
+											isConversationActive={ ( conversationId ) =>
+												Boolean( getWpcomSiteAssistantTurn( conversationId ) )
+											}
+										/>
+										<div
+											data-testid="guidelines-link"
+											className="self-end px-2 pt-2 text-frame-text-secondary"
+										>
+											{ __( 'Powered by Dolly.' ) }
+										</div>
+									</AgentUI.ConversationView>
+								</AgentUI.Container>
+							</div>
+						) : (
+							<div className="mt-auto w-full">
+								{ isOffline ? (
+									<OfflineModeView />
+								) : (
+									<UnauthenticatedView onAuthenticate={ authenticate } />
+								) }
+							</div>
+						) }
+					</div>
+					{ previewState.open && (
+						<DollyPreviewPanel
+							selectedSite={ activeWpcomSite }
+							previewState={ previewState }
+							previewUrl={ previewUrl }
+							onUpdateState={ updatePreviewState }
+						/>
 					) }
 				</div>
 			</div>
-			{ previewState.open && (
-				<DollyPreviewPanelPortal>
-					<DollyPreviewPanel
-						selectedSite={ activeWpcomSite }
-						previewState={ previewState }
-						previewUrl={ previewUrl }
-						onClose={ () => updatePreviewState( { open: false } ) }
-						onRefresh={ () =>
-							updatePreviewState( {
-								isLoading: true,
-								reloadNonce: previewState.reloadNonce + 1,
-							} )
-						}
-						onUpdateState={ updatePreviewState }
-					/>
-				</DollyPreviewPanelPortal>
-			) }
 		</div>
 	);
 }

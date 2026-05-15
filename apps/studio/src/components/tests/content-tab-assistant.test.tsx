@@ -240,6 +240,7 @@ describe( 'ContentTabAssistant', () => {
 					sessionId?: string;
 				}
 			>;
+			hiddenRemoteConversationKeysBySiteId?: Record< string, string[] >;
 		};
 		return Object.values( cache.conversations ?? {} );
 	};
@@ -454,19 +455,18 @@ describe( 'ContentTabAssistant', () => {
 		expect( getGuidelinesLink() ).toHaveTextContent( 'Powered by experimental AI.' );
 	} );
 
-	it( 'shows production live-site safety signals in the WP.com-only live site chat', () => {
+	it( 'shows production target controls in the WP.com-only live site chat', () => {
 		renderWithContext( { component: 'wpcom-site' } );
 
-		expect( screen.getByText( 'Production' ) ).toBeVisible();
-		expect( screen.getByText( 'WordPress.com' ) ).toBeVisible();
-		expect( screen.getByText( 'Live site' ) ).toBeVisible();
-		expect( screen.getByRole( 'button', { name: 'Create staging site' } ) ).toBeVisible();
-		expect( screen.getByTestId( 'wpcom-live-site-safety-signal' ) ).toHaveTextContent(
-			'Live site'
-		);
+		expect( screen.getAllByText( 'Production' )[ 0 ] ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Staging' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Local' } ) ).toBeDisabled();
+		expect( screen.queryByText( 'WordPress.com' ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( 'Live site' ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( /Dolly can edit this production site/ ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'shows staging live-site safety signals in the WP.com-only live site chat', () => {
+	it( 'shows staging target controls in the WP.com-only live site chat', () => {
 		renderWithContext( {
 			component: 'wpcom-site',
 			selectedWpcomSite: {
@@ -475,13 +475,13 @@ describe( 'ContentTabAssistant', () => {
 			},
 		} );
 
-		expect( screen.getByText( 'Staging' ) ).toBeVisible();
+		expect( screen.getAllByText( 'Staging' )[ 0 ] ).toBeVisible();
 		expect(
 			screen.queryByRole( 'button', { name: 'Create staging site' } )
 		).not.toBeInTheDocument();
-		expect( screen.getByTestId( 'wpcom-live-site-safety-signal' ) ).toHaveTextContent(
-			'Live site'
-		);
+		expect( screen.getByRole( 'button', { name: 'Local' } ) ).toBeDisabled();
+		expect( screen.queryByText( 'Live site' ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( /Dolly can edit this staging site/ ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'creates a staging site from the WP.com-only production site header', async () => {
@@ -506,12 +506,12 @@ describe( 'ContentTabAssistant', () => {
 
 		renderWithContext( { component: 'wpcom-site', auth: { client: dollyClient } } );
 
-		await user.click( screen.getByRole( 'button', { name: 'Create staging site' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Staging' } ) );
 
 		await waitFor( () =>
 			expect( screen.getByText( 'https://staging-dolly.example' ) ).toBeVisible()
 		);
-		expect( screen.getByText( 'Staging' ) ).toBeVisible();
+		expect( screen.getAllByText( 'Staging' )[ 0 ] ).toBeVisible();
 		expect( queryChatMessageText( 'Make a staging site' ) ).toBeNull();
 		expect( queryChatMessageText( /Done! Here's your staging site/ ) ).toBeNull();
 		expect(
@@ -554,20 +554,15 @@ describe( 'ContentTabAssistant', () => {
 		);
 		renderWithContext( { component: 'wpcom-site', auth: { client: dollyClient } } );
 
-		const createStagingSiteButton = screen.getByRole( 'button', {
-			name: 'Create staging site',
-		} );
-		expect( createStagingSiteButton ).toBeEnabled();
+		const stagingTargetButton = screen.getByRole( 'button', { name: 'Staging' } );
+		expect( stagingTargetButton ).toBeEnabled();
 
 		const textInput = getInput();
 		fireEvent.change( textInput, { target: { value: 'Think for a moment' } } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
 
 		await screen.findByRole( 'button', { name: 'Stop processing' } );
-		expect( screen.getByRole( 'button', { name: 'Create staging site' } ) ).toHaveAttribute(
-			'aria-disabled',
-			'true'
-		);
+		expect( screen.getByRole( 'button', { name: 'Staging' } ) ).toBeDisabled();
 
 		finishDollyRequest();
 		await waitFor( () => {
@@ -628,7 +623,7 @@ describe( 'ContentTabAssistant', () => {
 
 		renderWithContext( { component: 'wpcom-site', auth: { client: dollyClient } } );
 
-		await user.click( screen.getByRole( 'button', { name: 'Create staging site' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Staging' } ) );
 
 		const ipcApi = vi.mocked( getIpcApi )();
 		await waitFor( () => expect( ipcApi.showErrorMessageBox ).toHaveBeenCalledTimes( 1 ) );
@@ -1549,10 +1544,12 @@ describe( 'ContentTabAssistant', () => {
 			expect( getChatMessageText( 'First hello response' ) ).toBeVisible();
 		} );
 
-		fireEvent.click( screen.getAllByRole( 'button', { name: 'New chat' } )[ 0 ] );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Chat options' } ) );
+		fireEvent.click( screen.getByRole( 'menuitem', { name: 'New chat' } ) );
 
 		await waitFor( () => {
 			expect( queryChatMessageText( 'First hello response' ) ).not.toBeInTheDocument();
+			expect( screen.queryByRole( 'menu', { name: 'Chat options' } ) ).not.toBeInTheDocument();
 		} );
 
 		fireEvent.change( getInput(), { target: { value: 'Fresh hello' } } );
@@ -1564,6 +1561,149 @@ describe( 'ContentTabAssistant', () => {
 
 		const freshRequest = requestBodies[ 1 ];
 		expect( freshRequest.params?.sessionId ).toBe( freshRequest.params?.id );
+	} );
+
+	it( 'deletes the selected local WP.com-only chat and selects the next chat', async () => {
+		const user = userEvent.setup();
+		localStorage.setItem(
+			LOCAL_STORAGE_DOLLY_WPCOM_SITE_CONVERSATIONS_KEY,
+			JSON.stringify( {
+				version: 6,
+				conversations: {
+					'local:first': {
+						id: 'local:first',
+						key: { siteId: 123, agentId: 'dolly' },
+						input: '',
+						messages: [ generateMessage( 'First saved chat', 'user', 0, 100, 10 ) ],
+						activeWpcomSite: firstWpcomSite,
+						previewState: { open: false, pathOrUrl: '/', isLoading: false, reloadNonce: 0 },
+						lastUpdated: 100,
+					},
+					'local:second': {
+						id: 'local:second',
+						key: { siteId: 123, agentId: 'dolly' },
+						input: '',
+						messages: [ generateMessage( 'Second saved chat', 'user', 0, 200, 20 ) ],
+						activeWpcomSite: firstWpcomSite,
+						previewState: { open: false, pathOrUrl: '/', isLoading: false, reloadNonce: 0 },
+						lastUpdated: 200,
+					},
+				},
+				selectedConversationIdsBySiteId: { 123: 'local:first' },
+				targetPreviewStatesBySiteId: {},
+				hiddenRemoteConversationKeysBySiteId: {},
+			} )
+		);
+
+		renderWithContext( { component: 'wpcom-site' } );
+
+		expect( getChatMessageText( 'First saved chat' ) ).toBeInTheDocument();
+		await user.click( screen.getByRole( 'button', { name: 'Chat options' } ) );
+		await user.click( screen.getByRole( 'button', { name: /Delete chat: First saved chat/ } ) );
+
+		await waitFor( () => {
+			expect( queryChatMessageText( 'First saved chat' ) ).not.toBeInTheDocument();
+			expect( getChatMessageText( 'Second saved chat' ) ).toBeInTheDocument();
+			expect( screen.getByRole( 'menu', { name: 'Chat options' } ) ).toBeVisible();
+		} );
+
+		await user.click( document.body );
+		await waitFor( () => {
+			expect( screen.queryByRole( 'menu', { name: 'Chat options' } ) ).not.toBeInTheDocument();
+		} );
+
+		expect(
+			getPersistedWpcomConversations().some( ( conversation ) => conversation.id === 'local:first' )
+		).toBe( false );
+	} );
+
+	it( 'hides trashed remote WP.com-only chats from later hydration', async () => {
+		const user = userEvent.setup();
+		const dollyClient = {
+			req: {
+				get: vi.fn( ( params, callback ) => {
+					if ( params.path.startsWith( '/ai/chats/wpcom-agent-dolly' ) ) {
+						callback( null, [
+							{
+								chat_id: 987,
+								session_id: 'remote-session',
+								site_id: 123,
+								created_at: '2026-05-14 13:20:00',
+								first_message: {
+									message_id: 1,
+									role: 'user',
+									content: 'Remote saved chat',
+									created_at: '2026-05-14 13:20:00',
+								},
+								last_message: {
+									message_id: 2,
+									role: 'bot',
+									content: 'Remote saved answer',
+									created_at: '2026-05-14 13:21:00',
+								},
+							},
+						] );
+						return;
+					}
+
+					if ( params.path.startsWith( '/ai/chat/wpcom-agent-dolly/987' ) ) {
+						callback( null, {
+							chat_id: 987,
+							session_id: 'remote-session',
+							site_id: 123,
+							messages: [
+								{
+									message_id: 1,
+									role: 'user',
+									content: 'Remote saved chat',
+									created_at: '2026-05-14 13:20:00',
+								},
+								{
+									message_id: 2,
+									role: 'bot',
+									content: 'Remote saved answer',
+									created_at: '2026-05-14 13:21:00',
+								},
+							],
+						} );
+						return;
+					}
+
+					callback( null, [] );
+				} ),
+			},
+		} as unknown as WPCOM;
+
+		const { unmount } = renderWithContext( {
+			component: 'wpcom-site',
+			selectedWpcomSite: firstWpcomSite,
+			auth: { client: dollyClient },
+		} );
+
+		await waitFor( () =>
+			expect( screen.getByRole( 'button', { name: 'Chat options' } ) ).toBeVisible()
+		);
+		await user.click( screen.getByRole( 'button', { name: 'Chat options' } ) );
+		await user.click( screen.getByRole( 'button', { name: /Delete chat: Remote saved chat/ } ) );
+
+		const cache = JSON.parse(
+			localStorage.getItem( LOCAL_STORAGE_DOLLY_WPCOM_SITE_CONVERSATIONS_KEY ) || '{}'
+		) as { hiddenRemoteConversationKeysBySiteId?: Record< string, string[] > };
+		expect( cache.hiddenRemoteConversationKeysBySiteId?.[ '123' ] ).toEqual(
+			expect.arrayContaining( [ 'chat:987', 'session:remote-session' ] )
+		);
+
+		unmount();
+		renderWithContext( {
+			component: 'wpcom-site',
+			selectedWpcomSite: firstWpcomSite,
+			auth: { client: dollyClient },
+		} );
+
+		await waitFor( () => {
+			expect( screen.queryByRole( 'button', { name: 'Chat options' } ) ).not.toBeInTheDocument();
+			expect( screen.queryByText( 'Remote saved chat' ) ).not.toBeInTheDocument();
+		} );
 	} );
 
 	it( 'hydrates WP.com-only chat state from Dolly server history', async () => {

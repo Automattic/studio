@@ -97,7 +97,7 @@ export default function App() {
 						</MacTitlebar>
 					) }
 
-					<HStack spacing="0" alignment="left" className="flex-grow">
+					<HStack spacing="0" alignment="left" className="min-h-0 flex-grow">
 						<MainSidebar
 							className={ cx(
 								'h-full flex-shrink-0',
@@ -121,7 +121,7 @@ export default function App() {
 						{ isDragging && <div className="fixed inset-0 z-50 cursor-col-resize" /> }
 						<main
 							data-testid="site-content"
-							className="bg-frame text-frame-text h-full flex-grow rounded-chrome overflow-hidden z-10"
+							className="z-10 h-full min-h-0 flex-grow overflow-hidden rounded-chrome bg-frame text-frame-text"
 						>
 							<SiteContentTabs />
 						</main>

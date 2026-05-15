@@ -1,9 +1,6 @@
 import { __ } from '@wordpress/i18n';
-import { closeSmall, desktop, external, Icon, lockSmall, redo } from '@wordpress/icons';
+import { desktop, Icon } from '@wordpress/icons';
 import React, { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import Button from 'src/components/button';
-import { getIpcApi } from 'src/lib/get-ipc-api';
 import type { SyncSite } from '@studio/common/types/sync';
 import type { DollyPreviewState } from 'src/modules/wpcom-site-assistant/lib/types';
 
@@ -39,45 +36,18 @@ interface DollyPreviewPanelProps {
 	selectedSite: SyncSite;
 	previewState: DollyPreviewState;
 	previewUrl?: string;
-	onClose: () => void;
-	onRefresh: () => void;
 	onUpdateState: ( state: Partial< DollyPreviewState > ) => void;
 }
-
-export const DollyPreviewPanelPortal = ( { children }: { children: React.ReactNode } ) => {
-	const [ portalRoot, setPortalRoot ] = useState< HTMLElement | null >( () =>
-		typeof document === 'undefined'
-			? null
-			: document.getElementById( 'assistant-preview-panel-root' )
-	);
-
-	useEffect( () => {
-		if ( typeof document === 'undefined' ) {
-			return;
-		}
-		setPortalRoot( document.getElementById( 'assistant-preview-panel-root' ) );
-	}, [] );
-
-	if ( ! portalRoot ) {
-		return <>{ children }</>;
-	}
-
-	return createPortal( children, portalRoot );
-};
 
 export function DollyPreviewPanel( {
 	selectedSite,
 	previewState,
 	previewUrl,
-	onClose,
-	onRefresh,
 	onUpdateState,
 }: DollyPreviewPanelProps ) {
 	const [ width, setWidth ] = useState( DOLLY_PREVIEW_PANEL_DEFAULT_WIDTH );
 	const [ resizeDrag, setResizeDrag ] = useState< PreviewResizeDrag | null >( null );
 	const resizeHandleRef = useRef< HTMLButtonElement | null >( null );
-	const title = previewState.pageTitle || previewState.title || __( 'Site preview' );
-	const displayUrl = previewState.currentUrl || previewUrl || selectedSite.url;
 
 	const handleResizeStart = ( event: React.PointerEvent< HTMLButtonElement > ) => {
 		event.preventDefault();
@@ -149,47 +119,6 @@ export function DollyPreviewPanel( {
 					aria-hidden="true"
 				/>
 			) }
-			<div className="min-h-[120px] shrink-0 border-b border-a8c-gray-5 px-6 py-5 flex flex-col justify-end">
-				<div className="flex items-center gap-2">
-					<Button
-						variant="icon"
-						tooltipText={ __( 'Reload preview' ) }
-						disabled={ ! previewUrl }
-						onClick={ onRefresh }
-						aria-label={ __( 'Reload preview' ) }
-					>
-						<Icon icon={ redo } size={ 18 } />
-					</Button>
-					<div className="min-w-0 flex-1 rounded-full border border-a8c-gray-5 bg-a8c-gray-0 px-3 py-2 flex items-center gap-2">
-						<Icon icon={ lockSmall } size={ 16 } className="shrink-0 fill-frame-text-secondary" />
-						<div className="min-w-0 flex-1">
-							<div className="truncate text-xs leading-4 font-medium text-frame-text">
-								{ title }
-							</div>
-							<div className="truncate text-[11px] leading-4 text-frame-text-secondary">
-								{ displayUrl }
-							</div>
-						</div>
-					</div>
-					<Button
-						variant="icon"
-						tooltipText={ __( 'Open in browser' ) }
-						disabled={ ! previewUrl }
-						onClick={ () => getIpcApi().openURL( previewState.currentUrl || previewUrl || '' ) }
-						aria-label={ __( 'Open in browser' ) }
-					>
-						<Icon icon={ external } size={ 18 } />
-					</Button>
-					<Button
-						variant="icon"
-						tooltipText={ __( 'Close preview' ) }
-						onClick={ onClose }
-						aria-label={ __( 'Close preview' ) }
-					>
-						<Icon icon={ closeSmall } size={ 20 } />
-					</Button>
-				</div>
-			</div>
 			<div className="relative min-h-0 flex-1 bg-a8c-gray-0">
 				{ previewUrl ? (
 					isElectron() ? (

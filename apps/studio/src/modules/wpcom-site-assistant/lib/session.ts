@@ -14,13 +14,17 @@ import {
 import type { SyncSite } from '@studio/common/types/sync';
 import type { Message as MessageType } from 'src/stores/chat-slice';
 
-const LEGACY_LOCAL_STORAGE_DOLLY_WPCOM_SITE_CONVERSATIONS_KEY = 'dolly_wpcom_site_conversations_v4';
+const LEGACY_LOCAL_STORAGE_DOLLY_WPCOM_SITE_CONVERSATIONS_V4_KEY =
+	'dolly_wpcom_site_conversations_v4';
+const LEGACY_LOCAL_STORAGE_DOLLY_WPCOM_SITE_CONVERSATIONS_V5_KEY =
+	'dolly_wpcom_site_conversations_v5';
 
 type PersistedWpcomSiteAssistantCache = {
-	version: 5;
+	version: 6;
 	conversations: Record< string, WpcomSiteAssistantSessionState >;
 	selectedConversationIdsBySiteId: Record< string, string >;
 	targetPreviewStatesBySiteId: Record< string, DollyPreviewState >;
+	hiddenRemoteConversationKeysBySiteId: Record< string, string[] >;
 };
 
 export const wpcomSiteAssistantSessionStateCache = new Map<
@@ -29,6 +33,10 @@ export const wpcomSiteAssistantSessionStateCache = new Map<
 >();
 export const wpcomSiteAssistantSelectedConversationIdsBySiteId = new Map< number, string >();
 export const wpcomSiteAssistantTargetPreviewStateCache = new Map< number, DollyPreviewState >();
+export const wpcomSiteAssistantHiddenRemoteConversationKeysBySiteId = new Map<
+	number,
+	Set< string >
+>();
 let hasLoadedWpcomSiteAssistantSessionStateCache = false;
 
 const sanitizePreviewState = ( value: unknown ): DollyPreviewState => {
@@ -54,15 +62,63 @@ export const clearWpcomSiteAssistantStateCacheForTests = () => {
 	wpcomSiteAssistantSessionStateCache.clear();
 	wpcomSiteAssistantSelectedConversationIdsBySiteId.clear();
 	wpcomSiteAssistantTargetPreviewStateCache.clear();
+	wpcomSiteAssistantHiddenRemoteConversationKeysBySiteId.clear();
 	clearWpcomSiteAssistantTurnsForTests();
 	hasLoadedWpcomSiteAssistantSessionStateCache = false;
 	localStorage.removeItem( LOCAL_STORAGE_DOLLY_WPCOM_SITE_CONVERSATIONS_KEY );
-	localStorage.removeItem( LEGACY_LOCAL_STORAGE_DOLLY_WPCOM_SITE_CONVERSATIONS_KEY );
+	localStorage.removeItem( LEGACY_LOCAL_STORAGE_DOLLY_WPCOM_SITE_CONVERSATIONS_V5_KEY );
+	localStorage.removeItem( LEGACY_LOCAL_STORAGE_DOLLY_WPCOM_SITE_CONVERSATIONS_V4_KEY );
 };
 
 export const createWpcomSiteAssistantSessionKey = ( siteId: number ) => `wpcom-site:${ siteId }`;
 
 export const createWpcomSiteAssistantConversationId = () => `local:${ crypto.randomUUID() }`;
+
+const getWpcomSiteAssistantRemoteConversationKeys = (
+	sessionState: Pick< WpcomSiteAssistantSessionState, 'remoteChatId' | 'sessionId' >
+) => {
+	const keys: string[] = [];
+	if ( sessionState.remoteChatId !== undefined ) {
+		keys.push( `chat:${ sessionState.remoteChatId }` );
+	}
+
+	const normalizedSessionId = normalizeDollySessionId( sessionState.sessionId );
+	if ( normalizedSessionId ) {
+		keys.push( `session:${ normalizedSessionId }` );
+	}
+
+	return keys;
+};
+
+export const isWpcomSiteAssistantRemoteConversationHidden = (
+	sessionState: WpcomSiteAssistantSessionState
+) => {
+	const hiddenKeys = wpcomSiteAssistantHiddenRemoteConversationKeysBySiteId.get(
+		sessionState.key.siteId
+	);
+	if ( ! hiddenKeys ) {
+		return false;
+	}
+
+	return getWpcomSiteAssistantRemoteConversationKeys( sessionState ).some( ( key ) =>
+		hiddenKeys.has( key )
+	);
+};
+
+const addHiddenWpcomSiteAssistantRemoteConversation = (
+	sessionState: WpcomSiteAssistantSessionState
+) => {
+	const keys = getWpcomSiteAssistantRemoteConversationKeys( sessionState );
+	if ( keys.length === 0 ) {
+		return;
+	}
+
+	const hiddenKeys =
+		wpcomSiteAssistantHiddenRemoteConversationKeysBySiteId.get( sessionState.key.siteId ) ??
+		new Set< string >();
+	keys.forEach( ( key ) => hiddenKeys.add( key ) );
+	wpcomSiteAssistantHiddenRemoteConversationKeysBySiteId.set( sessionState.key.siteId, hiddenKeys );
+};
 
 export const cloneWpcomSiteAssistantSessionState = (
 	sessionState: WpcomSiteAssistantSessionState
@@ -187,6 +243,24 @@ const loadPersistedWpcomSiteAssistantCache = ( parsed: unknown ) => {
 		}
 	}
 
+	if ( isRecord( parsed.hiddenRemoteConversationKeysBySiteId ) ) {
+		for ( const [ siteId, hiddenKeys ] of Object.entries(
+			parsed.hiddenRemoteConversationKeysBySiteId
+		) ) {
+			const numericSiteId = Number( siteId );
+			if ( ! Number.isFinite( numericSiteId ) || ! Array.isArray( hiddenKeys ) ) {
+				continue;
+			}
+
+			wpcomSiteAssistantHiddenRemoteConversationKeysBySiteId.set(
+				numericSiteId,
+				new Set(
+					hiddenKeys.filter( ( hiddenKey ): hiddenKey is string => typeof hiddenKey === 'string' )
+				)
+			);
+		}
+	}
+
 	return true;
 };
 
@@ -230,11 +304,23 @@ export const loadWpcomSiteAssistantSessionStateCache = () => {
 			return;
 		}
 
-		const rawLegacyCache = localStorage.getItem(
-			LEGACY_LOCAL_STORAGE_DOLLY_WPCOM_SITE_CONVERSATIONS_KEY
+		const rawV5Cache = localStorage.getItem(
+			LEGACY_LOCAL_STORAGE_DOLLY_WPCOM_SITE_CONVERSATIONS_V5_KEY
 		);
-		if ( rawLegacyCache ) {
-			migrateLegacyWpcomSiteAssistantCache( JSON.parse( rawLegacyCache ) );
+		if ( rawV5Cache ) {
+			const parsedV5Cache = JSON.parse( rawV5Cache );
+			if ( ! loadPersistedWpcomSiteAssistantCache( parsedV5Cache ) ) {
+				migrateLegacyWpcomSiteAssistantCache( parsedV5Cache );
+			}
+			persistWpcomSiteAssistantSessionStateCache();
+			return;
+		}
+
+		const rawV4Cache = localStorage.getItem(
+			LEGACY_LOCAL_STORAGE_DOLLY_WPCOM_SITE_CONVERSATIONS_V4_KEY
+		);
+		if ( rawV4Cache ) {
+			migrateLegacyWpcomSiteAssistantCache( JSON.parse( rawV4Cache ) );
 			persistWpcomSiteAssistantSessionStateCache();
 		}
 	} catch ( error ) {
@@ -244,7 +330,7 @@ export const loadWpcomSiteAssistantSessionStateCache = () => {
 
 export const persistWpcomSiteAssistantSessionStateCache = () => {
 	const cache: PersistedWpcomSiteAssistantCache = {
-		version: 5,
+		version: 6,
 		conversations: Object.fromEntries(
 			Array.from( wpcomSiteAssistantSessionStateCache.entries() ).map( ( [ key, value ] ) => [
 				key,
@@ -257,6 +343,11 @@ export const persistWpcomSiteAssistantSessionStateCache = () => {
 		targetPreviewStatesBySiteId: Object.fromEntries(
 			Array.from( wpcomSiteAssistantTargetPreviewStateCache.entries() ).map(
 				( [ siteId, previewState ] ) => [ siteId, sanitizePreviewState( previewState ) ]
+			)
+		),
+		hiddenRemoteConversationKeysBySiteId: Object.fromEntries(
+			Array.from( wpcomSiteAssistantHiddenRemoteConversationKeysBySiteId.entries() ).map(
+				( [ siteId, hiddenKeys ] ) => [ siteId, Array.from( hiddenKeys ) ]
 			)
 		),
 	};
@@ -301,8 +392,50 @@ export const getWpcomSiteAssistantConversationsForSite = ( siteId: number ) => {
 	loadWpcomSiteAssistantSessionStateCache();
 	return Array.from( wpcomSiteAssistantSessionStateCache.values() )
 		.filter( ( sessionState ) => sessionState.key.siteId === siteId )
+		.filter( ( sessionState ) => ! isWpcomSiteAssistantRemoteConversationHidden( sessionState ) )
 		.sort( ( first, second ) => second.lastUpdated - first.lastUpdated )
 		.map( cloneWpcomSiteAssistantSessionState );
+};
+
+export const deleteWpcomSiteAssistantConversation = (
+	conversationId: string,
+	selectedWpcomSite: SyncSite
+) => {
+	loadWpcomSiteAssistantSessionStateCache();
+	const sessionState = wpcomSiteAssistantSessionStateCache.get( conversationId );
+	if ( sessionState?.key.siteId === selectedWpcomSite.id ) {
+		addHiddenWpcomSiteAssistantRemoteConversation( sessionState );
+		wpcomSiteAssistantSessionStateCache.delete( conversationId );
+	}
+
+	const selectedConversationId = wpcomSiteAssistantSelectedConversationIdsBySiteId.get(
+		selectedWpcomSite.id
+	);
+	if ( selectedConversationId !== conversationId ) {
+		persistWpcomSiteAssistantSessionStateCache();
+		return selectedConversationId
+			? cloneWpcomSiteAssistantSessionState(
+					wpcomSiteAssistantSessionStateCache.get( selectedConversationId ) ??
+						createNewWpcomSiteAssistantConversation( selectedWpcomSite )
+			  )
+			: createNewWpcomSiteAssistantConversation( selectedWpcomSite );
+	}
+
+	const nextSessionState = Array.from( wpcomSiteAssistantSessionStateCache.values() )
+		.filter( ( candidate ) => candidate.key.siteId === selectedWpcomSite.id )
+		.filter( ( candidate ) => ! isWpcomSiteAssistantRemoteConversationHidden( candidate ) )
+		.sort( ( first, second ) => second.lastUpdated - first.lastUpdated )[ 0 ];
+
+	if ( nextSessionState ) {
+		wpcomSiteAssistantSelectedConversationIdsBySiteId.set(
+			selectedWpcomSite.id,
+			nextSessionState.id
+		);
+		persistWpcomSiteAssistantSessionStateCache();
+		return cloneWpcomSiteAssistantSessionState( nextSessionState );
+	}
+
+	return createNewWpcomSiteAssistantConversation( selectedWpcomSite );
 };
 
 export const getWpcomSiteAssistantSessionState = (
@@ -358,6 +491,10 @@ export const mergeWpcomSiteAssistantConversationState = (
 	{ selectIfEmpty = false }: { selectIfEmpty?: boolean } = {}
 ) => {
 	loadWpcomSiteAssistantSessionStateCache();
+	if ( isWpcomSiteAssistantRemoteConversationHidden( hydratedSessionState ) ) {
+		return cloneWpcomSiteAssistantSessionState( hydratedSessionState );
+	}
+
 	const matchingConversation = Array.from( wpcomSiteAssistantSessionStateCache.values() ).find(
 		( candidate ) => {
 			if ( candidate.key.siteId !== hydratedSessionState.key.siteId ) {

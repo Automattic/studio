@@ -451,6 +451,20 @@ def get_windows_update_release_sha(arch: 'x64')
   sha1
 end
 
+# `electron-installer-debian` writes one .deb per arch directory with the
+# version embedded in the filename (e.g. `studio_1.8.2~dev16_amd64.deb`), so
+# resolve it via glob rather than reconstructing the filename. The glob
+# matches the trailing `_<deb_arch>.deb` specifically — `create_versioned_file`
+# writes a sidecar copy alongside the original ending in `-<arch>-v<version>.deb`,
+# which this glob skips so retries don't see two `.deb` files.
+def linux_deb_path(arch:)
+  deb_arch = arch == 'x64' ? 'amd64' : arch
+  dir = File.join(BUILDS_FOLDER, 'make', 'deb', arch)
+  matches = Dir.glob(File.join(dir, "studio_*_#{deb_arch}.deb"))
+  UI.user_error!("Expected exactly 1 Linux #{arch} .deb in #{dir}, found #{matches.length}: #{matches.join(', ')}") unless matches.length == 1
+  matches.first
+end
+
 def distribute_builds(
   commit_hash: last_git_commit[:abbreviated_commit_hash],
   build_number: get_required_env('BUILDKITE_BUILD_NUMBER'),
@@ -501,6 +515,29 @@ def distribute_builds(
       sha: get_windows_update_release_sha(arch: 'arm64')
     }
   }
+
+  # Linux is dev-only for now — the release pipeline produces only Mac/Windows
+  # artifacts. On Linux the .deb is the only artifact (it serves as both the
+  # update payload and the full installer); `install_type: 'Update'` matches
+  # the URL convention the WPCOM updates endpoint emits for the polling path.
+  if release_tag.nil?
+    update_builds[:linux_x64_deb] = {
+      binary_path: linux_deb_path(arch: 'x64'),
+      name: 'Linux - x64 (DEB)',
+      platform: 'Linux - x64',
+      arch: 'x64',
+      install_type: 'Update',
+      sha: commit_hash
+    }
+    update_builds[:linux_arm64_deb] = {
+      binary_path: linux_deb_path(arch: 'arm64'),
+      name: 'Linux - ARM64 (DEB)',
+      platform: 'Linux - ARM64',
+      arch: 'arm64',
+      install_type: 'Update',
+      sha: commit_hash
+    }
+  end
 
   full_install_builds = {
     x64_dmg: {

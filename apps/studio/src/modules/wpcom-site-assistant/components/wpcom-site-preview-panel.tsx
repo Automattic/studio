@@ -18,6 +18,10 @@ const isElectron = (): boolean => {
 interface PreviewWebviewTag extends HTMLElement {
 	loadURL( url: string ): Promise< void >;
 	reload(): void;
+	goBack(): void;
+	goForward(): void;
+	canGoBack(): boolean;
+	canGoForward(): boolean;
 	getURL(): string;
 	getTitle(): string;
 }
@@ -48,6 +52,8 @@ export function DollyPreviewPanel( {
 	const [ width, setWidth ] = useState( DOLLY_PREVIEW_PANEL_DEFAULT_WIDTH );
 	const [ resizeDrag, setResizeDrag ] = useState< PreviewResizeDrag | null >( null );
 	const resizeHandleRef = useRef< HTMLButtonElement | null >( null );
+	const iframeRef = useRef< HTMLIFrameElement | null >( null );
+	const handledIframeNavigationNonceRef = useRef< number | undefined >();
 
 	const handleResizeStart = ( event: React.PointerEvent< HTMLButtonElement > ) => {
 		event.preventDefault();
@@ -97,6 +103,30 @@ export function DollyPreviewPanel( {
 		};
 	}, [ resizeDrag ] );
 
+	useEffect( () => {
+		const navigationNonce = previewState.navigationNonce ?? 0;
+		if (
+			isElectron() ||
+			! previewState.navigationAction ||
+			! navigationNonce ||
+			handledIframeNavigationNonceRef.current === navigationNonce
+		) {
+			return;
+		}
+
+		handledIframeNavigationNonceRef.current = navigationNonce;
+		try {
+			if ( previewState.navigationAction === 'back' ) {
+				iframeRef.current?.contentWindow?.history.back();
+			} else {
+				iframeRef.current?.contentWindow?.history.forward();
+			}
+		} catch {
+			// Cross-origin iframe history access is browser-dependent; Electron webviews handle this.
+		}
+		onUpdateState( { navigationAction: undefined } );
+	}, [ onUpdateState, previewState.navigationAction, previewState.navigationNonce ] );
+
 	return (
 		<aside
 			className="relative h-full shrink-0 border-l border-a8c-gray-5 bg-white flex flex-col"
@@ -126,10 +156,12 @@ export function DollyPreviewPanel( {
 							key={ selectedSite.id }
 							url={ previewUrl }
 							reloadNonce={ previewState.reloadNonce }
+							previewState={ previewState }
 							onUpdateState={ onUpdateState }
 						/>
 					) : (
 						<iframe
+							ref={ iframeRef }
 							key={ `${ previewUrl }#${ previewState.reloadNonce }` }
 							className="absolute inset-0 h-full w-full border-0 bg-white"
 							src={ previewUrl }
@@ -168,13 +200,16 @@ export function DollyPreviewPanel( {
 function DollyPreviewWebview( {
 	url,
 	reloadNonce,
+	previewState,
 	onUpdateState,
 }: {
 	url: string;
 	reloadNonce: number;
+	previewState: DollyPreviewState;
 	onUpdateState: ( state: Partial< DollyPreviewState > ) => void;
 } ) {
 	const ref = useRef< HTMLElement | null >( null );
+	const handledNavigationNonceRef = useRef< number | undefined >();
 	const [ ready, setReady ] = useState( false );
 	const [ initialNav ] = useState( () => ( { url, reloadNonce } ) );
 
@@ -188,6 +223,8 @@ function DollyPreviewWebview( {
 			onUpdateState( {
 				currentUrl: webview.getURL?.() || url,
 				pageTitle: webview.getTitle?.() || undefined,
+				canGoBack: webview.canGoBack?.() ?? false,
+				canGoForward: webview.canGoForward?.() ?? false,
 				...nextState,
 			} );
 		};
@@ -218,6 +255,43 @@ function DollyPreviewWebview( {
 			webview.removeEventListener( 'page-title-updated', handleTitleUpdated );
 		};
 	}, [ onUpdateState, url ] );
+
+	useEffect( () => {
+		const navigationNonce = previewState.navigationNonce ?? 0;
+		if (
+			! ready ||
+			! previewState.navigationAction ||
+			! navigationNonce ||
+			handledNavigationNonceRef.current === navigationNonce
+		) {
+			return;
+		}
+
+		const webview = ref.current as PreviewWebviewTag | null;
+		if ( ! webview ) {
+			return;
+		}
+
+		handledNavigationNonceRef.current = navigationNonce;
+		const canNavigate =
+			previewState.navigationAction === 'back' ? webview.canGoBack?.() : webview.canGoForward?.();
+
+		if ( canNavigate ) {
+			onUpdateState( { isLoading: true, navigationAction: undefined } );
+			if ( previewState.navigationAction === 'back' ) {
+				webview.goBack();
+			} else {
+				webview.goForward();
+			}
+			return;
+		}
+
+		onUpdateState( {
+			navigationAction: undefined,
+			canGoBack: webview.canGoBack?.() ?? false,
+			canGoForward: webview.canGoForward?.() ?? false,
+		} );
+	}, [ onUpdateState, previewState.navigationAction, previewState.navigationNonce, ready ] );
 
 	useEffect( () => {
 		if ( ! ready ) {

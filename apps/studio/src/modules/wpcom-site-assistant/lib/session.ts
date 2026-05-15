@@ -53,8 +53,11 @@ const sanitizePreviewState = ( value: unknown ): DollyPreviewState => {
 		title: typeof previewState.title === 'string' ? previewState.title : undefined,
 		currentUrl: typeof previewState.currentUrl === 'string' ? previewState.currentUrl : undefined,
 		pageTitle: typeof previewState.pageTitle === 'string' ? previewState.pageTitle : undefined,
+		canGoBack: Boolean( previewState.canGoBack ),
+		canGoForward: Boolean( previewState.canGoForward ),
 		isLoading: false,
 		reloadNonce: flexibleNumber( previewState.reloadNonce ) ?? 0,
+		navigationNonce: flexibleNumber( previewState.navigationNonce ) ?? 0,
 	};
 };
 

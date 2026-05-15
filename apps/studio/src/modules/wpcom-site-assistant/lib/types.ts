@@ -75,8 +75,12 @@ export type DollyPreviewState = {
 	title?: string;
 	currentUrl?: string;
 	pageTitle?: string;
+	canGoBack?: boolean;
+	canGoForward?: boolean;
 	isLoading: boolean;
 	reloadNonce: number;
+	navigationAction?: 'back' | 'forward';
+	navigationNonce?: number;
 };
 
 export type DollyPreviewAbilityContext = {

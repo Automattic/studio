@@ -570,38 +570,15 @@ describe( 'ContentTabAssistant', () => {
 		} );
 	} );
 
-	it( 'creates a staging site from the empty chat suggestion', async () => {
-		const user = userEvent.setup();
-		const dollyClient = {
-			req: {
-				get: vi.fn( ( _params, callback ) => {
-					callback( null, [] );
-				} ),
-			},
-		} as unknown as WPCOM;
-		const createScope = nock( 'https://public-api.wordpress.com' )
-			.post( '/wpcom/v2/sites/123/staging-site' )
-			.reply( 200, {
-				id: 790,
-				name: 'Dolly Site Staging',
-				url: 'https://staging-suggestion.example',
-				user_has_permission: true,
-			} )
-			.get( '/wpcom/v2/sites/790/atomic/transfers/latest' )
-			.reply( 200, { status: 'completed' } );
+	it( 'keeps the WP.com-only empty chat state blank', () => {
+		renderWithContext( { component: 'wpcom-site' } );
 
-		renderWithContext( { component: 'wpcom-site', auth: { client: dollyClient } } );
-
-		await user.click( screen.getByRole( 'button', { name: 'Make a staging site' } ) );
-
-		await waitFor( () =>
-			expect( screen.getByText( 'https://staging-suggestion.example' ) ).toBeVisible()
+		expect( screen.getByTestId( 'assistant-chat' ) ).not.toHaveTextContent(
+			'Ask Dolly about this WordPress.com site.'
 		);
-		expect( screen.getByTestId( 'assistant-chat' ) ).toHaveTextContent( 'Make a staging site' );
-		expect( screen.getByTestId( 'assistant-chat' ) ).toHaveTextContent(
-			/Done! Here's your staging site.*safely make changes/
-		);
-		expect( createScope.isDone() ).toBe( true );
+		expect(
+			screen.queryByRole( 'button', { name: 'Make a staging site' } )
+		).not.toBeInTheDocument();
 	} );
 
 	it( 'shows a structured staging site creation error from WordPress.com', async () => {
@@ -1350,8 +1327,85 @@ describe( 'ContentTabAssistant', () => {
 			'src',
 			'https://dolly.example/'
 		);
+		expect( screen.getByRole( 'button', { name: 'Go back' } ) ).toBeDisabled();
+		expect( screen.getByRole( 'button', { name: 'Go forward' } ) ).toBeDisabled();
+		expect( screen.getByRole( 'button', { name: 'Reload preview' } ) ).toBeEnabled();
 		expect( screen.queryByRole( 'button', { name: 'Show preview' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Hide preview' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'opens WP.com-only chat links in the preview pane', async () => {
+		const user = userEvent.setup();
+		localStorage.setItem(
+			LOCAL_STORAGE_DOLLY_WPCOM_SITE_CONVERSATIONS_KEY,
+			JSON.stringify( {
+				version: 6,
+				conversations: {
+					'local:link': {
+						id: 'local:link',
+						key: { siteId: 123, agentId: 'dolly' },
+						input: '',
+						messages: [
+							generateMessage(
+								'Published a post: [an important announcement](https://dolly.example/important-announcement/)',
+								'assistant',
+								1,
+								undefined,
+								10
+							),
+						],
+						activeWpcomSite: firstWpcomSite,
+						previewState: { open: false, pathOrUrl: '/', isLoading: false, reloadNonce: 0 },
+						lastUpdated: 100,
+					},
+				},
+				selectedConversationIdsBySiteId: { 123: 'local:link' },
+				targetPreviewStatesBySiteId: {},
+				hiddenRemoteConversationKeysBySiteId: {},
+			} )
+		);
+
+		renderWithContext( { component: 'wpcom-site' } );
+
+		await user.click( screen.getByRole( 'link', { name: 'an important announcement' } ) );
+
+		expect( screen.getByTitle( 'Dolly Site preview' ) ).toHaveAttribute(
+			'src',
+			'https://dolly.example/important-announcement/'
+		);
+		expect( getIpcApi().openURL ).not.toHaveBeenCalled();
+	} );
+
+	it( 'does not show the shared assistant feedback UI for WP.com-only Dolly messages', () => {
+		localStorage.setItem(
+			LOCAL_STORAGE_DOLLY_WPCOM_SITE_CONVERSATIONS_KEY,
+			JSON.stringify( {
+				version: 6,
+				conversations: {
+					'local:feedback': {
+						id: 'local:feedback',
+						key: { siteId: 123, agentId: 'dolly' },
+						input: '',
+						messages: [
+							generateMessage( 'Feedback should not show here.', 'assistant', 1, undefined, 10 ),
+						],
+						activeWpcomSite: firstWpcomSite,
+						previewState: { open: false, pathOrUrl: '/', isLoading: false, reloadNonce: 0 },
+						lastUpdated: 100,
+					},
+				},
+				selectedConversationIdsBySiteId: { 123: 'local:feedback' },
+				targetPreviewStatesBySiteId: {},
+				hiddenRemoteConversationKeysBySiteId: {},
+			} )
+		);
+
+		renderWithContext( { component: 'wpcom-site' } );
+
+		expect( getChatMessageText( 'Feedback should not show here.' ) ).toBeInTheDocument();
+		expect( screen.queryByText( 'Was this helpful?' ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Yes' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'No' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'keeps WP.com-only preview resizing active while shrinking across the embedded page', () => {

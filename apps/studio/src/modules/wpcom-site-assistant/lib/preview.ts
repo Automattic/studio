@@ -73,8 +73,11 @@ export const getNextPreviewState = (
 		title,
 		pageTitle: shouldLoad ? undefined : currentState.pageTitle,
 		currentUrl: shouldLoad ? undefined : currentState.currentUrl,
+		canGoBack: shouldLoad ? false : currentState.canGoBack,
+		canGoForward: shouldLoad ? false : currentState.canGoForward,
 		isLoading: shouldLoad ? true : currentState.isLoading,
 		reloadNonce: forceReload ? currentState.reloadNonce + 1 : currentState.reloadNonce,
+		navigationAction: undefined,
 	};
 };
 
@@ -361,6 +364,9 @@ export const createWpcomOnlySiteAssociationContext = (
 export const initialPreviewState = (): DollyPreviewState => ( {
 	open: false,
 	pathOrUrl: '/',
+	canGoBack: false,
+	canGoForward: false,
 	isLoading: false,
 	reloadNonce: 0,
+	navigationNonce: 0,
 } );

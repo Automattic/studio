@@ -247,6 +247,7 @@ export function Composer( {
 	}, [ connector, onSwitchSession, ownerSiteId, pendingFamilyChange, queryClient ] );
 
 	const canSend = value.trim().length > 0;
+	const showSendButton = ! busy || canSend;
 	const sendAriaLabel = busy ? __( 'Queue' ) : __( 'Send' );
 	const visibleContextWidgets = contextWidgets.slice( 0, MAX_VISIBLE_CHAT_WIDGETS );
 	const hiddenContextWidgetCount = contextWidgets.length - visibleContextWidgets.length;
@@ -411,16 +412,18 @@ export function Composer( {
 									<span className={ styles.stopGlyph } aria-hidden="true" />
 								</Button>
 							) : null }
-							<Button
-								type="submit"
-								tone="primary"
-								variant="filled"
-								size="small"
-								disabled={ ! canSend }
-								icon={ arrowUp }
-								label={ sendAriaLabel }
-								tooltipLabel={ false }
-							/>
+							{ showSendButton ? (
+								<Button
+									type="submit"
+									tone="primary"
+									variant="filled"
+									size="small"
+									disabled={ ! canSend }
+									icon={ arrowUp }
+									label={ sendAriaLabel }
+									tooltipLabel={ false }
+								/>
+							) : null }
 						</div>
 					</div>
 				</form>

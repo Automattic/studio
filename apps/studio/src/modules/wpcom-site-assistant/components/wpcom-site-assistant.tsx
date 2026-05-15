@@ -1,34 +1,28 @@
 import { AgentUI, ImageUploader, createMessageRenderer } from '@automattic/agenttic-ui';
-import { Popover } from '@wordpress/components';
+import { Popover, TabPanel } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
-import {
-	chevronDown,
-	chevronLeft,
-	chevronRight,
-	closeSmall,
-	external,
-	Icon,
-	image as imageIcon,
-	lockSmall,
-	moreVertical,
-	plus,
-	rotateRight,
-	trash,
-} from '@wordpress/icons';
+import { chevronDown, Icon, image as imageIcon, moreVertical, plus, trash } from '@wordpress/icons';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { ChatMessage } from 'src/components/chat-message';
+import Header from 'src/components/header';
 import offlineIcon from 'src/components/offline-icon';
-import { LIMIT_OF_PROMPTS_PER_USER } from 'src/constants';
+import { LIMIT_OF_PROMPTS_PER_USER, MIN_WIDTH_CLASS_TO_MEASURE } from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
+import {
+	getDefaultTabName,
+	TabName,
+	useOptionalContentTabs,
+	useTabs,
+} from 'src/hooks/use-content-tabs';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { WorkspaceSyncControl } from 'src/modules/sync/components/workspace-sync-control';
-import { WorkspaceTargetSwitcher } from 'src/modules/wpcom-site-assistant/components/workspace-target-switcher';
+import { WorkspaceSyncPanelContent } from 'src/modules/sync/components/workspace-sync-control';
+import { DollyPreviewHeaderControls } from 'src/modules/wpcom-site-assistant/components/wpcom-site-preview-header-controls';
 import { DollyPreviewPanel } from 'src/modules/wpcom-site-assistant/components/wpcom-site-preview-panel';
 import {
 	fetchDollySite,
@@ -185,93 +179,15 @@ const getCreateStagingSiteUnavailableMessage = ( site: SyncSite ) => {
 	);
 };
 
-function DollyPreviewHeaderControls( {
-	isOpen,
-	displayUrl,
-	previewUrl,
-	canGoBack,
-	canGoForward,
-	onOpen,
-	onClose,
-	onGoBack,
-	onGoForward,
-	onRefresh,
-}: {
-	isOpen: boolean;
-	displayUrl: string;
-	previewUrl?: string;
-	canGoBack?: boolean;
-	canGoForward?: boolean;
-	onOpen: () => void;
-	onClose: () => void;
-	onGoBack: () => void;
-	onGoForward: () => void;
-	onRefresh: () => void;
-} ) {
-	if ( ! isOpen ) {
-		return (
-			<button
-				type="button"
-				className="flex w-full min-w-0 max-w-[27rem] items-center gap-2 rounded-full border border-a8c-gray-5 bg-a8c-gray-0 px-3 py-2 text-left transition hover:border-a8c-gray-20 hover:bg-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme"
-				onClick={ onOpen }
-				aria-label={ __( 'Show preview' ) }
-			>
-				<Icon icon={ lockSmall } size={ 16 } className="shrink-0 fill-frame-text-secondary" />
-				<span className="truncate text-xs leading-4 text-frame-text-secondary">{ displayUrl }</span>
-			</button>
-		);
-	}
-
+function WpcomSiteSettingsPlaceholder() {
 	return (
-		<div className="flex w-full min-w-0 items-center justify-end gap-2">
-			<Button
-				variant="icon"
-				tooltipText={ __( 'Go back' ) }
-				disabled={ ! canGoBack }
-				onClick={ onGoBack }
-				aria-label={ __( 'Go back' ) }
-			>
-				<Icon icon={ chevronLeft } size={ 20 } />
-			</Button>
-			<Button
-				variant="icon"
-				tooltipText={ __( 'Go forward' ) }
-				disabled={ ! canGoForward }
-				onClick={ onGoForward }
-				aria-label={ __( 'Go forward' ) }
-			>
-				<Icon icon={ chevronRight } size={ 20 } />
-			</Button>
-			<Button
-				variant="icon"
-				tooltipText={ __( 'Reload preview' ) }
-				disabled={ ! previewUrl }
-				onClick={ onRefresh }
-				aria-label={ __( 'Reload preview' ) }
-			>
-				<Icon icon={ rotateRight } size={ 18 } />
-			</Button>
-			<div className="flex min-w-0 max-w-[27rem] flex-1 items-center gap-2 rounded-full border border-a8c-gray-5 bg-a8c-gray-0 px-3 py-2">
-				<Icon icon={ lockSmall } size={ 16 } className="shrink-0 fill-frame-text-secondary" />
-				<div className="truncate text-xs leading-4 text-frame-text-secondary">{ displayUrl }</div>
+		<div className="flex h-full items-center justify-center p-8">
+			<div className="max-w-md text-center">
+				<h2 className="m-0 text-base font-medium text-frame-text">{ __( 'Settings' ) }</h2>
+				<p className="mt-2 text-sm text-frame-text-secondary">
+					{ __( 'WordPress.com workspace settings are not available yet.' ) }
+				</p>
 			</div>
-			<Button
-				variant="icon"
-				tooltipText={ __( 'Open in browser' ) }
-				disabled={ ! previewUrl }
-				onClick={ () => getIpcApi().openURL( displayUrl ) }
-				aria-label={ __( 'Open in browser' ) }
-			>
-				<Icon icon={ external } size={ 18 } />
-			</Button>
-			<Button
-				variant="icon"
-				tooltipText={ __( 'Close preview' ) }
-				onClick={ onClose }
-				aria-label={ __( 'Close preview' ) }
-			>
-				<Icon icon={ closeSmall } size={ 20 } />
-			</Button>
 		</div>
 	);
 }
@@ -473,10 +389,31 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 	const preserveLastUpdatedOnNextWriteRef = useRef( false );
 	const isAssistantThinkingRef = useRef( isAssistantThinking );
 	const hydratedSessionKeysRef = useRef( new Set< string >() );
+	const wpcomTabs = useTabs( 'wpcom' );
+	const contentTabs = useOptionalContentTabs();
+	const [ fallbackSelectedTab, setFallbackSelectedTab ] = useState< TabName >(
+		getDefaultTabName( 'wpcom' )
+	);
+	const selectedTab = contentTabs?.selectedTab ?? fallbackSelectedTab;
+	const setSelectedTab = contentTabs?.setSelectedTab ?? setFallbackSelectedTab;
+	const wpcomTabNames = useMemo(
+		() => new Set< TabName >( wpcomTabs.map( ( tab ) => tab.name ) ),
+		[ wpcomTabs ]
+	);
+	const effectiveWpcomTab = wpcomTabNames.has( selectedTab )
+		? selectedTab
+		: getDefaultTabName( 'wpcom' );
 	const wpcomSiteWorkspace = useMemo(
 		() => getWpcomSiteWorkspaceForSite( wpcomSites, activeWpcomSite, sites ),
 		[ activeWpcomSite, sites, wpcomSites ]
 	);
+
+	useEffect( () => {
+		if ( ! wpcomTabNames.has( selectedTab ) ) {
+			setSelectedTab( getDefaultTabName( 'wpcom' ) );
+		}
+	}, [ selectedTab, setSelectedTab, wpcomTabNames ] );
+
 	const conversationsForTarget = getWpcomSiteAssistantConversationsForSite( activeWpcomSite.id );
 	const selectedConversationForTarget =
 		conversationsForTarget.find( ( conversation ) => conversation.id === selectedConversationId ) ??
@@ -1764,156 +1701,175 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 	const dollyEmptyView = useMemo( () => <div className="h-full" aria-hidden="true" />, [] );
 
 	return (
-		<div className="app-no-drag-region relative flex h-full min-h-0 min-w-0 flex-1 select-text overflow-hidden bg-frame-surface">
-			<div className="flex min-h-0 min-w-0 flex-1 flex-col">
-				<div className="shrink-0 border-b border-a8c-gray-5 bg-white px-8 py-4">
-					<div className="grid min-w-0 gap-2">
-						<h1 className="m-0 truncate text-xl font-semibold text-frame-text">
-							{ activeWpcomSite.name }
-						</h1>
-						<div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(14rem,27rem)] items-center gap-4">
-							<div className="flex min-w-0 items-center gap-2">
-								<WorkspaceTargetSwitcher
-									workspace={ wpcomSiteWorkspace }
-									selectedWpcomSite={ activeWpcomSite }
-									selectedLocalSite={ null }
-									onSelectWpcomSite={ selectTargetSite }
-									onSelectLocalSite={ selectLocalTarget }
-									onCreateStagingSite={ () => void createStagingSiteFromTargetSwitcher() }
-									canCreateStagingSite={ canUseStagingTarget }
-									isCreatingStagingSite={ isCreatingStagingSiteForTarget }
-									stagingDisabledReason={ stagingTargetDisabledReason }
-								/>
-								<WorkspaceSyncControl workspace={ wpcomSiteWorkspace } />
-							</div>
-							<div className="flex min-w-0 justify-end">
-								<DollyPreviewHeaderControls
-									isOpen={ previewState.open }
-									displayUrl={ previewHeaderDisplayUrl }
-									previewUrl={ previewUrl }
-									canGoBack={ previewState.canGoBack }
-									canGoForward={ previewState.canGoForward }
-									onOpen={ () => openPreview( previewState.pathOrUrl ) }
-									onClose={ () => updatePreviewState( { open: false } ) }
-									onGoBack={ () => navigatePreviewHistory( 'back' ) }
-									onGoForward={ () => navigatePreviewHistory( 'forward' ) }
-									onRefresh={ () =>
-										updatePreviewState( {
-											isLoading: true,
-											reloadNonce: previewState.reloadNonce + 1,
-										} )
-									}
-								/>
-							</div>
-						</div>
-					</div>
-				</div>
-				<div className="flex min-h-0 flex-1">
-					<div
-						data-testid="assistant-chat"
-						ref={ dollyDropZoneRef }
-						className={ cx( 'min-h-0 flex-1', ! isAuthenticated && 'overflow-y-auto p-8 pb-2' ) }
-					>
-						{ isAuthenticated ? (
-							<div className="agenttic dolly-agenttic-chat h-full min-h-0 overflow-hidden">
-								<AgentUI.Container
-									messages={ agentticMessages }
-									isProcessing={ isCurrentSessionAssistantThinking }
-									error={ null }
-									onSubmit={ submitPrompt }
-									onStop={ interruptDollyRequest }
-									variant="embedded"
-									placeholder={ __( 'Ask Dolly about this site' ) }
-									notice={ dollyNotice }
-									emptyView={ dollyEmptyView }
-									messageRenderer={ dollyMessageRenderer }
-									messagesPosition="bottom"
-									inputValue={ input }
-									onInputChange={ setInput }
-									maxInputLength={ 10000 }
-									thinkingMessage={ __( 'Thinking...' ) }
-									className="h-full min-h-0 bg-frame-surface"
-								>
-									<AgentUI.ConversationView
-										ref={ conversationViewRef }
-										showHeader={ false }
-										className="relative min-h-0 overflow-hidden px-6 pb-4 pt-6"
-									>
-										<AgentUI.Messages key={ selectedConversationId } />
-										{ showJumpToLatest && (
-											<div className="pointer-events-none absolute inset-x-0 bottom-28 z-20 flex justify-center">
-												<button
-													type="button"
-													aria-label={ __( 'Jump to latest message' ) }
-													onClick={ () => scrollToLatestMessage( 'smooth' ) }
-													className="pointer-events-auto grid h-9 w-9 place-items-center rounded-full border border-a8c-gray-5 bg-white text-frame-text-secondary shadow-sm transition hover:text-frame-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme"
-												>
-													<Icon icon={ chevronDown } size={ 20 } />
-												</button>
-											</div>
-										) }
-										<AgentUI.Footer className="mx-2 shrink-0 bg-white">
-											<AgentUI.Notice />
-											<ImageUploader
-												ref={ imageUploaderRef }
-												images={ pendingImages }
-												onFilesSelected={ addPendingImages }
-												onRemoveImage={ removePendingImage }
-												acceptedFileTypes={ DOLLY_IMAGE_FILE_TYPES }
-												maxFileSize={ DOLLY_IMAGE_MAX_FILE_SIZE }
-												maxFiles={ DOLLY_IMAGE_MAX_FILES }
-												dropZoneRef={ dollyDropZoneRef }
-												onError={ setImageUploadError }
-											/>
-											<AgentUI.Input
-												disabled={
-													isInputDisabled ? true : pendingImages.length > 0 ? false : undefined
-												}
-												customActions={ dollyInputActions }
-												layout="inline"
-											/>
-										</AgentUI.Footer>
-										<DollyConversationMenu
-											anchor={ chatMenuAnchor }
-											conversations={ conversationsForTarget }
-											selectedConversationId={ selectedConversationId }
-											onClose={ () => setChatMenuAnchor( null ) }
-											onNewChat={ startNewConversation }
-											onSelect={ selectConversation }
-											onDelete={ deleteConversation }
-											isConversationActive={ ( conversationId ) =>
-												Boolean( getWpcomSiteAssistantTurn( conversationId ) )
-											}
-										/>
-										<div
-											data-testid="guidelines-link"
-											className="self-end px-2 pt-2 text-frame-text-secondary"
+		<div className="app-no-drag-region flex h-full min-h-0 w-full flex-col overflow-hidden bg-white pt-8 select-text">
+			<Header
+				selectedWpcomSite={ activeWpcomSite }
+				onSelectWpcomSite={ selectTargetSite }
+				onSelectLocalSite={ selectLocalTarget }
+				onCreateStagingSite={ () => void createStagingSiteFromTargetSwitcher() }
+				canCreateStagingSite={ canUseStagingTarget }
+				isCreatingStagingSite={ isCreatingStagingSiteForTarget }
+				stagingDisabledReason={ stagingTargetDisabledReason }
+				rightControls={
+					<DollyPreviewHeaderControls
+						isOpen={ previewState.open }
+						displayUrl={ previewHeaderDisplayUrl }
+						previewUrl={ previewUrl }
+						canGoBack={ previewState.canGoBack }
+						canGoForward={ previewState.canGoForward }
+						onOpen={ () => openPreview( previewState.pathOrUrl ) }
+						onClose={ () => updatePreviewState( { open: false } ) }
+						onGoBack={ () => navigatePreviewHistory( 'back' ) }
+						onGoForward={ () => navigatePreviewHistory( 'forward' ) }
+						onRefresh={ () =>
+							updatePreviewState( {
+								isLoading: true,
+								reloadNonce: previewState.reloadNonce + 1,
+							} )
+						}
+					/>
+				}
+			/>
+			<TabPanel
+				className={ `mt-6 flex h-full min-h-0 flex-1 flex-col overflow-hidden ${ MIN_WIDTH_CLASS_TO_MEASURE }` }
+				tabs={ wpcomTabs }
+				orientation="horizontal"
+				onSelect={ ( tabName ) => setSelectedTab( tabName as TabName ) }
+				initialTabName={ effectiveWpcomTab }
+				key={ `wpcom-${ activeWpcomSite.id }` }
+			>
+				{ ( { name } ) => (
+					<div className="flex h-full min-h-0 flex-1 overflow-hidden bg-frame-surface">
+						{ name === 'assistant' ? (
+							<div
+								data-testid="assistant-chat"
+								ref={ dollyDropZoneRef }
+								className={ cx(
+									'min-h-0 flex-1',
+									! isAuthenticated && 'overflow-y-auto p-8 pb-2'
+								) }
+								style={ {
+									scrollbarWidth: 'thin',
+									scrollbarGutter: 'stable',
+								} }
+							>
+								{ isAuthenticated ? (
+									<div className="agenttic dolly-agenttic-chat h-full min-h-0 overflow-hidden">
+										<AgentUI.Container
+											messages={ agentticMessages }
+											isProcessing={ isCurrentSessionAssistantThinking }
+											error={ null }
+											onSubmit={ submitPrompt }
+											onStop={ interruptDollyRequest }
+											variant="embedded"
+											placeholder={ __( 'Ask Dolly about this site' ) }
+											notice={ dollyNotice }
+											emptyView={ dollyEmptyView }
+											messageRenderer={ dollyMessageRenderer }
+											messagesPosition="bottom"
+											inputValue={ input }
+											onInputChange={ setInput }
+											maxInputLength={ 10000 }
+											thinkingMessage={ __( 'Thinking...' ) }
+											className="h-full min-h-0 bg-frame-surface"
 										>
-											{ __( 'Powered by Dolly.' ) }
-										</div>
-									</AgentUI.ConversationView>
-								</AgentUI.Container>
-							</div>
-						) : (
-							<div className="mt-auto w-full">
-								{ isOffline ? (
-									<OfflineModeView />
+											<AgentUI.ConversationView
+												ref={ conversationViewRef }
+												showHeader={ false }
+												className="relative min-h-0 overflow-hidden px-6 pb-4 pt-6"
+											>
+												<AgentUI.Messages key={ selectedConversationId } />
+												{ showJumpToLatest && (
+													<div className="pointer-events-none absolute inset-x-0 bottom-28 z-20 flex justify-center">
+														<button
+															type="button"
+															aria-label={ __( 'Jump to latest message' ) }
+															onClick={ () => scrollToLatestMessage( 'smooth' ) }
+															className="pointer-events-auto grid h-9 w-9 place-items-center rounded-full border border-a8c-gray-5 bg-white text-frame-text-secondary shadow-sm transition hover:text-frame-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme"
+														>
+															<Icon icon={ chevronDown } size={ 20 } />
+														</button>
+													</div>
+												) }
+												<AgentUI.Footer className="mx-2 shrink-0 bg-white">
+													<AgentUI.Notice />
+													<ImageUploader
+														ref={ imageUploaderRef }
+														images={ pendingImages }
+														onFilesSelected={ addPendingImages }
+														onRemoveImage={ removePendingImage }
+														acceptedFileTypes={ DOLLY_IMAGE_FILE_TYPES }
+														maxFileSize={ DOLLY_IMAGE_MAX_FILE_SIZE }
+														maxFiles={ DOLLY_IMAGE_MAX_FILES }
+														dropZoneRef={ dollyDropZoneRef }
+														onError={ setImageUploadError }
+													/>
+													<AgentUI.Input
+														disabled={
+															isInputDisabled ? true : pendingImages.length > 0 ? false : undefined
+														}
+														customActions={ dollyInputActions }
+														layout="inline"
+													/>
+												</AgentUI.Footer>
+												<DollyConversationMenu
+													anchor={ chatMenuAnchor }
+													conversations={ conversationsForTarget }
+													selectedConversationId={ selectedConversationId }
+													onClose={ () => setChatMenuAnchor( null ) }
+													onNewChat={ startNewConversation }
+													onSelect={ selectConversation }
+													onDelete={ deleteConversation }
+													isConversationActive={ ( conversationId ) =>
+														Boolean( getWpcomSiteAssistantTurn( conversationId ) )
+													}
+												/>
+												<div
+													data-testid="guidelines-link"
+													className="self-end px-2 pt-2 text-frame-text-secondary"
+												>
+													{ __( 'Powered by Dolly.' ) }
+												</div>
+											</AgentUI.ConversationView>
+										</AgentUI.Container>
+									</div>
 								) : (
-									<UnauthenticatedView onAuthenticate={ authenticate } />
+									<div className="mt-auto w-full">
+										{ isOffline ? (
+											<OfflineModeView />
+										) : (
+											<UnauthenticatedView onAuthenticate={ authenticate } />
+										) }
+									</div>
 								) }
 							</div>
+						) : (
+							<div
+								className="h-full min-h-0 flex-1 overflow-y-auto"
+								style={ {
+									scrollbarWidth: 'thin',
+									scrollbarGutter: 'stable',
+								} }
+							>
+								{ name === 'sync' && (
+									<div className="h-full p-8">
+										<WorkspaceSyncPanelContent workspace={ wpcomSiteWorkspace } />
+									</div>
+								) }
+								{ name === 'settings' && <WpcomSiteSettingsPlaceholder /> }
+							</div>
+						) }
+						{ previewState.open && (
+							<DollyPreviewPanel
+								selectedSite={ activeWpcomSite }
+								previewState={ previewState }
+								previewUrl={ previewUrl }
+								onUpdateState={ updatePreviewState }
+							/>
 						) }
 					</div>
-					{ previewState.open && (
-						<DollyPreviewPanel
-							selectedSite={ activeWpcomSite }
-							previewState={ previewState }
-							previewUrl={ previewUrl }
-							onUpdateState={ updatePreviewState }
-						/>
-					) }
-				</div>
-			</div>
+				) }
+			</TabPanel>
 		</div>
 	);
 }

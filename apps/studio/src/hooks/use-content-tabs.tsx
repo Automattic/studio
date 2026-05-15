@@ -2,14 +2,40 @@ import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { createContext, ReactNode, useContext, useMemo, useState } from 'react';
 export type TabName = 'overview' | 'sync' | 'settings' | 'assistant' | 'import-export' | 'previews';
+export type ContentTabContext = 'local' | 'wpcom';
 type Tab = React.ComponentProps< typeof TabPanel >[ 'tabs' ][ number ] & {
 	name: TabName;
 };
 
-function useTabs() {
+export const getDefaultTabName = ( context: ContentTabContext ): TabName =>
+	context === 'wpcom' ? 'assistant' : 'overview';
+
+export function useTabs( context: ContentTabContext = 'local' ) {
 	const { __ } = useI18n();
 
 	return useMemo( () => {
+		if ( context === 'wpcom' ) {
+			const tabs: Tab[] = [
+				{
+					order: 1,
+					name: 'assistant',
+					title: __( 'Assistant' ),
+				},
+				{
+					order: 2,
+					name: 'sync',
+					title: __( 'Sync' ),
+				},
+				{
+					order: 3,
+					name: 'settings',
+					title: __( 'Settings' ),
+				},
+			];
+
+			return tabs.sort( ( a, b ) => a.order - b.order );
+		}
+
 		const tabs: Tab[] = [
 			{
 				order: 1,
@@ -49,7 +75,7 @@ function useTabs() {
 		} );
 
 		return tabs.sort( ( a, b ) => a.order - b.order );
-	}, [ __ ] );
+	}, [ __, context ] );
 }
 interface ContentTabsContextType {
 	selectedTab: TabName;
@@ -76,4 +102,8 @@ export function useContentTabs() {
 		throw new Error( 'useContentTabs must be used within a ContentTabsProvider' );
 	}
 	return context;
+}
+
+export function useOptionalContentTabs() {
+	return useContext( ContentTabsContext );
 }

@@ -161,15 +161,24 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 	const selectLocalSite = useCallback(
 		( selectedSiteId: string ) => {
+			if ( selectedWpcomSite ) {
+				setSelectedTab( 'overview' );
+			}
 			setSelectedWpcomSiteState( null );
 			setSelectedSiteId( selectedSiteId );
 		},
-		[ setSelectedSiteId ]
+		[ selectedWpcomSite, setSelectedSiteId, setSelectedTab ]
 	);
 
-	const setSelectedWpcomSite = useCallback( ( site: SyncSite | null ) => {
-		setSelectedWpcomSiteState( site );
-	}, [] );
+	const setSelectedWpcomSite = useCallback(
+		( site: SyncSite | null ) => {
+			if ( site && ! selectedWpcomSite ) {
+				setSelectedTab( 'assistant' );
+			}
+			setSelectedWpcomSiteState( site );
+		},
+		[ selectedWpcomSite, setSelectedTab ]
+	);
 
 	const setWpcomSiteActivity = useCallback( ( siteId: number, activity: WpcomSiteActivity ) => {
 		setWpcomSiteActivityState( ( currentActivity ) => {

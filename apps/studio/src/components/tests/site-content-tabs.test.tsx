@@ -120,6 +120,26 @@ describe( 'SiteContentTabs', () => {
 		expect( screen.queryByRole( 'tab', { name: 'Publish' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'tab', { name: 'Export' } ) ).not.toBeInTheDocument();
 	} );
+
+	it( 'shows disabled workspace targets for a local-only site when Workspaces is enabled', async () => {
+		mockFeatureFlags.enableWorkspaces = true;
+		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
+			selectedSite,
+			selectedWpcomSite: null,
+			sites: [ selectedSite ],
+			wpcomSites: [],
+			loadingServer: {},
+			setSelectedSiteId: vi.fn(),
+			setSelectedWpcomSite: vi.fn(),
+		} );
+
+		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
+
+		expect( screen.getByRole( 'button', { name: 'Production' } ) ).toBeDisabled();
+		expect( screen.getByRole( 'button', { name: 'Staging' } ) ).toBeDisabled();
+		expect( screen.getByRole( 'button', { name: 'Local' } ) ).toBeEnabled();
+	} );
+
 	it( 'selects the Overview tab by default', async () => {
 		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 			selectedSite,
@@ -151,7 +171,7 @@ describe( 'SiteContentTabs', () => {
 		expect( screen.queryByText( 'Remote Site' ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'renders a WP.com-only site without local site tabs when Workspaces is enabled', async () => {
+	it( 'renders a WP.com-only site with WP.com workspace tabs when Workspaces is enabled', async () => {
 		mockFeatureFlags.enableWorkspaces = true;
 		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 			selectedSite,
@@ -174,8 +194,18 @@ describe( 'SiteContentTabs', () => {
 			'src',
 			'https://remote-site.wordpress.com/'
 		);
+		expect( screen.queryByRole( 'tab', { name: 'Assistant', selected: true } ) ).toBeVisible();
+		expect( screen.queryByRole( 'tab', { name: 'Sync', selected: false } ) ).toBeVisible();
+		expect( screen.queryByRole( 'tab', { name: 'Settings', selected: false } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Overview' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'tab', { name: 'Sync' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'tab', { name: 'Assistant' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'tab', { name: 'Previews' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'tab', { name: 'Import / Export' } ) ).not.toBeInTheDocument();
+
+		fireEvent.click( screen.getByRole( 'tab', { name: 'Settings' } ) );
+
+		expect(
+			screen.getByText( 'WordPress.com workspace settings are not available yet.' )
+		).toBeVisible();
+		expect( screen.getByTitle( 'Remote Site preview' ) ).toBeVisible();
 	} );
 } );

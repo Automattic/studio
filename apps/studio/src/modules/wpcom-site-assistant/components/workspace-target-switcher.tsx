@@ -40,7 +40,7 @@ export function WorkspaceTargetSwitcher( {
 	const stagingSite =
 		workspace?.stagingSites[ 0 ] ??
 		( selectedWpcomSite?.isStaging ? selectedWpcomSite : undefined );
-	const localSite = workspace?.localSite;
+	const localSite = workspace?.localSite ?? selectedLocalSite ?? undefined;
 	const isProductionSelected = productionSite?.id === selectedWpcomSite?.id;
 	const isStagingSelected =
 		stagingSite?.id === selectedWpcomSite?.id || selectedWpcomSite?.isStaging;
@@ -65,13 +65,25 @@ export function WorkspaceTargetSwitcher( {
 		  ( isCreatingStagingSite ? __( 'Creating staging site...' ) : undefined );
 	const localTooltip = isLocalDisabled ? localDisabledReason : undefined;
 
-	const getButtonClassName = ( isSelected: boolean, needsUpgrade = false ) =>
+	const getSelectedButtonClassName = ( target: 'production' | 'staging' | 'local' ) => {
+		if ( target === 'staging' ) {
+			return 'border-circle-env-staging bg-frame-surface text-frame-text';
+		}
+
+		return 'border-transparent bg-a8c-green-5 text-a8c-green-70';
+	};
+
+	const getButtonClassName = (
+		target: 'production' | 'staging' | 'local',
+		isSelected: boolean,
+		needsUpgrade = false
+	) =>
 		cx(
 			'inline-flex min-h-6 shrink-0 items-center gap-1.5 rounded border px-2 py-0.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme disabled:cursor-not-allowed disabled:opacity-60',
 			needsUpgrade &&
 				'border-dashed border-circle-env-staging bg-transparent text-frame-text-secondary hover:text-frame-text',
 			isSelected
-				? 'border-transparent bg-a8c-green-5 text-a8c-green-70'
+				? getSelectedButtonClassName( target )
 				: ! needsUpgrade &&
 						'border-transparent bg-frame-surface text-frame-text-secondary hover:text-frame-text'
 		);
@@ -81,7 +93,7 @@ export function WorkspaceTargetSwitcher( {
 			<Tooltip text={ productionTooltip } disabled={ ! productionTooltip } placement="bottom-start">
 				<button
 					type="button"
-					className={ getButtonClassName( Boolean( isProductionSelected ) ) }
+					className={ getButtonClassName( 'production', Boolean( isProductionSelected ) ) }
 					disabled={ isProductionDisabled }
 					onClick={ () => productionSite && onSelectWpcomSite( productionSite ) }
 				>
@@ -93,6 +105,7 @@ export function WorkspaceTargetSwitcher( {
 				<button
 					type="button"
 					className={ getButtonClassName(
+						'staging',
 						Boolean( isStagingSelected ),
 						isStagingUpgradeAvailable
 					) }
@@ -118,7 +131,7 @@ export function WorkspaceTargetSwitcher( {
 			<Tooltip text={ localTooltip } disabled={ ! localTooltip } placement="bottom-start">
 				<button
 					type="button"
-					className={ getButtonClassName( isLocalSelected ) }
+					className={ getButtonClassName( 'local', isLocalSelected ) }
 					disabled={ isLocalDisabled }
 					onClick={ () => localSite && onSelectLocalSite?.( localSite ) }
 				>

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { ChatButton } from '@/ui-desks/chats/chat-button';
 import { SelectionChatDialog } from '@/ui-desks/chats/selection-chat-dialog';
 import { Divider, Button, Surface } from '@/ui-desks/components';
+import { appendIncomingConnectedWidgets } from '@/ui-desks/connectors/utils';
 import { ControlRenderer } from '@/ui-desks/controls/registry';
 import { useDesk } from '@/ui-desks/desk/provider';
 import { SITE_PREVIEW_WIDGET_TYPE } from '@/ui-desks/widgets/site-preview/types';
@@ -44,6 +45,7 @@ export function DeskWidgetToolbar() {
 		selectedWidgetConnectionTargets,
 		removeSelectedConnector,
 		focusConnectedWidget,
+		getDeskConfigSnapshot,
 		focusMode,
 		focusedWidget,
 		focusedWidgetDefinition,
@@ -237,7 +239,13 @@ export function DeskWidgetToolbar() {
 				) }
 				{ ! renderConnectorSelection && renderSelection && <Divider /> }
 				{ ! renderConnectorSelection && renderSelection && (
-					<ChatButton onClick={ () => setChatWidgets( renderSelection.widgets ) } />
+					<ChatButton
+						onClick={ () =>
+							setChatWidgets(
+								appendIncomingConnectedWidgets( renderSelection.widgets, getDeskConfigSnapshot() )
+							)
+						}
+					/>
 				) }
 				{ ! renderConnectorSelection && renderSelection?.canRemove && (
 					<>

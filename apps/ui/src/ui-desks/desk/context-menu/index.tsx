@@ -22,6 +22,7 @@ import { useConnector } from '@/data/core';
 import { useSites } from '@/data/queries/use-sites';
 import { SelectionChatDialog } from '@/ui-desks/chats/selection-chat-dialog';
 import { LinkFromUrlDialog } from '@/ui-desks/chrome/link-from-url-dialog';
+import { appendIncomingConnectedWidgets } from '@/ui-desks/connectors/utils';
 import { canvasShapeToDeskWidget } from '@/ui-desks/desk/tldraw-adapter';
 import { collapseStackInEditor, expandStackInEditor } from '@/ui-desks/stacks/editor-commands';
 import { createStackId, getStackId, isStackExpanded } from '@/ui-desks/stacks/utils';
@@ -205,7 +206,11 @@ export function DeskCanvasContextMenu( { editor, state, onClose }: DeskCanvasCon
 						</ContextMenuItem>
 						<ChatMenuItem
 							disabled={ ! canChat }
-							onClick={ () => setChatWidgets( selectedWidgets ) }
+							onClick={ () =>
+								setChatWidgets(
+									appendIncomingConnectedWidgets( selectedWidgets, desk.getDeskConfigSnapshot() )
+								)
+							}
 						/>
 						<ContextMenuItem
 							disabled={ ! desk.canAddWidgets || ! singleWidget || ! singleShape }
@@ -244,7 +249,11 @@ export function DeskCanvasContextMenu( { editor, state, onClose }: DeskCanvasCon
 						</ContextMenuItem>
 						<ChatMenuItem
 							disabled={ ! canChat }
-							onClick={ () => setChatWidgets( selectedWidgets ) }
+							onClick={ () =>
+								setChatWidgets(
+									appendIncomingConnectedWidgets( selectedWidgets, desk.getDeskConfigSnapshot() )
+								)
+							}
 						/>
 						<ContextMenuSeparator />
 						<ContextMenuItem
@@ -276,7 +285,11 @@ export function DeskCanvasContextMenu( { editor, state, onClose }: DeskCanvasCon
 						</ContextMenuItem>
 						<ChatMenuItem
 							disabled={ ! canChat }
-							onClick={ () => setChatWidgets( selectedWidgets ) }
+							onClick={ () =>
+								setChatWidgets(
+									appendIncomingConnectedWidgets( selectedWidgets, desk.getDeskConfigSnapshot() )
+								)
+							}
 						/>
 						<ContextMenuSeparator />
 						<ContextMenuItem

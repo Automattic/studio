@@ -7,6 +7,8 @@ import {
 	type RichTextValue,
 } from '@wordpress/rich-text';
 import { useCallback, useEffect, useRef, type KeyboardEvent, type PointerEvent } from 'react';
+import { useEditor } from 'tldraw';
+import { focusOnDeskShape, useIncomingWidgetConnections } from '@/ui-desks/connectors/utils';
 import { getNoteTextSize } from '@/ui-desks/widgets/note/text-sizing';
 import { NOTE_WIDGET_TYPE, type NoteWidgetProps } from '@/ui-desks/widgets/note/types';
 import styles from './style.module.css';
@@ -36,13 +38,17 @@ registerNoteFormats();
 
 export function NoteWidgetComponent( {
 	id,
+	shapeId,
 	widgetProps,
 	isEditing,
 	onWidgetPropsChange,
 	onEditComplete,
 }: NoteWidgetComponentProps ) {
+	const editor = useEditor();
 	const editorRef = useRef< HTMLDivElement | null >( null );
 	const annotation = widgetProps.annotation;
+	const connectionSources = useIncomingWidgetConnections( editor, shapeId );
+	const hasConnections = connectionSources.length > 0;
 
 	const updateText = useCallback(
 		( text: string ) => {
@@ -147,6 +153,7 @@ export function NoteWidgetComponent( {
 			data-tone={ widgetProps.tone }
 			data-is-editing={ isEditing }
 			data-has-annotation={ annotation ? 'true' : 'false' }
+			data-has-connections={ hasConnections ? 'true' : 'false' }
 			data-text-size={ getNoteTextSize( widgetProps ) }
 			data-studio-desk-widget={ NOTE_WIDGET_TYPE }
 			data-studio-desk-widget-id={ id }
@@ -173,6 +180,26 @@ export function NoteWidgetComponent( {
 				onKeyDown={ handleKeyDown }
 				onPointerDown={ handlePointerDown }
 			/>
+			{ hasConnections && ! annotation && (
+				<div className={ styles.using } aria-label="Connected sources">
+					<span>Using</span>
+					{ connectionSources.map( ( source ) => (
+						<button
+							key={ source.shapeId }
+							type="button"
+							className={ styles.usingPill }
+							title={ source.title }
+							onClick={ () => focusOnDeskShape( editor, source.shapeId ) }
+							onPointerDown={ ( event ) => event.stopPropagation() }
+						>
+							{ source.label }
+						</button>
+					) ) }
+					<span className={ styles.usingPeriod } aria-hidden="true">
+						.
+					</span>
+				</div>
+			) }
 		</div>
 	);
 }

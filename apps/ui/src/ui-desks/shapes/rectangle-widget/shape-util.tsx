@@ -216,6 +216,7 @@ function RectangleWidgetComponent( {
 			) : (
 				<WidgetComponent
 					id={ widgetId }
+					shapeId={ shape.id }
 					widgetProps={ shape.props.widgetProps }
 					isEditing={ isEditing }
 					isHovered={ isHovered }

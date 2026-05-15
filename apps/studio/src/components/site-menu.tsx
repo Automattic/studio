@@ -15,8 +15,13 @@ import { useSiteDetails } from 'src/hooks/use-site-details';
 import { isMac, isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { WorkspaceSyncPanel } from 'src/modules/sync/components/workspace-sync-control';
 import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
 import { getTerminalName } from 'src/modules/user-settings/lib/terminal';
+import {
+	WorkspaceSidebarCommandMenu,
+	type WorkspaceSidebarCommandMenuContext,
+} from 'src/modules/wpcom-site-assistant/components/workspace-sidebar-command-menu';
 import {
 	createWpcomSiteWorkspaces,
 	getDefaultWpcomWorkspaceTarget,
@@ -166,6 +171,8 @@ function SiteItem( {
 	onDragEnd,
 	isDragOver,
 	workspace,
+	useWorkspaceCommandMenu,
+	onOpenCommandMenu,
 }: {
 	site: SiteDetails;
 	index: number;
@@ -175,6 +182,8 @@ function SiteItem( {
 	onDragEnd: () => void;
 	isDragOver: boolean;
 	workspace?: WpcomSiteWorkspace;
+	useWorkspaceCommandMenu: boolean;
+	onOpenCommandMenu: ( context: WorkspaceSidebarCommandMenuContext ) => void;
 } ) {
 	const {
 		sites,
@@ -226,6 +235,11 @@ function SiteItem( {
 
 	const handleContextMenu = ( e: React.MouseEvent ) => {
 		e.preventDefault();
+		if ( useWorkspaceCommandMenu ) {
+			onOpenCommandMenu( { anchor: e.currentTarget, localSite: site, workspace } );
+			return;
+		}
+
 		const ipcApi = getIpcApi();
 		const isLoading = loadingServer[ site.id ] || false;
 		const isAddingSite = site.isAddingSite || false;
@@ -248,6 +262,19 @@ function SiteItem( {
 		} );
 	};
 
+	const handleCommandMenuKeyDown = ( e: React.KeyboardEvent< HTMLButtonElement > ) => {
+		if ( ! useWorkspaceCommandMenu ) {
+			return;
+		}
+
+		if ( e.key !== 'ContextMenu' && ! ( e.shiftKey && e.key === 'F10' ) ) {
+			return;
+		}
+
+		e.preventDefault();
+		onOpenCommandMenu( { anchor: e.currentTarget, localSite: site, workspace } );
+	};
+
 	return (
 		<li
 			className={ cx(
@@ -266,6 +293,7 @@ function SiteItem( {
 			<button
 				type="button"
 				className="p-2 text-xs rounded-tl rounded-bl whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme"
+				onKeyDown={ handleCommandMenuKeyDown }
 				onClick={ () => {
 					const savedWorkspaceTarget = workspace
 						? getSavedWpcomWorkspaceTarget( workspace )
@@ -421,7 +449,13 @@ function WpcomSiteActivityIndicator( {
 	);
 }
 
-function WpcomSiteItem( { workspace }: { workspace: WpcomSiteWorkspace } ) {
+function WpcomSiteItem( {
+	workspace,
+	onOpenCommandMenu,
+}: {
+	workspace: WpcomSiteWorkspace;
+	onOpenCommandMenu: ( context: WorkspaceSidebarCommandMenuContext ) => void;
+} ) {
 	const { selectedWpcomSite, setSelectedWpcomSite, wpcomSiteActivity } = useSiteDetails();
 	const selectedWorkspaceSite = workspace.sites.find(
 		( site ) => site.id === selectedWpcomSite?.id
@@ -437,6 +471,18 @@ function WpcomSiteItem( { workspace }: { workspace: WpcomSiteWorkspace } ) {
 	);
 	const isEnvironmentSyncing =
 		environmentSyncState?.status === 'started' || environmentSyncState?.status === 'in-progress';
+	const handleContextMenu = ( e: React.MouseEvent ) => {
+		e.preventDefault();
+		onOpenCommandMenu( { anchor: e.currentTarget, workspace } );
+	};
+	const handleCommandMenuKeyDown = ( e: React.KeyboardEvent< HTMLButtonElement > ) => {
+		if ( e.key !== 'ContextMenu' && ! ( e.shiftKey && e.key === 'F10' ) ) {
+			return;
+		}
+
+		e.preventDefault();
+		onOpenCommandMenu( { anchor: e.currentTarget, workspace } );
+	};
 
 	return (
 		<li
@@ -445,10 +491,12 @@ function WpcomSiteItem( { workspace }: { workspace: WpcomSiteWorkspace } ) {
 				isMac() ? 'me-5' : 'me-4',
 				isSelected && 'bg-[#ffffff19] hover:bg-[#ffffff19]'
 			) }
+			onContextMenu={ handleContextMenu }
 		>
 			<button
 				type="button"
 				className="p-2 text-xs rounded-tl rounded-bl whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme"
+				onKeyDown={ handleCommandMenuKeyDown }
 				onClick={ () => {
 					setSavedWpcomWorkspaceTarget( workspace.id, siteToOpen.id );
 					setSelectedWpcomSite( siteToOpen );
@@ -505,6 +553,11 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 	const [ dragOverIndex, setDragOverIndex ] = useState< number | null >( null );
 	const [ isWpcomSectionExpanded, setIsWpcomSectionExpanded ] = useState( true );
 	const [ connectedWpcomSites, setConnectedWpcomSites ] = useState< SyncSite[] >( [] );
+	const [ commandMenuContext, setCommandMenuContext ] =
+		useState< WorkspaceSidebarCommandMenuContext | null >( null );
+	const [ syncPanelWorkspace, setSyncPanelWorkspace ] = useState< WpcomSiteWorkspace | null >(
+		null
+	);
 	const connectedWpcomSiteIds = useMemo(
 		() => connectedWpcomSites.map( ( site ) => site.id ),
 		[ connectedWpcomSites ]
@@ -690,78 +743,102 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 	] );
 
 	return (
-		<nav
-			aria-label={ __( 'Sites' ) }
-			style={ {
-				scrollbarGutter: 'stable',
-			} }
-			className={ cx(
-				'w-full overflow-y-auto overflow-x-hidden flex flex-col gap-0.5 pb-4',
-				className
-			) }
-		>
-			<ul className="pt-px">
-				{ sites.map( ( site, index ) => (
-					<SiteItem
-						key={ site.id }
-						site={ site }
-						index={ index }
-						onDragStart={ handleDragStart }
-						onDragOver={ handleDragOver }
-						onDrop={ handleDrop }
-						onDragEnd={ handleDragEnd }
-						isDragOver={ dragOverIndex === index }
-						workspace={
-							enableWorkspaces ? wpcomSiteWorkspaceByLocalSiteId.get( site.id ) : undefined
-						}
-					/>
-				) ) }
-				{ /* Drop zone for dragging to bottom of list */ }
-				<li
-					className="h-8"
-					onDragOver={ ( e ) => handleDragOver( e, sites.length ) }
-					onDrop={ ( e ) => handleDrop( e, sites.length ) }
-				/>
-			</ul>
-			{ enableWorkspaces &&
-				isAuthenticated &&
-				( wpcomOnlySiteWorkspaces.length > 0 || isFetchingWpcomSites ) && (
-					<div className="mt-3 border-t border-white/10 pt-2">
-						<button
-							type="button"
-							className={ cx(
-								'flex h-8 min-w-[168px] items-center justify-between gap-2 rounded px-2 text-left text-[11px] font-medium uppercase text-a8c-gray-600 hover:bg-[#ffffff0C] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme',
-								isMac() ? 'me-5 ms-1' : 'me-4 ms-1'
-							) }
-							aria-expanded={ isWpcomSectionExpanded }
-							onClick={ () => setIsWpcomSectionExpanded( ( isExpanded ) => ! isExpanded ) }
-						>
-							<span className="truncate">{ __( 'WordPress.com' ) }</span>
-							<Icon
-								icon={ isWpcomSectionExpanded ? chevronDown : chevronRight }
-								size={ 16 }
-								className="shrink-0 text-a8c-gray-600 [&_path]:fill-current"
-							/>
-						</button>
-						{ isWpcomSectionExpanded && (
-							<ul className="pt-px">
-								{ wpcomOnlySiteWorkspaces.map( ( workspace ) => (
-									<WpcomSiteItem key={ workspace.id } workspace={ workspace } />
-								) ) }
-								{ isFetchingWpcomSites && wpcomOnlySiteWorkspaces.length === 0 && (
-									<li
-										className={ cx(
-											'flex h-8 min-w-[168px] items-center px-2 text-xs text-a8c-gray-600',
-											isMac() ? 'me-5 ms-1' : 'me-4 ms-1'
-										) }
-									>
-										{ __( 'Loading...' ) }
-									</li>
-								) }
-							</ul>
-						) }
-					</div>
+		<>
+			<nav
+				aria-label={ __( 'Sites' ) }
+				style={ {
+					scrollbarGutter: 'stable',
+				} }
+				className={ cx(
+					'w-full overflow-y-auto overflow-x-hidden flex flex-col gap-0.5 pb-4',
+					className
 				) }
-		</nav>
+			>
+				<ul className="pt-px">
+					{ sites.map( ( site, index ) => (
+						<SiteItem
+							key={ site.id }
+							site={ site }
+							index={ index }
+							onDragStart={ handleDragStart }
+							onDragOver={ handleDragOver }
+							onDrop={ handleDrop }
+							onDragEnd={ handleDragEnd }
+							isDragOver={ dragOverIndex === index }
+							workspace={
+								enableWorkspaces ? wpcomSiteWorkspaceByLocalSiteId.get( site.id ) : undefined
+							}
+							useWorkspaceCommandMenu={ enableWorkspaces }
+							onOpenCommandMenu={ setCommandMenuContext }
+						/>
+					) ) }
+					{ /* Drop zone for dragging to bottom of list */ }
+					<li
+						className="h-8"
+						onDragOver={ ( e ) => handleDragOver( e, sites.length ) }
+						onDrop={ ( e ) => handleDrop( e, sites.length ) }
+					/>
+				</ul>
+				{ enableWorkspaces &&
+					isAuthenticated &&
+					( wpcomOnlySiteWorkspaces.length > 0 || isFetchingWpcomSites ) && (
+						<div className="mt-3 border-t border-white/10 pt-2">
+							<button
+								type="button"
+								className={ cx(
+									'flex h-8 min-w-[168px] items-center justify-between gap-2 rounded px-2 text-left text-[11px] font-medium uppercase text-a8c-gray-600 hover:bg-[#ffffff0C] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme',
+									isMac() ? 'me-5 ms-1' : 'me-4 ms-1'
+								) }
+								aria-expanded={ isWpcomSectionExpanded }
+								onClick={ () => setIsWpcomSectionExpanded( ( isExpanded ) => ! isExpanded ) }
+							>
+								<span className="truncate">{ __( 'WordPress.com' ) }</span>
+								<Icon
+									icon={ isWpcomSectionExpanded ? chevronDown : chevronRight }
+									size={ 16 }
+									className="shrink-0 text-a8c-gray-600 [&_path]:fill-current"
+								/>
+							</button>
+							{ isWpcomSectionExpanded && (
+								<ul className="pt-px">
+									{ wpcomOnlySiteWorkspaces.map( ( workspace ) => (
+										<WpcomSiteItem
+											key={ workspace.id }
+											workspace={ workspace }
+											onOpenCommandMenu={ setCommandMenuContext }
+										/>
+									) ) }
+									{ isFetchingWpcomSites && wpcomOnlySiteWorkspaces.length === 0 && (
+										<li
+											className={ cx(
+												'flex h-8 min-w-[168px] items-center px-2 text-xs text-a8c-gray-600',
+												isMac() ? 'me-5 ms-1' : 'me-4 ms-1'
+											) }
+										>
+											{ __( 'Loading...' ) }
+										</li>
+									) }
+								</ul>
+							) }
+						</div>
+					) }
+			</nav>
+			{ enableWorkspaces && (
+				<WorkspaceSidebarCommandMenu
+					context={ commandMenuContext }
+					onClose={ () => setCommandMenuContext( null ) }
+					onOpenSync={ ( workspace ) => {
+						setCommandMenuContext( null );
+						setSyncPanelWorkspace( workspace );
+					} }
+				/>
+			) }
+			{ syncPanelWorkspace && (
+				<WorkspaceSyncPanel
+					workspace={ syncPanelWorkspace }
+					onClose={ () => setSyncPanelWorkspace( null ) }
+				/>
+			) }
+		</>
 	);
 }

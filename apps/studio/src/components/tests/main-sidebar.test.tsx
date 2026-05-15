@@ -1,4 +1,4 @@
-import { render, act, screen } from '@testing-library/react';
+import { render, act, fireEvent, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { vi } from 'vitest';
@@ -9,17 +9,44 @@ import { store } from 'src/stores';
 import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
 import type { SyncSite } from '@studio/common/types/sync';
 
-const { mockFeatureFlags } = vi.hoisted( () => ( {
+const { mockFeatureFlags, mockIpcApi, mockCreateWpcomStagingSite } = vi.hoisted( () => ( {
 	mockFeatureFlags: {
 		enableBlueprints: true,
 		enableStudioCodeUi: false,
 		enableWorkspaces: false,
 	},
+	mockIpcApi: {
+		getConnectedWpcomSites: vi.fn().mockResolvedValue( [] ),
+		showOpenFolderDialog: vi.fn(),
+		generateProposedSitePath: vi.fn(),
+		openURL: vi.fn(),
+		getAllCustomDomains: vi.fn().mockResolvedValue( [] ),
+		getUserEditor: vi.fn().mockResolvedValue( 'cursor' ),
+		getUserTerminal: vi.fn().mockResolvedValue( 'terminal' ),
+		setWindowControlVisibility: vi.fn(),
+		setupAppMenu: vi.fn(),
+		showSiteContextMenu: vi.fn(),
+		openSiteURL: vi.fn(),
+		openLocalPath: vi.fn(),
+		openAppAtPath: vi.fn(),
+		openTerminalAtPath: vi.fn(),
+		showErrorMessageBox: vi.fn(),
+	},
+	mockCreateWpcomStagingSite: vi.fn(),
 } ) );
 
 vi.mock( 'src/hooks/use-auth' );
 vi.mock( 'src/hooks/use-feature-flags', () => ( {
 	useFeatureFlags: () => mockFeatureFlags,
+} ) );
+
+vi.mock( 'src/lib/app-globals', () => ( {
+	getAppGlobals: () => ( {
+		platform: 'darwin',
+	} ),
+	isLinux: () => false,
+	isMac: () => true,
+	isWindows: () => false,
 } ) );
 
 vi.mock( 'src/stores/wordpress-versions-api', () => ( {
@@ -66,22 +93,16 @@ vi.mock( 'src/stores/sync/wpcom-sites', () => ( {
 		data: { sites: [] },
 		isFetching: false,
 	} ) ),
+	useCreateWpcomStagingSiteMutation: vi.fn( () => [
+		mockCreateWpcomStagingSite,
+		{ isLoading: false },
+	] ),
 } ) );
 
 vi.mock( 'src/lib/get-ipc-api', () => ( {
 	__esModule: true,
 	default: vi.fn(),
-	getIpcApi: () => ( {
-		getConnectedWpcomSites: vi.fn().mockResolvedValue( [] ),
-		showOpenFolderDialog: vi.fn(),
-		generateProposedSitePath: vi.fn(),
-		openURL: vi.fn(),
-		getAllCustomDomains: vi.fn().mockResolvedValue( [] ),
-		getUserEditor: vi.fn().mockResolvedValue( 'cursor' ),
-		getUserTerminal: vi.fn().mockResolvedValue( 'terminal' ),
-		setWindowControlVisibility: vi.fn(),
-		setupAppMenu: vi.fn(),
-	} ),
+	getIpcApi: () => mockIpcApi,
 } ) );
 
 const site2 = {
@@ -181,6 +202,31 @@ describe( 'MainSidebar Site Menu', () => {
 		expect( screen.getByRole( 'button', { name: 'test-1' } ) ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'test-2' } ) ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'test-3' } ) ).toBeVisible();
+	} );
+
+	it( 'keeps the native local site context menu when Workspaces is disabled', async () => {
+		await act( async () => renderWithProvider( <MainSidebar /> ) );
+
+		fireEvent.contextMenu( screen.getByRole( 'button', { name: 'test-1' } ) );
+
+		expect( mockIpcApi.showSiteContextMenu ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				siteId: '0e9e237b-335a-43fa-b439-9b078a618512',
+			} )
+		);
+		expect( screen.queryByRole( 'menu', { name: 'Workspace commands' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'uses the renderer workspace command menu for local rows when Workspaces is enabled', async () => {
+		mockFeatureFlags.enableWorkspaces = true;
+		await act( async () => renderWithProvider( <MainSidebar /> ) );
+
+		fireEvent.contextMenu( screen.getByRole( 'button', { name: 'test-1' } ) );
+
+		expect( mockIpcApi.showSiteContextMenu ).not.toHaveBeenCalled();
+		expect( screen.getByRole( 'menu', { name: 'Workspace commands' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'menuitem', { name: /Open local site/ } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'menuitem', { name: /Edit site/ } ) ).toBeInTheDocument();
 	} );
 
 	it( 'has "start site" buttons when sites are not running', async () => {
@@ -337,6 +383,144 @@ describe( 'MainSidebar Site Menu', () => {
 		expect( screen.getByRole( 'img', { name: 'Production and staging sites' } ) ).toBeVisible();
 
 		await userEvent.click( screen.getByRole( 'button', { name: 'Auro Atelier' } ) );
+		expect( siteDetailsMocked.setSelectedWpcomSite ).toHaveBeenCalledWith(
+			expect.objectContaining( { id: 101, name: 'Auro Atelier' } )
+		);
+	} );
+
+	it( 'uses the renderer workspace command menu for WordPress.com workspace rows', async () => {
+		mockFeatureFlags.enableWorkspaces = true;
+		siteDetailsMocked.selectedWpcomSite = {
+			id: 101,
+			localSiteId: '',
+			name: 'Auro Atelier',
+			url: 'https://auro.example',
+			isStaging: false,
+			isPressable: false,
+			syncSupport: 'syncable',
+			lastPullTimestamp: null,
+			lastPushTimestamp: null,
+		};
+		vi.mocked( useAuth, { partial: true } ).mockReturnValue( {
+			isAuthenticated: true,
+			user: {
+				id: 1,
+				email: 'dsmart@example.com',
+				displayName: 'D Smart',
+			},
+			client: {} as never,
+		} );
+		vi.mocked( useGetWpComSitesQuery, { partial: true } ).mockReturnValue( {
+			data: {
+				sites: [
+					{
+						id: 101,
+						name: 'Auro Atelier',
+						url: 'https://auro.example',
+						isStaging: false,
+						stagingSiteIds: [ 202 ],
+					},
+					{
+						id: 202,
+						name: 'Auro Atelier Staging',
+						url: 'https://staging-auro.example',
+						isStaging: true,
+						productionSiteId: 101,
+					},
+				],
+			},
+			isFetching: false,
+		} );
+
+		await act( async () => renderWithProvider( <MainSidebar /> ) );
+		fireEvent.contextMenu( screen.getByRole( 'button', { name: 'Auro Atelier' } ) );
+
+		expect( screen.getByRole( 'menu', { name: 'Workspace commands' } ) ).toBeInTheDocument();
+		expect(
+			screen.getByRole( 'menuitem', { name: /Open WordPress.com site/ } )
+		).toBeInTheDocument();
+
+		await userEvent.click(
+			screen.getByRole( 'menuitem', { name: /Staging\s+https:\/\/staging-auro\.example/ } )
+		);
+		expect( siteDetailsMocked.setSelectedWpcomSite ).toHaveBeenCalledWith(
+			expect.objectContaining( { id: 202, name: 'Auro Atelier Staging' } )
+		);
+	} );
+
+	it( 'opens workspace sync from the renderer workspace command menu', async () => {
+		mockFeatureFlags.enableWorkspaces = true;
+		vi.mocked( useAuth, { partial: true } ).mockReturnValue( {
+			isAuthenticated: true,
+			user: {
+				id: 1,
+				email: 'dsmart@example.com',
+				displayName: 'D Smart',
+			},
+			client: {} as never,
+		} );
+		vi.mocked( useGetWpComSitesQuery, { partial: true } ).mockReturnValue( {
+			data: {
+				sites: [
+					{
+						id: 101,
+						name: 'Auro Atelier',
+						url: 'https://auro.example',
+						isStaging: false,
+						stagingSiteIds: [ 202 ],
+					},
+					{
+						id: 202,
+						name: 'Auro Atelier Staging',
+						url: 'https://staging-auro.example',
+						isStaging: true,
+						productionSiteId: 101,
+					},
+				],
+			},
+			isFetching: false,
+		} );
+
+		await act( async () => renderWithProvider( <MainSidebar /> ) );
+		fireEvent.contextMenu( screen.getByRole( 'button', { name: 'Auro Atelier' } ) );
+
+		await userEvent.click( screen.getByRole( 'menuitem', { name: /Workspace sync/ } ) );
+
+		expect( screen.queryByRole( 'menu', { name: 'Workspace commands' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'dialog', { name: 'Workspace sync' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'starts a new chat for a WordPress.com target from the renderer workspace command menu', async () => {
+		mockFeatureFlags.enableWorkspaces = true;
+		vi.mocked( useAuth, { partial: true } ).mockReturnValue( {
+			isAuthenticated: true,
+			user: {
+				id: 1,
+				email: 'dsmart@example.com',
+				displayName: 'D Smart',
+			},
+			client: {} as never,
+		} );
+		vi.mocked( useGetWpComSitesQuery, { partial: true } ).mockReturnValue( {
+			data: {
+				sites: [
+					{
+						id: 101,
+						name: 'Auro Atelier',
+						url: 'https://auro.example',
+						isStaging: false,
+					},
+				],
+			},
+			isFetching: false,
+		} );
+
+		await act( async () => renderWithProvider( <MainSidebar /> ) );
+		fireEvent.contextMenu( screen.getByRole( 'button', { name: 'Auro Atelier' } ) );
+
+		await userEvent.click( screen.getByRole( 'menuitem', { name: /New chat/ } ) );
+
+		expect( screen.queryByRole( 'menu', { name: 'Workspace commands' } ) ).not.toBeInTheDocument();
 		expect( siteDetailsMocked.setSelectedWpcomSite ).toHaveBeenCalledWith(
 			expect.objectContaining( { id: 101, name: 'Auro Atelier' } )
 		);

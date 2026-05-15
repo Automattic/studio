@@ -36,6 +36,12 @@ import {
 	resolveBackendSelectedSiteId,
 } from 'src/modules/wpcom-site-assistant/lib/api';
 import {
+	getWpcomSiteAssistantConversationLabel,
+	getWpcomSiteAssistantConversationMenuLabel,
+	getWpcomSiteAssistantConversationUpdatedLabel,
+	shouldShowWpcomSiteAssistantConversationControls,
+} from 'src/modules/wpcom-site-assistant/lib/conversations';
+import {
 	DollyOptimisticImages,
 	createDollyImagePrompt,
 	createDollyPendingVisibleImages,
@@ -61,6 +67,7 @@ import {
 	getWpcomSiteAssistantSessionState,
 	getWpcomSiteAssistantTargetPreviewState,
 	mergeWpcomSiteAssistantConversationState,
+	WPCOM_SITE_ASSISTANT_SESSION_STATE_UPDATED_EVENT,
 	persistWpcomSiteAssistantSessionStateCache,
 	setSelectedWpcomSiteAssistantConversationId,
 	setWpcomSiteAssistantTargetPreviewState,
@@ -269,50 +276,6 @@ function DollyPreviewHeaderControls( {
 	);
 }
 
-const isBlankConversation = ( conversation: WpcomSiteAssistantSessionState ) =>
-	conversation.messages.length === 0 && ! conversation.input.trim();
-
-const getConversationUpdatedLabel = ( conversation: WpcomSiteAssistantSessionState ) =>
-	new Intl.DateTimeFormat( undefined, {
-		month: 'short',
-		day: 'numeric',
-		hour: 'numeric',
-		minute: '2-digit',
-	} ).format( new Date( conversation.lastUpdated ) );
-
-const getConversationLabel = ( conversation: WpcomSiteAssistantSessionState ) => {
-	const firstUserMessage = conversation.messages.find( ( message ) => message.role === 'user' );
-	const fallbackDate = new Intl.DateTimeFormat( undefined, {
-		month: 'short',
-		day: 'numeric',
-		hour: 'numeric',
-		minute: '2-digit',
-	} ).format( new Date( conversation.lastUpdated ) );
-
-	if ( firstUserMessage?.content.trim() ) {
-		return firstUserMessage.content.trim().replace( /\s+/g, ' ' ).slice( 0, 64 );
-	}
-
-	return sprintf( __( 'Chat from %s' ), fallbackDate );
-};
-
-const getConversationMenuLabel = ( conversation: WpcomSiteAssistantSessionState ) => {
-	const label = getConversationLabel( conversation );
-	const updated = getConversationUpdatedLabel( conversation );
-	return `${ label } · ${ updated }`;
-};
-
-const shouldShowConversationControls = (
-	conversations: WpcomSiteAssistantSessionState[],
-	selectedConversation?: WpcomSiteAssistantSessionState
-) => {
-	if ( ! selectedConversation ) {
-		return false;
-	}
-
-	return ! ( conversations.length === 1 && isBlankConversation( selectedConversation ) );
-};
-
 function DollyConversationMenu( {
 	anchor,
 	conversations,
@@ -359,7 +322,10 @@ function DollyConversationMenu( {
 		return () => document.removeEventListener( 'pointerdown', handlePointerDown, true );
 	}, [ anchor, onClose ] );
 
-	if ( ! anchor || ! shouldShowConversationControls( conversations, selectedConversation ) ) {
+	if (
+		! anchor ||
+		! shouldShowWpcomSiteAssistantConversationControls( conversations, selectedConversation )
+	) {
 		return null;
 	}
 
@@ -400,10 +366,10 @@ function DollyConversationMenu( {
 								} }
 							>
 								<span className="block truncate text-sm font-medium text-frame-text">
-									{ getConversationLabel( conversation ) }
+									{ getWpcomSiteAssistantConversationLabel( conversation ) }
 								</span>
 								<span className="block truncate text-xs text-frame-text-secondary">
-									{ getConversationUpdatedLabel( conversation ) }
+									{ getWpcomSiteAssistantConversationUpdatedLabel( conversation ) }
 								</span>
 							</button>
 							<Button
@@ -413,7 +379,7 @@ function DollyConversationMenu( {
 								aria-label={ sprintf(
 									/* translators: %s is a Dolly chat label. */
 									__( 'Delete chat: %s' ),
-									getConversationMenuLabel( conversation )
+									getWpcomSiteAssistantConversationMenuLabel( conversation )
 								) }
 								tooltipText={
 									isActive ? __( 'Wait for Dolly to finish before deleting this chat.' ) : undefined
@@ -515,7 +481,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 	const selectedConversationForTarget =
 		conversationsForTarget.find( ( conversation ) => conversation.id === selectedConversationId ) ??
 		conversationsForTarget[ 0 ];
-	const showConversationControls = shouldShowConversationControls(
+	const showConversationControls = shouldShowWpcomSiteAssistantConversationControls(
 		conversationsForTarget,
 		selectedConversationForTarget
 	);
@@ -1564,6 +1530,39 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		},
 		[ clearPendingImages, refreshConversationList ]
 	);
+
+	useEffect( () => {
+		const handleSessionStateUpdated = ( event: Event ) => {
+			const siteId = ( event as CustomEvent< { siteId?: number } > ).detail?.siteId;
+			if ( siteId !== selectedWpcomSiteIdRef.current ) {
+				return;
+			}
+
+			const nextSessionState = getWpcomSiteAssistantSessionState(
+				sessionCacheKey,
+				selectedWpcomSite
+			);
+			applySelectedConversationState( nextSessionState );
+			refreshConversationList();
+		};
+
+		window.addEventListener(
+			WPCOM_SITE_ASSISTANT_SESSION_STATE_UPDATED_EVENT,
+			handleSessionStateUpdated
+		);
+
+		return () => {
+			window.removeEventListener(
+				WPCOM_SITE_ASSISTANT_SESSION_STATE_UPDATED_EVENT,
+				handleSessionStateUpdated
+			);
+		};
+	}, [
+		applySelectedConversationState,
+		refreshConversationList,
+		selectedWpcomSite,
+		sessionCacheKey,
+	] );
 
 	const startNewConversation = useCallback( () => {
 		const nextSessionState = createNewWpcomSiteAssistantConversation( selectedWpcomSite );

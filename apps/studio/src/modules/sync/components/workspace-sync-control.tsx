@@ -24,6 +24,11 @@ type WorkspaceSyncControlProps = {
 	workspace?: WpcomSiteWorkspace;
 };
 
+type WorkspaceSyncPanelProps = {
+	workspace?: WpcomSiteWorkspace;
+	onClose: () => void;
+};
+
 type EnvironmentSyncDialogProps = {
 	direction: StagingSyncDirection;
 	productionSite: SyncSite;
@@ -303,9 +308,8 @@ function EnvironmentSyncRow( {
 	);
 }
 
-export function WorkspaceSyncControl( { workspace }: WorkspaceSyncControlProps ) {
+export function WorkspaceSyncPanel( { workspace, onClose }: WorkspaceSyncPanelProps ) {
 	const dispatch = useAppDispatch();
-	const [ isPanelOpen, setIsPanelOpen ] = useState( false );
 	const [ environmentSyncDirection, setEnvironmentSyncDirection ] =
 		useState< StagingSyncDirection | null >( null );
 	const localSite = workspace?.localSite;
@@ -321,14 +325,71 @@ export function WorkspaceSyncControl( { workspace }: WorkspaceSyncControlProps )
 	const isEnvironmentSyncDisabled = ! productionSite || ! stagingSite || isAnyLocalRemoteSyncing;
 
 	useEffect( () => {
-		if ( ! isPanelOpen || ! productionSite?.id ) {
+		if ( ! productionSite?.id ) {
 			return;
 		}
 
 		void dispatch(
 			stagingSyncThunks.fetchStagingSiteSyncState( { productionSiteId: productionSite.id } )
 		);
-	}, [ dispatch, isPanelOpen, productionSite?.id ] );
+	}, [ dispatch, productionSite?.id ] );
+
+	if ( ! workspace || ( ! localSite && ! productionSite && ! stagingSite ) ) {
+		return null;
+	}
+
+	return (
+		<>
+			<Modal title={ __( 'Workspace sync' ) } onRequestClose={ onClose } className="w-[680px]">
+				<div className="grid gap-3 p-2">
+					{ localSite && (
+						<LocalRemoteSyncRow
+							label={ __( 'Local ↔ Production' ) }
+							localSite={ localSite }
+							remoteSite={ productionSite }
+							disabled={ isEnvironmentSyncing }
+						/>
+					) }
+					{ localSite && (
+						<LocalRemoteSyncRow
+							label={ __( 'Local ↔ Staging' ) }
+							localSite={ localSite }
+							remoteSite={ stagingSite }
+							disabled={ isEnvironmentSyncing }
+						/>
+					) }
+					<EnvironmentSyncRow
+						productionSite={ productionSite }
+						stagingSite={ stagingSite }
+						disabled={ isEnvironmentSyncDisabled }
+						onOpenDialog={ setEnvironmentSyncDirection }
+					/>
+				</div>
+			</Modal>
+			{ environmentSyncDirection && productionSite && stagingSite && (
+				<EnvironmentSyncDialog
+					direction={ environmentSyncDirection }
+					productionSite={ productionSite }
+					stagingSite={ stagingSite }
+					onClose={ () => setEnvironmentSyncDirection( null ) }
+				/>
+			) }
+		</>
+	);
+}
+
+export function WorkspaceSyncControl( { workspace }: WorkspaceSyncControlProps ) {
+	const [ isPanelOpen, setIsPanelOpen ] = useState( false );
+	const localSite = workspace?.localSite;
+	const productionSite = workspace?.productionSite;
+	const stagingSite = workspace?.stagingSites[ 0 ];
+	const localProductionSyncState = useLocalRemoteSyncState( localSite, productionSite );
+	const localStagingSyncState = useLocalRemoteSyncState( localSite, stagingSite );
+	const isEnvironmentSyncing = useRootSelector(
+		stagingSyncSelectors.selectIsProductionSiteSyncing( productionSite?.id )
+	);
+	const isAnyLocalRemoteSyncing =
+		localProductionSyncState.isSyncing || localStagingSyncState.isSyncing;
 
 	if ( ! workspace || ( ! localSite && ! productionSite && ! stagingSite ) ) {
 		return null;
@@ -347,44 +408,7 @@ export function WorkspaceSyncControl( { workspace }: WorkspaceSyncControlProps )
 				{ __( 'Sync' ) }
 			</Button>
 			{ isPanelOpen && (
-				<Modal
-					title={ __( 'Workspace sync' ) }
-					onRequestClose={ () => setIsPanelOpen( false ) }
-					className="w-[680px]"
-				>
-					<div className="grid gap-3 p-2">
-						{ localSite && (
-							<LocalRemoteSyncRow
-								label={ __( 'Local ↔ Production' ) }
-								localSite={ localSite }
-								remoteSite={ productionSite }
-								disabled={ isEnvironmentSyncing }
-							/>
-						) }
-						{ localSite && (
-							<LocalRemoteSyncRow
-								label={ __( 'Local ↔ Staging' ) }
-								localSite={ localSite }
-								remoteSite={ stagingSite }
-								disabled={ isEnvironmentSyncing }
-							/>
-						) }
-						<EnvironmentSyncRow
-							productionSite={ productionSite }
-							stagingSite={ stagingSite }
-							disabled={ isEnvironmentSyncDisabled }
-							onOpenDialog={ setEnvironmentSyncDirection }
-						/>
-					</div>
-				</Modal>
-			) }
-			{ environmentSyncDirection && productionSite && stagingSite && (
-				<EnvironmentSyncDialog
-					direction={ environmentSyncDirection }
-					productionSite={ productionSite }
-					stagingSite={ stagingSite }
-					onClose={ () => setEnvironmentSyncDirection( null ) }
-				/>
+				<WorkspaceSyncPanel workspace={ workspace } onClose={ () => setIsPanelOpen( false ) } />
 			) }
 		</>
 	);

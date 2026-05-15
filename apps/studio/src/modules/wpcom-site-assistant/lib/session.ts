@@ -39,6 +39,17 @@ export const wpcomSiteAssistantHiddenRemoteConversationKeysBySiteId = new Map<
 >();
 let hasLoadedWpcomSiteAssistantSessionStateCache = false;
 
+export const WPCOM_SITE_ASSISTANT_SESSION_STATE_UPDATED_EVENT =
+	'wpcom-site-assistant-session-state-updated';
+
+export const notifyWpcomSiteAssistantSessionStateUpdated = ( siteId: number ) => {
+	window.dispatchEvent(
+		new CustomEvent( WPCOM_SITE_ASSISTANT_SESSION_STATE_UPDATED_EVENT, {
+			detail: { siteId },
+		} )
+	);
+};
+
 const sanitizePreviewState = ( value: unknown ): DollyPreviewState => {
 	const previewState = isRecord( value )
 		? {

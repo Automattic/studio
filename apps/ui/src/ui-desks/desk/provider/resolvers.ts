@@ -288,6 +288,28 @@ function reconcileResolvedWidgets(
 	if ( shapesToCreate.length > 0 ) {
 		editor.createShapes( shapesToCreate );
 	}
+	selectDerivedWidgetsForSelectedSource( editor, sourceWidgetId );
+}
+
+export function selectDerivedWidgetsForSelectedSource( editor: Editor, sourceWidgetId: string ) {
+	const sourceShape = editor
+		.getCurrentPageShapes()
+		.find( ( shape ) => canvasShapeToDeskWidget( shape )?.id === sourceWidgetId );
+	if ( ! sourceShape ) {
+		return;
+	}
+
+	const selectedShapeIds = editor.getSelectedShapeIds();
+	if ( selectedShapeIds.length !== 1 || selectedShapeIds[ 0 ] !== sourceShape.id ) {
+		return;
+	}
+
+	const derivedShapeIds = getDerivedShapesForSource( editor, sourceWidgetId ).map(
+		( shape ) => shape.id
+	);
+	if ( derivedShapeIds.length > 0 ) {
+		editor.setSelectedShapes( derivedShapeIds );
+	}
 }
 
 function preserveExpandedStackMemberState(

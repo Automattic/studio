@@ -90,7 +90,10 @@ import {
 	trustRootCA,
 } from 'src/lib/certificate-manager';
 import { download } from 'src/lib/download';
-import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
+import {
+	extractErrorFromProcessManagerLogs,
+	simplifyErrorForDisplay,
+} from 'src/lib/error-formatting';
 import { buildFeatureFlags } from 'src/lib/feature-flags';
 import { getImageData } from 'src/lib/get-image-data';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
@@ -739,29 +742,6 @@ function readProcessManagerLogs( siteId: string ): { stdout?: string[]; stderr?:
 		stdout: stdoutPath ? readLastLines( stdoutPath, DEBUG_LOG_MAX_LINES ) : undefined,
 		stderr: stderrPath ? readLastLines( stderrPath, DEBUG_LOG_MAX_LINES ) : undefined,
 	};
-}
-
-/**
- * Extract a user-facing error message from process manager logs. The child process often logs
- * detailed error information to stdout (via playground-cli) before exiting. This scans log
- * lines for "Error:" prefixed entries which typically contain the root cause.
- */
-function extractErrorFromProcessManagerLogs( logs: {
-	stdout?: string[];
-	stderr?: string[];
-} ): string | undefined {
-	const lines = [ ...( logs.stdout ?? [] ), ...( logs.stderr ?? [] ) ];
-
-	for ( let i = lines.length - 1; i >= 0; i-- ) {
-		// Log lines are timestamped: "2026-05-15T08:38:04.859Z Error: ..."
-		// Strip the timestamp prefix to get the raw message.
-		const line = lines[ i ].replace( /^\d{4}-\d{2}-\d{2}T[\d:.]+Z\s*/, '' ).trim();
-		if ( line.startsWith( 'Error:' ) || line.startsWith( 'Error when' ) ) {
-			return line;
-		}
-	}
-
-	return undefined;
 }
 
 export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< SiteDetails[] > {

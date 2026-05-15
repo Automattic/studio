@@ -14,9 +14,12 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
 import { getTerminalName } from 'src/modules/user-settings/lib/terminal';
+import { useSidebarWorkspaces, useWorkspaceTargetSelection } from 'src/modules/workspaces';
+import { WorkspaceSidebarRow } from 'src/modules/workspaces/components/workspace-sidebar-row';
 import { useRootSelector } from 'src/stores';
 import { useGetUserEditorQuery, useGetUserTerminalQuery } from 'src/stores/installed-apps-api';
 import { syncOperationsSelectors } from 'src/stores/sync';
+import type { StudioWorkspace, WorkspaceTargetId } from 'src/modules/workspaces';
 
 interface SiteMenuProps {
 	className?: string;
@@ -257,8 +260,32 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 	const { setSelectedTab } = useContentTabs();
 	const { handleDeleteSite } = useDeleteSite();
 	const { data: editor } = useGetUserEditorQuery();
+	const {
+		enableWorkspaces,
+		sidebarWorkspaces,
+		isLoading: isLoadingWorkspaces,
+	} = useSidebarWorkspaces();
+	const { selectedWorkspaceId, getSelectedTargetId, selectWorkspaceTarget } =
+		useWorkspaceTargetSelection( sidebarWorkspaces );
 	const [ draggedIndex, setDraggedIndex ] = useState< number | null >( null );
 	const [ dragOverIndex, setDragOverIndex ] = useState< number | null >( null );
+
+	const handleSelectWorkspaceTarget = (
+		workspace: StudioWorkspace,
+		targetId: WorkspaceTargetId
+	) => {
+		selectWorkspaceTarget( workspace.id, targetId );
+		if ( targetId === 'local' && workspace.targets.local ) {
+			setSelectedSiteId( workspace.targets.local.siteId );
+		}
+	};
+
+	const isWorkspaceSelected = (
+		workspace: StudioWorkspace,
+		selectedTargetId?: WorkspaceTargetId
+	) =>
+		selectedWorkspaceId === workspace.id ||
+		( selectedTargetId === 'local' && workspace.targets.local?.siteId === selectedSite?.id );
 
 	const handleDragStart = ( e: React.DragEvent, index: number ) => {
 		setDraggedIndex( index );
@@ -392,24 +419,60 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 			) }
 		>
 			<ul className="pt-px">
-				{ sites.map( ( site, index ) => (
-					<SiteItem
-						key={ site.id }
-						site={ site }
-						index={ index }
-						onDragStart={ handleDragStart }
-						onDragOver={ handleDragOver }
-						onDrop={ handleDrop }
-						onDragEnd={ handleDragEnd }
-						isDragOver={ dragOverIndex === index }
-					/>
-				) ) }
-				{ /* Drop zone for dragging to bottom of list */ }
-				<li
-					className="h-8"
-					onDragOver={ ( e ) => handleDragOver( e, sites.length ) }
-					onDrop={ ( e ) => handleDrop( e, sites.length ) }
-				/>
+				{ enableWorkspaces ? (
+					<>
+						{ sidebarWorkspaces.map( ( workspace ) => {
+							const selectedTargetId = getSelectedTargetId( workspace );
+							return (
+								<WorkspaceSidebarRow
+									key={ workspace.id }
+									workspace={ workspace }
+									selectedTargetId={ selectedTargetId }
+									isSelected={ isWorkspaceSelected( workspace, selectedTargetId ) }
+									localRunControl={
+										workspace.targets.local ? (
+											<ButtonToRun { ...workspace.targets.local.site } />
+										) : undefined
+									}
+									onSelectTarget={ ( targetId ) =>
+										handleSelectWorkspaceTarget( workspace, targetId )
+									}
+								/>
+							);
+						} ) }
+						{ isLoadingWorkspaces && (
+							<li
+								className={ cx(
+									'flex h-8 min-w-[168px] items-center px-2 text-xs text-a8c-gray-600',
+									isMac() ? 'me-5 ms-1' : 'me-4 ms-1'
+								) }
+							>
+								{ __( 'Loading...' ) }
+							</li>
+						) }
+					</>
+				) : (
+					<>
+						{ sites.map( ( site, index ) => (
+							<SiteItem
+								key={ site.id }
+								site={ site }
+								index={ index }
+								onDragStart={ handleDragStart }
+								onDragOver={ handleDragOver }
+								onDrop={ handleDrop }
+								onDragEnd={ handleDragEnd }
+								isDragOver={ dragOverIndex === index }
+							/>
+						) ) }
+						{ /* Drop zone for dragging to bottom of list */ }
+						<li
+							className="h-8"
+							onDragOver={ ( e ) => handleDragOver( e, sites.length ) }
+							onDrop={ ( e ) => handleDrop( e, sites.length ) }
+						/>
+					</>
+				) }
 			</ul>
 		</nav>
 	);

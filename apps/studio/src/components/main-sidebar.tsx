@@ -1,6 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { RunningSites } from 'src/components/running-sites';
 import SiteMenu from 'src/components/site-menu';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { isMac } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
@@ -13,6 +14,7 @@ interface MainSidebarProps {
 
 export default function MainSidebar( { className, style }: MainSidebarProps ) {
 	const { sites: localSites } = useSiteDetails();
+	const { enableWorkspaces } = useFeatureFlags();
 
 	return (
 		<div
@@ -20,7 +22,7 @@ export default function MainSidebar( { className, style }: MainSidebarProps ) {
 			className={ cx( 'text-chrome-inverted relative pt-[10px]', className ) }
 			style={ style }
 		>
-			{ ! localSites.length ? (
+			{ ! localSites.length && ! enableWorkspaces ? (
 				<div className="flex h-full px-[20px] justify-center items-center app-no-drag-region text-center text-[12px] text-a8c-gray-50">
 					{ __( 'Your sites will show up here once you create them' ) }
 				</div>

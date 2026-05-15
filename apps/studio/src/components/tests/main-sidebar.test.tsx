@@ -1,4 +1,4 @@
-import { render, act, screen } from '@testing-library/react';
+import { render, act, screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { vi } from 'vitest';
@@ -6,8 +6,30 @@ import MainSidebar from 'src/components/main-sidebar';
 import { useAuth } from 'src/hooks/use-auth';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { store } from 'src/stores';
+import type { SyncSite } from '@studio/common/types/sync';
+
+const featureFlagsMock = vi.hoisted( () => ( {
+	enableBlueprints: true,
+	enableStudioCodeUi: false,
+	enableWorkspaces: false,
+} ) );
+const ipcApiMock = vi.hoisted( () => ( {
+	getConnectedWpcomSites: vi.fn().mockResolvedValue( [] ),
+	showOpenFolderDialog: vi.fn(),
+	generateProposedSitePath: vi.fn(),
+	openURL: vi.fn(),
+	getAllCustomDomains: vi.fn().mockResolvedValue( [] ),
+	getUserEditor: vi.fn().mockResolvedValue( 'cursor' ),
+	getUserTerminal: vi.fn().mockResolvedValue( 'terminal' ),
+	setWindowControlVisibility: vi.fn(),
+	setupAppMenu: vi.fn(),
+} ) );
+const useGetWpComSitesQueryMock = vi.hoisted( () => vi.fn() );
 
 vi.mock( 'src/hooks/use-auth' );
+vi.mock( 'src/hooks/use-feature-flags', () => ( {
+	useFeatureFlags: () => featureFlagsMock,
+} ) );
 
 vi.mock( 'src/stores/wordpress-versions-api', () => ( {
 	wordpressVersionsApi: {
@@ -45,44 +67,62 @@ vi.mock( 'src/stores/wpcom-api', async () => {
 vi.mock( 'src/lib/get-ipc-api', () => ( {
 	__esModule: true,
 	default: vi.fn(),
-	getIpcApi: () => ( {
-		getConnectedWpcomSites: vi.fn().mockResolvedValue( [] ),
-		showOpenFolderDialog: vi.fn(),
-		generateProposedSitePath: vi.fn(),
-		openURL: vi.fn(),
-		getAllCustomDomains: vi.fn().mockResolvedValue( [] ),
-		getUserEditor: vi.fn().mockResolvedValue( 'cursor' ),
-		getUserTerminal: vi.fn().mockResolvedValue( 'terminal' ),
-		setWindowControlVisibility: vi.fn(),
-		setupAppMenu: vi.fn(),
-	} ),
+	getIpcApi: () => ipcApiMock,
 } ) );
 
-const site2 = {
+vi.mock( 'src/stores/sync/wpcom-sites', async () => {
+	const actual = await vi.importActual< typeof import('src/stores/sync/wpcom-sites') >(
+		'src/stores/sync/wpcom-sites'
+	);
+	return {
+		...actual,
+		useGetWpComSitesQuery: useGetWpComSitesQueryMock,
+	};
+} );
+
+const createLocalSite = ( overrides: Partial< SiteDetails > = {} ): SiteDetails =>
+	( {
+		name: 'test-1',
+		path: '/fake/test-1',
+		running: false,
+		id: '0e9e237b-335a-43fa-b439-9b078a618512',
+		port: 8881,
+		phpVersion: '8.4',
+		...overrides,
+	} ) as SiteDetails;
+
+const createSyncSite = ( overrides: Partial< SyncSite > = {} ): SyncSite => ( {
+	id: 101,
+	localSiteId: '',
+	name: 'Business Plan',
+	url: 'https://business.example',
+	isStaging: false,
+	isPressable: false,
+	syncSupport: 'syncable',
+	lastPullTimestamp: null,
+	lastPushTimestamp: null,
+	...overrides,
+} );
+
+const site2 = createLocalSite( {
 	name: 'test-2',
 	path: '/fake/test-2',
 	running: false,
 	id: 'da1dad4b-37d5-41d2-a77b-26d5e0649ec3',
 	port: 8882,
-};
+} );
 const siteDetailsMocked = {
 	selectedSite: site2,
 	sites: [
-		{
-			name: 'test-1',
-			path: '/fake/test-1',
-			running: false,
-			id: '0e9e237b-335a-43fa-b439-9b078a618512',
-			port: 8881,
-		},
+		createLocalSite(),
 		site2,
-		{
+		createLocalSite( {
 			name: 'test-3',
 			path: '/fake/test-3',
 			running: true,
 			id: '0e9e237b-335a-43fa-b439-9b078a613333',
 			port: 8883,
-		},
+		} ),
 	],
 	loadingServer: {
 		[ site2.id ]: false,
@@ -98,6 +138,47 @@ vi.mock( 'src/hooks/use-site-details', () => ( {
 	useSiteDetails: () => ( { ...siteDetailsMocked } ),
 } ) );
 
+const defaultLocalSites = () => [
+	createLocalSite(),
+	site2,
+	createLocalSite( {
+		name: 'test-3',
+		path: '/fake/test-3',
+		running: true,
+		id: '0e9e237b-335a-43fa-b439-9b078a613333',
+		port: 8883,
+	} ),
+];
+
+const mockWpcomSitesQuery = ( sites: SyncSite[] = [] ) => {
+	useGetWpComSitesQueryMock.mockReturnValue( {
+		data: { sites, total: sites.length, page: 1, perPage: 100 },
+		isLoading: false,
+		isFetching: false,
+	} );
+};
+
+const enableWorkspaceSidebar = ( {
+	localSites = [],
+	wpcomSites = [],
+	connectedSites = [],
+}: {
+	localSites?: SiteDetails[];
+	wpcomSites?: SyncSite[];
+	connectedSites?: SyncSite[];
+} ) => {
+	featureFlagsMock.enableWorkspaces = true;
+	siteDetailsMocked.sites = localSites;
+	siteDetailsMocked.selectedSite = localSites[ 0 ] ?? null;
+	vi.mocked( useAuth, { partial: true } ).mockReturnValue( {
+		isAuthenticated: true,
+		user: { id: 123, email: 'user@example.com', displayName: 'User' },
+		client: {} as never,
+	} );
+	ipcApiMock.getConnectedWpcomSites.mockResolvedValue( connectedSites );
+	mockWpcomSitesQuery( wpcomSites );
+};
+
 const renderWithProvider = ( children: React.ReactElement ) => {
 	return render(
 		<Provider store={ store }>
@@ -109,6 +190,13 @@ const renderWithProvider = ( children: React.ReactElement ) => {
 describe( 'MainSidebar Footer', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
+		localStorage.clear();
+		featureFlagsMock.enableWorkspaces = false;
+		siteDetailsMocked.sites = defaultLocalSites();
+		siteDetailsMocked.selectedSite = site2;
+		vi.mocked( useAuth, { partial: true } ).mockReturnValue( { isAuthenticated: false } );
+		ipcApiMock.getConnectedWpcomSites.mockResolvedValue( [] );
+		mockWpcomSitesQuery();
 	} );
 	it( 'Has add site button', async () => {
 		vi.mocked( useAuth, { partial: true } ).mockReturnValue( { isAuthenticated: false } );
@@ -137,6 +225,17 @@ describe( 'MainSidebar Footer', () => {
 } );
 
 describe( 'MainSidebar Site Menu', () => {
+	beforeEach( () => {
+		vi.clearAllMocks();
+		localStorage.clear();
+		featureFlagsMock.enableWorkspaces = false;
+		siteDetailsMocked.sites = defaultLocalSites();
+		siteDetailsMocked.selectedSite = site2;
+		vi.mocked( useAuth, { partial: true } ).mockReturnValue( { isAuthenticated: false } );
+		ipcApiMock.getConnectedWpcomSites.mockResolvedValue( [] );
+		mockWpcomSitesQuery();
+	} );
+
 	it( 'renders the list of sites', async () => {
 		await act( async () => renderWithProvider( <MainSidebar /> ) );
 		expect( screen.getByRole( 'button', { name: 'test-1' } ) ).toBeVisible();
@@ -170,5 +269,201 @@ describe( 'MainSidebar Site Menu', () => {
 		expect( siteDetailsMocked.stopServer ).toHaveBeenCalledWith(
 			'0e9e237b-335a-43fa-b439-9b078a613333'
 		);
+	} );
+} );
+
+describe( 'MainSidebar Workspace Site Menu', () => {
+	beforeEach( () => {
+		vi.clearAllMocks();
+		localStorage.clear();
+		ipcApiMock.getConnectedWpcomSites.mockResolvedValue( [] );
+		mockWpcomSitesQuery();
+	} );
+
+	it( 'renders a local-only workspace', async () => {
+		const localSite = createLocalSite( { id: 'local-only', name: 'Local Only' } );
+		enableWorkspaceSidebar( { localSites: [ localSite ] } );
+
+		await act( async () => renderWithProvider( <MainSidebar /> ) );
+
+		expect( screen.getByRole( 'button', { name: 'Local Only' } ) ).toBeVisible();
+		expect(
+			screen.getByRole( 'button', { name: 'Select Local target: Local Only is stopped' } )
+		).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'start Local Only site' } ) ).toBeVisible();
+	} );
+
+	it( 'renders local and production targets as one workspace', async () => {
+		const localSite = createLocalSite( { id: 'business-local', name: 'Business Plan' } );
+		const productionSite = createSyncSite( {
+			id: 101,
+			localSiteId: localSite.id,
+			name: 'Business Plan',
+			syncSupport: 'already-connected',
+		} );
+		enableWorkspaceSidebar( {
+			localSites: [ localSite ],
+			wpcomSites: [ productionSite ],
+			connectedSites: [ productionSite ],
+		} );
+
+		await act( async () => renderWithProvider( <MainSidebar /> ) );
+		await screen.findByRole( 'button', {
+			name: 'Select Production target: https://business.example',
+		} );
+
+		expect( screen.getAllByRole( 'button', { name: 'Business Plan' } ) ).toHaveLength( 1 );
+		expect(
+			screen.getByRole( 'button', { name: 'Select Local target: Business Plan is stopped' } )
+		).toBeVisible();
+	} );
+
+	it( 'renders production and staging targets as one remote-only workspace', async () => {
+		const productionSite = createSyncSite( {
+			id: 101,
+			name: 'Remote Store',
+			url: 'https://remote.example',
+			stagingSiteIds: [ 202 ],
+		} );
+		const stagingSite = createSyncSite( {
+			id: 202,
+			name: 'Remote Store Staging',
+			url: 'https://remote-staging.example',
+			isStaging: true,
+			productionSiteId: 101,
+		} );
+		enableWorkspaceSidebar( {
+			wpcomSites: [ productionSite, stagingSite ],
+		} );
+
+		await act( async () => renderWithProvider( <MainSidebar /> ) );
+
+		expect( await screen.findByRole( 'button', { name: 'Remote Store' } ) ).toBeVisible();
+		expect(
+			screen.getByRole( 'button', { name: 'Select Production target: https://remote.example' } )
+		).toBeVisible();
+		expect(
+			screen.getByRole( 'button', {
+				name: 'Select Staging target: https://remote-staging.example',
+			} )
+		).toBeVisible();
+		expect(
+			screen.queryByRole( 'button', { name: 'Remote Store Staging' } )
+		).not.toBeInTheDocument();
+	} );
+
+	it( 'renders local, production, and staging targets as one workspace', async () => {
+		const localSite = createLocalSite( { id: 'full-local', name: 'Full Workspace' } );
+		const productionSite = createSyncSite( {
+			id: 101,
+			localSiteId: localSite.id,
+			name: 'Full Workspace',
+			stagingSiteIds: [ 202 ],
+			syncSupport: 'already-connected',
+		} );
+		const stagingSite = createSyncSite( {
+			id: 202,
+			localSiteId: localSite.id,
+			name: 'Full Workspace Staging',
+			url: 'https://full-staging.example',
+			isStaging: true,
+			productionSiteId: 101,
+			syncSupport: 'already-connected',
+		} );
+		enableWorkspaceSidebar( {
+			localSites: [ localSite ],
+			wpcomSites: [ productionSite, stagingSite ],
+			connectedSites: [ productionSite, stagingSite ],
+		} );
+
+		await act( async () => renderWithProvider( <MainSidebar /> ) );
+		await screen.findByRole( 'button', {
+			name: 'Select Staging target: https://full-staging.example',
+		} );
+
+		expect( screen.getAllByRole( 'button', { name: 'Full Workspace' } ) ).toHaveLength( 1 );
+		expect(
+			screen.getByRole( 'group', { name: 'Workspace targets: Production, Staging, Local' } )
+		).toBeVisible();
+	} );
+
+	it( 'renders production-only remote workspaces in the workspace list', async () => {
+		const productionSite = createSyncSite( {
+			id: 303,
+			name: 'Remote Only',
+			url: 'https://remote-only.example',
+		} );
+		enableWorkspaceSidebar( {
+			wpcomSites: [ productionSite ],
+		} );
+
+		await act( async () => renderWithProvider( <MainSidebar /> ) );
+
+		expect( await screen.findByRole( 'button', { name: 'Remote Only' } ) ).toBeVisible();
+		expect(
+			screen.getByRole( 'button', {
+				name: 'Select Production target: https://remote-only.example',
+			} )
+		).toBeVisible();
+	} );
+
+	it( 'does not duplicate local-backed workspaces when connected metadata overlaps WP.com data', async () => {
+		const localSite = createLocalSite( { id: 'overlap-local', name: 'Overlap Site' } );
+		const productionSite = createSyncSite( {
+			id: 101,
+			localSiteId: localSite.id,
+			name: 'Overlap Site',
+			syncSupport: 'already-connected',
+		} );
+		enableWorkspaceSidebar( {
+			localSites: [ localSite ],
+			wpcomSites: [ productionSite ],
+			connectedSites: [ productionSite ],
+		} );
+
+		await act( async () => renderWithProvider( <MainSidebar /> ) );
+		await screen.findByRole( 'button', {
+			name: 'Select Production target: https://business.example',
+		} );
+
+		expect( screen.getAllByRole( 'button', { name: 'Overlap Site' } ) ).toHaveLength( 1 );
+	} );
+
+	it( 'uses accessible target labels instead of letter-only controls', async () => {
+		const localSite = createLocalSite( { id: 'labels-local', name: 'Label Site' } );
+		const productionSite = createSyncSite( {
+			id: 101,
+			localSiteId: localSite.id,
+			name: 'Label Site',
+			stagingSiteIds: [ 202 ],
+		} );
+		const stagingSite = createSyncSite( {
+			id: 202,
+			localSiteId: localSite.id,
+			name: 'Label Site Staging',
+			url: 'https://label-staging.example',
+			isStaging: true,
+			productionSiteId: 101,
+		} );
+		enableWorkspaceSidebar( {
+			localSites: [ localSite ],
+			wpcomSites: [ productionSite, stagingSite ],
+		} );
+
+		await act( async () => renderWithProvider( <MainSidebar /> ) );
+		await waitFor( () =>
+			expect(
+				screen.getByRole( 'group', {
+					name: 'Workspace targets: Production, Staging, Local',
+				} )
+			).toBeVisible()
+		);
+
+		expect( screen.getByRole( 'button', { name: /Select Production target:/ } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: /Select Staging target:/ } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: /Select Local target:/ } ) ).toBeVisible();
+		expect( screen.queryByRole( 'button', { name: 'P' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'S' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'L' } ) ).not.toBeInTheDocument();
 	} );
 } );

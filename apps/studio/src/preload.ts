@@ -107,9 +107,6 @@ const api: IpcApi = {
 	saveOnboarding: ( onboardingCompleted ) =>
 		ipcRendererInvoke( 'saveOnboarding', onboardingCompleted ),
 	getBetaFeatures: () => ipcRendererInvoke( 'getBetaFeatures' ),
-	getShowRemoteSessionInToolbar: () => ipcRendererInvoke( 'getShowRemoteSessionInToolbar' ),
-	saveShowRemoteSessionInToolbar: ( value ) =>
-		ipcRendererInvoke( 'saveShowRemoteSessionInToolbar', value ),
 	openAppAtPath: ( editorKey, filePath, otherFiles?: string[] ) =>
 		ipcRendererInvoke( 'openAppAtPath', editorKey, filePath, otherFiles ),
 	openTerminalAtPath: ( targetPath ) => ipcRendererInvoke( 'openTerminalAtPath', targetPath ),

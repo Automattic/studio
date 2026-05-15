@@ -6,7 +6,6 @@ import { useAuth } from 'src/hooks/use-auth';
 import { useBetaFeatures } from 'src/hooks/use-beta-features';
 import { useRemoteSessionStatus } from 'src/hooks/use-remote-session-status';
 import { cx } from 'src/lib/cx';
-import { useGetShowRemoteSessionInToolbarQuery } from 'src/stores/installed-apps-api';
 
 // Lightning-bolt glyph. `@wordpress/icons` doesn't ship one (332 icons scanned
 // at the time of writing), so we inline an SVG. Filled silhouette with rounded
@@ -29,19 +28,11 @@ const bolt = (
 export function RemoteSessionIndicator() {
 	const { remoteSession } = useBetaFeatures();
 	const { isAuthenticated } = useAuth();
-	const { data: showInToolbar = false } = useGetShowRemoteSessionInToolbarQuery( undefined, {
-		// Don't fire the IPC until the feature is even available to this user.
-		skip: ! remoteSession || ! isAuthenticated,
-	} );
 
-	// Three layered gates:
-	//   1. Beta feature must be enabled (via the Beta Features menu) — the whole
-	//      surface is opt-in.
-	//   2. User must be signed in — the daemon talks to WordPress.com.
-	//   3. User must have flipped the settings-modal toggle to put the control
-	//      in the toolbar. Without it, the only place to manage the session
-	//      lives in Settings → Preferences.
-	if ( ! remoteSession || ! isAuthenticated || ! showInToolbar ) {
+	// The toolbar control mirrors the Preferences toggle one-for-one. Both are
+	// gated on the beta feature (the opt-in surface) and on the user being
+	// signed in (the daemon needs WordPress.com auth tokens).
+	if ( ! remoteSession || ! isAuthenticated ) {
 		return null;
 	}
 
@@ -52,8 +43,9 @@ function RemoteSessionButton() {
 	const { __ } = useI18n();
 	const { isRunning, isLoading, start, stop } = useRemoteSessionStatus();
 
-	const tooltip = isRunning ? __( 'Remote session active' ) : __( 'Remote session stopped' );
-	const ariaLabel = isRunning ? __( 'Stop remote session' ) : __( 'Start remote session' );
+	// Tooltip describes the action the click will take, mirroring how Studio's
+	// other toggle buttons describe themselves.
+	const label = isRunning ? __( 'Stop remote session' ) : __( 'Start remote session' );
 
 	const handleClick = () => {
 		if ( isLoading ) {
@@ -63,10 +55,10 @@ function RemoteSessionButton() {
 	};
 
 	return (
-		<Tooltip text={ tooltip } placement="bottom-end">
+		<Tooltip text={ label } placement="bottom-end">
 			<Button
 				onClick={ handleClick }
-				aria-label={ ariaLabel }
+				aria-label={ label }
 				variant="icon"
 				data-testid="remote-session-indicator"
 				className="!p-1.5 !rounded-lg"

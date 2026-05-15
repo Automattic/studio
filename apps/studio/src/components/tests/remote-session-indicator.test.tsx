@@ -5,21 +5,10 @@ import { RemoteSessionIndicator } from 'src/components/remote-session-indicator'
 import { useAuth } from 'src/hooks/use-auth';
 import { useBetaFeatures } from 'src/hooks/use-beta-features';
 import { useRemoteSessionStatus } from 'src/hooks/use-remote-session-status';
-import { useGetShowRemoteSessionInToolbarQuery } from 'src/stores/installed-apps-api';
 
 vi.mock( 'src/hooks/use-auth' );
 vi.mock( 'src/hooks/use-beta-features' );
 vi.mock( 'src/hooks/use-remote-session-status' );
-vi.mock( 'src/stores/installed-apps-api', async ( importOriginal ) => {
-	// Preserve the real module so other code paths (reducer, etc.) still work
-	// when multiple test files share a module registry; only stub the hook
-	// this component consumes.
-	const actual = await importOriginal< typeof import('src/stores/installed-apps-api') >();
-	return {
-		...actual,
-		useGetShowRemoteSessionInToolbarQuery: vi.fn(),
-	};
-} );
 
 const mockStart = vi.fn();
 const mockStop = vi.fn();
@@ -29,20 +18,14 @@ function setupHooks( {
 	isAuthenticated,
 	isRunning,
 	isLoading = false,
-	showInToolbar = true,
 }: {
 	remoteSession: boolean;
 	isAuthenticated: boolean;
 	isRunning: boolean;
 	isLoading?: boolean;
-	showInToolbar?: boolean;
 } ) {
 	vi.mocked( useBetaFeatures ).mockReturnValue( { remoteSession } );
 	vi.mocked( useAuth, { partial: true } ).mockReturnValue( { isAuthenticated } );
-	vi.mocked( useGetShowRemoteSessionInToolbarQuery ).mockReturnValue( {
-		data: showInToolbar,
-		refetch: vi.fn(),
-	} as unknown as ReturnType< typeof useGetShowRemoteSessionInToolbarQuery > );
 	vi.mocked( useRemoteSessionStatus ).mockReturnValue( {
 		status: isRunning ? { running: true, pid: 42, pidFile: '/tmp/pid' } : undefined,
 		isRunning,
@@ -74,36 +57,20 @@ describe( 'RemoteSessionIndicator', () => {
 		expect( container ).toBeEmptyDOMElement();
 	} );
 
-	it( 'renders nothing when the user has not enabled the toolbar control in settings', () => {
-		setupHooks( {
-			remoteSession: true,
-			isAuthenticated: true,
-			isRunning: true,
-			showInToolbar: false,
-		} );
-
-		const { container } = render( <RemoteSessionIndicator /> );
-
-		expect( container ).toBeEmptyDOMElement();
-	} );
-
-	it( 'shows the stopped state with white icon when the daemon is off', () => {
+	it( 'shows the off state with a "Start remote session" tooltip when the daemon is paused', () => {
 		setupHooks( { remoteSession: true, isAuthenticated: true, isRunning: false } );
 
 		render( <RemoteSessionIndicator /> );
 
 		const button = screen.getByRole( 'button', { name: 'Start remote session' } );
 		expect( button ).toBeVisible();
-		// `aria-pressed` is intentionally omitted — Gutenberg maps it to its
-		// `.is-pressed` styles which force a dark background + white text,
-		// fighting the green/white state we want here.
 		expect( button ).not.toHaveAttribute( 'aria-pressed' );
 		const icon = button.querySelector( 'svg' );
 		expect( icon?.getAttribute( 'class' ) ).toContain( 'text-white' );
 		expect( icon?.getAttribute( 'class' ) ).not.toContain( 'frame-running' );
 	} );
 
-	it( 'shows the active state with green icon when the daemon is running', () => {
+	it( 'shows the on state with a "Stop remote session" tooltip when the daemon is running', () => {
 		setupHooks( { remoteSession: true, isAuthenticated: true, isRunning: true } );
 
 		render( <RemoteSessionIndicator /> );
@@ -112,8 +79,7 @@ describe( 'RemoteSessionIndicator', () => {
 		expect( button ).toBeVisible();
 		expect( button ).not.toHaveAttribute( 'aria-pressed' );
 		const icon = button.querySelector( 'svg' );
-		const className = icon?.getAttribute( 'class' ) ?? '';
-		expect( className ).toContain( '!text-frame-running' );
+		expect( icon?.getAttribute( 'class' ) ).toContain( '!text-frame-running' );
 	} );
 
 	it( 'clicking when off invokes start()', async () => {
@@ -150,7 +116,6 @@ describe( 'RemoteSessionIndicator', () => {
 		const { rerender } = render( <RemoteSessionIndicator /> );
 
 		// Mid-transition: the hook has flipped optimistic running and isLoading is on.
-		// We mirror that with isRunning=true (optimistic) + isLoading=true here.
 		setupHooks( {
 			remoteSession: true,
 			isAuthenticated: true,

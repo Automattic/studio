@@ -20,6 +20,7 @@ export type SelectedWidgetToolbarItem = NonNullable<
 >;
 
 export type RegisterDeskEditor = ( editor: Editor | null ) => void;
+export type PreviewContentType = 'post' | 'page';
 
 export interface DeskContextValue {
 	siteId?: string;
@@ -52,6 +53,8 @@ export interface DeskContextValue {
 	updateSelectedWidgetProps: ( widgetProps: Record< string, unknown > ) => boolean;
 	canEditSelectedWidget: boolean;
 	editSelectedWidget: () => boolean;
+	canPreviewContentInSitePreview: boolean;
+	previewContentInSitePreview: ( type: PreviewContentType, id: number ) => Promise< boolean >;
 	fitSelectedWidgetToContent: () => Promise< boolean >;
 	stackSelectedWidgets: () => boolean;
 	unstackSelectedWidgets: () => boolean;
@@ -114,6 +117,8 @@ const defaultDeskContext: DeskContextValue = {
 	updateSelectedWidgetProps: () => false,
 	canEditSelectedWidget: false,
 	editSelectedWidget: () => false,
+	canPreviewContentInSitePreview: false,
+	previewContentInSitePreview: () => Promise.resolve( false ),
 	fitSelectedWidgetToContent: () => Promise.resolve( false ),
 	stackSelectedWidgets: () => false,
 	unstackSelectedWidgets: () => false,

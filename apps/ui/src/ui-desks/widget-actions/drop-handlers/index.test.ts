@@ -26,8 +26,19 @@ describe( 'widget drop handlers', () => {
 		expect( getWidgetDropHandler( createSitePreviewWidget(), createNoteWidget() ) ).toBeNull();
 	} );
 
-	it( 'does not return a handler when the target has no drop handlers', () => {
-		expect( getWidgetDropHandler( createNoteWidget(), createSitePreviewWidget() ) ).toBeNull();
+	it( 'does not return a handler for unsupported source and target pairs', () => {
+		expect( getWidgetDropHandler( createMediaWidget(), createSitePreviewWidget() ) ).toBeNull();
+	} );
+
+	it( 'returns a connector handler for post and page drops onto site previews', () => {
+		expect( getWidgetDropHandler( createPostWidget(), createSitePreviewWidget() ) ).toMatchObject( {
+			id: 'preview-site-content',
+			type: 'connector',
+		} );
+		expect( getWidgetDropHandler( createPageWidget(), createSitePreviewWidget() ) ).toMatchObject( {
+			id: 'preview-site-content',
+			type: 'connector',
+		} );
 	} );
 
 	it( 'returns custom media handlers for post, page, and scratchpad targets', () => {

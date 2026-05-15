@@ -253,6 +253,8 @@ function createDeskContext( overrides: Partial< DeskContextValue > = {} ): DeskC
 		updateSelectedWidgetProps: vi.fn(),
 		canEditSelectedWidget: false,
 		editSelectedWidget: vi.fn(),
+		canPreviewContentInSitePreview: false,
+		previewContentInSitePreview: vi.fn().mockResolvedValue( false ),
 		fitSelectedWidgetToContent: vi.fn().mockResolvedValue( false ),
 		stackSelectedWidgets: vi.fn(),
 		unstackSelectedWidgets: vi.fn(),

@@ -28,6 +28,7 @@ interface UseConnectorInteractionsOptions {
 	isReadOnly: boolean;
 	pendingConnectorSourceId: TLShapeId | null;
 	setPendingConnectorSourceId: ( shapeId: TLShapeId | null ) => void;
+	onConnectorComplete?: ( connection: WidgetConnectorCompleteIntent ) => void;
 	onCustomDrop?: ( drop: WidgetCustomDropIntent ) => void;
 }
 
@@ -37,6 +38,7 @@ export function useConnectorInteractions( {
 	isReadOnly,
 	pendingConnectorSourceId,
 	setPendingConnectorSourceId,
+	onConnectorComplete,
 	onCustomDrop,
 }: UseConnectorInteractionsOptions ) {
 	useEffect( () => {
@@ -110,7 +112,8 @@ export function useConnectorInteractions( {
 		}
 
 		const sourceShape = editor.getShape( pendingConnectorSourceId );
-		if ( ! sourceShape || ! canvasShapeToDeskWidget( sourceShape ) ) {
+		const sourceWidget = sourceShape ? canvasShapeToDeskWidget( sourceShape ) : null;
+		if ( ! sourceShape || ! sourceWidget ) {
 			setPendingConnectorSourceId( null );
 			return;
 		}
@@ -164,7 +167,8 @@ export function useConnectorInteractions( {
 
 			const point = editor.screenToPage( { x: event.clientX, y: event.clientY } );
 			const targetShape = getConnectableShapeAtPagePoint( editor, point, pendingConnectorSourceId );
-			if ( ! targetShape ) {
+			const targetWidget = targetShape ? canvasShapeToDeskWidget( targetShape ) : null;
+			if ( ! targetShape || ! targetWidget ) {
 				cancelConnection();
 				return;
 			}
@@ -177,6 +181,12 @@ export function useConnectorInteractions( {
 			}
 			editor.setSelectedShapes( [ arrowId ] );
 			editor.focus();
+			onConnectorComplete?.( {
+				sourceShapeId: pendingConnectorSourceId,
+				targetShapeId: targetShape.id,
+				sourceWidget,
+				targetWidget,
+			} );
 			setPendingConnectorSourceId( null );
 		};
 
@@ -199,7 +209,7 @@ export function useConnectorInteractions( {
 				editor.deleteShape( arrowId );
 			}
 		};
-	}, [ editor, pendingConnectorSourceId, setPendingConnectorSourceId ] );
+	}, [ editor, onConnectorComplete, pendingConnectorSourceId, setPendingConnectorSourceId ] );
 
 	useEffect( () => {
 		if ( ! editor || ! isHydrated || isReadOnly ) {
@@ -288,6 +298,12 @@ export function useConnectorInteractions( {
 							updateConnectorEnd( editor, connectorPreviewId, toPlainPoint( targetBounds.center ) );
 						}
 						restoreSourcePosition();
+						onConnectorComplete?.( {
+							sourceShapeId: source.shapeId,
+							targetShapeId: activeTarget.shapeId,
+							sourceWidget: source.widget,
+							targetWidget: activeTarget.widget,
+						} );
 					} else if ( activeTarget.handler.type === 'custom' ) {
 						restoreSourcePosition();
 						onCustomDrop?.( {
@@ -365,7 +381,14 @@ export function useConnectorInteractions( {
 			editor.off( 'event', handleEvent );
 			cleanup();
 		};
-	}, [ editor, isHydrated, isReadOnly, onCustomDrop ] );
+	}, [ editor, isHydrated, isReadOnly, onConnectorComplete, onCustomDrop ] );
+}
+
+export interface WidgetConnectorCompleteIntent {
+	sourceShapeId: TLShapeId;
+	targetShapeId: TLShapeId;
+	sourceWidget: DeskWidget;
+	targetWidget: DeskWidget;
 }
 
 export interface WidgetCustomDropIntent extends WidgetCustomDropActionIntent {

@@ -1,6 +1,8 @@
 import { useRef } from 'react';
 import { useEditor, useValue, type TLShape } from 'tldraw';
 import { useDesk } from '@/ui-desks/desk/provider/context';
+import { setThemeMaterialsStackViewInEditor } from '@/ui-desks/widgets/theme/stack';
+import { isThemeMaterialsStackId } from '@/ui-desks/widgets/theme/types';
 import { expandStackInEditor } from './editor-commands';
 import {
 	getStackFanStep,
@@ -81,6 +83,13 @@ export function useStackShapeInteraction( shape: TLShape ) {
 			}
 
 			pointerDownPointRef.current = null;
+			if ( isThemeMaterialsStackId( stackId ) ) {
+				if ( setThemeMaterialsStackViewInEditor( editor, stackId, 'tiles' ) ) {
+					editor.setSelectedShapes( [] );
+				}
+				return;
+			}
+
 			if ( expandStackInEditor( editor, stackId ) ) {
 				editor.setSelectedShapes( [] );
 			}

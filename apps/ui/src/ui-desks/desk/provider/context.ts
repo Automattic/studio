@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react';
-import type { DeskConfig } from '../types';
+import type { DeskConfig, DeskConnector, DeskStack } from '../types';
 import type {
 	DeskWidgetConnectionTarget,
 	SelectedDeskConnectorToolbarItem,
@@ -21,6 +21,23 @@ export type SelectedWidgetToolbarItem = NonNullable<
 
 export type RegisterDeskEditor = ( editor: Editor | null ) => void;
 export type PreviewContentType = 'post' | 'page';
+
+export interface TemporaryDeskConnector extends DeskConnector {
+	appearance?: {
+		dash?: 'solid' | 'dashed';
+		arrowheadStart?: 'none' | 'dot';
+		arrowheadEnd?: 'none' | 'arrow';
+	};
+}
+
+export interface ToggleTemporaryDeskOptions {
+	id: string;
+	sourceWidgetId?: string;
+	followSource?: boolean;
+	widgets: DeskWidget[];
+	stacks?: DeskStack[];
+	connectors?: TemporaryDeskConnector[];
+}
 
 export interface DeskContextValue {
 	siteId?: string;
@@ -59,6 +76,8 @@ export interface DeskContextValue {
 	stackSelectedWidgets: () => boolean;
 	unstackSelectedWidgets: () => boolean;
 	setSelectedStackView: ( viewMode: StackViewMode ) => boolean;
+	toggleTemporaryDesk: ( options: ToggleTemporaryDeskOptions ) => boolean;
+	isTemporaryDeskVisible: ( id: string ) => boolean;
 	removeSelectedWidget: () => boolean;
 	removeSelectedConnector: () => boolean;
 	startConnectingWidget: ( shapeId: TLShapeId ) => boolean;
@@ -123,6 +142,8 @@ const defaultDeskContext: DeskContextValue = {
 	stackSelectedWidgets: () => false,
 	unstackSelectedWidgets: () => false,
 	setSelectedStackView: () => false,
+	toggleTemporaryDesk: () => false,
+	isTemporaryDeskVisible: () => false,
 	removeSelectedWidget: () => false,
 	removeSelectedConnector: () => false,
 	startConnectingWidget: () => false,

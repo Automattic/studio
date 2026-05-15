@@ -34,7 +34,7 @@ export interface DeskViewport {
 	z: number;
 }
 
-export type DeskStackViewMode = 'stack' | 'tiles';
+export type DeskStackViewMode = 'stack' | 'tiles' | 'circle';
 
 export interface DeskStack {
 	id: string;

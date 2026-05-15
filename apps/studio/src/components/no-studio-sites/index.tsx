@@ -10,7 +10,6 @@ export function NoStudioSites() {
 		setDeeplinkPhpVersion,
 		setDeeplinkWpVersion,
 		setBlueprintPreferredVersions,
-		setBlueprintWarnings,
 		setBlueprintSuggestedDomain,
 		setBlueprintSuggestedHttps,
 		setBlueprintSuggestedSiteName,
@@ -24,7 +23,6 @@ export function NoStudioSites() {
 		setPhpVersion: setDeeplinkPhpVersion,
 		setWpVersion: setDeeplinkWpVersion,
 		setBlueprintPreferredVersions,
-		setBlueprintWarnings,
 		setBlueprintSuggestedDomain,
 		setBlueprintSuggestedHttps,
 		setBlueprintSuggestedSiteName,
@@ -33,8 +31,8 @@ export function NoStudioSites() {
 	} );
 
 	return (
-		<main className="bg-frame text-frame-text h-full flex overflow-hidden z-10">
-			<div className="h-full w-full pt-14 px-6 pb-6">
+		<main className="bg-frame text-frame-text h-full flex flex-col overflow-hidden z-10">
+			<div className="flex-1 min-h-0 w-full pt-14 px-6 pb-6 overflow-y-auto">
 				<AddSiteModalContent addSiteProps={ addSiteProps } />
 			</div>
 		</main>

@@ -12,14 +12,7 @@ export function IllustrationGrid( { children }: PropsWithChildren ) {
 					WebkitMaskImage: 'radial-gradient(circle, black 20%, transparent 65%)',
 				} }
 			>
-				<DotGrid
-					spacing={ 24 }
-					crossSize={ 4 }
-					opacity={ 0.25 }
-					repulsion={ 0.25 }
-					rippleStrength={ 1 }
-					className="text-frame-text"
-				/>
+				<DotGrid className="text-frame-text" />
 			</div>
 			<div className="relative z-10">{ children }</div>
 		</div>

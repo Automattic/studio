@@ -1,4 +1,4 @@
-import { RecommendedPHPVersion } from './types/php-versions';
+import { RecommendedPHPVersion, PressablePHPVersion } from './types/php-versions';
 
 // Time constants
 export const HOUR_MS = 1000 * 60 * 60;
@@ -18,6 +18,7 @@ export const DEFAULT_TOKEN_LIFETIME_MS = DAY_MS * 14;
 export const APP_CONFIG_LOCKFILE_NAME = 'app.json.lock';
 export const CLI_CONFIG_LOCKFILE_NAME = 'cli.json.lock';
 export const SHARED_CONFIG_LOCKFILE_NAME = 'shared.json.lock';
+export const REMOTE_SESSION_STATE_LOCKFILE_NAME = 'remote-session-state.lock';
 export const LOCKFILE_STALE_TIME = 5000;
 export const LOCKFILE_WAIT_TIME = 5000;
 
@@ -38,6 +39,7 @@ export const DEFAULT_CUSTOM_DOMAIN_SUFFIX = '.wp.local';
 export const MINIMUM_WORDPRESS_VERSION = '6.2.1' as const; // https://wordpress.github.io/wordpress-playground/blueprints/examples/#load-an-older-wordpress-version
 export const DEFAULT_WORDPRESS_VERSION = 'latest' as const;
 export const DEFAULT_PHP_VERSION: typeof RecommendedPHPVersion = RecommendedPHPVersion;
+export const PRESSABLE_PHP_VERSION: typeof PressablePHPVersion = PressablePHPVersion;
 export const SQLITE_FILENAME = 'sqlite-database-integration' as const;
 
 // Import file constants

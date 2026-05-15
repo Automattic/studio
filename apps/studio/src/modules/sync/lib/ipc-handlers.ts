@@ -3,7 +3,15 @@ import fs from 'fs';
 import fsPromises from 'fs/promises';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
+import {
+	addConnectedWpcomSite,
+	getAllConnectedWpcomSitesForCurrentUser,
+	getConnectedWpcomSitesForLocalSite,
+	removeConnectedWpcomSite,
+	updateConnectedWpcomSites as updateConnectedWpcomSitesShared,
+} from '@studio/common/lib/connected-sites';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
+import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { SyncSite } from '@studio/common/types/sync';
@@ -17,12 +25,10 @@ import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { download } from 'src/lib/download';
 import { getSyncBackupTempPath } from 'src/lib/get-sync-backup-temp-path';
-import { exportBackup } from 'src/lib/import-export/export/export-manager';
-import { ExportOptions } from 'src/lib/import-export/export/types';
 import { getAuthenticationToken } from 'src/lib/oauth';
-import { keepSqliteIntegrationUpdated } from 'src/lib/sqlite-versions';
+import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
+import { exportSite } from 'src/modules/import-export/lib/ipc-handlers';
 import { SiteServer } from 'src/site-server';
-import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 import { SyncOption } from 'src/types';
 
 /**
@@ -161,8 +167,6 @@ export async function exportSiteForPush(
 			throw new Error( 'Export aborted' );
 		}
 
-		await keepSqliteIntegrationUpdated( site.details.path );
-
 		const shouldIncludeSyncOption = (
 			optionsToSync: SyncOption[] | undefined,
 			option: SyncOption
@@ -179,17 +183,22 @@ export async function exportSiteForPush(
 			),
 		};
 
-		const exportOptions: ExportOptions = {
-			site: site.details,
-			backupFile: archivePath,
-			includes,
-			phpVersion: site.details.phpVersion,
+		let mode: 'full' | 'content' | 'db';
+		if ( includes.database && includes.wpContent ) {
+			mode = 'full';
+		} else if ( includes.wpContent ) {
+			mode = 'content';
+		} else {
+			mode = 'db';
+		}
+
+		await exportSite( event, site.details.id, archivePath, {
+			mode,
 			splitDatabaseDumpByTable: true,
 			specificSelectionPaths: configuration?.specificSelectionPaths,
-		};
-
-		const onEvent = () => {};
-		await exportBackup( exportOptions, onEvent );
+			applyDeployIgnore: true,
+			abortSignal: abortController.signal,
+		} );
 
 		if ( abortController.signal.aborted ) {
 			await fsPromises.unlink( archivePath ).catch( () => {
@@ -419,42 +428,15 @@ export async function removeSyncBackup( event: IpcMainInvokeEvent, remoteSiteId:
 type WpcomSitesToConnect = { sites: SyncSite[]; localSiteId: string }[];
 
 export async function connectWpcomSites( event: IpcMainInvokeEvent, list: WpcomSitesToConnect ) {
-	try {
-		await lockAppdata();
-		const currentUserId = await getCurrentUserId();
+	const currentUserId = await getCurrentUserId();
+	if ( ! currentUserId ) {
+		throw new Error( 'User not authenticated' );
+	}
 
-		if ( ! currentUserId ) {
-			throw new Error( 'User not authenticated' );
+	for ( const { sites, localSiteId } of list ) {
+		for ( const siteToAdd of sites ) {
+			await addConnectedWpcomSite( localSiteId, siteToAdd );
 		}
-
-		const userData = await loadUserData();
-
-		userData.connectedWpcomSites = userData.connectedWpcomSites || {};
-		userData.connectedWpcomSites[ currentUserId ] =
-			userData.connectedWpcomSites[ currentUserId ] || [];
-
-		const connections = userData.connectedWpcomSites[ currentUserId ];
-
-		list.forEach( ( { sites, localSiteId } ) => {
-			sites.forEach( ( siteToAdd ) => {
-				const isAlreadyConnected = connections.some(
-					( conn ) => conn.id === siteToAdd.id && conn.localSiteId === localSiteId
-				);
-
-				// Add the site if it's not already connected
-				if ( ! isAlreadyConnected ) {
-					connections.push( {
-						...siteToAdd,
-						localSiteId,
-						syncSupport: 'already-connected',
-					} );
-				}
-			} );
-		} );
-
-		await saveUserData( userData );
-	} finally {
-		await unlockAppdata();
 	}
 }
 
@@ -464,36 +446,15 @@ export async function disconnectWpcomSites(
 	event: IpcMainInvokeEvent,
 	list: WpcomSitesToDisconnect
 ) {
-	try {
-		await lockAppdata();
-		const currentUserId = await getCurrentUserId();
+	const currentUserId = await getCurrentUserId();
+	if ( ! currentUserId ) {
+		throw new Error( 'User not authenticated' );
+	}
 
-		if ( ! currentUserId ) {
-			throw new Error( 'User not authenticated' );
+	for ( const { siteIds, localSiteId } of list ) {
+		for ( const id of siteIds ) {
+			await removeConnectedWpcomSite( localSiteId, id );
 		}
-
-		const userData = await loadUserData();
-
-		const connectedWpcomSites = userData.connectedWpcomSites;
-
-		// Totally unreal case, added it to help TS parse the code below. And if this error happens, we definitely have something wrong.
-		if ( ! Array.isArray( connectedWpcomSites?.[ currentUserId ] ) ) {
-			throw new Error(
-				'Something went wrong, since you are trying to disconnect something, but there are no stored connections yet'
-			);
-		}
-
-		list.forEach( ( { siteIds, localSiteId } ) => {
-			const updatedConnections = connectedWpcomSites[ currentUserId ].filter(
-				( conn ) => ! ( siteIds.includes( conn.id ) && conn.localSiteId === localSiteId )
-			);
-
-			connectedWpcomSites[ currentUserId ] = updatedConnections;
-		} );
-
-		await saveUserData( userData );
-	} finally {
-		await unlockAppdata();
 	}
 }
 
@@ -501,55 +462,65 @@ export async function updateConnectedWpcomSites(
 	event: IpcMainInvokeEvent,
 	updatedSites: SyncSite[]
 ) {
-	try {
-		await lockAppdata();
-		const currentUserId = await getCurrentUserId();
-
-		if ( ! currentUserId ) {
-			throw new Error( 'User not authenticated' );
-		}
-
-		const userData = await loadUserData();
-
-		const connections = userData.connectedWpcomSites?.[ currentUserId ] || [];
-
-		if ( ! connections.length ) {
-			return;
-		}
-
-		updatedSites.forEach( ( updatedSite ) => {
-			const index = connections.findIndex(
-				( conn ) => conn.id === updatedSite.id && conn.localSiteId === updatedSite.localSiteId
-			);
-
-			if ( index !== -1 ) {
-				connections[ index ] = updatedSite;
-			}
-		} );
-
-		await saveUserData( userData );
-	} finally {
-		await unlockAppdata();
+	const currentUserId = await getCurrentUserId();
+	if ( ! currentUserId ) {
+		throw new Error( 'User not authenticated' );
 	}
+
+	// Group the updates by their local site since our storage is now per-site.
+	const byLocalSite = new Map< string, SyncSite[] >();
+	for ( const site of updatedSites ) {
+		const list = byLocalSite.get( site.localSiteId ) ?? [];
+		list.push( site );
+		byLocalSite.set( site.localSiteId, list );
+	}
+
+	for ( const [ localSiteId, sites ] of byLocalSite ) {
+		await updateConnectedWpcomSitesShared( localSiteId, sites );
+	}
+}
+
+// Wraps the CLI `pull` command for apps/ui. The desktop renderer handles
+// pull via `pullSiteThunk` + `pollPullBackupThunk` using its own WPCOM
+// client to initiate + poll + download — that polling lives in the
+// renderer sync slice with no end-to-end IPC equivalent to reuse. Calling
+// the CLI instead keeps apps/ui free of wpcom-client setup and mirrors the
+// simpler flow used by `push`. Exchanges everything (`--options all`).
+export async function pullSiteFromLive(
+	_event: IpcMainInvokeEvent,
+	siteFolder: string,
+	remoteSiteId: number
+): Promise< void > {
+	return new Promise< void >( ( resolve, reject ) => {
+		const [ emitter ] = executeCliCommand(
+			[ 'pull', '--path', siteFolder, '--remote-site', String( remoteSiteId ), '--options', 'all' ],
+			{ output: 'capture' }
+		);
+
+		emitter.on( 'success', () => resolve() );
+		emitter.on( 'failure', ( { error } ) => reject( error ) );
+		emitter.on( 'error', ( { error } ) => reject( error ) );
+	} );
+}
+
+// Fetches every WordPress.com site the authenticated user can sync to.
+// The desktop renderer builds this list itself via its own WPCOM client
+// (see wpcomSitesApi.getWpComSites); apps/ui doesn't own a wpcom client
+// yet, so we expose a thin IPC wrapper that reuses the stored auth token.
+export async function fetchSyncableWpcomSites( _event: IpcMainInvokeEvent ): Promise< SyncSite[] > {
+	const token = await getAuthenticationToken();
+	if ( ! token?.accessToken ) {
+		throw new Error( 'Authentication required to fetch WordPress.com sites.' );
+	}
+	return fetchSyncableSites( token.accessToken );
 }
 
 export async function getConnectedWpcomSites(
 	event: IpcMainInvokeEvent,
 	localSiteId?: string
 ): Promise< SyncSite[] > {
-	const currentUserId = await getCurrentUserId();
-
-	if ( ! currentUserId ) {
-		return [];
-	}
-
-	const userData = await loadUserData();
-
-	const allConnected = userData.connectedWpcomSites?.[ currentUserId ] || [];
-
 	if ( localSiteId ) {
-		return allConnected.filter( ( site ) => site.localSiteId === localSiteId );
-	} else {
-		return allConnected;
+		return getConnectedWpcomSitesForLocalSite( localSiteId );
 	}
+	return getAllConnectedWpcomSitesForCurrentUser();
 }

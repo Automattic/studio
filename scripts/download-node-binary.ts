@@ -6,8 +6,8 @@
  */
 
 import fs from 'fs';
-import path from 'path';
 import os from 'os';
+import path from 'path';
 import { extract } from 'tar';
 import { extractZip } from '../tools/common/lib/extract-zip';
 
@@ -172,4 +172,4 @@ async function main(): Promise< void > {
 	}
 }
 
-main();
+void main();

@@ -19,6 +19,7 @@ const mockGetXdebugEnabledSite = vi.fn().mockResolvedValue( null );
 
 vi.mock( 'src/lib/app-globals', () => ( {
 	isWindows: () => false,
+	isLinux: () => false,
 } ) );
 
 vi.mock( 'src/hooks/use-site-details' );
@@ -85,7 +86,7 @@ describe( 'EditSiteDetails', () => {
 			name: 'Test Site',
 			path: '/path/to/site',
 			port: 8881,
-			phpVersion: '8.3',
+			phpVersion: '8.4',
 			running: true,
 			url: 'http://localhost:8881',
 		},
@@ -139,7 +140,7 @@ describe( 'EditSiteDetails', () => {
 		} );
 
 		expect( screen.getByLabelText( 'Site name' ) ).toHaveValue( 'Test Site' );
-		expect( screen.getByLabelText( 'PHP version' ) ).toHaveValue( '8.3' );
+		expect( screen.getByLabelText( 'PHP version' ) ).toHaveValue( '8.4' );
 		expect( screen.getByLabelText( 'WordPress version' ) ).toHaveValue( 'latest' );
 	} );
 

@@ -1,0 +1,59 @@
+.root {
+	display: flex;
+	height: 100vh;
+	overflow: hidden;
+}
+
+.sidebar {
+	width: var(--sidebar-width, 320px);
+	min-width: 240px;
+	max-width: 25vw;
+	flex-shrink: 0;
+	background-color: var(--wpds-color-bg-surface-neutral-weak);
+	border-right: 1px solid var(--wpds-color-stroke-surface-neutral);
+	display: flex;
+	flex-direction: column;
+	/* The sidebar itself scrolls so the scrollbar gutter affects the
+	   (sticky) header and footer identically to the middle content —
+	   avoiding the misalignment you get when the scrollbar lives on an
+	   inner wrapper. */
+	overflow-y: auto;
+	transition: width 150ms ease;
+}
+
+.sidebarCollapsed {
+	width: 0;
+	min-width: 0;
+}
+
+.main {
+	flex: 1;
+	min-width: 0;
+	overflow: auto;
+	position: relative;
+}
+
+.resizeHandle {
+	flex-shrink: 0;
+	justify-content: flex-start;
+	padding-left: 4px;
+}
+
+.floatingToggle {
+	position: absolute;
+	top: 0;
+	left: 94px;
+	/* Mirror sidebar-header vertical box so the toggle button lands at the
+	   same y-coordinate as when it lives inside the open sidebar. */
+	display: flex;
+	align-items: center;
+	padding: var(--wpds-dimension-padding-sm) 0;
+	min-height: 46px;
+	z-index: 10;
+}
+
+/* In macOS fullscreen the traffic lights are hidden, so the toggle can
+   sit near the main area's left edge. */
+.floatingToggleFullscreen {
+	left: var(--wpds-dimension-padding-xl);
+}

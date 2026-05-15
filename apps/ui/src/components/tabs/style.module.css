@@ -1,0 +1,51 @@
+/* The WP Tabs component draws its active-tab indicator from the tablist's
+   bottom edge upward. `margin-bottom: -1px` lets that indicator sit on top
+   of a sibling container's 1px border-bottom (when present) so the selected
+   tab's line reads as a continuation of the rest of the border. */
+.list {
+	margin-bottom: -1px;
+	gap: calc(var(--wpds-dimension-padding-lg) * 2);
+}
+
+/* Active-tab indicator: matches the selected-tab text color so the underline
+   and label read as a single accent. 1px to match a typical neutral baseline
+   — overriding the 2px theme-accent default the WP component ships with. */
+.list::before {
+	border-bottom-width: 1px !important;
+	border-bottom-color: var(--wpds-color-fg-content-neutral) !important;
+}
+
+/* Override WP Tabs defaults:
+   - No inline padding so the active-tab underline aligns with the label text
+     (the list's `gap` keeps tabs from touching).
+   - Compact vertical padding + medium font size replace the 48px tall default.
+   - `flex: 0 0 auto` stops tabs from stretching to fill the tablist, which
+     would otherwise widen the indicator beyond the text.
+   - Inactive tabs read as secondary (neutral-weak, regular); selected tab
+     uses the primary fg token + semibold.
+   WP applies `padding-inline`/`height` via an `[aria-orientation='horizontal']
+   &` rule with the same specificity as `.list .tab`, so emotion's runtime
+   stylesheet wins source-order. `!important` is the simplest, targeted way
+   to force our condensed sizing through. */
+.list .tab {
+	padding-inline: 0 !important;
+	padding-block: var(--wpds-dimension-padding-lg) !important;
+	height: auto !important;
+	flex: 0 0 auto;
+	font-size: var(--wpds-typography-font-size-md);
+	font-weight: 400;
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.list .tab[aria-selected='true'] {
+	font-weight: 600;
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.list .tab:not([aria-disabled='true']):is(:hover, [data-focus-visible]) {
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.panel {
+	outline: none;
+}

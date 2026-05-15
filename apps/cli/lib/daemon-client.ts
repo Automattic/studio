@@ -35,8 +35,10 @@ export const SITE_EVENTS_SOCKET_PATH =
 		? '\\\\.\\pipe\\studio-events.sock'
 		: path.join( PROCESS_MANAGER_HOME, 'events.sock' );
 
-if ( ! fs.existsSync( PROCESS_MANAGER_HOME ) ) {
-	fs.mkdirSync( PROCESS_MANAGER_HOME, { recursive: true } );
+function ensureProcessManagerHome() {
+	if ( ! fs.existsSync( PROCESS_MANAGER_HOME ) ) {
+		fs.mkdirSync( PROCESS_MANAGER_HOME, { recursive: true } );
+	}
 }
 
 export type DaemonBusEventMap = {
@@ -213,6 +215,7 @@ export async function connectToDaemon(): Promise< void > {
 	if ( isConnected ) {
 		return;
 	}
+	ensureProcessManagerHome();
 	await lockFileAsync( PROCESS_MANAGER_LOCKFILE_PATH, {
 		wait: LOCKFILE_WAIT_TIME,
 		stale: LOCKFILE_STALE_TIME,
@@ -292,7 +295,9 @@ export async function isProcessRunning(
 		const processes = await listProcesses();
 		return processes.find( ( p ) => p.name === processName && p.status === 'online' );
 	} catch ( error ) {
-		console.error( `Error checking if process ${ processName } is running:`, error );
+		if ( ! isRecoverableConnectError( error ) ) {
+			console.error( `Error checking if process ${ processName } is running:`, error );
+		}
 		return undefined;
 	}
 }
@@ -304,7 +309,7 @@ const daemonStartProcessSuccessResponseSchema = z.object( {
 export async function startProcess(
 	processName: string,
 	scriptPath: string,
-	env: Record< string, string > = {},
+	env: NodeJS.ProcessEnv = process.env,
 	args: string[] = []
 ): Promise< ProcessDescription > {
 	const response = await sendDaemonRequest( {

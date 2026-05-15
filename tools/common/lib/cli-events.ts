@@ -8,6 +8,9 @@ import { z } from 'zod';
 import { authTokenSchema } from '@studio/common/lib/auth-token-schema';
 import { snapshotSchema } from '@studio/common/types/snapshot';
 
+export const siteRuntimeSchema = z.enum( [ 'playground', 'native-php' ] );
+export type SiteRuntime = z.infer< typeof siteRuntimeSchema >;
+
 /**
  * Site data included in events. This is the data Studio needs to display sites.
  */
@@ -28,6 +31,10 @@ export const siteDetailsSchema = z.object( {
 	enableXdebug: z.boolean().optional(),
 	enableDebugLog: z.boolean().optional(),
 	enableDebugDisplay: z.boolean().optional(),
+	technicalSiteDirectory: z.string().optional(),
+	runtimeBlueprintPath: z.string().optional(),
+	landingPage: z.string().optional(),
+	runtime: siteRuntimeSchema.optional(),
 } );
 
 export type SiteDetails = z.infer< typeof siteDetailsSchema >;

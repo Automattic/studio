@@ -113,12 +113,65 @@ describe( 'ProcessManagerDaemon', () => {
 			} )
 		);
 
+		const now = new Date();
+		const dateTag = `${ now.getFullYear() }${ String( now.getMonth() + 1 ).padStart(
+			2,
+			'0'
+		) }${ String( now.getDate() ).padStart( 2, '0' ) }`;
 		expect(
-			fs.readFileSync( path.join( tmpDir, 'logs', `${ testProcessName }-out.log` ), 'utf8' )
+			fs.readFileSync(
+				path.join( tmpDir, 'logs', `${ testProcessName }-out-${ dateTag }.log` ),
+				'utf8'
+			)
 		).toContain( 'fixture-stdout' );
 		expect(
-			fs.readFileSync( path.join( tmpDir, 'logs', `${ testProcessName }-error.log` ), 'utf8' )
+			fs.readFileSync(
+				path.join( tmpDir, 'logs', `${ testProcessName }-error-${ dateTag }.log` ),
+				'utf8'
+			)
 		).toContain( 'fixture-stderr' );
+	} );
+
+	it( 'includes captured stderr in the exit event payload', async () => {
+		const child = new MockChildProcess();
+		spawnMock.mockReturnValue( child );
+		const { ProcessManagerDaemon } = await import( '../process-manager-daemon' );
+
+		const daemon = new ProcessManagerDaemon();
+		const daemonInternal = daemon as unknown as {
+			handleRequest: ( request: unknown ) => Promise< unknown >;
+			broadcastEvent: ( event: unknown ) => Promise< void >;
+		};
+		const broadcastSpy = vi
+			.spyOn( daemonInternal, 'broadcastEvent' )
+			.mockResolvedValue( undefined );
+
+		await daemonInternal.handleRequest( {
+			type: 'start-process',
+			requestId: '1',
+			processName: testProcessName,
+			scriptPath: '/tmp/test-child.js',
+			env: {},
+			args: [],
+		} );
+
+		child.stderr.write( 'SyntaxError: boom\n' );
+		child.stderr.write( '    at Module._compile\n' );
+		// Let readline consume the lines before triggering exit.
+		await new Promise( ( resolve ) => setTimeout( resolve, 25 ) );
+
+		child.emit( 'exit', 1 );
+		await new Promise( ( resolve ) => setTimeout( resolve, 25 ) );
+
+		const exitCall = broadcastSpy.mock.calls.find( ( [ event ] ) => {
+			const payload = ( event as { type: string; payload: { event: string } } ).payload;
+			return payload.event === 'exit';
+		} );
+
+		expect( exitCall ).toBeDefined();
+		const payload = ( exitCall![ 0 ] as { payload: { stderrTail?: string } } ).payload;
+		expect( payload.stderrTail ).toContain( 'SyntaxError: boom' );
+		expect( payload.stderrTail ).toContain( 'at Module._compile' );
 	} );
 
 	it( 'reuses duplicate starts, forwards messages, and resolves missing stops', async () => {

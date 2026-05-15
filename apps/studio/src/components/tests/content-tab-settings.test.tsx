@@ -63,6 +63,7 @@ vi.mock( 'src/hooks/use-site-details' );
 vi.mock( 'src/lib/get-ipc-api' );
 vi.mock( 'src/lib/app-globals', () => ( {
 	isWindows: () => false,
+	isLinux: () => false,
 } ) );
 
 vi.mock( 'src/stores/wordpress-versions-api', async () => {
@@ -86,7 +87,7 @@ const selectedSite: SiteDetails = {
 	path: '/path/to/site',
 	adminPassword: btoa( 'test-password' ),
 	running: false,
-	phpVersion: '8.3',
+	phpVersion: '8.4',
 	id: 'site-id',
 };
 
@@ -314,7 +315,7 @@ describe( 'ContentTabSettings', () => {
 			const { rerender } = renderWithProvider(
 				<ContentTabSettings selectedSite={ selectedSite } />
 			);
-			expect( screen.getByText( '8.3' ) ).toBeVisible();
+			expect( screen.getByText( '8.4' ) ).toBeVisible();
 			await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
 			vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 				selectedSite: { ...selectedSite, running: false } as SiteDetails,
@@ -392,7 +393,7 @@ describe( 'ContentTabSettings', () => {
 			const { rerender } = renderWithProvider(
 				<ContentTabSettings selectedSite={ selectedSite } />
 			);
-			expect( screen.getByText( '8.3' ) ).toBeVisible();
+			expect( screen.getByText( '8.4' ) ).toBeVisible();
 			await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
 			vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 				selectedSite: { ...selectedSite, running: true } as SiteDetails,

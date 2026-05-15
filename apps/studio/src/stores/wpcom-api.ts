@@ -67,6 +67,7 @@ const blueprintSchema = z.object( {
 	image: z.string(),
 	playground_url: z.string(),
 	blueprint: z.record( z.string(), z.unknown() ),
+	bundle_url: z.string().nullable().optional(),
 	filePath: z.string().optional(),
 } );
 

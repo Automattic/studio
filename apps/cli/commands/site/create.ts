@@ -1,6 +1,5 @@
 import crypto from 'crypto';
 import fs from 'fs';
-import os from 'os';
 import path from 'path';
 import { confirm, input, password, select } from '@inquirer/prompts';
 import { SupportedPHPVersions } from '@php-wasm/universal';
@@ -11,10 +10,7 @@ import {
 } from '@studio/common/constants';
 import { installAiInstructionsToSite } from '@studio/common/lib/agent-skills';
 import { extractFormValuesFromBlueprint } from '@studio/common/lib/blueprint-settings';
-import {
-	filterUnsupportedBlueprintFeatures,
-	validateBlueprintData,
-} from '@studio/common/lib/blueprint-validation';
+import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { getDomainNameValidationError } from '@studio/common/lib/domains';
 import {
@@ -24,6 +20,7 @@ import {
 	pathExists,
 	recursiveCopyDirectory,
 } from '@studio/common/lib/fs-utils';
+import { normalizeLandingPage } from '@studio/common/lib/landing-page';
 import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
 import { isOnline } from '@studio/common/lib/network-utils';
 import {
@@ -47,17 +44,15 @@ import {
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
-import {
-	isStepDefinition,
-	type BlueprintV1Declaration,
-	type StepDefinition,
-} from '@wp-playground/blueprints';
+import { isStepDefinition, type BlueprintV1Declaration } from '@wp-playground/blueprints';
 import { bumpStat, getPlatformMetric } from 'cli/lib/bump-stat';
 import {
 	lockCliConfig,
 	readCliConfig,
 	saveCliConfig,
 	SiteData,
+	SiteRuntime,
+	siteRuntimeSchema,
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
 import {
@@ -66,9 +61,9 @@ import {
 	updateSiteLatestCliPid,
 } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
+import { getAiInstructionsPath } from 'cli/lib/dependency-management/paths';
 import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
-import { getAiInstructionsPath } from 'cli/lib/server-files';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { generateSiteName } from 'cli/lib/site-name';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
@@ -104,6 +99,10 @@ type CreateCommandOptions = {
 	skipLogDetails: boolean;
 };
 
+function resolveRuntimeFromEnv(): SiteRuntime {
+	return siteRuntimeSchema.catch( 'playground' ).parse( process.env.STUDIO_RUNTIME );
+}
+
 export async function runCommand(
 	sitePath: string,
 	options: CreateCommandOptions
@@ -112,23 +111,17 @@ export async function runCommand(
 
 	try {
 		if ( isOnlineStatus ) {
-			logger.reportStart(
-				LoggerAction.CHECKING_DEPENDENCY_UPDATES,
-				__( 'Checking for dependency updates…' )
-			);
-
-			await updateServerFiles();
-			logger.reportSuccess( __( 'Dependencies up to date' ) );
+			const updated = await updateServerFiles();
+			if ( updated ) {
+				logger.reportSuccess( __( 'Dependencies updated' ) );
+			}
 		}
 	} catch ( error ) {
 		// Errors here aren't critical and likely relate to things outside the user's control,
-		// like network issues or bad API responses. Report them in development, and silently
-		// clear the spinner in production so creation can continue.
+		// like network issues or bad API responses. Report them only in development.
 		if ( process.env.NODE_ENV !== 'production' ) {
 			const loggerError = new LoggerError( 'Failed to update dependencies', error );
 			logger.reportError( loggerError, false );
-		} else {
-			logger.reportSuccess( __( 'Dependencies up to date' ), true );
 		}
 	}
 
@@ -155,21 +148,9 @@ export async function runCommand(
 				throw new LoggerError( validation.error );
 			}
 
-			for ( const warning of validation.warnings ) {
-				logger.reportWarning(
-					sprintf(
-						/* translators: %1$s: feature name, %2$s: reason */
-						__( `Blueprint feature "%1$s" is not supported: %2$s` ),
-						warning.feature,
-						warning.reason
-					)
-				);
-			}
-
-			// Extract login credentials from blueprint before filtering
+			// `validateBlueprintData()` does not give us a proper type guard, but in reality, it ensures
+			// `options.blueprint.contents` conforms to the `BlueprintV1Declaration` schema.
 			const formValues = extractFormValuesFromBlueprint(
-				// `validateBlueprintData()` does not give us a proper type guard, but in reality, it ensures
-				// `options.blueprint.contents` conforms to the `BlueprintV1Declaration` schema.
 				options.blueprint.contents as BlueprintV1Declaration
 			);
 			if ( formValues.adminUsername || formValues.adminPassword ) {
@@ -180,9 +161,7 @@ export async function runCommand(
 			}
 
 			blueprintUri = options.blueprint.uri;
-			blueprint = filterUnsupportedBlueprintFeatures(
-				options.blueprint.contents as BlueprintV1Declaration
-			);
+			blueprint = options.blueprint.contents as BlueprintV1Declaration;
 
 			const blueprintHasMultisite = blueprint?.steps
 				?.filter( isStepDefinition )
@@ -295,71 +274,14 @@ export async function runCommand(
 		const externalPassword = options.adminPassword || blueprintCredentials?.adminPassword;
 		const adminPassword = externalPassword ? encodePassword( externalPassword ) : createPassword();
 
-		const setupSteps: StepDefinition[] = [];
-
 		const siteLanguage = await getPreferredSiteLanguage( options.wpVersion );
 
-		if ( siteLanguage && siteLanguage !== DEFAULT_LOCALE ) {
-			// For the 'latest' WP version, try using bundled language packs first to avoid
-			// a network round-trip. Fall back to the Playground setSiteLanguage step for
-			// non-latest versions or when bundled packs aren't available.
-			let isUsingBundledLanguagePacks = false;
-			if ( options.wpVersion === DEFAULT_WORDPRESS_VERSION ) {
-				isUsingBundledLanguagePacks = await copyLanguagePackToSite( sitePath, siteLanguage );
-			}
-
-			if ( isUsingBundledLanguagePacks ) {
-				setupSteps.push(
-					{
-						step: 'defineWpConfigConsts',
-						consts: {
-							WPLANG: siteLanguage,
-						},
-					},
-					{
-						step: 'setSiteOptions',
-						options: {
-							WPLANG: siteLanguage,
-						},
-					}
-				);
-			} else if ( isOnlineStatus ) {
-				setupSteps.push(
-					{
-						step: 'setSiteLanguage',
-						language: siteLanguage,
-					},
-					{
-						step: 'setSiteOptions',
-						options: {
-							WPLANG: siteLanguage,
-						},
-					}
-				);
-			}
-		}
-
-		const hasWpConfig = await pathExists( path.join( sitePath, 'wp-config.php' ) );
-		const isWordPressDirectoryInitialized = isWordPressDirResult && hasWpConfig;
-		if ( options.name && ! isWordPressDirectoryInitialized ) {
-			setupSteps.push( {
-				step: 'setSiteOptions',
-				options: {
-					blogname: options.name,
-				},
-			} );
-		}
-
-		if ( setupSteps.length > 0 ) {
-			if ( ! blueprint ) {
-				blueprint = {};
-				// Since we know the user didn't supply a blueprint, we create an empty directory to use as a
-				// fake location for the `blueprintUri`
-				const blueprintDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-empty-blueprint-' ) );
-				blueprintUri = path.join( blueprintDir, 'blueprint.json' );
-			}
-			const existingSteps = Array.isArray( blueprint.steps ) ? blueprint.steps : [];
-			blueprint = { ...blueprint, steps: [ ...setupSteps, ...existingSteps ] };
+		if (
+			siteLanguage &&
+			siteLanguage !== DEFAULT_LOCALE &&
+			options.wpVersion === DEFAULT_WORDPRESS_VERSION
+		) {
+			await copyLanguagePackToSite( sitePath, siteLanguage );
 		}
 
 		const siteDetails: SiteData = {
@@ -375,6 +297,8 @@ export async function runCommand(
 			isWpAutoUpdating: options.wpVersion === DEFAULT_WORDPRESS_VERSION,
 			customDomain: options.customDomain,
 			enableHttps: options.enableHttps,
+			landingPage: normalizeLandingPage( blueprint?.landingPage ),
+			runtime: resolveRuntimeFromEnv(),
 		};
 
 		logger.reportStart( LoggerAction.SAVE_SITE, __( 'Saving site…' ) );
@@ -408,6 +332,7 @@ export async function runCommand(
 					wpVersion: options.wpVersion,
 					blueprint,
 					blueprintUri,
+					siteLanguage,
 				} );
 				logger.reportSuccess( __( 'WordPress server started' ) );
 
@@ -451,6 +376,7 @@ export async function runCommand(
 						wpVersion: options.wpVersion,
 						blueprint,
 						blueprintUri,
+						siteLanguage,
 					} );
 					logger.reportSuccess( __( 'Blueprint applied successfully' ) );
 
@@ -473,6 +399,7 @@ export async function runCommand(
 		}
 
 		logger.reportKeyValuePair( 'id', siteDetails.id );
+		logger.reportKeyValuePair( 'port', String( siteDetails.port ) );
 		logger.reportKeyValuePair( 'running', String( siteDetails.running ) );
 		await emitCliEvent( { event: SITE_EVENTS.CREATED, data: { siteId: siteDetails.id } } );
 	} finally {
@@ -829,8 +756,13 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 
 					// When invoked by the desktop app, the blueprint contents come from a temp file
 					// but resources should be resolved relative to the original file location.
+					// For gallery blueprints the path is a URL; use it directly.
 					if ( argv.originalBlueprintPath ) {
-						config.blueprint.uri = path.resolve( argv.originalBlueprintPath );
+						const originalPath = argv.originalBlueprintPath;
+						config.blueprint.uri =
+							originalPath.startsWith( 'http://' ) || originalPath.startsWith( 'https://' )
+								? originalPath
+								: path.resolve( originalPath );
 					}
 				}
 			}

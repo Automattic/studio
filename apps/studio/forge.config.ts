@@ -9,6 +9,7 @@ import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { exec } from 'child_process';
 import { exec as pkgExec } from '@yao-pkg/pkg';
 import type { ForgeConfig } from '@electron-forge/shared-types';
+import { windowsSign } from './windowsSign';
 
 const repoRoot = path.resolve( __dirname, '../..' );
 
@@ -22,6 +23,7 @@ const config: ForgeConfig = {
 		],
 		executableName: process.platform === 'linux' ? 'studio' : undefined,
 		icon: path.join( __dirname, 'assets', 'studio-app-icon' ),
+		windowsSign,
 		osxSign: {
 			optionsForFile: ( filePath ) => {
 				// The bundled Node binary requires specific entitlements for V8 JIT compilation.
@@ -80,9 +82,37 @@ const config: ForgeConfig = {
 		new MakerZIP( {}, [ 'darwin' ] ),
 		new MakerDeb( {
 			options: {
-				genericName: 'WordPress Studio',
+				// Display name for app launchers and stores. Overrides
+				// package.json.productName ("Studio") so Linux users see the
+				// fully-qualified "WordPress Studio" in their menus.
+				productName: 'WordPress Studio',
 				categories: [ 'Utility' ],
 				name: 'studio',
+				bin: 'studio',
+				// Synopsis and extended description shown by package managers and
+				// software stores. Without these, electron-installer-debian falls
+				// back to package.json.description for both, producing a duplicated
+				// Description block. Copy mirrors the Microsoft Store listing.
+				description: 'Meet Studio - a fast, free way to develop locally with WordPress.',
+				productDescription:
+					"Simplify WordPress site creation and management with Studio - WordPress.com's powerful, lightweight local development tool. Studio streamlines your workflow with instant WordPress setup, one-click WP Admin access, and a code-agnostic environment. No Docker, MySQL, or NGINX required. Get real-time feedback from clients or collaborators with easy-to-share demo sites. And with help from Studio Assistant, you can speed up plugin management, run WP-CLI commands, and automate tasks right from the intuitive chat interface.",
+				mimeType: [ 'x-scheme-handler/wp-studio' ],
+				icon: path.join( __dirname, 'assets', 'studio-app-icon.png' ),
+				desktopTemplate: path.join( __dirname, 'installers', 'desktop.ejs' ),
+				// libcap2-bin: ships `setcap`, used by postinst to grant the bundled
+				// node CAP_NET_BIND_SERVICE so the proxy can bind ports 80/443.
+				// pkexec | policykit-1: provides `pkexec`, used by @vscode/sudo-prompt for
+				// hosts-file writes. `policykit-1` is the legacy package name (Ubuntu 24.04
+				// and older Debian); on Debian trixie / Kali rolling polkit was split and
+				// `pkexec` ships as its own binary package. The alternative makes the
+				// dependency resolvable on both.
+				// ca-certificates: ships `update-ca-certificates` and the system trust bundle.
+				// libnss3-tools: ships `certutil`, used to import the CA into per-user NSS DBs.
+				depends: [ 'libcap2-bin', 'pkexec | policykit-1', 'ca-certificates', 'libnss3-tools' ],
+				scripts: {
+					postinst: path.join( __dirname, 'installers', 'linux', 'postinst.sh' ),
+					postrm: path.join( __dirname, 'installers', 'linux', 'postrm.sh' ),
+				},
 			},
 		} ),
 		new MakerSquirrel(
@@ -95,9 +125,16 @@ const config: ForgeConfig = {
 
 				setupExe: 'studio-setup.exe',
 
-				// CI code-signing setup writes certificate.pfx at the repository root.
-				certificateFile: path.join( repoRoot, 'certificate.pfx' ),
-				certificatePassword: process.env.WINDOWS_CODE_SIGNING_CERT_PASSWORD,
+				// Azure mode: use the custom signing hook that calls signtool
+				// with Azure Trusted Signing parameters.
+				// PFX mode: use the local certificate file and password.
+				...( windowsSign
+					? { windowsSign }
+					: {
+							certificateFile: path.join( repoRoot, 'certificate.pfx' ),
+							certificatePassword: process.env.WINDOWS_CODE_SIGNING_CERT_PASSWORD,
+					  }
+				),
 			},
 			[ 'win32' ]
 		),
@@ -175,39 +212,65 @@ const config: ForgeConfig = {
 			console.log( `Removing native binaries for other platforms from CLI bundle...` );
 			const cliNodeModules = path.join( repoRoot, 'apps', 'cli', 'dist', 'cli', 'node_modules' );
 
-			// Clean up @anthropic-ai/claude-agent-sdk vendor binaries (uses {arch}-{platform} format)
-			const claudeVendorDir = path.join(
-				cliNodeModules,
-				'@anthropic-ai',
-				'claude-agent-sdk',
-				'vendor'
-			);
-			const platformSuffix = `-${ platform }`;
-			if ( fs.existsSync( claudeVendorDir ) ) {
-				for ( const toolDir of fs.readdirSync( claudeVendorDir ) ) {
-					const toolPath = path.join( claudeVendorDir, toolDir );
-					if ( fs.statSync( toolPath ).isDirectory() ) {
-						for ( const archPlatformDir of fs.readdirSync( toolPath ) ) {
-							if ( ! archPlatformDir.endsWith( platformSuffix ) ) {
-								const dirToRemove = path.join( toolPath, archPlatformDir );
+			// Clean up koffi binaries (uses {platform}_{arch} format).
+			const koffiBuildDir = path.join( cliNodeModules, 'koffi', 'build', 'koffi' );
+			const koffiTarget = `${ platform }_${ arch }`;
+			if ( fs.existsSync( koffiBuildDir ) ) {
+				const koffiDirs = fs.readdirSync( koffiBuildDir );
+				const koffiTargetPath = path.join( koffiBuildDir, koffiTarget );
+				// Refuse to delete anything unless the target arch is present *as a directory* —
+				// guards against a koffi naming/layout change silently nuking every prebuilt.
+				const targetIsDir =
+					fs.existsSync( koffiTargetPath ) &&
+					fs.statSync( koffiTargetPath ).isDirectory();
+				if ( ! targetIsDir ) {
+					console.warn(
+						`Skipping koffi cleanup: no directory named ${ koffiTarget } in ${ koffiBuildDir }`
+					);
+				} else {
+					for ( const platformArchDir of koffiDirs ) {
+						if ( platformArchDir !== koffiTarget ) {
+							const dirToRemove = path.join( koffiBuildDir, platformArchDir );
+							if ( fs.statSync( dirToRemove ).isDirectory() ) {
 								fs.rmSync( dirToRemove, { recursive: true, force: true } );
-								console.log( `Removed claude-agent-sdk/vendor/${ toolDir }/${ archPlatformDir }` );
+								console.log( `Removed koffi/build/koffi/${ platformArchDir }` );
 							}
 						}
 					}
 				}
 			}
 
-			// Clean up koffi binaries (uses {platform}_{arch} format)
-			const koffiBuildDir = path.join( cliNodeModules, 'koffi', 'build', 'koffi' );
-			const platformPrefix = `${ platform }_`;
-			if ( fs.existsSync( koffiBuildDir ) ) {
-				for ( const platformArchDir of fs.readdirSync( koffiBuildDir ) ) {
-					if ( ! platformArchDir.startsWith( platformPrefix ) ) {
-						const dirToRemove = path.join( koffiBuildDir, platformArchDir );
-						if ( fs.statSync( dirToRemove ).isDirectory() ) {
-							fs.rmSync( dirToRemove, { recursive: true, force: true } );
-							console.log( `Removed koffi/build/koffi/${ platformArchDir }` );
+			// Clean up fs-ext-extra-prebuilt binaries (file format:
+			// fs-ext-{platform}-{arch}-{runtime}-{version}.node). The root postinstall
+			// already filtered by platform; this strips the unused arch for the target build.
+			const fsExtBinDir = path.join(
+				cliNodeModules,
+				'fs-ext-extra-prebuilt',
+				'binaries'
+			);
+			const fsExtPrefix = `fs-ext-${ platform }-${ arch }-`;
+			if ( fs.existsSync( fsExtBinDir ) ) {
+				const fsExtFiles = fs.readdirSync( fsExtBinDir );
+				if ( ! fsExtFiles.some( ( f ) => f.startsWith( fsExtPrefix ) ) ) {
+					console.warn(
+						`Skipping fs-ext cleanup: no file starting with ${ fsExtPrefix } in ${ fsExtBinDir }`
+					);
+				} else {
+					for ( const file of fsExtFiles ) {
+						if ( ! file.startsWith( fsExtPrefix ) ) {
+							// Tolerate transient failures (Windows AV locks, permissions) — this
+							// cleanup is a size optimization; aborting packaging over a stuck file
+							// would be worse than shipping a few hundred extra KB. Mirrors the
+							// behavior of scripts/remove-fs-ext-other-platform-binaries.mjs.
+							try {
+								fs.unlinkSync( path.join( fsExtBinDir, file ) );
+								console.log( `Removed fs-ext-extra-prebuilt/binaries/${ file }` );
+							} catch ( e ) {
+								const message = e instanceof Error ? e.message : String( e );
+								console.warn(
+									`Could not remove fs-ext-extra-prebuilt/binaries/${ file }: ${ message }`
+								);
+							}
 						}
 					}
 				}

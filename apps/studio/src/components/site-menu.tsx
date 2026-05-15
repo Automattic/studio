@@ -9,6 +9,7 @@ import { Tooltip } from 'src/components/tooltip';
 import { useAuth } from 'src/hooks/use-auth';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useDeleteSite } from 'src/hooks/use-delete-site';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { isMac, isWindows } from 'src/lib/app-globals';
@@ -496,6 +497,7 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 		setWpcomSites = () => undefined,
 	} = useSiteDetails();
 	const { isAuthenticated, user } = useAuth();
+	const { enableWorkspaces } = useFeatureFlags();
 	const { setSelectedTab } = useContentTabs();
 	const { handleDeleteSite } = useDeleteSite();
 	const { data: editor } = useGetUserEditorQuery();
@@ -513,15 +515,18 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 			userId: user?.id,
 			perPage: 100,
 		},
-		{ skip: ! isAuthenticated }
+		{ skip: ! isAuthenticated || ! enableWorkspaces }
 	);
 	const wpcomSites = useMemo(
-		() => mergeWpcomSitesWithConnectedSites( wpcomSitesData?.sites ?? [], connectedWpcomSites ),
-		[ connectedWpcomSites, wpcomSitesData?.sites ]
+		() =>
+			enableWorkspaces
+				? mergeWpcomSitesWithConnectedSites( wpcomSitesData?.sites ?? [], connectedWpcomSites )
+				: [],
+		[ connectedWpcomSites, enableWorkspaces, wpcomSitesData?.sites ]
 	);
 	const wpcomSiteWorkspaces = useMemo(
-		() => createWpcomSiteWorkspaces( wpcomSites, sites ),
-		[ sites, wpcomSites ]
+		() => ( enableWorkspaces ? createWpcomSiteWorkspaces( wpcomSites, sites ) : [] ),
+		[ enableWorkspaces, sites, wpcomSites ]
 	);
 	const wpcomOnlySiteWorkspaces = useMemo(
 		() => wpcomSiteWorkspaces.filter( ( workspace ) => ! workspace.localSite ),
@@ -542,7 +547,7 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 	}, [ setWpcomSites, wpcomSites ] );
 
 	useEffect( () => {
-		if ( ! isAuthenticated ) {
+		if ( ! enableWorkspaces || ! isAuthenticated ) {
 			setConnectedWpcomSites( [] );
 			return;
 		}
@@ -562,7 +567,7 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 		return () => {
 			isCurrent = false;
 		};
-	}, [ isAuthenticated ] );
+	}, [ enableWorkspaces, isAuthenticated ] );
 
 	const handleDragStart = ( e: React.DragEvent, index: number ) => {
 		setDraggedIndex( index );
@@ -706,7 +711,9 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 						onDrop={ handleDrop }
 						onDragEnd={ handleDragEnd }
 						isDragOver={ dragOverIndex === index }
-						workspace={ wpcomSiteWorkspaceByLocalSiteId.get( site.id ) }
+						workspace={
+							enableWorkspaces ? wpcomSiteWorkspaceByLocalSiteId.get( site.id ) : undefined
+						}
 					/>
 				) ) }
 				{ /* Drop zone for dragging to bottom of list */ }
@@ -716,43 +723,45 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 					onDrop={ ( e ) => handleDrop( e, sites.length ) }
 				/>
 			</ul>
-			{ isAuthenticated && ( wpcomOnlySiteWorkspaces.length > 0 || isFetchingWpcomSites ) && (
-				<div className="mt-3 border-t border-white/10 pt-2">
-					<button
-						type="button"
-						className={ cx(
-							'flex h-8 min-w-[168px] items-center justify-between gap-2 rounded px-2 text-left text-[11px] font-medium uppercase text-a8c-gray-600 hover:bg-[#ffffff0C] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme',
-							isMac() ? 'me-5 ms-1' : 'me-4 ms-1'
-						) }
-						aria-expanded={ isWpcomSectionExpanded }
-						onClick={ () => setIsWpcomSectionExpanded( ( isExpanded ) => ! isExpanded ) }
-					>
-						<span className="truncate">{ __( 'WordPress.com' ) }</span>
-						<Icon
-							icon={ isWpcomSectionExpanded ? chevronDown : chevronRight }
-							size={ 16 }
-							className="shrink-0 text-a8c-gray-600 [&_path]:fill-current"
-						/>
-					</button>
-					{ isWpcomSectionExpanded && (
-						<ul className="pt-px">
-							{ wpcomOnlySiteWorkspaces.map( ( workspace ) => (
-								<WpcomSiteItem key={ workspace.id } workspace={ workspace } />
-							) ) }
-							{ isFetchingWpcomSites && wpcomOnlySiteWorkspaces.length === 0 && (
-								<li
-									className={ cx(
-										'flex h-8 min-w-[168px] items-center px-2 text-xs text-a8c-gray-600',
-										isMac() ? 'me-5 ms-1' : 'me-4 ms-1'
-									) }
-								>
-									{ __( 'Loading...' ) }
-								</li>
+			{ enableWorkspaces &&
+				isAuthenticated &&
+				( wpcomOnlySiteWorkspaces.length > 0 || isFetchingWpcomSites ) && (
+					<div className="mt-3 border-t border-white/10 pt-2">
+						<button
+							type="button"
+							className={ cx(
+								'flex h-8 min-w-[168px] items-center justify-between gap-2 rounded px-2 text-left text-[11px] font-medium uppercase text-a8c-gray-600 hover:bg-[#ffffff0C] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme',
+								isMac() ? 'me-5 ms-1' : 'me-4 ms-1'
 							) }
-						</ul>
-					) }
-				</div>
-			) }
+							aria-expanded={ isWpcomSectionExpanded }
+							onClick={ () => setIsWpcomSectionExpanded( ( isExpanded ) => ! isExpanded ) }
+						>
+							<span className="truncate">{ __( 'WordPress.com' ) }</span>
+							<Icon
+								icon={ isWpcomSectionExpanded ? chevronDown : chevronRight }
+								size={ 16 }
+								className="shrink-0 text-a8c-gray-600 [&_path]:fill-current"
+							/>
+						</button>
+						{ isWpcomSectionExpanded && (
+							<ul className="pt-px">
+								{ wpcomOnlySiteWorkspaces.map( ( workspace ) => (
+									<WpcomSiteItem key={ workspace.id } workspace={ workspace } />
+								) ) }
+								{ isFetchingWpcomSites && wpcomOnlySiteWorkspaces.length === 0 && (
+									<li
+										className={ cx(
+											'flex h-8 min-w-[168px] items-center px-2 text-xs text-a8c-gray-600',
+											isMac() ? 'me-5 ms-1' : 'me-4 ms-1'
+										) }
+									>
+										{ __( 'Loading...' ) }
+									</li>
+								) }
+							</ul>
+						) }
+					</div>
+				) }
 		</nav>
 	);
 }

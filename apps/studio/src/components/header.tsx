@@ -3,6 +3,7 @@ import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { SiteManagementActions } from 'src/components/site-management-actions';
 import { useAuth } from 'src/hooks/use-auth';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -30,11 +31,15 @@ export default function Header() {
 		wpcomSites,
 	} = useSiteDetails();
 	const { client, isAuthenticated, user } = useAuth();
+	const { enableWorkspaces } = useFeatureFlags();
 	const isOffline = useOffline();
 	const [ createWpcomStagingSite, createWpcomStagingSiteResult ] =
 		useCreateWpcomStagingSiteMutation();
 	const isLoading = site?.id ? loadingServer[ site.id ] : false;
-	const workspace = site ? getWpcomSiteWorkspaceForLocalSite( wpcomSites, site, sites ) : undefined;
+	const workspace =
+		enableWorkspaces && site
+			? getWpcomSiteWorkspaceForLocalSite( wpcomSites, site, sites )
+			: undefined;
 	const productionSite = workspace?.productionSite;
 	const stagingSite = workspace?.stagingSites[ 0 ];
 	const stagingCreationBlocker = productionSite

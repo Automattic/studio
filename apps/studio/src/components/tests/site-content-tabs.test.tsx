@@ -8,6 +8,14 @@ import { clearWpcomSiteAssistantStateCacheForTests } from 'src/modules/wpcom-sit
 import { store } from 'src/stores';
 import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 
+const { mockFeatureFlags } = vi.hoisted( () => ( {
+	mockFeatureFlags: {
+		enableBlueprints: true,
+		enableStudioCodeUi: false,
+		enableWorkspaces: false,
+	},
+} ) );
+
 const selectedSite: SiteDetails = {
 	id: 'site-id-1',
 	name: 'Test Site',
@@ -30,6 +38,9 @@ const selectedWpcomSite = {
 } as const;
 
 vi.mock( 'src/hooks/use-site-details' );
+vi.mock( 'src/hooks/use-feature-flags', () => ( {
+	useFeatureFlags: () => mockFeatureFlags,
+} ) );
 vi.mock( 'src/hooks/use-auth', () => ( {
 	useAuth: () => ( {
 		isAuthenticated: true,
@@ -85,6 +96,7 @@ describe( 'SiteContentTabs', () => {
 		vi.clearAllMocks(); // Clear mock call history between tests
 		clearWpcomSiteAssistantStateCacheForTests();
 		store.dispatch( testActions.resetState() );
+		mockFeatureFlags.enableWorkspaces = false;
 	} );
 	const renderWithProvider = ( component: React.ReactElement ) => {
 		return render(
@@ -124,7 +136,23 @@ describe( 'SiteContentTabs', () => {
 			screen.queryByRole( 'tab', { name: 'Backup', selected: false } )
 		).not.toBeInTheDocument();
 	} );
-	it( 'renders a WP.com-only site without local site tabs', async () => {
+	it( 'ignores a selected WP.com site when Workspaces is disabled', async () => {
+		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
+			selectedSite,
+			selectedWpcomSite,
+			sites: [ selectedSite ],
+			loadingServer: {},
+			setSelectedWpcomSite: vi.fn(),
+			setWpcomSiteActivity: vi.fn(),
+		} );
+		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
+
+		expect( screen.getByRole( 'tab', { name: 'Overview' } ) ).toBeVisible();
+		expect( screen.queryByText( 'Remote Site' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'renders a WP.com-only site without local site tabs when Workspaces is enabled', async () => {
+		mockFeatureFlags.enableWorkspaces = true;
 		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 			selectedSite,
 			selectedWpcomSite,
@@ -137,7 +165,6 @@ describe( 'SiteContentTabs', () => {
 
 		expect( screen.getByText( 'Remote Site' ) ).toBeVisible();
 		expect( screen.getByText( 'https://remote-site.wordpress.com' ) ).toBeVisible();
-		expect( screen.getByText( 'Ask Dolly about this WordPress.com site.' ) ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'Show preview' } ) ).toBeVisible();
 		expect( screen.queryByTitle( 'Remote Site preview' ) ).not.toBeInTheDocument();
 

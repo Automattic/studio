@@ -9,7 +9,18 @@ import { store } from 'src/stores';
 import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
 import type { SyncSite } from '@studio/common/types/sync';
 
+const { mockFeatureFlags } = vi.hoisted( () => ( {
+	mockFeatureFlags: {
+		enableBlueprints: true,
+		enableStudioCodeUi: false,
+		enableWorkspaces: false,
+	},
+} ) );
+
 vi.mock( 'src/hooks/use-auth' );
+vi.mock( 'src/hooks/use-feature-flags', () => ( {
+	useFeatureFlags: () => mockFeatureFlags,
+} ) );
 
 vi.mock( 'src/stores/wordpress-versions-api', () => ( {
 	wordpressVersionsApi: {
@@ -130,6 +141,7 @@ beforeEach( () => {
 	site2.running = false;
 	siteDetailsMocked.selectedWpcomSite = undefined;
 	siteDetailsMocked.wpcomSiteActivity = {};
+	mockFeatureFlags.enableWorkspaces = false;
 	vi.mocked( useAuth, { partial: true } ).mockReturnValue( { isAuthenticated: false } );
 	vi.mocked( useGetWpComSitesQuery, { partial: true } ).mockReturnValue( {
 		data: { sites: [] },
@@ -200,6 +212,7 @@ describe( 'MainSidebar Site Menu', () => {
 	} );
 
 	it( 'renders WordPress.com sites as flat live-site rows', async () => {
+		mockFeatureFlags.enableWorkspaces = true;
 		const user = userEvent.setup();
 		vi.mocked( useAuth, { partial: true } ).mockReturnValue( {
 			isAuthenticated: true,
@@ -244,7 +257,36 @@ describe( 'MainSidebar Site Menu', () => {
 		);
 	} );
 
+	it( 'hides WordPress.com site rows when Workspaces is disabled', async () => {
+		vi.mocked( useAuth, { partial: true } ).mockReturnValue( {
+			isAuthenticated: true,
+			user: {
+				id: 1,
+				email: 'dsmart@example.com',
+				displayName: 'D Smart',
+			},
+		} );
+		vi.mocked( useGetWpComSitesQuery, { partial: true } ).mockReturnValue( {
+			data: {
+				sites: [
+					{
+						id: 101,
+						name: 'Auro Atelier',
+						url: 'https://auro.example',
+					},
+				],
+			},
+			isFetching: false,
+		} );
+
+		await act( async () => renderWithProvider( <MainSidebar /> ) );
+
+		expect( screen.queryByRole( 'button', { name: 'WordPress.com' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Auro Atelier' } ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'groups WordPress.com production and staging sites into one workspace row', async () => {
+		mockFeatureFlags.enableWorkspaces = true;
 		siteDetailsMocked.selectedWpcomSite = {
 			id: 101,
 			localSiteId: '',
@@ -301,6 +343,7 @@ describe( 'MainSidebar Site Menu', () => {
 	} );
 
 	it( 'collapses grouped WordPress.com targets until the workspace is selected', async () => {
+		mockFeatureFlags.enableWorkspaces = true;
 		vi.mocked( useAuth, { partial: true } ).mockReturnValue( {
 			isAuthenticated: true,
 			user: {
@@ -346,6 +389,7 @@ describe( 'MainSidebar Site Menu', () => {
 	} );
 
 	it( 'shows a progress indicator for a WordPress.com site while Dolly is thinking', async () => {
+		mockFeatureFlags.enableWorkspaces = true;
 		siteDetailsMocked.wpcomSiteActivity = {
 			101: { isAssistantThinking: true },
 		};
@@ -379,6 +423,7 @@ describe( 'MainSidebar Site Menu', () => {
 	} );
 
 	it( 'shows an unread indicator for a WordPress.com site with a hidden Dolly reply', async () => {
+		mockFeatureFlags.enableWorkspaces = true;
 		siteDetailsMocked.wpcomSiteActivity = {
 			101: { hasUnreadAssistantMessage: true },
 		};
@@ -412,6 +457,7 @@ describe( 'MainSidebar Site Menu', () => {
 	} );
 
 	it( 'shows a progress indicator on the workspace while staging is being created', async () => {
+		mockFeatureFlags.enableWorkspaces = true;
 		siteDetailsMocked.selectedWpcomSite = {
 			id: 101,
 			localSiteId: '',
@@ -462,6 +508,7 @@ describe( 'MainSidebar Site Menu', () => {
 	} );
 
 	it( 'groups same-name WordPress.com staging sites when relationship metadata is missing', async () => {
+		mockFeatureFlags.enableWorkspaces = true;
 		vi.mocked( useAuth, { partial: true } ).mockReturnValue( {
 			isAuthenticated: true,
 			user: {
@@ -497,6 +544,7 @@ describe( 'MainSidebar Site Menu', () => {
 	} );
 
 	it( 'does not group same-name WordPress.com sites unless one is marked staging', async () => {
+		mockFeatureFlags.enableWorkspaces = true;
 		vi.mocked( useAuth, { partial: true } ).mockReturnValue( {
 			isAuthenticated: true,
 			user: {

@@ -52,7 +52,6 @@ export interface ControlRenderContext<
 	isOpen: boolean;
 	setIsOpen: ( isOpen: boolean ) => void;
 	updateProps: ( props: Record< string, unknown > ) => void;
-	runWidgetAction: ( actionId: string ) => boolean;
 	props: TProps;
 }
 
@@ -101,6 +100,5 @@ export interface ControlRendererProps {
 	isOpen: boolean;
 	setIsOpen: ( isOpen: boolean ) => void;
 	updateProps: ( props: Record< string, unknown > ) => void;
-	runWidgetAction: ( actionId: string ) => boolean;
 	props: Record< string, unknown >;
 }

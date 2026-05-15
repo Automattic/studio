@@ -9,7 +9,6 @@ export type ThemeStylesWidgetProps = {
 	fontFamily: string;
 	textColor: string;
 	backgroundColor: string;
-	paletteStackId?: string | null;
 };
 
 export type ThemeStylesWidget = DeskWidgetBase<
@@ -27,10 +26,7 @@ export function isThemeStylesWidgetProps( value: unknown ): value is ThemeStyles
 		candidate.palette.every( isThemePaletteEntry ) &&
 		typeof candidate.fontFamily === 'string' &&
 		typeof candidate.textColor === 'string' &&
-		typeof candidate.backgroundColor === 'string' &&
-		( candidate.paletteStackId === undefined ||
-			candidate.paletteStackId === null ||
-			typeof candidate.paletteStackId === 'string' )
+		typeof candidate.backgroundColor === 'string'
 	);
 }
 

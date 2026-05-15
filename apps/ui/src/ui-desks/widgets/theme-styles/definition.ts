@@ -6,11 +6,6 @@ import {
 } from '@/ui-desks/widgets/theme-styles/component';
 import { ThemeStylesPaletteControl } from '@/ui-desks/widgets/theme-styles/palette-control';
 import {
-	moveThemeStylesPaletteWithShapeInEditor,
-	THEME_STYLES_TOGGLE_PALETTE_ACTION,
-	toggleThemeStylesPaletteInEditor,
-} from '@/ui-desks/widgets/theme-styles/palette-editor';
-import {
 	isThemeStylesWidgetProps,
 	THEME_STYLES_WIDGET_TYPE,
 	type ThemeStylesWidget,
@@ -32,15 +27,6 @@ export const themeStylesWidgetDefinition = {
 			Component: ThemeStylesPaletteControl,
 		},
 	],
-	editorActions: {
-		[ THEME_STYLES_TOGGLE_PALETTE_ACTION ]: ( { editor, shape, widget } ) =>
-			toggleThemeStylesPaletteInEditor( editor, shape, widget ),
-	},
-	onShapeChange: ( { editor, previousShape, nextShape, widget, isDragging } ) => {
-		if ( isDragging ) {
-			moveThemeStylesPaletteWithShapeInEditor( editor, previousShape, nextShape, widget );
-		}
-	},
 	getIndicator: () => ( {
 		cornerRadius: 18,
 		stroke: 'color-mix(in srgb, #3858e9 45%, white)',

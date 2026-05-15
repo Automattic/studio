@@ -1,19 +1,27 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RECTANGLE_WIDGET_SHAPE_TYPE } from '@/ui-desks/shapes/rectangle-widget/types';
-import { moveThemeMaterialsStackWithThemeShapeInEditor } from './drag';
-import { setThemeMaterialsStackViewInEditor } from './stack';
+import {
+	collapseThemeMaterialsStackForShapeInEditor,
+	setThemeMaterialsStackViewInEditor,
+} from './stack';
 import { getThemeMaterialsStackId, THEME_WIDGET_TYPE } from './types';
 import type { Editor, TLShape } from 'tldraw';
 
-const { setStackViewInEditorMock } = vi.hoisted( () => ( {
+const { collapseStackInEditorMock, setStackViewInEditorMock } = vi.hoisted( () => ( {
+	collapseStackInEditorMock: vi.fn(),
 	setStackViewInEditorMock: vi.fn(),
 } ) );
 
 vi.mock( '@/ui-desks/stacks/editor-commands', () => ( {
+	collapseStackInEditor: collapseStackInEditorMock,
 	setStackViewInEditor: setStackViewInEditorMock,
 } ) );
 
 describe( 'theme materials stack helpers', () => {
+	beforeEach( () => {
+		vi.clearAllMocks();
+	} );
+
 	it( 'opens moved theme material stacks from their current position', () => {
 		const stackId = getThemeMaterialsStackId( 'theme-1' );
 		const editor = createEditor( [ createThemeShape() ] );
@@ -34,25 +42,20 @@ describe( 'theme materials stack helpers', () => {
 		} );
 	} );
 
-	it( 'moves theme material stack members with the theme card', () => {
+	it( 'collapses circular material stacks without clearing their configured circle mode', () => {
 		const stackId = getThemeMaterialsStackId( 'theme-1' );
-		const member = createStackMember( stackId );
-		const editor = createEditor( [ createThemeShape(), member ] );
-
-		moveThemeMaterialsStackWithThemeShapeInEditor(
-			editor,
-			createThemeShape( { x: 0, y: 0 } ),
-			createThemeShape( { x: 24, y: 16 } )
-		);
-
-		expect( editor.updateShapes ).toHaveBeenCalledWith( [
-			{
-				id: member.id,
-				type: member.type,
-				x: 124,
-				y: 116,
-			},
+		const editor = createEditor( [
+			createThemeShape(),
+			createStackMemberShape( stackId, {
+				deskStackExpanded: true,
+				deskStackOpenViewMode: 'circle',
+			} ),
 		] );
+
+		collapseThemeMaterialsStackForShapeInEditor( editor, createThemeShape() );
+
+		expect( collapseStackInEditorMock ).toHaveBeenCalledWith( editor, stackId );
+		expect( setStackViewInEditorMock ).not.toHaveBeenCalled();
 	} );
 } );
 
@@ -82,17 +85,19 @@ function createThemeShape( overrides: Partial< TLShape > = {} ) {
 	} as unknown as TLShape;
 }
 
-function createStackMember( stackId: string ) {
+function createStackMemberShape( stackId: string, meta: Record< string, unknown > = {} ) {
 	return {
-		id: 'shape:theme-material-1',
+		id: 'shape:theme-1:styles',
 		type: RECTANGLE_WIDGET_SHAPE_TYPE,
-		x: 100,
-		y: 100,
+		x: 0,
+		y: 0,
 		meta: {
 			deskStackId: stackId,
+			deskStackOrder: 0,
+			...meta,
 		},
 		props: {
-			widgetType: 'theme-template',
+			widgetType: 'theme-styles',
 			shapeProps: {
 				w: 220,
 				h: 160,

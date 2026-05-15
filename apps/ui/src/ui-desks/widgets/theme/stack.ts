@@ -2,8 +2,14 @@ import {
 	RECTANGLE_WIDGET_SHAPE_TYPE,
 	type RectangleWidgetShape,
 } from '@/ui-desks/shapes/rectangle-widget/types';
-import { setStackViewInEditor } from '@/ui-desks/stacks/editor-commands';
-import { getStackId, getStackViewMode, getWidgetIdFromShapeId } from '@/ui-desks/stacks/utils';
+import { collapseStackInEditor, setStackViewInEditor } from '@/ui-desks/stacks/editor-commands';
+import {
+	getStackConfiguredViewMode,
+	getStackId,
+	getStackViewMode,
+	getWidgetIdFromShapeId,
+	isStackExpanded,
+} from '@/ui-desks/stacks/utils';
 import {
 	getThemeMaterialsStackId,
 	getThemeMaterialsStackPosition,
@@ -50,8 +56,13 @@ export function collapseThemeMaterialsStackForShapeInEditor(
 	const stackShape = editor
 		.getCurrentPageShapes()
 		.find( ( candidate ) => getStackId( candidate ) === stackId );
-	if ( getStackViewMode( stackShape ) !== 'tiles' ) {
-		return false;
+	if ( getStackViewMode( stackShape ) === 'stack' ) {
+		if ( ! isStackExpanded( stackShape ) ) {
+			return false;
+		}
+		if ( getStackConfiguredViewMode( stackShape ) === 'circle' ) {
+			return collapseStackInEditor( editor, stackId );
+		}
 	}
 
 	return setThemeMaterialsStackViewInEditor( editor, stackId, 'stack' );

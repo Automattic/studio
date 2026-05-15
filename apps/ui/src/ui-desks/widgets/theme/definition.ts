@@ -12,7 +12,6 @@ import {
 	ThemeWidgetLoadingComponent,
 	ThemeWidgetThumbnailComponent,
 } from '@/ui-desks/widgets/theme/component';
-import { moveThemeMaterialsStackWithThemeShapeInEditor } from '@/ui-desks/widgets/theme/drag';
 import {
 	ThemeExploreControl,
 	ThemeSiteUrlControl,
@@ -39,6 +38,12 @@ type ThemeMaterialResolvedWidget =
 	| ResolvedDeskWidget< ThemeTemplateWidget >
 	| ResolvedDeskWidget< ThemeStylesWidget >
 	| ResolvedDeskWidget< ThemePatternWidget >;
+
+interface ThemeMaterialPosition {
+	x: number;
+	y: number;
+	rotation?: number;
+}
 
 const DEFAULT_THEME_STYLES = {
 	palette: [
@@ -116,11 +121,6 @@ export const themeWidgetDefinition = {
 			createThemeResolution( widget, await getThemeMaterials( context ) ),
 		invalidate: () => false,
 	},
-	onShapeChange: ( { editor, previousShape, nextShape, isDragging } ) => {
-		if ( isDragging ) {
-			moveThemeMaterialsStackWithThemeShapeInEditor( editor, previousShape, nextShape );
-		}
-	},
 } satisfies WidgetDefinition< ThemeWidget >;
 
 export function createThemeResolution( widget: ThemeWidget, materials: ThemeMaterials ) {
@@ -134,12 +134,15 @@ export function createThemeResolution( widget: ThemeWidget, materials: ThemeMate
 							sourceWidgetId: widget.id,
 							key: 'theme-materials',
 						},
+						followSourceWidgetId: widget.id,
 						stack: {
 							id: getThemeMaterialsStackId( widget.id ),
 							...getThemeStackPosition( widget ),
 							zIndex: widget.zIndex,
 							memberIds: widgets.map( ( resolvedWidget ) => resolvedWidget.widget.id ),
-							...( widget.widgetProps.viewMode === 'tiles' ? { viewMode: 'tiles' as const } : {} ),
+							...( widget.widgetProps.viewMode && widget.widgetProps.viewMode !== 'stack'
+								? { viewMode: widget.widgetProps.viewMode }
+								: {} ),
 						},
 					},
 			  ]
@@ -248,7 +251,7 @@ function pickSampleTemplate( templates: ThemeTemplate[] ) {
 function createDerivedThemeTemplateWidget(
 	source: ThemeWidget,
 	template: ThemeTemplate,
-	position: { x: number; y: number }
+	position: ThemeMaterialPosition
 ): ResolvedDeskWidget< ThemeTemplateWidget > {
 	return {
 		origin: {
@@ -261,6 +264,7 @@ function createDerivedThemeTemplateWidget(
 			type: THEME_TEMPLATE_WIDGET_TYPE,
 			x: position.x,
 			y: position.y,
+			...( position.rotation !== undefined ? { rotation: position.rotation } : {} ),
 			zIndex: source.zIndex,
 			shapeProps: THEME_MATERIAL_SHAPE_PROPS,
 			widgetProps: {
@@ -277,7 +281,7 @@ function createDerivedThemeTemplateWidget(
 function createDerivedThemeStylesWidget(
 	source: ThemeWidget,
 	materials: ThemeMaterials,
-	position: { x: number; y: number }
+	position: ThemeMaterialPosition
 ): ResolvedDeskWidget< ThemeStylesWidget > {
 	return {
 		origin: {
@@ -290,6 +294,7 @@ function createDerivedThemeStylesWidget(
 			type: THEME_STYLES_WIDGET_TYPE,
 			x: position.x,
 			y: position.y,
+			...( position.rotation !== undefined ? { rotation: position.rotation } : {} ),
 			zIndex: source.zIndex,
 			shapeProps: THEME_MATERIAL_SHAPE_PROPS,
 			widgetProps: materials.styles ?? DEFAULT_THEME_STYLES,
@@ -300,7 +305,7 @@ function createDerivedThemeStylesWidget(
 function createDerivedThemePatternWidget(
 	source: ThemeWidget,
 	pattern: ThemePattern,
-	position: { x: number; y: number }
+	position: ThemeMaterialPosition
 ): ResolvedDeskWidget< ThemePatternWidget > {
 	return {
 		origin: {
@@ -313,6 +318,7 @@ function createDerivedThemePatternWidget(
 			type: THEME_PATTERN_WIDGET_TYPE,
 			x: position.x,
 			y: position.y,
+			...( position.rotation !== undefined ? { rotation: position.rotation } : {} ),
 			zIndex: source.zIndex,
 			shapeProps: THEME_MATERIAL_SHAPE_PROPS,
 			widgetProps: {

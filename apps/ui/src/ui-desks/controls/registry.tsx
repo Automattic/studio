@@ -14,7 +14,6 @@ export function ControlRenderer( props: ControlRendererProps ) {
 				<Component
 					isOpen={ props.isOpen }
 					props={ props.props }
-					runWidgetAction={ props.runWidgetAction }
 					setIsOpen={ props.setIsOpen }
 					updateProps={ props.updateProps }
 				/>

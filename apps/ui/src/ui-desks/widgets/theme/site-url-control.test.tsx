@@ -151,7 +151,6 @@ function createControlContext(): ControlRenderContext< ThemeWidgetProps > {
 		isOpen: false,
 		setIsOpen: vi.fn(),
 		updateProps: vi.fn(),
-		runWidgetAction: vi.fn(),
 		props: {},
 	};
 }

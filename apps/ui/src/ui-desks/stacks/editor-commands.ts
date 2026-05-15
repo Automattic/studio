@@ -5,8 +5,6 @@ import {
 	type TLShape,
 	type TLShapePartial,
 } from 'tldraw';
-import { canvasShapeToDeskWidget } from '@/ui-desks/desk/tldraw-adapter';
-import { getWidgetDefinition } from '@/ui-desks/widgets/registry';
 import {
 	clearExpandedStackMeta,
 	clearStackMeta,
@@ -16,9 +14,12 @@ import {
 	createStackMeta,
 	createStackPushMeta,
 	getStackAnchorFromMember,
+	getStackCircleLayoutsFromCenter,
+	getStackConfiguredViewMode,
 	getStackHome,
 	getStackId,
 	getStackMemberLayout,
+	getStackOpenViewMode,
 	getStackOrder,
 	getStackOriginalZIndex,
 	getStackPushOrigin,
@@ -29,11 +30,6 @@ import {
 	isStackExpanded,
 	type StackViewMode,
 } from './utils';
-import type {
-	DeskWidget,
-	WidgetStackLayout,
-	WidgetStackLayoutContext,
-} from '@/ui-desks/widgets/types';
 
 interface StackWidgetSelection {
 	shapes: TLShape[];
@@ -90,14 +86,19 @@ export function expandStackInEditor( editor: Editor, stackId: string ) {
 	if (
 		members.length <= 1 ||
 		members.some( isStackExpanded ) ||
-		getStackViewMode( members[ 0 ] ) === 'tiles'
+		getStackViewMode( members[ 0 ] ) !== 'stack'
 	) {
 		return false;
 	}
 
 	const stack = getStackFromCollapsedMembers( members );
-	const expandedLayouts: WidgetStackLayout =
-		getCustomStackExpandedLayouts( members, stack ) ?? getExpandedStackLayouts( members, stack );
+	const expandedLayouts: Array< { x: number; y: number; rotation?: number } > =
+		getStackOpenViewMode( members[ 0 ] ) === 'circle'
+			? getStackCircleLayoutsFromCenter(
+					members.map( getShapeSize ),
+					getStackAnchorCenter( members )
+			  )
+			: getExpandedStackLayouts( members, stack );
 
 	editor.updateShapes(
 		members.map( ( shape ) => ( {
@@ -130,7 +131,7 @@ export function collapseStackInEditor( editor: Editor, stackId: string ) {
 	if (
 		members.length <= 1 ||
 		! members.some( isStackExpanded ) ||
-		getStackViewMode( members[ 0 ] ) === 'tiles'
+		getStackViewMode( members[ 0 ] ) !== 'stack'
 	) {
 		return false;
 	}
@@ -181,7 +182,7 @@ export function setStackViewInEditor(
 		return false;
 	}
 
-	const currentViewMode = getStackViewMode( members[ 0 ] );
+	const currentViewMode = getStackConfiguredViewMode( members[ 0 ] );
 	if ( currentViewMode === viewMode ) {
 		return false;
 	}
@@ -198,15 +199,19 @@ export function setStackViewInEditor(
 				meta: {
 					...( shape.meta ?? {} ),
 					...clearExpandedStackMeta(),
-					deskStackViewMode: 'tiles',
+					deskStackViewMode: viewMode,
+					deskStackOpenViewMode: null,
 				},
 			} ) )
 		);
 
-		const tilePartials = getTiledStackPartials( members, anchor );
-		editor.animateShapes( withStackDimPartials( editor, [ ...tilePartials, ...restorePartials ] ), {
-			animation: { duration: STACK_ANIMATION_DURATION },
-		} );
+		const layoutPartials = getTiledStackPartials( members, anchor );
+		editor.animateShapes(
+			withStackDimPartials( editor, [ ...layoutPartials, ...restorePartials ] ),
+			{
+				animation: { duration: STACK_ANIMATION_DURATION },
+			}
+		);
 		return true;
 	}
 
@@ -226,6 +231,7 @@ export function setStackViewInEditor(
 			meta: {
 				...( shape.meta ?? {} ),
 				deskStackViewMode: null,
+				deskStackOpenViewMode: viewMode === 'circle' ? 'circle' : null,
 				...clearExpandedStackMeta(),
 			},
 		} ) )
@@ -364,42 +370,6 @@ function getExpandedStackLayouts( members: TLShape[], stack: { x: number; y: num
 			y: startY + row * ( cellHeight + EXPANDED_STACK_GAP ) + ( cellHeight - size.h ) / 2,
 		};
 	} );
-}
-
-function getCustomStackExpandedLayouts(
-	members: TLShape[],
-	stack: { x: number; y: number }
-): WidgetStackLayout | null {
-	const widgets = members.map( canvasShapeToDeskWidget );
-	if ( widgets.some( ( widget ) => ! widget ) ) {
-		return null;
-	}
-
-	const typedWidgets = widgets as DeskWidget[];
-	const firstWidget = typedWidgets[ 0 ];
-	if ( ! firstWidget || typedWidgets.some( ( widget ) => widget.type !== firstWidget.type ) ) {
-		return null;
-	}
-
-	const definition = getWidgetDefinition( firstWidget.type );
-	const firstSize = getShapeSize( members[ 0 ] );
-	const anchor = {
-		x: stack.x + firstSize.w / 2,
-		y: stack.y + firstSize.h / 2,
-	};
-	const getStackExpandedLayout = definition?.getStackExpandedLayout as
-		| ( ( context: WidgetStackLayoutContext< DeskWidget > ) => WidgetStackLayout | null )
-		| undefined;
-	const layout =
-		getStackExpandedLayout?.( {
-			anchor,
-			members: members.map( ( shape, index ) => ( {
-				shape,
-				widget: typedWidgets[ index ],
-			} ) ),
-		} ) ?? null;
-
-	return layout && layout.length === members.length ? layout : null;
 }
 
 function getStackAnchorCenter( members: TLShape[] ) {

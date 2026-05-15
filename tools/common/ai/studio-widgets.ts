@@ -32,7 +32,7 @@ const MEDIA_KINDS = [ 'image', 'video' ] as const;
 const POST_COLLECTION_STATUSES = [ 'publish', 'draft', 'any' ] as const;
 const POST_COLLECTION_ORDER_BY = [ 'date', 'modified', 'title' ] as const;
 const POST_COLLECTION_ORDERS = [ 'asc', 'desc' ] as const;
-const STACK_VIEW_MODES = [ 'stack', 'tiles' ] as const;
+const STACK_VIEW_MODES = [ 'stack', 'tiles', 'circle' ] as const;
 const THEME_TEMPLATE_SOURCES = [ 'theme', 'custom', 'plugin' ] as const;
 const THEME_PATTERN_SOURCES = [ 'theme', 'reusable', 'template-part' ] as const;
 const COLOR_FORMATS = [ 'hex', 'rgb', 'hsl' ] as const;
@@ -97,7 +97,7 @@ export const STUDIO_PRESENTABLE_WIDGET_SPECS: StudioWidgetSpec[] = [
 		description:
 			'A dynamic collection of recent or filtered WordPress posts. Prefer this for latest, recent, top, feed, archive, or other post-list requests.',
 		propsDescription:
-			'{ "query": { "postType": "post", "perPage": 5, "status": "publish", "orderby": "date", "order": "desc" }, "viewMode": "stack" }.',
+			'{ "query": { "postType": "post", "perPage": 5, "status": "publish", "orderby": "date", "order": "desc" }, "viewMode": "stack" } where viewMode is optional and may be stack, tiles, or circle.',
 		example: {
 			type: 'post-collection',
 			widgetProps: {
@@ -192,7 +192,7 @@ export const STUDIO_PRESENTABLE_WIDGET_SPECS: StudioWidgetSpec[] = [
 		description:
 			'A theme card for the active site theme. It resolves into a theme material stack with templates, styles, template parts, and patterns.',
 		propsDescription:
-			'{ "viewMode": "stack" } where viewMode is optional and may be stack or tiles.',
+			'{ "viewMode": "stack" } where viewMode is optional and may be stack, tiles, or circle.',
 		example: { type: 'theme', widgetProps: { viewMode: 'stack' } },
 		validateWidgetProps: ( props ) =>
 			props.viewMode === undefined || isOneOf( props.viewMode, STACK_VIEW_MODES ),
@@ -242,10 +242,7 @@ export const STUDIO_PRESENTABLE_WIDGET_SPECS: StudioWidgetSpec[] = [
 			props.palette.every( isThemePaletteEntry ) &&
 			typeof props.fontFamily === 'string' &&
 			typeof props.textColor === 'string' &&
-			typeof props.backgroundColor === 'string' &&
-			( props.paletteStackId === undefined ||
-				props.paletteStackId === null ||
-				typeof props.paletteStackId === 'string' ),
+			typeof props.backgroundColor === 'string',
 	},
 	{
 		type: 'theme-pattern',

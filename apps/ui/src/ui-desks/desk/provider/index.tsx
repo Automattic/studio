@@ -37,6 +37,7 @@ import {
 	deskConfigToCanvasConnectorShapes,
 	deskConfigToCanvasShapes,
 	deskWidgetToCanvasShape,
+	getDeskCanvasRecordFollowSourceWidgetId,
 	getTemporaryDeskCanvasRecordMeta,
 } from '@/ui-desks/desk/tldraw-adapter';
 import { DESK_CONFIG_VERSION, type DeskConfig } from '@/ui-desks/desk/types';
@@ -85,11 +86,12 @@ import {
 	hasCameraChange,
 	hasPersistentDocumentChange,
 	hydrateEditorFromDesk,
+	isTemporaryDeskVisibleInEditor,
 	isDrawShape,
 	removeSelectedWidgetFromEditor,
-	runSelectedWidgetActionInEditor,
 	setSelectedStackViewInEditor,
 	stackSelectedWidgetsInEditor,
+	toggleTemporaryDeskInEditor,
 	unstackSelectedWidgetsInEditor,
 	updateSelectedWidgetPropsInEditor,
 } from './editor-state';
@@ -99,7 +101,6 @@ import type { DeskFocusDesk, DeskFocusMode } from '@/ui-desks/focus-mode/types';
 import type {
 	DeskWidget,
 	ActiveWidgetDropFeedback,
-	WidgetShapeChangeContext,
 	WidgetHandlerLoading,
 	WidgetHandlerResult,
 	WidgetPastePayload,
@@ -416,23 +417,12 @@ export function DeskProvider( {
 		}
 
 		return editor.sideEffects.registerAfterChangeHandler( 'shape', ( previousShape, nextShape ) => {
-			const previousWidget = canvasShapeToDeskWidget( previousShape );
 			const nextWidget = canvasShapeToDeskWidget( nextShape );
-			if ( ! previousWidget || ! nextWidget || previousWidget.type !== nextWidget.type ) {
+			if ( ! editor.inputs.isDragging || ! nextWidget ) {
 				return;
 			}
 
-			const onShapeChange = getWidgetDefinition( nextWidget.type )?.onShapeChange as
-				| ( ( context: WidgetShapeChangeContext< DeskWidget > ) => void )
-				| undefined;
-			onShapeChange?.( {
-				editor,
-				previousShape,
-				nextShape,
-				previousWidget,
-				widget: nextWidget,
-				isDragging: editor.inputs.isDragging,
-			} );
+			moveShapesFollowingSourceWidget( editor, previousShape, nextShape, nextWidget.id );
 		} );
 	}, [ editor ] );
 
@@ -852,14 +842,14 @@ export function DeskProvider( {
 		[ editor, isHydrated, isReadOnly, toolbarStateOptions ]
 	);
 
-	const runSelectedWidgetAction = useCallback(
-		( actionId: string ) => {
-			if (
-				isReadOnly ||
-				! editor ||
-				! isHydrated ||
-				! runSelectedWidgetActionInEditor( editor, actionId )
-			) {
+	const toggleTemporaryDesk = useCallback(
+		( options: Parameters< typeof toggleTemporaryDeskInEditor >[ 1 ] ) => {
+			if ( isReadOnly || ! editor || ! isHydrated ) {
+				return false;
+			}
+
+			const didToggle = toggleTemporaryDeskInEditor( editor, options );
+			if ( ! didToggle ) {
 				return false;
 			}
 
@@ -871,6 +861,11 @@ export function DeskProvider( {
 			return true;
 		},
 		[ editor, isHydrated, isReadOnly, toolbarStateOptions ]
+	);
+
+	const isTemporaryDeskVisible = useCallback(
+		( id: string ) => Boolean( editor && isTemporaryDeskVisibleInEditor( editor, id ) ),
+		[ editor ]
 	);
 
 	const removeSelectedWidget = useCallback( () => {
@@ -1234,7 +1229,8 @@ export function DeskProvider( {
 			stackSelectedWidgets,
 			unstackSelectedWidgets,
 			setSelectedStackView,
-			runSelectedWidgetAction,
+			toggleTemporaryDesk,
+			isTemporaryDeskVisible,
 			removeSelectedWidget,
 			removeSelectedConnector,
 			startConnectingWidget,
@@ -1262,6 +1258,7 @@ export function DeskProvider( {
 			getDeskConfigSnapshot,
 			getFocusDeskSnapshot,
 			isHydrated,
+			isTemporaryDeskVisible,
 			isReadOnly,
 			isLoading,
 			pendingConnectorSourceId,
@@ -1272,7 +1269,6 @@ export function DeskProvider( {
 			registerEditor,
 			removeSelectedConnector,
 			removeSelectedWidget,
-			runSelectedWidgetAction,
 			selectedConnectorToolbarItem,
 			selectedWidgetConnectionTargets,
 			selectedWidgetToolbarItem,
@@ -1286,6 +1282,7 @@ export function DeskProvider( {
 			siteId,
 			statusMessage,
 			stopFocusMode,
+			toggleTemporaryDesk,
 			unstackSelectedWidgets,
 			updateSelectedWidgetProps,
 		]
@@ -1438,6 +1435,37 @@ function withTemporaryFocusMeta< TShape extends TLShapePartial >( shape: TShape 
 		...shape,
 		meta: getTemporaryDeskCanvasRecordMeta( shape ),
 	};
+}
+
+function moveShapesFollowingSourceWidget(
+	editor: Editor,
+	previousShape: TLShape,
+	nextShape: TLShape,
+	sourceWidgetId: string
+) {
+	if ( previousShape.x === nextShape.x && previousShape.y === nextShape.y ) {
+		return;
+	}
+
+	const deltaX = nextShape.x - previousShape.x;
+	const deltaY = nextShape.y - previousShape.y;
+	const followerPartials = editor
+		.getCurrentPageShapes()
+		.filter(
+			( shape ) =>
+				shape.id !== nextShape.id &&
+				getDeskCanvasRecordFollowSourceWidgetId( shape ) === sourceWidgetId
+		)
+		.map( ( shape ) => ( {
+			id: shape.id,
+			type: shape.type,
+			x: shape.x + deltaX,
+			y: shape.y + deltaY,
+		} ) );
+
+	if ( followerPartials.length > 0 ) {
+		editor.updateShapes( followerPartials );
+	}
 }
 
 function updateFocusModeShapes( editor: Editor, partials: TLShapePartial[], animated: boolean ) {

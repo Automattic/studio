@@ -65,6 +65,7 @@ export function isThemeWidgetProps( value: unknown ): value is ThemeWidgetProps 
 		typeof value === 'object' &&
 		( candidate.viewMode === undefined ||
 			candidate.viewMode === 'stack' ||
-			candidate.viewMode === 'tiles' )
+			candidate.viewMode === 'tiles' ||
+			candidate.viewMode === 'circle' )
 	);
 }

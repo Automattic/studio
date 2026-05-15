@@ -6,7 +6,7 @@ import {
 } from '@/ui-desks/widgets/theme/stack';
 import { isThemeMaterialsStackId } from '@/ui-desks/widgets/theme/types';
 import { collapseAllExpandedStacksInEditor, expandStackInEditor } from './editor-commands';
-import { getStackId, getStackViewMode, isStackExpanded } from './utils';
+import { getStackConfiguredViewMode, getStackId, getStackViewMode, isStackExpanded } from './utils';
 import type { Editor, TLEventInfo, TLShapeId } from 'tldraw';
 
 export function useStackInteractions( editor: Editor | null ) {
@@ -87,7 +87,7 @@ function useTiledStackDragSelection( editor: Editor | null ) {
 
 				const hitShape = getShapeAtPointer( editor );
 				const stackId = getStackId( hitShape );
-				if ( ! hitShape || ! stackId || getStackViewMode( hitShape ) !== 'tiles' ) {
+				if ( ! hitShape || ! stackId || getStackViewMode( hitShape ) === 'stack' ) {
 					return;
 				}
 
@@ -218,7 +218,14 @@ function useStackClickToOpen( editor: Editor | null ) {
 					return;
 				}
 				if ( isThemeMaterialsStackId( clickedStackId ) ) {
-					if ( setThemeMaterialsStackViewInEditor( editor, clickedStackId, 'tiles' ) ) {
+					const stackShape = editor
+						.getCurrentPageShapes()
+						.find( ( shape ) => getStackId( shape ) === clickedStackId );
+					const didOpen =
+						getStackConfiguredViewMode( stackShape ) === 'circle'
+							? expandStackInEditor( editor, clickedStackId )
+							: setThemeMaterialsStackViewInEditor( editor, clickedStackId, 'tiles' );
+					if ( didOpen ) {
 						editor.setSelectedShapes( [] );
 					}
 					return;
@@ -267,7 +274,7 @@ function useStackClickToOpen( editor: Editor | null ) {
 function getCollapsedStackIdAtPointer( editor: Editor ) {
 	const stackId = getStackIdAtPointer( editor );
 	const hitShape = getShapeAtPointer( editor );
-	return stackId && ! isStackExpanded( hitShape ) && getStackViewMode( hitShape ) !== 'tiles'
+	return stackId && ! isStackExpanded( hitShape ) && getStackViewMode( hitShape ) === 'stack'
 		? stackId
 		: null;
 }

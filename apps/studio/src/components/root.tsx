@@ -15,6 +15,7 @@ import { ImportExportProvider } from 'src/hooks/use-import-export';
 import { SiteDetailsProvider } from 'src/hooks/use-site-details';
 import { ThemeDetailsProvider } from 'src/hooks/use-theme-details';
 import { OnboardingProvider } from 'src/modules/onboarding/hooks/use-onboarding';
+import { WorkspaceSelectionProvider } from 'src/modules/workspaces';
 import { store } from 'src/stores';
 import { initializeUserLocale } from 'src/stores/i18n-slice';
 
@@ -39,13 +40,15 @@ const Root = () => {
 							<FeatureFlagsProvider>
 								<ContentTabsProvider>
 									<SiteDetailsProvider>
-										<ThemeDetailsProvider>
-											<OnboardingProvider>
-												<ImportExportProvider>
-													<App />
-												</ImportExportProvider>
-											</OnboardingProvider>
-										</ThemeDetailsProvider>
+										<WorkspaceSelectionProvider>
+											<ThemeDetailsProvider>
+												<OnboardingProvider>
+													<ImportExportProvider>
+														<App />
+													</ImportExportProvider>
+												</OnboardingProvider>
+											</ThemeDetailsProvider>
+										</WorkspaceSelectionProvider>
 									</SiteDetailsProvider>
 								</ContentTabsProvider>
 							</FeatureFlagsProvider>

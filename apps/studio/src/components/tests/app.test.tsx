@@ -6,6 +6,7 @@ import App from 'src/components/app';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { useOnboarding } from 'src/modules/onboarding/hooks/use-onboarding';
+import { WorkspaceSelectionProvider } from 'src/modules/workspaces';
 import { rootReducer } from 'src/stores';
 import { appVersionApi } from 'src/stores/app-version-api';
 import { certificateTrustApi } from 'src/stores/certificate-trust-api';
@@ -14,10 +15,21 @@ import { connectedSitesApi } from 'src/stores/sync/connected-sites';
 import { wpcomSitesApi } from 'src/stores/sync/wpcom-sites';
 import { wordpressVersionsApi } from 'src/stores/wordpress-versions-api';
 import { wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
+import type { SyncSite } from '@studio/common/types/sync';
+
+const featureFlagsMock = vi.hoisted( () => ( {
+	enableBlueprints: true,
+	enableStudioCodeUi: false,
+	enableWorkspaces: false,
+} ) );
+const useGetWpComSitesQueryMock = vi.hoisted( () => vi.fn() );
 
 vi.mock( 'src/index.css', () => ( {} ) );
 vi.mock( 'src/components/dot-grid', () => ( {
 	DotGrid: () => null,
+} ) );
+vi.mock( 'src/components/gravatar', () => ( {
+	Gravatar: () => null,
 } ) );
 vi.mock( 'src/stores/onboarding-slice', async () => {
 	const actual = await vi.importActual( 'src/stores/onboarding-slice' );
@@ -28,6 +40,18 @@ vi.mock( 'src/stores/onboarding-slice', async () => {
 } );
 vi.mock( 'src/modules/onboarding/hooks/use-onboarding' );
 vi.mock( 'src/hooks/use-site-details' );
+vi.mock( 'src/hooks/use-auth', () => ( {
+	useAuth: () => ( {
+		isAuthenticated: true,
+		user: { id: 123, email: 'user@example.com', displayName: 'User' },
+		client: undefined,
+		authenticate: vi.fn(),
+		logout: vi.fn(),
+	} ),
+} ) );
+vi.mock( 'src/hooks/use-feature-flags', () => ( {
+	useFeatureFlags: () => featureFlagsMock,
+} ) );
 vi.mock( 'src/modules/whats-new/hooks/use-whats-new', () => ( {
 	useWhatsNew: () => ( {
 		showWhatsNew: false,
@@ -62,6 +86,7 @@ vi.mock( 'src/lib/get-ipc-api', async () => {
 			} ),
 			getAllCustomDomains: vi.fn().mockResolvedValue( [] ),
 			generateSiteNameFromList: vi.fn().mockResolvedValue( 'My WordPress Website' ),
+			isFullscreen: vi.fn().mockResolvedValue( false ),
 		} ),
 	};
 } );
@@ -91,9 +116,42 @@ vi.mock( 'src/stores/wpcom-api', async () => {
 	};
 } );
 
+vi.mock( 'src/stores/sync/wpcom-sites', async () => {
+	const actual = await vi.importActual< typeof import('src/stores/sync/wpcom-sites') >(
+		'src/stores/sync/wpcom-sites'
+	);
+	return {
+		...actual,
+		useGetWpComSitesQuery: useGetWpComSitesQueryMock,
+	};
+} );
+
+const createSyncSite = ( overrides: Partial< SyncSite > = {} ): SyncSite => ( {
+	id: 101,
+	localSiteId: '',
+	name: 'Remote Only',
+	url: 'https://remote-only.example',
+	isStaging: false,
+	isPressable: false,
+	syncSupport: 'syncable',
+	lastPullTimestamp: null,
+	lastPushTimestamp: null,
+	...overrides,
+} );
+
+const mockWpcomSitesQuery = ( sites: SyncSite[] = [] ) => {
+	useGetWpComSitesQueryMock.mockReturnValue( {
+		data: { sites, total: sites.length, page: 1, perPage: 100 },
+		isLoading: false,
+		isFetching: false,
+	} );
+};
+
 describe( 'App', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
+		featureFlagsMock.enableWorkspaces = false;
+		mockWpcomSitesQuery();
 	} );
 
 	const renderWithProvider = ( component: React.ReactElement ) => {
@@ -112,7 +170,9 @@ describe( 'App', () => {
 		} );
 		return render(
 			<Provider store={ store }>
-				<ContentTabsProvider>{ component }</ContentTabsProvider>
+				<ContentTabsProvider>
+					<WorkspaceSelectionProvider>{ component }</WorkspaceSelectionProvider>
+				</ContentTabsProvider>
 			</Provider>
 		);
 	};
@@ -134,5 +194,30 @@ describe( 'App', () => {
 		await waitFor( () => {
 			expect( screen.getByText( 'Add a site' ) ).toBeInTheDocument();
 		} );
+	} );
+
+	it( 'renders workspace content for remote-only workspaces when enabled', async () => {
+		featureFlagsMock.enableWorkspaces = true;
+		mockWpcomSitesQuery( [ createSyncSite() ] );
+		( useOnboarding as Mock ).mockReturnValue( {
+			needsOnboarding: false,
+		} );
+		( useSiteDetails as Mock ).mockReturnValue( {
+			sites: [],
+			loadingSites: false,
+			selectedSite: null,
+			snapshots: [],
+			loadingServer: {},
+			siteCreationMessages: {},
+			setSelectedSiteId: vi.fn(),
+		} );
+
+		renderWithProvider( <App /> );
+
+		await waitFor( () => {
+			expect( screen.getByTestId( 'site-content' ) ).toBeInTheDocument();
+		} );
+		expect( screen.getAllByText( 'Remote Only' )[ 0 ] ).toBeVisible();
+		expect( screen.queryByText( 'Add a site' ) ).not.toBeInTheDocument();
 	} );
 } );

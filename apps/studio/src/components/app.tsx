@@ -24,6 +24,7 @@ import { UserSettings } from 'src/modules/user-settings';
 import { useKonamiCode } from 'src/modules/wapuu-world/use-konami-code';
 import { WapuuWorldGame } from 'src/modules/wapuu-world/wapuu-world-game';
 import { WhatsNewModal, useWhatsNew } from 'src/modules/whats-new';
+import { useWorkspaceSelection } from 'src/modules/workspaces';
 import { useAppDispatch, useRootSelector } from 'src/stores';
 import { selectOnboardingLoading } from 'src/stores/onboarding-slice';
 import { syncOperationsThunks } from 'src/stores/sync';
@@ -41,7 +42,10 @@ export default function App() {
 	);
 	const { showWhatsNew, closeWhatsNew } = useWhatsNew();
 	const { sites: localSites, loadingSites } = useSiteDetails();
-	const isEmpty = ! loadingSites && ! localSites.length;
+	const { enableWorkspaces, workspaces, isLoading: isLoadingWorkspaces } = useWorkspaceSelection();
+	const isEmpty = enableWorkspaces
+		? ! loadingSites && ! isLoadingWorkspaces && ! workspaces.length
+		: ! loadingSites && ! localSites.length;
 	const shouldShowWhatsNew = showWhatsNew && ! isEmpty;
 	const { client } = useAuth();
 	const dispatch = useAppDispatch();

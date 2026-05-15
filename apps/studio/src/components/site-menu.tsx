@@ -14,12 +14,11 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
 import { getTerminalName } from 'src/modules/user-settings/lib/terminal';
-import { useSidebarWorkspaces, useWorkspaceTargetSelection } from 'src/modules/workspaces';
+import { useWorkspaceSelection } from 'src/modules/workspaces';
 import { WorkspaceSidebarRow } from 'src/modules/workspaces/components/workspace-sidebar-row';
 import { useRootSelector } from 'src/stores';
 import { useGetUserEditorQuery, useGetUserTerminalQuery } from 'src/stores/installed-apps-api';
 import { syncOperationsSelectors } from 'src/stores/sync';
-import type { StudioWorkspace, WorkspaceTargetId } from 'src/modules/workspaces';
 
 interface SiteMenuProps {
 	className?: string;
@@ -262,30 +261,14 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 	const { data: editor } = useGetUserEditorQuery();
 	const {
 		enableWorkspaces,
-		sidebarWorkspaces,
+		workspaces: sidebarWorkspaces,
 		isLoading: isLoadingWorkspaces,
-	} = useSidebarWorkspaces();
-	const { selectedWorkspaceId, getSelectedTargetId, selectWorkspaceTarget } =
-		useWorkspaceTargetSelection( sidebarWorkspaces );
+		selectedWorkspaceId,
+		getSelectedTargetId,
+		selectWorkspaceTarget,
+	} = useWorkspaceSelection();
 	const [ draggedIndex, setDraggedIndex ] = useState< number | null >( null );
 	const [ dragOverIndex, setDragOverIndex ] = useState< number | null >( null );
-
-	const handleSelectWorkspaceTarget = (
-		workspace: StudioWorkspace,
-		targetId: WorkspaceTargetId
-	) => {
-		selectWorkspaceTarget( workspace.id, targetId );
-		if ( targetId === 'local' && workspace.targets.local ) {
-			setSelectedSiteId( workspace.targets.local.siteId );
-		}
-	};
-
-	const isWorkspaceSelected = (
-		workspace: StudioWorkspace,
-		selectedTargetId?: WorkspaceTargetId
-	) =>
-		selectedWorkspaceId === workspace.id ||
-		( selectedTargetId === 'local' && workspace.targets.local?.siteId === selectedSite?.id );
 
 	const handleDragStart = ( e: React.DragEvent, index: number ) => {
 		setDraggedIndex( index );
@@ -428,15 +411,13 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 									key={ workspace.id }
 									workspace={ workspace }
 									selectedTargetId={ selectedTargetId }
-									isSelected={ isWorkspaceSelected( workspace, selectedTargetId ) }
+									isSelected={ selectedWorkspaceId === workspace.id }
 									localRunControl={
 										workspace.targets.local ? (
 											<ButtonToRun { ...workspace.targets.local.site } />
 										) : undefined
 									}
-									onSelectTarget={ ( targetId ) =>
-										handleSelectWorkspaceTarget( workspace, targetId )
-									}
+									onSelectTarget={ ( targetId ) => selectWorkspaceTarget( workspace.id, targetId ) }
 								/>
 							);
 						} ) }

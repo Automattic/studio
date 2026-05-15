@@ -5,6 +5,7 @@ import { vi } from 'vitest';
 import MainSidebar from 'src/components/main-sidebar';
 import { useAuth } from 'src/hooks/use-auth';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
+import { WorkspaceSelectionProvider } from 'src/modules/workspaces';
 import { store } from 'src/stores';
 import type { SyncSite } from '@studio/common/types/sync';
 
@@ -182,7 +183,9 @@ const enableWorkspaceSidebar = ( {
 const renderWithProvider = ( children: React.ReactElement ) => {
 	return render(
 		<Provider store={ store }>
-			<ContentTabsProvider>{ children }</ContentTabsProvider>
+			<ContentTabsProvider>
+				<WorkspaceSelectionProvider>{ children }</WorkspaceSelectionProvider>
+			</ContentTabsProvider>
 		</Provider>
 	);
 };

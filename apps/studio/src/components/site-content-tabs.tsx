@@ -11,15 +11,18 @@ import { SiteIsBeingCreated } from 'src/components/site-is-being-created';
 import { MIN_WIDTH_CLASS_TO_MEASURE } from 'src/constants';
 import { TabName } from 'src/hooks/use-content-tabs';
 import { useEffectiveTab } from 'src/hooks/use-effective-tab';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { ContentTabSync } from 'src/modules/sync';
+import { WorkspaceContentShell } from 'src/modules/workspaces/components/workspace-content-shell';
 
 export function SiteContentTabs() {
 	const { selectedSite, siteCreationMessages } = useSiteDetails();
 	const { importState } = useImportExport();
 	const { effectiveTab, selectedTab, setSelectedTab, tabs } = useEffectiveTab();
+	const { enableWorkspaces } = useFeatureFlags();
 	const { __ } = useI18n();
 
 	// Remount: Avoid focus loss on user tab changes (no remount),
@@ -54,6 +57,10 @@ export function SiteContentTabs() {
 		setProgrammaticTab( selectedTab );
 		prevSelectedTab.current = selectedTab;
 	}, [ selectedTab ] );
+
+	if ( enableWorkspaces ) {
+		return <WorkspaceContentShell />;
+	}
 
 	if ( ! selectedSite ) {
 		return (

@@ -19,13 +19,18 @@ import { getTerminalName } from 'src/modules/user-settings/lib/terminal';
 import {
 	createWpcomSiteWorkspaces,
 	getDefaultWpcomWorkspaceTarget,
+	getSavedWpcomWorkspaceTarget,
+	isSavedWpcomWorkspaceLocalTarget,
+	mergeWpcomSitesWithConnectedSites,
 	setSavedWpcomWorkspaceTarget,
+	setSavedWpcomWorkspaceLocalTarget,
 	type WpcomSiteWorkspace,
 } from 'src/modules/wpcom-site-assistant/lib/workspaces';
 import { useRootSelector } from 'src/stores';
 import { useGetUserEditorQuery, useGetUserTerminalQuery } from 'src/stores/installed-apps-api';
-import { syncOperationsSelectors } from 'src/stores/sync';
+import { stagingSyncSelectors, syncOperationsSelectors } from 'src/stores/sync';
 import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
+import type { SyncSite } from '@studio/common/types/sync';
 import type { WpcomSiteActivity } from 'src/hooks/use-site-details';
 
 interface SiteMenuProps {
@@ -159,6 +164,7 @@ function SiteItem( {
 	onDrop,
 	onDragEnd,
 	isDragOver,
+	workspace,
 }: {
 	site: SiteDetails;
 	index: number;
@@ -167,16 +173,20 @@ function SiteItem( {
 	onDrop: ( e: React.DragEvent, index: number ) => void;
 	onDragEnd: () => void;
 	isDragOver: boolean;
+	workspace?: WpcomSiteWorkspace;
 } ) {
 	const {
 		sites,
 		selectedSite,
 		selectedWpcomSite,
 		setSelectedSiteId,
+		setSelectedWpcomSite,
 		loadingServer,
 		isSiteDeleting,
 	} = useSiteDetails();
-	const isSelected = ! selectedWpcomSite && site === selectedSite;
+	const isSelected =
+		( ! selectedWpcomSite && site === selectedSite ) ||
+		Boolean( workspace?.sites.some( ( wpcomSite ) => wpcomSite.id === selectedWpcomSite?.id ) );
 	const { isSiteImporting, isSiteExporting } = useImportExport();
 	const { data: editor } = useGetUserEditorQuery();
 	const { data: terminal } = useGetUserTerminalQuery();
@@ -184,17 +194,30 @@ function SiteItem( {
 	const isExporting = isSiteExporting( site.id );
 	const isPulling = useRootSelector( syncOperationsSelectors.selectIsSiteIdPulling( site.id ) );
 	const isPushing = useRootSelector( syncOperationsSelectors.selectIsSiteIdPushing( site.id ) );
+	const environmentSyncState = useRootSelector(
+		stagingSyncSelectors.selectRemoteSiteEnvironmentSyncState(
+			workspace?.productionSite?.id ?? workspace?.stagingSites[ 0 ]?.id
+		)
+	);
+	const isEnvironmentSyncing =
+		environmentSyncState?.status === 'started' || environmentSyncState?.status === 'in-progress';
 	const isSyncing = isPulling || isPushing;
 	const isDeleting = isSiteDeleting( site.id );
 	const showSpinner =
-		site.isAddingSite || isImporting || isPulling || isPushing || isExporting || isDeleting;
+		site.isAddingSite ||
+		isImporting ||
+		isPulling ||
+		isPushing ||
+		isEnvironmentSyncing ||
+		isExporting ||
+		isDeleting;
 
 	let tooltipText: string;
 	if ( site.isAddingSite ) {
 		tooltipText = __( 'Adding' );
 	} else if ( isImporting ) {
 		tooltipText = __( 'Importing' );
-	} else if ( isSyncing ) {
+	} else if ( isSyncing || isEnvironmentSyncing ) {
 		tooltipText = __( 'Syncing' );
 	} else {
 		tooltipText = __( 'Loading' );
@@ -243,6 +266,21 @@ function SiteItem( {
 				type="button"
 				className="p-2 text-xs rounded-tl rounded-bl whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme"
 				onClick={ () => {
+					const savedWorkspaceTarget = workspace
+						? getSavedWpcomWorkspaceTarget( workspace )
+						: undefined;
+					if (
+						workspace &&
+						savedWorkspaceTarget &&
+						! isSavedWpcomWorkspaceLocalTarget( workspace )
+					) {
+						setSelectedWpcomSite( savedWorkspaceTarget );
+						return;
+					}
+
+					if ( workspace ) {
+						setSavedWpcomWorkspaceLocalTarget( workspace.id );
+					}
 					setSelectedSiteId( site.id );
 				} }
 			>
@@ -254,6 +292,11 @@ function SiteItem( {
 						<Spinner className="!w-2.5 !h-2.5 !mt-0 !mr-2 [&>circle]:stroke-a8c-gray-70" />
 					</div>
 				</Tooltip>
+			) : workspace && workspace.sites.length > 0 ? (
+				<>
+					<WpcomSiteTargetSummary workspace={ workspace } />
+					<ButtonToRun { ...site } />
+				</>
 			) : (
 				<ButtonToRun { ...site } />
 			) }
@@ -272,6 +315,9 @@ function WpcomSiteTargetSummary( { workspace }: { workspace: WpcomSiteWorkspace 
 				aria-label={ __( 'Production and staging sites' ) }
 				className="me-2 flex h-5 shrink-0 items-center gap-1"
 			>
+				{ workspace.localSite && (
+					<span className="h-2 w-2 rounded-full bg-a8c-gray-40" aria-hidden="true" />
+				) }
 				{ workspace.productionSite && (
 					<span className="h-2 w-2 rounded-full bg-circle-env-production" aria-hidden="true" />
 				) }
@@ -383,6 +429,13 @@ function WpcomSiteItem( { workspace }: { workspace: WpcomSiteWorkspace } ) {
 	const siteToOpen = selectedWorkspaceSite ?? getDefaultWpcomWorkspaceTarget( workspace );
 	const hasMultipleTargets = workspace.sites.length > 1;
 	const workspaceActivity = getWorkspaceActivity( workspace, wpcomSiteActivity );
+	const environmentSyncState = useRootSelector(
+		stagingSyncSelectors.selectRemoteSiteEnvironmentSyncState(
+			workspace.productionSite?.id ?? workspace.stagingSites[ 0 ]?.id
+		)
+	);
+	const isEnvironmentSyncing =
+		environmentSyncState?.status === 'started' || environmentSyncState?.status === 'in-progress';
 
 	return (
 		<li
@@ -402,7 +455,16 @@ function WpcomSiteItem( { workspace }: { workspace: WpcomSiteWorkspace } ) {
 			>
 				{ workspace.name }
 			</button>
-			{ getWpcomSiteActivityLabel( workspaceActivity ) ? (
+			{ isEnvironmentSyncing ? (
+				<span
+					role="status"
+					aria-label={ __( 'Syncing' ) }
+					title={ __( 'Syncing' ) }
+					className="me-2 grid h-5 w-5 shrink-0 place-items-center"
+				>
+					<Spinner className="!m-0 !h-3 !w-3 [&>circle]:stroke-a8c-gray-400" />
+				</span>
+			) : getWpcomSiteActivityLabel( workspaceActivity ) ? (
 				<WpcomSiteActivityIndicator activity={ workspaceActivity } className="me-2" />
 			) : hasMultipleTargets ? (
 				<WpcomSiteTargetSummary workspace={ workspace } />
@@ -440,7 +502,11 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 	const [ draggedIndex, setDraggedIndex ] = useState< number | null >( null );
 	const [ dragOverIndex, setDragOverIndex ] = useState< number | null >( null );
 	const [ isWpcomSectionExpanded, setIsWpcomSectionExpanded ] = useState( true );
-	const [ connectedWpcomSiteIds, setConnectedWpcomSiteIds ] = useState< number[] >( [] );
+	const [ connectedWpcomSites, setConnectedWpcomSites ] = useState< SyncSite[] >( [] );
+	const connectedWpcomSiteIds = useMemo(
+		() => connectedWpcomSites.map( ( site ) => site.id ),
+		[ connectedWpcomSites ]
+	);
 	const { data: wpcomSitesData, isFetching: isFetchingWpcomSites } = useGetWpComSitesQuery(
 		{
 			connectedSiteIds: connectedWpcomSiteIds,
@@ -449,25 +515,35 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 		},
 		{ skip: ! isAuthenticated }
 	);
-	const unconnectedWpcomSites = useMemo(
-		() =>
-			( wpcomSitesData?.sites ?? [] ).filter(
-				( site ) => ! connectedWpcomSiteIds.includes( site.id )
-			),
-		[ connectedWpcomSiteIds, wpcomSitesData?.sites ]
+	const wpcomSites = useMemo(
+		() => mergeWpcomSitesWithConnectedSites( wpcomSitesData?.sites ?? [], connectedWpcomSites ),
+		[ connectedWpcomSites, wpcomSitesData?.sites ]
 	);
 	const wpcomSiteWorkspaces = useMemo(
-		() => createWpcomSiteWorkspaces( unconnectedWpcomSites ),
-		[ unconnectedWpcomSites ]
+		() => createWpcomSiteWorkspaces( wpcomSites, sites ),
+		[ sites, wpcomSites ]
+	);
+	const wpcomOnlySiteWorkspaces = useMemo(
+		() => wpcomSiteWorkspaces.filter( ( workspace ) => ! workspace.localSite ),
+		[ wpcomSiteWorkspaces ]
+	);
+	const wpcomSiteWorkspaceByLocalSiteId = useMemo(
+		() =>
+			new Map(
+				wpcomSiteWorkspaces
+					.filter( ( workspace ) => workspace.localSite )
+					.map( ( workspace ) => [ workspace.localSite!.id, workspace ] )
+			),
+		[ wpcomSiteWorkspaces ]
 	);
 
 	useEffect( () => {
-		setWpcomSites( unconnectedWpcomSites );
-	}, [ setWpcomSites, unconnectedWpcomSites ] );
+		setWpcomSites( wpcomSites );
+	}, [ setWpcomSites, wpcomSites ] );
 
 	useEffect( () => {
 		if ( ! isAuthenticated ) {
-			setConnectedWpcomSiteIds( [] );
+			setConnectedWpcomSites( [] );
 			return;
 		}
 
@@ -476,7 +552,7 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 			.getConnectedWpcomSites()
 			.then( ( connectedSites ) => {
 				if ( isCurrent ) {
-					setConnectedWpcomSiteIds( connectedSites.map( ( site ) => site.id ) );
+					setConnectedWpcomSites( connectedSites );
 				}
 			} )
 			.catch( ( error ) => {
@@ -630,6 +706,7 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 						onDrop={ handleDrop }
 						onDragEnd={ handleDragEnd }
 						isDragOver={ dragOverIndex === index }
+						workspace={ wpcomSiteWorkspaceByLocalSiteId.get( site.id ) }
 					/>
 				) ) }
 				{ /* Drop zone for dragging to bottom of list */ }
@@ -639,7 +716,7 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 					onDrop={ ( e ) => handleDrop( e, sites.length ) }
 				/>
 			</ul>
-			{ isAuthenticated && ( wpcomSiteWorkspaces.length > 0 || isFetchingWpcomSites ) && (
+			{ isAuthenticated && ( wpcomOnlySiteWorkspaces.length > 0 || isFetchingWpcomSites ) && (
 				<div className="mt-3 border-t border-white/10 pt-2">
 					<button
 						type="button"
@@ -659,10 +736,10 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 					</button>
 					{ isWpcomSectionExpanded && (
 						<ul className="pt-px">
-							{ wpcomSiteWorkspaces.map( ( workspace ) => (
+							{ wpcomOnlySiteWorkspaces.map( ( workspace ) => (
 								<WpcomSiteItem key={ workspace.id } workspace={ workspace } />
 							) ) }
-							{ isFetchingWpcomSites && wpcomSiteWorkspaces.length === 0 && (
+							{ isFetchingWpcomSites && wpcomOnlySiteWorkspaces.length === 0 && (
 								<li
 									className={ cx(
 										'flex h-8 min-w-[168px] items-center px-2 text-xs text-a8c-gray-600',

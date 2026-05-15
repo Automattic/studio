@@ -20,7 +20,14 @@ import {
 	refreshSnapshots,
 	snapshotActions,
 } from 'src/stores/snapshot-slice';
-import { syncReducer, syncOperationsActions } from 'src/stores/sync';
+import {
+	stagingSyncActions,
+	stagingSyncReducer,
+	stagingSyncSelectors,
+	stagingSyncThunks,
+	syncReducer,
+	syncOperationsActions,
+} from 'src/stores/sync';
 import { connectedSitesApi, connectedSitesReducer } from 'src/stores/sync/connected-sites';
 import {
 	syncOperationsReducer,
@@ -41,6 +48,7 @@ export type RootState = {
 	onboarding: ReturnType< typeof onboardingReducer >;
 	snapshot: ReturnType< typeof snapshotReducer >;
 	sync: ReturnType< typeof syncReducer >;
+	stagingSync: ReturnType< typeof stagingSyncReducer >;
 	connectedSitesApi: ReturnType< typeof connectedSitesApi.reducer >;
 	connectedSites: ReturnType< typeof connectedSitesReducer >;
 	syncOperations: ReturnType< typeof syncOperationsReducer >;
@@ -185,9 +193,12 @@ startAppListening( {
 
 const PUSH_POLLING_KEYS = [ 'creatingRemoteBackup', 'applyingChanges', 'finishing' ];
 const SYNC_POLLING_INTERVAL = 3000;
+const STAGING_SYNC_POLLING_INTERVAL = 4000;
+const STAGING_SYNC_POLLING_TIMEOUT = 30 * 60 * 1000;
 
 const PUSH_POLLERS = new Map< string, AbortController >();
 const PULL_POLLERS = new Map< string, AbortController >();
+const STAGING_SYNC_POLLERS = new Map< number, AbortController >();
 
 function isPushPollable( selectedSiteId: string, remoteSiteId: number ) {
 	const pushState = syncOperationsSelectors.selectPushState(
@@ -213,6 +224,50 @@ function stopPushPoller( stateId: string ) {
 function stopPullPoller( stateId: string ) {
 	PULL_POLLERS.get( stateId )?.abort();
 	PULL_POLLERS.delete( stateId );
+}
+
+function isStagingSyncPollable( productionSiteId: number ) {
+	return stagingSyncSelectors.selectIsProductionSiteSyncing( productionSiteId )( store.getState() );
+}
+
+function stopStagingSyncPoller( productionSiteId: number ) {
+	STAGING_SYNC_POLLERS.get( productionSiteId )?.abort();
+	STAGING_SYNC_POLLERS.delete( productionSiteId );
+}
+
+async function startStagingSyncPoller( productionSiteId: number ) {
+	if ( STAGING_SYNC_POLLERS.has( productionSiteId ) ) {
+		return;
+	}
+
+	const controller = new AbortController();
+	STAGING_SYNC_POLLERS.set( productionSiteId, controller );
+	const startedAt = Date.now();
+
+	try {
+		while ( ! controller.signal.aborted ) {
+			await store.dispatch(
+				stagingSyncThunks.fetchStagingSiteSyncState( {
+					productionSiteId,
+				} )
+			);
+
+			if ( controller.signal.aborted || ! isStagingSyncPollable( productionSiteId ) ) {
+				break;
+			}
+
+			if ( Date.now() - startedAt > STAGING_SYNC_POLLING_TIMEOUT ) {
+				store.dispatch( stagingSyncActions.markStagingSyncTimedOut( { productionSiteId } ) );
+				break;
+			}
+
+			await new Promise( ( resolve ) => setTimeout( resolve, STAGING_SYNC_POLLING_INTERVAL ) );
+		}
+	} finally {
+		if ( STAGING_SYNC_POLLERS.get( productionSiteId ) === controller ) {
+			STAGING_SYNC_POLLERS.delete( productionSiteId );
+		}
+	}
 }
 
 async function startPushPoller( selectedSiteId: string, remoteSiteId: number ) {
@@ -321,6 +376,31 @@ startAppListening( {
 	},
 } );
 
+startAppListening( {
+	actionCreator: stagingSyncThunks.startStagingSiteSync.pending,
+	effect( action ) {
+		void startStagingSyncPoller( action.meta.arg.productionSite.id );
+	},
+} );
+
+startAppListening( {
+	actionCreator: stagingSyncThunks.fetchStagingSiteSyncState.fulfilled,
+	effect( action ) {
+		if ( isStagingSyncPollable( action.payload.productionSiteId ) ) {
+			void startStagingSyncPoller( action.payload.productionSiteId );
+		} else {
+			stopStagingSyncPoller( action.payload.productionSiteId );
+		}
+	},
+} );
+
+startAppListening( {
+	actionCreator: stagingSyncActions.markStagingSyncTimedOut,
+	effect( action ) {
+		stopStagingSyncPoller( action.payload.productionSiteId );
+	},
+} );
+
 export const rootReducer = combineReducers( {
 	appVersionApi: appVersionApi.reducer,
 	betaFeatures: betaFeaturesReducer,
@@ -332,6 +412,7 @@ export const rootReducer = combineReducers( {
 	onboarding: onboardingReducer,
 	snapshot: snapshotReducer,
 	sync: syncReducer,
+	stagingSync: stagingSyncReducer,
 	syncOperations: syncOperationsReducer,
 	wordpressVersionsApi: wordpressVersionsApi.reducer,
 	wpcomApi: wpcomApi.reducer,
@@ -358,6 +439,22 @@ export const store = configureStore( {
 
 // Enable the refetchOnFocus behavior
 setupListeners( store.dispatch );
+
+window.addEventListener( 'focus', () => {
+	Object.values( store.getState().stagingSync.states ).forEach( ( stagingSyncState ) => {
+		if (
+			stagingSyncSelectors.selectIsProductionSiteSyncing( stagingSyncState.productionSiteId )(
+				store.getState()
+			)
+		) {
+			void store.dispatch(
+				stagingSyncThunks.fetchStagingSiteSyncState( {
+					productionSiteId: stagingSyncState.productionSiteId,
+				} )
+			);
+		}
+	} );
+} );
 
 // Initialize beta features and fetch snapshots on store initialization, but skip in test environment
 if ( process.env.NODE_ENV !== 'test' ) {

@@ -19,6 +19,16 @@
 
 ## New Unprioritized Follow-ups
 
+### Tomorrow Workspace IA Notes
+
+Keep these together as the next workspace-shaping pass:
+
+- Reduce sidebar indicator noise. The current workspace rows can show too many status/target circles at once.
+- Unify the two menu surfaces. Chat/session actions and workspace/target actions should feel like one coherent command model, not separate competing menus.
+- Put the experimental WordPress.com workspace assistant work behind a feature flag before it spreads further.
+- Share a header model between local and WordPress.com workspaces. Explore whether the local tab bar still earns its vertical space, whether other workspace views need tabs, and whether a `Chat` tab plus preview/browser URL affordance can replace the separate local assistant treatment.
+- Add preview support for localhost/local site previews so the same preview/browser affordance works across Local, Production, and Staging targets.
+
 ### Chat Feedback UX
 
 The shared message UI can show thumbs up/down controls, but the WordPress.com Dolly feedback action is not wired to the correct server chat yet.

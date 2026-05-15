@@ -12,6 +12,12 @@ export {
 	syncOperationsSelectors,
 	syncOperationsThunks,
 } from './sync-operations-slice';
+export {
+	stagingSyncActions,
+	stagingSyncReducer,
+	stagingSyncSelectors,
+	stagingSyncThunks,
+} from './staging-sync-slice';
 export type {
 	SyncBackupState,
 	PullSiteOptions,
@@ -19,3 +25,9 @@ export type {
 	SyncPushState,
 	PushStates,
 } from './sync-operations-slice';
+export type {
+	StagingSyncDirection,
+	StagingSyncOption,
+	StagingSyncState,
+	StagingSyncStatus,
+} from './staging-sync-slice';

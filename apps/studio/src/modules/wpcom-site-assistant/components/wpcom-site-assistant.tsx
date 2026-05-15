@@ -21,13 +21,14 @@ import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { ChatMessage } from 'src/components/chat-message';
 import offlineIcon from 'src/components/offline-icon';
-import { Tooltip } from 'src/components/tooltip';
 import { LIMIT_OF_PROMPTS_PER_USER } from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { WorkspaceSyncControl } from 'src/modules/sync/components/workspace-sync-control';
+import { WorkspaceTargetSwitcher } from 'src/modules/wpcom-site-assistant/components/workspace-target-switcher';
 import { DollyPreviewPanel } from 'src/modules/wpcom-site-assistant/components/wpcom-site-preview-panel';
 import {
 	fetchDollySite,
@@ -68,9 +69,7 @@ import {
 import {
 	createDollyManageStagingSiteAbility,
 	getKnownStagingCreationBlocker,
-	getStagingPlanUpgradeUrl,
 	getStagingCreationErrorMessage,
-	isStagingPlanUpgradeRequired,
 } from 'src/modules/wpcom-site-assistant/lib/staging';
 import {
 	getErrorMessage,
@@ -98,8 +97,8 @@ import {
 } from 'src/modules/wpcom-site-assistant/lib/types';
 import {
 	getWpcomSiteWorkspaceForSite,
+	setSavedWpcomWorkspaceLocalTarget,
 	setSavedWpcomWorkspaceTarget,
-	type WpcomSiteWorkspace,
 } from 'src/modules/wpcom-site-assistant/lib/workspaces';
 import { generateMessage, Message as MessageType } from 'src/stores/chat-slice';
 import { useCreateWpcomStagingSiteMutation } from 'src/stores/sync/wpcom-sites';
@@ -178,108 +177,6 @@ const getCreateStagingSiteUnavailableMessage = ( site: SyncSite ) => {
 		__( 'A staging site cannot be created for this site.' )
 	);
 };
-
-function WpcomTargetSwitcher( {
-	workspace,
-	selectedSite,
-	onSelectSite,
-	onCreateStagingSite,
-	canCreateStagingSite,
-	isCreatingStagingSite,
-	stagingDisabledReason,
-}: {
-	workspace?: WpcomSiteWorkspace;
-	selectedSite: SyncSite;
-	onSelectSite: ( site: SyncSite ) => void;
-	onCreateStagingSite: () => void;
-	canCreateStagingSite: boolean;
-	isCreatingStagingSite: boolean;
-	stagingDisabledReason?: string;
-} ) {
-	const productionSite =
-		workspace?.productionSite ?? ( selectedSite.isStaging ? undefined : selectedSite );
-	const stagingSite =
-		workspace?.stagingSites[ 0 ] ?? ( selectedSite.isStaging ? selectedSite : undefined );
-	const isProductionSelected = productionSite?.id === selectedSite.id;
-	const isStagingSelected = stagingSite?.id === selectedSite.id || selectedSite.isStaging;
-	const isProductionDisabled = ! productionSite;
-	const isStagingUpgradeAvailable = Boolean(
-		productionSite && ! stagingSite && isStagingPlanUpgradeRequired( productionSite )
-	);
-	const isStagingDisabled =
-		! stagingSite &&
-		! isStagingUpgradeAvailable &&
-		( ! canCreateStagingSite || isCreatingStagingSite );
-	const productionTooltip = isProductionDisabled
-		? __( 'Production site details are not available yet.' )
-		: undefined;
-	const stagingTooltip = isStagingUpgradeAvailable
-		? __( "Upgrade this site's plan to add a staging site." )
-		: stagingDisabledReason ??
-		  ( isCreatingStagingSite ? __( 'Creating staging site...' ) : undefined );
-
-	const getButtonClassName = ( isSelected: boolean, needsUpgrade = false ) =>
-		cx(
-			'inline-flex min-h-6 shrink-0 items-center gap-1.5 rounded border px-2 py-0.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme disabled:cursor-not-allowed disabled:opacity-60',
-			needsUpgrade &&
-				'border-dashed border-circle-env-staging bg-transparent text-frame-text-secondary hover:text-frame-text',
-			isSelected
-				? 'border-transparent bg-a8c-green-5 text-a8c-green-70'
-				: ! needsUpgrade &&
-						'border-transparent bg-frame-surface text-frame-text-secondary hover:text-frame-text'
-		);
-
-	return (
-		<div className="flex items-center gap-2 whitespace-nowrap">
-			<Tooltip text={ productionTooltip } disabled={ ! productionTooltip } placement="bottom-start">
-				<button
-					type="button"
-					className={ getButtonClassName( Boolean( isProductionSelected ) ) }
-					disabled={ isProductionDisabled }
-					onClick={ () => productionSite && onSelectSite( productionSite ) }
-				>
-					<span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-circle-env-production" />
-					{ __( 'Production' ) }
-				</button>
-			</Tooltip>
-			<Tooltip text={ stagingTooltip } disabled={ ! stagingTooltip } placement="bottom-start">
-				<button
-					type="button"
-					className={ getButtonClassName(
-						Boolean( isStagingSelected ),
-						isStagingUpgradeAvailable
-					) }
-					disabled={ isStagingDisabled }
-					onClick={ () => {
-						if ( stagingSite ) {
-							onSelectSite( stagingSite );
-							return;
-						}
-
-						if ( productionSite && isStagingUpgradeAvailable ) {
-							getIpcApi().openURL( getStagingPlanUpgradeUrl( productionSite ) );
-							return;
-						}
-
-						onCreateStagingSite();
-					} }
-				>
-					<span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-circle-env-staging" />
-					{ isCreatingStagingSite ? __( 'Creating staging...' ) : __( 'Staging' ) }
-				</button>
-			</Tooltip>
-			<Tooltip
-				text={ __( 'Local target support is not implemented yet.' ) }
-				placement="bottom-start"
-			>
-				<button type="button" className={ getButtonClassName( false ) } disabled>
-					<span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-a8c-gray-40" />
-					{ __( 'Local' ) }
-				</button>
-			</Tooltip>
-		</div>
-	);
-}
 
 function DollyPreviewHeaderControls( {
 	isOpen,
@@ -557,7 +454,13 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 	const { isAuthenticated, authenticate, user, client } = useAuth();
 	const userId = user?.id;
 	const isOffline = useOffline();
-	const { setSelectedWpcomSite, setWpcomSiteActivity, wpcomSites = [] } = useSiteDetails();
+	const {
+		sites,
+		setSelectedSiteId,
+		setSelectedWpcomSite,
+		setWpcomSiteActivity,
+		wpcomSites = [],
+	} = useSiteDetails();
 	const [ createWpcomStagingSite, createWpcomStagingSiteResult ] =
 		useCreateWpcomStagingSiteMutation();
 	const sessionCacheKey = createWpcomSiteAssistantSessionKey( selectedWpcomSite.id );
@@ -605,8 +508,8 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 	const isAssistantThinkingRef = useRef( isAssistantThinking );
 	const hydratedSessionKeysRef = useRef( new Set< string >() );
 	const wpcomSiteWorkspace = useMemo(
-		() => getWpcomSiteWorkspaceForSite( wpcomSites, activeWpcomSite ),
-		[ activeWpcomSite, wpcomSites ]
+		() => getWpcomSiteWorkspaceForSite( wpcomSites, activeWpcomSite, sites ),
+		[ activeWpcomSite, sites, wpcomSites ]
 	);
 	const conversationsForTarget = getWpcomSiteAssistantConversationsForSite( activeWpcomSite.id );
 	const selectedConversationForTarget =
@@ -643,6 +546,9 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 	const stagingCreationBlocker = productionTargetSite
 		? getKnownStagingCreationBlocker( productionTargetSite )
 		: __( 'Production site details are not available yet.' );
+	const hasMissingStagingSiteDetails = Boolean(
+		productionTargetSite?.stagingSiteIds?.length && ! stagingTargetSite
+	);
 	const canCreateStagingSite =
 		Boolean( productionTargetSite ) &&
 		! stagingTargetSite &&
@@ -1198,13 +1104,23 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 
 	const selectTargetSite = useCallback(
 		( site: SyncSite ) => {
-			const workspace = getWpcomSiteWorkspaceForSite( wpcomSites, site );
+			const workspace = getWpcomSiteWorkspaceForSite( wpcomSites, site, sites );
 			if ( workspace ) {
 				setSavedWpcomWorkspaceTarget( workspace.id, site.id );
 			}
 			setSelectedWpcomSite( site );
 		},
-		[ setSelectedWpcomSite, wpcomSites ]
+		[ setSelectedWpcomSite, sites, wpcomSites ]
+	);
+
+	const selectLocalTarget = useCallback(
+		( site: SiteDetails ) => {
+			if ( wpcomSiteWorkspace ) {
+				setSavedWpcomWorkspaceLocalTarget( wpcomSiteWorkspace.id );
+			}
+			setSelectedSiteId( site.id );
+		},
+		[ setSelectedSiteId, wpcomSiteWorkspace ]
 	);
 
 	const createStagingSiteForSite = useCallback(
@@ -1804,6 +1720,8 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		? __( 'Connect to the internet to create a staging site.' )
 		: ! isAuthenticated || ! client
 		? __( 'Log in to WordPress.com to create a staging site.' )
+		: hasMissingStagingSiteDetails
+		? __( 'Staging exists, but Studio could not load its details. Refresh WordPress.com sites.' )
 		: stagingCreationBlocker;
 	const canUseStagingTarget =
 		Boolean( stagingTargetSite ) ||
@@ -1855,15 +1773,20 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 							{ activeWpcomSite.name }
 						</h1>
 						<div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(14rem,27rem)] items-center gap-4">
-							<WpcomTargetSwitcher
-								workspace={ wpcomSiteWorkspace }
-								selectedSite={ activeWpcomSite }
-								onSelectSite={ selectTargetSite }
-								onCreateStagingSite={ () => void createStagingSiteFromTargetSwitcher() }
-								canCreateStagingSite={ canUseStagingTarget }
-								isCreatingStagingSite={ isCreatingStagingSiteForTarget }
-								stagingDisabledReason={ stagingTargetDisabledReason }
-							/>
+							<div className="flex min-w-0 items-center gap-2">
+								<WorkspaceTargetSwitcher
+									workspace={ wpcomSiteWorkspace }
+									selectedWpcomSite={ activeWpcomSite }
+									selectedLocalSite={ null }
+									onSelectWpcomSite={ selectTargetSite }
+									onSelectLocalSite={ selectLocalTarget }
+									onCreateStagingSite={ () => void createStagingSiteFromTargetSwitcher() }
+									canCreateStagingSite={ canUseStagingTarget }
+									isCreatingStagingSite={ isCreatingStagingSiteForTarget }
+									stagingDisabledReason={ stagingTargetDisabledReason }
+								/>
+								<WorkspaceSyncControl workspace={ wpcomSiteWorkspace } />
+							</div>
 							<div className="flex min-w-0 justify-end">
 								<DollyPreviewHeaderControls
 									isOpen={ previewState.open }

@@ -2,6 +2,7 @@ import { app, autoUpdater, dialog } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import { sprintf, __ } from '@wordpress/i18n';
 import { AUTO_UPDATE_INTERVAL_MS } from 'src/constants';
+import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { isDevRelease } from 'src/lib/version-utils';
 import { getMainWindow } from 'src/main-window';
 
@@ -30,6 +31,14 @@ export function setupUpdates() {
 	if ( process.env.E2E ) {
 		console.log( 'Skipping update server setup in E2E tests' );
 		updaterState = 'done';
+		return;
+	}
+
+	if ( process.platform === 'linux' ) {
+		// Electron's built-in autoUpdater is macOS/Windows only. On Linux we
+		// poll the same WPCOM endpoint ourselves and show a dialog pointing
+		// the user at the .deb to install manually.
+		setupLinuxUpdates();
 		return;
 	}
 
@@ -135,6 +144,16 @@ export async function manualCheckForUpdates() {
 	// to the event handler that it should show a dialog.
 	showManualCheckDialogs = true;
 
+	if ( process.platform === 'linux' ) {
+		if ( updaterState === 'checking-for-update' ) {
+			console.log( 'Manually polling for Linux update, but a check is already in progress' );
+			return;
+		}
+		console.log( 'Manually polling for Linux update' );
+		void pollLinuxUpdates();
+		return;
+	}
+
 	if ( updaterState === 'checking-for-update' ) {
 		console.log( 'Manually checking for update, but discovered an check is already in progress' );
 	} else {
@@ -200,6 +219,133 @@ async function showUpdateReadyToInstallNotice() {
 	if ( response === 0 ) {
 		autoUpdater.quitAndInstall();
 	}
+}
+
+function setupLinuxUpdates() {
+	if ( ! shouldPoll ) {
+		console.log( 'Skipping Linux update checks', {
+			env: process.env.NODE_ENV,
+			isPackaged: app.isPackaged,
+			version: app.getVersion(),
+		} );
+		return;
+	}
+
+	console.log( 'Polling for Linux update on app launch' );
+	void pollLinuxUpdates();
+}
+
+async function pollLinuxUpdates() {
+	updaterState = 'checking-for-update';
+
+	const url = new URL( 'https://public-api.wordpress.com/wpcom/v2/studio-app/updates' );
+	url.searchParams.append( 'platform', process.platform );
+	url.searchParams.append( 'studioArch', process.arch );
+	url.searchParams.append( 'version', app.getVersion() );
+
+	try {
+		const response = await fetch( url.toString() );
+
+		if ( response.status === 204 ) {
+			if ( showManualCheckDialogs ) {
+				await showUpdateUnavailableNotice();
+			}
+			return;
+		}
+
+		if ( response.status === 404 ) {
+			Sentry.captureException(
+				new Error( `Linux updates endpoint returned 404 (arch=${ process.arch })` )
+			);
+			return;
+		}
+
+		if ( ! response.ok ) {
+			Sentry.captureException(
+				new Error( `Linux updates endpoint returned HTTP ${ response.status }` )
+			);
+			return;
+		}
+
+		const data = ( await response.json() ) as { version?: string; downloadUrl?: string };
+
+		if ( ! data?.version || ! data?.downloadUrl ) {
+			Sentry.captureException( new Error( 'Linux updates endpoint returned malformed response' ) );
+			return;
+		}
+
+		await showLinuxUpdateAvailableNotice( data.version, data.downloadUrl );
+	} catch ( err ) {
+		console.error( err );
+		Sentry.captureException( err );
+	} finally {
+		showManualCheckDialogs = false;
+		rescheduleLinuxOrFinish();
+	}
+}
+
+function rescheduleLinuxOrFinish() {
+	if ( ! shouldPoll ) {
+		updaterState = 'done';
+		return;
+	}
+	updaterState = 'polling';
+	timeout = setTimeout( () => {
+		console.log( 'Automatically polling for Linux update' );
+		void pollLinuxUpdates();
+	}, AUTO_UPDATE_INTERVAL_MS );
+}
+
+async function showLinuxUpdateAvailableNotice( version: string, downloadUrl: string ) {
+	const mainWindow = await getMainWindow();
+
+	const command = `sudo apt install ~/Downloads/${ debFilenameFromUrl( downloadUrl ) }`;
+	const introLine = __(
+		'After downloading, quit Studio and run this command from a terminal to install:'
+	);
+	const doubleClickHint = __(
+		'On some distributions, double-clicking the downloaded file may also work.'
+	);
+
+	const { response } = await dialog.showMessageBox( mainWindow, {
+		type: 'info',
+		buttons: [ __( 'Download' ), __( 'Later' ) ],
+		title: __( 'New Version Available' ),
+		// translators: %s is the version number, e.g. "1.9.0".
+		message: sprintf( __( 'Studio %s is available' ), version ),
+		detail: `${ introLine }\n\n${ command }\n\n${ doubleClickHint }`,
+		defaultId: 0,
+		cancelId: 1,
+	} );
+
+	if ( response !== 0 ) {
+		return;
+	}
+
+	try {
+		const parsedUrl = new URL( downloadUrl );
+		if ( ! [ 'http:', 'https:' ].includes( parsedUrl.protocol ) ) {
+			Sentry.captureException(
+				new Error( `Unexpected protocol in downloadUrl: ${ parsedUrl.protocol }` )
+			);
+			return;
+		}
+		void shellOpenExternalWrapper( parsedUrl.toString() );
+	} catch {
+		Sentry.captureException( new Error( `Malformed downloadUrl: ${ downloadUrl }` ) );
+	}
+}
+
+function debFilenameFromUrl( downloadUrl: string ): string {
+	try {
+		const filename = new URL( downloadUrl ).pathname.split( '/' ).pop() ?? '';
+		if ( /^[A-Za-z0-9._~+-]+\.deb$/.test( filename ) ) {
+			return filename;
+		}
+	} catch {
+		// ignore
+	}
+	return 'studio.deb';
 }
 
 function isAppRunningFromDMG(): boolean {

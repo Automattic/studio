@@ -8,8 +8,10 @@ import {
 	getDeskWidgetConnectionPillBg,
 	getDeskWidgetConnectionTitle,
 } from './context';
+import { isShapePartOfMultiSelection } from './utils';
 import type { DeskConfig } from '@/ui-desks/desk/types';
 import type { DeskWidget } from '@/ui-desks/widgets/types';
+import type { Editor, TLShapeId } from 'tldraw';
 
 vi.mock( '@wordpress/core-data', () => ( {
 	store: {},
@@ -66,6 +68,27 @@ describe( 'desk connections', () => {
 			source,
 		] );
 	} );
+
+	it( 'detects when a connector drag source is part of a multi-selection', () => {
+		const sourceShapeId = 'shape:source-note' as TLShapeId;
+		const otherShapeId = 'shape:other-note' as TLShapeId;
+
+		expect(
+			isShapePartOfMultiSelection(
+				createEditorSelection( [ sourceShapeId, otherShapeId ] ),
+				sourceShapeId
+			)
+		).toBe( true );
+		expect(
+			isShapePartOfMultiSelection( createEditorSelection( [ sourceShapeId ] ), sourceShapeId )
+		).toBe( false );
+		expect(
+			isShapePartOfMultiSelection(
+				createEditorSelection( [ otherShapeId, 'shape:third-note' as TLShapeId ] ),
+				sourceShapeId
+			)
+		).toBe( false );
+	} );
 } );
 
 function createNoteWidget( text: string, tone: NoteTone = 'yellow' ): DeskWidget {
@@ -101,5 +124,13 @@ function createSiteCardWidget(): DeskWidget {
 			siteId: 'site-1',
 			previewVisible: false,
 		},
+	};
+}
+
+function createEditorSelection(
+	selectedShapeIds: TLShapeId[]
+): Pick< Editor, 'getSelectedShapeIds' > {
+	return {
+		getSelectedShapeIds: () => selectedShapeIds,
 	};
 }

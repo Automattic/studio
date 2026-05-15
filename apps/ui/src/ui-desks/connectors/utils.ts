@@ -104,6 +104,14 @@ export function getWidgetShapeAtPagePoint( editor: Editor, point: { x: number; y
 	} ) as TLShape | undefined;
 }
 
+export function isShapePartOfMultiSelection(
+	editor: Pick< Editor, 'getSelectedShapeIds' >,
+	shapeId: TLShapeId
+) {
+	const selectedShapeIds = editor.getSelectedShapeIds();
+	return selectedShapeIds.length > 1 && selectedShapeIds.includes( shapeId );
+}
+
 export function getConnectableShapeAtPagePoint(
 	editor: Editor,
 	point: { x: number; y: number },

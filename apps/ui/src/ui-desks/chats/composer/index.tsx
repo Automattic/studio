@@ -415,6 +415,7 @@ export function Composer( {
 							{ showSendButton ? (
 								<Button
 									type="submit"
+									intent="chat"
 									tone="primary"
 									variant="filled"
 									size="small"

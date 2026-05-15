@@ -1,6 +1,7 @@
 import type { ControlConfig } from '@/ui-desks/controls/types';
 import type { BlogWidget } from '@/ui-desks/widgets/blog/types';
 import type { BookmarkWidget } from '@/ui-desks/widgets/bookmark/types';
+import type { ColorWidget } from '@/ui-desks/widgets/color/types';
 import type { DrawingWidget } from '@/ui-desks/widgets/drawing/types';
 import type { EmbedWidget } from '@/ui-desks/widgets/embed/types';
 import type { LoadingWidget } from '@/ui-desks/widgets/loading/types';
@@ -12,6 +13,10 @@ import type { PostCollectionWidget } from '@/ui-desks/widgets/post-collection/ty
 import type { ScratchpadWidget } from '@/ui-desks/widgets/scratchpad/types';
 import type { SiteCardWidget } from '@/ui-desks/widgets/site-card/types';
 import type { SitePreviewWidget } from '@/ui-desks/widgets/site-preview/types';
+import type { ThemeWidget } from '@/ui-desks/widgets/theme/types';
+import type { ThemePatternWidget } from '@/ui-desks/widgets/theme-pattern/types';
+import type { ThemeStylesWidget } from '@/ui-desks/widgets/theme-styles/types';
+import type { ThemeTemplateWidget } from '@/ui-desks/widgets/theme-template/types';
 import type { DeskStack, DeskWidgetBase } from '@studio/common/types/desk';
 import type { createRegistry } from '@wordpress/data';
 import type { ComponentProps, ComponentType, ReactElement } from 'react';
@@ -304,6 +309,7 @@ export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBa
 	getEditAction?: ( context: WidgetEditActionContext< TWidget > ) => WidgetEditAction | null;
 	focusModeControls?: Array< ControlConfig< TWidget[ 'widgetProps' ] > >;
 	focusModeControlsLabel?: () => string;
+	preserveSourceWidgetPosition?: boolean;
 	resolver?: WidgetResolver< TWidget >;
 	fileHandlers?: Array< WidgetFileHandler< TWidget > >;
 	pasteHandlers?: Array< WidgetPasteHandler< TWidget > >;
@@ -314,6 +320,7 @@ export type DeskWidget =
 	| ScratchpadWidget
 	| BookmarkWidget
 	| BlogWidget
+	| ColorWidget
 	| DrawingWidget
 	| EmbedWidget
 	| LoadingWidget
@@ -323,11 +330,16 @@ export type DeskWidget =
 	| PageWidget
 	| PostCollectionWidget
 	| SiteCardWidget
-	| SitePreviewWidget;
+	| SitePreviewWidget
+	| ThemeWidget
+	| ThemePatternWidget
+	| ThemeStylesWidget
+	| ThemeTemplateWidget;
 export type DeskWidgetDefinition =
 	| WidgetDefinition< ScratchpadWidget >
 	| WidgetDefinition< BookmarkWidget >
 	| WidgetDefinition< BlogWidget >
+	| WidgetDefinition< ColorWidget >
 	| WidgetDefinition< DrawingWidget >
 	| WidgetDefinition< EmbedWidget >
 	| WidgetDefinition< LoadingWidget >
@@ -337,4 +349,8 @@ export type DeskWidgetDefinition =
 	| WidgetDefinition< PageWidget >
 	| WidgetDefinition< PostCollectionWidget >
 	| WidgetDefinition< SiteCardWidget >
-	| WidgetDefinition< SitePreviewWidget >;
+	| WidgetDefinition< SitePreviewWidget >
+	| WidgetDefinition< ThemeWidget >
+	| WidgetDefinition< ThemePatternWidget >
+	| WidgetDefinition< ThemeStylesWidget >
+	| WidgetDefinition< ThemeTemplateWidget >;

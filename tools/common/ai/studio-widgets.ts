@@ -33,6 +33,9 @@ const POST_COLLECTION_STATUSES = [ 'publish', 'draft', 'any' ] as const;
 const POST_COLLECTION_ORDER_BY = [ 'date', 'modified', 'title' ] as const;
 const POST_COLLECTION_ORDERS = [ 'asc', 'desc' ] as const;
 const STACK_VIEW_MODES = [ 'stack', 'tiles' ] as const;
+const THEME_TEMPLATE_SOURCES = [ 'theme', 'custom', 'plugin' ] as const;
+const THEME_PATTERN_SOURCES = [ 'theme', 'reusable', 'template-part' ] as const;
+const COLOR_FORMATS = [ 'hex', 'rgb', 'hsl' ] as const;
 const MIN_WIDGET_SHAPE_SIZE = 80;
 
 export const STUDIO_PRESENTATION_RULES: StudioPresentationRule[] = [
@@ -184,6 +187,104 @@ export const STUDIO_PRESENTABLE_WIDGET_SPECS: StudioWidgetSpec[] = [
 			isOneOf( props.scope, SCRATCHPAD_SCOPES ) &&
 			( props.description === undefined || typeof props.description === 'string' ),
 	},
+	{
+		type: 'theme',
+		description:
+			'A theme card for the active site theme. It resolves into a theme material stack with templates, styles, template parts, and patterns.',
+		propsDescription:
+			'{ "viewMode": "stack" } where viewMode is optional and may be stack or tiles.',
+		example: { type: 'theme', widgetProps: { viewMode: 'stack' } },
+		validateWidgetProps: ( props ) =>
+			props.viewMode === undefined || isOneOf( props.viewMode, STACK_VIEW_MODES ),
+	},
+	{
+		type: 'theme-template',
+		description: 'A theme template material card, such as Index, Single, or Page.',
+		propsDescription:
+			'{ "templateId": "twentytwentyfive//index", "slug": "index", "title": "Index", "description": "", "source": "theme" } where source is theme, custom, or plugin.',
+		example: {
+			type: 'theme-template',
+			widgetProps: {
+				templateId: 'twentytwentyfive//index',
+				slug: 'index',
+				title: 'Index',
+				description: '',
+				source: 'theme',
+			},
+		},
+		validateWidgetProps: ( props ) =>
+			typeof props.templateId === 'string' &&
+			typeof props.slug === 'string' &&
+			typeof props.title === 'string' &&
+			typeof props.description === 'string' &&
+			isOneOf( props.source, THEME_TEMPLATE_SOURCES ),
+	},
+	{
+		type: 'theme-styles',
+		description:
+			'A theme styles material card showing palette and typography from the active theme.',
+		propsDescription:
+			'{ "palette": [ { "slug": "primary", "name": "Primary", "color": "#3858e9" } ], "fontFamily": "Inter, sans-serif", "textColor": "#111111", "backgroundColor": "#ffffff" }.',
+		example: {
+			type: 'theme-styles',
+			widgetProps: {
+				palette: [
+					{ slug: 'background', name: 'Background', color: '#ffffff' },
+					{ slug: 'foreground', name: 'Foreground', color: '#111111' },
+				],
+				fontFamily: 'system-ui, sans-serif',
+				textColor: '#111111',
+				backgroundColor: '#ffffff',
+			},
+		},
+		validateWidgetProps: ( props ) =>
+			Array.isArray( props.palette ) &&
+			props.palette.every( isThemePaletteEntry ) &&
+			typeof props.fontFamily === 'string' &&
+			typeof props.textColor === 'string' &&
+			typeof props.backgroundColor === 'string' &&
+			( props.paletteStackId === undefined ||
+				props.paletteStackId === null ||
+				typeof props.paletteStackId === 'string' ),
+	},
+	{
+		type: 'theme-pattern',
+		description:
+			'A theme pattern, template part, or reusable block material card backed by block markup.',
+		propsDescription:
+			'{ "patternId": "twentytwentyfive/hero", "title": "Hero", "content": "<!-- wp:cover /-->", "source": "theme" } where source is theme, reusable, or template-part. Optional blockId is a non-negative integer and area is a string.',
+		example: {
+			type: 'theme-pattern',
+			widgetProps: {
+				patternId: 'twentytwentyfive/hero',
+				title: 'Hero',
+				content: '<!-- wp:cover /-->',
+				source: 'theme',
+			},
+		},
+		validateWidgetProps: ( props ) =>
+			typeof props.patternId === 'string' &&
+			typeof props.title === 'string' &&
+			typeof props.content === 'string' &&
+			isOneOf( props.source, THEME_PATTERN_SOURCES ) &&
+			( props.blockId === undefined || isNonNegativeInteger( props.blockId ) ) &&
+			( props.area === undefined || typeof props.area === 'string' ),
+	},
+	{
+		type: 'color',
+		description:
+			'A standalone color swatch with an optional label and a cycleable hex, rgb, or hsl value display.',
+		propsDescription:
+			'{ "color": "#3858e9", "title": "Primary", "format": "hex" } where color is a six-digit hex color, title is optional, and format may be hex, rgb, or hsl.',
+		example: {
+			type: 'color',
+			widgetProps: { color: '#3858e9', title: 'Primary', format: 'hex' },
+		},
+		validateWidgetProps: ( props ) =>
+			isHexColor( props.color ) &&
+			( props.title === undefined || typeof props.title === 'string' ) &&
+			( props.format === undefined || isOneOf( props.format, COLOR_FORMATS ) ),
+	},
 ];
 
 export function getStudioPresentableWidgetTypes(): string[] {
@@ -305,6 +406,22 @@ function isMediaWidgetSource( value: unknown ): boolean {
 		typeof value.name === 'string' &&
 		typeof value.mimeType === 'string'
 	);
+}
+
+function isThemePaletteEntry( value: unknown ): boolean {
+	if ( ! isRecord( value ) ) {
+		return false;
+	}
+
+	return (
+		typeof value.slug === 'string' &&
+		( value.name === undefined || typeof value.name === 'string' ) &&
+		typeof value.color === 'string'
+	);
+}
+
+function isHexColor( value: unknown ): value is string {
+	return typeof value === 'string' && /^#[0-9a-f]{6}$/i.test( value );
 }
 
 function isShapeProps( value: unknown ): boolean {

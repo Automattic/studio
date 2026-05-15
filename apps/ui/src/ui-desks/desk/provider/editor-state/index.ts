@@ -31,6 +31,7 @@ import { createDeskWidget } from '@/ui-desks/widget-actions/create-widget';
 import { BLOG_WIDGET_TYPE } from '@/ui-desks/widgets/blog/types';
 import { DRAWING_WIDGET_TYPE } from '@/ui-desks/widgets/drawing/types';
 import { PAGE_WIDGET_TYPE } from '@/ui-desks/widgets/page/types';
+import { getWidgetDefinition } from '@/ui-desks/widgets/registry';
 import {
 	canvasCameraToDeskViewport,
 	canvasShapeToDeskWidget,
@@ -649,9 +650,21 @@ function getDerivedSelectionSourceWidgetId( shapes: TLShape[] ) {
 
 function getDerivedWidgetAnchorsBySourceId( shapes: TLShape[] ) {
 	const shapesBySourceId = new Map< string, TLShape[] >();
+	const sourceWidgetsById = new Map(
+		shapes
+			.filter( isPersistentDeskCanvasShape )
+			.map( canvasShapeToDeskWidget )
+			.filter( ( widget ): widget is DeskWidget => widget !== null )
+			.map( ( widget ) => [ widget.id, widget ] )
+	);
+
 	for ( const shape of shapes ) {
 		const sourceWidgetId = getDerivedDeskCanvasRecordSourceId( shape );
 		if ( ! sourceWidgetId ) {
+			continue;
+		}
+		const sourceWidget = sourceWidgetsById.get( sourceWidgetId );
+		if ( sourceWidget && getWidgetDefinition( sourceWidget.type )?.preserveSourceWidgetPosition ) {
 			continue;
 		}
 

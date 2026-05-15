@@ -165,7 +165,12 @@ export function collapseAllExpandedStacksInEditor( editor: Editor ) {
 	return didCollapseStack;
 }
 
-export function setStackViewInEditor( editor: Editor, stackId: string, viewMode: StackViewMode ) {
+export function setStackViewInEditor(
+	editor: Editor,
+	stackId: string,
+	viewMode: StackViewMode,
+	options: { anchorCenter?: { x: number; y: number } } = {}
+) {
 	const members = getStackMembers( editor, stackId );
 	if ( members.length <= 1 ) {
 		return false;
@@ -176,7 +181,7 @@ export function setStackViewInEditor( editor: Editor, stackId: string, viewMode:
 		return false;
 	}
 
-	const anchor = getStackAnchorCenter( members );
+	const anchor = options.anchorCenter ?? getStackAnchorCenter( members );
 	const restorePartials = getNeighborRestorePartials( editor, stackId );
 
 	if ( viewMode === 'tiles' ) {

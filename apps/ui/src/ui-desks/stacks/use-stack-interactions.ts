@@ -1,4 +1,10 @@
 import { useEffect, useRef } from 'react';
+import {
+	collapseThemeMaterialsStackForShapeInEditor,
+	collapseThemeMaterialsStacksInEditor,
+	setThemeMaterialsStackViewInEditor,
+} from '@/ui-desks/widgets/theme/stack';
+import { isThemeMaterialsStackId } from '@/ui-desks/widgets/theme/types';
 import { collapseAllExpandedStacksInEditor, expandStackInEditor } from './editor-commands';
 import { getStackId, getStackViewMode, isStackExpanded } from './utils';
 import type { Editor, TLEventInfo, TLShapeId } from 'tldraw';
@@ -211,6 +217,12 @@ function useStackClickToOpen( editor: Editor | null ) {
 				if ( movedStack ) {
 					return;
 				}
+				if ( isThemeMaterialsStackId( clickedStackId ) ) {
+					if ( setThemeMaterialsStackViewInEditor( editor, clickedStackId, 'tiles' ) ) {
+						editor.setSelectedShapes( [] );
+					}
+					return;
+				}
 				if ( expandStackInEditor( editor, clickedStackId ) ) {
 					editor.setSelectedShapes( [] );
 				}
@@ -218,8 +230,25 @@ function useStackClickToOpen( editor: Editor | null ) {
 			}
 
 			const selectedShapeIds = editor.getSelectedShapeIds();
+			const movedSelection = selectedShapeIds.some( ( shapeId ) => movedShapeIds.has( shapeId ) );
+			if ( movedSelection ) {
+				movedShapeIds.clear();
+				return;
+			}
+
+			if ( selectedShapeIds.length === 1 ) {
+				const [ selectedShapeId ] = selectedShapeIds;
+				if (
+					collapseThemeMaterialsStackForShapeInEditor( editor, editor.getShape( selectedShapeId ) )
+				) {
+					movedShapeIds.clear();
+					return;
+				}
+			}
+
 			if ( selectedShapeIds.length === 0 ) {
 				collapseAllExpandedStacksInEditor( editor );
+				collapseThemeMaterialsStacksInEditor( editor );
 			}
 			movedShapeIds.clear();
 		};

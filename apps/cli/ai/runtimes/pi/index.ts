@@ -233,8 +233,8 @@ async function createStudioAgentSession(
 ): Promise< AgentSession > {
 	const model = buildModel( config.model, family, creds );
 	const isRemoteSite = Boolean( config.activeSite?.remote && config.activeSite?.wpcomSiteId );
-	const isForkedByDesktop = typeof process.send === 'function';
 	const remoteSession = config.env.STUDIO_REMOTE_SESSION === '1';
+	const chatArtifactsEnabled = typeof process.send === 'function';
 
 	const systemPrompt = buildSystemPrompt(
 		isRemoteSite
@@ -246,10 +246,10 @@ async function createStudioAgentSession(
 					},
 					remoteSession,
 			  }
-			: { previewSteering: isForkedByDesktop, remoteSession }
+			: { chatArtifactsEnabled, remoteSession }
 	);
 
-	const tools = buildAgentTools( config, isForkedByDesktop, remoteSession );
+	const tools = buildAgentTools( config, chatArtifactsEnabled, remoteSession );
 	const toolDefinitions = tools.map( toToolDefinition );
 	const { authStorage, modelRegistry } = createModelRegistry( model, family, creds );
 	const settingsManager = createSettingsManager( config.env );
@@ -402,7 +402,7 @@ function toToolDefinition( tool: AgentToolAny ): ToolDefinition {
 
 function buildAgentTools(
 	config: ResolvedStudioAgentTurnConfig,
-	enablePreviewSteering: boolean,
+	chatArtifactsEnabled: boolean,
 	remoteSession: boolean
 ): AgentToolAny[] {
 	const isRemoteSite = Boolean(
@@ -442,12 +442,11 @@ function buildAgentTools(
 		renameTool( createFindTool( STUDIO_SITES_ROOT ), 'Glob' ),
 		renameTool( createLsTool( STUDIO_SITES_ROOT ), 'Ls' ),
 	];
-	return [
-		...resolveStudioToolDefinitions( { enablePreviewSteering, remoteSession } ),
-		...askUserTool,
-		...skillTool,
-		...piTools,
-	];
+	const studioTools = resolveStudioToolDefinitions( {
+		emitChatArtifacts: chatArtifactsEnabled,
+		remoteSession,
+	} ) as unknown as AgentToolAny[];
+	return [ ...studioTools, ...askUserTool, ...skillTool, ...piTools ];
 }
 
 function parseJsonHeaderEnv( value: string | undefined ): Record< string, string > | undefined {

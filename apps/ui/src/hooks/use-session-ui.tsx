@@ -32,8 +32,7 @@ export interface SessionUIState {
 export type SessionUIAction =
 	| { type: 'preview/set-open'; value: boolean }
 	| { type: 'preview/toggle' }
-	| { type: 'preview/navigate'; path: string }
-	| { type: 'preview/reload' };
+	| { type: 'preview/navigate'; path: string };
 
 const INITIAL_STATE: SessionUIState = {
 	preview: { open: false, path: '/', reloadNonce: 0 },
@@ -53,15 +52,6 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 				preview: {
 					...state.preview,
 					path: action.path,
-					reloadNonce: state.preview.reloadNonce + 1,
-					open: true,
-				},
-			};
-		case 'preview/reload':
-			return {
-				...state,
-				preview: {
-					...state.preview,
 					reloadNonce: state.preview.reloadNonce + 1,
 					open: true,
 				},

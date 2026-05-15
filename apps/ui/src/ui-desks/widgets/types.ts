@@ -1,5 +1,4 @@
 import type { ControlConfig } from '@/ui-desks/controls/types';
-import type { ArtefactWidget } from '@/ui-desks/widgets/artefact/types';
 import type { BlogWidget } from '@/ui-desks/widgets/blog/types';
 import type { BookmarkWidget } from '@/ui-desks/widgets/bookmark/types';
 import type { DrawingWidget } from '@/ui-desks/widgets/drawing/types';
@@ -10,10 +9,13 @@ import type { NoteWidget } from '@/ui-desks/widgets/note/types';
 import type { PageWidget } from '@/ui-desks/widgets/page/types';
 import type { PostWidget } from '@/ui-desks/widgets/post/types';
 import type { PostCollectionWidget } from '@/ui-desks/widgets/post-collection/types';
+import type { ScratchpadWidget } from '@/ui-desks/widgets/scratchpad/types';
+import type { SiteCardWidget } from '@/ui-desks/widgets/site-card/types';
 import type { SitePreviewWidget } from '@/ui-desks/widgets/site-preview/types';
 import type { DeskStack, DeskWidgetBase } from '@studio/common/types/desk';
 import type { createRegistry } from '@wordpress/data';
 import type { ComponentProps, ComponentType, ReactElement } from 'react';
+import type { Editor, TLShapeId } from 'tldraw';
 
 export interface WidgetIndicator {
 	cornerRadius?: number;
@@ -66,6 +68,7 @@ export interface WidgetFileAccept {
 
 export interface WidgetFileHandlerContext {
 	siteId?: string;
+	getFilePath?: ( file: File ) => Promise< string >;
 }
 
 export interface WidgetHandlerLoading {
@@ -135,6 +138,59 @@ export interface WidgetPasteHandler< TWidget extends DeskWidgetBase = DeskWidget
 		context: WidgetPasteHandlerContext
 	) => Promise< WidgetPasteHandlerResult< TWidget > | null >;
 }
+
+export interface WidgetConnectorDropHandler {
+	id: string;
+	type: 'connector';
+	sourceTypes?: string[];
+	canHandle?: ( sourceWidget: DeskWidgetBase, targetWidget: DeskWidgetBase ) => boolean;
+}
+
+export type WidgetCoreDataSaveEntityRecord = (
+	kind: string,
+	name: string,
+	record: Record< string, unknown >,
+	options?: {
+		throwOnError?: boolean;
+	}
+) => Promise< unknown >;
+
+export interface WidgetCustomDropActionIntent {
+	sourceShapeId: TLShapeId;
+	targetShapeId: TLShapeId;
+	sourceWidget: DeskWidget;
+	targetWidget: DeskWidget;
+	screenPoint: {
+		x: number;
+		y: number;
+	};
+}
+
+export interface WidgetCustomDropActionContext {
+	editor: Editor;
+	registry: WidgetResolverRegistry;
+	runAction: ( action: () => void | Promise< unknown > ) => void;
+	saveEntityRecord: WidgetCoreDataSaveEntityRecord;
+	startChatWithPrompt: ( request: { prompt: string; displayMessage?: string } ) => Promise< void >;
+}
+
+export interface WidgetCustomDropAction {
+	label: string;
+	onClick: () => void;
+}
+
+export interface WidgetCustomDropHandler {
+	id: string;
+	type: 'custom';
+	sourceTypes?: string[];
+	canHandle?: ( sourceWidget: DeskWidgetBase, targetWidget: DeskWidgetBase ) => boolean;
+	getActions?: (
+		intent: WidgetCustomDropActionIntent,
+		context: WidgetCustomDropActionContext
+	) => WidgetCustomDropAction[];
+}
+
+export type WidgetDropHandler = WidgetConnectorDropHandler | WidgetCustomDropHandler;
 
 export type ResolvedDeskWidgetOrigin =
 	| { kind: 'authored' }
@@ -218,13 +274,16 @@ export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBa
 		context: WidgetFitContentContext< TWidget >
 	) => WidgetFitContentResult< TWidget > | Promise< WidgetFitContentResult< TWidget > >;
 	getEditAction?: ( context: WidgetEditActionContext< TWidget > ) => WidgetEditAction | null;
+	focusModeControls?: Array< ControlConfig< TWidget[ 'widgetProps' ] > >;
+	focusModeControlsLabel?: () => string;
 	resolver?: WidgetResolver< TWidget >;
 	fileHandlers?: Array< WidgetFileHandler< TWidget > >;
 	pasteHandlers?: Array< WidgetPasteHandler< TWidget > >;
+	dropHandlers?: WidgetDropHandler[];
 }
 
 export type DeskWidget =
-	| ArtefactWidget
+	| ScratchpadWidget
 	| BookmarkWidget
 	| BlogWidget
 	| DrawingWidget
@@ -235,9 +294,10 @@ export type DeskWidget =
 	| PostWidget
 	| PageWidget
 	| PostCollectionWidget
+	| SiteCardWidget
 	| SitePreviewWidget;
 export type DeskWidgetDefinition =
-	| WidgetDefinition< ArtefactWidget >
+	| WidgetDefinition< ScratchpadWidget >
 	| WidgetDefinition< BookmarkWidget >
 	| WidgetDefinition< BlogWidget >
 	| WidgetDefinition< DrawingWidget >
@@ -248,4 +308,5 @@ export type DeskWidgetDefinition =
 	| WidgetDefinition< PostWidget >
 	| WidgetDefinition< PageWidget >
 	| WidgetDefinition< PostCollectionWidget >
+	| WidgetDefinition< SiteCardWidget >
 	| WidgetDefinition< SitePreviewWidget >;

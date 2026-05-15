@@ -100,10 +100,10 @@ describe( 'createDeskWidget', () => {
 		} );
 	} );
 
-	it( 'creates an artefact widget with supplied HTML props', () => {
+	it( 'creates a scratchpad widget with supplied HTML props', () => {
 		const createdWidget = createDeskWidget( {
-			id: 'artefact-1',
-			type: 'sd-artefact',
+			id: 'scratchpad-1',
+			type: 'scratchpad',
 			center: {
 				x: 700,
 				y: 500,
@@ -115,15 +115,15 @@ describe( 'createDeskWidget', () => {
 			},
 			widgetProps: {
 				html: '<!doctype html><html><body><h1>Example</h1></body></html>',
-				title: 'Example artefact',
+				title: 'Example scratchpad',
 				scope: 'block',
 				description: 'Render this HTML.',
 			},
 		} );
 
 		expect( createdWidget ).toEqual( {
-			id: 'artefact-1',
-			type: 'sd-artefact',
+			id: 'scratchpad-1',
+			type: 'scratchpad',
 			x: 416,
 			y: 238,
 			zIndex: 'a8',
@@ -133,7 +133,7 @@ describe( 'createDeskWidget', () => {
 			},
 			widgetProps: {
 				html: '<!doctype html><html><body><h1>Example</h1></body></html>',
-				title: 'Example artefact',
+				title: 'Example scratchpad',
 				scope: 'block',
 				description: 'Render this HTML.',
 			},
@@ -239,6 +239,37 @@ describe( 'createDeskWidget', () => {
 			},
 			widgetProps: {
 				path: '/',
+			},
+		} );
+	} );
+
+	it( 'creates a site card widget with optional site identity props', () => {
+		const createdWidget = createDeskWidget( {
+			id: 'site-card-1',
+			type: 'site-card',
+			center: {
+				x: 500,
+				y: 400,
+			},
+			zIndex: 'a9',
+			widgetProps: {
+				siteId: 'site-123',
+			},
+		} );
+
+		expect( createdWidget ).toEqual( {
+			id: 'site-card-1',
+			type: 'site-card',
+			x: 320,
+			y: 300,
+			zIndex: 'a9',
+			shapeProps: {
+				w: 360,
+				h: 200,
+			},
+			widgetProps: {
+				previewVisible: false,
+				siteId: 'site-123',
 			},
 		} );
 	} );

@@ -34,6 +34,7 @@ import { PAGE_WIDGET_TYPE } from '@/ui-desks/widgets/page/types';
 import {
 	canvasCameraToDeskViewport,
 	canvasShapeToDeskWidget,
+	canvasShapesToDeskConnectors,
 	canvasShapesToDeskStacks,
 	deskConfigToCanvasConnectorBindings,
 	deskConfigToCanvasConnectorShapes,
@@ -89,19 +90,20 @@ export function hydrateEditorFromDesk(
 	desk: DeskConfig,
 	options: HydrateEditorOptions = {}
 ) {
+	const widgetShapes = desk.widgets.length > 0 ? deskConfigToCanvasShapes( desk ) : [];
+	const connectorShapes =
+		desk.widgets.length > 0 ? deskConfigToCanvasConnectorShapes( desk, widgetShapes ) : [];
+	const connectorBindings =
+		desk.widgets.length > 0 ? deskConfigToCanvasConnectorBindings( desk ) : [];
 	const existingShapes = editor.getCurrentPageShapes();
 	if ( existingShapes.length > 0 ) {
 		editor.run( () => editor.deleteShapes( existingShapes.map( ( shape ) => shape.id ) ), {
 			ignoreShapeLock: true,
 		} );
 	}
-	if ( desk.widgets.length > 0 ) {
-		const widgetShapes = deskConfigToCanvasShapes( desk );
-		editor.createShapes( [
-			...deskConfigToCanvasConnectorShapes( desk, widgetShapes ),
-			...widgetShapes,
-		] );
-		editor.createBindings( deskConfigToCanvasConnectorBindings( desk ) );
+	if ( widgetShapes.length > 0 ) {
+		editor.createShapes( [ ...connectorShapes, ...widgetShapes ] );
+		editor.createBindings( connectorBindings );
 	}
 	if ( desk.viewport ) {
 		editor.setCamera( desk.viewport, { immediate: true } );
@@ -115,12 +117,14 @@ export function hydrateEditorFromDesk(
 
 export function createDeskConfigFromEditor( editor: Editor ): DeskConfig {
 	const stacks = getCurrentDeskStacks( editor );
+	const connectors = getCurrentDeskConnectors( editor );
 	return {
 		version: DESK_CONFIG_VERSION,
 		updatedAt: new Date().toISOString(),
 		viewport: canvasCameraToDeskViewport( editor.getCamera() ),
 		widgets: getCurrentDeskWidgets( editor ),
 		...( stacks.length > 0 ? { stacks } : {} ),
+		...( connectors.length > 0 ? { connectors } : {} ),
 	};
 }
 
@@ -481,6 +485,12 @@ export function getCurrentDeskWidgets( editor: Editor ) {
 
 function getCurrentDeskStacks( editor: Editor ) {
 	return canvasShapesToDeskStacks( editor.getCurrentPageShapes() );
+}
+
+function getCurrentDeskConnectors( editor: Editor ) {
+	return canvasShapesToDeskConnectors( editor.getCurrentPageShapes(), ( shapeId ) =>
+		editor.getBindingsFromShape( shapeId, 'arrow' )
+	);
 }
 
 function isCameraRecord( value: unknown ) {

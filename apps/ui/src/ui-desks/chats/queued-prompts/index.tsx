@@ -1,4 +1,6 @@
 import { __ } from '@wordpress/i18n';
+import { closeSmall } from '@wordpress/icons';
+import { Button } from '@/ui-desks/components';
 import styles from './style.module.css';
 import type { QueuedPrompt } from '@/data/queries/use-agent-run';
 
@@ -16,15 +18,16 @@ export function QueuedPrompts( { prompts, onRemove }: QueuedPromptsProps ) {
 			{ prompts.map( ( item ) => (
 				<div key={ item.id } className={ styles.item }>
 					<span className={ styles.text }>{ item.displayMessage ?? item.prompt }</span>
-					<button
-						type="button"
+					<Button
+						variant="quiet"
+						size="xsmall"
 						className={ styles.remove }
+						icon={ closeSmall }
 						onClick={ () => onRemove( item.id ) }
-						aria-label={ __( 'Discard queued follow-up' ) }
+						label={ __( 'Discard queued follow-up' ) }
+						tooltipLabel={ false }
 						title={ __( 'Discard queued follow-up' ) }
-					>
-						×
-					</button>
+					/>
 				</div>
 			) ) }
 		</div>

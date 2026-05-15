@@ -1,0 +1,161 @@
+.scratchpad,
+.thumbnail {
+	position: relative;
+	width: 100%;
+	height: 100%;
+	box-sizing: border-box;
+	font-family: var(--wpds-typography-font-family-body);
+	background-color: #fff;
+	background-image:
+		radial-gradient(circle, #c9cbce 1px, transparent 1.1px),
+		radial-gradient(circle, #c9cbce 0.5px, transparent 0.6px);
+	background-size:
+		40px 40px,
+		10px 10px;
+	background-position:
+		0 0,
+		5px 5px;
+	border-radius: 18px;
+	overflow: hidden;
+}
+
+.scratchpad {
+	display: flex;
+	flex-direction: column;
+	gap: 28px;
+	padding: 44px;
+	box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+}
+
+.frame,
+.empty {
+	width: 100%;
+	flex: 1 1 0;
+	min-height: 0;
+	border-radius: 10px;
+	background: #fff;
+	box-shadow:
+		0 1px 0 rgba(15, 23, 42, 0.06),
+		0 8px 20px rgba(15, 23, 42, 0.08);
+}
+
+.frame {
+	display: block;
+	border: 0;
+}
+
+.empty {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: #6b7280;
+	font-size: 13px;
+	line-height: 18px;
+}
+
+.bottom {
+	position: relative;
+	z-index: 2;
+	flex: 0 0 auto;
+	display: flex;
+	align-items: flex-start;
+}
+
+.description {
+	flex: 1 1 auto;
+	min-width: 0;
+	max-width: 60ch;
+	min-height: 20px;
+	color: #6b7280;
+	font-size: 13px;
+	line-height: 20px;
+	text-align: left;
+	outline: none;
+	transition: color 140ms ease;
+}
+
+.description:hover,
+.description:focus {
+	color: #14171a;
+}
+
+.scratchpad[data-is-editing='true'] .description {
+	cursor: text;
+}
+
+.description[data-empty='true']:not(:focus)::before {
+	content: attr(data-placeholder);
+	color: #6b7280;
+	pointer-events: none;
+}
+
+.title {
+	position: absolute;
+	top: 14px;
+	left: 22px;
+	z-index: 2;
+	max-width: calc(100% - 44px);
+	color: #14171a;
+	font-size: 12px;
+	font-weight: 500;
+	line-height: 16px;
+	letter-spacing: 0;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	opacity: 0;
+	transform: translateY(-4px);
+	pointer-events: none;
+	transition:
+		opacity 140ms ease,
+		transform 140ms ease;
+}
+
+.title[data-visible='true'] {
+	opacity: 1;
+	transform: translateY(0);
+}
+
+.shield,
+.thumbnailShield {
+	position: absolute;
+	inset: 0;
+	background: transparent;
+	cursor: grab;
+}
+
+.thumbnail {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	padding: 8px;
+	border-radius: 10px;
+	background-size:
+		16px 16px,
+		4px 4px;
+	background-position:
+		0 0,
+		2px 2px;
+	text-align: center;
+}
+
+.thumbnailTitle {
+	flex: 0 0 auto;
+	min-width: 0;
+	max-width: 100%;
+	color: #14171a;
+	font-size: 9px;
+	font-weight: 600;
+	line-height: 1.2;
+	letter-spacing: 0;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.thumbnail svg {
+	flex: 0 0 auto;
+	fill: #6b7280;
+}

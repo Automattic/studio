@@ -944,7 +944,7 @@ def create_draft_github_release(version:, release_tag:, builds:)
   notes = extract_release_notes(version: version)
 
   # Format download links from CDN URLs
-  download_link_keys = %i[x64_dmg arm64_dmg windows windows_arm64]
+  download_link_keys = %i[x64_dmg arm64_dmg windows windows_arm64 linux_x64_deb linux_arm64_deb]
   links = download_link_keys.filter_map do |key|
     build = builds[key]
     next unless build&.dig(:cdn_url)

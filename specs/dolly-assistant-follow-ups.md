@@ -14,6 +14,41 @@
 - Sidebar WordPress.com workspace grouping: production and staging sites keep their relationship in `SyncSite` and render as one workspace row with compact target/status indicators instead of duplicate sibling site rows.
 - Workspace, target, and chat IA: WordPress.com assistant state now follows `Workspace -> Target -> Chat`; the sidebar owns workspace selection, the header owns target switching, the chat surface owns conversation switching/new chat, and preview state is scoped per target.
 
+## New Unprioritized Follow-ups
+
+### Chat Switching And Feedback UX
+
+The first pass proves the `Workspace -> Target -> Chat` model, but the conversation controls need a more intentional UI.
+
+Required behavior:
+
+- Replace the bare conversation dropdown with a polished compact chat switcher that has a useful empty/single-chat state.
+- Avoid making `New chat` feel jarring when there is only one blank or current chat.
+- Allow old chats to be deleted or trashed directly from the switcher without selecting them first.
+- Keep the current target's active chat obvious without taking too much vertical space above the message list.
+- Wire the thumbs up/down feedback controls to the correct Dolly chat. They should appear consistently where supported, and clicking them must not fail with "no chat found" for hydrated or locally created conversations.
+
+### Header Target Switcher
+
+The production/staging target switcher is the right direction and should become the universal target affordance for WordPress.com workspaces.
+
+Required behavior:
+
+- Show Production and Staging targets for every WordPress.com workspace.
+- If a workspace has no staging site, the Staging target becomes the create-staging affordance and replaces the separate header "Create staging site" button.
+- If staging is not supported or the user cannot create it, keep the Staging target visible but disabled with a tooltip explaining why.
+- Add a Local target to the switcher for every WordPress.com workspace as a future-local-site stub; selecting it should show a TODO alert for now.
+- Make the switcher update the same target-scoped context as the current implementation: selected site id, Dolly endpoint, preview state, unread state, and selected conversation.
+
+### Header Layout Bug
+
+The WordPress.com assistant header can be clipped at the top in some window sizes.
+
+Required behavior:
+
+- Fix the header's top spacing/positioning so the title, badges, URL, target switcher, and preview controls are never cut off.
+- Re-check the layout with and without the preview panel open, since the right-side controls and available width change.
+
 ## Remaining Prioritized Plan
 
 ### 1. Sidebar IA And Context Menus

@@ -88,18 +88,34 @@ export function getStackOriginalZIndex( shape: TLShape | null | undefined ) {
 	return typeof meta?.deskStackOriginalZIndex === 'string' ? meta.deskStackOriginalZIndex : null;
 }
 
-export function getStackMemberLayout( stack: Pick< DeskStack, 'x' | 'y' >, order: number ) {
+function getStackFanStep( order: number, totalCount: number ) {
+	const center = ( Math.max( 1, totalCount ) - 1 ) / 2;
+	return order - center;
+}
+
+export function getStackMemberLayout(
+	stack: Pick< DeskStack, 'x' | 'y' | 'memberIds' >,
+	order: number
+) {
+	const step = getStackFanStep( order, stack.memberIds.length );
+
 	return {
-		x: stack.x + order * STACK_TRANSLATE_X,
-		y: stack.y + order * STACK_TRANSLATE_Y,
-		rotation: order * STACK_ROTATION,
+		x: stack.x + step * STACK_TRANSLATE_X,
+		y: stack.y + step * STACK_TRANSLATE_Y,
+		rotation: step * STACK_ROTATION,
 	};
 }
 
-export function getStackAnchorFromMember( shape: Pick< TLShape, 'x' | 'y' >, order: number ) {
+export function getStackAnchorFromMember(
+	shape: Pick< TLShape, 'x' | 'y' >,
+	order: number,
+	totalCount: number
+) {
+	const step = getStackFanStep( order, totalCount );
+
 	return {
-		x: shape.x - order * STACK_TRANSLATE_X,
-		y: shape.y - order * STACK_TRANSLATE_Y,
+		x: shape.x - step * STACK_TRANSLATE_X,
+		y: shape.y - step * STACK_TRANSLATE_Y,
 	};
 }
 

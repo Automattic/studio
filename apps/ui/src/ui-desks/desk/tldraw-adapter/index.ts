@@ -592,7 +592,8 @@ function canvasShapesToDeskStack( stackId: string, shapes: TLShape[] ): DeskStac
 				...firstMember.shape,
 				...getPersistedShapePosition( firstMember.shape ),
 			},
-			firstMember.order
+			firstMember.order,
+			sortedShapes.length
 		);
 
 	return {

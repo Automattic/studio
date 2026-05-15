@@ -5,6 +5,9 @@ import { expandStackInEditor } from './editor-commands';
 import { getStackId, getStackOrder, getStackViewMode, isStackExpanded } from './utils';
 import type { PointerEvent } from 'react';
 
+const STACK_HOVER_TRANSLATE = 8;
+const STACK_HOVER_ROTATE_DEG = 3;
+
 export function useStackShapeInteraction( shape: TLShape ) {
 	const editor = useEditor();
 	const { isReadOnly, pressedStackId, pressStack } = useDesk();
@@ -33,8 +36,8 @@ export function useStackShapeInteraction( shape: TLShape ) {
 		: [];
 	const center = ( members.length - 1 ) / 2;
 	const step = order - center;
-	const hoverTranslate = isHovered ? step * 7 : 0;
-	const hoverRotate = isHovered ? step * 2.5 : 0;
+	const hoverTranslate = isHovered ? step * STACK_HOVER_TRANSLATE : 0;
+	const hoverRotate = isHovered ? step * STACK_HOVER_ROTATE_DEG : 0;
 	const pressScale = isPressed ? 0.985 : 1;
 
 	return {

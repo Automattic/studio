@@ -88,7 +88,7 @@ export function getStackOriginalZIndex( shape: TLShape | null | undefined ) {
 	return typeof meta?.deskStackOriginalZIndex === 'string' ? meta.deskStackOriginalZIndex : null;
 }
 
-function getStackFanStep( order: number, totalCount: number ) {
+export function getStackFanStep( order: number, totalCount: number ) {
 	const center = ( Math.max( 1, totalCount ) - 1 ) / 2;
 	return order - center;
 }

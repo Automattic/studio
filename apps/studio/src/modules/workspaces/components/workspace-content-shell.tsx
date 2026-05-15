@@ -18,6 +18,7 @@ import {
 	getWorkspaceTargetTabIds,
 	useWorkspaceSelection,
 } from 'src/modules/workspaces';
+import { WorkspaceDollyAssistant } from 'src/modules/workspaces/components/workspace-dolly-assistant';
 import { WorkspaceHeader } from 'src/modules/workspaces/components/workspace-header';
 import {
 	createDefaultWorkspacePreviewState,
@@ -40,17 +41,6 @@ function EmptyWorkspaceSelection() {
 			<p className="text-lg text-frame-text-secondary">
 				{ __( 'Select a workspace to view details.' ) }
 			</p>
-		</div>
-	);
-}
-
-function RemoteAssistantPlaceholder( { target }: { target: RemoteTarget } ) {
-	return (
-		<div className="flex h-full items-center justify-center p-8">
-			<div className="max-w-md text-center">
-				<h2 className="m-0 text-base font-medium text-frame-text">{ __( 'Assistant' ) }</h2>
-				<p className="mt-2 text-sm text-frame-text-secondary">{ target.site.name }</p>
-			</div>
 		</div>
 	);
 }
@@ -137,11 +127,26 @@ function renderRemoteTabContent( {
 	workspace,
 	target,
 	name,
+	previewState,
+	onUpdatePreviewState,
 }: {
 	workspace: StudioWorkspace;
 	target: RemoteTarget;
 	name: TabName;
+	previewState: WorkspacePreviewState;
+	onUpdatePreviewState: ( state: WorkspacePreviewState ) => void;
 } ) {
+	if ( name === 'assistant' ) {
+		return (
+			<WorkspaceDollyAssistant
+				workspace={ workspace }
+				target={ target }
+				previewState={ previewState }
+				onUpdatePreviewState={ onUpdatePreviewState }
+			/>
+		);
+	}
+
 	if ( name === 'sync' ) {
 		return <RemoteSyncPlaceholder workspace={ workspace } target={ target } />;
 	}
@@ -150,7 +155,7 @@ function renderRemoteTabContent( {
 		return <RemoteSettings site={ target.site } />;
 	}
 
-	return <RemoteAssistantPlaceholder target={ target } />;
+	return null;
 }
 
 function resolveLocalPreviewBaseUrl( site: SiteDetails ) {
@@ -354,6 +359,8 @@ export function WorkspaceContentShell() {
 										workspace: selectedWorkspace,
 										target: remoteTarget,
 										name: name as TabName,
+										previewState,
+										onUpdatePreviewState: updatePreviewState,
 									} ) }
 							</div>
 						) }

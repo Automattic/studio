@@ -27,6 +27,14 @@ const selectedSite: SiteDetails = {
 };
 
 vi.mock( 'src/hooks/use-site-details' );
+vi.mock( 'src/components/content-tab-assistant', () => ( {
+	ContentTabAssistant: ( { selectedSite }: { selectedSite: SiteDetails } ) => (
+		<div data-testid="local-content-tab-assistant">{ selectedSite.name }</div>
+	),
+} ) );
+vi.mock( 'src/modules/workspaces/components/workspace-dolly-assistant', () => ( {
+	WorkspaceDollyAssistant: () => <div data-testid="workspace-dolly-assistant" />,
+} ) );
 vi.mock( 'src/hooks/use-feature-flags', () => ( {
 	useFeatureFlags: () => featureFlagsMock,
 } ) );
@@ -224,6 +232,20 @@ describe( 'SiteContentTabs', () => {
 			'src',
 			'http://localhost:8881/'
 		);
+	} );
+
+	it( 'keeps the local workspace Assistant tab on the existing local assistant', async () => {
+		const user = userEvent.setup();
+		featureFlagsMock.enableWorkspaces = true;
+		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
+			...createSiteDetailsReturn(),
+		} );
+
+		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
+		await user.click( screen.getByRole( 'tab', { name: 'Assistant' } ) );
+
+		expect( screen.getByTestId( 'local-content-tab-assistant' ) ).toHaveTextContent( 'Test Site' );
+		expect( screen.queryByTestId( 'workspace-dolly-assistant' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'renders remote Production targets with remote tabs only', async () => {

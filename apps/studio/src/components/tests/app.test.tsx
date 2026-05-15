@@ -25,6 +25,9 @@ const featureFlagsMock = vi.hoisted( () => ( {
 const useGetWpComSitesQueryMock = vi.hoisted( () => vi.fn() );
 
 vi.mock( 'src/index.css', () => ( {} ) );
+vi.mock( 'src/modules/workspaces/components/workspace-dolly-assistant', () => ( {
+	WorkspaceDollyAssistant: () => null,
+} ) );
 vi.mock( 'src/components/dot-grid', () => ( {
 	DotGrid: () => null,
 } ) );

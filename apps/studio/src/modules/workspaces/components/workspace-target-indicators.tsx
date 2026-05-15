@@ -1,6 +1,11 @@
+import { Spinner } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { Tooltip } from 'src/components/tooltip';
 import { cx } from 'src/lib/cx';
+import {
+	getWorkspaceDollyTargetActivityKey,
+	useWorkspaceDollyTargetActivities,
+} from 'src/modules/workspaces/lib/dolly/turns';
 import type { StudioWorkspace, WorkspaceTargetId } from 'src/modules/workspaces/types';
 
 type WorkspaceTargetIndicatorsProps = {
@@ -15,6 +20,10 @@ type Indicator = {
 	ariaLabel: string;
 	dotClassName: string;
 	isSelected: boolean;
+	activity?: {
+		isAssistantThinking?: boolean;
+		hasUnreadAssistantMessage?: boolean;
+	};
 };
 
 export function WorkspaceTargetIndicators( {
@@ -22,7 +31,16 @@ export function WorkspaceTargetIndicators( {
 	selectedTargetId,
 	onSelectTarget,
 }: WorkspaceTargetIndicatorsProps ) {
+	const targetActivities = useWorkspaceDollyTargetActivities( workspace.id );
 	const indicators: Indicator[] = [];
+	const getRemoteTargetActivity = ( targetId: 'production' | 'staging', siteId: number ) =>
+		targetActivities[
+			getWorkspaceDollyTargetActivityKey( {
+				workspaceId: workspace.id,
+				targetId,
+				siteId,
+			} )
+		];
 
 	if ( workspace.targets.production ) {
 		indicators.push( {
@@ -35,6 +53,7 @@ export function WorkspaceTargetIndicators( {
 			),
 			dotClassName: 'bg-frame-theme',
 			isSelected: selectedTargetId === 'production',
+			activity: getRemoteTargetActivity( 'production', workspace.targets.production.site.id ),
 		} );
 	}
 
@@ -49,6 +68,7 @@ export function WorkspaceTargetIndicators( {
 			),
 			dotClassName: 'bg-white',
 			isSelected: selectedTargetId === 'staging',
+			activity: getRemoteTargetActivity( 'staging', workspace.targets.staging.site.id ),
 		} );
 	}
 
@@ -99,20 +119,31 @@ export function WorkspaceTargetIndicators( {
 							onSelectTarget( indicator.targetId );
 						} }
 						className={ cx(
-							'grid h-3.5 w-3.5 shrink-0 place-items-center rounded-full border transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme',
+							'relative grid h-3.5 w-3.5 shrink-0 place-items-center rounded-full border transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme',
 							indicator.isSelected
 								? 'border-white/80 bg-white/10 opacity-100'
 								: 'border-white/30 bg-transparent opacity-75'
 						) }
 					>
-						<span
-							aria-hidden="true"
-							className={ cx(
-								'rounded-full',
-								indicator.isSelected ? 'h-2 w-2' : 'h-1.5 w-1.5',
-								indicator.dotClassName
+						{ indicator.activity?.isAssistantThinking ? (
+							<Spinner aria-hidden="true" className="!m-0 !h-2.5 !w-2.5 [&>circle]:stroke-white" />
+						) : (
+							<span
+								aria-hidden="true"
+								className={ cx(
+									'rounded-full',
+									indicator.isSelected ? 'h-2 w-2' : 'h-1.5 w-1.5',
+									indicator.dotClassName
+								) }
+							/>
+						) }
+						{ indicator.activity?.hasUnreadAssistantMessage &&
+							! indicator.activity.isAssistantThinking && (
+								<span
+									aria-hidden="true"
+									className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-a8c-blue-50"
+								/>
 							) }
-						/>
 					</button>
 				</Tooltip>
 			) ) }

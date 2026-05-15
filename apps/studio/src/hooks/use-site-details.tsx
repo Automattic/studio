@@ -271,7 +271,11 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					message = __(
 						'The selected Blueprint failed to execute properly. This could be due to invalid PHP code, missing plugins, or other issues in the Blueprint file. Please check your Blueprint file and try again.'
 					);
-					errorToShow = simplifyErrorForDisplay( error );
+					// Show only the first sentence to keep the dialog concise.
+					// Full details are available via "Open Studio Logs".
+					const simplified = simplifyErrorForDisplay( error );
+					const firstSentence = simplified.message.match( /^[^.]+\./ );
+					errorToShow = firstSentence ? new Error( firstSentence[ 0 ] ) : simplified;
 				} else {
 					title = __( 'Failed to create site' );
 					message = __(

@@ -675,13 +675,53 @@ function readWordPressDebugLog( sitePath: string ): string[] | undefined {
 
 function readProcessManagerLogs( siteId: string ): { stdout?: string[]; stderr?: string[] } {
 	const logsDir = nodePath.join( PROCESS_MANAGER_HOME, 'logs' );
-	const stdoutPath = nodePath.join( logsDir, `studio-site-${ siteId }-out.log` );
-	const stderrPath = nodePath.join( logsDir, `studio-site-${ siteId }-error.log` );
+	const prefix = `studio-site-${ siteId }`;
+
+	// The daemon writes dated log files (e.g. `{name}-out-YYYYMMDD.log`). Fall back to the
+	// legacy non-dated name (`{name}-out.log`) for older installations.
+	function findLogFile( stream: 'out' | 'error' ): string | undefined {
+		const dateTag = new Date().toISOString().slice( 0, 10 ).replace( /-/g, '' );
+		const dated = nodePath.join( logsDir, `${ prefix }-${ stream }-${ dateTag }.log` );
+		if ( fs.existsSync( dated ) ) {
+			return dated;
+		}
+		const legacy = nodePath.join( logsDir, `${ prefix }-${ stream }.log` );
+		if ( fs.existsSync( legacy ) ) {
+			return legacy;
+		}
+		return undefined;
+	}
+
+	const stdoutPath = findLogFile( 'out' );
+	const stderrPath = findLogFile( 'error' );
 
 	return {
-		stdout: readLastLines( stdoutPath, DEBUG_LOG_MAX_LINES ),
-		stderr: readLastLines( stderrPath, DEBUG_LOG_MAX_LINES ),
+		stdout: stdoutPath ? readLastLines( stdoutPath, DEBUG_LOG_MAX_LINES ) : undefined,
+		stderr: stderrPath ? readLastLines( stderrPath, DEBUG_LOG_MAX_LINES ) : undefined,
 	};
+}
+
+/**
+ * Extract a user-facing error message from process manager logs. The child process often logs
+ * detailed error information to stdout (via playground-cli) before exiting. This scans log
+ * lines for "Error:" prefixed entries which typically contain the root cause.
+ */
+function extractErrorFromProcessManagerLogs( logs: {
+	stdout?: string[];
+	stderr?: string[];
+} ): string | undefined {
+	const lines = [ ...( logs.stdout ?? [] ), ...( logs.stderr ?? [] ) ];
+
+	for ( let i = lines.length - 1; i >= 0; i-- ) {
+		// Log lines are timestamped: "2026-05-15T08:38:04.859Z Error: ..."
+		// Strip the timestamp prefix to get the raw message.
+		const line = lines[ i ].replace( /^\d{4}-\d{2}-\d{2}T[\d:.]+Z\s*/, '' ).trim();
+		if ( line.startsWith( 'Error:' ) || line.startsWith( 'Error when' ) ) {
+			return line;
+		}
+	}
+
+	return undefined;
 }
 
 export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< SiteDetails[] > {
@@ -832,6 +872,14 @@ export async function createSite(
 			},
 			contexts,
 		} );
+
+		// If the error message is generic, try to surface a more useful message from
+		// the process manager logs. The detailed error is often captured in stdout
+		// (e.g. blueprint execution errors logged by playground-cli).
+		const logErrorMessage = extractErrorFromProcessManagerLogs( processManagerLogs );
+		if ( logErrorMessage ) {
+			throw new Error( logErrorMessage );
+		}
 
 		throw error;
 	} finally {

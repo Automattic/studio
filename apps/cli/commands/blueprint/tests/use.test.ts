@@ -1,3 +1,4 @@
+import fs from 'fs';
 import { isOnline } from '@studio/common/lib/network-utils';
 import { readSharedConfig } from '@studio/common/lib/shared-config';
 import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
@@ -5,10 +6,27 @@ import { vi } from 'vitest';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand } from '../use';
 
+vi.mock( 'fs', async () => {
+	const actual = await vi.importActual( 'fs' );
+	return {
+		...actual,
+		default: {
+			...( actual as typeof fs ),
+			promises: {
+				...( actual as typeof fs ).promises,
+				mkdtemp: vi.fn().mockResolvedValue( '/tmp/studio-blueprint-bundle-test' ),
+				writeFile: vi.fn().mockResolvedValue( undefined ),
+			},
+		},
+	};
+} );
 vi.mock( '@studio/common/lib/network-utils' );
 vi.mock( '@studio/common/lib/shared-config' );
 vi.mock( '@studio/common/lib/studio-blueprints-api' );
-vi.mock( '@studio/common/lib/blueprint-bundle' );
+vi.mock( '@studio/common/lib/blueprint-bundle', () => ( {
+	downloadAndExtractBlueprintBundle: vi.fn(),
+	removeBlueprintTempDir: vi.fn().mockResolvedValue( undefined ),
+} ) );
 vi.mock( 'cli/commands/site/create', () => ( {
 	runCommand: vi.fn(),
 } ) );

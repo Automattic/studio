@@ -568,17 +568,13 @@ function ScratchpadArtifactCard( {
 					) : null }
 				</div>
 				<div className={ styles.scratchpadArtifactThumbnail }>
-					{ widget.widgetProps.html ? (
-						<iframe
-							className={ styles.scratchpadArtifactFrame }
-							srcDoc={ widget.widgetProps.html }
-							sandbox="allow-scripts"
-							referrerPolicy="no-referrer"
-							title={ title }
-						/>
-					) : (
-						<div className={ styles.scratchpadArtifactEmpty }>{ __( 'Empty scratchpad' ) }</div>
-					) }
+					<iframe
+						className={ styles.scratchpadArtifactFrame }
+						srcDoc={ widget.widgetProps.html }
+						sandbox="allow-scripts"
+						referrerPolicy="no-referrer"
+						title={ title }
+					/>
 					<div className={ styles.scratchpadArtifactShield } aria-hidden="true" />
 				</div>
 			</div>

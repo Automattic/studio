@@ -22,7 +22,7 @@ import { useConnector } from '@/data/core';
 import { useSites } from '@/data/queries/use-sites';
 import { SelectionChatDialog } from '@/ui-desks/chats/selection-chat-dialog';
 import { LinkFromUrlDialog } from '@/ui-desks/chrome/link-from-url-dialog';
-import { appendIncomingConnectedWidgets } from '@/ui-desks/connectors/utils';
+import { appendIncomingConnectedWidgets } from '@/ui-desks/connectors/context';
 import { canvasShapeToDeskWidget } from '@/ui-desks/desk/tldraw-adapter';
 import { collapseStackInEditor, expandStackInEditor } from '@/ui-desks/stacks/editor-commands';
 import { createStackId, getStackId, isStackExpanded } from '@/ui-desks/stacks/utils';

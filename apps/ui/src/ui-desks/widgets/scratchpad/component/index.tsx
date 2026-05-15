@@ -3,7 +3,7 @@ import { blockDefault, page, reusableBlock } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { useCallback, useEffect, useRef, type KeyboardEvent, type PointerEvent } from 'react';
 import { useEditor } from 'tldraw';
-import { focusOnDeskShape, useIncomingWidgetConnections } from '@/ui-desks/connectors/utils';
+import { focusOnDeskShape, useIncomingWidgetConnections } from '@/ui-desks/connectors/context';
 import { SCRATCHPAD_WIDGET_TYPE, type ScratchpadScope, type ScratchpadWidgetProps } from '../types';
 import styles from './style.module.css';
 import type {

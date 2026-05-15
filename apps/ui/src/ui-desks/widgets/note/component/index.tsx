@@ -8,7 +8,7 @@ import {
 } from '@wordpress/rich-text';
 import { useCallback, useEffect, useRef, type KeyboardEvent, type PointerEvent } from 'react';
 import { useEditor } from 'tldraw';
-import { focusOnDeskShape, useIncomingWidgetConnections } from '@/ui-desks/connectors/utils';
+import { focusOnDeskShape, useIncomingWidgetConnections } from '@/ui-desks/connectors/context';
 import { getNoteTextSize } from '@/ui-desks/widgets/note/text-sizing';
 import { NOTE_WIDGET_TYPE, type NoteWidgetProps } from '@/ui-desks/widgets/note/types';
 import styles from './style.module.css';

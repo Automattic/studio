@@ -7,7 +7,7 @@ import {
 	getDeskWidgetConnectionLabel,
 	getDeskWidgetConnectionPillBg,
 	getDeskWidgetConnectionTitle,
-} from './utils';
+} from './context';
 import type { DeskConfig } from '@/ui-desks/desk/types';
 import type { DeskWidget } from '@/ui-desks/widgets/types';
 

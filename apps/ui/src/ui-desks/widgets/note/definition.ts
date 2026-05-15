@@ -1,5 +1,8 @@
 import { __ } from '@wordpress/i18n';
 import { pencil } from '@wordpress/icons';
+import { BOOKMARK_WIDGET_TYPE } from '@/ui-desks/widgets/bookmark/types';
+import { EMBED_WIDGET_TYPE } from '@/ui-desks/widgets/embed/types';
+import { MEDIA_WIDGET_TYPE } from '@/ui-desks/widgets/media/types';
 import {
 	NoteWidgetComponent,
 	NoteWidgetThumbnailComponent,
@@ -12,9 +15,12 @@ import {
 	type NoteTone,
 	type NoteWidget,
 } from '@/ui-desks/widgets/note/types';
+import { PAGE_WIDGET_TYPE } from '@/ui-desks/widgets/page/types';
+import { POST_WIDGET_TYPE } from '@/ui-desks/widgets/post/types';
 import type { WidgetDefinition } from '@/ui-desks/widgets/types';
 
 const NOTE_TONE_STROKE: Record< NoteTone, string > = {
+	grey: '#9ca3af',
 	yellow: '#c4a300',
 	mint: '#3ca56f',
 	blue: '#2271b1',
@@ -86,6 +92,20 @@ export const noteWidgetDefinition = {
 		...shapeProps,
 		h: getFittedNoteHeight( widgetProps, shapeProps ),
 	} ),
+	dropHandlers: [
+		{
+			id: 'connect-widget-to-note',
+			type: 'connector',
+			sourceTypes: [
+				MEDIA_WIDGET_TYPE,
+				POST_WIDGET_TYPE,
+				PAGE_WIDGET_TYPE,
+				NOTE_WIDGET_TYPE,
+				BOOKMARK_WIDGET_TYPE,
+				EMBED_WIDGET_TYPE,
+			],
+		},
+	],
 } satisfies WidgetDefinition< NoteWidget >;
 
 function stripMarkup( value: string ) {

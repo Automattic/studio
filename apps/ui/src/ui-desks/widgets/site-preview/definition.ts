@@ -1,9 +1,16 @@
 import { __ } from '@wordpress/i18n';
 import { globe } from '@wordpress/icons';
+import { SitePreviewAnnotateControl } from '@/ui-desks/widgets/site-preview/annotate-control';
+import {
+	SitePreviewAnnotationCancelControl,
+	SitePreviewAnnotationRemoveControl,
+	SitePreviewAnnotationSubmitControl,
+} from '@/ui-desks/widgets/site-preview/annotations/toolbar';
 import {
 	SitePreviewWidgetComponent,
 	SitePreviewWidgetThumbnailComponent,
 } from '@/ui-desks/widgets/site-preview/component';
+import { SitePreviewInspectControl } from '@/ui-desks/widgets/site-preview/inspect-control';
 import { SitePreviewOpenControl } from '@/ui-desks/widgets/site-preview/open-control';
 import {
 	isSitePreviewWidgetProps,
@@ -22,6 +29,16 @@ export const sitePreviewWidgetDefinition = {
 			type: 'custom',
 			id: 'open-site-preview',
 			Component: SitePreviewOpenControl,
+		},
+		{
+			type: 'custom',
+			id: 'inspect-site-preview',
+			Component: SitePreviewInspectControl,
+		},
+		{
+			type: 'custom',
+			id: 'annotate-site-preview',
+			Component: SitePreviewAnnotateControl,
 		},
 	],
 	isCreatable: true,
@@ -47,4 +64,22 @@ export const sitePreviewWidgetDefinition = {
 	} ),
 	getSummary: ( widgetProps ) => widgetProps.path || '/',
 	getEditAction: () => ( { kind: 'canvas-editing' } ),
+	focusModeControls: [
+		{
+			type: 'custom',
+			id: 'cancel-site-preview-annotations',
+			Component: SitePreviewAnnotationCancelControl,
+		},
+		{
+			type: 'custom',
+			id: 'submit-site-preview-annotations',
+			Component: SitePreviewAnnotationSubmitControl,
+		},
+		{
+			type: 'custom',
+			id: 'remove-site-preview-annotation',
+			Component: SitePreviewAnnotationRemoveControl,
+		},
+	],
+	focusModeControlsLabel: () => __( 'Annotate actions' ),
 } satisfies WidgetDefinition< SitePreviewWidget >;

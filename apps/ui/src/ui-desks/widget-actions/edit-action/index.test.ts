@@ -1,15 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
-import { artefactWidgetDefinition } from '@/ui-desks/widgets/artefact/definition';
 import { noteWidgetDefinition } from '@/ui-desks/widgets/note/definition';
 import { pageWidgetDefinition } from '@/ui-desks/widgets/page/definition';
 import { postWidgetDefinition } from '@/ui-desks/widgets/post/definition';
 import { postCollectionWidgetDefinition } from '@/ui-desks/widgets/post-collection/definition';
+import { scratchpadWidgetDefinition } from '@/ui-desks/widgets/scratchpad/definition';
+import { siteCardWidgetDefinition } from '@/ui-desks/widgets/site-card/definition';
 import { sitePreviewWidgetDefinition } from '@/ui-desks/widgets/site-preview/definition';
-import type { ArtefactWidget } from '@/ui-desks/widgets/artefact/types';
 import type { NoteWidget } from '@/ui-desks/widgets/note/types';
 import type { PageWidget } from '@/ui-desks/widgets/page/types';
 import type { PostWidget } from '@/ui-desks/widgets/post/types';
 import type { PostCollectionWidget } from '@/ui-desks/widgets/post-collection/types';
+import type { ScratchpadWidget } from '@/ui-desks/widgets/scratchpad/types';
 import type { SitePreviewWidget } from '@/ui-desks/widgets/site-preview/types';
 import type { WidgetDefinition } from '@/ui-desks/widgets/types';
 import type { DeskWidgetBase } from '@studio/common/types/desk';
@@ -25,6 +26,18 @@ vi.mock( '@/ui-desks/widgets/site-preview/open-control', () => ( {
 vi.mock( '@/ui-desks/widgets/site-preview/component', () => ( {
 	SitePreviewWidgetComponent: () => null,
 	SitePreviewWidgetThumbnailComponent: () => null,
+} ) );
+vi.mock( '@/ui-desks/widgets/site-card/component', () => ( {
+	SiteCardWidgetComponent: () => null,
+	SiteCardWidgetThumbnailComponent: () => null,
+} ) );
+vi.mock( '@/ui-desks/widgets/site-card/preview-control', () => ( {
+	SiteCardPreviewControl: () => null,
+} ) );
+vi.mock( '@/ui-desks/widgets/site-card/edit-controls', () => ( {
+	SiteCardEditControl: () => null,
+	SiteCardEditCancelControl: () => null,
+	SiteCardEditSaveControl: () => null,
 } ) );
 
 describe( 'widget edit actions', () => {
@@ -44,12 +57,16 @@ describe( 'widget edit actions', () => {
 			} )
 		).toEqual( { kind: 'canvas-editing' } );
 		expect(
-			getEditAction( artefactWidgetDefinition )( {
-				widget: createArtefactWidget(),
+			getEditAction( scratchpadWidgetDefinition )( {
+				widget: createScratchpadWidget(),
 				hasSiteId: false,
 				hasRunningSite: false,
 			} )
 		).toEqual( { kind: 'canvas-editing' } );
+	} );
+
+	it( 'does not expose a generic edit action for site identity card editing', () => {
+		expect( 'getEditAction' in siteCardWidgetDefinition ).toBe( false );
 	} );
 
 	it( 'uses WordPress admin URLs for site-backed widgets', () => {
@@ -137,9 +154,9 @@ function createSitePreviewWidget(): SitePreviewWidget {
 	};
 }
 
-function createArtefactWidget(): ArtefactWidget {
+function createScratchpadWidget(): ScratchpadWidget {
 	return {
-		...createWidgetBase( 'sd-artefact' ),
+		...createWidgetBase( 'scratchpad' ),
 		widgetProps: {
 			html: '<!doctype html><html><body>Example</body></html>',
 			title: 'Example',

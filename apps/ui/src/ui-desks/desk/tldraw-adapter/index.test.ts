@@ -4,6 +4,7 @@ import { RECTANGLE_WIDGET_SHAPE_TYPE } from '@/ui-desks/shapes/rectangle-widget/
 import {
 	canvasCameraToDeskViewport,
 	canvasShapeToDeskWidget,
+	canvasShapesToDeskConnectors,
 	canvasShapesToDeskStacks,
 	deskConfigToCanvasConnectorBindings,
 	deskConfigToCanvasConnectorShapes,
@@ -17,13 +18,14 @@ import {
 	resolvedDeskWidgetToCanvasShape,
 } from './index';
 import type { DeskConfig } from '../types';
-import type { ArtefactWidget } from '@/ui-desks/widgets/artefact/types';
 import type { DrawingWidget } from '@/ui-desks/widgets/drawing/types';
 import type { EmbedWidget } from '@/ui-desks/widgets/embed/types';
 import type { MediaWidget } from '@/ui-desks/widgets/media/types';
 import type { NoteWidget } from '@/ui-desks/widgets/note/types';
 import type { PageWidget } from '@/ui-desks/widgets/page/types';
 import type { PostWidget } from '@/ui-desks/widgets/post/types';
+import type { ScratchpadWidget } from '@/ui-desks/widgets/scratchpad/types';
+import type { SiteCardWidget } from '@/ui-desks/widgets/site-card/types';
 import type { SitePreviewWidget } from '@/ui-desks/widgets/site-preview/types';
 import type { ResolvedDeskWidget } from '@/ui-desks/widgets/types';
 
@@ -273,6 +275,49 @@ describe( 'tldraw adapter', () => {
 		} );
 	} );
 
+	it( 'maps a site card widget through the canvas shape adapter', () => {
+		const widget: SiteCardWidget = {
+			id: 'site-card-1',
+			type: 'site-card',
+			x: 90,
+			y: 100,
+			zIndex: 'a6',
+			shapeProps: {
+				w: 360,
+				h: 200,
+			},
+			widgetProps: {
+				siteId: 'site-123',
+				previewVisible: true,
+			},
+		};
+
+		const shape = deskWidgetToCanvasShape( widget ) as TLShape;
+
+		expect( shape ).toMatchObject( {
+			id: 'shape:site-card-1',
+			type: RECTANGLE_WIDGET_SHAPE_TYPE,
+			x: 90,
+			y: 100,
+			index: 'a6',
+			props: {
+				widgetType: 'site-card',
+				shapeProps: {
+					w: 360,
+					h: 200,
+				},
+				widgetProps: {
+					siteId: 'site-123',
+					previewVisible: true,
+				},
+			},
+		} );
+		expect( canvasShapeToDeskWidget( shape ) ).toEqual( {
+			...widget,
+			rotation: undefined,
+		} );
+	} );
+
 	it( 'maps a media widget through the canvas shape adapter', () => {
 		const widget: MediaWidget = {
 			id: 'media-1',
@@ -361,10 +406,10 @@ describe( 'tldraw adapter', () => {
 		} );
 	} );
 
-	it( 'maps an artefact widget through the canvas shape adapter', () => {
-		const widget: ArtefactWidget = {
-			id: 'artefact-1',
-			type: 'sd-artefact',
+	it( 'maps a scratchpad widget through the canvas shape adapter', () => {
+		const widget: ScratchpadWidget = {
+			id: 'scratchpad-1',
+			type: 'scratchpad',
 			x: 140,
 			y: 150,
 			zIndex: 'a8',
@@ -374,7 +419,7 @@ describe( 'tldraw adapter', () => {
 			},
 			widgetProps: {
 				html: '<!doctype html><html><body><h1>Example</h1></body></html>',
-				title: 'Example artefact',
+				title: 'Example scratchpad',
 				scope: 'block',
 				description: 'Render this HTML.',
 			},
@@ -383,20 +428,20 @@ describe( 'tldraw adapter', () => {
 		const shape = deskWidgetToCanvasShape( widget ) as TLShape;
 
 		expect( shape ).toMatchObject( {
-			id: 'shape:artefact-1',
+			id: 'shape:scratchpad-1',
 			type: RECTANGLE_WIDGET_SHAPE_TYPE,
 			x: 140,
 			y: 150,
 			index: 'a8',
 			props: {
-				widgetType: 'sd-artefact',
+				widgetType: 'scratchpad',
 				shapeProps: {
 					w: 568,
 					h: 524,
 				},
 				widgetProps: {
 					html: '<!doctype html><html><body><h1>Example</h1></body></html>',
-					title: 'Example artefact',
+					title: 'Example scratchpad',
 					scope: 'block',
 					description: 'Render this HTML.',
 				},
@@ -574,15 +619,13 @@ describe( 'tldraw adapter', () => {
 		expect( connectorShape ).toMatchObject( {
 			id: 'shape:connector:parent-to-child',
 			type: 'arrow',
-			isLocked: true,
 			meta: {
-				studioDeskOrigin: 'derived',
-				studioDeskPersist: false,
 				studioDeskConnector: true,
 			},
 			props: {
-				arrowheadStart: 'none',
-				arrowheadEnd: 'none',
+				arrowheadStart: 'dot',
+				arrowheadEnd: 'arrow',
+				dash: 'dashed',
 				bend: 24,
 			},
 		} );
@@ -601,7 +644,49 @@ describe( 'tldraw adapter', () => {
 				props: expect.objectContaining( { terminal: 'end' } ),
 			} ),
 		] );
-		expect( isPersistentDeskCanvasShape( connectorShape as TLShape ) ).toBe( false );
+		expect( isPersistentDeskCanvasShape( connectorShape as TLShape ) ).toBe( true );
+	} );
+
+	it( 'extracts desk connectors from canvas arrows and arrow bindings', () => {
+		const desk: DeskConfig = {
+			version: 1,
+			updatedAt: '2026-05-09T00:00:00.000Z',
+			widgets: [
+				{
+					...createNoteWidget(),
+					id: 'parent',
+					zIndex: 'a2',
+				},
+				{
+					...createNoteWidget(),
+					id: 'child',
+					zIndex: 'a3',
+				},
+			],
+			connectors: [
+				{
+					id: 'parent-to-child',
+					from: {
+						widgetId: 'parent',
+						normalizedAnchor: { x: 0.5, y: 1 },
+					},
+					to: {
+						widgetId: 'child',
+						normalizedAnchor: { x: 0.5, y: 0 },
+					},
+					bend: 24,
+				},
+			],
+		};
+		const widgetShapes = deskConfigToCanvasShapes( desk ) as TLShape[];
+		const connectorShapes = deskConfigToCanvasConnectorShapes( desk, widgetShapes ) as TLShape[];
+		const bindings = deskConfigToCanvasConnectorBindings( desk );
+
+		expect(
+			canvasShapesToDeskConnectors( [ ...widgetShapes, ...connectorShapes ], ( shapeId ) =>
+				bindings.filter( ( binding ) => binding.fromId === shapeId )
+			)
+		).toEqual( desk.connectors );
 	} );
 
 	it( 'persists a stacked widget original z-index instead of the stack z-index', () => {

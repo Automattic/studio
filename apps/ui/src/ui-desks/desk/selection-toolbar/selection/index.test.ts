@@ -86,6 +86,7 @@ describe( 'widget toolbar selection', () => {
 		expect( selectedItem.definition.controls?.[ 0 ]?.type ).toBe( 'custom' );
 		expect( selectedItem.definition.controls?.map( ( control ) => control.id ) ).toEqual( [
 			'open-media',
+			'upload-local-media',
 		] );
 		expect( selectedItem.definition.getFittedShapeProps ).toBeTypeOf( 'function' );
 		expect( selectedItem.widget.widgetProps ).toEqual( {

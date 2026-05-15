@@ -12,3 +12,10 @@ export interface AgentRunEvent {
 	sessionId: string;
 	event: AgentEvent;
 }
+
+export interface ActiveAgentRun {
+	runId: string;
+	sessionId: string;
+	startedAt: number;
+	phase: 'running' | 'interrupting';
+}

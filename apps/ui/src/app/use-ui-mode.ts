@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 export type UiMode = 'classic' | 'desks';
 
 const UI_MODE_STORAGE_KEY = 'studio.uiMode';
+const DEFAULT_UI_MODE: UiMode = 'desks';
 
 function isUiMode( value: string | null ): value is UiMode {
 	return value === 'classic' || value === 'desks';
@@ -10,14 +11,14 @@ function isUiMode( value: string | null ): value is UiMode {
 
 function readStoredUiMode(): UiMode {
 	if ( typeof window === 'undefined' ) {
-		return 'classic';
+		return DEFAULT_UI_MODE;
 	}
 
 	try {
 		const storedMode = window.localStorage.getItem( UI_MODE_STORAGE_KEY );
-		return isUiMode( storedMode ) ? storedMode : 'classic';
+		return isUiMode( storedMode ) ? storedMode : DEFAULT_UI_MODE;
 	} catch {
-		return 'classic';
+		return DEFAULT_UI_MODE;
 	}
 }
 
@@ -31,6 +32,14 @@ function writeStoredUiMode( mode: UiMode ) {
 
 function resetRouteAndReload() {
 	if ( typeof window === 'undefined' ) {
+		return;
+	}
+
+	if ( window.location.protocol === 'file:' ) {
+		if ( window.location.hash !== '#/' ) {
+			window.history.replaceState( window.history.state, '', '#/' );
+		}
+		window.location.reload();
 		return;
 	}
 

@@ -73,6 +73,12 @@ interface WidgetToolbarStateOptions {
 	canRemove?: boolean;
 }
 
+interface CurrentSelectedWidgetSelection {
+	item: SelectedWidgetToolbarItem;
+	shapes: TLShape[];
+	removalShapes?: TLShape[];
+}
+
 interface HydrateEditorOptions {
 	initialViewportMode?: 'site-map';
 }
@@ -297,7 +303,8 @@ export function removeSelectedWidgetFromEditor( editor: Editor ) {
 		return false;
 	}
 
-	editor.deleteShapes( selection.shapes.map( ( shape ) => shape.id ) );
+	const shapesToRemove = selection.removalShapes ?? selection.shapes;
+	editor.deleteShapes( shapesToRemove.map( ( shape ) => shape.id ) );
 	return true;
 }
 
@@ -375,7 +382,7 @@ export function hasPersistentDocumentChange( changes: CanvasStoreChanges ) {
 function getCurrentSelectedWidgetSelection(
 	editor: Editor,
 	options: WidgetToolbarStateOptions = {}
-) {
+): CurrentSelectedWidgetSelection | null {
 	const selectedShapeIds = editor.getSelectedShapeIds();
 	if ( selectedShapeIds.length === 0 ) {
 		return null;
@@ -552,7 +559,7 @@ function getDerivedSourceWidgetSelection(
 	editor: Editor,
 	shapes: TLShape[],
 	options: WidgetToolbarStateOptions = {}
-) {
+): CurrentSelectedWidgetSelection | null {
 	if ( ! isCompleteDerivedStackSelection( editor, shapes ) ) {
 		return null;
 	}
@@ -578,7 +585,7 @@ function getDerivedSourceWidgetSelection(
 		stackIds: [],
 		canStack: options.canStack,
 		canUnstack: options.canUnstack,
-		canRemove: false,
+		canRemove: options.canRemove,
 	} );
 	if ( ! item ) {
 		return null;
@@ -587,6 +594,7 @@ function getDerivedSourceWidgetSelection(
 	return {
 		item,
 		shapes: [ sourceShape ],
+		removalShapes: shapes,
 	};
 }
 

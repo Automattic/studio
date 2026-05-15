@@ -4,8 +4,7 @@
 		"baseUrl": "../..",
 		"paths": {
 			"src/*": [ "apps/studio/src/*" ],
-			"@studio/common/*": [ "tools/common/*" ],
-			"cli/*": [ "apps/cli/*" ]
+			"@studio/common/*": [ "tools/common/*" ]
 		}
 	},
 	"include": [ "src/**/*", "e2e/**/*" ],

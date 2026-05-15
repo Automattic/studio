@@ -2386,12 +2386,13 @@ export async function stopRemoteSessionDaemon(
 		} );
 		emitter.on( 'success', () => {
 			// CLI exit-code 0 indicates the daemon is no longer running (either
-			// stopped this invocation or was already gone). The CLI doesn't surface
-			// the granular SIGTERM/SIGKILL distinction over its IPC channel; we
-			// model the simple "stopped" case here. A non-zero exit (e.g. SIGKILL
-			// refused) lands in the `failure` branch via CliCommandError.
-			const status = getDaemonStatus();
-			resolve( { stopped: true, pid: status.pid, alreadyStopped: ! status.staleFileRemoved } );
+			// stopped this invocation or was already gone). The CLI doesn't
+			// surface the granular SIGTERM/SIGKILL distinction or the
+			// "alreadyStopped" flag over its IPC channel, and the renderer
+			// doesn't read those fields anyway, so we just report success.
+			// A non-zero exit (e.g. SIGKILL refused) lands in the `failure`
+			// branch via CliCommandError.
+			resolve( { stopped: true } );
 		} );
 		emitter.on( 'failure', ( { error } ) => reject( error ) );
 		emitter.on( 'error', ( { error } ) => reject( error ) );

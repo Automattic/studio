@@ -72,7 +72,11 @@ export async function sendIpcEventToRenderer< T extends keyof IpcEvents >(
 	...args: IpcEvents[ T ]
 ): Promise< void > {
 	const window = await getMainWindow();
-	if ( ! window.isDestroyed() && ! window.webContents.isDestroyed() ) {
+	// `getMainWindow()` can resolve to `null` during early boot — e.g., the
+	// daemon-status poller fires its initial tick before the renderer window
+	// has been created in some unit-test setups. Mirror the null-check that
+	// `sendIpcEventToRendererWithWindow` already does so we no-op cleanly.
+	if ( window && ! window.isDestroyed() && ! window.webContents.isDestroyed() ) {
 		window.webContents.send( channel, ...args );
 	}
 }

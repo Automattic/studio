@@ -625,3 +625,66 @@ export const hydrateWpcomSiteAssistantSessionState = async (
 		createWpcomSiteAssistantSessionStateFromHistory( selectedWpcomSite, summary )
 	);
 };
+
+export const hydrateWpcomSiteAssistantConversationStates = async (
+	client: WPCOM,
+	selectedWpcomSite: SyncSite,
+	preferredSessionId?: string
+): Promise< WpcomSiteAssistantSessionState[] > => {
+	const summaries = await fetchDollyHistorySummaries( client );
+	const normalizedPreferredSessionId = normalizeDollySessionId( preferredSessionId );
+	const groupedSummaries = new Map< string, DollyHistorySummary[] >();
+
+	for ( const summary of summaries ) {
+		const normalizedSessionId = normalizeDollySessionId( summary.sessionId );
+		const matchesPreferredSession =
+			normalizedPreferredSessionId &&
+			normalizedSessionId === normalizedPreferredSessionId &&
+			( summary.siteId === selectedWpcomSite.id || summary.siteId === undefined );
+
+		if ( summary.siteId !== selectedWpcomSite.id && ! matchesPreferredSession ) {
+			continue;
+		}
+
+		const groupKey = normalizedSessionId
+			? `session:${ normalizedSessionId }`
+			: `chat:${ summary.chatId }`;
+		groupedSummaries.set( groupKey, [ ...( groupedSummaries.get( groupKey ) ?? [] ), summary ] );
+	}
+
+	const hydratedSessionStates: WpcomSiteAssistantSessionState[] = [];
+
+	for ( const groupSummaries of groupedSummaries.values() ) {
+		const sortedGroupSummaries = [ ...groupSummaries ].sort(
+			( first, second ) => ( second.createdAt ?? 0 ) - ( first.createdAt ?? 0 )
+		);
+		const historyItems: Array< { summary: DollyHistorySummary; chat?: DollyHistoryChat } > = [];
+
+		for ( const summary of sortedGroupSummaries ) {
+			try {
+				historyItems.push( {
+					summary,
+					chat: await fetchDollyHistoryChat( client, summary ),
+				} );
+			} catch ( error ) {
+				console.error( error );
+				historyItems.push( { summary } );
+			}
+		}
+
+		const sessionState =
+			createWpcomSiteAssistantSessionStateFromHistoryItems( selectedWpcomSite, historyItems ) ??
+			( sortedGroupSummaries[ 0 ]
+				? createWpcomSiteAssistantSessionStateFromHistory(
+						selectedWpcomSite,
+						sortedGroupSummaries[ 0 ]
+				  )
+				: undefined );
+
+		if ( sessionState ) {
+			hydratedSessionStates.push( sessionState );
+		}
+	}
+
+	return hydratedSessionStates.sort( ( first, second ) => second.lastUpdated - first.lastUpdated );
+};

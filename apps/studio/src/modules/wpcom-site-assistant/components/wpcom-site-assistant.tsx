@@ -1,7 +1,7 @@
 import { AgentUI, ImageUploader, Suggestions } from '@automattic/agenttic-ui';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
-import { chevronDown, desktop, Icon, image as imageIcon, trash } from '@wordpress/icons';
+import { chevronDown, desktop, Icon, image as imageIcon, plus } from '@wordpress/icons';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ClearHistoryReminder from 'src/components/ai-clear-history-reminder';
 import { ArrowIcon } from 'src/components/arrow-icon';
@@ -24,7 +24,7 @@ import {
 } from 'src/modules/wpcom-site-assistant/components/wpcom-site-preview-panel';
 import {
 	fetchDollySite,
-	hydrateWpcomSiteAssistantSessionState,
+	hydrateWpcomSiteAssistantConversationStates,
 	resolveBackendSelectedSiteId,
 } from 'src/modules/wpcom-site-assistant/lib/api';
 import {
@@ -42,15 +42,19 @@ import {
 	createPreviewContext,
 	createWpcomOnlySiteAssociationContext,
 	getNextPreviewState,
-	initialPreviewState,
 	normalizePreviewUrl,
 } from 'src/modules/wpcom-site-assistant/lib/preview';
 import {
-	createWpcomSiteAssistantConversationId,
+	createNewWpcomSiteAssistantConversation,
 	createWpcomSiteAssistantSessionKey,
+	createWpcomSiteAssistantSessionState,
+	getWpcomSiteAssistantConversationsForSite,
 	getWpcomSiteAssistantSessionState,
+	getWpcomSiteAssistantTargetPreviewState,
+	mergeWpcomSiteAssistantConversationState,
 	persistWpcomSiteAssistantSessionStateCache,
-	shouldApplyWpcomSiteAssistantHydration,
+	setSelectedWpcomSiteAssistantConversationId,
+	setWpcomSiteAssistantTargetPreviewState,
 	wpcomSiteAssistantSessionStateCache,
 } from 'src/modules/wpcom-site-assistant/lib/session';
 import {
@@ -82,6 +86,11 @@ import {
 	type OpenPreviewOptions,
 	type WpcomSiteAssistantSessionState,
 } from 'src/modules/wpcom-site-assistant/lib/types';
+import {
+	getWpcomSiteWorkspaceForSite,
+	setSavedWpcomWorkspaceTarget,
+	type WpcomSiteWorkspace,
+} from 'src/modules/wpcom-site-assistant/lib/workspaces';
 import { generateMessage, Message as MessageType } from 'src/stores/chat-slice';
 import { useCreateWpcomStagingSiteMutation } from 'src/stores/sync/wpcom-sites';
 import type { ToolProvider } from '@automattic/agenttic-client';
@@ -225,6 +234,128 @@ const LiveSiteSafetySignal = ( { selectedSite }: { selectedSite: SyncSite } ) =>
 	</div>
 );
 
+const getTargetLabel = ( site: SyncSite, workspace: WpcomSiteWorkspace ) => {
+	if ( ! site.isStaging ) {
+		return __( 'Production' );
+	}
+
+	if ( workspace.stagingSites.length > 1 ) {
+		const stagingIndex = workspace.stagingSites.findIndex(
+			( stagingSite ) => stagingSite.id === site.id
+		);
+		return sprintf( __( 'Staging %d' ), stagingIndex + 1 );
+	}
+
+	return __( 'Staging' );
+};
+
+function WpcomTargetSwitcher( {
+	workspace,
+	selectedSite,
+	onSelect,
+}: {
+	workspace?: WpcomSiteWorkspace;
+	selectedSite: SyncSite;
+	onSelect: ( site: SyncSite ) => void;
+} ) {
+	if ( ! workspace || workspace.sites.length < 2 ) {
+		return null;
+	}
+
+	return (
+		<div className="mt-3 flex flex-wrap items-center gap-2">
+			{ workspace.sites.map( ( site ) => {
+				const isSelected = site.id === selectedSite.id;
+				const label = getTargetLabel( site, workspace );
+				return (
+					<button
+						key={ site.id }
+						type="button"
+						className={ cx(
+							'inline-flex min-h-7 items-center gap-2 rounded border px-3 py-1 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme',
+							isSelected
+								? 'border-frame-theme bg-frame-theme text-white'
+								: 'border-a8c-gray-5 bg-white text-frame-text-secondary hover:text-frame-text'
+						) }
+						onClick={ () => onSelect( site ) }
+					>
+						<span
+							aria-hidden="true"
+							className={ cx(
+								'h-2 w-2 rounded-full',
+								site.isStaging ? 'bg-circle-env-staging' : 'bg-circle-env-production'
+							) }
+						/>
+						{ label }
+					</button>
+				);
+			} ) }
+		</div>
+	);
+}
+
+const getConversationLabel = ( conversation: WpcomSiteAssistantSessionState ) => {
+	const firstUserMessage = conversation.messages.find( ( message ) => message.role === 'user' );
+	const fallbackDate = new Intl.DateTimeFormat( undefined, {
+		month: 'short',
+		day: 'numeric',
+		hour: 'numeric',
+		minute: '2-digit',
+	} ).format( new Date( conversation.lastUpdated ) );
+
+	if ( firstUserMessage?.content.trim() ) {
+		return firstUserMessage.content.trim().replace( /\s+/g, ' ' ).slice( 0, 64 );
+	}
+
+	return sprintf( __( 'Chat from %s' ), fallbackDate );
+};
+
+function DollyConversationSwitcher( {
+	conversations,
+	selectedConversationId,
+	onSelect,
+	onNewChat,
+}: {
+	conversations: WpcomSiteAssistantSessionState[];
+	selectedConversationId: string;
+	onSelect: ( conversationId: string ) => void;
+	onNewChat: () => void;
+} ) {
+	if ( conversations.length < 2 ) {
+		return (
+			<div className="flex justify-end border-b border-a8c-gray-5 bg-frame-surface px-8 py-2">
+				<Button variant="link" onClick={ onNewChat }>
+					<Icon icon={ plus } size={ 16 } />
+					{ __( 'New chat' ) }
+				</Button>
+			</div>
+		);
+	}
+
+	return (
+		<div className="flex flex-wrap items-center justify-between gap-2 border-b border-a8c-gray-5 bg-frame-surface px-8 py-2">
+			<label className="flex min-w-0 flex-1 items-center gap-2 text-xs text-frame-text-secondary">
+				<span className="shrink-0">{ __( 'Chat' ) }</span>
+				<select
+					className="min-w-0 flex-1 rounded border border-a8c-gray-5 bg-white px-2 py-1 text-xs text-frame-text"
+					value={ selectedConversationId }
+					onChange={ ( event ) => onSelect( event.target.value ) }
+				>
+					{ conversations.map( ( conversation ) => (
+						<option key={ conversation.id } value={ conversation.id }>
+							{ getConversationLabel( conversation ) }
+						</option>
+					) ) }
+				</select>
+			</label>
+			<Button variant="link" onClick={ onNewChat }>
+				<Icon icon={ plus } size={ 16 } />
+				{ __( 'New chat' ) }
+			</Button>
+		</div>
+	);
+}
+
 interface WpcomSiteAssistantProps {
 	selectedWpcomSite: SyncSite;
 }
@@ -233,7 +364,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 	const { isAuthenticated, authenticate, user, client } = useAuth();
 	const userId = user?.id;
 	const isOffline = useOffline();
-	const { setSelectedWpcomSite, setWpcomSiteActivity } = useSiteDetails();
+	const { setSelectedWpcomSite, setWpcomSiteActivity, wpcomSites = [] } = useSiteDetails();
 	const [ createWpcomStagingSite, createWpcomStagingSiteResult ] =
 		useCreateWpcomStagingSiteMutation();
 	const sessionCacheKey = createWpcomSiteAssistantSessionKey( selectedWpcomSite.id );
@@ -241,6 +372,8 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		sessionCacheKey,
 		selectedWpcomSite
 	);
+	const [ selectedConversationId, setSelectedConversationId ] = useState( initialSessionState.id );
+	const [ _conversationListVersion, setConversationListVersion ] = useState( 0 );
 	const [ input, setInput ] = useState( initialSessionState.input );
 	const [ messages, setMessages ] = useState< MessageType[] >( initialSessionState.messages );
 	const [ sessionId, setSessionId ] = useState< string | undefined >(
@@ -267,14 +400,20 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 	const messagesRef = useRef< MessageType[] >( messages );
 	const pendingImagesRef = useRef< DollyPendingImage[] >( pendingImages );
 	const activeWpcomSiteRef = useRef< SyncSite >( activeWpcomSite );
+	const previewStateRef = useRef< DollyPreviewState >( previewState );
 	const selectedWpcomSiteIdRef = useRef( selectedWpcomSite.id );
-	const conversationIdRef = useRef( initialSessionState.id );
+	const conversationIdRef = useRef( selectedConversationId );
 	const remoteChatIdRef = useRef( initialSessionState.remoteChatId );
 	const serverHydrationDisabledRef = useRef(
 		Boolean( initialSessionState.serverHydrationDisabled )
 	);
 	const isAssistantThinkingRef = useRef( isAssistantThinking );
 	const hydratedSessionKeysRef = useRef( new Set< string >() );
+	const wpcomSiteWorkspace = useMemo(
+		() => getWpcomSiteWorkspaceForSite( wpcomSites, activeWpcomSite ),
+		[ activeWpcomSite, wpcomSites ]
+	);
+	const conversationsForTarget = getWpcomSiteAssistantConversationsForSite( activeWpcomSite.id );
 	const instanceId = userId
 		? `dolly_${ userId }_wpcom_${ activeWpcomSite.id }`
 		: `dolly_wpcom_${ activeWpcomSite.id }`;
@@ -303,16 +442,24 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 	const isCreatingStagingSite = createWpcomStagingSiteResult.isLoading;
 	const isCreatingStagingSiteForActiveSite =
 		isCreatingStagingSite && stagingCreationSiteId === activeWpcomSite.id;
-	const hasActiveAssistantTurn = useWpcomSiteAssistantTurn( sessionCacheKey );
+	const hasActiveAssistantTurn = useWpcomSiteAssistantTurn( selectedConversationId );
 	const isCurrentSessionAssistantThinking = isAssistantThinking || hasActiveAssistantTurn;
 	const hadActiveAssistantTurnRef = useRef( hasActiveAssistantTurn );
-	const locallyStartedTurnSessionKeysRef = useRef( new Set< string >() );
+	const locallyStartedTurnConversationIdsRef = useRef( new Set< string >() );
 	const stagingCreationSiteIdRef = useRef< number | undefined >( undefined );
 	const isAtLatestMessageRef = useRef( true );
 	const previousMessageCountRef = useRef( messages.length );
 
+	const refreshConversationList = useCallback( () => {
+		setConversationListVersion( ( version ) => version + 1 );
+	}, [] );
+
 	const updatePreviewState = useCallback( ( nextState: Partial< DollyPreviewState > ) => {
-		setPreviewState( ( currentState ) => ( { ...currentState, ...nextState } ) );
+		setPreviewState( ( currentState ) => {
+			const nextPreviewState = { ...currentState, ...nextState };
+			setWpcomSiteAssistantTargetPreviewState( activeWpcomSiteRef.current.id, nextPreviewState );
+			return nextPreviewState;
+		} );
 	}, [] );
 
 	const clearPendingImages = useCallback( () => {
@@ -403,6 +550,10 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 	}, [ activeWpcomSite ] );
 
 	useEffect( () => {
+		previewStateRef.current = previewState;
+	}, [ previewState ] );
+
+	useEffect( () => {
 		pendingImagesRef.current = pendingImages;
 	}, [ pendingImages ] );
 
@@ -479,15 +630,18 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 			previewState,
 			lastUpdated: Date.now(),
 		};
-		wpcomSiteAssistantSessionStateCache.set( sessionCacheKey, sessionState );
+		wpcomSiteAssistantSessionStateCache.set( sessionState.id, sessionState );
+		setSelectedWpcomSiteAssistantConversationId( selectedWpcomSite.id, sessionState.id );
+		setWpcomSiteAssistantTargetPreviewState( activeWpcomSite.id, previewState );
 		persistWpcomSiteAssistantSessionStateCache();
+		refreshConversationList();
 	}, [
 		activeWpcomSite,
 		input,
 		messages,
 		previewState,
+		refreshConversationList,
 		selectedWpcomSite.id,
-		sessionCacheKey,
 		sessionId,
 	] );
 
@@ -503,12 +657,26 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 			return;
 		}
 
+		const shouldKeepPreviewOpen = previewStateRef.current.open;
 		selectedWpcomSiteIdRef.current = selectedWpcomSite.id;
 		const nextSessionState = getWpcomSiteAssistantSessionState(
 			sessionCacheKey,
 			selectedWpcomSite
 		);
+		const targetPreviewState = getWpcomSiteAssistantTargetPreviewState( selectedWpcomSite );
+		const nextPreviewState =
+			shouldKeepPreviewOpen && ! targetPreviewState.open
+				? {
+						...targetPreviewState,
+						open: true,
+						pathOrUrl: targetPreviewState.pathOrUrl || '/',
+				  }
+				: targetPreviewState;
+		if ( shouldKeepPreviewOpen && ! targetPreviewState.open ) {
+			setWpcomSiteAssistantTargetPreviewState( selectedWpcomSite.id, nextPreviewState );
+		}
 		conversationIdRef.current = nextSessionState.id;
+		setSelectedConversationId( nextSessionState.id );
 		remoteChatIdRef.current = nextSessionState.remoteChatId;
 		serverHydrationDisabledRef.current = Boolean( nextSessionState.serverHydrationDisabled );
 		activeWpcomSiteRef.current = nextSessionState.activeWpcomSite;
@@ -518,9 +686,10 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		setMessages( nextSessionState.messages );
 		setOptimisticMessageImages( {} );
 		setSessionId( nextSessionState.sessionId );
-		setIsAssistantThinking( Boolean( getWpcomSiteAssistantTurn( sessionCacheKey ) ) );
-		setPreviewState( nextSessionState.previewState );
-	}, [ selectedWpcomSite, sessionCacheKey ] );
+		setIsAssistantThinking( Boolean( getWpcomSiteAssistantTurn( nextSessionState.id ) ) );
+		setPreviewState( nextPreviewState );
+		refreshConversationList();
+	}, [ refreshConversationList, selectedWpcomSite, sessionCacheKey ] );
 
 	useEffect( () => {
 		previousMessageCountRef.current = messagesRef.current.length;
@@ -534,7 +703,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		return () => {
 			window.cancelAnimationFrame( animationFrameId );
 		};
-	}, [ scrollToLatestMessage, sessionCacheKey ] );
+	}, [ scrollToLatestMessage, selectedConversationId ] );
 
 	useEffect( () => {
 		const previousMessageCount = previousMessageCountRef.current;
@@ -574,17 +743,18 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 
 		void ( async () => {
 			try {
-				const cachedSessionState =
-					wpcomSiteAssistantSessionStateCache.get( sessionCacheKey ) ??
-					getWpcomSiteAssistantSessionState( sessionCacheKey, selectedWpcomSite );
-				const hydratedSessionState = await hydrateWpcomSiteAssistantSessionState(
+				const cachedSessionState = getWpcomSiteAssistantSessionState(
+					sessionCacheKey,
+					selectedWpcomSite
+				);
+				const hydratedSessionStates = await hydrateWpcomSiteAssistantConversationStates(
 					client,
 					selectedWpcomSite,
 					cachedSessionState.sessionId
 				);
 
 				if (
-					! hydratedSessionState ||
+					hydratedSessionStates.length === 0 ||
 					! isCurrentHydration ||
 					! isMountedRef.current ||
 					isAssistantThinkingRef.current
@@ -592,34 +762,29 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 					return;
 				}
 
-				const currentSessionState =
-					wpcomSiteAssistantSessionStateCache.get( sessionCacheKey ) ??
-					getWpcomSiteAssistantSessionState( sessionCacheKey, selectedWpcomSite );
-				if (
-					! shouldApplyWpcomSiteAssistantHydration( currentSessionState, hydratedSessionState )
-				) {
-					return;
-				}
+				hydratedSessionStates.forEach( ( hydratedSessionState ) => {
+					mergeWpcomSiteAssistantConversationState( {
+						...hydratedSessionState,
+						serverHydrationDisabled: false,
+						previewState: getWpcomSiteAssistantTargetPreviewState( selectedWpcomSite ),
+					} );
+				} );
+				refreshConversationList();
 
-				const nextSessionState: WpcomSiteAssistantSessionState = {
-					...hydratedSessionState,
-					input: currentSessionState.input,
-					activeWpcomSite: currentSessionState.activeWpcomSite,
-					previewState: currentSessionState.previewState,
-					serverHydrationDisabled: false,
-				};
+				const nextSessionState = getWpcomSiteAssistantSessionState(
+					sessionCacheKey,
+					selectedWpcomSite
+				);
 
 				conversationIdRef.current = nextSessionState.id;
+				setSelectedConversationId( nextSessionState.id );
 				remoteChatIdRef.current = nextSessionState.remoteChatId;
-				serverHydrationDisabledRef.current = false;
-				wpcomSiteAssistantSessionStateCache.set( sessionCacheKey, nextSessionState );
-				persistWpcomSiteAssistantSessionStateCache();
+				serverHydrationDisabledRef.current = Boolean( nextSessionState.serverHydrationDisabled );
 				setActiveWpcomSite( nextSessionState.activeWpcomSite );
 				setInput( nextSessionState.input );
 				setMessages( nextSessionState.messages );
 				setOptimisticMessageImages( {} );
 				setSessionId( nextSessionState.sessionId );
-				setPreviewState( nextSessionState.previewState );
 			} catch ( error ) {
 				console.error( error );
 			}
@@ -628,57 +793,67 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		return () => {
 			isCurrentHydration = false;
 		};
-	}, [ client, isAuthenticated, isOffline, selectedWpcomSite, sessionCacheKey ] );
+	}, [
+		client,
+		isAuthenticated,
+		isOffline,
+		refreshConversationList,
+		selectedWpcomSite,
+		sessionCacheKey,
+	] );
 
 	const openPreview = useCallback(
 		( pathOrUrl = '/', title?: string, { forceReload = false }: OpenPreviewOptions = {} ) => {
-			setPreviewState( ( currentState ) =>
-				getNextPreviewState( currentState, pathOrUrl, title, { forceReload } )
+			updatePreviewState(
+				getNextPreviewState( previewStateRef.current, pathOrUrl, title, { forceReload } )
 			);
 		},
-		[]
+		[ updatePreviewState ]
 	);
 
-	const isVisibleSession = useCallback( ( targetSessionKey: string ) => {
-		return (
-			isMountedRef.current &&
-			createWpcomSiteAssistantSessionKey( selectedWpcomSiteIdRef.current ) === targetSessionKey
-		);
+	const isVisibleSession = useCallback( ( targetConversationId: string ) => {
+		return isMountedRef.current && conversationIdRef.current === targetConversationId;
 	}, [] );
 
 	const writeCachedSessionState = useCallback(
 		(
-			targetSessionKey: string,
+			targetConversationId: string,
 			targetSelectedWpcomSite: SyncSite,
 			updater: (
 				currentSessionState: WpcomSiteAssistantSessionState
 			) => WpcomSiteAssistantSessionState
 		) => {
-			const currentSessionState =
-				wpcomSiteAssistantSessionStateCache.get( targetSessionKey ) ??
-				getWpcomSiteAssistantSessionState( targetSessionKey, targetSelectedWpcomSite );
+			const currentSessionState = wpcomSiteAssistantSessionStateCache.get(
+				targetConversationId
+			) ?? {
+				...createWpcomSiteAssistantSessionState( targetSelectedWpcomSite ),
+				id: targetConversationId,
+			};
 			const nextSessionState = {
 				...updater( currentSessionState ),
+				id: targetConversationId,
 				lastUpdated: Date.now(),
 			};
-			wpcomSiteAssistantSessionStateCache.set( targetSessionKey, nextSessionState );
+			wpcomSiteAssistantSessionStateCache.set( targetConversationId, nextSessionState );
 			persistWpcomSiteAssistantSessionStateCache();
+			refreshConversationList();
 			return nextSessionState;
 		},
-		[]
+		[ refreshConversationList ]
 	);
 
 	const applyVisibleSessionState = useCallback(
 		(
-			targetSessionKey: string,
+			targetConversationId: string,
 			nextSessionState: WpcomSiteAssistantSessionState,
 			{ clearOptimisticImages = false }: { clearOptimisticImages?: boolean } = {}
 		) => {
-			if ( ! isVisibleSession( targetSessionKey ) ) {
+			if ( ! isVisibleSession( targetConversationId ) ) {
 				return;
 			}
 
 			conversationIdRef.current = nextSessionState.id;
+			setSelectedConversationId( nextSessionState.id );
 			remoteChatIdRef.current = nextSessionState.remoteChatId;
 			serverHydrationDisabledRef.current = Boolean( nextSessionState.serverHydrationDisabled );
 			messagesRef.current = nextSessionState.messages;
@@ -686,7 +861,6 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 			setInput( nextSessionState.input );
 			setMessages( nextSessionState.messages );
 			setSessionId( nextSessionState.sessionId );
-			setPreviewState( nextSessionState.previewState );
 			if ( clearOptimisticImages ) {
 				setOptimisticMessageImages( {} );
 			}
@@ -702,7 +876,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 			return;
 		}
 
-		if ( locallyStartedTurnSessionKeysRef.current.delete( sessionCacheKey ) ) {
+		if ( locallyStartedTurnConversationIdsRef.current.delete( selectedConversationId ) ) {
 			return;
 		}
 
@@ -710,13 +884,14 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 			sessionCacheKey,
 			selectedWpcomSite
 		);
-		applyVisibleSessionState( sessionCacheKey, nextSessionState );
+		applyVisibleSessionState( nextSessionState.id, nextSessionState );
 		setIsAssistantThinking( false );
 	}, [
 		applyVisibleSessionState,
 		hasActiveAssistantTurn,
 		isAssistantThinking,
 		selectedWpcomSite,
+		selectedConversationId,
 		sessionCacheKey,
 	] );
 
@@ -740,7 +915,18 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		return () => {
 			scrollArea.removeEventListener( 'scroll', handleScroll );
 		};
-	}, [ getMessagesScrollArea, isMessagesScrollAreaAtLatest, sessionCacheKey ] );
+	}, [ getMessagesScrollArea, isMessagesScrollAreaAtLatest, selectedConversationId ] );
+
+	const selectTargetSite = useCallback(
+		( site: SyncSite ) => {
+			const workspace = getWpcomSiteWorkspaceForSite( wpcomSites, site );
+			if ( workspace ) {
+				setSavedWpcomWorkspaceTarget( workspace.id, site.id );
+			}
+			setSelectedWpcomSite( site );
+		},
+		[ setSelectedWpcomSite, wpcomSites ]
+	);
 
 	const createStagingSiteForSite = useCallback(
 		async ( site: SyncSite, { selectWpcomSite = false }: { selectWpcomSite?: boolean } = {} ) => {
@@ -769,7 +955,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 				if ( isMountedRef.current && activeWpcomSiteRef.current.id === site.id ) {
 					setActiveWpcomSite( stagingSite );
 					if ( selectWpcomSite && selectedWpcomSiteIdRef.current === site.id ) {
-						setSelectedWpcomSite( stagingSite );
+						selectTargetSite( stagingSite );
 					}
 				}
 
@@ -787,7 +973,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 				}
 			}
 		},
-		[ createWpcomStagingSite, setSelectedWpcomSite, setWpcomSiteActivity, userId ]
+		[ createWpcomStagingSite, selectTargetSite, setWpcomSiteActivity, userId ]
 	);
 
 	const createStagingSiteForActiveSite = useCallback(
@@ -813,22 +999,16 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 					activeWpcomSite: targetActiveWpcomSite,
 					previewState: targetPreviewState,
 					openPreview: ( pathOrUrl = '/', title, options ) => {
-						const nextSessionState = writeCachedSessionState(
-							targetSessionKey,
-							targetSelectedWpcomSite,
-							( currentSessionState ) => ( {
-								...currentSessionState,
-								previewState: getNextPreviewState(
-									currentSessionState.previewState,
-									pathOrUrl,
-									title,
-									options
-								),
-							} )
+						const nextPreviewState = getNextPreviewState(
+							getWpcomSiteAssistantTargetPreviewState( targetActiveWpcomSite ),
+							pathOrUrl,
+							title,
+							options
 						);
+						setWpcomSiteAssistantTargetPreviewState( targetActiveWpcomSite.id, nextPreviewState );
 
-						if ( isVisibleSession( targetSessionKey ) ) {
-							setPreviewState( nextSessionState.previewState );
+						if ( selectedWpcomSiteIdRef.current === targetActiveWpcomSite.id ) {
+							setPreviewState( nextPreviewState );
 						}
 					},
 				} ),
@@ -877,12 +1057,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 				} ),
 			],
 		} ),
-		[
-			applyVisibleSessionState,
-			createStagingSiteForSite,
-			isVisibleSession,
-			writeCachedSessionState,
-		]
+		[ applyVisibleSessionState, createStagingSiteForSite, writeCachedSessionState ]
 	);
 
 	const syncBackendActiveWpcomSite = useCallback(
@@ -925,7 +1100,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		( chatMessage: string, isRetry?: boolean ) => {
 			const trimmedMessage = chatMessage.trim();
 			const imagesToSend = isRetry ? [] : pendingImages;
-			const targetSessionKey = sessionCacheKey;
+			const targetSessionKey = selectedConversationId;
 			if (
 				( ! trimmedMessage && imagesToSend.length === 0 ) ||
 				! client ||
@@ -977,7 +1152,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 				siteId: targetActiveWpcomSite.id,
 				abortController,
 			} );
-			locallyStartedTurnSessionKeysRef.current.add( targetSessionKey );
+			locallyStartedTurnConversationIdsRef.current.add( targetSessionKey );
 			setWpcomSiteActivity( targetActiveWpcomSite.id, {
 				isAssistantThinking: true,
 			} );
@@ -1172,8 +1347,8 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 			pendingImages,
 			previewContext,
 			previewState,
+			selectedConversationId,
 			selectedWpcomSite,
-			sessionCacheKey,
 			sessionId,
 			siteAssociation,
 			syncBackendActiveWpcomSite,
@@ -1182,43 +1357,48 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		]
 	);
 
-	const clearConversation = useCallback( () => {
-		conversationIdRef.current = createWpcomSiteAssistantConversationId();
-		remoteChatIdRef.current = undefined;
-		serverHydrationDisabledRef.current = true;
+	const startNewConversation = useCallback( () => {
+		const nextSessionState = createNewWpcomSiteAssistantConversation( selectedWpcomSite );
+		conversationIdRef.current = nextSessionState.id;
+		setSelectedConversationId( nextSessionState.id );
+		remoteChatIdRef.current = nextSessionState.remoteChatId;
+		serverHydrationDisabledRef.current = Boolean( nextSessionState.serverHydrationDisabled );
+		messagesRef.current = nextSessionState.messages;
 		setInput( '' );
 		setMessages( [] );
 		setOptimisticMessageImages( {} );
 		setSessionId( undefined );
 		setActiveWpcomSite( selectedWpcomSite );
-		setPreviewState( initialPreviewState() );
 		clearPendingImages();
-	}, [ clearPendingImages, selectedWpcomSite ] );
+		refreshConversationList();
+	}, [ clearPendingImages, refreshConversationList, selectedWpcomSite ] );
 
-	const confirmAndClearConversation = useCallback( async () => {
-		if ( localStorage.getItem( 'dontShowClearMessagesWarning' ) === 'true' ) {
-			clearConversation();
-			return;
-		}
+	const clearConversation = startNewConversation;
 
-		const CLEAR_CONVERSATION_BUTTON_INDEX = 0;
-		const CANCEL_BUTTON_INDEX = 1;
-
-		const { response, checkboxChecked } = await getIpcApi().showMessageBox( {
-			message: __( 'Are you sure you want to clear the conversation?' ),
-			checkboxLabel: __( "Don't show this warning again" ),
-			buttons: [ __( 'OK' ), __( 'Cancel' ) ],
-			cancelId: CANCEL_BUTTON_INDEX,
-		} );
-
-		if ( response === CLEAR_CONVERSATION_BUTTON_INDEX ) {
-			if ( checkboxChecked ) {
-				localStorage.setItem( 'dontShowClearMessagesWarning', 'true' );
+	const selectConversation = useCallback(
+		( conversationId: string ) => {
+			const nextSessionState = wpcomSiteAssistantSessionStateCache.get( conversationId );
+			if ( ! nextSessionState || nextSessionState.key.siteId !== selectedWpcomSite.id ) {
+				return;
 			}
 
-			clearConversation();
-		}
-	}, [ clearConversation ] );
+			setSelectedWpcomSiteAssistantConversationId( selectedWpcomSite.id, conversationId );
+			conversationIdRef.current = conversationId;
+			setSelectedConversationId( conversationId );
+			remoteChatIdRef.current = nextSessionState.remoteChatId;
+			serverHydrationDisabledRef.current = Boolean( nextSessionState.serverHydrationDisabled );
+			messagesRef.current = nextSessionState.messages;
+			setInput( nextSessionState.input );
+			setMessages( nextSessionState.messages );
+			setOptimisticMessageImages( {} );
+			setSessionId( nextSessionState.sessionId );
+			setActiveWpcomSite( nextSessionState.activeWpcomSite );
+			setIsAssistantThinking( Boolean( getWpcomSiteAssistantTurn( conversationId ) ) );
+			clearPendingImages();
+			refreshConversationList();
+		},
+		[ clearPendingImages, refreshConversationList, selectedWpcomSite.id ]
+	);
 
 	const agentticMessages = useMemo< AgentUIProps[ 'messages' ] >(
 		() =>
@@ -1278,27 +1458,23 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 	}, [ failedMessageContent, submitPrompt ] );
 
 	const interruptDollyRequest = useCallback( () => {
-		abortWpcomSiteAssistantTurn( sessionCacheKey );
-	}, [ sessionCacheKey ] );
+		abortWpcomSiteAssistantTurn( selectedConversationId );
+	}, [ selectedConversationId ] );
 
 	const persistStagingSiteConversation = useCallback(
 		( stagingSite: SyncSite, nextMessages: MessageType[] ) => {
-			const stagingSessionKey = createWpcomSiteAssistantSessionKey( stagingSite.id );
-			wpcomSiteAssistantSessionStateCache.set( stagingSessionKey, {
-				id: createWpcomSiteAssistantConversationId(),
-				key: {
-					siteId: stagingSite.id,
-					agentId: DOLLY_AGENT_ID,
-				},
+			const stagingSessionState = {
+				...createWpcomSiteAssistantSessionState( stagingSite ),
 				remoteChatId: undefined,
 				serverHydrationDisabled: true,
 				input: '',
 				messages: nextMessages,
 				sessionId: undefined,
 				activeWpcomSite: stagingSite,
-				previewState: initialPreviewState(),
 				lastUpdated: Date.now(),
-			} );
+			};
+			wpcomSiteAssistantSessionStateCache.set( stagingSessionState.id, stagingSessionState );
+			setSelectedWpcomSiteAssistantConversationId( stagingSite.id, stagingSessionState.id );
 			persistWpcomSiteAssistantSessionStateCache();
 		},
 		[]
@@ -1366,7 +1542,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 			setMessages( finalMessages );
 			setIsAssistantThinking( false );
 			persistStagingSiteConversation( stagingSite, finalMessages );
-			setSelectedWpcomSite( stagingSite );
+			selectTargetSite( stagingSite );
 		} catch ( error ) {
 			if ( ! isMountedRef.current ) {
 				return;
@@ -1394,7 +1570,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 		createStagingSiteForActiveSite,
 		isCreatingStagingSite,
 		persistStagingSiteConversation,
-		setSelectedWpcomSite,
+		selectTargetSite,
 	] );
 
 	const dollyNotice = useMemo< AgentticNoticeConfig | undefined >( () => {
@@ -1458,18 +1634,16 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 			...( messages.length > 0
 				? [
 						{
-							id: 'clear-conversation',
-							icon: <Icon icon={ trash } size={ 18 } />,
-							onClick: () => {
-								void confirmAndClearConversation();
-							},
+							id: 'new-chat',
+							icon: <Icon icon={ plus } size={ 18 } />,
+							onClick: startNewConversation,
 							variant: 'ghost' as const,
-							'aria-label': __( 'Clear conversation' ),
+							'aria-label': __( 'New chat' ),
 						},
 				  ]
 				: [] ),
 		],
-		[ confirmAndClearConversation, isInputActionDisabled, messages.length ]
+		[ isInputActionDisabled, messages.length, startNewConversation ]
 	);
 
 	const dollySuggestions = useMemo< Suggestion[] >(
@@ -1521,6 +1695,11 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 							{ activeWpcomSite.url }
 						</div>
 						<LiveSiteSafetySignal selectedSite={ activeWpcomSite } />
+						<WpcomTargetSwitcher
+							workspace={ wpcomSiteWorkspace }
+							selectedSite={ activeWpcomSite }
+							onSelect={ selectTargetSite }
+						/>
 					</div>
 					<div className="flex shrink-0 flex-wrap justify-end gap-2">
 						{ showCreateStagingSiteButton && (
@@ -1569,12 +1748,18 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 								thinkingMessage={ __( 'Thinking...' ) }
 								className="h-full min-h-0 bg-frame-surface"
 							>
+								<DollyConversationSwitcher
+									conversations={ conversationsForTarget }
+									selectedConversationId={ selectedConversationId }
+									onSelect={ selectConversation }
+									onNewChat={ startNewConversation }
+								/>
 								<AgentUI.ConversationView
 									ref={ conversationViewRef }
 									showHeader={ false }
 									className="relative min-h-0 px-6 py-6"
 								>
-									<AgentUI.Messages key={ sessionCacheKey } />
+									<AgentUI.Messages key={ selectedConversationId } />
 									{ showJumpToLatest && (
 										<div className="pointer-events-none absolute inset-x-0 bottom-28 z-20 flex justify-center">
 											<button
@@ -1641,11 +1826,10 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 						previewUrl={ previewUrl }
 						onClose={ () => updatePreviewState( { open: false } ) }
 						onRefresh={ () =>
-							setPreviewState( ( currentState ) => ( {
-								...currentState,
+							updatePreviewState( {
 								isLoading: true,
-								reloadNonce: currentState.reloadNonce + 1,
-							} ) )
+								reloadNonce: previewState.reloadNonce + 1,
+							} )
 						}
 						onUpdateState={ updatePreviewState }
 					/>

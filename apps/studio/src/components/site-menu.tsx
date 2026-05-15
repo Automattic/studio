@@ -16,11 +16,16 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
 import { getTerminalName } from 'src/modules/user-settings/lib/terminal';
+import {
+	createWpcomSiteWorkspaces,
+	getDefaultWpcomWorkspaceTarget,
+	setSavedWpcomWorkspaceTarget,
+	type WpcomSiteWorkspace,
+} from 'src/modules/wpcom-site-assistant/lib/workspaces';
 import { useRootSelector } from 'src/stores';
 import { useGetUserEditorQuery, useGetUserTerminalQuery } from 'src/stores/installed-apps-api';
 import { syncOperationsSelectors } from 'src/stores/sync';
 import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
-import type { SyncSite } from '@studio/common/types/sync';
 import type { WpcomSiteActivity } from 'src/hooks/use-site-details';
 
 interface SiteMenuProps {
@@ -256,74 +261,6 @@ function SiteItem( {
 	);
 }
 
-type WpcomSiteWorkspace = {
-	id: string;
-	name: string;
-	primarySite: SyncSite;
-	productionSite?: SyncSite;
-	stagingSites: SyncSite[];
-	sites: SyncSite[];
-};
-
-const createWpcomSiteWorkspaces = ( sites: SyncSite[] ): WpcomSiteWorkspace[] => {
-	const sitesById = new Map( sites.map( ( site ) => [ site.id, site ] ) );
-	const groupedSiteIds = new Set< number >();
-	const workspaces: WpcomSiteWorkspace[] = [];
-	const normalizeSiteName = ( name: string ) => name.trim().toLowerCase().replace( /\s+/g, ' ' );
-	const getWorkspaceNameKey = ( name: string ) =>
-		normalizeSiteName( name ).replace( /\s+(staging|stage)$/, '' );
-	const unlinkedStagingSites = sites.filter(
-		( site ) => site.isStaging && ! site.productionSiteId
-	);
-
-	sites.forEach( ( site ) => {
-		if ( site.isStaging || groupedSiteIds.has( site.id ) ) {
-			return;
-		}
-
-		const stagingSites = ( site.stagingSiteIds ?? [] )
-			.map( ( stagingSiteId ) => sitesById.get( stagingSiteId ) )
-			.filter( ( stagingSite ): stagingSite is SyncSite => Boolean( stagingSite ) );
-		const fallbackStagingSites = unlinkedStagingSites.filter(
-			( stagingSite ) =>
-				getWorkspaceNameKey( stagingSite.name ) === getWorkspaceNameKey( site.name )
-		);
-		const allStagingSites = [ ...stagingSites, ...fallbackStagingSites ].filter(
-			( stagingSite, index, allSites ) =>
-				index === allSites.findIndex( ( candidate ) => candidate.id === stagingSite.id )
-		);
-
-		groupedSiteIds.add( site.id );
-		allStagingSites.forEach( ( stagingSite ) => groupedSiteIds.add( stagingSite.id ) );
-
-		workspaces.push( {
-			id: `wpcom-site-workspace:${ site.id }`,
-			name: site.name,
-			primarySite: site,
-			productionSite: site,
-			stagingSites: allStagingSites,
-			sites: [ site, ...allStagingSites ],
-		} );
-	} );
-
-	sites.forEach( ( site ) => {
-		if ( groupedSiteIds.has( site.id ) ) {
-			return;
-		}
-
-		workspaces.push( {
-			id: `wpcom-site-workspace:${ site.id }`,
-			name: site.name,
-			primarySite: site,
-			productionSite: site.isStaging ? undefined : site,
-			stagingSites: site.isStaging ? [ site ] : [],
-			sites: [ site ],
-		} );
-	} );
-
-	return workspaces;
-};
-
 function WpcomSiteTargetSummary( { workspace }: { workspace: WpcomSiteWorkspace } ) {
 	return (
 		<Tooltip
@@ -437,123 +374,15 @@ function WpcomSiteActivityIndicator( {
 	);
 }
 
-function WpcomSiteTargetItem( {
-	site,
-	label,
-	isSelected,
-	onSelect,
-	activity,
-}: {
-	site: SyncSite;
-	label: string;
-	isSelected: boolean;
-	onSelect: ( site: SyncSite ) => void;
-	activity?: WpcomSiteActivity;
-} ) {
-	const activityLabel = getWpcomSiteActivityLabel( activity );
-
-	return (
-		<li
-			className={ cx(
-				'ms-1 flex h-7 min-w-0 items-center rounded transition-all hover:bg-[#ffffff0C]',
-				isSelected && 'bg-[#ffffff0C]'
-			) }
-		>
-			<Tooltip
-				text={ site.url }
-				placement={ SITE_MENU_TOOLTIP_PLACEMENT }
-				className="min-w-0 flex-1"
-			>
-				<button
-					type="button"
-					className="flex w-full min-w-0 items-center gap-2 rounded py-1 ps-2 pe-3.5 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme"
-					aria-label={ sprintf(
-						/* translators: 1: environment label, 2: site URL. */
-						__( 'Select %1$s site: %2$s' ),
-						label,
-						site.url
-					) }
-					onClick={ () => onSelect( site ) }
-				>
-					<span
-						className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-xs text-a8c-gray-50"
-						dir="ltr"
-					>
-						{ site.url }
-					</span>
-					{ activityLabel ? (
-						<WpcomSiteActivityIndicator activity={ activity } className="-me-1" />
-					) : (
-						<span
-							aria-hidden="true"
-							className={ cx(
-								'h-2 w-2 shrink-0 rounded-full',
-								site.isStaging ? 'bg-circle-env-staging' : 'bg-circle-env-production'
-							) }
-						/>
-					) }
-				</button>
-			</Tooltip>
-		</li>
-	);
-}
-
 function WpcomSiteItem( { workspace }: { workspace: WpcomSiteWorkspace } ) {
 	const { selectedWpcomSite, setSelectedWpcomSite, wpcomSiteActivity } = useSiteDetails();
 	const selectedWorkspaceSite = workspace.sites.find(
 		( site ) => site.id === selectedWpcomSite?.id
 	);
 	const isSelected = Boolean( selectedWorkspaceSite );
-	const siteToOpen = selectedWorkspaceSite ?? workspace.primarySite;
+	const siteToOpen = selectedWorkspaceSite ?? getDefaultWpcomWorkspaceTarget( workspace );
 	const hasMultipleTargets = workspace.sites.length > 1;
-	const showTargets = hasMultipleTargets && isSelected;
 	const workspaceActivity = getWorkspaceActivity( workspace, wpcomSiteActivity );
-
-	if ( showTargets ) {
-		return (
-			<li className={ cx( 'min-w-[168px] ms-1', isMac() ? 'me-5' : 'me-4' ) }>
-				<div
-					className={ cx(
-						'flex h-8 flex-row items-center rounded transition-all hover:bg-[#ffffff0C]',
-						isSelected && 'bg-[#ffffff0A]'
-					) }
-				>
-					<button
-						type="button"
-						className="p-2 text-xs rounded whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme"
-						onClick={ () => setSelectedWpcomSite( siteToOpen ) }
-					>
-						{ workspace.name }
-					</button>
-				</div>
-				<ul className="mb-1 ms-1 border-s border-white/10">
-					{ workspace.productionSite && (
-						<WpcomSiteTargetItem
-							site={ workspace.productionSite }
-							label={ __( 'Production' ) }
-							isSelected={ selectedWpcomSite?.id === workspace.productionSite.id }
-							onSelect={ setSelectedWpcomSite }
-							activity={ wpcomSiteActivity[ workspace.productionSite.id ] }
-						/>
-					) }
-					{ workspace.stagingSites.map( ( stagingSite, index ) => (
-						<WpcomSiteTargetItem
-							key={ stagingSite.id }
-							site={ stagingSite }
-							label={
-								workspace.stagingSites.length > 1
-									? sprintf( __( 'Staging %d' ), index + 1 )
-									: __( 'Staging' )
-							}
-							isSelected={ selectedWpcomSite?.id === stagingSite.id }
-							onSelect={ setSelectedWpcomSite }
-							activity={ wpcomSiteActivity[ stagingSite.id ] }
-						/>
-					) ) }
-				</ul>
-			</li>
-		);
-	}
 
 	return (
 		<li
@@ -566,7 +395,10 @@ function WpcomSiteItem( { workspace }: { workspace: WpcomSiteWorkspace } ) {
 			<button
 				type="button"
 				className="p-2 text-xs rounded-tl rounded-bl whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme"
-				onClick={ () => setSelectedWpcomSite( siteToOpen ) }
+				onClick={ () => {
+					setSavedWpcomWorkspaceTarget( workspace.id, siteToOpen.id );
+					setSelectedWpcomSite( siteToOpen );
+				} }
 			>
 				{ workspace.name }
 			</button>
@@ -599,6 +431,7 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 		setIsEditModalOpen,
 		copySite,
 		updateSitesSortOrder,
+		setWpcomSites = () => undefined,
 	} = useSiteDetails();
 	const { isAuthenticated, user } = useAuth();
 	const { setSelectedTab } = useContentTabs();
@@ -627,6 +460,10 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 		() => createWpcomSiteWorkspaces( unconnectedWpcomSites ),
 		[ unconnectedWpcomSites ]
 	);
+
+	useEffect( () => {
+		setWpcomSites( unconnectedWpcomSites );
+	}, [ setWpcomSites, unconnectedWpcomSites ] );
 
 	useEffect( () => {
 		if ( ! isAuthenticated ) {

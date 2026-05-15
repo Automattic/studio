@@ -32,6 +32,8 @@ interface SiteDetailsContext {
 	sites: SiteDetails[];
 	setSelectedSiteId: ( selectedSiteId: string ) => void;
 	setSelectedWpcomSite: ( site: SyncSite | null ) => void;
+	wpcomSites: SyncSite[];
+	setWpcomSites: ( sites: SyncSite[] ) => void;
 	wpcomSiteActivity: Record< number, WpcomSiteActivity >;
 	setWpcomSiteActivity: ( siteId: number, activity: WpcomSiteActivity ) => void;
 	createSite: (
@@ -76,6 +78,8 @@ const defaultContext: SiteDetailsContext = {
 	siteCreationMessages: {},
 	setSelectedSiteId: () => undefined,
 	setSelectedWpcomSite: () => undefined,
+	wpcomSites: [],
+	setWpcomSites: () => undefined,
 	wpcomSiteActivity: {},
 	setWpcomSiteActivity: () => undefined,
 	createSite: async () => undefined,
@@ -147,6 +151,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	);
 	const { selectedSiteId, setSelectedSiteId } = useSelectedSite( firstSite?.id );
 	const [ selectedWpcomSite, setSelectedWpcomSiteState ] = useState< SyncSite | null >( null );
+	const [ wpcomSites, setWpcomSites ] = useState< SyncSite[] >( [] );
 	const [ wpcomSiteActivity, setWpcomSiteActivityState ] = useState<
 		Record< number, WpcomSiteActivity >
 	>( {} );
@@ -658,6 +663,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			sites,
 			setSelectedSiteId: selectLocalSite,
 			setSelectedWpcomSite,
+			wpcomSites,
+			setWpcomSites,
 			wpcomSiteActivity,
 			setWpcomSiteActivity,
 			createSite,
@@ -687,6 +694,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			sites,
 			selectLocalSite,
 			setSelectedWpcomSite,
+			wpcomSites,
+			setWpcomSites,
 			wpcomSiteActivity,
 			setWpcomSiteActivity,
 			createSite,

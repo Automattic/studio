@@ -26,6 +26,7 @@ import {
 	WpcomSiteAssistant,
 	clearWpcomSiteAssistantStateCacheForTests,
 } from 'src/modules/wpcom-site-assistant';
+import { getWpcomSiteAssistantSessionState } from 'src/modules/wpcom-site-assistant/lib/session';
 import { store } from 'src/stores';
 import { generateMessage, chatActions } from 'src/stores/chat-slice';
 import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
@@ -225,6 +226,28 @@ describe( 'ContentTabAssistant', () => {
 		screen
 			.queryAllByText( text )
 			.find( ( element ) => element.closest( '[data-slot="messages"]' ) ) ?? null;
+
+	const getPersistedWpcomConversations = () => {
+		const cache = JSON.parse(
+			localStorage.getItem( LOCAL_STORAGE_DOLLY_WPCOM_SITE_CONVERSATIONS_KEY ) || '{}'
+		) as {
+			conversations?: Record<
+				string,
+				{
+					id?: string;
+					key?: { siteId?: number };
+					remoteChatId?: number;
+					sessionId?: string;
+				}
+			>;
+		};
+		return Object.values( cache.conversations ?? {} );
+	};
+
+	const getPersistedWpcomConversationForSite = ( siteId: number ) =>
+		getPersistedWpcomConversations().find(
+			( conversation ) => conversation.key?.siteId === siteId
+		);
 
 	type DollyFetchHandler = ( args: {
 		body: {
@@ -1136,10 +1159,7 @@ describe( 'ContentTabAssistant', () => {
 			expect( queryChatMessageText( 'First hello response' ) ).not.toBeInTheDocument();
 		} );
 
-		const persistedConversationsAfterSwitch = JSON.parse(
-			localStorage.getItem( LOCAL_STORAGE_DOLLY_WPCOM_SITE_CONVERSATIONS_KEY ) || '{}'
-		) as Record< string, { sessionId?: string } >;
-		expect( persistedConversationsAfterSwitch[ 'wpcom-site:456' ]?.sessionId ).toBeUndefined();
+		expect( getPersistedWpcomConversationForSite( 456 )?.sessionId ).toBeUndefined();
 
 		fireEvent.change( getInput(), { target: { value: 'Second hello' } } );
 		fireEvent.keyDown( getInput(), { key: 'Enter', code: 'Enter' } );
@@ -1150,6 +1170,48 @@ describe( 'ContentTabAssistant', () => {
 
 		const secondRequest = requestBodies[ 1 ];
 		expect( secondRequest.params?.sessionId ).toBe( secondRequest.params?.id );
+	} );
+
+	it( 'migrates legacy WP.com-only chat cache entries into the conversation collection', () => {
+		localStorage.setItem(
+			'dolly_wpcom_site_conversations_v4',
+			JSON.stringify( {
+				'wpcom-site:123': {
+					id: 'local:legacy',
+					key: {
+						siteId: 123,
+						agentId: 'dolly',
+					},
+					input: 'legacy draft',
+					messages: [ generateMessage( 'Legacy question', 'user', 0 ) ],
+					sessionId: 'legacy-session',
+					activeWpcomSite: firstWpcomSite,
+					previewState: {
+						open: true,
+						pathOrUrl: '/legacy/',
+						isLoading: false,
+						reloadNonce: 0,
+					},
+					lastUpdated: Date.parse( '2026-05-14T13:19:00Z' ),
+				},
+			} )
+		);
+
+		const sessionState = getWpcomSiteAssistantSessionState( 'wpcom-site:123', firstWpcomSite );
+
+		expect( sessionState ).toEqual(
+			expect.objectContaining( {
+				id: 'local:legacy',
+				input: 'legacy draft',
+				sessionId: 'legacy-session',
+			} )
+		);
+		expect( getPersistedWpcomConversationForSite( 123 ) ).toEqual(
+			expect.objectContaining( {
+				id: 'local:legacy',
+				sessionId: 'legacy-session',
+			} )
+		);
 	} );
 
 	it( 'renders a completed Dolly response in the WP.com-only live site chat', async () => {
@@ -1391,11 +1453,9 @@ describe( 'ContentTabAssistant', () => {
 		await waitFor( () => {
 			expect( getChatMessageText( 'First hello response' ) ).toBeVisible();
 		} );
-		const persistedConversations = JSON.parse(
-			localStorage.getItem( LOCAL_STORAGE_DOLLY_WPCOM_SITE_CONVERSATIONS_KEY ) || '{}'
-		) as Record< string, { id?: string; sessionId?: string } >;
-		expect( persistedConversations[ 'wpcom-site:123' ]?.id ).toMatch( /^local:/ );
-		expect( persistedConversations[ 'wpcom-site:123' ]?.sessionId ).toBe( 'session-first' );
+		const persistedConversation = getPersistedWpcomConversationForSite( 123 );
+		expect( persistedConversation?.id ).toMatch( /^local:/ );
+		expect( persistedConversation?.sessionId ).toBe( 'session-first' );
 
 		rerender(
 			buildContextTree( {
@@ -1489,7 +1549,7 @@ describe( 'ContentTabAssistant', () => {
 			expect( getChatMessageText( 'First hello response' ) ).toBeVisible();
 		} );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Clear conversation' } ) );
+		fireEvent.click( screen.getAllByRole( 'button', { name: 'New chat' } )[ 0 ] );
 
 		await waitFor( () => {
 			expect( queryChatMessageText( 'First hello response' ) ).not.toBeInTheDocument();
@@ -1663,12 +1723,9 @@ describe( 'ContentTabAssistant', () => {
 		} );
 		expect( screen.queryByText( /Local workspace context:/ ) ).not.toBeInTheDocument();
 
-		const persistedConversations = JSON.parse(
-			localStorage.getItem( LOCAL_STORAGE_DOLLY_WPCOM_SITE_CONVERSATIONS_KEY ) || '{}'
-		) as Record< string, { id?: string; remoteChatId?: number; sessionId?: string } >;
-		expect( persistedConversations[ 'wpcom-site:123' ] ).toEqual(
+		expect( getPersistedWpcomConversationForSite( 123 ) ).toEqual(
 			expect.objectContaining( {
-				id: 'wpcom:dolly:987',
+				id: 'local:server-session',
 				remoteChatId: 987,
 				sessionId: 'server-session',
 			} )

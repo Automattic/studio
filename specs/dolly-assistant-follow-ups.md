@@ -6,12 +6,13 @@
 - Backend site selection sync: after a Dolly turn, Studio detects the backend-selected site from the response or session history, updates the active UI site when Dolly switched it, and avoids clobbering explicit user selections made while a turn is in flight.
 - Preview refresh guard: Dolly preview tool calls are idempotent for the currently open URL and only force a same-URL reload when Dolly marks `siteChanged`.
 - Preview default state: WordPress.com live-site chats start with the preview hidden and only open when the user or Dolly requests a preview.
-- Live-site chat state: each WordPress.com site keeps its own persisted local Dolly conversation id, messages, draft input, session id, backend-selected active site, and preview state while switching between live-site tabs.
-- Server hydration: WordPress.com live-site chats load the latest matching Dolly server conversation on mount, preserve its `remoteChatId`/`sessionId`, and continue future sends in that hydrated session.
+- Live-site chat state: each WordPress.com target keeps persisted Dolly conversations with local ids, messages, draft input, session ids, and optional server `remoteChatId`.
+- Server hydration: WordPress.com live-site chats hydrate matching Dolly server conversations into the target's conversation collection, merge by `remoteChatId`/normalized `sessionId`, and keep a fresh blank chat selected by default.
 - Live-site safety signals: WordPress.com live-site chats show a heading badge for the selected site's environment, a WP.com badge, and a warning that Dolly can make changes directly to the live site.
 - Preview resize drag capture: dragging the WordPress.com preview splitter keeps pointer capture above the embedded preview so shrinking does not get stuck and releases cleanly.
 - Sidebar WordPress.com item polish: live WordPress.com site rows align with local site rows and use a subtle WordPress icon affordance instead of nested indentation.
-- Sidebar WordPress.com workspace grouping: production and staging sites keep their relationship in `SyncSite` and render as one workspace row with nested production/staging target rows instead of duplicate sibling site rows.
+- Sidebar WordPress.com workspace grouping: production and staging sites keep their relationship in `SyncSite` and render as one workspace row with compact target/status indicators instead of duplicate sibling site rows.
+- Workspace, target, and chat IA: WordPress.com assistant state now follows `Workspace -> Target -> Chat`; the sidebar owns workspace selection, the header owns target switching, the chat surface owns conversation switching/new chat, and preview state is scoped per target.
 
 ## Remaining Prioritized Plan
 

@@ -1,4 +1,4 @@
-import { render, act, screen, within } from '@testing-library/react';
+import { render, act, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { vi } from 'vitest';
@@ -245,7 +245,6 @@ describe( 'MainSidebar Site Menu', () => {
 	} );
 
 	it( 'groups WordPress.com production and staging sites into one workspace row', async () => {
-		const user = userEvent.setup();
 		siteDetailsMocked.selectedWpcomSite = {
 			id: 101,
 			localSiteId: '',
@@ -293,20 +292,11 @@ describe( 'MainSidebar Site Menu', () => {
 		expect(
 			screen.queryByRole( 'button', { name: 'Auro Atelier Staging' } )
 		).not.toBeInTheDocument();
-		expect(
-			screen.getByRole( 'button', { name: 'Select Production site: https://auro.example' } )
-		).toHaveTextContent( 'https://auro.example' );
-		expect(
-			screen.getByRole( 'button', {
-				name: 'Select Staging site: https://staging-auro.example',
-			} )
-		).toHaveTextContent( 'https://staging-auro.example' );
+		expect( screen.getByRole( 'img', { name: 'Production and staging sites' } ) ).toBeVisible();
 
-		await user.click(
-			screen.getByRole( 'button', { name: 'Select Staging site: https://staging-auro.example' } )
-		);
+		await userEvent.click( screen.getByRole( 'button', { name: 'Auro Atelier' } ) );
 		expect( siteDetailsMocked.setSelectedWpcomSite ).toHaveBeenCalledWith(
-			expect.objectContaining( { id: 202, name: 'Auro Atelier Staging' } )
+			expect.objectContaining( { id: 101, name: 'Auro Atelier' } )
 		);
 	} );
 
@@ -421,7 +411,7 @@ describe( 'MainSidebar Site Menu', () => {
 		).not.toBeInTheDocument();
 	} );
 
-	it( 'shows a progress indicator for the active nested target while staging is being created', async () => {
+	it( 'shows a progress indicator on the workspace while staging is being created', async () => {
 		siteDetailsMocked.selectedWpcomSite = {
 			id: 101,
 			localSiteId: '',
@@ -468,19 +458,7 @@ describe( 'MainSidebar Site Menu', () => {
 
 		await act( async () => renderWithProvider( <MainSidebar /> ) );
 
-		const productionButton = screen.getByRole( 'button', {
-			name: 'Select Production site: https://auro.example',
-		} );
-		expect(
-			within( productionButton ).getByRole( 'status', { name: 'Creating staging site' } )
-		).toBeVisible();
-		expect(
-			within(
-				screen.getByRole( 'button', {
-					name: 'Select Staging site: https://staging-auro.example',
-				} )
-			).queryByRole( 'status' )
-		).not.toBeInTheDocument();
+		expect( screen.getByRole( 'status', { name: 'Creating staging site' } ) ).toBeVisible();
 	} );
 
 	it( 'groups same-name WordPress.com staging sites when relationship metadata is missing', async () => {

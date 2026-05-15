@@ -15,3 +15,14 @@ export function simplifyErrorForDisplay( error: unknown ): Error {
 	}
 	return new Error( String( error ) );
 }
+
+/**
+ * Like `simplifyErrorForDisplay`, but also truncates to the first sentence.
+ * Useful when the first line is a long, detailed error message and the dialog
+ * should stay concise (e.g. blueprint errors). Full details are available via logs.
+ */
+export function simplifyErrorToFirstSentence( error: unknown ): Error {
+	const simplified = simplifyErrorForDisplay( error );
+	const firstSentence = simplified.message.match( /^[^.]+\./ );
+	return firstSentence ? new Error( firstSentence[ 0 ] ) : simplified;
+}

@@ -13,7 +13,7 @@ import {
 } from 'react';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
-import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
+import { simplifyErrorForDisplay, simplifyErrorToFirstSentence } from 'src/lib/error-formatting';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import type { Blueprint } from 'src/stores/wpcom-api';
 
@@ -271,11 +271,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					message = __(
 						'The selected Blueprint failed to execute properly. This could be due to invalid PHP code, missing plugins, or other issues in the Blueprint file. Please check your Blueprint file and try again.'
 					);
-					// Show only the first sentence to keep the dialog concise.
-					// Full details are available via "Open Studio Logs".
-					const simplified = simplifyErrorForDisplay( error );
-					const firstSentence = simplified.message.match( /^[^.]+\./ );
-					errorToShow = firstSentence ? new Error( firstSentence[ 0 ] ) : simplified;
+					errorToShow = simplifyErrorToFirstSentence( error );
 				} else {
 					title = __( 'Failed to create site' );
 					message = __(

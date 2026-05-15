@@ -147,10 +147,10 @@ describe( 'startRemoteSessionDaemon', () => {
 } );
 
 describe( 'stopRemoteSessionDaemon', () => {
-	it( 'forks `code remote-session stop` and returns a `stopped` result', async () => {
-		const recordedCalls: { args: string[] }[] = [];
-		stubExecuteCliCommand( ( emitter, args ) => {
-			recordedCalls.push( { args } );
+	it( 'forks `code remote-session stop` with the CLI feature flag enabled and returns a `stopped` result', async () => {
+		const recordedCalls: { args: string[]; options: unknown }[] = [];
+		stubExecuteCliCommand( ( emitter, args, options ) => {
+			recordedCalls.push( { args, options } );
 			emitter.emit( 'success', { result: undefined } );
 		} );
 
@@ -165,6 +165,13 @@ describe( 'stopRemoteSessionDaemon', () => {
 
 		expect( recordedCalls ).toHaveLength( 1 );
 		expect( recordedCalls[ 0 ].args ).toEqual( [ 'code', 'remote-session', 'stop' ] );
+		// REGRESSION GUARD: the CLI gates the entire `code remote-session`
+		// subcommand tree behind `STUDIO_ENABLE_REMOTE_SESSION=true`. Without
+		// it, yargs reports "Unknown argument: stop" and the IPC handler
+		// rejects with CliCommandError.
+		expect( recordedCalls[ 0 ].options ).toMatchObject( {
+			env: { STUDIO_ENABLE_REMOTE_SESSION: 'true' },
+		} );
 		expect( result.stopped ).toBe( true );
 	} );
 

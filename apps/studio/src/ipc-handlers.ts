@@ -2377,8 +2377,12 @@ export async function stopRemoteSessionDaemon(
 	_event: IpcMainInvokeEvent
 ): Promise< StopDaemonResult > {
 	return new Promise( ( resolve, reject ) => {
+		// Same env-flag handshake as `startRemoteSessionDaemon` — without it
+		// the CLI doesn't register the `code remote-session` subcommand tree
+		// and the spawned child fails with "Unknown argument: stop".
 		const [ emitter ] = executeCliCommand( [ 'code', 'remote-session', 'stop' ], {
 			output: 'capture',
+			env: { STUDIO_ENABLE_REMOTE_SESSION: 'true' },
 		} );
 		emitter.on( 'success', () => {
 			// CLI exit-code 0 indicates the daemon is no longer running (either

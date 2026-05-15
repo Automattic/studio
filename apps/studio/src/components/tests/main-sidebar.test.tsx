@@ -183,15 +183,15 @@ describe( 'MainSidebar Footer', () => {
 		expect( container.firstChild ).toHaveClass( 'test-class' );
 	} );
 
-	it( 'shows a "Stop" button when there is a running site', async () => {
+	it( 'shows a local stop button when there is a running site', async () => {
 		await act( async () => renderWithProvider( <MainSidebar /> ) );
-		expect( screen.getByRole( 'button', { name: 'Stop' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Stop local' } ) ).toBeVisible();
 	} );
 
-	it( 'shows a "Stop All" button when there are multiple running sites', async () => {
+	it( 'shows a local stop button when there are multiple running sites', async () => {
 		site2.running = true;
 		await act( async () => renderWithProvider( <MainSidebar /> ) );
-		expect( screen.getByRole( 'button', { name: 'Stop all' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Stop local sites' } ) ).toBeVisible();
 		site2.running = false;
 	} );
 } );
@@ -227,6 +227,53 @@ describe( 'MainSidebar Site Menu', () => {
 		expect( screen.getByRole( 'menu', { name: 'Workspace commands' } ) ).toBeInTheDocument();
 		expect( screen.getByRole( 'menuitem', { name: /Open local site/ } ) ).toBeInTheDocument();
 		expect( screen.getByRole( 'menuitem', { name: /Edit site/ } ) ).toBeInTheDocument();
+	} );
+
+	it( 'uses the selected remote target commands for linked local workspace rows', async () => {
+		mockFeatureFlags.enableWorkspaces = true;
+		siteDetailsMocked.selectedWpcomSite = {
+			id: 101,
+			localSiteId: '0e9e237b-335a-43fa-b439-9b078a618512',
+			name: 'test-1',
+			url: 'https://test-1.example',
+			isStaging: false,
+			isPressable: false,
+			syncSupport: 'syncable',
+			lastPullTimestamp: null,
+			lastPushTimestamp: null,
+		};
+		vi.mocked( useAuth, { partial: true } ).mockReturnValue( {
+			isAuthenticated: true,
+			user: {
+				id: 1,
+				email: 'dsmart@example.com',
+				displayName: 'D Smart',
+			},
+		} );
+		vi.mocked( useGetWpComSitesQuery, { partial: true } ).mockReturnValue( {
+			data: {
+				sites: [
+					{
+						id: 101,
+						localSiteId: '0e9e237b-335a-43fa-b439-9b078a618512',
+						name: 'test-1',
+						url: 'https://test-1.example',
+					},
+				],
+			},
+			isFetching: false,
+		} );
+
+		await act( async () => renderWithProvider( <MainSidebar /> ) );
+
+		fireEvent.contextMenu( screen.getByRole( 'button', { name: 'test-1' } ) );
+
+		expect( screen.getByRole( 'menu', { name: 'Workspace commands' } ) ).toBeInTheDocument();
+		expect(
+			screen.getByRole( 'menuitem', { name: /Open WordPress.com site/ } )
+		).toBeInTheDocument();
+		expect( screen.queryByRole( 'menuitem', { name: /Open local site/ } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'menuitem', { name: /Edit site/ } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'has "start site" buttons when sites are not running', async () => {
@@ -283,20 +330,16 @@ describe( 'MainSidebar Site Menu', () => {
 
 		await act( async () => renderWithProvider( <MainSidebar /> ) );
 
-		const wpcomSectionButton = screen.getByRole( 'button', { name: 'WordPress.com' } );
-		expect( wpcomSectionButton ).toBeVisible();
-		expect( wpcomSectionButton ).toHaveAttribute( 'aria-expanded', 'true' );
+		expect( screen.queryByRole( 'button', { name: 'WordPress.com' } ) ).not.toBeInTheDocument();
 		const wpcomSiteButton = screen.getByRole( 'button', { name: 'Auro Atelier' } );
 		expect( wpcomSiteButton ).toBeVisible();
 		expect( wpcomSiteButton ).toHaveClass( 'p-2' );
 		expect( wpcomSiteButton ).not.toHaveClass( 'pl-6' );
-		expect( screen.getByRole( 'img', { name: 'Live WordPress.com site' } ) ).toBeVisible();
+		expect( screen.getByRole( 'group', { name: 'Workspace targets: Production' } ) ).toBeVisible();
+		expect(
+			screen.getByRole( 'button', { name: 'Select Production target: https://auro.example' } )
+		).toBeVisible();
 
-		await user.click( wpcomSectionButton );
-		expect( wpcomSectionButton ).toHaveAttribute( 'aria-expanded', 'false' );
-		expect( screen.queryByRole( 'button', { name: 'Auro Atelier' } ) ).not.toBeInTheDocument();
-
-		await user.click( wpcomSectionButton );
 		await user.click( screen.getByRole( 'button', { name: 'Auro Atelier' } ) );
 		expect( siteDetailsMocked.setSelectedWpcomSite ).toHaveBeenCalledWith(
 			expect.objectContaining( { id: 101, name: 'Auro Atelier' } )
@@ -380,11 +423,17 @@ describe( 'MainSidebar Site Menu', () => {
 		expect(
 			screen.queryByRole( 'button', { name: 'Auro Atelier Staging' } )
 		).not.toBeInTheDocument();
-		expect( screen.getByRole( 'img', { name: 'Production and staging sites' } ) ).toBeVisible();
+		expect(
+			screen.getByRole( 'group', { name: 'Workspace targets: Production, Staging' } )
+		).toBeVisible();
 
-		await userEvent.click( screen.getByRole( 'button', { name: 'Auro Atelier' } ) );
+		await userEvent.click(
+			screen.getByRole( 'button', {
+				name: 'Select Staging target: https://staging-auro.example',
+			} )
+		);
 		expect( siteDetailsMocked.setSelectedWpcomSite ).toHaveBeenCalledWith(
-			expect.objectContaining( { id: 101, name: 'Auro Atelier' } )
+			expect.objectContaining( { id: 202, name: 'Auro Atelier Staging' } )
 		);
 	} );
 
@@ -526,7 +575,7 @@ describe( 'MainSidebar Site Menu', () => {
 		);
 	} );
 
-	it( 'collapses grouped WordPress.com targets until the workspace is selected', async () => {
+	it( 'shows compact target controls for grouped WordPress.com targets', async () => {
 		mockFeatureFlags.enableWorkspaces = true;
 		vi.mocked( useAuth, { partial: true } ).mockReturnValue( {
 			isAuthenticated: true,
@@ -561,15 +610,17 @@ describe( 'MainSidebar Site Menu', () => {
 		await act( async () => renderWithProvider( <MainSidebar /> ) );
 
 		expect( screen.getByRole( 'button', { name: 'Mariachi Market' } ) ).toBeVisible();
-		expect( screen.getByRole( 'img', { name: 'Production and staging sites' } ) ).toBeVisible();
 		expect(
-			screen.queryByRole( 'button', { name: 'Select Production site: https://mariachi.example' } )
-		).not.toBeInTheDocument();
+			screen.getByRole( 'group', { name: 'Workspace targets: Production, Staging' } )
+		).toBeVisible();
 		expect(
-			screen.queryByRole( 'button', {
-				name: 'Select Staging site: https://staging-mariachi.wpcomstaging.com',
+			screen.getByRole( 'button', { name: 'Select Production target: https://mariachi.example' } )
+		).toBeVisible();
+		expect(
+			screen.getByRole( 'button', {
+				name: 'Select Staging target: https://staging-mariachi.wpcomstaging.com',
 			} )
-		).not.toBeInTheDocument();
+		).toBeVisible();
 	} );
 
 	it( 'shows a progress indicator for a WordPress.com site while Dolly is thinking', async () => {
@@ -602,8 +653,45 @@ describe( 'MainSidebar Site Menu', () => {
 
 		expect( screen.getByRole( 'status', { name: 'Dolly is thinking' } ) ).toBeVisible();
 		expect(
-			screen.queryByRole( 'img', { name: 'Live WordPress.com site' } )
-		).not.toBeInTheDocument();
+			screen.getByRole( 'button', { name: 'Select Production target: https://auro.example' } )
+		).toBeVisible();
+	} );
+
+	it( 'shows a progress indicator for a linked local workspace while Dolly is thinking', async () => {
+		mockFeatureFlags.enableWorkspaces = true;
+		siteDetailsMocked.wpcomSiteActivity = {
+			101: { isAssistantThinking: true },
+		};
+		vi.mocked( useAuth, { partial: true } ).mockReturnValue( {
+			isAuthenticated: true,
+			user: {
+				id: 1,
+				email: 'dsmart@example.com',
+				displayName: 'D Smart',
+			},
+		} );
+		vi.mocked( useGetWpComSitesQuery, { partial: true } ).mockReturnValue( {
+			data: {
+				sites: [
+					{
+						id: 101,
+						localSiteId: '0e9e237b-335a-43fa-b439-9b078a618512',
+						name: 'test-1',
+						url: 'https://test-1.example',
+					},
+				],
+			},
+			isFetching: false,
+		} );
+
+		await act( async () => renderWithProvider( <MainSidebar /> ) );
+
+		expect( screen.getByRole( 'status', { name: 'Dolly is thinking' } ) ).toBeVisible();
+		expect(
+			screen.getByRole( 'button', {
+				name: 'Select Production target: https://test-1.example',
+			} )
+		).toBeVisible();
 	} );
 
 	it( 'shows an unread indicator for a WordPress.com site with a hidden Dolly reply', async () => {
@@ -636,8 +724,8 @@ describe( 'MainSidebar Site Menu', () => {
 
 		expect( screen.getByRole( 'status', { name: 'Unread Dolly response' } ) ).toBeVisible();
 		expect(
-			screen.queryByRole( 'img', { name: 'Live WordPress.com site' } )
-		).not.toBeInTheDocument();
+			screen.getByRole( 'button', { name: 'Select Production target: https://auro.example' } )
+		).toBeVisible();
 	} );
 
 	it( 'shows a progress indicator on the workspace while staging is being created', async () => {
@@ -689,6 +777,9 @@ describe( 'MainSidebar Site Menu', () => {
 		await act( async () => renderWithProvider( <MainSidebar /> ) );
 
 		expect( screen.getByRole( 'status', { name: 'Creating staging site' } ) ).toBeVisible();
+		expect(
+			screen.getByRole( 'button', { name: 'Select Staging target: https://staging-auro.example' } )
+		).toBeVisible();
 	} );
 
 	it( 'groups same-name WordPress.com staging sites when relationship metadata is missing', async () => {
@@ -724,7 +815,9 @@ describe( 'MainSidebar Site Menu', () => {
 		await act( async () => renderWithProvider( <MainSidebar /> ) );
 
 		expect( screen.getAllByRole( 'button', { name: 'My Store' } ) ).toHaveLength( 1 );
-		expect( screen.getByRole( 'img', { name: 'Production and staging sites' } ) ).toBeVisible();
+		expect(
+			screen.getByRole( 'group', { name: 'Workspace targets: Production, Staging' } )
+		).toBeVisible();
 	} );
 
 	it( 'does not group same-name WordPress.com sites unless one is marked staging', async () => {
@@ -761,7 +854,7 @@ describe( 'MainSidebar Site Menu', () => {
 
 		expect( screen.getAllByRole( 'button', { name: 'My Store' } ) ).toHaveLength( 2 );
 		expect(
-			screen.queryByRole( 'img', { name: 'Production and staging sites' } )
-		).not.toBeInTheDocument();
+			screen.getAllByRole( 'group', { name: 'Workspace targets: Production' } )
+		).toHaveLength( 2 );
 	} );
 } );

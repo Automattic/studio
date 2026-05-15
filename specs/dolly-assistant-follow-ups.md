@@ -16,18 +16,22 @@
 - Chat switching UX: the WordPress.com assistant keeps active chat metadata as a compact composer line, exposes chat options from the input action row, supports local chat trash, and locally hides trashed remote history so hydration does not re-add it immediately.
 - Header target switcher: every WordPress.com assistant header shows Production, Staging, and Local targets; Staging owns the create-staging affordance and Local is a disabled future-target stub.
 - Header/footer layout: the WordPress.com assistant uses one shared horizontal header for site identity, target controls, and preview/browser controls; when preview opens, the full right-side preview pane starts below that header.
+- Workspaces feature flag: the experimental workspace-oriented WordPress.com assistant UI is gated behind the Workspaces flag.
+- Workspace sidebar IA: local, production, and staging targets render as one workspace list instead of separate local and WordPress.com sections.
+- Sidebar target controls: workspace rows use compact clickable target indicators, and local running/stopped state no longer competes with target status.
+- Sidebar command menu: workspace rows use one renderer command menu that resolves commands from the active target, so Local, Production, and Staging actions live in one model.
+- Local footer language: the running-sites footer is explicitly scoped to local sites.
 
 ## New Unprioritized Follow-ups
 
-### Tomorrow Workspace IA Notes
+### Workspace IA Notes
 
-Keep these together as the next workspace-shaping pass:
+Keep these together as future workspace-shaping passes:
 
-- Reduce sidebar indicator noise. The current workspace rows can show too many status/target circles at once.
-- Unify the two menu surfaces. Chat/session actions and workspace/target actions should feel like one coherent command model, not separate competing menus.
-- Put the experimental WordPress.com workspace assistant work behind a feature flag before it spreads further.
 - Share a header model between local and WordPress.com workspaces. Explore whether the local tab bar still earns its vertical space, whether other workspace views need tabs, and whether a `Chat` tab plus preview/browser URL affordance can replace the separate local assistant treatment.
 - Add preview support for localhost/local site previews so the same preview/browser affordance works across Local, Production, and Staging targets.
+- Add favorite/pin support at the workspace-row level, not per production/staging target.
+- Decide whether sidebar target indicators need richer hover/status treatment after more testing, or whether the current compact controls are enough.
 - Explore drag-to-sync inside the dedicated Sync modal. Dragging a source target onto a destination target could prefill the sync direction, such as `Production -> Staging`, `Staging -> Production`, `Local -> Production`, or `Production -> Local`. Dropping should advance into the existing sync options/confirmation step rather than running immediately.
 
 ### Chat Feedback UX
@@ -40,20 +44,7 @@ Required behavior:
 
 ## Remaining Prioritized Plan
 
-### 1. Sidebar IA And Context Menus
-
-Round out the WordPress.com section in the left sidebar so it behaves like a first-class site directory, not just a temporary list.
-
-Required behavior:
-
-- Add right-click options on the top-level WordPress.com sidebar group for filtering and list controls.
-- Add right-click options on individual WordPress.com sidebar sites, including an action to sync/pull the site locally.
-- Add favorite/pin support at the workspace-row level, not per production/staging target.
-- Add richer list controls only where needed; the basic live-site visual distinction is in place.
-
-Do this after the site identity language is settled so the sidebar status treatment matches the main content area.
-
-### 2. Preview Layout Stability
+### 1. Preview Layout Stability
 
 Fix the preview layout before refining the chrome.
 
@@ -65,14 +56,8 @@ Required behavior:
 
 Do this before auto-refresh because preview reload behavior should be built on stable layout constraints.
 
-### 3. Preview Chrome Polish
+### 2. Preview Chrome Polish
 
 Improve the preview panel chrome. The current v1 proves the layout, but the header, controls, resize affordance, loading state, and visual hierarchy need a dedicated pass.
 
 Do this after the layout constraints are stable so the polish work is not reworked.
-
-### 4. Shared Chat UI Evaluation
-
-Evaluate replacing the custom chat surface with `@automattic/agenttic-ui` so Studio aligns with the shared agent UI patterns.
-
-Do this last unless it becomes a blocker. It may absorb or replace some custom chat controls, so the site/session model should be settled first.

@@ -26,14 +26,14 @@ export function RunningSites() {
 			<p className="text-xxs leading-4">
 				{ anyRunning
 					? sprintf(
-							_n( '%d site running', '%d sites running', runningSites.length ),
+							_n( '%d local site running', '%d local sites running', runningSites.length ),
 							runningSites.length
 					  )
-					: __( 'No sites running' ) }
+					: __( 'No local sites running' ) }
 			</p>
 			{ anyRunning ? (
 				<Button className={ linkButtonClassName } onClick={ stopAllRunningSites } variant="link">
-					{ runningSites.length === 1 ? __( 'Stop' ) : __( 'Stop all' ) }
+					{ runningSites.length === 1 ? __( 'Stop local' ) : __( 'Stop local sites' ) }
 				</Button>
 			) : (
 				<Button
@@ -42,7 +42,7 @@ export function RunningSites() {
 					onClick={ startAllStoppedSites }
 					variant="link"
 				>
-					{ realSites.length === 1 ? __( 'Start' ) : __( 'Start all' ) }
+					{ realSites.length === 1 ? __( 'Start local' ) : __( 'Start local sites' ) }
 				</Button>
 			) }
 		</div>

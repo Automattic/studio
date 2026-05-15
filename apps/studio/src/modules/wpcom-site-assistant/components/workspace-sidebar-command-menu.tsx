@@ -213,12 +213,32 @@ export function WorkspaceSidebarCommandMenu( {
 	const [ creatingStagingSiteId, setCreatingStagingSiteId ] = useState< number | undefined >();
 	const [ chatListVersion, setChatListVersion ] = useState( 0 );
 	const menuRef = useRef< HTMLDivElement >( null );
-	const localSite = context?.localSite;
+	const rowLocalSite = context?.localSite;
 	const workspace = context?.workspace;
+	const workspaceLocalSite = workspace?.localSite ?? rowLocalSite;
 	const userId = user?.id;
 	const productionSite = workspace?.productionSite;
 	const stagingSite = workspace?.stagingSites[ 0 ];
-	const chatTarget = getWorkspaceChatTarget( workspace );
+	const isLocalTargetSaved = workspace ? isSavedWpcomWorkspaceLocalTarget( workspace ) : false;
+	const savedRemoteTarget = workspace ? getSavedWpcomWorkspaceTarget( workspace ) : undefined;
+	const selectedRemoteTarget = workspace?.sites.find(
+		( site ) => site.id === selectedWpcomSite?.id
+	);
+	const isSelectedLocalTarget = Boolean(
+		workspaceLocalSite && ! selectedWpcomSite && selectedSite?.id === workspaceLocalSite.id
+	);
+	const isActiveLocalTarget = Boolean(
+		workspaceLocalSite &&
+			( ! workspace ||
+				isLocalTargetSaved ||
+				isSelectedLocalTarget ||
+				( rowLocalSite && ! selectedRemoteTarget && ! savedRemoteTarget ) )
+	);
+	const localSite = isActiveLocalTarget ? workspaceLocalSite : undefined;
+	const activeRemoteTarget = isActiveLocalTarget
+		? undefined
+		: selectedRemoteTarget ?? savedRemoteTarget ?? getWorkspaceChatTarget( workspace );
+	const chatTarget = activeRemoteTarget;
 	const conversationsForChatTarget = useMemo( () => {
 		void chatListVersion;
 		return chatTarget ? getWpcomSiteAssistantConversationsForSite( chatTarget.id ) : [];
@@ -280,8 +300,6 @@ export function WorkspaceSidebarCommandMenu( {
 	const isStagingUpgradeAvailable = Boolean(
 		productionSite && ! stagingSite && isStagingPlanUpgradeRequired( productionSite )
 	);
-	const isLocalTargetSaved = workspace ? isSavedWpcomWorkspaceLocalTarget( workspace ) : false;
-	const savedRemoteTarget = workspace ? getSavedWpcomWorkspaceTarget( workspace ) : undefined;
 
 	useEffect( () => {
 		if ( ! context?.anchor ) {
@@ -594,7 +612,6 @@ export function WorkspaceSidebarCommandMenu( {
 		}
 
 		if ( workspace ) {
-			const workspaceLocalSite = workspace.localSite;
 			targetCommands.push( {
 				id: 'select-local-target',
 				label: __( 'Local' ),
@@ -700,6 +717,7 @@ export function WorkspaceSidebarCommandMenu( {
 		stopServer,
 		terminal,
 		workspace,
+		workspaceLocalSite,
 	] );
 
 	if ( ! context?.anchor ) {

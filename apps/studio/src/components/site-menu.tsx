@@ -2,7 +2,6 @@ import * as Sentry from '@sentry/electron/renderer';
 import { speak } from '@wordpress/a11y';
 import { Spinner } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
-import { chevronDown, chevronRight, Icon, wordpress } from '@wordpress/icons';
 import { useEffect, useMemo, useState } from 'react';
 import { XDebugIcon } from 'src/components/icons/xdebug-icon';
 import { Tooltip } from 'src/components/tooltip';
@@ -44,6 +43,10 @@ interface SiteMenuProps {
 }
 
 const SITE_MENU_TOOLTIP_PLACEMENT = 'right-start' as const;
+const SIDEBAR_ROW_CLASSNAME =
+	'flex flex-row min-w-[168px] h-8 hover:bg-[#ffffff0C] rounded transition-all ms-1 items-center';
+const SIDEBAR_ROW_BUTTON_CLASSNAME =
+	'p-2 text-xs rounded-tl rounded-bl whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme';
 
 function ButtonToRun( site: SiteDetails ) {
 	const { running, id, name, enableXdebug } = site;
@@ -162,6 +165,7 @@ function ButtonToRun( site: SiteDetails ) {
 		</Tooltip>
 	);
 }
+
 function SiteItem( {
 	site,
 	index,
@@ -191,6 +195,7 @@ function SiteItem( {
 		selectedWpcomSite,
 		setSelectedSiteId,
 		setSelectedWpcomSite,
+		wpcomSiteActivity,
 		loadingServer,
 		isSiteDeleting,
 	} = useSiteDetails();
@@ -216,9 +221,7 @@ function SiteItem( {
 	const showSpinner =
 		site.isAddingSite ||
 		isImporting ||
-		isPulling ||
-		isPushing ||
-		isEnvironmentSyncing ||
+		( ! useWorkspaceCommandMenu && isSyncing ) ||
 		isExporting ||
 		isDeleting;
 
@@ -227,7 +230,7 @@ function SiteItem( {
 		tooltipText = __( 'Adding' );
 	} else if ( isImporting ) {
 		tooltipText = __( 'Importing' );
-	} else if ( isSyncing || isEnvironmentSyncing ) {
+	} else if ( isSyncing ) {
 		tooltipText = __( 'Syncing' );
 	} else {
 		tooltipText = __( 'Loading' );
@@ -275,10 +278,24 @@ function SiteItem( {
 		onOpenCommandMenu( { anchor: e.currentTarget, localSite: site, workspace } );
 	};
 
+	const handleSelectLocalTarget = () => {
+		if ( workspace ) {
+			setSavedWpcomWorkspaceLocalTarget( workspace.id );
+		}
+		setSelectedSiteId( site.id );
+	};
+
+	const handleSelectWpcomTarget = ( wpcomSite: SyncSite ) => {
+		if ( workspace ) {
+			setSavedWpcomWorkspaceTarget( workspace.id, wpcomSite.id );
+		}
+		setSelectedWpcomSite( wpcomSite );
+	};
+
 	return (
 		<li
 			className={ cx(
-				'flex flex-row min-w-[168px] h-8 hover:bg-[#ffffff0C] rounded transition-all ms-1 items-center',
+				SIDEBAR_ROW_CLASSNAME,
 				isMac() ? 'me-5' : 'me-4',
 				isSelected && 'bg-[#ffffff19] hover:bg-[#ffffff19]',
 				isDragOver && 'bg-[#ffffff26]'
@@ -292,7 +309,7 @@ function SiteItem( {
 		>
 			<button
 				type="button"
-				className="p-2 text-xs rounded-tl rounded-bl whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme"
+				className={ SIDEBAR_ROW_BUTTON_CLASSNAME }
 				onKeyDown={ handleCommandMenuKeyDown }
 				onClick={ () => {
 					const savedWorkspaceTarget = workspace
@@ -317,15 +334,22 @@ function SiteItem( {
 			</button>
 			{ showSpinner ? (
 				<Tooltip text={ tooltipText } placement={ SITE_MENU_TOOLTIP_PLACEMENT }>
-					<div className="grid place-items-center">
-						<Spinner className="!w-2.5 !h-2.5 !mt-0 !mr-2 [&>circle]:stroke-a8c-gray-70" />
+					<div className="me-2 grid h-8 w-7 shrink-0 place-items-center">
+						<Spinner className="!m-0 !w-2.5 !h-2.5 [&>circle]:stroke-a8c-gray-70" />
 					</div>
 				</Tooltip>
-			) : workspace && workspace.sites.length > 0 ? (
-				<>
-					<WpcomSiteTargetSummary workspace={ workspace } />
-					<ButtonToRun { ...site } />
-				</>
+			) : useWorkspaceCommandMenu ? (
+				<WorkspaceTargetControls
+					localSite={ site }
+					workspace={ workspace }
+					selectedSite={ selectedSite }
+					selectedWpcomSite={ selectedWpcomSite }
+					wpcomSiteActivity={ wpcomSiteActivity }
+					isEnvironmentSyncing={ isEnvironmentSyncing }
+					isLocalSyncing={ isSyncing }
+					onSelectLocal={ handleSelectLocalTarget }
+					onSelectWpcomSite={ handleSelectWpcomTarget }
+				/>
 			) : (
 				<ButtonToRun { ...site } />
 			) }
@@ -333,38 +357,221 @@ function SiteItem( {
 	);
 }
 
-function WpcomSiteTargetSummary( { workspace }: { workspace: WpcomSiteWorkspace } ) {
+function WorkspaceTargetControls( {
+	localSite,
+	workspace,
+	selectedSite,
+	selectedWpcomSite,
+	wpcomSiteActivity,
+	isEnvironmentSyncing = false,
+	isLocalSyncing = false,
+	onSelectLocal,
+	onSelectWpcomSite,
+}: {
+	localSite?: SiteDetails;
+	workspace?: WpcomSiteWorkspace;
+	selectedSite?: SiteDetails | null;
+	selectedWpcomSite?: SyncSite | null;
+	wpcomSiteActivity?: Record< number, WpcomSiteActivity >;
+	isEnvironmentSyncing?: boolean;
+	isLocalSyncing?: boolean;
+	onSelectLocal?: () => void;
+	onSelectWpcomSite?: ( site: SyncSite ) => void;
+} ) {
+	type WorkspaceTargetStatus = {
+		variant: 'spinner' | 'unread';
+		label: string;
+	};
+
+	type WorkspaceTargetBadge = {
+		key: 'production' | 'staging' | 'local';
+		label: string;
+		ariaLabel: string;
+		isActive: boolean;
+		buttonClassName: string;
+		dotClassName: string;
+		statusClassName: string;
+		status?: WorkspaceTargetStatus;
+		disabled?: boolean;
+		onSelect?: () => void;
+	};
+	const productionSite = workspace?.productionSite;
+	const stagingSite = workspace?.stagingSites[ 0 ];
+	const isCreatingStagingSite = Boolean(
+		productionSite && wpcomSiteActivity?.[ productionSite.id ]?.isCreatingStagingSite
+	);
+	const isSelectedWorkspace =
+		( localSite && ! selectedWpcomSite && selectedSite?.id === localSite.id ) ||
+		Boolean( workspace?.sites.some( ( wpcomSite ) => wpcomSite.id === selectedWpcomSite?.id ) );
+	const badges: WorkspaceTargetBadge[] = [];
+
+	if ( productionSite ) {
+		badges.push( {
+			key: 'production',
+			label: __( 'Production' ) as string,
+			ariaLabel: sprintf(
+				// translators: %s is the production site URL.
+				__( 'Select Production target: %s' ),
+				productionSite.url
+			),
+			isActive: isSelectedWorkspace && selectedWpcomSite?.id === productionSite.id,
+			buttonClassName: 'border-circle-env-production',
+			dotClassName: 'bg-circle-env-production',
+			statusClassName: 'text-circle-env-production',
+			status: getTargetActivityStatus(
+				wpcomSiteActivity?.[ productionSite.id ],
+				isEnvironmentSyncing && Boolean( stagingSite )
+			),
+			onSelect: () => onSelectWpcomSite?.( productionSite ),
+		} );
+	}
+
+	if ( stagingSite ) {
+		badges.push( {
+			key: 'staging',
+			label: __( 'Staging' ) as string,
+			ariaLabel: sprintf(
+				// translators: %s is the staging site URL.
+				__( 'Select Staging target: %s' ),
+				stagingSite.url
+			),
+			isActive: isSelectedWorkspace && selectedWpcomSite?.id === stagingSite.id,
+			buttonClassName: 'border-circle-env-staging',
+			dotClassName: 'bg-circle-env-staging',
+			statusClassName: 'text-circle-env-staging',
+			status: getTargetActivityStatus(
+				wpcomSiteActivity?.[ stagingSite.id ],
+				isCreatingStagingSite || isEnvironmentSyncing
+			),
+			onSelect: () => onSelectWpcomSite?.( stagingSite ),
+		} );
+	} else if ( productionSite && isCreatingStagingSite ) {
+		badges.push( {
+			key: 'staging',
+			label: __( 'Staging' ) as string,
+			ariaLabel: __( 'Creating staging target' ),
+			isActive: false,
+			buttonClassName: 'border-circle-env-staging',
+			dotClassName: 'bg-circle-env-staging',
+			statusClassName: 'text-circle-env-staging',
+			status: {
+				variant: 'spinner',
+				label: __( 'Creating staging site' ),
+			},
+			disabled: true,
+		} );
+	}
+
+	if ( localSite ) {
+		badges.push( {
+			key: 'local',
+			label: ( localSite.running ? __( 'Local running' ) : __( 'Local stopped' ) ) as string,
+			ariaLabel: localSite.running
+				? sprintf(
+						// translators: %s is the local site name.
+						__( 'Select Local target: %s is running' ),
+						localSite.name
+				  )
+				: sprintf(
+						// translators: %s is the local site name.
+						__( 'Select Local target: %s is stopped' ),
+						localSite.name
+				  ),
+			isActive: isSelectedWorkspace && ! selectedWpcomSite && selectedSite?.id === localSite.id,
+			buttonClassName: localSite.running ? 'border-a8c-green-20' : 'border-[#ffffff33]',
+			dotClassName: localSite.running ? 'bg-a8c-green-20' : 'bg-a8c-gray-500',
+			statusClassName: localSite.running ? 'text-a8c-green-20' : 'text-a8c-gray-500',
+			status: getTargetActivityStatus( undefined, isLocalSyncing ),
+			onSelect: onSelectLocal,
+		} );
+	}
+
+	if ( badges.length === 0 ) {
+		return null;
+	}
+
+	const label = sprintf(
+		// translators: %s is a comma-separated list of workspace targets, such as "Production, Staging, Local".
+		__( 'Workspace targets: %s' ),
+		badges.map( ( badge ) => badge.label ).join( ', ' )
+	);
+
 	return (
-		<Tooltip
-			text={ __( 'Production and staging sites' ) }
-			placement={ SITE_MENU_TOOLTIP_PLACEMENT }
-		>
-			<div
-				role="img"
-				aria-label={ __( 'Production and staging sites' ) }
-				className="me-2 flex h-5 shrink-0 items-center gap-1"
-			>
-				{ workspace.localSite && (
-					<span className="h-2 w-2 rounded-full bg-a8c-gray-40" aria-hidden="true" />
-				) }
-				{ workspace.productionSite && (
-					<span className="h-2 w-2 rounded-full bg-circle-env-production" aria-hidden="true" />
-				) }
-				{ workspace.stagingSites.length > 0 && (
-					<span className="h-2 w-2 rounded-full bg-circle-env-staging" aria-hidden="true" />
-				) }
-			</div>
-		</Tooltip>
+		<div role="group" aria-label={ label } className="me-2 flex h-8 shrink-0 items-center gap-1">
+			{ badges.map( ( badge ) => (
+				<Tooltip
+					key={ badge.key }
+					text={ badge.status?.label ?? badge.label }
+					placement={ SITE_MENU_TOOLTIP_PLACEMENT }
+				>
+					<button
+						type="button"
+						aria-label={ badge.ariaLabel }
+						aria-disabled={ badge.disabled }
+						onClick={ ( event ) => {
+							event.stopPropagation();
+							if ( badge.disabled ) {
+								return;
+							}
+							badge.onSelect?.();
+						} }
+						className={ cx(
+							'grid h-3.5 w-3.5 shrink-0 place-items-center rounded-full border transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme',
+							badge.buttonClassName,
+							badge.isActive ? 'bg-white/10 opacity-100' : 'bg-transparent opacity-75'
+						) }
+					>
+						{ badge.status?.variant === 'spinner' ? (
+							<span
+								role="status"
+								aria-label={ badge.status.label }
+								className={ cx( 'grid h-3 w-3 place-items-center', badge.statusClassName ) }
+							>
+								<Spinner className="!m-0 !h-3 !w-3 [&>circle]:stroke-current" />
+							</span>
+						) : badge.status?.variant === 'unread' ? (
+							<span
+								role="status"
+								aria-label={ badge.status.label }
+								className="h-2 w-2 rounded-full bg-frame-theme"
+							/>
+						) : (
+							<span
+								aria-hidden="true"
+								className={ cx(
+									'rounded-full',
+									badge.isActive ? 'h-2 w-2' : 'h-1.5 w-1.5',
+									badge.dotClassName
+								) }
+							/>
+						) }
+					</button>
+				</Tooltip>
+			) ) }
+		</div>
 	);
 }
 
-const getWpcomSiteActivityLabel = ( activity?: WpcomSiteActivity ) => {
+const getTargetActivityStatus = ( activity?: WpcomSiteActivity, isEnvironmentSyncing = false ) => {
 	if ( activity?.isCreatingStagingSite ) {
-		return __( 'Creating staging site' );
+		return {
+			variant: 'spinner' as const,
+			label: __( 'Creating staging site' ),
+		};
+	}
+
+	if ( isEnvironmentSyncing ) {
+		return {
+			variant: 'spinner' as const,
+			label: __( 'Syncing' ),
+		};
 	}
 
 	if ( activity?.isAssistantThinking ) {
-		return __( 'Dolly is thinking' );
+		return {
+			variant: 'spinner' as const,
+			label: __( 'Dolly is thinking' ),
+		};
 	}
 
 	if (
@@ -372,82 +579,14 @@ const getWpcomSiteActivityLabel = ( activity?: WpcomSiteActivity ) => {
 		! activity.isCreatingStagingSite &&
 		! activity.isAssistantThinking
 	) {
-		return __( 'Unread Dolly response' );
+		return {
+			variant: 'unread' as const,
+			label: __( 'Unread Dolly response' ),
+		};
 	}
 
 	return undefined;
 };
-
-const getWorkspaceActivity = (
-	workspace: WpcomSiteWorkspace,
-	wpcomSiteActivity: Record< number, WpcomSiteActivity >
-) => {
-	const siteCreatingStaging = workspace.sites.find(
-		( site ) => wpcomSiteActivity[ site.id ]?.isCreatingStagingSite
-	);
-
-	if ( siteCreatingStaging ) {
-		return wpcomSiteActivity[ siteCreatingStaging.id ];
-	}
-
-	const siteWithAssistantThinking = workspace.sites.find(
-		( site ) => wpcomSiteActivity[ site.id ]?.isAssistantThinking
-	);
-
-	if ( siteWithAssistantThinking ) {
-		return wpcomSiteActivity[ siteWithAssistantThinking.id ];
-	}
-
-	const siteWithUnreadAssistantMessage = workspace.sites.find(
-		( site ) => wpcomSiteActivity[ site.id ]?.hasUnreadAssistantMessage
-	);
-
-	return siteWithUnreadAssistantMessage
-		? wpcomSiteActivity[ siteWithUnreadAssistantMessage.id ]
-		: undefined;
-};
-
-function WpcomSiteActivityIndicator( {
-	activity,
-	className,
-}: {
-	activity?: WpcomSiteActivity;
-	className?: string;
-} ) {
-	const label = getWpcomSiteActivityLabel( activity );
-
-	if ( ! label ) {
-		return null;
-	}
-
-	if (
-		activity?.hasUnreadAssistantMessage &&
-		! activity.isCreatingStagingSite &&
-		! activity.isAssistantThinking
-	) {
-		return (
-			<span
-				role="status"
-				aria-label={ label }
-				title={ label }
-				className={ cx( 'grid h-5 w-5 shrink-0 place-items-center', className ) }
-			>
-				<span className="h-2.5 w-2.5 rounded-full bg-frame-theme" />
-			</span>
-		);
-	}
-
-	return (
-		<span
-			role="status"
-			aria-label={ label }
-			title={ label }
-			className={ cx( 'grid h-5 w-5 shrink-0 place-items-center', className ) }
-		>
-			<Spinner className="!m-0 !h-3 !w-3 [&>circle]:stroke-a8c-gray-400" />
-		</span>
-	);
-}
 
 function WpcomSiteItem( {
 	workspace,
@@ -462,8 +601,6 @@ function WpcomSiteItem( {
 	);
 	const isSelected = Boolean( selectedWorkspaceSite );
 	const siteToOpen = selectedWorkspaceSite ?? getDefaultWpcomWorkspaceTarget( workspace );
-	const hasMultipleTargets = workspace.sites.length > 1;
-	const workspaceActivity = getWorkspaceActivity( workspace, wpcomSiteActivity );
 	const environmentSyncState = useRootSelector(
 		stagingSyncSelectors.selectRemoteSiteEnvironmentSyncState(
 			workspace.productionSite?.id ?? workspace.stagingSites[ 0 ]?.id
@@ -483,11 +620,15 @@ function WpcomSiteItem( {
 		e.preventDefault();
 		onOpenCommandMenu( { anchor: e.currentTarget, workspace } );
 	};
+	const handleSelectWpcomTarget = ( wpcomSite: SyncSite ) => {
+		setSavedWpcomWorkspaceTarget( workspace.id, wpcomSite.id );
+		setSelectedWpcomSite( wpcomSite );
+	};
 
 	return (
 		<li
 			className={ cx(
-				'flex flex-row min-w-[168px] h-8 hover:bg-[#ffffff0C] rounded transition-all ms-1 items-center',
+				SIDEBAR_ROW_CLASSNAME,
 				isMac() ? 'me-5' : 'me-4',
 				isSelected && 'bg-[#ffffff19] hover:bg-[#ffffff19]'
 			) }
@@ -495,7 +636,7 @@ function WpcomSiteItem( {
 		>
 			<button
 				type="button"
-				className="p-2 text-xs rounded-tl rounded-bl whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme"
+				className={ SIDEBAR_ROW_BUTTON_CLASSNAME }
 				onKeyDown={ handleCommandMenuKeyDown }
 				onClick={ () => {
 					setSavedWpcomWorkspaceTarget( workspace.id, siteToOpen.id );
@@ -504,30 +645,15 @@ function WpcomSiteItem( {
 			>
 				{ workspace.name }
 			</button>
-			{ isEnvironmentSyncing ? (
-				<span
-					role="status"
-					aria-label={ __( 'Syncing' ) }
-					title={ __( 'Syncing' ) }
-					className="me-2 grid h-5 w-5 shrink-0 place-items-center"
-				>
-					<Spinner className="!m-0 !h-3 !w-3 [&>circle]:stroke-a8c-gray-400" />
-				</span>
-			) : getWpcomSiteActivityLabel( workspaceActivity ) ? (
-				<WpcomSiteActivityIndicator activity={ workspaceActivity } className="me-2" />
-			) : hasMultipleTargets ? (
-				<WpcomSiteTargetSummary workspace={ workspace } />
-			) : (
-				<Tooltip text={ __( 'Live WordPress.com site' ) } placement={ SITE_MENU_TOOLTIP_PLACEMENT }>
-					<div
-						role="img"
-						aria-label={ __( 'Live WordPress.com site' ) }
-						className="me-2 grid h-5 w-5 shrink-0 place-items-center rounded-full text-a8c-gray-400 opacity-80 [&_path]:fill-current"
-					>
-						<Icon icon={ wordpress } size={ 14 } />
-					</div>
-				</Tooltip>
-			) }
+			{ workspace.sites.length > 0 ? (
+				<WorkspaceTargetControls
+					workspace={ workspace }
+					selectedWpcomSite={ selectedWpcomSite }
+					wpcomSiteActivity={ wpcomSiteActivity }
+					isEnvironmentSyncing={ isEnvironmentSyncing }
+					onSelectWpcomSite={ handleSelectWpcomTarget }
+				/>
+			) : null }
 		</li>
 	);
 }
@@ -551,7 +677,6 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 	const { data: editor } = useGetUserEditorQuery();
 	const [ draggedIndex, setDraggedIndex ] = useState< number | null >( null );
 	const [ dragOverIndex, setDragOverIndex ] = useState< number | null >( null );
-	const [ isWpcomSectionExpanded, setIsWpcomSectionExpanded ] = useState( true );
 	const [ connectedWpcomSites, setConnectedWpcomSites ] = useState< SyncSite[] >( [] );
 	const [ commandMenuContext, setCommandMenuContext ] =
 		useState< WorkspaceSidebarCommandMenuContext | null >( null );
@@ -772,6 +897,25 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 							onOpenCommandMenu={ setCommandMenuContext }
 						/>
 					) ) }
+					{ enableWorkspaces &&
+						isAuthenticated &&
+						wpcomOnlySiteWorkspaces.map( ( workspace ) => (
+							<WpcomSiteItem
+								key={ workspace.id }
+								workspace={ workspace }
+								onOpenCommandMenu={ setCommandMenuContext }
+							/>
+						) ) }
+					{ enableWorkspaces && isAuthenticated && isFetchingWpcomSites && (
+						<li
+							className={ cx(
+								'flex h-8 min-w-[168px] items-center px-2 text-xs text-a8c-gray-600',
+								isMac() ? 'me-5 ms-1' : 'me-4 ms-1'
+							) }
+						>
+							{ __( 'Loading...' ) }
+						</li>
+					) }
 					{ /* Drop zone for dragging to bottom of list */ }
 					<li
 						className="h-8"
@@ -779,49 +923,6 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 						onDrop={ ( e ) => handleDrop( e, sites.length ) }
 					/>
 				</ul>
-				{ enableWorkspaces &&
-					isAuthenticated &&
-					( wpcomOnlySiteWorkspaces.length > 0 || isFetchingWpcomSites ) && (
-						<div className="mt-3 border-t border-white/10 pt-2">
-							<button
-								type="button"
-								className={ cx(
-									'flex h-8 min-w-[168px] items-center justify-between gap-2 rounded px-2 text-left text-[11px] font-medium uppercase text-a8c-gray-600 hover:bg-[#ffffff0C] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme',
-									isMac() ? 'me-5 ms-1' : 'me-4 ms-1'
-								) }
-								aria-expanded={ isWpcomSectionExpanded }
-								onClick={ () => setIsWpcomSectionExpanded( ( isExpanded ) => ! isExpanded ) }
-							>
-								<span className="truncate">{ __( 'WordPress.com' ) }</span>
-								<Icon
-									icon={ isWpcomSectionExpanded ? chevronDown : chevronRight }
-									size={ 16 }
-									className="shrink-0 text-a8c-gray-600 [&_path]:fill-current"
-								/>
-							</button>
-							{ isWpcomSectionExpanded && (
-								<ul className="pt-px">
-									{ wpcomOnlySiteWorkspaces.map( ( workspace ) => (
-										<WpcomSiteItem
-											key={ workspace.id }
-											workspace={ workspace }
-											onOpenCommandMenu={ setCommandMenuContext }
-										/>
-									) ) }
-									{ isFetchingWpcomSites && wpcomOnlySiteWorkspaces.length === 0 && (
-										<li
-											className={ cx(
-												'flex h-8 min-w-[168px] items-center px-2 text-xs text-a8c-gray-600',
-												isMac() ? 'me-5 ms-1' : 'me-4 ms-1'
-											) }
-										>
-											{ __( 'Loading...' ) }
-										</li>
-									) }
-								</ul>
-							) }
-						</div>
-					) }
 			</nav>
 			{ enableWorkspaces && (
 				<WorkspaceSidebarCommandMenu

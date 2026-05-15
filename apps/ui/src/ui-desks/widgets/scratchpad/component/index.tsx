@@ -2,6 +2,8 @@ import { __ } from '@wordpress/i18n';
 import { blockDefault, page, reusableBlock } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { useCallback, useEffect, useRef, type KeyboardEvent, type PointerEvent } from 'react';
+import { useEditor } from 'tldraw';
+import { focusOnDeskShape, useIncomingWidgetConnections } from '@/ui-desks/connectors/context';
 import { SCRATCHPAD_WIDGET_TYPE, type ScratchpadScope, type ScratchpadWidgetProps } from '../types';
 import styles from './style.module.css';
 import type {
@@ -13,6 +15,7 @@ type ScratchpadWidgetComponentProps = DeskWidgetComponentProps< ScratchpadWidget
 
 export function ScratchpadWidgetComponent( {
 	id,
+	shapeId,
 	widgetProps,
 	isEditing,
 	isHovered,
@@ -20,10 +23,12 @@ export function ScratchpadWidgetComponent( {
 	onWidgetPropsChange,
 	onEditComplete,
 }: ScratchpadWidgetComponentProps ) {
+	const editor = useEditor();
 	const descriptionRef = useRef< HTMLDivElement | null >( null );
 	const labelVisible = isHovered || isSelected || isEditing;
 	const isInteractive = isEditing;
 	const description = widgetProps.description ?? '';
+	const connectionSources = useIncomingWidgetConnections( editor, shapeId );
 
 	useEffect( () => {
 		const descriptionElement = descriptionRef.current;
@@ -122,22 +127,45 @@ export function ScratchpadWidgetComponent( {
 				<div className={ styles.empty }>{ __( 'Empty scratchpad' ) }</div>
 			) }
 			<div className={ styles.bottom }>
-				<div
-					ref={ descriptionRef }
-					className={ styles.description }
-					contentEditable={ isEditing }
-					suppressContentEditableWarning
-					spellCheck={ false }
-					data-empty={ description ? 'false' : 'true' }
-					data-placeholder={ __( 'Describe what this scratchpad should become...' ) }
-					onBlur={ () => {
-						updateDescription();
-						onEditComplete();
-					} }
-					onInput={ updateDescription }
-					onKeyDown={ handleDescriptionKeyDown }
-					onPointerDown={ handleDescriptionPointerDown }
-				/>
+				<div className={ styles.descriptionWrap }>
+					<div
+						ref={ descriptionRef }
+						className={ styles.description }
+						contentEditable={ isEditing }
+						suppressContentEditableWarning
+						spellCheck={ false }
+						data-empty={ description ? 'false' : 'true' }
+						data-placeholder={ __( 'Describe what this scratchpad should become...' ) }
+						onBlur={ () => {
+							updateDescription();
+							onEditComplete();
+						} }
+						onInput={ updateDescription }
+						onKeyDown={ handleDescriptionKeyDown }
+						onPointerDown={ handleDescriptionPointerDown }
+					/>
+					{ connectionSources.length > 0 && (
+						<div className={ styles.using } aria-label="Connected sources">
+							<span className={ styles.usingLabel }>Using</span>
+							{ connectionSources.map( ( source ) => (
+								<button
+									key={ source.shapeId }
+									type="button"
+									className={ styles.usingPill }
+									title={ source.title }
+									style={ source.pillBg ? { background: source.pillBg, color: '#fff' } : undefined }
+									onClick={ () => focusOnDeskShape( editor, source.shapeId ) }
+									onPointerDown={ ( event ) => event.stopPropagation() }
+								>
+									{ source.label }
+								</button>
+							) ) }
+							<span className={ styles.usingPeriod } aria-hidden="true">
+								.
+							</span>
+						</div>
+					) }
+				</div>
 			</div>
 			{ ! isInteractive && <div className={ styles.shield } aria-hidden="true" /> }
 		</div>

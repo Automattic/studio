@@ -28,6 +28,7 @@ export interface DeskWidgetComponentProps<
 	TWidgetProps extends Record< string, unknown > = Record< string, unknown >,
 > {
 	id: string;
+	shapeId?: TLShapeId;
 	widgetProps: TWidgetProps;
 	isEditing: boolean;
 	isHovered: boolean;

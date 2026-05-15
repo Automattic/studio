@@ -1,7 +1,7 @@
 import { UnknownAction } from '@reduxjs/toolkit';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import nock from 'nock';
 import { StrictMode } from 'react';
@@ -1577,7 +1577,7 @@ describe( 'ContentTabAssistant', () => {
 						messages: [ generateMessage( 'First saved chat', 'user', 0, 100, 10 ) ],
 						activeWpcomSite: firstWpcomSite,
 						previewState: { open: false, pathOrUrl: '/', isLoading: false, reloadNonce: 0 },
-						lastUpdated: 100,
+						lastUpdated: 200,
 					},
 					'local:second': {
 						id: 'local:second',
@@ -1586,7 +1586,7 @@ describe( 'ContentTabAssistant', () => {
 						messages: [ generateMessage( 'Second saved chat', 'user', 0, 200, 20 ) ],
 						activeWpcomSite: firstWpcomSite,
 						previewState: { open: false, pathOrUrl: '/', isLoading: false, reloadNonce: 0 },
-						lastUpdated: 200,
+						lastUpdated: 100,
 					},
 				},
 				selectedConversationIdsBySiteId: { 123: 'local:first' },
@@ -1615,6 +1615,57 @@ describe( 'ContentTabAssistant', () => {
 		expect(
 			getPersistedWpcomConversations().some( ( conversation ) => conversation.id === 'local:first' )
 		).toBe( false );
+	} );
+
+	it( 'keeps the WP.com-only chat menu open when selecting another chat', async () => {
+		const user = userEvent.setup();
+		localStorage.setItem(
+			LOCAL_STORAGE_DOLLY_WPCOM_SITE_CONVERSATIONS_KEY,
+			JSON.stringify( {
+				version: 6,
+				conversations: {
+					'local:first': {
+						id: 'local:first',
+						key: { siteId: 123, agentId: 'dolly' },
+						input: '',
+						messages: [ generateMessage( 'First saved chat', 'user', 0, 100, 10 ) ],
+						activeWpcomSite: firstWpcomSite,
+						previewState: { open: false, pathOrUrl: '/', isLoading: false, reloadNonce: 0 },
+						lastUpdated: 100,
+					},
+					'local:second': {
+						id: 'local:second',
+						key: { siteId: 123, agentId: 'dolly' },
+						input: '',
+						messages: [ generateMessage( 'Second saved chat', 'user', 0, 200, 20 ) ],
+						activeWpcomSite: firstWpcomSite,
+						previewState: { open: false, pathOrUrl: '/', isLoading: false, reloadNonce: 0 },
+						lastUpdated: 200,
+					},
+				},
+				selectedConversationIdsBySiteId: { 123: 'local:first' },
+				targetPreviewStatesBySiteId: {},
+				hiddenRemoteConversationKeysBySiteId: {},
+			} )
+		);
+
+		renderWithContext( { component: 'wpcom-site' } );
+
+		await user.click( screen.getByRole( 'button', { name: 'Chat options' } ) );
+		const menu = screen.getByRole( 'menu', { name: 'Chat options' } );
+		await user.click( within( menu ).getByRole( 'menuitem', { name: /Second saved chat/ } ) );
+
+		await waitFor( () => {
+			expect( queryChatMessageText( 'First saved chat' ) ).not.toBeInTheDocument();
+			expect( getChatMessageText( 'Second saved chat' ) ).toBeInTheDocument();
+			expect( screen.getByRole( 'menu', { name: 'Chat options' } ) ).toBeVisible();
+		} );
+
+		const menuItems = within( screen.getByRole( 'menu', { name: 'Chat options' } ) ).getAllByRole(
+			'menuitem'
+		);
+		expect( menuItems[ 0 ] ).toHaveTextContent( 'First saved chat' );
+		expect( menuItems[ 1 ] ).toHaveTextContent( 'Second saved chat' );
 	} );
 
 	it( 'hides trashed remote WP.com-only chats from later hydration', async () => {

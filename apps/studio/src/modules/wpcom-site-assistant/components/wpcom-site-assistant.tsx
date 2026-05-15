@@ -482,17 +482,16 @@ function DollyConversationMenu( {
 						<div
 							key={ conversation.id }
 							className={ cx(
-								'flex items-center gap-1 px-1 py-0.5',
+								'flex items-center gap-2 px-4 py-3 transition hover:bg-frame-surface',
 								isSelected && 'bg-frame-surface'
 							) }
 						>
 							<button
 								type="button"
 								role="menuitem"
-								className="min-w-0 flex-1 rounded px-3 py-2 text-left hover:bg-frame-surface focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme"
+								className="min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme"
 								onClick={ () => {
 									onSelect( conversation.id );
-									onClose();
 								} }
 							>
 								<span className="block truncate text-sm font-medium text-frame-text">
@@ -594,6 +593,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 	const serverHydrationDisabledRef = useRef(
 		Boolean( initialSessionState.serverHydrationDisabled )
 	);
+	const preserveLastUpdatedOnNextWriteRef = useRef( false );
 	const isAssistantThinkingRef = useRef( isAssistantThinking );
 	const hydratedSessionKeysRef = useRef( new Set< string >() );
 	const wpcomSiteWorkspace = useMemo(
@@ -821,6 +821,10 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 			return;
 		}
 
+		const cachedSessionState = wpcomSiteAssistantSessionStateCache.get( conversationIdRef.current );
+		const preserveLastUpdated = preserveLastUpdatedOnNextWriteRef.current;
+		preserveLastUpdatedOnNextWriteRef.current = false;
+
 		const sessionState: WpcomSiteAssistantSessionState = {
 			id: conversationIdRef.current,
 			key: {
@@ -834,7 +838,8 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 			sessionId,
 			activeWpcomSite,
 			previewState,
-			lastUpdated: Date.now(),
+			lastUpdated:
+				preserveLastUpdated && cachedSessionState ? cachedSessionState.lastUpdated : Date.now(),
 		};
 		wpcomSiteAssistantSessionStateCache.set( sessionState.id, sessionState );
 		setSelectedWpcomSiteAssistantConversationId( selectedWpcomSite.id, sessionState.id );
@@ -1594,6 +1599,7 @@ export function WpcomSiteAssistant( { selectedWpcomSite }: WpcomSiteAssistantPro
 				return;
 			}
 
+			preserveLastUpdatedOnNextWriteRef.current = true;
 			setSelectedWpcomSiteAssistantConversationId( selectedWpcomSite.id, conversationId );
 			applySelectedConversationState( nextSessionState );
 		},

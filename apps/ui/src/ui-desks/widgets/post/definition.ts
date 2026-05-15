@@ -6,6 +6,7 @@ import {
 	PostWidgetComponent,
 	PostWidgetThumbnailComponent,
 } from '@/ui-desks/widgets/post/component';
+import { PostPreviewControl } from '@/ui-desks/widgets/post/preview-control';
 import { isPostWidgetProps, POST_WIDGET_TYPE, type PostWidget } from './types';
 import type {
 	WidgetCustomDropActionContext,
@@ -30,6 +31,13 @@ export const postWidgetDefinition = {
 		edit: () => __( 'Edit in WP' ),
 	},
 	icon: post,
+	controls: [
+		{
+			type: 'custom',
+			id: 'preview-post-on-canvas',
+			Component: PostPreviewControl,
+		},
+	],
 	getInitialWidget: () => ( {
 		shapeProps: {
 			w: 280,

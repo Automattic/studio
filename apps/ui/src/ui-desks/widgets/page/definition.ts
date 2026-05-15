@@ -6,6 +6,7 @@ import {
 	PageWidgetComponent,
 	PageWidgetThumbnailComponent,
 } from '@/ui-desks/widgets/page/component';
+import { PagePreviewControl } from '@/ui-desks/widgets/page/preview-control';
 import { isPageWidgetProps, PAGE_WIDGET_TYPE, type PageTone, type PageWidget } from './types';
 import type {
 	WidgetCustomDropActionContext,
@@ -45,6 +46,11 @@ export const pageWidgetDefinition = {
 			property: 'tone',
 			label: __( 'Color' ),
 			options: PAGE_TONE_OPTIONS,
+		},
+		{
+			type: 'custom',
+			id: 'preview-page-on-canvas',
+			Component: PagePreviewControl,
 		},
 	],
 	isCreatable: false,

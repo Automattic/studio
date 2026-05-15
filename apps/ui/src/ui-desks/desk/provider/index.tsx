@@ -1,3 +1,5 @@
+import { store as coreDataStore } from '@wordpress/core-data';
+import { useRegistry } from '@wordpress/data';
 import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -12,6 +14,7 @@ import {
 } from 'tldraw';
 import { useConnector } from '@/data/core';
 import { useSites } from '@/data/queries/use-sites';
+import { getSiteUrl } from '@/lib/get-site-url';
 import {
 	focusConnectedWidgetInEditor,
 	removeSelectedConnectorFromEditor,
@@ -19,6 +22,7 @@ import {
 } from '@/ui-desks/connectors/editor-commands';
 import {
 	useConnectorInteractions,
+	type WidgetConnectorCompleteIntent,
 	type WidgetCustomDropIntent,
 } from '@/ui-desks/connectors/use-connector-interactions';
 import {
@@ -54,11 +58,19 @@ import {
 } from '@/ui-desks/widget-actions/paste-handlers';
 import { LOADING_WIDGET_TYPE } from '@/ui-desks/widgets/loading/types';
 import { NOTE_WIDGET_TYPE } from '@/ui-desks/widgets/note/types';
+import { isPageWidgetProps, PAGE_WIDGET_TYPE } from '@/ui-desks/widgets/page/types';
+import { isPostWidgetProps, POST_WIDGET_TYPE } from '@/ui-desks/widgets/post/types';
 import { getWidgetDefinition } from '@/ui-desks/widgets/registry';
+import { getSitePreviewPathFromContentLink } from '@/ui-desks/widgets/site-preview/preview-target';
+import {
+	isSitePreviewWidgetProps,
+	SITE_PREVIEW_WIDGET_TYPE,
+} from '@/ui-desks/widgets/site-preview/types';
 import {
 	DeskContext,
 	type AddDeskWidgetOptions,
 	type DeskProviderProps,
+	type PreviewContentType,
 	type SelectedWidgetToolbarItem,
 } from './context';
 import {
@@ -86,6 +98,7 @@ import type {
 	WidgetHandlerLoading,
 	WidgetHandlerResult,
 	WidgetPastePayload,
+	WidgetResolverRegistry,
 } from '@/ui-desks/widgets/types';
 
 export { useDesk, useRegisterDeskEditor } from './context';
@@ -99,6 +112,25 @@ interface FocusShapeRestoreSnapshot {
 	opacity: number;
 	isLocked: boolean;
 }
+
+interface CoreDataPreviewRecord {
+	id: number;
+	link?: string;
+}
+
+interface CoreDataPreviewResolvers {
+	getEntityRecord: (
+		kind: 'postType',
+		name: PreviewContentType,
+		key: number,
+		query: typeof CONTENT_PREVIEW_RECORD_QUERY
+	) => Promise< CoreDataPreviewRecord | undefined >;
+}
+
+const CONTENT_PREVIEW_RECORD_QUERY = {
+	context: 'edit',
+	_fields: 'id,link',
+} as const;
 
 export function DeskProvider( {
 	siteId,
@@ -121,6 +153,7 @@ export function DeskProvider( {
 	const desk = deskConfig ?? persistedDesk;
 	const isLoading = externalIsLoading ?? isLoadingPersistedDesk;
 	const connector = useConnector();
+	const registry = useRegistry();
 	const { data: sites } = useSites();
 	const site = sites?.find( ( candidate ) => candidate.id === siteId );
 	const isRunningSite = Boolean( siteId && site?.running );
@@ -193,6 +226,79 @@ export function DeskProvider( {
 		intent: customDropIntent,
 		closeMenu: closeCustomDropMenu,
 	} );
+	const canPreviewContentInSitePreview = Boolean(
+		! isReadOnly && editor && isHydrated && isRunningSite && getFirstSitePreviewShape( editor )
+	);
+	const previewContentInSitePreviewShape = useCallback(
+		async (
+			type: PreviewContentType,
+			id: number,
+			options: { targetShapeId?: TLShapeId; shouldFocus?: boolean } = {}
+		) => {
+			if ( id <= 0 || isReadOnly || ! editor || ! isHydrated || ! isRunningSite || ! site ) {
+				return false;
+			}
+
+			const targetShape = options.targetShapeId
+				? editor.getShape( options.targetShapeId )
+				: getFirstSitePreviewShape( editor );
+			const targetWidget = targetShape ? canvasShapeToDeskWidget( targetShape ) : null;
+			if (
+				! targetShape ||
+				targetWidget?.type !== SITE_PREVIEW_WIDGET_TYPE ||
+				! isSitePreviewWidgetProps( targetWidget.widgetProps )
+			) {
+				return false;
+			}
+
+			let record: CoreDataPreviewRecord | undefined;
+			try {
+				record = await getContentPreviewRecord( registry, type, id );
+			} catch ( error ) {
+				console.warn( `Unable to load ${ type } ${ id } for site preview.`, error );
+				return false;
+			}
+			if ( ! record?.link || editor.isDisposed ) {
+				return false;
+			}
+
+			const path = getSitePreviewPathFromContentLink( record.link, getSiteUrl( site ) );
+			const didUpdate = updateSitePreviewPathInEditor( editor, targetShape.id, path );
+			if ( didUpdate && options.shouldFocus ) {
+				const bounds = editor.getShapePageBounds( targetShape.id );
+				if ( bounds ) {
+					editor.zoomToBounds( bounds, { animation: { duration: 320 } } );
+				}
+			}
+			return didUpdate;
+		},
+		[ editor, isHydrated, isReadOnly, isRunningSite, registry, site ]
+	);
+	const previewContentInSitePreview = useCallback(
+		( type: PreviewContentType, id: number ) =>
+			previewContentInSitePreviewShape( type, id, { shouldFocus: true } ),
+		[ previewContentInSitePreviewShape ]
+	);
+	const handleConnectorComplete = useCallback(
+		( connection: WidgetConnectorCompleteIntent ) => {
+			if (
+				connection.targetWidget.type !== SITE_PREVIEW_WIDGET_TYPE ||
+				! isSitePreviewWidgetProps( connection.targetWidget.widgetProps )
+			) {
+				return;
+			}
+
+			const source = getContentPreviewSource( connection.sourceWidget );
+			if ( ! source ) {
+				return;
+			}
+
+			void previewContentInSitePreviewShape( source.type, source.id, {
+				targetShapeId: connection.targetShapeId,
+			} );
+		},
+		[ previewContentInSitePreviewShape ]
+	);
 
 	useStackInteractions( editor );
 	useConnectorInteractions( {
@@ -201,6 +307,7 @@ export function DeskProvider( {
 		isReadOnly,
 		pendingConnectorSourceId,
 		setPendingConnectorSourceId,
+		onConnectorComplete: handleConnectorComplete,
 		onCustomDrop: handleCustomDrop,
 	} );
 
@@ -1041,6 +1148,8 @@ export function DeskProvider( {
 			updateSelectedWidgetProps,
 			canEditSelectedWidget: Boolean( selectedWidgetEditAction ),
 			editSelectedWidget,
+			canPreviewContentInSitePreview,
+			previewContentInSitePreview,
 			fitSelectedWidgetToContent,
 			stackSelectedWidgets,
 			unstackSelectedWidgets,
@@ -1060,6 +1169,7 @@ export function DeskProvider( {
 			addPastedContent,
 			addWidget,
 			addWidgetAtScreenPoint,
+			canPreviewContentInSitePreview,
 			editor,
 			editSelectedWidget,
 			fitSelectedWidgetToContent,
@@ -1075,6 +1185,7 @@ export function DeskProvider( {
 			isLoading,
 			pendingConnectorSourceId,
 			pressStack,
+			previewContentInSitePreview,
 			pressedStackId,
 			replaceDeskConfig,
 			registerEditor,
@@ -1115,6 +1226,80 @@ export function DeskProvider( {
 			) }
 		</DeskContext.Provider>
 	);
+}
+
+function getContentPreviewSource(
+	widget: DeskWidget
+): { type: PreviewContentType; id: number } | null {
+	if (
+		widget.type === POST_WIDGET_TYPE &&
+		isPostWidgetProps( widget.widgetProps ) &&
+		widget.widgetProps.postId > 0
+	) {
+		return { type: 'post', id: widget.widgetProps.postId };
+	}
+
+	if (
+		widget.type === PAGE_WIDGET_TYPE &&
+		isPageWidgetProps( widget.widgetProps ) &&
+		widget.widgetProps.pageId > 0
+	) {
+		return { type: 'page', id: widget.widgetProps.pageId };
+	}
+
+	return null;
+}
+
+async function getContentPreviewRecord(
+	registry: WidgetResolverRegistry,
+	type: PreviewContentType,
+	id: number
+) {
+	return getCoreDataPreviewResolvers( registry ).getEntityRecord(
+		'postType',
+		type,
+		id,
+		CONTENT_PREVIEW_RECORD_QUERY
+	);
+}
+
+function getCoreDataPreviewResolvers( registry: WidgetResolverRegistry ) {
+	return registry.resolveSelect( coreDataStore ) as unknown as CoreDataPreviewResolvers;
+}
+
+function getFirstSitePreviewShape( editor: Editor ) {
+	return editor.getCurrentPageShapes().find( ( shape ) => {
+		const widget = canvasShapeToDeskWidget( shape );
+		return widget?.type === SITE_PREVIEW_WIDGET_TYPE;
+	} );
+}
+
+function updateSitePreviewPathInEditor( editor: Editor, shapeId: TLShapeId, path: string ) {
+	const shape = editor.getShape( shapeId );
+	const widget = shape ? canvasShapeToDeskWidget( shape ) : null;
+	if (
+		! shape ||
+		widget?.type !== SITE_PREVIEW_WIDGET_TYPE ||
+		! isSitePreviewWidgetProps( widget.widgetProps )
+	) {
+		return false;
+	}
+
+	if ( widget.widgetProps.path === path ) {
+		return true;
+	}
+
+	editor.updateShape< RectangleWidgetShape >( {
+		id: shape.id as RectangleWidgetShape[ 'id' ],
+		type: RECTANGLE_WIDGET_SHAPE_TYPE,
+		props: {
+			widgetProps: {
+				...widget.widgetProps,
+				path,
+			},
+		},
+	} );
+	return true;
 }
 
 function syncFocusDeskToEditor(

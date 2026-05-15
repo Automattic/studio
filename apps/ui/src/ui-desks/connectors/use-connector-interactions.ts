@@ -16,8 +16,11 @@ import {
 	getWidgetShapeAtPagePoint,
 } from './utils';
 import type {
+	ActiveWidgetDropFeedback,
 	DeskWidget,
 	WidgetCustomDropActionIntent,
+	WidgetDropFeedback,
+	WidgetDropFeedbackPhase,
 	WidgetDropHandler,
 } from '@/ui-desks/widgets/types';
 import type { Editor, TLArrowShape, TLEventInfo, TLShape, TLShapeId } from 'tldraw';
@@ -30,6 +33,7 @@ interface UseConnectorInteractionsOptions {
 	setPendingConnectorSourceId: ( shapeId: TLShapeId | null ) => void;
 	onConnectorComplete?: ( connection: WidgetConnectorCompleteIntent ) => void;
 	onCustomDrop?: ( drop: WidgetCustomDropIntent ) => void;
+	onDropFeedbackChange?: ( feedback: ActiveWidgetDropFeedback | null ) => void;
 }
 
 export function useConnectorInteractions( {
@@ -40,6 +44,7 @@ export function useConnectorInteractions( {
 	setPendingConnectorSourceId,
 	onConnectorComplete,
 	onCustomDrop,
+	onDropFeedbackChange,
 }: UseConnectorInteractionsOptions ) {
 	useEffect( () => {
 		if ( ! editor ) {
@@ -222,18 +227,113 @@ export function useConnectorInteractions( {
 			type: string;
 			x: number;
 			y: number;
+			opacity: number;
 		} | null = null;
 		let connectorPreviewId: TLArrowShape[ 'id' ] | null = null;
 		let activeTarget: WidgetDropTarget | null = null;
+		let activeDropFeedbackKey: string | null = null;
+		let hasSourceOpacityOverride = false;
 		let didDrag = false;
 		let completed = false;
 
-		const removeConnectorPreview = () => {
+		const getCustomDropFeedback = (
+			target: WidgetDropTarget | null,
+			phase: WidgetDropFeedbackPhase
+		): WidgetDropFeedback | null => {
+			if ( ! source || ! target || target.handler.type !== 'custom' ) {
+				return null;
+			}
+
+			return (
+				target.handler.getFeedback?.( {
+					sourceShapeId: source.shapeId,
+					targetShapeId: target.shapeId,
+					sourceWidget: source.widget,
+					targetWidget: target.widget,
+					screenPoint: getViewportScreenPoint( editor ),
+					phase,
+				} ) ?? null
+			);
+		};
+
+		const toActiveDropFeedback = (
+			target: WidgetDropTarget | null,
+			feedback: WidgetDropFeedback | null,
+			phase: WidgetDropFeedbackPhase
+		): ActiveWidgetDropFeedback | null => {
+			if ( ! target || ! feedback?.target ) {
+				return null;
+			}
+
+			return {
+				targetShapeId: target.shapeId,
+				feedback: {
+					...feedback.target,
+					phase,
+				},
+			};
+		};
+
+		const syncDropFeedback = (
+			target: WidgetDropTarget | null,
+			phase: WidgetDropFeedbackPhase
+		) => {
+			const feedback = getCustomDropFeedback( target, phase );
+			const activeFeedback = toActiveDropFeedback( target, feedback, phase );
+			const nextKey = activeFeedback
+				? `${ activeFeedback.targetShapeId }:${ activeFeedback.feedback.kind }:${ phase }`
+				: null;
+			if ( activeDropFeedbackKey !== nextKey ) {
+				activeDropFeedbackKey = nextKey;
+				onDropFeedbackChange?.( activeFeedback );
+			}
+			return feedback;
+		};
+
+		const setSourceOpacity = ( opacity: number ) => {
+			if ( ! source ) {
+				return;
+			}
+
+			const shape = editor.getShape( source.shapeId );
+			if ( ! shape || Math.abs( shape.opacity - opacity ) <= 0.001 ) {
+				return;
+			}
+
+			editor.updateShape( {
+				id: source.shapeId,
+				type: source.type as TLShape[ 'type' ],
+				opacity,
+			} );
+			hasSourceOpacityOverride = true;
+		};
+
+		const restoreSourceOpacity = () => {
+			if ( ! source || ! hasSourceOpacityOverride ) {
+				return;
+			}
+
+			const shape = editor.getShape( source.shapeId );
+			if ( shape && Math.abs( shape.opacity - source.opacity ) > 0.001 ) {
+				editor.updateShape( {
+					id: source.shapeId,
+					type: source.type as TLShape[ 'type' ],
+					opacity: source.opacity,
+				} );
+			}
+			hasSourceOpacityOverride = false;
+		};
+
+		const removeConnectorPreview = ( options: { preserveSourceOpacity?: boolean } = {} ) => {
 			if ( connectorPreviewId && editor.getShape( connectorPreviewId ) ) {
 				editor.deleteShape( connectorPreviewId );
 			}
 			connectorPreviewId = null;
 			activeTarget = null;
+			syncDropFeedback( null, 'hover' );
+			if ( ! options.preserveSourceOpacity ) {
+				restoreSourceOpacity();
+			}
 		};
 
 		const restoreSourcePosition = () => {
@@ -254,13 +354,18 @@ export function useConnectorInteractions( {
 			} );
 		};
 
-		const cleanup = () => {
+		const cleanup = ( options: { preserveSourceOpacity?: boolean } = {} ) => {
 			if ( ! completed ) {
-				removeConnectorPreview();
+				removeConnectorPreview( options );
+			}
+			if ( ! options.preserveSourceOpacity ) {
+				restoreSourceOpacity();
 			}
 			source = null;
 			connectorPreviewId = null;
 			activeTarget = null;
+			activeDropFeedbackKey = null;
+			hasSourceOpacityOverride = false;
 			didDrag = false;
 			completed = false;
 		};
@@ -275,10 +380,19 @@ export function useConnectorInteractions( {
 				const widget = shape ? canvasShapeToDeskWidget( shape ) : null;
 				source =
 					widget && shape
-						? { shapeId: shape.id, widget, type: shape.type, x: shape.x, y: shape.y }
+						? {
+								shapeId: shape.id,
+								widget,
+								type: shape.type,
+								x: shape.x,
+								y: shape.y,
+								opacity: shape.opacity,
+						  }
 						: null;
 				connectorPreviewId = null;
 				activeTarget = null;
+				syncDropFeedback( null, 'hover' );
+				hasSourceOpacityOverride = false;
 				didDrag = false;
 				completed = false;
 				return;
@@ -305,15 +419,27 @@ export function useConnectorInteractions( {
 							targetWidget: activeTarget.widget,
 						} );
 					} else if ( activeTarget.handler.type === 'custom' ) {
-						restoreSourcePosition();
-						onCustomDrop?.( {
+						const menuFeedback = getCustomDropFeedback( activeTarget, 'menu' );
+						const activeMenuFeedback = toActiveDropFeedback( activeTarget, menuFeedback, 'menu' );
+						const customDrop: WidgetCustomDropIntent = {
 							sourceShapeId: source.shapeId,
 							targetShapeId: activeTarget.shapeId,
 							sourceWidget: source.widget,
 							targetWidget: activeTarget.widget,
 							handler: activeTarget.handler,
 							screenPoint: getViewportScreenPoint( editor ),
-						} );
+							sourceOpacity: source.opacity,
+						};
+						restoreSourcePosition();
+						if ( typeof menuFeedback?.sourceOpacity === 'number' ) {
+							setSourceOpacity( menuFeedback.sourceOpacity );
+						} else {
+							restoreSourceOpacity();
+						}
+						cleanup( { preserveSourceOpacity: typeof menuFeedback?.sourceOpacity === 'number' } );
+						onDropFeedbackChange?.( activeMenuFeedback );
+						onCustomDrop?.( customDrop );
+						return;
 					}
 				}
 				cleanup();
@@ -340,17 +466,26 @@ export function useConnectorInteractions( {
 			restoreSourcePosition();
 
 			if ( target.handler.type !== 'connector' ) {
+				const customTarget = {
+					shapeId: target.shape.id,
+					widget: target.widget,
+					handler: target.handler,
+				};
+				const feedback = syncDropFeedback( customTarget, 'hover' );
 				if ( connectorPreviewId ) {
 					removeConnectorPreview();
-					activeTarget = {
-						shapeId: target.shape.id,
-						widget: target.widget,
-						handler: target.handler,
-					};
+					activeTarget = customTarget;
+					syncDropFeedback( activeTarget, 'hover' );
+				}
+				if ( typeof feedback?.sourceOpacity === 'number' ) {
+					setSourceOpacity( feedback.sourceOpacity );
+				} else {
+					restoreSourceOpacity();
 				}
 				return;
 			}
 
+			syncDropFeedback( null, 'hover' );
 			const targetBounds = editor.getShapePageBounds( target.shape.id );
 			if ( ! targetBounds ) {
 				removeConnectorPreview();
@@ -381,7 +516,7 @@ export function useConnectorInteractions( {
 			editor.off( 'event', handleEvent );
 			cleanup();
 		};
-	}, [ editor, isHydrated, isReadOnly, onConnectorComplete, onCustomDrop ] );
+	}, [ editor, isHydrated, isReadOnly, onConnectorComplete, onCustomDrop, onDropFeedbackChange ] );
 }
 
 export interface WidgetConnectorCompleteIntent {
@@ -393,6 +528,7 @@ export interface WidgetConnectorCompleteIntent {
 
 export interface WidgetCustomDropIntent extends WidgetCustomDropActionIntent {
 	handler: Extract< WidgetDropHandler, { type: 'custom' } >;
+	sourceOpacity: number;
 }
 
 interface WidgetDropTarget {

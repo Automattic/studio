@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, type KeyboardEvent, type PointerEvent }
 import { useEditor } from 'tldraw';
 import { useConnector } from '@/data/core';
 import { useChats } from '@/ui-desks/chats/context';
+import { Button } from '@/ui-desks/components';
 import { focusOnDeskShape, useIncomingWidgetConnections } from '@/ui-desks/connectors/context';
 import {
 	getMediaDropPreviewPayload,
@@ -276,18 +277,25 @@ export function ScratchpadWidgetComponent( {
 					) }
 				</div>
 				{ activeAgentStatus && (
-					<button
-						type="button"
-						className={ styles.statusButton }
+					<Button
+						icon={ SCRATCHPAD_STATUS_ICON[ activeAgentStatus ] }
+						intent={ activeAgentStatus === 'done' ? 'default' : 'chat' }
+						label={ SCRATCHPAD_STATUS_LABEL[ activeAgentStatus ] }
+						variant="filled"
+						tone={ activeAgentStatus === 'done' ? 'neutral' : 'primary' }
+						size="medium"
+						className={
+							activeAgentStatus === 'done'
+								? `${ styles.agentButton } ${ styles.agentButtonDone }`
+								: styles.agentButton
+						}
 						data-status={ activeAgentStatus }
-						disabled={ activeAgentStatus === 'running' || activeAgentStatus === 'done' }
-						aria-label={ SCRATCHPAD_STATUS_LABEL[ activeAgentStatus ] }
+						disabled={ activeAgentStatus !== 'pending' }
+						tooltipLabel={ false }
 						title={ SCRATCHPAD_STATUS_LABEL[ activeAgentStatus ] }
 						onClick={ handleRunAgent }
 						onPointerDown={ ( event ) => event.stopPropagation() }
-					>
-						<Icon icon={ SCRATCHPAD_STATUS_ICON[ activeAgentStatus ] } size={ 20 } />
-					</button>
+					/>
 				) }
 			</div>
 			{ ! isInteractive && <div className={ styles.shield } aria-hidden="true" /> }

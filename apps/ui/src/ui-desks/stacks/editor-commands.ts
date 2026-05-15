@@ -89,7 +89,10 @@ export function expandStackInEditor( editor: Editor, stackId: string ) {
 	}
 
 	const stack = getStackFromCollapsedMembers( members );
-	const expandedLayouts = getExpandedStackLayouts( members, stack );
+	const expandedLayouts = getExpandedStackLayouts( members, {
+		x: members[ 0 ].x,
+		y: members[ 0 ].y,
+	} );
 
 	editor.updateShapes(
 		members.map( ( shape ) => ( {
@@ -298,7 +301,7 @@ function getExpandedStackIds( editor: Editor ) {
 function getStackFromCollapsedMembers( members: TLShape[] ) {
 	const firstMember = members[ 0 ];
 	const firstOrder = getStackOrder( firstMember );
-	const anchor = getStackAnchorFromMember( firstMember, firstOrder );
+	const anchor = getStackAnchorFromMember( firstMember, firstOrder, members.length );
 
 	return {
 		id: getStackId( firstMember ) ?? createStackId(),

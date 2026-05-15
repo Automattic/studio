@@ -703,7 +703,7 @@ function getDerivedWidgetAnchor( shapes: TLShape[] ): DerivedWidgetAnchor | null
 	}
 
 	return {
-		...getStackAnchorFromMember( firstShape, order ),
+		...getStackAnchorFromMember( firstShape, order, shapes.length ),
 		zIndex: getStackZIndexFromMember( firstShape.index, order ),
 	};
 }

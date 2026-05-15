@@ -13,6 +13,7 @@ import {
 	saveSelectedAiProvider,
 } from 'cli/ai/auth';
 import { closeSharedBrowser } from 'cli/ai/browser-utils';
+import { setChatArtifactCallback } from 'cli/ai/chat-artifacts';
 import { startDaemonStatusPolling } from 'cli/ai/daemon-status-poll';
 import { type AiOutputAdapter, JsonAdapter } from 'cli/ai/output-adapter';
 import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
@@ -25,6 +26,7 @@ import {
 	openStudioSession,
 } from 'cli/ai/sessions/pi-session';
 import { replaySessionHistory } from 'cli/ai/sessions/replay';
+import { setLocalSiteSelectedCallback } from 'cli/ai/site-selection';
 import { getActiveSlashCommands, type SlashCommandContext } from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
@@ -182,6 +184,10 @@ export async function runCommand( options: {
 		void append( ( sm ) => appendStudioEntry( sm, 'studio.tool_progress', { message } ) );
 	} );
 
+	setChatArtifactCallback( ( artifact ) =>
+		append( ( sm ) => appendStudioEntry( sm, 'studio.chat_artifact', artifact ) )
+	);
+
 	ui.onSiteSelected = ( site ) => {
 		void append( ( sm ) =>
 			appendStudioEntry( sm, 'studio.site_selected', {
@@ -193,6 +199,20 @@ export async function runCommand( options: {
 			} )
 		);
 	};
+
+	setLocalSiteSelectedCallback(
+		ui instanceof JsonAdapter
+			? async ( site ) => {
+					ui.activeSite = site;
+					await append( ( sm ) =>
+						appendStudioEntry( sm, 'studio.site_selected', {
+							siteName: site.name,
+							sitePath: site.path,
+						} )
+					);
+			  }
+			: null
+	);
 
 	if ( options.resumeSession ) {
 		ui.showInfo(
@@ -519,6 +539,7 @@ export async function runCommand( options: {
 			handleAgentTurnError( error );
 			( ui as JsonAdapter ).emitTurnCompleted( 'error', session?.getSessionId() ?? '' );
 		} finally {
+			setLocalSiteSelectedCallback( null );
 			ui.stop();
 			await closeSharedBrowser();
 		}

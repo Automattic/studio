@@ -43,7 +43,7 @@ describe( 'site.selected — environment flips', () => {
 		const { summary } = await loadAiSession( rootDirectory, created.id );
 		expect( summary.activeEnvironment ).toBe( 'live' );
 		expect( summary.lastSelectedWpcomSiteId ).toBe( 42 );
-		expect( summary.ownerSitePath ).toBe( '/tmp/my-site' );
+		expect( summary.ownerSitePath ).toBeUndefined();
 	} );
 
 	it( 'resolver preserves owner name/path when flipping to live', () => {

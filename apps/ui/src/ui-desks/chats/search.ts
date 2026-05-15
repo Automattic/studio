@@ -1,6 +1,7 @@
 export interface ChatsSearch {
 	chats?: boolean;
 	newChat?: number;
+	session?: string;
 }
 
 function parseChatsSearch( value: unknown ) {
@@ -16,5 +17,6 @@ export function validateChatsSearch( search: Record< string, unknown > ): ChatsS
 	return {
 		chats: parseChatsSearch( search.chats ) || undefined,
 		newChat: parseNewChatSearch( search.newChat ),
+		session: typeof search.session === 'string' && search.session ? search.session : undefined,
 	};
 }

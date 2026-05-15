@@ -8,10 +8,13 @@ import { noteWidgetDefinition } from '@/ui-desks/widgets/note/definition';
 import { pageWidgetDefinition } from '@/ui-desks/widgets/page/definition';
 import { postWidgetDefinition } from '@/ui-desks/widgets/post/definition';
 import { postCollectionWidgetDefinition } from '@/ui-desks/widgets/post-collection/definition';
+import { scratchpadWidgetDefinition } from '@/ui-desks/widgets/scratchpad/definition';
+import { siteCardWidgetDefinition } from '@/ui-desks/widgets/site-card/definition';
 import { sitePreviewWidgetDefinition } from '@/ui-desks/widgets/site-preview/definition';
 import type { DeskWidgetDefinition } from './types';
 
 export const widgetDefinitions = {
+	[ scratchpadWidgetDefinition.type ]: scratchpadWidgetDefinition,
 	[ embedWidgetDefinition.type ]: embedWidgetDefinition,
 	[ bookmarkWidgetDefinition.type ]: bookmarkWidgetDefinition,
 	[ blogWidgetDefinition.type ]: blogWidgetDefinition,
@@ -22,6 +25,7 @@ export const widgetDefinitions = {
 	[ postWidgetDefinition.type ]: postWidgetDefinition,
 	[ pageWidgetDefinition.type ]: pageWidgetDefinition,
 	[ postCollectionWidgetDefinition.type ]: postCollectionWidgetDefinition,
+	[ siteCardWidgetDefinition.type ]: siteCardWidgetDefinition,
 	[ sitePreviewWidgetDefinition.type ]: sitePreviewWidgetDefinition,
 } satisfies Record< string, DeskWidgetDefinition >;
 

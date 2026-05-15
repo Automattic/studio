@@ -2,8 +2,8 @@ import { __ } from '@wordpress/i18n';
 import { external } from '@wordpress/icons';
 import { useConnector } from '@/data/core';
 import { useSites } from '@/data/queries/use-sites';
-import { IconControlButton } from '@/ui-desks/components';
-import { useDesk } from '@/ui-desks/desk/provider';
+import { Button } from '@/ui-desks/components';
+import { useDesk } from '@/ui-desks/desk/provider/context';
 import { getSitePreviewUrl } from './url';
 import type { SitePreviewWidgetProps } from './types';
 import type { ControlRenderContext } from '@/ui-desks/controls/types';
@@ -19,10 +19,11 @@ export function SitePreviewOpenControl( {
 	const canOpen = Boolean( url );
 
 	return (
-		<IconControlButton
+		<Button
 			icon={ external }
 			label={ __( 'Open site preview in browser' ) }
-			variant="toolbar"
+			variant="quiet"
+			size="medium"
 			disabled={ ! canOpen }
 			onClick={ () => {
 				if ( ! url ) {

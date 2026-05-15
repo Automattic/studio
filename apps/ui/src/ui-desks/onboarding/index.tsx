@@ -6,7 +6,6 @@ import {
 import { createRoute, useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { arrowLeft, download } from '@wordpress/icons';
-import { Button, Icon } from '@wordpress/ui';
 import { useCallback, useEffect, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { BlueprintSelector, type PickedBlueprint } from '@/components/blueprint-selector';
@@ -21,6 +20,7 @@ import {
 import { useFeaturedBlueprints } from '@/data/queries/use-featured-blueprints';
 import { useImportSite } from '@/data/queries/use-import-site';
 import { useCreateSite, useSites } from '@/data/queries/use-sites';
+import { Button } from '@/ui-desks/components';
 import { desksRootRoute } from '../router/root';
 import styles from './style.module.css';
 import type { CreateSiteFormValues } from '@/components/create-site-form';
@@ -246,14 +246,16 @@ export function DeskOnboardingBlueprint() {
 			<div className={ styles.page }>
 				<Button
 					type="button"
-					variant="minimal"
-					tone="neutral"
+					variant="quiet"
+					size="small"
 					className={ styles.backLink }
+					icon={ arrowLeft }
+					label={ __( 'Back to Blueprints' ) }
+					tooltipLabel={ false }
 					onClick={ () =>
 						void navigate( { to: '/onboarding/blueprint', search: { step: 'select' } } )
 					}
 				>
-					<Icon icon={ arrowLeft } />
 					<span>{ __( 'Back to Blueprints' ) }</span>
 				</Button>
 				<h1 className={ styles.title }>{ picked.title }</h1>
@@ -393,14 +395,16 @@ export function DeskOnboardingImport() {
 			<div className={ styles.page }>
 				<Button
 					type="button"
-					variant="minimal"
-					tone="neutral"
+					variant="quiet"
+					size="small"
 					className={ styles.backLink }
+					icon={ arrowLeft }
+					label={ __( 'Back to backup' ) }
+					tooltipLabel={ false }
 					onClick={ () =>
 						void navigate( { to: '/onboarding/import', search: { step: 'select' } } )
 					}
 				>
-					<Icon icon={ arrowLeft } />
 					<span>{ __( 'Back to backup' ) }</span>
 				</Button>
 				<h1 className={ styles.title }>{ __( 'Configure the imported site' ) }</h1>

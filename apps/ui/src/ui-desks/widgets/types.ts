@@ -9,10 +9,13 @@ import type { NoteWidget } from '@/ui-desks/widgets/note/types';
 import type { PageWidget } from '@/ui-desks/widgets/page/types';
 import type { PostWidget } from '@/ui-desks/widgets/post/types';
 import type { PostCollectionWidget } from '@/ui-desks/widgets/post-collection/types';
+import type { ScratchpadWidget } from '@/ui-desks/widgets/scratchpad/types';
+import type { SiteCardWidget } from '@/ui-desks/widgets/site-card/types';
 import type { SitePreviewWidget } from '@/ui-desks/widgets/site-preview/types';
 import type { DeskStack, DeskWidgetBase } from '@studio/common/types/desk';
 import type { createRegistry } from '@wordpress/data';
 import type { ComponentProps, ComponentType, ReactElement } from 'react';
+import type { Editor, JsonObject, TLShapeId } from 'tldraw';
 
 export interface WidgetIndicator {
 	cornerRadius?: number;
@@ -21,14 +24,34 @@ export interface WidgetIndicator {
 
 export type WidgetResolutionState = 'loading';
 
+export type WidgetDropFeedbackPhase = 'hover' | 'menu';
+
+export interface WidgetDropFeedbackTarget {
+	kind: string;
+	props: JsonObject;
+	phase: WidgetDropFeedbackPhase;
+}
+
+export interface ActiveWidgetDropFeedback {
+	targetShapeId: TLShapeId;
+	feedback: WidgetDropFeedbackTarget;
+}
+
+export interface WidgetDropFeedback {
+	sourceOpacity?: number;
+	target?: Omit< WidgetDropFeedbackTarget, 'phase' >;
+}
+
 export interface DeskWidgetComponentProps<
 	TWidgetProps extends Record< string, unknown > = Record< string, unknown >,
 > {
 	id: string;
+	shapeId?: TLShapeId;
 	widgetProps: TWidgetProps;
 	isEditing: boolean;
 	isHovered: boolean;
 	isSelected: boolean;
+	dropFeedback?: WidgetDropFeedbackTarget | null;
 	onWidgetPropsChange: ( widgetProps: TWidgetProps ) => void;
 	onEditComplete: () => void;
 }
@@ -48,6 +71,8 @@ export type WidgetIcon = ReactElement< ComponentProps< 'svg' > >;
 
 export interface WidgetLabels {
 	add: () => string;
+	edit?: () => string;
+	fitContent?: () => string;
 }
 
 export type WidgetResolverRegistry = ReturnType< typeof createRegistry >;
@@ -63,6 +88,7 @@ export interface WidgetFileAccept {
 
 export interface WidgetFileHandlerContext {
 	siteId?: string;
+	getFilePath?: ( file: File ) => Promise< string >;
 }
 
 export interface WidgetHandlerLoading {
@@ -133,6 +159,67 @@ export interface WidgetPasteHandler< TWidget extends DeskWidgetBase = DeskWidget
 	) => Promise< WidgetPasteHandlerResult< TWidget > | null >;
 }
 
+export interface WidgetConnectorDropHandler {
+	id: string;
+	type: 'connector';
+	sourceTypes?: string[];
+	canHandle?: ( sourceWidget: DeskWidgetBase, targetWidget: DeskWidgetBase ) => boolean;
+}
+
+export type WidgetCoreDataSaveEntityRecord = (
+	kind: string,
+	name: string,
+	record: Record< string, unknown >,
+	options?: {
+		throwOnError?: boolean;
+	}
+) => Promise< unknown >;
+
+export interface WidgetCustomDropActionIntent {
+	sourceShapeId: TLShapeId;
+	targetShapeId: TLShapeId;
+	sourceWidget: DeskWidget;
+	targetWidget: DeskWidget;
+	screenPoint: {
+		x: number;
+		y: number;
+	};
+}
+
+export interface WidgetDropFeedbackIntent extends WidgetCustomDropActionIntent {
+	phase: WidgetDropFeedbackPhase;
+}
+
+export interface WidgetCustomDropActionContext {
+	editor: Editor;
+	registry: WidgetResolverRegistry;
+	runAction: ( action: () => void | Promise< unknown > ) => void;
+	saveEntityRecord: WidgetCoreDataSaveEntityRecord;
+	startChatWithPrompt: ( request: {
+		prompt: string;
+		displayMessage?: string;
+	} ) => Promise< string >;
+}
+
+export interface WidgetCustomDropAction {
+	label: string;
+	onClick: () => void;
+}
+
+export interface WidgetCustomDropHandler {
+	id: string;
+	type: 'custom';
+	sourceTypes?: string[];
+	canHandle?: ( sourceWidget: DeskWidgetBase, targetWidget: DeskWidgetBase ) => boolean;
+	getFeedback?: ( intent: WidgetDropFeedbackIntent ) => WidgetDropFeedback | null;
+	getActions?: (
+		intent: WidgetCustomDropActionIntent,
+		context: WidgetCustomDropActionContext
+	) => WidgetCustomDropAction[];
+}
+
+export type WidgetDropHandler = WidgetConnectorDropHandler | WidgetCustomDropHandler;
+
 export type ResolvedDeskWidgetOrigin =
 	| { kind: 'authored' }
 	| {
@@ -186,6 +273,14 @@ export type WidgetFitContentResult< TWidget extends DeskWidgetBase = DeskWidgetB
 	| TWidget[ 'shapeProps' ]
 	| null;
 
+export type WidgetEditAction = { kind: 'canvas-editing' } | { kind: 'site-url'; path: string };
+
+export interface WidgetEditActionContext< TWidget extends DeskWidgetBase = DeskWidgetBase > {
+	widget: TWidget;
+	hasSiteId: boolean;
+	hasRunningSite: boolean;
+}
+
 export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBase > {
 	type: TWidget[ 'type' ];
 	name: () => string;
@@ -206,12 +301,17 @@ export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBa
 	getFittedShapeProps?: (
 		context: WidgetFitContentContext< TWidget >
 	) => WidgetFitContentResult< TWidget > | Promise< WidgetFitContentResult< TWidget > >;
+	getEditAction?: ( context: WidgetEditActionContext< TWidget > ) => WidgetEditAction | null;
+	focusModeControls?: Array< ControlConfig< TWidget[ 'widgetProps' ] > >;
+	focusModeControlsLabel?: () => string;
 	resolver?: WidgetResolver< TWidget >;
 	fileHandlers?: Array< WidgetFileHandler< TWidget > >;
 	pasteHandlers?: Array< WidgetPasteHandler< TWidget > >;
+	dropHandlers?: WidgetDropHandler[];
 }
 
 export type DeskWidget =
+	| ScratchpadWidget
 	| BookmarkWidget
 	| BlogWidget
 	| DrawingWidget
@@ -222,8 +322,10 @@ export type DeskWidget =
 	| PostWidget
 	| PageWidget
 	| PostCollectionWidget
+	| SiteCardWidget
 	| SitePreviewWidget;
 export type DeskWidgetDefinition =
+	| WidgetDefinition< ScratchpadWidget >
 	| WidgetDefinition< BookmarkWidget >
 	| WidgetDefinition< BlogWidget >
 	| WidgetDefinition< DrawingWidget >
@@ -234,4 +336,5 @@ export type DeskWidgetDefinition =
 	| WidgetDefinition< PostWidget >
 	| WidgetDefinition< PageWidget >
 	| WidgetDefinition< PostCollectionWidget >
+	| WidgetDefinition< SiteCardWidget >
 	| WidgetDefinition< SitePreviewWidget >;

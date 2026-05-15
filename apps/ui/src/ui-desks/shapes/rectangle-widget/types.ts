@@ -1,7 +1,7 @@
 import {
 	isRectangleWidgetShapeProps,
 	type RectangleWidgetShapeProps,
-} from '@/ui-desks/widgets/geometry';
+} from '@/ui-desks/widget-actions/geometry';
 import type { JsonObject, TLBaseShape } from 'tldraw';
 
 export { isRectangleWidgetShapeProps, type RectangleWidgetShapeProps };

@@ -494,9 +494,9 @@ describe( 'tldraw adapter', () => {
 
 		expect( firstStackMember ).toMatchObject( {
 			id: 'shape:note-1',
-			x: 100,
-			y: 200,
-			rotation: 0,
+			x: 95,
+			y: 196,
+			rotation: -0.026,
 			meta: {
 				deskStackId: 'stack-1',
 				deskStackOrder: 0,
@@ -506,9 +506,9 @@ describe( 'tldraw adapter', () => {
 		} );
 		expect( secondStackMember ).toMatchObject( {
 			id: 'shape:note-2',
-			x: 110,
-			y: 208,
-			rotation: 0.052,
+			x: 105,
+			y: 204,
+			rotation: 0.026,
 			meta: {
 				deskStackId: 'stack-1',
 				deskStackOrder: 1,
@@ -710,8 +710,8 @@ describe( 'tldraw adapter', () => {
 		const shapes = [
 			{
 				...deskWidgetToCanvasShape( createNoteWidget( 'note-1' ) ),
-				x: 100,
-				y: 200,
+				x: 95,
+				y: 196,
 				index: 'a5',
 				meta: {
 					deskStackId: 'stack-1',
@@ -720,8 +720,8 @@ describe( 'tldraw adapter', () => {
 			},
 			{
 				...deskWidgetToCanvasShape( createNoteWidget( 'note-2' ) ),
-				x: 110,
-				y: 208,
+				x: 105,
+				y: 204,
 				index: 'a4.999',
 				meta: {
 					deskStackId: 'stack-1',
@@ -858,8 +858,8 @@ describe( 'tldraw adapter', () => {
 					deskStackId: 'stack-1',
 					deskStackOrder: 0,
 					deskStackPushedBy: 'stack-2',
-					deskStackPushOriginX: 100,
-					deskStackPushOriginY: 200,
+					deskStackPushOriginX: 95,
+					deskStackPushOriginY: 196,
 				},
 			},
 			{
@@ -871,8 +871,8 @@ describe( 'tldraw adapter', () => {
 					deskStackId: 'stack-1',
 					deskStackOrder: 1,
 					deskStackPushedBy: 'stack-2',
-					deskStackPushOriginX: 110,
-					deskStackPushOriginY: 208,
+					deskStackPushOriginX: 105,
+					deskStackPushOriginY: 204,
 				},
 			},
 		] as unknown as TLShape[];
@@ -1029,9 +1029,9 @@ describe( 'tldraw adapter', () => {
 		} );
 
 		expect( shape ).toMatchObject( {
-			x: 110,
-			y: 208,
-			rotation: 0.052,
+			x: 105,
+			y: 204,
+			rotation: 0.026,
 			meta: {
 				deskStackId: 'stack-1',
 				deskStackOrder: 1,

@@ -79,4 +79,35 @@ describe( 'WP.com site workspaces', () => {
 		expect( workspaces[ 0 ].stagingSites ).toEqual( [] );
 		expect( workspaces[ 0 ].productionSite?.stagingSiteIds ).toEqual( [ 202 ] );
 	} );
+
+	it( 'groups connected staging metadata when staging is missing from the WP.com list', () => {
+		const productionSite = createSyncSite( {
+			id: 101,
+			stagingSiteIds: [ 202 ],
+		} );
+		const connectedStagingSite = createSyncSite( {
+			id: 202,
+			localSiteId: 'local-site-id',
+			name: 'Production Site',
+			url: 'https://staging.example',
+			isStaging: true,
+			productionSiteId: 101,
+			syncSupport: 'already-connected',
+		} );
+		const localSite = createLocalSite();
+
+		const mergedSites = mergeWpcomSitesWithConnectedSites(
+			[ productionSite ],
+			[ connectedStagingSite ]
+		);
+		const workspaces = createWpcomSiteWorkspaces( mergedSites, [ localSite ] );
+
+		expect( workspaces ).toHaveLength( 1 );
+		expect( workspaces[ 0 ] ).toMatchObject( {
+			id: 'studio-workspace:local-site-id',
+			localSite,
+			productionSite: expect.objectContaining( { id: 101 } ),
+			stagingSites: [ expect.objectContaining( { id: 202, localSiteId: 'local-site-id' } ) ],
+		} );
+	} );
 } );

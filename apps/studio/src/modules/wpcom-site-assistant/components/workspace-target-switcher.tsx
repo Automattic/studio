@@ -1,7 +1,14 @@
+import { Spinner } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { Tooltip } from 'src/components/tooltip';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import {
+	canCreateLocalSiteFromRemote,
+	getSyncSupportActionUrl,
+	getSyncSupportDescription,
+	getSyncSupportTitle,
+} from 'src/modules/sync/lib/sync-support-ui';
 import {
 	getStagingPlanUpgradeUrl,
 	isStagingPlanUpgradeRequired,
@@ -20,6 +27,8 @@ type WorkspaceTargetSwitcherProps = {
 	isCreatingStagingSite: boolean;
 	stagingDisabledReason?: string;
 	localDisabledReason?: string;
+	onCreateLocalSite?: ( site: SyncSite ) => void;
+	isCreatingLocalSite?: boolean;
 };
 
 export function WorkspaceTargetSwitcher( {
@@ -33,6 +42,8 @@ export function WorkspaceTargetSwitcher( {
 	isCreatingStagingSite,
 	stagingDisabledReason,
 	localDisabledReason = __( 'Local target support is not available for this workspace.' ),
+	onCreateLocalSite,
+	isCreatingLocalSite = false,
 }: WorkspaceTargetSwitcherProps ) {
 	const productionSite =
 		workspace?.productionSite ??
@@ -47,8 +58,22 @@ export function WorkspaceTargetSwitcher( {
 	const isLocalSelected = Boolean(
 		localSite && ! selectedWpcomSite && selectedLocalSite?.id === localSite.id
 	);
+	const remoteSiteForLocalTarget = selectedWpcomSite ?? stagingSite ?? productionSite;
 	const isProductionDisabled = ! productionSite;
-	const isLocalDisabled = ! localSite || ! onSelectLocalSite;
+	const localActionUrl = remoteSiteForLocalTarget
+		? getSyncSupportActionUrl( remoteSiteForLocalTarget )
+		: undefined;
+	const canCreateLocalSite = Boolean(
+		! localSite &&
+			remoteSiteForLocalTarget &&
+			onCreateLocalSite &&
+			canCreateLocalSiteFromRemote( remoteSiteForLocalTarget )
+	);
+	const canUseLocalCta = Boolean( ! localSite && localActionUrl );
+	const isLocalDisabled = Boolean(
+		isCreatingLocalSite ||
+			( localSite ? ! onSelectLocalSite : ! canCreateLocalSite && ! canUseLocalCta )
+	);
 	const isStagingUpgradeAvailable = Boolean(
 		productionSite && ! stagingSite && isStagingPlanUpgradeRequired( productionSite )
 	);
@@ -63,7 +88,15 @@ export function WorkspaceTargetSwitcher( {
 		? __( "Upgrade this site's plan to add a staging site." )
 		: stagingDisabledReason ??
 		  ( isCreatingStagingSite ? __( 'Creating staging site...' ) : undefined );
-	const localTooltip = isLocalDisabled ? localDisabledReason : undefined;
+	const localTooltip = localSite
+		? isLocalDisabled
+			? localDisabledReason
+			: undefined
+		: remoteSiteForLocalTarget
+		? `${ getSyncSupportTitle( remoteSiteForLocalTarget ) }. ${ getSyncSupportDescription(
+				remoteSiteForLocalTarget
+		  ) }`
+		: localDisabledReason;
 
 	const getSelectedButtonClassName = ( target: 'production' | 'staging' | 'local' ) => {
 		if ( target === 'staging' ) {
@@ -76,15 +109,17 @@ export function WorkspaceTargetSwitcher( {
 	const getButtonClassName = (
 		target: 'production' | 'staging' | 'local',
 		isSelected: boolean,
-		needsUpgrade = false
+		needsAttention = false
 	) =>
 		cx(
 			'inline-flex min-h-6 shrink-0 items-center gap-1.5 rounded border px-2 py-0.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme disabled:cursor-not-allowed disabled:opacity-60',
-			needsUpgrade &&
-				'border-dashed border-circle-env-staging bg-transparent text-frame-text-secondary hover:text-frame-text',
+			needsAttention &&
+				'border-dashed bg-transparent text-frame-text-secondary hover:text-frame-text',
+			needsAttention && target === 'staging' && 'border-circle-env-staging',
+			needsAttention && target === 'local' && 'border-frame-border',
 			isSelected
 				? getSelectedButtonClassName( target )
-				: ! needsUpgrade &&
+				: ! needsAttention &&
 						'border-transparent bg-frame-surface text-frame-text-secondary hover:text-frame-text'
 		);
 
@@ -131,11 +166,33 @@ export function WorkspaceTargetSwitcher( {
 			<Tooltip text={ localTooltip } disabled={ ! localTooltip } placement="bottom-start">
 				<button
 					type="button"
-					className={ getButtonClassName( 'local', isLocalSelected ) }
+					className={ getButtonClassName(
+						'local',
+						isLocalSelected,
+						! localSite && Boolean( remoteSiteForLocalTarget )
+					) }
 					disabled={ isLocalDisabled }
-					onClick={ () => localSite && onSelectLocalSite?.( localSite ) }
+					onClick={ () => {
+						if ( localSite ) {
+							onSelectLocalSite?.( localSite );
+							return;
+						}
+
+						if ( remoteSiteForLocalTarget && localActionUrl ) {
+							getIpcApi().openURL( localActionUrl );
+							return;
+						}
+
+						if ( remoteSiteForLocalTarget ) {
+							onCreateLocalSite?.( remoteSiteForLocalTarget );
+						}
+					} }
 				>
-					<span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-a8c-gray-40" />
+					{ isCreatingLocalSite ? (
+						<Spinner className="!m-0 !h-3 !w-3" />
+					) : (
+						<span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-a8c-gray-40" />
+					) }
 					{ __( 'Local' ) }
 				</button>
 			</Tooltip>

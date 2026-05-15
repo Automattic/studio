@@ -16,6 +16,12 @@ import { CreateButton } from 'src/modules/sync/components/create-button';
 import { EnvironmentBadge } from 'src/modules/sync/components/environment-badge';
 import { NoWpcomSitesModal } from 'src/modules/sync/components/no-wpcom-sites-modal';
 import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
+import {
+	getSyncSupportActionLabel,
+	getSyncSupportActionUrl,
+	getSyncSupportDescription,
+	getSyncSupportTitle,
+} from 'src/modules/sync/lib/sync-support-ui';
 import { useI18nLocale, useRootSelector } from 'src/stores';
 import {
 	connectedSitesSelectors,
@@ -356,19 +362,15 @@ function ListSites( {
 	}
 	if ( needsTransfer.length > 0 ) {
 		sections.push( {
-			title: __( 'Enable hosting features first' ),
-			description: __(
-				'These sites need hosting features turned on before they can sync. You can do this from WordPress.com.'
-			),
+			title: getSyncSupportTitle( needsTransfer[ 0 ] ),
+			description: getSyncSupportDescription( needsTransfer[ 0 ] ),
 			sites: needsTransfer,
 		} );
 	}
 	if ( needsUpgrade.length > 0 ) {
 		sections.push( {
-			title: __( 'Upgrade your plan to sync' ),
-			description: __(
-				'Syncing requires a Business plan or higher. Upgrade on WordPress.com to get started.'
-			),
+			title: getSyncSupportTitle( needsUpgrade[ 0 ] ),
+			description: getSyncSupportDescription( needsUpgrade[ 0 ] ),
 			sites: needsUpgrade,
 		} );
 	}
@@ -464,9 +466,10 @@ function SiteThumbnail( {
 }
 
 function SiteOverlayCta( { site }: { site: SyncSite } ) {
-	const { __ } = useI18n();
+	const actionUrl = getSyncSupportActionUrl( site );
+	const actionLabel = getSyncSupportActionLabel( site );
 
-	if ( site.syncSupport === 'needs-upgrade' ) {
+	if ( actionUrl && actionLabel ) {
 		return (
 			<>
 				<Button
@@ -474,13 +477,13 @@ function SiteOverlayCta( { site }: { site: SyncSite } ) {
 					className="!text-xs !px-3 !py-1.5 !h-auto !bg-white !text-a8c-gray-900 hover:!text-a8c-gray-900 !shadow-sm"
 					onClick={ ( e: React.MouseEvent ) => {
 						e.stopPropagation();
-						getIpcApi().openURL( `https://wordpress.com/plans/${ site.id }` );
+						getIpcApi().openURL( actionUrl );
 					} }
 				>
-					{ __( 'Upgrade plan' ) }
+					{ actionLabel }
 					<ArrowIcon />
 				</Button>
-				{ site.planName && (
+				{ site.syncSupport === 'needs-upgrade' && site.planName && (
 					<span className="text-[11px] text-white px-2 py-0.5 rounded bg-black/50 backdrop-blur-sm">
 						{ site.planName }
 					</span>
@@ -488,21 +491,7 @@ function SiteOverlayCta( { site }: { site: SyncSite } ) {
 			</>
 		);
 	}
-	if ( site.syncSupport === 'needs-transfer' ) {
-		return (
-			<Button
-				variant="secondary"
-				className="!text-xs !px-3 !py-1.5 !h-auto !bg-white !text-a8c-gray-900 hover:!text-a8c-gray-900 !shadow-sm"
-				onClick={ ( e: React.MouseEvent ) => {
-					e.stopPropagation();
-					getIpcApi().openURL( `https://wordpress.com/hosting-features/${ site.id }` );
-				} }
-			>
-				{ __( 'Enable' ) }
-				<ArrowIcon />
-			</Button>
-		);
-	}
+
 	return null;
 }
 

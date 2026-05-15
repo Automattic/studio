@@ -21,6 +21,7 @@ import type { Blueprint } from 'src/stores/wpcom-api';
 export type WpcomSiteActivity = {
 	isAssistantThinking?: boolean;
 	isCreatingStagingSite?: boolean;
+	isCreatingLocalSite?: boolean;
 	hasUnreadAssistantMessage?: boolean;
 };
 

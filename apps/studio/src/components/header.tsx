@@ -3,6 +3,7 @@ import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { SiteManagementActions } from 'src/components/site-management-actions';
 import { useAuth } from 'src/hooks/use-auth';
+import { useCreateLocalSiteFromRemote } from 'src/hooks/use-create-local-site-from-remote';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
@@ -57,6 +58,7 @@ export default function Header( {
 		wpcomSites = [],
 	} = useSiteDetails();
 	const { client, isAuthenticated, user } = useAuth();
+	const { confirmCreateLocalSiteFromRemote, isCreatingLocalSite } = useCreateLocalSiteFromRemote();
 	const { enableWorkspaces } = useFeatureFlags();
 	const isOffline = useOffline();
 	const [ createWpcomStagingSite, createWpcomStagingSiteResult ] =
@@ -113,6 +115,8 @@ export default function Header( {
 	const shouldShowTargetSwitcher = Boolean(
 		workspace || wpcomSite || ( enableWorkspaces && site )
 	);
+	const remoteSiteForLocalTarget = wpcomSite ?? stagingSite ?? productionSite;
+	const isCreatingLocalSiteForTarget = isCreatingLocalSite( remoteSiteForLocalTarget?.id );
 
 	const handleWpAdminClick = async () => {
 		if ( ! site || isLoading ) return;
@@ -168,6 +172,18 @@ export default function Header( {
 		setSelectedSiteId( localSite.id );
 	};
 
+	const createLocalSiteFromHeader = async ( remoteSite: SyncSite ) => {
+		const createdLocalSite = await confirmCreateLocalSiteFromRemote( remoteSite );
+		if ( ! createdLocalSite ) {
+			return;
+		}
+
+		if ( workspace ) {
+			setSavedWpcomWorkspaceLocalTarget( workspace.id );
+		}
+		setSelectedSiteId( createdLocalSite.id );
+	};
+
 	const selectWpcomSite = onSelectWpcomSite ?? selectWpcomSiteFromHeader;
 	const selectLocalSite = onSelectLocalSite ?? selectLocalSiteFromHeader;
 	const createStagingSite = onCreateStagingSite ?? createStagingSiteFromHeader;
@@ -219,6 +235,8 @@ export default function Header( {
 								canCreateStagingSite={ canCreateStagingSite }
 								isCreatingStagingSite={ isCreatingStagingSite }
 								stagingDisabledReason={ stagingTargetDisabledReason }
+								onCreateLocalSite={ ( remoteSite ) => void createLocalSiteFromHeader( remoteSite ) }
+								isCreatingLocalSite={ isCreatingLocalSiteForTarget }
 							/>
 							{ workspace && <WorkspaceSyncControl workspace={ workspace } /> }
 						</div>

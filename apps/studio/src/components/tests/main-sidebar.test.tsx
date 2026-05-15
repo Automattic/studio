@@ -1,10 +1,11 @@
-import { render, act, fireEvent, screen } from '@testing-library/react';
+import { render, act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { vi } from 'vitest';
 import MainSidebar from 'src/components/main-sidebar';
 import { useAuth } from 'src/hooks/use-auth';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
+import { CONNECTED_WPCOM_SITES_UPDATED_EVENT } from 'src/modules/sync/lib/connected-sites-events';
 import { store } from 'src/stores';
 import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
 import type { SyncSite } from '@studio/common/types/sync';
@@ -335,7 +336,9 @@ describe( 'MainSidebar Site Menu', () => {
 		expect( wpcomSiteButton ).toBeVisible();
 		expect( wpcomSiteButton ).toHaveClass( 'p-2' );
 		expect( wpcomSiteButton ).not.toHaveClass( 'pl-6' );
-		expect( screen.getByRole( 'group', { name: 'Workspace targets: Production' } ) ).toBeVisible();
+		expect(
+			screen.getByRole( 'group', { name: 'Workspace targets: Production, Local' } )
+		).toBeVisible();
 		expect(
 			screen.getByRole( 'button', { name: 'Select Production target: https://auro.example' } )
 		).toBeVisible();
@@ -424,7 +427,7 @@ describe( 'MainSidebar Site Menu', () => {
 			screen.queryByRole( 'button', { name: 'Auro Atelier Staging' } )
 		).not.toBeInTheDocument();
 		expect(
-			screen.getByRole( 'group', { name: 'Workspace targets: Production, Staging' } )
+			screen.getByRole( 'group', { name: 'Workspace targets: Production, Staging, Local' } )
 		).toBeVisible();
 
 		await userEvent.click(
@@ -611,7 +614,7 @@ describe( 'MainSidebar Site Menu', () => {
 
 		expect( screen.getByRole( 'button', { name: 'Mariachi Market' } ) ).toBeVisible();
 		expect(
-			screen.getByRole( 'group', { name: 'Workspace targets: Production, Staging' } )
+			screen.getByRole( 'group', { name: 'Workspace targets: Production, Staging, Local' } )
 		).toBeVisible();
 		expect(
 			screen.getByRole( 'button', { name: 'Select Production target: https://mariachi.example' } )
@@ -621,6 +624,83 @@ describe( 'MainSidebar Site Menu', () => {
 				name: 'Select Staging target: https://staging-mariachi.wpcomstaging.com',
 			} )
 		).toBeVisible();
+	} );
+
+	it( 'refreshes connected site workspace grouping after a connection update', async () => {
+		mockFeatureFlags.enableWorkspaces = true;
+		const businessLocalSite = {
+			name: 'Business plan',
+			path: '/fake/business-plan',
+			running: false,
+			id: 'business-local-id',
+			port: 8894,
+		};
+		const previousSites = siteDetailsMocked.sites;
+		siteDetailsMocked.sites = [ ...previousSites, businessLocalSite ];
+		vi.mocked( useAuth, { partial: true } ).mockReturnValue( {
+			isAuthenticated: true,
+			user: {
+				id: 1,
+				email: 'dsmart@example.com',
+				displayName: 'D Smart',
+			},
+		} );
+		vi.mocked( useGetWpComSitesQuery, { partial: true } ).mockReturnValue( {
+			data: {
+				sites: [
+					{
+						id: 252220962,
+						name: 'Business plan',
+						url: 'https://dereksmart-uksrp.wpcomstaging.com',
+						isStaging: false,
+						stagingSiteIds: [ 254891384 ],
+					},
+					{
+						id: 254891384,
+						name: 'Business plan',
+						url: 'https://staging-270c-dereksmart-uksrp.wpcomstaging.com',
+						isStaging: true,
+						productionSiteId: 252220962,
+					},
+				],
+			},
+			isFetching: false,
+		} );
+		mockIpcApi.getConnectedWpcomSites.mockResolvedValueOnce( [] ).mockResolvedValueOnce( [
+			{
+				id: 254891384,
+				localSiteId: businessLocalSite.id,
+				name: 'Business plan',
+				url: 'https://staging-270c-dereksmart-uksrp.wpcomstaging.com',
+				isStaging: true,
+				productionSiteId: 252220962,
+				isPressable: false,
+				syncSupport: 'already-connected',
+				lastPullTimestamp: null,
+				lastPushTimestamp: null,
+			},
+		] );
+
+		try {
+			await act( async () => renderWithProvider( <MainSidebar /> ) );
+
+			expect( screen.getAllByRole( 'button', { name: 'Business plan' } ) ).toHaveLength( 2 );
+
+			await act( async () => {
+				window.dispatchEvent( new Event( CONNECTED_WPCOM_SITES_UPDATED_EVENT ) );
+			} );
+
+			await waitFor( () =>
+				expect( screen.getAllByRole( 'button', { name: 'Business plan' } ) ).toHaveLength( 1 )
+			);
+			expect(
+				screen.getByRole( 'button', {
+					name: 'Select Staging target: https://staging-270c-dereksmart-uksrp.wpcomstaging.com',
+				} )
+			).toBeVisible();
+		} finally {
+			siteDetailsMocked.sites = previousSites;
+		}
 	} );
 
 	it( 'shows a progress indicator for a WordPress.com site while Dolly is thinking', async () => {
@@ -816,7 +896,7 @@ describe( 'MainSidebar Site Menu', () => {
 
 		expect( screen.getAllByRole( 'button', { name: 'My Store' } ) ).toHaveLength( 1 );
 		expect(
-			screen.getByRole( 'group', { name: 'Workspace targets: Production, Staging' } )
+			screen.getByRole( 'group', { name: 'Workspace targets: Production, Staging, Local' } )
 		).toBeVisible();
 	} );
 
@@ -854,7 +934,7 @@ describe( 'MainSidebar Site Menu', () => {
 
 		expect( screen.getAllByRole( 'button', { name: 'My Store' } ) ).toHaveLength( 2 );
 		expect(
-			screen.getAllByRole( 'group', { name: 'Workspace targets: Production' } )
+			screen.getAllByRole( 'group', { name: 'Workspace targets: Production, Local' } )
 		).toHaveLength( 2 );
 	} );
 } );

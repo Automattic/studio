@@ -6,12 +6,20 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Button from 'src/components/button';
 import { useAuth } from 'src/hooks/use-auth';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
+import { useCreateLocalSiteFromRemote } from 'src/hooks/use-create-local-site-from-remote';
 import { useDeleteSite } from 'src/hooks/use-delete-site';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import {
+	canCreateLocalSiteFromRemote,
+	getSyncSupportActionLabel,
+	getSyncSupportActionUrl,
+	getSyncSupportDescription,
+	getSyncSupportTitle,
+} from 'src/modules/sync/lib/sync-support-ui';
 import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
 import { getTerminalName } from 'src/modules/user-settings/lib/terminal';
 import {
@@ -210,6 +218,7 @@ export function WorkspaceSidebarCommandMenu( {
 	const { data: terminal } = useGetUserTerminalQuery();
 	const [ createWpcomStagingSite, createWpcomStagingSiteResult ] =
 		useCreateWpcomStagingSiteMutation();
+	const { confirmCreateLocalSiteFromRemote, isCreatingLocalSite } = useCreateLocalSiteFromRemote();
 	const [ creatingStagingSiteId, setCreatingStagingSiteId ] = useState< number | undefined >();
 	const [ chatListVersion, setChatListVersion ] = useState( 0 );
 	const menuRef = useRef< HTMLDivElement >( null );
@@ -239,6 +248,12 @@ export function WorkspaceSidebarCommandMenu( {
 		? undefined
 		: selectedRemoteTarget ?? savedRemoteTarget ?? getWorkspaceChatTarget( workspace );
 	const chatTarget = activeRemoteTarget;
+	const remoteSiteForLocalTarget =
+		selectedRemoteTarget ?? savedRemoteTarget ?? getWorkspaceChatTarget( workspace );
+	const localActionUrl = remoteSiteForLocalTarget
+		? getSyncSupportActionUrl( remoteSiteForLocalTarget )
+		: undefined;
+	const isLocalCreateInFlight = isCreatingLocalSite( remoteSiteForLocalTarget?.id );
 	const conversationsForChatTarget = useMemo( () => {
 		void chatListVersion;
 		return chatTarget ? getWpcomSiteAssistantConversationsForSite( chatTarget.id ) : [];
@@ -341,6 +356,21 @@ export function WorkspaceSidebarCommandMenu( {
 		setSavedWpcomWorkspaceLocalTarget( workspace.id );
 		setSelectedSiteId( workspace.localSite.id );
 	}, [ setSelectedSiteId, workspace ] );
+
+	const createLocalSite = useCallback(
+		async ( remoteSite: SyncSite ) => {
+			const createdLocalSite = await confirmCreateLocalSiteFromRemote( remoteSite );
+			if ( ! createdLocalSite ) {
+				return;
+			}
+
+			if ( workspace ) {
+				setSavedWpcomWorkspaceLocalTarget( workspace.id );
+			}
+			setSelectedSiteId( createdLocalSite.id );
+		},
+		[ confirmCreateLocalSiteFromRemote, setSelectedSiteId, workspace ]
+	);
 
 	const createStagingSite = useCallback( async () => {
 		if ( ! productionSite || ! canCreateStagingSite ) {
@@ -612,20 +642,50 @@ export function WorkspaceSidebarCommandMenu( {
 		}
 
 		if ( workspace ) {
-			targetCommands.push( {
-				id: 'select-local-target',
-				label: __( 'Local' ),
-				secondary: workspaceLocalSite?.path,
-				active:
-					Boolean( workspaceLocalSite ) &&
-					( isLocalTargetSaved ||
-						( ! selectedWpcomSite && selectedSite?.id === workspaceLocalSite?.id ) ),
-				disabled: ! workspaceLocalSite,
-				disabledReason: workspaceLocalSite
-					? undefined
-					: __( 'No local site is connected to this workspace yet.' ),
-				onSelect: selectLocalTarget,
-			} );
+			if ( workspaceLocalSite ) {
+				targetCommands.push( {
+					id: 'select-local-target',
+					label: __( 'Local' ),
+					secondary: workspaceLocalSite.path,
+					active:
+						isLocalTargetSaved ||
+						( ! selectedWpcomSite && selectedSite?.id === workspaceLocalSite.id ),
+					onSelect: selectLocalTarget,
+				} );
+			} else if ( remoteSiteForLocalTarget && localActionUrl ) {
+				targetCommands.push( {
+					id: 'prepare-local-target',
+					label: getSyncSupportActionLabel( remoteSiteForLocalTarget ) ?? __( 'Local' ),
+					secondary: getSyncSupportDescription( remoteSiteForLocalTarget ),
+					onSelect: () => {
+						getIpcApi().openURL( localActionUrl );
+					},
+				} );
+			} else if (
+				remoteSiteForLocalTarget &&
+				canCreateLocalSiteFromRemote( remoteSiteForLocalTarget )
+			) {
+				targetCommands.push( {
+					id: 'create-local-target',
+					label: isLocalCreateInFlight ? __( 'Creating Local...' ) : __( 'Create Local' ),
+					secondary: __( 'Create a local copy of this site.' ),
+					disabled: isLocalCreateInFlight,
+					isLoading: isLocalCreateInFlight,
+					onSelect: () => void createLocalSite( remoteSiteForLocalTarget ),
+				} );
+			} else {
+				targetCommands.push( {
+					id: 'select-local-target',
+					label: __( 'Local' ),
+					secondary: remoteSiteForLocalTarget
+						? getSyncSupportTitle( remoteSiteForLocalTarget )
+						: undefined,
+					disabled: true,
+					disabledReason: remoteSiteForLocalTarget
+						? getSyncSupportDescription( remoteSiteForLocalTarget )
+						: __( 'No local site is connected to this workspace yet.' ),
+				} );
+			}
 
 			if ( productionSite ) {
 				targetCommands.push( {
@@ -687,6 +747,7 @@ export function WorkspaceSidebarCommandMenu( {
 		canCreateStagingSite,
 		canUseLocalSiteCommands,
 		chatTarget,
+		createLocalSite,
 		context?.anchor,
 		copySite,
 		createStagingSite,
@@ -697,11 +758,14 @@ export function WorkspaceSidebarCommandMenu( {
 		isLocalSiteLoading,
 		isLocalSiteSyncing,
 		isLocalTargetSaved,
+		isLocalCreateInFlight,
 		isStagingCreateInFlight,
 		isStagingUpgradeAvailable,
+		localActionUrl,
 		localSite,
 		onOpenSync,
 		productionSite,
+		remoteSiteForLocalTarget,
 		runLocalOpenCommand,
 		savedRemoteTarget?.id,
 		selectLocalTarget,

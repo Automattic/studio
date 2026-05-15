@@ -5,18 +5,13 @@ import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
 import { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo, useState } from 'react';
-import { useAuth } from 'src/hooks/use-auth';
-import { useContentTabs } from 'src/hooks/use-content-tabs';
+import { useCreateLocalSiteFromRemote } from 'src/hooks/use-create-local-site-from-remote';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { useAppDispatch } from 'src/stores';
-import { syncOperationsThunks } from 'src/stores/sync';
-import { useConnectSiteMutation } from 'src/stores/sync/connected-sites';
 import { Blueprint } from 'src/stores/wpcom-api';
 import type { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
 import type { SyncSite } from '@studio/common/types/sync';
-import type { SyncOption } from 'src/types';
 
 /**
  * Form values passed when creating a site
@@ -49,10 +44,7 @@ export function useAddSite() {
 	const { __ } = useI18n();
 	const { createSite, sites } = useSiteDetails();
 	const { importFile, clearImportState, importState } = useImportExport();
-	const [ connectSite ] = useConnectSiteMutation();
-	const { client } = useAuth();
-	const dispatch = useAppDispatch();
-	const { setSelectedTab } = useContentTabs();
+	const { connectAndPullRemoteSite } = useCreateLocalSiteFromRemote();
 	const [ fileForImport, setFileForImport ] = useState< File | null >( null );
 	const [ selectedBlueprint, setSelectedBlueprint ] = useState< Blueprint | undefined >();
 	const [ selectedRemoteSite, setSelectedRemoteSite ] = useState< SyncSite | undefined >();
@@ -272,18 +264,8 @@ export function useAddSite() {
 								title: newSite.name,
 								body: __( 'Your new site was imported' ),
 							} );
-						} else if ( selectedRemoteSite && client ) {
-							await connectSite( { site: selectedRemoteSite, localSiteId: newSite.id } );
-							const pullOptions: SyncOption[] = [ 'all' ];
-							void dispatch(
-								syncOperationsThunks.pullSite( {
-									client,
-									connectedSite: selectedRemoteSite,
-									selectedSite: newSite,
-									options: { optionsToSync: pullOptions },
-								} )
-							);
-							setSelectedTab( 'sync' );
+						} else if ( selectedRemoteSite ) {
+							await connectAndPullRemoteSite( newSite, selectedRemoteSite );
 						} else {
 							getIpcApi().showNotification( {
 								title: newSite.name,
@@ -303,15 +285,12 @@ export function useAddSite() {
 		[
 			__,
 			clearImportState,
-			client,
+			connectAndPullRemoteSite,
 			createSite,
-			dispatch,
 			fileForImport,
 			importFile,
 			selectedBlueprint,
 			selectedRemoteSite,
-			connectSite,
-			setSelectedTab,
 		]
 	);
 

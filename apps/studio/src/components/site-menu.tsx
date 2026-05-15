@@ -7,6 +7,7 @@ import { XDebugIcon } from 'src/components/icons/xdebug-icon';
 import { Tooltip } from 'src/components/tooltip';
 import { useAuth } from 'src/hooks/use-auth';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
+import { useCreateLocalSiteFromRemote } from 'src/hooks/use-create-local-site-from-remote';
 import { useDeleteSite } from 'src/hooks/use-delete-site';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useImportExport } from 'src/hooks/use-import-export';
@@ -15,6 +16,13 @@ import { isMac, isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { WorkspaceSyncPanel } from 'src/modules/sync/components/workspace-sync-control';
+import { CONNECTED_WPCOM_SITES_UPDATED_EVENT } from 'src/modules/sync/lib/connected-sites-events';
+import {
+	canCreateLocalSiteFromRemote,
+	getSyncSupportActionUrl,
+	getSyncSupportDescription,
+	getSyncSupportTitle,
+} from 'src/modules/sync/lib/sync-support-ui';
 import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
 import { getTerminalName } from 'src/modules/user-settings/lib/terminal';
 import {
@@ -365,6 +373,7 @@ function WorkspaceTargetControls( {
 	wpcomSiteActivity,
 	isEnvironmentSyncing = false,
 	isLocalSyncing = false,
+	remoteSiteForLocalTarget,
 	onSelectLocal,
 	onSelectWpcomSite,
 }: {
@@ -375,6 +384,7 @@ function WorkspaceTargetControls( {
 	wpcomSiteActivity?: Record< number, WpcomSiteActivity >;
 	isEnvironmentSyncing?: boolean;
 	isLocalSyncing?: boolean;
+	remoteSiteForLocalTarget?: SyncSite;
 	onSelectLocal?: () => void;
 	onSelectWpcomSite?: ( site: SyncSite ) => void;
 } ) {
@@ -392,6 +402,7 @@ function WorkspaceTargetControls( {
 		dotClassName: string;
 		statusClassName: string;
 		status?: WorkspaceTargetStatus;
+		tooltip?: string;
 		disabled?: boolean;
 		onSelect?: () => void;
 	};
@@ -400,6 +411,13 @@ function WorkspaceTargetControls( {
 	const isCreatingStagingSite = Boolean(
 		productionSite && wpcomSiteActivity?.[ productionSite.id ]?.isCreatingStagingSite
 	);
+	const isCreatingLocalSite = Boolean(
+		remoteSiteForLocalTarget &&
+			wpcomSiteActivity?.[ remoteSiteForLocalTarget.id ]?.isCreatingLocalSite
+	);
+	const localActionUrl = remoteSiteForLocalTarget
+		? getSyncSupportActionUrl( remoteSiteForLocalTarget )
+		: undefined;
 	const isSelectedWorkspace =
 		( localSite && ! selectedWpcomSite && selectedSite?.id === localSite.id ) ||
 		Boolean( workspace?.sites.some( ( wpcomSite ) => wpcomSite.id === selectedWpcomSite?.id ) );
@@ -484,6 +502,35 @@ function WorkspaceTargetControls( {
 			status: getTargetActivityStatus( undefined, isLocalSyncing ),
 			onSelect: onSelectLocal,
 		} );
+	} else if ( remoteSiteForLocalTarget ) {
+		const isActionable =
+			Boolean( localActionUrl ) || canCreateLocalSiteFromRemote( remoteSiteForLocalTarget );
+		badges.push( {
+			key: 'local',
+			label: __( 'Local' ) as string,
+			ariaLabel: isActionable
+				? sprintf(
+						// translators: %s is a WordPress.com site URL.
+						__( 'Create or prepare Local target from: %s' ),
+						remoteSiteForLocalTarget.url
+				  )
+				: getSyncSupportTitle( remoteSiteForLocalTarget ),
+			isActive: false,
+			buttonClassName: 'border-[#ffffff33] border-dashed',
+			dotClassName: 'bg-a8c-gray-500',
+			statusClassName: 'text-a8c-gray-500',
+			status: isCreatingLocalSite
+				? {
+						variant: 'spinner',
+						label: __( 'Creating local site' ),
+				  }
+				: undefined,
+			tooltip: `${ getSyncSupportTitle( remoteSiteForLocalTarget ) }. ${ getSyncSupportDescription(
+				remoteSiteForLocalTarget
+			) }`,
+			disabled: ! isActionable || isCreatingLocalSite,
+			onSelect: onSelectLocal,
+		} );
 	}
 
 	if ( badges.length === 0 ) {
@@ -501,7 +548,7 @@ function WorkspaceTargetControls( {
 			{ badges.map( ( badge ) => (
 				<Tooltip
 					key={ badge.key }
-					text={ badge.status?.label ?? badge.label }
+					text={ badge.status?.label ?? badge.tooltip ?? badge.label }
 					placement={ SITE_MENU_TOOLTIP_PLACEMENT }
 				>
 					<button
@@ -595,12 +642,16 @@ function WpcomSiteItem( {
 	workspace: WpcomSiteWorkspace;
 	onOpenCommandMenu: ( context: WorkspaceSidebarCommandMenuContext ) => void;
 } ) {
-	const { selectedWpcomSite, setSelectedWpcomSite, wpcomSiteActivity } = useSiteDetails();
+	const { selectedWpcomSite, setSelectedWpcomSite, setSelectedSiteId, wpcomSiteActivity } =
+		useSiteDetails();
+	const { confirmCreateLocalSiteFromRemote } = useCreateLocalSiteFromRemote();
 	const selectedWorkspaceSite = workspace.sites.find(
 		( site ) => site.id === selectedWpcomSite?.id
 	);
 	const isSelected = Boolean( selectedWorkspaceSite );
 	const siteToOpen = selectedWorkspaceSite ?? getDefaultWpcomWorkspaceTarget( workspace );
+	const remoteSiteForLocalTarget = selectedWorkspaceSite ?? siteToOpen;
+	const localActionUrl = getSyncSupportActionUrl( remoteSiteForLocalTarget );
 	const environmentSyncState = useRootSelector(
 		stagingSyncSelectors.selectRemoteSiteEnvironmentSyncState(
 			workspace.productionSite?.id ?? workspace.stagingSites[ 0 ]?.id
@@ -623,6 +674,30 @@ function WpcomSiteItem( {
 	const handleSelectWpcomTarget = ( wpcomSite: SyncSite ) => {
 		setSavedWpcomWorkspaceTarget( workspace.id, wpcomSite.id );
 		setSelectedWpcomSite( wpcomSite );
+	};
+	const handleSelectLocalTarget = async () => {
+		if ( workspace.localSite ) {
+			setSavedWpcomWorkspaceLocalTarget( workspace.id );
+			setSelectedSiteId( workspace.localSite.id );
+			return;
+		}
+
+		if ( localActionUrl ) {
+			getIpcApi().openURL( localActionUrl );
+			return;
+		}
+
+		if ( ! canCreateLocalSiteFromRemote( remoteSiteForLocalTarget ) ) {
+			return;
+		}
+
+		const createdLocalSite = await confirmCreateLocalSiteFromRemote( remoteSiteForLocalTarget );
+		if ( ! createdLocalSite ) {
+			return;
+		}
+
+		setSavedWpcomWorkspaceLocalTarget( workspace.id );
+		setSelectedSiteId( createdLocalSite.id );
 	};
 
 	return (
@@ -651,6 +726,8 @@ function WpcomSiteItem( {
 					selectedWpcomSite={ selectedWpcomSite }
 					wpcomSiteActivity={ wpcomSiteActivity }
 					isEnvironmentSyncing={ isEnvironmentSyncing }
+					remoteSiteForLocalTarget={ remoteSiteForLocalTarget }
+					onSelectLocal={ () => void handleSelectLocalTarget() }
 					onSelectWpcomSite={ handleSelectWpcomTarget }
 				/>
 			) : null }
@@ -731,19 +808,25 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 		}
 
 		let isCurrent = true;
-		getIpcApi()
-			.getConnectedWpcomSites()
-			.then( ( connectedSites ) => {
-				if ( isCurrent ) {
-					setConnectedWpcomSites( connectedSites );
-				}
-			} )
-			.catch( ( error ) => {
-				console.error( 'Failed to load connected WordPress.com sites:', error );
-			} );
+		const refreshConnectedWpcomSites = () => {
+			getIpcApi()
+				.getConnectedWpcomSites()
+				.then( ( connectedSites ) => {
+					if ( isCurrent ) {
+						setConnectedWpcomSites( connectedSites );
+					}
+				} )
+				.catch( ( error ) => {
+					console.error( 'Failed to load connected WordPress.com sites:', error );
+				} );
+		};
+
+		refreshConnectedWpcomSites();
+		window.addEventListener( CONNECTED_WPCOM_SITES_UPDATED_EVENT, refreshConnectedWpcomSites );
 
 		return () => {
 			isCurrent = false;
+			window.removeEventListener( CONNECTED_WPCOM_SITES_UPDATED_EVENT, refreshConnectedWpcomSites );
 		};
 	}, [ enableWorkspaces, isAuthenticated ] );
 

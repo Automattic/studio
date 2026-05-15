@@ -28,6 +28,7 @@ Keep these together as the next workspace-shaping pass:
 - Put the experimental WordPress.com workspace assistant work behind a feature flag before it spreads further.
 - Share a header model between local and WordPress.com workspaces. Explore whether the local tab bar still earns its vertical space, whether other workspace views need tabs, and whether a `Chat` tab plus preview/browser URL affordance can replace the separate local assistant treatment.
 - Add preview support for localhost/local site previews so the same preview/browser affordance works across Local, Production, and Staging targets.
+- Explore drag-to-sync inside the dedicated Sync modal. Dragging a source target onto a destination target could prefill the sync direction, such as `Production -> Staging`, `Staging -> Production`, `Local -> Production`, or `Production -> Local`. Dropping should advance into the existing sync options/confirmation step rather than running immediately.
 
 ### Chat Feedback UX
 

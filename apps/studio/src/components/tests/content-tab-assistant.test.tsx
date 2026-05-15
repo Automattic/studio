@@ -466,6 +466,28 @@ describe( 'ContentTabAssistant', () => {
 		expect( screen.queryByText( /Dolly can edit this production site/ ) ).not.toBeInTheDocument();
 	} );
 
+	it( 'opens the WordPress.com plan upgrade path when staging needs an upgraded plan', async () => {
+		const user = userEvent.setup();
+		renderWithContext( {
+			component: 'wpcom-site',
+			selectedWpcomSite: {
+				...firstWpcomSite,
+				url: 'https://dereksmart.wordpress.com',
+				hasStagingSiteFeature: false,
+			},
+		} );
+
+		const stagingTargetButton = screen.getByRole( 'button', { name: 'Staging' } );
+		expect( stagingTargetButton ).toBeEnabled();
+		expect( stagingTargetButton ).toHaveClass( 'border-dashed' );
+
+		await user.click( stagingTargetButton );
+
+		expect( getIpcApi().openURL ).toHaveBeenCalledWith(
+			'https://wordpress.com/setup/plan-upgrade/plans?siteSlug=dereksmart.wordpress.com&cancel_to=%2Fsites%2Fdereksmart.wordpress.com%2Fsettings%2Fhosting&redirect_to=%2Fsites%2Fdereksmart.wordpress.com%2Fsettings%2Fhosting&dashboard=dotcom&feature=staging-sites&ref=studio'
+		);
+	} );
+
 	it( 'shows staging target controls in the WP.com-only live site chat', () => {
 		renderWithContext( {
 			component: 'wpcom-site',

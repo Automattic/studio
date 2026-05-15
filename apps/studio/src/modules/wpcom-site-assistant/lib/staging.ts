@@ -64,7 +64,7 @@ export const getKnownStagingCreationBlocker = ( site: SyncSite ) => {
 		return __( 'Your WordPress.com user needs admin access to create a staging site.' );
 	}
 
-	if ( site.hasStagingSiteFeature === false ) {
+	if ( isStagingPlanUpgradeRequired( site ) ) {
 		return __( "This site's plan does not include staging sites." );
 	}
 
@@ -73,6 +73,30 @@ export const getKnownStagingCreationBlocker = ( site: SyncSite ) => {
 	}
 
 	return undefined;
+};
+
+export const isStagingPlanUpgradeRequired = ( site: SyncSite ) =>
+	site.hasStagingSiteFeature === false;
+
+const getSiteSlug = ( site: SyncSite ) => {
+	try {
+		return new URL( site.url ).hostname;
+	} catch {
+		return site.url.replace( /^https?:\/\//, '' ).replace( /\/.*$/, '' );
+	}
+};
+
+export const getStagingPlanUpgradeUrl = ( site: SyncSite ) => {
+	const siteSlug = getSiteSlug( site );
+	const returnPath = `/sites/${ siteSlug }/settings/hosting`;
+	const url = new URL( 'https://wordpress.com/setup/plan-upgrade/plans' );
+	url.searchParams.set( 'siteSlug', siteSlug );
+	url.searchParams.set( 'cancel_to', returnPath );
+	url.searchParams.set( 'redirect_to', returnPath );
+	url.searchParams.set( 'dashboard', 'dotcom' );
+	url.searchParams.set( 'feature', 'staging-sites' );
+	url.searchParams.set( 'ref', 'studio' );
+	return url.toString();
 };
 
 export const getStagingCreationErrorMessage = ( error: unknown, site: SyncSite ) => {

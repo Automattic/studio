@@ -68,7 +68,9 @@ import {
 import {
 	createDollyManageStagingSiteAbility,
 	getKnownStagingCreationBlocker,
+	getStagingPlanUpgradeUrl,
 	getStagingCreationErrorMessage,
+	isStagingPlanUpgradeRequired,
 } from 'src/modules/wpcom-site-assistant/lib/staging';
 import {
 	getErrorMessage,
@@ -201,20 +203,30 @@ function WpcomTargetSwitcher( {
 	const isProductionSelected = productionSite?.id === selectedSite.id;
 	const isStagingSelected = stagingSite?.id === selectedSite.id || selectedSite.isStaging;
 	const isProductionDisabled = ! productionSite;
-	const isStagingDisabled = ! stagingSite && ( ! canCreateStagingSite || isCreatingStagingSite );
+	const isStagingUpgradeAvailable = Boolean(
+		productionSite && ! stagingSite && isStagingPlanUpgradeRequired( productionSite )
+	);
+	const isStagingDisabled =
+		! stagingSite &&
+		! isStagingUpgradeAvailable &&
+		( ! canCreateStagingSite || isCreatingStagingSite );
 	const productionTooltip = isProductionDisabled
 		? __( 'Production site details are not available yet.' )
 		: undefined;
-	const stagingTooltip =
-		stagingDisabledReason ??
-		( isCreatingStagingSite ? __( 'Creating staging site...' ) : undefined );
+	const stagingTooltip = isStagingUpgradeAvailable
+		? __( "Upgrade this site's plan to add a staging site." )
+		: stagingDisabledReason ??
+		  ( isCreatingStagingSite ? __( 'Creating staging site...' ) : undefined );
 
-	const getButtonClassName = ( isSelected: boolean ) =>
+	const getButtonClassName = ( isSelected: boolean, needsUpgrade = false ) =>
 		cx(
-			'inline-flex min-h-6 shrink-0 items-center gap-1.5 rounded px-2 py-0.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme disabled:cursor-not-allowed disabled:opacity-60',
+			'inline-flex min-h-6 shrink-0 items-center gap-1.5 rounded border px-2 py-0.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme disabled:cursor-not-allowed disabled:opacity-60',
+			needsUpgrade &&
+				'border-dashed border-circle-env-staging bg-transparent text-frame-text-secondary hover:text-frame-text',
 			isSelected
-				? 'bg-a8c-green-5 text-a8c-green-70'
-				: 'bg-frame-surface text-frame-text-secondary hover:text-frame-text'
+				? 'border-transparent bg-a8c-green-5 text-a8c-green-70'
+				: ! needsUpgrade &&
+						'border-transparent bg-frame-surface text-frame-text-secondary hover:text-frame-text'
 		);
 
 	return (
@@ -233,11 +245,19 @@ function WpcomTargetSwitcher( {
 			<Tooltip text={ stagingTooltip } disabled={ ! stagingTooltip } placement="bottom-start">
 				<button
 					type="button"
-					className={ getButtonClassName( Boolean( isStagingSelected ) ) }
+					className={ getButtonClassName(
+						Boolean( isStagingSelected ),
+						isStagingUpgradeAvailable
+					) }
 					disabled={ isStagingDisabled }
 					onClick={ () => {
 						if ( stagingSite ) {
 							onSelectSite( stagingSite );
+							return;
+						}
+
+						if ( productionSite && isStagingUpgradeAvailable ) {
+							getIpcApi().openURL( getStagingPlanUpgradeUrl( productionSite ) );
 							return;
 						}
 

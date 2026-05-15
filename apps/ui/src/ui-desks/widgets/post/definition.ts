@@ -1,6 +1,7 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { post } from '@wordpress/icons';
 import { getSiteContentMediaDropActions } from '@/ui-desks/widget-actions/drop-handlers/site-content-media-actions';
+import { createMediaDropPreviewTarget } from '@/ui-desks/widgets/media/drop-preview';
 import { isMediaWidgetProps, MEDIA_WIDGET_TYPE } from '@/ui-desks/widgets/media/types';
 import {
 	PostWidgetComponent,
@@ -11,6 +12,8 @@ import { isPostWidgetProps, POST_WIDGET_TYPE, type PostWidget } from './types';
 import type {
 	WidgetCustomDropActionContext,
 	WidgetCustomDropActionIntent,
+	WidgetDropFeedback,
+	WidgetDropFeedbackIntent,
 	WidgetDefinition,
 } from '@/ui-desks/widgets/types';
 
@@ -70,10 +73,23 @@ export const postWidgetDefinition = {
 				sourceWidget.widgetProps.mediaId !== null &&
 				isPostWidgetProps( targetWidget.widgetProps ) &&
 				targetWidget.widgetProps.postId > 0,
+			getFeedback: getPostMediaDropFeedback,
 			getActions: getPostMediaDropActions,
 		},
 	],
 } satisfies WidgetDefinition< PostWidget >;
+
+function getPostMediaDropFeedback( intent: WidgetDropFeedbackIntent ): WidgetDropFeedback | null {
+	const mediaProps = intent.sourceWidget.widgetProps;
+	if ( ! isMediaWidgetProps( mediaProps ) ) {
+		return null;
+	}
+
+	return {
+		sourceOpacity: intent.phase === 'hover' ? 0 : 0.3,
+		target: createMediaDropPreviewTarget( mediaProps ),
+	};
+}
 
 function getPostMediaDropActions(
 	intent: WidgetCustomDropActionIntent,

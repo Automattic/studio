@@ -1,3 +1,4 @@
+import { createShapeId } from 'tldraw';
 import { describe, expect, it, vi } from 'vitest';
 import { MEDIA_WIDGET_TYPE } from '@/ui-desks/widgets/media/types';
 import { NOTE_WIDGET_TYPE } from '@/ui-desks/widgets/note/types';
@@ -73,6 +74,30 @@ describe( 'widget drop handlers', () => {
 		expect( scratchpadHandler?.type === 'custom' ? scratchpadHandler.getActions : null ).toEqual(
 			expect.any( Function )
 		);
+		expect( postHandler?.type === 'custom' ? postHandler.getFeedback : null ).toEqual(
+			expect.any( Function )
+		);
+		expect(
+			postHandler?.type === 'custom'
+				? postHandler.getFeedback?.( {
+						sourceShapeId: createShapeId( 'media-1' ),
+						targetShapeId: createShapeId( 'post-1' ),
+						sourceWidget: createMediaWidget( { mediaId: 123 } ),
+						targetWidget: createPostWidget(),
+						screenPoint: { x: 0, y: 0 },
+						phase: 'hover',
+				  } )
+				: null
+		).toMatchObject( {
+			sourceOpacity: 0,
+			target: {
+				kind: 'media-preview',
+				props: {
+					url: 'https://example.com/image.png',
+					mediaKind: 'image',
+				},
+			},
+		} );
 	} );
 
 	it( 'does not return post or page media actions for local-only media', () => {

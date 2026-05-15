@@ -3,6 +3,11 @@ import { __ } from '@wordpress/i18n';
 import { useMemo } from 'react';
 import { LoadingPlaceholder } from '@/ui-desks/components';
 import { CONTENT_CARD_STATUSES, getPostStatusInfo } from '@/ui-desks/widget-actions/post-status';
+import {
+	getMediaDropPreviewPayload,
+	MediaDropPreview,
+} from '@/ui-desks/widgets/media/drop-preview';
+import { getPageToneDitherFilterId } from '@/ui-desks/widgets/page/tone';
 import styles from './style.module.css';
 import type { PageWidgetProps } from '../types';
 import type {
@@ -11,19 +16,29 @@ import type {
 } from '@/ui-desks/widgets/types';
 
 type PageWidgetComponentProps = DeskWidgetComponentProps< PageWidgetProps >;
+type EmbeddedFeaturedMedia = {
+	source_url?: string;
+	media_details?: {
+		sizes?: Record< string, { source_url?: string } >;
+	};
+};
 type PageCardRecord = CoreDataPost & {
 	status?: string;
 	slug?: string;
+	_embedded?: {
+		'wp:featuredmedia'?: EmbeddedFeaturedMedia[];
+	};
 };
 
-export function PageWidgetComponent( { id, widgetProps }: PageWidgetComponentProps ) {
+export function PageWidgetComponent( { id, widgetProps, dropFeedback }: PageWidgetComponentProps ) {
 	const query = useMemo(
 		() => ( {
 			include: [ widgetProps.pageId ],
 			per_page: 1,
 			context: 'edit',
 			status: CONTENT_CARD_STATUSES,
-			_fields: 'id,title,excerpt,slug,status',
+			_embed: true,
+			_fields: 'id,title,excerpt,slug,status,featured_media,_links,_embedded',
 		} ),
 		[ widgetProps.pageId ]
 	);
@@ -37,6 +52,7 @@ export function PageWidgetComponent( { id, widgetProps }: PageWidgetComponentPro
 	const record = records?.[ 0 ] ?? null;
 	const hasError = resolutionStatus === 'ERROR';
 	const isLoading = isResolving && ! record;
+	const morphMedia = getMediaDropPreviewPayload( dropFeedback );
 
 	if ( isLoading ) {
 		return (
@@ -57,6 +73,12 @@ export function PageWidgetComponent( { id, widgetProps }: PageWidgetComponentPro
 	const excerpt = record?.excerpt?.rendered ?? '';
 	const slug = record?.slug ?? '';
 	const statusInfo = getPostStatusInfo( record?.status );
+	const featuredImage = getPageFeaturedImageUrl( record );
+	const ditherFilterId = getPageToneDitherFilterId( widgetProps.tone );
+	const headerFilterStyle =
+		ditherFilterId && ( morphMedia?.mediaKind ?? 'image' ) === 'image'
+			? { filter: `url(#${ ditherFilterId })` }
+			: undefined;
 
 	return (
 		<article
@@ -66,6 +88,22 @@ export function PageWidgetComponent( { id, widgetProps }: PageWidgetComponentPro
 			data-studio-desk-widget="page"
 			data-studio-desk-widget-id={ id }
 		>
+			{ morphMedia ? (
+				<MediaDropPreview
+					media={ morphMedia }
+					className={ `${ styles.pageHeader } ${ styles.pageHeaderMorph }` }
+					style={ headerFilterStyle }
+				/>
+			) : featuredImage ? (
+				<img
+					key="featured"
+					className={ styles.pageHeader }
+					src={ featuredImage }
+					alt=""
+					draggable={ false }
+					style={ headerFilterStyle }
+				/>
+			) : null }
 			<h2 className={ styles.title } dangerouslySetInnerHTML={ { __html: title } } />
 			{ excerpt && (
 				<div className={ styles.body } dangerouslySetInnerHTML={ { __html: excerpt } } />
@@ -142,4 +180,19 @@ function getPageTitle(
 	}
 
 	return isResolving ? __( 'Loading page…' ) : __( 'Page unavailable' );
+}
+
+function getPageFeaturedImageUrl( pageRecord: PageCardRecord | null ): string | undefined {
+	const featured = pageRecord?._embedded?.[ 'wp:featuredmedia' ]?.[ 0 ];
+	if ( ! featured ) {
+		return undefined;
+	}
+
+	const sizes = featured.media_details?.sizes ?? {};
+	return (
+		sizes.medium_large?.source_url ??
+		sizes.large?.source_url ??
+		sizes.medium?.source_url ??
+		featured.source_url
+	);
 }

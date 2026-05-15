@@ -7,6 +7,10 @@ import { useConnector } from '@/data/core';
 import { useChats } from '@/ui-desks/chats/context';
 import { focusOnDeskShape, useIncomingWidgetConnections } from '@/ui-desks/connectors/context';
 import {
+	getMediaDropPreviewPayload,
+	MediaDropPreview,
+} from '@/ui-desks/widgets/media/drop-preview';
+import {
 	SCRATCHPAD_WIDGET_TYPE,
 	type ScratchpadAgentStatus,
 	type ScratchpadScope,
@@ -24,6 +28,7 @@ export function ScratchpadWidgetComponent( {
 	id,
 	shapeId,
 	widgetProps,
+	dropFeedback,
 	isEditing,
 	isHovered,
 	isSelected,
@@ -41,6 +46,7 @@ export function ScratchpadWidgetComponent( {
 	const connectionSources = useIncomingWidgetConnections( editor, shapeId );
 	const lastSyncedDescription = widgetProps.lastSyncedDescription ?? description;
 	const agentStatus = widgetProps.agentStatus ?? 'idle';
+	const morphMedia = getMediaDropPreviewPayload( dropFeedback );
 
 	useEffect( () => {
 		widgetPropsRef.current = widgetProps;
@@ -201,7 +207,12 @@ export function ScratchpadWidgetComponent( {
 					{ widgetProps.title }
 				</div>
 			) }
-			{ widgetProps.html ? (
+			{ morphMedia ? (
+				<MediaDropPreview
+					media={ morphMedia }
+					className={ `${ styles.frame } ${ styles.frameMedia } ${ styles.frameMorph }` }
+				/>
+			) : widgetProps.html ? (
 				<iframe
 					className={ styles.frame }
 					title={ widgetProps.title || __( 'Scratchpad' ) }

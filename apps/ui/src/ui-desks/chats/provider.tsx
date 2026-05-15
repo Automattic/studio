@@ -128,6 +128,7 @@ export function ChatsProvider( { siteId, children }: ChatsProviderProps ) {
 			} );
 			setRouteSession( session.id );
 			setOpen( true );
+			return session.id;
 		},
 		[ createSession, setOpen, setRouteSession, siteId ]
 	);

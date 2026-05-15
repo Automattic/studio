@@ -85,17 +85,25 @@ function getScratchpadMediaDropActions(
 					const { buildWidgetContextDisplayMessage, buildWidgetContextPrompt } = await import(
 						'@/ui-desks/chats/widget-context'
 					);
-					updateScratchpadReference( context.editor, intent );
-					await context.startChatWithPrompt( {
-						prompt: buildWidgetContextPrompt( BUILD_SOMETHING_LIKE_THIS_PROMPT, [
-							intent.sourceWidget,
-							intent.targetWidget,
-						] ),
-						displayMessage: buildWidgetContextDisplayMessage( BUILD_SOMETHING_LIKE_THIS_PROMPT, [
-							intent.sourceWidget,
-							intent.targetWidget,
-						] ),
-					} );
+					updateScratchpadReference( context.editor, intent, { agentStatus: 'pending' } );
+					try {
+						const sessionId = await context.startChatWithPrompt( {
+							prompt: buildWidgetContextPrompt( BUILD_SOMETHING_LIKE_THIS_PROMPT, [
+								intent.sourceWidget,
+								intent.targetWidget,
+							] ),
+							displayMessage: buildWidgetContextDisplayMessage( BUILD_SOMETHING_LIKE_THIS_PROMPT, [
+								intent.sourceWidget,
+								intent.targetWidget,
+							] ),
+						} );
+						updateScratchpadReference( context.editor, intent, {
+							agentStatus: 'running',
+							agentSessionId: sessionId,
+						} );
+					} catch {
+						updateScratchpadReference( context.editor, intent, { agentStatus: 'pending' } );
+					}
 				} ),
 		},
 		{
@@ -106,7 +114,11 @@ function getScratchpadMediaDropActions(
 	];
 }
 
-function updateScratchpadReference( editor: Editor, intent: WidgetCustomDropActionIntent ) {
+function updateScratchpadReference(
+	editor: Editor,
+	intent: WidgetCustomDropActionIntent,
+	patch: Partial< ScratchpadWidget[ 'widgetProps' ] > = {}
+) {
 	const mediaProps = intent.sourceWidget.widgetProps;
 	const targetShape = editor.getShape( intent.targetShapeId ) as RectangleWidgetShape | undefined;
 	if (
@@ -133,6 +145,7 @@ function updateScratchpadReference( editor: Editor, intent: WidgetCustomDropActi
 					url: mediaProps.url,
 					alt: mediaProps.alt,
 				},
+				...patch,
 			} satisfies JsonObject,
 		},
 	} );

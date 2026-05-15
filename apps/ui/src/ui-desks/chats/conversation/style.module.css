@@ -272,6 +272,101 @@
 	opacity: 0.55;
 }
 
+.scratchpadArtifact {
+	width: 100%;
+	max-width: 460px;
+	display: flex;
+	gap: 12px;
+	padding: 12px;
+	box-sizing: border-box;
+	background-color: #fff;
+	background-image: radial-gradient(circle, #c9cbce 1px, transparent 1.1px);
+	background-size: 40px 40px;
+	border: 1px solid rgba(15, 23, 42, 0.08);
+	border-radius: 14px;
+	cursor: grab;
+	user-select: none;
+	touch-action: none;
+}
+
+.scratchpadArtifact:active {
+	cursor: grabbing;
+}
+
+.scratchpadArtifactBody {
+	flex: 1 1 auto;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.scratchpadArtifactTitle {
+	color: var(--ui-desks-text, #14171a);
+	font-size: 13px;
+	font-weight: 600;
+	line-height: 18px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.scratchpadArtifactDescription {
+	margin: 0;
+	color: var(--ui-desks-muted, #6b7280);
+	font-size: 12px;
+	line-height: 1.4;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+.scratchpadArtifactThumbnail {
+	position: relative;
+	flex: 0 0 auto;
+	width: 100px;
+	height: 70px;
+	border-radius: 8px;
+	overflow: hidden;
+	background: #fff;
+	box-shadow:
+		0 1px 0 rgba(15, 23, 42, 0.06),
+		0 4px 10px rgba(15, 23, 42, 0.08);
+}
+
+.scratchpadArtifactFrame {
+	position: absolute;
+	inset: 0;
+	width: calc(100% / 0.18);
+	height: calc(100% / 0.18);
+	border: 0;
+	background: #fff;
+	transform: scale(0.18);
+	transform-origin: top left;
+	pointer-events: none;
+}
+
+.scratchpadArtifactEmpty {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 8px;
+	color: var(--ui-desks-muted, #6b7280);
+	font-size: 11px;
+	line-height: 14px;
+	text-align: center;
+}
+
+.scratchpadArtifactShield {
+	position: absolute;
+	inset: 0;
+	background: transparent;
+	cursor: inherit;
+}
+
 .artifactDragOverlay {
 	position: fixed;
 	z-index: 100000;

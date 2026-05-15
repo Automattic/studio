@@ -21,6 +21,12 @@ import { Markdown } from '@/components/markdown';
 import { Button } from '@/ui-desks/components';
 import { useDesk } from '@/ui-desks/desk/provider';
 import { createDeskWidget } from '@/ui-desks/widget-actions/create-widget';
+import {
+	SCRATCHPAD_WIDGET_TYPE,
+	isScratchpadWidgetProps,
+	type ScratchpadWidget,
+	type ScratchpadWidgetProps,
+} from '@/ui-desks/widgets/scratchpad/types';
 import { ThinkingIndicator } from '../thinking-indicator';
 import {
 	getWidgetDisplayLabel,
@@ -289,7 +295,7 @@ export function ChatArtifact( { artifact }: { artifact: StudioChatArtifactData }
 						center: { x: 0, y: 0 },
 						zIndex: 'a1',
 						shapeProps: widget.shapeProps,
-						widgetProps: widget.widgetProps,
+						widgetProps: normalizeChatArtifactWidgetProps( widget.type, widget.widgetProps ),
 					} )
 				)
 				.filter( ( widget ): widget is DeskWidget => widget !== null ),
@@ -303,6 +309,8 @@ export function ChatArtifact( { artifact }: { artifact: StudioChatArtifactData }
 	const summary = summarizeWidgetList( widgets );
 	const allAdded = widgets.every( ( widget ) => addedWidgetIds.has( widget.id ) );
 	const hasAddedSome = widgets.some( ( widget ) => addedWidgetIds.has( widget.id ) );
+	const scratchpadWidget =
+		widgets.length === 1 && isScratchpadWidget( widgets[ 0 ] ) ? widgets[ 0 ] : null;
 	const markWidgetsAdded = ( widgetIds: string[] ) => {
 		if ( widgetIds.length === 0 ) {
 			return;
@@ -439,82 +447,181 @@ export function ChatArtifact( { artifact }: { artifact: StudioChatArtifactData }
 
 	return (
 		<div className={ clsx( styles.messageGroup, styles.assistantGroup ) }>
-			<div
-				className={ styles.artifact }
-				data-dragging={ dragState ? 'true' : undefined }
-				onPointerDown={ handlePointerDown }
-				title={ summary }
-			>
-				<div className={ styles.artifactThumbnails } aria-label={ summary }>
-					{ widgets.map( ( widget, index ) => {
-						const isAdded = addedWidgetIds.has( widget.id );
-						const widgetLabel = getWidgetDisplayLabel( widget );
-						const addLabel = getWidgetAddActionLabel( widget, index, isAdded );
-						return (
-							<div
-								key={ widget.id }
-								className={ styles.artifactThumbnail }
-								aria-label={ widgetLabel }
-								title={ widgetLabel }
-							>
-								<WidgetContextThumbnail widget={ widget } />
-								{ widgets.length > 1 && (
-									<button
-										type="button"
-										className={ styles.artifactThumbnailAdd }
-										disabled={ ! canAddWidgets || isAdded }
-										data-added={ isAdded ? 'true' : undefined }
-										title={ addLabel }
-										aria-label={ addLabel }
-										onClick={ ( event ) => {
-											event.stopPropagation();
-											addWidgetToCanvas( widget );
-										} }
+			{ scratchpadWidget ? (
+				<ScratchpadArtifactCard
+					widget={ scratchpadWidget }
+					isAdded={ allAdded }
+					canAddWidgets={ canAddWidgets }
+					onAdd={ () => addWidgetToCanvas( scratchpadWidget ) }
+					onPointerDown={ handlePointerDown }
+				/>
+			) : (
+				<>
+					<div
+						className={ styles.artifact }
+						data-dragging={ dragState ? 'true' : undefined }
+						onPointerDown={ handlePointerDown }
+						title={ summary }
+					>
+						<div className={ styles.artifactThumbnails } aria-label={ summary }>
+							{ widgets.map( ( widget, index ) => {
+								const isAdded = addedWidgetIds.has( widget.id );
+								const widgetLabel = getWidgetDisplayLabel( widget );
+								const addLabel = getWidgetAddActionLabel( widget, index, isAdded );
+								return (
+									<div
+										key={ widget.id }
+										className={ styles.artifactThumbnail }
+										aria-label={ widgetLabel }
+										title={ widgetLabel }
 									>
-										<Icon icon={ isAdded ? check : plus } size={ 14 } />
-									</button>
-								) }
-							</div>
-						);
-					} ) }
-				</div>
-			</div>
-			<div className={ styles.artifactActions }>
-				{ widgets.length > 1 ? (
-					<button
-						type="button"
-						className={ styles.artifactAction }
-						disabled={ ! canAddWidgets || allAdded }
-						title={ summary }
-						onClick={ () => addWidgetsToCanvas() }
-					>
-						<Icon icon={ plus } size={ 16 } />
-						<span>
-							{ allAdded
-								? __( 'Added all' )
-								: hasAddedSome
-								? __( 'Add remaining' )
-								: __( 'Add all' ) }
-						</span>
-					</button>
-				) : (
-					<button
-						type="button"
-						className={ styles.artifactAction }
-						disabled={ ! canAddWidgets || allAdded }
-						title={ summary }
-						onClick={ () => addWidgetToCanvas( widgets[ 0 ] ) }
-					>
-						<Icon icon={ plus } size={ 16 } />
-						<span>{ allAdded ? __( 'Added' ) : __( 'Add to canvas' ) }</span>
-					</button>
-				) }
-			</div>
+										<WidgetContextThumbnail widget={ widget } />
+										{ widgets.length > 1 && (
+											<button
+												type="button"
+												className={ styles.artifactThumbnailAdd }
+												disabled={ ! canAddWidgets || isAdded }
+												data-added={ isAdded ? 'true' : undefined }
+												title={ addLabel }
+												aria-label={ addLabel }
+												onClick={ ( event ) => {
+													event.stopPropagation();
+													addWidgetToCanvas( widget );
+												} }
+											>
+												<Icon icon={ isAdded ? check : plus } size={ 14 } />
+											</button>
+										) }
+									</div>
+								);
+							} ) }
+						</div>
+					</div>
+					<div className={ styles.artifactActions }>
+						{ widgets.length > 1 ? (
+							<button
+								type="button"
+								className={ styles.artifactAction }
+								disabled={ ! canAddWidgets || allAdded }
+								title={ summary }
+								onClick={ () => addWidgetsToCanvas() }
+							>
+								<Icon icon={ plus } size={ 16 } />
+								<span>
+									{ allAdded
+										? __( 'Added all' )
+										: hasAddedSome
+										? __( 'Add remaining' )
+										: __( 'Add all' ) }
+								</span>
+							</button>
+						) : (
+							<button
+								type="button"
+								className={ styles.artifactAction }
+								disabled={ ! canAddWidgets || allAdded }
+								title={ summary }
+								onClick={ () => addWidgetToCanvas( widgets[ 0 ] ) }
+							>
+								<Icon icon={ plus } size={ 16 } />
+								<span>{ allAdded ? __( 'Added' ) : __( 'Add to canvas' ) }</span>
+							</button>
+						) }
+					</div>
+				</>
+			) }
 			{ dragState && typeof document !== 'undefined'
 				? createPortal( <ArtifactDragOverlay state={ dragState } />, document.body )
 				: null }
 		</div>
 	);
+}
+
+function ScratchpadArtifactCard( {
+	widget,
+	isAdded,
+	canAddWidgets,
+	onAdd,
+	onPointerDown,
+}: {
+	widget: ScratchpadWidget;
+	isAdded: boolean;
+	canAddWidgets: boolean;
+	onAdd: () => void;
+	onPointerDown: ( event: ReactPointerEvent< HTMLDivElement > ) => void;
+} ) {
+	const title = widget.widgetProps.title || __( 'Scratchpad' );
+	const description = widget.widgetProps.description?.trim();
+
+	return (
+		<>
+			<div
+				className={ styles.scratchpadArtifact }
+				data-scope={ widget.widgetProps.scope }
+				onPointerDown={ onPointerDown }
+				title={ getWidgetDisplayLabel( widget ) }
+			>
+				<div className={ styles.scratchpadArtifactBody }>
+					<span className={ styles.scratchpadArtifactTitle }>{ title }</span>
+					{ description ? (
+						<p className={ styles.scratchpadArtifactDescription }>{ description }</p>
+					) : null }
+				</div>
+				<div className={ styles.scratchpadArtifactThumbnail }>
+					{ widget.widgetProps.html ? (
+						<iframe
+							className={ styles.scratchpadArtifactFrame }
+							srcDoc={ widget.widgetProps.html }
+							sandbox="allow-scripts"
+							referrerPolicy="no-referrer"
+							title={ title }
+						/>
+					) : (
+						<div className={ styles.scratchpadArtifactEmpty }>{ __( 'Empty scratchpad' ) }</div>
+					) }
+					<div className={ styles.scratchpadArtifactShield } aria-hidden="true" />
+				</div>
+			</div>
+			<div className={ styles.artifactActions }>
+				<button
+					type="button"
+					className={ styles.artifactAction }
+					disabled={ ! canAddWidgets || isAdded }
+					title={ getWidgetDisplayLabel( widget ) }
+					onClick={ onAdd }
+				>
+					<Icon icon={ plus } size={ 16 } />
+					<span>{ isAdded ? __( 'Added' ) : __( 'Add to canvas' ) }</span>
+				</button>
+			</div>
+		</>
+	);
+}
+
+function normalizeChatArtifactWidgetProps(
+	type: string,
+	widgetProps: Record< string, unknown >
+): Record< string, unknown > {
+	if ( type !== SCRATCHPAD_WIDGET_TYPE || ! isScratchpadWidgetProps( widgetProps ) ) {
+		return widgetProps;
+	}
+
+	return normalizeScratchpadArtifactWidgetProps( widgetProps );
+}
+
+function normalizeScratchpadArtifactWidgetProps(
+	widgetProps: ScratchpadWidgetProps
+): ScratchpadWidgetProps {
+	const description = widgetProps.description ?? '';
+	return {
+		...widgetProps,
+		agentStatus: widgetProps.agentStatus ?? 'idle',
+		lastSyncedDescription: widgetProps.lastSyncedDescription ?? description,
+	};
+}
+
+function isScratchpadWidget( widget: DeskWidget ): widget is ScratchpadWidget {
+	return widget.type === SCRATCHPAD_WIDGET_TYPE && isScratchpadWidgetProps( widget.widgetProps );
 }
 
 function getWidgetAddActionLabel( widget: DeskWidget, index: number, isAdded: boolean ) {

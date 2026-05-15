@@ -172,7 +172,10 @@ export interface WidgetCustomDropActionContext {
 	registry: WidgetResolverRegistry;
 	runAction: ( action: () => void | Promise< unknown > ) => void;
 	saveEntityRecord: WidgetCoreDataSaveEntityRecord;
-	startChatWithPrompt: ( request: { prompt: string; displayMessage?: string } ) => Promise< void >;
+	startChatWithPrompt: ( request: {
+		prompt: string;
+		displayMessage?: string;
+	} ) => Promise< string >;
 }
 
 export interface WidgetCustomDropAction {

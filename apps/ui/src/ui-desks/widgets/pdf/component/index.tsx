@@ -1,11 +1,8 @@
+import { useResizeObserver } from '@wordpress/compose';
 import { __ } from '@wordpress/i18n';
 import { file } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
-import { useEditor, useValue } from 'tldraw';
-import {
-	RECTANGLE_WIDGET_SHAPE_TYPE,
-	type RectangleWidgetShape,
-} from '@/ui-desks/shapes/rectangle-widget/types';
+import { useState } from 'react';
 import { PDF_WIDGET_TYPE, type PdfWidgetProps } from '../types';
 import {
 	chromelessPdfUrl,
@@ -22,23 +19,22 @@ import type {
 
 type PdfWidgetComponentProps = DeskWidgetComponentProps< PdfWidgetProps >;
 
-export function PdfWidgetComponent( { id, shapeId, widgetProps }: PdfWidgetComponentProps ) {
-	const editor = useEditor();
-	const size = useValue(
-		`pdf-widget-size:${ shapeId ?? id }`,
-		() => {
-			const shape = shapeId ? editor.getShape( shapeId ) : null;
-			if ( shape?.type === RECTANGLE_WIDGET_SHAPE_TYPE ) {
-				return ( shape as RectangleWidgetShape ).props.shapeProps;
-			}
+export function PdfWidgetComponent( { id, widgetProps }: PdfWidgetComponentProps ) {
+	const [ size, setSize ] = useState( {
+		w: PDF_DEFAULT_WIDTH,
+		h: PDF_DEFAULT_HEIGHT,
+	} );
+	const observeSize = useResizeObserver< HTMLDivElement >( ( entries ) => {
+		const entry = entries[ 0 ];
+		if ( ! entry ) {
+			return;
+		}
 
-			return {
-				w: PDF_DEFAULT_WIDTH,
-				h: PDF_DEFAULT_HEIGHT,
-			};
-		},
-		[ editor, id, shapeId ]
-	);
+		setSize( {
+			w: entry.contentRect.width,
+			h: entry.contentRect.height,
+		} );
+	} );
 	const isPreview = size.w >= PDF_PREVIEW_THRESHOLD && size.h >= PDF_PREVIEW_THRESHOLD;
 	const title = widgetProps.title || __( 'PDF' );
 	const sizeLabel =
@@ -46,6 +42,7 @@ export function PdfWidgetComponent( { id, shapeId, widgetProps }: PdfWidgetCompo
 
 	return (
 		<div
+			ref={ observeSize }
 			data-studio-desk-widget={ PDF_WIDGET_TYPE }
 			data-studio-desk-widget-id={ id }
 			className={ styles.container }

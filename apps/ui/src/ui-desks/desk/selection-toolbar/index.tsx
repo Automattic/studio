@@ -4,12 +4,13 @@ import { useEffect, useState } from 'react';
 import { ChatButton } from '@/ui-desks/chats/chat-button';
 import { SelectionChatDialog } from '@/ui-desks/chats/selection-chat-dialog';
 import { Divider, Button, Surface } from '@/ui-desks/components';
+import { appendIncomingConnectedWidgets } from '@/ui-desks/connectors/context';
 import { ControlRenderer } from '@/ui-desks/controls/registry';
 import { useDesk } from '@/ui-desks/desk/provider';
 import { SITE_PREVIEW_WIDGET_TYPE } from '@/ui-desks/widgets/site-preview/types';
 import styles from './style.module.css';
 import type { getSelectedWidgetToolbarItem } from './selection';
-import type { DeskWidgetConnectionTarget } from '@/ui-desks/connectors/utils';
+import type { DeskWidgetConnectionTarget } from '@/ui-desks/connectors/context';
 import type { AnySelectControlConfig } from '@/ui-desks/controls/types';
 import type { StackViewMode } from '@/ui-desks/stacks/utils';
 import type { DeskWidget } from '@/ui-desks/widgets/types';
@@ -26,6 +27,7 @@ const STACK_VIEW_MODE_CONTROL: AnySelectControlConfig = {
 	options: [
 		{ value: 'stack', label: __( 'Stack' ) },
 		{ value: 'tiles', label: __( 'Tiles' ) },
+		{ value: 'circle', label: __( 'Circle' ) },
 	],
 };
 
@@ -44,6 +46,7 @@ export function DeskWidgetToolbar() {
 		selectedWidgetConnectionTargets,
 		removeSelectedConnector,
 		focusConnectedWidget,
+		getDeskConfigSnapshot,
 		focusMode,
 		focusedWidget,
 		focusedWidgetDefinition,
@@ -237,7 +240,13 @@ export function DeskWidgetToolbar() {
 				) }
 				{ ! renderConnectorSelection && renderSelection && <Divider /> }
 				{ ! renderConnectorSelection && renderSelection && (
-					<ChatButton onClick={ () => setChatWidgets( renderSelection.widgets ) } />
+					<ChatButton
+						onClick={ () =>
+							setChatWidgets(
+								appendIncomingConnectedWidgets( renderSelection.widgets, getDeskConfigSnapshot() )
+							)
+						}
+					/>
 				) }
 				{ ! renderConnectorSelection && renderSelection?.canRemove && (
 					<>
@@ -311,5 +320,5 @@ function ConnectedToControl( {
 }
 
 function isStackViewMode( value: unknown ): value is StackViewMode {
-	return value === 'stack' || value === 'tiles';
+	return value === 'stack' || value === 'tiles' || value === 'circle';
 }

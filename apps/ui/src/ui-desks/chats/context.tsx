@@ -39,7 +39,7 @@ export interface ChatsContextValue {
 	switchSession: ( sessionId: string ) => void;
 	clearSelection: () => void;
 	startNewChat: () => Promise< void >;
-	startChatWithPrompt: ( request: ChatPromptRequest ) => Promise< void >;
+	startChatWithPrompt: ( request: ChatPromptRequest ) => Promise< string >;
 	consumePendingPrompt: ( promptId: string ) => void;
 	attachWidgetsToComposer: ( widgets: DeskWidget[] ) => void;
 	consumeComposerWidgetAttachmentRequest: ( requestId: string ) => void;
@@ -85,7 +85,9 @@ function noopSetOpen() {}
 function noopSelectSession() {}
 function noopClearSelection() {}
 async function noopStartChat() {}
-async function noopStartChatWithPrompt() {}
+async function noopStartChatWithPrompt() {
+	return '';
+}
 function noopConsumePendingPrompt() {}
 function noopAttachWidgetsToComposer() {}
 function noopSetComposerWidgetDragPreview() {}

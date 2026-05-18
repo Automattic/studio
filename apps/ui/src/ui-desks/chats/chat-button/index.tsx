@@ -10,6 +10,7 @@ export function ChatButton( { onClick }: ChatButtonProps ) {
 	return (
 		<Button
 			icon={ comment }
+			intent="chat"
 			label={ __( 'Chat about selection' ) }
 			size="medium"
 			tone="primary"

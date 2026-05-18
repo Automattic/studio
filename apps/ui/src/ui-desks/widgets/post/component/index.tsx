@@ -4,7 +4,11 @@ import { comment } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { useMemo } from 'react';
 import { LoadingPlaceholder } from '@/ui-desks/components';
-import { CONTENT_CARD_STATUSES, getPostStatusInfo } from '@/ui-desks/widget-actions/post-status';
+import { CONTENT_CARD_STATUSES } from '@/ui-desks/widget-actions/post-status';
+import {
+	getMediaDropPreviewPayload,
+	MediaDropPreview,
+} from '@/ui-desks/widgets/media/drop-preview';
 import { useCommentCount } from '../use-comment-count';
 import styles from './style.module.css';
 import type { PostWidgetProps } from '../types';
@@ -21,13 +25,12 @@ type EmbeddedFeaturedMedia = {
 	};
 };
 type PostCardRecord = CoreDataPost & {
-	status?: string;
 	_embedded?: {
 		'wp:featuredmedia'?: EmbeddedFeaturedMedia[];
 	};
 };
 
-export function PostWidgetComponent( { id, widgetProps }: PostWidgetComponentProps ) {
+export function PostWidgetComponent( { id, widgetProps, dropFeedback }: PostWidgetComponentProps ) {
 	const query = useMemo(
 		() => ( {
 			include: [ widgetProps.postId ],
@@ -35,7 +38,7 @@ export function PostWidgetComponent( { id, widgetProps }: PostWidgetComponentPro
 			context: 'edit',
 			status: CONTENT_CARD_STATUSES,
 			_embed: true,
-			_fields: 'id,title,excerpt,status,featured_media,_links,_embedded',
+			_fields: 'id,title,excerpt,featured_media,_links,_embedded',
 		} ),
 		[ widgetProps.postId ]
 	);
@@ -50,6 +53,7 @@ export function PostWidgetComponent( { id, widgetProps }: PostWidgetComponentPro
 	const hasError = resolutionStatus === 'ERROR';
 	const isLoading = isResolving && ! record;
 	const commentCount = useCommentCount( record ? widgetProps.postId : null );
+	const morphMedia = getMediaDropPreviewPayload( dropFeedback );
 
 	if ( isLoading ) {
 		return (
@@ -69,8 +73,6 @@ export function PostWidgetComponent( { id, widgetProps }: PostWidgetComponentPro
 	const excerpt = record?.excerpt?.rendered ?? '';
 	const featuredImage = getFeaturedImageUrl( record );
 	const showFeaturedImage = ! excerpt.trim() && Boolean( featuredImage );
-	const statusInfo = getPostStatusInfo( record?.status );
-	const showMetadata = Boolean( record?.status || commentCount > 0 );
 
 	return (
 		<article
@@ -80,35 +82,23 @@ export function PostWidgetComponent( { id, widgetProps }: PostWidgetComponentPro
 			data-studio-desk-widget-id={ id }
 		>
 			<h2 className={ styles.title } dangerouslySetInnerHTML={ { __html: title } } />
-			{ showFeaturedImage && featuredImage ? (
+			{ morphMedia ? (
+				<MediaDropPreview
+					media={ morphMedia }
+					className={ `${ styles.featuredImage } ${ styles.featuredImageMorph }` }
+				/>
+			) : showFeaturedImage && featuredImage ? (
 				<img className={ styles.featuredImage } src={ featuredImage } alt="" draggable={ false } />
 			) : excerpt ? (
 				<div className={ styles.body } dangerouslySetInnerHTML={ { __html: excerpt } } />
 			) : null }
-			{ showMetadata && (
-				<div className={ styles.metadata }>
-					{ record?.status && (
-						<span className={ styles.status } title={ statusInfo.label }>
-							<span
-								className={ styles.statusDot }
-								style={ { background: statusInfo.color } }
-								aria-hidden="true"
-							/>
-							<span className={ styles.statusLabel }>{ statusInfo.label }</span>
-						</span>
-					) }
-					{ commentCount > 0 && (
-						<span
-							className={ styles.comments }
-							aria-label={ sprintf(
-								_n( '%d comment', '%d comments', commentCount ),
-								commentCount
-							) }
-						>
-							<Icon icon={ comment } />
-							<span>{ commentCount }</span>
-						</span>
-					) }
+			{ commentCount > 0 && (
+				<div
+					className={ styles.comments }
+					aria-label={ sprintf( _n( '%d comment', '%d comments', commentCount ), commentCount ) }
+				>
+					<Icon icon={ comment } size={ 24 } />
+					<span>{ commentCount }</span>
 				</div>
 			) }
 		</article>
@@ -125,7 +115,7 @@ export function PostWidgetThumbnailComponent( {
 			per_page: 1,
 			context: 'edit',
 			status: CONTENT_CARD_STATUSES,
-			_fields: 'id,title,status',
+			_fields: 'id,title',
 		} ),
 		[ widgetProps.postId ]
 	);

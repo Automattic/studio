@@ -371,6 +371,10 @@ export function createIpcConnector(): Connector {
 			await ipcApi.updateSite( site, wpVersion );
 		},
 
+		async refreshSiteIcon( siteId ) {
+			await ipcApi.loadSiteIcon( siteId );
+		},
+
 		async getXdebugEnabledSite() {
 			return ( await ipcApi.getXdebugEnabledSite() ) as SiteDetails | null;
 		},
@@ -629,6 +633,14 @@ export function createIpcConnector(): Connector {
 
 		async saveDeskSettings( settings ): Promise< void > {
 			await ipcApi.saveDeskSettings( settings );
+		},
+
+		async exportDeskConfig( config, suggestedFilename ): Promise< string | null > {
+			return ( await ipcApi.exportDeskConfig( config, suggestedFilename ) ) as string | null;
+		},
+
+		async importDeskConfig(): Promise< DeskConfig | null > {
+			return ( await ipcApi.importDeskConfig() ) as DeskConfig | null;
 		},
 
 		async getUserDeskConfig(): Promise< DeskConfig | undefined > {

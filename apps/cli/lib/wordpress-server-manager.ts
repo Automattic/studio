@@ -11,6 +11,8 @@ import {
 	PLAYGROUND_CLI_INACTIVITY_TIMEOUT,
 	PLAYGROUND_CLI_MAX_TIMEOUT,
 } from '@studio/common/constants';
+import { SiteCommandLoggerAction } from '@studio/common/logger-actions';
+import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
 import { SiteData, SiteRuntime } from 'cli/lib/cli-config/core';
 import {
@@ -21,9 +23,11 @@ import {
 	type DaemonBusEventMap,
 	sendMessageToProcess,
 } from 'cli/lib/daemon-client';
+import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { ServerConfig, ManagerMessagePayload } from 'cli/lib/types/wordpress-server-ipc';
 import { Logger } from 'cli/logger';
+import { validatePhpVersion } from './utils';
 import type { WordPressInstallMode } from '@wp-playground/wordpress';
 
 export const SITE_PROCESS_PREFIX = 'studio-site-';
@@ -64,6 +68,7 @@ export interface StartServerOptions {
 	wpVersion?: string;
 	blueprint?: unknown;
 	blueprintUri?: string;
+	siteLanguage?: string;
 	mounts?: ServerConfig[ 'mounts' ];
 	mountsBeforeInstall?: ServerConfig[ 'mountsBeforeInstall' ];
 	wordpressInstallMode?: WordPressInstallMode;
@@ -108,6 +113,10 @@ function buildServerConfig(
 		serverConfig.wpVersion = options.wpVersion;
 	}
 
+	if ( options?.siteLanguage ) {
+		serverConfig.siteLanguage = options.siteLanguage;
+	}
+
 	if ( options?.blueprint && options.blueprintUri ) {
 		serverConfig.blueprint = {
 			contents: options.blueprint,
@@ -150,6 +159,24 @@ function buildServerConfig(
 	return serverConfig;
 }
 
+async function ensurePhpBinaryAvailableIfNeeded(
+	site: SiteData,
+	logger: Logger< string >
+): Promise< void > {
+	if ( site.runtime === 'native-php' && site.phpVersion ) {
+		logger.reportStart(
+			SiteCommandLoggerAction.ENSURE_PHP_BINARY,
+			`Checking PHP ${ site.phpVersion } binary…`
+		);
+		const phpVersion = validatePhpVersion( site.phpVersion );
+		await ensurePhpBinaryAvailable( phpVersion, ( downloaded, total ) => {
+			const dl = ( downloaded / 1024 / 1024 ).toFixed( 1 );
+			const tot = total ? ` / ${ ( total / 1024 / 1024 ).toFixed( 1 ) } MB` : '';
+			logger.reportProgress( `Downloading PHP ${ site.phpVersion } (${ dl } MB${ tot })` );
+		} );
+	}
+}
+
 export async function startWordPressServer(
 	site: SiteData,
 	logger: Logger< string >,
@@ -168,6 +195,13 @@ export async function startWordPressServer(
 			options = JSON.parse( fs.readFileSync( optionsPath, 'utf-8' ) ) as StartServerOptions;
 		}
 	}
+
+	await ensurePhpBinaryAvailableIfNeeded( site, logger );
+
+	const startMessage = options?.blueprint
+		? __( 'Starting WordPress server and applying Blueprint…' )
+		: __( 'Starting WordPress server…' );
+	logger.reportStart( SiteCommandLoggerAction.START_SITE, startMessage );
 
 	const wordPressServerChildPath = getChildScriptPath( site.runtime );
 	const processName = getProcessName( site.id );
@@ -469,6 +503,7 @@ export interface RunBlueprintOptions {
 	wpVersion?: string;
 	blueprint: unknown;
 	blueprintUri: string;
+	siteLanguage?: string;
 }
 
 /**
@@ -484,9 +519,11 @@ export async function runBlueprint(
 	logger: Logger< string >,
 	options: RunBlueprintOptions
 ): Promise< void > {
+	await ensurePhpBinaryAvailableIfNeeded( site, logger );
+	logger.reportStart( SiteCommandLoggerAction.APPLY_BLUEPRINT, __( 'Applying Blueprint…' ) );
+
 	const wordPressServerChildPath = getChildScriptPath( site.runtime );
 	const processName = getProcessName( site.id );
-
 	const serverConfig = buildServerConfig( site, options );
 
 	const readyOrExit = await subscribeForReadyOrExit( processName );

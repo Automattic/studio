@@ -1,27 +1,51 @@
-import type { AgentRunEvent } from './agent-events';
+import type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiModelId } from '@studio/common/ai/models';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
+import type { DeskConfig, DeskSettings } from '@studio/common/types/desk';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { SyncSite } from '@studio/common/types/sync';
+import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wordpress-rest';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
+export type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
+export type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+export type { SessionEntry } from '@mariozechner/pi-coding-agent';
 export type {
-	AiSessionSummary,
-	LoadedAiSession,
-	AiSessionEvent,
-} from '@studio/common/ai/sessions/types';
+	StudioCustomEntry,
+	StudioCustomEntryType,
+	StudioCustomEntryDataMap,
+	StudioSiteSelectedData,
+	StudioToolProgressData,
+	StudioAgentQuestionData,
+	StudioTurnClosedData,
+	StudioSessionContextData,
+	StudioUserPromptData,
+} from '@studio/common/ai/sessions/entry-types';
 export type { AiModelId } from '@studio/common/ai/models';
 export type { Snapshot } from '@studio/common/types/snapshot';
 export type { SyncSite } from '@studio/common/types/sync';
+export type { DeskConfig, DeskSettings, DeskWidgetBase } from '@studio/common/types/desk';
 export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 export type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 export type { SupportedLocale } from '@studio/common/lib/locale';
 
 export type InstalledApps = Record< SupportedEditor | SupportedTerminal, boolean >;
+
+export interface AiSessionSitePlacement {
+	kind: 'site';
+	siteId: string;
+	sitePath: string;
+	siteName: string;
+}
+
+export interface AiSessionPlacementUpdatedEvent {
+	sessionId: string;
+	placement: AiSessionSitePlacement;
+}
 
 export interface SiteDetails {
 	id: string;
@@ -48,6 +72,13 @@ export interface SiteDetails {
 		slug: string;
 		isBlockTheme: boolean;
 	};
+	siteIcon?: string | null;
+}
+
+export interface LocalMediaFile {
+	name: string;
+	mimeType: string;
+	data: ArrayBuffer;
 }
 
 export interface AuthUser {
@@ -87,6 +118,9 @@ export interface Connector {
 	// process handler. `wpVersion` is only forwarded when the user explicitly
 	// picked a pinned version — undefined means "keep auto-updating".
 	updateSite( site: SiteDetails, wpVersion?: string ): Promise< void >;
+	// Refreshes the cached WordPress Site Icon path after a site-level icon
+	// change. The renderer receives image bytes through getSites().
+	refreshSiteIcon( siteId: string ): Promise< void >;
 	// Xdebug is exclusive across sites; returns the one site currently using
 	// it (or null) so the settings form can block a conflicting toggle.
 	getXdebugEnabledSite(): Promise< SiteDetails | null >;
@@ -117,6 +151,7 @@ export interface Connector {
 	// in the renderer. Returns an empty string when the underlying file lacks
 	// a real path (synthetic blobs, non-Electron environments).
 	getFilePath( file: File ): Promise< string >;
+	readLocalMediaFile( path: string ): Promise< LocalMediaFile >;
 
 	// Extracts a Blueprint ZIP bundle to a temp directory and returns the
 	// parsed `blueprint.json`. The caller is responsible for calling
@@ -182,16 +217,24 @@ export interface Connector {
 	getSessions(): Promise< AiSessionSummary[] >;
 	getSession( sessionId: string ): Promise< LoadedAiSession >;
 	deleteSession( sessionId: string ): Promise< void >;
+	updateSessionMetadata(
+		sessionId: string,
+		patch: Pick< AiSessionSummary, 'starred' | 'archived' >
+	): Promise< AiSessionSummary >;
 
-	// Create an empty session file attached to a site, so the new session
-	// appears in the sidebar immediately. The first prompt flows through
-	// `continueSession` as usual.
-	createSession( siteId: string ): Promise< AiSessionSummary >;
+	// Create an empty session file so it appears immediately. When `siteId`
+	// is omitted, the session is a user-desk chat with no owner site.
+	createSession( siteId?: string ): Promise< AiSessionSummary >;
 
 	// Continue an existing session by sending a new prompt. Returns a `runId`
 	// that identifies the in-flight agent run; live events for that run stream
 	// through `onAgentEvent`.
-	continueSession( sessionId: string, prompt: string ): Promise< { runId: string } >;
+	continueSession(
+		sessionId: string,
+		prompt: string,
+		options?: { displayMessage?: string }
+	): Promise< { runId: string } >;
+	getActiveAgentRuns(): Promise< ActiveAgentRun[] >;
 	// Persist a UI-driven model override for the session. The CLI picks this up
 	// on the next turn; the change survives reloads because it's written to the
 	// session JSONL.
@@ -199,6 +242,9 @@ export interface Connector {
 	interruptAgentRun( runId: string ): Promise< void >;
 	answerAgentQuestion( runId: string, answers: Record< string, string > ): Promise< void >;
 	onAgentEvent( listener: ( event: AgentRunEvent ) => void ): () => void;
+	onSessionPlacementUpdated(
+		listener: ( event: AiSessionPlacementUpdatedEvent ) => void
+	): () => void;
 
 	// Flip the session between acting on its owner site's local runtime vs.
 	// its linked WordPress.com live site. The owner site itself never changes.
@@ -218,6 +264,21 @@ export interface Connector {
 	// installed.
 	getInstalledApps(): Promise< InstalledApps >;
 
+	// Desks
+	getDeskSettings(): Promise< DeskSettings >;
+	saveDeskSettings( settings: DeskSettings ): Promise< void >;
+	exportDeskConfig( config: DeskConfig, suggestedFilename: string ): Promise< string | null >;
+	importDeskConfig(): Promise< DeskConfig | null >;
+	getUserDeskConfig(): Promise< DeskConfig | undefined >;
+	saveUserDeskConfig( config: DeskConfig ): Promise< void >;
+	getSiteDeskConfig( siteId: string ): Promise< DeskConfig | undefined >;
+	saveSiteDeskConfig( siteId: string, config: DeskConfig ): Promise< void >;
+
+	// Site WordPress REST API. The renderer uses this as the transport for
+	// @wordpress/api-fetch / @wordpress/core-data so WordPress entity semantics
+	// stay in the WordPress packages while Studio owns site resolution and auth.
+	fetchSiteRest( siteId: string, request: SiteRestRequest ): Promise< SiteRestResponse >;
+
 	// Open the given site's folder in the system file manager, preferred
 	// editor, or preferred terminal. When no editor/terminal preference is
 	// set these reject — callers are expected to route the user to Settings.
@@ -227,6 +288,11 @@ export interface Connector {
 
 	// External links
 	openExternalUrl( url: string ): Promise< void >;
+	openSiteUrl(
+		siteId: string,
+		relativeUrl?: string,
+		options?: { autoLogin?: boolean }
+	): Promise< void >;
 
 	// Window state (macOS fullscreen hides traffic lights, so the UI needs
 	// to reclaim the space we normally leave for them).

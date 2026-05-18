@@ -1,6 +1,10 @@
 import type { JsonEvent } from '@studio/common/ai/json-events';
 
-export type { JsonEvent, TurnCompletedStatus } from '@studio/common/ai/json-events';
+export {
+	type AgentMessageJsonEvent,
+	type JsonEvent,
+	type TurnCompletedStatus,
+} from '@studio/common/ai/json-events';
 
 export function emitEvent( event: JsonEvent ): void {
 	// When forked from the Studio main process the Node IPC channel is

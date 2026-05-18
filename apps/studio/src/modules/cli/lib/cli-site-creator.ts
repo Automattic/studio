@@ -16,13 +16,14 @@ const cliEventSchema = z.discriminatedUnion( 'action', [
 	} ),
 	z.object( {
 		action: z.literal( 'keyValuePair' ),
-		key: z.enum( [ 'id', 'running' ] ),
+		key: z.enum( [ 'id', 'running', 'port' ] ),
 		value: z.string(),
 	} ),
 ] );
 
 interface CreateSiteResult {
 	id: string;
+	port: number;
 	running: boolean;
 }
 
@@ -75,6 +76,11 @@ export async function createSiteViaCli( options: CreateSiteOptions ): Promise< C
 				const { key, value } = parsed.data;
 				if ( key === 'id' ) {
 					result.id = value;
+				} else if ( key === 'port' ) {
+					const parsedPort = Number.parseInt( value, 10 );
+					if ( Number.isFinite( parsedPort ) && parsedPort > 0 ) {
+						result.port = parsedPort;
+					}
 				} else if ( key === 'running' ) {
 					result.running = value === 'true';
 				}
@@ -88,11 +94,15 @@ export async function createSiteViaCli( options: CreateSiteOptions ): Promise< C
 
 		emitter.on( 'success', () => {
 			cleanupTempFile( blueprintTempPath );
-			if ( result.id ) {
-				resolve( { id: result.id, running: result.running ?? false } );
-			} else {
+			if ( ! result.id ) {
 				reject( new Error( 'CLI create site succeeded but no site ID received' ) );
+				return;
 			}
+			if ( ! result.port ) {
+				reject( new Error( 'CLI create site succeeded but no port received' ) );
+				return;
+			}
+			resolve( { id: result.id, port: result.port, running: result.running ?? false } );
 		} );
 
 		emitter.on( 'failure', ( { error } ) => {

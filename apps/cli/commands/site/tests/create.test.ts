@@ -11,7 +11,7 @@ import { isOnline } from '@studio/common/lib/network-utils';
 import { portFinder } from '@studio/common/lib/port-finder';
 import { normalizeLineEndings } from '@studio/common/lib/remove-default-db-constants';
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
-import { Blueprint, BlueprintV1Declaration, StepDefinition } from '@wp-playground/blueprints';
+import { Blueprint, BlueprintV1Declaration } from '@wp-playground/blueprints';
 import { vi, type MockInstance } from 'vitest';
 import {
 	lockCliConfig,
@@ -302,20 +302,8 @@ describe( 'CLI: studio site create', () => {
 					] ),
 				} )
 			);
-			expect( startWordPressServer ).toHaveBeenCalledWith(
-				expect.anything(),
-				expect.any( Logger ),
-				expect.objectContaining( {
-					blueprint: expect.objectContaining( {
-						steps: expect.arrayContaining( [
-							expect.objectContaining( {
-								step: 'setSiteOptions',
-								options: { blogname: 'My Custom Site' },
-							} ),
-						] ),
-					} ),
-				} )
-			);
+			// blogname is now set by playground-server-child via buildSetupSteps, not create.ts
+			expect( startWordPressServer ).toHaveBeenCalled();
 		} );
 
 		it( 'should NOT override blogname when adding existing WordPress directory with wp-config.php and name', async () => {
@@ -365,21 +353,8 @@ describe( 'CLI: studio site create', () => {
 				name: 'My Custom Site',
 			} );
 
-			// Verify setSiteOptions step IS in the blueprint steps (because wp-config.php doesn't exist)
-			expect( startWordPressServer ).toHaveBeenCalledWith(
-				expect.anything(),
-				expect.any( Logger ),
-				expect.objectContaining( {
-					blueprint: expect.objectContaining( {
-						steps: expect.arrayContaining( [
-							expect.objectContaining( {
-								step: 'setSiteOptions',
-								options: { blogname: 'My Custom Site' },
-							} ),
-						] ),
-					} ),
-				} )
-			);
+			// blogname is now set by playground-server-child via buildSetupSteps, not create.ts
+			expect( startWordPressServer ).toHaveBeenCalled();
 		} );
 
 		it( 'should use folder name as site name if no name provided', async () => {
@@ -523,7 +498,7 @@ describe( 'CLI: studio site create', () => {
 			);
 		} );
 
-		it( 'should prepend setSiteOptions step when name is provided with Blueprint', async () => {
+		it( 'should pass Blueprint through when name is provided with Blueprint', async () => {
 			await runCommand( mockSitePath, {
 				...defaultTestOptions,
 				name: 'My Site',
@@ -533,18 +508,12 @@ describe( 'CLI: studio site create', () => {
 				},
 			} );
 
+			// blogname is now set by playground-server-child via buildSetupSteps, not prepended here
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				expect.anything(),
 				expect.any( Logger ),
 				expect.objectContaining( {
-					blueprint: expect.objectContaining( {
-						steps: expect.arrayContaining( [
-							expect.objectContaining( {
-								step: 'setSiteOptions',
-								options: { blogname: 'My Site' },
-							} ),
-						] ),
-					} ),
+					blueprint: expect.any( Object ),
 				} )
 			);
 		} );
@@ -661,7 +630,7 @@ describe( 'CLI: studio site create', () => {
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
-		it( 'should run Blueprint when preferred language is configured but no Blueprint was given', async () => {
+		it( 'should create site with siteLanguage when preferred language is configured but no Blueprint given', async () => {
 			vi.mocked( getPreferredSiteLanguage ).mockResolvedValue( 'es_ES' );
 
 			await runCommand( mockSitePath, {
@@ -669,52 +638,29 @@ describe( 'CLI: studio site create', () => {
 				noStart: true,
 			} );
 
-			expect( connectToDaemon ).toHaveBeenCalled();
-			expect( runBlueprint ).toHaveBeenCalledWith(
-				expect.any( Object ),
-				expect.any( Object ),
-				expect.objectContaining( {
-					blueprint: expect.any( Object ),
-					blueprintUri: expect.any( String ),
-				} )
-			);
+			// No blueprint to run — language steps are applied by playground-server-child on first start
+			expect( connectToDaemon ).not.toHaveBeenCalled();
+			expect( runBlueprint ).not.toHaveBeenCalled();
 			expect( startWordPressServer ).not.toHaveBeenCalled();
 			expect( consoleLogSpy ).toHaveBeenCalledWith( 'Site created successfully' );
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 	} );
 
 	describe( 'Language Packs', () => {
-		it( 'should use bundled language packs and skip setSiteLanguage for latest WP version', async () => {
+		it( 'should use bundled language packs and pass siteLanguage for latest WP version', async () => {
 			vi.mocked( getPreferredSiteLanguage ).mockResolvedValue( 'sv_SE' );
 			vi.mocked( copyLanguagePackToSite ).mockResolvedValue( true );
 
 			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
 			expect( copyLanguagePackToSite ).toHaveBeenCalledWith( mockSitePath, 'sv_SE' );
+			// Language steps (defineWpConfigConsts / setSiteLanguage) are now built by
+			// playground-server-child's buildSetupSteps, not by create.ts
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				expect.anything(),
 				expect.any( Logger ),
-				expect.objectContaining( {
-					blueprint: expect.objectContaining( {
-						steps: expect.arrayContaining( [
-							expect.objectContaining( {
-								step: 'defineWpConfigConsts',
-								consts: { WPLANG: 'sv_SE' },
-							} ),
-							expect.objectContaining( {
-								step: 'setSiteOptions',
-								options: { WPLANG: 'sv_SE' },
-							} ),
-						] ),
-					} ),
-				} )
+				expect.objectContaining( { siteLanguage: 'sv_SE' } )
 			);
-			// Should NOT include setSiteLanguage step
-			const calls = vi.mocked( startWordPressServer ).mock.calls;
-			const blueprintSteps = ( calls[ 0 ][ 2 ] as { blueprint?: BlueprintV1Declaration } )
-				?.blueprint?.steps as StepDefinition[];
-			expect( blueprintSteps.some( ( s ) => s.step === 'setSiteLanguage' ) ).toBe( false );
 		} );
 
 		it( 'should fall back to setSiteLanguage when bundled packs are not available', async () => {
@@ -723,27 +669,15 @@ describe( 'CLI: studio site create', () => {
 
 			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
+			// setSiteLanguage vs defineWpConfigConsts is now decided by playground-server-child
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				expect.anything(),
 				expect.any( Logger ),
-				expect.objectContaining( {
-					blueprint: expect.objectContaining( {
-						steps: expect.arrayContaining( [
-							expect.objectContaining( {
-								step: 'setSiteLanguage',
-								language: 'sv_SE',
-							} ),
-							expect.objectContaining( {
-								step: 'setSiteOptions',
-								options: { WPLANG: 'sv_SE' },
-							} ),
-						] ),
-					} ),
-				} )
+				expect.objectContaining( { siteLanguage: 'sv_SE' } )
 			);
 		} );
 
-		it( 'should use setSiteLanguage for non-latest WP versions', async () => {
+		it( 'should pass siteLanguage for non-latest WP versions', async () => {
 			vi.mocked( getPreferredSiteLanguage ).mockResolvedValue( 'sv_SE' );
 
 			await runCommand( mockSitePath, {
@@ -752,19 +686,11 @@ describe( 'CLI: studio site create', () => {
 			} );
 
 			expect( copyLanguagePackToSite ).not.toHaveBeenCalled();
+			// setSiteLanguage step is now built by playground-server-child, not create.ts
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				expect.anything(),
 				expect.any( Logger ),
-				expect.objectContaining( {
-					blueprint: expect.objectContaining( {
-						steps: expect.arrayContaining( [
-							expect.objectContaining( {
-								step: 'setSiteLanguage',
-								language: 'sv_SE',
-							} ),
-						] ),
-					} ),
-				} )
+				expect.objectContaining( { siteLanguage: 'sv_SE' } )
 			);
 		} );
 

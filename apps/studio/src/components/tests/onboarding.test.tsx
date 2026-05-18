@@ -15,6 +15,7 @@ vi.mock( 'src/modules/onboarding/hooks/use-onboarding', () => ( {
 vi.mock( 'src/lib/app-globals', () => ( {
 	isMac: () => true,
 	isWindows: () => false,
+	isLinux: () => false,
 } ) );
 
 vi.mock( 'src/hooks/use-offline', () => ( {

@@ -3,6 +3,13 @@ import fs from 'fs';
 import fsPromises from 'fs/promises';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
+import {
+	addConnectedWpcomSite,
+	getAllConnectedWpcomSitesForCurrentUser,
+	getConnectedWpcomSitesForLocalSite,
+	removeConnectedWpcomSite,
+	updateConnectedWpcomSites as updateConnectedWpcomSitesShared,
+} from '@studio/common/lib/connected-sites';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
 import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
@@ -22,7 +29,6 @@ import { getAuthenticationToken } from 'src/lib/oauth';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { exportSite } from 'src/modules/import-export/lib/ipc-handlers';
 import { SiteServer } from 'src/site-server';
-import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 import { SyncOption } from 'src/types';
 
 /**
@@ -422,42 +428,15 @@ export async function removeSyncBackup( event: IpcMainInvokeEvent, remoteSiteId:
 type WpcomSitesToConnect = { sites: SyncSite[]; localSiteId: string }[];
 
 export async function connectWpcomSites( event: IpcMainInvokeEvent, list: WpcomSitesToConnect ) {
-	try {
-		await lockAppdata();
-		const currentUserId = await getCurrentUserId();
+	const currentUserId = await getCurrentUserId();
+	if ( ! currentUserId ) {
+		throw new Error( 'User not authenticated' );
+	}
 
-		if ( ! currentUserId ) {
-			throw new Error( 'User not authenticated' );
+	for ( const { sites, localSiteId } of list ) {
+		for ( const siteToAdd of sites ) {
+			await addConnectedWpcomSite( localSiteId, siteToAdd );
 		}
-
-		const userData = await loadUserData();
-
-		userData.connectedWpcomSites = userData.connectedWpcomSites || {};
-		userData.connectedWpcomSites[ currentUserId ] =
-			userData.connectedWpcomSites[ currentUserId ] || [];
-
-		const connections = userData.connectedWpcomSites[ currentUserId ];
-
-		list.forEach( ( { sites, localSiteId } ) => {
-			sites.forEach( ( siteToAdd ) => {
-				const isAlreadyConnected = connections.some(
-					( conn ) => conn.id === siteToAdd.id && conn.localSiteId === localSiteId
-				);
-
-				// Add the site if it's not already connected
-				if ( ! isAlreadyConnected ) {
-					connections.push( {
-						...siteToAdd,
-						localSiteId,
-						syncSupport: 'already-connected',
-					} );
-				}
-			} );
-		} );
-
-		await saveUserData( userData );
-	} finally {
-		await unlockAppdata();
 	}
 }
 
@@ -467,36 +446,15 @@ export async function disconnectWpcomSites(
 	event: IpcMainInvokeEvent,
 	list: WpcomSitesToDisconnect
 ) {
-	try {
-		await lockAppdata();
-		const currentUserId = await getCurrentUserId();
+	const currentUserId = await getCurrentUserId();
+	if ( ! currentUserId ) {
+		throw new Error( 'User not authenticated' );
+	}
 
-		if ( ! currentUserId ) {
-			throw new Error( 'User not authenticated' );
+	for ( const { siteIds, localSiteId } of list ) {
+		for ( const id of siteIds ) {
+			await removeConnectedWpcomSite( localSiteId, id );
 		}
-
-		const userData = await loadUserData();
-
-		const connectedWpcomSites = userData.connectedWpcomSites;
-
-		// Totally unreal case, added it to help TS parse the code below. And if this error happens, we definitely have something wrong.
-		if ( ! Array.isArray( connectedWpcomSites?.[ currentUserId ] ) ) {
-			throw new Error(
-				'Something went wrong, since you are trying to disconnect something, but there are no stored connections yet'
-			);
-		}
-
-		list.forEach( ( { siteIds, localSiteId } ) => {
-			const updatedConnections = connectedWpcomSites[ currentUserId ].filter(
-				( conn ) => ! ( siteIds.includes( conn.id ) && conn.localSiteId === localSiteId )
-			);
-
-			connectedWpcomSites[ currentUserId ] = updatedConnections;
-		} );
-
-		await saveUserData( userData );
-	} finally {
-		await unlockAppdata();
 	}
 }
 
@@ -504,35 +462,21 @@ export async function updateConnectedWpcomSites(
 	event: IpcMainInvokeEvent,
 	updatedSites: SyncSite[]
 ) {
-	try {
-		await lockAppdata();
-		const currentUserId = await getCurrentUserId();
+	const currentUserId = await getCurrentUserId();
+	if ( ! currentUserId ) {
+		throw new Error( 'User not authenticated' );
+	}
 
-		if ( ! currentUserId ) {
-			throw new Error( 'User not authenticated' );
-		}
+	// Group the updates by their local site since our storage is now per-site.
+	const byLocalSite = new Map< string, SyncSite[] >();
+	for ( const site of updatedSites ) {
+		const list = byLocalSite.get( site.localSiteId ) ?? [];
+		list.push( site );
+		byLocalSite.set( site.localSiteId, list );
+	}
 
-		const userData = await loadUserData();
-
-		const connections = userData.connectedWpcomSites?.[ currentUserId ] || [];
-
-		if ( ! connections.length ) {
-			return;
-		}
-
-		updatedSites.forEach( ( updatedSite ) => {
-			const index = connections.findIndex(
-				( conn ) => conn.id === updatedSite.id && conn.localSiteId === updatedSite.localSiteId
-			);
-
-			if ( index !== -1 ) {
-				connections[ index ] = updatedSite;
-			}
-		} );
-
-		await saveUserData( userData );
-	} finally {
-		await unlockAppdata();
+	for ( const [ localSiteId, sites ] of byLocalSite ) {
+		await updateConnectedWpcomSitesShared( localSiteId, sites );
 	}
 }
 
@@ -575,19 +519,8 @@ export async function getConnectedWpcomSites(
 	event: IpcMainInvokeEvent,
 	localSiteId?: string
 ): Promise< SyncSite[] > {
-	const currentUserId = await getCurrentUserId();
-
-	if ( ! currentUserId ) {
-		return [];
-	}
-
-	const userData = await loadUserData();
-
-	const allConnected = userData.connectedWpcomSites?.[ currentUserId ] || [];
-
 	if ( localSiteId ) {
-		return allConnected.filter( ( site ) => site.localSiteId === localSiteId );
-	} else {
-		return allConnected;
+		return getConnectedWpcomSitesForLocalSite( localSiteId );
 	}
+	return getAllConnectedWpcomSitesForCurrentUser();
 }

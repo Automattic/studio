@@ -1,12 +1,8 @@
-import { DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
+import { DEFAULT_MODEL, type AiModelId } from '@studio/common/ai/models';
 import { emitEvent, type TurnCompletedStatus } from 'cli/ai/json-events';
-import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
+import type { AgentSessionEvent } from '@mariozechner/pi-coding-agent';
 import type { AiProviderId } from 'cli/ai/providers';
-import type { SiteInfo } from 'cli/ai/ui';
-
-export type HandleMessageResult =
-	| { type: 'result'; sessionId: string; success: boolean; interrupted?: boolean }
-	| { type: 'max_turns'; sessionId: string; numTurns: number; costUsd?: number };
+import type { AskUserQuestion, SiteInfo } from 'cli/ai/types';
 
 export interface AiOutputAdapter {
 	currentProvider: AiProviderId;
@@ -27,12 +23,13 @@ export interface AiOutputAdapter {
 	showInfo( message: string ): void;
 	showError( message: string ): void;
 	setStatusMessage( message: string | null ): void;
+	setDaemonStatus( state: { running: boolean; pid?: number } ): void;
 	setLoaderMessage( message: string, update?: boolean ): void;
 
-	beginAgentTurn(): void;
+	beginAgentTurn( sessionId?: string ): void;
 	endAgentTurn(): void;
 	addUserMessage( text: string ): void;
-	handleMessage( message: SDKMessage ): HandleMessageResult | undefined;
+	handleEvent( event: AgentSessionEvent ): void;
 
 	waitForInput(): Promise< string >;
 	askUser( questions: AskUserQuestion[] ): Promise< Record< string, string > >;
@@ -48,8 +45,8 @@ export class JsonAdapter implements AiOutputAdapter {
 	onBeforeExit: ( () => Promise< void > ) | null = null;
 	permissionResponse: Record< string, string > | null = null;
 
-	private sessionId: string | undefined;
 	private ipcMessageListener: ( ( message: unknown ) => void ) | null = null;
+	private activeSessionId = '';
 
 	start(): void {
 		// When forked from Studio, route the parent's IPC `interrupt` message
@@ -113,11 +110,16 @@ export class JsonAdapter implements AiOutputAdapter {
 		// No-op in JSON mode
 	}
 
+	setDaemonStatus(): void {
+		// No-op in JSON mode
+	}
+
 	setLoaderMessage( message: string, _update?: boolean ): void {
 		this.showProgress( message );
 	}
 
-	beginAgentTurn(): void {
+	beginAgentTurn( sessionId?: string ): void {
+		this.activeSessionId = sessionId ?? '';
 		emitEvent( { type: 'turn.started', timestamp: new Date().toISOString() } );
 	}
 
@@ -129,37 +131,22 @@ export class JsonAdapter implements AiOutputAdapter {
 		// No-op in JSON mode — the service already knows the message it sent
 	}
 
-	handleMessage( message: SDKMessage ): HandleMessageResult | undefined {
-		emitEvent( { type: 'message', timestamp: new Date().toISOString(), message } );
-
-		if ( message.type === 'result' ) {
-			this.sessionId = message.session_id;
-			if ( message.subtype === 'error_max_turns' ) {
-				return {
-					type: 'max_turns',
-					sessionId: message.session_id,
-					numTurns: message.num_turns,
-					costUsd: message.total_cost_usd,
-				};
-			}
-			return {
-				type: 'result',
-				sessionId: message.session_id,
-				success: ! message.is_error,
-			};
-		}
-
-		return undefined;
+	handleEvent( event: AgentSessionEvent ): void {
+		// Forward the event verbatim so the desktop main process can re-derive
+		// state without loading the JSONL itself. The wire keeps the existing
+		// `'message'` envelope, with a native AgentSessionEvent as the payload.
+		emitEvent( { type: 'message', timestamp: new Date().toISOString(), message: event } );
 	}
 
 	emitTurnCompleted(
 		status: TurnCompletedStatus,
+		sessionId: string,
 		usage?: { numTurns: number; costUsd?: number }
 	): void {
 		emitEvent( {
 			type: 'turn.completed',
 			timestamp: new Date().toISOString(),
-			sessionId: this.sessionId ?? '',
+			sessionId,
 			status,
 			usage,
 		} );
@@ -208,7 +195,7 @@ export class JsonAdapter implements AiOutputAdapter {
 			} );
 		}
 
-		this.emitTurnCompleted( 'paused' );
+		this.emitTurnCompleted( 'paused', this.activeSessionId );
 		await this.onBeforeExit?.();
 		process.exitCode = 0;
 		return new Promise< Record< string, string > >( () => {} );

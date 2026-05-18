@@ -109,6 +109,8 @@ If you've built a substantial new feature — especially one generated with AI a
 
 **Port Conflicts**: Site servers dynamically allocate ports. Don't hardcode port numbers; use the port-finder utility.
 
+**CRITICAL - Playground/PHP-WASM Package Versions**: Always pin `@wp-playground/*` and `@php-wasm/*` packages to **exact versions** (no `^` or `~` ranges) in all `package.json` files. A caret range causes `install:bundle` to resolve a newer version when one publishes, creating a version conflict. npm then installs duplicate copies of all PHP WASM packages nested under the conflicting package's `node_modules/`. The `prune-php-wasm` vite plugin only removes top-level asyncify directories and misses nested copies, resulting in ~450 MB of bloat in the app bundle. More critically, different parts of Studio end up running mismatched Playground/PHP-WASM versions, which can cause subtle and hard-to-diagnose runtime failures in core site operations.
+
 ## Detailed Documentation
 
 For in-depth information, see these docs:

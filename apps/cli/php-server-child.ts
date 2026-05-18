@@ -29,12 +29,7 @@ import {
 	getPhpBinaryPath,
 	getWpCliPharPath,
 } from './lib/dependency-management/paths';
-import {
-	createNativePhpSubprocessIniDirectory,
-	getDefaultPhpArgs,
-	getNativePhpCaBundleArgs,
-	getNativePhpCaBundlePath,
-} from './lib/native-php';
+import { getDefaultPhpArgs } from './lib/native-php';
 import { SymlinkWatcher, collectSymlinkAllowlistEntries } from './lib/symlinks';
 
 const ROUTER_PATH = path.resolve( import.meta.dirname, 'php', 'router.php' );
@@ -78,8 +73,6 @@ type SpawnPhpProcessOptions = {
 	disallowRiskyFunctions?: boolean;
 	mode?: 'pipe' | 'capture-stdout';
 	enableXdebug?: boolean;
-	env?: NodeJS.ProcessEnv;
-	extraPhpArgs?: string[];
 	onlyPathsThatPhpCanAccess?: string[];
 	phpVersion: NativePhpSupportedVersion;
 	siteFolder?: string;
@@ -94,8 +87,6 @@ function spawnPhpProcess(
 		signal,
 		mode = 'pipe',
 		enableXdebug = false,
-		env,
-		extraPhpArgs = [],
 		onlyPathsThatPhpCanAccess = [],
 		disallowRiskyFunctions = false,
 	}: SpawnPhpProcessOptions
@@ -106,10 +97,9 @@ function spawnPhpProcess(
 		disallowRiskyFunctions,
 		enableXdebug
 	);
-	const phpArgs = [ ...defaultArgs, ...extraPhpArgs, ...args ];
+	const phpArgs = [ ...defaultArgs, ...args ];
 	const phpScriptProcess = spawn( getPhpBinaryPath( phpVersion ), phpArgs, {
 		cwd: siteFolder,
-		env: env ? { ...process.env, ...env } : process.env,
 		stdio: [ 'ignore', 'pipe', 'pipe' ],
 		signal,
 	} );
@@ -669,7 +659,6 @@ async function runBlueprint(
 	// On macOS/Linux the type argument is ignored for directories.
 	const needsSymlink = fs.existsSync( muPluginsSqlite ) && ! fs.existsSync( pluginsSqlite );
 	let symlinkIno: number | undefined;
-	let phpIniDirectory: string | undefined;
 	if ( needsSymlink ) {
 		fs.symlinkSync( muPluginsSqlite, pluginsSqlite, 'junction' );
 		// Record the inode so cleanup only removes the entry we created. statSync follows
@@ -679,12 +668,11 @@ async function runBlueprint(
 	}
 
 	try {
-		phpIniDirectory = await createNativePhpSubprocessIniDirectory( phpVersion );
-		// The parent PHAR process still runs with Studio's normal `-n` isolation from
-		// getDefaultPhpArgs(), so it receives required config through explicit `-d`
-		// args. PHPRC is for PHP subprocesses launched inside blueprints.phar; those
-		// subprocesses do not inherit our parent argv and need the generated php.ini
-		// to load bundled Windows extensions such as pdo_sqlite/sqlite3.
+		// blueprints.phar spawns its own PHP subprocesses while applying a blueprint.
+		// On Windows those subprocesses auto-load the php.ini we wrote next to
+		// php.exe, which carries the bundled-extension and CA-bundle config. On
+		// macOS/Linux every extension is statically linked into the binary, so no
+		// extra setup is needed for the subprocess.
 		await runPhpCommand(
 			[
 				getBlueprintsPharPath(),
@@ -695,18 +683,10 @@ async function runBlueprint(
 				`--site-url=${ config.absoluteUrl ?? `http://localhost:${ config.port }` }`,
 				'--db-engine=sqlite',
 			],
-			{
-				phpVersion,
-				signal,
-				env: { PHPRC: phpIniDirectory },
-				extraPhpArgs: getNativePhpCaBundleArgs( getNativePhpCaBundlePath( phpIniDirectory ) ),
-			}
+			{ phpVersion, signal }
 		);
 	} finally {
 		await fs.promises.unlink( tmpPath ).catch( () => {} );
-		if ( phpIniDirectory ) {
-			await fs.promises.rm( phpIniDirectory, { recursive: true, force: true } ).catch( () => {} );
-		}
 		if ( needsSymlink ) {
 			try {
 				if ( fs.statSync( pluginsSqlite ).ino === symlinkIno ) {

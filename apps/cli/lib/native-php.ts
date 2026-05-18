@@ -3,6 +3,7 @@ import { rootCertificates } from 'node:tls';
 import os from 'os';
 import path from 'path';
 import { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
+import { writeFile } from 'atomically';
 import { getPhpBinaryPath } from './dependency-management/paths';
 
 // Disabled by default to shrink the attack surface available to PHP code
@@ -59,8 +60,8 @@ const PHP_DEFAULT_DISABLED_FUNCTIONS = [
 	'system',
 ] as const;
 
-// Extensions to enable on Windows via `-d extension=<name>`. Computed as the
-// intersection of two sets:
+// Extensions to enable on Windows via `extension=<name>` in php.ini. Computed
+// as the intersection of two sets:
 //   1. php_*.dll files that ship as separate DLLs in windows.php.net's
 //      prebuilt zip (plus the PECL DLLs the workflow overlays: apcu, igbinary,
 //      redis, ssh2, yaml). Everything else from the macOS list is baked into
@@ -104,70 +105,62 @@ const WINDOWS_PHP_EXTENSIONS = [
 	'zip',
 ] as const;
 
+const PHP_INI_FILENAME = 'php.ini';
 const CA_BUNDLE_FILENAME = 'ca-bundle.crt';
 
-function getExtensionDir( phpVersion: NativePhpSupportedVersion ): string {
-	return path.join( path.dirname( getPhpBinaryPath( phpVersion ) ), 'ext' );
+function getPhpBinaryDir( phpVersion: NativePhpSupportedVersion ): string {
+	return path.dirname( getPhpBinaryPath( phpVersion ) );
 }
 
+function getExtensionDir( phpVersion: NativePhpSupportedVersion ): string {
+	return path.join( getPhpBinaryDir( phpVersion ), 'ext' );
+}
+
+// PHP's INI parser on Windows accepts forward slashes inside quoted values
+// and is fussy about backslashes (which also act as escape characters). Use
+// forward slashes everywhere and escape stray double quotes.
 function toPhpIniPath( filePath: string ): string {
 	return filePath.replace( /\\/g, '/' ).replace( /"/g, '\\"' );
 }
 
-export function getNativePhpCaBundlePath( phpIniDirectory: string ): string {
-	return path.join( phpIniDirectory, CA_BUNDLE_FILENAME );
-}
+// Windows-only: php.exe ships without a baked-in extension set, so we generate
+// a php.ini that loads every bundled DLL plus the Mozilla root CA bundle
+export function getNativePhpIniContents( phpVersion: NativePhpSupportedVersion ): string {
+	if ( process.platform !== 'win32' ) {
+		throw new Error( 'php.ini is only generated on Windows' );
+	}
 
-export function getNativePhpCaBundleArgs( caBundlePath: string ): string[] {
-	const normalizedCaBundlePath = toPhpIniPath( caBundlePath );
-	return [
-		'-d',
-		`openssl.cafile="${ normalizedCaBundlePath }"`,
-		'-d',
-		`curl.cainfo="${ normalizedCaBundlePath }"`,
+	const binDir = getPhpBinaryDir( phpVersion );
+	const directives = [
+		'memory_limit=512M',
+		`extension_dir="${ toPhpIniPath( getExtensionDir( phpVersion ) ) }"`,
+		'zend_extension=opcache',
+		...WINDOWS_PHP_EXTENSIONS.map( ( extension ) => `extension=${ extension }` ),
+		`openssl.cafile="${ toPhpIniPath( path.join( binDir, CA_BUNDLE_FILENAME ) ) }"`,
+		`curl.cainfo="${ toPhpIniPath( path.join( binDir, CA_BUNDLE_FILENAME ) ) }"`,
 	];
-}
-
-export function getNativePhpSubprocessIniContents(
-	phpVersion: NativePhpSupportedVersion,
-	caBundlePath?: string
-): string {
-	const directives = [ 'memory_limit=512M' ];
-
-	if ( process.platform === 'win32' ) {
-		directives.push( `extension_dir="${ toPhpIniPath( getExtensionDir( phpVersion ) ) }"` );
-		for ( const extension of WINDOWS_PHP_EXTENSIONS ) {
-			directives.push( `extension=${ extension }` );
-		}
-	}
-
-	if ( caBundlePath ) {
-		directives.push(
-			`openssl.cafile="${ toPhpIniPath( caBundlePath ) }"`,
-			`curl.cainfo="${ toPhpIniPath( caBundlePath ) }"`
-		);
-	}
 
 	return `${ directives.join( os.EOL ) }${ os.EOL }`;
 }
 
-// blueprints.phar spawns its own PHP subprocesses while applying a blueprint.
-// Those subprocesses inherit PHPRC but not the parent process's `-d` argv, so
-// this php.ini carries the bundled extension and CA settings they need.
-export async function createNativePhpSubprocessIniDirectory(
+// Writes php.ini and ca-bundle.crt next to the PHP binary on Windows so every
+// php.exe invocation — parent or child — loads the same config automatically.
+// No-op on non-Windows platforms, where extensions are statically linked into
+// the binary and config is passed via `-d` argv in getDefaultPhpArgs().
+export async function ensureNativePhpIniFiles(
 	phpVersion: NativePhpSupportedVersion
-): Promise< string > {
-	const tempRoot =
-		process.platform === 'win32' ? fs.realpathSync.native( os.tmpdir() ) : os.tmpdir();
-	const phpIniDirectory = await fs.promises.mkdtemp( path.join( tempRoot, 'studio-native-php-' ) );
-	const caBundlePath = getNativePhpCaBundlePath( phpIniDirectory );
-	await fs.promises.writeFile( caBundlePath, rootCertificates.join( os.EOL ), 'utf8' );
-	await fs.promises.writeFile(
-		path.join( phpIniDirectory, 'php.ini' ),
-		getNativePhpSubprocessIniContents( phpVersion, caBundlePath ),
-		'utf8'
-	);
-	return phpIniDirectory;
+): Promise< void > {
+	if ( process.platform !== 'win32' ) {
+		return;
+	}
+
+	const binDir = getPhpBinaryDir( phpVersion );
+	await writeFile( path.join( binDir, CA_BUNDLE_FILENAME ), rootCertificates.join( os.EOL ), {
+		encoding: 'utf8',
+	} );
+	await writeFile( path.join( binDir, PHP_INI_FILENAME ), getNativePhpIniContents( phpVersion ), {
+		encoding: 'utf8',
+	} );
 }
 
 function getXdebugFilename(): string {
@@ -213,41 +206,48 @@ export function getDefaultPhpArgs(
 	const cacheDirectory = path.join( getOpcacheRootDir(), cacheId );
 	fs.mkdirSync( cacheDirectory, { recursive: true } );
 
-	const args = [
-		// Avoid loading php.ini config files to prevent other PHP installations from affecting Studio
-		'-n',
-		'-d',
-		'memory_limit=512M',
-		'-d',
-		`opcache.file_cache="${ cacheDirectory }"`,
-		'-d',
-		`opcache.cache_id="studio-${ cacheId }"`,
-	];
-
-	const extensionDir = getExtensionDir( phpVersion );
+	const args: string[] = [];
 
 	if ( process.platform === 'win32' ) {
-		// Load every bundled DLL from the artifact's ext/ directory.
-		// windows.php.net's prebuilt php.exe doesn't auto-load extensions;
-		// each one needs an explicit `extension=` (or `zend_extension=` for
-		// opcache) directive.
-		args.push( '-d', `extension_dir="${ extensionDir }"` );
-		args.push( '-d', `zend_extension=opcache` );
-		for ( const extension of WINDOWS_PHP_EXTENSIONS ) {
-			args.push( '-d', `extension=${ extension }` );
-		}
+		// `-c` points php.exe at our php.ini and short-circuits the default
+		// ini search, so host PHP installations (and PHPRC) can't leak in —
+		// the same isolation `-n` gives us on macOS/Linux. Our php.ini
+		// carries memory_limit, extension_dir, every bundled extension, and
+		// the Mozilla CA bundle paths; only opcache cache state and the
+		// per-invocation knobs below need to be passed via `-d`.
+		args.push( '-c', path.join( getPhpBinaryDir( phpVersion ), PHP_INI_FILENAME ) );
+		args.push(
+			'-d',
+			`opcache.file_cache="${ cacheDirectory }"`,
+			'-d',
+			`opcache.cache_id="studio-${ cacheId }"`
+		);
+	} else {
+		// On macOS/Linux every extension is statically linked into the binary,
+		// so there is no php.ini next to it. Skip php.ini scanning with `-n`
+		// to keep the host's PHP installation from leaking into Studio, then
+		// pass the required runtime knobs explicitly.
+		args.push(
+			'-n',
+			'-d',
+			'memory_limit=512M',
+			'-d',
+			`opcache.file_cache="${ cacheDirectory }"`,
+			'-d',
+			`opcache.cache_id="studio-${ cacheId }"`
+		);
 	}
 
 	if ( enableXdebug ) {
 		// On macOS the `php` binary has every other extension baked in and ext/
-		// contains only xdebug.so; on Windows extension_dir is already set
-		// above. Either way the Zend extension path is ext/<filename>.
+		// contains only xdebug.so; on Windows extension_dir is already set in
+		// php.ini. Either way the Zend extension path is ext/<filename>.
 		if ( process.platform !== 'win32' ) {
-			args.push( '-d', `extension_dir="${ extensionDir }"` );
+			args.push( '-d', `extension_dir="${ getExtensionDir( phpVersion ) }"` );
 		}
 		args.push(
 			'-d',
-			`zend_extension="${ path.join( extensionDir, getXdebugFilename() ) }"`,
+			`zend_extension="${ path.join( getExtensionDir( phpVersion ), getXdebugFilename() ) }"`,
 			'-d',
 			'xdebug.mode=debug'
 		);

@@ -114,4 +114,37 @@ describe( 'writeStudioMuPluginsForNativePhpRuntime', () => {
 		expect( generatedPlugins ).toContain( '0-enable-auto-updates.php' );
 		expect( generatedPlugins ).not.toContain( '0-disable-auto-updates.php' );
 	} );
+
+	it( 'should strip MailPit-managed headers and preserve recipient headers', async () => {
+		await writeStudioMuPluginsForNativePhpRuntime( sitePath, true, {
+			enabled: true,
+			httpPort: 8025,
+			smtpPort: 1025,
+		} );
+
+		const loaderPath = join(
+			sitePath,
+			'wp-content',
+			'mu-plugins',
+			STUDIO_LOADER_MU_PLUGIN_FILENAME
+		);
+		const loaderContent = await readFile( loaderPath, 'utf8' );
+		const muPluginsDir = loaderContent.match( /\$studio_mu_plugins_dir = '([^']+)';/ )?.[ 1 ];
+
+		expect( muPluginsDir ).toBeTruthy();
+
+		const mailpitContent = await readFile(
+			join( muPluginsDir as string, '0-mailpit.php' ),
+			'utf8'
+		);
+
+		expect( mailpitContent ).toContain( 'studio_mailpit_filter_headers' );
+		expect( mailpitContent ).toContain( "'content-type'" );
+		expect( mailpitContent ).toContain( "'subject'" );
+		expect( mailpitContent ).toContain( "$payload['Cc'] = $cc;" );
+		expect( mailpitContent ).toContain(
+			"$payload['Bcc'] = studio_mailpit_get_recipient_emails( $bcc );"
+		);
+		expect( mailpitContent ).toContain( "$payload['ReplyTo'] = $reply_to;" );
+	} );
 } );

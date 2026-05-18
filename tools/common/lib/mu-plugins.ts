@@ -124,6 +124,62 @@ function getMailpitMuPlugin( mailpit: MailpitConfig ): MuPlugin {
 			}
 		}
 
+		if ( ! function_exists( 'studio_mailpit_filter_headers' ) ) {
+			function studio_mailpit_filter_headers( $headers ) {
+				$managed_headers = array(
+					'bcc',
+					'cc',
+					'content-transfer-encoding',
+					'content-type',
+					'date',
+					'from',
+					'message-id',
+					'mime-version',
+					'reply-to',
+					'sender',
+					'subject',
+					'to',
+				);
+
+				$filtered = array();
+				foreach ( $headers as $name => $value ) {
+					if ( in_array( strtolower( $name ), $managed_headers, true ) ) {
+						continue;
+					}
+
+					$filtered[ $name ] = $value;
+				}
+
+				return $filtered;
+			}
+		}
+
+		if ( ! function_exists( 'studio_mailpit_get_header_recipients' ) ) {
+			function studio_mailpit_get_header_recipients( $headers, $header_name ) {
+				foreach ( studio_mailpit_header_lines( $headers ) as $line ) {
+					if ( 0 !== stripos( $line, $header_name . ':' ) ) {
+						continue;
+					}
+
+					return studio_mailpit_parse_recipients( substr( $line, strlen( $header_name ) + 1 ) );
+				}
+
+				return array();
+			}
+		}
+
+		if ( ! function_exists( 'studio_mailpit_get_recipient_emails' ) ) {
+			function studio_mailpit_get_recipient_emails( $recipients ) {
+				$emails = array();
+				foreach ( $recipients as $recipient ) {
+					if ( ! empty( $recipient['Email'] ) ) {
+						$emails[] = $recipient['Email'];
+					}
+				}
+				return $emails;
+			}
+		}
+
 		if ( ! function_exists( 'studio_mailpit_get_from' ) ) {
 			function studio_mailpit_get_from( $headers ) {
 				$from = array(
@@ -184,40 +240,68 @@ function getMailpitMuPlugin( mailpit: MailpitConfig ): MuPlugin {
 			}
 		}
 
-		add_filter( 'pre_wp_mail', function( $pre, $atts ) {
-			$headers = isset( $atts['headers'] ) ? $atts['headers'] : array();
-			$message = isset( $atts['message'] ) ? (string) $atts['message'] : '';
-			$parsed_headers = studio_mailpit_parse_headers( $headers );
-			$is_html = false;
-
-			foreach ( $parsed_headers as $name => $value ) {
-				if ( 0 === strcasecmp( $name, 'Content-Type' ) && false !== stripos( $value, 'text/html' ) ) {
-					$is_html = true;
-					break;
+		if ( ! function_exists( 'studio_mailpit_is_html' ) ) {
+			function studio_mailpit_is_html( $headers, $message ) {
+				foreach ( $headers as $name => $value ) {
+					if ( 0 === strcasecmp( $name, 'Content-Type' ) && false !== stripos( $value, 'text/html' ) ) {
+						return true;
+					}
 				}
-			}
 
-			$payload = array(
-				'From'    => studio_mailpit_get_from( $headers ),
-				'To'      => studio_mailpit_parse_recipients( isset( $atts['to'] ) ? $atts['to'] : array() ),
-				'Subject' => isset( $atts['subject'] ) ? (string) $atts['subject'] : '',
-				'Tags'    => array( 'Studio' ),
-			);
-
-			if ( ! empty( $parsed_headers ) ) {
-				$payload['Headers'] = $parsed_headers;
+				return $message !== wp_strip_all_tags( $message );
 			}
+		}
 
-			if ( $is_html || $message !== wp_strip_all_tags( $message ) ) {
-				$payload['HTML'] = $message;
-			} else {
-				$payload['Text'] = $message;
-			}
+		if ( ! function_exists( 'studio_mailpit_build_payload' ) ) {
+			function studio_mailpit_build_payload( $atts ) {
+				$headers = isset( $atts['headers'] ) ? $atts['headers'] : array();
+				$message = isset( $atts['message'] ) ? (string) $atts['message'] : '';
+				$parsed_headers = studio_mailpit_parse_headers( $headers );
 
-			$attachments = studio_mailpit_get_attachments( isset( $atts['attachments'] ) ? $atts['attachments'] : array() );
-			if ( $attachments ) {
-				$payload['Attachments'] = $attachments;
+				$payload = array(
+					'From'    => studio_mailpit_get_from( $headers ),
+					'To'      => studio_mailpit_parse_recipients( isset( $atts['to'] ) ? $atts['to'] : array() ),
+					'Subject' => isset( $atts['subject'] ) ? (string) $atts['subject'] : '',
+					'Tags'    => array( 'Studio' ),
+				);
+
+				$cc = studio_mailpit_get_header_recipients( $headers, 'Cc' );
+				if ( ! empty( $cc ) ) {
+					$payload['Cc'] = $cc;
+				}
+
+				$bcc = studio_mailpit_get_header_recipients( $headers, 'Bcc' );
+				if ( ! empty( $bcc ) ) {
+					$payload['Bcc'] = studio_mailpit_get_recipient_emails( $bcc );
+				}
+
+				$reply_to = studio_mailpit_get_header_recipients( $headers, 'Reply-To' );
+				if ( ! empty( $reply_to ) ) {
+					$payload['ReplyTo'] = $reply_to;
+				}
+
+				$custom_headers = studio_mailpit_filter_headers( $parsed_headers );
+				if ( ! empty( $custom_headers ) ) {
+					$payload['Headers'] = $custom_headers;
+				}
+
+				if ( studio_mailpit_is_html( $parsed_headers, $message ) ) {
+					$payload['HTML'] = $message;
+				} else {
+					$payload['Text'] = $message;
+				}
+
+				$attachments = studio_mailpit_get_attachments( isset( $atts['attachments'] ) ? $atts['attachments'] : array() );
+				if ( $attachments ) {
+					$payload['Attachments'] = $attachments;
+				}
+
+				return $payload;
 			}
+		}
+
+		add_filter( 'pre_wp_mail', function( $pre, $atts ) {
+			$payload = studio_mailpit_build_payload( $atts );
 
 			$response = wp_remote_post( ${ JSON.stringify( endpoint ) }, array(
 				'headers' => array( 'Content-Type' => 'application/json' ),

@@ -16,8 +16,10 @@ import type { SiteCardWidget } from '@/ui-desks/widgets/site-card/types';
 import type { SitePreviewWidget } from '@/ui-desks/widgets/site-preview/types';
 import type { ThemeWidget } from '@/ui-desks/widgets/theme/types';
 import type { ThemePatternWidget } from '@/ui-desks/widgets/theme-pattern/types';
+import type { ThemePatternBrowserWidget } from '@/ui-desks/widgets/theme-pattern-browser/types';
 import type { ThemeStylesWidget } from '@/ui-desks/widgets/theme-styles/types';
 import type { ThemeTemplateWidget } from '@/ui-desks/widgets/theme-template/types';
+import type { ThemeTemplateBrowserWidget } from '@/ui-desks/widgets/theme-template-browser/types';
 import type { DeskStack, DeskWidgetBase } from '@studio/common/types/desk';
 import type { createRegistry } from '@wordpress/data';
 import type { ComponentProps, ComponentType, ReactElement } from 'react';
@@ -341,6 +343,8 @@ export type DeskWidget =
 	| SiteCardWidget
 	| SitePreviewWidget
 	| ThemeWidget
+	| ThemePatternBrowserWidget
+	| ThemeTemplateBrowserWidget
 	| ThemePatternWidget
 	| ThemeStylesWidget
 	| ThemeTemplateWidget;
@@ -361,6 +365,8 @@ export type DeskWidgetDefinition =
 	| WidgetDefinition< SiteCardWidget >
 	| WidgetDefinition< SitePreviewWidget >
 	| WidgetDefinition< ThemeWidget >
+	| WidgetDefinition< ThemePatternBrowserWidget >
+	| WidgetDefinition< ThemeTemplateBrowserWidget >
 	| WidgetDefinition< ThemePatternWidget >
 	| WidgetDefinition< ThemeStylesWidget >
 	| WidgetDefinition< ThemeTemplateWidget >;

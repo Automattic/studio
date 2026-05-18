@@ -173,8 +173,8 @@ export async function getThemeMaterials(
 	const theme = rawTheme ? normalizeActiveTheme( rawTheme ) : null;
 	const [ styles, templates, patterns ] = await Promise.all( [
 		rawTheme ? getGlobalStylesForTheme( context ) : null,
-		getTemplates( context ),
-		getPatterns( context ),
+		getThemeTemplates( context ),
+		getThemePatterns( context ),
 	] );
 
 	return {
@@ -306,7 +306,9 @@ async function getUserGlobalStyles(
 	}
 }
 
-async function getTemplates( context: WidgetResolverContext ): Promise< ThemeTemplate[] > {
+export async function getThemeTemplates(
+	context: WidgetResolverContext
+): Promise< ThemeTemplate[] > {
 	try {
 		const raw =
 			( await getCoreDataResolvers( context ).getEntityRecords< WpTemplate >(
@@ -330,7 +332,9 @@ async function getTemplates( context: WidgetResolverContext ): Promise< ThemeTem
 	}
 }
 
-async function getPatterns( context: WidgetResolverContext ): Promise< ThemePattern[] > {
+export async function getThemePatterns(
+	context: WidgetResolverContext
+): Promise< ThemePattern[] > {
 	const resolvers = getCoreDataResolvers( context );
 	const [ themeRaw, reusableRaw, templatePartsRaw ] = await Promise.all( [
 		getThemePatternsRaw( resolvers ),

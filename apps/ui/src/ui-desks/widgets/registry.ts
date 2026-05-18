@@ -15,8 +15,10 @@ import { siteCardWidgetDefinition } from '@/ui-desks/widgets/site-card/definitio
 import { sitePreviewWidgetDefinition } from '@/ui-desks/widgets/site-preview/definition';
 import { themeWidgetDefinition } from '@/ui-desks/widgets/theme/definition';
 import { themePatternWidgetDefinition } from '@/ui-desks/widgets/theme-pattern/definition';
+import { themePatternBrowserWidgetDefinition } from '@/ui-desks/widgets/theme-pattern-browser/definition';
 import { themeStylesWidgetDefinition } from '@/ui-desks/widgets/theme-styles/definition';
 import { themeTemplateWidgetDefinition } from '@/ui-desks/widgets/theme-template/definition';
+import { themeTemplateBrowserWidgetDefinition } from '@/ui-desks/widgets/theme-template-browser/definition';
 import type { DeskWidgetDefinition } from './types';
 
 export const widgetDefinitions = {
@@ -36,6 +38,8 @@ export const widgetDefinitions = {
 	[ siteCardWidgetDefinition.type ]: siteCardWidgetDefinition,
 	[ sitePreviewWidgetDefinition.type ]: sitePreviewWidgetDefinition,
 	[ themeWidgetDefinition.type ]: themeWidgetDefinition,
+	[ themePatternBrowserWidgetDefinition.type ]: themePatternBrowserWidgetDefinition,
+	[ themeTemplateBrowserWidgetDefinition.type ]: themeTemplateBrowserWidgetDefinition,
 	[ themeTemplateWidgetDefinition.type ]: themeTemplateWidgetDefinition,
 	[ themeStylesWidgetDefinition.type ]: themeStylesWidgetDefinition,
 	[ themePatternWidgetDefinition.type ]: themePatternWidgetDefinition,

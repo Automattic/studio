@@ -46,7 +46,10 @@ function isDeskStack( value: unknown ): value is DeskStack {
 		typeof value.zIndex === 'string' &&
 		value.memberIds.length >= 2 &&
 		value.memberIds.every( ( memberId ) => typeof memberId === 'string' ) &&
-		( value.viewMode === undefined || value.viewMode === 'stack' || value.viewMode === 'tiles' )
+		( value.viewMode === undefined ||
+			value.viewMode === 'stack' ||
+			value.viewMode === 'tiles' ||
+			value.viewMode === 'circle' )
 	);
 }
 

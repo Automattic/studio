@@ -1,5 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { globe } from '@wordpress/icons';
+import { isPageWidgetProps, PAGE_WIDGET_TYPE } from '@/ui-desks/widgets/page/types';
+import { isPostWidgetProps, POST_WIDGET_TYPE } from '@/ui-desks/widgets/post/types';
 import { SitePreviewAnnotateControl } from '@/ui-desks/widgets/site-preview/annotate-control';
 import {
 	SitePreviewAnnotationCancelControl,
@@ -64,6 +66,19 @@ export const sitePreviewWidgetDefinition = {
 	} ),
 	getSummary: ( widgetProps ) => widgetProps.path || '/',
 	getEditAction: () => ( { kind: 'canvas-editing' } ),
+	dropHandlers: [
+		{
+			id: 'preview-site-content',
+			type: 'connector',
+			sourceTypes: [ POST_WIDGET_TYPE, PAGE_WIDGET_TYPE ],
+			canHandle: ( sourceWidget, targetWidget ) =>
+				isSitePreviewWidgetProps( targetWidget.widgetProps ) &&
+				( ( isPostWidgetProps( sourceWidget.widgetProps ) &&
+					sourceWidget.widgetProps.postId > 0 ) ||
+					( isPageWidgetProps( sourceWidget.widgetProps ) &&
+						sourceWidget.widgetProps.pageId > 0 ) ),
+		},
+	],
 	focusModeControls: [
 		{
 			type: 'custom',

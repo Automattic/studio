@@ -149,6 +149,48 @@ describe( 'desks conversation render items', () => {
 			} )
 		);
 	} );
+
+	it( 'renders scratchpad artifacts as a preview card and adds synced run metadata', () => {
+		deskMocks.addWidget.mockReturnValue( true );
+
+		render(
+			createElement( ChatArtifact, {
+				artifact: {
+					version: STUDIO_CHAT_ARTIFACT_VERSION,
+					id: 'scratchpad-artifact',
+					widgets: [
+						{
+							type: 'scratchpad',
+							widgetProps: {
+								html: '<main><h1>Draft</h1></main>',
+								title: 'Landing page draft',
+								scope: 'page',
+								description: 'Tighten the hero.',
+							},
+						},
+					],
+				},
+			} )
+		);
+
+		expect( screen.getByText( 'Landing page draft' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Tighten the hero.' ) ).toBeInTheDocument();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Add to canvas' } ) );
+
+		expect( deskMocks.addWidget ).toHaveBeenCalledWith(
+			'scratchpad',
+			expect.objectContaining( {
+				widgetProps: expect.objectContaining( {
+					description: 'Tighten the hero.',
+					agentStatus: 'idle',
+					lastSyncedDescription: 'Tighten the hero.',
+				} ),
+				shouldStartEditing: false,
+			} )
+		);
+		expect( screen.getByRole( 'button', { name: 'Added' } ) ).toBeDisabled();
+	} );
 } );
 
 function assistantToolCallEntry( name: string ): SessionEntry {

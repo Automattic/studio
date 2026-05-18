@@ -11,7 +11,7 @@ const SCRATCHPAD_VIEWPORTS: Record< ScratchpadScope, RectangleWidgetShapeProps >
 	block: { w: 480, h: 360 },
 };
 
-export const SCRATCHPAD_DEFAULT_SHAPE_PROPS = getScratchpadShapePropsForScope( 'block' );
+export const SCRATCHPAD_DEFAULT_SHAPE_PROPS = { ...SCRATCHPAD_VIEWPORTS.block };
 
 export function getScratchpadShapePropsForScope(
 	scope: ScratchpadScope
@@ -34,7 +34,7 @@ export async function getFittedScratchpadShapeProps( {
 	shapeProps: RectangleWidgetShapeProps;
 } ): Promise< RectangleWidgetShapeProps | null > {
 	if ( typeof document === 'undefined' || ! widgetProps.html ) {
-		return getScratchpadShapePropsForScope( widgetProps.scope );
+		return { ...SCRATCHPAD_DEFAULT_SHAPE_PROPS };
 	}
 
 	const viewport = SCRATCHPAD_VIEWPORTS[ widgetProps.scope ];

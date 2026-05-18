@@ -5,7 +5,7 @@
  * available to WordPress instances. Shared between desktop app and CLI.
  */
 
-import { copyFile, mkdir, mkdtemp, readdir, unlink, writeFile } from 'fs/promises';
+import { copyFile, mkdir, mkdtemp, readdir, readFile, unlink, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import path from 'path';
 import type { MailpitConfig } from '@studio/common/lib/mailpit';
@@ -324,27 +324,18 @@ function getMailpitMuPlugin( mailpit: MailpitConfig ): MuPlugin {
 	};
 }
 
-/**
- * Create a loader mu-plugin that loads the Studio mu-plugins.
- *
- * The loader is wired to the directory the rest of the mu-plugins live in.
- * For the Playground runtime that's the fixed virtual-filesystem path the
- * Studio mu-plugins are mounted at; for the native PHP runtime it's the
- * on-disk directory created by `createMuPluginsDirectory()`. Routing
- * through this loader keeps the user's `wp-content/mu-plugins/` empty (or
- * close to it) regardless of runtime.
- *
- * @returns The path to the loader mu-plugin
- */
-async function createLoaderMuPlugin( muPluginsDir: string ): Promise< string > {
-	try {
-		// Create a temporary file for the loader mu-plugin
-		const tempDir = await mkdtemp( path.join( tmpdir(), 'studio-loader-' ) );
-		const loaderPath = path.join( tempDir, '99-studio-loader.php' );
+function escapePhpSingleQuotedString( value: string ): string {
+	return value.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
+}
 
-		const escapedMuPluginsDir = muPluginsDir.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
+function unescapePhpSingleQuotedString( value: string ): string {
+	return value.replace( /\\'/g, "'" ).replace( /\\\\/g, '\\' );
+}
 
-		const loaderContent = `<?php
+function getLoaderMuPluginContent( muPluginsDir: string ): string {
+	const escapedMuPluginsDir = escapePhpSingleQuotedString( muPluginsDir );
+
+	return `<?php
 		/**
 		 * Studio MU-Plugins Loader
 		 * Loads Studio-specific mu-plugins from a Studio-managed directory.
@@ -378,8 +369,84 @@ async function createLoaderMuPlugin( muPluginsDir: string ): Promise< string > {
 			}
 		}
 		`;
+}
 
-		await writeFile( loaderPath, loaderContent );
+async function getExistingNativePhpMuPluginsDir(
+	loaderPath: string,
+	options: MuPluginOptions
+): Promise< string | null > {
+	let loaderContent: string;
+	try {
+		loaderContent = await readFile( loaderPath, 'utf8' );
+	} catch {
+		return null;
+	}
+
+	const match = loaderContent.match( /\$studio_mu_plugins_dir = '((?:\\\\|\\'|[^'])*)';/ );
+	if ( ! match ) {
+		return null;
+	}
+
+	const muPluginsDir = unescapePhpSingleQuotedString( match[ 1 ] );
+	if ( loaderContent !== getLoaderMuPluginContent( muPluginsDir ) ) {
+		return null;
+	}
+
+	let existingFiles: string[];
+	try {
+		existingFiles = await readdir( muPluginsDir );
+	} catch {
+		return null;
+	}
+
+	const expectedPlugins = getStandardMuPlugins( options ).sort( ( a, b ) =>
+		a.filename.localeCompare( b.filename )
+	);
+	const expectedFiles = expectedPlugins.map( ( plugin ) => plugin.filename );
+	const actualFiles = existingFiles.filter( ( file ) => file.endsWith( '.php' ) ).sort();
+
+	if (
+		expectedFiles.length !== actualFiles.length ||
+		expectedFiles.some( ( filename, index ) => filename !== actualFiles[ index ] )
+	) {
+		return null;
+	}
+
+	for ( const plugin of expectedPlugins ) {
+		let existingContent: string;
+		try {
+			existingContent = await readFile( path.join( muPluginsDir, plugin.filename ), 'utf8' );
+		} catch {
+			return null;
+		}
+
+		if ( existingContent !== plugin.content ) {
+			return null;
+		}
+	}
+
+	return muPluginsDir;
+}
+
+/**
+ * Create a loader mu-plugin that loads the Studio mu-plugins.
+ *
+ * The loader is wired to the directory the rest of the mu-plugins live in.
+ * For the Playground runtime that's the fixed virtual-filesystem path the
+ * Studio mu-plugins are mounted at; for the native PHP runtime it's the
+ * on-disk directory created by `createMuPluginsDirectory()`. Routing
+ * through this loader keeps the user's `wp-content/mu-plugins/` empty (or
+ * close to it) regardless of runtime.
+ *
+ * @returns The path to the loader mu-plugin
+ */
+async function createLoaderMuPlugin( muPluginsDir: string ): Promise< string > {
+	try {
+		// Create a temporary file for the loader mu-plugin
+		const tempDir = await mkdtemp( path.join( tmpdir(), 'studio-loader-' ) );
+		const loaderPath = path.join( tempDir, '99-studio-loader.php' );
+
+		await writeFile( loaderPath, getLoaderMuPluginContent( muPluginsDir ) );
 		return loaderPath;
 	} catch ( error ) {
 		throw new Error( `Failed to create loader mu-plugin: ${ error }` );
@@ -929,21 +996,29 @@ export async function writeStudioMuPluginsForNativePhpRuntime(
 	siteFolder: string,
 	isWpAutoUpdating: MuPluginOptions[ 'isWpAutoUpdating' ],
 	mailpit?: MuPluginOptions[ 'mailpit' ]
-): Promise< void > {
+): Promise< string > {
 	const muPluginsDir = path.join( siteFolder, 'wp-content', 'mu-plugins' );
 	await mkdir( muPluginsDir, { recursive: true } );
+	const loaderPath = path.join( muPluginsDir, STUDIO_LOADER_MU_PLUGIN_FILENAME );
+
+	const options: MuPluginOptions = {
+		isWpAutoUpdating,
+		mailpit,
+		runtime: 'native-php',
+	};
+	const existingMuPluginsDir = await getExistingNativePhpMuPluginsDir( loaderPath, options );
+	if ( existingMuPluginsDir ) {
+		return existingMuPluginsDir;
+	}
 
 	// `getMuPlugins` writes the plugin files to a temp directory and produces
 	// a loader file that requires them. For the native PHP runtime we only
 	// copy the loader into wp-content/mu-plugins/ — WordPress auto-loads it
 	// at runtime and it pulls the rest in from the temp directory, keeping
 	// the user's mu-plugins/ nearly empty.
-	const [ , loaderHostPath ] = await getMuPlugins( {
-		isWpAutoUpdating,
-		runtime: 'native-php',
-		mailpit,
-	} );
-	await copyFile( loaderHostPath, path.join( muPluginsDir, STUDIO_LOADER_MU_PLUGIN_FILENAME ) );
+	const [ tmpMuPluginsDir, loaderHostPath ] = await getMuPlugins( options );
+	await copyFile( loaderHostPath, loaderPath );
+	return tmpMuPluginsDir;
 }
 
 /**

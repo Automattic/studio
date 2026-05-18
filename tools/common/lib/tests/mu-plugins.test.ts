@@ -92,13 +92,7 @@ describe( 'cleanupLegacyMuPlugins', () => {
 describe( 'writeStudioMuPluginsForNativePhpRuntime', () => {
 	let sitePath: string;
 
-	beforeEach( async () => {
-		sitePath = await mkdtemp( join( tmpdir(), 'studio-test-site-' ) );
-	} );
-
-	it( 'should preserve the auto-update setting for native PHP mu-plugins', async () => {
-		await writeStudioMuPluginsForNativePhpRuntime( sitePath, true );
-
+	async function getGeneratedMuPluginsDir(): Promise< string > {
 		const loaderPath = join(
 			sitePath,
 			'wp-content',
@@ -109,8 +103,19 @@ describe( 'writeStudioMuPluginsForNativePhpRuntime', () => {
 		const muPluginsDir = loaderContent.match( /\$studio_mu_plugins_dir = '([^']+)';/ )?.[ 1 ];
 
 		expect( muPluginsDir ).toBeTruthy();
+		return muPluginsDir as string;
+	}
 
-		const generatedPlugins = await readdir( muPluginsDir as string );
+	beforeEach( async () => {
+		sitePath = await mkdtemp( join( tmpdir(), 'studio-test-site-' ) );
+	} );
+
+	it( 'should preserve the auto-update setting for native PHP mu-plugins', async () => {
+		await writeStudioMuPluginsForNativePhpRuntime( sitePath, true );
+
+		const muPluginsDir = await getGeneratedMuPluginsDir();
+
+		const generatedPlugins = await readdir( muPluginsDir );
 		expect( generatedPlugins ).toContain( '0-enable-auto-updates.php' );
 		expect( generatedPlugins ).not.toContain( '0-disable-auto-updates.php' );
 	} );
@@ -122,21 +127,9 @@ describe( 'writeStudioMuPluginsForNativePhpRuntime', () => {
 			smtpPort: 1025,
 		} );
 
-		const loaderPath = join(
-			sitePath,
-			'wp-content',
-			'mu-plugins',
-			STUDIO_LOADER_MU_PLUGIN_FILENAME
-		);
-		const loaderContent = await readFile( loaderPath, 'utf8' );
-		const muPluginsDir = loaderContent.match( /\$studio_mu_plugins_dir = '([^']+)';/ )?.[ 1 ];
+		const muPluginsDir = await getGeneratedMuPluginsDir();
 
-		expect( muPluginsDir ).toBeTruthy();
-
-		const mailpitContent = await readFile(
-			join( muPluginsDir as string, '0-mailpit.php' ),
-			'utf8'
-		);
+		const mailpitContent = await readFile( join( muPluginsDir, '0-mailpit.php' ), 'utf8' );
 
 		expect( mailpitContent ).toContain( 'studio_mailpit_filter_headers' );
 		expect( mailpitContent ).toContain( "'content-type'" );
@@ -146,5 +139,26 @@ describe( 'writeStudioMuPluginsForNativePhpRuntime', () => {
 			"$payload['Bcc'] = studio_mailpit_get_recipient_emails( $bcc );"
 		);
 		expect( mailpitContent ).toContain( "$payload['ReplyTo'] = $reply_to;" );
+	} );
+
+	it( 'should refresh generated mu-plugins when the MailPit endpoint changes', async () => {
+		await writeStudioMuPluginsForNativePhpRuntime( sitePath, true, {
+			enabled: true,
+			httpPort: 8025,
+			smtpPort: 1025,
+		} );
+		const originalMuPluginsDir = await getGeneratedMuPluginsDir();
+
+		await writeStudioMuPluginsForNativePhpRuntime( sitePath, true, {
+			enabled: true,
+			httpPort: 8027,
+			smtpPort: 1027,
+		} );
+		const refreshedMuPluginsDir = await getGeneratedMuPluginsDir();
+		const mailpitContent = await readFile( join( refreshedMuPluginsDir, '0-mailpit.php' ), 'utf8' );
+
+		expect( refreshedMuPluginsDir ).not.toBe( originalMuPluginsDir );
+		expect( mailpitContent ).toContain( 'http://127.0.0.1:8027/api/v1/send' );
+		expect( mailpitContent ).not.toContain( 'http://127.0.0.1:8025/api/v1/send' );
 	} );
 } );

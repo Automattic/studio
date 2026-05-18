@@ -28,6 +28,7 @@ import {
 	getWpCliPharPath,
 } from 'cli/lib/dependency-management/paths';
 import { validatePhpVersion } from 'cli/lib/utils';
+import { getDefaultPhpArgs } from './native-php';
 import type { SiteData } from 'cli/lib/cli-config/core';
 import type { ReadableStream as WebReadableStream } from 'node:stream/web';
 
@@ -124,9 +125,11 @@ async function runNativeWpCliCommand(
 	const nativeArgs = applyWpCliCommandOptions( 'native', args, options );
 	const phpVersion = validateNativePhpVersion( options.phpVersion ?? DEFAULT_PHP_VERSION );
 	await writeStudioMuPluginsForNativePhpRuntime( site.path, site.isWpAutoUpdating, site.mailpit );
+	// Don't apply open_basedir or disable_functions to the WP-CLI process
+	const defaultArgs = getDefaultPhpArgs( phpVersion );
 	const child = spawn(
 		getPhpBinaryPath( phpVersion ),
-		[ getWpCliPharPath(), `--path=${ site.path }`, ...nativeArgs ],
+		[ ...defaultArgs, getWpCliPharPath(), `--path=${ site.path }`, ...nativeArgs ],
 		{
 			cwd: site.path,
 			stdio: [ 'ignore', 'pipe', 'pipe' ],
@@ -260,9 +263,13 @@ export async function runWpCliCommand(
 
 async function runNativeGlobalWpCliCommand( args: string[] ): Promise< DisposableWpCliResponse > {
 	const phpVersion = validateNativePhpVersion( DEFAULT_PHP_VERSION );
-	const child = spawn( getPhpBinaryPath( phpVersion ), [ getWpCliPharPath(), ...args ], {
-		stdio: [ 'ignore', 'pipe', 'pipe' ],
-	} );
+	// Don't apply open_basedir or disable_functions to the WP-CLI process
+	const defaultArgs = getDefaultPhpArgs( phpVersion );
+	const child = spawn(
+		getPhpBinaryPath( phpVersion ),
+		[ ...defaultArgs, getWpCliPharPath(), ...args ],
+		{ stdio: [ 'ignore', 'pipe', 'pipe' ] }
+	);
 
 	await ensureChildSpawned( child );
 

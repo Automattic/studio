@@ -80,7 +80,7 @@ const ALLOWED_PHP_VERSIONS = [ ...SupportedPHPVersions ];
 
 const logger = new Logger< LoggerAction >();
 
-type CreateCommandOptions = {
+export type CreateCommandOptions = {
 	name?: string;
 	siteId?: string;
 	wpVersion: string;

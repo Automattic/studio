@@ -34,6 +34,10 @@ import {
 	removeSkillFromSite,
 	updateManagedInstructionFiles,
 } from '@studio/common/lib/agent-skills';
+import {
+	downloadAndExtractBlueprintBundle,
+	removeBlueprintTempDir,
+} from '@studio/common/lib/blueprint-bundle';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
@@ -74,6 +78,13 @@ import {
 	WINDOWS_TITLEBAR_HEIGHT,
 } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
+import {
+	deleteAiSessionPlacement,
+	hydrateAiSessionSummaryWithPlacement,
+	readAiSessionPlacement,
+	readAiSessionPlacements,
+	setAiSessionSitePlacement,
+} from 'src/lib/ai-session-placement';
 import { getAiSessionsRootDirectory } from 'src/lib/ai-sessions';
 import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
 import { bumpStat, getBlueprintMetric, StatsGroup } from 'src/lib/bump-stats';
@@ -82,7 +93,6 @@ import {
 	isRootCATrusted,
 	trustRootCA,
 } from 'src/lib/certificate-manager';
-import { download } from 'src/lib/download';
 import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
 import { buildFeatureFlags } from 'src/lib/feature-flags';
 import { getImageData } from 'src/lib/get-image-data';
@@ -111,7 +121,12 @@ import {
 	removeSkillById,
 	type SkillStatus,
 } from 'src/modules/agent-instructions/lib/skills';
-import { answerAgentRun, interruptAgentRun, startAgentRun } from 'src/modules/ai-agent/run-manager';
+import {
+	answerAgentRun,
+	interruptAgentRun,
+	listActiveAgentRuns,
+	startAgentRun,
+} from 'src/modules/ai-agent/run-manager';
 import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
@@ -137,6 +152,7 @@ import {
 } from 'src/storage/user-data';
 import { Blueprint } from 'src/stores/wpcom-api';
 import { captureSiteThumbnail } from './lib/capture-site-thumbnail';
+import type { ActiveAgentRun } from '@studio/common/ai/agent-events';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { Ignore } from 'ignore';
@@ -195,9 +211,11 @@ export { getDefaultSiteDirectory, saveDefaultSiteDirectory };
 export { importSite, exportSite } from 'src/modules/import-export/lib/ipc-handlers';
 
 export {
+	exportDeskConfig,
 	getDeskSettings,
 	getSiteDeskConfig,
 	getUserDeskConfig,
+	importDeskConfig,
 	saveDeskSettings,
 	saveSiteDeskConfig,
 	saveUserDeskConfig,
@@ -223,12 +241,16 @@ function hydrateAiSessionSummary(
 }
 
 async function listHydratedAiSessions( rootDirectory: string ): Promise< AiSessionSummary[] > {
-	const [ sessions, sessionMetadata ] = await Promise.all( [
+	const [ sessions, sessionMetadata, placements ] = await Promise.all( [
 		listAiSessionsFromStore( rootDirectory ),
 		readSharedSessions(),
+		readAiSessionPlacements(),
 	] );
 	return sessions.map( ( session ) =>
-		hydrateAiSessionSummary( session, sessionMetadata[ session.id ] )
+		hydrateAiSessionSummary(
+			hydrateAiSessionSummaryWithPlacement( session, placements[ session.id ] ),
+			sessionMetadata[ session.id ]
+		)
 	);
 }
 
@@ -237,10 +259,16 @@ async function loadHydratedAiSession(
 	sessionIdOrPrefix: string
 ): Promise< LoadedAiSession > {
 	const session = await loadAiSessionFromStore( rootDirectory, sessionIdOrPrefix );
-	const metadata = await readSharedSession( session.summary.id );
+	const [ metadata, placement ] = await Promise.all( [
+		readSharedSession( session.summary.id ),
+		readAiSessionPlacement( session.summary.id ),
+	] );
 	return {
 		...session,
-		summary: hydrateAiSessionSummary( session.summary, metadata ),
+		summary: hydrateAiSessionSummary(
+			hydrateAiSessionSummaryWithPlacement( session.summary, placement ),
+			metadata
+		),
 	};
 }
 
@@ -261,6 +289,7 @@ export async function deleteAiSession(
 ): Promise< AiSessionSummary > {
 	const deleted = await deleteAiSessionFromStore( getAiSessionsRootDirectory(), sessionIdOrPrefix );
 	await deleteSharedSession( deleted.id );
+	await deleteAiSessionPlacement( deleted.id );
 	return deleted;
 }
 
@@ -305,14 +334,23 @@ export async function createAiSession(
 		return emptyForSite;
 	}
 
-	return hydrateAiSessionSummary(
-		await createAiSessionInStore( sitesRoot, {
-			site: {
-				name: server.details.name,
-				path: sitePath,
-			},
-		} )
-	);
+	const created = await createAiSessionInStore( sitesRoot, {
+		site: {
+			name: server.details.name,
+			path: sitePath,
+		},
+	} );
+	await setAiSessionSitePlacement( created.id, {
+		siteId: server.details.id,
+		siteName: server.details.name,
+		sitePath,
+	} );
+	return hydrateAiSessionSummaryWithPlacement( created, {
+		kind: 'site',
+		siteId: server.details.id,
+		siteName: server.details.name,
+		sitePath,
+	} );
 }
 
 export async function updateAiSessionMetadata(
@@ -324,8 +362,14 @@ export async function updateAiSessionMetadata(
 		getAiSessionsRootDirectory(),
 		sessionIdOrPrefix
 	);
-	const metadata = await updateSharedSession( summary.id, patch );
-	return hydrateAiSessionSummary( summary, metadata );
+	const [ metadata, placement ] = await Promise.all( [
+		updateSharedSession( summary.id, patch ),
+		readAiSessionPlacement( summary.id ),
+	] );
+	return hydrateAiSessionSummary(
+		hydrateAiSessionSummaryWithPlacement( summary, placement ),
+		metadata
+	);
 }
 
 /**
@@ -341,7 +385,7 @@ export async function updateAiSessionMetadata(
  */
 async function reconcileSessionEnvironmentBeforeRun( sessionId: string ): Promise< void > {
 	const root = getAiSessionsRootDirectory();
-	const { summary } = await loadAiSessionFromStore( root, sessionId );
+	const { summary } = await loadHydratedAiSession( root, sessionId );
 
 	if ( summary.activeEnvironment !== 'live' ) {
 		return;
@@ -402,6 +446,12 @@ export async function continueAiSession(
 	} );
 }
 
+export async function listActiveAiAgentRuns(
+	_event: IpcMainInvokeEvent
+): Promise< ActiveAgentRun[] > {
+	return listActiveAgentRuns();
+}
+
 export async function setAiSessionModel(
 	_event: IpcMainInvokeEvent,
 	sessionId: string,
@@ -434,7 +484,7 @@ export async function setSessionEnvironment(
 	sessionId: string,
 	environment: 'local' | 'live'
 ): Promise< SetSessionEnvironmentResult > {
-	const { summary } = await loadAiSessionFromStore( getAiSessionsRootDirectory(), sessionId );
+	const { summary } = await loadHydratedAiSession( getAiSessionsRootDirectory(), sessionId );
 
 	if ( ! summary.ownerSitePath || ! summary.ownerSiteName ) {
 		throw new Error( 'Cannot change environment: session has no owner site' );
@@ -459,24 +509,20 @@ export async function setSessionEnvironment(
 
 		await appendStudioEntry( getAiSessionsRootDirectory(), sessionId, 'studio.site_selected', {
 			siteName: liveSite.name,
-			// Keep the owner's path on remote picks too, so the renderer
-			// (which groups the sidebar by `ownerSitePath`) still resolves
-			// the session to its owner while the active environment is live.
+			// Keep the desktop placement path on remote picks too, so live/local
+			// environment flips still resolve against the same local site.
 			sitePath: summary.ownerSitePath,
 			remote: true,
 			url: liveSite.url,
 			wpcomSiteId: liveSite.id,
 		} );
 
-		const refreshed = await loadAiSessionFromStore( getAiSessionsRootDirectory(), sessionId );
+		const refreshed = await loadHydratedAiSession( getAiSessionsRootDirectory(), sessionId );
 		return {
 			environment: 'live',
 			url: liveSite.url,
 			wpcomSiteId: liveSite.id,
-			summary: hydrateAiSessionSummary(
-				refreshed.summary,
-				await readSharedSession( refreshed.summary.id )
-			),
+			summary: refreshed.summary,
 		};
 	}
 
@@ -487,13 +533,10 @@ export async function setSessionEnvironment(
 		url: 'url' in details ? details.url : undefined,
 	} );
 
-	const refreshed = await loadAiSessionFromStore( getAiSessionsRootDirectory(), sessionId );
+	const refreshed = await loadHydratedAiSession( getAiSessionsRootDirectory(), sessionId );
 	return {
 		environment: 'local',
-		summary: hydrateAiSessionSummary(
-			refreshed.summary,
-			await readSharedSession( refreshed.summary.id )
-		),
+		summary: refreshed.summary,
 	};
 }
 
@@ -1331,6 +1374,61 @@ export function showItemInFolder( _event: IpcMainInvokeEvent, path: string ) {
 	shell.showItemInFolder( path );
 }
 
+export async function readLocalMediaFile(
+	_event: IpcMainInvokeEvent,
+	path: string
+): Promise< { name: string; mimeType: string; data: ArrayBuffer } > {
+	const stats = await fsPromises.stat( path );
+	if ( ! stats.isFile() ) {
+		throw new Error( 'Local media path must be a file.' );
+	}
+
+	const mimeType = getLocalMediaMimeType( path );
+	if ( ! mimeType ) {
+		throw new Error( 'Local media file type is not supported.' );
+	}
+
+	const buffer = await fsPromises.readFile( path );
+	return {
+		name: nodePath.basename( path ),
+		mimeType,
+		data: buffer.buffer.slice(
+			buffer.byteOffset,
+			buffer.byteOffset + buffer.byteLength
+		) as ArrayBuffer,
+	};
+}
+
+function getLocalMediaMimeType( path: string ) {
+	const extension = nodePath.extname( path ).toLowerCase().slice( 1 );
+	const mimeTypes: Record< string, string > = {
+		avif: 'image/avif',
+		avi: 'video/x-msvideo',
+		bmp: 'image/bmp',
+		gif: 'image/gif',
+		heic: 'image/heic',
+		heif: 'image/heif',
+		ico: 'image/x-icon',
+		jpeg: 'image/jpeg',
+		jpg: 'image/jpeg',
+		m4v: 'video/x-m4v',
+		mkv: 'video/x-matroska',
+		mov: 'video/quicktime',
+		mp4: 'video/mp4',
+		mpeg: 'video/mpeg',
+		mpg: 'video/mpeg',
+		ogv: 'video/ogg',
+		png: 'image/png',
+		svg: 'image/svg+xml',
+		tif: 'image/tiff',
+		tiff: 'image/tiff',
+		webm: 'video/webm',
+		webp: 'image/webp',
+	};
+
+	return mimeTypes[ extension ] ?? '';
+}
+
 // Update a site's theme details and thumbnail. Emit the appropriate IPC events to the renderer
 // process.
 export async function loadThemeDetails(
@@ -2124,59 +2222,6 @@ export async function listLocalFileTree(
 	}
 }
 
-/**
- * Downloads a blueprint bundle zip from a URL, extracts it to a temp directory,
- * and returns the path to the extracted blueprint.json.
- * Used for API blueprints that reference bundled resources (e.g. theme zips, WXR files).
- */
-async function downloadAndExtractBlueprintBundle( bundleUrl: string ): Promise< {
-	blueprintJsonPath: string;
-	tempDir: string;
-} > {
-	const tempDir = await fsPromises.mkdtemp(
-		nodePath.join( os.tmpdir(), 'studio-blueprint-bundle-' )
-	);
-	const tempZipPath = nodePath.join( tempDir, 'bundle.zip' );
-
-	try {
-		await download( bundleUrl, tempZipPath );
-		await extractZip( tempZipPath, tempDir );
-		await fsPromises.unlink( tempZipPath ).catch( () => {} );
-
-		// Find blueprint.json in the extracted contents
-		let blueprintJsonPath = nodePath.join( tempDir, 'blueprint.json' );
-		try {
-			await fsPromises.access( blueprintJsonPath );
-		} catch {
-			// Some zips have a single root directory — check one level deeper
-			const files = await fsPromises.readdir( tempDir );
-			for ( const file of files ) {
-				const nestedPath = nodePath.join( tempDir, file, 'blueprint.json' );
-				try {
-					await fsPromises.access( nestedPath );
-					blueprintJsonPath = nestedPath;
-					break;
-				} catch {
-					// continue checking
-				}
-			}
-		}
-
-		try {
-			await fsPromises.access( blueprintJsonPath );
-		} catch {
-			throw new Error(
-				'No blueprint.json found in the downloaded bundle. Ensure the bundle zip contains a blueprint.json.'
-			);
-		}
-
-		return { blueprintJsonPath, tempDir };
-	} catch ( error ) {
-		await fsPromises.rm( tempDir, { recursive: true, force: true } ).catch( () => {} );
-		throw error;
-	}
-}
-
 export async function validateBlueprint(
 	_event: IpcMainInvokeEvent,
 	blueprintJson: Blueprint[ 'blueprint' ]
@@ -2235,15 +2280,6 @@ export async function extractBlueprintBundle(
 		await fsPromises.rm( tempDir, { recursive: true, force: true } );
 		throw error;
 	}
-}
-
-async function removeBlueprintTempDir( tempDir: string ): Promise< void > {
-	const allowedPrefix = nodePath.join( os.tmpdir(), 'studio-blueprint-bundle-' );
-	const resolvedDir = nodePath.resolve( tempDir );
-	if ( ! resolvedDir.startsWith( allowedPrefix ) ) {
-		throw new Error( 'Invalid temp directory path' );
-	}
-	await fsPromises.rm( resolvedDir, { recursive: true, force: true } );
 }
 
 export async function cleanupBlueprintTempDir(

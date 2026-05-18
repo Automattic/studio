@@ -6,6 +6,15 @@ import MainSidebar from 'src/components/main-sidebar';
 import { useAuth } from 'src/hooks/use-auth';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { WorkspaceSelectionProvider } from 'src/modules/workspaces';
+import {
+	clearWorkspaceDollyAssistantStateCacheForTests,
+	getWorkspaceDollyConversationState,
+	writeWorkspaceDollyConversationState,
+} from 'src/modules/workspaces/lib/dolly/session';
+import {
+	WORKSPACE_DOLLY_AGENT_ID,
+	type WorkspaceDollyConversationState,
+} from 'src/modules/workspaces/lib/dolly/types';
 import { store } from 'src/stores';
 import type { SyncSite } from '@studio/common/types/sync';
 
@@ -105,6 +114,36 @@ const createSyncSite = ( overrides: Partial< SyncSite > = {} ): SyncSite => ( {
 	...overrides,
 } );
 
+const seedWorkspaceConversation = ( {
+	workspaceId,
+	conversationId,
+	message,
+	lastUpdated = Date.now(),
+}: {
+	workspaceId: string;
+	conversationId: string;
+	message: string;
+	lastUpdated?: number;
+} ) => {
+	writeWorkspaceDollyConversationState( {
+		id: conversationId,
+		key: {
+			workspaceId,
+			agentId: WORKSPACE_DOLLY_AGENT_ID,
+		},
+		input: '',
+		messages: [
+			{
+				id: 0,
+				role: 'user',
+				content: message,
+				createdAt: lastUpdated,
+			},
+		],
+		lastUpdated,
+	} as WorkspaceDollyConversationState );
+};
+
 const site2 = createLocalSite( {
 	name: 'test-2',
 	path: '/fake/test-2',
@@ -194,6 +233,7 @@ describe( 'MainSidebar Footer', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		localStorage.clear();
+		clearWorkspaceDollyAssistantStateCacheForTests();
 		featureFlagsMock.enableWorkspaces = false;
 		siteDetailsMocked.sites = defaultLocalSites();
 		siteDetailsMocked.selectedSite = site2;
@@ -231,6 +271,7 @@ describe( 'MainSidebar Site Menu', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		localStorage.clear();
+		clearWorkspaceDollyAssistantStateCacheForTests();
 		featureFlagsMock.enableWorkspaces = false;
 		siteDetailsMocked.sites = defaultLocalSites();
 		siteDetailsMocked.selectedSite = site2;
@@ -279,6 +320,7 @@ describe( 'MainSidebar Workspace Site Menu', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		localStorage.clear();
+		clearWorkspaceDollyAssistantStateCacheForTests();
 		ipcApiMock.getConnectedWpcomSites.mockResolvedValue( [] );
 		mockWpcomSitesQuery();
 	} );
@@ -290,9 +332,6 @@ describe( 'MainSidebar Workspace Site Menu', () => {
 		await act( async () => renderWithProvider( <MainSidebar /> ) );
 
 		expect( screen.getByRole( 'button', { name: 'Local Only' } ) ).toBeVisible();
-		expect(
-			screen.getByRole( 'button', { name: 'Select Local target: Local Only is stopped' } )
-		).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'start Local Only site' } ) ).toBeVisible();
 	} );
 
@@ -311,14 +350,9 @@ describe( 'MainSidebar Workspace Site Menu', () => {
 		} );
 
 		await act( async () => renderWithProvider( <MainSidebar /> ) );
-		await screen.findByRole( 'button', {
-			name: 'Select Production target: https://business.example',
-		} );
+		await screen.findByRole( 'button', { name: 'Business Plan' } );
 
 		expect( screen.getAllByRole( 'button', { name: 'Business Plan' } ) ).toHaveLength( 1 );
-		expect(
-			screen.getByRole( 'button', { name: 'Select Local target: Business Plan is stopped' } )
-		).toBeVisible();
 	} );
 
 	it( 'renders production and staging targets as one remote-only workspace', async () => {
@@ -342,14 +376,6 @@ describe( 'MainSidebar Workspace Site Menu', () => {
 		await act( async () => renderWithProvider( <MainSidebar /> ) );
 
 		expect( await screen.findByRole( 'button', { name: 'Remote Store' } ) ).toBeVisible();
-		expect(
-			screen.getByRole( 'button', { name: 'Select Production target: https://remote.example' } )
-		).toBeVisible();
-		expect(
-			screen.getByRole( 'button', {
-				name: 'Select Staging target: https://remote-staging.example',
-			} )
-		).toBeVisible();
 		expect(
 			screen.queryByRole( 'button', { name: 'Remote Store Staging' } )
 		).not.toBeInTheDocument();
@@ -380,14 +406,9 @@ describe( 'MainSidebar Workspace Site Menu', () => {
 		} );
 
 		await act( async () => renderWithProvider( <MainSidebar /> ) );
-		await screen.findByRole( 'button', {
-			name: 'Select Staging target: https://full-staging.example',
-		} );
+		await screen.findByRole( 'button', { name: 'Full Workspace' } );
 
 		expect( screen.getAllByRole( 'button', { name: 'Full Workspace' } ) ).toHaveLength( 1 );
-		expect(
-			screen.getByRole( 'group', { name: 'Workspace targets: Production, Staging, Local' } )
-		).toBeVisible();
 	} );
 
 	it( 'renders production-only remote workspaces in the workspace list', async () => {
@@ -403,11 +424,6 @@ describe( 'MainSidebar Workspace Site Menu', () => {
 		await act( async () => renderWithProvider( <MainSidebar /> ) );
 
 		expect( await screen.findByRole( 'button', { name: 'Remote Only' } ) ).toBeVisible();
-		expect(
-			screen.getByRole( 'button', {
-				name: 'Select Production target: https://remote-only.example',
-			} )
-		).toBeVisible();
 	} );
 
 	it( 'does not duplicate local-backed workspaces when connected metadata overlaps WP.com data', async () => {
@@ -425,14 +441,12 @@ describe( 'MainSidebar Workspace Site Menu', () => {
 		} );
 
 		await act( async () => renderWithProvider( <MainSidebar /> ) );
-		await screen.findByRole( 'button', {
-			name: 'Select Production target: https://business.example',
-		} );
+		await screen.findByRole( 'button', { name: 'Overlap Site' } );
 
 		expect( screen.getAllByRole( 'button', { name: 'Overlap Site' } ) ).toHaveLength( 1 );
 	} );
 
-	it( 'uses accessible target labels instead of letter-only controls', async () => {
+	it( 'does not render target indicators inside workspace rows', async () => {
 		const localSite = createLocalSite( { id: 'labels-local', name: 'Label Site' } );
 		const productionSite = createSyncSite( {
 			id: 101,
@@ -455,18 +469,51 @@ describe( 'MainSidebar Workspace Site Menu', () => {
 
 		await act( async () => renderWithProvider( <MainSidebar /> ) );
 		await waitFor( () =>
-			expect(
-				screen.getByRole( 'group', {
-					name: 'Workspace targets: Production, Staging, Local',
-				} )
-			).toBeVisible()
+			expect( screen.getByRole( 'button', { name: 'Label Site' } ) ).toBeVisible()
 		);
 
-		expect( screen.getByRole( 'button', { name: /Select Production target:/ } ) ).toBeVisible();
-		expect( screen.getByRole( 'button', { name: /Select Staging target:/ } ) ).toBeVisible();
-		expect( screen.getByRole( 'button', { name: /Select Local target:/ } ) ).toBeVisible();
+		expect( screen.queryByLabelText( /Production target:/ ) ).not.toBeInTheDocument();
+		expect( screen.queryByLabelText( /Staging target:/ ) ).not.toBeInTheDocument();
+		expect( screen.queryByLabelText( /Local target:/ ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: /Staging target:/ } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: /Local target:/ } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'P' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'S' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'L' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'renders recent chats under their workspace and selects that workspace chat', async () => {
+		const user = userEvent.setup();
+		const productionSite = createSyncSite( {
+			id: 101,
+			name: 'Remote Only',
+			url: 'https://remote-only.example',
+		} );
+		enableWorkspaceSidebar( {
+			wpcomSites: [ productionSite ],
+		} );
+		seedWorkspaceConversation( {
+			workspaceId: 'studio-workspace:wpcom:101',
+			conversationId: 'workspace-chat-homepage',
+			message: 'Edit the homepage hero',
+			lastUpdated: Date.UTC( 2026, 4, 16 ),
+		} );
+
+		await act( async () => renderWithProvider( <MainSidebar /> ) );
+
+		expect( await screen.findByRole( 'button', { name: 'Remote Only' } ) ).toBeVisible();
+		const chatButton = screen.getByRole( 'button', {
+			name: 'Open chat: Edit the homepage hero',
+		} );
+		expect( chatButton ).toBeVisible();
+
+		await user.click( chatButton );
+
+		expect(
+			getWorkspaceDollyConversationState( {
+				workspaceId: 'studio-workspace:wpcom:101',
+				remoteTargets: [],
+			} ).id
+		).toBe( 'workspace-chat-homepage' );
 	} );
 } );

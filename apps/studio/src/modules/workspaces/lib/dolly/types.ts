@@ -1,7 +1,10 @@
 import type { SendMessageParams } from '@automattic/agenttic-client';
 import type { UploadedImage } from '@automattic/agenttic-ui';
-import type { SyncSite } from '@studio/common/types/sync';
-import type { RemoteTargetId } from 'src/modules/workspaces/types';
+import type {
+	RemoteTarget,
+	WorkspaceTargetId,
+	StudioWorkspace,
+} from 'src/modules/workspaces/types';
 import type { Message as MessageType } from 'src/stores/chat-slice';
 
 export const WORKSPACE_DOLLY_AGENT_ID = 'dolly';
@@ -32,8 +35,6 @@ export const WORKSPACE_DOLLY_IMAGE_PRELOAD_TIMEOUT_MS = 750;
 
 export type WorkspaceDollyConversationKey = {
 	workspaceId: string;
-	targetId: RemoteTargetId;
-	siteId: number;
 	agentId: typeof WORKSPACE_DOLLY_AGENT_ID;
 };
 
@@ -48,7 +49,7 @@ export type WorkspaceDollyConversationState = {
 	lastUpdated: number;
 };
 
-export type WorkspaceDollyTargetActivity = {
+export type WorkspaceDollyWorkspaceActivity = {
 	isAssistantThinking?: boolean;
 	hasUnreadAssistantMessage?: boolean;
 };
@@ -111,23 +112,34 @@ export type WorkspaceDollyHistoryChat = {
 
 export type WorkspaceDollyPreviewContext = {
 	isOpen: boolean;
-	siteId: number;
+	targetId?: WorkspaceTargetId;
+	siteId?: number | string;
 	openedURL?: string;
 	currentURL?: string;
 	isLoading: boolean;
 };
 
 export type WorkspaceDollySiteAssociationContext = {
-	status: 'workspace_target';
+	status: 'workspace';
 	workspaceId: string;
-	targetId: RemoteTargetId;
-	wpcomSiteId: number;
-	wpcomSiteUrl: string;
+	transportTargetId: RemoteTarget[ 'id' ];
+	transportWpcomSiteId: number;
+	transportWpcomSiteUrl: string;
+	activeTargetId?: WorkspaceTargetId;
+	activeSiteId?: number | string;
+	activeSiteUrl?: string;
+	activeSiteBaseUrl?: string;
+	targets: Array< {
+		targetId: WorkspaceTargetId;
+		siteId?: number | string;
+		siteUrl: string;
+		isProduction?: boolean;
+	} >;
 	instructions: string;
 };
 
-export type WorkspaceDollyTargetDescriptor = {
+export type WorkspaceDollyWorkspaceDescriptor = {
 	workspaceId: string;
-	targetId: RemoteTargetId;
-	site: SyncSite;
+	workspace?: StudioWorkspace;
+	remoteTargets: RemoteTarget[];
 };

@@ -6,17 +6,23 @@ import {
 	desktop,
 	external,
 	Icon,
-	lockSmall,
 	rotateRight,
 } from '@wordpress/icons';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+	useCallback,
+	useEffect,
+	useRef,
+	useState,
+	type MouseEvent as ReactMouseEvent,
+} from 'react';
 import Button from 'src/components/button';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import type { WorkspaceTargetId } from 'src/modules/workspaces/types';
 
 const DEFAULT_PREVIEW_WIDTH = 520;
 const MIN_PREVIEW_WIDTH = 360;
 const MAX_PREVIEW_WIDTH = 920;
-const PREVIEW_TOP_OFFSET = 40;
+const PREVIEW_TOP_OFFSET = 48;
 
 type WorkspacePreviewNavigationAction = 'back' | 'forward';
 
@@ -47,13 +53,24 @@ export type WorkspacePreviewState = {
 export type WorkspacePreviewTarget = {
 	siteName: string;
 	siteUrl: string;
+	label?: string;
+	isProduction?: boolean;
 	isLoading?: boolean;
 	onShowPreview?: () => Promise< void > | void;
 };
 
+export type WorkspacePreviewTargetOption = {
+	id: WorkspaceTargetId;
+	label: string;
+	isProduction?: boolean;
+};
+
 type WorkspacePreviewControlsProps = {
 	target: WorkspacePreviewTarget;
+	targets: WorkspacePreviewTargetOption[];
+	selectedTargetId: WorkspaceTargetId;
 	previewState: WorkspacePreviewState;
+	onSelectTarget: ( targetId: WorkspaceTargetId ) => void;
 	onUpdatePreviewState: ( state: WorkspacePreviewState ) => void;
 };
 
@@ -73,7 +90,7 @@ type WorkspacePreviewPanelProps = {
 };
 
 export const createDefaultWorkspacePreviewState = (): WorkspacePreviewState => ( {
-	open: false,
+	open: true,
 	pathOrUrl: '/',
 	reloadNonce: 0,
 	width: DEFAULT_PREVIEW_WIDTH,
@@ -92,11 +109,70 @@ export function resolveWorkspacePreviewUrl( siteUrl: string, pathOrUrl: string )
 
 export function WorkspacePreviewControls( {
 	target,
+	targets,
+	selectedTargetId,
 	previewState,
+	onSelectTarget,
 	onUpdatePreviewState,
 }: WorkspacePreviewControlsProps ) {
 	const previewUrl = resolveWorkspacePreviewUrl( target.siteUrl, previewState.pathOrUrl );
 	const displayUrl = previewState.currentUrl ?? previewUrl;
+	const selectedTarget = targets.find( ( candidate ) => candidate.id === selectedTargetId );
+	const hasTargetPicker = targets.length > 1;
+	const [ isTargetMenuOpen, setIsTargetMenuOpen ] = useState( false );
+	const targetBadgeClassName = `shrink-0 rounded-full text-[12px] font-medium ${
+		target.isProduction
+			? 'bg-a8c-gray-5 text-a8c-red-50'
+			: 'bg-a8c-gray-5 text-frame-text-secondary'
+	}`;
+	const closeTargetMenu = () => setIsTargetMenuOpen( false );
+	const selectTarget = ( targetId: WorkspaceTargetId ) => {
+		onSelectTarget( targetId );
+		closeTargetMenu();
+	};
+	const targetBadge = selectedTarget?.label ? (
+		hasTargetPicker ? (
+			<button
+				type="button"
+				className={ `${ targetBadgeClassName } inline-flex h-8 items-center px-3 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme` }
+				aria-label={ __( 'Preview target' ) }
+				aria-haspopup="listbox"
+				aria-expanded={ isTargetMenuOpen }
+				onClick={ () => setIsTargetMenuOpen( ( isOpen ) => ! isOpen ) }
+			>
+				{ selectedTarget.label }
+				<span className="ms-2 text-[10px] leading-none">⌄</span>
+			</button>
+		) : (
+			<span className={ `${ targetBadgeClassName } inline-flex h-8 items-center px-3` }>
+				{ selectedTarget.label }
+			</span>
+		)
+	) : null;
+	const targetMenu = hasTargetPicker && isTargetMenuOpen && (
+		<div
+			className="absolute left-0 right-0 top-11 z-20 rounded-md border border-a8c-gray-5 bg-white p-1 shadow-lg"
+			role="listbox"
+			aria-label={ __( 'Preview target' ) }
+		>
+			{ targets.map( ( candidate ) => (
+				<button
+					key={ candidate.id }
+					type="button"
+					className={ `flex h-8 w-full items-center justify-between rounded px-3 text-left text-xs hover:bg-a8c-gray-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme ${
+						candidate.id === selectedTargetId
+							? 'font-medium text-frame-text'
+							: 'text-frame-text-secondary'
+					}` }
+					role="option"
+					aria-selected={ candidate.id === selectedTargetId }
+					onClick={ () => selectTarget( candidate.id ) }
+				>
+					<span>{ candidate.label }</span>
+				</button>
+			) ) }
+		</div>
+	);
 	const showPreview = async () => {
 		await target.onShowPreview?.();
 		onUpdatePreviewState( {
@@ -115,21 +191,36 @@ export function WorkspacePreviewControls( {
 
 	if ( ! previewState.open ) {
 		return (
-			<button
-				type="button"
-				className="flex w-full min-w-0 items-center gap-2 rounded-full border border-a8c-gray-5 bg-a8c-gray-0 px-3 py-2 text-left transition hover:border-a8c-gray-20 hover:bg-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme disabled:cursor-default disabled:opacity-60"
-				onClick={ showPreview }
-				aria-label={ __( 'Show preview' ) }
-				disabled={ target.isLoading }
+			<div
+				className="relative min-w-0 flex-1"
+				onBlur={ ( event ) => {
+					if ( ! event.currentTarget.contains( event.relatedTarget ) ) {
+						closeTargetMenu();
+					}
+				} }
 			>
-				<Icon icon={ lockSmall } size={ 16 } className="shrink-0 fill-frame-text-secondary" />
-				<span className="truncate text-xs leading-4 text-frame-text-secondary">{ displayUrl }</span>
-			</button>
+				<div className="flex h-10 w-full min-w-0 items-center gap-2 rounded-full border border-a8c-gray-5 bg-a8c-gray-0 px-2 text-left shadow-sm transition hover:border-a8c-gray-20 hover:bg-white">
+					{ targetBadge }
+					<button
+						type="button"
+						className="flex h-full min-w-0 flex-1 items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme disabled:cursor-default disabled:opacity-60"
+						onClick={ showPreview }
+						aria-label={ __( 'Show preview' ) }
+						disabled={ target.isLoading }
+					>
+						<span className="min-w-0 flex-1 truncate text-xs leading-4 text-frame-text-secondary">
+							{ displayUrl }
+						</span>
+						<Icon icon={ desktop } size={ 18 } className="shrink-0 fill-frame-text-secondary" />
+					</button>
+				</div>
+				{ targetMenu }
+			</div>
 		);
 	}
 
 	return (
-		<div className="flex w-full min-w-0 items-center justify-end gap-2">
+		<div className="flex h-10 w-full min-w-0 items-center justify-end gap-1.5">
 			<Button
 				variant="icon"
 				tooltipText={ __( 'Back' ) }
@@ -161,14 +252,26 @@ export function WorkspacePreviewControls( {
 			>
 				<Icon icon={ rotateRight } size={ 18 } />
 			</Button>
-			<div className="flex min-w-0 flex-1 items-center gap-2 rounded-full border border-a8c-gray-5 bg-a8c-gray-0 px-3 py-2">
-				<Icon icon={ lockSmall } size={ 16 } className="shrink-0 fill-frame-text-secondary" />
-				<div className="truncate text-xs leading-4 text-frame-text-secondary">{ displayUrl }</div>
+			<div
+				className="relative min-w-0 flex-1"
+				onBlur={ ( event ) => {
+					if ( ! event.currentTarget.contains( event.relatedTarget ) ) {
+						closeTargetMenu();
+					}
+				} }
+			>
+				<div className="flex h-10 w-full min-w-0 items-center gap-2 rounded-full border border-a8c-gray-5 bg-a8c-gray-0 px-2 text-left shadow-sm">
+					{ targetBadge }
+					<span className="truncate text-xs leading-4 text-frame-text-secondary">
+						{ displayUrl }
+					</span>
+				</div>
+				{ targetMenu }
 			</div>
 			<Button
 				variant="icon"
 				tooltipText={ __( 'Open in browser' ) }
-				onClick={ () => getIpcApi().openURL( previewUrl ) }
+				onClick={ () => getIpcApi().openURL( displayUrl ) }
 				aria-label={ __( 'Open in browser' ) }
 			>
 				<Icon icon={ external } size={ 18 } />
@@ -228,13 +331,29 @@ export function WorkspacePreviewPanel( {
 		}
 	}, [ onNavigationStateChange, previewUrl ] );
 
-	const handleMouseMove = useCallback(
-		( event: MouseEvent ) => {
+	const resizeToClientX = useCallback(
+		( clientX: number ) => {
 			const panelRight = panelRef.current?.getBoundingClientRect().right ?? window.innerWidth;
-			const nextWidth = panelRight - event.clientX;
+			const nextWidth = panelRight - clientX;
 			onResize( clampPreviewWidth( nextWidth ) );
 		},
 		[ onResize ]
+	);
+
+	const handleMouseMove = useCallback(
+		( event: MouseEvent ) => {
+			resizeToClientX( event.clientX );
+		},
+		[ resizeToClientX ]
+	);
+
+	const startResizing = useCallback(
+		( event: ReactMouseEvent< HTMLElement > ) => {
+			event.preventDefault();
+			resizeToClientX( event.clientX );
+			setIsResizing( true );
+		},
+		[ resizeToClientX ]
 	);
 
 	const stopResizing = useCallback( () => {
@@ -250,12 +369,14 @@ export function WorkspacePreviewPanel( {
 		document.body.style.userSelect = 'none';
 		window.addEventListener( 'mousemove', handleMouseMove );
 		window.addEventListener( 'mouseup', stopResizing );
+		window.addEventListener( 'blur', stopResizing );
 
 		return () => {
 			document.body.style.cursor = '';
 			document.body.style.userSelect = '';
 			window.removeEventListener( 'mousemove', handleMouseMove );
 			window.removeEventListener( 'mouseup', stopResizing );
+			window.removeEventListener( 'blur', stopResizing );
 		};
 	}, [ handleMouseMove, isResizing, stopResizing ] );
 
@@ -311,15 +432,24 @@ export function WorkspacePreviewPanel( {
 	return (
 		<aside
 			ref={ panelRef }
-			className="relative mt-10 flex shrink-0 flex-col border-l border-a8c-gray-5 bg-white"
+			className="relative mt-12 flex shrink-0 flex-col border-l border-a8c-gray-5 bg-white"
 			aria-label={ __( 'Workspace site preview' ) }
 			style={ {
 				width: panelWidth,
 				height: `calc(100% - ${ PREVIEW_TOP_OFFSET }px)`,
 			} }
 		>
-			<button
-				type="button"
+			{ isResizing && (
+				<div
+					data-testid="workspace-preview-resize-overlay"
+					className="fixed inset-0 z-50 cursor-col-resize"
+					aria-hidden="true"
+					onMouseMove={ ( event ) => resizeToClientX( event.clientX ) }
+					onMouseUp={ stopResizing }
+					onMouseLeave={ stopResizing }
+				/>
+			) }
+			<div
 				className="absolute inset-y-0 -left-1 z-10 w-2 cursor-col-resize focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme"
 				aria-label={ __( 'Resize preview' ) }
 				aria-orientation="vertical"
@@ -327,11 +457,13 @@ export function WorkspacePreviewPanel( {
 				aria-valuemax={ MAX_PREVIEW_WIDTH }
 				aria-valuenow={ panelWidth }
 				role="separator"
-				onMouseDown={ ( event ) => {
-					event.preventDefault();
-					setIsResizing( true );
-				} }
+				tabIndex={ 0 }
+				onMouseDown={ startResizing }
 				onKeyDown={ ( event ) => {
+					if ( event.key === 'Escape' ) {
+						event.preventDefault();
+						stopResizing();
+					}
 					if ( event.key === 'ArrowLeft' ) {
 						event.preventDefault();
 						resizeBy( 32 );

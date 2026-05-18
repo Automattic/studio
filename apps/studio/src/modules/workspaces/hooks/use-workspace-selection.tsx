@@ -1,25 +1,13 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { useSidebarWorkspaces } from 'src/modules/workspaces/hooks/use-sidebar-workspaces';
-import { useWorkspaceTargetSelection } from 'src/modules/workspaces/hooks/use-workspace-target-selection';
 import {
-	getDefaultWorkspaceTargetId,
-	isWorkspaceTargetAvailable,
-} from 'src/modules/workspaces/lib/target-selection';
-import {
-	getDefaultWorkspaceTargetTabId,
-	getWorkspaceTargetTabStorageKey,
-	isWorkspaceTargetTabId,
+	getDefaultWorkspaceTabId,
+	getWorkspaceTabStorageKey,
+	isWorkspaceTabId,
 } from 'src/modules/workspaces/lib/workspace-tabs';
 import type { TabName } from 'src/hooks/use-content-tabs';
-import type {
-	LocalTarget,
-	RemoteTarget,
-	StudioWorkspace,
-	WorkspaceTargetId,
-} from 'src/modules/workspaces/types';
-
-type WorkspaceTarget = LocalTarget | RemoteTarget;
+import type { StudioWorkspace } from 'src/modules/workspaces/types';
 
 type WorkspaceSelectionContextValue = {
 	enableWorkspaces: boolean;
@@ -27,23 +15,18 @@ type WorkspaceSelectionContextValue = {
 	isLoading: boolean;
 	selectedWorkspace?: StudioWorkspace;
 	selectedWorkspaceId?: string;
-	selectedTargetId?: WorkspaceTargetId;
-	selectedTarget?: WorkspaceTarget;
-	getSelectedTargetId: ( workspace: StudioWorkspace ) => WorkspaceTargetId | undefined;
-	selectWorkspaceTarget: ( workspaceId: string, targetId: WorkspaceTargetId ) => void;
+	selectWorkspace: ( workspaceId: string ) => void;
 	selectedTabId?: TabName;
-	selectWorkspaceTab: ( workspaceId: string, targetId: WorkspaceTargetId, tabId: TabName ) => void;
+	selectWorkspaceTab: ( workspaceId: string, tabId: TabName ) => void;
 };
 
 const WorkspaceSelectionContext = createContext< WorkspaceSelectionContextValue | undefined >(
 	undefined
 );
 
-function readSavedTabId( workspaceId: string, targetId: WorkspaceTargetId ): TabName | undefined {
+function readSavedTabId( workspace: StudioWorkspace ): TabName | undefined {
 	try {
-		const savedTabId = localStorage.getItem(
-			getWorkspaceTargetTabStorageKey( workspaceId, targetId )
-		);
+		const savedTabId = localStorage.getItem( getWorkspaceTabStorageKey( workspace.id ) );
 		if (
 			savedTabId === 'overview' ||
 			savedTabId === 'sync' ||
@@ -52,7 +35,7 @@ function readSavedTabId( workspaceId: string, targetId: WorkspaceTargetId ): Tab
 			savedTabId === 'import-export' ||
 			savedTabId === 'previews'
 		) {
-			return savedTabId;
+			return isWorkspaceTabId( workspace, savedTabId ) ? savedTabId : undefined;
 		}
 	} catch {
 		return undefined;
@@ -61,26 +44,18 @@ function readSavedTabId( workspaceId: string, targetId: WorkspaceTargetId ): Tab
 	return undefined;
 }
 
-function writeSavedTabId( workspaceId: string, targetId: WorkspaceTargetId, tabId: TabName ) {
+function writeSavedTabId( workspaceId: string, tabId: TabName ) {
 	try {
-		localStorage.setItem( getWorkspaceTargetTabStorageKey( workspaceId, targetId ), tabId );
+		localStorage.setItem( getWorkspaceTabStorageKey( workspaceId ), tabId );
 	} catch {
 		// Ignore storage failures; selection still works for the current render.
 	}
 }
 
-function getWorkspaceTargetKey( workspaceId: string, targetId: WorkspaceTargetId ) {
-	return `${ workspaceId }:${ targetId }`;
-}
-
 export function WorkspaceSelectionProvider( { children }: { children: ReactNode } ) {
 	const { selectedSite, setSelectedSiteId } = useSiteDetails();
 	const { enableWorkspaces, sidebarWorkspaces: workspaces, isLoading } = useSidebarWorkspaces();
-	const {
-		selectedWorkspaceId: explicitSelectedWorkspaceId,
-		getSelectedTargetId,
-		selectWorkspaceTarget: selectTarget,
-	} = useWorkspaceTargetSelection( workspaces );
+	const [ explicitSelectedWorkspaceId, setExplicitSelectedWorkspaceId ] = useState< string >();
 	const [ selectedTabs, setSelectedTabs ] = useState< Record< string, TabName > >( {} );
 	const selectedSiteId = selectedSite?.id;
 
@@ -104,85 +79,68 @@ export function WorkspaceSelectionProvider( { children }: { children: ReactNode 
 		return workspaces[ 0 ];
 	}, [ explicitSelectedWorkspaceId, selectedSiteId, workspaces ] );
 
-	const selectedTargetId = selectedWorkspace ? getSelectedTargetId( selectedWorkspace ) : undefined;
+	const selectedTabId = useMemo( () => {
+		if ( ! selectedWorkspace ) {
+			return undefined;
+		}
 
-	const getSelectedTabId = useCallback(
-		( workspaceId: string, targetId: WorkspaceTargetId ) => {
-			const selectedTabId =
-				selectedTabs[ getWorkspaceTargetKey( workspaceId, targetId ) ] ??
-				readSavedTabId( workspaceId, targetId );
+		const selectedTab = selectedTabs[ selectedWorkspace.id ] ?? readSavedTabId( selectedWorkspace );
 
-			if ( selectedTabId && isWorkspaceTargetTabId( targetId, selectedTabId ) ) {
-				return selectedTabId;
-			}
+		if ( selectedTab && isWorkspaceTabId( selectedWorkspace, selectedTab ) ) {
+			return selectedTab;
+		}
 
-			return getDefaultWorkspaceTargetTabId( targetId );
-		},
-		[ selectedTabs ]
-	);
+		return getDefaultWorkspaceTabId( selectedWorkspace );
+	}, [ selectedTabs, selectedWorkspace ] );
 
-	const selectedTabId =
-		selectedWorkspace && selectedTargetId
-			? getSelectedTabId( selectedWorkspace.id, selectedTargetId )
-			: undefined;
-
-	const selectWorkspaceTarget = useCallback(
-		( workspaceId: string, targetId: WorkspaceTargetId ) => {
+	const selectWorkspace = useCallback(
+		( workspaceId: string ) => {
 			const workspace = workspaces.find( ( candidate ) => candidate.id === workspaceId );
-			if ( ! workspace || ! isWorkspaceTargetAvailable( workspace, targetId ) ) {
+			if ( ! workspace ) {
 				return;
 			}
 
-			selectTarget( workspaceId, targetId );
-			if ( targetId === 'local' && workspace.targets.local ) {
+			setExplicitSelectedWorkspaceId( workspaceId );
+			if ( workspace.targets.local ) {
 				setSelectedSiteId( workspace.targets.local.siteId );
 			}
 		},
-		[ selectTarget, setSelectedSiteId, workspaces ]
+		[ setSelectedSiteId, workspaces ]
 	);
 
 	const selectWorkspaceTab = useCallback(
-		( workspaceId: string, targetId: WorkspaceTargetId, tabId: TabName ) => {
-			if ( ! isWorkspaceTargetTabId( targetId, tabId ) ) {
+		( workspaceId: string, tabId: TabName ) => {
+			const workspace = workspaces.find( ( candidate ) => candidate.id === workspaceId );
+			if ( ! workspace || ! isWorkspaceTabId( workspace, tabId ) ) {
 				return;
 			}
 
 			setSelectedTabs( ( current ) => ( {
 				...current,
-				[ getWorkspaceTargetKey( workspaceId, targetId ) ]: tabId,
+				[ workspaceId ]: tabId,
 			} ) );
-			writeSavedTabId( workspaceId, targetId, tabId );
+			writeSavedTabId( workspaceId, tabId );
 		},
-		[]
+		[ workspaces ]
 	);
 
 	const value = useMemo< WorkspaceSelectionContextValue >( () => {
-		const fallbackTargetId =
-			selectedWorkspace && ! selectedTargetId
-				? getDefaultWorkspaceTargetId( selectedWorkspace )
-				: selectedTargetId;
-
 		return {
 			enableWorkspaces,
 			workspaces,
 			isLoading,
 			selectedWorkspace,
 			selectedWorkspaceId: selectedWorkspace?.id,
-			selectedTargetId: fallbackTargetId,
-			selectedTarget: fallbackTargetId ? selectedWorkspace?.targets[ fallbackTargetId ] : undefined,
-			getSelectedTargetId,
-			selectWorkspaceTarget,
+			selectWorkspace,
 			selectedTabId,
 			selectWorkspaceTab,
 		};
 	}, [
 		enableWorkspaces,
-		getSelectedTargetId,
 		isLoading,
 		selectWorkspaceTab,
-		selectWorkspaceTarget,
+		selectWorkspace,
 		selectedTabId,
-		selectedTargetId,
 		selectedWorkspace,
 		workspaces,
 	] );

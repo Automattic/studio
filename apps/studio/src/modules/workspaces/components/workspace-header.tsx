@@ -4,74 +4,43 @@ import Button from 'src/components/button';
 import { SiteManagementActions } from 'src/components/site-management-actions';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { WorkspaceTargetSwitcher } from 'src/modules/workspaces/components/workspace-target-switcher';
-import type {
-	StudioWorkspace,
-	WorkspaceTargetId,
-	LocalTarget,
-	RemoteTarget,
-} from 'src/modules/workspaces/types';
+import type { StudioWorkspace } from 'src/modules/workspaces/types';
 
 type WorkspaceHeaderProps = {
 	workspace: StudioWorkspace;
-	selectedTargetId: WorkspaceTargetId;
-	selectedTarget: LocalTarget | RemoteTarget;
-	onSelectTarget: ( targetId: WorkspaceTargetId ) => void;
+	showLocalManagementActions?: boolean;
+	onStartLocalSite?: ( site: SiteDetails ) => Promise< void >;
 };
-
-function resolveRemoteUrl( siteUrl: string, path = '/' ) {
-	try {
-		return new URL( path, siteUrl ).toString();
-	} catch {
-		return siteUrl;
-	}
-}
 
 export function WorkspaceHeader( {
 	workspace,
-	selectedTargetId,
-	selectedTarget,
-	onSelectTarget,
+	showLocalManagementActions = false,
+	onStartLocalSite,
 }: WorkspaceHeaderProps ) {
 	const { __ } = useI18n();
 	const { startServer, stopServer, loadingServer } = useSiteDetails();
-	const localSite = selectedTarget.kind === 'local' ? selectedTarget.site : undefined;
-	const remoteSite = selectedTarget.kind === 'remote' ? selectedTarget.site : undefined;
+	const localSite = workspace.targets.local?.site;
 	const isLoading = localSite?.id ? loadingServer[ localSite.id ] : false;
-	const displayTitle = workspace.name || selectedTarget.site.name;
+	const displayTitle = workspace.name || localSite?.name || __( 'Untitled workspace' );
 
-	const handleWpAdminClick = async () => {
-		if ( localSite ) {
-			if ( isLoading ) {
-				return;
-			}
-			if ( ! localSite.running ) {
-				await startServer( localSite );
-			}
-			getIpcApi().openSiteURL( localSite.id, '/wp-admin/' );
+	const handleLocalWpAdminClick = async () => {
+		if ( ! localSite || isLoading ) {
 			return;
 		}
-
-		if ( remoteSite ) {
-			getIpcApi().openURL( resolveRemoteUrl( remoteSite.url, '/wp-admin/' ) );
+		if ( ! localSite.running ) {
+			await startServer( localSite );
 		}
+		getIpcApi().openSiteURL( localSite.id, '/wp-admin/' );
 	};
 
-	const handleOpenSiteClick = async () => {
-		if ( localSite ) {
-			if ( isLoading ) {
-				return;
-			}
-			if ( ! localSite.running ) {
-				await startServer( localSite );
-			}
-			getIpcApi().openSiteURL( localSite.id, '', { autoLogin: false } );
+	const handleOpenLocalSiteClick = async () => {
+		if ( ! localSite || isLoading ) {
 			return;
 		}
-
-		if ( remoteSite ) {
-			getIpcApi().openURL( remoteSite.url );
+		if ( ! localSite.running ) {
+			await startServer( localSite );
 		}
+		getIpcApi().openSiteURL( localSite.id, '', { autoLogin: false } );
 	};
 
 	return (
@@ -81,37 +50,34 @@ export function WorkspaceHeader( {
 		>
 			<div className="flex min-w-0 flex-col">
 				<h1 className="max-h-full break-all text-xl font-medium line-clamp-1">{ displayTitle }</h1>
-				<div className="mt-1 flex gap-x-4">
-					<Button
-						className="[&.is-link]:text-frame-text-secondary [&.is-link]:hover:text-frame-theme !px-0 h-0 leading-4"
-						onClick={ handleWpAdminClick }
-						variant="link"
-						disabled={ isLoading }
-					>
-						{ __( 'WP admin' ) }
-						<ArrowIcon />
-					</Button>
-					<Button
-						className="[&.is-link]:text-frame-text-secondary [&.is-link]:hover:text-frame-theme !px-0 h-0 leading-4"
-						onClick={ handleOpenSiteClick }
-						variant="link"
-						disabled={ isLoading }
-					>
-						{ localSite ? __( 'Open local site' ) : __( 'Open site' ) }
-						<ArrowIcon />
-					</Button>
-				</div>
-				<div className="mt-3">
-					<WorkspaceTargetSwitcher
-						workspace={ workspace }
-						selectedTargetId={ selectedTargetId }
-						onSelectTarget={ onSelectTarget }
-					/>
+				<div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-2">
+					{ localSite && (
+						<>
+							<Button
+								className="[&.is-link]:text-frame-text-secondary [&.is-link]:hover:text-frame-theme !px-0 h-0 leading-4"
+								onClick={ handleLocalWpAdminClick }
+								variant="link"
+								disabled={ isLoading }
+							>
+								{ __( 'Local WP admin' ) }
+								<ArrowIcon />
+							</Button>
+							<Button
+								className="[&.is-link]:text-frame-text-secondary [&.is-link]:hover:text-frame-theme !px-0 h-0 leading-4"
+								onClick={ handleOpenLocalSiteClick }
+								variant="link"
+								disabled={ isLoading }
+							>
+								{ __( 'Open local site' ) }
+								<ArrowIcon />
+							</Button>
+						</>
+					) }
 				</div>
 			</div>
-			{ localSite && (
+			{ localSite && showLocalManagementActions && (
 				<SiteManagementActions
-					onStart={ startServer }
+					onStart={ onStartLocalSite ?? startServer }
 					loading={ isLoading }
 					onStop={ stopServer }
 					selectedSite={ localSite }

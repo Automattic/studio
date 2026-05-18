@@ -1,34 +1,31 @@
 import type { TabName } from 'src/hooks/use-content-tabs';
-import type { WorkspaceTargetId } from 'src/modules/workspaces/types';
+import type { StudioWorkspace } from 'src/modules/workspaces/types';
 
-const WORKSPACE_TARGET_TAB_STORAGE_PREFIX = 'studio-workspace-target-tab:';
+const WORKSPACE_TAB_STORAGE_PREFIX = 'studio-workspace-tab:';
 
 export const LOCAL_WORKSPACE_TAB_IDS: TabName[] = [
 	'overview',
+	'assistant',
 	'sync',
 	'previews',
 	'import-export',
 	'settings',
-	'assistant',
 ];
 
 export const REMOTE_WORKSPACE_TAB_IDS: TabName[] = [ 'assistant', 'sync', 'settings' ];
 
-export function getWorkspaceTargetTabIds( targetId: WorkspaceTargetId ): TabName[] {
-	return targetId === 'local' ? LOCAL_WORKSPACE_TAB_IDS : REMOTE_WORKSPACE_TAB_IDS;
+export function getWorkspaceTabIds( workspace: StudioWorkspace ): TabName[] {
+	return workspace.targets.local ? LOCAL_WORKSPACE_TAB_IDS : REMOTE_WORKSPACE_TAB_IDS;
 }
 
-export function isWorkspaceTargetTabId( targetId: WorkspaceTargetId, tabId: TabName ) {
-	return getWorkspaceTargetTabIds( targetId ).includes( tabId );
+export function isWorkspaceTabId( workspace: StudioWorkspace, tabId: TabName ) {
+	return getWorkspaceTabIds( workspace ).includes( tabId );
 }
 
-export function getDefaultWorkspaceTargetTabId( targetId: WorkspaceTargetId ): TabName {
-	return targetId === 'local' ? 'overview' : 'assistant';
+export function getDefaultWorkspaceTabId( workspace: StudioWorkspace ): TabName {
+	return workspace.targets.local ? 'overview' : 'assistant';
 }
 
-export function getWorkspaceTargetTabStorageKey(
-	workspaceId: string,
-	targetId: WorkspaceTargetId
-) {
-	return `${ WORKSPACE_TARGET_TAB_STORAGE_PREFIX }${ workspaceId }:${ targetId }`;
+export function getWorkspaceTabStorageKey( workspaceId: string ) {
+	return `${ WORKSPACE_TAB_STORAGE_PREFIX }${ workspaceId }`;
 }

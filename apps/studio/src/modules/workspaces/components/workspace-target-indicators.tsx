@@ -1,17 +1,10 @@
-import { Spinner } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { Tooltip } from 'src/components/tooltip';
 import { cx } from 'src/lib/cx';
-import {
-	getWorkspaceDollyTargetActivityKey,
-	useWorkspaceDollyTargetActivities,
-} from 'src/modules/workspaces/lib/dolly/turns';
 import type { StudioWorkspace, WorkspaceTargetId } from 'src/modules/workspaces/types';
 
 type WorkspaceTargetIndicatorsProps = {
 	workspace: StudioWorkspace;
-	selectedTargetId?: WorkspaceTargetId;
-	onSelectTarget: ( targetId: WorkspaceTargetId ) => void;
 };
 
 type Indicator = {
@@ -19,28 +12,10 @@ type Indicator = {
 	label: string;
 	ariaLabel: string;
 	dotClassName: string;
-	isSelected: boolean;
-	activity?: {
-		isAssistantThinking?: boolean;
-		hasUnreadAssistantMessage?: boolean;
-	};
 };
 
-export function WorkspaceTargetIndicators( {
-	workspace,
-	selectedTargetId,
-	onSelectTarget,
-}: WorkspaceTargetIndicatorsProps ) {
-	const targetActivities = useWorkspaceDollyTargetActivities( workspace.id );
+export function WorkspaceTargetIndicators( { workspace }: WorkspaceTargetIndicatorsProps ) {
 	const indicators: Indicator[] = [];
-	const getRemoteTargetActivity = ( targetId: 'production' | 'staging', siteId: number ) =>
-		targetActivities[
-			getWorkspaceDollyTargetActivityKey( {
-				workspaceId: workspace.id,
-				targetId,
-				siteId,
-			} )
-		];
 
 	if ( workspace.targets.production ) {
 		indicators.push( {
@@ -48,12 +23,10 @@ export function WorkspaceTargetIndicators( {
 			label: __( 'Production' ),
 			ariaLabel: sprintf(
 				// translators: %s is the production site URL.
-				__( 'Select Production target: %s' ),
+				__( 'Production target: %s' ),
 				workspace.targets.production.site.url
 			),
 			dotClassName: 'bg-frame-theme',
-			isSelected: selectedTargetId === 'production',
-			activity: getRemoteTargetActivity( 'production', workspace.targets.production.site.id ),
 		} );
 	}
 
@@ -63,12 +36,10 @@ export function WorkspaceTargetIndicators( {
 			label: __( 'Staging' ),
 			ariaLabel: sprintf(
 				// translators: %s is the staging site URL.
-				__( 'Select Staging target: %s' ),
+				__( 'Staging target: %s' ),
 				workspace.targets.staging.site.url
 			),
-			dotClassName: 'bg-white',
-			isSelected: selectedTargetId === 'staging',
-			activity: getRemoteTargetActivity( 'staging', workspace.targets.staging.site.id ),
+			dotClassName: 'bg-a8c-blue-20',
 		} );
 	}
 
@@ -80,16 +51,15 @@ export function WorkspaceTargetIndicators( {
 			ariaLabel: localSite.running
 				? sprintf(
 						// translators: %s is the local site name.
-						__( 'Select Local target: %s is running' ),
+						__( 'Local target: %s is running' ),
 						localSite.name
 				  )
 				: sprintf(
 						// translators: %s is the local site name.
-						__( 'Select Local target: %s is stopped' ),
+						__( 'Local target: %s is stopped' ),
 						localSite.name
 				  ),
 			dotClassName: localSite.running ? 'bg-a8c-green-20' : 'bg-a8c-gray-500',
-			isSelected: selectedTargetId === 'local',
 		} );
 	}
 
@@ -111,40 +81,21 @@ export function WorkspaceTargetIndicators( {
 		>
 			{ indicators.map( ( indicator ) => (
 				<Tooltip key={ indicator.targetId } text={ indicator.label }>
-					<button
-						type="button"
+					<span
+						role="img"
 						aria-label={ indicator.ariaLabel }
-						onClick={ ( event ) => {
-							event.stopPropagation();
-							onSelectTarget( indicator.targetId );
-						} }
 						className={ cx(
-							'relative grid h-3.5 w-3.5 shrink-0 place-items-center rounded-full border transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme',
-							indicator.isSelected
-								? 'border-white/80 bg-white/10 opacity-100'
-								: 'border-white/30 bg-transparent opacity-75'
+							'grid h-3.5 w-3.5 shrink-0 place-items-center rounded-full border border-a8c-gray-40 bg-transparent opacity-75',
+							indicator.targetId === 'local' &&
+								workspace.targets.local?.site.running &&
+								'opacity-100'
 						) }
 					>
-						{ indicator.activity?.isAssistantThinking ? (
-							<Spinner aria-hidden="true" className="!m-0 !h-2.5 !w-2.5 [&>circle]:stroke-white" />
-						) : (
-							<span
-								aria-hidden="true"
-								className={ cx(
-									'rounded-full',
-									indicator.isSelected ? 'h-2 w-2' : 'h-1.5 w-1.5',
-									indicator.dotClassName
-								) }
-							/>
-						) }
-						{ indicator.activity?.hasUnreadAssistantMessage &&
-							! indicator.activity.isAssistantThinking && (
-								<span
-									aria-hidden="true"
-									className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-a8c-blue-50"
-								/>
-							) }
-					</button>
+						<span
+							aria-hidden="true"
+							className={ cx( 'h-1.5 w-1.5 rounded-full', indicator.dotClassName ) }
+						/>
+					</span>
 				</Tooltip>
 			) ) }
 		</div>

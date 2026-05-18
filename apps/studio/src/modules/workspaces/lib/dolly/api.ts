@@ -9,7 +9,7 @@ import {
 	type WorkspaceDollyHistoryChat,
 	type WorkspaceDollyHistoryMessage,
 	type WorkspaceDollyHistorySummary,
-	type WorkspaceDollyTargetDescriptor,
+	type WorkspaceDollyWorkspaceDescriptor,
 } from 'src/modules/workspaces/lib/dolly/types';
 import {
 	extractBackendSelectedSiteIdFromRecord,
@@ -252,7 +252,7 @@ export const parseWorkspaceDollyHistoryChat = (
 };
 
 export const createWorkspaceDollyConversationStateFromHistoryItems = (
-	target: WorkspaceDollyTargetDescriptor,
+	workspace: WorkspaceDollyWorkspaceDescriptor,
 	historyItems: Array< { summary: WorkspaceDollyHistorySummary; chat?: WorkspaceDollyHistoryChat } >
 ): WorkspaceDollyConversationState | undefined => {
 	const sortedHistoryItems = [ ...historyItems ].sort(
@@ -282,9 +282,7 @@ export const createWorkspaceDollyConversationStateFromHistoryItems = (
 	return {
 		id: `wpcom:${ WORKSPACE_DOLLY_AGENT_ID }:${ latestHistoryItem.summary.chatId }`,
 		key: {
-			workspaceId: target.workspaceId,
-			targetId: target.targetId,
-			siteId: target.site.id,
+			workspaceId: workspace.workspaceId,
 			agentId: WORKSPACE_DOLLY_AGENT_ID,
 		},
 		remoteChatId: latestHistoryItem.summary.chatId,
@@ -397,21 +395,26 @@ export const fetchWorkspaceDollyHistoryChat = async (
 
 export const hydrateWorkspaceDollyConversationStates = async (
 	client: WPCOM,
-	target: WorkspaceDollyTargetDescriptor,
+	workspace: WorkspaceDollyWorkspaceDescriptor,
 	preferredSessionId?: string
 ): Promise< WorkspaceDollyConversationState[] > => {
 	const summaries = await fetchWorkspaceDollyHistorySummaries( client );
 	const normalizedPreferredSessionId = normalizeDollySessionId( preferredSessionId );
 	const groupedSummaries = new Map< string, WorkspaceDollyHistorySummary[] >();
+	const remoteSiteIds = new Set( workspace.remoteTargets.map( ( target ) => target.site.id ) );
 
 	for ( const summary of summaries ) {
 		const normalizedSessionId = normalizeDollySessionId( summary.sessionId );
 		const matchesPreferredSession =
 			normalizedPreferredSessionId &&
 			normalizedSessionId === normalizedPreferredSessionId &&
-			( summary.siteId === target.site.id || summary.siteId === undefined );
+			( summary.siteId === undefined || remoteSiteIds.has( summary.siteId ) );
 
-		if ( summary.siteId !== target.site.id && ! matchesPreferredSession ) {
+		if (
+			summary.siteId !== undefined &&
+			! remoteSiteIds.has( summary.siteId ) &&
+			! matchesPreferredSession
+		) {
 			continue;
 		}
 
@@ -445,7 +448,7 @@ export const hydrateWorkspaceDollyConversationStates = async (
 		}
 
 		const conversationState = createWorkspaceDollyConversationStateFromHistoryItems(
-			target,
+			workspace,
 			historyItems
 		);
 

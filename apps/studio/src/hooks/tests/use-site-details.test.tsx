@@ -66,6 +66,7 @@ describe( 'useSiteDetails', () => {
 		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 			getSiteDetails: vi.fn().mockResolvedValue( mockSites ),
 			startServer: vi.fn( () => Promise.resolve() ),
+			stopServer: vi.fn( () => Promise.resolve() ),
 			deleteSite: vi.fn( () => Promise.resolve() ),
 			getConnectedWpcomSites: vi.fn( () => Promise.resolve( [] ) ),
 		} );
@@ -165,6 +166,64 @@ describe( 'useSiteDetails', () => {
 
 			expect( getIpcApi().startServer ).toHaveBeenCalledWith( 'site-1' );
 			expect( getIpcApi().startServer ).not.toHaveBeenCalledWith( 'site-2' );
+		} );
+	} );
+
+	describe( 'server running state', () => {
+		it( 'marks a site as running after start succeeds', async () => {
+			const sites = mockSites.map( ( site ) => ( {
+				...site,
+				autoStart: false,
+			} ) );
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+				getSiteDetails: vi.fn().mockResolvedValue( sites ),
+				startServer: vi.fn( () => Promise.resolve() ),
+				stopServer: vi.fn( () => Promise.resolve() ),
+			} );
+
+			const { result } = renderHook( () => useSiteDetails(), { wrapper } );
+
+			await waitFor( () => {
+				expect( result.current.loadingSites ).toBe( false );
+			} );
+
+			await act( async () => {
+				await result.current.startServer( sites[ 1 ] );
+			} );
+
+			const startedSite = result.current.sites.find( ( site ) => site.id === 'site-2' );
+			expect( startedSite?.running ).toBe( true );
+			if ( startedSite?.running ) {
+				expect( startedSite.url ).toBe( 'http://localhost:1235' );
+			}
+		} );
+
+		it( 'marks a site as stopped after stop succeeds', async () => {
+			const runningSite: StartedSiteDetails = {
+				...mockSites[ 1 ],
+				autoStart: false,
+				running: true,
+				url: 'http://localhost:1235',
+			};
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+				getSiteDetails: vi.fn().mockResolvedValue( [ runningSite ] ),
+				startServer: vi.fn( () => Promise.resolve() ),
+				stopServer: vi.fn( () => Promise.resolve() ),
+			} );
+
+			const { result } = renderHook( () => useSiteDetails(), { wrapper } );
+
+			await waitFor( () => {
+				expect( result.current.loadingSites ).toBe( false );
+			} );
+
+			await act( async () => {
+				await result.current.stopServer( runningSite.id );
+			} );
+
+			const stoppedSite = result.current.sites.find( ( site ) => site.id === runningSite.id );
+			expect( stoppedSite?.running ).toBe( false );
+			expect( stoppedSite ).not.toHaveProperty( 'url' );
 		} );
 	} );
 

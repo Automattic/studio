@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { vi } from 'vitest';
 import { AuthContext, type AuthContextType } from 'src/components/auth-provider';
 import { WorkspaceDollyAssistant } from 'src/modules/workspaces/components/workspace-dolly-assistant';
@@ -9,12 +9,18 @@ import {
 import { hydrateWorkspaceDollyConversationStates } from 'src/modules/workspaces/lib/dolly/api';
 import {
 	clearWorkspaceDollyAssistantStateCacheForTests,
+	getWorkspaceDollyConversationsForWorkspace,
 	getWorkspaceDollyConversationState,
 	mergeWorkspaceDollyConversationState,
 } from 'src/modules/workspaces/lib/dolly/session';
 import type { SyncSite } from '@studio/common/types/sync';
 import type { ReactNode } from 'react';
-import type { RemoteTarget, RemoteTargetId, StudioWorkspace } from 'src/modules/workspaces/types';
+import type {
+	RemoteTarget,
+	RemoteTargetId,
+	StudioWorkspace,
+	WorkspaceTargetId,
+} from 'src/modules/workspaces/types';
 import type { WPCOM } from 'wpcom/types';
 
 vi.mock( '@automattic/agenttic-ui', async () => {
@@ -286,6 +292,36 @@ const createRemoteTarget = ( id: RemoteTargetId, site: SyncSite ): RemoteTarget 
 
 const productionTarget = createRemoteTarget( 'production', productionSite );
 const stagingTarget = createRemoteTarget( 'staging', stagingSite );
+const previewTargets = [
+	{
+		targetId: 'staging' as const,
+		siteId: stagingSite.id,
+		siteName: stagingSite.name,
+		siteUrl: stagingSite.url,
+	},
+	{
+		targetId: 'production' as const,
+		siteId: productionSite.id,
+		siteName: productionSite.name,
+		siteUrl: productionSite.url,
+		isProduction: true,
+	},
+];
+const localSite = {
+	id: 'local-site-1',
+	name: 'Local Site',
+	path: '/fake/local-site',
+	running: true,
+	port: 8881,
+	phpVersion: '8.4',
+	url: 'http://localhost:8881',
+} as SiteDetails;
+const localPreviewTarget = {
+	targetId: 'local' as const,
+	siteId: localSite.id,
+	siteName: localSite.name,
+	siteUrl: 'http://localhost:8881',
+};
 
 const workspace: StudioWorkspace = {
 	id: 'studio-workspace:wpcom:101',
@@ -296,6 +332,18 @@ const workspace: StudioWorkspace = {
 	},
 	syncLinks: [],
 	activity: { status: 'idle' },
+};
+const workspaceWithLocal: StudioWorkspace = {
+	...workspace,
+	targets: {
+		...workspace.targets,
+		local: {
+			id: 'local',
+			kind: 'local',
+			siteId: localSite.id,
+			site: localSite,
+		},
+	},
 };
 
 type DollyFetchHandler = ( args: {
@@ -400,15 +448,21 @@ const createDollyResponse = ( text: string, sessionId: string, taskId = 'task-1'
 const unauthenticatedClient = { req: {} } as unknown as WPCOM;
 
 const renderDollyAssistant = ( {
-	target = productionTarget,
+	transportTarget = stagingTarget,
 	client = unauthenticatedClient,
 	previewState = createDefaultWorkspacePreviewState(),
-	onUpdatePreviewState = vi.fn(),
+	previewTargetId = 'staging',
+	onOpenPreviewTarget = vi.fn(),
 }: {
-	target?: RemoteTarget;
+	transportTarget?: RemoteTarget;
 	client?: WPCOM;
 	previewState?: WorkspacePreviewState;
-	onUpdatePreviewState?: ( state: WorkspacePreviewState ) => void;
+	previewTargetId?: WorkspaceTargetId;
+	onOpenPreviewTarget?: (
+		targetId: 'local' | 'production' | 'staging',
+		pathOrUrl: string,
+		state: WorkspacePreviewState
+	) => void;
 } = {} ) => {
 	const authContextValue: AuthContextType = {
 		client,
@@ -420,45 +474,12 @@ const renderDollyAssistant = ( {
 	return render(
 		<AuthContext.Provider value={ authContextValue }>
 			<WorkspaceDollyAssistant
-				key={ target.id }
 				workspace={ workspace }
-				target={ target }
+				transportTarget={ transportTarget }
 				previewState={ previewState }
-				onUpdatePreviewState={ onUpdatePreviewState }
-			/>
-		</AuthContext.Provider>
-	);
-};
-
-const rerenderDollyAssistant = (
-	rerender: ReturnType< typeof render >[ 'rerender' ],
-	{
-		target,
-		client = unauthenticatedClient,
-		previewState = createDefaultWorkspacePreviewState(),
-		onUpdatePreviewState = vi.fn(),
-	}: {
-		target: RemoteTarget;
-		client?: WPCOM;
-		previewState?: WorkspacePreviewState;
-		onUpdatePreviewState?: ( state: WorkspacePreviewState ) => void;
-	}
-) => {
-	const authContextValue: AuthContextType = {
-		client,
-		isAuthenticated: true,
-		authenticate: vi.fn(),
-		logout: vi.fn().mockResolvedValue( undefined ),
-	};
-
-	rerender(
-		<AuthContext.Provider value={ authContextValue }>
-			<WorkspaceDollyAssistant
-				key={ target.id }
-				workspace={ workspace }
-				target={ target }
-				previewState={ previewState }
-				onUpdatePreviewState={ onUpdatePreviewState }
+				previewTargetId={ previewTargetId }
+				previewTargets={ previewTargets }
+				onOpenPreviewTarget={ onOpenPreviewTarget }
 			/>
 		</AuthContext.Provider>
 	);
@@ -469,11 +490,6 @@ const getInput = () => screen.getByRole( 'textbox' );
 const getChatMessageText = ( text: string | RegExp ) =>
 	screen.getAllByText( text ).find( ( element ) => element.closest( '[data-slot="messages"]' ) ) ??
 	screen.getByText( text );
-
-const queryChatMessageText = ( text: string | RegExp ) =>
-	screen
-		.queryAllByText( text )
-		.find( ( element ) => element.closest( '[data-slot="messages"]' ) ) ?? null;
 
 describe( 'WorkspaceDollyAssistant', () => {
 	beforeEach( () => {
@@ -501,38 +517,151 @@ describe( 'WorkspaceDollyAssistant', () => {
 		vi.unstubAllGlobals();
 	} );
 
-	it( 'sends Production and Staging chats to different Dolly site endpoints with separate sessions', async () => {
+	it( 'keeps workspace chat in one session while using one remote transport endpoint', async () => {
 		const { requestBodies, requestUrls } = mockDollyFetch( ( { callIndex } ) =>
 			createDollyResponse(
-				callIndex === 0 ? 'Production response' : 'Staging response',
-				callIndex === 0 ? 'session-production' : 'session-staging',
-				callIndex === 0 ? 'task-production' : 'task-staging'
+				callIndex === 0 ? 'First workspace response' : 'Second workspace response',
+				'session-workspace',
+				callIndex === 0 ? 'task-first' : 'task-second'
 			)
 		);
-		const { rerender } = renderDollyAssistant( { target: productionTarget } );
+		renderDollyAssistant();
 
 		fireEvent.change( getInput(), { target: { value: 'Hello production' } } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
 
 		await waitFor( () => {
-			expect( getChatMessageText( 'Production response' ) ).toBeVisible();
+			expect( getChatMessageText( 'First workspace response' ) ).toBeVisible();
 		} );
 
-		rerenderDollyAssistant( rerender, { target: stagingTarget } );
 		fireEvent.change( getInput(), { target: { value: 'Hello staging' } } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
+
+		await waitFor( () => {
+			expect( getChatMessageText( 'Second workspace response' ) ).toBeVisible();
+		} );
+
+		expect( requestUrls ).toEqual( [
+			'https://public-api.wordpress.com/wpcom/v2/sites/202/ai/agent/dolly',
+			'https://public-api.wordpress.com/wpcom/v2/sites/202/ai/agent/dolly',
+		] );
+		expect( requestBodies[ 0 ].params?.sessionId ).toBe( requestBodies[ 0 ].params?.id );
+		expect( requestBodies[ 1 ].params?.sessionId ).toBe( 'session-workspace' );
+	} );
+
+	it( 'sends the active remote target to Dolly without changing the workspace session', async () => {
+		const { requestBodies, requestUrls } = mockDollyFetch( ( { callIndex } ) =>
+			createDollyResponse(
+				callIndex === 0 ? 'Staging response' : 'Production response',
+				'session-workspace',
+				callIndex === 0 ? 'task-staging' : 'task-production'
+			)
+		);
+		const authContextValue: AuthContextType = {
+			client: unauthenticatedClient,
+			isAuthenticated: true,
+			authenticate: vi.fn(),
+			logout: vi.fn().mockResolvedValue( undefined ),
+		};
+		const renderAssistantForTarget = ( previewTargetId: WorkspaceTargetId, currentUrl: string ) => (
+			<AuthContext.Provider value={ authContextValue }>
+				<WorkspaceDollyAssistant
+					workspace={ workspace }
+					transportTarget={ stagingTarget }
+					previewState={ {
+						...createDefaultWorkspacePreviewState(),
+						open: true,
+						pathOrUrl: '/wp-admin/',
+						currentUrl,
+					} }
+					previewTargetId={ previewTargetId }
+					previewTargets={ previewTargets }
+					onOpenPreviewTarget={ vi.fn() }
+				/>
+			</AuthContext.Provider>
+		);
+		const { rerender } = render(
+			renderAssistantForTarget( 'staging', 'https://staging.example/wp-admin/edit.php' )
+		);
+
+		fireEvent.change( getInput(), { target: { value: 'Check staging' } } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
 
 		await waitFor( () => {
 			expect( getChatMessageText( 'Staging response' ) ).toBeVisible();
 		} );
 
+		rerender(
+			renderAssistantForTarget(
+				'production',
+				'https://production.example/wp-admin/edit.php?post=7'
+			)
+		);
+		fireEvent.change( getInput(), { target: { value: 'Now check production' } } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
+
+		await waitFor( () => {
+			expect( getChatMessageText( 'Production response' ) ).toBeVisible();
+		} );
+
 		expect( requestUrls ).toEqual( [
+			'https://public-api.wordpress.com/wpcom/v2/sites/202/ai/agent/dolly',
 			'https://public-api.wordpress.com/wpcom/v2/sites/101/ai/agent/dolly',
+		] );
+		expect( requestBodies[ 1 ].params?.sessionId ).toBe( 'session-workspace' );
+		expect( JSON.stringify( requestBodies[ 0 ] ) ).toContain(
+			'https://staging.example/wp-admin/edit.php'
+		);
+		expect( JSON.stringify( requestBodies[ 1 ] ) ).toContain(
+			'https://production.example/wp-admin/edit.php?post=7'
+		);
+	} );
+
+	it( 'sends the selected local preview URL and local site id while keeping the remote transport session', async () => {
+		const { requestBodies, requestUrls } = mockDollyFetch( () =>
+			createDollyResponse( 'Local context response', 'session-workspace', 'task-local' )
+		);
+		const localPreviewState = {
+			...createDefaultWorkspacePreviewState(),
+			open: true,
+			pathOrUrl: '/wp-admin/',
+			currentUrl: 'http://localhost:8881/wp-admin/post.php?post=7',
+		};
+		render(
+			<AuthContext.Provider
+				value={ {
+					client: unauthenticatedClient,
+					isAuthenticated: true,
+					authenticate: vi.fn(),
+					logout: vi.fn().mockResolvedValue( undefined ),
+				} }
+			>
+				<WorkspaceDollyAssistant
+					workspace={ workspaceWithLocal }
+					transportTarget={ stagingTarget }
+					previewState={ localPreviewState }
+					previewTargetId="local"
+					previewTargets={ [ localPreviewTarget, ...previewTargets ] }
+					onOpenPreviewTarget={ vi.fn() }
+				/>
+			</AuthContext.Provider>
+		);
+
+		fireEvent.change( getInput(), { target: { value: 'Use the local preview context' } } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
+
+		await waitFor( () => {
+			expect( getChatMessageText( 'Local context response' ) ).toBeVisible();
+		} );
+
+		expect( requestUrls ).toEqual( [
 			'https://public-api.wordpress.com/wpcom/v2/sites/202/ai/agent/dolly',
 		] );
 		expect( requestBodies[ 0 ].params?.sessionId ).toBe( requestBodies[ 0 ].params?.id );
-		expect( requestBodies[ 1 ].params?.sessionId ).toBe( requestBodies[ 1 ].params?.id );
-		expect( requestBodies[ 1 ].params?.sessionId ).not.toBe( requestBodies[ 0 ].params?.sessionId );
+		const requestJson = JSON.stringify( requestBodies[ 0 ] );
+		expect( requestJson ).toContain( '"targetId":"local"' );
+		expect( requestJson ).toContain( 'local-site-1' );
+		expect( requestJson ).toContain( 'http://localhost:8881/wp-admin/post.php?post=7' );
 	} );
 
 	it( 'uploads pending images and sends them to Dolly through input actions', async () => {
@@ -574,7 +703,7 @@ describe( 'WorkspaceDollyAssistant', () => {
 			);
 		} );
 		vi.stubGlobal( 'fetch', fetchMock );
-		renderDollyAssistant( { target: productionTarget } );
+		renderDollyAssistant( { transportTarget: productionTarget, previewTargetId: 'production' } );
 
 		expect( screen.getByRole( 'button', { name: 'Upload image' } ) ).toBeVisible();
 
@@ -603,70 +732,7 @@ describe( 'WorkspaceDollyAssistant', () => {
 		expect( screen.getByRole( 'button', { name: 'Chat options' } ) ).toBeVisible();
 	} );
 
-	it( 'does not show another target messages or draft input when targets switch', async () => {
-		const { rerender } = renderDollyAssistant( { target: productionTarget } );
-
-		fireEvent.change( getInput(), { target: { value: 'Production draft' } } );
-		expect( getInput() ).toHaveValue( 'Production draft' );
-
-		rerenderDollyAssistant( rerender, { target: stagingTarget } );
-
-		await waitFor( () => {
-			expect( getInput() ).toHaveValue( '' );
-		} );
-		expect( queryChatMessageText( 'Production draft' ) ).not.toBeInTheDocument();
-
-		fireEvent.change( getInput(), { target: { value: 'Staging draft' } } );
-		expect( getInput() ).toHaveValue( 'Staging draft' );
-
-		rerenderDollyAssistant( rerender, { target: productionTarget } );
-
-		await waitFor( () => {
-			expect( getInput() ).toHaveValue( 'Production draft' );
-		} );
-		expect( queryChatMessageText( 'Staging draft' ) ).not.toBeInTheDocument();
-	} );
-
-	it( 'keeps a hidden target turn alive and restores its response when selected again', async () => {
-		let firstRequestSignal: AbortSignal | undefined;
-		let resolveFirstRequest: ( value: unknown ) => void = () => {};
-		mockDollyFetch( ( { init } ) => {
-			firstRequestSignal = init.signal as AbortSignal;
-			return new Promise( ( resolve ) => {
-				resolveFirstRequest = resolve;
-			} );
-		} );
-		const { rerender } = renderDollyAssistant( { target: productionTarget } );
-
-		fireEvent.change( getInput(), { target: { value: 'Keep working' } } );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
-
-		await screen.findByRole( 'button', { name: 'Stop processing' } );
-
-		rerenderDollyAssistant( rerender, { target: stagingTarget } );
-
-		expect( firstRequestSignal?.aborted ).toBe( false );
-
-		await act( async () => {
-			resolveFirstRequest(
-				createDollyResponse(
-					'Production finished while hidden',
-					'session-production-hidden',
-					'task-production-hidden'
-				)
-			);
-		} );
-
-		expect( queryChatMessageText( 'Production finished while hidden' ) ).not.toBeInTheDocument();
-
-		rerenderDollyAssistant( rerender, { target: productionTarget } );
-
-		await waitFor( () => {
-			expect( getChatMessageText( 'Production finished while hidden' ) ).toBeVisible();
-		} );
-	} );
-
-	it( 'hydrates server conversations into the matching workspace target only', async () => {
+	it( 'hydrates server conversations into the workspace chat across remote targets', async () => {
 		const client = {
 			req: {
 				get: vi.fn( ( { path }, callback ) => {
@@ -709,39 +775,66 @@ describe( 'WorkspaceDollyAssistant', () => {
 						return;
 					}
 
+					if ( path.startsWith( '/ai/chat/wpcom-agent-dolly/302' ) ) {
+						callback( null, {
+							chat_id: 302,
+							session_id: 'server-staging-session',
+							site_id: 202,
+							messages: [
+								{
+									role: 'user',
+									content: 'Staging history question',
+									created_at: '2026-05-14 14:00:00',
+								},
+								{
+									role: 'assistant',
+									content: 'Staging history answer',
+									created_at: '2026-05-14 14:01:00',
+								},
+							],
+						} );
+						return;
+					}
+
 					throw new Error( `Unexpected history path: ${ path }` );
 				} ),
 			},
 		} as unknown as WPCOM;
 
-		const hydratedProductionStates = await hydrateWorkspaceDollyConversationStates( client, {
+		const hydratedConversationStates = await hydrateWorkspaceDollyConversationStates( client, {
 			workspaceId: workspace.id,
-			targetId: 'production',
-			site: productionSite,
+			workspace,
+			remoteTargets: [ productionTarget, stagingTarget ],
 		} );
 
-		hydratedProductionStates.forEach( ( conversationState ) => {
+		hydratedConversationStates.forEach( ( conversationState ) => {
 			mergeWorkspaceDollyConversationState( conversationState, { selectIfEmpty: true } );
 		} );
 
-		const productionConversation = getWorkspaceDollyConversationState( {
+		const selectedConversation = getWorkspaceDollyConversationState( {
 			workspaceId: workspace.id,
-			targetId: 'production',
-			site: productionSite,
+			workspace,
+			remoteTargets: [ productionTarget, stagingTarget ],
 		} );
-		const stagingConversation = getWorkspaceDollyConversationState( {
+		const conversations = getWorkspaceDollyConversationsForWorkspace( {
 			workspaceId: workspace.id,
-			targetId: 'staging',
-			site: stagingSite,
+			workspace,
+			remoteTargets: [ productionTarget, stagingTarget ],
 		} );
 
-		expect( productionConversation.messages.map( ( message ) => message.content ) ).toEqual( [
+		expect( conversations ).toHaveLength( 2 );
+		expect(
+			conversations.flatMap( ( conversation ) =>
+				conversation.messages.map( ( message ) => message.content )
+			)
+		).toEqual( [
+			'Staging history question',
+			'Staging history answer',
 			'Production history question',
 			'Production history answer',
 		] );
-		expect( productionConversation.sessionId ).toBe( 'server-production-session' );
-		expect( stagingConversation.messages ).toEqual( [] );
-		expect( client.req.get ).not.toHaveBeenCalledWith(
+		expect( selectedConversation.sessionId ).toBe( 'server-staging-session' );
+		expect( client.req.get ).toHaveBeenCalledWith(
 			expect.objectContaining( {
 				path: expect.stringContaining( '/302' ),
 			} ),

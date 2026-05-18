@@ -22,8 +22,8 @@ import {
 	type WorkspaceDollyUploadedImage,
 } from 'src/modules/workspaces/lib/dolly/types';
 import { extractBackendSelectedSiteId } from 'src/modules/workspaces/lib/dolly/utils';
-import type { SyncSite } from '@studio/common/types/sync';
-import type { RemoteTargetId } from 'src/modules/workspaces/types';
+import type { PreviewAbilityTarget } from 'src/modules/workspaces/lib/dolly/preview';
+import type { RemoteTarget, StudioWorkspace } from 'src/modules/workspaces/types';
 
 export const getWorkspaceDollyErrorMessage = ( error: unknown ) =>
 	error instanceof Error ? error.message : String( error );
@@ -103,10 +103,11 @@ export const sendWorkspaceDollyMessage = async ( {
 	uploadedImages,
 	previewContext,
 	siteAssociation,
-	selectedSite,
+	workspace,
+	transportTarget,
 	sessionId,
 	workspaceId,
-	targetId,
+	targets,
 	toolProvider,
 	abortSignal,
 }: {
@@ -114,10 +115,11 @@ export const sendWorkspaceDollyMessage = async ( {
 	uploadedImages?: WorkspaceDollyUploadedImage[];
 	previewContext: WorkspaceDollyPreviewContext;
 	siteAssociation: WorkspaceDollySiteAssociationContext;
-	selectedSite: SyncSite;
+	workspace: StudioWorkspace;
+	transportTarget: RemoteTarget;
 	sessionId?: string;
 	workspaceId: string;
-	targetId: RemoteTargetId;
+	targets: PreviewAbilityTarget[];
 	toolProvider?: ToolProvider;
 	abortSignal?: AbortSignal;
 } ): Promise< WorkspaceDollyAgentResponse > => {
@@ -126,21 +128,21 @@ export const sendWorkspaceDollyMessage = async ( {
 	const agentManager = getAgentManager();
 	const agentManagerKey = createWorkspaceDollyAgentManagerKey(
 		workspaceId,
-		targetId,
-		selectedSite.id
+		transportTarget.site.id
 	);
 	const sendInitialMessage = async ( nextTaskId: string, nextSessionId: string ) => {
 		agentManager.removeAgent( agentManagerKey );
 		await agentManager.createAgent( agentManagerKey, {
 			agentId: WORKSPACE_DOLLY_AGENT_ID,
-			agentUrl: createWorkspaceDollyAgentUrl( selectedSite.id ),
+			agentUrl: createWorkspaceDollyAgentUrl( transportTarget.site.id ),
 			authProvider: createWorkspaceDollyAuthProvider(),
 			contextProvider: createWorkspaceDollyContextProvider(
 				workspaceId,
-				targetId,
-				selectedSite,
+				workspace,
+				transportTarget,
 				previewContext,
-				siteAssociation
+				siteAssociation,
+				targets
 			),
 			toolProvider,
 			timeout: WORKSPACE_DOLLY_REQUEST_TIMEOUT_MS,

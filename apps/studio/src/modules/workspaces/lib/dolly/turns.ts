@@ -1,17 +1,14 @@
 import { useMemo, useSyncExternalStore } from 'react';
-import type { WorkspaceDollyTargetActivity } from 'src/modules/workspaces/lib/dolly/types';
-import type { RemoteTargetId } from 'src/modules/workspaces/types';
+import type { WorkspaceDollyWorkspaceActivity } from 'src/modules/workspaces/lib/dolly/types';
 
 type WorkspaceDollyTurn = {
 	conversationId: string;
 	workspaceId: string;
-	targetId: RemoteTargetId;
-	siteId: number;
 	abortController: AbortController;
 };
 
 const activeTurns = new Map< string, WorkspaceDollyTurn >();
-const targetActivities = new Map< string, WorkspaceDollyTargetActivity >();
+const workspaceActivities = new Map< string, WorkspaceDollyWorkspaceActivity >();
 const subscribers = new Set< () => void >();
 let activityVersion = 0;
 
@@ -29,44 +26,29 @@ const subscribe = ( subscriber: () => void ) => {
 	};
 };
 
-export const getWorkspaceDollyTargetActivityKey = ( {
-	workspaceId,
-	targetId,
-	siteId,
-}: {
-	workspaceId: string;
-	targetId: RemoteTargetId;
-	siteId: number;
-} ) => `${ workspaceId }:${ targetId }:${ siteId }`;
-
-const setTargetActivity = (
-	targetKey: string,
-	activity: Partial< WorkspaceDollyTargetActivity >
+const setWorkspaceActivity = (
+	workspaceId: string,
+	activity: Partial< WorkspaceDollyWorkspaceActivity >
 ) => {
 	const nextActivity = {
-		...targetActivities.get( targetKey ),
+		...workspaceActivities.get( workspaceId ),
 		...activity,
 	};
 	const hasActiveActivity = Object.values( nextActivity ).some( Boolean );
 
 	if ( hasActiveActivity ) {
-		targetActivities.set( targetKey, nextActivity );
+		workspaceActivities.set( workspaceId, nextActivity );
 	} else {
-		targetActivities.delete( targetKey );
+		workspaceActivities.delete( workspaceId );
 	}
 	emitChange();
 };
 
-const refreshThinkingActivity = ( targetKey: string ) => {
+const refreshThinkingActivity = ( workspaceId: string ) => {
 	const hasActiveTurn = Array.from( activeTurns.values() ).some(
-		( turn ) =>
-			getWorkspaceDollyTargetActivityKey( {
-				workspaceId: turn.workspaceId,
-				targetId: turn.targetId,
-				siteId: turn.siteId,
-			} ) === targetKey
+		( turn ) => turn.workspaceId === workspaceId
 	);
-	setTargetActivity( targetKey, { isAssistantThinking: hasActiveTurn } );
+	setWorkspaceActivity( workspaceId, { isAssistantThinking: hasActiveTurn } );
 };
 
 export const getWorkspaceDollyTurn = ( conversationId: string ) =>
@@ -74,14 +56,7 @@ export const getWorkspaceDollyTurn = ( conversationId: string ) =>
 
 export const startWorkspaceDollyTurn = ( turn: WorkspaceDollyTurn ) => {
 	activeTurns.set( turn.conversationId, turn );
-	setTargetActivity(
-		getWorkspaceDollyTargetActivityKey( {
-			workspaceId: turn.workspaceId,
-			targetId: turn.targetId,
-			siteId: turn.siteId,
-		} ),
-		{ isAssistantThinking: true }
-	);
+	setWorkspaceActivity( turn.workspaceId, { isAssistantThinking: true } );
 };
 
 export const finishWorkspaceDollyTurn = (
@@ -94,31 +69,23 @@ export const finishWorkspaceDollyTurn = (
 	}
 
 	activeTurns.delete( conversationId );
-	refreshThinkingActivity(
-		getWorkspaceDollyTargetActivityKey( {
-			workspaceId: activeTurn.workspaceId,
-			targetId: activeTurn.targetId,
-			siteId: activeTurn.siteId,
-		} )
-	);
+	refreshThinkingActivity( activeTurn.workspaceId );
 };
 
 export const abortWorkspaceDollyTurn = ( conversationId: string ) => {
 	activeTurns.get( conversationId )?.abortController.abort();
 };
 
-export const setWorkspaceDollyTargetUnread = (
-	target: { workspaceId: string; targetId: RemoteTargetId; siteId: number },
+export const setWorkspaceDollyWorkspaceUnread = (
+	workspaceId: string,
 	hasUnreadAssistantMessage: boolean
 ) => {
-	setTargetActivity( getWorkspaceDollyTargetActivityKey( target ), {
-		hasUnreadAssistantMessage,
-	} );
+	setWorkspaceActivity( workspaceId, { hasUnreadAssistantMessage } );
 };
 
-export const clearWorkspaceDollyTargetActivityForTests = () => {
+export const clearWorkspaceDollyWorkspaceActivityForTests = () => {
 	activeTurns.clear();
-	targetActivities.clear();
+	workspaceActivities.clear();
 	emitChange();
 };
 
@@ -129,7 +96,7 @@ export const useWorkspaceDollyConversationTurn = ( conversationId: string ) =>
 		() => false
 	);
 
-export const useWorkspaceDollyTargetActivities = ( workspaceId: string ) => {
+export const useWorkspaceDollyWorkspaceActivity = ( workspaceId: string ) => {
 	const version = useSyncExternalStore(
 		subscribe,
 		() => activityVersion,
@@ -138,12 +105,6 @@ export const useWorkspaceDollyTargetActivities = ( workspaceId: string ) => {
 
 	return useMemo( () => {
 		void version;
-		const activities: Record< string, WorkspaceDollyTargetActivity > = {};
-		for ( const [ key, activity ] of targetActivities.entries() ) {
-			if ( key.startsWith( `${ workspaceId }:` ) ) {
-				activities[ key ] = { ...activity };
-			}
-		}
-		return activities;
+		return { ...workspaceActivities.get( workspaceId ) };
 	}, [ version, workspaceId ] );
 };

@@ -1,14 +1,16 @@
-import { act, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { vi } from 'vitest';
 import { SiteContentTabs } from 'src/components/site-content-tabs';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { useSiteDetails } from 'src/hooks/use-site-details';
-import { WorkspaceSelectionProvider, getWorkspaceTargetStorageKey } from 'src/modules/workspaces';
+import { WorkspaceSelectionProvider } from 'src/modules/workspaces';
 import { store } from 'src/stores';
 import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 import type { SyncSite } from '@studio/common/types/sync';
+import type { WorkspacePreviewState } from 'src/modules/workspaces/components/workspace-preview';
+import type { WorkspaceTargetId } from 'src/modules/workspaces/types';
 
 const featureFlagsMock = vi.hoisted( () => ( {
 	enableBlueprints: true,
@@ -33,7 +35,34 @@ vi.mock( 'src/components/content-tab-assistant', () => ( {
 	),
 } ) );
 vi.mock( 'src/modules/workspaces/components/workspace-dolly-assistant', () => ( {
-	WorkspaceDollyAssistant: () => <div data-testid="workspace-dolly-assistant" />,
+	WorkspaceDollyAssistant: ( {
+		onOpenPreviewTarget,
+		previewState,
+	}: {
+		onOpenPreviewTarget: (
+			targetId: WorkspaceTargetId,
+			pathOrUrl: string,
+			nextPreviewState: WorkspacePreviewState
+		) => void;
+		previewState: WorkspacePreviewState;
+	} ) => (
+		<div data-testid="workspace-dolly-assistant">
+			<button
+				type="button"
+				onClick={ () =>
+					onOpenPreviewTarget( 'staging', 'https://staging.example/wp-admin/', {
+						...previewState,
+						open: true,
+						pathOrUrl: 'https://staging.example/wp-admin/',
+						currentUrl: 'https://staging.example/wp-admin/',
+						canGoBack: true,
+					} )
+				}
+			>
+				Mock open staging preview
+			</button>
+		</div>
+	),
 } ) );
 vi.mock( 'src/hooks/use-feature-flags', () => ( {
 	useFeatureFlags: () => featureFlagsMock,
@@ -201,14 +230,13 @@ describe( 'SiteContentTabs', () => {
 		expect( screen.getByRole( 'tab', { name: 'Previews' } ) ).toBeVisible();
 		expect( screen.getByRole( 'tab', { name: 'Import / Export' } ) ).toBeVisible();
 		expect(
-			within( screen.getByTestId( 'workspace-preview-controls' ) ).getByRole( 'button', {
-				name: 'Show preview',
-			} )
+			within( screen.getByTestId( 'workspace-content-body' ) ).getByLabelText(
+				'Workspace site preview'
+			)
 		).toBeVisible();
 	} );
 
-	it( 'starts local sites before opening local preview in the shared shell', async () => {
-		const user = userEvent.setup();
+	it( 'renders local preview by default without starting the local site', async () => {
 		const startServer = vi.fn( () => Promise.resolve() );
 		featureFlagsMock.enableWorkspaces = true;
 		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
@@ -216,13 +244,8 @@ describe( 'SiteContentTabs', () => {
 		} );
 
 		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
-		await user.click(
-			within( screen.getByTestId( 'workspace-preview-controls' ) ).getByRole( 'button', {
-				name: 'Show preview',
-			} )
-		);
 
-		expect( startServer ).toHaveBeenCalledWith( selectedSite );
+		expect( startServer ).not.toHaveBeenCalled();
 		expect(
 			within( screen.getByTestId( 'workspace-content-body' ) ).getByLabelText(
 				'Workspace site preview'
@@ -244,6 +267,56 @@ describe( 'SiteContentTabs', () => {
 		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
 		await user.click( screen.getByRole( 'tab', { name: 'Assistant' } ) );
 
+		expect( screen.getByTestId( 'local-content-tab-assistant' ) ).toHaveTextContent( 'Test Site' );
+		expect( screen.queryByTestId( 'workspace-dolly-assistant' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'keeps linked workspace tabs stable and scopes content to the selected target', async () => {
+		const user = userEvent.setup();
+		featureFlagsMock.enableWorkspaces = true;
+		mockWpcomSitesQuery( [
+			createSyncSite( {
+				id: 101,
+				localSiteId: selectedSite.id,
+				name: 'Linked Workspace',
+				url: 'https://linked.example',
+			} ),
+		] );
+		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
+			...createSiteDetailsReturn( {
+				selectedSite,
+				sites: [ selectedSite ],
+			} ),
+		} );
+
+		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
+
+		expect( screen.getByRole( 'tab', { name: 'Overview', selected: true } ) ).toBeVisible();
+		expect( screen.getByRole( 'tab', { name: 'Previews' } ) ).toBeVisible();
+		expect( screen.getByRole( 'tab', { name: 'Import / Export' } ) ).toBeVisible();
+
+		await user.click( screen.getByRole( 'button', { name: 'Preview target' } ) );
+		await user.click( screen.getByRole( 'option', { name: 'Production' } ) );
+
+		expect( screen.getByRole( 'tab', { name: 'Overview', selected: true } ) ).toBeVisible();
+		expect( screen.getByRole( 'tab', { name: 'Previews' } ) ).toBeVisible();
+		expect( screen.getByRole( 'tab', { name: 'Import / Export' } ) ).toBeVisible();
+		expect( screen.getByRole( 'tab', { name: 'Sync' } ) ).toBeVisible();
+		expect( screen.getByRole( 'tab', { name: 'Settings' } ) ).toBeVisible();
+		expect( screen.getByText( 'This section is managed in the Local target.' ) ).toBeVisible();
+
+		await user.click( screen.getByRole( 'tab', { name: 'Assistant' } ) );
+
+		expect( screen.getByTestId( 'workspace-dolly-assistant' ) ).toBeInTheDocument();
+		expect( screen.queryByTestId( 'local-content-tab-assistant' ) ).not.toBeInTheDocument();
+
+		await user.click( screen.getByRole( 'button', { name: 'Preview target' } ) );
+		await user.click( screen.getByRole( 'option', { name: 'Local' } ) );
+
+		expect( screen.getByRole( 'tab', { name: 'Assistant', selected: true } ) ).toBeVisible();
+		expect( screen.getByRole( 'tab', { name: 'Overview' } ) ).toBeVisible();
+		expect( screen.getByRole( 'tab', { name: 'Previews' } ) ).toBeVisible();
+		expect( screen.getByRole( 'tab', { name: 'Import / Export' } ) ).toBeVisible();
 		expect( screen.getByTestId( 'local-content-tab-assistant' ) ).toHaveTextContent( 'Test Site' );
 		expect( screen.queryByTestId( 'workspace-dolly-assistant' ) ).not.toBeInTheDocument();
 	} );
@@ -270,9 +343,9 @@ describe( 'SiteContentTabs', () => {
 		expect( screen.queryByRole( 'tab', { name: 'Overview' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'tab', { name: 'Previews' } ) ).not.toBeInTheDocument();
 		expect(
-			within( screen.getByTestId( 'workspace-preview-controls' ) ).getByRole( 'button', {
-				name: 'Show preview',
-			} )
+			within( screen.getByTestId( 'workspace-content-body' ) ).getByLabelText(
+				'Workspace site preview'
+			)
 		).toBeVisible();
 		expect(
 			within( screen.getByTestId( 'workspace-content-header' ) ).queryByRole( 'button', {
@@ -290,11 +363,6 @@ describe( 'SiteContentTabs', () => {
 		} );
 
 		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
-		await user.click(
-			within( screen.getByTestId( 'workspace-preview-controls' ) ).getByRole( 'button', {
-				name: 'Show preview',
-			} )
-		);
 
 		expect(
 			within( screen.getByTestId( 'workspace-preview-controls' ) ).getByRole( 'button', {
@@ -330,7 +398,53 @@ describe( 'SiteContentTabs', () => {
 		expect( resizeHandle ).toHaveAttribute( 'aria-valuenow', '552' );
 	} );
 
-	it( 'switches remote workspace targets inside the shell', async () => {
+	it( 'releases preview resizing even when dragging over the preview panel', async () => {
+		featureFlagsMock.enableWorkspaces = true;
+		mockWpcomSitesQuery( [ createSyncSite( { id: 101, name: 'Remote Only' } ) ] );
+		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
+			...createSiteDetailsReturn( { selectedSite: null, sites: [] } ),
+		} );
+
+		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
+
+		const previewPanel = within( screen.getByTestId( 'workspace-content-body' ) ).getByLabelText(
+			'Workspace site preview'
+		);
+		vi.spyOn( previewPanel, 'getBoundingClientRect' ).mockReturnValue( {
+			x: 480,
+			y: 0,
+			width: 520,
+			height: 500,
+			top: 0,
+			right: 1000,
+			bottom: 500,
+			left: 480,
+			toJSON: () => ( {} ),
+		} );
+		const resizeHandle = within( screen.getByTestId( 'workspace-content-body' ) ).getByRole(
+			'separator',
+			{
+				name: 'Resize preview',
+			}
+		);
+
+		fireEvent.mouseDown( resizeHandle, { clientX: 480 } );
+
+		const resizeOverlay = screen.getByTestId( 'workspace-preview-resize-overlay' );
+		fireEvent.mouseMove( resizeOverlay, { clientX: 420 } );
+
+		expect(
+			within( screen.getByTestId( 'workspace-content-body' ) ).getByRole( 'separator', {
+				name: 'Resize preview',
+			} )
+		).toHaveAttribute( 'aria-valuenow', '580' );
+
+		fireEvent.mouseUp( resizeOverlay );
+
+		expect( screen.queryByTestId( 'workspace-preview-resize-overlay' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'switches preview targets inside the workspace shell without changing tabs', async () => {
 		const user = userEvent.setup();
 		featureFlagsMock.enableWorkspaces = true;
 		const productionSite = createSyncSite( {
@@ -352,24 +466,60 @@ describe( 'SiteContentTabs', () => {
 		} );
 
 		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
-		await user.click(
-			screen.getByRole( 'button', { name: 'Select Staging target: https://staging.example' } )
-		);
+		await user.click( screen.getByRole( 'button', { name: 'Preview target' } ) );
+		await user.click( screen.getByRole( 'option', { name: 'Production' } ) );
 
-		expect(
-			screen.getByRole( 'button', { name: 'Select Staging target: https://staging.example' } )
-		).toHaveClass( 'bg-a8c-green-5' );
 		expect( screen.getByRole( 'tab', { name: 'Assistant', selected: true } ) ).toBeVisible();
+		expect( screen.getByTitle( 'Remote Workspace preview' ) ).toHaveAttribute(
+			'src',
+			'https://production.example/'
+		);
 	} );
 
-	it( 'selects the local Studio site when switching to Local from the shell', async () => {
+	it( 'rebases chat-updated preview URLs when switching targets', async () => {
 		const user = userEvent.setup();
-		const setSelectedSiteId = vi.fn< ( selectedSiteId: string ) => void >();
 		featureFlagsMock.enableWorkspaces = true;
-		localStorage.setItem(
-			getWorkspaceTargetStorageKey( 'studio-workspace:wpcom:101' ),
-			'production'
+		const productionSite = createSyncSite( {
+			id: 101,
+			name: 'Remote Workspace',
+			url: 'https://production.example',
+			stagingSiteIds: [ 202 ],
+		} );
+		const stagingSite = createSyncSite( {
+			id: 202,
+			name: 'Remote Workspace Staging',
+			url: 'https://staging.example',
+			isStaging: true,
+			productionSiteId: 101,
+		} );
+		mockWpcomSitesQuery( [ productionSite, stagingSite ] );
+		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
+			...createSiteDetailsReturn( { selectedSite: null, sites: [] } ),
+		} );
+
+		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
+		await user.click( screen.getByRole( 'button', { name: 'Mock open staging preview' } ) );
+
+		await waitFor( () =>
+			expect( screen.getByTitle( 'Remote Workspace Staging preview' ) ).toHaveAttribute(
+				'src',
+				'https://staging.example/wp-admin/'
+			)
 		);
+
+		await user.click( screen.getByRole( 'button', { name: 'Preview target' } ) );
+		await user.click( screen.getByRole( 'option', { name: 'Production' } ) );
+
+		await waitFor( () =>
+			expect( screen.getByTitle( 'Remote Workspace preview' ) ).toHaveAttribute(
+				'src',
+				'https://production.example/wp-admin/'
+			)
+		);
+	} );
+
+	it( 'renders the preview target menu from the browser bar only', async () => {
+		featureFlagsMock.enableWorkspaces = true;
 		mockWpcomSitesQuery( [
 			createSyncSite( {
 				id: 101,
@@ -382,19 +532,105 @@ describe( 'SiteContentTabs', () => {
 			...createSiteDetailsReturn( {
 				selectedSite,
 				sites: [ selectedSite ],
-				setSelectedSiteId,
 			} ),
 		} );
 
 		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
-		await user.click(
-			screen.getByRole( 'button', { name: 'Select Local target: Test Site is stopped' } )
-		);
 
-		expect( setSelectedSiteId ).toHaveBeenCalledWith( selectedSite.id );
+		expect(
+			screen.queryByRole( 'button', { name: /Select Local target:/ } )
+		).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole( 'button', { name: /Select Production target:/ } )
+		).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'combobox', { name: 'Preview target' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Preview target' } ) ).toBeVisible();
+		expect(
+			screen.queryByLabelText( 'Local target: Test Site is stopped' )
+		).not.toBeInTheDocument();
 	} );
 
-	it( 'shows missing targets as disabled affordances', async () => {
+	it( 'shows the local Start button only when the Local preview target is selected', async () => {
+		const user = userEvent.setup();
+		const startServer = vi.fn( () => Promise.resolve() );
+		featureFlagsMock.enableWorkspaces = true;
+		mockWpcomSitesQuery( [
+			createSyncSite( {
+				id: 101,
+				localSiteId: selectedSite.id,
+				name: 'Linked Workspace',
+				url: 'https://linked.example',
+			} ),
+		] );
+		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
+			...createSiteDetailsReturn( {
+				selectedSite,
+				sites: [ selectedSite ],
+				startServer,
+			} ),
+		} );
+
+		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
+
+		const startButton = within( screen.getByTestId( 'workspace-content-header' ) ).getByRole(
+			'button',
+			{
+				name: 'Start',
+			}
+		);
+		expect( startButton ).toBeVisible();
+
+		await user.click( startButton );
+
+		expect( startServer ).toHaveBeenCalledWith( selectedSite );
+
+		await user.click( screen.getByRole( 'button', { name: 'Preview target' } ) );
+		await user.click( screen.getByRole( 'option', { name: 'Production' } ) );
+
+		expect(
+			within( screen.getByTestId( 'workspace-content-header' ) ).queryByRole( 'button', {
+				name: 'Start',
+			} )
+		).not.toBeInTheDocument();
+	} );
+
+	it( 'switches preview targets before opening the preview', async () => {
+		const user = userEvent.setup();
+		featureFlagsMock.enableWorkspaces = true;
+		mockWpcomSitesQuery( [
+			createSyncSite( {
+				id: 101,
+				localSiteId: selectedSite.id,
+				name: 'Linked Workspace',
+				url: 'https://linked.example',
+			} ),
+		] );
+		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
+			...createSiteDetailsReturn( {
+				selectedSite,
+				sites: [ selectedSite ],
+			} ),
+		} );
+
+		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
+		await user.click( screen.getByRole( 'button', { name: 'Close preview' } ) );
+
+		expect( screen.queryByLabelText( 'Workspace site preview' ) ).not.toBeInTheDocument();
+
+		await user.click( screen.getByRole( 'button', { name: 'Preview target' } ) );
+		await user.click( screen.getByRole( 'option', { name: 'Production' } ) );
+
+		expect( screen.queryByLabelText( 'Workspace site preview' ) ).not.toBeInTheDocument();
+
+		await user.click( screen.getByRole( 'button', { name: 'Show preview' } ) );
+
+		expect( screen.getByTitle( 'Linked Workspace preview' ) ).toHaveAttribute(
+			'src',
+			'https://linked.example/'
+		);
+	} );
+
+	it( 'omits missing target buttons from the shell', async () => {
 		featureFlagsMock.enableWorkspaces = true;
 		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
 			...createSiteDetailsReturn(),
@@ -403,11 +639,13 @@ describe( 'SiteContentTabs', () => {
 		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
 
 		expect(
-			screen.getByRole( 'button', { name: 'Production target unavailable' } )
-		).toBeDisabled();
-		expect( screen.getByRole( 'button', { name: 'Staging target unavailable' } ) ).toBeDisabled();
+			screen.queryByRole( 'button', { name: 'Production target unavailable' } )
+		).not.toBeInTheDocument();
 		expect(
-			screen.getByRole( 'button', { name: 'Select Local target: Test Site is stopped' } )
-		).toBeEnabled();
+			screen.queryByRole( 'button', { name: 'Staging target unavailable' } )
+		).not.toBeInTheDocument();
+		expect(
+			screen.queryByLabelText( 'Local target: Test Site is stopped' )
+		).not.toBeInTheDocument();
 	} );
 } );

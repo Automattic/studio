@@ -114,6 +114,33 @@ function useSelectedSite( firstSiteId: string | null ) {
 	};
 }
 
+function resolveSiteUrl( site: SiteDetails ) {
+	if ( site.customDomain ) {
+		const protocol = site.enableHttps ? 'https' : 'http';
+		return `${ protocol }://${ site.customDomain }`;
+	}
+
+	return `http://localhost:${ site.port }`;
+}
+
+function setSiteRunningState( site: SiteDetails, running: boolean ): SiteDetails {
+	if ( running ) {
+		return {
+			...site,
+			running: true,
+			url: resolveSiteUrl( site ),
+		};
+	}
+
+	const stoppedSite = {
+		...site,
+		running: false,
+	};
+	delete ( stoppedSite as Partial< StartedSiteDetails > ).url;
+
+	return stoppedSite as SiteDetails;
+}
+
 export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	const { Provider } = siteDetailsContext;
 
@@ -157,13 +184,15 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			}
 
 			if ( ! site ) {
+				if ( eventType === SITE_EVENTS.UPDATED ) {
+					return prevSites.map( ( prevSite ) =>
+						prevSite.id === siteId ? setSiteRunningState( prevSite, running ) : prevSite
+					);
+				}
 				return prevSites;
 			}
 
-			const siteDetails: SiteDetails = {
-				...site,
-				running,
-			};
+			const siteDetails = setSiteRunningState( { ...site, running } as SiteDetails, running );
 
 			const existingIndex = prevSites.findIndex( ( s ) => s.id === siteId );
 
@@ -404,6 +433,11 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 			try {
 				await getIpcApi().startServer( id );
+				setSites( ( prevSites ) =>
+					prevSites.map( ( prevSite ) =>
+						prevSite.id === id ? setSiteRunningState( prevSite, true ) : prevSite
+					)
+				);
 			} catch ( error ) {
 				if ( error instanceof Error && error.message.includes( 'PROXY_ERROR_PORT_IN_USE' ) ) {
 					getIpcApi().showErrorMessageBox( {
@@ -577,6 +611,11 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		async ( id: string ) => {
 			toggleLoadingServerForSite( id );
 			await getIpcApi().stopServer( id );
+			setSites( ( prevSites ) =>
+				prevSites.map( ( prevSite ) =>
+					prevSite.id === id ? setSiteRunningState( prevSite, false ) : prevSite
+				)
+			);
 			toggleLoadingServerForSite( id );
 		},
 		[ toggleLoadingServerForSite ]

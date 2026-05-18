@@ -1,40 +1,70 @@
-import { clearWorkspaceDollyTargetActivityForTests } from 'src/modules/workspaces/lib/dolly/turns';
+import { useMemo, useSyncExternalStore } from 'react';
+import { clearWorkspaceDollyWorkspaceActivityForTests } from 'src/modules/workspaces/lib/dolly/turns';
 import {
 	WORKSPACE_DOLLY_AGENT_ID,
 	type WorkspaceDollyConversationState,
-	type WorkspaceDollyTargetDescriptor,
+	type WorkspaceDollyWorkspaceDescriptor,
 } from 'src/modules/workspaces/lib/dolly/types';
 import {
 	flexibleNumber,
 	isRecord,
 	normalizeDollySessionId,
 } from 'src/modules/workspaces/lib/dolly/utils';
+import type { RemoteTarget, StudioWorkspace } from 'src/modules/workspaces/types';
 import type { Message as MessageType } from 'src/stores/chat-slice';
 
-export const WORKSPACE_DOLLY_CONVERSATIONS_STORAGE_KEY = 'studio_workspace_dolly_conversations_v1';
+export const WORKSPACE_DOLLY_CONVERSATIONS_STORAGE_KEY = 'studio_workspace_dolly_conversations_v2';
 
 type PersistedWorkspaceDollyCache = {
-	version: 1;
+	version: 2;
 	conversations: Record< string, WorkspaceDollyConversationState >;
-	selectedConversationIdsByTargetKey: Record< string, string >;
-	hiddenRemoteConversationKeysByTargetKey: Record< string, string[] >;
+	selectedConversationIdsByWorkspaceId: Record< string, string >;
+	hiddenRemoteConversationKeysByWorkspaceId: Record< string, string[] >;
 };
 
 const conversationCache = new Map< string, WorkspaceDollyConversationState >();
-const selectedConversationIdsByTargetKey = new Map< string, string >();
-const hiddenRemoteConversationKeysByTargetKey = new Map< string, Set< string > >();
+const selectedConversationIdsByWorkspaceId = new Map< string, string >();
+const hiddenRemoteConversationKeysByWorkspaceId = new Map< string, Set< string > >();
+const conversationCacheSubscribers = new Set< () => void >();
 let hasLoadedConversationCache = false;
+let conversationCacheVersion = 0;
 
-export const createWorkspaceDollyTargetCacheKey = ( {
+const emitConversationCacheChange = () => {
+	conversationCacheVersion += 1;
+	for ( const subscriber of conversationCacheSubscribers ) {
+		subscriber();
+	}
+};
+
+const subscribeWorkspaceDollyConversationCache = ( subscriber: () => void ) => {
+	conversationCacheSubscribers.add( subscriber );
+	return () => {
+		conversationCacheSubscribers.delete( subscriber );
+	};
+};
+
+const getWorkspaceDollyConversationCacheSnapshot = () => {
+	loadWorkspaceDollyConversationCache();
+	return conversationCacheVersion;
+};
+
+export const createWorkspaceDollyWorkspaceCacheKey = ( {
 	workspaceId,
-	targetId,
-	site,
-}: WorkspaceDollyTargetDescriptor ) => `${ workspaceId }:${ targetId }:${ site.id }`;
+}: WorkspaceDollyWorkspaceDescriptor ) => workspaceId;
 
-const createWorkspaceDollyConversationTargetCacheKey = (
+export const createWorkspaceDollyWorkspaceDescriptor = (
+	workspace: StudioWorkspace
+): WorkspaceDollyWorkspaceDescriptor => ( {
+	workspaceId: workspace.id,
+	workspace,
+	remoteTargets: [ workspace.targets.production, workspace.targets.staging ].filter(
+		( target ): target is RemoteTarget => Boolean( target )
+	),
+} );
+
+const createWorkspaceDollyConversationWorkspaceCacheKey = (
 	conversationState: WorkspaceDollyConversationState
-) =>
-	`${ conversationState.key.workspaceId }:${ conversationState.key.targetId }:${ conversationState.key.siteId }`;
+) => conversationState.key.workspaceId;
 
 export const createWorkspaceDollyConversationId = () => `local:${ crypto.randomUUID() }`;
 
@@ -55,8 +85,8 @@ const createRemoteConversationKeys = (
 };
 
 const isRemoteConversationHidden = ( conversationState: WorkspaceDollyConversationState ) => {
-	const hiddenKeys = hiddenRemoteConversationKeysByTargetKey.get(
-		createWorkspaceDollyConversationTargetCacheKey( conversationState )
+	const hiddenKeys = hiddenRemoteConversationKeysByWorkspaceId.get(
+		createWorkspaceDollyConversationWorkspaceCacheKey( conversationState )
 	);
 	if ( ! hiddenKeys ) {
 		return false;
@@ -71,11 +101,11 @@ const addHiddenRemoteConversation = ( conversationState: WorkspaceDollyConversat
 		return;
 	}
 
-	const targetKey = createWorkspaceDollyConversationTargetCacheKey( conversationState );
+	const workspaceId = createWorkspaceDollyConversationWorkspaceCacheKey( conversationState );
 	const hiddenKeys =
-		hiddenRemoteConversationKeysByTargetKey.get( targetKey ) ?? new Set< string >();
+		hiddenRemoteConversationKeysByWorkspaceId.get( workspaceId ) ?? new Set< string >();
 	keys.forEach( ( key ) => hiddenKeys.add( key ) );
-	hiddenRemoteConversationKeysByTargetKey.set( targetKey, hiddenKeys );
+	hiddenRemoteConversationKeysByWorkspaceId.set( workspaceId, hiddenKeys );
 };
 
 export const cloneWorkspaceDollyConversationState = (
@@ -97,14 +127,9 @@ const normalizePersistedWorkspaceDollyConversationState = (
 	}
 
 	const workspaceId = typeof value.key.workspaceId === 'string' ? value.key.workspaceId : undefined;
-	const targetId =
-		value.key.targetId === 'production' || value.key.targetId === 'staging'
-			? value.key.targetId
-			: undefined;
-	const siteId = flexibleNumber( value.key.siteId );
 	const agentId = typeof value.key.agentId === 'string' ? value.key.agentId : undefined;
 
-	if ( ! workspaceId || ! targetId || ! siteId || agentId !== WORKSPACE_DOLLY_AGENT_ID ) {
+	if ( ! workspaceId || agentId !== WORKSPACE_DOLLY_AGENT_ID ) {
 		return undefined;
 	}
 
@@ -117,8 +142,6 @@ const normalizePersistedWorkspaceDollyConversationState = (
 		id,
 		key: {
 			workspaceId,
-			targetId,
-			siteId,
 			agentId: WORKSPACE_DOLLY_AGENT_ID,
 		},
 		remoteChatId: flexibleNumber( value.remoteChatId ),
@@ -139,14 +162,14 @@ const normalizePersistedWorkspaceDollyConversationState = (
 const addConversationStateToCache = ( conversationState: WorkspaceDollyConversationState ) => {
 	conversationCache.set( conversationState.id, conversationState );
 
-	const targetKey = createWorkspaceDollyConversationTargetCacheKey( conversationState );
-	if ( ! selectedConversationIdsByTargetKey.has( targetKey ) ) {
-		selectedConversationIdsByTargetKey.set( targetKey, conversationState.id );
+	const workspaceId = createWorkspaceDollyConversationWorkspaceCacheKey( conversationState );
+	if ( ! selectedConversationIdsByWorkspaceId.has( workspaceId ) ) {
+		selectedConversationIdsByWorkspaceId.set( workspaceId, conversationState.id );
 	}
 };
 
 const loadPersistedWorkspaceDollyCache = ( parsed: unknown ) => {
-	if ( ! isRecord( parsed ) || parsed.version !== 1 || ! isRecord( parsed.conversations ) ) {
+	if ( ! isRecord( parsed ) || parsed.version !== 2 || ! isRecord( parsed.conversations ) ) {
 		return false;
 	}
 
@@ -157,23 +180,23 @@ const loadPersistedWorkspaceDollyCache = ( parsed: unknown ) => {
 		}
 	}
 
-	if ( isRecord( parsed.selectedConversationIdsByTargetKey ) ) {
-		for ( const [ targetKey, conversationId ] of Object.entries(
-			parsed.selectedConversationIdsByTargetKey
+	if ( isRecord( parsed.selectedConversationIdsByWorkspaceId ) ) {
+		for ( const [ workspaceId, conversationId ] of Object.entries(
+			parsed.selectedConversationIdsByWorkspaceId
 		) ) {
 			if ( typeof conversationId === 'string' && conversationCache.has( conversationId ) ) {
-				selectedConversationIdsByTargetKey.set( targetKey, conversationId );
+				selectedConversationIdsByWorkspaceId.set( workspaceId, conversationId );
 			}
 		}
 	}
 
-	if ( isRecord( parsed.hiddenRemoteConversationKeysByTargetKey ) ) {
-		for ( const [ targetKey, hiddenKeys ] of Object.entries(
-			parsed.hiddenRemoteConversationKeysByTargetKey
+	if ( isRecord( parsed.hiddenRemoteConversationKeysByWorkspaceId ) ) {
+		for ( const [ workspaceId, hiddenKeys ] of Object.entries(
+			parsed.hiddenRemoteConversationKeysByWorkspaceId
 		) ) {
 			if ( Array.isArray( hiddenKeys ) ) {
-				hiddenRemoteConversationKeysByTargetKey.set(
-					targetKey,
+				hiddenRemoteConversationKeysByWorkspaceId.set(
+					workspaceId,
 					new Set(
 						hiddenKeys.filter( ( hiddenKey ): hiddenKey is string => typeof hiddenKey === 'string' )
 					)
@@ -205,35 +228,32 @@ export const loadWorkspaceDollyConversationCache = () => {
 
 export const persistWorkspaceDollyConversationCache = () => {
 	const cache: PersistedWorkspaceDollyCache = {
-		version: 1,
+		version: 2,
 		conversations: Object.fromEntries(
 			Array.from( conversationCache.entries() ).map( ( [ key, value ] ) => [
 				key,
 				cloneWorkspaceDollyConversationState( value ),
 			] )
 		),
-		selectedConversationIdsByTargetKey: Object.fromEntries(
-			selectedConversationIdsByTargetKey.entries()
+		selectedConversationIdsByWorkspaceId: Object.fromEntries(
+			selectedConversationIdsByWorkspaceId.entries()
 		),
-		hiddenRemoteConversationKeysByTargetKey: Object.fromEntries(
-			Array.from( hiddenRemoteConversationKeysByTargetKey.entries() ).map(
-				( [ targetKey, hiddenKeys ] ) => [ targetKey, Array.from( hiddenKeys ) ]
+		hiddenRemoteConversationKeysByWorkspaceId: Object.fromEntries(
+			Array.from( hiddenRemoteConversationKeysByWorkspaceId.entries() ).map(
+				( [ workspaceId, hiddenKeys ] ) => [ workspaceId, Array.from( hiddenKeys ) ]
 			)
 		),
 	};
 	localStorage.setItem( WORKSPACE_DOLLY_CONVERSATIONS_STORAGE_KEY, JSON.stringify( cache ) );
+	emitConversationCacheChange();
 };
 
 export const createWorkspaceDollyConversationState = ( {
 	workspaceId,
-	targetId,
-	site,
-}: WorkspaceDollyTargetDescriptor ): WorkspaceDollyConversationState => ( {
+}: WorkspaceDollyWorkspaceDescriptor ): WorkspaceDollyConversationState => ( {
 	id: createWorkspaceDollyConversationId(),
 	key: {
 		workspaceId,
-		targetId,
-		siteId: site.id,
 		agentId: WORKSPACE_DOLLY_AGENT_ID,
 	},
 	remoteChatId: undefined,
@@ -245,56 +265,66 @@ export const createWorkspaceDollyConversationState = ( {
 } );
 
 export const setSelectedWorkspaceDollyConversationId = (
-	target: WorkspaceDollyTargetDescriptor,
+	workspace: WorkspaceDollyWorkspaceDescriptor,
 	conversationId: string
 ) => {
-	selectedConversationIdsByTargetKey.set(
-		createWorkspaceDollyTargetCacheKey( target ),
+	selectedConversationIdsByWorkspaceId.set(
+		createWorkspaceDollyWorkspaceCacheKey( workspace ),
 		conversationId
 	);
 	persistWorkspaceDollyConversationCache();
 };
 
-export const createNewWorkspaceDollyConversation = ( target: WorkspaceDollyTargetDescriptor ) => {
+export const createNewWorkspaceDollyConversation = (
+	workspace: WorkspaceDollyWorkspaceDescriptor
+) => {
 	loadWorkspaceDollyConversationCache();
-	const conversationState = createWorkspaceDollyConversationState( target );
+	const conversationState = createWorkspaceDollyConversationState( workspace );
 	conversationCache.set( conversationState.id, conversationState );
-	setSelectedWorkspaceDollyConversationId( target, conversationState.id );
+	setSelectedWorkspaceDollyConversationId( workspace, conversationState.id );
 	return cloneWorkspaceDollyConversationState( conversationState );
 };
 
-const conversationMatchesTarget = (
+const conversationMatchesWorkspace = (
 	conversationState: WorkspaceDollyConversationState,
-	{ workspaceId, targetId, site }: WorkspaceDollyTargetDescriptor
-) =>
-	conversationState.key.workspaceId === workspaceId &&
-	conversationState.key.targetId === targetId &&
-	conversationState.key.siteId === site.id;
+	{ workspaceId }: WorkspaceDollyWorkspaceDescriptor
+) => conversationState.key.workspaceId === workspaceId;
 
-export const getWorkspaceDollyConversationsForTarget = (
-	target: WorkspaceDollyTargetDescriptor
+export const getWorkspaceDollyConversationsForWorkspace = (
+	workspace: WorkspaceDollyWorkspaceDescriptor
 ) => {
 	loadWorkspaceDollyConversationCache();
 	return Array.from( conversationCache.values() )
-		.filter( ( conversationState ) => conversationMatchesTarget( conversationState, target ) )
+		.filter( ( conversationState ) => conversationMatchesWorkspace( conversationState, workspace ) )
 		.filter( ( conversationState ) => ! isRemoteConversationHidden( conversationState ) )
 		.sort( ( first, second ) => second.lastUpdated - first.lastUpdated )
 		.map( cloneWorkspaceDollyConversationState );
 };
 
-export const getWorkspaceDollyConversationState = ( target: WorkspaceDollyTargetDescriptor ) => {
+export const getSelectedWorkspaceDollyConversationId = (
+	workspace: WorkspaceDollyWorkspaceDescriptor
+) => {
 	loadWorkspaceDollyConversationCache();
-	const targetKey = createWorkspaceDollyTargetCacheKey( target );
-	const selectedConversationId = selectedConversationIdsByTargetKey.get( targetKey );
+	return selectedConversationIdsByWorkspaceId.get(
+		createWorkspaceDollyWorkspaceCacheKey( workspace )
+	);
+};
+
+export const getWorkspaceDollyConversationState = (
+	workspace: WorkspaceDollyWorkspaceDescriptor
+) => {
+	loadWorkspaceDollyConversationCache();
+	const workspaceId = createWorkspaceDollyWorkspaceCacheKey( workspace );
+	const selectedConversationId = selectedConversationIdsByWorkspaceId.get( workspaceId );
 	const cachedConversationState = selectedConversationId
 		? conversationCache.get( selectedConversationId )
 		: undefined;
 
 	if (
 		! cachedConversationState ||
-		! conversationMatchesTarget( cachedConversationState, target )
+		! conversationMatchesWorkspace( cachedConversationState, workspace )
 	) {
-		return createNewWorkspaceDollyConversation( target );
+		return createNewWorkspaceDollyConversation( workspace );
 	}
 
 	return cloneWorkspaceDollyConversationState( cachedConversationState );
@@ -311,8 +341,8 @@ export const writeWorkspaceDollyConversationState = (
 ) => {
 	loadWorkspaceDollyConversationCache();
 	conversationCache.set( conversationState.id, conversationState );
-	selectedConversationIdsByTargetKey.set(
-		createWorkspaceDollyConversationTargetCacheKey( conversationState ),
+	selectedConversationIdsByWorkspaceId.set(
+		createWorkspaceDollyConversationWorkspaceCacheKey( conversationState ),
 		conversationState.id
 	);
 	persistWorkspaceDollyConversationCache();
@@ -321,23 +351,23 @@ export const writeWorkspaceDollyConversationState = (
 
 export const deleteWorkspaceDollyConversation = (
 	conversationId: string,
-	target: WorkspaceDollyTargetDescriptor
+	workspace: WorkspaceDollyWorkspaceDescriptor
 ) => {
 	loadWorkspaceDollyConversationCache();
 	const conversationState = conversationCache.get( conversationId );
-	if ( conversationState && conversationMatchesTarget( conversationState, target ) ) {
+	if ( conversationState && conversationMatchesWorkspace( conversationState, workspace ) ) {
 		addHiddenRemoteConversation( conversationState );
 		conversationCache.delete( conversationId );
 	}
 
-	const conversations = getWorkspaceDollyConversationsForTarget( target );
+	const conversations = getWorkspaceDollyConversationsForWorkspace( workspace );
 	const nextConversation = conversations[ 0 ];
 	if ( nextConversation ) {
-		setSelectedWorkspaceDollyConversationId( target, nextConversation.id );
+		setSelectedWorkspaceDollyConversationId( workspace, nextConversation.id );
 		return nextConversation;
 	}
 
-	return createNewWorkspaceDollyConversation( target );
+	return createNewWorkspaceDollyConversation( workspace );
 };
 
 export const shouldApplyWorkspaceDollyHydration = (
@@ -391,11 +421,7 @@ export const mergeWorkspaceDollyConversationState = (
 	}
 
 	const matchingConversation = Array.from( conversationCache.values() ).find( ( candidate ) => {
-		if (
-			candidate.key.workspaceId !== hydratedConversationState.key.workspaceId ||
-			candidate.key.targetId !== hydratedConversationState.key.targetId ||
-			candidate.key.siteId !== hydratedConversationState.key.siteId
-		) {
+		if ( candidate.key.workspaceId !== hydratedConversationState.key.workspaceId ) {
 			return false;
 		}
 
@@ -434,8 +460,8 @@ export const mergeWorkspaceDollyConversationState = (
 
 	conversationCache.set( nextConversationState.id, nextConversationState );
 
-	const targetKey = createWorkspaceDollyConversationTargetCacheKey( nextConversationState );
-	const selectedConversationId = selectedConversationIdsByTargetKey.get( targetKey );
+	const workspaceId = createWorkspaceDollyConversationWorkspaceCacheKey( nextConversationState );
+	const selectedConversationId = selectedConversationIdsByWorkspaceId.get( workspaceId );
 	const selectedConversation = selectedConversationId
 		? conversationCache.get( selectedConversationId )
 		: undefined;
@@ -445,7 +471,7 @@ export const mergeWorkspaceDollyConversationState = (
 			selectedConversation.messages.length === 0 &&
 			! selectedConversation.input.trim() )
 	) {
-		selectedConversationIdsByTargetKey.set( targetKey, nextConversationState.id );
+		selectedConversationIdsByWorkspaceId.set( workspaceId, nextConversationState.id );
 	}
 
 	persistWorkspaceDollyConversationCache();
@@ -454,9 +480,40 @@ export const mergeWorkspaceDollyConversationState = (
 
 export const clearWorkspaceDollyAssistantStateCacheForTests = () => {
 	conversationCache.clear();
-	selectedConversationIdsByTargetKey.clear();
-	hiddenRemoteConversationKeysByTargetKey.clear();
-	clearWorkspaceDollyTargetActivityForTests();
+	selectedConversationIdsByWorkspaceId.clear();
+	hiddenRemoteConversationKeysByWorkspaceId.clear();
+	clearWorkspaceDollyWorkspaceActivityForTests();
 	hasLoadedConversationCache = false;
 	localStorage.removeItem( WORKSPACE_DOLLY_CONVERSATIONS_STORAGE_KEY );
+	emitConversationCacheChange();
+};
+
+export const useWorkspaceDollyConversationsForWorkspace = (
+	workspace: WorkspaceDollyWorkspaceDescriptor
+) => {
+	const version = useSyncExternalStore(
+		subscribeWorkspaceDollyConversationCache,
+		getWorkspaceDollyConversationCacheSnapshot,
+		() => 0
+	);
+
+	return useMemo( () => {
+		void version;
+		return getWorkspaceDollyConversationsForWorkspace( workspace );
+	}, [ version, workspace ] );
+};
+
+export const useSelectedWorkspaceDollyConversationId = (
+	workspace: WorkspaceDollyWorkspaceDescriptor
+) => {
+	const version = useSyncExternalStore(
+		subscribeWorkspaceDollyConversationCache,
+		getWorkspaceDollyConversationCacheSnapshot,
+		() => 0
+	);
+
+	return useMemo( () => {
+		void version;
+		return getSelectedWorkspaceDollyConversationId( workspace );
+	}, [ version, workspace ] );
 };

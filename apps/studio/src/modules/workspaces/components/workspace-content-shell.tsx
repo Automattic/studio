@@ -1,6 +1,6 @@
 import { TabPanel } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-import { useCallback, useMemo, useState, type ComponentProps } from 'react';
+import { useMemo, useState, type ComponentProps } from 'react';
 import { ContentTabAssistant } from 'src/components/content-tab-assistant';
 import { ContentTabImportExport } from 'src/components/content-tab-import-export';
 import { ContentTabOverview } from 'src/components/content-tab-overview';
@@ -14,8 +14,8 @@ import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { ContentTabSync } from 'src/modules/sync';
 import {
-	getDefaultWorkspaceTargetTabId,
-	getWorkspaceTargetTabIds,
+	getDefaultWorkspaceTabId,
+	getWorkspaceTabIds,
 	useWorkspaceSelection,
 } from 'src/modules/workspaces';
 import { WorkspaceDollyAssistant } from 'src/modules/workspaces/components/workspace-dolly-assistant';
@@ -28,12 +28,18 @@ import {
 	type WorkspacePreviewState,
 	type WorkspacePreviewTarget,
 } from 'src/modules/workspaces/components/workspace-preview';
-import type { SyncSite } from '@studio/common/types/sync';
 import type {
 	RemoteTarget,
 	StudioWorkspace,
 	WorkspaceTargetId,
 } from 'src/modules/workspaces/types';
+
+type WorkspaceShellPreviewTarget = WorkspacePreviewTarget & {
+	id: WorkspaceTargetId;
+	targetId: WorkspaceTargetId;
+	label: string;
+	siteId?: number | string;
+};
 
 function EmptyWorkspaceSelection() {
 	return (
@@ -45,24 +51,14 @@ function EmptyWorkspaceSelection() {
 	);
 }
 
-function RemoteSyncPlaceholder( {
-	workspace,
-	target,
-}: {
-	workspace: StudioWorkspace;
-	target: RemoteTarget;
-} ) {
-	const syncLinksForTarget = workspace.syncLinks.filter(
-		( link ) => link.source === target.id || link.target === target.id
-	);
-
+function WorkspaceSyncPlaceholder( { workspace }: { workspace: StudioWorkspace } ) {
 	return (
 		<div className="p-8">
 			<div className="max-w-2xl">
 				<h2 className="m-0 text-base font-medium text-frame-text">{ __( 'Sync' ) }</h2>
 				<div className="mt-4 grid gap-3">
-					{ syncLinksForTarget.length ? (
-						syncLinksForTarget.map( ( link ) => (
+					{ workspace.syncLinks.length ? (
+						workspace.syncLinks.map( ( link ) => (
 							<div
 								key={ link.id }
 								className="rounded border border-a8c-gray-5 bg-white p-3 text-sm text-frame-text"
@@ -72,7 +68,7 @@ function RemoteSyncPlaceholder( {
 						) )
 					) : (
 						<div className="rounded border border-a8c-gray-5 bg-white p-3 text-sm text-frame-text-secondary">
-							{ __( 'No workspace sync links are available for this target.' ) }
+							{ __( 'No workspace sync links are available yet.' ) }
 						</div>
 					) }
 				</div>
@@ -83,27 +79,45 @@ function RemoteSyncPlaceholder( {
 
 function SettingsRow( { label, value }: { label: string; value?: string | number | null } ) {
 	return (
-		<div className="grid grid-cols-[10rem_1fr] gap-4 border-b border-a8c-gray-5 py-3 text-sm">
+		<div className="grid grid-cols-[10rem_1fr] gap-4 border-b border-a8c-gray-5 py-3 text-sm last:border-b-0">
 			<div className="text-frame-text-secondary">{ label }</div>
 			<div className="min-w-0 break-all text-frame-text">{ value || __( 'Unknown' ) }</div>
 		</div>
 	);
 }
 
-function RemoteSettings( { site }: { site: SyncSite } ) {
+function WorkspaceSettingsPlaceholder( { workspace }: { workspace: StudioWorkspace } ) {
+	const targets = [ workspace.targets.production, workspace.targets.staging ].filter(
+		( target ): target is RemoteTarget => Boolean( target )
+	);
+
 	return (
 		<div className="p-8">
 			<div className="max-w-2xl">
 				<h2 className="m-0 text-base font-medium text-frame-text">{ __( 'Settings' ) }</h2>
 				<div className="mt-4 rounded border border-a8c-gray-5 bg-white px-4">
-					<SettingsRow
-						label={ __( 'Environment' ) }
-						value={ site.isStaging ? __( 'Staging' ) : __( 'Production' ) }
-					/>
-					<SettingsRow label={ __( 'Site name' ) } value={ site.name } />
-					<SettingsRow label={ __( 'Site URL' ) } value={ site.url } />
-					<SettingsRow label={ __( 'WordPress.com site ID' ) } value={ site.id } />
+					<SettingsRow label={ __( 'Workspace' ) } value={ workspace.name } />
+					{ targets.map( ( target ) => (
+						<SettingsRow
+							key={ target.id }
+							label={ target.id === 'production' ? __( 'Production' ) : __( 'Staging' ) }
+							value={ target.site.url }
+						/>
+					) ) }
 				</div>
+			</div>
+		</div>
+	);
+}
+
+function LocalOnlyWorkspaceTabNotice( { title }: { title: string } ) {
+	return (
+		<div className="flex h-full items-center justify-center bg-frame-surface p-8 text-center">
+			<div className="max-w-sm">
+				<h2 className="m-0 text-base font-medium text-frame-text">{ title }</h2>
+				<p className="m-0 mt-2 text-sm text-frame-text-secondary">
+					{ __( 'This section is managed in the Local target.' ) }
+				</p>
 			</div>
 		</div>
 	);
@@ -111,51 +125,16 @@ function RemoteSettings( { site }: { site: SyncSite } ) {
 
 function getOrderedWorkspaceTabs(
 	tabs: ComponentProps< typeof TabPanel >[ 'tabs' ],
-	targetId: WorkspaceTargetId
+	workspace: StudioWorkspace
 ) {
 	const tabsByName = new Map( tabs.map( ( tab ) => [ tab.name, tab ] ) );
-	return getWorkspaceTargetTabIds( targetId )
+	return getWorkspaceTabIds( workspace )
 		.map( ( tabId ) => tabsByName.get( tabId ) )
 		.filter( ( tab ): tab is NonNullable< typeof tab > => Boolean( tab ) )
 		.map( ( tab ) => ( {
 			...tab,
 			className: tab.className?.replace( /\s*ltr:ml-auto\s+rtl:mr-auto\s*/g, ' ' ).trim(),
 		} ) );
-}
-
-function renderRemoteTabContent( {
-	workspace,
-	target,
-	name,
-	previewState,
-	onUpdatePreviewState,
-}: {
-	workspace: StudioWorkspace;
-	target: RemoteTarget;
-	name: TabName;
-	previewState: WorkspacePreviewState;
-	onUpdatePreviewState: ( state: WorkspacePreviewState ) => void;
-} ) {
-	if ( name === 'assistant' ) {
-		return (
-			<WorkspaceDollyAssistant
-				workspace={ workspace }
-				target={ target }
-				previewState={ previewState }
-				onUpdatePreviewState={ onUpdatePreviewState }
-			/>
-		);
-	}
-
-	if ( name === 'sync' ) {
-		return <RemoteSyncPlaceholder workspace={ workspace } target={ target } />;
-	}
-
-	if ( name === 'settings' ) {
-		return <RemoteSettings site={ target.site } />;
-	}
-
-	return null;
 }
 
 function resolveLocalPreviewBaseUrl( site: SiteDetails ) {
@@ -169,80 +148,157 @@ function resolveLocalPreviewBaseUrl( site: SiteDetails ) {
 	return `${ protocol }://${ domain }`;
 }
 
+function getDefaultPreviewTargetId( workspace: StudioWorkspace ): WorkspaceTargetId | undefined {
+	if ( workspace.targets.local ) {
+		return 'local';
+	}
+	if ( workspace.targets.staging ) {
+		return 'staging';
+	}
+	if ( workspace.targets.production ) {
+		return 'production';
+	}
+}
+
+function getUrlPath( url: URL ) {
+	return `${ url.pathname }${ url.search }${ url.hash }` || '/';
+}
+
+function getTargetScopedPathOrUrl( pathOrUrl: string, targetSiteUrl: string ) {
+	try {
+		const requestedUrl = new URL( pathOrUrl );
+		const targetUrl = new URL( targetSiteUrl );
+
+		if ( requestedUrl.origin !== targetUrl.origin ) {
+			return getUrlPath( requestedUrl );
+		}
+	} catch {
+		return pathOrUrl;
+	}
+
+	return pathOrUrl;
+}
+
+function isCurrentUrlForTarget( currentUrl: string | undefined, targetSiteUrl: string ) {
+	if ( ! currentUrl ) {
+		return false;
+	}
+
+	try {
+		return new URL( currentUrl ).origin === new URL( targetSiteUrl ).origin;
+	} catch {
+		return false;
+	}
+}
+
+function getPreviewStateForTarget(
+	previewState: WorkspacePreviewState,
+	target: WorkspaceShellPreviewTarget
+) {
+	const pathOrUrl = getTargetScopedPathOrUrl( previewState.pathOrUrl, target.siteUrl );
+	const currentUrl = isCurrentUrlForTarget( previewState.currentUrl, target.siteUrl )
+		? previewState.currentUrl
+		: undefined;
+
+	if ( pathOrUrl === previewState.pathOrUrl && currentUrl === previewState.currentUrl ) {
+		return previewState;
+	}
+
+	return {
+		...previewState,
+		pathOrUrl,
+		currentUrl,
+		canGoBack: currentUrl ? previewState.canGoBack : false,
+		canGoForward: currentUrl ? previewState.canGoForward : false,
+		navigationAction: currentUrl ? previewState.navigationAction : undefined,
+	};
+}
+
+function getTransportTarget( workspace: StudioWorkspace ) {
+	return workspace.targets.staging ?? workspace.targets.production;
+}
+
 export function WorkspaceContentShell() {
 	const { tabs } = useContentTabs();
 	const { importState } = useImportExport();
 	const { loadingServer, siteCreationMessages, startServer } = useSiteDetails();
-	const {
-		selectedWorkspace,
-		selectedTarget,
-		selectedTargetId,
-		selectedTabId,
-		selectWorkspaceTarget,
-		selectWorkspaceTab,
-	} = useWorkspaceSelection();
+	const { selectedWorkspace, selectedTabId, selectWorkspaceTab } = useWorkspaceSelection();
 	const [ previewStates, setPreviewStates ] = useState< Record< string, WorkspacePreviewState > >(
 		{}
 	);
+	const [ selectedPreviewTargetIds, setSelectedPreviewTargetIds ] = useState<
+		Record< string, WorkspaceTargetId >
+	>( {} );
 
-	const workspaceTabs = useMemo(
-		() => ( selectedTargetId ? getOrderedWorkspaceTabs( tabs, selectedTargetId ) : [] ),
-		[ selectedTargetId, tabs ]
-	);
-	const previewKey =
-		selectedWorkspace && selectedTargetId ? `${ selectedWorkspace.id }:${ selectedTargetId }` : '';
+	const localTarget = selectedWorkspace?.targets.local;
+	const transportTarget = selectedWorkspace ? getTransportTarget( selectedWorkspace ) : undefined;
+	const previewKey = selectedWorkspace?.id ?? '';
 
-	const updatePreviewState = useCallback(
-		( nextPreviewState: WorkspacePreviewState ) => {
-			if ( ! previewKey ) {
-				return;
-			}
+	const previewTargets = useMemo< WorkspaceShellPreviewTarget[] >( () => {
+		if ( ! selectedWorkspace ) {
+			return [];
+		}
 
-			setPreviewStates( ( current ) => ( {
-				...current,
-				[ previewKey ]: nextPreviewState,
-			} ) );
-		},
-		[ previewKey ]
-	);
-
-	const updatePreviewNavigationState = useCallback(
-		(
-			navigationState: Pick< WorkspacePreviewState, 'canGoBack' | 'canGoForward' | 'currentUrl' >
-		) => {
-			if ( ! previewKey ) {
-				return;
-			}
-
-			setPreviewStates( ( current ) => {
-				const currentPreviewState = current[ previewKey ] ?? createDefaultWorkspacePreviewState();
-
-				if (
-					currentPreviewState.canGoBack === navigationState.canGoBack &&
-					currentPreviewState.canGoForward === navigationState.canGoForward &&
-					currentPreviewState.currentUrl === navigationState.currentUrl
-				) {
-					return current;
-				}
-
-				return {
-					...current,
-					[ previewKey ]: {
-						...currentPreviewState,
-						...navigationState,
-					},
-				};
+		const targets: WorkspaceShellPreviewTarget[] = [];
+		if ( selectedWorkspace.targets.local ) {
+			const site = selectedWorkspace.targets.local.site;
+			targets.push( {
+				id: 'local',
+				targetId: 'local',
+				label: __( 'Local' ),
+				siteId: site.id,
+				siteName: site.name,
+				siteUrl: resolveLocalPreviewBaseUrl( site ),
+				isLoading: loadingServer[ site.id ],
+				onShowPreview: async () => {
+					if ( ! site.running ) {
+						await startServer( site );
+					}
+				},
 			} );
-		},
-		[ previewKey ]
+		}
+		if ( selectedWorkspace.targets.staging ) {
+			targets.push( {
+				id: 'staging',
+				targetId: 'staging',
+				label: __( 'Staging' ),
+				siteName: selectedWorkspace.targets.staging.site.name,
+				siteUrl: selectedWorkspace.targets.staging.site.url,
+				siteId: selectedWorkspace.targets.staging.site.id,
+			} );
+		}
+		if ( selectedWorkspace.targets.production ) {
+			targets.push( {
+				id: 'production',
+				targetId: 'production',
+				label: __( 'Production' ),
+				siteName: selectedWorkspace.targets.production.site.name,
+				siteUrl: selectedWorkspace.targets.production.site.url,
+				siteId: selectedWorkspace.targets.production.site.id,
+				isProduction: true,
+			} );
+		}
+		return targets;
+	}, [ loadingServer, selectedWorkspace, startServer ] );
+	const previewState = previewStates[ previewKey ] ?? createDefaultWorkspacePreviewState();
+	const selectedPreviewTargetId = selectedWorkspace
+		? selectedPreviewTargetIds[ selectedWorkspace.id ] ??
+		  getDefaultPreviewTargetId( selectedWorkspace )
+		: undefined;
+	const previewTarget =
+		previewTargets.find( ( target ) => target.id === selectedPreviewTargetId ) ??
+		previewTargets[ 0 ];
+	const workspaceTabs = useMemo(
+		() => ( selectedWorkspace ? getOrderedWorkspaceTabs( tabs, selectedWorkspace ) : [] ),
+		[ selectedWorkspace, tabs ]
 	);
 
-	if ( ! selectedWorkspace || ! selectedTarget || ! selectedTargetId ) {
+	if ( ! selectedWorkspace ) {
 		return <EmptyWorkspaceSelection />;
 	}
 
-	if ( selectedTarget.kind === 'local' ) {
-		const selectedSite = selectedTarget.site;
+	if ( localTarget ) {
+		const selectedSite = localTarget.site;
 		const siteImportState = importState[ selectedSite.id ];
 		const creationMessage = selectedSite.id ? siteCreationMessages[ selectedSite.id ] : undefined;
 
@@ -256,40 +312,122 @@ export function WorkspaceContentShell() {
 		}
 	}
 
-	const activeTabId = selectedTabId ?? getDefaultWorkspaceTargetTabId( selectedTargetId );
-	const previewState = previewStates[ previewKey ] ?? createDefaultWorkspacePreviewState();
-	const remoteTarget = selectedTarget.kind === 'remote' ? selectedTarget : undefined;
-	const localTarget = selectedTarget.kind === 'local' ? selectedTarget : undefined;
-	let previewTarget: WorkspacePreviewTarget | undefined;
-	if ( remoteTarget ) {
-		previewTarget = {
-			siteName: remoteTarget.site.name,
-			siteUrl: remoteTarget.site.url,
-		};
-	} else if ( localTarget ) {
-		previewTarget = {
-			siteName: localTarget.site.name,
-			siteUrl: resolveLocalPreviewBaseUrl( localTarget.site ),
-			isLoading: loadingServer[ localTarget.site.id ],
-			onShowPreview: async () => {
-				if ( ! localTarget.site.running ) {
-					await startServer( localTarget.site );
-				}
-			},
-		};
-	}
+	const activeTabId = selectedTabId ?? getDefaultWorkspaceTabId( selectedWorkspace );
+	const targetPreviewState = previewTarget
+		? getPreviewStateForTarget( previewState, previewTarget )
+		: previewState;
 	const resolvedPreviewUrl = previewTarget
-		? resolveWorkspacePreviewUrl( previewTarget.siteUrl, previewState.pathOrUrl )
+		? resolveWorkspacePreviewUrl( previewTarget.siteUrl, targetPreviewState.pathOrUrl )
 		: undefined;
-	const previewUrl = previewState.currentUrl ?? resolvedPreviewUrl;
+	const previewUrl = targetPreviewState.currentUrl ?? resolvedPreviewUrl;
+	const localContextSite = previewTarget?.id === 'local' ? localTarget?.site : undefined;
+
+	const updatePreviewState = ( nextPreviewState: WorkspacePreviewState ) => {
+		if ( ! previewKey ) {
+			return;
+		}
+
+		setPreviewStates( ( current ) => ( {
+			...current,
+			[ previewKey ]: nextPreviewState,
+		} ) );
+	};
+
+	const selectPreviewTarget = ( targetId: WorkspaceTargetId ) => {
+		const target = previewTargets.find( ( candidate ) => candidate.id === targetId );
+		setSelectedPreviewTargetIds( ( current ) => ( {
+			...current,
+			[ selectedWorkspace.id ]: targetId,
+		} ) );
+		setPreviewStates( ( current ) => {
+			const currentPreviewState = current[ previewKey ] ?? createDefaultWorkspacePreviewState();
+			const nextPreviewState = target
+				? getPreviewStateForTarget( currentPreviewState, target )
+				: currentPreviewState;
+			return {
+				...current,
+				[ previewKey ]: {
+					...nextPreviewState,
+					canGoBack: false,
+					canGoForward: false,
+					currentUrl: undefined,
+					navigationAction: undefined,
+				},
+			};
+		} );
+	};
+
+	const updatePreviewNavigationState = (
+		navigationState: Pick< WorkspacePreviewState, 'canGoBack' | 'canGoForward' | 'currentUrl' >
+	) => {
+		if ( ! previewKey ) {
+			return;
+		}
+
+		setPreviewStates( ( current ) => {
+			const currentPreviewState = current[ previewKey ] ?? createDefaultWorkspacePreviewState();
+			const nextPreviewState = previewTarget
+				? getPreviewStateForTarget( currentPreviewState, previewTarget )
+				: currentPreviewState;
+
+			if (
+				nextPreviewState.canGoBack === navigationState.canGoBack &&
+				nextPreviewState.canGoForward === navigationState.canGoForward &&
+				nextPreviewState.currentUrl === navigationState.currentUrl
+			) {
+				return current;
+			}
+
+			return {
+				...current,
+				[ previewKey ]: {
+					...nextPreviewState,
+					...navigationState,
+				},
+			};
+		} );
+	};
+
+	const openPreviewTarget = (
+		targetId: WorkspaceTargetId,
+		pathOrUrl = '/',
+		nextPreviewState: WorkspacePreviewState
+	) => {
+		void pathOrUrl;
+		const target = previewTargets.find( ( candidate ) => candidate.id === targetId );
+		if ( ! target ) {
+			return;
+		}
+		void target.onShowPreview?.();
+		const nextTargetPreviewState = getPreviewStateForTarget( nextPreviewState, target );
+		setSelectedPreviewTargetIds( ( current ) => ( {
+			...current,
+			[ selectedWorkspace.id ]: targetId,
+		} ) );
+		setPreviewStates( ( current ) => ( {
+			...current,
+			[ selectedWorkspace.id ]: nextTargetPreviewState,
+		} ) );
+	};
+
+	const startLocalSiteFromHeader = async ( site: SiteDetails ) => {
+		await startServer( site );
+		if ( previewTarget?.id !== 'local' ) {
+			return;
+		}
+		updatePreviewState( {
+			...targetPreviewState,
+			currentUrl: resolveWorkspacePreviewUrl( previewTarget.siteUrl, targetPreviewState.pathOrUrl ),
+			reloadNonce: targetPreviewState.reloadNonce + 1,
+		} );
+	};
 
 	return (
 		<div className="flex h-full min-h-0 w-full flex-col app-no-drag-region overflow-hidden pt-8">
 			<WorkspaceHeader
 				workspace={ selectedWorkspace }
-				selectedTargetId={ selectedTargetId }
-				selectedTarget={ selectedTarget }
-				onSelectTarget={ ( targetId ) => selectWorkspaceTarget( selectedWorkspace.id, targetId ) }
+				showLocalManagementActions={ previewTarget?.id === 'local' }
+				onStartLocalSite={ startLocalSiteFromHeader }
 			/>
 			<div
 				data-testid="workspace-content-body"
@@ -298,15 +436,18 @@ export function WorkspaceContentShell() {
 				{ previewTarget && (
 					<div
 						data-testid="workspace-preview-controls"
-						className="pointer-events-none absolute right-8 top-0 z-10 flex h-10 min-w-0 items-center justify-end"
+						className="pointer-events-none absolute right-0 top-0 z-10 flex h-12 min-w-0 items-center justify-end border-l border-a8c-gray-5 bg-white px-3"
 						style={ {
-							width: Math.max( previewState.width - 64, 260 ),
+							width: targetPreviewState.width,
 						} }
 					>
 						<div className="pointer-events-auto w-full min-w-0">
 							<WorkspacePreviewControls
 								target={ previewTarget }
-								previewState={ previewState }
+								targets={ previewTargets }
+								selectedTargetId={ previewTarget.id }
+								previewState={ targetPreviewState }
+								onSelectTarget={ selectPreviewTarget }
 								onUpdatePreviewState={ updatePreviewState }
 							/>
 						</div>
@@ -318,10 +459,10 @@ export function WorkspaceContentShell() {
 						tabs={ workspaceTabs }
 						orientation="horizontal"
 						onSelect={ ( tabName ) =>
-							selectWorkspaceTab( selectedWorkspace.id, selectedTargetId, tabName as TabName )
+							selectWorkspaceTab( selectedWorkspace.id, tabName as TabName )
 						}
 						initialTabName={ activeTabId }
-						key={ `${ selectedWorkspace.id }-${ selectedTargetId }` }
+						key={ selectedWorkspace.id }
 					>
 						{ ( { name } ) => (
 							<div
@@ -334,47 +475,64 @@ export function WorkspaceContentShell() {
 									scrollbarGutter: 'stable',
 								} }
 							>
-								{ selectedTarget.kind === 'local' && (
-									<>
-										{ name === 'overview' && (
-											<ContentTabOverview selectedSite={ selectedTarget.site } />
-										) }
-										{ name === 'previews' && (
-											<ContentTabPreviews selectedSite={ selectedTarget.site } />
-										) }
-										{ name === 'sync' && <ContentTabSync selectedSite={ selectedTarget.site } /> }
-										{ name === 'settings' && (
-											<ContentTabSettings selectedSite={ selectedTarget.site } />
-										) }
-										{ name === 'assistant' && (
-											<ContentTabAssistant selectedSite={ selectedTarget.site } />
-										) }
-										{ name === 'import-export' && (
-											<ContentTabImportExport selectedSite={ selectedTarget.site } />
-										) }
-									</>
-								) }
-								{ remoteTarget &&
-									renderRemoteTabContent( {
-										workspace: selectedWorkspace,
-										target: remoteTarget,
-										name: name as TabName,
-										previewState,
-										onUpdatePreviewState: updatePreviewState,
-									} ) }
+								{ name === 'overview' &&
+									( localContextSite ? (
+										<ContentTabOverview selectedSite={ localContextSite } />
+									) : (
+										<LocalOnlyWorkspaceTabNotice title={ __( 'Overview' ) } />
+									) ) }
+								{ name === 'previews' &&
+									( localContextSite ? (
+										<ContentTabPreviews selectedSite={ localContextSite } />
+									) : (
+										<LocalOnlyWorkspaceTabNotice title={ __( 'Previews' ) } />
+									) ) }
+								{ name === 'import-export' &&
+									( localContextSite ? (
+										<ContentTabImportExport selectedSite={ localContextSite } />
+									) : (
+										<LocalOnlyWorkspaceTabNotice title={ __( 'Import / Export' ) } />
+									) ) }
+								{ name === 'sync' &&
+									( localContextSite ? (
+										<ContentTabSync selectedSite={ localContextSite } />
+									) : (
+										<WorkspaceSyncPlaceholder workspace={ selectedWorkspace } />
+									) ) }
+								{ name === 'settings' &&
+									( localContextSite ? (
+										<ContentTabSettings selectedSite={ localContextSite } />
+									) : (
+										<WorkspaceSettingsPlaceholder workspace={ selectedWorkspace } />
+									) ) }
+								{ name === 'assistant' &&
+									( localContextSite ? (
+										<ContentTabAssistant selectedSite={ localContextSite } />
+									) : transportTarget ? (
+										<WorkspaceDollyAssistant
+											workspace={ selectedWorkspace }
+											transportTarget={ transportTarget }
+											previewState={ targetPreviewState }
+											previewTargetId={ previewTarget?.id }
+											previewTargets={ previewTargets }
+											onOpenPreviewTarget={ openPreviewTarget }
+										/>
+									) : localTarget ? (
+										<ContentTabAssistant selectedSite={ localTarget.site } />
+									) : null ) }
 							</div>
 						) }
 					</TabPanel>
 				</div>
-				{ previewTarget && previewState.open && previewUrl && (
+				{ previewTarget && targetPreviewState.open && previewUrl && (
 					<WorkspacePreviewPanel
 						siteName={ previewTarget.siteName }
 						previewUrl={ previewUrl }
-						reloadNonce={ previewState.reloadNonce }
-						width={ previewState.width }
-						navigationAction={ previewState.navigationAction }
-						navigationActionId={ previewState.navigationActionId }
-						onResize={ ( width ) => updatePreviewState( { ...previewState, width } ) }
+						reloadNonce={ targetPreviewState.reloadNonce }
+						width={ targetPreviewState.width }
+						navigationAction={ targetPreviewState.navigationAction }
+						navigationActionId={ targetPreviewState.navigationActionId }
+						onResize={ ( width ) => updatePreviewState( { ...targetPreviewState, width } ) }
 						onNavigationStateChange={ updatePreviewNavigationState }
 					/>
 				) }

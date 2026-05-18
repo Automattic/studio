@@ -16,6 +16,10 @@ import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
 import { getTerminalName } from 'src/modules/user-settings/lib/terminal';
 import { useWorkspaceSelection } from 'src/modules/workspaces';
 import { WorkspaceSidebarRow } from 'src/modules/workspaces/components/workspace-sidebar-row';
+import {
+	createWorkspaceDollyWorkspaceDescriptor,
+	setSelectedWorkspaceDollyConversationId,
+} from 'src/modules/workspaces/lib/dolly/session';
 import { useRootSelector } from 'src/stores';
 import { useGetUserEditorQuery, useGetUserTerminalQuery } from 'src/stores/installed-apps-api';
 import { syncOperationsSelectors } from 'src/stores/sync';
@@ -264,8 +268,8 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 		workspaces: sidebarWorkspaces,
 		isLoading: isLoadingWorkspaces,
 		selectedWorkspaceId,
-		getSelectedTargetId,
-		selectWorkspaceTarget,
+		selectWorkspace,
+		selectWorkspaceTab,
 	} = useWorkspaceSelection();
 	const [ draggedIndex, setDraggedIndex ] = useState< number | null >( null );
 	const [ dragOverIndex, setDragOverIndex ] = useState< number | null >( null );
@@ -302,6 +306,18 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 	const handleDragEnd = () => {
 		setDraggedIndex( null );
 		setDragOverIndex( null );
+	};
+
+	const selectWorkspaceChat = (
+		workspace: ( typeof sidebarWorkspaces )[ number ],
+		conversationId: string
+	) => {
+		selectWorkspace( workspace.id );
+		selectWorkspaceTab( workspace.id, 'assistant' );
+		setSelectedWorkspaceDollyConversationId(
+			createWorkspaceDollyWorkspaceDescriptor( workspace ),
+			conversationId
+		);
 	};
 
 	useEffect( () => {
@@ -404,23 +420,22 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 			<ul className="pt-px">
 				{ enableWorkspaces ? (
 					<>
-						{ sidebarWorkspaces.map( ( workspace ) => {
-							const selectedTargetId = getSelectedTargetId( workspace );
-							return (
-								<WorkspaceSidebarRow
-									key={ workspace.id }
-									workspace={ workspace }
-									selectedTargetId={ selectedTargetId }
-									isSelected={ selectedWorkspaceId === workspace.id }
-									localRunControl={
-										workspace.targets.local ? (
-											<ButtonToRun { ...workspace.targets.local.site } />
-										) : undefined
-									}
-									onSelectTarget={ ( targetId ) => selectWorkspaceTarget( workspace.id, targetId ) }
-								/>
-							);
-						} ) }
+						{ sidebarWorkspaces.map( ( workspace ) => (
+							<WorkspaceSidebarRow
+								key={ workspace.id }
+								workspace={ workspace }
+								isSelected={ selectedWorkspaceId === workspace.id }
+								localRunControl={
+									workspace.targets.local ? (
+										<ButtonToRun { ...workspace.targets.local.site } />
+									) : undefined
+								}
+								onSelect={ () => selectWorkspace( workspace.id ) }
+								onSelectChat={ ( conversationId ) =>
+									selectWorkspaceChat( workspace, conversationId )
+								}
+							/>
+						) ) }
 						{ isLoadingWorkspaces && (
 							<li
 								className={ cx(

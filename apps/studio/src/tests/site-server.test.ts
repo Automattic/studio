@@ -140,6 +140,36 @@ describe( 'SiteServer', () => {
 	} );
 
 	describe( 'start', () => {
+		beforeEach( () => {
+			mockStartServer.mockReset();
+			mockStartServer.mockResolvedValue( {
+				url: 'http://localhost:1234',
+				options: { port: 1234, phpVersion: '8.0' },
+				_internal: { mode: 'wordpress', port: 1234 },
+			} );
+		} );
+
+		it( 'transitions stopped details to running after the CLI server starts', async () => {
+			const server = SiteServer.register( {
+				id: 'start-id',
+				name: 'start-name',
+				path: 'start-path',
+				port: 9191,
+				adminPassword: 'test-password',
+				phpVersion: '8.4',
+				running: false,
+				themeDetails: undefined,
+			} );
+
+			await server.start();
+
+			expect( server.details.running ).toBe( true );
+			if ( server.details.running ) {
+				expect( server.details.url ).toBe( 'http://localhost:9191' );
+			}
+			expect( server.server.url ).toBe( 'http://localhost:9191' );
+		} );
+
 		it( 'should throw if the server starts with a non-WordPress mode', async () => {
 			mockStartServer.mockRejectedValue(
 				new Error(

@@ -31,15 +31,18 @@ import {
 	createWorkspaceDollySiteAssociationContext,
 	getNextWorkspaceDollyPreviewState,
 	normalizeWorkspaceDollyPreviewUrl,
+	type PreviewAbilityTarget,
 } from 'src/modules/workspaces/lib/dolly/preview';
 import {
 	createNewWorkspaceDollyConversation,
+	createWorkspaceDollyWorkspaceDescriptor,
 	deleteWorkspaceDollyConversation,
 	getCachedWorkspaceDollyConversationState,
 	getWorkspaceDollyConversationState,
-	getWorkspaceDollyConversationsForTarget,
+	getWorkspaceDollyConversationsForWorkspace,
 	mergeWorkspaceDollyConversationState,
 	setSelectedWorkspaceDollyConversationId,
+	useSelectedWorkspaceDollyConversationId,
 	writeWorkspaceDollyConversationState,
 } from 'src/modules/workspaces/lib/dolly/session';
 import {
@@ -50,9 +53,8 @@ import {
 import {
 	abortWorkspaceDollyTurn,
 	finishWorkspaceDollyTurn,
-	getWorkspaceDollyTargetActivityKey,
 	getWorkspaceDollyTurn,
-	setWorkspaceDollyTargetUnread,
+	setWorkspaceDollyWorkspaceUnread,
 	startWorkspaceDollyTurn,
 	useWorkspaceDollyConversationTurn,
 } from 'src/modules/workspaces/lib/dolly/turns';
@@ -74,16 +76,26 @@ import type {
 	WorkspaceDollyConversationState,
 	WorkspaceDollyMessageImageAttachment,
 	WorkspaceDollyPendingImage,
-	WorkspaceDollyTargetDescriptor,
+	WorkspaceDollyWorkspaceDescriptor,
 	WorkspaceDollyUploadedImage,
 } from 'src/modules/workspaces/lib/dolly/types';
-import type { RemoteTarget, StudioWorkspace } from 'src/modules/workspaces/types';
+import type {
+	RemoteTarget,
+	StudioWorkspace,
+	WorkspaceTargetId,
+} from 'src/modules/workspaces/types';
 
 type WorkspaceDollyAssistantProps = {
 	workspace: StudioWorkspace;
-	target: RemoteTarget;
+	transportTarget: RemoteTarget;
 	previewState: WorkspacePreviewState;
-	onUpdatePreviewState: ( state: WorkspacePreviewState ) => void;
+	previewTargetId?: WorkspaceTargetId;
+	previewTargets: PreviewAbilityTarget[];
+	onOpenPreviewTarget: (
+		targetId: WorkspaceTargetId,
+		pathOrUrl: string,
+		nextPreviewState: WorkspacePreviewState
+	) => void;
 };
 
 function OfflineModeView() {
@@ -299,21 +311,21 @@ function DollyConversationMenu( {
 
 export function WorkspaceDollyAssistant( {
 	workspace,
-	target,
+	transportTarget,
 	previewState,
-	onUpdatePreviewState,
+	previewTargetId,
+	previewTargets,
+	onOpenPreviewTarget,
 }: WorkspaceDollyAssistantProps ) {
 	const { isAuthenticated, authenticate, client } = useAuth();
 	const isOffline = useOffline();
-	const targetDescriptor = useMemo< WorkspaceDollyTargetDescriptor >(
-		() => ( {
-			workspaceId: workspace.id,
-			targetId: target.id,
-			site: target.site,
-		} ),
-		[ target.id, target.site, workspace.id ]
+	const workspaceDescriptor = useMemo< WorkspaceDollyWorkspaceDescriptor >(
+		() => createWorkspaceDollyWorkspaceDescriptor( workspace ),
+		[ workspace ]
 	);
-	const initialConversationState = getWorkspaceDollyConversationState( targetDescriptor );
+	const initialConversationState = getWorkspaceDollyConversationState( workspaceDescriptor );
+	const externallySelectedConversationId =
+		useSelectedWorkspaceDollyConversationId( workspaceDescriptor );
 	const [ selectedConversationId, setSelectedConversationId ] = useState(
 		initialConversationState.id
 	);
@@ -348,39 +360,51 @@ export function WorkspaceDollyAssistant( {
 	);
 	const preserveLastUpdatedOnNextWriteRef = useRef( false );
 	const isAssistantThinkingRef = useRef( isAssistantThinking );
-	const hydratedTargetKeysRef = useRef( new Set< string >() );
+	const hydratedWorkspaceIdsRef = useRef( new Set< string >() );
 	const locallyStartedTurnConversationIdsRef = useRef( new Set< string >() );
-	const targetActivityKey = getWorkspaceDollyTargetActivityKey( {
-		workspaceId: workspace.id,
-		targetId: target.id,
-		siteId: target.site.id,
-	} );
 	const hasActiveAssistantTurn = useWorkspaceDollyConversationTurn( selectedConversationId );
 	const isCurrentSessionAssistantThinking = isAssistantThinking || hasActiveAssistantTurn;
 	const hadActiveAssistantTurnRef = useRef( hasActiveAssistantTurn );
 	const previousMessageCountRef = useRef( messages.length );
 	const isAtLatestMessageRef = useRef( true );
 
-	const conversationsForTarget = useMemo( () => {
+	const conversationsForWorkspace = useMemo( () => {
 		void conversationListVersion;
-		return getWorkspaceDollyConversationsForTarget( targetDescriptor );
-	}, [ conversationListVersion, targetDescriptor ] );
-	const selectedConversationForTarget =
-		conversationsForTarget.find( ( conversation ) => conversation.id === selectedConversationId ) ??
-		conversationsForTarget[ 0 ];
+		return getWorkspaceDollyConversationsForWorkspace( workspaceDescriptor );
+	}, [ conversationListVersion, workspaceDescriptor ] );
+	const selectedConversationForWorkspace =
+		conversationsForWorkspace.find(
+			( conversation ) => conversation.id === selectedConversationId
+		) ?? conversationsForWorkspace[ 0 ];
 	const showConversationControls = shouldShowConversationControls(
-		conversationsForTarget,
-		selectedConversationForTarget
+		conversationsForWorkspace,
+		selectedConversationForWorkspace
 	);
-	const siteAssociation = useMemo(
+	const currentPreviewTarget = useMemo(
 		() =>
-			createWorkspaceDollySiteAssociationContext( {
-				workspaceId: workspace.id,
-				targetId: target.id,
-				site: target.site,
-			} ),
-		[ target.id, target.site, workspace.id ]
+			previewTargets.find( ( target ) => target.targetId === previewTargetId ) ??
+			previewTargets[ 0 ] ?? {
+				targetId: transportTarget.id,
+				siteId: transportTarget.site.id,
+				siteName: transportTarget.site.name,
+				siteUrl: transportTarget.site.url,
+			},
+		[ previewTargetId, previewTargets, transportTarget ]
 	);
+	const messageTransportTarget = useMemo( () => {
+		if ( currentPreviewTarget.targetId === 'production' && workspace.targets.production ) {
+			return workspace.targets.production;
+		}
+		if ( currentPreviewTarget.targetId === 'staging' && workspace.targets.staging ) {
+			return workspace.targets.staging;
+		}
+		return transportTarget;
+	}, [
+		currentPreviewTarget.targetId,
+		transportTarget,
+		workspace.targets.production,
+		workspace.targets.staging,
+	] );
 	const hasFailedMessage = messages.some( ( message ) => message.failedMessage );
 	const failedMessageContent = messages.find( ( message ) => message.failedMessage )?.content;
 
@@ -505,11 +529,8 @@ export function WorkspaceDollyAssistant( {
 	}, [ isCurrentSessionAssistantThinking ] );
 
 	useEffect( () => {
-		setWorkspaceDollyTargetUnread(
-			{ workspaceId: workspace.id, targetId: target.id, siteId: target.site.id },
-			false
-		);
-	}, [ target.id, target.site.id, workspace.id ] );
+		setWorkspaceDollyWorkspaceUnread( workspace.id, false );
+	}, [ workspace.id ] );
 
 	useEffect( () => {
 		const cachedConversationState = getCachedWorkspaceDollyConversationState(
@@ -522,8 +543,6 @@ export function WorkspaceDollyAssistant( {
 			id: conversationIdRef.current,
 			key: {
 				workspaceId: workspace.id,
-				targetId: target.id,
-				siteId: target.site.id,
 				agentId: 'dolly',
 			},
 			remoteChatId: remoteChatIdRef.current,
@@ -537,15 +556,7 @@ export function WorkspaceDollyAssistant( {
 					: Date.now(),
 		} );
 		refreshConversationList();
-	}, [
-		input,
-		messages,
-		refreshConversationList,
-		sessionId,
-		target.id,
-		target.site.id,
-		workspace.id,
-	] );
+	}, [ input, messages, refreshConversationList, sessionId, workspace.id ] );
 
 	const getMessagesScrollArea = useCallback(
 		() =>
@@ -585,12 +596,14 @@ export function WorkspaceDollyAssistant( {
 	);
 
 	const openPreview = useCallback(
-		( pathOrUrl = '/', options = {} ) => {
-			onUpdatePreviewState(
+		( targetId: WorkspaceTargetId, pathOrUrl = '/', options = {} ) => {
+			onOpenPreviewTarget(
+				targetId,
+				pathOrUrl,
 				getNextWorkspaceDollyPreviewState( previewStateRef.current, pathOrUrl, options )
 			);
 		},
-		[ onUpdatePreviewState ]
+		[ onOpenPreviewTarget ]
 	);
 
 	const openChatLinkInPreview = useCallback(
@@ -605,15 +618,15 @@ export function WorkspaceDollyAssistant( {
 				return false;
 			}
 
-			const normalizedUrl = normalizeWorkspaceDollyPreviewUrl( target.site.url, href );
+			const normalizedUrl = normalizeWorkspaceDollyPreviewUrl( currentPreviewTarget.siteUrl, href );
 			if ( normalizedUrl === 'about:blank' ) {
 				return false;
 			}
 
-			openPreview( normalizedUrl );
+			openPreview( currentPreviewTarget.targetId, normalizedUrl );
 			return true;
 		},
-		[ openPreview, target.site.url ]
+		[ currentPreviewTarget, openPreview ]
 	);
 
 	const dollyMessageRenderer = useMemo(
@@ -629,7 +642,9 @@ export function WorkspaceDollyAssistant( {
 							}
 						};
 
-						if ( isWorkspaceDollyRenderableImageLinkUrl( linkHref, target.site.url ) ) {
+						if (
+							isWorkspaceDollyRenderableImageLinkUrl( linkHref, messageTransportTarget.site.url )
+						) {
 							return (
 								<a
 									{ ...props }
@@ -664,7 +679,7 @@ export function WorkspaceDollyAssistant( {
 					},
 					img: ( { src, alt, className, style, ...props } ) => {
 						const imageSrc = typeof src === 'string' ? src : undefined;
-						if ( isWorkspaceDollyRenderableImageUrl( imageSrc, target.site.url ) ) {
+						if ( isWorkspaceDollyRenderableImageUrl( imageSrc, messageTransportTarget.site.url ) ) {
 							return (
 								<img
 									{ ...props }
@@ -700,7 +715,7 @@ export function WorkspaceDollyAssistant( {
 					},
 				},
 			} ),
-		[ openChatLinkInPreview, target.site.url ]
+		[ messageTransportTarget.site.url, openChatLinkInPreview ]
 	);
 
 	const isVisibleConversation = useCallback( ( targetConversationId: string ) => {
@@ -717,7 +732,7 @@ export function WorkspaceDollyAssistant( {
 			const currentConversationState = getCachedWorkspaceDollyConversationState(
 				targetConversationId
 			) ?? {
-				...getWorkspaceDollyConversationState( targetDescriptor ),
+				...getWorkspaceDollyConversationState( workspaceDescriptor ),
 				id: targetConversationId,
 			};
 			const nextConversationState = {
@@ -729,7 +744,7 @@ export function WorkspaceDollyAssistant( {
 			refreshConversationList();
 			return nextConversationState;
 		},
-		[ refreshConversationList, targetDescriptor ]
+		[ refreshConversationList, workspaceDescriptor ]
 	);
 
 	const applyVisibleConversationState = useCallback(
@@ -781,24 +796,48 @@ export function WorkspaceDollyAssistant( {
 
 	useEffect( () => {
 		if (
-			! isAuthenticated ||
-			isOffline ||
-			! client ||
-			typeof ( client.req as { get?: unknown } ).get !== 'function' ||
-			hydratedTargetKeysRef.current.has( targetActivityKey )
+			! externallySelectedConversationId ||
+			externallySelectedConversationId === selectedConversationId
 		) {
 			return;
 		}
 
-		hydratedTargetKeysRef.current.add( targetActivityKey );
+		const nextConversationState = getCachedWorkspaceDollyConversationState(
+			externallySelectedConversationId
+		);
+		if ( ! nextConversationState || nextConversationState.key.workspaceId !== workspace.id ) {
+			return;
+		}
+
+		preserveLastUpdatedOnNextWriteRef.current = true;
+		applySelectedConversationState( nextConversationState );
+	}, [
+		applySelectedConversationState,
+		externallySelectedConversationId,
+		selectedConversationId,
+		workspace.id,
+	] );
+
+	useEffect( () => {
+		if (
+			! isAuthenticated ||
+			isOffline ||
+			! client ||
+			typeof ( client.req as { get?: unknown } ).get !== 'function' ||
+			hydratedWorkspaceIdsRef.current.has( workspace.id )
+		) {
+			return;
+		}
+
+		hydratedWorkspaceIdsRef.current.add( workspace.id );
 		let isCurrentHydration = true;
 
 		void ( async () => {
 			try {
-				const cachedConversationState = getWorkspaceDollyConversationState( targetDescriptor );
+				const cachedConversationState = getWorkspaceDollyConversationState( workspaceDescriptor );
 				const hydratedConversationStates = await hydrateWorkspaceDollyConversationStates(
 					client,
-					targetDescriptor,
+					workspaceDescriptor,
 					cachedConversationState.sessionId
 				);
 
@@ -822,7 +861,7 @@ export function WorkspaceDollyAssistant( {
 				} );
 				refreshConversationList();
 
-				const nextConversationState = getWorkspaceDollyConversationState( targetDescriptor );
+				const nextConversationState = getWorkspaceDollyConversationState( workspaceDescriptor );
 				applySelectedConversationState( nextConversationState );
 			} catch ( error ) {
 				console.error( error );
@@ -838,8 +877,8 @@ export function WorkspaceDollyAssistant( {
 		isAuthenticated,
 		isOffline,
 		refreshConversationList,
-		targetActivityKey,
-		targetDescriptor,
+		workspace.id,
+		workspaceDescriptor,
 	] );
 
 	useEffect( () => {
@@ -854,7 +893,7 @@ export function WorkspaceDollyAssistant( {
 			return;
 		}
 
-		const nextConversationState = getWorkspaceDollyConversationState( targetDescriptor );
+		const nextConversationState = getWorkspaceDollyConversationState( workspaceDescriptor );
 		applyVisibleConversationState( nextConversationState.id, nextConversationState );
 		setIsAssistantThinking( false );
 	}, [
@@ -862,7 +901,7 @@ export function WorkspaceDollyAssistant( {
 		hasActiveAssistantTurn,
 		isAssistantThinking,
 		selectedConversationId,
-		targetDescriptor,
+		workspaceDescriptor,
 	] );
 
 	useEffect( () => {
@@ -927,16 +966,18 @@ export function WorkspaceDollyAssistant( {
 		( { targetPreviewState }: { targetPreviewState: WorkspacePreviewState } ): ToolProvider => ( {
 			getAbilities: async () =>
 				createWorkspaceDollyPreviewAbilities( {
-					site: target.site,
+					targets: previewTargets,
 					previewState: targetPreviewState,
-					openPreview: ( pathOrUrl = '/', options ) => {
-						onUpdatePreviewState(
+					openPreview: ( targetId, pathOrUrl = '/', options ) => {
+						onOpenPreviewTarget(
+							targetId,
+							pathOrUrl,
 							getNextWorkspaceDollyPreviewState( previewStateRef.current, pathOrUrl, options )
 						);
 					},
 				} ),
 		} ),
-		[ onUpdatePreviewState, target.site ]
+		[ onOpenPreviewTarget, previewTargets ]
 	);
 
 	const submitPrompt = useCallback(
@@ -961,11 +1002,19 @@ export function WorkspaceDollyAssistant( {
 
 			const targetPreviewState = previewStateRef.current;
 			const targetPreviewContext = createWorkspaceDollyPreviewContext(
-				target.site.id,
-				target.site.url,
-				targetPreviewState
+				currentPreviewTarget.targetId,
+				currentPreviewTarget.siteUrl,
+				targetPreviewState,
+				currentPreviewTarget.siteId
 			);
-			const targetSiteAssociation = siteAssociation;
+			const targetSiteAssociation = createWorkspaceDollySiteAssociationContext( {
+				workspaceId: workspace.id,
+				workspace,
+				transportTarget: messageTransportTarget,
+				activeTarget: currentPreviewTarget,
+				activeUrl: targetPreviewContext.currentURL ?? targetPreviewContext.openedURL,
+				targets: previewTargets,
+			} );
 			const targetSessionId = sessionId;
 			const targetRemoteChatId = remoteChatIdRef.current;
 			const targetServerHydrationDisabled = serverHydrationDisabledRef.current;
@@ -991,8 +1040,6 @@ export function WorkspaceDollyAssistant( {
 			startWorkspaceDollyTurn( {
 				conversationId: targetConversationId,
 				workspaceId: workspace.id,
-				targetId: target.id,
-				siteId: target.site.id,
 				abortController,
 			} );
 			locallyStartedTurnConversationIdsRef.current.add( targetConversationId );
@@ -1038,7 +1085,7 @@ export function WorkspaceDollyAssistant( {
 					applyVisibleConversationState( targetConversationId, conversationWithUserMessage );
 
 					uploadedImages = await uploadWorkspaceDollyImages(
-						target.site.id,
+						messageTransportTarget.site.id,
 						imagesToSend,
 						abortController.signal
 					);
@@ -1073,10 +1120,11 @@ export function WorkspaceDollyAssistant( {
 						uploadedImages,
 						previewContext: targetPreviewContext,
 						siteAssociation: targetSiteAssociation,
-						selectedSite: target.site,
+						workspace,
+						transportTarget: messageTransportTarget,
 						sessionId: targetSessionId,
 						workspaceId: workspace.id,
-						targetId: target.id,
+						targets: previewTargets,
 						toolProvider,
 					} );
 
@@ -1098,8 +1146,8 @@ export function WorkspaceDollyAssistant( {
 					);
 					applyVisibleConversationState( targetConversationId, nextConversationState );
 					if ( hasAssistantReply ) {
-						setWorkspaceDollyTargetUnread(
-							{ workspaceId: workspace.id, targetId: target.id, siteId: target.site.id },
+						setWorkspaceDollyWorkspaceUnread(
+							workspace.id,
 							! isVisibleConversation( targetConversationId )
 						);
 					}
@@ -1141,23 +1189,23 @@ export function WorkspaceDollyAssistant( {
 			applyVisibleConversationState,
 			client,
 			createDollyToolProviderForConversation,
+			currentPreviewTarget,
 			isCurrentSessionAssistantThinking,
 			isVisibleConversation,
 			pendingImages,
+			previewTargets,
 			selectedConversationId,
 			sessionId,
-			siteAssociation,
-			target.id,
-			target.site,
-			workspace.id,
+			messageTransportTarget,
+			workspace,
 			writeCachedConversationState,
 		]
 	);
 
 	const startNewConversation = useCallback( () => {
-		const nextConversationState = createNewWorkspaceDollyConversation( targetDescriptor );
+		const nextConversationState = createNewWorkspaceDollyConversation( workspaceDescriptor );
 		applySelectedConversationState( nextConversationState );
-	}, [ applySelectedConversationState, targetDescriptor ] );
+	}, [ applySelectedConversationState, workspaceDescriptor ] );
 
 	const selectConversation = useCallback(
 		( conversationId: string ) => {
@@ -1167,10 +1215,10 @@ export function WorkspaceDollyAssistant( {
 			}
 
 			preserveLastUpdatedOnNextWriteRef.current = true;
-			setSelectedWorkspaceDollyConversationId( targetDescriptor, conversationId );
+			setSelectedWorkspaceDollyConversationId( workspaceDescriptor, conversationId );
 			applySelectedConversationState( nextConversationState );
 		},
-		[ applySelectedConversationState, targetDescriptor ]
+		[ applySelectedConversationState, workspaceDescriptor ]
 	);
 
 	const deleteConversation = useCallback(
@@ -1181,11 +1229,11 @@ export function WorkspaceDollyAssistant( {
 
 			const nextConversationState = deleteWorkspaceDollyConversation(
 				conversationId,
-				targetDescriptor
+				workspaceDescriptor
 			);
 			applySelectedConversationState( nextConversationState );
 		},
-		[ applySelectedConversationState, targetDescriptor ]
+		[ applySelectedConversationState, workspaceDescriptor ]
 	);
 
 	const agentticMessages = useMemo< AgentUIProps[ 'messages' ] >(
@@ -1399,7 +1447,7 @@ export function WorkspaceDollyAssistant( {
 					</AgentUI.Footer>
 					<DollyConversationMenu
 						anchor={ chatMenuAnchor }
-						conversations={ conversationsForTarget }
+						conversations={ conversationsForWorkspace }
 						selectedConversationId={ selectedConversationId }
 						onClose={ () => setChatMenuAnchor( null ) }
 						onNewChat={ startNewConversation }

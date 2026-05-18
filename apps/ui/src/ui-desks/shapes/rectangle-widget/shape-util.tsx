@@ -76,7 +76,8 @@ export class RectangleWidgetShapeUtil extends ShapeUtil< RectangleWidgetShape > 
 				...shape,
 				props: shape.props.shapeProps,
 			},
-			info as TLResizeInfo< typeof shape & { props: RectangleWidgetShapeProps } >
+			info as TLResizeInfo< typeof shape & { props: RectangleWidgetShapeProps } >,
+			getWidgetDefinition( shape.props.widgetType )?.resizeConstraints
 		);
 
 		return {

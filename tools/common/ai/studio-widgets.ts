@@ -140,6 +140,27 @@ export const STUDIO_PRESENTABLE_WIDGET_SPECS: StudioWidgetSpec[] = [
 		validateWidgetProps: ( props ) => typeof props.url === 'string' && isHttpUrl( props.url ),
 	},
 	{
+		type: 'pdf',
+		description:
+			'A PDF reference card that becomes an embedded PDF preview when resized large enough.',
+		propsDescription:
+			'{ "url": "https://example.com/file.pdf", "title": "File title", "mediaId": null, "filesize": 2509824 } where filesize is optional.',
+		example: {
+			type: 'pdf',
+			widgetProps: {
+				url: 'https://example.com/brief.pdf',
+				title: 'Brief',
+				mediaId: null,
+			},
+		},
+		validateWidgetProps: ( props ) =>
+			typeof props.url === 'string' &&
+			isPdfUrl( props.url ) &&
+			typeof props.title === 'string' &&
+			( props.mediaId === null || isNonNegativeInteger( props.mediaId ) ) &&
+			( props.filesize === undefined || isNonNegativeInteger( props.filesize ) ),
+	},
+	{
 		type: 'media',
 		description:
 			'An image or video card backed by a URL, including saved local image, video, or SVG files.',
@@ -386,6 +407,10 @@ function isMediaUrl( value: string ): boolean {
 	} catch {
 		return false;
 	}
+}
+
+function isPdfUrl( value: string ): boolean {
+	return isMediaUrl( value ) && /\.pdf(\?|$)/i.test( value );
 }
 
 function isMediaWidgetSource( value: unknown ): boolean {

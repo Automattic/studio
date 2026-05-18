@@ -8,6 +8,7 @@ import type { LoadingWidget } from '@/ui-desks/widgets/loading/types';
 import type { MediaWidget } from '@/ui-desks/widgets/media/types';
 import type { NoteWidget } from '@/ui-desks/widgets/note/types';
 import type { PageWidget } from '@/ui-desks/widgets/page/types';
+import type { PdfWidget } from '@/ui-desks/widgets/pdf/types';
 import type { PostWidget } from '@/ui-desks/widgets/post/types';
 import type { PostCollectionWidget } from '@/ui-desks/widgets/post-collection/types';
 import type { ScratchpadWidget } from '@/ui-desks/widgets/scratchpad/types';
@@ -25,6 +26,11 @@ import type { Editor, JsonObject, TLShapeId } from 'tldraw';
 export interface WidgetIndicator {
 	cornerRadius?: number;
 	stroke?: string;
+}
+
+export interface WidgetResizeConstraints {
+	minWidth?: number;
+	minHeight?: number;
 }
 
 export type WidgetResolutionState = 'loading';
@@ -304,6 +310,7 @@ export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBa
 	getSummary?: ( widgetProps: TWidget[ 'widgetProps' ] ) => string;
 	getLoadingShapeProps?: ( widget: TWidget ) => TWidget[ 'shapeProps' ];
 	getIndicator?: ( widgetProps: TWidget[ 'widgetProps' ] ) => WidgetIndicator;
+	resizeConstraints?: WidgetResizeConstraints;
 	getFittedShapeProps?: (
 		context: WidgetFitContentContext< TWidget >
 	) => WidgetFitContentResult< TWidget > | Promise< WidgetFitContentResult< TWidget > >;
@@ -329,6 +336,7 @@ export type DeskWidget =
 	| MediaWidget
 	| PostWidget
 	| PageWidget
+	| PdfWidget
 	| PostCollectionWidget
 	| SiteCardWidget
 	| SitePreviewWidget
@@ -348,6 +356,7 @@ export type DeskWidgetDefinition =
 	| WidgetDefinition< MediaWidget >
 	| WidgetDefinition< PostWidget >
 	| WidgetDefinition< PageWidget >
+	| WidgetDefinition< PdfWidget >
 	| WidgetDefinition< PostCollectionWidget >
 	| WidgetDefinition< SiteCardWidget >
 	| WidgetDefinition< SitePreviewWidget >

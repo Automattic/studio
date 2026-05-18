@@ -123,42 +123,51 @@ function toPhpIniPath( filePath: string ): string {
 	return filePath.replace( /\\/g, '/' ).replace( /"/g, '\\"' );
 }
 
-// Windows-only: php.exe ships without a baked-in extension set, so we generate
-// a php.ini that loads every bundled DLL plus the Mozilla root CA bundle
-export function getNativePhpIniContents( phpVersion: NativePhpSupportedVersion ): string {
-	if ( process.platform !== 'win32' ) {
-		throw new Error( 'php.ini is only generated on Windows' );
-	}
+function getNativePhpIniPath( phpVersion: NativePhpSupportedVersion ): string {
+	return path.join( getPhpBinaryDir( phpVersion ), PHP_INI_FILENAME );
+}
 
-	const binDir = getPhpBinaryDir( phpVersion );
-	const directives = [
+// Generates the contents of the php.ini that ships next to the bundled binary.
+// All platforms get memory_limit, an opcache cache_id partitioned per PHP
+// version (opcache's on-disk script blob format isn't stable across versions),
+// and the Mozilla root CA bundle. Windows additionally needs extension_dir +
+// every extension= and zend_extension=opcache. On macOS/Linux, this is not
+// needed, as we link extensions into the PHP binary statically.
+export function getNativePhpIniContents( phpVersion: NativePhpSupportedVersion ): string {
+	const caBundlePath = toPhpIniPath(
+		path.join( getPhpBinaryDir( phpVersion ), CA_BUNDLE_FILENAME )
+	);
+	const directives: string[] = [
 		'memory_limit=512M',
-		`extension_dir="${ toPhpIniPath( getExtensionDir( phpVersion ) ) }"`,
-		'zend_extension=opcache',
-		...WINDOWS_PHP_EXTENSIONS.map( ( extension ) => `extension=${ extension }` ),
-		`openssl.cafile="${ toPhpIniPath( path.join( binDir, CA_BUNDLE_FILENAME ) ) }"`,
-		`curl.cainfo="${ toPhpIniPath( path.join( binDir, CA_BUNDLE_FILENAME ) ) }"`,
+		`opcache.cache_id="studio-php${ phpVersion }"`,
+		`openssl.cafile="${ caBundlePath }"`,
+		`curl.cainfo="${ caBundlePath }"`,
 	];
+
+	if ( process.platform === 'win32' ) {
+		directives.push(
+			`extension_dir="${ toPhpIniPath( getExtensionDir( phpVersion ) ) }"`,
+			'zend_extension=opcache',
+			...WINDOWS_PHP_EXTENSIONS.map( ( extension ) => `extension=${ extension }` )
+		);
+	}
 
 	return `${ directives.join( os.EOL ) }${ os.EOL }`;
 }
 
-// Writes php.ini and ca-bundle.crt next to the PHP binary on Windows so every
-// php.exe invocation — parent or child — loads the same config automatically.
-// No-op on non-Windows platforms, where extensions are statically linked into
-// the binary and config is passed via `-d` argv in getDefaultPhpArgs().
+// Writes php.ini and ca-bundle.crt next to the PHP binary so every invocation
+// of the bundled binary — parent or child — loads the same config. Writes go
+// through `atomically` so concurrent Studio processes (e.g. a CLI invocation
+// while the daemon is already running) can't expose PHP to a half-written
+// config.
 export async function ensureNativePhpIniFiles(
 	phpVersion: NativePhpSupportedVersion
 ): Promise< void > {
-	if ( process.platform !== 'win32' ) {
-		return;
-	}
-
 	const binDir = getPhpBinaryDir( phpVersion );
 	await writeFile( path.join( binDir, CA_BUNDLE_FILENAME ), rootCertificates.join( os.EOL ), {
 		encoding: 'utf8',
 	} );
-	await writeFile( path.join( binDir, PHP_INI_FILENAME ), getNativePhpIniContents( phpVersion ), {
+	await writeFile( getNativePhpIniPath( phpVersion ), getNativePhpIniContents( phpVersion ), {
 		encoding: 'utf8',
 	} );
 }
@@ -199,44 +208,21 @@ export function getDefaultPhpArgs(
 	disallowRiskyFunctions: boolean = false,
 	enableXdebug: boolean = false
 ): string[] {
-	// Partition the file_cache by PHP version: opcache's on-disk script blob
-	// format isn't stable across minor versions, and reusing a cache populated
-	// by a different PHP can crash the server at startup on Windows.
-	const cacheId = `php${ phpVersion }`;
-	const cacheDirectory = path.join( getOpcacheRootDir(), cacheId );
+	// Partition the file_cache directory by PHP version to match the cache_id
+	// already pinned in php.ini — opcache's on-disk script blob format isn't
+	// stable across minor versions and reusing a cache populated by a different
+	// PHP can crash the server at startup.
+	const cacheDirectory = path.join( getOpcacheRootDir(), `php${ phpVersion }` );
 	fs.mkdirSync( cacheDirectory, { recursive: true } );
 
-	const args: string[] = [];
-
-	if ( process.platform === 'win32' ) {
-		// `-c` points php.exe at our php.ini and short-circuits the default
-		// ini search, so host PHP installations (and PHPRC) can't leak in —
-		// the same isolation `-n` gives us on macOS/Linux. Our php.ini
-		// carries memory_limit, extension_dir, every bundled extension, and
-		// the Mozilla CA bundle paths; only opcache cache state and the
-		// per-invocation knobs below need to be passed via `-d`.
-		args.push( '-c', path.join( getPhpBinaryDir( phpVersion ), PHP_INI_FILENAME ) );
-		args.push(
-			'-d',
-			`opcache.file_cache="${ cacheDirectory }"`,
-			'-d',
-			`opcache.cache_id="studio-${ cacheId }"`
-		);
-	} else {
-		// On macOS/Linux every extension is statically linked into the binary,
-		// so there is no php.ini next to it. Skip php.ini scanning with `-n`
-		// to keep the host's PHP installation from leaking into Studio, then
-		// pass the required runtime knobs explicitly.
-		args.push(
-			'-n',
-			'-d',
-			'memory_limit=512M',
-			'-d',
-			`opcache.file_cache="${ cacheDirectory }"`,
-			'-d',
-			`opcache.cache_id="studio-${ cacheId }"`
-		);
-	}
+	// `-c` points the binary at our php.ini and short-circuits the default
+	// ini search, so host PHP installations (and PHPRC) can't leak in
+	const args: string[] = [
+		'-c',
+		getNativePhpIniPath( phpVersion ),
+		'-d',
+		`opcache.file_cache="${ cacheDirectory }"`,
+	];
 
 	if ( enableXdebug ) {
 		// On macOS the `php` binary has every other extension baked in and ext/

@@ -1,6 +1,14 @@
 # Spec: `studio code` Remote Session (Telegram bridge)
 
 > **Status note (2026-04-28):** the `/remote-session` slash command and its subcommands (`attach|detach|new|status`) are **deferred** for the initial PoC. Only the `studio code --remote-session` flag is shipping. The slash-command sections below describe the planned design and can be re-introduced once a non-blocking REPL mode lands.
+>
+> **Status note (2026-04-30, STU-1649):** background-daemon support is implemented under a new `studio code remote-session` subcommand tree (`start [--detach]`, `stop`, `status`). The original `studio code --remote-session` flag still works and is equivalent to `studio code remote-session start` in foreground mode. Daemonized runs are tracked via `~/.studio/remote-session.pid`. The whole surface remains gated by the `STUDIO_ENABLE_REMOTE_SESSION=true` feature flag.
+>
+> **Status note (2026-05-01, STU-1655):** the `/remote-session` REPL slash command is back, redesigned around the daemon. `/remote-session start` spawns the detached daemon (same code path as `studio code remote-session start --detach`) and returns immediately. `/remote-session stop` terminates the daemon. The REPL never blocks. While a daemon is alive, the statusline shows a green `Remote session active` indicator. The `attach`/`detach`/`new` subcommands and the previous "blocking attach" mode remain off the table.
+>
+> **Status note (2026-05-05, STU-1681):** `studio code remote-session start` is now detached by default; pass `--no-detach` to keep it running in the foreground (the previous default). A new `studio code remote-session attach` subcommand connects a terminal to a running daemon, replays a tail of `~/.studio/remote-session.log`, and streams new entries live; Ctrl-C / SIGTERM detaches the terminal without stopping the daemon. The `attach`/`detach` wording is now the canonical "connect / disconnect" surface — both for the subcommand and for the in-REPL slash command.
+>
+> **Status note (2026-05-06, STU-1682):** the `studio code --remote-session` autostart flag has been removed. It was redundant with `studio code remote-session start` and the in-REPL `/remote-session` slash command, and kept the CLI surface confusing. Use the subcommand tree as the single entry point. The `--remote-chat-id` and `--remote-bot` flags are now only available on `studio code remote-session start` (where they always lived); `--message-from-stdin` remains as a hidden headless turn entry point used by the daemon's turn runner.
 
 ## Overview
 
@@ -15,8 +23,8 @@ The server side already exists. This spec covers only the local CLI changes.
 - The server's bearer token is the auth boundary. The local agent trusts that any message returned by `/local-agent-poll` is authorized for the holder of the token, and derives the reply target (`chat_id`, `bot`) from the polled message itself. No pre-binding to a specific chat is required.
 - Optional pinning: a user can still set `chat_id` (and/or `bot`) in config to filter inbound messages and pin the outgoing reply identity, e.g. for a kiosk or shared workstation.
 - Two entry points to the same feature:
-  - **Autostart flag**: `studio code --remote-session` enters remote mode immediately.
-  - **Slash command**: `/remote-session attach|detach|new|status` toggles remote mode from inside an interactive `studio code` session.
+  - **Subcommand**: `studio code remote-session start` runs the daemon (detached by default; `--no-detach` keeps it in the foreground). `studio code remote-session attach` connects a terminal to a running daemon's log stream.
+  - **Slash command**: `/remote-session attach|detach` connects (and disconnects) the REPL from the running daemon's log stream. Spawning and stopping the daemon are the subcommand's job.
 - Fully autonomous: tool calls and file modifications proceed without per-message approval (the underlying agent already supports `--auto-approve`).
 - Outbound-only network from the laptop (poll + post). No inbound ports, no tunnel, no PTY plumbing.
 
@@ -25,7 +33,7 @@ The server side already exists. This spec covers only the local CLI changes.
 - Multi-chat binding. v1 binds one chat per laptop, configured once.
 - Per-message approval flow from Telegram.
 - Forwarding intermediate progress events (`progress`, `info`, streamed assistant chunks, tool_use events) to Telegram. Only the final `result` text (or, for a paused turn, the flattened `question.asked`) is posted.
-- Running a remote poll loop in parallel with an active interactive REPL. v1 blocks the REPL while attached; the user detaches to resume typing locally. A future version can revisit parallelism.
+- Running the poll loop **inside** the REPL process. The daemon design (STU-1649, STU-1681) keeps polling out-of-process so the REPL stays interactive while a session is attached.
 
 ## Server contract (already deployed)
 
@@ -120,39 +128,44 @@ Unlike in raw Claude Code mode, Studio's `--json` output does **not** require pa
 
 ## CLI surface
 
-### Flag
+### Subcommand tree (daemon control)
 
 ```
-studio code --remote-session [--remote-chat-id <id>] [--remote-bot <name>]
+studio code remote-session start [--no-detach] [--remote-chat-id <id>] [--remote-bot <name>]
+studio code remote-session attach
+studio code remote-session stop
+studio code remote-session status
 ```
 
-Behavior: start `studio code` in **remote-only** mode (no interactive REPL, no `AiChatUI`). The process is dedicated to running the poll loop. Equivalent to launching the poll loop directly with the configured chat binding.
+`start` is the canonical entry point and is detached by default. It forks a detached child via `child_process.spawn(... { detached: true, stdio: 'ignore', windowsHide: true })`, sets `STUDIO_REMOTE_SESSION_DAEMON_CHILD=1` on the child's environment, and waits up to 5s for the child to write `~/.studio/remote-session.pid` before returning success. The parent's call to `loadRemoteSessionConfig()` (before spawning) means a missing token surfaces in the foreground terminal rather than dying silently in the background. `--no-detach` keeps the process attached to the terminal and dedicated to the poll loop (no interactive REPL, no `AiChatUI`).
 
-This mode is intended for running under launchd or in a terminal tab dedicated to the bridge. Implementation: when `--remote-session` is present, the `studio code` handler short-circuits before instantiating any UI adapter and hands off to `runRemoteSession()`.
+`attach` connects a terminal to the running daemon: it replays a 16 KB tail of `~/.studio/remote-session.log`, then streams new entries live in the same human-readable format used by the foreground (`--no-detach`) mode. Ctrl-C / SIGTERM detaches the terminal without stopping the daemon. Errors with exit 1 if no daemon is running. Recovers from log rotation (size shrinks → reset offset) and reports daemon exit when the PID stops being live.
+
+`stop` reads the PID file, sends `SIGTERM`, polls for exit (up to 5s), then escalates to `SIGKILL`. The PID file is removed regardless of how the daemon exits. `runRemoteSession()`'s existing SIGTERM handler triggers the graceful detach path (poll-loop abort + Telegram detach status), so well-behaved stops still get a `🔴 Local agent detached.` message in the chat.
+
+`status` reads the PID file, probes liveness via `process.kill(pid, 0)`, removes the file when it points to a dead PID, and prints `running (PID …)` or `not running` accordingly.
+
+The detached child's `runRemoteSession()` checks the env var on entry and calls `installDaemonChildHooks()` to write its PID and register an `exit` handler (and a SIGHUP handler on POSIX) that removes the file. SIGINT/SIGTERM are intentionally not intercepted by the daemon hooks — the existing graceful-detach path in `runRemoteSession()` handles them, and the `exit` event still fires afterwards to clean up the file.
 
 ### Slash command
 
-Inside an interactive `studio code` session, register `/remote-session` in `apps/cli/ai/slash-commands.ts` (`AI_CHAT_SLASH_COMMANDS`) with these subcommands:
+Inside an interactive `studio code` session, `/remote-session` (registered in `apps/cli/ai/slash-commands.ts`) drives the daemon. It is **never blocking** — every subcommand returns control to the REPL within a few hundred milliseconds. Subcommands:
 
-```
-/remote-session              # alias of `status`
-/remote-session status       # show: attached?, chat_id, current session_id, last poll, queue depth
-/remote-session attach       # block the REPL and run the poll loop until detached
-/remote-session detach       # signal the running loop to exit (if we implement a parallel mode later)
-/remote-session new          # discard current Telegram session_id; next message starts fresh
-```
+- `/remote-session attach` — validates config (so a missing token surfaces immediately), then spawns the detached daemon via the same `startDaemon()` helper used by `studio code remote-session start`. Reports the new PID via `ui.showSuccess` and updates the bottom-bar daemon indicator. If a daemon is already running, reports the existing PID and updates the indicator (idempotent).
+- `/remote-session detach` — calls `stopDaemon()` and clears the indicator. Surfaces friendly messages for "already stopped", "needed SIGKILL", or "process refused to die".
 
-**Dispatcher extension required.** The current slash-command dispatcher (`apps/cli/commands/ai/index.ts`, around the `AI_CHAT_SLASH_COMMANDS.find(...)` call) is an **exact-match** lookup:
+There is intentionally no `/remote-session status` slash command. The bottom-bar indicator (described below) already shows whether the daemon is running, and `studio code remote-session status` covers the out-of-REPL case.
 
-```ts
-const cmd = AI_CHAT_SLASH_COMMANDS.find( c => `/${ c.name }` === trimmedPrompt );
-```
+Implementation notes:
 
-This must be extended to match on the first whitespace-separated token and pass the remainder of the input to the handler as an argument string. The change is backward-compatible — existing handlers ignore the extra argument — and needs a small regression test for existing no-arg commands (`/clear`, `/login`, etc.).
+- The command is gated by `STUDIO_ENABLE_REMOTE_SESSION` via the `enabled` getter on `SlashCommandDef`, so it is hidden from autocomplete and unreachable from the dispatcher when the flag is off.
+- `SlashCommandDef.getArgumentCompletions(prefix)` returns `attach | detach` so typing `/remote-session ` shows them in the autocomplete dropdown.
+- The REPL dispatcher matches on the first whitespace token (`/${name} <args>` rather than exact-match) so the handler receives the full prompt and parses the subcommand itself.
+- The bottom-bar **daemon indicator** (`PromptEditor.daemonStatusMessage`) is updated immediately by the `attach`/`detach` handlers AND every 5s by a light `getDaemonStatus()` poll started by the REPL when the feature flag is on. The poll catches external start/stop (e.g. another terminal running `studio code remote-session stop`) and unexpected daemon death.
 
-Notes:
-- For v1, `/remote-session attach` blocks the interactive REPL until the poll loop exits (Ctrl-C, `detach` over an alternate control channel, or fatal error). Running the poll loop truly concurrently with an active TUI is out of scope for v1 because `@mariozechner/pi-tui` owns stdin and the terminal. A parallel mode can be added later without breaking this spec.
-- `/remote-session` is registered with a handler (not as a skill passthrough), following the pattern of `/clear`, `/login`, etc.
+`RemoteSessionConfigError` (e.g. missing token) is shown via `ui.showError` rather than crashing the REPL — the user is told to authenticate via `/login` or set `STUDIO_REMOTE_TOKEN`.
+
+The previous "blocking attach" design (where the REPL was held until detach) is permanently off the table: with the daemon, the REPL never blocks. `attach`/`detach` here mean "wire up the daemon's status to this REPL session" and "tear it down again", not "start the poll loop in this process".
 
 ### Telegram-side meta-command
 
@@ -239,8 +252,8 @@ Use a dedicated lockfile (`~/.studio/remote-session-state.lock`) with the `lockf
 
 ```
 ┌──────────────────────────────────────────┐
-│  studio code process                     │
-│  (interactive OR --remote-session mode)  │
+│  studio code remote-session daemon       │
+│  (background process; out-of-REPL)       │
 │                                          │
 │  ┌────────────────────────────────────┐  │
 │  │ remote-session controller          │  │
@@ -432,7 +445,7 @@ Telegram caps message bodies at 4096 chars. Use `max_message_chars` (default 380
 
 ### Markdown handling
 
-`studio code` returns Markdown via the result event. Pass through unchanged in v1; the server-side already handles Markdown→Telegram-HTML conversion for the existing Dolly path. The implementing agent MUST verify this against the `/local-agent-respond` endpoint before coding (see Open question 1 below).
+`studio code` returns Markdown via the result event. Pass through unchanged in v1; the server-side already handles Markdown→Telegram-HTML conversion for the existing WordPress Agent path (formerly known as Dolly). The implementing agent MUST verify this against the `/local-agent-respond` endpoint before coding (see Open question 1 below).
 
 If conversion is NOT done server-side, do minimal local processing: strip ANSI escape codes, leave Markdown as-is.
 
@@ -500,15 +513,15 @@ DEBUG-level (only when `STUDIO_REMOTE_DEBUG=1`): full request/response bodies wi
 
 ## Acceptance criteria
 
-1. `studio code --remote-session` starts a process that begins polling. No interactive UI is shown. If `chat_id` is pinned in config, the process also POSTs an "attached" status to that chat before the first poll; without a pin, attach is silent on the Telegram side.
-2. From an interactive `studio code` session, `/remote-session attach` starts the poll loop; for v1 this blocks the REPL until the user detaches.
+1. `studio code remote-session start` (detached daemon, default) or `studio code remote-session start --no-detach` (foreground) starts a process that begins polling. No interactive UI is shown. If `chat_id` is pinned in config, the process also POSTs an "attached" status to that chat before the first poll; without a pin, attach is silent on the Telegram side.
+2. From an interactive `studio code` session, `/remote-session attach` spawns the daemon (idempotent if one is already running) and updates the bottom-bar indicator. The REPL stays interactive — the daemon does the polling out-of-process, and the user keeps typing locally.
 3. A Telegram message routed to the local agent appears in the chat as a reply within `poll_interval + studio_code_turn_duration + ~2s` end-to-end.
 4. The second and subsequent Telegram messages are processed in the **same** `studio code` session (verified by the agent referring back to earlier turns).
-5. `/remote-session new` (laptop) and `/new` (Telegram) both reset the session; the next message starts fresh and the agent has no memory of prior turns.
-6. `/remote-session detach` (or Ctrl-C) stops polling and posts a detach status; on a later `/remote-session attach`, the same session resumes.
+5. `/new` (Telegram) resets the session; the next message starts fresh and the agent has no memory of prior turns.
+6. `/remote-session detach` (REPL) stops the daemon and clears the indicator; the next `/remote-session attach` (or `studio code remote-session start`) resumes the same session because `session_id` is left on disk.
 7. Replies longer than 4096 characters are split into multiple Telegram messages in order, with code blocks intact.
-8. Killing the `studio code` process while attached posts a best-effort detach status to Telegram and leaves the `session_id` intact for the next attach.
-9. With an invalid token, attach fails fast with a clear local error and does NOT enter a retry loop.
+8. Killing the daemon process posts a best-effort detach status to Telegram and leaves the `session_id` intact for the next attach.
+9. With an invalid token, the daemon fails fast with a clear local error and does NOT enter a retry loop.
 10. While a turn is being processed, no new poll request is made until the reply has been posted (or the turn has timed out).
 11. If `--resume-session` fails because the session is stale, the controller silently retries with a fresh session and posts a one-line notice to Telegram.
 12. The token does not appear in any log line, error message, or Telegram message under any tested condition.

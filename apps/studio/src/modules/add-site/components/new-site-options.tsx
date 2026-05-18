@@ -2,12 +2,18 @@ import {
 	__experimentalVStack as VStack,
 	__experimentalHeading as Heading,
 	__experimentalText as Text,
+	SearchControl as SearchControlWp,
 	Spinner,
 } from '@wordpress/components';
-import { __ } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
-import { useCallback } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { ArrowIcon } from 'src/components/arrow-icon';
+import { EMPTY_SITE_PLAYGROUND_URL } from 'src/constants';
 import { cx } from 'src/lib/cx';
+import { getIpcApi } from 'src/lib/get-ipc-api';
+
+const SearchControl = process.env.NODE_ENV === 'test' ? () => null : SearchControlWp;
+
 interface Blueprint {
 	slug: string;
 	title: string;
@@ -29,6 +35,25 @@ interface NewSiteOptionsProps {
 	selectedBlueprint: string | null;
 	onBlueprintChange: ( blueprintId: string ) => void;
 	blueprintFileError?: string;
+	uploadButton?: React.ReactNode;
+}
+
+function PreviewLink( { url }: { url: string } ) {
+	const { __ } = useI18n();
+	return (
+		<a
+			href={ url }
+			onClick={ ( e: React.MouseEvent< HTMLAnchorElement > ) => {
+				e.preventDefault();
+				e.stopPropagation();
+				getIpcApi().openURL( url );
+			} }
+			className="!absolute bottom-2 right-2 z-10 inline-flex items-center gap-1 !px-2 !py-1 !h-auto !min-h-0 text-[11px] !bg-white/90 hover:!bg-white !text-a8c-gray-900 hover:!text-a8c-gray-900 !shadow-none whitespace-nowrap rounded-sm no-underline border border-a8c-gray-5"
+		>
+			{ __( 'Live Preview' ) }
+			<ArrowIcon />
+		</a>
+	);
 }
 
 function EmptySiteCard( { isSelected, onClick }: { isSelected: boolean; onClick: () => void } ) {
@@ -80,6 +105,7 @@ function EmptySiteCard( { isSelected, onClick }: { isSelected: boolean; onClick:
 						fill="none"
 					/>
 				</svg>
+				<PreviewLink url={ EMPTY_SITE_PLAYGROUND_URL } />
 			</div>
 			<div className="px-3 pt-3 pb-3">
 				<Heading level={ 3 } className="text-[13px] text-frame-text mb-1" weight={ 500 }>
@@ -127,6 +153,7 @@ function BlueprintCard( {
 						{ blueprint.title }
 					</div>
 				) }
+				{ blueprint.playground_url && <PreviewLink url={ blueprint.playground_url } /> }
 			</div>
 			<div className="px-3 pt-3 pb-3">
 				<Heading level={ 3 } className="text-[13px] text-frame-text mb-1" weight={ 500 }>
@@ -150,15 +177,17 @@ const BLUEPRINT_DISPLAY_NAMES: Record< string, string > = {
 	Commerce: 'WooCommerce',
 };
 
-const getBlueprintExcerptOverrides = (): Record< string, string > => ( {
-	'Quick Start': __(
-		'A WordPress.com-like environment with Business plan plugins and themes pre-installed.'
-	),
-	Commerce: __(
-		'Create your next online store with WooCommerce and its companion plugins pre-installed.'
-	),
-	Development: __( 'A streamlined environment for building and testing themes or plugins.' ),
-} );
+function getBlueprintExcerptOverrides( __: ( text: string ) => string ): Record< string, string > {
+	return {
+		'Quick Start': __(
+			'A WordPress.com-like environment with Business plan plugins and themes pre-installed.'
+		),
+		Commerce: __(
+			'Create your next online store with WooCommerce and its companion plugins pre-installed.'
+		),
+		Development: __( 'A streamlined environment for building and testing themes or plugins.' ),
+	};
+}
 
 const BLUEPRINT_ORDER: Record< string, number > = {
 	'Quick Start': 1,
@@ -166,14 +195,19 @@ const BLUEPRINT_ORDER: Record< string, number > = {
 	Development: 3,
 };
 
-function renameBlueprintsForDisplay( blueprints: Blueprint[] ): Blueprint[] {
-	const excerptOverrides = getBlueprintExcerptOverrides();
+const FEATURED_BLUEPRINT_SLUGS = new Set( [ 'woo-shop', 'development', 'quick-start' ] );
+
+function renameBlueprintsForDisplay(
+	blueprints: Blueprint[],
+	__: ( text: string ) => string
+): Blueprint[] {
+	const excerptOverrides = getBlueprintExcerptOverrides( __ );
 	return [ ...blueprints ]
 		.sort( ( a, b ) => ( BLUEPRINT_ORDER[ a.title ] ?? 99 ) - ( BLUEPRINT_ORDER[ b.title ] ?? 99 ) )
-		.map( ( bp ) => ( {
-			...bp,
-			excerpt: excerptOverrides[ bp.title ] || bp.excerpt,
-			title: BLUEPRINT_DISPLAY_NAMES[ bp.title ] || bp.title,
+		.map( ( item ) => ( {
+			...item,
+			excerpt: excerptOverrides[ item.title ] || item.excerpt,
+			title: BLUEPRINT_DISPLAY_NAMES[ item.title ] || item.title,
 		} ) );
 }
 
@@ -185,8 +219,32 @@ export function NewSiteOptions( {
 	selectedBlueprint,
 	onBlueprintChange,
 	blueprintFileError,
+	uploadButton,
 }: NewSiteOptionsProps ) {
 	const { __ } = useI18n();
+	const [ searchQuery, setSearchQuery ] = useState( '' );
+
+	const featuredBlueprints = blueprints.filter( ( blueprint ) =>
+		FEATURED_BLUEPRINT_SLUGS.has( blueprint.slug )
+	);
+	const exploreBlueprints = blueprints.filter(
+		( blueprint ) => ! FEATURED_BLUEPRINT_SLUGS.has( blueprint.slug )
+	);
+
+	const filteredExploreBlueprints = useMemo( () => {
+		const query = searchQuery.toLowerCase().trim();
+		if ( ! query ) {
+			return exploreBlueprints;
+		}
+		return exploreBlueprints.filter( ( blueprint ) => {
+			const titleMatch = blueprint.title.toLowerCase().includes( query );
+			const excerptMatch = blueprint.excerpt.toLowerCase().includes( query );
+			const categoryMatch = blueprint.blueprint?.meta?.categories?.some( ( category ) =>
+				category.toLowerCase().includes( query )
+			);
+			return titleMatch || excerptMatch || categoryMatch;
+		} );
+	}, [ exploreBlueprints, searchQuery ] );
 
 	const handleEmptyClick = useCallback( () => {
 		onBlueprintChange( 'empty' );
@@ -208,6 +266,10 @@ export function NewSiteOptions( {
 				{ __( 'Start with an empty site or choose a template.' ) }
 			</Text>
 
+			{ uploadButton && (
+				<div className="w-full max-w-2xl mx-auto mb-4 flex justify-end">{ uploadButton }</div>
+			) }
+
 			{ blueprintFileError && (
 				<div className="bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200 text-sm rounded-lg px-4 py-3 mb-4">
 					{ blueprintFileError }
@@ -226,16 +288,49 @@ export function NewSiteOptions( {
 					</div>
 				) : (
 					enableBlueprints &&
-					renameBlueprintsForDisplay( blueprints ).map( ( bp ) => (
+					renameBlueprintsForDisplay( featuredBlueprints, __ ).map( ( item ) => (
 						<BlueprintCard
-							key={ bp.slug }
-							blueprint={ bp }
-							isSelected={ selectedBlueprint === bp.slug }
-							onClick={ () => handleBlueprintClick( bp.slug ) }
+							key={ item.slug }
+							blueprint={ item }
+							isSelected={ selectedBlueprint === item.slug }
+							onClick={ () => handleBlueprintClick( item.slug ) }
 						/>
 					) )
 				) }
 			</div>
+
+			{ enableBlueprints && ! isLoadingBlueprints && exploreBlueprints.length > 0 && (
+				<>
+					<div className="flex items-center justify-between w-full max-w-2xl mx-auto mt-8 mb-4">
+						<Heading className="text-[18px] text-frame-text" weight={ 500 }>
+							{ __( 'Explore more blueprints' ) }
+						</Heading>
+						<SearchControl
+							className="!w-48 text-frame-text"
+							placeholder={ __( 'Search blueprints' ) }
+							onChange={ setSearchQuery }
+							value={ searchQuery }
+							__nextHasNoMarginBottom={ true }
+						/>
+					</div>
+					{ filteredExploreBlueprints.length === 0 ? (
+						<div className="flex items-center justify-center text-sm text-frame-text-secondary py-8 max-w-2xl mx-auto">
+							{ __( 'No blueprints found.' ) }
+						</div>
+					) : (
+						<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-2xl mx-auto pb-1">
+							{ filteredExploreBlueprints.map( ( item ) => (
+								<BlueprintCard
+									key={ item.slug }
+									blueprint={ item }
+									isSelected={ selectedBlueprint === item.slug }
+									onClick={ () => handleBlueprintClick( item.slug ) }
+								/>
+							) ) }
+						</div>
+					) }
+				</>
+			) }
 		</VStack>
 	);
 }

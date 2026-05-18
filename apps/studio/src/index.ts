@@ -9,7 +9,6 @@ import {
 	dialog,
 	MessageBoxSyncOptions,
 	shell,
-	type Event as ElectronEvent,
 } from 'electron';
 import path from 'path';
 import { pathToFileURL } from 'url';
@@ -47,16 +46,10 @@ import {
 	startCliEventsSubscriber,
 	stopCliEventsSubscriber,
 } from 'src/modules/cli/lib/cli-events-subscriber';
-import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { autoInstallLinuxCliIfNeeded } from 'src/modules/cli/lib/linux-installation-manager';
 import { autoInstallMacOSCliIfNeeded } from 'src/modules/cli/lib/macos-installation-manager';
 import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
 import { stopAllProcesses as stopAllStudioCodeProcesses } from 'src/modules/studio-code';
-import {
-	isPreviewNavigationAllowed,
-	isPreviewWebContents,
-	loadPreviewWebContentsURL,
-} from 'src/preview-view';
 import { getRunningSiteCount, SiteServer, stopAllServers } from 'src/site-server';
 import {
 	loadUserData,
@@ -179,26 +172,14 @@ async function appBoot() {
 	app.enableSandbox();
 
 	// Prevent navigation to anywhere other than known locations.
-	// The site preview's `WebContentsView` has its own site-scoped policy,
-	// since it intentionally loads local WordPress pages outside the renderer
-	// origin.
+	// The site-preview `<webview>` is a separate webContents that intentionally
+	// loads local WordPress pages — it's identified by `getType() === 'webview'`
+	// and exempted from the renderer-origin restriction below.
 	app.on( 'web-contents-created', ( _event, contents ) => {
-		const blockExternalPreviewNavigation = (
-			event: ElectronEvent,
-			navigationUrl: string
-		): boolean => {
-			if ( isPreviewWebContents( contents.id ) ) {
-				if ( ! isPreviewNavigationAllowed( contents.id, navigationUrl ) ) {
-					event.preventDefault();
-					openExternalWebUrl( navigationUrl );
-				}
-				return true;
-			}
-			return false;
-		};
+		const isSitePreviewWebview = contents.getType() === 'webview';
 
 		contents.on( 'will-navigate', ( event, navigationUrl ) => {
-			if ( blockExternalPreviewNavigation( event, navigationUrl ) ) {
+			if ( isSitePreviewWebview ) {
 				return;
 			}
 			const { origin } = new URL( navigationUrl );
@@ -207,19 +188,11 @@ async function appBoot() {
 				event.preventDefault();
 			}
 		} );
-		contents.on( 'will-redirect', ( event, navigationUrl ) => {
-			blockExternalPreviewNavigation( event, navigationUrl );
-		} );
 		contents.setWindowOpenHandler( ( details ) => {
-			if ( isPreviewWebContents( contents.id ) ) {
-				// Site-preview popups (target="_blank", admin-bar links, …)
-				// load inside the preview only when they stay on the same site.
-				// External URLs leave the preview bridge and open in the browser.
-				void loadPreviewWebContentsURL( contents.id, details.url ).then( ( loaded ) => {
-					if ( ! loaded ) {
-						openExternalWebUrl( details.url );
-					}
-				} );
+			// Site-preview popups (target="_blank", admin-bar links, …) open
+			// in the user's browser rather than spawning a new Electron window.
+			if ( isSitePreviewWebview ) {
+				openExternalWebUrl( details.url );
 			}
 			return { action: 'deny' };
 		} );
@@ -332,9 +305,13 @@ async function appBoot() {
 			const basePolicies = [
 				"default-src 'self'", // Allow resources from these domains
 				"script-src-attr 'none'",
-				"img-src 'self' https://*.gravatar.com https://*.wp.com https://blueprintlibrary.wordpress.com https://wordpress.github.io data:",
+				"img-src 'self' https://*.gravatar.com https://*.wp.com https://blueprintlibrary.wordpress.com https://blueprintslibraryv2.wpcomstaging.com https://wordpress.github.io https://raw.githubusercontent.com data:",
 				"style-src 'self' 'unsafe-inline'", // unsafe-inline used by tailwindcss in development, and also in production after the app rename
 				"script-src 'self' 'wasm-unsafe-eval'", // allow WebAssembly to compile and instantiate
+				// Site preview uses `<webview>` to host local WordPress sites
+				// served from arbitrary localhost ports and (optionally) HTTPS
+				// custom domains.
+				'frame-src http: https:',
 			];
 			const prodPolicies = [
 				"connect-src 'self' https://public-api.wordpress.com https://api.wordpress.org",
@@ -466,7 +443,6 @@ async function appBoot() {
 
 			void ( async () => {
 				const userData = await loadUserData();
-				const isCliInstalled = await isStudioCliInstalled();
 
 				if ( userData.stopSitesOnQuit !== undefined ) {
 					shouldStopSitesOnQuit = userData.stopSitesOnQuit;
@@ -475,13 +451,14 @@ async function appBoot() {
 					return;
 				}
 
-				if ( ! isCliInstalled || process.env.E2E ) {
+				if ( process.env.E2E ) {
 					isQuittingConfirmed = true;
 					app.quit();
 					return;
 				}
 
 				const STOP_SITES_BUTTON_INDEX = 0;
+				const LEAVE_RUNNING_BUTTON_INDEX = 1;
 				const CANCEL_BUTTON_INDEX = 2;
 
 				const { response, checkboxChecked } = await dialog.showMessageBox( {
@@ -498,7 +475,7 @@ async function appBoot() {
 					buttons: [ __( 'Stop sites' ), __( 'Leave running' ), __( 'Cancel' ) ],
 					checkboxLabel: __( "Don't ask again" ),
 					cancelId: CANCEL_BUTTON_INDEX,
-					defaultId: STOP_SITES_BUTTON_INDEX,
+					defaultId: LEAVE_RUNNING_BUTTON_INDEX,
 				} );
 
 				if ( response === CANCEL_BUTTON_INDEX ) {

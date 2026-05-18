@@ -201,24 +201,70 @@ function extractMessages( payload: unknown ): PolledMessage[] {
 	return out;
 }
 
+export interface RespondParams {
+	chatId: number;
+	bot?: string;
+	/** Plain text reply. Required when no `photo` is provided. */
+	text?: string;
+	/**
+	 * Base64-encoded image bytes (PNG or JPEG). When set, the request goes out as
+	 * `multipart/form-data` so the server forwards it to Telegram via `sendPhoto`.
+	 */
+	photo?: string;
+	/** MIME type of the photo bytes. Defaults to `image/png`. */
+	photoMimeType?: 'image/png' | 'image/jpeg';
+	/** Caption to send alongside `photo`. The server demotes long captions to a follow-up message. */
+	caption?: string;
+}
+
+interface RespondResponseBody {
+	success?: boolean;
+	photo_sent?: boolean;
+	text_sent?: boolean;
+	chunks_sent?: number;
+	error?: string;
+}
+
 /**
  * POST a message back to Telegram. Retries up to 3 times on 5xx with exponential backoff.
  * 4xx responses are surfaced as TelegramBadRequestError and should be logged but not retried.
+ *
+ * Transports:
+ *   - Text-only: `application/json` body — `{ chat_id, bot, text }`.
+ *   - Photo (with optional caption / follow-up text): `multipart/form-data` with a
+ *     binary `photo` file part plus text fields. The server validates the photo
+ *     bytes (size + magic bytes) before forwarding to Telegram.
+ *
+ * The server always answers with HTTP 200 and a JSON body indicating partial outcomes
+ * (`success`, `photo_sent`, `text_sent`, `error`). We log a warning when `success` is
+ * false but do not throw — the caller has already committed to best-effort delivery.
  */
 export async function respondMessage(
 	config: RemoteSessionConfig,
-	params: { chatId: number; text: string; bot?: string },
+	params: RespondParams,
 	options: { signal?: AbortSignal; maxRetries?: number; logger?: RemoteSessionLogger } = {}
 ): Promise< void > {
+	// Normalize empty strings to "absent" so every downstream check (early
+	// guard, body builder, debug log) agrees on what counts as present.
+	const text = params.text && params.text.length > 0 ? params.text : undefined;
+	const photo = params.photo && params.photo.length > 0 ? params.photo : undefined;
+
+	if ( ! text && ! photo ) {
+		throw new Error( 'respondMessage requires `text`, `photo`, or both' );
+	}
+
 	const url = buildUrl( config.base_url, 'local-agent-respond' );
 	const allowedHost = new URL( config.base_url ).host;
 	assertSameHost( url, allowedHost );
 
 	const bot = params.bot ?? config.bot;
-	const body = JSON.stringify( {
-		chat_id: params.chatId,
-		text: params.text,
+	const { body, contentType } = buildRespondBody( {
+		chatId: params.chatId,
 		bot,
+		text,
+		photo,
+		photoMimeType: params.photoMimeType,
+		caption: params.caption,
 	} );
 
 	const maxRetries = options.maxRetries ?? 3;
@@ -228,19 +274,30 @@ export async function respondMessage(
 	logger?.debug( 'Respond start', {
 		chat_id: params.chatId,
 		bot,
-		text_length: params.text.length,
-		text_preview: params.text.slice( 0, 120 ),
+		text_length: text?.length ?? 0,
+		text_preview: text?.slice( 0, 120 ),
+		has_photo: photo !== undefined,
+		photo_base64_chars: photo?.length ?? 0,
+		photo_mime_type: params.photoMimeType,
+		caption_length: params.caption?.length ?? 0,
+		transport: contentType === undefined ? 'multipart' : 'json',
 	} );
 
 	while ( attempt <= maxRetries ) {
 		let response: Response;
 		try {
+			// Note: when `body` is a FormData the runtime sets the multipart
+			// Content-Type with the proper boundary. Setting it manually here
+			// would corrupt the boundary token, so we omit it for that path.
+			const headers: Record< string, string > = {
+				Authorization: `Bearer ${ config.token }`,
+			};
+			if ( contentType ) {
+				headers[ 'Content-Type' ] = contentType;
+			}
 			response = await fetch( url, {
 				method: 'POST',
-				headers: {
-					Authorization: `Bearer ${ config.token }`,
-					'Content-Type': 'application/json',
-				},
+				headers,
 				body,
 				redirect: 'manual',
 				signal: options.signal,
@@ -296,11 +353,25 @@ export async function respondMessage(
 				response.status
 			);
 		}
-		logger?.debug( 'Respond ok', {
-			status: response.status,
-			chat_id: params.chatId,
-			attempt,
-		} );
+
+		const outcome = await readRespondOutcome( response );
+		if ( outcome && outcome.success === false ) {
+			logger?.warn( 'Respond reported partial failure', {
+				chat_id: params.chatId,
+				photo_sent: outcome.photo_sent,
+				text_sent: outcome.text_sent,
+				error: outcome.error,
+			} );
+		} else {
+			logger?.debug( 'Respond ok', {
+				status: response.status,
+				chat_id: params.chatId,
+				attempt,
+				photo_sent: outcome?.photo_sent,
+				text_sent: outcome?.text_sent,
+				chunks_sent: outcome?.chunks_sent,
+			} );
+		}
 		return;
 	}
 
@@ -312,6 +383,77 @@ export async function respondMessage(
 		throw lastError;
 	}
 	throw new TelegramTransientError( 'Respond failed after retries' );
+}
+
+interface BuildBodyParams {
+	chatId: number;
+	bot?: string;
+	text?: string;
+	photo?: string;
+	photoMimeType?: 'image/png' | 'image/jpeg';
+	caption?: string;
+}
+
+// Telegram caps captions at 1024 characters and the wpcom endpoint rejects
+// anything longer with HTTP 400. Truncate at the client so a slightly
+// over-cap caption from the agent doesn't drop the whole photo.
+const CAPTION_MAX_CHARS = 1024;
+
+function clampCaption( caption: string | undefined ): string | undefined {
+	if ( ! caption ) {
+		return undefined;
+	}
+	if ( caption.length <= CAPTION_MAX_CHARS ) {
+		return caption;
+	}
+	return `${ caption.slice( 0, CAPTION_MAX_CHARS - 1 ) }…`;
+}
+
+function buildRespondBody( params: BuildBodyParams ): {
+	body: string | FormData;
+	/** Set for the JSON path; `undefined` for multipart so fetch fills the boundary in. */
+	contentType?: string;
+} {
+	if ( params.photo ) {
+		const fd = new FormData();
+		fd.append( 'chat_id', String( params.chatId ) );
+		if ( params.bot ) {
+			fd.append( 'bot', params.bot );
+		}
+		if ( params.text ) {
+			fd.append( 'text', params.text );
+		}
+		const caption = clampCaption( params.caption );
+		if ( caption ) {
+			fd.append( 'caption', caption );
+		}
+		const mime = params.photoMimeType ?? 'image/png';
+		const filename = mime === 'image/jpeg' ? 'screenshot.jpg' : 'screenshot.png';
+		const bytes = Buffer.from( params.photo, 'base64' );
+		fd.append( 'photo', new Blob( [ new Uint8Array( bytes ) ], { type: mime } ), filename );
+		return { body: fd };
+	}
+
+	const json: Record< string, unknown > = { chat_id: params.chatId };
+	if ( params.bot ) {
+		json.bot = params.bot;
+	}
+	if ( params.text ) {
+		json.text = params.text;
+	}
+	return { body: JSON.stringify( json ), contentType: 'application/json' };
+}
+
+async function readRespondOutcome( response: Response ): Promise< RespondResponseBody | null > {
+	const raw = await safeReadText( response );
+	if ( ! raw.trim() ) {
+		return null;
+	}
+	try {
+		return JSON.parse( raw ) as RespondResponseBody;
+	} catch {
+		return null;
+	}
 }
 
 async function safeReadText( response: Response ): Promise< string > {

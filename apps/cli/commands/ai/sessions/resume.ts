@@ -1,4 +1,4 @@
-import { resolveActiveSiteFromEvents } from '@studio/common/ai/sessions/active-site';
+import { resolveActiveSiteFromEntries } from '@studio/common/ai/sessions/active-site';
 import { listAiSessions, loadAiSession } from '@studio/common/ai/sessions/store';
 import { __ } from '@wordpress/i18n';
 import { JsonAdapter } from 'cli/ai/output-adapter';
@@ -13,8 +13,8 @@ import type { AiOutputAdapter } from 'cli/ai/output-adapter';
 export async function runCommand(
 	sessionIdOrPrefix?: string,
 	options: {
-		noSessionPersistence?: boolean;
 		message?: string;
+		displayMessage?: string;
 		json?: boolean;
 	} = {}
 ): Promise< void > {
@@ -49,13 +49,13 @@ export async function runCommand(
 	// even if the session was flipped to live. Hydrate it explicitly from the
 	// event log instead.
 	const resolvedSite =
-		adapter instanceof JsonAdapter ? resolveActiveSiteFromEvents( session.events ) : undefined;
+		adapter instanceof JsonAdapter ? resolveActiveSiteFromEntries( session.entries ) : undefined;
 
 	await runAiCommand( {
 		adapter,
 		resumeSession: session,
-		noSessionPersistence: options.noSessionPersistence === true,
 		initialMessage: options.message,
+		initialDisplayMessage: options.displayMessage,
 		activeSite: resolvedSite,
 	} );
 }
@@ -81,6 +81,11 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					default: false,
 					description: __( 'Output events as NDJSON to stdout (headless mode)' ),
 				} )
+				.option( 'display-message', {
+					type: 'string',
+					hidden: true,
+					description: __( 'Message to persist and display in the session transcript' ),
+				} )
 				.check( ( argv ) => {
 					if ( argv.json && ! argv.message ) {
 						throw new Error( __( '--json requires a message argument' ) );
@@ -93,13 +98,12 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				const typedArgv = argv as {
 					id?: string;
 					message?: string;
+					displayMessage?: string;
 					json?: boolean;
-					sessionPersistence?: boolean;
 				};
-				const noSessionPersistence = typedArgv.sessionPersistence === false;
 				await runCommand( typedArgv.id, {
-					noSessionPersistence,
 					message: typedArgv.message,
+					displayMessage: typedArgv.displayMessage,
 					json: typedArgv.json,
 				} );
 			} catch ( error ) {

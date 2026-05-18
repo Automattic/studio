@@ -1,7 +1,7 @@
 /**
  * PromptFoo eval runner for Studio Code agent.
  *
- * Hooks into startAiAgent() to capture tool calls, tool results, and
+ * Hooks into runStudioAgentTurn() to capture tool calls, tool results, and
  * assistant text. Returns raw structured data — assertions live in the
  * promptfoo config, not here.
  */
@@ -9,50 +9,42 @@
 import { writeFileSync, writeSync as fsWriteSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { startAiAgent } from 'cli/ai/agent';
+import { SessionManager } from '@mariozechner/pi-coding-agent';
+import { isAiModelId, type AiModelId } from '@studio/common/ai/models';
+import { findLastAssistant } from '@studio/common/ai/session-events';
 import {
 	resolveAiEnvironment,
 	resolveInitialAiProvider,
 	resolveUnavailableAiProvider,
 } from 'cli/ai/auth';
-import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
+import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
+import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
+import type { AgentSessionEvent } from '@mariozechner/pi-coding-agent';
 import type { AiProviderId } from 'cli/ai/providers';
 
 interface EvalRunnerInput {
 	prompt: string;
 	timeoutMs?: number;
+	model?: AiModelId;
 }
 
-function normalizeToolName( name: string ): string {
-	return name.replace( /^mcp__studio__/, '' );
-}
-
-function extractToolCalls( message: SDKMessage ) {
-	if ( message.type !== 'assistant' ) {
+function extractToolCalls( event: AgentSessionEvent ) {
+	if ( event.type !== 'message_end' || event.message.role !== 'assistant' ) {
 		return [];
 	}
-	const content = message.message.content ?? [];
-	return content
+	return event.message.content
 		.filter(
-			( block: {
-				type: string;
-			} ): block is { type: 'tool_use'; id: string; name: string; input: unknown } =>
-				block.type === 'tool_use'
+			(
+				block
+			): block is Extract< ( typeof event.message.content )[ number ], { type: 'toolCall' } > =>
+				block.type === 'toolCall'
 		)
-		.map( ( block: { id: string; name: string; input: unknown } ) => ( {
+		.map( ( block ) => ( {
 			id: block.id,
-			name: normalizeToolName( block.name ),
-			input: block.input,
+			name: block.name,
+			input: block.arguments as Record< string, unknown >,
 		} ) );
 }
-
-type TextBlock = { type: 'text'; text: string };
-type ToolResultBlock = {
-	type: 'tool_result';
-	tool_use_id: string;
-	is_error?: boolean;
-	content?: unknown;
-};
 
 type ToolCallRecord = {
 	id: string;
@@ -79,41 +71,32 @@ type FirstToolError = {
 	turnIndex: number;
 };
 
-function extractTextSegments( message: SDKMessage ): string[] {
-	if ( message.type !== 'assistant' ) {
+function extractTextSegments( event: AgentSessionEvent ): string[] {
+	if ( event.type !== 'message_end' || event.message.role !== 'assistant' ) {
 		return [];
 	}
-	const content = ( message.message.content ?? [] ) as Array< { type: string } >;
-	return content
-		.filter( ( block ): block is TextBlock => block.type === 'text' )
+	return event.message.content
+		.filter( ( block ): block is { type: 'text'; text: string } => block.type === 'text' )
 		.map( ( block ) => block.text );
 }
 
-function extractToolResult( message: SDKMessage ): {
-	toolUseId: string | null;
+function extractToolResult( event: AgentSessionEvent ): {
+	toolUseId: string;
 	isError: boolean;
 	text?: string;
 } | null {
-	if ( message.type !== 'user' || ! Array.isArray( message.message.content ) ) {
+	if ( event.type !== 'tool_execution_end' ) {
 		return null;
 	}
-	const content = message.message.content as Array< { type: string } >;
-	const block = content.find( ( b ): b is ToolResultBlock => b.type === 'tool_result' );
-	if ( ! block ) {
-		return null;
-	}
+	const result = event.result as { content?: Array< { type: string; text?: string } > } | undefined;
 	let text: string | undefined;
-	if ( typeof block.content === 'string' ) {
-		text = block.content;
-	} else if ( Array.isArray( block.content ) ) {
-		const tb = ( block.content as Array< { type: string } > ).find(
-			( b ): b is TextBlock => b.type === 'text'
+	if ( result?.content && Array.isArray( result.content ) ) {
+		const textBlock = result.content.find(
+			( b ): b is { type: 'text'; text: string } => b.type === 'text' && typeof b.text === 'string'
 		);
-		if ( tb ) {
-			text = tb.text;
-		}
+		if ( textBlock ) text = textBlock.text;
 	}
-	return { toolUseId: block.tool_use_id ?? null, isError: block.is_error === true, text };
+	return { toolUseId: event.toolCallId, isError: event.isError, text };
 }
 
 function readInput(): EvalRunnerInput {
@@ -131,9 +114,15 @@ function readInput(): EvalRunnerInput {
 		}
 	}
 
+	const envModel = process.env.STUDIO_EVAL_MODEL?.trim();
+	const varModel = typeof vars.model === 'string' ? vars.model.trim() : undefined;
+	const rawModel = varModel || envModel;
+	const model = rawModel && isAiModelId( rawModel ) ? rawModel : undefined;
+
 	return {
 		prompt: ( vars.prompt as string ) ?? prompt,
 		timeoutMs: typeof vars.timeoutMs === 'number' ? vars.timeoutMs : undefined,
+		model,
 	};
 }
 
@@ -176,80 +165,101 @@ async function runEval( input: EvalRunnerInput ) {
 	// Wall-clock per turn, measured between successive assistant messages.
 	const turnDurationsMs: number[] = [];
 	let turnIndex = 0;
-	let numTurns: number | null = null;
+	let numTurns = 0;
+	let numTurnsResult: number | null = null;
 	let success = false;
+	let error: string | null = null;
+	let timedOut = false;
 
 	phaseStartedAt = Date.now();
-	const query = startAiAgent( {
-		prompt: input.prompt.trim(),
-		env,
-	} );
-	phaseTimingsMs.start_ai_agent_ms = Date.now() - phaseStartedAt;
-
+	const session = SessionManager.inMemory( STUDIO_SITES_ROOT );
 	const queryStartedAt = Date.now();
 	let turnStart = queryStartedAt;
 
-	const timeout = setTimeout( () => void query.interrupt(), input.timeoutMs ?? 300000 );
+	const handleEvent = ( event: AgentSessionEvent ): void => {
+		if ( event.type === 'message_end' && event.message.role === 'assistant' ) {
+			const now = Date.now();
+			turnDurationsMs.push( now - turnStart );
+			turnIndex += 1;
+			if ( turnIndex === 1 ) {
+				phaseTimingsMs.first_assistant_message_ms = now - queryStartedAt;
+			}
+			turnStart = now;
+		}
+		for ( const tc of extractToolCalls( event ) ) {
+			toolCalls.push( tc );
+			toolNameById.set( tc.id, tc.name );
+			const evt: ToolEvent = {
+				toolUseId: tc.id,
+				toolName: tc.name,
+				input: tc.input,
+				startedAtMs: elapsed(),
+				turnIndex,
+			};
+			toolEvents.push( evt );
+			toolEventById.set( tc.id, evt );
+		}
+		textSegments.push( ...extractTextSegments( event ) );
 
-	try {
-		for await ( const message of query ) {
-			if ( message.type === 'assistant' ) {
-				const now = Date.now();
-				turnDurationsMs.push( now - turnStart );
-				turnIndex += 1;
-				if ( turnIndex === 1 ) {
-					phaseTimingsMs.first_assistant_message_ms = now - queryStartedAt;
+		if ( event.type === 'tool_execution_end' ) {
+			const tr = extractToolResult( event );
+			if ( tr ) {
+				const id = tr.toolUseId;
+				const evt = toolEventById.get( id );
+				if ( evt ) {
+					evt.endedAtMs = elapsed();
+					evt.durationMs = evt.endedAtMs - evt.startedAtMs;
+					evt.isError = tr.isError;
 				}
-				turnStart = now;
-			}
-			for ( const tc of extractToolCalls( message ) ) {
-				toolCalls.push( tc );
-				toolNameById.set( tc.id, tc.name );
-				const event: ToolEvent = {
-					toolUseId: tc.id,
-					toolName: tc.name,
-					input: tc.input,
-					startedAtMs: elapsed(),
-					turnIndex,
-				};
-				toolEvents.push( event );
-				toolEventById.set( tc.id, event );
-			}
-			textSegments.push( ...extractTextSegments( message ) );
-
-			if ( message.type === 'user' ) {
-				const tr = extractToolResult( message );
-				if ( tr ) {
-					const id = tr.toolUseId ?? message.parent_tool_use_id ?? null;
-					const event = id ? toolEventById.get( id ) : undefined;
-					if ( event ) {
-						event.endedAtMs = elapsed();
-						event.durationMs = event.endedAtMs - event.startedAtMs;
-						event.isError = tr.isError;
-					}
-					if ( tr.isError && ! firstToolError ) {
-						firstToolError = {
-							toolUseId: id,
-							toolName: id ? toolNameById.get( id ) ?? null : null,
-							...( event?.input ? { input: event.input } : {} ),
-							error: tr.text ?? 'Tool returned an error result.',
-							turnIndex,
-						};
-					}
-					toolResults.push( {
+				if ( tr.isError && ! firstToolError ) {
+					firstToolError = {
 						toolUseId: id,
-						toolName: id ? toolNameById.get( id ) ?? null : null,
-						isError: tr.isError,
-						...( tr.text ? { text: tr.text } : {} ),
-					} );
+						toolName: toolNameById.get( id ) ?? null,
+						...( evt?.input ? { input: evt.input } : {} ),
+						error: tr.text ?? 'Tool returned an error result.',
+						turnIndex,
+					};
 				}
-			}
-
-			if ( message.type === 'result' ) {
-				success = message.subtype === 'success';
-				numTurns = message.num_turns ?? null;
+				toolResults.push( {
+					toolUseId: id,
+					toolName: toolNameById.get( id ) ?? null,
+					isError: tr.isError,
+					...( tr.text ? { text: tr.text } : {} ),
+				} );
 			}
 		}
+
+		if ( event.type === 'turn_end' ) {
+			numTurns += 1;
+		}
+
+		if ( event.type === 'agent_end' ) {
+			const lastAssistant = findLastAssistant( event.messages );
+			success =
+				! lastAssistant ||
+				( lastAssistant.stopReason !== 'error' && lastAssistant.stopReason !== 'aborted' );
+			numTurnsResult = numTurns;
+		}
+	};
+
+	const query = runStudioAgentTurn( {
+		prompt: input.prompt.trim(),
+		env,
+		session,
+		onEvent: handleEvent,
+		...( input.model ? { model: input.model } : {} ),
+	} );
+	phaseTimingsMs.start_ai_agent_ms = Date.now() - phaseStartedAt;
+
+	const timeout = setTimeout( () => {
+		timedOut = true;
+		void query.interrupt();
+	}, input.timeoutMs ?? 300000 );
+
+	try {
+		await query.result;
+	} catch ( caught ) {
+		error = caught instanceof Error ? caught.message : String( caught );
 	} finally {
 		clearTimeout( timeout );
 	}
@@ -257,7 +267,9 @@ async function runEval( input: EvalRunnerInput ) {
 
 	return {
 		success,
-		numTurns,
+		error,
+		timedOut,
+		numTurns: numTurnsResult,
 		phaseTimingsMs,
 		turnDurationsMs,
 		toolCalls,

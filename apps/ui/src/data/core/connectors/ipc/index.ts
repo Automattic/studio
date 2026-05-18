@@ -1,14 +1,18 @@
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import { __ } from '@wordpress/i18n';
-import type { AgentRunEvent } from '../../agent-events';
 import type {
+	ActiveAgentRun,
 	AiSessionSummary,
+	AiSessionPlacementUpdatedEvent,
 	AuthUser,
 	ColorScheme,
 	Connector,
+	DeskConfig,
+	DeskSettings,
 	ExtractedBlueprintBundle,
 	FeaturedBlueprint,
 	InstalledApps,
+	LocalMediaFile,
 	LoadedAiSession,
 	ProposedSitePath,
 	SelectedSiteFolder,
@@ -19,6 +23,7 @@ import type {
 	SyncSite,
 	UserPreferences,
 } from '../../types';
+import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 
 function generateBackupFilename( siteName: string ): string {
 	const now = new Date();
@@ -335,6 +340,10 @@ export function createIpcConnector(): Connector {
 			return ( ipcApi.getPathForFile( file ) as string ) ?? '';
 		},
 
+		async readLocalMediaFile( path ): Promise< LocalMediaFile > {
+			return ( await ipcApi.readLocalMediaFile( path ) ) as LocalMediaFile;
+		},
+
 		async extractBlueprintBundle( zipFilePath ): Promise< ExtractedBlueprintBundle > {
 			return ( await ipcApi.extractBlueprintBundle( zipFilePath ) ) as ExtractedBlueprintBundle;
 		},
@@ -360,6 +369,10 @@ export function createIpcConnector(): Connector {
 
 		async updateSite( site, wpVersion ) {
 			await ipcApi.updateSite( site, wpVersion );
+		},
+
+		async refreshSiteIcon( siteId ) {
+			await ipcApi.loadSiteIcon( siteId );
 		},
 
 		async getXdebugEnabledSite() {
@@ -515,12 +528,22 @@ export function createIpcConnector(): Connector {
 			await ipcApi.deleteAiSession( sessionId );
 		},
 
+		async updateSessionMetadata( sessionId, patch ): Promise< AiSessionSummary > {
+			return ( await ipcApi.updateAiSessionMetadata( sessionId, patch ) ) as AiSessionSummary;
+		},
+
 		async createSession( siteId ): Promise< AiSessionSummary > {
 			return ( await ipcApi.createAiSession( siteId ) ) as AiSessionSummary;
 		},
 
-		async continueSession( sessionId, prompt ): Promise< { runId: string } > {
-			return ( await ipcApi.continueAiSession( sessionId, prompt ) ) as { runId: string };
+		async continueSession( sessionId, prompt, options ): Promise< { runId: string } > {
+			return ( await ipcApi.continueAiSession( sessionId, prompt, options ) ) as {
+				runId: string;
+			};
+		},
+
+		async getActiveAgentRuns(): Promise< ActiveAgentRun[] > {
+			return ( await ipcApi.listActiveAiAgentRuns() ) as ActiveAgentRun[];
 		},
 
 		async setSessionModel( sessionId, model ) {
@@ -553,6 +576,15 @@ export function createIpcConnector(): Connector {
 			const ipcListener = ( window as any ).ipcListener;
 			return ipcListener.subscribe( 'ai-agent-event', ( _event: unknown, payload: AgentRunEvent ) =>
 				listener( payload )
+			);
+		},
+
+		onSessionPlacementUpdated( listener ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ipcListener = ( window as any ).ipcListener;
+			return ipcListener.subscribe(
+				'ai-session-placement-updated',
+				( _event: unknown, payload: AiSessionPlacementUpdatedEvent ) => listener( payload )
 			);
 		},
 
@@ -595,6 +627,42 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.getInstalledAppsAndTerminals() ) as InstalledApps;
 		},
 
+		async getDeskSettings(): Promise< DeskSettings > {
+			return ( await ipcApi.getDeskSettings() ) as DeskSettings;
+		},
+
+		async saveDeskSettings( settings ): Promise< void > {
+			await ipcApi.saveDeskSettings( settings );
+		},
+
+		async exportDeskConfig( config, suggestedFilename ): Promise< string | null > {
+			return ( await ipcApi.exportDeskConfig( config, suggestedFilename ) ) as string | null;
+		},
+
+		async importDeskConfig(): Promise< DeskConfig | null > {
+			return ( await ipcApi.importDeskConfig() ) as DeskConfig | null;
+		},
+
+		async getUserDeskConfig(): Promise< DeskConfig | undefined > {
+			return ( await ipcApi.getUserDeskConfig() ) as DeskConfig | undefined;
+		},
+
+		async saveUserDeskConfig( config ): Promise< void > {
+			await ipcApi.saveUserDeskConfig( config );
+		},
+
+		async getSiteDeskConfig( siteId ): Promise< DeskConfig | undefined > {
+			return ( await ipcApi.getSiteDeskConfig( siteId ) ) as DeskConfig | undefined;
+		},
+
+		async saveSiteDeskConfig( siteId, config ): Promise< void > {
+			await ipcApi.saveSiteDeskConfig( siteId, config );
+		},
+
+		async fetchSiteRest( siteId, request ) {
+			return await ipcApi.fetchSiteRestApi( siteId, request );
+		},
+
 		async openSiteFolder( siteId ): Promise< void > {
 			const sitePath = await resolveSiteFolder( siteId );
 			ipcApi.openLocalPath( sitePath );
@@ -619,32 +687,8 @@ export function createIpcConnector(): Connector {
 			ipcApi.openURL( url );
 		},
 
-		previewView: {
-			async create( options ) {
-				return ipcApi.createPreviewView( options );
-			},
-			async setBounds( viewId, bounds ) {
-				await ipcApi.setPreviewViewBounds( viewId, bounds );
-			},
-			async navigate( viewId, path ) {
-				await ipcApi.navigatePreviewView( viewId, path );
-			},
-			async destroy( viewId ) {
-				await ipcApi.destroyPreviewView( viewId );
-			},
-			onEvent( listener ) {
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
-				const ipcListener = ( window as any ).ipcListener;
-				if ( ! ipcListener ) {
-					return () => undefined;
-				}
-				return ipcListener.subscribe(
-					'preview-view:event',
-					( _event: unknown, payload: { viewId: string; payload: unknown } ) => {
-						listener( payload );
-					}
-				);
-			},
+		async openSiteUrl( siteId, relativeUrl = '', options ): Promise< void > {
+			await ipcApi.openSiteURL( siteId, relativeUrl, options );
 		},
 
 		// Window state

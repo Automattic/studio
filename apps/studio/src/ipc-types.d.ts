@@ -31,6 +31,13 @@ interface StoppedSiteDetails {
 		supportsWidgets: boolean;
 		supportsMenus: boolean;
 	};
+	// Absolute filesystem path of the configured WordPress Site Icon.
+	// `null` means we've checked and the site has no icon configured;
+	// `undefined` means we've never fetched.
+	siteIconPath?: string | null;
+	// Data URL produced from `siteIconPath` for the renderer to display.
+	// Computed at the IPC boundary in `getSiteDetails`, never persisted.
+	siteIcon?: string | null;
 	isAddingSite?: boolean;
 	autoStart?: boolean;
 	latestCliPid?: number;
@@ -92,7 +99,6 @@ type IpcApi = {
 
 interface FeatureFlags {
 	enableBlueprints: boolean;
-	enableBlueprintsGallery: boolean;
 	enableStudioCodeUi: boolean;
 }
 

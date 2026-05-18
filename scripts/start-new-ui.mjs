@@ -9,11 +9,9 @@
  */
 
 import { spawn } from 'child_process';
-import { dirname, resolve } from 'path';
-import { fileURLToPath } from 'url';
+import { resolve } from 'path';
 
-const scriptDir = dirname( fileURLToPath( import.meta.url ) );
-const root = resolve( scriptDir, '..' );
+const root = resolve( import.meta.dirname, '..' );
 
 const UI_DEV_PORT = 5200;
 

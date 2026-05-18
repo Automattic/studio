@@ -39,7 +39,6 @@ import Stepper from './components/stepper';
 import { UploadBlueprintButton } from './components/upload-blueprint-button';
 import { useFindAvailableSiteName } from './hooks/use-find-available-site-name';
 import { applyBlueprintFormValues } from './lib/apply-blueprint-form-values';
-import NavigationContentClassic from './navigation-content-classic';
 
 type BlueprintsData = ReturnType< typeof useGetBlueprints >[ 'data' ];
 
@@ -49,7 +48,7 @@ type BlueprintsData = ReturnType< typeof useGetBlueprints >[ 'data' ];
 // - Content centers with small breathing padding. When content is taller than
 //   the viewport it scrolls under the frosted overlays.
 function ScreenContent( { children }: { children: React.ReactNode } ) {
-	return <div className="min-h-full flex flex-col justify-center py-8">{ children }</div>;
+	return <div className="min-h-full flex flex-col justify-top py-8">{ children }</div>;
 }
 
 interface NavigationContentProps {
@@ -103,6 +102,7 @@ interface NavigationContentProps {
 
 function NavigationContent( props: NavigationContentProps ) {
 	const { goTo, goBack, location } = useNavigator();
+	const { __ } = useI18n();
 	const { enableBlueprints } = useFeatureFlags();
 	const [ blueprintFileError, setBlueprintFileError ] = useState< string | undefined >();
 	const {
@@ -351,6 +351,14 @@ function NavigationContent( props: NavigationContentProps ) {
 						selectedBlueprint={ selectedBlueprint?.slug || null }
 						onBlueprintChange={ handleBlueprintChange }
 						blueprintFileError={ blueprintFileError }
+						uploadButton={
+							enableBlueprints && ! isLoadingBlueprints ? (
+								<UploadBlueprintButton
+									onFileBlueprintSelect={ handleFileBlueprintSelect }
+									onError={ setBlueprintFileError }
+								/>
+							) : undefined
+						}
 					/>
 				</ScreenContent>
 			</Navigator.Screen>
@@ -407,14 +415,6 @@ function NavigationContent( props: NavigationContentProps ) {
 				canSubmitBlueprintDeeplink={ !! selectedBlueprint }
 				canSubmitPullRemote={ !! selectedRemoteSite }
 				canSubmitCreate={ canSubmit }
-				leftSlot={
-					location.path === '/new' && enableBlueprints && ! isLoadingBlueprints ? (
-						<UploadBlueprintButton
-							onFileBlueprintSelect={ handleFileBlueprintSelect }
-							onError={ setBlueprintFileError }
-						/>
-					) : undefined
-				}
 			/>
 		</>
 	);
@@ -448,7 +448,6 @@ export function AddSiteModalContent( {
 	} = useGetBlueprints( { locale } );
 
 	const { sites, loadingSites } = useSiteDetails();
-	const { enableBlueprintsGallery } = useFeatureFlags();
 
 	const {
 		handleCreateSite,
@@ -456,7 +455,6 @@ export function AddSiteModalContent( {
 		generateProposedPath,
 		deeplinkPhpVersion,
 		deeplinkWpVersion,
-		fileForImport,
 		setFileForImport,
 		selectedBlueprint,
 		setSelectedBlueprint,
@@ -613,17 +611,6 @@ export function AddSiteModalContent( {
 		setIsDeeplinkFlow,
 		startOver,
 	};
-
-	if ( ! enableBlueprintsGallery ) {
-		return (
-			<Navigator
-				className={ className ?? 'w-full h-full app-no-drag-region' }
-				initialPath={ initialNavigatorPath }
-			>
-				<NavigationContentClassic { ...sharedNavigationProps } fileForImport={ fileForImport } />
-			</Navigator>
-		);
-	}
 
 	return (
 		<>

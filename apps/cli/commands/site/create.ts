@@ -80,7 +80,7 @@ const ALLOWED_PHP_VERSIONS = [ ...SupportedPHPVersions ];
 
 const logger = new Logger< LoggerAction >();
 
-type CreateCommandOptions = {
+export type CreateCommandOptions = {
 	name?: string;
 	siteId?: string;
 	wpVersion: string;
@@ -399,6 +399,7 @@ export async function runCommand(
 		}
 
 		logger.reportKeyValuePair( 'id', siteDetails.id );
+		logger.reportKeyValuePair( 'port', String( siteDetails.port ) );
 		logger.reportKeyValuePair( 'running', String( siteDetails.running ) );
 		await emitCliEvent( { event: SITE_EVENTS.CREATED, data: { siteId: siteDetails.id } } );
 	} finally {
@@ -755,8 +756,13 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 
 					// When invoked by the desktop app, the blueprint contents come from a temp file
 					// but resources should be resolved relative to the original file location.
+					// For gallery blueprints the path is a URL; use it directly.
 					if ( argv.originalBlueprintPath ) {
-						config.blueprint.uri = path.resolve( argv.originalBlueprintPath );
+						const originalPath = argv.originalBlueprintPath;
+						config.blueprint.uri =
+							originalPath.startsWith( 'http://' ) || originalPath.startsWith( 'https://' )
+								? originalPath
+								: path.resolve( originalPath );
 					}
 				}
 			}

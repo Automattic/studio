@@ -4,9 +4,10 @@ import { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
 import { ExportEventTuple, ImportEventTuple } from '@studio/common/lib/import-export-events';
 import { PreviewCommandLoggerAction } from '@studio/common/logger-actions';
 import { getMainWindow } from 'src/main-window';
+import type { AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { JsonEvent as StudioCodeEvent } from '@studio/common/ai/json-events';
 import type { StoredAuthToken } from '@studio/common/lib/shared-config';
-import type { AgentRunEvent } from 'src/modules/ai-agent/types';
-import type { StudioCodeEvent } from 'src/modules/studio-code/studio-code-event-types';
+import type { AiSessionPlacementUpdatedEvent } from 'src/lib/ai-session-placement';
 
 type SnapshotEventData = {
 	action: PreviewCommandLoggerAction;
@@ -62,11 +63,8 @@ export interface IpcEvents {
 	'refresh-app-globals': [ void ];
 	'beta-features-updated': [ void ];
 	'ai-agent-event': [ AgentRunEvent ];
+	'ai-session-placement-updated': [ AiSessionPlacementUpdatedEvent ];
 	'studio-code-event': [ { siteId: string; event: StudioCodeEvent } ];
-	// Inspector events forwarded from a `WebContentsView`-backed site preview.
-	// Renderers subscribe through `ipcListener` and dispatch to the
-	// `viewId`-matching consumer (today: `SitePreview`'s annotate flow).
-	'preview-view:event': [ { viewId: string; payload: unknown } ];
 }
 
 export async function sendIpcEventToRenderer< T extends keyof IpcEvents >(

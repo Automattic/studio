@@ -229,7 +229,7 @@ export class LinuxCliInstallationManager implements StudioCliInstallationManager
 }
 
 export async function autoInstallLinuxCliIfNeeded(): Promise< void > {
-	if ( process.platform !== 'linux' || process.env.NODE_ENV !== 'production' ) {
+	if ( process.platform !== 'linux' || process.env.NODE_ENV !== 'production' || process.env.E2E ) {
 		return;
 	}
 

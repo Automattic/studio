@@ -50,12 +50,12 @@ export default function Stepper( {
 		<>
 			<div
 				aria-hidden="true"
-				className="absolute bottom-0 left-0 right-0 h-10 z-[5] pointer-events-none bg-gradient-to-t from-frame via-frame/90 to-transparent"
+				className="absolute bottom-0 left-0 right-0 h-14 z-[5] pointer-events-none bg-gradient-to-t from-frame via-frame/90 to-transparent"
 			/>
 			{ leftSlot && <div className="absolute bottom-5 left-5 z-10">{ leftSlot }</div> }
 			<div className="absolute bottom-5 right-5 z-10 flex items-center gap-4">
 				{ currentPath && currentPath !== '/' && onBack && (
-					<Button variant="tertiary" onClick={ onBack }>
+					<Button variant="secondary" onClick={ onBack } className="!bg-frame">
 						{ __( 'Back' ) }
 					</Button>
 				) }

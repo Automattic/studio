@@ -210,9 +210,29 @@ describe( 'isInstalled', () => {
 			expect( isInstalled( 'zed' ) ).toBe( false );
 		} );
 
-		it( 'detects Warp via the hardcoded /usr/bin path (non-editor)', () => {
-			mockPaths = [ '/usr/bin/warp' ];
+		it( 'detects Warp installed via $PATH ($HOME/.local/bin)', () => {
+			mockPaths = [ '/mock/home/path/.local/bin/warp-terminal' ];
 			expect( isInstalled( 'warp' ) ).toBe( true );
+		} );
+
+		it( 'detects Warp installed via $PATH (/usr/bin)', () => {
+			mockPaths = [ '/usr/bin/warp-terminal' ];
+			expect( isInstalled( 'warp' ) ).toBe( true );
+		} );
+
+		it( 'returns false when Warp is not on $PATH', () => {
+			mockPaths = [];
+			expect( isInstalled( 'warp' ) ).toBe( false );
+		} );
+
+		it( 'detects Ghostty installed via $PATH', () => {
+			mockPaths = [ '/usr/bin/ghostty' ];
+			expect( isInstalled( 'ghostty' ) ).toBe( true );
+		} );
+
+		it( 'returns false when Ghostty is not on $PATH', () => {
+			mockPaths = [];
+			expect( isInstalled( 'ghostty' ) ).toBe( false );
 		} );
 
 		it( 'ignores a same-named directory on $PATH (not a regular file)', () => {

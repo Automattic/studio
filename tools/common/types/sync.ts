@@ -72,21 +72,23 @@ export const syncSupportValues = [
 export type SyncSupport = ( typeof syncSupportValues )[ number ];
 
 // Sync site representation
-export type SyncSite = {
-	id: number;
-	localSiteId: string;
-	name: string;
-	url: string;
-	isStaging: boolean;
-	isPressable: boolean;
-	environmentType?: string | null;
-	syncSupport: SyncSupport;
-	lastPullTimestamp: string | null;
-	lastPushTimestamp: string | null;
-	wpVersion?: string;
-	planName?: string;
-	createdAt?: string;
-};
+export const syncSiteSchema = z.object( {
+	id: z.number(),
+	localSiteId: z.string(),
+	name: z.string(),
+	url: z.string(),
+	isStaging: z.boolean(),
+	isPressable: z.boolean(),
+	environmentType: z.string().nullable().optional(),
+	syncSupport: z.enum( syncSupportValues ),
+	lastPullTimestamp: z.string().nullable(),
+	lastPushTimestamp: z.string().nullable(),
+	wpVersion: z.string().optional(),
+	planName: z.string().optional(),
+	createdAt: z.string().optional(),
+} );
+
+export type SyncSite = z.infer< typeof syncSiteSchema >;
 
 // Pull backup API schemas
 export const pullSiteResponseSchema = z.object( {

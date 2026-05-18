@@ -1,13 +1,13 @@
+import path from 'node:path';
+import js from '@eslint/js';
 import { defineConfig, globalIgnores } from 'eslint/config';
 import pluginImport from 'eslint-plugin-import-x';
-import pluginStudio from 'eslint-plugin-studio';
+import pluginJestDom from 'eslint-plugin-jest-dom';
 import pluginPrettier from 'eslint-plugin-prettier/recommended';
+import pluginReactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 import tsEslint from 'typescript-eslint';
-import js from '@eslint/js';
-import pluginReactHooks from 'eslint-plugin-react-hooks';
-import pluginJestDom from 'eslint-plugin-jest-dom';
-import path from 'node:path';
+import pluginStudio from 'eslint-plugin-studio';
 
 export default defineConfig(
 	globalIgnores( [
@@ -39,7 +39,11 @@ export default defineConfig(
 			sourceType: 'commonjs',
 			parserOptions: {
 				projectService: {
-					allowDefaultProject: [ 'apps/studio/tailwind.config.js' ],
+					allowDefaultProject: [
+						'apps/studio/forge.config.ts',
+						'apps/studio/tailwind.config.js',
+						'eslint.config.mjs',
+					],
 				},
 			},
 		},
@@ -126,8 +130,30 @@ export default defineConfig(
 		},
 	},
 	{
+		files: [ 'scripts/**/*.js', 'scripts/**/*.cjs' ],
+		rules: {
+			'@typescript-eslint/no-require-imports': 'off',
+		},
+	},
+	{
 		files: [ 'apps/cli/**/*.{ts,tsx}' ],
 		ignores: [ 'apps/cli/vite.config*.ts', 'apps/cli/vitest.config.ts' ],
+		rules: {
+			'no-restricted-globals': [
+				'error',
+				{
+					name: '__dirname',
+					message: 'Use import.meta.dirname in ESM modules.',
+				},
+				{
+					name: '__filename',
+					message: 'Use import.meta.filename in ESM modules.',
+				},
+			],
+		},
+	},
+	{
+		files: [ 'scripts/**/*.mjs' ],
 		rules: {
 			'no-restricted-globals': [
 				'error',

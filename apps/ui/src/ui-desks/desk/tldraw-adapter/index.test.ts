@@ -579,6 +579,73 @@ describe( 'tldraw adapter', () => {
 		} );
 	} );
 
+	it( 'projects circle stack widgets as a collapsed stack that opens into a circle', () => {
+		const desk: DeskConfig = {
+			version: 1,
+			updatedAt: '2026-05-09T00:00:00.000Z',
+			widgets: [
+				{
+					...createNoteWidget( 'note-1' ),
+					x: 100,
+					y: 200,
+				},
+				{
+					...createNoteWidget( 'note-2' ),
+					x: 420,
+					y: 200,
+					zIndex: 'a3',
+				},
+			],
+			stacks: [
+				{
+					id: 'stack-1',
+					x: 100,
+					y: 200,
+					zIndex: 'a5',
+					memberIds: [ 'note-1', 'note-2' ],
+					viewMode: 'circle',
+				},
+			],
+		};
+
+		const shapes = deskConfigToCanvasShapes( desk );
+		const firstStackMember = getCanvasShape( shapes, 'shape:note-1' );
+		const secondStackMember = getCanvasShape( shapes, 'shape:note-2' );
+
+		expect( firstStackMember ).toMatchObject( {
+			x: 95,
+			y: 196,
+			rotation: -0.026,
+			meta: {
+				deskStackId: 'stack-1',
+				deskStackOrder: 0,
+				deskStackViewMode: null,
+				deskStackOpenViewMode: 'circle',
+			},
+		} );
+		expect( secondStackMember ).toMatchObject( {
+			x: 105,
+			y: 204,
+			rotation: 0.026,
+			meta: {
+				deskStackId: 'stack-1',
+				deskStackOrder: 1,
+				deskStackViewMode: null,
+				deskStackOpenViewMode: 'circle',
+			},
+		} );
+		expect( canvasShapesToDeskStacks( shapes as TLShape[] ) ).toEqual( [
+			{
+				id: 'stack-1',
+				x: 100,
+				y: 200,
+				zIndex: 'a1',
+				memberIds: [ 'note-1', 'note-2' ],
+				viewMode: 'circle',
+			},
+		] );
+	} );
+
 	it( 'maps desk connectors to locked arrow shapes and arrow bindings', () => {
 		const desk: DeskConfig = {
 			version: 1,

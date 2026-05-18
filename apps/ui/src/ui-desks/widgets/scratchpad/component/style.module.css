@@ -165,48 +165,23 @@
 	pointer-events: none;
 }
 
-.statusButton {
+.agentButton {
 	flex: 0 0 auto;
-	width: 36px;
-	height: 36px;
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	padding: 0;
-	border: 0;
-	border-radius: 50%;
-	background: #3858e9;
-	color: #fff;
-	box-shadow: 0 6px 18px rgba(56, 88, 233, 0.45);
-	cursor: pointer;
-	transition:
-		background 160ms ease,
-		box-shadow 160ms ease,
-		transform 160ms ease;
 }
 
-.statusButton:hover:not(:disabled),
-.statusButton:focus-visible:not(:disabled) {
-	transform: translateY(-1px);
-	box-shadow: 0 8px 22px rgba(56, 88, 233, 0.55);
+.scratchpad .agentButton:disabled {
+	opacity: 1;
 }
 
-.statusButton:disabled {
-	cursor: default;
-}
-
-.statusButton[data-status='done'] {
-	background: #16a34a;
+.agentButton.agentButtonDone {
+	--button-background: #16a34a;
+	--button-foreground: #fff;
 	box-shadow: 0 6px 18px rgba(22, 163, 74, 0.45);
 }
 
-.statusButton[data-status='running'] svg {
+.agentButton[data-status='running'] svg {
 	animation: scratchpad-cog-spin 1.4s linear infinite;
 	transform-origin: 50% 50%;
-}
-
-.statusButton svg {
-	fill: currentColor;
 }
 
 @keyframes scratchpad-cog-spin {

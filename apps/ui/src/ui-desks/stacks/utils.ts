@@ -18,6 +18,7 @@ export interface DeskStackShapeMeta {
 	deskStackId?: unknown;
 	deskStackOrder?: unknown;
 	deskStackViewMode?: unknown;
+	deskStackOpenViewMode?: unknown;
 	deskStackExpanded?: unknown;
 	deskStackHomeX?: unknown;
 	deskStackHomeY?: unknown;
@@ -46,7 +47,23 @@ export function isStackExpanded( shape: TLShape | null | undefined ) {
 
 export function getStackViewMode( shape: TLShape | null | undefined ): StackViewMode {
 	const meta = shape?.meta as DeskStackShapeMeta | undefined;
-	return meta?.deskStackViewMode === 'tiles' ? 'tiles' : 'stack';
+	return meta?.deskStackViewMode === 'tiles' || meta?.deskStackViewMode === 'circle'
+		? meta.deskStackViewMode
+		: 'stack';
+}
+
+export function getStackConfiguredViewMode( shape: TLShape | null | undefined ): StackViewMode {
+	const viewMode = getStackViewMode( shape );
+	if ( viewMode !== 'stack' ) {
+		return viewMode;
+	}
+
+	return getStackOpenViewMode( shape );
+}
+
+export function getStackOpenViewMode( shape: TLShape | null | undefined ): StackViewMode {
+	const meta = shape?.meta as DeskStackShapeMeta | undefined;
+	return meta?.deskStackOpenViewMode === 'circle' ? 'circle' : 'stack';
 }
 
 export function getStackHome( shape: TLShape | null | undefined ) {
@@ -172,6 +189,36 @@ export function getStackTileLayoutsFromFirstTile(
 	);
 }
 
+export function getStackCircleLayoutsFromCenter(
+	sizes: StackTileSize[],
+	center: { x: number; y: number }
+) {
+	const radius = getStackCircleRadius( sizes );
+
+	return sizes.map( ( size, index ) => {
+		const angle = ( 2 * Math.PI * index ) / sizes.length - Math.PI / 2;
+		const centerX = center.x + Math.cos( angle ) * radius;
+		const centerY = center.y + Math.sin( angle ) * radius;
+		const rotation = angle + Math.PI / 2;
+		const cos = Math.cos( rotation );
+		const sin = Math.sin( rotation );
+		const halfWidth = size.w / 2;
+		const halfHeight = size.h / 2;
+
+		return {
+			x: centerX - halfWidth * cos + halfHeight * sin,
+			y: centerY - halfWidth * sin - halfHeight * cos,
+			rotation,
+		};
+	} );
+}
+
+function getStackCircleRadius( sizes: StackTileSize[] ) {
+	const maxSize = Math.max( ...sizes.map( ( size ) => Math.max( size.w, size.h ) ), 1 );
+	const desiredGap = 30;
+	return Math.max( maxSize * 1.1, ( sizes.length * ( maxSize + desiredGap ) ) / ( 2 * Math.PI ) );
+}
+
 function getStackTileDimensions( count: number ) {
 	if ( count <= 3 ) {
 		return {
@@ -227,6 +274,7 @@ export function createStackMeta(
 		deskStackId: stackId,
 		deskStackOrder: order,
 		deskStackViewMode: viewMode === 'tiles' ? 'tiles' : null,
+		deskStackOpenViewMode: viewMode === 'circle' ? 'circle' : null,
 		...( originalZIndex ? { deskStackOriginalZIndex: originalZIndex } : {} ),
 	};
 }
@@ -272,6 +320,7 @@ export function clearStackMeta() {
 		deskStackId: null,
 		deskStackOrder: null,
 		deskStackViewMode: null,
+		deskStackOpenViewMode: null,
 		deskStackOriginalZIndex: null,
 		...clearExpandedStackMeta(),
 		...clearStackPushMeta(),

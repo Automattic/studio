@@ -29,6 +29,8 @@ Use variants by intent:
 
 Prefer `tone` when the action needs a semantic color treatment instead of overriding button colors locally. Use `tone="primary"` for brand-colored primary actions and `tone="inverse"` for strong black/white actions.
 
+Use `intent="chat"` for primary actions that start, submit, or hand work to chat or the agent. The chat intent adds the shared blue glow only when combined with `variant="filled"` and `tone="primary"`.
+
 Local button classes are acceptable for layout constraints such as width, positioning, or contextual spacing. Avoid local classes that recreate button states, icon sizing, hover treatment, or disabled treatment. If the same visual override appears in multiple places, add a Button variant or a small shared wrapper instead.
 
 Raw `<button>` elements are acceptable for primitives that are not normal visible buttons, such as invisible backdrops, internal list/menu item primitives, or custom card-like controls that need their own component abstraction.

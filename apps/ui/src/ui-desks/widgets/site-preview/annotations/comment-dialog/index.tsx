@@ -70,6 +70,7 @@ export function AnnotationCommentDialog( {
 				/>
 				<Button
 					type="submit"
+					intent="chat"
 					label={ __( 'Add annotation' ) }
 					variant="filled"
 					tone="primary"

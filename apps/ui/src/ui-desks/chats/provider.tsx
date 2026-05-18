@@ -1,7 +1,16 @@
 import { useNavigate, useSearch } from '@tanstack/react-router';
+import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
 import { useCreateSession } from '@/data/queries/use-sessions';
+import {
+	Button,
+	Dialog,
+	DialogContent,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from '../components';
 import {
 	ChatsContext,
 	type ChatPromptRequest,
@@ -12,6 +21,12 @@ import {
 } from './context';
 import { validateChatsSearch, type ChatsSearch } from './search';
 import type { DeskWidget } from '@/ui-desks/widgets/types';
+
+interface PendingPlacementSwitch {
+	sessionId: string;
+	siteId: string;
+	siteName: string;
+}
 
 function useChatsSearch() {
 	const search = validateChatsSearch( useSearch( { strict: false } ) as Record< string, unknown > );
@@ -63,6 +78,9 @@ export function ChatsProvider( { siteId, children }: ChatsProviderProps ) {
 		ComposerWidgetDragPreview | undefined
 	>( undefined );
 	const [ isComposerWidgetDragTarget, setComposerWidgetDragTarget ] = useState( false );
+	const [ pendingPlacementSwitch, setPendingPlacementSwitch ] = useState<
+		PendingPlacementSwitch | undefined
+	>( undefined );
 
 	const setRouteSession = useCallback(
 		( sessionId: string | undefined ) => {
@@ -104,6 +122,21 @@ export function ChatsProvider( { siteId, children }: ChatsProviderProps ) {
 		setAutoFocusSessionId( undefined );
 		setRouteSession( undefined );
 	}, [ setRouteSession ] );
+
+	const closeChatSidebar = useCallback( () => {
+		setSelectedSessionId( undefined );
+		setExpanded( false );
+		setAutoFocusSessionId( undefined );
+		setPendingPlacementSwitch( undefined );
+		void navigate( {
+			to: '.',
+			search: ( previous: ChatsSearch ) => ( {
+				...previous,
+				chats: undefined,
+				session: undefined,
+			} ),
+		} );
+	}, [ navigate ] );
 
 	const startNewChat = useCallback( async () => {
 		const session = await createSession.mutateAsync( siteId );
@@ -185,17 +218,45 @@ export function ChatsProvider( { siteId, children }: ChatsProviderProps ) {
 			if ( event.placement.siteId === siteId ) {
 				return;
 			}
-			void navigate( {
-				to: '/sites/$siteId',
-				params: { siteId: event.placement.siteId },
-				search: ( previous: ChatsSearch ) => ( {
-					...previous,
-					chats: true,
-					session: event.sessionId,
-				} ),
+			setPendingPlacementSwitch( {
+				sessionId: event.sessionId,
+				siteId: event.placement.siteId,
+				siteName: event.placement.siteName,
 			} );
 		} );
-	}, [ connector, navigate, selectedSessionId, siteId ] );
+	}, [ connector, selectedSessionId, siteId ] );
+
+	useEffect( () => {
+		if ( pendingPlacementSwitch?.siteId === siteId ) {
+			setPendingPlacementSwitch( undefined );
+		}
+	}, [ pendingPlacementSwitch?.siteId, siteId ] );
+
+	useEffect( () => {
+		if (
+			pendingPlacementSwitch &&
+			selectedSessionId &&
+			pendingPlacementSwitch.sessionId !== selectedSessionId
+		) {
+			setPendingPlacementSwitch( undefined );
+		}
+	}, [ pendingPlacementSwitch, selectedSessionId ] );
+
+	const confirmPlacementSwitch = useCallback( () => {
+		if ( ! pendingPlacementSwitch ) {
+			return;
+		}
+		setPendingPlacementSwitch( undefined );
+		void navigate( {
+			to: '/sites/$siteId',
+			params: { siteId: pendingPlacementSwitch.siteId },
+			search: ( previous: ChatsSearch ) => ( {
+				...previous,
+				chats: true,
+				session: pendingPlacementSwitch.sessionId,
+			} ),
+		} );
+	}, [ navigate, pendingPlacementSwitch ] );
 
 	return (
 		<ChatsContext.Provider
@@ -223,6 +284,45 @@ export function ChatsProvider( { siteId, children }: ChatsProviderProps ) {
 			} }
 		>
 			{ children }
+			{ pendingPlacementSwitch && (
+				<Dialog
+					ariaLabel={ __( 'Continue in the site desk?' ) }
+					onClose={ closeChatSidebar }
+					size="small"
+				>
+					<DialogHeader>
+						<DialogTitle>{ __( 'Continue in the site desk?' ) }</DialogTitle>
+					</DialogHeader>
+					<DialogContent>
+						<p>
+							{ pendingPlacementSwitch.siteName
+								? sprintf(
+										__(
+											'This chat is now connected to the site desk for %s. Switch desks to keep the conversation open, or stay here and close the chat sidebar.'
+										),
+										pendingPlacementSwitch.siteName
+								  )
+								: __(
+										'This chat is now connected to another site desk. Switch desks to keep the conversation open, or stay here and close the chat sidebar.'
+								  ) }
+						</p>
+					</DialogContent>
+					<DialogFooter>
+						<Button label={ __( 'Stay here' ) } onClick={ closeChatSidebar } variant="filled">
+							{ __( 'Stay here' ) }
+						</Button>
+						<Button
+							autoFocus
+							label={ __( 'Switch desks' ) }
+							onClick={ confirmPlacementSwitch }
+							tone="primary"
+							variant="filled"
+						>
+							{ __( 'Switch desks' ) }
+						</Button>
+					</DialogFooter>
+				</Dialog>
+			) }
 		</ChatsContext.Provider>
 	);
 }

@@ -27,6 +27,7 @@ const STACK_VIEW_MODE_CONTROL: AnySelectControlConfig = {
 	options: [
 		{ value: 'stack', label: __( 'Stack' ) },
 		{ value: 'tiles', label: __( 'Tiles' ) },
+		{ value: 'circle', label: __( 'Circle' ) },
 	],
 };
 
@@ -319,5 +320,5 @@ function ConnectedToControl( {
 }
 
 function isStackViewMode( value: unknown ): value is StackViewMode {
-	return value === 'stack' || value === 'tiles';
+	return value === 'stack' || value === 'tiles' || value === 'circle';
 }

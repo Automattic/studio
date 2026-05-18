@@ -18,6 +18,7 @@ import {
 import {
 	createStackMeta,
 	getStackAnchorFromMember,
+	getStackConfiguredViewMode,
 	getStackHome,
 	getStackId,
 	getStackMemberLayout,
@@ -52,6 +53,8 @@ interface DeskCanvasMeta {
 	studioDeskDerivedKey?: string;
 	studioDeskResolutionState?: WidgetResolutionState;
 	studioDeskConnector?: boolean;
+	studioDeskTemporaryId?: string;
+	studioDeskFollowSourceWidgetId?: string;
 }
 
 interface ConnectorArrowBinding {
@@ -68,6 +71,7 @@ type ConnectorBindingResolver = ( shapeId: TLShapeId ) => ConnectorArrowBinding[
 interface DeskStackMember {
 	stack: DeskStack;
 	order: number;
+	followSourceWidgetId?: string;
 }
 
 export function deskConfigToCanvasShapes( desk: DeskConfig ): TLShapePartial[] {
@@ -227,12 +231,17 @@ export function deskWidgetToCanvasShape(
 		rotation: stackLayout?.rotation ?? widget.rotation ?? 0,
 		index: renderIndex ?? ( widget.zIndex as TLShapePartial[ 'index' ] ),
 		meta: stackMember
-			? createStackMeta(
-					stackMember.stack.id,
-					stackMember.order,
-					widget.zIndex,
-					stackMember.stack.viewMode
-			  )
+			? {
+					...createStackMeta(
+						stackMember.stack.id,
+						stackMember.order,
+						widget.zIndex,
+						stackMember.stack.viewMode
+					),
+					...( stackMember.followSourceWidgetId
+						? { studioDeskFollowSourceWidgetId: stackMember.followSourceWidgetId }
+						: {} ),
+			  }
 			: undefined,
 		props: {
 			widgetType: widget.type,
@@ -471,6 +480,18 @@ export function getDerivedDeskCanvasRecordKey( value: unknown ) {
 	return typeof meta?.studioDeskDerivedKey === 'string' ? meta.studioDeskDerivedKey : null;
 }
 
+export function getTemporaryDeskCanvasRecordId( value: unknown ) {
+	const meta = getRecordMeta( value ) as DeskCanvasMeta | null;
+	return typeof meta?.studioDeskTemporaryId === 'string' ? meta.studioDeskTemporaryId : null;
+}
+
+export function getDeskCanvasRecordFollowSourceWidgetId( value: unknown ) {
+	const meta = getRecordMeta( value ) as DeskCanvasMeta | null;
+	return typeof meta?.studioDeskFollowSourceWidgetId === 'string'
+		? meta.studioDeskFollowSourceWidgetId
+		: null;
+}
+
 export function getDeskCanvasRecordResolutionState( value: unknown ) {
 	const meta = getRecordMeta( value ) as DeskCanvasMeta | null;
 	return meta?.studioDeskResolutionState === 'loading' ? meta.studioDeskResolutionState : undefined;
@@ -602,6 +623,9 @@ function canvasShapesToDeskStack( stackId: string, shapes: TLShape[] ): DeskStac
 		y: anchor.y,
 		zIndex: home?.zIndex ?? getStackZIndexFromMember( firstMember.shape.index, firstMember.order ),
 		memberIds: sortedShapes.map( ( { widget } ) => widget.id ),
+		...( getStackConfiguredViewMode( firstMember.shape ) === 'circle'
+			? { viewMode: 'circle' as const }
+			: {} ),
 	};
 }
 

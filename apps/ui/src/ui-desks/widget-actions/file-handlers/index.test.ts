@@ -31,12 +31,30 @@ describe( 'widget file handlers', () => {
 		} );
 	} );
 
+	it( 'matches PDF uploads when the site is running', () => {
+		const pdf = new File( [ 'pdf' ], 'brief.pdf', { type: 'application/pdf' } );
+
+		expect( getWidgetFileHandler( pdf, { isRunningSite: true } ) ).toMatchObject( {
+			definition: { type: 'pdf' },
+			handler: { id: 'pdf-upload' },
+		} );
+	} );
+
 	it( 'matches local media files when the site is not running', () => {
 		const image = new File( [ 'image' ], 'photo.png', { type: 'image/png' } );
 
 		expect( getWidgetFileHandler( image, { isRunningSite: false } ) ).toMatchObject( {
 			definition: { type: 'media' },
 			handler: { id: 'media-local-file' },
+		} );
+	} );
+
+	it( 'matches local PDF files when the site is not running', () => {
+		const pdf = new File( [ 'pdf' ], 'brief.pdf', { type: 'application/pdf' } );
+
+		expect( getWidgetFileHandler( pdf, { isRunningSite: false } ) ).toMatchObject( {
+			definition: { type: 'pdf' },
+			handler: { id: 'pdf-local-file' },
 		} );
 	} );
 
@@ -76,6 +94,56 @@ describe( 'widget file handlers', () => {
 				mediaKind: 'video',
 				alt: 'clip.mp4',
 				mediaId: 123,
+			},
+			shouldStartEditing: false,
+		} );
+	} );
+
+	it( 'creates uploaded PDF widget props from the PDF file handler', async () => {
+		const pdf = new File( [ 'pdf' ], 'brief.pdf', { type: 'application/pdf' } );
+		const match = getWidgetFileHandler( pdf, { isRunningSite: true } );
+		vi.mocked( uploadSiteMedia ).mockResolvedValueOnce( {
+			id: 456,
+			source_url: 'https://example.com/brief.pdf',
+			alt_text: '',
+		} as Awaited< ReturnType< typeof uploadSiteMedia > > );
+
+		const result = await match?.handler.handle( pdf, { siteId: 'site-1' } );
+
+		expect( result ).toMatchObject( {
+			shapeProps: {
+				w: 320,
+				h: 110,
+			},
+			widgetProps: {
+				url: 'https://example.com/brief.pdf',
+				title: 'brief',
+				mediaId: 456,
+				filesize: pdf.size,
+			},
+			shouldStartEditing: false,
+		} );
+	} );
+
+	it( 'creates local PDF widget props from the local PDF file handler', async () => {
+		const pdf = new File( [ 'pdf' ], 'brief.pdf', { type: 'application/pdf' } );
+		const match = getWidgetFileHandler( pdf, { isRunningSite: false } );
+
+		const result = await match?.handler.handle( pdf, {
+			getFilePath: async () => '/Users/example/Documents/brief.pdf',
+		} );
+
+		expect( uploadSiteMedia ).not.toHaveBeenCalled();
+		expect( result ).toMatchObject( {
+			shapeProps: {
+				w: 320,
+				h: 110,
+			},
+			widgetProps: {
+				url: 'file:///Users/example/Documents/brief.pdf',
+				title: 'brief',
+				mediaId: null,
+				filesize: pdf.size,
 			},
 			shouldStartEditing: false,
 		} );

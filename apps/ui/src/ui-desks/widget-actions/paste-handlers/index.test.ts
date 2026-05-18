@@ -52,6 +52,19 @@ describe( 'widget paste handlers', () => {
 		} );
 	} );
 
+	it( 'matches PDF paste handlers before bookmark handlers for PDF URLs', () => {
+		const payload = createUrlPastePayload( 'https://example.com/files/Brief.pdf?download=1' );
+
+		if ( ! payload ) {
+			throw new Error( 'Expected a URL paste payload.' );
+		}
+
+		expect( getWidgetPasteHandler( payload ) ).toMatchObject( {
+			definition: { type: 'pdf' },
+			handler: { id: 'pdf-url' },
+		} );
+	} );
+
 	it( 'supports paste protocol matching', () => {
 		const payload = createUrlPastePayload( 'https://example.com/' );
 
@@ -90,6 +103,26 @@ describe( 'widget paste handlers', () => {
 			},
 			widgetProps: {
 				url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+			},
+			shouldStartEditing: false,
+		} );
+	} );
+
+	it( 'creates PDF widget props from the URL paste handler', async () => {
+		const payload = createUrlPastePayload( 'https://example.com/files/Brief.pdf?download=1' );
+		const match = payload ? getWidgetPasteHandler( payload ) : null;
+
+		const result = payload ? await match?.handler.handle( payload, { siteId: 'site-1' } ) : null;
+
+		expect( result ).toEqual( {
+			shapeProps: {
+				w: 320,
+				h: 110,
+			},
+			widgetProps: {
+				url: 'https://example.com/files/Brief.pdf?download=1',
+				title: 'Brief',
+				mediaId: null,
 			},
 			shouldStartEditing: false,
 		} );

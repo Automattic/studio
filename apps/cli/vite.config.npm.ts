@@ -9,7 +9,7 @@ export default mergeConfig(
 			viteStaticCopy( {
 				targets: [
 					{
-						src: 'ai/plugin',
+						src: 'ai/skills',
 						dest: '.',
 					},
 				],

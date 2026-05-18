@@ -1,4 +1,4 @@
-import { ChildProcess, spawn } from 'child_process';
+import { ChildProcess, spawn, spawnSync } from 'child_process';
 import fs, { createWriteStream, WriteStream } from 'fs';
 import net from 'net';
 import path from 'path';
@@ -21,7 +21,7 @@ import {
 import { ManagerMessage } from 'cli/lib/types/wordpress-server-ipc';
 
 const SOCKET_TIMEOUT_MS = 2_500;
-const STOP_TIMEOUT_MS = 5_000;
+const STOP_TIMEOUT_MS = 2_500;
 
 // In-memory tail of stderr kept per child so we can include the current invocation's error
 // output in the `exit` event. Bounded to avoid unbounded memory growth on chatty processes.
@@ -33,7 +33,7 @@ type ManagedProcessBase = {
 	name: string;
 	scriptPath: string;
 	args: string[];
-	env: Record< string, string >;
+	env: NodeJS.ProcessEnv;
 	child: ChildProcess;
 	stdoutLogPath: string;
 	stderrLogPath: string;
@@ -91,7 +91,7 @@ export class ProcessManagerDaemon {
 	);
 	private readonly managedProcesses = new Map< number, ManagedProcess >();
 	private nextPmId = 1;
-	private shuttingDown = false;
+	private shutdownPromise: Promise< void > | null = null;
 
 	async start(): Promise< void > {
 		fs.mkdirSync( PROCESS_MANAGER_LOGS_DIR, { recursive: true } );
@@ -104,7 +104,7 @@ export class ProcessManagerDaemon {
 		process.on( 'SIGINT', () => void this.shutdown( 'signal' ) );
 		process.on( 'SIGTERM', () => void this.shutdown( 'signal' ) );
 		process.on( 'exit', () => {
-			this.forceCleanupChildren();
+			void this.forceCleanupChildren();
 		} );
 	}
 
@@ -126,7 +126,7 @@ export class ProcessManagerDaemon {
 
 			if ( request.type === 'kill-daemon' ) {
 				setImmediate( () => {
-					void this.shutdown( 'kill-daemon' );
+					void this.finalizeShutdownByClosingSocketServersAndExiting();
 				} );
 			}
 		} catch ( error ) {
@@ -175,6 +175,7 @@ export class ProcessManagerDaemon {
 					payload: {},
 				};
 			case 'kill-daemon':
+				await this.beginShutdownByKillingChildren( 'kill-daemon' );
 				return {
 					type: 'result',
 					payload: {},
@@ -198,7 +199,7 @@ export class ProcessManagerDaemon {
 	private async startProcess(
 		processName: string,
 		scriptPath: string,
-		env: Record< string, string >,
+		env: NodeJS.ProcessEnv,
 		args: string[]
 	): Promise< ProcessDescription > {
 		const existing = this.getManagedProcessByName( processName );
@@ -214,9 +215,10 @@ export class ProcessManagerDaemon {
 		const doesCurrentNodeSupportJspi = semver.gte( process.version, '24.0.0' );
 		const execArgv = doesCurrentNodeSupportJspi ? [ '--experimental-wasm-jspi' ] : [];
 		const child = spawn( process.execPath, [ ...execArgv, scriptPath, ...args ], {
-			env: { ...process.env, ...env },
+			env,
 			stdio: [ 'ignore', 'pipe', 'pipe', 'ipc' ],
 			windowsHide: true,
+			detached: process.platform !== 'win32',
 		} );
 
 		const managedProcess: ManagedProcessRunning = {
@@ -293,7 +295,7 @@ export class ProcessManagerDaemon {
 
 		await new Promise< void >( ( resolve ) => {
 			const timeoutId = setTimeout( () => {
-				managedProcess.child.kill( 'SIGKILL' );
+				void this.signalProcessGroup( managedProcess, 'SIGKILL' );
 			}, STOP_TIMEOUT_MS );
 
 			managedProcess.child.once( 'exit', () => {
@@ -308,7 +310,7 @@ export class ProcessManagerDaemon {
 				resolve();
 			} );
 
-			managedProcess.child.kill( 'SIGTERM' );
+			void this.signalProcessGroup( managedProcess, 'SIGTERM' );
 		} );
 	}
 
@@ -413,40 +415,105 @@ export class ProcessManagerDaemon {
 		};
 	}
 
-	private forceCleanupChildren() {
+	private async forceCleanupChildren() {
 		for ( const managedProcess of this.managedProcesses.values() ) {
 			if ( managedProcess.settled ) {
 				continue;
 			}
+			await this.signalProcessGroup( managedProcess, 'SIGKILL' );
+		}
+	}
+
+	private async signalProcessGroup(
+		managedProcess: ManagedProcess,
+		signal: NodeJS.Signals
+	): Promise< void > {
+		const pid = managedProcess.child.pid;
+		if ( ! pid ) {
+			return;
+		}
+
+		if ( process.platform === 'win32' ) {
+			if ( signal === 'SIGKILL' ) {
+				// Windows has no process-group concept Node can reach. /T walks the descendant
+				// tree via parent-PID lookup; /F forces termination. Without /T, grandchildren
+				// (e.g. the PHP server spawned by the wrapper) would be orphaned.
+				spawnSync( 'taskkill', [ '/F', '/T', '/PID', String( pid ) ], {
+					windowsHide: true,
+					stdio: 'ignore',
+				} );
+				return;
+			}
+			// Console apps on Windows have no SIGTERM equivalent — `child.kill( 'SIGTERM' )`
+			// maps to TerminateProcess of a single PID, so neither cleanup nor tree-walk runs.
+			// Closing the IPC channel triggers the wrapper's 'disconnect' handler instead, which
+			// kills the PHP child and exits cleanly. Force escalation falls back to taskkill /T.
+			if ( managedProcess.child.connected ) {
+				try {
+					managedProcess.child.disconnect();
+					// Wait very briefly to allow the disconnect handler to run in the child process
+					await new Promise( ( resolve ) => setTimeout( resolve, 10 ) );
+				} catch {
+					// Do nothing
+				}
+				return;
+			}
 			try {
-				managedProcess.child.kill( 'SIGKILL' );
+				managedProcess.child.kill( signal );
+			} catch {
+				// Do nothing
+			}
+			return;
+		}
+
+		// Children are spawned with `detached: true` on non-Windows, so each lives in its own
+		// process group. Signalling the negative PID delivers to every member of that group,
+		// including grandchildren (e.g. the PHP server spawned by the wrapper).
+		try {
+			process.kill( -pid, signal );
+		} catch {
+			// Group send can fail if the leader has already exited but children remain.
+			try {
+				managedProcess.child.kill( signal );
 			} catch {
 				// Do nothing
 			}
 		}
 	}
 
-	async shutdown( reason?: string ): Promise< void > {
-		if ( this.shuttingDown ) {
-			return;
+	private async shutdown( reason?: string ): Promise< void > {
+		await this.beginShutdownByKillingChildren( reason );
+		await this.finalizeShutdownByClosingSocketServersAndExiting();
+	}
+
+	private beginShutdownByKillingChildren( reason?: string ): Promise< void > {
+		const stopAllChildren = async (): Promise< void > => {
+			await Promise.allSettled(
+				Array.from( this.managedProcesses.values() ).map( ( managedProcess ) =>
+					this.stopProcess( managedProcess.name )
+				)
+			);
+
+			await this.broadcastEvent( {
+				type: 'daemon-kill',
+				payload: { reason },
+			} );
+		};
+
+		// Track in-flight shutdown so concurrent callers (e.g. kill-daemon + a SIGTERM)
+		// share the same work and all wait for it to finish.
+		if ( ! this.shutdownPromise ) {
+			this.shutdownPromise = stopAllChildren().finally( () => {
+				this.shutdownPromise = null;
+			} );
 		}
+		return this.shutdownPromise;
+	}
 
-		this.shuttingDown = true;
-		await this.broadcastEvent( {
-			type: 'daemon-kill',
-			payload: { reason },
-		} );
-
-		await Promise.allSettled(
-			Array.from( this.managedProcesses.values() ).map( ( managedProcess ) =>
-				this.stopProcess( managedProcess.name )
-			)
-		);
-
-		await new Promise< void >( ( resolve ) => {
-			void this.controlServer.close().then( () => resolve() );
-		} );
+	private async finalizeShutdownByClosingSocketServersAndExiting(): Promise< void > {
+		await this.controlServer.close();
 		await this.eventsServer.close();
+		process.exit( 0 );
 	}
 }
 

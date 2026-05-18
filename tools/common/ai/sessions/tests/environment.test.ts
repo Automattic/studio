@@ -2,10 +2,10 @@ import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { resolveActiveSiteFromEvents } from '../active-site';
+import { resolveActiveSiteFromEntries } from '../active-site';
 import { deriveEffectiveEnvironment } from '../effective-site';
-import { appendAiSessionEvent, createAiSession, loadAiSession } from '../store';
-import type { AiSessionEvent } from '../types';
+import { appendStudioEntry, createAiSession, loadAiSession } from '../store';
+import type { SessionEntry } from '@mariozechner/pi-coding-agent';
 
 describe( 'site.selected — environment flips', () => {
 	let rootDirectory: string | undefined;
@@ -26,15 +26,13 @@ describe( 'site.selected — environment flips', () => {
 		expect( summary.lastSelectedWpcomSiteId ).toBeUndefined();
 	} );
 
-	it( 'summary reflects the latest site.selected flipping to live', async () => {
+	it( 'summary reflects the latest studio.site_selected flipping to live', async () => {
 		rootDirectory = await fs.mkdtemp( path.join( os.tmpdir(), 'studio-env-' ) );
 		const created = await createAiSession( rootDirectory, {
 			site: { name: 'My Site', path: '/tmp/my-site' },
 		} );
 
-		await appendAiSessionEvent( rootDirectory, created.id, {
-			type: 'site.selected',
-			timestamp: new Date().toISOString(),
+		await appendStudioEntry( rootDirectory, created.id, 'studio.site_selected', {
 			siteName: 'My Site',
 			sitePath: '/tmp/my-site',
 			remote: true,
@@ -45,29 +43,38 @@ describe( 'site.selected — environment flips', () => {
 		const { summary } = await loadAiSession( rootDirectory, created.id );
 		expect( summary.activeEnvironment ).toBe( 'live' );
 		expect( summary.lastSelectedWpcomSiteId ).toBe( 42 );
-		expect( summary.ownerSitePath ).toBe( '/tmp/my-site' );
+		expect( summary.ownerSitePath ).toBeUndefined();
 	} );
 
 	it( 'resolver preserves owner name/path when flipping to live', () => {
-		const events: AiSessionEvent[] = [
+		const entries: SessionEntry[] = [
 			{
-				type: 'site.selected',
+				type: 'custom',
+				id: 'a',
+				parentId: null,
 				timestamp: '2026-04-20T10:00:00.000Z',
-				siteName: 'My Site',
-				sitePath: '/tmp/my-site',
+				customType: 'studio.site_selected',
+
+				data: { siteName: 'My Site', sitePath: '/tmp/my-site' } as never,
 			},
 			{
-				type: 'site.selected',
+				type: 'custom',
+				id: 'b',
+				parentId: 'a',
 				timestamp: '2026-04-20T10:01:00.000Z',
-				siteName: 'My Site',
-				sitePath: '/tmp/my-site',
-				remote: true,
-				url: 'https://mysite.example',
-				wpcomSiteId: 42,
+				customType: 'studio.site_selected',
+
+				data: {
+					siteName: 'My Site',
+					sitePath: '/tmp/my-site',
+					remote: true,
+					url: 'https://mysite.example',
+					wpcomSiteId: 42,
+				} as never,
 			},
 		];
 
-		expect( resolveActiveSiteFromEvents( events ) ).toEqual( {
+		expect( resolveActiveSiteFromEntries( entries ) ).toEqual( {
 			name: 'My Site',
 			path: '/tmp/my-site',
 			remote: true,
@@ -77,25 +84,34 @@ describe( 'site.selected — environment flips', () => {
 	} );
 
 	it( 'resolver clears live endpoint info when flipping back to local', () => {
-		const events: AiSessionEvent[] = [
+		const entries: SessionEntry[] = [
 			{
-				type: 'site.selected',
+				type: 'custom',
+				id: 'a',
+				parentId: null,
 				timestamp: '2026-04-20T10:00:00.000Z',
-				siteName: 'My Site',
-				sitePath: '/tmp/my-site',
-				remote: true,
-				url: 'https://mysite.example',
-				wpcomSiteId: 42,
+				customType: 'studio.site_selected',
+
+				data: {
+					siteName: 'My Site',
+					sitePath: '/tmp/my-site',
+					remote: true,
+					url: 'https://mysite.example',
+					wpcomSiteId: 42,
+				} as never,
 			},
 			{
-				type: 'site.selected',
+				type: 'custom',
+				id: 'b',
+				parentId: 'a',
 				timestamp: '2026-04-20T10:01:00.000Z',
-				siteName: 'My Site',
-				sitePath: '/tmp/my-site',
+				customType: 'studio.site_selected',
+
+				data: { siteName: 'My Site', sitePath: '/tmp/my-site' } as never,
 			},
 		];
 
-		expect( resolveActiveSiteFromEvents( events ) ).toEqual( {
+		expect( resolveActiveSiteFromEntries( entries ) ).toEqual( {
 			name: 'My Site',
 			path: '/tmp/my-site',
 			remote: false,

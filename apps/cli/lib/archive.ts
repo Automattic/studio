@@ -1,11 +1,13 @@
 import fs from 'fs';
 import path from 'path';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
+import { STUDIO_LOADER_MU_PLUGIN_FILENAME } from '@studio/common/lib/mu-plugins';
 import { __ } from '@wordpress/i18n';
 import archiver, { EntryData } from 'archiver';
 import { LoggerError } from 'cli/logger';
 
 const ZIP_COMPRESSION_LEVEL = 9;
+const STUDIO_LOADER_ARCHIVE_PATH = `wp-content/mu-plugins/${ STUDIO_LOADER_MU_PLUGIN_FILENAME }`;
 
 export async function archiveSiteContent(
 	siteFolder: string,
@@ -33,7 +35,11 @@ export async function archiveSiteContent(
 			path.join( siteFolder, 'wp-content' ),
 			'wp-content',
 			( entry: EntryData ) => {
-				if ( deployIgnore.ignores( `wp-content/${ entry.name }` ) ) {
+				const archivePath = `wp-content/${ entry.name }`;
+				if ( archivePath === STUDIO_LOADER_ARCHIVE_PATH ) {
+					return false;
+				}
+				if ( deployIgnore.ignores( archivePath ) ) {
 					return false;
 				}
 				return entry;

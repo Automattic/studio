@@ -295,7 +295,9 @@ export async function isProcessRunning(
 		const processes = await listProcesses();
 		return processes.find( ( p ) => p.name === processName && p.status === 'online' );
 	} catch ( error ) {
-		console.error( `Error checking if process ${ processName } is running:`, error );
+		if ( ! isRecoverableConnectError( error ) ) {
+			console.error( `Error checking if process ${ processName } is running:`, error );
+		}
 		return undefined;
 	}
 }
@@ -307,7 +309,7 @@ const daemonStartProcessSuccessResponseSchema = z.object( {
 export async function startProcess(
 	processName: string,
 	scriptPath: string,
-	env: Record< string, string > = {},
+	env: NodeJS.ProcessEnv = process.env,
 	args: string[] = []
 ): Promise< ProcessDescription > {
 	const response = await sendDaemonRequest( {

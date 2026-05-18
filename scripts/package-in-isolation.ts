@@ -90,7 +90,7 @@ function main() {
 	const studioAppScripts = getStudioAppScripts();
 	const scriptName = process.argv[ 2 ];
 
-	if ( ! studioAppScripts.hasOwnProperty( scriptName ) ) {
+	if ( ! Object.prototype.hasOwnProperty.call( studioAppScripts, scriptName ) ) {
 		throw new Error(
 			`Unsupported script "${ scriptName }". Supported studio-app packaging scripts: ${ Object.keys(
 				studioAppScripts

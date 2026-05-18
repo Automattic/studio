@@ -1,6 +1,10 @@
-import type { TodoWriteInput } from '@anthropic-ai/claude-agent-sdk/sdk-tools';
-
-export type TodoEntry = TodoWriteInput[ 'todos' ][ number ];
+// TodoWrite tool input shape — kept here as the canonical definition since
+// the runtime no longer surfaces a synthetic-SDKMessage type for it.
+export interface TodoEntry {
+	content: string;
+	activeForm: string;
+	status: 'pending' | 'in_progress' | 'completed';
+}
 
 export interface TodoChange {
 	content: string;

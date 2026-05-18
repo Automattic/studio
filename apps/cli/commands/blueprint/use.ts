@@ -12,7 +12,7 @@ import { isOnline } from '@studio/common/lib/network-utils';
 import { readSharedConfig } from '@studio/common/lib/shared-config';
 import { fetchStudioBlueprints, type Blueprint } from '@studio/common/lib/studio-blueprints-api';
 import { BlueprintCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
-import { __, sprintf } from '@wordpress/i18n';
+import { __, _n, sprintf } from '@wordpress/i18n';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
 import { untildify } from 'cli/lib/utils';
@@ -76,7 +76,12 @@ export async function runCommand(
 		throw new LoggerError( __( 'No blueprints available' ) );
 	}
 
-	logger.reportSuccess( sprintf( __( 'Found %d blueprints' ), blueprints.length ) );
+	logger.reportSuccess(
+		sprintf(
+			_n( 'Found %d blueprint', 'Found %d blueprints', blueprints.length ),
+			blueprints.length
+		)
+	);
 
 	let selectedSlug = slug;
 

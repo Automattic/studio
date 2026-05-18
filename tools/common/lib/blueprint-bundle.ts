@@ -7,6 +7,14 @@ import { extractZip } from './extract-zip';
 const TEMP_DIR_PREFIX = 'studio-blueprint-bundle-';
 
 /**
+ * Creates a temp directory for blueprint operations. Use removeBlueprintTempDir()
+ * to clean up — it validates the path prefix to prevent accidental deletions.
+ */
+export async function createBlueprintTempDir(): Promise< string > {
+	return fs.promises.mkdtemp( path.join( os.tmpdir(), TEMP_DIR_PREFIX ) );
+}
+
+/**
  * Downloads a blueprint bundle zip from a URL, extracts it to a temp directory,
  * and returns the path to the extracted blueprint.json.
  * Used for API blueprints that reference bundled resources (e.g. theme zips, WXR files).
@@ -15,7 +23,7 @@ export async function downloadAndExtractBlueprintBundle( bundleUrl: string ): Pr
 	blueprintJsonPath: string;
 	tempDir: string;
 } > {
-	const tempDir = await fs.promises.mkdtemp( path.join( os.tmpdir(), TEMP_DIR_PREFIX ) );
+	const tempDir = await createBlueprintTempDir();
 	const tempZipPath = path.join( tempDir, 'bundle.zip' );
 
 	try {

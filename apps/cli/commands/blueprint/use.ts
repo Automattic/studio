@@ -1,10 +1,10 @@
 import fs from 'fs';
-import os from 'os';
 import path from 'path';
 import { select, input } from '@inquirer/prompts';
 import { SupportedPHPVersions, type SupportedPHPVersion } from '@php-wasm/universal';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import {
+	createBlueprintTempDir,
 	downloadAndExtractBlueprintBundle,
 	removeBlueprintTempDir,
 } from '@studio/common/lib/blueprint-bundle';
@@ -40,7 +40,7 @@ async function resolveBlueprint( blueprint: Blueprint ): Promise< {
 	}
 
 	// Write blueprint JSON to temp file so resource paths can be resolved
-	const tempDir = await fs.promises.mkdtemp( path.join( os.tmpdir(), 'studio-blueprint-bundle-' ) );
+	const tempDir = await createBlueprintTempDir();
 	const tempFile = path.join( tempDir, 'blueprint.json' );
 	await fs.promises.writeFile( tempFile, JSON.stringify( blueprint.blueprint ) );
 	return { contents: blueprint.blueprint, uri: tempFile, tempDir };

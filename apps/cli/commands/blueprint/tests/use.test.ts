@@ -11,6 +11,7 @@ vi.mock( '@studio/common/lib/network-utils' );
 vi.mock( '@studio/common/lib/shared-config' );
 vi.mock( '@studio/common/lib/studio-blueprints-api' );
 vi.mock( '@studio/common/lib/blueprint-bundle', () => ( {
+	createBlueprintTempDir: vi.fn().mockResolvedValue( '/tmp/studio-blueprint-bundle-mock' ),
 	downloadAndExtractBlueprintBundle: vi.fn(),
 	removeBlueprintTempDir: vi.fn().mockResolvedValue( undefined ),
 } ) );
@@ -65,7 +66,6 @@ describe( 'CLI: studio blueprint use', () => {
 		vi.mocked( readSharedConfig ).mockResolvedValue( { version: 1 } );
 		vi.mocked( fetchStudioBlueprints ).mockResolvedValue( testBlueprints );
 		vi.mocked( runCreateSiteCommand ).mockResolvedValue( undefined );
-		vi.mocked( fs.promises.mkdtemp ).mockResolvedValue( '/tmp/studio-blueprint-bundle-mock' );
 		vi.mocked( fs.promises.writeFile ).mockResolvedValue( undefined );
 	} );
 

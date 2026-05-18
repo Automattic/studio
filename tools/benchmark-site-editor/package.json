@@ -9,7 +9,12 @@
 		"benchmark": "ts-node ./benchmark.ts"
 	},
 	"dependencies": {
-		"@wp-playground/cli": "3.1.33",
+		"@anthropic-ai/sdk": "0.96.0",
+		"@mariozechner/pi-agent-core": "0.73.1",
+		"@mariozechner/pi-ai": "0.73.1",
+		"@mariozechner/pi-coding-agent": "0.73.1",
+		"@wp-playground/blueprints": "0.9.25",
+		"@wp-playground/cli": "^0.9.25",
 		"chalk": "^5.3.0",
 		"playwright": "^1.58.1",
 		"ts-node": "^10.9.2",

@@ -9,7 +9,10 @@
 		"typecheck": "tsc -p tsconfig.json --noEmit"
 	},
 	"dependencies": {
+		"@anthropic-ai/sdk": "0.96.0",
 		"@automattic/generate-password": "^0.1.0",
+		"@mariozechner/pi-agent-core": "0.73.1",
+		"@mariozechner/pi-ai": "0.73.1",
 		"@wordpress/i18n": "^6.18.0",
 		"cross-port-killer": "^1.4.0",
 		"date-fns": "^3.3.1",
@@ -22,9 +25,9 @@
 		"zod": "^4.0.0"
 	},
 	"devDependencies": {
-		"@mariozechner/pi-coding-agent": "0.70.2",
+		"@mariozechner/pi-coding-agent": "^0.73.1",
 		"@types/lockfile": "^1.0.4",
 		"@types/yauzl": "^2.10.3",
-		"@wp-playground/blueprints": "3.1.33"
+		"@wp-playground/blueprints": "^0.9.25"
 	}
 }

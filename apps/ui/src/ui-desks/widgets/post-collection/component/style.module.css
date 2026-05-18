@@ -24,12 +24,14 @@
 
 .loadingCard[data-layer='back'] {
 	background: #f6f7f7;
-	transform: translate(10px, 8px) rotate(2deg);
+	transform: translate(5px, 4px) rotate(1.5deg);
 	transform-origin: center;
 }
 
 .loadingCard[data-layer='front'] {
 	z-index: 1;
+	transform: translate(-5px, -4px) rotate(-1.5deg);
+	transform-origin: center;
 }
 
 .thumbnail {
@@ -60,12 +62,14 @@
 
 .thumbnailCard[data-layer='back'] {
 	background: #f6f7f7;
-	transform: translate(7px, 6px) rotate(2deg);
+	transform: translate(5px, 4px) rotate(1.5deg);
 	transform-origin: center;
 }
 
 .thumbnailCard[data-layer='front'] {
 	z-index: 1;
+	transform: translate(-5px, -4px) rotate(-1.5deg);
+	transform-origin: center;
 }
 
 .thumbnailLabel {

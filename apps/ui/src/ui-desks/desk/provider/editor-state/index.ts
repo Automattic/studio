@@ -2,10 +2,12 @@ import {
 	getIndexAbove,
 	sortByIndex,
 	type Editor,
+	type TLArrowShape,
 	type JsonObject,
 	type TLDrawShape,
 	type TLShape,
 	type TLShapeId,
+	type TLShapePartial,
 } from 'tldraw';
 import { getSelectedWidgetToolbarItem } from '@/ui-desks/desk/selection-toolbar/selection';
 import {
@@ -20,6 +22,7 @@ import {
 } from '@/ui-desks/stacks/editor-commands';
 import {
 	getStackAnchorFromMember,
+	getStackConfiguredViewMode,
 	getStackHome,
 	getStackId,
 	getStackOrder,
@@ -31,6 +34,7 @@ import { createDeskWidget } from '@/ui-desks/widget-actions/create-widget';
 import { BLOG_WIDGET_TYPE } from '@/ui-desks/widgets/blog/types';
 import { DRAWING_WIDGET_TYPE } from '@/ui-desks/widgets/drawing/types';
 import { PAGE_WIDGET_TYPE } from '@/ui-desks/widgets/page/types';
+import { getWidgetDefinition } from '@/ui-desks/widgets/registry';
 import {
 	canvasCameraToDeskViewport,
 	canvasShapeToDeskWidget,
@@ -41,12 +45,20 @@ import {
 	deskConfigToCanvasShapes,
 	deskWidgetToCanvasShape,
 	getDerivedDeskCanvasRecordSourceId,
+	getTemporaryDeskCanvasRecordId,
+	getTemporaryDeskCanvasRecordMeta,
 	hasOnlyDeskCanvasRecordResolutionStateChange,
 	isDerivedDeskCanvasRecord,
 	isPersistentDeskCanvasShape,
+	CONNECTOR_SHAPE_ID_PREFIX,
 } from '../../tldraw-adapter';
 import { DESK_CONFIG_VERSION, type DeskConfig } from '../../types';
-import type { SelectedWidgetToolbarItem, AddDeskWidgetOptions } from '../context';
+import type {
+	SelectedWidgetToolbarItem,
+	AddDeskWidgetOptions,
+	TemporaryDeskConnector,
+	ToggleTemporaryDeskOptions,
+} from '../context';
 import type { DeskWidget } from '@/ui-desks/widgets/types';
 
 type RectangleWidgetFitContentHandler = ( context: {
@@ -73,6 +85,12 @@ interface WidgetToolbarStateOptions {
 	canRemove?: boolean;
 }
 
+interface CurrentSelectedWidgetSelection {
+	item: SelectedWidgetToolbarItem;
+	shapes: TLShape[];
+	removalShapes?: TLShape[];
+}
+
 interface HydrateEditorOptions {
 	initialViewportMode?: 'site-map';
 }
@@ -90,19 +108,20 @@ export function hydrateEditorFromDesk(
 	desk: DeskConfig,
 	options: HydrateEditorOptions = {}
 ) {
+	const widgetShapes = desk.widgets.length > 0 ? deskConfigToCanvasShapes( desk ) : [];
+	const connectorShapes =
+		desk.widgets.length > 0 ? deskConfigToCanvasConnectorShapes( desk, widgetShapes ) : [];
+	const connectorBindings =
+		desk.widgets.length > 0 ? deskConfigToCanvasConnectorBindings( desk ) : [];
 	const existingShapes = editor.getCurrentPageShapes();
 	if ( existingShapes.length > 0 ) {
 		editor.run( () => editor.deleteShapes( existingShapes.map( ( shape ) => shape.id ) ), {
 			ignoreShapeLock: true,
 		} );
 	}
-	if ( desk.widgets.length > 0 ) {
-		const widgetShapes = deskConfigToCanvasShapes( desk );
-		editor.createShapes( [
-			...deskConfigToCanvasConnectorShapes( desk, widgetShapes ),
-			...widgetShapes,
-		] );
-		editor.createBindings( deskConfigToCanvasConnectorBindings( desk ) );
+	if ( widgetShapes.length > 0 ) {
+		editor.createShapes( [ ...connectorShapes, ...widgetShapes ] );
+		editor.createBindings( connectorBindings );
 	}
 	if ( desk.viewport ) {
 		editor.setCamera( desk.viewport, { immediate: true } );
@@ -296,7 +315,8 @@ export function removeSelectedWidgetFromEditor( editor: Editor ) {
 		return false;
 	}
 
-	editor.deleteShapes( selection.shapes.map( ( shape ) => shape.id ) );
+	const shapesToRemove = selection.removalShapes ?? selection.shapes;
+	editor.deleteShapes( shapesToRemove.map( ( shape ) => shape.id ) );
 	return true;
 }
 
@@ -328,6 +348,99 @@ export function setSelectedStackViewInEditor( editor: Editor, viewMode: StackVie
 	}
 
 	return setStackViewInEditor( editor, stackId, viewMode );
+}
+
+export function isTemporaryDeskVisibleInEditor( editor: Editor, id: string ) {
+	return editor
+		.getCurrentPageShapes()
+		.some( ( shape ) => getTemporaryDeskCanvasRecordId( shape ) === id );
+}
+
+export function toggleTemporaryDeskInEditor( editor: Editor, options: ToggleTemporaryDeskOptions ) {
+	const existingShapeIds = editor
+		.getCurrentPageShapes()
+		.filter( ( shape ) => getTemporaryDeskCanvasRecordId( shape ) === options.id )
+		.map( ( shape ) => shape.id );
+	if ( existingShapeIds.length > 0 ) {
+		editor.deleteShapes( existingShapeIds );
+		return true;
+	}
+
+	if ( options.widgets.length === 0 && ! options.connectors?.length ) {
+		return false;
+	}
+
+	const desk: DeskConfig = {
+		version: DESK_CONFIG_VERSION,
+		updatedAt: new Date().toISOString(),
+		widgets: options.widgets,
+		...( options.stacks?.length ? { stacks: options.stacks } : {} ),
+		...( options.connectors?.length
+			? { connectors: options.connectors.map( deskConnectorFromTemporaryConnector ) }
+			: {} ),
+	};
+	const widgetShapes = deskConfigToCanvasShapes( desk ).map( ( shape ) =>
+		markTemporaryDeskShape( shape, options )
+	);
+	const connectorShapes = deskConfigToCanvasConnectorShapes( desk, widgetShapes ).map( ( shape ) =>
+		markTemporaryDeskConnectorShape( shape, options )
+	);
+	const bindings = deskConfigToCanvasConnectorBindings( desk );
+
+	editor.createShapes( [ ...connectorShapes, ...widgetShapes ] );
+	if ( bindings.length > 0 ) {
+		editor.createBindings( bindings );
+	}
+	editor.focus();
+	return true;
+}
+
+function deskConnectorFromTemporaryConnector( connector: TemporaryDeskConnector ) {
+	const { appearance: _appearance, ...deskConnector } = connector;
+	return deskConnector;
+}
+
+function markTemporaryDeskShape< TShape extends TLShapePartial >(
+	shape: TShape,
+	options: ToggleTemporaryDeskOptions
+): TShape {
+	const followSourceWidgetId =
+		options.followSource && options.sourceWidgetId ? options.sourceWidgetId : undefined;
+	return {
+		...shape,
+		meta: {
+			...( getTemporaryDeskCanvasRecordMeta( shape ) ?? {} ),
+			studioDeskTemporaryId: options.id,
+			...( followSourceWidgetId && shape.type !== 'arrow'
+				? { studioDeskFollowSourceWidgetId: followSourceWidgetId }
+				: {} ),
+		},
+	};
+}
+
+function markTemporaryDeskConnectorShape(
+	shape: TLShapePartial< TLArrowShape >,
+	options: ToggleTemporaryDeskOptions
+): TLShapePartial< TLArrowShape > {
+	const connectorId = getTemporaryDeskConnectorIdFromShape( shape );
+	const connector = options.connectors?.find( ( candidate ) => candidate.id === connectorId );
+	return {
+		...markTemporaryDeskShape( shape, options ),
+		props: connector?.appearance
+			? {
+					...shape.props,
+					...connector.appearance,
+			  }
+			: shape.props,
+	};
+}
+
+function getTemporaryDeskConnectorIdFromShape( shape: TLShapePartial< TLArrowShape > ) {
+	const shapeId = String( shape.id ?? '' );
+	const recordId = shapeId.startsWith( 'shape:' ) ? shapeId.slice( 'shape:'.length ) : shapeId;
+	return recordId.startsWith( CONNECTOR_SHAPE_ID_PREFIX )
+		? recordId.slice( CONNECTOR_SHAPE_ID_PREFIX.length )
+		: recordId;
 }
 
 export function hasCameraChange( changes: CanvasStoreChanges ) {
@@ -374,7 +487,7 @@ export function hasPersistentDocumentChange( changes: CanvasStoreChanges ) {
 function getCurrentSelectedWidgetSelection(
 	editor: Editor,
 	options: WidgetToolbarStateOptions = {}
-) {
+): CurrentSelectedWidgetSelection | null {
 	const selectedShapeIds = editor.getSelectedShapeIds();
 	if ( selectedShapeIds.length === 0 ) {
 		return null;
@@ -464,7 +577,7 @@ function getSelectedStackState( editor: Editor, shapes: TLShape[] ) {
 
 	return {
 		id: stackId,
-		viewMode: getStackViewMode( firstShape ),
+		viewMode: getStackConfiguredViewMode( firstShape ),
 	};
 }
 
@@ -524,6 +637,13 @@ function hasDerivedShapePersistenceChange( previousRecord: unknown, nextRecord: 
 		return false;
 	}
 
+	if (
+		getTemporaryDeskCanvasRecordId( previousRecord ) ||
+		getTemporaryDeskCanvasRecordId( nextRecord )
+	) {
+		return false;
+	}
+
 	return (
 		getDerivedShapePersistenceSignature( previousRecord ) !==
 		getDerivedShapePersistenceSignature( nextRecord )
@@ -544,6 +664,7 @@ function getDerivedShapePersistenceSignature( value: unknown ) {
 		deskStackHomeY: meta.deskStackHomeY,
 		deskStackHomeZIndex: meta.deskStackHomeZIndex,
 		deskStackViewMode: meta.deskStackViewMode,
+		deskStackOpenViewMode: meta.deskStackOpenViewMode,
 	} );
 }
 
@@ -551,7 +672,7 @@ function getDerivedSourceWidgetSelection(
 	editor: Editor,
 	shapes: TLShape[],
 	options: WidgetToolbarStateOptions = {}
-) {
+): CurrentSelectedWidgetSelection | null {
 	if ( ! isCompleteDerivedStackSelection( editor, shapes ) ) {
 		return null;
 	}
@@ -577,7 +698,7 @@ function getDerivedSourceWidgetSelection(
 		stackIds: [],
 		canStack: options.canStack,
 		canUnstack: options.canUnstack,
-		canRemove: false,
+		canRemove: options.canRemove,
 	} );
 	if ( ! item ) {
 		return null;
@@ -586,6 +707,7 @@ function getDerivedSourceWidgetSelection(
 	return {
 		item,
 		shapes: [ sourceShape ],
+		removalShapes: shapes,
 	};
 }
 
@@ -640,9 +762,21 @@ function getDerivedSelectionSourceWidgetId( shapes: TLShape[] ) {
 
 function getDerivedWidgetAnchorsBySourceId( shapes: TLShape[] ) {
 	const shapesBySourceId = new Map< string, TLShape[] >();
+	const sourceWidgetsById = new Map(
+		shapes
+			.filter( isPersistentDeskCanvasShape )
+			.map( canvasShapeToDeskWidget )
+			.filter( ( widget ): widget is DeskWidget => widget !== null )
+			.map( ( widget ) => [ widget.id, widget ] )
+	);
+
 	for ( const shape of shapes ) {
 		const sourceWidgetId = getDerivedDeskCanvasRecordSourceId( shape );
 		if ( ! sourceWidgetId ) {
+			continue;
+		}
+		const sourceWidget = sourceWidgetsById.get( sourceWidgetId );
+		if ( sourceWidget && getWidgetDefinition( sourceWidget.type )?.preserveSourceWidgetPosition ) {
 			continue;
 		}
 
@@ -694,7 +828,7 @@ function getDerivedWidgetAnchor( shapes: TLShape[] ): DerivedWidgetAnchor | null
 	}
 
 	return {
-		...getStackAnchorFromMember( firstShape, order ),
+		...getStackAnchorFromMember( firstShape, order, shapes.length ),
 		zIndex: getStackZIndexFromMember( firstShape.index, order ),
 	};
 }

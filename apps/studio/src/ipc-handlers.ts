@@ -208,9 +208,11 @@ export { getDefaultSiteDirectory, saveDefaultSiteDirectory };
 export { importSite, exportSite } from 'src/modules/import-export/lib/ipc-handlers';
 
 export {
+	exportDeskConfig,
 	getDeskSettings,
 	getSiteDeskConfig,
 	getUserDeskConfig,
+	importDeskConfig,
 	saveDeskSettings,
 	saveSiteDeskConfig,
 	saveUserDeskConfig,

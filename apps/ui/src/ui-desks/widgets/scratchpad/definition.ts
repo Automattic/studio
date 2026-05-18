@@ -4,6 +4,7 @@ import {
 	RECTANGLE_WIDGET_SHAPE_TYPE,
 	type RectangleWidgetShape,
 } from '@/ui-desks/shapes/rectangle-widget/types';
+import { createMediaDropPreviewTarget } from '@/ui-desks/widgets/media/drop-preview';
 import { isMediaWidgetProps, MEDIA_WIDGET_TYPE } from '@/ui-desks/widgets/media/types';
 import {
 	ScratchpadWidgetComponent,
@@ -21,6 +22,8 @@ import {
 import type {
 	WidgetCustomDropActionContext,
 	WidgetCustomDropActionIntent,
+	WidgetDropFeedback,
+	WidgetDropFeedbackIntent,
 	WidgetDefinition,
 } from '@/ui-desks/widgets/types';
 import type { Editor, JsonObject } from 'tldraw';
@@ -61,10 +64,25 @@ export const scratchpadWidgetDefinition = {
 			type: 'custom',
 			sourceTypes: [ MEDIA_WIDGET_TYPE ],
 			canHandle: ( sourceWidget ) => isMediaWidgetProps( sourceWidget.widgetProps ),
+			getFeedback: getScratchpadMediaDropFeedback,
 			getActions: getScratchpadMediaDropActions,
 		},
 	],
 } satisfies WidgetDefinition< ScratchpadWidget >;
+
+function getScratchpadMediaDropFeedback(
+	intent: WidgetDropFeedbackIntent
+): WidgetDropFeedback | null {
+	const mediaProps = intent.sourceWidget.widgetProps;
+	if ( ! isMediaWidgetProps( mediaProps ) ) {
+		return null;
+	}
+
+	return {
+		sourceOpacity: intent.phase === 'hover' ? 0 : 0.3,
+		target: createMediaDropPreviewTarget( mediaProps ),
+	};
+}
 
 function getScratchpadMediaDropActions(
 	intent: WidgetCustomDropActionIntent,
@@ -85,17 +103,25 @@ function getScratchpadMediaDropActions(
 					const { buildWidgetContextDisplayMessage, buildWidgetContextPrompt } = await import(
 						'@/ui-desks/chats/widget-context'
 					);
-					updateScratchpadReference( context.editor, intent );
-					await context.startChatWithPrompt( {
-						prompt: buildWidgetContextPrompt( BUILD_SOMETHING_LIKE_THIS_PROMPT, [
-							intent.sourceWidget,
-							intent.targetWidget,
-						] ),
-						displayMessage: buildWidgetContextDisplayMessage( BUILD_SOMETHING_LIKE_THIS_PROMPT, [
-							intent.sourceWidget,
-							intent.targetWidget,
-						] ),
-					} );
+					updateScratchpadReference( context.editor, intent, { agentStatus: 'pending' } );
+					try {
+						const sessionId = await context.startChatWithPrompt( {
+							prompt: buildWidgetContextPrompt( BUILD_SOMETHING_LIKE_THIS_PROMPT, [
+								intent.sourceWidget,
+								intent.targetWidget,
+							] ),
+							displayMessage: buildWidgetContextDisplayMessage( BUILD_SOMETHING_LIKE_THIS_PROMPT, [
+								intent.sourceWidget,
+								intent.targetWidget,
+							] ),
+						} );
+						updateScratchpadReference( context.editor, intent, {
+							agentStatus: 'running',
+							agentSessionId: sessionId,
+						} );
+					} catch {
+						updateScratchpadReference( context.editor, intent, { agentStatus: 'pending' } );
+					}
 				} ),
 		},
 		{
@@ -106,7 +132,11 @@ function getScratchpadMediaDropActions(
 	];
 }
 
-function updateScratchpadReference( editor: Editor, intent: WidgetCustomDropActionIntent ) {
+function updateScratchpadReference(
+	editor: Editor,
+	intent: WidgetCustomDropActionIntent,
+	patch: Partial< ScratchpadWidget[ 'widgetProps' ] > = {}
+) {
 	const mediaProps = intent.sourceWidget.widgetProps;
 	const targetShape = editor.getShape( intent.targetShapeId ) as RectangleWidgetShape | undefined;
 	if (
@@ -133,6 +163,7 @@ function updateScratchpadReference( editor: Editor, intent: WidgetCustomDropActi
 					url: mediaProps.url,
 					alt: mediaProps.alt,
 				},
+				...patch,
 			} satisfies JsonObject,
 		},
 	} );

@@ -55,3 +55,16 @@
 	border-radius: 50%;
 	box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9);
 }
+
+.sitePickerItem {
+	display: grid;
+	grid-template-columns: 28px minmax(0, 1fr);
+	align-items: center;
+	gap: 10px;
+}
+
+.sitePickerIcon {
+	width: 28px;
+	height: 28px;
+	border-radius: 8px;
+}

@@ -1,8 +1,9 @@
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { chevronLeft, download, globe, link, plus, verse } from '@wordpress/icons';
+import { chevronLeft, chevronRight, download, globe, link, plus, verse } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { useState } from 'react';
+import { SiteIcon } from '@/components/site-icon';
 import { useSites } from '@/data/queries/use-sites';
 import { Button, Menu } from '@/ui-desks/components';
 import { useDesk } from '@/ui-desks/desk/provider';
@@ -19,8 +20,10 @@ import {
 import { pageWidgetDefinition } from '@/ui-desks/widgets/page/definition';
 import { postWidgetDefinition } from '@/ui-desks/widgets/post/definition';
 import { getCreatableWidgetDefinitions } from '@/ui-desks/widgets/registry';
+import { siteCardWidgetDefinition } from '@/ui-desks/widgets/site-card/definition';
 import { LinkFromUrlDialog } from '../link-from-url-dialog';
 import styles from './style.module.css';
+import type { SiteDetails } from '@/data/core';
 
 export function DeskCreateMenu() {
 	const navigate = useNavigate();
@@ -28,7 +31,9 @@ export function DeskCreateMenu() {
 	const creatableWidgetDefinitions = getCreatableWidgetDefinitions().filter( ( definition ) =>
 		isWidgetAvailableInDeskContext( definition, Boolean( desk.siteId ) )
 	);
-	const [ mode, setMode ] = useState< 'menu' | 'pick-post' | 'pick-page' >( 'menu' );
+	const [ mode, setMode ] = useState< 'menu' | 'pick-post' | 'pick-page' | 'pick-site-card' >(
+		'menu'
+	);
 	const [ isLinkDialogOpen, setIsLinkDialogOpen ] = useState( false );
 	const { data: sites } = useSites();
 	const site = sites?.find( ( candidate ) => candidate.id === desk.siteId );
@@ -71,6 +76,36 @@ export function DeskCreateMenu() {
 									<span>{ definition.labels.add() }</span>
 								</Menu.Item>
 							) ) }
+							{ desk.siteId ? (
+								<Menu.Item
+									disabled={ ! desk.canAddWidgets }
+									onClick={ () =>
+										desk.addWidget( siteCardWidgetDefinition.type, {
+											shouldStartEditing: false,
+										} )
+									}
+								>
+									{ siteCardWidgetDefinition.icon && (
+										<Icon icon={ siteCardWidgetDefinition.icon } />
+									) }
+									<span>{ siteCardWidgetDefinition.labels.add() }</span>
+								</Menu.Item>
+							) : (
+								<Menu.Item
+									disabled={ ! desk.canAddWidgets || ! sites?.length }
+									closeOnClick={ false }
+									onClick={ ( event ) => {
+										event.preventDefault();
+										setMode( 'pick-site-card' );
+									} }
+								>
+									{ siteCardWidgetDefinition.icon && (
+										<Icon icon={ siteCardWidgetDefinition.icon } />
+									) }
+									<span>{ siteCardWidgetDefinition.labels.add() }</span>
+									<Icon icon={ chevronRight } />
+								</Menu.Item>
+							) }
 							<Menu.Item
 								disabled={ ! desk.canAddWidgets }
 								onClick={ () => setIsLinkDialogOpen( true ) }
@@ -116,7 +151,9 @@ export function DeskCreateMenu() {
 									</Menu.Item>
 								</>
 							) }
-							{ ( creatableWidgetDefinitions.length > 0 || desk.siteId ) && <Menu.Separator /> }
+							{ ( creatableWidgetDefinitions.length > 0 || sites?.length || desk.siteId ) && (
+								<Menu.Separator />
+							) }
 							<Menu.Item onClick={ openCreateSite }>
 								<Icon icon={ globe } />
 								<span>{ __( 'New site' ) }</span>
@@ -126,6 +163,18 @@ export function DeskCreateMenu() {
 								<span>{ __( 'Import from…' ) }</span>
 							</Menu.Item>
 						</>
+					) : mode === 'pick-site-card' ? (
+						<SiteCardPickerMenuItems
+							onBack={ () => setMode( 'menu' ) }
+							onSelect={ ( selectedSiteId ) => {
+								desk.addWidget( siteCardWidgetDefinition.type, {
+									widgetProps: {
+										siteId: selectedSiteId,
+									},
+									shouldStartEditing: false,
+								} );
+							} }
+						/>
 					) : (
 						<ExistingContentPickerMenuItems
 							type={ mode === 'pick-page' ? 'page' : 'post' }
@@ -135,6 +184,65 @@ export function DeskCreateMenu() {
 				</Menu.Popup>
 			</Menu.Root>
 			{ isLinkDialogOpen && <LinkFromUrlDialog onClose={ () => setIsLinkDialogOpen( false ) } /> }
+		</>
+	);
+}
+
+function SiteCardPickerMenuItems( {
+	onBack,
+	onSelect,
+}: {
+	onBack: () => void;
+	onSelect: ( siteId: string ) => void;
+} ) {
+	const desk = useDesk();
+	const { data: sites, isLoading } = useSites();
+
+	return (
+		<>
+			<Menu.Item
+				closeOnClick={ false }
+				onClick={ ( event ) => {
+					event.preventDefault();
+					onBack();
+				} }
+			>
+				<Icon icon={ chevronLeft } />
+				<span>{ __( 'Back' ) }</span>
+			</Menu.Item>
+			<Menu.Separator />
+			{ isLoading && <div className={ styles.postPickerStatus }>{ __( 'Loading sites…' ) }</div> }
+			{ ! isLoading && ! sites?.length && (
+				<div className={ styles.postPickerStatus }>{ __( 'No sites available.' ) }</div>
+			) }
+			{ sites?.map( ( site ) => (
+				<Menu.Item
+					key={ site.id }
+					className={ styles.sitePickerItem }
+					disabled={ ! desk.canAddWidgets }
+					onClick={ () => onSelect( site.id ) }
+				>
+					<SiteCardPickerSite site={ site } />
+				</Menu.Item>
+			) ) }
+		</>
+	);
+}
+
+function SiteCardPickerSite( { site }: { site: SiteDetails } ) {
+	return (
+		<>
+			<SiteIcon
+				className={ styles.sitePickerIcon }
+				seed={ `${ site.id }:${ site.name }:${ site.path }` }
+				imageSrc={ site.siteIcon }
+			/>
+			<span className={ styles.postPickerContent }>
+				<span className={ styles.postPickerTitle }>{ site.name }</span>
+				<span className={ styles.postPickerMeta }>
+					{ site.running ? __( 'Running' ) : __( 'Stopped' ) }
+				</span>
+			</span>
 		</>
 	);
 }

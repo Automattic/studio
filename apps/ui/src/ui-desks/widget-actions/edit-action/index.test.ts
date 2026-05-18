@@ -4,6 +4,7 @@ import { pageWidgetDefinition } from '@/ui-desks/widgets/page/definition';
 import { postWidgetDefinition } from '@/ui-desks/widgets/post/definition';
 import { postCollectionWidgetDefinition } from '@/ui-desks/widgets/post-collection/definition';
 import { scratchpadWidgetDefinition } from '@/ui-desks/widgets/scratchpad/definition';
+import { siteCardWidgetDefinition } from '@/ui-desks/widgets/site-card/definition';
 import { sitePreviewWidgetDefinition } from '@/ui-desks/widgets/site-preview/definition';
 import type { NoteWidget } from '@/ui-desks/widgets/note/types';
 import type { PageWidget } from '@/ui-desks/widgets/page/types';
@@ -25,6 +26,18 @@ vi.mock( '@/ui-desks/widgets/site-preview/open-control', () => ( {
 vi.mock( '@/ui-desks/widgets/site-preview/component', () => ( {
 	SitePreviewWidgetComponent: () => null,
 	SitePreviewWidgetThumbnailComponent: () => null,
+} ) );
+vi.mock( '@/ui-desks/widgets/site-card/component', () => ( {
+	SiteCardWidgetComponent: () => null,
+	SiteCardWidgetThumbnailComponent: () => null,
+} ) );
+vi.mock( '@/ui-desks/widgets/site-card/preview-control', () => ( {
+	SiteCardPreviewControl: () => null,
+} ) );
+vi.mock( '@/ui-desks/widgets/site-card/edit-controls', () => ( {
+	SiteCardEditControl: () => null,
+	SiteCardEditCancelControl: () => null,
+	SiteCardEditSaveControl: () => null,
 } ) );
 
 describe( 'widget edit actions', () => {
@@ -50,6 +63,10 @@ describe( 'widget edit actions', () => {
 				hasRunningSite: false,
 			} )
 		).toEqual( { kind: 'canvas-editing' } );
+	} );
+
+	it( 'does not expose a generic edit action for site identity card editing', () => {
+		expect( 'getEditAction' in siteCardWidgetDefinition ).toBe( false );
 	} );
 
 	it( 'uses WordPress admin URLs for site-backed widgets', () => {

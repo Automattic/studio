@@ -18,6 +18,7 @@ type WorkspaceSelectionContextValue = {
 	selectWorkspace: ( workspaceId: string ) => void;
 	selectedTabId?: TabName;
 	selectWorkspaceTab: ( workspaceId: string, tabId: TabName ) => void;
+	refreshWorkspaces: () => void;
 };
 
 const WorkspaceSelectionContext = createContext< WorkspaceSelectionContextValue | undefined >(
@@ -54,7 +55,12 @@ function writeSavedTabId( workspaceId: string, tabId: TabName ) {
 
 export function WorkspaceSelectionProvider( { children }: { children: ReactNode } ) {
 	const { selectedSite, setSelectedSiteId } = useSiteDetails();
-	const { enableWorkspaces, sidebarWorkspaces: workspaces, isLoading } = useSidebarWorkspaces();
+	const {
+		enableWorkspaces,
+		sidebarWorkspaces: workspaces,
+		isLoading,
+		refreshWorkspaces,
+	} = useSidebarWorkspaces();
 	const [ explicitSelectedWorkspaceId, setExplicitSelectedWorkspaceId ] = useState< string >();
 	const [ selectedTabs, setSelectedTabs ] = useState< Record< string, TabName > >( {} );
 	const selectedSiteId = selectedSite?.id;
@@ -134,10 +140,12 @@ export function WorkspaceSelectionProvider( { children }: { children: ReactNode 
 			selectWorkspace,
 			selectedTabId,
 			selectWorkspaceTab,
+			refreshWorkspaces,
 		};
 	}, [
 		enableWorkspaces,
 		isLoading,
+		refreshWorkspaces,
 		selectWorkspaceTab,
 		selectWorkspace,
 		selectedTabId,

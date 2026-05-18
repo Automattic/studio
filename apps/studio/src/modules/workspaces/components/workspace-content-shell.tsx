@@ -13,6 +13,7 @@ import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { ContentTabSync } from 'src/modules/sync';
+import { WorkspaceSyncPanelContent } from 'src/modules/sync/components/workspace-sync-panel';
 import {
 	getDefaultWorkspaceTabId,
 	getWorkspaceTabIds,
@@ -47,32 +48,6 @@ function EmptyWorkspaceSelection() {
 			<p className="text-lg text-frame-text-secondary">
 				{ __( 'Select a workspace to view details.' ) }
 			</p>
-		</div>
-	);
-}
-
-function WorkspaceSyncPlaceholder( { workspace }: { workspace: StudioWorkspace } ) {
-	return (
-		<div className="p-8">
-			<div className="max-w-2xl">
-				<h2 className="m-0 text-base font-medium text-frame-text">{ __( 'Sync' ) }</h2>
-				<div className="mt-4 grid gap-3">
-					{ workspace.syncLinks.length ? (
-						workspace.syncLinks.map( ( link ) => (
-							<div
-								key={ link.id }
-								className="rounded border border-a8c-gray-5 bg-white p-3 text-sm text-frame-text"
-							>
-								{ link.source } &lt;-&gt; { link.target }
-							</div>
-						) )
-					) : (
-						<div className="rounded border border-a8c-gray-5 bg-white p-3 text-sm text-frame-text-secondary">
-							{ __( 'No workspace sync links are available yet.' ) }
-						</div>
-					) }
-				</div>
-			</div>
 		</div>
 	);
 }
@@ -494,10 +469,18 @@ export function WorkspaceContentShell() {
 										<LocalOnlyWorkspaceTabNotice title={ __( 'Import / Export' ) } />
 									) ) }
 								{ name === 'sync' &&
-									( localContextSite ? (
+									( selectedWorkspace.syncLinks.length ? (
+										<WorkspaceSyncPanelContent
+											workspace={ selectedWorkspace }
+											selectedTargetId={ previewTarget?.id }
+										/>
+									) : localContextSite ? (
 										<ContentTabSync selectedSite={ localContextSite } />
 									) : (
-										<WorkspaceSyncPlaceholder workspace={ selectedWorkspace } />
+										<WorkspaceSyncPanelContent
+											workspace={ selectedWorkspace }
+											selectedTargetId={ previewTarget?.id }
+										/>
 									) ) }
 								{ name === 'settings' &&
 									( localContextSite ? (

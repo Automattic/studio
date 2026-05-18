@@ -7,6 +7,7 @@ import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { WorkspaceSelectionProvider } from 'src/modules/workspaces';
 import { store } from 'src/stores';
+import { syncOperationsActions } from 'src/stores/sync';
 import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 import type { SyncSite } from '@studio/common/types/sync';
 import type { WorkspacePreviewState } from 'src/modules/workspaces/components/workspace-preview';
@@ -18,6 +19,10 @@ const featureFlagsMock = vi.hoisted( () => ( {
 	enableWorkspaces: false,
 } ) );
 const useGetWpComSitesQueryMock = vi.hoisted( () => vi.fn() );
+const syncHooksMock = vi.hoisted( () => ( {
+	useLatestRewindId: vi.fn(),
+	useRemoteFileTree: vi.fn(),
+} ) );
 
 const selectedSite: SiteDetails = {
 	id: 'site-id-1',
@@ -87,6 +92,11 @@ vi.mock( 'src/lib/get-ipc-api', async () => ( {
 		updateConnectedWpcomSites: vi.fn(),
 		getUserTerminal: vi.fn().mockResolvedValue( 'terminal' ),
 		getUserEditor: vi.fn().mockResolvedValue( 'vscode' ),
+		showErrorMessageBox: vi.fn(),
+		showMessageBox: vi.fn().mockResolvedValue( { response: 0 } ),
+		showNotification: vi.fn(),
+		connectWpcomSites: vi.fn().mockResolvedValue( undefined ),
+		openURL: vi.fn(),
 		setWindowControlVisibility: vi.fn(),
 	} ),
 } ) );
@@ -124,6 +134,16 @@ vi.mock( 'src/stores/sync/wpcom-sites', async () => {
 	return {
 		...actual,
 		useGetWpComSitesQuery: useGetWpComSitesQueryMock,
+	};
+} );
+vi.mock( 'src/stores/sync/sync-hooks', async () => {
+	const actual = await vi.importActual< typeof import('src/stores/sync/sync-hooks') >(
+		'src/stores/sync/sync-hooks'
+	);
+	return {
+		...actual,
+		useLatestRewindId: syncHooksMock.useLatestRewindId,
+		useRemoteFileTree: syncHooksMock.useRemoteFileTree,
 	};
 } );
 
@@ -168,6 +188,7 @@ const mockWpcomSitesQuery = ( sites: SyncSite[] = [] ) => {
 		data: { sites, total: sites.length, page: 1, perPage: 100 },
 		isLoading: false,
 		isFetching: false,
+		refetch: vi.fn(),
 	} );
 };
 
@@ -177,6 +198,16 @@ describe( 'SiteContentTabs', () => {
 		localStorage.clear();
 		featureFlagsMock.enableWorkspaces = false;
 		mockWpcomSitesQuery();
+		syncHooksMock.useLatestRewindId.mockReturnValue( {
+			rewindId: null,
+			isLoading: false,
+			isError: false,
+		} );
+		syncHooksMock.useRemoteFileTree.mockReturnValue( {
+			fetchChildren: vi.fn().mockResolvedValue( [] ),
+			isLoading: false,
+			error: null,
+		} );
 		store.dispatch( testActions.resetState() );
 	} );
 	const renderWithProvider = ( component: React.ReactElement ) => {
@@ -647,5 +678,294 @@ describe( 'SiteContentTabs', () => {
 		expect(
 			screen.queryByLabelText( 'Local target: Test Site is stopped' )
 		).not.toBeInTheDocument();
+	} );
+
+	it( 'renders workspace sync controls for local, production, and staging links', async () => {
+		const user = userEvent.setup();
+		featureFlagsMock.enableWorkspaces = true;
+		const productionSite = createSyncSite( {
+			id: 101,
+			localSiteId: selectedSite.id,
+			syncSupport: 'already-connected',
+			name: 'Linked Workspace',
+			url: 'https://production.example',
+			stagingSiteIds: [ 202 ],
+		} );
+		const stagingSite = createSyncSite( {
+			id: 202,
+			localSiteId: selectedSite.id,
+			syncSupport: 'already-connected',
+			name: 'Linked Workspace Staging',
+			url: 'https://staging.example',
+			isStaging: true,
+			productionSiteId: 101,
+		} );
+		mockWpcomSitesQuery( [ productionSite, stagingSite ] );
+		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
+			...createSiteDetailsReturn( {
+				selectedSite,
+				sites: [ selectedSite ],
+			} ),
+		} );
+
+		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
+		await user.click( screen.getByRole( 'tab', { name: 'Sync' } ) );
+
+		expect( screen.getByTestId( 'workspace-sync-panel' ) ).toBeVisible();
+		expect( screen.getByText( 'Local <-> Production' ) ).toBeVisible();
+		expect( screen.getByText( 'Local <-> Staging' ) ).toBeVisible();
+		expect( screen.getByText( 'Production <-> Staging' ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Push to Staging' } ) ).toBeEnabled();
+		expect( screen.getByRole( 'button', { name: 'Pull to Production' } ) ).toBeEnabled();
+
+		await user.click( screen.getByRole( 'button', { name: 'Pull to Production' } ) );
+
+		expect( screen.getByRole( 'heading', { name: 'Pull from Staging' } ) ).toBeVisible();
+		expect( screen.getByRole( 'checkbox', { name: 'Files and folders' } ) ).not.toBeChecked();
+		expect( screen.getByText( 'All files and folders' ) ).toBeVisible();
+		expect( screen.getByRole( 'checkbox', { name: 'Database' } ) ).not.toBeChecked();
+		expect( screen.queryByText( 'Root files' ) ).not.toBeInTheDocument();
+		expect( screen.getByTestId( 'environment-sync-submit-button' ) ).toBeDisabled();
+
+		await user.click( screen.getByRole( 'checkbox', { name: 'Files and folders' } ) );
+
+		expect( screen.getByTestId( 'environment-sync-submit-button' ) ).toBeEnabled();
+	} );
+
+	it( 'offers setup actions for a remote-only production workspace', async () => {
+		const user = userEvent.setup();
+		featureFlagsMock.enableWorkspaces = true;
+		const productionSite = createSyncSite( {
+			id: 101,
+			name: 'Remote Workspace',
+			url: 'https://remote-workspace.example',
+			hasStagingSiteFeature: true,
+			canManageOptions: true,
+		} );
+		mockWpcomSitesQuery( [ productionSite ] );
+		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
+			...createSiteDetailsReturn( { selectedSite: null, sites: [] } ),
+		} );
+
+		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
+		await user.click( screen.getByRole( 'tab', { name: 'Sync' } ) );
+
+		expect(
+			screen.queryByText( 'No workspace sync links are available yet.' )
+		).not.toBeInTheDocument();
+		expect( screen.getByText( 'Local <-> Production' ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Create local copy' } ) ).toBeVisible();
+		expect( screen.getByText( 'Production <-> Staging' ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Create staging site' } ) ).toBeVisible();
+	} );
+
+	it( 'does not offer local copy setup when a remote site cannot support Studio sync', async () => {
+		const user = userEvent.setup();
+		featureFlagsMock.enableWorkspaces = true;
+		const productionSite = createSyncSite( {
+			id: 101,
+			name: 'Remote Workspace',
+			url: 'https://remote-workspace.example',
+			syncSupport: 'needs-upgrade',
+			hasStagingSiteFeature: true,
+			canManageOptions: true,
+			isWpcomAtomic: true,
+		} );
+		mockWpcomSitesQuery( [ productionSite ] );
+		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
+			...createSiteDetailsReturn( { selectedSite: null, sites: [] } ),
+		} );
+
+		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
+		await user.click( screen.getByRole( 'tab', { name: 'Sync' } ) );
+
+		expect(
+			screen.getByText( 'Upgrade this site plan before creating or connecting a local version.' )
+		).toBeVisible();
+		expect( screen.queryByRole( 'button', { name: 'Create local copy' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: /Upgrade plan/ } ) ).toBeVisible();
+	} );
+
+	it( 'does not offer staging creation when production is not eligible for staging sites', async () => {
+		const user = userEvent.setup();
+		featureFlagsMock.enableWorkspaces = true;
+		const productionSite = createSyncSite( {
+			id: 101,
+			name: 'Remote Workspace',
+			url: 'https://remote-workspace.example',
+			syncSupport: 'syncable',
+			hasStagingSiteFeature: false,
+			canManageOptions: true,
+			isWpcomAtomic: true,
+		} );
+		mockWpcomSitesQuery( [ productionSite ] );
+		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
+			...createSiteDetailsReturn( { selectedSite: null, sites: [] } ),
+		} );
+
+		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
+		await user.click( screen.getByRole( 'tab', { name: 'Sync' } ) );
+
+		expect( screen.getByText( 'This site plan does not include staging sites.' ) ).toBeVisible();
+		expect(
+			screen.queryByRole( 'button', { name: 'Create staging site' } )
+		).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: /Upgrade plan/ } ) ).toBeVisible();
+	} );
+
+	it( 'offers to connect an unlinked production target when local and staging are connected', async () => {
+		const user = userEvent.setup();
+		featureFlagsMock.enableWorkspaces = true;
+		const productionSite = createSyncSite( {
+			id: 101,
+			localSiteId: '',
+			syncSupport: 'syncable',
+			name: 'Linked Workspace',
+			url: 'https://production.example',
+			stagingSiteIds: [ 202 ],
+		} );
+		const stagingSite = createSyncSite( {
+			id: 202,
+			localSiteId: selectedSite.id,
+			syncSupport: 'already-connected',
+			name: 'Linked Workspace Staging',
+			url: 'https://staging.example',
+			isStaging: true,
+			productionSiteId: 101,
+		} );
+		mockWpcomSitesQuery( [ productionSite, stagingSite ] );
+		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
+			...createSiteDetailsReturn( {
+				selectedSite,
+				sites: [ selectedSite ],
+			} ),
+		} );
+
+		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
+		await user.click( screen.getByRole( 'tab', { name: 'Sync' } ) );
+
+		expect( screen.getByText( 'Local <-> Production' ) ).toBeVisible();
+		expect(
+			screen.getByText( 'Connect this target to the local site before syncing.' )
+		).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Connect' } ) ).toBeEnabled();
+		expect( screen.getByText( 'Local <-> Staging' ) ).toBeVisible();
+	} );
+
+	it( 'lets Production/Staging sync select specific source files', async () => {
+		const user = userEvent.setup();
+		const fetchChildren = vi.fn().mockResolvedValue( [
+			{
+				id: 'plugin-path',
+				name: 'akismet',
+				label: 'akismet',
+				checked: false,
+				type: 'plugin',
+				pathId: 'cjI6,ZjI6YWtpc21ldC8=',
+				path: '/wp-content/plugins/akismet/',
+			},
+		] );
+		syncHooksMock.useLatestRewindId.mockReturnValue( {
+			rewindId: '1234567890',
+			isLoading: false,
+			isError: false,
+		} );
+		syncHooksMock.useRemoteFileTree.mockReturnValue( {
+			fetchChildren,
+			isLoading: false,
+			error: null,
+		} );
+		featureFlagsMock.enableWorkspaces = true;
+		const productionSite = createSyncSite( {
+			id: 101,
+			localSiteId: selectedSite.id,
+			syncSupport: 'already-connected',
+			name: 'Linked Workspace',
+			url: 'https://production.example',
+			stagingSiteIds: [ 202 ],
+		} );
+		const stagingSite = createSyncSite( {
+			id: 202,
+			localSiteId: selectedSite.id,
+			syncSupport: 'already-connected',
+			name: 'Linked Workspace Staging',
+			url: 'https://staging.example',
+			isStaging: true,
+			productionSiteId: 101,
+		} );
+		mockWpcomSitesQuery( [ productionSite, stagingSite ] );
+		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
+			...createSiteDetailsReturn( {
+				selectedSite,
+				sites: [ selectedSite ],
+			} ),
+		} );
+
+		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
+		await user.click( screen.getByRole( 'tab', { name: 'Sync' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Pull to Production' } ) );
+		await user.selectOptions(
+			screen.getByRole( 'combobox', { name: 'Select files and folders to sync' } ),
+			'specific'
+		);
+
+		const sourceFileCheckbox = await screen.findByRole( 'checkbox', { name: 'akismet' } );
+		expect( fetchChildren ).toHaveBeenCalledWith( 202, '1234567890', '/wp-content/', false );
+		expect( screen.getByRole( 'checkbox', { name: 'Database' } ) ).toBeDisabled();
+		expect( screen.getByTestId( 'environment-sync-submit-button' ) ).toBeDisabled();
+
+		await user.click( sourceFileCheckbox );
+
+		expect( screen.getByTestId( 'environment-sync-submit-button' ) ).toBeEnabled();
+	} );
+
+	it( 'disables Production/Staging sync while a local workspace sync is running', async () => {
+		const user = userEvent.setup();
+		featureFlagsMock.enableWorkspaces = true;
+		const productionSite = createSyncSite( {
+			id: 101,
+			localSiteId: selectedSite.id,
+			syncSupport: 'already-connected',
+			name: 'Linked Workspace',
+			url: 'https://production.example',
+			stagingSiteIds: [ 202 ],
+		} );
+		const stagingSite = createSyncSite( {
+			id: 202,
+			localSiteId: selectedSite.id,
+			syncSupport: 'already-connected',
+			name: 'Linked Workspace Staging',
+			url: 'https://staging.example',
+			isStaging: true,
+			productionSiteId: 101,
+		} );
+		mockWpcomSitesQuery( [ productionSite, stagingSite ] );
+		store.dispatch(
+			syncOperationsActions.updatePushState( {
+				selectedSiteId: selectedSite.id,
+				remoteSiteId: productionSite.id,
+				state: {
+					status: {
+						key: 'uploading',
+						progress: 40,
+						message: 'Uploading site...',
+					},
+					selectedSite,
+					remoteSiteUrl: productionSite.url,
+				},
+			} )
+		);
+		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
+			...createSiteDetailsReturn( {
+				selectedSite,
+				sites: [ selectedSite ],
+			} ),
+		} );
+
+		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
+		await user.click( screen.getByRole( 'tab', { name: 'Sync' } ) );
+
+		expect( screen.getByRole( 'button', { name: 'Push to Staging' } ) ).toBeDisabled();
+		expect( screen.getByRole( 'button', { name: 'Pull to Production' } ) ).toBeDisabled();
 	} );
 } );

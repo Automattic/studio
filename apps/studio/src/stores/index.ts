@@ -20,7 +20,7 @@ import {
 	refreshSnapshots,
 	snapshotActions,
 } from 'src/stores/snapshot-slice';
-import { syncReducer, syncOperationsActions } from 'src/stores/sync';
+import { stagingSyncReducer, syncReducer, syncOperationsActions } from 'src/stores/sync';
 import { connectedSitesApi, connectedSitesReducer } from 'src/stores/sync/connected-sites';
 import {
 	syncOperationsReducer,
@@ -41,6 +41,7 @@ export type RootState = {
 	onboarding: ReturnType< typeof onboardingReducer >;
 	snapshot: ReturnType< typeof snapshotReducer >;
 	sync: ReturnType< typeof syncReducer >;
+	stagingSync: ReturnType< typeof stagingSyncReducer >;
 	connectedSitesApi: ReturnType< typeof connectedSitesApi.reducer >;
 	connectedSites: ReturnType< typeof connectedSitesReducer >;
 	syncOperations: ReturnType< typeof syncOperationsReducer >;
@@ -332,6 +333,7 @@ export const rootReducer = combineReducers( {
 	onboarding: onboardingReducer,
 	snapshot: snapshotReducer,
 	sync: syncReducer,
+	stagingSync: stagingSyncReducer,
 	syncOperations: syncOperationsReducer,
 	wordpressVersionsApi: wordpressVersionsApi.reducer,
 	wpcomApi: wpcomApi.reducer,

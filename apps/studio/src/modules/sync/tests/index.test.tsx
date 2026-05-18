@@ -575,7 +575,7 @@ describe( 'ContentTabSync', () => {
 
 		// Open specific files and folders selector
 		const select = screen.getByRole( 'combobox', { name: 'Select files and folders to sync' } );
-		fireEvent.change( select, { target: { value: 'true' } } );
+		fireEvent.change( select, { target: { value: 'specific' } } );
 
 		// Check plugins and uploads
 		const pluginsCheckbox = screen.getByRole( 'checkbox', { name: 'plugins' } );
@@ -654,7 +654,7 @@ describe( 'ContentTabSync', () => {
 
 		await screen.findByText( 'Pull from Production' );
 		const select = screen.getByRole( 'combobox', { name: 'Select files and folders to sync' } );
-		fireEvent.change( select, { target: { value: 'true' } } );
+		fireEvent.change( select, { target: { value: 'specific' } } );
 		const pluginsCheckbox = screen.getByRole( 'checkbox', { name: 'plugins' } );
 		fireEvent.click( pluginsCheckbox );
 		const filesAndFoldersCheckbox = screen.getByRole( 'checkbox', { name: 'Files and folders' } );
@@ -711,7 +711,7 @@ describe( 'ContentTabSync', () => {
 
 		await screen.findByText( 'Push to Production' );
 		const select = screen.getByRole( 'combobox', { name: 'Select files and folders to sync' } );
-		fireEvent.change( select, { target: { value: 'true' } } );
+		fireEvent.change( select, { target: { value: 'specific' } } );
 
 		const pluginsCheckbox = screen.getByRole( 'checkbox', { name: 'plugins' } );
 		fireEvent.click( pluginsCheckbox );

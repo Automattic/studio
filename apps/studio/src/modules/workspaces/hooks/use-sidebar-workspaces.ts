@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from 'src/hooks/use-auth';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useSiteDetails } from 'src/hooks/use-site-details';
@@ -13,6 +13,7 @@ export function useSidebarWorkspaces() {
 	const { enableWorkspaces } = useFeatureFlags();
 	const [ connectedSites, setConnectedSites ] = useState< SyncSite[] >( [] );
 	const [ isLoadingConnectedSites, setIsLoadingConnectedSites ] = useState( false );
+	const [ connectedSitesRefreshKey, setConnectedSitesRefreshKey ] = useState( 0 );
 	const connectedSiteIds = useMemo(
 		() => connectedSites.map( ( site ) => site.id ),
 		[ connectedSites ]
@@ -22,6 +23,7 @@ export function useSidebarWorkspaces() {
 		data: wpcomSitesData,
 		isFetching: isFetchingWpcomSites,
 		isLoading: isLoadingWpcomSites,
+		refetch: refetchWpcomSites,
 	} = useGetWpComSitesQuery(
 		{
 			connectedSiteIds,
@@ -30,6 +32,13 @@ export function useSidebarWorkspaces() {
 		},
 		{ skip: ! shouldLoadRemoteSites }
 	);
+
+	const refreshWorkspaces = useCallback( () => {
+		setConnectedSitesRefreshKey( ( key ) => key + 1 );
+		if ( shouldLoadRemoteSites ) {
+			void refetchWpcomSites();
+		}
+	}, [ refetchWpcomSites, shouldLoadRemoteSites ] );
 
 	useEffect( () => {
 		if ( ! shouldLoadRemoteSites ) {
@@ -62,7 +71,7 @@ export function useSidebarWorkspaces() {
 		return () => {
 			isCurrent = false;
 		};
-	}, [ shouldLoadRemoteSites ] );
+	}, [ connectedSitesRefreshKey, shouldLoadRemoteSites ] );
 
 	const wpcomSites = useMemo(
 		() => ( shouldLoadRemoteSites ? wpcomSitesData?.sites ?? [] : [] ),
@@ -85,6 +94,7 @@ export function useSidebarWorkspaces() {
 		sidebarWorkspaces,
 		wpcomSites,
 		connectedSites,
+		refreshWorkspaces,
 		isLoading:
 			shouldLoadRemoteSites &&
 			( isLoadingConnectedSites || isLoadingWpcomSites || isFetchingWpcomSites ),

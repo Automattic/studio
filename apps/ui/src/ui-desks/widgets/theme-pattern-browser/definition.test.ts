@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { THEME_PATTERN_WIDGET_TYPE } from '../theme-pattern/types';
 import {
+	createThemePatternBrowserMaterialization,
 	createThemePatternBrowserResolution,
 	themePatternBrowserWidgetDefinition,
 } from './definition';
@@ -23,9 +24,41 @@ vi.mock( '@/ui-desks/widgets/theme-pattern-browser/component', () => ( {
 } ) );
 
 describe( 'theme pattern browser widget definition', () => {
-	it( 'is only spawned from theme-card actions', () => {
+	it( 'is materialized by the top-level create menu action', () => {
 		expect( themePatternBrowserWidgetDefinition.isCreatable ).toBe( false );
 		expect( themePatternBrowserWidgetDefinition.labels.add() ).toBe( 'Browse patterns' );
+		expect( themePatternBrowserWidgetDefinition.requiresRunningSite ).toBe( true );
+		expect( themePatternBrowserWidgetDefinition.shouldStartEditingOnCreate ).toBe( false );
+	} );
+
+	it( 'materializes browsable pattern cards as persisted stack members', () => {
+		const materialization = createThemePatternBrowserMaterialization(
+			{
+				center: { x: 500, y: 400 },
+				zIndex: 'a1',
+			},
+			createThemePatterns()
+		);
+		if ( ! materialization ) {
+			throw new Error( 'Expected pattern materialization.' );
+		}
+
+		expect( materialization.widgets.map( ( widget ) => widget.widgetProps.patternId ) ).toEqual( [
+			'theme//header',
+			'7',
+			'theme/hero',
+			'theme/gallery',
+		] );
+		expect( materialization.widgets.map( ( widget ) => ( { x: widget.x, y: widget.y } ) ) ).toEqual(
+			Array.from( { length: 4 }, () => ( { x: 340, y: 290 } ) )
+		);
+		expect( materialization.stacks?.[ 0 ] ).toMatchObject( {
+			x: 340,
+			y: 290,
+			zIndex: 'a1',
+			memberIds: materialization.widgets.map( ( widget ) => widget.id ),
+		} );
+		expect( materialization.stacks?.[ 0 ] ).not.toHaveProperty( 'viewMode' );
 	} );
 
 	it( 'prioritizes template parts and reusable blocks before theme patterns', () => {

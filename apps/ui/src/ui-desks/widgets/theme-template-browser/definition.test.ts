@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { THEME_TEMPLATE_WIDGET_TYPE } from '../theme-template/types';
 import {
+	createThemeTemplateBrowserMaterialization,
 	createThemeTemplateBrowserResolution,
 	themeTemplateBrowserWidgetDefinition,
 } from './definition';
@@ -22,9 +23,52 @@ vi.mock( '@/ui-desks/widgets/theme-template-browser/component', () => ( {
 } ) );
 
 describe( 'theme template browser widget definition', () => {
-	it( 'is only spawned from theme-card actions', () => {
+	it( 'is materialized by the top-level create menu action', () => {
 		expect( themeTemplateBrowserWidgetDefinition.isCreatable ).toBe( false );
 		expect( themeTemplateBrowserWidgetDefinition.labels.add() ).toBe( 'Browse templates' );
+		expect( themeTemplateBrowserWidgetDefinition.requiresRunningSite ).toBe( true );
+		expect( themeTemplateBrowserWidgetDefinition.shouldStartEditingOnCreate ).toBe( false );
+	} );
+
+	it( 'materializes template cards centered on the requested point with hierarchy connectors', () => {
+		const materialization = createThemeTemplateBrowserMaterialization(
+			{
+				center: { x: 500, y: 800 },
+				zIndex: 'a1',
+			},
+			createThemeTemplates()
+		);
+		if ( ! materialization ) {
+			throw new Error( 'Expected template materialization.' );
+		}
+
+		expect( materialization.widgets.map( ( widget ) => widget.widgetProps.slug ) ).toEqual( [
+			'single-post',
+			'page',
+			'single',
+			'index',
+		] );
+		expect(
+			materialization.widgets.map( ( widget ) => ( {
+				slug: widget.widgetProps.slug,
+				x: widget.x,
+				y: widget.y,
+			} ) )
+		).toEqual( [
+			{ slug: 'single-post', x: 360, y: 30 },
+			{ slug: 'page', x: 190, y: 610 },
+			{ slug: 'single', x: 530, y: 610 },
+			{ slug: 'index', x: 360, y: 1190 },
+		] );
+		expect( materialization.connectors ).toHaveLength( 3 );
+		expect( materialization.connectors?.[ 0 ] ).toMatchObject( {
+			bend: 24,
+			appearance: {
+				dash: 'solid',
+				arrowheadStart: 'none',
+				arrowheadEnd: 'none',
+			},
+		} );
 	} );
 
 	it( 'lays templates out from the most specific hierarchy level', () => {

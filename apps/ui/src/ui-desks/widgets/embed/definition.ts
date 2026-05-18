@@ -52,8 +52,12 @@ export const embedWidgetDefinition = {
 				kinds: [ 'url' ],
 				protocols: [ 'http:', 'https:' ],
 			},
-			canHandle: ( payload ) => Boolean( getUrlEmbedInfo( payload.url ) ),
+			canHandle: ( payload ) => payload.kind === 'url' && Boolean( getUrlEmbedInfo( payload.url ) ),
 			handle: async ( payload ) => {
+				if ( payload.kind !== 'url' ) {
+					return null;
+				}
+
 				const embedInfo = getUrlEmbedInfo( payload.url );
 				if ( ! embedInfo ) {
 					return null;

@@ -64,6 +64,7 @@ export interface DeskWidgetComponentProps<
 	isEditing: boolean;
 	isHovered: boolean;
 	isSelected: boolean;
+	isTemporary?: boolean;
 	dropFeedback?: WidgetDropFeedbackTarget | null;
 	onWidgetPropsChange: ( widgetProps: TWidgetProps ) => void;
 	onEditComplete: () => void;
@@ -137,13 +138,19 @@ export interface WidgetFileHandler< TWidget extends DeskWidgetBase = DeskWidgetB
 	) => Promise< WidgetFileHandlerResult< TWidget > | null >;
 }
 
-export type WidgetPasteKind = 'url';
+export type WidgetPasteKind = 'url' | 'color';
 
-export type WidgetPastePayload = {
-	kind: 'url';
-	text: string;
-	url: string;
-};
+export type WidgetPastePayload =
+	| {
+			kind: 'url';
+			text: string;
+			url: string;
+	  }
+	| {
+			kind: 'color';
+			text: string;
+			color: string;
+	  };
 
 export interface WidgetPasteAccept {
 	kinds?: WidgetPasteKind[];

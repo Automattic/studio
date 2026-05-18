@@ -147,19 +147,25 @@ export const pdfWidgetDefinition = {
 				kinds: [ 'url' ],
 				protocols: [ 'http:', 'https:' ],
 			},
-			canHandle: ( payload ) => isPdfUrl( payload.url ),
-			handle: async ( payload ) => ( {
-				shapeProps: {
-					w: PDF_CARD_WIDTH,
-					h: PDF_CARD_HEIGHT,
-				},
-				widgetProps: {
-					url: payload.url,
-					title: getPdfTitleFromUrl( payload.url ),
-					mediaId: null,
-				},
-				shouldStartEditing: false,
-			} ),
+			canHandle: ( payload ) => payload.kind === 'url' && isPdfUrl( payload.url ),
+			handle: async ( payload ) => {
+				if ( payload.kind !== 'url' ) {
+					return null;
+				}
+
+				return {
+					shapeProps: {
+						w: PDF_CARD_WIDTH,
+						h: PDF_CARD_HEIGHT,
+					},
+					widgetProps: {
+						url: payload.url,
+						title: getPdfTitleFromUrl( payload.url ),
+						mediaId: null,
+					},
+					shouldStartEditing: false,
+				};
+			},
 		},
 	],
 } satisfies WidgetDefinition< PdfWidget >;

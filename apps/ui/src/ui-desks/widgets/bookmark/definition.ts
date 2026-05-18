@@ -48,12 +48,18 @@ export const bookmarkWidgetDefinition = {
 				kinds: [ 'url' ],
 				protocols: [ 'http:', 'https:' ],
 			},
-			handle: async ( payload ) => ( {
-				widgetProps: {
-					url: payload.url,
-				},
-				shouldStartEditing: false,
-			} ),
+			handle: async ( payload ) => {
+				if ( payload.kind !== 'url' ) {
+					return null;
+				}
+
+				return {
+					widgetProps: {
+						url: payload.url,
+					},
+					shouldStartEditing: false,
+				};
+			},
 		},
 	],
 } satisfies WidgetDefinition< BookmarkWidget >;

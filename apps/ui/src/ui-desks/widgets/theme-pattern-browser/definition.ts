@@ -16,6 +16,10 @@ import {
 	type ThemePatternBrowserWidgetProps,
 } from './types';
 import type {
+	DeskMaterialization,
+	DeskMaterializationContext,
+} from '@/ui-desks/desk/provider/context';
+import type {
 	ResolvedDeskStack,
 	ResolvedDeskWidget,
 	WidgetDefinition,
@@ -25,6 +29,10 @@ interface ThemePatternBrowserPosition {
 	x: number;
 	y: number;
 	rotation?: number;
+}
+
+interface ThemePatternBrowserMaterialization extends DeskMaterialization {
+	widgets: ThemePatternWidget[];
 }
 
 const SOURCE_SHAPE_PROPS = {
@@ -119,6 +127,55 @@ export function createThemePatternBrowserResolution(
 						),
 				  ]
 				: [],
+	};
+}
+
+export function createThemePatternBrowserMaterialization(
+	context: DeskMaterializationContext,
+	patterns: ThemePattern[]
+): ThemePatternBrowserMaterialization | null {
+	const sourceId = createMaterializationId( 'theme-pattern-browser' );
+	const browsablePatterns = pickBrowsablePatterns( patterns, DEFAULT_PATTERN_LIMIT );
+	if ( browsablePatterns.length === 0 ) {
+		return null;
+	}
+
+	const x = context.center.x - PATTERN_SHAPE_PROPS.w / 2;
+	const y = context.center.y - PATTERN_SHAPE_PROPS.h / 2;
+	const widgets = browsablePatterns.map(
+		( pattern ): ThemePatternWidget => ( {
+			id: `${ sourceId }:${ pattern.source }:${ sanitizeWidgetIdPart( pattern.id ) }`,
+			type: THEME_PATTERN_WIDGET_TYPE,
+			x,
+			y,
+			zIndex: context.zIndex,
+			shapeProps: PATTERN_SHAPE_PROPS,
+			widgetProps: {
+				patternId: pattern.id,
+				title: pattern.title,
+				content: pattern.content,
+				source: pattern.source,
+				...( pattern.blockId !== undefined ? { blockId: pattern.blockId } : {} ),
+				...( pattern.area ? { area: pattern.area } : {} ),
+			},
+		} )
+	);
+
+	return {
+		widgets,
+		selectWidgetIds: widgets.map( ( widget ) => widget.id ),
+		stacks:
+			widgets.length > 1
+				? [
+						{
+							id: `${ sourceId }:patterns`,
+							x,
+							y,
+							zIndex: context.zIndex,
+							memberIds: widgets.map( ( widget ) => widget.id ),
+						},
+				  ]
+				: undefined,
 	};
 }
 
@@ -229,4 +286,12 @@ function getPatternPositions( widget: ThemePatternBrowserWidget, count: number )
 		x: layout.x,
 		y: layout.y,
 	} ) );
+}
+
+function createMaterializationId( prefix: string ) {
+	return `${ prefix }:${ globalThis.crypto?.randomUUID?.() ?? Date.now().toString( 36 ) }`;
+}
+
+function sanitizeWidgetIdPart( value: string ) {
+	return value.replace( /[^a-z0-9_-]/gi, '-' ) || 'pattern';
 }

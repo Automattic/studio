@@ -24,7 +24,6 @@ vi.mock( '@/ui-desks/widgets/theme/component', () => ( {
 } ) );
 
 vi.mock( '@/ui-desks/widgets/theme/site-url-control', () => ( {
-	ThemeExploreControl: () => null,
 	ThemeSiteUrlControl: () => () => null,
 } ) );
 
@@ -33,7 +32,6 @@ describe( 'theme widget definition', () => {
 		expect( 'getEditAction' in themeWidgetDefinition ).toBe( false );
 		expect( 'edit' in themeWidgetDefinition.labels ).toBe( false );
 		expect( themeWidgetDefinition.controls?.map( ( control ) => control.id ) ).toEqual( [
-			'theme-explore',
 			'theme-font-library',
 			'theme-styles',
 			'theme-browser',

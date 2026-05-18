@@ -1,19 +1,13 @@
 import '@testing-library/jest-dom/vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { useRegistry } from '@wordpress/data';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { useSites } from '@/data/queries/use-sites';
 import { useDesk } from '@/ui-desks/desk/provider';
-import { getThemePatterns, getThemeTemplates } from '@/ui-desks/widgets/theme/api';
 import { useActiveTheme } from '@/ui-desks/widgets/theme/use-active-theme';
-import { ThemeExploreControl, ThemeSiteUrlControl } from './site-url-control';
-import { THEME_WIDGET_TYPE, type ThemeWidgetProps } from './types';
+import { ThemeSiteUrlControl } from './site-url-control';
+import { type ThemeWidgetProps } from './types';
 import type { ControlRenderContext } from '@/ui-desks/controls/types';
-
-vi.mock( '@wordpress/data', () => ( {
-	useRegistry: vi.fn(),
-} ) );
 
 vi.mock( '@/data/core', () => ( {
 	useConnector: vi.fn(),
@@ -27,21 +21,13 @@ vi.mock( '@/ui-desks/desk/provider', () => ( {
 	useDesk: vi.fn(),
 } ) );
 
-vi.mock( '@/ui-desks/widgets/theme/api', () => ( {
-	getThemePatterns: vi.fn(),
-	getThemeTemplates: vi.fn(),
-} ) );
-
 vi.mock( '@/ui-desks/widgets/theme/use-active-theme', () => ( {
 	useActiveTheme: vi.fn(),
 } ) );
 
-const useRegistryMock = vi.mocked( useRegistry );
 const useConnectorMock = vi.mocked( useConnector );
 const useSitesMock = vi.mocked( useSites );
 const useDeskMock = vi.mocked( useDesk );
-const getThemePatternsMock = vi.mocked( getThemePatterns );
-const getThemeTemplatesMock = vi.mocked( getThemeTemplates );
 const useActiveThemeMock = vi.mocked( useActiveTheme );
 
 describe( 'ThemeSiteUrlControl', () => {
@@ -50,9 +36,6 @@ describe( 'ThemeSiteUrlControl', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		openSiteUrl.mockResolvedValue( undefined );
-		useRegistryMock.mockReturnValue( {} as never );
-		getThemePatternsMock.mockResolvedValue( createThemePatterns() );
-		getThemeTemplatesMock.mockResolvedValue( createThemeTemplates() );
 		useActiveThemeMock.mockReturnValue( null );
 		useConnectorMock.mockReturnValue( {
 			openSiteUrl,
@@ -70,86 +53,6 @@ describe( 'ThemeSiteUrlControl', () => {
 				},
 			],
 		} as never );
-	} );
-
-	it( 'shows temporary theme template and pattern browsers from the selected theme card', async () => {
-		const toggleTemporaryDesk = vi.fn( () => true );
-		useDeskMock.mockReturnValue( {
-			siteId: 'site-1',
-			canAddWidgets: true,
-			selectedWidgetToolbarItem: {
-				kind: 'single-widget',
-				widget: createThemeWidget(),
-			},
-			isTemporaryDeskVisible: () => false,
-			toggleTemporaryDesk,
-		} as never );
-
-		render( <ThemeExploreControl { ...createControlContext() } /> );
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Explore theme' } ) );
-
-		await waitFor( () => expect( toggleTemporaryDesk ).toHaveBeenCalledTimes( 2 ) );
-		expect( getThemeTemplatesMock ).toHaveBeenCalledWith( { registry: {} } );
-		expect( getThemePatternsMock ).toHaveBeenCalledWith( { registry: {} } );
-		expect( toggleTemporaryDesk ).toHaveBeenCalledWith(
-			expect.objectContaining( {
-				id: 'theme-template-browser:theme-1:template-browser',
-				sourceWidgetId: 'theme-1',
-				followSource: true,
-				widgets: [
-					expect.objectContaining( {
-						id: 'theme-1:template-browser:template:index',
-						type: 'theme-template',
-						x: 856,
-						y: 100,
-					} ),
-				],
-			} )
-		);
-		expect( toggleTemporaryDesk ).toHaveBeenCalledWith(
-			expect.objectContaining( {
-				id: 'theme-pattern-browser:theme-1:pattern-browser',
-				sourceWidgetId: 'theme-1',
-				followSource: true,
-				widgets: [
-					expect.objectContaining( {
-						id: 'theme-1:pattern-browser:theme:theme/hero',
-						type: 'theme-pattern',
-						x: 100,
-						y: 636,
-					} ),
-				],
-			} )
-		);
-	} );
-
-	it( 'closes temporary theme browsers without refetching theme materials', () => {
-		const toggleTemporaryDesk = vi.fn( () => true );
-		useDeskMock.mockReturnValue( {
-			siteId: 'site-1',
-			canAddWidgets: true,
-			selectedWidgetToolbarItem: {
-				kind: 'single-widget',
-				widget: createThemeWidget(),
-			},
-			isTemporaryDeskVisible: ( id: string ) =>
-				id === 'theme-template-browser:theme-1:template-browser',
-			toggleTemporaryDesk,
-		} as never );
-
-		render( <ThemeExploreControl { ...createControlContext() } /> );
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Explore theme' } ) );
-
-		expect( getThemeTemplatesMock ).not.toHaveBeenCalled();
-		expect( getThemePatternsMock ).not.toHaveBeenCalled();
-		expect( toggleTemporaryDesk ).toHaveBeenCalledWith(
-			expect.objectContaining( {
-				id: 'theme-template-browser:theme-1:template-browser',
-				widgets: [],
-			} )
-		);
 	} );
 
 	it( 'opens the font library admin page without checking the theme type', () => {
@@ -248,46 +151,4 @@ function createActiveTheme( overrides: { isBlockTheme: boolean } ) {
 		screenshot: '',
 		...overrides,
 	};
-}
-
-function createThemeWidget() {
-	return {
-		id: 'theme-1',
-		type: THEME_WIDGET_TYPE,
-		x: 100,
-		y: 100,
-		zIndex: 'a1',
-		shapeProps: {
-			w: 660,
-			h: 440,
-		},
-		widgetProps: {
-			viewMode: 'stack',
-		},
-	};
-}
-
-function createThemeTemplates() {
-	return [
-		{
-			id: 'theme//index',
-			slug: 'index',
-			title: 'Index',
-			description: '',
-			theme: 'theme',
-			source: 'theme' as const,
-		},
-	];
-}
-
-function createThemePatterns() {
-	return [
-		{
-			source: 'theme' as const,
-			id: 'theme/hero',
-			title: 'Hero',
-			content: '<!-- wp:cover /-->',
-			categories: [],
-		},
-	];
 }

@@ -1,5 +1,7 @@
 import {
+	createShapeId,
 	getIndexAbove,
+	getIndicesAbove,
 	sortByIndex,
 	type Editor,
 	type TLArrowShape,
@@ -56,6 +58,7 @@ import { DESK_CONFIG_VERSION, type DeskConfig } from '../../types';
 import type {
 	SelectedWidgetToolbarItem,
 	AddDeskWidgetOptions,
+	DeskMaterialization,
 	TemporaryDeskConnector,
 	ToggleTemporaryDeskOptions,
 } from '../context';
@@ -186,6 +189,50 @@ export function addWidgetToEditor(
 	editor.createShape( shape ).select( shape.id );
 	if ( options.shouldStartEditing ?? true ) {
 		editor.setEditingShape( shape.id );
+	}
+	editor.focus();
+	return true;
+}
+
+export function addMaterializedDeskToEditor(
+	editor: Editor,
+	materialization: DeskMaterialization
+) {
+	if ( materialization.widgets.length === 0 ) {
+		return false;
+	}
+
+	const config = {
+		version: DESK_CONFIG_VERSION,
+		updatedAt: new Date().toISOString(),
+		widgets: materialization.widgets,
+		...( materialization.stacks?.length ? { stacks: materialization.stacks } : {} ),
+		...( materialization.connectors?.length ? { connectors: materialization.connectors } : {} ),
+	} satisfies DeskConfig;
+	const widgetShapes = deskConfigToCanvasShapes( config );
+	const renderIndices = getIndicesAbove(
+		getHighestShapeIndex( editor.getCurrentPageShapes() ),
+		widgetShapes.length
+	);
+	const indexedWidgetShapes = widgetShapes.map( ( shape, index ) => ( {
+		...shape,
+		index: renderIndices[ index ],
+	} ) );
+	const connectorShapes = deskConfigToCanvasConnectorShapes( config, indexedWidgetShapes );
+	const connectorBindings = deskConfigToCanvasConnectorBindings( config );
+
+	editor.createShapes( [ ...connectorShapes, ...indexedWidgetShapes ] );
+	if ( connectorBindings.length > 0 ) {
+		editor.createBindings( connectorBindings );
+	}
+
+	const selectedShapeIds = (
+		materialization.selectWidgetIds ?? materialization.widgets.map( ( widget ) => widget.id )
+	)
+		.map( ( widgetId ) => createShapeId( widgetId ) )
+		.filter( ( shapeId ) => editor.getShape( shapeId ) );
+	if ( selectedShapeIds.length > 0 ) {
+		editor.setSelectedShapes( selectedShapeIds );
 	}
 	editor.focus();
 	return true;

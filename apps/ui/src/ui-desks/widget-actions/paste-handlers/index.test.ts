@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createUrlPastePayload, doesPasteMatchAccept, getWidgetPasteHandler } from './index';
+import {
+	createColorPastePayload,
+	createUrlPastePayload,
+	createWidgetPastePayload,
+	doesPasteMatchAccept,
+	getWidgetPasteHandler,
+} from './index';
 
 vi.mock( '@wordpress/core-data', () => ( {
 	store: {},
@@ -24,6 +30,35 @@ describe( 'widget paste handlers', () => {
 		expect( createUrlPastePayload( 'example.com' ) ).toBeNull();
 		expect( createUrlPastePayload( 'ftp://example.com/file.zip' ) ).toBeNull();
 		expect( createUrlPastePayload( 'not a url' ) ).toBeNull();
+	} );
+
+	it( 'creates color paste payloads for supported color values', () => {
+		expect( createColorPastePayload( '#f80' ) ).toEqual( {
+			kind: 'color',
+			text: '#f80',
+			color: '#ff8800',
+		} );
+		expect( createColorPastePayload( 'rgb(255, 136, 0)' ) ).toEqual( {
+			kind: 'color',
+			text: 'rgb(255, 136, 0)',
+			color: '#ff8800',
+		} );
+	} );
+
+	it( 'does not create color paste payloads for arbitrary words', () => {
+		expect( createColorPastePayload( 'blueprint' ) ).toBeNull();
+		expect( createColorPastePayload( 'not a color' ) ).toBeNull();
+	} );
+
+	it( 'prefers color payloads before URL payloads', () => {
+		expect( createWidgetPastePayload( '#ff8800' ) ).toMatchObject( {
+			kind: 'color',
+			color: '#ff8800',
+		} );
+		expect( createWidgetPastePayload( 'https://example.com/' ) ).toMatchObject( {
+			kind: 'url',
+			url: 'https://example.com/',
+		} );
 	} );
 
 	it( 'matches bookmark paste handlers for supported URLs', () => {
@@ -76,6 +111,19 @@ describe( 'widget paste handlers', () => {
 		expect( doesPasteMatchAccept( payload, { protocols: [ 'http:' ] } ) ).toBe( false );
 	} );
 
+	it( 'matches color paste handlers for supported color values', () => {
+		const payload = createColorPastePayload( '#ff8800' );
+
+		if ( ! payload ) {
+			throw new Error( 'Expected a color paste payload.' );
+		}
+
+		expect( getWidgetPasteHandler( payload ) ).toMatchObject( {
+			definition: { type: 'color' },
+			handler: { id: 'color-value' },
+		} );
+	} );
+
 	it( 'creates bookmark widget props from the URL paste handler', async () => {
 		const payload = createUrlPastePayload( 'https://example.com/' );
 		const match = payload ? getWidgetPasteHandler( payload ) : null;
@@ -110,6 +158,7 @@ describe( 'widget paste handlers', () => {
 
 	it( 'creates PDF widget props from the URL paste handler', async () => {
 		const payload = createUrlPastePayload( 'https://example.com/files/Brief.pdf?download=1' );
+
 		const match = payload ? getWidgetPasteHandler( payload ) : null;
 
 		const result = payload ? await match?.handler.handle( payload, { siteId: 'site-1' } ) : null;
@@ -123,6 +172,21 @@ describe( 'widget paste handlers', () => {
 				url: 'https://example.com/files/Brief.pdf?download=1',
 				title: 'Brief',
 				mediaId: null,
+			},
+			shouldStartEditing: false,
+		} );
+	} );
+
+	it( 'creates color widget props from the color paste handler', async () => {
+		const payload = createColorPastePayload( 'hsl(32, 100%, 50%)' );
+		const match = payload ? getWidgetPasteHandler( payload ) : null;
+
+		const result = payload ? await match?.handler.handle( payload, { siteId: 'site-1' } ) : null;
+
+		expect( result ).toEqual( {
+			widgetProps: {
+				color: '#ff8800',
+				title: '',
 			},
 			shouldStartEditing: false,
 		} );

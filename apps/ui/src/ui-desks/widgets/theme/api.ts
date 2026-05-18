@@ -185,6 +185,13 @@ export async function getThemeMaterials(
 	};
 }
 
+export async function getThemeGlobalStyles(
+	context: WidgetResolverContext
+): Promise< ThemeGlobalStyles | null > {
+	const rawTheme = await getRawActiveTheme( context );
+	return rawTheme ? getGlobalStylesForTheme( context ) : null;
+}
+
 export async function renderPattern( content: string ): Promise< string | null > {
 	if ( ! content ) {
 		return null;

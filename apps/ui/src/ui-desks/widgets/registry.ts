@@ -37,11 +37,11 @@ export const widgetDefinitions = {
 	[ postCollectionWidgetDefinition.type ]: postCollectionWidgetDefinition,
 	[ siteCardWidgetDefinition.type ]: siteCardWidgetDefinition,
 	[ sitePreviewWidgetDefinition.type ]: sitePreviewWidgetDefinition,
+	[ themeStylesWidgetDefinition.type ]: themeStylesWidgetDefinition,
 	[ themeWidgetDefinition.type ]: themeWidgetDefinition,
 	[ themePatternBrowserWidgetDefinition.type ]: themePatternBrowserWidgetDefinition,
 	[ themeTemplateBrowserWidgetDefinition.type ]: themeTemplateBrowserWidgetDefinition,
 	[ themeTemplateWidgetDefinition.type ]: themeTemplateWidgetDefinition,
-	[ themeStylesWidgetDefinition.type ]: themeStylesWidgetDefinition,
 	[ themePatternWidgetDefinition.type ]: themePatternWidgetDefinition,
 } satisfies Record< string, DeskWidgetDefinition >;
 

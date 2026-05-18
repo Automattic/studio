@@ -96,6 +96,7 @@ out/
 
 # The latest WordPress files downloaded from the web
 wp-files/
+!wp-files/blueprints/
 
 # Release Tooling
 vendor/*

@@ -1,5 +1,10 @@
-import { RichTextData } from '@wordpress/rich-text';
 import { sortByIndex, type Editor, type TLShape, type TLShapeId } from 'tldraw';
+import {
+	getDeskWidgetConnectionLabel,
+	getDeskWidgetConnectionPillBg,
+	getDeskWidgetConnectionTitle,
+	type DeskWidgetConnectionTarget,
+} from '@/ui-desks/connectors/context';
 import {
 	canvasShapeToDeskWidget,
 	isDeskConnectorCanvasShape,
@@ -7,11 +12,7 @@ import {
 import { getWidgetDropHandler } from '@/ui-desks/widget-actions/drop-handlers';
 import type { DeskWidget, WidgetDropHandler } from '@/ui-desks/widgets/types';
 
-export interface DeskWidgetConnectionTarget {
-	shapeId: TLShapeId;
-	widget: DeskWidget;
-	label: string;
-}
+export type { DeskWidgetConnectionTarget };
 
 export interface SelectedDeskConnectorToolbarItem {
 	shapeId: TLShapeId;
@@ -42,6 +43,8 @@ export function getOutgoingWidgetConnections(
 			shapeId: targetShape.id,
 			widget,
 			label: getDeskWidgetConnectionLabel( widget ),
+			title: getDeskWidgetConnectionTitle( widget ),
+			pillBg: getDeskWidgetConnectionPillBg( widget ),
 		} );
 	}
 	return targets;
@@ -99,6 +102,14 @@ export function getWidgetShapeAtPagePoint( editor: Editor, point: { x: number; y
 		renderingOnly: true,
 		margin: editor.options.hitTestMargin / editor.getZoomLevel(),
 	} ) as TLShape | undefined;
+}
+
+export function isShapePartOfMultiSelection(
+	editor: Pick< Editor, 'getSelectedShapeIds' >,
+	shapeId: TLShapeId
+) {
+	const selectedShapeIds = editor.getSelectedShapeIds();
+	return selectedShapeIds.length > 1 && selectedShapeIds.includes( shapeId );
 }
 
 export function getConnectableShapeAtPagePoint(
@@ -179,39 +190,6 @@ export function focusOnDeskShape( editor: Editor, shapeId: TLShapeId ) {
 	return true;
 }
 
-export function getDeskWidgetConnectionLabel( widget: DeskWidget ) {
-	const props = widget.widgetProps as Record< string, unknown >;
-	switch ( widget.type as string ) {
-		case 'post':
-			return typeof props.postId === 'number' ? `Post #${ props.postId }` : 'Post';
-		case 'page':
-			return typeof props.pageId === 'number' ? `Page #${ props.pageId }` : 'Page';
-		case 'note': {
-			const text = typeof props.text === 'string' ? getRichTextPlainText( props.text ).trim() : '';
-			return text || 'Note';
-		}
-		case 'site-preview':
-			return typeof props.path === 'string' && props.path ? props.path : 'Preview';
-		case 'site-card':
-			return 'Site card';
-		case 'bookmark':
-		case 'embed':
-			return getUrlHostLabel( props.url ) ?? ( widget.type === 'embed' ? 'Embed' : 'Bookmark' );
-		case 'media':
-			return typeof props.mediaKind === 'string' && props.mediaKind === 'video' ? 'Video' : 'Image';
-		case 'drawing':
-			return 'Drawing';
-		case 'scratchpad':
-			return 'Scratchpad';
-		case 'blog':
-			return 'Blog';
-		case 'post-collection':
-			return 'Posts';
-		default:
-			return widget.type;
-	}
-}
-
 interface DeskConnectorEndpoints {
 	sourceShapeId: TLShapeId;
 	targetShapeId: TLShapeId;
@@ -224,26 +202,6 @@ function getWidgetForShapeId( editor: Editor, shapeId: TLShapeId ) {
 
 function getArrowBindingTerminal( props: object ) {
 	return ( props as { terminal?: unknown } ).terminal;
-}
-
-function getUrlHostLabel( value: unknown ) {
-	if ( typeof value !== 'string' || ! value ) {
-		return null;
-	}
-
-	try {
-		return new URL( value ).hostname.replace( /^www\./, '' );
-	} catch {
-		return value;
-	}
-}
-
-function getRichTextPlainText( value: string ) {
-	if ( typeof document === 'undefined' ) {
-		return value;
-	}
-
-	return RichTextData.fromHTMLString( value ).toPlainText();
 }
 
 function isPointInBounds(

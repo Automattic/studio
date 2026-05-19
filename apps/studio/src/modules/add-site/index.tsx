@@ -20,11 +20,13 @@ import { DotGrid } from 'src/components/dot-grid';
 import { FullscreenModal } from 'src/components/fullscreen-modal';
 import { useAddSite, CreateSiteFormValues } from 'src/hooks/use-add-site';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
+import { type ImportSource } from 'src/hooks/use-import-export';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useBlueprintDeeplink } from 'src/modules/add-site/hooks/use-blueprint-deeplink';
+import { useImportBackupDeeplink } from 'src/modules/add-site/hooks/use-import-backup-deeplink';
 import { useRootSelector, useAppDispatch, useI18nLocale } from 'src/stores';
 import { formatRtkError } from 'src/stores/format-rtk-error';
 import { openAddSiteModal, closeAddSiteModal, selectIsAddSiteModalOpen } from 'src/stores/ui-slice';
@@ -79,7 +81,8 @@ interface NavigationContentProps {
 	onFormSubmit: ( values: CreateSiteFormValues ) => void;
 	onValidityChange: ( isValid: boolean ) => void;
 	canSubmit: boolean;
-	setFileForImport: ( file: File | null ) => void;
+	fileForImport: ImportSource | null;
+	setFileForImport: ( file: ImportSource | null ) => void;
 	setSelectedBlueprint: ( blueprint?: Blueprint ) => void;
 	selectedBlueprint?: Blueprint;
 	blueprintPreferredVersions?: BlueprintPreferredVersions;
@@ -117,6 +120,7 @@ function NavigationContent( props: NavigationContentProps ) {
 		onFormSubmit,
 		onValidityChange,
 		canSubmit,
+		fileForImport,
 		setFileForImport,
 		selectedBlueprint,
 		setSelectedBlueprint,
@@ -143,11 +147,17 @@ function NavigationContent( props: NavigationContentProps ) {
 	}, [ location.path, onPathChange ] );
 
 	useEffect( () => {
-		if ( isDeeplinkFlow && selectedBlueprint ) {
+		if ( ! isDeeplinkFlow ) {
+			return;
+		}
+		if ( selectedBlueprint ) {
 			goTo( '/blueprint/deeplink' );
 			setIsDeeplinkFlow( false );
+		} else if ( fileForImport ) {
+			goTo( '/backup/create' );
+			setIsDeeplinkFlow( false );
 		}
-	}, [ isDeeplinkFlow, goTo, setIsDeeplinkFlow, selectedBlueprint ] );
+	}, [ isDeeplinkFlow, goTo, setIsDeeplinkFlow, selectedBlueprint, fileForImport ] );
 
 	const handleOptionSelect = useCallback(
 		( option: AddSiteFlowType ) => {
@@ -455,6 +465,7 @@ export function AddSiteModalContent( {
 		generateProposedPath,
 		deeplinkPhpVersion,
 		deeplinkWpVersion,
+		fileForImport,
 		setFileForImport,
 		selectedBlueprint,
 		setSelectedBlueprint,
@@ -481,7 +492,12 @@ export function AddSiteModalContent( {
 	} );
 	const latestStableVersion = versions.find( ( version ) => version.value === 'latest' );
 
-	const initialNavigatorPath = selectedBlueprint ? '/blueprint/deeplink' : '/';
+	let initialNavigatorPath = '/';
+	if ( selectedBlueprint ) {
+		initialNavigatorPath = '/blueprint/deeplink';
+	} else if ( fileForImport ) {
+		initialNavigatorPath = '/backup/create';
+	}
 
 	// Initialize form with generated site name and path
 	useEffect( () => {
@@ -591,6 +607,7 @@ export function AddSiteModalContent( {
 		onFormSubmit: handleFormSubmit,
 		onValidityChange: setIsFormValid,
 		canSubmit,
+		fileForImport,
 		setFileForImport,
 		selectedBlueprint,
 		setSelectedBlueprint,
@@ -659,6 +676,7 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 	const {
 		resetForm,
 		isAnySiteProcessing,
+		setFileForImport,
 		setSelectedBlueprint,
 		setDeeplinkPhpVersion,
 		setDeeplinkWpVersion,
@@ -692,6 +710,13 @@ export default function AddSiteModal( { className }: AddSiteModalProps ) {
 		setBlueprintSuggestedHttps,
 		setBlueprintSuggestedSiteName,
 		setBlueprintRequiresCustomDomain,
+		setIsDeeplinkFlow,
+		onModalOpen: openModal,
+	} );
+
+	useImportBackupDeeplink( {
+		isAnySiteProcessing,
+		setFileForImport,
 		setIsDeeplinkFlow,
 		onModalOpen: openModal,
 	} );

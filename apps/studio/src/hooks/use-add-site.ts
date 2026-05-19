@@ -7,7 +7,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo, useState } from 'react';
 import { useAuth } from 'src/hooks/use-auth';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
-import { useImportExport } from 'src/hooks/use-import-export';
+import { useImportExport, type ImportSource } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useAppDispatch } from 'src/stores';
@@ -53,7 +53,7 @@ export function useAddSite() {
 	const { client } = useAuth();
 	const dispatch = useAppDispatch();
 	const { setSelectedTab } = useContentTabs();
-	const [ fileForImport, setFileForImport ] = useState< File | null >( null );
+	const [ fileForImport, setFileForImport ] = useState< ImportSource | null >( null );
 	const [ selectedBlueprint, setSelectedBlueprint ] = useState< Blueprint | undefined >();
 	const [ selectedRemoteSite, setSelectedRemoteSite ] = useState< SyncSite | undefined >();
 	const [ blueprintPreferredVersions, setBlueprintPreferredVersions ] = useState<

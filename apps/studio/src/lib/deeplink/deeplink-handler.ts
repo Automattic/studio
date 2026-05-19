@@ -1,5 +1,6 @@
 import { handleAddSiteWithBlueprint } from 'src/lib/deeplink/handlers/add-site-with-blueprint';
 import { handleAuthDeeplink } from 'src/lib/deeplink/handlers/auth';
+import { handleImportBackupDeeplink } from 'src/lib/deeplink/handlers/import-backup';
 import { handleSyncConnectSiteDeeplink } from 'src/lib/deeplink/handlers/sync-connect-site';
 
 /**
@@ -8,6 +9,7 @@ import { handleSyncConnectSiteDeeplink } from 'src/lib/deeplink/handlers/sync-co
  * - wp-studio://auth - OAuth authentication callback
  * - wp-studio://sync-connect-site - Sync site connection from WordPress.com
  * - wp-studio://add-site?blueprint_url=<encoded-url> - Add site with blueprint from URL
+ * - wp-studio://import-backup?url=<encoded-url> - Add site by importing a backup file
  */
 export async function handleDeeplink( url: string ): Promise< void > {
 	const urlObject = new URL( url );
@@ -22,6 +24,9 @@ export async function handleDeeplink( url: string ): Promise< void > {
 			break;
 		case 'add-site':
 			await handleAddSiteWithBlueprint( urlObject );
+			break;
+		case 'import-backup':
+			await handleImportBackupDeeplink( urlObject );
 			break;
 		default:
 			console.warn( `Unknown deeplink host: ${ host }` );

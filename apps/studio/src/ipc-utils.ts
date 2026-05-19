@@ -28,6 +28,13 @@ export interface IpcEvents {
 			blueprintPath: string;
 		},
 	];
+	'import-backup-from-deeplink': [
+		{
+			backupPath: string;
+			fileName: string;
+			fileSize: number;
+		},
+	];
 	'auth-updated': [ { token: StoredAuthToken } | { token: null } | { error: unknown } ];
 	'on-export': [ ExportEventTuple, string ];
 	'on-import': [ ImportEventTuple, string ];

@@ -18,6 +18,23 @@ export type ImportProgressState = {
 	};
 };
 
+/**
+ * A reference to a backup file already present on disk (e.g. downloaded by the
+ * main process for a deeplink import). Used in place of a browser `File` when
+ * the renderer never received the file through a user file picker / drop.
+ */
+export type DeeplinkBackupFile = {
+	path: string;
+	name: string;
+	size: number;
+};
+
+export type ImportSource = File | DeeplinkBackupFile;
+
+export function isDeeplinkBackupFile( source: ImportSource ): source is DeeplinkBackupFile {
+	return ! ( source instanceof File );
+}
+
 type ExportProgressState = {
 	[ siteId: string ]: {
 		statusMessage: string;
@@ -30,7 +47,7 @@ type ExportProgressState = {
 interface ImportExportContext {
 	importState: ImportProgressState;
 	importFile: (
-		file: File,
+		file: ImportSource,
 		selectedSite: SiteDetails,
 		options?: { showImportNotification?: boolean; isNewSite?: boolean }
 	) => Promise< void >;
@@ -68,7 +85,7 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 
 	const importFile = useCallback(
 		async (
-			file: File,
+			file: ImportSource,
 			selectedSite: SiteDetails,
 			{
 				showImportNotification = true,
@@ -88,12 +105,14 @@ export const ImportExportProvider = ( { children }: { children: React.ReactNode 
 				},
 			} ) );
 
-			const filePath = getIpcApi().getPathForFile( file );
+			const isDeeplinkBackup = isDeeplinkBackupFile( file );
+			const filePath = isDeeplinkBackup ? file.path : getIpcApi().getPathForFile( file );
 
 			try {
 				await getIpcApi().importSite( selectedSite.id, filePath, {
 					alwaysStartServer: true,
 					showNotification: showImportNotification,
+					removeBackupOnComplete: isDeeplinkBackup,
 				} );
 			} catch ( error ) {
 				// The main process handles displaying the error modal, so we don't need any explicit error

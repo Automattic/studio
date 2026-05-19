@@ -1,17 +1,17 @@
-#!/usr/bin/env ts-node
+#!/usr/bin/env tsx
 /**
  * Download a Studio PHP CLI binary for local development.
  * NOT used in production builds — binaries are not bundled with Studio or the CLI.
  *
- * Source manifest: https://appscdn.wordpress.com/builds/wordpress-com-studio-php-cli/releases.json
+ * Source metadata: tools/common/lib/php-binary-cdn-metadata.json
  *
  * Usage:
- *   npx ts-node scripts/download-php-binary.ts [version] [platform] [arch]
+ *   npx tsx scripts/download-php-binary.ts [version] [platform] [arch]
  *
  * Examples:
- *   npx ts-node scripts/download-php-binary.ts            # defaults to RecommendedPHPVersion
- *   npx ts-node scripts/download-php-binary.ts 8.3
- *   npx ts-node scripts/download-php-binary.ts 8.3 darwin arm64
+ *   npx tsx scripts/download-php-binary.ts            # defaults to RecommendedPHPVersion
+ *   npx tsx scripts/download-php-binary.ts 8.4
+ *   npx tsx scripts/download-php-binary.ts 8.4 darwin arm64
  */
 
 import crypto from 'crypto';
@@ -23,8 +23,8 @@ import { downloadFile } from '../tools/common/lib/download-file';
 import { extractZip } from '../tools/common/lib/extract-zip';
 import { isErrnoException } from '../tools/common/lib/is-errno-exception';
 import {
-	getPhpBinaryManifestDownloadInfo,
-	PHP_BINARY_MANIFEST_URL,
+	getEffectivePhpBinaryArch,
+	getPhpBinaryDownloadInfo,
 	NativePhpSupportedVersions,
 	NativePhpSupportedVersion,
 	PhpBinaryDownloadInfo,
@@ -50,8 +50,7 @@ const { version, ...args } = z
 	.transform( ( [ version, platform, arch ] ) => ( { version, platform, arch } ) )
 	.parse( [ positionalArgs[ 0 ], positionalArgs[ 1 ], positionalArgs[ 2 ] ] );
 
-// Windows ARM64 uses the Windows x64 PHP binary under OS emulation.
-const effectiveArch: Arch = args.platform === 'win32' ? 'x64' : args.arch;
+const effectiveArch = getEffectivePhpBinaryArch( args.platform, args.arch );
 if ( args.arch === 'arm64' && args.platform === 'win32' ) {
 	console.warn(
 		'Warning: no Windows ARM64 PHP binary available. Downloading x64 binary instead (runs under Windows 11 emulation).'
@@ -66,7 +65,7 @@ async function main(): Promise< void > {
 	const platformKey = `${ args.platform }-${ effectiveArch }`;
 
 	try {
-		const downloadInfo = await resolvePhpBinaryDownloadInfo();
+		const downloadInfo = resolvePhpBinaryDownloadInfo();
 		const binDir = path.join( getConfigDirectory(), 'php-bin', downloadInfo.patchVersion );
 		const destPath = path.join( binDir, binaryName );
 
@@ -103,7 +102,6 @@ async function main(): Promise< void > {
 			} );
 			console.log( '\nDownload complete.' );
 
-			// Verify SHA-256
 			console.log( 'Verifying SHA-256…' );
 			const data = await fs.promises.readFile( downloadPath );
 			const actual = crypto.createHash( 'sha256' ).update( data ).digest( 'hex' );
@@ -114,18 +112,16 @@ async function main(): Promise< void > {
 			}
 			console.log( '  Hash OK.' );
 
-			// Extract
 			console.log( 'Extracting PHP binary…' );
 			const tmpDir = os.tmpdir();
 			const extractDir = fs.mkdtempSync(
 				path.join( tmpDir, `php-${ downloadInfo.patchVersion }-` )
 			);
-			const expectedBinary = isWindows ? 'php.exe' : 'php';
 			try {
 				await extractZip( downloadPath, extractDir );
-				const src = path.join( extractDir, expectedBinary );
+				const src = path.join( extractDir, binaryName );
 				if ( ! fs.existsSync( src ) ) {
-					throw new Error( `${ expectedBinary } not found after extraction.` );
+					throw new Error( `${ binaryName } not found after extraction.` );
 				}
 				fs.copyFileSync( src, destPath );
 				if ( ! isWindows ) {
@@ -157,35 +153,14 @@ async function main(): Promise< void > {
 	}
 }
 
-async function resolvePhpBinaryDownloadInfo(): Promise< PhpBinaryDownloadInfo > {
-	let response: Response;
-	try {
-		response = await fetch( PHP_BINARY_MANIFEST_URL );
-	} catch {
-		throw new Error( `Could not fetch ${ PHP_BINARY_MANIFEST_URL }.` );
-	}
-	if ( ! response.ok ) {
-		throw new Error(
-			`Could not fetch ${ PHP_BINARY_MANIFEST_URL }: status ${ response.status } ${ response.statusText }`
-		);
+function resolvePhpBinaryDownloadInfo(): PhpBinaryDownloadInfo {
+	const downloadInfo = getPhpBinaryDownloadInfo( version, args.platform, args.arch );
+	if ( downloadInfo ) {
+		return downloadInfo;
 	}
 
-	const manifest = await response.json();
-	const appsCdnDownload = getPhpBinaryManifestDownloadInfo(
-		manifest,
-		version,
-		args.platform,
-		args.arch
-	);
-	if ( appsCdnDownload ) {
-		return appsCdnDownload;
-	}
-
-	const manifestEntries = Array.isArray( manifest ) ? manifest.length : 'unknown';
 	throw new Error(
-		`PHP ${ version } is not listed in the public Apps CDN manifest for ` +
-			`${ args.platform }-${ effectiveArch }. Found ${ manifestEntries } release entries at ` +
-			`${ PHP_BINARY_MANIFEST_URL }.`
+		`PHP ${ version } is not available for this device yet. Please try again later.`
 	);
 }
 

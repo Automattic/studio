@@ -1,9 +1,20 @@
 import { useRef } from 'react';
 import { useEditor, useValue, type TLShape } from 'tldraw';
 import { useDesk } from '@/ui-desks/desk/provider/context';
+import { setThemeMaterialsStackViewInEditor } from '@/ui-desks/widgets/theme/stack';
+import { isThemeMaterialsStackId } from '@/ui-desks/widgets/theme/types';
 import { expandStackInEditor } from './editor-commands';
-import { getStackId, getStackOrder, getStackViewMode, isStackExpanded } from './utils';
+import {
+	getStackFanStep,
+	getStackId,
+	getStackOrder,
+	getStackViewMode,
+	isStackExpanded,
+} from './utils';
 import type { PointerEvent } from 'react';
+
+const STACK_HOVER_TRANSLATE = 8;
+const STACK_HOVER_ROTATE_DEG = 3;
 
 export function useStackShapeInteraction( shape: TLShape ) {
 	const editor = useEditor();
@@ -31,10 +42,9 @@ export function useStackShapeInteraction( shape: TLShape ) {
 	const members = stackId
 		? editor.getCurrentPageShapes().filter( ( member ) => getStackId( member ) === stackId )
 		: [];
-	const center = ( members.length - 1 ) / 2;
-	const step = order - center;
-	const hoverTranslate = isHovered ? step * 7 : 0;
-	const hoverRotate = isHovered ? step * 2.5 : 0;
+	const step = getStackFanStep( order, members.length );
+	const hoverTranslate = isHovered ? step * STACK_HOVER_TRANSLATE : 0;
+	const hoverRotate = isHovered ? step * STACK_HOVER_ROTATE_DEG : 0;
 	const pressScale = isPressed ? 0.985 : 1;
 
 	return {
@@ -73,6 +83,13 @@ export function useStackShapeInteraction( shape: TLShape ) {
 			}
 
 			pointerDownPointRef.current = null;
+			if ( isThemeMaterialsStackId( stackId ) ) {
+				if ( setThemeMaterialsStackViewInEditor( editor, stackId, 'tiles' ) ) {
+					editor.setSelectedShapes( [] );
+				}
+				return;
+			}
+
 			if ( expandStackInEditor( editor, stackId ) ) {
 				editor.setSelectedShapes( [] );
 			}

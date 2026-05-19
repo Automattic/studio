@@ -34,7 +34,7 @@ export interface DeskViewport {
 	z: number;
 }
 
-export type DeskStackViewMode = 'stack' | 'tiles';
+export type DeskStackViewMode = 'stack' | 'tiles' | 'circle';
 
 export interface DeskStack {
 	id: string;
@@ -45,12 +45,33 @@ export interface DeskStack {
 	viewMode?: DeskStackViewMode;
 }
 
+export interface DeskConnectorEndpoint {
+	widgetId: string;
+	normalizedAnchor: {
+		x: number;
+		y: number;
+	};
+}
+
+export interface DeskConnector {
+	id: string;
+	from: DeskConnectorEndpoint;
+	to: DeskConnectorEndpoint;
+	bend?: number;
+	appearance?: {
+		dash?: 'solid' | 'dashed';
+		arrowheadStart?: 'none' | 'dot';
+		arrowheadEnd?: 'none' | 'arrow';
+	};
+}
+
 export interface DeskConfig< TWidget extends DeskWidgetBase = DeskWidgetBase > {
 	version: typeof DESK_CONFIG_VERSION;
 	updatedAt: string;
 	viewport?: DeskViewport;
 	widgets: TWidget[];
 	stacks?: DeskStack[];
+	connectors?: DeskConnector[];
 }
 
 export interface DesksConfig {

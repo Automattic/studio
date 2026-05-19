@@ -6,12 +6,12 @@ import { downloadFile } from '@studio/common/lib/download-file';
 import { extractZip } from '@studio/common/lib/extract-zip';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import {
-	getPhpBinaryManifestDownloadInfo,
-	PHP_BINARY_MANIFEST_URL,
+	getPhpBinaryDownloadInfo,
 	validateNativePhpVersion,
 	type PhpBinaryDownloadInfo,
 	type NativePhpSupportedVersion,
 } from '@studio/common/lib/php-binary-metadata';
+import { ensureNativePhpIniFiles } from '../native-php';
 import { getPhpBinaryPath } from './paths';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 
@@ -23,7 +23,14 @@ export async function ensurePhpBinaryAvailable(
 	onProgress?: ( downloaded: number, total: number ) => void
 ): Promise< void > {
 	const validatedVersion = validateNativePhpVersion( version );
-	await downloadAndInstall( validatedVersion, onProgress );
+
+	if ( ! fs.existsSync( getPhpBinaryPath( validatedVersion ) ) ) {
+		await downloadAndInstall( validatedVersion, onProgress );
+	}
+
+	// Idempotent — keeps php.ini in sync for existing installs after a Studio
+	// upgrade changes its contents. No-op on non-Windows platforms.
+	await ensureNativePhpIniFiles( validatedVersion );
 }
 
 async function waitForBinary( binaryPath: string ): Promise< void > {
@@ -99,27 +106,14 @@ export async function resolvePhpBinaryDownloadInfo(
 	platform: NodeJS.Platform,
 	arch: string
 ): Promise< PhpBinaryDownloadInfo > {
-	const manifest = await fetchPhpBinaryManifest();
-	const appsCdnDownload = getPhpBinaryManifestDownloadInfo( manifest, version, platform, arch );
-	if ( appsCdnDownload ) {
-		return appsCdnDownload;
+	const downloadInfo = getPhpBinaryDownloadInfo( version, platform, arch );
+	if ( downloadInfo ) {
+		return downloadInfo;
 	}
 
 	throw new Error(
 		`PHP ${ version } is not available for this device yet. Please try again later.`
 	);
-}
-
-async function fetchPhpBinaryManifest(): Promise< unknown > {
-	try {
-		const response = await fetch( PHP_BINARY_MANIFEST_URL );
-		if ( ! response.ok ) {
-			throw new Error( `status ${ response.status }` );
-		}
-		return await response.json();
-	} catch {
-		throw new Error( 'Could not check PHP availability. Please try again later.' );
-	}
 }
 
 function getArchiveFileName( url: string ): string {

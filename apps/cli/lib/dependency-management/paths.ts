@@ -1,9 +1,7 @@
-import fs from 'fs';
 import path from 'path';
 import {
-	comparePhpPatchVersionsDescending,
+	getConfiguredPhpBinaryVersion,
 	isPhpPatchVersion,
-	isPhpPatchVersionForMinor,
 	NativePhpSupportedVersion,
 } from '@studio/common/lib/php-binary-metadata';
 import { getConfigDirectory, getServerFilesPath } from '@studio/common/lib/well-known-paths';
@@ -18,24 +16,6 @@ function getExactPhpBinaryPath( version: string ): string {
 	return path.join( getPhpBinaryRoot(), version, PHP_BINARY_FILENAME );
 }
 
-export function getInstalledPhpBinaryPath(
-	version: NativePhpSupportedVersion
-): string | undefined {
-	const phpBinRoot = getPhpBinaryRoot();
-	if ( ! fs.existsSync( phpBinRoot ) ) {
-		return undefined;
-	}
-
-	const patchVersion = fs
-		.readdirSync( phpBinRoot, { withFileTypes: true } )
-		.filter( ( entry ) => entry.isDirectory() && isPhpPatchVersionForMinor( entry.name, version ) )
-		.map( ( entry ) => entry.name )
-		.sort( comparePhpPatchVersionsDescending )
-		.find( ( candidate ) => fs.existsSync( getExactPhpBinaryPath( candidate ) ) );
-
-	return patchVersion ? getExactPhpBinaryPath( patchVersion ) : undefined;
-}
-
 // PHP binaries live in ~/.studio/php-bin/<patch>/ — downloaded on demand when a site
 // using that minor version is first started. Not bundled in production builds.
 export function getPhpBinaryPath( version: NativePhpSupportedVersion | string ): string {
@@ -43,10 +23,8 @@ export function getPhpBinaryPath( version: NativePhpSupportedVersion | string ):
 		return getExactPhpBinaryPath( version );
 	}
 
-	return (
-		getInstalledPhpBinaryPath( version as NativePhpSupportedVersion ) ??
-		getExactPhpBinaryPath( version )
-	);
+	const configuredVersion = getConfiguredPhpBinaryVersion( version as NativePhpSupportedVersion );
+	return getExactPhpBinaryPath( configuredVersion ?? version );
 }
 
 const WP_CLI_PHAR_FILENAME = 'wp-cli.phar';

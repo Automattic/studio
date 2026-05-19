@@ -1,8 +1,9 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { getConfiguredPhpBinaryVersion } from '@studio/common/lib/php-binary-metadata';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getInstalledPhpBinaryPath, getPhpBinaryPath } from 'cli/lib/dependency-management/paths';
+import { getPhpBinaryPath } from 'cli/lib/dependency-management/paths';
 
 let configDir: string;
 
@@ -29,12 +30,29 @@ describe( 'getPhpBinaryPath', () => {
 		fs.rmSync( configDir, { recursive: true, force: true } );
 	} );
 
-	it( 'uses the latest installed patch directory for a PHP minor', () => {
-		writePhpBinary( '8.4.20' );
-		const latestBinary = writePhpBinary( '8.4.21' );
+	it( 'uses the configured patch directory for a PHP minor', () => {
+		expect( getPhpBinaryPath( '8.4' ) ).toBe(
+			path.join(
+				configDir,
+				'php-bin',
+				getConfiguredPhpBinaryVersion( '8.4' )!,
+				process.platform === 'win32' ? 'php.exe' : 'php'
+			)
+		);
+	} );
 
-		expect( getInstalledPhpBinaryPath( '8.4' ) ).toBe( latestBinary );
-		expect( getPhpBinaryPath( '8.4' ) ).toBe( latestBinary );
+	it( 'does not let existing local patch folders override metadata', () => {
+		const localBinary = writePhpBinary( '8.4.21' );
+
+		expect( getPhpBinaryPath( '8.4' ) ).not.toBe( localBinary );
+		expect( getPhpBinaryPath( '8.4' ) ).toBe(
+			path.join(
+				configDir,
+				'php-bin',
+				getConfiguredPhpBinaryVersion( '8.4' )!,
+				process.platform === 'win32' ? 'php.exe' : 'php'
+			)
+		);
 	} );
 
 	it( 'uses an exact patch path when called with a PHP patch version', () => {

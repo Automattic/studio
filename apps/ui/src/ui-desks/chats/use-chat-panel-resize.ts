@@ -1,14 +1,26 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 
+export type ChatPanelSide = 'left' | 'right';
+
 export const CHAT_PANEL_EXPANDED_WIDTH = 760;
 export const CHAT_PANEL_COLLAPSED_WIDTH = 560;
 export const CHAT_PANEL_COLLAPSE_THRESHOLD = CHAT_PANEL_EXPANDED_WIDTH;
 export const CHAT_PANEL_MIN_WIDTH = 320;
 export const CHAT_PANEL_MAX_WIDTH = 1200;
+export const CHAT_PANEL_LIST_WIDTH = 300;
 
 const CHAT_PANEL_STORAGE_KEY = 'ui-desks-chat-panel-width';
 const CHAT_PANEL_VIEWPORT_MARGIN = 36;
+
+export interface ChatPanelResizeState {
+	width: number;
+	isResizing: boolean;
+	listCollapsed: boolean;
+	collapseList: () => void;
+	expandList: () => void;
+	startResize: ( event: ReactPointerEvent< HTMLDivElement > ) => void;
+}
 
 function getViewportWidth() {
 	return typeof window === 'undefined' ? CHAT_PANEL_MAX_WIDTH : window.innerWidth;
@@ -39,7 +51,26 @@ function persistChatPanelWidth( width: number ) {
 	window.localStorage.setItem( CHAT_PANEL_STORAGE_KEY, String( width ) );
 }
 
-export function useChatPanelResize( side: 'left' | 'right' ) {
+export function getChatPanelShift( {
+	open,
+	expanded,
+	side,
+	width,
+}: {
+	open: boolean;
+	expanded: boolean;
+	side: ChatPanelSide;
+	width: number;
+} ) {
+	if ( ! open ) {
+		return 0;
+	}
+
+	const visibleWidth = expanded ? width : CHAT_PANEL_LIST_WIDTH;
+	return ( side === 'right' ? -1 : 1 ) * ( visibleWidth / 2 );
+}
+
+export function useChatPanelResize( side: ChatPanelSide ): ChatPanelResizeState {
 	const [ width, setWidth ] = useState( () =>
 		clampChatPanelWidth( readStoredChatPanelWidth(), getViewportWidth() )
 	);

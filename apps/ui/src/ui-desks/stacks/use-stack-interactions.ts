@@ -1,6 +1,12 @@
 import { useEffect, useRef } from 'react';
+import {
+	collapseThemeMaterialsStackForShapeInEditor,
+	collapseThemeMaterialsStacksInEditor,
+	setThemeMaterialsStackViewInEditor,
+} from '@/ui-desks/widgets/theme/stack';
+import { isThemeMaterialsStackId } from '@/ui-desks/widgets/theme/types';
 import { collapseAllExpandedStacksInEditor, expandStackInEditor } from './editor-commands';
-import { getStackId, getStackViewMode, isStackExpanded } from './utils';
+import { getStackConfiguredViewMode, getStackId, getStackViewMode, isStackExpanded } from './utils';
 import type { Editor, TLEventInfo, TLShapeId } from 'tldraw';
 
 export function useStackInteractions( editor: Editor | null ) {
@@ -81,7 +87,7 @@ function useTiledStackDragSelection( editor: Editor | null ) {
 
 				const hitShape = getShapeAtPointer( editor );
 				const stackId = getStackId( hitShape );
-				if ( ! hitShape || ! stackId || getStackViewMode( hitShape ) !== 'tiles' ) {
+				if ( ! hitShape || ! stackId || getStackViewMode( hitShape ) === 'stack' ) {
 					return;
 				}
 
@@ -211,6 +217,19 @@ function useStackClickToOpen( editor: Editor | null ) {
 				if ( movedStack ) {
 					return;
 				}
+				if ( isThemeMaterialsStackId( clickedStackId ) ) {
+					const stackShape = editor
+						.getCurrentPageShapes()
+						.find( ( shape ) => getStackId( shape ) === clickedStackId );
+					const didOpen =
+						getStackConfiguredViewMode( stackShape ) === 'circle'
+							? expandStackInEditor( editor, clickedStackId )
+							: setThemeMaterialsStackViewInEditor( editor, clickedStackId, 'tiles' );
+					if ( didOpen ) {
+						editor.setSelectedShapes( [] );
+					}
+					return;
+				}
 				if ( expandStackInEditor( editor, clickedStackId ) ) {
 					editor.setSelectedShapes( [] );
 				}
@@ -218,8 +237,25 @@ function useStackClickToOpen( editor: Editor | null ) {
 			}
 
 			const selectedShapeIds = editor.getSelectedShapeIds();
+			const movedSelection = selectedShapeIds.some( ( shapeId ) => movedShapeIds.has( shapeId ) );
+			if ( movedSelection ) {
+				movedShapeIds.clear();
+				return;
+			}
+
+			if ( selectedShapeIds.length === 1 ) {
+				const [ selectedShapeId ] = selectedShapeIds;
+				if (
+					collapseThemeMaterialsStackForShapeInEditor( editor, editor.getShape( selectedShapeId ) )
+				) {
+					movedShapeIds.clear();
+					return;
+				}
+			}
+
 			if ( selectedShapeIds.length === 0 ) {
 				collapseAllExpandedStacksInEditor( editor );
+				collapseThemeMaterialsStacksInEditor( editor );
 			}
 			movedShapeIds.clear();
 		};
@@ -238,7 +274,7 @@ function useStackClickToOpen( editor: Editor | null ) {
 function getCollapsedStackIdAtPointer( editor: Editor ) {
 	const stackId = getStackIdAtPointer( editor );
 	const hitShape = getShapeAtPointer( editor );
-	return stackId && ! isStackExpanded( hitShape ) && getStackViewMode( hitShape ) !== 'tiles'
+	return stackId && ! isStackExpanded( hitShape ) && getStackViewMode( hitShape ) === 'stack'
 		? stackId
 		: null;
 }

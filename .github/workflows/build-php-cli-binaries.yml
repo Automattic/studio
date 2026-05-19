@@ -13,9 +13,14 @@ on:
         required: true
         default: 3.5.1
       spc_ref:
+        # Pinned past 2.8.5 to pick up PR #1132 ("fix centos 7 gd build"),
+        # which patches a `-l-lpthread` malformation in libcurl.pc that
+        # breaks every extension link test on the gnu-docker image's
+        # older glibc / CMake FindThreads combination. The fix landed
+        # 2026-05-07; bump to the next SPC release once it cuts.
         description: static-php-cli ref to use for the macOS and Linux builds
         required: true
-        default: 2.8.5
+        default: ef95e4f8
       debug:
         description: Enable verbose build logs
         required: true

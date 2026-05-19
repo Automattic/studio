@@ -1,4 +1,4 @@
-#!/usr/bin/env ts-node
+#!/usr/bin/env tsx
 /**
  * Download a static PHP binary for local development.
  * NOT used in production builds — binaries are not bundled with Studio or the CLI.
@@ -8,13 +8,13 @@
  *   - Windows x64:   `windows/spc-max` variant (pdo_sqlite + opcache)
  *
  * Usage:
- *   npx ts-node scripts/download-php-binary.ts [version] [platform] [arch]
+ *   npx tsx scripts/download-php-binary.ts [version] [platform] [arch]
  *
  * Examples:
- *   npx ts-node scripts/download-php-binary.ts            # defaults to RecommendedPHPVersion
- *   npx ts-node scripts/download-php-binary.ts 8.3
- *   npx ts-node scripts/download-php-binary.ts 8.3 darwin arm64
- *   npx ts-node scripts/download-php-binary.ts --compute-hashes 8.3 darwin arm64
+ *   npx tsx scripts/download-php-binary.ts            # defaults to RecommendedPHPVersion
+ *   npx tsx scripts/download-php-binary.ts 8.3
+ *   npx tsx scripts/download-php-binary.ts 8.3 darwin arm64
+ *   npx tsx scripts/download-php-binary.ts --compute-hashes 8.3 darwin arm64
  */
 
 import crypto from 'crypto';
@@ -143,7 +143,7 @@ async function main(): Promise< void > {
 			} else {
 				console.warn(
 					`Warning: no pinned hash for ${ version }-${ platformKey }. Skipping verification.\n` +
-						`         Compute it with: npx ts-node scripts/download-php-binary.ts --compute-hashes ${ version } ${ args.platform } ${ args.arch }`
+						`         Compute it with: npx tsx scripts/download-php-binary.ts --compute-hashes ${ version } ${ args.platform } ${ args.arch }`
 				);
 			}
 

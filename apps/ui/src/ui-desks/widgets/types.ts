@@ -8,6 +8,7 @@ import type { LoadingWidget } from '@/ui-desks/widgets/loading/types';
 import type { MediaWidget } from '@/ui-desks/widgets/media/types';
 import type { NoteWidget } from '@/ui-desks/widgets/note/types';
 import type { PageWidget } from '@/ui-desks/widgets/page/types';
+import type { PdfWidget } from '@/ui-desks/widgets/pdf/types';
 import type { PostWidget } from '@/ui-desks/widgets/post/types';
 import type { PostCollectionWidget } from '@/ui-desks/widgets/post-collection/types';
 import type { ScratchpadWidget } from '@/ui-desks/widgets/scratchpad/types';
@@ -15,8 +16,10 @@ import type { SiteCardWidget } from '@/ui-desks/widgets/site-card/types';
 import type { SitePreviewWidget } from '@/ui-desks/widgets/site-preview/types';
 import type { ThemeWidget } from '@/ui-desks/widgets/theme/types';
 import type { ThemePatternWidget } from '@/ui-desks/widgets/theme-pattern/types';
+import type { ThemePatternBrowserWidget } from '@/ui-desks/widgets/theme-pattern-browser/types';
 import type { ThemeStylesWidget } from '@/ui-desks/widgets/theme-styles/types';
 import type { ThemeTemplateWidget } from '@/ui-desks/widgets/theme-template/types';
+import type { ThemeTemplateBrowserWidget } from '@/ui-desks/widgets/theme-template-browser/types';
 import type { DeskStack, DeskWidgetBase } from '@studio/common/types/desk';
 import type { createRegistry } from '@wordpress/data';
 import type { ComponentProps, ComponentType, ReactElement } from 'react';
@@ -25,6 +28,11 @@ import type { Editor, JsonObject, TLShapeId } from 'tldraw';
 export interface WidgetIndicator {
 	cornerRadius?: number;
 	stroke?: string;
+}
+
+export interface WidgetResizeConstraints {
+	minWidth?: number;
+	minHeight?: number;
 }
 
 export type WidgetResolutionState = 'loading';
@@ -56,6 +64,7 @@ export interface DeskWidgetComponentProps<
 	isEditing: boolean;
 	isHovered: boolean;
 	isSelected: boolean;
+	isTemporary?: boolean;
 	dropFeedback?: WidgetDropFeedbackTarget | null;
 	onWidgetPropsChange: ( widgetProps: TWidgetProps ) => void;
 	onEditComplete: () => void;
@@ -129,13 +138,19 @@ export interface WidgetFileHandler< TWidget extends DeskWidgetBase = DeskWidgetB
 	) => Promise< WidgetFileHandlerResult< TWidget > | null >;
 }
 
-export type WidgetPasteKind = 'url';
+export type WidgetPasteKind = 'url' | 'color';
 
-export type WidgetPastePayload = {
-	kind: 'url';
-	text: string;
-	url: string;
-};
+export type WidgetPastePayload =
+	| {
+			kind: 'url';
+			text: string;
+			url: string;
+	  }
+	| {
+			kind: 'color';
+			text: string;
+			color: string;
+	  };
 
 export interface WidgetPasteAccept {
 	kinds?: WidgetPasteKind[];
@@ -304,6 +319,7 @@ export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBa
 	getSummary?: ( widgetProps: TWidget[ 'widgetProps' ] ) => string;
 	getLoadingShapeProps?: ( widget: TWidget ) => TWidget[ 'shapeProps' ];
 	getIndicator?: ( widgetProps: TWidget[ 'widgetProps' ] ) => WidgetIndicator;
+	resizeConstraints?: WidgetResizeConstraints;
 	getFittedShapeProps?: (
 		context: WidgetFitContentContext< TWidget >
 	) => WidgetFitContentResult< TWidget > | Promise< WidgetFitContentResult< TWidget > >;
@@ -329,10 +345,13 @@ export type DeskWidget =
 	| MediaWidget
 	| PostWidget
 	| PageWidget
+	| PdfWidget
 	| PostCollectionWidget
 	| SiteCardWidget
 	| SitePreviewWidget
 	| ThemeWidget
+	| ThemePatternBrowserWidget
+	| ThemeTemplateBrowserWidget
 	| ThemePatternWidget
 	| ThemeStylesWidget
 	| ThemeTemplateWidget;
@@ -348,10 +367,13 @@ export type DeskWidgetDefinition =
 	| WidgetDefinition< MediaWidget >
 	| WidgetDefinition< PostWidget >
 	| WidgetDefinition< PageWidget >
+	| WidgetDefinition< PdfWidget >
 	| WidgetDefinition< PostCollectionWidget >
 	| WidgetDefinition< SiteCardWidget >
 	| WidgetDefinition< SitePreviewWidget >
 	| WidgetDefinition< ThemeWidget >
+	| WidgetDefinition< ThemePatternBrowserWidget >
+	| WidgetDefinition< ThemeTemplateBrowserWidget >
 	| WidgetDefinition< ThemePatternWidget >
 	| WidgetDefinition< ThemeStylesWidget >
 	| WidgetDefinition< ThemeTemplateWidget >;

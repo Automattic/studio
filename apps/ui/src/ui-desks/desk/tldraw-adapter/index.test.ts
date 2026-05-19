@@ -23,6 +23,7 @@ import type { EmbedWidget } from '@/ui-desks/widgets/embed/types';
 import type { MediaWidget } from '@/ui-desks/widgets/media/types';
 import type { NoteWidget } from '@/ui-desks/widgets/note/types';
 import type { PageWidget } from '@/ui-desks/widgets/page/types';
+import type { PdfWidget } from '@/ui-desks/widgets/pdf/types';
 import type { PostWidget } from '@/ui-desks/widgets/post/types';
 import type { ScratchpadWidget } from '@/ui-desks/widgets/scratchpad/types';
 import type { SiteCardWidget } from '@/ui-desks/widgets/site-card/types';
@@ -397,6 +398,51 @@ describe( 'tldraw adapter', () => {
 				},
 				widgetProps: {
 					url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+				},
+			},
+		} );
+		expect( canvasShapeToDeskWidget( shape ) ).toEqual( {
+			...widget,
+			rotation: undefined,
+		} );
+	} );
+
+	it( 'maps a PDF widget through the canvas shape adapter', () => {
+		const widget: PdfWidget = {
+			id: 'pdf-1',
+			type: 'pdf',
+			x: 130,
+			y: 140,
+			zIndex: 'a8',
+			shapeProps: {
+				w: 320,
+				h: 110,
+			},
+			widgetProps: {
+				url: 'https://example.com/brief.pdf',
+				title: 'Brief',
+				mediaId: null,
+			},
+		};
+
+		const shape = deskWidgetToCanvasShape( widget ) as TLShape;
+
+		expect( shape ).toMatchObject( {
+			id: 'shape:pdf-1',
+			type: RECTANGLE_WIDGET_SHAPE_TYPE,
+			x: 130,
+			y: 140,
+			index: 'a8',
+			props: {
+				widgetType: 'pdf',
+				shapeProps: {
+					w: 320,
+					h: 110,
+				},
+				widgetProps: {
+					url: 'https://example.com/brief.pdf',
+					title: 'Brief',
+					mediaId: null,
 				},
 			},
 		} );

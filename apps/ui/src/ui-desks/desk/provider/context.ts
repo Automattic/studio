@@ -39,6 +39,25 @@ export interface ToggleTemporaryDeskOptions {
 	connectors?: TemporaryDeskConnector[];
 }
 
+export interface DeskMaterialization {
+	widgets: DeskWidget[];
+	stacks?: DeskStack[];
+	connectors?: DeskConnector[];
+	selectWidgetIds?: string[];
+}
+
+export interface DeskMaterializationContext {
+	center: {
+		x: number;
+		y: number;
+	};
+	zIndex: string;
+}
+
+export type CreateDeskMaterialization = (
+	context: DeskMaterializationContext
+) => DeskMaterialization | null;
+
 export interface DeskContextValue {
 	siteId?: string;
 	isLoading: boolean;
@@ -56,6 +75,10 @@ export interface DeskContextValue {
 	registerEditor: RegisterDeskEditor;
 	pressStack: ( stackId: string ) => void;
 	addWidget: ( type: string, options?: AddDeskWidgetOptions ) => boolean;
+	addMaterializedDesk: (
+		createMaterialization: CreateDeskMaterialization,
+		options?: AddDeskMaterializedOptions
+	) => boolean;
 	addWidgetAtScreenPoint: (
 		type: string,
 		point: { x: number; y: number },
@@ -101,6 +124,13 @@ export interface AddDeskWidgetOptions {
 	shouldStartEditing?: boolean;
 }
 
+export interface AddDeskMaterializedOptions {
+	center?: {
+		x: number;
+		y: number;
+	};
+}
+
 export interface DeskProviderProps {
 	siteId?: string;
 	children: ReactNode;
@@ -129,6 +159,7 @@ const defaultDeskContext: DeskContextValue = {
 	registerEditor: noopRegisterEditor,
 	pressStack: noopPressStack,
 	addWidget: () => false,
+	addMaterializedDesk: () => false,
 	addWidgetAtScreenPoint: () => false,
 	addPastedContent: () => Promise.resolve( false ),
 	startDrawing: () => false,

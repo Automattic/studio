@@ -7,6 +7,7 @@ import { loadingWidgetDefinition } from '@/ui-desks/widgets/loading/definition';
 import { mediaWidgetDefinition } from '@/ui-desks/widgets/media/definition';
 import { noteWidgetDefinition } from '@/ui-desks/widgets/note/definition';
 import { pageWidgetDefinition } from '@/ui-desks/widgets/page/definition';
+import { pdfWidgetDefinition } from '@/ui-desks/widgets/pdf/definition';
 import { postWidgetDefinition } from '@/ui-desks/widgets/post/definition';
 import { postCollectionWidgetDefinition } from '@/ui-desks/widgets/post-collection/definition';
 import { scratchpadWidgetDefinition } from '@/ui-desks/widgets/scratchpad/definition';
@@ -14,13 +15,16 @@ import { siteCardWidgetDefinition } from '@/ui-desks/widgets/site-card/definitio
 import { sitePreviewWidgetDefinition } from '@/ui-desks/widgets/site-preview/definition';
 import { themeWidgetDefinition } from '@/ui-desks/widgets/theme/definition';
 import { themePatternWidgetDefinition } from '@/ui-desks/widgets/theme-pattern/definition';
+import { themePatternBrowserWidgetDefinition } from '@/ui-desks/widgets/theme-pattern-browser/definition';
 import { themeStylesWidgetDefinition } from '@/ui-desks/widgets/theme-styles/definition';
 import { themeTemplateWidgetDefinition } from '@/ui-desks/widgets/theme-template/definition';
+import { themeTemplateBrowserWidgetDefinition } from '@/ui-desks/widgets/theme-template-browser/definition';
 import type { DeskWidgetDefinition } from './types';
 
 export const widgetDefinitions = {
 	[ scratchpadWidgetDefinition.type ]: scratchpadWidgetDefinition,
 	[ embedWidgetDefinition.type ]: embedWidgetDefinition,
+	[ pdfWidgetDefinition.type ]: pdfWidgetDefinition,
 	[ bookmarkWidgetDefinition.type ]: bookmarkWidgetDefinition,
 	[ colorWidgetDefinition.type ]: colorWidgetDefinition,
 	[ blogWidgetDefinition.type ]: blogWidgetDefinition,
@@ -33,9 +37,11 @@ export const widgetDefinitions = {
 	[ postCollectionWidgetDefinition.type ]: postCollectionWidgetDefinition,
 	[ siteCardWidgetDefinition.type ]: siteCardWidgetDefinition,
 	[ sitePreviewWidgetDefinition.type ]: sitePreviewWidgetDefinition,
-	[ themeWidgetDefinition.type ]: themeWidgetDefinition,
-	[ themeTemplateWidgetDefinition.type ]: themeTemplateWidgetDefinition,
 	[ themeStylesWidgetDefinition.type ]: themeStylesWidgetDefinition,
+	[ themeWidgetDefinition.type ]: themeWidgetDefinition,
+	[ themePatternBrowserWidgetDefinition.type ]: themePatternBrowserWidgetDefinition,
+	[ themeTemplateBrowserWidgetDefinition.type ]: themeTemplateBrowserWidgetDefinition,
+	[ themeTemplateWidgetDefinition.type ]: themeTemplateWidgetDefinition,
 	[ themePatternWidgetDefinition.type ]: themePatternWidgetDefinition,
 } satisfies Record< string, DeskWidgetDefinition >;
 

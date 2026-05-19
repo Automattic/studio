@@ -1,13 +1,11 @@
-import { __ } from '@wordpress/i18n';
+import { type ComponentProps } from 'react';
 import { useConnector } from '@/data/core';
 import { useSites } from '@/data/queries/use-sites';
 import { Button } from '@/ui-desks/components';
 import { useDesk } from '@/ui-desks/desk/provider';
 import { useActiveTheme } from '@/ui-desks/widgets/theme/use-active-theme';
-import styles from './site-url-control.module.css';
-import type { ThemeWidgetProps } from './types';
+import { type ThemeWidgetProps } from './types';
 import type { ControlRenderContext } from '@/ui-desks/controls/types';
-import type { ComponentProps } from 'react';
 
 type ThemeSiteUrlControlOptions = {
 	icon: ComponentProps< typeof Button >[ 'icon' ];
@@ -15,24 +13,6 @@ type ThemeSiteUrlControlOptions = {
 	path: string;
 	requiresBlockTheme?: boolean;
 };
-
-export function ThemeExploreControl( _props: ControlRenderContext< ThemeWidgetProps > ) {
-	return (
-		<Button
-			className={ styles.toolbarLink }
-			label={ __( 'Explore theme' ) }
-			variant="quiet"
-			size="medium"
-			onClick={ () => {
-				// Future workspace: full desk for the active theme.
-				// Hooked once the destination exists; for now leaves the affordance discoverable.
-				console.log( '[StudioDesk] Explore theme \u2014 coming soon' );
-			} }
-		>
-			{ __( 'Explore theme' ) }
-		</Button>
-	);
-}
 
 export function ThemeSiteUrlControl( {
 	icon,

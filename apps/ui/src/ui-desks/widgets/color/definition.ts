@@ -42,4 +42,25 @@ export const colorWidgetDefinition = {
 		},
 	} ),
 	getSummary: ( widgetProps ) => widgetProps.title || widgetProps.color,
+	pasteHandlers: [
+		{
+			id: 'color-value',
+			accept: {
+				kinds: [ 'color' ],
+			},
+			handle: async ( payload ) => {
+				if ( payload.kind !== 'color' ) {
+					return null;
+				}
+
+				return {
+					widgetProps: {
+						color: payload.color,
+						title: '',
+					},
+					shouldStartEditing: false,
+				};
+			},
+		},
+	],
 } satisfies WidgetDefinition< ColorWidget >;

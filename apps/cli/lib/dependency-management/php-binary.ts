@@ -13,6 +13,7 @@ import {
 	type NativePhpSupportedVersion,
 } from '@studio/common/lib/php-binary-metadata';
 import { extract } from 'tar';
+import { ensureNativePhpIniFiles } from '../native-php';
 import { getPhpBinaryPath } from './paths';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 
@@ -25,11 +26,13 @@ export async function ensurePhpBinaryAvailable(
 ): Promise< void > {
 	const validatedVersion = validateNativePhpVersion( version );
 
-	if ( fs.existsSync( getPhpBinaryPath( validatedVersion ) ) ) {
-		return;
+	if ( ! fs.existsSync( getPhpBinaryPath( validatedVersion ) ) ) {
+		await downloadAndInstall( validatedVersion, onProgress );
 	}
 
-	await downloadAndInstall( validatedVersion, onProgress );
+	// Idempotent — keeps php.ini in sync for existing installs after a Studio
+	// upgrade changes its contents. No-op on non-Windows platforms.
+	await ensureNativePhpIniFiles( validatedVersion );
 }
 
 async function waitForBinary( binaryPath: string ): Promise< void > {

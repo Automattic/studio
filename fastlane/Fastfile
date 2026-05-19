@@ -718,6 +718,16 @@ def php_cli_cdn_builds(version:)
       file_name: "php-#{version}-cli-windows-x86_64.zip",
       name: 'Windows x64',
       platform: 'Windows - x64'
+    },
+    {
+      file_name: "php-#{version}-cli-linux-x86_64.zip",
+      name: 'Linux x64',
+      platform: 'Linux - x64'
+    },
+    {
+      file_name: "php-#{version}-cli-linux-aarch64.zip",
+      name: 'Linux arm64',
+      platform: 'Linux - ARM64'
     }
   ]
 end

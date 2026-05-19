@@ -57,12 +57,15 @@ jobs:
             artifact_arch: x86_64
             extensions: *unix_extensions
           - target: linux-x86_64
-            runner: ubuntu-latest
+            # Matches SPC's own CI for the glibc variant. The runner here is
+            # just the Docker host; the actual glibc version baked into the
+            # binary comes from the spc-gnu-docker base image.
+            runner: ubuntu-22.04
             artifact_platform: linux
             artifact_arch: x86_64
             extensions: *unix_extensions
           - target: linux-aarch64
-            runner: ubuntu-24.04-arm
+            runner: ubuntu-22.04-arm
             artifact_platform: linux
             artifact_arch: aarch64
             extensions: *unix_extensions
@@ -106,7 +109,7 @@ jobs:
           echo "PHP_MINOR=$php_minor" >> "$GITHUB_ENV"
 
       - name: Setup PHP for static-php-cli
-        # Linux runs SPC inside the spc-alpine-docker container, which ships
+        # Linux runs SPC inside the spc-gnu-docker container, which ships
         # its own PHP + Composer; host PHP is only needed for the macOS path.
         if: runner.os == 'macOS'
         uses: shivammathur/setup-php@v2
@@ -173,14 +176,17 @@ jobs:
             build_args+=(--debug)
           fi
 
-          # Pick the right SPC entrypoint. On Linux we use the alpine-docker
-          # wrapper (matching upstream's own CI), which runs SPC inside an
-          # image that already has the musl toolchain set up — producing a
-          # fully static binary and sidestepping the per-runner doctor pass.
-          # On macOS we drive SPC on the host, so doctor --auto-fix is still
-          # needed to install any missing Homebrew build deps.
+          # Pick the right SPC entrypoint. On Linux we use the gnu-docker
+          # wrapper, which builds against glibc inside an Ubuntu-based
+          # container. The alpine-docker wrapper would give us a smaller,
+          # fully-static binary but static musl lacks dlopen, which means
+          # the shared Xdebug extension (target: ["shared"] in SPC's
+          # ext.json) can't be loaded at runtime. glibc-dynamic is the
+          # standard SPC answer for "I need shared extensions on Linux."
+          # On macOS we drive SPC on the host, so doctor --auto-fix is
+          # still needed to install any missing Homebrew build deps.
           if [ "$RUNNER_OS" = "Linux" ]; then
-            spc=(./bin/spc-alpine-docker)
+            spc=(./bin/spc-gnu-docker)
           else
             spc=(php bin/spc)
             "${spc[@]}" doctor --auto-fix
@@ -281,24 +287,22 @@ jobs:
 
           extension_dir="$staging_dir/ext"
 
-          # SPC builds the CLI binary fully static against musl on Linux, so
-          # the resulting binary should have no dynamic library mappings.
-          # `ldd` exits non-zero on a static binary on glibc systems, so
-          # swallow the status and grep for the "=>" arrows that only appear
-          # when libraries are resolved.
-          ldd_output=$(ldd "$staging_dir/php" 2>&1 || true)
-          if echo "$ldd_output" | grep -qE ' => '; then
-            echo "PHP binary has unexpected dynamic library dependencies:" >&2
-            echo "$ldd_output" >&2
-            exit 1
-          fi
-
-          # The shared Xdebug extension links dynamically against musl, but
-          # must not retain references to paths inside the SPC build tree.
-          if readelf -d "$staging_dir/ext/xdebug.so" | grep -F "$spc_root"; then
-            echo "Found non-portable static-php-cli dependency in xdebug.so" >&2
-            exit 1
-          fi
+          # SPC's gnu-docker build links the binary dynamically against
+          # glibc + a handful of standard system libraries — that's
+          # expected and what makes shared Xdebug work. What we do need
+          # to verify is that no RPATH/RUNPATH baked into the binary or
+          # the shared Xdebug extension points back at the SPC build
+          # tree, either on the host (`$spc_root`) or inside the
+          # container (`/app/...`); either would make the artifact
+          # non-portable.
+          for f in "$staging_dir/php" "$staging_dir/ext/xdebug.so"; do
+            rpaths=$(readelf -d "$f" 2>/dev/null | grep -E '\(R(UN)?PATH\)' || true)
+            if [ -n "$rpaths" ] && echo "$rpaths" | grep -qE "$spc_root|/app/"; then
+              echo "Found non-portable rpath in $f:" >&2
+              echo "$rpaths" >&2
+              exit 1
+            fi
+          done
 
           cat > "$staging_dir/runtime.json" <<JSON
           {

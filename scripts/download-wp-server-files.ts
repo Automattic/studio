@@ -7,10 +7,10 @@ import {
 } from '@wp-playground/tools';
 import fs from 'fs-extra';
 import { z } from 'zod';
+import { extractZip } from '@studio/common/lib/extract-zip';
 import { SQLITE_DATABASE_INTEGRATION_RELEASE_URL } from '../apps/studio/src/constants';
-import { extractZip } from '../tools/common/lib/extract-zip';
 
-const WP_SERVER_FILES_PATH = path.join( __dirname, '..', 'wp-files' );
+const WP_SERVER_FILES_PATH = path.join( import.meta.dirname, '..', 'wp-files' );
 
 const partialGithubReleaseSchema = z.object( {
 	tag_name: z.string(),

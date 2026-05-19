@@ -1,8 +1,10 @@
 {
 	"extends": "../tsconfig.base.json",
 	"compilerOptions": {
+		"module": "preserve",
+		"moduleResolution": "bundler",
+		"noEmit": true,
 		"paths": {
-			"*": [ "../node_modules/*" ],
 			"@studio/common/*": [ "../tools/common/*" ]
 		}
 	},

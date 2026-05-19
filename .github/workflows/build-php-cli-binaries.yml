@@ -431,6 +431,10 @@ jobs:
     name: Publish Apps CDN artifacts
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+      pull-requests: write
     env:
       PHP_VERSION: ${{ inputs.php_version }}
       PHP_CLI_VISIBILITY: ${{ inputs.apps_cdn_visibility }}
@@ -474,7 +478,7 @@ jobs:
           if [ "$DRY_RUN" = "true" ]; then
             echo "Dry run completed for PHP ${PHP_VERSION} CLI artifacts with ${PHP_CLI_VISIBILITY} visibility." >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "Uploaded PHP ${PHP_VERSION} CLI artifacts with ${PHP_CLI_VISIBILITY} visibility." >> "$GITHUB_STEP_SUMMARY"
+            echo "Uploaded or updated PHP ${PHP_VERSION} CLI artifacts with ${PHP_CLI_VISIBILITY} visibility." >> "$GITHUB_STEP_SUMMARY"
           fi
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
@@ -492,3 +496,40 @@ jobs:
               end
             end
           '
+
+      - name: Update PHP CLI metadata
+        if: ${{ inputs.upload_to_apps_cdn }}
+        id: php-cli-metadata
+        run: |
+          set -euo pipefail
+
+          node scripts/update-php-binary-cdn-metadata.mjs \
+            --version "${PHP_VERSION}" \
+            --upload-results "${PWD}/out/php-binaries/apps-cdn-upload-results.json"
+
+          if git diff --quiet -- tools/common/lib/php-binary-cdn-metadata.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create PHP CLI metadata PR
+        if: ${{ steps.php-cli-metadata.outputs.changed == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          branch="update-php-cli-metadata-${PHP_VERSION}-${GITHUB_RUN_ID}"
+          # Standard GitHub Actions bot noreply identity for workflow-created commits.
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add tools/common/lib/php-binary-cdn-metadata.json
+          git commit -m "Update PHP ${PHP_VERSION} binary metadata"
+          git push --set-upstream origin "$branch"
+          gh pr create \
+            --base "${GITHUB_REF_NAME}" \
+            --head "$branch" \
+            --title "Update PHP ${PHP_VERSION} binary metadata" \
+            --body "Updates PHP CLI binary CDN metadata after a successful Apps CDN upload."

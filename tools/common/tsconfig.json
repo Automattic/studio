@@ -2,9 +2,14 @@
 	"extends": "../../tsconfig.base.json",
 	"compilerOptions": {
 		"composite": true,
+		"module": "preserve",
+		"moduleResolution": "bundler",
 		"outDir": "dist",
 		"declaration": true,
-		"emitDeclarationOnly": true
+		"emitDeclarationOnly": true,
+		"paths": {
+			"@wp-playground/blueprints/blueprint-schema-validator": [ "../../node_modules/@wp-playground/blueprints/blueprint-schema-validator" ]
+		}
 	},
 	"include": [ "**/*" ],
 	"exclude": [

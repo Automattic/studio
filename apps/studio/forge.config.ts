@@ -278,7 +278,7 @@ const config: ForgeConfig = {
 
 			console.log( `Downloading Node.js binary for ${ platform }-${ arch }...` );
 			await execAsync(
-				`npx ts-node ${ path.join(
+				`npx tsx ${ path.join(
 					repoRoot,
 					'scripts',
 					'download-node-binary.ts'

@@ -1,6 +1,8 @@
 {
 	"extends": "./tsconfig.base.json",
 	"compilerOptions": {
+		"module": "preserve",
+		"moduleResolution": "bundler",
 		"outDir": "dist",
 		"paths": {
 			"*": [ "./node_modules/*" ],
@@ -11,12 +13,12 @@
 		}
 	},
 	"include": [
-		"apps/studio/src/**/*",
-		"apps/studio/e2e/**/*",
-		"apps/cli/**/*",
-		"tools/common/**/*",
+		"./apps/studio/src/**/*",
+		"./apps/studio/e2e/**/*",
+		"./apps/cli/**/*",
+		"./tools/common/**/*",
 		"./vitest.global-setup.ts",
-		"scripts/**/*"
+		"./scripts/**/*"
 	],
 	"exclude": [ "**/__mocks__/**/*", "**/node_modules/**/*", "**/dist/**/*", "**/out/**/*" ]
 }

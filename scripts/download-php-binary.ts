@@ -123,7 +123,7 @@ async function main(): Promise< void > {
 				if ( ! fs.existsSync( src ) ) {
 					throw new Error( `${ binaryName } not found after extraction.` );
 				}
-				fs.copyFileSync( src, destPath );
+				copyDirectoryContents( extractDir, binDir );
 				if ( ! isWindows ) {
 					fs.chmodSync( destPath, 0o755 );
 				}
@@ -150,6 +150,15 @@ async function main(): Promise< void > {
 		console.warn(
 			`The native-php runtime will not be available. Run \`npm run download:php-binary\` to retry.`
 		);
+	}
+}
+
+function copyDirectoryContents( sourceDir: string, destDir: string ): void {
+	for ( const entry of fs.readdirSync( sourceDir ) ) {
+		fs.cpSync( path.join( sourceDir, entry ), path.join( destDir, entry ), {
+			recursive: true,
+			force: true,
+		} );
 	}
 }
 

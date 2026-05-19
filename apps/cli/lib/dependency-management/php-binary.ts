@@ -161,11 +161,20 @@ async function extractAndInstall(
 		if ( ! fs.existsSync( src ) ) {
 			throw new Error( `${ binaryName } not found after extraction. Archive may be corrupt.` );
 		}
-		fs.copyFileSync( src, destPath );
+		copyDirectoryContents( extractDir, path.dirname( destPath ) );
 		if ( ! isWindows ) {
 			fs.chmodSync( destPath, 0o755 );
 		}
 	} finally {
 		fs.rmSync( extractDir, { recursive: true, force: true } );
+	}
+}
+
+function copyDirectoryContents( sourceDir: string, destDir: string ): void {
+	for ( const entry of fs.readdirSync( sourceDir ) ) {
+		fs.cpSync( path.join( sourceDir, entry ), path.join( destDir, entry ), {
+			recursive: true,
+			force: true,
+		} );
 	}
 }

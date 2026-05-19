@@ -20,7 +20,7 @@ on:
         # 2026-05-07; bump to the next SPC release once it cuts.
         description: static-php-cli ref to use for the macOS and Linux builds
         required: true
-        default: ef95e4f8
+        default: ef95e4f857b3c205ee3c9fb06eb8737d2d715fe5
       debug:
         description: Enable verbose build logs
         required: true

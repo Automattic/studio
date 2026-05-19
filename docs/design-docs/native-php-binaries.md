@@ -61,3 +61,7 @@ them as:
 - build type: `Production`
 - install type: `Full Install`
 - platform: `Mac - Silicon`, `Mac - Intel`, or `Windows - x64`
+
+The upload is update-friendly by default. If a matching PHP CLI build already
+exists on Apps CDN, the lane lets the CDN replace the existing build artifact
+instead of failing on the duplicate version.

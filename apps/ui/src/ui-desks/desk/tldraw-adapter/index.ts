@@ -137,11 +137,11 @@ export function deskConfigToCanvasConnectorShapes(
 		props: {
 			kind: 'arc',
 			color: CONNECTOR_COLOR,
-			dash: CONNECTOR_DASH,
+			dash: connector.appearance?.dash ?? CONNECTOR_DASH,
 			size: 'm',
 			bend: connector.bend ?? CONNECTOR_DEFAULT_BEND,
-			arrowheadStart: 'dot',
-			arrowheadEnd: 'arrow',
+			arrowheadStart: connector.appearance?.arrowheadStart ?? 'dot',
+			arrowheadEnd: connector.appearance?.arrowheadEnd ?? 'arrow',
 			start: { x: 0, y: 0 },
 			end: { x: 2, y: 0 },
 		},
@@ -368,6 +368,7 @@ function canvasConnectorShapeToDeskConnector(
 	}
 
 	const bend = typeof shape.props.bend === 'number' ? shape.props.bend : undefined;
+	const appearance = getConnectorAppearance( shape );
 	return {
 		id: getDeskConnectorIdFromCanvasShapeId( shape.id ),
 		from: {
@@ -379,7 +380,18 @@ function canvasConnectorShapeToDeskConnector(
 			normalizedAnchor: endAnchor,
 		},
 		...( bend !== undefined ? { bend } : {} ),
+		...( appearance ? { appearance } : {} ),
 	};
+}
+
+function getConnectorAppearance( shape: TLArrowShape ): DeskConnector[ 'appearance' ] | null {
+	const appearance = {
+		dash: shape.props.dash === 'solid' ? 'solid' : undefined,
+		arrowheadStart: shape.props.arrowheadStart === 'none' ? 'none' : undefined,
+		arrowheadEnd: shape.props.arrowheadEnd === 'none' ? 'none' : undefined,
+	} satisfies DeskConnector[ 'appearance' ];
+
+	return Object.values( appearance ).some( Boolean ) ? appearance : null;
 }
 
 function getConnectorBindingAnchor( binding: ConnectorArrowBinding ) {

@@ -1,15 +1,21 @@
 import { __ } from '@wordpress/i18n';
+import {
+	COLOR_WIDGET_DRAG_MIME_TYPE,
+	COLOR_WIDGET_DRAG_TITLE_MIME_TYPE,
+	type ColorFormat,
+	type ColorWidgetProps,
+} from '../types';
 import styles from './style.module.css';
-import type { ColorFormat, ColorWidgetProps } from '../types';
 import type {
 	DeskWidgetComponentProps,
 	DeskWidgetThumbnailComponentProps,
 } from '@/ui-desks/widgets/types';
-import type { CSSProperties, MouseEvent, PointerEvent } from 'react';
+import type { CSSProperties, DragEvent, MouseEvent, PointerEvent } from 'react';
 
 export function ColorWidgetComponent( {
 	id,
 	widgetProps,
+	isTemporary = false,
 	onWidgetPropsChange,
 }: DeskWidgetComponentProps< ColorWidgetProps > ) {
 	const format = getColorFormat( widgetProps );
@@ -28,6 +34,7 @@ export function ColorWidgetComponent( {
 			id={ id }
 			widgetProps={ widgetProps }
 			parts={ parts }
+			isDraggable={ isTemporary }
 			onCycleFormat={ cycleFormat }
 		/>
 	);
@@ -50,16 +57,32 @@ function ColorCard( {
 	id,
 	widgetProps,
 	parts,
+	isDraggable = false,
 	onCycleFormat,
 }: {
 	id?: string;
 	widgetProps: ColorWidgetProps;
 	parts: { label: string | null; values: string };
+	isDraggable?: boolean;
 	onCycleFormat?: ( event: MouseEvent< HTMLButtonElement > ) => void;
 } ) {
+	function handleDragStart( event: DragEvent< HTMLDivElement > ) {
+		if ( ! isDraggable ) {
+			return;
+		}
+
+		event.stopPropagation();
+		event.dataTransfer.effectAllowed = 'copy';
+		event.dataTransfer.setData( COLOR_WIDGET_DRAG_MIME_TYPE, widgetProps.color );
+		event.dataTransfer.setData( COLOR_WIDGET_DRAG_TITLE_MIME_TYPE, widgetProps.title ?? '' );
+		event.dataTransfer.setData( 'text/plain', widgetProps.color );
+	}
+
 	return (
 		<div
 			className={ styles.card }
+			draggable={ isDraggable }
+			onDragStart={ handleDragStart }
 			style={
 				{
 					background: widgetProps.color,

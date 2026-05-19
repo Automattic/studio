@@ -11,7 +11,10 @@ import {
 	type RecordProps,
 	type TLResizeInfo,
 } from 'tldraw';
-import { getDeskCanvasRecordResolutionState } from '@/ui-desks/desk/tldraw-adapter';
+import {
+	getDeskCanvasRecordResolutionState,
+	getTemporaryDeskCanvasRecordId,
+} from '@/ui-desks/desk/tldraw-adapter';
 import { useStackShapeInteraction } from '@/ui-desks/stacks/use-stack-shape-interaction';
 import { getStackId, getStackViewMode, isStackExpanded } from '@/ui-desks/stacks/utils';
 import { useWidgetDropFeedback } from '@/ui-desks/widget-actions/drop-feedback-context';
@@ -76,7 +79,8 @@ export class RectangleWidgetShapeUtil extends ShapeUtil< RectangleWidgetShape > 
 				...shape,
 				props: shape.props.shapeProps,
 			},
-			info as TLResizeInfo< typeof shape & { props: RectangleWidgetShapeProps } >
+			info as TLResizeInfo< typeof shape & { props: RectangleWidgetShapeProps } >,
+			getWidgetDefinition( shape.props.widgetType )?.resizeConstraints
 		);
 
 		return {
@@ -223,6 +227,7 @@ function RectangleWidgetComponent( {
 					isEditing={ isEditing }
 					isHovered={ isHovered }
 					isSelected={ isSelected }
+					isTemporary={ Boolean( getTemporaryDeskCanvasRecordId( shape ) ) }
 					dropFeedback={ dropFeedback }
 					onWidgetPropsChange={ handleWidgetPropsChange }
 					onEditComplete={ () => editor.complete() }

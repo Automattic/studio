@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import type { RemoteSessionStatus } from '@studio/common/lib/remote-session';
+import type { IpcRendererEvent } from 'electron';
 
 export interface UseRemoteSessionStatus {
 	status: RemoteSessionStatus | undefined;
@@ -28,43 +29,78 @@ export function useRemoteSessionStatus(): UseRemoteSessionStatus {
 	const [ isLoading, setIsLoading ] = useState( false );
 	const pendingRunningRef = useRef< boolean | null >( null );
 	const isLoadingRef = useRef( false );
+	const isMountedRef = useRef( false );
+
+	const setStatusIfMounted = useCallback( ( nextStatus: RemoteSessionStatus ) => {
+		if ( isMountedRef.current ) {
+			setStatus( nextStatus );
+		}
+	}, [] );
+
+	const setIsLoadingIfMounted = useCallback( ( nextIsLoading: boolean ) => {
+		if ( isMountedRef.current ) {
+			setIsLoading( nextIsLoading );
+		}
+	}, [] );
 
 	const refreshStatus = useCallback( async () => {
 		const latestStatus = await getIpcApi().getRemoteSessionDaemonStatus();
-		setStatus( latestStatus );
+		setStatusIfMounted( latestStatus );
 		return latestStatus;
-	}, [] );
+	}, [ setStatusIfMounted ] );
 
 	useEffect( () => {
-		let isMounted = true;
+		isMountedRef.current = true;
+		let isCurrentRequest = true;
 
 		getIpcApi()
 			.getRemoteSessionDaemonStatus()
 			.then( ( latestStatus ) => {
 				const pendingRunning = pendingRunningRef.current;
-				if ( isMounted && ( pendingRunning === null || pendingRunning === latestStatus.running ) ) {
-					setStatus( latestStatus );
+				if (
+					isCurrentRequest &&
+					( pendingRunning === null || pendingRunning === latestStatus.running )
+				) {
+					setStatusIfMounted( latestStatus );
 				}
 			} )
 			.catch( () => undefined );
 
 		return () => {
-			isMounted = false;
+			isCurrentRequest = false;
+			isMountedRef.current = false;
 		};
-	}, [] );
+	}, [ setStatusIfMounted ] );
 
-	useIpcListener( 'remote-session-status', ( _event, incomingStatus ) => {
-		const pendingRunning = pendingRunningRef.current;
+	const handleRemoteSessionStatus = useCallback(
+		( _event: IpcRendererEvent, incomingStatus: RemoteSessionStatus ) => {
+			if ( ! isMountedRef.current ) {
+				return;
+			}
 
-		if ( pendingRunning !== null && pendingRunning !== incomingStatus.running ) {
-			return;
-		}
+			const pendingRunning = pendingRunningRef.current;
 
-		setStatus( incomingStatus );
-		if ( pendingRunning === incomingStatus.running ) {
+			if ( pendingRunning !== null && pendingRunning !== incomingStatus.running ) {
+				return;
+			}
+
+			setStatus( incomingStatus );
+			if ( pendingRunning === incomingStatus.running ) {
+				pendingRunningRef.current = null;
+			}
+		},
+		[]
+	);
+
+	useIpcListener( 'remote-session-status', handleRemoteSessionStatus );
+
+	const finishTransition = useCallback( async () => {
+		await refreshStatus().finally( () => {
 			pendingRunningRef.current = null;
-		}
-	} );
+			isLoadingRef.current = false;
+			setIsLoadingIfMounted( false );
+		} );
+	}, [ refreshStatus, setIsLoadingIfMounted ] );
 
 	const runTransition = useCallback(
 		async ( running: boolean, action: () => Promise< unknown >, errorTitle: string ) => {
@@ -74,8 +110,8 @@ export function useRemoteSessionStatus(): UseRemoteSessionStatus {
 
 			isLoadingRef.current = true;
 			pendingRunningRef.current = running;
-			setIsLoading( true );
-			setStatus( { running } );
+			setIsLoadingIfMounted( true );
+			setStatusIfMounted( { running } );
 
 			try {
 				await action();
@@ -85,16 +121,10 @@ export function useRemoteSessionStatus(): UseRemoteSessionStatus {
 					message: getErrorMessage( error ),
 				} );
 			} finally {
-				try {
-					await refreshStatus();
-				} finally {
-					pendingRunningRef.current = null;
-					isLoadingRef.current = false;
-					setIsLoading( false );
-				}
+				await finishTransition();
 			}
 		},
-		[ refreshStatus ]
+		[ finishTransition, setIsLoadingIfMounted, setStatusIfMounted ]
 	);
 
 	const start = useCallback( async () => {

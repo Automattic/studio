@@ -68,6 +68,17 @@ describe( 'useRemoteSessionStatus', () => {
 		expect( result.current.isRunning ).toBe( true );
 	} );
 
+	it( 'keeps the remote-session-status listener stable across re-renders', () => {
+		mockGetStatus.mockImplementation( () => new Promise( () => undefined ) );
+
+		const { rerender } = renderHook( () => useRemoteSessionStatus() );
+		const firstListener = mockUseIpcListener.mock.calls.at( -1 )?.[ 1 ];
+
+		rerender();
+
+		expect( mockUseIpcListener.mock.calls.at( -1 )?.[ 1 ] ).toBe( firstListener );
+	} );
+
 	it( 'start() invokes startRemoteSessionDaemon and toggles isLoading', async () => {
 		mockGetStatus
 			.mockResolvedValueOnce( { running: false } )

@@ -1,3 +1,21 @@
 {
-	"versions": {}
+	"versions": {
+		"8.4": {
+			"version": "8.4.20",
+			"artifacts": {
+				"darwin-arm64": {
+					"url": "https://appscdn.wordpress.com/downloads/wordpress-com-studio-php-cli/mac-silicon/8.4.20/full-install",
+					"sha": "3df8c260c01927179521b2a0b82d409964287826fa2ee00e70876a3a688cf2ce"
+				},
+				"darwin-x64": {
+					"url": "https://appscdn.wordpress.com/downloads/wordpress-com-studio-php-cli/mac-intel/8.4.20/full-install",
+					"sha": "b132018ee9396adfefc5ae9998f4a244820e9a8e782d7be434a32c26e3580696"
+				},
+				"win32-x64": {
+					"url": "https://appscdn.wordpress.com/downloads/wordpress-com-studio-php-cli/windows-x64/8.4.20/full-install",
+					"sha": "2d32235afb98e2aec03507e588de8a0ae219a886006697b63035b46daa841bb8"
+				}
+			}
+		}
+	}
 }

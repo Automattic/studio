@@ -60,7 +60,8 @@ import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
 import {
 	getDaemonStatus,
 	DaemonStartTimeoutError,
-	type DaemonStatus,
+	toRemoteSessionStatus,
+	type RemoteSessionStatus,
 	type StartDaemonResult,
 	type StopDaemonResult,
 } from '@studio/common/lib/remote-session';
@@ -2367,8 +2368,11 @@ export async function updateSitesSortOrder(
 
 export async function getRemoteSessionDaemonStatus(
 	_event: IpcMainInvokeEvent
-): Promise< DaemonStatus > {
-	return getDaemonStatus();
+): Promise< RemoteSessionStatus > {
+	// Project at the IPC boundary — the renderer only needs the boolean.
+	// Keeping `pid` / `pidFile` / `staleFileRemoved` on the main-process side
+	// avoids shipping data the UI doesn't read.
+	return toRemoteSessionStatus( getDaemonStatus() );
 }
 
 export async function startRemoteSessionDaemon(

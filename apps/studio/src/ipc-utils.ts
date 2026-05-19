@@ -6,7 +6,7 @@ import { PreviewCommandLoggerAction } from '@studio/common/logger-actions';
 import { getMainWindow } from 'src/main-window';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { JsonEvent as StudioCodeEvent } from '@studio/common/ai/json-events';
-import type { DaemonStatus } from '@studio/common/lib/remote-session';
+import type { RemoteSessionStatus } from '@studio/common/lib/remote-session';
 import type { StoredAuthToken } from '@studio/common/lib/shared-config';
 import type { AiSessionPlacementUpdatedEvent } from 'src/lib/ai-session-placement';
 
@@ -66,7 +66,7 @@ export interface IpcEvents {
 	'ai-agent-event': [ AgentRunEvent ];
 	'ai-session-placement-updated': [ AiSessionPlacementUpdatedEvent ];
 	'studio-code-event': [ { siteId: string; event: StudioCodeEvent } ];
-	'remote-session-status': [ DaemonStatus ];
+	'remote-session-status': [ RemoteSessionStatus ];
 }
 
 export async function sendIpcEventToRenderer< T extends keyof IpcEvents >(

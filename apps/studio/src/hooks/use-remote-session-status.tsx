@@ -7,17 +7,18 @@ import {
 	startRemoteSession,
 	stopRemoteSession,
 } from 'src/stores/remote-session-slice';
-import type { DaemonStatus } from '@studio/common/lib/remote-session';
+import type { RemoteSessionStatus } from '@studio/common/lib/remote-session';
 import type { AppDispatch } from 'src/stores';
 
 export interface UseRemoteSessionStatus {
-	status: DaemonStatus | undefined;
+	status: RemoteSessionStatus | undefined;
 	/**
 	 * `isRunning` is optimistic-aware: it flips immediately when the user
 	 * invokes `start()`/`stop()` and stays that way until the daemon actually
 	 * reaches the expected state (via the post-call refresh or a poll event).
-	 * Use this for any UI gating; consult `status` only when the underlying
-	 * `pid`/`pidFile` matters.
+	 * Use this for any UI gating; consult `status` for the last-known cached
+	 * value (currently just `{ running }` — `pid` / `pidFile` stay on the
+	 * main-process side).
 	 */
 	isRunning: boolean;
 	isLoading: boolean;

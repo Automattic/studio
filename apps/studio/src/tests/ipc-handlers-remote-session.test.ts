@@ -54,8 +54,9 @@ afterEach( () => {
 } );
 
 describe( 'getRemoteSessionDaemonStatus', () => {
-	it( 'returns the underlying daemon status', async () => {
+	it( 'projects the underlying daemon status to the renderer-facing shape', async () => {
 		const { getDaemonStatus } = await import( '@studio/common/lib/remote-session' );
+		// Internal `DaemonStatus` is the rich shape — pid, pidFile, etc.
 		vi.mocked( getDaemonStatus ).mockReturnValue( {
 			running: true,
 			pid: 12345,
@@ -65,11 +66,10 @@ describe( 'getRemoteSessionDaemonStatus', () => {
 		const { getRemoteSessionDaemonStatus } = await import( 'src/ipc-handlers' );
 		const result = await getRemoteSessionDaemonStatus( mockIpcEvent );
 
-		expect( result ).toEqual( {
-			running: true,
-			pid: 12345,
-			pidFile: '/tmp/remote-session.pid',
-		} );
+		// IPC return only carries what the renderer needs (`running`). The
+		// `pid` / `pidFile` / `staleFileRemoved` bookkeeping stays on the
+		// main-process side.
+		expect( result ).toEqual( { running: true } );
 		expect( getDaemonStatus ).toHaveBeenCalledOnce();
 	} );
 

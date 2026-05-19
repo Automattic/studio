@@ -1,4 +1,8 @@
-import { getDaemonStatus, type DaemonStatus } from '@studio/common/lib/remote-session';
+import {
+	getDaemonStatus,
+	toRemoteSessionStatus,
+	type DaemonStatus,
+} from '@studio/common/lib/remote-session';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 
 const DEFAULT_POLL_INTERVAL_MS = 5000;
@@ -38,7 +42,9 @@ export function startRemoteSessionStatusPolling(
 	const pushStatus =
 		options.pushStatus ??
 		( ( status: DaemonStatus ) => {
-			void sendIpcEventToRenderer( 'remote-session-status', status );
+			// Project at the IPC boundary — strip `pid` / `pidFile` /
+			// `staleFileRemoved` before the payload crosses to the renderer.
+			void sendIpcEventToRenderer( 'remote-session-status', toRemoteSessionStatus( status ) );
 		} );
 
 	let lastRunning: boolean | undefined;

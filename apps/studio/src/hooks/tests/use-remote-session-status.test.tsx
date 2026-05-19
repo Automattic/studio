@@ -38,7 +38,7 @@ beforeEach( () => {
 
 describe( 'useRemoteSessionStatus', () => {
 	it( 'starts with status undefined, then reflects the initial IPC fetch', async () => {
-		mockGetStatus.mockResolvedValue( { running: false, pidFile: '/tmp/pid' } );
+		mockGetStatus.mockResolvedValue( { running: false } );
 
 		const { store, wrapper } = setup();
 		const { result } = renderHook( () => useRemoteSessionStatus(), { wrapper } );
@@ -49,7 +49,7 @@ describe( 'useRemoteSessionStatus', () => {
 			await store.dispatch( loadRemoteSessionStatus() );
 		} );
 
-		expect( result.current.status ).toEqual( { running: false, pidFile: '/tmp/pid' } );
+		expect( result.current.status ).toEqual( { running: false } );
 	} );
 
 	it( 'updates status when an incoming remote-session-status payload is dispatched', () => {
@@ -57,15 +57,15 @@ describe( 'useRemoteSessionStatus', () => {
 		const { result } = renderHook( () => useRemoteSessionStatus(), { wrapper } );
 
 		act( () => {
-			store.dispatch( applyIncomingStatus( { running: true, pid: 42, pidFile: '/tmp/pid' } ) );
+			store.dispatch( applyIncomingStatus( { running: true } ) );
 		} );
 
-		expect( result.current.status ).toEqual( { running: true, pid: 42, pidFile: '/tmp/pid' } );
+		expect( result.current.status ).toEqual( { running: true } );
 		expect( result.current.isRunning ).toBe( true );
 	} );
 
 	it( 'start() invokes startRemoteSessionDaemon and toggles isLoading', async () => {
-		mockGetStatus.mockResolvedValue( { running: true, pid: 1, pidFile: '/tmp/pid' } );
+		mockGetStatus.mockResolvedValue( { running: true } );
 		mockStart.mockResolvedValue( { pid: 99, pidFile: '/tmp/pid' } );
 
 		const { wrapper } = setup();
@@ -80,7 +80,7 @@ describe( 'useRemoteSessionStatus', () => {
 	} );
 
 	it( 'surfaces start failures via showErrorMessageBox and reconciles isRunning back to false', async () => {
-		mockGetStatus.mockResolvedValue( { running: false, pidFile: '/tmp/pid' } );
+		mockGetStatus.mockResolvedValue( { running: false } );
 		mockStart.mockRejectedValue( new Error( 'spawn timed out' ) );
 
 		const { wrapper } = setup();
@@ -107,7 +107,7 @@ describe( 'useRemoteSessionStatus', () => {
 					resolveStart = resolve;
 				} )
 		);
-		mockGetStatus.mockResolvedValue( { running: true, pid: 1, pidFile: '/tmp/pid' } );
+		mockGetStatus.mockResolvedValue( { running: true } );
 
 		const { wrapper } = setup();
 		const { result } = renderHook( () => useRemoteSessionStatus(), { wrapper } );
@@ -137,14 +137,14 @@ describe( 'useRemoteSessionStatus', () => {
 					resolveStop = resolve;
 				} )
 		);
-		mockGetStatus.mockResolvedValue( { running: false, pidFile: '/tmp/pid' } );
+		mockGetStatus.mockResolvedValue( { running: false } );
 
 		const { store, wrapper } = setup();
 		const { result } = renderHook( () => useRemoteSessionStatus(), { wrapper } );
 
 		// Seed running=true via an incoming status event.
 		act( () => {
-			store.dispatch( applyIncomingStatus( { running: true, pid: 7, pidFile: '/tmp/pid' } ) );
+			store.dispatch( applyIncomingStatus( { running: true } ) );
 		} );
 		expect( result.current.isRunning ).toBe( true );
 
@@ -164,13 +164,13 @@ describe( 'useRemoteSessionStatus', () => {
 
 	it( 'stop() invokes stopRemoteSessionDaemon and surfaces failures via showErrorMessageBox', async () => {
 		mockStop.mockRejectedValue( new Error( 'process refused to die' ) );
-		mockGetStatus.mockResolvedValue( { running: true, pid: 7, pidFile: '/tmp/pid' } );
+		mockGetStatus.mockResolvedValue( { running: true } );
 
 		const { store, wrapper } = setup();
 		const { result } = renderHook( () => useRemoteSessionStatus(), { wrapper } );
 
 		act( () => {
-			store.dispatch( applyIncomingStatus( { running: true, pid: 7, pidFile: '/tmp/pid' } ) );
+			store.dispatch( applyIncomingStatus( { running: true } ) );
 		} );
 
 		await act( async () => {
@@ -184,7 +184,7 @@ describe( 'useRemoteSessionStatus', () => {
 	} );
 
 	it( 'debounces concurrent start calls via the in-flight condition', async () => {
-		mockGetStatus.mockResolvedValue( { running: false, pidFile: '/tmp/pid' } );
+		mockGetStatus.mockResolvedValue( { running: false } );
 		let resolveStart: ( value: { pid: number; pidFile: string } ) => void = () => undefined;
 		mockStart.mockImplementation(
 			() =>
@@ -214,7 +214,7 @@ describe( 'useRemoteSessionStatus', () => {
 	} );
 
 	it( 'shares state across hook instances so an optimistic flip in one reaches the other', async () => {
-		mockGetStatus.mockResolvedValue( { running: false, pidFile: '/tmp/pid' } );
+		mockGetStatus.mockResolvedValue( { running: false } );
 		let resolveStart: ( value: { pid: number; pidFile: string } ) => void = () => undefined;
 		mockStart.mockImplementation(
 			() =>
@@ -237,7 +237,7 @@ describe( 'useRemoteSessionStatus', () => {
 		expect( toggle.current.isRunning ).toBe( true );
 		expect( indicator.current.isRunning ).toBe( true );
 
-		mockGetStatus.mockResolvedValueOnce( { running: true, pid: 1, pidFile: '/tmp/pid' } );
+		mockGetStatus.mockResolvedValueOnce( { running: true } );
 		await act( async () => {
 			resolveStart( { pid: 1, pidFile: '/tmp/pid' } );
 		} );

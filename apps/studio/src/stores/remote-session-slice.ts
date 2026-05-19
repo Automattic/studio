@@ -1,7 +1,7 @@
 import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { __ } from '@wordpress/i18n';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import type { DaemonStatus } from '@studio/common/lib/remote-session';
+import type { RemoteSessionStatus } from '@studio/common/lib/remote-session';
 
 /**
  * Remote-session daemon state shared across every consumer (top-bar bolt and
@@ -17,14 +17,14 @@ import type { DaemonStatus } from '@studio/common/lib/remote-session';
  * reconciled away once the poll/refresh confirms the daemon actually
  * transitioned. `inFlight` is the debounce guard for concurrent clicks.
  */
-export type RemoteSessionState = {
-	status: DaemonStatus | undefined;
+export type RemoteSessionSliceState = {
+	status: RemoteSessionStatus | undefined;
 	optimisticRunning: boolean | null;
 	isLoading: boolean;
 	inFlight: boolean;
 };
 
-const initialState: RemoteSessionState = {
+const initialState: RemoteSessionSliceState = {
 	status: undefined,
 	optimisticRunning: null,
 	isLoading: false,
@@ -40,14 +40,14 @@ function getErrorMessage( error: unknown ): string {
 
 export const loadRemoteSessionStatus = createAsyncThunk(
 	'remoteSession/load',
-	async (): Promise< DaemonStatus > => {
+	async (): Promise< RemoteSessionStatus > => {
 		return await getIpcApi().getRemoteSessionDaemonStatus();
 	}
 );
 
-type ThunkConfig = { state: { remoteSession: RemoteSessionState } };
+type ThunkConfig = { state: { remoteSession: RemoteSessionSliceState } };
 
-export const startRemoteSession = createAsyncThunk< DaemonStatus, void, ThunkConfig >(
+export const startRemoteSession = createAsyncThunk< RemoteSessionStatus, void, ThunkConfig >(
 	'remoteSession/start',
 	async () => {
 		try {
@@ -69,7 +69,7 @@ export const startRemoteSession = createAsyncThunk< DaemonStatus, void, ThunkCon
 	}
 );
 
-export const stopRemoteSession = createAsyncThunk< DaemonStatus, void, ThunkConfig >(
+export const stopRemoteSession = createAsyncThunk< RemoteSessionStatus, void, ThunkConfig >(
 	'remoteSession/stop',
 	async () => {
 		try {
@@ -91,7 +91,7 @@ const remoteSessionSlice = createSlice( {
 	name: 'remoteSession',
 	initialState,
 	reducers: {
-		applyIncomingStatus( state, action: PayloadAction< DaemonStatus > ) {
+		applyIncomingStatus( state, action: PayloadAction< RemoteSessionStatus > ) {
 			state.status = action.payload;
 			// Reconcile only if the poll confirms the optimistic guess;
 			// otherwise keep showing the user's intent until the in-flight
@@ -153,7 +153,7 @@ export const { applyIncomingStatus } = remoteSessionSlice.actions;
 export const remoteSessionReducer = remoteSessionSlice.reducer;
 
 // Selectors
-type SliceStateProjection = { remoteSession: RemoteSessionState };
+type SliceStateProjection = { remoteSession: RemoteSessionSliceState };
 
 export const selectRemoteSessionStatus = ( state: SliceStateProjection ) =>
 	state.remoteSession.status;

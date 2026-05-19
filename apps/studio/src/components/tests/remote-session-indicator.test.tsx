@@ -27,7 +27,7 @@ function setupHooks( {
 	vi.mocked( useBetaFeatures ).mockReturnValue( { remoteSession } );
 	vi.mocked( useAuth, { partial: true } ).mockReturnValue( { isAuthenticated } );
 	vi.mocked( useRemoteSessionStatus ).mockReturnValue( {
-		status: isRunning ? { running: true, pid: 42, pidFile: '/tmp/pid' } : undefined,
+		status: isRunning ? { running: true } : undefined,
 		isRunning,
 		isLoading,
 		start: mockStart,

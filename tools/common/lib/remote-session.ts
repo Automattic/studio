@@ -18,6 +18,21 @@ export interface DaemonStatus {
 	staleFileRemoved?: boolean;
 }
 
+/**
+ * Trimmed-down view of `DaemonStatus` for IPC consumers (the desktop
+ * renderer). Only the bits the UI actually needs cross the process
+ * boundary — keeping the on-disk `pidFile`, the running `pid`, and the
+ * stale-file bookkeeping flag on the main-process side avoids shipping
+ * data the renderer never reads.
+ */
+export interface RemoteSessionStatus {
+	running: boolean;
+}
+
+export function toRemoteSessionStatus( status: DaemonStatus ): RemoteSessionStatus {
+	return { running: status.running };
+}
+
 export interface StartDaemonResult {
 	pid: number;
 	pidFile: string;

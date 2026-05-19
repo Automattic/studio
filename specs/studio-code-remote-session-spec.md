@@ -153,20 +153,21 @@ The detached child's `runRemoteSession()` checks the env var on entry and calls 
 
 Inside an interactive `studio code` session, `/remote-session` (registered in `apps/cli/ai/slash-commands.ts`) drives the daemon. It is **never blocking** — every subcommand returns control to the REPL within a few hundred milliseconds. Subcommands:
 
-- `/remote-session attach` — validates config (so a missing token surfaces immediately), then spawns the detached daemon via the same `startDaemon()` helper used by `studio code remote-session start`. Reports the new PID via `ui.showSuccess` and updates the bottom-bar daemon indicator. If a daemon is already running, reports the existing PID and updates the indicator (idempotent).
-- `/remote-session detach` — calls `stopDaemon()` and clears the indicator. Surfaces friendly messages for "already stopped", "needed SIGKILL", or "process refused to die".
+- `/remote-session start` — validates config (so a missing token surfaces immediately), then spawns the detached daemon via the same `startDaemon()` helper used by `studio code remote-session start`. Reports the new PID via `ui.showSuccess` and updates the bottom-bar daemon indicator. If a daemon is already running, reports the existing PID and updates the indicator (idempotent).
+- `/remote-session stop` — calls `stopDaemon()` and clears the indicator. Surfaces friendly messages for "already stopped", "needed SIGKILL", or "process refused to die".
+- `/remote-session` with no subcommand pops an interactive picker (`Start` / `Stop`) and routes the selection to the handler above. Canceling the picker (Esc) is a no-op.
 
 There is intentionally no `/remote-session status` slash command. The bottom-bar indicator (described below) already shows whether the daemon is running, and `studio code remote-session status` covers the out-of-REPL case.
 
 Implementation notes:
 
-- `SlashCommandDef.getArgumentCompletions(prefix)` returns `attach | detach` so typing `/remote-session ` shows them in the autocomplete dropdown.
+- `SlashCommandDef.getArgumentCompletions(prefix)` returns `start | stop` so typing `/remote-session ` shows them in the autocomplete dropdown.
 - The REPL dispatcher matches on the first whitespace token (`/${name} <args>` rather than exact-match) so the handler receives the full prompt and parses the subcommand itself.
-- The bottom-bar **daemon indicator** (`PromptEditor.daemonStatusMessage`) is updated immediately by the `attach`/`detach` handlers AND every 5s by a light `getDaemonStatus()` poll started by the REPL. The poll catches external start/stop (e.g. another terminal running `studio code remote-session stop`) and unexpected daemon death.
+- The bottom-bar **daemon indicator** (`PromptEditor.daemonStatusMessage`) is updated immediately by the `start`/`stop` handlers AND every 5s by a light `getDaemonStatus()` poll started by the REPL. The poll catches external start/stop (e.g. another terminal running `studio code remote-session stop`) and unexpected daemon death.
 
 `RemoteSessionConfigError` (e.g. missing token) is shown via `ui.showError` rather than crashing the REPL — the user is told to authenticate via `/login` or set `STUDIO_REMOTE_TOKEN`.
 
-The previous "blocking attach" design (where the REPL was held until detach) is permanently off the table: with the daemon, the REPL never blocks. `attach`/`detach` here mean "wire up the daemon's status to this REPL session" and "tear it down again", not "start the poll loop in this process".
+The previous "blocking attach" design (where the REPL was held until detach) is permanently off the table: with the daemon, the REPL never blocks. `start`/`stop` here mean "spawn the daemon" and "terminate it again", not "start the poll loop in this process".
 
 ### Telegram-side meta-command
 

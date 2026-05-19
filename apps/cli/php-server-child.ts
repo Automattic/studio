@@ -72,6 +72,7 @@ function errorToConsole( ...args: Parameters< typeof console.error > ) {
 type SpawnPhpProcessOptions = {
 	disallowRiskyFunctions?: boolean;
 	mode?: 'pipe' | 'capture-stdout';
+	enableXdebug?: boolean;
 	onlyPathsThatPhpCanAccess?: string[];
 	phpVersion: NativePhpSupportedVersion;
 	siteFolder?: string;
@@ -85,6 +86,7 @@ function spawnPhpProcess(
 		siteFolder,
 		signal,
 		mode = 'pipe',
+		enableXdebug = false,
 		onlyPathsThatPhpCanAccess = [],
 		disallowRiskyFunctions = false,
 	}: SpawnPhpProcessOptions
@@ -92,7 +94,8 @@ function spawnPhpProcess(
 	const defaultArgs = getDefaultPhpArgs(
 		phpVersion,
 		onlyPathsThatPhpCanAccess,
-		disallowRiskyFunctions
+		disallowRiskyFunctions,
+		enableXdebug
 	);
 	const phpArgs = [ ...defaultArgs, ...args ];
 	const phpScriptProcess = spawn( getPhpBinaryPath( phpVersion ), phpArgs, {
@@ -487,6 +490,7 @@ async function doStartServer(
 			siteFolder: config.sitePath,
 			onlyPathsThatPhpCanAccess: Array.from( openBasedirAllowlist ),
 			disallowRiskyFunctions: true,
+			enableXdebug: config.enableXdebug,
 		} );
 		spawnedChild = serverChild;
 

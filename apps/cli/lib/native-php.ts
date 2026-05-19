@@ -2,6 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
+import { getPhpBinaryPath } from './dependency-management/paths';
 
 // Disabled by default to shrink the attack surface available to PHP code
 // running inside a Studio site. Each entry falls into one of:
@@ -57,6 +58,59 @@ const PHP_DEFAULT_DISABLED_FUNCTIONS = [
 	'system',
 ] as const;
 
+// Extensions to enable on Windows via `-d extension=<name>`. Computed as the
+// intersection of two sets:
+//   1. php_*.dll files that ship as separate DLLs in windows.php.net's
+//      prebuilt zip (plus the PECL DLLs the workflow overlays: apcu, igbinary,
+//      redis, ssh2, yaml). Everything else from the macOS list is baked into
+//      php.exe itself (bcmath, calendar, ctype, dom, filter, iconv, mbregex,
+//      mysqlnd, pdo, phar, session, simplexml, tokenizer, xml*, zlib) and
+//      would emit "Module already loaded" warnings if we tried to enable it
+//      with `extension=`.
+//   2. The curated macOS extension list in .github/workflows/build-php-cli-binaries.yml.
+//      windows.php.net also ships bz2, com_dotnet, enchant, ffi, gmp, ldap,
+//      odbc, pdo_firebird, pdo_odbc, pdo_pgsql, pgsql, snmp, soap, sysvshm,
+//      and tidy, but Studio doesn't ship those on macOS, so we don't enable
+//      them on Windows either to keep behavior symmetric.
+// opcache and xdebug are Zend extensions and loaded separately via
+// `zend_extension=` (the latter only when config.enableXdebug is true). On
+// macOS every extension is baked into the `php` binary by static-php-cli, so
+// this list is irrelevant there.
+const WINDOWS_PHP_EXTENSIONS = [
+	'apcu',
+	'curl',
+	'dba',
+	'exif',
+	'fileinfo',
+	'ftp',
+	'gd',
+	'gettext',
+	'igbinary',
+	'intl',
+	'mbstring',
+	'mysqli',
+	'openssl',
+	'pdo_mysql',
+	'pdo_sqlite',
+	'redis',
+	'shmop',
+	'sockets',
+	'sodium',
+	'sqlite3',
+	'ssh2',
+	'xsl',
+	'yaml',
+	'zip',
+] as const;
+
+function getExtensionDir( phpVersion: NativePhpSupportedVersion ): string {
+	return path.join( path.dirname( getPhpBinaryPath( phpVersion ) ), 'ext' );
+}
+
+function getXdebugFilename(): string {
+	return process.platform === 'win32' ? 'php_xdebug.dll' : 'xdebug.so';
+}
+
 // Process-scoped opcache dir, created lazily and removed when the process exits
 let opcacheRootDir: string | null = null;
 
@@ -86,7 +140,8 @@ function getOpcacheRootDir(): string {
 export function getDefaultPhpArgs(
 	phpVersion: NativePhpSupportedVersion,
 	openBasedir: string[] = [],
-	disallowRiskyFunctions: boolean = false
+	disallowRiskyFunctions: boolean = false,
+	enableXdebug: boolean = false
 ): string[] {
 	// Partition the file_cache by PHP version: opcache's on-disk script blob
 	// format isn't stable across minor versions, and reusing a cache populated
@@ -105,6 +160,35 @@ export function getDefaultPhpArgs(
 		'-d',
 		`opcache.cache_id="studio-${ cacheId }"`,
 	];
+
+	const extensionDir = getExtensionDir( phpVersion );
+
+	if ( process.platform === 'win32' ) {
+		// Load every bundled DLL from the artifact's ext/ directory.
+		// windows.php.net's prebuilt php.exe doesn't auto-load extensions;
+		// each one needs an explicit `extension=` (or `zend_extension=` for
+		// opcache) directive.
+		args.push( '-d', `extension_dir="${ extensionDir }"` );
+		args.push( '-d', `zend_extension=opcache` );
+		for ( const extension of WINDOWS_PHP_EXTENSIONS ) {
+			args.push( '-d', `extension=${ extension }` );
+		}
+	}
+
+	if ( enableXdebug ) {
+		// On macOS the `php` binary has every other extension baked in and ext/
+		// contains only xdebug.so; on Windows extension_dir is already set
+		// above. Either way the Zend extension path is ext/<filename>.
+		if ( process.platform !== 'win32' ) {
+			args.push( '-d', `extension_dir="${ extensionDir }"` );
+		}
+		args.push(
+			'-d',
+			`zend_extension="${ path.join( extensionDir, getXdebugFilename() ) }"`,
+			'-d',
+			'xdebug.mode=debug'
+		);
+	}
 
 	if ( openBasedir.length ) {
 		args.push( '-d', `open_basedir="${ openBasedir.join( path.delimiter ) }"` );

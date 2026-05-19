@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { buildSystemPrompt } from '../system-prompt';
 
 describe( 'buildSystemPrompt', () => {
+	const previousScratchpadWidgetType = 'sd-' + 'artefact';
+
 	it( 'includes Studio presentation rules when chat artifacts are enabled', () => {
 		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
 
@@ -14,7 +16,9 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).toContain( 'JSX/TSX markup' );
 		expect( prompt ).toContain( 'call studio_present with exactly one note widget' );
 		expect( prompt ).toContain( 'sections/selectors touched' );
-		expect( prompt ).toContain( 'Use sd-artefact for standalone rendered HTML drafts' );
+		expect( prompt ).toContain( 'Use scratchpad for standalone rendered HTML drafts' );
+		expect( prompt ).toContain( '- scratchpad:' );
+		expect( prompt ).not.toContain( previousScratchpadWidgetType );
 		expect( prompt ).toContain( '- saved-local-media:' );
 		expect( prompt ).toContain( 'For generated SVGs, write a complete .svg file' );
 		expect( prompt ).toContain( 'Do not present generated SVG code as a drawing widget' );
@@ -23,6 +27,12 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).toContain( 'present the actual captured PNG' );
 		expect( prompt ).toContain( 'Do not substitute a site-preview widget for a screenshot' );
 		expect( prompt ).toContain( 'site-preview is for live previews, not captured screenshots' );
+		expect( prompt ).toContain( '- theme:' );
+		expect( prompt ).toContain( '- theme-template:' );
+		expect( prompt ).toContain( '- theme-styles:' );
+		expect( prompt ).toContain( '- theme-pattern:' );
+		expect( prompt ).toContain( '- color:' );
+		expect( prompt ).toContain( '- pdf:' );
 	} );
 
 	it( 'omits Studio presentation rules when chat artifacts are disabled', () => {

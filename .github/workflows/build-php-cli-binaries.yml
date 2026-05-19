@@ -161,7 +161,10 @@ jobs:
           download_args=(
             --with-php="$PHP_VERSION"
             --for-extensions="$PHP_CLI_EXTENSIONS"
-            --custom-url="xdebug:https://xdebug.org/files/xdebug-${XDEBUG_VERSION}.tgz"
+            # Pulled from PECL rather than xdebug.org: the spc-gnu-docker
+            # container's curl/OpenSSL can't negotiate TLS with xdebug.org,
+            # and PECL is the canonical PHP extension distribution channel.
+            --custom-url="xdebug:https://pecl.php.net/get/xdebug-${XDEBUG_VERSION}.tgz"
             --ignore-cache-sources=php-src
             --prefer-pre-built
           )

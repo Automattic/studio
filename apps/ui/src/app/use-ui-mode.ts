@@ -30,7 +30,7 @@ function writeStoredUiMode( mode: UiMode ) {
 	}
 }
 
-function resetRouteAndReload() {
+function resetRoute() {
 	if ( typeof window === 'undefined' ) {
 		return;
 	}
@@ -39,15 +39,12 @@ function resetRouteAndReload() {
 		if ( window.location.hash !== '#/' ) {
 			window.history.replaceState( window.history.state, '', '#/' );
 		}
-		window.location.reload();
 		return;
 	}
 
 	if ( window.location.pathname !== '/' || window.location.search || window.location.hash ) {
 		window.history.replaceState( window.history.state, '', '/' );
 	}
-
-	window.location.reload();
 }
 
 function isEditableTarget( target: EventTarget | null ) {
@@ -74,7 +71,7 @@ export function useUiMode() {
 
 			setModeState( nextMode );
 			writeStoredUiMode( nextMode );
-			resetRouteAndReload();
+			resetRoute();
 		},
 		[ mode ]
 	);
@@ -85,7 +82,6 @@ export function useUiMode() {
 				event.defaultPrevented ||
 				isEditableTarget( event.target ) ||
 				event.key.toLowerCase() !== 'd' ||
-				! event.shiftKey ||
 				! ( event.metaKey || event.ctrlKey )
 			) {
 				return;

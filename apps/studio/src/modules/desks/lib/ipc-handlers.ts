@@ -3,8 +3,9 @@ import fsPromises from 'fs/promises';
 import nodePath from 'path';
 import { assertDeskConfig } from '@studio/common/lib/desk-config';
 import { normalizeDeskSettings } from '@studio/common/lib/desk-settings';
-import { type DeskConfig, type DeskSettings } from '@studio/common/types/desk';
+import { type DeskConfig, type DeskSettings, type StudioUiMode } from '@studio/common/types/desk';
 import { __ } from '@wordpress/i18n';
+import { loadMainWindowRenderer } from 'src/main-window';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 
 function isRecord( value: unknown ): value is Record< string, unknown > {
@@ -14,6 +15,12 @@ function isRecord( value: unknown ): value is Record< string, unknown > {
 function assertSiteId( siteId: unknown ): asserts siteId is string {
 	if ( typeof siteId !== 'string' || ! siteId ) {
 		throw new Error( 'Invalid site desk config: expected site id.' );
+	}
+}
+
+function assertStudioUiMode( mode: unknown ): asserts mode is StudioUiMode {
+	if ( mode !== 'default' && mode !== 'desks' ) {
+		throw new Error( 'Invalid Studio UI mode.' );
 	}
 }
 
@@ -41,6 +48,38 @@ export async function getUserDeskConfig(
 export async function getDeskSettings( _event: IpcMainInvokeEvent ): Promise< DeskSettings > {
 	const userData = await loadUserData();
 	return normalizeDeskSettings( userData.desks?.settings );
+}
+
+export async function getStudioUiMode( _event: IpcMainInvokeEvent ): Promise< StudioUiMode > {
+	const userData = await loadUserData();
+	return userData.desks?.defaultUiMode === 'desks' ? 'desks' : 'default';
+}
+
+export async function setStudioUiMode(
+	event: IpcMainInvokeEvent,
+	mode: StudioUiMode
+): Promise< void > {
+	assertStudioUiMode( mode );
+	await lockAppdata();
+	try {
+		const userData = await loadUserData();
+		await saveUserData( {
+			...userData,
+			desks: {
+				...userData.desks,
+				defaultUiMode: mode,
+			},
+		} );
+	} finally {
+		await unlockAppdata();
+	}
+
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	if ( parentWindow && ! parentWindow.isDestroyed() ) {
+		setTimeout( () => {
+			void loadMainWindowRenderer( parentWindow, mode );
+		}, 0 );
+	}
 }
 
 export async function saveDeskSettings(

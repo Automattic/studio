@@ -668,6 +668,11 @@ async function runBlueprint(
 	}
 
 	try {
+		// blueprints.phar spawns its own PHP subprocesses while applying a blueprint.
+		// On Windows those subprocesses auto-load the php.ini we wrote next to
+		// php.exe, which carries the bundled-extension and CA-bundle config. On
+		// macOS/Linux every extension is statically linked into the binary, so no
+		// extra setup is needed for the subprocess.
 		await runPhpCommand(
 			[
 				getBlueprintsPharPath(),

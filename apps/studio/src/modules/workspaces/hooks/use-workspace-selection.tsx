@@ -1,11 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { useSidebarWorkspaces } from 'src/modules/workspaces/hooks/use-sidebar-workspaces';
-import {
-	getDefaultWorkspaceTabId,
-	getWorkspaceTabStorageKey,
-	isWorkspaceTabId,
-} from 'src/modules/workspaces/lib/workspace-tabs';
 import type { TabName } from 'src/hooks/use-content-tabs';
 import type { StudioWorkspace } from 'src/modules/workspaces/types';
 
@@ -25,18 +20,29 @@ const WorkspaceSelectionContext = createContext< WorkspaceSelectionContextValue 
 	undefined
 );
 
-function readSavedTabId( workspace: StudioWorkspace ): TabName | undefined {
+const WORKSPACE_TAB_STORAGE_PREFIX = 'studio-workspace-tab:';
+const VALID_WORKSPACE_TAB_IDS: TabName[] = [
+	'overview',
+	'sync',
+	'previews',
+	'import-export',
+	'settings',
+	'assistant',
+];
+
+function isWorkspaceTabId( tabId: string ): tabId is TabName {
+	return VALID_WORKSPACE_TAB_IDS.includes( tabId as TabName );
+}
+
+function getWorkspaceTabStorageKey( workspaceId: string ) {
+	return `${ WORKSPACE_TAB_STORAGE_PREFIX }${ workspaceId }`;
+}
+
+function readSavedTabId( workspaceId: string ): TabName | undefined {
 	try {
-		const savedTabId = localStorage.getItem( getWorkspaceTabStorageKey( workspace.id ) );
-		if (
-			savedTabId === 'overview' ||
-			savedTabId === 'sync' ||
-			savedTabId === 'settings' ||
-			savedTabId === 'assistant' ||
-			savedTabId === 'import-export' ||
-			savedTabId === 'previews'
-		) {
-			return isWorkspaceTabId( workspace, savedTabId ) ? savedTabId : undefined;
+		const savedTabId = localStorage.getItem( getWorkspaceTabStorageKey( workspaceId ) );
+		if ( savedTabId && isWorkspaceTabId( savedTabId ) ) {
+			return savedTabId;
 		}
 	} catch {
 		return undefined;
@@ -90,13 +96,14 @@ export function WorkspaceSelectionProvider( { children }: { children: ReactNode 
 			return undefined;
 		}
 
-		const selectedTab = selectedTabs[ selectedWorkspace.id ] ?? readSavedTabId( selectedWorkspace );
+		const selectedTab =
+			selectedTabs[ selectedWorkspace.id ] ?? readSavedTabId( selectedWorkspace.id );
 
-		if ( selectedTab && isWorkspaceTabId( selectedWorkspace, selectedTab ) ) {
+		if ( selectedTab && isWorkspaceTabId( selectedTab ) ) {
 			return selectedTab;
 		}
 
-		return getDefaultWorkspaceTabId( selectedWorkspace );
+		return 'overview';
 	}, [ selectedTabs, selectedWorkspace ] );
 
 	const selectWorkspace = useCallback(
@@ -117,7 +124,7 @@ export function WorkspaceSelectionProvider( { children }: { children: ReactNode 
 	const selectWorkspaceTab = useCallback(
 		( workspaceId: string, tabId: TabName ) => {
 			const workspace = workspaces.find( ( candidate ) => candidate.id === workspaceId );
-			if ( ! workspace || ! isWorkspaceTabId( workspace, tabId ) ) {
+			if ( ! workspace || ! isWorkspaceTabId( tabId ) ) {
 				return;
 			}
 

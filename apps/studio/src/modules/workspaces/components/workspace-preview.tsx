@@ -67,10 +67,7 @@ export type WorkspacePreviewTargetOption = {
 
 type WorkspacePreviewControlsProps = {
 	target: WorkspacePreviewTarget;
-	targets: WorkspacePreviewTargetOption[];
-	selectedTargetId: WorkspaceTargetId;
 	previewState: WorkspacePreviewState;
-	onSelectTarget: ( targetId: WorkspaceTargetId ) => void;
 	onUpdatePreviewState: ( state: WorkspacePreviewState ) => void;
 };
 
@@ -89,8 +86,16 @@ type WorkspacePreviewPanelProps = {
 	} ) => void;
 };
 
+type WorkspacePreviewTargetPickerProps = {
+	targets: WorkspacePreviewTargetOption[];
+	selectedTargetId: WorkspaceTargetId;
+	onSelectTarget: ( targetId: WorkspaceTargetId ) => void;
+	ariaLabel: string;
+	variant?: 'url-bar' | 'header';
+};
+
 export const createDefaultWorkspacePreviewState = (): WorkspacePreviewState => ( {
-	open: true,
+	open: false,
 	pathOrUrl: '/',
 	reloadNonce: 0,
 	width: DEFAULT_PREVIEW_WIDTH,
@@ -107,72 +112,129 @@ export function resolveWorkspacePreviewUrl( siteUrl: string, pathOrUrl: string )
 	}
 }
 
-export function WorkspacePreviewControls( {
-	target,
+function getTargetToneClassName( target: WorkspacePreviewTargetOption | undefined ) {
+	if ( target?.id === 'production' || target?.isProduction ) {
+		return {
+			dot: 'bg-[#1a6928]',
+			url: 'bg-[#ceead6] text-[#1a6928]',
+			header: 'border-[#9bd3a8] bg-[#ceead6] text-[#1a6928] hover:bg-[#c3e4cc]',
+		};
+	}
+
+	if ( target?.id === 'staging' ) {
+		return {
+			dot: 'bg-[#d97706]',
+			url: 'bg-[#fef0c7] text-[#93590c]',
+			header: 'border-[#d97706]/30 bg-[#fff7df] text-[#93590c] hover:bg-[#fff3cc]',
+		};
+	}
+
+	return {
+		dot: 'bg-frame-text-secondary',
+		url: 'bg-frame-surface text-frame-text-secondary',
+		header: 'border-a8c-gray-5 bg-frame-surface text-frame-text-secondary hover:bg-a8c-gray-0',
+	};
+}
+
+export function WorkspacePreviewTargetPicker( {
 	targets,
 	selectedTargetId,
-	previewState,
 	onSelectTarget,
-	onUpdatePreviewState,
-}: WorkspacePreviewControlsProps ) {
-	const previewUrl = resolveWorkspacePreviewUrl( target.siteUrl, previewState.pathOrUrl );
-	const displayUrl = previewState.currentUrl ?? previewUrl;
+	ariaLabel,
+	variant = 'url-bar',
+}: WorkspacePreviewTargetPickerProps ) {
 	const selectedTarget = targets.find( ( candidate ) => candidate.id === selectedTargetId );
 	const hasTargetPicker = targets.length > 1;
 	const [ isTargetMenuOpen, setIsTargetMenuOpen ] = useState( false );
-	const targetBadgeClassName = `shrink-0 rounded-full text-[12px] font-medium ${
-		target.isProduction
-			? 'bg-a8c-gray-5 text-a8c-red-50'
-			: 'bg-a8c-gray-5 text-frame-text-secondary'
-	}`;
+	const toneClassName = getTargetToneClassName( selectedTarget );
+	const isHeaderVariant = variant === 'header';
 	const closeTargetMenu = () => setIsTargetMenuOpen( false );
 	const selectTarget = ( targetId: WorkspaceTargetId ) => {
 		onSelectTarget( targetId );
 		closeTargetMenu();
 	};
-	const targetBadge = selectedTarget?.label ? (
-		hasTargetPicker ? (
-			<button
-				type="button"
-				className={ `${ targetBadgeClassName } inline-flex h-8 items-center px-3 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme` }
-				aria-label={ __( 'Preview target' ) }
-				aria-haspopup="listbox"
-				aria-expanded={ isTargetMenuOpen }
-				onClick={ () => setIsTargetMenuOpen( ( isOpen ) => ! isOpen ) }
-			>
-				{ selectedTarget.label }
-				<span className="ms-2 text-[10px] leading-none">⌄</span>
-			</button>
-		) : (
-			<span className={ `${ targetBadgeClassName } inline-flex h-8 items-center px-3` }>
-				{ selectedTarget.label }
-			</span>
-		)
-	) : null;
-	const targetMenu = hasTargetPicker && isTargetMenuOpen && (
+	const basePickerClassName = isHeaderVariant
+		? `inline-flex h-10 min-w-40 items-center gap-2 rounded border px-3 text-sm font-medium shadow-sm transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme ${ toneClassName.header }`
+		: `inline-flex h-8 min-w-32 items-center justify-center rounded-full px-3 text-[12px] font-medium focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme ${ toneClassName.url }`;
+	const pickerContent = (
+		<>
+			{ isHeaderVariant && (
+				<>
+					<span className={ `h-2.5 w-2.5 rounded-full ${ toneClassName.dot }` } />
+					<span className="text-frame-text-secondary">{ __( 'Viewing' ) }</span>
+				</>
+			) }
+			<span>{ selectedTarget?.label }</span>
+			{ hasTargetPicker && <span className="ms-1 text-[10px] leading-none">⌄</span> }
+		</>
+	);
+
+	if ( ! selectedTarget?.label ) {
+		return null;
+	}
+
+	return (
 		<div
-			className="absolute left-0 right-0 top-11 z-20 rounded-md border border-a8c-gray-5 bg-white p-1 shadow-lg"
-			role="listbox"
-			aria-label={ __( 'Preview target' ) }
+			className={ isHeaderVariant ? 'relative shrink-0' : 'relative shrink-0' }
+			onBlur={ ( event ) => {
+				if ( ! event.currentTarget.contains( event.relatedTarget ) ) {
+					closeTargetMenu();
+				}
+			} }
 		>
-			{ targets.map( ( candidate ) => (
+			{ hasTargetPicker ? (
 				<button
-					key={ candidate.id }
 					type="button"
-					className={ `flex h-8 w-full items-center justify-between rounded px-3 text-left text-xs hover:bg-a8c-gray-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme ${
-						candidate.id === selectedTargetId
-							? 'font-medium text-frame-text'
-							: 'text-frame-text-secondary'
-					}` }
-					role="option"
-					aria-selected={ candidate.id === selectedTargetId }
-					onClick={ () => selectTarget( candidate.id ) }
+					className={ basePickerClassName }
+					aria-label={ ariaLabel }
+					aria-haspopup="listbox"
+					aria-expanded={ isTargetMenuOpen }
+					onClick={ () => setIsTargetMenuOpen( ( isOpen ) => ! isOpen ) }
 				>
-					<span>{ candidate.label }</span>
+					{ pickerContent }
 				</button>
-			) ) }
+			) : (
+				<span className={ basePickerClassName }>{ pickerContent }</span>
+			) }
+			{ hasTargetPicker && isTargetMenuOpen && (
+				<div
+					className={
+						isHeaderVariant
+							? 'absolute right-0 top-11 z-30 min-w-48 rounded-md border border-a8c-gray-5 bg-white p-1 shadow-lg'
+							: 'absolute left-0 top-11 z-20 min-w-40 rounded-md border border-a8c-gray-5 bg-white p-1 shadow-lg'
+					}
+					role="listbox"
+					aria-label={ ariaLabel }
+				>
+					{ targets.map( ( candidate ) => (
+						<button
+							key={ candidate.id }
+							type="button"
+							className={ `flex h-8 w-full items-center justify-between rounded px-3 text-left text-xs hover:bg-a8c-gray-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme ${
+								candidate.id === selectedTargetId
+									? 'font-medium text-frame-text'
+									: 'text-frame-text-secondary'
+							}` }
+							role="option"
+							aria-selected={ candidate.id === selectedTargetId }
+							onClick={ () => selectTarget( candidate.id ) }
+						>
+							<span>{ candidate.label }</span>
+						</button>
+					) ) }
+				</div>
+			) }
 		</div>
 	);
+}
+
+export function WorkspacePreviewControls( {
+	target,
+	previewState,
+	onUpdatePreviewState,
+}: WorkspacePreviewControlsProps ) {
+	const previewUrl = resolveWorkspacePreviewUrl( target.siteUrl, previewState.pathOrUrl );
+	const displayUrl = previewState.currentUrl ?? previewUrl;
 	const showPreview = async () => {
 		await target.onShowPreview?.();
 		onUpdatePreviewState( {
@@ -191,19 +253,11 @@ export function WorkspacePreviewControls( {
 
 	if ( ! previewState.open ) {
 		return (
-			<div
-				className="relative min-w-0 flex-1"
-				onBlur={ ( event ) => {
-					if ( ! event.currentTarget.contains( event.relatedTarget ) ) {
-						closeTargetMenu();
-					}
-				} }
-			>
+			<div className="relative min-w-0 flex-1">
 				<div className="flex h-10 w-full min-w-0 items-center gap-2 rounded-full border border-a8c-gray-5 bg-a8c-gray-0 px-2 text-left shadow-sm transition hover:border-a8c-gray-20 hover:bg-white">
-					{ targetBadge }
 					<button
 						type="button"
-						className="flex h-full min-w-0 flex-1 items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme disabled:cursor-default disabled:opacity-60"
+						className="flex h-full min-w-0 flex-1 items-center gap-2 px-3 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme disabled:cursor-default disabled:opacity-60"
 						onClick={ showPreview }
 						aria-label={ __( 'Show preview' ) }
 						disabled={ target.isLoading }
@@ -214,7 +268,6 @@ export function WorkspacePreviewControls( {
 						<Icon icon={ desktop } size={ 18 } className="shrink-0 fill-frame-text-secondary" />
 					</button>
 				</div>
-				{ targetMenu }
 			</div>
 		);
 	}
@@ -252,21 +305,12 @@ export function WorkspacePreviewControls( {
 			>
 				<Icon icon={ rotateRight } size={ 18 } />
 			</Button>
-			<div
-				className="relative min-w-0 flex-1"
-				onBlur={ ( event ) => {
-					if ( ! event.currentTarget.contains( event.relatedTarget ) ) {
-						closeTargetMenu();
-					}
-				} }
-			>
+			<div className="relative min-w-0 flex-1">
 				<div className="flex h-10 w-full min-w-0 items-center gap-2 rounded-full border border-a8c-gray-5 bg-a8c-gray-0 px-2 text-left shadow-sm">
-					{ targetBadge }
-					<span className="truncate text-xs leading-4 text-frame-text-secondary">
+					<span className="truncate px-3 text-xs leading-4 text-frame-text-secondary">
 						{ displayUrl }
 					</span>
 				</div>
-				{ targetMenu }
 			</div>
 			<Button
 				variant="icon"

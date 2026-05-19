@@ -1,5 +1,7 @@
+import { Spinner } from '@wordpress/components';
 import { sprintf, __ } from '@wordpress/i18n';
 import { useMemo } from 'react';
+import { Tooltip } from 'src/components/tooltip';
 import { isMac } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import {
@@ -7,6 +9,9 @@ import {
 	useSelectedWorkspaceDollyConversationId,
 	useWorkspaceDollyConversationsForWorkspace,
 } from 'src/modules/workspaces/lib/dolly/session';
+import { useWorkspaceDollyWorkspaceActivity } from 'src/modules/workspaces/lib/dolly/turns';
+import { useRootSelector } from 'src/stores';
+import { stagingSyncSelectors, syncOperationsSelectors } from 'src/stores/sync';
 import type { ReactNode } from 'react';
 import type { WorkspaceDollyConversationState } from 'src/modules/workspaces/lib/dolly/types';
 import type { StudioWorkspace } from 'src/modules/workspaces/types';
@@ -56,6 +61,48 @@ export function WorkspaceSidebarRow( {
 	const recentConversations = useWorkspaceDollyConversationsForWorkspace( workspaceDescriptor )
 		.filter( ( conversation ) => ! isBlankConversation( conversation ) )
 		.slice( 0, 3 );
+	const workspaceActivity = useWorkspaceDollyWorkspaceActivity( workspace.id );
+	const localSiteId = workspace.targets.local?.siteId ?? '';
+	const productionSiteId = workspace.targets.production?.siteId;
+	const stagingSiteId = workspace.targets.staging?.siteId;
+	const isLocalPulling = useRootSelector(
+		syncOperationsSelectors.selectIsSiteIdPulling( localSiteId )
+	);
+	const isLocalPushing = useRootSelector(
+		syncOperationsSelectors.selectIsSiteIdPushing( localSiteId )
+	);
+	const isProductionStagingSyncing = useRootSelector(
+		stagingSyncSelectors.selectIsProductionSiteSyncing( productionSiteId )
+	);
+	const isStagingEnvironmentSyncing = useRootSelector(
+		stagingSyncSelectors.selectIsRemoteSiteEnvironmentSyncing( stagingSiteId )
+	);
+	const isAssistantThinking = Boolean( workspaceActivity.isAssistantThinking );
+	const isSyncing =
+		isLocalPulling || isLocalPushing || isProductionStagingSyncing || isStagingEnvironmentSyncing;
+	const showActivitySpinner = isAssistantThinking || isSyncing;
+	const activityTooltip = isAssistantThinking
+		? isSyncing
+			? __( 'Assistant and sync in progress' )
+			: __( 'Assistant thinking' )
+		: __( 'Syncing' );
+	const activityLabel = isAssistantThinking
+		? isSyncing
+			? sprintf(
+					// translators: %s is a workspace name.
+					__( '%s assistant and sync are active' ),
+					workspace.name
+			  )
+			: sprintf(
+					// translators: %s is a workspace name.
+					__( '%s assistant is thinking' ),
+					workspace.name
+			  )
+		: sprintf(
+				// translators: %s is a workspace name.
+				__( '%s sync is in progress' ),
+				workspace.name
+		  );
 
 	return (
 		<li className={ cx( 'min-w-[168px] transition-all ms-1', isMac() ? 'me-5' : 'me-4' ) }>
@@ -72,7 +119,19 @@ export function WorkspaceSidebarRow( {
 				>
 					{ workspace.name }
 				</button>
-				{ localRunControl }
+				{ showActivitySpinner ? (
+					<Tooltip text={ activityTooltip }>
+						<div
+							role="status"
+							aria-label={ activityLabel }
+							className="grid h-8 w-7 place-items-center rounded-tr rounded-br"
+						>
+							<Spinner className="!m-0 !h-2.5 !w-2.5 [&>circle]:stroke-a8c-gray-70" />
+						</div>
+					</Tooltip>
+				) : (
+					localRunControl
+				) }
 			</div>
 			{ recentConversations.length > 0 && (
 				<ol className="mb-1 ms-3 mt-0.5 space-y-0.5">

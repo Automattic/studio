@@ -6,17 +6,20 @@ import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { Tooltip } from 'src/components/tooltip';
 import { TreeView, updateNodeById, type TreeNode } from 'src/components/tree-view';
+import { WordPressLogoCircle } from 'src/components/wordpress-logo-circle';
 import { useAddSite } from 'src/hooks/use-add-site';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
-import { SyncConnectedSiteControls } from 'src/modules/sync/components/sync-connected-sites';
+import { EnvironmentBadge } from 'src/modules/sync/components/environment-badge';
+import { SyncConnectedSites } from 'src/modules/sync/components/sync-connected-sites';
 import {
 	SyncFilesSelectControl,
 	type SyncFilesSelectionMode,
 } from 'src/modules/sync/components/sync-files-select-control';
 import { SyncModalShell } from 'src/modules/sync/components/sync-modal-shell';
 import { TreeViewLoadingSkeleton } from 'src/modules/sync/components/tree-view-loading-skeleton';
+import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import { useWorkspaceSelection } from 'src/modules/workspaces';
 import { useAppDispatch, useI18nLocale, useRootSelector } from 'src/stores';
 import {
@@ -27,7 +30,7 @@ import {
 	type StagingSyncOption,
 	type StagingSyncOptions,
 } from 'src/stores/sync';
-import { useConnectSiteMutation } from 'src/stores/sync/connected-sites';
+import { useConnectSiteMutation, useDisconnectSiteMutation } from 'src/stores/sync/connected-sites';
 import { useLatestRewindId, useRemoteFileTree } from 'src/stores/sync/sync-hooks';
 import type { SyncSite } from '@studio/common/types/sync';
 import type { StudioWorkspace, WorkspaceTargetId } from 'src/modules/workspaces/types';
@@ -171,7 +174,7 @@ function getProductionStagingSetupState( productionSite: SyncSite ) {
 
 	return {
 		canCreateStagingSite: true,
-		description: __( 'Create a staging target from Production before syncing environments.' ),
+		description: __( 'Create a live staging site from Production.' ),
 		buttonLabel: __( 'Create staging site' ),
 	};
 }
@@ -491,35 +494,38 @@ function EnvironmentSyncDialog( {
 	);
 }
 
-function WorkspaceSyncRow( {
+function WorkspaceSyncSection( {
 	label,
 	description,
+	badges,
 	active,
 	children,
 }: {
 	label: string;
-	description: string;
+	description: ReactNode;
+	badges?: ReactNode;
 	active?: boolean;
 	children: ReactNode;
 } ) {
 	return (
 		<div
 			className={ cx(
-				'grid grid-cols-[1fr_auto] items-center gap-4 rounded border bg-white p-3',
-				active ? 'border-frame-theme' : 'border-a8c-gray-5'
+				'flex flex-col gap-2 border-b border-frame-border py-5',
+				active && 'bg-frame-surface'
 			) }
 		>
-			<div className="min-w-0">
-				<div className="text-sm font-medium text-frame-text">{ label }</div>
-				<div className="truncate text-xs text-frame-text-secondary">{ description }</div>
+			<div className="flex items-center gap-2 ps-8 pe-5">
+				<WordPressLogoCircle />
+				{ badges }
+				<div className="a8c-label-semibold">{ label }</div>
+				<div className="ms-auto flex items-center gap-2">{ children }</div>
 			</div>
-			<div>{ children }</div>
+			<div className="ps-8 pe-5 text-frame-text-secondary a8c-body">{ description }</div>
 		</div>
 	);
 }
 
-function LocalRemoteSyncRow( {
-	label,
+function WorkspaceSetupSyncSection( {
 	localSite,
 	remoteSite,
 	remoteTargetId,
@@ -530,7 +536,6 @@ function LocalRemoteSyncRow( {
 	isCreatingLocalSite,
 	isConnectingSite,
 }: {
-	label: string;
 	localSite?: SiteDetails;
 	remoteSite?: SyncSite;
 	remoteTargetId: Extract< WorkspaceTargetId, 'production' | 'staging' >;
@@ -541,7 +546,6 @@ function LocalRemoteSyncRow( {
 	isCreatingLocalSite?: boolean;
 	isConnectingSite?: boolean;
 } ) {
-	const isConnected = isRemoteConnectedToLocal( remoteSite, localSite );
 	const missingDescription =
 		remoteTargetId === 'production'
 			? __( 'Connect or create a Production target before syncing this link.' )
@@ -551,27 +555,27 @@ function LocalRemoteSyncRow( {
 	const canUseLocalSetup = localSetupState?.canUseLocalSetup;
 	const canConnectRemoteSite = Boolean( localSite && remoteSite && canUseLocalSetup );
 	const description =
-		isConnected && remoteSite
-			? remoteSite.url
-			: remoteSite && ! canUseLocalSetup && localSetupState
+		remoteSite && ! canUseLocalSetup && localSetupState
 			? localSetupState.description ?? missingDescription
 			: remoteSite && ! localSite
-			? __( 'Create a local copy of this target before syncing.' )
+			? __( 'Create a local copy of this site to vibe with.' )
 			: remoteSite && localSite
-			? __( 'Connect this target to the local site before syncing.' )
+			? __( 'Connect this site to the local site before syncing.' )
 			: missingDescription;
+	const label =
+		remoteSite?.name ??
+		( remoteTargetId === 'production' ? __( 'Production target' ) : __( 'Staging target' ) );
+	const environmentType = remoteSite ? getSiteEnvironment( remoteSite ) : remoteTargetId;
 
 	return (
-		<WorkspaceSyncRow label={ label } description={ description } active={ active }>
+		<WorkspaceSyncSection
+			label={ label }
+			description={ description }
+			badges={ <EnvironmentBadge type={ environmentType } /> }
+			active={ active }
+		>
 			<div className={ cx( disabled && 'opacity-50' ) }>
-				{ isConnected && localSite && remoteSite ? (
-					<SyncConnectedSiteControls
-						connectedSite={ remoteSite }
-						selectedSite={ localSite }
-						disabled={ disabled }
-						disabledReason={ disabledReason }
-					/>
-				) : remoteSite && ! localSite && canUseLocalSetup ? (
+				{ remoteSite && ! localSite && canUseLocalSetup ? (
 					<Tooltip text={ disabledReason } disabled={ ! disabled } placement="top-start">
 						<Button
 							variant="tertiary"
@@ -608,7 +612,7 @@ function LocalRemoteSyncRow( {
 					</Button>
 				) }
 			</div>
-		</WorkspaceSyncRow>
+		</WorkspaceSyncSection>
 	);
 }
 
@@ -663,11 +667,19 @@ function EnvironmentSyncRow( {
 		: stagingSyncState?.status === 'completed'
 		? __( 'Last environment sync completed.' )
 		: __( 'Copy content between production and staging.' );
+	const label = __( 'Production and staging' );
+	const badges = (
+		<>
+			<EnvironmentBadge type="production" />
+			{ stagingSite && <EnvironmentBadge type="staging" /> }
+		</>
+	);
 
 	return (
-		<WorkspaceSyncRow
-			label={ __( 'Production <-> Staging' ) }
+		<WorkspaceSyncSection
+			label={ label }
 			description={ description }
+			badges={ badges }
 			active={ active }
 		>
 			<Tooltip text={ disabledReason } disabled={ ! disabledReason } placement="top-start">
@@ -716,7 +728,7 @@ function EnvironmentSyncRow( {
 					) }
 				</div>
 			</Tooltip>
-		</WorkspaceSyncRow>
+		</WorkspaceSyncSection>
 	);
 }
 
@@ -728,6 +740,7 @@ export function WorkspaceSyncPanelContent( {
 	const { createSiteFromRemoteSite } = useAddSite();
 	const { refreshWorkspaces } = useWorkspaceSelection();
 	const [ connectSite ] = useConnectSiteMutation();
+	const [ disconnectSite ] = useDisconnectSiteMutation();
 	const [ environmentSyncDirection, setEnvironmentSyncDirection ] =
 		useState< StagingSyncDirection | null >( null );
 	const [ creatingLocalSiteId, setCreatingLocalSiteId ] = useState< number | null >( null );
@@ -740,13 +753,26 @@ export function WorkspaceSyncPanelContent( {
 	const stagingSite = workspace.targets.staging?.site;
 	const localProductionSyncState = useLocalRemoteSyncState( localSite, productionSite );
 	const localStagingSyncState = useLocalRemoteSyncState( localSite, stagingSite );
+	const isProductionConnectedToLocal = isRemoteConnectedToLocal( productionSite, localSite );
+	const isStagingConnectedToLocal = isRemoteConnectedToLocal( stagingSite, localSite );
+	const connectedLocalSites = useMemo(
+		() =>
+			[ productionSite, stagingSite ].filter(
+				( site ): site is SyncSite => Boolean( site ) && isRemoteConnectedToLocal( site, localSite )
+			),
+		[ localSite, productionSite, stagingSite ]
+	);
 	const isEnvironmentSyncing = useRootSelector(
 		stagingSyncSelectors.selectIsProductionSiteSyncing( productionSite?.id )
 	);
 	const isAnyLocalRemoteSyncing =
 		localProductionSyncState.isSyncing || localStagingSyncState.isSyncing;
-	const shouldShowLocalProductionRow = Boolean( localSite || productionSite );
-	const shouldShowLocalStagingRow = Boolean( stagingSite && ( localSite || ! productionSite ) );
+	const shouldShowLocalProductionSetupRow = Boolean(
+		( productionSite && ! isProductionConnectedToLocal ) || ( localSite && ! productionSite )
+	);
+	const shouldShowLocalStagingSetupRow = Boolean(
+		stagingSite && ! isStagingConnectedToLocal && ( localSite || ! productionSite )
+	);
 	const shouldShowEnvironmentRow = Boolean( productionSite || stagingSite );
 
 	const handleCreateLocalSite = useCallback(
@@ -792,6 +818,28 @@ export function WorkspaceSyncPanelContent( {
 			}
 		},
 		[ connectSite, refreshWorkspaces ]
+	);
+
+	const handleDisconnectSite = useCallback(
+		async ( siteId: number ) => {
+			if ( ! localSite ) {
+				return;
+			}
+
+			try {
+				await disconnectSite( { siteId, localSiteId: localSite.id } );
+				refreshWorkspaces();
+			} catch ( error ) {
+				getIpcApi().showErrorMessageBox( {
+					title: __( 'Could not disconnect site' ),
+					message:
+						error instanceof Error
+							? error.message
+							: __( 'The WordPress.com site could not be disconnected.' ),
+				} );
+			}
+		},
+		[ disconnectSite, localSite, refreshWorkspaces ]
 	);
 
 	const handleCreateStagingSite = useCallback(
@@ -846,8 +894,9 @@ export function WorkspaceSyncPanelContent( {
 	}, [ dispatch, isEnvironmentSyncing, productionSite?.id, stagingSite?.id ] );
 
 	if (
-		! shouldShowLocalProductionRow &&
-		! shouldShowLocalStagingRow &&
+		connectedLocalSites.length === 0 &&
+		! shouldShowLocalProductionSetupRow &&
+		! shouldShowLocalStagingSetupRow &&
 		! shouldShowEnvironmentRow
 	) {
 		return (
@@ -859,52 +908,62 @@ export function WorkspaceSyncPanelContent( {
 		);
 	}
 
+	const syncSections = (
+		<>
+			{ shouldShowLocalProductionSetupRow && (
+				<WorkspaceSetupSyncSection
+					localSite={ localSite }
+					remoteSite={ productionSite }
+					remoteTargetId="production"
+					disabled={ isEnvironmentSyncing }
+					active={ selectedTargetId === 'production' }
+					onCreateLocalSite={ handleCreateLocalSite }
+					onConnectRemoteSite={ handleConnectRemoteSite }
+					isCreatingLocalSite={ creatingLocalSiteId === productionSite?.id }
+					isConnectingSite={ connectingRemoteSiteId === productionSite?.id }
+				/>
+			) }
+			{ shouldShowLocalStagingSetupRow && (
+				<WorkspaceSetupSyncSection
+					localSite={ localSite }
+					remoteSite={ stagingSite }
+					remoteTargetId="staging"
+					disabled={ isEnvironmentSyncing }
+					active={ selectedTargetId === 'staging' }
+					onCreateLocalSite={ handleCreateLocalSite }
+					onConnectRemoteSite={ handleConnectRemoteSite }
+					isCreatingLocalSite={ creatingLocalSiteId === stagingSite?.id }
+					isConnectingSite={ connectingRemoteSiteId === stagingSite?.id }
+				/>
+			) }
+			{ shouldShowEnvironmentRow && (
+				<EnvironmentSyncRow
+					productionSite={ productionSite }
+					stagingSite={ stagingSite }
+					disabled={ isAnyLocalRemoteSyncing }
+					active={ selectedTargetId === 'production' || selectedTargetId === 'staging' }
+					onOpenDialog={ setEnvironmentSyncDirection }
+					onCreateStagingSite={ handleCreateStagingSite }
+					isCreatingStagingSite={ creatingStagingProductionSiteId === productionSite?.id }
+				/>
+			) }
+		</>
+	);
+
 	return (
-		<div className="p-8" data-testid="workspace-sync-panel">
-			<div className="max-w-3xl">
-				<h2 className="m-0 text-base font-medium text-frame-text">{ __( 'Sync' ) }</h2>
-				<div className="mt-4 grid gap-3">
-					{ shouldShowLocalProductionRow && (
-						<LocalRemoteSyncRow
-							label={ __( 'Local <-> Production' ) }
-							localSite={ localSite }
-							remoteSite={ productionSite }
-							remoteTargetId="production"
-							disabled={ isEnvironmentSyncing }
-							active={ selectedTargetId === 'production' }
-							onCreateLocalSite={ handleCreateLocalSite }
-							onConnectRemoteSite={ handleConnectRemoteSite }
-							isCreatingLocalSite={ creatingLocalSiteId === productionSite?.id }
-							isConnectingSite={ connectingRemoteSiteId === productionSite?.id }
-						/>
-					) }
-					{ shouldShowLocalStagingRow && (
-						<LocalRemoteSyncRow
-							label={ __( 'Local <-> Staging' ) }
-							localSite={ localSite }
-							remoteSite={ stagingSite }
-							remoteTargetId="staging"
-							disabled={ isEnvironmentSyncing }
-							active={ selectedTargetId === 'staging' }
-							onCreateLocalSite={ handleCreateLocalSite }
-							onConnectRemoteSite={ handleConnectRemoteSite }
-							isCreatingLocalSite={ creatingLocalSiteId === stagingSite?.id }
-							isConnectingSite={ connectingRemoteSiteId === stagingSite?.id }
-						/>
-					) }
-					{ shouldShowEnvironmentRow && (
-						<EnvironmentSyncRow
-							productionSite={ productionSite }
-							stagingSite={ stagingSite }
-							disabled={ isAnyLocalRemoteSyncing }
-							active={ selectedTargetId === 'production' || selectedTargetId === 'staging' }
-							onOpenDialog={ setEnvironmentSyncDirection }
-							onCreateStagingSite={ handleCreateStagingSite }
-							isCreatingStagingSite={ creatingStagingProductionSiteId === productionSite?.id }
-						/>
-					) }
-				</div>
-			</div>
+		<div className="flex h-full flex-col overflow-y-auto" data-testid="workspace-sync-panel">
+			{ localSite ? (
+				<SyncConnectedSites
+					connectedSites={ connectedLocalSites }
+					selectedSite={ localSite }
+					disconnectSite={ handleDisconnectSite }
+					className="pt-0"
+				>
+					{ syncSections }
+				</SyncConnectedSites>
+			) : (
+				<div className="flex flex-col flex-1">{ syncSections }</div>
+			) }
 			{ environmentSyncDirection && productionSite && stagingSite && (
 				<EnvironmentSyncDialog
 					direction={ environmentSyncDirection }

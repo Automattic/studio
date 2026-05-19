@@ -8,14 +8,6 @@ export {
 	useWorkspaceSelection,
 	WorkspaceSelectionProvider,
 } from 'src/modules/workspaces/hooks/use-workspace-selection';
-export {
-	getDefaultWorkspaceTabId,
-	getWorkspaceTabIds,
-	getWorkspaceTabStorageKey,
-	isWorkspaceTabId,
-	LOCAL_WORKSPACE_TAB_IDS,
-	REMOTE_WORKSPACE_TAB_IDS,
-} from 'src/modules/workspaces/lib/workspace-tabs';
 export type {
 	BuildStudioWorkspacesInput,
 	LocalTarget,

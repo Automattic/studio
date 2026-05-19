@@ -3,7 +3,7 @@ import { createInterpolateElement } from '@wordpress/element';
 import { sprintf } from '@wordpress/i18n';
 import { cloudUpload, cloudDownload, info, close, error } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { ClearAction } from 'src/components/clear-action';
@@ -775,13 +775,17 @@ export function SyncConnectedSites( {
 	connectedSites,
 	disconnectSite,
 	selectedSite,
+	children,
+	className,
 }: {
 	connectedSites: SyncSite[];
 	disconnectSite: ( id: number ) => void;
 	selectedSite: SiteDetails;
+	children?: ReactNode;
+	className?: string;
 } ) {
 	return (
-		<div className="flex flex-col flex-1 pt-8">
+		<div className={ cx( 'flex flex-col flex-1 pt-8', className ) }>
 			{ connectedSites.map( ( connectedSite ) => (
 				<SyncConnectedSiteSection
 					key={ connectedSite.id }
@@ -790,6 +794,7 @@ export function SyncConnectedSites( {
 					disconnectSite={ disconnectSite }
 				/>
 			) ) }
+			{ children }
 		</div>
 	);
 }

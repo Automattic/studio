@@ -1,6 +1,6 @@
 import { TabPanel } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-import { useMemo, useState, type ComponentProps } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { ContentTabAssistant } from 'src/components/content-tab-assistant';
 import { ContentTabImportExport } from 'src/components/content-tab-import-export';
 import { ContentTabOverview } from 'src/components/content-tab-overview';
@@ -14,13 +14,13 @@ import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { ContentTabSync } from 'src/modules/sync';
 import { WorkspaceSyncPanelContent } from 'src/modules/sync/components/workspace-sync-panel';
-import {
-	getDefaultWorkspaceTabId,
-	getWorkspaceTabIds,
-	useWorkspaceSelection,
-} from 'src/modules/workspaces';
+import { useWorkspaceSelection } from 'src/modules/workspaces';
 import { WorkspaceDollyAssistant } from 'src/modules/workspaces/components/workspace-dolly-assistant';
 import { WorkspaceHeader } from 'src/modules/workspaces/components/workspace-header';
+import {
+	WorkspaceLiveSiteOverview,
+	WorkspaceLiveSiteSettings,
+} from 'src/modules/workspaces/components/workspace-live-site-panels';
 import {
 	createDefaultWorkspacePreviewState,
 	resolveWorkspacePreviewUrl,
@@ -96,20 +96,6 @@ function LocalOnlyWorkspaceTabNotice( { title }: { title: string } ) {
 			</div>
 		</div>
 	);
-}
-
-function getOrderedWorkspaceTabs(
-	tabs: ComponentProps< typeof TabPanel >[ 'tabs' ],
-	workspace: StudioWorkspace
-) {
-	const tabsByName = new Map( tabs.map( ( tab ) => [ tab.name, tab ] ) );
-	return getWorkspaceTabIds( workspace )
-		.map( ( tabId ) => tabsByName.get( tabId ) )
-		.filter( ( tab ): tab is NonNullable< typeof tab > => Boolean( tab ) )
-		.map( ( tab ) => ( {
-			...tab,
-			className: tab.className?.replace( /\s*ltr:ml-auto\s+rtl:mr-auto\s*/g, ' ' ).trim(),
-		} ) );
 }
 
 function resolveLocalPreviewBaseUrl( site: SiteDetails ) {
@@ -193,6 +179,15 @@ function getTransportTarget( workspace: StudioWorkspace ) {
 	return workspace.targets.staging ?? workspace.targets.production;
 }
 
+function getSelectedRemoteTarget( workspace: StudioWorkspace, targetId?: WorkspaceTargetId ) {
+	if ( targetId === 'production' ) {
+		return workspace.targets.production;
+	}
+	if ( targetId === 'staging' ) {
+		return workspace.targets.staging;
+	}
+}
+
 export function WorkspaceContentShell() {
 	const { tabs } = useContentTabs();
 	const { importState } = useImportExport();
@@ -263,10 +258,7 @@ export function WorkspaceContentShell() {
 	const previewTarget =
 		previewTargets.find( ( target ) => target.id === selectedPreviewTargetId ) ??
 		previewTargets[ 0 ];
-	const workspaceTabs = useMemo(
-		() => ( selectedWorkspace ? getOrderedWorkspaceTabs( tabs, selectedWorkspace ) : [] ),
-		[ selectedWorkspace, tabs ]
-	);
+	const workspaceTabs = tabs;
 
 	if ( ! selectedWorkspace ) {
 		return <EmptyWorkspaceSelection />;
@@ -287,7 +279,7 @@ export function WorkspaceContentShell() {
 		}
 	}
 
-	const activeTabId = selectedTabId ?? getDefaultWorkspaceTabId( selectedWorkspace );
+	const activeTabId = selectedTabId ?? 'overview';
 	const targetPreviewState = previewTarget
 		? getPreviewStateForTarget( previewState, previewTarget )
 		: previewState;
@@ -296,6 +288,11 @@ export function WorkspaceContentShell() {
 		: undefined;
 	const previewUrl = targetPreviewState.currentUrl ?? resolvedPreviewUrl;
 	const localContextSite = previewTarget?.id === 'local' ? localTarget?.site : undefined;
+	const selectedRemoteTarget = getSelectedRemoteTarget( selectedWorkspace, previewTarget?.id );
+	const previewControlsAreClosed = Boolean( previewTarget && ! targetPreviewState.open );
+	const previewControlsStyle = {
+		'--workspace-preview-controls-width': `${ targetPreviewState.width }px`,
+	} as CSSProperties;
 
 	const updatePreviewState = ( nextPreviewState: WorkspacePreviewState ) => {
 		if ( ! previewKey ) {
@@ -403,6 +400,9 @@ export function WorkspaceContentShell() {
 				workspace={ selectedWorkspace }
 				showLocalManagementActions={ previewTarget?.id === 'local' }
 				onStartLocalSite={ startLocalSiteFromHeader }
+				previewTargets={ previewTargets }
+				selectedPreviewTargetId={ previewTarget?.id }
+				onSelectPreviewTarget={ selectPreviewTarget }
 			/>
 			<div
 				data-testid="workspace-content-body"
@@ -419,16 +419,19 @@ export function WorkspaceContentShell() {
 						<div className="pointer-events-auto w-full min-w-0">
 							<WorkspacePreviewControls
 								target={ previewTarget }
-								targets={ previewTargets }
-								selectedTargetId={ previewTarget.id }
 								previewState={ targetPreviewState }
-								onSelectTarget={ selectPreviewTarget }
 								onUpdatePreviewState={ updatePreviewState }
 							/>
 						</div>
 					</div>
 				) }
-				<div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+				<div
+					className={ cx(
+						'flex min-w-0 flex-1 flex-col overflow-hidden',
+						previewControlsAreClosed && 'workspace-content-shell__tabs--preview-controls-closed'
+					) }
+					style={ previewControlsStyle }
+				>
 					<TabPanel
 						className={ `flex h-full flex-col overflow-hidden ${ MIN_WIDTH_CLASS_TO_MEASURE }` }
 						tabs={ workspaceTabs }
@@ -453,6 +456,8 @@ export function WorkspaceContentShell() {
 								{ name === 'overview' &&
 									( localContextSite ? (
 										<ContentTabOverview selectedSite={ localContextSite } />
+									) : selectedRemoteTarget ? (
+										<WorkspaceLiveSiteOverview target={ selectedRemoteTarget } />
 									) : (
 										<LocalOnlyWorkspaceTabNotice title={ __( 'Overview' ) } />
 									) ) }
@@ -485,6 +490,8 @@ export function WorkspaceContentShell() {
 								{ name === 'settings' &&
 									( localContextSite ? (
 										<ContentTabSettings selectedSite={ localContextSite } />
+									) : selectedRemoteTarget ? (
+										<WorkspaceLiveSiteSettings target={ selectedRemoteTarget } />
 									) : (
 										<WorkspaceSettingsPlaceholder workspace={ selectedWorkspace } />
 									) ) }

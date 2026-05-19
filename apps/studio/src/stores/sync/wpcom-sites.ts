@@ -31,6 +31,52 @@ const SITE_FIELDS = [
 	'icon',
 ].join( ',' );
 
+const activeWpcomThemeResponseSchema = z
+	.object( {
+		id: z.string().optional(),
+		name: z.string().optional(),
+		screenshot: z.string().nullable().optional(),
+		is_block_theme: z.boolean().optional(),
+		block_theme: z.boolean().optional(),
+		blockTheme: z.boolean().optional(),
+		supports_menus: z.boolean().optional(),
+		supports_widgets: z.boolean().optional(),
+	} )
+	.passthrough()
+	.transform( ( theme ) => ( {
+		id: theme.id,
+		name: theme.name,
+		screenshotUrl: theme.screenshot || undefined,
+		isBlockTheme: theme.is_block_theme ?? theme.block_theme ?? theme.blockTheme,
+		supportsMenus: theme.supports_menus,
+		supportsWidgets: theme.supports_widgets,
+	} ) );
+
+export type WpcomActiveTheme = z.infer< typeof activeWpcomThemeResponseSchema >;
+
+const wpcomSiteSettingsResponseSchema = z
+	.object( {
+		ID: z.number().optional(),
+		name: z.string().optional(),
+		description: z.string().optional(),
+		URL: z.string().optional(),
+		lang: z.string().optional(),
+		locale_variant: z.string().nullable().optional(),
+		settings: z.record( z.string(), z.unknown() ).optional(),
+	} )
+	.passthrough()
+	.transform( ( response ) => ( {
+		id: response.ID,
+		name: response.name,
+		description: response.description,
+		url: response.URL,
+		lang: response.lang,
+		localeVariant: response.locale_variant ?? undefined,
+		settings: response.settings ?? {},
+	} ) );
+
+export type WpcomSiteSettings = z.infer< typeof wpcomSiteSettingsResponseSchema >;
+
 export const wpcomSitesApi = createApi( {
 	reducerPath: 'wpcomSitesApi',
 	baseQuery: fetchBaseQuery(),
@@ -252,15 +298,81 @@ export const wpcomSitesApi = createApi( {
 				{ type: 'WpComSites', id: arg.siteId },
 			],
 		} ),
+		getActiveWpcomTheme: builder.query< WpcomActiveTheme, { siteId: number; userId?: number } >( {
+			queryFn: async ( { siteId } ) => {
+				const wpcomClient = getWpcomClient();
+				if ( ! wpcomClient ) {
+					return { error: { status: 401, data: 'Not authenticated' } };
+				}
+
+				try {
+					const response = await wpcomClient.req.get( {
+						apiNamespace: 'rest/v1',
+						path: `/sites/${ siteId }/themes/mine`,
+					} );
+
+					return { data: activeWpcomThemeResponseSchema.parse( response ) };
+				} catch ( error ) {
+					Sentry.captureException( error );
+					console.error( error );
+					return {
+						error: {
+							status: 500,
+							data: error,
+						},
+					};
+				}
+			},
+			keepUnusedDataFor: 300,
+			providesTags: ( _result, _error, arg ) => [
+				{ type: 'WpComSites', userId: arg.userId },
+				{ type: 'WpComSites', id: arg.siteId },
+			],
+		} ),
+		getWpcomSiteSettings: builder.query< WpcomSiteSettings, { siteId: number; userId?: number } >( {
+			queryFn: async ( { siteId } ) => {
+				const wpcomClient = getWpcomClient();
+				if ( ! wpcomClient ) {
+					return { error: { status: 401, data: 'Not authenticated' } };
+				}
+
+				try {
+					const response = await wpcomClient.req.get( {
+						apiNamespace: 'rest/v1.1',
+						path: `/sites/${ siteId }/settings`,
+					} );
+
+					return { data: wpcomSiteSettingsResponseSchema.parse( response ) };
+				} catch ( error ) {
+					Sentry.captureException( error );
+					console.error( error );
+					return {
+						error: {
+							status: 500,
+							data: error,
+						},
+					};
+				}
+			},
+			keepUnusedDataFor: 300,
+			providesTags: ( _result, _error, arg ) => [
+				{ type: 'WpComSites', userId: arg.userId },
+				{ type: 'WpComSites', id: arg.siteId },
+			],
+		} ),
 	} ),
 } );
 
 const {
 	useGetWpComSitesQuery: useGetWpComSitesQueryBase,
 	useGetPhpVersionQuery: useGetPhpVersionQueryBase,
+	useGetActiveWpcomThemeQuery: useGetActiveWpcomThemeQueryBase,
+	useGetWpcomSiteSettingsQuery: useGetWpcomSiteSettingsQueryBase,
 } = wpcomSitesApi;
 
 // Wrap the query hook with offline check
 // Authentication is already handled in queryFn which checks wpcomClient
 export const useGetWpComSitesQuery = withOfflineCheck( useGetWpComSitesQueryBase );
 export const useGetPhpVersionQuery = withOfflineCheck( useGetPhpVersionQueryBase );
+export const useGetActiveWpcomThemeQuery = withOfflineCheck( useGetActiveWpcomThemeQueryBase );
+export const useGetWpcomSiteSettingsQuery = withOfflineCheck( useGetWpcomSiteSettingsQueryBase );

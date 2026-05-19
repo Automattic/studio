@@ -617,6 +617,17 @@ describe( 'WorkspaceDollyAssistant', () => {
 		);
 	} );
 
+	it( 'warns when Dolly is using the production target', () => {
+		renderDollyAssistant( {
+			transportTarget: productionTarget,
+			previewTargetId: 'production',
+		} );
+
+		expect( screen.getByRole( 'note' ) ).toHaveTextContent(
+			'Production site: changes requested in this chat can be applied directly to the live site.'
+		);
+	} );
+
 	it( 'sends the selected local preview URL and local site id while keeping the remote transport session', async () => {
 		const { requestBodies, requestUrls } = mockDollyFetch( () =>
 			createDollyResponse( 'Local context response', 'session-workspace', 'task-local' )

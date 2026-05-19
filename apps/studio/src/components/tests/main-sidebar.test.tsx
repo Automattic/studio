@@ -1,3 +1,4 @@
+import { configureStore } from '@reduxjs/toolkit';
 import { render, act, screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
@@ -11,11 +12,15 @@ import {
 	getWorkspaceDollyConversationState,
 	writeWorkspaceDollyConversationState,
 } from 'src/modules/workspaces/lib/dolly/session';
+import { startWorkspaceDollyTurn } from 'src/modules/workspaces/lib/dolly/turns';
 import {
 	WORKSPACE_DOLLY_AGENT_ID,
 	type WorkspaceDollyConversationState,
 } from 'src/modules/workspaces/lib/dolly/types';
 import { store } from 'src/stores';
+import { installedAppsApi } from 'src/stores/installed-apps-api';
+import { stagingSyncActions, stagingSyncThunks } from 'src/stores/sync';
+import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 import type { SyncSite } from '@studio/common/types/sync';
 
 const featureFlagsMock = vi.hoisted( () => ( {
@@ -33,6 +38,8 @@ const ipcApiMock = vi.hoisted( () => ( {
 	getUserTerminal: vi.fn().mockResolvedValue( 'terminal' ),
 	setWindowControlVisibility: vi.fn(),
 	setupAppMenu: vi.fn(),
+	addSyncOperation: vi.fn(),
+	clearSyncOperation: vi.fn(),
 } ) );
 const useGetWpComSitesQueryMock = vi.hoisted( () => vi.fn() );
 
@@ -89,6 +96,8 @@ vi.mock( 'src/stores/sync/wpcom-sites', async () => {
 		useGetWpComSitesQuery: useGetWpComSitesQueryMock,
 	};
 } );
+
+store.replaceReducer( testReducer );
 
 const createLocalSite = ( overrides: Partial< SiteDetails > = {} ): SiteDetails =>
 	( {
@@ -219,9 +228,9 @@ const enableWorkspaceSidebar = ( {
 	mockWpcomSitesQuery( wpcomSites );
 };
 
-const renderWithProvider = ( children: React.ReactElement ) => {
+const renderWithProvider = ( children: React.ReactElement, reduxStore = store ) => {
 	return render(
-		<Provider store={ store }>
+		<Provider store={ reduxStore }>
 			<ContentTabsProvider>
 				<WorkspaceSelectionProvider>{ children }</WorkspaceSelectionProvider>
 			</ContentTabsProvider>
@@ -234,6 +243,7 @@ describe( 'MainSidebar Footer', () => {
 		vi.clearAllMocks();
 		localStorage.clear();
 		clearWorkspaceDollyAssistantStateCacheForTests();
+		store.dispatch( testActions.resetState() );
 		featureFlagsMock.enableWorkspaces = false;
 		siteDetailsMocked.sites = defaultLocalSites();
 		siteDetailsMocked.selectedSite = site2;
@@ -272,6 +282,7 @@ describe( 'MainSidebar Site Menu', () => {
 		vi.clearAllMocks();
 		localStorage.clear();
 		clearWorkspaceDollyAssistantStateCacheForTests();
+		store.dispatch( testActions.resetState() );
 		featureFlagsMock.enableWorkspaces = false;
 		siteDetailsMocked.sites = defaultLocalSites();
 		siteDetailsMocked.selectedSite = site2;
@@ -321,6 +332,8 @@ describe( 'MainSidebar Workspace Site Menu', () => {
 		vi.clearAllMocks();
 		localStorage.clear();
 		clearWorkspaceDollyAssistantStateCacheForTests();
+		store.dispatch( testActions.resetState() );
+		store.dispatch( stagingSyncActions.clearStagingSyncState( { productionSiteId: 101 } ) );
 		ipcApiMock.getConnectedWpcomSites.mockResolvedValue( [] );
 		mockWpcomSitesQuery();
 	} );
@@ -480,6 +493,67 @@ describe( 'MainSidebar Workspace Site Menu', () => {
 		expect( screen.queryByRole( 'button', { name: 'P' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'S' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'L' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'shows workspace activity when the assistant is thinking', async () => {
+		const productionSite = createSyncSite( {
+			id: 101,
+			name: 'Remote Only',
+			url: 'https://remote-only.example',
+		} );
+		enableWorkspaceSidebar( {
+			wpcomSites: [ productionSite ],
+		} );
+		startWorkspaceDollyTurn( {
+			workspaceId: 'studio-workspace:wpcom:101',
+			conversationId: 'remote-only-chat',
+			abortController: new AbortController(),
+		} );
+
+		await act( async () => renderWithProvider( <MainSidebar /> ) );
+
+		expect( await screen.findByLabelText( 'Remote Only assistant is thinking' ) ).toBeVisible();
+	} );
+
+	it( 'shows workspace activity while a workspace sync is running', async () => {
+		const syncStore = configureStore( {
+			reducer: testReducer,
+			middleware: ( getDefaultMiddleware ) =>
+				getDefaultMiddleware().concat( installedAppsApi.middleware ),
+		} );
+		const productionSite = createSyncSite( {
+			id: 101,
+			name: 'Business Plan',
+			url: 'https://business-plan.example',
+			stagingSiteIds: [ 202 ],
+		} );
+		const stagingSite = createSyncSite( {
+			id: 202,
+			name: 'Business Plan Staging',
+			url: 'https://business-plan-staging.example',
+			isStaging: true,
+			productionSiteId: 101,
+		} );
+		enableWorkspaceSidebar( {
+			wpcomSites: [ productionSite, stagingSite ],
+		} );
+		syncStore.dispatch(
+			stagingSyncThunks.startStagingSiteSync.pending( 'request-id', {
+				productionSite,
+				stagingSite,
+				direction: 'push',
+				options: [ 'themes' ],
+			} )
+		);
+		expect( syncStore.getState().stagingSync.states[ 101 ] ).toMatchObject( {
+			status: 'started',
+			stagingSiteId: 202,
+		} );
+
+		await act( async () => renderWithProvider( <MainSidebar />, syncStore ) );
+
+		expect( await screen.findByRole( 'button', { name: 'Business Plan' } ) ).toBeVisible();
+		expect( screen.getByLabelText( 'Business Plan sync is in progress' ) ).toBeVisible();
 	} );
 
 	it( 'renders recent chats under their workspace and selects that workspace chat', async () => {

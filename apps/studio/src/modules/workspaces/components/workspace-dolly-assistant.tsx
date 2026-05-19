@@ -1335,6 +1335,7 @@ export function WorkspaceDollyAssistant( {
 	const isInputUnavailable = isOffline || ! isAuthenticated || ! client;
 	const isInputDisabled = isInputUnavailable && ! isCurrentSessionAssistantThinking;
 	const isInputActionDisabled = isInputUnavailable || isCurrentSessionAssistantThinking;
+	const isProductionAssistantContext = currentPreviewTarget.targetId === 'production';
 	const dollyInputActions = useMemo(
 		() => [
 			{
@@ -1412,6 +1413,16 @@ export function WorkspaceDollyAssistant( {
 					showHeader={ false }
 					className="relative min-h-0 overflow-hidden px-6 pb-4 pt-6"
 				>
+					{ isProductionAssistantContext && (
+						<div
+							role="note"
+							className="mx-2 mb-3 rounded border border-[#d97706]/30 bg-[#fef0c7] px-3 py-2 text-sm text-[#93590c]"
+						>
+							{ __(
+								'Production site: changes requested in this chat can be applied directly to the live site.'
+							) }
+						</div>
+					) }
 					<AgentUI.Messages key={ selectedConversationId } />
 					{ showJumpToLatest && (
 						<div className="pointer-events-none absolute inset-x-0 bottom-28 z-20 flex justify-center">

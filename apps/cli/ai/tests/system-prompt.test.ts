@@ -32,6 +32,7 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).toContain( '- theme-styles:' );
 		expect( prompt ).toContain( '- theme-pattern:' );
 		expect( prompt ).toContain( '- color:' );
+		expect( prompt ).toContain( '- pdf:' );
 	} );
 
 	it( 'omits Studio presentation rules when chat artifacts are disabled', () => {

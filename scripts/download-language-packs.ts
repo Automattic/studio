@@ -4,7 +4,7 @@ import fs from 'fs-extra';
 import { extractZip } from '../tools/common/lib/extract-zip';
 import { WP_LOCALES } from '../tools/common/lib/wp-locales';
 
-const WP_SERVER_FILES_PATH = path.join( __dirname, '..', 'wp-files' );
+const WP_SERVER_FILES_PATH = path.join( import.meta.dirname, '..', 'wp-files' );
 
 const MAX_RETRIES = 3;
 const INITIAL_RETRY_DELAY_MS = 1000;

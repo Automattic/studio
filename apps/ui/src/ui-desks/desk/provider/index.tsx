@@ -55,9 +55,16 @@ import { useWidgetCustomDropActions } from '@/ui-desks/widget-actions/drop-handl
 import { getWidgetEditAction } from '@/ui-desks/widget-actions/edit-action';
 import { getWidgetFileHandler } from '@/ui-desks/widget-actions/file-handlers';
 import {
+	createWidgetPastePayload,
 	createUrlPastePayload,
 	getWidgetPasteHandler,
 } from '@/ui-desks/widget-actions/paste-handlers';
+import {
+	COLOR_WIDGET_DRAG_MIME_TYPE,
+	COLOR_WIDGET_DRAG_TITLE_MIME_TYPE,
+	COLOR_WIDGET_TYPE,
+	parseColorToHex,
+} from '@/ui-desks/widgets/color/types';
 import { LOADING_WIDGET_TYPE } from '@/ui-desks/widgets/loading/types';
 import { NOTE_WIDGET_TYPE } from '@/ui-desks/widgets/note/types';
 import { PageDitherFilters } from '@/ui-desks/widgets/page/page-dither-filters';
@@ -71,12 +78,15 @@ import {
 } from '@/ui-desks/widgets/site-preview/types';
 import {
 	DeskContext,
+	type AddDeskMaterializedOptions,
 	type AddDeskWidgetOptions,
+	type CreateDeskMaterialization,
 	type DeskProviderProps,
 	type PreviewContentType,
 	type SelectedWidgetToolbarItem,
 } from './context';
 import {
+	addMaterializedDeskToEditor,
 	addWidgetToEditor,
 	convertDrawShapesToDrawingWidget,
 	createWidgetId,
@@ -574,16 +584,21 @@ export function DeskProvider( {
 				return;
 			}
 
-			const payload = createUrlPastePayload( event.clipboardData?.getData( 'text/plain' ) ?? '' );
-			if ( ! payload || ! getWidgetPasteHandler( payload, { isRunningSite, siteId } ) ) {
+			const payload = createWidgetPastePayload(
+				event.clipboardData?.getData( 'text/plain' ) ?? ''
+			);
+			const match = payload ? getWidgetPasteHandler( payload, { isRunningSite, siteId } ) : null;
+			if ( ! payload || ! match ) {
 				return;
 			}
 
 			event.preventDefault();
-			void editor.putExternalContent( {
-				type: 'url',
-				url: payload.url,
-				point: editor.getViewportPageBounds().center,
+			void handlePastedContent( {
+				editor,
+				payload,
+				match,
+				center: editor.getViewportPageBounds().center,
+				siteId,
 			} );
 		};
 
@@ -594,6 +609,59 @@ export function DeskProvider( {
 			editor.registerExternalContentHandler( 'url', null );
 		};
 	}, [ editor, isHydrated, isReadOnly, isRunningSite, siteId ] );
+
+	useEffect( () => {
+		if ( ! editor || ! isHydrated || isReadOnly ) {
+			return;
+		}
+
+		const container = editor.getContainer();
+		const handleDragOver = ( event: DragEvent ) => {
+			if ( ! hasColorWidgetDragPayload( event.dataTransfer ) ) {
+				return;
+			}
+
+			event.preventDefault();
+			if ( event.dataTransfer ) {
+				event.dataTransfer.dropEffect = 'copy';
+			}
+		};
+		const handleDrop = ( event: DragEvent ) => {
+			if ( ! hasColorWidgetDragPayload( event.dataTransfer ) ) {
+				return;
+			}
+
+			event.preventDefault();
+			event.stopPropagation();
+			const color = parseColorToHex(
+				event.dataTransfer?.getData( COLOR_WIDGET_DRAG_MIME_TYPE ) ?? ''
+			);
+			if ( ! color ) {
+				return;
+			}
+
+			const title = event.dataTransfer?.getData( COLOR_WIDGET_DRAG_TITLE_MIME_TYPE ) ?? '';
+			addWidgetToEditor( editor, COLOR_WIDGET_TYPE, 0, {
+				center: editor.screenToPage( {
+					x: event.clientX,
+					y: event.clientY,
+				} ),
+				widgetProps: {
+					color,
+					title,
+				},
+				shouldStartEditing: false,
+			} );
+		};
+
+		container.addEventListener( 'dragover', handleDragOver, true );
+		container.addEventListener( 'drop', handleDrop, true );
+
+		return () => {
+			container.removeEventListener( 'dragover', handleDragOver, true );
+			container.removeEventListener( 'drop', handleDrop, true );
+		};
+	}, [ editor, isHydrated, isReadOnly ] );
 
 	useEffect( () => {
 		if ( ! editor || ! isHydrated || isReadOnly ) {
@@ -650,6 +718,34 @@ export function DeskProvider( {
 				creationOffsetRef.current += 1;
 			}
 			return didAddWidget;
+		},
+		[ editor, isHydrated, isReadOnly ]
+	);
+
+	const addMaterializedDesk = useCallback(
+		( createMaterialization: CreateDeskMaterialization, options?: AddDeskMaterializedOptions ) => {
+			if ( isReadOnly || ! editor || ! isHydrated ) {
+				return false;
+			}
+
+			const viewportCenter = editor.getViewportPageBounds().center;
+			const offset = ( creationOffsetRef.current % 6 ) * 24;
+			const materialization = createMaterialization( {
+				center: options?.center ?? {
+					x: viewportCenter.x + offset,
+					y: viewportCenter.y + offset,
+				},
+				zIndex: getNextZIndexFromEditor( editor ),
+			} );
+			if ( ! materialization ) {
+				return false;
+			}
+
+			const didAddMaterializedDesk = addMaterializedDeskToEditor( editor, materialization );
+			if ( didAddMaterializedDesk ) {
+				creationOffsetRef.current += 1;
+			}
+			return didAddMaterializedDesk;
 		},
 		[ editor, isHydrated, isReadOnly ]
 	);
@@ -1216,6 +1312,7 @@ export function DeskProvider( {
 			registerEditor,
 			pressStack,
 			addWidget,
+			addMaterializedDesk,
 			addWidgetAtScreenPoint,
 			addPastedContent,
 			startDrawing,
@@ -1243,6 +1340,7 @@ export function DeskProvider( {
 			replaceDeskConfig,
 		} ),
 		[
+			addMaterializedDesk,
 			addPastedContent,
 			addWidget,
 			addWidgetAtScreenPoint,
@@ -1748,6 +1846,12 @@ function shouldIgnorePasteEvent( event: ClipboardEvent ) {
 		target.tagName === 'TEXTAREA' ||
 		target.tagName === 'SELECT' ||
 		target.isContentEditable
+	);
+}
+
+function hasColorWidgetDragPayload( dataTransfer: DataTransfer | null ) {
+	return Boolean(
+		dataTransfer && Array.from( dataTransfer.types ).includes( COLOR_WIDGET_DRAG_MIME_TYPE )
 	);
 }
 

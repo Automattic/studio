@@ -1,7 +1,7 @@
 .toolbar {
 	position: absolute;
 	bottom: 48px;
-	left: 50%;
+	left: calc(50% + var(--ui-desks-chat-shift, 0px));
 	z-index: 10;
 	pointer-events: auto;
 	transform-origin: bottom center;

@@ -295,18 +295,18 @@ jobs:
 
           extension_dir="$staging_dir/ext"
 
-          # SPC's gnu-docker build links the binary dynamically against
-          # glibc + a handful of standard system libraries — that's
-          # expected and what makes shared Xdebug work. What we do need
-          # to verify is that no RPATH/RUNPATH baked into the binary or
-          # the shared Xdebug extension points back at the SPC build
-          # tree, either on the host (`$spc_root`) or inside the
-          # container (`/app/...`); either would make the artifact
-          # non-portable.
+          # PHP configure bakes `-Wl,-rpath,/app/buildroot/lib` into the
+          # binary to satisfy link-time conftests, but the libs that
+          # path pointed at are statically embedded in the final binary,
+          # so the rpath is dead weight pointing at a path that doesn't
+          # exist on the user's machine. Strip it, then verify no host
+          # (`$spc_root`) or container (`/app/...`) build-tree paths
+          # survived.
           for f in "$staging_dir/php" "$staging_dir/ext/xdebug.so"; do
+            patchelf --remove-rpath "$f"
             rpaths=$(readelf -d "$f" 2>/dev/null | grep -E '\(R(UN)?PATH\)' || true)
             if [ -n "$rpaths" ] && echo "$rpaths" | grep -qE "$spc_root|/app/"; then
-              echo "Found non-portable rpath in $f:" >&2
+              echo "Found non-portable rpath in $f after patchelf:" >&2
               echo "$rpaths" >&2
               exit 1
             fi

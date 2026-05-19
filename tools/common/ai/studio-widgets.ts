@@ -27,12 +27,15 @@ const NOTE_TONES = [
 	'neon-blue',
 ] as const;
 const NOTE_TEXT_SIZE_STEPS = [ 0, 1, 2, 3 ] as const;
-const ARTEFACT_SCOPES = [ 'page', 'pattern', 'block' ] as const;
+const SCRATCHPAD_SCOPES = [ 'page', 'pattern', 'block' ] as const;
 const MEDIA_KINDS = [ 'image', 'video' ] as const;
 const POST_COLLECTION_STATUSES = [ 'publish', 'draft', 'any' ] as const;
 const POST_COLLECTION_ORDER_BY = [ 'date', 'modified', 'title' ] as const;
 const POST_COLLECTION_ORDERS = [ 'asc', 'desc' ] as const;
-const STACK_VIEW_MODES = [ 'stack', 'tiles' ] as const;
+const STACK_VIEW_MODES = [ 'stack', 'tiles', 'circle' ] as const;
+const THEME_TEMPLATE_SOURCES = [ 'theme', 'custom', 'plugin' ] as const;
+const THEME_PATTERN_SOURCES = [ 'theme', 'reusable', 'template-part' ] as const;
+const COLOR_FORMATS = [ 'hex', 'rgb', 'hsl' ] as const;
 const MIN_WIDGET_SHAPE_SIZE = 80;
 
 export const STUDIO_PRESENTATION_RULES: StudioPresentationRule[] = [
@@ -49,7 +52,7 @@ export const STUDIO_PRESENTATION_RULES: StudioPresentationRule[] = [
 	{
 		id: 'site-code-scratchpad',
 		description:
-			'During site creation or redesign work, after any successful Write or Edit that creates or changes HTML, CSS, block markup, JSX/TSX markup, inline styles, theme.json design tokens, frontend JS behavior, or theme/plugin code that shapes markup or styling, call studio_present with exactly one note widget as a scratchpad summary. Include the changed file path or basename, the sections/selectors touched, and the design intent or next checkpoint. Keep it compact and do not paste full files. Skip only trivial mechanical edits, generated lockfiles, or config changes unrelated to HTML, CSS, layout, styling, or frontend behavior. Use sd-artefact for standalone rendered HTML drafts, and site-preview after a visible site or page milestone.',
+			'During site creation or redesign work, after any successful Write or Edit that creates or changes HTML, CSS, block markup, JSX/TSX markup, inline styles, theme.json design tokens, frontend JS behavior, or theme/plugin code that shapes markup or styling, call studio_present with exactly one note widget as a scratchpad summary. Include the changed file path or basename, the sections/selectors touched, and the design intent or next checkpoint. Keep it compact and do not paste full files. Skip only trivial mechanical edits, generated lockfiles, or config changes unrelated to HTML, CSS, layout, styling, or frontend behavior. Use scratchpad for standalone rendered HTML drafts, and site-preview after a visible site or page milestone.',
 	},
 	{
 		id: 'saved-local-media',
@@ -94,7 +97,7 @@ export const STUDIO_PRESENTABLE_WIDGET_SPECS: StudioWidgetSpec[] = [
 		description:
 			'A dynamic collection of recent or filtered WordPress posts. Prefer this for latest, recent, top, feed, archive, or other post-list requests.',
 		propsDescription:
-			'{ "query": { "postType": "post", "perPage": 5, "status": "publish", "orderby": "date", "order": "desc" }, "viewMode": "stack" }.',
+			'{ "query": { "postType": "post", "perPage": 5, "status": "publish", "orderby": "date", "order": "desc" }, "viewMode": "stack" } where viewMode is optional and may be stack, tiles, or circle.',
 		example: {
 			type: 'post-collection',
 			widgetProps: {
@@ -137,6 +140,27 @@ export const STUDIO_PRESENTABLE_WIDGET_SPECS: StudioWidgetSpec[] = [
 		validateWidgetProps: ( props ) => typeof props.url === 'string' && isHttpUrl( props.url ),
 	},
 	{
+		type: 'pdf',
+		description:
+			'A PDF reference card that becomes an embedded PDF preview when resized large enough.',
+		propsDescription:
+			'{ "url": "https://example.com/file.pdf", "title": "File title", "mediaId": null, "filesize": 2509824 } where filesize is optional.',
+		example: {
+			type: 'pdf',
+			widgetProps: {
+				url: 'https://example.com/brief.pdf',
+				title: 'Brief',
+				mediaId: null,
+			},
+		},
+		validateWidgetProps: ( props ) =>
+			typeof props.url === 'string' &&
+			isPdfUrl( props.url ) &&
+			typeof props.title === 'string' &&
+			( props.mediaId === null || isNonNegativeInteger( props.mediaId ) ) &&
+			( props.filesize === undefined || isNonNegativeInteger( props.filesize ) ),
+	},
+	{
 		type: 'media',
 		description:
 			'An image or video card backed by a URL, including saved local image, video, or SVG files.',
@@ -166,12 +190,12 @@ export const STUDIO_PRESENTABLE_WIDGET_SPECS: StudioWidgetSpec[] = [
 			( props.mediaId === null || isNonNegativeInteger( props.mediaId ) ),
 	},
 	{
-		type: 'sd-artefact',
-		description: 'A rendered HTML artefact for a page, pattern, or block concept.',
+		type: 'scratchpad',
+		description: 'A rendered HTML scratchpad for a page, pattern, or block concept.',
 		propsDescription:
 			'{ "html": "<main>...</main>", "title": "Landing page draft", "scope": "page", "description": "Optional notes" } where scope is page, pattern, or block.',
 		example: {
-			type: 'sd-artefact',
+			type: 'scratchpad',
 			widgetProps: {
 				html: '<main><h1>Draft</h1></main>',
 				title: 'Landing page draft',
@@ -181,8 +205,103 @@ export const STUDIO_PRESENTABLE_WIDGET_SPECS: StudioWidgetSpec[] = [
 		validateWidgetProps: ( props ) =>
 			typeof props.html === 'string' &&
 			typeof props.title === 'string' &&
-			isOneOf( props.scope, ARTEFACT_SCOPES ) &&
+			isOneOf( props.scope, SCRATCHPAD_SCOPES ) &&
 			( props.description === undefined || typeof props.description === 'string' ),
+	},
+	{
+		type: 'theme',
+		description:
+			'A theme card for the active site theme. It resolves into a theme material stack with templates, styles, template parts, and patterns.',
+		propsDescription:
+			'{ "viewMode": "stack" } where viewMode is optional and may be stack, tiles, or circle.',
+		example: { type: 'theme', widgetProps: { viewMode: 'stack' } },
+		validateWidgetProps: ( props ) =>
+			props.viewMode === undefined || isOneOf( props.viewMode, STACK_VIEW_MODES ),
+	},
+	{
+		type: 'theme-template',
+		description: 'A theme template material card, such as Index, Single, or Page.',
+		propsDescription:
+			'{ "templateId": "twentytwentyfive//index", "slug": "index", "title": "Index", "description": "", "source": "theme" } where source is theme, custom, or plugin.',
+		example: {
+			type: 'theme-template',
+			widgetProps: {
+				templateId: 'twentytwentyfive//index',
+				slug: 'index',
+				title: 'Index',
+				description: '',
+				source: 'theme',
+			},
+		},
+		validateWidgetProps: ( props ) =>
+			typeof props.templateId === 'string' &&
+			typeof props.slug === 'string' &&
+			typeof props.title === 'string' &&
+			typeof props.description === 'string' &&
+			isOneOf( props.source, THEME_TEMPLATE_SOURCES ),
+	},
+	{
+		type: 'theme-styles',
+		description:
+			'A theme styles material card showing palette and typography from the active theme.',
+		propsDescription:
+			'{ "palette": [ { "slug": "primary", "name": "Primary", "color": "#3858e9" } ], "fontFamily": "Inter, sans-serif", "textColor": "#111111", "backgroundColor": "#ffffff" }.',
+		example: {
+			type: 'theme-styles',
+			widgetProps: {
+				palette: [
+					{ slug: 'background', name: 'Background', color: '#ffffff' },
+					{ slug: 'foreground', name: 'Foreground', color: '#111111' },
+				],
+				fontFamily: 'system-ui, sans-serif',
+				textColor: '#111111',
+				backgroundColor: '#ffffff',
+			},
+		},
+		validateWidgetProps: ( props ) =>
+			Array.isArray( props.palette ) &&
+			props.palette.every( isThemePaletteEntry ) &&
+			typeof props.fontFamily === 'string' &&
+			typeof props.textColor === 'string' &&
+			typeof props.backgroundColor === 'string',
+	},
+	{
+		type: 'theme-pattern',
+		description:
+			'A theme pattern, template part, or reusable block material card backed by block markup.',
+		propsDescription:
+			'{ "patternId": "twentytwentyfive/hero", "title": "Hero", "content": "<!-- wp:cover /-->", "source": "theme" } where source is theme, reusable, or template-part. Optional blockId is a non-negative integer and area is a string.',
+		example: {
+			type: 'theme-pattern',
+			widgetProps: {
+				patternId: 'twentytwentyfive/hero',
+				title: 'Hero',
+				content: '<!-- wp:cover /-->',
+				source: 'theme',
+			},
+		},
+		validateWidgetProps: ( props ) =>
+			typeof props.patternId === 'string' &&
+			typeof props.title === 'string' &&
+			typeof props.content === 'string' &&
+			isOneOf( props.source, THEME_PATTERN_SOURCES ) &&
+			( props.blockId === undefined || isNonNegativeInteger( props.blockId ) ) &&
+			( props.area === undefined || typeof props.area === 'string' ),
+	},
+	{
+		type: 'color',
+		description:
+			'A standalone color swatch with an optional label and a cycleable hex, rgb, or hsl value display.',
+		propsDescription:
+			'{ "color": "#3858e9", "title": "Primary", "format": "hex" } where color is a six-digit hex color, title is optional, and format may be hex, rgb, or hsl.',
+		example: {
+			type: 'color',
+			widgetProps: { color: '#3858e9', title: 'Primary', format: 'hex' },
+		},
+		validateWidgetProps: ( props ) =>
+			isHexColor( props.color ) &&
+			( props.title === undefined || typeof props.title === 'string' ) &&
+			( props.format === undefined || isOneOf( props.format, COLOR_FORMATS ) ),
 	},
 ];
 
@@ -290,6 +409,10 @@ function isMediaUrl( value: string ): boolean {
 	}
 }
 
+function isPdfUrl( value: string ): boolean {
+	return isMediaUrl( value ) && /\.pdf(\?|$)/i.test( value );
+}
+
 function isMediaWidgetSource( value: unknown ): boolean {
 	if ( ! isRecord( value ) ) {
 		return false;
@@ -305,6 +428,22 @@ function isMediaWidgetSource( value: unknown ): boolean {
 		typeof value.name === 'string' &&
 		typeof value.mimeType === 'string'
 	);
+}
+
+function isThemePaletteEntry( value: unknown ): boolean {
+	if ( ! isRecord( value ) ) {
+		return false;
+	}
+
+	return (
+		typeof value.slug === 'string' &&
+		( value.name === undefined || typeof value.name === 'string' ) &&
+		typeof value.color === 'string'
+	);
+}
+
+function isHexColor( value: unknown ): value is string {
+	return typeof value === 'string' && /^#[0-9a-f]{6}$/i.test( value );
 }
 
 function isShapeProps( value: unknown ): boolean {

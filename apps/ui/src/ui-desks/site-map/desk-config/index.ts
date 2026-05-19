@@ -41,6 +41,7 @@ const PAGE_WIDTH = 280;
 const PAGE_HEIGHT = 380;
 const COLUMN_GAP = 96;
 const ROW_GAP = 136;
+const CONNECTOR_BEND = 24;
 const STATIC_UPDATED_AT = '1970-01-01T00:00:00.000Z';
 
 export const emptySiteMapDeskConfig: DeskConfig = {
@@ -325,37 +326,52 @@ function createConnectors( nodes: SiteMapLayoutNode[] ): DeskConnector[] {
 		}
 
 		return [
-			{
-				id: `${ parentWidgetId }-to-${ childWidgetId }`,
-				from: {
-					widgetId: parentWidgetId,
-					normalizedAnchor: { x: 0.5, y: 1 },
-				},
-				to: {
-					widgetId: childWidgetId,
-					normalizedAnchor: { x: 0.5, y: 0 },
-				},
-				bend: 24,
-			},
+			createConnector( {
+				fromWidgetId: parentWidgetId,
+				toWidgetId: childWidgetId,
+				fromAnchor: { x: 0.5, y: 1 },
+				toAnchor: { x: 0.5, y: 0 },
+			} ),
 		];
 	} );
 
 	if ( widgetIdsByNodeId.has( BLOG_NODE_ID ) ) {
-		connectors.push( {
-			id: `${ BLOG_WIDGET_ID }-to-${ POST_COLLECTION_WIDGET_ID }`,
-			from: {
-				widgetId: BLOG_WIDGET_ID,
-				normalizedAnchor: { x: 1, y: 0.5 },
-			},
-			to: {
-				widgetId: POST_COLLECTION_WIDGET_ID,
-				normalizedAnchor: { x: 0, y: 0.5 },
-			},
-			bend: 24,
-		} );
+		connectors.push(
+			createConnector( {
+				fromWidgetId: BLOG_WIDGET_ID,
+				toWidgetId: POST_COLLECTION_WIDGET_ID,
+				fromAnchor: { x: 1, y: 0.5 },
+				toAnchor: { x: 0, y: 0.5 },
+			} )
+		);
 	}
 
 	return connectors;
+}
+
+function createConnector( {
+	fromWidgetId,
+	toWidgetId,
+	fromAnchor,
+	toAnchor,
+}: {
+	fromWidgetId: string;
+	toWidgetId: string;
+	fromAnchor: DeskConnector[ 'from' ][ 'normalizedAnchor' ];
+	toAnchor: DeskConnector[ 'to' ][ 'normalizedAnchor' ];
+} ): DeskConnector {
+	return {
+		id: `${ fromWidgetId }-to-${ toWidgetId }`,
+		from: {
+			widgetId: fromWidgetId,
+			normalizedAnchor: fromAnchor,
+		},
+		to: {
+			widgetId: toWidgetId,
+			normalizedAnchor: toAnchor,
+		},
+		bend: CONNECTOR_BEND,
+	};
 }
 
 function normalizePages( pages: SiteMapPage[] ) {

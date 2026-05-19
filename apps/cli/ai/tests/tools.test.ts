@@ -4,6 +4,7 @@ import path from 'path';
 import { vi } from 'vitest';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
 import { emitEvent } from 'cli/ai/json-events';
+import { setLocalSiteSelectedCallback } from 'cli/ai/site-selection';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
 import {
 	Mode as PreviewDeleteMode,
@@ -99,6 +100,7 @@ vi.mock( 'cli/lib/wordpress-server-manager', () => ( {
 } ) );
 
 describe( 'Studio AI MCP tools', () => {
+	const previousScratchpadWidgetType = 'sd-' + 'artefact';
 	const mockSite = {
 		id: 'site-123',
 		name: 'My Site',
@@ -135,6 +137,7 @@ describe( 'Studio AI MCP tools', () => {
 
 	afterEach( () => {
 		setProgressCallback( null );
+		setLocalSiteSelectedCallback( null );
 	} );
 
 	it( 'includes preview tools in the MCP registry', () => {
@@ -167,6 +170,8 @@ describe( 'Studio AI MCP tools', () => {
 		expect( studioPresent?.description ).toContain(
 			'call studio_present with exactly one note widget'
 		);
+		expect( studioPresent?.description ).toContain( '- scratchpad:' );
+		expect( studioPresent?.description ).not.toContain( previousScratchpadWidgetType );
 		expect( studioPresent?.description ).toContain( '- saved-local-media:' );
 		expect( studioPresent?.description ).toContain(
 			'For generated SVGs, write a complete .svg file'
@@ -298,6 +303,97 @@ describe( 'Studio AI MCP tools', () => {
 		);
 	} );
 
+	it( 'accepts PDF widget artifacts from studio_present', async () => {
+		const tool = resolveStudioToolDefinitions( {
+			emitChatArtifacts: true,
+		} ).find( ( definition ) => definition.name === 'studio_present' );
+		expect( tool ).toBeDefined();
+
+		const pdfWidget = {
+			type: 'pdf',
+			widgetProps: {
+				url: 'https://example.com/brief.pdf',
+				title: 'Brief',
+				mediaId: null,
+			},
+		};
+
+		await executeTool( tool!, {
+			widgets: [ pdfWidget ],
+		} );
+
+		expect( emitEvent ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				type: 'chat.artifact',
+				artifact: expect.objectContaining( {
+					widgets: [ pdfWidget ],
+				} ),
+			} )
+		);
+	} );
+
+	it( 'accepts theme widget artifacts from studio_present', async () => {
+		const tool = resolveStudioToolDefinitions( {
+			emitChatArtifacts: true,
+		} ).find( ( definition ) => definition.name === 'studio_present' );
+		expect( tool ).toBeDefined();
+
+		const themeWidgets = [
+			{
+				type: 'theme',
+				widgetProps: { viewMode: 'stack' },
+			},
+			{
+				type: 'theme-template',
+				widgetProps: {
+					templateId: 'twentytwentyfive//index',
+					slug: 'index',
+					title: 'Index',
+					description: '',
+					source: 'theme',
+				},
+			},
+			{
+				type: 'theme-styles',
+				widgetProps: {
+					palette: [
+						{ slug: 'background', name: 'Background', color: '#ffffff' },
+						{ slug: 'foreground', name: 'Foreground', color: '#111111' },
+					],
+					fontFamily: 'system-ui, sans-serif',
+					textColor: '#111111',
+					backgroundColor: '#ffffff',
+				},
+			},
+			{
+				type: 'theme-pattern',
+				widgetProps: {
+					patternId: 'twentytwentyfive/hero',
+					title: 'Hero',
+					content: '<!-- wp:cover /-->',
+					source: 'theme',
+				},
+			},
+			{
+				type: 'color',
+				widgetProps: { color: '#3858e9', title: 'Primary', format: 'hex' },
+			},
+		];
+
+		await executeTool( tool!, {
+			widgets: themeWidgets,
+		} );
+
+		expect( emitEvent ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				type: 'chat.artifact',
+				artifact: expect.objectContaining( {
+					widgets: themeWidgets,
+				} ),
+			} )
+		);
+	} );
+
 	it( 'rejects drawing widget artifacts from studio_present', async () => {
 		const tool = resolveStudioToolDefinitions( {
 			emitChatArtifacts: true,
@@ -415,11 +511,35 @@ describe( 'Studio AI MCP tools', () => {
 			expect.objectContaining( {
 				type: 'chat.artifact',
 				artifact: expect.objectContaining( {
-					widgets: [ { type: 'site-preview', widgetProps: { path: '/' } } ],
+					widgets: [
+						{
+							type: 'site-preview',
+							widgetProps: expect.objectContaining( {
+								path: '/',
+								siteId: 'site-123',
+								siteName: 'My Site',
+								sitePath: '/sites/my-site',
+							} ),
+						},
+					],
 				} ),
 			} )
 		);
+		expect( getTextContent( result ) ).toContain( '"id": "site-123"' );
 		expect( getTextContent( result ) ).toContain( '"name": "My Site"' );
+	} );
+
+	it( 'notifies JSON-mode callers when site_create selects the created site', async () => {
+		const onSiteSelected = vi.fn();
+		setLocalSiteSelectedCallback( onSiteSelected );
+
+		await getTool( 'site_create' ).rawHandler( { name: 'My Site' } as never );
+
+		expect( onSiteSelected ).toHaveBeenCalledWith( {
+			name: 'My Site',
+			path: '/sites/my-site',
+			running: true,
+		} );
 	} );
 
 	it( 'lists previews as JSON for a resolved local site', async () => {

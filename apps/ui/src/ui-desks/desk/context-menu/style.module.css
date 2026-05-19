@@ -159,6 +159,19 @@
 	box-shadow: 0 0 0 2px var(--ui-desks-material, #fff);
 }
 
+.sitePickerItem {
+	display: grid;
+	grid-template-columns: 28px minmax(0, 1fr);
+	align-items: center;
+	gap: 10px;
+}
+
+.sitePickerIcon {
+	width: 28px;
+	height: 28px;
+	border-radius: 8px;
+}
+
 @keyframes context-menu-rise {
 	from {
 		opacity: 0;

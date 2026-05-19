@@ -1,3 +1,4 @@
+import { parseColorToHex } from '@/ui-desks/widgets/color/types';
 import { widgetDefinitions } from '@/ui-desks/widgets/registry';
 import { normalizeHttpUrl } from '../url';
 import type {
@@ -60,6 +61,24 @@ export function createUrlPastePayload( text: string ): WidgetPastePayload | null
 		text: trimmedText,
 		url,
 	};
+}
+
+export function createColorPastePayload( text: string ): WidgetPastePayload | null {
+	const trimmedText = text.trim();
+	const color = parseColorToHex( trimmedText );
+	if ( ! color ) {
+		return null;
+	}
+
+	return {
+		kind: 'color',
+		text: trimmedText,
+		color,
+	};
+}
+
+export function createWidgetPastePayload( text: string ): WidgetPastePayload | null {
+	return createColorPastePayload( text ) ?? createUrlPastePayload( text );
 }
 
 export function doesPasteMatchAccept( payload: WidgetPastePayload, accept: WidgetPasteAccept ) {

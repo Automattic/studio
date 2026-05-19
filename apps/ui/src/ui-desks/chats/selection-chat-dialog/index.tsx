@@ -79,6 +79,7 @@ export function SelectionChatDialog( { widgets, onClose }: SelectionChatDialogPr
 				/>
 				<Button
 					icon={ arrowUp }
+					intent="chat"
 					label={ isCreatingChat ? __( 'Creating chat' ) : __( 'Send' ) }
 					disabled={ ! canSubmit }
 					aria-busy={ isCreatingChat }

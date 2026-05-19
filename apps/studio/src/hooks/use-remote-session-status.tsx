@@ -1,24 +1,14 @@
-import { useCallback } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import {
-	selectRemoteSessionIsLoading,
-	selectRemoteSessionIsRunning,
-	selectRemoteSessionStatus,
-	startRemoteSession,
-	stopRemoteSession,
-} from 'src/stores/remote-session-slice';
+import { __ } from '@wordpress/i18n';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useIpcListener } from 'src/hooks/use-ipc-listener';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 import type { RemoteSessionStatus } from '@studio/common/lib/remote-session';
-import type { AppDispatch } from 'src/stores';
 
 export interface UseRemoteSessionStatus {
 	status: RemoteSessionStatus | undefined;
 	/**
-	 * `isRunning` is optimistic-aware: it flips immediately when the user
-	 * invokes `start()`/`stop()` and stays that way until the daemon actually
-	 * reaches the expected state (via the post-call refresh or a poll event).
-	 * Use this for any UI gating; consult `status` for the last-known cached
-	 * value (currently just `{ running }` — `pid` / `pidFile` stay on the
-	 * main-process side).
+	 * `isRunning` is optimistic-aware: it flips immediately when the user invokes
+	 * `start()`/`stop()` and reconciles after the post-call status refresh.
 	 */
 	isRunning: boolean;
 	isLoading: boolean;
@@ -26,26 +16,102 @@ export interface UseRemoteSessionStatus {
 	stop: () => Promise< void >;
 }
 
-/**
- * Thin selector + dispatcher around `remote-session-slice`. The slice owns
- * the cache of the on-disk daemon status, the optimistic flip, and the
- * in-flight guard; all consumers (toolbar bolt + settings toggle) read from
- * the same store snapshot, so a flip on one is immediately visible to the
- * other.
- */
+function getErrorMessage( error: unknown ): string {
+	if ( error instanceof Error ) {
+		return error.message;
+	}
+	return String( error );
+}
+
 export function useRemoteSessionStatus(): UseRemoteSessionStatus {
-	const dispatch = useDispatch< AppDispatch >();
-	const status = useSelector( selectRemoteSessionStatus );
-	const isRunning = useSelector( selectRemoteSessionIsRunning );
-	const isLoading = useSelector( selectRemoteSessionIsLoading );
+	const [ status, setStatus ] = useState< RemoteSessionStatus >();
+	const [ isLoading, setIsLoading ] = useState( false );
+	const pendingRunningRef = useRef< boolean | null >( null );
+	const isLoadingRef = useRef( false );
+
+	const refreshStatus = useCallback( async () => {
+		const latestStatus = await getIpcApi().getRemoteSessionDaemonStatus();
+		setStatus( latestStatus );
+		return latestStatus;
+	}, [] );
+
+	useEffect( () => {
+		let isMounted = true;
+
+		getIpcApi()
+			.getRemoteSessionDaemonStatus()
+			.then( ( latestStatus ) => {
+				const pendingRunning = pendingRunningRef.current;
+				if ( isMounted && ( pendingRunning === null || pendingRunning === latestStatus.running ) ) {
+					setStatus( latestStatus );
+				}
+			} )
+			.catch( () => undefined );
+
+		return () => {
+			isMounted = false;
+		};
+	}, [] );
+
+	useIpcListener( 'remote-session-status', ( _event, incomingStatus ) => {
+		const pendingRunning = pendingRunningRef.current;
+
+		if ( pendingRunning !== null && pendingRunning !== incomingStatus.running ) {
+			return;
+		}
+
+		setStatus( incomingStatus );
+		if ( pendingRunning === incomingStatus.running ) {
+			pendingRunningRef.current = null;
+		}
+	} );
+
+	const runTransition = useCallback(
+		async ( running: boolean, action: () => Promise< unknown >, errorTitle: string ) => {
+			if ( isLoadingRef.current ) {
+				return;
+			}
+
+			isLoadingRef.current = true;
+			pendingRunningRef.current = running;
+			setIsLoading( true );
+			setStatus( { running } );
+
+			try {
+				await action();
+			} catch ( error ) {
+				void getIpcApi().showErrorMessageBox( {
+					title: errorTitle,
+					message: getErrorMessage( error ),
+				} );
+			} finally {
+				try {
+					await refreshStatus();
+				} finally {
+					pendingRunningRef.current = null;
+					isLoadingRef.current = false;
+					setIsLoading( false );
+				}
+			}
+		},
+		[ refreshStatus ]
+	);
 
 	const start = useCallback( async () => {
-		await dispatch( startRemoteSession() );
-	}, [ dispatch ] );
+		await runTransition(
+			true,
+			() => getIpcApi().startRemoteSessionDaemon(),
+			__( 'Failed to start remote session' )
+		);
+	}, [ runTransition ] );
 
 	const stop = useCallback( async () => {
-		await dispatch( stopRemoteSession() );
-	}, [ dispatch ] );
+		await runTransition(
+			false,
+			() => getIpcApi().stopRemoteSessionDaemon(),
+			__( 'Failed to stop remote session' )
+		);
+	}, [ runTransition ] );
 
-	return { status, isRunning, isLoading, start, stop };
+	return { status, isRunning: status?.running === true, isLoading, start, stop };
 }

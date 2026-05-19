@@ -6,12 +6,20 @@ import { useAuth } from 'src/hooks/use-auth';
 import { useBetaFeatures } from 'src/hooks/use-beta-features';
 import { useRemoteSessionStatus } from 'src/hooks/use-remote-session-status';
 
-vi.mock( 'src/hooks/use-auth' );
-vi.mock( 'src/hooks/use-beta-features' );
-vi.mock( 'src/hooks/use-remote-session-status' );
-
 const mockStart = vi.fn();
 const mockStop = vi.fn();
+
+vi.mock( 'src/hooks/use-auth', () => ( {
+	useAuth: vi.fn(),
+} ) );
+
+vi.mock( 'src/hooks/use-beta-features', () => ( {
+	useBetaFeatures: vi.fn(),
+} ) );
+
+vi.mock( 'src/hooks/use-remote-session-status', () => ( {
+	useRemoteSessionStatus: vi.fn(),
+} ) );
 
 function setupHooks( {
 	remoteSession,

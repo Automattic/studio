@@ -3,10 +3,9 @@
 	"compilerOptions": {
 		"module": "ESNext",
 		"moduleResolution": "Bundler",
-		"baseUrl": "../..",
 		"paths": {
-			"cli/*": [ "apps/cli/*" ],
-			"@studio/common/*": [ "tools/common/*" ]
+			"cli/*": [ "../../apps/cli/*" ],
+			"@studio/common/*": [ "../../tools/common/*" ]
 		}
 	},
 	"include": [ "**/*" ],

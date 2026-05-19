@@ -18,19 +18,27 @@
 			}
 		},
 		"8.4": {
-			"version": "8.4.20",
+			"version": "8.4.21",
 			"artifacts": {
 				"darwin-arm64": {
-					"url": "https://appscdn.wordpress.com/downloads/wordpress-com-studio-php-cli/mac-silicon/8.4.20/full-install",
-					"sha": "55eba456b7240376bd3c3dcc2a99af3fc32aae8b5347f63129332306b9830fbf"
+					"url": "https://appscdn.wordpress.com/downloads/wordpress-com-studio-php-cli/mac-silicon/8.4.21/full-install",
+					"sha": "e30855a8f8e9ddcfeb1f8282b222fd38955cf64001e19d964193536b82e48261"
 				},
 				"darwin-x64": {
-					"url": "https://appscdn.wordpress.com/downloads/wordpress-com-studio-php-cli/mac-intel/8.4.20/full-install",
-					"sha": "4c622f432685ff1839069d40fb34702418784dff01a6803b41867d472051e605"
+					"url": "https://appscdn.wordpress.com/downloads/wordpress-com-studio-php-cli/mac-intel/8.4.21/full-install",
+					"sha": "080e8fbd15fb2fb0f619c2cfe93c740964ae5c1d995767a7fa9a90ddc9fe852a"
 				},
 				"win32-x64": {
-					"url": "https://appscdn.wordpress.com/downloads/wordpress-com-studio-php-cli/windows-x64/8.4.20/full-install",
-					"sha": "948e9804462ab3e2906541ff81937954ce5eab7307c43ba8ac0bef236d42ec87"
+					"url": "https://appscdn.wordpress.com/downloads/wordpress-com-studio-php-cli/windows-x64/8.4.21/full-install",
+					"sha": "7aa521ba3bfb7f7cfd09c34026bfe67b557354a2dee87fbde20049bcac8de4e2"
+				},
+				"linux-arm64": {
+					"url": "https://appscdn.wordpress.com/downloads/wordpress-com-studio-php-cli/linux-arm64/8.4.21/full-install",
+					"sha": "7d806829d4aef430cb896236161559e3fcd17d680593489cacce13b6f3f34c0e"
+				},
+				"linux-x64": {
+					"url": "https://appscdn.wordpress.com/downloads/wordpress-com-studio-php-cli/linux-x64/8.4.21/full-install",
+					"sha": "bde8112dfc2ec363b5b68d8735f71f434dd751c44872d23a3b752860c77c61c7"
 				}
 			}
 		},
@@ -56,6 +64,31 @@
 				"linux-x64": {
 					"url": "https://appscdn.wordpress.com/downloads/wordpress-com-studio-php-cli/linux-x64/8.3.31/full-install",
 					"sha": "12669c295da47a74ad634eb84c8f7701a21ade527ee242dfe8bdce340ae2f65e"
+				}
+			}
+		},
+		"8.2": {
+			"version": "8.2.31",
+			"artifacts": {
+				"darwin-arm64": {
+					"url": "https://appscdn.wordpress.com/downloads/wordpress-com-studio-php-cli/mac-silicon/8.2.31/full-install",
+					"sha": "c46d04859b61afea454be9b8facd77a157cc9b31e5be75fa5a445625cdd79c71"
+				},
+				"darwin-x64": {
+					"url": "https://appscdn.wordpress.com/downloads/wordpress-com-studio-php-cli/mac-intel/8.2.31/full-install",
+					"sha": "be0713eef65b6ee67dd729da2f35e418d2915d9ef95b91abe610f03313bec96f"
+				},
+				"win32-x64": {
+					"url": "https://appscdn.wordpress.com/downloads/wordpress-com-studio-php-cli/windows-x64/8.2.31/full-install",
+					"sha": "7ce5f17af7ca0df0ed4be5616923161745d6e369f91cad746948045e7eaaba2f"
+				},
+				"linux-arm64": {
+					"url": "https://appscdn.wordpress.com/downloads/wordpress-com-studio-php-cli/linux-arm64/8.2.31/full-install",
+					"sha": "62b8f267d3386f224239f2dde0c6f190219f98f25b7349bdf2c3a53b6494fe6e"
+				},
+				"linux-x64": {
+					"url": "https://appscdn.wordpress.com/downloads/wordpress-com-studio-php-cli/linux-x64/8.2.31/full-install",
+					"sha": "f1d78f56a3a9d8526e73b059020437edace32b65e159d5898f016b092dc34ff6"
 				}
 			}
 		},

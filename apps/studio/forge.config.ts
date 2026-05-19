@@ -1,3 +1,4 @@
+import { exec } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { MakerDeb } from '@electron-forge/maker-deb';
@@ -5,11 +6,9 @@ import { MakerDMG } from '@electron-forge/maker-dmg';
 import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
-import { isErrnoException } from '@studio/common/lib/is-errno-exception';
-import { exec } from 'child_process';
 import { exec as pkgExec } from '@yao-pkg/pkg';
-import type { ForgeConfig } from '@electron-forge/shared-types';
 import { windowsSign } from './windowsSign';
+import type { ForgeConfig } from '@electron-forge/shared-types';
 
 const repoRoot = path.resolve( __dirname, '../..' );
 
@@ -133,8 +132,7 @@ const config: ForgeConfig = {
 					: {
 							certificateFile: path.join( repoRoot, 'certificate.pfx' ),
 							certificatePassword: process.env.WINDOWS_CODE_SIGNING_CERT_PASSWORD,
-					  }
-				),
+					  } ),
 			},
 			[ 'win32' ]
 		),
@@ -198,8 +196,12 @@ const config: ForgeConfig = {
 			// may need to rerun `npm ci` from the repo root to reset the dependency tree after packaging.
 			await execAsync( 'npm run app:install:bundle' );
 
-			console.log( 'Downloading language packs ...' );
-			await execAsync( 'npm run download-language-packs' );
+			if ( process.env.SKIP_LANGUAGE_PACKS ) {
+				console.log( 'Skipping language packs because SKIP_LANGUAGE_PACKS is set ...' );
+			} else {
+				console.log( 'Downloading language packs ...' );
+				await execAsync( 'npm run download-language-packs' );
+			}
 
 			console.log( 'Building CLI (with bundled node_modules) ...' );
 			// NOTE: The `cli:package` script mutates the `apps/cli/node_modules` directory. You may need to
@@ -221,8 +223,7 @@ const config: ForgeConfig = {
 				// Refuse to delete anything unless the target arch is present *as a directory* —
 				// guards against a koffi naming/layout change silently nuking every prebuilt.
 				const targetIsDir =
-					fs.existsSync( koffiTargetPath ) &&
-					fs.statSync( koffiTargetPath ).isDirectory();
+					fs.existsSync( koffiTargetPath ) && fs.statSync( koffiTargetPath ).isDirectory();
 				if ( ! targetIsDir ) {
 					console.warn(
 						`Skipping koffi cleanup: no directory named ${ koffiTarget } in ${ koffiBuildDir }`
@@ -243,11 +244,7 @@ const config: ForgeConfig = {
 			// Clean up fs-ext-extra-prebuilt binaries (file format:
 			// fs-ext-{platform}-{arch}-{runtime}-{version}.node). The root postinstall
 			// already filtered by platform; this strips the unused arch for the target build.
-			const fsExtBinDir = path.join(
-				cliNodeModules,
-				'fs-ext-extra-prebuilt',
-				'binaries'
-			);
+			const fsExtBinDir = path.join( cliNodeModules, 'fs-ext-extra-prebuilt', 'binaries' );
 			const fsExtPrefix = `fs-ext-${ platform }-${ arch }-`;
 			if ( fs.existsSync( fsExtBinDir ) ) {
 				const fsExtFiles = fs.readdirSync( fsExtBinDir );

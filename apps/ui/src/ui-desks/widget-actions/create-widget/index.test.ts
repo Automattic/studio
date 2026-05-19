@@ -140,6 +140,36 @@ describe( 'createDeskWidget', () => {
 		} );
 	} );
 
+	it( 'creates an empty scratchpad widget at the reference workbench size', () => {
+		const createdWidget = createDeskWidget( {
+			id: 'scratchpad-1',
+			type: 'scratchpad',
+			center: {
+				x: 700,
+				y: 500,
+			},
+			zIndex: 'a8',
+		} );
+
+		expect( createdWidget ).toEqual( {
+			id: 'scratchpad-1',
+			type: 'scratchpad',
+			x: 460,
+			y: 320,
+			zIndex: 'a8',
+			shapeProps: {
+				w: 480,
+				h: 360,
+			},
+			widgetProps: {
+				html: '',
+				title: '',
+				scope: 'block',
+				description: '',
+			},
+		} );
+	} );
+
 	it( 'ignores unsupported widget types', () => {
 		expect(
 			createDeskWidget( {

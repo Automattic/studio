@@ -303,6 +303,97 @@ describe( 'Studio AI MCP tools', () => {
 		);
 	} );
 
+	it( 'accepts PDF widget artifacts from studio_present', async () => {
+		const tool = resolveStudioToolDefinitions( {
+			emitChatArtifacts: true,
+		} ).find( ( definition ) => definition.name === 'studio_present' );
+		expect( tool ).toBeDefined();
+
+		const pdfWidget = {
+			type: 'pdf',
+			widgetProps: {
+				url: 'https://example.com/brief.pdf',
+				title: 'Brief',
+				mediaId: null,
+			},
+		};
+
+		await executeTool( tool!, {
+			widgets: [ pdfWidget ],
+		} );
+
+		expect( emitEvent ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				type: 'chat.artifact',
+				artifact: expect.objectContaining( {
+					widgets: [ pdfWidget ],
+				} ),
+			} )
+		);
+	} );
+
+	it( 'accepts theme widget artifacts from studio_present', async () => {
+		const tool = resolveStudioToolDefinitions( {
+			emitChatArtifacts: true,
+		} ).find( ( definition ) => definition.name === 'studio_present' );
+		expect( tool ).toBeDefined();
+
+		const themeWidgets = [
+			{
+				type: 'theme',
+				widgetProps: { viewMode: 'stack' },
+			},
+			{
+				type: 'theme-template',
+				widgetProps: {
+					templateId: 'twentytwentyfive//index',
+					slug: 'index',
+					title: 'Index',
+					description: '',
+					source: 'theme',
+				},
+			},
+			{
+				type: 'theme-styles',
+				widgetProps: {
+					palette: [
+						{ slug: 'background', name: 'Background', color: '#ffffff' },
+						{ slug: 'foreground', name: 'Foreground', color: '#111111' },
+					],
+					fontFamily: 'system-ui, sans-serif',
+					textColor: '#111111',
+					backgroundColor: '#ffffff',
+				},
+			},
+			{
+				type: 'theme-pattern',
+				widgetProps: {
+					patternId: 'twentytwentyfive/hero',
+					title: 'Hero',
+					content: '<!-- wp:cover /-->',
+					source: 'theme',
+				},
+			},
+			{
+				type: 'color',
+				widgetProps: { color: '#3858e9', title: 'Primary', format: 'hex' },
+			},
+		];
+
+		await executeTool( tool!, {
+			widgets: themeWidgets,
+		} );
+
+		expect( emitEvent ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				type: 'chat.artifact',
+				artifact: expect.objectContaining( {
+					widgets: themeWidgets,
+				} ),
+			} )
+		);
+	} );
+
 	it( 'rejects drawing widget artifacts from studio_present', async () => {
 		const tool = resolveStudioToolDefinitions( {
 			emitChatArtifacts: true,

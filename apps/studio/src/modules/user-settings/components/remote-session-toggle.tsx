@@ -27,9 +27,12 @@ export function RemoteSessionToggle() {
 					{ __( 'Remote session' ) }
 				</label>
 				<div className="a8c-body-small text-frame-text-secondary">
-					{ __(
-						'Control Studio from Telegram. Message Dolly (@wordpress_com_bot) once the session is active.'
-					) }
+					{
+						/* translators: "Dolly" is the proper name of the WordPress.com Telegram bot the daemon talks to. The "@wordpress_com_bot" handle should not be translated. */
+						__(
+							'Control Studio from Telegram. Message Dolly (@wordpress_com_bot) once the session is active.'
+						)
+					}
 				</div>
 			</div>
 		</div>

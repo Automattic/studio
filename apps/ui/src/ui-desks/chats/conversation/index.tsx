@@ -198,6 +198,16 @@ function findLatestProgressMessage( entries: SessionEntry[] ): string | null {
 	return null;
 }
 
+function findLatestToolUseKey( items: RenderItem[] ): string | null {
+	for ( let i = items.length - 1; i >= 0; i -= 1 ) {
+		const item = items[ i ];
+		if ( item.kind === 'tool-use' ) {
+			return item.key;
+		}
+	}
+	return null;
+}
+
 function UserMessage( { text }: { text: string } ) {
 	return (
 		<div className={ clsx( styles.messageGroup, styles.userGroup ) }>
@@ -734,6 +744,7 @@ export function Conversation( {
 		() => ( isRunning ? findLatestProgressMessage( entries ) : null ),
 		[ entries, isRunning ]
 	);
+	const thinkingMessageKey = useMemo( () => findLatestToolUseKey( items ), [ items ] );
 
 	return (
 		<div className={ styles.root }>
@@ -779,6 +790,7 @@ export function Conversation( {
 				<ThinkingIndicator
 					active={ isRunning && pendingQuestions.size === 0 }
 					startedAt={ startedAt }
+					messageKey={ thinkingMessageKey }
 					progressMessage={ progressMessage }
 				/>
 			</div>

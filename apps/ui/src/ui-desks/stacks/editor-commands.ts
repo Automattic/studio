@@ -14,9 +14,12 @@ import {
 	createStackMeta,
 	createStackPushMeta,
 	getStackAnchorFromMember,
+	getStackCircleLayoutsFromCenter,
+	getStackConfiguredViewMode,
 	getStackHome,
 	getStackId,
 	getStackMemberLayout,
+	getStackOpenViewMode,
 	getStackOrder,
 	getStackOriginalZIndex,
 	getStackPushOrigin,
@@ -83,13 +86,19 @@ export function expandStackInEditor( editor: Editor, stackId: string ) {
 	if (
 		members.length <= 1 ||
 		members.some( isStackExpanded ) ||
-		getStackViewMode( members[ 0 ] ) === 'tiles'
+		getStackViewMode( members[ 0 ] ) !== 'stack'
 	) {
 		return false;
 	}
 
 	const stack = getStackFromCollapsedMembers( members );
-	const expandedLayouts = getExpandedStackLayouts( members, stack );
+	const expandedLayouts: Array< { x: number; y: number; rotation?: number } > =
+		getStackOpenViewMode( members[ 0 ] ) === 'circle'
+			? getStackCircleLayoutsFromCenter(
+					members.map( getShapeSize ),
+					getStackAnchorCenter( members )
+			  )
+			: getExpandedStackLayouts( members, stack );
 
 	editor.updateShapes(
 		members.map( ( shape ) => ( {
@@ -107,7 +116,7 @@ export function expandStackInEditor( editor: Editor, stackId: string ) {
 		id: shape.id,
 		type: shape.type,
 		...expandedLayouts[ index ],
-		rotation: 0,
+		rotation: expandedLayouts[ index ]?.rotation ?? 0,
 	} ) );
 	const expandedBounds = getPartialsBounds( expandedPartials, members );
 	const pushPartials = getNeighborPushPartials( editor, stackId, expandedBounds );
@@ -122,7 +131,7 @@ export function collapseStackInEditor( editor: Editor, stackId: string ) {
 	if (
 		members.length <= 1 ||
 		! members.some( isStackExpanded ) ||
-		getStackViewMode( members[ 0 ] ) === 'tiles'
+		getStackViewMode( members[ 0 ] ) !== 'stack'
 	) {
 		return false;
 	}
@@ -162,18 +171,23 @@ export function collapseAllExpandedStacksInEditor( editor: Editor ) {
 	return didCollapseStack;
 }
 
-export function setStackViewInEditor( editor: Editor, stackId: string, viewMode: StackViewMode ) {
+export function setStackViewInEditor(
+	editor: Editor,
+	stackId: string,
+	viewMode: StackViewMode,
+	options: { anchorCenter?: { x: number; y: number } } = {}
+) {
 	const members = getStackMembers( editor, stackId );
 	if ( members.length <= 1 ) {
 		return false;
 	}
 
-	const currentViewMode = getStackViewMode( members[ 0 ] );
+	const currentViewMode = getStackConfiguredViewMode( members[ 0 ] );
 	if ( currentViewMode === viewMode ) {
 		return false;
 	}
 
-	const anchor = getStackAnchorCenter( members );
+	const anchor = options.anchorCenter ?? getStackAnchorCenter( members );
 	const restorePartials = getNeighborRestorePartials( editor, stackId );
 
 	if ( viewMode === 'tiles' ) {
@@ -185,15 +199,19 @@ export function setStackViewInEditor( editor: Editor, stackId: string, viewMode:
 				meta: {
 					...( shape.meta ?? {} ),
 					...clearExpandedStackMeta(),
-					deskStackViewMode: 'tiles',
+					deskStackViewMode: viewMode,
+					deskStackOpenViewMode: null,
 				},
 			} ) )
 		);
 
-		const tilePartials = getTiledStackPartials( members, anchor );
-		editor.animateShapes( withStackDimPartials( editor, [ ...tilePartials, ...restorePartials ] ), {
-			animation: { duration: STACK_ANIMATION_DURATION },
-		} );
+		const layoutPartials = getTiledStackPartials( members, anchor );
+		editor.animateShapes(
+			withStackDimPartials( editor, [ ...layoutPartials, ...restorePartials ] ),
+			{
+				animation: { duration: STACK_ANIMATION_DURATION },
+			}
+		);
 		return true;
 	}
 
@@ -213,6 +231,7 @@ export function setStackViewInEditor( editor: Editor, stackId: string, viewMode:
 			meta: {
 				...( shape.meta ?? {} ),
 				deskStackViewMode: null,
+				deskStackOpenViewMode: viewMode === 'circle' ? 'circle' : null,
 				...clearExpandedStackMeta(),
 			},
 		} ) )
@@ -298,7 +317,7 @@ function getExpandedStackIds( editor: Editor ) {
 function getStackFromCollapsedMembers( members: TLShape[] ) {
 	const firstMember = members[ 0 ];
 	const firstOrder = getStackOrder( firstMember );
-	const anchor = getStackAnchorFromMember( firstMember, firstOrder );
+	const anchor = getStackAnchorFromMember( firstMember, firstOrder, members.length );
 
 	return {
 		id: getStackId( firstMember ) ?? createStackId(),

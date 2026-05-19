@@ -10,8 +10,11 @@ import {
 import {
 	fitSelectedWidgetToContentInEditor,
 	getCurrentSelectedWidgetToolbarItem,
+	isTemporaryDeskVisibleInEditor,
 	removeSelectedWidgetFromEditor,
+	toggleTemporaryDeskInEditor,
 } from './index';
+import type { ColorWidget } from '@/ui-desks/widgets/color/types';
 import type { DeskWidget, ResolvedDeskWidget } from '@/ui-desks/widgets/types';
 import type { Editor, TLShape, TLShapeId } from 'tldraw';
 
@@ -187,6 +190,88 @@ describe( 'editor state widget removal', () => {
 	} );
 } );
 
+describe( 'editor state temporary desks', () => {
+	it( 'toggles temporary widgets, stacks, and connectors without changing the source widget', () => {
+		const sourceShape = deskWidgetToCanvasShape( {
+			id: 'styles-1',
+			type: 'theme-styles',
+			x: 100,
+			y: 120,
+			zIndex: 'a1',
+			shapeProps: {
+				w: 220,
+				h: 160,
+			},
+			widgetProps: {
+				palette: [],
+				fontFamily: 'system-ui, sans-serif',
+				textColor: '#111111',
+				backgroundColor: '#ffffff',
+			},
+		} as DeskWidget ) as TLShape;
+		const { editor, bindings } = createTemporaryDeskEditor( [ sourceShape ] );
+
+		expect(
+			toggleTemporaryDeskInEditor( editor, {
+				id: 'palette-1',
+				sourceWidgetId: 'styles-1',
+				followSource: true,
+				widgets: [ createColorWidget() ],
+				stacks: [
+					{
+						id: 'palette-stack',
+						x: 360,
+						y: 200,
+						zIndex: 'a2',
+						memberIds: [ 'color-1' ],
+						viewMode: 'circle',
+					},
+				],
+				connectors: [
+					{
+						id: 'styles-to-palette',
+						from: {
+							widgetId: 'styles-1',
+							normalizedAnchor: { x: 0.5, y: 0.5 },
+						},
+						to: {
+							widgetId: 'color-1',
+							normalizedAnchor: { x: 0.5, y: 0.5 },
+						},
+						appearance: {
+							dash: 'solid',
+							arrowheadStart: 'none',
+							arrowheadEnd: 'none',
+						},
+					},
+				],
+			} )
+		).toBe( true );
+
+		expect( isTemporaryDeskVisibleInEditor( editor, 'palette-1' ) ).toBe( true );
+		expect( editor.getShape( 'shape:color-1' as TLShapeId ) ).toMatchObject( {
+			meta: {
+				studioDeskTemporaryId: 'palette-1',
+				studioDeskFollowSourceWidgetId: 'styles-1',
+				deskStackViewMode: null,
+				deskStackOpenViewMode: 'circle',
+			},
+		} );
+		expect( editor.getShape( 'shape:connector:styles-to-palette' as TLShapeId ) ).toMatchObject( {
+			props: {
+				dash: 'solid',
+				arrowheadStart: 'none',
+				arrowheadEnd: 'none',
+			},
+		} );
+		expect( bindings ).toHaveLength( 2 );
+
+		expect( toggleTemporaryDeskInEditor( editor, { id: 'palette-1', widgets: [] } ) ).toBe( true );
+		expect( isTemporaryDeskVisibleInEditor( editor, 'palette-1' ) ).toBe( false );
+		expect( editor.getCurrentPageShapes() ).toEqual( [ sourceShape ] );
+	} );
+} );
+
 function createEditorWithSelectedShape( shape: RectangleWidgetShape ) {
 	const updates: unknown[] = [];
 	const editor = {
@@ -271,4 +356,48 @@ function createEditorWithPostCollectionDerivedSelection() {
 	} as unknown as Editor;
 
 	return { editor, derivedShapes, deletedShapeIds };
+}
+
+function createTemporaryDeskEditor( initialShapes: TLShape[] ) {
+	const shapes = [ ...initialShapes ];
+	const bindings: unknown[] = [];
+	const editor = {
+		getCurrentPageShapes: () => shapes,
+		getShape: ( shapeId: TLShapeId ) => shapes.find( ( shape ) => shape.id === shapeId ),
+		createShapes: ( partials: TLShape[] ) => {
+			shapes.push( ...partials );
+		},
+		createBindings: ( nextBindings: unknown[] ) => {
+			bindings.push( ...nextBindings );
+		},
+		deleteShapes: ( shapeIds: TLShapeId[] ) => {
+			for ( const shapeId of shapeIds ) {
+				const index = shapes.findIndex( ( shape ) => shape.id === shapeId );
+				if ( index !== -1 ) {
+					shapes.splice( index, 1 );
+				}
+			}
+		},
+		focus: vi.fn(),
+	} as unknown as Editor;
+
+	return { editor, bindings };
+}
+
+function createColorWidget(): ColorWidget {
+	return {
+		id: 'color-1',
+		type: 'color',
+		x: 360,
+		y: 200,
+		zIndex: 'a2',
+		shapeProps: {
+			w: 140,
+			h: 140,
+		},
+		widgetProps: {
+			color: '#3858e9',
+			title: 'Primary',
+		},
+	};
 }

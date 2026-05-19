@@ -183,6 +183,22 @@ async function main() {
 		previewYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );
 	} );
 
+	studioArgv.command( 'blueprint', __( 'Browse and use blueprints' ), async ( blueprintYargs ) => {
+		const [
+			{ registerCommand: registerBlueprintListCommand },
+			{ registerCommand: registerBlueprintUseCommand },
+		] = await Promise.all( [
+			import( 'cli/commands/blueprint/list' ),
+			import( 'cli/commands/blueprint/use' ),
+		] );
+
+		registerBlueprintListCommand( blueprintYargs );
+		registerBlueprintUseCommand( blueprintYargs );
+		blueprintYargs
+			.version( false )
+			.demandCommand( 1, __( 'You must provide a valid blueprint command' ) );
+	} );
+
 	registerPullCommand( studioArgv );
 	if ( process.env.STUDIO_ENABLE_PULL_REPRINT ) {
 		registerPullReprintCommand( studioArgv );

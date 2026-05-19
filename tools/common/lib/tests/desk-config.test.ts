@@ -65,6 +65,15 @@ describe( 'desk config validation', () => {
 		expect( () => assertDeskConfig( validDesk ) ).not.toThrow();
 	} );
 
+	it( 'accepts circular stack view modes', () => {
+		expect(
+			isDeskConfig( {
+				...validDesk,
+				stacks: [ { ...validDesk.stacks[ 0 ], viewMode: 'circle' } ],
+			} )
+		).toBe( true );
+	} );
+
 	it( 'rejects unsupported desk config versions', () => {
 		expect( () => assertDeskConfig( { ...validDesk, version: 999 } ) ).toThrow(
 			'Invalid desk config: expected version 1.'

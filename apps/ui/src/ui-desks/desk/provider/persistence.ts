@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { useDeskConfig, useSaveDeskConfig } from '@/data/queries/use-desk-config';
-import { defaultUserDesk } from '../default-desk';
-import { DESK_CONFIG_VERSION, type DeskConfig } from '../types';
+import { createDefaultSiteDeskConfig, defaultUserDesk } from '../default-desk';
+import type { DeskConfig } from '../types';
 
 interface DeskPersistenceOptions {
 	enabled?: boolean;
@@ -29,11 +29,7 @@ export function useDeskPersistence( siteId?: string, options: DeskPersistenceOpt
 
 function createDefaultDeskConfig( siteId?: string ): DeskConfig {
 	if ( siteId ) {
-		return {
-			version: DESK_CONFIG_VERSION,
-			updatedAt: new Date().toISOString(),
-			widgets: [],
-		};
+		return createDefaultSiteDeskConfig();
 	}
 
 	return defaultUserDesk;

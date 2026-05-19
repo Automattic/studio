@@ -1,6 +1,11 @@
 import { DESK_CONFIG_VERSION, type DeskConfig } from '@/ui-desks/desk/types';
+import { NOTE_WIDGET_TYPE } from '@/ui-desks/widgets/note/types';
+import { POST_COLLECTION_WIDGET_TYPE } from '@/ui-desks/widgets/post-collection/types';
 import { getScratchpadShapePropsForScope } from '@/ui-desks/widgets/scratchpad/sizing';
 import { SCRATCHPAD_WIDGET_TYPE } from '@/ui-desks/widgets/scratchpad/types';
+import { SITE_CARD_WIDGET_TYPE } from '@/ui-desks/widgets/site-card/types';
+import { SITE_PREVIEW_WIDGET_TYPE } from '@/ui-desks/widgets/site-preview/types';
+import { THEME_CARD_SHAPE_PROPS, THEME_WIDGET_TYPE } from '@/ui-desks/widgets/theme/types';
 
 const EXAMPLE_SCRATCHPAD_HTML = `<!doctype html>
 <html>
@@ -87,3 +92,88 @@ export const defaultUserDesk: DeskConfig = {
 		},
 	],
 };
+
+export function createDefaultSiteDeskConfig(): DeskConfig {
+	return {
+		version: DESK_CONFIG_VERSION,
+		updatedAt: new Date().toISOString(),
+		widgets: [
+			{
+				id: 'site-card',
+				type: SITE_CARD_WIDGET_TYPE,
+				x: 96,
+				y: 96,
+				zIndex: 'a1',
+				shapeProps: {
+					w: 360,
+					h: 200,
+				},
+				widgetProps: {
+					previewVisible: false,
+				},
+			},
+			{
+				id: 'home-preview',
+				type: SITE_PREVIEW_WIDGET_TYPE,
+				x: 496,
+				y: 96,
+				zIndex: 'a2',
+				shapeProps: {
+					w: 640,
+					h: 460,
+				},
+				widgetProps: {
+					path: '/',
+				},
+			},
+			{
+				id: 'site-notes',
+				type: NOTE_WIDGET_TYPE,
+				x: 96,
+				y: 328,
+				zIndex: 'a3',
+				shapeProps: {
+					w: 240,
+					h: 180,
+				},
+				widgetProps: {
+					text: 'Ideas / TODO',
+					tone: 'yellow',
+				},
+			},
+			{
+				id: 'recent-posts',
+				type: POST_COLLECTION_WIDGET_TYPE,
+				x: 96,
+				y: 560,
+				zIndex: 'a4',
+				shapeProps: {
+					w: 1,
+					h: 1,
+				},
+				widgetProps: {
+					query: {
+						postType: 'post',
+						perPage: 5,
+						status: 'publish',
+						orderby: 'date',
+						order: 'desc',
+					},
+				},
+			},
+			{
+				id: 'active-theme',
+				type: THEME_WIDGET_TYPE,
+				x: 496,
+				y: 600,
+				zIndex: 'a5',
+				shapeProps: {
+					...THEME_CARD_SHAPE_PROPS,
+				},
+				widgetProps: {
+					viewMode: 'stack',
+				},
+			},
+		],
+	};
+}

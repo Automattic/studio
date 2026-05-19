@@ -585,7 +585,7 @@ jobs:
               summary.puts "| --- | --- |"
 
               results.each do |file_name, result|
-                summary.puts "| `#{file_name}` | <#{result['cdn_url']}> |"
+                summary.puts "| `#{file_name}` | <#{result["cdn_url"]}> |"
               end
             end
           '

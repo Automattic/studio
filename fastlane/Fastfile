@@ -167,8 +167,8 @@ lane :distribute_release_build do |version: read_package_json_version|
   )
 end
 
-desc 'Upload Studio PHP CLI binaries to Apps CDN'
-lane :publish_php_cli_binaries do |version:, artifacts_dir: PHP_CLI_BUILDS_FOLDER, visibility: 'internal', error_on_duplicate: true, output_file: nil|
+desc 'Upload or update Studio PHP CLI binaries on Apps CDN'
+lane :publish_php_cli_binaries do |version:, artifacts_dir: PHP_CLI_BUILDS_FOLDER, visibility: 'internal', error_on_duplicate: false, output_file: nil|
   upload_php_cli_binaries_to_apps_cdn(
     version:,
     artifacts_dir:,
@@ -762,7 +762,7 @@ def upload_php_cli_binaries_to_apps_cdn(version:, artifacts_dir:, visibility:, e
 
     sha = read_sha256_sidecar(file_path:)
     release_notes = "PHP #{version} CLI binary for #{build[:name]}"
-    UI.message("Uploading PHP CLI binary: #{build[:file_name]}")
+    UI.message("Uploading or updating PHP CLI binary: #{build[:file_name]}")
     media_url = nil
 
     if dry_run
@@ -797,7 +797,7 @@ def upload_php_cli_binaries_to_apps_cdn(version:, artifacts_dir:, visibility:, e
       UI.user_error!('Apps CDN upload response did not include media_url') if media_url.to_s.empty?
 
       UI.message('--------------------------------')
-      UI.message("✅ Uploaded PHP CLI binary: #{file_path} to #{media_url}")
+      UI.message("✅ Uploaded or updated PHP CLI binary: #{file_path} to #{media_url}")
     end
 
     builds[build[:file_name]] = {

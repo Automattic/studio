@@ -58,7 +58,7 @@ export interface IpcEvents {
 	'thumbnail-loading': [ { id: string } ];
 	'thumbnail-loaded': [ { id: string; imageData: string | null } ];
 	'thumbnail-load-error': [ { id: string } ];
-	'user-settings': [ { tabName?: string; anchor?: string } ];
+	'user-settings': [ { tabName?: string } ];
 	'window-fullscreen-change': [ boolean ];
 	'user-preference-changed': [ void ];
 	'refresh-app-globals': [ void ];

@@ -3,14 +3,11 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Button from 'src/components/button';
 import { FormPathInputComponent } from 'src/components/form-path-input';
-import { useAuth } from 'src/hooks/use-auth';
-import { useBetaFeatures } from 'src/hooks/use-beta-features';
 import { isWindowsStore } from 'src/lib/app-globals';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ColorSchemePicker } from 'src/modules/user-settings/components/color-scheme-picker';
 import { EditorPicker } from 'src/modules/user-settings/components/editor-picker';
 import { LanguagePicker } from 'src/modules/user-settings/components/language-picker';
-import { RemoteSessionToggle } from 'src/modules/user-settings/components/remote-session-toggle';
 import { StudioCliToggle } from 'src/modules/user-settings/components/studio-cli-toggle';
 import { TerminalPicker } from 'src/modules/user-settings/components/terminal-picker';
 import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
@@ -31,12 +28,10 @@ import {
 } from 'src/stores/installed-apps-api';
 import { SettingsFormField } from './settings-form-field';
 
-export const PreferencesTab = ( { onClose, anchor }: { onClose: () => void; anchor?: string } ) => {
+export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const { __ } = useI18n();
 	const savedLocale = useI18nLocale();
 	const dispatch = useAppDispatch();
-	const { isAuthenticated } = useAuth();
-	const { remoteSession: remoteSessionBetaEnabled } = useBetaFeatures();
 	const { data: colorScheme } = useGetColorSchemeQuery();
 	const { data: editor } = useGetUserEditorQuery();
 	const { data: terminal } = useGetUserTerminalQuery();
@@ -77,19 +72,6 @@ export const PreferencesTab = ( { onClose, anchor }: { onClose: () => void; anch
 			}
 		};
 	}, [] );
-
-	// Scroll the anchored field into view when the caller asked for it. We wait
-	// one rAF tick so the modal's layout pass has completed and `scrollIntoView`
-	// has something stable to scroll to.
-	useEffect( () => {
-		if ( ! anchor ) {
-			return;
-		}
-		const id = requestAnimationFrame( () => {
-			document.getElementById( anchor )?.scrollIntoView( { block: 'center', behavior: 'smooth' } );
-		} );
-		return () => cancelAnimationFrame( id );
-	}, [ anchor ] );
 
 	const handleColorSchemeChange = useCallback( ( scheme: 'system' | 'light' | 'dark' ) => {
 		setDirtyColorScheme( scheme );
@@ -165,11 +147,6 @@ export const PreferencesTab = ( { onClose, anchor }: { onClose: () => void; anch
 			</SettingsFormField>
 			{ ! isWindowsStore() && (
 				<StudioCliToggle value={ isCliInstalledSelection } onChange={ setDirtyIsCliInstalled } />
-			) }
-			{ remoteSessionBetaEnabled && isAuthenticated && (
-				<div id="remote-session">
-					<RemoteSessionToggle />
-				</div>
 			) }
 			<div className="mt-auto pt-2 flex justify-end gap-3">
 				<Button

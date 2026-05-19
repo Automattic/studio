@@ -1,11 +1,11 @@
 import { DESK_CONFIG_VERSION, type DeskConfig } from '@/ui-desks/desk/types';
+import { BOOKMARK_WIDGET_TYPE } from '@/ui-desks/widgets/bookmark/types';
 import { NOTE_WIDGET_TYPE } from '@/ui-desks/widgets/note/types';
-import { POST_COLLECTION_WIDGET_TYPE } from '@/ui-desks/widgets/post-collection/types';
 import { getScratchpadShapePropsForScope } from '@/ui-desks/widgets/scratchpad/sizing';
 import { SCRATCHPAD_WIDGET_TYPE } from '@/ui-desks/widgets/scratchpad/types';
 import { SITE_CARD_WIDGET_TYPE } from '@/ui-desks/widgets/site-card/types';
 import { SITE_PREVIEW_WIDGET_TYPE } from '@/ui-desks/widgets/site-preview/types';
-import { THEME_CARD_SHAPE_PROPS, THEME_WIDGET_TYPE } from '@/ui-desks/widgets/theme/types';
+import { THEME_WIDGET_TYPE } from '@/ui-desks/widgets/theme/types';
 
 const EXAMPLE_SCRATCHPAD_HTML = `<!doctype html>
 <html>
@@ -93,17 +93,22 @@ export const defaultUserDesk: DeskConfig = {
 	],
 };
 
-export function createDefaultSiteDeskConfig(): DeskConfig {
+export function createDefaultSiteDeskConfig( siteUrl = '' ): DeskConfig {
 	return {
 		version: DESK_CONFIG_VERSION,
 		updatedAt: new Date().toISOString(),
+		viewport: {
+			x: 440.72744922694875,
+			y: 53.85707696744839,
+			z: 0.6035527097673408,
+		},
 		widgets: [
 			{
 				id: 'site-card',
 				type: SITE_CARD_WIDGET_TYPE,
-				x: 96,
-				y: 96,
-				zIndex: 'a1',
+				x: 184.83596516477996,
+				y: 101.06117767440315,
+				zIndex: 'a00xF',
 				shapeProps: {
 					w: 360,
 					h: 200,
@@ -113,14 +118,28 @@ export function createDefaultSiteDeskConfig(): DeskConfig {
 				},
 			},
 			{
+				id: 'active-theme',
+				type: THEME_WIDGET_TYPE,
+				x: 631.6308732298062,
+				y: 785.2649837045076,
+				zIndex: 'a1BoL',
+				shapeProps: {
+					w: 760,
+					h: 440,
+				},
+				widgetProps: {
+					viewMode: 'stack',
+				},
+			},
+			{
 				id: 'home-preview',
 				type: SITE_PREVIEW_WIDGET_TYPE,
-				x: 496,
-				y: 96,
-				zIndex: 'a2',
+				x: 634.5565745594427,
+				y: 98.47227110772417,
+				zIndex: 'a21Yp',
 				shapeProps: {
-					w: 640,
-					h: 460,
+					w: 754.6531489796062,
+					h: 603.3094530012401,
 				},
 				widgetProps: {
 					path: '/',
@@ -129,51 +148,74 @@ export function createDefaultSiteDeskConfig(): DeskConfig {
 			{
 				id: 'site-notes',
 				type: NOTE_WIDGET_TYPE,
-				x: 96,
-				y: 328,
-				zIndex: 'a3',
+				x: 1278.0300192133188,
+				y: 659.9530248690811,
+				zIndex: 'a32wj',
 				shapeProps: {
-					w: 240,
-					h: 180,
+					w: 164.11440409609554,
+					h: 80,
 				},
 				widgetProps: {
-					text: 'Ideas / TODO',
+					text: 'Site Preview',
+					tone: 'neon-blue',
+					textSize: 2,
+				},
+			},
+			{
+				id: '2f456fe8-0351-49ec-b816-3629382036a3',
+				type: NOTE_WIDGET_TYPE,
+				x: 1269.3487977572597,
+				y: 1177.163284949601,
+				zIndex: 'a49JE',
+				shapeProps: {
+					w: 160.64603845116085,
+					h: 80,
+				},
+				widgetProps: {
+					text: 'Theme',
+					tone: 'violet',
+					textSize: 2,
+				},
+			},
+			{
+				id: '5efaab75-bd70-4332-bdf1-e1183e78331f',
+				type: BOOKMARK_WIDGET_TYPE,
+				x: 246.437937197667,
+				y: 333.81664542698036,
+				zIndex: 'a516A',
+				shapeProps: {
+					w: 300,
+					h: 101,
+				},
+				widgetProps: {
+					url: normalizeDefaultSiteDeskUrl( siteUrl ),
+				},
+			},
+			{
+				id: 'e60190a0-d2df-4c16-b283-eb19ed8e4839',
+				type: NOTE_WIDGET_TYPE,
+				x: 237.7295705934331,
+				y: 470.6123135830188,
+				zIndex: 'a61Ch',
+				shapeProps: {
+					w: 304.9708960372699,
+					h: 316,
+				},
+				widgetProps: {
+					text: "<strong>Welcome to your Site's desk, y</strong><strong>ou can do a lot from here<br><br></strong> - Add post collections<br> - Paste links, media<br> - Iterate on your site with AI<br> - Preview and deploy<br><br> and a lot more...",
 					tone: 'yellow',
-				},
-			},
-			{
-				id: 'recent-posts',
-				type: POST_COLLECTION_WIDGET_TYPE,
-				x: 96,
-				y: 560,
-				zIndex: 'a4',
-				shapeProps: {
-					w: 1,
-					h: 1,
-				},
-				widgetProps: {
-					query: {
-						postType: 'post',
-						perPage: 5,
-						status: 'publish',
-						orderby: 'date',
-						order: 'desc',
-					},
-				},
-			},
-			{
-				id: 'active-theme',
-				type: THEME_WIDGET_TYPE,
-				x: 496,
-				y: 600,
-				zIndex: 'a5',
-				shapeProps: {
-					...THEME_CARD_SHAPE_PROPS,
-				},
-				widgetProps: {
-					viewMode: 'stack',
+					textSize: 1,
 				},
 			},
 		],
 	};
+}
+
+function normalizeDefaultSiteDeskUrl( url: string ) {
+	const trimmedUrl = url.trim();
+	if ( ! trimmedUrl ) {
+		return '';
+	}
+
+	return trimmedUrl.endsWith( '/' ) ? trimmedUrl : `${ trimmedUrl }/`;
 }

@@ -13,6 +13,7 @@ const baseConfig: RemoteSessionConfig = {
 	token: 'abc',
 	bot: 'my_bot',
 	chat_id: 1,
+	machine_id: 'test_host',
 	poll_interval_seconds: 1,
 	long_poll_timeout_seconds: 5,
 	max_message_chars: 3800,
@@ -132,7 +133,7 @@ describe( 'respondMessage', () => {
 		fetchMock.mockResolvedValueOnce( new Response( '', { status: 200 } ) );
 		await respondMessage(
 			{ ...baseConfig, bot: undefined },
-			{ chatId: 7, bot: 'studio_mobile_abc123', text: 'hi' }
+			{ chatId: 7, bot: 'studio_mobile_rn', text: 'hi' }
 		);
 		const [ url, init ] = fetchMock.mock.calls[ 0 ];
 		expect( url ).toBe( 'https://api.example.test/wpcom/v2/studio-mobile-client/respond' );
@@ -140,9 +141,10 @@ describe( 'respondMessage', () => {
 		const body = JSON.parse( init.body as string );
 		// Routing keys the wpcom side queues on today.
 		expect( body.chat_id ).toBe( 7 );
-		expect( body.bot ).toBe( 'studio_mobile_abc123' );
-		// Forward-compat: wpcom ignores machine_id today but accepts it.
-		expect( body.machine_id ).toBe( 'abc123' );
+		expect( body.bot ).toBe( 'studio_mobile_rn' );
+		// `machine_id` now comes from config (hostname-derived by default), not
+		// from the bot suffix.
+		expect( body.machine_id ).toBe( 'test_host' );
 		// Envelope is the new contract (Phase 2 of the SPEC).
 		expect( body.envelope.type ).toBe( 'agent_message' );
 		expect( body.envelope.text ).toBe( 'hi' );
@@ -152,13 +154,24 @@ describe( 'respondMessage', () => {
 		expect( body ).not.toHaveProperty( 'text' );
 	} );
 
+	it( 'uses the per-host machine_id from config so multiple machines can share the same wpcom token', async () => {
+		fetchMock.mockResolvedValueOnce( new Response( '', { status: 200 } ) );
+		await respondMessage(
+			{ ...baseConfig, bot: undefined, machine_id: 'gergely_mbp' },
+			{ chatId: 7, bot: 'studio_mobile_rn', text: 'hi' }
+		);
+		const [ , init ] = fetchMock.mock.calls[ 0 ];
+		const body = JSON.parse( init.body as string );
+		expect( body.machine_id ).toBe( 'gergely_mbp' );
+	} );
+
 	it( 'demotes a photo to a text envelope for studio_mobile bots, preserving the caption', async () => {
 		fetchMock.mockResolvedValueOnce( new Response( '', { status: 200 } ) );
 		await respondMessage(
 			{ ...baseConfig, bot: undefined },
 			{
 				chatId: 7,
-				bot: 'studio_mobile_abc123',
+				bot: 'studio_mobile_rn',
 				photo: 'BASE64DATA',
 				caption: 'Screenshot of the homepage',
 			}
@@ -170,25 +183,29 @@ describe( 'respondMessage', () => {
 		expect( body.envelope.text ).toBe( 'Screenshot of the homepage' );
 	} );
 
-	it( 'rejects studio_mobile bots without a machine_id suffix', async () => {
-		await expect(
-			respondMessage(
-				{ ...baseConfig, bot: undefined },
-				{ chatId: 7, bot: 'studio_mobile_', text: 'hi' }
-			)
-		).rejects.toThrow( /machine_id/ );
-		expect( fetchMock ).not.toHaveBeenCalled();
-	} );
-
 	it( 'sends a placeholder envelope when a studio_mobile bot has only a photo (no text or caption)', async () => {
 		fetchMock.mockResolvedValueOnce( new Response( '', { status: 200 } ) );
 		await respondMessage(
 			{ ...baseConfig, bot: undefined },
-			{ chatId: 7, bot: 'studio_mobile_abc123', photo: 'BASE64DATA' }
+			{ chatId: 7, bot: 'studio_mobile_rn', photo: 'BASE64DATA' }
 		);
 		const [ , init ] = fetchMock.mock.calls[ 0 ];
 		const body = JSON.parse( init.body as string );
 		expect( body.envelope.text ).toMatch( /image omitted/i );
+	} );
+
+	it( 'throws when base_url does not end with /telegram-bot for a mobile bot', async () => {
+		await expect(
+			respondMessage(
+				{
+					...baseConfig,
+					bot: undefined,
+					base_url: 'https://api.example.test/wpcom/v2/something-else',
+				},
+				{ chatId: 7, bot: 'studio_mobile_rn', text: 'hi' }
+			)
+		).rejects.toThrow( /studio-mobile URL/ );
+		expect( fetchMock ).not.toHaveBeenCalled();
 	} );
 
 	it( 'retries on 5xx then succeeds', async () => {

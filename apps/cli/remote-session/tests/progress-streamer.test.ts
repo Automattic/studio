@@ -8,6 +8,7 @@ const baseConfig: RemoteSessionConfig = {
 	token: 't',
 	bot: 'b',
 	chat_id: 1,
+	machine_id: 'test_host',
 	poll_interval_seconds: 2,
 	long_poll_timeout_seconds: 25,
 	max_message_chars: 3800,

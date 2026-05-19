@@ -21,6 +21,7 @@ describe( 'remote-session config', () => {
 			STUDIO_REMOTE_TOKEN: undefined,
 			STUDIO_REMOTE_BOT: undefined,
 			STUDIO_REMOTE_CHAT_ID: undefined,
+			STUDIO_REMOTE_MACHINE_ID: undefined,
 		} as NodeJS.ProcessEnv;
 	} );
 
@@ -40,6 +41,26 @@ describe( 'remote-session config', () => {
 		expect( config.chat_id ).toBeUndefined();
 		expect( config.base_url ).toMatch( /telegram-bot$/ );
 		expect( config.poll_interval_seconds ).toBe( 2 );
+		// Defaults to a sanitized hostname so multiple installs can share a token.
+		expect( config.machine_id ).toMatch( /^[a-z0-9_]{1,32}$/ );
+	} );
+
+	it( 'lets STUDIO_REMOTE_MACHINE_ID override the hostname-derived default', async () => {
+		fs.writeFileSync(
+			path.join( tmpDir, 'remote-session.json' ),
+			JSON.stringify( { token: 't' } )
+		);
+		process.env.STUDIO_REMOTE_MACHINE_ID = 'gergely_mbp';
+		const config = await loadRemoteSessionConfig();
+		expect( config.machine_id ).toBe( 'gergely_mbp' );
+	} );
+
+	it( 'rejects an invalid machine_id (must match [a-z0-9_]{1,32})', async () => {
+		fs.writeFileSync(
+			path.join( tmpDir, 'remote-session.json' ),
+			JSON.stringify( { token: 't', machine_id: 'Has Spaces & Caps' } )
+		);
+		await expect( loadRemoteSessionConfig() ).rejects.toBeInstanceOf( RemoteSessionConfigError );
 	} );
 
 	it( 'reads optional bot + chat_id when provided in the file', async () => {
@@ -115,6 +136,7 @@ describe( 'remote-session config', () => {
 			token: 't',
 			bot: 'b',
 			chat_id: 1,
+			machine_id: 'test_host',
 			poll_interval_seconds: 2,
 			long_poll_timeout_seconds: 25,
 			max_message_chars: 3800,

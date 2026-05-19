@@ -1,8 +1,24 @@
 import fs from 'fs';
+import { hostname } from 'os';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { getRemoteSessionConfigPath } from '@studio/common/lib/well-known-paths';
 import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
+
+/**
+ * Sanitize the host's name down to the wpcom-friendly charset
+ * (`[a-z0-9_]`, max 32 chars) so it's safe to use as a `machine_id` cache key
+ * suffix without escaping. Falls back to `unknown_host` if `os.hostname()`
+ * yields nothing usable.
+ */
+function deriveMachineId(): string {
+	const sanitized = hostname()
+		.toLowerCase()
+		.replace( /[^a-z0-9_]/g, '_' )
+		.replace( /^_+|_+$/g, '' )
+		.slice( 0, 32 );
+	return sanitized || 'unknown_host';
+}
 
 export const remoteSessionConfigSchema = z.object( {
 	base_url: z.string().url().default( 'https://public-api.wordpress.com/wpcom/v2/telegram-bot' ),
@@ -15,6 +31,14 @@ export const remoteSessionConfigSchema = z.object( {
 	// polled message back into the response.
 	bot: z.string().min( 1 ).optional(),
 	chat_id: z.number().int().optional(),
+	// Stable identifier for this CLI host, sent as `machine_id` on outbound
+	// replies to studio-mobile bots. Defaults to a sanitized `os.hostname()`;
+	// override via `STUDIO_REMOTE_MACHINE_ID` if multiple installs on the same
+	// host need to be distinguished (or to pin a friendly name for tests).
+	machine_id: z
+		.string()
+		.regex( /^[a-z0-9_]{1,32}$/, 'machine_id must match [a-z0-9_]{1,32}' )
+		.default( deriveMachineId ),
 	poll_interval_seconds: z.number().positive().default( 2 ),
 	long_poll_timeout_seconds: z.number().positive().default( 25 ),
 	max_message_chars: z.number().int().positive().max( 4096 ).default( 3800 ),
@@ -28,6 +52,7 @@ export interface RemoteSessionOverrides {
 	bot?: string;
 	chat_id?: number;
 	base_url?: string;
+	machine_id?: string;
 }
 
 export class RemoteSessionConfigError extends Error {
@@ -56,6 +81,9 @@ function readEnvOverrides(): RemoteSessionOverrides {
 		if ( Number.isFinite( parsed ) ) {
 			overrides.chat_id = parsed;
 		}
+	}
+	if ( process.env.STUDIO_REMOTE_MACHINE_ID ) {
+		overrides.machine_id = process.env.STUDIO_REMOTE_MACHINE_ID;
 	}
 	return overrides;
 }

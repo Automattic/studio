@@ -1,11 +1,10 @@
 import {
 	getDaemonStatus,
+	pollDaemonStatus,
 	toRemoteSessionStatus,
 	type DaemonStatus,
 } from '@studio/common/lib/remote-session';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
-
-const DEFAULT_POLL_INTERVAL_MS = 5000;
 
 export interface RemoteSessionStatusPollerOptions {
 	intervalMs?: number;
@@ -15,57 +14,31 @@ export interface RemoteSessionStatusPollerOptions {
 
 /**
  * Mirror the on-disk remote-session daemon state into Studio's renderer via a
- * lightweight main-process poll. The shape and disciplines mirror the CLI REPL's
- * `apps/cli/ai/daemon-status-poll.ts`:
+ * lightweight main-process poll. The polling skeleton (sync first tick,
+ * try/catch per read, `timer.unref()`) lives in `@studio/common/lib/remote-session`
+ * and is shared with the CLI REPL's bottom-bar indicator; this wrapper just
+ * supplies the renderer-facing sink and a transition-dedupe filter so the
+ * renderer doesn't churn every 5 seconds on identical states.
  *
- * - Fires one synchronous tick before scheduling the interval so first paint
- *   doesn't wait 5s.
- * - Wraps each tick in try/catch — a transient `getDaemonStatus` read error
- *   must never crash the loop.
- * - Calls `timer.unref()` so the poller can't keep Electron alive during quit.
- * - Pushes to the renderer **only when `running` flips**. Identical states are
- *   silent — no renderer churn every 5s.
- *
- * The poller always runs because reading the PID file is cheap and the daemon
- * may already be running outside Studio (started from the CLI). The renderer
+ * The poller always runs — reading the PID file is cheap and the daemon may
+ * already be running outside Studio (started from the CLI). The renderer
  * gates display on the `remoteSession` beta feature, so users who haven't
  * opted in never see the indicator even though status events still fire.
- *
- * The returned stop function clears the interval. It deliberately does NOT
- * touch the daemon itself — R9 of the brainstorm requires the daemon's
- * lifecycle to be independent from Studio's.
  */
 export function startRemoteSessionStatusPolling(
 	options: RemoteSessionStatusPollerOptions = {}
 ): () => void {
-	const readStatus = options.readStatus ?? ( () => getDaemonStatus() );
-	const pushStatus =
-		options.pushStatus ??
-		( ( status: DaemonStatus ) => {
-			// Project at the IPC boundary — strip `pid` / `pidFile` /
-			// `staleFileRemoved` before the payload crosses to the renderer.
-			void sendIpcEventToRenderer( 'remote-session-status', toRemoteSessionStatus( status ) );
-		} );
-
-	let lastRunning: boolean | undefined;
-
-	const tick = () => {
-		try {
-			const status = readStatus();
-			if ( status.running !== lastRunning ) {
-				lastRunning = status.running;
-				pushStatus( status );
-			}
-		} catch {
-			// Best-effort. A transient PID-file read error must not crash the loop.
-		}
-	};
-
-	tick();
-	const timer = setInterval( tick, options.intervalMs ?? DEFAULT_POLL_INTERVAL_MS );
-	if ( typeof timer.unref === 'function' ) {
-		timer.unref();
-	}
-
-	return () => clearInterval( timer );
+	return pollDaemonStatus< DaemonStatus >( {
+		intervalMs: options.intervalMs,
+		readStatus: options.readStatus ?? ( () => getDaemonStatus() ),
+		pushStatus:
+			options.pushStatus ??
+			( ( status ) => {
+				// Project at the IPC boundary — strip `pid` / `pidFile` /
+				// `staleFileRemoved` before the payload crosses to the renderer.
+				void sendIpcEventToRenderer( 'remote-session-status', toRemoteSessionStatus( status ) );
+			} ),
+		// Only emit when `running` actually flips. Identical states are silent.
+		shouldPush: ( current, lastPushed ) => current.running !== lastPushed?.running,
+	} );
 }

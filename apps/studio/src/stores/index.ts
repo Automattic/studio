@@ -16,6 +16,11 @@ import i18nReducer from 'src/stores/i18n-slice';
 import { installedAppsApi } from 'src/stores/installed-apps-api';
 import onboardingReducer from 'src/stores/onboarding-slice';
 import {
+	applyIncomingStatus as applyRemoteSessionIncomingStatus,
+	loadRemoteSessionStatus,
+	remoteSessionReducer,
+} from 'src/stores/remote-session-slice';
+import {
 	reducer as snapshotReducer,
 	refreshSnapshots,
 	snapshotActions,
@@ -36,6 +41,7 @@ import type { SupportedLocale } from '@studio/common/lib/locale';
 export type RootState = {
 	appVersionApi: ReturnType< typeof appVersionApi.reducer >;
 	betaFeatures: ReturnType< typeof betaFeaturesReducer >;
+	remoteSession: ReturnType< typeof remoteSessionReducer >;
 	chat: ReturnType< typeof chatReducer >;
 	installedAppsApi: ReturnType< typeof installedAppsApi.reducer >;
 	onboarding: ReturnType< typeof onboardingReducer >;
@@ -324,6 +330,7 @@ startAppListening( {
 export const rootReducer = combineReducers( {
 	appVersionApi: appVersionApi.reducer,
 	betaFeatures: betaFeaturesReducer,
+	remoteSession: remoteSessionReducer,
 	chat: chatReducer,
 	installedAppsApi: installedAppsApi.reducer,
 	connectedSitesApi: connectedSitesApi.reducer,
@@ -359,9 +366,18 @@ export const store = configureStore( {
 // Enable the refetchOnFocus behavior
 setupListeners( store.dispatch );
 
+// Bridge the main-process daemon-status poll into the slice. Subscribing here
+// (rather than inside the slice file) keeps the slice free of any dependency
+// on this module, which avoids a circular-import deadlock when consumers
+// import the slice directly (e.g. `useRemoteSessionStatus` → slice → here).
+window.ipcListener.subscribe( 'remote-session-status', ( _event, status ) => {
+	store.dispatch( applyRemoteSessionIncomingStatus( status ) );
+} );
+
 // Initialize beta features and fetch snapshots on store initialization, but skip in test environment
 if ( process.env.NODE_ENV !== 'test' ) {
 	void store.dispatch( loadBetaFeatures() );
+	void store.dispatch( loadRemoteSessionStatus() );
 	void refreshSnapshots();
 }
 

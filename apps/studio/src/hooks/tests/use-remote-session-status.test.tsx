@@ -1,14 +1,11 @@
 // Run tests: npm test -- src/hooks/tests/use-remote-session-status.test.tsx
 import { act, renderHook, waitFor } from '@testing-library/react';
+import { Provider } from 'react-redux';
 import { vi } from 'vitest';
-import {
-	_resetRemoteSessionStatusStateForTests,
-	useRemoteSessionStatus,
-} from 'src/hooks/use-remote-session-status';
-import type { DaemonStatus } from '@studio/common/lib/remote-session';
-import type { IpcRendererEvent } from 'electron';
-
-type IpcListener = ( event: IpcRendererEvent, status: DaemonStatus ) => void;
+import { useRemoteSessionStatus } from 'src/hooks/use-remote-session-status';
+import { createTestStore } from 'src/lib/test-utils';
+import { applyIncomingStatus, loadRemoteSessionStatus } from 'src/stores/remote-session-slice';
+import type { ReactNode } from 'react';
 
 const mockGetStatus = vi.fn();
 const mockStart = vi.fn();
@@ -24,67 +21,55 @@ vi.mock( 'src/lib/get-ipc-api', () => ( {
 	} ),
 } ) );
 
-let registeredListener: IpcListener | undefined;
+function setup() {
+	const store = createTestStore();
+	const wrapper = ( { children }: { children: ReactNode } ) => (
+		<Provider store={ store }>{ children }</Provider>
+	);
+	return { store, wrapper };
+}
 
 beforeEach( () => {
-	registeredListener = undefined;
 	mockGetStatus.mockReset();
 	mockStart.mockReset();
 	mockStop.mockReset();
 	mockShowErrorMessageBox.mockReset();
-	_resetRemoteSessionStatusStateForTests();
-
-	window.ipcListener = {
-		subscribe: vi.fn( ( channel, listener ) => {
-			if ( channel === 'remote-session-status' ) {
-				registeredListener = listener as IpcListener;
-			}
-			return () => {
-				if ( channel === 'remote-session-status' ) {
-					registeredListener = undefined;
-				}
-			};
-		} ),
-	};
 } );
 
 describe( 'useRemoteSessionStatus', () => {
 	it( 'starts with status undefined, then reflects the initial IPC fetch', async () => {
 		mockGetStatus.mockResolvedValue( { running: false, pidFile: '/tmp/pid' } );
 
-		const { result } = renderHook( () => useRemoteSessionStatus() );
+		const { store, wrapper } = setup();
+		const { result } = renderHook( () => useRemoteSessionStatus(), { wrapper } );
 
 		expect( result.current.status ).toBeUndefined();
-		await waitFor( () => {
-			expect( result.current.status ).toEqual( { running: false, pidFile: '/tmp/pid' } );
+
+		await act( async () => {
+			await store.dispatch( loadRemoteSessionStatus() );
 		} );
+
+		expect( result.current.status ).toEqual( { running: false, pidFile: '/tmp/pid' } );
 	} );
 
-	it( 'updates status when a remote-session-status event arrives', async () => {
-		mockGetStatus.mockResolvedValue( { running: false, pidFile: '/tmp/pid' } );
-
-		const { result } = renderHook( () => useRemoteSessionStatus() );
-		await waitFor( () => {
-			expect( result.current.status?.running ).toBe( false );
-		} );
+	it( 'updates status when an incoming remote-session-status payload is dispatched', () => {
+		const { store, wrapper } = setup();
+		const { result } = renderHook( () => useRemoteSessionStatus(), { wrapper } );
 
 		act( () => {
-			registeredListener?.( {} as IpcRendererEvent, {
-				running: true,
-				pid: 42,
-				pidFile: '/tmp/pid',
-			} );
+			store.dispatch( applyIncomingStatus( { running: true, pid: 42, pidFile: '/tmp/pid' } ) );
 		} );
 
 		expect( result.current.status ).toEqual( { running: true, pid: 42, pidFile: '/tmp/pid' } );
+		expect( result.current.isRunning ).toBe( true );
 	} );
 
 	it( 'start() invokes startRemoteSessionDaemon and toggles isLoading', async () => {
-		mockGetStatus.mockResolvedValue( { running: false, pidFile: '/tmp/pid' } );
+		mockGetStatus.mockResolvedValue( { running: true, pid: 1, pidFile: '/tmp/pid' } );
 		mockStart.mockResolvedValue( { pid: 99, pidFile: '/tmp/pid' } );
 
-		const { result } = renderHook( () => useRemoteSessionStatus() );
-		await waitFor( () => expect( result.current.status ).toBeDefined() );
+		const { wrapper } = setup();
+		const { result } = renderHook( () => useRemoteSessionStatus(), { wrapper } );
 
 		await act( async () => {
 			await result.current.start();
@@ -98,8 +83,8 @@ describe( 'useRemoteSessionStatus', () => {
 		mockGetStatus.mockResolvedValue( { running: false, pidFile: '/tmp/pid' } );
 		mockStart.mockRejectedValue( new Error( 'spawn timed out' ) );
 
-		const { result } = renderHook( () => useRemoteSessionStatus() );
-		await waitFor( () => expect( result.current.status ).toBeDefined() );
+		const { wrapper } = setup();
+		const { result } = renderHook( () => useRemoteSessionStatus(), { wrapper } );
 
 		await act( async () => {
 			await result.current.start();
@@ -108,14 +93,13 @@ describe( 'useRemoteSessionStatus', () => {
 		expect( mockShowErrorMessageBox ).toHaveBeenCalledWith(
 			expect.objectContaining( { message: 'spawn timed out' } )
 		);
-		// The optimistic flip is overwritten by the post-error refreshStatus,
-		// which sees the daemon still off and clears `isRunning`.
+		// The thunk always re-fetches after the IPC call, so the cache catches
+		// up to the real "still off" state.
 		expect( result.current.status?.running ).toBe( false );
 		expect( result.current.isRunning ).toBe( false );
 	} );
 
 	it( 'flips isRunning optimistically the moment start() is invoked', async () => {
-		mockGetStatus.mockResolvedValue( { running: false, pidFile: '/tmp/pid' } );
 		let resolveStart: ( value: { pid: number; pidFile: string } ) => void = () => undefined;
 		mockStart.mockImplementation(
 			() =>
@@ -123,9 +107,12 @@ describe( 'useRemoteSessionStatus', () => {
 					resolveStart = resolve;
 				} )
 		);
+		mockGetStatus.mockResolvedValue( { running: true, pid: 1, pidFile: '/tmp/pid' } );
 
-		const { result } = renderHook( () => useRemoteSessionStatus() );
-		await waitFor( () => expect( result.current.isRunning ).toBe( false ) );
+		const { wrapper } = setup();
+		const { result } = renderHook( () => useRemoteSessionStatus(), { wrapper } );
+
+		expect( result.current.isRunning ).toBe( false );
 
 		act( () => {
 			void result.current.start();
@@ -134,7 +121,6 @@ describe( 'useRemoteSessionStatus', () => {
 		// Optimistic flip happens before the IPC resolves.
 		expect( result.current.isRunning ).toBe( true );
 
-		mockGetStatus.mockResolvedValueOnce( { running: true, pid: 1, pidFile: '/tmp/pid' } );
 		await act( async () => {
 			resolveStart( { pid: 1, pidFile: '/tmp/pid' } );
 		} );
@@ -144,7 +130,6 @@ describe( 'useRemoteSessionStatus', () => {
 	} );
 
 	it( 'flips isRunning optimistically the moment stop() is invoked', async () => {
-		mockGetStatus.mockResolvedValue( { running: true, pid: 7, pidFile: '/tmp/pid' } );
 		let resolveStop: ( value: { stopped: true } ) => void = () => undefined;
 		mockStop.mockImplementation(
 			() =>
@@ -152,9 +137,16 @@ describe( 'useRemoteSessionStatus', () => {
 					resolveStop = resolve;
 				} )
 		);
+		mockGetStatus.mockResolvedValue( { running: false, pidFile: '/tmp/pid' } );
 
-		const { result } = renderHook( () => useRemoteSessionStatus() );
-		await waitFor( () => expect( result.current.isRunning ).toBe( true ) );
+		const { store, wrapper } = setup();
+		const { result } = renderHook( () => useRemoteSessionStatus(), { wrapper } );
+
+		// Seed running=true via an incoming status event.
+		act( () => {
+			store.dispatch( applyIncomingStatus( { running: true, pid: 7, pidFile: '/tmp/pid' } ) );
+		} );
+		expect( result.current.isRunning ).toBe( true );
 
 		act( () => {
 			void result.current.stop();
@@ -162,7 +154,6 @@ describe( 'useRemoteSessionStatus', () => {
 
 		expect( result.current.isRunning ).toBe( false );
 
-		mockGetStatus.mockResolvedValueOnce( { running: false, pidFile: '/tmp/pid' } );
 		await act( async () => {
 			resolveStop( { stopped: true } );
 		} );
@@ -172,11 +163,15 @@ describe( 'useRemoteSessionStatus', () => {
 	} );
 
 	it( 'stop() invokes stopRemoteSessionDaemon and surfaces failures via showErrorMessageBox', async () => {
-		mockGetStatus.mockResolvedValue( { running: true, pid: 7, pidFile: '/tmp/pid' } );
 		mockStop.mockRejectedValue( new Error( 'process refused to die' ) );
+		mockGetStatus.mockResolvedValue( { running: true, pid: 7, pidFile: '/tmp/pid' } );
 
-		const { result } = renderHook( () => useRemoteSessionStatus() );
-		await waitFor( () => expect( result.current.status?.running ).toBe( true ) );
+		const { store, wrapper } = setup();
+		const { result } = renderHook( () => useRemoteSessionStatus(), { wrapper } );
+
+		act( () => {
+			store.dispatch( applyIncomingStatus( { running: true, pid: 7, pidFile: '/tmp/pid' } ) );
+		} );
 
 		await act( async () => {
 			await result.current.stop();
@@ -188,7 +183,7 @@ describe( 'useRemoteSessionStatus', () => {
 		);
 	} );
 
-	it( 'debounces concurrent start calls via isLoading', async () => {
+	it( 'debounces concurrent start calls via the in-flight condition', async () => {
 		mockGetStatus.mockResolvedValue( { running: false, pidFile: '/tmp/pid' } );
 		let resolveStart: ( value: { pid: number; pidFile: string } ) => void = () => undefined;
 		mockStart.mockImplementation(
@@ -198,12 +193,13 @@ describe( 'useRemoteSessionStatus', () => {
 				} )
 		);
 
-		const { result } = renderHook( () => useRemoteSessionStatus() );
-		await waitFor( () => expect( result.current.status ).toBeDefined() );
+		const { wrapper } = setup();
+		const { result } = renderHook( () => useRemoteSessionStatus(), { wrapper } );
 
-		// Fire two start calls in quick succession. The second should be ignored
-		// because isLoading is true.
-		act( () => {
+		// Two starts in quick succession. The second's `condition` callback
+		// sees `inFlight === true` and rejects the thunk synchronously, so the
+		// underlying IPC handler is invoked only once.
+		await act( async () => {
 			void result.current.start();
 			void result.current.start();
 		} );
@@ -227,14 +223,13 @@ describe( 'useRemoteSessionStatus', () => {
 				} )
 		);
 
-		const { result: toggle } = renderHook( () => useRemoteSessionStatus() );
-		const { result: indicator } = renderHook( () => useRemoteSessionStatus() );
+		const { wrapper } = setup();
+		const { result: toggle } = renderHook( () => useRemoteSessionStatus(), { wrapper } );
+		const { result: indicator } = renderHook( () => useRemoteSessionStatus(), { wrapper } );
 
-		await waitFor( () => expect( toggle.current.isRunning ).toBe( false ) );
+		expect( toggle.current.isRunning ).toBe( false );
 		expect( indicator.current.isRunning ).toBe( false );
 
-		// One consumer kicks off start(); the OTHER must see the optimistic flip
-		// without waiting for the daemon poll.
 		act( () => {
 			void toggle.current.start();
 		} );

@@ -3,15 +3,15 @@ import { type RemoteSessionConfig } from 'cli/remote-session/config';
 import { RemoteSessionLogger } from 'cli/remote-session/logger';
 import { MediaStreamer } from 'cli/remote-session/media-streamer';
 import { ProgressStreamer } from 'cli/remote-session/progress-streamer';
-import { chunkReply, extractReply } from 'cli/remote-session/reply-formatter';
-import { clearSessionId, readStateForChat, writeSessionId } from 'cli/remote-session/state';
 import {
-	TelegramAuthError,
-	TelegramBadRequestError,
-	TelegramTransientError,
-	pollMessages,
-	respondMessage,
-} from 'cli/remote-session/telegram-client';
+	RemoteAuthError,
+	RemoteBadRequestError,
+	RemoteTransientError,
+} from 'cli/remote-session/remote-http';
+import { chunkReply, extractReply } from 'cli/remote-session/reply-formatter';
+import { respondMessage } from 'cli/remote-session/respond-router';
+import { clearSessionId, readStateForChat, writeSessionId } from 'cli/remote-session/state';
+import { pollMessages } from 'cli/remote-session/telegram-client';
 import { runTurn, type TurnOutcome, type TurnRunOptions } from 'cli/remote-session/turn-runner';
 
 /** Injected for tests. */
@@ -308,7 +308,7 @@ export async function runPollLoop( options: RunPollLoopOptions ): Promise< PollL
 				batch = await deps.poll( config, abortController.signal, { logger: deps.logger } );
 				backoffAttempt = 0;
 			} catch ( error ) {
-				if ( error instanceof TelegramAuthError ) {
+				if ( error instanceof RemoteAuthError ) {
 					deps.logger.error( 'Auth error; detaching', { status: error.status } );
 					if ( config.chat_id !== undefined ) {
 						await postBestEffort(
@@ -322,7 +322,7 @@ export async function runPollLoop( options: RunPollLoopOptions ): Promise< PollL
 					process.exitCode = 1;
 					break;
 				}
-				if ( error instanceof TelegramTransientError ) {
+				if ( error instanceof RemoteTransientError ) {
 					const delay = Math.min( 30_000, 1000 * Math.pow( 2, backoffAttempt ) );
 					deps.logger.warn( 'Transient poll error; backing off', {
 						status: error.status,
@@ -409,7 +409,7 @@ export async function runPollLoop( options: RunPollLoopOptions ): Promise< PollL
 							{ logger: deps.logger }
 						);
 					} catch ( error ) {
-						if ( error instanceof TelegramBadRequestError ) {
+						if ( error instanceof RemoteBadRequestError ) {
 							deps.logger.warn( 'Respond 4xx on /new ack', { status: error.status } );
 						} else {
 							throw error;
@@ -421,7 +421,7 @@ export async function runPollLoop( options: RunPollLoopOptions ): Promise< PollL
 				try {
 					await handleTurn( deps, config, target, polled.text, abortController.signal );
 				} catch ( error ) {
-					if ( error instanceof TelegramAuthError ) {
+					if ( error instanceof RemoteAuthError ) {
 						deps.logger.error( 'Auth error during respond; detaching', {
 							status: error.status,
 						} );
@@ -429,7 +429,7 @@ export async function runPollLoop( options: RunPollLoopOptions ): Promise< PollL
 						process.exitCode = 1;
 						break batchLoop;
 					}
-					if ( error instanceof TelegramBadRequestError ) {
+					if ( error instanceof RemoteBadRequestError ) {
 						deps.logger.warn( 'Respond 4xx; dropping chunk', { status: error.status } );
 						continue;
 					}

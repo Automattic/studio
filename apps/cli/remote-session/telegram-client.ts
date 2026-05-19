@@ -1,6 +1,19 @@
-import { randomUUID } from 'crypto';
-import { type RemoteSessionConfig } from 'cli/remote-session/config';
+import {
+	RemoteAuthError,
+	RemoteTransientError,
+	assertSameHost,
+	buildUrl,
+	composeSignals,
+} from 'cli/remote-session/remote-http';
+import type { RemoteSessionConfig } from 'cli/remote-session/config';
 import type { RemoteSessionLogger } from 'cli/remote-session/logger';
+
+/**
+ * Wire-format adapter for the wpcom `telegram-bot/local-agent-{poll,respond}`
+ * endpoints. Only the Telegram-side concerns live here — the studio-mobile
+ * `/respond` shape is in `studio-mobile-client.ts`, and the routing decision
+ * + retry loop live in `respond-router.ts`.
+ */
 
 export interface PolledMessage {
 	chat_id: number;
@@ -12,77 +25,6 @@ export interface TelegramRequestContext {
 	logger?: RemoteSessionLogger;
 }
 
-export class TelegramAuthError extends Error {
-	constructor( public readonly status: number ) {
-		super( `Telegram server returned auth error (HTTP ${ status })` );
-		this.name = 'TelegramAuthError';
-	}
-}
-
-export class TelegramTransientError extends Error {
-	constructor(
-		message: string,
-		public readonly status?: number
-	) {
-		super( message );
-		this.name = 'TelegramTransientError';
-	}
-}
-
-export class TelegramBadRequestError extends Error {
-	constructor(
-		message: string,
-		public readonly status: number
-	) {
-		super( message );
-		this.name = 'TelegramBadRequestError';
-	}
-}
-
-function assertSameHost( urlString: string, allowedHost: string ): void {
-	const u = new URL( urlString );
-	if ( u.host !== allowedHost ) {
-		throw new TelegramTransientError(
-			`Refusing to follow redirect to different host: ${ u.host } (allowed: ${ allowedHost })`
-		);
-	}
-}
-
-function normalizeBase( base: string ): URL {
-	// Ensure a trailing slash so relative path joins work predictably.
-	return new URL( base.endsWith( '/' ) ? base : `${ base }/` );
-}
-
-function buildUrl( baseUrl: string, pathName: string ): string {
-	const base = normalizeBase( baseUrl );
-	const joined = new URL( pathName.replace( /^\//, '' ), base );
-	return joined.toString();
-}
-
-const STUDIO_MOBILE_BOT_PREFIX = 'studio_mobile_';
-const TELEGRAM_BOT_BASE_PATH_RE = /\/telegram-bot(\/?$)/;
-
-function isStudioMobileBot( bot: string | undefined ): bot is string {
-	return typeof bot === 'string' && bot.startsWith( STUDIO_MOBILE_BOT_PREFIX );
-}
-
-/**
- * Derive the studio-mobile `/respond` URL by swapping the trailing
- * `/telegram-bot` segment in `base_url` for `/studio-mobile-client`. Throws
- * loudly if the base URL doesn't have that segment — silently producing the
- * wrong URL would surface much later as a confusing 404 from a different
- * service.
- */
-function buildMobileRespondUrl( baseUrl: string ): string {
-	if ( ! TELEGRAM_BOT_BASE_PATH_RE.test( baseUrl ) ) {
-		throw new Error(
-			`Cannot derive studio-mobile URL from base_url ${ baseUrl } (expected it to end with /telegram-bot)`
-		);
-	}
-	const mobileBase = baseUrl.replace( TELEGRAM_BOT_BASE_PATH_RE, '/studio-mobile-client$1' );
-	return buildUrl( mobileBase, 'respond' );
-}
-
 /**
  * Poll the server for pending messages. Returns an empty array when nothing is queued.
  *
@@ -90,7 +32,7 @@ function buildMobileRespondUrl( baseUrl: string ): string {
  * A batch can contain any number of messages; the caller is expected to drain them in order
  * (one `studio code --json` turn per message) before polling again.
  *
- * Throws TelegramAuthError on 401/403, TelegramTransientError on 5xx or network errors.
+ * Throws RemoteAuthError on 401/403, RemoteTransientError on 5xx or network errors.
  * No inbound retries are attempted — once polled, a dropped message is dropped.
  */
 export async function pollMessages(
@@ -132,18 +74,18 @@ export async function pollMessages(
 		}
 		const message = ( error as Error ).message ?? 'unknown';
 		context.logger?.warn( 'Poll network error', { error: message } );
-		throw new TelegramTransientError( `Network error polling Telegram: ${ message }` );
+		throw new RemoteTransientError( `Network error polling Telegram: ${ message }` );
 	} finally {
 		clearTimeout( timeoutId );
 	}
 
 	if ( response.status === 401 || response.status === 403 ) {
 		context.logger?.error( 'Poll auth error', { status: response.status } );
-		throw new TelegramAuthError( response.status );
+		throw new RemoteAuthError( response.status );
 	}
 	if ( response.status >= 500 ) {
 		context.logger?.warn( 'Poll 5xx', { status: response.status } );
-		throw new TelegramTransientError( `Poll returned ${ response.status }`, response.status );
+		throw new RemoteTransientError( `Poll returned ${ response.status }`, response.status );
 	}
 	if ( response.status === 204 ) {
 		context.logger?.debug( 'Poll 204 (no messages)', {
@@ -154,14 +96,14 @@ export async function pollMessages(
 	if ( response.status >= 300 && response.status < 400 ) {
 		context.logger?.warn( 'Poll redirect', { status: response.status } );
 		// Never follow server-issued redirects blindly.
-		throw new TelegramTransientError(
+		throw new RemoteTransientError(
 			`Unexpected redirect from poll endpoint: HTTP ${ response.status }`,
 			response.status
 		);
 	}
 	if ( ! response.ok ) {
 		context.logger?.warn( 'Poll unexpected status', { status: response.status } );
-		throw new TelegramTransientError(
+		throw new RemoteTransientError(
 			`Poll returned unexpected status ${ response.status }`,
 			response.status
 		);
@@ -226,228 +168,13 @@ function extractMessages( payload: unknown ): PolledMessage[] {
 	return out;
 }
 
-export interface RespondParams {
-	chatId: number;
-	bot?: string;
-	/** Plain text reply. Required when no `photo` is provided. */
-	text?: string;
-	/**
-	 * Base64-encoded image bytes (PNG or JPEG). When set, the request goes out as
-	 * `multipart/form-data` so the server forwards it to Telegram via `sendPhoto`.
-	 */
-	photo?: string;
-	/** MIME type of the photo bytes. Defaults to `image/png`. */
-	photoMimeType?: 'image/png' | 'image/jpeg';
-	/** Caption to send alongside `photo`. The server demotes long captions to a follow-up message. */
-	caption?: string;
-}
-
-interface RespondResponseBody {
-	success?: boolean;
-	photo_sent?: boolean;
-	text_sent?: boolean;
-	chunks_sent?: number;
-	error?: string;
-}
-
-/**
- * POST a message back to the user. Retries up to 3 times on 5xx with exponential backoff.
- * 4xx responses are surfaced as TelegramBadRequestError and should be logged but not retried.
- *
- * Two wire formats, picked from the `bot` field:
- *
- * 1. Telegram (default):
- *    - Text-only: `application/json` body — `{ chat_id, bot, text }`.
- *    - Photo (with optional caption / follow-up text): `multipart/form-data` with a
- *      binary `photo` file part plus text fields. The server validates the photo
- *      bytes (size + magic bytes) before forwarding to Telegram.
- *
- * 2. Studio mobile (`bot` starts with `studio_mobile_`):
- *    - Always `application/json` — `{ machine_id, envelope: { type: 'agent_message', id, text } }`.
- *    - Photos are out-of-scope for the mobile PoC (see studio-mobile SPEC.md
- *      "Out of scope for v1"); we fold any caption/text into the envelope and
- *      log + drop the image bytes.
- *
- * The Telegram server always answers with HTTP 200 and a JSON body indicating partial
- * outcomes (`success`, `photo_sent`, `text_sent`, `error`); we log a warning when
- * `success` is false but do not throw. The mobile `/respond` endpoint just returns
- * 200 with no body on success.
- */
-export async function respondMessage(
-	config: RemoteSessionConfig,
-	params: RespondParams,
-	options: { signal?: AbortSignal; maxRetries?: number; logger?: RemoteSessionLogger } = {}
-): Promise< void > {
-	// Normalize empty strings to "absent" so every downstream check (early
-	// guard, body builder, debug log) agrees on what counts as present.
-	const text = params.text && params.text.length > 0 ? params.text : undefined;
-	const photo = params.photo && params.photo.length > 0 ? params.photo : undefined;
-
-	if ( ! text && ! photo ) {
-		throw new Error( 'respondMessage requires `text`, `photo`, or both' );
-	}
-
-	const bot = params.bot ?? config.bot;
-	const isMobile = isStudioMobileBot( bot );
-	const url = isMobile
-		? buildMobileRespondUrl( config.base_url )
-		: buildUrl( config.base_url, 'local-agent-respond' );
-	const allowedHost = new URL( config.base_url ).host;
-	assertSameHost( url, allowedHost );
-	const { body, contentType } = isMobile
-		? buildMobileRespondBody( {
-				chatId: params.chatId,
-				bot,
-				machineId: config.machine_id,
-				text,
-				photo,
-				caption: params.caption,
-				logger: options.logger,
-		  } )
-		: buildTelegramRespondBody( {
-				chatId: params.chatId,
-				bot,
-				text,
-				photo,
-				photoMimeType: params.photoMimeType,
-				caption: params.caption,
-		  } );
-
-	const maxRetries = options.maxRetries ?? 3;
-	let attempt = 0;
-	let lastError: unknown;
-	const logger = options.logger;
-	logger?.debug( 'Respond start', {
-		chat_id: params.chatId,
-		bot,
-		text_length: text?.length ?? 0,
-		text_preview: text?.slice( 0, 120 ),
-		has_photo: photo !== undefined,
-		photo_base64_chars: photo?.length ?? 0,
-		photo_mime_type: params.photoMimeType,
-		caption_length: params.caption?.length ?? 0,
-		transport: contentType === undefined ? 'multipart' : 'json',
-	} );
-
-	while ( attempt <= maxRetries ) {
-		let response: Response;
-		try {
-			// Note: when `body` is a FormData the runtime sets the multipart
-			// Content-Type with the proper boundary. Setting it manually here
-			// would corrupt the boundary token, so we omit it for that path.
-			const headers: Record< string, string > = {
-				Authorization: `Bearer ${ config.token }`,
-			};
-			if ( contentType ) {
-				headers[ 'Content-Type' ] = contentType;
-			}
-			response = await fetch( url, {
-				method: 'POST',
-				headers,
-				body,
-				redirect: 'manual',
-				signal: options.signal,
-			} );
-		} catch ( error ) {
-			lastError = error;
-			if ( error instanceof Error && error.name === 'AbortError' ) {
-				throw error;
-			}
-			logger?.warn( 'Respond network error', {
-				attempt,
-				chat_id: params.chatId,
-				error: ( error as Error ).message,
-			} );
-			await backoff( attempt );
-			attempt++;
-			continue;
-		}
-
-		if ( response.status === 401 || response.status === 403 ) {
-			logger?.error( 'Respond auth error', {
-				status: response.status,
-				chat_id: params.chatId,
-			} );
-			throw new TelegramAuthError( response.status );
-		}
-		if ( response.status >= 500 ) {
-			logger?.warn( 'Respond 5xx', { status: response.status, attempt } );
-			lastError = new TelegramTransientError(
-				`Respond returned ${ response.status }`,
-				response.status
-			);
-			await backoff( attempt );
-			attempt++;
-			continue;
-		}
-		if ( response.status >= 400 ) {
-			const text = await safeReadText( response );
-			logger?.warn( 'Respond 4xx', {
-				status: response.status,
-				chat_id: params.chatId,
-				body_preview: text.slice( 0, 200 ),
-			} );
-			throw new TelegramBadRequestError(
-				`Respond returned ${ response.status }${ text ? `: ${ text }` : '' }`,
-				response.status
-			);
-		}
-		if ( ! response.ok ) {
-			logger?.warn( 'Respond unexpected status', { status: response.status } );
-			throw new TelegramTransientError(
-				`Respond returned unexpected status ${ response.status }`,
-				response.status
-			);
-		}
-
-		const outcome = await readRespondOutcome( response );
-		if ( outcome && outcome.success === false ) {
-			logger?.warn( 'Respond reported partial failure', {
-				chat_id: params.chatId,
-				photo_sent: outcome.photo_sent,
-				text_sent: outcome.text_sent,
-				error: outcome.error,
-			} );
-		} else {
-			logger?.debug( 'Respond ok', {
-				status: response.status,
-				chat_id: params.chatId,
-				attempt,
-				photo_sent: outcome?.photo_sent,
-				text_sent: outcome?.text_sent,
-				chunks_sent: outcome?.chunks_sent,
-			} );
-		}
-		return;
-	}
-
-	logger?.error( 'Respond failed after retries', {
-		chat_id: params.chatId,
-		max_retries: maxRetries,
-	} );
-	if ( lastError instanceof Error ) {
-		throw lastError;
-	}
-	throw new TelegramTransientError( 'Respond failed after retries' );
-}
-
-interface TelegramBodyParams {
+export interface TelegramBodyParams {
 	chatId: number;
 	bot?: string;
 	text?: string;
 	photo?: string;
 	photoMimeType?: 'image/png' | 'image/jpeg';
 	caption?: string;
-}
-
-interface MobileBodyParams {
-	chatId: number;
-	bot: string;
-	machineId: string;
-	text?: string;
-	photo?: string;
-	caption?: string;
-	logger?: RemoteSessionLogger;
 }
 
 // Telegram caps captions at 1024 characters and the wpcom endpoint rejects
@@ -465,7 +192,7 @@ function clampCaption( caption: string | undefined ): string | undefined {
 	return `${ caption.slice( 0, CAPTION_MAX_CHARS - 1 ) }…`;
 }
 
-function buildTelegramRespondBody( params: TelegramBodyParams ): {
+export function buildTelegramRespondBody( params: TelegramBodyParams ): {
 	body: string | FormData;
 	/** Set for the JSON path; `undefined` for multipart so fetch fills the boundary in. */
 	contentType?: string;
@@ -498,96 +225,4 @@ function buildTelegramRespondBody( params: TelegramBodyParams ): {
 		json.text = params.text;
 	}
 	return { body: JSON.stringify( json ), contentType: 'application/json' };
-}
-
-/**
- * Collapse a photo's text + caption into a single envelope text. Photos aren't
- * part of the mobile v1 surface (see studio-mobile SPEC.md "Out of scope for
- * v1"), so we drop the bytes and keep whatever copy the agent emitted alongside.
- */
-function flattenPhotoToText( text: string | undefined, caption: string | undefined ): string {
-	const trimmedCaption = caption?.trim();
-	if ( text && trimmedCaption ) {
-		return `${ text }\n\n${ trimmedCaption }`;
-	}
-	return text || trimmedCaption || '📷 (image omitted)';
-}
-
-/**
- * Build the studio-mobile `/respond` body. `chat_id` + `bot` are the wpcom-side
- * memcache routing keys (queue is keyed `(user_id, chat_id, bot)`); `machine_id`
- * is sent for forward-compat — wpcom accepts it optionally today and will key
- * on it once Phase 2 of studio-mobile SPEC.md migrates the queue.
- */
-function buildMobileRespondBody( params: MobileBodyParams ): {
-	body: string;
-	contentType: string;
-} {
-	let text = params.text;
-	if ( params.photo ) {
-		params.logger?.warn( 'Dropping photo for studio_mobile bot (out-of-scope for mobile v1)', {
-			machine_id: params.machineId,
-			photo_base64_chars: params.photo.length,
-			had_caption: Boolean( params.caption ),
-		} );
-		text = flattenPhotoToText( text, params.caption );
-	}
-
-	if ( ! text ) {
-		throw new Error( 'Studio mobile respond requires `text` (photos are not supported yet)' );
-	}
-
-	return {
-		body: JSON.stringify( {
-			chat_id: params.chatId,
-			bot: params.bot,
-			machine_id: params.machineId,
-			envelope: { type: 'agent_message', id: randomUUID(), text },
-		} ),
-		contentType: 'application/json',
-	};
-}
-
-async function readRespondOutcome( response: Response ): Promise< RespondResponseBody | null > {
-	const raw = await safeReadText( response );
-	if ( ! raw.trim() ) {
-		return null;
-	}
-	try {
-		return JSON.parse( raw ) as RespondResponseBody;
-	} catch {
-		return null;
-	}
-}
-
-async function safeReadText( response: Response ): Promise< string > {
-	try {
-		return await response.text();
-	} catch {
-		return '';
-	}
-}
-
-async function backoff( attempt: number ): Promise< void > {
-	const baseMs = Math.min( 30_000, 500 * Math.pow( 2, attempt ) );
-	const jitter = Math.random() * 200;
-	await new Promise( ( resolve ) => setTimeout( resolve, baseMs + jitter ) );
-}
-
-function composeSignals( a?: AbortSignal, b?: AbortSignal ): AbortSignal | undefined {
-	if ( ! a ) {
-		return b;
-	}
-	if ( ! b ) {
-		return a;
-	}
-	const controller = new AbortController();
-	const onAbort = () => controller.abort();
-	if ( a.aborted || b.aborted ) {
-		controller.abort();
-	} else {
-		a.addEventListener( 'abort', onAbort, { once: true } );
-		b.addEventListener( 'abort', onAbort, { once: true } );
-	}
-	return controller.signal;
 }

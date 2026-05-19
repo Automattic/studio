@@ -7,7 +7,7 @@ import {
 import { installDaemonChildHooks, isDaemonChild } from 'cli/remote-session/daemon';
 import { RemoteSessionLogger } from 'cli/remote-session/logger';
 import { runPollLoop } from 'cli/remote-session/poll-loop';
-import { respondMessage } from 'cli/remote-session/telegram-client';
+import { respondMessage } from 'cli/remote-session/respond-router';
 
 export { RemoteSessionConfigError };
 

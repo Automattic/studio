@@ -1,7 +1,7 @@
 import type { JsonEvent } from '@studio/common/ai/json-events';
 import type { RemoteSessionConfig } from 'cli/remote-session/config';
 import type { RemoteSessionLogger } from 'cli/remote-session/logger';
-import type { respondMessage } from 'cli/remote-session/telegram-client';
+import type { respondMessage } from 'cli/remote-session/respond-router';
 
 interface ValidMediaShare {
 	dataBase64: string;

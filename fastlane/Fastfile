@@ -522,28 +522,26 @@ def distribute_builds(
     }
   }
 
-  # Linux is dev-only for now — the release pipeline produces only Mac/Windows
-  # artifacts. On Linux the .deb is the only artifact (it serves as both the
-  # update payload and the full installer); `install_type: 'Update'` matches
-  # the URL convention the WPCOM updates endpoint emits for the polling path.
-  if release_tag.nil?
-    update_builds[:linux_x64_deb] = {
-      binary_path: linux_deb_path(arch: 'x64'),
-      name: 'Linux - x64 (DEB)',
-      platform: 'Linux - x64',
-      arch: 'x64',
-      install_type: 'Update',
-      sha: commit_hash
-    }
-    update_builds[:linux_arm64_deb] = {
-      binary_path: linux_deb_path(arch: 'arm64'),
-      name: 'Linux - ARM64 (DEB)',
-      platform: 'Linux - ARM64',
-      arch: 'arm64',
-      install_type: 'Update',
-      sha: commit_hash
-    }
-  end
+  # On Linux the .deb is the only artifact — it serves as both the update
+  # payload and the full installer — so the same entry covers dev and release
+  # builds. `install_type: 'Update'` matches the URL convention the WPCOM
+  # updates endpoint emits for the in-app updater's polling path.
+  update_builds[:linux_x64_deb] = {
+    binary_path: linux_deb_path(arch: 'x64'),
+    name: 'Linux - x64 (DEB)',
+    platform: 'Linux - x64',
+    arch: 'x64',
+    install_type: 'Update',
+    sha: commit_hash
+  }
+  update_builds[:linux_arm64_deb] = {
+    binary_path: linux_deb_path(arch: 'arm64'),
+    name: 'Linux - ARM64 (DEB)',
+    platform: 'Linux - ARM64',
+    arch: 'arm64',
+    install_type: 'Update',
+    sha: commit_hash
+  }
 
   full_install_builds = {
     x64_dmg: {
@@ -956,7 +954,7 @@ def create_draft_github_release(version:, release_tag:, builds:)
   notes = extract_release_notes(version: version)
 
   # Format download links from CDN URLs
-  download_link_keys = %i[x64_dmg arm64_dmg windows windows_arm64]
+  download_link_keys = %i[x64_dmg arm64_dmg windows windows_arm64 linux_x64_deb linux_arm64_deb]
   links = download_link_keys.filter_map do |key|
     build = builds[key]
     next unless build&.dig(:cdn_url)

@@ -83,6 +83,33 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 		} );
 	} );
 
+	describe( 'shouldKeepExistingDbDropin', () => {
+		it( 'should return false when db.php does not exist', async () => {
+			const result = await provider.shouldKeepExistingDbDropin( MOCK_SITE_PATH );
+			expect( result ).toBe( false );
+		} );
+
+		it( 'should return false when db.php does not include the Studio keep marker', async () => {
+			volFromJSON( {
+				[ normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ) ]:
+					"<?php\ndefine( 'SQLITE_DB_DROPIN_VERSION', '1.8.0' );\ndefine( 'MARKDOWN_DB_DROPIN', true );",
+			} );
+
+			const result = await provider.shouldKeepExistingDbDropin( MOCK_SITE_PATH );
+			expect( result ).toBe( false );
+		} );
+
+		it( 'should return true when db.php includes the Studio keep marker', async () => {
+			volFromJSON( {
+				[ normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ) ]:
+					"<?php\n// @studio-keep\ndefine( 'SQLITE_DB_DROPIN_VERSION', '1.8.0' );\ndefine( 'MARKDOWN_DB_DROPIN', true );",
+			} );
+
+			const result = await provider.shouldKeepExistingDbDropin( MOCK_SITE_PATH );
+			expect( result ).toBe( true );
+		} );
+	} );
+
 	describe( 'installSqliteIntegration', () => {
 		beforeEach( () => {
 			volFromJSON( {
@@ -106,6 +133,39 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 			expect( vi.mocked( fs.promises.writeFile ) ).toHaveBeenCalledWith(
 				normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ),
 				`SQLIntegration path: realpath( __DIR__ . '/mu-plugins/${ SQLITE_DIRNAME }' )`
+			);
+		} );
+
+		it( 'should not overwrite db.php drop-in with the Studio keep marker', async () => {
+			volFromJSON( {
+				[ normalize( `wp-files/${ SQLITE_DIRNAME }/db.copy` ) ]:
+					"SQLIntegration path: '{SQLITE_IMPLEMENTATION_FOLDER_PATH}'",
+				[ normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ) ]:
+					"<?php\n// @studio-keep\ndefine( 'SQLITE_DB_DROPIN_VERSION', '1.8.0' );\ndefine( 'MARKDOWN_DB_DROPIN', true );",
+			} );
+
+			await provider.installSqliteIntegration( MOCK_SITE_PATH );
+
+			expect( vi.mocked( fs.promises.writeFile ) ).not.toHaveBeenCalledWith(
+				normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ),
+				expect.any( String )
+			);
+		} );
+
+		it( 'should still copy mu-plugin when db.php has the Studio keep marker', async () => {
+			volFromJSON( {
+				[ normalize( `wp-files/${ SQLITE_DIRNAME }/db.copy` ) ]:
+					"SQLIntegration path: '{SQLITE_IMPLEMENTATION_FOLDER_PATH}'",
+				[ normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ) ]:
+					"<?php\n// @studio-keep\ndefine( 'SQLITE_DB_DROPIN_VERSION', '1.8.0' );\ndefine( 'MARKDOWN_DB_DROPIN', true );",
+			} );
+
+			await provider.installSqliteIntegration( MOCK_SITE_PATH );
+
+			expect( vi.mocked( fs.promises.cp ) ).toHaveBeenCalledWith(
+				normalize( `wp-files/${ SQLITE_DIRNAME }` ),
+				normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_DIRNAME }` ),
+				expect.any( Object )
 			);
 		} );
 

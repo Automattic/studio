@@ -1,16 +1,27 @@
 import { sprintf } from '@wordpress/i18n';
 import { z } from 'zod';
-import { SupportedPHPVersions } from '@studio/common/types/php-versions';
+import {
+	isSupportedPHPVersion,
+	SupportedPHPVersions,
+	type SupportedPHPVersion,
+} from '@studio/common/types/php-versions';
 import phpBinaryCdnMetadataJson from './php-binary-cdn-metadata.json';
 
-// PHP versions supported by the native-php runtime (subset of SupportedPHPVersions).
-// PHP 7.4 is excluded: Studio does not publish native PHP 7.4 binaries.
-export const NativePhpSupportedVersions = SupportedPHPVersions.filter( ( v ) => v !== '7.4' );
+const phpBinaryCdnMetadataVersions = Object.keys(
+	( phpBinaryCdnMetadataJson as { versions?: Record< string, unknown > } ).versions ?? {}
+);
+
+export const NativePhpSupportedVersions = SupportedPHPVersions.filter( ( version ) =>
+	phpBinaryCdnMetadataVersions.includes( version )
+) as [ SupportedPHPVersion, ...SupportedPHPVersion[] ];
 export type NativePhpSupportedVersion = ( typeof NativePhpSupportedVersions )[ number ];
 
+const nativePhpVersionSchema = z.enum( NativePhpSupportedVersions );
+export const MinimumNativePhpSupportedVersion =
+	NativePhpSupportedVersions[ NativePhpSupportedVersions.length - 1 ];
+
 export function validateNativePhpVersion( version: string ): NativePhpSupportedVersion {
-	const phpVersionSchema = z.enum( NativePhpSupportedVersions );
-	const result = phpVersionSchema.safeParse( version );
+	const result = nativePhpVersionSchema.safeParse( version );
 	if ( ! result.success ) {
 		throw new Error(
 			sprintf(
@@ -23,6 +34,18 @@ export function validateNativePhpVersion( version: string ): NativePhpSupportedV
 	return result.data;
 }
 
+export function coerceNativePhpVersion( version: SupportedPHPVersion ): NativePhpSupportedVersion {
+	const result = nativePhpVersionSchema.safeParse( version );
+	return result.success ? result.data : MinimumNativePhpSupportedVersion;
+}
+
+export function resolveNativePhpVersion( version: string ): NativePhpSupportedVersion {
+	if ( isSupportedPHPVersion( version ) ) {
+		return coerceNativePhpVersion( version );
+	}
+	return validateNativePhpVersion( version );
+}
+
 const phpBinaryArtifactSchema = z.object( {
 	url: z.string().min( 1 ),
 	sha: z.string().min( 1 ),
@@ -30,7 +53,7 @@ const phpBinaryArtifactSchema = z.object( {
 
 const phpBinaryCdnMetadataSchema = z.object( {
 	versions: z.partialRecord(
-		z.enum( NativePhpSupportedVersions ),
+		nativePhpVersionSchema,
 		z.object( {
 			version: z.string().regex( /^\d+\.\d+\.\d+$/ ),
 			artifacts: z.record( z.string(), phpBinaryArtifactSchema ),

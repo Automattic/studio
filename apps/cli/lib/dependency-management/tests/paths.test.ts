@@ -42,14 +42,15 @@ describe( 'getPhpBinaryPath', () => {
 	} );
 
 	it( 'does not let existing local patch folders override metadata', () => {
-		const localBinary = writePhpBinary( '8.4.20' );
+		const configuredVersion = getConfiguredPhpBinaryVersion( '8.4' )!;
+		const localBinary = writePhpBinary( configuredVersion === '8.4.20' ? '8.4.21' : '8.4.20' );
 
 		expect( getPhpBinaryPath( '8.4' ) ).not.toBe( localBinary );
 		expect( getPhpBinaryPath( '8.4' ) ).toBe(
 			path.join(
 				configDir,
 				'php-bin',
-				getConfiguredPhpBinaryVersion( '8.4' )!,
+				configuredVersion,
 				process.platform === 'win32' ? 'php.exe' : 'php'
 			)
 		);

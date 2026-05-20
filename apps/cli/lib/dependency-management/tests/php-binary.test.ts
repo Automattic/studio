@@ -1,4 +1,6 @@
 import {
+	MinimumNativePhpSupportedVersion,
+	resolveNativePhpVersion,
 	getConfiguredPhpBinaryVersion,
 	getPhpBinaryDownloadInfo,
 } from '@studio/common/lib/php-binary-metadata';
@@ -31,14 +33,18 @@ describe( 'getPhpBinaryDownloadInfo', () => {
 	} );
 
 	it( 'returns undefined when metadata is missing for the platform', () => {
-		expect( getPhpBinaryDownloadInfo( '8.5', 'linux', 'x64' ) ).toBeUndefined();
+		expect( getPhpBinaryDownloadInfo( '8.4', 'aix', 'x64' ) ).toBeUndefined();
+	} );
+
+	it( 'coerces older supported PHP versions to the minimum native version', () => {
+		expect( resolveNativePhpVersion( '8.0' ) ).toBe( MinimumNativePhpSupportedVersion );
 	} );
 } );
 
 describe( 'resolvePhpBinaryDownloadInfo', () => {
 	it( 'rejects with a user-facing unavailable message', async () => {
-		await expect( resolvePhpBinaryDownloadInfo( '8.5', 'linux', 'x64' ) ).rejects.toThrow(
-			'PHP 8.5 is not available for this device yet. Please try again later.'
+		await expect( resolvePhpBinaryDownloadInfo( '8.4', 'aix', 'x64' ) ).rejects.toThrow(
+			'PHP 8.4 is not available for this platform yet.'
 		);
 	} );
 } );

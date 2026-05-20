@@ -119,9 +119,10 @@ async function main(): Promise< void > {
 			);
 			try {
 				await extractZip( downloadPath, extractDir );
-				const src = path.join( extractDir, binaryName );
+				const extractedBinaryName = getRuntimeBinaryName( extractDir ) ?? binaryName;
+				const src = path.join( extractDir, extractedBinaryName );
 				if ( ! fs.existsSync( src ) ) {
-					throw new Error( `${ binaryName } not found after extraction.` );
+					throw new Error( `${ extractedBinaryName } not found after extraction.` );
 				}
 				copyDirectoryContents( extractDir, binDir );
 				if ( ! isWindows ) {
@@ -153,6 +154,20 @@ async function main(): Promise< void > {
 	}
 }
 
+function getRuntimeBinaryName( extractDir: string ): string | undefined {
+	const runtimeJsonPath = path.join( extractDir, 'runtime.json' );
+	if ( ! fs.existsSync( runtimeJsonPath ) ) {
+		return undefined;
+	}
+
+	const runtimeJson = JSON.parse( fs.readFileSync( runtimeJsonPath, 'utf8' ) ) as {
+		binary?: unknown;
+	};
+	return typeof runtimeJson.binary === 'string' && runtimeJson.binary
+		? runtimeJson.binary
+		: undefined;
+}
+
 function copyDirectoryContents( sourceDir: string, destDir: string ): void {
 	for ( const entry of fs.readdirSync( sourceDir ) ) {
 		fs.cpSync( path.join( sourceDir, entry ), path.join( destDir, entry ), {
@@ -168,9 +183,7 @@ function resolvePhpBinaryDownloadInfo(): PhpBinaryDownloadInfo {
 		return downloadInfo;
 	}
 
-	throw new Error(
-		`PHP ${ version } is not available for this device yet. Please try again later.`
-	);
+	throw new Error( `PHP ${ version } is not available for this platform yet.` );
 }
 
 function getArchiveFileName( url: string ): string {

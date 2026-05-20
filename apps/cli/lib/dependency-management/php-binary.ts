@@ -7,7 +7,7 @@ import { extractZip } from '@studio/common/lib/extract-zip';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import {
 	getPhpBinaryDownloadInfo,
-	validateNativePhpVersion,
+	resolveNativePhpVersion,
 	type PhpBinaryDownloadInfo,
 	type NativePhpSupportedVersion,
 } from '@studio/common/lib/php-binary-metadata';
@@ -22,15 +22,20 @@ export async function ensurePhpBinaryAvailable(
 	version: SupportedPHPVersion,
 	onProgress?: ( downloaded: number, total: number ) => void
 ): Promise< void > {
-	const validatedVersion = validateNativePhpVersion( version );
+	const nativePhpVersion = resolveNativePhpVersion( version );
+	if ( nativePhpVersion !== version ) {
+		console.warn(
+			`Warning: PHP ${ version } is not available for native PHP. Using PHP ${ nativePhpVersion } instead.`
+		);
+	}
 
-	if ( ! fs.existsSync( getPhpBinaryPath( validatedVersion ) ) ) {
-		await downloadAndInstall( validatedVersion, onProgress );
+	if ( ! fs.existsSync( getPhpBinaryPath( nativePhpVersion ) ) ) {
+		await downloadAndInstall( nativePhpVersion, onProgress );
 	}
 
 	// Idempotent — keeps php.ini in sync for existing installs after a Studio
 	// upgrade changes its contents.
-	await ensureNativePhpIniFiles( validatedVersion );
+	await ensureNativePhpIniFiles( nativePhpVersion );
 }
 
 async function waitForBinary( binaryPath: string ): Promise< void > {
@@ -111,9 +116,7 @@ export async function resolvePhpBinaryDownloadInfo(
 		return downloadInfo;
 	}
 
-	throw new Error(
-		`PHP ${ version } is not available for this device yet. Please try again later.`
-	);
+	throw new Error( `PHP ${ version } is not available for this platform yet.` );
 }
 
 function getArchiveFileName( url: string ): string {
@@ -150,11 +153,12 @@ async function extractAndInstall(
 ): Promise< void > {
 	const isWindows = platform === 'win32';
 	const tmpDir = os.tmpdir();
-	const binaryName = isWindows ? 'php.exe' : 'php';
+	const fallbackBinaryName = isWindows ? 'php.exe' : 'php';
 
 	const extractDir = fs.mkdtempSync( path.join( tmpDir, `php-${ patchVersion }-` ) );
 	try {
 		await extractZip( archivePath, extractDir );
+		const binaryName = getRuntimeBinaryName( extractDir ) ?? fallbackBinaryName;
 		const src = path.join( extractDir, binaryName );
 		if ( ! fs.existsSync( src ) ) {
 			throw new Error( `${ binaryName } not found after extraction. Archive may be corrupt.` );
@@ -166,6 +170,20 @@ async function extractAndInstall(
 	} finally {
 		fs.rmSync( extractDir, { recursive: true, force: true } );
 	}
+}
+
+function getRuntimeBinaryName( extractDir: string ): string | undefined {
+	const runtimeJsonPath = path.join( extractDir, 'runtime.json' );
+	if ( ! fs.existsSync( runtimeJsonPath ) ) {
+		return undefined;
+	}
+
+	const runtimeJson = JSON.parse( fs.readFileSync( runtimeJsonPath, 'utf8' ) ) as {
+		binary?: unknown;
+	};
+	return typeof runtimeJson.binary === 'string' && runtimeJson.binary
+		? runtimeJson.binary
+		: undefined;
 }
 
 function copyDirectoryContents( sourceDir: string, destDir: string ): void {

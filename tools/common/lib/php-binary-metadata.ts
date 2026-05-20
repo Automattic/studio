@@ -29,8 +29,8 @@ const phpBinaryArtifactSchema = z.object( {
 } );
 
 const phpBinaryCdnMetadataSchema = z.object( {
-	versions: z.record(
-		z.string(),
+	versions: z.partialRecord(
+		z.enum( NativePhpSupportedVersions ),
 		z.object( {
 			version: z.string().regex( /^\d+\.\d+\.\d+$/ ),
 			artifacts: z.record( z.string(), phpBinaryArtifactSchema ),
@@ -48,14 +48,12 @@ export function getEffectivePhpBinaryArch( platform: NodeJS.Platform, arch: stri
 	return platform === 'win32' ? 'x64' : arch;
 }
 
-export function isPhpPatchVersion( version: string ): boolean {
-	return /^\d+\.\d+\.\d+$/.test( version );
-}
-
 export function getConfiguredPhpBinaryVersion(
 	version: NativePhpSupportedVersion
 ): string | undefined {
-	return phpBinaryCdnMetadata.versions[ version ]?.version;
+	return version in phpBinaryCdnMetadata.versions
+		? phpBinaryCdnMetadata.versions[ version ]?.version
+		: undefined;
 }
 
 export function getPhpBinaryDownloadInfo(

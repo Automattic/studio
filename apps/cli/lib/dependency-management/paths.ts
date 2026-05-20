@@ -1,8 +1,8 @@
 import path from 'path';
 import {
 	getConfiguredPhpBinaryVersion,
-	isPhpPatchVersion,
-	NativePhpSupportedVersion,
+	NativePhpSupportedVersions,
+	type NativePhpSupportedVersion,
 } from '@studio/common/lib/php-binary-metadata';
 import { getConfigDirectory, getServerFilesPath } from '@studio/common/lib/well-known-paths';
 
@@ -16,14 +16,18 @@ function getExactPhpBinaryPath( version: string ): string {
 	return path.join( getPhpBinaryRoot(), version, PHP_BINARY_FILENAME );
 }
 
+function isNativePhpSupportedVersion( version: string ): version is NativePhpSupportedVersion {
+	return ( NativePhpSupportedVersions as readonly string[] ).includes( version );
+}
+
 // PHP binaries live in ~/.studio/php-bin/<patch>/ — downloaded on demand when a site
 // using that minor version is first started. Not bundled in production builds.
 export function getPhpBinaryPath( version: NativePhpSupportedVersion | string ): string {
-	if ( isPhpPatchVersion( version ) ) {
+	if ( ! isNativePhpSupportedVersion( version ) ) {
 		return getExactPhpBinaryPath( version );
 	}
 
-	const configuredVersion = getConfiguredPhpBinaryVersion( version as NativePhpSupportedVersion );
+	const configuredVersion = getConfiguredPhpBinaryVersion( version );
 	return getExactPhpBinaryPath( configuredVersion ?? version );
 }
 

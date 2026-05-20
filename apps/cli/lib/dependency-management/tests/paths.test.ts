@@ -42,7 +42,7 @@ describe( 'getPhpBinaryPath', () => {
 	} );
 
 	it( 'does not let existing local patch folders override metadata', () => {
-		const localBinary = writePhpBinary( '8.4.21' );
+		const localBinary = writePhpBinary( '8.4.20' );
 
 		expect( getPhpBinaryPath( '8.4' ) ).not.toBe( localBinary );
 		expect( getPhpBinaryPath( '8.4' ) ).toBe(

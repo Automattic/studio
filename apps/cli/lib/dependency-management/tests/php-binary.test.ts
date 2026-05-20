@@ -31,14 +31,14 @@ describe( 'getPhpBinaryDownloadInfo', () => {
 	} );
 
 	it( 'returns undefined when metadata is missing for the platform', () => {
-		expect( getPhpBinaryDownloadInfo( '8.4', 'linux', 'x64' ) ).toBeUndefined();
+		expect( getPhpBinaryDownloadInfo( '8.5', 'linux', 'x64' ) ).toBeUndefined();
 	} );
 } );
 
 describe( 'resolvePhpBinaryDownloadInfo', () => {
 	it( 'rejects with a user-facing unavailable message', async () => {
-		await expect( resolvePhpBinaryDownloadInfo( '8.4', 'linux', 'x64' ) ).rejects.toThrow(
-			'PHP 8.4 is not available for this device yet. Please try again later.'
+		await expect( resolvePhpBinaryDownloadInfo( '8.5', 'linux', 'x64' ) ).rejects.toThrow(
+			'PHP 8.5 is not available for this device yet. Please try again later.'
 		);
 	} );
 } );

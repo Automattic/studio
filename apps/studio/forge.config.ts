@@ -35,45 +35,34 @@ const config: ForgeConfig = {
 				return {};
 			},
 		},
+		// Patterns are matched against paths inside the asar root, which is
+		// apps/studio/ (electron-forge packages from this package). Anchor each
+		// pattern at the asar root with a leading slash.
 		ignore: [
-			// Exclude major development directories
-			/^\/\..*/, // All dotfiles and dot directories
-			/^\/apps\/studio\/src/,
-			/^\/apps\/studio\/e2e/,
-			/^\/apps\/cli/,
-			/^\/tools\/common/,
-			/^\/vendor/,
-			/^\/fastlane/,
-			/^\/docs/,
-			/^\/scripts/,
-			/^\/tools/,
+			// Dev/test sources and fixtures — runtime uses /dist instead.
+			/^\/\..*/, // dotfiles and dot directories
+			/^\/src/,
+			/^\/e2e/,
+			/^\/__mocks__/,
 			/^\/patches/,
-			/^\/tools\/metrics/,
-			/^\/test-results/,
-			/^\/webpack-loaders/,
-			/^\/apps\/studio\/installers/,
+			/^\/entitlements/,
+			/^\/installers/,
+			// Build-time helpers
+			/^\/windowsSign\.ts$/,
 			// Config files
-			/^\/webpack\./,
 			/^\/tsconfig\./,
 			/^\/vitest\./,
-			/^\/playwright\./,
 			/^\/postcss\./,
 			/^\/tailwind\./,
 			/^\/forge\./,
 			/^\/electron\./,
-			/^\/apps\/studio\/.*\\.config\\./,
-			/^\/apps\/studio\/tailwind\\.config\\.js$/,
-			/^\/apps\/studio\/postcss\\.config\\.js$/,
-			/^\/apps\/studio\/index\.html$/,
-			/^\/Gemfile/,
+			/^\/index\.html$/,
 			/^\/.*\.md$/,
 			/^\/.*\.txt$/,
 			/^\/.*\.log$/,
-			// External resources (shouldn't be in asar)
+			// Resources copied separately via extraResource
 			/^\/assets/,
 			/^\/bin/,
-			/^\/apps\/cli\/dist\/cli/,
-			/^\/dist\/playground-cli/,
 		],
 	},
 	rebuildConfig: {},

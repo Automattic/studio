@@ -7,10 +7,12 @@ import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
 import { exec as pkgExec } from '@yao-pkg/pkg';
+import { RecommendedPHPVersion } from '../../tools/common/types/php-versions';
 import { windowsSign } from './windowsSign';
 import type { ForgeConfig } from '@electron-forge/shared-types';
 
 const repoRoot = path.resolve( __dirname, '../..' );
+const bundledPhpBinaryRoot = path.join( __dirname, 'php-bin' );
 
 const config: ForgeConfig = {
 	packagerConfig: {
@@ -18,6 +20,7 @@ const config: ForgeConfig = {
 		extraResource: [
 			path.join( __dirname, 'assets' ),
 			path.join( __dirname, 'bin' ),
+			bundledPhpBinaryRoot,
 			path.join( repoRoot, 'apps', 'cli', 'dist', 'cli' ),
 		],
 		executableName: process.platform === 'linux' ? 'studio' : undefined,
@@ -174,11 +177,16 @@ const config: ForgeConfig = {
 	plugins: [ new AutoUnpackNativesPlugin( {} ) ],
 	hooks: {
 		prePackage: async ( _forgeConfig, platform, arch ) => {
-			const execAsync = ( command: string ) =>
+			const execAsync = ( command: string, env: NodeJS.ProcessEnv = {} ) =>
 				new Promise< void >( ( resolve, reject ) => {
 					exec(
 						command,
-						{ cwd: repoRoot, maxBuffer: 50 * 1024 * 1024, windowsHide: true },
+						{
+							cwd: repoRoot,
+							env: { ...process.env, ...env },
+							maxBuffer: 50 * 1024 * 1024,
+							windowsHide: true,
+						},
 						( error, stdout, stderr ) => {
 							if ( error ) {
 								if ( stdout ) console.log( stdout );
@@ -280,6 +288,22 @@ const config: ForgeConfig = {
 					'scripts',
 					'download-node-binary.ts'
 				) } ${ platform } ${ arch }`
+			);
+
+			console.log(
+				`Downloading PHP ${ RecommendedPHPVersion } binary for ${ platform }-${ arch }...`
+			);
+			fs.rmSync( bundledPhpBinaryRoot, { recursive: true, force: true } );
+			await execAsync(
+				`npx tsx ${ path.join(
+					repoRoot,
+					'scripts',
+					'download-php-binary.ts'
+				) } ${ RecommendedPHPVersion } ${ platform } ${ arch }`,
+				{
+					STUDIO_PHP_BINARY_INSTALL_ROOT: bundledPhpBinaryRoot,
+					STUDIO_PHP_BINARY_DOWNLOAD_REQUIRED: '1',
+				}
 			);
 
 			// Build CLI launcher executable for Windows AppX (Microsoft Store).

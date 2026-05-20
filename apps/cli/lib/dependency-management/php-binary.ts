@@ -12,7 +12,7 @@ import {
 	type NativePhpSupportedVersion,
 } from '@studio/common/lib/php-binary-metadata';
 import { ensureNativePhpIniFiles } from '../native-php';
-import { getPhpBinaryPath } from './paths';
+import { getBundledPhpBinaryPath, getPhpBinaryPath } from './paths';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 
 const WAIT_POLL_INTERVAL_MS = 1_000;
@@ -30,12 +30,50 @@ export async function ensurePhpBinaryAvailable(
 	}
 
 	if ( ! fs.existsSync( getPhpBinaryPath( nativePhpVersion ) ) ) {
-		await downloadAndInstall( nativePhpVersion, onProgress );
+		const installedFromBundle = await installBundledPhpBinary( nativePhpVersion );
+		if ( ! installedFromBundle ) {
+			await downloadAndInstall( nativePhpVersion, onProgress );
+		}
 	}
 
 	// Idempotent — keeps php.ini in sync for existing installs after a Studio
 	// upgrade changes its contents.
 	await ensureNativePhpIniFiles( nativePhpVersion );
+}
+
+async function installBundledPhpBinary( version: NativePhpSupportedVersion ): Promise< boolean > {
+	const bundledPath = getBundledPhpBinaryPath( version );
+	if ( ! fs.existsSync( bundledPath ) ) {
+		return false;
+	}
+
+	const destPath = getPhpBinaryPath( version );
+	const sourceDir = path.dirname( bundledPath );
+	const destDir = path.dirname( destPath );
+	const phpBinRoot = path.dirname( destDir );
+
+	fs.mkdirSync( phpBinRoot, { recursive: true } );
+
+	try {
+		fs.mkdirSync( destDir );
+	} catch ( err ) {
+		if ( isErrnoException( err ) && err.code === 'EEXIST' ) {
+			await waitForBinary( destPath );
+			return true;
+		}
+		throw err;
+	}
+
+	try {
+		copyDirectoryContents( sourceDir, destDir );
+		if ( process.platform !== 'win32' ) {
+			fs.chmodSync( destPath, 0o755 );
+		}
+		return true;
+	} catch ( err ) {
+		fs.rmSync( destDir, { recursive: true, force: true } );
+		throw err;
+	}
 }
 
 async function waitForBinary( binaryPath: string ): Promise< void > {

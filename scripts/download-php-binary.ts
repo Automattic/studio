@@ -1,7 +1,6 @@
 #!/usr/bin/env tsx
 /**
- * Download a Studio PHP CLI binary for local development.
- * NOT used in production builds — binaries are not bundled with Studio or the CLI.
+ * Download a Studio PHP CLI binary for local development and packaging.
  *
  * Source metadata: tools/common/lib/php-binary-cdn-metadata.json
  *
@@ -63,10 +62,12 @@ async function main(): Promise< void > {
 	const isWindows = args.platform === 'win32';
 	const binaryName = isWindows ? 'php.exe' : 'php';
 	const platformKey = `${ args.platform }-${ effectiveArch }`;
+	const phpBinaryRoot =
+		process.env.STUDIO_PHP_BINARY_INSTALL_ROOT ?? path.join( getConfigDirectory(), 'php-bin' );
 
 	try {
 		const downloadInfo = resolvePhpBinaryDownloadInfo();
-		const binDir = path.join( getConfigDirectory(), 'php-bin', downloadInfo.patchVersion );
+		const binDir = path.join( phpBinaryRoot, downloadInfo.patchVersion );
 		const destPath = path.join( binDir, binaryName );
 
 		if ( fs.existsSync( destPath ) ) {
@@ -76,7 +77,7 @@ async function main(): Promise< void > {
 			return;
 		}
 
-		// Ensure ~/.studio/php-bin/ exists, then atomically claim this version's slot.
+		// Ensure the php-bin root exists, then atomically claim this version's slot.
 		fs.mkdirSync( path.dirname( binDir ), { recursive: true } );
 		try {
 			fs.mkdirSync( binDir );
@@ -151,6 +152,9 @@ async function main(): Promise< void > {
 		console.warn(
 			`The native-php runtime will not be available. Run \`npm run download:php-binary\` to retry.`
 		);
+		if ( process.env.STUDIO_PHP_BINARY_DOWNLOAD_REQUIRED === '1' ) {
+			process.exitCode = 1;
+		}
 	}
 }
 

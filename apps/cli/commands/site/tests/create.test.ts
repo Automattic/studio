@@ -10,6 +10,7 @@ import {
 import { isOnline } from '@studio/common/lib/network-utils';
 import { portFinder } from '@studio/common/lib/port-finder';
 import { normalizeLineEndings } from '@studio/common/lib/remove-default-db-constants';
+import { SITE_RUNTIME_NATIVE_PHP, SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import { Blueprint, BlueprintV1Declaration } from '@wp-playground/blueprints';
 import { vi, type MockInstance } from 'vitest';
@@ -114,6 +115,7 @@ describe( 'CLI: studio site create', () => {
 		pmId: 0,
 		status: 'online',
 		pid: 12345,
+		runtime: SITE_RUNTIME_PLAYGROUND,
 	};
 
 	let consoleLogSpy: MockInstance;
@@ -171,6 +173,7 @@ describe( 'CLI: studio site create', () => {
 	} );
 
 	afterEach( () => {
+		vi.unstubAllEnvs();
 		vi.restoreAllMocks();
 	} );
 
@@ -226,6 +229,21 @@ describe( 'CLI: studio site create', () => {
 			).rejects.toThrow();
 
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
+		} );
+
+		it( 'should error if PHP version is not supported by the native PHP runtime', async () => {
+			vi.stubEnv( 'STUDIO_RUNTIME', SITE_RUNTIME_NATIVE_PHP );
+
+			await expect(
+				runCommand( mockSitePath, {
+					...defaultTestOptions,
+					phpVersion: '8.1',
+				} )
+			).rejects.toThrow(
+				'PHP 8.1 is not supported by the native PHP runtime. Supported versions: 8.5, 8.4, 8.3, 8.2.'
+			);
+
+			expect( saveCliConfig ).not.toHaveBeenCalled();
 		} );
 
 		it( 'should error if Blueprint validation fails', async () => {
@@ -514,48 +532,6 @@ describe( 'CLI: studio site create', () => {
 				expect.any( Logger ),
 				expect.objectContaining( {
 					blueprint: expect.any( Object ),
-				} )
-			);
-		} );
-	} );
-
-	describe( 'Runtime (STUDIO_RUNTIME env var)', () => {
-		afterEach( () => {
-			vi.unstubAllEnvs();
-		} );
-
-		it( 'persists runtime=native-php when STUDIO_RUNTIME=native-php', async () => {
-			vi.stubEnv( 'STUDIO_RUNTIME', 'native-php' );
-
-			await runCommand( mockSitePath, { ...defaultTestOptions } );
-
-			expect( saveCliConfig ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					sites: expect.arrayContaining( [ expect.objectContaining( { runtime: 'native-php' } ) ] ),
-				} )
-			);
-		} );
-
-		it( 'defaults to playground when STUDIO_RUNTIME is unset', async () => {
-			vi.stubEnv( 'STUDIO_RUNTIME', undefined );
-
-			await runCommand( mockSitePath, { ...defaultTestOptions } );
-
-			expect( saveCliConfig ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					sites: expect.arrayContaining( [ expect.objectContaining( { runtime: 'playground' } ) ] ),
-				} )
-			);
-		} );
-
-		it( 'falls back to playground when STUDIO_RUNTIME has an unknown value', async () => {
-			vi.stubEnv( 'STUDIO_RUNTIME', 'nonsense' );
-
-			await runCommand( mockSitePath, { ...defaultTestOptions } );
-
-			expect( saveCliConfig ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					sites: expect.arrayContaining( [ expect.objectContaining( { runtime: 'playground' } ) ] ),
 				} )
 			);
 		} );

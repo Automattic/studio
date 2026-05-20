@@ -1,20 +1,14 @@
 import { sprintf } from '@wordpress/i18n';
 import { z } from 'zod';
 import {
-	isSupportedPHPVersion,
-	SupportedPHPVersions,
-	type SupportedPHPVersion,
+	getClosestNativePhpVersion,
+	LatestNativePhpSupportedVersion,
+	NativePhpSupportedVersions,
+	type NativePhpSupportedVersion,
 } from '@studio/common/types/php-versions';
 import phpBinaryCdnMetadataJson from './php-binary-cdn-metadata.json';
 
-const phpBinaryCdnMetadataVersions = Object.keys(
-	( phpBinaryCdnMetadataJson as { versions?: Record< string, unknown > } ).versions ?? {}
-);
-
-export const NativePhpSupportedVersions = SupportedPHPVersions.filter( ( version ) =>
-	phpBinaryCdnMetadataVersions.includes( version )
-) as [ SupportedPHPVersion, ...SupportedPHPVersion[] ];
-export type NativePhpSupportedVersion = ( typeof NativePhpSupportedVersions )[ number ];
+export { NativePhpSupportedVersions, type NativePhpSupportedVersion };
 
 const nativePhpVersionSchema = z.enum( NativePhpSupportedVersions );
 export const MinimumNativePhpSupportedVersion =
@@ -34,16 +28,18 @@ export function validateNativePhpVersion( version: string ): NativePhpSupportedV
 	return result.data;
 }
 
-export function coerceNativePhpVersion( version: SupportedPHPVersion ): NativePhpSupportedVersion {
-	const result = nativePhpVersionSchema.safeParse( version );
-	return result.success ? result.data : MinimumNativePhpSupportedVersion;
-}
-
 export function resolveNativePhpVersion( version: string ): NativePhpSupportedVersion {
-	if ( isSupportedPHPVersion( version ) ) {
-		return coerceNativePhpVersion( version );
+	const result = nativePhpVersionSchema.safeParse( version );
+	if ( result.success ) {
+		return result.data;
 	}
-	return validateNativePhpVersion( version );
+
+	if ( ! version ) {
+		return LatestNativePhpSupportedVersion;
+	}
+
+	const resolvedVersion = getClosestNativePhpVersion( version );
+	return resolvedVersion ?? validateNativePhpVersion( version );
 }
 
 const phpBinaryArtifactSchema = z.object( {
@@ -52,8 +48,8 @@ const phpBinaryArtifactSchema = z.object( {
 } );
 
 const phpBinaryCdnMetadataSchema = z.object( {
-	versions: z.partialRecord(
-		nativePhpVersionSchema,
+	versions: z.record(
+		z.string(),
 		z.object( {
 			version: z.string().regex( /^\d+\.\d+\.\d+$/ ),
 			artifacts: z.record( z.string(), phpBinaryArtifactSchema ),

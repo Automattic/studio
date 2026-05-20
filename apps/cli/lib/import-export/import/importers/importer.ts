@@ -5,12 +5,16 @@ import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { generateBackupFilename } from '@studio/common/lib/generate-backup-filename';
 import { ImportEvents } from '@studio/common/lib/import-export-events';
 import { serializePlugins } from '@studio/common/lib/serialize-plugins';
-import { SupportedPHPVersionsList } from '@studio/common/types/php-versions';
+import { type SupportedPHPVersion } from '@studio/common/types/php-versions';
 import { __, sprintf } from '@wordpress/i18n';
 import { move } from 'fs-extra';
 import semver from 'semver';
 import trash from 'trash';
 import { SiteData } from 'cli/lib/cli-config/core';
+import {
+	getRecommendedPhpVersionForSiteRuntime,
+	getSupportedPhpVersionsForSiteRuntime,
+} from 'cli/lib/php-versions';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { ImportExportEventEmitter } from '../../events';
 import { BackupContents, MetaFileData } from '../types';
@@ -275,17 +279,21 @@ abstract class BaseBackupImporter extends BaseImporter {
 	}
 
 	protected parsePhpVersion( version: string | undefined ): string {
+		const defaultPhpVersion = getRecommendedPhpVersionForSiteRuntime();
 		if ( ! version ) {
-			return DEFAULT_PHP_VERSION;
+			return defaultPhpVersion;
 		}
 		const phpVersion = semver.coerce( version );
 		if ( ! phpVersion ) {
-			return DEFAULT_PHP_VERSION;
+			return defaultPhpVersion;
 		}
 
 		const parsedVersion = `${ phpVersion.major }.${ phpVersion.minor }`;
+		const supportedPhpVersions = getSupportedPhpVersionsForSiteRuntime();
 
-		return SupportedPHPVersionsList.includes( parsedVersion ) ? parsedVersion : DEFAULT_PHP_VERSION;
+		return supportedPhpVersions.includes( parsedVersion as SupportedPHPVersion )
+			? parsedVersion
+			: defaultPhpVersion;
 	}
 }
 

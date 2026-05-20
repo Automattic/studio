@@ -3,6 +3,7 @@ import fs, { createWriteStream, WriteStream } from 'fs';
 import net from 'net';
 import path from 'path';
 import readline from 'readline';
+import { SITE_RUNTIME_PLAYGROUND, type SiteRuntime } from '@studio/common/lib/site-runtime';
 import semver from 'semver';
 import {
 	PROCESS_MANAGER_LOGS_DIR,
@@ -34,6 +35,8 @@ type ManagedProcessBase = {
 	scriptPath: string;
 	args: string[];
 	env: NodeJS.ProcessEnv;
+	// Used by clients to decide whether WP-CLI commands can run through this process.
+	runtime: SiteRuntime;
 	child: ChildProcess;
 	stdoutLogPath: string;
 	stderrLogPath: string;
@@ -150,7 +153,8 @@ export class ProcessManagerDaemon {
 					request.processName,
 					request.scriptPath,
 					request.env ?? {},
-					request.args ?? []
+					request.args ?? [],
+					request.runtime
 				);
 				return {
 					type: 'result',
@@ -200,7 +204,8 @@ export class ProcessManagerDaemon {
 		processName: string,
 		scriptPath: string,
 		env: NodeJS.ProcessEnv,
-		args: string[]
+		args: string[],
+		runtime: SiteRuntime = SITE_RUNTIME_PLAYGROUND
 	): Promise< ProcessDescription > {
 		const existing = this.getManagedProcessByName( processName );
 		if ( existing && existing.status === 'online' ) {
@@ -227,6 +232,7 @@ export class ProcessManagerDaemon {
 			scriptPath,
 			args,
 			env,
+			runtime,
 			child,
 			// `child.pid` is only undefined if there's an error, in which case our error handler
 			// immediately changes the status and deletes the process from the map
@@ -404,6 +410,7 @@ export class ProcessManagerDaemon {
 				name: managedProcess.name,
 				pmId: managedProcess.pmId,
 				status: managedProcess.status,
+				runtime: managedProcess.runtime,
 			};
 		}
 
@@ -412,6 +419,7 @@ export class ProcessManagerDaemon {
 			pmId: managedProcess.pmId,
 			status: managedProcess.status,
 			pid: managedProcess.pid,
+			runtime: managedProcess.runtime,
 		};
 	}
 

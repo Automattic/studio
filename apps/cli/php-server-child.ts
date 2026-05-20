@@ -16,7 +16,7 @@ import { writeStudioMuPluginsForNativePhpRuntime } from '@studio/common/lib/mu-p
 import { decodePassword } from '@studio/common/lib/passwords';
 import {
 	NativePhpSupportedVersion,
-	validateNativePhpVersion,
+	resolveNativePhpVersion,
 } from '@studio/common/lib/php-binary-metadata';
 import { z } from 'zod';
 import {
@@ -27,6 +27,7 @@ import {
 import {
 	getBlueprintsPharPath,
 	getPhpBinaryPath,
+	getPhpMyAdminPath,
 	getWpCliPharPath,
 } from './lib/dependency-management/paths';
 import { getDefaultPhpArgs } from './lib/native-php';
@@ -44,6 +45,47 @@ const WP_CONFIG_TRANSFORMER_PATH = path.resolve(
 	'wp-config-transformer.php'
 );
 const DEFAULT_WP_CONFIG_CONSTANTS = { DB_NAME: 'wordpress' } as const;
+
+function phpStringLiteral( value: string ): string {
+	return `'${ value.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" ) }'`;
+}
+
+function getNativePhpMyAdminWpEnvPath( config: Pick< ServerConfig, 'siteId' > ): string {
+	const safeSiteId = config.siteId.replace( /[^a-zA-Z0-9._-]/g, '-' );
+	return path.join( os.tmpdir(), 'studio-phpmyadmin-wp-env', safeSiteId, 'wp-env.php' );
+}
+
+function getPhpMyAdminSessionPath( config: Pick< ServerConfig, 'siteId' > ): string {
+	const safeSiteId = config.siteId.replace( /[^a-zA-Z0-9._-]/g, '-' );
+	return path.join( os.tmpdir(), 'studio-phpmyadmin-sessions', safeSiteId );
+}
+
+async function writeNativePhpMyAdminWpEnv( config: ServerConfig ): Promise< string > {
+	const wpEnvPath = getNativePhpMyAdminWpEnvPath( config );
+	const sqliteDriverPath = path.join(
+		config.sitePath,
+		'wp-content',
+		'mu-plugins',
+		'sqlite-database-integration',
+		'wp-includes',
+		'database',
+		'load.php'
+	);
+	const sqliteDatabasePath = path.join( config.sitePath, 'wp-content', 'database', '.ht.sqlite' );
+	const wpEnvPhp = `<?php return array (
+  'db' => array (
+    'type' => 'sqlite',
+    'path' => ${ phpStringLiteral( sqliteDatabasePath ) },
+    'driver_path' => ${ phpStringLiteral( sqliteDriverPath ) },
+  ),
+);
+`;
+
+	await fs.promises.mkdir( path.dirname( wpEnvPath ), { recursive: true } );
+	await fs.promises.mkdir( getPhpMyAdminSessionPath( config ), { recursive: true } );
+	await fs.promises.writeFile( wpEnvPath, wpEnvPhp );
+	return wpEnvPath;
+}
 
 let phpProcess: ChildProcess | null = null;
 let startupAbortController: AbortController | null = null;
@@ -71,6 +113,7 @@ function errorToConsole( ...args: Parameters< typeof console.error > ) {
 
 type SpawnPhpProcessOptions = {
 	disallowRiskyFunctions?: boolean;
+	env?: NodeJS.ProcessEnv;
 	mode?: 'pipe' | 'capture-stdout';
 	enableXdebug?: boolean;
 	onlyPathsThatPhpCanAccess?: string[];
@@ -85,6 +128,7 @@ function spawnPhpProcess(
 		phpVersion,
 		siteFolder,
 		signal,
+		env,
 		mode = 'pipe',
 		enableXdebug = false,
 		onlyPathsThatPhpCanAccess = [],
@@ -100,6 +144,7 @@ function spawnPhpProcess(
 	const phpArgs = [ ...defaultArgs, ...args ];
 	const phpScriptProcess = spawn( getPhpBinaryPath( phpVersion ), phpArgs, {
 		cwd: siteFolder,
+		env: env ? { ...process.env, ...env } : process.env,
 		stdio: [ 'ignore', 'pipe', 'pipe' ],
 		signal,
 	} );
@@ -334,6 +379,7 @@ function startSymlinkWatcher( sitePath: string ): void {
 		return;
 	}
 
+	const wpContentPath = path.join( sitePath, 'wp-content' );
 	const watcher = new SymlinkWatcher();
 	watcher.on( 'symlink', ( target, symlinkPath ) => {
 		if ( currentOpenBasedirAllowlist.has( target ) ) {
@@ -346,12 +392,48 @@ function startSymlinkWatcher( sitePath: string ): void {
 	} );
 
 	watcher.on( 'error', ( error ) => {
-		errorToConsole( 'Symlink watcher error:', error );
+		errorToConsole( 'Symlink watcher error (will attempt to recover):', error );
+	} );
+
+	watcher.on( 'unrecoverable', ( error ) => {
+		errorToConsole(
+			'Symlink watcher gave up. New plugin/theme symlinks under wp-content will not be auto-allowed until the site is restarted.',
+			error
+		);
+	} );
+
+	watcher.on( 'restart', () => {
+		// Events fired while the watcher was dead are lost. Re-scan wp-content and
+		// fold any newly discovered symlink targets into the allowlist.
+		void reconcileSymlinkAllowlist( wpContentPath );
 	} );
 
 	// Watch wp-content and its subdirectories for symlinks
-	watcher.start( path.join( sitePath, 'wp-content' ), 2 );
+	watcher.start( wpContentPath, 2 );
 	symlinkWatcher = watcher;
+}
+
+async function reconcileSymlinkAllowlist( wpContentPath: string ): Promise< void > {
+	let entries: string[];
+	try {
+		entries = await collectSymlinkAllowlistEntries( wpContentPath );
+	} catch ( error ) {
+		errorToConsole( 'Failed to reconcile symlink allowlist after watcher restart:', error );
+		return;
+	}
+
+	let added = false;
+	for ( const target of entries ) {
+		if ( ! currentOpenBasedirAllowlist.has( target ) ) {
+			logToConsole( `Discovered symlink target after watcher restart: ${ target }` );
+			currentOpenBasedirAllowlist.add( target );
+			added = true;
+		}
+	}
+
+	if ( added ) {
+		scheduleAllowlistRestart();
+	}
 }
 
 async function stopSymlinkWatcher(): Promise< void > {
@@ -419,7 +501,7 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		return;
 	}
 
-	const phpVersion = validateNativePhpVersion( config.phpVersion ?? '' );
+	const phpVersion = resolveNativePhpVersion( config.phpVersion ?? '' );
 	startupAbortController = new AbortController();
 	const stopSignal = AbortSignal.any( [ signal, startupAbortController.signal ] );
 
@@ -448,6 +530,9 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 
 		currentOpenBasedirAllowlist.add( config.sitePath );
 		currentOpenBasedirAllowlist.add( ROUTER_PATH );
+		currentOpenBasedirAllowlist.add( getPhpMyAdminPath() );
+		currentOpenBasedirAllowlist.add( getNativePhpMyAdminWpEnvPath( config ) );
+		currentOpenBasedirAllowlist.add( getPhpMyAdminSessionPath( config ) );
 		currentOpenBasedirAllowlist.add( muPluginsPath );
 		currentOpenBasedirAllowlist.add( os.tmpdir() );
 		symlinkAllowlistEntries.forEach( ( entry ) => currentOpenBasedirAllowlist.add( entry ) );
@@ -477,7 +562,7 @@ async function doStartServer(
 	stopSignal?: AbortSignal
 ): Promise< ChildProcess > {
 	const phpAddress = `localhost:${ config.port }`;
-	const phpVersion = validateNativePhpVersion( config.phpVersion ?? '' );
+	const phpVersion = resolveNativePhpVersion( config.phpVersion ?? '' );
 	let spawnedChild: ChildProcess | null = null;
 
 	logToConsole(
@@ -485,9 +570,15 @@ async function doStartServer(
 	);
 
 	try {
+		const phpMyAdminWpEnvPath = await writeNativePhpMyAdminWpEnv( config );
 		const serverChild = spawnPhpProcess( [ '-S', phpAddress, ROUTER_PATH ], {
 			phpVersion,
 			siteFolder: config.sitePath,
+			env: {
+				STUDIO_PHPMYADMIN_PATH: getPhpMyAdminPath(),
+				STUDIO_NATIVE_PHPMYADMIN_WP_ENV_PATH: phpMyAdminWpEnvPath,
+				STUDIO_PHPMYADMIN_SESSION_PATH: getPhpMyAdminSessionPath( config ),
+			},
 			onlyPathsThatPhpCanAccess: Array.from( openBasedirAllowlist ),
 			disallowRiskyFunctions: true,
 			enableXdebug: config.enableXdebug,
@@ -749,7 +840,7 @@ async function ipcMessageHandler( packet: unknown ) {
 				break;
 			case 'run-blueprint': {
 				const blueprintConfig = validMessage.data.config;
-				const blueprintPhpVersion = validateNativePhpVersion( blueprintConfig.phpVersion ?? '' );
+				const blueprintPhpVersion = resolveNativePhpVersion( blueprintConfig.phpVersion ?? '' );
 				await ensureWpConfig(
 					blueprintConfig.sitePath,
 					blueprintPhpVersion,

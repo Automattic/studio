@@ -1,11 +1,20 @@
 import { spawnSync, type SpawnSyncOptions } from 'child_process';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
-const repoRoot = path.resolve( __dirname, '..' );
+const scriptDir = path.dirname( fileURLToPath( import.meta.url ) );
+const repoRoot = path.resolve( scriptDir, '..' );
 const studioRoot = path.join( repoRoot, 'apps', 'studio' );
 const uiRoot = path.join( repoRoot, 'apps', 'ui' );
-const rendererOut = path.join( studioRoot, 'dist', 'renderer' );
+
+function getRendererOut() {
+	const outDirArg = process.argv.find( ( arg ) => arg.startsWith( '--outDir=' ) );
+	const outDir = outDirArg?.split( '=' )[ 1 ] ?? path.join( 'dist', 'renderer-desks' );
+	return path.isAbsolute( outDir ) ? outDir : path.join( studioRoot, outDir );
+}
+
+const rendererOut = getRendererOut();
 
 function runOrFail( command: string, args: string[], cwd: string ) {
 	const options: SpawnSyncOptions = {

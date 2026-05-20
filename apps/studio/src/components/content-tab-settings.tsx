@@ -1,23 +1,27 @@
 import { decodePassword } from '@studio/common/lib/passwords';
+import { getClosestNativePhpVersion } from '@studio/common/types/php-versions';
 import {
 	DropdownMenu,
 	MenuGroup,
 	Button,
+	Icon,
 	__experimentalHeading as Heading,
 } from '@wordpress/components';
-import { moreVertical } from '@wordpress/icons';
+import { sprintf } from '@wordpress/i18n';
+import { cautionFilled, moreVertical } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren, useCallback, useEffect, useState } from 'react';
 import StudioButton from 'src/components/button';
 import { CopyTextButton } from 'src/components/copy-text-button';
 import { LearnHowLink } from 'src/components/learn-more';
 import { SettingsMenuItem } from 'src/components/settings-site-menu';
+import { Tooltip } from 'src/components/tooltip';
 import { useDeleteSite } from 'src/hooks/use-delete-site';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import EditSiteDetails from 'src/modules/site-settings/edit-site-details';
-import { useAppDispatch } from 'src/stores';
+import { useAppDispatch, useRootSelector } from 'src/stores';
 import {
 	certificateTrustApi,
 	useCheckCertificateTrustQuery,
@@ -42,6 +46,9 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 	const dispatch = useAppDispatch();
 	const { __ } = useI18n();
 	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
+	const isNativePhpRuntime = useRootSelector(
+		( state ) => state.betaFeatures.features.nativePhpRuntime
+	);
 	const username = selectedSite.adminUsername || 'admin';
 	// Empty strings account for legacy sites lacking a stored password.
 	const storedPassword = decodePassword( selectedSite.adminPassword ?? '' );
@@ -52,6 +59,21 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 		? `${ selectedSite.customDomain }`
 		: `localhost:${ selectedSite.port }`;
 	const protocol = selectedSite.customDomain && selectedSite.enableHttps ? 'https' : 'http';
+	const resolvedNativePhpVersion = isNativePhpRuntime
+		? getClosestNativePhpVersion( selectedSite.phpVersion )
+		: undefined;
+	const showNativePhpVersionWarning =
+		isNativePhpRuntime &&
+		resolvedNativePhpVersion !== undefined &&
+		resolvedNativePhpVersion !== selectedSite.phpVersion;
+	const nativePhpVersionWarning =
+		showNativePhpVersionWarning && resolvedNativePhpVersion
+			? sprintf(
+					__( 'Native PHP does not support PHP %1$s. This site will run with PHP %2$s instead.' ),
+					selectedSite.phpVersion,
+					resolvedNativePhpVersion
+			  )
+			: undefined;
 
 	const handleTrustCertificate = async () => {
 		await getIpcApi().trustCertificate();
@@ -163,8 +185,20 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					</SettingsRow>
 					<SettingsRow label={ __( 'WordPress version' ) }>{ wpVersion }</SettingsRow>
 					<SettingsRow label={ __( 'PHP version' ) }>
-						<div className="flex">
+						<div className="inline-flex items-center gap-2">
 							<span className="line-clamp-1 break-all">{ selectedSite.phpVersion }</span>
+							{ nativePhpVersionWarning && (
+								<Tooltip text={ nativePhpVersionWarning } placement="top-start">
+									<span
+										role="img"
+										aria-label={ __( 'PHP version warning' ) }
+										tabIndex={ 0 }
+										className="inline-flex cursor-help items-center"
+									>
+										<Icon icon={ cautionFilled } size={ 18 } className="fill-[#f59e0b]" />
+									</span>
+								</Tooltip>
+							) }
 						</div>
 					</SettingsRow>
 					<tr>

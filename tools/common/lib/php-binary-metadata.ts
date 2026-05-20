@@ -1,6 +1,7 @@
 import { sprintf } from '@wordpress/i18n';
 import { z } from 'zod';
 import {
+	getClosestNativePhpVersion,
 	LatestNativePhpSupportedVersion,
 	NativePhpSupportedVersions,
 	type NativePhpSupportedVersion,
@@ -12,28 +13,6 @@ export { NativePhpSupportedVersions, type NativePhpSupportedVersion };
 const nativePhpVersionSchema = z.enum( NativePhpSupportedVersions );
 export const MinimumNativePhpSupportedVersion =
 	NativePhpSupportedVersions[ NativePhpSupportedVersions.length - 1 ];
-
-function getPhpVersionScore( version: string ): number | undefined {
-	const match = version.match( /^(\d+)\.(\d+)$/ );
-	if ( ! match ) {
-		return undefined;
-	}
-
-	return Number( match[ 1 ] ) * 100 + Number( match[ 2 ] );
-}
-
-function getClosestNativePhpVersion( version: string ): NativePhpSupportedVersion | undefined {
-	const targetScore = getPhpVersionScore( version );
-	if ( targetScore === undefined ) {
-		return undefined;
-	}
-
-	return NativePhpSupportedVersions.reduce< NativePhpSupportedVersion >( ( closest, candidate ) => {
-		const closestDistance = Math.abs( getPhpVersionScore( closest )! - targetScore );
-		const candidateDistance = Math.abs( getPhpVersionScore( candidate )! - targetScore );
-		return candidateDistance < closestDistance ? candidate : closest;
-	}, NativePhpSupportedVersions[ 0 ] );
-}
 
 export function validateNativePhpVersion( version: string ): NativePhpSupportedVersion {
 	const result = nativePhpVersionSchema.safeParse( version );

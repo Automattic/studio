@@ -12,13 +12,15 @@ import {
 import { siteNeedsRestart } from '@studio/common/lib/site-needs-restart';
 import { SITE_RUNTIME_NATIVE_PHP, SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import {
+	getClosestNativePhpVersion,
 	getRecommendedPHPVersionForRuntime,
 	getSupportedPHPVersionsForRuntime,
 	SupportedPHPVersion,
 } from '@studio/common/types/php-versions';
-import { SelectControl, TabPanel } from '@wordpress/components';
+import { Icon, SelectControl, TabPanel } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { sprintf } from '@wordpress/i18n';
+import { cautionFilled } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import Button from 'src/components/button';
@@ -72,6 +74,29 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 	);
 	const supportedPhpVersions = getSupportedPHPVersionsForRuntime( runtime );
 	const recommendedPhpVersion = getRecommendedPHPVersionForRuntime( runtime );
+	const selectedSitePhpVersion = selectedSite?.phpVersion;
+	const resolvedNativePhpVersion =
+		runtime === SITE_RUNTIME_NATIVE_PHP && selectedSitePhpVersion
+			? getClosestNativePhpVersion( selectedSitePhpVersion )
+			: undefined;
+	const selectedSitePhpVersionForRuntime =
+		selectedSitePhpVersion &&
+		supportedPhpVersions.includes( selectedSitePhpVersion as SupportedPHPVersion )
+			? ( selectedSitePhpVersion as SupportedPHPVersion )
+			: resolvedNativePhpVersion ?? recommendedPhpVersion;
+	const showNativePhpVersionWarning =
+		runtime === SITE_RUNTIME_NATIVE_PHP &&
+		selectedSitePhpVersion !== undefined &&
+		resolvedNativePhpVersion !== undefined &&
+		resolvedNativePhpVersion !== selectedSitePhpVersion;
+	const nativePhpVersionWarning =
+		showNativePhpVersionWarning && selectedSitePhpVersion && resolvedNativePhpVersion
+			? sprintf(
+					__( 'Native PHP does not support PHP %1$s. This site will run with PHP %2$s instead.' ),
+					selectedSitePhpVersion,
+					resolvedNativePhpVersion
+			  )
+			: undefined;
 
 	useEffect( () => {
 		if ( selectedSite?.adminEmail || ! selectedSite?.id ) {
@@ -103,10 +128,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 	}, [ isEditingSite, setIsEditModalOpen ] );
 	const [ siteName, setSiteName ] = useState( selectedSite?.name ?? '' );
 	const [ selectedPhpVersion, setSelectedPhpVersion ] = useState< SupportedPHPVersion >(
-		selectedSite?.phpVersion &&
-			supportedPhpVersions.includes( selectedSite.phpVersion as SupportedPHPVersion )
-			? ( selectedSite.phpVersion as SupportedPHPVersion )
-			: recommendedPhpVersion
+		selectedSitePhpVersionForRuntime
 	);
 	const getEffectiveWpVersion = useCallback(
 		() =>
@@ -187,11 +209,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 			return;
 		}
 		setSiteName( selectedSite.name );
-		setSelectedPhpVersion(
-			supportedPhpVersions.includes( selectedSite.phpVersion as SupportedPHPVersion )
-				? ( selectedSite.phpVersion as SupportedPHPVersion )
-				: recommendedPhpVersion
-		);
+		setSelectedPhpVersion( selectedSitePhpVersionForRuntime );
 		setSelectedWpVersion( getEffectiveWpVersion() );
 		setUseCustomDomain( Boolean( selectedSite.customDomain ) );
 		setCustomDomain( selectedSite.customDomain ?? null );
@@ -207,8 +225,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 	}, [
 		selectedSite,
 		getEffectiveWpVersion,
-		recommendedPhpVersion,
-		supportedPhpVersions,
+		selectedSitePhpVersionForRuntime,
 		setAdminEmail,
 		setAdminPassword,
 		setAdminUsername,
@@ -371,7 +388,25 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 													htmlFor="php-version-select"
 													className="flex flex-1 flex-col gap-1.5 leading-4"
 												>
-													<span className="font-semibold">{ __( 'PHP version' ) }</span>
+													<span className="inline-flex items-center gap-2 font-semibold">
+														{ __( 'PHP version' ) }
+														{ nativePhpVersionWarning && (
+															<Tooltip text={ nativePhpVersionWarning } placement="top-start">
+																<span
+																	role="img"
+																	aria-label={ __( 'PHP version warning' ) }
+																	tabIndex={ 0 }
+																	className="inline-flex cursor-help items-center"
+																>
+																	<Icon
+																		icon={ cautionFilled }
+																		size={ 18 }
+																		className="fill-[#f59e0b]"
+																	/>
+																</span>
+															</Tooltip>
+														) }
+													</span>
 													<SelectControl< SupportedPHPVersion >
 														id="php-version-select"
 														disabled={ isEditingSite }

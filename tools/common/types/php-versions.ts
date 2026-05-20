@@ -17,6 +17,15 @@ export const SupportedPHPVersionsList: string[] = [ ...SupportedPHPVersions ];
 export type SupportedPHPVersion = ( typeof SupportedPHPVersions )[ number ];
 export type NativePhpSupportedVersion = ( typeof NativePhpSupportedVersions )[ number ];
 
+function getPhpVersionScore( version: string ): number | undefined {
+	const match = version.match( /^(\d+)\.(\d+)$/ );
+	if ( ! match ) {
+		return undefined;
+	}
+
+	return Number( match[ 1 ] ) * 100 + Number( match[ 2 ] );
+}
+
 export function isSupportedPHPVersion(
 	version: string | undefined
 ): version is SupportedPHPVersion {
@@ -27,6 +36,21 @@ export function getSupportedPHPVersionsForRuntime(
 	runtime: SiteRuntime
 ): readonly SupportedPHPVersion[] {
 	return runtime === SITE_RUNTIME_NATIVE_PHP ? NativePhpSupportedVersions : SupportedPHPVersions;
+}
+
+export function getClosestNativePhpVersion(
+	version: string
+): NativePhpSupportedVersion | undefined {
+	const targetScore = getPhpVersionScore( version );
+	if ( targetScore === undefined ) {
+		return undefined;
+	}
+
+	return NativePhpSupportedVersions.reduce< NativePhpSupportedVersion >( ( closest, candidate ) => {
+		const closestDistance = Math.abs( getPhpVersionScore( closest )! - targetScore );
+		const candidateDistance = Math.abs( getPhpVersionScore( candidate )! - targetScore );
+		return candidateDistance < closestDistance ? candidate : closest;
+	}, NativePhpSupportedVersions[ 0 ] );
 }
 
 /**

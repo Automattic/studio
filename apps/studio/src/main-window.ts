@@ -5,7 +5,9 @@ import {
 	app,
 	nativeTheme,
 } from 'electron';
+import fs from 'fs';
 import * as path from 'path';
+import { pathToFileURL } from 'url';
 import { portFinder } from '@studio/common/lib/port-finder';
 import {
 	DEFAULT_HEIGHT,
@@ -25,9 +27,94 @@ import {
 	loadWindowBounds,
 	saveWindowBounds,
 } from 'src/storage/user-data';
-import type { WindowBounds } from 'src/storage/storage-types';
+import type { StudioUiMode } from '@studio/common/types/desk';
+import type { UserData, WindowBounds } from 'src/storage/storage-types';
 
 let mainWindow: BrowserWindow | null;
+let currentRendererUrl: string | undefined;
+
+interface RendererLocation {
+	url: string;
+	filePath?: string;
+}
+
+export function getPreferredStudioUiMode( userData: Pick< UserData, 'desks' > ): StudioUiMode {
+	return userData.desks?.defaultUiMode === 'desks' ? 'desks' : 'default';
+}
+
+function getRendererFilePath( mode: StudioUiMode ) {
+	return path.join(
+		__dirname,
+		mode === 'desks' ? '../renderer-desks/index.html' : '../renderer/index.html'
+	);
+}
+
+function getRendererLocation( userData: Pick< UserData, 'desks' > ): RendererLocation {
+	const preferredMode = getPreferredStudioUiMode( userData );
+
+	if (
+		! app.isPackaged &&
+		preferredMode === 'desks' &&
+		process.env[ 'ELECTRON_DESKS_RENDERER_URL' ]
+	) {
+		return {
+			url: process.env[ 'ELECTRON_DESKS_RENDERER_URL' ],
+		};
+	}
+
+	if ( ! app.isPackaged && process.env[ 'ELECTRON_RENDERER_URL' ] ) {
+		return {
+			url: process.env[ 'ELECTRON_RENDERER_URL' ],
+		};
+	}
+
+	let mode = preferredMode;
+	let filePath = getRendererFilePath( mode );
+	if ( mode === 'desks' && ! fs.existsSync( filePath ) ) {
+		mode = 'default';
+		filePath = getRendererFilePath( mode );
+	}
+
+	return {
+		filePath,
+		url: pathToFileURL( filePath ).href,
+	};
+}
+
+function rememberRendererLocation( location: RendererLocation ) {
+	currentRendererUrl = location.url;
+}
+
+async function loadRendererLocation( window: BrowserWindow, location: RendererLocation ) {
+	rememberRendererLocation( location );
+	if ( location.filePath ) {
+		await window.loadFile( location.filePath );
+		return;
+	}
+	await window.loadURL( location.url );
+}
+
+export async function loadMainWindowRenderer(
+	window: BrowserWindow,
+	mode?: StudioUiMode
+): Promise< void > {
+	const userData = await loadUserData();
+	const location = getRendererLocation( {
+		desks: {
+			...userData.desks,
+			...( mode ? { defaultUiMode: mode } : {} ),
+		},
+	} );
+	await loadRendererLocation( window, location );
+}
+
+export function getCurrentRendererUrl(): string {
+	if ( currentRendererUrl ) {
+		return currentRendererUrl;
+	}
+
+	return getRendererLocation( { desks: undefined } ).url;
+}
 
 function setupDevTools( mainWindow: BrowserWindow | null, devToolsOpen?: boolean ) {
 	if ( devToolsOpen || ( process.env.NODE_ENV === 'development' && devToolsOpen === undefined ) ) {
@@ -102,11 +189,7 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		mainWindow.setFullScreen( true );
 	}
 
-	if ( ! app.isPackaged && process.env[ 'ELECTRON_RENDERER_URL' ] ) {
-		void mainWindow.loadURL( process.env[ 'ELECTRON_RENDERER_URL' ] );
-	} else {
-		void mainWindow.loadFile( path.join( __dirname, '../renderer/index.html' ) );
-	}
+	void loadRendererLocation( mainWindow, getRendererLocation( userData ) );
 
 	// Open the DevTools if the user had it open last time they used the app.
 	// During development the dev tools default to open.

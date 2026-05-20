@@ -1,13 +1,34 @@
 import path from 'path';
-import { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
+import {
+	getConfiguredPhpBinaryVersion,
+	NativePhpSupportedVersions,
+	type NativePhpSupportedVersion,
+} from '@studio/common/lib/php-binary-metadata';
 import { getConfigDirectory, getServerFilesPath } from '@studio/common/lib/well-known-paths';
 
 const PHP_BINARY_FILENAME = process.platform === 'win32' ? 'php.exe' : 'php';
 
-// PHP binaries live in ~/.studio/php-bin/<version>/ — downloaded on demand when a site
-// using that version is first started. Not bundled in production builds.
-export function getPhpBinaryPath( version: NativePhpSupportedVersion ): string {
-	return path.join( getConfigDirectory(), 'php-bin', version, PHP_BINARY_FILENAME );
+function getPhpBinaryRoot(): string {
+	return path.join( getConfigDirectory(), 'php-bin' );
+}
+
+function getExactPhpBinaryPath( version: string ): string {
+	return path.join( getPhpBinaryRoot(), version, PHP_BINARY_FILENAME );
+}
+
+function isNativePhpSupportedVersion( version: string ): version is NativePhpSupportedVersion {
+	return ( NativePhpSupportedVersions as readonly string[] ).includes( version );
+}
+
+// PHP binaries live in ~/.studio/php-bin/<patch>/ — downloaded on demand when a site
+// using that minor version is first started. Not bundled in production builds.
+export function getPhpBinaryPath( version: NativePhpSupportedVersion | string ): string {
+	if ( ! isNativePhpSupportedVersion( version ) ) {
+		return getExactPhpBinaryPath( version );
+	}
+
+	const configuredVersion = getConfiguredPhpBinaryVersion( version );
+	return getExactPhpBinaryPath( configuredVersion ?? version );
 }
 
 const WP_CLI_PHAR_FILENAME = 'wp-cli.phar';

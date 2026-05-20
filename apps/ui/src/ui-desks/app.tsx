@@ -9,10 +9,12 @@ import {
 } from './onboarding';
 import { desksRootRoute } from './router/root';
 import { siteDeskRoute } from './site-desk';
+import { desksSiteSettingsRoute } from './site-settings';
 import { userDeskRoute } from './user-desk';
 
 const routeTree = desksRootRoute.addChildren( [
 	userDeskRoute,
+	desksSiteSettingsRoute,
 	siteDeskRoute,
 	desksOnboardingHomeRoute,
 	desksOnboardingCreateRoute,

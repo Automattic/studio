@@ -15,6 +15,14 @@ import { usePullSiteFromLive, usePushSiteToLive } from '@/data/queries/use-sync-
 import { SiteDetailsDropdown } from './index';
 import type { SiteDetails } from '@/data/core';
 
+const routerMock = vi.hoisted( () => ( {
+	navigate: vi.fn(),
+} ) );
+
+vi.mock( '@tanstack/react-router', () => ( {
+	useNavigate: () => routerMock.navigate,
+} ) );
+
 vi.mock( '@tanstack/react-query', () => ( {
 	useIsMutating: () => 0,
 } ) );
@@ -75,6 +83,7 @@ describe( 'SiteDetailsDropdown', () => {
 		pushMutate.mockReset();
 		startMutate.mockReset();
 		stopMutate.mockReset();
+		routerMock.navigate.mockReset();
 
 		useConnectorMock.mockReturnValue( {
 			getPublishCheckoutUrl: () => 'https://wordpress.com/setup/studio',
@@ -148,6 +157,13 @@ describe( 'SiteDetailsDropdown', () => {
 		await waitFor( () =>
 			expect( openExternalUrl ).toHaveBeenCalledWith( 'http://localhost:8881' )
 		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Site details for Local Studio Site' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Open site settings' } ) );
+		expect( routerMock.navigate ).toHaveBeenCalledWith( {
+			to: '/sites/$siteId/settings',
+			params: { siteId: 'site-1' },
+		} );
 	} );
 } );
 

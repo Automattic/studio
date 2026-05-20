@@ -1,6 +1,7 @@
 import { useIsMutating } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { download, external, formatListBullets, upload } from '@wordpress/icons';
+import { cog, download, external, formatListBullets, upload } from '@wordpress/icons';
 import { clsx } from 'clsx';
 import { useMemo, useState } from 'react';
 import {
@@ -57,6 +58,7 @@ function useIsSiteSyncing( siteId: string ): { push: boolean; pull: boolean } {
 
 export function SiteDetailsDropdown( { site, disabled = false }: SiteDetailsDropdownProps ) {
 	const connector = useConnector();
+	const navigate = useNavigate();
 	const [ open, setOpen ] = useState( false );
 	const { data: snapshots } = useSnapshots();
 	const { data: connectedSites } = useConnectedWpcomSites( site.id );
@@ -86,6 +88,11 @@ export function SiteDetailsDropdown( { site, disabled = false }: SiteDetailsDrop
 	const openExternal = ( url: string ) => {
 		setOpen( false );
 		void connector.openExternalUrl( url );
+	};
+
+	const handleSiteSettingsClick = () => {
+		setOpen( false );
+		void navigate( { to: '/sites/$siteId/settings', params: { siteId: site.id } } );
 	};
 
 	const handleToggleServer = () => {
@@ -151,21 +158,31 @@ export function SiteDetailsDropdown( { site, disabled = false }: SiteDetailsDrop
 							<StatusLine tone={ status }>{ getHeaderStatusText( status, site ) }</StatusLine>
 						</div>
 					</div>
-					<Button
-						className={ styles.serverButton }
-						variant="filled"
-						size="small"
-						label={ site.running ? __( 'Stop site' ) : __( 'Start site' ) }
-						disabled={ status === 'transitioning' }
-						aria-busy={ status === 'transitioning' ? 'true' : undefined }
-						onClick={ handleToggleServer }
-					>
-						<span
-							className={ site.running ? styles.stopGlyph : styles.startGlyph }
-							aria-hidden="true"
+					<div className={ styles.headerActions }>
+						<Button
+							className={ styles.settingsButton }
+							variant="filled"
+							size="small"
+							icon={ cog }
+							label={ __( 'Open site settings' ) }
+							onClick={ handleSiteSettingsClick }
 						/>
-						{ getServerButtonLabel( site.running, isStarting, isStopping ) }
-					</Button>
+						<Button
+							className={ styles.serverButton }
+							variant="filled"
+							size="small"
+							label={ site.running ? __( 'Stop site' ) : __( 'Start site' ) }
+							disabled={ status === 'transitioning' }
+							aria-busy={ status === 'transitioning' ? 'true' : undefined }
+							onClick={ handleToggleServer }
+						>
+							<span
+								className={ site.running ? styles.stopGlyph : styles.startGlyph }
+								aria-hidden="true"
+							/>
+							{ getServerButtonLabel( site.running, isStarting, isStopping ) }
+						</Button>
+					</div>
 				</header>
 
 				<div className={ styles.divider } />

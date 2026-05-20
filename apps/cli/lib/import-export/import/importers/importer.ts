@@ -26,14 +26,17 @@ export interface Importer extends ImportExportEventEmitter {
 }
 
 // Recovers from EEXIST/ENOTDIR by removing a non-directory blocker on the path.
-export async function ensureDir( dir: string ): Promise< void > {
+// rootDir bounds the search: if the blocker resolves outside rootDir (e.g. an
+// archive entry that escapes the destination tree via `..`), rethrow the
+// original error rather than unlink an unrelated file.
+export async function ensureDir( dir: string, rootDir: string ): Promise< void > {
 	try {
 		await fs.promises.mkdir( dir, { recursive: true } );
 	} catch ( error ) {
 		if ( ! isErrnoException( error ) || ( error.code !== 'EEXIST' && error.code !== 'ENOTDIR' ) ) {
 			throw error;
 		}
-		const blocker = await findNonDirectoryAncestor( dir );
+		const blocker = await findNonDirectoryAncestor( dir, rootDir );
 		if ( ! blocker ) {
 			throw error;
 		}
@@ -43,9 +46,13 @@ export async function ensureDir( dir: string ): Promise< void > {
 	}
 }
 
-async function findNonDirectoryAncestor( start: string ): Promise< string | null > {
-	let current = start;
-	while ( true ) {
+async function findNonDirectoryAncestor(
+	start: string,
+	rootDir: string
+): Promise< string | null > {
+	const resolvedRoot = path.resolve( rootDir );
+	let current = path.resolve( start );
+	while ( current === resolvedRoot || current.startsWith( resolvedRoot + path.sep ) ) {
 		try {
 			const stat = await fs.promises.lstat( current );
 			return stat.isDirectory() ? null : current;
@@ -63,6 +70,7 @@ async function findNonDirectoryAncestor( start: string ): Promise< string | null
 			current = parent;
 		}
 	}
+	return null;
 }
 
 abstract class BaseImporter extends ImportExportEventEmitter implements Importer {
@@ -273,7 +281,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 				);
 
 				const destPath = path.join( wpContentDestDir, relativePath );
-				await ensureDir( path.dirname( destPath ) );
+				await ensureDir( path.dirname( destPath ), wpContentDestDir );
 				await fs.promises.copyFile( file, destPath );
 
 				processedItems++;

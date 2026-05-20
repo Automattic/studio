@@ -5,8 +5,8 @@
  */
 import fs from 'fs';
 import path from 'path';
-import { loadNodeRuntime } from '@php-wasm/node';
-import { PHP, ProcessIdAllocator } from '@php-wasm/universal';
+import { getPHPLoaderModule } from '@php-wasm/node';
+import { PHP, ProcessIdAllocator, loadPHPRuntime } from '@php-wasm/universal';
 import { LatestSupportedPHPVersion } from '@studio/common/types/php-versions';
 import { getContentDirFromState } from 'cli/lib/pull/reprint-state';
 import { installSqliteIntegration } from 'cli/lib/sqlite-integration';
@@ -36,9 +36,12 @@ type BlueprintWithConstants = Blueprint & {
 async function parseRuntimePhpConstants(
 	runtimePhpContent: string
 ): Promise< Record< string, RuntimeConstantValue > > {
-	const id = await loadNodeRuntime( LatestSupportedPHPVersion, {
-		emscriptenOptions: {
-			processId: phpProcessIdAllocator.claim(),
+	const processId = phpProcessIdAllocator.claim();
+	const phpLoaderModule = await getPHPLoaderModule( LatestSupportedPHPVersion );
+	const id = await loadPHPRuntime( phpLoaderModule, {
+		processId,
+		quit: function ( code, error ) {
+			throw error;
 		},
 	} );
 	const php = new PHP( id );
@@ -90,6 +93,7 @@ echo json_encode( array_diff_key( $after, $before ) );
 		return constants;
 	} finally {
 		php.exit();
+		phpProcessIdAllocator.release( processId );
 	}
 }
 

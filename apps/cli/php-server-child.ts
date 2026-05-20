@@ -334,6 +334,7 @@ function startSymlinkWatcher( sitePath: string ): void {
 		return;
 	}
 
+	const wpContentPath = path.join( sitePath, 'wp-content' );
 	const watcher = new SymlinkWatcher();
 	watcher.on( 'symlink', ( target, symlinkPath ) => {
 		if ( currentOpenBasedirAllowlist.has( target ) ) {
@@ -346,12 +347,48 @@ function startSymlinkWatcher( sitePath: string ): void {
 	} );
 
 	watcher.on( 'error', ( error ) => {
-		errorToConsole( 'Symlink watcher error:', error );
+		errorToConsole( 'Symlink watcher error (will attempt to recover):', error );
+	} );
+
+	watcher.on( 'unrecoverable', ( error ) => {
+		errorToConsole(
+			'Symlink watcher gave up. New plugin/theme symlinks under wp-content will not be auto-allowed until the site is restarted.',
+			error
+		);
+	} );
+
+	watcher.on( 'restart', () => {
+		// Events fired while the watcher was dead are lost. Re-scan wp-content and
+		// fold any newly discovered symlink targets into the allowlist.
+		void reconcileSymlinkAllowlist( wpContentPath );
 	} );
 
 	// Watch wp-content and its subdirectories for symlinks
-	watcher.start( path.join( sitePath, 'wp-content' ), 2 );
+	watcher.start( wpContentPath, 2 );
 	symlinkWatcher = watcher;
+}
+
+async function reconcileSymlinkAllowlist( wpContentPath: string ): Promise< void > {
+	let entries: string[];
+	try {
+		entries = await collectSymlinkAllowlistEntries( wpContentPath );
+	} catch ( error ) {
+		errorToConsole( 'Failed to reconcile symlink allowlist after watcher restart:', error );
+		return;
+	}
+
+	let added = false;
+	for ( const target of entries ) {
+		if ( ! currentOpenBasedirAllowlist.has( target ) ) {
+			logToConsole( `Discovered symlink target after watcher restart: ${ target }` );
+			currentOpenBasedirAllowlist.add( target );
+			added = true;
+		}
+	}
+
+	if ( added ) {
+		scheduleAllowlistRestart();
+	}
 }
 
 async function stopSymlinkWatcher(): Promise< void > {

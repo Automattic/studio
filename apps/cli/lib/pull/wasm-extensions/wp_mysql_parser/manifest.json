@@ -1,0 +1,31 @@
+{
+  "name": "wp_mysql_parser",
+  "mode": "php-extension",
+  "artifacts": [
+    {
+      "phpVersion": "8.5",
+      "sourcePath": "wp_mysql_parser-php8.5-jspi.so"
+    },
+    {
+      "phpVersion": "8.4",
+      "sourcePath": "wp_mysql_parser-php8.4-jspi.so"
+    },
+    {
+      "phpVersion": "8.3",
+      "sourcePath": "wp_mysql_parser-php8.3-jspi.so"
+    },
+    {
+      "phpVersion": "8.2",
+      "sourcePath": "wp_mysql_parser-php8.2-jspi.so"
+    },
+    {
+      "phpVersion": "8.1",
+      "sourcePath": "wp_mysql_parser-php8.1-jspi.so"
+    },
+    {
+      "phpVersion": "8.0",
+      "sourcePath": "wp_mysql_parser-php8.0-jspi.so"
+    }
+  ],
+  "version": "b31fc53ea599d1a2211b75f4a3486b39e63ce01f"
+}

@@ -5,13 +5,21 @@
  * the parent's event loop stays responsive for Ctrl+C handling and
  * progress reporting. The parent communicates via IPC messages.
  */
+import { existsSync } from 'node:fs';
+import path from 'node:path';
 import { rootCertificates } from 'node:tls';
-import { createNodeFsMountHandler, loadNodeRuntime } from '@php-wasm/node';
+import { createNodeFsMountHandler, loadNodeRuntime, withNetworking } from '@php-wasm/node';
 import { PHP, ProcessIdAllocator, setPhpIniEntries } from '@php-wasm/universal';
 import { createSpawnHandler } from '@php-wasm/util';
-import { LatestSupportedPHPVersion } from '@studio/common/types/php-versions';
+import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 
 const processIdAllocator = new ProcessIdAllocator();
+const REPRINT_PHP_VERSION = '8.4' satisfies SupportedPHPVersion;
+const WASM_EXTENSIONS_DIR = path.join( import.meta.dirname, 'wasm-extensions' );
+const REQUIRED_EXTENSION_MANIFESTS = [
+	path.join( WASM_EXTENSIONS_DIR, 'wp_native_apis', 'manifest.json' ),
+	path.join( WASM_EXTENSIONS_DIR, 'wp_mysql_parser', 'manifest.json' ),
+] as const;
 
 // Proxy configuration env vars must reach reprint.phar so it can route
 // outbound HTTP through the user's proxy (e.g. tsocks / corporate
@@ -93,6 +101,71 @@ async function mountDirectory( php: PHP, mount: ReprintMount ) {
 	await php.mount( mount.vfsPath, createNodeFsMountHandler( mount.hostPath ) );
 }
 
+function assertExtensionManifestsExist() {
+	const missing = REQUIRED_EXTENSION_MANIFESTS.filter(
+		( manifestPath ) => ! existsSync( manifestPath )
+	);
+	if ( missing.length > 0 ) {
+		throw new Error(
+			`Missing bundled PHP WASM extension manifest(s): ${ missing.join(
+				', '
+			) }. Rebuild the Studio CLI so pull-reprint can load its native extensions.`
+		);
+	}
+}
+
+function createRequiredExtensionOptions() {
+	assertExtensionManifestsExist();
+
+	return REQUIRED_EXTENSION_MANIFESTS.map( ( manifestUrl ) => ( {
+		source: {
+			format: 'manifest' as const,
+			manifestUrl,
+		},
+	} ) );
+}
+
+function writeNativeExtensionAssertion( php: PHP ) {
+	php.writeFile(
+		'/tmp/assert-native-reprint-extensions.php',
+		`<?php
+$missing = array();
+foreach ( array( 'wp_native_apis', 'wp_mysql_parser' ) as $extension ) {
+	if ( ! extension_loaded( $extension ) ) {
+		$missing[] = "extension_loaded('{$extension}')";
+	}
+}
+
+foreach (
+	array(
+		'WP_HTML_Native_Tag_Processor',
+		'WP_HTML_Native_Processor',
+		'WordPress\\\\XML\\\\NativeXMLProcessor',
+		'WordPress\\\\DataLiberation\\\\URL\\\\NativeURLInTextProcessor',
+		'WP_MySQL_Native_Grammar',
+		'WP_MySQL_Native_Lexer',
+		'WP_MySQL_Native_Parser',
+		'WP_MySQL_Native_Token_Stream',
+	) as $class_name
+) {
+	if ( ! class_exists( $class_name, false ) ) {
+		$missing[] = "class_exists('{$class_name}')";
+	}
+}
+
+if ( $missing ) {
+	fwrite(
+		STDERR,
+		"pull-reprint expected native PHP WASM extensions, but these checks failed: " .
+		implode( ', ', $missing ) .
+		". This would silently fall back to much slower PHP parsing, so Studio is aborting.\\n"
+	);
+	exit( 1 );
+}
+`
+	);
+}
+
 /**
  * Pipes a PHP stream to the parent process via IPC, calling `onChunk`
  * for each decoded text fragment so the caller can track whatever
@@ -140,11 +213,12 @@ async function pipePhpStream(
 async function runReprint( msg: RunMessage ) {
 	const { pharPath, stateDir, fsRoot, tmpDir, args, mounts = [] } = msg;
 
-	const id = await loadNodeRuntime( LatestSupportedPHPVersion, {
+	const id = await loadNodeRuntime( REPRINT_PHP_VERSION, {
 		followSymlinks: true,
-		emscriptenOptions: {
+		extensions: createRequiredExtensionOptions(),
+		emscriptenOptions: await withNetworking( {
 			processId: processIdAllocator.claim(),
-		},
+		} ),
 	} );
 	const php = new PHP( id );
 
@@ -162,8 +236,10 @@ async function runReprint( msg: RunMessage ) {
 		await php.mount( '/tmp/reprint.phar', createNodeFsMountHandler( pharPath ) );
 
 		php.writeFile( '/tmp/ca-bundle.crt', rootCertificates.join( '\n' ) );
+		writeNativeExtensionAssertion( php );
 		await setPhpIniEntries( php, {
 			'openssl.cafile': '/tmp/ca-bundle.crt',
+			auto_prepend_file: '/tmp/assert-native-reprint-extensions.php',
 			allow_url_fopen: 1,
 			memory_limit: '512M',
 			error_reporting: String( 32767 & ~8192 ),

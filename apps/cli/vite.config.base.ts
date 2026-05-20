@@ -29,6 +29,7 @@ if ( ! minimumNodeVersion ) {
 const bundledWpFilesPath = resolve( __dirname, '..', '..', 'wp-files' );
 const phpSourceCodePath = resolve( __dirname, 'php' );
 const bundledReprintPhar = resolve( __dirname, 'lib/pull/reprint.phar' );
+const bundledReprintWasmExtensionsPath = resolve( __dirname, 'lib/pull/wasm-extensions' );
 
 export const baseConfig = defineConfig( {
 	plugins: [
@@ -50,6 +51,11 @@ export const baseConfig = defineConfig( {
 				}
 				if ( existsSync( bundledReprintPhar ) ) {
 					copyFileSync( bundledReprintPhar, resolve( outDir, 'reprint.phar' ) );
+				}
+				if ( existsSync( bundledReprintWasmExtensionsPath ) ) {
+					cpSync( bundledReprintWasmExtensionsPath, resolve( outDir, 'wasm-extensions' ), {
+						recursive: true,
+					} );
 				}
 			},
 		},

@@ -1,4 +1,6 @@
 import { getRemoteSessionLogPath } from '@studio/common/lib/well-known-paths';
+import { bumpAggregatedUniqueStat, bumpStat, getPlatformMetric } from 'cli/lib/bump-stat';
+import { StatsGroup, StatsMetric } from 'cli/lib/types/bump-stats';
 import {
 	RemoteSessionConfigError,
 	loadRemoteSessionConfig,
@@ -11,6 +13,11 @@ import { respondMessage } from 'cli/remote-session/telegram-client';
 
 export { RemoteSessionConfigError };
 
+export interface RunRemoteSessionOptions {
+	/** Honors the top-level `--avoid-telemetry` flag. When true, no bump stats are emitted. */
+	avoidTelemetry?: boolean;
+}
+
 /**
  * Entry point for `studio code --remote-session` and `studio code remote-session
  * start`. Validates config, enters the poll loop, and returns when the loop
@@ -19,9 +26,33 @@ export { RemoteSessionConfigError };
  * writes a PID file that the `stop` / `status` subcommands and the
  * `/remote-session` REPL slash command consult.
  */
-export async function runRemoteSession( overrides: RemoteSessionOverrides = {} ): Promise< void > {
+export async function runRemoteSession(
+	overrides: RemoteSessionOverrides = {},
+	{ avoidTelemetry = false }: RunRemoteSessionOptions = {}
+): Promise< void > {
 	const config = await loadRemoteSessionConfig( overrides );
 	const runningAsDaemon = isDaemonChild();
+	const telemetryEnabled = __ENABLE_CLI_TELEMETRY__ && ! avoidTelemetry;
+
+	if ( telemetryEnabled ) {
+		// Total starts per platform (every invocation, daemon child or foreground).
+		bumpStat( StatsGroup.STUDIO_CLI_DOLLY_START, getPlatformMetric() );
+		// Weekly/monthly unique = "Dolly active users" headcount, mirroring the launch stats pattern.
+		bumpAggregatedUniqueStat(
+			StatsGroup.STUDIO_CLI_DOLLY_WEEKLY_UNIQ,
+			StatsMetric.SUCCESS,
+			'weekly'
+		).catch( () =>
+			console.error( 'Failed to bump stat:', StatsGroup.STUDIO_CLI_DOLLY_WEEKLY_UNIQ )
+		);
+		bumpAggregatedUniqueStat(
+			StatsGroup.STUDIO_CLI_DOLLY_MONTHLY_UNIQ,
+			StatsMetric.SUCCESS,
+			'monthly'
+		).catch( () =>
+			console.error( 'Failed to bump stat:', StatsGroup.STUDIO_CLI_DOLLY_MONTHLY_UNIQ )
+		);
+	}
 	if ( runningAsDaemon ) {
 		// Detached child: claim the PID file. The hook removes it on `exit` and
 		// (on POSIX) on SIGHUP. SIGINT/SIGTERM go through the existing graceful
@@ -50,6 +81,7 @@ export async function runRemoteSession( overrides: RemoteSessionOverrides = {} )
 	const { done, detach } = await runPollLoop( {
 		config,
 		deps: { logger },
+		telemetryEnabled,
 		onAttached: () => {
 			if ( runningAsDaemon ) {
 				return;

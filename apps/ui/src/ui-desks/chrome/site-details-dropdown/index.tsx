@@ -1,7 +1,7 @@
 import { useIsMutating } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { cog, download, external, formatListBullets, upload } from '@wordpress/icons';
+import { cog, download, external, formatListBullets, trash, upload } from '@wordpress/icons';
 import { clsx } from 'clsx';
 import { useMemo, useState } from 'react';
 import {
@@ -16,6 +16,7 @@ import { useConnector } from '@/data/core';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
 import {
+	useDeleteSite,
 	useIsSiteStarting,
 	useIsSiteStopping,
 	useStartSite,
@@ -30,7 +31,16 @@ import {
 } from '@/data/queries/use-sync-site';
 import { formatRelativeTime } from '@/lib/format-relative-time';
 import { getSiteDisplayUrl, getSiteUrl } from '@/lib/get-site-url';
-import { Button, Menu } from '@/ui-desks/components';
+import {
+	Button,
+	Dialog,
+	DialogContent,
+	DialogError,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+	Menu,
+} from '@/ui-desks/components';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { ReactNode } from 'react';
@@ -60,6 +70,9 @@ export function SiteDetailsDropdown( { site, disabled = false }: SiteDetailsDrop
 	const connector = useConnector();
 	const navigate = useNavigate();
 	const [ open, setOpen ] = useState( false );
+	const [ deleteDialogOpen, setDeleteDialogOpen ] = useState( false );
+	const [ deleteFiles, setDeleteFiles ] = useState( true );
+	const [ deleteError, setDeleteError ] = useState< string | null >( null );
 	const { data: snapshots } = useSnapshots();
 	const { data: connectedSites } = useConnectedWpcomSites( site.id );
 	const previewSnapshot = useMemo(
@@ -72,6 +85,7 @@ export function SiteDetailsDropdown( { site, disabled = false }: SiteDetailsDrop
 	const publishPreviewSite = usePublishPreviewSite();
 	const pushSiteToLive = usePushSiteToLive();
 	const pullSiteFromLive = usePullSiteFromLive();
+	const deleteSite = useDeleteSite();
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
 	const { push: isPushPending, pull: isPullPending } = useIsSiteSyncing( site.id );
@@ -130,182 +144,290 @@ export function SiteDetailsDropdown( { site, disabled = false }: SiteDetailsDrop
 		pullSiteFromLive.mutate( { siteId: site.id, remoteSiteId: liveSite.id } );
 	};
 
+	const handleDeleteClick = () => {
+		setOpen( false );
+		setDeleteFiles( true );
+		setDeleteError( null );
+		setDeleteDialogOpen( true );
+	};
+
+	const closeDeleteDialog = () => {
+		if ( deleteSite.isPending ) {
+			return;
+		}
+		setDeleteDialogOpen( false );
+		setDeleteError( null );
+	};
+
+	const handleConfirmDelete = () => {
+		setDeleteError( null );
+		deleteSite.mutate(
+			{ id: site.id, deleteFiles },
+			{
+				onSuccess: () => {
+					setDeleteDialogOpen( false );
+					void navigate( { to: '/' } );
+				},
+				onError: ( error: Error ) => {
+					setDeleteError( error.message || __( 'Unable to delete the site. Please try again.' ) );
+				},
+			}
+		);
+	};
+
 	return (
-		<Menu.Root modal={ false } open={ open } onOpenChange={ setOpen }>
-			<Menu.Trigger
-				render={
-					<Button
-						className={ styles.detailsTrigger }
-						disabled={ disabled }
-						icon={ formatListBullets }
-						label={ sprintf(
-							/* translators: %s: current site name. */
-							__( 'Site details for %s' ),
-							site.name
-						) }
-						data-status={ status }
-					/>
-				}
-			/>
-			<Menu.Popup side="bottom" align="start" sideOffset={ 8 } className={ styles.popup }>
-				<header className={ styles.header }>
-					<div className={ styles.headerIdentity }>
-						<SiteBadge site={ site } size="panel" />
-						<div className={ styles.headerText }>
-							<div className={ styles.headerTitle } title={ site.name }>
-								{ site.name }
-							</div>
-							<StatusLine tone={ status }>{ getHeaderStatusText( status, site ) }</StatusLine>
-						</div>
-					</div>
-					<div className={ styles.headerActions }>
+		<>
+			<Menu.Root modal={ false } open={ open } onOpenChange={ setOpen }>
+				<Menu.Trigger
+					render={
 						<Button
-							className={ styles.settingsButton }
-							variant="filled"
-							size="small"
-							icon={ cog }
-							label={ __( 'Open site settings' ) }
-							onClick={ handleSiteSettingsClick }
+							className={ styles.detailsTrigger }
+							disabled={ disabled }
+							icon={ formatListBullets }
+							label={ sprintf(
+								/* translators: %s: current site name. */
+								__( 'Site details for %s' ),
+								site.name
+							) }
+							data-status={ status }
 						/>
-						<Button
-							className={ styles.serverButton }
-							variant="filled"
-							size="small"
-							label={ site.running ? __( 'Stop site' ) : __( 'Start site' ) }
-							disabled={ status === 'transitioning' }
-							aria-busy={ status === 'transitioning' ? 'true' : undefined }
-							onClick={ handleToggleServer }
-						>
-							<span
-								className={ site.running ? styles.stopGlyph : styles.startGlyph }
-								aria-hidden="true"
+					}
+				/>
+				<Menu.Popup side="bottom" align="start" sideOffset={ 8 } className={ styles.popup }>
+					<header className={ styles.header }>
+						<div className={ styles.headerIdentity }>
+							<SiteBadge site={ site } size="panel" />
+							<div className={ styles.headerText }>
+								<div className={ styles.headerTitle } title={ site.name }>
+									{ site.name }
+								</div>
+								<StatusLine tone={ status }>{ getHeaderStatusText( status, site ) }</StatusLine>
+							</div>
+						</div>
+						<div className={ styles.headerActions }>
+							<Button
+								className={ styles.settingsButton }
+								variant="filled"
+								size="small"
+								icon={ cog }
+								label={ __( 'Open site settings' ) }
+								onClick={ handleSiteSettingsClick }
 							/>
-							{ getServerButtonLabel( site.running, isStarting, isStopping ) }
-						</Button>
-					</div>
-				</header>
-
-				<div className={ styles.divider } />
-
-				<div className={ styles.rows }>
-					<DetailsRow
-						label={ __( 'Local' ) }
-						status={ status }
-						statusText={ getLocalStatusText( status, site ) }
-						actions={
-							<OpenButton
-								label={ __( 'Open local site' ) }
-								disabled={ ! site.running }
-								onClick={ () => openExternal( getSiteUrl( site ) ) }
-							/>
-						}
-					/>
-					<DetailsRow
-						label={ __( 'Preview' ) }
-						status={ previewSnapshot ? 'running' : 'stopped' }
-						statusText={
-							previewSnapshot
-								? sprintf(
-										/* translators: %s: relative time since the preview site was last synced. */
-										__( 'Synced %s' ),
-										formatRelativeTimestamp( previewSnapshot.date )
-								  )
-								: __( 'Not yet created' )
-						}
-						actions={
-							<>
-								<Button
-									className={ styles.syncButton }
-									variant="quiet"
-									size="small"
-									icon={ upload }
-									label={ previewActionLabel }
-									disabled={ isSyncing }
-									aria-busy={ isPreviewPending ? 'true' : undefined }
-									onClick={ handlePreviewClick }
-								>
-									{ isPreviewPending ? __( 'Pushing...' ) : __( 'Push to Preview' ) }
-								</Button>
-								<OpenButton
-									label={ __( 'Open preview site' ) }
-									disabled={ ! previewSnapshot }
-									onClick={ () => {
-										if ( previewSnapshot ) {
-											openExternal( ensureProtocol( previewSnapshot.url ) );
-										}
-									} }
+							<Button
+								className={ styles.serverButton }
+								variant="filled"
+								size="small"
+								label={ site.running ? __( 'Stop site' ) : __( 'Start site' ) }
+								disabled={ status === 'transitioning' }
+								aria-busy={ status === 'transitioning' ? 'true' : undefined }
+								onClick={ handleToggleServer }
+							>
+								<span
+									className={ site.running ? styles.stopGlyph : styles.startGlyph }
+									aria-hidden="true"
 								/>
-							</>
-						}
-					/>
-					<DetailsRow
-						label={ __( 'Live' ) }
-						status={ liveSite ? 'running' : 'stopped' }
-						statusText={
-							liveSite ? (
-								<>
-									<span>{ __( 'Connected' ) }</span>
-									<span className={ styles.statusSeparator } aria-hidden="true" />
-									<span>{ __( 'WordPress.com' ) }</span>
-								</>
-							) : (
-								__( 'Not connected' )
-							)
-						}
-						actions={
-							liveSite ? (
+								{ getServerButtonLabel( site.running, isStarting, isStopping ) }
+							</Button>
+						</div>
+					</header>
+
+					<div className={ styles.divider } />
+
+					<div className={ styles.rows }>
+						<DetailsRow
+							label={ __( 'Local' ) }
+							status={ status }
+							statusText={ getLocalStatusText( status, site ) }
+							actions={
+								<OpenButton
+									label={ __( 'Open local site' ) }
+									disabled={ ! site.running }
+									onClick={ () => openExternal( getSiteUrl( site ) ) }
+								/>
+							}
+						/>
+						<DetailsRow
+							label={ __( 'Preview' ) }
+							status={ previewSnapshot ? 'running' : 'stopped' }
+							statusText={
+								previewSnapshot
+									? sprintf(
+											/* translators: %s: relative time since the preview site was last synced. */
+											__( 'Synced %s' ),
+											formatRelativeTimestamp( previewSnapshot.date )
+									  )
+									: __( 'Not yet created' )
+							}
+							actions={
 								<>
 									<Button
 										className={ styles.syncButton }
 										variant="quiet"
 										size="small"
 										icon={ upload }
-										label={ pushActionLabel }
+										label={ previewActionLabel }
 										disabled={ isSyncing }
-										aria-busy={ isPushPending ? 'true' : undefined }
-										onClick={ handlePushClick }
+										aria-busy={ isPreviewPending ? 'true' : undefined }
+										onClick={ handlePreviewClick }
 									>
-										{ isPushPending ? __( 'Pushing...' ) : __( 'Push to Live' ) }
-									</Button>
-									<Button
-										className={ styles.syncButton }
-										variant="quiet"
-										size="small"
-										icon={ download }
-										label={ pullActionLabel }
-										disabled={ isSyncing }
-										aria-busy={ isPullPending ? 'true' : undefined }
-										onClick={ handlePullClick }
-									>
-										{ isPullPending ? __( 'Pulling...' ) : __( 'Pull' ) }
+										{ isPreviewPending ? __( 'Pushing...' ) : __( 'Push to Preview' ) }
 									</Button>
 									<OpenButton
-										label={ __( 'Open live site' ) }
-										disabled={ isSyncing }
-										onClick={ () => openExternal( ensureProtocol( liveSite.url ) ) }
+										label={ __( 'Open preview site' ) }
+										disabled={ ! previewSnapshot }
+										onClick={ () => {
+											if ( previewSnapshot ) {
+												openExternal( ensureProtocol( previewSnapshot.url ) );
+											}
+										} }
 									/>
 								</>
-							) : (
-								<Button
-									className={ styles.syncButton }
-									variant="filled"
-									size="small"
-									label={ __( 'Connect live site' ) }
-									disabled={ ! checkoutUrl }
-									onClick={ () => {
-										if ( checkoutUrl ) {
-											openExternal( checkoutUrl );
-										}
-									} }
-								>
-									{ __( 'Connect' ) }
-								</Button>
-							)
-						}
-					/>
-				</div>
-			</Menu.Popup>
-		</Menu.Root>
+							}
+						/>
+						<DetailsRow
+							label={ __( 'Live' ) }
+							status={ liveSite ? 'running' : 'stopped' }
+							statusText={
+								liveSite ? (
+									<>
+										<span>{ __( 'Connected' ) }</span>
+										<span className={ styles.statusSeparator } aria-hidden="true" />
+										<span>{ __( 'WordPress.com' ) }</span>
+									</>
+								) : (
+									__( 'Not connected' )
+								)
+							}
+							actions={
+								liveSite ? (
+									<>
+										<Button
+											className={ styles.syncButton }
+											variant="quiet"
+											size="small"
+											icon={ upload }
+											label={ pushActionLabel }
+											disabled={ isSyncing }
+											aria-busy={ isPushPending ? 'true' : undefined }
+											onClick={ handlePushClick }
+										>
+											{ isPushPending ? __( 'Pushing...' ) : __( 'Push to Live' ) }
+										</Button>
+										<Button
+											className={ styles.syncButton }
+											variant="quiet"
+											size="small"
+											icon={ download }
+											label={ pullActionLabel }
+											disabled={ isSyncing }
+											aria-busy={ isPullPending ? 'true' : undefined }
+											onClick={ handlePullClick }
+										>
+											{ isPullPending ? __( 'Pulling...' ) : __( 'Pull' ) }
+										</Button>
+										<OpenButton
+											label={ __( 'Open live site' ) }
+											disabled={ isSyncing }
+											onClick={ () => openExternal( ensureProtocol( liveSite.url ) ) }
+										/>
+									</>
+								) : (
+									<Button
+										className={ styles.syncButton }
+										variant="filled"
+										size="small"
+										label={ __( 'Connect live site' ) }
+										disabled={ ! checkoutUrl }
+										onClick={ () => {
+											if ( checkoutUrl ) {
+												openExternal( checkoutUrl );
+											}
+										} }
+									>
+										{ __( 'Connect' ) }
+									</Button>
+								)
+							}
+						/>
+					</div>
+
+					<div className={ styles.divider } />
+					<div className={ styles.footerActions }>
+						<Button
+							className={ styles.deleteButton }
+							variant="quiet"
+							size="medium"
+							icon={ trash }
+							label={ __( 'Delete site' ) }
+							disabled={ isSyncing || deleteSite.isPending }
+							onClick={ handleDeleteClick }
+						>
+							{ __( 'Delete site' ) }
+						</Button>
+					</div>
+				</Menu.Popup>
+			</Menu.Root>
+			<Dialog
+				ariaLabel={ sprintf(
+					/* translators: %s: site name. */
+					__( 'Delete %s' ),
+					site.name
+				) }
+				gap="compact"
+				onClose={ closeDeleteDialog }
+				open={ deleteDialogOpen }
+				size="small"
+			>
+				<DialogHeader>
+					<DialogTitle>
+						{ sprintf(
+							/* translators: %s: site name. */
+							__( 'Delete %s' ),
+							site.name
+						) }
+					</DialogTitle>
+				</DialogHeader>
+				<DialogContent className={ styles.deleteDialogContent }>
+					<p className={ styles.deleteDialogText }>
+						{ __(
+							"The site's database will be lost, including all posts, pages, comments, and media."
+						) }
+					</p>
+					<label className={ styles.deleteDialogCheckbox }>
+						<input
+							type="checkbox"
+							checked={ deleteFiles }
+							disabled={ deleteSite.isPending }
+							onChange={ ( event ) => setDeleteFiles( event.target.checked ) }
+						/>
+						<span>{ __( 'Delete site files from my computer' ) }</span>
+					</label>
+					{ deleteError ? <DialogError>{ deleteError }</DialogError> : null }
+				</DialogContent>
+				<DialogFooter>
+					<Button
+						variant="quiet"
+						size="medium"
+						label={ __( 'Cancel' ) }
+						disabled={ deleteSite.isPending }
+						onClick={ closeDeleteDialog }
+					>
+						{ __( 'Cancel' ) }
+					</Button>
+					<Button
+						className={ styles.confirmDeleteButton }
+						variant="filled"
+						size="medium"
+						label={ __( 'Delete site' ) }
+						disabled={ deleteSite.isPending }
+						aria-busy={ deleteSite.isPending ? 'true' : undefined }
+						onClick={ handleConfirmDelete }
+					>
+						{ deleteSite.isPending ? __( 'Deleting...' ) : __( 'Delete site' ) }
+					</Button>
+				</DialogFooter>
+			</Dialog>
+		</>
 	);
 }
 

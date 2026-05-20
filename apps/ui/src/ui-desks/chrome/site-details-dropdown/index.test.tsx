@@ -1,10 +1,11 @@
 import '@testing-library/jest-dom/vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
 import {
+	useDeleteSite,
 	useIsSiteStarting,
 	useIsSiteStopping,
 	useStartSite,
@@ -40,6 +41,7 @@ vi.mock( '@/data/queries/use-preview-site', () => ( {
 } ) );
 
 vi.mock( '@/data/queries/use-sites', () => ( {
+	useDeleteSite: vi.fn(),
 	useIsSiteStarting: vi.fn(),
 	useIsSiteStopping: vi.fn(),
 	useStartSite: vi.fn(),
@@ -60,6 +62,7 @@ vi.mock( '@/data/queries/use-sync-site', () => ( {
 const useConnectorMock = vi.mocked( useConnector );
 const useConnectedWpcomSitesMock = vi.mocked( useConnectedWpcomSites );
 const usePublishPreviewSiteMock = vi.mocked( usePublishPreviewSite );
+const useDeleteSiteMock = vi.mocked( useDeleteSite );
 const useIsSiteStartingMock = vi.mocked( useIsSiteStarting );
 const useIsSiteStoppingMock = vi.mocked( useIsSiteStopping );
 const useStartSiteMock = vi.mocked( useStartSite );
@@ -73,6 +76,7 @@ describe( 'SiteDetailsDropdown', () => {
 	const publishPreviewMutate = vi.fn();
 	const pullMutate = vi.fn();
 	const pushMutate = vi.fn();
+	const deleteMutate = vi.fn();
 	const startMutate = vi.fn();
 	const stopMutate = vi.fn();
 
@@ -81,6 +85,7 @@ describe( 'SiteDetailsDropdown', () => {
 		publishPreviewMutate.mockReset();
 		pullMutate.mockReset();
 		pushMutate.mockReset();
+		deleteMutate.mockReset();
 		startMutate.mockReset();
 		stopMutate.mockReset();
 		routerMock.navigate.mockReset();
@@ -120,6 +125,10 @@ describe( 'SiteDetailsDropdown', () => {
 		} as never );
 		usePushSiteToLiveMock.mockReturnValue( { mutate: pushMutate } as never );
 		usePullSiteFromLiveMock.mockReturnValue( { mutate: pullMutate } as never );
+		useDeleteSiteMock.mockReturnValue( {
+			isPending: false,
+			mutate: deleteMutate,
+		} as never );
 		useStartSiteMock.mockReturnValue( { mutate: startMutate } as never );
 		useStopSiteMock.mockReturnValue( { mutate: stopMutate } as never );
 		useIsSiteStartingMock.mockReturnValue( false );
@@ -164,6 +173,40 @@ describe( 'SiteDetailsDropdown', () => {
 			to: '/sites/$siteId/settings',
 			params: { siteId: 'site-1' },
 		} );
+	} );
+
+	it( 'confirms before deleting the site from the dropdown', async () => {
+		const site = createSite();
+		render( <SiteDetailsDropdown site={ site } /> );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Site details for Local Studio Site' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Delete site' } ) );
+
+		const dialog = await screen.findByRole( 'dialog', { name: 'Delete Local Studio Site' } );
+		expect(
+			within( dialog ).getByText(
+				"The site's database will be lost, including all posts, pages, comments, and media."
+			)
+		).toBeVisible();
+		expect(
+			within( dialog ).getByRole( 'checkbox', {
+				name: 'Delete site files from my computer',
+			} )
+		).toBeChecked();
+
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Delete site' } ) );
+
+		expect( deleteMutate ).toHaveBeenCalledWith(
+			{ id: 'site-1', deleteFiles: true },
+			expect.objectContaining( {
+				onSuccess: expect.any( Function ),
+				onError: expect.any( Function ),
+			} )
+		);
+
+		const options = deleteMutate.mock.calls[ 0 ][ 1 ];
+		options.onSuccess();
+		expect( routerMock.navigate ).toHaveBeenCalledWith( { to: '/' } );
 	} );
 } );
 

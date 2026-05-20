@@ -6,8 +6,8 @@
  * progress reporting. The parent communicates via IPC messages.
  */
 import { rootCertificates } from 'node:tls';
-import { createNodeFsMountHandler, loadNodeRuntime } from '@php-wasm/node';
-import { PHP, ProcessIdAllocator, setPhpIniEntries } from '@php-wasm/universal';
+import { createNodeFsMountHandler, getPHPLoaderModule, withNetworking } from '@php-wasm/node';
+import { PHP, ProcessIdAllocator, loadPHPRuntime, setPhpIniEntries } from '@php-wasm/universal';
 import { createSpawnHandler } from '@php-wasm/util';
 import { LatestSupportedPHPVersion } from '@studio/common/types/php-versions';
 
@@ -140,12 +140,15 @@ async function pipePhpStream(
 async function runReprint( msg: RunMessage ) {
 	const { pharPath, stateDir, fsRoot, tmpDir, args, mounts = [] } = msg;
 
-	const id = await loadNodeRuntime( LatestSupportedPHPVersion, {
-		followSymlinks: true,
-		emscriptenOptions: {
-			processId: processIdAllocator.claim(),
+	const processId = processIdAllocator.claim();
+	const emscriptenOptions = await withNetworking( {
+		processId,
+		quit: function ( code, error ) {
+			throw error;
 		},
 	} );
+	const phpLoaderModule = await getPHPLoaderModule( LatestSupportedPHPVersion );
+	const id = await loadPHPRuntime( phpLoaderModule, emscriptenOptions );
 	const php = new PHP( id );
 
 	try {
@@ -220,6 +223,7 @@ async function runReprint( msg: RunMessage ) {
 		} satisfies ReprintChildMessage );
 	} finally {
 		php.exit();
+		processIdAllocator.release( processId );
 	}
 }
 

@@ -3,9 +3,16 @@
 /**
  * A phpMyAdmin DBI extension for the MySQL-on-SQLite driver.
  *
- * This implementation is based on the original PhpMyAdmin\Dbal\DbiMysqli class.
- * It is modified to use the MySQL-on-SQLite driver instead of MySQLi extension.
+ * Adapted from WordPress Playground's phpMyAdmin adapter, with small Studio-specific
+ * tweaks (notably loading wp-env.php from a path supplied via the
+ * STUDIO_NATIVE_PHPMYADMIN_WP_ENV_PATH environment variable). Playground's version is
+ * itself based on the original PhpMyAdmin\Dbal\DbiMysqli class, modified to use the
+ * MySQL-on-SQLite driver instead of the MySQLi extension.
  *
+ * To refresh from upstream, re-port from the @source link below and re-apply the
+ * Studio-specific edits.
+ *
+ * @source https://github.com/WordPress/wordpress-playground/blob/dac72f5b40190af049d6a41e4dcc842e8990f64d/packages/playground/tools/src/phpmyadmin/DbiMysqli.php
  * @see https://github.com/phpmyadmin/phpmyadmin/blob/962857e4f63d42e38f11ff4d63f5e722018add76/libraries/classes/Dbal/DbiMysqli.php
  * @see https://github.com/phpmyadmin/phpmyadmin/blob/142c0cf3be84c346174b730b6aa3ebcf44029256/src/Dbal/MysqliResult.php
  */

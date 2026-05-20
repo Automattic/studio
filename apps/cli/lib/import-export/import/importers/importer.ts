@@ -29,7 +29,6 @@ export interface Importer extends ImportExportEventEmitter {
 	import( site: SiteData ): Promise< ImporterResult >;
 }
 
-// Recovers from EEXIST/ENOTDIR by removing a non-directory blocker on the path.
 export async function ensureDir( dir: string ): Promise< void > {
 	try {
 		await fs.promises.mkdir( dir, { recursive: true } );

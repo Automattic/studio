@@ -1,4 +1,4 @@
-import { BlueprintV1Declaration } from '@wp-playground/blueprints';
+import { BlueprintV1Declaration } from '../blueprint-types';
 import {
 	extractFormValuesFromBlueprint,
 	generateDefaultBlueprintDescription,

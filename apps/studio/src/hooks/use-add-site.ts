@@ -249,7 +249,13 @@ export function useAddSite() {
 						enableHttps,
 						siteName: formValues.siteName,
 					} );
-					updatedBlueprint = { ...selectedBlueprint, blueprint: updatedJson };
+					// The wpcom-api Blueprint stores the inner JSON as
+					// `Record<string, unknown>`; widen our typed BlueprintV1Declaration
+					// to fit that shape.
+					updatedBlueprint = {
+						...selectedBlueprint,
+						blueprint: updatedJson as Record< string, unknown >,
+					};
 				}
 
 				await createSite(

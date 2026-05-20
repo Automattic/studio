@@ -6,7 +6,7 @@ import { SiteCommandLoggerAction } from '@studio/common/logger-actions';
 import { z } from 'zod';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { executeCliCommand } from './execute-command';
-import type { Blueprint } from '@wp-playground/blueprints';
+import type { Blueprint } from '@studio/common/lib/blueprint-types';
 
 const cliEventSchema = z.discriminatedUnion( 'action', [
 	z.object( {

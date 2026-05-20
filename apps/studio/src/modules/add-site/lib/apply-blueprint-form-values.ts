@@ -1,7 +1,7 @@
 import { extractFormValuesFromBlueprint } from '@studio/common/lib/blueprint-settings';
 import { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
 import { SupportedPHPVersion } from '@studio/common/types/php-versions';
-import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
+import type { BlueprintV1Declaration } from '@studio/common/lib/blueprint-types';
 
 interface BlueprintFormValueSetters {
 	setBlueprintPreferredVersions: ( versions: BlueprintPreferredVersions | undefined ) => void;

@@ -1,14 +1,11 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
+import {
+	isStepDefinition as __isStepDefinition,
+	type BlueprintV1Declaration,
+} from './blueprint-types';
 import { isSupportedPHPVersion, SupportedPHPVersion } from '../types/php-versions';
-import type { BlueprintV1Declaration, StepDefinition, Step } from '@wp-playground/blueprints';
 
-// Carbon-copy of the original function from @wp-playground/blueprints. Inlined to avoid trouble
-// with unintentionally pulling in a full PHP-WASM dependency tree.
-export function __isStepDefinition(
-	step: Step | string | undefined | false | null
-): step is StepDefinition {
-	return !! ( typeof step === 'object' && step );
-}
+export { __isStepDefinition };
 
 type BlueprintSiteSettings = {
 	enableHttps?: boolean;
@@ -56,9 +53,10 @@ export function extractFormValuesFromBlueprint(
 	}
 
 	const defineSiteUrlStep = steps.find( ( step ) => step.step === 'defineSiteUrl' );
-	if ( defineSiteUrlStep?.siteUrl ) {
+	const siteUrl = defineSiteUrlStep?.siteUrl;
+	if ( typeof siteUrl === 'string' && siteUrl ) {
 		try {
-			const url = new URL( defineSiteUrlStep.siteUrl );
+			const url = new URL( siteUrl );
 			values.customDomain = url.hostname;
 			values.enableHttps = url.protocol === 'https:';
 		} catch {
@@ -78,8 +76,12 @@ export function extractFormValuesFromBlueprint(
 	}
 
 	const setSiteOptionsStep = steps.find( ( step ) => step.step === 'setSiteOptions' );
-	if ( setSiteOptionsStep?.options?.blogname ) {
-		values.siteName = String( setSiteOptionsStep.options.blogname );
+	const options =
+		setSiteOptionsStep?.options && typeof setSiteOptionsStep.options === 'object'
+			? ( setSiteOptionsStep.options as Record< string, unknown > )
+			: undefined;
+	if ( options?.blogname ) {
+		values.siteName = String( options.blogname );
 	}
 
 	// Check top-level login property (shorthand syntax).
@@ -126,8 +128,12 @@ export function updateBlueprintWithFormValues(
 	}
 
 	const siteOptionsStep = steps.find( ( step ) => step.step === 'setSiteOptions' );
-	if ( siteOptionsStep?.options && formValues.siteName ) {
-		siteOptionsStep.options.blogname = formValues.siteName;
+	const siteOptions =
+		siteOptionsStep?.options && typeof siteOptionsStep.options === 'object'
+			? ( siteOptionsStep.options as Record< string, unknown > )
+			: undefined;
+	if ( siteOptions && formValues.siteName ) {
+		siteOptions.blogname = formValues.siteName;
 	}
 
 	return updated;

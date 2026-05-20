@@ -8,7 +8,7 @@ import { FileDropzone } from '@/components/file-dropzone';
 import { useConnector } from '@/data/core';
 import styles from './style.module.css';
 import type { FeaturedBlueprint } from '@/data/core';
-import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
+import type { BlueprintV1Declaration } from '@studio/common/lib/blueprint-types';
 
 export interface PickedBlueprint {
 	title: string;

@@ -6,10 +6,7 @@
 		"moduleResolution": "bundler",
 		"outDir": "dist",
 		"declaration": true,
-		"emitDeclarationOnly": true,
-		"paths": {
-			"@wp-playground/blueprints/blueprint-schema-validator": [ "../../node_modules/@wp-playground/blueprints/blueprint-schema-validator" ]
-		}
+		"emitDeclarationOnly": true
 	},
 	"include": [ "**/*", "**/*.json" ],
 	"exclude": [

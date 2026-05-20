@@ -9,7 +9,7 @@ import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { SyncSite } from '@studio/common/types/sync';
 import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wordpress-rest';
-import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
+import type { BlueprintV1Declaration } from '@studio/common/lib/blueprint-types';
 
 export type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
 export type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';

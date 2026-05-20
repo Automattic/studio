@@ -77,14 +77,6 @@ export const baseConfig = defineConfig( {
 				chunkFileNames: '[name]-[hash].mjs',
 			},
 			external: ( id ) => {
-				// Bundle the `@wp-playground/blueprints/blueprint-schema-validator` module
-				// inline. The validator is resolved via the alias below from the workspace
-				// root, since apps/cli no longer pulls @wp-playground/blueprints into its
-				// own node_modules in this experimental build.
-				if ( id.includes( 'blueprint-schema-validator' ) ) {
-					return false;
-				}
-
 				if ( nodeBuiltinExternals.some( ( pattern ) => pattern.test( id ) ) ) {
 					return true;
 				}
@@ -102,10 +94,6 @@ export const baseConfig = defineConfig( {
 		alias: {
 			cli: resolve( __dirname, '.' ),
 			'@studio/common': resolve( __dirname, '../../tools/common' ),
-			'@wp-playground/blueprints/blueprint-schema-validator': resolve(
-				__dirname,
-				'../../node_modules/@wp-playground/blueprints/blueprint-schema-validator.js'
-			),
 		},
 		conditions: [ 'node' ],
 		mainFields: [ 'main' ],

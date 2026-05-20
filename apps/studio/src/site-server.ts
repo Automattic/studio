@@ -17,7 +17,7 @@ import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { createScreenshotWindow } from 'src/screenshot-window';
 import { getSiteThumbnailPath } from 'src/storage/paths';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
-import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
+import type { BlueprintV1Declaration } from '@studio/common/lib/blueprint-types';
 
 export type WpCliResult = { stdout: string; stderr: string; exitCode: number };
 

@@ -4,6 +4,7 @@ export const SupportedPHPVersions = [ '8.5', '8.4', '8.3', '8.2', '8.1', '8.0', 
 export const NativePhpSupportedVersions = [ '8.5', '8.4', '8.3', '8.2' ] as const;
 
 export const LatestSupportedPHPVersion = '8.5' as const;
+export const LatestNativePhpSupportedVersion = NativePhpSupportedVersions[ 0 ];
 
 /**
  * We don't have an opportunity to retrieve PHP version from Jetpack connected sites,

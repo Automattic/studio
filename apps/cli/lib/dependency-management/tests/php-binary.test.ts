@@ -35,10 +35,8 @@ describe( 'getPhpBinaryDownloadInfo', () => {
 		expect( getPhpBinaryDownloadInfo( '8.4', 'aix', 'x64' ) ).toBeUndefined();
 	} );
 
-	it( 'rejects PHP versions outside the native runtime support policy', () => {
-		expect( () => resolveNativePhpVersion( '8.0' ) ).toThrow(
-			'PHP 8.0 is not supported by the native-php runtime.'
-		);
+	it( 'resolves older supported PHP versions to the closest native PHP version', () => {
+		expect( resolveNativePhpVersion( '8.0' ) ).toBe( '8.2' );
 	} );
 } );
 

@@ -4,6 +4,7 @@ import { vi } from 'vitest';
 import { SiteData } from 'cli/lib/cli-config/core';
 import * as daemonClient from 'cli/lib/daemon-client';
 import { DaemonBus } from 'cli/lib/daemon-client';
+import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
 import {
 	isServerRunning,
 	sendWpCliCommand,
@@ -158,6 +159,27 @@ describe( 'WordPress Server Manager', () => {
 				'studio-site-test-site-id',
 				expect.stringMatching( /php-server-child\.mjs$/ ),
 				{ runtime: SITE_RUNTIME_NATIVE_PHP }
+			);
+		} );
+
+		it( 'should resolve older stored PHP versions to the closest native PHP version when starting native PHP', async () => {
+			vi.stubEnv( 'STUDIO_RUNTIME', SITE_RUNTIME_NATIVE_PHP );
+			setupIpcMocks();
+
+			await startWordPressServer( { ...mockSiteData, phpVersion: '7.4' }, mockLogger );
+
+			expect( vi.mocked( ensurePhpBinaryAvailable ) ).toHaveBeenCalledWith(
+				'8.2',
+				expect.any( Function )
+			);
+			expect( vi.mocked( daemonClient.sendMessageToProcess ) ).toHaveBeenCalledWith(
+				mockProcessDescription.pmId,
+				expect.objectContaining( {
+					topic: 'start-server',
+					data: expect.objectContaining( {
+						config: expect.objectContaining( { phpVersion: '8.2' } ),
+					} ),
+				} )
 			);
 		} );
 

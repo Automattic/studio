@@ -11,7 +11,7 @@ import {
 	PLAYGROUND_CLI_INACTIVITY_TIMEOUT,
 	PLAYGROUND_CLI_MAX_TIMEOUT,
 } from '@studio/common/constants';
-import { validateNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
+import { resolveNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
 import {
 	SITE_RUNTIME_NATIVE_PHP,
 	SITE_RUNTIME_PLAYGROUND,
@@ -105,7 +105,7 @@ function buildServerConfig(
 		port: site.port,
 		phpVersion:
 			runtime === SITE_RUNTIME_NATIVE_PHP
-				? validateNativePhpVersion( site.phpVersion )
+				? resolveNativePhpVersion( site.phpVersion )
 				: site.phpVersion,
 		siteTitle: site.name,
 	};
@@ -186,12 +186,12 @@ async function ensurePhpBinaryAvailableIfNeeded(
 	logger: Logger< string >,
 	runtime: SiteRuntime
 ): Promise< void > {
-	if ( runtime === SITE_RUNTIME_NATIVE_PHP && site.phpVersion ) {
+	if ( runtime === SITE_RUNTIME_NATIVE_PHP ) {
+		const phpVersion = resolveNativePhpVersion( site.phpVersion );
 		logger.reportStart(
 			SiteCommandLoggerAction.ENSURE_PHP_BINARY,
-			`Checking PHP ${ site.phpVersion } binary…`
+			`Checking PHP ${ phpVersion } binary…`
 		);
-		const phpVersion = validateNativePhpVersion( site.phpVersion );
 		await ensurePhpBinaryAvailable( phpVersion, ( downloaded, total ) => {
 			const dl = ( downloaded / 1024 / 1024 ).toFixed( 1 );
 			const tot = total ? ` / ${ ( total / 1024 / 1024 ).toFixed( 1 ) } MB` : '';

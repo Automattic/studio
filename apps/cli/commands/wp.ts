@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { writeStudioMuPluginsForNativePhpRuntime } from '@studio/common/lib/mu-plugins';
-import { validateNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
+import { resolveNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
 import { SITE_RUNTIME_NATIVE_PHP, SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { __ } from '@wordpress/i18n';
 import { ArgumentsCamelCase } from 'yargs';
@@ -47,7 +47,7 @@ enum Mode {
 }
 
 async function runNativePhpWpCliCommand( site: SiteData, args: string[] ): Promise< void > {
-	const phpVersion = validateNativePhpVersion( site.phpVersion );
+	const phpVersion = resolveNativePhpVersion( site.phpVersion );
 	await ensurePhpBinaryAvailable( phpVersion );
 	await writeStudioMuPluginsForNativePhpRuntime( site.path, site.isWpAutoUpdating );
 	// Don't apply open_basedir or disable_functions to the WP-CLI process

@@ -20,8 +20,8 @@ function isNativePhpSupportedVersion( version: string ): version is NativePhpSup
 	return ( NativePhpSupportedVersions as readonly string[] ).includes( version );
 }
 
-// PHP binaries live in ~/.studio/php-bin/<patch>/ — downloaded on demand when a site
-// using that minor version is first started. Not bundled in production builds.
+// PHP binaries live in ~/.studio/php-bin/<patch>/. The default version also ships with
+// Studio and is copied into this writable location by a CLI migration.
 export function getPhpBinaryPath( version: NativePhpSupportedVersion | string ): string {
 	if ( ! isNativePhpSupportedVersion( version ) ) {
 		return getExactPhpBinaryPath( version );

@@ -13,6 +13,7 @@ export interface BetaFeatureDefinition {
  * Default values for beta features.
  */
 const BETA_FEATURE_DEFAULTS: Record< keyof BetaFeatures, boolean > = {
+	remoteSession: false,
 	nativePhpRuntime: false,
 };
 
@@ -22,6 +23,12 @@ const BETA_FEATURE_DEFAULTS: Record< keyof BetaFeatures, boolean > = {
  */
 export function getBetaFeaturesDefinition(): Record< keyof BetaFeatures, BetaFeatureDefinition > {
 	return {
+		remoteSession: {
+			label: __( 'Remote Session' ),
+			key: 'remoteSession',
+			default: BETA_FEATURE_DEFAULTS.remoteSession,
+			description: __( 'Control Studio from Telegram via the remote-session daemon.' ),
+		},
 		nativePhpRuntime: {
 			key: 'nativePhpRuntime',
 			label: __( 'Native PHP runtime' ),
@@ -37,7 +44,7 @@ function buildBetaFeatures( userData: BetaFeatures | undefined ): BetaFeatures {
 	keys.forEach( ( key ) => {
 		features[ key ] = userData?.[ key ] ?? BETA_FEATURE_DEFAULTS[ key ];
 	} );
-	return features;
+	return features as BetaFeatures;
 }
 
 function applyBetaFeaturesToEnvironment( features: BetaFeatures ): void {
@@ -61,9 +68,8 @@ export async function updateBetaFeature(
 		await lockAppdata();
 		const userData = await loadUserData();
 		const betaFeatures = await getBetaFeatures();
-		// If `BetaFeatures` is empty, `key` will be `never`, and we cannot use it to
-		// assign to `betaFeatures`. That's fine. Just rely on type checking when this
-		// function is called.
+		// If `BetaFeatures` is ever empty again, `key` resolves to `never` and this
+		// line stops type-checking. That's fine — rely on type checking at the call site.
 		betaFeatures[ key ] = value;
 		userData.betaFeatures = betaFeatures;
 		applyBetaFeaturesToEnvironment( betaFeatures );

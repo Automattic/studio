@@ -1,10 +1,10 @@
 import { DESK_CONFIG_VERSION, type DeskConfig } from '@/ui-desks/desk/types';
-import { BOOKMARK_WIDGET_TYPE } from '@/ui-desks/widgets/bookmark/types';
 import { DRAWING_WIDGET_TYPE } from '@/ui-desks/widgets/drawing/types';
 import { EMBED_WIDGET_TYPE } from '@/ui-desks/widgets/embed/types';
 import { NOTE_WIDGET_TYPE } from '@/ui-desks/widgets/note/types';
 import { SITE_CARD_WIDGET_TYPE } from '@/ui-desks/widgets/site-card/types';
 import { SITE_PREVIEW_WIDGET_TYPE } from '@/ui-desks/widgets/site-preview/types';
+import { SITE_SHORTCUTS_WIDGET_TYPE } from '@/ui-desks/widgets/site-shortcuts/types';
 import { THEME_WIDGET_TYPE } from '@/ui-desks/widgets/theme/types';
 
 const STUDIO_TOUR_VIDEO_URL = 'https://www.youtube.com/watch?v=2MV17Qzj_T0';
@@ -114,13 +114,13 @@ export const defaultUserDesk: DeskConfig = {
 	],
 };
 
-export function createDefaultSiteDeskConfig( siteUrl = '' ): DeskConfig {
+export function createDefaultSiteDeskConfig(): DeskConfig {
 	return {
 		version: DESK_CONFIG_VERSION,
 		updatedAt: new Date().toISOString(),
 		viewport: {
-			x: 440.72744922694875,
-			y: 53.85707696744839,
+			x: 419.18831968677756,
+			y: 98.5921921662651,
 			z: 0.6035527097673408,
 		},
 		widgets: [
@@ -129,7 +129,7 @@ export function createDefaultSiteDeskConfig( siteUrl = '' ): DeskConfig {
 				type: SITE_CARD_WIDGET_TYPE,
 				x: 184.83596516477996,
 				y: 101.06117767440315,
-				zIndex: 'a00xF',
+				zIndex: 'a04MU',
 				shapeProps: {
 					w: 360,
 					h: 200,
@@ -143,7 +143,7 @@ export function createDefaultSiteDeskConfig( siteUrl = '' ): DeskConfig {
 				type: THEME_WIDGET_TYPE,
 				x: 631.6308732298062,
 				y: 785.2649837045076,
-				zIndex: 'a1BoL',
+				zIndex: 'a17Zw',
 				shapeProps: {
 					w: 760,
 					h: 440,
@@ -157,7 +157,7 @@ export function createDefaultSiteDeskConfig( siteUrl = '' ): DeskConfig {
 				type: SITE_PREVIEW_WIDGET_TYPE,
 				x: 634.5565745594427,
 				y: 98.47227110772417,
-				zIndex: 'a21Yp',
+				zIndex: 'a27H4',
 				shapeProps: {
 					w: 754.6531489796062,
 					h: 603.3094530012401,
@@ -171,7 +171,7 @@ export function createDefaultSiteDeskConfig( siteUrl = '' ): DeskConfig {
 				type: NOTE_WIDGET_TYPE,
 				x: 1278.0300192133188,
 				y: 659.9530248690811,
-				zIndex: 'a32wj',
+				zIndex: 'a34je',
 				shapeProps: {
 					w: 164.11440409609554,
 					h: 80,
@@ -187,7 +187,7 @@ export function createDefaultSiteDeskConfig( siteUrl = '' ): DeskConfig {
 				type: NOTE_WIDGET_TYPE,
 				x: 1269.3487977572597,
 				y: 1177.163284949601,
-				zIndex: 'a49JE',
+				zIndex: 'a4A6S',
 				shapeProps: {
 					w: 160.64603845116085,
 					h: 80,
@@ -199,27 +199,25 @@ export function createDefaultSiteDeskConfig( siteUrl = '' ): DeskConfig {
 				},
 			},
 			{
-				id: '5efaab75-bd70-4332-bdf1-e1183e78331f',
-				type: BOOKMARK_WIDGET_TYPE,
-				x: 246.437937197667,
-				y: 333.81664542698036,
-				zIndex: 'a516A',
+				id: 'site-shortcuts',
+				type: SITE_SHORTCUTS_WIDGET_TYPE,
+				x: 181.3992831377875,
+				y: 688.0537779757126,
+				zIndex: 'a5CE6',
 				shapeProps: {
-					w: 300,
-					h: 101,
+					w: 363.3217408954813,
+					h: 538.6254582619412,
 				},
-				widgetProps: {
-					url: normalizeDefaultSiteDeskUrl( siteUrl ),
-				},
+				widgetProps: {},
 			},
 			{
 				id: 'e60190a0-d2df-4c16-b283-eb19ed8e4839',
 				type: NOTE_WIDGET_TYPE,
-				x: 237.7295705934331,
-				y: 470.6123135830188,
-				zIndex: 'a61Ch',
+				x: 183.78101380809494,
+				y: 336.58687589714395,
+				zIndex: 'a62yJ',
 				shapeProps: {
-					w: 304.9708960372699,
+					w: 360,
 					h: 316,
 				},
 				widgetProps: {
@@ -230,13 +228,4 @@ export function createDefaultSiteDeskConfig( siteUrl = '' ): DeskConfig {
 			},
 		],
 	};
-}
-
-function normalizeDefaultSiteDeskUrl( url: string ) {
-	const trimmedUrl = url.trim();
-	if ( ! trimmedUrl ) {
-		return '';
-	}
-
-	return trimmedUrl.endsWith( '/' ) ? trimmedUrl : `${ trimmedUrl }/`;
 }

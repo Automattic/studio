@@ -27,6 +27,7 @@ import {
 import {
 	getBlueprintsPharPath,
 	getPhpBinaryPath,
+	getPhpMyAdminPath,
 	getWpCliPharPath,
 } from './lib/dependency-management/paths';
 import { getDefaultPhpArgs } from './lib/native-php';
@@ -44,6 +45,47 @@ const WP_CONFIG_TRANSFORMER_PATH = path.resolve(
 	'wp-config-transformer.php'
 );
 const DEFAULT_WP_CONFIG_CONSTANTS = { DB_NAME: 'wordpress' } as const;
+
+function phpStringLiteral( value: string ): string {
+	return `'${ value.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" ) }'`;
+}
+
+function getNativePhpMyAdminWpEnvPath( config: Pick< ServerConfig, 'siteId' > ): string {
+	const safeSiteId = config.siteId.replace( /[^a-zA-Z0-9._-]/g, '-' );
+	return path.join( os.tmpdir(), 'studio-phpmyadmin-wp-env', safeSiteId, 'wp-env.php' );
+}
+
+function getPhpMyAdminSessionPath( config: Pick< ServerConfig, 'siteId' > ): string {
+	const safeSiteId = config.siteId.replace( /[^a-zA-Z0-9._-]/g, '-' );
+	return path.join( os.tmpdir(), 'studio-phpmyadmin-sessions', safeSiteId );
+}
+
+async function writeNativePhpMyAdminWpEnv( config: ServerConfig ): Promise< string > {
+	const wpEnvPath = getNativePhpMyAdminWpEnvPath( config );
+	const sqliteDriverPath = path.join(
+		config.sitePath,
+		'wp-content',
+		'mu-plugins',
+		'sqlite-database-integration',
+		'wp-includes',
+		'database',
+		'load.php'
+	);
+	const sqliteDatabasePath = path.join( config.sitePath, 'wp-content', 'database', '.ht.sqlite' );
+	const wpEnvPhp = `<?php return array (
+  'db' => array (
+    'type' => 'sqlite',
+    'path' => ${ phpStringLiteral( sqliteDatabasePath ) },
+    'driver_path' => ${ phpStringLiteral( sqliteDriverPath ) },
+  ),
+);
+`;
+
+	await fs.promises.mkdir( path.dirname( wpEnvPath ), { recursive: true } );
+	await fs.promises.mkdir( getPhpMyAdminSessionPath( config ), { recursive: true } );
+	await fs.promises.writeFile( wpEnvPath, wpEnvPhp );
+	return wpEnvPath;
+}
 
 let phpProcess: ChildProcess | null = null;
 let startupAbortController: AbortController | null = null;
@@ -71,6 +113,7 @@ function errorToConsole( ...args: Parameters< typeof console.error > ) {
 
 type SpawnPhpProcessOptions = {
 	disallowRiskyFunctions?: boolean;
+	env?: NodeJS.ProcessEnv;
 	mode?: 'pipe' | 'capture-stdout';
 	enableXdebug?: boolean;
 	onlyPathsThatPhpCanAccess?: string[];
@@ -85,6 +128,7 @@ function spawnPhpProcess(
 		phpVersion,
 		siteFolder,
 		signal,
+		env,
 		mode = 'pipe',
 		enableXdebug = false,
 		onlyPathsThatPhpCanAccess = [],
@@ -100,6 +144,7 @@ function spawnPhpProcess(
 	const phpArgs = [ ...defaultArgs, ...args ];
 	const phpScriptProcess = spawn( getPhpBinaryPath( phpVersion ), phpArgs, {
 		cwd: siteFolder,
+		env: env ? { ...process.env, ...env } : process.env,
 		stdio: [ 'ignore', 'pipe', 'pipe' ],
 		signal,
 	} );
@@ -485,6 +530,9 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 
 		currentOpenBasedirAllowlist.add( config.sitePath );
 		currentOpenBasedirAllowlist.add( ROUTER_PATH );
+		currentOpenBasedirAllowlist.add( getPhpMyAdminPath() );
+		currentOpenBasedirAllowlist.add( getNativePhpMyAdminWpEnvPath( config ) );
+		currentOpenBasedirAllowlist.add( getPhpMyAdminSessionPath( config ) );
 		currentOpenBasedirAllowlist.add( muPluginsPath );
 		currentOpenBasedirAllowlist.add( os.tmpdir() );
 		symlinkAllowlistEntries.forEach( ( entry ) => currentOpenBasedirAllowlist.add( entry ) );
@@ -522,9 +570,15 @@ async function doStartServer(
 	);
 
 	try {
+		const phpMyAdminWpEnvPath = await writeNativePhpMyAdminWpEnv( config );
 		const serverChild = spawnPhpProcess( [ '-S', phpAddress, ROUTER_PATH ], {
 			phpVersion,
 			siteFolder: config.sitePath,
+			env: {
+				STUDIO_PHPMYADMIN_PATH: getPhpMyAdminPath(),
+				STUDIO_NATIVE_PHPMYADMIN_WP_ENV_PATH: phpMyAdminWpEnvPath,
+				STUDIO_PHPMYADMIN_SESSION_PATH: getPhpMyAdminSessionPath( config ),
+			},
 			onlyPathsThatPhpCanAccess: Array.from( openBasedirAllowlist ),
 			disallowRiskyFunctions: true,
 			enableXdebug: config.enableXdebug,

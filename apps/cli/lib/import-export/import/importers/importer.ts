@@ -29,6 +29,7 @@ export interface Importer extends ImportExportEventEmitter {
 	import( site: SiteData ): Promise< ImporterResult >;
 }
 
+// Recovers from EEXIST/ENOTDIR by removing a non-directory blocker on the path.
 export async function ensureDir( dir: string ): Promise< void > {
 	try {
 		await fs.promises.mkdir( dir, { recursive: true } );
@@ -46,10 +47,8 @@ export async function ensureDir( dir: string ): Promise< void > {
 	}
 }
 
-// Walk the path top-down: the first existing component that isn't a directory
-// is the blocker. The first missing component means no blocker exists. Uses
 // stat (not lstat) so that symlinks to directories — which mkdir traverses
-// happily — are treated as directories rather than as blockers.
+// without complaint — are treated as directories rather than as blockers.
 async function findNonDirectoryAncestor( start: string ): Promise< string | null > {
 	const resolved = path.resolve( start );
 	const root = path.parse( resolved ).root;

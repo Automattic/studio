@@ -7,10 +7,10 @@ import {
 } from '@wp-playground/tools';
 import fs from 'fs-extra';
 import { z } from 'zod';
+import { extractZip } from '@studio/common/lib/extract-zip';
 import { SQLITE_DATABASE_INTEGRATION_RELEASE_URL } from '../apps/studio/src/constants';
-import { extractZip } from '../tools/common/lib/extract-zip';
 
-const WP_SERVER_FILES_PATH = path.join( __dirname, '..', 'wp-files' );
+const WP_SERVER_FILES_PATH = path.join( import.meta.dirname, '..', 'wp-files' );
 
 const partialGithubReleaseSchema = z.object( {
 	tag_name: z.string(),
@@ -93,21 +93,6 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 		getUrl: () => PHPMYADMIN_DOWNLOAD_URL,
 		destinationPath: path.join( WP_SERVER_FILES_PATH, 'phpmyadmin' ),
 	},
-	{
-		name: 'blueprints-phar',
-		description: 'blueprints.phar CLI tool',
-		getUrl: async () => {
-			const release = await fetchLatestGithubRelease( 'WordPress/php-toolkit' );
-			const asset = release.assets.find( ( a ) => a.name === 'blueprints.phar' );
-			if ( ! asset ) {
-				throw new Error(
-					`blueprints.phar not found in latest php-toolkit release ${ release.tag_name }`
-				);
-			}
-			return asset.browser_download_url;
-		},
-		destinationPath: path.join( WP_SERVER_FILES_PATH, 'blueprints' ),
-	},
 ];
 
 async function downloadFile( file: FileToDownload ): Promise< void > {
@@ -134,9 +119,6 @@ async function downloadFile( file: FileToDownload ): Promise< void > {
 	if ( name === 'wp-cli' ) {
 		console.log( `[${ name }] Moving WP-CLI to destination ...` );
 		fs.moveSync( zipPath, path.join( extractedPath, 'wp-cli.phar' ), { overwrite: true } );
-	} else if ( name === 'blueprints-phar' ) {
-		console.log( `[${ name }] Moving blueprints.phar to destination ...` );
-		fs.moveSync( zipPath, path.join( extractedPath, 'blueprints.phar' ), { overwrite: true } );
 	} else if ( name === 'sqlite' ) {
 		/**
 		 * The SQLite database integration plugin zip extracts into a folder named

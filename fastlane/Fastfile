@@ -167,8 +167,8 @@ lane :distribute_release_build do |version: read_package_json_version|
   )
 end
 
-desc 'Upload Studio PHP CLI binaries to Apps CDN'
-lane :publish_php_cli_binaries do |version:, artifacts_dir: PHP_CLI_BUILDS_FOLDER, visibility: 'internal', error_on_duplicate: true, output_file: nil|
+desc 'Upload or update Studio PHP CLI binaries on Apps CDN'
+lane :publish_php_cli_binaries do |version:, artifacts_dir: PHP_CLI_BUILDS_FOLDER, visibility: 'internal', error_on_duplicate: false, output_file: nil|
   upload_php_cli_binaries_to_apps_cdn(
     version:,
     artifacts_dir:,
@@ -522,28 +522,26 @@ def distribute_builds(
     }
   }
 
-  # Linux is dev-only for now — the release pipeline produces only Mac/Windows
-  # artifacts. On Linux the .deb is the only artifact (it serves as both the
-  # update payload and the full installer); `install_type: 'Update'` matches
-  # the URL convention the WPCOM updates endpoint emits for the polling path.
-  if release_tag.nil?
-    update_builds[:linux_x64_deb] = {
-      binary_path: linux_deb_path(arch: 'x64'),
-      name: 'Linux - x64 (DEB)',
-      platform: 'Linux - x64',
-      arch: 'x64',
-      install_type: 'Update',
-      sha: commit_hash
-    }
-    update_builds[:linux_arm64_deb] = {
-      binary_path: linux_deb_path(arch: 'arm64'),
-      name: 'Linux - ARM64 (DEB)',
-      platform: 'Linux - ARM64',
-      arch: 'arm64',
-      install_type: 'Update',
-      sha: commit_hash
-    }
-  end
+  # On Linux the .deb is the only artifact — it serves as both the update
+  # payload and the full installer — so the same entry covers dev and release
+  # builds. `install_type: 'Update'` matches the URL convention the WPCOM
+  # updates endpoint emits for the in-app updater's polling path.
+  update_builds[:linux_x64_deb] = {
+    binary_path: linux_deb_path(arch: 'x64'),
+    name: 'Linux - x64 (DEB)',
+    platform: 'Linux - x64',
+    arch: 'x64',
+    install_type: 'Update',
+    sha: commit_hash
+  }
+  update_builds[:linux_arm64_deb] = {
+    binary_path: linux_deb_path(arch: 'arm64'),
+    name: 'Linux - ARM64 (DEB)',
+    platform: 'Linux - ARM64',
+    arch: 'arm64',
+    install_type: 'Update',
+    sha: commit_hash
+  }
 
   full_install_builds = {
     x64_dmg: {
@@ -720,6 +718,16 @@ def php_cli_cdn_builds(version:)
       file_name: "php-#{version}-cli-windows-x86_64.zip",
       name: 'Windows x64',
       platform: 'Windows - x64'
+    },
+    {
+      file_name: "php-#{version}-cli-linux-x86_64.zip",
+      name: 'Linux x64',
+      platform: 'Linux - x64'
+    },
+    {
+      file_name: "php-#{version}-cli-linux-aarch64.zip",
+      name: 'Linux arm64',
+      platform: 'Linux - ARM64'
     }
   ]
 end
@@ -754,7 +762,7 @@ def upload_php_cli_binaries_to_apps_cdn(version:, artifacts_dir:, visibility:, e
 
     sha = read_sha256_sidecar(file_path:)
     release_notes = "PHP #{version} CLI binary for #{build[:name]}"
-    UI.message("Uploading PHP CLI binary: #{build[:file_name]}")
+    UI.message("Uploading or updating PHP CLI binary: #{build[:file_name]}")
     media_url = nil
 
     if dry_run
@@ -789,7 +797,7 @@ def upload_php_cli_binaries_to_apps_cdn(version:, artifacts_dir:, visibility:, e
       UI.user_error!('Apps CDN upload response did not include media_url') if media_url.to_s.empty?
 
       UI.message('--------------------------------')
-      UI.message("✅ Uploaded PHP CLI binary: #{file_path} to #{media_url}")
+      UI.message("✅ Uploaded or updated PHP CLI binary: #{file_path} to #{media_url}")
     end
 
     builds[build[:file_name]] = {
@@ -946,7 +954,7 @@ def create_draft_github_release(version:, release_tag:, builds:)
   notes = extract_release_notes(version: version)
 
   # Format download links from CDN URLs
-  download_link_keys = %i[x64_dmg arm64_dmg windows windows_arm64]
+  download_link_keys = %i[x64_dmg arm64_dmg windows windows_arm64 linux_x64_deb linux_arm64_deb]
   links = download_link_keys.filter_map do |key|
     build = builds[key]
     next unless build&.dig(:cdn_url)

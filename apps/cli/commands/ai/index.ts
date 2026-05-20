@@ -32,7 +32,6 @@ import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
-import { isRemoteSessionEnabled } from 'cli/lib/feature-flags';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 import type { SessionManager } from '@mariozechner/pi-coding-agent';
@@ -605,8 +604,7 @@ export async function runCommand( options: {
 
 	// Surface remote-session daemon status in the editor's bottom bar. Cheap
 	// fs poll catches external start/stop (e.g. `studio code remote-session
-	// stop` from another terminal) without blocking the REPL. Skipped entirely
-	// when the feature flag is off.
+	// stop` from another terminal) without blocking the REPL.
 	const stopDaemonStatusPolling = startDaemonStatusPolling( ui );
 
 	// --- Main loop ---
@@ -695,16 +693,13 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 
 			// `--message-from-stdin` is the headless turn entry point used by the
 			// remote-session daemon (see `apps/cli/remote-session/turn-runner.ts`).
-			// It stays hidden and is gated behind STUDIO_ENABLE_REMOTE_SESSION so
-			// it isn't dispatchable for users who haven't opted in.
-			if ( isRemoteSessionEnabled() ) {
-				chain = chain.option( 'message-from-stdin', {
-					type: 'boolean',
-					hidden: true,
-					default: false,
-					description: __( 'Read the initial message from stdin (for headless drivers)' ),
-				} );
-			}
+			// It stays hidden so it doesn't clutter `--help` for direct callers.
+			chain = chain.option( 'message-from-stdin', {
+				type: 'boolean',
+				hidden: true,
+				default: false,
+				description: __( 'Read the initial message from stdin (for headless drivers)' ),
+			} );
 
 			return chain.check( ( argv ) => {
 				if ( argv.json && ! argv.message && ! argv.messageFromStdin ) {
@@ -727,7 +722,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				const adapter: AiOutputAdapter = typedArgv.json ? new JsonAdapter() : new AiChatUI();
 
 				let initialMessage = typedArgv.message;
-				if ( typedArgv.messageFromStdin && isRemoteSessionEnabled() ) {
+				if ( typedArgv.messageFromStdin ) {
 					initialMessage = await readAllStdin();
 					if ( ! initialMessage ) {
 						process.stderr.write(

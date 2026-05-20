@@ -1,31 +1,27 @@
 import { Dialog } from '@base-ui/react/dialog';
-import { createDefaultDeskSettings } from '@studio/common/lib/desk-settings';
 import { __ } from '@wordpress/i18n';
 import { box, buttons, formatListBullets, plus } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import motionStyles from '@/components/floating-surface-motion/style.module.css';
-import { useDeskSettings } from '@/data/queries/use-desk-config';
 import { useSessions, useUpdateSessionMetadata } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import { useFullscreen } from '@/hooks/use-fullscreen';
 import { ChatsButton } from '@/ui-desks/chrome/chats-button';
-import {
-	getDeskToolbarButtonSide,
-	normalizeDeskToolbarSettings,
-} from '@/ui-desks/chrome/toolbar-layout';
 import { Button } from '@/ui-desks/components';
 import { useChats } from '../context';
 import { SessionSurface } from '../session-surface';
-import { useChatPanelResize } from '../use-chat-panel-resize';
 import { WidgetContextThumbnailList } from '../widget-context';
 import styles from './style.module.css';
+import type { ChatPanelResizeState, ChatPanelSide } from '../use-chat-panel-resize';
 import type { AiSessionSummary } from '@/data/core';
 import type { CSSProperties } from 'react';
 
 interface ChatsProps {
 	siteId?: string;
+	side: ChatPanelSide;
+	panel: ChatPanelResizeState;
 }
 
 const COMPACT_STORAGE_KEY = 'ui-desks-chat-list-compact';
@@ -145,7 +141,7 @@ export function ChatsTrigger() {
 	return <ChatsButton open={ open } onToggle={ () => setOpen( ! open ) } />;
 }
 
-export function Chats( { siteId }: ChatsProps ) {
+export function Chats( { siteId, side, panel }: ChatsProps ) {
 	const {
 		open,
 		setOpen,
@@ -161,19 +157,11 @@ export function Chats( { siteId }: ChatsProps ) {
 		startNewChat,
 		consumePendingPrompt,
 	} = useChats();
-	const { data: savedDeskSettings } = useDeskSettings();
 	const { data: sessions, isFetching: isFetchingSessions } = useSessions();
 	const { data: sites } = useSites();
 	const isFullscreen = useFullscreen();
 	const updateSessionMetadata = useUpdateSessionMetadata();
-	const fallbackDeskSettings = useMemo( () => createDefaultDeskSettings(), [] );
-	const deskSettings = useMemo(
-		() => normalizeDeskToolbarSettings( savedDeskSettings ?? fallbackDeskSettings ),
-		[ fallbackDeskSettings, savedDeskSettings ]
-	);
-	const side = getDeskToolbarButtonSide( deskSettings.toolbarLayout, 'chat' );
-	const { width, isResizing, listCollapsed, collapseList, expandList, startResize } =
-		useChatPanelResize( side );
+	const { width, isResizing, listCollapsed, collapseList, expandList, startResize } = panel;
 	const [ compact, setCompact ] = useState( readStoredCompactPreference );
 	const [ archivedOpen, setArchivedOpen ] = useState( false );
 	const site = siteId ? sites?.find( ( candidate ) => candidate.id === siteId ) : undefined;

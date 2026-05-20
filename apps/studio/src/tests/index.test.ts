@@ -74,6 +74,7 @@ vi.mock( 'src/modules/remote-session/daemon-status-poller', () => ( {
 	// keeps this suite focused on app-boot bookkeeping.
 	startRemoteSessionStatusPolling: vi.fn().mockReturnValue( () => undefined ),
 } ) );
+vi.mock( 'electron-squirrel-startup', () => ( { default: false } ) );
 vi.mock( 'electron-devtools-installer', () => ( {
 	installExtension: vi.fn().mockResolvedValue( { id: 'test-extension' } ),
 	REACT_DEVELOPER_TOOLS: { id: 'fmkadmapgofadopljbjfkapdkoienihi' },

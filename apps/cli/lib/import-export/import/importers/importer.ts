@@ -4,6 +4,7 @@ import { createInterface } from 'readline';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { generateBackupFilename } from '@studio/common/lib/generate-backup-filename';
 import { ImportEvents } from '@studio/common/lib/import-export-events';
+import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { serializePlugins } from '@studio/common/lib/serialize-plugins';
 import { SupportedPHPVersionsList } from '@studio/common/types/php-versions';
 import { __, sprintf } from '@wordpress/i18n';
@@ -22,6 +23,28 @@ export interface ImporterResult extends Omit< BackupContents, 'metaFile' > {
 
 export interface Importer extends ImportExportEventEmitter {
 	import( site: SiteData ): Promise< ImporterResult >;
+}
+
+// mkdir with recursive:true throws EEXIST only when a path along the way exists
+// and is not a directory. On Windows this surfaces after `git checkout` materializes
+// a tracked symlink as a regular file (Pressable repos often track managed plugins
+// like akismet/jetpack as symlinks, which become small text files when checked out
+// without core.symlinks=true). Replace the offender and retry.
+export async function ensureDir( dir: string ): Promise< void > {
+	try {
+		await fs.promises.mkdir( dir, { recursive: true } );
+	} catch ( error ) {
+		if ( ! isErrnoException( error ) || error.code !== 'EEXIST' ) {
+			throw error;
+		}
+		const blockingPath = error.path ?? dir;
+		const stat = await fs.promises.lstat( blockingPath );
+		if ( stat.isDirectory() ) {
+			throw error;
+		}
+		await fs.promises.unlink( blockingPath );
+		await fs.promises.mkdir( dir, { recursive: true } );
+	}
 }
 
 abstract class BaseImporter extends ImportExportEventEmitter implements Importer {
@@ -232,7 +255,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 				);
 
 				const destPath = path.join( wpContentDestDir, relativePath );
-				await fs.promises.mkdir( path.dirname( destPath ), { recursive: true } );
+				await ensureDir( path.dirname( destPath ) );
 				await fs.promises.copyFile( file, destPath );
 
 				processedItems++;

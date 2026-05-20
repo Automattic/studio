@@ -37,12 +37,7 @@ export async function ensureDir( dir: string ): Promise< void > {
 		if ( ! isErrnoException( error ) || error.code !== 'EEXIST' ) {
 			throw error;
 		}
-		const blockingPath = error.path ?? dir;
-		const stat = await fs.promises.lstat( blockingPath );
-		if ( stat.isDirectory() ) {
-			throw error;
-		}
-		await fs.promises.unlink( blockingPath );
+		await fs.promises.unlink( error.path ?? dir );
 		await fs.promises.mkdir( dir, { recursive: true } );
 	}
 }

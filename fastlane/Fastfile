@@ -1006,7 +1006,11 @@ def ensure_release_tag(release_tag:, commit:)
         "Delete it (`git tag -d #{release_tag}`) and rerun."
       )
     end
-    UI.message("Local tag #{release_tag} already exists at #{commit[0..8]}; pushing it.")
+    if DRY_RUN
+      UI.message("Local tag #{release_tag} already exists at #{commit[0..8]}; push will be skipped in dry run.")
+    else
+      UI.message("Local tag #{release_tag} already exists at #{commit[0..8]}; pushing it.")
+    end
   elsif DRY_RUN
     UI.message("[DRY RUN] Would tag #{commit[0..8]} as #{release_tag} and push it to origin")
     return

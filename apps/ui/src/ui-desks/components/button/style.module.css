@@ -45,6 +45,14 @@
 	outline-offset: 2px;
 }
 
+.xsmall {
+	min-height: 22px;
+	padding: 0 6px;
+	gap: 4px;
+	font-size: 12px;
+	line-height: 16px;
+}
+
 .small {
 	min-height: 32px;
 	padding: 0 8px;
@@ -75,6 +83,14 @@
 	gap: 6px;
 	font-size: 13px;
 	line-height: 18px;
+}
+
+.quiet[data-icon-only='true'].xsmall,
+.filled[data-icon-only='true'].xsmall {
+	width: 22px;
+	min-width: 22px;
+	height: 22px;
+	padding: 0;
 }
 
 .quiet[data-icon-only='true'].small,
@@ -166,16 +182,27 @@
 	--button-foreground: #fff;
 }
 
+.filled.inverse,
+.chrome.inverse {
+	--button-background: var(--ui-desks-text, #14171a);
+	--button-foreground: #fff;
+}
+
 .filled.primary:hover:not(:disabled),
 .chrome.primary:hover:not(:disabled) {
 	--button-background: #2448e2;
 }
 
-.filled.primary[data-icon-only='true'] {
+.filled.inverse:hover:not(:disabled),
+.chrome.inverse:hover:not(:disabled) {
+	--button-background: #000;
+}
+
+.filled.primary.chatIntent {
 	box-shadow: 0 6px 18px rgba(56, 88, 233, 0.45);
 }
 
-.filled.primary[data-icon-only='true']:hover:not(:disabled) {
+.filled.primary.chatIntent:hover:not(:disabled) {
 	--button-background: #3858e9;
 	box-shadow: 0 8px 22px rgba(56, 88, 233, 0.55);
 	transform: translateY(-1px);

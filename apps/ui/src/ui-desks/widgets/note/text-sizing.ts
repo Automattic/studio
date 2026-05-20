@@ -1,6 +1,6 @@
-import styles from './style.module.css';
+import styles from './component/style.module.css';
 import { NOTE_TEXT_SIZE_COUNT, type NoteWidgetProps } from './types';
-import type { RectangleWidgetShapeProps } from '@/ui-desks/widgets/geometry';
+import type { RectangleWidgetShapeProps } from '@/ui-desks/widget-actions/geometry';
 
 const NOTE_MIN_FIT_HEIGHT = 80;
 

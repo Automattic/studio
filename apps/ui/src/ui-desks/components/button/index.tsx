@@ -5,12 +5,22 @@ import styles from './style.module.css';
 import type { ComponentProps, ComponentPropsWithoutRef, ReactNode } from 'react';
 
 type ButtonVariant = 'chrome' | 'quiet' | 'filled';
-type ButtonTone = 'neutral' | 'primary';
-type ButtonSize = 'small' | 'medium' | 'large' | 'xlarge';
+type ButtonTone = 'neutral' | 'primary' | 'inverse';
+type ButtonSize = 'xsmall' | 'small' | 'medium' | 'large' | 'xlarge';
+type ButtonIntent = 'default' | 'chat';
+
+const ICON_SIZE_BY_BUTTON_SIZE: Record< ButtonSize, number > = {
+	xsmall: 16,
+	small: 18,
+	medium: 24,
+	large: 24,
+	xlarge: 24,
+};
 
 type ButtonProps = Omit< ComponentPropsWithoutRef< 'button' >, 'children' > & {
 	children?: ReactNode;
 	icon?: ComponentProps< typeof Icon >[ 'icon' ];
+	intent?: ButtonIntent;
 	label: string;
 	size?: ButtonSize;
 	tone?: ButtonTone;
@@ -25,6 +35,7 @@ export const Button = forwardRef< HTMLButtonElement, ButtonProps >( function But
 		className,
 		disabled,
 		icon,
+		intent = 'default',
 		label,
 		size = 'large',
 		tone = 'neutral',
@@ -42,13 +53,16 @@ export const Button = forwardRef< HTMLButtonElement, ButtonProps >( function But
 		styles.button,
 		styles[ variant ],
 		styles[ size ],
-		tone === 'primary' && styles.primary,
+		tone !== 'neutral' && styles[ tone ],
+		intent !== 'default' && styles[ `${ intent }Intent` ],
 		className
 	);
 	const resolvedTooltipSide = tooltipSide ?? ( variant === 'quiet' ? 'top' : 'bottom' );
 	const content = (
 		<>
-			{ icon ? <Icon icon={ icon } size={ 24 } className={ styles.icon } /> : null }
+			{ icon ? (
+				<Icon icon={ icon } size={ ICON_SIZE_BY_BUTTON_SIZE[ size ] } className={ styles.icon } />
+			) : null }
 			{ children }
 		</>
 	);

@@ -39,7 +39,7 @@ export function ComposerSkeleton() {
 							<span className={ clsx( styles.skeletonTool, styles.skeletonTextTool ) } />
 						</div>
 					</div>
-					<span className={ styles.sendButton } />
+					<span className={ clsx( styles.skeletonTool, styles.skeletonAction ) } />
 				</div>
 			</form>
 		</div>
@@ -247,6 +247,7 @@ export function Composer( {
 	}, [ connector, onSwitchSession, ownerSiteId, pendingFamilyChange, queryClient ] );
 
 	const canSend = value.trim().length > 0;
+	const showSendButton = ! busy || canSend;
 	const sendAriaLabel = busy ? __( 'Queue' ) : __( 'Send' );
 	const visibleContextWidgets = contextWidgets.slice( 0, MAX_VISIBLE_CHAT_WIDGETS );
 	const hiddenContextWidgetCount = contextWidgets.length - visibleContextWidgets.length;
@@ -267,15 +268,16 @@ export function Composer( {
 								title={ getWidgetDisplayLabel( widget ) }
 							>
 								<WidgetContextThumbnail widget={ widget } />
-								<button
-									type="button"
+								<Button
+									variant="filled"
+									size="xsmall"
 									className={ styles.removeAttachment }
-									aria-label={ getRemoveWidgetAttachmentLabel( widget ) }
+									icon={ closeSmall }
+									label={ getRemoveWidgetAttachmentLabel( widget ) }
+									tooltipLabel={ false }
 									title={ getRemoveWidgetAttachmentLabel( widget ) }
 									onClick={ () => removeContextWidget( widget.id ) }
-								>
-									<Icon icon={ closeSmall } size={ 16 } />
-								</button>
+								/>
 							</div>
 						) ) }
 						{ hiddenContextWidgetCount > 0 && (
@@ -394,27 +396,35 @@ export function Composer( {
 						</div>
 						<div className={ styles.promptActions }>
 							{ busy ? (
-								<button
-									type="button"
+								<Button
+									tone="inverse"
+									variant="filled"
+									size="small"
 									className={ styles.stopButton }
+									label={ isInterrupting ? __( 'Stopping' ) : __( 'Stop' ) }
+									tooltipLabel={ false }
 									onClick={ () => void onInterrupt() }
-									aria-label={ isInterrupting ? __( 'Stopping' ) : __( 'Stop' ) }
 									aria-busy={ isInterrupting }
 									title={
 										isInterrupting ? __( 'Stopping… click again to force stop' ) : __( 'Stop' )
 									}
 								>
 									<span className={ styles.stopGlyph } aria-hidden="true" />
-								</button>
+								</Button>
 							) : null }
-							<button
-								type="submit"
-								className={ styles.sendButton }
-								disabled={ ! canSend }
-								aria-label={ sendAriaLabel }
-							>
-								<Icon icon={ arrowUp } size={ 24 } />
-							</button>
+							{ showSendButton ? (
+								<Button
+									type="submit"
+									intent="chat"
+									tone="primary"
+									variant="filled"
+									size="small"
+									disabled={ ! canSend }
+									icon={ arrowUp }
+									label={ sendAriaLabel }
+									tooltipLabel={ false }
+								/>
+							) : null }
 						</div>
 					</div>
 				</form>

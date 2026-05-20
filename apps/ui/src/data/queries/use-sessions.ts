@@ -1,6 +1,6 @@
 import { deriveEffectiveEnvironment } from '@studio/common/ai/sessions/effective-site';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useConnector } from '@/data/core';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import type { AiSessionSummary, LoadedAiSession } from '@/data/core';
@@ -213,4 +213,17 @@ export function useSessionEffectiveEnvironment(
 		const connectedLiveIds = new Set( ( connectedSites ?? [] ).map( ( site ) => site.id ) );
 		return deriveEffectiveEnvironment( summary, ( blogId ) => connectedLiveIds.has( blogId ) );
 	}, [ summary, connectedSites ] );
+}
+
+export function useSyncSessionsWithEvents(): void {
+	const connector = useConnector();
+	const queryClient = useQueryClient();
+	useEffect( () => {
+		return connector.onSessionPlacementUpdated( ( event ) => {
+			void queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } );
+			void queryClient.invalidateQueries( {
+				queryKey: [ ...SESSIONS_QUERY_KEY, event.sessionId ],
+			} );
+		} );
+	}, [ connector, queryClient ] );
 }

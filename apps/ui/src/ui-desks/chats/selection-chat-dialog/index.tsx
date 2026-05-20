@@ -9,10 +9,10 @@ import {
 } from '@/ui-desks/chats/widget-context';
 import {
 	Button,
-	PromptDialog,
-	PromptDialogError,
-	PromptDialogRow,
-	promptDialogInputClassName,
+	Dialog,
+	DialogError,
+	DialogRow,
+	dialogInputClassName,
 } from '@/ui-desks/components';
 import type { DeskWidget } from '@/ui-desks/widgets/types';
 
@@ -53,18 +53,19 @@ export function SelectionChatDialog( { widgets, onClose }: SelectionChatDialogPr
 	};
 
 	return (
-		<PromptDialog
+		<Dialog
 			ariaLabel={ __( 'Chat about selection' ) }
+			as="form"
 			onClose={ onClose }
 			onSubmit={ ( event ) => {
 				event.preventDefault();
 				void submitPrompt();
 			} }
 		>
-			<PromptDialogRow>
+			<DialogRow>
 				<textarea
 					ref={ textareaRef }
-					className={ promptDialogInputClassName }
+					className={ dialogInputClassName }
 					value={ prompt }
 					rows={ 1 }
 					placeholder={ __( 'Ask about this selection...' ) }
@@ -78,6 +79,7 @@ export function SelectionChatDialog( { widgets, onClose }: SelectionChatDialogPr
 				/>
 				<Button
 					icon={ arrowUp }
+					intent="chat"
 					label={ isCreatingChat ? __( 'Creating chat' ) : __( 'Send' ) }
 					disabled={ ! canSubmit }
 					aria-busy={ isCreatingChat }
@@ -87,9 +89,9 @@ export function SelectionChatDialog( { widgets, onClose }: SelectionChatDialogPr
 					tone="primary"
 					size="large"
 				/>
-			</PromptDialogRow>
+			</DialogRow>
 			<WidgetContextThumbnailList widgets={ widgets } />
-			{ error && <PromptDialogError>{ error }</PromptDialogError> }
-		</PromptDialog>
+			{ error && <DialogError>{ error }</DialogError> }
+		</Dialog>
 	);
 }

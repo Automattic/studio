@@ -1,4 +1,4 @@
-import type { AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiModelId } from '@studio/common/ai/models';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { SupportedLocale } from '@studio/common/lib/locale';
@@ -11,6 +11,7 @@ import type { SyncSite } from '@studio/common/types/sync';
 import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wordpress-rest';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
+export type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
 export type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 export type { SessionEntry } from '@mariozechner/pi-coding-agent';
 export type {
@@ -33,6 +34,18 @@ export type { SupportedTerminal } from '@studio/common/lib/user-settings/termina
 export type { SupportedLocale } from '@studio/common/lib/locale';
 
 export type InstalledApps = Record< SupportedEditor | SupportedTerminal, boolean >;
+
+export interface AiSessionSitePlacement {
+	kind: 'site';
+	siteId: string;
+	sitePath: string;
+	siteName: string;
+}
+
+export interface AiSessionPlacementUpdatedEvent {
+	sessionId: string;
+	placement: AiSessionSitePlacement;
+}
 
 export interface SiteDetails {
 	id: string;
@@ -60,6 +73,12 @@ export interface SiteDetails {
 		isBlockTheme: boolean;
 	};
 	siteIcon?: string | null;
+}
+
+export interface LocalMediaFile {
+	name: string;
+	mimeType: string;
+	data: ArrayBuffer;
 }
 
 export interface AuthUser {
@@ -99,6 +118,9 @@ export interface Connector {
 	// process handler. `wpVersion` is only forwarded when the user explicitly
 	// picked a pinned version — undefined means "keep auto-updating".
 	updateSite( site: SiteDetails, wpVersion?: string ): Promise< void >;
+	// Refreshes the cached WordPress Site Icon path after a site-level icon
+	// change. The renderer receives image bytes through getSites().
+	refreshSiteIcon( siteId: string ): Promise< void >;
 	// Xdebug is exclusive across sites; returns the one site currently using
 	// it (or null) so the settings form can block a conflicting toggle.
 	getXdebugEnabledSite(): Promise< SiteDetails | null >;
@@ -129,6 +151,7 @@ export interface Connector {
 	// in the renderer. Returns an empty string when the underlying file lacks
 	// a real path (synthetic blobs, non-Electron environments).
 	getFilePath( file: File ): Promise< string >;
+	readLocalMediaFile( path: string ): Promise< LocalMediaFile >;
 
 	// Extracts a Blueprint ZIP bundle to a temp directory and returns the
 	// parsed `blueprint.json`. The caller is responsible for calling
@@ -211,6 +234,7 @@ export interface Connector {
 		prompt: string,
 		options?: { displayMessage?: string }
 	): Promise< { runId: string } >;
+	getActiveAgentRuns(): Promise< ActiveAgentRun[] >;
 	// Persist a UI-driven model override for the session. The CLI picks this up
 	// on the next turn; the change survives reloads because it's written to the
 	// session JSONL.
@@ -218,6 +242,9 @@ export interface Connector {
 	interruptAgentRun( runId: string ): Promise< void >;
 	answerAgentQuestion( runId: string, answers: Record< string, string > ): Promise< void >;
 	onAgentEvent( listener: ( event: AgentRunEvent ) => void ): () => void;
+	onSessionPlacementUpdated(
+		listener: ( event: AiSessionPlacementUpdatedEvent ) => void
+	): () => void;
 
 	// Flip the session between acting on its owner site's local runtime vs.
 	// its linked WordPress.com live site. The owner site itself never changes.
@@ -240,6 +267,8 @@ export interface Connector {
 	// Desks
 	getDeskSettings(): Promise< DeskSettings >;
 	saveDeskSettings( settings: DeskSettings ): Promise< void >;
+	exportDeskConfig( config: DeskConfig, suggestedFilename: string ): Promise< string | null >;
+	importDeskConfig(): Promise< DeskConfig | null >;
 	getUserDeskConfig(): Promise< DeskConfig | undefined >;
 	saveUserDeskConfig( config: DeskConfig ): Promise< void >;
 	getSiteDeskConfig( siteId: string ): Promise< DeskConfig | undefined >;

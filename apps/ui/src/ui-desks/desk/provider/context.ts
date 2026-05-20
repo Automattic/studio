@@ -1,16 +1,62 @@
 import { createContext, useContext } from 'react';
-import type { DeskConfig } from '../types';
+import type { DeskConfig, DeskConnector, DeskStack } from '../types';
+import type {
+	DeskWidgetConnectionTarget,
+	SelectedDeskConnectorToolbarItem,
+} from '@/ui-desks/connectors/utils';
+import type { getSelectedWidgetToolbarItem } from '@/ui-desks/desk/selection-toolbar/selection';
+import type { DeskFocusDesk, DeskFocusMode } from '@/ui-desks/focus-mode/types';
 import type { StackViewMode } from '@/ui-desks/stacks/utils';
-import type { getSelectedWidgetToolbarItem } from '@/ui-desks/widgets/toolbar-selection';
-import type { WidgetPastePayload } from '@/ui-desks/widgets/types';
+import type {
+	DeskWidget,
+	DeskWidgetDefinition,
+	WidgetPastePayload,
+} from '@/ui-desks/widgets/types';
 import type { ReactNode } from 'react';
-import type { Editor } from 'tldraw';
+import type { Editor, TLShapeId } from 'tldraw';
 
 export type SelectedWidgetToolbarItem = NonNullable<
 	ReturnType< typeof getSelectedWidgetToolbarItem >
 >;
 
 export type RegisterDeskEditor = ( editor: Editor | null ) => void;
+export type PreviewContentType = 'post' | 'page';
+
+export interface TemporaryDeskConnector extends DeskConnector {
+	appearance?: {
+		dash?: 'solid' | 'dashed';
+		arrowheadStart?: 'none' | 'dot';
+		arrowheadEnd?: 'none' | 'arrow';
+	};
+}
+
+export interface ToggleTemporaryDeskOptions {
+	id: string;
+	sourceWidgetId?: string;
+	followSource?: boolean;
+	widgets: DeskWidget[];
+	stacks?: DeskStack[];
+	connectors?: TemporaryDeskConnector[];
+}
+
+export interface DeskMaterialization {
+	widgets: DeskWidget[];
+	stacks?: DeskStack[];
+	connectors?: DeskConnector[];
+	selectWidgetIds?: string[];
+}
+
+export interface DeskMaterializationContext {
+	center: {
+		x: number;
+		y: number;
+	};
+	zIndex: string;
+}
+
+export type CreateDeskMaterialization = (
+	context: DeskMaterializationContext
+) => DeskMaterialization | null;
 
 export interface DeskContextValue {
 	siteId?: string;
@@ -19,10 +65,25 @@ export interface DeskContextValue {
 	statusMessage?: string;
 	canAddWidgets: boolean;
 	selectedWidgetToolbarItem: SelectedWidgetToolbarItem | null;
+	selectedConnectorToolbarItem: SelectedDeskConnectorToolbarItem | null;
+	selectedWidgetConnectionTargets: DeskWidgetConnectionTarget[];
+	isConnectingWidget: boolean;
+	focusMode: DeskFocusMode | null;
+	focusedWidget: DeskWidget | null;
+	focusedWidgetDefinition: DeskWidgetDefinition | null;
 	pressedStackId: string | null;
 	registerEditor: RegisterDeskEditor;
 	pressStack: ( stackId: string ) => void;
 	addWidget: ( type: string, options?: AddDeskWidgetOptions ) => boolean;
+	addMaterializedDesk: (
+		createMaterialization: CreateDeskMaterialization,
+		options?: AddDeskMaterializedOptions
+	) => boolean;
+	addWidgetAtScreenPoint: (
+		type: string,
+		point: { x: number; y: number },
+		options?: Omit< AddDeskWidgetOptions, 'center' >
+	) => boolean;
 	addPastedContent: (
 		payload: WidgetPastePayload,
 		options?: AddDeskWidgetOptions
@@ -32,11 +93,24 @@ export interface DeskContextValue {
 	updateSelectedWidgetProps: ( widgetProps: Record< string, unknown > ) => boolean;
 	canEditSelectedWidget: boolean;
 	editSelectedWidget: () => boolean;
+	canPreviewContentInSitePreview: boolean;
+	previewContentInSitePreview: ( type: PreviewContentType, id: number ) => Promise< boolean >;
 	fitSelectedWidgetToContent: () => Promise< boolean >;
 	stackSelectedWidgets: () => boolean;
 	unstackSelectedWidgets: () => boolean;
 	setSelectedStackView: ( viewMode: StackViewMode ) => boolean;
+	toggleTemporaryDesk: ( options: ToggleTemporaryDeskOptions ) => boolean;
+	isTemporaryDeskVisible: ( id: string ) => boolean;
 	removeSelectedWidget: () => boolean;
+	removeSelectedConnector: () => boolean;
+	startConnectingWidget: ( shapeId: TLShapeId ) => boolean;
+	focusConnectedWidget: ( shapeId: TLShapeId ) => boolean;
+	startFocusMode: ( widgetId: string, focusDesk?: DeskFocusDesk ) => boolean;
+	setFocusDesk: ( focusDesk: DeskFocusDesk ) => boolean;
+	getFocusDeskSnapshot: () => DeskFocusDesk | null;
+	stopFocusMode: () => boolean;
+	getDeskConfigSnapshot: () => DeskConfig | null;
+	replaceDeskConfig: ( config: DeskConfig ) => Promise< boolean >;
 }
 
 export interface AddDeskWidgetOptions {
@@ -48,6 +122,13 @@ export interface AddDeskWidgetOptions {
 	shapeProps?: Record< string, unknown >;
 	widgetProps?: Record< string, unknown >;
 	shouldStartEditing?: boolean;
+}
+
+export interface AddDeskMaterializedOptions {
+	center?: {
+		x: number;
+		y: number;
+	};
 }
 
 export interface DeskProviderProps {
@@ -68,21 +149,42 @@ const defaultDeskContext: DeskContextValue = {
 	statusMessage: undefined,
 	canAddWidgets: false,
 	selectedWidgetToolbarItem: null,
+	selectedConnectorToolbarItem: null,
+	selectedWidgetConnectionTargets: [],
+	isConnectingWidget: false,
+	focusMode: null,
+	focusedWidget: null,
+	focusedWidgetDefinition: null,
 	pressedStackId: null,
 	registerEditor: noopRegisterEditor,
 	pressStack: noopPressStack,
 	addWidget: () => false,
+	addMaterializedDesk: () => false,
+	addWidgetAtScreenPoint: () => false,
 	addPastedContent: () => Promise.resolve( false ),
 	startDrawing: () => false,
 	finishDrawing: async () => false,
 	updateSelectedWidgetProps: () => false,
 	canEditSelectedWidget: false,
 	editSelectedWidget: () => false,
+	canPreviewContentInSitePreview: false,
+	previewContentInSitePreview: () => Promise.resolve( false ),
 	fitSelectedWidgetToContent: () => Promise.resolve( false ),
 	stackSelectedWidgets: () => false,
 	unstackSelectedWidgets: () => false,
 	setSelectedStackView: () => false,
+	toggleTemporaryDesk: () => false,
+	isTemporaryDeskVisible: () => false,
 	removeSelectedWidget: () => false,
+	removeSelectedConnector: () => false,
+	startConnectingWidget: () => false,
+	focusConnectedWidget: () => false,
+	startFocusMode: () => false,
+	setFocusDesk: () => false,
+	getFocusDeskSnapshot: () => null,
+	stopFocusMode: () => false,
+	getDeskConfigSnapshot: () => null,
+	replaceDeskConfig: () => Promise.resolve( false ),
 };
 
 export const DeskContext = createContext< DeskContextValue >( defaultDeskContext );

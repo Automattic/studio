@@ -77,8 +77,6 @@ export async function readAiSessionSummaryFromEntries(
 	const sessionId = header?.id ?? '';
 	let firstPrompt: string | undefined;
 	let assistantReplyPreview: string | undefined;
-	let ownerSitePath: string | undefined;
-	let ownerSiteName: string | undefined;
 	let selectedSiteName: string | undefined;
 	let activeEnvironment: 'local' | 'live' = 'local';
 	let lastSelectedWpcomSiteId: number | undefined;
@@ -103,12 +101,6 @@ export async function readAiSessionSummaryFromEntries(
 			const isLive = data.remote === true;
 			activeEnvironment = isLive ? 'live' : 'local';
 			lastSelectedWpcomSiteId = isLive ? data.wpcomSiteId : undefined;
-			// Anchor the owner on the first *local* site; remote-only sessions
-			// stay ownerless (sidebar Unassigned).
-			if ( ownerSitePath === undefined && ! isLive ) {
-				ownerSitePath = data.sitePath;
-				ownerSiteName = data.siteName;
-			}
 			continue;
 		}
 
@@ -138,8 +130,8 @@ export async function readAiSessionSummaryFromEntries(
 		updatedAt: updatedAt ?? createdAt ?? fallbackTimestamp,
 		firstPrompt,
 		assistantReplyPreview,
-		ownerSitePath,
-		ownerSiteName,
+		ownerSitePath: undefined,
+		ownerSiteName: undefined,
 		selectedSiteName,
 		activeEnvironment,
 		lastSelectedWpcomSiteId,

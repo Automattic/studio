@@ -1,8 +1,8 @@
-#!/usr/bin/env ts-node
+#!/usr/bin/env tsx
 /**
  * Download Node.js binary for bundling with Studio
- * Usage: npx ts-node scripts/download-node-binary.ts <platform> <arch>
- * Example: npx ts-node scripts/download-node-binary.ts darwin arm64
+ * Usage: npx tsx scripts/download-node-binary.ts <platform> <arch>
+ * Example: npx tsx scripts/download-node-binary.ts darwin arm64
  */
 
 import fs from 'fs';
@@ -14,7 +14,7 @@ import { extractZip } from '../tools/common/lib/extract-zip';
 const LTS_FALLBACK = 'v24.13.1';
 
 function getNodeVersion(): string {
-	const nvmrcPath = path.join( __dirname, '..', '.nvmrc' );
+	const nvmrcPath = path.join( import.meta.dirname, '..', '.nvmrc' );
 	if ( fs.existsSync( nvmrcPath ) ) {
 		const version = fs.readFileSync( nvmrcPath, 'utf-8' ).trim();
 		return version.startsWith( 'v' ) ? version : `v${ version }`;
@@ -54,7 +54,7 @@ if ( ! nodeArch ) {
 	process.exit( 1 );
 }
 
-const binDir = path.join( __dirname, '..', 'apps', 'studio', 'bin' );
+const binDir = path.join( import.meta.dirname, '..', 'apps', 'studio', 'bin' );
 const tmpDir = os.tmpdir();
 
 if ( ! fs.existsSync( binDir ) ) {

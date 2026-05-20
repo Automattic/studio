@@ -1,21 +1,22 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { page } from '@wordpress/icons';
+import { getSiteContentMediaDropActions } from '@/ui-desks/widget-actions/drop-handlers/site-content-media-actions';
+import { createMediaDropPreviewTarget } from '@/ui-desks/widgets/media/drop-preview';
+import { isMediaWidgetProps, MEDIA_WIDGET_TYPE } from '@/ui-desks/widgets/media/types';
 import {
 	PageWidgetComponent,
 	PageWidgetThumbnailComponent,
 } from '@/ui-desks/widgets/page/component';
+import { PagePreviewControl } from '@/ui-desks/widgets/page/preview-control';
+import { PAGE_TONE_COLORS } from '@/ui-desks/widgets/page/tone';
 import { isPageWidgetProps, PAGE_WIDGET_TYPE, type PageTone, type PageWidget } from './types';
-import type { WidgetDefinition } from '@/ui-desks/widgets/types';
-
-const PAGE_TONE_COLORS: Record< PageTone, string > = {
-	neutral: '#14171a',
-	orange: '#e86a00',
-	red: '#e5484d',
-	violet: '#8703e7',
-	blue: '#2200e0',
-	sky: '#0081f3',
-	green: '#00a96c',
-};
+import type {
+	WidgetCustomDropActionContext,
+	WidgetCustomDropActionIntent,
+	WidgetDropFeedback,
+	WidgetDropFeedbackIntent,
+	WidgetDefinition,
+} from '@/ui-desks/widgets/types';
 
 const PAGE_TONE_OPTIONS: Array< { value: PageTone; label: string; color: string } > = [
 	{ value: 'neutral', label: __( 'Default' ), color: PAGE_TONE_COLORS.neutral },
@@ -39,6 +40,11 @@ export const pageWidgetDefinition = {
 			property: 'tone',
 			label: __( 'Color' ),
 			options: PAGE_TONE_OPTIONS,
+		},
+		{
+			type: 'custom',
+			id: 'preview-page-on-canvas',
+			Component: PagePreviewControl,
 		},
 	],
 	isCreatable: false,
@@ -79,4 +85,58 @@ export const pageWidgetDefinition = {
 					path: `/wp-admin/post.php?post=${ widget.widgetProps.pageId }&action=edit`,
 			  }
 			: null,
+	dropHandlers: [
+		{
+			id: 'media-actions-for-page',
+			type: 'custom',
+			sourceTypes: [ MEDIA_WIDGET_TYPE ],
+			canHandle: ( sourceWidget, targetWidget ) =>
+				isMediaWidgetProps( sourceWidget.widgetProps ) &&
+				sourceWidget.widgetProps.mediaId !== null &&
+				isPageWidgetProps( targetWidget.widgetProps ) &&
+				targetWidget.widgetProps.pageId > 0,
+			getFeedback: getPageMediaDropFeedback,
+			getActions: getPageMediaDropActions,
+		},
+	],
 } satisfies WidgetDefinition< PageWidget >;
+
+function getPageMediaDropFeedback( intent: WidgetDropFeedbackIntent ): WidgetDropFeedback | null {
+	const mediaProps = intent.sourceWidget.widgetProps;
+	if ( ! isMediaWidgetProps( mediaProps ) ) {
+		return null;
+	}
+
+	return {
+		sourceOpacity: intent.phase === 'hover' ? 0 : 0.3,
+		target: createMediaDropPreviewTarget( mediaProps ),
+	};
+}
+
+function getPageMediaDropActions(
+	intent: WidgetCustomDropActionIntent,
+	context: WidgetCustomDropActionContext
+) {
+	const mediaProps = intent.sourceWidget.widgetProps;
+	const pageProps = intent.targetWidget.widgetProps;
+	if (
+		! isMediaWidgetProps( mediaProps ) ||
+		mediaProps.mediaId === null ||
+		! isPageWidgetProps( pageProps )
+	) {
+		return [];
+	}
+
+	return getSiteContentMediaDropActions( {
+		kind: 'page',
+		contentId: pageProps.pageId,
+		attachLabel: __( 'Attach to page' ),
+		media: {
+			id: mediaProps.mediaId,
+			url: mediaProps.url,
+			alt: mediaProps.alt,
+			kind: mediaProps.mediaKind,
+		},
+		context,
+	} );
+}

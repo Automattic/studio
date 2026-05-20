@@ -68,6 +68,12 @@ export enum PullReprintCommandLoggerAction {
 	URL_REWRITE = 'urlRewrite',
 }
 
+export enum BlueprintCommandLoggerAction {
+	FETCH_BLUEPRINTS = 'fetchBlueprints',
+	FETCH_BLUEPRINT = 'fetchBlueprint',
+	DOWNLOAD_BUNDLE = 'downloadBundle',
+}
+
 export enum SyncCommandLoggerAction {
 	START_DAEMON = 'startDaemon',
 	STOP_SITE = 'stopSite',

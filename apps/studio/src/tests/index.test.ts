@@ -68,58 +68,6 @@ vi.mock( 'src/modules/cli/lib/linux-installation-manager', () => ( {
 	autoInstallLinuxCliIfNeeded: vi.fn().mockResolvedValue( undefined ),
 } ) );
 vi.mock( 'electron-squirrel-startup', () => ( { default: false } ) );
-vi.mock( 'electron', () => ( {
-	app: {
-		on: vi.fn(),
-		off: vi.fn(),
-		getVersion: vi.fn().mockReturnValue( '1.0.0' ),
-		getPath: vi.fn().mockReturnValue( '/mock/path' ),
-		requestSingleInstanceLock: vi.fn().mockReturnValue( true ),
-		quit: vi.fn(),
-		exit: vi.fn(),
-		setName: vi.fn(),
-		setAsDefaultProtocolClient: vi.fn(),
-		enableSandbox: vi.fn(),
-		setAppLogsPath: vi.fn(),
-		getLocale: vi.fn().mockReturnValue( 'en-US' ),
-		getSystemLocale: vi.fn().mockReturnValue( 'en-US' ),
-		isPackaged: false,
-	},
-	session: {
-		defaultSession: {
-			extensions: {
-				getAllExtensions: vi.fn().mockReturnValue( [] ),
-				loadExtension: vi.fn().mockResolvedValue( { id: 'test-extension' } ),
-			},
-			serviceWorkers: {
-				startWorkerForScope: vi.fn().mockResolvedValue( undefined ),
-			},
-			setPermissionRequestHandler: vi.fn(),
-			webRequest: {
-				onHeadersReceived: vi.fn(),
-			},
-		},
-	},
-	BrowserWindow: Object.assign( vi.fn(), {
-		getAllWindows: vi.fn().mockReturnValue( [] ),
-	} ),
-	ipcMain: {
-		on: vi.fn(),
-		handle: vi.fn(),
-	},
-	Menu: {
-		setApplicationMenu: vi.fn(),
-	},
-	globalShortcut: {
-		register: vi.fn(),
-		unregister: vi.fn(),
-		unregisterAll: vi.fn(),
-	},
-	dialog: {
-		showMessageBox: vi.fn(),
-		showMessageBoxSync: vi.fn(),
-	},
-} ) );
 vi.mock( 'electron-devtools-installer', () => ( {
 	installExtension: vi.fn().mockResolvedValue( { id: 'test-extension' } ),
 	REACT_DEVELOPER_TOOLS: { id: 'fmkadmapgofadopljbjfkapdkoienihi' },

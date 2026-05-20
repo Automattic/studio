@@ -7,6 +7,9 @@ fastlane_require 'json'
 fastlane_require 'net/http'
 fastlane_require 'uri'
 
+require_relative 'lib/studio_release_git'
+require_relative 'lib/studio_release_version'
+
 UI.user_error!('Please run fastlane via `bundle exec`') unless FastlaneCore::Helper.bundler?
 
 ########################################################################
@@ -20,8 +23,6 @@ PHP_CLI_BUILDS_FOLDER = File.join(PROJECT_ROOT_FOLDER, 'out', 'php-binaries')
 # Enable dry run mode through environment variable
 DRY_RUN = ENV['DRY_RUN'] == 'true'
 
-# Make sure the WPCOM API token is set
-UI.user_error!('Environment variable WPCOM_API_TOKEN is not set') if ENV['WPCOM_API_TOKEN'].nil? && !DRY_RUN
 UI.message("Running in #{DRY_RUN ? 'DRY RUN' : 'NORMAL'} mode")
 
 # Path to the Studio app's package.json (monorepo workspace)
@@ -143,7 +144,7 @@ lane :distribute_release_build do |version: read_package_json_version|
 
   # Create the tag or draft GitHub release only after the build succeeds.
   # This avoids orphan tags or draft releases if the build fails.
-  if version.include?('beta')
+  if StudioReleaseVersion.prerelease?(version)
     add_git_tag(tag: release_tag)
     push_git_tags(tag: release_tag)
 
@@ -165,6 +166,126 @@ lane :distribute_release_build do |version: read_package_json_version|
     },
     default_payloads: []
   )
+end
+
+# Prepare a standalone wp-studio npm release: bump version on a release branch and open a PR.
+#
+# Use this lane (followed by {publish_npm_package}) when you want to publish a new `wp-studio`
+# version to npm independently of the regular Studio app release flow — for example, to ship a
+# CLI-only patch. Both `studio-app` and `wp-studio` packages are bumped to keep them in lockstep
+# (the app pins `wp-studio` exactly).
+#
+# This lane:
+# - Creates a `npm-release/<version>` branch from `trunk`
+# - Bumps `apps/studio/package.json` and `apps/cli/package.json` to <version>
+# - Commits, pushes, and opens a PR against `trunk`
+#
+# After the PR is reviewed and merged, run {publish_npm_package} to tag the version-bump commit
+# and trigger the GitHub Actions workflow that publishes to npm.
+#
+# @param version [String, nil] The release version (e.g., '1.7.4' or '1.7.4-beta1'). When omitted,
+#   defaults to the next patch version after `trunk`'s current version (any `-betaN` suffix is
+#   stripped before bumping). Beta versions must always be passed explicitly.
+# @param skip_confirm [Boolean] Skip interactive confirmation prompts (default: false)
+#
+lane :prepare_npm_release do |version: nil, skip_confirm: false|
+  fetch_main_branch
+  main_branch_version = read_main_branch_package_json_version
+  version ||= StudioReleaseVersion.next_patch_version!(main_branch_version)
+  validate_npm_release_version!(version)
+
+  branch_name = "npm-release/#{version}"
+  release_tag = "v#{version}"
+
+  if git_tag_exists(tag: release_tag, remote: true, remote_name: 'origin')
+    UI.user_error!("Tag #{release_tag} already exists on the remote — pick a different version.")
+  end
+
+  UI.important <<~PROMPT
+    Preparing wp-studio npm release #{version} (`#{MAIN_BRANCH}` is on #{main_branch_version}). This will:
+    - Create branch `#{branch_name}` from `#{MAIN_BRANCH}`
+    - Bump `studio-app` and `wp-studio` packages to #{version}
+    - Commit, push, and open a PR against `#{MAIN_BRANCH}`
+
+    After the PR is reviewed and merged, run:
+      bundle exec fastlane publish_npm_package version:"#{version}"
+  PROMPT
+  next unless skip_confirm || UI.confirm('Continue?')
+
+  Fastlane::Helper::GitHelper.checkout_and_pull(MAIN_BRANCH)
+  Fastlane::Helper::GitHelper.create_branch(branch_name)
+
+  bump_version_commit_and_push(version: version, set_upstream: true)
+
+  pr_url = create_npm_release_pr(version: version, branch: branch_name)
+
+  UI.success("Prepared npm release #{version}")
+  UI.important <<~NEXT
+    Next steps:
+    1. Get the PR reviewed and merged: #{pr_url || branch_name}
+    2. Run: bundle exec fastlane publish_npm_package version:"#{version}"
+  NEXT
+end
+
+# Publish wp-studio to npm by tagging the version-bump commit and triggering the GitHub Actions
+# workflow.
+#
+# Run this after the {prepare_npm_release} PR has merged into `trunk`. The lane:
+# - Locates the commit on `trunk` where both `apps/studio/package.json` and
+#   `apps/cli/package.json` declare the target version. The search walks history newest-to-oldest
+#   so a later commit that bumped *past* the version (deleting its line) is correctly skipped in
+#   favor of the introduction commit. A half-applied prep PR (only one workspace bumped) leaves
+#   no candidate where both match, so the lane errors out before tagging. Tagging that specific
+#   commit (rather than trunk's HEAD) means PRs that land on trunk between the prep merge and
+#   the publish run are not silently included in the published artifact.
+# - Tags the bump commit as `v<version>` and pushes the tag. Idempotent: if the tag already
+#   exists at the expected commit, the lane logs and reuses it (this is the recovery path for a
+#   workflow dispatch that succeeded at tagging but failed afterwards).
+# - Dispatches `publish-npm-package.yml` to build and publish to npm with provenance via OIDC
+#   trusted publishing. Versions ending in `-betaN` publish with the `next` dist-tag; everything
+#   else publishes as `latest`.
+#
+# @param version [String, nil] The release version (e.g., '1.7.4' or '1.7.4-beta1'). When omitted,
+#   defaults to `trunk`'s current `package.json` version — i.e. whatever the prepare_npm_release
+#   PR set it to.
+# @param skip_confirm [Boolean] Skip interactive confirmation prompts (default: false)
+#
+lane :publish_npm_package do |version: nil, skip_confirm: false|
+  fetch_main_branch
+  version ||= read_main_branch_package_json_version
+  validate_npm_release_version!(version)
+
+  release_tag = "v#{version}"
+  npm_tag = StudioReleaseVersion.npm_dist_tag_for!(version)
+  tag_label = npm_tag || 'latest'
+
+  bump_commit = StudioReleaseGit.find_npm_release_bump_commit!(
+    branch: "origin/#{MAIN_BRANCH}", version: version
+  )
+  UI.user_error!(
+    "Could not find a commit on `#{MAIN_BRANCH}` where both `apps/studio/package.json` and " \
+    "`apps/cli/package.json` declare version #{version}. Did the prepare_npm_release PR " \
+    'merge into trunk with both workspaces bumped?'
+  ) if bump_commit.nil?
+
+  short_sha = bump_commit[0..8]
+
+  UI.important <<~PROMPT
+    Publishing wp-studio #{version} to npm. This will:
+    - Tag the version-bump commit #{short_sha} on `#{MAIN_BRANCH}` as `#{release_tag}`
+      (reused if it already exists at that commit, e.g. recovery from a failed dispatch)
+    - Push the tag to `origin`
+    - Dispatch the `publish-npm-package.yml` GitHub Actions workflow
+    - Publish `wp-studio` to npm with the `#{tag_label}` dist-tag
+
+    Reminder: after publishing, update the public changelog at
+      https://developer.wordpress.com/docs/developer-tools/studio/changelog/
+  PROMPT
+  next unless skip_confirm || UI.confirm('Continue?')
+
+  ensure_release_tag(release_tag: release_tag, commit: bump_commit)
+
+  trigger_npm_publish(ref: release_tag, npm_tag: npm_tag)
 end
 
 desc 'Upload or update Studio PHP CLI binaries on Apps CDN'
@@ -247,12 +368,12 @@ end
 #
 lane :new_beta_release do |version:, skip_confirm: false, github_username: nil|
   current_version = read_package_json_version
-  current_beta = current_version[/beta(\d+)$/, 1].to_i
+  current_beta = StudioReleaseVersion.beta_number(current_version) || 0
 
   # Guard against version mismatch (e.g. package.json has 1.7.4-beta3 but version param is 1.8.0)
   # Skip the check when current_beta is 0, meaning this is the first beta (before any bump).
   if current_beta.positive?
-    base_version = current_version.sub(/-beta\d+$/, '')
+    base_version = StudioReleaseVersion.base_version(current_version)
     UI.user_error!("Version mismatch: package.json has #{current_version} but expected #{version}-betaN") unless base_version == version
   end
 
@@ -385,7 +506,7 @@ lane :new_hotfix_release do |version:, skip_confirm: false|
 
   # Determine the base for the hotfix branch: either a tag or a release branch
   previous_release_branch = "release/#{short_version}"
-  base_ref = if previous_tag && !previous_tag.include?('beta')
+  base_ref = if previous_tag && !StudioReleaseVersion.prerelease?(previous_tag)
                previous_tag
              elsif Fastlane::Helper::GitHelper.branch_exists_on_remote?(branch_name: previous_release_branch)
                UI.message("Tag for version '#{short_version}' not found. Using release branch '#{previous_release_branch}' as the base for the hotfix.")
@@ -476,9 +597,12 @@ def distribute_builds(
   build_number: get_required_env('BUILDKITE_BUILD_NUMBER'),
   release_tag: nil
 )
+  # The CDN upload (and therefore the token) is skipped entirely in dry-run mode.
+  get_required_env('WPCOM_API_TOKEN') unless DRY_RUN
+
   build_type = if release_tag.nil?
                  'Nightly'
-               elsif release_tag.downcase.include?('beta')
+               elsif StudioReleaseVersion.prerelease?(release_tag)
                  'Beta'
                else
                  'Production'
@@ -827,8 +951,115 @@ def github_release_name(version:)
   "Version #{version}"
 end
 
+# Validate that a version string matches the expected wp-studio release format.
+# Accepts `X.Y.Z` and `X.Y.Z-betaN`. Surfaces a fastlane user error on rejection.
+def validate_npm_release_version!(version)
+  return if StudioReleaseVersion.valid_version?(version)
+
+  UI.user_error!("Invalid version #{version.inspect}. Expected `X.Y.Z` or `X.Y.Z-betaN`.")
+end
+
+# Update the local origin/MAIN_BRANCH ref so subsequent reads of `origin/<MAIN_BRANCH>` are fresh.
+def fetch_main_branch
+  sh('git', 'fetch', '--quiet', 'origin', MAIN_BRANCH, log: false)
+end
+
+# Read the current version recorded on the main branch's package.json without changing the
+# working tree. Used to compute defaults for the npm release lanes. Caller must call
+# {fetch_main_branch} first.
+def read_main_branch_package_json_version
+  json = sh('git', 'show', "origin/#{MAIN_BRANCH}:apps/studio/package.json", log: false)
+  JSON.parse(json)['version']
+end
+
+# Ensure `release_tag` exists on `origin` and points at `commit`.
+#
+# Idempotent across partial-failure scenarios. Re-running picks up wherever the previous run
+# stopped:
+# - Tag already on origin at the expected commit → log and return (skip re-create + workflow
+#   dispatch resumes downstream).
+# - Tag already on origin at a *different* commit → raise so the operator can investigate
+#   before publishing the wrong code.
+# - Tag absent on origin but present locally at the expected commit (previous run created the
+#   tag but `push_git_tags` failed) → push the existing local tag.
+# - Tag absent on origin and stale local tag at the wrong commit → raise with a cleanup hint.
+# - Tag absent everywhere → create and push.
+def ensure_release_tag(release_tag:, commit:)
+  remote_sha = StudioReleaseGit.remote_tag_commit_sha(release_tag)
+  if remote_sha
+    if remote_sha == commit
+      UI.message("Tag #{release_tag} already exists on origin at #{commit[0..8]}; reusing it.")
+      return
+    end
+
+    UI.user_error!(
+      "Tag #{release_tag} already exists on origin at #{remote_sha[0..8]}, but expected " \
+      "#{commit[0..8]}. Inspect the tag and the commit before continuing."
+    )
+  end
+
+  if git_tag_exists(tag: release_tag)
+    local_sha = sh('git', 'rev-list', '-n', '1', release_tag, log: false).strip
+    unless local_sha == commit
+      UI.user_error!(
+        "Local tag #{release_tag} points at #{local_sha[0..8]}, but expected #{commit[0..8]}. " \
+        "Delete it (`git tag -d #{release_tag}`) and rerun."
+      )
+    end
+    if DRY_RUN
+      UI.message("Local tag #{release_tag} already exists at #{commit[0..8]}; push will be skipped in dry run.")
+    else
+      UI.message("Local tag #{release_tag} already exists at #{commit[0..8]}; pushing it.")
+    end
+  elsif DRY_RUN
+    UI.message("[DRY RUN] Would tag #{commit[0..8]} as #{release_tag} and push it to origin")
+    return
+  else
+    add_git_tag(tag: release_tag, commit: commit)
+  end
+
+  if DRY_RUN
+    UI.message("[DRY RUN] Would push tag #{release_tag} to origin")
+    return
+  end
+
+  push_git_tags(tag: release_tag)
+end
+
+# Open a PR against trunk for an npm release version bump from {prepare_npm_release}.
+# Returns the PR's html_url, or nil if DRY_RUN is set or the API response had no html_url.
+def create_npm_release_pr(version:, branch:)
+  body = <<~BODY
+    Bumps the `studio-app` and `wp-studio` packages to `#{version}` in preparation for a standalone npm release of the Studio CLI (`wp-studio`).
+
+    After this PR is merged, complete the release by running:
+
+    ```sh
+    bundle exec fastlane publish_npm_package version:"#{version}"
+    ```
+
+    See the [release process docs](docs/release-process.md#standalone-wp-studio-npm-release) for details.
+  BODY
+
+  if DRY_RUN
+    UI.message("[DRY RUN] Would open PR `#{branch}` -> `#{MAIN_BRANCH}` titled \"Bump npm package version to #{version}\"")
+    return nil
+  end
+
+  github_helper = Fastlane::Helper::GithubHelper.new(github_token: get_required_env('GITHUB_TOKEN'))
+  pr = github_helper.client.create_pull_request(
+    GITHUB_REPO,
+    MAIN_BRANCH,
+    branch,
+    "Bump npm package version to #{version}",
+    body
+  )
+  pr&.html_url
+end
+
 # Bump version in package.json, commit, and push.
 # Used by new_beta_release, finalize_release, and new_hotfix_release.
+# Honors DRY_RUN by performing the local bump+commit but skipping the push.
 def bump_version_commit_and_push(version:, set_upstream: false)
   set_package_json_version(version: version)
   git_add(path: ['apps/studio/package.json', 'apps/cli/package.json', 'package-lock.json'])
@@ -836,7 +1067,11 @@ def bump_version_commit_and_push(version:, set_upstream: false)
     path: ['apps/studio/package.json', 'apps/cli/package.json', 'package-lock.json'],
     message: "[skip ci] Bump version to #{version}"
   )
-  push_to_git_remote(set_upstream: set_upstream)
+  if DRY_RUN
+    UI.message("[DRY RUN] Would push current branch to origin (set_upstream: #{set_upstream})")
+  else
+    push_to_git_remote(set_upstream: set_upstream)
+  end
 end
 
 # Read the current version from package.json
@@ -972,7 +1207,7 @@ def create_draft_github_release(version:, release_tag:, builds:)
   release_notes_path = File.join(PROJECT_ROOT_FOLDER, 'fastlane', 'github_release_notes.txt')
   File.write(release_notes_path, body)
 
-  base_version = version.sub(/-beta\d+$/, '')
+  base_version = StudioReleaseVersion.base_version(version)
   create_github_release(
     repository: GITHUB_REPO,
     version: release_tag,
@@ -992,7 +1227,7 @@ end
 # Uses `buildkite_add_trigger_step` on CI (to create a separate build with proper Git mirroring)
 # and `buildkite_trigger_build` when running locally.
 def trigger_release_build(version:)
-  base_version = version.sub(/-beta\d+$/, '')
+  base_version = StudioReleaseVersion.base_version(version)
   branch = "release/#{base_version}"
 
   environment = {

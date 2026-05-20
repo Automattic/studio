@@ -21,6 +21,7 @@ import type {
 	SupportedEditor,
 	SupportedTerminal,
 	SyncSite,
+	StudioUiMode,
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
@@ -625,6 +626,14 @@ export function createIpcConnector(): Connector {
 
 		async getInstalledApps(): Promise< InstalledApps > {
 			return ( await ipcApi.getInstalledAppsAndTerminals() ) as InstalledApps;
+		},
+
+		async getStudioUiMode(): Promise< StudioUiMode > {
+			return ( await ipcApi.getStudioUiMode() ) as StudioUiMode;
+		},
+
+		async setStudioUiMode( mode ): Promise< void > {
+			await ipcApi.setStudioUiMode( mode );
 		},
 
 		async getDeskSettings(): Promise< DeskSettings > {

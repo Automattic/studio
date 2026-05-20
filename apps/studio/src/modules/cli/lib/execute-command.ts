@@ -153,7 +153,7 @@ export function executeCliCommand(
 		// Only callers that opted-in with a `logPrefix` get stdout echoed to
 		// the main-process console. Commands like `preview list --format json`
 		// dump large structured payloads on stdout that would otherwise spam
-		// `npm run start:new` output every time snapshots are fetched.
+		// `npm start` output every time snapshots are fetched.
 		const logPrefix = options.logPrefix ? `[CLI - site ID ${ options.logPrefix }]` : null;
 		child.stdout?.on( 'data', ( data: Buffer ) => {
 			const text = data.toString();

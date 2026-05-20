@@ -64,6 +64,13 @@
 	font-weight: 600;
 }
 
+.headerActions {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	flex: 0 0 auto;
+}
+
 .serverButton {
 	flex: 0 0 auto;
 	gap: 6px;
@@ -128,7 +135,8 @@
 }
 
 .syncButton,
-.openButton {
+.openButton,
+.settingsButton {
 	white-space: nowrap;
 }
 

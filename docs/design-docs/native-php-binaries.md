@@ -30,18 +30,17 @@ platforms: `-d zend_extension=ext/xdebug.so` (macOS) or
 
 The manual workflow currently builds:
 
-- `php-8.4.20-cli-macos-aarch64.zip`
-- `php-8.4.20-cli-macos-x86_64.zip`
-- `php-8.4.20-cli-windows-x86_64.zip`
+- `php-<patch>-cli-macos-aarch64.zip`
+- `php-<patch>-cli-macos-x86_64.zip`
+- `php-<patch>-cli-windows-x86_64.zip`
 
 Windows ARM64 Studio builds use the Windows x64 PHP binary under Windows 11
 emulation. Native Windows ARM64 PHP binaries are not built.
 
 The publish job verifies each downloaded archive against its `.sha256` sidecar
-before upload. Apps CDN stores the same checksum in the generated manifest for
-the separate `WordPress.com Studio PHP CLI` product:
-
-`https://appscdn.wordpress.com/builds/wordpress-com-studio-php-cli/releases.json`
+before upload. Apps CDN stores the same checksum for the separate
+`WordPress.com Studio PHP CLI` product; the Studio runtime consumes the
+checked-in metadata file described below.
 
 For internal Studio validation, the workflow can upload the unsigned `.zip`
 archives directly to Apps CDN:
@@ -92,3 +91,15 @@ After a successful Apps CDN upload, the workflow updates
 `tools/common/lib/php-binary-cdn-metadata.json` and opens a PR with the new CDN
 URLs and SHA-256 hashes. The metadata keeps one patch version per PHP minor
 version; uploading a newer patch replaces the tracked patch for that minor.
+
+At runtime, Studio uses `tools/common/lib/php-binary-cdn-metadata.json` as the
+source of truth for the requested PHP minor version. It downloads the tracked
+patch for the current platform and architecture, then verifies the checked-in
+SHA-256 before extracting the archive. If metadata is missing for the requested
+device, native PHP install fails for that version.
+
+Downloaded binaries are installed under `~/.studio/php-bin/<patch>/`, for
+example `~/.studio/php-bin/8.4.20/php`. This lets Studio download a new patch
+without replacing a binary that an existing native PHP process is still using.
+
+Apps CDN PHP CLI artifacts are ZIP files for macOS and Windows.

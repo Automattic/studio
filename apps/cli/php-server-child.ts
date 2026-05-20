@@ -16,7 +16,7 @@ import { writeStudioMuPluginsForNativePhpRuntime } from '@studio/common/lib/mu-p
 import { decodePassword } from '@studio/common/lib/passwords';
 import {
 	NativePhpSupportedVersion,
-	validateNativePhpVersion,
+	resolveNativePhpVersion,
 } from '@studio/common/lib/php-binary-metadata';
 import { z } from 'zod';
 import {
@@ -456,7 +456,7 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		return;
 	}
 
-	const phpVersion = validateNativePhpVersion( config.phpVersion ?? '' );
+	const phpVersion = resolveNativePhpVersion( config.phpVersion ?? '' );
 	startupAbortController = new AbortController();
 	const stopSignal = AbortSignal.any( [ signal, startupAbortController.signal ] );
 
@@ -514,7 +514,7 @@ async function doStartServer(
 	stopSignal?: AbortSignal
 ): Promise< ChildProcess > {
 	const phpAddress = `localhost:${ config.port }`;
-	const phpVersion = validateNativePhpVersion( config.phpVersion ?? '' );
+	const phpVersion = resolveNativePhpVersion( config.phpVersion ?? '' );
 	let spawnedChild: ChildProcess | null = null;
 
 	logToConsole(
@@ -786,7 +786,7 @@ async function ipcMessageHandler( packet: unknown ) {
 				break;
 			case 'run-blueprint': {
 				const blueprintConfig = validMessage.data.config;
-				const blueprintPhpVersion = validateNativePhpVersion( blueprintConfig.phpVersion ?? '' );
+				const blueprintPhpVersion = resolveNativePhpVersion( blueprintConfig.phpVersion ?? '' );
 				await ensureWpConfig(
 					blueprintConfig.sitePath,
 					blueprintPhpVersion,

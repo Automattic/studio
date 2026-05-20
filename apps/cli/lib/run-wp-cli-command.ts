@@ -18,7 +18,7 @@ import {
 	getMuPlugins,
 	writeStudioMuPluginsForNativePhpRuntime,
 } from '@studio/common/lib/mu-plugins';
-import { validateNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
+import { resolveNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
 import { LatestSupportedPHPVersion } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
 import { setupPlatformLevelMuPlugins } from '@wp-playground/wordpress';
@@ -123,7 +123,7 @@ async function runNativeWpCliCommand(
 	options: RunWpCliCommandOptions = {}
 ): Promise< DisposableWpCliResponse > {
 	const nativeArgs = applyWpCliCommandOptions( 'native', args, options );
-	const phpVersion = validateNativePhpVersion( options.phpVersion ?? DEFAULT_PHP_VERSION );
+	const phpVersion = resolveNativePhpVersion( options.phpVersion ?? DEFAULT_PHP_VERSION );
 	await writeStudioMuPluginsForNativePhpRuntime( site.path, site.isWpAutoUpdating );
 	// Don't apply open_basedir or disable_functions to the WP-CLI process
 	const defaultArgs = getDefaultPhpArgs( phpVersion );
@@ -261,7 +261,7 @@ export async function runWpCliCommand(
 }
 
 async function runNativeGlobalWpCliCommand( args: string[] ): Promise< DisposableWpCliResponse > {
-	const phpVersion = validateNativePhpVersion( DEFAULT_PHP_VERSION );
+	const phpVersion = resolveNativePhpVersion( DEFAULT_PHP_VERSION );
 	// Don't apply open_basedir or disable_functions to the WP-CLI process
 	const defaultArgs = getDefaultPhpArgs( phpVersion );
 	const child = spawn(

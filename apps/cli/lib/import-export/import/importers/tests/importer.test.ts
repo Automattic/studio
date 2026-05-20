@@ -28,10 +28,6 @@ describe( 'ensureDir', () => {
 		expect( fs.lstatSync( target ).isDirectory() ).toBe( true );
 	} );
 
-	// Reproduces the EEXIST seen when a Pressable site has been checked out on
-	// Windows with core.symlinks=false: a tracked symlink at e.g.
-	// wp-content/plugins/akismet is materialized as a small regular file, and the
-	// next Studio pull's mkdir(...recursive:true) on that path throws EEXIST.
 	it( 'replaces a non-directory file blocking the target path', async () => {
 		const plugins = path.join( tmpDir, 'wp-content', 'plugins' );
 		fs.mkdirSync( plugins, { recursive: true } );
@@ -44,11 +40,6 @@ describe( 'ensureDir', () => {
 		expect( fs.lstatSync( blocker ).isDirectory() ).toBe( true );
 	} );
 
-	// Same blocker shape, but the importer calls mkdir on a DEEPER path (e.g. when
-	// the first file copied is wp-content/plugins/akismet/_inc/akismet.css). Node
-	// throws ENOTDIR — not EEXIST — and error.path points at the ancestor blocker,
-	// not at the path we passed in. The helper must unlink the blocker reported by
-	// the error, not the path it was called with.
 	it( 'replaces a non-directory file blocking an ancestor of the target path', async () => {
 		const plugins = path.join( tmpDir, 'wp-content', 'plugins' );
 		fs.mkdirSync( plugins, { recursive: true } );

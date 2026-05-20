@@ -25,14 +25,7 @@ export interface Importer extends ImportExportEventEmitter {
 	import( site: SiteData ): Promise< ImporterResult >;
 }
 
-// mkdir with recursive:true throws EEXIST (final-component blocker) or ENOTDIR
-// (intermediate-component blocker) when a non-directory exists along the path.
-// On Windows this surfaces after `git checkout` materializes a tracked symlink
-// as a regular file (Pressable repos often track managed plugins like akismet
-// and jetpack as symlinks, which become small text files when checked out
-// without core.symlinks=true). Locate the blocker by walking up from dir, unlink
-// it, and retry — error.path is not reliable here because Node populates it with
-// the original mkdir target on Linux but with the actual blocker on Windows.
+// Recovers from EEXIST/ENOTDIR by removing a non-directory blocker on the path.
 export async function ensureDir( dir: string ): Promise< void > {
 	try {
 		await fs.promises.mkdir( dir, { recursive: true } );

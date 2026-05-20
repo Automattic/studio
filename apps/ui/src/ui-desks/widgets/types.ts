@@ -1,36 +1,71 @@
 import type { ControlConfig } from '@/ui-desks/controls/types';
 import type { BlogWidget } from '@/ui-desks/widgets/blog/types';
 import type { BookmarkWidget } from '@/ui-desks/widgets/bookmark/types';
+import type { ColorWidget } from '@/ui-desks/widgets/color/types';
 import type { DrawingWidget } from '@/ui-desks/widgets/drawing/types';
 import type { EmbedWidget } from '@/ui-desks/widgets/embed/types';
 import type { LoadingWidget } from '@/ui-desks/widgets/loading/types';
 import type { MediaWidget } from '@/ui-desks/widgets/media/types';
 import type { NoteWidget } from '@/ui-desks/widgets/note/types';
 import type { PageWidget } from '@/ui-desks/widgets/page/types';
+import type { PdfWidget } from '@/ui-desks/widgets/pdf/types';
 import type { PostWidget } from '@/ui-desks/widgets/post/types';
 import type { PostCollectionWidget } from '@/ui-desks/widgets/post-collection/types';
 import type { ScratchpadWidget } from '@/ui-desks/widgets/scratchpad/types';
+import type { SiteCardWidget } from '@/ui-desks/widgets/site-card/types';
 import type { SitePreviewWidget } from '@/ui-desks/widgets/site-preview/types';
+import type { ThemeWidget } from '@/ui-desks/widgets/theme/types';
+import type { ThemePatternWidget } from '@/ui-desks/widgets/theme-pattern/types';
+import type { ThemePatternBrowserWidget } from '@/ui-desks/widgets/theme-pattern-browser/types';
+import type { ThemeStylesWidget } from '@/ui-desks/widgets/theme-styles/types';
+import type { ThemeTemplateWidget } from '@/ui-desks/widgets/theme-template/types';
+import type { ThemeTemplateBrowserWidget } from '@/ui-desks/widgets/theme-template-browser/types';
 import type { DeskStack, DeskWidgetBase } from '@studio/common/types/desk';
 import type { createRegistry } from '@wordpress/data';
 import type { ComponentProps, ComponentType, ReactElement } from 'react';
-import type { Editor, TLShapeId } from 'tldraw';
+import type { Editor, JsonObject, TLShapeId } from 'tldraw';
 
 export interface WidgetIndicator {
 	cornerRadius?: number;
 	stroke?: string;
 }
 
+export interface WidgetResizeConstraints {
+	minWidth?: number;
+	minHeight?: number;
+}
+
 export type WidgetResolutionState = 'loading';
+
+export type WidgetDropFeedbackPhase = 'hover' | 'menu';
+
+export interface WidgetDropFeedbackTarget {
+	kind: string;
+	props: JsonObject;
+	phase: WidgetDropFeedbackPhase;
+}
+
+export interface ActiveWidgetDropFeedback {
+	targetShapeId: TLShapeId;
+	feedback: WidgetDropFeedbackTarget;
+}
+
+export interface WidgetDropFeedback {
+	sourceOpacity?: number;
+	target?: Omit< WidgetDropFeedbackTarget, 'phase' >;
+}
 
 export interface DeskWidgetComponentProps<
 	TWidgetProps extends Record< string, unknown > = Record< string, unknown >,
 > {
 	id: string;
+	shapeId?: TLShapeId;
 	widgetProps: TWidgetProps;
 	isEditing: boolean;
 	isHovered: boolean;
 	isSelected: boolean;
+	isTemporary?: boolean;
+	dropFeedback?: WidgetDropFeedbackTarget | null;
 	onWidgetPropsChange: ( widgetProps: TWidgetProps ) => void;
 	onEditComplete: () => void;
 }
@@ -103,13 +138,19 @@ export interface WidgetFileHandler< TWidget extends DeskWidgetBase = DeskWidgetB
 	) => Promise< WidgetFileHandlerResult< TWidget > | null >;
 }
 
-export type WidgetPasteKind = 'url';
+export type WidgetPasteKind = 'url' | 'color';
 
-export type WidgetPastePayload = {
-	kind: 'url';
-	text: string;
-	url: string;
-};
+export type WidgetPastePayload =
+	| {
+			kind: 'url';
+			text: string;
+			url: string;
+	  }
+	| {
+			kind: 'color';
+			text: string;
+			color: string;
+	  };
 
 export interface WidgetPasteAccept {
 	kinds?: WidgetPasteKind[];
@@ -165,12 +206,19 @@ export interface WidgetCustomDropActionIntent {
 	};
 }
 
+export interface WidgetDropFeedbackIntent extends WidgetCustomDropActionIntent {
+	phase: WidgetDropFeedbackPhase;
+}
+
 export interface WidgetCustomDropActionContext {
 	editor: Editor;
 	registry: WidgetResolverRegistry;
 	runAction: ( action: () => void | Promise< unknown > ) => void;
 	saveEntityRecord: WidgetCoreDataSaveEntityRecord;
-	startChatWithPrompt: ( request: { prompt: string; displayMessage?: string } ) => Promise< void >;
+	startChatWithPrompt: ( request: {
+		prompt: string;
+		displayMessage?: string;
+	} ) => Promise< string >;
 }
 
 export interface WidgetCustomDropAction {
@@ -183,6 +231,7 @@ export interface WidgetCustomDropHandler {
 	type: 'custom';
 	sourceTypes?: string[];
 	canHandle?: ( sourceWidget: DeskWidgetBase, targetWidget: DeskWidgetBase ) => boolean;
+	getFeedback?: ( intent: WidgetDropFeedbackIntent ) => WidgetDropFeedback | null;
 	getActions?: (
 		intent: WidgetCustomDropActionIntent,
 		context: WidgetCustomDropActionContext
@@ -207,6 +256,7 @@ export interface ResolvedDeskWidget< TWidget extends DeskWidgetBase = DeskWidget
 export interface ResolvedDeskStack {
 	stack: DeskStack;
 	origin: Extract< ResolvedDeskWidgetOrigin, { kind: 'derived' } >;
+	followSourceWidgetId?: string;
 }
 
 export interface WidgetResolution< TIdentity = unknown > {
@@ -269,12 +319,14 @@ export interface WidgetDefinition< TWidget extends DeskWidgetBase = DeskWidgetBa
 	getSummary?: ( widgetProps: TWidget[ 'widgetProps' ] ) => string;
 	getLoadingShapeProps?: ( widget: TWidget ) => TWidget[ 'shapeProps' ];
 	getIndicator?: ( widgetProps: TWidget[ 'widgetProps' ] ) => WidgetIndicator;
+	resizeConstraints?: WidgetResizeConstraints;
 	getFittedShapeProps?: (
 		context: WidgetFitContentContext< TWidget >
 	) => WidgetFitContentResult< TWidget > | Promise< WidgetFitContentResult< TWidget > >;
 	getEditAction?: ( context: WidgetEditActionContext< TWidget > ) => WidgetEditAction | null;
 	focusModeControls?: Array< ControlConfig< TWidget[ 'widgetProps' ] > >;
 	focusModeControlsLabel?: () => string;
+	preserveSourceWidgetPosition?: boolean;
 	resolver?: WidgetResolver< TWidget >;
 	fileHandlers?: Array< WidgetFileHandler< TWidget > >;
 	pasteHandlers?: Array< WidgetPasteHandler< TWidget > >;
@@ -285,6 +337,7 @@ export type DeskWidget =
 	| ScratchpadWidget
 	| BookmarkWidget
 	| BlogWidget
+	| ColorWidget
 	| DrawingWidget
 	| EmbedWidget
 	| LoadingWidget
@@ -292,12 +345,21 @@ export type DeskWidget =
 	| MediaWidget
 	| PostWidget
 	| PageWidget
+	| PdfWidget
 	| PostCollectionWidget
-	| SitePreviewWidget;
+	| SiteCardWidget
+	| SitePreviewWidget
+	| ThemeWidget
+	| ThemePatternBrowserWidget
+	| ThemeTemplateBrowserWidget
+	| ThemePatternWidget
+	| ThemeStylesWidget
+	| ThemeTemplateWidget;
 export type DeskWidgetDefinition =
 	| WidgetDefinition< ScratchpadWidget >
 	| WidgetDefinition< BookmarkWidget >
 	| WidgetDefinition< BlogWidget >
+	| WidgetDefinition< ColorWidget >
 	| WidgetDefinition< DrawingWidget >
 	| WidgetDefinition< EmbedWidget >
 	| WidgetDefinition< LoadingWidget >
@@ -305,5 +367,13 @@ export type DeskWidgetDefinition =
 	| WidgetDefinition< MediaWidget >
 	| WidgetDefinition< PostWidget >
 	| WidgetDefinition< PageWidget >
+	| WidgetDefinition< PdfWidget >
 	| WidgetDefinition< PostCollectionWidget >
-	| WidgetDefinition< SitePreviewWidget >;
+	| WidgetDefinition< SiteCardWidget >
+	| WidgetDefinition< SitePreviewWidget >
+	| WidgetDefinition< ThemeWidget >
+	| WidgetDefinition< ThemePatternBrowserWidget >
+	| WidgetDefinition< ThemeTemplateBrowserWidget >
+	| WidgetDefinition< ThemePatternWidget >
+	| WidgetDefinition< ThemeStylesWidget >
+	| WidgetDefinition< ThemeTemplateWidget >;

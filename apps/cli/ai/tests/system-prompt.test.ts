@@ -27,6 +27,12 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).toContain( 'present the actual captured PNG' );
 		expect( prompt ).toContain( 'Do not substitute a site-preview widget for a screenshot' );
 		expect( prompt ).toContain( 'site-preview is for live previews, not captured screenshots' );
+		expect( prompt ).toContain( '- theme:' );
+		expect( prompt ).toContain( '- theme-template:' );
+		expect( prompt ).toContain( '- theme-styles:' );
+		expect( prompt ).toContain( '- theme-pattern:' );
+		expect( prompt ).toContain( '- color:' );
+		expect( prompt ).toContain( '- pdf:' );
 	} );
 
 	it( 'omits Studio presentation rules when chat artifacts are disabled', () => {

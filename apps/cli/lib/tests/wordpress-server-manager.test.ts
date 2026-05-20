@@ -21,6 +21,7 @@ describe( 'WordPress Server Manager', () => {
 	const mockLogger = {
 		reportProgress: vi.fn(),
 		reportStart: vi.fn(),
+		reportWarning: vi.fn(),
 	} as unknown as Logger< string >;
 
 	const mockSiteData: SiteData = {
@@ -28,7 +29,7 @@ describe( 'WordPress Server Manager', () => {
 		name: 'Test Site',
 		path: '/test/site/path',
 		port: 8881,
-		phpVersion: '8.0',
+		phpVersion: '8.4',
 		adminUsername: 'admin',
 		adminPassword: 'password123',
 		running: false,
@@ -94,6 +95,7 @@ describe( 'WordPress Server Manager', () => {
 				pmId: 5,
 				status: 'online',
 				pid: 12345,
+				runtime: SITE_RUNTIME_PLAYGROUND,
 			} as const;
 
 			vi.mocked( daemonClient.isProcessRunning ).mockResolvedValue( mockProcess );
@@ -103,7 +105,7 @@ describe( 'WordPress Server Manager', () => {
 			expect( vi.mocked( daemonClient.isProcessRunning ) ).toHaveBeenCalledWith(
 				'studio-site-test-site-id'
 			);
-			expect( result ).toEqual( { ...mockProcess, runtime: SITE_RUNTIME_PLAYGROUND } );
+			expect( result ).toEqual( mockProcess );
 		} );
 
 		it( 'should preserve runtime from a running site process', async () => {
@@ -296,6 +298,7 @@ describe( 'WordPress Server Manager', () => {
 				pmId: 1,
 				status: 'online',
 				pid: 1234,
+				runtime: SITE_RUNTIME_PLAYGROUND,
 			} );
 
 			vi.mocked( daemonClient.sendMessageToProcess ).mockImplementation( ( processId, message ) => {
@@ -332,6 +335,7 @@ describe( 'WordPress Server Manager', () => {
 				pmId: 1,
 				status: 'online',
 				pid: 1234,
+				runtime: SITE_RUNTIME_PLAYGROUND,
 			} );
 			vi.mocked( daemonClient.sendMessageToProcess ).mockRejectedValue(
 				new Error( 'Failed to send stop message' )

@@ -16,7 +16,7 @@ import { writeStudioMuPluginsForNativePhpRuntime } from '@studio/common/lib/mu-p
 import { decodePassword } from '@studio/common/lib/passwords';
 import {
 	NativePhpSupportedVersion,
-	validateNativePhpVersion,
+	resolveNativePhpVersion,
 } from '@studio/common/lib/php-binary-metadata';
 import { z } from 'zod';
 import {
@@ -72,6 +72,7 @@ function errorToConsole( ...args: Parameters< typeof console.error > ) {
 type SpawnPhpProcessOptions = {
 	disallowRiskyFunctions?: boolean;
 	mode?: 'pipe' | 'capture-stdout';
+	enableXdebug?: boolean;
 	onlyPathsThatPhpCanAccess?: string[];
 	phpVersion: NativePhpSupportedVersion;
 	siteFolder?: string;
@@ -85,6 +86,7 @@ function spawnPhpProcess(
 		siteFolder,
 		signal,
 		mode = 'pipe',
+		enableXdebug = false,
 		onlyPathsThatPhpCanAccess = [],
 		disallowRiskyFunctions = false,
 	}: SpawnPhpProcessOptions
@@ -92,7 +94,8 @@ function spawnPhpProcess(
 	const defaultArgs = getDefaultPhpArgs(
 		phpVersion,
 		onlyPathsThatPhpCanAccess,
-		disallowRiskyFunctions
+		disallowRiskyFunctions,
+		enableXdebug
 	);
 	const phpArgs = [ ...defaultArgs, ...args ];
 	const phpScriptProcess = spawn( getPhpBinaryPath( phpVersion ), phpArgs, {
@@ -416,7 +419,7 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		return;
 	}
 
-	const phpVersion = validateNativePhpVersion( config.phpVersion ?? '' );
+	const phpVersion = resolveNativePhpVersion( config.phpVersion ?? '' );
 	startupAbortController = new AbortController();
 	const stopSignal = AbortSignal.any( [ signal, startupAbortController.signal ] );
 
@@ -474,7 +477,7 @@ async function doStartServer(
 	stopSignal?: AbortSignal
 ): Promise< ChildProcess > {
 	const phpAddress = `localhost:${ config.port }`;
-	const phpVersion = validateNativePhpVersion( config.phpVersion ?? '' );
+	const phpVersion = resolveNativePhpVersion( config.phpVersion ?? '' );
 	let spawnedChild: ChildProcess | null = null;
 
 	logToConsole(
@@ -487,6 +490,7 @@ async function doStartServer(
 			siteFolder: config.sitePath,
 			onlyPathsThatPhpCanAccess: Array.from( openBasedirAllowlist ),
 			disallowRiskyFunctions: true,
+			enableXdebug: config.enableXdebug,
 		} );
 		spawnedChild = serverChild;
 
@@ -664,6 +668,11 @@ async function runBlueprint(
 	}
 
 	try {
+		// blueprints.phar spawns its own PHP subprocesses while applying a blueprint.
+		// On Windows those subprocesses auto-load the php.ini we wrote next to
+		// php.exe, which carries the bundled-extension and CA-bundle config. On
+		// macOS/Linux every extension is statically linked into the binary, so no
+		// extra setup is needed for the subprocess.
 		await runPhpCommand(
 			[
 				getBlueprintsPharPath(),
@@ -740,7 +749,7 @@ async function ipcMessageHandler( packet: unknown ) {
 				break;
 			case 'run-blueprint': {
 				const blueprintConfig = validMessage.data.config;
-				const blueprintPhpVersion = validateNativePhpVersion( blueprintConfig.phpVersion ?? '' );
+				const blueprintPhpVersion = resolveNativePhpVersion( blueprintConfig.phpVersion ?? '' );
 				await ensureWpConfig(
 					blueprintConfig.sitePath,
 					blueprintPhpVersion,

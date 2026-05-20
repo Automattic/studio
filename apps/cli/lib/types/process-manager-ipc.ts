@@ -1,4 +1,4 @@
-import { siteRuntimeSchema } from '@studio/common/lib/site-runtime';
+import { SITE_RUNTIME_PLAYGROUND, siteRuntimeSchema } from '@studio/common/lib/site-runtime';
 import { z } from 'zod';
 import {
 	childMessageFromProcessManagerSchema,
@@ -9,7 +9,7 @@ import {
 const processDescriptionSchemaBase = z.object( {
 	name: z.string(),
 	pmId: z.number(),
-	runtime: siteRuntimeSchema.optional(),
+	runtime: siteRuntimeSchema.default( SITE_RUNTIME_PLAYGROUND ),
 } );
 const processDescriptionSchemaRunning = processDescriptionSchemaBase.extend( {
 	status: z.literal( 'online' ),

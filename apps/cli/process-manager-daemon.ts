@@ -3,6 +3,7 @@ import fs, { createWriteStream, WriteStream } from 'fs';
 import net from 'net';
 import path from 'path';
 import readline from 'readline';
+import { SITE_RUNTIME_PLAYGROUND, type SiteRuntime } from '@studio/common/lib/site-runtime';
 import semver from 'semver';
 import {
 	PROCESS_MANAGER_LOGS_DIR,
@@ -19,7 +20,6 @@ import {
 	daemonRequestSchema,
 } from 'cli/lib/types/process-manager-ipc';
 import { ManagerMessage } from 'cli/lib/types/wordpress-server-ipc';
-import type { SiteRuntime } from '@studio/common/lib/site-runtime';
 
 const SOCKET_TIMEOUT_MS = 2_500;
 const STOP_TIMEOUT_MS = 2_500;
@@ -35,7 +35,7 @@ type ManagedProcessBase = {
 	scriptPath: string;
 	args: string[];
 	env: NodeJS.ProcessEnv;
-	runtime?: SiteRuntime;
+	runtime: SiteRuntime;
 	child: ChildProcess;
 	stdoutLogPath: string;
 	stderrLogPath: string;
@@ -204,7 +204,7 @@ export class ProcessManagerDaemon {
 		scriptPath: string,
 		env: NodeJS.ProcessEnv,
 		args: string[],
-		runtime?: SiteRuntime
+		runtime: SiteRuntime = SITE_RUNTIME_PLAYGROUND
 	): Promise< ProcessDescription > {
 		const existing = this.getManagedProcessByName( processName );
 		if ( existing && existing.status === 'online' ) {
@@ -404,14 +404,12 @@ export class ProcessManagerDaemon {
 	}
 
 	private toProcessDescription( managedProcess: ManagedProcess ): ProcessDescription {
-		const runtime = managedProcess.runtime ? { runtime: managedProcess.runtime } : {};
-
 		if ( managedProcess.status === 'stopped' ) {
 			return {
 				name: managedProcess.name,
 				pmId: managedProcess.pmId,
 				status: managedProcess.status,
-				...runtime,
+				runtime: managedProcess.runtime,
 			};
 		}
 
@@ -420,7 +418,7 @@ export class ProcessManagerDaemon {
 			pmId: managedProcess.pmId,
 			status: managedProcess.status,
 			pid: managedProcess.pid,
-			...runtime,
+			runtime: managedProcess.runtime,
 		};
 	}
 

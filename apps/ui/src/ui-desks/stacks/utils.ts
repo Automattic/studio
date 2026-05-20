@@ -18,6 +18,7 @@ export interface DeskStackShapeMeta {
 	deskStackId?: unknown;
 	deskStackOrder?: unknown;
 	deskStackViewMode?: unknown;
+	deskStackOpenViewMode?: unknown;
 	deskStackExpanded?: unknown;
 	deskStackHomeX?: unknown;
 	deskStackHomeY?: unknown;
@@ -46,7 +47,23 @@ export function isStackExpanded( shape: TLShape | null | undefined ) {
 
 export function getStackViewMode( shape: TLShape | null | undefined ): StackViewMode {
 	const meta = shape?.meta as DeskStackShapeMeta | undefined;
-	return meta?.deskStackViewMode === 'tiles' ? 'tiles' : 'stack';
+	return meta?.deskStackViewMode === 'tiles' || meta?.deskStackViewMode === 'circle'
+		? meta.deskStackViewMode
+		: 'stack';
+}
+
+export function getStackConfiguredViewMode( shape: TLShape | null | undefined ): StackViewMode {
+	const viewMode = getStackViewMode( shape );
+	if ( viewMode !== 'stack' ) {
+		return viewMode;
+	}
+
+	return getStackOpenViewMode( shape );
+}
+
+export function getStackOpenViewMode( shape: TLShape | null | undefined ): StackViewMode {
+	const meta = shape?.meta as DeskStackShapeMeta | undefined;
+	return meta?.deskStackOpenViewMode === 'circle' ? 'circle' : 'stack';
 }
 
 export function getStackHome( shape: TLShape | null | undefined ) {
@@ -88,18 +105,34 @@ export function getStackOriginalZIndex( shape: TLShape | null | undefined ) {
 	return typeof meta?.deskStackOriginalZIndex === 'string' ? meta.deskStackOriginalZIndex : null;
 }
 
-export function getStackMemberLayout( stack: Pick< DeskStack, 'x' | 'y' >, order: number ) {
+export function getStackFanStep( order: number, totalCount: number ) {
+	const center = ( Math.max( 1, totalCount ) - 1 ) / 2;
+	return order - center;
+}
+
+export function getStackMemberLayout(
+	stack: Pick< DeskStack, 'x' | 'y' | 'memberIds' >,
+	order: number
+) {
+	const step = getStackFanStep( order, stack.memberIds.length );
+
 	return {
-		x: stack.x + order * STACK_TRANSLATE_X,
-		y: stack.y + order * STACK_TRANSLATE_Y,
-		rotation: order * STACK_ROTATION,
+		x: stack.x + step * STACK_TRANSLATE_X,
+		y: stack.y + step * STACK_TRANSLATE_Y,
+		rotation: step * STACK_ROTATION,
 	};
 }
 
-export function getStackAnchorFromMember( shape: Pick< TLShape, 'x' | 'y' >, order: number ) {
+export function getStackAnchorFromMember(
+	shape: Pick< TLShape, 'x' | 'y' >,
+	order: number,
+	totalCount: number
+) {
+	const step = getStackFanStep( order, totalCount );
+
 	return {
-		x: shape.x - order * STACK_TRANSLATE_X,
-		y: shape.y - order * STACK_TRANSLATE_Y,
+		x: shape.x - step * STACK_TRANSLATE_X,
+		y: shape.y - step * STACK_TRANSLATE_Y,
 	};
 }
 
@@ -154,6 +187,36 @@ export function getStackTileLayoutsFromFirstTile(
 		sizes,
 		getStackTileCenterFromFirstTile( sizes, firstTile )
 	);
+}
+
+export function getStackCircleLayoutsFromCenter(
+	sizes: StackTileSize[],
+	center: { x: number; y: number }
+) {
+	const radius = getStackCircleRadius( sizes );
+
+	return sizes.map( ( size, index ) => {
+		const angle = ( 2 * Math.PI * index ) / sizes.length - Math.PI / 2;
+		const centerX = center.x + Math.cos( angle ) * radius;
+		const centerY = center.y + Math.sin( angle ) * radius;
+		const rotation = angle + Math.PI / 2;
+		const cos = Math.cos( rotation );
+		const sin = Math.sin( rotation );
+		const halfWidth = size.w / 2;
+		const halfHeight = size.h / 2;
+
+		return {
+			x: centerX - halfWidth * cos + halfHeight * sin,
+			y: centerY - halfWidth * sin - halfHeight * cos,
+			rotation,
+		};
+	} );
+}
+
+function getStackCircleRadius( sizes: StackTileSize[] ) {
+	const maxSize = Math.max( ...sizes.map( ( size ) => Math.max( size.w, size.h ) ), 1 );
+	const desiredGap = 30;
+	return Math.max( maxSize * 1.1, ( sizes.length * ( maxSize + desiredGap ) ) / ( 2 * Math.PI ) );
 }
 
 function getStackTileDimensions( count: number ) {
@@ -211,6 +274,7 @@ export function createStackMeta(
 		deskStackId: stackId,
 		deskStackOrder: order,
 		deskStackViewMode: viewMode === 'tiles' ? 'tiles' : null,
+		deskStackOpenViewMode: viewMode === 'circle' ? 'circle' : null,
 		...( originalZIndex ? { deskStackOriginalZIndex: originalZIndex } : {} ),
 	};
 }
@@ -256,6 +320,7 @@ export function clearStackMeta() {
 		deskStackId: null,
 		deskStackOrder: null,
 		deskStackViewMode: null,
+		deskStackOpenViewMode: null,
 		deskStackOriginalZIndex: null,
 		...clearExpandedStackMeta(),
 		...clearStackPushMeta(),

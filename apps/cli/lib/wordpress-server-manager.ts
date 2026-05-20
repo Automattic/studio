@@ -11,6 +11,7 @@ import {
 	PLAYGROUND_CLI_INACTIVITY_TIMEOUT,
 	PLAYGROUND_CLI_MAX_TIMEOUT,
 } from '@studio/common/constants';
+import { validateNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
 import {
 	SITE_RUNTIME_NATIVE_PHP,
 	SITE_RUNTIME_PLAYGROUND,
@@ -33,7 +34,6 @@ import { getSiteRuntime } from 'cli/lib/feature-flags';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { ServerConfig, ManagerMessagePayload } from 'cli/lib/types/wordpress-server-ipc';
 import { Logger } from 'cli/logger';
-import { validatePhpVersion } from './utils';
 import type { WordPressInstallMode } from '@wp-playground/wordpress';
 
 export const SITE_PROCESS_PREFIX = 'studio-site-';
@@ -96,13 +96,17 @@ export interface StartServerOptions {
 
 function buildServerConfig(
 	site: SiteData,
+	runtime: SiteRuntime,
 	options?: Partial< StartServerOptions & RunBlueprintOptions >
 ): ServerConfig {
 	const serverConfig: ServerConfig = {
 		siteId: site.id,
 		sitePath: site.path,
 		port: site.port,
-		phpVersion: site.phpVersion,
+		phpVersion:
+			runtime === SITE_RUNTIME_NATIVE_PHP
+				? validateNativePhpVersion( site.phpVersion )
+				: site.phpVersion,
 		siteTitle: site.name,
 	};
 
@@ -187,11 +191,11 @@ async function ensurePhpBinaryAvailableIfNeeded(
 			SiteCommandLoggerAction.ENSURE_PHP_BINARY,
 			`Checking PHP ${ site.phpVersion } binary…`
 		);
-		const phpVersion = validatePhpVersion( site.phpVersion );
+		const phpVersion = validateNativePhpVersion( site.phpVersion );
 		await ensurePhpBinaryAvailable( phpVersion, ( downloaded, total ) => {
 			const dl = ( downloaded / 1024 / 1024 ).toFixed( 1 );
 			const tot = total ? ` / ${ ( total / 1024 / 1024 ).toFixed( 1 ) } MB` : '';
-			logger.reportProgress( `Downloading PHP ${ site.phpVersion } (${ dl } MB${ tot })` );
+			logger.reportProgress( `Downloading PHP ${ phpVersion } (${ dl } MB${ tot })` );
 		} );
 	}
 }
@@ -225,7 +229,7 @@ export async function startWordPressServer(
 
 	const wordPressServerChildPath = getChildScriptPath( runtime );
 	const processName = getProcessName( site.id );
-	const serverConfig = buildServerConfig( site, options );
+	const serverConfig = buildServerConfig( site, runtime, options );
 
 	const readyOrExit = await subscribeForReadyOrExit( processName );
 	try {
@@ -545,7 +549,7 @@ export async function runBlueprint(
 
 	const wordPressServerChildPath = getChildScriptPath( runtime );
 	const processName = getProcessName( site.id );
-	const serverConfig = buildServerConfig( site, options );
+	const serverConfig = buildServerConfig( site, runtime, options );
 
 	const readyOrExit = await subscribeForReadyOrExit( processName );
 	try {

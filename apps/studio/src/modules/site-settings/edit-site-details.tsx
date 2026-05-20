@@ -1,4 +1,4 @@
-import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
+import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import {
 	generateCustomDomainFromSiteName,
 	getDomainNameValidationError,
@@ -10,7 +10,12 @@ import {
 	validateAdminUsername,
 } from '@studio/common/lib/passwords';
 import { siteNeedsRestart } from '@studio/common/lib/site-needs-restart';
-import { SupportedPHPVersion, SupportedPHPVersions } from '@studio/common/types/php-versions';
+import { SITE_RUNTIME_NATIVE_PHP, SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
+import {
+	getRecommendedPHPVersionForRuntime,
+	getSupportedPHPVersionsForRuntime,
+	SupportedPHPVersion,
+} from '@studio/common/types/php-versions';
 import { SelectControl, TabPanel } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { sprintf } from '@wordpress/i18n';
@@ -28,6 +33,7 @@ import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useRootSelector } from 'src/stores';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 
 type EditSiteDetailsProps = {
@@ -61,6 +67,11 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 	const [ adminEmail, setAdminEmail ] = useState(
 		selectedSite?.adminEmail || 'admin@localhost.com'
 	);
+	const runtime = useRootSelector( ( state ) =>
+		state.betaFeatures.features.nativePhpRuntime ? SITE_RUNTIME_NATIVE_PHP : SITE_RUNTIME_PLAYGROUND
+	);
+	const supportedPhpVersions = getSupportedPHPVersionsForRuntime( runtime );
+	const recommendedPhpVersion = getRecommendedPHPVersionForRuntime( runtime );
 
 	useEffect( () => {
 		if ( selectedSite?.adminEmail || ! selectedSite?.id ) {
@@ -92,7 +103,10 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 	}, [ isEditingSite, setIsEditModalOpen ] );
 	const [ siteName, setSiteName ] = useState( selectedSite?.name ?? '' );
 	const [ selectedPhpVersion, setSelectedPhpVersion ] = useState< SupportedPHPVersion >(
-		( selectedSite?.phpVersion as SupportedPHPVersion ) ?? DEFAULT_PHP_VERSION
+		selectedSite?.phpVersion &&
+			supportedPhpVersions.includes( selectedSite.phpVersion as SupportedPHPVersion )
+			? ( selectedSite.phpVersion as SupportedPHPVersion )
+			: recommendedPhpVersion
 	);
 	const getEffectiveWpVersion = useCallback(
 		() =>
@@ -173,7 +187,11 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 			return;
 		}
 		setSiteName( selectedSite.name );
-		setSelectedPhpVersion( selectedSite.phpVersion as SupportedPHPVersion );
+		setSelectedPhpVersion(
+			supportedPhpVersions.includes( selectedSite.phpVersion as SupportedPHPVersion )
+				? ( selectedSite.phpVersion as SupportedPHPVersion )
+				: recommendedPhpVersion
+		);
 		setSelectedWpVersion( getEffectiveWpVersion() );
 		setUseCustomDomain( Boolean( selectedSite.customDomain ) );
 		setCustomDomain( selectedSite.customDomain ?? null );
@@ -186,7 +204,32 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		setAdminEmail( selectedSite.adminEmail || 'admin@localhost.com' );
 		setEnableDebugLog( selectedSite.enableDebugLog ?? false );
 		setEnableDebugDisplay( selectedSite.enableDebugDisplay ?? false );
-	}, [ selectedSite, getEffectiveWpVersion ] );
+	}, [
+		selectedSite,
+		getEffectiveWpVersion,
+		recommendedPhpVersion,
+		supportedPhpVersions,
+		setAdminEmail,
+		setAdminPassword,
+		setAdminUsername,
+		setCustomDomain,
+		setCustomDomainError,
+		setEnableDebugDisplay,
+		setEnableDebugLog,
+		setEnableHttps,
+		setEnableXdebug,
+		setErrorUpdatingWpVersion,
+		setSelectedPhpVersion,
+		setSelectedWpVersion,
+		setSiteName,
+		setUseCustomDomain,
+	] );
+
+	useEffect( () => {
+		if ( ! supportedPhpVersions.includes( selectedPhpVersion ) ) {
+			setSelectedPhpVersion( recommendedPhpVersion );
+		}
+	}, [ selectedPhpVersion, recommendedPhpVersion, supportedPhpVersions ] );
 
 	const onSiteEdit = async ( event: FormEvent ) => {
 		event.preventDefault();
@@ -333,7 +376,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 														id="php-version-select"
 														disabled={ isEditingSite }
 														value={ selectedPhpVersion }
-														options={ SupportedPHPVersions.map( ( version ) => ( {
+														options={ supportedPhpVersions.map( ( version ) => ( {
 															label: version,
 															value: version,
 														} ) ) }

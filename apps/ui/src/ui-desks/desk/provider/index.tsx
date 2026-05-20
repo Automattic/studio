@@ -1,3 +1,5 @@
+import { store as coreDataStore } from '@wordpress/core-data';
+import { useRegistry } from '@wordpress/data';
 import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -12,6 +14,7 @@ import {
 } from 'tldraw';
 import { useConnector } from '@/data/core';
 import { useSites } from '@/data/queries/use-sites';
+import { getSiteUrl } from '@/lib/get-site-url';
 import {
 	focusConnectedWidgetInEditor,
 	removeSelectedConnectorFromEditor,
@@ -19,6 +22,7 @@ import {
 } from '@/ui-desks/connectors/editor-commands';
 import {
 	useConnectorInteractions,
+	type WidgetConnectorCompleteIntent,
 	type WidgetCustomDropIntent,
 } from '@/ui-desks/connectors/use-connector-interactions';
 import {
@@ -33,6 +37,7 @@ import {
 	deskConfigToCanvasConnectorShapes,
 	deskConfigToCanvasShapes,
 	deskWidgetToCanvasShape,
+	getDeskCanvasRecordFollowSourceWidgetId,
 	getTemporaryDeskCanvasRecordMeta,
 } from '@/ui-desks/desk/tldraw-adapter';
 import { DESK_CONFIG_VERSION, type DeskConfig } from '@/ui-desks/desk/types';
@@ -44,24 +49,44 @@ import {
 import { useStackInteractions } from '@/ui-desks/stacks/use-stack-interactions';
 import { useStackPressAnimation } from '@/ui-desks/stacks/use-stack-press-animation';
 import { createDeskWidget } from '@/ui-desks/widget-actions/create-widget';
+import { WidgetDropFeedbackProvider } from '@/ui-desks/widget-actions/drop-feedback-context';
 import { DropActionMenu } from '@/ui-desks/widget-actions/drop-handlers/drop-action-menu';
 import { useWidgetCustomDropActions } from '@/ui-desks/widget-actions/drop-handlers/use-widget-custom-drop-actions';
 import { getWidgetEditAction } from '@/ui-desks/widget-actions/edit-action';
 import { getWidgetFileHandler } from '@/ui-desks/widget-actions/file-handlers';
 import {
+	createWidgetPastePayload,
 	createUrlPastePayload,
 	getWidgetPasteHandler,
 } from '@/ui-desks/widget-actions/paste-handlers';
+import {
+	COLOR_WIDGET_DRAG_MIME_TYPE,
+	COLOR_WIDGET_DRAG_TITLE_MIME_TYPE,
+	COLOR_WIDGET_TYPE,
+	parseColorToHex,
+} from '@/ui-desks/widgets/color/types';
 import { LOADING_WIDGET_TYPE } from '@/ui-desks/widgets/loading/types';
 import { NOTE_WIDGET_TYPE } from '@/ui-desks/widgets/note/types';
+import { PageDitherFilters } from '@/ui-desks/widgets/page/page-dither-filters';
+import { isPageWidgetProps, PAGE_WIDGET_TYPE } from '@/ui-desks/widgets/page/types';
+import { isPostWidgetProps, POST_WIDGET_TYPE } from '@/ui-desks/widgets/post/types';
 import { getWidgetDefinition } from '@/ui-desks/widgets/registry';
+import { getSitePreviewPathFromContentLink } from '@/ui-desks/widgets/site-preview/preview-target';
+import {
+	isSitePreviewWidgetProps,
+	SITE_PREVIEW_WIDGET_TYPE,
+} from '@/ui-desks/widgets/site-preview/types';
 import {
 	DeskContext,
+	type AddDeskMaterializedOptions,
 	type AddDeskWidgetOptions,
+	type CreateDeskMaterialization,
 	type DeskProviderProps,
+	type PreviewContentType,
 	type SelectedWidgetToolbarItem,
 } from './context';
 import {
+	addMaterializedDeskToEditor,
 	addWidgetToEditor,
 	convertDrawShapesToDrawingWidget,
 	createWidgetId,
@@ -71,10 +96,12 @@ import {
 	hasCameraChange,
 	hasPersistentDocumentChange,
 	hydrateEditorFromDesk,
+	isTemporaryDeskVisibleInEditor,
 	isDrawShape,
 	removeSelectedWidgetFromEditor,
 	setSelectedStackViewInEditor,
 	stackSelectedWidgetsInEditor,
+	toggleTemporaryDeskInEditor,
 	unstackSelectedWidgetsInEditor,
 	updateSelectedWidgetPropsInEditor,
 } from './editor-state';
@@ -83,9 +110,11 @@ import { useDeskWidgetResolvers } from './resolvers';
 import type { DeskFocusDesk, DeskFocusMode } from '@/ui-desks/focus-mode/types';
 import type {
 	DeskWidget,
+	ActiveWidgetDropFeedback,
 	WidgetHandlerLoading,
 	WidgetHandlerResult,
 	WidgetPastePayload,
+	WidgetResolverRegistry,
 } from '@/ui-desks/widgets/types';
 
 export { useDesk, useRegisterDeskEditor } from './context';
@@ -100,6 +129,25 @@ interface FocusShapeRestoreSnapshot {
 	isLocked: boolean;
 }
 
+interface CoreDataPreviewRecord {
+	id: number;
+	link?: string;
+}
+
+interface CoreDataPreviewResolvers {
+	getEntityRecord: (
+		kind: 'postType',
+		name: PreviewContentType,
+		key: number,
+		query: typeof CONTENT_PREVIEW_RECORD_QUERY
+	) => Promise< CoreDataPreviewRecord | undefined >;
+}
+
+const CONTENT_PREVIEW_RECORD_QUERY = {
+	context: 'edit',
+	_fields: 'id,link',
+} as const;
+
 export function DeskProvider( {
 	siteId,
 	children,
@@ -111,18 +159,22 @@ export function DeskProvider( {
 	statusMessage,
 }: DeskProviderProps ) {
 	const hasExternalDeskConfig = Boolean( deskConfig );
+	const { data: sites, isLoading: isLoadingSites } = useSites();
+	const site = sites?.find( ( candidate ) => candidate.id === siteId );
+	const defaultSiteUrl = site ? site.url ?? getSiteUrl( site ) : undefined;
 	const {
 		desk: persistedDesk,
 		isLoading: isLoadingPersistedDesk,
 		saveDeskConfig,
 	} = useDeskPersistence( siteId, {
 		enabled: ! hasExternalDeskConfig,
+		defaultSiteUrl,
+		isDefaultSiteUrlLoading: Boolean( siteId && isLoadingSites ),
 	} );
 	const desk = deskConfig ?? persistedDesk;
 	const isLoading = externalIsLoading ?? isLoadingPersistedDesk;
 	const connector = useConnector();
-	const { data: sites } = useSites();
-	const site = sites?.find( ( candidate ) => candidate.id === siteId );
+	const registry = useRegistry();
 	const isRunningSite = Boolean( siteId && site?.running );
 	const [ editor, setEditor ] = useState< Editor | null >( null );
 	const [ isHydrated, setIsHydrated ] = useState( false );
@@ -142,6 +194,7 @@ export function DeskProvider( {
 	const [ customDropIntent, setCustomDropIntent ] = useState< WidgetCustomDropIntent | null >(
 		null
 	);
+	const [ dropFeedback, setDropFeedback ] = useState< ActiveWidgetDropFeedback | null >( null );
 	const hydratedRef = useRef( false );
 	const deskConfigKeyRef = useRef< string | undefined >( undefined );
 	const creationOffsetRef = useRef( 0 );
@@ -185,14 +238,113 @@ export function DeskProvider( {
 	const handleCustomDrop = useCallback( ( drop: WidgetCustomDropIntent ) => {
 		setCustomDropIntent( drop );
 	}, [] );
+	const restoreCustomDropSource = useCallback(
+		( drop: WidgetCustomDropIntent | null ) => {
+			if ( ! editor || ! drop ) {
+				return;
+			}
+
+			const shape = editor.getShape( drop.sourceShapeId );
+			if ( ! shape || Math.abs( shape.opacity - drop.sourceOpacity ) <= 0.001 ) {
+				return;
+			}
+
+			editor.updateShape( {
+				id: drop.sourceShapeId,
+				type: shape.type,
+				opacity: drop.sourceOpacity,
+			} );
+		},
+		[ editor ]
+	);
 	const closeCustomDropMenu = useCallback( () => {
+		restoreCustomDropSource( customDropIntent );
 		setCustomDropIntent( null );
-	}, [] );
+		setDropFeedback( null );
+	}, [ customDropIntent, restoreCustomDropSource ] );
 	const customDropActions = useWidgetCustomDropActions( {
 		editor,
 		intent: customDropIntent,
 		closeMenu: closeCustomDropMenu,
 	} );
+	useEffect( () => {
+		if ( customDropIntent && customDropActions.length === 0 ) {
+			closeCustomDropMenu();
+		}
+	}, [ closeCustomDropMenu, customDropActions.length, customDropIntent ] );
+	const canPreviewContentInSitePreview = Boolean(
+		! isReadOnly && editor && isHydrated && isRunningSite && getFirstSitePreviewShape( editor )
+	);
+	const previewContentInSitePreviewShape = useCallback(
+		async (
+			type: PreviewContentType,
+			id: number,
+			options: { targetShapeId?: TLShapeId; shouldFocus?: boolean } = {}
+		) => {
+			if ( id <= 0 || isReadOnly || ! editor || ! isHydrated || ! isRunningSite || ! site ) {
+				return false;
+			}
+
+			const targetShape = options.targetShapeId
+				? editor.getShape( options.targetShapeId )
+				: getFirstSitePreviewShape( editor );
+			const targetWidget = targetShape ? canvasShapeToDeskWidget( targetShape ) : null;
+			if (
+				! targetShape ||
+				targetWidget?.type !== SITE_PREVIEW_WIDGET_TYPE ||
+				! isSitePreviewWidgetProps( targetWidget.widgetProps )
+			) {
+				return false;
+			}
+
+			let record: CoreDataPreviewRecord | undefined;
+			try {
+				record = await getContentPreviewRecord( registry, type, id );
+			} catch ( error ) {
+				console.warn( `Unable to load ${ type } ${ id } for site preview.`, error );
+				return false;
+			}
+			if ( ! record?.link || editor.isDisposed ) {
+				return false;
+			}
+
+			const path = getSitePreviewPathFromContentLink( record.link, getSiteUrl( site ) );
+			const didUpdate = updateSitePreviewPathInEditor( editor, targetShape.id, path );
+			if ( didUpdate && options.shouldFocus ) {
+				const bounds = editor.getShapePageBounds( targetShape.id );
+				if ( bounds ) {
+					editor.zoomToBounds( bounds, { animation: { duration: 320 } } );
+				}
+			}
+			return didUpdate;
+		},
+		[ editor, isHydrated, isReadOnly, isRunningSite, registry, site ]
+	);
+	const previewContentInSitePreview = useCallback(
+		( type: PreviewContentType, id: number ) =>
+			previewContentInSitePreviewShape( type, id, { shouldFocus: true } ),
+		[ previewContentInSitePreviewShape ]
+	);
+	const handleConnectorComplete = useCallback(
+		( connection: WidgetConnectorCompleteIntent ) => {
+			if (
+				connection.targetWidget.type !== SITE_PREVIEW_WIDGET_TYPE ||
+				! isSitePreviewWidgetProps( connection.targetWidget.widgetProps )
+			) {
+				return;
+			}
+
+			const source = getContentPreviewSource( connection.sourceWidget );
+			if ( ! source ) {
+				return;
+			}
+
+			void previewContentInSitePreviewShape( source.type, source.id, {
+				targetShapeId: connection.targetShapeId,
+			} );
+		},
+		[ previewContentInSitePreviewShape ]
+	);
 
 	useStackInteractions( editor );
 	useConnectorInteractions( {
@@ -201,7 +353,9 @@ export function DeskProvider( {
 		isReadOnly,
 		pendingConnectorSourceId,
 		setPendingConnectorSourceId,
+		onConnectorComplete: handleConnectorComplete,
 		onCustomDrop: handleCustomDrop,
+		onDropFeedbackChange: setDropFeedback,
 	} );
 
 	useEffect( () => {
@@ -269,6 +423,21 @@ export function DeskProvider( {
 			stopShapeChanges();
 		};
 	}, [ editor, isReadOnly ] );
+
+	useEffect( () => {
+		if ( ! editor ) {
+			return;
+		}
+
+		return editor.sideEffects.registerAfterChangeHandler( 'shape', ( previousShape, nextShape ) => {
+			const nextWidget = canvasShapeToDeskWidget( nextShape );
+			if ( ! editor.inputs.isDragging || ! nextWidget ) {
+				return;
+			}
+
+			moveShapesFollowingSourceWidget( editor, previousShape, nextShape, nextWidget.id );
+		} );
+	}, [ editor ] );
 
 	useEffect( () => {
 		if ( ! editor ) {
@@ -418,16 +587,21 @@ export function DeskProvider( {
 				return;
 			}
 
-			const payload = createUrlPastePayload( event.clipboardData?.getData( 'text/plain' ) ?? '' );
-			if ( ! payload || ! getWidgetPasteHandler( payload, { isRunningSite, siteId } ) ) {
+			const payload = createWidgetPastePayload(
+				event.clipboardData?.getData( 'text/plain' ) ?? ''
+			);
+			const match = payload ? getWidgetPasteHandler( payload, { isRunningSite, siteId } ) : null;
+			if ( ! payload || ! match ) {
 				return;
 			}
 
 			event.preventDefault();
-			void editor.putExternalContent( {
-				type: 'url',
-				url: payload.url,
-				point: editor.getViewportPageBounds().center,
+			void handlePastedContent( {
+				editor,
+				payload,
+				match,
+				center: editor.getViewportPageBounds().center,
+				siteId,
 			} );
 		};
 
@@ -438,6 +612,59 @@ export function DeskProvider( {
 			editor.registerExternalContentHandler( 'url', null );
 		};
 	}, [ editor, isHydrated, isReadOnly, isRunningSite, siteId ] );
+
+	useEffect( () => {
+		if ( ! editor || ! isHydrated || isReadOnly ) {
+			return;
+		}
+
+		const container = editor.getContainer();
+		const handleDragOver = ( event: DragEvent ) => {
+			if ( ! hasColorWidgetDragPayload( event.dataTransfer ) ) {
+				return;
+			}
+
+			event.preventDefault();
+			if ( event.dataTransfer ) {
+				event.dataTransfer.dropEffect = 'copy';
+			}
+		};
+		const handleDrop = ( event: DragEvent ) => {
+			if ( ! hasColorWidgetDragPayload( event.dataTransfer ) ) {
+				return;
+			}
+
+			event.preventDefault();
+			event.stopPropagation();
+			const color = parseColorToHex(
+				event.dataTransfer?.getData( COLOR_WIDGET_DRAG_MIME_TYPE ) ?? ''
+			);
+			if ( ! color ) {
+				return;
+			}
+
+			const title = event.dataTransfer?.getData( COLOR_WIDGET_DRAG_TITLE_MIME_TYPE ) ?? '';
+			addWidgetToEditor( editor, COLOR_WIDGET_TYPE, 0, {
+				center: editor.screenToPage( {
+					x: event.clientX,
+					y: event.clientY,
+				} ),
+				widgetProps: {
+					color,
+					title,
+				},
+				shouldStartEditing: false,
+			} );
+		};
+
+		container.addEventListener( 'dragover', handleDragOver, true );
+		container.addEventListener( 'drop', handleDrop, true );
+
+		return () => {
+			container.removeEventListener( 'dragover', handleDragOver, true );
+			container.removeEventListener( 'drop', handleDrop, true );
+		};
+	}, [ editor, isHydrated, isReadOnly ] );
 
 	useEffect( () => {
 		if ( ! editor || ! isHydrated || isReadOnly ) {
@@ -494,6 +721,34 @@ export function DeskProvider( {
 				creationOffsetRef.current += 1;
 			}
 			return didAddWidget;
+		},
+		[ editor, isHydrated, isReadOnly ]
+	);
+
+	const addMaterializedDesk = useCallback(
+		( createMaterialization: CreateDeskMaterialization, options?: AddDeskMaterializedOptions ) => {
+			if ( isReadOnly || ! editor || ! isHydrated ) {
+				return false;
+			}
+
+			const viewportCenter = editor.getViewportPageBounds().center;
+			const offset = ( creationOffsetRef.current % 6 ) * 24;
+			const materialization = createMaterialization( {
+				center: options?.center ?? {
+					x: viewportCenter.x + offset,
+					y: viewportCenter.y + offset,
+				},
+				zIndex: getNextZIndexFromEditor( editor ),
+			} );
+			if ( ! materialization ) {
+				return false;
+			}
+
+			const didAddMaterializedDesk = addMaterializedDeskToEditor( editor, materialization );
+			if ( didAddMaterializedDesk ) {
+				creationOffsetRef.current += 1;
+			}
+			return didAddMaterializedDesk;
 		},
 		[ editor, isHydrated, isReadOnly ]
 	);
@@ -684,6 +939,32 @@ export function DeskProvider( {
 			return true;
 		},
 		[ editor, isHydrated, isReadOnly, toolbarStateOptions ]
+	);
+
+	const toggleTemporaryDesk = useCallback(
+		( options: Parameters< typeof toggleTemporaryDeskInEditor >[ 1 ] ) => {
+			if ( isReadOnly || ! editor || ! isHydrated ) {
+				return false;
+			}
+
+			const didToggle = toggleTemporaryDeskInEditor( editor, options );
+			if ( ! didToggle ) {
+				return false;
+			}
+
+			setSelectedWidgetToolbarItem(
+				getCurrentSelectedWidgetToolbarItem( editor, toolbarStateOptions )
+			);
+			setSelectedConnectorToolbarItem( getSelectedDeskConnectorToolbarItem( editor ) );
+			setSelectedWidgetConnectionTargets( getCurrentSelectedWidgetConnectionTargets( editor ) );
+			return true;
+		},
+		[ editor, isHydrated, isReadOnly, toolbarStateOptions ]
+	);
+
+	const isTemporaryDeskVisible = useCallback(
+		( id: string ) => Boolean( editor && isTemporaryDeskVisibleInEditor( editor, id ) ),
+		[ editor ]
 	);
 
 	const removeSelectedWidget = useCallback( () => {
@@ -943,6 +1224,79 @@ export function DeskProvider( {
 		};
 	}, [ editor, focusedWidgetId ] );
 
+	const getDeskConfigSnapshot = useCallback( () => {
+		if ( ! editor || ! isHydrated ) {
+			return null;
+		}
+
+		return createDeskConfigFromEditor( editor );
+	}, [ editor, isHydrated ] );
+
+	const replaceDeskConfig = useCallback(
+		async ( config: DeskConfig ) => {
+			if ( isReadOnly || ! editor || ! isHydrated ) {
+				return false;
+			}
+
+			const previousDeskConfig = createDeskConfigFromEditor( editor );
+			if ( saveTimerRef.current ) {
+				clearTimeout( saveTimerRef.current );
+				saveTimerRef.current = null;
+			}
+			if ( focusPersistenceResumeTimerRef.current ) {
+				clearTimeout( focusPersistenceResumeTimerRef.current );
+				focusPersistenceResumeTimerRef.current = null;
+			}
+
+			restoreFocusModeShapeState( editor, focusShapeRestoreRef.current );
+			focusShapeRestoreRef.current.clear();
+			focusShapeIdsRef.current = syncFocusDeskToEditor( editor, null, focusShapeIdsRef.current );
+			document
+				.querySelector( '[data-ui-desks-canvas]' )
+				?.removeAttribute( 'data-ui-desks-focus-mode' );
+			editor.setCameraOptions( { ...editor.getCameraOptions(), isLocked: false } );
+			focusDimmingActiveRef.current = false;
+			focusPersistencePausedRef.current = false;
+			focusRestoreCameraRef.current = null;
+			drawingStartShapeIdsRef.current = null;
+			hydratedRef.current = false;
+			setIsHydrated( false );
+			setSelectedWidgetToolbarItem( null );
+			setSelectedConnectorToolbarItem( null );
+			setSelectedWidgetConnectionTargets( [] );
+			setPendingConnectorSourceId( null );
+			setFocusModeState( null );
+			setFocusedWidget( null );
+			clearPressedStack();
+
+			let didImport = false;
+			try {
+				hydrateEditorFromDesk( editor, {
+					...config,
+					updatedAt: new Date().toISOString(),
+				} );
+				saveDeskConfig( createDeskConfigFromEditor( editor ) );
+				didImport = true;
+			} catch ( error ) {
+				console.warn( 'Failed to import desk config.', error );
+				hydrateEditorFromDesk( editor, previousDeskConfig );
+				saveDeskConfig( previousDeskConfig );
+			} finally {
+				hydratedRef.current = true;
+				setIsHydrated( true );
+				setSelectedWidgetToolbarItem(
+					getCurrentSelectedWidgetToolbarItem( editor, toolbarStateOptions )
+				);
+				setSelectedConnectorToolbarItem( getSelectedDeskConnectorToolbarItem( editor ) );
+				setSelectedWidgetConnectionTargets( getCurrentSelectedWidgetConnectionTargets( editor ) );
+				editor.focus();
+			}
+
+			return didImport;
+		},
+		[ clearPressedStack, editor, isHydrated, isReadOnly, saveDeskConfig, toolbarStateOptions ]
+	);
+
 	const value = useMemo(
 		() => ( {
 			siteId,
@@ -961,6 +1315,7 @@ export function DeskProvider( {
 			registerEditor,
 			pressStack,
 			addWidget,
+			addMaterializedDesk,
 			addWidgetAtScreenPoint,
 			addPastedContent,
 			startDrawing,
@@ -968,10 +1323,14 @@ export function DeskProvider( {
 			updateSelectedWidgetProps,
 			canEditSelectedWidget: Boolean( selectedWidgetEditAction ),
 			editSelectedWidget,
+			canPreviewContentInSitePreview,
+			previewContentInSitePreview,
 			fitSelectedWidgetToContent,
 			stackSelectedWidgets,
 			unstackSelectedWidgets,
 			setSelectedStackView,
+			toggleTemporaryDesk,
+			isTemporaryDeskVisible,
 			removeSelectedWidget,
 			removeSelectedConnector,
 			startConnectingWidget,
@@ -980,11 +1339,15 @@ export function DeskProvider( {
 			setFocusDesk,
 			getFocusDeskSnapshot,
 			stopFocusMode,
+			getDeskConfigSnapshot,
+			replaceDeskConfig,
 		} ),
 		[
+			addMaterializedDesk,
 			addPastedContent,
 			addWidget,
 			addWidgetAtScreenPoint,
+			canPreviewContentInSitePreview,
 			editor,
 			editSelectedWidget,
 			fitSelectedWidgetToContent,
@@ -993,13 +1356,17 @@ export function DeskProvider( {
 			focusedWidget,
 			focusedWidgetDefinition,
 			focusMode,
+			getDeskConfigSnapshot,
 			getFocusDeskSnapshot,
 			isHydrated,
+			isTemporaryDeskVisible,
 			isReadOnly,
 			isLoading,
 			pendingConnectorSourceId,
 			pressStack,
+			previewContentInSitePreview,
 			pressedStackId,
+			replaceDeskConfig,
 			registerEditor,
 			removeSelectedConnector,
 			removeSelectedWidget,
@@ -1016,6 +1383,7 @@ export function DeskProvider( {
 			siteId,
 			statusMessage,
 			stopFocusMode,
+			toggleTemporaryDesk,
 			unstackSelectedWidgets,
 			updateSelectedWidgetProps,
 		]
@@ -1028,16 +1396,93 @@ export function DeskProvider( {
 
 	return (
 		<DeskContext.Provider value={ value }>
-			{ children }
-			{ customDropIntent && customDropActions.length > 0 && (
-				<DropActionMenu
-					screenPoint={ customDropIntent.screenPoint }
-					actions={ customDropActions }
-					onCancel={ closeCustomDropMenu }
-				/>
-			) }
+			<WidgetDropFeedbackProvider value={ dropFeedback }>
+				<PageDitherFilters />
+				{ children }
+				{ customDropIntent && customDropActions.length > 0 && (
+					<DropActionMenu
+						screenPoint={ customDropIntent.screenPoint }
+						actions={ customDropActions }
+						onCancel={ closeCustomDropMenu }
+					/>
+				) }
+			</WidgetDropFeedbackProvider>
 		</DeskContext.Provider>
 	);
+}
+
+function getContentPreviewSource(
+	widget: DeskWidget
+): { type: PreviewContentType; id: number } | null {
+	if (
+		widget.type === POST_WIDGET_TYPE &&
+		isPostWidgetProps( widget.widgetProps ) &&
+		widget.widgetProps.postId > 0
+	) {
+		return { type: 'post', id: widget.widgetProps.postId };
+	}
+
+	if (
+		widget.type === PAGE_WIDGET_TYPE &&
+		isPageWidgetProps( widget.widgetProps ) &&
+		widget.widgetProps.pageId > 0
+	) {
+		return { type: 'page', id: widget.widgetProps.pageId };
+	}
+
+	return null;
+}
+
+async function getContentPreviewRecord(
+	registry: WidgetResolverRegistry,
+	type: PreviewContentType,
+	id: number
+) {
+	return getCoreDataPreviewResolvers( registry ).getEntityRecord(
+		'postType',
+		type,
+		id,
+		CONTENT_PREVIEW_RECORD_QUERY
+	);
+}
+
+function getCoreDataPreviewResolvers( registry: WidgetResolverRegistry ) {
+	return registry.resolveSelect( coreDataStore ) as unknown as CoreDataPreviewResolvers;
+}
+
+function getFirstSitePreviewShape( editor: Editor ) {
+	return editor.getCurrentPageShapes().find( ( shape ) => {
+		const widget = canvasShapeToDeskWidget( shape );
+		return widget?.type === SITE_PREVIEW_WIDGET_TYPE;
+	} );
+}
+
+function updateSitePreviewPathInEditor( editor: Editor, shapeId: TLShapeId, path: string ) {
+	const shape = editor.getShape( shapeId );
+	const widget = shape ? canvasShapeToDeskWidget( shape ) : null;
+	if (
+		! shape ||
+		widget?.type !== SITE_PREVIEW_WIDGET_TYPE ||
+		! isSitePreviewWidgetProps( widget.widgetProps )
+	) {
+		return false;
+	}
+
+	if ( widget.widgetProps.path === path ) {
+		return true;
+	}
+
+	editor.updateShape< RectangleWidgetShape >( {
+		id: shape.id as RectangleWidgetShape[ 'id' ],
+		type: RECTANGLE_WIDGET_SHAPE_TYPE,
+		props: {
+			widgetProps: {
+				...widget.widgetProps,
+				path,
+			},
+		},
+	} );
+	return true;
 }
 
 function syncFocusDeskToEditor(
@@ -1091,6 +1536,37 @@ function withTemporaryFocusMeta< TShape extends TLShapePartial >( shape: TShape 
 		...shape,
 		meta: getTemporaryDeskCanvasRecordMeta( shape ),
 	};
+}
+
+function moveShapesFollowingSourceWidget(
+	editor: Editor,
+	previousShape: TLShape,
+	nextShape: TLShape,
+	sourceWidgetId: string
+) {
+	if ( previousShape.x === nextShape.x && previousShape.y === nextShape.y ) {
+		return;
+	}
+
+	const deltaX = nextShape.x - previousShape.x;
+	const deltaY = nextShape.y - previousShape.y;
+	const followerPartials = editor
+		.getCurrentPageShapes()
+		.filter(
+			( shape ) =>
+				shape.id !== nextShape.id &&
+				getDeskCanvasRecordFollowSourceWidgetId( shape ) === sourceWidgetId
+		)
+		.map( ( shape ) => ( {
+			id: shape.id,
+			type: shape.type,
+			x: shape.x + deltaX,
+			y: shape.y + deltaY,
+		} ) );
+
+	if ( followerPartials.length > 0 ) {
+		editor.updateShapes( followerPartials );
+	}
 }
 
 function updateFocusModeShapes( editor: Editor, partials: TLShapePartial[], animated: boolean ) {
@@ -1373,6 +1849,12 @@ function shouldIgnorePasteEvent( event: ClipboardEvent ) {
 		target.tagName === 'TEXTAREA' ||
 		target.tagName === 'SELECT' ||
 		target.isContentEditable
+	);
+}
+
+function hasColorWidgetDragPayload( dataTransfer: DataTransfer | null ) {
+	return Boolean(
+		dataTransfer && Array.from( dataTransfer.types ).includes( COLOR_WIDGET_DRAG_MIME_TYPE )
 	);
 }
 

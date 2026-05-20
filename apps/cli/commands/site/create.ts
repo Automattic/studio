@@ -2,12 +2,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { confirm, input, password, select } from '@inquirer/prompts';
-import { SupportedPHPVersions } from '@php-wasm/universal';
-import {
-	DEFAULT_PHP_VERSION,
-	DEFAULT_WORDPRESS_VERSION,
-	MINIMUM_WORDPRESS_VERSION,
-} from '@studio/common/constants';
+import { DEFAULT_WORDPRESS_VERSION, MINIMUM_WORDPRESS_VERSION } from '@studio/common/constants';
 import { installAiInstructionsToSite } from '@studio/common/lib/agent-skills';
 import { extractFormValuesFromBlueprint } from '@studio/common/lib/blueprint-settings';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
@@ -43,6 +38,7 @@ import {
 } from '@studio/common/lib/wordpress-version-utils';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
+import { type SupportedPHPVersion } from '@studio/common/types/php-versions';
 import { __, sprintf } from '@wordpress/i18n';
 import { isStepDefinition, type BlueprintV1Declaration } from '@wp-playground/blueprints';
 import { bumpStat, getPlatformMetric } from 'cli/lib/bump-stat';
@@ -62,6 +58,11 @@ import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/dae
 import { getAiInstructionsPath } from 'cli/lib/dependency-management/paths';
 import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
+import {
+	getRecommendedPhpVersionForSiteRuntime,
+	getSupportedPhpVersionsForSiteRuntime,
+	validatePhpVersionForSiteRuntime,
+} from 'cli/lib/php-versions';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { generateSiteName } from 'cli/lib/site-name';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
@@ -74,15 +75,13 @@ import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-man
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
-const ALLOWED_PHP_VERSIONS = [ ...SupportedPHPVersions ];
-
 const logger = new Logger< LoggerAction >();
 
-type CreateCommandOptions = {
+export type CreateCommandOptions = {
 	name?: string;
 	siteId?: string;
 	wpVersion: string;
-	phpVersion: ( typeof ALLOWED_PHP_VERSIONS )[ number ];
+	phpVersion: SupportedPHPVersion;
 	customDomain?: string;
 	enableHttps: boolean;
 	blueprint?: {
@@ -101,6 +100,7 @@ export async function runCommand(
 	sitePath: string,
 	options: CreateCommandOptions
 ): Promise< void > {
+	const phpVersion = validatePhpVersionForSiteRuntime( options.phpVersion );
 	const isOnlineStatus = await isOnline();
 
 	try {
@@ -286,7 +286,7 @@ export async function runCommand(
 			adminPassword,
 			adminEmail,
 			port,
-			phpVersion: options.phpVersion,
+			phpVersion,
 			running: false,
 			isWpAutoUpdating: options.wpVersion === DEFAULT_WORDPRESS_VERSION,
 			customDomain: options.customDomain,
@@ -477,6 +477,8 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		command: 'create',
 		describe: __( 'Create a new site' ),
 		builder: ( yargs ) => {
+			const supportedPhpVersions = getSupportedPhpVersionsForSiteRuntime();
+			const recommendedPhpVersion = getRecommendedPhpVersionForSiteRuntime();
 			return yargs
 				.option( 'id', {
 					type: 'string',
@@ -497,8 +499,8 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'php', {
 					type: 'string',
 					describe: __( 'PHP version' ),
-					choices: ALLOWED_PHP_VERSIONS,
-					defaultDescription: DEFAULT_PHP_VERSION,
+					choices: supportedPhpVersions,
+					defaultDescription: recommendedPhpVersion,
 				} )
 				.option( 'domain', {
 					type: 'string',
@@ -557,6 +559,8 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			let adminUsername = argv.adminUsername;
 			let adminPassword = argv.adminPassword;
 			let adminEmail = argv.adminEmail;
+			const supportedPhpVersions = getSupportedPhpVersionsForSiteRuntime();
+			const recommendedPhpVersion = getRecommendedPhpVersionForSiteRuntime();
 
 			// Validate and resolve the WordPress version against available versions before prompting
 			if ( wpVersion && wpVersion !== 'latest' && wpVersion !== 'nightly' ) {
@@ -655,11 +659,11 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					if ( ! phpVersion ) {
 						phpVersion = await select( {
 							message: __( 'PHP version:' ),
-							choices: ALLOWED_PHP_VERSIONS.map( ( v ) => ( {
-								name: v === DEFAULT_PHP_VERSION ? sprintf( __( '%s (recommended)' ), v ) : v,
+							choices: supportedPhpVersions.map( ( v ) => ( {
+								name: v === recommendedPhpVersion ? sprintf( __( '%s (recommended)' ), v ) : v,
 								value: v,
 							} ) ),
-							default: DEFAULT_PHP_VERSION,
+							default: recommendedPhpVersion,
 						} );
 					}
 
@@ -716,13 +720,15 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 
 			// Apply defaults for non-interactive mode when flags weren't provided
 			wpVersion = wpVersion ?? DEFAULT_WORDPRESS_VERSION;
-			phpVersion = phpVersion ?? DEFAULT_PHP_VERSION;
+			const resolvedPhpVersion = validatePhpVersionForSiteRuntime(
+				phpVersion ?? recommendedPhpVersion
+			);
 
 			const config: CreateCommandOptions = {
 				name: siteName,
 				siteId: argv.id,
 				wpVersion,
-				phpVersion,
+				phpVersion: resolvedPhpVersion,
 				customDomain,
 				enableHttps,
 				adminUsername,

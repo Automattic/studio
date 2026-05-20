@@ -23,8 +23,10 @@ import type { EmbedWidget } from '@/ui-desks/widgets/embed/types';
 import type { MediaWidget } from '@/ui-desks/widgets/media/types';
 import type { NoteWidget } from '@/ui-desks/widgets/note/types';
 import type { PageWidget } from '@/ui-desks/widgets/page/types';
+import type { PdfWidget } from '@/ui-desks/widgets/pdf/types';
 import type { PostWidget } from '@/ui-desks/widgets/post/types';
 import type { ScratchpadWidget } from '@/ui-desks/widgets/scratchpad/types';
+import type { SiteCardWidget } from '@/ui-desks/widgets/site-card/types';
 import type { SitePreviewWidget } from '@/ui-desks/widgets/site-preview/types';
 import type { ResolvedDeskWidget } from '@/ui-desks/widgets/types';
 
@@ -274,6 +276,49 @@ describe( 'tldraw adapter', () => {
 		} );
 	} );
 
+	it( 'maps a site card widget through the canvas shape adapter', () => {
+		const widget: SiteCardWidget = {
+			id: 'site-card-1',
+			type: 'site-card',
+			x: 90,
+			y: 100,
+			zIndex: 'a6',
+			shapeProps: {
+				w: 360,
+				h: 200,
+			},
+			widgetProps: {
+				siteId: 'site-123',
+				previewVisible: true,
+			},
+		};
+
+		const shape = deskWidgetToCanvasShape( widget ) as TLShape;
+
+		expect( shape ).toMatchObject( {
+			id: 'shape:site-card-1',
+			type: RECTANGLE_WIDGET_SHAPE_TYPE,
+			x: 90,
+			y: 100,
+			index: 'a6',
+			props: {
+				widgetType: 'site-card',
+				shapeProps: {
+					w: 360,
+					h: 200,
+				},
+				widgetProps: {
+					siteId: 'site-123',
+					previewVisible: true,
+				},
+			},
+		} );
+		expect( canvasShapeToDeskWidget( shape ) ).toEqual( {
+			...widget,
+			rotation: undefined,
+		} );
+	} );
+
 	it( 'maps a media widget through the canvas shape adapter', () => {
 		const widget: MediaWidget = {
 			id: 'media-1',
@@ -353,6 +398,51 @@ describe( 'tldraw adapter', () => {
 				},
 				widgetProps: {
 					url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+				},
+			},
+		} );
+		expect( canvasShapeToDeskWidget( shape ) ).toEqual( {
+			...widget,
+			rotation: undefined,
+		} );
+	} );
+
+	it( 'maps a PDF widget through the canvas shape adapter', () => {
+		const widget: PdfWidget = {
+			id: 'pdf-1',
+			type: 'pdf',
+			x: 130,
+			y: 140,
+			zIndex: 'a8',
+			shapeProps: {
+				w: 320,
+				h: 110,
+			},
+			widgetProps: {
+				url: 'https://example.com/brief.pdf',
+				title: 'Brief',
+				mediaId: null,
+			},
+		};
+
+		const shape = deskWidgetToCanvasShape( widget ) as TLShape;
+
+		expect( shape ).toMatchObject( {
+			id: 'shape:pdf-1',
+			type: RECTANGLE_WIDGET_SHAPE_TYPE,
+			x: 130,
+			y: 140,
+			index: 'a8',
+			props: {
+				widgetType: 'pdf',
+				shapeProps: {
+					w: 320,
+					h: 110,
+				},
+				widgetProps: {
+					url: 'https://example.com/brief.pdf',
+					title: 'Brief',
+					mediaId: null,
 				},
 			},
 		} );
@@ -450,9 +540,9 @@ describe( 'tldraw adapter', () => {
 
 		expect( firstStackMember ).toMatchObject( {
 			id: 'shape:note-1',
-			x: 100,
-			y: 200,
-			rotation: 0,
+			x: 95,
+			y: 196,
+			rotation: -0.026,
 			meta: {
 				deskStackId: 'stack-1',
 				deskStackOrder: 0,
@@ -462,9 +552,9 @@ describe( 'tldraw adapter', () => {
 		} );
 		expect( secondStackMember ).toMatchObject( {
 			id: 'shape:note-2',
-			x: 110,
-			y: 208,
-			rotation: 0.052,
+			x: 105,
+			y: 204,
+			rotation: 0.026,
 			meta: {
 				deskStackId: 'stack-1',
 				deskStackOrder: 1,
@@ -533,6 +623,73 @@ describe( 'tldraw adapter', () => {
 				deskStackViewMode: 'tiles',
 			},
 		} );
+	} );
+
+	it( 'projects circle stack widgets as a collapsed stack that opens into a circle', () => {
+		const desk: DeskConfig = {
+			version: 1,
+			updatedAt: '2026-05-09T00:00:00.000Z',
+			widgets: [
+				{
+					...createNoteWidget( 'note-1' ),
+					x: 100,
+					y: 200,
+				},
+				{
+					...createNoteWidget( 'note-2' ),
+					x: 420,
+					y: 200,
+					zIndex: 'a3',
+				},
+			],
+			stacks: [
+				{
+					id: 'stack-1',
+					x: 100,
+					y: 200,
+					zIndex: 'a5',
+					memberIds: [ 'note-1', 'note-2' ],
+					viewMode: 'circle',
+				},
+			],
+		};
+
+		const shapes = deskConfigToCanvasShapes( desk );
+		const firstStackMember = getCanvasShape( shapes, 'shape:note-1' );
+		const secondStackMember = getCanvasShape( shapes, 'shape:note-2' );
+
+		expect( firstStackMember ).toMatchObject( {
+			x: 95,
+			y: 196,
+			rotation: -0.026,
+			meta: {
+				deskStackId: 'stack-1',
+				deskStackOrder: 0,
+				deskStackViewMode: null,
+				deskStackOpenViewMode: 'circle',
+			},
+		} );
+		expect( secondStackMember ).toMatchObject( {
+			x: 105,
+			y: 204,
+			rotation: 0.026,
+			meta: {
+				deskStackId: 'stack-1',
+				deskStackOrder: 1,
+				deskStackViewMode: null,
+				deskStackOpenViewMode: 'circle',
+			},
+		} );
+		expect( canvasShapesToDeskStacks( shapes as TLShape[] ) ).toEqual( [
+			{
+				id: 'stack-1',
+				x: 100,
+				y: 200,
+				zIndex: 'a1',
+				memberIds: [ 'note-1', 'note-2' ],
+				viewMode: 'circle',
+			},
+		] );
 	} );
 
 	it( 'maps desk connectors to locked arrow shapes and arrow bindings', () => {
@@ -666,8 +823,8 @@ describe( 'tldraw adapter', () => {
 		const shapes = [
 			{
 				...deskWidgetToCanvasShape( createNoteWidget( 'note-1' ) ),
-				x: 100,
-				y: 200,
+				x: 95,
+				y: 196,
 				index: 'a5',
 				meta: {
 					deskStackId: 'stack-1',
@@ -676,8 +833,8 @@ describe( 'tldraw adapter', () => {
 			},
 			{
 				...deskWidgetToCanvasShape( createNoteWidget( 'note-2' ) ),
-				x: 110,
-				y: 208,
+				x: 105,
+				y: 204,
 				index: 'a4.999',
 				meta: {
 					deskStackId: 'stack-1',
@@ -814,8 +971,8 @@ describe( 'tldraw adapter', () => {
 					deskStackId: 'stack-1',
 					deskStackOrder: 0,
 					deskStackPushedBy: 'stack-2',
-					deskStackPushOriginX: 100,
-					deskStackPushOriginY: 200,
+					deskStackPushOriginX: 95,
+					deskStackPushOriginY: 196,
 				},
 			},
 			{
@@ -827,8 +984,8 @@ describe( 'tldraw adapter', () => {
 					deskStackId: 'stack-1',
 					deskStackOrder: 1,
 					deskStackPushedBy: 'stack-2',
-					deskStackPushOriginX: 110,
-					deskStackPushOriginY: 208,
+					deskStackPushOriginX: 105,
+					deskStackPushOriginY: 204,
 				},
 			},
 		] as unknown as TLShape[];
@@ -985,9 +1142,9 @@ describe( 'tldraw adapter', () => {
 		} );
 
 		expect( shape ).toMatchObject( {
-			x: 110,
-			y: 208,
-			rotation: 0.052,
+			x: 105,
+			y: 204,
+			rotation: 0.026,
 			meta: {
 				deskStackId: 'stack-1',
 				deskStackOrder: 1,

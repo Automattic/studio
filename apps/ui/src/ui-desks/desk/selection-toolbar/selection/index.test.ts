@@ -41,7 +41,9 @@ describe( 'widget toolbar selection', () => {
 			throw new Error( 'Expected a single widget toolbar item.' );
 		}
 		expect( selectedItem.definition.type ).toBe( POST_WIDGET_TYPE );
-		expect( selectedItem.definition.controls ).toBeUndefined();
+		expect( selectedItem.definition.controls?.map( ( control ) => control.id ) ).toEqual( [
+			'preview-post-on-canvas',
+		] );
 		expect( selectedItem.definition.getEditAction ).toBeTypeOf( 'function' );
 		expect( selectedItem.widget.widgetProps ).toEqual( {
 			postId: 42,
@@ -57,6 +59,7 @@ describe( 'widget toolbar selection', () => {
 		}
 		expect( selectedItem.definition.type ).toBe( PAGE_WIDGET_TYPE );
 		expect( selectedItem.definition.controls?.[ 0 ]?.type ).toBe( 'color' );
+		expect( selectedItem.definition.controls?.[ 1 ]?.id ).toBe( 'preview-page-on-canvas' );
 		expect( selectedItem.widget.widgetProps ).toEqual( {
 			pageId: 84,
 			tone: 'blue',

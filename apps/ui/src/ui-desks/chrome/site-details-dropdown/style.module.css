@@ -104,6 +104,56 @@
 	gap: 2px;
 }
 
+.footerActions {
+	display: flex;
+	padding: 6px 4px 0;
+}
+
+.deleteButton {
+	width: 100%;
+	justify-content: flex-start;
+	color: #b32d2e;
+}
+
+.deleteButton:hover:not(:disabled) {
+	background: rgba(179, 45, 46, 0.08);
+}
+
+.deleteDialogContent {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.deleteDialogText {
+	margin: 0;
+	color: var(--ui-desks-muted, #6b7280);
+	font-size: 13px;
+	line-height: 18px;
+}
+
+.deleteDialogCheckbox {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	color: var(--ui-desks-text, #14171a);
+	font-size: 13px;
+	line-height: 18px;
+}
+
+.deleteDialogCheckbox input {
+	flex: 0 0 auto;
+}
+
+.confirmDeleteButton {
+	--button-background: #b32d2e;
+	--button-foreground: #fff;
+}
+
+.confirmDeleteButton:hover:not(:disabled) {
+	--button-background: #8a2424;
+}
+
 .row {
 	display: grid;
 	grid-template-columns: minmax(120px, 1fr) auto;

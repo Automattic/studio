@@ -30,6 +30,8 @@
 		"typecheck": "tsc -p tsconfig.json --noEmit"
 	},
 	"dependencies": {
+		"@automattic/agenttic-client": "0.1.63",
+		"@automattic/agenttic-ui": "0.1.63",
 		"@automattic/generate-password": "^0.1.0",
 		"@automattic/interpolate-components": "^1.2.1",
 		"@formatjs/intl-locale": "^3.4.5",

@@ -40,6 +40,7 @@ import {
 } from '@studio/common/lib/blueprint-bundle';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
+import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import { extractZip } from '@studio/common/lib/extract-zip';
@@ -77,7 +78,7 @@ import {
 	SIDEBAR_WIDTH,
 	WINDOWS_TITLEBAR_HEIGHT,
 } from 'src/constants';
-import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
+import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import {
 	deleteAiSessionPlacement,
 	hydrateAiSessionSummaryWithPlacement,
@@ -1029,6 +1030,24 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 	);
 
 	console.log( `Server started for '${ server.details.name }'` );
+	await sendIpcEventToRenderer( 'site-event', {
+		event: SITE_EVENTS.UPDATED,
+		siteId: id,
+		running: server.details.running,
+		site: {
+			...server.details,
+			url: getSiteEventUrl( server.details ),
+		},
+	} );
+}
+
+function getSiteEventUrl( site: SiteDetails ) {
+	if ( site.customDomain ) {
+		const protocol = site.enableHttps ? 'https' : 'http';
+		return `${ protocol }://${ site.customDomain }`;
+	}
+
+	return `http://localhost:${ site.port }`;
 }
 
 export async function stopServer( event: IpcMainInvokeEvent, id: string ): Promise< void > {
@@ -1038,6 +1057,15 @@ export async function stopServer( event: IpcMainInvokeEvent, id: string ): Promi
 	}
 
 	await server.stop();
+	await sendIpcEventToRenderer( 'site-event', {
+		event: SITE_EVENTS.UPDATED,
+		siteId: id,
+		running: server.details.running,
+		site: {
+			...server.details,
+			url: getSiteEventUrl( server.details ),
+		},
+	} );
 }
 
 export async function stopAllServers(): Promise< void > {

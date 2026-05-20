@@ -228,6 +228,13 @@ export class SiteServer {
 
 		console.log( `Starting server for '${ this.details.name }'` );
 		await this.server.start();
+		const url = getAbsoluteUrl( this.details );
+		this.details = {
+			...this.details,
+			running: true,
+			url,
+		};
+		this.server.url = url;
 	}
 
 	updateSiteDetails( site: SiteDetails ) {

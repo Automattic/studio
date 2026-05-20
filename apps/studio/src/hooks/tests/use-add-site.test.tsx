@@ -262,4 +262,64 @@ describe( 'useAddSite', () => {
 		} );
 		expect( mockSetSelectedTab ).toHaveBeenCalledWith( 'sync' );
 	} );
+
+	it( 'should create a local site from a remote site setup action', async () => {
+		const remoteSite: SyncSite = {
+			id: 123,
+			localSiteId: '',
+			name: 'Remote Site',
+			url: 'https://example.com',
+			isStaging: false,
+			isPressable: false,
+			environmentType: null,
+			syncSupport: 'syncable',
+			lastPullTimestamp: null,
+			lastPushTimestamp: null,
+		};
+		const createdSite = {
+			id: 'local-id',
+			name: 'Remote Site',
+			path: '/default/path',
+			wpVersion: 'latest',
+			phpVersion: '8.4',
+		};
+
+		mockCreateSite.mockImplementation(
+			( path, name, version, customDomain, enableHttps, blueprint, phpVersion, callback ) => {
+				callback( createdSite );
+				return Promise.resolve( createdSite );
+			}
+		);
+
+		const { result } = renderHookWithProvider( () => useAddSite() );
+
+		await act( async () => {
+			await result.current.createSiteFromRemoteSite( remoteSite );
+		} );
+
+		expect( mockCreateSite ).toHaveBeenCalledWith(
+			'/default/path',
+			'Remote Site',
+			'latest',
+			undefined,
+			false,
+			undefined,
+			'8.4',
+			expect.any( Function ),
+			true
+		);
+		expect( mockConnectWpcomSites ).toHaveBeenCalledWith( [
+			{
+				sites: [ remoteSite ],
+				localSiteId: createdSite.id,
+			},
+		] );
+		expect( mockPullSiteThunk ).toHaveBeenCalledWith( {
+			client: mockClient,
+			connectedSite: remoteSite,
+			selectedSite: createdSite,
+			options: { optionsToSync: [ 'all' ] },
+		} );
+		expect( mockSetSelectedTab ).toHaveBeenCalledWith( 'sync' );
+	} );
 } );

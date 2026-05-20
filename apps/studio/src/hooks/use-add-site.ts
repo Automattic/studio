@@ -10,6 +10,7 @@ import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useFindAvailableSiteName } from 'src/modules/add-site/hooks/use-find-available-site-name';
 import { useAppDispatch } from 'src/stores';
 import { syncOperationsThunks } from 'src/stores/sync';
 import { useConnectSiteMutation } from 'src/stores/sync/connected-sites';
@@ -53,6 +54,7 @@ export function useAddSite() {
 	const { client } = useAuth();
 	const dispatch = useAppDispatch();
 	const { setSelectedTab } = useContentTabs();
+	const findAvailableSiteName = useFindAvailableSiteName();
 	const [ fileForImport, setFileForImport ] = useState< File | null >( null );
 	const [ selectedBlueprint, setSelectedBlueprint ] = useState< Blueprint | undefined >();
 	const [ selectedRemoteSite, setSelectedRemoteSite ] = useState< SyncSite | undefined >();
@@ -315,9 +317,60 @@ export function useAddSite() {
 		]
 	);
 
+	const createSiteFromRemoteSite = useCallback(
+		async ( remoteSite: SyncSite ) => {
+			const siteName = await findAvailableSiteName( remoteSite.name );
+			const proposedPath = await generateProposedPath( siteName );
+			if ( proposedPath.error ) {
+				getIpcApi().showErrorMessageBox( {
+					title: __( 'Could not create local site' ),
+					message: proposedPath.error,
+				} );
+				return;
+			}
+
+			return createSite(
+				proposedPath.path,
+				siteName,
+				DEFAULT_WORDPRESS_VERSION,
+				undefined,
+				false,
+				undefined,
+				DEFAULT_PHP_VERSION,
+				async ( newSite ) => {
+					await connectSite( { site: remoteSite, localSiteId: newSite.id } );
+					if ( client ) {
+						const pullOptions: SyncOption[] = [ 'all' ];
+						void dispatch(
+							syncOperationsThunks.pullSite( {
+								client,
+								connectedSite: remoteSite,
+								selectedSite: newSite,
+								options: { optionsToSync: pullOptions },
+							} )
+						);
+						setSelectedTab( 'sync' );
+					}
+				},
+				true
+			);
+		},
+		[
+			__,
+			client,
+			connectSite,
+			createSite,
+			dispatch,
+			findAvailableSiteName,
+			generateProposedPath,
+			setSelectedTab,
+		]
+	);
+
 	return useMemo(
 		() => ( {
 			handleCreateSite,
+			createSiteFromRemoteSite,
 			selectPath,
 			generateProposedPath,
 			deeplinkPhpVersion,
@@ -350,6 +403,7 @@ export function useAddSite() {
 		} ),
 		[
 			handleCreateSite,
+			createSiteFromRemoteSite,
 			selectPath,
 			generateProposedPath,
 			deeplinkPhpVersion,

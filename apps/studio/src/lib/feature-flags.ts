@@ -18,6 +18,12 @@ export const FEATURE_FLAGS: Record< keyof FeatureFlags, FeatureFlagDefinition > 
 		flag: 'enableStudioCodeUi',
 		default: false,
 	},
+	enableWorkspaces: {
+		label: 'Workspaces',
+		env: 'ENABLE_WORKSPACES',
+		flag: 'enableWorkspaces',
+		default: false,
+	},
 } as const;
 
 export function getFeatureFlagFromEnv( flag: keyof FeatureFlags ): boolean {

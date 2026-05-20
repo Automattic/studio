@@ -14,6 +14,12 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
 import { getTerminalName } from 'src/modules/user-settings/lib/terminal';
+import { useWorkspaceSelection } from 'src/modules/workspaces';
+import { WorkspaceSidebarRow } from 'src/modules/workspaces/components/workspace-sidebar-row';
+import {
+	createWorkspaceDollyWorkspaceDescriptor,
+	setSelectedWorkspaceDollyConversationId,
+} from 'src/modules/workspaces/lib/dolly/session';
 import { useRootSelector } from 'src/stores';
 import { useGetUserEditorQuery, useGetUserTerminalQuery } from 'src/stores/installed-apps-api';
 import { syncOperationsSelectors } from 'src/stores/sync';
@@ -257,6 +263,14 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 	const { setSelectedTab } = useContentTabs();
 	const { handleDeleteSite } = useDeleteSite();
 	const { data: editor } = useGetUserEditorQuery();
+	const {
+		enableWorkspaces,
+		workspaces: sidebarWorkspaces,
+		isLoading: isLoadingWorkspaces,
+		selectedWorkspaceId,
+		selectWorkspace,
+		selectWorkspaceTab,
+	} = useWorkspaceSelection();
 	const [ draggedIndex, setDraggedIndex ] = useState< number | null >( null );
 	const [ dragOverIndex, setDragOverIndex ] = useState< number | null >( null );
 
@@ -292,6 +306,18 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 	const handleDragEnd = () => {
 		setDraggedIndex( null );
 		setDragOverIndex( null );
+	};
+
+	const selectWorkspaceChat = (
+		workspace: ( typeof sidebarWorkspaces )[ number ],
+		conversationId: string
+	) => {
+		selectWorkspace( workspace.id );
+		selectWorkspaceTab( workspace.id, 'assistant' );
+		setSelectedWorkspaceDollyConversationId(
+			createWorkspaceDollyWorkspaceDescriptor( workspace ),
+			conversationId
+		);
 	};
 
 	useEffect( () => {
@@ -392,24 +418,57 @@ export default function SiteMenu( { className }: SiteMenuProps ) {
 			) }
 		>
 			<ul className="pt-px">
-				{ sites.map( ( site, index ) => (
-					<SiteItem
-						key={ site.id }
-						site={ site }
-						index={ index }
-						onDragStart={ handleDragStart }
-						onDragOver={ handleDragOver }
-						onDrop={ handleDrop }
-						onDragEnd={ handleDragEnd }
-						isDragOver={ dragOverIndex === index }
-					/>
-				) ) }
-				{ /* Drop zone for dragging to bottom of list */ }
-				<li
-					className="h-8"
-					onDragOver={ ( e ) => handleDragOver( e, sites.length ) }
-					onDrop={ ( e ) => handleDrop( e, sites.length ) }
-				/>
+				{ enableWorkspaces ? (
+					<>
+						{ sidebarWorkspaces.map( ( workspace ) => (
+							<WorkspaceSidebarRow
+								key={ workspace.id }
+								workspace={ workspace }
+								isSelected={ selectedWorkspaceId === workspace.id }
+								localRunControl={
+									workspace.targets.local ? (
+										<ButtonToRun { ...workspace.targets.local.site } />
+									) : undefined
+								}
+								onSelect={ () => selectWorkspace( workspace.id ) }
+								onSelectChat={ ( conversationId ) =>
+									selectWorkspaceChat( workspace, conversationId )
+								}
+							/>
+						) ) }
+						{ isLoadingWorkspaces && (
+							<li
+								className={ cx(
+									'flex h-8 min-w-[168px] items-center px-2 text-xs text-a8c-gray-600',
+									isMac() ? 'me-5 ms-1' : 'me-4 ms-1'
+								) }
+							>
+								{ __( 'Loading...' ) }
+							</li>
+						) }
+					</>
+				) : (
+					<>
+						{ sites.map( ( site, index ) => (
+							<SiteItem
+								key={ site.id }
+								site={ site }
+								index={ index }
+								onDragStart={ handleDragStart }
+								onDragOver={ handleDragOver }
+								onDrop={ handleDrop }
+								onDragEnd={ handleDragEnd }
+								isDragOver={ dragOverIndex === index }
+							/>
+						) ) }
+						{ /* Drop zone for dragging to bottom of list */ }
+						<li
+							className="h-8"
+							onDragOver={ ( e ) => handleDragOver( e, sites.length ) }
+							onDrop={ ( e ) => handleDrop( e, sites.length ) }
+						/>
+					</>
+				) }
 			</ul>
 		</nav>
 	);

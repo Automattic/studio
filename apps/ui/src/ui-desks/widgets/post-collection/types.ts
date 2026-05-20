@@ -1,5 +1,5 @@
-import type { RectangleWidgetShapeProps } from '@/ui-desks/widgets/geometry';
-import type { DeskWidgetBase } from '@studio/common/types/desk';
+import type { RectangleWidgetShapeProps } from '@/ui-desks/widget-actions/geometry';
+import type { DeskStackViewMode, DeskWidgetBase } from '@studio/common/types/desk';
 
 export const POST_COLLECTION_WIDGET_TYPE = 'post-collection';
 
@@ -17,6 +17,7 @@ export type PostCollectionQuery = {
 
 export type PostCollectionWidgetProps = {
 	query: PostCollectionQuery;
+	viewMode?: DeskStackViewMode;
 };
 
 export type PostCollectionWidget = DeskWidgetBase<
@@ -27,7 +28,16 @@ export type PostCollectionWidget = DeskWidgetBase<
 
 export function isPostCollectionWidgetProps( value: unknown ): value is PostCollectionWidgetProps {
 	const candidate = value as Partial< PostCollectionWidgetProps >;
-	return Boolean( value ) && typeof value === 'object' && isPostCollectionQuery( candidate.query );
+	return (
+		Boolean( value ) &&
+		typeof value === 'object' &&
+		isPostCollectionQuery( candidate.query ) &&
+		isPostCollectionViewMode( candidate.viewMode )
+	);
+}
+
+function isPostCollectionViewMode( value: unknown ): value is DeskStackViewMode | undefined {
+	return value === undefined || value === 'stack' || value === 'tiles' || value === 'circle';
 }
 
 function isPostCollectionQuery( value: unknown ): value is PostCollectionQuery {

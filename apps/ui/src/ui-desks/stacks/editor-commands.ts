@@ -14,15 +14,21 @@ import {
 	createStackMeta,
 	createStackPushMeta,
 	getStackAnchorFromMember,
+	getStackCircleLayoutsFromCenter,
+	getStackConfiguredViewMode,
 	getStackHome,
 	getStackId,
 	getStackMemberLayout,
+	getStackOpenViewMode,
 	getStackOrder,
 	getStackOriginalZIndex,
 	getStackPushOrigin,
+	getStackTileLayoutsFromCenter,
+	getStackViewMode,
 	getStackZIndexFromMember,
 	getWidgetIdFromShapeId,
 	isStackExpanded,
+	type StackViewMode,
 } from './utils';
 
 interface StackWidgetSelection {
@@ -77,12 +83,22 @@ export function stackSelectedWidgetsInEditor(
 
 export function expandStackInEditor( editor: Editor, stackId: string ) {
 	const members = getStackMembers( editor, stackId );
-	if ( members.length <= 1 || members.some( isStackExpanded ) ) {
+	if (
+		members.length <= 1 ||
+		members.some( isStackExpanded ) ||
+		getStackViewMode( members[ 0 ] ) !== 'stack'
+	) {
 		return false;
 	}
 
 	const stack = getStackFromCollapsedMembers( members );
-	const expandedLayouts = getExpandedStackLayouts( members, stack );
+	const expandedLayouts: Array< { x: number; y: number; rotation?: number } > =
+		getStackOpenViewMode( members[ 0 ] ) === 'circle'
+			? getStackCircleLayoutsFromCenter(
+					members.map( getShapeSize ),
+					getStackAnchorCenter( members )
+			  )
+			: getExpandedStackLayouts( members, stack );
 
 	editor.updateShapes(
 		members.map( ( shape ) => ( {
@@ -100,7 +116,7 @@ export function expandStackInEditor( editor: Editor, stackId: string ) {
 		id: shape.id,
 		type: shape.type,
 		...expandedLayouts[ index ],
-		rotation: 0,
+		rotation: expandedLayouts[ index ]?.rotation ?? 0,
 	} ) );
 	const expandedBounds = getPartialsBounds( expandedPartials, members );
 	const pushPartials = getNeighborPushPartials( editor, stackId, expandedBounds );
@@ -112,7 +128,11 @@ export function expandStackInEditor( editor: Editor, stackId: string ) {
 
 export function collapseStackInEditor( editor: Editor, stackId: string ) {
 	const members = getStackMembers( editor, stackId );
-	if ( members.length <= 1 || ! members.some( isStackExpanded ) ) {
+	if (
+		members.length <= 1 ||
+		! members.some( isStackExpanded ) ||
+		getStackViewMode( members[ 0 ] ) !== 'stack'
+	) {
 		return false;
 	}
 
@@ -149,6 +169,87 @@ export function collapseAllExpandedStacksInEditor( editor: Editor ) {
 		didCollapseStack = collapseStackInEditor( editor, stackId ) || didCollapseStack;
 	}
 	return didCollapseStack;
+}
+
+export function setStackViewInEditor(
+	editor: Editor,
+	stackId: string,
+	viewMode: StackViewMode,
+	options: { anchorCenter?: { x: number; y: number } } = {}
+) {
+	const members = getStackMembers( editor, stackId );
+	if ( members.length <= 1 ) {
+		return false;
+	}
+
+	const currentViewMode = getStackConfiguredViewMode( members[ 0 ] );
+	if ( currentViewMode === viewMode ) {
+		return false;
+	}
+
+	const anchor = options.anchorCenter ?? getStackAnchorCenter( members );
+	const restorePartials = getNeighborRestorePartials( editor, stackId );
+
+	if ( viewMode === 'tiles' ) {
+		editor.updateShapes(
+			members.map( ( shape ) => ( {
+				id: shape.id,
+				type: shape.type,
+				isLocked: false,
+				meta: {
+					...( shape.meta ?? {} ),
+					...clearExpandedStackMeta(),
+					deskStackViewMode: viewMode,
+					deskStackOpenViewMode: null,
+				},
+			} ) )
+		);
+
+		const layoutPartials = getTiledStackPartials( members, anchor );
+		editor.animateShapes(
+			withStackDimPartials( editor, [ ...layoutPartials, ...restorePartials ] ),
+			{
+				animation: { duration: STACK_ANIMATION_DURATION },
+			}
+		);
+		return true;
+	}
+
+	const stack = {
+		id: stackId,
+		x: anchor.x - getShapeSize( members[ 0 ] ).w / 2,
+		y: anchor.y - getShapeSize( members[ 0 ] ).h / 2,
+		zIndex: getStackZIndexFromMember( members[ 0 ].index, getStackOrder( members[ 0 ] ) ),
+		memberIds: members.map( ( shape ) => getWidgetIdFromShapeId( shape.id ) ),
+	};
+
+	editor.updateShapes(
+		members.map( ( shape ) => ( {
+			id: shape.id,
+			type: shape.type,
+			isLocked: false,
+			meta: {
+				...( shape.meta ?? {} ),
+				deskStackViewMode: null,
+				deskStackOpenViewMode: viewMode === 'circle' ? 'circle' : null,
+				...clearExpandedStackMeta(),
+			},
+		} ) )
+	);
+
+	const memberPartials = members.map( ( shape ) => {
+		const order = getStackOrder( shape );
+		return {
+			id: shape.id,
+			type: shape.type,
+			...getStackMemberLayout( stack, order ),
+		};
+	} );
+
+	editor.animateShapes( withStackDimPartials( editor, [ ...memberPartials, ...restorePartials ] ), {
+		animation: { duration: STACK_ANIMATION_DURATION },
+	} );
+	return true;
 }
 
 export function unstackSelectedWidgetsInEditor(
@@ -216,7 +317,7 @@ function getExpandedStackIds( editor: Editor ) {
 function getStackFromCollapsedMembers( members: TLShape[] ) {
 	const firstMember = members[ 0 ];
 	const firstOrder = getStackOrder( firstMember );
-	const anchor = getStackAnchorFromMember( firstMember, firstOrder );
+	const anchor = getStackAnchorFromMember( firstMember, firstOrder, members.length );
 
 	return {
 		id: getStackId( firstMember ) ?? createStackId(),
@@ -269,6 +370,26 @@ function getExpandedStackLayouts( members: TLShape[], stack: { x: number; y: num
 			y: startY + row * ( cellHeight + EXPANDED_STACK_GAP ) + ( cellHeight - size.h ) / 2,
 		};
 	} );
+}
+
+function getStackAnchorCenter( members: TLShape[] ) {
+	const firstMember = members[ 0 ];
+	const size = getShapeSize( firstMember );
+
+	return {
+		x: firstMember.x + size.w / 2,
+		y: firstMember.y + size.h / 2,
+	};
+}
+
+function getTiledStackPartials( members: TLShape[], center: { x: number; y: number } ) {
+	const layouts = getStackTileLayoutsFromCenter( members.map( getShapeSize ), center );
+
+	return members.map( ( shape, index ) => ( {
+		id: shape.id,
+		type: shape.type,
+		...layouts[ index ],
+	} ) );
 }
 
 function getExpandedStackDimensions( count: number ) {

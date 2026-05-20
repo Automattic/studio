@@ -80,7 +80,7 @@ const ALLOWED_PHP_VERSIONS = [ ...SupportedPHPVersions ];
 
 const logger = new Logger< LoggerAction >();
 
-type CreateCommandOptions = {
+export type CreateCommandOptions = {
 	name?: string;
 	siteId?: string;
 	wpVersion: string;
@@ -399,6 +399,7 @@ export async function runCommand(
 		}
 
 		logger.reportKeyValuePair( 'id', siteDetails.id );
+		logger.reportKeyValuePair( 'port', String( siteDetails.port ) );
 		logger.reportKeyValuePair( 'running', String( siteDetails.running ) );
 		await emitCliEvent( { event: SITE_EVENTS.CREATED, data: { siteId: siteDetails.id } } );
 	} finally {

@@ -178,6 +178,25 @@ function buildSetupSteps( config: ServerConfig ): Array< Record< string, unknown
 	return steps;
 }
 
+function blueprintInjectsWpCliPhar( config: ServerConfig ): boolean {
+	const contents = config.blueprint?.contents;
+	const steps = contents?.steps;
+	const extraLibraries = ( contents as { extraLibraries?: unknown } | undefined )?.extraLibraries;
+	const hasTriggeringStep =
+		Array.isArray( steps ) &&
+		steps.some(
+			( step ) =>
+				typeof step === 'object' &&
+				step !== null &&
+				'step' in step &&
+				( step.step === 'wp-cli' || step.step === 'enableMultisite' )
+		);
+	const wpCliInExtraLibraries =
+		Array.isArray( extraLibraries ) && extraLibraries.includes( 'wp-cli' );
+
+	return hasTriggeringStep || wpCliInExtraLibraries;
+}
+
 function getBaseRunCLIArgs(
 	command: 'server',
 	config: ServerConfig
@@ -225,6 +244,7 @@ async function getBaseRunCLIArgs(
 	} );
 
 	if ( ! useExactMountLayout ) {
+		const shouldMountBundledWpCli = ! blueprintInjectsWpCliPhar( config );
 		mountsBeforeInstall = [
 			...( config.mountsBeforeInstall ?? [
 				{
@@ -232,15 +252,25 @@ async function getBaseRunCLIArgs(
 					vfsPath: '/wordpress',
 				},
 			] ),
-			{
-				hostPath: getWpCliPharPath(),
-				vfsPath: '/tmp/wp-cli.phar',
-			},
+			...( shouldMountBundledWpCli
+				? [
+						{
+							hostPath: getWpCliPharPath(),
+							vfsPath: '/tmp/wp-cli.phar',
+						},
+				  ]
+				: [] ),
 			{
 				hostPath: getSqliteCommandPath(),
 				vfsPath: '/tmp/sqlite-command',
 			},
 		];
+
+		if ( ! shouldMountBundledWpCli ) {
+			logToConsole(
+				'Skipping bundled WP-CLI mount because Playground injects /tmp/wp-cli.phar for this Blueprint'
+			);
+		}
 	}
 
 	// Studio MU-plugins (auto-login, admin-api, etc.) must be mounted for

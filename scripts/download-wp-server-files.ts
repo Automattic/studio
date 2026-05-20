@@ -7,11 +7,11 @@ import {
 } from '@wp-playground/tools';
 import fs from 'fs-extra';
 import { z } from 'zod';
+import { extractZip } from '@studio/common/lib/extract-zip';
 import { SQLITE_DATABASE_INTEGRATION_RELEASE_URL } from '../apps/studio/src/constants';
-import { extractZip } from '../tools/common/lib/extract-zip';
 
-const WP_SERVER_FILES_PATH = path.join( __dirname, '..', 'wp-files' );
-const PHPMYADMIN_PATCH_FILES_PATH = path.join( __dirname, '..', 'apps', 'cli', 'php' );
+const WP_SERVER_FILES_PATH = path.join( import.meta.dirname, '..', 'wp-files' );
+const PHPMYADMIN_PATCH_FILES_PATH = path.join( import.meta.dirname, '..', 'apps', 'cli', 'php' );
 const PHPMYADMIN_LOCAL_PATCH_FILES = new Map< string, string >( [
 	[ 'config.inc.php', path.join( PHPMYADMIN_PATCH_FILES_PATH, 'config.inc.php' ) ],
 	[

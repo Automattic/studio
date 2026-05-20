@@ -1,34 +1,44 @@
 import { useEffect, useMemo } from 'react';
 import { useDeskConfig, useSaveDeskConfig } from '@/data/queries/use-desk-config';
-import { defaultUserDesk } from '../default-desk';
-import { DESK_CONFIG_VERSION, type DeskConfig } from '../types';
+import { createDefaultSiteDeskConfig, defaultUserDesk } from '../default-desk';
+import type { DeskConfig } from '../types';
 
-export function useDeskPersistence( siteId?: string ) {
-	const { data: savedDesk, isLoading } = useDeskConfig( siteId );
+interface DeskPersistenceOptions {
+	enabled?: boolean;
+	defaultSiteUrl?: string;
+	isDefaultSiteUrlLoading?: boolean;
+}
+
+export function useDeskPersistence( siteId?: string, options: DeskPersistenceOptions = {} ) {
+	const enabled = options.enabled ?? true;
+	const { data: savedDesk, isLoading } = useDeskConfig( siteId, enabled );
 	const { mutate: saveDeskConfig } = useSaveDeskConfig( siteId );
-	const defaultDesk = useMemo( () => createDefaultDeskConfig( siteId ), [ siteId ] );
+	const defaultDesk = useMemo(
+		() => createDefaultDeskConfig( siteId, options.defaultSiteUrl ),
+		[ options.defaultSiteUrl, siteId ]
+	);
 	const desk = ( savedDesk as DeskConfig | undefined ) ?? defaultDesk;
+	const canSaveDefaultDesk = ! siteId || Boolean( options.defaultSiteUrl );
+	const isWaitingForDefaultSiteUrl = Boolean(
+		siteId && ! savedDesk && ! canSaveDefaultDesk && options.isDefaultSiteUrlLoading
+	);
 
 	useEffect( () => {
-		if ( ! isLoading && ! savedDesk ) {
+		if ( enabled && ! isLoading && ! savedDesk && canSaveDefaultDesk ) {
 			saveDeskConfig( defaultDesk );
 		}
-	}, [ defaultDesk, isLoading, savedDesk, saveDeskConfig ] );
+	}, [ canSaveDefaultDesk, defaultDesk, enabled, isLoading, savedDesk, saveDeskConfig ] );
 
 	return {
 		desk,
-		isLoading,
+		isLoading: isLoading || isWaitingForDefaultSiteUrl,
 		saveDeskConfig,
 	};
 }
 
-function createDefaultDeskConfig( siteId?: string ): DeskConfig {
+function createDefaultDeskConfig( siteId?: string, defaultSiteUrl?: string ): DeskConfig {
 	if ( siteId ) {
-		return {
-			version: DESK_CONFIG_VERSION,
-			updatedAt: new Date().toISOString(),
-			widgets: [],
-		};
+		return createDefaultSiteDeskConfig( defaultSiteUrl );
 	}
 
 	return defaultUserDesk;

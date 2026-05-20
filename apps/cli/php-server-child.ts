@@ -115,6 +115,7 @@ type SpawnPhpProcessOptions = {
 	disallowRiskyFunctions?: boolean;
 	env?: NodeJS.ProcessEnv;
 	mode?: 'pipe' | 'capture-stdout';
+	enableXdebug?: boolean;
 	onlyPathsThatPhpCanAccess?: string[];
 	phpVersion: NativePhpSupportedVersion;
 	siteFolder?: string;
@@ -129,6 +130,7 @@ function spawnPhpProcess(
 		signal,
 		env,
 		mode = 'pipe',
+		enableXdebug = false,
 		onlyPathsThatPhpCanAccess = [],
 		disallowRiskyFunctions = false,
 	}: SpawnPhpProcessOptions
@@ -136,7 +138,8 @@ function spawnPhpProcess(
 	const defaultArgs = getDefaultPhpArgs(
 		phpVersion,
 		onlyPathsThatPhpCanAccess,
-		disallowRiskyFunctions
+		disallowRiskyFunctions,
+		enableXdebug
 	);
 	const phpArgs = [ ...defaultArgs, ...args ];
 	const phpScriptProcess = spawn( getPhpBinaryPath( phpVersion ), phpArgs, {
@@ -541,6 +544,7 @@ async function doStartServer(
 			},
 			onlyPathsThatPhpCanAccess: Array.from( openBasedirAllowlist ),
 			disallowRiskyFunctions: true,
+			enableXdebug: config.enableXdebug,
 		} );
 		spawnedChild = serverChild;
 
@@ -718,6 +722,11 @@ async function runBlueprint(
 	}
 
 	try {
+		// blueprints.phar spawns its own PHP subprocesses while applying a blueprint.
+		// On Windows those subprocesses auto-load the php.ini we wrote next to
+		// php.exe, which carries the bundled-extension and CA-bundle config. On
+		// macOS/Linux every extension is statically linked into the binary, so no
+		// extra setup is needed for the subprocess.
 		await runPhpCommand(
 			[
 				getBlueprintsPharPath(),

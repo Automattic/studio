@@ -9,7 +9,7 @@ import {
 	isDerivedDeskCanvasRecord,
 	resolvedDeskWidgetToCanvasShape,
 } from '@/ui-desks/desk/tldraw-adapter';
-import { isStackExpanded } from '@/ui-desks/stacks/utils';
+import { getStackViewMode, isStackExpanded } from '@/ui-desks/stacks/utils';
 import { getWidgetDefinition } from '@/ui-desks/widgets/registry';
 import { getCurrentDeskWidgets } from './editor-state';
 import type {
@@ -146,12 +146,7 @@ async function resolveDeskWidgets(
 			) ) as WidgetResolution;
 		} catch ( error ) {
 			if ( isInitialResolve ) {
-				setSourceWidgetResolutionState(
-					editor,
-					widget.id,
-					undefined,
-					definition.getInitialWidget().shapeProps
-				);
+				setSourceWidgetResolutionState( editor, widget.id, undefined, widget.shapeProps );
 			}
 			console.warn( `Failed to resolve desk widget "${ widget.id }".`, error );
 			if ( ! previousState ) {
@@ -166,12 +161,7 @@ async function resolveDeskWidgets(
 			continue;
 		}
 		if ( isInitialResolve ) {
-			setSourceWidgetResolutionState(
-				editor,
-				widget.id,
-				undefined,
-				definition.getInitialWidget().shapeProps
-			);
+			setSourceWidgetResolutionState( editor, widget.id, undefined, widget.shapeProps );
 		}
 		const widgets = resolution.widgets.filter(
 			( resolvedWidget ): resolvedWidget is ResolvedDeskWidget< DeskWidget > =>
@@ -298,13 +288,46 @@ function reconcileResolvedWidgets(
 	if ( shapesToCreate.length > 0 ) {
 		editor.createShapes( shapesToCreate );
 	}
+	selectDerivedWidgetsForSelectedSource( editor, sourceWidgetId );
+}
+
+export function selectDerivedWidgetsForSelectedSource( editor: Editor, sourceWidgetId: string ) {
+	const sourceShape = editor
+		.getCurrentPageShapes()
+		.find( ( shape ) => canvasShapeToDeskWidget( shape )?.id === sourceWidgetId );
+	if ( ! sourceShape ) {
+		return;
+	}
+
+	const selectedShapeIds = editor.getSelectedShapeIds();
+	if ( selectedShapeIds.length !== 1 || selectedShapeIds[ 0 ] !== sourceShape.id ) {
+		return;
+	}
+
+	const derivedShapeIds = getDerivedShapesForSource( editor, sourceWidgetId ).map(
+		( shape ) => shape.id
+	);
+	if ( derivedShapeIds.length > 0 ) {
+		editor.setSelectedShapes( derivedShapeIds );
+	}
 }
 
 function preserveExpandedStackMemberState(
 	existingShape: TLShape,
 	nextShape: TLShapePartial
 ): TLShapePartial {
-	if ( ! isStackExpanded( existingShape ) ) {
+	const nextViewMode = getStackViewMode( nextShape as TLShape );
+	const shouldPreserveTiledState =
+		getStackViewMode( existingShape ) === 'tiles' && nextViewMode === 'tiles';
+	const shouldPreserveCircleState =
+		getStackViewMode( existingShape ) === 'circle' && nextViewMode === 'circle';
+	const shouldPreserveExpandedState = isStackExpanded( existingShape ) && nextViewMode === 'stack';
+
+	if (
+		! shouldPreserveExpandedState &&
+		! shouldPreserveTiledState &&
+		! shouldPreserveCircleState
+	) {
 		return nextShape;
 	}
 
@@ -405,7 +428,9 @@ function shouldUpdateShape( currentShape: TLShape, nextShape: TLShapePartial ) {
 
 function hasMatchingMeta( shape: TLShape, meta: TLShapePartial[ 'meta' ] ) {
 	const currentMeta = shape.meta as Record< string, unknown >;
-	return Object.entries( meta ?? {} ).every( ( [ key, value ] ) => currentMeta[ key ] === value );
+	return Object.entries( meta ?? {} ).every( ( [ key, value ] ) =>
+		value === null ? currentMeta[ key ] == null : currentMeta[ key ] === value
+	);
 }
 
 function isDerivedFromWidget( resolvedWidget: ResolvedDeskWidget, sourceWidgetId: string ) {
@@ -432,13 +457,20 @@ function getResolvedStackMembers(
 	widgets: Array< ResolvedDeskWidget< DeskWidget > >,
 	stacks: ResolvedDeskStack[]
 ) {
-	const stackMembers = new Map< string, { stack: ResolvedDeskStack[ 'stack' ]; order: number } >();
+	const stackMembers = new Map<
+		string,
+		{
+			stack: ResolvedDeskStack[ 'stack' ];
+			order: number;
+			followSourceWidgetId?: string;
+		}
+	>();
 	const widgetIds = new Set( widgets.map( ( resolvedWidget ) => resolvedWidget.widget.id ) );
 
-	for ( const { stack } of stacks ) {
+	for ( const { stack, followSourceWidgetId } of stacks ) {
 		stack.memberIds.forEach( ( memberId, order ) => {
 			if ( widgetIds.has( memberId ) ) {
-				stackMembers.set( memberId, { stack, order } );
+				stackMembers.set( memberId, { stack, order, followSourceWidgetId } );
 			}
 		} );
 	}

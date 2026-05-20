@@ -1,5 +1,6 @@
 import { RouterProvider, createRouter } from '@tanstack/react-router';
 import { useMemo } from 'react';
+import { createPackagedRouterHistory } from '@/app/router-history';
 import {
 	desksOnboardingBlueprintRoute,
 	desksOnboardingCreateRoute,
@@ -23,6 +24,7 @@ export function createDesksRouter() {
 	return createRouter( {
 		routeTree,
 		defaultPreload: 'intent',
+		history: createPackagedRouterHistory(),
 	} );
 }
 

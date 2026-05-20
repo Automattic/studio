@@ -147,6 +147,7 @@ const api: IpcApi = {
 	getDirectorySize: ( id, subdir ) => ipcRendererInvoke( 'getDirectorySize', id, subdir ),
 	getFileSize: ( id, filePath ) => ipcRendererInvoke( 'getFileSize', id, filePath ),
 	getPathForFile: ( file ) => webUtils.getPathForFile( file ),
+	readLocalMediaFile: ( path ) => ipcRendererInvoke( 'readLocalMediaFile', path ),
 	isFullscreen: () => ipcRendererInvoke( 'isFullscreen' ),
 	getAllCustomDomains: () => ipcRendererInvoke( 'getAllCustomDomains' ),
 	saveUserTerminal: ( preferredTerminal ) =>
@@ -212,8 +213,11 @@ const api: IpcApi = {
 	deleteAiSession: ( sessionIdOrPrefix ) =>
 		ipcRendererInvoke( 'deleteAiSession', sessionIdOrPrefix ),
 	createAiSession: ( siteId ) => ipcRendererInvoke( 'createAiSession', siteId ),
+	updateAiSessionMetadata: ( sessionIdOrPrefix, patch ) =>
+		ipcRendererInvoke( 'updateAiSessionMetadata', sessionIdOrPrefix, patch ),
 	continueAiSession: ( sessionId, prompt, options ) =>
 		ipcRendererInvoke( 'continueAiSession', sessionId, prompt, options ),
+	listActiveAiAgentRuns: () => ipcRendererInvoke( 'listActiveAiAgentRuns' ),
 	setAiSessionModel: ( sessionId, model ) =>
 		ipcRendererInvoke( 'setAiSessionModel', sessionId, model ),
 	interruptAiAgentRun: ( runId ) => ipcRendererInvoke( 'interruptAiAgentRun', runId ),
@@ -221,6 +225,11 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'answerAiAgentQuestion', runId, answers ),
 	setSessionEnvironment: ( sessionId, environment ) =>
 		ipcRendererInvoke( 'setSessionEnvironment', sessionId, environment ),
+	getDeskSettings: () => ipcRendererInvoke( 'getDeskSettings' ),
+	saveDeskSettings: ( settings ) => ipcRendererInvoke( 'saveDeskSettings', settings ),
+	exportDeskConfig: ( config, suggestedFilename ) =>
+		ipcRendererInvoke( 'exportDeskConfig', config, suggestedFilename ),
+	importDeskConfig: () => ipcRendererInvoke( 'importDeskConfig' ),
 	getUserDeskConfig: () => ipcRendererInvoke( 'getUserDeskConfig' ),
 	saveUserDeskConfig: ( config ) => ipcRendererInvoke( 'saveUserDeskConfig', config ),
 	getSiteDeskConfig: ( siteId ) => ipcRendererInvoke( 'getSiteDeskConfig', siteId ),

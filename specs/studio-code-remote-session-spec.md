@@ -9,6 +9,8 @@
 > **Status note (2026-05-05, STU-1681):** `studio code remote-session start` is now detached by default; pass `--no-detach` to keep it running in the foreground (the previous default). A new `studio code remote-session attach` subcommand connects a terminal to a running daemon, replays a tail of `~/.studio/remote-session.log`, and streams new entries live; Ctrl-C / SIGTERM detaches the terminal without stopping the daemon. The `attach`/`detach` wording is now the canonical "connect / disconnect" surface — both for the subcommand and for the in-REPL slash command.
 >
 > **Status note (2026-05-06, STU-1682):** the `studio code --remote-session` autostart flag has been removed. It was redundant with `studio code remote-session start` and the in-REPL `/remote-session` slash command, and kept the CLI surface confusing. Use the subcommand tree as the single entry point. The `--remote-chat-id` and `--remote-bot` flags are now only available on `studio code remote-session start` (where they always lived); `--message-from-stdin` remains as a hidden headless turn entry point used by the daemon's turn runner.
+>
+> **Status note (2026-05-15, STU-1729):** the `STUDIO_ENABLE_REMOTE_SESSION` feature flag has been removed. The `studio code remote-session` subcommand tree, the `/remote-session` slash command, the `--message-from-stdin` headless entry point, and the bottom-bar daemon status poll are all enabled unconditionally. Public availability still requires the WordPress.com backend gating to be lifted in parallel.
 
 ## Overview
 
@@ -151,21 +153,21 @@ The detached child's `runRemoteSession()` checks the env var on entry and calls 
 
 Inside an interactive `studio code` session, `/remote-session` (registered in `apps/cli/ai/slash-commands.ts`) drives the daemon. It is **never blocking** — every subcommand returns control to the REPL within a few hundred milliseconds. Subcommands:
 
-- `/remote-session attach` — validates config (so a missing token surfaces immediately), then spawns the detached daemon via the same `startDaemon()` helper used by `studio code remote-session start`. Reports the new PID via `ui.showSuccess` and updates the bottom-bar daemon indicator. If a daemon is already running, reports the existing PID and updates the indicator (idempotent).
-- `/remote-session detach` — calls `stopDaemon()` and clears the indicator. Surfaces friendly messages for "already stopped", "needed SIGKILL", or "process refused to die".
+- `/remote-session start` — validates config (so a missing token surfaces immediately), then spawns the detached daemon via the same `startDaemon()` helper used by `studio code remote-session start`. Reports the new PID via `ui.showSuccess` and updates the bottom-bar daemon indicator. If a daemon is already running, reports the existing PID and updates the indicator (idempotent).
+- `/remote-session stop` — calls `stopDaemon()` and clears the indicator. Surfaces friendly messages for "already stopped", "needed SIGKILL", or "process refused to die".
+- `/remote-session` with no subcommand pops an interactive picker (`Start` / `Stop`) and routes the selection to the handler above. Canceling the picker (Esc) is a no-op.
 
 There is intentionally no `/remote-session status` slash command. The bottom-bar indicator (described below) already shows whether the daemon is running, and `studio code remote-session status` covers the out-of-REPL case.
 
 Implementation notes:
 
-- The command is gated by `STUDIO_ENABLE_REMOTE_SESSION` via the `enabled` getter on `SlashCommandDef`, so it is hidden from autocomplete and unreachable from the dispatcher when the flag is off.
-- `SlashCommandDef.getArgumentCompletions(prefix)` returns `attach | detach` so typing `/remote-session ` shows them in the autocomplete dropdown.
+- `SlashCommandDef.getArgumentCompletions(prefix)` returns `start | stop` so typing `/remote-session ` shows them in the autocomplete dropdown.
 - The REPL dispatcher matches on the first whitespace token (`/${name} <args>` rather than exact-match) so the handler receives the full prompt and parses the subcommand itself.
-- The bottom-bar **daemon indicator** (`PromptEditor.daemonStatusMessage`) is updated immediately by the `attach`/`detach` handlers AND every 5s by a light `getDaemonStatus()` poll started by the REPL when the feature flag is on. The poll catches external start/stop (e.g. another terminal running `studio code remote-session stop`) and unexpected daemon death.
+- The bottom-bar **daemon indicator** (`PromptEditor.daemonStatusMessage`) is updated immediately by the `start`/`stop` handlers AND every 5s by a light `getDaemonStatus()` poll started by the REPL. The poll catches external start/stop (e.g. another terminal running `studio code remote-session stop`) and unexpected daemon death.
 
 `RemoteSessionConfigError` (e.g. missing token) is shown via `ui.showError` rather than crashing the REPL — the user is told to authenticate via `/login` or set `STUDIO_REMOTE_TOKEN`.
 
-The previous "blocking attach" design (where the REPL was held until detach) is permanently off the table: with the daemon, the REPL never blocks. `attach`/`detach` here mean "wire up the daemon's status to this REPL session" and "tear it down again", not "start the poll loop in this process".
+The previous "blocking attach" design (where the REPL was held until detach) is permanently off the table: with the daemon, the REPL never blocks. `start`/`stop` here mean "spawn the daemon" and "terminate it again", not "start the poll loop in this process".
 
 ### Telegram-side meta-command
 
@@ -445,7 +447,7 @@ Telegram caps message bodies at 4096 chars. Use `max_message_chars` (default 380
 
 ### Markdown handling
 
-`studio code` returns Markdown via the result event. Pass through unchanged in v1; the server-side already handles Markdown→Telegram-HTML conversion for the existing Dolly path. The implementing agent MUST verify this against the `/local-agent-respond` endpoint before coding (see Open question 1 below).
+`studio code` returns Markdown via the result event. Pass through unchanged in v1; the server-side already handles Markdown→Telegram-HTML conversion for the existing WordPress Agent path (formerly known as Dolly). The implementing agent MUST verify this against the `/local-agent-respond` endpoint before coding (see Open question 1 below).
 
 If conversion is NOT done server-side, do minimal local processing: strip ANSI escape codes, leave Markdown as-is.
 

@@ -19,6 +19,7 @@ import {
 	writeStudioMuPluginsForNativePhpRuntime,
 } from '@studio/common/lib/mu-plugins';
 import { resolveNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
+import { SITE_RUNTIME_NATIVE_PHP, type SiteRuntime } from '@studio/common/lib/site-runtime';
 import { LatestSupportedPHPVersion } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
 import { setupPlatformLevelMuPlugins } from '@wp-playground/wordpress';
@@ -27,6 +28,7 @@ import {
 	getSqliteCommandPath,
 	getWpCliPharPath,
 } from 'cli/lib/dependency-management/paths';
+import { getSiteRuntime } from 'cli/lib/feature-flags';
 import { validatePhpVersion } from 'cli/lib/utils';
 import { getDefaultPhpArgs } from './native-php';
 import type { SiteData } from 'cli/lib/cli-config/core';
@@ -181,7 +183,7 @@ export async function runWpCliCommand(
 ): Promise< DisposableWpCliResponse > {
 	const siteFolder = site.path;
 
-	if ( site.runtime === 'native-php' ) {
+	if ( getSiteRuntime() === SITE_RUNTIME_NATIVE_PHP ) {
 		return runNativeWpCliCommand( site, args, options );
 	}
 
@@ -288,7 +290,7 @@ async function runNativeGlobalWpCliCommand( args: string[] ): Promise< Disposabl
 }
 
 type RunGlobalWpCliCommandOptions = {
-	runtime?: 'wasm' | 'native-php';
+	runtime?: SiteRuntime;
 };
 
 /**
@@ -299,7 +301,7 @@ export async function runGlobalWpCliCommand(
 	args: string[],
 	options: RunGlobalWpCliCommandOptions = {}
 ): Promise< DisposableWpCliResponse > {
-	if ( options.runtime === 'native-php' ) {
+	if ( options.runtime === SITE_RUNTIME_NATIVE_PHP ) {
 		return runNativeGlobalWpCliCommand( args );
 	}
 

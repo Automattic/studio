@@ -1,3 +1,4 @@
+import { SITE_RUNTIME_NATIVE_PHP, SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { __ } from '@wordpress/i18n';
 import { lockAppdata, unlockAppdata, loadUserData, saveUserData } from 'src/storage/user-data';
 
@@ -13,6 +14,7 @@ export interface BetaFeatureDefinition {
  */
 const BETA_FEATURE_DEFAULTS: Record< keyof BetaFeatures, boolean > = {
 	remoteSession: false,
+	nativePhpRuntime: false,
 };
 
 /**
@@ -27,6 +29,12 @@ export function getBetaFeaturesDefinition(): Record< keyof BetaFeatures, BetaFea
 			default: BETA_FEATURE_DEFAULTS.remoteSession,
 			description: __( 'Control Studio from Telegram via the remote-session daemon.' ),
 		},
+		nativePhpRuntime: {
+			key: 'nativePhpRuntime',
+			label: __( 'Native PHP runtime' ),
+			default: BETA_FEATURE_DEFAULTS.nativePhpRuntime,
+			description: __( 'Run Studio sites with native PHP instead of Playground.' ),
+		},
 	};
 }
 
@@ -39,9 +47,17 @@ function buildBetaFeatures( userData: BetaFeatures | undefined ): BetaFeatures {
 	return features as BetaFeatures;
 }
 
+function applyBetaFeaturesToEnvironment( features: BetaFeatures ): void {
+	process.env.STUDIO_RUNTIME = features.nativePhpRuntime
+		? SITE_RUNTIME_NATIVE_PHP
+		: SITE_RUNTIME_PLAYGROUND;
+}
+
 export async function getBetaFeatures(): Promise< BetaFeatures > {
 	const userData = await loadUserData();
-	return buildBetaFeatures( userData.betaFeatures );
+	const betaFeatures = buildBetaFeatures( userData.betaFeatures );
+	applyBetaFeaturesToEnvironment( betaFeatures );
+	return betaFeatures;
 }
 
 export async function updateBetaFeature(
@@ -56,6 +72,7 @@ export async function updateBetaFeature(
 		// line stops type-checking. That's fine — rely on type checking at the call site.
 		betaFeatures[ key ] = value;
 		userData.betaFeatures = betaFeatures;
+		applyBetaFeaturesToEnvironment( betaFeatures );
 		await saveUserData( userData );
 	} finally {
 		await unlockAppdata();

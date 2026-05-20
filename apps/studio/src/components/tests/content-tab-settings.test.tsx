@@ -38,18 +38,18 @@ const snapshotTestActions = {
 let testStore = createTestStore( {
 	preloadedState: {
 		betaFeatures: {
-			features: { remoteSession: false },
+			features: { remoteSession: false, nativePhpRuntime: false },
 			loading: false,
 		},
 	},
 } );
 
 // We need to create a new store each time to avoid reducer conflicts
-function createCustomTestStore() {
+function createCustomTestStore( nativePhpRuntime = false ) {
 	const store = createTestStore( {
 		preloadedState: {
 			betaFeatures: {
-				features: { remoteSession: false },
+				features: { remoteSession: false, nativePhpRuntime },
 				loading: false,
 			},
 		},
@@ -291,6 +291,26 @@ describe( 'ContentTabSettings', () => {
 	} );
 
 	describe( 'PHP version', () => {
+		it( 'shows a native PHP fallback warning for unsupported stored PHP versions', async () => {
+			const user = userEvent.setup();
+			testStore = createCustomTestStore( true );
+
+			renderWithProvider(
+				<ContentTabSettings selectedSite={ { ...selectedSite, phpVersion: '7.4' } } />
+			);
+
+			await waitFor( () => {
+				expect( getAllCustomDomains ).toHaveBeenCalled();
+			} );
+			await user.hover( screen.getByRole( 'img', { name: 'PHP version warning' } ) );
+
+			expect(
+				await screen.findByText(
+					'Native PHP does not support PHP 7.4. This site will run with PHP 8.2 instead.'
+				)
+			).toBeVisible();
+		} );
+
 		it( 'changes PHP version when site is not running', async () => {
 			const user = userEvent.setup();
 

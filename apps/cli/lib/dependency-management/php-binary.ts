@@ -29,7 +29,7 @@ export async function ensurePhpBinaryAvailable(
 	}
 
 	// Idempotent — keeps php.ini in sync for existing installs after a Studio
-	// upgrade changes its contents. No-op on non-Windows platforms.
+	// upgrade changes its contents.
 	await ensureNativePhpIniFiles( validatedVersion );
 }
 
@@ -89,7 +89,7 @@ async function downloadAndInstall(
 
 	try {
 		await downloadFile( downloadInfo.url, downloadPath, onProgress );
-		await verifyHash( downloadPath, downloadInfo.sha, version, platform, arch, destDir );
+		await verifyHash( downloadPath, downloadInfo.sha, version, platform, arch );
 		await extractAndInstall( downloadPath, destPath, downloadInfo.patchVersion, platform );
 	} catch ( err ) {
 		fs.rmSync( destDir, { recursive: true, force: true } );
@@ -129,8 +129,7 @@ async function verifyHash(
 	expected: string,
 	version: NativePhpSupportedVersion,
 	platform: NodeJS.Platform,
-	arch: string,
-	destDir: string
+	arch: string
 ): Promise< void > {
 	const data = await fs.promises.readFile( filePath );
 	const actual = crypto.createHash( 'sha256' ).update( data ).digest( 'hex' );
@@ -138,8 +137,7 @@ async function verifyHash(
 		throw new Error(
 			`SHA-256 mismatch for PHP ${ version } on ${ platform }-${ arch }:\n` +
 				`  expected ${ expected }\n` +
-				`  got      ${ actual }\n` +
-				`Delete ${ destDir } and retry.`
+				`  got      ${ actual }\n`
 		);
 	}
 }

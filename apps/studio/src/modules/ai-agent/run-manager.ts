@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { fork, type ChildProcess } from 'node:child_process';
 import { setAiSessionSitePlacement } from 'src/lib/ai-session-placement';
-import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
+import { getCliPath } from 'src/storage/paths';
 import type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { StudioChatArtifactData } from '@studio/common/ai/chat-artifacts';
 import type { JsonEvent } from '@studio/common/ai/json-events';
@@ -130,9 +130,9 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 		// Agent events arrive over the Node IPC channel (via `process.send`
 		// in the child). stdout/stderr are ignored — the child's
 		// `emitEvent` falls back to stdout only when IPC isn't available.
+		// fork() uses process.execPath (the Electron binary) with
+		// ELECTRON_RUN_AS_NODE=1 set automatically so the child runs as Node.
 		stdio: [ 'ignore', 'ignore', 'ignore', 'ipc' ],
-		execPath: getBundledNodeBinaryPath(),
-		execArgv: [ '--experimental-wasm-jspi' ],
 		env: { ...process.env },
 	} );
 

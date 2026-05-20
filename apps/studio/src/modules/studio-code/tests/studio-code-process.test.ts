@@ -9,7 +9,6 @@ vi.mock( '@sentry/electron/main', () => ( {
 } ) );
 vi.mock( 'src/storage/paths', () => ( {
 	getCliPath: () => '/mock/cli/path',
-	getBundledNodeBinaryPath: () => '/mock/node/path',
 } ) );
 vi.mock( 'src/ipc-utils', () => ( {
 	sendIpcEventToRenderer: vi.fn(),

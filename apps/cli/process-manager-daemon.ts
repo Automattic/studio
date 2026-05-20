@@ -3,7 +3,6 @@ import fs, { createWriteStream, WriteStream } from 'fs';
 import net from 'net';
 import path from 'path';
 import readline from 'readline';
-import semver from 'semver';
 import {
 	PROCESS_MANAGER_LOGS_DIR,
 	PROCESS_MANAGER_CONTROL_SOCKET_PATH,
@@ -211,10 +210,7 @@ export class ProcessManagerDaemon {
 		const { stdoutLogPath, stderrLogPath } = getProcessLogPaths( processName );
 		const stdoutStream = createWriteStream( stdoutLogPath, { flags: 'a' } );
 		const stderrStream = createWriteStream( stderrLogPath, { flags: 'a' } );
-		// Node.js >=24 supports the JSPI (JavaScript Promises Integration) API
-		const doesCurrentNodeSupportJspi = semver.gte( process.version, '24.0.0' );
-		const execArgv = doesCurrentNodeSupportJspi ? [ '--experimental-wasm-jspi' ] : [];
-		const child = spawn( process.execPath, [ ...execArgv, scriptPath, ...args ], {
+		const child = spawn( process.execPath, [ scriptPath, ...args ], {
 			env,
 			stdio: [ 'ignore', 'pipe', 'pipe', 'ipc' ],
 			windowsHide: true,

@@ -3,7 +3,7 @@ import { ChildProcess, spawn } from 'node:child_process';
 import readline from 'node:readline';
 import * as Sentry from '@sentry/electron/main';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
-import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
+import { getCliPath } from 'src/storage/paths';
 import type { StudioCodeEvent } from './studio-code-event-types';
 
 interface SiteSession {
@@ -54,11 +54,9 @@ export function spawnTurn(
 	// Kill any active turn for this site
 	cleanupTurn( session );
 
-	const nodePath = getBundledNodeBinaryPath();
 	const cliPath = getCliPath();
 
 	const args = [
-		'--experimental-wasm-jspi',
 		cliPath,
 		'code',
 		message,
@@ -78,9 +76,13 @@ export function spawnTurn(
 		args.push( '--permission-response', JSON.stringify( options.permissionResponse ) );
 	}
 
-	const child = spawn( nodePath, args, {
+	// Run the Electron binary as Node via ELECTRON_RUN_AS_NODE=1. We deliberately
+	// use spawn (not fork) so the child does NOT get a Node IPC channel — the
+	// CLI's `emitEvent` falls back to NDJSON on stdout when `process.send` is
+	// undefined, which is what the readline parser below consumes.
+	const child = spawn( process.execPath, args, {
 		stdio: [ 'pipe', 'pipe', 'pipe' ],
-		env: { ...process.env },
+		env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
 	} );
 
 	session.activeTurn = child;

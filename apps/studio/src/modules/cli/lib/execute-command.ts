@@ -3,7 +3,7 @@ import { fork, ChildProcess, StdioOptions } from 'node:child_process';
 import * as Sentry from '@sentry/electron/main';
 import { z } from 'zod';
 import { TypedEventEmitter } from 'src/modules/cli/lib/typed-event-emitter';
-import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
+import { getCliPath } from 'src/storage/paths';
 
 export type CliCommandResult = {
 	stdout: string;
@@ -125,10 +125,11 @@ export function executeCliCommand(
 		stdio = [ 'ignore', 'ignore', 'ignore', 'ipc' ];
 	}
 
+	// fork() uses process.execPath (the Electron binary). Electron's
+	// child_process.fork sets ELECTRON_RUN_AS_NODE=1 in the child env
+	// automatically so the binary acts as Node and runs the CLI script.
 	const child = fork( cliPath, [ ...args, '--avoid-telemetry' ], {
 		stdio,
-		execPath: getBundledNodeBinaryPath(),
-		execArgv: [ '--experimental-wasm-jspi' ],
 		env: { ...process.env },
 	} );
 	const eventEmitter = new TypedEventEmitter< CliCommandEventMap< boolean > >();

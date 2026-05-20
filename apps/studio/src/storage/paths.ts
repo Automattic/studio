@@ -49,24 +49,6 @@ export function getCliPath(): string {
 		: path.join( getResourcesPath(), 'cli', 'main.mjs' );
 }
 
-export function getBundledNodeBinaryPath(): string {
-	const nodeBinaryName = process.platform === 'win32' ? 'node.exe' : 'node';
-
-	if ( process.env.NODE_ENV === 'production' ) {
-		return path.join( getResourcesPath(), 'bin', nodeBinaryName );
-	}
-
-	// In test environment, use the Electron node binary. The system-level node binary is not reliable
-	// in this context.
-	if ( process.env.NODE_ENV === 'test' ) {
-		return process.execPath;
-	}
-
-	// In development, use the system-level node binary. The bundled node binary most likely isn't
-	// available, and the Electron binary is noticeably slower.
-	return nodeBinaryName;
-}
-
 function getAppDataPath(): string {
 	if ( process.env.E2E && process.env.E2E_APP_DATA_PATH ) {
 		// In E2E mode, return the base appData path directly. Callers append app name and subpaths.

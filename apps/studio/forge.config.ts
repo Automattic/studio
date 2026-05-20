@@ -23,18 +23,7 @@ const config: ForgeConfig = {
 		executableName: process.platform === 'linux' ? 'studio' : undefined,
 		icon: path.join( __dirname, 'assets', 'studio-app-icon' ),
 		windowsSign,
-		osxSign: {
-			optionsForFile: ( filePath ) => {
-				// The bundled Node binary requires specific entitlements for V8 JIT compilation.
-				// Without these, V8 crashes with SIGTRAP when trying to allocate executable memory.
-				if ( filePath.endsWith( 'bin/node' ) ) {
-					return {
-						entitlements: path.join( repoRoot, 'apps', 'studio', 'entitlements', 'node.plist' ),
-					};
-				}
-				return {};
-			},
-		},
+		osxSign: {},
 		ignore: [
 			// Exclude major development directories
 			/^\/\..*/, // All dotfiles and dot directories
@@ -98,8 +87,8 @@ const config: ForgeConfig = {
 				mimeType: [ 'x-scheme-handler/wp-studio' ],
 				icon: path.join( __dirname, 'assets', 'studio-app-icon.png' ),
 				desktopTemplate: path.join( __dirname, 'installers', 'desktop.ejs' ),
-				// libcap2-bin: ships `setcap`, used by postinst to grant the bundled
-				// node CAP_NET_BIND_SERVICE so the proxy can bind ports 80/443.
+				// libcap2-bin: ships `setcap`, used by postinst to grant the Studio
+				// (Electron) binary CAP_NET_BIND_SERVICE so the proxy can bind ports 80/443.
 				// pkexec | policykit-1: provides `pkexec`, used by @vscode/sudo-prompt for
 				// hosts-file writes. `policykit-1` is the legacy package name (Ubuntu 24.04
 				// and older Debian); on Debian trixie / Kali rolling polkit was split and
@@ -272,15 +261,6 @@ const config: ForgeConfig = {
 					}
 				}
 			}
-
-			console.log( `Downloading Node.js binary for ${ platform }-${ arch }...` );
-			await execAsync(
-				`npx tsx ${ path.join(
-					repoRoot,
-					'scripts',
-					'download-node-binary.ts'
-				) } ${ platform } ${ arch }`
-			);
 
 			// Build CLI launcher executable for Windows AppX (Microsoft Store).
 			// AppX packages require AppExecutionAlias with an .exe target — batch files won't work.

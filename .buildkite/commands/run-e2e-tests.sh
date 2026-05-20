@@ -85,16 +85,17 @@ if [ "$PLATFORM" = "linux" ]; then
   # namespace sandbox, which doesn't need setuid.
   rm -f apps/studio/out/Studio-linux-x64/chrome-sandbox
 
-  # Grant cap_net_bind_service to the bundled node so the proxy daemon can
-  # listen on privileged ports 80/443 without running as root — mirrors the
-  # DEB postinst hook (apps/studio/installers/linux/postinst.sh), which
+  # Grant cap_net_bind_service to the Studio (Electron) binary so the proxy
+  # daemon — which runs against the Electron runtime via ELECTRON_RUN_AS_NODE
+  # — can listen on privileged ports 80/443 without running as root. Mirrors
+  # the DEB postinst hook (apps/studio/installers/linux/postinst.sh), which
   # doesn't run for `electron-forge package` output. Without this, custom-
   # domain HTTP/HTTPS tests fail to bind in the non-root test process.
-  BUNDLED_NODE="apps/studio/out/Studio-linux-${ARCH}/resources/bin/node"
-  if [ -x "$BUNDLED_NODE" ]; then
-    echo '--- :shield: Grant cap_net_bind_service to bundled node'
-    setcap 'cap_net_bind_service=+ep' "$BUNDLED_NODE" || \
-      echo "warning: setcap failed on $BUNDLED_NODE; privileged-port tests may fail to bind." >&2
+  STUDIO_BIN="apps/studio/out/Studio-linux-${ARCH}/studio"
+  if [ -x "$STUDIO_BIN" ]; then
+    echo '--- :shield: Grant cap_net_bind_service to Studio binary'
+    setcap 'cap_net_bind_service=+ep' "$STUDIO_BIN" || \
+      echo "warning: setcap failed on $STUDIO_BIN; privileged-port tests may fail to bind." >&2
   fi
 fi
 

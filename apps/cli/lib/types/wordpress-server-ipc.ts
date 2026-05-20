@@ -13,6 +13,8 @@ const wordpressInstallModeSchema = z.enum( [
 	'do-not-attempt-installing',
 ] );
 
+export type WordPressInstallMode = z.infer< typeof wordpressInstallModeSchema >;
+
 const serverConfig = z.object( {
 	siteId: z.string(),
 	sitePath: z.string(),

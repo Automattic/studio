@@ -67,8 +67,7 @@ if (!defined('STREAMING_SITE_MIGRATION_REMOTE_UPLOAD_PROXY_STATE_FILE')) {
 				wordpress_install_mode: 'do-not-attempt-installing',
 			} ),
 		};
-		// Pass through to the real fs for paths that are not test fixtures
-		// (e.g. WASM binaries loaded by @php-wasm/node).
+		// Pass through to the real fs for paths that are not test fixtures.
 		const realExistsSync = fs.existsSync;
 		const realReadFileSync = fs.readFileSync;
 		vi.spyOn( fs, 'existsSync' ).mockImplementation( ( filePath ) => {
@@ -95,12 +94,15 @@ if (!defined('STREAMING_SITE_MIGRATION_REMOTE_UPLOAD_PROXY_STATE_FILE')) {
 		).resolves.toEqual( {
 			blueprint: {
 				landingPage: '/',
+				// This experimental build does not bundle PHP WASM, so user-defined
+				// constants from runtime.php (e.g.
+				// STREAMING_SITE_MIGRATION_REMOTE_UPLOAD_PROXY_STATE_FILE) are no
+				// longer extracted. Only the WP_*_DIR constants derived from mounts
+				// and the DB_* placeholder constants survive.
 				constants: {
 					WP_CONTENT_DIR: '/wordpress/wp-content',
 					WP_PLUGIN_DIR: '/wordpress/wp-content/plugins',
 					WPMU_PLUGIN_DIR: '/wordpress/wp-content/mu-plugins',
-					STREAMING_SITE_MIGRATION_REMOTE_UPLOAD_PROXY_STATE_FILE:
-						'/tmp/streaming-site-migration/.import-state.json',
 					DB_NAME: 'wordpress',
 					DB_USER: 'wordpress',
 					DB_PASSWORD: 'wordpress',

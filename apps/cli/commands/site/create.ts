@@ -2,7 +2,6 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { confirm, input, password, select } from '@inquirer/prompts';
-import { SupportedPHPVersions } from '@php-wasm/universal';
 import {
 	DEFAULT_PHP_VERSION,
 	DEFAULT_WORDPRESS_VERSION,
@@ -43,8 +42,9 @@ import {
 } from '@studio/common/lib/wordpress-version-utils';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
+import { SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { __, sprintf } from '@wordpress/i18n';
-import { isStepDefinition, type BlueprintV1Declaration } from '@wp-playground/blueprints';
+import { isStepDefinition, type BlueprintV1Declaration } from 'cli/lib/blueprint-types';
 import { bumpStat, getPlatformMetric } from 'cli/lib/bump-stat';
 import {
 	lockCliConfig,
@@ -100,7 +100,9 @@ export type CreateCommandOptions = {
 };
 
 function resolveRuntimeFromEnv(): SiteRuntime {
-	return siteRuntimeSchema.catch( 'playground' ).parse( process.env.STUDIO_RUNTIME );
+	// The Playground runtime is not bundled in this experimental build, so
+	// new sites always use native-php regardless of the STUDIO_RUNTIME env var.
+	return siteRuntimeSchema.parse( 'native-php' );
 }
 
 export async function runCommand(
@@ -149,10 +151,10 @@ export async function runCommand(
 			}
 
 			// `validateBlueprintData()` does not give us a proper type guard, but in reality, it ensures
-			// `options.blueprint.contents` conforms to the `BlueprintV1Declaration` schema.
-			const formValues = extractFormValuesFromBlueprint(
-				options.blueprint.contents as BlueprintV1Declaration
-			);
+			// `options.blueprint.contents` conforms to the `BlueprintV1Declaration` schema. The cast
+			// to `never` bridges our local permissive type and the stricter upstream type that
+			// `extractFormValuesFromBlueprint` (in @studio/common) still references.
+			const formValues = extractFormValuesFromBlueprint( options.blueprint.contents as never );
 			if ( formValues.adminUsername || formValues.adminPassword ) {
 				blueprintCredentials = {
 					adminUsername: formValues.adminUsername,

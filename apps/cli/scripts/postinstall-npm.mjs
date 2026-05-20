@@ -18,7 +18,6 @@ const packageDir = resolve( scriptDir, '..' );
 // Skip if the patched packages aren't installed locally (e.g. in a monorepo
 // workspace where dependencies are hoisted to the root node_modules).
 const patchedPackages = [
-	join( packageDir, 'node_modules', '@wp-playground', 'wordpress' ),
 	join( packageDir, 'node_modules', 'ps-man' ),
 	join( packageDir, 'node_modules', '@mariozechner', 'pi-tui' ),
 ];

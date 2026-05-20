@@ -1,4 +1,3 @@
-import { SupportedPHPVersions } from '@php-wasm/universal';
 import { DEFAULT_WORDPRESS_VERSION, MINIMUM_WORDPRESS_VERSION } from '@studio/common/constants';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { getDomainNameValidationError } from '@studio/common/lib/domains';
@@ -15,6 +14,7 @@ import {
 	isWordPressVersionAtLeast,
 } from '@studio/common/lib/wordpress-version-utils';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
+import { SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { __, sprintf } from '@wordpress/i18n';
 import { generateSiteCertificate } from 'cli/lib/certificate-manager';
 import {

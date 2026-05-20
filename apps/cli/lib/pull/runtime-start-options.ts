@@ -5,16 +5,11 @@
  */
 import fs from 'fs';
 import path from 'path';
-import { loadNodeRuntime } from '@php-wasm/node';
-import { PHP, ProcessIdAllocator } from '@php-wasm/universal';
-import { LatestSupportedPHPVersion } from '@studio/common/types/php-versions';
 import { getContentDirFromState } from 'cli/lib/pull/reprint-state';
 import { installSqliteIntegration } from 'cli/lib/sqlite-integration';
 import { LoggerError } from 'cli/logger';
-import type { Blueprint } from '@wp-playground/blueprints';
+import type { Blueprint } from 'cli/lib/blueprint-types';
 import type { StartServerOptions } from 'cli/lib/wordpress-server-manager';
-
-const phpProcessIdAllocator = new ProcessIdAllocator();
 
 function filterExistingMounts(
 	mounts: Array< { hostPath: string; vfsPath: string } >
@@ -27,70 +22,18 @@ type BlueprintWithConstants = Blueprint & {
 	constants?: Record< string, RuntimeConstantValue >;
 };
 
-/**
- * Extract user-defined constants from a runtime.php file by including it
- * in a fresh PHP WASM instance. This lets PHP's own parser handle the
- * syntax — no regex approximation of define() calls, string escaping,
- * or scalar value decoding.
- */
+// Stub: the original implementation booted PHP WASM to evaluate runtime.php
+// and extract user-defined constants. This experimental build doesn't bundle
+// PHP WASM, so we skip constant extraction. Imported sites that rely on
+// runtime.php-defined constants beyond the WP_CONTENT_DIR/DB_NAME defaults
+// added below will degrade — acceptable for an installer-size experiment.
 async function parseRuntimePhpConstants(
-	runtimePhpContent: string
+	_runtimePhpContent: string
 ): Promise< Record< string, RuntimeConstantValue > > {
-	const id = await loadNodeRuntime( LatestSupportedPHPVersion, {
-		emscriptenOptions: {
-			processId: phpProcessIdAllocator.claim(),
-		},
-	} );
-	const php = new PHP( id );
-
-	try {
-		await php.setSapiName( 'cli' );
-
-		php.writeFile( '/tmp/runtime.php', runtimePhpContent );
-		php.writeFile(
-			'/tmp/extract-constants.php',
-			`<?php
-$before = get_defined_constants( true )['user'] ?? [];
-include '/tmp/runtime.php';
-$after = get_defined_constants( true )['user'] ?? [];
-echo json_encode( array_diff_key( $after, $before ) );
-`
-		);
-
-		const response = await php.cli( [ 'php', '/tmp/extract-constants.php' ] );
-		// Buffering is safe here: the output is a single JSON object
-		// containing only user-defined PHP constants from runtime.php,
-		// typically a handful of key-value pairs — not an unbounded stream.
-		const stdoutChunks: string[] = [];
-		const reader = response.stdout.getReader();
-		const decoder = new TextDecoder();
-
-		while ( true ) {
-			const { done, value } = await reader.read();
-			if ( done ) {
-				break;
-			}
-			if ( value ) {
-				stdoutChunks.push( decoder.decode( value, { stream: true } ) );
-			}
-		}
-
-		const exitCode = await response.exitCode;
-		if ( exitCode !== 0 ) {
-			return {};
-		}
-
-		const parsed = JSON.parse( stdoutChunks.join( '' ).trim() ) as Record< string, unknown >;
-		const constants: Record< string, RuntimeConstantValue > = {};
-		for ( const [ key, val ] of Object.entries( parsed ) ) {
-			if ( typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean' ) {
-				constants[ key ] = val;
-			}
-		}
-		return constants;
-	} finally {
-		php.exit();
-	}
+	console.warn(
+		'runtime.php constant extraction is disabled in this experimental build (PHP WASM is not bundled).'
+	);
+	return {};
 }
 
 function getMountedWordPressPathConstants(

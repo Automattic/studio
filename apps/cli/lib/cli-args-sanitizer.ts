@@ -2,8 +2,29 @@ import {
 	isStepDefinition,
 	type BlueprintV1Declaration,
 	type StepDefinition,
-} from '@wp-playground/blueprints';
-import type { RunCLIArgs } from '@wp-playground/cli';
+} from 'cli/lib/blueprint-types';
+
+// Permissive stand-in for `RunCLIArgs` from `@wp-playground/cli`. We only read
+// a fixed set of scalar fields off this value before forwarding to Sentry, so
+// a structural type is enough — and it keeps `@wp-playground/cli` out of the
+// dependency tree for this experimental build.
+export type RunCLIArgs = {
+	command?: string;
+	php?: string;
+	wp?: string;
+	port?: number;
+	debug?: boolean;
+	verbosity?: string | number;
+	wordpressInstallMode?: string;
+	skipSqliteSetup?: boolean;
+	followSymlinks?: boolean;
+	internalCookieStore?: boolean;
+	xdebug?: boolean;
+	experimentalDevtools?: boolean;
+	[ 'site-url' ]?: string;
+	outfile?: string;
+	blueprint?: unknown;
+} & Record< string, unknown >;
 
 /**
  * Sanitizes a Blueprint step to remove sensitive data while keeping useful debugging info.
@@ -22,12 +43,14 @@ function sanitizeBlueprintStep( step: StepDefinition ): unknown {
 			// Omit code (might contain secrets), indicate it exists
 			return { ...baseStep, hasCode: 'code' in step };
 
-		case 'defineWpConfigConsts':
+		case 'defineWpConfigConsts': {
 			// Omit actual constants (might contain DB credentials, auth keys)
+			const consts = step.consts;
 			return {
 				...baseStep,
-				constCount: 'consts' in step ? Object.keys( step.consts ).length : undefined,
+				constCount: consts && typeof consts === 'object' ? Object.keys( consts ).length : undefined,
 			};
+		}
 
 		case 'runSql':
 			// Omit SQL (might contain sensitive data)
@@ -41,23 +64,24 @@ function sanitizeBlueprintStep( step: StepDefinition ): unknown {
 				hasData: 'data' in step,
 			};
 
-		case 'request':
+		case 'request': {
 			// Keep URL and method, omit headers and body (might contain auth tokens)
+			const request =
+				step.request && typeof step.request === 'object'
+					? ( step.request as { url?: unknown; method?: unknown } )
+					: undefined;
 			return {
 				...baseStep,
-				url: 'request' in step ? step.request.url : undefined,
-				method: 'request' in step ? step.request.method : undefined,
+				url: request?.url,
+				method: request?.method,
 			};
+		}
 
 		case 'setSiteOptions':
 		case 'updateUserMeta': {
 			// Keep option/meta keys but not values (values might be API keys)
-			let keys: string[] = [];
-			if ( 'options' in step && step.options ) {
-				keys = Object.keys( step.options );
-			} else if ( 'meta' in step ) {
-				keys = Object.keys( step.meta );
-			}
+			const source = step.options ?? step.meta;
+			const keys = source && typeof source === 'object' ? Object.keys( source ) : [];
 			return {
 				...baseStep,
 				keys,

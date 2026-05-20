@@ -11,8 +11,8 @@ import { isOnline } from '@studio/common/lib/network-utils';
 import { portFinder } from '@studio/common/lib/port-finder';
 import { normalizeLineEndings } from '@studio/common/lib/remove-default-db-constants';
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
-import { Blueprint, BlueprintV1Declaration } from '@wp-playground/blueprints';
 import { vi, type MockInstance } from 'vitest';
+import { Blueprint, BlueprintV1Declaration, isStepDefinition } from 'cli/lib/blueprint-types';
 import {
 	lockCliConfig,
 	readCliConfig,
@@ -330,7 +330,7 @@ describe( 'CLI: studio site create', () => {
 			const blueprintCall = calls.find(
 				( call ) =>
 					( call[ 2 ] as { blueprint?: BlueprintV1Declaration } )?.blueprint?.steps?.some(
-						( step ) => typeof step === 'object' && step?.step === 'setSiteOptions'
+						( step ) => isStepDefinition( step ) && step.step === 'setSiteOptions'
 					)
 			);
 			expect( blueprintCall ).toBeUndefined();
@@ -524,41 +524,25 @@ describe( 'CLI: studio site create', () => {
 			vi.unstubAllEnvs();
 		} );
 
-		it( 'persists runtime=native-php when STUDIO_RUNTIME=native-php', async () => {
-			vi.stubEnv( 'STUDIO_RUNTIME', 'native-php' );
+		// This experimental build no longer bundles the Playground runtime, so
+		// `resolveRuntimeFromEnv` always returns 'native-php' regardless of the
+		// STUDIO_RUNTIME value.
+		it.each( [ 'native-php', undefined, 'nonsense' ] )(
+			'persists runtime=native-php when STUDIO_RUNTIME=%s',
+			async ( value ) => {
+				vi.stubEnv( 'STUDIO_RUNTIME', value );
 
-			await runCommand( mockSitePath, { ...defaultTestOptions } );
+				await runCommand( mockSitePath, { ...defaultTestOptions } );
 
-			expect( saveCliConfig ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					sites: expect.arrayContaining( [ expect.objectContaining( { runtime: 'native-php' } ) ] ),
-				} )
-			);
-		} );
-
-		it( 'defaults to playground when STUDIO_RUNTIME is unset', async () => {
-			vi.stubEnv( 'STUDIO_RUNTIME', undefined );
-
-			await runCommand( mockSitePath, { ...defaultTestOptions } );
-
-			expect( saveCliConfig ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					sites: expect.arrayContaining( [ expect.objectContaining( { runtime: 'playground' } ) ] ),
-				} )
-			);
-		} );
-
-		it( 'falls back to playground when STUDIO_RUNTIME has an unknown value', async () => {
-			vi.stubEnv( 'STUDIO_RUNTIME', 'nonsense' );
-
-			await runCommand( mockSitePath, { ...defaultTestOptions } );
-
-			expect( saveCliConfig ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					sites: expect.arrayContaining( [ expect.objectContaining( { runtime: 'playground' } ) ] ),
-				} )
-			);
-		} );
+				expect( saveCliConfig ).toHaveBeenCalledWith(
+					expect.objectContaining( {
+						sites: expect.arrayContaining( [
+							expect.objectContaining( { runtime: 'native-php' } ),
+						] ),
+					} )
+				);
+			}
+		);
 	} );
 
 	describe( 'Multisite Validation', () => {

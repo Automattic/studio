@@ -28,7 +28,7 @@ import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { ServerConfig, ManagerMessagePayload } from 'cli/lib/types/wordpress-server-ipc';
 import { Logger } from 'cli/logger';
 import { validatePhpVersion } from './utils';
-import type { WordPressInstallMode } from '@wp-playground/wordpress';
+import type { WordPressInstallMode } from 'cli/lib/types/wordpress-server-ipc';
 
 export const SITE_PROCESS_PREFIX = 'studio-site-';
 

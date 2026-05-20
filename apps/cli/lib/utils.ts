@@ -1,6 +1,6 @@
 import os from 'node:os';
 import { parse as parsePath } from 'node:path';
-import { SupportedPHPVersion, SupportedPHPVersions } from '@php-wasm/universal';
+import { SupportedPHPVersion, SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { __, sprintf } from '@wordpress/i18n';
 import { z } from 'zod';
 import { LoggerError } from 'cli/logger';

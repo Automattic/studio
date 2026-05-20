@@ -70,7 +70,6 @@ describe( 'installBundledDefaultPhp', () => {
 		fs.writeFileSync( path.join( getDefaultPhpDestinationDir(), getBinaryName() ), 'existing php' );
 
 		await expect( installBundledDefaultPhp.needsToRun() ).resolves.toBe( false );
-		await installBundledDefaultPhp.run();
 
 		expect(
 			fs.readFileSync( path.join( getDefaultPhpDestinationDir(), getBinaryName() ), 'utf8' )

@@ -33,15 +33,13 @@ function bundledDefaultPhpExists(): boolean {
 	return fs.existsSync( getBundledDefaultPhpPath() );
 }
 
+// Packaged Studio builds include the default PHP package in app resources.
+// Copy it into the writable PHP cache so first native-PHP startup works offline.
 export const installBundledDefaultPhp: Migration = {
 	needsToRun: async () => {
 		return bundledDefaultPhpExists() && ! fs.existsSync( getDefaultPhpDestinationDir() );
 	},
 	run: async () => {
-		if ( ! bundledDefaultPhpExists() || fs.existsSync( getDefaultPhpDestinationDir() ) ) {
-			return;
-		}
-
 		const destinationDir = getDefaultPhpDestinationDir();
 		fs.mkdirSync( path.dirname( destinationDir ), { recursive: true } );
 		try {
@@ -56,7 +54,7 @@ export const installBundledDefaultPhp: Migration = {
 		} catch ( error ) {
 			fs.rmSync( destinationDir, { recursive: true, force: true } );
 			console.warn(
-				`Warning: failed to install bundled PHP ${ DEFAULT_PHP_VERSION } binary: ${
+				`Warning: failed to install bundled PHP ${ DEFAULT_PHP_VERSION } package: ${
 					( error as Error ).message
 				}`
 			);

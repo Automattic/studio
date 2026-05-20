@@ -291,7 +291,7 @@ const config: ForgeConfig = {
 			);
 
 			console.log(
-				`Downloading PHP ${ RecommendedPHPVersion } binary for ${ platform }-${ arch }...`
+				`Downloading PHP ${ RecommendedPHPVersion } package for ${ platform }-${ arch }...`
 			);
 			fs.rmSync( bundledPhpBinaryRoot, { recursive: true, force: true } );
 			await execAsync(
@@ -299,9 +299,10 @@ const config: ForgeConfig = {
 					repoRoot,
 					'scripts',
 					'download-php-binary.ts'
-				) } ${ RecommendedPHPVersion } ${ platform } ${ arch }`,
+				) } ${ RecommendedPHPVersion } ${ platform } ${ arch } --install-root ${ JSON.stringify(
+					bundledPhpBinaryRoot
+				) }`,
 				{
-					STUDIO_PHP_BINARY_INSTALL_ROOT: bundledPhpBinaryRoot,
 					STUDIO_PHP_BINARY_DOWNLOAD_REQUIRED: '1',
 				}
 			);

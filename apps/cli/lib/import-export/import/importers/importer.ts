@@ -47,26 +47,30 @@ export async function ensureDir( dir: string ): Promise< void > {
 	}
 }
 
+// Walk the path top-down: the first existing component that isn't a directory
+// is the blocker. The first missing component means no blocker exists. Uses
+// stat (not lstat) so that symlinks to directories — which mkdir traverses
+// happily — are treated as directories rather than as blockers.
 async function findNonDirectoryAncestor( start: string ): Promise< string | null > {
-	let current = start;
-	while ( true ) {
+	const resolved = path.resolve( start );
+	const root = path.parse( resolved ).root;
+	const parts = resolved.slice( root.length ).split( path.sep ).filter( Boolean );
+	let cur = root;
+	for ( const part of parts ) {
+		cur = path.join( cur, part );
 		try {
-			const stat = await fs.promises.lstat( current );
-			return stat.isDirectory() ? null : current;
-		} catch ( error ) {
-			if (
-				! isErrnoException( error ) ||
-				( error.code !== 'ENOENT' && error.code !== 'ENOTDIR' )
-			) {
-				throw error;
+			const stat = await fs.promises.stat( cur );
+			if ( ! stat.isDirectory() ) {
+				return cur;
 			}
-			const parent = path.dirname( current );
-			if ( parent === current ) {
+		} catch ( error ) {
+			if ( isErrnoException( error ) && error.code === 'ENOENT' ) {
 				return null;
 			}
-			current = parent;
+			throw error;
 		}
 	}
+	return null;
 }
 
 abstract class BaseImporter extends ImportExportEventEmitter implements Importer {

@@ -73,7 +73,24 @@ if (
 		return true;
 	}
 
-	$content_type = mime_content_type( $target );
+	$mime_types   = array(
+		'css'   => 'text/css',
+		'js'    => 'application/javascript',
+		'json'  => 'application/json',
+		'map'   => 'application/json',
+		'png'   => 'image/png',
+		'jpg'   => 'image/jpeg',
+		'jpeg'  => 'image/jpeg',
+		'gif'   => 'image/gif',
+		'svg'   => 'image/svg+xml',
+		'ico'   => 'image/x-icon',
+		'woff'  => 'font/woff',
+		'woff2' => 'font/woff2',
+		'ttf'   => 'font/ttf',
+		'eot'   => 'application/vnd.ms-fontobject',
+	);
+	$extension    = strtolower( pathinfo( $target, PATHINFO_EXTENSION ) );
+	$content_type = $mime_types[ $extension ] ?? mime_content_type( $target );
 	if ( $content_type ) {
 		header( 'Content-Type: ' . $content_type );
 	}

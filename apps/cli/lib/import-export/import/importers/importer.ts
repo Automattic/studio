@@ -25,19 +25,25 @@ export interface Importer extends ImportExportEventEmitter {
 	import( site: SiteData ): Promise< ImporterResult >;
 }
 
-// mkdir with recursive:true throws EEXIST only when a path along the way exists
-// and is not a directory. On Windows this surfaces after `git checkout` materializes
-// a tracked symlink as a regular file (Pressable repos often track managed plugins
-// like akismet/jetpack as symlinks, which become small text files when checked out
-// without core.symlinks=true). Replace the offender and retry.
+// mkdir with recursive:true throws EEXIST (final-component blocker) or ENOTDIR
+// (intermediate-component blocker) when a non-directory exists along the path.
+// On Windows this surfaces after `git checkout` materializes a tracked symlink
+// as a regular file (Pressable repos often track managed plugins like akismet
+// and jetpack as symlinks, which become small text files when checked out
+// without core.symlinks=true). Unlink the blocker named by error.path and retry.
 export async function ensureDir( dir: string ): Promise< void > {
 	try {
 		await fs.promises.mkdir( dir, { recursive: true } );
 	} catch ( error ) {
-		if ( ! isErrnoException( error ) || error.code !== 'EEXIST' ) {
+		if (
+			! isErrnoException( error ) ||
+			( error.code !== 'EEXIST' && error.code !== 'ENOTDIR' ) ||
+			! error.path
+		) {
 			throw error;
 		}
-		await fs.promises.unlink( error.path ?? dir );
+		console.warn( `ensureDir: removed non-directory blocker at ${ error.path }` );
+		await fs.promises.unlink( error.path );
 		await fs.promises.mkdir( dir, { recursive: true } );
 	}
 }

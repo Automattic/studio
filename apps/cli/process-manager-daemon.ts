@@ -35,6 +35,7 @@ type ManagedProcessBase = {
 	scriptPath: string;
 	args: string[];
 	env: NodeJS.ProcessEnv;
+	// Used by clients to decide whether WP-CLI commands can run through this process.
 	runtime: SiteRuntime;
 	child: ChildProcess;
 	stdoutLogPath: string;

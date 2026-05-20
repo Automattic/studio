@@ -214,10 +214,12 @@ export {
 	exportDeskConfig,
 	getDeskSettings,
 	getSiteDeskConfig,
+	getStudioUiMode,
 	getUserDeskConfig,
 	importDeskConfig,
 	saveDeskSettings,
 	saveSiteDeskConfig,
+	setStudioUiMode,
 	saveUserDeskConfig,
 } from 'src/modules/desks/lib/ipc-handlers';
 export { fetchSiteRest as fetchSiteRestApi } from 'src/lib/wordpress-rest-api';

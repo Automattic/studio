@@ -1,4 +1,5 @@
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
+import { SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { vi } from 'vitest';
 import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
@@ -101,6 +102,7 @@ describe( 'CLI: studio site status', () => {
 				pmId: 0,
 				status: 'online',
 				pid: 12345,
+				runtime: SITE_RUNTIME_PLAYGROUND,
 			} );
 
 			const consoleSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );

@@ -17,8 +17,7 @@ import { textResult } from './utils';
  *
  * Only registered when the agent is actually being driven by the
  * remote-session daemon (`STUDIO_REMOTE_SESSION=1`); the regular desktop /
- * interactive CLI flows don't expose this tool, even when the
- * `STUDIO_ENABLE_REMOTE_SESSION` feature flag is on.
+ * interactive CLI flows don't expose this tool.
  */
 export const shareScreenshotTool = defineTool(
 	'share_screenshot',

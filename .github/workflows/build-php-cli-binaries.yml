@@ -13,27 +13,28 @@ on:
         required: true
         default: 3.5.1
       spc_ref:
-        description: static-php-cli ref to use for the macOS build
+        # Pinned past 2.8.5 to pick up PR #1132 ("fix centos 7 gd build"),
+        # which patches a `-l-lpthread` malformation in libcurl.pc that
+        # breaks every extension link test on the gnu-docker image's
+        # older glibc / CMake FindThreads combination. The fix landed
+        # 2026-05-07; bump to the next SPC release once it cuts.
+        description: static-php-cli ref to use for the macOS and Linux builds
         required: true
-        default: 2.8.5
+        default: ef95e4f857b3c205ee3c9fb06eb8737d2d715fe5
       debug:
         description: Enable verbose build logs
         required: true
         type: boolean
         default: false
-      upload_to_apps_cdn:
-        description: Upload to Apps CDN
-        required: true
-        type: boolean
-        default: false
       apps_cdn_visibility:
-        description: Apps CDN visibility
+        description: Apps CDN visibility (choose 'none' to skip the upload)
         required: true
         type: choice
         options:
+          - none
           - internal
           - external
-        default: internal
+        default: none
 
 permissions:
   contents: read
@@ -54,12 +55,25 @@ jobs:
             runner: macos-15
             artifact_platform: macos
             artifact_arch: aarch64
-            extensions: &macos_extensions apcu,bcmath,calendar,ctype,curl,dba,dom,exif,fileinfo,filter,ftp,gd,gettext,iconv,igbinary,intl,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pcntl,pdo,pdo_mysql,pdo_sqlite,phar,posix,readline,redis,session,shmop,simplexml,sockets,sodium,sqlite3,ssh2,tokenizer,xdebug,xml,xmlreader,xmlwriter,xsl,yaml,zip,zlib
+            extensions: &unix_extensions apcu,bcmath,calendar,ctype,curl,dba,dom,exif,fileinfo,filter,ftp,gd,gettext,iconv,igbinary,intl,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pcntl,pdo,pdo_mysql,pdo_sqlite,phar,posix,readline,redis,session,shmop,simplexml,sockets,sodium,sqlite3,ssh2,tokenizer,xdebug,xml,xmlreader,xmlwriter,xsl,yaml,zip,zlib
           - target: macos-x86_64
             runner: macos-15-intel
             artifact_platform: macos
             artifact_arch: x86_64
-            extensions: *macos_extensions
+            extensions: *unix_extensions
+          - target: linux-x86_64
+            # Matches SPC's own CI for the glibc variant. The runner here is
+            # just the Docker host; the actual glibc version baked into the
+            # binary comes from the spc-gnu-docker base image.
+            runner: ubuntu-22.04
+            artifact_platform: linux
+            artifact_arch: x86_64
+            extensions: *unix_extensions
+          - target: linux-aarch64
+            runner: ubuntu-22.04-arm
+            artifact_platform: linux
+            artifact_arch: aarch64
+            extensions: *unix_extensions
           - target: windows-x86_64
             runner: windows-latest
             artifact_platform: windows
@@ -79,7 +93,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Checkout static-php-cli
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' || runner.os == 'Linux'
         uses: actions/checkout@v6
         with:
           repository: crazywhalecc/static-php-cli
@@ -100,6 +114,8 @@ jobs:
           echo "PHP_MINOR=$php_minor" >> "$GITHUB_ENV"
 
       - name: Setup PHP for static-php-cli
+        # Linux runs SPC inside the spc-gnu-docker container, which ships
+        # its own PHP + Composer; host PHP is only needed for the macOS path.
         if: runner.os == 'macOS'
         uses: shivammathur/setup-php@v2
         with:
@@ -112,12 +128,13 @@ jobs:
           phpts: nts
 
       - name: Install static-php-cli dependencies
+        # See above — composer install for Linux happens inside the container.
         if: runner.os == 'macOS'
         working-directory: .cache/static-php-cli
         run: composer install --no-dev --no-interaction --prefer-dist --classmap-authoritative
 
-      - name: Build macOS PHP runtime with static-php-cli
-        if: runner.os == 'macOS'
+      - name: Build PHP runtime with static-php-cli
+        if: runner.os == 'macOS' || runner.os == 'Linux'
         working-directory: .cache/static-php-cli
         shell: bash
         run: |
@@ -133,9 +150,9 @@ jobs:
           # at startup via dlopen, so it has to be loadable from outside the
           # main binary. Everything else lives inside php itself, which is
           # SPC's well-trodden code path. This sidesteps the per-extension
-          # --build-shared quirks on Darwin (lexbor for dom, $ext_dir for phar,
-          # mbregex CLI bug, etc.) at the cost of artifact-shape divergence
-          # from Windows.
+          # --build-shared quirks on Unix (on Darwin: lexbor for dom, $ext_dir
+          # for phar, mbregex CLI bug, etc.) at the cost of artifact-shape
+          # divergence from Windows.
           IFS=',' read -ra _all_exts <<< "$PHP_CLI_EXTENSIONS"
           static_list=()
           for ext in "${_all_exts[@]}"; do
@@ -149,7 +166,10 @@ jobs:
           download_args=(
             --with-php="$PHP_VERSION"
             --for-extensions="$PHP_CLI_EXTENSIONS"
-            --custom-url="xdebug:https://xdebug.org/files/xdebug-${XDEBUG_VERSION}.tgz"
+            # Pulled from PECL rather than xdebug.org: the spc-gnu-docker
+            # container's curl/OpenSSL can't negotiate TLS with xdebug.org,
+            # and PECL is the canonical PHP extension distribution channel.
+            --custom-url="xdebug:https://pecl.php.net/get/xdebug-${XDEBUG_VERSION}.tgz"
             --ignore-cache-sources=php-src
             --prefer-pre-built
           )
@@ -164,9 +184,23 @@ jobs:
             build_args+=(--debug)
           fi
 
-          php bin/spc doctor --auto-fix
-          php bin/spc download "${download_args[@]}"
-          php bin/spc build "${build_args[@]}"
+          # Pick the right SPC entrypoint. On Linux we use the gnu-docker
+          # wrapper, which builds against glibc inside an Ubuntu-based
+          # container. The alpine-docker wrapper would give us a smaller,
+          # fully-static binary but static musl lacks dlopen, which means
+          # the shared Xdebug extension (target: ["shared"] in SPC's
+          # ext.json) can't be loaded at runtime. glibc-dynamic is the
+          # standard SPC answer for "I need shared extensions on Linux."
+          # On macOS we drive SPC on the host, so doctor --auto-fix is
+          # still needed to install any missing Homebrew build deps.
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            spc=(./bin/spc-gnu-docker)
+          else
+            spc=(php bin/spc)
+            "${spc[@]}" doctor --auto-fix
+          fi
+          "${spc[@]}" download "${download_args[@]}"
+          "${spc[@]}" build "${build_args[@]}"
 
       - name: Package macOS artifact
         if: runner.os == 'macOS'
@@ -240,6 +274,71 @@ jobs:
 
           ( cd "$staging_dir" && zip -qr "$out_dir/$artifact" . )
           shasum -a 256 "$out_dir/$artifact" | awk '{print $1}' > "$out_dir/$artifact.sha256"
+
+      - name: Package Linux artifact
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          spc_root="$GITHUB_WORKSPACE/.cache/static-php-cli/buildroot"
+          staging_dir="$RUNNER_TEMP/php-artifact"
+          out_dir="$GITHUB_WORKSPACE/out/php-binaries"
+          artifact="php-${PHP_VERSION}-cli-${PHP_CLI_ARTIFACT_PLATFORM}-${PHP_CLI_ARTIFACT_ARCH}.zip"
+
+          rm -rf "$staging_dir"
+          mkdir -p "$staging_dir/ext" "$out_dir"
+
+          cp "$spc_root/bin/php" "$staging_dir/php"
+          chmod +x "$staging_dir/php"
+          cp "$spc_root/modules/xdebug.so" "$staging_dir/ext/xdebug.so"
+
+          extension_dir="$staging_dir/ext"
+
+          # PHP configure bakes `-Wl,-rpath,/app/buildroot/lib` into the
+          # binary to satisfy link-time conftests, but the libs that
+          # path pointed at are statically embedded in the final binary,
+          # so the rpath is dead weight pointing at a path that doesn't
+          # exist on the user's machine. Strip it, then verify no host
+          # (`$spc_root`) or container (`/app/...`) build-tree paths
+          # survived.
+          for f in "$staging_dir/php" "$staging_dir/ext/xdebug.so"; do
+            patchelf --remove-rpath "$f"
+            rpaths=$(readelf -d "$f" 2>/dev/null | grep -E '\(R(UN)?PATH\)' || true)
+            if [ -n "$rpaths" ] && echo "$rpaths" | grep -qE "$spc_root|/app/"; then
+              echo "Found non-portable rpath in $f after patchelf:" >&2
+              echo "$rpaths" >&2
+              exit 1
+            fi
+          done
+
+          cat > "$staging_dir/runtime.json" <<JSON
+          {
+            "phpVersion": "$PHP_VERSION",
+            "phpMinor": "$PHP_MINOR",
+            "threadSafety": "nts",
+            "platform": "$PHP_CLI_ARTIFACT_PLATFORM",
+            "arch": "$PHP_CLI_ARTIFACT_ARCH",
+            "binary": "php",
+            "extensionDir": "ext",
+            "xdebug": "ext/xdebug.so"
+          }
+          JSON
+
+          # SPC's post-build sanity pass (UnixBuilderBase::sanityCheck) has
+          # already verified every extension loads via `php -n --ri <ext>`.
+          # Re-run a minimal pair of checks after staging to catch the
+          # unlikely case where the move breaks the binary or the shared
+          # Xdebug load.
+          "$staging_dir/php" -n --version
+          "$staging_dir/php" -n \
+            -d "extension_dir=$extension_dir" \
+            -d "zend_extension=$extension_dir/xdebug.so" \
+            -d "xdebug.mode=debug" \
+            --ri xdebug
+
+          ( cd "$staging_dir" && zip -qr "$out_dir/$artifact" . )
+          sha256sum "$out_dir/$artifact" | awk '{print $1}' > "$out_dir/$artifact.sha256"
 
       - name: Resolve Windows runtime metadata
         if: runner.os == 'Windows'
@@ -420,7 +519,7 @@ jobs:
           path: out/php-binaries/*
 
       - name: Upload static-php-cli logs
-        if: ${{ failure() && runner.os == 'macOS' }}
+        if: ${{ failure() && (runner.os == 'macOS' || runner.os == 'Linux') }}
         uses: actions/upload-artifact@v7
         with:
           name: spc-logs-${{ matrix.target }}
@@ -430,11 +529,15 @@ jobs:
   publish-apps-cdn:
     name: Publish Apps CDN artifacts
     needs: build
+    if: inputs.apps_cdn_visibility != 'none'
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+      pull-requests: write
     env:
       PHP_VERSION: ${{ inputs.php_version }}
       PHP_CLI_VISIBILITY: ${{ inputs.apps_cdn_visibility }}
-      DRY_RUN: ${{ inputs.upload_to_apps_cdn && 'false' || 'true' }}
       WPCOM_API_TOKEN: ${{ secrets.WPCOM_API_TOKEN }}
     steps:
       - name: Checkout Studio
@@ -456,7 +559,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [ "$DRY_RUN" != "true" ] && [ -z "${WPCOM_API_TOKEN:-}" ]; then
+          if [ -z "${WPCOM_API_TOKEN:-}" ]; then
             echo "WPCOM_API_TOKEN secret is required to upload PHP CLI artifacts to Apps CDN."
             exit 1
           fi
@@ -471,11 +574,7 @@ jobs:
 
           echo "### Apps CDN PHP CLI upload" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          if [ "$DRY_RUN" = "true" ]; then
-            echo "Dry run completed for PHP ${PHP_VERSION} CLI artifacts with ${PHP_CLI_VISIBILITY} visibility." >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "Uploaded PHP ${PHP_VERSION} CLI artifacts with ${PHP_CLI_VISIBILITY} visibility." >> "$GITHUB_STEP_SUMMARY"
-          fi
+          echo "Uploaded or updated PHP ${PHP_VERSION} CLI artifacts with ${PHP_CLI_VISIBILITY} visibility." >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
           PHP_CLI_UPLOAD_RESULTS_FILE="$upload_results_file" ruby -rjson -e '
@@ -486,9 +585,43 @@ jobs:
               summary.puts "| --- | --- |"
 
               results.each do |file_name, result|
-                url = result["cdn_url"].to_s
-                url_output = url.empty? ? "Dry run (not uploaded)" : "<#{url}>"
-                summary.puts "| `#{file_name}` | #{url_output} |"
+                summary.puts "| `#{file_name}` | <#{result["cdn_url"]}> |"
               end
             end
           '
+
+      - name: Update PHP CLI metadata
+        id: php-cli-metadata
+        run: |
+          set -euo pipefail
+
+          node scripts/update-php-binary-cdn-metadata.mjs \
+            --version "${PHP_VERSION}" \
+            --upload-results "${PWD}/out/php-binaries/apps-cdn-upload-results.json"
+
+          if git diff --quiet -- tools/common/lib/php-binary-cdn-metadata.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create PHP CLI metadata PR
+        if: ${{ steps.php-cli-metadata.outputs.changed == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          branch="update-php-cli-metadata-${PHP_VERSION}-${GITHUB_RUN_ID}"
+          # Standard GitHub Actions bot noreply identity for workflow-created commits.
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add tools/common/lib/php-binary-cdn-metadata.json
+          git commit -m "Update PHP ${PHP_VERSION} binary metadata"
+          git push --set-upstream origin "$branch"
+          gh pr create \
+            --base "${GITHUB_REF_NAME}" \
+            --head "$branch" \
+            --title "Update PHP ${PHP_VERSION} binary metadata" \
+            --body "Updates PHP CLI binary CDN metadata after a successful Apps CDN upload."

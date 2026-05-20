@@ -47,10 +47,9 @@ For internal Studio validation, the workflow can upload the unsigned `.zip`
 archives directly to Apps CDN:
 
 1. Run the manual GitHub Actions `Build PHP CLI Binaries` workflow.
-2. Keep `upload_to_apps_cdn` disabled for lane validation, or enable it for an
-   Apps CDN upload.
-3. Set `apps_cdn_visibility` to `internal` for internal testing or
-   `external` for public publishing.
+2. Set `apps_cdn_visibility` to `none` to skip the upload (lane validation
+   only), `internal` for internal testing, or `external` for public
+   publishing.
 
 After the three build jobs finish, GitHub Actions downloads the workflow
 artifacts and calls:
@@ -84,3 +83,12 @@ them as:
 - build type: `Production`
 - install type: `Full Install`
 - platform: `Mac - Silicon`, `Mac - Intel`, or `Windows - x64`
+
+The upload is update-friendly by default. If a matching PHP CLI build already
+exists on Apps CDN, the lane lets the CDN replace the existing build artifact
+instead of failing on the duplicate version.
+
+After a successful Apps CDN upload, the workflow updates
+`tools/common/lib/php-binary-cdn-metadata.json` and opens a PR with the new CDN
+URLs and SHA-256 hashes. The metadata keeps one patch version per PHP minor
+version; uploading a newer patch replaces the tracked patch for that minor.

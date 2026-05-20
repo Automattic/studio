@@ -12,14 +12,8 @@ function getPhpBinaryRoot(): string {
 	return path.join( getConfigDirectory(), 'php-bin' );
 }
 
-function getBundledPhpBinaryRoot(): string {
-	return (
-		process.env.STUDIO_BUNDLED_PHP_BIN_ROOT ?? path.resolve( import.meta.dirname, '..', 'php-bin' )
-	);
-}
-
-function getPhpBinaryFilePath( root: string, version: string ): string {
-	return path.join( root, version, PHP_BINARY_FILENAME );
+function getExactPhpBinaryPath( version: string ): string {
+	return path.join( getPhpBinaryRoot(), version, PHP_BINARY_FILENAME );
 }
 
 function isNativePhpSupportedVersion( version: string ): version is NativePhpSupportedVersion {
@@ -30,20 +24,11 @@ function isNativePhpSupportedVersion( version: string ): version is NativePhpSup
 // Studio and is copied into this writable location by a CLI migration.
 export function getPhpBinaryPath( version: NativePhpSupportedVersion | string ): string {
 	if ( ! isNativePhpSupportedVersion( version ) ) {
-		return getPhpBinaryFilePath( getPhpBinaryRoot(), version );
+		return getExactPhpBinaryPath( version );
 	}
 
 	const configuredVersion = getConfiguredPhpBinaryVersion( version );
-	return getPhpBinaryFilePath( getPhpBinaryRoot(), configuredVersion ?? version );
-}
-
-export function getBundledPhpBinaryPath( version: NativePhpSupportedVersion | string ): string {
-	if ( ! isNativePhpSupportedVersion( version ) ) {
-		return getPhpBinaryFilePath( getBundledPhpBinaryRoot(), version );
-	}
-
-	const configuredVersion = getConfiguredPhpBinaryVersion( version );
-	return getPhpBinaryFilePath( getBundledPhpBinaryRoot(), configuredVersion ?? version );
+	return getExactPhpBinaryPath( configuredVersion ?? version );
 }
 
 const WP_CLI_PHAR_FILENAME = 'wp-cli.phar';

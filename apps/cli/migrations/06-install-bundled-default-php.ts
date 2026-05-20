@@ -1,11 +1,28 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
-import { getBundledPhpBinaryPath, getPhpBinaryPath } from 'cli/lib/dependency-management/paths';
+import { getConfiguredPhpBinaryVersion } from '@studio/common/lib/php-binary-metadata';
+import { getPhpBinaryPath } from 'cli/lib/dependency-management/paths';
 import type { Migration } from '@studio/common/lib/migration';
 
+const PHP_BINARY_FILENAME = process.platform === 'win32' ? 'php.exe' : 'php';
+
+function getBundledPhpBinaryRoot(): string {
+	return (
+		process.env.STUDIO_BUNDLED_PHP_BIN_ROOT ?? path.resolve( import.meta.dirname, '..', 'php-bin' )
+	);
+}
+
+function getDefaultPhpPatchVersion(): string {
+	return getConfiguredPhpBinaryVersion( DEFAULT_PHP_VERSION ) ?? DEFAULT_PHP_VERSION;
+}
+
 function getBundledDefaultPhpDir(): string {
-	return path.dirname( getBundledPhpBinaryPath( DEFAULT_PHP_VERSION ) );
+	return path.join( getBundledPhpBinaryRoot(), getDefaultPhpPatchVersion() );
+}
+
+function getBundledDefaultPhpPath(): string {
+	return path.join( getBundledDefaultPhpDir(), PHP_BINARY_FILENAME );
 }
 
 function getDefaultPhpDestinationDir(): string {
@@ -13,7 +30,7 @@ function getDefaultPhpDestinationDir(): string {
 }
 
 function bundledDefaultPhpExists(): boolean {
-	return fs.existsSync( getBundledPhpBinaryPath( DEFAULT_PHP_VERSION ) );
+	return fs.existsSync( getBundledDefaultPhpPath() );
 }
 
 export const installBundledDefaultPhp: Migration = {

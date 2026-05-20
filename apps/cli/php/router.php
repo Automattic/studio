@@ -10,7 +10,7 @@
  * WP::parse_request() can resolve it against the rewrite rules.
  */
 
-$root = getcwd();
+$root = realpath( $_SERVER['DOCUMENT_ROOT'] ?? '' ) ?: getcwd();
 $path = urldecode( parse_url( $_SERVER['REQUEST_URI'], PHP_URL_PATH ) );
 $file = $root . $path;
 
@@ -69,6 +69,7 @@ if (
 		$_SERVER['SCRIPT_NAME']     = $script_name;
 		$_SERVER['PHP_SELF']        = $script_name;
 		$_SERVER['SCRIPT_FILENAME'] = $target;
+		chdir( dirname( $target ) );
 		require $target;
 		return true;
 	}

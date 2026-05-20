@@ -30,21 +30,45 @@ export interface Importer extends ImportExportEventEmitter {
 // On Windows this surfaces after `git checkout` materializes a tracked symlink
 // as a regular file (Pressable repos often track managed plugins like akismet
 // and jetpack as symlinks, which become small text files when checked out
-// without core.symlinks=true). Unlink the blocker named by error.path and retry.
+// without core.symlinks=true). Locate the blocker by walking up from dir, unlink
+// it, and retry — error.path is not reliable here because Node populates it with
+// the original mkdir target on Linux but with the actual blocker on Windows.
 export async function ensureDir( dir: string ): Promise< void > {
 	try {
 		await fs.promises.mkdir( dir, { recursive: true } );
 	} catch ( error ) {
-		if (
-			! isErrnoException( error ) ||
-			( error.code !== 'EEXIST' && error.code !== 'ENOTDIR' ) ||
-			! error.path
-		) {
+		if ( ! isErrnoException( error ) || ( error.code !== 'EEXIST' && error.code !== 'ENOTDIR' ) ) {
 			throw error;
 		}
-		console.warn( `ensureDir: removed non-directory blocker at ${ error.path }` );
-		await fs.promises.unlink( error.path );
+		const blocker = await findNonDirectoryAncestor( dir );
+		if ( ! blocker ) {
+			throw error;
+		}
+		console.warn( `ensureDir: removed non-directory blocker at ${ blocker }` );
+		await fs.promises.unlink( blocker );
 		await fs.promises.mkdir( dir, { recursive: true } );
+	}
+}
+
+async function findNonDirectoryAncestor( start: string ): Promise< string | null > {
+	let current = start;
+	while ( true ) {
+		try {
+			const stat = await fs.promises.lstat( current );
+			return stat.isDirectory() ? null : current;
+		} catch ( error ) {
+			if (
+				! isErrnoException( error ) ||
+				( error.code !== 'ENOENT' && error.code !== 'ENOTDIR' )
+			) {
+				throw error;
+			}
+			const parent = path.dirname( current );
+			if ( parent === current ) {
+				return null;
+			}
+			current = parent;
+		}
 	}
 }
 

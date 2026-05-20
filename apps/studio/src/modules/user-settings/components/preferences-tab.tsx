@@ -3,7 +3,6 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Button from 'src/components/button';
 import { FormPathInputComponent } from 'src/components/form-path-input';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { isWindowsStore } from 'src/lib/app-globals';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ColorSchemePicker } from 'src/modules/user-settings/components/color-scheme-picker';
@@ -13,7 +12,7 @@ import { StudioCliToggle } from 'src/modules/user-settings/components/studio-cli
 import { TerminalPicker } from 'src/modules/user-settings/components/terminal-picker';
 import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
-import { useAppDispatch, useI18nLocale } from 'src/stores';
+import { useAppDispatch, useI18nLocale, useRootSelector } from 'src/stores';
 import { saveUserLocale } from 'src/stores/i18n-slice';
 import {
 	useGetColorSchemeQuery,
@@ -33,7 +32,9 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const { __ } = useI18n();
 	const savedLocale = useI18nLocale();
 	const dispatch = useAppDispatch();
-	const { enableDesksUiSwitch } = useFeatureFlags();
+	const desksUiEnabled = useRootSelector( ( state ) =>
+		Boolean( state.betaFeatures.features.desksUi )
+	);
 
 	const { data: colorScheme } = useGetColorSchemeQuery();
 	const { data: editor } = useGetUserEditorQuery();
@@ -155,7 +156,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 			{ ! isWindowsStore() && (
 				<StudioCliToggle value={ isCliInstalledSelection } onChange={ setDirtyIsCliInstalled } />
 			) }
-			{ enableDesksUiSwitch && (
+			{ desksUiEnabled && (
 				<SettingsFormField label={ __( 'Studio UI' ) }>
 					<div>
 						<Button variant="secondary" onClick={ switchToDesksUi }>

@@ -97,11 +97,11 @@ type IpcApi = {
 interface FeatureFlags {
 	enableBlueprints: boolean;
 	enableStudioCodeUi: boolean;
-	enableDesksUiSwitch: boolean;
 }
 
 interface BetaFeatures {
 	nativePhpRuntime?: boolean;
+	desksUi?: boolean;
 }
 
 interface AppGlobals extends FeatureFlags {

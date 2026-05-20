@@ -14,6 +14,7 @@ export interface BetaFeatureDefinition {
  */
 const BETA_FEATURE_DEFAULTS: Record< keyof BetaFeatures, boolean > = {
 	nativePhpRuntime: false,
+	desksUi: false,
 };
 
 /**
@@ -27,6 +28,12 @@ export function getBetaFeaturesDefinition(): Record< keyof BetaFeatures, BetaFea
 			label: __( 'Native PHP runtime' ),
 			default: BETA_FEATURE_DEFAULTS.nativePhpRuntime,
 			description: __( 'Run Studio sites with native PHP instead of Playground.' ),
+		},
+		desksUi: {
+			key: 'desksUi',
+			label: __( 'Desks UI' ),
+			default: BETA_FEATURE_DEFAULTS.desksUi,
+			description: __( 'Try the new Desks UI for Studio.' ),
 		},
 	};
 }

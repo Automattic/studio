@@ -456,7 +456,7 @@ describe( 'runPollLoop', () => {
 			const deps = makeDeps( {} );
 			const { TelegramAuthError } = await import( 'cli/remote-session/telegram-client' );
 			( deps.poll as ReturnType< typeof vi.fn > ).mockRejectedValueOnce(
-				new TelegramAuthError( 401, 'unauthorized' )
+				new TelegramAuthError( 401 )
 			);
 
 			const handle = await runPollLoop( {

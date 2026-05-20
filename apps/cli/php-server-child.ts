@@ -16,7 +16,7 @@ import { writeStudioMuPluginsForNativePhpRuntime } from '@studio/common/lib/mu-p
 import { decodePassword } from '@studio/common/lib/passwords';
 import {
 	NativePhpSupportedVersion,
-	validateNativePhpVersion,
+	resolveNativePhpVersion,
 } from '@studio/common/lib/php-binary-metadata';
 import { z } from 'zod';
 import {
@@ -72,6 +72,7 @@ function errorToConsole( ...args: Parameters< typeof console.error > ) {
 type SpawnPhpProcessOptions = {
 	disallowRiskyFunctions?: boolean;
 	mode?: 'pipe' | 'capture-stdout';
+	enableXdebug?: boolean;
 	onlyPathsThatPhpCanAccess?: string[];
 	phpVersion: NativePhpSupportedVersion;
 	siteFolder?: string;
@@ -85,6 +86,7 @@ function spawnPhpProcess(
 		siteFolder,
 		signal,
 		mode = 'pipe',
+		enableXdebug = false,
 		onlyPathsThatPhpCanAccess = [],
 		disallowRiskyFunctions = false,
 	}: SpawnPhpProcessOptions
@@ -92,7 +94,8 @@ function spawnPhpProcess(
 	const defaultArgs = getDefaultPhpArgs(
 		phpVersion,
 		onlyPathsThatPhpCanAccess,
-		disallowRiskyFunctions
+		disallowRiskyFunctions,
+		enableXdebug
 	);
 	const phpArgs = [ ...defaultArgs, ...args ];
 	const phpScriptProcess = spawn( getPhpBinaryPath( phpVersion ), phpArgs, {
@@ -331,6 +334,7 @@ function startSymlinkWatcher( sitePath: string ): void {
 		return;
 	}
 
+	const wpContentPath = path.join( sitePath, 'wp-content' );
 	const watcher = new SymlinkWatcher();
 	watcher.on( 'symlink', ( target, symlinkPath ) => {
 		if ( currentOpenBasedirAllowlist.has( target ) ) {
@@ -343,12 +347,48 @@ function startSymlinkWatcher( sitePath: string ): void {
 	} );
 
 	watcher.on( 'error', ( error ) => {
-		errorToConsole( 'Symlink watcher error:', error );
+		errorToConsole( 'Symlink watcher error (will attempt to recover):', error );
+	} );
+
+	watcher.on( 'unrecoverable', ( error ) => {
+		errorToConsole(
+			'Symlink watcher gave up. New plugin/theme symlinks under wp-content will not be auto-allowed until the site is restarted.',
+			error
+		);
+	} );
+
+	watcher.on( 'restart', () => {
+		// Events fired while the watcher was dead are lost. Re-scan wp-content and
+		// fold any newly discovered symlink targets into the allowlist.
+		void reconcileSymlinkAllowlist( wpContentPath );
 	} );
 
 	// Watch wp-content and its subdirectories for symlinks
-	watcher.start( path.join( sitePath, 'wp-content' ), 2 );
+	watcher.start( wpContentPath, 2 );
 	symlinkWatcher = watcher;
+}
+
+async function reconcileSymlinkAllowlist( wpContentPath: string ): Promise< void > {
+	let entries: string[];
+	try {
+		entries = await collectSymlinkAllowlistEntries( wpContentPath );
+	} catch ( error ) {
+		errorToConsole( 'Failed to reconcile symlink allowlist after watcher restart:', error );
+		return;
+	}
+
+	let added = false;
+	for ( const target of entries ) {
+		if ( ! currentOpenBasedirAllowlist.has( target ) ) {
+			logToConsole( `Discovered symlink target after watcher restart: ${ target }` );
+			currentOpenBasedirAllowlist.add( target );
+			added = true;
+		}
+	}
+
+	if ( added ) {
+		scheduleAllowlistRestart();
+	}
 }
 
 async function stopSymlinkWatcher(): Promise< void > {
@@ -416,7 +456,7 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		return;
 	}
 
-	const phpVersion = validateNativePhpVersion( config.phpVersion ?? '' );
+	const phpVersion = resolveNativePhpVersion( config.phpVersion ?? '' );
 	startupAbortController = new AbortController();
 	const stopSignal = AbortSignal.any( [ signal, startupAbortController.signal ] );
 
@@ -474,7 +514,7 @@ async function doStartServer(
 	stopSignal?: AbortSignal
 ): Promise< ChildProcess > {
 	const phpAddress = `localhost:${ config.port }`;
-	const phpVersion = validateNativePhpVersion( config.phpVersion ?? '' );
+	const phpVersion = resolveNativePhpVersion( config.phpVersion ?? '' );
 	let spawnedChild: ChildProcess | null = null;
 
 	logToConsole(
@@ -487,6 +527,7 @@ async function doStartServer(
 			siteFolder: config.sitePath,
 			onlyPathsThatPhpCanAccess: Array.from( openBasedirAllowlist ),
 			disallowRiskyFunctions: true,
+			enableXdebug: config.enableXdebug,
 		} );
 		spawnedChild = serverChild;
 
@@ -664,6 +705,11 @@ async function runBlueprint(
 	}
 
 	try {
+		// blueprints.phar spawns its own PHP subprocesses while applying a blueprint.
+		// On Windows those subprocesses auto-load the php.ini we wrote next to
+		// php.exe, which carries the bundled-extension and CA-bundle config. On
+		// macOS/Linux every extension is statically linked into the binary, so no
+		// extra setup is needed for the subprocess.
 		await runPhpCommand(
 			[
 				getBlueprintsPharPath(),
@@ -740,7 +786,7 @@ async function ipcMessageHandler( packet: unknown ) {
 				break;
 			case 'run-blueprint': {
 				const blueprintConfig = validMessage.data.config;
-				const blueprintPhpVersion = validateNativePhpVersion( blueprintConfig.phpVersion ?? '' );
+				const blueprintPhpVersion = resolveNativePhpVersion( blueprintConfig.phpVersion ?? '' );
 				await ensureWpConfig(
 					blueprintConfig.sitePath,
 					blueprintPhpVersion,

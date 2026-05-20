@@ -19,6 +19,10 @@
 	overflow: hidden;
 }
 
+.card[draggable='true']:active {
+	cursor: grabbing;
+}
+
 .title {
 	max-width: 100%;
 	overflow: hidden;

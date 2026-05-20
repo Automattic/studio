@@ -12,11 +12,9 @@ import {
 	ThemeWidgetLoadingComponent,
 	ThemeWidgetThumbnailComponent,
 } from '@/ui-desks/widgets/theme/component';
-import {
-	ThemeExploreControl,
-	ThemeSiteUrlControl,
-} from '@/ui-desks/widgets/theme/site-url-control';
+import { ThemeSiteUrlControl } from '@/ui-desks/widgets/theme/site-url-control';
 import { THEME_PATTERN_WIDGET_TYPE, type ThemePatternWidget } from '../theme-pattern/types';
+import { getThemeStylesWidgetProps } from '../theme-styles/defaults';
 import { THEME_STYLES_WIDGET_TYPE, type ThemeStylesWidget } from '../theme-styles/types';
 import { THEME_TEMPLATE_WIDGET_TYPE, type ThemeTemplateWidget } from '../theme-template/types';
 import {
@@ -45,16 +43,6 @@ interface ThemeMaterialPosition {
 	rotation?: number;
 }
 
-const DEFAULT_THEME_STYLES = {
-	palette: [
-		{ slug: 'background', name: 'Background', color: '#ffffff' },
-		{ slug: 'foreground', name: 'Foreground', color: '#111111' },
-	],
-	fontFamily: 'system-ui, sans-serif',
-	textColor: '#111111',
-	backgroundColor: '#ffffff',
-};
-
 export const themeWidgetDefinition = {
 	type: THEME_WIDGET_TYPE,
 	name: () => __( 'Theme' ),
@@ -62,11 +50,6 @@ export const themeWidgetDefinition = {
 	thumbnail: ThemeWidgetThumbnailComponent,
 	loading: ThemeWidgetLoadingComponent,
 	controls: [
-		{
-			type: 'custom',
-			id: 'theme-explore',
-			Component: ThemeExploreControl,
-		},
 		{
 			type: 'custom',
 			id: 'theme-font-library',
@@ -297,7 +280,7 @@ function createDerivedThemeStylesWidget(
 			...( position.rotation !== undefined ? { rotation: position.rotation } : {} ),
 			zIndex: source.zIndex,
 			shapeProps: THEME_MATERIAL_SHAPE_PROPS,
-			widgetProps: materials.styles ?? DEFAULT_THEME_STYLES,
+			widgetProps: getThemeStylesWidgetProps( materials.styles ),
 		},
 	};
 }

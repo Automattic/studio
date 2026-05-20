@@ -303,6 +303,35 @@ describe( 'Studio AI MCP tools', () => {
 		);
 	} );
 
+	it( 'accepts PDF widget artifacts from studio_present', async () => {
+		const tool = resolveStudioToolDefinitions( {
+			emitChatArtifacts: true,
+		} ).find( ( definition ) => definition.name === 'studio_present' );
+		expect( tool ).toBeDefined();
+
+		const pdfWidget = {
+			type: 'pdf',
+			widgetProps: {
+				url: 'https://example.com/brief.pdf',
+				title: 'Brief',
+				mediaId: null,
+			},
+		};
+
+		await executeTool( tool!, {
+			widgets: [ pdfWidget ],
+		} );
+
+		expect( emitEvent ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				type: 'chat.artifact',
+				artifact: expect.objectContaining( {
+					widgets: [ pdfWidget ],
+				} ),
+			} )
+		);
+	} );
+
 	it( 'accepts theme widget artifacts from studio_present', async () => {
 		const tool = resolveStudioToolDefinitions( {
 			emitChatArtifacts: true,

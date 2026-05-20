@@ -11,6 +11,7 @@ import {
 	PLAYGROUND_CLI_INACTIVITY_TIMEOUT,
 	PLAYGROUND_CLI_MAX_TIMEOUT,
 } from '@studio/common/constants';
+import { resolveNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
 import { SiteCommandLoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
@@ -84,7 +85,10 @@ function buildServerConfig(
 		siteId: site.id,
 		sitePath: site.path,
 		port: site.port,
-		phpVersion: site.phpVersion,
+		phpVersion:
+			site.runtime === 'native-php'
+				? resolveNativePhpVersion( validatePhpVersion( site.phpVersion ) )
+				: site.phpVersion,
 		siteTitle: site.name,
 	};
 
@@ -169,10 +173,16 @@ async function ensurePhpBinaryAvailableIfNeeded(
 			`Checking PHP ${ site.phpVersion } binary…`
 		);
 		const phpVersion = validatePhpVersion( site.phpVersion );
-		await ensurePhpBinaryAvailable( phpVersion, ( downloaded, total ) => {
+		const nativePhpVersion = resolveNativePhpVersion( phpVersion );
+		if ( nativePhpVersion !== phpVersion ) {
+			logger.reportWarning(
+				`PHP ${ phpVersion } is not available for native PHP. Using PHP ${ nativePhpVersion } instead.`
+			);
+		}
+		await ensurePhpBinaryAvailable( nativePhpVersion, ( downloaded, total ) => {
 			const dl = ( downloaded / 1024 / 1024 ).toFixed( 1 );
 			const tot = total ? ` / ${ ( total / 1024 / 1024 ).toFixed( 1 ) } MB` : '';
-			logger.reportProgress( `Downloading PHP ${ site.phpVersion } (${ dl } MB${ tot })` );
+			logger.reportProgress( `Downloading PHP ${ nativePhpVersion } (${ dl } MB${ tot })` );
 		} );
 	}
 }

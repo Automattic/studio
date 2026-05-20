@@ -4,6 +4,7 @@ import {
 	ThemeStylesWidgetComponent,
 	ThemeStylesWidgetThumbnailComponent,
 } from '@/ui-desks/widgets/theme-styles/component';
+import { DEFAULT_THEME_STYLES_WIDGET_PROPS } from '@/ui-desks/widgets/theme-styles/defaults';
 import { ThemeStylesPaletteControl } from '@/ui-desks/widgets/theme-styles/palette-control';
 import {
 	isThemeStylesWidgetProps,
@@ -17,8 +18,9 @@ export const themeStylesWidgetDefinition = {
 	name: () => __( 'Theme styles' ),
 	Component: ThemeStylesWidgetComponent,
 	thumbnail: ThemeStylesWidgetThumbnailComponent,
-	isCreatable: false,
+	isCreatable: true,
 	requiresRunningSite: true,
+	shouldStartEditingOnCreate: false,
 	isWidgetProps: isThemeStylesWidgetProps,
 	controls: [
 		{
@@ -32,21 +34,16 @@ export const themeStylesWidgetDefinition = {
 		stroke: 'color-mix(in srgb, #3858e9 45%, white)',
 	} ),
 	labels: {
-		add: () => __( 'Theme styles' ),
+		add: () => __( 'New style card' ),
 		edit: () => __( 'Styles' ),
 	},
 	icon: category,
 	getInitialWidget: () => ( {
 		shapeProps: {
-			w: 220,
-			h: 160,
+			w: 280,
+			h: 200,
 		},
-		widgetProps: {
-			palette: [],
-			fontFamily: 'system-ui, sans-serif',
-			textColor: '#111111',
-			backgroundColor: '#ffffff',
-		},
+		widgetProps: DEFAULT_THEME_STYLES_WIDGET_PROPS,
 	} ),
 	getSummary: () => __( 'Theme styles' ),
 	getEditAction: ( { hasSiteId, hasRunningSite } ) =>

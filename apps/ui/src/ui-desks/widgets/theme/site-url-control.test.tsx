@@ -5,8 +5,8 @@ import { useConnector } from '@/data/core';
 import { useSites } from '@/data/queries/use-sites';
 import { useDesk } from '@/ui-desks/desk/provider';
 import { useActiveTheme } from '@/ui-desks/widgets/theme/use-active-theme';
-import { ThemeExploreControl, ThemeSiteUrlControl } from './site-url-control';
-import type { ThemeWidgetProps } from './types';
+import { ThemeSiteUrlControl } from './site-url-control';
+import { type ThemeWidgetProps } from './types';
 import type { ControlRenderContext } from '@/ui-desks/controls/types';
 
 vi.mock( '@/data/core', () => ( {
@@ -34,8 +34,8 @@ describe( 'ThemeSiteUrlControl', () => {
 	const openSiteUrl = vi.fn();
 
 	beforeEach( () => {
+		vi.clearAllMocks();
 		openSiteUrl.mockResolvedValue( undefined );
-		useActiveThemeMock.mockReset();
 		useActiveThemeMock.mockReturnValue( null );
 		useConnectorMock.mockReturnValue( {
 			openSiteUrl,
@@ -53,18 +53,6 @@ describe( 'ThemeSiteUrlControl', () => {
 				},
 			],
 		} as never );
-	} );
-
-	it( 'renders the reference explore placeholder action', () => {
-		const logSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
-
-		render( <ThemeExploreControl { ...createControlContext() } /> );
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Explore theme' } ) );
-
-		expect( logSpy ).toHaveBeenCalledWith( '[StudioDesk] Explore theme \u2014 coming soon' );
-
-		logSpy.mockRestore();
 	} );
 
 	it( 'opens the font library admin page without checking the theme type', () => {

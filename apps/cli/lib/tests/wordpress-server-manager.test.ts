@@ -19,6 +19,7 @@ describe( 'WordPress Server Manager', () => {
 	const mockLogger = {
 		reportProgress: vi.fn(),
 		reportStart: vi.fn(),
+		reportWarning: vi.fn(),
 	} as unknown as Logger< string >;
 
 	const mockSiteData: SiteData = {

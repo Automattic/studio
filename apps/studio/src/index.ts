@@ -11,7 +11,6 @@ import {
 	shell,
 } from 'electron';
 import path from 'path';
-import { pathToFileURL } from 'url';
 import * as Sentry from '@sentry/electron/main';
 import { PROTOCOL_PREFIX } from '@studio/common/constants';
 import { runMigrations } from '@studio/common/lib/migration';
@@ -40,7 +39,7 @@ import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
 import { setupLogging } from 'src/logging';
-import { createMainWindow, getMainWindow } from 'src/main-window';
+import { createMainWindow, getCurrentRendererUrl, getMainWindow } from 'src/main-window';
 import { migrations } from 'src/migrations';
 import {
 	startCliEventsSubscriber,
@@ -64,12 +63,7 @@ import packageJson from '../package.json';
 
 // Helper function to get the actual URL for validation
 function getRendererUrl(): string {
-	if ( ! app.isPackaged && process.env[ 'ELECTRON_RENDERER_URL' ] ) {
-		return process.env[ 'ELECTRON_RENDERER_URL' ];
-	} else {
-		// For production file paths, convert to file:// URL
-		return pathToFileURL( path.join( __dirname, '../renderer/index.html' ) ).href;
-	}
+	return getCurrentRendererUrl();
 }
 
 function openExternalWebUrl( url: string ): void {

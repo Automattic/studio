@@ -1,48 +1,11 @@
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
 import {
 	MinimumNativePhpSupportedVersion,
 	resolveNativePhpVersion,
 	getConfiguredPhpBinaryVersion,
 	getPhpBinaryDownloadInfo,
 } from '@studio/common/lib/php-binary-metadata';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-	ensurePhpBinaryAvailable,
-	resolvePhpBinaryDownloadInfo,
-} from 'cli/lib/dependency-management/php-binary';
-
-let configDir: string;
-let bundledPhpDir: string;
-
-function getBinaryName(): string {
-	return process.platform === 'win32' ? 'php.exe' : 'php';
-}
-
-function getConfiguredPhpBinaryDir(): string {
-	return path.join( configDir, 'php-bin', getConfiguredPhpBinaryVersion( '8.4' )! );
-}
-
-function writeBundledPhpBinary(): void {
-	const bundledDir = path.join( bundledPhpDir, getConfiguredPhpBinaryVersion( '8.4' )! );
-	fs.mkdirSync( bundledDir, { recursive: true } );
-	fs.writeFileSync( path.join( bundledDir, getBinaryName() ), 'bundled php' );
-	fs.writeFileSync( path.join( bundledDir, 'runtime.json' ), '{"binary":"php"}' );
-}
-
-beforeEach( () => {
-	configDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-php-bin-' ) );
-	bundledPhpDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-bundled-php-bin-' ) );
-	vi.stubEnv( 'DEV_CONFIG_DIR', configDir );
-	vi.stubEnv( 'STUDIO_BUNDLED_PHP_BIN_ROOT', bundledPhpDir );
-} );
-
-afterEach( () => {
-	vi.unstubAllEnvs();
-	fs.rmSync( configDir, { recursive: true, force: true } );
-	fs.rmSync( bundledPhpDir, { recursive: true, force: true } );
-} );
+import { describe, expect, it } from 'vitest';
+import { resolvePhpBinaryDownloadInfo } from 'cli/lib/dependency-management/php-binary';
 
 describe( 'getPhpBinaryDownloadInfo', () => {
 	it( 'uses checked-in CDN metadata for a matching URL and SHA', () => {
@@ -83,19 +46,5 @@ describe( 'resolvePhpBinaryDownloadInfo', () => {
 		await expect( resolvePhpBinaryDownloadInfo( '8.4', 'aix', 'x64' ) ).rejects.toThrow(
 			'PHP 8.4 is not available for this platform yet.'
 		);
-	} );
-} );
-
-describe( 'ensurePhpBinaryAvailable', () => {
-	it( 'installs the bundled PHP binary before downloading', async () => {
-		writeBundledPhpBinary();
-
-		await ensurePhpBinaryAvailable( '8.4' );
-
-		const installedDir = getConfiguredPhpBinaryDir();
-		const installedBinary = path.join( installedDir, getBinaryName() );
-		expect( fs.readFileSync( installedBinary, 'utf8' ) ).toBe( 'bundled php' );
-		expect( fs.existsSync( path.join( installedDir, 'php.ini' ) ) ).toBe( true );
-		expect( fs.existsSync( path.join( installedDir, 'ca-bundle.crt' ) ) ).toBe( true );
 	} );
 } );

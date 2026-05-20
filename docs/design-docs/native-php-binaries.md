@@ -95,8 +95,8 @@ version; uploading a newer patch replaces the tracked patch for that minor.
 At runtime, Studio uses `tools/common/lib/php-binary-cdn-metadata.json` as the
 source of truth for the requested PHP minor version. Packaged Studio builds
 ship the recommended PHP version under the app resources `php-bin/<patch>/`;
-on first use, the CLI copies that directory into the writable install location
-before trying a network download. For non-bundled PHP versions, Studio downloads the
+a CLI migration copies that directory into the writable install location if the
+destination patch folder does not exist. For non-bundled PHP versions, Studio downloads the
 tracked patch for the current platform and architecture, then verifies the
 checked-in SHA-256 before extracting the archive. If metadata is missing for the
 requested device, native PHP install fails for that version.

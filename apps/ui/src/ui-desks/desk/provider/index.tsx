@@ -159,17 +159,14 @@ export function DeskProvider( {
 	statusMessage,
 }: DeskProviderProps ) {
 	const hasExternalDeskConfig = Boolean( deskConfig );
-	const { data: sites, isLoading: isLoadingSites } = useSites();
+	const { data: sites } = useSites();
 	const site = sites?.find( ( candidate ) => candidate.id === siteId );
-	const defaultSiteUrl = site ? site.url ?? getSiteUrl( site ) : undefined;
 	const {
 		desk: persistedDesk,
 		isLoading: isLoadingPersistedDesk,
 		saveDeskConfig,
 	} = useDeskPersistence( siteId, {
 		enabled: ! hasExternalDeskConfig,
-		defaultSiteUrl,
-		isDefaultSiteUrlLoading: Boolean( siteId && isLoadingSites ),
 	} );
 	const desk = deskConfig ?? persistedDesk;
 	const isLoading = externalIsLoading ?? isLoadingPersistedDesk;

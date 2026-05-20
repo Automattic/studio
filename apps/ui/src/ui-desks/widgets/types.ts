@@ -14,6 +14,7 @@ import type { PostCollectionWidget } from '@/ui-desks/widgets/post-collection/ty
 import type { ScratchpadWidget } from '@/ui-desks/widgets/scratchpad/types';
 import type { SiteCardWidget } from '@/ui-desks/widgets/site-card/types';
 import type { SitePreviewWidget } from '@/ui-desks/widgets/site-preview/types';
+import type { SiteShortcutsWidget } from '@/ui-desks/widgets/site-shortcuts/types';
 import type { ThemeWidget } from '@/ui-desks/widgets/theme/types';
 import type { ThemePatternWidget } from '@/ui-desks/widgets/theme-pattern/types';
 import type { ThemePatternBrowserWidget } from '@/ui-desks/widgets/theme-pattern-browser/types';
@@ -349,6 +350,7 @@ export type DeskWidget =
 	| PostCollectionWidget
 	| SiteCardWidget
 	| SitePreviewWidget
+	| SiteShortcutsWidget
 	| ThemeWidget
 	| ThemePatternBrowserWidget
 	| ThemeTemplateBrowserWidget
@@ -371,6 +373,7 @@ export type DeskWidgetDefinition =
 	| WidgetDefinition< PostCollectionWidget >
 	| WidgetDefinition< SiteCardWidget >
 	| WidgetDefinition< SitePreviewWidget >
+	| WidgetDefinition< SiteShortcutsWidget >
 	| WidgetDefinition< ThemeWidget >
 	| WidgetDefinition< ThemePatternBrowserWidget >
 	| WidgetDefinition< ThemeTemplateBrowserWidget >

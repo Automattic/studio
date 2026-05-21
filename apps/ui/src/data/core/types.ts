@@ -105,6 +105,7 @@ export interface Connector {
 	getAuthUser(): Promise< AuthUser | null >;
 	authenticate(): Promise< void >;
 	logout(): Promise< void >;
+	onAuthStateChanged?( listener: () => void ): () => void;
 
 	// Sites
 	getSites(): Promise< SiteDetails[] >;

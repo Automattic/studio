@@ -719,15 +719,20 @@ async function runBlueprint(
 		WP_DEBUG_DISPLAY: enableDebugDisplay,
 	};
 
-	const preferredVersions = {
-		php: config.phpVersion || blueprint.contents?.preferredVersions?.php || DEFAULT_PHP_VERSION,
-		wp: config.wpVersion || blueprint.contents?.preferredVersions?.wp || 'latest',
-	};
 	blueprint.contents.constants = {
 		...blueprint.contents.constants,
 		...defaultConstants,
 	};
-	blueprint.contents.preferredVersions = preferredVersions;
+	// For native PHP, the PHP binary is already selected before Blueprint execution,
+	// so we must NOT pass preferredVersions.php — blueprints.phar validates it against
+	// its own PHP version list and rejects versions it doesn't know about (e.g. 8.5).
+	// We still forward preferredVersions.wp so WordPress version selection via Blueprint
+	// continues to work as before.
+	blueprint.contents.preferredVersions = {
+		...blueprint.contents.preferredVersions,
+		wp: config.wpVersion || blueprint.contents?.preferredVersions?.wp || 'latest',
+		php: undefined,
+	};
 
 	// Write the merged blueprint next to the original so blueprints.phar resolves any
 	// relative file references against the original blueprint's directory — its runner

@@ -1,24 +1,57 @@
 # Linux Guide
 
-Studio for Linux is currently in an experimental phase. While official packages are not yet available, you can easily build and run Studio from source on most Linux distributions.
+Studio is available for Linux as a beta release. Most users should install the published Debian package; developers can also build from source.
 
-## Current Limitations
+## Install Studio
 
-Linux support comes with certain limitations:
-- For systems using Wayland, you may need to set the `--enable-features=UseOzonePlatform --ozone-platform=wayland` flag when running the application.
-- Some features may not work as expected on Linux due to platform-specific implementations.
-- The auto-update feature is not currently supported on Linux builds.
-- These instructions should work for most Linux distributions, but you may need to adjust them based on your specific setup or distribution.
+Studio publishes `.deb` packages for x64 and ARM64 architectures, suitable for Debian, Ubuntu, and derivatives.
+
+1. Download the latest `.deb` for your architecture from the [Studio releases page](https://github.com/Automattic/studio/releases).
+   - `studio-x64-v<version>.deb` for Intel/AMD 64-bit systems
+   - `studio-arm64-v<version>.deb` for ARM 64-bit systems
+
+2. Install the package:
+   ```bash
+   sudo apt install ./studio-x64-v*.deb
+   ```
+
+3. Launch Studio from your application menu, or run `studio` from a terminal.
+
+The package registers a `.desktop` entry, an icon, and the `wp-studio://` URL handler so OAuth redirects from WordPress.com return cleanly.
+
+## Updating
+
+Studio checks for updates automatically and surfaces a dialog with a Download button when a new version is available. Clicking Download opens your browser to fetch the latest `.deb`; install it with `sudo apt install ./<file>.deb` to apply the update.
+
+You can also re-download the latest `.deb` from the [releases page](https://github.com/Automattic/studio/releases) at any time.
+
+## Known Limitations
+
+- For systems using Wayland, you may need to launch Studio with the `--enable-features=UseOzonePlatform --ozone-platform=wayland` flag.
+- Some features may behave differently on Linux due to platform-specific implementations.
+- Studio is in beta on Linux — please [open an issue](https://github.com/Automattic/studio/issues) if you hit problems.
+
+## Running with Wayland
+
+If you're using Wayland instead of X11, launch Studio with additional flags:
+
+```bash
+studio --enable-features=UseOzonePlatform --ozone-platform=wayland
+```
+
+To persist the flags, copy `/usr/share/applications/studio.desktop` to `~/.local/share/applications/` and edit the `Exec=` line there.
 
 ## Building from Source
+
+If you're contributing to Studio or running it on a distribution where the `.deb` doesn't work, you can build directly from the repository.
 
 ### Prerequisites
 
 Ensure you have the following dependencies installed:
 
-- [Node.js](https://nodejs.org/) - required JavaScript runtime environment
-- [Python](https://www.python.org/) - required for building native dependencies
-- [setuptools](https://pypi.org/project/setuptools/) - required for building native dependencies
+- [Node.js](https://nodejs.org/) — required JavaScript runtime environment
+- [Python](https://www.python.org/) — required for building native dependencies
+- [setuptools](https://pypi.org/project/setuptools/) — required for building native dependencies
 
 Many contributors use [`nvm`](https://github.com/nvm-sh/nvm) to manage Node.js installations.
 
@@ -40,12 +73,12 @@ Many contributors use [`nvm`](https://github.com/nvm-sh/nvm) to manage Node.js i
    ```bash
    npm run package
    ```
-   
-   This will create an `out/` folder inside `apps/studio/`.
+
+   This creates an `out/` folder inside `apps/studio/`.
 
 4. **Locate the executable:**
-   
-   Navigate to the `apps/studio/out/Studio-linux-x64/` folder. Inside, you'll find a `studio` executable.
+
+   Navigate to `apps/studio/out/Studio-linux-x64/`. Inside, you'll find a `studio` executable.
 
 5. **Run Studio:**
    ```bash
@@ -53,13 +86,13 @@ Many contributors use [`nvm`](https://github.com/nvm-sh/nvm) to manage Node.js i
    ./studio
    ```
 
-## Creating a Desktop Shortcut (Optional)
+To build a `.deb` package instead of the unpackaged binary, run `npm run make:linux-x64` or `npm run make:linux-arm64`. The output lands in `apps/studio/out/make/deb/<arch>/`.
 
-For easier access, you can create a desktop entry file that will add Studio to your application launcher.
+### Creating a Desktop Shortcut (source builds only)
 
-### Steps
+`.deb` installs register a desktop entry automatically. For source builds you can create one manually:
 
-1. **Create a desktop file:**
+1. **Create the file:**
    ```bash
    nano ~/.local/share/applications/studio.desktop
    ```
@@ -77,49 +110,33 @@ For easier access, you can create a desktop entry file that will add Studio to y
    Categories=Development;
    ```
 
-3. **Replace placeholders:**
-   - Replace `<absolute-path-to-repo>` with the actual absolute path to your cloned repository
-   - For example: `/home/username/projects/studio`
+3. Replace `<absolute-path-to-repo>` with the actual absolute path to your cloned repository.
 
-4. **Make the desktop file executable (if needed):**
-   ```bash
-   chmod +x ~/.local/share/applications/studio.desktop
-   ```
-
-5. **Refresh your application menu:**
-   
-   Depending on your desktop environment, you may need to log out and back in, or run:
+4. **Refresh your application menu:**
    ```bash
    update-desktop-database ~/.local/share/applications
    ```
 
-6. **Register Studio handler for `wp-studio://` links:**
+5. **Register Studio as the `wp-studio://` handler:**
    ```bash
    xdg-mime default studio.desktop x-scheme-handler/wp-studio
    ```
    Without this, browsers will still show "Open With… / No Apps Available" when WordPress.com OAuth redirects back to `wp-studio://`.
 
-Studio should now appear in your application launcher and can handle `wp-studio://` protocol URLs.
-
-## Running with Wayland
-
-If you're using Wayland instead of X11, run Studio with additional flags:
+### Updating a Source Build
 
 ```bash
-./studio --enable-features=UseOzonePlatform --ozone-platform=wayland
-```
-
-You can add these flags to the `Exec` line in your desktop file if you created one:
-
-```ini
-Exec=<absolute-path-to-repo>/apps/studio/out/Studio-linux-x64/studio --enable-features=UseOzonePlatform --ozone-platform=wayland %U
+cd <path-to-repo>
+git pull
+npm install
+npm run package
 ```
 
 ## Troubleshooting
 
-### Permission Issues
+### Permission issues running a source build
 
-If you encounter permission issues when running the executable, make sure it has execute permissions:
+If you encounter permission issues when running `./studio` from a source build, make sure it has execute permissions:
 
 ```bash
 chmod +x apps/studio/out/Studio-linux-x64/studio
@@ -138,9 +155,11 @@ sudo sysctl --system
 
 The setting survives reboots and `npm install` runs, so you only need to do this once per machine.
 
-### Missing Dependencies
+This only affects `npm start` during development; installed `.deb` packages ship a properly-configured SUID sandbox binary and are unaffected.
 
-If you encounter errors about missing libraries, you may need to install additional system dependencies. Common packages include:
+### Missing system libraries (source builds)
+
+`.deb` installs declare their system dependencies automatically. If you're running a source build and encounter errors about missing libraries, install the common dependencies:
 
 ```bash
 # Debian/Ubuntu
@@ -153,25 +172,6 @@ sudo dnf install gtk3 libnotify nss libXScrnSaver libXtst xdg-utils at-spi2-core
 sudo pacman -S gtk3 libnotify nss libxss libxtst xdg-utils at-spi2-core util-linux libsecret
 ```
 
-## Updating Studio
-
-Since auto-updates are not supported on Linux builds, you'll need to manually update:
-
-1. Pull the latest changes from the repository:
-   ```bash
-   cd <path-to-repo>
-   git pull
-   ```
-
-2. Reinstall dependencies and rebuild:
-   ```bash
-   npm install
-   npm run package
-   ```
-
-The executable in `apps/studio/out/Studio-linux-x64/` will be updated with the new version.
-
 ## Contributing
 
 If you encounter Linux-specific issues or have suggestions for improving Linux support, please [open an issue](https://github.com/Automattic/studio/issues) or submit a pull request. Your feedback helps improve Studio for all Linux users!
-

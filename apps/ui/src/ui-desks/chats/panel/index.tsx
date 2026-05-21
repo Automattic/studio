@@ -5,6 +5,7 @@ import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useEffect, useState } from 'react';
 import motionStyles from '@/components/floating-surface-motion/style.module.css';
+import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
 import { useSessions, useUpdateSessionMetadata } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import { useFullscreen } from '@/hooks/use-fullscreen';
@@ -14,6 +15,7 @@ import { useChats } from '../context';
 import { SessionSurface } from '../session-surface';
 import { WidgetContextThumbnailList } from '../widget-context';
 import styles from './style.module.css';
+import type { ChatPromptRequest } from '../context';
 import type { ChatPanelResizeState, ChatPanelSide } from '../use-chat-panel-resize';
 import type { AiSessionSummary } from '@/data/core';
 import type { CSSProperties } from 'react';
@@ -135,6 +137,73 @@ function ChatSessionRow( {
 	);
 }
 
+function EmptyChatState( {
+	authRequiredPrompt,
+	onContinuePrompt,
+}: {
+	authRequiredPrompt?: ChatPromptRequest;
+	onContinuePrompt: ( request: ChatPromptRequest ) => Promise< string >;
+} ) {
+	const { data: authUser, isLoading: isLoadingAuthUser } = useAuthUser();
+	const login = useLogin();
+
+	if ( ! isLoadingAuthUser && ! authUser ) {
+		return (
+			<div className={ styles.emptyChat }>
+				<div className={ styles.emptyChatContent }>
+					<div className={ styles.emptyChatTitle }>{ __( 'Log in to use Studio Desk chat' ) }</div>
+					<p>{ __( 'Studio Desk chat requires a WordPress.com account.' ) }</p>
+					{ authRequiredPrompt ? (
+						<div className={ styles.emptyChatDraft }>
+							<span>{ __( 'Draft prompt' ) }</span>
+							<p>{ authRequiredPrompt.displayMessage ?? authRequiredPrompt.prompt }</p>
+						</div>
+					) : null }
+					<Button
+						label={
+							login.isPending
+								? __( 'Opening WordPress.com login' )
+								: __( 'Log in with WordPress.com' )
+						}
+						disabled={ login.isPending }
+						aria-busy={ login.isPending }
+						onClick={ () => login.mutate() }
+						tone="primary"
+						variant="filled"
+					>
+						{ login.isPending ? __( 'Opening login...' ) : __( 'Log in with WordPress.com' ) }
+					</Button>
+				</div>
+			</div>
+		);
+	}
+
+	if ( authUser && authRequiredPrompt ) {
+		return (
+			<div className={ styles.emptyChat }>
+				<div className={ styles.emptyChatContent }>
+					<div className={ styles.emptyChatTitle }>{ __( 'Ready to continue' ) }</div>
+					<p>{ __( 'Your draft prompt is ready to send in a new chat.' ) }</p>
+					<div className={ styles.emptyChatDraft }>
+						<span>{ __( 'Draft prompt' ) }</span>
+						<p>{ authRequiredPrompt.displayMessage ?? authRequiredPrompt.prompt }</p>
+					</div>
+					<Button
+						label={ __( 'Continue with draft' ) }
+						onClick={ () => void onContinuePrompt( authRequiredPrompt ) }
+						tone="primary"
+						variant="filled"
+					>
+						{ __( 'Continue with draft' ) }
+					</Button>
+				</div>
+			</div>
+		);
+	}
+
+	return <div className={ styles.emptyChat }>{ __( 'Ask Studio anything to get started.' ) }</div>;
+}
+
 export function ChatsTrigger() {
 	const { open, setOpen } = useChats();
 
@@ -150,11 +219,13 @@ export function Chats( { siteId, side, panel }: ChatsProps ) {
 		autoFocusSessionId,
 		isCreatingChat,
 		pendingPrompt,
+		authRequiredPrompt,
 		composerWidgetDragPreview,
 		selectSession,
 		switchSession,
 		clearSelection,
 		startNewChat,
+		startChatWithPrompt,
 		consumePendingPrompt,
 	} = useChats();
 	const { data: sessions, isFetching: isFetchingSessions } = useSessions();
@@ -356,9 +427,10 @@ export function Chats( { siteId, side, panel }: ChatsProps ) {
 									onInitialPromptConsumed={ consumePendingPrompt }
 								/>
 							) : (
-								<div className={ styles.emptyChat }>
-									{ __( 'Ask Studio anything to get started.' ) }
-								</div>
+								<EmptyChatState
+									authRequiredPrompt={ authRequiredPrompt }
+									onContinuePrompt={ startChatWithPrompt }
+								/>
 							) }
 						</div>
 					) : null }

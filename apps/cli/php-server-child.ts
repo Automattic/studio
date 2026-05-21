@@ -540,6 +540,8 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		runningConfig = config;
 
 		phpProcess = await doStartServer( config, currentOpenBasedirAllowlist, stopSignal );
+		stopSignal.throwIfAborted();
+		await setAdminCredentials( config );
 	} catch ( error ) {
 		runningConfig = null;
 		currentOpenBasedirAllowlist.clear();
@@ -553,6 +555,46 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		throw error;
 	} finally {
 		startupAbortController = null;
+	}
+}
+
+/**
+ * Mirrors `setAdminCredentials` from `playground-server-child.ts`.
+ *
+ * After the native-PHP server is ready, call the Studio Admin API to:
+ * - create/update the configured admin user and persist `studio_admin_username`, or
+ * - find the first existing administrator and persist `studio_admin_username` when no
+ *   credentials are configured (handles database replacements after a backup import).
+ *
+ * Errors are logged but do not abort the startup — the server is already running.
+ */
+async function setAdminCredentials( config: ServerConfig ): Promise< void > {
+	const { adminPassword, adminUsername, adminEmail, port } = config;
+
+	const params: Record< string, string > = {};
+
+	if ( adminPassword || adminUsername || adminEmail ) {
+		params.action = 'set_admin_password';
+		if ( adminPassword ) params.password = decodePassword( adminPassword );
+		if ( adminUsername ) params.username = adminUsername;
+		if ( adminEmail ) params.email = adminEmail;
+	} else {
+		params.action = 'ensure_admin_username';
+	}
+
+	try {
+		const response = await fetch( `http://localhost:${ port }/?studio-admin-api`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+			body: new URLSearchParams( params ).toString(),
+		} );
+
+		if ( ! response.ok ) {
+			const text = await response.text().catch( () => '' );
+			logToConsole( `Warning: setAdminCredentials failed (HTTP ${ response.status }): ${ text }` );
+		}
+	} catch ( error ) {
+		logToConsole( `Warning: setAdminCredentials failed: ${ error }` );
 	}
 }
 

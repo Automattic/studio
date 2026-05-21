@@ -578,6 +578,28 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 					$result = [ 'success' => true ];
 					break;
 
+				case 'ensure_admin_username':
+					// Verify that studio_admin_username points to a valid admin user.
+					// If not, find the first administrator and update the option.
+					// Called at site start time for native-PHP sites after a database import.
+					$stored = get_option( 'studio_admin_username', '' );
+					$user = $stored ? get_user_by( 'login', $stored ) : false;
+					if ( ! $user ) {
+						$admin_users = get_users( array( 'role' => 'administrator', 'number' => 1, 'orderby' => 'ID', 'order' => 'ASC' ) );
+						if ( ! empty( $admin_users ) ) {
+							$user = $admin_users[0];
+							update_option( 'studio_admin_username', $user->user_login );
+						}
+					}
+					if ( ! $user ) {
+						status_header( 404 );
+						header( 'Content-Type: application/json' );
+						echo json_encode( [ 'error' => 'No administrator user found' ] );
+						exit;
+					}
+					$result = [ 'success' => true ];
+					break;
+
 				default:
 					status_header( 400 );
 					header( 'Content-Type: application/json' );
@@ -619,16 +641,6 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 
 			$username = get_option( 'studio_admin_username', 'admin' );
 			$user = get_user_by( 'login', $username );
-			if ( ! $user ) {
-				// Fallback: find any administrator (e.g. after importing a backup whose
-				// admin login differs from the stored value or when no value is stored).
-				$admin_users = get_users( array( 'role' => 'administrator', 'number' => 1, 'orderby' => 'ID', 'order' => 'ASC' ) );
-				if ( ! empty( $admin_users ) ) {
-					$user = $admin_users[0];
-					// Persist the discovered username so future auto-logins skip this lookup.
-					update_option( 'studio_admin_username', $user->user_login );
-				}
-			}
 			if ( ! $user ) {
 				wp_die( 'Auto-login failed: admin user not found' );
 			}

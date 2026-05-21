@@ -196,7 +196,7 @@ Then open `chrome://inspect` in a Chromium-based browser and click "inspect" nex
 ## Building Installers
 
 Once all required dependencies are installed, you can build installers for the app.
-Installers can currently be built on Mac (Intel or Apple Silicon), Windows, and experimentally for Linux using the following commands:
+Installers can be built on Mac (Intel or Apple Silicon), Windows, and Linux (x64 or ARM64) using the following commands:
 
 ```bash
 npm install
@@ -207,22 +207,78 @@ After the build process completes, you can find the executables in the `out/` di
 
 ### Linux
 
-Linux support is currently in an experimental phase. While official packages are not yet available, you can build Studio from source:
+End users can install Studio from the published `.deb` packages on the [Studio releases page](https://github.com/Automattic/studio/releases). The instructions below cover building from source for development.
+
+To run the unpackaged app from a clone:
 
 ```bash
+nvm use
 npm install
 npm run package
 ```
 
-After building, the executable will be located at `apps/studio/out/Studio-linux-x64/studio`.
+The executable will be at `apps/studio/out/Studio-linux-<arch>/studio`. To produce a `.deb` package instead, run `npm run make:linux-x64` or `npm run make:linux-arm64`; output lands in `apps/studio/out/make/deb/<arch>/`.
 
-**Important considerations:**
+#### Creating a Desktop Shortcut
 
-- The auto-update feature is not currently supported on Linux builds.
-- For Wayland systems, you may need to use additional flags when running the application.
-- Some features may not work as expected due to platform-specific implementations.
+`.deb` installs register a desktop entry automatically. For source builds you can create one manually:
 
-For detailed instructions including how to create a desktop launcher, handle Wayland compatibility, and troubleshoot common issues, see the [**Linux Guide**](./linux.md).
+```bash
+nano ~/.local/share/applications/studio.desktop
+```
+
+Add the following, replacing `<absolute-path-to-repo>` with the actual path to your clone:
+
+```ini
+[Desktop Entry]
+Name=Studio by WordPress.com
+Icon=<absolute-path-to-repo>/assets/studio-app-icon.png
+Comment=Local WordPress development environment
+Exec=<absolute-path-to-repo>/apps/studio/out/Studio-linux-x64/studio %U
+Type=Application
+Terminal=false
+MimeType=x-scheme-handler/wp-studio;
+Categories=Development;
+```
+
+Refresh the application menu and register Studio as the `wp-studio://` handler:
+
+```bash
+update-desktop-database ~/.local/share/applications
+xdg-mime default studio.desktop x-scheme-handler/wp-studio
+```
+
+Without the `xdg-mime` step, browsers will show "Open With… / No Apps Available" when WordPress.com OAuth redirects back to `wp-studio://`.
+
+#### Troubleshooting
+
+If `./studio` fails with a permission error, ensure it has execute permissions:
+
+```bash
+chmod +x apps/studio/out/Studio-linux-x64/studio
+```
+
+On Ubuntu 24.04+ and other distributions that restrict unprivileged user namespaces via AppArmor, `npm start` may abort with `FATAL: ... The SUID sandbox helper binary was found, but is not configured correctly`. Electron falls back to its SUID sandbox because AppArmor blocks the user-namespace sandbox by default. Allow it persistently:
+
+```bash
+echo 'kernel.apparmor_restrict_unprivileged_userns=0' | sudo tee /etc/sysctl.d/60-apparmor-namespace.conf
+sudo sysctl --system
+```
+
+The setting survives reboots and `npm install` runs, so you only need to do this once per machine. This only affects `npm start` during development; installed `.deb` packages ship a properly-configured SUID sandbox binary and are unaffected.
+
+If you encounter errors about missing libraries on a source build (`.deb` installs declare their dependencies automatically), install the common system packages:
+
+```bash
+# Debian/Ubuntu
+sudo apt-get install libgtk-3-0 libnotify4 libnss3 libxss1 libxtst6 xdg-utils libatspi2.0-0 libuuid1 libsecret-1-0
+
+# Fedora
+sudo dnf install gtk3 libnotify nss libXScrnSaver libXtst xdg-utils at-spi2-core libuuid libsecret
+
+# Arch
+sudo pacman -S gtk3 libnotify nss libxss libxtst xdg-utils at-spi2-core util-linux libsecret
+```
 
 ## Localization
 

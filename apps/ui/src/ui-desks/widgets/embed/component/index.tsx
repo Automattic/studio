@@ -44,7 +44,7 @@ export function EmbedWidgetComponent( { id, widgetProps, isEditing }: EmbedWidge
 					src={ embedInfo.embedUrl }
 					draggable={ false }
 					frameBorder="0"
-					referrerPolicy="no-referrer-when-downgrade"
+					referrerPolicy="strict-origin-when-cross-origin"
 					tabIndex={ isInteractive ? 0 : -1 }
 					style={ {
 						pointerEvents: isInteractive ? 'auto' : 'none',

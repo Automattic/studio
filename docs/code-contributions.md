@@ -212,7 +212,6 @@ End users can install Studio from the published `.deb` packages on the [Studio r
 To run the unpackaged app from a clone:
 
 ```bash
-nvm use
 npm install
 npm run package
 ```

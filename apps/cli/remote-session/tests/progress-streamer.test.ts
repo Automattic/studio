@@ -145,7 +145,7 @@ describe( 'ProgressStreamer', () => {
 		expect( respond ).not.toHaveBeenCalled();
 	} );
 
-	it( 'forwards tool_execution_start with a human-readable italic description', async () => {
+	it( 'drops tool_execution_start / tool_execution_end — the LLM narration covers it', async () => {
 		const { streamer, respond } = makeStreamer();
 		streamer.onEvent(
 			piEvent( {
@@ -159,37 +159,6 @@ describe( 'ProgressStreamer', () => {
 				},
 			} )
 		);
-		await flushPromises();
-		expect( respond ).toHaveBeenCalledTimes( 1 );
-		expect( ( respond.mock.calls[ 0 ][ 1 ] as { text: string } ).text ).toBe(
-			'🔧 _Stopping Catnap_'
-		);
-	} );
-
-	it( 'pairs tool_execution_end with the start args so the completion line names the subject', async () => {
-		const { streamer, respond, clock } = makeStreamer( { intervalMs: 1000 } );
-		respond.mockResolvedValueOnce( okOutcome( 1001 ) );
-
-		// Start: site_start with a concrete site name.
-		streamer.onEvent(
-			piEvent( {
-				type: 'message',
-				timestamp: 't',
-				message: {
-					type: 'tool_execution_start',
-					toolCallId: 'c1',
-					toolName: 'site_start',
-					args: { nameOrPath: 'Niche Coffee' },
-				},
-			} )
-		);
-		await flushPromises();
-		expect( ( respond.mock.calls[ 0 ][ 1 ] as { text: string } ).text ).toBe(
-			'🔧 _Starting Niche Coffee_'
-		);
-
-		// End: streamer recalls the start args and produces a matching completion line.
-		clock.advance( 1500 );
 		streamer.onEvent(
 			piEvent( {
 				type: 'message',
@@ -197,66 +166,22 @@ describe( 'ProgressStreamer', () => {
 				message: {
 					type: 'tool_execution_end',
 					toolCallId: 'c1',
-					toolName: 'site_start',
+					toolName: 'site_stop',
 					result: null,
 					isError: false,
 				},
 			} )
 		);
 		await flushPromises();
-		expect( ( respond.mock.calls[ 1 ][ 1 ] as { text: string } ).text ).toBe(
-			'✅ _Started Niche Coffee_'
-		);
+		expect( respond ).not.toHaveBeenCalled();
 	} );
 
-	it( 'falls back gracefully when a tool_execution_end has no remembered args', async () => {
-		const { streamer, respond } = makeStreamer( { intervalMs: 1000 } );
-		// No matching start event — the streamer should still render *something*.
-		streamer.onEvent(
-			piEvent( {
-				type: 'message',
-				timestamp: 't',
-				message: {
-					type: 'tool_execution_end',
-					toolCallId: 'orphan',
-					toolName: 'site_stop',
-					result: null,
-					isError: true,
-				},
-			} )
-		);
-		await flushPromises();
-		expect( ( respond.mock.calls[ 0 ][ 1 ] as { text: string } ).text ).toBe(
-			'⚠️ _Failed to stop site_'
-		);
-	} );
-
-	it( 'humanizes unknown tool names with a generic fallback', async () => {
-		const { streamer, respond } = makeStreamer();
-		streamer.onEvent(
-			piEvent( {
-				type: 'message',
-				timestamp: 't',
-				message: {
-					type: 'tool_execution_start',
-					toolCallId: 'c1',
-					toolName: 'frobnicate_widget',
-					args: {},
-				},
-			} )
-		);
-		await flushPromises();
-		expect( ( respond.mock.calls[ 0 ][ 1 ] as { text: string } ).text ).toBe(
-			'🔧 _Running frobnicate widget_'
-		);
-	} );
-
-	it( 'forwards message_end with assistant content, picking the latest interesting block', async () => {
+	it( 'forwards message_end with assistant content, preferring the LLM text narration', async () => {
 		const { streamer, respond, clock } = makeStreamer( { intervalMs: 1000 } );
 		respond.mockResolvedValueOnce( okOutcome( 1001 ) );
 
-		// text + toolCall in one message → prefer the toolCall (the action),
-		// and the streamer remembers the args for the matching end event.
+		// text + toolCall in one message → prefer the text (LLM's own
+		// description of what it's about to do).
 		streamer.onEvent(
 			piEvent( {
 				type: 'message',
@@ -274,10 +199,11 @@ describe( 'ProgressStreamer', () => {
 			} )
 		);
 		await flushPromises();
-		expect( ( respond.mock.calls[ 0 ][ 1 ] as { text: string } ).text ).toBe( '🔧 _Stopping VL_' );
+		expect( ( respond.mock.calls[ 0 ][ 1 ] as { text: string } ).text ).toBe(
+			'_Stopping all sites now._'
+		);
 
-		// text-only block → surface the text in italic so it visually
-		// matches the other live-status lines.
+		// text-only block → surface the text in italic.
 		clock.advance( 1500 );
 		streamer.onEvent(
 			piEvent( {
@@ -296,6 +222,42 @@ describe( 'ProgressStreamer', () => {
 		expect( ( respond.mock.calls[ 1 ][ 1 ] as { text: string } ).text ).toBe(
 			'_All stopped! Starting Niche Coffee._'
 		);
+	} );
+
+	it( 'falls back to the bare tool name when the LLM emits a toolCall with no text or thinking', async () => {
+		const { streamer, respond } = makeStreamer();
+		streamer.onEvent(
+			piEvent( {
+				type: 'message',
+				timestamp: 't',
+				message: {
+					type: 'message_end',
+					message: {
+						role: 'assistant',
+						content: [
+							{ type: 'toolCall', id: 'c1', name: 'site_stop', arguments: { nameOrPath: 'VL' } },
+						],
+					},
+				},
+			} )
+		);
+		await flushPromises();
+		expect( ( respond.mock.calls[ 0 ][ 1 ] as { text: string } ).text ).toBe( '🔧 _site_stop_' );
+	} );
+
+	it( 'skips a duplicate event that would re-post identical text (Telegram rejects no-op edits)', async () => {
+		const { streamer, respond, clock } = makeStreamer( { intervalMs: 1000 } );
+		respond.mockResolvedValueOnce( okOutcome( 1001 ) );
+		streamer.onEvent( { type: 'info', timestamp: 't', message: 'Stopping WordPress server…' } );
+		await flushPromises();
+		expect( respond ).toHaveBeenCalledTimes( 1 );
+
+		// Same progress string arrives again from a parallel tool — should not
+		// trigger a second POST.
+		clock.advance( 2000 );
+		streamer.onEvent( { type: 'info', timestamp: 't', message: 'Stopping WordPress server…' } );
+		await flushPromises();
+		expect( respond ).toHaveBeenCalledTimes( 1 );
 	} );
 
 	it( 'forwards thinking blocks as 💭 <italic preview>', async () => {

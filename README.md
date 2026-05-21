@@ -15,8 +15,8 @@ WordPress Studio is free to use for Mac, Windows, and Linux. Simply download the
 [Download WordPress Studio](https://developer.wordpress.com/studio/) for:
 
 - macOS (Intel or Apple Silicon)
-- Windows
-- Linux
+- Windows (x64 or ARM64)
+- Linux (x64 or ARM64)
 
 ## Highlights
 

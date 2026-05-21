@@ -11,7 +11,7 @@ npm install
 npm run package
 ```
 
-The executable will be at `apps/studio/out/Studio-linux-<arch>/studio`. To produce a `.deb` package instead, run `npm run make:linux-x64` or `npm run make:linux-arm64`; output lands in `apps/studio/out/make/deb/<arch>/`.
+The executable will be at `apps/studio/out/Studio-linux-<arch>/studio`. To produce a `.deb` package instead, run `npm run make` (auto-detects the host arch); output lands in `apps/studio/out/make/deb/<arch>/`. To make arch specific build, use `npm run make:linux-x64` or `npm run make:linux-arm64
 
 ## Creating a Desktop Shortcut
 

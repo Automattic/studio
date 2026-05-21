@@ -242,7 +242,38 @@ describe( 'ProgressStreamer', () => {
 			} )
 		);
 		await flushPromises();
-		expect( ( respond.mock.calls[ 0 ][ 1 ] as { text: string } ).text ).toBe( '🔧 _site_stop_' );
+		// `site_stop` → "Stopping site" (object_verb pattern, verb at end gets gerundized).
+		expect( ( respond.mock.calls[ 0 ][ 1 ] as { text: string } ).text ).toBe(
+			'⏳ _Stopping site…_'
+		);
+	} );
+
+	it( 'humanizes verb-first tool names too (share_screenshot → "Sharing screenshot")', async () => {
+		const { streamer, respond } = makeStreamer();
+		streamer.onEvent(
+			piEvent( {
+				type: 'message',
+				timestamp: 't',
+				message: {
+					type: 'message_end',
+					message: {
+						role: 'assistant',
+						content: [
+							{
+								type: 'toolCall',
+								id: 'c1',
+								name: 'share_screenshot',
+								arguments: { url: 'http://localhost:8889' },
+							},
+						],
+					},
+				},
+			} )
+		);
+		await flushPromises();
+		expect( ( respond.mock.calls[ 0 ][ 1 ] as { text: string } ).text ).toBe(
+			'⏳ _Sharing screenshot…_'
+		);
 	} );
 
 	it( 'skips a duplicate event that would re-post identical text (Telegram rejects no-op edits)', async () => {
@@ -385,7 +416,7 @@ describe( 'ProgressStreamer', () => {
 		expect( respond ).not.toHaveBeenCalled();
 	} );
 
-	it( 'stop("success") deletes the live status message so the real reply is the only artifact', async () => {
+	it( 'stop("success") edits the live status to ✅ Done as a clear visual close', async () => {
 		const { streamer, respond } = makeStreamer();
 		respond.mockResolvedValueOnce( okOutcome( 1001 ) );
 		streamer.onEvent( { type: 'info', timestamp: 't', message: 'working' } );
@@ -395,9 +426,9 @@ describe( 'ProgressStreamer', () => {
 		await streamer.stop( 'success' );
 		expect( respond ).toHaveBeenCalledTimes( 2 );
 		const finalCall = respond.mock.calls[ 1 ][ 1 ] as Record< string, unknown >;
-		expect( finalCall.action ).toBe( 'delete' );
+		expect( finalCall.action ).toBe( 'edit' );
 		expect( finalCall.messageId ).toBe( 1001 );
-		expect( finalCall.text ).toBeUndefined();
+		expect( finalCall.text ).toBe( '✅ _Done_' );
 	} );
 
 	it( 'stop("error") edits the live status to a ⚠️ summary so failures stay visible', async () => {
@@ -412,13 +443,13 @@ describe( 'ProgressStreamer', () => {
 		expect( finalCall.text ).toBe( '⚠️ _error_' );
 	} );
 
-	it( 'stop() with no captured messageId is a no-op (no final delete or edit)', async () => {
+	it( 'stop() with no captured messageId is a no-op (no final edit)', async () => {
 		const { streamer, respond } = makeStreamer();
 		await streamer.stop( 'success' );
 		expect( respond ).not.toHaveBeenCalled();
 	} );
 
-	it( 'stop("success") swallows a delete failure without throwing', async () => {
+	it( 'stop("success") swallows a final edit failure without throwing', async () => {
 		const { streamer, respond } = makeStreamer();
 		respond.mockResolvedValueOnce( okOutcome( 1001 ) );
 		streamer.onEvent( { type: 'info', timestamp: 't', message: 'working' } );
@@ -427,6 +458,28 @@ describe( 'ProgressStreamer', () => {
 		respond.mockRejectedValueOnce( new Error( 'network down' ) );
 		await expect( streamer.stop( 'success' ) ).resolves.toBeUndefined();
 		expect( respond ).toHaveBeenCalledTimes( 2 );
+	} );
+
+	it( 'replaceWithReply edits the live status to the reply text, in place', async () => {
+		const { streamer, respond } = makeStreamer();
+		respond.mockResolvedValueOnce( okOutcome( 1001 ) );
+		streamer.onEvent( { type: 'info', timestamp: 't', message: 'working' } );
+		await flushPromises();
+		expect( respond ).toHaveBeenCalledTimes( 1 );
+
+		const ok = await streamer.replaceWithReply( 'Here is the final reply.' );
+		expect( ok ).toBe( true );
+		const editCall = respond.mock.calls[ 1 ][ 1 ] as Record< string, unknown >;
+		expect( editCall.action ).toBe( 'edit' );
+		expect( editCall.messageId ).toBe( 1001 );
+		expect( editCall.text ).toBe( 'Here is the final reply.' );
+	} );
+
+	it( 'replaceWithReply returns false when no status message was created (caller should post normally)', async () => {
+		const { streamer, respond } = makeStreamer();
+		const ok = await streamer.replaceWithReply( 'reply text' );
+		expect( ok ).toBe( false );
+		expect( respond ).not.toHaveBeenCalled();
 	} );
 
 	it( 'stop("success") returns after a bounded wait when an in-flight progress post hangs', async () => {
@@ -450,7 +503,7 @@ describe( 'ProgressStreamer', () => {
 		expect( respond ).toHaveBeenCalledTimes( 1 );
 	} );
 
-	it( 'stop("success") returns after a bounded wait when the final delete hangs', async () => {
+	it( 'stop("success") returns after a bounded wait when the final edit hangs', async () => {
 		const { streamer, respond, clock } = makeStreamer();
 		respond.mockResolvedValueOnce( okOutcome( 1001 ) );
 		respond.mockImplementationOnce( () => new Promise< RespondOutcome >( () => undefined ) );

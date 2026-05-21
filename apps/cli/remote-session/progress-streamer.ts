@@ -61,6 +61,52 @@ interface PiAgentMessageLike {
 	content?: unknown;
 }
 
+// Used only when the LLM emits a toolCall block without any text/thinking
+// preamble — the bare snake_case name (`share_screenshot`) is gerundized into
+// a phrase ("Sharing screenshot…") so the chat reads naturally. Unknown verbs
+// fall back to a literal space-separated form. Far smaller than per-tool
+// descriptors (and unaffected by adding new tools) because it only handles the
+// pattern, not specific phrasing per tool.
+const VERB_TO_GERUND: Record< string, string > = {
+	share: 'Sharing',
+	take: 'Taking',
+	scaffold: 'Scaffolding',
+	validate: 'Validating',
+	install: 'Installing',
+	stop: 'Stopping',
+	start: 'Starting',
+	list: 'Listing',
+	create: 'Creating',
+	delete: 'Deleting',
+	import: 'Importing',
+	export: 'Exporting',
+	pull: 'Pulling',
+	push: 'Pushing',
+	update: 'Updating',
+	run: 'Running',
+	info: 'Looking up details for',
+	open: 'Opening',
+	wait: 'Waiting for',
+	ask: 'Asking',
+};
+
+function humanizeToolName( name: string ): string {
+	const parts = name.split( '_' ).filter( Boolean );
+	if ( parts.length === 0 ) {
+		return name;
+	}
+	// `verb_object` (e.g. `share_screenshot`) → "Sharing screenshot"
+	if ( parts.length > 1 && VERB_TO_GERUND[ parts[ 0 ] ] ) {
+		return `${ VERB_TO_GERUND[ parts[ 0 ] ] } ${ parts.slice( 1 ).join( ' ' ) }`;
+	}
+	// `object_verb` (e.g. `site_stop`) → "Stopping site"
+	const last = parts.length - 1;
+	if ( parts.length > 1 && VERB_TO_GERUND[ parts[ last ] ] ) {
+		return `${ VERB_TO_GERUND[ parts[ last ] ] } ${ parts.slice( 0, last ).join( ' ' ) }`;
+	}
+	return parts.join( ' ' );
+}
+
 /**
  * Italicize a text fragment using markdown the wpcom server understands.
  * `_..._` is converted to `<i>...</i>` by `markdown_to_telegram_html`, and the
@@ -123,7 +169,11 @@ function formatAssistantMessage( raw: AgentMessage ): string | null {
 		return `💭 ${ italic( preview ) }`;
 	}
 	if ( toolName ) {
-		return `🔧 ${ italic( toolName ) }`;
+		// Some turns emit `message_end` with only a `toolCall` block — no `text`
+		// preamble. Mimic the `progress` envelope style (⏳ + italic + trailing
+		// ellipsis) and gerundize the tool name so it reads as a phrase
+		// ("Sharing screenshot…") rather than a snake_case identifier.
+		return `⏳ ${ italic( `${ humanizeToolName( toolName ) }…` ) }`;
 	}
 	return null;
 }
@@ -247,17 +297,60 @@ export class ProgressStreamer {
 	};
 
 	/**
+	 * Replace the live status with the turn's final reply, in place. Returns
+	 * `true` when the edit landed (caller should skip posting the reply as a
+	 * new message), or `false` when there's no message to replace yet — in
+	 * which case the caller falls through to `stop()` and posts the reply
+	 * normally.
+	 *
+	 * Caller is responsible for ensuring `text` fits within the server's
+	 * single-message limit; oversized replies should be chunked through the
+	 * regular text path instead.
+	 *
+	 * Some Telegram clients (e.g. Beeper) render a deleted message as a
+	 * persistent "🗑 This message has been deleted" tombstone, so editing the
+	 * status into the actual reply produces a cleaner one-message-per-turn
+	 * result than deleting + posting separately.
+	 */
+	async replaceWithReply( text: string ): Promise< boolean > {
+		this.disposed = true;
+		if ( this.timer !== null ) {
+			this.deps.clearTimeout( this.timer );
+			this.timer = null;
+		}
+		this.pending = null;
+
+		if ( ! ( await this.waitForActivePost() ) || this.messageId === null ) {
+			return false;
+		}
+
+		await this.respondWithTimeout(
+			{
+				chatId: this.target.chatId,
+				bot: this.target.bot,
+				action: 'edit',
+				messageId: this.messageId,
+				text,
+			},
+			'edit'
+		);
+		return true;
+	}
+
+	/**
 	 * Stop the streamer and finalize the live status message.
 	 *
 	 * @param status The turn's terminal status:
-	 *               - `'success'` → DELETE the status message, so the real
-	 *                 reply (text/photo) is the only artifact left in chat.
+	 *               - `'success'` → EDIT the status message to a one-line
+	 *                 `✅ Done.` so the turn has a clear visual close even when
+	 *                 the caller couldn't fold the reply in via
+	 *                 {@link replaceWithReply}.
 	 *               - any other terminal status → EDIT to a ⚠️ summary so the
 	 *                 failure stays visible.
 	 *               - `undefined` → leave the last status text in place.
 	 *
-	 * Resolves once the delete/edit settles, or after a short timeout, so
-	 * best-effort progress never blocks the real reply indefinitely.
+	 * Resolves once the edit settles, or after a short timeout, so best-effort
+	 * progress never blocks the real reply indefinitely.
 	 */
 	async stop( status?: ProgressFinalStatus ): Promise< void > {
 		this.disposed = true;
@@ -267,8 +360,6 @@ export class ProgressStreamer {
 		}
 		this.pending = null;
 
-		// Wait briefly for any in-flight post so we can learn the create
-		// messageId, but never let best-effort progress block the real reply.
 		if ( ! ( await this.waitForActivePost() ) && this.messageId === null ) {
 			return;
 		}
@@ -277,20 +368,7 @@ export class ProgressStreamer {
 			return;
 		}
 
-		if ( status === 'success' ) {
-			await this.respondWithTimeout(
-				{
-					chatId: this.target.chatId,
-					bot: this.target.bot,
-					action: 'delete',
-					messageId: this.messageId,
-				},
-				'delete'
-			);
-			return;
-		}
-
-		const summary = `⚠️ ${ italic( status ) }`;
+		const summary = status === 'success' ? `✅ ${ italic( 'Done' ) }` : `⚠️ ${ italic( status ) }`;
 		await this.respondWithTimeout(
 			{
 				chatId: this.target.chatId,

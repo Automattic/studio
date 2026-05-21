@@ -196,7 +196,7 @@ Then open `chrome://inspect` in a Chromium-based browser and click "inspect" nex
 ## Building Installers
 
 Once all required dependencies are installed, you can build installers for the app.
-Installers can be built on Mac (Intel or Apple Silicon), Windows, and Linux (x64 or ARM64) using the following commands:
+Installers can be built on Mac (Intel or Apple Silicon), Windows (x64 or ARM64), and Linux (x64 or ARM64) using the following commands:
 
 ```bash
 npm install

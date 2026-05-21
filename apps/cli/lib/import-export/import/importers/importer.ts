@@ -47,8 +47,6 @@ export async function ensureDir( dir: string ): Promise< void > {
 	}
 }
 
-// stat (not lstat) so that symlinks to directories — which mkdir traverses
-// without complaint — are treated as directories rather than as blockers.
 async function findNonDirectoryAncestor( start: string ): Promise< string | null > {
 	const resolved = path.resolve( start );
 	const root = path.parse( resolved ).root;

@@ -138,7 +138,7 @@ export function getNativePhpIniContents( phpVersion: NativePhpSupportedVersion )
 		path.join( getPhpBinaryDir( phpVersion ), CA_BUNDLE_FILENAME )
 	);
 	const directives: string[] = [
-		'memory_limit=256M',
+		'memory_limit=512M',
 		'post_max_size=2G',
 		'upload_max_filesize=2G',
 		'display_errors=1',

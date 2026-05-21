@@ -1445,33 +1445,13 @@ export class AiChatUI implements AiOutputAdapter {
 			'',
 			'  ' + b( __( 'Local Sites Management' ) ),
 			'',
-			'  - ' +
-				sprintf(
-					/* translators: %s: bold "Create" */
-					__( '%s new local WordPress sites instantly (fully configured, ready to use)' ),
-					b( __( 'Create' ) )
-				),
-			'  - ' +
-				sprintf(
-					/* translators: %s: bold "Start / stop" */
-					__( '%s existing local sites' ),
-					b( __( 'Start / stop' ) )
-				),
-			'  - ' +
-				sprintf(
-					/* translators: %s: bold "List" */
-					__( '%s all your local sites and their status' ),
-					b( __( 'List' ) )
-				),
+			'  - ' + __( 'Create new local WordPress sites instantly (fully configured, ready to use)' ),
+			'  - ' + __( 'Start / stop existing local sites' ),
+			'  - ' + __( 'List all your local sites and their status' ),
 			'',
 			'  ' + b( __( 'Design & Development' ) ),
 			'',
-			'  - ' +
-				sprintf(
-					/* translators: %s: bold "Build" */
-					__( '%s block themes with striking, memorable designs' ),
-					b( __( 'Build' ) )
-				),
+			'  - ' + __( 'Build block themes with striking, memorable designs' ),
 			'  - ' +
 				sprintf(
 					/* translators: %s: bold "CSS, PHP, and JavaScript" */
@@ -1521,24 +1501,9 @@ export class AiChatUI implements AiOutputAdapter {
 					__( 'Take %s (desktop + mobile) to verify the design is well crafted' ),
 					b( __( 'screenshots' ) )
 				),
-			'  - ' +
-				sprintf(
-					/* translators: %s: bold "Validate" */
-					__( "%s all block content to ensure it's editor-compatible" ),
-					b( __( 'Validate' ) )
-				),
-			'  - ' +
-				sprintf(
-					/* translators: %s: bold "Push" */
-					__( '%s your local site to the cloud in WordPress.com' ),
-					b( __( 'Push' ) )
-				),
-			'  - ' +
-				sprintf(
-					/* translators: %s: bold "Generate preview sites" */
-					__( '%s with shareable URLs for quick feedback' ),
-					b( __( 'Generate preview sites' ) )
-				),
+			'  - ' + __( "Validate all block content to ensure it's editor-compatible" ),
+			'  - ' + __( 'Push your local site to the cloud in WordPress.com' ),
+			'  - ' + __( 'Generate preview sites with shareable URLs for quick feedback' ),
 			'',
 			separator,
 			'',

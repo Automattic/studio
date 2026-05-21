@@ -41,8 +41,8 @@ export async function ensureDir( dir: string ): Promise< void > {
 		if ( ! blocker ) {
 			throw error;
 		}
-		console.warn( `ensureDir: removed non-directory blocker at ${ blocker }` );
 		await fs.promises.unlink( blocker );
+		console.warn( `ensureDir: removed non-directory blocker at ${ blocker }` );
 		await fs.promises.mkdir( dir, { recursive: true } );
 	}
 }

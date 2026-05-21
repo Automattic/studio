@@ -10,7 +10,6 @@ import { ChildProcess, spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
 import { writeStudioMuPluginsForNativePhpRuntime } from '@studio/common/lib/mu-plugins';
 import { decodePassword } from '@studio/common/lib/passwords';
@@ -723,16 +722,9 @@ async function runBlueprint(
 		...blueprint.contents.constants,
 		...defaultConstants,
 	};
-	// For native PHP, the PHP binary is already selected before Blueprint execution,
-	// so we must NOT pass preferredVersions.php — blueprints.phar validates it against
-	// its own PHP version list and rejects versions it doesn't know about (e.g. 8.5).
-	// We still forward preferredVersions.wp so WordPress version selection via Blueprint
-	// continues to work as before.
-	blueprint.contents.preferredVersions = {
-		...blueprint.contents.preferredVersions,
-		wp: config.wpVersion || blueprint.contents?.preferredVersions?.wp || 'latest',
-		php: undefined,
-	};
+	// Native PHP selects PHP and installs WordPress before Blueprint execution.
+	// Passing preferredVersions makes blueprints.phar validate versions it does not manage here.
+	delete blueprint.contents.preferredVersions;
 
 	// Write the merged blueprint next to the original so blueprints.phar resolves any
 	// relative file references against the original blueprint's directory — its runner

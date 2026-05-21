@@ -88,6 +88,33 @@ const DEFAULT_MOCK_EVENTS: AgentSessionEvent[] = [
 	{ type: 'agent_end', messages: [] },
 ];
 
+type MessageEndEvent = Extract< AgentSessionEvent, { type: 'message_end' } >;
+
+const assistantMessage = (
+	content: unknown[],
+	stopReason: 'stop' | 'length' = 'stop'
+): MessageEndEvent =>
+	( {
+		type: 'message_end',
+		message: {
+			role: 'assistant',
+			content,
+			api: 'openai-completions',
+			provider: 'openai',
+			model: 'gpt-5.5',
+			usage: {
+				input: 0,
+				output: 0,
+				cacheRead: 0,
+				cacheWrite: 0,
+				totalTokens: 0,
+				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+			},
+			stopReason,
+			timestamp: 0,
+		},
+	} ) as MessageEndEvent;
+
 class FakeSession {
 	private listener?: ( event: AgentSessionEvent ) => void;
 	public state: { model: { id: string; provider: string }; messages: unknown[] };
@@ -269,6 +296,47 @@ describe( 'pi runtime', () => {
 			} )
 		).rejects.toThrow( /Do not retry with Bash heredocs or Python scripts/ );
 		expect( write.description ).toContain( 'small skeleton' );
+	} );
+
+	it( 'rejects side-effecting tool calls from length-truncated assistant messages', async () => {
+		mocks.nextEvents = [
+			assistantMessage(
+				[
+					{
+						type: 'toolCall',
+						id: 'tool-call-1',
+						name: 'Write',
+						arguments: {
+							path: '/tmp/studio/site/tmp/large.txt',
+							content: 'partial content under the size limit',
+						},
+						partialJson: '{"path":"/tmp/studio/site/tmp/large.txt","content":"partial',
+						index: 0,
+					},
+				],
+				'length'
+			),
+			{ type: 'agent_end', messages: [] },
+		] as AgentSessionEvent[];
+
+		await runRuntime( {
+			prompt: 'hello',
+			env: {
+				OPENAI_API_KEY: 'sk-test',
+				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
+			},
+			model: 'gpt-5.5',
+			session: newSession(),
+		} );
+
+		const write = getCreatedTool( 'Write' );
+
+		await expect(
+			write.execute( 'write-call', {
+				path: '/tmp/studio/site/tmp/large.txt',
+				content: 'partial content under the size limit',
+			} )
+		).rejects.toThrow( /hit the model output limit/ );
 	} );
 
 	it( 'leaves retry policy to pi settings defaults', async () => {

@@ -1,4 +1,5 @@
 import { type AgentTool } from '@mariozechner/pi-agent-core';
+import type { AgentSessionEvent } from '@mariozechner/pi-coding-agent';
 
 // Keep individual model-generated tool payloads below the range where long
 // strings have been observed to arrive incomplete.
@@ -7,6 +8,12 @@ export const STUDIO_BASH_COMMAND_MAX_BYTES = 8 * 1024;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AgentToolAny = AgentTool< any >;
+
+const SIDE_EFFECTING_TOOL_NAMES = new Set( [ 'Write', 'Edit', 'Bash' ] );
+
+export interface StudioToolPayloadGuardState {
+	incompleteSideEffectingToolCallReason?: string;
+}
 
 function getByteLength( value: string ): number {
 	return Buffer.byteLength( value, 'utf8' );
@@ -70,6 +77,42 @@ function getPayloadLimitViolation( toolName: string, params: unknown ): string |
 	return undefined;
 }
 
+function getToolCallNames( content: unknown ): string[] {
+	if ( ! Array.isArray( content ) ) {
+		return [];
+	}
+	return content.flatMap( ( block ) => {
+		if ( ! block || typeof block !== 'object' ) {
+			return [];
+		}
+		const item = block as Record< string, unknown >;
+		return item.type === 'toolCall' && typeof item.name === 'string' ? [ item.name ] : [];
+	} );
+}
+
+export function updateStudioToolPayloadGuardState(
+	event: AgentSessionEvent,
+	state: StudioToolPayloadGuardState
+): void {
+	if ( event.type !== 'message_end' || event.message.role !== 'assistant' ) {
+		return;
+	}
+
+	const toolCallNames = getToolCallNames( event.message.content );
+	const sideEffectingToolCallNames = toolCallNames.filter( ( name ) =>
+		SIDE_EFFECTING_TOOL_NAMES.has( name )
+	);
+
+	if ( event.message.stopReason === 'length' && sideEffectingToolCallNames.length > 0 ) {
+		state.incompleteSideEffectingToolCallReason = `Refusing to run ${ sideEffectingToolCallNames.join(
+			', '
+		) } because the assistant response hit the model output limit while generating tool arguments. The arguments may be partial even if they parse as JSON. Retry with a small skeleton and smaller Edit calls; do not use Bash heredocs or Python scripts.`;
+		return;
+	}
+
+	state.incompleteSideEffectingToolCallReason = undefined;
+}
+
 function getPayloadLimitDescription( toolName: string, description: string ): string {
 	if ( toolName === 'Write' || toolName === 'Edit' ) {
 		return `${ description }\n\nStudio safety: keep generated file payloads at or below ${ formatBytes(
@@ -86,11 +129,21 @@ function getPayloadLimitDescription( toolName: string, description: string ): st
 	return description;
 }
 
-export function withStudioToolPayloadGuard( tool: AgentToolAny ): AgentToolAny {
+export function withStudioToolPayloadGuard(
+	tool: AgentToolAny,
+	state?: StudioToolPayloadGuardState
+): AgentToolAny {
 	return {
 		...tool,
 		description: getPayloadLimitDescription( tool.name, tool.description ),
 		execute: async ( toolCallId, params, signal, onUpdate ) => {
+			if (
+				state?.incompleteSideEffectingToolCallReason &&
+				SIDE_EFFECTING_TOOL_NAMES.has( tool.name )
+			) {
+				throw new Error( state.incompleteSideEffectingToolCallReason );
+			}
+
 			const violation = getPayloadLimitViolation( tool.name, params );
 			if ( violation ) {
 				throw new Error( violation );

@@ -417,3 +417,42 @@ describe( 'AiChatUI.handleEvent', () => {
 		expect( ui.usageCapReached ).toBe( false );
 	} );
 } );
+
+describe( 'AiChatUI.showCapabilities', () => {
+	it( 'renders bold verbs via applyBold and produces translatable complete sentences', () => {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			showCapabilities: () => void;
+			[ key: string ]: unknown;
+		};
+
+		let capturedText = '';
+		ui.messages = {
+			addChild: ( node: { text?: string; content?: string } ) => {
+				// Text component stores its content as the first constructor arg
+				capturedText = String( Object.values( node )[ 0 ] ?? '' );
+			},
+		};
+		ui.tui = { requestRender: vi.fn() };
+
+		ui.showCapabilities();
+
+		// Chalk strips ANSI in non-TTY test environments, so verify the verb text
+		// is present as plain text (applyBold ran but produced no escape codes).
+		expect( capturedText ).toContain( 'Create new local WordPress sites' );
+		expect( capturedText ).toContain( 'Start / stop existing local sites' );
+		expect( capturedText ).toContain( 'List all your local sites' );
+		expect( capturedText ).toContain( 'Build block themes' );
+		expect( capturedText ).toContain( 'Validate all block content' );
+		expect( capturedText ).toContain( 'Push your local site' );
+		expect( capturedText ).toContain( 'Generate preview sites with shareable URLs' );
+
+		// No raw tags should leak into the output
+		expect( capturedText ).not.toContain( '<b>' );
+		expect( capturedText ).not.toContain( '</b>' );
+
+		// The surrounding sentence text should also be present
+		expect( capturedText ).toContain( 'new local WordPress sites instantly' );
+		expect( capturedText ).toContain( 'your local site to the cloud in WordPress.com' );
+		expect( capturedText ).toContain( 'with shareable URLs for quick feedback' );
+	} );
+} );

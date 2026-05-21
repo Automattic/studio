@@ -1436,6 +1436,10 @@ export class AiChatUI implements AiOutputAdapter {
 		const b = chalk.bold;
 		const d = chalk.dim;
 		const separator = d( ' ─'.padEnd( 80, '─' ) );
+		// Applies chalk.bold to any <b>…</b> tags in a translated string, then
+		// strips the tags. Translators can place <b> anywhere in the sentence.
+		const applyBold = ( str: string ) =>
+			str.replace( /<b>(.*?)<\/b>/g, ( _, text: string ) => b( text ) );
 
 		const lines = [
 			' ' +
@@ -1445,13 +1449,20 @@ export class AiChatUI implements AiOutputAdapter {
 			'',
 			'  ' + b( __( 'Local Sites Management' ) ),
 			'',
-			'  - ' + __( 'Create new local WordPress sites instantly (fully configured, ready to use)' ),
-			'  - ' + __( 'Start / stop existing local sites' ),
-			'  - ' + __( 'List all your local sites and their status' ),
+			/* translators: <b> and </b> wrap the action verb, which translators can move anywhere in the sentence */
+			'  - ' +
+				applyBold(
+					__( '<b>Create</b> new local WordPress sites instantly (fully configured, ready to use)' )
+				),
+			/* translators: <b> and </b> wrap the action verb, which translators can move anywhere in the sentence */
+			'  - ' + applyBold( __( '<b>Start / stop</b> existing local sites' ) ),
+			/* translators: <b> and </b> wrap the action verb, which translators can move anywhere in the sentence */
+			'  - ' + applyBold( __( '<b>List</b> all your local sites and their status' ) ),
 			'',
 			'  ' + b( __( 'Design & Development' ) ),
 			'',
-			'  - ' + __( 'Build block themes with striking, memorable designs' ),
+			/* translators: <b> and </b> wrap the action verb, which translators can move anywhere in the sentence */
+			'  - ' + applyBold( __( '<b>Build</b> block themes with striking, memorable designs' ) ),
 			'  - ' +
 				sprintf(
 					/* translators: %s: bold "CSS, PHP, and JavaScript" */
@@ -1501,9 +1512,14 @@ export class AiChatUI implements AiOutputAdapter {
 					__( 'Take %s (desktop + mobile) to verify the design is well crafted' ),
 					b( __( 'screenshots' ) )
 				),
-			'  - ' + __( "Validate all block content to ensure it's editor-compatible" ),
-			'  - ' + __( 'Push your local site to the cloud in WordPress.com' ),
-			'  - ' + __( 'Generate preview sites with shareable URLs for quick feedback' ),
+			/* translators: <b> and </b> wrap the action verb, which translators can move anywhere in the sentence */
+			'  - ' +
+				applyBold( __( "<b>Validate</b> all block content to ensure it's editor-compatible" ) ),
+			/* translators: <b> and </b> wrap the action verb, which translators can move anywhere in the sentence */
+			'  - ' + applyBold( __( '<b>Push</b> your local site to the cloud in WordPress.com' ) ),
+			/* translators: <b> and </b> wrap the action verb, which translators can move anywhere in the sentence */
+			'  - ' +
+				applyBold( __( '<b>Generate preview sites</b> with shareable URLs for quick feedback' ) ),
 			'',
 			separator,
 			'',

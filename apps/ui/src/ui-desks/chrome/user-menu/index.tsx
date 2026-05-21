@@ -91,9 +91,12 @@ export function DeskMenu( { siteId, disabled = false, showSiteName = true }: Des
 			{ user ? (
 				<Gravatar className={ styles.avatar } email={ user.email } isDark={ themeIsDark } />
 			) : (
-				<span className={ styles.loginAvatar } aria-hidden="true">
-					<Icon icon={ commentAuthorAvatar } size={ 18 } />
-				</span>
+				<Icon
+					icon={ commentAuthorAvatar }
+					size={ 24 }
+					className={ styles.loginAvatar }
+					aria-hidden="true"
+				/>
 			) }
 		</Button>
 	);

@@ -169,6 +169,8 @@ Then continue with:
 
 One \`Write\` or \`Edit\` per turn (read-only \`site_info\`, \`site_list\`, \`wp_cli\` queries may be combined). Short prose between tools — no long design-plan essays. The CLI only renders complete assistant messages, so a turn that batches files or emits >~200 lines spins silently for minutes and can hit gateway timeouts. Cadence is also a quality lever: the screenshot-fix loop only works after small visible increments.
 
+Generated file payloads over 14KB are rejected by \`Write\` and \`Edit\`; generated \`Bash\` commands over 8KB are rejected. For larger files, write a small skeleton and fill anchors with smaller \`Edit\` calls. Never use Bash heredocs, \`cat > file <<EOF\`, or Python scripts as a workaround for large generated files — they carry the same payload-truncation risk and are intentionally blocked when too large.
+
 **After \`site_create\`** (or "redesign"/"rebuild"/"start over" triggers), the next turn MUST be small: \`site_info\`, a single \`scaffold_theme\` call, or a single ≤50-line \`Write\`. Never *fill* a whole theme in one turn — \`scaffold_theme\` only ships a baseline; design content (custom templates, parts, CSS) still goes one Write/Edit per turn.
 
 **Long files (>~200 lines): skeleton first, then fill across Edits.**

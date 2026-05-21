@@ -36,6 +36,7 @@ import { createSkillTool } from 'cli/ai/tools/skill';
 import { takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
 import { createWpcomRequestTool } from 'cli/ai/tools/wpcom-request';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
+import { withStudioToolPayloadGuard } from './tool-safety';
 import type { AskUserHandler, SiteInfo } from 'cli/ai/types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -435,9 +436,9 @@ function buildAgentTools(
 
 	const piTools: AgentToolAny[] = [
 		renameTool( createReadTool( STUDIO_SITES_ROOT ), 'Read' ),
-		renameTool( createWriteTool( STUDIO_SITES_ROOT ), 'Write' ),
-		renameTool( createEditTool( STUDIO_SITES_ROOT ), 'Edit' ),
-		renameTool( createBashTool( STUDIO_SITES_ROOT ), 'Bash' ),
+		withStudioToolPayloadGuard( renameTool( createWriteTool( STUDIO_SITES_ROOT ), 'Write' ) ),
+		withStudioToolPayloadGuard( renameTool( createEditTool( STUDIO_SITES_ROOT ), 'Edit' ) ),
+		withStudioToolPayloadGuard( renameTool( createBashTool( STUDIO_SITES_ROOT ), 'Bash' ) ),
 		renameTool( createGrepTool( STUDIO_SITES_ROOT ), 'Grep' ),
 		renameTool( createFindTool( STUDIO_SITES_ROOT ), 'Glob' ),
 		renameTool( createLsTool( STUDIO_SITES_ROOT ), 'Ls' ),

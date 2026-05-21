@@ -207,8 +207,6 @@ After the build process completes, you can find the executables in the `out/` di
 
 ### Linux
 
-End users can install Studio from the published `.deb` packages on the [Studio releases page](https://github.com/Automattic/studio/releases). The instructions below cover building from source for development.
-
 To run the unpackaged app from a clone:
 
 ```bash

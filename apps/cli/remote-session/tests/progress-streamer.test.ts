@@ -320,6 +320,36 @@ describe( 'ProgressStreamer', () => {
 		expect( second.text ).toBe( '⏳ _fourth_' );
 	} );
 
+	it( 'coalesces events while a post is in flight instead of queueing multiple edits', async () => {
+		const { streamer, respond, clock } = makeStreamer( { intervalMs: 1000 } );
+		let resolveCreate: ( value: RespondOutcome ) => void = () => undefined;
+		respond.mockImplementationOnce(
+			() =>
+				new Promise< RespondOutcome >( ( resolve ) => {
+					resolveCreate = resolve;
+				} )
+		);
+
+		streamer.onEvent( { type: 'info', timestamp: 't', message: 'first' } );
+		await flushPromises();
+		expect( respond ).toHaveBeenCalledTimes( 1 );
+
+		clock.advance( 1500 );
+		streamer.onEvent( { type: 'info', timestamp: 't', message: 'second' } );
+		clock.advance( 1500 );
+		streamer.onEvent( { type: 'info', timestamp: 't', message: 'third' } );
+		await flushPromises();
+		expect( respond ).toHaveBeenCalledTimes( 1 );
+
+		resolveCreate( okOutcome( 1001 ) );
+		await flushPromises();
+		expect( respond ).toHaveBeenCalledTimes( 2 );
+		const edit = respond.mock.calls[ 1 ][ 1 ] as Record< string, unknown >;
+		expect( edit.action ).toBe( 'edit' );
+		expect( edit.messageId ).toBe( 1001 );
+		expect( edit.text ).toBe( '⏳ _third_' );
+	} );
+
 	it( 'collapses whitespace and truncates long messages to maxChars (prefix-inclusive)', async () => {
 		const { streamer, respond } = makeStreamer( { maxChars: 20 } );
 		streamer.onEvent( {
@@ -397,6 +427,48 @@ describe( 'ProgressStreamer', () => {
 		respond.mockRejectedValueOnce( new Error( 'network down' ) );
 		await expect( streamer.stop( 'success' ) ).resolves.toBeUndefined();
 		expect( respond ).toHaveBeenCalledTimes( 2 );
+	} );
+
+	it( 'stop("success") returns after a bounded wait when an in-flight progress post hangs', async () => {
+		const { streamer, respond, clock } = makeStreamer();
+		respond.mockImplementationOnce( () => new Promise< RespondOutcome >( () => undefined ) );
+
+		streamer.onEvent( { type: 'info', timestamp: 't', message: 'working' } );
+		await flushPromises();
+		expect( respond ).toHaveBeenCalledTimes( 1 );
+
+		let settled = false;
+		const stopPromise = streamer.stop( 'success' ).then( () => {
+			settled = true;
+		} );
+		await flushPromises();
+		expect( settled ).toBe( false );
+
+		clock.advance( 2500 );
+		await stopPromise;
+		expect( settled ).toBe( true );
+		expect( respond ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'stop("success") returns after a bounded wait when the final delete hangs', async () => {
+		const { streamer, respond, clock } = makeStreamer();
+		respond.mockResolvedValueOnce( okOutcome( 1001 ) );
+		respond.mockImplementationOnce( () => new Promise< RespondOutcome >( () => undefined ) );
+
+		streamer.onEvent( { type: 'info', timestamp: 't', message: 'working' } );
+		await flushPromises();
+
+		let settled = false;
+		const stopPromise = streamer.stop( 'success' ).then( () => {
+			settled = true;
+		} );
+		await flushPromises();
+		expect( respond ).toHaveBeenCalledTimes( 2 );
+		expect( settled ).toBe( false );
+
+		clock.advance( 2500 );
+		await stopPromise;
+		expect( settled ).toBe( true );
 	} );
 
 	it( 'falls back to create when the first create errored (no messageId to edit against)', async () => {

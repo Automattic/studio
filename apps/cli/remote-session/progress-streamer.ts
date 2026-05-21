@@ -47,6 +47,7 @@ export type ProgressFinalStatus =
 const DEFAULT_INTERVAL_MS = 3_000;
 const DEFAULT_MAX_CHARS = 200;
 const THINKING_PREVIEW_CHARS = 140;
+const STOP_WAIT_TIMEOUT_MS = 2_000;
 
 interface PiContentBlockLike {
 	type?: unknown;
@@ -153,9 +154,9 @@ function formatAssistantMessage( raw: AgentMessage ): string | null {
  *     emitted as `text` blocks alongside the `toolCall` blocks. Falls back to
  *     `thinking` blocks or the bare tool name when the model emits no text.
  *
- * Posts are serialized through a single promise chain (mirroring
- * MediaStreamer): a slow `create` blocks subsequent `edit`s until the
- * `messageId` is known, eliminating the "two status messages" race.
+ * At most one status POST is in flight at a time. While that request is
+ * running, new events collapse into one pending latest line, which is flushed
+ * after the active request settles and the edit cadence allows another send.
  */
 export class ProgressStreamer {
 	private readonly config: RemoteSessionConfig;
@@ -178,8 +179,10 @@ export class ProgressStreamer {
 
 	/** Message id captured from the first successful create. */
 	private messageId: number | null = null;
-	/** Serializes posts so subsequent edits see the messageId from the create. */
-	private queue: Promise< void > = Promise.resolve();
+	/** The one currently running status POST, if any. */
+	private activePost: Promise< void > | null = null;
+	/** Abort controller for the currently running status POST. */
+	private activePostAbort: AbortController | null = null;
 	/**
 	 * If the most recent create errored, we have no messageId to edit, so the
 	 * next post should try `create` again rather than stalling.
@@ -215,6 +218,13 @@ export class ProgressStreamer {
 		if ( formatted === this.lastPostedText && this.pending === null ) {
 			return;
 		}
+		if ( formatted === this.pending ) {
+			return;
+		}
+		if ( this.activePost !== null ) {
+			this.pending = formatted;
+			return;
+		}
 		const now = this.deps.now();
 		const sinceLast = now - this.lastPostAt;
 		const cooldownReady = sinceLast >= this.intervalMs;
@@ -233,12 +243,7 @@ export class ProgressStreamer {
 		// Inside the cooldown / rate-limit window — keep only the latest
 		// message and schedule a flush.
 		this.pending = formatted;
-		if ( this.timer === null ) {
-			const cooldownWait = Math.max( 0, this.intervalMs - sinceLast );
-			const rateLimitWait = Math.max( 0, this.rateLimitedUntilMs - now );
-			const wait = Math.max( cooldownWait, rateLimitWait );
-			this.timer = this.deps.setTimeout( () => this.flushPending(), wait );
-		}
+		this.schedulePendingFlush();
 	};
 
 	/**
@@ -251,8 +256,8 @@ export class ProgressStreamer {
 	 *                 failure stays visible.
 	 *               - `undefined` → leave the last status text in place.
 	 *
-	 * Resolves once the delete/edit has settled so the caller can post the
-	 * real reply in chat order.
+	 * Resolves once the delete/edit settles, or after a short timeout, so
+	 * best-effort progress never blocks the real reply indefinitely.
 	 */
 	async stop( status?: ProgressFinalStatus ): Promise< void > {
 		this.disposed = true;
@@ -262,12 +267,10 @@ export class ProgressStreamer {
 		}
 		this.pending = null;
 
-		// Wait for any in-flight post so we know the latest messageId and so
-		// our final operation doesn't race a still-pending create.
-		try {
-			await this.queue;
-		} catch {
-			// Posts swallow their own errors; nothing to handle here.
+		// Wait briefly for any in-flight post so we can learn the create
+		// messageId, but never let best-effort progress block the real reply.
+		if ( ! ( await this.waitForActivePost() ) && this.messageId === null ) {
+			return;
 		}
 
 		if ( this.messageId === null || status === undefined ) {
@@ -275,58 +278,54 @@ export class ProgressStreamer {
 		}
 
 		if ( status === 'success' ) {
-			try {
-				await this.deps.respond(
-					this.config,
-					{
-						chatId: this.target.chatId,
-						bot: this.target.bot,
-						action: 'delete',
-						messageId: this.messageId,
-					},
-					{ logger: this.deps.logger, maxRetries: 0 }
-				);
-			} catch ( error ) {
-				// Server-side delete is idempotent ("message to delete not found"
-				// is treated as success) so any error here is a real transport /
-				// auth problem worth a warning, not worth retrying.
-				this.deps.logger.warn( 'Progress final delete failed', {
-					chat_id: this.target.chatId,
-					message_id: this.messageId,
-					error: ( error as Error ).message,
-				} );
-			}
+			await this.respondWithTimeout(
+				{
+					chatId: this.target.chatId,
+					bot: this.target.bot,
+					action: 'delete',
+					messageId: this.messageId,
+				},
+				'delete'
+			);
 			return;
 		}
 
 		const summary = `⚠️ ${ italic( status ) }`;
-		try {
-			await this.deps.respond(
-				this.config,
-				{
-					chatId: this.target.chatId,
-					bot: this.target.bot,
-					action: 'edit',
-					messageId: this.messageId,
-					text: summary,
-				},
-				{ logger: this.deps.logger, maxRetries: 0 }
-			);
-		} catch ( error ) {
-			this.deps.logger.warn( 'Progress final edit failed', {
-				chat_id: this.target.chatId,
-				message_id: this.messageId,
-				error: ( error as Error ).message,
-			} );
+		await this.respondWithTimeout(
+			{
+				chatId: this.target.chatId,
+				bot: this.target.bot,
+				action: 'edit',
+				messageId: this.messageId,
+				text: summary,
+			},
+			'edit'
+		);
+	}
+
+	private schedulePendingFlush(): void {
+		if (
+			this.disposed ||
+			this.pending === null ||
+			this.activePost !== null ||
+			this.timer !== null
+		) {
+			return;
 		}
+		const now = this.deps.now();
+		const cooldownWait = Math.max( 0, this.intervalMs - ( now - this.lastPostAt ) );
+		const rateLimitWait = Math.max( 0, this.rateLimitedUntilMs - now );
+		const wait = Math.max( cooldownWait, rateLimitWait );
+		if ( wait === 0 ) {
+			this.flushPending();
+			return;
+		}
+		this.timer = this.deps.setTimeout( () => this.flushPending(), wait );
 	}
 
 	private flushPending(): void {
 		this.timer = null;
-		if ( this.disposed ) {
-			return;
-		}
-		if ( this.pending === null ) {
+		if ( this.disposed || this.pending === null || this.activePost !== null ) {
 			return;
 		}
 		const message = this.pending;
@@ -335,68 +334,138 @@ export class ProgressStreamer {
 	}
 
 	private post( text: string ): void {
-		this.lastPostAt = this.deps.now();
 		this.lastPostedText = text;
-		// Snapshot the action decision before queuing — by the time the queued
-		// task runs, `this.messageId` may have been set by an earlier task and
-		// we want this post to honor that.
-		this.queue = this.queue.then( async () => {
-			const action: 'create' | 'edit' =
-				this.messageId !== null && ! this.createFailed ? 'edit' : 'create';
-			const messageId = action === 'edit' ? ( this.messageId as number ) : undefined;
+		this.activePost = this.send( text ).finally( () => {
+			this.activePost = null;
+			this.activePostAbort = null;
+			this.schedulePendingFlush();
+		} );
+	}
 
-			// INFO-level so a remote-session.log tail can see the streamer's
-			// intent without enabling debug.
-			this.deps.logger.info( 'Progress streamer post', {
+	private async send( text: string ): Promise< void > {
+		const controller = new AbortController();
+		this.activePostAbort = controller;
+		this.lastPostAt = this.deps.now();
+		const action: 'create' | 'edit' =
+			this.messageId !== null && ! this.createFailed ? 'edit' : 'create';
+		const messageId = action === 'edit' ? ( this.messageId as number ) : undefined;
+
+		// INFO-level so a remote-session.log tail can see the streamer's
+		// intent without enabling debug.
+		this.deps.logger.info( 'Progress streamer post', {
+			chat_id: this.target.chatId,
+			action,
+			message_id: messageId,
+			text_preview: text.slice( 0, 80 ),
+		} );
+
+		try {
+			const outcome = await this.deps.respond(
+				this.config,
+				{
+					chatId: this.target.chatId,
+					bot: this.target.bot,
+					action,
+					messageId,
+					text,
+				},
+				{ logger: this.deps.logger, maxRetries: 0, signal: controller.signal }
+			);
+
+			if ( outcome.retryAfterMs ) {
+				// Slide the rate-limit floor out. Use the wall clock at the time
+				// the response landed, not the queueing time, so chained edits
+				// don't pile up retries while we're already waiting.
+				this.rateLimitedUntilMs = Math.max(
+					this.rateLimitedUntilMs,
+					this.deps.now() + outcome.retryAfterMs
+				);
+			}
+
+			if ( action === 'create' ) {
+				if ( outcome.success && outcome.messageIds.length > 0 ) {
+					this.messageId = outcome.messageIds[ 0 ];
+					this.createFailed = false;
+				} else {
+					this.createFailed = true;
+				}
+			}
+		} catch ( error ) {
+			if ( action === 'create' ) {
+				this.createFailed = true;
+			}
+			this.deps.logger.warn( 'Progress post failed', {
 				chat_id: this.target.chatId,
 				action,
 				message_id: messageId,
-				text_preview: text.slice( 0, 80 ),
+				error: ( error as Error ).message,
 			} );
+		} finally {
+			if ( this.activePostAbort === controller ) {
+				this.activePostAbort = null;
+			}
+		}
+	}
 
-			try {
-				const outcome = await this.deps.respond(
-					this.config,
-					{
-						chatId: this.target.chatId,
-						bot: this.target.bot,
-						action,
-						messageId,
-						text,
-					},
-					{ logger: this.deps.logger, maxRetries: 0 }
-				);
+	private async waitForActivePost(): Promise< boolean > {
+		if ( this.activePost === null ) {
+			return true;
+		}
+		let timeout: ReturnType< typeof setTimeout > | null = null;
+		const timedOut = new Promise< false >( ( resolve ) => {
+			timeout = this.deps.setTimeout( () => {
+				this.activePostAbort?.abort();
+				this.deps.logger.warn( 'Progress post timed out during stop', {
+					chat_id: this.target.chatId,
+				} );
+				resolve( false );
+			}, STOP_WAIT_TIMEOUT_MS );
+		} );
+		const completed = this.activePost.then( () => true );
+		const result = await Promise.race( [ completed, timedOut ] );
+		if ( timeout !== null ) {
+			this.deps.clearTimeout( timeout );
+		}
+		return result;
+	}
 
-				if ( outcome.retryAfterMs ) {
-					// Slide the rate-limit floor out. Use the wall clock at the time
-					// the response landed, not the queueing time, so chained edits
-					// don't pile up retries while we're already waiting.
-					this.rateLimitedUntilMs = Math.max(
-						this.rateLimitedUntilMs,
-						this.deps.now() + outcome.retryAfterMs
-					);
-				}
-
-				if ( action === 'create' ) {
-					if ( outcome.success && outcome.messageIds.length > 0 ) {
-						this.messageId = outcome.messageIds[ 0 ];
-						this.createFailed = false;
-					} else {
-						this.createFailed = true;
-					}
-				}
-			} catch ( error ) {
-				if ( action === 'create' ) {
-					this.createFailed = true;
-				}
-				this.deps.logger.warn( 'Progress post failed', {
+	private async respondWithTimeout(
+		params: Parameters< typeof respondMessage >[ 1 ],
+		action: 'delete' | 'edit'
+	): Promise< void > {
+		const controller = new AbortController();
+		let timedOut = false;
+		let timeout: ReturnType< typeof setTimeout > | null = null;
+		const timeoutPromise = new Promise< null >( ( resolve ) => {
+			timeout = this.deps.setTimeout( () => {
+				timedOut = true;
+				controller.abort();
+				this.deps.logger.warn( 'Progress final response timed out', {
 					chat_id: this.target.chatId,
 					action,
-					message_id: messageId,
+					message_id: params.messageId,
+				} );
+				resolve( null );
+			}, STOP_WAIT_TIMEOUT_MS );
+		} );
+		const responsePromise = this.deps
+			.respond( this.config, params, {
+				logger: this.deps.logger,
+				maxRetries: 0,
+				signal: controller.signal,
+			} )
+			.catch( ( error ) => {
+				this.deps.logger.warn( `Progress final ${ action } failed`, {
+					chat_id: this.target.chatId,
+					message_id: params.messageId,
 					error: ( error as Error ).message,
 				} );
-			}
-		} );
+				return null;
+			} );
+		await Promise.race( [ responsePromise, timeoutPromise ] );
+		if ( timeout !== null && ! timedOut ) {
+			this.deps.clearTimeout( timeout );
+		}
 	}
 
 	/**

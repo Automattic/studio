@@ -17,8 +17,8 @@ describe( 'getSiteRuntime', () => {
 		}
 	} );
 
-	it( 'defaults to playground when the env var is unset', () => {
-		expect( getSiteRuntime() ).toBe( SITE_RUNTIME_PLAYGROUND );
+	it( 'defaults to native-php when the env var is unset', () => {
+		expect( getSiteRuntime() ).toBe( SITE_RUNTIME_NATIVE_PHP );
 	} );
 
 	it( 'returns native-php when STUDIO_RUNTIME=native-php', () => {
@@ -26,8 +26,13 @@ describe( 'getSiteRuntime', () => {
 		expect( getSiteRuntime() ).toBe( SITE_RUNTIME_NATIVE_PHP );
 	} );
 
-	it( 'falls back to playground for unknown values', () => {
-		process.env.STUDIO_RUNTIME = 'nonsense';
+	it( 'returns playground when STUDIO_RUNTIME=playground', () => {
+		process.env.STUDIO_RUNTIME = SITE_RUNTIME_PLAYGROUND;
 		expect( getSiteRuntime() ).toBe( SITE_RUNTIME_PLAYGROUND );
+	} );
+
+	it( 'falls back to native-php for unknown values', () => {
+		process.env.STUDIO_RUNTIME = 'nonsense';
+		expect( getSiteRuntime() ).toBe( SITE_RUNTIME_NATIVE_PHP );
 	} );
 } );

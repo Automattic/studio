@@ -87,7 +87,7 @@ describe( 'CLI: studio site create', () => {
 
 	const defaultTestOptions = {
 		wpVersion: 'latest',
-		phpVersion: '8.0' as const,
+		phpVersion: '8.3' as const,
 		enableHttps: false,
 		noStart: false,
 		skipBrowser: false,
@@ -107,7 +107,7 @@ describe( 'CLI: studio site create', () => {
 		adminUsername: 'admin',
 		adminPassword: 'existing-password',
 		running: false,
-		phpVersion: '8.0',
+		phpVersion: '8.3',
 	};
 
 	const mockProcessDescription: ProcessDescription = {

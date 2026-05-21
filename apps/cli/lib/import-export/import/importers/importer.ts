@@ -37,36 +37,24 @@ export async function ensureDir( dir: string ): Promise< void > {
 		if ( ! isErrnoException( error ) || ( error.code !== 'EEXIST' && error.code !== 'ENOTDIR' ) ) {
 			throw error;
 		}
-		const blocker = await findNonDirectoryAncestor( dir );
-		if ( ! blocker ) {
+		const parent = path.dirname( dir );
+		if ( parent === dir ) {
 			throw error;
 		}
-		await fs.promises.unlink( blocker );
-		console.warn( `ensureDir: removed non-directory blocker at ${ blocker }` );
+		await ensureDir( parent );
+		try {
+			const stat = await fs.promises.stat( dir );
+			if ( ! stat.isDirectory() ) {
+				await fs.promises.unlink( dir );
+				console.warn( `ensureDir: removed non-directory blocker at ${ dir }` );
+			}
+		} catch ( e ) {
+			if ( ! isErrnoException( e ) || e.code !== 'ENOENT' ) {
+				throw e;
+			}
+		}
 		await fs.promises.mkdir( dir, { recursive: true } );
 	}
-}
-
-async function findNonDirectoryAncestor( start: string ): Promise< string | null > {
-	const resolved = path.resolve( start );
-	const root = path.parse( resolved ).root;
-	const parts = resolved.slice( root.length ).split( path.sep ).filter( Boolean );
-	let cur = root;
-	for ( const part of parts ) {
-		cur = path.join( cur, part );
-		try {
-			const stat = await fs.promises.stat( cur );
-			if ( ! stat.isDirectory() ) {
-				return cur;
-			}
-		} catch ( error ) {
-			if ( isErrnoException( error ) && error.code === 'ENOENT' ) {
-				return null;
-			}
-			throw error;
-		}
-	}
-	return null;
 }
 
 abstract class BaseImporter extends ImportExportEventEmitter implements Importer {

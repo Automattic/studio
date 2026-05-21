@@ -1,6 +1,6 @@
 # Linux Guide
 
-Studio is available for Linux as a beta release. Most users should install the published Debian package; developers can also build from source.
+Studio is available for Linux. Most users should install the published Debian package; developers can also build from source.
 
 ## Install Studio
 
@@ -29,7 +29,7 @@ You can also re-download the latest `.deb` from the [releases page](https://gith
 
 - For systems using Wayland, you may need to launch Studio with the `--enable-features=UseOzonePlatform --ozone-platform=wayland` flag.
 - Some features may behave differently on Linux due to platform-specific implementations.
-- Studio is in beta on Linux — please [open an issue](https://github.com/Automattic/studio/issues) if you hit problems.
+- Please [open an issue](https://github.com/Automattic/studio/issues) if you hit problems.
 
 ## Running with Wayland
 

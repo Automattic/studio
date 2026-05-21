@@ -10,13 +10,13 @@ Spin up sites in seconds, sync with WordPress.com or Pressable, or import any Wo
 
 ## Get started
 
-WordPress Studio is free to use for Mac, Windows, and Linux (beta). Simply download the app to start building and testing — no dependencies required.
+WordPress Studio is free to use for Mac, Windows, and Linux. Simply download the app to start building and testing — no dependencies required.
 
 [Download WordPress Studio](https://developer.wordpress.com/studio/) for:
 
 - macOS (Intel or Apple Silicon)
 - Windows
-- Linux (beta) — [download the `.deb` from GitHub Releases](https://github.com/Automattic/studio/releases). See the [Linux guide](docs/linux.md) for install steps.
+- Linux — [download the `.deb` from GitHub Releases](https://github.com/Automattic/studio/releases). See the [Linux guide](docs/linux.md) for install steps.
 
 ## Highlights
 

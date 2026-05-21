@@ -100,11 +100,11 @@ type IpcApi = {
 interface FeatureFlags {
 	enableBlueprints: boolean;
 	enableStudioCodeUi: boolean;
+	enableDesksUiSwitch: boolean;
 }
 
 interface BetaFeatures {
 	remoteSession: boolean;
-	enableDesksUiSwitch?: boolean;
 	nativePhpRuntime?: boolean;
 }
 

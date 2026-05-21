@@ -61,6 +61,7 @@ function EmptySiteCard( { isSelected, onClick }: { isSelected: boolean; onClick:
 	return (
 		<button
 			onClick={ onClick }
+			data-testid="empty-site-card"
 			className={ cx(
 				'flex flex-col h-full rounded-lg border overflow-hidden text-left transition-colors',
 				isSelected

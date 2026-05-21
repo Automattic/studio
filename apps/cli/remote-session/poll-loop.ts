@@ -128,7 +128,12 @@ async function handleTurn(
 		mediaStreamer.onEvent( event );
 	};
 
-	let outcome: TurnOutcome;
+	// Definite-assignment: runTurn never throws synchronously (it surfaces
+	// errors via outcome.status = 'spawn_error'), so by the time the finally
+	// block runs `outcome` is always defined in practice. The `!` lets TS see
+	// the optional-chain read in finally without losing strictness elsewhere.
+	let outcome!: TurnOutcome;
+	let mediaSummary = { posted: 0, failed: 0 };
 	try {
 		outcome = await deps.runTurn( {
 			text,
@@ -159,13 +164,18 @@ async function handleTurn(
 			} );
 		}
 	} finally {
-		progressStreamer.stop();
+		// Drain in-flight photos BEFORE finalizing the live status. The streamer
+		// either deletes the status (on success) or edits it to a ⚠️ summary —
+		// either way we want any mid-turn photo POSTs (which post as new
+		// messages) to land first so the chat sequence stays in order.
+		mediaSummary = await mediaStreamer.drain();
+		// Pass the turn's terminal status (when known) so the live status
+		// message disappears on success or collapses to a ⚠️ summary on failure.
+		// `signal.aborted` means the user detached mid-turn — treat that as an
+		// error; `undefined` (runTurn threw before assigning) leaves the line.
+		const finalStatus = signal.aborted ? 'error' : outcome?.status;
+		await progressStreamer.stop( finalStatus );
 	}
-
-	// Wait for any in-flight photos to finish posting so a text reply that
-	// follows them lands in chat order, even if the photo POST is still
-	// running when the turn ends.
-	const mediaSummary = await mediaStreamer.drain();
 
 	if ( outcome.sessionId && outcome.sessionId !== sessionId ) {
 		await deps.writeSession( target.chatId, outcome.sessionId );

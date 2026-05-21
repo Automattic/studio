@@ -18,12 +18,6 @@ export const FEATURE_FLAGS: Record< keyof FeatureFlags, FeatureFlagDefinition > 
 		flag: 'enableStudioCodeUi',
 		default: false,
 	},
-	enableDesksUiSwitch: {
-		label: 'Enable Studio UI Switcher',
-		env: 'ENABLE_DESKS_UI_SWITCH',
-		flag: 'enableDesksUiSwitch',
-		default: false,
-	},
 } as const;
 
 export function getFeatureFlagFromEnv( flag: keyof FeatureFlags ): boolean {

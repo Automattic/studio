@@ -15,6 +15,7 @@ export interface BetaFeatureDefinition {
 const BETA_FEATURE_DEFAULTS: Record< keyof BetaFeatures, boolean > = {
 	remoteSession: false,
 	nativePhpRuntime: false,
+	enableDesksUiSwitch: false,
 };
 
 /**
@@ -34,6 +35,12 @@ export function getBetaFeaturesDefinition(): Record< keyof BetaFeatures, BetaFea
 			label: __( 'Native PHP runtime' ),
 			default: BETA_FEATURE_DEFAULTS.nativePhpRuntime,
 			description: __( 'Run Studio sites with native PHP instead of Playground.' ),
+		},
+		enableDesksUiSwitch: {
+			label: __( 'Desks UI switch' ),
+			key: 'enableDesksUiSwitch',
+			default: BETA_FEATURE_DEFAULTS.enableDesksUiSwitch,
+			description: __( 'Show the option to switch Studio into the Desks UI.' ),
 		},
 	};
 }

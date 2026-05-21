@@ -3,7 +3,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Button from 'src/components/button';
 import { FormPathInputComponent } from 'src/components/form-path-input';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
+import { useBetaFeatures } from 'src/hooks/use-beta-features';
 import { isWindowsStore } from 'src/lib/app-globals';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ColorSchemePicker } from 'src/modules/user-settings/components/color-scheme-picker';
@@ -33,7 +33,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const { __ } = useI18n();
 	const savedLocale = useI18nLocale();
 	const dispatch = useAppDispatch();
-	const { enableDesksUiSwitch } = useFeatureFlags();
+	const { enableDesksUiSwitch } = useBetaFeatures();
 
 	const { data: colorScheme } = useGetColorSchemeQuery();
 	const { data: editor } = useGetUserEditorQuery();

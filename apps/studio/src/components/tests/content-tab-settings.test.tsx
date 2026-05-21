@@ -38,7 +38,7 @@ const snapshotTestActions = {
 let testStore = createTestStore( {
 	preloadedState: {
 		betaFeatures: {
-			features: { remoteSession: false, nativePhpRuntime: false },
+			features: { remoteSession: false, nativePhpRuntime: false, enableDesksUiSwitch: false },
 			loading: false,
 		},
 	},
@@ -49,7 +49,7 @@ function createCustomTestStore( nativePhpRuntime = false ) {
 	const store = createTestStore( {
 		preloadedState: {
 			betaFeatures: {
-				features: { remoteSession: false, nativePhpRuntime },
+				features: { remoteSession: false, nativePhpRuntime, enableDesksUiSwitch: false },
 				loading: false,
 			},
 		},

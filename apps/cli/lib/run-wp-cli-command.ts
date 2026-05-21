@@ -210,7 +210,7 @@ export async function runWpCliCommand(
 		await php.mount( '/wordpress', createNodeFsMountHandler( siteFolder ) );
 		php.chdir( '/wordpress' );
 
-		// `curl.cainfo` must accompany `openssl.cafile`, otherwise PHP's curl extension errors with "cURL error 77".
+		// Setup SSL certificates
 		php.writeFile( '/tmp/ca-bundle.crt', rootCertificates.join( '\n' ) );
 		await setPhpIniEntries( php, {
 			'openssl.cafile': '/tmp/ca-bundle.crt',
@@ -319,7 +319,7 @@ export async function runGlobalWpCliCommand(
 	try {
 		await php.setSapiName( 'cli' );
 
-		// `curl.cainfo` must accompany `openssl.cafile`, otherwise PHP's curl extension errors with "cURL error 77".
+		// Setup SSL certificates
 		php.writeFile( '/tmp/ca-bundle.crt', rootCertificates.join( '\n' ) );
 		await setPhpIniEntries( php, {
 			'openssl.cafile': '/tmp/ca-bundle.crt',

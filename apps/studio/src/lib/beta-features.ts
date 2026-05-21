@@ -14,6 +14,7 @@ export interface BetaFeatureDefinition {
  */
 const BETA_FEATURE_DEFAULTS: Record< keyof BetaFeatures, boolean > = {
 	remoteSession: false,
+	enableDesksUiSwitch: false,
 	nativePhpRuntime: false,
 };
 
@@ -28,6 +29,12 @@ export function getBetaFeaturesDefinition(): Record< keyof BetaFeatures, BetaFea
 			key: 'remoteSession',
 			default: BETA_FEATURE_DEFAULTS.remoteSession,
 			description: __( 'Control Studio from Telegram via the remote-session daemon.' ),
+		},
+		enableDesksUiSwitch: {
+			key: 'enableDesksUiSwitch',
+			label: __( 'Desks UI' ),
+			default: BETA_FEATURE_DEFAULTS.enableDesksUiSwitch,
+			description: __( 'Enable the switch to try the Desks UI.' ),
 		},
 		nativePhpRuntime: {
 			key: 'nativePhpRuntime',

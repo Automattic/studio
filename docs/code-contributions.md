@@ -238,14 +238,21 @@ MimeType=x-scheme-handler/wp-studio;
 Categories=Development;
 ```
 
-Refresh the application menu and register Studio as the `wp-studio://` handler:
+After creating the file, refresh the application menu so the entry appears:
 
 ```bash
 update-desktop-database ~/.local/share/applications
+```
+
+#### Registering the `wp-studio://` URL handler
+
+When working on OAuth/login flows from a source build, register the binary as the `wp-studio://` handler so browser callbacks reach your dev build:
+
+```bash
 xdg-mime default studio.desktop x-scheme-handler/wp-studio
 ```
 
-Without the `xdg-mime` step, browsers will show "Open With… / No Apps Available" when WordPress.com OAuth redirects back to `wp-studio://`.
+This depends on the `.desktop` file from the previous section. Without it, browsers will show "Open With… / No Apps Available" when WordPress.com OAuth redirects back, or hand the callback off to an installed `.deb` build (masking the bug you're trying to debug).
 
 #### Troubleshooting
 

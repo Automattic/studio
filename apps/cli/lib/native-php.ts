@@ -138,7 +138,11 @@ export function getNativePhpIniContents( phpVersion: NativePhpSupportedVersion )
 		path.join( getPhpBinaryDir( phpVersion ), CA_BUNDLE_FILENAME )
 	);
 	const directives: string[] = [
-		'memory_limit=512M',
+		'memory_limit=256M',
+		'post_max_size=2G',
+		'upload_max_filesize=2G',
+		'display_errors=1',
+		'display_startup_errors=1',
 		`opcache.cache_id="studio-php${ phpVersion }"`,
 		`openssl.cafile="${ caBundlePath }"`,
 		`curl.cainfo="${ caBundlePath }"`,

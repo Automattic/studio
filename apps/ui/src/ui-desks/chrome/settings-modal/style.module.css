@@ -24,7 +24,7 @@
 	display: flex;
 	flex-direction: column;
 	gap: 10px;
-	margin-top: 10px;
+	margin-top: 20px;
 	padding-top: 14px;
 	border-top: 1px solid var( --ui-desks-divider, rgba( 15, 23, 42, 0.06 ) );
 }
@@ -40,4 +40,10 @@
 	display: flex;
 	flex-wrap: wrap;
 	gap: 8px;
+}
+
+.settingsFooter {
+	margin-top: 10px;
+	padding-top: 14px;
+	border-top: 1px solid var( --ui-desks-divider, rgba( 15, 23, 42, 0.06 ) );
 }

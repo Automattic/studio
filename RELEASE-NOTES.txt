@@ -1,6 +1,121 @@
 Unreleased
 ==========
 
+1.10.0
+=====
+<!-- Release notes generated using configuration in .github/release.yml at HEAD -->
+* Blueprints Gallery Library: Push Add site screen higher #3407
+* apps/ui: Add global desk settings for site name and toolbar layout #3427
+* apps/ui: Remove New chat from the ui-desks plus menu #3428
+* remote-session: detect stale resume sessions reported via JSON error events #3406
+* apps/ui: Add sticky note text sizing and fit-text controls to desks UI #3432
+* apps/ui: Add embed and bookmark URL widgets to desk UI #3434
+* Added `.npmrc` file with `min-release-age=1` #3436
+* apps/ui: Add drawing widgets to the desk create flow #3438
+* apps/ui: Add Fit to size for media and embed widgets #3441
+* Add PHP CLI Apps CDN upload workflow #3375
+* Blueprints Gallery Library: Fix warnings while running add-site.test.tsx #3442
+* apps/ui: Add tiles mode for stack widgets and post collections #3443
+* Add Dependabot cooldown of 1 day for npm updates #3440
+* Align chat sidebar loading state and column spacing #3446
+* apps/ui: Add richer post and page card metadata in desk UI #3447
+* CLI: Rename Dolly to WordPress Agent in remote-session strings #3449
+* apps/ui: Implement contextual menus for desk canvas widgets #3451
+* Studio Blueprints Gallery: Clean up old UI code #3448
+* apps/ui: Hide tldraw selection chrome and color selected drawings #3453
+* apps/ui: Copy the desk chat composer and conversation into ui-desks #3454
+* apps/ui: Add sd-artefact rendering and seed an example artefact #3455
+* apps/ui: Consolidate desk button components #3457
+* apps/ui: Polish desk context menu status rows #3459
+* apps/ui: Add drag-to-composer widget attachments #3458
+* Auto-install latest blueprints.phar again #3437
+* Distribute Linux dev builds to AppsCDN #3363
+* Revert "Distribute Linux dev builds to AppsCDN" (#3363) #3462
+* apps/ui: Refactor ui-desks folder layout for consistent component and module structure #3463
+* Update node version in .nvmrc #3461
+* Add inline chat artifacts for agent-created content #3467
+* apps/ui: Consolidate desks UI buttons and dialogs #3468
+* Avoid writing new mu-plugins if old ones are still accessible #3403
+* apps/ui: Allow local media files in desks UI media widgets #3470
+* Improve Studio artifact guidance and screenshot presentation #3474
+* apps/ui: Reduce desks button style overrides #3473
+* Rename desks widget type to scratchpad #3469
+* Sane security defaults for native PHP runtime #3405
+* apps/ui: Fix AI session site placement and restore active run state across navigation #3476
+* apps/ui: Remove ui-desks loading animation #3479
+* apps/ui: Render media thumbnails with img elements for local file URLs #3480
+* apps/ui: Add widget connectors #3481
+* apps/ui: Rename AI widget manifest from sd-artefact to scratchpad #3486
+* Add preview annotations to desks UI #3484
+* apps/ui: Add widget drop handlers for connector actions #3487
+* Bump fastlane-plugin-wpmreleasetoolkit to 14.6.0 #3483
+* Add site card widget support to ui-desks #3490
+* Add JSON import and export for desks #3494
+* Keep post collections visible after loading and restore toolbar delete behavior #3497
+* Reapply "Distribute Linux dev builds to AppsCDN" #3464
+* apps/ui: Sync site preview with connector and toolbar actions #3498
+* apps/ui: Match Desk incoming connector context and chat upstream sources #3499
+* apps/ui: Integrate scratchpad state with chat conversations #3500
+* Add generic drop feedback for media card polish #3502
+* Clean up Linux DEB filename for AppsCDN uploads #3501
+* apps/ui: Switch Studio’s new UI to desks mode by default #3504
+* Add in-app updater for Linux #3465
+* apps/ui: Match scratchpad widget styling to the Desk reference #3507
+* apps/ui: Remove padding from chat drag thumbnail preview #3508
+* apps/ui: Match post and page widgets to the reference desk design #3509
+* apps/ui: Align stack fan layout with the reference desk algorithm #3510
+* Show a confirmation dialog before switching desks for moved chats #3511
+* apps/ui: Hide the composer send button while an agent is running unless text is entered #3512
+* apps/ui: Match desks chat loading behavior to TUI #3515
+* apps/ui: Ignore multi-selected stack drags in connector handling #3516
+* apps/ui: Match desk theme widgets to the reference implementation #3505
+* apps/ui: Add a chat intent for primary buttons and reuse it across desks #3514
+* Linux: auto-trust Firefox profiles and surface in-app cert notice #3472
+* Bump WordPress Playground to 3.1.33 #3496
+* Blueprints Gallery Library: Add blueprints gallery to CLI #3503
+* build(deps): bump actions/download-artifact from 4 to 8 #3444
+* apps/ui: Refine chat archive button alignment in the sidebar #3523
+* apps/ui: Port PDF widget type into desks-ui #3522
+* apps/ui: Add theme template and pattern browsing from the theme card #3524
+* Add color widget paste and swatch support to desks #3525
+* Build PHP binaries with Xdebug #3439
+* Load native PHP extensions properly on Windows #3471
+* Run E2E tests on Linux in Buildkite #3421
+* Fix native php blueprint #3491
+* build(deps): bump the typescript group across 1 directory with 3 updates #3341
+* Recenter the desk selection toolbar around the open chat panel #3527
+* Add Linux to the release build and distribution pipeline #3506
+* Preserve custom db.php drop-ins during SQLite integration updates #3095
+* CLI: Remove feature flag gating from remote-session #3513
+* Handle existing PHP binary CDN builds #3530
+* Update PHP 8.5.6 binary metadata #3535
+* Add a site details dropdown to site desks #3531
+* apps/ui: Seed new site desks with a useful default layout #3536
+* Build static PHP binaries for Linux #3529
+* Update PHP 8.3.31 binary metadata #3538
+* Update PHP 8.4.21 binary metadata #3539
+* Update PHP 8.2.31 binary metadata #3540
+* Update PHP 8.1.34 binary metadata #3541
+* Automate standalone wp-studio npm release process #3408
+* apps/ui: Add desks site settings route #3542
+* Download PHP CLI binaries from Apps CDN #3393
+* Add a feature-flagged Desks UI default toggle #3537
+* Bump @wp-playground/* and @php-wasm/* to 3.1.34 #3544
+* More resilient error handling in SymlinkWatcher #3533
+* apps/ui: Use the updated user desk as the default desks UI layout #3546
+* apps/ui: Add a site shortcuts widget to the default desk #3548
+* Make phpMyAdmin work with native PHP runtime #3426
+* apps/ui: Add delete site action to the Desks site details dropdown #3550
+* Exclude unnecessary items from ASAR archive #3551
+* Make site runtime a global feature flag #3456
+* build(deps): bump the electron group across 1 directory with 3 updates #3391
+* Remove accidental node-abi direct dependency from package-lock.json #3556
+* build(deps): bump the eslint group across 1 directory with 9 updates #3495
+* Move front-end-only dependencies to `devDependencies` #3552
+* Add remote-session daemon indicator and toggle to Studio top bar #3450
+* Bundle default PHP binary #3554
+**Full Changelog**: https://github.com/Automattic/studio/compare/v1.9.0...v1.10.0
+
 1.9.0
 =====
 * Introduced the Blueprints Gallery #3384, #3400, #3402

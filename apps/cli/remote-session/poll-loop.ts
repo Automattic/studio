@@ -1,4 +1,6 @@
 import { type JsonEvent } from '@studio/common/ai/json-events';
+import { bumpStat } from 'cli/lib/bump-stat';
+import { StatsGroup, StatsMetric } from 'cli/lib/types/bump-stats';
 import { type RemoteSessionConfig } from 'cli/remote-session/config';
 import { RemoteSessionLogger } from 'cli/remote-session/logger';
 import { MediaStreamer } from 'cli/remote-session/media-streamer';
@@ -50,6 +52,29 @@ export interface RunPollLoopOptions {
 	deps?: Partial< PollLoopDeps >;
 	/** Called once attach status has been posted, after entering the loop. */
 	onAttached?: () => void;
+	/**
+	 * Whether to emit Dolly bump stats (attach/turn/detach). Defaults to false so tests don't
+	 * accidentally bump. The CLI entry point sets this to true when the bundle has telemetry
+	 * compiled in and the user didn't pass `--avoid-telemetry`.
+	 */
+	telemetryEnabled?: boolean;
+}
+
+function turnStatusMetric( outcomeStatus: TurnOutcome[ 'status' ] ): StatsMetric {
+	switch ( outcomeStatus ) {
+		case 'success':
+			return StatsMetric.SUCCESS;
+		case 'error':
+			return StatsMetric.TURN_ERROR;
+		case 'paused':
+			return StatsMetric.TURN_PAUSED;
+		case 'max_turns':
+			return StatsMetric.TURN_MAX_TURNS;
+		case 'timeout':
+			return StatsMetric.TURN_TIMEOUT;
+		case 'spawn_error':
+			return StatsMetric.TURN_SPAWN_ERROR;
+	}
 }
 
 function truncate( text: string, max: number ): string {
@@ -107,7 +132,8 @@ async function handleTurn(
 	config: RemoteSessionConfig,
 	target: ReplyTarget,
 	text: string,
-	signal: AbortSignal
+	signal: AbortSignal,
+	telemetryEnabled: boolean
 ): Promise< void > {
 	let sessionId: string | undefined = ( await deps.readState( target.chatId ) )?.session_id;
 	const started = Date.now();
@@ -226,6 +252,16 @@ async function handleTurn(
 		reply_absorbed: absorbedReply,
 	} );
 
+	if ( telemetryEnabled ) {
+		// `aborted` means the user detached mid-turn — the outcome status will still be 'error' or
+		// similar, but the meaningful classification is "user-initiated cancel," so bucket it
+		// separately to avoid skewing the error rate.
+		bumpStat(
+			StatsGroup.STUDIO_CLI_DOLLY_TURN,
+			signal.aborted ? StatsMetric.TURN_ABORTED : turnStatusMetric( outcome.status )
+		);
+	}
+
 	// Detach was requested mid-turn. Skip posting any reply — the detach flow
 	// will announce "🔴 Local agent detached." on its own.
 	if ( signal.aborted ) {
@@ -296,10 +332,15 @@ async function handleTurn(
 export async function runPollLoop( options: RunPollLoopOptions ): Promise< PollLoopHandle > {
 	const deps: PollLoopDeps = { ...DEFAULT_DEPS, ...options.deps };
 	const { config } = options;
+	const telemetryEnabled = options.telemetryEnabled ?? false;
 
 	const abortController = new AbortController();
 	let detachRequested = false;
 	let detachAnnounced = false;
+	// When set, takes precedence over the `reason` arg in `announceDetach`. Error paths assign
+	// here so the detach bump distinguishes auth-error / fatal-poll-error from a clean exit,
+	// even though they all funnel through the same break-batchLoop → 'loop-exit' code path.
+	let pendingDetachReason: StatsMetric | undefined;
 
 	// Attach status is only posted when the user pinned a `chat_id` in config. Without
 	// it, we don't know where to post until the first message arrives.
@@ -323,14 +364,20 @@ export async function runPollLoop( options: RunPollLoopOptions ): Promise< PollL
 	} else {
 		deps.logger.info( 'Attached (open to any chat authorized by the bearer)' );
 	}
+	if ( telemetryEnabled ) {
+		bumpStat( StatsGroup.STUDIO_CLI_DOLLY_ATTACH, StatsMetric.SUCCESS );
+	}
 	options.onAttached?.();
 
-	const announceDetach = async ( reason: string ) => {
+	const announceDetach = async ( reason: string, detachMetric: StatsMetric ) => {
 		if ( detachAnnounced ) {
 			return;
 		}
 		detachAnnounced = true;
 		deps.logger.info( 'Detaching', { reason } );
+		if ( telemetryEnabled ) {
+			bumpStat( StatsGroup.STUDIO_CLI_DOLLY_DETACH, pendingDetachReason ?? detachMetric );
+		}
 		// Detach status is also only posted when chat_id is pinned.
 		if ( config.chat_id !== undefined ) {
 			await postBestEffort(
@@ -345,7 +392,7 @@ export async function runPollLoop( options: RunPollLoopOptions ): Promise< PollL
 	const detach = async () => {
 		detachRequested = true;
 		abortController.abort();
-		await announceDetach( 'requested' );
+		await announceDetach( 'requested', StatsMetric.DETACH_REQUESTED );
 	};
 
 	const loop = async (): Promise< void > => {
@@ -366,6 +413,7 @@ export async function runPollLoop( options: RunPollLoopOptions ): Promise< PollL
 							'⚠️ Bad token; detaching.'
 						);
 					}
+					pendingDetachReason = StatsMetric.DETACH_AUTH_ERROR;
 					detachRequested = true;
 					process.exitCode = 1;
 					break;
@@ -386,6 +434,7 @@ export async function runPollLoop( options: RunPollLoopOptions ): Promise< PollL
 				deps.logger.error( 'Fatal poll error; detaching', {
 					error: ( error as Error ).message,
 				} );
+				pendingDetachReason = StatsMetric.DETACH_FATAL_POLL_ERROR;
 				detachRequested = true;
 				break;
 			}
@@ -467,12 +516,20 @@ export async function runPollLoop( options: RunPollLoopOptions ): Promise< PollL
 				}
 
 				try {
-					await handleTurn( deps, config, target, polled.text, abortController.signal );
+					await handleTurn(
+						deps,
+						config,
+						target,
+						polled.text,
+						abortController.signal,
+						telemetryEnabled
+					);
 				} catch ( error ) {
 					if ( error instanceof TelegramAuthError ) {
 						deps.logger.error( 'Auth error during respond; detaching', {
 							status: error.status,
 						} );
+						pendingDetachReason = StatsMetric.DETACH_AUTH_ERROR;
 						detachRequested = true;
 						process.exitCode = 1;
 						break batchLoop;
@@ -492,7 +549,10 @@ export async function runPollLoop( options: RunPollLoopOptions ): Promise< PollL
 			}
 		}
 
-		await announceDetach( detachAnnounced ? 'already-announced' : 'loop-exit' );
+		await announceDetach(
+			detachAnnounced ? 'already-announced' : 'loop-exit',
+			StatsMetric.DETACH_LOOP_EXIT
+		);
 	};
 
 	const done = loop();

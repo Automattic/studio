@@ -4,6 +4,7 @@ import { createInterface } from 'readline';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { generateBackupFilename } from '@studio/common/lib/generate-backup-filename';
 import { ImportEvents } from '@studio/common/lib/import-export-events';
+import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { serializePlugins } from '@studio/common/lib/serialize-plugins';
 import { type SupportedPHPVersion } from '@studio/common/types/php-versions';
 import { __, sprintf } from '@wordpress/i18n';
@@ -26,6 +27,34 @@ export interface ImporterResult extends Omit< BackupContents, 'metaFile' > {
 
 export interface Importer extends ImportExportEventEmitter {
 	import( site: SiteData ): Promise< ImporterResult >;
+}
+
+// Recovers from EEXIST/ENOTDIR by removing a non-directory blocker on the path.
+export async function ensureDir( dir: string ): Promise< void > {
+	try {
+		await fs.promises.mkdir( dir, { recursive: true } );
+	} catch ( error ) {
+		if ( ! isErrnoException( error ) || ( error.code !== 'EEXIST' && error.code !== 'ENOTDIR' ) ) {
+			throw error;
+		}
+		const parent = path.dirname( dir );
+		if ( parent === dir ) {
+			throw error;
+		}
+		await ensureDir( parent );
+		try {
+			const stat = await fs.promises.stat( dir );
+			if ( ! stat.isDirectory() ) {
+				await trash( dir );
+				console.warn( `ensureDir: moved non-directory blocker at ${ dir } to trash` );
+			}
+		} catch ( e ) {
+			if ( ! isErrnoException( e ) || e.code !== 'ENOENT' ) {
+				throw e;
+			}
+		}
+		await fs.promises.mkdir( dir, { recursive: true } );
+	}
 }
 
 abstract class BaseImporter extends ImportExportEventEmitter implements Importer {
@@ -236,7 +265,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 				);
 
 				const destPath = path.join( wpContentDestDir, relativePath );
-				await fs.promises.mkdir( path.dirname( destPath ), { recursive: true } );
+				await ensureDir( path.dirname( destPath ) );
 				await fs.promises.copyFile( file, destPath );
 
 				processedItems++;

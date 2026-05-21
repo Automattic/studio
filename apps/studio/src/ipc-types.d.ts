@@ -5,6 +5,8 @@ interface ShowNotificationOptions extends Electron.NotificationConstructorOption
 	showIcon: boolean;
 }
 
+type SiteRuntime = 'playground' | 'native-php';
+
 interface StoppedSiteDetails {
 	running: false;
 
@@ -44,6 +46,7 @@ interface StoppedSiteDetails {
 	enableDebugDisplay?: boolean;
 	sortOrder?: number;
 	landingPage?: string;
+	runtime?: SiteRuntime;
 }
 
 interface StartedSiteDetails extends StoppedSiteDetails {
@@ -101,6 +104,7 @@ interface FeatureFlags {
 }
 
 interface BetaFeatures {
+	remoteSession: boolean;
 	nativePhpRuntime?: boolean;
 }
 

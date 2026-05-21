@@ -32,6 +32,7 @@ export interface ChatsContextValue {
 	autoFocusSessionId?: string;
 	isCreatingChat: boolean;
 	pendingPrompt?: PendingChatPrompt;
+	authRequiredPrompt?: ChatPromptRequest;
 	composerWidgetAttachmentRequest?: ComposerWidgetAttachmentRequest;
 	composerWidgetDragPreview?: ComposerWidgetDragPreview;
 	isComposerWidgetDragTarget: boolean;
@@ -60,6 +61,7 @@ const defaultChatsContext: ChatsContextValue = {
 	autoFocusSessionId: undefined,
 	isCreatingChat: false,
 	pendingPrompt: undefined,
+	authRequiredPrompt: undefined,
 	composerWidgetAttachmentRequest: undefined,
 	composerWidgetDragPreview: undefined,
 	isComposerWidgetDragTarget: false,

@@ -90,6 +90,7 @@ export const session = {
 	defaultSession: {
 		setPermissionRequestHandler: vi.fn(),
 		webRequest: {
+			onBeforeSendHeaders: vi.fn(),
 			onHeadersReceived: vi.fn(),
 		},
 	},

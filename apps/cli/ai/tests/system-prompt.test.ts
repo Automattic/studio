@@ -35,6 +35,16 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).toContain( '- pdf:' );
 	} );
 
+	it( 'steers newsletter signups to jetpack/subscriptions, not jetpack/contact-form', () => {
+		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
+
+		expect( prompt ).toContain( '## Newsletter signup' );
+		expect( prompt ).toContain( 'jetpack/subscriptions' );
+		expect( prompt ).toContain( 'wp_cli jetpack module activate subscriptions' );
+		// The contact-form section should warn against using it for newsletters.
+		expect( prompt ).toMatch( /contact-form[^]*only stores submissions as Feedback/ );
+	} );
+
 	it( 'omits Studio presentation rules when chat artifacts are disabled', () => {
 		const prompt = buildSystemPrompt( { chatArtifactsEnabled: false } );
 

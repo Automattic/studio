@@ -49,6 +49,7 @@ import {
 import { autoInstallLinuxCliIfNeeded } from 'src/modules/cli/lib/linux-installation-manager';
 import { autoInstallMacOSCliIfNeeded } from 'src/modules/cli/lib/macos-installation-manager';
 import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
+import { startRemoteSessionStatusPolling } from 'src/modules/remote-session/daemon-status-poller';
 import { stopAllProcesses as stopAllStudioCodeProcesses } from 'src/modules/studio-code';
 import { getRunningSiteCount, SiteServer, stopAllServers } from 'src/site-server';
 import {
@@ -99,6 +100,7 @@ const isInInstaller = require( 'electron-squirrel-startup' );
 const gotTheLock = app.requestSingleInstanceLock();
 
 let finishedInitialization = false;
+let stopRemoteSessionStatusPolling: ( () => void ) | undefined;
 
 if ( gotTheLock && ! isInInstaller ) {
 	void appBoot();
@@ -371,6 +373,8 @@ async function appBoot() {
 		await autoInstallMacOSCliIfNeeded();
 		await autoInstallLinuxCliIfNeeded();
 
+		stopRemoteSessionStatusPolling = startRemoteSessionStatusPolling();
+
 		finishedInitialization = true;
 	} );
 
@@ -497,6 +501,7 @@ async function appBoot() {
 		globalShortcut.unregisterAll();
 		stopCliEventsSubscriber();
 		stopAllStudioCodeProcesses();
+		stopRemoteSessionStatusPolling?.();
 
 		if ( shouldStopSitesOnQuit ) {
 			event.preventDefault();

@@ -1,12 +1,11 @@
 #!/usr/bin/env tsx
 /**
- * Download a Studio PHP CLI binary for local development.
- * NOT used in production builds — binaries are not bundled with Studio or the CLI.
+ * Download a Studio PHP CLI package for local development and packaging.
  *
  * Source metadata: tools/common/lib/php-binary-cdn-metadata.json
  *
  * Usage:
- *   npx tsx scripts/download-php-binary.ts [version] [platform] [arch]
+ *   npx tsx scripts/download-php-binary.ts [version] [platform] [arch] [--install-root <path>]
  *
  * Examples:
  *   npx tsx scripts/download-php-binary.ts            # defaults to RecommendedPHPVersion
@@ -39,7 +38,7 @@ const archSchema = z.enum( [ 'x64', 'arm64' ] );
 type Platform = z.infer< typeof platformSchema >;
 type Arch = z.infer< typeof archSchema >;
 
-const positionalArgs = process.argv.slice( 2 );
+const { positionalArgs, installRoot } = parseArgs( process.argv.slice( 2 ) );
 
 const { version, ...args } = z
 	.tuple( [
@@ -53,7 +52,7 @@ const { version, ...args } = z
 const effectiveArch = getEffectivePhpBinaryArch( args.platform, args.arch );
 if ( args.arch === 'arm64' && args.platform === 'win32' ) {
 	console.warn(
-		'Warning: no Windows ARM64 PHP binary available. Downloading x64 binary instead (runs under Windows 11 emulation).'
+		'Warning: no Windows ARM64 PHP package available. Downloading x64 package instead (runs under Windows 11 emulation).'
 	);
 }
 
@@ -63,20 +62,21 @@ async function main(): Promise< void > {
 	const isWindows = args.platform === 'win32';
 	const binaryName = isWindows ? 'php.exe' : 'php';
 	const platformKey = `${ args.platform }-${ effectiveArch }`;
+	const phpPackageRoot = installRoot ?? path.join( getConfigDirectory(), 'php-bin' );
 
 	try {
 		const downloadInfo = resolvePhpBinaryDownloadInfo();
-		const binDir = path.join( getConfigDirectory(), 'php-bin', downloadInfo.patchVersion );
+		const binDir = path.join( phpPackageRoot, downloadInfo.patchVersion );
 		const destPath = path.join( binDir, binaryName );
 
 		if ( fs.existsSync( destPath ) ) {
 			console.log(
-				`PHP ${ version } (${ downloadInfo.patchVersion }) binary already exists at ${ destPath }. Delete it to re-download.`
+				`PHP ${ version } (${ downloadInfo.patchVersion }) package already exists at ${ binDir }. Delete it to re-download.`
 			);
 			return;
 		}
 
-		// Ensure ~/.studio/php-bin/ exists, then atomically claim this version's slot.
+		// Ensure the php-bin root exists, then atomically claim this version's slot.
 		fs.mkdirSync( path.dirname( binDir ), { recursive: true } );
 		try {
 			fs.mkdirSync( binDir );
@@ -112,7 +112,7 @@ async function main(): Promise< void > {
 			}
 			console.log( '  Hash OK.' );
 
-			console.log( 'Extracting PHP binary…' );
+			console.log( 'Extracting PHP package…' );
 			const tmpDir = os.tmpdir();
 			const extractDir = fs.mkdtempSync(
 				path.join( tmpDir, `php-${ downloadInfo.patchVersion }-` )
@@ -132,14 +132,7 @@ async function main(): Promise< void > {
 				fs.rmSync( extractDir, { recursive: true, force: true } );
 			}
 
-			const stats = fs.statSync( destPath );
-			console.log(
-				`\nPHP ${ version } binary installed: ${ destPath } (${ (
-					stats.size /
-					1024 /
-					1024
-				).toFixed( 1 ) } MB)`
-			);
+			console.log( `\nPHP ${ version } package installed: ${ binDir }` );
 		} catch ( err ) {
 			fs.rmSync( binDir, { recursive: true, force: true } );
 			throw err;
@@ -147,11 +140,46 @@ async function main(): Promise< void > {
 			fs.rmSync( downloadPath, { force: true } );
 		}
 	} catch ( error ) {
-		console.warn( `Warning: PHP binary download failed — ${ ( error as Error ).message }` );
+		console.warn( `Warning: PHP package download failed — ${ ( error as Error ).message }` );
 		console.warn(
 			`The native-php runtime will not be available. Run \`npm run download:php-binary\` to retry.`
 		);
+		if ( process.env.STUDIO_PHP_BINARY_DOWNLOAD_REQUIRED === '1' ) {
+			process.exitCode = 1;
+		}
 	}
+}
+
+function parseArgs( argv: string[] ): { installRoot?: string; positionalArgs: string[] } {
+	const positionalArgs: string[] = [];
+	let installRoot: string | undefined;
+
+	for ( let index = 0; index < argv.length; index++ ) {
+		const arg = argv[ index ];
+		if ( arg === '--install-root' ) {
+			const value = argv[ index + 1 ];
+			if ( ! value || value.startsWith( '--' ) ) {
+				throw new Error( 'Missing value for --install-root.' );
+			}
+			installRoot = value;
+			index++;
+			continue;
+		}
+		if ( arg.startsWith( '--install-root=' ) ) {
+			const value = arg.slice( '--install-root='.length );
+			if ( ! value ) {
+				throw new Error( 'Missing value for --install-root.' );
+			}
+			installRoot = value;
+			continue;
+		}
+		if ( arg.startsWith( '-' ) ) {
+			throw new Error( `Unknown option: ${ arg }` );
+		}
+		positionalArgs.push( arg );
+	}
+
+	return { installRoot, positionalArgs };
 }
 
 function getRuntimeBinaryName( extractDir: string ): string | undefined {

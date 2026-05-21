@@ -88,6 +88,11 @@ const mockWatcher = {
 };
 vi.mocked( fs.watch, { partial: true } ).mockReturnValue( mockWatcher );
 
+type OnBeforeSendHeadersListener = (
+	details: { requestHeaders: Record< string, string > },
+	callback: ( response: { requestHeaders: Record< string, string > } ) => void
+) => void;
+
 function mockElectron() {
 	const mockedEvents: Record< string, ( ...args: any[] ) => Promise< void > > = {};
 
@@ -135,6 +140,7 @@ function mockElectron() {
 					},
 					setPermissionRequestHandler: vi.fn(),
 					webRequest: {
+						onBeforeSendHeaders: vi.fn(),
 						onHeadersReceived: vi.fn(),
 					},
 				},
@@ -182,6 +188,48 @@ describe( 'App initialization', () => {
 		mockElectron();
 		vi.resetModules();
 		await expect( import( '../index' ) ).resolves.toBeDefined();
+	} );
+
+	it( 'should identify YouTube embed requests with the Studio referrer', async () => {
+		const { mockedEvents } = mockElectron();
+		vi.resetModules();
+		const { session } = await import( 'electron' );
+		await import( '../index' );
+
+		await mockedEvents.ready();
+		const onBeforeSendHeaders = session.defaultSession.webRequest
+			.onBeforeSendHeaders as unknown as ReturnType< typeof vi.fn >;
+
+		expect( onBeforeSendHeaders ).toHaveBeenCalledWith(
+			{
+				urls: [
+					'https://*.youtube.com/embed/*',
+					'https://youtube.com/embed/*',
+					'https://*.youtube-nocookie.com/embed/*',
+					'https://youtube-nocookie.com/embed/*',
+				],
+			},
+			expect.any( Function )
+		);
+
+		const listener = onBeforeSendHeaders.mock.calls[ 0 ][ 1 ] as OnBeforeSendHeadersListener;
+		const callback = vi.fn();
+		listener(
+			{
+				requestHeaders: {
+					Accept: 'text/html',
+					referer: 'http://localhost:5173/',
+				},
+			},
+			callback
+		);
+
+		expect( callback ).toHaveBeenCalledWith( {
+			requestHeaders: {
+				Accept: 'text/html',
+				Referer: 'https://developer.wordpress.com/studio/',
+			},
+		} );
 	} );
 
 	it( 'should handle authentication deep links', async () => {

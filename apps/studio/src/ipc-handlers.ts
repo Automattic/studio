@@ -448,6 +448,10 @@ export async function continueAiSession(
 	prompt: string,
 	options: { displayMessage?: string } = {}
 ): Promise< { runId: string } > {
+	if ( ! ( await oauthClient.isAuthenticated() ) ) {
+		throw new Error( __( 'WordPress.com login required. Log in to use Studio Desk chat.' ) );
+	}
+
 	await reconcileSessionEnvironmentBeforeRun( sessionId );
 	return startAgentRun( {
 		sessionId,

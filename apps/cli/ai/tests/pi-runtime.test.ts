@@ -88,6 +88,33 @@ const DEFAULT_MOCK_EVENTS: AgentSessionEvent[] = [
 	{ type: 'agent_end', messages: [] },
 ];
 
+type MessageEndEvent = Extract< AgentSessionEvent, { type: 'message_end' } >;
+
+const assistantMessage = (
+	content: unknown[],
+	stopReason: 'stop' | 'length' = 'stop'
+): MessageEndEvent =>
+	( {
+		type: 'message_end',
+		message: {
+			role: 'assistant',
+			content,
+			api: 'openai-completions',
+			provider: 'openai',
+			model: 'gpt-5.5',
+			usage: {
+				input: 0,
+				output: 0,
+				cacheRead: 0,
+				cacheWrite: 0,
+				totalTokens: 0,
+				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+			},
+			stopReason,
+			timestamp: 0,
+		},
+	} ) as MessageEndEvent;
+
 class FakeSession {
 	private listener?: ( event: AgentSessionEvent ) => void;
 	public state: { model: { id: string; provider: string }; messages: unknown[] };
@@ -127,6 +154,23 @@ class FakeSession {
 }
 
 const newSession = () => SessionManager.inMemory( '/tmp/eval' );
+
+type RuntimeTool = {
+	name: string;
+	description: string;
+	execute: (
+		toolCallId: string,
+		params: Record< string, unknown >
+	) => Promise< { content: Array< { type: string; text: string } > } >;
+};
+
+function getCreatedTool( name: string ): RuntimeTool {
+	const tools = ( mocks.createdSessions[ 0 ].options.customTools ??
+		[] ) as unknown as RuntimeTool[];
+	const tool = tools.find( ( item ) => item.name === name );
+	expect( tool ).toBeTruthy();
+	return tool!;
+}
 
 const findAssistantText = ( events: AgentSessionEvent[] ): string | undefined => {
 	for ( const e of events ) {
@@ -196,6 +240,103 @@ describe( 'pi runtime', () => {
 		expect( findAssistantText( events ) ).toBe( 'mocked openai response' );
 		const final = events[ events.length - 1 ];
 		expect( final.type ).toBe( 'agent_end' );
+	} );
+
+	it( 'registers guarded file-writing tools without adding a separate chunk tool', async () => {
+		await runRuntime( {
+			prompt: 'hello',
+			env: {
+				OPENAI_API_KEY: 'sk-test',
+				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
+			},
+			model: 'gpt-5.5',
+			session: newSession(),
+		} );
+
+		const tools = ( mocks.createdSessions[ 0 ].options.customTools ??
+			[] ) as unknown as RuntimeTool[];
+		const toolNames = tools.map( ( tool ) => tool.name );
+		expect( toolNames ).not.toContain( 'WriteChunk' );
+		expect( getCreatedTool( 'Write' ).description ).toContain( 'small skeleton' );
+		expect( getCreatedTool( 'Edit' ).description ).toContain( 'small skeleton' );
+		expect( getCreatedTool( 'Bash' ).description ).toContain( '8192 bytes' );
+	} );
+
+	it( 'rejects oversized direct Write, Edit, and Bash payloads with actionable errors', async () => {
+		await runRuntime( {
+			prompt: 'hello',
+			env: {
+				OPENAI_API_KEY: 'sk-test',
+				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
+			},
+			model: 'gpt-5.5',
+			session: newSession(),
+		} );
+
+		const write = getCreatedTool( 'Write' );
+		const edit = getCreatedTool( 'Edit' );
+		const bash = getCreatedTool( 'Bash' );
+
+		await expect(
+			write.execute( 'write-call', {
+				path: '/tmp/studio/site/tmp/large.txt',
+				content: 'x'.repeat( 14 * 1024 + 1 ),
+			} )
+		).rejects.toThrow( /single-call safety limit/ );
+		await expect(
+			edit.execute( 'edit-call', {
+				path: '/tmp/studio/site/tmp/large.txt',
+				old_string: '<!-- anchor -->',
+				new_string: 'x'.repeat( 14 * 1024 + 1 ),
+			} )
+		).rejects.toThrow( /single-call safety limit/ );
+		await expect(
+			bash.execute( 'bash-call', {
+				command: 'x'.repeat( 8 * 1024 + 1 ),
+			} )
+		).rejects.toThrow( /Do not retry with Bash heredocs or Python scripts/ );
+		expect( write.description ).toContain( 'small skeleton' );
+	} );
+
+	it( 'rejects side-effecting tool calls from length-truncated assistant messages', async () => {
+		mocks.nextEvents = [
+			assistantMessage(
+				[
+					{
+						type: 'toolCall',
+						id: 'tool-call-1',
+						name: 'Write',
+						arguments: {
+							path: '/tmp/studio/site/tmp/large.txt',
+							content: 'partial content under the size limit',
+						},
+						partialJson: '{"path":"/tmp/studio/site/tmp/large.txt","content":"partial',
+						index: 0,
+					},
+				],
+				'length'
+			),
+			{ type: 'agent_end', messages: [] },
+		] as AgentSessionEvent[];
+
+		await runRuntime( {
+			prompt: 'hello',
+			env: {
+				OPENAI_API_KEY: 'sk-test',
+				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
+			},
+			model: 'gpt-5.5',
+			session: newSession(),
+		} );
+
+		const write = getCreatedTool( 'Write' );
+
+		await expect(
+			write.execute( 'write-call', {
+				path: '/tmp/studio/site/tmp/large.txt',
+				content: 'partial content under the size limit',
+			} )
+		).rejects.toThrow( /hit the model output limit/ );
 	} );
 
 	it( 'leaves retry policy to pi settings defaults', async () => {

@@ -21,22 +21,6 @@ Studio checks for updates automatically and surfaces a dialog with a Download bu
 
 You can also re-download the latest `.deb` from the [releases page](https://github.com/Automattic/studio/releases) at any time.
 
-## Known Limitations
-
-- For systems using Wayland, you may need to launch Studio with the `--enable-features=UseOzonePlatform --ozone-platform=wayland` flag.
-- Some features may behave differently on Linux due to platform-specific implementations.
-- Please [open an issue](https://github.com/Automattic/studio/issues) if you hit problems.
-
-## Running with Wayland
-
-If you're using Wayland instead of X11, launch Studio with additional flags:
-
-```bash
-studio --enable-features=UseOzonePlatform --ozone-platform=wayland
-```
-
-To persist the flags, copy `/usr/share/applications/studio.desktop` to `~/.local/share/applications/` and edit the `Exec=` line there.
-
 ## Building from Source
 
 If you're contributing to Studio or running it on a distribution where the `.deb` doesn't work, you can build directly from the repository.

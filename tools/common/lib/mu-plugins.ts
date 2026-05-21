@@ -578,28 +578,6 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 					$result = [ 'success' => true ];
 					break;
 
-				case 'ensure_admin_username':
-					// Verify that studio_admin_username points to a valid admin user.
-					// If not, find the first administrator and update the option.
-					// Called at site start time for native-PHP sites after a database import.
-					$stored = get_option( 'studio_admin_username', '' );
-					$user = $stored ? get_user_by( 'login', $stored ) : false;
-					if ( ! $user ) {
-						$admin_users = get_users( array( 'role' => 'administrator', 'number' => 1, 'orderby' => 'ID', 'order' => 'ASC' ) );
-						if ( ! empty( $admin_users ) ) {
-							$user = $admin_users[0];
-							update_option( 'studio_admin_username', $user->user_login );
-						}
-					}
-					if ( ! $user ) {
-						status_header( 404 );
-						header( 'Content-Type: application/json' );
-						echo json_encode( [ 'error' => 'No administrator user found' ] );
-						exit;
-					}
-					$result = [ 'success' => true ];
-					break;
-
 				default:
 					status_header( 400 );
 					header( 'Content-Type: application/json' );

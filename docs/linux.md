@@ -15,10 +15,6 @@ Studio publishes `.deb` packages for x64 and ARM64 architectures, suitable for D
    sudo apt install ./studio-x64-v*.deb
    ```
 
-3. Launch Studio from your application menu, or run `studio` from a terminal.
-
-The package registers a `.desktop` entry, an icon, and the `wp-studio://` URL handler so OAuth redirects from WordPress.com return cleanly.
-
 ## Updating
 
 Studio checks for updates automatically and surfaces a dialog with a Download button when a new version is available. Clicking Download opens your browser to fetch the latest `.deb`; install it with `sudo apt install ./<file>.deb` to apply the update.

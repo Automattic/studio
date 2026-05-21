@@ -154,6 +154,108 @@
 	--button-background: #8a2424;
 }
 
+.connectDialog {
+	width: min(640px, calc(100vw - 48px));
+}
+
+.connectDialogContent {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	min-height: 268px;
+}
+
+.connectSearchRow {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.connectSearchInput {
+	width: 100%;
+	min-width: 0;
+	height: 36px;
+	box-sizing: border-box;
+	padding: 0 12px;
+	border: 1px solid rgba(15, 23, 42, 0.1);
+	border-radius: var(--ui-desks-radius-button, 12px);
+	corner-shape: var(--ui-desks-corner-shape, superellipse(1.42));
+	-webkit-corner-shape: var(--ui-desks-corner-shape, superellipse(1.42));
+	background: rgba(255, 255, 255, 0.56);
+	color: var(--ui-desks-text, #14171a);
+	font: inherit;
+	font-size: 13px;
+	line-height: 18px;
+	outline: none;
+}
+
+.connectSearchInput::placeholder {
+	color: var(--ui-desks-muted, #6b7280);
+}
+
+.connectSearchInput:focus {
+	border-color: var(--ui-desks-focus, #3858e9);
+	box-shadow: 0 0 0 1px var(--ui-desks-focus, #3858e9);
+}
+
+.connectSitesPanel {
+	min-height: 0;
+	max-height: 320px;
+	overflow-y: auto;
+	border: 1px solid rgba(15, 23, 42, 0.08);
+	border-radius: var(--ui-desks-radius-surface, 18px);
+	corner-shape: var(--ui-desks-corner-shape, superellipse(1.42));
+	-webkit-corner-shape: var(--ui-desks-corner-shape, superellipse(1.42));
+	background: rgba(255, 255, 255, 0.34);
+}
+
+.connectSitesList {
+	padding: 6px;
+}
+
+.connectLoading {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+	padding: 16px;
+}
+
+.connectEmptyState,
+.connectAuthPrompt {
+	display: flex;
+	min-height: 180px;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 12px;
+	padding: 24px;
+	color: var(--ui-desks-muted, #6b7280);
+	font-size: 13px;
+	line-height: 18px;
+	text-align: center;
+}
+
+.connectAuthPrompt p {
+	max-width: 34ch;
+	margin: 0;
+}
+
+.connectFooter {
+	justify-content: space-between;
+	gap: 12px;
+}
+
+.connectFooterActions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+}
+
+.createLiveSiteButton {
+	max-width: 280px;
+	justify-content: flex-start;
+}
+
 .row {
 	display: grid;
 	grid-template-columns: minmax(120px, 1fr) auto;

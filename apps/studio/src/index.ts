@@ -102,6 +102,25 @@ const gotTheLock = app.requestSingleInstanceLock();
 let finishedInitialization = false;
 let stopRemoteSessionStatusPolling: ( () => void ) | undefined;
 
+const YOUTUBE_EMBED_REFERRER = 'https://developer.wordpress.com/studio/';
+const YOUTUBE_EMBED_URL_PATTERNS = [
+	'https://*.youtube.com/embed/*',
+	'https://youtube.com/embed/*',
+	'https://*.youtube-nocookie.com/embed/*',
+	'https://youtube-nocookie.com/embed/*',
+];
+
+function getYouTubeEmbedRequestHeaders( requestHeaders: Record< string, string > ) {
+	const headers = { ...requestHeaders };
+	for ( const key of Object.keys( headers ) ) {
+		if ( key.toLowerCase() === 'referer' ) {
+			delete headers[ key ];
+		}
+	}
+	headers.Referer = YOUTUBE_EMBED_REFERRER;
+	return headers;
+}
+
 if ( gotTheLock && ! isInInstaller ) {
 	void appBoot();
 } else if ( ! gotTheLock ) {
@@ -290,6 +309,15 @@ async function appBoot() {
 			// Reject all permission requests
 			callback( false );
 		} );
+
+		session.defaultSession.webRequest.onBeforeSendHeaders(
+			{ urls: YOUTUBE_EMBED_URL_PATTERNS },
+			( details, callback ) => {
+				callback( {
+					requestHeaders: getYouTubeEmbedRequestHeaders( details.requestHeaders ),
+				} );
+			}
+		);
 
 		session.defaultSession.webRequest.onHeadersReceived( ( details, callback ) => {
 			// Only set a custom CSP header the main window UI. For other pages (like login) we should

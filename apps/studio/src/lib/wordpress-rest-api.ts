@@ -65,12 +65,21 @@ async function fetchSiteRestWithAuth(
 }
 
 function getSiteBaseUrl( server: SiteServer ) {
+	if ( server.details.port > 0 ) {
+		return `http://127.0.0.1:${ server.details.port }`;
+	}
+
+	return server.server.url.replace( /\/+$/, '' );
+}
+
+function getSitePublicBaseUrl( server: SiteServer ) {
 	return server.server.url.replace( /\/+$/, '' );
 }
 
 function getSiteRestUrl( server: SiteServer, request: SiteRestRequest ) {
 	const baseUrl = getSiteBaseUrl( server );
 	const restRoot = new URL( '/wp-json/', baseUrl );
+	const publicRestRoot = new URL( '/wp-json/', getSitePublicBaseUrl( server ) );
 
 	if ( request.path ) {
 		const path = request.path.replace( /^\/+/, '' );
@@ -79,13 +88,28 @@ function getSiteRestUrl( server: SiteServer, request: SiteRestRequest ) {
 
 	if ( request.url ) {
 		const url = new URL( request.url );
-		if ( url.origin !== restRoot.origin || ! url.pathname.startsWith( restRoot.pathname ) ) {
-			throw new Error( 'REST URL must target the selected site REST API.' );
+		if ( isRestUrlForRoot( url, restRoot ) ) {
+			return url;
 		}
-		return url;
+		if ( isRestUrlForRoot( url, publicRestRoot ) ) {
+			return translateRestUrl( url, publicRestRoot, restRoot );
+		}
+		throw new Error( 'REST URL must target the selected site REST API.' );
 	}
 
 	throw new Error( 'REST request requires a path or URL.' );
+}
+
+function isRestUrlForRoot( url: URL, restRoot: URL ) {
+	return url.origin === restRoot.origin && url.pathname.startsWith( restRoot.pathname );
+}
+
+function translateRestUrl( url: URL, fromRestRoot: URL, toRestRoot: URL ) {
+	const relativePath = url.pathname.slice( fromRestRoot.pathname.length );
+	const translatedUrl = new URL( relativePath, toRestRoot );
+	translatedUrl.search = url.search;
+	translatedUrl.hash = url.hash;
+	return translatedUrl;
 }
 
 async function getRequestHeaders(

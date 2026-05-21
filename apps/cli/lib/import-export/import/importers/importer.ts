@@ -45,8 +45,8 @@ export async function ensureDir( dir: string ): Promise< void > {
 		try {
 			const stat = await fs.promises.stat( dir );
 			if ( ! stat.isDirectory() ) {
-				await fs.promises.unlink( dir );
-				console.warn( `ensureDir: removed non-directory blocker at ${ dir }` );
+				await trash( dir );
+				console.warn( `ensureDir: moved non-directory blocker at ${ dir } to trash` );
 			}
 		} catch ( e ) {
 			if ( ! isErrnoException( e ) || e.code !== 'ENOENT' ) {

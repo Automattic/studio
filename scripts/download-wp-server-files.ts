@@ -6,9 +6,45 @@ import {
 	getPhpMyAdminInstallSteps,
 } from '@wp-playground/tools';
 import fs from 'fs-extra';
+import { Agent } from 'undici';
 import { z } from 'zod';
 import { extractZip } from '@studio/common/lib/extract-zip';
 import { SQLITE_DATABASE_INTEGRATION_RELEASE_URL } from '../apps/studio/src/constants';
+
+const CONNECT_TIMEOUT_MS = 15_000;
+const MAX_DOWNLOAD_ATTEMPTS = 3;
+const downloadDispatcher = new Agent( { connect: { timeout: CONNECT_TIMEOUT_MS } } );
+
+async function fetchWithRetry( name: string, url: string ): Promise< Buffer > {
+	let lastError: unknown;
+	for ( let attempt = 1; attempt <= MAX_DOWNLOAD_ATTEMPTS; attempt++ ) {
+		try {
+			const response = await fetch( url, {
+				// `dispatcher` is an undici-specific option not in the standard RequestInit type.
+				dispatcher: downloadDispatcher,
+			} as RequestInit );
+			if ( ! response.ok ) {
+				throw new Error( `Request failed with status code: ${ response.status }` );
+			}
+			return Buffer.from( await response.arrayBuffer() );
+		} catch ( error ) {
+			lastError = error;
+			const message = error instanceof Error ? error.message : String( error );
+			if ( attempt < MAX_DOWNLOAD_ATTEMPTS ) {
+				const delayMs = 1000 * 2 ** ( attempt - 1 );
+				console.warn(
+					`[${ name }] Download failed (attempt ${ attempt }/${ MAX_DOWNLOAD_ATTEMPTS }): ${ message }. Retrying in ${ delayMs }ms...`
+				);
+				await new Promise( ( resolve ) => setTimeout( resolve, delayMs ) );
+			} else {
+				console.error(
+					`[${ name }] Download failed after ${ MAX_DOWNLOAD_ATTEMPTS } attempts: ${ message }`
+				);
+			}
+		}
+	}
+	throw lastError;
+}
 
 const WP_SERVER_FILES_PATH = path.join( import.meta.dirname, '..', 'wp-files' );
 const PHPMYADMIN_PATCH_FILES_PATH = path.join( import.meta.dirname, '..', 'apps', 'cli', 'php' );
@@ -117,11 +153,7 @@ async function downloadFile( file: FileToDownload ): Promise< void > {
 	}
 
 	const url = await file.getUrl();
-	const response = await fetch( url );
-	if ( ! response.ok ) {
-		throw new Error( `Request failed with status code: ${ response.status }` );
-	}
-	const buffer = Buffer.from( await response.arrayBuffer() );
+	const buffer = await fetchWithRetry( name, url );
 	await fs.writeFile( zipPath, buffer );
 
 	if ( name === 'wp-cli' ) {

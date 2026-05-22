@@ -213,12 +213,20 @@ function formatAssistantMessage( raw: AgentMessage, maxChars: number ): string |
  *      against the stored `message_id`.
  *   3. If the server returns `retry_after_ms`, defer the next post by that
  *      amount (Telegram throttled the underlying editMessage call).
- *   4. `stop(status?)` finalizes the live status:
- *        - `'success'` → DELETE the status message, so the real reply (text or
- *          photo) is the only artifact left in chat.
- *        - any other terminal status → EDIT the status message to a one-line
- *          ⚠️ summary, so the failure stays visible.
- *        - `undefined` → no-op.
+ *   4. The turn ends via either:
+ *        - `replaceWithReply(text)` (preferred success path) → EDIT the status
+ *          message to become the actual reply text, so the turn occupies a
+ *          single message in chat. Used when the reply fits the
+ *          single-message limit and isn't a photo.
+ *        - `stop(status?)` (fallback / non-success):
+ *           - `'success'` → EDIT the status to `✅ _Done_` so the turn has a
+ *             clear visual close when the caller couldn't fold the reply in
+ *             via {@link replaceWithReply} (e.g. photo reply, oversized text).
+ *             Note: edit-not-delete because some Telegram clients (Beeper)
+ *             render deletions as a persistent tombstone.
+ *           - any other terminal status → EDIT to a one-line ⚠️ summary so
+ *             the failure stays visible.
+ *           - `undefined` → no-op (leave the last status text in place).
  *
  * Sources of displayed content:
  *   - `progress` / `info` envelopes — tool-internal progress strings, already

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 export type UiMode = 'classic' | 'desks';
 
 const UI_MODE_STORAGE_KEY = 'studio.uiMode';
+const STUDIO_UI_MODE_PARAM = 'studio-ui-mode';
 const DEFAULT_UI_MODE: UiMode = 'desks';
 
 function isUiMode( value: string | null ): value is UiMode {
@@ -20,6 +21,28 @@ function readStoredUiMode(): UiMode {
 	} catch {
 		return DEFAULT_UI_MODE;
 	}
+}
+
+function readLaunchUiMode(): UiMode | undefined {
+	if ( typeof window === 'undefined' ) {
+		return undefined;
+	}
+
+	try {
+		const mode = new URLSearchParams( window.location.search ).get( STUDIO_UI_MODE_PARAM );
+		if ( mode === 'desks' ) {
+			return 'desks';
+		}
+		if ( mode === 'agentic' ) {
+			return 'classic';
+		}
+	} catch {
+		return undefined;
+	}
+}
+
+function readInitialUiMode(): UiMode {
+	return readLaunchUiMode() ?? readStoredUiMode();
 }
 
 function writeStoredUiMode( mode: UiMode ) {
@@ -47,21 +70,8 @@ function resetRoute() {
 	}
 }
 
-function isEditableTarget( target: EventTarget | null ) {
-	if ( ! ( target instanceof HTMLElement ) ) {
-		return false;
-	}
-
-	return (
-		target.isContentEditable ||
-		target instanceof HTMLInputElement ||
-		target instanceof HTMLTextAreaElement ||
-		target instanceof HTMLSelectElement
-	);
-}
-
 export function useUiMode() {
-	const [ mode, setModeState ] = useState< UiMode >( readStoredUiMode );
+	const [ mode, setModeState ] = useState< UiMode >( readInitialUiMode );
 
 	const setMode = useCallback(
 		( nextMode: UiMode ) => {
@@ -77,23 +87,11 @@ export function useUiMode() {
 	);
 
 	useEffect( () => {
-		function handleKeyDown( event: KeyboardEvent ) {
-			if (
-				event.defaultPrevented ||
-				isEditableTarget( event.target ) ||
-				event.key.toLowerCase() !== 'd' ||
-				! ( event.metaKey || event.ctrlKey )
-			) {
-				return;
-			}
-
-			event.preventDefault();
-			setMode( mode === 'classic' ? 'desks' : 'classic' );
+		const launchMode = readLaunchUiMode();
+		if ( launchMode ) {
+			writeStoredUiMode( launchMode );
 		}
-
-		window.addEventListener( 'keydown', handleKeyDown );
-		return () => window.removeEventListener( 'keydown', handleKeyDown );
-	}, [ mode, setMode ] );
+	}, [] );
 
 	return { mode, setMode };
 }

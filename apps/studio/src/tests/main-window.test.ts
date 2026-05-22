@@ -6,7 +6,13 @@ import { readFile } from 'atomically';
 import { vol } from 'memfs';
 import { vi } from 'vitest';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
-import { createMainWindow, getMainWindow, __resetMainWindow } from 'src/main-window';
+import {
+	createMainWindow,
+	getMainWindow,
+	getPreferredStudioUiMode,
+	loadMainWindowRenderer,
+	__resetMainWindow,
+} from 'src/main-window';
 
 vi.mock( 'fs' );
 vi.mock( 'src/ipc-utils' );
@@ -178,5 +184,31 @@ describe( 'fullscreen events', () => {
 			'window-fullscreen-change',
 			false
 		);
+	} );
+} );
+
+describe( 'Studio UI mode', () => {
+	it( 'preserves the Agentic UI preference', () => {
+		expect( getPreferredStudioUiMode( { desks: { defaultUiMode: 'agentic' } } ) ).toBe( 'agentic' );
+	} );
+
+	it( 'passes the Agentic UI launch mode to the apps/ui renderer', async () => {
+		const previousRendererUrl = process.env.ELECTRON_DESKS_RENDERER_URL;
+		process.env.ELECTRON_DESKS_RENDERER_URL = 'http://localhost:5200';
+		const window = new BrowserWindow();
+
+		try {
+			await loadMainWindowRenderer( window, 'agentic' );
+
+			expect( window.loadURL ).toHaveBeenCalledWith(
+				'http://localhost:5200/?studio-ui-mode=agentic'
+			);
+		} finally {
+			if ( previousRendererUrl === undefined ) {
+				delete process.env.ELECTRON_DESKS_RENDERER_URL;
+			} else {
+				process.env.ELECTRON_DESKS_RENDERER_URL = previousRendererUrl;
+			}
+		}
 	} );
 } );

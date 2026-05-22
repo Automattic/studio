@@ -31,14 +31,33 @@ describe( 'useUiMode', () => {
 		expect( window.localStorage.getItem( 'studio.uiMode' ) ).toBe( 'classic' );
 	} );
 
-	it( 'toggles between internal UI modes with Ctrl+D', () => {
+	it( 'uses the Studio launch mode when provided', () => {
+		window.localStorage.setItem( 'studio.uiMode', 'classic' );
+		window.history.replaceState( null, '', '/?studio-ui-mode=desks' );
+
+		const { result } = renderHook( () => useUiMode() );
+
+		expect( result.current.mode ).toBe( 'desks' );
+		expect( window.localStorage.getItem( 'studio.uiMode' ) ).toBe( 'desks' );
+	} );
+
+	it( 'maps the Agentic UI launch mode to the classic apps/ui surface', () => {
+		window.history.replaceState( null, '', '/?studio-ui-mode=agentic' );
+
+		const { result } = renderHook( () => useUiMode() );
+
+		expect( result.current.mode ).toBe( 'classic' );
+		expect( window.localStorage.getItem( 'studio.uiMode' ) ).toBe( 'classic' );
+	} );
+
+	it( 'does not toggle between internal UI modes with Ctrl+D', () => {
 		const { result } = renderHook( () => useUiMode() );
 
 		act( () => {
 			window.dispatchEvent( new KeyboardEvent( 'keydown', { key: 'd', ctrlKey: true } ) );
 		} );
 
-		expect( result.current.mode ).toBe( 'classic' );
-		expect( window.localStorage.getItem( 'studio.uiMode' ) ).toBe( 'classic' );
+		expect( result.current.mode ).toBe( 'desks' );
+		expect( window.localStorage.getItem( 'studio.uiMode' ) ).toBeNull();
 	} );
 } );

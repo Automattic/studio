@@ -3,6 +3,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { PassThrough } from 'stream';
+import { SITE_RUNTIME_NATIVE_PHP } from '@studio/common/lib/site-runtime';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const testProcessName = 'studio-site-process-manager-test';
@@ -77,6 +78,7 @@ describe( 'ProcessManagerDaemon', () => {
 			scriptPath: '/tmp/test-child.js',
 			env: {},
 			args: [],
+			runtime: SITE_RUNTIME_NATIVE_PHP,
 		} );
 
 		expect( response ).toEqual(
@@ -87,6 +89,7 @@ describe( 'ProcessManagerDaemon', () => {
 						name: testProcessName,
 						status: 'online',
 						pid: 4321,
+						runtime: SITE_RUNTIME_NATIVE_PHP,
 					} ),
 				} ),
 			} )

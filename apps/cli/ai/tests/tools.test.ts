@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
+import { SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { vi } from 'vitest';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
 import { emitEvent } from 'cli/ai/json-events';
@@ -233,6 +234,64 @@ describe( 'Studio AI MCP tools', () => {
 			widgetProps: { source: { path: string } };
 		};
 		await rm( path.dirname( payload.widgetProps.source.path ), { recursive: true, force: true } );
+	} );
+
+	it( 'can capture desktop and mobile screenshots in one take_screenshot call', async () => {
+		const desktopBuffer = Buffer.from( 'desktop-png' );
+		const mobileBuffer = Buffer.from( 'mobile-png' );
+		const createPage = ( buffer: Buffer ) => ( {
+			emulateMedia: vi.fn(),
+			goto: vi.fn(),
+			waitForLoadState: vi.fn().mockResolvedValue( undefined ),
+			evaluate: vi.fn(),
+			addStyleTag: vi.fn(),
+			screenshot: vi.fn().mockResolvedValue( buffer ),
+			close: vi.fn(),
+		} );
+		const desktopPage = createPage( desktopBuffer );
+		const mobilePage = createPage( mobileBuffer );
+		const browser = {
+			newPage: vi.fn().mockResolvedValueOnce( desktopPage ).mockResolvedValueOnce( mobilePage ),
+		};
+		vi.mocked( getSharedBrowser ).mockResolvedValue( browser as never );
+
+		const result = await getTool( 'take_screenshot' ).rawHandler( {
+			url: 'http://localhost:8903/story-time',
+			viewport: 'all',
+		} as never );
+		const text = getTextContent( result );
+
+		expect( text ).toContain( 'Screenshots captured (desktop, mobile).' );
+		expect( text ).toContain( 'mediaWidgetPayloads=' );
+		expect( browser.newPage ).toHaveBeenCalledTimes( 2 );
+		expect( result.content.slice( 1 ) ).toEqual( [
+			{
+				type: 'image',
+				data: desktopBuffer.toString( 'base64' ),
+				mimeType: 'image/png',
+			},
+			{
+				type: 'image',
+				data: mobileBuffer.toString( 'base64' ),
+				mimeType: 'image/png',
+			},
+		] );
+
+		const payloads = JSON.parse( text!.split( 'mediaWidgetPayloads=' )[ 1 ] ) as Array< {
+			widgetProps: { source: { path: string; name: string } };
+		} >;
+		try {
+			expect( payloads.map( ( payload ) => payload.widgetProps.source.name ) ).toEqual( [
+				'screenshot-desktop.png',
+				'screenshot-mobile.png',
+			] );
+		} finally {
+			await Promise.all(
+				payloads.map( ( payload ) =>
+					rm( path.dirname( payload.widgetProps.source.path ), { recursive: true, force: true } )
+				)
+			);
+		}
 	} );
 
 	it( 'emits explicit Studio widget artifacts from studio_present', async () => {
@@ -636,6 +695,7 @@ describe( 'Studio AI MCP tools', () => {
 			pmId: 1,
 			status: 'online',
 			pid: 1234,
+			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
 
 		await expect(
@@ -655,6 +715,7 @@ describe( 'Studio AI MCP tools', () => {
 			pmId: 1,
 			status: 'online',
 			pid: 1234,
+			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
 		vi.mocked( sendWpCliCommand ).mockResolvedValue( {
 			stdout: '123',
@@ -685,6 +746,7 @@ describe( 'Studio AI MCP tools', () => {
 			pmId: 1,
 			status: 'online',
 			pid: 1234,
+			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
 		vi.mocked( sendWpCliCommand ).mockResolvedValue( {
 			stdout: '123',
@@ -712,6 +774,7 @@ describe( 'Studio AI MCP tools', () => {
 			pmId: 1,
 			status: 'online',
 			pid: 1234,
+			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
 		vi.mocked( sendWpCliCommand ).mockResolvedValue( {
 			stdout: '123',
@@ -741,6 +804,7 @@ describe( 'Studio AI MCP tools', () => {
 			pmId: 1,
 			status: 'online',
 			pid: 1234,
+			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
 		vi.mocked( sendWpCliCommand ).mockResolvedValue( {
 			stdout: '123',
@@ -769,6 +833,7 @@ describe( 'Studio AI MCP tools', () => {
 			pmId: 1,
 			status: 'online',
 			pid: 1234,
+			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
 		vi.mocked( sendWpCliCommand ).mockResolvedValue( {
 			stdout: '123',
@@ -801,6 +866,7 @@ describe( 'Studio AI MCP tools', () => {
 			pmId: 1,
 			status: 'online',
 			pid: 1234,
+			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
 		vi.mocked( sendWpCliCommand ).mockResolvedValue( {
 			stdout: '123',
@@ -833,6 +899,7 @@ describe( 'Studio AI MCP tools', () => {
 			pmId: 1,
 			status: 'online',
 			pid: 1234,
+			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
 
 		await expect(
@@ -991,6 +1058,7 @@ describe( 'Studio AI MCP tools', () => {
 				pmId: 1,
 				status: 'online',
 				pid: 1234,
+				runtime: SITE_RUNTIME_PLAYGROUND,
 			} );
 			vi.mocked( sendWpCliCommand ).mockResolvedValue( {
 				stdout: "Success: Switched to 'Acme Studio' theme.",
@@ -1020,6 +1088,7 @@ describe( 'Studio AI MCP tools', () => {
 				pmId: 1,
 				status: 'online',
 				pid: 1234,
+				runtime: SITE_RUNTIME_PLAYGROUND,
 			} );
 
 			const result = await getTool( 'scaffold_theme' ).rawHandler( {
@@ -1056,6 +1125,7 @@ describe( 'Studio AI MCP tools', () => {
 				pmId: 1,
 				status: 'online',
 				pid: 1234,
+				runtime: SITE_RUNTIME_PLAYGROUND,
 			} );
 			vi.mocked( sendWpCliCommand ).mockResolvedValue( {
 				stdout: '',

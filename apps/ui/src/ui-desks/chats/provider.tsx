@@ -2,6 +2,7 @@ import { useNavigate, useSearch } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
+import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useCreateSession } from '@/data/queries/use-sessions';
 import {
 	Button,
@@ -64,11 +65,15 @@ export function ChatsProvider( { siteId, children }: ChatsProviderProps ) {
 	const { open, setOpen, createChatRequestId, routeSessionId, navigate } = useChatsSearch();
 	const connector = useConnector();
 	const createSession = useCreateSession();
+	const { data: authUser, refetch: refetchAuthUser } = useAuthUser();
 	const lastCreateChatRequestId = useRef( createChatRequestId );
 	const [ selectedSessionId, setSelectedSessionId ] = useState< string | undefined >( undefined );
 	const [ expanded, setExpanded ] = useState( false );
 	const [ autoFocusSessionId, setAutoFocusSessionId ] = useState< string | undefined >( undefined );
 	const [ pendingPrompt, setPendingPrompt ] = useState< PendingChatPrompt | undefined >(
+		undefined
+	);
+	const [ authRequiredPrompt, setAuthRequiredPrompt ] = useState< ChatPromptRequest | undefined >(
 		undefined
 	);
 	const [ composerWidgetAttachmentRequest, setComposerWidgetAttachmentRequest ] = useState<
@@ -101,6 +106,7 @@ export function ChatsProvider( { siteId, children }: ChatsProviderProps ) {
 			setSelectedSessionId( sessionId );
 			setExpanded( true );
 			setAutoFocusSessionId( undefined );
+			setAuthRequiredPrompt( undefined );
 			setRouteSession( sessionId );
 		},
 		[ setRouteSession ]
@@ -111,6 +117,7 @@ export function ChatsProvider( { siteId, children }: ChatsProviderProps ) {
 			setSelectedSessionId( sessionId );
 			setExpanded( true );
 			setAutoFocusSessionId( sessionId );
+			setAuthRequiredPrompt( undefined );
 			setRouteSession( sessionId );
 		},
 		[ setRouteSession ]
@@ -120,6 +127,7 @@ export function ChatsProvider( { siteId, children }: ChatsProviderProps ) {
 		setSelectedSessionId( undefined );
 		setExpanded( false );
 		setAutoFocusSessionId( undefined );
+		setAuthRequiredPrompt( undefined );
 		setRouteSession( undefined );
 	}, [ setRouteSession ] );
 
@@ -128,6 +136,7 @@ export function ChatsProvider( { siteId, children }: ChatsProviderProps ) {
 		setExpanded( false );
 		setAutoFocusSessionId( undefined );
 		setPendingPlacementSwitch( undefined );
+		setAuthRequiredPrompt( undefined );
 		void navigate( {
 			to: '.',
 			search: ( previous: ChatsSearch ) => ( {
@@ -138,17 +147,63 @@ export function ChatsProvider( { siteId, children }: ChatsProviderProps ) {
 		} );
 	}, [ navigate ] );
 
+	const showAuthRequired = useCallback(
+		( prompt?: ChatPromptRequest ) => {
+			setSelectedSessionId( undefined );
+			setExpanded( true );
+			setAutoFocusSessionId( undefined );
+			setAuthRequiredPrompt( prompt );
+			void navigate( {
+				to: '.',
+				search: ( previous: ChatsSearch ) => ( {
+					...previous,
+					chats: true,
+					session: undefined,
+				} ),
+			} );
+		},
+		[ navigate ]
+	);
+
+	const ensureAuthenticatedForChat = useCallback( async () => {
+		if ( authUser ) {
+			return true;
+		}
+
+		const result = await refetchAuthUser();
+		return !! result.data;
+	}, [ authUser, refetchAuthUser ] );
+
 	const startNewChat = useCallback( async () => {
+		if ( ! ( await ensureAuthenticatedForChat() ) ) {
+			showAuthRequired();
+			return;
+		}
+
+		setAuthRequiredPrompt( undefined );
 		const session = await createSession.mutateAsync( siteId );
 		setSelectedSessionId( session.id );
 		setExpanded( true );
 		setAutoFocusSessionId( session.id );
 		setRouteSession( session.id );
 		setOpen( true );
-	}, [ createSession, setOpen, setRouteSession, siteId ] );
+	}, [
+		createSession,
+		ensureAuthenticatedForChat,
+		setOpen,
+		setRouteSession,
+		showAuthRequired,
+		siteId,
+	] );
 
 	const startChatWithPrompt = useCallback(
 		async ( request: ChatPromptRequest ) => {
+			if ( ! ( await ensureAuthenticatedForChat() ) ) {
+				showAuthRequired( request );
+				return '';
+			}
+
+			setAuthRequiredPrompt( undefined );
 			const session = await createSession.mutateAsync( siteId );
 			setSelectedSessionId( session.id );
 			setExpanded( true );
@@ -163,7 +218,14 @@ export function ChatsProvider( { siteId, children }: ChatsProviderProps ) {
 			setOpen( true );
 			return session.id;
 		},
-		[ createSession, setOpen, setRouteSession, siteId ]
+		[
+			createSession,
+			ensureAuthenticatedForChat,
+			setOpen,
+			setRouteSession,
+			showAuthRequired,
+			siteId,
+		]
 	);
 
 	const consumePendingPrompt = useCallback( ( promptId: string ) => {
@@ -268,6 +330,7 @@ export function ChatsProvider( { siteId, children }: ChatsProviderProps ) {
 				autoFocusSessionId,
 				isCreatingChat: createSession.isPending,
 				pendingPrompt,
+				authRequiredPrompt,
 				composerWidgetAttachmentRequest,
 				composerWidgetDragPreview,
 				isComposerWidgetDragTarget,

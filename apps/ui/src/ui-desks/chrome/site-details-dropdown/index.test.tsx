@@ -1,10 +1,12 @@
 import '@testing-library/jest-dom/vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
+import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
 import {
+	useDeleteSite,
 	useIsSiteStarting,
 	useIsSiteStopping,
 	useStartSite,
@@ -12,6 +14,7 @@ import {
 } from '@/data/queries/use-sites';
 import { useSnapshots } from '@/data/queries/use-snapshots';
 import { usePullSiteFromLive, usePushSiteToLive } from '@/data/queries/use-sync-site';
+import { usePickableWpcomSites } from '@/data/queries/use-wpcom-sites';
 import { SiteDetailsDropdown } from './index';
 import type { SiteDetails } from '@/data/core';
 
@@ -31,6 +34,11 @@ vi.mock( '@/data/core', () => ( {
 	useConnector: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-auth-user', () => ( {
+	useAuthUser: vi.fn(),
+	useLogin: vi.fn(),
+} ) );
+
 vi.mock( '@/data/queries/use-connected-wpcom-sites', () => ( {
 	useConnectedWpcomSites: vi.fn(),
 } ) );
@@ -40,6 +48,7 @@ vi.mock( '@/data/queries/use-preview-site', () => ( {
 } ) );
 
 vi.mock( '@/data/queries/use-sites', () => ( {
+	useDeleteSite: vi.fn(),
 	useIsSiteStarting: vi.fn(),
 	useIsSiteStopping: vi.fn(),
 	useStartSite: vi.fn(),
@@ -57,9 +66,16 @@ vi.mock( '@/data/queries/use-sync-site', () => ( {
 	usePushSiteToLive: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-wpcom-sites', () => ( {
+	usePickableWpcomSites: vi.fn(),
+} ) );
+
 const useConnectorMock = vi.mocked( useConnector );
+const useAuthUserMock = vi.mocked( useAuthUser );
+const useLoginMock = vi.mocked( useLogin );
 const useConnectedWpcomSitesMock = vi.mocked( useConnectedWpcomSites );
 const usePublishPreviewSiteMock = vi.mocked( usePublishPreviewSite );
+const useDeleteSiteMock = vi.mocked( useDeleteSite );
 const useIsSiteStartingMock = vi.mocked( useIsSiteStarting );
 const useIsSiteStoppingMock = vi.mocked( useIsSiteStopping );
 const useStartSiteMock = vi.mocked( useStartSite );
@@ -67,27 +83,45 @@ const useStopSiteMock = vi.mocked( useStopSite );
 const useSnapshotsMock = vi.mocked( useSnapshots );
 const usePullSiteFromLiveMock = vi.mocked( usePullSiteFromLive );
 const usePushSiteToLiveMock = vi.mocked( usePushSiteToLive );
+const usePickableWpcomSitesMock = vi.mocked( usePickableWpcomSites );
 
 describe( 'SiteDetailsDropdown', () => {
 	const openExternalUrl = vi.fn();
+	const connectWpcomSite = vi.fn();
+	const refetchConnectedSites = vi.fn();
 	const publishPreviewMutate = vi.fn();
 	const pullMutate = vi.fn();
 	const pushMutate = vi.fn();
+	const deleteMutate = vi.fn();
 	const startMutate = vi.fn();
 	const stopMutate = vi.fn();
 
 	beforeEach( () => {
 		openExternalUrl.mockReset();
+		connectWpcomSite.mockReset();
+		connectWpcomSite.mockResolvedValue( undefined );
+		refetchConnectedSites.mockReset();
+		refetchConnectedSites.mockResolvedValue( {} );
 		publishPreviewMutate.mockReset();
 		pullMutate.mockReset();
 		pushMutate.mockReset();
+		deleteMutate.mockReset();
 		startMutate.mockReset();
 		stopMutate.mockReset();
 		routerMock.navigate.mockReset();
 
 		useConnectorMock.mockReturnValue( {
 			getPublishCheckoutUrl: () => 'https://wordpress.com/setup/studio',
+			connectWpcomSite,
 			openExternalUrl,
+		} as never );
+		useAuthUserMock.mockReturnValue( {
+			data: { id: 1, email: 'person@example.com', displayName: 'Person' },
+			isLoading: false,
+		} as never );
+		useLoginMock.mockReturnValue( {
+			isPending: false,
+			mutate: vi.fn(),
 		} as never );
 		useSnapshotsMock.mockReturnValue( {
 			data: [
@@ -113,6 +147,26 @@ describe( 'SiteDetailsDropdown', () => {
 					lastPushTimestamp: null,
 				},
 			],
+			refetch: refetchConnectedSites,
+		} as never );
+		usePickableWpcomSitesMock.mockReturnValue( {
+			data: [
+				{
+					id: 789,
+					localSiteId: '',
+					name: 'Remote Site',
+					url: 'https://remote.example.com',
+					isStaging: false,
+					isPressable: false,
+					syncSupport: 'syncable',
+					lastPullTimestamp: null,
+					lastPushTimestamp: null,
+				},
+			],
+			isLoading: false,
+			isFetching: false,
+			error: null,
+			refetch: vi.fn(),
 		} as never );
 		usePublishPreviewSiteMock.mockReturnValue( {
 			isPending: false,
@@ -120,6 +174,10 @@ describe( 'SiteDetailsDropdown', () => {
 		} as never );
 		usePushSiteToLiveMock.mockReturnValue( { mutate: pushMutate } as never );
 		usePullSiteFromLiveMock.mockReturnValue( { mutate: pullMutate } as never );
+		useDeleteSiteMock.mockReturnValue( {
+			isPending: false,
+			mutate: deleteMutate,
+		} as never );
 		useStartSiteMock.mockReturnValue( { mutate: startMutate } as never );
 		useStopSiteMock.mockReturnValue( { mutate: stopMutate } as never );
 		useIsSiteStartingMock.mockReturnValue( false );
@@ -164,6 +222,96 @@ describe( 'SiteDetailsDropdown', () => {
 			to: '/sites/$siteId/settings',
 			params: { siteId: 'site-1' },
 		} );
+	} );
+
+	it( 'confirms before deleting the site from the dropdown', async () => {
+		const site = createSite();
+		render( <SiteDetailsDropdown site={ site } /> );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Site details for Local Studio Site' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Delete site' } ) );
+
+		const dialog = await screen.findByRole( 'dialog', { name: 'Delete Local Studio Site' } );
+		expect(
+			within( dialog ).getByText(
+				"The site's database will be lost, including all posts, pages, comments, and media."
+			)
+		).toBeVisible();
+		expect(
+			within( dialog ).getByRole( 'checkbox', {
+				name: 'Delete site files from my computer',
+			} )
+		).toBeChecked();
+
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Delete site' } ) );
+
+		expect( deleteMutate ).toHaveBeenCalledWith(
+			{ id: 'site-1', deleteFiles: true },
+			expect.objectContaining( {
+				onSuccess: expect.any( Function ),
+				onError: expect.any( Function ),
+			} )
+		);
+
+		const options = deleteMutate.mock.calls[ 0 ][ 1 ];
+		options.onSuccess();
+		expect( routerMock.navigate ).toHaveBeenCalledWith( { to: '/' } );
+	} );
+
+	it( 'opens a desks modal to connect an existing WordPress.com site', async () => {
+		useConnectedWpcomSitesMock.mockReturnValue( {
+			data: [],
+			refetch: refetchConnectedSites,
+		} as never );
+		const site = createSite();
+		render( <SiteDetailsDropdown site={ site } /> );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Site details for Local Studio Site' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Connect live site' } ) );
+
+		const dialog = await screen.findByRole( 'dialog', { name: 'Connect a live site' } );
+		expect( within( dialog ).getByText( 'Remote Site' ) ).toBeVisible();
+		expect( openExternalUrl ).not.toHaveBeenCalledWith( 'https://wordpress.com/setup/studio' );
+
+		fireEvent.click( within( dialog ).getByText( 'Remote Site' ) );
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Connect selected site' } ) );
+
+		await waitFor( () =>
+			expect( connectWpcomSite ).toHaveBeenCalledWith( 'site-1', {
+				id: 789,
+				localSiteId: 'site-1',
+				name: 'Remote Site',
+				url: 'https://remote.example.com',
+				isStaging: false,
+				isPressable: false,
+				syncSupport: 'already-connected',
+				lastPullTimestamp: null,
+				lastPushTimestamp: null,
+			} )
+		);
+		expect( refetchConnectedSites ).toHaveBeenCalled();
+	} );
+
+	it( 'keeps creating a new WordPress.com site available from the connect modal', async () => {
+		useConnectedWpcomSitesMock.mockReturnValue( {
+			data: [],
+			refetch: refetchConnectedSites,
+		} as never );
+		const site = createSite();
+		render( <SiteDetailsDropdown site={ site } /> );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Site details for Local Studio Site' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Connect live site' } ) );
+
+		const dialog = await screen.findByRole( 'dialog', { name: 'Connect a live site' } );
+		fireEvent.click(
+			within( dialog ).getByRole( 'button', { name: 'Create a new WordPress.com site' } )
+		);
+
+		await waitFor( () =>
+			expect( openExternalUrl ).toHaveBeenCalledWith( 'https://wordpress.com/setup/studio' )
+		);
+		expect( connectWpcomSite ).not.toHaveBeenCalled();
 	} );
 } );
 

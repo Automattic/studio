@@ -134,6 +134,10 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 		void getIpcApi().setStudioUiMode( 'desks' );
 	};
 
+	const switchToAgenticUi = () => {
+		void getIpcApi().setStudioUiMode( 'agentic' );
+	};
+
 	return (
 		<>
 			<ColorSchemePicker value={ colorSchemeSelection } onChange={ handleColorSchemeChange } />
@@ -157,9 +161,12 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 			) }
 			{ enableDesksUiSwitch && (
 				<SettingsFormField label={ __( 'Studio UI' ) }>
-					<div>
+					<div className="flex flex-wrap gap-3">
 						<Button variant="secondary" onClick={ switchToDesksUi }>
 							{ __( 'Switch to Desks UI' ) }
+						</Button>
+						<Button variant="secondary" onClick={ switchToAgenticUi }>
+							{ __( 'Switch to Agentic UI' ) }
 						</Button>
 					</div>
 				</SettingsFormField>

@@ -7,6 +7,7 @@ import type { ReactNode } from 'react';
 const composerMocks = vi.hoisted( () => ( {
 	onSend: vi.fn(),
 	onInterrupt: vi.fn(),
+	onLogin: vi.fn(),
 	setQueryData: vi.fn(),
 	invalidateQueries: vi.fn(),
 	setSessionModel: vi.fn(),
@@ -114,6 +115,7 @@ describe( 'desks chat Composer', () => {
 	beforeEach( () => {
 		composerMocks.onSend.mockReset().mockResolvedValue( undefined );
 		composerMocks.onInterrupt.mockReset().mockResolvedValue( undefined );
+		composerMocks.onLogin.mockReset();
 		composerMocks.setQueryData.mockReset();
 		composerMocks.invalidateQueries.mockReset();
 		composerMocks.setSessionModel.mockReset().mockResolvedValue( undefined );
@@ -139,13 +141,35 @@ describe( 'desks chat Composer', () => {
 
 		expect( screen.getByRole( 'button', { name: 'Queue' } ) ).toBeEnabled();
 	} );
+
+	it( 'shows a login requirement and blocks the composer when unauthenticated', () => {
+		renderComposer( { busy: false, authRequired: true } );
+
+		expect(
+			screen.getByText( 'Log in with WordPress.com to use Studio Desk chat.' )
+		).toBeVisible();
+		expect( screen.getByPlaceholderText( 'Log in to use Studio Desk chat.' ) ).toBeDisabled();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Log in with WordPress.com' } ) );
+
+		expect( composerMocks.onLogin ).toHaveBeenCalledTimes( 1 );
+		expect( composerMocks.onSend ).not.toHaveBeenCalled();
+	} );
 } );
 
-function renderComposer( { busy }: { busy: boolean } ) {
+function renderComposer( {
+	busy,
+	authRequired = false,
+}: {
+	busy: boolean;
+	authRequired?: boolean;
+} ) {
 	return render(
 		<Composer
 			busy={ busy }
 			error={ null }
+			authRequired={ authRequired }
+			onLogin={ composerMocks.onLogin }
 			model="claude-sonnet-4-6"
 			onSend={ composerMocks.onSend }
 			onInterrupt={ composerMocks.onInterrupt }

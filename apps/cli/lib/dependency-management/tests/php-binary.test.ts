@@ -1,5 +1,4 @@
 import {
-	MinimumNativePhpSupportedVersion,
 	resolveNativePhpVersion,
 	getConfiguredPhpBinaryVersion,
 	getPhpBinaryDownloadInfo,
@@ -36,8 +35,8 @@ describe( 'getPhpBinaryDownloadInfo', () => {
 		expect( getPhpBinaryDownloadInfo( '8.4', 'aix', 'x64' ) ).toBeUndefined();
 	} );
 
-	it( 'coerces older supported PHP versions to the minimum native version', () => {
-		expect( resolveNativePhpVersion( '8.0' ) ).toBe( MinimumNativePhpSupportedVersion );
+	it( 'resolves older supported PHP versions to the closest native PHP version', () => {
+		expect( resolveNativePhpVersion( '8.0' ) ).toBe( '8.2' );
 	} );
 } );
 

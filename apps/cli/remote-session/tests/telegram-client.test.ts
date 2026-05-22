@@ -199,55 +199,12 @@ describe( 'respondMessage', () => {
 		} );
 	} );
 
-	it( 'sends action=delete with no text/photo', async () => {
-		fetchMock.mockResolvedValueOnce(
-			new Response( JSON.stringify( { success: true, message_ids: [] } ), {
-				status: 200,
-				headers: { 'content-type': 'application/json' },
-			} )
-		);
-		await respondMessage( baseConfig, { chatId: 1, action: 'delete', messageId: 42 } );
-		const [ , init ] = fetchMock.mock.calls[ 0 ];
-		expect( JSON.parse( init.body as string ) ).toEqual( {
-			chat_id: 1,
-			bot: 'my_bot',
-			action: 'delete',
-			message_id: 42,
-		} );
-	} );
-
-	it( 'sends action=chat_action with a bare body', async () => {
-		fetchMock.mockResolvedValueOnce(
-			new Response( JSON.stringify( { success: true, message_ids: [] } ), {
-				status: 200,
-				headers: { 'content-type': 'application/json' },
-			} )
-		);
-		await respondMessage( baseConfig, { chatId: 1, action: 'chat_action' } );
-		const [ , init ] = fetchMock.mock.calls[ 0 ];
-		expect( JSON.parse( init.body as string ) ).toEqual( {
-			chat_id: 1,
-			bot: 'my_bot',
-			action: 'chat_action',
-		} );
-	} );
-
 	it( 'rejects edit calls without messageId or text up front', async () => {
 		await expect(
 			respondMessage( baseConfig, { chatId: 1, action: 'edit', text: 'no id' } )
 		).rejects.toThrow( /messageId/ );
 		await expect(
 			respondMessage( baseConfig, { chatId: 1, action: 'edit', messageId: 1 } )
-		).rejects.toThrow( /text/ );
-		expect( fetchMock ).not.toHaveBeenCalled();
-	} );
-
-	it( 'rejects delete calls without messageId or with extraneous fields', async () => {
-		await expect( respondMessage( baseConfig, { chatId: 1, action: 'delete' } ) ).rejects.toThrow(
-			/messageId/
-		);
-		await expect(
-			respondMessage( baseConfig, { chatId: 1, action: 'delete', messageId: 1, text: 'oops' } )
 		).rejects.toThrow( /text/ );
 		expect( fetchMock ).not.toHaveBeenCalled();
 	} );

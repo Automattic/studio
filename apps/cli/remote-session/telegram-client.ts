@@ -201,7 +201,7 @@ function extractMessages( payload: unknown ): PolledMessage[] {
 	return out;
 }
 
-export type RespondAction = 'create' | 'edit' | 'delete' | 'chat_action';
+export type RespondAction = 'create' | 'edit';
 
 export interface RespondParams {
 	chatId: number;
@@ -209,11 +209,14 @@ export interface RespondParams {
 	/**
 	 * What to do on Telegram's side. Defaults to `create` (sendMessage / sendPhoto).
 	 *  - `edit` requires `text` + `messageId`, forbids `photo` / `caption` in v1.
-	 *  - `delete` requires `messageId`, forbids `text` / `photo` / `caption`.
-	 *  - `chat_action` ignores text/photo/messageId; v1 only sends `typing`.
+	 *
+	 * The wpcom endpoint also accepts `delete` and `chat_action`, but neither
+	 * has a production caller in this codebase: the progress streamer settled
+	 * on edit-not-delete after Beeper rendered deletions as a persistent
+	 * tombstone. Add them back to the client when a consumer needs them.
 	 */
 	action?: RespondAction;
-	/** Required for `edit` and `delete`. Returned by an earlier successful create. */
+	/** Required for `edit`. Returned by an earlier successful create. */
 	messageId?: number;
 	/** Plain text reply. Required for `create` (when no `photo`) and for `edit`. */
 	text?: string;
@@ -239,8 +242,7 @@ export interface RespondOutcome {
 	/**
 	 * Telegram message ids returned by the server. For `create`, one per chunk
 	 * (text + optional photo). For `edit`, contains the edited message id.
-	 * Empty for `delete` / `chat_action` and for any failure mode that didn't
-	 * land a message.
+	 * Empty for any failure mode that didn't land a message.
 	 */
 	messageIds: number[];
 	/** Populated when Telegram throttled the underlying API call. */
@@ -270,8 +272,6 @@ interface RespondResponseBody {
  *   - `create` (text only)      — `application/json` body to /local-agent-respond.
  *   - `create` (text + photo)   — `multipart/form-data` with the raw photo bytes.
  *   - `edit`                    — `application/json` body, single message, no chunking.
- *   - `delete`                  — `application/json` body, idempotent on server.
- *   - `chat_action`             — `application/json` body, fire-and-forget heartbeat.
  *
  * The server always answers with HTTP 200 and a JSON body indicating partial outcomes
  * (`success`, `photo_sent`, `text_sent`, `message_ids`, `retry_after_ms`, `error`).
@@ -465,21 +465,6 @@ function validateRespondParams(
 			}
 			if ( photo || caption ) {
 				throw new Error( 'respondMessage edit does not accept `photo` or `caption` (v1)' );
-			}
-			return;
-		case 'delete':
-			if ( messageId === undefined ) {
-				throw new Error( 'respondMessage delete requires `messageId`' );
-			}
-			if ( text || photo || caption ) {
-				throw new Error( 'respondMessage delete does not accept `text`, `photo`, or `caption`' );
-			}
-			return;
-		case 'chat_action':
-			if ( text || photo || caption || messageId !== undefined ) {
-				throw new Error(
-					'respondMessage chat_action does not accept `text`, `photo`, `caption`, or `messageId`'
-				);
 			}
 			return;
 	}

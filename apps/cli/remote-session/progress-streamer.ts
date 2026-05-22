@@ -374,16 +374,13 @@ export class ProgressStreamer {
 			return false;
 		}
 
-		await this.respondWithTimeout(
-			{
-				chatId: this.target.chatId,
-				bot: this.target.bot,
-				action: 'edit',
-				messageId: this.messageId,
-				text,
-			},
-			'edit'
-		);
+		await this.respondWithTimeout( {
+			chatId: this.target.chatId,
+			bot: this.target.bot,
+			action: 'edit',
+			messageId: this.messageId,
+			text,
+		} );
 		return true;
 	}
 
@@ -419,16 +416,13 @@ export class ProgressStreamer {
 		}
 
 		const summary = formatFinalStatusSummary( status );
-		await this.respondWithTimeout(
-			{
-				chatId: this.target.chatId,
-				bot: this.target.bot,
-				action: 'edit',
-				messageId: this.messageId,
-				text: summary,
-			},
-			'edit'
-		);
+		await this.respondWithTimeout( {
+			chatId: this.target.chatId,
+			bot: this.target.bot,
+			action: 'edit',
+			messageId: this.messageId,
+			text: summary,
+		} );
 	}
 
 	private schedulePendingFlush(): void {
@@ -565,8 +559,7 @@ export class ProgressStreamer {
 	}
 
 	private async respondWithTimeout(
-		params: Parameters< typeof respondMessage >[ 1 ],
-		action: 'delete' | 'edit'
+		params: Parameters< typeof respondMessage >[ 1 ]
 	): Promise< void > {
 		const controller = new AbortController();
 		let timedOut = false;
@@ -577,7 +570,7 @@ export class ProgressStreamer {
 				controller.abort();
 				this.deps.logger.warn( 'Progress final response timed out', {
 					chat_id: this.target.chatId,
-					action,
+					action: 'edit',
 					message_id: params.messageId,
 				} );
 				resolve( null );
@@ -590,7 +583,7 @@ export class ProgressStreamer {
 				signal: controller.signal,
 			} )
 			.catch( ( error ) => {
-				this.deps.logger.warn( `Progress final ${ action } failed`, {
+				this.deps.logger.warn( 'Progress final edit failed', {
 					chat_id: this.target.chatId,
 					message_id: params.messageId,
 					error: ( error as Error ).message,

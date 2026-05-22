@@ -23,10 +23,13 @@ function StatusIcon( { status }: { status: ToolCallState[ 'status' ] } ) {
 function statusLabel( status: ToolCallState[ 'status' ] ): string {
 	switch ( status ) {
 		case 'running':
+			/* translators: status label shown next to an AI tool call that is currently executing */
 			return __( 'Running' );
 		case 'completed':
+			/* translators: status label shown next to an AI tool call that finished successfully */
 			return __( 'Completed' );
 		case 'error':
+			/* translators: status label shown next to an AI tool call that finished with an error */
 			return __( 'Error' );
 	}
 }

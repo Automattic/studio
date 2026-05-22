@@ -1440,6 +1440,10 @@ export class AiChatUI implements AiOutputAdapter {
 		const b = chalk.bold;
 		const d = chalk.dim;
 		const separator = d( ' ─'.padEnd( 80, '─' ) );
+		// Applies chalk.bold to any <b>…</b> tags in a translated string, then
+		// strips the tags. Translators can place <b> anywhere in the sentence.
+		const applyBold = ( str: string ) =>
+			str.replace( /<b>(.*?)<\/b>/g, ( _, text: string ) => b( text ) );
 
 		const lines = [
 			' ' +
@@ -1449,33 +1453,20 @@ export class AiChatUI implements AiOutputAdapter {
 			'',
 			'  ' + b( __( 'Local Sites Management' ) ),
 			'',
+			/* translators: <b> and </b> wrap the action verb, which translators can move anywhere in the sentence */
 			'  - ' +
-				sprintf(
-					/* translators: %s: bold "Create" */
-					__( '%s new local WordPress sites instantly (fully configured, ready to use)' ),
-					b( __( 'Create' ) )
+				applyBold(
+					__( '<b>Create</b> new local WordPress sites instantly (fully configured, ready to use)' )
 				),
-			'  - ' +
-				sprintf(
-					/* translators: %s: bold "Start / stop" */
-					__( '%s existing local sites' ),
-					b( __( 'Start / stop' ) )
-				),
-			'  - ' +
-				sprintf(
-					/* translators: %s: bold "List" */
-					__( '%s all your local sites and their status' ),
-					b( __( 'List' ) )
-				),
+			/* translators: <b> and </b> wrap the action verb, which translators can move anywhere in the sentence */
+			'  - ' + applyBold( __( '<b>Start / stop</b> existing local sites' ) ),
+			/* translators: <b> and </b> wrap the action verb, which translators can move anywhere in the sentence */
+			'  - ' + applyBold( __( '<b>List</b> all your local sites and their status' ) ),
 			'',
 			'  ' + b( __( 'Design & Development' ) ),
 			'',
-			'  - ' +
-				sprintf(
-					/* translators: %s: bold "Build" */
-					__( '%s block themes with striking, memorable designs' ),
-					b( __( 'Build' ) )
-				),
+			/* translators: <b> and </b> wrap the action verb, which translators can move anywhere in the sentence */
+			'  - ' + applyBold( __( '<b>Build</b> block themes with striking, memorable designs' ) ),
 			'  - ' +
 				sprintf(
 					/* translators: %s: bold "CSS, PHP, and JavaScript" */
@@ -1525,24 +1516,14 @@ export class AiChatUI implements AiOutputAdapter {
 					__( 'Take %s (desktop + mobile) to verify the design is well crafted' ),
 					b( __( 'screenshots' ) )
 				),
+			/* translators: <b> and </b> wrap the action verb, which translators can move anywhere in the sentence */
 			'  - ' +
-				sprintf(
-					/* translators: %s: bold "Validate" */
-					__( "%s all block content to ensure it's editor-compatible" ),
-					b( __( 'Validate' ) )
-				),
+				applyBold( __( "<b>Validate</b> all block content to ensure it's editor-compatible" ) ),
+			/* translators: <b> and </b> wrap the action verb, which translators can move anywhere in the sentence */
+			'  - ' + applyBold( __( '<b>Push</b> your local site to the cloud in WordPress.com' ) ),
+			/* translators: <b> and </b> wrap the action verb, which translators can move anywhere in the sentence */
 			'  - ' +
-				sprintf(
-					/* translators: %s: bold "Push" */
-					__( '%s your local site to the cloud in WordPress.com' ),
-					b( __( 'Push' ) )
-				),
-			'  - ' +
-				sprintf(
-					/* translators: %s: bold "Generate preview sites" */
-					__( '%s with shareable URLs for quick feedback' ),
-					b( __( 'Generate preview sites' ) )
-				),
+				applyBold( __( '<b>Generate preview sites</b> with shareable URLs for quick feedback' ) ),
 			'',
 			separator,
 			'',

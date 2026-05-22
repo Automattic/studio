@@ -5,6 +5,7 @@ import * as Menu from '@/components/menu';
 import { SidebarButton } from '@/components/sidebar-button';
 import { useConnector } from '@/data/core';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
+import { useFeatureFlags } from '@/data/queries/use-feature-flags';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
 import { moonIcon, sunIcon } from '@/lib/icons';
@@ -19,6 +20,7 @@ export function UserMenu() {
 	const connector = useConnector();
 	const { data: user } = useAuthUser();
 	const { data: preferences } = useUserPreferences();
+	const { data: featureFlags } = useFeatureFlags();
 	const savePreferences = useSaveUserPreferences();
 	const login = useLogin();
 	const logout = useLogout();
@@ -31,6 +33,10 @@ export function UserMenu() {
 
 	const openLink = ( url: string ) => {
 		void connector.openExternalUrl( url );
+	};
+
+	const switchToDefaultUi = () => {
+		void connector.setStudioUiMode( 'default' );
 	};
 
 	return (
@@ -59,6 +65,14 @@ export function UserMenu() {
 							<Menu.Item onClick={ () => openLink( REPORT_ISSUE_URL ) }>
 								{ __( 'Report an issue' ) }
 							</Menu.Item>
+							{ featureFlags?.enableDesksUiSwitch ? (
+								<>
+									<Menu.Separator />
+									<Menu.Item onClick={ switchToDefaultUi }>
+										{ __( 'Switch to default Studio UI' ) }
+									</Menu.Item>
+								</>
+							) : null }
 							<Menu.Separator />
 							<Menu.Item onClick={ () => logout.mutate() }>{ __( 'Log out' ) }</Menu.Item>
 						</Menu.Popup>

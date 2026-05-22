@@ -78,6 +78,117 @@ tests:
             return { pass: ok, score: ok ? 1 : 0, reason: ok ? 'site_create succeeded' : `site_create result: ${JSON.stringify(result)}` };
           });
 
+  # Regression: trunk handles desktop/mobile visual verification as separate
+  # screenshot calls. The optimized tool exposes `viewport: "all"` so the agent
+  # can satisfy the same user request with one timed call and two PNG payloads.
+  - description: screenshot verification captures desktop and mobile in one fast call
+    vars:
+      caseId: screenshot-all-timing
+      timeoutMs: 240000
+      askUserPolicy: allow_all
+      prompt: |
+        First check if a site named "Eval Screenshot Timing" exists using
+        site_list. If it does, delete it with site_delete so we start from
+        a clean slate. Do NOT touch any other site.
+
+        Then create a new site named "Eval Screenshot Timing". Do not
+        customize the theme. Verify the homepage visually with screenshots
+        for both desktop and mobile, then briefly report whether the
+        screenshots were captured.
+    assert:
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync, existsSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const screenshotCalls = (d.toolCalls || []).filter(t => t.name === 'take_screenshot');
+            if (screenshotCalls.length !== 1) {
+              return {
+                pass: false,
+                score: 0,
+                reason: `expected one take_screenshot call for desktop+mobile verification, got ${screenshotCalls.length}: ${JSON.stringify(screenshotCalls.map(t => t.input))}`,
+              };
+            }
+            const call = screenshotCalls[0];
+            if (call.input?.viewport !== 'all') {
+              return {
+                pass: false,
+                score: 0,
+                reason: `expected take_screenshot to use viewport="all"; got ${JSON.stringify(call.input)}`,
+              };
+            }
+
+            const result = (d.toolResults || []).find(r => r.toolUseId === call.id);
+            if (!result || result.isError) {
+              return { pass: false, score: 0, reason: `take_screenshot failed: ${JSON.stringify(result)}` };
+            }
+            const rawPayloads = (result.text || '').split('mediaWidgetPayloads=')[1];
+            if (!rawPayloads) {
+              return { pass: false, score: 0, reason: `screenshot result did not include mediaWidgetPayloads: ${(result.text || '').slice(0, 500)}` };
+            }
+
+            let payloads;
+            try {
+              payloads = JSON.parse(rawPayloads);
+            } catch (error) {
+              return { pass: false, score: 0, reason: `could not parse mediaWidgetPayloads JSON: ${error instanceof Error ? error.message : String(error)}` };
+            }
+            if (!Array.isArray(payloads) || payloads.length !== 2) {
+              return { pass: false, score: 0, reason: `expected two screenshot media payloads, got ${JSON.stringify(payloads).slice(0, 500)}` };
+            }
+
+            const expectedWidths = new Map([
+              ['screenshot-desktop.png', 1040],
+              ['screenshot-mobile.png', 390],
+            ]);
+            const seen = [];
+            for (const payload of payloads) {
+              const source = payload.widgetProps?.source;
+              const expectedWidth = expectedWidths.get(source?.name);
+              if (!expectedWidth) {
+                return { pass: false, score: 0, reason: `unexpected screenshot payload source: ${JSON.stringify(source)}` };
+              }
+              if (typeof source.path !== 'string' || !existsSync(source.path)) {
+                return { pass: false, score: 0, reason: `screenshot file is missing: ${JSON.stringify(source)}` };
+              }
+              const png = readFileSync(source.path);
+              const isPng = png.length > 24 && png[0] === 0x89 && png[1] === 0x50 && png[2] === 0x4e && png[3] === 0x47;
+              const width = isPng ? png.readUInt32BE(16) : 0;
+              const height = isPng ? png.readUInt32BE(20) : 0;
+              if (!isPng || width !== expectedWidth || height < 600) {
+                return {
+                  pass: false,
+                  score: 0,
+                  reason: `${source.name} did not look like the expected PNG screenshot: png=${isPng}, width=${width}, height=${height}`,
+                };
+              }
+              seen.push(source.name);
+            }
+            return { pass: true, score: 1, reason: `captured valid screenshots: ${seen.join(', ')}` };
+          });
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const events = (d.toolEvents || []).filter(t => t.toolName === 'take_screenshot');
+            if (events.length !== 1 || typeof events[0].durationMs !== 'number') {
+              return { pass: false, score: 0, reason: `expected one timed take_screenshot event, got ${JSON.stringify(events)}` };
+            }
+            const limitMs = 15000;
+            const duration = events[0].durationMs;
+            const pass = duration < limitMs;
+            return {
+              pass,
+              score: pass ? 1 : 0,
+              reason: pass
+                ? `take_screenshot completed in ${duration}ms`
+                : `take_screenshot took ${duration}ms, expected < ${limitMs}ms`,
+            };
+          });
+
   # Every individual turn (wall-clock between successive assistant messages)
   # should stay under 60s. Slow turns stall the UI.
   - description: single-page site build keeps every turn under 60s

@@ -4,6 +4,9 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
 
+type Browser = Awaited< ReturnType< typeof getSharedBrowser > >;
+type Page = Awaited< ReturnType< Browser[ 'newPage' ] > >;
+
 /**
  * Tall portrait viewport used by `take_screenshot` for full-page captures
  * where the agent wants to inspect the whole scrolled page at once.
@@ -32,6 +35,15 @@ export const SHARE_VIEWPORTS = {
  */
 export const SHARE_DEVICE_SCALE_FACTOR = 2;
 
+const IMAGE_SETTLE_TIMEOUT_MS = 3000;
+const PAGE_SETTLE_TIMEOUT_MS = 2500;
+
+async function waitForPageToSettle( page: Page ): Promise< void > {
+	await page
+		.waitForLoadState( 'networkidle', { timeout: PAGE_SETTLE_TIMEOUT_MS } )
+		.catch( () => {} );
+}
+
 /**
  * Capture a PNG screenshot of `url` at the given viewport and return it as a
  * Buffer. Shared by both `take_screenshot` and `share_screenshot`; callers
@@ -52,48 +64,60 @@ export async function captureScreenshotPngBuffer(
 	try {
 		await page.emulateMedia( { reducedMotion: 'reduce' } );
 		await page.goto( url, { waitUntil: 'domcontentloaded', timeout: 30000 } );
-		await page.waitForLoadState( 'networkidle', { timeout: 10000 } ).catch( () => {} );
+		await waitForPageToSettle( page );
 
 		// For full-page captures, scroll through the entire document so
 		// lazy-loaded images can begin loading. For viewport captures we keep
 		// the page where it is and only wait on images that intersect the
 		// first viewport, so above-the-fold shots stay quick on long pages.
-		await page.evaluate( async ( fullPage ) => {
-			const delay = ( ms: number ) =>
-				new Promise< void >( ( resolve ) => setTimeout( resolve, ms ) );
+		await page.evaluate(
+			async ( { fullPage, imageSettleTimeoutMs } ) => {
+				const delay = ( ms: number ) =>
+					new Promise< void >( ( resolve ) => setTimeout( resolve, ms ) );
+				const waitForPaint = () =>
+					new Promise< void >( ( resolve ) => {
+						requestAnimationFrame( () => requestAnimationFrame( () => resolve() ) );
+					} );
 
-			if ( fullPage ) {
-				const scrollHeight = document.body.scrollHeight;
-				const viewportHeight = window.innerHeight;
-				for ( let y = 0; y < scrollHeight; y += viewportHeight ) {
-					window.scrollTo( 0, y );
-					await delay( 100 );
-				}
-				window.scrollTo( 0, 0 );
-			}
+				await Promise.race( [ document.fonts?.ready ?? Promise.resolve(), delay( 1000 ) ] );
 
-			const pendingImages = Array.from( document.images ).filter( ( img ) => {
-				if ( img.complete ) {
-					return false;
-				}
 				if ( fullPage ) {
-					return true;
+					const scrollHeight = Math.max(
+						document.body.scrollHeight,
+						document.documentElement.scrollHeight
+					);
+					const viewportHeight = window.innerHeight;
+					for ( let y = 0; y < scrollHeight; y += viewportHeight ) {
+						window.scrollTo( 0, y );
+						await waitForPaint();
+					}
+					window.scrollTo( 0, 0 );
 				}
-				const rect = img.getBoundingClientRect();
-				return rect.bottom > 0 && rect.top < window.innerHeight;
-			} );
-			const timeout = new Promise< void >( ( resolve ) => setTimeout( resolve, 5000 ) );
-			const allImages = Promise.all(
-				pendingImages.map(
-					( img ) =>
-						new Promise< void >( ( resolve ) => {
-							img.addEventListener( 'load', () => resolve(), { once: true } );
-							img.addEventListener( 'error', () => resolve(), { once: true } );
-						} )
-				)
-			);
-			await Promise.race( [ allImages, timeout ] );
-		}, options.fullPage );
+
+				const pendingImages = Array.from( document.images ).filter( ( img ) => {
+					if ( img.complete ) {
+						return false;
+					}
+					if ( fullPage ) {
+						return true;
+					}
+					const rect = img.getBoundingClientRect();
+					return rect.bottom > 0 && rect.top < window.innerHeight;
+				} );
+				const timeout = delay( imageSettleTimeoutMs );
+				const allImages = Promise.all(
+					pendingImages.map(
+						( img ) =>
+							new Promise< void >( ( resolve ) => {
+								img.addEventListener( 'load', () => resolve(), { once: true } );
+								img.addEventListener( 'error', () => resolve(), { once: true } );
+							} )
+					)
+				);
+				await Promise.race( [ allImages, timeout ] );
+			},
+			{ fullPage: options.fullPage, imageSettleTimeoutMs: IMAGE_SETTLE_TIMEOUT_MS }
+		);
 
 		// Hide the WordPress admin bar and scrollbars for cleaner shots.
 		await page.addStyleTag( {

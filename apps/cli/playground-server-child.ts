@@ -10,7 +10,9 @@
  * - Sends response back when ready
  * - Sends activity heartbeats to prevent timeout during long operations
  */
+import { rootCertificates } from 'node:tls';
 import path, { dirname } from 'path';
+import { setPhpIniEntries } from '@php-wasm/universal';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { isWordPressDirectory } from '@studio/common/lib/fs-utils';
 import { IS_JSPI_AVAILABLE } from '@studio/common/lib/jspi';
@@ -442,6 +444,18 @@ const startServer = wrapWithStartingPromise(
 			// error message is lost. Filed upstream:
 			// https://github.com/WordPress/wordpress-playground/issues/3520
 			server = await runCLI( args );
+
+			stopSignal.throwIfAborted();
+
+			// Playground CLI only writes the CA bundle when booting a fresh WordPress install; set it here for existing sites too (#3153).
+			await server.playground.writeFile(
+				'/internal/shared/ca-bundle.crt',
+				rootCertificates.join( '\n' )
+			);
+			await setPhpIniEntries( server.playground, {
+				'openssl.cafile': '/internal/shared/ca-bundle.crt',
+				'curl.cainfo': '/internal/shared/ca-bundle.crt',
+			} );
 
 			stopSignal.throwIfAborted();
 

@@ -28,13 +28,94 @@ describe( 'respondMessage', () => {
 	describe( 'Telegram path', () => {
 		it( 'POSTs to /local-agent-respond with the configured bot fallback', async () => {
 			fetchMock.mockResolvedValueOnce( new Response( '', { status: 200 } ) );
-			await respondMessage( baseConfig, { chatId: 99, text: 'hi' } );
+			const outcome = await respondMessage( baseConfig, { chatId: 99, text: 'hi' } );
 			const [ url, init ] = fetchMock.mock.calls[ 0 ];
 			expect( url ).toBe( 'https://api.example.test/wpcom/v2/telegram-bot/local-agent-respond' );
 			expect( init.method ).toBe( 'POST' );
 			const body = JSON.parse( init.body as string );
+			// `action` is only emitted on non-default values so older servers that
+			// don't know about it still accept the create body unchanged.
 			expect( body ).toEqual( { chat_id: 99, text: 'hi', bot: 'my_bot' } );
 			expect( init.headers.Authorization ).toBe( 'Bearer abc' );
+			// Empty body returns a bare success outcome.
+			expect( outcome ).toEqual( { success: true, messageIds: [] } );
+		} );
+
+		it( 'parses message_ids and the new outcome fields from the server JSON envelope', async () => {
+			fetchMock.mockResolvedValueOnce(
+				new Response(
+					JSON.stringify( {
+						success: true,
+						message_ids: [ 1001, 1002 ],
+						text_sent: true,
+						chunks_sent: 2,
+					} ),
+					{ status: 200, headers: { 'content-type': 'application/json' } }
+				)
+			);
+			const outcome = await respondMessage( baseConfig, { chatId: 1, text: 'x' } );
+			expect( outcome ).toEqual( {
+				success: true,
+				messageIds: [ 1001, 1002 ],
+				textSent: true,
+				chunksSent: 2,
+			} );
+		} );
+
+		it( 'surfaces retry_after_ms in the outcome without throwing', async () => {
+			fetchMock.mockResolvedValueOnce(
+				new Response(
+					JSON.stringify( {
+						success: false,
+						message_ids: [],
+						retry_after_ms: 3000,
+						error: 'Too Many Requests: retry after 3',
+					} ),
+					{ status: 200, headers: { 'content-type': 'application/json' } }
+				)
+			);
+			const outcome = await respondMessage(
+				baseConfig,
+				{ chatId: 1, action: 'edit', messageId: 42, text: 'updated' },
+				{ maxRetries: 0 }
+			);
+			expect( outcome.success ).toBe( false );
+			expect( outcome.retryAfterMs ).toBe( 3000 );
+			expect( outcome.error ).toMatch( /Too Many Requests/i );
+		} );
+
+		it( 'sends action=edit with message_id in the JSON body', async () => {
+			fetchMock.mockResolvedValueOnce(
+				new Response( JSON.stringify( { success: true, message_ids: [ 42 ], text_sent: true } ), {
+					status: 200,
+					headers: { 'content-type': 'application/json' },
+				} )
+			);
+			await respondMessage( baseConfig, {
+				chatId: 1,
+				action: 'edit',
+				messageId: 42,
+				text: 'new text',
+			} );
+			const [ , init ] = fetchMock.mock.calls[ 0 ];
+			expect( init.headers[ 'Content-Type' ] ).toBe( 'application/json' );
+			expect( JSON.parse( init.body as string ) ).toEqual( {
+				chat_id: 1,
+				bot: 'my_bot',
+				action: 'edit',
+				message_id: 42,
+				text: 'new text',
+			} );
+		} );
+
+		it( 'rejects edit calls without messageId or text up front', async () => {
+			await expect(
+				respondMessage( baseConfig, { chatId: 1, action: 'edit', text: 'no id' } )
+			).rejects.toThrow( /messageId/ );
+			await expect(
+				respondMessage( baseConfig, { chatId: 1, action: 'edit', messageId: 1 } )
+			).rejects.toThrow( /text/ );
+			expect( fetchMock ).not.toHaveBeenCalled();
 		} );
 
 		it( 'retries on 5xx then succeeds', async () => {
@@ -226,6 +307,30 @@ describe( 'respondMessage', () => {
 			const [ , init ] = fetchMock.mock.calls[ 0 ];
 			const body = JSON.parse( init.body as string );
 			expect( body.envelope.text ).toMatch( /image omitted/i );
+		} );
+
+		it( 'degrades action=edit to a fresh create envelope (mobile has no edit primitive)', async () => {
+			fetchMock.mockResolvedValueOnce( new Response( '', { status: 200 } ) );
+			const outcome = await respondMessage(
+				{ ...baseConfig, bot: undefined },
+				{
+					chatId: 7,
+					bot: 'studio_mobile_rn',
+					action: 'edit',
+					messageId: 42,
+					text: 'updated text',
+				}
+			);
+			const [ url, init ] = fetchMock.mock.calls[ 0 ];
+			expect( url ).toBe( 'https://api.example.test/wpcom/v2/studio-mobile-client/respond' );
+			const body = JSON.parse( init.body as string );
+			// Body has no `action` / `message_id` keys; mobile gets a fresh envelope.
+			expect( body ).not.toHaveProperty( 'action' );
+			expect( body ).not.toHaveProperty( 'message_id' );
+			expect( body.envelope.text ).toBe( 'updated text' );
+			// Empty messageIds — caller (progress streamer) interprets this as
+			// "no message id captured; keep creating".
+			expect( outcome.messageIds ).toEqual( [] );
 		} );
 
 		it( 'throws when base_url does not end with /telegram-bot for a mobile bot', async () => {

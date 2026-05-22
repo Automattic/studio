@@ -37,6 +37,24 @@
 	padding: 0 6px;
 }
 
+.authNotice {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	padding: 10px 12px;
+	border: 1px solid var(--ui-desks-divider, rgba(15, 23, 42, 0.06));
+	border-radius: 12px;
+	background: rgba(255, 255, 255, 0.72);
+	color: var(--ui-desks-muted, #6b7280);
+	font-size: 12px;
+	line-height: 16px;
+}
+
+.authNotice span {
+	min-width: 0;
+}
+
 .attachment {
 	position: relative;
 	flex: 0 0 auto;
@@ -80,6 +98,10 @@
 
 .input::placeholder {
 	color: var(--ui-desks-muted, #6b7280);
+}
+
+.input:disabled {
+	cursor: not-allowed;
 }
 
 .input[data-preview='true'] {

@@ -39,8 +39,11 @@
 }
 
 .loginAvatar {
-	border-radius: 50%;
-	background: rgba(15, 23, 42, 0.06);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.loginAvatar svg {
+	fill: currentColor;
 }
 
 .popup {

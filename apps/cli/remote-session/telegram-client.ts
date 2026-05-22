@@ -26,6 +26,20 @@ export interface TelegramRequestContext {
 }
 
 /**
+ * Action the wpcom side should perform with the request body. Used by both
+ * the Telegram and studio-mobile paths, so it's exported here as the shared
+ * vocabulary (the router builds the actual wire body via the per-transport
+ * adapters).
+ *
+ *  - `create` (default): Telegram sendMessage / sendPhoto, or a new
+ *    studio-mobile envelope appended to the outbound queue.
+ *  - `edit`: Telegram editMessageText against the captured `message_id`.
+ *    Studio mobile has no edit primitive today, so the router degrades it
+ *    to a fresh `create` envelope.
+ */
+export type RespondAction = 'create' | 'edit';
+
+/**
  * Poll the server for pending messages. Returns an empty array when nothing is queued.
  *
  * The server returns `{ messages: [ { message, chat_id, bot, user_id, timestamp }, ... ] }`.
@@ -171,6 +185,8 @@ function extractMessages( payload: unknown ): PolledMessage[] {
 export interface TelegramBodyParams {
 	chatId: number;
 	bot?: string;
+	action: RespondAction;
+	messageId?: number;
 	text?: string;
 	photo?: string;
 	photoMimeType?: 'image/png' | 'image/jpeg';
@@ -197,11 +213,18 @@ export function buildTelegramRespondBody( params: TelegramBodyParams ): {
 	/** Set for the JSON path; `undefined` for multipart so fetch fills the boundary in. */
 	contentType?: string;
 } {
+	// Photos only ride the multipart path, and the server rejects `photo` on any
+	// non-create action — so multipart is implicitly create-only.
 	if ( params.photo ) {
 		const fd = new FormData();
 		fd.append( 'chat_id', String( params.chatId ) );
 		if ( params.bot ) {
 			fd.append( 'bot', params.bot );
+		}
+		// Default action is `create`; only emit the field when it's non-default
+		// so existing servers that don't yet know `action` still accept the body.
+		if ( params.action !== 'create' ) {
+			fd.append( 'action', params.action );
 		}
 		if ( params.text ) {
 			fd.append( 'text', params.text );
@@ -220,6 +243,12 @@ export function buildTelegramRespondBody( params: TelegramBodyParams ): {
 	const json: Record< string, unknown > = { chat_id: params.chatId };
 	if ( params.bot ) {
 		json.bot = params.bot;
+	}
+	if ( params.action !== 'create' ) {
+		json.action = params.action;
+	}
+	if ( params.messageId !== undefined ) {
+		json.message_id = params.messageId;
 	}
 	if ( params.text ) {
 		json.text = params.text;

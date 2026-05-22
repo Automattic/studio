@@ -27,6 +27,22 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).toContain( 'present the actual captured PNG' );
 		expect( prompt ).toContain( 'Do not substitute a site-preview widget for a screenshot' );
 		expect( prompt ).toContain( 'site-preview is for live previews, not captured screenshots' );
+		expect( prompt ).toContain( '- theme:' );
+		expect( prompt ).toContain( '- theme-template:' );
+		expect( prompt ).toContain( '- theme-styles:' );
+		expect( prompt ).toContain( '- theme-pattern:' );
+		expect( prompt ).toContain( '- color:' );
+		expect( prompt ).toContain( '- pdf:' );
+	} );
+
+	it( 'steers newsletter signups to jetpack/subscriptions, not jetpack/contact-form', () => {
+		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
+
+		expect( prompt ).toContain( '## Newsletter signup' );
+		expect( prompt ).toContain( 'jetpack/subscriptions' );
+		expect( prompt ).toContain( 'wp_cli jetpack module activate subscriptions' );
+		// The contact-form section should warn against using it for newsletters.
+		expect( prompt ).toMatch( /contact-form[^]*only stores submissions as Feedback/ );
 	} );
 
 	it( 'omits Studio presentation rules when chat artifacts are disabled', () => {

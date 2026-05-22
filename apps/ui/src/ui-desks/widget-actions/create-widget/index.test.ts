@@ -140,6 +140,36 @@ describe( 'createDeskWidget', () => {
 		} );
 	} );
 
+	it( 'creates an empty scratchpad widget at the reference workbench size', () => {
+		const createdWidget = createDeskWidget( {
+			id: 'scratchpad-1',
+			type: 'scratchpad',
+			center: {
+				x: 700,
+				y: 500,
+			},
+			zIndex: 'a8',
+		} );
+
+		expect( createdWidget ).toEqual( {
+			id: 'scratchpad-1',
+			type: 'scratchpad',
+			x: 460,
+			y: 320,
+			zIndex: 'a8',
+			shapeProps: {
+				w: 480,
+				h: 360,
+			},
+			widgetProps: {
+				html: '',
+				title: '',
+				scope: 'block',
+				description: '',
+			},
+		} );
+	} );
+
 	it( 'ignores unsupported widget types', () => {
 		expect(
 			createDeskWidget( {
@@ -239,6 +269,37 @@ describe( 'createDeskWidget', () => {
 			},
 			widgetProps: {
 				path: '/',
+			},
+		} );
+	} );
+
+	it( 'creates a site card widget with optional site identity props', () => {
+		const createdWidget = createDeskWidget( {
+			id: 'site-card-1',
+			type: 'site-card',
+			center: {
+				x: 500,
+				y: 400,
+			},
+			zIndex: 'a9',
+			widgetProps: {
+				siteId: 'site-123',
+			},
+		} );
+
+		expect( createdWidget ).toEqual( {
+			id: 'site-card-1',
+			type: 'site-card',
+			x: 320,
+			y: 300,
+			zIndex: 'a9',
+			shapeProps: {
+				w: 360,
+				h: 200,
+			},
+			widgetProps: {
+				previewVisible: false,
+				siteId: 'site-123',
 			},
 		} );
 	} );

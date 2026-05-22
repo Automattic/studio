@@ -6,8 +6,6 @@ import {
 	LOCKFILE_WAIT_TIME,
 } from '@studio/common/constants';
 import { siteDetailsSchema } from '@studio/common/lib/cli-events';
-export { siteRuntimeSchema } from '@studio/common/lib/cli-events';
-export type { SiteRuntime } from '@studio/common/lib/cli-events';
 import { hideDirectoryOnWindows } from '@studio/common/lib/hide-dir-windows';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
 import { getCliConfigPath, getConfigDirectory } from '@studio/common/lib/well-known-paths';

@@ -1,138 +1,41 @@
+import { BrowserWindow, dialog, type IpcMainInvokeEvent } from 'electron';
+import fsPromises from 'fs/promises';
+import nodePath from 'path';
+import { assertDeskConfig } from '@studio/common/lib/desk-config';
 import { normalizeDeskSettings } from '@studio/common/lib/desk-settings';
-import {
-	DESK_CONFIG_VERSION,
-	type DeskConnector,
-	type DeskConnectorEndpoint,
-	type DeskConfig,
-	type DeskSettings,
-	type DeskStack,
-	type DeskViewport,
-	type DeskWidgetBase,
-} from '@studio/common/types/desk';
+import { type DeskConfig, type DeskSettings, type StudioUiMode } from '@studio/common/types/desk';
+import { __ } from '@wordpress/i18n';
+import { loadMainWindowRenderer } from 'src/main-window';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
-import type { IpcMainInvokeEvent } from 'electron';
 
 function isRecord( value: unknown ): value is Record< string, unknown > {
 	return Boolean( value ) && typeof value === 'object' && ! Array.isArray( value );
-}
-
-function isDeskWidget( value: unknown ): value is DeskWidgetBase {
-	if ( ! isRecord( value ) || ! isRecord( value.shapeProps ) || ! isRecord( value.widgetProps ) ) {
-		return false;
-	}
-	return (
-		typeof value.id === 'string' &&
-		typeof value.type === 'string' &&
-		typeof value.x === 'number' &&
-		typeof value.y === 'number' &&
-		typeof value.zIndex === 'string' &&
-		( value.rotation === undefined || typeof value.rotation === 'number' )
-	);
-}
-
-function isDeskStack( value: unknown ): value is DeskStack {
-	if ( ! isRecord( value ) || ! Array.isArray( value.memberIds ) ) {
-		return false;
-	}
-	return (
-		typeof value.id === 'string' &&
-		value.id.length > 0 &&
-		typeof value.x === 'number' &&
-		Number.isFinite( value.x ) &&
-		typeof value.y === 'number' &&
-		Number.isFinite( value.y ) &&
-		typeof value.zIndex === 'string' &&
-		value.memberIds.length >= 2 &&
-		value.memberIds.every( ( memberId ) => typeof memberId === 'string' )
-	);
-}
-
-function isDeskViewport( value: unknown ): value is DeskViewport {
-	if ( ! isRecord( value ) ) {
-		return false;
-	}
-
-	const { x, y, z } = value;
-	return (
-		typeof x === 'number' &&
-		Number.isFinite( x ) &&
-		typeof y === 'number' &&
-		Number.isFinite( y ) &&
-		typeof z === 'number' &&
-		Number.isFinite( z ) &&
-		z > 0
-	);
-}
-
-function isDeskConnectorEndpoint( value: unknown ): value is DeskConnectorEndpoint {
-	if ( ! isRecord( value ) || ! isRecord( value.normalizedAnchor ) ) {
-		return false;
-	}
-
-	const { x, y } = value.normalizedAnchor;
-	return (
-		typeof value.widgetId === 'string' &&
-		value.widgetId.length > 0 &&
-		typeof x === 'number' &&
-		Number.isFinite( x ) &&
-		x >= 0 &&
-		x <= 1 &&
-		typeof y === 'number' &&
-		Number.isFinite( y ) &&
-		y >= 0 &&
-		y <= 1
-	);
-}
-
-function isDeskConnector( value: unknown ): value is DeskConnector {
-	if ( ! isRecord( value ) ) {
-		return false;
-	}
-
-	return (
-		typeof value.id === 'string' &&
-		value.id.length > 0 &&
-		isDeskConnectorEndpoint( value.from ) &&
-		isDeskConnectorEndpoint( value.to ) &&
-		( value.bend === undefined ||
-			( typeof value.bend === 'number' && Number.isFinite( value.bend ) ) )
-	);
-}
-
-function assertDeskConfig( value: unknown ): asserts value is DeskConfig {
-	if ( ! isRecord( value ) ) {
-		throw new Error( 'Invalid desk config: expected an object.' );
-	}
-	if ( value.version !== DESK_CONFIG_VERSION ) {
-		throw new Error( `Invalid desk config: expected version ${ DESK_CONFIG_VERSION }.` );
-	}
-	if ( typeof value.updatedAt !== 'string' ) {
-		throw new Error( 'Invalid desk config: expected updatedAt string.' );
-	}
-	if ( ! Array.isArray( value.widgets ) || ! value.widgets.every( isDeskWidget ) ) {
-		throw new Error( 'Invalid desk config: expected widgets array.' );
-	}
-	if (
-		value.stacks !== undefined &&
-		( ! Array.isArray( value.stacks ) || ! value.stacks.every( isDeskStack ) )
-	) {
-		throw new Error( 'Invalid desk config: expected stacks array.' );
-	}
-	if ( value.viewport !== undefined && ! isDeskViewport( value.viewport ) ) {
-		throw new Error( 'Invalid desk config: expected viewport object.' );
-	}
-	if (
-		value.connectors !== undefined &&
-		( ! Array.isArray( value.connectors ) || ! value.connectors.every( isDeskConnector ) )
-	) {
-		throw new Error( 'Invalid desk config: expected connectors array.' );
-	}
 }
 
 function assertSiteId( siteId: unknown ): asserts siteId is string {
 	if ( typeof siteId !== 'string' || ! siteId ) {
 		throw new Error( 'Invalid site desk config: expected site id.' );
 	}
+}
+
+function assertStudioUiMode( mode: unknown ): asserts mode is StudioUiMode {
+	if ( mode !== 'default' && mode !== 'desks' && mode !== 'agentic' ) {
+		throw new Error( 'Invalid Studio UI mode.' );
+	}
+}
+
+function getParentWindow( event: IpcMainInvokeEvent, channel: string ) {
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	if ( ! parentWindow ) {
+		throw new Error( `No window found for sender of ${ channel } message: ${ event.frameId }` );
+	}
+	return parentWindow;
+}
+
+function getDeskJsonFilename( suggestedFilename: string ) {
+	const fallbackFilename = 'studio-desk.json';
+	const basename = nodePath.basename( suggestedFilename || fallbackFilename );
+	return basename.toLowerCase().endsWith( '.json' ) ? basename : `${ basename }.json`;
 }
 
 export async function getUserDeskConfig(
@@ -145,6 +48,39 @@ export async function getUserDeskConfig(
 export async function getDeskSettings( _event: IpcMainInvokeEvent ): Promise< DeskSettings > {
 	const userData = await loadUserData();
 	return normalizeDeskSettings( userData.desks?.settings );
+}
+
+export async function getStudioUiMode( _event: IpcMainInvokeEvent ): Promise< StudioUiMode > {
+	const userData = await loadUserData();
+	const mode = userData.desks?.defaultUiMode;
+	return mode === 'desks' || mode === 'agentic' ? mode : 'default';
+}
+
+export async function setStudioUiMode(
+	event: IpcMainInvokeEvent,
+	mode: StudioUiMode
+): Promise< void > {
+	assertStudioUiMode( mode );
+	await lockAppdata();
+	try {
+		const userData = await loadUserData();
+		await saveUserData( {
+			...userData,
+			desks: {
+				...userData.desks,
+				defaultUiMode: mode,
+			},
+		} );
+	} finally {
+		await unlockAppdata();
+	}
+
+	const parentWindow = BrowserWindow.fromWebContents( event.sender );
+	if ( parentWindow && ! parentWindow.isDestroyed() ) {
+		setTimeout( () => {
+			void loadMainWindowRenderer( parentWindow, mode );
+		}, 0 );
+	}
 }
 
 export async function saveDeskSettings(
@@ -169,6 +105,64 @@ export async function saveDeskSettings(
 	} finally {
 		await unlockAppdata();
 	}
+}
+
+export async function exportDeskConfig(
+	event: IpcMainInvokeEvent,
+	config: DeskConfig,
+	suggestedFilename: string
+): Promise< string | null > {
+	assertDeskConfig( config );
+
+	const { canceled, filePath } = await dialog.showSaveDialog(
+		getParentWindow( event, 'exportDeskConfig' ),
+		{
+			title: __( 'Export desk' ),
+			defaultPath: getDeskJsonFilename( suggestedFilename ),
+			filters: [
+				{
+					name: __( 'JSON files' ),
+					extensions: [ 'json' ],
+				},
+			],
+		}
+	);
+	if ( canceled || ! filePath ) {
+		return null;
+	}
+
+	const targetPath = filePath.toLowerCase().endsWith( '.json' ) ? filePath : `${ filePath }.json`;
+	await fsPromises.writeFile( targetPath, `${ JSON.stringify( config, null, 2 ) }\n`, 'utf8' );
+	return targetPath;
+}
+
+export async function importDeskConfig( event: IpcMainInvokeEvent ): Promise< DeskConfig | null > {
+	const { canceled, filePaths } = await dialog.showOpenDialog(
+		getParentWindow( event, 'importDeskConfig' ),
+		{
+			title: __( 'Import desk' ),
+			filters: [
+				{
+					name: __( 'JSON files' ),
+					extensions: [ 'json' ],
+				},
+			],
+			properties: [ 'openFile' ],
+		}
+	);
+	if ( canceled || ! filePaths[ 0 ] ) {
+		return null;
+	}
+
+	let parsedConfig: unknown;
+	try {
+		parsedConfig = JSON.parse( await fsPromises.readFile( filePaths[ 0 ], 'utf8' ) );
+	} catch {
+		throw new Error( 'Could not parse that file. Expected a Studio desk JSON export.' );
+	}
+
+	assertDeskConfig( parsedConfig );
+	return parsedConfig;
 }
 
 export async function saveUserDeskConfig(

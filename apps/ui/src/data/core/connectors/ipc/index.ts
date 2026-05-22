@@ -11,6 +11,7 @@ import type {
 	DeskSettings,
 	ExtractedBlueprintBundle,
 	FeaturedBlueprint,
+	FeatureFlags,
 	InstalledApps,
 	LocalMediaFile,
 	LoadedAiSession,
@@ -21,6 +22,7 @@ import type {
 	SupportedEditor,
 	SupportedTerminal,
 	SyncSite,
+	StudioUiMode,
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
@@ -200,6 +202,10 @@ export function createIpcConnector(): Connector {
 			await ipcApi.clearAuthenticationToken();
 		},
 
+		onAuthStateChanged( listener ) {
+			return ipcListener.subscribe( 'auth-updated', () => listener() );
+		},
+
 		// Sites
 		async getSites(): Promise< SiteDetails[] > {
 			return ( await ipcApi.getSiteDetails() ) as SiteDetails[];
@@ -369,6 +375,10 @@ export function createIpcConnector(): Connector {
 
 		async updateSite( site, wpVersion ) {
 			await ipcApi.updateSite( site, wpVersion );
+		},
+
+		async refreshSiteIcon( siteId ) {
+			await ipcApi.loadSiteIcon( siteId );
 		},
 
 		async getXdebugEnabledSite() {
@@ -623,12 +633,35 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.getInstalledAppsAndTerminals() ) as InstalledApps;
 		},
 
+		async getFeatureFlags(): Promise< FeatureFlags > {
+			const appGlobals = ( await ipcApi.getAppGlobals() ) as Partial< FeatureFlags >;
+			return {
+				enableDesksUiSwitch: appGlobals.enableDesksUiSwitch ?? false,
+			};
+		},
+
+		async getStudioUiMode(): Promise< StudioUiMode > {
+			return ( await ipcApi.getStudioUiMode() ) as StudioUiMode;
+		},
+
+		async setStudioUiMode( mode ): Promise< void > {
+			await ipcApi.setStudioUiMode( mode );
+		},
+
 		async getDeskSettings(): Promise< DeskSettings > {
 			return ( await ipcApi.getDeskSettings() ) as DeskSettings;
 		},
 
 		async saveDeskSettings( settings ): Promise< void > {
 			await ipcApi.saveDeskSettings( settings );
+		},
+
+		async exportDeskConfig( config, suggestedFilename ): Promise< string | null > {
+			return ( await ipcApi.exportDeskConfig( config, suggestedFilename ) ) as string | null;
+		},
+
+		async importDeskConfig(): Promise< DeskConfig | null > {
+			return ( await ipcApi.importDeskConfig() ) as DeskConfig | null;
 		},
 
 		async getUserDeskConfig(): Promise< DeskConfig | undefined > {

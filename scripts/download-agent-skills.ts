@@ -3,9 +3,9 @@ import path from 'path';
 import fs from 'fs-extra';
 import { extractZip } from '../tools/common/lib/extract-zip';
 
-const WP_FILES_PATH = path.join( __dirname, '..', 'wp-files' );
+const WP_FILES_PATH = path.join( import.meta.dirname, '..', 'wp-files' );
 const AI_SKILLS_PATH = path.join( WP_FILES_PATH, 'skills' );
-const LOCAL_AI_SKILLS_PATH = path.join( __dirname, '..', 'skills' );
+const LOCAL_AI_SKILLS_PATH = path.join( import.meta.dirname, '..', 'skills' );
 
 const REPO_ZIP_URL = 'https://github.com/WordPress/agent-skills/archive/refs/heads/trunk.zip';
 

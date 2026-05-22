@@ -40,6 +40,12 @@ type CoreDataPostSelectors = {
 	) => CoreDataPost[] | null;
 };
 
+interface PostCollectionPosition {
+	x: number;
+	y: number;
+	rotation?: number;
+}
+
 type CoreDataPostResolvers = {
 	getEntityRecords: (
 		kind: 'postType',
@@ -172,7 +178,7 @@ function getEntityRecordsQuery( query: PostCollectionQuery ): EntityRecordsQuery
 function createDerivedPostWidget(
 	collection: PostCollectionWidget,
 	postId: number,
-	position: { x: number; y: number }
+	position: PostCollectionPosition
 ): ResolvedDeskWidget< PostWidget > {
 	return {
 		origin: {
@@ -185,6 +191,7 @@ function createDerivedPostWidget(
 			type: POST_WIDGET_TYPE,
 			x: position.x,
 			y: position.y,
+			...( position.rotation !== undefined ? { rotation: position.rotation } : {} ),
 			zIndex: collection.zIndex,
 			shapeProps: POST_CARD_SHAPE_PROPS,
 			widgetProps: {
@@ -210,7 +217,9 @@ function createDerivedPostStack(
 			y: collection.y,
 			zIndex: collection.zIndex,
 			memberIds: posts.map( ( postRecord ) => `${ collection.id }:post:${ postRecord.id }` ),
-			...( collection.widgetProps.viewMode === 'tiles' ? { viewMode: 'tiles' as const } : {} ),
+			...( collection.widgetProps.viewMode && collection.widgetProps.viewMode !== 'stack'
+				? { viewMode: collection.widgetProps.viewMode }
+				: {} ),
 		},
 	};
 }

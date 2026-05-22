@@ -1,7 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
-import { getConfiguredPhpBinaryVersion } from '@studio/common/lib/php-binary-metadata';
+import {
+	getConfiguredPhpBinaryVersion,
+	resolveNativePhpVersion,
+} from '@studio/common/lib/php-binary-metadata';
 import { getPhpBinaryPath } from 'cli/lib/dependency-management/paths';
 import type { Migration } from '@studio/common/lib/migration';
 
@@ -14,7 +17,8 @@ function getBundledPhpBinaryRoot(): string {
 }
 
 function getDefaultPhpPatchVersion(): string {
-	return getConfiguredPhpBinaryVersion( DEFAULT_PHP_VERSION ) ?? DEFAULT_PHP_VERSION;
+	const nativeVersion = resolveNativePhpVersion( DEFAULT_PHP_VERSION );
+	return getConfiguredPhpBinaryVersion( nativeVersion ) ?? nativeVersion;
 }
 
 function getBundledDefaultPhpDir(): string {

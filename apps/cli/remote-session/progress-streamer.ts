@@ -1,3 +1,4 @@
+import { __ } from '@wordpress/i18n';
 import type { AgentMessage } from '@mariozechner/pi-agent-core';
 import type { AgentSessionEvent } from '@mariozechner/pi-coding-agent';
 import type { JsonEvent } from '@studio/common/ai/json-events';
@@ -90,6 +91,31 @@ const VERB_TO_GERUND: Record< string, string > = {
 	ask: 'Asking',
 };
 
+/**
+ * Map a turn's terminal status to a user-readable Telegram summary. The raw
+ * union members (`max_turns`, `spawn_error`, …) are agent-internal identifiers
+ * that would be meaningless if surfaced as italicized labels in chat, so we
+ * project each one to a translated sentence. Italic wrapping is intentionally
+ * dropped — these are short phrases, not labels, and read more naturally
+ * unstyled.
+ */
+function formatFinalStatusSummary( status: ProgressFinalStatus ): string {
+	switch ( status ) {
+		case 'success':
+			return `✅ ${ __( 'Done' ) }`;
+		case 'error':
+			return `⚠️ ${ __( 'Something went wrong' ) }`;
+		case 'timeout':
+			return `⚠️ ${ __( 'Took too long' ) }`;
+		case 'paused':
+			return `⚠️ ${ __( 'Paused' ) }`;
+		case 'max_turns':
+			return `⚠️ ${ __( 'Hit the turn limit' ) }`;
+		case 'spawn_error':
+			return `⚠️ ${ __( 'Could not start agent' ) }`;
+	}
+}
+
 function humanizeToolName( name: string ): string {
 	const parts = name.split( '_' ).filter( Boolean );
 	if ( parts.length === 0 ) {
@@ -108,25 +134,19 @@ function humanizeToolName( name: string ): string {
 }
 
 /**
- * Italicize a text fragment using markdown the wpcom server understands.
- * `_..._` is converted to `<i>...</i>` by `markdown_to_telegram_html`, and the
- * server-side regex only treats `_` as an italic marker when not surrounded by
- * word characters — so internal `_` in site names like `my_site` are passed
- * through as literal characters rather than closing the italic span early.
- */
-function italic( text: string ): string {
-	const trimmed = text.trim();
-	return trimmed.length === 0 ? '' : `_${ trimmed }_`;
-}
-
-/**
  * Compose a final status line of the form `${prefix}_${text}_`, respecting an
- * absolute `maxChars` budget on the whole line. Truncation runs on the inner
- * text *before* italicizing so the closing `_` is never sliced off — that
- * matters because the wpcom `markdown_to_telegram_html` italic regex requires
- * a closing `_`, and a broken span would leak literal underscores into the
- * Telegram message. Whitespace is collapsed and the line trimmed; an empty
- * result returns `null` so the streamer skips the post entirely.
+ * absolute `maxChars` budget on the whole line. Whitespace is collapsed and
+ * the line trimmed; an empty result returns `null` so the streamer skips the
+ * post entirely.
+ *
+ * Two wpcom-side details shape this function:
+ *   - `markdown_to_telegram_html` converts `_..._` to `<i>...</i>` only when
+ *     the `_` is not surrounded by word characters, so internal underscores in
+ *     site names like `my_site` survive as literal characters.
+ *   - The same regex requires a closing `_` to italicize. Truncation therefore
+ *     runs on the inner text *before* italic wrapping so the closing `_` is
+ *     never sliced off; a broken span would leak literal underscores into the
+ *     visible Telegram message.
  */
 function buildItalicLine( text: string, prefix: string, maxChars: number ): string | null {
 	const cleaned = text.replace( /\s+/g, ' ' ).trim();
@@ -398,7 +418,7 @@ export class ProgressStreamer {
 			return;
 		}
 
-		const summary = status === 'success' ? `✅ ${ italic( 'Done' ) }` : `⚠️ ${ italic( status ) }`;
+		const summary = formatFinalStatusSummary( status );
 		await this.respondWithTimeout(
 			{
 				chatId: this.target.chatId,

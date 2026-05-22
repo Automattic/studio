@@ -459,19 +459,31 @@ describe( 'ProgressStreamer', () => {
 		const finalCall = respond.mock.calls[ 1 ][ 1 ] as Record< string, unknown >;
 		expect( finalCall.action ).toBe( 'edit' );
 		expect( finalCall.messageId ).toBe( 1001 );
-		expect( finalCall.text ).toBe( '✅ _Done_' );
+		expect( finalCall.text ).toBe( '✅ Done' );
 	} );
 
-	it( 'stop("error") edits the live status to a ⚠️ summary so failures stay visible', async () => {
-		const { streamer, respond } = makeStreamer();
-		respond.mockResolvedValueOnce( okOutcome( 1001 ) );
-		streamer.onEvent( { type: 'info', timestamp: 't', message: 'working' } );
-		await flushPromises();
+	it( 'stop() maps each terminal status to a human-readable ⚠️ summary instead of the raw code', async () => {
+		// Internal status identifiers (`max_turns`, `spawn_error`, …) are
+		// agent-internal — they must be projected to user copy before reaching
+		// chat. Regression test for the previous `⚠️ _max_turns_` shape.
+		const cases: Array< [ Parameters< ProgressStreamer[ 'stop' ] >[ 0 ], string ] > = [
+			[ 'error', '⚠️ Something went wrong' ],
+			[ 'timeout', '⚠️ Took too long' ],
+			[ 'paused', '⚠️ Paused' ],
+			[ 'max_turns', '⚠️ Hit the turn limit' ],
+			[ 'spawn_error', '⚠️ Could not start agent' ],
+		];
+		for ( const [ status, expected ] of cases ) {
+			const { streamer, respond } = makeStreamer();
+			respond.mockResolvedValueOnce( okOutcome( 1001 ) );
+			streamer.onEvent( { type: 'info', timestamp: 't', message: 'working' } );
+			await flushPromises();
 
-		await streamer.stop( 'error' );
-		const finalCall = respond.mock.calls[ 1 ][ 1 ] as Record< string, unknown >;
-		expect( finalCall.action ).toBe( 'edit' );
-		expect( finalCall.text ).toBe( '⚠️ _error_' );
+			await streamer.stop( status );
+			const finalCall = respond.mock.calls[ 1 ][ 1 ] as Record< string, unknown >;
+			expect( finalCall.action ).toBe( 'edit' );
+			expect( finalCall.text ).toBe( expected );
+		}
 	} );
 
 	it( 'stop() with no captured messageId is a no-op (no final edit)', async () => {

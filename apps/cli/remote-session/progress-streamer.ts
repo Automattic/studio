@@ -543,10 +543,20 @@ export class ProgressStreamer {
 		let timeout: ReturnType< typeof setTimeout > | null = null;
 		const timedOut = new Promise< false >( ( resolve ) => {
 			timeout = this.deps.setTimeout( () => {
+				// `fetch().abort()` cancels the local promise but cannot un-send
+				// bytes already on the wire. If the aborted POST still lands at
+				// Telegram after the final edit below, the user briefly sees the
+				// older progress line again before the next interaction. The race
+				// is narrow (the post had to hang past STOP_WAIT_TIMEOUT_MS yet
+				// still succeed server-side, in the right order), but flag it so
+				// a reported flicker is greppable.
 				this.activePostAbort?.abort();
-				this.deps.logger.warn( 'Progress post timed out during stop', {
-					chat_id: this.target.chatId,
-				} );
+				this.deps.logger.warn(
+					'Progress post timed out during stop; the final edit may race against a late delivery of the aborted post',
+					{
+						chat_id: this.target.chatId,
+					}
+				);
 				resolve( false );
 			}, STOP_WAIT_TIMEOUT_MS );
 		} );

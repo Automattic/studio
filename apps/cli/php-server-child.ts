@@ -578,6 +578,10 @@ async function doStartServer(
 				STUDIO_PHPMYADMIN_PATH: getPhpMyAdminPath(),
 				STUDIO_NATIVE_PHPMYADMIN_WP_ENV_PATH: phpMyAdminWpEnvPath,
 				STUDIO_PHPMYADMIN_SESSION_PATH: getPhpMyAdminSessionPath( config ),
+				// Lets `php -S` serve concurrent requests so a single slow request
+				// doesn't block the whole site. Unix-only — Windows silently ignores it
+				// because the built-in server has no fork() there.
+				PHP_CLI_SERVER_WORKERS: '4',
 			},
 			onlyPathsThatPhpCanAccess: Array.from( openBasedirAllowlist ),
 			disallowRiskyFunctions: true,

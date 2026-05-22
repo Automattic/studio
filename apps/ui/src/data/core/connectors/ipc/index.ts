@@ -11,6 +11,7 @@ import type {
 	DeskSettings,
 	ExtractedBlueprintBundle,
 	FeaturedBlueprint,
+	FeatureFlags,
 	InstalledApps,
 	LocalMediaFile,
 	LoadedAiSession,
@@ -630,6 +631,13 @@ export function createIpcConnector(): Connector {
 
 		async getInstalledApps(): Promise< InstalledApps > {
 			return ( await ipcApi.getInstalledAppsAndTerminals() ) as InstalledApps;
+		},
+
+		async getFeatureFlags(): Promise< FeatureFlags > {
+			const appGlobals = ( await ipcApi.getAppGlobals() ) as Partial< FeatureFlags >;
+			return {
+				enableDesksUiSwitch: appGlobals.enableDesksUiSwitch ?? false,
+			};
 		},
 
 		async getStudioUiMode(): Promise< StudioUiMode > {

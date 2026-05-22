@@ -8,6 +8,8 @@
 
 import { ChildProcess, spawn } from 'node:child_process';
 import fs from 'node:fs';
+import http from 'node:http';
+import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
@@ -88,6 +90,10 @@ async function writeNativePhpMyAdminWpEnv( config: ServerConfig ): Promise< stri
 }
 
 let phpProcess: ChildProcess | null = null;
+let phpWorkerProcesses: ChildProcess[] = [];
+let phpProxyServer: http.Server | null = null;
+let phpWorkerPorts: number[] = [];
+let nextPhpWorkerIndex = 0;
 let startupAbortController: AbortController | null = null;
 let startingPromise: Promise< void > | null = null;
 let blueprintQueue: Promise< unknown > = Promise.resolve();
@@ -102,6 +108,7 @@ let runningConfig: ServerConfig | null = null;
 
 const SYMLINK_RESTART_DEBOUNCE_MS = 750;
 const STOP_SERVER_TIMEOUT = 5000;
+const DEFAULT_NATIVE_PHP_WORKER_POOL_SIZE = 1;
 
 function logToConsole( ...args: Parameters< typeof console.log > ) {
 	console.log( `[PHP Server]`, ...args );
@@ -109,6 +116,60 @@ function logToConsole( ...args: Parameters< typeof console.log > ) {
 
 function errorToConsole( ...args: Parameters< typeof console.error > ) {
 	console.error( `[PHP Server]`, ...args );
+}
+
+function getNativePhpWorkerPoolSize(): number {
+	// POC escape hatch for experimenting with native PHP request concurrency.
+	const parsed = Number.parseInt( process.env.STUDIO_NATIVE_PHP_WORKER_POOL ?? '', 10 );
+	if ( ! Number.isFinite( parsed ) || parsed < 2 ) {
+		return DEFAULT_NATIVE_PHP_WORKER_POOL_SIZE;
+	}
+	return Math.min( parsed, 8 );
+}
+
+function shouldUsePrimaryWorker( req: http.IncomingMessage ): boolean {
+	const method = req.method?.toUpperCase() ?? 'GET';
+	if ( ! [ 'GET', 'HEAD', 'OPTIONS' ].includes( method ) ) {
+		return true;
+	}
+
+	const requestUrl = req.url ?? '/';
+	if ( requestUrl.startsWith( '/phpmyadmin' ) ) {
+		return true;
+	}
+
+	return false;
+}
+
+function pickPhpWorkerPort( req: http.IncomingMessage ): number {
+	if ( phpWorkerPorts.length === 0 ) {
+		throw new Error( 'No PHP worker ports are available' );
+	}
+
+	if ( shouldUsePrimaryWorker( req ) ) {
+		return phpWorkerPorts[ 0 ];
+	}
+
+	const port = phpWorkerPorts[ nextPhpWorkerIndex % phpWorkerPorts.length ];
+	nextPhpWorkerIndex++;
+	return port;
+}
+
+async function getAvailablePort(): Promise< number > {
+	return await new Promise< number >( ( resolve, reject ) => {
+		const server = net.createServer();
+		server.unref();
+		server.once( 'error', reject );
+		server.listen( 0, '127.0.0.1', () => {
+			const address = server.address();
+			if ( ! address || typeof address === 'string' ) {
+				server.close( () => reject( new Error( 'Could not allocate a PHP worker port' ) ) );
+				return;
+			}
+			const port = address.port;
+			server.close( () => resolve( port ) );
+		} );
+	} );
 }
 
 type SpawnPhpProcessOptions = {
@@ -294,7 +355,7 @@ async function waitForServerReady( url: string, signal?: AbortSignal ): Promise<
 	while ( true ) {
 		signal?.throwIfAborted();
 		try {
-			await fetch( url, { signal } );
+			await fetch( url, { redirect: 'manual', signal } );
 			return;
 		} catch {
 			signal?.throwIfAborted();
@@ -469,23 +530,7 @@ async function restartPhpServer(): Promise< void > {
 		return;
 	}
 
-	const oldChild = phpProcess;
-	phpProcess = null;
-
-	// Detach so the imminent SIGTERM is not reported as an unexpected crash.
-	oldChild.removeAllListeners( 'exit' );
-	oldChild.kill( 'SIGTERM' );
-	await new Promise< void >( ( resolve ) => {
-		const timeout = setTimeout( () => {
-			if ( ! oldChild.killed ) {
-				oldChild.kill( 'SIGKILL' );
-			}
-		}, STOP_SERVER_TIMEOUT );
-		oldChild.once( 'close', () => {
-			clearTimeout( timeout );
-			resolve();
-		} );
-	} );
+	await stopCurrentPhpServer();
 
 	try {
 		phpProcess = await doStartServer( runningConfig, currentOpenBasedirAllowlist );
@@ -493,6 +538,145 @@ async function restartPhpServer(): Promise< void > {
 		errorToConsole( `Failed to restart PHP server:`, error );
 		process.exit( 1 );
 	}
+}
+
+function getCurrentPhpProcesses(): ChildProcess[] {
+	return [
+		...new Set( [ phpProcess, ...phpWorkerProcesses ].filter( Boolean ) ),
+	] as ChildProcess[];
+}
+
+async function closePhpProxyServer(): Promise< void > {
+	const proxyServer = phpProxyServer;
+	phpProxyServer = null;
+	phpWorkerPorts = [];
+	nextPhpWorkerIndex = 0;
+
+	if ( ! proxyServer ) {
+		return;
+	}
+
+	await new Promise< void >( ( resolve ) => {
+		proxyServer.close( () => resolve() );
+	} ).catch( () => {} );
+}
+
+async function stopPhpChild( child: ChildProcess ): Promise< void > {
+	child.removeAllListeners( 'exit' );
+	if ( child.exitCode !== null || child.signalCode !== null ) {
+		return;
+	}
+
+	await new Promise< void >( ( resolve ) => {
+		const forceKillTimeout = setTimeout( () => {
+			errorToConsole( 'PHP child did not exit in time; sending SIGKILL' );
+			if ( child.exitCode === null && child.signalCode === null ) {
+				child.kill( 'SIGKILL' );
+			}
+		}, STOP_SERVER_TIMEOUT );
+
+		child.once( 'close', () => {
+			clearTimeout( forceKillTimeout );
+			resolve();
+		} );
+
+		child.kill( 'SIGTERM' );
+	} );
+}
+
+async function stopCurrentPhpServer(): Promise< void > {
+	const children = getCurrentPhpProcesses();
+	phpProcess = null;
+	phpWorkerProcesses = [];
+
+	await closePhpProxyServer();
+	await Promise.all( children.map( ( child ) => stopPhpChild( child ) ) );
+}
+
+async function waitForChildSpawn( child: ChildProcess, signal?: AbortSignal ): Promise< void > {
+	await new Promise< void >( ( resolve, reject ) => {
+		child.once( 'spawn', () => {
+			resolve();
+		} );
+		child.once( 'error', ( error: Error ) => {
+			reject( error );
+		} );
+		signal?.addEventListener( 'abort', () => {
+			reject( new DOMException( 'Aborted', 'AbortError' ) );
+		} );
+	} );
+}
+
+function markPhpChildAsCritical( child: ChildProcess, label: string ): void {
+	child.once( 'exit', ( code, signalName ) => {
+		errorToConsole( `${ label } exited unexpectedly (code: ${ code }, signal: ${ signalName })` );
+		process.exit( code ?? 1 );
+	} );
+}
+
+function proxyRequestToPhpWorker(
+	config: ServerConfig,
+	req: http.IncomingMessage,
+	res: http.ServerResponse
+): void {
+	let targetPort: number;
+	try {
+		targetPort = pickPhpWorkerPort( req );
+	} catch ( error ) {
+		res.writeHead( 503 );
+		res.end( error instanceof Error ? error.message : String( error ) );
+		return;
+	}
+
+	const headers = { ...req.headers };
+	headers.host = req.headers.host ?? `localhost:${ config.port }`;
+	delete headers.connection;
+	delete headers[ 'proxy-connection' ];
+
+	const proxyReq = http.request(
+		{
+			hostname: '127.0.0.1',
+			port: targetPort,
+			path: req.url,
+			method: req.method,
+			headers,
+		},
+		( proxyRes ) => {
+			res.writeHead( proxyRes.statusCode ?? 502, proxyRes.headers );
+			proxyRes.pipe( res );
+		}
+	);
+
+	proxyReq.on( 'error', ( error ) => {
+		if ( ! res.headersSent ) {
+			res.writeHead( 502 );
+		}
+		res.end( `PHP worker proxy error: ${ error.message }` );
+	} );
+
+	req.pipe( proxyReq );
+}
+
+async function startPhpProxyServer(
+	config: ServerConfig,
+	stopSignal?: AbortSignal
+): Promise< http.Server > {
+	const proxyServer = http.createServer( ( req, res ) =>
+		proxyRequestToPhpWorker( config, req, res )
+	);
+
+	await new Promise< void >( ( resolve, reject ) => {
+		proxyServer.once( 'error', reject );
+		stopSignal?.addEventListener( 'abort', () => {
+			proxyServer.close();
+			reject( new DOMException( 'Aborted', 'AbortError' ) );
+		} );
+		proxyServer.listen( config.port, 'localhost', () => {
+			resolve();
+		} );
+	} );
+
+	return proxyServer;
 }
 
 async function startServer( config: ServerConfig, signal: AbortSignal ): Promise< void > {
@@ -561,6 +745,11 @@ async function doStartServer(
 	openBasedirAllowlist: Set< string >,
 	stopSignal?: AbortSignal
 ): Promise< ChildProcess > {
+	const workerPoolSize = getNativePhpWorkerPoolSize();
+	if ( workerPoolSize > 1 ) {
+		return await doStartPooledServer( config, openBasedirAllowlist, workerPoolSize, stopSignal );
+	}
+
 	const phpAddress = `localhost:${ config.port }`;
 	const phpVersion = resolveNativePhpVersion( config.phpVersion ?? '' );
 	let spawnedChild: ChildProcess | null = null;
@@ -627,6 +816,86 @@ async function doStartServer(
 	}
 }
 
+async function doStartPooledServer(
+	config: ServerConfig,
+	openBasedirAllowlist: Set< string >,
+	workerPoolSize: number,
+	stopSignal?: AbortSignal
+): Promise< ChildProcess > {
+	const phpVersion = resolveNativePhpVersion( config.phpVersion ?? '' );
+	const spawnedChildren: ChildProcess[] = [];
+	let proxyServer: http.Server | null = null;
+
+	logToConsole(
+		`Spawning native PHP worker pool with ${ workerPoolSize } workers on public port ${ config.port }`
+	);
+
+	try {
+		const phpMyAdminWpEnvPath = await writeNativePhpMyAdminWpEnv( config );
+		const workerPorts: number[] = [];
+		for ( let index = 0; index < workerPoolSize; index++ ) {
+			workerPorts.push( await getAvailablePort() );
+		}
+
+		phpWorkerPorts = workerPorts;
+		nextPhpWorkerIndex = 0;
+
+		for ( const [ index, workerPort ] of workerPorts.entries() ) {
+			const phpAddress = `127.0.0.1:${ workerPort }`;
+			logToConsole( `Spawning PHP worker ${ index + 1 }/${ workerPoolSize } on ${ phpAddress }` );
+			const serverChild = spawnPhpProcess( [ '-S', phpAddress, ROUTER_PATH ], {
+				phpVersion,
+				siteFolder: config.sitePath,
+				env: {
+					STUDIO_PHPMYADMIN_PATH: getPhpMyAdminPath(),
+					STUDIO_NATIVE_PHPMYADMIN_WP_ENV_PATH: phpMyAdminWpEnvPath,
+					STUDIO_PHPMYADMIN_SESSION_PATH: getPhpMyAdminSessionPath( config ),
+				},
+				onlyPathsThatPhpCanAccess: Array.from( openBasedirAllowlist ),
+				disallowRiskyFunctions: true,
+				enableXdebug: config.enableXdebug,
+			} );
+			spawnedChildren.push( serverChild );
+			await waitForChildSpawn( serverChild, stopSignal );
+			markPhpChildAsCritical( serverChild, `PHP worker ${ index + 1 }/${ workerPoolSize }` );
+		}
+
+		stopSignal?.throwIfAborted();
+		await Promise.all(
+			workerPorts.map( ( workerPort ) =>
+				waitForServerReady( `http://127.0.0.1:${ workerPort }/`, stopSignal )
+			)
+		);
+
+		proxyServer = await startPhpProxyServer( config, stopSignal );
+		phpProxyServer = proxyServer;
+		phpWorkerProcesses = spawnedChildren;
+
+		stopSignal?.throwIfAborted();
+		await waitForServerReady( `http://localhost:${ config.port }/`, stopSignal );
+
+		startSymlinkWatcher( config.sitePath );
+		return spawnedChildren[ 0 ];
+	} catch ( error ) {
+		if ( proxyServer ) {
+			await new Promise< void >( ( resolve ) => proxyServer.close( () => resolve() ) ).catch(
+				() => {}
+			);
+		}
+		for ( const child of spawnedChildren ) {
+			child.removeAllListeners( 'exit' );
+			if ( child.exitCode === null && child.signalCode === null ) {
+				child.kill( 'SIGKILL' );
+			}
+		}
+		phpWorkerPorts = [];
+		phpWorkerProcesses = [];
+		await stopSymlinkWatcher();
+
+		throw error;
+	}
+}
+
 enum StopServerResult {
 	ABORTED_STARTUP = 'ABORTED_STARTUP',
 	OK = 'OK',
@@ -643,36 +912,22 @@ async function stopServer(): Promise< StopServerResult > {
 	runningConfig = null;
 	currentOpenBasedirAllowlist.clear();
 
-	if ( ! phpProcess ) {
+	const children = getCurrentPhpProcesses();
+	if ( children.length === 0 && ! phpProxyServer ) {
 		logToConsole( 'No server running, nothing to stop' );
 		return StopServerResult.OK;
 	}
 
-	if ( phpProcess.exitCode !== null || phpProcess.signalCode !== null ) {
+	if (
+		children.length > 0 &&
+		children.every( ( child ) => child.exitCode !== null || child.signalCode !== null ) &&
+		! phpProxyServer
+	) {
 		logToConsole( 'Server already stopped' );
 		return StopServerResult.OK;
 	}
 
-	const child = phpProcess;
-	phpProcess = null;
-
-	child.removeAllListeners( 'exit' );
-
-	await new Promise< void >( ( resolve ) => {
-		const forceKillTimeout = setTimeout( () => {
-			errorToConsole( 'PHP child did not exit in time; sending SIGKILL' );
-			if ( ! child.killed ) {
-				child.kill( 'SIGKILL' );
-			}
-		}, STOP_SERVER_TIMEOUT );
-
-		child.once( 'exit', () => {
-			clearTimeout( forceKillTimeout );
-			resolve();
-		} );
-
-		child.kill( 'SIGTERM' );
-	} );
+	await stopCurrentPhpServer();
 
 	logToConsole( 'Server stopped gracefully' );
 	return StopServerResult.OK;
@@ -902,15 +1157,27 @@ async function ipcMessageHandler( packet: unknown ) {
 }
 
 function killPhpProcess(): void {
-	if ( phpProcess && ! phpProcess.killed ) {
+	try {
+		phpProxyServer?.close();
+	} catch {
+		// Best effort - nothing useful to do if this fails.
+	}
+	phpProxyServer = null;
+
+	for ( const child of getCurrentPhpProcesses() ) {
 		try {
 			// Detach the unexpected-exit listener so the imminent SIGKILL is not logged as a crash.
-			phpProcess.removeAllListeners( 'exit' );
-			phpProcess.kill( 'SIGKILL' );
+			child.removeAllListeners( 'exit' );
+			if ( child.exitCode === null && child.signalCode === null ) {
+				child.kill( 'SIGKILL' );
+			}
 		} catch {
-			// Best effort — nothing useful to do if this fails.
+			// Best effort - nothing useful to do if this fails.
 		}
 	}
+	phpProcess = null;
+	phpWorkerProcesses = [];
+	phpWorkerPorts = [];
 }
 
 function shutdownOnSignal( signal: NodeJS.Signals ): void {

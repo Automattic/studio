@@ -13,6 +13,7 @@ import { postCollectionWidgetDefinition } from '@/ui-desks/widgets/post-collecti
 import { scratchpadWidgetDefinition } from '@/ui-desks/widgets/scratchpad/definition';
 import { siteCardWidgetDefinition } from '@/ui-desks/widgets/site-card/definition';
 import { sitePreviewWidgetDefinition } from '@/ui-desks/widgets/site-preview/definition';
+import { siteShortcutsWidgetDefinition } from '@/ui-desks/widgets/site-shortcuts/definition';
 import { themeWidgetDefinition } from '@/ui-desks/widgets/theme/definition';
 import { themePatternWidgetDefinition } from '@/ui-desks/widgets/theme-pattern/definition';
 import { themePatternBrowserWidgetDefinition } from '@/ui-desks/widgets/theme-pattern-browser/definition';
@@ -37,6 +38,7 @@ export const widgetDefinitions = {
 	[ postCollectionWidgetDefinition.type ]: postCollectionWidgetDefinition,
 	[ siteCardWidgetDefinition.type ]: siteCardWidgetDefinition,
 	[ sitePreviewWidgetDefinition.type ]: sitePreviewWidgetDefinition,
+	[ siteShortcutsWidgetDefinition.type ]: siteShortcutsWidgetDefinition,
 	[ themeStylesWidgetDefinition.type ]: themeStylesWidgetDefinition,
 	[ themeWidgetDefinition.type ]: themeWidgetDefinition,
 	[ themePatternBrowserWidgetDefinition.type ]: themePatternBrowserWidgetDefinition,

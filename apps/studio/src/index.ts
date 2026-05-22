@@ -28,6 +28,7 @@ import {
 	hasActiveSyncOperations,
 	hasUploadingPushOperations,
 } from 'src/lib/active-sync-operations';
+import { getBetaFeatures } from 'src/lib/beta-features';
 import {
 	bumpStat,
 	bumpAggregatedUniqueStat,
@@ -48,6 +49,7 @@ import {
 import { autoInstallLinuxCliIfNeeded } from 'src/modules/cli/lib/linux-installation-manager';
 import { autoInstallMacOSCliIfNeeded } from 'src/modules/cli/lib/macos-installation-manager';
 import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
+import { startRemoteSessionStatusPolling } from 'src/modules/remote-session/daemon-status-poller';
 import { stopAllProcesses as stopAllStudioCodeProcesses } from 'src/modules/studio-code';
 import { getRunningSiteCount, SiteServer, stopAllServers } from 'src/site-server';
 import {
@@ -98,6 +100,26 @@ const isInInstaller = require( 'electron-squirrel-startup' );
 const gotTheLock = app.requestSingleInstanceLock();
 
 let finishedInitialization = false;
+let stopRemoteSessionStatusPolling: ( () => void ) | undefined;
+
+const YOUTUBE_EMBED_REFERRER = 'https://developer.wordpress.com/studio/';
+const YOUTUBE_EMBED_URL_PATTERNS = [
+	'https://*.youtube.com/embed/*',
+	'https://youtube.com/embed/*',
+	'https://*.youtube-nocookie.com/embed/*',
+	'https://youtube-nocookie.com/embed/*',
+];
+
+function getYouTubeEmbedRequestHeaders( requestHeaders: Record< string, string > ) {
+	const headers = { ...requestHeaders };
+	for ( const key of Object.keys( headers ) ) {
+		if ( key.toLowerCase() === 'referer' ) {
+			delete headers[ key ];
+		}
+	}
+	headers.Referer = YOUTUBE_EMBED_REFERRER;
+	return headers;
+}
 
 if ( gotTheLock && ! isInInstaller ) {
 	void appBoot();
@@ -288,6 +310,15 @@ async function appBoot() {
 			callback( false );
 		} );
 
+		session.defaultSession.webRequest.onBeforeSendHeaders(
+			{ urls: YOUTUBE_EMBED_URL_PATTERNS },
+			( details, callback ) => {
+				callback( {
+					requestHeaders: getYouTubeEmbedRequestHeaders( details.requestHeaders ),
+				} );
+			}
+		);
+
 		session.defaultSession.webRequest.onHeadersReceived( ( details, callback ) => {
 			// Only set a custom CSP header the main window UI. For other pages (like login) we should
 			// use the CSP provided by the server, which is more likely to be up-to-date and complete.
@@ -335,6 +366,7 @@ async function appBoot() {
 		await runMigrations( migrations ).catch( Sentry.captureException );
 
 		await setupSentryUserId();
+		await getBetaFeatures();
 
 		// Fetch data from CLI and subscribe to CLI events before starting the user data
 		// watcher. The watcher can trigger getMainWindow() which creates the window early,
@@ -368,6 +400,8 @@ async function appBoot() {
 		await autoInstallWindowsCliIfNeeded();
 		await autoInstallMacOSCliIfNeeded();
 		await autoInstallLinuxCliIfNeeded();
+
+		stopRemoteSessionStatusPolling = startRemoteSessionStatusPolling();
 
 		finishedInitialization = true;
 	} );
@@ -495,6 +529,7 @@ async function appBoot() {
 		globalShortcut.unregisterAll();
 		stopCliEventsSubscriber();
 		stopAllStudioCodeProcesses();
+		stopRemoteSessionStatusPolling?.();
 
 		if ( shouldStopSitesOnQuit ) {
 			event.preventDefault();

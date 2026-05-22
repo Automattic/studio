@@ -23,11 +23,6 @@ export async function ensurePhpBinaryAvailable(
 	onProgress?: ( downloaded: number, total: number ) => void
 ): Promise< void > {
 	const nativePhpVersion = resolveNativePhpVersion( version );
-	if ( nativePhpVersion !== version ) {
-		console.warn(
-			`Warning: PHP ${ version } is not available for native PHP. Using PHP ${ nativePhpVersion } instead.`
-		);
-	}
 
 	if ( ! fs.existsSync( getPhpBinaryPath( nativePhpVersion ) ) ) {
 		await downloadAndInstall( nativePhpVersion, onProgress );

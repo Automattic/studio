@@ -7,10 +7,12 @@ import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
 import { exec as pkgExec } from '@yao-pkg/pkg';
+import { RecommendedPHPVersion } from '../../tools/common/types/php-versions';
 import { windowsSign } from './windowsSign';
 import type { ForgeConfig } from '@electron-forge/shared-types';
 
 const repoRoot = path.resolve( __dirname, '../..' );
+const bundledPhpBinaryRoot = path.join( __dirname, 'php-bin' );
 
 const config: ForgeConfig = {
 	packagerConfig: {
@@ -18,6 +20,7 @@ const config: ForgeConfig = {
 		extraResource: [
 			path.join( __dirname, 'assets' ),
 			path.join( __dirname, 'bin' ),
+			bundledPhpBinaryRoot,
 			path.join( repoRoot, 'apps', 'cli', 'dist', 'cli' ),
 		],
 		executableName: process.platform === 'linux' ? 'studio' : undefined,
@@ -35,45 +38,34 @@ const config: ForgeConfig = {
 				return {};
 			},
 		},
+		// Patterns are matched against paths inside the asar root, which is
+		// apps/studio/ (electron-forge packages from this package). Anchor each
+		// pattern at the asar root with a leading slash.
 		ignore: [
-			// Exclude major development directories
-			/^\/\..*/, // All dotfiles and dot directories
-			/^\/apps\/studio\/src/,
-			/^\/apps\/studio\/e2e/,
-			/^\/apps\/cli/,
-			/^\/tools\/common/,
-			/^\/vendor/,
-			/^\/fastlane/,
-			/^\/docs/,
-			/^\/scripts/,
-			/^\/tools/,
+			// Dev/test sources and fixtures — runtime uses /dist instead.
+			/^\/\..*/, // dotfiles and dot directories
+			/^\/src/,
+			/^\/e2e/,
+			/^\/__mocks__/,
 			/^\/patches/,
-			/^\/tools\/metrics/,
-			/^\/test-results/,
-			/^\/webpack-loaders/,
-			/^\/apps\/studio\/installers/,
+			/^\/entitlements/,
+			/^\/installers/,
+			// Build-time helpers
+			/^\/windowsSign\.ts$/,
 			// Config files
-			/^\/webpack\./,
 			/^\/tsconfig\./,
 			/^\/vitest\./,
-			/^\/playwright\./,
 			/^\/postcss\./,
 			/^\/tailwind\./,
 			/^\/forge\./,
 			/^\/electron\./,
-			/^\/apps\/studio\/.*\\.config\\./,
-			/^\/apps\/studio\/tailwind\\.config\\.js$/,
-			/^\/apps\/studio\/postcss\\.config\\.js$/,
-			/^\/apps\/studio\/index\.html$/,
-			/^\/Gemfile/,
+			/^\/index\.html$/,
 			/^\/.*\.md$/,
 			/^\/.*\.txt$/,
 			/^\/.*\.log$/,
-			// External resources (shouldn't be in asar)
+			// Resources copied separately via extraResource
 			/^\/assets/,
 			/^\/bin/,
-			/^\/apps\/cli\/dist\/cli/,
-			/^\/dist\/playground-cli/,
 		],
 	},
 	rebuildConfig: {},
@@ -174,11 +166,16 @@ const config: ForgeConfig = {
 	plugins: [ new AutoUnpackNativesPlugin( {} ) ],
 	hooks: {
 		prePackage: async ( _forgeConfig, platform, arch ) => {
-			const execAsync = ( command: string ) =>
+			const execAsync = ( command: string, env: NodeJS.ProcessEnv = {} ) =>
 				new Promise< void >( ( resolve, reject ) => {
 					exec(
 						command,
-						{ cwd: repoRoot, maxBuffer: 50 * 1024 * 1024, windowsHide: true },
+						{
+							cwd: repoRoot,
+							env: { ...process.env, ...env },
+							maxBuffer: 50 * 1024 * 1024,
+							windowsHide: true,
+						},
 						( error, stdout, stderr ) => {
 							if ( error ) {
 								if ( stdout ) console.log( stdout );
@@ -280,6 +277,23 @@ const config: ForgeConfig = {
 					'scripts',
 					'download-node-binary.ts'
 				) } ${ platform } ${ arch }`
+			);
+
+			console.log(
+				`Downloading PHP ${ RecommendedPHPVersion } package for ${ platform }-${ arch }...`
+			);
+			fs.rmSync( bundledPhpBinaryRoot, { recursive: true, force: true } );
+			await execAsync(
+				`npx tsx ${ path.join(
+					repoRoot,
+					'scripts',
+					'download-php-binary.ts'
+				) } ${ RecommendedPHPVersion } ${ platform } ${ arch } --install-root ${ JSON.stringify(
+					bundledPhpBinaryRoot
+				) }`,
+				{
+					STUDIO_PHP_BINARY_DOWNLOAD_REQUIRED: '1',
+				}
 			);
 
 			// Build CLI launcher executable for Windows AppX (Microsoft Store).

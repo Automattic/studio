@@ -38,11 +38,14 @@ export const PLUGIN_RECOMMENDATIONS: PluginRecommendation[] = [
 			'jetpack/field-select',
 			'jetpack/label',
 			'jetpack/input',
+			'jetpack/subscriptions',
 			'core/button',
 		],
 		guidance: `## Forms
 
-When the user asks for a contact form, feedback form, newsletter signup, survey, or any other interactive form, you MUST use Jetpack Forms — not raw HTML <form> elements.
+When the user asks for a contact form, feedback form, survey, or any other interactive form that collects submissions, you MUST use Jetpack Forms — not raw HTML <form> elements.
+
+**Newsletter signups are different — see the "Newsletter signup" section below.** \`jetpack/contact-form\` only stores submissions as Feedback entries; it does NOT subscribe anyone to a newsletter. Using contact-form for an email-signup form will silently fail to record subscribers.
 
 Install the plugin AND activate the \`contact-form\` Jetpack module first if not already active — both steps are required, otherwise the form blocks render as empty \`<div>\` elements on the frontend:
 \`\`\`
@@ -81,10 +84,28 @@ Then build the form with blocks. Each field is a container block that holds a \`
 Available field block types: jetpack/field-name, jetpack/field-text, jetpack/field-email, jetpack/field-url, jetpack/field-telephone, jetpack/field-textarea, jetpack/field-checkbox, jetpack/field-checkbox-multiple, jetpack/field-radio, jetpack/field-select.
 
 Each field block is a container with two inner blocks: \`jetpack/label\` (accepts a "label" string attribute) and \`jetpack/input\` (accepts a "type" attribute — defaults to text; use "textarea" for jetpack/field-textarea). Top-level field attributes: "required" (boolean), "fieldVariant" (string, e.g. "name" for jetpack/field-name).
-The container jetpack/contact-form supports: "subject" (email subject line), "to" (recipient address or comma-separated list).`,
+The container jetpack/contact-form supports: "subject" (email subject line), "to" (recipient address or comma-separated list).
+
+## Newsletter signup
+
+When the user asks for a newsletter signup, email signup, "subscribe to our newsletter", mailing list opt-in, or anything that should add the visitor as a subscriber, use the \`jetpack/subscriptions\` block — NOT \`jetpack/contact-form\`. \`jetpack/subscriptions\` creates real subscribers in Jetpack/WordPress.com; \`jetpack/contact-form\` only writes Feedback entries and never subscribes anyone.
+
+Activate the \`subscriptions\` module (in addition to the Jetpack plugin being installed) — without this, the block renders empty on the frontend:
+\`\`\`
+wp_cli plugin install jetpack --activate
+wp_cli jetpack module activate subscriptions
+\`\`\`
+
+The block is self-closing — it renders its own email field and submit button. Do not wrap it in \`jetpack/contact-form\` and do not add \`jetpack/field-*\` children.
+
+\`\`\`html
+<!-- wp:jetpack/subscriptions {"buttonOnNewLine":false,"submitButtonText":"Subscribe","successMessage":"Thanks for subscribing!"} /-->
+\`\`\`
+
+Useful attributes: \`submitButtonText\` (string), \`successMessage\` (string shown after a successful subscription), \`buttonOnNewLine\` (boolean — place the button below the input), \`showSubscribersTotal\` (boolean), \`includeSocialFollowers\` (boolean). All optional; the defaults render a usable form.`,
 		htmlPatterns: [ /<(form|input|select|textarea|fieldset)\b/i ],
 		htmlPolicyMessage:
-			'core/html contains a <form> element. Use Jetpack Forms blocks instead: install the "jetpack" plugin and build the form with jetpack/contact-form and jetpack/field-* blocks. This keeps forms editable in the block editor and handles submission without custom backend code.',
+			'core/html contains a <form> element. Use Jetpack Forms blocks instead: install the "jetpack" plugin and build the form with jetpack/contact-form and jetpack/field-* blocks (or jetpack/subscriptions for newsletter signups). This keeps forms editable in the block editor and handles submission without custom backend code.',
 	},
 	{
 		name: 'Jetpack (general)',

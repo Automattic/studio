@@ -201,6 +201,10 @@ export function createIpcConnector(): Connector {
 			await ipcApi.clearAuthenticationToken();
 		},
 
+		onAuthStateChanged( listener ) {
+			return ipcListener.subscribe( 'auth-updated', () => listener() );
+		},
+
 		// Sites
 		async getSites(): Promise< SiteDetails[] > {
 			return ( await ipcApi.getSiteDetails() ) as SiteDetails[];

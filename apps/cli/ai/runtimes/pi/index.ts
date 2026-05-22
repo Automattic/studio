@@ -36,6 +36,11 @@ import { createSkillTool } from 'cli/ai/tools/skill';
 import { takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
 import { createWpcomRequestTool } from 'cli/ai/tools/wpcom-request';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
+import {
+	type StudioToolPayloadGuardState,
+	updateStudioToolPayloadGuardState,
+	withStudioToolPayloadGuard,
+} from './tool-safety';
 import type { AskUserHandler, SiteInfo } from 'cli/ai/types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -203,10 +208,14 @@ async function runAgentSessionTurn(
 
 	let session: AgentSession | undefined;
 	let unsubscribe: ( () => void ) | undefined;
+	const payloadGuardState: StudioToolPayloadGuardState = {};
 	try {
-		session = await createStudioAgentSession( config, family, resolved.creds );
+		session = await createStudioAgentSession( config, family, resolved.creds, payloadGuardState );
 		setActiveSession( session );
-		unsubscribe = session.subscribe( config.onEvent );
+		unsubscribe = session.subscribe( ( event ) => {
+			updateStudioToolPayloadGuardState( event, payloadGuardState );
+			config.onEvent( event );
+		} );
 
 		if ( controller.signal.aborted ) {
 			await session.abort();
@@ -229,7 +238,8 @@ async function runAgentSessionTurn(
 async function createStudioAgentSession(
 	config: ResolvedStudioAgentTurnConfig,
 	family: AiModelFamily,
-	creds: ResolvedCredentials
+	creds: ResolvedCredentials,
+	payloadGuardState: StudioToolPayloadGuardState
 ): Promise< AgentSession > {
 	const model = buildModel( config.model, family, creds );
 	const isRemoteSite = Boolean( config.activeSite?.remote && config.activeSite?.wpcomSiteId );
@@ -249,7 +259,7 @@ async function createStudioAgentSession(
 			: { chatArtifactsEnabled, remoteSession }
 	);
 
-	const tools = buildAgentTools( config, chatArtifactsEnabled, remoteSession );
+	const tools = buildAgentTools( config, chatArtifactsEnabled, remoteSession, payloadGuardState );
 	const toolDefinitions = tools.map( toToolDefinition );
 	const { authStorage, modelRegistry } = createModelRegistry( model, family, creds );
 	const settingsManager = createSettingsManager( config.env );
@@ -403,7 +413,8 @@ function toToolDefinition( tool: AgentToolAny ): ToolDefinition {
 function buildAgentTools(
 	config: ResolvedStudioAgentTurnConfig,
 	chatArtifactsEnabled: boolean,
-	remoteSession: boolean
+	remoteSession: boolean,
+	payloadGuardState: StudioToolPayloadGuardState
 ): AgentToolAny[] {
 	const isRemoteSite = Boolean(
 		config.activeSite?.remote && config.activeSite?.wpcomSiteId && config.wpcomAccessToken
@@ -435,9 +446,18 @@ function buildAgentTools(
 
 	const piTools: AgentToolAny[] = [
 		renameTool( createReadTool( STUDIO_SITES_ROOT ), 'Read' ),
-		renameTool( createWriteTool( STUDIO_SITES_ROOT ), 'Write' ),
-		renameTool( createEditTool( STUDIO_SITES_ROOT ), 'Edit' ),
-		renameTool( createBashTool( STUDIO_SITES_ROOT ), 'Bash' ),
+		withStudioToolPayloadGuard(
+			renameTool( createWriteTool( STUDIO_SITES_ROOT ), 'Write' ),
+			payloadGuardState
+		),
+		withStudioToolPayloadGuard(
+			renameTool( createEditTool( STUDIO_SITES_ROOT ), 'Edit' ),
+			payloadGuardState
+		),
+		withStudioToolPayloadGuard(
+			renameTool( createBashTool( STUDIO_SITES_ROOT ), 'Bash' ),
+			payloadGuardState
+		),
 		renameTool( createGrepTool( STUDIO_SITES_ROOT ), 'Grep' ),
 		renameTool( createFindTool( STUDIO_SITES_ROOT ), 'Glob' ),
 		renameTool( createLsTool( STUDIO_SITES_ROOT ), 'Ls' ),

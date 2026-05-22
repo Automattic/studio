@@ -1,9 +1,9 @@
 import { resolveSessionModel } from '@studio/common/ai/models';
-import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import { __ } from '@wordpress/i18n';
 import { box, chevronLeft, chevronRight, previous, starEmpty, starFilled } from '@wordpress/icons';
 import { clsx } from 'clsx';
 import {
+	useCallback,
 	useEffect,
 	useLayoutEffect,
 	useMemo,
@@ -13,6 +13,7 @@ import {
 	type Ref,
 } from 'react';
 import { useAgentRun } from '@/data/queries/use-agent-run';
+import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import {
 	useSession,
@@ -27,8 +28,10 @@ import { Composer, ComposerSkeleton } from '../composer';
 import { pickLiveSite } from '../composer/environment-pill';
 import { Conversation } from '../conversation';
 import { QueuedPrompts } from '../queued-prompts';
+import { hasVisibleUserPrompt, shouldShowEmptyConversation } from './empty-state';
 import styles from './style.module.css';
 import type { PendingChatPrompt } from '../context';
+import type { SendMessageOptions } from '@/data/queries/use-agent-run';
 
 interface SessionSurfaceProps {
 	siteId?: string;
@@ -110,10 +113,12 @@ function formatChatDate( value: string ) {
 }
 
 function EmptyConversation( {
+	authRequired,
 	onPreviewPrompt,
 	onClearPreview,
 	onSelectPrompt,
 }: {
+	authRequired: boolean;
 	onPreviewPrompt: ( prompt: string ) => void;
 	onClearPreview: () => void;
 	onSelectPrompt: ( prompt: string ) => void;
@@ -121,30 +126,34 @@ function EmptyConversation( {
 	return (
 		<div className={ styles.emptyConversation }>
 			<div className={ styles.emptyConversationPrompt }>
-				{ __( 'Ask Studio Desk anything to get started.' ) }
+				{ authRequired
+					? __( 'Log in with WordPress.com to start a Studio Desk chat.' )
+					: __( 'Ask Studio Desk anything to get started.' ) }
 			</div>
-			<div className={ styles.emptyConversationExamples }>
-				{ EXAMPLE_PROMPTS.map( ( example ) => (
-					<Button
-						key={ example.short }
-						variant="quiet"
-						size="small"
-						className={ styles.emptyConversationExample }
-						label={ example.short }
-						title={ example.full }
-						onMouseEnter={ () => onPreviewPrompt( example.full ) }
-						onMouseLeave={ onClearPreview }
-						onFocus={ () => onPreviewPrompt( example.full ) }
-						onBlur={ onClearPreview }
-						onClick={ () => {
-							onSelectPrompt( example.full );
-							onClearPreview();
-						} }
-					>
-						{ example.short }
-					</Button>
-				) ) }
-			</div>
+			{ authRequired ? null : (
+				<div className={ styles.emptyConversationExamples }>
+					{ EXAMPLE_PROMPTS.map( ( example ) => (
+						<Button
+							key={ example.short }
+							variant="quiet"
+							size="small"
+							className={ styles.emptyConversationExample }
+							label={ example.short }
+							title={ example.full }
+							onMouseEnter={ () => onPreviewPrompt( example.full ) }
+							onMouseLeave={ onClearPreview }
+							onFocus={ () => onPreviewPrompt( example.full ) }
+							onBlur={ onClearPreview }
+							onClick={ () => {
+								onSelectPrompt( example.full );
+								onClearPreview();
+							} }
+						>
+							{ example.short }
+						</Button>
+					) ) }
+				</div>
+			) }
 		</div>
 	);
 }
@@ -176,6 +185,8 @@ function SessionSurfaceContent( {
 	onInitialPromptConsumed,
 }: SessionSurfaceProps ) {
 	const { data, isLoading, error } = useSession( sessionId );
+	const { data: authUser, isLoading: isLoadingAuthUser } = useAuthUser();
+	const login = useLogin();
 	const { data: sites } = useSites();
 	const ownerSitePath = data?.summary.ownerSitePath;
 	const ownerSite = ownerSitePath
@@ -210,11 +221,10 @@ function SessionSurfaceContent( {
 		[ pendingQuestions ]
 	);
 	const composerBusy = hasActiveRun || pendingQuestions.length > 0;
-	const isEmpty = useMemo(
-		() =>
-			! ( data?.entries ?? [] ).some( ( entry ) =>
-				isStudioCustomEntryOfType( entry, 'studio.user_prompt' )
-			),
+	const authLoading = isLoadingAuthUser && ! authUser;
+	const authRequired = ! isLoadingAuthUser && ! authUser;
+	const hasRenderedUserPrompt = useMemo(
+		() => hasVisibleUserPrompt( data?.entries ),
 		[ data?.entries ]
 	);
 	const scrollRef = useRef< HTMLDivElement >( null );
@@ -223,7 +233,28 @@ function SessionSurfaceContent( {
 	const [ exampleDraft, setExampleDraft ] = useState< { id: number; prompt: string } | null >(
 		null
 	);
+	const [ hasSubmittedPrompt, setHasSubmittedPrompt ] = useState( false );
+	const hasPendingInitialPrompt = initialPrompt?.sessionId === sessionId;
+	const showEmptyConversation = shouldShowEmptyConversation( {
+		hasVisibleUserPrompt: hasRenderedUserPrompt,
+		hasSubmittedPrompt,
+		hasPendingInitialPrompt,
+		hasActiveRun,
+		queuedPromptCount: queuedPrompts.length,
+	} );
 	useSessionCommands( sessionId );
+
+	useEffect( () => {
+		setHasSubmittedPrompt( false );
+	}, [ sessionId ] );
+
+	const sendMessageAndHideSuggestions = useCallback(
+		async ( prompt: string, options?: SendMessageOptions ) => {
+			setHasSubmittedPrompt( true );
+			await sendMessage( prompt, options );
+		},
+		[ sendMessage ]
+	);
 
 	const toggleStar = () => {
 		void updateSessionMetadata.mutateAsync( {
@@ -243,19 +274,29 @@ function SessionSurfaceContent( {
 		if ( ! data || ! initialPrompt || initialPrompt.sessionId !== sessionId ) {
 			return;
 		}
+		if ( ! authUser ) {
+			return;
+		}
 		if ( sentInitialPromptIdsRef.current.has( initialPrompt.id ) ) {
 			return;
 		}
 
 		sentInitialPromptIdsRef.current.add( initialPrompt.id );
-		void sendMessage( initialPrompt.prompt, {
+		void sendMessageAndHideSuggestions( initialPrompt.prompt, {
 			displayMessage: initialPrompt.displayMessage,
 		} )
 			.then( () => onInitialPromptConsumed?.( initialPrompt.id ) )
 			.catch( () => {
 				sentInitialPromptIdsRef.current.delete( initialPrompt.id );
 			} );
-	}, [ data, initialPrompt, onInitialPromptConsumed, sendMessage, sessionId ] );
+	}, [
+		authUser,
+		data,
+		initialPrompt,
+		onInitialPromptConsumed,
+		sendMessageAndHideSuggestions,
+		sessionId,
+	] );
 
 	useLayoutEffect( () => {
 		const node = scrollRef.current;
@@ -354,8 +395,12 @@ function SessionSurfaceContent( {
 						busy={ composerBusy }
 						isInterrupting={ isInterrupting }
 						error={ runError }
+						authRequired={ authRequired }
+						authLoading={ authLoading }
+						authPending={ login.isPending }
+						onLogin={ () => login.mutate() }
 						model={ currentModel }
-						onSend={ sendMessage }
+						onSend={ sendMessageAndHideSuggestions }
 						onInterrupt={ interrupt }
 						sessionId={ sessionId }
 						effectiveEnvironment={ effectiveEnvironment }
@@ -370,8 +415,9 @@ function SessionSurfaceContent( {
 				</div>
 			}
 		>
-			{ isEmpty ? (
+			{ showEmptyConversation ? (
 				<EmptyConversation
+					authRequired={ authRequired }
 					onPreviewPrompt={ setPreviewPrompt }
 					onClearPreview={ () => setPreviewPrompt( null ) }
 					onSelectPrompt={ ( prompt ) => {

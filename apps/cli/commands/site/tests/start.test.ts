@@ -1,3 +1,4 @@
+import { SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { vi } from 'vitest';
 import { SiteData } from 'cli/lib/cli-config/core';
 import {
@@ -46,6 +47,7 @@ describe( 'CLI: studio site start', () => {
 		pmId: 0,
 		pid: 12345,
 		status: 'online',
+		runtime: SITE_RUNTIME_PLAYGROUND,
 	};
 
 	beforeEach( () => {

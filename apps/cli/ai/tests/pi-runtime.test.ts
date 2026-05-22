@@ -242,6 +242,20 @@ describe( 'pi runtime', () => {
 		expect( final.type ).toBe( 'agent_end' );
 	} );
 
+	it( 'advertises image input support so screenshot tool results can be analyzed', async () => {
+		await runRuntime( {
+			prompt: 'hello',
+			env: {
+				OPENAI_API_KEY: 'sk-test',
+				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
+			},
+			model: 'gpt-5.5',
+			session: newSession(),
+		} );
+
+		expect( mocks.createdSessions[ 0 ].options.model?.input ).toEqual( [ 'text', 'image' ] );
+	} );
+
 	it( 'registers guarded file-writing tools without adding a separate chunk tool', async () => {
 		await runRuntime( {
 			prompt: 'hello',
@@ -399,6 +413,7 @@ describe( 'pi runtime', () => {
 		const options = mocks.createdSessions[ 0 ].options;
 		expect( options.model?.provider ).toBe( 'studio-wpcom-anthropic' );
 		expect( options.model?.api ).toBe( 'anthropic-messages' );
+		expect( options.model?.input ).toEqual( [ 'text', 'image' ] );
 		const auth = await options.modelRegistry!.getApiKeyAndHeaders( options.model! );
 		expect( auth ).toMatchObject( {
 			ok: true,

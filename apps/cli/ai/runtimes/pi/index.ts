@@ -304,7 +304,7 @@ function buildModel(
 		id: modelId,
 		name: modelId,
 		baseUrl,
-		input: [ 'text' as const ],
+		input: [ 'text' as const, 'image' as const ],
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 		...( creds.extraHeaders ? { headers: creds.extraHeaders } : {} ),
 	};

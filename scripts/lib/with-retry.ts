@@ -1,9 +1,8 @@
 import { Agent } from 'undici';
 
 export const DEFAULT_MAX_ATTEMPTS = 3;
-export const DEFAULT_CONNECT_TIMEOUT_MS = 15_000;
+export const DEFAULT_CONNECT_TIMEOUT_MS = 10_000;
 
-// Node's default undici connect timeout (10s) is too aggressive on slow networks during postinstall.
 export const sharedDispatcher = new Agent( {
 	connect: { timeout: DEFAULT_CONNECT_TIMEOUT_MS },
 } );

@@ -6,54 +6,10 @@ import {
 	getPhpMyAdminInstallSteps,
 } from '@wp-playground/tools';
 import fs from 'fs-extra';
-import { Agent } from 'undici';
 import { z } from 'zod';
 import { extractZip } from '@studio/common/lib/extract-zip';
 import { SQLITE_DATABASE_INTEGRATION_RELEASE_URL } from '../apps/studio/src/constants';
-
-const CONNECT_TIMEOUT_MS = 15_000;
-const MAX_ATTEMPTS = 3;
-const sharedDispatcher = new Agent( { connect: { timeout: CONNECT_TIMEOUT_MS } } );
-
-class NonRetriableError extends Error {}
-
-async function withRetry< T >(
-	name: string,
-	fn: () => Promise< T >,
-	options: { maxAttempts?: number } = {}
-): Promise< T > {
-	const maxAttempts = options.maxAttempts ?? MAX_ATTEMPTS;
-	let lastError: Error | undefined;
-	for ( let attempt = 1; attempt <= maxAttempts; attempt++ ) {
-		try {
-			return await fn();
-		} catch ( error ) {
-			lastError = error instanceof Error ? error : new Error( String( error ) );
-			if ( lastError instanceof NonRetriableError ) {
-				throw lastError;
-			}
-			if ( attempt < maxAttempts ) {
-				const delayMs = 1000 * 2 ** ( attempt - 1 );
-				console.warn(
-					`[${ name }] Attempt ${ attempt }/${ maxAttempts } failed: ${ lastError.message }. Retrying in ${ delayMs }ms...`
-				);
-				await new Promise( ( resolve ) => setTimeout( resolve, delayMs ) );
-			}
-		}
-	}
-	throw lastError ?? new Error( `[${ name }] Failed after ${ maxAttempts } attempts` );
-}
-
-function throwForHttpStatus( context: string, status: number, statusText?: string ): never {
-	const message = `${ context } failed with status code: ${ status }${
-		statusText ? ` ${ statusText }` : ''
-	}`;
-	// 4xx (other than 429) are non-transient — fail fast instead of retrying.
-	if ( status < 500 && status !== 429 ) {
-		throw new NonRetriableError( message );
-	}
-	throw new Error( message );
-}
+import { sharedDispatcher, throwForHttpStatus, withRetry } from './lib/with-retry';
 
 async function fetchWithRetry( name: string, url: string ): Promise< Buffer > {
 	return withRetry( name, async () => {

@@ -12,42 +12,60 @@ import { extractZip } from '@studio/common/lib/extract-zip';
 import { SQLITE_DATABASE_INTEGRATION_RELEASE_URL } from '../apps/studio/src/constants';
 
 const CONNECT_TIMEOUT_MS = 15_000;
-const MAX_DOWNLOAD_ATTEMPTS = 3;
-const downloadDispatcher = new Agent( { connect: { timeout: CONNECT_TIMEOUT_MS } } );
+const MAX_ATTEMPTS = 3;
+const sharedDispatcher = new Agent( { connect: { timeout: CONNECT_TIMEOUT_MS } } );
 
-async function fetchWithRetry( name: string, url: string ): Promise< Buffer > {
+class NonRetriableError extends Error {}
+
+async function withRetry< T >(
+	name: string,
+	fn: () => Promise< T >,
+	options: { maxAttempts?: number } = {}
+): Promise< T > {
+	const maxAttempts = options.maxAttempts ?? MAX_ATTEMPTS;
 	let lastError: Error | undefined;
-	for ( let attempt = 1; attempt <= MAX_DOWNLOAD_ATTEMPTS; attempt++ ) {
-		let response: Response | undefined;
+	for ( let attempt = 1; attempt <= maxAttempts; attempt++ ) {
 		try {
-			response = await fetch( url, {
-				// `dispatcher` is an undici-specific option not in the standard RequestInit type.
-				dispatcher: downloadDispatcher,
-			} as RequestInit );
+			return await fn();
 		} catch ( error ) {
 			lastError = error instanceof Error ? error : new Error( String( error ) );
-		}
-
-		if ( response ) {
-			if ( response.ok ) {
-				return Buffer.from( await response.arrayBuffer() );
-			}
-			lastError = new Error( `Request failed with status code: ${ response.status }` );
-			// Fail fast on non-transient HTTP errors (4xx other than 429).
-			if ( response.status < 500 && response.status !== 429 ) {
+			if ( lastError instanceof NonRetriableError ) {
 				throw lastError;
 			}
-		}
-
-		if ( attempt < MAX_DOWNLOAD_ATTEMPTS ) {
-			const delayMs = 1000 * 2 ** ( attempt - 1 );
-			console.warn(
-				`[${ name }] Download failed (attempt ${ attempt }/${ MAX_DOWNLOAD_ATTEMPTS }): ${ lastError?.message }. Retrying in ${ delayMs }ms...`
-			);
-			await new Promise( ( resolve ) => setTimeout( resolve, delayMs ) );
+			if ( attempt < maxAttempts ) {
+				const delayMs = 1000 * 2 ** ( attempt - 1 );
+				console.warn(
+					`[${ name }] Attempt ${ attempt }/${ maxAttempts } failed: ${ lastError.message }. Retrying in ${ delayMs }ms...`
+				);
+				await new Promise( ( resolve ) => setTimeout( resolve, delayMs ) );
+			}
 		}
 	}
-	throw lastError ?? new Error( `[${ name }] Download failed` );
+	throw lastError ?? new Error( `[${ name }] Failed after ${ maxAttempts } attempts` );
+}
+
+function throwForHttpStatus( context: string, status: number, statusText?: string ): never {
+	const message = `${ context } failed with status code: ${ status }${
+		statusText ? ` ${ statusText }` : ''
+	}`;
+	// 4xx (other than 429) are non-transient — fail fast instead of retrying.
+	if ( status < 500 && status !== 429 ) {
+		throw new NonRetriableError( message );
+	}
+	throw new Error( message );
+}
+
+async function fetchWithRetry( name: string, url: string ): Promise< Buffer > {
+	return withRetry( name, async () => {
+		const response = await fetch( url, {
+			// `dispatcher` is an undici-specific option not in the standard RequestInit type.
+			dispatcher: sharedDispatcher,
+		} as RequestInit );
+		if ( ! response.ok ) {
+			throwForHttpStatus( 'Request', response.status );
+		}
+		return Buffer.from( await response.arrayBuffer() );
+	} );
 }
 
 const WP_SERVER_FILES_PATH = path.join( import.meta.dirname, '..', 'wp-files' );
@@ -66,32 +84,34 @@ const partialGithubReleaseSchema = z.object( {
 } );
 
 export async function fetchLatestGithubRelease( repo: string ) {
-	const headers: HeadersInit = {
-		Accept: 'application/vnd.github.v3+json',
-		'User-Agent': 'wp-studio-cli',
-	};
+	return withRetry( `github:${ repo }`, async () => {
+		const headers: HeadersInit = {
+			Accept: 'application/vnd.github.v3+json',
+			'User-Agent': 'wp-studio-cli',
+		};
 
-	// GitHub API has rate limits:
-	// - 60 requests/hour for unauthenticated requests
-	// - 5,000 requests/hour with token authentication
-	// In CI environments, the IP-based rate limit is shared across runners,
-	// so we authenticate with GITHUB_TOKEN when available.
-	if ( process.env.GITHUB_TOKEN ) {
-		headers.Authorization = `token ${ process.env.GITHUB_TOKEN }`;
-	}
+		// GitHub API has rate limits:
+		// - 60 requests/hour for unauthenticated requests
+		// - 5,000 requests/hour with token authentication
+		// In CI environments, the IP-based rate limit is shared across runners,
+		// so we authenticate with GITHUB_TOKEN when available.
+		if ( process.env.GITHUB_TOKEN ) {
+			headers.Authorization = `token ${ process.env.GITHUB_TOKEN }`;
+		}
 
-	const response = await fetch( `https://api.github.com/repos/${ repo }/releases/latest`, {
-		headers,
-		signal: AbortSignal.timeout( 5000 ),
+		const response = await fetch( `https://api.github.com/repos/${ repo }/releases/latest`, {
+			headers,
+			dispatcher: sharedDispatcher,
+		} as RequestInit );
+
+		if ( ! response.ok ) {
+			throwForHttpStatus( 'GitHub API request', response.status, response.statusText );
+		}
+
+		const rawResponse: unknown = await response.json();
+
+		return partialGithubReleaseSchema.parse( rawResponse );
 	} );
-
-	if ( ! response.ok ) {
-		throw new Error( `GitHub API request failed: ${ response.status } ${ response.statusText }` );
-	}
-
-	const rawResponse: unknown = await response.json();
-
-	return partialGithubReleaseSchema.parse( rawResponse );
 }
 
 type MaybePromise< T > = T | Promise< T >;

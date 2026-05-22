@@ -16,34 +16,38 @@ const MAX_DOWNLOAD_ATTEMPTS = 3;
 const downloadDispatcher = new Agent( { connect: { timeout: CONNECT_TIMEOUT_MS } } );
 
 async function fetchWithRetry( name: string, url: string ): Promise< Buffer > {
-	let lastError: unknown;
+	let lastError: Error | undefined;
 	for ( let attempt = 1; attempt <= MAX_DOWNLOAD_ATTEMPTS; attempt++ ) {
+		let response: Response | undefined;
 		try {
-			const response = await fetch( url, {
+			response = await fetch( url, {
 				// `dispatcher` is an undici-specific option not in the standard RequestInit type.
 				dispatcher: downloadDispatcher,
 			} as RequestInit );
-			if ( ! response.ok ) {
-				throw new Error( `Request failed with status code: ${ response.status }` );
-			}
-			return Buffer.from( await response.arrayBuffer() );
 		} catch ( error ) {
-			lastError = error;
-			const message = error instanceof Error ? error.message : String( error );
-			if ( attempt < MAX_DOWNLOAD_ATTEMPTS ) {
-				const delayMs = 1000 * 2 ** ( attempt - 1 );
-				console.warn(
-					`[${ name }] Download failed (attempt ${ attempt }/${ MAX_DOWNLOAD_ATTEMPTS }): ${ message }. Retrying in ${ delayMs }ms...`
-				);
-				await new Promise( ( resolve ) => setTimeout( resolve, delayMs ) );
-			} else {
-				console.error(
-					`[${ name }] Download failed after ${ MAX_DOWNLOAD_ATTEMPTS } attempts: ${ message }`
-				);
+			lastError = error instanceof Error ? error : new Error( String( error ) );
+		}
+
+		if ( response ) {
+			if ( response.ok ) {
+				return Buffer.from( await response.arrayBuffer() );
+			}
+			lastError = new Error( `Request failed with status code: ${ response.status }` );
+			// Fail fast on non-transient HTTP errors (4xx other than 429).
+			if ( response.status < 500 && response.status !== 429 ) {
+				throw lastError;
 			}
 		}
+
+		if ( attempt < MAX_DOWNLOAD_ATTEMPTS ) {
+			const delayMs = 1000 * 2 ** ( attempt - 1 );
+			console.warn(
+				`[${ name }] Download failed (attempt ${ attempt }/${ MAX_DOWNLOAD_ATTEMPTS }): ${ lastError?.message }. Retrying in ${ delayMs }ms...`
+			);
+			await new Promise( ( resolve ) => setTimeout( resolve, delayMs ) );
+		}
 	}
-	throw lastError;
+	throw lastError ?? new Error( `[${ name }] Download failed` );
 }
 
 const WP_SERVER_FILES_PATH = path.join( import.meta.dirname, '..', 'wp-files' );

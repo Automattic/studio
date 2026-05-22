@@ -112,6 +112,7 @@ function errorToConsole( ...args: Parameters< typeof console.error > ) {
 }
 
 type SpawnPhpProcessOptions = {
+	detached?: boolean;
 	disallowRiskyFunctions?: boolean;
 	env?: NodeJS.ProcessEnv;
 	mode?: 'pipe' | 'capture-stdout';
@@ -130,6 +131,7 @@ function spawnPhpProcess(
 		signal,
 		env,
 		mode = 'pipe',
+		detached = false,
 		enableXdebug = false,
 		onlyPathsThatPhpCanAccess = [],
 		disallowRiskyFunctions = false,
@@ -147,6 +149,7 @@ function spawnPhpProcess(
 		env: env ? { ...process.env, ...env } : process.env,
 		stdio: [ 'ignore', 'pipe', 'pipe' ],
 		signal,
+		detached,
 	} );
 
 	if ( mode === 'pipe' ) {
@@ -162,6 +165,19 @@ function spawnPhpProcess(
 }
 
 type RunPhpCommandOptions = SpawnPhpProcessOptions;
+
+function killProcessGroup( child: ChildProcess, signal: NodeJS.Signals ): void {
+	if ( process.platform !== 'win32' && child.pid ) {
+		try {
+			process.kill( -child.pid, signal );
+			return;
+		} catch {
+			// Fall back to the parent process if the process group is already gone.
+		}
+	}
+
+	child.kill( signal );
+}
 
 async function runPhpCommand(
 	args: string[],
@@ -503,14 +519,12 @@ async function restartPhpServer(): Promise< void > {
 	const oldChild = phpProcess;
 	phpProcess = null;
 
-	// Detach so the imminent SIGTERM is not reported as an unexpected crash.
+	// Remove the crash listener so the imminent SIGTERM is not reported as an unexpected crash.
 	oldChild.removeAllListeners( 'exit' );
-	oldChild.kill( 'SIGTERM' );
+	killProcessGroup( oldChild, 'SIGTERM' );
 	await new Promise< void >( ( resolve ) => {
 		const timeout = setTimeout( () => {
-			if ( ! oldChild.killed ) {
-				oldChild.kill( 'SIGKILL' );
-			}
+			killProcessGroup( oldChild, 'SIGKILL' );
 		}, STOP_SERVER_TIMEOUT );
 		oldChild.once( 'close', () => {
 			clearTimeout( timeout );
@@ -621,10 +635,18 @@ async function doStartServer(
 				PHP_CLI_SERVER_WORKERS: '4',
 			},
 			onlyPathsThatPhpCanAccess: Array.from( openBasedirAllowlist ),
+			detached: process.platform !== 'win32',
 			disallowRiskyFunctions: true,
 			enableXdebug: config.enableXdebug,
 		} );
 		spawnedChild = serverChild;
+		if ( serverChild.pid !== undefined ) {
+			const message: ChildMessageRaw = {
+				topic: 'server-process-started',
+				data: { pid: serverChild.pid },
+			};
+			process.send?.( message );
+		}
 
 		await new Promise< void >( ( resolve, reject ) => {
 			serverChild.once( 'spawn', () => {
@@ -655,8 +677,8 @@ async function doStartServer(
 
 		return spawnedChild;
 	} catch ( error ) {
-		if ( spawnedChild && ! spawnedChild.killed ) {
-			spawnedChild.kill( 'SIGKILL' );
+		if ( spawnedChild ) {
+			killProcessGroup( spawnedChild, 'SIGKILL' );
 		}
 		await stopSymlinkWatcher();
 
@@ -698,17 +720,15 @@ async function stopServer(): Promise< StopServerResult > {
 	await new Promise< void >( ( resolve ) => {
 		const forceKillTimeout = setTimeout( () => {
 			errorToConsole( 'PHP child did not exit in time; sending SIGKILL' );
-			if ( ! child.killed ) {
-				child.kill( 'SIGKILL' );
-			}
+			killProcessGroup( child, 'SIGKILL' );
 		}, STOP_SERVER_TIMEOUT );
 
-		child.once( 'exit', () => {
+		child.once( 'close', () => {
 			clearTimeout( forceKillTimeout );
 			resolve();
 		} );
 
-		child.kill( 'SIGTERM' );
+		killProcessGroup( child, 'SIGTERM' );
 	} );
 
 	logToConsole( 'Server stopped gracefully' );
@@ -937,11 +957,11 @@ async function ipcMessageHandler( packet: unknown ) {
 }
 
 function killPhpProcess(): void {
-	if ( phpProcess && ! phpProcess.killed ) {
+	if ( phpProcess ) {
 		try {
 			// Detach the unexpected-exit listener so the imminent SIGKILL is not logged as a crash.
 			phpProcess.removeAllListeners( 'exit' );
-			phpProcess.kill( 'SIGKILL' );
+			killProcessGroup( phpProcess, 'SIGKILL' );
 		} catch {
 			// Best effort — nothing useful to do if this fails.
 		}

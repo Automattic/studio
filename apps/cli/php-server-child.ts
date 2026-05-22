@@ -166,7 +166,7 @@ function spawnPhpProcess(
 
 type RunPhpCommandOptions = SpawnPhpProcessOptions;
 
-function killPhpServerProcess( child: ChildProcess, signal: NodeJS.Signals ): void {
+function killProcessGroup( child: ChildProcess, signal: NodeJS.Signals ): void {
 	if ( process.platform !== 'win32' && child.pid ) {
 		try {
 			process.kill( -child.pid, signal );
@@ -490,10 +490,10 @@ async function restartPhpServer(): Promise< void > {
 
 	// Remove the crash listener so the imminent SIGTERM is not reported as an unexpected crash.
 	oldChild.removeAllListeners( 'exit' );
-	killPhpServerProcess( oldChild, 'SIGTERM' );
+	killProcessGroup( oldChild, 'SIGTERM' );
 	await new Promise< void >( ( resolve ) => {
 		const timeout = setTimeout( () => {
-			killPhpServerProcess( oldChild, 'SIGKILL' );
+			killProcessGroup( oldChild, 'SIGKILL' );
 		}, STOP_SERVER_TIMEOUT );
 		oldChild.once( 'close', () => {
 			clearTimeout( timeout );
@@ -603,6 +603,12 @@ async function doStartServer(
 			enableXdebug: config.enableXdebug,
 		} );
 		spawnedChild = serverChild;
+		if ( serverChild.pid !== undefined ) {
+			process.send?.( {
+				topic: 'server-process-started',
+				data: { pid: serverChild.pid },
+			} );
+		}
 
 		await new Promise< void >( ( resolve, reject ) => {
 			serverChild.once( 'spawn', () => {
@@ -634,7 +640,7 @@ async function doStartServer(
 		return spawnedChild;
 	} catch ( error ) {
 		if ( spawnedChild ) {
-			killPhpServerProcess( spawnedChild, 'SIGKILL' );
+			killProcessGroup( spawnedChild, 'SIGKILL' );
 		}
 		await stopSymlinkWatcher();
 
@@ -676,7 +682,7 @@ async function stopServer(): Promise< StopServerResult > {
 	await new Promise< void >( ( resolve ) => {
 		const forceKillTimeout = setTimeout( () => {
 			errorToConsole( 'PHP child did not exit in time; sending SIGKILL' );
-			killPhpServerProcess( child, 'SIGKILL' );
+			killProcessGroup( child, 'SIGKILL' );
 		}, STOP_SERVER_TIMEOUT );
 
 		child.once( 'close', () => {
@@ -684,7 +690,7 @@ async function stopServer(): Promise< StopServerResult > {
 			resolve();
 		} );
 
-		killPhpServerProcess( child, 'SIGTERM' );
+		killProcessGroup( child, 'SIGTERM' );
 	} );
 
 	logToConsole( 'Server stopped gracefully' );
@@ -919,7 +925,7 @@ function killPhpProcess(): void {
 		try {
 			// Detach the unexpected-exit listener so the imminent SIGKILL is not logged as a crash.
 			phpProcess.removeAllListeners( 'exit' );
-			killPhpServerProcess( phpProcess, 'SIGKILL' );
+			killProcessGroup( phpProcess, 'SIGKILL' );
 		} catch {
 			// Best effort — nothing useful to do if this fails.
 		}

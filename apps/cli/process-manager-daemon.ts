@@ -45,6 +45,7 @@ type ManagedProcessBase = {
 	stderrBuffer: string[];
 	stderrBufferBytes: number;
 	settled: boolean;
+	subprocessGroupPid?: number;
 };
 type ManagedProcessRunning = ManagedProcessBase & {
 	pid: number;
@@ -263,7 +264,11 @@ export class ProcessManagerDaemon {
 				},
 			} );
 
-			if ( event.success ) {
+			if ( event.success && event.data.type === 'process-message' ) {
+				const raw = event.data.payload.raw;
+				if ( raw.topic === 'server-process-started' ) {
+					managedProcess.subprocessGroupPid = raw.data.pid;
+				}
 				void this.broadcastEvent( event.data );
 			}
 		} );
@@ -475,14 +480,22 @@ export class ProcessManagerDaemon {
 		}
 
 		// Children are spawned with `detached: true` on non-Windows, so each lives in its own
-		// process group. Signalling the negative PID delivers to every member of that group,
-		// including grandchildren (e.g. the PHP server spawned by the wrapper).
+		// process group. Native PHP can spawn the PHP server in its own group too, so signal both
+		// when the wrapper reports that pid.
 		try {
 			process.kill( -pid, signal );
 		} catch {
 			// Group send can fail if the leader has already exited but children remain.
 			try {
 				managedProcess.child.kill( signal );
+			} catch {
+				// Do nothing
+			}
+		}
+
+		if ( managedProcess.subprocessGroupPid ) {
+			try {
+				process.kill( -managedProcess.subprocessGroupPid, signal );
 			} catch {
 				// Do nothing
 			}

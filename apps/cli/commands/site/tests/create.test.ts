@@ -24,6 +24,7 @@ import {
 import { removeSiteFromConfig, updateSiteAutoStart } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { updateServerFiles } from 'cli/lib/dependency-management/setup';
+import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
@@ -68,6 +69,7 @@ vi.mock( 'cli/lib/cli-config/sites', async () => {
 vi.mock( 'cli/lib/language-packs' );
 vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/dependency-management/setup' );
+vi.mock( 'cli/lib/dependency-management/wordpress' );
 vi.mock( import( '@studio/common/lib/well-known-paths' ), async ( importOriginal ) => {
 	const actual = await importOriginal();
 	return {
@@ -161,6 +163,7 @@ describe( 'CLI: studio site create', () => {
 		vi.mocked( connectToDaemon ).mockResolvedValue( undefined );
 		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
 		vi.mocked( updateServerFiles ).mockResolvedValue( true );
+		vi.mocked( downloadWordPress ).mockResolvedValue( undefined );
 		vi.mocked( setupCustomDomain ).mockResolvedValue( undefined );
 		vi.mocked( startWordPressServer ).mockResolvedValue( mockProcessDescription );
 		vi.mocked( runBlueprint ).mockResolvedValue( undefined );
@@ -483,6 +486,35 @@ describe( 'CLI: studio site create', () => {
 						} ),
 					] ),
 				} )
+			);
+		} );
+
+		it( 'should not copy specific WordPress versions for Playground runtime', async () => {
+			vi.mocked( recursiveCopyDirectory ).mockClear();
+
+			await runCommand( mockSitePath, {
+				...defaultTestOptions,
+				wpVersion: '6.4',
+			} );
+
+			expect( downloadWordPress ).not.toHaveBeenCalled();
+			expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
+		} );
+
+		it( 'should download and copy specific WordPress versions for native PHP runtime', async () => {
+			vi.stubEnv( 'STUDIO_RUNTIME', SITE_RUNTIME_NATIVE_PHP );
+			vi.mocked( recursiveCopyDirectory ).mockClear();
+
+			await runCommand( mockSitePath, {
+				...defaultTestOptions,
+				phpVersion: '8.3',
+				wpVersion: '6.4',
+			} );
+
+			expect( downloadWordPress ).toHaveBeenCalledWith( '6.4' );
+			expect( recursiveCopyDirectory ).toHaveBeenCalledWith(
+				'/test/server-files/wordpress-versions/6.4',
+				mockSitePath
 			);
 		} );
 	} );

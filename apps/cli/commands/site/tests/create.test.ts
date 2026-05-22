@@ -1,4 +1,5 @@
 import fs from 'fs';
+import path from 'path';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import {
 	isEmptyDir,
@@ -513,7 +514,7 @@ describe( 'CLI: studio site create', () => {
 
 			expect( downloadWordPress ).toHaveBeenCalledWith( '6.4' );
 			expect( recursiveCopyDirectory ).toHaveBeenCalledWith(
-				'/test/server-files/wordpress-versions/6.4',
+				path.join( path.sep, 'test', 'server-files', 'wordpress-versions', '6.4' ),
 				mockSitePath
 			);
 		} );

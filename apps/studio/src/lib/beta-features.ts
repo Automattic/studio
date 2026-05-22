@@ -37,10 +37,10 @@ export function getBetaFeaturesDefinition(): Record< keyof BetaFeatures, BetaFea
 			description: __( 'Run Studio sites with native PHP instead of Playground.' ),
 		},
 		enableDesksUiSwitch: {
-			label: __( 'Desks UI switch' ),
+			label: __( 'Enable Studio UI Switcher' ),
 			key: 'enableDesksUiSwitch',
 			default: BETA_FEATURE_DEFAULTS.enableDesksUiSwitch,
-			description: __( 'Show the option to switch Studio into the Desks UI.' ),
+			description: __( 'Show the option to switch Studio UI modes.' ),
 		},
 	};
 }

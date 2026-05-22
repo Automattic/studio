@@ -381,7 +381,7 @@ describe( 'ProgressStreamer', () => {
 		expect( edit.text ).toBe( '⏳ _third_' );
 	} );
 
-	it( 'collapses whitespace and truncates long messages to maxChars (prefix-inclusive)', async () => {
+	it( 'collapses whitespace and truncates long messages to maxChars (prefix-inclusive), preserving the closing italic underscore', async () => {
 		const { streamer, respond } = makeStreamer( { maxChars: 20 } );
 		streamer.onEvent( {
 			type: 'info',
@@ -390,11 +390,42 @@ describe( 'ProgressStreamer', () => {
 		} );
 		await flushPromises();
 		const text = ( respond.mock.calls[ 0 ][ 1 ] as { text: string } ).text;
-		expect( text.startsWith( '⏳ ' ) ).toBe( true );
+		expect( text.startsWith( '⏳ _' ) ).toBe( true );
 		// `maxChars` is the absolute cap on the whole line (emoji prefix
 		// included) so a long status doesn't accidentally exceed it.
 		expect( text.length ).toBe( 20 );
-		expect( text.endsWith( '…' ) ).toBe( true );
+		// Truncation must run on the inner text *before* italicizing, so the
+		// closing `_` is never sliced off — otherwise wpcom's
+		// markdown_to_telegram_html italic regex fails to match and Telegram
+		// would render a literal underscore at the end.
+		expect( text.endsWith( '…_' ) ).toBe( true );
+	} );
+
+	it( 'preserves the italic span when truncating a long text-only narration (no prefix)', async () => {
+		const { streamer, respond } = makeStreamer( { maxChars: 30 } );
+		streamer.onEvent(
+			piEvent( {
+				type: 'message',
+				timestamp: 't',
+				message: {
+					type: 'message_end',
+					message: {
+						role: 'assistant',
+						content: [
+							{
+								type: 'text',
+								text: 'A very long narration that easily exceeds the budget here.',
+							},
+						],
+					},
+				},
+			} )
+		);
+		await flushPromises();
+		const text = ( respond.mock.calls[ 0 ][ 1 ] as { text: string } ).text;
+		expect( text.length ).toBe( 30 );
+		expect( text.startsWith( '_' ) ).toBe( true );
+		expect( text.endsWith( '…_' ) ).toBe( true );
 	} );
 
 	it( 'stop() cancels a pending flush', async () => {

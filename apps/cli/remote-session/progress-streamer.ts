@@ -120,6 +120,27 @@ function italic( text: string ): string {
 }
 
 /**
+ * Compose a final status line of the form `${prefix}_${text}_`, respecting an
+ * absolute `maxChars` budget on the whole line. Truncation runs on the inner
+ * text *before* italicizing so the closing `_` is never sliced off — that
+ * matters because the wpcom `markdown_to_telegram_html` italic regex requires
+ * a closing `_`, and a broken span would leak literal underscores into the
+ * Telegram message. Whitespace is collapsed and the line trimmed; an empty
+ * result returns `null` so the streamer skips the post entirely.
+ */
+function buildItalicLine( text: string, prefix: string, maxChars: number ): string | null {
+	const cleaned = text.replace( /\s+/g, ' ' ).trim();
+	if ( cleaned.length === 0 ) {
+		return null;
+	}
+	// Reserved chars in the final line: `prefix` + opening `_` + closing `_`.
+	const innerBudget = Math.max( 1, maxChars - prefix.length - 2 );
+	const inner =
+		cleaned.length > innerBudget ? `${ cleaned.slice( 0, innerBudget - 1 ) }…` : cleaned;
+	return `${ prefix }_${ inner }_`;
+}
+
+/**
  * Pick the most informative content block from a finished assistant message.
  * Prefers `text > thinking > toolCall` — the model's own narration ("Stopping
  * all sites first!") is a better description of what's happening than any
@@ -128,7 +149,7 @@ function italic( text: string ): string {
  *
  * Returns the chat-ready italicized fragment, or null when nothing displayable.
  */
-function formatAssistantMessage( raw: AgentMessage ): string | null {
+function formatAssistantMessage( raw: AgentMessage, maxChars: number ): string | null {
 	const message = raw as PiAgentMessageLike;
 	if ( ! message || typeof message !== 'object' || message.role !== 'assistant' ) {
 		return null;
@@ -159,21 +180,23 @@ function formatAssistantMessage( raw: AgentMessage ): string | null {
 		}
 	}
 	if ( text ) {
-		return italic( text );
+		return buildItalicLine( text, '', maxChars );
 	}
 	if ( thinking ) {
+		// Pre-clamp to a tighter inline preview; `buildItalicLine` will still
+		// enforce the absolute `maxChars` budget on top.
 		const preview =
 			thinking.length > THINKING_PREVIEW_CHARS
 				? `${ thinking.slice( 0, THINKING_PREVIEW_CHARS - 1 ) }…`
 				: thinking;
-		return `💭 ${ italic( preview ) }`;
+		return buildItalicLine( preview, '💭 ', maxChars );
 	}
 	if ( toolName ) {
 		// Some turns emit `message_end` with only a `toolCall` block — no `text`
 		// preamble. Mimic the `progress` envelope style (⏳ + italic + trailing
 		// ellipsis) and gerundize the tool name so it reads as a phrase
 		// ("Sharing screenshot…") rather than a snake_case identifier.
-		return `⏳ ${ italic( `${ humanizeToolName( toolName ) }…` ) }`;
+		return buildItalicLine( `${ humanizeToolName( toolName ) }…`, '⏳ ', maxChars );
 	}
 	return null;
 }
@@ -258,11 +281,10 @@ export class ProgressStreamer {
 		if ( this.disposed ) {
 			return;
 		}
-		const rendered = renderEvent( event );
-		if ( rendered === null ) {
+		const formatted = renderEvent( event, this.maxChars );
+		if ( formatted === null ) {
 			return;
 		}
-		const formatted = this.formatLine( rendered );
 		// Telegram returns 400 "message is not modified" for edits that match the
 		// current text. Skip silently so we don't burn an edit-bucket slot.
 		if ( formatted === this.lastPostedText && this.pending === null ) {
@@ -545,43 +567,34 @@ export class ProgressStreamer {
 			this.deps.clearTimeout( timeout );
 		}
 	}
-
-	/**
-	 * Normalize a pre-rendered status line: collapse whitespace and truncate to
-	 * `maxChars`. The emoji prefix is already part of the rendered line so we
-	 * count it against the limit (single-message progress, no chunking).
-	 */
-	private formatLine( raw: string ): string {
-		const oneLine = raw.replace( /\s+/g, ' ' ).trim();
-		return oneLine.length > this.maxChars ? `${ oneLine.slice( 0, this.maxChars - 1 ) }…` : oneLine;
-	}
 }
 
 /**
- * Render a single NDJSON event into a chat-ready line. Returns null for events
- * the streamer doesn't surface (lifecycle, tool execution start/end,
- * empty messages). Tool execution events are intentionally dropped — the LLM's
- * narration in the surrounding `message_end` text blocks (and the tool's own
- * i18n'd `progress` events) describe what's happening better than any label
- * we could synthesize from the tool name.
+ * Render a single NDJSON event into a chat-ready line, already truncated to
+ * `maxChars` and italicized so the output goes straight to Telegram. Returns
+ * null for events the streamer doesn't surface (lifecycle, tool execution
+ * start/end, empty messages). Tool execution events are intentionally dropped
+ * — the LLM's narration in the surrounding `message_end` text blocks (and the
+ * tool's own i18n'd `progress` events) describe what's happening better than
+ * any label we could synthesize from the tool name.
  */
-function renderEvent( event: JsonEvent ): string | null {
+function renderEvent( event: JsonEvent, maxChars: number ): string | null {
 	switch ( event.type ) {
 		case 'info':
 		case 'progress': {
-			const message = typeof event.message === 'string' ? event.message.trim() : '';
-			return message.length > 0 ? `⏳ ${ italic( message ) }` : null;
+			const message = typeof event.message === 'string' ? event.message : '';
+			return buildItalicLine( message, '⏳ ', maxChars );
 		}
 		case 'message':
-			return renderSessionEvent( event.message );
+			return renderSessionEvent( event.message, maxChars );
 		default:
 			return null;
 	}
 }
 
-function renderSessionEvent( event: AgentSessionEvent ): string | null {
+function renderSessionEvent( event: AgentSessionEvent, maxChars: number ): string | null {
 	if ( event.type === 'message_end' ) {
-		return formatAssistantMessage( event.message );
+		return formatAssistantMessage( event.message, maxChars );
 	}
 	return null;
 }

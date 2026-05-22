@@ -214,6 +214,7 @@ export async function runWpCliCommand(
 		php.writeFile( '/tmp/ca-bundle.crt', rootCertificates.join( '\n' ) );
 		await setPhpIniEntries( php, {
 			'openssl.cafile': '/tmp/ca-bundle.crt',
+			'curl.cainfo': '/tmp/ca-bundle.crt',
 			allow_url_fopen: 1,
 		} );
 
@@ -322,6 +323,7 @@ export async function runGlobalWpCliCommand(
 		php.writeFile( '/tmp/ca-bundle.crt', rootCertificates.join( '\n' ) );
 		await setPhpIniEntries( php, {
 			'openssl.cafile': '/tmp/ca-bundle.crt',
+			'curl.cainfo': '/tmp/ca-bundle.crt',
 			allow_url_fopen: 1,
 		} );
 

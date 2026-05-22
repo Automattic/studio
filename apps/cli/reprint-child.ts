@@ -161,9 +161,11 @@ async function runReprint( msg: RunMessage ) {
 
 		await php.mount( '/tmp/reprint.phar', createNodeFsMountHandler( pharPath ) );
 
+		// `curl.cainfo` must accompany `openssl.cafile`, otherwise PHP's curl extension errors with "cURL error 77".
 		php.writeFile( '/tmp/ca-bundle.crt', rootCertificates.join( '\n' ) );
 		await setPhpIniEntries( php, {
 			'openssl.cafile': '/tmp/ca-bundle.crt',
+			'curl.cainfo': '/tmp/ca-bundle.crt',
 			allow_url_fopen: 1,
 			memory_limit: '512M',
 			error_reporting: String( 32767 & ~8192 ),

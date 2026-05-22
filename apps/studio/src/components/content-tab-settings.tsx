@@ -156,6 +156,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					</SettingsRow>
 					<SettingsRow label={ __( 'HTTPS' ) }>
 						<div>
+							{ /* translators: status value for the HTTPS setting on the site settings screen */ }
 							<span>{ selectedSite.enableHttps ? __( 'Enabled' ) : __( 'Disabled' ) }</span>{ ' ' }
 							{ ! isCertificateTrusted && selectedSite.enableHttps && (
 								<Button variant="link" onClick={ handleTrustCertificate }>
@@ -207,10 +208,12 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 						</th>
 					</tr>
 					<SettingsRow label={ __( 'Xdebug' ) }>
+						{ /* translators: status value for the Xdebug setting on the site settings screen */ }
 						<span>{ selectedSite.enableXdebug ? __( 'Enabled' ) : __( 'Disabled' ) }</span>
 					</SettingsRow>
 					<SettingsRow label={ __( 'Debug log' ) }>
 						<span className="flex items-center gap-2">
+							{ /* translators: status value for the Debug log setting on the site settings screen */ }
 							{ selectedSite.enableDebugLog ? __( 'Enabled' ) : __( 'Disabled' ) }
 							{ debugLogPath && (
 								<Button variant="link" onClick={ () => getIpcApi().openLocalPath( debugLogPath ) }>
@@ -220,6 +223,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 						</span>
 					</SettingsRow>
 					<SettingsRow label={ __( 'Debug display' ) }>
+						{ /* translators: status value for the Debug display setting on the site settings screen */ }
 						<span>{ selectedSite.enableDebugDisplay ? __( 'Enabled' ) : __( 'Disabled' ) }</span>
 					</SettingsRow>
 					<tr>

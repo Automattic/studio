@@ -1116,6 +1116,10 @@ export class AiChatUI implements AiOutputAdapter {
 
 	start(): void {
 		this.tui.start();
+		// Logger progress and daemon-status updates can request renders while
+		// the TUI is stopped for an external prompt. pi-tui leaves that request
+		// pending, so force a fresh render when resuming.
+		this.tui.requestRender( true );
 	}
 
 	showWelcome(): void {

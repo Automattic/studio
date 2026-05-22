@@ -205,6 +205,26 @@ describe( 'AiChatUI.clearTranscript', () => {
 	} );
 } );
 
+describe( 'AiChatUI.start', () => {
+	it( 'forces a fresh render after restarting the TUI', () => {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			start: () => void;
+			[ key: string ]: unknown;
+		};
+		const tui = {
+			start: vi.fn(),
+			requestRender: vi.fn(),
+		};
+
+		ui.tui = tui;
+
+		ui.start();
+
+		expect( tui.start ).toHaveBeenCalledTimes( 1 );
+		expect( tui.requestRender ).toHaveBeenCalledWith( true );
+	} );
+} );
+
 describe( 'AiChatUI interrupt handling', () => {
 	it( 'centralizes ESC interruption cleanup and only calls the interrupt callback once', () => {
 		const ui = Object.create( AiChatUI.prototype ) as {

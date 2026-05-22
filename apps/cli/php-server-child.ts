@@ -604,10 +604,11 @@ async function doStartServer(
 		} );
 		spawnedChild = serverChild;
 		if ( serverChild.pid !== undefined ) {
-			process.send?.( {
+			const message: ChildMessageRaw = {
 				topic: 'server-process-started',
 				data: { pid: serverChild.pid },
-			} );
+			};
+			process.send?.( message );
 		}
 
 		await new Promise< void >( ( resolve, reject ) => {

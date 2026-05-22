@@ -615,4 +615,25 @@ describe( 'ProgressStreamer', () => {
 		await flushPromises();
 		expect( respond ).toHaveBeenCalledTimes( 1 );
 	} );
+
+	it( 'a failed post does not poison the same-text dedupe cache — a retry with identical text still fires', async () => {
+		// The no-op-edit guard in `onEvent` compares against `lastPostedText`.
+		// If we update it before the post settles, a transient failure leaves
+		// the cache primed with text Telegram never received, and the next
+		// identical event is silently dropped.
+		const { streamer, respond, clock } = makeStreamer( { intervalMs: 1000 } );
+		respond.mockRejectedValueOnce( new Error( 'network down' ) );
+
+		streamer.onEvent( { type: 'info', timestamp: 't', message: 'still working' } );
+		await flushPromises();
+		expect( respond ).toHaveBeenCalledTimes( 1 );
+
+		// Past the cooldown; the same line arrives again. Must result in a
+		// fresh attempt rather than being suppressed as a no-op edit.
+		clock.advance( 1500 );
+		respond.mockResolvedValueOnce( okOutcome( 2002 ) );
+		streamer.onEvent( { type: 'info', timestamp: 't', message: 'still working' } );
+		await flushPromises();
+		expect( respond ).toHaveBeenCalledTimes( 2 );
+	} );
 } );

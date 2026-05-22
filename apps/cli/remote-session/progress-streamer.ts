@@ -462,7 +462,6 @@ export class ProgressStreamer {
 	}
 
 	private post( text: string ): void {
-		this.lastPostedText = text;
 		this.activePost = this.send( text ).finally( () => {
 			this.activePost = null;
 			this.activePostAbort = null;
@@ -517,6 +516,14 @@ export class ProgressStreamer {
 				} else {
 					this.createFailed = true;
 				}
+			}
+
+			// Only poison the same-text dedupe cache once Telegram has actually
+			// accepted this text. A failed post leaving the cache primed would
+			// silently drop the next identical event (the dedupe guard in
+			// `onEvent` would skip it as a no-op edit).
+			if ( outcome.success ) {
+				this.lastPostedText = text;
 			}
 		} catch ( error ) {
 			if ( action === 'create' ) {

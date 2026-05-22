@@ -1,27 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 export type UiMode = 'classic' | 'desks';
 
-const UI_MODE_STORAGE_KEY = 'studio.uiMode';
 const STUDIO_UI_MODE_PARAM = 'studio-ui-mode';
 const DEFAULT_UI_MODE: UiMode = 'desks';
-
-function isUiMode( value: string | null ): value is UiMode {
-	return value === 'classic' || value === 'desks';
-}
-
-function readStoredUiMode(): UiMode {
-	if ( typeof window === 'undefined' ) {
-		return DEFAULT_UI_MODE;
-	}
-
-	try {
-		const storedMode = window.localStorage.getItem( UI_MODE_STORAGE_KEY );
-		return isUiMode( storedMode ) ? storedMode : DEFAULT_UI_MODE;
-	} catch {
-		return DEFAULT_UI_MODE;
-	}
-}
 
 function readLaunchUiMode(): UiMode | undefined {
 	if ( typeof window === 'undefined' ) {
@@ -42,15 +24,7 @@ function readLaunchUiMode(): UiMode | undefined {
 }
 
 function readInitialUiMode(): UiMode {
-	return readLaunchUiMode() ?? readStoredUiMode();
-}
-
-function writeStoredUiMode( mode: UiMode ) {
-	try {
-		window.localStorage.setItem( UI_MODE_STORAGE_KEY, mode );
-	} catch {
-		// Local storage is best-effort; the in-memory mode switch still works.
-	}
+	return readLaunchUiMode() ?? DEFAULT_UI_MODE;
 }
 
 function resetRoute() {
@@ -80,18 +54,10 @@ export function useUiMode() {
 			}
 
 			setModeState( nextMode );
-			writeStoredUiMode( nextMode );
 			resetRoute();
 		},
 		[ mode ]
 	);
-
-	useEffect( () => {
-		const launchMode = readLaunchUiMode();
-		if ( launchMode ) {
-			writeStoredUiMode( launchMode );
-		}
-	}, [] );
 
 	return { mode, setMode };
 }

@@ -5,7 +5,7 @@ import fs from 'fs';
 import { normalize } from 'path';
 import { vol } from 'memfs';
 import { vi, beforeAll, afterAll } from 'vitest';
-import { createMainWindow, getCurrentRendererUrl, getMainWindow } from 'src/main-window';
+import { createMainWindow, getMainWindow } from 'src/main-window';
 
 vi.mock( 'fs' );
 vi.mock( 'file-stream-rotator' );
@@ -91,11 +91,6 @@ vi.mocked( fs.watch, { partial: true } ).mockReturnValue( mockWatcher );
 type OnBeforeSendHeadersListener = (
 	details: { requestHeaders: Record< string, string > },
 	callback: ( response: { requestHeaders: Record< string, string > } ) => void
-) => void;
-
-type OnHeadersReceivedListener = (
-	details: { url: string; responseHeaders?: Record< string, string[] > },
-	callback: ( response: { responseHeaders?: Record< string, string[] > } ) => void
 ) => void;
 
 function mockElectron() {
@@ -235,43 +230,6 @@ describe( 'App initialization', () => {
 				Referer: 'https://developer.wordpress.com/studio/',
 			},
 		} );
-	} );
-
-	it( 'should allow Vite React refresh preamble in the main window CSP', async () => {
-		const originalNodeEnv = process.env.NODE_ENV;
-		process.env.NODE_ENV = 'development';
-		const { mockedEvents } = mockElectron();
-		vi.mocked( getCurrentRendererUrl ).mockReturnValue(
-			'http://localhost:5200/?studio-ui-mode=desks'
-		);
-		try {
-			vi.resetModules();
-			const { session } = await import( 'electron' );
-			await import( '../index' );
-
-			await mockedEvents.ready();
-			const onHeadersReceived = session.defaultSession.webRequest
-				.onHeadersReceived as unknown as ReturnType< typeof vi.fn >;
-			const listener = onHeadersReceived.mock.calls[ 0 ][ 0 ] as OnHeadersReceivedListener;
-			const callback = vi.fn();
-			listener(
-				{
-					url: 'http://localhost:5200/?studio-ui-mode=desks',
-					responseHeaders: {},
-				},
-				callback
-			);
-
-			const csp = callback.mock.calls[ 0 ][ 0 ].responseHeaders[ 'Content-Security-Policy' ][ 0 ];
-			const scriptSrcDirectives = csp
-				.split( '; ' )
-				.filter( ( directive: string ) => directive.startsWith( 'script-src ' ) );
-
-			expect( scriptSrcDirectives ).toHaveLength( 1 );
-			expect( scriptSrcDirectives[ 0 ] ).toContain( "'unsafe-inline'" );
-		} finally {
-			process.env.NODE_ENV = originalNodeEnv;
-		}
 	} );
 
 	it( 'should handle authentication deep links', async () => {

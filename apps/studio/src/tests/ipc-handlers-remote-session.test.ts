@@ -19,6 +19,16 @@ vi.mock( 'src/modules/cli/lib/execute-command', () => ( {
 	executeCliCommand: vi.fn(),
 } ) );
 
+vi.mock( 'src/lib/bump-stats', async () => {
+	const actual =
+		await vi.importActual< typeof import('src/lib/bump-stats') >( 'src/lib/bump-stats' );
+	return {
+		...actual,
+		bumpStat: vi.fn(),
+		bumpAggregatedUniqueStat: vi.fn().mockResolvedValue( undefined ),
+	};
+} );
+
 type CliEmitter = TypedEventEmitter< {
 	started: void;
 	error: { error: Error };
@@ -144,6 +154,39 @@ describe( 'startRemoteSessionDaemon', () => {
 
 		await expect( startRemoteSessionDaemon( mockIpcEvent ) ).rejects.toBe( failure );
 	} );
+
+	it( 'bumps the desktop-side start stat and weekly/monthly uniques', async () => {
+		stubExecuteCliCommand( ( emitter ) => {
+			emitter.emit( 'success', { result: undefined } );
+		} );
+
+		const { getDaemonStatus } = await import( '@studio/common/lib/remote-session' );
+		vi.mocked( getDaemonStatus ).mockReturnValue( {
+			running: true,
+			pid: 12345,
+			pidFile: '/tmp/remote-session.pid',
+		} );
+
+		const bumpStats = await import( 'src/lib/bump-stats' );
+		const { startRemoteSessionDaemon } = await import( 'src/ipc-handlers' );
+
+		await startRemoteSessionDaemon( mockIpcEvent );
+
+		expect( bumpStats.bumpStat ).toHaveBeenCalledWith(
+			bumpStats.StatsGroup.STUDIO_APP_DOLLY_START,
+			expect.any( String )
+		);
+		expect( bumpStats.bumpAggregatedUniqueStat ).toHaveBeenCalledWith(
+			bumpStats.StatsGroup.STUDIO_APP_DOLLY_WKLY_UNQ,
+			expect.any( String ),
+			'weekly'
+		);
+		expect( bumpStats.bumpAggregatedUniqueStat ).toHaveBeenCalledWith(
+			bumpStats.StatsGroup.STUDIO_APP_DOLLY_MON_UNQ,
+			expect.any( String ),
+			'monthly'
+		);
+	} );
 } );
 
 describe( 'stopRemoteSessionDaemon', () => {
@@ -184,5 +227,21 @@ describe( 'stopRemoteSessionDaemon', () => {
 		const { stopRemoteSessionDaemon } = await import( 'src/ipc-handlers' );
 
 		await expect( stopRemoteSessionDaemon( mockIpcEvent ) ).rejects.toBe( failure );
+	} );
+
+	it( 'bumps the desktop-side stop stat', async () => {
+		stubExecuteCliCommand( ( emitter ) => {
+			emitter.emit( 'success', { result: undefined } );
+		} );
+
+		const bumpStats = await import( 'src/lib/bump-stats' );
+		const { stopRemoteSessionDaemon } = await import( 'src/ipc-handlers' );
+
+		await stopRemoteSessionDaemon( mockIpcEvent );
+
+		expect( bumpStats.bumpStat ).toHaveBeenCalledWith(
+			bumpStats.StatsGroup.STUDIO_APP_DOLLY_STOP,
+			expect.any( String )
+		);
 	} );
 } );

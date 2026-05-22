@@ -13,6 +13,14 @@ export type SetAdminCredentialsRequestBody = {
 	email?: string;
 };
 
+export type SetAdminCredentialsRequest = {
+	url: '/?studio-admin-api';
+	method: 'POST';
+	body: SetAdminCredentialsRequestBody;
+};
+
+type SendSetAdminCredentialsRequest = ( request: SetAdminCredentialsRequest ) => Promise< void >;
+
 export function shouldSetAdminCredentials( config: AdminCredentialsConfig ): boolean {
 	return Boolean( config.adminPassword || config.adminUsername || config.adminEmail );
 }
@@ -26,6 +34,23 @@ export function getSetAdminCredentialsRequestBody(
 		...( config.adminUsername && { username: config.adminUsername } ),
 		...( config.adminEmail && { email: config.adminEmail } ),
 	};
+}
+
+export async function requestSetAdminCredentials(
+	config: AdminCredentialsConfig,
+	sendRequest: SendSetAdminCredentialsRequest
+): Promise< void > {
+	if ( ! shouldSetAdminCredentials( config ) ) {
+		return;
+	}
+
+	// Share the admin API request shape, but let each runtime use its natural transport:
+	// Playground uses its in-memory request API; native PHP posts to the local PHP server.
+	await sendRequest( {
+		url: '/?studio-admin-api',
+		method: 'POST',
+		body: getSetAdminCredentialsRequestBody( config ),
+	} );
 }
 
 export function toUrlSearchParams( body: SetAdminCredentialsRequestBody ): URLSearchParams {

@@ -33,9 +33,9 @@ import { WordPressInstallMode } from '@wp-playground/wordpress';
 import fs from 'fs-extra';
 import { z } from 'zod';
 import {
-	getSetAdminCredentialsRequestBody,
+	requestSetAdminCredentials,
+	SetAdminCredentialsRequest,
 	SetAdminCredentialsRequestBody,
-	shouldSetAdminCredentials,
 } from 'cli/lib/admin-credentials';
 import { sanitizeRunCLIArgs } from 'cli/lib/cli-args-sanitizer';
 import {
@@ -105,12 +105,18 @@ function escapePhpString( str: string ): string {
 }
 
 async function setAdminCredentials( server: RunCLIServer, config: ServerConfig ): Promise< void > {
-	const body = getSetAdminCredentialsRequestBody( config );
-	await server.playground.request( {
-		url: '/?studio-admin-api',
-		method: 'POST',
-		body: escapeRequestBodyForPlayground( body ),
+	await requestSetAdminCredentials( config, async ( request ) => {
+		await server.playground.request( escapeRequestForPlayground( request ) );
 	} );
+}
+
+function escapeRequestForPlayground(
+	request: SetAdminCredentialsRequest
+): SetAdminCredentialsRequest {
+	return {
+		...request,
+		body: escapeRequestBodyForPlayground( request.body ),
+	};
 }
 
 function escapeRequestBodyForPlayground(
@@ -459,9 +465,7 @@ const startServer = wrapWithStartingPromise(
 
 			stopSignal.throwIfAborted();
 
-			if ( shouldSetAdminCredentials( config ) ) {
-				await setAdminCredentials( server, config );
-			}
+			await setAdminCredentials( server, config );
 
 			stopSignal.throwIfAborted();
 		} catch ( error ) {

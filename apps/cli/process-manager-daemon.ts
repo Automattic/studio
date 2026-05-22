@@ -45,7 +45,8 @@ type ManagedProcessBase = {
 	stderrBuffer: string[];
 	stderrBufferBytes: number;
 	settled: boolean;
-	subprocessGroupPid?: number;
+	// Track child pids of the child process so that they aren't orphaned when the parent exits.
+	grandchildrenPids?: number[];
 };
 type ManagedProcessRunning = ManagedProcessBase & {
 	pid: number;
@@ -264,11 +265,16 @@ export class ProcessManagerDaemon {
 				},
 			} );
 
-			if ( event.success && event.data.type === 'process-message' ) {
-				const raw = event.data.payload.raw;
-				if ( raw.topic === 'server-process-started' ) {
-					managedProcess.subprocessGroupPid = raw.data.pid;
-				}
+			if (
+				event.success &&
+				event.data.type === 'process-message' &&
+				event.data.payload.raw.topic === 'server-process-started'
+			) {
+				managedProcess.grandchildrenPids ??= [];
+				managedProcess.grandchildrenPids.push( event.data.payload.raw.data.pid );
+			}
+
+			if ( event.success ) {
 				void this.broadcastEvent( event.data );
 			}
 		} );
@@ -493,11 +499,13 @@ export class ProcessManagerDaemon {
 			}
 		}
 
-		if ( managedProcess.subprocessGroupPid ) {
-			try {
-				process.kill( -managedProcess.subprocessGroupPid, signal );
-			} catch {
-				// Do nothing
+		if ( managedProcess.grandchildrenPids ) {
+			for ( const pid of managedProcess.grandchildrenPids ) {
+				try {
+					process.kill( -pid, signal );
+				} catch {
+					// Do nothing
+				}
 			}
 		}
 	}

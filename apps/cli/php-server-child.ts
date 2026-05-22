@@ -24,6 +24,7 @@ import {
 	ChildMessageRaw,
 	ServerConfig,
 } from 'cli/lib/types/wordpress-server-ipc';
+import { requestSetAdminCredentials, toUrlSearchParams } from './lib/admin-credentials';
 import {
 	getBlueprintsPharPath,
 	getPhpBinaryPath,
@@ -372,6 +373,37 @@ async function installWordPress(
 	}
 }
 
+async function setAdminCredentials( config: ServerConfig, signal: AbortSignal ): Promise< void > {
+	try {
+		await requestSetAdminCredentials( config, async ( request ) => {
+			const response = await fetch( `http://localhost:${ config.port }${ request.url }`, {
+				method: request.method,
+				body: toUrlSearchParams( request.body ),
+				signal,
+			} );
+			if ( ! response.ok ) {
+				throw new Error( await getAdminCredentialsErrorMessage( response ) );
+			}
+		} );
+	} catch ( error ) {
+		throw new Error(
+			`Failed to set admin credentials: ${
+				error instanceof Error ? error.message : String( error )
+			}`
+		);
+	}
+}
+
+async function getAdminCredentialsErrorMessage( response: Response ): Promise< string > {
+	const text = await response.text();
+	try {
+		const result = JSON.parse( text ) as { error?: string };
+		return result.error ?? text;
+	} catch {
+		return text || response.statusText;
+	}
+}
+
 // The symlink watcher is used to detect new symlinks in wp-content and its subdirectories. When a
 // new symlink is detected, it is added to the open_basedir allow list and the server is restarted.
 function startSymlinkWatcher( sitePath: string ): void {
@@ -540,7 +572,13 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		runningConfig = config;
 
 		phpProcess = await doStartServer( config, currentOpenBasedirAllowlist, stopSignal );
+		stopSignal.throwIfAborted();
+		await setAdminCredentials( config, stopSignal );
+		stopSignal.throwIfAborted();
 	} catch ( error ) {
+		killPhpProcess();
+		phpProcess = null;
+		await stopSymlinkWatcher();
 		runningConfig = null;
 		currentOpenBasedirAllowlist.clear();
 

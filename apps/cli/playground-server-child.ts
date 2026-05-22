@@ -18,7 +18,6 @@ import { isWordPressDirectory } from '@studio/common/lib/fs-utils';
 import { IS_JSPI_AVAILABLE } from '@studio/common/lib/jspi';
 import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
 import { cleanupLegacyMuPlugins, getMuPlugins } from '@studio/common/lib/mu-plugins';
-import { decodePassword } from '@studio/common/lib/passwords';
 import { formatPlaygroundCliMessage } from '@studio/common/lib/playground-cli-messages';
 import { sequential } from '@studio/common/lib/sequential';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
@@ -33,6 +32,11 @@ import {
 import { WordPressInstallMode } from '@wp-playground/wordpress';
 import fs from 'fs-extra';
 import { z } from 'zod';
+import {
+	requestSetAdminCredentials,
+	SetAdminCredentialsRequest,
+	SetAdminCredentialsRequestBody,
+} from 'cli/lib/admin-credentials';
 import { sanitizeRunCLIArgs } from 'cli/lib/cli-args-sanitizer';
 import {
 	getPhpMyAdminPath,
@@ -100,24 +104,27 @@ function escapePhpString( str: string ): string {
 	return str.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
 }
 
-async function setAdminCredentials(
-	server: RunCLIServer,
-	adminPassword?: string,
-	adminUsername?: string,
-	adminEmail?: string
-): Promise< void > {
-	await server.playground.request( {
-		url: '/?studio-admin-api',
-		method: 'POST',
-		body: {
-			action: 'set_admin_password',
-			...( adminPassword && {
-				password: escapePhpString( decodePassword( adminPassword ) ),
-			} ),
-			...( adminUsername && { username: escapePhpString( adminUsername ) } ),
-			...( adminEmail && { email: escapePhpString( adminEmail ) } ),
-		},
+async function setAdminCredentials( server: RunCLIServer, config: ServerConfig ): Promise< void > {
+	await requestSetAdminCredentials( config, async ( request ) => {
+		await server.playground.request( escapeRequestForPlayground( request ) );
 	} );
+}
+
+function escapeRequestForPlayground(
+	request: SetAdminCredentialsRequest
+): SetAdminCredentialsRequest {
+	return {
+		...request,
+		body: escapeRequestBodyForPlayground( request.body ),
+	};
+}
+
+function escapeRequestBodyForPlayground(
+	body: SetAdminCredentialsRequestBody
+): SetAdminCredentialsRequestBody {
+	return Object.fromEntries(
+		Object.entries( body ).map( ( [ key, value ] ) => [ key, escapePhpString( value ) ] )
+	) as SetAdminCredentialsRequestBody;
 }
 
 /**
@@ -458,14 +465,7 @@ const startServer = wrapWithStartingPromise(
 
 			stopSignal.throwIfAborted();
 
-			if ( config.adminPassword || config.adminUsername || config.adminEmail ) {
-				await setAdminCredentials(
-					server,
-					config.adminPassword,
-					config.adminUsername,
-					config.adminEmail
-				);
-			}
+			await setAdminCredentials( server, config );
 
 			stopSignal.throwIfAborted();
 		} catch ( error ) {

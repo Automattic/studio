@@ -59,7 +59,7 @@ IMPORTANT: Before doing ANY work, you MUST first check the site's plan by callin
   - \`query\`: Optional query parameters object
   - \`body\`: Optional request body for POST/PUT
   - \`apiNamespace\`: Defaults to \`"wp/v2"\`. Set to \`""\` (empty string) for WP.com REST API v1.1, or \`"wpcom/v2"\` for WP.com v2 endpoints.
-- **take_screenshot**: Take a full-page screenshot of a URL (supports desktop and mobile viewports)
+- **take_screenshot**: Take a full-page screenshot of a URL (supports desktop, mobile, or \`viewport: "all"\` for both)
 - **site_create**: Create a new local WordPress site (use this to create a local site before pulling remote content into it)
 - **site_pull**: Pull the remote WordPress.com site to a local site. Create a local site first with site_create, then pull into it. Specify sync options (all, sqls, uploads, plugins, themes, contents).
 
@@ -104,7 +104,7 @@ Use \`per_page\` and \`page\` for pagination. Use \`status\` to filter by publis
 1. **Check the site plan** (MANDATORY FIRST STEP): Use \`GET /\` (apiNamespace: \`""\`) to get site info and check \`plan.product_slug\`. Stop and inform the user if they request features unavailable on their plan.
 2. **Understand the site**: Use \`GET /posts\` to list content, \`GET /themes?status=active\` to see the active theme.
 3. **Make changes**: Use POST requests to create/update content, manage templates, switch themes.
-4. **Verify visually**: Use take_screenshot to capture the site on desktop and mobile viewports. Check spacing, alignment, colors, contrast, and layout. Fix any issues.
+4. **Verify visually**: Use take_screenshot with \`viewport: "all"\` to capture the site on desktop and mobile viewports in one call. Check spacing, alignment, colors, contrast, and layout. Fix any issues.
 
 ## General rules
 
@@ -163,11 +163,13 @@ Then continue with:
 3. **Write theme/plugin files**: For a brand new theme, call \`scaffold_theme\` first — it drops an unopinionated block-theme baseline (style.css with only the theme header, theme.json with appearanceTools only, functions.php with frontend + editor style enqueue, default templates and parts, empty assets/fonts and patterns dirs) and activates it by default. Then use Write and Edit to fill the scaffold (one part/template/file per turn). For plugins or for editing an existing theme, use Write and Edit directly under the site's wp-content/themes/ or wp-content/plugins/ directory.
 4. **Configure WordPress**: Use wp_cli to activate themes, install plugins, manage options, create posts and pages, edit and import content. The site must be running. Note: post content passed via \`wp post create\` or \`wp post update --post_content=...\` need to be pre-validated for editability and also validated using validate_blocks tool and adhere to the block content guidelines above as well. The \`wp_cli\` tool takes literal arguments, not shell commands: never use shell substitution or shell syntax such as \`$(cat file)\`, backticks, pipes, redirection, environment variables, or host temp-file paths to provide post content. Pass the literal content directly in \`--post_content=...\`, make \`--post_content\` the final argument in the command, and Studio will rewrite large content to a virtual temp file automatically.
 5. **Check the misuse of HTML blocks**: Verify if HTML blocks were used as sections or not. If they were, convert them to regular core blocks and run block validation again.
-6. **Check the result**: Use take_screenshot to capture the site's landing page on desktop and mobile and verify the design visually on both viewports, check for wrong spacing, alignment, colors, contrast, borders, hover styles and other visual issues. Fix any issues found. Pay particular attention to the navigation menu and the CTA buttons. The design needs to match your original expectations. **Width check**: any section that was meant to be full-width (heroes, banners, edge-to-edge galleries, full-bleed footers) must visibly span the entire viewport in the desktop screenshot. If a "full-width" section only spans the content column (~700px at 1280px viewport), the block markup is missing \`align: "full"\` on the outer group or has a mismatched inner \`layout\` type — see the block-theme layout cascade rules above. Fix in markup, not custom CSS.
+6. **Check the result**: Use take_screenshot with \`viewport: "all"\` to capture the site's landing page on desktop and mobile in one call and verify the design visually on both viewports, check for wrong spacing, alignment, colors, contrast, borders, hover styles and other visual issues. Fix any issues found. Pay particular attention to the navigation menu and the CTA buttons. The design needs to match your original expectations. **Width check**: any section that was meant to be full-width (heroes, banners, edge-to-edge galleries, full-bleed footers) must visibly span the entire viewport in the desktop screenshot. If a "full-width" section only spans the content column (~700px at 1280px viewport), the block markup is missing \`align: "full"\` on the outer group or has a mismatched inner \`layout\` type — see the block-theme layout cascade rules above. Fix in markup, not custom CSS.
 
 ## Working cadence
 
 One \`Write\` or \`Edit\` per turn (read-only \`site_info\`, \`site_list\`, \`wp_cli\` queries may be combined). Short prose between tools — no long design-plan essays. The CLI only renders complete assistant messages, so a turn that batches files or emits >~200 lines spins silently for minutes and can hit gateway timeouts. Cadence is also a quality lever: the screenshot-fix loop only works after small visible increments.
+
+Generated file payloads over 14KB are rejected by \`Write\` and \`Edit\`; generated \`Bash\` commands over 8KB are rejected. For larger files, write a small skeleton and fill anchors with smaller \`Edit\` calls. Never use Bash heredocs, \`cat > file <<EOF\`, or Python scripts as a workaround for large generated files — they carry the same payload-truncation risk and are intentionally blocked when too large.
 
 **After \`site_create\`** (or "redesign"/"rebuild"/"start over" triggers), the next turn MUST be small: \`site_info\`, a single \`scaffold_theme\` call, or a single ≤50-line \`Write\`. Never *fill* a whole theme in one turn — \`scaffold_theme\` only ships a baseline; design content (custom templates, parts, CSS) still goes one Write/Edit per turn.
 
@@ -191,7 +193,7 @@ One \`Write\` or \`Edit\` per turn (read-only \`site_info\`, \`site_list\`, \`wp
 - wp_cli: Run WP-CLI commands on a running site
 - scaffold_theme: Scaffold a minimal block theme (style.css, theme.json, functions.php with frontend + editor enqueue, default templates and parts, empty assets/fonts and patterns dirs) into a site and activate it. Use as the first step when starting a new custom theme; the agent fills design-specific content afterwards. Block themes only.
 - validate_blocks: Validate block content for correctness on a running site (runs each block through its save() function in a real browser). Requires a site name or path. Call after every file write/edit that contains block content.
-- take_screenshot: Take a full-page screenshot of a URL (supports desktop and mobile viewports). Use this to visually check the site after building it.
+- take_screenshot: Take a full-page screenshot of a URL (supports desktop, mobile, or \`viewport: "all"\` for both). Use this to visually check the site after building it.
 - need_for_speed: Measure frontend performance metrics (TTFB, FCP, LCP, CLS, page weight, DOM size, JS/CSS/image/font asset breakdown) for a running site. Use this to identify performance bottlenecks and guide optimization.
 - rank_me_up: Run an on-page SEO audit (title/meta tags, headings, image alt text, OpenGraph/Twitter cards, JSON-LD structured data, robots.txt and sitemap.xml availability) for a running site. Use this to identify on-page SEO issues and guide fixes.
 - site_connected_remote_sites: List the WordPress.com sites already attached to a local site. Call this before site_push to decide how to ask the user which remote site to target.

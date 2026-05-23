@@ -102,6 +102,25 @@ const gotTheLock = app.requestSingleInstanceLock();
 let finishedInitialization = false;
 let stopRemoteSessionStatusPolling: ( () => void ) | undefined;
 
+const YOUTUBE_EMBED_REFERRER = 'https://developer.wordpress.com/studio/';
+const YOUTUBE_EMBED_URL_PATTERNS = [
+	'https://*.youtube.com/embed/*',
+	'https://youtube.com/embed/*',
+	'https://*.youtube-nocookie.com/embed/*',
+	'https://youtube-nocookie.com/embed/*',
+];
+
+function getYouTubeEmbedRequestHeaders( requestHeaders: Record< string, string > ) {
+	const headers = { ...requestHeaders };
+	for ( const key of Object.keys( headers ) ) {
+		if ( key.toLowerCase() === 'referer' ) {
+			delete headers[ key ];
+		}
+	}
+	headers.Referer = YOUTUBE_EMBED_REFERRER;
+	return headers;
+}
+
 if ( gotTheLock && ! isInInstaller ) {
 	void appBoot();
 } else if ( ! gotTheLock ) {
@@ -291,6 +310,15 @@ async function appBoot() {
 			callback( false );
 		} );
 
+		session.defaultSession.webRequest.onBeforeSendHeaders(
+			{ urls: YOUTUBE_EMBED_URL_PATTERNS },
+			( details, callback ) => {
+				callback( {
+					requestHeaders: getYouTubeEmbedRequestHeaders( details.requestHeaders ),
+				} );
+			}
+		);
+
 		session.defaultSession.webRequest.onHeadersReceived( ( details, callback ) => {
 			// Only set a custom CSP header the main window UI. For other pages (like login) we should
 			// use the CSP provided by the server, which is more likely to be up-to-date and complete.
@@ -304,7 +332,9 @@ async function appBoot() {
 				"script-src-attr 'none'",
 				"img-src 'self' https://*.gravatar.com https://*.wp.com https://blueprintlibrary.wordpress.com https://blueprintslibraryv2.wpcomstaging.com https://wordpress.github.io https://raw.githubusercontent.com data:",
 				"style-src 'self' 'unsafe-inline'", // unsafe-inline used by tailwindcss in development, and also in production after the app rename
-				"script-src 'self' 'wasm-unsafe-eval'", // allow WebAssembly to compile and instantiate
+				process.env.NODE_ENV === 'development'
+					? "script-src 'self' 'unsafe-eval' 'unsafe-inline' 'wasm-unsafe-eval' data: http://localhost:*"
+					: "script-src 'self' 'wasm-unsafe-eval'", // allow WebAssembly to compile and instantiate
 				// Site preview uses `<webview>` to host local WordPress sites
 				// served from arbitrary localhost ports and (optionally) HTTPS
 				// custom domains.
@@ -314,8 +344,6 @@ async function appBoot() {
 				"connect-src 'self' https://public-api.wordpress.com https://api.wordpress.org",
 			];
 			const devPolicies = [
-				// Webpack uses eval in development, react-devtools uses localhost
-				"script-src 'self' 'unsafe-eval' 'unsafe-inline' data: http://localhost:*",
 				// react-devtools uses localhost
 				"connect-src 'self' https://public-api.wordpress.com https://api.wordpress.org ws://localhost:*",
 			];

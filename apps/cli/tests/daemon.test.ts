@@ -3,6 +3,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { PassThrough } from 'stream';
+import { SITE_RUNTIME_NATIVE_PHP } from '@studio/common/lib/site-runtime';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const testProcessName = 'studio-site-process-manager-test';
@@ -77,6 +78,7 @@ describe( 'ProcessManagerDaemon', () => {
 			scriptPath: '/tmp/test-child.js',
 			env: {},
 			args: [],
+			runtime: SITE_RUNTIME_NATIVE_PHP,
 		} );
 
 		expect( response ).toEqual(
@@ -87,6 +89,7 @@ describe( 'ProcessManagerDaemon', () => {
 						name: testProcessName,
 						status: 'online',
 						pid: 4321,
+						runtime: SITE_RUNTIME_NATIVE_PHP,
 					} ),
 				} ),
 			} )
@@ -234,4 +237,53 @@ describe( 'ProcessManagerDaemon', () => {
 			payload: {},
 		} );
 	} );
+
+	it.skipIf( process.platform === 'win32' )(
+		'signals a reported subprocess process group when killing the wrapper',
+		async () => {
+			const child = new MockChildProcess();
+			spawnMock.mockReturnValue( child );
+			const { ProcessManagerDaemon } = await import( '../process-manager-daemon' );
+
+			const daemon = new ProcessManagerDaemon();
+			const daemonInternal = daemon as unknown as {
+				handleRequest: ( request: unknown ) => Promise< {
+					type: string;
+					payload: { process?: { pmId: number; name: string; status: string; pid?: number } };
+				} >;
+				managedProcesses: Map< number, unknown >;
+				signalProcessGroup: ( managedProcess: unknown, signal: NodeJS.Signals ) => Promise< void >;
+			};
+
+			const response = await daemonInternal.handleRequest( {
+				type: 'start-process',
+				requestId: '1',
+				processName: testProcessName,
+				scriptPath: '/tmp/test-child.js',
+				env: {},
+				args: [],
+			} );
+
+			const processDesc = response.payload.process;
+			if ( ! processDesc ) {
+				throw new Error( 'Expected start-process response to include a process' );
+			}
+
+			child.emit( 'message', { topic: 'server-process-started', data: { pid: 9876 } } );
+
+			const managedProcess = daemonInternal.managedProcesses.get( processDesc.pmId );
+			if ( ! managedProcess ) {
+				throw new Error( 'Expected process manager to store the managed process' );
+			}
+
+			const killSpy = vi.spyOn( process, 'kill' ).mockImplementation( () => true );
+			try {
+				await daemonInternal.signalProcessGroup( managedProcess, 'SIGKILL' );
+				expect( killSpy ).toHaveBeenCalledWith( -4321, 'SIGKILL' );
+				expect( killSpy ).toHaveBeenCalledWith( -9876, 'SIGKILL' );
+			} finally {
+				killSpy.mockRestore();
+			}
+		}
+	);
 } );

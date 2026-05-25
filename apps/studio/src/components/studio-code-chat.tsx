@@ -234,6 +234,7 @@ function reducer( state: State, action: Action ): State {
 					{
 						id: crypto.randomUUID(),
 						role: 'assistant',
+						/* translators: heading for an error message in the AI chat transcript */
 						content: `**${ __( 'Error' ) }:** ${ action.message }`,
 						toolCalls: [],
 						timestamp: Date.now(),

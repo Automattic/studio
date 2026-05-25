@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events';
+import { SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const createConnectionMock = vi.fn();
@@ -189,6 +190,7 @@ describe( 'process manager daemon client', () => {
 			pmId: 2,
 			status: 'online',
 			pid: 2000,
+			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
 	} );
 

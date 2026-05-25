@@ -1928,8 +1928,8 @@ export class AiChatUI implements AiOutputAdapter {
 		);
 	}
 
-	// Render rows with their results at the canonical post-tool boundary so
-	// multiple tool calls from one assistant message stay visually paired.
+	// Finalize tool rows created at message_end and append each result inside
+	// its matching tool container.
 	renderToolResults( results: readonly ToolResultMessage[] ): void {
 		for ( const toolResult of results ) {
 			const toolCallId = toolResult.toolCallId;

@@ -119,7 +119,7 @@ Commit to an aesthetic that genuinely fits the site name and type. Use the name 
 - *"Root Studio"* (yoga) → organic, grounded; earth tones; soft, breathing layout
 - *"Hartley & Associates"* (law) → authoritative, minimal; navy + gold; refined serif
 
-These are illustrations, not a template. Read the name. Do not default to safe/generic.
+These are illustrations, not a template. Read the name.
 
 ## Step 4 — Brief the User in ≤4 Lines
 
@@ -127,7 +127,7 @@ Before building, tell the user what you decided in 2–4 short lines:
 
 > *"Building a 5-page site for Boogie Bar: Home, Menu, Events, Gallery, and Contact. Dark & moody aesthetic with jazz-inspired typography and an amber/black palette. Includes a reservations form and a newsletter signup."*
 
-Then proceed immediately — **do not ask for approval**. Build it.
+Then proceed — **do not ask for approval on the brief itself**. You may have already asked a clarifying question in Step 0; the brief is not a second round of questions. Build it.
 
 ## What "Rich Content" Means
 

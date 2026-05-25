@@ -5,6 +5,12 @@ import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { isSiteRunning } from 'cli/lib/site-utils';
 
+const ANSI_PATTERN = new RegExp( String.fromCharCode( 27 ) + '\\[[0-9;]*m', 'g' );
+
+function stripAnsi( text: string ): string {
+	return text.replace( ANSI_PATTERN, '' );
+}
+
 vi.mock( 'cli/lib/cli-config/core', async ( importOriginal ) => {
 	const actual = await importOriginal< typeof import('cli/lib/cli-config/core') >();
 	return {
@@ -339,6 +345,80 @@ describe( 'AiChatUI.handleEvent', () => {
 		expect( ui.currentResponseText ).toBe( '' );
 	} );
 
+	it( 'renders each tool result directly under its matching tool row', () => {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			handleEvent: ( e: unknown ) => unknown;
+			[ key: string ]: unknown;
+		};
+		const addChild = vi.fn();
+
+		ui.messages = { addChild };
+		ui.tui = { requestRender: vi.fn() };
+		ui.pendingToolCalls = new Map();
+		ui.pendingTodoRenders = new Map();
+		ui.pendingTodoRenderOrder = [];
+		ui.currentMarkdown = null;
+		ui.currentResponseText = '';
+		ui.currentProvider = 'anthropic-api-key';
+		ui.replayMode = true;
+		ui.loaderVisible = false;
+		ui.latestTodoSnapshot = [];
+		ui.lastRenderedTodoSignature = null;
+		ui.autoSelectSiteFromToolResult = vi.fn();
+		ui.nowMs = () => 0;
+		ui.activeExpandablePreview = null;
+		ui.updateHints = vi.fn();
+
+		ui.handleEvent( {
+			type: 'message_end',
+			message: {
+				role: 'assistant',
+				content: [
+					{
+						type: 'toolCall',
+						id: 'toolu_remote',
+						name: 'Skill',
+						arguments: { name: 'wpcom-remote-management' },
+					},
+					{
+						type: 'toolCall',
+						id: 'toolu_design',
+						name: 'Skill',
+						arguments: { name: 'visual-design' },
+					},
+				],
+			},
+		} );
+
+		ui.handleEvent( {
+			type: 'turn_end',
+			toolResults: [
+				{
+					toolCallId: 'toolu_remote',
+					isError: false,
+					content: [ { type: 'text', text: '# WordPress.com Remote Management' } ],
+				},
+				{
+					toolCallId: 'toolu_design',
+					isError: false,
+					content: [ { type: 'text', text: '# Visual Design' } ],
+				},
+			],
+		} );
+
+		const renderedText = addChild.mock.calls.map( ( [ node ] ) =>
+			String( Object.values( node as object )[ 0 ] ?? '' )
+		);
+
+		expect( renderedText ).toHaveLength( 4 );
+		expect( renderedText[ 0 ] ).toContain( 'Load skill' );
+		expect( renderedText[ 0 ] ).toContain( 'wpcom-remote-management' );
+		expect( renderedText[ 1 ] ).toContain( '# WordPress.com Remote Management' );
+		expect( renderedText[ 2 ] ).toContain( 'Load skill' );
+		expect( renderedText[ 2 ] ).toContain( 'visual-design' );
+		expect( renderedText[ 3 ] ).toContain( '# Visual Design' );
+	} );
+
 	it( 'does not trigger cap detection for non-wpcom providers even with a 429 error', () => {
 		const ui = Object.create( AiChatUI.prototype ) as {
 			handleEvent: ( e: unknown ) => unknown;
@@ -449,7 +529,7 @@ describe( 'AiChatUI.showCapabilities', () => {
 		ui.messages = {
 			addChild: ( node: { text?: string; content?: string } ) => {
 				// Text component stores its content as the first constructor arg
-				capturedText = String( Object.values( node )[ 0 ] ?? '' );
+				capturedText = stripAnsi( String( Object.values( node )[ 0 ] ?? '' ) );
 			},
 		};
 		ui.tui = { requestRender: vi.fn() };

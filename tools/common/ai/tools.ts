@@ -103,6 +103,9 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 				? input.command.slice( 0, BASH_DETAIL_MAX_LENGTH - 3 ) + '…'
 				: input.command;
 		case 'Skill':
+			if ( typeof input.name === 'string' ) {
+				return input.name;
+			}
 			return typeof input.skill === 'string' ? input.skill : '';
 		case 'Grep':
 		case 'Glob':

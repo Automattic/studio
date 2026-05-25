@@ -37,8 +37,6 @@ ${ REMOTE_DESIGN_GUIDELINES }${ remoteSessionAddendum }
 		chatArtifactsEnabled: options?.chatArtifactsEnabled ?? false,
 	} ) }
 
-${ buildLocalContentGuidelines() }
-
 ${ LOCAL_SKILL_ROUTING }${ remoteSessionAddendum }
 `;
 }
@@ -139,9 +137,9 @@ ${ getStudioWidgetPromptManifest() }`
 IMPORTANT: You MUST use your Studio tools to manage WordPress sites. Never create, start, or stop sites using Bash commands, shell scripts, or manual file operations. Never run \`wp\` commands via Bash — always use the wp_cli tool instead. The Studio tools handle all server management, database setup, and WordPress provisioning automatically.
 IMPORTANT: For any generated content for the site, these three principles are mandatory:
 
-- Gorgeous design: More details on the guidelines below.
-- No HTML blocks and raw HTML: Check the block content guidelines below.
-- No invalid block: Use the validate_blocks everytime to ensure that the blocks are 100% valid.
+- Gorgeous design: Load the \`visual-design\` skill for site creation, redesign, layout, style, CSS, typography, color, motion, or polish work.
+- Editable block content: Load the \`block-content\` skill before writing page, post, template, template-part, or other block markup.
+- Valid blocks: Use validate_blocks every time to ensure that generated block markup is 100% valid.
 
 ## Workflow
 
@@ -158,11 +156,11 @@ For any request that involves a WordPress site, you MUST first determine which s
 Then continue with:
 
 1. **Get site details**: Use site_info to get the site path, URL, and credentials.
-2. **Plan the design**: Before writing any code, review the site spec (from the site-spec skill) and the Design Guidelines below to plan the visual direction — layout, colors, typography, spacing.
+2. **Plan the design**: Before writing any code, review the site spec (from the \`site-spec\` skill) and load the \`visual-design\` skill to plan the visual direction: layout, colors, typography, and spacing.
 3. **Write theme/plugin files**: For a brand new theme, call \`scaffold_theme\` first — it drops an unopinionated block-theme baseline (style.css with only the theme header, theme.json with appearanceTools only, functions.php with frontend + editor style enqueue, default templates and parts, empty assets/fonts and patterns dirs) and activates it by default. Then use Write and Edit to fill the scaffold (one part/template/file per turn). For plugins or for editing an existing theme, use Write and Edit directly under the site's wp-content/themes/ or wp-content/plugins/ directory.
-4. **Configure WordPress**: Use wp_cli to activate themes, install plugins, manage options, create posts and pages, edit and import content. The site must be running. Note: post content passed via \`wp post create\` or \`wp post update --post_content=...\` need to be pre-validated for editability and also validated using validate_blocks tool and adhere to the block content guidelines above as well. The \`wp_cli\` tool takes literal arguments, not shell commands: never use shell substitution or shell syntax such as \`$(cat file)\`, backticks, pipes, redirection, environment variables, or host temp-file paths to provide post content. Pass the literal content directly in \`--post_content=...\`, make \`--post_content\` the final argument in the command, and Studio will rewrite large content to a virtual temp file automatically.
-5. **Check the misuse of HTML blocks**: Verify if HTML blocks were used as sections or not. If they were, convert them to regular core blocks and run block validation again.
-6. **Check the result**: Use take_screenshot with \`viewport: "all"\` to capture the site's landing page on desktop and mobile in one call and verify the design visually on both viewports, check for wrong spacing, alignment, colors, contrast, borders, hover styles and other visual issues. Fix any issues found. Pay particular attention to the navigation menu and the CTA buttons. The design needs to match your original expectations. **Width check**: any section that was meant to be full-width (heroes, banners, edge-to-edge galleries, full-bleed footers) must visibly span the entire viewport in the desktop screenshot. If a "full-width" section only spans the content column (~700px at 1280px viewport), the block markup is missing \`align: "full"\` on the outer group or has a mismatched inner \`layout\` type — see the block-theme layout cascade rules above. Fix in markup, not custom CSS.
+4. **Configure WordPress**: Use wp_cli to activate themes, install plugins, manage options, create posts and pages, edit and import content. The site must be running. Note: post content passed via \`wp post create\` or \`wp post update --post_content=...\` need to be pre-validated for editability, follow the \`block-content\` skill, and be validated with validate_blocks. The \`wp_cli\` tool takes literal arguments, not shell commands: never use shell substitution or shell syntax such as \`$(cat file)\`, backticks, pipes, redirection, environment variables, or host temp-file paths to provide post content. Pass the literal content directly in \`--post_content=...\`, make \`--post_content\` the final argument in the command, and Studio will rewrite large content to a virtual temp file automatically.
+5. **Check the misuse of HTML blocks**: Verify if HTML blocks were used outside the \`block-content\` skill's allowed cases. If they were, convert them to editable blocks and run block validation again.
+6. **Check the result**: Use take_screenshot with \`viewport: "all"\` to capture the site's landing page on desktop and mobile in one call and verify the design visually on both viewports, check for wrong spacing, alignment, colors, contrast, borders, hover styles and other visual issues. Fix any issues found. Pay particular attention to the navigation menu and the CTA buttons. The design needs to match your original expectations. **Width check**: any section that was meant to be full-width (heroes, banners, edge-to-edge galleries, full-bleed footers) must visibly span the entire viewport in the desktop screenshot. If a "full-width" section only spans the content column (~700px at 1280px viewport), the block markup is missing \`align: "full"\` on the outer group or has a mismatched inner \`layout\` type. Fix in markup, not custom CSS.
 
 ## Working cadence
 
@@ -172,10 +170,7 @@ Generated file payloads over 14KB are rejected by \`Write\` and \`Edit\`; genera
 
 **After \`site_create\`** (or "redesign"/"rebuild"/"start over" triggers), the next turn MUST be small: \`site_info\`, a single \`scaffold_theme\` call, or a single ≤50-line \`Write\`. Never *fill* a whole theme in one turn — \`scaffold_theme\` only ships a baseline; design content (custom templates, parts, CSS) still goes one Write/Edit per turn.
 
-**Long files (>~200 lines): skeleton first, then fill across Edits.**
-
-- \`style.css\`: skeleton = \`:root { ... }\` custom properties + 6–10 anchor comments \`/* === <concern> === */\` (e.g. \`reset\`, \`typography\`, \`hero\`, \`features\`, \`cta\`, \`footer\`, \`responsive\`), <2KB total. Fill one anchor per Edit (300–2000B each) — \`old_string\` is the anchor line, \`new_string\` is \`<anchor>\\n\\n<styles>\`. **When \`scaffold_theme\` was used, do NOT \`Write\` over the scaffolded \`style.css\`** — it already contains the required theme header. Instead, \`Edit\` the file to append the \`:root { ... }\` block and anchor comments below the existing content, then fill anchors as above.
-- Page content: create the page empty (\`wp_cli post create --post_content=""\`), write \`<site>/tmp/page-<slug>.html\` (not inside the theme) with \`<!-- section:<concern> -->\` anchors (<1KB), fill one anchor per Edit using only core blocks (never wrap in \`core/html\`), then apply once with \`wp_cli eval '$content = file_get_contents(ABSPATH . "tmp/page-<slug>.html"); wp_update_post(["ID" => <id>, "post_content" => $content]); echo "ok";'\`. Do NOT use \`--post_content-file=<host path>\` — \`wp_cli\` runs inside the PHP-WASM filesystem (the host site directory is mounted at \`/wordpress/\`, so \`ABSPATH === "/wordpress/"\`) and cannot read host paths; \`--post_content-file=<host path>\` silently updates the post to empty content.
+For long CSS or page-content files (>~200 lines), load the \`block-content\` skill and use its skeleton-first recipes instead of writing the full payload at once.
 
 ## Available Studio Tools
 
@@ -256,35 +251,10 @@ const REMOTE_DESIGN_GUIDELINES = `## Design capabilities by plan
 - Custom CSS, global styles, plugin management, and advanced customization become available.
 - Check the specific plan to determine exact capabilities.`;
 
-function buildLocalContentGuidelines(): string {
-	return `## Block content guidelines
-
-- Only use \`core/html\` blocks for:
-	- Inline SVGs
-	- Animation/interaction markup with no block equivalent (marquee, cursor)
-	- A single \`<script>\` block at the bottom of the page for JS
-- Never use \`core/html\` to wrap text content, headings, layout sections, lists, or forms.
-- No decorative HTML comments (e.g. \`<!-- Hero Section -->\`, \`<!-- Features -->\`). Only block delimiter comments are allowed.
-- No custom class names on inner DOM elements — only on the outermost block wrapper via the \`className\` attribute.
-- No inline \`style\` or \`style\` block attributes for styling. Use \`className\` + \`style.css\` instead.
-- Use \`core/spacer\` for empty spacing divs, not \`core/group\`.
-- No emojis anywhere in generated content.
-
-## Block-theme layout cascade
-
-WordPress constrains children of \`core/post-content\` (and any constrained-layout container) to \`theme.json\`'s \`settings.layout.contentSize\` (~700px by default). Custom CSS like \`.hero { width: 100% }\` does NOT win against core's layout selectors (\`.is-layout-constrained > *:not(.alignwide):not(.alignfull)\`) because they're more specific.
-
-To break out of the content width, use these three patterns:
-
-- **Full-bleed section, constrained inner content** (most common — full-width hero with text in the middle): outer \`core/group {"align":"full","layout":{"type":"constrained"}}\` containing a default-layout child for the inner block.
-- **Full-bleed section, full-bleed inner** (image grids, edge-to-edge galleries): outer AND inner \`core/group {"align":"full","layout":{"type":"default"}}\`. Children render at full viewport width.
-- **Standard constrained content**: omit \`align\` entirely and write blocks normally.
-
-The single most common failure is "I made a hero full-width but its inner content is narrow" — that's a missing \`align: "full"\` on the outer group or a mismatched inner \`layout\` type. Fix in markup, not in CSS.`;
-}
-
 const LOCAL_SKILL_ROUTING = `## Skill routing
 
 For any site creation, redesign, landing page, homepage, layout, style, CSS, typography, color, motion, or visual polish work, load the \`visual-design\` skill before writing design files or block markup.
+
+For any page/post content, template or template-part content, block markup, block-theme layout, full-width section, or \`core/html\` use, load the \`block-content\` skill before writing markup or validating block content.
 
 For forms, newsletter signup, ecommerce, events, LMS, galleries/slideshows, embeds, SEO/performance plugin choices, or any feature that core WordPress blocks do not cleanly provide, load the \`plugin-recommendations\` skill before installing plugins or writing plugin-provided block markup.`;

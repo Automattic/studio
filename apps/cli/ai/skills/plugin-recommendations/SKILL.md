@@ -15,7 +15,7 @@ Use this skill when the user asks for a feature that core WordPress blocks do no
 - Prefer plugin-provided blocks over raw `core/html` for user-editable features.
 - Install a plugin only when the feature needs backend behavior, registered blocks, or maintained integrations.
 - Do not stack overlapping plugins for the same concern unless the user explicitly asks.
-- Keep `core/html` as a last resort for the block content guidelines' allowed cases: inline SVG, interaction markup with no block equivalent, or a single bottom-of-page script block.
+- Keep `core/html` as a last resort for the `block-content` skill's allowed cases: inline SVG, interaction markup with no block equivalent, or a single bottom-of-page script block.
 
 ## Discovery Workflow
 

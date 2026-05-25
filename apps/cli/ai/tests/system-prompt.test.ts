@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import { loadSkills } from '../skills';
 import { buildSystemPrompt } from '../system-prompt';
+
+function extractReferencedSkillNames( prompt: string ): string[] {
+	return [
+		...new Set( Array.from( prompt.matchAll( /`([a-z0-9-]+)` skill/g ), ( match ) => match[ 1 ] ) ),
+	].sort();
+}
 
 describe( 'buildSystemPrompt', () => {
 	const previousScratchpadWidgetType = 'sd-' + 'artefact';
@@ -42,6 +49,25 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).toContain( 'any feature that core WordPress blocks do not cleanly provide' );
 		expect( prompt ).not.toContain( '## Newsletter signup' );
 		expect( prompt ).not.toContain( 'wp_cli jetpack module activate subscriptions' );
+	} );
+
+	it( 'routes block markup recipes to the block content skill', () => {
+		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
+
+		expect( prompt ).toContain( 'block-content' );
+		expect( prompt ).toContain( 'page/post content, template or template-part content' );
+		expect( prompt ).not.toContain( '## Block-theme layout cascade' );
+		expect( prompt ).not.toContain( 'core/post-content' );
+	} );
+
+	it( 'references only bundled local skills', () => {
+		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
+		const availableSkillNames = new Set( loadSkills().map( ( skill ) => skill.name ) );
+		const missingSkillNames = extractReferencedSkillNames( prompt ).filter(
+			( skillName ) => ! availableSkillNames.has( skillName )
+		);
+
+		expect( missingSkillNames ).toEqual( [] );
 	} );
 
 	it( 'omits Studio presentation rules when chat artifacts are disabled', () => {

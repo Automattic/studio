@@ -27,6 +27,6 @@ export function getHtmlBlockPolicyIssues( content: string ): string[] {
 	}
 
 	return [
-		'core/html contains markup that should use editable core blocks. Use core/group, core/columns, core/heading, core/paragraph, core/list, core/image, core/buttons, and theme CSS instead. Keep core/html only for inline SVG, interaction markup with no block equivalent (marquee, cursor), or a single script block.',
+		'core/html contains markup that should use editable core blocks. Load the block-content skill and use core/group, core/columns, core/heading, core/paragraph, core/list, core/image, core/buttons, and theme CSS instead. Keep core/html only for inline SVG, interaction markup with no block equivalent (marquee, cursor), or a single script block.',
 	];
 }

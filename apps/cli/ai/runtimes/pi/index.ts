@@ -1,4 +1,5 @@
 import fs from 'fs';
+import path from 'path';
 import Anthropic from '@anthropic-ai/sdk';
 import { type AgentEvent, type AgentTool } from '@mariozechner/pi-agent-core';
 import { type Model, type SimpleStreamOptions } from '@mariozechner/pi-ai';
@@ -34,7 +35,10 @@ import { createSiteTool } from 'cli/ai/tools/create-site';
 import { pullSiteTool } from 'cli/ai/tools/pull-site';
 import { createSkillTool } from 'cli/ai/tools/skill';
 import { takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
-import { createWpcomRequestTool } from 'cli/ai/tools/wpcom-request';
+import {
+	createWpcomRequestTool,
+	WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR,
+} from 'cli/ai/tools/wpcom-request';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { stripStaleImagesFromContext } from './strip-stale-images';
 import {
@@ -53,6 +57,10 @@ type ProviderConfigInput = Parameters< ModelRegistry[ 'registerProvider' ] >[ 1 
 
 const STUDIO_WPCOM_ANTHROPIC_PROVIDER = 'studio-wpcom-anthropic';
 const STUDIO_AGENT_DIR = STUDIO_SITES_ROOT;
+const STUDIO_WPCOM_BODY_FILES_DIR = path.join(
+	STUDIO_SITES_ROOT,
+	WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR
+);
 const STUDIO_COMPACTION_SETTINGS = {
 	enabled: true,
 	reserveTokens: 16_384,
@@ -92,6 +100,7 @@ export function runStudioAgentTurn( config: StudioAgentTurnConfig ): StudioAgent
 	if ( ! fs.existsSync( STUDIO_SITES_ROOT ) ) {
 		fs.mkdirSync( STUDIO_SITES_ROOT, { recursive: true } );
 	}
+	fs.mkdirSync( STUDIO_WPCOM_BODY_FILES_DIR, { recursive: true } );
 
 	const result = runAgentSessionTurn( resolvedConfig, controller, ( session ) => {
 		activeSession = session;
@@ -416,16 +425,56 @@ function toToolDefinition(
 		prepareArguments: tool.prepareArguments,
 		executionMode: tool.executionMode,
 		execute: async ( toolCallId, params, signal, onUpdate ) => {
-			const incompleteToolCallReason = getIncompleteToolCallReason(
-				payloadGuardState,
-				toolCallId
-			);
+			const incompleteToolCallReason = getIncompleteToolCallReason( payloadGuardState, toolCallId );
 			if ( incompleteToolCallReason ) {
 				throw new Error( incompleteToolCallReason );
 			}
 			const payloadLimitViolation = getPayloadLimitViolation( tool.name, params );
 			if ( payloadLimitViolation ) {
 				throw new Error( payloadLimitViolation );
+			}
+			return tool.execute( toolCallId, params, signal, onUpdate );
+		},
+	};
+}
+
+function getRemoteScratchPathViolation( toolName: string, params: unknown ): string | undefined {
+	if ( ! params || typeof params !== 'object' ) {
+		return undefined;
+	}
+
+	const toolPath = ( params as Record< string, unknown > ).path;
+	if ( typeof toolPath !== 'string' ) {
+		return undefined;
+	}
+
+	const message = `${ toolName } can only access relative paths under ${ WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR } during remote WordPress.com sessions. Stage generated payloads there and apply them with wpcom_request.bodyFile or wpcom_request.bodyFiles.`;
+
+	if ( path.isAbsolute( toolPath ) ) {
+		return message;
+	}
+
+	const resolvedRoot = path.resolve( STUDIO_WPCOM_BODY_FILES_DIR );
+	const resolvedPath = path.resolve( STUDIO_SITES_ROOT, toolPath );
+	const relativePath = path.relative( resolvedRoot, resolvedPath );
+	if (
+		relativePath === '' ||
+		( ! relativePath.startsWith( '..' ) && ! path.isAbsolute( relativePath ) )
+	) {
+		return undefined;
+	}
+
+	return message;
+}
+
+function restrictToRemoteScratch( tool: AgentToolAny ): AgentToolAny {
+	return {
+		...tool,
+		description: `${ tool.description }\n\nRemote scratch safety: use only paths under ${ WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR }. These files are staging payloads for wpcom_request.bodyFile or wpcom_request.bodyFiles and do not modify the remote site directly.`,
+		execute: async ( toolCallId, params, signal, onUpdate ) => {
+			const violation = getRemoteScratchPathViolation( tool.name, params );
+			if ( violation ) {
+				throw new Error( violation );
 			}
 			return tool.execute( toolCallId, params, signal, onUpdate );
 		},
@@ -448,22 +497,30 @@ function buildAgentTools(
 	const skillToolDef = createSkillTool();
 	const skillTool: AgentToolAny[] = skillToolDef ? [ skillToolDef ] : [];
 
+	const renameTool = ( tool: AgentToolAny, name: string ): AgentToolAny => ( {
+		...tool,
+		name,
+		label: name,
+	} );
+
+	const remoteScratchTools: AgentToolAny[] = [
+		restrictToRemoteScratch( renameTool( createReadTool( STUDIO_SITES_ROOT ), 'Read' ) ),
+		restrictToRemoteScratch( renameTool( createWriteTool( STUDIO_SITES_ROOT ), 'Write' ) ),
+		restrictToRemoteScratch( renameTool( createEditTool( STUDIO_SITES_ROOT ), 'Edit' ) ),
+		restrictToRemoteScratch( renameTool( createLsTool( STUDIO_SITES_ROOT ), 'Ls' ) ),
+	];
+
 	if ( isRemoteSite ) {
 		return [
 			createWpcomRequestTool( config.wpcomAccessToken!, config.activeSite!.wpcomSiteId! ),
 			takeScreenshotTool,
 			createSiteTool,
 			pullSiteTool,
+			...remoteScratchTools,
 			...askUserTool,
 			...skillTool,
 		];
 	}
-
-	const renameTool = ( tool: AgentToolAny, name: string ): AgentToolAny => ( {
-		...tool,
-		name,
-		label: name,
-	} );
 
 	const piTools: AgentToolAny[] = [
 		renameTool( createReadTool( STUDIO_SITES_ROOT ), 'Read' ),

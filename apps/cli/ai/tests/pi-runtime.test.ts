@@ -8,6 +8,7 @@ const mocks = vi.hoisted( () => ( {
 	createAgentSession: vi.fn(),
 	createdSessions: [] as FakeSession[],
 	nextEvents: null as AgentSessionEvent[] | null,
+	studioRoot: '/tmp/studio-ai-pi-runtime',
 } ) );
 
 // Model-swap test uses a synthetic id outside `AI_MODELS`; route unknowns to
@@ -42,6 +43,11 @@ vi.mock( '@mariozechner/pi-coding-agent', async ( importOriginal ) => {
 		createLsTool: () => stub( 'Ls' ),
 	};
 } );
+
+vi.mock( 'cli/lib/site-paths', () => ( {
+	STUDIO_SITES_ROOT: mocks.studioRoot,
+	getDefaultSitePath: ( siteName: string ) => `${ mocks.studioRoot }/${ siteName }`,
+} ) );
 
 const DEFAULT_MOCK_EVENTS: AgentSessionEvent[] = [
 	{
@@ -256,27 +262,7 @@ describe( 'pi runtime', () => {
 		expect( mocks.createdSessions[ 0 ].options.model?.input ).toEqual( [ 'text', 'image' ] );
 	} );
 
-	it( 'advertises file payload safety guidance without adding a separate chunk tool', async () => {
-		await runRuntime( {
-			prompt: 'hello',
-			env: {
-				OPENAI_API_KEY: 'sk-test',
-				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
-			},
-			model: 'gpt-5.5',
-			session: newSession(),
-		} );
-
-		const tools = ( mocks.createdSessions[ 0 ].options.customTools ??
-			[] ) as unknown as RuntimeTool[];
-		const toolNames = tools.map( ( tool ) => tool.name );
-		expect( toolNames ).not.toContain( 'WriteChunk' );
-		expect( getCreatedTool( 'Write' ).description ).toContain( 'small skeleton' );
-		expect( getCreatedTool( 'Edit' ).description ).toContain( 'small skeleton' );
-		expect( getCreatedTool( 'Bash' ).description ).toContain( '8192 bytes' );
-	} );
-
-	it( 'rejects oversized direct Write, Edit, and Bash payloads with actionable errors', async () => {
+	it( 'rejects oversized direct Write, Edit, and Bash payloads', async () => {
 		await runRuntime( {
 			prompt: 'hello',
 			env: {
@@ -308,8 +294,7 @@ describe( 'pi runtime', () => {
 			bash.execute( 'bash-call', {
 				command: 'x'.repeat( 8 * 1024 + 1 ),
 			} )
-		).rejects.toThrow( /Do not retry with Bash heredocs or Python scripts/ );
-		expect( write.description ).toContain( 'small skeleton' );
+		).rejects.toThrow( /single-call safety limit/ );
 	} );
 
 	it( 'rejects remote wpcom_request calls from length-truncated assistant messages', async () => {
@@ -327,8 +312,6 @@ describe( 'pi runtime', () => {
 								content: '<!-- wp:paragraph --><p>partial',
 							},
 						},
-						partialJson:
-							'{"method":"POST","path":"/pages/4","body":{"content":"<!-- wp:paragraph --><p>partial',
 						index: 0,
 					},
 				],
@@ -365,6 +348,42 @@ describe( 'pi runtime', () => {
 				body: { content: '<!-- wp:paragraph --><p>partial' },
 			} )
 		).rejects.toThrow( /hit the model output limit/ );
+	} );
+
+	it( 'restricts remote scratch writes to staged wpcom request payload files', async () => {
+		await runRuntime( {
+			prompt: 'hello',
+			env: {
+				OPENAI_API_KEY: 'sk-test',
+				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
+			},
+			model: 'gpt-5.5',
+			session: newSession(),
+			activeSite: {
+				name: 'Remote',
+				path: '',
+				running: false,
+				remote: true,
+				url: 'https://example.wordpress.com',
+				wpcomSiteId: 123,
+			},
+			wpcomAccessToken: 'wpcom-token',
+		} );
+
+		const write = getCreatedTool( 'Write' );
+
+		await expect(
+			write.execute( 'remote-write', {
+				path: 'some-site/wp-content/themes/theme/style.css',
+				content: 'body {}',
+			} )
+		).rejects.toThrow( /can only access relative paths under \.studio-agent\/payloads/ );
+		await expect(
+			write.execute( 'remote-write', {
+				path: '.studio-agent/payloads/home.html',
+				content: '<!-- wp:paragraph --><p>Hello</p>',
+			} )
+		).resolves.toBeTruthy();
 	} );
 
 	it( 'leaves retry policy to pi settings defaults', async () => {

@@ -1,4 +1,5 @@
 import { emitChatArtifactWidgets } from 'cli/ai/chat-artifacts';
+import { connectJetpackTool } from './connect-jetpack';
 import { createPreviewTool } from './create-preview';
 import { createSiteTool } from './create-site';
 import { deletePreviewTool } from './delete-preview';
@@ -31,6 +32,7 @@ export { captureCommandOutput } from './utils';
 
 export const studioToolDefinitions: AnyStudioAgentTool[] = [
 	createSiteTool,
+	connectJetpackTool,
 	listSitesTool,
 	getSiteInfoTool,
 	startSiteTool,

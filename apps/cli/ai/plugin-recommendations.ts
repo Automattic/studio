@@ -101,6 +101,7 @@ Specific Jetpack rules above (e.g. Forms) take precedence; this rule only applie
 wp_cli eval 'foreach (\\WP_Block_Type_Registry::get_instance()->get_all_registered() as $n => $b) if (strpos($n, "jetpack/") === 0 && (!isset($b->supports["inserter"]) || $b->supports["inserter"] !== false)) echo $n . PHP_EOL;'
 \`\`\`
    If the block you expect isn't listed, the relevant Jetpack module is probably inactive. Run \`wp_cli jetpack module list\` to see the matrix and \`wp_cli jetpack module activate <slug>\` to turn it on, then re-list.
+   **wpcom-dependent modules** (e.g. \`subscriptions\`, \`stats\`, \`blaze\`): check connection first with \`wp_cli jetpack connection status\`. If not connected, call the \`connect_jetpack\` tool — it registers the site with WordPress.com so these modules can be activated. If the user is not logged in to WordPress.com, skip the module.
 3. Use the block in the page markup and validate with \`validate_blocks\`.
 
 \`core/html\` with raw HTML stays a last resort for the cases the block content guidelines call out (inline SVG, marquee/cursor, a single bottom-of-page \`<script>\`).`,

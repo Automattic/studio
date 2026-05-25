@@ -16,6 +16,8 @@ Use this skill after the mandatory remote-site plan check, before selecting endp
 - `path`: relative to `/sites/{siteId}/`, such as `/posts`, `/posts/123`, or `/templates`
 - `query`: optional query parameters object
 - `body`: optional request body for `POST` and `PUT`
+- `bodyFile`: optional staged JSON file path for `POST` and `PUT`; the parsed JSON object becomes the entire request body
+- `bodyFiles`: optional map of top-level request body field names to staged file paths for `POST` and `PUT`; each file becomes that field's string value
 - `apiNamespace`: defaults to `"wp/v2"`; set to `""` for WordPress.com REST API v1.1, or `"wpcom/v2"` for WordPress.com v2 endpoints
 
 Prefix `path` with `!` only for absolute paths such as `!/me`.
@@ -68,6 +70,29 @@ Examples:
 GET /posts?_fields=id,slug,title,status
 GET /plugins?fields=ID,name,description,URL
 ```
+
+## Large Request Bodies
+
+For generated page content, template content, template-part content, global styles, or CSS, do not inline large generated strings in `wpcom_request.body`.
+
+Stage request payload files under `tmp/ai-payloads/` within Studio app data using small `Write` or `Edit` steps.
+
+Use `bodyFiles` when staged files should become string fields inside the request body:
+
+```text
+body: { "status": "publish" }
+bodyFiles: { "content": "tmp/ai-payloads/home.html" }
+```
+
+The `bodyFiles` keys must be top-level REST body field names such as `content`, `excerpt`, or `css`, not filenames or nested paths. Do not use keys like `home.html`, `styles.css`, `content.raw`, or `styles.color.background`.
+
+Use `bodyFile` when the staged file is the complete JSON request body, especially for endpoints that expect nested JSON objects such as `POST /global-styles/{id}`:
+
+```text
+bodyFile: "tmp/ai-payloads/global-styles.json"
+```
+
+Do not combine `bodyFile` with `body` or `bodyFiles`.
 
 ## Workflow
 

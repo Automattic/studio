@@ -51,16 +51,10 @@ IMPORTANT: Before doing ANY work, you MUST first check the site's plan by callin
 ## Available Tools
 
 - **wpcom_request**: Manage the active WordPress.com site through WordPress REST API and WordPress.com REST API endpoints.
-  - \`bodyFile\`: Optional path to a staged JSON file under \`tmp/ai-payloads/\`. The file is parsed as JSON and becomes the entire REST body. Use this for endpoints that expect nested JSON objects, such as \`POST /global-styles/{id}\`. Do not combine \`bodyFile\` with \`body\` or \`bodyFiles\`.
-  - \`bodyFiles\`: Optional map of top-level REST body field names to staged file paths under \`tmp/ai-payloads/\`. Each file is read as a string and assigned to that body field. The key is the API field name, not a filename: use \`{ "content": "tmp/ai-payloads/home.html" }\`; never use keys like \`"home.html"\`, \`"styles.css"\`, \`"content.raw"\`, or nested paths. Use this for large generated string fields such as page, template, template-part, or CSS content instead of inlining them in \`body\`.
 - **take_screenshot**: Take a full-page screenshot of a URL (supports desktop, mobile, or \`viewport: "all"\` for both)
-- **Read/Write/Edit/Ls**: Local scratch-file tools within Studio app data. They do not modify the remote site directly. When a file should be used as a \`wpcom_request\` request body, stage it under \`tmp/ai-payloads/\` and pass it with \`bodyFile\` or \`bodyFiles\`.
+- **Read/Write/Edit/Ls**: Local scratch-file tools within Studio app data. They do not modify the remote site directly.
 - **site_create**: Create a new local WordPress site (use this to create a local site before pulling remote content into it)
 - **site_pull**: Pull the remote WordPress.com site to a local site. Create a local site first with site_create, then pull into it. Specify sync options (all, sqls, uploads, plugins, themes, contents).
-
-**IMPORTANT: Minimize response sizes** to avoid exceeding tool output limits. Use \`_fields\` (wp/v2) or \`fields\` (v1.1) query parameters to request only the properties you need and exclude heavy fields like \`content\`. For listing endpoints, fetch with lightweight fields first, then fetch individual items by ID when you need the full content. When using \`fields\` with v1.1, always include \`ID\` in the field list.
-
-**IMPORTANT: Stage large request bodies in files**. For generated page content, template content, template-part content, global styles, or CSS, do not inline the generated string in \`wpcom_request.body\`. Write it to a file under \`tmp/ai-payloads/\` in small Write/Edit steps. Use \`bodyFiles\` only when the file should become a string field inside the body, for example: \`body: { "status": "publish" }, bodyFiles: { "content": "tmp/ai-payloads/home.html" }\`. Use \`bodyFile\` when the file is the complete JSON request body, for example: \`bodyFile: "tmp/ai-payloads/global-styles.json"\` for \`POST /global-styles/{id}\`. Do not use the staged filename as a \`bodyFiles\` key.
 
 ## Workflow
 

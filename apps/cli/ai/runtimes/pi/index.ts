@@ -1,5 +1,4 @@
 import fs from 'fs';
-import path from 'path';
 import Anthropic from '@anthropic-ai/sdk';
 import { type AgentEvent, type AgentTool } from '@mariozechner/pi-agent-core';
 import { type Model, type SimpleStreamOptions } from '@mariozechner/pi-ai';
@@ -36,10 +35,7 @@ import { createSiteTool } from 'cli/ai/tools/create-site';
 import { pullSiteTool } from 'cli/ai/tools/pull-site';
 import { createSkillTool } from 'cli/ai/tools/skill';
 import { takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
-import {
-	createWpcomRequestTool,
-	WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR,
-} from 'cli/ai/tools/wpcom-request';
+import { createWpcomRequestTool } from 'cli/ai/tools/wpcom-request';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { stripStaleImagesFromContext } from './strip-stale-images';
 import {
@@ -439,52 +435,6 @@ function toToolDefinition(
 	};
 }
 
-function getRemoteScratchPathViolation( toolName: string, params: unknown ): string | undefined {
-	if ( ! params || typeof params !== 'object' ) {
-		return undefined;
-	}
-
-	const toolPath = ( params as Record< string, unknown > ).path;
-	const message = `${ toolName } can only access relative paths under ${ WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR } during remote WordPress.com sessions. Stage generated payloads there and apply them with wpcom_request.bodyFile or wpcom_request.bodyFiles.`;
-
-	if ( typeof toolPath !== 'string' ) {
-		if ( toolName === 'Ls' ) {
-			return message;
-		}
-		return undefined;
-	}
-
-	if ( path.isAbsolute( toolPath ) ) {
-		return message;
-	}
-
-	const resolvedRoot = path.resolve( STUDIO_WPCOM_BODY_FILES_DIR );
-	const resolvedPath = path.resolve( STUDIO_WPCOM_BODY_FILES_ROOT, toolPath );
-	const relativePath = path.relative( resolvedRoot, resolvedPath );
-	if (
-		relativePath === '' ||
-		( ! relativePath.startsWith( '..' ) && ! path.isAbsolute( relativePath ) )
-	) {
-		return undefined;
-	}
-
-	return message;
-}
-
-function restrictToRemoteScratch( tool: AgentToolAny ): AgentToolAny {
-	return {
-		...tool,
-		description: `${ tool.description }\n\nRemote scratch safety: use only paths under ${ WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR }. These files are staging payloads for wpcom_request.bodyFile or wpcom_request.bodyFiles and do not modify the remote site directly.`,
-		execute: async ( toolCallId, params, signal, onUpdate ) => {
-			const violation = getRemoteScratchPathViolation( tool.name, params );
-			if ( violation ) {
-				throw new Error( violation );
-			}
-			return tool.execute( toolCallId, params, signal, onUpdate );
-		},
-	};
-}
-
 function buildAgentTools(
 	config: ResolvedStudioAgentTurnConfig,
 	chatArtifactsEnabled: boolean,
@@ -508,12 +458,10 @@ function buildAgentTools(
 	} );
 
 	const remoteScratchTools: AgentToolAny[] = [
-		restrictToRemoteScratch( renameTool( createReadTool( STUDIO_WPCOM_BODY_FILES_ROOT ), 'Read' ) ),
-		restrictToRemoteScratch(
-			renameTool( createWriteTool( STUDIO_WPCOM_BODY_FILES_ROOT ), 'Write' )
-		),
-		restrictToRemoteScratch( renameTool( createEditTool( STUDIO_WPCOM_BODY_FILES_ROOT ), 'Edit' ) ),
-		restrictToRemoteScratch( renameTool( createLsTool( STUDIO_WPCOM_BODY_FILES_ROOT ), 'Ls' ) ),
+		renameTool( createReadTool( STUDIO_WPCOM_BODY_FILES_ROOT ), 'Read' ),
+		renameTool( createWriteTool( STUDIO_WPCOM_BODY_FILES_ROOT ), 'Write' ),
+		renameTool( createEditTool( STUDIO_WPCOM_BODY_FILES_ROOT ), 'Edit' ),
+		renameTool( createLsTool( STUDIO_WPCOM_BODY_FILES_ROOT ), 'Ls' ),
 	];
 
 	if ( isRemoteSite ) {

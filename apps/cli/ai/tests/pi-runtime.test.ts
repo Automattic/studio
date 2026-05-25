@@ -360,42 +360,6 @@ describe( 'pi runtime', () => {
 		).rejects.toThrow( /hit the model output limit/ );
 	} );
 
-	it( 'restricts remote scratch writes to staged wpcom request payload files', async () => {
-		await runRuntime( {
-			prompt: 'hello',
-			env: {
-				OPENAI_API_KEY: 'sk-test',
-				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
-			},
-			model: 'gpt-5.5',
-			session: newSession(),
-			activeSite: {
-				name: 'Remote',
-				path: '',
-				running: false,
-				remote: true,
-				url: 'https://example.wordpress.com',
-				wpcomSiteId: 123,
-			},
-			wpcomAccessToken: 'wpcom-token',
-		} );
-
-		const write = getCreatedTool( 'Write' );
-
-		await expect(
-			write.execute( 'remote-write', {
-				path: 'some-site/wp-content/themes/theme/style.css',
-				content: 'body {}',
-			} )
-		).rejects.toThrow( /can only access relative paths under tmp\/ai-payloads/ );
-		await expect(
-			write.execute( 'remote-write', {
-				path: 'tmp/ai-payloads/home.html',
-				content: '<!-- wp:paragraph --><p>Hello</p>',
-			} )
-		).resolves.toBeTruthy();
-	} );
-
 	it( 'leaves retry policy to pi settings defaults', async () => {
 		await runRuntime( {
 			prompt: 'hello',

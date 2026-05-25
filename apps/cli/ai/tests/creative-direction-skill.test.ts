@@ -27,6 +27,21 @@ describe( 'creative-direction skill', () => {
 	} );
 
 	describe( 'skill body content', () => {
+		it( 'has a Step 0 that selects the expansion mode', () => {
+			const skill = findSkill( 'creative-direction' );
+			// Step 0 should distinguish auto-expand, guided (one question), and skip paths
+			expect( skill?.body ).toMatch( /step 0/i );
+			expect( skill?.body ).toMatch( /auto.?expand|auto.?expan/i );
+			expect( skill?.body ).toMatch( /one question/i );
+			expect( skill?.body ).toMatch( /skip this skill/i );
+		} );
+
+		it( 'limits guided mode to a single clarifying question', () => {
+			const skill = findSkill( 'creative-direction' );
+			// Must not fan out into a multi-question wizard
+			expect( skill?.body ).toMatch( /one question rule|single.*question|ask.*one/i );
+		} );
+
 		it( 'covers site-type detection', () => {
 			const skill = findSkill( 'creative-direction' );
 			expect( skill?.body ).toContain( 'Bar' );

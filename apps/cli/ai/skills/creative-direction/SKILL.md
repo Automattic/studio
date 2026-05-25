@@ -8,6 +8,19 @@ user-invokable: false
 
 When building a new WordPress site from a brief or vague prompt, use this skill to expand the brief into a rich content plan before writing any files. The goal: a user who types "a site for a bar" gets a site as complete and functional as one described with a detailed spec — because you make the right assumptions for them.
 
+## Step 0 — Gauge the Brief
+
+Before expanding, read what the user gave you and pick the right mode:
+
+| Signal | Mode |
+|--------|------|
+| Site type is clear, content is thin ("a site for a bar") | **Auto-expand** — proceed to Step 1 |
+| Site type is ambiguous ("a site for my business") | **Ask one question** to resolve it, then proceed to Step 1 |
+| User already described pages, sections, or copy | **Skip this skill** — build what they asked for |
+| User said "minimal", "one page", or "just a placeholder" | **Skip this skill** |
+
+**The one question rule**: if you need to ask, ask a single, specific question that resolves the ambiguity (e.g. *"What kind of business is this for?"*). Do not ask multiple questions. Once you have the answer, proceed.
+
 ## Step 1 — Detect the Site Type
 
 From the site name and prompt, infer what kind of site this is. Use your judgment freely — the following are common patterns, not an exhaustive list:

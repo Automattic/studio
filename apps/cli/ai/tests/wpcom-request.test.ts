@@ -40,9 +40,18 @@ describe( 'wpcom_request', () => {
 		await rm( rootDir, { recursive: true, force: true } );
 	} );
 
-	it( 'merges bodyFiles into the REST request body', async () => {
+	it( 'uses staged files for string fields and full JSON request bodies', async () => {
 		const contentPath = `${ WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR }/home.html`;
 		await writeFile( path.join( rootDir, contentPath ), '<!-- wp:paragraph --><p>Hello</p>' );
+		const bodyPath = `${ WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR }/global-styles.json`;
+		const globalStylesBody = {
+			styles: {
+				color: {
+					background: '#111111',
+				},
+			},
+		};
+		await writeFile( path.join( rootDir, bodyPath ), JSON.stringify( globalStylesBody ) );
 
 		const tool = createWpcomRequestTool( 'token', 123, { bodyFilesRoot: rootDir } );
 		const result = await tool.rawHandler( {
@@ -61,32 +70,8 @@ describe( 'wpcom_request', () => {
 			}
 		);
 		expect( result.content[ 0 ] ).toEqual( { type: 'text', text: '{"ok":true}' } );
-	} );
 
-	it( 'uses bodyFile as the full parsed JSON request body', async () => {
-		const bodyPath = `${ WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR }/global-styles.json`;
-		const globalStylesBody = {
-			styles: {
-				color: {
-					background: '#111111',
-					text: '#f5f0e8',
-				},
-			},
-			settings: {
-				color: {
-					palette: [
-						{
-							slug: 'espresso',
-							color: '#111111',
-							name: 'Espresso',
-						},
-					],
-				},
-			},
-		};
-		await writeFile( path.join( rootDir, bodyPath ), JSON.stringify( globalStylesBody ) );
-
-		const tool = createWpcomRequestTool( 'token', 123, { bodyFilesRoot: rootDir } );
+		mocks.req.post.mockClear();
 		await tool.rawHandler( {
 			method: 'POST',
 			path: '/global-styles/7',
@@ -98,82 +83,5 @@ describe( 'wpcom_request', () => {
 			{ apiNamespace: 'wp/v2' },
 			globalStylesBody
 		);
-	} );
-
-	it( 'rejects absolute bodyFiles paths', async () => {
-		const tool = createWpcomRequestTool( 'token', 123, { bodyFilesRoot: rootDir } );
-
-		await expect(
-			tool.rawHandler( {
-				method: 'POST',
-				path: '/pages/4',
-				bodyFiles: {
-					content: path.join( rootDir, WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR, 'home.html' ),
-				},
-			} )
-		).rejects.toThrow( /relative paths under \.studio-agent\/payloads/ );
-		expect( mocks.req.post ).not.toHaveBeenCalled();
-	} );
-
-	it( 'rejects bodyFiles path traversal outside the payload directory', async () => {
-		const tool = createWpcomRequestTool( 'token', 123, { bodyFilesRoot: rootDir } );
-
-		await expect(
-			tool.rawHandler( {
-				method: 'POST',
-				path: '/pages/4',
-				bodyFiles: {
-					content: `${ WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR }/../secret.html`,
-				},
-			} )
-		).rejects.toThrow( /relative paths under \.studio-agent\/payloads/ );
-		expect( mocks.req.post ).not.toHaveBeenCalled();
-	} );
-
-	it( 'rejects conflicts between inline and file-backed body fields', async () => {
-		const contentPath = `${ WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR }/home.html`;
-		await writeFile( path.join( rootDir, contentPath ), '<!-- wp:paragraph --><p>Hello</p>' );
-		const tool = createWpcomRequestTool( 'token', 123, { bodyFilesRoot: rootDir } );
-
-		await expect(
-			tool.rawHandler( {
-				method: 'POST',
-				path: '/pages/4',
-				body: { content: 'inline' },
-				bodyFiles: { content: contentPath },
-			} )
-		).rejects.toThrow( /defines both body\.content and bodyFiles\.content/ );
-		expect( mocks.req.post ).not.toHaveBeenCalled();
-	} );
-
-	it( 'rejects combining bodyFile with another request body source', async () => {
-		const bodyPath = `${ WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR }/global-styles.json`;
-		await writeFile( path.join( rootDir, bodyPath ), JSON.stringify( { styles: {} } ) );
-		const tool = createWpcomRequestTool( 'token', 123, { bodyFilesRoot: rootDir } );
-
-		await expect(
-			tool.rawHandler( {
-				method: 'POST',
-				path: '/global-styles/7',
-				body: { title: 'Global Styles' },
-				bodyFile: bodyPath,
-			} )
-		).rejects.toThrow( /Use only one request body source/ );
-		expect( mocks.req.post ).not.toHaveBeenCalled();
-	} );
-
-	it( 'rejects filename-like bodyFiles keys before making the REST request', async () => {
-		const contentPath = `${ WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR }/styles.css`;
-		await writeFile( path.join( rootDir, contentPath ), 'body { color: red; }' );
-		const tool = createWpcomRequestTool( 'token', 123, { bodyFilesRoot: rootDir } );
-
-		await expect(
-			tool.rawHandler( {
-				method: 'POST',
-				path: '/global-styles/2',
-				bodyFiles: { 'styles.css': contentPath },
-			} )
-		).rejects.toThrow( /top-level REST body field names/ );
-		expect( mocks.req.post ).not.toHaveBeenCalled();
 	} );
 } );

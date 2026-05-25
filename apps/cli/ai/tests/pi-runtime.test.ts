@@ -9,6 +9,7 @@ const mocks = vi.hoisted( () => ( {
 	createdSessions: [] as FakeSession[],
 	nextEvents: null as AgentSessionEvent[] | null,
 	studioRoot: '/tmp/studio-ai-pi-runtime',
+	configRoot: '/tmp/studio-ai-pi-runtime-config',
 } ) );
 
 // Model-swap test uses a synthetic id outside `AI_MODELS`; route unknowns to
@@ -48,6 +49,15 @@ vi.mock( 'cli/lib/site-paths', () => ( {
 	STUDIO_SITES_ROOT: mocks.studioRoot,
 	getDefaultSitePath: ( siteName: string ) => `${ mocks.studioRoot }/${ siteName }`,
 } ) );
+
+vi.mock( '@studio/common/lib/well-known-paths', async ( importOriginal ) => {
+	const actual = await importOriginal< typeof import('@studio/common/lib/well-known-paths') >();
+	return {
+		...actual,
+		getConfigDirectory: () => mocks.configRoot,
+		getAiPayloadsPath: () => `${ mocks.configRoot }/tmp/ai-payloads`,
+	};
+} );
 
 const DEFAULT_MOCK_EVENTS: AgentSessionEvent[] = [
 	{
@@ -377,10 +387,10 @@ describe( 'pi runtime', () => {
 				path: 'some-site/wp-content/themes/theme/style.css',
 				content: 'body {}',
 			} )
-		).rejects.toThrow( /can only access relative paths under \.studio-agent\/payloads/ );
+		).rejects.toThrow( /can only access relative paths under tmp\/ai-payloads/ );
 		await expect(
 			write.execute( 'remote-write', {
-				path: '.studio-agent/payloads/home.html',
+				path: 'tmp/ai-payloads/home.html',
 				content: '<!-- wp:paragraph --><p>Hello</p>',
 			} )
 		).resolves.toBeTruthy();

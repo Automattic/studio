@@ -28,6 +28,7 @@ import {
 	type AiModelFamily,
 	type AiModelId,
 } from '@studio/common/ai/models';
+import { getAiPayloadsPath, getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
@@ -57,10 +58,8 @@ type ProviderConfigInput = Parameters< ModelRegistry[ 'registerProvider' ] >[ 1 
 
 const STUDIO_WPCOM_ANTHROPIC_PROVIDER = 'studio-wpcom-anthropic';
 const STUDIO_AGENT_DIR = STUDIO_SITES_ROOT;
-const STUDIO_WPCOM_BODY_FILES_DIR = path.join(
-	STUDIO_SITES_ROOT,
-	WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR
-);
+const STUDIO_WPCOM_BODY_FILES_ROOT = getConfigDirectory();
+const STUDIO_WPCOM_BODY_FILES_DIR = getAiPayloadsPath();
 const STUDIO_COMPACTION_SETTINGS = {
 	enabled: true,
 	reserveTokens: 16_384,
@@ -100,7 +99,9 @@ export function runStudioAgentTurn( config: StudioAgentTurnConfig ): StudioAgent
 	if ( ! fs.existsSync( STUDIO_SITES_ROOT ) ) {
 		fs.mkdirSync( STUDIO_SITES_ROOT, { recursive: true } );
 	}
-	fs.mkdirSync( STUDIO_WPCOM_BODY_FILES_DIR, { recursive: true } );
+	if ( resolvedConfig.activeSite?.remote ) {
+		fs.mkdirSync( STUDIO_WPCOM_BODY_FILES_DIR, { recursive: true } );
+	}
 
 	const result = runAgentSessionTurn( resolvedConfig, controller, ( session ) => {
 		activeSession = session;
@@ -444,18 +445,21 @@ function getRemoteScratchPathViolation( toolName: string, params: unknown ): str
 	}
 
 	const toolPath = ( params as Record< string, unknown > ).path;
+	const message = `${ toolName } can only access relative paths under ${ WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR } during remote WordPress.com sessions. Stage generated payloads there and apply them with wpcom_request.bodyFile or wpcom_request.bodyFiles.`;
+
 	if ( typeof toolPath !== 'string' ) {
+		if ( toolName === 'Ls' ) {
+			return message;
+		}
 		return undefined;
 	}
-
-	const message = `${ toolName } can only access relative paths under ${ WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR } during remote WordPress.com sessions. Stage generated payloads there and apply them with wpcom_request.bodyFile or wpcom_request.bodyFiles.`;
 
 	if ( path.isAbsolute( toolPath ) ) {
 		return message;
 	}
 
 	const resolvedRoot = path.resolve( STUDIO_WPCOM_BODY_FILES_DIR );
-	const resolvedPath = path.resolve( STUDIO_SITES_ROOT, toolPath );
+	const resolvedPath = path.resolve( STUDIO_WPCOM_BODY_FILES_ROOT, toolPath );
 	const relativePath = path.relative( resolvedRoot, resolvedPath );
 	if (
 		relativePath === '' ||
@@ -504,10 +508,12 @@ function buildAgentTools(
 	} );
 
 	const remoteScratchTools: AgentToolAny[] = [
-		restrictToRemoteScratch( renameTool( createReadTool( STUDIO_SITES_ROOT ), 'Read' ) ),
-		restrictToRemoteScratch( renameTool( createWriteTool( STUDIO_SITES_ROOT ), 'Write' ) ),
-		restrictToRemoteScratch( renameTool( createEditTool( STUDIO_SITES_ROOT ), 'Edit' ) ),
-		restrictToRemoteScratch( renameTool( createLsTool( STUDIO_SITES_ROOT ), 'Ls' ) ),
+		restrictToRemoteScratch( renameTool( createReadTool( STUDIO_WPCOM_BODY_FILES_ROOT ), 'Read' ) ),
+		restrictToRemoteScratch(
+			renameTool( createWriteTool( STUDIO_WPCOM_BODY_FILES_ROOT ), 'Write' )
+		),
+		restrictToRemoteScratch( renameTool( createEditTool( STUDIO_WPCOM_BODY_FILES_ROOT ), 'Edit' ) ),
+		restrictToRemoteScratch( renameTool( createLsTool( STUDIO_WPCOM_BODY_FILES_ROOT ), 'Ls' ) ),
 	];
 
 	if ( isRemoteSite ) {

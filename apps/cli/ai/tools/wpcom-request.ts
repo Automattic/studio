@@ -1,16 +1,16 @@
 import { readFile } from 'fs/promises';
 import path from 'path';
+import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { Type } from 'typebox';
-import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { defineTool } from './define-tool';
 import { textResult } from './utils';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ApiResponse = any;
 
-export const WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR = '.studio-agent/payloads';
+export const WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR = 'tmp/ai-payloads';
 const BODY_FILE_FIELD_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_-]*$/;
 
 interface WpcomRequestToolOptions {
@@ -174,7 +174,7 @@ export function createWpcomRequestTool(
 	options: WpcomRequestToolOptions = {}
 ) {
 	const wpcom = wpcomFactory( token, wpcomXhrRequest );
-	const bodyFilesRoot = options.bodyFilesRoot ?? STUDIO_SITES_ROOT;
+	const bodyFilesRoot = options.bodyFilesRoot ?? getConfigDirectory();
 
 	return defineTool(
 		'wpcom_request',

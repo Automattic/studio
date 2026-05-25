@@ -154,7 +154,17 @@ async function handleTurn(
 		mediaStreamer.onEvent( event );
 	};
 
-	let outcome: TurnOutcome;
+	// Definite-assignment: runTurn never throws synchronously (it surfaces
+	// errors via outcome.status = 'spawn_error'), so by the time the finally
+	// block runs `outcome` is always defined in practice. The `!` lets TS see
+	// the optional-chain read in finally without losing strictness elsewhere.
+	let outcome!: TurnOutcome;
+	let mediaSummary = { posted: 0, failed: 0 };
+	// Populated inside try and consumed inside finally; pulled into scope so
+	// the finally block can decide between folding the reply into the live
+	// status (`replaceWithReply`) or finalizing with a ✅/⚠️ summary.
+	let replyForAbsorb: string | null = null;
+	let absorbedReply = false;
 	try {
 		outcome = await deps.runTurn( {
 			text,
@@ -184,14 +194,45 @@ async function handleTurn(
 				onEvent,
 			} );
 		}
+		// Compute the final reply text early so the finally block can decide
+		// whether to absorb it into the live status message (replaceWithReply)
+		// or fall through to the regular `stop()` + `postChunks` path.
+		replyForAbsorb =
+			outcome && ! signal.aborted && outcome.status === 'success' && outcome.exitCode === 0
+				? extractReply( {
+						replyText: outcome.replyText,
+						questions: outcome.questions,
+						isError: outcome.isError,
+				  } )
+				: null;
 	} finally {
-		progressStreamer.stop();
-	}
+		// Drain in-flight photos BEFORE finalizing the live status so any
+		// mid-turn photo POSTs (which post as new messages) land first and the
+		// chat sequence stays in order.
+		mediaSummary = await mediaStreamer.drain();
 
-	// Wait for any in-flight photos to finish posting so a text reply that
-	// follows them lands in chat order, even if the photo POST is still
-	// running when the turn ends.
-	const mediaSummary = await mediaStreamer.drain();
+		// If we have a short single-message reply, fold it into the live status
+		// in place. Avoids a redundant "✅ Done" line above the real reply, and
+		// avoids the "🗑 deleted" tombstone some clients (e.g. Beeper) render
+		// for deletions. The `replyForAbsorb` guard already filters to clean
+		// success turns; the length check covers reply > one Telegram message.
+		if (
+			replyForAbsorb !== null &&
+			replyForAbsorb.length <= config.max_message_chars &&
+			mediaSummary.posted === 0
+		) {
+			absorbedReply = await progressStreamer.replaceWithReply( replyForAbsorb );
+		}
+
+		if ( ! absorbedReply ) {
+			// Either no reply, reply too long, media-only turn, or an error
+			// status — finalize the status with a ✅/⚠️ summary instead.
+			// `signal.aborted` means the user detached mid-turn — treat as error.
+			// `undefined` (runTurn threw before assigning) leaves the line.
+			const finalStatus = signal.aborted ? 'error' : outcome?.status;
+			await progressStreamer.stop( finalStatus );
+		}
+	}
 
 	if ( outcome.sessionId && outcome.sessionId !== sessionId ) {
 		await deps.writeSession( target.chatId, outcome.sessionId );
@@ -208,6 +249,7 @@ async function handleTurn(
 		aborted: signal.aborted,
 		media_posted: mediaSummary.posted,
 		media_failed: mediaSummary.failed,
+		reply_absorbed: absorbedReply,
 	} );
 
 	if ( telemetryEnabled ) {
@@ -247,6 +289,12 @@ async function handleTurn(
 			? `⚠️ Local agent error: ${ stderrSnippet }`
 			: '⚠️ Local agent error (no output).';
 		await postBestEffort( deps, config, target, message );
+		return;
+	}
+
+	if ( absorbedReply ) {
+		// `replaceWithReply` already landed the reply in the live-status
+		// message — nothing left to post.
 		return;
 	}
 

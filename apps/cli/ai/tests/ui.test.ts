@@ -1,3 +1,4 @@
+import { Container } from '@mariozechner/pi-tui';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AiChatUI } from 'cli/ai/ui';
 import { openBrowser } from 'cli/lib/browser';
@@ -9,6 +10,10 @@ const ANSI_PATTERN = new RegExp( String.fromCharCode( 27 ) + '\\[[0-9;]*m', 'g' 
 
 function stripAnsi( text: string ): string {
 	return text.replace( ANSI_PATTERN, '' );
+}
+
+function renderedContainerText( container: Container ): string {
+	return stripAnsi( container.render( 120 ).join( '\n' ) );
 }
 
 vi.mock( 'cli/lib/cli-config/core', async ( importOriginal ) => {
@@ -350,9 +355,9 @@ describe( 'AiChatUI.handleEvent', () => {
 			handleEvent: ( e: unknown ) => unknown;
 			[ key: string ]: unknown;
 		};
-		const addChild = vi.fn();
+		const messages = new Container();
 
-		ui.messages = { addChild };
+		ui.messages = messages;
 		ui.tui = { requestRender: vi.fn() };
 		ui.pendingToolCalls = new Map();
 		ui.pendingTodoRenders = new Map();
@@ -416,22 +421,21 @@ describe( 'AiChatUI.handleEvent', () => {
 			],
 		} );
 
-		const renderedText = addChild.mock.calls.map( ( [ node ] ) =>
-			String( Object.values( node as object )[ 0 ] ?? '' )
-		);
+		const renderedText = renderedContainerText( messages );
+		const remoteRow = renderedText.indexOf( 'Load skill wpcom-remote-management' );
+		const remoteSummary = renderedText.indexOf( 'Loaded WordPress.com Remote Management' );
+		const remoteHidden = renderedText.indexOf( 'Full skill body hidden' );
+		const designRow = renderedText.indexOf( 'Load skill visual-design' );
+		const designSummary = renderedText.indexOf( 'Loaded Visual Design' );
 
-		expect( renderedText ).toHaveLength( 6 );
-		expect( renderedText[ 0 ] ).toContain( 'Load skill' );
-		expect( renderedText[ 0 ] ).toContain( 'wpcom-remote-management' );
-		expect( renderedText[ 1 ] ).toContain( 'Loaded WordPress.com Remote Management' );
-		expect( renderedText[ 1 ] ).toContain( 'Sections: Tool Shape' );
-		expect( renderedText[ 2 ] ).toContain( 'Full skill body hidden' );
-		expect( renderedText[ 3 ] ).toContain( 'Load skill' );
-		expect( renderedText[ 3 ] ).toContain( 'visual-design' );
-		expect( renderedText[ 4 ] ).toContain( 'Loaded Visual Design' );
-		expect( renderedText[ 4 ] ).toContain( 'Sections: Design Direction' );
-		expect( renderedText[ 5 ] ).toContain( 'Full skill body hidden' );
-		expect( renderedText.join( '\n' ) ).not.toContain( '# Visual Design' );
+		expect( remoteRow ).toBeGreaterThanOrEqual( 0 );
+		expect( remoteSummary ).toBeGreaterThan( remoteRow );
+		expect( remoteHidden ).toBeGreaterThan( remoteSummary );
+		expect( designRow ).toBeGreaterThan( remoteHidden );
+		expect( designSummary ).toBeGreaterThan( designRow );
+		expect( renderedText ).toContain( 'Sections: Tool Shape' );
+		expect( renderedText ).toContain( 'Sections: Design Direction' );
+		expect( renderedText ).not.toContain( '# Visual Design' );
 	} );
 
 	it( 'renders concise summaries for API, Bash, and Read tool output', () => {
@@ -439,9 +443,9 @@ describe( 'AiChatUI.handleEvent', () => {
 			handleEvent: ( e: unknown ) => unknown;
 			[ key: string ]: unknown;
 		};
-		const addChild = vi.fn();
+		const messages = new Container();
 
-		ui.messages = { addChild };
+		ui.messages = messages;
 		ui.tui = { requestRender: vi.fn() };
 		ui.pendingToolCalls = new Map();
 		ui.pendingTodoRenders = new Map();
@@ -511,10 +515,7 @@ describe( 'AiChatUI.handleEvent', () => {
 			],
 		} );
 
-		const renderedText = addChild.mock.calls.map( ( [ node ] ) =>
-			String( Object.values( node as object )[ 0 ] ?? '' )
-		);
-		const joined = renderedText.join( '\n' );
+		const joined = renderedContainerText( messages );
 
 		expect( joined ).toContain( 'WordPress.com API GET /posts' );
 		expect( joined ).toContain( 'GET /posts: Returned 2 posts' );
@@ -527,6 +528,93 @@ describe( 'AiChatUI.handleEvent', () => {
 		expect( joined ).toContain( 'File contents hidden' );
 		expect( joined ).not.toContain( '"posts"' );
 		expect( joined ).not.toContain( '.wp-site-blocks' );
+	} );
+
+	it( 'attaches live progress to the active tool row before the final result', () => {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			handleEvent: ( e: unknown ) => unknown;
+			setLoaderMessage: ( message: string, update?: boolean ) => void;
+			[ key: string ]: unknown;
+		};
+		const messages = new Container();
+
+		ui.messages = messages;
+		ui.tui = { requestRender: vi.fn() };
+		ui.pendingToolCalls = new Map();
+		ui.pendingTodoRenders = new Map();
+		ui.pendingTodoRenderOrder = [];
+		ui.currentMarkdown = null;
+		ui.currentResponseText = '';
+		ui.currentProvider = 'anthropic-api-key';
+		ui.replayMode = true;
+		ui.loaderVisible = false;
+		ui.latestTodoSnapshot = [];
+		ui.lastRenderedTodoSignature = null;
+		ui.autoSelectSiteFromToolResult = vi.fn();
+		ui.nowMs = () => 6500;
+		ui.activeExpandablePreview = null;
+		ui.updateHints = vi.fn();
+		ui.fallbackProgressText = null;
+
+		ui.handleEvent( {
+			type: 'message_end',
+			message: {
+				role: 'assistant',
+				content: [
+					{
+						type: 'toolCall',
+						id: 'toolu_create',
+						name: 'site_create',
+						arguments: { name: 'Auran' },
+					},
+				],
+			},
+		} );
+
+		ui.setLoaderMessage( 'Validating site configuration…' );
+		ui.setLoaderMessage( 'Site configuration validated' );
+		ui.setLoaderMessage( 'Starting WordPress server…' );
+		ui.setLoaderMessage( 'Starting WordPress server…' );
+		ui.setLoaderMessage( 'WordPress server started' );
+
+		ui.handleEvent( {
+			type: 'turn_end',
+			toolResults: [
+				{
+					toolCallId: 'toolu_create',
+					isError: false,
+					content: [
+						{
+							type: 'text',
+							text: JSON.stringify(
+								{
+									id: 'site-id',
+									name: 'Auran',
+									url: 'http://localhost:8887',
+								},
+								null,
+								2
+							),
+						},
+					],
+				},
+			],
+		} );
+
+		const renderedText = renderedContainerText( messages );
+		const row = renderedText.indexOf( 'Create site Auran' );
+		const firstProgress = renderedText.indexOf( 'Validating site configuration' );
+		const lastProgress = renderedText.indexOf( 'WordPress server started' );
+		const result = renderedText.indexOf( 'Created site Auran' );
+
+		expect( row ).toBeGreaterThanOrEqual( 0 );
+		expect( firstProgress ).toBeGreaterThan( row );
+		expect( lastProgress ).toBeGreaterThan( firstProgress );
+		expect( result ).toBeGreaterThan( lastProgress );
+		expect( renderedText ).toContain( 'http://localhost:8887' );
+		expect( renderedText ).toContain( 'Full site details hidden' );
+		expect( renderedText ).not.toContain( '"name": "Auran"' );
+		expect( renderedText.match( /Starting WordPress server/g ) ).toHaveLength( 1 );
 	} );
 
 	it( 'does not trigger cap detection for non-wpcom providers even with a 429 error', () => {

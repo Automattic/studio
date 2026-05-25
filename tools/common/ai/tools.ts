@@ -344,6 +344,35 @@ function getBashPreview( text: string, isError: boolean ): ToolResultPreview {
 	};
 }
 
+function getSiteCreatePreview( text: string, isError: boolean ): ToolResultPreview | null {
+	if ( isError ) {
+		return {
+			summaryLines: [ firstNonEmptyLine( text ) || __( 'Site creation failed' ) ],
+			detailText: text,
+			detailLabel: __( 'Full site error hidden · ctrl+o to expand' ),
+		};
+	}
+
+	const parsed = parseJson( text );
+	if ( ! parsed || typeof parsed !== 'object' || Array.isArray( parsed ) ) {
+		return null;
+	}
+
+	const record = parsed as Record< string, unknown >;
+	const name = getDisplayValue( record.name );
+	const url = getDisplayValue( record.url );
+	const summaryLines = [
+		name ? sprintf( __( 'Created site %s' ), name ) : __( 'Created site' ),
+		url,
+	].filter( Boolean );
+
+	return {
+		summaryLines,
+		detailText: text,
+		detailLabel: __( 'Full site details hidden · ctrl+o to expand' ),
+	};
+}
+
 export function getToolResultPreview(
 	name: string | undefined,
 	input: Record< string, unknown > | undefined,
@@ -355,6 +384,8 @@ export function getToolResultPreview(
 	}
 
 	switch ( name ) {
+		case 'site_create':
+			return getSiteCreatePreview( text, isError );
 		case 'Skill':
 			return getSkillPreview( text );
 		case 'wpcom_request':

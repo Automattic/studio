@@ -285,11 +285,19 @@ interface PendingTodoRender {
 	shouldRender: boolean;
 }
 
+interface ToolRenderState {
+	container: Container;
+	rowText: Text;
+	progressText: Text | null;
+	progressLines: string[];
+}
+
 interface PendingToolCall {
 	name: string;
 	input: Record< string, unknown >;
 	label: string;
 	startedAtMs: number;
+	render: ToolRenderState | null;
 }
 
 function isTodoWriteInput( input: unknown ): input is TodoWriteInput {
@@ -414,6 +422,8 @@ export class AiChatUI implements AiOutputAdapter {
 		this.hideLoader();
 		this.currentMarkdown = null;
 		this.currentResponseText = '';
+		this.pendingToolCalls.clear();
+		this.fallbackProgressText = null;
 	}
 
 	finishReplay(): void {
@@ -422,6 +432,8 @@ export class AiChatUI implements AiOutputAdapter {
 		this.hideLoader();
 		this.currentMarkdown = null;
 		this.currentResponseText = '';
+		this.pendingToolCalls.clear();
+		this.fallbackProgressText = null;
 	}
 
 	clearTranscript(): void {
@@ -1280,18 +1292,26 @@ export class AiChatUI implements AiOutputAdapter {
 		this.tui.requestRender();
 	}
 
-	private lastProgressText: Text | null = null;
+	private fallbackProgressText: Text | null = null;
 
 	setLoaderMessage( message: string, update?: boolean ): void {
 		if ( ! message ) {
 			return;
 		}
-		const formatted = '   ' + chalk.dim( '⎿ ' ) + chalk.dim( message );
-		if ( update && this.lastProgressText ) {
-			this.lastProgressText.setText( formatted );
+
+		const toolCall = this.getActiveProgressToolCall();
+		if ( toolCall ) {
+			this.addToolProgress( toolCall, message, update === true );
+			this.tui.requestRender();
+			return;
+		}
+
+		const formatted = formatToolOutputLines( [ chalk.dim( message ) ] );
+		if ( update && this.fallbackProgressText ) {
+			this.fallbackProgressText.setText( formatted );
 		} else {
-			this.lastProgressText = new Text( formatted, 0, 0 );
-			this.messages.addChild( this.lastProgressText );
+			this.fallbackProgressText = new Text( formatted, 0, 0 );
+			this.messages.addChild( this.fallbackProgressText );
 		}
 		this.tui.requestRender();
 	}
@@ -1325,7 +1345,7 @@ export class AiChatUI implements AiOutputAdapter {
 			this.loader.stop();
 			this.tui.removeChild( this.loader );
 			this.loaderVisible = false;
-			this.lastProgressText = null;
+			this.fallbackProgressText = null;
 			this.tui.requestRender();
 		}
 	}
@@ -1386,6 +1406,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this.latestTodoSnapshot = [];
 		this.lastRenderedTodoSignature = null;
 		this.pendingToolCalls.clear();
+		this.fallbackProgressText = null;
 		this.pendingTodoRenders.clear();
 		this.pendingTodoRenderOrder = [];
 	}
@@ -1401,6 +1422,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this.interruptCallback = null;
 		this._inAgentTurn = false;
 		this.pendingToolCalls.clear();
+		this.fallbackProgressText = null;
 		this.updateHints();
 		this.currentMarkdown = null;
 		this.currentResponseText = '';
@@ -1596,7 +1618,11 @@ export class AiChatUI implements AiOutputAdapter {
 		}
 	}
 
-	private showFilePreview( toolName: string, input: Record< string, unknown > ): void {
+	private showFilePreview(
+		toolName: string,
+		input: Record< string, unknown >,
+		target: Container = this.messages
+	): void {
 		let preview: { collapsed: string; expanded: string } | null = null;
 
 		if ( toolName === 'Write' && typeof input.content === 'string' ) {
@@ -1613,12 +1639,15 @@ export class AiChatUI implements AiOutputAdapter {
 			return;
 		}
 
-		this.addExpandablePreview( preview );
+		this.addExpandablePreview( preview, target );
 	}
 
-	private addExpandablePreview( preview: { collapsed: string; expanded: string } ): void {
+	private addExpandablePreview(
+		preview: { collapsed: string; expanded: string },
+		target: Container = this.messages
+	): void {
 		const textComponent = new Text( preview.collapsed, 0, 0 );
-		this.messages.addChild( textComponent );
+		target.addChild( textComponent );
 
 		if ( preview.collapsed !== preview.expanded ) {
 			this.activeExpandablePreview = {
@@ -1729,21 +1758,93 @@ export class AiChatUI implements AiOutputAdapter {
 		};
 	}
 
-	private renderToolUseLine(
+	private formatToolUseLine(
 		isError: boolean,
 		label: string,
 		startedAtMs: number | null = null
-	): void {
+	): string {
 		const elapsed = startedAtMs === null ? 0 : this.nowMs() - startedAtMs;
 		const elapsedSeconds = Math.max( elapsed, 0 ) / 1000;
 		const elapsedStr =
 			elapsed > 0 || this.replayMode ? chalk.dim( ` (${ elapsedSeconds.toFixed( 1 ) }s)` ) : '';
 		const statusIcon = isError ? chalk.red( '⏺' ) : '⏺';
 
-		this.messages.addChild( new Text( '\n ' + statusIcon + ' ' + label + elapsedStr, 0, 0 ) );
+		return '\n ' + statusIcon + ' ' + label + elapsedStr;
 	}
 
-	private renderTodoUpdate( pendingTodoRender: PendingTodoRender ): void {
+	private renderToolUseLine(
+		isError: boolean,
+		label: string,
+		startedAtMs: number | null = null,
+		target: Container = this.messages
+	): Text {
+		const rowText = new Text( this.formatToolUseLine( isError, label, startedAtMs ), 0, 0 );
+		target.addChild( rowText );
+		return rowText;
+	}
+
+	private ensureToolRender( toolCall: PendingToolCall ): ToolRenderState {
+		if ( toolCall.render ) {
+			return toolCall.render;
+		}
+
+		const container = new Container();
+		const rowText = this.renderToolUseLine( false, toolCall.label, null, container );
+		toolCall.render = {
+			container,
+			rowText,
+			progressText: null,
+			progressLines: [],
+		};
+		this.messages.addChild( container );
+		return toolCall.render;
+	}
+
+	private finalizeToolRender( toolCall: PendingToolCall, isError: boolean ): ToolRenderState {
+		const render = this.ensureToolRender( toolCall );
+		render.rowText.setText(
+			this.formatToolUseLine( isError, toolCall.label, toolCall.startedAtMs )
+		);
+		return render;
+	}
+
+	private getActiveProgressToolCall(): PendingToolCall | null {
+		const toolCalls = Array.from( this.pendingToolCalls.values() );
+		for ( let i = toolCalls.length - 1; i >= 0; i-- ) {
+			const toolCall = toolCalls[ i ];
+			if ( toolCall.render ) {
+				return toolCall;
+			}
+		}
+		return null;
+	}
+
+	private addToolProgress( toolCall: PendingToolCall, message: string, update: boolean ): void {
+		const render = this.ensureToolRender( toolCall );
+		const lastLine = render.progressLines[ render.progressLines.length - 1 ];
+		if ( update && render.progressLines.length > 0 ) {
+			render.progressLines[ render.progressLines.length - 1 ] = message;
+		} else if ( lastLine !== message ) {
+			render.progressLines.push( message );
+		} else {
+			return;
+		}
+
+		const formatted = formatToolOutputLines(
+			render.progressLines.map( ( progressLine ) => chalk.dim( progressLine ) )
+		);
+		if ( render.progressText ) {
+			render.progressText.setText( formatted );
+		} else {
+			render.progressText = new Text( formatted, 0, 0 );
+			render.container.addChild( render.progressText );
+		}
+	}
+
+	private renderTodoUpdate(
+		pendingTodoRender: PendingTodoRender,
+		target: Container = this.messages
+	): void {
 		const lines: TodoRenderLine[] = buildTodoUpdateLines( pendingTodoRender.diff.snapshot );
 		if ( lines.length === 0 ) {
 			return;
@@ -1751,7 +1852,7 @@ export class AiChatUI implements AiOutputAdapter {
 		const rendered = formatToolOutputLines(
 			lines.map( ( line ) => ( line.dim ? chalk.dim( line.text ) : line.text ) )
 		);
-		this.messages.addChild( new Text( rendered, 0, 0 ) );
+		target.addChild( new Text( rendered, 0, 0 ) );
 	}
 
 	private syncLatestTodoSnapshot(): void {
@@ -1775,7 +1876,8 @@ export class AiChatUI implements AiOutputAdapter {
 	private renderToolResultText(
 		content: string | Array< { type: string; text?: string } >,
 		toolCall?: PendingToolCall,
-		isError = false
+		isError = false,
+		target: Container = this.messages
 	): void {
 		let text: string;
 		if ( typeof content === 'string' ) {
@@ -1793,7 +1895,7 @@ export class AiChatUI implements AiOutputAdapter {
 		const toolName = toolCall?.name;
 		const preview = getToolResultPreview( toolName, toolCall?.input, text, isError );
 		if ( preview ) {
-			this.messages.addChild(
+			target.addChild(
 				new Text(
 					formatToolOutputLines(
 						preview.summaryLines.map( ( line ) =>
@@ -1810,7 +1912,8 @@ export class AiChatUI implements AiOutputAdapter {
 						preview.detailText,
 						preview.detailLabel ?? __( 'Full output hidden · ctrl+o to expand' ),
 						preview.detailMaxLength
-					)
+					),
+					target
 				);
 			}
 			return;
@@ -1820,7 +1923,8 @@ export class AiChatUI implements AiOutputAdapter {
 		const truncated = text.length > maxLength ? text.slice( 0, maxLength ) + '…' : text;
 		const resultLines = truncated.split( '\n' );
 		this.addExpandablePreview(
-			this.generateExpandablePreview( resultLines.map( ( line ) => chalk.dim( line ) ) )
+			this.generateExpandablePreview( resultLines.map( ( line ) => chalk.dim( line ) ) ),
+			target
 		);
 	}
 
@@ -1830,15 +1934,15 @@ export class AiChatUI implements AiOutputAdapter {
 		for ( const toolResult of results ) {
 			const toolCallId = toolResult.toolCallId;
 			const toolCall = this.pendingToolCalls.get( toolCallId );
-			if ( toolCall ) {
-				this.pendingToolCalls.delete( toolCallId );
-			}
 			if ( this.pendingTodoRenders.has( toolCallId ) ) {
-				this.showTodoToolResult( toolResult, toolCallId );
+				this.showTodoToolResult( toolResult, toolCallId, toolCall );
 			} else if ( this.pendingTodoRenderOrder.length > 0 && toolCall?.name === 'TodoWrite' ) {
-				this.showTodoToolResult( toolResult, this.pendingTodoRenderOrder[ 0 ] );
+				this.showTodoToolResult( toolResult, this.pendingTodoRenderOrder[ 0 ], toolCall );
 			} else {
 				this.showToolResult( toolResult, toolCall );
+			}
+			if ( toolCall ) {
+				this.pendingToolCalls.delete( toolCallId );
 			}
 		}
 		if ( results.length > 0 ) {
@@ -1851,15 +1955,20 @@ export class AiChatUI implements AiOutputAdapter {
 		const typedResult = this.getToolResultContent( result );
 		const isError = typedResult.isError === true;
 		const label = toolCall?.label ?? chalk.bold( __( 'Tool' ) );
+		const target = toolCall
+			? this.finalizeToolRender( toolCall, isError ).container
+			: this.messages;
 
 		// Auto-select the site that was operated on
 		if ( ! isError && toolCall ) {
 			void this.autoSelectSiteFromToolResult( toolCall.name, toolCall.input );
 		}
 
-		this.renderToolUseLine( isError, label, toolCall?.startedAtMs ?? null );
+		if ( ! toolCall ) {
+			this.renderToolUseLine( isError, label, null, target );
+		}
 		if ( toolCall && ( toolCall.name === 'Write' || toolCall.name === 'Edit' ) ) {
-			this.showFilePreview( toolCall.name, toolCall.input );
+			this.showFilePreview( toolCall.name, toolCall.input, target );
 		}
 
 		const content = typedResult.content;
@@ -1867,11 +1976,15 @@ export class AiChatUI implements AiOutputAdapter {
 			this.tui.requestRender();
 			return;
 		}
-		this.renderToolResultText( content, toolCall, isError );
+		this.renderToolResultText( content, toolCall, isError, target );
 		this.tui.requestRender();
 	}
 
-	private showTodoToolResult( result: ToolResultMessage, toolUseId: string ): void {
+	private showTodoToolResult(
+		result: ToolResultMessage,
+		toolUseId: string,
+		toolCall?: PendingToolCall
+	): void {
 		const typedResult = this.getToolResultContent( result );
 		const pendingTodoRender = this.consumePendingTodoRender( toolUseId );
 
@@ -1882,10 +1995,13 @@ export class AiChatUI implements AiOutputAdapter {
 		const isError = typedResult.isError === true;
 
 		if ( isError ) {
-			this.renderToolUseLine( true, pendingTodoRender.toolLabel, pendingTodoRender.startedAtMs );
+			const target = toolCall ? this.finalizeToolRender( toolCall, true ).container : this.messages;
+			if ( ! toolCall ) {
+				this.renderToolUseLine( true, pendingTodoRender.toolLabel, pendingTodoRender.startedAtMs );
+			}
 			this.syncLatestTodoSnapshot();
 			if ( typedResult.content !== undefined ) {
-				this.renderToolResultText( typedResult.content, undefined, true );
+				this.renderToolResultText( typedResult.content, toolCall, true, target );
 			}
 			this.tui.requestRender();
 			return;
@@ -1899,9 +2015,12 @@ export class AiChatUI implements AiOutputAdapter {
 			return;
 		}
 
-		this.renderToolUseLine( false, pendingTodoRender.toolLabel, pendingTodoRender.startedAtMs );
+		const target = toolCall ? this.finalizeToolRender( toolCall, false ).container : this.messages;
+		if ( ! toolCall ) {
+			this.renderToolUseLine( false, pendingTodoRender.toolLabel, pendingTodoRender.startedAtMs );
+		}
 		this.lastRenderedTodoSignature = pendingTodoRender.diff.signature;
-		this.renderTodoUpdate( pendingTodoRender );
+		this.renderTodoUpdate( pendingTodoRender, target );
 		this.tui.requestRender();
 	}
 
@@ -2065,13 +2184,13 @@ export class AiChatUI implements AiOutputAdapter {
 						const startedAtMs = this.nowMs();
 						const input = ( block.arguments ?? {} ) as Record< string, unknown >;
 						const toolLabel = formatToolName( block.name, input );
-						this.lastProgressText = null;
-						this.pendingToolCalls.set( block.id, {
+						const toolCall: PendingToolCall = {
 							name: block.name,
 							input,
 							label: toolLabel,
 							startedAtMs,
-						} );
+							render: null,
+						};
 						if ( block.name === 'TodoWrite' && isTodoWriteInput( input ) ) {
 							const diff = diffTodoSnapshot( this.latestTodoSnapshot, input.todos );
 							const shouldRender =
@@ -2084,7 +2203,13 @@ export class AiChatUI implements AiOutputAdapter {
 							} );
 							this.pendingTodoRenderOrder.push( block.id );
 							this.latestTodoSnapshot = diff.snapshot;
+							if ( shouldRender ) {
+								this.ensureToolRender( toolCall );
+							}
+						} else {
+							this.ensureToolRender( toolCall );
 						}
+						this.pendingToolCalls.set( block.id, toolCall );
 					}
 				}
 				if ( ! this.replayMode && ! this.loaderVisible ) {

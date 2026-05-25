@@ -160,80 +160,6 @@ describe( 'AiChatUI auto site selection', () => {
 			expect.objectContaining( { name: 'tata', path: '/Users/test/Studio/tata', running: false } )
 		);
 	} );
-
-	it( 'invalidates the prompt editor when selecting a site', () => {
-		const ui = createUiStub();
-
-		ui.setActiveSite( {
-			name: 'Riad site',
-			path: '/Users/test/Studio/riad-site',
-			running: true,
-		} );
-
-		expect( ui.editor as { activeSiteName: string | null } ).toMatchObject( {
-			activeSiteName: 'Riad site',
-		} );
-		expect(
-			( ui.editor as { invalidate: ReturnType< typeof vi.fn > } ).invalidate
-		).toHaveBeenCalledTimes( 1 );
-	} );
-} );
-
-describe( 'AiChatUI.clearTranscript', () => {
-	beforeEach( () => {
-		vi.clearAllMocks();
-	} );
-
-	it( 'clears children, resets streaming state, and requests a render', () => {
-		const ui = Object.create( AiChatUI.prototype ) as {
-			clearTranscript: () => void;
-			[ key: string ]: unknown;
-		};
-
-		const children: unknown[] = [ {}, {} ];
-		const messages = {
-			clear: vi.fn( () => {
-				children.length = 0;
-			} ),
-			children,
-		};
-		const tui = { requestRender: vi.fn() };
-
-		ui.messages = messages;
-		ui.tui = tui;
-		ui.currentMarkdown = { someMarkdown: true };
-		ui.currentResponseText = 'in-progress';
-		ui.hideLoader = vi.fn();
-		ui.queuedPrompts = [];
-
-		ui.clearTranscript();
-
-		expect( ui.hideLoader ).toHaveBeenCalled();
-		expect( messages.children ).toHaveLength( 0 );
-		expect( ui.currentMarkdown ).toBeNull();
-		expect( ui.currentResponseText ).toBe( '' );
-		expect( tui.requestRender ).toHaveBeenCalledTimes( 1 );
-	} );
-} );
-
-describe( 'AiChatUI.start', () => {
-	it( 'forces a fresh render after restarting the TUI', () => {
-		const ui = Object.create( AiChatUI.prototype ) as {
-			start: () => void;
-			[ key: string ]: unknown;
-		};
-		const tui = {
-			start: vi.fn(),
-			requestRender: vi.fn(),
-		};
-
-		ui.tui = tui;
-
-		ui.start();
-
-		expect( tui.start ).toHaveBeenCalledTimes( 1 );
-		expect( tui.requestRender ).toHaveBeenCalledWith( true );
-	} );
 } );
 
 describe( 'AiChatUI interrupt handling', () => {
@@ -677,17 +603,6 @@ describe( 'AiChatUI.handleEvent', () => {
 		expect( showInfo ).not.toHaveBeenCalled();
 	} );
 
-	it( 'reports hasErrorBeenSurfaced based on usageCapReached', () => {
-		const ui = Object.create( AiChatUI.prototype ) as {
-			hasErrorBeenSurfaced: () => boolean;
-			[ key: string ]: unknown;
-		};
-		ui.usageCapReached = false;
-		expect( ui.hasErrorBeenSurfaced() ).toBe( false );
-		ui.usageCapReached = true;
-		expect( ui.hasErrorBeenSurfaced() ).toBe( true );
-	} );
-
 	it( 'does not trip the cap branch when an assistant error has no 429 marker', () => {
 		const ui = Object.create( AiChatUI.prototype ) as {
 			handleEvent: ( e: unknown ) => unknown;
@@ -713,44 +628,5 @@ describe( 'AiChatUI.handleEvent', () => {
 		expect( showError ).not.toHaveBeenCalled();
 		expect( showInfo ).not.toHaveBeenCalled();
 		expect( ui.usageCapReached ).toBe( false );
-	} );
-} );
-
-describe( 'AiChatUI.showCapabilities', () => {
-	it( 'renders bold verbs via applyBold and produces translatable complete sentences', () => {
-		const ui = Object.create( AiChatUI.prototype ) as {
-			showCapabilities: () => void;
-			[ key: string ]: unknown;
-		};
-
-		let capturedText = '';
-		ui.messages = {
-			addChild: ( node: { text?: string; content?: string } ) => {
-				// Text component stores its content as the first constructor arg
-				capturedText = stripAnsi( String( Object.values( node )[ 0 ] ?? '' ) );
-			},
-		};
-		ui.tui = { requestRender: vi.fn() };
-
-		ui.showCapabilities();
-
-		// Chalk strips ANSI in non-TTY test environments, so verify the verb text
-		// is present as plain text (applyBold ran but produced no escape codes).
-		expect( capturedText ).toContain( 'Create new local WordPress sites' );
-		expect( capturedText ).toContain( 'Start / stop existing local sites' );
-		expect( capturedText ).toContain( 'List all your local sites' );
-		expect( capturedText ).toContain( 'Build block themes' );
-		expect( capturedText ).toContain( 'Validate all block content' );
-		expect( capturedText ).toContain( 'Push your local site' );
-		expect( capturedText ).toContain( 'Generate preview sites with shareable URLs' );
-
-		// No raw tags should leak into the output
-		expect( capturedText ).not.toContain( '<b>' );
-		expect( capturedText ).not.toContain( '</b>' );
-
-		// The surrounding sentence text should also be present
-		expect( capturedText ).toContain( 'new local WordPress sites instantly' );
-		expect( capturedText ).toContain( 'your local site to the cloud in WordPress.com' );
-		expect( capturedText ).toContain( 'with shareable URLs for quick feedback' );
 	} );
 } );

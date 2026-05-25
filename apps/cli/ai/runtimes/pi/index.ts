@@ -38,9 +38,11 @@ import { createWpcomRequestTool } from 'cli/ai/tools/wpcom-request';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { stripStaleImagesFromContext } from './strip-stale-images';
 import {
+	getIncompleteToolCallReason,
+	getPayloadLimitDescription,
+	getPayloadLimitViolation,
 	type StudioToolPayloadGuardState,
 	updateStudioToolPayloadGuardState,
-	withStudioToolPayloadGuard,
 } from './tool-safety';
 import type { AskUserHandler, SiteInfo } from 'cli/ai/types';
 
@@ -260,8 +262,8 @@ async function createStudioAgentSession(
 			: { chatArtifactsEnabled, remoteSession }
 	);
 
-	const tools = buildAgentTools( config, chatArtifactsEnabled, remoteSession, payloadGuardState );
-	const toolDefinitions = tools.map( toToolDefinition );
+	const tools = buildAgentTools( config, chatArtifactsEnabled, remoteSession );
+	const toolDefinitions = tools.map( ( tool ) => toToolDefinition( tool, payloadGuardState ) );
 	const { authStorage, modelRegistry } = createModelRegistry( model, family, creds );
 	const settingsManager = createSettingsManager( config.env );
 	const resourceLoader = new DefaultResourceLoader( {
@@ -326,7 +328,7 @@ function buildModel(
 		provider: creds.useBearerAuth ? STUDIO_WPCOM_ANTHROPIC_PROVIDER : 'anthropic',
 		reasoning: true,
 		contextWindow: 200_000,
-		maxTokens: 8_192,
+		maxTokens: 16_384,
 	};
 }
 
@@ -402,24 +404,38 @@ function createSettingsManager( _env: Record< string, string > ): SettingsManage
 	} );
 }
 
-function toToolDefinition( tool: AgentToolAny ): ToolDefinition {
+function toToolDefinition(
+	tool: AgentToolAny,
+	payloadGuardState: StudioToolPayloadGuardState
+): ToolDefinition {
 	return {
 		name: tool.name,
 		label: tool.label,
-		description: tool.description,
+		description: getPayloadLimitDescription( tool.name, tool.description ),
 		parameters: tool.parameters,
 		prepareArguments: tool.prepareArguments,
 		executionMode: tool.executionMode,
-		execute: async ( toolCallId, params, signal, onUpdate ) =>
-			tool.execute( toolCallId, params, signal, onUpdate ),
+		execute: async ( toolCallId, params, signal, onUpdate ) => {
+			const incompleteToolCallReason = getIncompleteToolCallReason(
+				payloadGuardState,
+				toolCallId
+			);
+			if ( incompleteToolCallReason ) {
+				throw new Error( incompleteToolCallReason );
+			}
+			const payloadLimitViolation = getPayloadLimitViolation( tool.name, params );
+			if ( payloadLimitViolation ) {
+				throw new Error( payloadLimitViolation );
+			}
+			return tool.execute( toolCallId, params, signal, onUpdate );
+		},
 	};
 }
 
 function buildAgentTools(
 	config: ResolvedStudioAgentTurnConfig,
 	chatArtifactsEnabled: boolean,
-	remoteSession: boolean,
-	payloadGuardState: StudioToolPayloadGuardState
+	remoteSession: boolean
 ): AgentToolAny[] {
 	const isRemoteSite = Boolean(
 		config.activeSite?.remote && config.activeSite?.wpcomSiteId && config.wpcomAccessToken
@@ -451,18 +467,9 @@ function buildAgentTools(
 
 	const piTools: AgentToolAny[] = [
 		renameTool( createReadTool( STUDIO_SITES_ROOT ), 'Read' ),
-		withStudioToolPayloadGuard(
-			renameTool( createWriteTool( STUDIO_SITES_ROOT ), 'Write' ),
-			payloadGuardState
-		),
-		withStudioToolPayloadGuard(
-			renameTool( createEditTool( STUDIO_SITES_ROOT ), 'Edit' ),
-			payloadGuardState
-		),
-		withStudioToolPayloadGuard(
-			renameTool( createBashTool( STUDIO_SITES_ROOT ), 'Bash' ),
-			payloadGuardState
-		),
+		renameTool( createWriteTool( STUDIO_SITES_ROOT ), 'Write' ),
+		renameTool( createEditTool( STUDIO_SITES_ROOT ), 'Edit' ),
+		renameTool( createBashTool( STUDIO_SITES_ROOT ), 'Bash' ),
 		renameTool( createGrepTool( STUDIO_SITES_ROOT ), 'Grep' ),
 		renameTool( createFindTool( STUDIO_SITES_ROOT ), 'Glob' ),
 		renameTool( createLsTool( STUDIO_SITES_ROOT ), 'Ls' ),

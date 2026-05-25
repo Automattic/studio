@@ -256,7 +256,7 @@ describe( 'pi runtime', () => {
 		expect( mocks.createdSessions[ 0 ].options.model?.input ).toEqual( [ 'text', 'image' ] );
 	} );
 
-	it( 'registers guarded file-writing tools without adding a separate chunk tool', async () => {
+	it( 'advertises file payload safety guidance without adding a separate chunk tool', async () => {
 		await runRuntime( {
 			prompt: 'hello',
 			env: {
@@ -312,19 +312,23 @@ describe( 'pi runtime', () => {
 		expect( write.description ).toContain( 'small skeleton' );
 	} );
 
-	it( 'rejects side-effecting tool calls from length-truncated assistant messages', async () => {
+	it( 'rejects remote wpcom_request calls from length-truncated assistant messages', async () => {
 		mocks.nextEvents = [
 			assistantMessage(
 				[
 					{
 						type: 'toolCall',
-						id: 'tool-call-1',
-						name: 'Write',
+						id: 'wpcom-call-1',
+						name: 'wpcom_request',
 						arguments: {
-							path: '/tmp/studio/site/tmp/large.txt',
-							content: 'partial content under the size limit',
+							method: 'POST',
+							path: '/pages/4',
+							body: {
+								content: '<!-- wp:paragraph --><p>partial',
+							},
 						},
-						partialJson: '{"path":"/tmp/studio/site/tmp/large.txt","content":"partial',
+						partialJson:
+							'{"method":"POST","path":"/pages/4","body":{"content":"<!-- wp:paragraph --><p>partial',
 						index: 0,
 					},
 				],
@@ -341,14 +345,24 @@ describe( 'pi runtime', () => {
 			},
 			model: 'gpt-5.5',
 			session: newSession(),
+			activeSite: {
+				name: 'Remote',
+				path: '',
+				running: false,
+				remote: true,
+				url: 'https://example.wordpress.com',
+				wpcomSiteId: 123,
+			},
+			wpcomAccessToken: 'wpcom-token',
 		} );
 
-		const write = getCreatedTool( 'Write' );
+		const wpcomRequest = getCreatedTool( 'wpcom_request' );
 
 		await expect(
-			write.execute( 'write-call', {
-				path: '/tmp/studio/site/tmp/large.txt',
-				content: 'partial content under the size limit',
+			wpcomRequest.execute( 'wpcom-call-1', {
+				method: 'POST',
+				path: '/pages/4',
+				body: { content: '<!-- wp:paragraph --><p>partial' },
 			} )
 		).rejects.toThrow( /hit the model output limit/ );
 	} );
@@ -413,6 +427,7 @@ describe( 'pi runtime', () => {
 		const options = mocks.createdSessions[ 0 ].options;
 		expect( options.model?.provider ).toBe( 'studio-wpcom-anthropic' );
 		expect( options.model?.api ).toBe( 'anthropic-messages' );
+		expect( options.model?.maxTokens ).toBe( 16_384 );
 		expect( options.model?.input ).toEqual( [ 'text', 'image' ] );
 		const auth = await options.modelRegistry!.getApiKeyAndHeaders( options.model! );
 		expect( auth ).toMatchObject( {

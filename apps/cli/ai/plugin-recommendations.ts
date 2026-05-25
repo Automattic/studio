@@ -101,7 +101,7 @@ Specific Jetpack rules above (e.g. Forms) take precedence; this rule only applie
 wp_cli eval 'foreach (\\WP_Block_Type_Registry::get_instance()->get_all_registered() as $n => $b) if (strpos($n, "jetpack/") === 0 && (!isset($b->supports["inserter"]) || $b->supports["inserter"] !== false)) echo $n . PHP_EOL;'
 \`\`\`
    If the block you expect isn't listed, the relevant Jetpack module is probably inactive. Run \`wp_cli jetpack module list\` to see the matrix and \`wp_cli jetpack module activate <slug>\` to turn it on, then re-list.
-   **Important — wpcom-dependent modules**: Some modules require a WordPress.com connection and **will fail with an error** in Studio's local environment. Do NOT attempt to activate: \`subscriptions\`, \`blaze\`, \`stats\`, \`sync\`, or any module that requires a live wpcom site. For newsletter signups, use the Jetpack Forms \`contact-form\` module (already covered above) — do not activate \`subscriptions\`.
+   **Important — wpcom-dependent modules**: Some modules (e.g. \`subscriptions\`, \`blaze\`, \`stats\`) require a WordPress.com connection and will fail with an error if the site is not connected. Before activating these, check: \`wp_cli jetpack connection status\`. If the site is not connected to wpcom, fall back to an equivalent that works locally — for newsletter signups, use Jetpack Forms (\`contact-form\` module, already covered above).
 3. Use the block in the page markup and validate with \`validate_blocks\`.
 
 \`core/html\` with raw HTML stays a last resort for the cases the block content guidelines call out (inline SVG, marquee/cursor, a single bottom-of-page \`<script>\`).`,

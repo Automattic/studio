@@ -69,10 +69,19 @@ export interface IpcEvents {
 	'remote-session-status': [ RemoteSessionStatus ];
 }
 
+let isAppQuitting = false;
+
+export function markAppQuitting() {
+	isAppQuitting = true;
+}
+
 export async function sendIpcEventToRenderer< T extends keyof IpcEvents >(
 	channel: T,
 	...args: IpcEvents[ T ]
 ): Promise< void > {
+	if ( isAppQuitting ) {
+		return;
+	}
 	const window = await getMainWindow();
 	// `getMainWindow()` can resolve to `null` during early boot — e.g., the
 	// daemon-status poller fires its initial tick before the renderer window

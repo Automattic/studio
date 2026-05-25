@@ -88,6 +88,6 @@ Do not use `--post_content-file=<host path>`. `wp_cli` runs inside the PHP-WASM 
 
 ## Validation
 
-- Run `validate_blocks` after every write or edit that creates or changes block content.
-- If validation rewrites expected markup, treat the difference as structural. Classes added or removed by the validator can affect layout and styling.
+- Run `validate_html_blocks` after every write or edit that creates or changes block content. If it reports invalid `core/html` blocks, rewrite only those blocks as editable core or plugin blocks, then call `validate_html_blocks` again before editor validation.
+- Run `validate_and_fix_blocks` after `validate_html_blocks` passes. Call it with `filePath` whenever the content lives in a file; safe editor serialization fixes are applied directly to that file. If it says an auto-fix was applied, do not manually replace markup or call validation again unless you intentionally change block markup afterward. Use the diff only to inspect structural changes for CSS impact. Classes added or removed by the validator can affect layout and styling.
 - After fixing invalid blocks, take desktop and mobile screenshots and check that layout, spacing, and full-width sections still render as intended.

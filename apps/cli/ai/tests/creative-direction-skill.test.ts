@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildSystemPrompt } from '../system-prompt';
 import { findSkill, loadSkills } from '../skills';
+import { buildSystemPrompt } from '../system-prompt';
 
 describe( 'creative-direction skill', () => {
 	describe( 'discoverability', () => {
@@ -87,7 +87,7 @@ describe( 'creative-direction skill', () => {
 			const prompt = buildSystemPrompt();
 			// Verify the creative-direction skill reference appears in the workflow
 			// context (Plan the design step), not just anywhere in the prompt.
-			const planStep = prompt.match( /\*\*Plan the design\*\*[^\n]*/)?.[0] ?? '';
+			const planStep = prompt.match( /\*\*Plan the design\*\*[^\n]*/ )?.[ 0 ] ?? '';
 			expect( planStep ).toContain( 'creative-direction' );
 		} );
 
@@ -101,7 +101,7 @@ describe( 'creative-direction skill', () => {
 
 		it( 'instructs the agent to proceed without asking for approval', () => {
 			const prompt = buildSystemPrompt();
-			const planStep = prompt.match( /\*\*Plan the design\*\*[^\n]*/)?.[0] ?? '';
+			const planStep = prompt.match( /\*\*Plan the design\*\*[^\n]*/ )?.[ 0 ] ?? '';
 			expect( planStep ).toContain( 'without asking for approval' );
 		} );
 	} );

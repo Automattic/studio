@@ -396,12 +396,22 @@ describe( 'AiChatUI.handleEvent', () => {
 				{
 					toolCallId: 'toolu_remote',
 					isError: false,
-					content: [ { type: 'text', text: '# WordPress.com Remote Management' } ],
+					content: [
+						{
+							type: 'text',
+							text: '# WordPress.com Remote Management\n\n## Tool Shape\n\nUse wpcom_request.',
+						},
+					],
 				},
 				{
 					toolCallId: 'toolu_design',
 					isError: false,
-					content: [ { type: 'text', text: '# Visual Design' } ],
+					content: [
+						{
+							type: 'text',
+							text: '# Visual Design\n\n## Design Direction\n\nPick a clear direction.',
+						},
+					],
 				},
 			],
 		} );
@@ -410,13 +420,113 @@ describe( 'AiChatUI.handleEvent', () => {
 			String( Object.values( node as object )[ 0 ] ?? '' )
 		);
 
-		expect( renderedText ).toHaveLength( 4 );
+		expect( renderedText ).toHaveLength( 6 );
 		expect( renderedText[ 0 ] ).toContain( 'Load skill' );
 		expect( renderedText[ 0 ] ).toContain( 'wpcom-remote-management' );
-		expect( renderedText[ 1 ] ).toContain( '# WordPress.com Remote Management' );
-		expect( renderedText[ 2 ] ).toContain( 'Load skill' );
-		expect( renderedText[ 2 ] ).toContain( 'visual-design' );
-		expect( renderedText[ 3 ] ).toContain( '# Visual Design' );
+		expect( renderedText[ 1 ] ).toContain( 'Loaded WordPress.com Remote Management' );
+		expect( renderedText[ 1 ] ).toContain( 'Sections: Tool Shape' );
+		expect( renderedText[ 2 ] ).toContain( 'Full skill body hidden' );
+		expect( renderedText[ 3 ] ).toContain( 'Load skill' );
+		expect( renderedText[ 3 ] ).toContain( 'visual-design' );
+		expect( renderedText[ 4 ] ).toContain( 'Loaded Visual Design' );
+		expect( renderedText[ 4 ] ).toContain( 'Sections: Design Direction' );
+		expect( renderedText[ 5 ] ).toContain( 'Full skill body hidden' );
+		expect( renderedText.join( '\n' ) ).not.toContain( '# Visual Design' );
+	} );
+
+	it( 'renders concise summaries for API, Bash, and Read tool output', () => {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			handleEvent: ( e: unknown ) => unknown;
+			[ key: string ]: unknown;
+		};
+		const addChild = vi.fn();
+
+		ui.messages = { addChild };
+		ui.tui = { requestRender: vi.fn() };
+		ui.pendingToolCalls = new Map();
+		ui.pendingTodoRenders = new Map();
+		ui.pendingTodoRenderOrder = [];
+		ui.currentMarkdown = null;
+		ui.currentResponseText = '';
+		ui.currentProvider = 'anthropic-api-key';
+		ui.replayMode = true;
+		ui.loaderVisible = false;
+		ui.latestTodoSnapshot = [];
+		ui.lastRenderedTodoSignature = null;
+		ui.autoSelectSiteFromToolResult = vi.fn();
+		ui.nowMs = () => 0;
+		ui.activeExpandablePreview = null;
+		ui.updateHints = vi.fn();
+
+		ui.handleEvent( {
+			type: 'message_end',
+			message: {
+				role: 'assistant',
+				content: [
+					{
+						type: 'toolCall',
+						id: 'toolu_api',
+						name: 'wpcom_request',
+						arguments: { method: 'GET', path: '/posts' },
+					},
+					{
+						type: 'toolCall',
+						id: 'toolu_bash',
+						name: 'Bash',
+						arguments: { command: 'npm test' },
+					},
+					{
+						type: 'toolCall',
+						id: 'toolu_read',
+						name: 'Read',
+						arguments: { file_path: '/Users/test/Studio/site/theme/style.css' },
+					},
+				],
+			},
+		} );
+
+		ui.handleEvent( {
+			type: 'turn_end',
+			toolResults: [
+				{
+					toolCallId: 'toolu_api',
+					isError: false,
+					content: [
+						{
+							type: 'text',
+							text: JSON.stringify( { found: 2, posts: [ { id: 1 }, { id: 2 } ] } ),
+						},
+					],
+				},
+				{
+					toolCallId: 'toolu_bash',
+					isError: false,
+					content: [ { type: 'text', text: '2 tests passed\nDuration 1s' } ],
+				},
+				{
+					toolCallId: 'toolu_read',
+					isError: false,
+					content: [ { type: 'text', text: 'body {}\n.wp-site-blocks {}\n' } ],
+				},
+			],
+		} );
+
+		const renderedText = addChild.mock.calls.map( ( [ node ] ) =>
+			String( Object.values( node as object )[ 0 ] ?? '' )
+		);
+		const joined = renderedText.join( '\n' );
+
+		expect( joined ).toContain( 'WordPress.com API GET /posts' );
+		expect( joined ).toContain( 'GET /posts: Returned 2 posts' );
+		expect( joined ).toContain( 'Full API response hidden' );
+		expect( joined ).toContain( 'Run npm test' );
+		expect( joined ).toContain( 'Command completed: 2 tests passed' );
+		expect( joined ).toContain( 'Command output hidden' );
+		expect( joined ).toContain( 'Read theme/style.css' );
+		expect( joined ).toContain( 'Read 2 lines' );
+		expect( joined ).toContain( 'File contents hidden' );
+		expect( joined ).not.toContain( '"posts"' );
+		expect( joined ).not.toContain( '.wp-site-blocks' );
 	} );
 
 	it( 'does not trigger cap detection for non-wpcom providers even with a 429 error', () => {

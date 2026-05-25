@@ -25,7 +25,7 @@ import {
 import { DEFAULT_MODEL, getAiModelLabel, type AiModelId } from '@studio/common/ai/models';
 import { findLastAssistant } from '@studio/common/ai/session-events';
 import { randomThinkingMessage } from '@studio/common/ai/thinking-messages';
-import { getToolDetail, getToolDisplayName } from '@studio/common/ai/tools';
+import { getToolDetail, getToolDisplayName, getToolResultPreview } from '@studio/common/ai/tools';
 import chalk from '@studio/common/lib/chalk';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, _n, sprintf } from '@wordpress/i18n';
@@ -266,7 +266,7 @@ function formatToolName( name: string, input?: Record< string, unknown > ): stri
 	const displayName = chalk.bold( getToolDisplayName( name ) );
 	const detail = getToolDetail( name, input );
 	if ( detail ) {
-		return displayName + ' ' + chalk.dim( '(' + detail + ')' );
+		return displayName + ' ' + chalk.dim( detail );
 	}
 	return displayName;
 }
@@ -1654,6 +1654,23 @@ export class AiChatUI implements AiOutputAdapter {
 		return { collapsed, expanded };
 	}
 
+	private generateHiddenDetailsPreview(
+		text: string,
+		label: string,
+		maxLength = 4000
+	): { collapsed: string; expanded: string } {
+		const expandedText =
+			text.length > maxLength
+				? text.slice( 0, maxLength ) + '\n' + __( '... output truncated' )
+				: text;
+		return {
+			collapsed: formatToolOutputLines( [ chalk.dim( label ) ] ),
+			expanded: formatToolOutputLines(
+				expandedText.split( '\n' ).map( ( line ) => chalk.dim( line ) )
+			),
+		};
+	}
+
 	private generateWritePreview( content: string ): { collapsed: string; expanded: string } {
 		const lines = content.split( '\n' );
 		const totalLines = lines.length;
@@ -1757,7 +1774,8 @@ export class AiChatUI implements AiOutputAdapter {
 
 	private renderToolResultText(
 		content: string | Array< { type: string; text?: string } >,
-		toolName?: string
+		toolCall?: PendingToolCall,
+		isError = false
 	): void {
 		let text: string;
 		if ( typeof content === 'string' ) {
@@ -1769,6 +1787,32 @@ export class AiChatUI implements AiOutputAdapter {
 				.join( '\n' );
 		}
 		if ( ! text ) {
+			return;
+		}
+
+		const toolName = toolCall?.name;
+		const preview = getToolResultPreview( toolName, toolCall?.input, text, isError );
+		if ( preview ) {
+			this.messages.addChild(
+				new Text(
+					formatToolOutputLines(
+						preview.summaryLines.map( ( line ) =>
+							isError ? chalk.red( line ) : chalk.dim( line )
+						)
+					),
+					0,
+					0
+				)
+			);
+			if ( preview.detailText ) {
+				this.addExpandablePreview(
+					this.generateHiddenDetailsPreview(
+						preview.detailText,
+						preview.detailLabel ?? __( 'Full output hidden · ctrl+o to expand' ),
+						preview.detailMaxLength
+					)
+				);
+			}
 			return;
 		}
 
@@ -1807,7 +1851,6 @@ export class AiChatUI implements AiOutputAdapter {
 		const typedResult = this.getToolResultContent( result );
 		const isError = typedResult.isError === true;
 		const label = toolCall?.label ?? chalk.bold( __( 'Tool' ) );
-		const toolName = toolCall?.name;
 
 		// Auto-select the site that was operated on
 		if ( ! isError && toolCall ) {
@@ -1824,7 +1867,7 @@ export class AiChatUI implements AiOutputAdapter {
 			this.tui.requestRender();
 			return;
 		}
-		this.renderToolResultText( content, toolName );
+		this.renderToolResultText( content, toolCall, isError );
 		this.tui.requestRender();
 	}
 
@@ -1842,7 +1885,7 @@ export class AiChatUI implements AiOutputAdapter {
 			this.renderToolUseLine( true, pendingTodoRender.toolLabel, pendingTodoRender.startedAtMs );
 			this.syncLatestTodoSnapshot();
 			if ( typedResult.content !== undefined ) {
-				this.renderToolResultText( typedResult.content, 'TodoWrite' );
+				this.renderToolResultText( typedResult.content, undefined, true );
 			}
 			this.tui.requestRender();
 			return;

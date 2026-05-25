@@ -2,7 +2,6 @@ import {
 	getStudioPresentationRulesPrompt,
 	getStudioWidgetPromptManifest,
 } from '@studio/common/ai/studio-widgets';
-import { buildPluginRecommendationsSection } from './plugin-recommendations';
 
 interface RemoteSiteContext {
 	name: string;
@@ -257,7 +256,6 @@ const REMOTE_DESIGN_GUIDELINES = `## Design capabilities by plan
 - Custom CSS, global styles, plugin management, and advanced customization become available.
 - Check the specific plan to determine exact capabilities.`;
 
-// Evaluated lazily so unit tests that stub PLUGIN_RECOMMENDATIONS still work.
 function buildLocalContentGuidelines(): string {
 	return `## Block content guidelines
 
@@ -282,11 +280,11 @@ To break out of the content width, use these three patterns:
 - **Full-bleed section, full-bleed inner** (image grids, edge-to-edge galleries): outer AND inner \`core/group {"align":"full","layout":{"type":"default"}}\`. Children render at full viewport width.
 - **Standard constrained content**: omit \`align\` entirely and write blocks normally.
 
-The single most common failure is "I made a hero full-width but its inner content is narrow" — that's a missing \`align: "full"\` on the outer group or a mismatched inner \`layout\` type. Fix in markup, not in CSS.
-
-${ buildPluginRecommendationsSection() }`;
+The single most common failure is "I made a hero full-width but its inner content is narrow" — that's a missing \`align: "full"\` on the outer group or a mismatched inner \`layout\` type. Fix in markup, not in CSS.`;
 }
 
 const LOCAL_SKILL_ROUTING = `## Skill routing
 
-For any site creation, redesign, landing page, homepage, layout, style, CSS, typography, color, motion, or visual polish work, load the \`visual-design\` skill before writing design files or block markup.`;
+For any site creation, redesign, landing page, homepage, layout, style, CSS, typography, color, motion, or visual polish work, load the \`visual-design\` skill before writing design files or block markup.
+
+For forms, newsletter signup, ecommerce, events, LMS, galleries/slideshows, embeds, SEO/performance plugin choices, or any feature that core WordPress blocks do not cleanly provide, load the \`plugin-recommendations\` skill before installing plugins or writing plugin-provided block markup.`;

@@ -1,4 +1,4 @@
-import { PLUGIN_RECOMMENDATIONS } from './plugin-recommendations';
+import { HTML_BLOCK_POLICY_RECOMMENDATIONS } from './plugin-recommendations';
 
 const BLOCK_COMMENT_PATTERN = /<!--\s*\/?wp:[^>]*-->/g;
 const SINGLE_SCRIPT_PATTERN = /^<script(?:\s[^>]*)?>[\s\S]*<\/script>\s*$/i;
@@ -20,11 +20,9 @@ export function getHtmlBlockPolicyIssues( content: string ): string[] {
 	}
 
 	// Check plugin-specific patterns first so we return a targeted message.
-	for ( const recommendation of PLUGIN_RECOMMENDATIONS ) {
-		if ( recommendation.htmlPatterns && recommendation.htmlPolicyMessage ) {
-			if ( recommendation.htmlPatterns.some( ( pattern ) => pattern.test( html ) ) ) {
-				return [ recommendation.htmlPolicyMessage ];
-			}
+	for ( const recommendation of HTML_BLOCK_POLICY_RECOMMENDATIONS ) {
+		if ( recommendation.htmlPatterns.some( ( pattern ) => pattern.test( html ) ) ) {
+			return [ recommendation.htmlPolicyMessage ];
 		}
 	}
 

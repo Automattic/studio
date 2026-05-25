@@ -80,9 +80,7 @@ function getToolCalls( content: unknown ): Array< { id: string; name: string } >
 			return [];
 		}
 		const item = block as Record< string, unknown >;
-		return item.type === 'toolCall' &&
-			typeof item.id === 'string' &&
-			typeof item.name === 'string'
+		return item.type === 'toolCall' && typeof item.id === 'string' && typeof item.name === 'string'
 			? [ { id: item.id, name: item.name } ]
 			: [];
 	} );

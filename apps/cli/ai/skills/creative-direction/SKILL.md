@@ -1,6 +1,6 @@
 ---
 name: creative-direction
-description: Expand a vague site brief into a rich content and structure plan. Infer site type, choose appropriate pages and sections, make bold design decisions, and briefly tell the user what you're building — then build it without asking.
+description: Expand a vague site brief into a rich content and structure plan. Infer site type, choose appropriate pages and sections, commit to a fitting design direction, and briefly tell the user what you're building — then build it without asking.
 user-invokable: false
 ---
 
@@ -10,26 +10,25 @@ When building a new WordPress site from a brief or vague prompt, use this skill 
 
 ## Step 1 — Detect the Site Type
 
-From the site name and prompt, identify the category:
+From the site name and prompt, infer what kind of site this is. Use your judgment freely — the following are common patterns, not an exhaustive list:
 
-| Type | Signals |
-|------|---------|
-| Bar / Nightclub / Venue | bar, club, lounge, pub, tavern, speakeasy, nightlife |
-| Restaurant / Café / Bakery | restaurant, café, bistro, diner, bakery, brunch, eatery |
-| Coffee Shop | coffee, roastery, espresso, café + specialty/third-wave |
-| Portfolio (Photo / Design / Art) | photographer, designer, artist, illustrator, studio |
-| Agency / Creative Studio | agency, studio, consulting, branding, digital |
-| SaaS / Tech Product | app, software, platform, tool, saas, product |
-| Fitness / Gym / Yoga | gym, fitness, yoga, pilates, crossfit, wellness, studio |
-| Salon / Spa / Beauty | salon, spa, beauty, barbershop, nail, aesthetics |
-| Non-profit / Cause | foundation, charity, non-profit, org, cause, community |
-| Real Estate | realty, properties, homes, listings, agent |
-| Professional Services | law, legal, dental, medical, clinic, accounting, finance |
-| Personal Blog / Magazine | blog, journal, magazine, editorial |
+- **Bar / Nightclub / Venue** — bar, club, lounge, pub, tavern, speakeasy, nightlife
+- **Restaurant / Café / Bakery** — restaurant, café, bistro, diner, bakery, brunch, eatery
+- **Coffee Shop** — coffee, roastery, espresso, specialty/third-wave café
+- **Portfolio (Photo / Design / Art)** — photographer, designer, artist, illustrator, studio
+- **Agency / Creative Studio** — agency, studio, consulting, branding, digital
+- **SaaS / Tech Product** — app, software, platform, tool, saas, product
+- **Fitness / Gym / Yoga** — gym, fitness, yoga, pilates, crossfit, wellness, studio
+- **Salon / Spa / Beauty** — salon, spa, beauty, barbershop, nail, aesthetics
+- **Non-profit / Cause** — foundation, charity, org, cause, community
+- **Professional Services** — law, dental, medical, clinic, accounting, finance
+- **Personal Blog / Magazine** — blog, journal, magazine, editorial
+
+For anything not on this list, reason by analogy: what kind of site does this business actually need?
 
 ## Step 2 — Expand Into Pages and Sections
 
-Based on the site type, decide which pages and home-page sections to create. **Do not default to a minimal one-page placeholder** when the type clearly warrants more. Below are the standard content plans — adapt based on the name and any details the user gave.
+Based on the site type, decide which pages and home-page sections to create. **Do not default to a minimal one-page placeholder** when the type clearly warrants more. The examples below are starting points — treat them as inspiration, not prescriptions. Adapt freely based on the site name and any details the user gave.
 
 ### Bar / Nightclub / Venue
 **Pages**: Home, Menu (drinks & food), Events, Gallery, Contact + Hours  
@@ -99,15 +98,15 @@ Based on the site type, decide which pages and home-page sections to create. **D
 
 ## Step 3 — Pick a Design Direction
 
-Commit to a bold aesthetic that fits the site name and type. Use the name as a creative prompt:
+Commit to an aesthetic that genuinely fits the site name and type. Use the name as a creative brief — the right answer is different every time. Some examples of how a name can point to a direction:
 
-- *"Boogie Bar"* → dark & moody; jazz/funk energy; amber + deep black; retro-bold headlines
+- *"Boogie Bar"* → dark & moody; jazz/funk energy; amber + deep black; retro headlines
 - *"Morning Light Bakery"* → warm, handcrafted; cream + terracotta; flowing serif display
-- *"Apex Fitness"* → high-contrast; kinetic; bold sans-serif; black + electric accent
+- *"Apex Fitness"* → high-contrast; kinetic; strong sans-serif; black + electric accent
 - *"Root Studio"* (yoga) → organic, grounded; earth tones; soft, breathing layout
 - *"Hartley & Associates"* (law) → authoritative, minimal; navy + gold; refined serif
 
-The name is a creative brief. Read it. Do not default to safe/generic.
+These are illustrations, not a template. Read the name. Do not default to safe/generic.
 
 ## Step 4 — Brief the User in ≤4 Lines
 

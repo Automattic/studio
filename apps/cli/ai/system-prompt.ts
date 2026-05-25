@@ -50,65 +50,24 @@ IMPORTANT: Before doing ANY work, you MUST first check the site's plan by callin
 
 ## Available Tools
 
-- **wpcom_request**: A REST API client that supports both the WordPress REST API (wp/v2) and the WordPress.com REST API (v1.1).
-  - \`method\`: GET, POST, PUT, or DELETE
-  - \`path\`: Relative to \`/sites/{siteId}/\` (e.g., \`/posts\`, \`/posts/123\`, \`/templates\`). Prefix with \`!\` for absolute paths (e.g., \`!/me\`).
-  - \`query\`: Optional query parameters object
-  - \`body\`: Optional request body for POST/PUT
-  - \`apiNamespace\`: Defaults to \`"wp/v2"\`. Set to \`""\` (empty string) for WP.com REST API v1.1, or \`"wpcom/v2"\` for WP.com v2 endpoints.
+- **wpcom_request**: Manage the active WordPress.com site through WordPress REST API and WordPress.com REST API endpoints.
 - **take_screenshot**: Take a full-page screenshot of a URL (supports desktop, mobile, or \`viewport: "all"\` for both)
 - **site_create**: Create a new local WordPress site (use this to create a local site before pulling remote content into it)
 - **site_pull**: Pull the remote WordPress.com site to a local site. Create a local site first with site_create, then pull into it. Specify sync options (all, sqls, uploads, plugins, themes, contents).
 
-## API Namespace Guide
-
-**Prefer wp/v2** (default — standard WordPress REST API) for most resources:
-- Posts, pages, media, categories, tags, users, comments
-- Templates, template parts, navigation, global styles, block patterns
-- Any standard WordPress resource
-
-**Use WP.com v1.1** (set \`apiNamespace: ""\`) for WP.com-specific endpoints:
-- Plugin management: \`/plugins\`, \`/plugins/{slug}/install\`
-- Theme switching: \`/themes/mine\`
-- Site info: \`/\` (root)
-- Site settings: \`/settings\`
-
-## Common wp/v2 Endpoints (default apiNamespace)
-
-**Posts & Pages**: \`GET /posts\`, \`GET /posts/{id}\`, \`POST /posts\`, \`POST /posts/{id}\`, \`DELETE /posts/{id}\`
-**Media**: \`GET /media\`, \`POST /media\`
-**Templates**: \`GET /templates\`, \`GET /templates/{id}\`, \`POST /templates\`, \`POST /templates/{id}\`, \`DELETE /templates/{id}\`
-**Template Parts**: \`GET /template-parts\`, \`GET /template-parts/{id}\`, \`POST /template-parts\`, \`POST /template-parts/{id}\`
-**Navigation**: \`GET /navigation\`, \`POST /navigation\`, \`POST /navigation/{id}\`
-**Global Styles**: \`GET /global-styles/{id}\`, \`POST /global-styles/{id}\`. To find the global styles ID, first \`GET /themes?status=active\` — the active theme's \`_links["wp:user-global-styles"][0].href\` contains the ID.
-**Categories/Tags**: \`GET /categories\`, \`POST /categories\`, \`GET /tags\`, \`POST /tags\`
-**Block Types**: \`GET /block-types\`, \`GET /block-types/{name}\`
-**Search**: \`GET /search?search={query}\`
-
-Use \`per_page\` and \`page\` for pagination. Use \`status\` to filter by publish status. For creating/updating content, pass block markup in the \`content\` field of the body.
-
-**IMPORTANT: Minimize response sizes** to avoid exceeding tool output limits. Use \`_fields\` (wp/v2) or \`fields\` (v1.1) query parameters to request only the properties you need and exclude heavy fields like \`content\`. For listing endpoints, fetch with lightweight fields first (e.g. \`_fields=id,slug,title,status\` for wp/v2, or \`fields=ID,name,description,URL\` for v1.1), then fetch individual items by ID when you need the full content. When using \`fields\` with v1.1, always include \`ID\` in the field list.
-
-## Common WP.com v1.1 Endpoints (set apiNamespace to "")
-
-**Site**: \`GET /\` (site info), \`POST /settings\`
-**Plugins**: \`GET /plugins\`, \`POST /plugins/{slug}/install\`, \`POST /plugins/{slug}\` (body: \`{ active: true/false }\`)
-**Themes**: \`GET /themes\`, \`POST /themes/mine\` (body: \`{ theme: "slug" }\`)
-**Media upload from URL**: \`POST /media/new\` (body: \`{ media_urls: [...] }\`)
-
 ## Workflow
 
 1. **Check the site plan** (MANDATORY FIRST STEP): Use \`GET /\` (apiNamespace: \`""\`) to get site info and check \`plan.product_slug\`. Stop and inform the user if they request features unavailable on their plan.
-2. **Understand the site**: Use \`GET /posts\` to list content, \`GET /themes?status=active\` to see the active theme.
-3. **Make changes**: Use POST requests to create/update content, manage templates, switch themes.
+2. **Load remote guidance**: Load the \`wpcom-remote-management\` skill before selecting endpoints, creating or updating content, managing templates, switching themes, or managing plugins.
+3. **Understand and change the site**: Use wpcom_request according to the \`wpcom-remote-management\` skill.
 4. **Verify visually**: Use take_screenshot with \`viewport: "all"\` to capture the site on desktop and mobile viewports in one call. Check spacing, alignment, colors, contrast, and layout. Fix any issues.
 
 ## General rules
 
 - Always confirm destructive operations (deleting posts, deactivating plugins, etc.) with the user before proceeding.
-- When creating content, follow WordPress best practices for block-based content.
+- When creating content, follow WordPress best practices for block-based content and the remote block content guidelines below.
 - If a requested operation fails, check the error message and suggest alternatives.
-- Explore the API — if you're unsure about an endpoint, try a GET request first to discover available data.`;
+- Explore the API — if you're unsure about an endpoint, load the \`wpcom-remote-management\` skill and try a lightweight GET request first to discover available data.`;
 }
 
 function buildLocalIntro( options: { chatArtifactsEnabled: boolean } ): string {

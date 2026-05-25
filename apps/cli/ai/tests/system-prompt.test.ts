@@ -2,6 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { loadSkills } from '../skills';
 import { buildSystemPrompt } from '../system-prompt';
 
+const remoteSite = {
+	name: 'Remote Studio Test',
+	url: 'https://example.wordpress.com',
+	id: 123,
+};
+
 function extractReferencedSkillNames( prompt: string ): string[] {
 	return [
 		...new Set( Array.from( prompt.matchAll( /`([a-z0-9-]+)` skill/g ), ( match ) => match[ 1 ] ) ),
@@ -60,12 +66,24 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).not.toContain( 'core/post-content' );
 	} );
 
-	it( 'references only bundled local skills', () => {
-		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
+	it( 'routes remote WordPress.com endpoint recipes to the remote management skill', () => {
+		const prompt = buildSystemPrompt( { remoteSite } );
+
+		expect( prompt ).toContain( 'wpcom-remote-management' );
+		expect( prompt ).toContain( 'Before doing ANY work, you MUST first check the site' );
+		expect( prompt ).not.toContain( '## API Namespace Guide' );
+		expect( prompt ).not.toContain( '## Common wp/v2 Endpoints' );
+	} );
+
+	it( 'references only bundled skills', () => {
+		const prompts = [
+			buildSystemPrompt( { chatArtifactsEnabled: true } ),
+			buildSystemPrompt( { remoteSite } ),
+		];
 		const availableSkillNames = new Set( loadSkills().map( ( skill ) => skill.name ) );
-		const missingSkillNames = extractReferencedSkillNames( prompt ).filter(
-			( skillName ) => ! availableSkillNames.has( skillName )
-		);
+		const missingSkillNames = prompts
+			.flatMap( extractReferencedSkillNames )
+			.filter( ( skillName ) => ! availableSkillNames.has( skillName ) );
 
 		expect( missingSkillNames ).toEqual( [] );
 	} );

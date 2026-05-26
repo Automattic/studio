@@ -1,11 +1,7 @@
 import { Type } from 'typebox';
 import { emitProgress } from 'cli/logger';
 import { defineTool } from './define-tool';
-import {
-	captureScreenshotPngBuffer,
-	saveScreenshotPngToTempFile,
-	VIEWPORTS,
-} from './screenshot-helpers';
+import { captureScreenshotBuffer, saveScreenshotToTempFile, VIEWPORTS } from './screenshot-helpers';
 
 const screenshotViewportSchema = Type.Enum( [ 'desktop', 'mobile', 'all' ], {
 	description:
@@ -28,7 +24,7 @@ function getViewportLabel( viewportTypes: ScreenshotViewportType[] ): string {
 export const takeScreenshotTool = defineTool(
 	'take_screenshot',
 	'Takes a full-page screenshot of a URL. Returns the screenshot as an image that you can analyze visually. ' +
-		'Also saves the screenshot as a temporary local PNG and returns a ready-to-use media widget payload. ' +
+		'Also saves the screenshot as a temporary local image and returns a ready-to-use media widget payload. ' +
 		'Supports desktop and mobile viewports; pass `viewport: "all"` when you need both for design verification. ' +
 		'Use this to verify the site looks correct after building it. ' +
 		'Use `share_screenshot` instead only in remote sessions where you need to deliver the rendered page outside the Studio UI.',
@@ -43,13 +39,18 @@ export const takeScreenshotTool = defineTool(
 			emitProgress( `Taking ${ viewportLabel } screenshot of ${ args.url }…` );
 			const captures = await Promise.all(
 				viewportTypes.map( async ( viewportType ) => {
-					const buffer = await captureScreenshotPngBuffer( args.url, VIEWPORTS[ viewportType ], {
+					const buffer = await captureScreenshotBuffer( args.url, VIEWPORTS[ viewportType ], {
 						fullPage: true,
+						format: 'jpeg',
 					} );
-					const screenshotFile = await saveScreenshotPngToTempFile( buffer, { viewportType } );
+					const screenshotFile = await saveScreenshotToTempFile( buffer, {
+						viewportType,
+						format: 'jpeg',
+					} );
 					return {
 						viewportType,
 						buffer,
+						mimeType: screenshotFile.mimeType,
 						mediaWidgetPayload: {
 							type: 'media',
 							widgetProps: {
@@ -92,7 +93,7 @@ export const takeScreenshotTool = defineTool(
 					...captures.map( ( capture ) => ( {
 						type: 'image' as const,
 						data: capture.buffer.toString( 'base64' ),
-						mimeType: 'image/png',
+						mimeType: capture.mimeType,
 					} ) ),
 				],
 			};

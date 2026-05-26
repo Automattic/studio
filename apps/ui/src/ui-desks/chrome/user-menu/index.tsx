@@ -1,6 +1,6 @@
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { chevronDownSmall } from '@wordpress/icons';
+import { chevronDownSmall, commentAuthorAvatar } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { Gravatar } from '@/components/gravatar';
 import { SiteIcon } from '@/components/site-icon';
@@ -91,7 +91,12 @@ export function DeskMenu( { siteId, disabled = false, showSiteName = true }: Des
 			{ user ? (
 				<Gravatar className={ styles.avatar } email={ user.email } isDark={ themeIsDark } />
 			) : (
-				<span className={ styles.loginAvatar } aria-hidden="true" />
+				<Icon
+					icon={ commentAuthorAvatar }
+					size={ 24 }
+					className={ styles.loginAvatar }
+					aria-hidden="true"
+				/>
 			) }
 		</Button>
 	);

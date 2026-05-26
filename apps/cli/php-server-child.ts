@@ -10,7 +10,6 @@ import { ChildProcess, spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
 import { writeStudioMuPluginsForNativePhpRuntime } from '@studio/common/lib/mu-plugins';
 import { decodePassword } from '@studio/common/lib/passwords';
@@ -24,6 +23,7 @@ import {
 	ChildMessageRaw,
 	ServerConfig,
 } from 'cli/lib/types/wordpress-server-ipc';
+import { requestSetAdminCredentials, toUrlSearchParams } from './lib/admin-credentials';
 import {
 	getBlueprintsPharPath,
 	getPhpBinaryPath,
@@ -112,6 +112,7 @@ function errorToConsole( ...args: Parameters< typeof console.error > ) {
 }
 
 type SpawnPhpProcessOptions = {
+	detached?: boolean;
 	disallowRiskyFunctions?: boolean;
 	env?: NodeJS.ProcessEnv;
 	mode?: 'pipe' | 'capture-stdout';
@@ -130,6 +131,7 @@ function spawnPhpProcess(
 		signal,
 		env,
 		mode = 'pipe',
+		detached = false,
 		enableXdebug = false,
 		onlyPathsThatPhpCanAccess = [],
 		disallowRiskyFunctions = false,
@@ -147,6 +149,7 @@ function spawnPhpProcess(
 		env: env ? { ...process.env, ...env } : process.env,
 		stdio: [ 'ignore', 'pipe', 'pipe' ],
 		signal,
+		detached,
 	} );
 
 	if ( mode === 'pipe' ) {
@@ -162,6 +165,19 @@ function spawnPhpProcess(
 }
 
 type RunPhpCommandOptions = SpawnPhpProcessOptions;
+
+function killProcessGroup( child: ChildProcess, signal: NodeJS.Signals ): void {
+	if ( process.platform !== 'win32' && child.pid ) {
+		try {
+			process.kill( -child.pid, signal );
+			return;
+		} catch {
+			// Fall back to the parent process if the process group is already gone.
+		}
+	}
+
+	child.kill( signal );
+}
 
 async function runPhpCommand(
 	args: string[],
@@ -372,6 +388,37 @@ async function installWordPress(
 	}
 }
 
+async function setAdminCredentials( config: ServerConfig, signal: AbortSignal ): Promise< void > {
+	try {
+		await requestSetAdminCredentials( config, async ( request ) => {
+			const response = await fetch( `http://localhost:${ config.port }${ request.url }`, {
+				method: request.method,
+				body: toUrlSearchParams( request.body ),
+				signal,
+			} );
+			if ( ! response.ok ) {
+				throw new Error( await getAdminCredentialsErrorMessage( response ) );
+			}
+		} );
+	} catch ( error ) {
+		throw new Error(
+			`Failed to set admin credentials: ${
+				error instanceof Error ? error.message : String( error )
+			}`
+		);
+	}
+}
+
+async function getAdminCredentialsErrorMessage( response: Response ): Promise< string > {
+	const text = await response.text();
+	try {
+		const result = JSON.parse( text ) as { error?: string };
+		return result.error ?? text;
+	} catch {
+		return text || response.statusText;
+	}
+}
+
 // The symlink watcher is used to detect new symlinks in wp-content and its subdirectories. When a
 // new symlink is detected, it is added to the open_basedir allow list and the server is restarted.
 function startSymlinkWatcher( sitePath: string ): void {
@@ -472,14 +519,12 @@ async function restartPhpServer(): Promise< void > {
 	const oldChild = phpProcess;
 	phpProcess = null;
 
-	// Detach so the imminent SIGTERM is not reported as an unexpected crash.
+	// Remove the crash listener so the imminent SIGTERM is not reported as an unexpected crash.
 	oldChild.removeAllListeners( 'exit' );
-	oldChild.kill( 'SIGTERM' );
+	killProcessGroup( oldChild, 'SIGTERM' );
 	await new Promise< void >( ( resolve ) => {
 		const timeout = setTimeout( () => {
-			if ( ! oldChild.killed ) {
-				oldChild.kill( 'SIGKILL' );
-			}
+			killProcessGroup( oldChild, 'SIGKILL' );
 		}, STOP_SERVER_TIMEOUT );
 		oldChild.once( 'close', () => {
 			clearTimeout( timeout );
@@ -540,7 +585,13 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		runningConfig = config;
 
 		phpProcess = await doStartServer( config, currentOpenBasedirAllowlist, stopSignal );
+		stopSignal.throwIfAborted();
+		await setAdminCredentials( config, stopSignal );
+		stopSignal.throwIfAborted();
 	} catch ( error ) {
+		killPhpProcess();
+		phpProcess = null;
+		await stopSymlinkWatcher();
 		runningConfig = null;
 		currentOpenBasedirAllowlist.clear();
 
@@ -578,12 +629,24 @@ async function doStartServer(
 				STUDIO_PHPMYADMIN_PATH: getPhpMyAdminPath(),
 				STUDIO_NATIVE_PHPMYADMIN_WP_ENV_PATH: phpMyAdminWpEnvPath,
 				STUDIO_PHPMYADMIN_SESSION_PATH: getPhpMyAdminSessionPath( config ),
+				// Lets `php -S` serve concurrent requests so a single slow request
+				// doesn't block the whole site. Unix-only — Windows silently ignores it
+				// because the built-in server has no fork() there.
+				PHP_CLI_SERVER_WORKERS: '4',
 			},
 			onlyPathsThatPhpCanAccess: Array.from( openBasedirAllowlist ),
+			detached: process.platform !== 'win32',
 			disallowRiskyFunctions: true,
 			enableXdebug: config.enableXdebug,
 		} );
 		spawnedChild = serverChild;
+		if ( serverChild.pid !== undefined ) {
+			const message: ChildMessageRaw = {
+				topic: 'server-process-started',
+				data: { pid: serverChild.pid },
+			};
+			process.send?.( message );
+		}
 
 		await new Promise< void >( ( resolve, reject ) => {
 			serverChild.once( 'spawn', () => {
@@ -614,8 +677,8 @@ async function doStartServer(
 
 		return spawnedChild;
 	} catch ( error ) {
-		if ( spawnedChild && ! spawnedChild.killed ) {
-			spawnedChild.kill( 'SIGKILL' );
+		if ( spawnedChild ) {
+			killProcessGroup( spawnedChild, 'SIGKILL' );
 		}
 		await stopSymlinkWatcher();
 
@@ -657,17 +720,15 @@ async function stopServer(): Promise< StopServerResult > {
 	await new Promise< void >( ( resolve ) => {
 		const forceKillTimeout = setTimeout( () => {
 			errorToConsole( 'PHP child did not exit in time; sending SIGKILL' );
-			if ( ! child.killed ) {
-				child.kill( 'SIGKILL' );
-			}
+			killProcessGroup( child, 'SIGKILL' );
 		}, STOP_SERVER_TIMEOUT );
 
-		child.once( 'exit', () => {
+		child.once( 'close', () => {
 			clearTimeout( forceKillTimeout );
 			resolve();
 		} );
 
-		child.kill( 'SIGTERM' );
+		killProcessGroup( child, 'SIGTERM' );
 	} );
 
 	logToConsole( 'Server stopped gracefully' );
@@ -715,15 +776,13 @@ async function runBlueprint(
 		WP_DEBUG_DISPLAY: enableDebugDisplay,
 	};
 
-	const preferredVersions = {
-		php: config.phpVersion || blueprint.contents?.preferredVersions?.php || DEFAULT_PHP_VERSION,
-		wp: config.wpVersion || blueprint.contents?.preferredVersions?.wp || 'latest',
-	};
 	blueprint.contents.constants = {
 		...blueprint.contents.constants,
 		...defaultConstants,
 	};
-	blueprint.contents.preferredVersions = preferredVersions;
+	// Native PHP selects PHP and installs WordPress before Blueprint execution.
+	// Passing preferredVersions makes blueprints.phar validate versions it does not manage here.
+	delete blueprint.contents.preferredVersions;
 
 	// Write the merged blueprint next to the original so blueprints.phar resolves any
 	// relative file references against the original blueprint's directory — its runner
@@ -898,11 +957,11 @@ async function ipcMessageHandler( packet: unknown ) {
 }
 
 function killPhpProcess(): void {
-	if ( phpProcess && ! phpProcess.killed ) {
+	if ( phpProcess ) {
 		try {
 			// Detach the unexpected-exit listener so the imminent SIGKILL is not logged as a crash.
 			phpProcess.removeAllListeners( 'exit' );
-			phpProcess.kill( 'SIGKILL' );
+			killProcessGroup( phpProcess, 'SIGKILL' );
 		} catch {
 			// Best effort — nothing useful to do if this fails.
 		}

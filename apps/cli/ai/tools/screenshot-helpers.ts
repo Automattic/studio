@@ -44,6 +44,14 @@ export const SHARE_DEVICE_SCALE_FACTOR = 2;
  */
 const MODEL_JPEG_QUALITY = 80;
 
+/**
+ * Anthropic's vision API rejects images whose pixel width OR height exceeds
+ * 8000. Long full-page captures of design-heavy sites blow past this in the
+ * height dimension; clip the capture region to keep us inside the limit and
+ * let callers pass `offset` to fetch subsequent slices on follow-up calls.
+ */
+export const MAX_IMAGE_DIMENSION_PX = 8000;
+
 const IMAGE_SETTLE_TIMEOUT_MS = 3000;
 const PAGE_SETTLE_TIMEOUT_MS = 2500;
 
@@ -55,12 +63,25 @@ async function waitForPageToSettle( page: Page ): Promise< void > {
 
 export type ScreenshotFormat = 'png' | 'jpeg';
 
+export interface ScreenshotCapture {
+	buffer: Buffer;
+	documentHeight: number;
+	capturedHeight: number;
+	offset: number;
+	clipped: boolean;
+}
+
 /**
  * Capture a screenshot of `url` at the given viewport. Shared by both
  * `take_screenshot` and `share_screenshot`; callers decide whether to expose
  * the image as base64, a temp local file, or an external media event. Use
  * `jpeg` for vision-model input — full-page PNGs balloon to multi-MB and
  * trip the wpcom AI proxy's request-size limit.
+ *
+ * Full-page captures are clipped to {@link MAX_IMAGE_DIMENSION_PX} raw pixels
+ * tall (accounting for `deviceScaleFactor`); pass `offset` in CSS pixels to
+ * capture a subsequent slice of a long page. Returned metadata tells callers
+ * whether the page was clipped and how much remains.
  */
 export async function captureScreenshotBuffer(
 	url: string,
@@ -69,8 +90,9 @@ export async function captureScreenshotBuffer(
 		fullPage: boolean;
 		deviceScaleFactor?: number;
 		format?: ScreenshotFormat;
+		offset?: number;
 	}
-): Promise< Buffer > {
+): Promise< ScreenshotCapture > {
 	const format = options.format ?? 'png';
 	const browser = await getSharedBrowser();
 	const page = await browser.newPage( {
@@ -146,15 +168,52 @@ export async function captureScreenshotBuffer(
 			`,
 		} );
 
-		const buffer =
+		const dpr = options.deviceScaleFactor ?? 1;
+		const maxCssHeight = Math.floor( MAX_IMAGE_DIMENSION_PX / dpr );
+		const formatOptions =
 			format === 'jpeg'
-				? await page.screenshot( {
-						fullPage: options.fullPage,
-						type: 'jpeg',
-						quality: MODEL_JPEG_QUALITY,
-				  } )
-				: await page.screenshot( { fullPage: options.fullPage, type: 'png' } );
-		return Buffer.from( buffer );
+				? { type: 'jpeg' as const, quality: MODEL_JPEG_QUALITY }
+				: { type: 'png' as const };
+
+		if ( ! options.fullPage ) {
+			const buffer = await page.screenshot( { ...formatOptions } );
+			return {
+				buffer: Buffer.from( buffer ),
+				documentHeight: viewport.height,
+				capturedHeight: viewport.height,
+				offset: 0,
+				clipped: false,
+			};
+		}
+
+		const documentHeight = await page.evaluate( () =>
+			Math.max( document.body.scrollHeight, document.documentElement.scrollHeight )
+		);
+		const offset = Math.max( 0, Math.floor( options.offset ?? 0 ) );
+		if ( offset >= documentHeight ) {
+			throw new Error(
+				`offset ${ offset } exceeds document height ${ documentHeight }; nothing to capture.`
+			);
+		}
+		const remaining = documentHeight - offset;
+		const capturedHeight = Math.min( remaining, maxCssHeight );
+		// `fullPage: true` is required alongside `clip` so Playwright renders
+		// the entire document and crops to the requested region. Without it,
+		// the "resulting image" is the viewport and any clip.y beyond the
+		// viewport height fails with "Clipped area is either empty or outside
+		// the resulting image".
+		const buffer = await page.screenshot( {
+			...formatOptions,
+			fullPage: true,
+			clip: { x: 0, y: offset, width: viewport.width, height: capturedHeight },
+		} );
+		return {
+			buffer: Buffer.from( buffer ),
+			documentHeight,
+			capturedHeight,
+			offset,
+			clipped: offset + capturedHeight < documentHeight,
+		};
 	} finally {
 		await page.close();
 	}
@@ -171,8 +230,8 @@ export async function captureScreenshotPng(
 	viewport: { width: number; height: number },
 	options: { fullPage: boolean; deviceScaleFactor?: number }
 ): Promise< string > {
-	const buffer = await captureScreenshotBuffer( url, viewport, { ...options, format: 'png' } );
-	return buffer.toString( 'base64' );
+	const capture = await captureScreenshotBuffer( url, viewport, { ...options, format: 'png' } );
+	return capture.buffer.toString( 'base64' );
 }
 
 export async function saveScreenshotToTempFile(

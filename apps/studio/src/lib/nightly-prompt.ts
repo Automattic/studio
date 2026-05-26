@@ -37,7 +37,7 @@ async function isAutomattician(): Promise< boolean > {
  * - Skipped if the user is not authenticated or not an Automattician.
  */
 export async function maybePromptNightlySwitch(): Promise< void > {
-	if ( process.env.E2E ) {
+	if ( process.env.E2E || ! app.isPackaged ) {
 		return;
 	}
 

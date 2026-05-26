@@ -36,6 +36,7 @@ import { createSkillTool } from 'cli/ai/tools/skill';
 import { takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
 import { createWpcomRequestTool } from 'cli/ai/tools/wpcom-request';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
+import { stripStaleImagesFromContext } from './strip-stale-images';
 import {
 	type StudioToolPayloadGuardState,
 	updateStudioToolPayloadGuardState,
@@ -367,10 +368,14 @@ function createWpcomAnthropicProviderConfig(
 				defaultHeaders: options?.headers,
 			} );
 			const clientForPi = client as unknown as AnthropicOptions[ 'client' ];
-			return streamAnthropic( m as Model< 'anthropic-messages' >, ctx, {
-				...( options as AnthropicOptions | undefined ),
-				client: clientForPi,
-			} );
+			return streamAnthropic(
+				m as Model< 'anthropic-messages' >,
+				stripStaleImagesFromContext( ctx ),
+				{
+					...( options as AnthropicOptions | undefined ),
+					client: clientForPi,
+				}
+			);
 		},
 		models: [
 			{

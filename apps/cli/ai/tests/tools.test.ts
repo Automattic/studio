@@ -289,7 +289,7 @@ describe( 'Studio AI MCP tools', () => {
 	} );
 
 	it( 'keeps take_screenshot output compact while returning a media payload', async () => {
-		const screenshotBuffer = Buffer.from( 'fake-png' );
+		const screenshotBuffer = Buffer.from( 'fake-jpeg' );
 		const page = {
 			emulateMedia: vi.fn(),
 			goto: vi.fn(),
@@ -316,7 +316,7 @@ describe( 'Studio AI MCP tools', () => {
 		expect( result.content[ 1 ] ).toEqual( {
 			type: 'image',
 			data: screenshotBuffer.toString( 'base64' ),
-			mimeType: 'image/png',
+			mimeType: 'image/jpeg',
 		} );
 
 		const payload = JSON.parse( text!.split( 'mediaWidgetPayload=' )[ 1 ] ) as {
@@ -326,8 +326,8 @@ describe( 'Studio AI MCP tools', () => {
 	} );
 
 	it( 'can capture desktop and mobile screenshots in one take_screenshot call', async () => {
-		const desktopBuffer = Buffer.from( 'desktop-png' );
-		const mobileBuffer = Buffer.from( 'mobile-png' );
+		const desktopBuffer = Buffer.from( 'desktop-jpeg' );
+		const mobileBuffer = Buffer.from( 'mobile-jpeg' );
 		const createPage = ( buffer: Buffer ) => ( {
 			emulateMedia: vi.fn(),
 			goto: vi.fn(),
@@ -357,12 +357,12 @@ describe( 'Studio AI MCP tools', () => {
 			{
 				type: 'image',
 				data: desktopBuffer.toString( 'base64' ),
-				mimeType: 'image/png',
+				mimeType: 'image/jpeg',
 			},
 			{
 				type: 'image',
 				data: mobileBuffer.toString( 'base64' ),
-				mimeType: 'image/png',
+				mimeType: 'image/jpeg',
 			},
 		] );
 
@@ -371,8 +371,8 @@ describe( 'Studio AI MCP tools', () => {
 		} >;
 		try {
 			expect( payloads.map( ( payload ) => payload.widgetProps.source.name ) ).toEqual( [
-				'screenshot-desktop.png',
-				'screenshot-mobile.png',
+				'screenshot-desktop.jpg',
+				'screenshot-mobile.jpg',
 			] );
 		} finally {
 			await Promise.all(

@@ -25,20 +25,24 @@ function getStringParam( params: unknown, key: string ): string | undefined {
 	return typeof value === 'string' ? value : undefined;
 }
 
+function getPayloadRecoveryAdvice( toolName: string ): string {
+	if ( toolName === 'Bash' ) {
+		return 'Split the work into smaller Write/Edit calls. Do not retry with Bash heredocs or Python scripts; they carry the same large payload risk.';
+	}
+	return 'Write a small skeleton and fill it with smaller Edit calls. Do not split the content across multiple files to concatenate later; that hits the same limit on the concatenation step.';
+}
+
 function createPayloadLimitMessage(
 	toolName: string,
 	fieldName: string,
 	actualBytes: number,
 	maxBytes: number
 ): string {
-	const nextStep =
-		toolName === 'Bash'
-			? 'Split the work into smaller Write/Edit calls. Do not retry with Bash heredocs or Python scripts; they carry the same large payload risk.'
-			: 'Write a small skeleton and fill it with smaller Edit calls. Do not retry with Bash heredocs or Python scripts; they carry the same large payload risk.';
-
 	return `${ toolName } ${ fieldName } is ${ formatBytes(
 		actualBytes
-	) }, exceeding Studio's ${ formatBytes( maxBytes ) } single-call safety limit. ${ nextStep }`;
+	) }, exceeding Studio's ${ formatBytes( maxBytes ) } single-call safety limit. ${ getPayloadRecoveryAdvice(
+		toolName
+	) }`;
 }
 
 export function getPayloadLimitViolation( toolName: string, params: unknown ): string | undefined {
@@ -94,8 +98,9 @@ function getInProgressToolCall( content: unknown ): { id: string; name: string }
 function createIncompleteToolCallMessage( toolName: string ): string {
 	return (
 		`Refusing to run ${ toolName } because the assistant response hit the model output ` +
-		'limit while generating tool arguments. The arguments may be partial even if they ' +
-		'parse as JSON. Retry with smaller tool calls.'
+		`limit while generating tool arguments; the arguments may be incomplete. ${ getPayloadRecoveryAdvice(
+			toolName
+		) }`
 	);
 }
 

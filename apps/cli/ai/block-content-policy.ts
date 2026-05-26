@@ -7,7 +7,7 @@ const PLUGIN_RECOMMENDATION_HTML_BLOCK_POLICIES = [
 	{
 		htmlPatterns: [ /<(form|input|select|textarea|fieldset)\b/i ],
 		htmlPolicyMessage:
-			'core/html contains form markup. Load the plugin-recommendations skill and use editable plugin blocks such as Jetpack Forms or jetpack/subscriptions. This keeps forms editable in the block editor and handles submission without custom backend code.',
+			'core/html contains form markup. Load the plugin-recommendations skill and use editable plugin blocks such as Jetpack Forms. This keeps forms editable in the block editor and handles submission without custom backend code.',
 	},
 ];
 

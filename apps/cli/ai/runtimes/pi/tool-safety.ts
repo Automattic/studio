@@ -71,19 +71,24 @@ export function getPayloadLimitViolation( toolName: string, params: unknown ): s
 	return undefined;
 }
 
-function getToolCalls( content: unknown ): Array< { id: string; name: string } > {
-	if ( ! Array.isArray( content ) ) {
-		return [];
+// Only the last content block can be mid-generation when the model hits the
+// output cap — anything earlier was completed before the model moved on.
+function getInProgressToolCall( content: unknown ): { id: string; name: string } | undefined {
+	if ( ! Array.isArray( content ) || content.length === 0 ) {
+		return undefined;
 	}
-	return content.flatMap( ( block ) => {
-		if ( ! block || typeof block !== 'object' ) {
-			return [];
-		}
-		const item = block as Record< string, unknown >;
-		return item.type === 'toolCall' && typeof item.id === 'string' && typeof item.name === 'string'
-			? [ { id: item.id, name: item.name } ]
-			: [];
-	} );
+	const last = content[ content.length - 1 ];
+	if ( ! last || typeof last !== 'object' ) {
+		return undefined;
+	}
+	const item = last as Record< string, unknown >;
+	if ( item.type !== 'toolCall' ) {
+		return undefined;
+	}
+	if ( typeof item.id !== 'string' || typeof item.name !== 'string' ) {
+		return undefined;
+	}
+	return { id: item.id, name: item.name };
 }
 
 function createIncompleteToolCallMessage( toolName: string ): string {
@@ -102,15 +107,12 @@ export function updateStudioToolPayloadGuardState(
 		return;
 	}
 
-	const toolCalls = getToolCalls( event.message.content );
+	const inProgress = getInProgressToolCall( event.message.content );
 
-	if ( event.message.stopReason === 'length' && toolCalls.length > 0 ) {
-		state.incompleteToolCallReasons = Object.fromEntries(
-			toolCalls.map( ( toolCall ) => [
-				toolCall.id,
-				createIncompleteToolCallMessage( toolCall.name ),
-			] )
-		);
+	if ( event.message.stopReason === 'length' && inProgress ) {
+		state.incompleteToolCallReasons = {
+			[ inProgress.id ]: createIncompleteToolCallMessage( inProgress.name ),
+		};
 		return;
 	}
 

@@ -334,7 +334,10 @@ function buildModel(
 		provider: creds.useBearerAuth ? STUDIO_WPCOM_ANTHROPIC_PROVIDER : 'anthropic',
 		reasoning: true,
 		contextWindow: 200_000,
-		maxTokens: 16_384,
+		// thinkingLevel 'high' reserves ~16384 of this budget for extended thinking
+		// (see adjustMaxTokensForThinking in pi-ai); keep enough headroom for visible
+		// output so single tool calls can emit a full-page HTML payload.
+		maxTokens: 32_000,
 	};
 }
 

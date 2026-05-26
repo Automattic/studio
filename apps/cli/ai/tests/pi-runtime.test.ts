@@ -420,7 +420,7 @@ describe( 'pi runtime', () => {
 		const options = mocks.createdSessions[ 0 ].options;
 		expect( options.model?.provider ).toBe( 'studio-wpcom-anthropic' );
 		expect( options.model?.api ).toBe( 'anthropic-messages' );
-		expect( options.model?.maxTokens ).toBe( 16_384 );
+		expect( options.model?.maxTokens ).toBe( 32_000 );
 		expect( options.model?.input ).toEqual( [ 'text', 'image' ] );
 		const auth = await options.modelRegistry!.getApiKeyAndHeaders( options.model! );
 		expect( auth ).toMatchObject( {

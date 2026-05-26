@@ -3,6 +3,7 @@ import os from 'os';
 import path from 'path';
 import { SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { vi } from 'vitest';
+import { validateBlocks } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
 import { emitEvent } from 'cli/ai/json-events';
 import { setLocalSiteSelectedCallback } from 'cli/ai/site-selection';
@@ -125,6 +126,37 @@ describe( 'Studio AI MCP tools', () => {
 		tool: ReturnType< typeof resolveStudioToolDefinitions >[ number ],
 		args: Record< string, unknown >
 	) => tool.execute( 'tool-call-1', args as never, new AbortController().signal, () => {} );
+	const mockValidatedFix = ( fixedContent: string, blockName = 'core/paragraph' ) => {
+		vi.mocked( validateBlocks ).mockResolvedValue( {
+			totalBlocks: 1,
+			validBlocks: 0,
+			invalidBlocks: 1,
+			results: [
+				{
+					blockName,
+					isValid: false,
+					issues: [],
+					originalContent: '',
+				},
+			],
+			proposedFix: {
+				fixedContent,
+				report: {
+					totalBlocks: 1,
+					validBlocks: 1,
+					invalidBlocks: 0,
+					results: [
+						{
+							blockName,
+							isValid: true,
+							issues: [],
+							originalContent: '',
+						},
+					],
+				},
+			},
+		} );
+	};
 
 	beforeEach( () => {
 		vi.resetAllMocks();
@@ -150,6 +182,63 @@ describe( 'Studio AI MCP tools', () => {
 				'preview_delete',
 			] )
 		);
+	} );
+
+	it( 'reports invalid core/html blocks', async () => {
+		const result = await getTool( 'validate_html_blocks' ).rawHandler( {
+			content:
+				'<!-- wp:html --><form><label>Email<input type="email" /></label></form><!-- /wp:html -->',
+		} as never );
+
+		const text = getTextContent( result );
+		expect( text ).toContain( 'HTML block policy: 1/1 core/html blocks invalid' );
+		expect( text ).toContain( '<form>' );
+	} );
+
+	it( 'returns fixed inline block content', async () => {
+		const originalContent =
+			'<!-- wp:paragraph {"align":"center"} --><p>Hello</p><!-- /wp:paragraph -->';
+		const fixedContent =
+			'<!-- wp:paragraph {"align":"center"} -->\n<p class="has-text-align-center">Hello</p>\n<!-- /wp:paragraph -->';
+		mockValidatedFix( fixedContent );
+
+		const result = await getTool( 'validate_and_fix_blocks' ).rawHandler( {
+			nameOrPath: 'My Site',
+			content: originalContent,
+		} as never );
+
+		expect( validateBlocks ).toHaveBeenCalledWith(
+			originalContent,
+			expect.stringContaining( 'localhost:8888' )
+		);
+		const text = getTextContent( result );
+		expect( text ).toContain( 'Fixed block content:' );
+		expect( text ).toContain( fixedContent );
+	} );
+
+	it( 'applies valid editor serialization fixes to files', async () => {
+		const tempDir = await mkdtemp( path.join( os.tmpdir(), 'studio-block-fix-' ) );
+		const filePath = path.join( tempDir, 'page.html' );
+		const originalContent =
+			'<!-- wp:separator {"className":"section-rule"} --><hr class="wp-block-separator section-rule"/><!-- /wp:separator -->';
+		const fixedContent =
+			'<!-- wp:separator {"opacity":"css","className":"section-rule"} -->\n<hr class="wp-block-separator has-css-opacity section-rule"/>\n<!-- /wp:separator -->';
+		await writeFile( filePath, originalContent );
+		mockValidatedFix( fixedContent, 'core/separator' );
+
+		try {
+			const result = await getTool( 'validate_and_fix_blocks' ).rawHandler( {
+				nameOrPath: 'My Site',
+				filePath,
+			} as never );
+
+			await expect( readFile( filePath, 'utf8' ) ).resolves.toBe( fixedContent );
+			const text = getTextContent( result );
+			expect( text ).toContain( 'Auto-fix applied: 1/1 blocks valid' );
+			expect( text ).not.toContain( 'Fixed block content:' );
+		} finally {
+			await rm( tempDir, { recursive: true, force: true } );
+		}
 	} );
 
 	it( 'exposes the explicit presentation tool when chat artifacts are enabled', () => {

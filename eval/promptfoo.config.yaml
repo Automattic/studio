@@ -251,21 +251,36 @@ tests:
             const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
             if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
             const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
-            const validationResults = (d.toolResults || []).filter(r => r.toolName === 'validate_blocks');
+            const htmlResults = (d.toolResults || []).filter(r => r.toolName === 'validate_html_blocks');
+            if (htmlResults.length === 0) {
+              return { pass: false, score: 0, reason: 'validate_html_blocks was not called before editor validation' };
+            }
+            const lastHtml = htmlResults[htmlResults.length - 1];
+            const htmlText = lastHtml.text || '';
+            if (lastHtml.isError || !/HTML block policy:\s+0\/\d+\s+core\/html blocks invalid/i.test(htmlText)) {
+              return {
+                pass: false,
+                score: 0,
+                reason: `final validate_html_blocks result was invalid or inconclusive: ${(htmlText || JSON.stringify(lastHtml)).slice(0, 500)}`,
+              };
+            }
+            const validationResults = (d.toolResults || []).filter(r => r.toolName === 'validate_and_fix_blocks');
             if (validationResults.length === 0) {
-              return { pass: false, score: 0, reason: 'validate_blocks was not called after building the page' };
+              return { pass: false, score: 0, reason: 'validate_and_fix_blocks was not called after HTML policy validation' };
             }
             const last = validationResults[validationResults.length - 1];
             const text = last.text || '';
-            const failed = last.isError || /Invalid blocks:/i.test(text) || !/Validation:\s+\d+\/\d+\s+blocks valid/i.test(text);
+            const failed = last.isError ||
+              !/Validation:\s+\d+\/\d+\s+blocks valid/i.test(text) ||
+              /Auto-fix proposal failed validation|Auto-fix proposal still has|No automatic editor serialization fix was available/i.test(text);
             if (failed) {
               return {
                 pass: false,
                 score: 0,
-                reason: `final validate_blocks result was invalid or inconclusive: ${(text || JSON.stringify(last)).slice(0, 500)}`,
+                reason: `final validate_and_fix_blocks result was invalid or inconclusive: ${(text || JSON.stringify(last)).slice(0, 500)}`,
               };
             }
-            return { pass: true, score: 1, reason: `validate_blocks passed: ${(last.text || '').split(/\r?\n/)[0]}` };
+            return { pass: true, score: 1, reason: `validation passed: ${(last.text || '').split(/\r?\n/)[0]}` };
           });
 
   - description: agent reaches for Jetpack on slideshow request (catch-all rule)

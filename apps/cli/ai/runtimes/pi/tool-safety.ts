@@ -40,9 +40,9 @@ function createPayloadLimitMessage(
 ): string {
 	return `${ toolName } ${ fieldName } is ${ formatBytes(
 		actualBytes
-	) }, exceeding Studio's ${ formatBytes( maxBytes ) } single-call safety limit. ${ getPayloadRecoveryAdvice(
-		toolName
-	) }`;
+	) }, exceeding Studio's ${ formatBytes(
+		maxBytes
+	) } single-call safety limit. ${ getPayloadRecoveryAdvice( toolName ) }`;
 }
 
 export function getPayloadLimitViolation( toolName: string, params: unknown ): string | undefined {

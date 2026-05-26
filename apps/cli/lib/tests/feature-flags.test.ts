@@ -1,35 +1,33 @@
+import { SITE_RUNTIME_NATIVE_PHP, SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { isRemoteSessionEnabled } from 'cli/lib/feature-flags';
+import { getSiteRuntime } from 'cli/lib/feature-flags';
 
-describe( 'isRemoteSessionEnabled', () => {
-	const originalValue = process.env.STUDIO_ENABLE_REMOTE_SESSION;
+describe( 'getSiteRuntime', () => {
+	const originalValue = process.env.STUDIO_RUNTIME;
 
 	beforeEach( () => {
-		delete process.env.STUDIO_ENABLE_REMOTE_SESSION;
+		delete process.env.STUDIO_RUNTIME;
 	} );
 
 	afterEach( () => {
 		if ( originalValue === undefined ) {
-			delete process.env.STUDIO_ENABLE_REMOTE_SESSION;
+			delete process.env.STUDIO_RUNTIME;
 		} else {
-			process.env.STUDIO_ENABLE_REMOTE_SESSION = originalValue;
+			process.env.STUDIO_RUNTIME = originalValue;
 		}
 	} );
 
-	it( 'returns false when the env var is unset', () => {
-		expect( isRemoteSessionEnabled() ).toBe( false );
+	it( 'defaults to playground when the env var is unset', () => {
+		expect( getSiteRuntime() ).toBe( SITE_RUNTIME_PLAYGROUND );
 	} );
 
-	it( 'returns true only for the literal string "true"', () => {
-		process.env.STUDIO_ENABLE_REMOTE_SESSION = 'true';
-		expect( isRemoteSessionEnabled() ).toBe( true );
+	it( 'returns native-php when STUDIO_RUNTIME=native-php', () => {
+		process.env.STUDIO_RUNTIME = SITE_RUNTIME_NATIVE_PHP;
+		expect( getSiteRuntime() ).toBe( SITE_RUNTIME_NATIVE_PHP );
 	} );
 
-	it.each( [ '1', 'TRUE', 'yes', 'on', '' ] )(
-		'returns false for non-canonical truthy-looking values: %s',
-		( value ) => {
-			process.env.STUDIO_ENABLE_REMOTE_SESSION = value;
-			expect( isRemoteSessionEnabled() ).toBe( false );
-		}
-	);
+	it( 'falls back to playground for unknown values', () => {
+		process.env.STUDIO_RUNTIME = 'nonsense';
+		expect( getSiteRuntime() ).toBe( SITE_RUNTIME_PLAYGROUND );
+	} );
 } );

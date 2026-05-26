@@ -32,6 +32,7 @@ export interface ChatsContextValue {
 	autoFocusSessionId?: string;
 	isCreatingChat: boolean;
 	pendingPrompt?: PendingChatPrompt;
+	authRequiredPrompt?: ChatPromptRequest;
 	composerWidgetAttachmentRequest?: ComposerWidgetAttachmentRequest;
 	composerWidgetDragPreview?: ComposerWidgetDragPreview;
 	isComposerWidgetDragTarget: boolean;
@@ -39,7 +40,7 @@ export interface ChatsContextValue {
 	switchSession: ( sessionId: string ) => void;
 	clearSelection: () => void;
 	startNewChat: () => Promise< void >;
-	startChatWithPrompt: ( request: ChatPromptRequest ) => Promise< void >;
+	startChatWithPrompt: ( request: ChatPromptRequest ) => Promise< string >;
 	consumePendingPrompt: ( promptId: string ) => void;
 	attachWidgetsToComposer: ( widgets: DeskWidget[] ) => void;
 	consumeComposerWidgetAttachmentRequest: ( requestId: string ) => void;
@@ -60,6 +61,7 @@ const defaultChatsContext: ChatsContextValue = {
 	autoFocusSessionId: undefined,
 	isCreatingChat: false,
 	pendingPrompt: undefined,
+	authRequiredPrompt: undefined,
 	composerWidgetAttachmentRequest: undefined,
 	composerWidgetDragPreview: undefined,
 	isComposerWidgetDragTarget: false,
@@ -85,7 +87,9 @@ function noopSetOpen() {}
 function noopSelectSession() {}
 function noopClearSelection() {}
 async function noopStartChat() {}
-async function noopStartChatWithPrompt() {}
+async function noopStartChatWithPrompt() {
+	return '';
+}
 function noopConsumePendingPrompt() {}
 function noopAttachWidgetsToComposer() {}
 function noopSetComposerWidgetDragPreview() {}

@@ -67,6 +67,7 @@
 }
 
 .note[data-text-size='1'] .editor,
+.note[data-text-size='1'] .using,
 .note[data-text-size='1'] .thumbnail,
 .editor[data-text-size='1'] {
 	font-size: 18px;
@@ -74,6 +75,7 @@
 }
 
 .note[data-text-size='2'] .editor,
+.note[data-text-size='2'] .using,
 .note[data-text-size='2'] .thumbnail,
 .editor[data-text-size='2'] {
 	font-size: 24px;
@@ -81,6 +83,7 @@
 }
 
 .note[data-text-size='3'] .editor,
+.note[data-text-size='3'] .using,
 .note[data-text-size='3'] .thumbnail,
 .editor[data-text-size='3'] {
 	font-size: 32px;
@@ -94,6 +97,11 @@
 }
 
 .note[data-has-annotation='true'] .editor {
+	min-height: 0;
+}
+
+.note[data-has-connections='true'] .editor {
+	flex: 0 0 auto;
 	min-height: 0;
 }
 
@@ -156,6 +164,104 @@
 .editor em,
 .thumbnail em {
 	font-style: italic;
+}
+
+.using {
+	flex: 0 0 auto;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 6px;
+	margin-top: 10px;
+	color: #14171a;
+	font-size: 14px;
+	line-height: 1.5;
+}
+
+.usingPill {
+	display: inline-flex;
+	align-items: center;
+	max-width: 100%;
+	padding: 0 8px;
+	border: 0;
+	border-radius: 12px;
+	corner-shape: superellipse(1.42);
+	-webkit-corner-shape: superellipse(1.42);
+	background: rgba(15, 23, 42, 0.6);
+	color: #fff;
+	cursor: pointer;
+	font: inherit;
+	font-weight: 400;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	transform-origin: center;
+	transition: filter 140ms ease;
+	animation: using-pop 240ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.usingPill:hover {
+	filter: brightness(1.08);
+}
+
+.usingPeriod {
+	margin-left: -6px;
+}
+
+.note[data-tone='grey'] .usingPill {
+	background: #6b7280;
+}
+
+.note[data-tone='yellow'] .usingPill {
+	background: #c4a300;
+}
+
+.note[data-tone='mint'] .usingPill {
+	background: #3ca56f;
+}
+
+.note[data-tone='blue'] .usingPill {
+	background: #2271b1;
+}
+
+.note[data-tone='orange'] .usingPill {
+	background: #c97223;
+}
+
+.note[data-tone='violet'] .usingPill {
+	background: #7b3fb6;
+}
+
+.note[data-tone='neon-yellow'] .usingPill {
+	background: #a18a00;
+}
+
+.note[data-tone='neon-green'] .usingPill {
+	background: #2e9e3a;
+}
+
+.note[data-tone='neon-violet'] .usingPill {
+	background: #6f2daa;
+}
+
+.note[data-tone='neon-orange'] .usingPill {
+	background: #b97917;
+}
+
+.note[data-tone='neon-blue'] .usingPill {
+	background: #1873c9;
+}
+
+@keyframes using-pop {
+	from {
+		opacity: 0;
+		transform: scale(0.7);
+	}
+
+	to {
+		opacity: 1;
+		transform: scale(1);
+	}
 }
 
 .contextThumbnail {

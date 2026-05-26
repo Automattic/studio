@@ -23,7 +23,7 @@ import os from 'os';
 import path from 'path';
 import { z } from 'zod';
 
-const REPO_ROOT = path.resolve( __dirname, '..' );
+const REPO_ROOT = path.resolve( import.meta.dirname, '..' );
 const STUDIO_APP_PACKAGE_JSON = path.join( REPO_ROOT, 'apps', 'studio', 'package.json' );
 
 const STUDIO_APP_PACKAGE_JSON_SCHEMA = z.object( {

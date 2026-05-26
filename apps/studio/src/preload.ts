@@ -174,6 +174,9 @@ const api: IpcApi = {
 	setTitleBarBackdropEffect: ( enabled ) =>
 		ipcRendererInvoke( 'setTitleBarBackdropEffect', enabled ),
 	updateSitesSortOrder: ( updates ) => ipcRendererInvoke( 'updateSitesSortOrder', updates ),
+	getRemoteSessionDaemonStatus: () => ipcRendererInvoke( 'getRemoteSessionDaemonStatus' ),
+	startRemoteSessionDaemon: () => ipcRendererInvoke( 'startRemoteSessionDaemon' ),
+	stopRemoteSessionDaemon: () => ipcRendererInvoke( 'stopRemoteSessionDaemon' ),
 	isStudioCliInstalled: () => ipcRendererInvoke( 'isStudioCliInstalled' ),
 	installStudioCli: () => ipcRendererInvoke( 'installStudioCli' ),
 	uninstallStudioCli: () => ipcRendererInvoke( 'uninstallStudioCli' ),
@@ -227,6 +230,11 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'setSessionEnvironment', sessionId, environment ),
 	getDeskSettings: () => ipcRendererInvoke( 'getDeskSettings' ),
 	saveDeskSettings: ( settings ) => ipcRendererInvoke( 'saveDeskSettings', settings ),
+	getStudioUiMode: () => ipcRendererInvoke( 'getStudioUiMode' ),
+	setStudioUiMode: ( mode ) => ipcRendererInvoke( 'setStudioUiMode', mode ),
+	exportDeskConfig: ( config, suggestedFilename ) =>
+		ipcRendererInvoke( 'exportDeskConfig', config, suggestedFilename ),
+	importDeskConfig: () => ipcRendererInvoke( 'importDeskConfig' ),
 	getUserDeskConfig: () => ipcRendererInvoke( 'getUserDeskConfig' ),
 	saveUserDeskConfig: ( config ) => ipcRendererInvoke( 'saveUserDeskConfig', config ),
 	getSiteDeskConfig: ( siteId ) => ipcRendererInvoke( 'getSiteDeskConfig', siteId ),

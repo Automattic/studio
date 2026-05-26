@@ -1,0 +1,93 @@
+---
+name: block-content
+description: Write editable WordPress block markup for local Studio sites, including core/html limits, block-theme layout rules, full-width sections, validation, and skeleton-first page/CSS recipes.
+user-invokable: true
+---
+
+# Block Content
+
+Use this skill before writing or editing page content, post content, templates, template parts, patterns, or any other WordPress block markup.
+
+## Core Policy
+
+- Use editable WordPress blocks for content and layout. Prefer `core/group`, `core/columns`, `core/heading`, `core/paragraph`, `core/list`, `core/image`, `core/buttons`, and theme CSS.
+- Only use `core/html` blocks for inline SVGs, interaction markup with no block equivalent such as marquee or custom cursor markup, or a single bottom-of-page `<script>` block.
+- Never use `core/html` to wrap text content, headings, layout sections, lists, or forms.
+- For forms, newsletter signup, or features core blocks do not cleanly provide, load the `plugin-recommendations` skill and use editable plugin blocks.
+- No decorative HTML comments such as `<!-- Hero Section -->` or `<!-- Features -->`. Only WordPress block delimiter comments are allowed.
+- No custom class names on inner DOM elements. Put custom classes only on the outermost block wrapper via the block `className` attribute.
+- No inline `style` attributes or block `style` attributes for styling. Use `className` plus the theme's `style.css`.
+- Use `core/spacer` for empty spacing elements, not empty `core/group` blocks.
+- No emojis anywhere in generated content.
+
+## Layout Cascade
+
+WordPress constrains children of `core/post-content` and any constrained-layout container to `theme.json`'s `settings.layout.contentSize`, which is about 700px by default. Custom CSS such as `.hero { width: 100% }` does not override core layout selectors like `.is-layout-constrained > *:not(.alignwide):not(.alignfull)` because they are more specific.
+
+Use these patterns:
+
+- **Full-bleed section, constrained inner content**: for a full-width hero, banner, or CTA with centered content, use an outer `core/group` with `{"align":"full","layout":{"type":"constrained"}}`, then place normal inner blocks inside it.
+- **Full-bleed section, full-bleed inner content**: for image grids, edge-to-edge galleries, and similar layouts, use outer and inner `core/group` blocks with `{"align":"full","layout":{"type":"default"}}`.
+- **Standard constrained content**: omit `align` and write normal blocks.
+
+The common failure is a hero or banner that was intended to be full-width but still renders in the narrow content column. Fix that in markup by adding `align: "full"` on the outer group or correcting the inner `layout` type, not by trying to force width in CSS.
+
+## Skeleton-First Recipes
+
+For long files over about 200 lines, write a small skeleton first and fill anchors across later `Edit` calls.
+
+### Theme CSS
+
+For `style.css`, start with custom properties and anchor comments only:
+
+```css
+:root {
+	--site-bg: #ffffff;
+	--site-text: #111111;
+}
+
+/* === reset === */
+/* === typography === */
+/* === hero === */
+/* === sections === */
+/* === cta === */
+/* === footer === */
+/* === responsive === */
+```
+
+Keep the skeleton under 2KB. Fill one anchor per `Edit`, using the anchor line as `old_string` and replacing it with the anchor plus the new styles.
+
+When `scaffold_theme` was used, do not `Write` over the scaffolded `style.css`; it already contains the required theme header. Use `Edit` to append the `:root` block and anchor comments below the existing content.
+
+### Page Content
+
+For long page content:
+
+1. Create the page empty:
+
+```text
+wp_cli post create --post_content=""
+```
+
+2. Write `<site>/tmp/page-<slug>.html`, not a file inside the theme, with small section anchors:
+
+```html
+<!-- section:hero -->
+<!-- section:features -->
+<!-- section:cta -->
+```
+
+3. Fill one anchor per `Edit` using editable blocks. Never wrap a section in `core/html`.
+4. Apply the content once:
+
+```text
+wp_cli eval '$content = file_get_contents(ABSPATH . "tmp/page-<slug>.html"); wp_update_post(["ID" => <id>, "post_content" => $content]); echo "ok";'
+```
+
+Do not use `--post_content-file=<host path>`. `wp_cli` runs inside the PHP-WASM filesystem; the host site directory is mounted at `/wordpress/`, so `ABSPATH === "/wordpress/"`. Host paths are not readable there and can silently update the post to empty content.
+
+## Validation
+
+- Run `validate_html_blocks` after every write or edit that creates or changes block content. If it reports invalid `core/html` blocks, rewrite only those blocks as editable core or plugin blocks, then call `validate_html_blocks` again before editor validation.
+- Run `validate_and_fix_blocks` after `validate_html_blocks` passes. Call it with `filePath` whenever the content lives in a file; safe editor serialization fixes are applied directly to that file. If it says an auto-fix was applied, do not manually replace markup or call validation again unless you intentionally change block markup afterward. Use the diff only to inspect structural changes for CSS impact. Classes added or removed by the validator can affect layout and styling.
+- After fixing invalid blocks, take desktop and mobile screenshots and check that layout, spacing, and full-width sections still render as intended.

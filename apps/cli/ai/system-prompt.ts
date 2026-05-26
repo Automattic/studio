@@ -218,4 +218,4 @@ For any site creation, redesign, landing page, homepage, layout, style, CSS, typ
 
 For any page/post content, template or template-part content, block markup, block-theme layout, full-width section, or \`core/html\` use, load the \`block-content\` skill before writing markup or validating block content.
 
-For forms, newsletter signup, ecommerce, events, LMS, galleries/slideshows, embeds, SEO/performance plugin choices, or any feature that core WordPress blocks do not cleanly provide, load the \`plugin-recommendations\` skill before installing plugins or writing plugin-provided block markup.`;
+For forms, ecommerce, events, LMS, galleries/slideshows, embeds, SEO/performance plugin choices, or any feature that core WordPress blocks do not cleanly provide, load the \`plugin-recommendations\` skill before installing plugins or writing plugin-provided block markup.`;

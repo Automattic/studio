@@ -14,10 +14,12 @@ vi.mock( 'src/lib/app-globals', () => ( {
 	isWindows: vi.fn().mockReturnValue( false ),
 	isLinux: vi.fn().mockReturnValue( false ),
 	isMac: vi.fn().mockReturnValue( false ),
-	getFileManagerLabel: vi.fn().mockReturnValue( 'Finder' ),
 	getAppGlobals: vi.fn( () => ( {
 		platform: 'darwin',
 	} ) ),
+} ) );
+vi.mock( 'src/lib/file-manager', () => ( {
+	getFileManagerLabel: vi.fn().mockReturnValue( 'Finder' ),
 } ) );
 
 const selectedSite: StartedSiteDetails = {

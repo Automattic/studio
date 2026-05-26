@@ -16,11 +16,13 @@ Gather preferences through 2 rounds. Keep it concise.
 
 ### Round 1 — Name
 
-Ask the user for their business/site name in your text output. **Stop here and wait for their reply** — do NOT call any tools or continue to the next round. The user needs a chance to type their answer in the prompt.
+Ask the user for their business/site name in your text output — unless it was already stated clearly in their message (e.g. *"create a site called Pan de Casa"*), in which case use it directly and skip to Round 2.
+
+**Critical**: if you ask the name question, your response must end immediately after that question. No tool calls. No Round 2. No extra text. The user will type their answer and send it — only after receiving their reply do you move to Round 2.
 
 ### Round 2 — Layout
 
-After the user provides the name, use AskUserQuestion for:
+Once you have the name (from the prompt or from the user's Round 1 reply), use AskUserQuestion for:
 - One-page site or multi-page site? (e.g., single scrollable page with sections vs. separate pages for each area)
 
 ## After Gathering Answers
@@ -34,6 +36,6 @@ The turn immediately after `site_create` is the biggest source of perceived hang
 ## When to Skip Discovery
 
 Do NOT ask questions if:
-- The user already provided the name and layout preference in the initial prompt. Proceed directly with site creation.
+- The user already provided the name AND layout preference in the initial prompt. Proceed directly with site creation.
 - The user says "just build something" or "surprise me". Pick a bold creative direction yourself and proceed.
 - The user explicitly asks to skip the setup or says they don't want questions.

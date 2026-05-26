@@ -197,8 +197,14 @@ export async function captureScreenshotBuffer(
 		}
 		const remaining = documentHeight - offset;
 		const capturedHeight = Math.min( remaining, maxCssHeight );
+		// `fullPage: true` is required alongside `clip` so Playwright renders
+		// the entire document and crops to the requested region. Without it,
+		// the "resulting image" is the viewport and any clip.y beyond the
+		// viewport height fails with "Clipped area is either empty or outside
+		// the resulting image".
 		const buffer = await page.screenshot( {
 			...formatOptions,
+			fullPage: true,
 			clip: { x: 0, y: offset, width: viewport.width, height: capturedHeight },
 		} );
 		return {

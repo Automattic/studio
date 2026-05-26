@@ -294,7 +294,7 @@ describe( 'Studio AI MCP tools', () => {
 			emulateMedia: vi.fn(),
 			goto: vi.fn(),
 			waitForLoadState: vi.fn().mockResolvedValue( undefined ),
-			evaluate: vi.fn(),
+			evaluate: vi.fn().mockResolvedValue( 2400 ),
 			addStyleTag: vi.fn(),
 			screenshot: vi.fn().mockResolvedValue( screenshotBuffer ),
 			close: vi.fn(),
@@ -308,7 +308,8 @@ describe( 'Studio AI MCP tools', () => {
 			url: 'http://localhost:8903/story-time',
 		} as never );
 		const text = getTextContent( result );
-		expect( text ).toContain( 'Screenshot captured (desktop).' );
+		expect( text ).toContain( 'Screenshot captured' );
+		expect( text ).toContain( 'desktop: captured full page (2400px tall)' );
 		expect( text ).toContain( 'mediaWidgetPayload=' );
 		expect( text ).not.toContain( 'When this screenshot is useful to show the user' );
 		expect( text ).not.toContain( 'Path:' );
@@ -332,7 +333,7 @@ describe( 'Studio AI MCP tools', () => {
 			emulateMedia: vi.fn(),
 			goto: vi.fn(),
 			waitForLoadState: vi.fn().mockResolvedValue( undefined ),
-			evaluate: vi.fn(),
+			evaluate: vi.fn().mockResolvedValue( 2400 ),
 			addStyleTag: vi.fn(),
 			screenshot: vi.fn().mockResolvedValue( buffer ),
 			close: vi.fn(),
@@ -350,7 +351,9 @@ describe( 'Studio AI MCP tools', () => {
 		} as never );
 		const text = getTextContent( result );
 
-		expect( text ).toContain( 'Screenshots captured (desktop, mobile).' );
+		expect( text ).toContain( 'Screenshots captured:' );
+		expect( text ).toContain( '- desktop: captured full page (2400px tall)' );
+		expect( text ).toContain( '- mobile: captured full page (2400px tall)' );
 		expect( text ).toContain( 'mediaWidgetPayloads=' );
 		expect( browser.newPage ).toHaveBeenCalledTimes( 2 );
 		expect( result.content.slice( 1 ) ).toEqual( [

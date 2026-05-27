@@ -27,6 +27,7 @@ import {
 	type AiModelFamily,
 	type AiModelId,
 } from '@studio/common/ai/models';
+import { getAiPayloadsPath, getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
@@ -36,10 +37,13 @@ import { createSkillTool } from 'cli/ai/tools/skill';
 import { takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
 import { createWpcomRequestTool } from 'cli/ai/tools/wpcom-request';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
+import { stripStaleImagesFromContext } from './strip-stale-images';
 import {
+	getIncompleteToolCallReason,
+	getPayloadLimitDescription,
+	getPayloadLimitViolation,
 	type StudioToolPayloadGuardState,
 	updateStudioToolPayloadGuardState,
-	withStudioToolPayloadGuard,
 } from './tool-safety';
 import type { AskUserHandler, SiteInfo } from 'cli/ai/types';
 
@@ -50,6 +54,8 @@ type ProviderConfigInput = Parameters< ModelRegistry[ 'registerProvider' ] >[ 1 
 
 const STUDIO_WPCOM_ANTHROPIC_PROVIDER = 'studio-wpcom-anthropic';
 const STUDIO_AGENT_DIR = STUDIO_SITES_ROOT;
+const STUDIO_WPCOM_BODY_FILES_ROOT = getConfigDirectory();
+const STUDIO_WPCOM_BODY_FILES_DIR = getAiPayloadsPath();
 const STUDIO_COMPACTION_SETTINGS = {
 	enabled: true,
 	reserveTokens: 16_384,
@@ -88,6 +94,9 @@ export function runStudioAgentTurn( config: StudioAgentTurnConfig ): StudioAgent
 
 	if ( ! fs.existsSync( STUDIO_SITES_ROOT ) ) {
 		fs.mkdirSync( STUDIO_SITES_ROOT, { recursive: true } );
+	}
+	if ( resolvedConfig.activeSite?.remote ) {
+		fs.mkdirSync( STUDIO_WPCOM_BODY_FILES_DIR, { recursive: true } );
 	}
 
 	const result = runAgentSessionTurn( resolvedConfig, controller, ( session ) => {
@@ -259,8 +268,8 @@ async function createStudioAgentSession(
 			: { chatArtifactsEnabled, remoteSession }
 	);
 
-	const tools = buildAgentTools( config, chatArtifactsEnabled, remoteSession, payloadGuardState );
-	const toolDefinitions = tools.map( toToolDefinition );
+	const tools = buildAgentTools( config, chatArtifactsEnabled, remoteSession );
+	const toolDefinitions = tools.map( ( tool ) => toToolDefinition( tool, payloadGuardState ) );
 	const { authStorage, modelRegistry } = createModelRegistry( model, family, creds );
 	const settingsManager = createSettingsManager( config.env );
 	const resourceLoader = new DefaultResourceLoader( {
@@ -282,7 +291,7 @@ async function createStudioAgentSession(
 		authStorage,
 		modelRegistry,
 		model,
-		thinkingLevel: 'high',
+		thinkingLevel: 'medium',
 		sessionManager: config.session,
 		settingsManager,
 		resourceLoader,
@@ -325,7 +334,10 @@ function buildModel(
 		provider: creds.useBearerAuth ? STUDIO_WPCOM_ANTHROPIC_PROVIDER : 'anthropic',
 		reasoning: true,
 		contextWindow: 200_000,
-		maxTokens: 8_192,
+		// thinkingLevel 'high' reserves ~16384 of this budget for extended thinking
+		// (see adjustMaxTokensForThinking in pi-ai); keep enough headroom for visible
+		// output so single tool calls can emit a full-page HTML payload.
+		maxTokens: 32_000,
 	};
 }
 
@@ -367,10 +379,14 @@ function createWpcomAnthropicProviderConfig(
 				defaultHeaders: options?.headers,
 			} );
 			const clientForPi = client as unknown as AnthropicOptions[ 'client' ];
-			return streamAnthropic( m as Model< 'anthropic-messages' >, ctx, {
-				...( options as AnthropicOptions | undefined ),
-				client: clientForPi,
-			} );
+			return streamAnthropic(
+				m as Model< 'anthropic-messages' >,
+				stripStaleImagesFromContext( ctx ),
+				{
+					...( options as AnthropicOptions | undefined ),
+					client: clientForPi,
+				}
+			);
 		},
 		models: [
 			{
@@ -397,24 +413,35 @@ function createSettingsManager( _env: Record< string, string > ): SettingsManage
 	} );
 }
 
-function toToolDefinition( tool: AgentToolAny ): ToolDefinition {
+function toToolDefinition(
+	tool: AgentToolAny,
+	payloadGuardState: StudioToolPayloadGuardState
+): ToolDefinition {
 	return {
 		name: tool.name,
 		label: tool.label,
-		description: tool.description,
+		description: getPayloadLimitDescription( tool.name, tool.description ),
 		parameters: tool.parameters,
 		prepareArguments: tool.prepareArguments,
 		executionMode: tool.executionMode,
-		execute: async ( toolCallId, params, signal, onUpdate ) =>
-			tool.execute( toolCallId, params, signal, onUpdate ),
+		execute: async ( toolCallId, params, signal, onUpdate ) => {
+			const incompleteToolCallReason = getIncompleteToolCallReason( payloadGuardState, toolCallId );
+			if ( incompleteToolCallReason ) {
+				throw new Error( incompleteToolCallReason );
+			}
+			const payloadLimitViolation = getPayloadLimitViolation( tool.name, params );
+			if ( payloadLimitViolation ) {
+				throw new Error( payloadLimitViolation );
+			}
+			return tool.execute( toolCallId, params, signal, onUpdate );
+		},
 	};
 }
 
 function buildAgentTools(
 	config: ResolvedStudioAgentTurnConfig,
 	chatArtifactsEnabled: boolean,
-	remoteSession: boolean,
-	payloadGuardState: StudioToolPayloadGuardState
+	remoteSession: boolean
 ): AgentToolAny[] {
 	const isRemoteSite = Boolean(
 		config.activeSite?.remote && config.activeSite?.wpcomSiteId && config.wpcomAccessToken
@@ -427,37 +454,36 @@ function buildAgentTools(
 	const skillToolDef = createSkillTool();
 	const skillTool: AgentToolAny[] = skillToolDef ? [ skillToolDef ] : [];
 
-	if ( isRemoteSite ) {
-		return [
-			createWpcomRequestTool( config.wpcomAccessToken!, config.activeSite!.wpcomSiteId! ),
-			takeScreenshotTool,
-			createSiteTool,
-			pullSiteTool,
-			...askUserTool,
-			...skillTool,
-		];
-	}
-
 	const renameTool = ( tool: AgentToolAny, name: string ): AgentToolAny => ( {
 		...tool,
 		name,
 		label: name,
 	} );
 
+	const remoteScratchTools: AgentToolAny[] = [
+		renameTool( createReadTool( STUDIO_WPCOM_BODY_FILES_ROOT ), 'Read' ),
+		renameTool( createWriteTool( STUDIO_WPCOM_BODY_FILES_ROOT ), 'Write' ),
+		renameTool( createEditTool( STUDIO_WPCOM_BODY_FILES_ROOT ), 'Edit' ),
+		renameTool( createLsTool( STUDIO_WPCOM_BODY_FILES_ROOT ), 'Ls' ),
+	];
+
+	if ( isRemoteSite ) {
+		return [
+			createWpcomRequestTool( config.wpcomAccessToken!, config.activeSite!.wpcomSiteId! ),
+			takeScreenshotTool,
+			createSiteTool,
+			pullSiteTool,
+			...remoteScratchTools,
+			...askUserTool,
+			...skillTool,
+		];
+	}
+
 	const piTools: AgentToolAny[] = [
 		renameTool( createReadTool( STUDIO_SITES_ROOT ), 'Read' ),
-		withStudioToolPayloadGuard(
-			renameTool( createWriteTool( STUDIO_SITES_ROOT ), 'Write' ),
-			payloadGuardState
-		),
-		withStudioToolPayloadGuard(
-			renameTool( createEditTool( STUDIO_SITES_ROOT ), 'Edit' ),
-			payloadGuardState
-		),
-		withStudioToolPayloadGuard(
-			renameTool( createBashTool( STUDIO_SITES_ROOT ), 'Bash' ),
-			payloadGuardState
-		),
+		renameTool( createWriteTool( STUDIO_SITES_ROOT ), 'Write' ),
+		renameTool( createEditTool( STUDIO_SITES_ROOT ), 'Edit' ),
+		renameTool( createBashTool( STUDIO_SITES_ROOT ), 'Bash' ),
 		renameTool( createGrepTool( STUDIO_SITES_ROOT ), 'Grep' ),
 		renameTool( createFindTool( STUDIO_SITES_ROOT ), 'Glob' ),
 		renameTool( createLsTool( STUDIO_SITES_ROOT ), 'Ls' ),

@@ -79,14 +79,17 @@ TEST_PATTERNS=(
 )
 
 # Fastlane / Ruby setup files - changes here affect the standalone fastlane
-# helper tests. Anything that the test runner reads (Fastfile, lib/, test/) or
-# that defines the Ruby environment belongs here.
+# helper tests. Anything that the test runner reads (Fastfile, lib/, test/),
+# that defines the Ruby environment, or that implements this CI job's runner /
+# skip logic belongs here.
 FASTLANE_PATTERNS=(
   "fastlane/**"
   "Gemfile"
   "Gemfile.lock"
   ".ruby-version"
   ".bundle/**"
+  ".buildkite/commands/run-fastlane-tests.sh"
+  ".buildkite/commands/should-skip-job.sh"
 )
 
 show_skip_message() {

@@ -38,7 +38,7 @@ steps:
       - github_commit_status:
           context: Lint
 
-  - label: ":ruby: Fastlane Helper Tests"
+  - label: ":fastlane: fastlane Helper Tests"
     agents:
       queue: mac
     key: fastlane_tests
@@ -46,7 +46,7 @@ steps:
     plugins: [$CI_TOOLKIT_PLUGIN]
     notify:
       - github_commit_status:
-          context: Fastlane Helper Tests
+          context: fastlane Helper Tests
 
   - label: Unit Tests on {{matrix}}
     key: unit_tests

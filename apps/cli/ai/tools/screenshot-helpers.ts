@@ -35,6 +35,23 @@ export const SHARE_VIEWPORTS = {
  */
 export const SHARE_DEVICE_SCALE_FACTOR = 2;
 
+/**
+ * Quality used when re-encoding a screenshot as JPEG for vision-model input.
+ * Full-page PNG captures can run to multiple megabytes; the wpcom AI proxy
+ * rejects oversized request bodies with an empty 400 before they ever reach
+ * the model. JPEG at this quality compresses long page captures by roughly
+ * 5–10× with no perceptible loss of layout fidelity for the agent.
+ */
+const MODEL_JPEG_QUALITY = 80;
+
+/**
+ * Anthropic's vision API rejects images whose pixel width OR height exceeds
+ * 8000. Long full-page captures of design-heavy sites blow past this in the
+ * height dimension; clip the capture region to keep us inside the limit and
+ * let callers pass `offset` to fetch subsequent slices on follow-up calls.
+ */
+export const MAX_IMAGE_DIMENSION_PX = 8000;
+
 const IMAGE_SETTLE_TIMEOUT_MS = 3000;
 const PAGE_SETTLE_TIMEOUT_MS = 2500;
 
@@ -44,17 +61,39 @@ async function waitForPageToSettle( page: Page ): Promise< void > {
 		.catch( () => {} );
 }
 
+export type ScreenshotFormat = 'png' | 'jpeg';
+
+export interface ScreenshotCapture {
+	buffer: Buffer;
+	documentHeight: number;
+	capturedHeight: number;
+	offset: number;
+	clipped: boolean;
+}
+
 /**
- * Capture a PNG screenshot of `url` at the given viewport and return it as a
- * Buffer. Shared by both `take_screenshot` and `share_screenshot`; callers
- * decide whether to expose the image as base64, a temp local file, or an
- * external media event.
+ * Capture a screenshot of `url` at the given viewport. Shared by both
+ * `take_screenshot` and `share_screenshot`; callers decide whether to expose
+ * the image as base64, a temp local file, or an external media event. Use
+ * `jpeg` for vision-model input — full-page PNGs balloon to multi-MB and
+ * trip the wpcom AI proxy's request-size limit.
+ *
+ * Full-page captures are clipped to {@link MAX_IMAGE_DIMENSION_PX} raw pixels
+ * tall (accounting for `deviceScaleFactor`); pass `offset` in CSS pixels to
+ * capture a subsequent slice of a long page. Returned metadata tells callers
+ * whether the page was clipped and how much remains.
  */
-export async function captureScreenshotPngBuffer(
+export async function captureScreenshotBuffer(
 	url: string,
 	viewport: { width: number; height: number },
-	options: { fullPage: boolean; deviceScaleFactor?: number }
-): Promise< Buffer > {
+	options: {
+		fullPage: boolean;
+		deviceScaleFactor?: number;
+		format?: ScreenshotFormat;
+		offset?: number;
+	}
+): Promise< ScreenshotCapture > {
+	const format = options.format ?? 'png';
 	const browser = await getSharedBrowser();
 	const page = await browser.newPage( {
 		viewport,
@@ -129,33 +168,86 @@ export async function captureScreenshotPngBuffer(
 			`,
 		} );
 
-		const buffer = await page.screenshot( { fullPage: options.fullPage, type: 'png' } );
-		return Buffer.from( buffer );
+		const dpr = options.deviceScaleFactor ?? 1;
+		const maxCssHeight = Math.floor( MAX_IMAGE_DIMENSION_PX / dpr );
+		const formatOptions =
+			format === 'jpeg'
+				? { type: 'jpeg' as const, quality: MODEL_JPEG_QUALITY }
+				: { type: 'png' as const };
+
+		if ( ! options.fullPage ) {
+			const buffer = await page.screenshot( { ...formatOptions } );
+			return {
+				buffer: Buffer.from( buffer ),
+				documentHeight: viewport.height,
+				capturedHeight: viewport.height,
+				offset: 0,
+				clipped: false,
+			};
+		}
+
+		const documentHeight = await page.evaluate( () =>
+			Math.max( document.body.scrollHeight, document.documentElement.scrollHeight )
+		);
+		const offset = Math.max( 0, Math.floor( options.offset ?? 0 ) );
+		if ( offset >= documentHeight ) {
+			throw new Error(
+				`offset ${ offset } exceeds document height ${ documentHeight }; nothing to capture.`
+			);
+		}
+		const remaining = documentHeight - offset;
+		const capturedHeight = Math.min( remaining, maxCssHeight );
+		// `fullPage: true` is required alongside `clip` so Playwright renders
+		// the entire document and crops to the requested region. Without it,
+		// the "resulting image" is the viewport and any clip.y beyond the
+		// viewport height fails with "Clipped area is either empty or outside
+		// the resulting image".
+		const buffer = await page.screenshot( {
+			...formatOptions,
+			fullPage: true,
+			clip: { x: 0, y: offset, width: viewport.width, height: capturedHeight },
+		} );
+		return {
+			buffer: Buffer.from( buffer ),
+			documentHeight,
+			capturedHeight,
+			offset,
+			clipped: offset + capturedHeight < documentHeight,
+		};
 	} finally {
 		await page.close();
 	}
 }
 
 /**
- * Capture a PNG screenshot of `url` at the given viewport and return it as
- * a base64 string. Used by `share_screenshot`, where the remote-session
- * media event carries image bytes directly.
+ * Capture a PNG screenshot and return it as a base64 string. Used by
+ * `share_screenshot`, where retina-quality PNG survives Telegram's
+ * compression pipeline noticeably better than JPEG (see
+ * {@link SHARE_DEVICE_SCALE_FACTOR}).
  */
 export async function captureScreenshotPng(
 	url: string,
 	viewport: { width: number; height: number },
 	options: { fullPage: boolean; deviceScaleFactor?: number }
 ): Promise< string > {
-	const buffer = await captureScreenshotPngBuffer( url, viewport, options );
-	return buffer.toString( 'base64' );
+	const capture = await captureScreenshotBuffer( url, viewport, { ...options, format: 'png' } );
+	return capture.buffer.toString( 'base64' );
 }
 
-export async function saveScreenshotPngToTempFile(
+export async function saveScreenshotToTempFile(
 	buffer: Buffer,
-	options: { viewportType: string }
-): Promise< { path: string; fileUrl: string; name: string; mimeType: 'image/png' } > {
+	options: { viewportType: string; format?: ScreenshotFormat }
+): Promise< {
+	path: string;
+	fileUrl: string;
+	name: string;
+	mimeType: 'image/png' | 'image/jpeg';
+} > {
+	const format = options.format ?? 'png';
+	const extension = format === 'jpeg' ? 'jpg' : 'png';
+	const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
 	const directory = await mkdtemp( path.join( os.tmpdir(), 'studio-screenshot-' ) );
-	const name = `screenshot-${ options.viewportType }.png`;
+	const name = `screenshot-${ options.viewportType }.${ extension }`;
 	const filePath = path.join( directory, name );
 
 	await writeFile( filePath, buffer );
@@ -164,6 +256,6 @@ export async function saveScreenshotPngToTempFile(
 		path: filePath,
 		fileUrl: pathToFileURL( filePath ).href,
 		name,
-		mimeType: 'image/png',
+		mimeType,
 	};
 }

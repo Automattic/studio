@@ -89,11 +89,45 @@ async function writeNativePhpMyAdminWpEnv( config: ServerConfig ): Promise< stri
 	return wpEnvPath;
 }
 
+// Tracks how many proxied requests each PHP worker is currently handling.
+// Each `php -S` worker processes one request at a time, so a non-zero count
+// means the worker is busy and any additional requests are queued at the TCP
+// layer. The picker uses these counts to prefer idle workers, then to balance
+// the queue depth when all are busy.
+class PhpWorkerRequestTracker {
+	private readonly counts: number[];
+
+	constructor( size: number ) {
+		this.counts = new Array( size ).fill( 0 );
+	}
+
+	get( index: number ): number {
+		return this.counts[ index ] ?? 0;
+	}
+
+	set( index: number, value: number ): void {
+		if ( index < 0 || index >= this.counts.length ) {
+			return;
+		}
+		this.counts[ index ] = Math.max( 0, value );
+	}
+
+	getFirstFreeWorker(): number {
+		let bestIndex = 0;
+		for ( let i = 1; i < this.counts.length; i++ ) {
+			if ( this.counts[ i ] < this.counts[ bestIndex ] ) {
+				bestIndex = i;
+			}
+		}
+		return bestIndex;
+	}
+}
+
 let phpProcess: ChildProcess | null = null;
 let phpWorkerProcesses: ChildProcess[] = [];
 let phpProxyServer: http.Server | null = null;
 let phpWorkerPorts: number[] = [];
-let nextPhpWorkerIndex = 0;
+let phpWorkerRequestTracker = new PhpWorkerRequestTracker( 0 );
 let startupAbortController: AbortController | null = null;
 let startingPromise: Promise< void > | null = null;
 let blueprintQueue: Promise< unknown > = Promise.resolve();
@@ -121,6 +155,7 @@ function errorToConsole( ...args: Parameters< typeof console.error > ) {
 function getNativePhpWorkerPoolSize(): number {
 	// POC escape hatch for experimenting with native PHP request concurrency.
 	const parsed = Number.parseInt( process.env.STUDIO_NATIVE_PHP_WORKER_POOL ?? '', 10 );
+	console.log( 'getNativePhpWorkerPoolSize', parsed );
 	if ( ! Number.isFinite( parsed ) || parsed < 2 ) {
 		return DEFAULT_NATIVE_PHP_WORKER_POOL_SIZE;
 	}
@@ -141,18 +176,17 @@ function shouldUsePrimaryWorker( req: http.IncomingMessage ): boolean {
 	return false;
 }
 
-function pickPhpWorkerPort( req: http.IncomingMessage ): number {
+function pickPhpWorker( req: http.IncomingMessage ): { index: number; port: number } {
 	if ( phpWorkerPorts.length === 0 ) {
 		throw new Error( 'No PHP worker ports are available' );
 	}
 
 	if ( shouldUsePrimaryWorker( req ) ) {
-		return phpWorkerPorts[ 0 ];
+		return { index: 0, port: phpWorkerPorts[ 0 ] };
 	}
 
-	const port = phpWorkerPorts[ nextPhpWorkerIndex % phpWorkerPorts.length ];
-	nextPhpWorkerIndex++;
-	return port;
+	const bestIndex = phpWorkerRequestTracker.getFirstFreeWorker();
+	return { index: bestIndex, port: phpWorkerPorts[ bestIndex ] };
 }
 
 async function getAvailablePort(): Promise< number > {
@@ -550,7 +584,7 @@ async function closePhpProxyServer(): Promise< void > {
 	const proxyServer = phpProxyServer;
 	phpProxyServer = null;
 	phpWorkerPorts = [];
-	nextPhpWorkerIndex = 0;
+	phpWorkerRequestTracker = new PhpWorkerRequestTracker( 0 );
 
 	if ( ! proxyServer ) {
 		return;
@@ -619,14 +653,25 @@ function proxyRequestToPhpWorker(
 	req: http.IncomingMessage,
 	res: http.ServerResponse
 ): void {
-	let targetPort: number;
+	let worker: { index: number; port: number };
 	try {
-		targetPort = pickPhpWorkerPort( req );
+		worker = pickPhpWorker( req );
 	} catch ( error ) {
 		res.writeHead( 503 );
 		res.end( error instanceof Error ? error.message : String( error ) );
 		return;
 	}
+
+	phpWorkerRequestTracker.set( worker.index, phpWorkerRequestTracker.get( worker.index ) + 1 );
+	let released = false;
+	const release = () => {
+		if ( released ) {
+			return;
+		}
+		released = true;
+		phpWorkerRequestTracker.set( worker.index, phpWorkerRequestTracker.get( worker.index ) - 1 );
+	};
+	res.once( 'close', release );
 
 	const headers = { ...req.headers };
 	headers.host = req.headers.host ?? `localhost:${ config.port }`;
@@ -636,7 +681,7 @@ function proxyRequestToPhpWorker(
 	const proxyReq = http.request(
 		{
 			hostname: '127.0.0.1',
-			port: targetPort,
+			port: worker.port,
 			path: req.url,
 			method: req.method,
 			headers,
@@ -648,6 +693,7 @@ function proxyRequestToPhpWorker(
 	);
 
 	proxyReq.on( 'error', ( error ) => {
+		release();
 		if ( ! res.headersSent ) {
 			res.writeHead( 502 );
 		}
@@ -838,7 +884,7 @@ async function doStartPooledServer(
 		}
 
 		phpWorkerPorts = workerPorts;
-		nextPhpWorkerIndex = 0;
+		phpWorkerRequestTracker = new PhpWorkerRequestTracker( workerPorts.length );
 
 		for ( const [ index, workerPort ] of workerPorts.entries() ) {
 			const phpAddress = `127.0.0.1:${ workerPort }`;
@@ -889,6 +935,7 @@ async function doStartPooledServer(
 			}
 		}
 		phpWorkerPorts = [];
+		phpWorkerRequestTracker = new PhpWorkerRequestTracker( 0 );
 		phpWorkerProcesses = [];
 		await stopSymlinkWatcher();
 
@@ -1178,6 +1225,7 @@ function killPhpProcess(): void {
 	phpProcess = null;
 	phpWorkerProcesses = [];
 	phpWorkerPorts = [];
+	phpWorkerRequestTracker = new PhpWorkerRequestTracker( 0 );
 }
 
 function shutdownOnSignal( signal: NodeJS.Signals ): void {

@@ -16,7 +16,16 @@ Help reviewers understand what to look for and verify that you've reviewed the c
 
 
 
-## Proposed Changes
+## Description
+
+<!--
+Explain the intent of this PR:
+- What problem does it solve, or what need does it address?
+- How does it affect the user (new capability, fix, performance, accessibility, etc.)?
+- Note any user-visible behavior changes or trade-offs.
+
+Focus on the "why" and the user impact. Avoid listing modified files or describing implementation mechanics — the diff already shows that.
+-->
 
 -
 

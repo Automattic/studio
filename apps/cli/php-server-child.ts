@@ -657,8 +657,13 @@ function proxyRequestToPhpWorker(
 	try {
 		worker = pickPhpWorker( req );
 	} catch ( error ) {
+		errorToConsole(
+			`Failed to select PHP worker: ${
+				error instanceof Error ? error.stack ?? error.message : String( error )
+			}`
+		);
 		res.writeHead( 503 );
-		res.end( error instanceof Error ? error.message : String( error ) );
+		res.end( 'Service temporarily unavailable' );
 		return;
 	}
 

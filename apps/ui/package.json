@@ -24,7 +24,7 @@
 		"@wordpress/dataviews": "^14.2.0",
 		"@wordpress/html-entities": "^4.45.0",
 		"@wordpress/i18n": "^6.18.0",
-		"@wordpress/icons": "^13.0.0",
+		"@wordpress/icons": "13.1.0",
 		"@wordpress/private-apis": "^1.10.0",
 		"@wordpress/react-i18n": "^4.45.0",
 		"@wordpress/rich-text": "7.45.0",

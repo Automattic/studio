@@ -6,6 +6,7 @@ import { __ } from '@wordpress/i18n';
 import { Button } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import * as Tabs from '@/components/tabs';
+import { useConnector } from '@/data/core';
 import { persister } from '@/data/core/query-client';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
@@ -125,6 +126,7 @@ export function SettingsView( {
 	activeTab: TabId;
 	onTabChange: ( tab: TabId ) => void;
 } ) {
+	const connector = useConnector();
 	const { data: saved, isLoading } = useUserPreferences();
 	const { data: installedApps } = useInstalledApps();
 	const savePreferences = useSaveUserPreferences();
@@ -185,6 +187,10 @@ export function SettingsView( {
 	const handleChange = useCallback( ( update: Record< string, unknown > ) => {
 		setData( ( prev ) => ( prev ? { ...prev, ...( update as Partial< FormData > ) } : prev ) );
 	}, [] );
+
+	const switchToDefaultStudioUi = useCallback( () => {
+		void connector.setStudioUiMode( 'default' );
+	}, [ connector ] );
 
 	if ( isLoading || ! data || ! saved ) {
 		return <div className={ styles.state }>{ __( 'Loading…' ) }</div>;
@@ -248,6 +254,12 @@ export function SettingsView( {
 									form={ preferencesForm }
 									onChange={ handleChange }
 								/>
+								<div className={ styles.studioUiControl }>
+									<label className={ styles.studioUiLabel }>{ __( 'Studio UI' ) }</label>
+									<Button type="button" variant="outline" onClick={ switchToDefaultStudioUi }>
+										{ __( 'Switch to Default Studio UI' ) }
+									</Button>
+								</div>
 							</Tabs.Panel>
 
 							<div className={ styles.actions }>

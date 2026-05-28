@@ -40,6 +40,8 @@ The app should expose two user-facing UI modes:
 - Default Studio UI
 - Studio 2.0
 
+Both settings surfaces need an escape path. The existing default Studio Settings modal should offer **Studio 2.0**. The Studio 2.0 settings route should offer a way to return to **Default Studio UI**. This prevents logged-out users from getting trapped in Studio 2.0.
+
 The persisted Studio 2.0 mode should use a stable internal key, recommended: `studio2`.
 
 Legacy stored values should be treated as compatibility aliases:
@@ -77,6 +79,7 @@ Primary files expected to change:
 - `apps/studio/src/modules/desks/lib/ipc-handlers.ts`: normalize mode reads and writes, including legacy values.
 - `apps/studio/src/modules/user-settings/components/preferences-tab.tsx`: show Studio 2.0 as the single next-generation option instead of separate Desks and Agentic buttons.
 - `apps/ui/src/app/use-ui-mode.ts`: map `studio2`, `agentic`, and `desks` launch params to the Agentic shell mode.
+- `apps/ui/src/components/settings-view/index.tsx`: add a Studio UI setting that can switch Studio 2.0 back to Default Studio UI.
 - `apps/ui/src/components/sidebar-nav/index.tsx`: add the Desk sidebar item.
 - `apps/ui/src/ui-classic/router/router.tsx`: register the new Desk route.
 - `apps/ui/src/ui-classic/router/route-desk/index.tsx`: render the embedded global Desk.
@@ -136,6 +139,7 @@ Manual verification:
 - Launch with `ENABLE_DESKS_UI_SWITCH=true`
 - Confirm Settings shows Studio 2.0, not separate Agentic UI and Desks UI choices
 - Switch to Studio 2.0
+- From Studio 2.0 Settings, switch back to Default Studio UI while logged out
 - Click Desk in the sidebar
 - Confirm the full Desk toolbar and Desk chat panel remain available
 - Restart the app and confirm Studio 2.0 is restored

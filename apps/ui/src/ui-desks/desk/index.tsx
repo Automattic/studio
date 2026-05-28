@@ -22,21 +22,22 @@ import type { CSSProperties, ReactNode } from 'react';
 
 interface DeskProps {
 	siteId?: string;
+	embedded?: boolean;
 }
 
-export function Desk( { siteId }: DeskProps ) {
+export function Desk( { siteId, embedded = false }: DeskProps ) {
 	if ( siteId ) {
-		return <SiteDesk siteId={ siteId } />;
+		return <SiteDesk siteId={ siteId } embedded={ embedded } />;
 	}
 
-	return <UserDesk />;
+	return <UserDesk embedded={ embedded } />;
 }
 
-function UserDesk() {
+function UserDesk( { embedded = false }: Pick< DeskProps, 'embedded' > ) {
 	return (
 		<ChatsProvider>
 			<DeskProvider key="user">
-				<DeskShell>
+				<DeskShell embedded={ embedded }>
 					<DeskCanvas />
 				</DeskShell>
 			</DeskProvider>
@@ -44,7 +45,10 @@ function UserDesk() {
 	);
 }
 
-function SiteDesk( { siteId }: Required< DeskProps > ) {
+function SiteDesk( {
+	siteId,
+	embedded = false,
+}: Required< Pick< DeskProps, 'siteId' > > & Pick< DeskProps, 'embedded' > ) {
 	const [ siteMapOpen, setSiteMapOpen ] = useState( false );
 	const siteMap = useSiteMapDeskConfig( siteId, siteMapOpen );
 	const providerKey = siteMapOpen ? `${ siteId }:site-map:${ siteMap.signature }` : siteId;
@@ -63,6 +67,7 @@ function SiteDesk( { siteId }: Required< DeskProps > ) {
 			>
 				<DeskShell
 					siteId={ siteId }
+					embedded={ embedded }
 					siteMapOpen={ siteMapOpen }
 					siteMapIsLoading={ siteMapOpen && siteMap.isLoading }
 					siteMapPageCount={ siteMapOpen && ! siteMap.isLoading ? siteMap.pageCount : undefined }
@@ -77,6 +82,7 @@ function SiteDesk( { siteId }: Required< DeskProps > ) {
 
 function DeskShell( {
 	siteId,
+	embedded = false,
 	siteMapOpen,
 	siteMapIsLoading,
 	siteMapPageCount,
@@ -89,6 +95,7 @@ function DeskShell( {
 	onToggleSiteMap?: () => void;
 	children: ReactNode;
 } ) {
+	const [ rootElement, setRootElement ] = useState< HTMLElement | null >( null );
 	const updateDeskSettings = useUpdateDeskSettings();
 	const { data: savedSettings } = useDeskSettings();
 	const fallbackSettings = useMemo( () => createDefaultDeskSettings(), [] );
@@ -110,74 +117,81 @@ function DeskShell( {
 	} as CSSProperties;
 	const [ settingsOpen, setSettingsOpen ] = useState( false );
 	const [ editingToolbar, setEditingToolbar ] = useState( false );
+	const ShellElement = embedded ? 'div' : 'main';
 
 	return (
-		<>
-			<Chats siteId={ siteId } side={ chatSide } panel={ chatPanel } />
-			<main
-				className={ styles.root }
-				aria-label={ getDeskLabel( siteId ) }
-				data-site-id={ siteId }
-				data-toolbar-editing={ editingToolbar ? 'true' : 'false' }
-				style={ rootStyle }
-			>
-				<DeskChrome
-					siteId={ siteId }
-					siteMapOpen={ siteMapOpen }
-					siteMapPageCount={ siteMapPageCount }
-					settingsOpen={ settingsOpen }
-					editingToolbar={ editingToolbar }
-					onToggleSiteMap={ onToggleSiteMap }
-					onToggleSettings={ () => setSettingsOpen( ( open ) => ! open ) }
-				/>
-				{ children }
-				{ siteMapIsLoading && <SiteMapLoadingWidget /> }
-				<DeskWidgetToolbar />
-				<DeskSettingsModal
-					open={ settingsOpen }
-					onOpenChange={ setSettingsOpen }
-					onEditToolbar={ () => setEditingToolbar( true ) }
-				/>
-				{ editingToolbar && (
-					<>
-						<button
+		<ShellElement
+			ref={ setRootElement }
+			className={ styles.root }
+			aria-label={ getDeskLabel( siteId ) }
+			data-ui-desks-root
+			data-ui-desks-embedded={ embedded ? 'true' : undefined }
+			data-site-id={ siteId }
+			data-toolbar-editing={ editingToolbar ? 'true' : 'false' }
+			style={ rootStyle }
+		>
+			<Chats
+				siteId={ siteId }
+				side={ chatSide }
+				panel={ chatPanel }
+				embedded={ embedded }
+				container={ rootElement }
+			/>
+			<DeskChrome
+				siteId={ siteId }
+				embedded={ embedded }
+				siteMapOpen={ siteMapOpen }
+				siteMapPageCount={ siteMapPageCount }
+				settingsOpen={ settingsOpen }
+				editingToolbar={ editingToolbar }
+				onToggleSiteMap={ onToggleSiteMap }
+				onToggleSettings={ () => setSettingsOpen( ( open ) => ! open ) }
+			/>
+			{ children }
+			{ siteMapIsLoading && <SiteMapLoadingWidget /> }
+			<DeskWidgetToolbar />
+			<DeskSettingsModal
+				open={ settingsOpen }
+				onOpenChange={ setSettingsOpen }
+				onEditToolbar={ () => setEditingToolbar( true ) }
+			/>
+			{ editingToolbar && (
+				<>
+					<button
+						type="button"
+						className={ styles.toolbarEditBackdrop }
+						aria-label={ __( 'Exit toolbar editing' ) }
+						onClick={ () => setEditingToolbar( false ) }
+					/>
+					<div className={ styles.toolbarEditActions }>
+						<Button
 							type="button"
-							className={ styles.toolbarEditBackdrop }
-							aria-label={ __( 'Exit toolbar editing' ) }
+							label={ __( 'Done' ) }
+							variant="chrome"
+							size="large"
 							onClick={ () => setEditingToolbar( false ) }
-						/>
-						<div className={ styles.toolbarEditActions }>
-							<Button
-								type="button"
-								label={ __( 'Done' ) }
-								variant="chrome"
-								size="large"
-								onClick={ () => setEditingToolbar( false ) }
-							>
-								{ __( 'Done' ) }
-							</Button>
-							<Button
-								type="button"
-								label={ __( 'Reset' ) }
-								variant="chrome"
-								size="large"
-								onClick={ () =>
-									updateDeskSettings( { toolbarLayout: DEFAULT_DESK_TOOLBAR_LAYOUT } )
-								}
-							>
-								{ __( 'Reset' ) }
-							</Button>
-						</div>
-					</>
-				) }
-			</main>
-		</>
+						>
+							{ __( 'Done' ) }
+						</Button>
+						<Button
+							type="button"
+							label={ __( 'Reset' ) }
+							variant="chrome"
+							size="large"
+							onClick={ () => updateDeskSettings( { toolbarLayout: DEFAULT_DESK_TOOLBAR_LAYOUT } ) }
+						>
+							{ __( 'Reset' ) }
+						</Button>
+					</div>
+				</>
+			) }
+		</ShellElement>
 	);
 }
 
 function SiteMapLoadingWidget() {
 	return (
-		<div className={ styles.siteMapLoadingWidget } aria-live="polite">
+		<div className={ styles.siteMapLoadingWidget } aria-live="polite" data-ui-desks-loading>
 			<LoadingPlaceholder text={ __( 'Loading site map' ) } />
 		</div>
 	);

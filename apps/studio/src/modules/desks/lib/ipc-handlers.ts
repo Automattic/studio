@@ -3,7 +3,16 @@ import fsPromises from 'fs/promises';
 import nodePath from 'path';
 import { assertDeskConfig } from '@studio/common/lib/desk-config';
 import { normalizeDeskSettings } from '@studio/common/lib/desk-settings';
-import { type DeskConfig, type DeskSettings, type StudioUiMode } from '@studio/common/types/desk';
+import {
+	assertSupportedStudioUiMode,
+	normalizeStudioUiMode,
+} from '@studio/common/lib/studio-ui-mode';
+import {
+	type DeskConfig,
+	type DeskSettings,
+	type StoredStudioUiMode,
+	type StudioUiMode,
+} from '@studio/common/types/desk';
 import { __ } from '@wordpress/i18n';
 import { loadMainWindowRenderer } from 'src/main-window';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
@@ -15,12 +24,6 @@ function isRecord( value: unknown ): value is Record< string, unknown > {
 function assertSiteId( siteId: unknown ): asserts siteId is string {
 	if ( typeof siteId !== 'string' || ! siteId ) {
 		throw new Error( 'Invalid site desk config: expected site id.' );
-	}
-}
-
-function assertStudioUiMode( mode: unknown ): asserts mode is StudioUiMode {
-	if ( mode !== 'default' && mode !== 'desks' && mode !== 'agentic' ) {
-		throw new Error( 'Invalid Studio UI mode.' );
 	}
 }
 
@@ -52,15 +55,15 @@ export async function getDeskSettings( _event: IpcMainInvokeEvent ): Promise< De
 
 export async function getStudioUiMode( _event: IpcMainInvokeEvent ): Promise< StudioUiMode > {
 	const userData = await loadUserData();
-	const mode = userData.desks?.defaultUiMode;
-	return mode === 'desks' || mode === 'agentic' ? mode : 'default';
+	return normalizeStudioUiMode( userData.desks?.defaultUiMode );
 }
 
 export async function setStudioUiMode(
 	event: IpcMainInvokeEvent,
-	mode: StudioUiMode
+	mode: StoredStudioUiMode
 ): Promise< void > {
-	assertStudioUiMode( mode );
+	assertSupportedStudioUiMode( mode );
+	const normalizedMode = normalizeStudioUiMode( mode );
 	await lockAppdata();
 	try {
 		const userData = await loadUserData();
@@ -68,7 +71,7 @@ export async function setStudioUiMode(
 			...userData,
 			desks: {
 				...userData.desks,
-				defaultUiMode: mode,
+				defaultUiMode: normalizedMode,
 			},
 		} );
 	} finally {
@@ -78,7 +81,7 @@ export async function setStudioUiMode(
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( parentWindow && ! parentWindow.isDestroyed() ) {
 		setTimeout( () => {
-			void loadMainWindowRenderer( parentWindow, mode );
+			void loadMainWindowRenderer( parentWindow, normalizedMode );
 		}, 0 );
 	}
 }

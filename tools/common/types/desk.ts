@@ -1,7 +1,9 @@
 export const DESK_CONFIG_VERSION = 1;
 export const DESK_SETTINGS_VERSION = 1;
 
-export type StudioUiMode = 'default' | 'desks' | 'agentic';
+export type StudioUiMode = 'default' | 'studio2';
+export type LegacyStudioUiMode = 'desks' | 'agentic';
+export type StoredStudioUiMode = StudioUiMode | LegacyStudioUiMode;
 
 export interface DeskToolbarLayout {
 	left: string[];
@@ -77,7 +79,7 @@ export interface DeskConfig< TWidget extends DeskWidgetBase = DeskWidgetBase > {
 }
 
 export interface DesksConfig {
-	defaultUiMode?: StudioUiMode;
+	defaultUiMode?: StoredStudioUiMode;
 	settings?: DeskSettings;
 	user?: DeskConfig;
 	sites?: Record< string, DeskConfig >;

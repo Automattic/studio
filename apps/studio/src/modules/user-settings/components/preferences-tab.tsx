@@ -130,12 +130,8 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 		}
 	};
 
-	const switchToDesksUi = () => {
-		void getIpcApi().setStudioUiMode( 'desks' );
-	};
-
-	const switchToAgenticUi = () => {
-		void getIpcApi().setStudioUiMode( 'agentic' );
+	const switchToStudio2Ui = () => {
+		void getIpcApi().setStudioUiMode( 'studio2' );
 	};
 
 	return (
@@ -161,14 +157,9 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 			) }
 			{ enableDesksUiSwitch && (
 				<SettingsFormField label={ __( 'Studio UI' ) }>
-					<div className="flex flex-wrap gap-3">
-						<Button variant="secondary" onClick={ switchToDesksUi }>
-							{ __( 'Switch to Desks UI' ) }
-						</Button>
-						<Button variant="secondary" onClick={ switchToAgenticUi }>
-							{ __( 'Switch to Agentic UI' ) }
-						</Button>
-					</div>
+					<Button variant="secondary" onClick={ switchToStudio2Ui }>
+						{ __( 'Switch to Studio 2.0' ) }
+					</Button>
 				</SettingsFormField>
 			) }
 			<div className="mt-auto pt-2 flex justify-end gap-3">

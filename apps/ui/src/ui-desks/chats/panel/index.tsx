@@ -24,6 +24,8 @@ interface ChatsProps {
 	siteId?: string;
 	side: ChatPanelSide;
 	panel: ChatPanelResizeState;
+	embedded?: boolean;
+	container?: HTMLElement | null;
 }
 
 const COMPACT_STORAGE_KEY = 'ui-desks-chat-list-compact';
@@ -210,7 +212,7 @@ export function ChatsTrigger() {
 	return <ChatsButton open={ open } onToggle={ () => setOpen( ! open ) } />;
 }
 
-export function Chats( { siteId, side, panel }: ChatsProps ) {
+export function Chats( { siteId, side, panel, embedded = false, container }: ChatsProps ) {
 	const {
 		open,
 		setOpen,
@@ -255,6 +257,13 @@ export function Chats( { siteId, side, panel }: ChatsProps ) {
 		chatSessions.find( ( session ) => session.id === selectedSessionId ) ??
 		( sessions ?? [] ).find( ( session ) => session.id === selectedSessionId );
 	const isListCollapsed = expanded && listCollapsed;
+	const embeddedBounds = embedded ? container?.getBoundingClientRect() : undefined;
+	const widgetDragPreviewX = composerWidgetDragPreview
+		? composerWidgetDragPreview.x - ( embeddedBounds?.left ?? 0 )
+		: 0;
+	const widgetDragPreviewY = composerWidgetDragPreview
+		? composerWidgetDragPreview.y - ( embeddedBounds?.top ?? 0 )
+		: 0;
 
 	useEffect( () => {
 		if ( selectedSessionId && sessions && ! isFetchingSessions && ! selectedSession ) {
@@ -278,7 +287,7 @@ export function Chats( { siteId, side, panel }: ChatsProps ) {
 
 	return (
 		<Dialog.Root open={ open } onOpenChange={ setOpen } modal={ false } disablePointerDismissal>
-			<Dialog.Portal>
+			<Dialog.Portal container={ embedded ? container : undefined }>
 				<Dialog.Popup
 					initialFocus={ false }
 					finalFocus={ false }
@@ -292,6 +301,7 @@ export function Chats( { siteId, side, panel }: ChatsProps ) {
 					data-expanded={ expanded ? 'true' : 'false' }
 					data-list-collapsed={ isListCollapsed ? 'true' : 'false' }
 					data-resizing={ isResizing ? 'true' : 'false' }
+					data-ui-desks-embedded={ embedded ? 'true' : undefined }
 					data-ui-desks-chat-dropzone={ expanded && selectedSessionId ? 'true' : undefined }
 					style={
 						expanded
@@ -448,8 +458,8 @@ export function Chats( { siteId, side, panel }: ChatsProps ) {
 						className={ styles.widgetDragPreview }
 						style={
 							{
-								'--desk-widget-drag-preview-x': `${ composerWidgetDragPreview.x }px`,
-								'--desk-widget-drag-preview-y': `${ composerWidgetDragPreview.y }px`,
+								'--desk-widget-drag-preview-x': `${ widgetDragPreviewX }px`,
+								'--desk-widget-drag-preview-y': `${ widgetDragPreviewY }px`,
 							} as CSSProperties
 						}
 						aria-hidden="true"

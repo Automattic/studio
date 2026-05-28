@@ -46,6 +46,14 @@
 	width: min(var(--desk-chats-panel-width), calc(100vw - 2 * var(--desk-chats-panel-gap)));
 }
 
+.panel[data-ui-desks-embedded='true'] {
+	width: min(var(--desk-chats-list-pane-width), calc(100% - 2 * var(--desk-chats-panel-gap)));
+}
+
+.panelExpanded[data-ui-desks-embedded='true'] {
+	width: min(var(--desk-chats-panel-width), calc(100% - 2 * var(--desk-chats-panel-gap)));
+}
+
 .panel[data-resizing='true'] {
 	transition: none;
 }

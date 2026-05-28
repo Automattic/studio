@@ -3,7 +3,14 @@ import { useCallback, useState } from 'react';
 export type UiMode = 'classic' | 'desks';
 
 const STUDIO_UI_MODE_PARAM = 'studio-ui-mode';
-const DEFAULT_UI_MODE: UiMode = 'desks';
+const DEFAULT_UI_MODE: UiMode = 'classic';
+
+export function resolveLaunchUiMode( mode: string | null ): UiMode | undefined {
+	if ( mode === 'studio2' || mode === 'agentic' || mode === 'desks' ) {
+		return 'classic';
+	}
+	return undefined;
+}
 
 function readLaunchUiMode(): UiMode | undefined {
 	if ( typeof window === 'undefined' ) {
@@ -12,12 +19,7 @@ function readLaunchUiMode(): UiMode | undefined {
 
 	try {
 		const mode = new URLSearchParams( window.location.search ).get( STUDIO_UI_MODE_PARAM );
-		if ( mode === 'desks' ) {
-			return 'desks';
-		}
-		if ( mode === 'agentic' ) {
-			return 'classic';
-		}
+		return resolveLaunchUiMode( mode );
 	} catch {
 		return undefined;
 	}

@@ -9,6 +9,7 @@ import fs from 'fs';
 import * as path from 'path';
 import { pathToFileURL } from 'url';
 import { portFinder } from '@studio/common/lib/port-finder';
+import { normalizeStudioUiMode } from '@studio/common/lib/studio-ui-mode';
 import {
 	DEFAULT_HEIGHT,
 	DEFAULT_WIDTH,
@@ -27,7 +28,7 @@ import {
 	loadWindowBounds,
 	saveWindowBounds,
 } from 'src/storage/user-data';
-import type { StudioUiMode } from '@studio/common/types/desk';
+import type { StoredStudioUiMode, StudioUiMode } from '@studio/common/types/desk';
 import type { UserData, WindowBounds } from 'src/storage/storage-types';
 
 let mainWindow: BrowserWindow | null;
@@ -40,8 +41,7 @@ interface RendererLocation {
 }
 
 export function getPreferredStudioUiMode( userData: Pick< UserData, 'desks' > ): StudioUiMode {
-	const preferredMode = userData.desks?.defaultUiMode;
-	return preferredMode === 'desks' || preferredMode === 'agentic' ? preferredMode : 'default';
+	return normalizeStudioUiMode( userData.desks?.defaultUiMode );
 }
 
 function getRendererFilePath( mode: StudioUiMode ) {
@@ -120,13 +120,14 @@ async function loadRendererLocation( window: BrowserWindow, location: RendererLo
 
 export async function loadMainWindowRenderer(
 	window: BrowserWindow,
-	mode?: StudioUiMode
+	mode?: StoredStudioUiMode
 ): Promise< void > {
 	const userData = await loadUserData();
+	const normalizedMode = normalizeStudioUiMode( mode );
 	const location = getRendererLocation( {
 		desks: {
 			...userData.desks,
-			...( mode ? { defaultUiMode: mode } : {} ),
+			...( mode ? { defaultUiMode: normalizedMode } : {} ),
 		},
 	} );
 	await loadRendererLocation( window, location );

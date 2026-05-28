@@ -13,8 +13,8 @@
 	flex-direction: column;
 	gap: 2px;
 	width: 240px;
-	max-width: calc(100vw - 16px);
-	max-height: min(420px, calc(100vh - 16px));
+	max-width: calc(100% - 16px);
+	max-height: min(420px, calc(100% - 16px));
 	overflow-y: auto;
 	padding: 6px;
 	background: var(--ui-desks-material, #fff);

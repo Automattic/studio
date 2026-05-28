@@ -87,7 +87,14 @@ export function DeskCanvas() {
 
 			event.preventDefault();
 			event.stopPropagation();
-			setContextMenu( resolveDeskContextMenuState( editor, event.clientX, event.clientY ) );
+			const embeddedRoot = event.currentTarget.closest(
+				'[data-ui-desks-embedded="true"]'
+			) as HTMLElement | null;
+			setContextMenu(
+				resolveDeskContextMenuState( editor, event.clientX, event.clientY, {
+					boundaryRect: embeddedRoot?.getBoundingClientRect(),
+				} )
+			);
 		},
 		[ editor, isReadOnly ]
 	);

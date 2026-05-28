@@ -73,3 +73,27 @@
 .fullscreen .centerActions {
 	top: var(--desk-chrome-edge-offset);
 }
+
+.embedded {
+	--desk-chrome-edge-offset: var(--wpds-dimension-padding-xl);
+	--desk-embedded-top-offset: var(--desk-chrome-edge-offset);
+}
+
+.embedded .title {
+	display: none;
+}
+
+.embedded .actions {
+	top: var(--desk-embedded-top-offset);
+	left: var(--desk-chrome-edge-offset);
+}
+
+.embedded .rightActions {
+	top: var(--desk-embedded-top-offset);
+	right: var(--desk-chrome-edge-offset);
+}
+
+.embedded .centerActions {
+	top: var(--desk-embedded-top-offset);
+	max-width: min(360px, calc(100% - 320px));
+}

@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { category, cog, comment } from '@wordpress/icons';
+import { category, cog, comment, layout } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { SidebarButton } from '@/components/sidebar-button';
@@ -17,6 +17,7 @@ type NavItem = {
 function getItems(): NavItem[] {
 	return [
 		{ key: 'chat', label: __( 'Chat' ), icon: comment, to: '/dashboard' },
+		{ key: 'desk', label: __( 'Desk' ), icon: layout, to: '/desk' },
 		{ key: 'settings', label: __( 'Settings' ), icon: cog, to: '/settings' },
 		{ key: 'skills', label: __( 'Skills' ), icon: category },
 	];

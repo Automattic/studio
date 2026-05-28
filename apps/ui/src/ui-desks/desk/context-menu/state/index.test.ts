@@ -64,6 +64,34 @@ describe( 'resolveDeskContextMenuState', () => {
 		expect( state.shapeIds ).toEqual( [ 'shape:b' ] );
 		expect( editor.setSelectedShapes ).toHaveBeenCalledWith( [ 'shape:b' ] );
 	} );
+
+	it( 'keeps page coordinates viewport-based while positioning menus inside an embedded boundary', () => {
+		const editor = createEditorMock( {
+			shapes: [],
+			hitShapeId: null,
+		} );
+
+		const state = resolveDeskContextMenuState( editor, 312, 144, {
+			boundaryRect: {
+				left: 240,
+				top: 40,
+				width: 800,
+				height: 600,
+			},
+		} );
+
+		expect( state ).toMatchObject( {
+			kind: 'empty',
+			pagePoint: { x: 312, y: 144 },
+			x: 72,
+			y: 104,
+			boundary: {
+				width: 800,
+				height: 600,
+			},
+		} );
+		expect( editor.screenToPage ).toHaveBeenCalledWith( { x: 312, y: 144 } );
+	} );
 } );
 
 function createShape( id: string, stackId?: string ) {

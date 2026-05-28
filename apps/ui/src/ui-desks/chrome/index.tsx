@@ -20,6 +20,7 @@ import { DeskMenu } from './user-menu';
 
 interface DeskChromeProps {
 	siteId?: string;
+	embedded?: boolean;
 	siteMapOpen?: boolean;
 	siteMapPageCount?: number;
 	settingsOpen: boolean;
@@ -30,6 +31,7 @@ interface DeskChromeProps {
 
 export function DeskChrome( {
 	siteId,
+	embedded = false,
 	siteMapOpen = false,
 	siteMapPageCount,
 	settingsOpen,
@@ -86,6 +88,7 @@ export function DeskChrome( {
 
 	return (
 		<DeskHeader
+			embedded={ embedded }
 			centerChildren={ siteMapOpen ? <DeskSiteMapTitle pageCount={ siteMapPageCount } /> : null }
 			rightChildren={
 				<ToolbarRow
@@ -113,6 +116,7 @@ export function DeskChrome( {
 					<>
 						<DeskMenu
 							siteId={ siteId }
+							embedded={ embedded }
 							disabled={ editingToolbar }
 							showSiteName={ settings.showSiteName }
 						/>

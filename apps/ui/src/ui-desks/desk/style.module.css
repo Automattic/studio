@@ -3,6 +3,15 @@
 	background: var(--ui-desks-bg, rgb(232, 234, 235));
 }
 
+.root[data-ui-desks-embedded='true'] {
+	position: relative;
+	height: 100%;
+	min-height: 0;
+	overflow: hidden;
+	isolation: isolate;
+	transform: translateZ(0);
+}
+
 .root[data-toolbar-editing='true'] [data-ui-desks-canvas] {
 	filter: blur(8px) brightness(0.96);
 	transition: filter 220ms ease;
@@ -60,4 +69,16 @@
 	inset: 12px;
 	border: 3px solid #14171a;
 	border-radius: 8px;
+}
+
+.root[data-ui-desks-embedded='true'] .toolbarEditBackdrop {
+	position: fixed;
+}
+
+.root[data-ui-desks-embedded='true'] .toolbarEditActions {
+	top: var(--wpds-dimension-padding-xl);
+}
+
+.root[data-ui-desks-embedded='true'] .siteMapLoadingWidget {
+	position: fixed;
 }

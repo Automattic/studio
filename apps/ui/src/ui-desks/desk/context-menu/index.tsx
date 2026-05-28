@@ -793,7 +793,8 @@ function ContextMenuSeparator() {
 }
 
 function getMenuPosition( state: DeskContextMenuState, menuMode: MenuMode ) {
-	if ( typeof window === 'undefined' ) {
+	const boundary = state.boundary;
+	if ( typeof window === 'undefined' && ! boundary ) {
 		return {
 			left: state.x,
 			top: state.y,
@@ -804,14 +805,13 @@ function getMenuPosition( state: DeskContextMenuState, menuMode: MenuMode ) {
 		menuMode === 'pick-post' || menuMode === 'pick-page' || menuMode === 'pick-site-card'
 			? PICKER_WIDTH
 			: MENU_WIDTH;
+	const maxWidth = boundary?.width ?? window.innerWidth;
+	const maxHeight = boundary?.height ?? window.innerHeight;
 	return {
-		left: Math.max(
-			VIEWPORT_MARGIN,
-			Math.min( state.x, window.innerWidth - width - VIEWPORT_MARGIN )
-		),
+		left: Math.max( VIEWPORT_MARGIN, Math.min( state.x, maxWidth - width - VIEWPORT_MARGIN ) ),
 		top: Math.max(
 			VIEWPORT_MARGIN,
-			Math.min( state.y, window.innerHeight - MENU_MAX_HEIGHT - VIEWPORT_MARGIN )
+			Math.min( state.y, maxHeight - MENU_MAX_HEIGHT - VIEWPORT_MARGIN )
 		),
 	};
 }

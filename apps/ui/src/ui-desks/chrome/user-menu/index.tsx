@@ -17,15 +17,33 @@ const WPCOM_PROFILE_URL = 'https://wordpress.com/me';
 
 interface DeskMenuProps {
 	siteId?: string;
+	embedded?: boolean;
 	disabled?: boolean;
 	showSiteName?: boolean;
+}
+
+interface DeskMenuRouteTargets {
+	userDesk: '/' | '/desk';
+	siteDesk: '/sites/$siteId';
+}
+
+export function getDeskMenuRouteTargets( embedded = false ): DeskMenuRouteTargets {
+	return {
+		userDesk: embedded ? '/desk' : '/',
+		siteDesk: '/sites/$siteId',
+	};
 }
 
 function getSiteIconSeed( site: SiteDetails ) {
 	return `${ site.id }:${ site.name }:${ site.path }`;
 }
 
-export function DeskMenu( { siteId, disabled = false, showSiteName = true }: DeskMenuProps ) {
+export function DeskMenu( {
+	siteId,
+	embedded = false,
+	disabled = false,
+	showSiteName = true,
+}: DeskMenuProps ) {
 	const navigate = useNavigate();
 	const connector = useConnector();
 	const { data: user } = useAuthUser();
@@ -43,13 +61,14 @@ export function DeskMenu( { siteId, disabled = false, showSiteName = true }: Des
 	const switcherSites = activeSite
 		? [ activeSite, ...( sites ?? [] ).filter( ( candidate ) => candidate.id !== activeSite.id ) ]
 		: sites ?? [];
+	const routes = getDeskMenuRouteTargets( embedded );
 
 	const openLink = ( url: string ) => {
 		void connector.openExternalUrl( url );
 	};
 
 	const openUserDashboard = () => {
-		void navigate( { to: '/' } );
+		void navigate( { to: routes.userDesk } );
 	};
 
 	const switchToDefaultUi = () => {
@@ -60,7 +79,7 @@ export function DeskMenu( { siteId, disabled = false, showSiteName = true }: Des
 		if ( nextSiteId === siteId ) {
 			return;
 		}
-		void navigate( { to: '/sites/$siteId', params: { siteId: nextSiteId } } );
+		void navigate( { to: routes.siteDesk, params: { siteId: nextSiteId } } );
 	};
 
 	const trigger = siteId ? (

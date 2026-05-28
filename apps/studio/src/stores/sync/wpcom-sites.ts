@@ -140,13 +140,20 @@ export const wpcomSitesApi = createApi( {
 
 						// Connected sites that weren't on page 1 need explicit verification
 						// before we'd mark them deleted — otherwise pagination would flag
-						// any connected site past the first page as gone.
+						// any connected site past the first page as gone. Sites already in
+						// the terminal `deleted` state are skipped: re-verifying them just
+						// spams 403s from wp.com when the user has lost access.
 						const fetchedIds = new Set(
 							parsedResponse.sites
 								.map( ( s ) => sitesEndpointSiteSchema.safeParse( s ).data?.ID )
 								.filter( ( id ): id is number => typeof id === 'number' )
 						);
-						const missingConnectedIds = connectedIds.filter( ( id ) => ! fetchedIds.has( id ) );
+						const verifiableConnectedIds = allConnectedSites
+							.filter( ( s ) => s.syncSupport !== 'deleted' )
+							.map( ( { id } ) => id );
+						const missingConnectedIds = verifiableConnectedIds.filter(
+							( id ) => ! fetchedIds.has( id )
+						);
 
 						const verifiedDeletedIds = new Set< number >();
 						const supplementalSites: SyncSite[] = [];

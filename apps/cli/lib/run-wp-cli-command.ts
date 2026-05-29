@@ -84,6 +84,7 @@ type RunWpCliCommandOptions = {
 	siteUrl?: string;
 	requireSqliteCliCommand?: boolean;
 	phpVersion?: SupportedPHPVersion;
+	stdin?: Buffer | Uint8Array;
 };
 
 type DisposableWpCliResponse = Disposable & {
@@ -145,9 +146,12 @@ async function runNativeWpCliCommand(
 		[ ...defaultArgs, getWpCliPharPath(), `--path=${ site.path }`, ...nativeArgs ],
 		{
 			cwd: site.path,
-			stdio: [ 'ignore', 'pipe', 'pipe' ],
+			stdio: [ options.stdin ? 'pipe' : 'ignore', 'pipe', 'pipe' ],
 		}
 	);
+	if ( options.stdin && child.stdin ) {
+		child.stdin.end( options.stdin );
+	}
 
 	await ensureChildSpawned( child );
 
@@ -241,12 +245,10 @@ export async function runWpCliCommand(
 		await setupPlatformLevelMuPlugins( php );
 
 		const wasmArgs = applyWpCliCommandOptions( 'wasm', args, options );
-		const streamedResponse = await php.cli( [
-			'php',
-			'/tmp/wp-cli.phar',
-			'--path=/wordpress',
-			...wasmArgs,
-		] );
+		const streamedResponse = await php.cli(
+			[ 'php', '/tmp/wp-cli.phar', '--path=/wordpress', ...wasmArgs ],
+			options.stdin ? { stdin: options.stdin } : {}
+		);
 
 		return {
 			response: new WpCliResponse(
@@ -293,6 +295,7 @@ async function runNativeGlobalWpCliCommand( args: string[] ): Promise< Disposabl
 
 type RunGlobalWpCliCommandOptions = {
 	runtime?: SiteRuntime;
+	stdin?: Buffer | Uint8Array;
 };
 
 /**
@@ -332,7 +335,10 @@ export async function runGlobalWpCliCommand(
 
 		await php.mount( '/tmp/wp-cli.phar', createNodeFsMountHandler( getWpCliPharPath() ) );
 
-		const streamedResponse = await php.cli( [ 'php', '/tmp/wp-cli.phar', ...args ] );
+		const streamedResponse = await php.cli(
+			[ 'php', '/tmp/wp-cli.phar', ...args ],
+			options.stdin ? { stdin: options.stdin } : {}
+		);
 
 		return {
 			response: new WpCliResponse(

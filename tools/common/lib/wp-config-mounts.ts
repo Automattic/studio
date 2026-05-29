@@ -6,6 +6,9 @@ interface MountPath {
 	vfsPath: string;
 }
 
+const DEFINE_PATH_REGEX = /define\(\s*['"][^'"]+['"]\s*,\s*['"](\/[^'"]+)['"]\s*\)/g;
+const SENSITIVE_ROOTS = [ '/etc', '/var', '/proc', '/sys', '/dev' ];
+
 /**
  * Parses wp-config.php for define() constants whose values are absolute host paths
  * that exist on disk and are outside the site folder. Returns mount entries so PHP
@@ -20,66 +23,31 @@ interface MountPath {
  * translation.
  */
 export function getWpConfigMountPaths( sitePath: string ): MountPath[] {
-	const wpConfigPath = nodePath.join( sitePath, 'wp-config.php' );
-
 	let configContent: string;
 	try {
-		configContent = fs.readFileSync( wpConfigPath, 'utf8' );
+		configContent = fs.readFileSync( nodePath.join( sitePath, 'wp-config.php' ), 'utf8' );
 	} catch {
 		return [];
 	}
 
-	// Match define() calls with string values that look like absolute paths.
-	// Handles both single and double quotes, with optional whitespace.
-	// Examples:
-	//   define( 'MY_PATH', '/Users/me/Developer' );
-	//   define("WORKSPACE_DIR", "/home/user/workspace");
-	const defineRegex = /define\(\s*['"][^'"]+['"]\s*,\s*['"](\/[^'"]+)['"]\s*\)/g;
-
-	const mounts: MountPath[] = [];
-	const seen = new Set< string >();
+	const mounts = new Map< string, MountPath >();
 	const normalizedSitePath = nodePath.resolve( sitePath );
 
-	let match: RegExpExecArray | null;
-	while ( ( match = defineRegex.exec( configContent ) ) !== null ) {
+	for ( const match of configContent.matchAll( DEFINE_PATH_REGEX ) ) {
 		const rawPath = match[ 1 ];
+		const hostPath = nodePath.resolve( rawPath );
 
-		// Resolve to handle any trailing slashes or relative segments
-		const resolvedPath = nodePath.resolve( rawPath );
-
-		// Skip if already seen (avoid duplicate mounts)
-		if ( seen.has( resolvedPath ) ) {
-			continue;
-		}
-		seen.add( resolvedPath );
-
-		// Skip paths inside the site folder (already mounted at /wordpress)
 		if (
-			resolvedPath === normalizedSitePath ||
-			resolvedPath.startsWith( normalizedSitePath + nodePath.sep )
+			hostPath === normalizedSitePath ||
+			hostPath.startsWith( normalizedSitePath + nodePath.sep ) ||
+			! fs.existsSync( hostPath ) ||
+			SENSITIVE_ROOTS.some( ( root ) => rawPath === root || rawPath.startsWith( root + '/' ) )
 		) {
 			continue;
 		}
 
-		// Skip paths that don't exist on disk
-		if ( ! fs.existsSync( resolvedPath ) ) {
-			continue;
-		}
-
-		// Skip sensitive system paths. Compare against the raw POSIX-style path
-		// captured from the regex (not the resolved path), so detection works the
-		// same on Windows where path.resolve() would prepend a drive letter and
-		// break a literal "/etc/" prefix match.
-		const sensitiveRoots = [ '/etc', '/var', '/proc', '/sys', '/dev' ];
-		if ( sensitiveRoots.some( ( root ) => rawPath === root || rawPath.startsWith( root + '/' ) ) ) {
-			continue;
-		}
-
-		mounts.push( {
-			hostPath: resolvedPath,
-			vfsPath: resolvedPath,
-		} );
+		mounts.set( hostPath, { hostPath, vfsPath: hostPath } );
 	}
 
-	return mounts;
+	return [ ...mounts.values() ];
 }

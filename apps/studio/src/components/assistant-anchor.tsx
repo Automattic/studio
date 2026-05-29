@@ -9,7 +9,7 @@ import { addUrlParams, getHostnameFromUrl } from 'src/lib/url-utils';
 
 export default function Anchor( props: JSX.IntrinsicElements[ 'a' ] & ExtraProps ) {
 	const { href } = props;
-	const { node, className, ...filteredProps } = props;
+	const { node, className, ref: _ref, ...filteredProps } = props;
 	const { selectedSite, startServer, loadingServer } = useSiteDetails();
 
 	return (

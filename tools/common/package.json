@@ -10,7 +10,7 @@
 	},
 	"dependencies": {
 		"@automattic/generate-password": "^0.1.0",
-		"@wordpress/i18n": "^6.18.0",
+		"@wordpress/i18n": "^6.20.0",
 		"cross-port-killer": "^1.4.0",
 		"date-fns": "^3.3.1",
 		"fast-deep-equal": "^3.1.3",

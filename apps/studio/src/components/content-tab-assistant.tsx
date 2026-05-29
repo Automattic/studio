@@ -199,7 +199,7 @@ interface AuthenticatedViewProps {
 	isAssistantThinking: boolean;
 	siteId: string;
 	submitPrompt: ( messageToSend: string, isRetry?: boolean ) => void;
-	wrapperRef: React.RefObject< HTMLDivElement >;
+	wrapperRef: React.RefObject< HTMLDivElement | null >;
 }
 
 const AuthenticatedView = memo(

@@ -61,11 +61,7 @@ export const Button = forwardRef< HTMLButtonElement, ButtonProps >( function But
 	const content = (
 		<>
 			{ icon ? (
-				<Icon
-					icon={ icon }
-					size={ ICON_SIZE_BY_BUTTON_SIZE[ size ] }
-					className={ styles.icon }
-				/>
+				<Icon icon={ icon } size={ ICON_SIZE_BY_BUTTON_SIZE[ size ] } className={ styles.icon } />
 			) : null }
 			{ children }
 		</>

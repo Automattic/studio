@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { vi } from 'vitest';
@@ -19,6 +19,7 @@ const mockGetXdebugEnabledSite = vi.fn().mockResolvedValue( null );
 
 vi.mock( 'src/lib/app-globals', () => ( {
 	isWindows: () => false,
+	isLinux: () => false,
 } ) );
 
 vi.mock( 'src/hooks/use-site-details' );
@@ -68,8 +69,15 @@ vi.mock( 'src/hooks/use-offline', () => ( {
 	useOffline: vi.fn().mockReturnValue( false ),
 } ) );
 
-const renderWithProvider = ( children: React.ReactElement ) => {
-	const store = createTestStore();
+const renderWithProvider = ( children: React.ReactElement, nativePhpRuntime = false ) => {
+	const store = createTestStore( {
+		preloadedState: {
+			betaFeatures: {
+				features: { remoteSession: false, nativePhpRuntime },
+				loading: false,
+			},
+		},
+	} );
 	return render( <Provider store={ store }>{ children }</Provider> );
 };
 
@@ -85,7 +93,7 @@ describe( 'EditSiteDetails', () => {
 			name: 'Test Site',
 			path: '/path/to/site',
 			port: 8881,
-			phpVersion: '8.3',
+			phpVersion: '8.4',
 			running: true,
 			url: 'http://localhost:8881',
 		},
@@ -139,7 +147,7 @@ describe( 'EditSiteDetails', () => {
 		} );
 
 		expect( screen.getByLabelText( 'Site name' ) ).toHaveValue( 'Test Site' );
-		expect( screen.getByLabelText( 'PHP version' ) ).toHaveValue( '8.3' );
+		expect( screen.getByLabelText( 'PHP version' ) ).toHaveValue( '8.4' );
 		expect( screen.getByLabelText( 'WordPress version' ) ).toHaveValue( 'latest' );
 	} );
 
@@ -220,6 +228,35 @@ describe( 'EditSiteDetails', () => {
 		await user.selectOptions( phpVersionSelect, '8.2' );
 
 		expect( screen.getByRole( 'button', { name: 'Save' } ) ).toBeEnabled();
+	} );
+
+	it( 'should show a native PHP fallback warning for unsupported stored PHP versions', async () => {
+		const user = userEvent.setup();
+		vi.mocked( useSiteDetails ).mockReturnValue(
+			createMock< ReturnType< typeof useSiteDetails > >( {
+				...baseMockSiteDetails,
+				selectedSite: {
+					...baseMockSiteDetails.selectedSite,
+					phpVersion: '7.4',
+				},
+				isEditModalOpen: true,
+			} )
+		);
+
+		renderWithProvider( <EditSiteDetails { ...defaultProps } />, true );
+
+		await waitFor( () => {
+			expect( screen.getByRole( 'dialog' ) ).toBeInTheDocument();
+		} );
+		const dialog = screen.getByRole( 'dialog' );
+		expect( within( dialog ).getByLabelText( 'PHP version' ) ).toHaveValue( '8.2' );
+		await user.hover( within( dialog ).getByRole( 'img', { name: 'PHP version warning' } ) );
+
+		expect(
+			await screen.findByText(
+				'Native PHP does not support PHP 7.4. This site will run with PHP 8.2 instead.'
+			)
+		).toBeVisible();
 	} );
 
 	it( 'should enable the save button when WordPress version is changed', async () => {
@@ -395,9 +432,14 @@ describe( 'EditSiteDetails', () => {
 				isEditModalOpen: true,
 			} )
 		);
-		// Mock the updateSite to delay completion
+		let resolveUpdate: () => void = () => {
+			// Initial no-op reassigned when mockUpdateSite is invoked.
+		};
 		mockUpdateSite.mockImplementation(
-			() => new Promise( ( resolve ) => setTimeout( resolve, 100 ) )
+			() =>
+				new Promise< void >( ( resolve ) => {
+					resolveUpdate = resolve;
+				} )
 		);
 
 		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
@@ -414,11 +456,15 @@ describe( 'EditSiteDetails', () => {
 		await user.click( saveButton );
 
 		// Check that controls are disabled during save
-		expect( screen.getByRole( 'button', { name: 'Saving…' } ) ).toBeInTheDocument();
+		await waitFor( () => {
+			expect( screen.getByRole( 'button', { name: 'Saving…' } ) ).toBeInTheDocument();
+		} );
 		expect( screen.getByLabelText( 'Site name' ) ).toBeDisabled();
 		expect( screen.getByLabelText( 'PHP version' ) ).toBeDisabled();
 		expect( screen.getByLabelText( 'WordPress version' ) ).toBeDisabled();
 		expect( screen.getByRole( 'button', { name: 'Cancel' } ) ).toBeDisabled();
+
+		resolveUpdate();
 
 		// Wait for the update to complete
 		await waitFor( () => {

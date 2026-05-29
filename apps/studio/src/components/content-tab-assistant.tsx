@@ -16,9 +16,11 @@ import { ChatMessage, MarkDownWithCode } from 'src/components/chat-message';
 import { ChatRating } from 'src/components/chat-rating';
 import { LearnMoreLink } from 'src/components/learn-more';
 import offlineIcon from 'src/components/offline-icon';
+import { StudioCodeChat } from 'src/components/studio-code-chat';
 import WelcomeComponent from 'src/components/welcome-message-prompt';
 import { LIMIT_OF_PROMPTS_PER_USER, TELEX_HOSTNAME, TELEX_UTM_PARAMS } from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useOffline } from 'src/hooks/use-offline';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { cx } from 'src/lib/cx';
@@ -197,7 +199,7 @@ interface AuthenticatedViewProps {
 	isAssistantThinking: boolean;
 	siteId: string;
 	submitPrompt: ( messageToSend: string, isRetry?: boolean ) => void;
-	wrapperRef: React.RefObject< HTMLDivElement >;
+	wrapperRef: React.RefObject< HTMLDivElement | null >;
 }
 
 const AuthenticatedView = memo(
@@ -357,6 +359,16 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 );
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
+	const { enableStudioCodeUi } = useFeatureFlags();
+
+	if ( enableStudioCodeUi ) {
+		return <StudioCodeChat selectedSite={ selectedSite } />;
+	}
+
+	return <WpcomAssistant selectedSite={ selectedSite } />;
+}
+
+function WpcomAssistant( { selectedSite }: ContentTabAssistantProps ) {
 	const inputRef = useRef< HTMLTextAreaElement >( null );
 	const wrapperRef = useRef< HTMLDivElement >( null );
 	const dispatch = useAppDispatch();
@@ -459,7 +471,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 						<TelexIcon />
 						<span className="text-frame-text">
 							{ createInterpolateElement(
-								__( 'Build blocks with <button>Telex <ArrowIcon /></button>' ),
+								__( 'Build blocks with <button>Telex <ArrowIcon/></button>' ),
 								{
 									button: (
 										<Button

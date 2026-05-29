@@ -1,6 +1,6 @@
 import { search } from '@inquirer/prompts';
+import chalk from '@studio/common/lib/chalk';
 import { __, sprintf } from '@wordpress/i18n';
-import chalk from 'chalk';
 import { normalizeHostname } from 'cli/lib/utils';
 import { LoggerError } from 'cli/logger';
 import type { SyncSite } from '@studio/common/types/sync';
@@ -18,7 +18,7 @@ function throwSyncSupportError( site: SyncSite ): never {
 		);
 	}
 	throw new LoggerError(
-		sprintf( __( 'Site %s is not syncable (%s)' ), site.name, site.syncSupport )
+		sprintf( __( 'Site %1$s is not syncable (%2$s)' ), site.name, site.syncSupport )
 	);
 }
 
@@ -46,7 +46,7 @@ export function findSyncSiteByIdentifier( sites: SyncSite[], identifier: string 
 	if ( matched.length > 1 ) {
 		throw new LoggerError(
 			sprintf(
-				__( 'Multiple sites match "%s". Use the site ID instead: %s' ),
+				__( 'Multiple sites match "%1$s". Use the site ID instead: %2$s' ),
 				identifier,
 				matched.map( ( s ) => `${ s.name } (ID: ${ s.id })` ).join( ', ' )
 			)

@@ -35,6 +35,8 @@ declare module '*.riv?url' {
 	export default url;
 }
 
+declare module '*.css';
+
 declare module '*.css?url' {
 	const url: string;
 	export default url;

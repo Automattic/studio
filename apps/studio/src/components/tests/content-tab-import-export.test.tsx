@@ -19,7 +19,7 @@ const selectedSite: SiteDetails = {
 	name: 'Test Site',
 	running: false,
 	path: '/test-site',
-	phpVersion: '8.3',
+	phpVersion: '8.4',
 	adminPassword: btoa( 'test-password' ),
 	port: 9999,
 };
@@ -68,7 +68,7 @@ describe( 'ContentTabImportExport Import', () => {
 		expect( screen.getByText( /Drop file/i ) ).toBeInTheDocument();
 	} );
 
-	test( 'should display inital text on drop leave', async () => {
+	test( 'should display initial text on drop leave', async () => {
 		renderWithProvider( <ContentTabImportExport selectedSite={ selectedSite } /> );
 		await waitFor( () => {
 			expect( screen.getByTestId( 'import-export-supported' ) ).toBeVisible();

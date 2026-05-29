@@ -1,55 +1,43 @@
-import { __experimentalHStack as HStack, __experimentalText as Text } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
-import { FormEvent } from 'react';
+import { FormEvent, ReactNode } from 'react';
 import Button from 'src/components/button';
-import { cx } from 'src/lib/cx';
 import { useStepper } from '../hooks/use-stepper';
 
 interface StepperProps {
 	currentPath?: string;
 	onBack?: () => void;
 	onBlueprintContinue?: () => void;
-	onBlueprintDetailsContinue?: () => void;
 	onBlueprintDeeplinkContinue?: () => void;
-	onBackupContinue?: () => void;
 	onPullRemoteContinue?: () => void;
 	onCreateSubmit?: ( event: FormEvent ) => void;
 	canSubmitBlueprint?: boolean;
-	canSubmitBlueprintDetails?: boolean;
 	canSubmitBlueprintDeeplink?: boolean;
-	canSubmitBackup?: boolean;
 	canSubmitPullRemote?: boolean;
 	canSubmitCreate?: boolean;
+	leftSlot?: ReactNode;
 }
 
 export default function Stepper( {
 	currentPath,
 	onBack,
 	onBlueprintContinue,
-	onBlueprintDetailsContinue,
 	onBlueprintDeeplinkContinue,
-	onBackupContinue,
 	onPullRemoteContinue,
 	onCreateSubmit,
 	canSubmitBlueprint,
-	canSubmitBlueprintDetails,
 	canSubmitBlueprintDeeplink,
-	canSubmitBackup,
 	canSubmitPullRemote,
 	canSubmitCreate,
+	leftSlot,
 }: StepperProps ) {
 	const { __ } = useI18n();
-	const { steps, isVisible, actionButton, onSubmit, canSubmit } = useStepper( {
+	const { isVisible, actionButton, onSubmit, canSubmit } = useStepper( {
 		onBlueprintContinue,
-		onBlueprintDetailsContinue,
 		onBlueprintDeeplinkContinue,
-		onBackupContinue,
 		onPullRemoteContinue,
 		onCreateSubmit,
 		canSubmitBlueprint,
-		canSubmitBlueprintDetails,
 		canSubmitBlueprintDeeplink,
-		canSubmitBackup,
 		canSubmitPullRemote,
 		canSubmitCreate,
 	} );
@@ -59,48 +47,15 @@ export default function Stepper( {
 	}
 
 	return (
-		<div className="flex justify-between items-center p-5">
-			<HStack spacing={ 6 } alignment="left">
-				{ steps.map( ( step, index ) => {
-					const stepNumber = index + 1;
-
-					return (
-						<HStack
-							key={ step.id }
-							spacing={ 2 }
-							alignment="left"
-							className={ cx(
-								'w-fit',
-								step.isClickable && 'cursor-pointer hover:opacity-80 transition-opacity'
-							) }
-							onClick={ step.onClick }
-						>
-							<div
-								className={ cx(
-									`w-6 h-6 rounded-full flex items-center justify-center text-xs font-regular border-[1.5px] bg-transparent `,
-									step.isCurrent
-										? 'text-frame-text border-frame-text'
-										: 'border-frame-text-secondary text-frame-text-secondary'
-								) }
-							>
-								{ stepNumber }
-							</div>
-							<Text
-								className={ cx(
-									`text-sm font-regular`,
-									step.isCurrent ? 'text-frame-text' : 'text-frame-text-secondary'
-								) }
-							>
-								{ step.label }
-							</Text>
-						</HStack>
-					);
-				} ) }
-			</HStack>
-
-			<div className="flex gap-4">
+		<>
+			<div
+				aria-hidden="true"
+				className="absolute bottom-0 left-0 right-0 h-14 z-[5] pointer-events-none bg-gradient-to-t from-frame via-frame/90 to-transparent"
+			/>
+			{ leftSlot && <div className="absolute bottom-5 left-5 z-10">{ leftSlot }</div> }
+			<div className="absolute bottom-5 right-5 z-10 flex items-center gap-4">
 				{ currentPath && currentPath !== '/' && onBack && (
-					<Button variant="tertiary" onClick={ onBack }>
+					<Button variant="secondary" onClick={ onBack } className="!bg-frame">
 						{ __( 'Back' ) }
 					</Button>
 				) }
@@ -116,6 +71,6 @@ export default function Stepper( {
 					</Button>
 				) }
 			</div>
-		</div>
+		</>
 	);
 }

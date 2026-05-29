@@ -1,17 +1,4 @@
-import { SYNC_EXCLUSIONS } from './constants';
 import type { SyncOption } from '@studio/common/types/sync';
-
-export const shouldExcludeFromSync = ( itemName: string ): boolean => {
-	if ( itemName.startsWith( '.' ) ) {
-		return true;
-	}
-
-	if ( SYNC_EXCLUSIONS.includes( itemName ) ) {
-		return true;
-	}
-
-	return false;
-};
 
 export const shouldLimitDepth = ( relativePath: string ): boolean => {
 	const normalizedPath = relativePath.replace( /^wp-content\//, '' );

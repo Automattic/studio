@@ -6,10 +6,80 @@
  * backend could be added behind the same interface.
  */
 
+import { execFile } from 'child_process';
+import { existsSync } from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { promisify } from 'util';
+
 type Browser = Awaited< ReturnType< ( typeof import('playwright') )[ 'chromium' ][ 'launch' ] > >;
 type Page = Awaited< ReturnType< Browser[ 'newPage' ] > >;
+type Chromium = Awaited< typeof import('playwright') >[ 'chromium' ];
+type ChromiumLaunchOptions = Parameters< Chromium[ 'launch' ] >[ 0 ];
+type InstallBrowserFn = () => Promise< void >;
+
+const DEFAULT_BROWSER_ARGS = [ '--ignore-certificate-errors' ];
 
 let browserPromise: Promise< Browser > | null = null;
+const execFileAsync = promisify( execFile );
+
+export function buildChromiumLaunchAttempts(
+	chromium: Pick< Chromium, 'executablePath' >
+): ChromiumLaunchOptions[] {
+	const attempts: ChromiumLaunchOptions[] = [];
+	const executablePath = chromium.executablePath();
+
+	if ( executablePath && existsSync( executablePath ) ) {
+		attempts.push( {
+			args: DEFAULT_BROWSER_ARGS,
+			executablePath,
+		} );
+	}
+
+	attempts.push( {
+		args: DEFAULT_BROWSER_ARGS,
+	} );
+
+	return attempts;
+}
+
+async function installPlaywrightChromium(): Promise< void > {
+	const packageJsonPath = fileURLToPath( import.meta.resolve( 'playwright/package.json' ) );
+	const cliPath = path.join( path.dirname( packageJsonPath ), 'cli.js' );
+
+	await execFileAsync( process.execPath, [ cliPath, 'install', 'chromium' ], {
+		env: {
+			...process.env,
+			CI: process.env.CI ?? '1',
+		},
+		maxBuffer: 10 * 1024 * 1024,
+	} );
+}
+
+export async function ensurePlaywrightChromiumInstalled(
+	chromium: Pick< Chromium, 'executablePath' >,
+	installBrowser: InstallBrowserFn = installPlaywrightChromium
+): Promise< string | null > {
+	const executablePath = chromium.executablePath();
+	if ( existsSync( executablePath ) ) {
+		return null;
+	}
+
+	try {
+		await installBrowser();
+	} catch ( error ) {
+		return (
+			'Studio MCP could not auto-install Playwright Chromium. ' +
+			`${ error instanceof Error ? error.message : String( error ) }`
+		);
+	}
+
+	if ( ! existsSync( chromium.executablePath() ) ) {
+		return 'Studio MCP attempted to install Playwright Chromium, but the browser executable is still unavailable.';
+	}
+
+	return null;
+}
 
 /**
  * Returns (and lazily launches) a shared Chromium browser instance.
@@ -19,9 +89,31 @@ export async function getSharedBrowser(): Promise< Browser > {
 	if ( ! browserPromise ) {
 		browserPromise = ( async () => {
 			const { chromium } = await import( 'playwright' );
-			const browser = await chromium.launch( {
-				args: [ '--ignore-certificate-errors' ],
-			} );
+			const launchErrors: string[] = [];
+			let browser = await tryLaunchChromium( chromium, launchErrors );
+			let installError: string | null = null;
+
+			if ( ! browser ) {
+				installError = await ensurePlaywrightChromiumInstalled( chromium );
+				if ( ! installError ) {
+					browser = await tryLaunchChromium( chromium, launchErrors );
+				}
+			}
+
+			if ( ! browser ) {
+				const repairGuidance =
+					installError ??
+					'If Playwright Chromium is missing, run `studio mcp` again with network access so Studio can install it automatically.';
+
+				throw new Error(
+					'Unable to launch a browser for Studio MCP screenshot/validation tools. ' +
+						`Tried ${ launchErrors
+							.map( ( error ) => error.split( ': ', 1 )[ 0 ] )
+							.join( ', ' ) }. ` +
+						`${ repairGuidance } ` +
+						`Launch errors: ${ launchErrors.join( ' | ' ) }`
+				);
+			}
 
 			const cleanup = () => {
 				browser.close().catch( () => {} );
@@ -35,6 +127,40 @@ export async function getSharedBrowser(): Promise< Browser > {
 		} )();
 	}
 	return browserPromise;
+}
+
+/**
+ * Close the shared browser instance (if any) so the Node.js event loop can
+ * drain and the process can exit naturally without calling process.exit().
+ */
+export async function closeSharedBrowser(): Promise< void > {
+	if ( browserPromise ) {
+		const browser = await browserPromise;
+		await browser.close().catch( () => {} );
+		browserPromise = null;
+	}
+}
+
+async function tryLaunchChromium(
+	chromium: Pick< Chromium, 'launch' | 'executablePath' >,
+	launchErrors: string[]
+): Promise< Browser | undefined > {
+	for ( const attempt of buildChromiumLaunchAttempts( chromium ) ) {
+		if ( ! attempt ) {
+			continue;
+		}
+		const attemptedTarget = attempt.executablePath
+			? `executablePath=${ attempt.executablePath }`
+			: 'playwright-default';
+
+		try {
+			return await chromium.launch( attempt );
+		} catch ( error ) {
+			launchErrors.push(
+				`${ attemptedTarget }: ${ error instanceof Error ? error.message : String( error ) }`
+			);
+		}
+	}
 }
 
 /** Collect diagnostic info from the page to help debug editor load failures. */

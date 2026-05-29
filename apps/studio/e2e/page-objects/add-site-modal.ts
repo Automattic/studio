@@ -14,7 +14,7 @@ export default class AddSiteModal {
 	}
 
 	get blueprintButton() {
-		return this.page.locator( 'button:has-text("Start from a Blueprint")' ).first();
+		return this.page.getByTestId( 'create-site-option-button' );
 	}
 
 	get importButton() {
@@ -26,7 +26,9 @@ export default class AddSiteModal {
 	}
 
 	get fileInput() {
-		return this.page.locator( 'input[type="file"][accept=".json,application/json"]' );
+		return this.page.locator(
+			'input[type="file"][accept=".json,.zip,application/json,application/zip"]'
+		);
 	}
 
 	get backupFileInput() {

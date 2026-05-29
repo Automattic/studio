@@ -4,14 +4,8 @@ import {
 	LastBumpStatsProvider,
 	AggregateInterval,
 } from '@studio/common/lib/bump-stat';
-import {
-	JetpackImporter,
-	LocalImporter,
-	PlaygroundImporter,
-	SQLImporter,
-	WpressImporter,
-} from 'src/lib/import-export/import/importers';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
+import type { ImporterType } from '@studio/common/lib/import-export-events';
 
 export enum StatsGroup {
 	STUDIO_APP_LAUNCH = 'studio-app-launch-first',
@@ -21,6 +15,15 @@ export enum StatsGroup {
 	STUDIO_SITE_CREATE = 'studio-app-site-create',
 	STUDIO_IMPORT = 'studio-app-import',
 	STUDIO_EXPORT = 'studio-app-export',
+	// Dolly remote-session in the desktop app — counterpart to the CLI Dolly stats from STU-1739.
+	// The CLI stats fire on every daemon start (including app-spawned ones); these stats
+	// isolate the desktop UI's contribution (beta toggle, bolt-icon clicks, app-side uniques).
+	STUDIO_APP_DOLLY_ENABLE = 'studio-app-dolly-enable',
+	STUDIO_APP_DOLLY_DISABLE = 'studio-app-dolly-disable',
+	STUDIO_APP_DOLLY_START = 'studio-app-dolly-start',
+	STUDIO_APP_DOLLY_STOP = 'studio-app-dolly-stop',
+	STUDIO_APP_DOLLY_WKLY_UNQ = 'studio-app-dolly-wkly-unq',
+	STUDIO_APP_DOLLY_MON_UNQ = 'studio-app-dolly-mon-unq',
 }
 
 export enum StatsMetric {
@@ -63,7 +66,7 @@ const lastBumpStatsProvider: LastBumpStatsProvider = {
 	},
 };
 
-export function bumpStat( group: StatsGroup, stat: StatsMetric, bumpInDev = false ) {
+export function bumpStat( group: StatsGroup, stat: StatsMetric | string, bumpInDev = false ) {
 	return __bumpStat( group, stat, bumpInDev );
 }
 
@@ -89,29 +92,31 @@ export function getPlatformMetric(): StatsMetric {
 	}
 }
 
-export function getImporterMetric( importer?: string ): StatsMetric {
+export function getImporterMetric( importer?: ImporterType ): StatsMetric {
 	switch ( importer ) {
-		case JetpackImporter.name:
+		case 'jetpack':
 			return StatsMetric.JETPACK_IMPORTER;
-		case LocalImporter.name:
+		case 'local':
 			return StatsMetric.LOCAL_IMPORTER;
-		case SQLImporter.name:
+		case 'sql':
 			return StatsMetric.SQL_IMPORTER;
-		case PlaygroundImporter.name:
+		case 'playground':
 			return StatsMetric.PLAYGROUND_IMPORTER;
-		case WpressImporter.name:
+		case 'wpress':
 			return StatsMetric.WPRESS_IMPORTER;
 		default:
 			return StatsMetric.UNKNOWN_IMPORTER;
 	}
 }
 
-export function getBlueprintMetric( blueprintSlug: string | undefined ) {
+export function getBlueprintMetric( blueprintSlug: string | undefined ): string {
 	if ( ! blueprintSlug ) {
 		return StatsMetric.NO_BLUEPRINT;
 	}
-	if ( blueprintSlug?.startsWith( 'file:' ) ) {
+	if ( blueprintSlug.startsWith( 'file:' ) ) {
 		return StatsMetric.FILE_BLUEPRINT;
 	}
-	return StatsMetric.REMOTE_BLUEPRINT;
+	// Include the slug to differentiate individual blueprints.
+	// Truncate to stay within the 32-char stat limit.
+	return `bp-${ blueprintSlug }`.slice( 0, 32 );
 }

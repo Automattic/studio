@@ -58,14 +58,16 @@ WordPress Studio - Electron desktop app for managing local WordPress sites. Buil
 
 **Files**: React components (PascalCase), utils (camelCase), tests (.test.ts/.tsx)
 **IPC Handlers** (`apps/studio/src/ipc-handlers.ts`): **MUST** `export async function handlerName(event, ...args): Promise<ReturnType>` | Handler names in `apps/studio/src/constants.ts` | All handlers MUST be async and return Promises
-**Storage**: **CRITICAL** - Always use file locking: `lockAppdata()` / `unlockAppdata()` to prevent data corruption
+**Storage**: **CRITICAL** - Always use file locking when writing config. Each config file has its own lockfile and helpers: `lockAppdata()` / `unlockAppdata()` for `app.json` (`apps/studio/src/storage/user-data.ts`), `lockCliConfig()` / `unlockCliConfig()` for `cli.json` (`apps/cli/lib/cli-config/core.ts`), and `lockSharedConfig()` / `unlockSharedConfig()` for `shared.json` (`tools/common/lib/shared-config.ts`).
 **i18n**: `@wordpress/i18n` (`__()` function), `tools/common/translations/`, `<I18nProvider>` (renderer), `loadTranslations()` (CLI)
 
 ## WordPress Studio Paths
 
-**App Data:**
-- macOS: `~/Library/Application Support/Studio/appdata-v1.json`
-- Windows: `%APPDATA%\Studio\appdata-v1.json` (expands to `C:\Users\<username>\AppData\Roaming\Studio\appdata-v1.json`)
+**App Data:** All platforms use `~/.studio/` (user's home directory). Resolve paths via the helpers in `tools/common/lib/well-known-paths.ts` (`getConfigDirectory`, `getSharedConfigPath`, `getAppConfigPath`, `getCliConfigPath`) rather than hardcoding.
+- `~/.studio/shared.json` — state shared between Desktop and CLI (e.g. locale)
+- `~/.studio/cli.json` — sites + snapshots (CLI-owned)
+- `~/.studio/app.json` — Desktop-only state (UI prefs, sync, per-site metadata, etc.)
+- Deprecated: pre-split builds used a single `appdata-v1.json` under the Electron platform path (macOS: `~/Library/Application Support/Studio/`, Windows: `%APPDATA%\Studio\`). On first launch the migration at `apps/studio/src/migrations/02-migrate-to-split-config.ts` splits it into the three files above and renames the original to `appdata-v1.deprecated.json`.
 
 **Logs:**
 - macOS: `~/Library/Logs/Studio/`
@@ -78,7 +80,7 @@ WordPress Studio - Electron desktop app for managing local WordPress sites. Buil
 
 **Branches**: Create from `trunk` using dash-separated lowercase names. Include a verb for clarity. Examples: `new-dark-mode`, `improve-agent-instructions`, `fix-login-bug`, `add-logout-button`. For Linear issues: `stu-123-update-sync-feature`.
 **Commits**: Single-line messages. Clear and descriptive. Focus on "what" and "why", not "how"
-**PRs**: Create PR against `trunk` branch. Use the template from `.github/PULL_REQUEST_TEMPLATE.md` (include Related issues, Proposed Changes, Testing Instructions, Pre-merge Checklist). MUST pass all CI checks before merge.
+**PRs**: Create PR against `trunk` branch. Use the template from `.github/PULL_REQUEST_TEMPLATE.md` (include Related issues, How AI was used in this PR, Proposed Changes, Testing Instructions, Pre-merge Checklist). In **Proposed Changes**, focus on the intent of the change and the user impact (the "why" and how the user experiences it) — do not list modified files or describe implementation mechanics; the diff already shows that. MUST pass all CI checks before merge.
 **IMPORTANT**: Prefer merging `trunk` into your branch over rebasing. Avoid force pushes to trunk/main branches. Avoid force pushes to already-pushed branches - add new commits instead.
 
 ## Large & Exploratory Contributions (Vibe-Coded Features)
@@ -95,7 +97,7 @@ If you've built a substantial new feature — especially one generated with AI a
 
 **CRITICAL - WordPress Core Files**: Do NOT edit WordPress core files within site directories. Studio uses WordPress Playground (PHP WASM), and core modifications won't persist or function correctly.
 
-**CRITICAL - Appdata Locking**: Always wrap appdata file operations with `lockAppdata()` / `unlockAppdata()`. Concurrent writes will corrupt the database file.
+**CRITICAL - Config File Locking**: Each config file has its own lockfile and helper pair — ensure that any write operation uses the correct pair for that specific file. Use `lockAppdata()` / `unlockAppdata()` for `app.json`, `lockCliConfig()` / `unlockCliConfig()` for `cli.json`, and `lockSharedConfig()` / `unlockSharedConfig()` for `shared.json`. Concurrent unlocked writes will corrupt the file.
 
 **IMPORTANT - CLI Build Required**: Running CLI commands without first running `npm run cli:build` will execute stale/outdated code. Always build before testing CLI changes.
 
@@ -106,6 +108,8 @@ If you've built a substantial new feature — especially one generated with AI a
 **Context Isolation**: Renderer is sandboxed - direct Node.js API access not available. MUST use IPC (`window.ipcApi.*`) for all Main process operations.
 
 **Port Conflicts**: Site servers dynamically allocate ports. Don't hardcode port numbers; use the port-finder utility.
+
+**CRITICAL - Playground/PHP-WASM Package Versions**: Always pin `@wp-playground/*` and `@php-wasm/*` packages to **exact versions** (no `^` or `~` ranges) in all `package.json` files. A caret range causes `install:bundle` to resolve a newer version when one publishes, creating a version conflict. npm then installs duplicate copies of all PHP WASM packages nested under the conflicting package's `node_modules/`. The `prune-php-wasm` vite plugin only removes top-level asyncify directories and misses nested copies, resulting in ~450 MB of bloat in the app bundle. More critically, different parts of Studio end up running mismatched Playground/PHP-WASM versions, which can cause subtle and hard-to-diagnose runtime failures in core site operations.
 
 ## Detailed Documentation
 

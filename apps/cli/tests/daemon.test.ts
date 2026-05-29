@@ -3,6 +3,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { PassThrough } from 'stream';
+import { SITE_RUNTIME_NATIVE_PHP } from '@studio/common/lib/site-runtime';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const testProcessName = 'studio-site-process-manager-test';
@@ -77,6 +78,7 @@ describe( 'ProcessManagerDaemon', () => {
 			scriptPath: '/tmp/test-child.js',
 			env: {},
 			args: [],
+			runtime: SITE_RUNTIME_NATIVE_PHP,
 		} );
 
 		expect( response ).toEqual(
@@ -87,6 +89,7 @@ describe( 'ProcessManagerDaemon', () => {
 						name: testProcessName,
 						status: 'online',
 						pid: 4321,
+						runtime: SITE_RUNTIME_NATIVE_PHP,
 					} ),
 				} ),
 			} )
@@ -113,12 +116,65 @@ describe( 'ProcessManagerDaemon', () => {
 			} )
 		);
 
+		const now = new Date();
+		const dateTag = `${ now.getFullYear() }${ String( now.getMonth() + 1 ).padStart(
+			2,
+			'0'
+		) }${ String( now.getDate() ).padStart( 2, '0' ) }`;
 		expect(
-			fs.readFileSync( path.join( tmpDir, 'logs', `${ testProcessName }-out.log` ), 'utf8' )
+			fs.readFileSync(
+				path.join( tmpDir, 'logs', `${ testProcessName }-out-${ dateTag }.log` ),
+				'utf8'
+			)
 		).toContain( 'fixture-stdout' );
 		expect(
-			fs.readFileSync( path.join( tmpDir, 'logs', `${ testProcessName }-error.log` ), 'utf8' )
+			fs.readFileSync(
+				path.join( tmpDir, 'logs', `${ testProcessName }-error-${ dateTag }.log` ),
+				'utf8'
+			)
 		).toContain( 'fixture-stderr' );
+	} );
+
+	it( 'includes captured stderr in the exit event payload', async () => {
+		const child = new MockChildProcess();
+		spawnMock.mockReturnValue( child );
+		const { ProcessManagerDaemon } = await import( '../process-manager-daemon' );
+
+		const daemon = new ProcessManagerDaemon();
+		const daemonInternal = daemon as unknown as {
+			handleRequest: ( request: unknown ) => Promise< unknown >;
+			broadcastEvent: ( event: unknown ) => Promise< void >;
+		};
+		const broadcastSpy = vi
+			.spyOn( daemonInternal, 'broadcastEvent' )
+			.mockResolvedValue( undefined );
+
+		await daemonInternal.handleRequest( {
+			type: 'start-process',
+			requestId: '1',
+			processName: testProcessName,
+			scriptPath: '/tmp/test-child.js',
+			env: {},
+			args: [],
+		} );
+
+		child.stderr.write( 'SyntaxError: boom\n' );
+		child.stderr.write( '    at Module._compile\n' );
+		// Let readline consume the lines before triggering exit.
+		await new Promise( ( resolve ) => setTimeout( resolve, 25 ) );
+
+		child.emit( 'exit', 1 );
+		await new Promise( ( resolve ) => setTimeout( resolve, 25 ) );
+
+		const exitCall = broadcastSpy.mock.calls.find( ( [ event ] ) => {
+			const payload = ( event as { type: string; payload: { event: string } } ).payload;
+			return payload.event === 'exit';
+		} );
+
+		expect( exitCall ).toBeDefined();
+		const payload = ( exitCall![ 0 ] as { payload: { stderrTail?: string } } ).payload;
+		expect( payload.stderrTail ).toContain( 'SyntaxError: boom' );
+		expect( payload.stderrTail ).toContain( 'at Module._compile' );
 	} );
 
 	it( 'reuses duplicate starts, forwards messages, and resolves missing stops', async () => {
@@ -181,4 +237,53 @@ describe( 'ProcessManagerDaemon', () => {
 			payload: {},
 		} );
 	} );
+
+	it.skipIf( process.platform === 'win32' )(
+		'signals a reported subprocess process group when killing the wrapper',
+		async () => {
+			const child = new MockChildProcess();
+			spawnMock.mockReturnValue( child );
+			const { ProcessManagerDaemon } = await import( '../process-manager-daemon' );
+
+			const daemon = new ProcessManagerDaemon();
+			const daemonInternal = daemon as unknown as {
+				handleRequest: ( request: unknown ) => Promise< {
+					type: string;
+					payload: { process?: { pmId: number; name: string; status: string; pid?: number } };
+				} >;
+				managedProcesses: Map< number, unknown >;
+				signalProcessGroup: ( managedProcess: unknown, signal: NodeJS.Signals ) => Promise< void >;
+			};
+
+			const response = await daemonInternal.handleRequest( {
+				type: 'start-process',
+				requestId: '1',
+				processName: testProcessName,
+				scriptPath: '/tmp/test-child.js',
+				env: {},
+				args: [],
+			} );
+
+			const processDesc = response.payload.process;
+			if ( ! processDesc ) {
+				throw new Error( 'Expected start-process response to include a process' );
+			}
+
+			child.emit( 'message', { topic: 'server-process-started', data: { pid: 9876 } } );
+
+			const managedProcess = daemonInternal.managedProcesses.get( processDesc.pmId );
+			if ( ! managedProcess ) {
+				throw new Error( 'Expected process manager to store the managed process' );
+			}
+
+			const killSpy = vi.spyOn( process, 'kill' ).mockImplementation( () => true );
+			try {
+				await daemonInternal.signalProcessGroup( managedProcess, 'SIGKILL' );
+				expect( killSpy ).toHaveBeenCalledWith( -4321, 'SIGKILL' );
+				expect( killSpy ).toHaveBeenCalledWith( -9876, 'SIGKILL' );
+			} finally {
+				killSpy.mockRestore();
+			}
+		}
+	);
 } );

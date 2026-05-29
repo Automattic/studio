@@ -26,6 +26,7 @@ vi.mock( import( 'src/lib/bump-stats' ), async ( importOriginal ) => {
 		bumpAggregatedUniqueStat: vi.fn().mockResolvedValue( undefined ),
 	};
 } );
+vi.mock( 'src/lib/user-data-watcher' );
 vi.mock( 'src/setup-wp-server-files', () => ( {
 	setupWPServerFiles: vi.fn().mockResolvedValue( undefined ),
 	updateWPServerFiles: vi.fn().mockResolvedValue( undefined ),
@@ -60,6 +61,20 @@ vi.mock( 'src/modules/cli/lib/execute-command', () => {
 vi.mock( 'src/modules/cli/lib/windows-installation-manager', () => ( {
 	autoInstallWindowsCliIfNeeded: vi.fn().mockResolvedValue( undefined ),
 } ) );
+vi.mock( 'src/modules/cli/lib/macos-installation-manager', () => ( {
+	autoInstallMacOSCliIfNeeded: vi.fn().mockResolvedValue( undefined ),
+} ) );
+vi.mock( 'src/modules/cli/lib/linux-installation-manager', () => ( {
+	autoInstallLinuxCliIfNeeded: vi.fn().mockResolvedValue( undefined ),
+} ) );
+vi.mock( 'src/modules/remote-session/daemon-status-poller', () => ( {
+	// Started during `appBoot()`; its initial tick calls `sendIpcEventToRenderer`,
+	// which races the partial `getMainWindow()` mock used in these tests. The
+	// poller itself is covered by its own unit-test file, so stubbing it here
+	// keeps this suite focused on app-boot bookkeeping.
+	startRemoteSessionStatusPolling: vi.fn().mockReturnValue( () => undefined ),
+} ) );
+vi.mock( 'electron-squirrel-startup', () => ( { default: false } ) );
 vi.mock( 'electron-devtools-installer', () => ( {
 	installExtension: vi.fn().mockResolvedValue( { id: 'test-extension' } ),
 	REACT_DEVELOPER_TOOLS: { id: 'fmkadmapgofadopljbjfkapdkoienihi' },
@@ -72,6 +87,11 @@ const mockWatcher = {
 	close: vi.fn(),
 };
 vi.mocked( fs.watch, { partial: true } ).mockReturnValue( mockWatcher );
+
+type OnBeforeSendHeadersListener = (
+	details: { requestHeaders: Record< string, string > },
+	callback: ( response: { requestHeaders: Record< string, string > } ) => void
+) => void;
 
 function mockElectron() {
 	const mockedEvents: Record< string, ( ...args: any[] ) => Promise< void > > = {};
@@ -120,6 +140,7 @@ function mockElectron() {
 					},
 					setPermissionRequestHandler: vi.fn(),
 					webRequest: {
+						onBeforeSendHeaders: vi.fn(),
 						onHeadersReceived: vi.fn(),
 					},
 				},
@@ -167,6 +188,48 @@ describe( 'App initialization', () => {
 		mockElectron();
 		vi.resetModules();
 		await expect( import( '../index' ) ).resolves.toBeDefined();
+	} );
+
+	it( 'should identify YouTube embed requests with the Studio referrer', async () => {
+		const { mockedEvents } = mockElectron();
+		vi.resetModules();
+		const { session } = await import( 'electron' );
+		await import( '../index' );
+
+		await mockedEvents.ready();
+		const onBeforeSendHeaders = session.defaultSession.webRequest
+			.onBeforeSendHeaders as unknown as ReturnType< typeof vi.fn >;
+
+		expect( onBeforeSendHeaders ).toHaveBeenCalledWith(
+			{
+				urls: [
+					'https://*.youtube.com/embed/*',
+					'https://youtube.com/embed/*',
+					'https://*.youtube-nocookie.com/embed/*',
+					'https://youtube-nocookie.com/embed/*',
+				],
+			},
+			expect.any( Function )
+		);
+
+		const listener = onBeforeSendHeaders.mock.calls[ 0 ][ 1 ] as OnBeforeSendHeadersListener;
+		const callback = vi.fn();
+		listener(
+			{
+				requestHeaders: {
+					Accept: 'text/html',
+					referer: 'http://localhost:5173/',
+				},
+			},
+			callback
+		);
+
+		expect( callback ).toHaveBeenCalledWith( {
+			requestHeaders: {
+				Accept: 'text/html',
+				Referer: 'https://developer.wordpress.com/studio/',
+			},
+		} );
 	} );
 
 	it( 'should handle authentication deep links', async () => {

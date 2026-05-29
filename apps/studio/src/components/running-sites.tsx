@@ -22,7 +22,7 @@ export function RunningSites() {
 	}
 
 	return (
-		<div className="flex flex-row px-5 pb-1 justify-between align-center self-stretch opacity-70">
+		<div className="flex flex-row px-5 pb-1 justify-between align-center self-stretch opacity-70 whitespace-nowrap min-w-0">
 			<p className="text-xxs leading-4">
 				{ anyRunning
 					? sprintf(
@@ -33,7 +33,7 @@ export function RunningSites() {
 			</p>
 			{ anyRunning ? (
 				<Button className={ linkButtonClassName } onClick={ stopAllRunningSites } variant="link">
-					{ runningSites.length === 1 ? __( 'Stop' ) : __( 'Stop all' ) }
+					{ _n( 'Stop', 'Stop all', runningSites.length ) }
 				</Button>
 			) : (
 				<Button
@@ -42,7 +42,7 @@ export function RunningSites() {
 					onClick={ startAllStoppedSites }
 					variant="link"
 				>
-					{ realSites.length === 1 ? __( 'Start' ) : __( 'Start all' ) }
+					{ _n( 'Start', 'Start all', realSites.length ) }
 				</Button>
 			) }
 		</div>

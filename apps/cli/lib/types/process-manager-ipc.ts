@@ -1,3 +1,4 @@
+import { SITE_RUNTIME_PLAYGROUND, siteRuntimeSchema } from '@studio/common/lib/site-runtime';
 import { z } from 'zod';
 import {
 	childMessageFromProcessManagerSchema,
@@ -8,6 +9,7 @@ import {
 const processDescriptionSchemaBase = z.object( {
 	name: z.string(),
 	pmId: z.number(),
+	runtime: siteRuntimeSchema.default( SITE_RUNTIME_PLAYGROUND ),
 } );
 const processDescriptionSchemaRunning = processDescriptionSchemaBase.extend( {
 	status: z.literal( 'online' ),
@@ -31,8 +33,9 @@ const daemonRequestStartProcessSchema = z.object( {
 	type: z.literal( 'start-process' ),
 	processName: z.string(),
 	scriptPath: z.string(),
-	env: z.record( z.string(), z.string() ).optional(),
+	env: z.record( z.string(), z.union( [ z.string(), z.undefined() ] ) ).optional(),
 	args: z.array( z.string() ).optional(),
+	runtime: siteRuntimeSchema.optional(),
 } );
 
 const daemonRequestStopProcessSchema = z.object( {
@@ -98,6 +101,9 @@ export const processEventSchema = z.object( {
 		z.literal( 'restart' ),
 		z.literal( 'stop' ),
 	] ),
+	// Tail of the child's stderr captured during this invocation. Only populated on `exit`
+	// events; undefined for any other event.
+	stderrTail: z.string().optional(),
 } );
 
 const daemonProcessEventSchema = z.object( {

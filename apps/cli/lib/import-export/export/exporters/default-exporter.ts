@@ -1,9 +1,14 @@
-import { EventEmitter } from 'events';
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { ARCHIVER_OPTIONS, DEFAULT_PHP_VERSION } from '@studio/common/constants';
+import { generateBackupFilename } from '@studio/common/lib/generate-backup-filename';
+import { ExportEvents } from '@studio/common/lib/import-export-events';
+import {
+	LEGACY_MU_PLUGIN_FILENAMES,
+	STUDIO_LOADER_MU_PLUGIN_FILENAME,
+} from '@studio/common/lib/mu-plugins';
 import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
 import {
 	hasDefaultDbBlock,
@@ -14,18 +19,22 @@ import archiver from 'archiver';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { getWordPressVersionFromInstallation } from 'cli/lib/dependency-management/wordpress';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
-import { ExportEvents } from '../events';
+import { ImportExportEventEmitter } from '../../events';
 import { exportDatabaseToFile, exportDatabaseToMultipleFiles } from '../export-database';
-import { generateBackupFilename } from '../generate-backup-filename';
 import {
 	ExportOptions,
 	BackupContents,
 	Exporter,
-	BackupCreateProgressEventData,
 	StudioJson,
+	StudioJsonPluginOrTheme,
 } from '../types';
+import type { SiteData } from 'cli/lib/cli-config/core';
 
-export class DefaultExporter extends EventEmitter implements Exporter {
+const prefixedLegacyMuPluginNames = LEGACY_MU_PLUGIN_FILENAMES.map(
+	( name ) => `wp-content/mu-plugins/${ name }`
+);
+
+export class DefaultExporter extends ImportExportEventEmitter implements Exporter {
 	private archiveBuilder!: archiver.Archiver;
 	private backup: BackupContents;
 	private readonly options: ExportOptions;
@@ -36,16 +45,8 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			'wp-content/database',
 			'wp-content/db.php',
 			'wp-content/debug.log',
-			'wp-content/mu-plugins/0-allowed-redirect-hosts.php',
-			'wp-content/mu-plugins/0-check-theme-availability.php',
-			'wp-content/mu-plugins/0-deactivate-jetpack-modules.php',
-			'wp-content/mu-plugins/0-dns-functions.php',
-			'wp-content/mu-plugins/0-permalinks.php',
-			'wp-content/mu-plugins/0-wp-config-constants-polyfill.php',
-			'wp-content/mu-plugins/0-sqlite.php',
-			'wp-content/mu-plugins/0-thumbnails.php',
-			'wp-content/mu-plugins/0-https-for-reverse-proxy.php',
-			'wp-content/mu-plugins/0-sqlite-command.php',
+			...prefixedLegacyMuPluginNames,
+			`wp-content/mu-plugins/${ STUDIO_LOADER_MU_PLUGIN_FILENAME }`,
 		];
 
 		return PATHS_TO_EXCLUDE.some( ( pathToExclude ) =>
@@ -153,7 +154,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		this.emit( ExportEvents.BACKUP_CREATE_START );
 		const isZip = this.options.backupFile.endsWith( '.zip' );
 		const format = isZip ? 'zip' : 'tar';
-		return archiver( format, ARCHIVER_OPTIONS[ format ] as archiver.ArchiverOptions );
+		return archiver( format, ARCHIVER_OPTIONS[ format ] );
 	}
 
 	private setupArchiveListeners( output: fs.WriteStream ): Promise< void > {
@@ -172,7 +173,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 			this.archiveBuilder.on( 'progress', ( progress ) => {
 				this.emit( ExportEvents.BACKUP_CREATE_PROGRESS, {
 					progress,
-				} as BackupCreateProgressEventData );
+				} );
 			} );
 
 			this.archiveBuilder.on( 'error', reject );
@@ -214,6 +215,10 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 					continue;
 				}
 
+				if ( this.options.ignoreFilter?.ignores( archivePath ) ) {
+					continue;
+				}
+
 				const stat = await fsPromises.stat( fullPath );
 				if ( stat.isDirectory() ) {
 					this.archiveBuilder.directory( fullPath, archivePath, ( entry ) => {
@@ -224,14 +229,18 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 						);
 						if (
 							this.isExactPathExcluded( entryPathRelativeToArchiveRoot ) ||
-							this.isPathExcludedByPattern( fullEntryPathOnDisk )
+							this.isPathExcludedByPattern( fullEntryPathOnDisk ) ||
+							this.options.ignoreFilter?.ignores( entryPathRelativeToArchiveRoot )
 						) {
 							return false;
 						}
 						return entry;
 					} );
 				} else {
-					if ( this.isExactPathExcluded( archivePath ) ) {
+					if (
+						this.isExactPathExcluded( archivePath ) ||
+						this.options.ignoreFilter?.ignores( archivePath )
+					) {
 						continue;
 					}
 					this.archiveBuilder.file( fullPath, { name: archivePath } );
@@ -251,7 +260,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		const tmpFolder = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_export' ) );
 
 		if ( this.options.splitDatabaseDumpByTable ) {
-			const sqlFiles = await exportDatabaseToMultipleFiles( this.options.site.path, tmpFolder );
+			const sqlFiles = await exportDatabaseToMultipleFiles( this.options.site, tmpFolder );
 			sqlFiles.forEach( ( file ) =>
 				this.archiveBuilder.file( file, { name: `sql/${ path.basename( file ) }` } )
 			);
@@ -259,7 +268,7 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		} else {
 			const fileName = `${ generateBackupFilename( 'db-export' ) }.sql`;
 			const sqlDumpPath = path.join( tmpFolder, fileName );
-			await exportDatabaseToFile( this.options.site.path, sqlDumpPath );
+			await exportDatabaseToFile( this.options.site, sqlDumpPath );
 			this.archiveBuilder.file( sqlDumpPath, { name: `sql/${ fileName }` } );
 			this.backup.sqlFiles.push( sqlDumpPath );
 		}
@@ -286,12 +295,22 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		};
 
 		const [ plugins, themes ] = await Promise.all( [
-			this.getSitePlugins( this.options.site.path ),
-			this.getSiteThemes( this.options.site.path ),
+			this.getSitePlugins( this.options.site ),
+			this.getSiteThemes( this.options.site ),
 		] );
 
-		studioJson.plugins = plugins;
-		studioJson.themes = themes;
+		studioJson.plugins = this.options.ignoreFilter
+			? plugins.filter(
+					( p: StudioJsonPluginOrTheme ) =>
+						! this.options.ignoreFilter!.ignores( `wp-content/plugins/${ p.name }` )
+			  )
+			: plugins;
+		studioJson.themes = this.options.ignoreFilter
+			? themes.filter(
+					( t: StudioJsonPluginOrTheme ) =>
+						! this.options.ignoreFilter!.ignores( `wp-content/themes/${ t.name }` )
+			  )
+			: themes;
 
 		const tempDir = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio-export-' ) );
 		const studioJsonPath = path.join( tempDir, 'meta.json' );
@@ -299,16 +318,20 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		return studioJsonPath;
 	}
 
-	private async getSitePlugins( siteFolder: string ) {
-		await using command = await runWpCliCommand( siteFolder, DEFAULT_PHP_VERSION, [
-			'plugin',
-			'list',
-			'--status=active,inactive',
-			'--fields=name,status,version',
-			'--format=json',
-			'--skip-plugins',
-			'--skip-themes',
-		] );
+	private async getSitePlugins( site: SiteData ) {
+		await using command = await runWpCliCommand(
+			site,
+			[
+				'plugin',
+				'list',
+				'--status=active,inactive',
+				'--fields=name,status,version',
+				'--format=json',
+				'--skip-plugins',
+				'--skip-themes',
+			],
+			{ phpVersion: DEFAULT_PHP_VERSION }
+		);
 
 		const exitCode = await command.response.exitCode;
 		const stderr = await command.response.stderrText;
@@ -335,15 +358,19 @@ export class DefaultExporter extends EventEmitter implements Exporter {
 		}
 	}
 
-	private async getSiteThemes( siteFolder: string ) {
-		await using command = await runWpCliCommand( siteFolder, DEFAULT_PHP_VERSION, [
-			'theme',
-			'list',
-			'--fields=name,status,version',
-			'--format=json',
-			'--skip-plugins',
-			'--skip-themes',
-		] );
+	private async getSiteThemes( site: SiteData ) {
+		await using command = await runWpCliCommand(
+			site,
+			[
+				'theme',
+				'list',
+				'--fields=name,status,version',
+				'--format=json',
+				'--skip-plugins',
+				'--skip-themes',
+			],
+			{ phpVersion: DEFAULT_PHP_VERSION }
+		);
 
 		const exitCode = await command.response.exitCode;
 		const stderr = await command.response.stderrText;

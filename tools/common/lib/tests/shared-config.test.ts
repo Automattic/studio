@@ -9,6 +9,10 @@ import {
 	lockSharedConfig,
 	unlockSharedConfig,
 	updateSharedConfig,
+	readSharedSession,
+	readSharedSessions,
+	updateSharedSession,
+	deleteSharedSession,
 	readAuthToken,
 	getCurrentUserId,
 	SharedConfigVersionMismatchError,
@@ -190,6 +194,84 @@ describe( 'Shared Config', () => {
 			const written = vi.mocked( writeFile ).mock.calls[ 0 ][ 1 ] as string;
 			const saved = JSON.parse( written );
 			expect( saved.locale ).toBe( 'fr' );
+		} );
+	} );
+
+	describe( 'shared sessions', () => {
+		it( 'reads persisted session metadata', async () => {
+			vi.mocked( readFile ).mockResolvedValue(
+				Buffer.from(
+					JSON.stringify( {
+						version: 1,
+						sessions: {
+							abc123: { starred: true },
+						},
+					} )
+				)
+			);
+
+			await expect( readSharedSessions() ).resolves.toEqual( {
+				abc123: { starred: true },
+			} );
+			await expect( readSharedSession( 'abc123' ) ).resolves.toEqual( { starred: true } );
+			await expect( readSharedSession( 'missing' ) ).resolves.toBeUndefined();
+		} );
+
+		it( 'updates session metadata in place', async () => {
+			vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( { version: 1 } ) ) );
+
+			await expect( updateSharedSession( 'abc123', { starred: true } ) ).resolves.toEqual( {
+				starred: true,
+			} );
+
+			const written = vi.mocked( writeFile ).mock.calls[ 0 ][ 1 ] as string;
+			expect( JSON.parse( written ) ).toEqual( {
+				version: 1,
+				sessions: {
+					abc123: { starred: true },
+				},
+			} );
+		} );
+
+		it( 'prunes empty session metadata records', async () => {
+			vi.mocked( readFile ).mockResolvedValue(
+				Buffer.from(
+					JSON.stringify( {
+						version: 1,
+						sessions: {
+							abc123: { starred: true, archived: true },
+						},
+					} )
+				)
+			);
+
+			await expect(
+				updateSharedSession( 'abc123', {
+					starred: false,
+					archived: undefined,
+				} )
+			).resolves.toBeUndefined();
+
+			const written = vi.mocked( writeFile ).mock.calls[ 0 ][ 1 ] as string;
+			expect( JSON.parse( written ) ).toEqual( { version: 1 } );
+		} );
+
+		it( 'deletes stored session metadata', async () => {
+			vi.mocked( readFile ).mockResolvedValue(
+				Buffer.from(
+					JSON.stringify( {
+						version: 1,
+						sessions: {
+							abc123: { archived: true },
+						},
+					} )
+				)
+			);
+
+			await deleteSharedSession( 'abc123' );
+
+			const written = vi.mocked( writeFile ).mock.calls[ 0 ][ 1 ] as string;
+			expect( JSON.parse( written ) ).toEqual( { version: 1 } );
 		} );
 	} );
 

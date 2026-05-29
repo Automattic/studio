@@ -52,6 +52,26 @@ export enum SiteCommandLoggerAction {
 	DELETE_PREVIEW_SITES = 'deletePreviewSites',
 	DELETE_FILES = 'deleteFiles',
 	CHECKING_DEPENDENCY_UPDATES = 'checkingDependencyUpdates',
+	ENSURE_PHP_BINARY = 'ensurePhpBinary',
+}
+
+export enum PullReprintCommandLoggerAction {
+	PREFLIGHT = 'preflight',
+	LOAD_WPCOM_SITES = 'loadWpComSites',
+	ROTATE_SECRET = 'rotateSecret',
+	ABORT_IMPORT = 'abortImport',
+	CREATE_SITE = 'createSite',
+	DOWNLOAD_FILES = 'downloadFiles',
+	DOWNLOAD_SQL = 'downloadSql',
+	START_SITE = 'startSite',
+	IMPORT_SQL = 'importSql',
+	URL_REWRITE = 'urlRewrite',
+}
+
+export enum BlueprintCommandLoggerAction {
+	FETCH_BLUEPRINTS = 'fetchBlueprints',
+	FETCH_BLUEPRINT = 'fetchBlueprint',
+	DOWNLOAD_BUNDLE = 'downloadBundle',
 }
 
 export enum SyncCommandLoggerAction {

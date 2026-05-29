@@ -198,6 +198,16 @@ function findLatestProgressMessage( entries: SessionEntry[] ): string | null {
 	return null;
 }
 
+function findLatestToolUseKey( items: RenderItem[] ): string | null {
+	for ( let i = items.length - 1; i >= 0; i -= 1 ) {
+		const item = items[ i ];
+		if ( item.kind === 'tool-use' ) {
+			return item.key;
+		}
+	}
+	return null;
+}
+
 function UserMessage( { text }: { text: string } ) {
 	return (
 		<div className={ clsx( styles.messageGroup, styles.userGroup ) }>
@@ -568,17 +578,13 @@ function ScratchpadArtifactCard( {
 					) : null }
 				</div>
 				<div className={ styles.scratchpadArtifactThumbnail }>
-					{ widget.widgetProps.html ? (
-						<iframe
-							className={ styles.scratchpadArtifactFrame }
-							srcDoc={ widget.widgetProps.html }
-							sandbox="allow-scripts"
-							referrerPolicy="no-referrer"
-							title={ title }
-						/>
-					) : (
-						<div className={ styles.scratchpadArtifactEmpty }>{ __( 'Empty scratchpad' ) }</div>
-					) }
+					<iframe
+						className={ styles.scratchpadArtifactFrame }
+						srcDoc={ widget.widgetProps.html }
+						sandbox="allow-scripts"
+						referrerPolicy="no-referrer"
+						title={ title }
+					/>
 					<div className={ styles.scratchpadArtifactShield } aria-hidden="true" />
 				</div>
 			</div>
@@ -738,6 +744,7 @@ export function Conversation( {
 		() => ( isRunning ? findLatestProgressMessage( entries ) : null ),
 		[ entries, isRunning ]
 	);
+	const thinkingMessageKey = useMemo( () => findLatestToolUseKey( items ), [ items ] );
 
 	return (
 		<div className={ styles.root }>
@@ -783,6 +790,7 @@ export function Conversation( {
 				<ThinkingIndicator
 					active={ isRunning && pendingQuestions.size === 0 }
 					startedAt={ startedAt }
+					messageKey={ thinkingMessageKey }
 					progressMessage={ progressMessage }
 				/>
 			</div>

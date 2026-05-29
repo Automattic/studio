@@ -1,10 +1,12 @@
 import { createDefaultDeskSettings } from '@studio/common/lib/desk-settings';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDeskSettings, useUpdateDeskSettings } from '@/data/queries/use-desk-config';
+import { useSites } from '@/data/queries/use-sites';
 import { ChatsTrigger } from '../chats';
 import { DeskCreateMenu } from './create-menu';
 import { DeskHeader } from './header';
 import { DeskSettingsButton } from './settings-button';
+import { SiteDetailsDropdown } from './site-details-dropdown';
 import { DeskSiteMapButton } from './site-map-button';
 import { DeskSiteMapTitle } from './site-map-title';
 import {
@@ -36,6 +38,8 @@ export function DeskChrome( {
 	onToggleSettings,
 }: DeskChromeProps ) {
 	const { data: savedSettings } = useDeskSettings();
+	const { data: sites } = useSites();
+	const activeSite = sites?.find( ( candidate ) => candidate.id === siteId );
 	const fallbackSettings = useMemo( () => createDefaultDeskSettings(), [] );
 	const settings = useMemo(
 		() => normalizeDeskToolbarSettings( savedSettings ?? fallbackSettings ),
@@ -106,11 +110,16 @@ export function DeskChrome( {
 				clearDragState={ clearDragState }
 				onReorder={ reorderButton }
 				leading={
-					<DeskMenu
-						siteId={ siteId }
-						disabled={ editingToolbar }
-						showSiteName={ settings.showSiteName }
-					/>
+					<>
+						<DeskMenu
+							siteId={ siteId }
+							disabled={ editingToolbar }
+							showSiteName={ settings.showSiteName }
+						/>
+						{ activeSite ? (
+							<SiteDetailsDropdown site={ activeSite } disabled={ editingToolbar } />
+						) : null }
+					</>
 				}
 			/>
 		</DeskHeader>

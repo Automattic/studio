@@ -14,6 +14,7 @@ import {
 	getConnectableShapeAtPagePoint,
 	getWidgetDropTargetAtPagePoint,
 	getWidgetShapeAtPagePoint,
+	isShapePartOfMultiSelection,
 } from './utils';
 import type {
 	ActiveWidgetDropFeedback,
@@ -379,7 +380,7 @@ export function useConnectorInteractions( {
 				const shape = getWidgetShapeAtPagePoint( editor, editor.inputs.currentPagePoint );
 				const widget = shape ? canvasShapeToDeskWidget( shape ) : null;
 				source =
-					widget && shape
+					widget && shape && ! isShapePartOfMultiSelection( editor, shape.id )
 						? {
 								shapeId: shape.id,
 								widget,
@@ -399,6 +400,11 @@ export function useConnectorInteractions( {
 			}
 
 			if ( ! source ) {
+				return;
+			}
+
+			if ( isShapePartOfMultiSelection( editor, source.shapeId ) ) {
+				cleanup();
 				return;
 			}
 

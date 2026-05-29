@@ -1,6 +1,15 @@
 Unreleased
 ==========
 
+1.10.0
+=====
+* Released remote-session as beta-feature #3406, #3513, #3450
+* Added native PHP runtime support as a beta-feature to improve performance #3403, #3405, #3439, #3471, #3491, #3530, #3529, #3533, #3426, #3551, #3456, #3554
+* Added CLI support for the Blueprints Gallery and improved the Add Site flow #3442, #3407, #3448, #3503
+* Added Linux beta builds, in-app update support, and improved certificate trust handling #3464, #3501, #3465, #3472, #3506
+* Preserved custom db.php drop-ins when updating Studio's SQLite integration #3095
+* Updated multiple dependencies, including WP Playground and PHP-Wasm
+
 1.9.0
 =====
 * Introduced the Blueprints Gallery #3384, #3400, #3402

@@ -158,7 +158,7 @@ export function DeskSettingsModal( { open, onOpenChange, onEditToolbar }: DeskSe
 					{ status?.tone === 'success' && <DialogTip>{ status.message }</DialogTip> }
 				</div>
 			</DialogContent>
-			<DialogFooter>
+			<DialogFooter className={ styles.settingsFooter }>
 				<Button
 					type="button"
 					label={ __( 'Edit toolbar' ) }

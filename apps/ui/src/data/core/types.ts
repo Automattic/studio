@@ -4,7 +4,7 @@ import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessio
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
-import type { DeskConfig, DeskSettings } from '@studio/common/types/desk';
+import type { DeskConfig, DeskSettings, StudioUiMode } from '@studio/common/types/desk';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { SyncSite } from '@studio/common/types/sync';
@@ -28,7 +28,12 @@ export type {
 export type { AiModelId } from '@studio/common/ai/models';
 export type { Snapshot } from '@studio/common/types/snapshot';
 export type { SyncSite } from '@studio/common/types/sync';
-export type { DeskConfig, DeskSettings, DeskWidgetBase } from '@studio/common/types/desk';
+export type {
+	DeskConfig,
+	DeskSettings,
+	DeskWidgetBase,
+	StudioUiMode,
+} from '@studio/common/types/desk';
 export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 export type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 export type { SupportedLocale } from '@studio/common/lib/locale';
@@ -100,6 +105,7 @@ export interface Connector {
 	getAuthUser(): Promise< AuthUser | null >;
 	authenticate(): Promise< void >;
 	logout(): Promise< void >;
+	onAuthStateChanged?( listener: () => void ): () => void;
 
 	// Sites
 	getSites(): Promise< SiteDetails[] >;
@@ -265,6 +271,9 @@ export interface Connector {
 	getInstalledApps(): Promise< InstalledApps >;
 
 	// Desks
+	getFeatureFlags(): Promise< FeatureFlags >;
+	getStudioUiMode(): Promise< StudioUiMode >;
+	setStudioUiMode( mode: StudioUiMode ): Promise< void >;
 	getDeskSettings(): Promise< DeskSettings >;
 	saveDeskSettings( settings: DeskSettings ): Promise< void >;
 	exportDeskConfig( config: DeskConfig, suggestedFilename: string ): Promise< string | null >;
@@ -302,6 +311,10 @@ export interface Connector {
 	// Fires whenever a site is created, updated, started, stopped, or deleted.
 	// Consumers typically invalidate cached site data in response.
 	onSiteEvent( listener: () => void ): () => void;
+}
+
+export interface FeatureFlags {
+	enableDesksUiSwitch: boolean;
 }
 
 export type ColorScheme = 'system' | 'light' | 'dark';

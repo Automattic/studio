@@ -6,15 +6,8 @@
 	box-sizing: border-box;
 	font-family: var(--wpds-typography-font-family-body);
 	background-color: #fff;
-	background-image:
-		radial-gradient(circle, #c9cbce 1px, transparent 1.1px),
-		radial-gradient(circle, #c9cbce 0.5px, transparent 0.6px);
-	background-size:
-		40px 40px,
-		10px 10px;
-	background-position:
-		0 0,
-		5px 5px;
+	background-image: radial-gradient(circle, #c9cbce 1px, transparent 1.1px);
+	background-size: 40px 40px;
 	border-radius: 18px;
 	overflow: hidden;
 }
@@ -27,12 +20,12 @@
 	box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
 }
 
-.frame,
-.reference,
-.empty {
+.frame {
+	display: block;
 	width: 100%;
 	flex: 1 1 0;
 	min-height: 0;
+	border: 0;
 	border-radius: 10px;
 	background: #fff;
 	box-shadow:
@@ -40,15 +33,9 @@
 		0 8px 20px rgba(15, 23, 42, 0.08);
 }
 
-.frame {
-	display: block;
-	border: 0;
-}
-
 .reference {
-	display: block;
-	object-fit: contain;
-	border: 0;
+	object-fit: cover;
+	opacity: 0.85;
 }
 
 .frameMedia {
@@ -73,12 +60,10 @@
 }
 
 .empty {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	color: #6b7280;
-	font-size: 13px;
-	line-height: 18px;
+	display: block;
+	width: 100%;
+	flex: 1 1 0;
+	min-height: 0;
 }
 
 .bottom {
@@ -102,10 +87,10 @@
 
 .description {
 	min-width: 0;
-	min-height: 20px;
+	min-height: 1.5em;
 	color: #6b7280;
 	font-size: 13px;
-	line-height: 20px;
+	line-height: 1.5;
 	text-align: left;
 	outline: none;
 	transition: color 140ms ease;
@@ -180,48 +165,23 @@
 	pointer-events: none;
 }
 
-.statusButton {
+.agentButton {
 	flex: 0 0 auto;
-	width: 36px;
-	height: 36px;
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	padding: 0;
-	border: 0;
-	border-radius: 50%;
-	background: #3858e9;
-	color: #fff;
-	box-shadow: 0 6px 18px rgba(56, 88, 233, 0.45);
-	cursor: pointer;
-	transition:
-		background 160ms ease,
-		box-shadow 160ms ease,
-		transform 160ms ease;
 }
 
-.statusButton:hover:not(:disabled),
-.statusButton:focus-visible:not(:disabled) {
-	transform: translateY(-1px);
-	box-shadow: 0 8px 22px rgba(56, 88, 233, 0.55);
+.scratchpad .agentButton:disabled {
+	opacity: 1;
 }
 
-.statusButton:disabled {
-	cursor: default;
-}
-
-.statusButton[data-status='done'] {
-	background: #16a34a;
+.agentButton.agentButtonDone {
+	--button-background: #16a34a;
+	--button-foreground: #fff;
 	box-shadow: 0 6px 18px rgba(22, 163, 74, 0.45);
 }
 
-.statusButton[data-status='running'] svg {
+.agentButton[data-status='running'] svg {
 	animation: scratchpad-cog-spin 1.4s linear infinite;
 	transform-origin: 50% 50%;
-}
-
-.statusButton svg {
-	fill: currentColor;
 }
 
 @keyframes scratchpad-cog-spin {
@@ -273,12 +233,7 @@
 	gap: 6px;
 	padding: 8px;
 	border-radius: 10px;
-	background-size:
-		16px 16px,
-		4px 4px;
-	background-position:
-		0 0,
-		2px 2px;
+	background-size: 16px 16px;
 	text-align: center;
 }
 

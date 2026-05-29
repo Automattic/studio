@@ -27,7 +27,7 @@ const baseComponents: Components = {
 	),
 	th: ( { children } ) => <th className={ styles.th }>{ children }</th>,
 	td: ( { children } ) => <td className={ styles.td }>{ children }</td>,
-	code: ( { className, children, ...props } ) => {
+	code: ( { className, children, ref: _ref, ...props } ) => {
 		// Inline code: no language class, no embedded newline.
 		const isInline = ! className && ! String( children ).includes( '\n' );
 		if ( isInline ) {

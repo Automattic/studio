@@ -7,6 +7,7 @@ import type { ComponentProps, ComponentPropsWithoutRef, ReactNode } from 'react'
 type ButtonVariant = 'chrome' | 'quiet' | 'filled';
 type ButtonTone = 'neutral' | 'primary' | 'inverse';
 type ButtonSize = 'xsmall' | 'small' | 'medium' | 'large' | 'xlarge';
+type ButtonIntent = 'default' | 'chat';
 
 const ICON_SIZE_BY_BUTTON_SIZE: Record< ButtonSize, number > = {
 	xsmall: 16,
@@ -19,6 +20,7 @@ const ICON_SIZE_BY_BUTTON_SIZE: Record< ButtonSize, number > = {
 type ButtonProps = Omit< ComponentPropsWithoutRef< 'button' >, 'children' > & {
 	children?: ReactNode;
 	icon?: ComponentProps< typeof Icon >[ 'icon' ];
+	intent?: ButtonIntent;
 	label: string;
 	size?: ButtonSize;
 	tone?: ButtonTone;
@@ -33,6 +35,7 @@ export const Button = forwardRef< HTMLButtonElement, ButtonProps >( function But
 		className,
 		disabled,
 		icon,
+		intent = 'default',
 		label,
 		size = 'large',
 		tone = 'neutral',
@@ -51,6 +54,7 @@ export const Button = forwardRef< HTMLButtonElement, ButtonProps >( function But
 		styles[ variant ],
 		styles[ size ],
 		tone !== 'neutral' && styles[ tone ],
+		intent !== 'default' && styles[ `${ intent }Intent` ],
 		className
 	);
 	const resolvedTooltipSide = tooltipSide ?? ( variant === 'quiet' ? 'top' : 'bottom' );
@@ -93,7 +97,9 @@ export const Button = forwardRef< HTMLButtonElement, ButtonProps >( function But
 				>
 					{ content }
 				</Tooltip.Trigger>
-				<Tooltip.Popup side={ resolvedTooltipSide }>{ resolvedTooltipLabel }</Tooltip.Popup>
+				<Tooltip.Popup positioner={ <Tooltip.Positioner side={ resolvedTooltipSide } /> }>
+					{ resolvedTooltipLabel }
+				</Tooltip.Popup>
 			</Tooltip.Root>
 		</Tooltip.Provider>
 	);

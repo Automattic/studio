@@ -2,7 +2,7 @@ import { useEntityRecords, type Post as CoreDataPost } from '@wordpress/core-dat
 import { __ } from '@wordpress/i18n';
 import { useMemo } from 'react';
 import { LoadingPlaceholder } from '@/ui-desks/components';
-import { CONTENT_CARD_STATUSES, getPostStatusInfo } from '@/ui-desks/widget-actions/post-status';
+import { CONTENT_CARD_STATUSES } from '@/ui-desks/widget-actions/post-status';
 import {
 	getMediaDropPreviewPayload,
 	MediaDropPreview,
@@ -23,7 +23,6 @@ type EmbeddedFeaturedMedia = {
 	};
 };
 type PageCardRecord = CoreDataPost & {
-	status?: string;
 	slug?: string;
 	_embedded?: {
 		'wp:featuredmedia'?: EmbeddedFeaturedMedia[];
@@ -38,7 +37,7 @@ export function PageWidgetComponent( { id, widgetProps, dropFeedback }: PageWidg
 			context: 'edit',
 			status: CONTENT_CARD_STATUSES,
 			_embed: true,
-			_fields: 'id,title,excerpt,slug,status,featured_media,_links,_embedded',
+			_fields: 'id,title,excerpt,slug,featured_media,_links,_embedded',
 		} ),
 		[ widgetProps.pageId ]
 	);
@@ -72,7 +71,6 @@ export function PageWidgetComponent( { id, widgetProps, dropFeedback }: PageWidg
 	const title = getPageTitle( record, isResolving, hasError );
 	const excerpt = record?.excerpt?.rendered ?? '';
 	const slug = record?.slug ?? '';
-	const statusInfo = getPostStatusInfo( record?.status );
 	const featuredImage = getPageFeaturedImageUrl( record );
 	const ditherFilterId = getPageToneDitherFilterId( widgetProps.tone );
 	const headerFilterStyle =
@@ -108,18 +106,6 @@ export function PageWidgetComponent( { id, widgetProps, dropFeedback }: PageWidg
 			{ excerpt && (
 				<div className={ styles.body } dangerouslySetInnerHTML={ { __html: excerpt } } />
 			) }
-			{ record?.status && (
-				<div className={ styles.metadata }>
-					<span className={ styles.status } title={ statusInfo.label }>
-						<span
-							className={ styles.statusDot }
-							style={ { background: statusInfo.color } }
-							aria-hidden="true"
-						/>
-						<span className={ styles.statusLabel }>{ statusInfo.label }</span>
-					</span>
-				</div>
-			) }
 			{ slug && <div className={ styles.slug }>/{ slug }</div> }
 		</article>
 	);
@@ -135,7 +121,7 @@ export function PageWidgetThumbnailComponent( {
 			per_page: 1,
 			context: 'edit',
 			status: CONTENT_CARD_STATUSES,
-			_fields: 'id,title,slug,status',
+			_fields: 'id,title,slug',
 		} ),
 		[ widgetProps.pageId ]
 	);

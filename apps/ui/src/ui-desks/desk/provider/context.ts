@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react';
-import type { DeskConfig } from '../types';
+import type { DeskConfig, DeskConnector, DeskStack } from '../types';
 import type {
 	DeskWidgetConnectionTarget,
 	SelectedDeskConnectorToolbarItem,
@@ -22,6 +22,42 @@ export type SelectedWidgetToolbarItem = NonNullable<
 export type RegisterDeskEditor = ( editor: Editor | null ) => void;
 export type PreviewContentType = 'post' | 'page';
 
+export interface TemporaryDeskConnector extends DeskConnector {
+	appearance?: {
+		dash?: 'solid' | 'dashed';
+		arrowheadStart?: 'none' | 'dot';
+		arrowheadEnd?: 'none' | 'arrow';
+	};
+}
+
+export interface ToggleTemporaryDeskOptions {
+	id: string;
+	sourceWidgetId?: string;
+	followSource?: boolean;
+	widgets: DeskWidget[];
+	stacks?: DeskStack[];
+	connectors?: TemporaryDeskConnector[];
+}
+
+export interface DeskMaterialization {
+	widgets: DeskWidget[];
+	stacks?: DeskStack[];
+	connectors?: DeskConnector[];
+	selectWidgetIds?: string[];
+}
+
+export interface DeskMaterializationContext {
+	center: {
+		x: number;
+		y: number;
+	};
+	zIndex: string;
+}
+
+export type CreateDeskMaterialization = (
+	context: DeskMaterializationContext
+) => DeskMaterialization | null;
+
 export interface DeskContextValue {
 	siteId?: string;
 	isLoading: boolean;
@@ -39,6 +75,10 @@ export interface DeskContextValue {
 	registerEditor: RegisterDeskEditor;
 	pressStack: ( stackId: string ) => void;
 	addWidget: ( type: string, options?: AddDeskWidgetOptions ) => boolean;
+	addMaterializedDesk: (
+		createMaterialization: CreateDeskMaterialization,
+		options?: AddDeskMaterializedOptions
+	) => boolean;
 	addWidgetAtScreenPoint: (
 		type: string,
 		point: { x: number; y: number },
@@ -59,6 +99,8 @@ export interface DeskContextValue {
 	stackSelectedWidgets: () => boolean;
 	unstackSelectedWidgets: () => boolean;
 	setSelectedStackView: ( viewMode: StackViewMode ) => boolean;
+	toggleTemporaryDesk: ( options: ToggleTemporaryDeskOptions ) => boolean;
+	isTemporaryDeskVisible: ( id: string ) => boolean;
 	removeSelectedWidget: () => boolean;
 	removeSelectedConnector: () => boolean;
 	startConnectingWidget: ( shapeId: TLShapeId ) => boolean;
@@ -80,6 +122,13 @@ export interface AddDeskWidgetOptions {
 	shapeProps?: Record< string, unknown >;
 	widgetProps?: Record< string, unknown >;
 	shouldStartEditing?: boolean;
+}
+
+export interface AddDeskMaterializedOptions {
+	center?: {
+		x: number;
+		y: number;
+	};
 }
 
 export interface DeskProviderProps {
@@ -110,6 +159,7 @@ const defaultDeskContext: DeskContextValue = {
 	registerEditor: noopRegisterEditor,
 	pressStack: noopPressStack,
 	addWidget: () => false,
+	addMaterializedDesk: () => false,
 	addWidgetAtScreenPoint: () => false,
 	addPastedContent: () => Promise.resolve( false ),
 	startDrawing: () => false,
@@ -123,6 +173,8 @@ const defaultDeskContext: DeskContextValue = {
 	stackSelectedWidgets: () => false,
 	unstackSelectedWidgets: () => false,
 	setSelectedStackView: () => false,
+	toggleTemporaryDesk: () => false,
+	isTemporaryDeskVisible: () => false,
 	removeSelectedWidget: () => false,
 	removeSelectedConnector: () => false,
 	startConnectingWidget: () => false,

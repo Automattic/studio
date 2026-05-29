@@ -329,8 +329,8 @@ export function SyncDialog( {
 				<div className="px-8 pb-6 pt-1">{ syncTexts.description }</div>
 				<div className="px-8">
 					<span className="sr-only">
-						{ /* translators: first %s is the source site name, second %s is the destination site name */ }
-						{ sprintf( __( 'From %s to %s' ), syncFromText, syncToText ) }
+						{ /* translators: %1$s is the source site name, %2$s is the destination site name */ }
+						{ sprintf( __( 'From %1$s to %2$s' ), syncFromText, syncToText ) }
 					</span>
 					<div
 						aria-hidden="true"

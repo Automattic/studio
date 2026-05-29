@@ -46,7 +46,10 @@ function isDeskStack( value: unknown ): value is DeskStack {
 		typeof value.zIndex === 'string' &&
 		value.memberIds.length >= 2 &&
 		value.memberIds.every( ( memberId ) => typeof memberId === 'string' ) &&
-		( value.viewMode === undefined || value.viewMode === 'stack' || value.viewMode === 'tiles' )
+		( value.viewMode === undefined ||
+			value.viewMode === 'stack' ||
+			value.viewMode === 'tiles' ||
+			value.viewMode === 'circle' )
 	);
 }
 
@@ -87,7 +90,27 @@ function isDeskConnector( value: unknown ): value is DeskConnector {
 		value.id.length > 0 &&
 		isDeskConnectorEndpoint( value.from ) &&
 		isDeskConnectorEndpoint( value.to ) &&
-		( value.bend === undefined || isFiniteNumber( value.bend ) )
+		( value.bend === undefined || isFiniteNumber( value.bend ) ) &&
+		isDeskConnectorAppearance( value.appearance )
+	);
+}
+
+function isDeskConnectorAppearance( value: unknown ) {
+	if ( value === undefined ) {
+		return true;
+	}
+	if ( ! isRecord( value ) ) {
+		return false;
+	}
+
+	return (
+		( value.dash === undefined || value.dash === 'solid' || value.dash === 'dashed' ) &&
+		( value.arrowheadStart === undefined ||
+			value.arrowheadStart === 'none' ||
+			value.arrowheadStart === 'dot' ) &&
+		( value.arrowheadEnd === undefined ||
+			value.arrowheadEnd === 'none' ||
+			value.arrowheadEnd === 'arrow' )
 	);
 }
 

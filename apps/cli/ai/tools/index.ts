@@ -22,7 +22,8 @@ import { stopSiteTool } from './stop-site';
 import { studioPresentTool } from './studio-present';
 import { takeScreenshotTool } from './take-screenshot';
 import { updatePreviewTool } from './update-preview';
-import { validateBlocksTool } from './validate-blocks';
+import { validateAndFixBlocksTool } from './validate-and-fix-blocks';
+import { validateHtmlBlocksTool } from './validate-html-blocks';
 import { waitForAnnotationsTool } from './wait-for-annotations';
 import { runWpCliTool } from './wp-cli';
 import type { AnyStudioAgentTool } from './define-tool';
@@ -42,7 +43,8 @@ export const studioToolDefinitions: AnyStudioAgentTool[] = [
 	deletePreviewTool,
 	runWpCliTool,
 	scaffoldThemeTool,
-	validateBlocksTool,
+	validateHtmlBlocksTool,
+	validateAndFixBlocksTool,
 	takeScreenshotTool,
 	shareScreenshotTool,
 	installTaxonomyScriptsTool,
@@ -64,10 +66,8 @@ export interface CreateStudioToolsOptions {
 	emitChatArtifacts?: boolean;
 	// Enable share_screenshot. Only meaningful when the agent is actually
 	// being driven by the remote-session daemon (Telegram bridge), signaled
-	// by `STUDIO_REMOTE_SESSION=1`. The `STUDIO_ENABLE_REMOTE_SESSION`
-	// feature flag only opts users into the `remote-session` command — it
-	// must NOT also expose share_screenshot to direct `studio code`
-	// invocations, where the image has nowhere to go.
+	// by `STUDIO_REMOTE_SESSION=1`. Direct `studio code` invocations leave
+	// this off because the image would have nowhere to go.
 	remoteSession?: boolean;
 }
 

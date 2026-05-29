@@ -4,7 +4,7 @@ import { comment } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { useMemo } from 'react';
 import { LoadingPlaceholder } from '@/ui-desks/components';
-import { CONTENT_CARD_STATUSES, getPostStatusInfo } from '@/ui-desks/widget-actions/post-status';
+import { CONTENT_CARD_STATUSES } from '@/ui-desks/widget-actions/post-status';
 import {
 	getMediaDropPreviewPayload,
 	MediaDropPreview,
@@ -25,7 +25,6 @@ type EmbeddedFeaturedMedia = {
 	};
 };
 type PostCardRecord = CoreDataPost & {
-	status?: string;
 	_embedded?: {
 		'wp:featuredmedia'?: EmbeddedFeaturedMedia[];
 	};
@@ -39,7 +38,7 @@ export function PostWidgetComponent( { id, widgetProps, dropFeedback }: PostWidg
 			context: 'edit',
 			status: CONTENT_CARD_STATUSES,
 			_embed: true,
-			_fields: 'id,title,excerpt,status,featured_media,_links,_embedded',
+			_fields: 'id,title,excerpt,featured_media,_links,_embedded',
 		} ),
 		[ widgetProps.postId ]
 	);
@@ -74,8 +73,6 @@ export function PostWidgetComponent( { id, widgetProps, dropFeedback }: PostWidg
 	const excerpt = record?.excerpt?.rendered ?? '';
 	const featuredImage = getFeaturedImageUrl( record );
 	const showFeaturedImage = ! excerpt.trim() && Boolean( featuredImage );
-	const statusInfo = getPostStatusInfo( record?.status );
-	const showMetadata = Boolean( record?.status || commentCount > 0 );
 
 	return (
 		<article
@@ -95,30 +92,13 @@ export function PostWidgetComponent( { id, widgetProps, dropFeedback }: PostWidg
 			) : excerpt ? (
 				<div className={ styles.body } dangerouslySetInnerHTML={ { __html: excerpt } } />
 			) : null }
-			{ showMetadata && (
-				<div className={ styles.metadata }>
-					{ record?.status && (
-						<span className={ styles.status } title={ statusInfo.label }>
-							<span
-								className={ styles.statusDot }
-								style={ { background: statusInfo.color } }
-								aria-hidden="true"
-							/>
-							<span className={ styles.statusLabel }>{ statusInfo.label }</span>
-						</span>
-					) }
-					{ commentCount > 0 && (
-						<span
-							className={ styles.comments }
-							aria-label={ sprintf(
-								_n( '%d comment', '%d comments', commentCount ),
-								commentCount
-							) }
-						>
-							<Icon icon={ comment } />
-							<span>{ commentCount }</span>
-						</span>
-					) }
+			{ commentCount > 0 && (
+				<div
+					className={ styles.comments }
+					aria-label={ sprintf( _n( '%d comment', '%d comments', commentCount ), commentCount ) }
+				>
+					<Icon icon={ comment } size={ 24 } />
+					<span>{ commentCount }</span>
 				</div>
 			) }
 		</article>
@@ -135,7 +115,7 @@ export function PostWidgetThumbnailComponent( {
 			per_page: 1,
 			context: 'edit',
 			status: CONTENT_CARD_STATUSES,
-			_fields: 'id,title,status',
+			_fields: 'id,title',
 		} ),
 		[ widgetProps.postId ]
 	);

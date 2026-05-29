@@ -5,7 +5,7 @@ export const MAIN_MIN_HEIGHT = 600;
 export const SIDEBAR_WIDTH = 208;
 export const SIDEBAR_MIN_WIDTH = 200;
 export const SIDEBAR_MAX_WIDTH = 400;
-export const MAIN_MIN_WIDTH = DEFAULT_WIDTH - SIDEBAR_WIDTH + 20;
+export const MAIN_MIN_WIDTH = 712;
 export const LOCAL_STORAGE_SIDEBAR_WIDTH_KEY = 'sidebar_width';
 export const APP_CHROME_SPACING = 10;
 export const MIN_WIDTH_CLASS_TO_MEASURE = 'app-measure-tabs-width';
@@ -66,7 +66,7 @@ const SQLITE_DATABASE_INTEGRATION_VERSION = 'v3.0.0-rc.3';
 export const SQLITE_DATABASE_INTEGRATION_RELEASE_URL = `https://github.com/WordPress/sqlite-database-integration/releases/download/${ SQLITE_DATABASE_INTEGRATION_VERSION }/plugin-sqlite-database-integration.zip`;
 
 // IPC handlers that don't return anything (i.e. that are called with `ipcRenderer.send`)
-export const IPC_VOID_HANDLERS = < const >[
+export const IPC_VOID_HANDLERS = [
 	'addSyncOperation',
 	'clearSyncOperation',
 	'cancelSyncOperation',
@@ -84,7 +84,7 @@ export const IPC_VOID_HANDLERS = < const >[
 	'showNotification',
 	'authenticate',
 	'studioCodeAbort',
-];
+] as const;
 
 // What's New
 // Flip to `true` when shipping new modal content so users who haven't seen the

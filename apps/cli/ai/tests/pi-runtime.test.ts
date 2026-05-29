@@ -8,6 +8,8 @@ const mocks = vi.hoisted( () => ( {
 	createAgentSession: vi.fn(),
 	createdSessions: [] as FakeSession[],
 	nextEvents: null as AgentSessionEvent[] | null,
+	studioRoot: '/tmp/studio-ai-pi-runtime',
+	configRoot: '/tmp/studio-ai-pi-runtime-config',
 } ) );
 
 // Model-swap test uses a synthetic id outside `AI_MODELS`; route unknowns to
@@ -40,6 +42,20 @@ vi.mock( '@mariozechner/pi-coding-agent', async ( importOriginal ) => {
 		createGrepTool: () => stub( 'Grep' ),
 		createFindTool: () => stub( 'Glob' ),
 		createLsTool: () => stub( 'Ls' ),
+	};
+} );
+
+vi.mock( 'cli/lib/site-paths', () => ( {
+	STUDIO_SITES_ROOT: mocks.studioRoot,
+	getDefaultSitePath: ( siteName: string ) => `${ mocks.studioRoot }/${ siteName }`,
+} ) );
+
+vi.mock( '@studio/common/lib/well-known-paths', async ( importOriginal ) => {
+	const actual = await importOriginal< typeof import('@studio/common/lib/well-known-paths') >();
+	return {
+		...actual,
+		getConfigDirectory: () => mocks.configRoot,
+		getAiPayloadsPath: () => `${ mocks.configRoot }/tmp/ai-payloads`,
 	};
 } );
 
@@ -88,6 +104,33 @@ const DEFAULT_MOCK_EVENTS: AgentSessionEvent[] = [
 	{ type: 'agent_end', messages: [] },
 ];
 
+type MessageEndEvent = Extract< AgentSessionEvent, { type: 'message_end' } >;
+
+const assistantMessage = (
+	content: unknown[],
+	stopReason: 'stop' | 'length' = 'stop'
+): MessageEndEvent =>
+	( {
+		type: 'message_end',
+		message: {
+			role: 'assistant',
+			content,
+			api: 'openai-completions',
+			provider: 'openai',
+			model: 'gpt-5.5',
+			usage: {
+				input: 0,
+				output: 0,
+				cacheRead: 0,
+				cacheWrite: 0,
+				totalTokens: 0,
+				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+			},
+			stopReason,
+			timestamp: 0,
+		},
+	} ) as MessageEndEvent;
+
 class FakeSession {
 	private listener?: ( event: AgentSessionEvent ) => void;
 	public state: { model: { id: string; provider: string }; messages: unknown[] };
@@ -127,6 +170,23 @@ class FakeSession {
 }
 
 const newSession = () => SessionManager.inMemory( '/tmp/eval' );
+
+type RuntimeTool = {
+	name: string;
+	description: string;
+	execute: (
+		toolCallId: string,
+		params: Record< string, unknown >
+	) => Promise< { content: Array< { type: string; text: string } > } >;
+};
+
+function getCreatedTool( name: string ): RuntimeTool {
+	const tools = ( mocks.createdSessions[ 0 ].options.customTools ??
+		[] ) as unknown as RuntimeTool[];
+	const tool = tools.find( ( item ) => item.name === name );
+	expect( tool ).toBeTruthy();
+	return tool!;
+}
 
 const findAssistantText = ( events: AgentSessionEvent[] ): string | undefined => {
 	for ( const e of events ) {
@@ -198,6 +258,108 @@ describe( 'pi runtime', () => {
 		expect( final.type ).toBe( 'agent_end' );
 	} );
 
+	it( 'advertises image input support so screenshot tool results can be analyzed', async () => {
+		await runRuntime( {
+			prompt: 'hello',
+			env: {
+				OPENAI_API_KEY: 'sk-test',
+				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
+			},
+			model: 'gpt-5.5',
+			session: newSession(),
+		} );
+
+		expect( mocks.createdSessions[ 0 ].options.model?.input ).toEqual( [ 'text', 'image' ] );
+	} );
+
+	it( 'rejects oversized direct Write, Edit, and Bash payloads', async () => {
+		await runRuntime( {
+			prompt: 'hello',
+			env: {
+				OPENAI_API_KEY: 'sk-test',
+				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
+			},
+			model: 'gpt-5.5',
+			session: newSession(),
+		} );
+
+		const write = getCreatedTool( 'Write' );
+		const edit = getCreatedTool( 'Edit' );
+		const bash = getCreatedTool( 'Bash' );
+
+		await expect(
+			write.execute( 'write-call', {
+				path: '/tmp/studio/site/tmp/large.txt',
+				content: 'x'.repeat( 14 * 1024 + 1 ),
+			} )
+		).rejects.toThrow( /single-call safety limit/ );
+		await expect(
+			edit.execute( 'edit-call', {
+				path: '/tmp/studio/site/tmp/large.txt',
+				old_string: '<!-- anchor -->',
+				new_string: 'x'.repeat( 14 * 1024 + 1 ),
+			} )
+		).rejects.toThrow( /single-call safety limit/ );
+		await expect(
+			bash.execute( 'bash-call', {
+				command: 'x'.repeat( 8 * 1024 + 1 ),
+			} )
+		).rejects.toThrow( /single-call safety limit/ );
+	} );
+
+	it( 'rejects remote wpcom_request calls from length-truncated assistant messages', async () => {
+		mocks.nextEvents = [
+			assistantMessage(
+				[
+					{
+						type: 'toolCall',
+						id: 'wpcom-call-1',
+						name: 'wpcom_request',
+						arguments: {
+							method: 'POST',
+							path: '/pages/4',
+							body: {
+								content: '<!-- wp:paragraph --><p>partial',
+							},
+						},
+						index: 0,
+					},
+				],
+				'length'
+			),
+			{ type: 'agent_end', messages: [] },
+		] as AgentSessionEvent[];
+
+		await runRuntime( {
+			prompt: 'hello',
+			env: {
+				OPENAI_API_KEY: 'sk-test',
+				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
+			},
+			model: 'gpt-5.5',
+			session: newSession(),
+			activeSite: {
+				name: 'Remote',
+				path: '',
+				running: false,
+				remote: true,
+				url: 'https://example.wordpress.com',
+				wpcomSiteId: 123,
+			},
+			wpcomAccessToken: 'wpcom-token',
+		} );
+
+		const wpcomRequest = getCreatedTool( 'wpcom_request' );
+
+		await expect(
+			wpcomRequest.execute( 'wpcom-call-1', {
+				method: 'POST',
+				path: '/pages/4',
+				body: { content: '<!-- wp:paragraph --><p>partial' },
+			} )
+		).rejects.toThrow( /hit the model output limit/ );
+	} );
+
 	it( 'leaves retry policy to pi settings defaults', async () => {
 		await runRuntime( {
 			prompt: 'hello',
@@ -258,6 +420,8 @@ describe( 'pi runtime', () => {
 		const options = mocks.createdSessions[ 0 ].options;
 		expect( options.model?.provider ).toBe( 'studio-wpcom-anthropic' );
 		expect( options.model?.api ).toBe( 'anthropic-messages' );
+		expect( options.model?.maxTokens ).toBe( 32_000 );
+		expect( options.model?.input ).toEqual( [ 'text', 'image' ] );
 		const auth = await options.modelRegistry!.getApiKeyAndHeaders( options.model! );
 		expect( auth ).toMatchObject( {
 			ok: true,

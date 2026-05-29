@@ -18,6 +18,7 @@ import {
 	getMuPlugins,
 	writeStudioMuPluginsForNativePhpRuntime,
 } from '@studio/common/lib/mu-plugins';
+import { getWpConfigMountPaths } from '@studio/common/lib/wp-config-mounts';
 import { resolveNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
 import { SITE_RUNTIME_NATIVE_PHP, type SiteRuntime } from '@studio/common/lib/site-runtime';
 import { LatestSupportedPHPVersion } from '@studio/common/types/php-versions';
@@ -228,6 +229,14 @@ export async function runWpCliCommand(
 		);
 		await php.mount( '/tmp/wp-cli.phar', createNodeFsMountHandler( getWpCliPharPath() ) );
 		await php.mount( '/tmp/sqlite-command', createNodeFsMountHandler( getSqliteCommandPath() ) );
+
+		// Auto-detect host directories referenced in wp-config.php and mount them
+		// so PHP can access paths outside the site folder, matching real server behavior.
+		const wpConfigMounts = getWpConfigMountPaths( siteFolder );
+		for ( const mount of wpConfigMounts ) {
+			php.mkdir( mount.vfsPath );
+			await php.mount( mount.vfsPath, createNodeFsMountHandler( mount.hostPath ) );
+		}
 
 		await setupPlatformLevelMuPlugins( php );
 

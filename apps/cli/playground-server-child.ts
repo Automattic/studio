@@ -21,6 +21,7 @@ import { cleanupLegacyMuPlugins, getMuPlugins } from '@studio/common/lib/mu-plug
 import { formatPlaygroundCliMessage } from '@studio/common/lib/playground-cli-messages';
 import { sequential } from '@studio/common/lib/sequential';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
+import { getWpConfigMountPaths } from '@studio/common/lib/wp-config-mounts';
 import { BlueprintBundle } from '@wp-playground/blueprints';
 import { runCLI, RunCLIArgs, RunCLIServer } from '@wp-playground/cli';
 import {
@@ -294,6 +295,8 @@ async function getBaseRunCLIArgs(
 			vfsPath: '/internal/shared/mu-plugins/99-studio-loader.php',
 		}
 	);
+
+	mounts.push( ...getWpConfigMountPaths( config.sitePath ) );
 
 	const enableDebugLog = config.enableDebugLog ?? false;
 	const enableDebugDisplay = config.enableDebugDisplay ?? false;

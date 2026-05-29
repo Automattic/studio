@@ -1,3 +1,4 @@
+import { ReactElement } from 'react';
 import { __ } from '@wordpress/i18n';
 import Button, { ButtonVariant } from 'src/components/button';
 import offlineIcon from 'src/components/offline-icon';
@@ -6,7 +7,7 @@ import { useOffline } from 'src/hooks/use-offline';
 
 interface ConnectButtonProps {
 	variant: ButtonVariant;
-	icon?: JSX.Element;
+	icon?: ReactElement;
 	connectSite?: () => void;
 	disabled?: boolean;
 	className?: string;

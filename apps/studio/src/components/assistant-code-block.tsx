@@ -24,7 +24,7 @@ type ContextProps = {
 	instanceId: string;
 };
 
-export type CodeBlockProps = JSX.IntrinsicElements[ 'code' ] & ExtraProps;
+export type CodeBlockProps = React.ComponentPropsWithRef< 'code' > & ExtraProps;
 
 export default function createCodeComponent( contextProps: ContextProps ) {
 	return ( props: CodeBlockProps ) => <CodeBlock { ...contextProps } { ...props } />;

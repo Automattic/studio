@@ -1,10 +1,18 @@
-import { StreamedPHPResponse } from '@php-wasm/universal';
+import { spawn } from 'node:child_process';
+import { writeStudioMuPluginsForNativePhpRuntime } from '@studio/common/lib/mu-plugins';
+import { resolveNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
+import { SITE_RUNTIME_NATIVE_PHP, SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { __ } from '@wordpress/i18n';
 import { ArgumentsCamelCase } from 'yargs';
 import yargsParser from 'yargs-parser';
+import { SiteData } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
-import { runWpCliCommand, runGlobalWpCliCommand } from 'cli/lib/run-wp-cli-command';
+import { getPhpBinaryPath, getWpCliPharPath } from 'cli/lib/dependency-management/paths';
+import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
+import { getSiteRuntime } from 'cli/lib/feature-flags';
+import { getDefaultPhpArgs } from 'cli/lib/native-php';
+import { runWpCliCommand, runGlobalWpCliCommand, WpCliResponse } from 'cli/lib/run-wp-cli-command';
 import { validatePhpVersion } from 'cli/lib/utils';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
@@ -12,27 +20,25 @@ import { GlobalOptions } from 'cli/types';
 
 const logger = new Logger< '' >();
 
-async function pipePHPResponse( response: StreamedPHPResponse ) {
+async function pipePHPResponse( response: WpCliResponse ) {
 	const decoder = new TextDecoder();
 
-	await response.stderr.pipeTo(
-		new WritableStream( {
-			write( chunk ) {
-				process.stderr.write( chunk );
-			},
-		} )
-	);
+	const stderrPipe = async () => {
+		for await ( const chunk of response.stderr ) {
+			process.stderr.write( chunk );
+		}
+	};
 
-	await response.stdout.pipeTo(
-		new WritableStream( {
-			write( chunk ) {
-				const text = decoder.decode( chunk, { stream: true } );
-				if ( ! text.startsWith( '#!/usr/bin/env' ) ) {
-					process.stdout.write( chunk );
-				}
-			},
-		} )
-	);
+	const stdoutPipe = async () => {
+		for await ( const chunk of response.stdout ) {
+			const text = decoder.decode( chunk, { stream: true } );
+			if ( ! text.startsWith( '#!/usr/bin/env' ) ) {
+				process.stdout.write( chunk );
+			}
+		}
+	};
+
+	await Promise.all( [ stderrPipe(), stdoutPipe() ] );
 }
 
 enum Mode {
@@ -65,16 +71,51 @@ async function drainHostStdin(): Promise< Buffer | undefined > {
 	return chunks.length > 0 ? Buffer.concat( chunks ) : undefined;
 }
 
+async function runNativePhpWpCliCommand( site: SiteData, args: string[] ): Promise< void > {
+	const phpVersion = resolveNativePhpVersion( site.phpVersion );
+	await ensurePhpBinaryAvailable( phpVersion );
+	await writeStudioMuPluginsForNativePhpRuntime( site.path, site.isWpAutoUpdating );
+	// Don't apply open_basedir or disable_functions to the WP-CLI process
+	const defaultArgs = getDefaultPhpArgs( phpVersion );
+	const child = spawn(
+		getPhpBinaryPath( phpVersion ),
+		[ ...defaultArgs, getWpCliPharPath(), `--path=${ site.path }`, ...args ],
+		{
+			cwd: site.path,
+			stdio: 'inherit',
+		}
+	);
+
+	const { code, signal } = await new Promise< {
+		code: number | null;
+		signal: NodeJS.Signals | null;
+	} >( ( resolve, reject ) => {
+		child.once( 'error', reject );
+		child.once( 'exit', ( exitCode, exitSignal ) =>
+			resolve( { code: exitCode, signal: exitSignal } )
+		);
+	} );
+
+	if ( signal ) {
+		process.kill( process.pid, signal );
+		return;
+	}
+
+	process.exit( code ?? 1 );
+}
+
 export async function runCommand(
 	mode: Mode,
 	siteFolder: string,
 	args: string[],
 	options: { phpVersion?: string } = {}
 ): Promise< void > {
+	const runtime = getSiteRuntime();
+
 	// Handle global WP-CLI commands that don't require a site path (--studio-no-path)
 	if ( mode === Mode.GLOBAL ) {
 		const stdin = await drainHostStdin();
-		await using command = await runGlobalWpCliCommand( args, { stdin } );
+		await using command = await runGlobalWpCliCommand( args, { runtime, stdin } );
 
 		await pipePHPResponse( command.response );
 		process.exitCode = await command.response.exitCode;
@@ -83,6 +124,12 @@ export async function runCommand(
 	}
 
 	const site = await getSiteByFolder( siteFolder );
+
+	if ( runtime === SITE_RUNTIME_NATIVE_PHP ) {
+		await runNativePhpWpCliCommand( site, args );
+		return;
+	}
+
 	const phpVersion = validatePhpVersion( options.phpVersion ?? site.phpVersion );
 
 	// Drain piped stdin (if any) up-front so we can forward it to whichever
@@ -101,7 +148,8 @@ export async function runCommand(
 		try {
 			await connectToDaemon();
 
-			if ( await isServerRunning( site.id ) ) {
+			const runningProcess = await isServerRunning( site.id );
+			if ( runningProcess?.runtime === SITE_RUNTIME_PLAYGROUND ) {
 				const result = await sendWpCliCommand( site.id, args, stdin );
 				process.stdout.write( result.stdout );
 				process.stderr.write( result.stderr );
@@ -115,10 +163,8 @@ export async function runCommand(
 	process.on( 'SIGINT', () => process.exit( 1 ) );
 	process.on( 'SIGTERM', () => process.exit( 1 ) );
 
-	// …If not, run the command in a new PHP-WASM instance
-	await using command = await runWpCliCommand( siteFolder, phpVersion, args, {
-		stdin,
-	} );
+	// …If not, run the command in a new runtime instance (PHP-WASM or native PHP)
+	await using command = await runWpCliCommand( site, args, { phpVersion, stdin } );
 
 	await pipePHPResponse( command.response );
 	process.exitCode = await command.response.exitCode;

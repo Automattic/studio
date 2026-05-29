@@ -1,10 +1,12 @@
 import path from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
+import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import {
 	ExportEvents,
 	ExportEventTuple,
 	ExportIpcEvent,
 } from '@studio/common/lib/import-export-events';
+import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
@@ -124,7 +126,8 @@ export async function runCommand(
 	exportPath: string,
 	mode: 'full' | 'content' | 'db' = 'full',
 	splitDbDumpByTable = false,
-	includeOnlyPaths?: string[]
+	includeOnlyPaths?: string[],
+	applyDeployIgnore = false
 ): Promise< void > {
 	try {
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
@@ -150,6 +153,10 @@ export async function runCommand(
 			includes.database = false;
 		}
 
+		const ignoreFilter = applyDeployIgnore
+			? await createDeployIgnoreFilter( site.path, SYNC_IGNORE_DEFAULTS )
+			: undefined;
+
 		const exporter = await getExporter( {
 			site,
 			backupFile: exportPath,
@@ -157,6 +164,7 @@ export async function runCommand(
 			includes,
 			splitDatabaseDumpByTable: splitDbDumpByTable,
 			specificSelectionPaths: includeOnlyPaths,
+			ignoreFilter,
 		} );
 
 		if ( ! exporter ) {
@@ -230,6 +238,12 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 						return value.map( String );
 					},
 					hidden: true,
+				} )
+				.option( 'apply-deploy-ignore', {
+					type: 'boolean',
+					default: false,
+					description: __( 'Apply .deployignore patterns when exporting' ),
+					hidden: true,
 				} );
 		},
 		handler: async ( argv ) => {
@@ -262,7 +276,8 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					exportFile,
 					argv.mode,
 					argv.splitDbDumpByTable,
-					argv.includeOnly
+					argv.includeOnly,
+					argv.applyDeployIgnore
 				);
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {

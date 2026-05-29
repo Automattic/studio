@@ -181,8 +181,16 @@ export class SiteServer {
 
 		const result = await createSiteViaCli( { ...options, siteId } );
 
+		server.details.port = result.port;
 		if ( result.running ) {
-			server.details.running = true;
+			const url = getAbsoluteUrl( server.details );
+			const startedDetails: StartedSiteDetails = {
+				...server.details,
+				running: true,
+				url,
+			};
+			server.details = startedDetails;
+			server.server.url = url;
 		}
 
 		return { server, details: server.details };
@@ -430,6 +438,55 @@ export class SiteServer {
 			userData.siteMetadata[ siteId ] = {
 				...userData.siteMetadata[ siteId ],
 				themeDetails: this.details.themeDetails,
+			};
+			await saveUserData( userData );
+		} finally {
+			await unlockAppdata();
+		}
+	}
+
+	private static siteIconSchema = z.object( {
+		relativePath: z.string(),
+	} );
+
+	async getSiteIcon(): Promise< SiteDetails[ 'siteIconPath' ] > {
+		if ( ! this.details.running ) {
+			return this.details.siteIconPath;
+		}
+
+		try {
+			const { stdout, stderr, exitCode } = await this.executeWpCliCommand( [
+				'studio',
+				'get-site-icon',
+			] );
+
+			if ( exitCode !== 0 ) {
+				console.error( 'Failed to get site icon via WP-CLI', { exitCode, stdout, stderr } );
+				return this.details.siteIconPath;
+			}
+
+			const parsed = parseJsonFromPhpOutput( stdout );
+			if ( parsed === null ) {
+				this.details.siteIconPath = null;
+			} else {
+				const { relativePath } = SiteServer.siteIconSchema.parse( parsed );
+				this.details.siteIconPath = nodePath.join( this.details.path, relativePath );
+			}
+		} catch ( error ) {
+			console.error( 'Failed to get site icon:', error );
+		}
+
+		return this.details.siteIconPath;
+	}
+
+	async persistSiteIcon(): Promise< void > {
+		try {
+			await lockAppdata();
+			const userData = await loadUserData();
+			const siteId = this.details.id;
+			userData.siteMetadata[ siteId ] = {
+				...userData.siteMetadata[ siteId ],
+				siteIconPath: this.details.siteIconPath,
 			};
 			await saveUserData( userData );
 		} finally {

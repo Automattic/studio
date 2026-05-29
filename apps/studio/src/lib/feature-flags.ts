@@ -12,16 +12,16 @@ export const FEATURE_FLAGS: Record< keyof FeatureFlags, FeatureFlagDefinition > 
 		flag: 'enableBlueprints',
 		default: true,
 	},
-	enableBlueprintsGallery: {
-		label: 'Enable Blueprints Gallery',
-		env: 'ENABLE_BLUEPRINTS_GALLERY',
-		flag: 'enableBlueprintsGallery',
-		default: false,
-	},
 	enableStudioCodeUi: {
 		label: 'Enable Studio Code UI',
 		env: 'ENABLE_STUDIO_CODE_UI',
 		flag: 'enableStudioCodeUi',
+		default: false,
+	},
+	enableDesksUiSwitch: {
+		label: 'Enable Studio UI Switcher',
+		env: 'ENABLE_DESKS_UI_SWITCH',
+		flag: 'enableDesksUiSwitch',
 		default: false,
 	},
 } as const;

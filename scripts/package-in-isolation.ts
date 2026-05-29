@@ -23,7 +23,7 @@ import os from 'os';
 import path from 'path';
 import { z } from 'zod';
 
-const REPO_ROOT = path.resolve( __dirname, '..' );
+const REPO_ROOT = path.resolve( import.meta.dirname, '..' );
 const STUDIO_APP_PACKAGE_JSON = path.join( REPO_ROOT, 'apps', 'studio', 'package.json' );
 
 const STUDIO_APP_PACKAGE_JSON_SCHEMA = z.object( {
@@ -90,7 +90,7 @@ function main() {
 	const studioAppScripts = getStudioAppScripts();
 	const scriptName = process.argv[ 2 ];
 
-	if ( ! studioAppScripts.hasOwnProperty( scriptName ) ) {
+	if ( ! Object.prototype.hasOwnProperty.call( studioAppScripts, scriptName ) ) {
 		throw new Error(
 			`Unsupported script "${ scriptName }". Supported studio-app packaging scripts: ${ Object.keys(
 				studioAppScripts

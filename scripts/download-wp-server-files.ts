@@ -6,25 +6,29 @@ import {
 	getPhpMyAdminInstallSteps,
 } from '@wp-playground/tools';
 import fs from 'fs-extra';
+import { z } from 'zod';
+import { extractZip } from '@studio/common/lib/extract-zip';
 import { SQLITE_DATABASE_INTEGRATION_RELEASE_URL } from '../apps/studio/src/constants';
-import { extractZip } from '../tools/common/lib/extract-zip';
 
-const WP_SERVER_FILES_PATH = path.join( __dirname, '..', 'wp-files' );
+const WP_SERVER_FILES_PATH = path.join( import.meta.dirname, '..', 'wp-files' );
+const PHPMYADMIN_PATCH_FILES_PATH = path.join( import.meta.dirname, '..', 'apps', 'cli', 'php' );
+const PHPMYADMIN_LOCAL_PATCH_FILES = new Map< string, string >( [
+	[ 'config.inc.php', path.join( PHPMYADMIN_PATCH_FILES_PATH, 'config.inc.php' ) ],
+	[
+		'libraries/classes/Dbal/DbiMysqli.php',
+		path.join( PHPMYADMIN_PATCH_FILES_PATH, 'DbiMysqli.php' ),
+	],
+] );
 
-interface GithubRelease {
-	tag_name: string;
-	assets?: {
-		name: string;
-		browser_download_url: string;
-	}[];
-}
+const partialGithubReleaseSchema = z.object( {
+	tag_name: z.string(),
+	assets: z.array( z.object( { name: z.string(), browser_download_url: z.string() } ) ),
+} );
 
-async function getLatestSQLiteCommandRelease(): Promise< GithubRelease > {
-	const url = 'https://api.github.com/repos/automattic/wp-cli-sqlite-command/releases/latest';
-
+export async function fetchLatestGithubRelease( repo: string ) {
 	const headers: HeadersInit = {
 		Accept: 'application/vnd.github.v3+json',
-		'User-Agent': 'wp-now-cli',
+		'User-Agent': 'wp-studio-cli',
 	};
 
 	// GitHub API has rate limits:
@@ -36,13 +40,18 @@ async function getLatestSQLiteCommandRelease(): Promise< GithubRelease > {
 		headers.Authorization = `token ${ process.env.GITHUB_TOKEN }`;
 	}
 
-	const response = await fetch( url, { headers } );
+	const response = await fetch( `https://api.github.com/repos/${ repo }/releases/latest`, {
+		headers,
+		signal: AbortSignal.timeout( 5000 ),
+	} );
 
 	if ( ! response.ok ) {
 		throw new Error( `GitHub API request failed: ${ response.status } ${ response.statusText }` );
 	}
 
-	return await response.json();
+	const rawResponse: unknown = await response.json();
+
+	return partialGithubReleaseSchema.parse( rawResponse );
 }
 
 type MaybePromise< T > = T | Promise< T >;
@@ -75,8 +84,14 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 		name: 'sqlite-command',
 		description: 'SQLite command',
 		getUrl: async () => {
-			const latestRelease = await getLatestSQLiteCommandRelease();
-			return latestRelease.assets?.[ 0 ].browser_download_url ?? '';
+			const release = await fetchLatestGithubRelease( 'automattic/wp-cli-sqlite-command' );
+			const asset = release.assets[ 0 ];
+			if ( ! asset ) {
+				throw new Error(
+					`No asset found in latest wp-cli-sqlite-command release ${ release.tag_name }`
+				);
+			}
+			return asset.browser_download_url;
 		},
 		destinationPath: path.join( WP_SERVER_FILES_PATH, 'sqlite-command' ),
 	},
@@ -158,7 +173,9 @@ async function downloadFile( file: FileToDownload ): Promise< void > {
 				const destFile = path.join( extractedPath, relativePath );
 				await fs.ensureDir( path.dirname( destFile ) );
 
-				await fs.writeFile( destFile, step.data );
+				const localPatchFile = PHPMYADMIN_LOCAL_PATCH_FILES.get( relativePath );
+				const patchData = localPatchFile ? await fs.readFile( localPatchFile, 'utf8' ) : step.data;
+				await fs.writeFile( destFile, patchData );
 			}
 		}
 	} else {

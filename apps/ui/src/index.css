@@ -4,23 +4,47 @@
 
 	/* Overlay stacking — portals mount into `document.body` and must beat
 	   app-chrome stacking contexts (sidebar header z-index: 1, floating
-	   toggle z-index: 10). The menu popup uses the same 100 via its
-	   component stylesheet; dialogs sit at the same tier. Tooltips live
-	   higher so help text on controls inside a menu/dialog still surfaces
-	   above the containing popup. */
-	--wp-ui-dialog-z-index: 100;
-	--wp-ui-tooltip-z-index: 200;
+	   toggle z-index: 10). Menus stay below modal surfaces; tooltips live
+	   above dialogs so help text on controls inside a modal still surfaces
+	   above the containing overlay. */
+	--ui-desks-z-popover: 100;
+	--ui-desks-z-dialog: 700;
+	--ui-desks-z-tooltip: 800;
+	--wp-ui-dialog-z-index: var( --ui-desks-z-dialog );
+	--wp-ui-tooltip-z-index: var( --ui-desks-z-tooltip );
+
+	--ui-desks-bg: rgb( 232, 234, 235 );
+	--ui-desks-material: #fff;
+	--ui-desks-glass: rgba( 255, 255, 255, 0.85 );
+	--ui-desks-glass-border: rgba( 255, 255, 255, 0.7 );
+	--ui-desks-text: #14171a;
+	--ui-desks-muted: #6b7280;
+	--ui-desks-divider: rgba( 15, 23, 42, 0.06 );
+	--ui-desks-control-hover: rgba( 15, 23, 42, 0.07 );
+	--ui-desks-focus: #3858e9;
+	--ui-desks-radius-control: 16px;
+	--ui-desks-radius-surface: 18px;
+	--ui-desks-radius-panel: 22px;
+	--ui-desks-radius-button: 12px;
+	--ui-desks-corner-shape: superellipse( 1.42 );
+	--ui-desks-shadow-control: 0 1px 2px rgba( 15, 23, 42, 0.04 ), 0 8px 24px rgba( 15, 23, 42, 0.06 );
+	--ui-desks-shadow-control-raised: 0 1px 2px rgba( 15, 23, 42, 0.04 ),
+		0 18px 44px rgba( 15, 23, 42, 0.1 );
+	--ui-desks-shadow-surface-raised: 0 1px 2px rgba( 15, 23, 42, 0.04 ),
+		0 18px 44px rgba( 15, 23, 42, 0.1 );
 }
 
 body {
 	margin: 0;
 	padding: 0;
-	font-family: var(--wpds-font-family-body);
-	font-size: var(--wpds-font-size-md);
-	line-height: var(--wpds-font-line-height-md);
-	background-color: var(--wpds-color-bg-surface-neutral);
-	color: var(--wpds-color-fg-content-neutral);
+	font-family: var( --wpds-typography-font-family-body );
+	font-size: var( --wpds-typography-font-size-md );
+	line-height: var( --wpds-typography-line-height-md );
+	background-color: var( --wpds-color-bg-surface-neutral );
+	color: var( --wpds-color-fg-content-neutral );
 	color-scheme: light dark;
+	scrollbar-width: thin;
+	scrollbar-color: gray transparent;
 }
 
 /* Universal heading styles derived from the design system's font-size /
@@ -35,40 +59,40 @@ h3,
 h4,
 h5,
 h6 {
-	font-family: var(--wpds-font-family-heading);
-	font-weight: var(--wpds-font-weight-regular);
-	color: var(--wpds-color-fg-content-neutral);
+	font-family: var( --wpds-typography-font-family-heading );
+	font-weight: var( --wpds-typography-font-weight-regular );
+	color: var( --wpds-color-fg-content-neutral );
 	margin: 0;
 }
 
 h1 {
-	font-size: var(--wpds-font-size-2xl);
-	line-height: var(--wpds-font-line-height-2xl);
+	font-size: var( --wpds-typography-font-size-2xl );
+	line-height: var( --wpds-typography-line-height-2xl );
 }
 
 h2 {
-	font-size: var(--wpds-font-size-xl);
-	line-height: var(--wpds-font-line-height-xl);
+	font-size: var( --wpds-typography-font-size-xl );
+	line-height: var( --wpds-typography-line-height-xl );
 }
 
 h3 {
-	font-size: var(--wpds-font-size-lg);
-	line-height: var(--wpds-font-line-height-lg);
+	font-size: var( --wpds-typography-font-size-lg );
+	line-height: var( --wpds-typography-line-height-lg );
 }
 
 h4 {
-	font-size: var(--wpds-font-size-md);
-	line-height: var(--wpds-font-line-height-md);
+	font-size: var( --wpds-typography-font-size-md );
+	line-height: var( --wpds-typography-line-height-md );
 }
 
 h5 {
-	font-size: var(--wpds-font-size-sm);
-	line-height: var(--wpds-font-line-height-sm);
+	font-size: var( --wpds-typography-font-size-sm );
+	line-height: var( --wpds-typography-line-height-sm );
 }
 
 h6 {
-	font-size: var(--wpds-font-size-xs);
-	line-height: var(--wpds-font-line-height-xs);
+	font-size: var( --wpds-typography-font-size-xs );
+	line-height: var( --wpds-typography-line-height-xs );
 }
 
 /* Interactive elements inside drag-region ancestors (title bars, section
@@ -80,7 +104,7 @@ button,
 a,
 input,
 textarea,
-[role="button"],
+[role='button'],
 [data-base-ui-portal],
 [data-base-ui-portal] * {
 	-webkit-app-region: no-drag;
@@ -95,12 +119,12 @@ textarea,
    loading buttons rely on `color: transparent` to hide their label while
    the spinner runs, and overriding that here would make the label visible
    again. */
-button:focus:not(:focus-visible),
-a:focus:not(:focus-visible),
-[role="button"]:focus:not(:focus-visible) {
+button:focus:not( :focus-visible ),
+a:focus:not( :focus-visible ),
+[role='button']:focus:not( :focus-visible ) {
 	outline: none;
-	background-color: var(--wp-ui-button-background-color);
-	border-color: var(--wp-ui-button-border-color);
+	background-color: var( --wp-ui-button-background-color );
+	border-color: var( --wp-ui-button-border-color );
 }
 
 /* Compact density: shrink icons to match the tighter spacing tokens.
@@ -108,9 +132,22 @@ a:focus:not(:focus-visible),
    density only shrinks padding/gap tokens, not icon sizes. Override the
    svg width/height attributes with CSS until the design system exposes
    a density-aware icon token. Ideally this lives in ThemeProvider. */
-[data-wpds-density='compact'] svg {
+[data-wpds-density='compact'] [data-ui-mode='classic'] svg {
 	width: 16px;
 	height: 16px;
+}
+
+/* Desks uses each shape's indicator as the visible selection outline.
+   Hide tldraw's default selection box and handle glyphs while keeping the
+   underlying resize/rotate wrappers interactive. */
+[data-ui-mode='desks'] .tl-selection__fg__outline {
+	stroke: transparent;
+}
+
+[data-ui-mode='desks'] .tl-corner-handle,
+[data-ui-mode='desks'] .tl-mobile-rotate__fg,
+[data-ui-mode='desks'] .tl-text-handle {
+	opacity: 0;
 }
 
 /* @wordpress/components' ComboboxControl (used by DataForm's adaptive
@@ -120,6 +157,21 @@ a:focus:not(:focus-visible),
    itself uses so the control reads as one solid field. */
 .components-combobox-control__suggestions-container,
 .components-form-token-field__suggestions-list {
-	background-color: var(--wp-components-color-background, #fff);
+	background-color: var( --wp-components-color-background, #fff );
 }
 
+/* Honor the user's reduced-motion preference across the entire app. Class-
+   scoped transitions out-specify a `*`-targeted rule, so `!important` is
+   needed to clamp them. Components that genuinely need to keep motion can
+   re-enable it with a more specific `!important` rule inside the same
+   media query. */
+@media ( prefers-reduced-motion: reduce ) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
+	}
+}

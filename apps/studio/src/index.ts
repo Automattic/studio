@@ -8,9 +8,9 @@ import {
 	Menu,
 	dialog,
 	MessageBoxSyncOptions,
+	shell,
 } from 'electron';
 import path from 'path';
-import { pathToFileURL } from 'url';
 import * as Sentry from '@sentry/electron/main';
 import { PROTOCOL_PREFIX } from '@studio/common/constants';
 import { runMigrations } from '@studio/common/lib/migration';
@@ -24,10 +24,12 @@ import {
 } from 'electron-devtools-installer';
 import { IPC_VOID_HANDLERS } from 'src/constants';
 import * as ipcHandlers from 'src/ipc-handlers';
+import { markAppQuitting } from 'src/ipc-utils';
 import {
 	hasActiveSyncOperations,
 	hasUploadingPushOperations,
 } from 'src/lib/active-sync-operations';
+import { getBetaFeatures } from 'src/lib/beta-features';
 import {
 	bumpStat,
 	bumpAggregatedUniqueStat,
@@ -39,15 +41,16 @@ import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
 import { setupLogging } from 'src/logging';
-import { createMainWindow, getMainWindow } from 'src/main-window';
+import { createMainWindow, getCurrentRendererUrl, getMainWindow } from 'src/main-window';
 import { migrations } from 'src/migrations';
 import {
 	startCliEventsSubscriber,
 	stopCliEventsSubscriber,
 } from 'src/modules/cli/lib/cli-events-subscriber';
-import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
+import { autoInstallLinuxCliIfNeeded } from 'src/modules/cli/lib/linux-installation-manager';
 import { autoInstallMacOSCliIfNeeded } from 'src/modules/cli/lib/macos-installation-manager';
 import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
+import { startRemoteSessionStatusPolling } from 'src/modules/remote-session/daemon-status-poller';
 import { stopAllProcesses as stopAllStudioCodeProcesses } from 'src/modules/studio-code';
 import { getRunningSiteCount, SiteServer, stopAllServers } from 'src/site-server';
 import {
@@ -63,11 +66,18 @@ import packageJson from '../package.json';
 
 // Helper function to get the actual URL for validation
 function getRendererUrl(): string {
-	if ( ! app.isPackaged && process.env[ 'ELECTRON_RENDERER_URL' ] ) {
-		return process.env[ 'ELECTRON_RENDERER_URL' ];
-	} else {
-		// For production file paths, convert to file:// URL
-		return pathToFileURL( path.join( __dirname, '../renderer/index.html' ) ).href;
+	return getCurrentRendererUrl();
+}
+
+function openExternalWebUrl( url: string ): void {
+	try {
+		const parsedUrl = new URL( url );
+		if ( ! [ 'http:', 'https:' ].includes( parsedUrl.protocol ) ) {
+			return;
+		}
+		void shell.openExternal( parsedUrl.toString() ).catch( () => undefined );
+	} catch {
+		// Ignore malformed URLs from untrusted pages.
 	}
 }
 
@@ -91,6 +101,26 @@ const isInInstaller = require( 'electron-squirrel-startup' );
 const gotTheLock = app.requestSingleInstanceLock();
 
 let finishedInitialization = false;
+let stopRemoteSessionStatusPolling: ( () => void ) | undefined;
+
+const YOUTUBE_EMBED_REFERRER = 'https://developer.wordpress.com/studio/';
+const YOUTUBE_EMBED_URL_PATTERNS = [
+	'https://*.youtube.com/embed/*',
+	'https://youtube.com/embed/*',
+	'https://*.youtube-nocookie.com/embed/*',
+	'https://youtube-nocookie.com/embed/*',
+];
+
+function getYouTubeEmbedRequestHeaders( requestHeaders: Record< string, string > ) {
+	const headers = { ...requestHeaders };
+	for ( const key of Object.keys( headers ) ) {
+		if ( key.toLowerCase() === 'referer' ) {
+			delete headers[ key ];
+		}
+	}
+	headers.Referer = YOUTUBE_EMBED_REFERRER;
+	return headers;
+}
 
 if ( gotTheLock && ! isInInstaller ) {
 	void appBoot();
@@ -158,16 +188,29 @@ async function appBoot() {
 	// be able to perform privileged operations.
 	app.enableSandbox();
 
-	// Prevent navigation to anywhere other than known locations
+	// Prevent navigation to anywhere other than known locations.
+	// The site-preview `<webview>` is a separate webContents that intentionally
+	// loads local WordPress pages — it's identified by `getType() === 'webview'`
+	// and exempted from the renderer-origin restriction below.
 	app.on( 'web-contents-created', ( _event, contents ) => {
+		const isSitePreviewWebview = contents.getType() === 'webview';
+
 		contents.on( 'will-navigate', ( event, navigationUrl ) => {
+			if ( isSitePreviewWebview ) {
+				return;
+			}
 			const { origin } = new URL( navigationUrl );
 			const allowedOrigins = [ new URL( getRendererUrl() ).origin ];
 			if ( ! allowedOrigins.includes( origin ) ) {
 				event.preventDefault();
 			}
 		} );
-		contents.setWindowOpenHandler( () => {
+		contents.setWindowOpenHandler( ( details ) => {
+			// Site-preview popups (target="_blank", admin-bar links, …) open
+			// in the user's browser rather than spawning a new Electron window.
+			if ( isSitePreviewWebview ) {
+				openExternalWebUrl( details.url );
+			}
 			return { action: 'deny' };
 		} );
 	} );
@@ -268,6 +311,15 @@ async function appBoot() {
 			callback( false );
 		} );
 
+		session.defaultSession.webRequest.onBeforeSendHeaders(
+			{ urls: YOUTUBE_EMBED_URL_PATTERNS },
+			( details, callback ) => {
+				callback( {
+					requestHeaders: getYouTubeEmbedRequestHeaders( details.requestHeaders ),
+				} );
+			}
+		);
+
 		session.defaultSession.webRequest.onHeadersReceived( ( details, callback ) => {
 			// Only set a custom CSP header the main window UI. For other pages (like login) we should
 			// use the CSP provided by the server, which is more likely to be up-to-date and complete.
@@ -279,16 +331,20 @@ async function appBoot() {
 			const basePolicies = [
 				"default-src 'self'", // Allow resources from these domains
 				"script-src-attr 'none'",
-				"img-src 'self' https://*.gravatar.com https://*.wp.com https://blueprintlibrary.wordpress.com data:",
+				"img-src 'self' https://*.gravatar.com https://*.wp.com https://blueprintlibrary.wordpress.com https://blueprintslibraryv2.wpcomstaging.com https://wordpress.github.io https://raw.githubusercontent.com data:",
 				"style-src 'self' 'unsafe-inline'", // unsafe-inline used by tailwindcss in development, and also in production after the app rename
-				"script-src 'self' 'wasm-unsafe-eval'", // allow WebAssembly to compile and instantiate
+				process.env.NODE_ENV === 'development'
+					? "script-src 'self' 'unsafe-eval' 'unsafe-inline' 'wasm-unsafe-eval' data: http://localhost:*"
+					: "script-src 'self' 'wasm-unsafe-eval'", // allow WebAssembly to compile and instantiate
+				// Site preview uses `<webview>` to host local WordPress sites
+				// served from arbitrary localhost ports and (optionally) HTTPS
+				// custom domains.
+				'frame-src http: https:',
 			];
 			const prodPolicies = [
 				"connect-src 'self' https://public-api.wordpress.com https://api.wordpress.org",
 			];
 			const devPolicies = [
-				// Webpack uses eval in development, react-devtools uses localhost
-				"script-src 'self' 'unsafe-eval' 'unsafe-inline' data: http://localhost:*",
 				// react-devtools uses localhost
 				"connect-src 'self' https://public-api.wordpress.com https://api.wordpress.org ws://localhost:*",
 			];
@@ -311,6 +367,7 @@ async function appBoot() {
 		await runMigrations( migrations ).catch( Sentry.captureException );
 
 		await setupSentryUserId();
+		await getBetaFeatures();
 
 		// Fetch data from CLI and subscribe to CLI events before starting the user data
 		// watcher. The watcher can trigger getMainWindow() which creates the window early,
@@ -343,6 +400,9 @@ async function appBoot() {
 
 		await autoInstallWindowsCliIfNeeded();
 		await autoInstallMacOSCliIfNeeded();
+		await autoInstallLinuxCliIfNeeded();
+
+		stopRemoteSessionStatusPolling = startRemoteSessionStatusPolling();
 
 		finishedInitialization = true;
 	} );
@@ -412,7 +472,6 @@ async function appBoot() {
 
 			void ( async () => {
 				const userData = await loadUserData();
-				const isCliInstalled = await isStudioCliInstalled();
 
 				if ( userData.stopSitesOnQuit !== undefined ) {
 					shouldStopSitesOnQuit = userData.stopSitesOnQuit;
@@ -421,13 +480,14 @@ async function appBoot() {
 					return;
 				}
 
-				if ( ! isCliInstalled || process.env.E2E ) {
+				if ( process.env.E2E ) {
 					isQuittingConfirmed = true;
 					app.quit();
 					return;
 				}
 
 				const STOP_SITES_BUTTON_INDEX = 0;
+				const LEAVE_RUNNING_BUTTON_INDEX = 1;
 				const CANCEL_BUTTON_INDEX = 2;
 
 				const { response, checkboxChecked } = await dialog.showMessageBox( {
@@ -444,7 +504,7 @@ async function appBoot() {
 					buttons: [ __( 'Stop sites' ), __( 'Leave running' ), __( 'Cancel' ) ],
 					checkboxLabel: __( "Don't ask again" ),
 					cancelId: CANCEL_BUTTON_INDEX,
-					defaultId: STOP_SITES_BUTTON_INDEX,
+					defaultId: LEAVE_RUNNING_BUTTON_INDEX,
 				} );
 
 				if ( response === CANCEL_BUTTON_INDEX ) {
@@ -467,9 +527,11 @@ async function appBoot() {
 	} );
 
 	app.on( 'will-quit', ( event ) => {
+		markAppQuitting();
 		globalShortcut.unregisterAll();
 		stopCliEventsSubscriber();
 		stopAllStudioCodeProcesses();
+		stopRemoteSessionStatusPolling?.();
 
 		if ( shouldStopSitesOnQuit ) {
 			event.preventDefault();

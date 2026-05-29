@@ -7,6 +7,7 @@ import { registerCommand as registerExportCommand } from 'cli/commands/export';
 import { registerCommand as registerImportCommand } from 'cli/commands/import';
 import { registerCommand as registerMcpCommand } from 'cli/commands/mcp';
 import { registerCommand as registerPullCommand } from 'cli/commands/pull';
+import { registerCommand as registerPullReprintCommand } from 'cli/commands/pull-reprint';
 import { registerCommand as registerPushCommand } from 'cli/commands/push';
 import {
 	bumpAggregatedUniqueStat,
@@ -123,6 +124,8 @@ async function main() {
 	const studioCodeCommandBuilder = async ( aiYargs: StudioArgv ) => {
 		const { registerCommand: registerAiCommand } = await import( 'cli/commands/ai' );
 		registerAiCommand( aiYargs );
+		const { registerRemoteSessionCommand } = await import( 'cli/commands/ai/remote-session' );
+		registerRemoteSessionCommand( aiYargs );
 		aiYargs.command( 'sessions', __( 'Manage code sessions' ), async ( sessionsYargs ) => {
 			const [
 				{ registerCommand: registerAiSessionsDeleteCommand },
@@ -134,15 +137,9 @@ async function main() {
 				import( 'cli/commands/ai/sessions/resume' ),
 			] );
 
-			sessionsYargs
-				.option( 'path', {
-					hidden: true,
-				} )
-				.option( 'session-persistence', {
-					type: 'boolean',
-					default: true,
-					description: __( 'Record this code session to disk' ),
-				} );
+			sessionsYargs.option( 'path', {
+				hidden: true,
+			} );
 			registerAiSessionsDeleteCommand( sessionsYargs );
 			registerAiSessionsListCommand( sessionsYargs );
 			registerAiSessionsResumeCommand( sessionsYargs );
@@ -186,7 +183,26 @@ async function main() {
 		previewYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );
 	} );
 
+	studioArgv.command( 'blueprint', __( 'Browse and use blueprints' ), async ( blueprintYargs ) => {
+		const [
+			{ registerCommand: registerBlueprintListCommand },
+			{ registerCommand: registerBlueprintUseCommand },
+		] = await Promise.all( [
+			import( 'cli/commands/blueprint/list' ),
+			import( 'cli/commands/blueprint/use' ),
+		] );
+
+		registerBlueprintListCommand( blueprintYargs );
+		registerBlueprintUseCommand( blueprintYargs );
+		blueprintYargs
+			.version( false )
+			.demandCommand( 1, __( 'You must provide a valid blueprint command' ) );
+	} );
+
 	registerPullCommand( studioArgv );
+	if ( process.env.STUDIO_ENABLE_PULL_REPRINT ) {
+		registerPullReprintCommand( studioArgv );
+	}
 	registerPushCommand( studioArgv );
 
 	studioArgv

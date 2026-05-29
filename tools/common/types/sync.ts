@@ -14,6 +14,12 @@ export const sitesEndpointSiteSchema = z.object( {
 		.nullable()
 		.optional(),
 	is_a8c: z.boolean().optional(),
+	icon: z
+		.object( {
+			img: z.string(),
+			ico: z.string(),
+		} )
+		.optional(),
 	options: z
 		.object( {
 			created_at: z.string(),
@@ -47,6 +53,9 @@ export type SitesEndpointSite = z.infer< typeof sitesEndpointSiteSchema >;
 // Permissive wrapper for the /me/sites response (to fail gracefully per-site)
 export const sitesEndpointResponseSchema = z.object( {
 	sites: z.array( z.unknown() ),
+	total: z.number().optional(),
+	page: z.number().optional(),
+	per_page: z.number().optional(),
 } );
 
 // Sync support types
@@ -63,19 +72,23 @@ export const syncSupportValues = [
 export type SyncSupport = ( typeof syncSupportValues )[ number ];
 
 // Sync site representation
-export type SyncSite = {
-	id: number;
-	localSiteId: string;
-	name: string;
-	url: string;
-	isStaging: boolean;
-	isPressable: boolean;
-	environmentType?: string | null;
-	syncSupport: SyncSupport;
-	lastPullTimestamp: string | null;
-	lastPushTimestamp: string | null;
-	wpVersion?: string;
-};
+export const syncSiteSchema = z.object( {
+	id: z.number(),
+	localSiteId: z.string(),
+	name: z.string(),
+	url: z.string(),
+	isStaging: z.boolean(),
+	isPressable: z.boolean(),
+	environmentType: z.string().nullable().optional(),
+	syncSupport: z.enum( syncSupportValues ),
+	lastPullTimestamp: z.string().nullable(),
+	lastPushTimestamp: z.string().nullable(),
+	wpVersion: z.string().optional(),
+	planName: z.string().optional(),
+	createdAt: z.string().optional(),
+} );
+
+export type SyncSite = z.infer< typeof syncSiteSchema >;
 
 // Pull backup API schemas
 export const pullSiteResponseSchema = z.object( {

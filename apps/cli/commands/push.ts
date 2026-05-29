@@ -1,8 +1,14 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import {
+	addConnectedWpcomSite,
+	markConnectedWpcomSiteSynced,
+} from '@studio/common/lib/connected-sites';
+import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import {
+	SYNC_IGNORE_DEFAULTS,
 	SYNC_MAX_STALLED_ATTEMPTS,
 	SYNC_POLL_INTERVAL_MS,
 	SYNC_PUSH_SIZE_LIMIT_BYTES,
@@ -105,6 +111,8 @@ export async function runCommand(
 			};
 		}
 
+		const deployIgnore = await createDeployIgnoreFilter( site.path, SYNC_IGNORE_DEFAULTS );
+
 		const exporter = await getExporter( {
 			site,
 			backupFile: archivePath,
@@ -112,6 +120,7 @@ export async function runCommand(
 			phpVersion: site.phpVersion,
 			splitDatabaseDumpByTable: true,
 			specificSelectionPaths,
+			ignoreFilter: deployIgnore,
 		} );
 
 		if ( ! exporter ) {
@@ -246,8 +255,17 @@ export async function runCommand(
 			);
 		}
 
+		// Remember this connection so future push/pull runs (and the Desktop UI)
+		// can surface it without re-selecting from the full site list.
+		try {
+			await addConnectedWpcomSite( site.id, { ...remoteSite, localSiteId: site.id } );
+			await markConnectedWpcomSiteSynced( site.id, remoteSite.id, 'push' );
+		} catch ( error ) {
+			logger.reportError( new LoggerError( 'Failed to save connected site', error ), false );
+		}
+
 		logger.reportSuccess(
-			sprintf( __( 'Successfully pushed to %s (%s)' ), remoteSite.name, remoteSite.url )
+			sprintf( __( 'Successfully pushed to %1$s (%2$s)' ), remoteSite.name, remoteSite.url )
 		);
 	} finally {
 		fs.rmSync( tempDir, { recursive: true, force: true } );

@@ -7,7 +7,14 @@ import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { SUPPORTED_EDITORS, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 import { UserSettingsTabName } from 'src/modules/user-settings/user-settings-types';
-import { loadUserData, updateAppdata } from 'src/storage/user-data';
+import { defaultSitePath, ensureWritableDirectory } from 'src/storage/paths';
+import {
+	loadUserData,
+	lockAppdata,
+	saveUserData,
+	unlockAppdata,
+	updateAppdata,
+} from 'src/storage/user-data';
 
 export function getInstalledAppsAndTerminals(): InstalledApps {
 	return {
@@ -50,6 +57,17 @@ export async function saveUserEditor( event: IpcMainInvokeEvent, editor: Support
 	await updateAppdata( { preferredEditor: editor } );
 }
 
+export async function getDefaultSiteDirectory(): Promise< string > {
+	const userData = await loadUserData();
+	return userData.defaultSiteDirectory || defaultSitePath;
+}
+
+export async function saveDefaultSiteDirectory( event: IpcMainInvokeEvent, directory: string ) {
+	await ensureWritableDirectory( directory );
+	await sendIpcEventToRenderer( 'user-preference-changed' );
+	await updateAppdata( { defaultSiteDirectory: directory } );
+}
+
 export async function getUserLocale() {
 	return getUserLocaleWithFallback();
 }
@@ -88,6 +106,27 @@ export async function getColorScheme(): Promise< 'system' | 'light' | 'dark' > {
 	const colorScheme = userData.colorScheme ?? 'light';
 	nativeTheme.themeSource = colorScheme;
 	return colorScheme;
+}
+
+export async function saveWapuuScore( _event: IpcMainInvokeEvent, score: number ): Promise< void > {
+	if ( ! Number.isFinite( score ) || score < 0 || score > 100_000 ) {
+		return;
+	}
+	const intScore = Math.floor( score );
+	await lockAppdata();
+	try {
+		const userData = await loadUserData();
+		if ( userData.wapuuScore === undefined || intScore > userData.wapuuScore ) {
+			await saveUserData( { ...userData, wapuuScore: intScore } );
+		}
+	} finally {
+		await unlockAppdata();
+	}
+}
+
+export async function getWapuuScore(): Promise< number | undefined > {
+	const userData = await loadUserData();
+	return userData.wapuuScore;
 }
 
 export function showUserSettings( event: IpcMainInvokeEvent, tabName?: UserSettingsTabName ) {

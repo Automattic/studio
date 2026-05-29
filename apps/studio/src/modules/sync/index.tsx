@@ -148,7 +148,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		connectedSiteIds,
 		userId: user?.id,
 	} );
-	const syncSites = wpcomSitesData?.sites ?? [];
+	const _syncSites = wpcomSitesData?.sites ?? [];
 
 	const [ selectedRemoteSite, setSelectedRemoteSite ] = useState< SyncSite | null >( null );
 

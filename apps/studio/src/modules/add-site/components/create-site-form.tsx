@@ -62,7 +62,7 @@ interface CreateSiteFormProps {
 	/** Called when form validity changes */
 	onValidityChange?: ( isValid: boolean ) => void;
 	/** Ref to form element for programmatic submission */
-	formRef?: RefObject< HTMLFormElement >;
+	formRef?: RefObject< HTMLFormElement | null >;
 }
 
 export const CreateSiteForm = ( {

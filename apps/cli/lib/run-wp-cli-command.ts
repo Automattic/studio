@@ -37,8 +37,14 @@ import type { ReadableStream as WebReadableStream } from 'node:stream/web';
 const processIdAllocator = new ProcessIdAllocator();
 const PLAYGROUND_INTERNAL_SHARED_FOLDER = '/internal/shared';
 
-function createNativeSpawnHandler(): SpawnHandler {
-	return spawn as unknown as SpawnHandler;
+function createNativeSpawnHandler( siteFolder?: string ): SpawnHandler {
+	return ( ( command: string, args: string[], options: Record< string, unknown > = {} ) => {
+		const spawnOptions = { ...options };
+		if ( siteFolder && spawnOptions.cwd === '/wordpress' ) {
+			spawnOptions.cwd = siteFolder;
+		}
+		return spawn( command, args, spawnOptions );
+	} ) as SpawnHandler;
 }
 
 /**
@@ -204,7 +210,7 @@ export async function runWpCliCommand(
 			allow_url_fopen: 1,
 		} );
 
-		await php.setSpawnHandler( createNativeSpawnHandler() );
+		await php.setSpawnHandler( createNativeSpawnHandler( siteFolder ) );
 
 		await cleanupLegacyMuPlugins( siteFolder );
 

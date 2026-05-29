@@ -960,7 +960,7 @@ export class AiChatUI implements AiOutputAdapter {
 			case 'preview_create':
 			case 'preview_list':
 			case 'preview_update':
-			case 'validate_blocks': {
+			case 'validate_and_fix_blocks': {
 				const nameOrPath = toolInput?.nameOrPath;
 				if ( typeof nameOrPath === 'string' ) {
 					await this.selectLocalSiteFromTool( nameOrPath );
@@ -1919,7 +1919,8 @@ export class AiChatUI implements AiOutputAdapter {
 			return;
 		}
 
-		const maxLength = toolName === 'validate_blocks' ? 2000 : 500;
+		const maxLength =
+			toolName === 'validate_html_blocks' || toolName === 'validate_and_fix_blocks' ? 2000 : 500;
 		const truncated = text.length > maxLength ? text.slice( 0, maxLength ) + '…' : text;
 		const resultLines = truncated.split( '\n' );
 		this.addExpandablePreview(

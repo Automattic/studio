@@ -384,7 +384,7 @@ function WebviewSurface( {
 			className={ styles.frame }
 			src={ url }
 			title={ __( 'Site preview' ) }
-			allowpopups="true"
+			allowpopups={ true }
 			partition="persist:site-preview"
 		/>
 	);

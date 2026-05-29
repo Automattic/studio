@@ -6,7 +6,7 @@ user-invokable: true
 
 # Plugin Recommendations
 
-Use this skill when the user asks for a feature that core WordPress blocks do not cleanly provide, such as forms, newsletter signup, slideshows, related content, business hours, ecommerce, events, LMS/course features, or third-party embeds.
+Use this skill when the user asks for a feature that core WordPress blocks do not cleanly provide, such as forms, slideshows, related content, business hours, ecommerce, events, LMS/course features, or third-party embeds.
 
 ## Decision Rules
 
@@ -34,13 +34,11 @@ wp_cli eval 'foreach (\WP_Block_Type_Registry::get_instance()->get_all_registere
 
 4. If you expect a plugin block but it is missing, check whether the plugin uses modules or feature flags, then activate the relevant module.
 5. Use the registered block in editable block markup.
-6. Validate generated block markup with `validate_blocks`.
+6. Validate generated block markup with `validate_html_blocks`, then `validate_and_fix_blocks` with `filePath` when the content lives in a file so safe editor fixes are applied automatically.
 
 ## Jetpack Forms
 
 When the user asks for a contact form, feedback form, survey, or any other interactive form that collects submissions, use Jetpack Forms - not raw HTML `<form>` elements.
-
-Newsletter signups are different. See the "Newsletter Signup" section below. `jetpack/contact-form` only stores submissions as Feedback entries; it does not subscribe anyone to a newsletter. Using contact-form for an email-signup form will silently fail to record subscribers.
 
 Install the plugin and activate the `contact-form` Jetpack module first if not already active. Both steps are required, otherwise the form blocks render as empty `<div>` elements on the frontend:
 
@@ -83,30 +81,11 @@ Each field block is a container with two inner blocks: `jetpack/label` (accepts 
 
 The container `jetpack/contact-form` supports `subject` (email subject line) and `to` (recipient address or comma-separated list).
 
-## Newsletter Signup
-
-When the user asks for a newsletter signup, email signup, "subscribe to our newsletter", mailing list opt-in, or anything that should add the visitor as a subscriber, use the `jetpack/subscriptions` block - not `jetpack/contact-form`. `jetpack/subscriptions` creates real subscribers in Jetpack/WordPress.com; `jetpack/contact-form` only writes Feedback entries and never subscribes anyone.
-
-Activate the `subscriptions` module in addition to the Jetpack plugin. Without this, the block renders empty on the frontend:
-
-```text
-wp_cli plugin install jetpack --activate
-wp_cli jetpack module activate subscriptions
-```
-
-The block is self-closing. It renders its own email field and submit button. Do not wrap it in `jetpack/contact-form` and do not add `jetpack/field-*` children.
-
-```html
-<!-- wp:jetpack/subscriptions {"buttonOnNewLine":false,"submitButtonText":"Subscribe","successMessage":"Thanks for subscribing!"} /-->
-```
-
-Useful attributes: `submitButtonText` (string), `successMessage` (string shown after a successful subscription), `buttonOnNewLine` (boolean to place the button below the input), `showSubscribersTotal` (boolean), `includeSocialFollowers` (boolean). All are optional; the defaults render a usable form.
-
 ## Jetpack For Non-Core Needs
 
 When the user wants a feature that no core block cleanly provides - slideshows, related-posts grids, business hours, Mailchimp signups, and similar features - prefer a Jetpack block over a raw-HTML `core/html` block.
 
-Specific Jetpack rules above, such as forms and newsletter signup, take precedence. This rule only applies when none of them cover the request.
+The specific Jetpack Forms rule above takes precedence. This rule only applies when it does not cover the request.
 
 When it applies:
 
@@ -134,4 +113,4 @@ Then activate the needed module:
 wp_cli jetpack module activate <slug>
 ```
 
-3. Use the registered block in page markup and validate with `validate_blocks`.
+3. Use the registered block in page markup and validate with `validate_html_blocks`, then `validate_and_fix_blocks` with `filePath` when possible.

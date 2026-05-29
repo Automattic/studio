@@ -53,8 +53,8 @@ describe( 'buildSystemPrompt', () => {
 
 		expect( prompt ).toContain( 'plugin-recommendations' );
 		expect( prompt ).toContain( 'any feature that core WordPress blocks do not cleanly provide' );
-		expect( prompt ).not.toContain( '## Newsletter signup' );
-		expect( prompt ).not.toContain( 'wp_cli jetpack module activate subscriptions' );
+		expect( prompt ).not.toContain( '## Jetpack Forms' );
+		expect( prompt ).not.toContain( 'wp_cli jetpack module activate contact-form' );
 	} );
 
 	it( 'routes block markup recipes to the block content skill', () => {

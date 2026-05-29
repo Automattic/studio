@@ -7,19 +7,25 @@ import type { WindowsSignOptions } from '@electron/packager';
 // dual-signs (SHA1 + SHA256), but Azure only supports SHA256.
 // The hook calls signtool directly with SHA256-only parameters.
 //
-// Only signs on Windows CI. This config is loaded by Forge on every platform,
-// so non-Windows builds (and local Windows builds) get undefined — returning
-// the Azure config unconditionally would throw on Mac/Linux CI, where the
-// Azure env vars are absent.
+// Gated on USE_AZURE_TRUSTED_SIGNING, which the signed-build jobs set (see
+// build-for-windows.ps1). Package-only jobs — e.g. the Windows E2E run, which
+// uses `electron-forge package` and never signs — leave it unset and get
+// undefined, so this config (loaded by Forge on every build) stays inert
+// there. The throw fires only for a build that asked to sign but is missing
+// its Azure env, where signtool would otherwise fail with an opaque exit code.
 function getWindowsSign(): WindowsSignOptions | undefined {
-	if ( ! process.env.CI || process.platform !== 'win32' ) {
+	const signWithAzure = [ '1', 'true' ].includes(
+		( process.env.USE_AZURE_TRUSTED_SIGNING ?? '' ).trim().toLowerCase()
+	);
+
+	if ( ! signWithAzure ) {
 		return undefined;
 	}
 
 	if ( ! process.env.AZURE_CODE_SIGNING_DLIB || ! process.env.AZURE_METADATA_JSON || ! process.env.SIGNTOOL_PATH ) {
 		throw new Error(
-			'Windows CI build is missing Azure Trusted Signing env vars ' +
-				'(AZURE_CODE_SIGNING_DLIB, AZURE_METADATA_JSON, SIGNTOOL_PATH). ' +
+			'USE_AZURE_TRUSTED_SIGNING is set but Azure signing env vars ' +
+				'(AZURE_CODE_SIGNING_DLIB, AZURE_METADATA_JSON, SIGNTOOL_PATH) are missing. ' +
 				'Did setup_azure_trusted_signing.ps1 run?'
 		);
 	}

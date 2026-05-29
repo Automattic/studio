@@ -9,22 +9,6 @@ import { getLanguagePacksPath, getWordPressVersionPath, getWpFilesPath } from '.
 import { areDirectoriesDifferentBySizeAndMtime } from './utils';
 import { getWordPressVersionFromInstallation, updateLatestWordPressVersion } from './wordpress';
 
-async function withLanguagePacksSetupLock< T >(
-	lockPath: string,
-	fn: () => Promise< T >
-): Promise< T > {
-	await fs.promises.mkdir( path.dirname( lockPath ), { recursive: true } );
-	await lockFileAsync( lockPath, {
-		wait: LOCKFILE_WAIT_TIME,
-		stale: LOCKFILE_STALE_TIME,
-	} );
-	try {
-		return await fn();
-	} finally {
-		await unlockFileAsync( lockPath );
-	}
-}
-
 // Compare the WordPress version in the bundled `wp-files/latest/wordpress` directory (that ships
 // with the CLI) to `~/.studio/server-files/wordpress-versions/latest`. If the bundled directory is
 // newer, rename the old `wordpress-versions/latest` directory to `wordpress-versions/$VERSION` and
@@ -60,7 +44,13 @@ async function copyBundledLanguagePacks() {
 		return;
 	}
 	const targetLanguagePacksPath = getLanguagePacksPath();
-	await withLanguagePacksSetupLock( `${ targetLanguagePacksPath }.lock`, async () => {
+	const lockPath = `${ targetLanguagePacksPath }.lock`;
+	await fs.promises.mkdir( path.dirname( lockPath ), { recursive: true } );
+	await lockFileAsync( lockPath, {
+		wait: LOCKFILE_WAIT_TIME,
+		stale: LOCKFILE_STALE_TIME,
+	} );
+	try {
 		const isSourceDirectoryDifferent = await areDirectoriesDifferentBySizeAndMtime(
 			sourceLanguagePacksPath,
 			targetLanguagePacksPath
@@ -73,7 +63,9 @@ async function copyBundledLanguagePacks() {
 			}
 			await recursiveCopyDirectory( sourceLanguagePacksPath, targetLanguagePacksPath );
 		}
-	} );
+	} finally {
+		await unlockFileAsync( lockPath );
+	}
 }
 
 export async function setupServerFiles() {

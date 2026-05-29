@@ -24,6 +24,7 @@ import {
 } from 'electron-devtools-installer';
 import { IPC_VOID_HANDLERS } from 'src/constants';
 import * as ipcHandlers from 'src/ipc-handlers';
+import { markAppQuitting } from 'src/ipc-utils';
 import {
 	hasActiveSyncOperations,
 	hasUploadingPushOperations,
@@ -530,6 +531,7 @@ async function appBoot() {
 	} );
 
 	app.on( 'will-quit', ( event ) => {
+		markAppQuitting();
 		globalShortcut.unregisterAll();
 		stopCliEventsSubscriber();
 		stopAllStudioCodeProcesses();

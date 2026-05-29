@@ -381,7 +381,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		setSites( sortSites( updatedSites ) );
 	}, [] );
 
-	const saveTimeoutRef = useRef< ReturnType< typeof setTimeout > >();
+	const saveTimeoutRef = useRef< ReturnType< typeof setTimeout > >( undefined );
 	const DEBOUNCE_SAVE_MS = 300;
 
 	const updateSitesSortOrder = useCallback( async ( sites: SiteDetails[] ) => {

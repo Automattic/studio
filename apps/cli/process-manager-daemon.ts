@@ -45,6 +45,8 @@ type ManagedProcessBase = {
 	stderrBuffer: string[];
 	stderrBufferBytes: number;
 	settled: boolean;
+	// Track child pids of the child process so that they aren't orphaned when the parent exits.
+	grandchildrenPids?: number[];
 };
 type ManagedProcessRunning = ManagedProcessBase & {
 	pid: number;
@@ -263,6 +265,15 @@ export class ProcessManagerDaemon {
 				},
 			} );
 
+			if (
+				event.success &&
+				event.data.type === 'process-message' &&
+				event.data.payload.raw.topic === 'server-process-started'
+			) {
+				managedProcess.grandchildrenPids ??= [];
+				managedProcess.grandchildrenPids.push( event.data.payload.raw.data.pid );
+			}
+
 			if ( event.success ) {
 				void this.broadcastEvent( event.data );
 			}
@@ -475,8 +486,8 @@ export class ProcessManagerDaemon {
 		}
 
 		// Children are spawned with `detached: true` on non-Windows, so each lives in its own
-		// process group. Signalling the negative PID delivers to every member of that group,
-		// including grandchildren (e.g. the PHP server spawned by the wrapper).
+		// process group. Native PHP can spawn the PHP server in its own group too, so signal both
+		// when the wrapper reports that pid.
 		try {
 			process.kill( -pid, signal );
 		} catch {
@@ -485,6 +496,16 @@ export class ProcessManagerDaemon {
 				managedProcess.child.kill( signal );
 			} catch {
 				// Do nothing
+			}
+		}
+
+		if ( managedProcess.grandchildrenPids ) {
+			for ( const pid of managedProcess.grandchildrenPids ) {
+				try {
+					process.kill( -pid, signal );
+				} catch {
+					// Do nothing
+				}
 			}
 		}
 	}

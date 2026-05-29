@@ -36,29 +36,48 @@ let currentRendererUrl: string | undefined;
 interface RendererLocation {
 	url: string;
 	filePath?: string;
+	query?: Record< string, string >;
 }
 
 export function getPreferredStudioUiMode( userData: Pick< UserData, 'desks' > ): StudioUiMode {
-	return userData.desks?.defaultUiMode === 'desks' ? 'desks' : 'default';
+	const preferredMode = userData.desks?.defaultUiMode;
+	return preferredMode === 'desks' || preferredMode === 'agentic' ? preferredMode : 'default';
 }
 
 function getRendererFilePath( mode: StudioUiMode ) {
 	return path.join(
 		__dirname,
-		mode === 'desks' ? '../renderer-desks/index.html' : '../renderer/index.html'
+		mode === 'default' ? '../renderer/index.html' : '../renderer-desks/index.html'
 	);
+}
+
+function getRendererQuery( mode: StudioUiMode ): Record< string, string > | undefined {
+	return mode === 'default' ? undefined : { 'studio-ui-mode': mode };
+}
+
+function appendRendererQuery( url: string, query: Record< string, string > | undefined ) {
+	if ( ! query ) {
+		return url;
+	}
+
+	const rendererUrl = new URL( url );
+	for ( const [ key, value ] of Object.entries( query ) ) {
+		rendererUrl.searchParams.set( key, value );
+	}
+	return rendererUrl.toString();
 }
 
 function getRendererLocation( userData: Pick< UserData, 'desks' > ): RendererLocation {
 	const preferredMode = getPreferredStudioUiMode( userData );
+	const preferredQuery = getRendererQuery( preferredMode );
 
 	if (
 		! app.isPackaged &&
-		preferredMode === 'desks' &&
+		preferredMode !== 'default' &&
 		process.env[ 'ELECTRON_DESKS_RENDERER_URL' ]
 	) {
 		return {
-			url: process.env[ 'ELECTRON_DESKS_RENDERER_URL' ],
+			url: appendRendererQuery( process.env[ 'ELECTRON_DESKS_RENDERER_URL' ], preferredQuery ),
 		};
 	}
 
@@ -70,14 +89,16 @@ function getRendererLocation( userData: Pick< UserData, 'desks' > ): RendererLoc
 
 	let mode = preferredMode;
 	let filePath = getRendererFilePath( mode );
-	if ( mode === 'desks' && ! fs.existsSync( filePath ) ) {
+	if ( mode !== 'default' && ! fs.existsSync( filePath ) ) {
 		mode = 'default';
 		filePath = getRendererFilePath( mode );
 	}
+	const query = getRendererQuery( mode );
 
 	return {
 		filePath,
-		url: pathToFileURL( filePath ).href,
+		query,
+		url: appendRendererQuery( pathToFileURL( filePath ).href, query ),
 	};
 }
 
@@ -88,7 +109,10 @@ function rememberRendererLocation( location: RendererLocation ) {
 async function loadRendererLocation( window: BrowserWindow, location: RendererLocation ) {
 	rememberRendererLocation( location );
 	if ( location.filePath ) {
-		await window.loadFile( location.filePath );
+		await window.loadFile(
+			location.filePath,
+			location.query ? { query: location.query } : undefined
+		);
 		return;
 	}
 	await window.loadURL( location.url );

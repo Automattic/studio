@@ -1,5 +1,5 @@
 import { generatePassword } from '@automattic/generate-password';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 
 export { generatePassword };
 
@@ -61,8 +61,10 @@ export function validateAdminUsername( username: string ): string {
 	if ( ! /^[a-zA-Z0-9_.@-]+$/.test( username ) ) {
 		return __( 'Username can only contain letters, numbers, and _.@- characters.' );
 	}
-	if ( username.length > 60 ) {
-		return __( 'Username must be 60 characters or fewer.' );
+	const USERNAME_MAX_LENGTH = 60;
+	if ( username.length > USERNAME_MAX_LENGTH ) {
+		/* translators: %d is the maximum number of characters allowed in a username */
+		return sprintf( __( 'Username must be %d characters or fewer.' ), USERNAME_MAX_LENGTH );
 	}
 	return '';
 }

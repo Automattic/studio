@@ -19,7 +19,7 @@ function assertSiteId( siteId: unknown ): asserts siteId is string {
 }
 
 function assertStudioUiMode( mode: unknown ): asserts mode is StudioUiMode {
-	if ( mode !== 'default' && mode !== 'desks' ) {
+	if ( mode !== 'default' && mode !== 'desks' && mode !== 'agentic' ) {
 		throw new Error( 'Invalid Studio UI mode.' );
 	}
 }
@@ -52,7 +52,8 @@ export async function getDeskSettings( _event: IpcMainInvokeEvent ): Promise< De
 
 export async function getStudioUiMode( _event: IpcMainInvokeEvent ): Promise< StudioUiMode > {
 	const userData = await loadUserData();
-	return userData.desks?.defaultUiMode === 'desks' ? 'desks' : 'default';
+	const mode = userData.desks?.defaultUiMode;
+	return mode === 'desks' || mode === 'agentic' ? mode : 'default';
 }
 
 export async function setStudioUiMode(

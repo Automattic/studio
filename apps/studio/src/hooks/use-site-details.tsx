@@ -535,7 +535,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 				getIpcApi().showNotification( {
 					title: newSite.name,
-					body: __( sprintf( 'Your site %s was copied successfully', sourceSite.name ) ),
+					body: sprintf( __( 'Your site %s was copied successfully' ), sourceSite.name ),
 				} );
 
 				void startServer( newSite );

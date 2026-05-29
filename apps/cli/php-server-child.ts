@@ -12,7 +12,6 @@ import http from 'node:http';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
-import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
 import { writeStudioMuPluginsForNativePhpRuntime } from '@studio/common/lib/mu-plugins';
 import { decodePassword } from '@studio/common/lib/passwords';
@@ -26,6 +25,7 @@ import {
 	ChildMessageRaw,
 	ServerConfig,
 } from 'cli/lib/types/wordpress-server-ipc';
+import { requestSetAdminCredentials, toUrlSearchParams } from './lib/admin-credentials';
 import {
 	getBlueprintsPharPath,
 	getPhpBinaryPath,
@@ -207,6 +207,7 @@ async function getAvailablePort(): Promise< number > {
 }
 
 type SpawnPhpProcessOptions = {
+	detached?: boolean;
 	disallowRiskyFunctions?: boolean;
 	env?: NodeJS.ProcessEnv;
 	mode?: 'pipe' | 'capture-stdout';
@@ -225,6 +226,7 @@ function spawnPhpProcess(
 		signal,
 		env,
 		mode = 'pipe',
+		detached = false,
 		enableXdebug = false,
 		onlyPathsThatPhpCanAccess = [],
 		disallowRiskyFunctions = false,
@@ -242,6 +244,7 @@ function spawnPhpProcess(
 		env: env ? { ...process.env, ...env } : process.env,
 		stdio: [ 'ignore', 'pipe', 'pipe' ],
 		signal,
+		detached,
 	} );
 
 	if ( mode === 'pipe' ) {
@@ -257,6 +260,19 @@ function spawnPhpProcess(
 }
 
 type RunPhpCommandOptions = SpawnPhpProcessOptions;
+
+function killProcessGroup( child: ChildProcess, signal: NodeJS.Signals ): void {
+	if ( process.platform !== 'win32' && child.pid ) {
+		try {
+			process.kill( -child.pid, signal );
+			return;
+		} catch {
+			// Fall back to the parent process if the process group is already gone.
+		}
+	}
+
+	child.kill( signal );
+}
 
 async function runPhpCommand(
 	args: string[],
@@ -464,6 +480,37 @@ async function installWordPress(
 				error instanceof Error ? error.message : String( error )
 			}`
 		);
+	}
+}
+
+async function setAdminCredentials( config: ServerConfig, signal: AbortSignal ): Promise< void > {
+	try {
+		await requestSetAdminCredentials( config, async ( request ) => {
+			const response = await fetch( `http://localhost:${ config.port }${ request.url }`, {
+				method: request.method,
+				body: toUrlSearchParams( request.body ),
+				signal,
+			} );
+			if ( ! response.ok ) {
+				throw new Error( await getAdminCredentialsErrorMessage( response ) );
+			}
+		} );
+	} catch ( error ) {
+		throw new Error(
+			`Failed to set admin credentials: ${
+				error instanceof Error ? error.message : String( error )
+			}`
+		);
+	}
+}
+
+async function getAdminCredentialsErrorMessage( response: Response ): Promise< string > {
+	const text = await response.text();
+	try {
+		const result = JSON.parse( text ) as { error?: string };
+		return result.error ?? text;
+	} catch {
+		return text || response.statusText;
 	}
 }
 
@@ -775,7 +822,13 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		runningConfig = config;
 
 		phpProcess = await doStartServer( config, currentOpenBasedirAllowlist, stopSignal );
+		stopSignal.throwIfAborted();
+		await setAdminCredentials( config, stopSignal );
+		stopSignal.throwIfAborted();
 	} catch ( error ) {
+		killPhpProcess();
+		phpProcess = null;
+		await stopSymlinkWatcher();
 		runningConfig = null;
 		currentOpenBasedirAllowlist.clear();
 
@@ -824,10 +877,18 @@ async function doStartServer(
 				PHP_CLI_SERVER_WORKERS: '4',
 			},
 			onlyPathsThatPhpCanAccess: Array.from( openBasedirAllowlist ),
+			detached: process.platform !== 'win32',
 			disallowRiskyFunctions: true,
 			enableXdebug: config.enableXdebug,
 		} );
 		spawnedChild = serverChild;
+		if ( serverChild.pid !== undefined ) {
+			const message: ChildMessageRaw = {
+				topic: 'server-process-started',
+				data: { pid: serverChild.pid },
+			};
+			process.send?.( message );
+		}
 
 		await new Promise< void >( ( resolve, reject ) => {
 			serverChild.once( 'spawn', () => {
@@ -858,8 +919,8 @@ async function doStartServer(
 
 		return spawnedChild;
 	} catch ( error ) {
-		if ( spawnedChild && ! spawnedChild.killed ) {
-			spawnedChild.kill( 'SIGKILL' );
+		if ( spawnedChild ) {
+			killProcessGroup( spawnedChild, 'SIGKILL' );
 		}
 		await stopSymlinkWatcher();
 
@@ -929,7 +990,7 @@ async function doStartPooledServer(
 		return spawnedChildren[ 0 ];
 	} catch ( error ) {
 		if ( proxyServer ) {
-			await new Promise< void >( ( resolve ) => proxyServer.close( () => resolve() ) ).catch(
+			await new Promise< void >( ( resolve ) => proxyServer!.close( () => resolve() ) ).catch(
 				() => {}
 			);
 		}
@@ -1026,15 +1087,13 @@ async function runBlueprint(
 		WP_DEBUG_DISPLAY: enableDebugDisplay,
 	};
 
-	const preferredVersions = {
-		php: config.phpVersion || blueprint.contents?.preferredVersions?.php || DEFAULT_PHP_VERSION,
-		wp: config.wpVersion || blueprint.contents?.preferredVersions?.wp || 'latest',
-	};
 	blueprint.contents.constants = {
 		...blueprint.contents.constants,
 		...defaultConstants,
 	};
-	blueprint.contents.preferredVersions = preferredVersions;
+	// Native PHP selects PHP and installs WordPress before Blueprint execution.
+	// Passing preferredVersions makes blueprints.phar validate versions it does not manage here.
+	delete blueprint.contents.preferredVersions;
 
 	// Write the merged blueprint next to the original so blueprints.phar resolves any
 	// relative file references against the original blueprint's directory — its runner

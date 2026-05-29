@@ -19,7 +19,7 @@ export const FEATURE_FLAGS: Record< keyof FeatureFlags, FeatureFlagDefinition > 
 		default: false,
 	},
 	enableDesksUiSwitch: {
-		label: 'Enable Desks UI Switch',
+		label: 'Enable Studio UI Switcher',
 		env: 'ENABLE_DESKS_UI_SWITCH',
 		flag: 'enableDesksUiSwitch',
 		default: false,

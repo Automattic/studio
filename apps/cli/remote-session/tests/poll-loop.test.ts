@@ -44,7 +44,9 @@ function makeScriptedPoll( batches: Array< PolledMessage[] | PolledMessage > ): 
 function makeDeps(
 	overrides: Partial< PollLoopDeps > & { scriptedPoll?: ScriptedPoll }
 ): PollLoopDeps {
-	const respond = vi.fn().mockResolvedValue( undefined );
+	// respondMessage now returns a structured outcome — keep the mock honest so
+	// the streamers and best-effort post helpers see a valid envelope.
+	const respond = vi.fn().mockResolvedValue( { success: true, messageIds: [] } );
 	const runTurn = vi.fn< ( args: unknown ) => Promise< TurnOutcome > >();
 	const readState = vi.fn().mockResolvedValue( null );
 	const writeSession = vi.fn().mockResolvedValue( undefined );

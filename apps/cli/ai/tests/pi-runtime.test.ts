@@ -8,6 +8,8 @@ const mocks = vi.hoisted( () => ( {
 	createAgentSession: vi.fn(),
 	createdSessions: [] as FakeSession[],
 	nextEvents: null as AgentSessionEvent[] | null,
+	studioRoot: '/tmp/studio-ai-pi-runtime',
+	configRoot: '/tmp/studio-ai-pi-runtime-config',
 } ) );
 
 // Model-swap test uses a synthetic id outside `AI_MODELS`; route unknowns to
@@ -40,6 +42,20 @@ vi.mock( '@mariozechner/pi-coding-agent', async ( importOriginal ) => {
 		createGrepTool: () => stub( 'Grep' ),
 		createFindTool: () => stub( 'Glob' ),
 		createLsTool: () => stub( 'Ls' ),
+	};
+} );
+
+vi.mock( 'cli/lib/site-paths', () => ( {
+	STUDIO_SITES_ROOT: mocks.studioRoot,
+	getDefaultSitePath: ( siteName: string ) => `${ mocks.studioRoot }/${ siteName }`,
+} ) );
+
+vi.mock( '@studio/common/lib/well-known-paths', async ( importOriginal ) => {
+	const actual = await importOriginal< typeof import('@studio/common/lib/well-known-paths') >();
+	return {
+		...actual,
+		getConfigDirectory: () => mocks.configRoot,
+		getAiPayloadsPath: () => `${ mocks.configRoot }/tmp/ai-payloads`,
 	};
 } );
 
@@ -242,7 +258,7 @@ describe( 'pi runtime', () => {
 		expect( final.type ).toBe( 'agent_end' );
 	} );
 
-	it( 'registers guarded file-writing tools without adding a separate chunk tool', async () => {
+	it( 'advertises image input support so screenshot tool results can be analyzed', async () => {
 		await runRuntime( {
 			prompt: 'hello',
 			env: {
@@ -253,16 +269,10 @@ describe( 'pi runtime', () => {
 			session: newSession(),
 		} );
 
-		const tools = ( mocks.createdSessions[ 0 ].options.customTools ??
-			[] ) as unknown as RuntimeTool[];
-		const toolNames = tools.map( ( tool ) => tool.name );
-		expect( toolNames ).not.toContain( 'WriteChunk' );
-		expect( getCreatedTool( 'Write' ).description ).toContain( 'small skeleton' );
-		expect( getCreatedTool( 'Edit' ).description ).toContain( 'small skeleton' );
-		expect( getCreatedTool( 'Bash' ).description ).toContain( '8192 bytes' );
+		expect( mocks.createdSessions[ 0 ].options.model?.input ).toEqual( [ 'text', 'image' ] );
 	} );
 
-	it( 'rejects oversized direct Write, Edit, and Bash payloads with actionable errors', async () => {
+	it( 'rejects oversized direct Write, Edit, and Bash payloads', async () => {
 		await runRuntime( {
 			prompt: 'hello',
 			env: {
@@ -294,23 +304,24 @@ describe( 'pi runtime', () => {
 			bash.execute( 'bash-call', {
 				command: 'x'.repeat( 8 * 1024 + 1 ),
 			} )
-		).rejects.toThrow( /Do not retry with Bash heredocs or Python scripts/ );
-		expect( write.description ).toContain( 'small skeleton' );
+		).rejects.toThrow( /single-call safety limit/ );
 	} );
 
-	it( 'rejects side-effecting tool calls from length-truncated assistant messages', async () => {
+	it( 'rejects remote wpcom_request calls from length-truncated assistant messages', async () => {
 		mocks.nextEvents = [
 			assistantMessage(
 				[
 					{
 						type: 'toolCall',
-						id: 'tool-call-1',
-						name: 'Write',
+						id: 'wpcom-call-1',
+						name: 'wpcom_request',
 						arguments: {
-							path: '/tmp/studio/site/tmp/large.txt',
-							content: 'partial content under the size limit',
+							method: 'POST',
+							path: '/pages/4',
+							body: {
+								content: '<!-- wp:paragraph --><p>partial',
+							},
 						},
-						partialJson: '{"path":"/tmp/studio/site/tmp/large.txt","content":"partial',
 						index: 0,
 					},
 				],
@@ -327,14 +338,24 @@ describe( 'pi runtime', () => {
 			},
 			model: 'gpt-5.5',
 			session: newSession(),
+			activeSite: {
+				name: 'Remote',
+				path: '',
+				running: false,
+				remote: true,
+				url: 'https://example.wordpress.com',
+				wpcomSiteId: 123,
+			},
+			wpcomAccessToken: 'wpcom-token',
 		} );
 
-		const write = getCreatedTool( 'Write' );
+		const wpcomRequest = getCreatedTool( 'wpcom_request' );
 
 		await expect(
-			write.execute( 'write-call', {
-				path: '/tmp/studio/site/tmp/large.txt',
-				content: 'partial content under the size limit',
+			wpcomRequest.execute( 'wpcom-call-1', {
+				method: 'POST',
+				path: '/pages/4',
+				body: { content: '<!-- wp:paragraph --><p>partial' },
 			} )
 		).rejects.toThrow( /hit the model output limit/ );
 	} );
@@ -399,6 +420,8 @@ describe( 'pi runtime', () => {
 		const options = mocks.createdSessions[ 0 ].options;
 		expect( options.model?.provider ).toBe( 'studio-wpcom-anthropic' );
 		expect( options.model?.api ).toBe( 'anthropic-messages' );
+		expect( options.model?.maxTokens ).toBe( 32_000 );
+		expect( options.model?.input ).toEqual( [ 'text', 'image' ] );
 		const auth = await options.modelRegistry!.getApiKeyAndHeaders( options.model! );
 		expect( auth ).toMatchObject( {
 			ok: true,

@@ -8,6 +8,8 @@ user-invokable: true
 
 Use this skill before creating or redesigning a site, landing page, homepage, layout, style system, typography, color palette, animation system, or other visual polish.
 
+If the user references an external website by URL as inspiration (or as the site's subject, a content source, or a competitor), load the `reference-site` skill first — screenshot and read that site so its palette, type, layout rhythm, and vocabulary inform the direction below. Treat it as inspiration, not a clone target.
+
 ## Design Direction
 
 Understand the context and commit to a clear aesthetic direction:

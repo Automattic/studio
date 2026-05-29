@@ -2,7 +2,7 @@ import { Icon, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { forwardRef } from 'react';
 import styles from './style.module.css';
-import type { ComponentProps, ComponentPropsWithoutRef, ReactElement, ReactNode } from 'react';
+import type { ComponentProps, ComponentPropsWithoutRef, ReactNode } from 'react';
 
 type ButtonVariant = 'chrome' | 'quiet' | 'filled';
 type ButtonTone = 'neutral' | 'primary' | 'inverse';
@@ -19,7 +19,7 @@ const ICON_SIZE_BY_BUTTON_SIZE: Record< ButtonSize, number > = {
 
 type ButtonProps = Omit< ComponentPropsWithoutRef< 'button' >, 'children' > & {
 	children?: ReactNode;
-	icon?: ReactElement;
+	icon?: ComponentProps< typeof Icon >[ 'icon' ];
 	intent?: ButtonIntent;
 	label: string;
 	size?: ButtonSize;
@@ -62,7 +62,7 @@ export const Button = forwardRef< HTMLButtonElement, ButtonProps >( function But
 		<>
 			{ icon ? (
 				<Icon
-					icon={ icon as ComponentProps< typeof Icon >[ 'icon' ] }
+					icon={ icon }
 					size={ ICON_SIZE_BY_BUTTON_SIZE[ size ] }
 					className={ styles.icon }
 				/>

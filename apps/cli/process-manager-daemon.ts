@@ -486,8 +486,8 @@ export class ProcessManagerDaemon {
 		}
 
 		// Children are spawned with `detached: true` on non-Windows, so each lives in its own
-		// process group. Native PHP can spawn the PHP server in its own group too, so signal both
-		// when the wrapper reports that pid.
+		// process group. Native PHP spawns its PHP workers inside the wrapper's group, so this
+		// group signal already reaches them.
 		try {
 			process.kill( -pid, signal );
 		} catch {
@@ -499,10 +499,13 @@ export class ProcessManagerDaemon {
 			}
 		}
 
+		// Belt-and-suspenders: signal each reported worker pid directly too. They share the
+		// wrapper's group (handled above), but tracking the pids lets us still terminate any
+		// worker that somehow outlived or escaped the group.
 		if ( managedProcess.grandchildrenPids ) {
-			for ( const pid of managedProcess.grandchildrenPids ) {
+			for ( const grandchildPid of managedProcess.grandchildrenPids ) {
 				try {
-					process.kill( -pid, signal );
+					process.kill( grandchildPid, signal );
 				} catch {
 					// Do nothing
 				}

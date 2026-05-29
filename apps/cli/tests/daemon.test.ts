@@ -239,7 +239,7 @@ describe( 'ProcessManagerDaemon', () => {
 	} );
 
 	it.skipIf( process.platform === 'win32' )(
-		'signals a reported subprocess process group when killing the wrapper',
+		'signals the wrapper group and each reported subprocess pid when killing the wrapper',
 		async () => {
 			const child = new MockChildProcess();
 			spawnMock.mockReturnValue( child );
@@ -280,7 +280,7 @@ describe( 'ProcessManagerDaemon', () => {
 			try {
 				await daemonInternal.signalProcessGroup( managedProcess, 'SIGKILL' );
 				expect( killSpy ).toHaveBeenCalledWith( -4321, 'SIGKILL' );
-				expect( killSpy ).toHaveBeenCalledWith( -9876, 'SIGKILL' );
+				expect( killSpy ).toHaveBeenCalledWith( 9876, 'SIGKILL' );
 			} finally {
 				killSpy.mockRestore();
 			}

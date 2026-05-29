@@ -1,9 +1,11 @@
 /**
- * WordPress Studio Server Child Process — Native PHP
+ * Native PHP site server — our "Poor Man's php-fpm".
  *
- * Runs a single WordPress site using the PHP binary's built-in web server
- * (`php -S localhost:${port} router.php`), with the site directory as the
- * working directory. Shares the IPC contract with `wordpress-server-child.ts`.
+ * Runs a WordPress site as a fixed pool of `php -S … router.php` workers with a
+ * Node.js HTTP proxy in front that load-balances requests across them: a cheap
+ * stand-in for fpm-style process concurrency, not a real FastCGI process manager.
+ *
+ * Shares the IPC contract with the Playground-based `wordpress-server-child.ts`.
  */
 
 import { ChildProcess, spawn } from 'node:child_process';
@@ -142,7 +144,7 @@ let runningConfig: ServerConfig | null = null;
 
 const SYMLINK_RESTART_DEBOUNCE_MS = 750;
 const STOP_SERVER_TIMEOUT = 5000;
-const DEFAULT_NATIVE_PHP_WORKER_POOL_SIZE = 1;
+const NATIVE_PHP_WORKER_POOL_SIZE = 4;
 
 function logToConsole( ...args: Parameters< typeof console.log > ) {
 	console.log( `[PHP Server]`, ...args );
@@ -150,16 +152,6 @@ function logToConsole( ...args: Parameters< typeof console.log > ) {
 
 function errorToConsole( ...args: Parameters< typeof console.error > ) {
 	console.error( `[PHP Server]`, ...args );
-}
-
-function getNativePhpWorkerPoolSize(): number {
-	// POC escape hatch for experimenting with native PHP request concurrency.
-	const parsed = Number.parseInt( process.env.STUDIO_NATIVE_PHP_WORKER_POOL ?? '', 10 );
-	console.log( 'getNativePhpWorkerPoolSize', parsed );
-	if ( ! Number.isFinite( parsed ) || parsed < 2 ) {
-		return DEFAULT_NATIVE_PHP_WORKER_POOL_SIZE;
-	}
-	return Math.min( parsed, 8 );
 }
 
 function shouldUsePrimaryWorker( req: http.IncomingMessage ): boolean {
@@ -260,19 +252,6 @@ function spawnPhpProcess(
 }
 
 type RunPhpCommandOptions = SpawnPhpProcessOptions;
-
-function killProcessGroup( child: ChildProcess, signal: NodeJS.Signals ): void {
-	if ( process.platform !== 'win32' && child.pid ) {
-		try {
-			process.kill( -child.pid, signal );
-			return;
-		} catch {
-			// Fall back to the parent process if the process group is already gone.
-		}
-	}
-
-	child.kill( signal );
-}
 
 async function runPhpCommand(
 	args: string[],
@@ -688,13 +667,6 @@ async function waitForChildSpawn( child: ChildProcess, signal?: AbortSignal ): P
 	} );
 }
 
-function markPhpChildAsCritical( child: ChildProcess, label: string ): void {
-	child.once( 'exit', ( code, signalName ) => {
-		errorToConsole( `${ label } exited unexpectedly (code: ${ code }, signal: ${ signalName })` );
-		process.exit( code ?? 1 );
-	} );
-}
-
 function proxyRequestToPhpWorker(
 	config: ServerConfig,
 	req: http.IncomingMessage,
@@ -849,103 +821,18 @@ async function doStartServer(
 	openBasedirAllowlist: Set< string >,
 	stopSignal?: AbortSignal
 ): Promise< ChildProcess > {
-	const workerPoolSize = getNativePhpWorkerPoolSize();
-	if ( workerPoolSize > 1 ) {
-		return await doStartPooledServer( config, openBasedirAllowlist, workerPoolSize, stopSignal );
-	}
-
-	const phpAddress = `localhost:${ config.port }`;
-	const phpVersion = resolveNativePhpVersion( config.phpVersion ?? '' );
-	let spawnedChild: ChildProcess | null = null;
-
-	logToConsole(
-		`Spawning PHP built-in server on ${ phpAddress } with PHP version ${ phpVersion }`
-	);
-
-	try {
-		const phpMyAdminWpEnvPath = await writeNativePhpMyAdminWpEnv( config );
-		const serverChild = spawnPhpProcess( [ '-S', phpAddress, ROUTER_PATH ], {
-			phpVersion,
-			siteFolder: config.sitePath,
-			env: {
-				STUDIO_PHPMYADMIN_PATH: getPhpMyAdminPath(),
-				STUDIO_NATIVE_PHPMYADMIN_WP_ENV_PATH: phpMyAdminWpEnvPath,
-				STUDIO_PHPMYADMIN_SESSION_PATH: getPhpMyAdminSessionPath( config ),
-				// Lets `php -S` serve concurrent requests so a single slow request
-				// doesn't block the whole site. Unix-only — Windows silently ignores it
-				// because the built-in server has no fork() there.
-				PHP_CLI_SERVER_WORKERS: '4',
-			},
-			onlyPathsThatPhpCanAccess: Array.from( openBasedirAllowlist ),
-			detached: process.platform !== 'win32',
-			disallowRiskyFunctions: true,
-			enableXdebug: config.enableXdebug,
-		} );
-		spawnedChild = serverChild;
-		if ( serverChild.pid !== undefined ) {
-			const message: ChildMessageRaw = {
-				topic: 'server-process-started',
-				data: { pid: serverChild.pid },
-			};
-			process.send?.( message );
-		}
-
-		await new Promise< void >( ( resolve, reject ) => {
-			serverChild.once( 'spawn', () => {
-				resolve();
-			} );
-			serverChild.once( 'error', ( error: Error ) => {
-				reject( error );
-			} );
-			stopSignal?.addEventListener( 'abort', () => {
-				reject( new DOMException( 'Aborted', 'AbortError' ) );
-			} );
-		} );
-
-		serverChild.once( 'exit', ( code, signalName ) => {
-			errorToConsole(
-				`PHP child process exited unexpectedly (code: ${ code }, signal: ${ signalName })`
-			);
-			process.exit( code ?? 1 );
-		} );
-
-		stopSignal?.throwIfAborted();
-		await waitForServerReady( `http://localhost:${ config.port }/`, stopSignal );
-
-		// Watch for symlinks created after startup. open_basedir cannot be extended
-		// at runtime, so the watcher triggers a debounced restart with an updated
-		// allowlist when a new symlink target is discovered.
-		startSymlinkWatcher( config.sitePath );
-
-		return spawnedChild;
-	} catch ( error ) {
-		if ( spawnedChild ) {
-			killProcessGroup( spawnedChild, 'SIGKILL' );
-		}
-		await stopSymlinkWatcher();
-
-		throw error;
-	}
-}
-
-async function doStartPooledServer(
-	config: ServerConfig,
-	openBasedirAllowlist: Set< string >,
-	workerPoolSize: number,
-	stopSignal?: AbortSignal
-): Promise< ChildProcess > {
 	const phpVersion = resolveNativePhpVersion( config.phpVersion ?? '' );
 	const spawnedChildren: ChildProcess[] = [];
 	let proxyServer: http.Server | null = null;
 
 	logToConsole(
-		`Spawning native PHP worker pool with ${ workerPoolSize } workers on public port ${ config.port }`
+		`Spawning native PHP worker pool with ${ NATIVE_PHP_WORKER_POOL_SIZE } workers on public port ${ config.port }`
 	);
 
 	try {
 		const phpMyAdminWpEnvPath = await writeNativePhpMyAdminWpEnv( config );
 		const workerPorts: number[] = [];
-		for ( let index = 0; index < workerPoolSize; index++ ) {
+		for ( let index = 0; index < NATIVE_PHP_WORKER_POOL_SIZE; index++ ) {
 			workerPorts.push( await getAvailablePort() );
 		}
 
@@ -954,7 +841,11 @@ async function doStartPooledServer(
 
 		for ( const [ index, workerPort ] of workerPorts.entries() ) {
 			const phpAddress = `127.0.0.1:${ workerPort }`;
-			logToConsole( `Spawning PHP worker ${ index + 1 }/${ workerPoolSize } on ${ phpAddress }` );
+			logToConsole(
+				`Spawning PHP worker ${ index + 1 }/${ NATIVE_PHP_WORKER_POOL_SIZE } on ${ phpAddress }`
+			);
+			// Workers are spawned without `detached`, so they share this wrapper's process
+			// group. That lets the daemon's group-kill reach every worker in one signal.
 			const serverChild = spawnPhpProcess( [ '-S', phpAddress, ROUTER_PATH ], {
 				phpVersion,
 				siteFolder: config.sitePath,
@@ -968,8 +859,27 @@ async function doStartPooledServer(
 				enableXdebug: config.enableXdebug,
 			} );
 			spawnedChildren.push( serverChild );
+
+			// Report every worker pid to the daemon. The shared process group already lets
+			// the daemon clean these up, but the individual pids give it a direct fallback.
+			if ( serverChild.pid !== undefined ) {
+				const message: ChildMessageRaw = {
+					topic: 'server-process-started',
+					data: { pid: serverChild.pid },
+				};
+				process.send?.( message );
+			}
+
 			await waitForChildSpawn( serverChild, stopSignal );
-			markPhpChildAsCritical( serverChild, `PHP worker ${ index + 1 }/${ workerPoolSize }` );
+
+			serverChild.once( 'exit', ( code, signalName ) => {
+				errorToConsole(
+					`PHP worker ${
+						index + 1
+					}/${ NATIVE_PHP_WORKER_POOL_SIZE } exited unexpectedly (code: ${ code }, signal: ${ signalName })`
+				);
+				process.exit( code ?? 1 );
+			} );
 		}
 
 		stopSignal?.throwIfAborted();
@@ -986,6 +896,9 @@ async function doStartPooledServer(
 		stopSignal?.throwIfAborted();
 		await waitForServerReady( `http://localhost:${ config.port }/`, stopSignal );
 
+		// Watch for symlinks created after startup. open_basedir cannot be extended
+		// at runtime, so the watcher triggers a debounced restart with an updated
+		// allowlist when a new symlink target is discovered.
 		startSymlinkWatcher( config.sitePath );
 		return spawnedChildren[ 0 ];
 	} catch ( error ) {

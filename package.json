@@ -63,7 +63,7 @@
 	},
 	"devDependencies": {
 		"@automattic/wp-babel-makepot": "^1.2.0",
-		"@eslint/js": "^9.39.4",
+		"@eslint/js": "^10.0.1",
 		"@playwright/test": "^1.60.0",
 		"@testing-library/jest-dom": "^6.9.1",
 		"@testing-library/react": "^16.3.2",
@@ -72,12 +72,12 @@
 		"@vitest/ui": "^4.1.7",
 		"@yao-pkg/pkg": "^6.13.1",
 		"electron-playwright-helpers": "^2.1.0",
-		"eslint": "^9.39.4",
-		"eslint-config-prettier": "^9.1.2",
+		"eslint": "^10.4.0",
+		"eslint-config-prettier": "^10.1.8",
 		"eslint-import-resolver-typescript": "^4.4.4",
 		"eslint-plugin-import-x": "^4.15.2",
 		"eslint-plugin-jest-dom": "^5.5.0",
-		"eslint-plugin-prettier": "^5.5.5",
+		"eslint-plugin-prettier": "^5.5.6",
 		"eslint-plugin-react-hooks": "^7.0.1",
 		"eslint-plugin-studio": "file:tools/eslint-plugin-studio",
 		"fs-extra": "^11.3.3",
@@ -90,7 +90,7 @@
 		"prettier": "npm:wp-prettier@3.0.3",
 		"tsx": "^4.22.1",
 		"typescript": "~6.0.3",
-		"typescript-eslint": "^8.59.4",
+		"typescript-eslint": "^8.60.0",
 		"vitest": "^4.0.18",
 		"web-streams-polyfill": "^4.2.0"
 	}

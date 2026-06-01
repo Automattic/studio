@@ -22,7 +22,6 @@ import { useOffline } from 'src/hooks/use-offline';
 import { useSyncStatesProgressInfo } from 'src/hooks/use-sync-states-progress-info';
 import {
 	pushBackupIsUploading,
-	pullBackupIsDownloadingOrImporting,
 	canCancelPull,
 	canCancelPush,
 } from 'src/lib/active-sync-operations';
@@ -67,30 +66,13 @@ const SyncConnectedSiteControls = ( {
 		userId: user?.id,
 	} );
 	const isAnyConnectedSiteDoingLocalSyncWork = useRootSelector( ( state ) =>
-		connectedSites.some( ( site ) => {
-			const pullState = syncOperationsSelectors.selectPullState(
-				selectedSite.id,
-				site.id
-			)( state );
-			const pushState = syncOperationsSelectors.selectPushState(
-				selectedSite.id,
-				site.id
-			)( state );
-			return (
-				pullBackupIsDownloadingOrImporting( pullState?.status.key ) ||
-				pushBackupIsUploading( pushState?.status.key )
-			);
-		} )
+		connectedSites.some( ( site ) =>
+			syncOperationsSelectors.selectIsSiteDoingLocalSyncWork( selectedSite.id, site.id )( state )
+		)
 	);
-	const isAnySiteDoingLocalSyncWork = useRootSelector( ( state ) => {
-		const anyPullLocal = Object.values( syncOperationsSelectors.selectPullStates( state ) ).some(
-			( pullState ) => pullBackupIsDownloadingOrImporting( pullState.status.key )
-		);
-		const anyPushLocal = Object.values( syncOperationsSelectors.selectPushStates( state ) ).some(
-			( pushState ) => pushBackupIsUploading( pushState.status.key )
-		);
-		return anyPullLocal || anyPushLocal;
-	} );
+	const isAnySiteDoingLocalSyncWork = useRootSelector(
+		syncOperationsSelectors.selectIsAnySiteDoingLocalSyncWork
+	);
 
 	return (
 		<Tooltip
@@ -669,20 +651,9 @@ const SyncConnectedSiteSection = ( {
 		connectedSitesSelectors.selectIsLoadingSiteId( connectedSite.id )
 	);
 	const hasConnectionErrors = connectedSite?.syncSupport !== 'already-connected';
-	const isDoingLocalSyncWork = useRootSelector( ( state ) => {
-		const pullState = syncOperationsSelectors.selectPullState(
-			selectedSite.id,
-			connectedSite.id
-		)( state );
-		const pushState = syncOperationsSelectors.selectPushState(
-			selectedSite.id,
-			connectedSite.id
-		)( state );
-		return (
-			pullBackupIsDownloadingOrImporting( pullState?.status.key ) ||
-			pushBackupIsUploading( pushState?.status.key )
-		);
-	} );
+	const isDoingLocalSyncWork = useRootSelector(
+		syncOperationsSelectors.selectIsSiteDoingLocalSyncWork( selectedSite.id, connectedSite.id )
+	);
 
 	let logo = <WordPressLogoCircle />;
 	if ( isSiteLoading ) {

@@ -11,6 +11,10 @@ import {
 } from '@studio/common/types/sync';
 import { __, sprintf } from '@wordpress/i18n';
 import { generateStateId } from 'src/hooks/sync-sites/use-pull-push-states';
+import {
+	pullBackupIsDownloadingOrImporting,
+	pushBackupIsUploading,
+} from 'src/lib/active-sync-operations';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getHostnameFromUrl } from 'src/lib/url-utils';
 import { store } from 'src/stores';
@@ -1180,4 +1184,29 @@ export const syncOperationsSelectors = {
 				return isKeyPushing( pushState.status.key );
 			} );
 		},
+	// "Local sync work" = the phases the local machine is actively involved in (pull
+	// downloading/importing, push backup uploading). We can only block on these; the
+	// server-bound phases of a sync continue regardless.
+	selectIsSiteDoingLocalSyncWork:
+		( selectedSiteId: string, remoteSiteId: number ) =>
+		( state: { syncOperations: SyncOperationsState } ): boolean => {
+			const stateId = generateStateId( selectedSiteId, remoteSiteId );
+			const pullState = state.syncOperations.pullStates[ stateId ];
+			const pushState = state.syncOperations.pushStates[ stateId ];
+			return (
+				pullBackupIsDownloadingOrImporting( pullState?.status.key ) ||
+				pushBackupIsUploading( pushState?.status.key )
+			);
+		},
+	selectIsAnySiteDoingLocalSyncWork: ( state: {
+		syncOperations: SyncOperationsState;
+	} ): boolean => {
+		const anyPullLocal = Object.values( state.syncOperations.pullStates ).some( ( pullState ) =>
+			pullBackupIsDownloadingOrImporting( pullState.status.key )
+		);
+		const anyPushLocal = Object.values( state.syncOperations.pushStates ).some( ( pushState ) =>
+			pushBackupIsUploading( pushState.status.key )
+		);
+		return anyPullLocal || anyPushLocal;
+	},
 };

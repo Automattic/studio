@@ -51,7 +51,7 @@ export async function maybePromptNightlySwitch(): Promise< void > {
 	const userData = await loadUserData();
 	const result = userData.nightlyPromptResult;
 
-	if ( result?.dontAskAgain || result?.response === 'yes' ) {
+	if ( result?.dontAskAgain ) {
 		return;
 	}
 
@@ -89,9 +89,14 @@ export async function maybePromptNightlySwitch(): Promise< void > {
 
 	switch ( response ) {
 		case buttons.indexOf( SWITCH ):
-			await updateAppdata( {
-				nightlyPromptResult: { response: 'yes', dontAskAgain: checkboxChecked },
-			} );
+			// Don't suppress future prompts on 'yes' — if the update fails or the user
+			// hasn't installed the nightly yet, we want to offer it again on next launch.
+			// The isDevRelease() guard at the top naturally suppresses once they're on nightly.
+			if ( checkboxChecked ) {
+				await updateAppdata( {
+					nightlyPromptResult: { response: 'yes', dontAskAgain: true },
+				} );
+			}
 			switchToNightlyAndUpdate();
 			break;
 

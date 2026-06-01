@@ -99,7 +99,9 @@ export class E2ESession {
 		// ENOTEMPTY (a CLI child still writing post-exit) and EPERM (on Windows, a just-killed
 		// process's DLLs stay locked briefly — rimraf only chmods read-only attrs, not this).
 		const RETRYABLE_CODES = [ 'ENOTEMPTY', 'EPERM' ];
-		for ( let attempt = 0; attempt < 5; attempt++ ) {
+		const maxAttempts = process.platform === 'win32' ? 30 : 5;
+		const retryDelayMs = process.platform === 'win32' ? 1000 : 500;
+		for ( let attempt = 0; attempt < maxAttempts; attempt++ ) {
 			try {
 				await rimraf( this.sessionPath );
 				return;
@@ -107,11 +109,11 @@ export class E2ESession {
 				if (
 					! isErrnoException( error ) ||
 					! RETRYABLE_CODES.includes( error.code ?? '' ) ||
-					attempt === 4
+					attempt === maxAttempts - 1
 				) {
 					throw error;
 				}
-				await new Promise< void >( ( resolve ) => setTimeout( resolve, 500 ) );
+				await new Promise< void >( ( resolve ) => setTimeout( resolve, retryDelayMs ) );
 			}
 		}
 	}

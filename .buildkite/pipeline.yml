@@ -49,6 +49,7 @@ steps:
           context: fastlane Helper Tests
 
   - group: Unit Tests
+    key: unit-tests
     steps:
       - label: Unit Tests on {{matrix}}
         key: unit_tests
@@ -82,6 +83,7 @@ steps:
               context: Unit Tests
 
   - group: E2E Tests
+    key: e2e-tests
     steps:
       # E2E tests run on supported platform/architecture combinations.
       # - mac-arm64: Native on Apple Silicon agents

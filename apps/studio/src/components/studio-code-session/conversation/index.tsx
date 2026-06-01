@@ -8,8 +8,8 @@ import {
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
 import { __ } from '@wordpress/i18n';
-import { clsx } from 'clsx';
 import { useMemo, useState } from 'react';
+import { cx } from 'src/lib/cx';
 import { Markdown } from '../markdown';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
@@ -207,7 +207,7 @@ function ToolUseRow( {
 			{ hasOutput ? (
 				<div className={ styles.toolOutputWrap }>
 					<pre
-						className={ clsx(
+						className={ cx(
 							styles.toolOutput,
 							result?.isError && styles.toolOutputError,
 							! expanded && isLong && styles.toolOutputCollapsed
@@ -254,7 +254,7 @@ function AgentQuestion( {
 							<li key={ index }>
 								<button
 									type="button"
-									className={ clsx( styles.questionOption, picked && styles.questionOptionPicked ) }
+									className={ cx( styles.questionOption, picked && styles.questionOptionPicked ) }
 									disabled={ ! isInteractive }
 									onClick={ () => onAnswer( option.label ) }
 									title={ option.description }

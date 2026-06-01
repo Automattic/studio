@@ -1,11 +1,25 @@
-import { clsx } from 'clsx';
 import { useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import styles from './style.module.css';
 import type { MouseEvent } from 'react';
 import type { Components } from 'react-markdown';
+
+// Only hand http(s) links to the OS. Guards against the agent emitting links
+// with other schemes (e.g. `vscode://`, `smb://`, `file://`) that would
+// otherwise be opened by the system handler on click.
+const SAFE_URL_SCHEMES = new Set( [ 'http:', 'https:' ] );
+
+function isSafeExternalUrl( href: string ): boolean {
+	try {
+		return SAFE_URL_SCHEMES.has( new URL( href ).protocol );
+	} catch {
+		// Relative or malformed — never hand to the OS.
+		return false;
+	}
+}
 
 const baseComponents: Components = {
 	h1: ( { children } ) => <h1 className={ styles.h1 }>{ children }</h1>,
@@ -54,10 +68,10 @@ export function Markdown( { children, className }: { children: string; className
 			// through the IPC bridge so links open in the system browser.
 			a: ( { children: linkChildren, href } ) => {
 				const handleClick = ( event: MouseEvent< HTMLAnchorElement > ) => {
-					if ( ! href ) {
+					event.preventDefault();
+					if ( ! href || ! isSafeExternalUrl( href ) ) {
 						return;
 					}
-					event.preventDefault();
 					void getIpcApi().openURL( href );
 				};
 				return (
@@ -76,7 +90,7 @@ export function Markdown( { children, className }: { children: string; className
 	}, [] );
 
 	return (
-		<div className={ clsx( styles.root, className ) }>
+		<div className={ cx( styles.root, className ) }>
 			<ReactMarkdown remarkPlugins={ [ remarkGfm ] } components={ components }>
 				{ children }
 			</ReactMarkdown>

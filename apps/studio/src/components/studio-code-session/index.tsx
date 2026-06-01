@@ -4,12 +4,12 @@ import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { privateApis } from '@wordpress/theme';
 import { Button as UiButton } from '@wordpress/ui';
-import { clsx } from 'clsx';
 import { useLayoutEffect, useMemo, useRef, type ReactNode, type Ref } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
+import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { Composer, ComposerSkeleton } from './composer';
 import { Conversation } from './conversation';
@@ -37,10 +37,10 @@ function SessionFrame( { header, composer, scrollRef, children }: SessionFramePr
 		<div className={ styles.root }>
 			<div className={ styles.chatColumn }>
 				{ header }
-				<div ref={ scrollRef } className={ clsx( styles.scroll, styles.classicScroll ) }>
+				<div ref={ scrollRef } className={ cx( styles.scroll, styles.classicScroll ) }>
 					{ children }
 				</div>
-				<div className={ clsx( styles.composerOuter, styles.classicComposerOuter ) }>
+				<div className={ cx( styles.composerOuter, styles.classicComposerOuter ) }>
 					{ composer }
 				</div>
 			</div>
@@ -177,7 +177,7 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 				</div>
 			}
 		>
-			<div className={ clsx( styles.classicColumn, styles.classicConversationSpacing ) }>
+			<div className={ cx( styles.classicColumn, styles.classicConversationSpacing ) }>
 				<Conversation
 					data={ data }
 					isRunning={ isRunning }

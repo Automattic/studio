@@ -8,6 +8,7 @@ function spawnCommand( command, args, options = {} ) {
 	return spawn( command, args, {
 		stdio: 'inherit',
 		cwd: root,
+		shell: true,
 		...options,
 	} );
 }

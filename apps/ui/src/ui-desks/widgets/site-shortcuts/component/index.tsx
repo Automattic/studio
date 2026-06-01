@@ -37,7 +37,7 @@ import type {
 import type { ComponentProps, PointerEvent } from 'react';
 
 type SiteShortcutsWidgetComponentProps = DeskWidgetComponentProps< SiteShortcutsWidgetProps >;
-type ShortcutIcon = ComponentProps< typeof Icon >[ 'icon' ];
+type ShortcutIcon = NonNullable< ComponentProps< typeof Button >[ 'icon' ] >;
 
 interface SiteShortcutAction {
 	id: string;

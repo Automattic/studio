@@ -24,6 +24,7 @@ import {
 } from 'electron-devtools-installer';
 import { IPC_VOID_HANDLERS } from 'src/constants';
 import * as ipcHandlers from 'src/ipc-handlers';
+import { markAppQuitting } from 'src/ipc-utils';
 import {
 	hasActiveSyncOperations,
 	hasUploadingPushOperations,
@@ -50,7 +51,6 @@ import { autoInstallLinuxCliIfNeeded } from 'src/modules/cli/lib/linux-installat
 import { autoInstallMacOSCliIfNeeded } from 'src/modules/cli/lib/macos-installation-manager';
 import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
 import { startRemoteSessionStatusPolling } from 'src/modules/remote-session/daemon-status-poller';
-import { stopAllProcesses as stopAllStudioCodeProcesses } from 'src/modules/studio-code';
 import { getRunningSiteCount, SiteServer, stopAllServers } from 'src/site-server';
 import {
 	loadUserData,
@@ -526,9 +526,9 @@ async function appBoot() {
 	} );
 
 	app.on( 'will-quit', ( event ) => {
+		markAppQuitting();
 		globalShortcut.unregisterAll();
 		stopCliEventsSubscriber();
-		stopAllStudioCodeProcesses();
 		stopRemoteSessionStatusPolling?.();
 
 		if ( shouldStopSitesOnQuit ) {

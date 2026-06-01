@@ -30,6 +30,7 @@ import {
 	removeDbConstants,
 } from '@studio/common/lib/remove-default-db-constants';
 import { readSharedConfig } from '@studio/common/lib/shared-config';
+import { SITE_RUNTIME_NATIVE_PHP } from '@studio/common/lib/site-runtime';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import {
@@ -55,8 +56,13 @@ import {
 	updateSiteLatestCliPid,
 } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
-import { getAiInstructionsPath } from 'cli/lib/dependency-management/paths';
+import {
+	getAiInstructionsPath,
+	getWordPressVersionPath,
+} from 'cli/lib/dependency-management/paths';
 import { updateServerFiles } from 'cli/lib/dependency-management/setup';
+import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
+import { getSiteRuntime } from 'cli/lib/feature-flags';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import {
 	getRecommendedPhpVersionForSiteRuntime,
@@ -101,6 +107,7 @@ export async function runCommand(
 	options: CreateCommandOptions
 ): Promise< void > {
 	const phpVersion = validatePhpVersionForSiteRuntime( options.phpVersion );
+	const siteRuntime = getSiteRuntime();
 	const isOnlineStatus = await isOnline();
 
 	try {
@@ -221,6 +228,20 @@ export async function runCommand(
 					'Cannot set up WordPress while offline. Specific WordPress versions require an internet connection. Try using "latest" version or ensure internet connectivity.'
 				)
 			);
+		} else if ( siteRuntime === SITE_RUNTIME_NATIVE_PHP && ! isWordPressDirResult ) {
+			logger.reportStart(
+				LoggerAction.SETUP_WORDPRESS,
+				sprintf( __( 'Downloading WordPress %s…' ), options.wpVersion )
+			);
+			await downloadWordPress( options.wpVersion );
+			logger.reportSuccess( __( 'WordPress files downloaded' ) );
+
+			logger.reportStart(
+				LoggerAction.SETUP_WORDPRESS,
+				sprintf( __( 'Copying WordPress %s…' ), options.wpVersion )
+			);
+			await recursiveCopyDirectory( getWordPressVersionPath( options.wpVersion ), sitePath );
+			logger.reportSuccess( __( 'WordPress files copied' ) );
 		}
 
 		logger.reportStart( LoggerAction.INSTALL_SQLITE, __( 'Setting up SQLite integration…' ) );
@@ -643,7 +664,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 							// Offline or API failure — offer only "latest"
 							wpChoices = [
 								{
-									name: sprintf( __( '%s (recommended)' ), __( 'Latest' ) ),
+									name: __( 'Latest (recommended)' ),
 									value: 'latest',
 								},
 							];

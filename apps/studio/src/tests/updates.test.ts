@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  */
-import { app, dialog, shell, type MessageBoxOptions } from 'electron';
+import { app, clipboard, dialog, shell, type MessageBoxOptions } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import { vi } from 'vitest';
 import { manualCheckForUpdates } from 'src/updates';
@@ -66,6 +66,55 @@ describe( 'Linux updater', () => {
 		expect( shell.openExternal ).toHaveBeenCalledWith(
 			'https://appscdn.example.com/path/studio_1.9.0_arm64.deb'
 		);
+	} );
+
+	it( 'copies the install command to the clipboard when the user clicks the primary button', async () => {
+		global.fetch = vi.fn().mockResolvedValue( {
+			status: 200,
+			ok: true,
+			json: async () => ( {
+				version: '1.9.0',
+				downloadUrl: 'https://appscdn.example.com/path/studio_1.9.0_arm64.deb',
+			} ),
+		} as Response );
+		vi.mocked( dialog.showMessageBox ).mockResolvedValue( {
+			response: 0,
+			checkboxChecked: false,
+		} );
+
+		await manualCheckForUpdates();
+
+		await vi.waitFor( () => {
+			expect( shell.openExternal ).toHaveBeenCalled();
+		} );
+
+		expect( clipboard.writeText ).toHaveBeenCalledWith(
+			'sudo apt install ~/Downloads/studio_1.9.0_arm64.deb'
+		);
+	} );
+
+	it( 'does not copy to the clipboard or open the browser when the user dismisses the dialog', async () => {
+		global.fetch = vi.fn().mockResolvedValue( {
+			status: 200,
+			ok: true,
+			json: async () => ( {
+				version: '1.9.0',
+				downloadUrl: 'https://appscdn.example.com/path/studio_1.9.0_arm64.deb',
+			} ),
+		} as Response );
+		vi.mocked( dialog.showMessageBox ).mockResolvedValue( {
+			response: 1,
+			checkboxChecked: false,
+		} );
+
+		await manualCheckForUpdates();
+
+		await vi.waitFor( () => {
+			expect( dialog.showMessageBox ).toHaveBeenCalled();
+		} );
+
+		expect( clipboard.writeText ).not.toHaveBeenCalled();
+		expect( shell.openExternal ).not.toHaveBeenCalled();
 	} );
 
 	it( 'shows "No updates available" on a manual check when the server returns 204', async () => {

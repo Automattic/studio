@@ -24,6 +24,7 @@ import {
 } from 'electron-devtools-installer';
 import { IPC_VOID_HANDLERS } from 'src/constants';
 import * as ipcHandlers from 'src/ipc-handlers';
+import { markAppQuitting } from 'src/ipc-utils';
 import {
 	hasActiveSyncOperations,
 	hasUploadingPushOperations,
@@ -332,7 +333,9 @@ async function appBoot() {
 				"script-src-attr 'none'",
 				"img-src 'self' https://*.gravatar.com https://*.wp.com https://blueprintlibrary.wordpress.com https://blueprintslibraryv2.wpcomstaging.com https://wordpress.github.io https://raw.githubusercontent.com data:",
 				"style-src 'self' 'unsafe-inline'", // unsafe-inline used by tailwindcss in development, and also in production after the app rename
-				"script-src 'self' 'wasm-unsafe-eval'", // allow WebAssembly to compile and instantiate
+				process.env.NODE_ENV === 'development'
+					? "script-src 'self' 'unsafe-eval' 'unsafe-inline' 'wasm-unsafe-eval' data: http://localhost:*"
+					: "script-src 'self' 'wasm-unsafe-eval'", // allow WebAssembly to compile and instantiate
 				// Site preview uses `<webview>` to host local WordPress sites
 				// served from arbitrary localhost ports and (optionally) HTTPS
 				// custom domains.
@@ -342,8 +345,6 @@ async function appBoot() {
 				"connect-src 'self' https://public-api.wordpress.com https://api.wordpress.org",
 			];
 			const devPolicies = [
-				// Webpack uses eval in development, react-devtools uses localhost
-				"script-src 'self' 'unsafe-eval' 'unsafe-inline' data: http://localhost:*",
 				// react-devtools uses localhost
 				"connect-src 'self' https://public-api.wordpress.com https://api.wordpress.org ws://localhost:*",
 			];
@@ -526,6 +527,7 @@ async function appBoot() {
 	} );
 
 	app.on( 'will-quit', ( event ) => {
+		markAppQuitting();
 		globalShortcut.unregisterAll();
 		stopCliEventsSubscriber();
 		stopAllStudioCodeProcesses();

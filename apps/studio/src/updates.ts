@@ -1,4 +1,4 @@
-import { app, autoUpdater, dialog } from 'electron';
+import { app, autoUpdater, clipboard, dialog } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import { sprintf, __ } from '@wordpress/i18n';
 import { AUTO_UPDATE_INTERVAL_MS } from 'src/constants';
@@ -300,20 +300,20 @@ async function showLinuxUpdateAvailableNotice( version: string, downloadUrl: str
 	const mainWindow = await getMainWindow();
 
 	const command = `sudo apt install ~/Downloads/${ debFilenameFromUrl( downloadUrl ) }`;
-	const introLine = __(
-		'After downloading, quit Studio and run this command from a terminal to install:'
+	const actionDescription = __(
+		'Clicking the button below will download the new package and copy the install command to your clipboard.'
 	);
-	const doubleClickHint = __(
-		'On some distributions, double-clicking the downloaded file may also work.'
+	const followUpInstruction = __(
+		'Once the download finishes, quit Studio, open a terminal, and paste the command to install:'
 	);
 
 	const { response } = await dialog.showMessageBox( mainWindow, {
 		type: 'info',
-		buttons: [ __( 'Download' ), __( 'Later' ) ],
+		buttons: [ __( 'Download & copy command' ), __( 'Later' ) ],
 		title: __( 'New Version Available' ),
 		// translators: %s is the version number, e.g. "1.9.0".
 		message: sprintf( __( 'Studio %s is available' ), version ),
-		detail: `${ introLine }\n\n${ command }\n\n${ doubleClickHint }`,
+		detail: `${ actionDescription }\n\n${ followUpInstruction }\n\n${ command }`,
 		defaultId: 0,
 		cancelId: 1,
 	} );
@@ -330,6 +330,7 @@ async function showLinuxUpdateAvailableNotice( version: string, downloadUrl: str
 			);
 			return;
 		}
+		clipboard.writeText( command );
 		void shellOpenExternalWrapper( parsedUrl.toString() );
 	} catch {
 		Sentry.captureException( new Error( `Malformed downloadUrl: ${ downloadUrl }` ) );

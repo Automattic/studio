@@ -6,6 +6,7 @@ import type { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-me
 type ErrorLogger = ( ...args: Parameters< typeof console.error > ) => void;
 
 export type SpawnPhpProcessOptions = {
+	detached?: boolean;
 	disallowRiskyFunctions?: boolean;
 	env?: NodeJS.ProcessEnv;
 	mode?: 'pipe' | 'capture-stdout';
@@ -24,6 +25,7 @@ export function spawnPhpProcess(
 		signal,
 		env,
 		mode = 'pipe',
+		detached = false,
 		enableXdebug = false,
 		onlyPathsThatPhpCanAccess = [],
 		disallowRiskyFunctions = false,
@@ -41,6 +43,7 @@ export function spawnPhpProcess(
 		env: env ? { ...process.env, ...env } : process.env,
 		stdio: [ 'ignore', 'pipe', 'pipe' ],
 		signal,
+		detached,
 	} );
 
 	if ( mode === 'pipe' ) {

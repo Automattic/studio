@@ -38,6 +38,16 @@ steps:
       - github_commit_status:
           context: Lint
 
+  - label: ":fastlane: fastlane Helper Tests"
+    agents:
+      queue: mac
+    key: fastlane_tests
+    command: bash .buildkite/commands/run-fastlane-tests.sh
+    plugins: [$CI_TOOLKIT_PLUGIN]
+    notify:
+      - github_commit_status:
+          context: fastlane Helper Tests
+
   - label: Unit Tests on {{matrix}}
     key: unit_tests
     command: bash .buildkite/commands/run-unit-tests.sh "{{matrix}}"

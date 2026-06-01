@@ -95,7 +95,13 @@ import {
 } from 'src/lib/ai-session-placement';
 import { getAiSessionsRootDirectory } from 'src/lib/ai-sessions';
 import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
-import { bumpStat, getBlueprintMetric, StatsGroup } from 'src/lib/bump-stats';
+import {
+	bumpAggregatedUniqueStat,
+	bumpStat,
+	getBlueprintMetric,
+	getPlatformMetric,
+	StatsGroup,
+} from 'src/lib/bump-stats';
 import {
 	openCertificate as openCertificateDialog,
 	isRootCATrusted,
@@ -2384,6 +2390,23 @@ export async function getRemoteSessionDaemonStatus(
 export async function startRemoteSessionDaemon(
 	_event: IpcMainInvokeEvent
 ): Promise< StartDaemonResult > {
+	// The CLI fires its own `STUDIO_CLI_DOLLY_START` bump when the child
+	// process boots. The desktop-side bump captures only bolt-icon clicks, so
+	// we can separate UI-driven starts from direct CLI invocations.
+	// De-dupe on rapid clicks happens in `useRemoteSessionStatus` via
+	// `pendingRunningRef`/`isLoadingRef` before the IPC even fires.
+	bumpStat( StatsGroup.STUDIO_APP_DOLLY_START, getPlatformMetric() );
+	bumpAggregatedUniqueStat(
+		StatsGroup.STUDIO_APP_DOLLY_WKLY_UNQ,
+		getPlatformMetric(),
+		'weekly'
+	).catch( ( err ) => Sentry.captureException( err ) );
+	bumpAggregatedUniqueStat(
+		StatsGroup.STUDIO_APP_DOLLY_MON_UNQ,
+		getPlatformMetric(),
+		'monthly'
+	).catch( ( err ) => Sentry.captureException( err ) );
+
 	// Treat the CLI as an external program (same pattern as every other
 	// CLI-backed operation in Studio): fork it as a child process and let it
 	// own the spawn/detach lifecycle. `cli code remote-session start` already
@@ -2422,6 +2445,8 @@ export async function startRemoteSessionDaemon(
 export async function stopRemoteSessionDaemon(
 	_event: IpcMainInvokeEvent
 ): Promise< StopDaemonResult > {
+	bumpStat( StatsGroup.STUDIO_APP_DOLLY_STOP, getPlatformMetric() );
+
 	return new Promise( ( resolve, reject ) => {
 		// Same env-flag handshake as `startRemoteSessionDaemon` — without it
 		// the CLI doesn't register the `code remote-session` subcommand tree

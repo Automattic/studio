@@ -1,6 +1,5 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { getBlueprintsPharPath } from 'cli/lib/dependency-management/paths';
 import { runPhpCommand } from './php-process';
 import type { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
@@ -29,15 +28,13 @@ export async function runBlueprint(
 		WP_DEBUG_DISPLAY: enableDebugDisplay,
 	};
 
-	const preferredVersions = {
-		php: config.phpVersion || blueprint.contents?.preferredVersions?.php || DEFAULT_PHP_VERSION,
-		wp: config.wpVersion || blueprint.contents?.preferredVersions?.wp || 'latest',
-	};
 	blueprint.contents.constants = {
 		...blueprint.contents.constants,
 		...defaultConstants,
 	};
-	blueprint.contents.preferredVersions = preferredVersions;
+	// Native PHP selects PHP and installs WordPress before Blueprint execution.
+	// Passing preferredVersions makes blueprints.phar validate versions it does not manage here.
+	delete blueprint.contents.preferredVersions;
 
 	const blueprintDir = path.dirname( blueprint.uri );
 	const tmpPath = path.join( blueprintDir, `studio-blueprint-${ config.siteId }.json` );

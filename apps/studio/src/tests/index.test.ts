@@ -122,7 +122,6 @@ function mockElectron() {
 				quit: vi.fn(),
 				exit: vi.fn(),
 				setName: vi.fn(),
-				removeAsDefaultProtocolClient: vi.fn(),
 				setAsDefaultProtocolClient: vi.fn(),
 				enableSandbox: vi.fn(),
 				setAppLogsPath: vi.fn(),

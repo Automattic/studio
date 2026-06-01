@@ -19,7 +19,6 @@ export const app = {
 	on: vi.fn(),
 	off: vi.fn(),
 	setAppLogsPath: vi.fn(),
-	removeAsDefaultProtocolClient: vi.fn(),
 	setAsDefaultProtocolClient: vi.fn(),
 	enableSandbox: vi.fn(),
 	commandLine: {

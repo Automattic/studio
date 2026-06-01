@@ -30,7 +30,7 @@ import {
 } from 'cli/lib/dependency-management/paths';
 import { getSiteRuntime } from 'cli/lib/feature-flags';
 import { validatePhpVersion } from 'cli/lib/utils';
-import { getDefaultPhpArgs } from './native-php';
+import { getDefaultPhpArgs } from './native-php/config';
 import {
 	DETACH_FOR_GROUP_KILL,
 	killPhpProcessTree,

@@ -1,7 +1,7 @@
 import { ChildProcess, spawn, spawnSync } from 'node:child_process';
 import os from 'node:os';
 import { getPhpBinaryPath } from 'cli/lib/dependency-management/paths';
-import { getDefaultPhpArgs } from 'cli/lib/native-php';
+import { getDefaultPhpArgs } from 'cli/lib/native-php/config';
 import type { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
 
 type ErrorLogger = ( ...args: Parameters< typeof console.error > ) => void;

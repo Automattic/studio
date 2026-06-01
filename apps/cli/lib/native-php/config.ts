@@ -4,7 +4,7 @@ import os from 'os';
 import path from 'path';
 import { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
 import { writeFile } from 'atomically';
-import { getPhpBinaryPath } from './dependency-management/paths';
+import { getPhpBinaryPath } from '../dependency-management/paths';
 
 // Disabled by default to shrink the attack surface available to PHP code
 // running inside a Studio site. Each entry falls into one of:

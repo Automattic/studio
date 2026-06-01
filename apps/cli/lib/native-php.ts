@@ -6,8 +6,8 @@ import { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadat
 import { writeFile } from 'atomically';
 import { getPhpBinaryPath } from './dependency-management/paths';
 
-// Disabled by default to shrink the attack surface available to PHP code
-// running inside a Studio site. Each entry falls into one of:
+// Disabled to shrink the attack surface available to PHP code running inside a
+// Studio site. Each entry falls into one of:
 //   - Runtime native-code loading: dl (loads a native extension into the
 //     interpreter — deprecated, unavailable in most SAPIs, never needed by a
 //     real WP workload)
@@ -29,8 +29,21 @@ import { getPhpBinaryPath } from './dependency-management/paths';
 // proc_open/close/terminate, shell_exec, system) are deliberately left
 // enabled. Blocking them broke too many plugins and tools that legitimately
 // shell out (image processing, backups, git, etc.), so for the native PHP
-// beta a site may run external commands like a normal local PHP install. The
-// open_basedir jail and the rest of this list still apply.
+// beta a site may run external commands like a normal local PHP install.
+//
+// WHAT THIS ACTUALLY BUYS US: this list and the open_basedir jail are
+// in-process checks — they only constrain PHP's own C-level calls. Once the
+// exec family is enabled, a child process runs as the OS user with none of
+// these checks, so most entries here have trivial shell equivalents (open_
+// basedir → `cat`/`cp`, symlink → `ln -s`, posix_kill → `kill`, socket_bind →
+// `nc -l`, show_source → `cat`). The only entries a child process cannot
+// replicate are the interpreter-level ones (dl, pcntl_fork, pcntl_exec,
+// pcntl_signal*). So treat all of this as a guardrail that limits the blast
+// radius of buggy or limited-primitive code — the common WP case (LFI, path
+// traversal, arbitrary file read/delete that abuses a PHP file function and
+// never shells out) is still genuinely contained by open_basedir — NOT as a
+// sandbox against deliberately malicious plugins. Real confinement of the
+// worker process tree (which survives exec) requires an OS-level sandbox.
 const PHP_DEFAULT_DISABLED_FUNCTIONS = [
 	'dl',
 	'link',

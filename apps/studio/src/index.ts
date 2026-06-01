@@ -51,7 +51,6 @@ import { autoInstallLinuxCliIfNeeded } from 'src/modules/cli/lib/linux-installat
 import { autoInstallMacOSCliIfNeeded } from 'src/modules/cli/lib/macos-installation-manager';
 import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
 import { startRemoteSessionStatusPolling } from 'src/modules/remote-session/daemon-status-poller';
-import { stopAllProcesses as stopAllStudioCodeProcesses } from 'src/modules/studio-code';
 import { getRunningSiteCount, SiteServer, stopAllServers } from 'src/site-server';
 import {
 	loadUserData,
@@ -530,7 +529,6 @@ async function appBoot() {
 		markAppQuitting();
 		globalShortcut.unregisterAll();
 		stopCliEventsSubscriber();
-		stopAllStudioCodeProcesses();
 		stopRemoteSessionStatusPolling?.();
 
 		if ( shouldStopSitesOnQuit ) {

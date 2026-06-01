@@ -12,6 +12,7 @@ e2e_config: &e2e_config
     - test-results/**/*.zip
     - test-results/**/*.png
     - test-results/**/*error-context.md
+    - test-results/daemon-logs/**/*.log
   plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
   agents:
     queue: "{{matrix.platform}}"
@@ -113,6 +114,7 @@ steps:
       - test-results/**/*.zip
       - test-results/**/*.png
       - test-results/**/*error-context.md
+      - test-results/daemon-logs/**/*.log
     env:
       DEBUG: "pw:browser"
     # TEMP(rsm-2593): if: removed to force E2E on every push while iterating on Linux E2E setup. Revert before merge.

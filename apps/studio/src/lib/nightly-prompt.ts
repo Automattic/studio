@@ -7,6 +7,8 @@ import { getMainWindow } from 'src/main-window';
 import { loadUserData, updateAppdata } from 'src/storage/user-data';
 import { switchToNightlyAndUpdate } from 'src/updates';
 
+let isPromptOpen = false;
+
 async function isAutomattician(): Promise< boolean > {
 	try {
 		const token = await readAuthToken();
@@ -53,6 +55,10 @@ export async function maybePromptNightlySwitch(): Promise< void > {
 		return;
 	}
 
+	if ( isPromptOpen ) {
+		return;
+	}
+
 	const automattician = await isAutomattician();
 	if ( ! automattician ) {
 		return;
@@ -62,6 +68,7 @@ export async function maybePromptNightlySwitch(): Promise< void > {
 	const NOT_NOW = __( 'Not now' );
 	const buttons = [ SWITCH, NOT_NOW ];
 
+	isPromptOpen = true;
 	const mainWindow = await getMainWindow();
 	const { response, checkboxChecked } = await dialog.showMessageBox( mainWindow, {
 		type: 'question',
@@ -77,6 +84,8 @@ export async function maybePromptNightlySwitch(): Promise< void > {
 		defaultId: buttons.indexOf( SWITCH ),
 		cancelId: buttons.indexOf( NOT_NOW ),
 	} );
+
+	isPromptOpen = false;
 
 	switch ( response ) {
 		case buttons.indexOf( SWITCH ):

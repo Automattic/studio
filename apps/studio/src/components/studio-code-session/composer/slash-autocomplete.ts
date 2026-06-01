@@ -1,0 +1,37 @@
+import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
+import type { SkillSlashCommand } from '@studio/common/ai/slash-commands';
+
+export interface SlashCommandMatches {
+	open: boolean;
+	matches: SkillSlashCommand[];
+}
+
+/**
+ * Pure helper that decides whether the inline slash-command autocomplete popup
+ * should be open and, if so, which commands match the current draft.
+ *
+ * The popup opens only when the textarea holds a single `/` token at the very
+ * start with no trailing space (e.g. `/`, `/an`), and no preview prompt is
+ * active. The text after the `/` is matched as a case-insensitive name prefix
+ * against the available skill commands. If nothing matches, the popup closes.
+ */
+export function getSlashCommandMatches(
+	value: string,
+	previewPrompt: string | null | undefined
+): SlashCommandMatches {
+	if ( previewPrompt ) {
+		return { open: false, matches: [] };
+	}
+	const match = /^\/(\w*)$/.exec( value );
+	if ( ! match ) {
+		return { open: false, matches: [] };
+	}
+	const prefix = match[ 1 ].toLowerCase();
+	const matches = AI_SKILL_COMMANDS.filter( ( command ) =>
+		command.name.toLowerCase().startsWith( prefix )
+	);
+	if ( matches.length === 0 ) {
+		return { open: false, matches: [] };
+	}
+	return { open: true, matches };
+}

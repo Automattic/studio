@@ -6,11 +6,13 @@ import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { arrowUp, chevronDownSmall } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import motionStyles from '../floating-surface-motion/style.module.css';
 import * as Menu from '../menu';
 import { SESSIONS_QUERY_KEY } from '../use-session';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
+import { getSlashCommandMatches } from './slash-autocomplete';
 import styles from './style.module.css';
 import type { SessionEntry } from '@mariozechner/pi-coding-agent';
 import type { AiModelId } from '@studio/common/ai/models';
@@ -100,6 +102,27 @@ export function Composer( {
 			node.setSelectionRange( length, length );
 		} );
 	}, [ draftPrompt ] );
+
+	// Inline slash-command autocomplete. The popup is driven entirely by the
+	// textarea value so the textarea keeps focus the whole time (a `Menu.Root`
+	// would steal focus). The helper closes the popup while a `previewPrompt`
+	// is active so it never collides with the example-prompt preview.
+	const { open: slashOpen, matches: slashMatches } = useMemo(
+		() => getSlashCommandMatches( value, previewPrompt ),
+		[ value, previewPrompt ]
+	);
+	const [ highlightedIndex, setHighlightedIndex ] = useState( 0 );
+
+	// Whenever the filtered list changes, reset the highlight to the top.
+	const matchKey = slashMatches.map( ( command ) => command.name ).join( ',' );
+	useEffect( () => {
+		setHighlightedIndex( 0 );
+	}, [ matchKey ] );
+
+	const insertSlashCommand = useCallback( ( name: string ) => {
+		setValue( `/${ name } ` );
+		textareaRef.current?.focus();
+	}, [] );
 
 	// Cross-family swap state. We hold the picked model here while the
 	// confirmation dialog is open; nothing is persisted until the user
@@ -230,26 +253,88 @@ export function Composer( {
 		<>
 			<div className={ styles.root }>
 				<div className={ styles.shell }>
-					<textarea
-						ref={ textareaRef }
-						className={ styles.input }
-						placeholder={ placeholder }
-						value={ previewPrompt ?? value }
-						data-preview={ previewPrompt ? 'true' : 'false' }
-						onChange={ ( event ) => setValue( event.target.value ) }
-						onKeyDown={ ( event ) => {
-							if ( event.key === 'Escape' && busy ) {
-								event.preventDefault();
-								void onInterrupt();
-								return;
-							}
-							if ( event.key === 'Enter' && ( event.metaKey || event.ctrlKey ) ) {
-								event.preventDefault();
-								void send();
-							}
-						} }
-						rows={ 2 }
-					/>
+					<div className={ styles.inputWrapper }>
+						<textarea
+							ref={ textareaRef }
+							className={ styles.input }
+							placeholder={ placeholder }
+							value={ previewPrompt ?? value }
+							data-preview={ previewPrompt ? 'true' : 'false' }
+							onChange={ ( event ) => setValue( event.target.value ) }
+							onKeyDown={ ( event ) => {
+								if ( slashOpen ) {
+									if ( event.key === 'ArrowDown' ) {
+										event.preventDefault();
+										setHighlightedIndex( ( index ) => ( index + 1 ) % slashMatches.length );
+										return;
+									}
+									if ( event.key === 'ArrowUp' ) {
+										event.preventDefault();
+										setHighlightedIndex(
+											( index ) => ( index - 1 + slashMatches.length ) % slashMatches.length
+										);
+										return;
+									}
+									if ( event.key === 'Enter' || event.key === 'Tab' ) {
+										event.preventDefault();
+										const command = slashMatches[ highlightedIndex ];
+										if ( command ) {
+											insertSlashCommand( command.name );
+										}
+										return;
+									}
+									if ( event.key === 'Escape' ) {
+										// Close the popup only. stopPropagation keeps this Escape
+										// from also reaching the Escape-to-interrupt handler.
+										event.preventDefault();
+										event.stopPropagation();
+										setValue( '' );
+										return;
+									}
+								}
+								if ( event.key === 'Escape' && busy ) {
+									event.preventDefault();
+									void onInterrupt();
+									return;
+								}
+								if ( event.key === 'Enter' && ( event.metaKey || event.ctrlKey ) ) {
+									event.preventDefault();
+									void send();
+								}
+							} }
+							rows={ 2 }
+						/>
+						{ slashOpen ? (
+							<ul
+								className={ `${ styles.autocompletePopup } ${ motionStyles.motion }` }
+								data-side="top"
+								data-align="start"
+								role="listbox"
+								aria-label={ __( 'Slash commands' ) }
+							>
+								{ slashMatches.map( ( command, index ) => (
+									<li
+										key={ command.name }
+										role="option"
+										aria-selected={ index === highlightedIndex }
+										className={ styles.autocompleteItem }
+										data-highlighted={ index === highlightedIndex ? '' : undefined }
+										onMouseDown={ ( event ) => {
+											// Prevent the textarea from losing focus on click.
+											event.preventDefault();
+											insertSlashCommand( command.name );
+										} }
+										onMouseEnter={ () => setHighlightedIndex( index ) }
+									>
+										<span className={ styles.commandItem }>
+											<span className={ styles.commandName }>/{ command.name }</span>
+											<span className={ styles.commandDescription }>{ command.description }</span>
+										</span>
+									</li>
+								) ) }
+							</ul>
+						) : null }
+					</div>
 					<div className={ styles.toolbar }>
 						<div className={ styles.leftActions }>
 							<Menu.Root modal={ false }>

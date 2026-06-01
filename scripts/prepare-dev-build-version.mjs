@@ -24,8 +24,9 @@ if ( ! parsedVersion ) {
 	throw new Error( `Invalid version in latestTag: ${ latestTag }` );
 }
 
-// Create dev version using just the core version numbers (major.minor.patch)
-const devVersion = `${ parsedVersion.major }.${ parsedVersion.minor }.${ parsedVersion.patch }-dev${ commitCount }`;
+// Create dev version targeting the next minor release (major.minor+1.0-devN),
+// so trunk builds sort above any stable or beta of the last release.
+const devVersion = `${ parsedVersion.major }.${ parsedVersion.minor + 1 }.0-dev${ commitCount }`;
 
 packageJson.version = devVersion;
 

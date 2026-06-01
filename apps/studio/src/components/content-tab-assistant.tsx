@@ -16,7 +16,7 @@ import { ChatMessage, MarkDownWithCode } from 'src/components/chat-message';
 import { ChatRating } from 'src/components/chat-rating';
 import { LearnMoreLink } from 'src/components/learn-more';
 import offlineIcon from 'src/components/offline-icon';
-import { StudioCodeChat } from 'src/components/studio-code-chat';
+import { StudioCodeSession } from 'src/components/studio-code-session';
 import WelcomeComponent from 'src/components/welcome-message-prompt';
 import { LIMIT_OF_PROMPTS_PER_USER, TELEX_HOSTNAME, TELEX_UTM_PARAMS } from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
@@ -362,7 +362,7 @@ export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps 
 	const { enableStudioCodeUi } = useFeatureFlags();
 
 	if ( enableStudioCodeUi ) {
-		return <StudioCodeChat selectedSite={ selectedSite } />;
+		return <StudioCodeSession selectedSite={ selectedSite } />;
 	}
 
 	return <WpcomAssistant selectedSite={ selectedSite } />;

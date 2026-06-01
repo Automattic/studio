@@ -83,7 +83,6 @@ export const IPC_VOID_HANDLERS = [
 	'showItemInFolder',
 	'showNotification',
 	'authenticate',
-	'studioCodeAbort',
 ] as const;
 
 // What's New

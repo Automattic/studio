@@ -10,13 +10,12 @@ import { ChildProcess, spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
 import { writeStudioMuPluginsForNativePhpRuntime } from '@studio/common/lib/mu-plugins';
 import { decodePassword } from '@studio/common/lib/passwords';
 import {
 	NativePhpSupportedVersion,
-	validateNativePhpVersion,
+	resolveNativePhpVersion,
 } from '@studio/common/lib/php-binary-metadata';
 import { z } from 'zod';
 import {
@@ -24,11 +23,15 @@ import {
 	ChildMessageRaw,
 	ServerConfig,
 } from 'cli/lib/types/wordpress-server-ipc';
+import { requestSetAdminCredentials, toUrlSearchParams } from './lib/admin-credentials';
 import {
 	getBlueprintsPharPath,
 	getPhpBinaryPath,
+	getPhpMyAdminPath,
 	getWpCliPharPath,
 } from './lib/dependency-management/paths';
+import { getDefaultPhpArgs } from './lib/native-php';
+import { SymlinkWatcher, collectSymlinkAllowlistEntries } from './lib/symlinks';
 
 const ROUTER_PATH = path.resolve( import.meta.dirname, 'php', 'router.php' );
 const SET_DEFAULT_PERMALINKS_PATH = path.resolve(
@@ -43,10 +46,62 @@ const WP_CONFIG_TRANSFORMER_PATH = path.resolve(
 );
 const DEFAULT_WP_CONFIG_CONSTANTS = { DB_NAME: 'wordpress' } as const;
 
+function phpStringLiteral( value: string ): string {
+	return `'${ value.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" ) }'`;
+}
+
+function getNativePhpMyAdminWpEnvPath( config: Pick< ServerConfig, 'siteId' > ): string {
+	const safeSiteId = config.siteId.replace( /[^a-zA-Z0-9._-]/g, '-' );
+	return path.join( os.tmpdir(), 'studio-phpmyadmin-wp-env', safeSiteId, 'wp-env.php' );
+}
+
+function getPhpMyAdminSessionPath( config: Pick< ServerConfig, 'siteId' > ): string {
+	const safeSiteId = config.siteId.replace( /[^a-zA-Z0-9._-]/g, '-' );
+	return path.join( os.tmpdir(), 'studio-phpmyadmin-sessions', safeSiteId );
+}
+
+async function writeNativePhpMyAdminWpEnv( config: ServerConfig ): Promise< string > {
+	const wpEnvPath = getNativePhpMyAdminWpEnvPath( config );
+	const sqliteDriverPath = path.join(
+		config.sitePath,
+		'wp-content',
+		'mu-plugins',
+		'sqlite-database-integration',
+		'wp-includes',
+		'database',
+		'load.php'
+	);
+	const sqliteDatabasePath = path.join( config.sitePath, 'wp-content', 'database', '.ht.sqlite' );
+	const wpEnvPhp = `<?php return array (
+  'db' => array (
+    'type' => 'sqlite',
+    'path' => ${ phpStringLiteral( sqliteDatabasePath ) },
+    'driver_path' => ${ phpStringLiteral( sqliteDriverPath ) },
+  ),
+);
+`;
+
+	await fs.promises.mkdir( path.dirname( wpEnvPath ), { recursive: true } );
+	await fs.promises.mkdir( getPhpMyAdminSessionPath( config ), { recursive: true } );
+	await fs.promises.writeFile( wpEnvPath, wpEnvPhp );
+	return wpEnvPath;
+}
+
 let phpProcess: ChildProcess | null = null;
 let startupAbortController: AbortController | null = null;
 let startingPromise: Promise< void > | null = null;
 let blueprintQueue: Promise< unknown > = Promise.resolve();
+
+// Symlink-aware open_basedir state. PHP's open_basedir cannot be extended at
+// runtime, so when a new symlink appears under the site directory we have to
+// restart the PHP server with an updated allowlist.
+const currentOpenBasedirAllowlist: Set< string > = new Set();
+let symlinkWatcher: SymlinkWatcher | null = null;
+let symlinkRestartTimer: NodeJS.Timeout | null = null;
+let runningConfig: ServerConfig | null = null;
+
+const SYMLINK_RESTART_DEBOUNCE_MS = 750;
+const STOP_SERVER_TIMEOUT = 5000;
 
 function logToConsole( ...args: Parameters< typeof console.log > ) {
 	console.log( `[PHP Server]`, ...args );
@@ -57,29 +112,53 @@ function errorToConsole( ...args: Parameters< typeof console.error > ) {
 }
 
 type SpawnPhpProcessOptions = {
-	phpVersion: NativePhpSupportedVersion;
-	cwd?: string;
-	signal?: AbortSignal;
+	detached?: boolean;
+	disallowRiskyFunctions?: boolean;
+	env?: NodeJS.ProcessEnv;
 	mode?: 'pipe' | 'capture-stdout';
+	enableXdebug?: boolean;
+	onlyPathsThatPhpCanAccess?: string[];
+	phpVersion: NativePhpSupportedVersion;
+	siteFolder?: string;
+	signal?: AbortSignal;
 };
 
 function spawnPhpProcess(
 	args: string[],
-	{ phpVersion, cwd, signal, mode = 'pipe' }: SpawnPhpProcessOptions
+	{
+		phpVersion,
+		siteFolder,
+		signal,
+		env,
+		mode = 'pipe',
+		detached = false,
+		enableXdebug = false,
+		onlyPathsThatPhpCanAccess = [],
+		disallowRiskyFunctions = false,
+	}: SpawnPhpProcessOptions
 ): ChildProcess {
-	const phpScriptProcess = spawn( getPhpBinaryPath( phpVersion ), args, {
-		cwd,
+	const defaultArgs = getDefaultPhpArgs(
+		phpVersion,
+		onlyPathsThatPhpCanAccess,
+		disallowRiskyFunctions,
+		enableXdebug
+	);
+	const phpArgs = [ ...defaultArgs, ...args ];
+	const phpScriptProcess = spawn( getPhpBinaryPath( phpVersion ), phpArgs, {
+		cwd: siteFolder,
+		env: env ? { ...process.env, ...env } : process.env,
 		stdio: [ 'ignore', 'pipe', 'pipe' ],
 		signal,
+		detached,
 	} );
 
 	if ( mode === 'pipe' ) {
-		phpScriptProcess.stdout?.pipe( process.stdout );
+		phpScriptProcess.stdout?.pipe( process.stdout, { end: false } );
 	}
 
 	// Keep stderr visible in all modes for easier debugging.
 	if ( mode === 'pipe' || mode === 'capture-stdout' ) {
-		phpScriptProcess.stderr?.pipe( process.stderr );
+		phpScriptProcess.stderr?.pipe( process.stderr, { end: false } );
 	}
 
 	return phpScriptProcess;
@@ -87,23 +166,31 @@ function spawnPhpProcess(
 
 type RunPhpCommandOptions = SpawnPhpProcessOptions;
 
+function killProcessGroup( child: ChildProcess, signal: NodeJS.Signals ): void {
+	if ( process.platform !== 'win32' && child.pid ) {
+		try {
+			process.kill( -child.pid, signal );
+			return;
+		} catch {
+			// Fall back to the parent process if the process group is already gone.
+		}
+	}
+
+	child.kill( signal );
+}
+
 async function runPhpCommand(
 	args: string[],
-	{ phpVersion, cwd, signal, mode = 'pipe' }: RunPhpCommandOptions
+	options: RunPhpCommandOptions
 ): Promise< { stdout: string } > {
 	return await new Promise< { stdout: string } >( ( resolve, reject ) => {
-		const phpScriptProcess = spawnPhpProcess( args, {
-			phpVersion,
-			cwd,
-			signal,
-			mode,
-		} );
+		const phpScriptProcess = spawnPhpProcess( args, options );
 
 		let stdout = '';
 		const reportActivity = () => process.send?.( { topic: 'activity' } );
 		phpScriptProcess.stdout?.on( 'data', ( chunk ) => {
 			reportActivity();
-			if ( mode === 'capture-stdout' ) {
+			if ( options.mode === 'capture-stdout' ) {
 				stdout += chunk.toString();
 			}
 		} );
@@ -198,7 +285,7 @@ echo is_blog_installed() ? '1' : '0';
 	try {
 		const result = await runPhpCommand( [ '-r', installationCheckScript ], {
 			phpVersion,
-			cwd: siteFolder,
+			siteFolder,
 			signal,
 			mode: 'capture-stdout',
 		} );
@@ -215,18 +302,18 @@ echo is_blog_installed() ? '1' : '0';
 	return status === '1';
 }
 
-async function waitForServerReady( url: string, signal: AbortSignal ): Promise< void > {
+async function waitForServerReady( url: string, signal?: AbortSignal ): Promise< void > {
 	const pollIntervalMs = 50;
 	const timeoutMs = 30_000;
 	const deadline = Date.now() + timeoutMs;
 
 	while ( true ) {
-		signal.throwIfAborted();
+		signal?.throwIfAborted();
 		try {
 			await fetch( url, { signal } );
 			return;
 		} catch {
-			signal.throwIfAborted();
+			signal?.throwIfAborted();
 			if ( Date.now() > deadline ) {
 				throw new Error( `PHP server did not start within ${ timeoutMs }ms` );
 			}
@@ -242,7 +329,7 @@ async function installWordPress(
 ): Promise< void > {
 	const alreadyInstalled = await isWordPressInstalled( config.sitePath, phpVersion, signal );
 	if ( alreadyInstalled ) {
-		logToConsole( `WordPress already installed for site ${ config.siteId }; skipping installer` );
+		logToConsole( `WordPress already installed; skipping installer` );
 		return;
 	}
 
@@ -289,7 +376,7 @@ async function installWordPress(
 	try {
 		await runPhpCommand( [ SET_DEFAULT_PERMALINKS_PATH ], {
 			phpVersion,
-			cwd: config.sitePath,
+			siteFolder: config.sitePath,
 			signal,
 		} );
 	} catch ( error ) {
@@ -301,22 +388,176 @@ async function installWordPress(
 	}
 }
 
-async function startServer( config: ServerConfig, signal: AbortSignal ): Promise< void > {
-	if ( phpProcess ) {
-		logToConsole( `Server already running for site ${ config.siteId }` );
+async function setAdminCredentials( config: ServerConfig, signal: AbortSignal ): Promise< void > {
+	try {
+		await requestSetAdminCredentials( config, async ( request ) => {
+			const response = await fetch( `http://localhost:${ config.port }${ request.url }`, {
+				method: request.method,
+				body: toUrlSearchParams( request.body ),
+				signal,
+			} );
+			if ( ! response.ok ) {
+				throw new Error( await getAdminCredentialsErrorMessage( response ) );
+			}
+		} );
+	} catch ( error ) {
+		throw new Error(
+			`Failed to set admin credentials: ${
+				error instanceof Error ? error.message : String( error )
+			}`
+		);
+	}
+}
+
+async function getAdminCredentialsErrorMessage( response: Response ): Promise< string > {
+	const text = await response.text();
+	try {
+		const result = JSON.parse( text ) as { error?: string };
+		return result.error ?? text;
+	} catch {
+		return text || response.statusText;
+	}
+}
+
+// The symlink watcher is used to detect new symlinks in wp-content and its subdirectories. When a
+// new symlink is detected, it is added to the open_basedir allow list and the server is restarted.
+function startSymlinkWatcher( sitePath: string ): void {
+	if ( symlinkWatcher ) {
 		return;
 	}
 
-	const phpVersion = validateNativePhpVersion( config.phpVersion ?? '' );
+	const wpContentPath = path.join( sitePath, 'wp-content' );
+	const watcher = new SymlinkWatcher();
+	watcher.on( 'symlink', ( target, symlinkPath ) => {
+		if ( currentOpenBasedirAllowlist.has( target ) ) {
+			return;
+		}
+
+		logToConsole( `Detected new symlink at ${ symlinkPath } -> ${ target }` );
+		currentOpenBasedirAllowlist.add( target );
+		scheduleAllowlistRestart();
+	} );
+
+	watcher.on( 'error', ( error ) => {
+		errorToConsole( 'Symlink watcher error (will attempt to recover):', error );
+	} );
+
+	watcher.on( 'unrecoverable', ( error ) => {
+		errorToConsole(
+			'Symlink watcher gave up. New plugin/theme symlinks under wp-content will not be auto-allowed until the site is restarted.',
+			error
+		);
+	} );
+
+	watcher.on( 'restart', () => {
+		// Events fired while the watcher was dead are lost. Re-scan wp-content and
+		// fold any newly discovered symlink targets into the allowlist.
+		void reconcileSymlinkAllowlist( wpContentPath );
+	} );
+
+	// Watch wp-content and its subdirectories for symlinks
+	watcher.start( wpContentPath, 2 );
+	symlinkWatcher = watcher;
+}
+
+async function reconcileSymlinkAllowlist( wpContentPath: string ): Promise< void > {
+	let entries: string[];
+	try {
+		entries = await collectSymlinkAllowlistEntries( wpContentPath );
+	} catch ( error ) {
+		errorToConsole( 'Failed to reconcile symlink allowlist after watcher restart:', error );
+		return;
+	}
+
+	let added = false;
+	for ( const target of entries ) {
+		if ( ! currentOpenBasedirAllowlist.has( target ) ) {
+			logToConsole( `Discovered symlink target after watcher restart: ${ target }` );
+			currentOpenBasedirAllowlist.add( target );
+			added = true;
+		}
+	}
+
+	if ( added ) {
+		scheduleAllowlistRestart();
+	}
+}
+
+async function stopSymlinkWatcher(): Promise< void > {
+	if ( symlinkRestartTimer ) {
+		clearTimeout( symlinkRestartTimer );
+		symlinkRestartTimer = null;
+	}
+
+	const watcher = symlinkWatcher;
+	symlinkWatcher = null;
+	if ( watcher ) {
+		try {
+			await watcher.stop();
+		} catch ( error ) {
+			errorToConsole( 'Failed to close symlink watcher:', error );
+		}
+	}
+}
+
+function scheduleAllowlistRestart(): void {
+	if ( symlinkRestartTimer ) {
+		clearTimeout( symlinkRestartTimer );
+	}
+	symlinkRestartTimer = setTimeout( () => {
+		symlinkRestartTimer = null;
+		logToConsole( `open_basedir extended with new symlink target(s); restarting PHP server` );
+		void restartPhpServer();
+	}, SYMLINK_RESTART_DEBOUNCE_MS );
+}
+
+async function restartPhpServer(): Promise< void > {
+	if ( ! phpProcess || ! runningConfig ) {
+		return;
+	}
+
+	const oldChild = phpProcess;
+	phpProcess = null;
+
+	// Remove the crash listener so the imminent SIGTERM is not reported as an unexpected crash.
+	oldChild.removeAllListeners( 'exit' );
+	killProcessGroup( oldChild, 'SIGTERM' );
+	await new Promise< void >( ( resolve ) => {
+		const timeout = setTimeout( () => {
+			killProcessGroup( oldChild, 'SIGKILL' );
+		}, STOP_SERVER_TIMEOUT );
+		oldChild.once( 'close', () => {
+			clearTimeout( timeout );
+			resolve();
+		} );
+	} );
+
+	try {
+		phpProcess = await doStartServer( runningConfig, currentOpenBasedirAllowlist );
+	} catch ( error ) {
+		errorToConsole( `Failed to restart PHP server:`, error );
+		process.exit( 1 );
+	}
+}
+
+async function startServer( config: ServerConfig, signal: AbortSignal ): Promise< void > {
+	if ( phpProcess ) {
+		logToConsole( `Server already running` );
+		return;
+	}
+
+	const phpVersion = resolveNativePhpVersion( config.phpVersion ?? '' );
 	startupAbortController = new AbortController();
 	const stopSignal = AbortSignal.any( [ signal, startupAbortController.signal ] );
-	let spawnedChild: ChildProcess | null = null;
 
 	try {
 		stopSignal.throwIfAborted();
 		await ensureWpConfig( config.sitePath, phpVersion, stopSignal, config );
 		stopSignal.throwIfAborted();
-		await writeStudioMuPluginsForNativePhpRuntime( config.sitePath, config.isWpAutoUpdating );
+		const muPluginsPath = await writeStudioMuPluginsForNativePhpRuntime(
+			config.sitePath,
+			config.isWpAutoUpdating
+		);
 		stopSignal.throwIfAborted();
 		await installWordPress( config, phpVersion, stopSignal );
 		stopSignal.throwIfAborted();
@@ -326,42 +567,33 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 			stopSignal.throwIfAborted();
 		}
 
-		const phpAddress = `localhost:${ config.port }`;
-		logToConsole( `Spawning PHP built-in server on ${ phpAddress } for site ${ config.siteId }` );
-
-		const serverChild = spawnPhpProcess( [ '-S', phpAddress, ROUTER_PATH ], {
-			phpVersion,
-			cwd: config.sitePath,
-		} );
-		spawnedChild = serverChild;
-
-		await new Promise< void >( ( resolve, reject ) => {
-			serverChild.once( 'spawn', () => {
-				resolve();
-			} );
-			serverChild.once( 'error', ( error: Error ) => {
-				reject( error );
-			} );
-			stopSignal.addEventListener( 'abort', () => {
-				reject( new DOMException( 'Aborted', 'AbortError' ) );
-			} );
-		} );
-
-		serverChild.once( 'exit', ( code, signalName ) => {
-			errorToConsole(
-				`PHP child process exited unexpectedly (code: ${ code }, signal: ${ signalName })`
-			);
-			process.exit( code ?? 1 );
-		} );
-
+		// Snapshot existing symlink targets so open_basedir grants them upfront. New
+		// symlinks added while the server runs are picked up by startSymlinkWatcher
+		// below and trigger a debounced restart with an extended allowlist.
+		const symlinkAllowlistEntries = await collectSymlinkAllowlistEntries( config.sitePath );
 		stopSignal.throwIfAborted();
-		await waitForServerReady( `http://localhost:${ config.port }/`, stopSignal );
 
-		phpProcess = serverChild;
+		currentOpenBasedirAllowlist.add( config.sitePath );
+		currentOpenBasedirAllowlist.add( ROUTER_PATH );
+		currentOpenBasedirAllowlist.add( getPhpMyAdminPath() );
+		currentOpenBasedirAllowlist.add( getNativePhpMyAdminWpEnvPath( config ) );
+		currentOpenBasedirAllowlist.add( getPhpMyAdminSessionPath( config ) );
+		currentOpenBasedirAllowlist.add( muPluginsPath );
+		currentOpenBasedirAllowlist.add( os.tmpdir() );
+		symlinkAllowlistEntries.forEach( ( entry ) => currentOpenBasedirAllowlist.add( entry ) );
+
+		runningConfig = config;
+
+		phpProcess = await doStartServer( config, currentOpenBasedirAllowlist, stopSignal );
+		stopSignal.throwIfAborted();
+		await setAdminCredentials( config, stopSignal );
+		stopSignal.throwIfAborted();
 	} catch ( error ) {
-		if ( spawnedChild && ! spawnedChild.killed ) {
-			spawnedChild.kill( 'SIGKILL' );
-		}
+		killPhpProcess();
+		phpProcess = null;
+		await stopSymlinkWatcher();
+		runningConfig = null;
+		currentOpenBasedirAllowlist.clear();
 
 		if ( stopSignal.aborted ) {
 			logToConsole( `Aborted start server operation:`, error );
@@ -375,7 +607,84 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 	}
 }
 
-const STOP_SERVER_TIMEOUT = 5000;
+async function doStartServer(
+	config: ServerConfig,
+	openBasedirAllowlist: Set< string >,
+	stopSignal?: AbortSignal
+): Promise< ChildProcess > {
+	const phpAddress = `localhost:${ config.port }`;
+	const phpVersion = resolveNativePhpVersion( config.phpVersion ?? '' );
+	let spawnedChild: ChildProcess | null = null;
+
+	logToConsole(
+		`Spawning PHP built-in server on ${ phpAddress } with PHP version ${ phpVersion }`
+	);
+
+	try {
+		const phpMyAdminWpEnvPath = await writeNativePhpMyAdminWpEnv( config );
+		const serverChild = spawnPhpProcess( [ '-S', phpAddress, ROUTER_PATH ], {
+			phpVersion,
+			siteFolder: config.sitePath,
+			env: {
+				STUDIO_PHPMYADMIN_PATH: getPhpMyAdminPath(),
+				STUDIO_NATIVE_PHPMYADMIN_WP_ENV_PATH: phpMyAdminWpEnvPath,
+				STUDIO_PHPMYADMIN_SESSION_PATH: getPhpMyAdminSessionPath( config ),
+				// Lets `php -S` serve concurrent requests so a single slow request
+				// doesn't block the whole site. Unix-only — Windows silently ignores it
+				// because the built-in server has no fork() there.
+				PHP_CLI_SERVER_WORKERS: '4',
+			},
+			onlyPathsThatPhpCanAccess: Array.from( openBasedirAllowlist ),
+			detached: process.platform !== 'win32',
+			disallowRiskyFunctions: true,
+			enableXdebug: config.enableXdebug,
+		} );
+		spawnedChild = serverChild;
+		if ( serverChild.pid !== undefined ) {
+			const message: ChildMessageRaw = {
+				topic: 'server-process-started',
+				data: { pid: serverChild.pid },
+			};
+			process.send?.( message );
+		}
+
+		await new Promise< void >( ( resolve, reject ) => {
+			serverChild.once( 'spawn', () => {
+				resolve();
+			} );
+			serverChild.once( 'error', ( error: Error ) => {
+				reject( error );
+			} );
+			stopSignal?.addEventListener( 'abort', () => {
+				reject( new DOMException( 'Aborted', 'AbortError' ) );
+			} );
+		} );
+
+		serverChild.once( 'exit', ( code, signalName ) => {
+			errorToConsole(
+				`PHP child process exited unexpectedly (code: ${ code }, signal: ${ signalName })`
+			);
+			process.exit( code ?? 1 );
+		} );
+
+		stopSignal?.throwIfAborted();
+		await waitForServerReady( `http://localhost:${ config.port }/`, stopSignal );
+
+		// Watch for symlinks created after startup. open_basedir cannot be extended
+		// at runtime, so the watcher triggers a debounced restart with an updated
+		// allowlist when a new symlink target is discovered.
+		startSymlinkWatcher( config.sitePath );
+
+		return spawnedChild;
+	} catch ( error ) {
+		if ( spawnedChild ) {
+			killProcessGroup( spawnedChild, 'SIGKILL' );
+		}
+		await stopSymlinkWatcher();
+
+		throw error;
+	}
+}
 
 enum StopServerResult {
 	ABORTED_STARTUP = 'ABORTED_STARTUP',
@@ -388,6 +697,10 @@ async function stopServer(): Promise< StopServerResult > {
 		startupAbortController.abort();
 		return StopServerResult.ABORTED_STARTUP;
 	}
+
+	await stopSymlinkWatcher();
+	runningConfig = null;
+	currentOpenBasedirAllowlist.clear();
 
 	if ( ! phpProcess ) {
 		logToConsole( 'No server running, nothing to stop' );
@@ -407,17 +720,15 @@ async function stopServer(): Promise< StopServerResult > {
 	await new Promise< void >( ( resolve ) => {
 		const forceKillTimeout = setTimeout( () => {
 			errorToConsole( 'PHP child did not exit in time; sending SIGKILL' );
-			if ( ! child.killed ) {
-				child.kill( 'SIGKILL' );
-			}
+			killProcessGroup( child, 'SIGKILL' );
 		}, STOP_SERVER_TIMEOUT );
 
-		child.once( 'exit', () => {
+		child.once( 'close', () => {
 			clearTimeout( forceKillTimeout );
 			resolve();
 		} );
 
-		child.kill( 'SIGTERM' );
+		killProcessGroup( child, 'SIGTERM' );
 	} );
 
 	logToConsole( 'Server stopped gracefully' );
@@ -465,15 +776,13 @@ async function runBlueprint(
 		WP_DEBUG_DISPLAY: enableDebugDisplay,
 	};
 
-	const preferredVersions = {
-		php: config.phpVersion || blueprint.contents?.preferredVersions?.php || DEFAULT_PHP_VERSION,
-		wp: config.wpVersion || blueprint.contents?.preferredVersions?.wp || 'latest',
-	};
 	blueprint.contents.constants = {
 		...blueprint.contents.constants,
 		...defaultConstants,
 	};
-	blueprint.contents.preferredVersions = preferredVersions;
+	// Native PHP selects PHP and installs WordPress before Blueprint execution.
+	// Passing preferredVersions makes blueprints.phar validate versions it does not manage here.
+	delete blueprint.contents.preferredVersions;
 
 	// Write the merged blueprint next to the original so blueprints.phar resolves any
 	// relative file references against the original blueprint's directory — its runner
@@ -509,6 +818,11 @@ async function runBlueprint(
 	}
 
 	try {
+		// blueprints.phar spawns its own PHP subprocesses while applying a blueprint.
+		// On Windows those subprocesses auto-load the php.ini we wrote next to
+		// php.exe, which carries the bundled-extension and CA-bundle config. On
+		// macOS/Linux every extension is statically linked into the binary, so no
+		// extra setup is needed for the subprocess.
 		await runPhpCommand(
 			[
 				getBlueprintsPharPath(),
@@ -585,7 +899,7 @@ async function ipcMessageHandler( packet: unknown ) {
 				break;
 			case 'run-blueprint': {
 				const blueprintConfig = validMessage.data.config;
-				const blueprintPhpVersion = validateNativePhpVersion( blueprintConfig.phpVersion ?? '' );
+				const blueprintPhpVersion = resolveNativePhpVersion( blueprintConfig.phpVersion ?? '' );
 				await ensureWpConfig(
 					blueprintConfig.sitePath,
 					blueprintPhpVersion,
@@ -627,6 +941,8 @@ async function ipcMessageHandler( packet: unknown ) {
 		};
 		process.send!( response );
 
+		// If the `stopServer` function ran successfully, the last open handle should be the IPC channel.
+		// Disconnect so that the process can exit cleanly.
 		if ( validMessage.topic === 'stop-server' && result === StopServerResult.OK ) {
 			process.disconnect();
 		}
@@ -641,11 +957,11 @@ async function ipcMessageHandler( packet: unknown ) {
 }
 
 function killPhpProcess(): void {
-	if ( phpProcess && ! phpProcess.killed ) {
+	if ( phpProcess ) {
 		try {
 			// Detach the unexpected-exit listener so the imminent SIGKILL is not logged as a crash.
 			phpProcess.removeAllListeners( 'exit' );
-			phpProcess.kill( 'SIGKILL' );
+			killProcessGroup( phpProcess, 'SIGKILL' );
 		} catch {
 			// Best effort — nothing useful to do if this fails.
 		}
@@ -663,7 +979,11 @@ function shutdownOnSignal( signal: NodeJS.Signals ): void {
 // If this node process is going down (normal exit or IPC disconnect), make sure PHP goes with it.
 process.on( 'exit', killPhpProcess );
 process.on( 'disconnect', () => {
+	logToConsole( 'IPC channel disconnected, shutting down' );
 	killPhpProcess();
+	// Without an explicit exit, the wrapper would linger until the event loop drains,
+	// which delays the daemon's stop sequence and risks the force-kill timer firing.
+	process.exit( 0 );
 } );
 
 // Without explicit signal handlers, the process is terminated abruptly and the 'exit' event

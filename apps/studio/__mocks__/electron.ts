@@ -87,10 +87,15 @@ export const autoUpdater = {
 	on: vi.fn(),
 };
 
+export const clipboard = {
+	writeText: vi.fn(),
+};
+
 export const session = {
 	defaultSession: {
 		setPermissionRequestHandler: vi.fn(),
 		webRequest: {
+			onBeforeSendHeaders: vi.fn(),
 			onHeadersReceived: vi.fn(),
 		},
 	},

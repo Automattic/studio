@@ -1,15 +1,11 @@
-import crypto from 'crypto';
+import fs from 'fs';
 import Anthropic from '@anthropic-ai/sdk';
-import {
-	Agent,
-	type AgentEvent,
-	type AgentMessage,
-	type AgentTool,
-	type StreamFn,
-} from '@mariozechner/pi-agent-core';
-import { type Model } from '@mariozechner/pi-ai';
+import { type AgentEvent, type AgentTool } from '@mariozechner/pi-agent-core';
+import { type Model, type SimpleStreamOptions } from '@mariozechner/pi-ai';
 import { streamAnthropic, type AnthropicOptions } from '@mariozechner/pi-ai/anthropic';
 import {
+	AuthStorage,
+	createAgentSession,
 	createBashTool,
 	createEditTool,
 	createFindTool,
@@ -17,8 +13,21 @@ import {
 	createLsTool,
 	createReadTool,
 	createWriteTool,
+	DefaultResourceLoader,
+	ModelRegistry,
+	SettingsManager,
+	type AgentSession,
+	type AgentSessionEvent,
+	type SessionManager,
+	type ToolDefinition,
 } from '@mariozechner/pi-coding-agent';
-import { getAiModelFamily, type AiModelFamily, type AiModelId } from '@studio/common/ai/models';
+import {
+	DEFAULT_MODEL,
+	getAiModelFamily,
+	type AiModelFamily,
+	type AiModelId,
+} from '@studio/common/ai/models';
+import { getAiPayloadsPath, getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
@@ -28,39 +37,80 @@ import { createSkillTool } from 'cli/ai/tools/skill';
 import { takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
 import { createWpcomRequestTool } from 'cli/ai/tools/wpcom-request';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
-import { buildTransformContext } from './compaction';
-import { loadSidecar, saveSidecar } from './persistence';
-import type { SDKMessage } from '../messages';
-import type { AgentRuntime, AgentRuntimeConfig, AgentRuntimeHandle } from '../types';
+import { stripStaleImagesFromContext } from './strip-stale-images';
+import {
+	getIncompleteToolCallReason,
+	getPayloadLimitDescription,
+	getPayloadLimitViolation,
+	type StudioToolPayloadGuardState,
+	updateStudioToolPayloadGuardState,
+} from './tool-safety';
+import type { AskUserHandler, SiteInfo } from 'cli/ai/types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AgentToolAny = AgentTool< any >;
+type StudioModel = Model< 'openai-completions' > | Model< 'anthropic-messages' >;
+type ProviderConfigInput = Parameters< ModelRegistry[ 'registerProvider' ] >[ 1 ];
 
-type CompactionPhase = 'start' | 'end' | 'skipped' | 'failed';
-interface CompactionLifecycleRef {
-	current: ( ( phase: CompactionPhase ) => void ) | null;
+const STUDIO_WPCOM_ANTHROPIC_PROVIDER = 'studio-wpcom-anthropic';
+const STUDIO_AGENT_DIR = STUDIO_SITES_ROOT;
+const STUDIO_WPCOM_BODY_FILES_ROOT = getConfigDirectory();
+const STUDIO_WPCOM_BODY_FILES_DIR = getAiPayloadsPath();
+const STUDIO_COMPACTION_SETTINGS = {
+	enabled: true,
+	reserveTokens: 16_384,
+	keepRecentTokens: 20_000,
+};
+
+export interface StudioAgentTurnConfig {
+	prompt: string;
+	session: SessionManager;
+	env?: Record< string, string >;
+	model?: AiModelId;
+	activeSite?: SiteInfo | null;
+	wpcomAccessToken?: string;
+	onAskUser?: AskUserHandler;
+	onEvent: ( event: AgentSessionEvent ) => void;
 }
 
-const AGENTS_BY_SESSION = new Map< string, Agent >();
-const LIFECYCLE_REFS_BY_SESSION = new Map< string, CompactionLifecycleRef >();
+interface ResolvedStudioAgentTurnConfig extends StudioAgentTurnConfig {
+	env: Record< string, string >;
+	model: AiModelId;
+}
 
-export const piRuntime: AgentRuntime = {
-	run( config: AgentRuntimeConfig ): AgentRuntimeHandle {
-		const sessionId = config.resume ?? crypto.randomUUID();
-		const controller = new AbortController();
-		const messages = createMessageStream( config, sessionId, controller );
+export interface StudioAgentTurnHandle {
+	result: Promise< void >;
+	interrupt(): Promise< void >;
+}
 
-		return {
-			async interrupt() {
-				controller.abort();
-				AGENTS_BY_SESSION.get( sessionId )?.abort();
-			},
-			[ Symbol.asyncIterator ]() {
-				return messages[ Symbol.asyncIterator ]();
-			},
-		};
-	},
-};
+export function runStudioAgentTurn( config: StudioAgentTurnConfig ): StudioAgentTurnHandle {
+	const controller = new AbortController();
+	let activeSession: AgentSession | undefined;
+	const resolvedConfig: ResolvedStudioAgentTurnConfig = {
+		...config,
+		env: config.env ?? { ...( process.env as Record< string, string > ) },
+		model: config.model ?? DEFAULT_MODEL,
+	};
+
+	if ( ! fs.existsSync( STUDIO_SITES_ROOT ) ) {
+		fs.mkdirSync( STUDIO_SITES_ROOT, { recursive: true } );
+	}
+	if ( resolvedConfig.activeSite?.remote ) {
+		fs.mkdirSync( STUDIO_WPCOM_BODY_FILES_DIR, { recursive: true } );
+	}
+
+	const result = runAgentSessionTurn( resolvedConfig, controller, ( session ) => {
+		activeSession = session;
+	} );
+
+	return {
+		result,
+		async interrupt() {
+			controller.abort();
+			await activeSession?.abort();
+		},
+	};
+}
 
 interface ResolvedCredentials {
 	apiKey: string;
@@ -119,113 +169,91 @@ function resolveCredentials(
 	};
 }
 
-async function* createMessageStream(
-	config: AgentRuntimeConfig,
-	sessionId: string,
-	controller: AbortController
-): AsyncGenerator< SDKMessage, void, void > {
-	const start = Date.now();
-	yield makeSystemInit( sessionId, config.model );
+// Synthesize a pi `agent_end` event with a single error assistant message.
+// Used for failures the runtime catches before pi's own `agent_end` fires
+// (missing credentials, abort during pre-flight, exceptions out of the
+// agent loop). Downstream consumers read `stopReason`/`errorMessage` from
+// the last assistant message — same path as a real run that errored.
+function syntheticErrorAgentEnd(
+	stopReason: 'error' | 'aborted',
+	errorMessage: string
+): AgentEvent {
+	return {
+		type: 'agent_end',
+		messages: [
+			{
+				role: 'assistant',
+				content: errorMessage ? [ { type: 'text', text: errorMessage } ] : [],
+				api: 'anthropic-messages',
+				provider: 'anthropic',
+				model: '',
+				usage: {
+					input: 0,
+					output: 0,
+					cacheRead: 0,
+					cacheWrite: 0,
+					totalTokens: 0,
+					cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+				},
+				stopReason,
+				errorMessage,
+				timestamp: Date.now(),
+			},
+		],
+	};
+}
 
+async function runAgentSessionTurn(
+	config: ResolvedStudioAgentTurnConfig,
+	controller: AbortController,
+	setActiveSession: ( session: AgentSession | undefined ) => void
+): Promise< void > {
 	const family = getAiModelFamily( config.model );
 	const resolved = resolveCredentials( family, config.env );
 	if ( ! resolved.ok ) {
-		yield makeAssistantText( sessionId, config.model, resolved.reason );
-		yield makeResultError( sessionId, start );
+		config.onEvent( syntheticErrorAgentEnd( 'error', resolved.reason ) );
 		return;
 	}
 
+	let session: AgentSession | undefined;
+	let unsubscribe: ( () => void ) | undefined;
+	const payloadGuardState: StudioToolPayloadGuardState = {};
 	try {
-		const { agent, lifecycleRef } = await getOrCreateAgent(
-			sessionId,
-			config,
-			family,
-			resolved.creds
-		);
-
-		const queue: SDKMessage[] = [];
-		let resolveNext: ( () => void ) | null = null;
-		let done = false;
-
-		const wake = () => {
-			resolveNext?.();
-			resolveNext = null;
-		};
-
-		lifecycleRef.current = ( phase ) => {
-			if ( phase === 'start' ) {
-				queue.push( makeSystemStatus( sessionId, 'compacting' ) );
-				wake();
-			} else if ( phase === 'end' ) {
-				queue.push( makeCompactBoundary( sessionId ) );
-				wake();
-			}
-		};
-
-		const unsubscribe = agent.subscribe( ( event ) => {
-			for ( const msg of translateEvent( event, sessionId, config.model, start ) ) {
-				queue.push( msg );
-			}
-			if ( event.type === 'agent_end' ) {
-				done = true;
-			}
-			wake();
+		session = await createStudioAgentSession( config, family, resolved.creds, payloadGuardState );
+		setActiveSession( session );
+		unsubscribe = session.subscribe( ( event ) => {
+			updateStudioToolPayloadGuardState( event, payloadGuardState );
+			config.onEvent( event );
 		} );
 
-		const runPromise = agent.prompt( config.prompt );
-
-		while ( true ) {
-			if ( queue.length > 0 ) {
-				const msg = queue.shift()!;
-				yield msg;
-				continue;
-			}
-			if ( done ) break;
-			if ( controller.signal.aborted ) break;
-			await new Promise< void >( ( resolve ) => {
-				resolveNext = resolve;
-			} );
-		}
-
-		unsubscribe();
-		// Stale closures from previous runs would otherwise keep pushing into a
-		// finished queue if a follow-up run reuses the same Agent.
-		lifecycleRef.current = null;
-		await runPromise.catch( () => undefined );
-
-		if ( config.sessionFilePath ) {
-			await saveSidecar( config.sessionFilePath, agent.state.messages ).catch( () => undefined );
-		}
-	} catch ( error ) {
 		if ( controller.signal.aborted ) {
-			yield makeResultError( sessionId, start );
+			await session.abort();
+			config.onEvent( syntheticErrorAgentEnd( 'aborted', '' ) );
 			return;
 		}
-		const message = error instanceof Error ? error.message : String( error );
-		yield makeAssistantText( sessionId, config.model, `Runtime error: ${ message }` );
-		yield makeResultError( sessionId, start );
+
+		await session.prompt( config.prompt, { expandPromptTemplates: false, source: 'rpc' } );
+	} catch ( error ) {
+		const aborted = controller.signal.aborted;
+		const message = aborted ? '' : error instanceof Error ? error.message : String( error );
+		config.onEvent( syntheticErrorAgentEnd( aborted ? 'aborted' : 'error', message ) );
+	} finally {
+		unsubscribe?.();
+		session?.dispose();
+		setActiveSession( undefined );
 	}
 }
 
-async function getOrCreateAgent(
-	sessionId: string,
-	config: AgentRuntimeConfig,
+async function createStudioAgentSession(
+	config: ResolvedStudioAgentTurnConfig,
 	family: AiModelFamily,
-	creds: ResolvedCredentials
-): Promise< { agent: Agent; lifecycleRef: CompactionLifecycleRef } > {
-	const existing = AGENTS_BY_SESSION.get( sessionId );
-	const existingRef = LIFECYCLE_REFS_BY_SESSION.get( sessionId );
-	if ( existing && existingRef && existing.state.model.id === config.model ) {
-		return { agent: existing, lifecycleRef: existingRef };
-	}
-
+	creds: ResolvedCredentials,
+	payloadGuardState: StudioToolPayloadGuardState
+): Promise< AgentSession > {
 	const model = buildModel( config.model, family, creds );
-
 	const isRemoteSite = Boolean( config.activeSite?.remote && config.activeSite?.wpcomSiteId );
-	// `process.send` is the same signal `emitEvent` uses to detect the desktop
-	// IPC channel; without it, navigate/reload tools are noise in a terminal.
-	const isForkedByDesktop = typeof process.send === 'function';
 	const remoteSession = config.env.STUDIO_REMOTE_SESSION === '1';
+	const chatArtifactsEnabled = typeof process.send === 'function';
 
 	const systemPrompt = buildSystemPrompt(
 		isRemoteSite
@@ -237,74 +265,59 @@ async function getOrCreateAgent(
 					},
 					remoteSession,
 			  }
-			: { previewSteering: isForkedByDesktop, remoteSession }
+			: { chatArtifactsEnabled, remoteSession }
 	);
 
-	const tools = buildAgentTools( config, isForkedByDesktop, remoteSession );
+	const tools = buildAgentTools( config, chatArtifactsEnabled, remoteSession );
+	const toolDefinitions = tools.map( ( tool ) => toToolDefinition( tool, payloadGuardState ) );
+	const { authStorage, modelRegistry } = createModelRegistry( model, family, creds );
+	const settingsManager = createSettingsManager( config.env );
+	const resourceLoader = new DefaultResourceLoader( {
+		cwd: STUDIO_SITES_ROOT,
+		agentDir: STUDIO_AGENT_DIR,
+		settingsManager,
+		noExtensions: true,
+		noSkills: true,
+		noPromptTemplates: true,
+		noThemes: true,
+		noContextFiles: true,
+		systemPrompt,
+	} );
+	await resourceLoader.reload();
 
-	// On a `/model` swap mid-session, reuse the prior transcript so the
-	// conversation continues; on a cold fork hydrate from the sidecar.
-	const initialMessages = existing
-		? existing.state.messages
-		: config.sessionFilePath
-		? ( await loadSidecar( config.sessionFilePath ) ) ?? []
-		: [];
-
-	const lifecycleRef: CompactionLifecycleRef = { current: null };
-
-	// pi-ai's default Anthropic auth uses `apiKey` → `x-api-key`, which the
-	// wpcom proxy rejects. Inject a pre-built client with `authToken` so the
-	// SDK sends `Authorization: Bearer` instead.
-	const streamFn: StreamFn | undefined =
-		family === 'anthropic' && creds.useBearerAuth
-			? buildAnthropicBearerStreamFn( creds )
-			: undefined;
-
-	const agent = new Agent( {
-		initialState: {
-			model,
-			systemPrompt,
-			messages: initialMessages,
-			tools,
-			// pi-agent-core defaults to "off"; matches the Claude Agent SDK's
-			// previous adaptive-thinking default and gives gpt-5.5 a real
-			// reasoning effort budget on Chat Completions.
-			thinkingLevel: 'high',
-		},
-		getApiKey: () => creds.apiKey,
-		sessionId,
-		...( streamFn ? { streamFn } : {} ),
-		transformContext: buildTransformContext( {
-			model,
-			apiKey: creds.apiKey,
-			headers: creds.extraHeaders,
-			onLifecycle: ( phase ) => lifecycleRef.current?.( phase ),
-		} ),
+	const result = await createAgentSession( {
+		cwd: STUDIO_SITES_ROOT,
+		agentDir: STUDIO_AGENT_DIR,
+		authStorage,
+		modelRegistry,
+		model,
+		thinkingLevel: 'medium',
+		sessionManager: config.session,
+		settingsManager,
+		resourceLoader,
+		customTools: toolDefinitions,
+		tools: toolDefinitions.map( ( tool ) => tool.name ),
+		sessionStartEvent: { type: 'session_start', reason: 'startup' },
 	} );
 
-	AGENTS_BY_SESSION.set( sessionId, agent );
-	LIFECYCLE_REFS_BY_SESSION.set( sessionId, lifecycleRef );
-	return { agent, lifecycleRef };
+	return result.session;
 }
 
 function buildModel(
 	modelId: AiModelId,
 	family: AiModelFamily,
 	creds: ResolvedCredentials
-): Model< 'openai-completions' > | Model< 'anthropic-messages' > {
+): StudioModel {
 	const baseUrl = creds.baseURL.replace( /\/+$/, '' );
 	const common = {
 		id: modelId,
 		name: modelId,
 		baseUrl,
-		input: [ 'text' as const ],
+		input: [ 'text' as const, 'image' as const ],
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 		...( creds.extraHeaders ? { headers: creds.extraHeaders } : {} ),
 	};
 
-	// OpenAI Chat Completions reasoning_effort='high' starves visible output
-	// on GPT-5.5 (model returns "Done" after a long internal-reasoning turn).
-	// Leave reasoning off for OpenAI and let server-side defaults handle it.
 	if ( family === 'openai' ) {
 		return {
 			...common,
@@ -318,37 +331,116 @@ function buildModel(
 	return {
 		...common,
 		api: 'anthropic-messages',
-		provider: 'anthropic',
+		provider: creds.useBearerAuth ? STUDIO_WPCOM_ANTHROPIC_PROVIDER : 'anthropic',
 		reasoning: true,
 		contextWindow: 200_000,
-		maxTokens: 8_192,
+		// thinkingLevel 'high' reserves ~16384 of this budget for extended thinking
+		// (see adjustMaxTokensForThinking in pi-ai); keep enough headroom for visible
+		// output so single tool calls can emit a full-page HTML payload.
+		maxTokens: 32_000,
 	};
 }
 
-function buildAnthropicBearerStreamFn( creds: ResolvedCredentials ): StreamFn {
-	const client = new Anthropic( {
-		apiKey: null,
-		authToken: creds.apiKey,
-		baseURL: creds.baseURL,
-		// Some test envs (e.g. vitest jsdom) trip the SDK's browser-detect
-		// guard; we're in Node.
-		dangerouslyAllowBrowser: true,
-		defaultHeaders: creds.extraHeaders,
+function createModelRegistry(
+	model: StudioModel,
+	family: AiModelFamily,
+	creds: ResolvedCredentials
+): { authStorage: AuthStorage; modelRegistry: ModelRegistry } {
+	const authStorage = AuthStorage.inMemory();
+	const modelRegistry = ModelRegistry.inMemory( authStorage );
+
+	if ( family === 'anthropic' && creds.useBearerAuth ) {
+		modelRegistry.registerProvider(
+			STUDIO_WPCOM_ANTHROPIC_PROVIDER,
+			createWpcomAnthropicProviderConfig( model as Model< 'anthropic-messages' >, creds )
+		);
+		return { authStorage, modelRegistry };
+	}
+
+	authStorage.setRuntimeApiKey( family, creds.apiKey );
+	return { authStorage, modelRegistry };
+}
+
+function createWpcomAnthropicProviderConfig(
+	model: Model< 'anthropic-messages' >,
+	creds: ResolvedCredentials
+): ProviderConfigInput {
+	return {
+		baseUrl: creds.baseURL,
+		apiKey: creds.apiKey,
+		api: 'anthropic-messages',
+		headers: creds.extraHeaders,
+		streamSimple: ( m, ctx, options?: SimpleStreamOptions ) => {
+			const client = new Anthropic( {
+				apiKey: null,
+				authToken: options?.apiKey ?? creds.apiKey,
+				baseURL: m.baseUrl,
+				dangerouslyAllowBrowser: true,
+				defaultHeaders: options?.headers,
+			} );
+			const clientForPi = client as unknown as AnthropicOptions[ 'client' ];
+			return streamAnthropic(
+				m as Model< 'anthropic-messages' >,
+				stripStaleImagesFromContext( ctx ),
+				{
+					...( options as AnthropicOptions | undefined ),
+					client: clientForPi,
+				}
+			);
+		},
+		models: [
+			{
+				id: model.id,
+				name: model.name,
+				api: 'anthropic-messages',
+				baseUrl: model.baseUrl,
+				reasoning: model.reasoning,
+				input: model.input,
+				cost: model.cost,
+				contextWindow: model.contextWindow,
+				maxTokens: model.maxTokens,
+				headers: creds.extraHeaders,
+				compat: model.compat,
+			},
+		],
+	};
+}
+
+function createSettingsManager( _env: Record< string, string > ): SettingsManager {
+	return SettingsManager.inMemory( {
+		defaultThinkingLevel: 'high',
+		compaction: STUDIO_COMPACTION_SETTINGS,
 	} );
-	// pi-ai bundles its own `@anthropic-ai/sdk` copy; the bundled `Anthropic`
-	// class is a different TS identity from ours (private-field branding).
-	// Cast through `unknown` since the runtime shape is identical.
-	const clientForPi = client as unknown as AnthropicOptions[ 'client' ];
-	return ( m, ctx, options ) =>
-		streamAnthropic( m as Model< 'anthropic-messages' >, ctx, {
-			...( options as AnthropicOptions | undefined ),
-			client: clientForPi,
-		} );
+}
+
+function toToolDefinition(
+	tool: AgentToolAny,
+	payloadGuardState: StudioToolPayloadGuardState
+): ToolDefinition {
+	return {
+		name: tool.name,
+		label: tool.label,
+		description: getPayloadLimitDescription( tool.name, tool.description ),
+		parameters: tool.parameters,
+		prepareArguments: tool.prepareArguments,
+		executionMode: tool.executionMode,
+		execute: async ( toolCallId, params, signal, onUpdate ) => {
+			const incompleteToolCallReason = getIncompleteToolCallReason( payloadGuardState, toolCallId );
+			if ( incompleteToolCallReason ) {
+				throw new Error( incompleteToolCallReason );
+			}
+			const payloadLimitViolation = getPayloadLimitViolation( tool.name, params );
+			if ( payloadLimitViolation ) {
+				throw new Error( payloadLimitViolation );
+			}
+			return tool.execute( toolCallId, params, signal, onUpdate );
+		},
+	};
 }
 
 function buildAgentTools(
-	config: AgentRuntimeConfig,
-	enablePreviewSteering: boolean,
+	config: ResolvedStudioAgentTurnConfig,
+	chatArtifactsEnabled: boolean,
 	remoteSession: boolean
 ): AgentToolAny[] {
 	const isRemoteSite = Boolean(
@@ -362,24 +454,30 @@ function buildAgentTools(
 	const skillToolDef = createSkillTool();
 	const skillTool: AgentToolAny[] = skillToolDef ? [ skillToolDef ] : [];
 
+	const renameTool = ( tool: AgentToolAny, name: string ): AgentToolAny => ( {
+		...tool,
+		name,
+		label: name,
+	} );
+
+	const remoteScratchTools: AgentToolAny[] = [
+		renameTool( createReadTool( STUDIO_WPCOM_BODY_FILES_ROOT ), 'Read' ),
+		renameTool( createWriteTool( STUDIO_WPCOM_BODY_FILES_ROOT ), 'Write' ),
+		renameTool( createEditTool( STUDIO_WPCOM_BODY_FILES_ROOT ), 'Edit' ),
+		renameTool( createLsTool( STUDIO_WPCOM_BODY_FILES_ROOT ), 'Ls' ),
+	];
+
 	if ( isRemoteSite ) {
 		return [
 			createWpcomRequestTool( config.wpcomAccessToken!, config.activeSite!.wpcomSiteId! ),
 			takeScreenshotTool,
 			createSiteTool,
 			pullSiteTool,
+			...remoteScratchTools,
 			...askUserTool,
 			...skillTool,
 		];
 	}
-
-	// `Glob` / `Ls` mirror Claude Code's preset tool names so the system
-	// prompt stays family-agnostic.
-	const renameTool = ( tool: AgentToolAny, name: string ): AgentToolAny => ( {
-		...tool,
-		name,
-		label: name,
-	} );
 
 	const piTools: AgentToolAny[] = [
 		renameTool( createReadTool( STUDIO_SITES_ROOT ), 'Read' ),
@@ -390,92 +488,11 @@ function buildAgentTools(
 		renameTool( createFindTool( STUDIO_SITES_ROOT ), 'Glob' ),
 		renameTool( createLsTool( STUDIO_SITES_ROOT ), 'Ls' ),
 	];
-	return [
-		...resolveStudioToolDefinitions( { enablePreviewSteering, remoteSession } ),
-		...askUserTool,
-		...skillTool,
-		...piTools,
-	];
-}
-
-function* translateEvent(
-	event: AgentEvent,
-	sessionId: string,
-	model: string,
-	start: number
-): Generator< SDKMessage, void, void > {
-	if ( event.type === 'message_end' ) {
-		const msg = event.message;
-		if ( msg.role !== 'assistant' ) return;
-		const text = extractAssistantText( msg );
-		const toolCalls = msg.content.filter(
-			( block ): block is Extract< typeof block, { type: 'toolCall' } > => block.type === 'toolCall'
-		);
-		if ( text ) {
-			yield makeAssistantText( sessionId, model, text );
-		} else if ( toolCalls.length === 0 ) {
-			// Reasoning models can burn a turn on `thinking` blocks alone; show
-			// the summary so the UI doesn't render a silent "Done".
-			const thinking = extractThinkingText( msg );
-			if ( thinking ) {
-				yield makeAssistantText( sessionId, model, thinking );
-			}
-		}
-		for ( const block of toolCalls ) {
-			yield makeAssistantToolUse(
-				sessionId,
-				model,
-				block.id,
-				block.name,
-				( block.arguments as Record< string, unknown > ) ?? {}
-			);
-		}
-		return;
-	}
-	if ( event.type === 'turn_end' ) {
-		for ( const toolResult of event.toolResults ) {
-			const text = extractToolResultText( toolResult );
-			yield makeToolResult( sessionId, toolResult.toolCallId, text, Boolean( toolResult.isError ) );
-		}
-		return;
-	}
-	if ( event.type === 'agent_end' ) {
-		yield makeResultSuccess( sessionId, '', start );
-		return;
-	}
-}
-
-function extractAssistantText( msg: AgentMessage ): string {
-	if ( msg.role !== 'assistant' ) return '';
-	return msg.content
-		.filter( ( b ): b is { type: 'text'; text: string } => b.type === 'text' )
-		.map( ( b ) => b.text )
-		.join( '' );
-}
-
-function extractThinkingText( msg: AgentMessage ): string {
-	if ( msg.role !== 'assistant' ) return '';
-	return msg.content
-		.filter(
-			( b ): b is { type: 'thinking'; thinking: string } =>
-				b.type === 'thinking' && typeof ( b as { thinking?: unknown } ).thinking === 'string'
-		)
-		.map( ( b ) => b.thinking )
-		.join( '\n\n' );
-}
-
-function extractToolResultText( toolResult: {
-	content: Array< { type: string; text?: string } | unknown >;
-} ): string {
-	if ( ! Array.isArray( toolResult.content ) ) return '';
-	return toolResult.content
-		.map( ( part ) => {
-			if ( ! part || typeof part !== 'object' ) return String( part );
-			const p = part as { type?: string; text?: string };
-			if ( p.type === 'text' && typeof p.text === 'string' ) return p.text;
-			return '';
-		} )
-		.join( '' );
+	const studioTools = resolveStudioToolDefinitions( {
+		emitChatArtifacts: chatArtifactsEnabled,
+		remoteSession,
+	} ) as unknown as AgentToolAny[];
+	return [ ...studioTools, ...askUserTool, ...skillTool, ...piTools ];
 }
 
 function parseJsonHeaderEnv( value: string | undefined ): Record< string, string > | undefined {
@@ -492,8 +509,6 @@ function parseJsonHeaderEnv( value: string | undefined ): Record< string, string
 			'STUDIO_OPENAI_DEFAULT_HEADERS must be a JSON object of string→string pairs; ignoring custom headers.'
 		);
 	} catch {
-		// Surface the warning so a missing X-WPCOM-AI-Feature header doesn't
-		// later show up as an opaque 401 from the proxy.
 		console.warn(
 			'STUDIO_OPENAI_DEFAULT_HEADERS contained malformed JSON; ignoring custom headers.'
 		);
@@ -501,7 +516,6 @@ function parseJsonHeaderEnv( value: string | undefined ): Record< string, string
 	return undefined;
 }
 
-// `Name: value\nName: value` — the format `ANTHROPIC_CUSTOM_HEADERS` carries.
 function parseAnthropicHeaderEnv(
 	value: string | undefined
 ): Record< string, string > | undefined {
@@ -515,178 +529,4 @@ function parseAnthropicHeaderEnv(
 		if ( name && v ) out[ name ] = v;
 	}
 	return Object.keys( out ).length ? out : undefined;
-}
-
-function makeSystemInit( sessionId: string, model: string ): SDKMessage {
-	return {
-		type: 'system',
-		subtype: 'init',
-		apiKeySource: 'user',
-		cwd: STUDIO_SITES_ROOT,
-		tools: [],
-		mcp_servers: [],
-		model,
-		permissionMode: 'default',
-		slash_commands: [],
-		output_style: 'default',
-		skills: [],
-		plugins: [],
-		claude_code_version: '0.0.0-pi-runtime',
-		uuid: crypto.randomUUID(),
-		session_id: sessionId,
-	} as unknown as SDKMessage;
-}
-
-function makeSystemStatus( sessionId: string, status: 'compacting' ): SDKMessage {
-	return {
-		type: 'system',
-		subtype: 'status',
-		status,
-		uuid: crypto.randomUUID(),
-		session_id: sessionId,
-	} as unknown as SDKMessage;
-}
-
-function makeCompactBoundary( sessionId: string ): SDKMessage {
-	return {
-		type: 'system',
-		subtype: 'compact_boundary',
-		uuid: crypto.randomUUID(),
-		session_id: sessionId,
-	} as unknown as SDKMessage;
-}
-
-function makeAssistantText( sessionId: string, model: string, text: string ): SDKMessage {
-	return {
-		type: 'assistant',
-		parent_tool_use_id: null,
-		uuid: crypto.randomUUID(),
-		session_id: sessionId,
-		message: {
-			id: crypto.randomUUID(),
-			type: 'message',
-			role: 'assistant',
-			model,
-			content: [ { type: 'text', text } ],
-			stop_reason: 'end_turn',
-			stop_sequence: null,
-			usage: {
-				input_tokens: 0,
-				output_tokens: 0,
-				cache_creation_input_tokens: 0,
-				cache_read_input_tokens: 0,
-				service_tier: 'standard',
-			},
-		},
-	} as unknown as SDKMessage;
-}
-
-function makeAssistantToolUse(
-	sessionId: string,
-	model: string,
-	toolUseId: string,
-	toolName: string,
-	input: Record< string, unknown >
-): SDKMessage {
-	return {
-		type: 'assistant',
-		parent_tool_use_id: null,
-		uuid: crypto.randomUUID(),
-		session_id: sessionId,
-		message: {
-			id: crypto.randomUUID(),
-			type: 'message',
-			role: 'assistant',
-			model,
-			content: [ { type: 'tool_use', id: toolUseId, name: toolName, input } ],
-			stop_reason: 'tool_use',
-			stop_sequence: null,
-			usage: {
-				input_tokens: 0,
-				output_tokens: 0,
-				cache_creation_input_tokens: 0,
-				cache_read_input_tokens: 0,
-				service_tier: 'standard',
-			},
-		},
-	} as unknown as SDKMessage;
-}
-
-function makeToolResult(
-	sessionId: string,
-	toolUseId: string,
-	content: string,
-	isError: boolean
-): SDKMessage {
-	return {
-		type: 'user',
-		parent_tool_use_id: null,
-		uuid: crypto.randomUUID(),
-		session_id: sessionId,
-		message: {
-			role: 'user',
-			content: [
-				{
-					type: 'tool_result',
-					tool_use_id: toolUseId,
-					content,
-					is_error: isError,
-				},
-			],
-		},
-	} as unknown as SDKMessage;
-}
-
-function makeResultSuccess( sessionId: string, text: string, start: number ): SDKMessage {
-	const durationMs = Date.now() - start;
-	return {
-		type: 'result',
-		subtype: 'success',
-		duration_ms: durationMs,
-		duration_api_ms: durationMs,
-		is_error: false,
-		num_turns: 1,
-		result: text,
-		stop_reason: 'end_turn',
-		total_cost_usd: 0,
-		usage: {
-			input_tokens: 0,
-			output_tokens: 0,
-			cache_creation_input_tokens: 0,
-			cache_read_input_tokens: 0,
-			server_tool_use: { web_search_requests: 0 },
-			service_tier: 'standard',
-		},
-		modelUsage: {},
-		permission_denials: [],
-		uuid: crypto.randomUUID(),
-		session_id: sessionId,
-	} as unknown as SDKMessage;
-}
-
-function makeResultError( sessionId: string, start: number ): SDKMessage {
-	const durationMs = Date.now() - start;
-	return {
-		type: 'result',
-		subtype: 'error_during_execution',
-		duration_ms: durationMs,
-		duration_api_ms: durationMs,
-		is_error: true,
-		num_turns: 0,
-		result: '',
-		stop_reason: null,
-		total_cost_usd: 0,
-		usage: {
-			input_tokens: 0,
-			output_tokens: 0,
-			cache_creation_input_tokens: 0,
-			cache_read_input_tokens: 0,
-			server_tool_use: { web_search_requests: 0 },
-			service_tier: 'standard',
-		},
-		modelUsage: {},
-		permission_denials: [],
-		uuid: crypto.randomUUID(),
-		session_id: sessionId,
-	} as unknown as SDKMessage;
 }

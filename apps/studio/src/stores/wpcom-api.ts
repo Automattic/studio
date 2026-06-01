@@ -1,6 +1,7 @@
 import { createApi, TypedUseQuery, TypedUseMutation } from '@reduxjs/toolkit/query/react';
 import * as Sentry from '@sentry/electron/renderer';
 import { DAY_MS } from '@studio/common/constants';
+import { blueprintSchema, type Blueprint } from '@studio/common/lib/studio-blueprints-api';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { z } from 'zod';
@@ -60,17 +61,7 @@ const snapshotStatusSchema = z
 		isDeleted: data.is_deleted === '1',
 	} ) );
 
-const blueprintSchema = z.object( {
-	slug: z.string(),
-	title: z.string(),
-	excerpt: z.string(),
-	image: z.string(),
-	playground_url: z.string(),
-	blueprint: z.record( z.string(), z.unknown() ),
-	filePath: z.string().optional(),
-} );
-
-export type Blueprint = z.infer< typeof blueprintSchema >;
+export type { Blueprint };
 
 let wpcomClient: WPCOM | undefined;
 const publicWpcomClient = wpcomFactory( wpcomXhrRequest );

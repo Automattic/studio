@@ -22,6 +22,7 @@ import {
 	getBetaFeaturesDefinition,
 	updateBetaFeature,
 } from 'src/lib/beta-features';
+import { bumpStat, getPlatformMetric, StatsGroup } from 'src/lib/bump-stats';
 import {
 	FEATURE_FLAGS,
 	FeatureFlagDefinition,
@@ -86,6 +87,14 @@ async function buildBetaFeaturesMenu(): Promise< MenuItemConstructorOptions[] > 
 				sublabel: process.platform === 'darwin' ? definition.description : undefined,
 				click: async ( menuItem: MenuItem ) => {
 					await updateBetaFeature( key as keyof BetaFeatures, menuItem.checked );
+					if ( key === 'remoteSession' ) {
+						bumpStat(
+							menuItem.checked
+								? StatsGroup.STUDIO_APP_DOLLY_ENABLE
+								: StatsGroup.STUDIO_APP_DOLLY_DISABLE,
+							getPlatformMetric()
+						);
+					}
 					void sendIpcEventToRenderer( 'beta-features-updated' );
 				},
 			};
@@ -164,7 +173,7 @@ async function getAppMenu(
 				{
 					label: __( 'Beta Features' ),
 					submenu: betaFeaturesMenu,
-					enabled: false,
+					enabled: betaFeaturesMenu.length > 0,
 				},
 				{ type: 'separator' },
 				...( process.platform === 'win32'

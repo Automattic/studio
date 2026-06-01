@@ -21,11 +21,10 @@ export type { Annotation } from './types';
 interface SitePreviewProps {
 	site: SiteDetails;
 	// Path to display within the previewed site, controlled by the parent so
-	// it can be updated by `preview.command` events even when the panel was
+	// it can be updated by chat artifact events even when the panel was
 	// previously collapsed.
 	path: string;
-	// Bumped by the parent to force a webview reload (e.g. on a `reload`
-	// preview command).
+	// Bumped by the parent to force a webview reload.
 	reloadNonce: number;
 	// Called when the user clicks "Submit" in the inspector toolbar. Receives
 	// the full annotation payload assembled inside the webview's guest page.
@@ -227,7 +226,7 @@ function WebviewSurface( { url, reloadNonce, onAnnotationsDone }: WebviewSurface
 				ref={ ref }
 				src={ initialNav.url }
 				className={ styles.iframe }
-				allowpopups="true"
+				allowpopups={ true }
 				partition="persist:site-preview"
 			/>
 			{ ! ready ? (

@@ -19,6 +19,20 @@ export abstract class SqliteIntegrationProvider {
 		return hasDbPhp || ! hasWpConfig;
 	}
 
+	async shouldKeepExistingDbDropin( sitePath: string ): Promise< boolean > {
+		const dbPhpPath = path.join( sitePath, 'wp-content', 'db.php' );
+		if ( ! fs.existsSync( dbPhpPath ) ) {
+			return false;
+		}
+
+		try {
+			const content = await fs.promises.readFile( dbPhpPath, 'utf8' );
+			return content.includes( '@studio-keep' );
+		} catch {
+			return false;
+		}
+	}
+
 	async getSqliteVersionFromInstallation( sqliteMuPluginPath: string ): Promise< string > {
 		try {
 			const versionFileContent = await fs.promises.readFile(
@@ -39,20 +53,22 @@ export abstract class SqliteIntegrationProvider {
 
 		const wpContentPath = path.join( sitePath, 'wp-content' );
 		const databasePath = path.join( wpContentPath, 'database' );
+		const sqliteSourcePath = this.getSqlitePluginSourcePath();
+		const sqliteDirname = this.getSqliteDirname();
 
 		await fs.promises.mkdir( databasePath, { recursive: true } );
 
-		const sqliteSourcePath = this.getSqlitePluginSourcePath();
-		const dbCopyContent = await fs.promises.readFile(
-			path.join( sqliteSourcePath, 'db.copy' ),
-			'utf8'
-		);
-		const sqliteDirname = this.getSqliteDirname();
-		const updatedContent = dbCopyContent.replace(
-			"'{SQLITE_IMPLEMENTATION_FOLDER_PATH}'",
-			`realpath( __DIR__ . '/mu-plugins/${ sqliteDirname }' )`
-		);
-		await fs.promises.writeFile( path.join( wpContentPath, 'db.php' ), updatedContent );
+		if ( ! ( await this.shouldKeepExistingDbDropin( sitePath ) ) ) {
+			const dbCopyContent = await fs.promises.readFile(
+				path.join( sqliteSourcePath, 'db.copy' ),
+				'utf8'
+			);
+			const updatedContent = dbCopyContent.replace(
+				"'{SQLITE_IMPLEMENTATION_FOLDER_PATH}'",
+				`realpath( __DIR__ . '/mu-plugins/${ sqliteDirname }' )`
+			);
+			await fs.promises.writeFile( path.join( wpContentPath, 'db.php' ), updatedContent );
+		}
 
 		const sqliteDestPath = path.join( wpContentPath, 'mu-plugins', sqliteDirname );
 		await fs.promises.rm( sqliteDestPath, { recursive: true, force: true } );

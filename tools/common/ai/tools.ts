@@ -1,15 +1,8 @@
-import { __ } from '@wordpress/i18n';
-
-// Strip the legacy `mcp__studio__` prefix from SDK-era tool names so the
-// dictionary below can stay keyed on pi-runtime bare names while still
-// matching tool calls replayed from older session JSONL.
-function stripMcpPrefix( name: string ): string {
-	return name.startsWith( 'mcp__studio__' ) ? name.slice( 'mcp__studio__'.length ) : name;
-}
+import { __, _n, sprintf } from '@wordpress/i18n';
 
 /**
  * Human-facing display name for a tool, localized.
- * Falls back to the raw tool name (e.g. an unknown MCP tool) so the UI/CLI
+ * Falls back to the raw tool name (e.g. an unknown tool) so the UI/CLI
  * always has something to show.
  */
 export function getToolDisplayName( name: string ): string {
@@ -30,11 +23,10 @@ export function getToolDisplayName( name: string ): string {
 		preview_delete: __( 'Delete preview' ),
 		wp_cli: __( 'Run WP-CLI' ),
 		scaffold_theme: __( 'Scaffold theme' ),
-		validate_blocks: __( 'Validate blocks' ),
+		validate_html_blocks: __( 'Check HTML blocks' ),
+		validate_and_fix_blocks: __( 'Validate and fix blocks' ),
 		take_screenshot: __( 'Take screenshot' ),
 		share_screenshot: __( 'Share screenshot' ),
-		preview_navigate: __( 'Navigate preview' ),
-		preview_reload: __( 'Reload preview' ),
 		need_for_speed: __( 'Audit performance' ),
 		rank_me_up: __( 'Audit SEO' ),
 		install_taxonomy_scripts: __( 'Install taxonomy scripts' ),
@@ -51,7 +43,7 @@ export function getToolDisplayName( name: string ): string {
 		Task: __( 'Run task' ),
 		TodoWrite: __( 'Update todo list' ),
 	};
-	return displayNames[ stripMcpPrefix( name ) ] ?? name;
+	return displayNames[ name ] ?? name;
 }
 
 const BASH_DETAIL_MAX_LENGTH = 60;
@@ -66,7 +58,7 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 	if ( ! input ) {
 		return '';
 	}
-	switch ( stripMcpPrefix( name ) ) {
+	switch ( name ) {
 		case 'site_create':
 			return typeof input.name === 'string' ? input.name : '';
 		case 'site_info':
@@ -83,11 +75,17 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 		case 'preview_update':
 		case 'preview_delete':
 			return typeof input.host === 'string' ? input.host : '';
+		case 'wpcom_request': {
+			const method = typeof input.method === 'string' ? input.method : '';
+			const path = typeof input.path === 'string' ? input.path : '';
+			return [ method, path ].filter( Boolean ).join( ' ' );
+		}
 		case 'wp_cli':
 			return typeof input.command === 'string' ? `wp ${ input.command }` : '';
 		case 'scaffold_theme':
 			return typeof input.name === 'string' ? input.name : '';
-		case 'validate_blocks':
+		case 'validate_html_blocks':
+		case 'validate_and_fix_blocks':
 			if ( typeof input.filePath === 'string' ) {
 				return input.filePath.split( '/' ).slice( -2 ).join( '/' );
 			}
@@ -95,8 +93,6 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 		case 'take_screenshot':
 		case 'share_screenshot':
 			return typeof input.url === 'string' ? input.url : '';
-		case 'preview_navigate':
-			return typeof input.path === 'string' ? input.path : '';
 		case 'Read':
 		case 'Write':
 		case 'Edit': {
@@ -114,10 +110,15 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 				? input.command.slice( 0, BASH_DETAIL_MAX_LENGTH - 3 ) + '…'
 				: input.command;
 		case 'Skill':
+			if ( typeof input.name === 'string' ) {
+				return input.name;
+			}
 			return typeof input.skill === 'string' ? input.skill : '';
 		case 'Grep':
 		case 'Glob':
 			return typeof input.pattern === 'string' ? input.pattern : '';
+		case 'Ls':
+			return typeof input.path === 'string' ? input.path.split( '/' ).slice( -2 ).join( '/' ) : '';
 		default:
 			return '';
 	}
@@ -128,92 +129,276 @@ export interface NormalizedToolResult {
 	isError: boolean;
 }
 
-function normalizeResultContent( content: unknown ): string {
-	if ( typeof content === 'string' ) {
-		return content;
-	}
-	if ( Array.isArray( content ) ) {
-		return content
-			.map( ( block ) => {
-				if ( block && typeof block === 'object' && 'text' in block ) {
-					const text = ( block as { text?: unknown } ).text;
-					return typeof text === 'string' ? text : '';
-				}
-				return '';
-			} )
-			.filter( Boolean )
-			.join( '\n' );
-	}
-	if ( content === undefined || content === null ) {
-		return '';
-	}
-	return String( content );
+export interface ToolResultPreview {
+	summaryLines: string[];
+	detailText?: string;
+	detailLabel?: string;
+	detailMaxLength?: number;
 }
 
-/**
- * Normalize a tool result payload — either an Anthropic `tool_result` block
- * (`{ content, is_error }`) or one of Studio's MCP-tool result shapes
- * (`{ stdout, stderr, is_error }`) — into a single `{ text, isError }` pair.
- * Returns `null` for unrecognized shapes.
- */
-export function extractToolResult( result: unknown ): NormalizedToolResult | null {
-	if ( ! result || typeof result !== 'object' ) {
+function countLines( text: string ): number {
+	if ( text.length === 0 ) {
+		return 0;
+	}
+	const normalized = text.endsWith( '\n' ) ? text.slice( 0, -1 ) : text;
+	return normalized.split( '\n' ).length;
+}
+
+function firstNonEmptyLine( text: string ): string {
+	return (
+		text
+			.split( '\n' )
+			.map( ( line ) => line.trim() )
+			.find( Boolean ) ?? ''
+	);
+}
+
+function parseJson( text: string ): unknown {
+	try {
+		return JSON.parse( text );
+	} catch {
 		return null;
 	}
-	const obj = result as Record< string, unknown >;
-
-	if ( 'content' in obj || 'isError' in obj || 'is_error' in obj ) {
-		return {
-			text: normalizeResultContent( obj.content ),
-			isError: obj.isError === true || obj.is_error === true,
-		};
-	}
-
-	if ( 'stdout' in obj || 'stderr' in obj || 'noOutputExpected' in obj ) {
-		const stdout = typeof obj.stdout === 'string' ? obj.stdout : '';
-		const stderr = typeof obj.stderr === 'string' ? obj.stderr : '';
-		const parts = [ stdout, stderr ? `stderr: ${ stderr }` : '' ].filter( Boolean );
-		return {
-			text: parts.join( '\n' ),
-			isError: obj.is_error === true,
-		};
-	}
-
-	return null;
 }
 
-/**
- * Pull all `tool_result` content blocks out of a `user`-type SDK message and
- * return them keyed by `tool_use_id`, normalized via `extractToolResult`.
- * Returns an empty map when the message isn't a user tool-result carrier.
- */
-export function extractToolResultsFromUserMessage(
-	message: unknown
-): Map< string, NormalizedToolResult > {
-	const results = new Map< string, NormalizedToolResult >();
-	const msg = message as { type?: string; message?: { content?: unknown } } | null;
-	if ( ! msg || msg.type !== 'user' ) {
-		return results;
+function getSkillPreview( text: string ): ToolResultPreview | null {
+	const title = text.match( /^#\s+(.+)$/m )?.[ 1 ]?.trim();
+	if ( ! title ) {
+		return null;
 	}
-	const content = msg.message?.content;
-	if ( ! Array.isArray( content ) ) {
-		return results;
+
+	const sections = Array.from( text.matchAll( /^##\s+(.+)$/gm ) )
+		.map( ( match ) => match[ 1 ].trim() )
+		.filter( Boolean );
+	const visibleSections = sections.slice( 0, 4 );
+	const sectionSuffix = sections.length > visibleSections.length ? ', ...' : '';
+	const summaryLines: string[] = [ sprintf( __( 'Loaded %s' ), title ) ];
+
+	if ( visibleSections.length > 0 ) {
+		summaryLines.push(
+			sprintf( __( 'Sections: %s' ), visibleSections.join( ', ' ) + sectionSuffix )
+		);
 	}
-	for ( const block of content ) {
-		if ( ! block || typeof block !== 'object' ) {
-			continue;
-		}
-		const typed = block as {
-			type?: unknown;
-			tool_use_id?: unknown;
+
+	return {
+		summaryLines,
+		detailText: text,
+		detailLabel: __( 'Full skill body hidden · ctrl+o to expand' ),
+		detailMaxLength: 12000,
+	};
+}
+
+function getDisplayValue( value: unknown ): string {
+	if ( typeof value === 'string' ) {
+		return value;
+	}
+	if ( typeof value === 'number' ) {
+		return String( value );
+	}
+	if ( value && typeof value === 'object' && 'rendered' in value ) {
+		const rendered = ( value as { rendered?: unknown } ).rendered;
+		return typeof rendered === 'string' ? rendered.replace( /<[^>]*>/g, '' ) : '';
+	}
+	return '';
+}
+
+function getResourceName( value: unknown ): string {
+	if ( ! value || typeof value !== 'object' || Array.isArray( value ) ) {
+		return '';
+	}
+	const record = value as Record< string, unknown >;
+	return (
+		getDisplayValue( record.title ) ||
+		getDisplayValue( record.name ) ||
+		getDisplayValue( record.slug ) ||
+		getDisplayValue( record.ID ) ||
+		getDisplayValue( record.id )
+	);
+}
+
+function getArraySummary( items: unknown[], noun: string ): string {
+	return sprintf(
+		/* translators: 1: number of items, 2: item type */
+		_n( 'Returned %1$d %2$s', 'Returned %1$d %2$s', items.length ),
+		items.length,
+		noun
+	);
+}
+
+function getWpcomResultPreview(
+	input: Record< string, unknown > | undefined,
+	text: string,
+	isError: boolean
+): ToolResultPreview {
+	if ( isError ) {
+		return {
+			summaryLines: [ firstNonEmptyLine( text ) || __( 'Request failed' ) ],
+			detailText: text,
+			detailLabel: __( 'Full API error hidden · ctrl+o to expand' ),
 		};
-		if ( typed.type !== 'tool_result' || typeof typed.tool_use_id !== 'string' ) {
-			continue;
-		}
-		const normalized = extractToolResult( block );
-		if ( normalized ) {
-			results.set( typed.tool_use_id, normalized );
-		}
 	}
-	return results;
+
+	const parsed = parseJson( text );
+	const method = typeof input?.method === 'string' ? input.method : '';
+	const path = typeof input?.path === 'string' ? input.path : '';
+	const target = [ method, path ].filter( Boolean ).join( ' ' );
+
+	if ( Array.isArray( parsed ) ) {
+		const summary = getArraySummary( parsed, __( 'items' ) );
+		return {
+			summaryLines: [ target ? sprintf( __( '%1$s: %2$s' ), target, summary ) : summary ],
+			detailText: text,
+			detailLabel: __( 'Full API response hidden · ctrl+o to expand' ),
+		};
+	}
+
+	if ( parsed && typeof parsed === 'object' ) {
+		const record = parsed as Record< string, unknown >;
+		const arrayEntry = Object.entries( record ).find( ( [ , value ] ) => Array.isArray( value ) );
+		const found = typeof record.found === 'number' ? record.found : null;
+		const resourceName = getResourceName( record );
+
+		if ( arrayEntry ) {
+			const [ key, value ] = arrayEntry as [ string, unknown[] ];
+			const count = found ?? value.length;
+			const summary = sprintf(
+				/* translators: 1: number of resources, 2: resource key */
+				_n( 'Returned %1$d %2$s', 'Returned %1$d %2$s', count ),
+				count,
+				key
+			);
+			return {
+				summaryLines: [ target ? sprintf( __( '%1$s: %2$s' ), target, summary ) : summary ],
+				detailText: text,
+				detailLabel: __( 'Full API response hidden · ctrl+o to expand' ),
+			};
+		}
+
+		if ( resourceName ) {
+			return {
+				summaryLines: [
+					target
+						? sprintf( __( '%1$s: returned %2$s' ), target, resourceName )
+						: sprintf( __( 'Returned %s' ), resourceName ),
+				],
+				detailText: text,
+				detailLabel: __( 'Full API response hidden · ctrl+o to expand' ),
+			};
+		}
+
+		const keys = Object.keys( record ).slice( 0, 4 );
+		return {
+			summaryLines: [
+				target ? sprintf( __( '%1$s: returned response' ), target ) : __( 'Returned response' ),
+				keys.length > 0 ? sprintf( __( 'Fields: %s' ), keys.join( ', ' ) ) : '',
+			].filter( Boolean ),
+			detailText: text,
+			detailLabel: __( 'Full API response hidden · ctrl+o to expand' ),
+		};
+	}
+
+	return {
+		summaryLines: [ firstNonEmptyLine( text ) || __( 'Request completed' ) ],
+		detailText: text,
+		detailLabel: __( 'Full API response hidden · ctrl+o to expand' ),
+	};
+}
+
+function getFileToolPreview( name: string, text: string, isError: boolean ): ToolResultPreview {
+	if ( isError ) {
+		return {
+			summaryLines: [ firstNonEmptyLine( text ) || __( 'File operation failed' ) ],
+			detailText: text,
+			detailLabel: __( 'Full file error hidden · ctrl+o to expand' ),
+		};
+	}
+
+	if ( name === 'Read' ) {
+		const lines = countLines( text );
+		return {
+			summaryLines: [ sprintf( _n( 'Read %d line', 'Read %d lines', lines ), lines ) ],
+			detailText: text,
+			detailLabel: __( 'File contents hidden · ctrl+o to expand' ),
+		};
+	}
+
+	return {
+		summaryLines: [ name === 'Write' ? __( 'File written' ) : __( 'File edited' ) ],
+		detailText: text,
+		detailLabel: __( 'Full tool output hidden · ctrl+o to expand' ),
+	};
+}
+
+function getBashPreview( text: string, isError: boolean ): ToolResultPreview {
+	const firstLine = firstNonEmptyLine( text );
+	return {
+		summaryLines: [
+			isError
+				? firstLine || __( 'Command failed' )
+				: firstLine
+				? sprintf( __( 'Command completed: %s' ), firstLine )
+				: __( 'Command completed' ),
+		],
+		detailText: text,
+		detailLabel: isError
+			? __( 'Full command output hidden · ctrl+o to expand' )
+			: __( 'Command output hidden · ctrl+o to expand' ),
+	};
+}
+
+function getSiteCreatePreview( text: string, isError: boolean ): ToolResultPreview | null {
+	if ( isError ) {
+		return {
+			summaryLines: [ firstNonEmptyLine( text ) || __( 'Site creation failed' ) ],
+			detailText: text,
+			detailLabel: __( 'Full site error hidden · ctrl+o to expand' ),
+		};
+	}
+
+	const parsed = parseJson( text );
+	if ( ! parsed || typeof parsed !== 'object' || Array.isArray( parsed ) ) {
+		return null;
+	}
+
+	const record = parsed as Record< string, unknown >;
+	const name = getDisplayValue( record.name );
+	const url = getDisplayValue( record.url );
+	const summaryLines = [
+		name ? sprintf( __( 'Created site %s' ), name ) : __( 'Created site' ),
+		url,
+	].filter( Boolean );
+
+	return {
+		summaryLines,
+		detailText: text,
+		detailLabel: __( 'Full site details hidden · ctrl+o to expand' ),
+	};
+}
+
+export function getToolResultPreview(
+	name: string | undefined,
+	input: Record< string, unknown > | undefined,
+	text: string,
+	isError = false
+): ToolResultPreview | null {
+	if ( ! name || ! text ) {
+		return null;
+	}
+
+	switch ( name ) {
+		case 'site_create':
+			return getSiteCreatePreview( text, isError );
+		case 'Skill':
+			return getSkillPreview( text );
+		case 'wpcom_request':
+			return getWpcomResultPreview( input, text, isError );
+		case 'Read':
+		case 'Write':
+		case 'Edit':
+			return getFileToolPreview( name, text, isError );
+		case 'Bash':
+			return getBashPreview( text, isError );
+		default:
+			return null;
+	}
 }

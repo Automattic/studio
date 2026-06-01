@@ -1,5 +1,6 @@
 import { StatsMetric } from 'src/lib/bump-stats';
 import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
+import type { DesksConfig } from '@studio/common/types/desk';
 import type { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 
 export interface WindowBounds {
@@ -14,6 +15,18 @@ export interface AppdataSiteData {
 	themeDetails?: SiteDetails[ 'themeDetails' ];
 	siteIconPath?: SiteDetails[ 'siteIconPath' ];
 	sortOrder?: number;
+}
+
+export interface AiSessionSitePlacement {
+	kind: 'site';
+	siteId: string;
+	sitePath: string;
+	siteName: string;
+}
+
+export interface NightlyPromptResult {
+	response: 'yes' | 'no';
+	dontAskAgain: boolean;
 }
 
 export interface UserData {
@@ -34,6 +47,10 @@ export interface UserData {
 	defaultSiteDirectory?: string;
 	cliAutoInstalled?: boolean;
 	wapuuScore?: number;
+	desks?: DesksConfig;
+	aiSessionPlacements?: Record< string, AiSessionSitePlacement >;
+	lastNightlyUpdateCheck?: number;
+	nightlyPromptResult?: NightlyPromptResult;
 }
 
 export interface PromptWindowsSpeedUpResult {

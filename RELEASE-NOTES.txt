@@ -1,6 +1,26 @@
 Unreleased
 ==========
 
+1.10.0
+=====
+* Released remote-session as beta-feature #3406, #3513, #3450
+* Added native PHP runtime support as a beta-feature to improve performance #3403, #3405, #3439, #3471, #3491, #3530, #3529, #3533, #3426, #3551, #3456, #3554
+* Added CLI support for the Blueprints Gallery and improved the Add Site flow #3442, #3407, #3448, #3503
+* Added Linux beta builds, in-app update support, and improved certificate trust handling #3464, #3501, #3465, #3472, #3506
+* Preserved custom db.php drop-ins when updating Studio's SQLite integration #3095
+* Updated multiple dependencies, including WP Playground and PHP-Wasm
+
+1.9.0
+=====
+* Introduced the Blueprints Gallery #3384, #3400, #3402
+* Shared connected WordPress.com sites between the Studio app and CLI #3227
+* Improved Studio Code remote sessions #3315, #3300, #3347, #3366, #3365
+* Added GPT 5.5 support and a scaffold_theme tool for the CLI agent #3328, #3348
+* Improved Studio Code agent reliability #3330, #3337, #3352, #3351
+* Fixed several Studio UI, Blueprint upload, and site creation issues #3356, #3317, #3316, #3372, #3422
+* Always ask before stopping running sites when quitting Studio #3350
+* Improved Linux packaging and installer size #3335, #3364, #3371
+* Updated multiple dependencies, including WordPress packages, WP Playground, and PHP-WASM
 
 1.8.2 (CLI only)
 =====

@@ -18,7 +18,8 @@ import {
 	getMuPlugins,
 	writeStudioMuPluginsForNativePhpRuntime,
 } from '@studio/common/lib/mu-plugins';
-import { validateNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
+import { resolveNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
+import { SITE_RUNTIME_NATIVE_PHP, type SiteRuntime } from '@studio/common/lib/site-runtime';
 import { LatestSupportedPHPVersion } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
 import { setupPlatformLevelMuPlugins } from '@wp-playground/wordpress';
@@ -27,7 +28,9 @@ import {
 	getSqliteCommandPath,
 	getWpCliPharPath,
 } from 'cli/lib/dependency-management/paths';
+import { getSiteRuntime } from 'cli/lib/feature-flags';
 import { validatePhpVersion } from 'cli/lib/utils';
+import { getDefaultPhpArgs } from './native-php';
 import type { SiteData } from 'cli/lib/cli-config/core';
 import type { ReadableStream as WebReadableStream } from 'node:stream/web';
 
@@ -122,11 +125,13 @@ async function runNativeWpCliCommand(
 	options: RunWpCliCommandOptions = {}
 ): Promise< DisposableWpCliResponse > {
 	const nativeArgs = applyWpCliCommandOptions( 'native', args, options );
-	const phpVersion = validateNativePhpVersion( options.phpVersion ?? DEFAULT_PHP_VERSION );
+	const phpVersion = resolveNativePhpVersion( options.phpVersion ?? DEFAULT_PHP_VERSION );
 	await writeStudioMuPluginsForNativePhpRuntime( site.path, site.isWpAutoUpdating );
+	// Don't apply open_basedir or disable_functions to the WP-CLI process
+	const defaultArgs = getDefaultPhpArgs( phpVersion );
 	const child = spawn(
 		getPhpBinaryPath( phpVersion ),
-		[ getWpCliPharPath(), `--path=${ site.path }`, ...nativeArgs ],
+		[ ...defaultArgs, getWpCliPharPath(), `--path=${ site.path }`, ...nativeArgs ],
 		{
 			cwd: site.path,
 			stdio: [ 'ignore', 'pipe', 'pipe' ],
@@ -178,7 +183,7 @@ export async function runWpCliCommand(
 ): Promise< DisposableWpCliResponse > {
 	const siteFolder = site.path;
 
-	if ( site.runtime === 'native-php' ) {
+	if ( getSiteRuntime() === SITE_RUNTIME_NATIVE_PHP ) {
 		return runNativeWpCliCommand( site, args, options );
 	}
 
@@ -209,6 +214,7 @@ export async function runWpCliCommand(
 		php.writeFile( '/tmp/ca-bundle.crt', rootCertificates.join( '\n' ) );
 		await setPhpIniEntries( php, {
 			'openssl.cafile': '/tmp/ca-bundle.crt',
+			'curl.cainfo': '/tmp/ca-bundle.crt',
 			allow_url_fopen: 1,
 		} );
 
@@ -258,10 +264,14 @@ export async function runWpCliCommand(
 }
 
 async function runNativeGlobalWpCliCommand( args: string[] ): Promise< DisposableWpCliResponse > {
-	const phpVersion = validateNativePhpVersion( DEFAULT_PHP_VERSION );
-	const child = spawn( getPhpBinaryPath( phpVersion ), [ getWpCliPharPath(), ...args ], {
-		stdio: [ 'ignore', 'pipe', 'pipe' ],
-	} );
+	const phpVersion = resolveNativePhpVersion( DEFAULT_PHP_VERSION );
+	// Don't apply open_basedir or disable_functions to the WP-CLI process
+	const defaultArgs = getDefaultPhpArgs( phpVersion );
+	const child = spawn(
+		getPhpBinaryPath( phpVersion ),
+		[ ...defaultArgs, getWpCliPharPath(), ...args ],
+		{ stdio: [ 'ignore', 'pipe', 'pipe' ] }
+	);
 
 	await ensureChildSpawned( child );
 
@@ -281,7 +291,7 @@ async function runNativeGlobalWpCliCommand( args: string[] ): Promise< Disposabl
 }
 
 type RunGlobalWpCliCommandOptions = {
-	runtime?: 'wasm' | 'native-php';
+	runtime?: SiteRuntime;
 };
 
 /**
@@ -292,7 +302,7 @@ export async function runGlobalWpCliCommand(
 	args: string[],
 	options: RunGlobalWpCliCommandOptions = {}
 ): Promise< DisposableWpCliResponse > {
-	if ( options.runtime === 'native-php' ) {
+	if ( options.runtime === SITE_RUNTIME_NATIVE_PHP ) {
 		return runNativeGlobalWpCliCommand( args );
 	}
 
@@ -313,6 +323,7 @@ export async function runGlobalWpCliCommand(
 		php.writeFile( '/tmp/ca-bundle.crt', rootCertificates.join( '\n' ) );
 		await setPhpIniEntries( php, {
 			'openssl.cafile': '/tmp/ca-bundle.crt',
+			'curl.cainfo': '/tmp/ca-bundle.crt',
 			allow_url_fopen: 1,
 		} );
 

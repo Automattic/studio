@@ -8,7 +8,12 @@ import {
 	validateAdminEmail,
 	validateAdminUsername,
 } from '@studio/common/lib/passwords';
-import { SupportedPHPVersion, SupportedPHPVersions } from '@studio/common/types/php-versions';
+import { SITE_RUNTIME_NATIVE_PHP, SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
+import {
+	getRecommendedPHPVersionForRuntime,
+	getSupportedPHPVersionsForRuntime,
+	SupportedPHPVersion,
+} from '@studio/common/types/php-versions';
 import { Icon, SelectControl, Notice } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf, _n } from '@wordpress/i18n';
@@ -23,6 +28,7 @@ import { SiteFormError } from 'src/components/site-form-error';
 import TextControlComponent from 'src/components/text-control';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { cx } from 'src/lib/cx';
+import { useRootSelector } from 'src/stores';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 import type { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
 import type { CreateSiteFormValues, PathValidationResult } from 'src/hooks/use-add-site';
@@ -56,7 +62,7 @@ interface CreateSiteFormProps {
 	/** Called when form validity changes */
 	onValidityChange?: ( isValid: boolean ) => void;
 	/** Ref to form element for programmatic submission */
-	formRef?: RefObject< HTMLFormElement >;
+	formRef?: RefObject< HTMLFormElement | null >;
 }
 
 export const CreateSiteForm = ( {
@@ -75,10 +81,17 @@ export const CreateSiteForm = ( {
 }: CreateSiteFormProps ) => {
 	const { __, isRTL } = useI18n();
 	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
+	const runtime = useRootSelector( ( state ) =>
+		state.betaFeatures.features.nativePhpRuntime ? SITE_RUNTIME_NATIVE_PHP : SITE_RUNTIME_PLAYGROUND
+	);
+	const supportedPhpVersions = getSupportedPHPVersionsForRuntime( runtime );
+	const recommendedPhpVersion = getRecommendedPHPVersionForRuntime( runtime );
 	const [ siteName, setSiteName ] = useState( defaultValues.siteName ?? '' );
 	const [ sitePath, setSitePath ] = useState( defaultValues.sitePath ?? '' );
 	const [ phpVersion, setPhpVersion ] = useState< SupportedPHPVersion >(
-		defaultValues.phpVersion ?? SupportedPHPVersions[ 0 ] ?? '8.2'
+		defaultValues.phpVersion && supportedPhpVersions.includes( defaultValues.phpVersion )
+			? defaultValues.phpVersion
+			: recommendedPhpVersion
 	);
 	const [ wpVersion, setWpVersion ] = useState(
 		defaultValues.wpVersion ?? DEFAULT_WORDPRESS_VERSION
@@ -127,12 +140,27 @@ export const CreateSiteForm = ( {
 	// Sync versions from defaultValues (initial load and deeplink flows)
 	useEffect( () => {
 		if ( defaultValues.phpVersion !== undefined ) {
-			setPhpVersion( defaultValues.phpVersion );
+			setPhpVersion(
+				supportedPhpVersions.includes( defaultValues.phpVersion )
+					? defaultValues.phpVersion
+					: recommendedPhpVersion
+			);
 		}
 		if ( defaultValues.wpVersion !== undefined ) {
 			setWpVersion( defaultValues.wpVersion );
 		}
-	}, [ defaultValues.phpVersion, defaultValues.wpVersion ] );
+	}, [
+		defaultValues.phpVersion,
+		defaultValues.wpVersion,
+		recommendedPhpVersion,
+		supportedPhpVersions,
+	] );
+
+	useEffect( () => {
+		if ( ! supportedPhpVersions.includes( phpVersion ) ) {
+			setPhpVersion( recommendedPhpVersion );
+		}
+	}, [ phpVersion, recommendedPhpVersion, supportedPhpVersions ] );
 
 	// Sync admin credentials from Blueprint when they change (only if user hasn't edited)
 	useEffect( () => {
@@ -239,7 +267,14 @@ export const CreateSiteForm = ( {
 				setSitePath( result.path );
 			}
 		},
-		[ onSiteNameChange, hasCustomPath ]
+		[
+			onSiteNameChange,
+			hasCustomPath,
+			setDoesPathContainWordPress,
+			setPathError,
+			setSiteName,
+			setSitePath,
+		]
 	);
 
 	const handleSelectPath = useCallback( async () => {
@@ -273,7 +308,18 @@ export const CreateSiteForm = ( {
 		if ( result.name && ! siteName ) {
 			setSiteName( result.name );
 		}
-	}, [ onSelectPath, onSiteNameChange, sitePath, siteName, hasCustomPath ] );
+	}, [
+		onSelectPath,
+		onSiteNameChange,
+		sitePath,
+		siteName,
+		hasCustomPath,
+		setDoesPathContainWordPress,
+		setHasCustomPath,
+		setPathError,
+		setSiteName,
+		setSitePath,
+	] );
 
 	const handleCustomDomainChange = useCallback(
 		( value: string ) => {
@@ -449,7 +495,7 @@ export const CreateSiteForm = ( {
 										<SelectControl< SupportedPHPVersion >
 											id="php-version-select"
 											value={ phpVersion }
-											options={ SupportedPHPVersions.map( ( version ) => ( {
+											options={ supportedPhpVersions.map( ( version ) => ( {
 												label: version,
 												value: version,
 											} ) ) }

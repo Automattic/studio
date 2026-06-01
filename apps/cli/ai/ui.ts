@@ -22,12 +22,14 @@ import {
 	truncateToWidth,
 	CURSOR_MARKER,
 } from '@mariozechner/pi-tui';
+import { DEFAULT_MODEL, getAiModelLabel, type AiModelId } from '@studio/common/ai/models';
+import { findLastAssistant } from '@studio/common/ai/session-events';
 import { randomThinkingMessage } from '@studio/common/ai/thinking-messages';
-import { getToolDetail, getToolDisplayName } from '@studio/common/ai/tools';
+import { getToolDetail, getToolDisplayName, getToolResultPreview } from '@studio/common/ai/tools';
 import chalk from '@studio/common/lib/chalk';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { DEFAULT_MODEL, getAiModelLabel, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
+import { type AiOutputAdapter } from 'cli/ai/output-adapter';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
 import { getActiveSlashCommands } from 'cli/ai/slash-commands';
 import { buildTodoUpdateLines, type TodoRenderLine } from 'cli/ai/todo-render';
@@ -37,8 +39,17 @@ import { openBrowser } from 'cli/lib/browser';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { getSitesRunningStatus, isSiteRunning } from 'cli/lib/site-utils';
-import type { AiOutputAdapter, HandleMessageResult } from 'cli/ai/output-adapter';
-import type { SDKMessage, TodoWriteInput } from 'cli/ai/runtimes/messages';
+import type { ToolResultMessage } from '@mariozechner/pi-ai';
+import type { AgentSessionEvent } from '@mariozechner/pi-coding-agent';
+import type { AskUserQuestion, SiteInfo } from 'cli/ai/types';
+
+interface TodoWriteInput {
+	todos: Array< {
+		content: string;
+		activeForm: string;
+		status: 'pending' | 'in_progress' | 'completed';
+	} >;
+}
 
 const SITE_PICKER_TAB_LOCAL = 'local' as const;
 const SITE_PICKER_TAB_REMOTE = 'remote' as const;
@@ -51,15 +62,6 @@ const sitePickerTheme: SelectListTheme = {
 	scrollInfo: ( text ) => chalk.dim( text ),
 	noMatch: ( text ) => chalk.dim( text ),
 };
-
-export interface SiteInfo {
-	name: string;
-	path: string;
-	running: boolean;
-	remote?: boolean;
-	url?: string;
-	wpcomSiteId?: number;
-}
 
 const DEFAULT_COLLAPSE_THRESHOLD_LINES = 5;
 
@@ -264,37 +266,38 @@ function formatToolName( name: string, input?: Record< string, unknown > ): stri
 	const displayName = chalk.bold( getToolDisplayName( name ) );
 	const detail = getToolDetail( name, input );
 	if ( detail ) {
-		return displayName + ' ' + chalk.dim( '(' + detail + ')' );
+		return displayName + ' ' + chalk.dim( detail );
 	}
 	return displayName;
 }
 
 interface ToolUseResultContent {
-	content?: string | Array< { type: string; text?: string } >;
+	// Pi `ToolResultMessage` content is always an array of text/image blocks;
+	// we render text and ignore image blocks for the terminal preview.
+	content?: Array< { type: string; text?: string } >;
 	isError?: boolean;
-}
-
-interface MessageContentWithType {
-	type: string;
-}
-
-interface ToolResultBlock extends MessageContentWithType {
-	type: 'tool_result';
-	content?: unknown;
-	is_error?: boolean;
-}
-
-interface StdoutStderrToolResult {
-	stdout?: unknown;
-	stderr?: unknown;
-	is_error?: unknown;
-	noOutputExpected?: unknown;
 }
 
 interface PendingTodoRender {
 	diff: TodoDiff;
 	toolLabel: string;
+	startedAtMs: number;
 	shouldRender: boolean;
+}
+
+interface ToolRenderState {
+	container: Container;
+	rowText: Text;
+	progressText: Text | null;
+	progressLines: string[];
+}
+
+interface PendingToolCall {
+	name: string;
+	input: Record< string, unknown >;
+	label: string;
+	startedAtMs: number;
+	render: ToolRenderState | null;
 }
 
 function isTodoWriteInput( input: unknown ): input is TodoWriteInput {
@@ -316,74 +319,6 @@ function isTodoWriteInput( input: unknown ): input is TodoWriteInput {
 	);
 }
 
-function isMessageContentWithType( value: unknown ): value is MessageContentWithType {
-	return typeof value === 'object' && value !== null && 'type' in value;
-}
-
-function isToolResultBlock( value: unknown ): value is ToolResultBlock {
-	return isMessageContentWithType( value ) && value.type === 'tool_result';
-}
-
-function isStdoutStderrToolResult( value: unknown ): value is StdoutStderrToolResult {
-	return (
-		typeof value === 'object' &&
-		value !== null &&
-		( 'stdout' in value || 'stderr' in value || 'noOutputExpected' in value )
-	);
-}
-
-function normalizeToolResultContent(
-	content: unknown
-): ToolUseResultContent[ 'content' ] | undefined {
-	if ( typeof content === 'string' ) {
-		return content;
-	}
-
-	if ( Array.isArray( content ) ) {
-		return content.filter( isMessageContentWithType ).map( ( block ) => {
-			if ( 'text' in block && typeof block.text === 'string' ) {
-				return { type: block.type, text: block.text };
-			}
-			return { type: block.type };
-		} );
-	}
-
-	if ( content === undefined || content === null ) {
-		return undefined;
-	}
-
-	return String( content );
-}
-
-function normalizeToolUseResult( result: unknown ): ToolUseResultContent | null {
-	if ( ! result || typeof result !== 'object' ) {
-		return null;
-	}
-
-	if ( 'content' in result || 'isError' in result || 'is_error' in result ) {
-		const typedResult = result as {
-			content?: unknown;
-			isError?: unknown;
-			is_error?: unknown;
-		};
-		return {
-			content: normalizeToolResultContent( typedResult.content ),
-			isError: typedResult.isError === true || typedResult.is_error === true,
-		};
-	}
-
-	if ( isStdoutStderrToolResult( result ) ) {
-		const stdout = typeof result.stdout === 'string' ? result.stdout : '';
-		const stderr = typeof result.stderr === 'string' ? result.stderr : '';
-		const parts = [ stdout, stderr ? `stderr: ${ stderr }` : '' ].filter( Boolean );
-		return {
-			content: parts.join( '\n' ) || undefined,
-			isError: result.is_error === true,
-		};
-	}
-
-	return null;
-}
 export class AiChatUI implements AiOutputAdapter {
 	private tui: TUI;
 	private editor: PromptEditor;
@@ -402,11 +337,6 @@ export class AiChatUI implements AiOutputAdapter {
 	private usageCapReached = false;
 	private hasShownResponseMarker = false;
 	private turnStartTime = 0;
-	private toolStartTime: number | null = null;
-	private toolDotText: Text | null = null;
-	private toolDotTimer: ReturnType< typeof setInterval > | null = null;
-	private toolDotVisible = true;
-	private toolDotLabel = '';
 	private todoSnapshot: TodoEntry[] = [];
 	private latestTodoSnapshot: TodoEntry[] = [];
 	private lastRenderedTodoSignature: string | null = null;
@@ -419,12 +349,10 @@ export class AiChatUI implements AiOutputAdapter {
 	private siteSelectedCallback: ( ( site: SiteInfo ) => void ) | null = null;
 	private replayMode = false;
 	private replayTimestampMs: number | null = null;
-	private pendingToolCalls = new Map<
-		string,
-		{ name: string; input: Record< string, unknown > }
-	>();
+	private pendingToolCalls = new Map< string, PendingToolCall >();
 	currentModel: AiModelId = DEFAULT_MODEL;
 	currentProvider: AiProviderId = DEFAULT_AI_PROVIDER;
+	private numTurns = 0;
 
 	private optionPickerContainer: Container | null = null;
 	private optionPickerSelectList: SelectList | null = null;
@@ -494,6 +422,8 @@ export class AiChatUI implements AiOutputAdapter {
 		this.hideLoader();
 		this.currentMarkdown = null;
 		this.currentResponseText = '';
+		this.pendingToolCalls.clear();
+		this.fallbackProgressText = null;
 	}
 
 	finishReplay(): void {
@@ -502,6 +432,8 @@ export class AiChatUI implements AiOutputAdapter {
 		this.hideLoader();
 		this.currentMarkdown = null;
 		this.currentResponseText = '';
+		this.pendingToolCalls.clear();
+		this.fallbackProgressText = null;
 	}
 
 	clearTranscript(): void {
@@ -1006,15 +938,7 @@ export class AiChatUI implements AiOutputAdapter {
 		toolName: string,
 		toolInput: Record< string, unknown > | null
 	): Promise< void > {
-		// Tool names arrive in two flavors depending on the runtime:
-		//   - Anthropic (Claude Agent SDK): `mcp__studio__site_create` (the SDK
-		//     auto-prefixes MCP-server tool names).
-		//   - OpenAI (pi-agent-core): `site_create` (registered by bare name).
-		// Strip the prefix so the switch below stays single-source.
-		const bareName = toolName.startsWith( 'mcp__studio__' )
-			? toolName.slice( 'mcp__studio__'.length )
-			: toolName;
-		switch ( bareName ) {
+		switch ( toolName ) {
 			case 'site_create': {
 				const name = toolInput?.name;
 				if ( typeof name === 'string' ) {
@@ -1027,7 +951,7 @@ export class AiChatUI implements AiOutputAdapter {
 				const nameOrPath = toolInput?.nameOrPath;
 				if ( typeof nameOrPath === 'string' ) {
 					await this.selectLocalSiteFromTool( nameOrPath, {
-						running: bareName === 'site_start' ? true : undefined,
+						running: toolName === 'site_start' ? true : undefined,
 					} );
 				}
 				break;
@@ -1036,7 +960,7 @@ export class AiChatUI implements AiOutputAdapter {
 			case 'preview_create':
 			case 'preview_list':
 			case 'preview_update':
-			case 'validate_blocks': {
+			case 'validate_and_fix_blocks': {
 				const nameOrPath = toolInput?.nameOrPath;
 				if ( typeof nameOrPath === 'string' ) {
 					await this.selectLocalSiteFromTool( nameOrPath );
@@ -1204,6 +1128,10 @@ export class AiChatUI implements AiOutputAdapter {
 
 	start(): void {
 		this.tui.start();
+		// Logger progress and daemon-status updates can request renders while
+		// the TUI is stopped for an external prompt. pi-tui leaves that request
+		// pending, so force a fresh render when resuming.
+		this.tui.requestRender( true );
 	}
 
 	showWelcome(): void {
@@ -1307,8 +1235,6 @@ export class AiChatUI implements AiOutputAdapter {
 
 		this.interruptionNoticeShown = true;
 		this.hideLoader();
-		this.stopToolDotBlink();
-		this.toolDotText = null;
 		this.currentMarkdown = null;
 		this.currentResponseText = '';
 
@@ -1366,18 +1292,26 @@ export class AiChatUI implements AiOutputAdapter {
 		this.tui.requestRender();
 	}
 
-	private lastProgressText: Text | null = null;
+	private fallbackProgressText: Text | null = null;
 
 	setLoaderMessage( message: string, update?: boolean ): void {
 		if ( ! message ) {
 			return;
 		}
-		const formatted = '   ' + chalk.dim( '⎿ ' ) + chalk.dim( message );
-		if ( update && this.lastProgressText ) {
-			this.lastProgressText.setText( formatted );
+
+		const toolCall = this.getActiveProgressToolCall();
+		if ( toolCall ) {
+			this.addToolProgress( toolCall, message, update === true );
+			this.tui.requestRender();
+			return;
+		}
+
+		const formatted = formatToolOutputLines( [ chalk.dim( message ) ] );
+		if ( update && this.fallbackProgressText ) {
+			this.fallbackProgressText.setText( formatted );
 		} else {
-			this.lastProgressText = new Text( formatted, 0, 0 );
-			this.messages.addChild( this.lastProgressText );
+			this.fallbackProgressText = new Text( formatted, 0, 0 );
+			this.messages.addChild( this.fallbackProgressText );
 		}
 		this.tui.requestRender();
 	}
@@ -1411,7 +1345,7 @@ export class AiChatUI implements AiOutputAdapter {
 			this.loader.stop();
 			this.tui.removeChild( this.loader );
 			this.loaderVisible = false;
-			this.lastProgressText = null;
+			this.fallbackProgressText = null;
 			this.tui.requestRender();
 		}
 	}
@@ -1467,9 +1401,12 @@ export class AiChatUI implements AiOutputAdapter {
 		this.interruptionNoticeShown = false;
 		this.usageCapReached = false;
 		this.turnStartTime = this.nowMs();
+		this.numTurns = 0;
 		this.todoSnapshot = [];
 		this.latestTodoSnapshot = [];
 		this.lastRenderedTodoSignature = null;
+		this.pendingToolCalls.clear();
+		this.fallbackProgressText = null;
 		this.pendingTodoRenders.clear();
 		this.pendingTodoRenderOrder = [];
 	}
@@ -1482,11 +1419,10 @@ export class AiChatUI implements AiOutputAdapter {
 	 */
 	endAgentTurn(): void {
 		this.hideLoader();
-		this.stopToolDotBlink();
-		this.toolDotText = null;
 		this.interruptCallback = null;
 		this._inAgentTurn = false;
 		this.pendingToolCalls.clear();
+		this.fallbackProgressText = null;
 		this.updateHints();
 		this.currentMarkdown = null;
 		this.currentResponseText = '';
@@ -1523,6 +1459,10 @@ export class AiChatUI implements AiOutputAdapter {
 		const b = chalk.bold;
 		const d = chalk.dim;
 		const separator = d( ' ─'.padEnd( 80, '─' ) );
+		// Applies chalk.bold to any <b>…</b> tags in a translated string, then
+		// strips the tags. Translators can place <b> anywhere in the sentence.
+		const applyBold = ( str: string ) =>
+			str.replace( /<b>(.*?)<\/b>/g, ( _, text: string ) => b( text ) );
 
 		const lines = [
 			' ' +
@@ -1532,33 +1472,20 @@ export class AiChatUI implements AiOutputAdapter {
 			'',
 			'  ' + b( __( 'Local Sites Management' ) ),
 			'',
+			/* translators: <b> and </b> wrap the action verb, which translators can move anywhere in the sentence */
 			'  - ' +
-				sprintf(
-					/* translators: %s: bold "Create" */
-					__( '%s new local WordPress sites instantly (fully configured, ready to use)' ),
-					b( __( 'Create' ) )
+				applyBold(
+					__( '<b>Create</b> new local WordPress sites instantly (fully configured, ready to use)' )
 				),
-			'  - ' +
-				sprintf(
-					/* translators: %s: bold "Start / stop" */
-					__( '%s existing local sites' ),
-					b( __( 'Start / stop' ) )
-				),
-			'  - ' +
-				sprintf(
-					/* translators: %s: bold "List" */
-					__( '%s all your local sites and their status' ),
-					b( __( 'List' ) )
-				),
+			/* translators: <b> and </b> wrap the action verb, which translators can move anywhere in the sentence */
+			'  - ' + applyBold( __( '<b>Start / stop</b> existing local sites' ) ),
+			/* translators: <b> and </b> wrap the action verb, which translators can move anywhere in the sentence */
+			'  - ' + applyBold( __( '<b>List</b> all your local sites and their status' ) ),
 			'',
 			'  ' + b( __( 'Design & Development' ) ),
 			'',
-			'  - ' +
-				sprintf(
-					/* translators: %s: bold "Build" */
-					__( '%s block themes with striking, memorable designs' ),
-					b( __( 'Build' ) )
-				),
+			/* translators: <b> and </b> wrap the action verb, which translators can move anywhere in the sentence */
+			'  - ' + applyBold( __( '<b>Build</b> block themes with striking, memorable designs' ) ),
 			'  - ' +
 				sprintf(
 					/* translators: %s: bold "CSS, PHP, and JavaScript" */
@@ -1608,24 +1535,14 @@ export class AiChatUI implements AiOutputAdapter {
 					__( 'Take %s (desktop + mobile) to verify the design is well crafted' ),
 					b( __( 'screenshots' ) )
 				),
+			/* translators: <b> and </b> wrap the action verb, which translators can move anywhere in the sentence */
 			'  - ' +
-				sprintf(
-					/* translators: %s: bold "Validate" */
-					__( "%s all block content to ensure it's editor-compatible" ),
-					b( __( 'Validate' ) )
-				),
+				applyBold( __( "<b>Validate</b> all block content to ensure it's editor-compatible" ) ),
+			/* translators: <b> and </b> wrap the action verb, which translators can move anywhere in the sentence */
+			'  - ' + applyBold( __( '<b>Push</b> your local site to the cloud in WordPress.com' ) ),
+			/* translators: <b> and </b> wrap the action verb, which translators can move anywhere in the sentence */
 			'  - ' +
-				sprintf(
-					/* translators: %s: bold "Push" */
-					__( '%s your local site to the cloud in WordPress.com' ),
-					b( __( 'Push' ) )
-				),
-			'  - ' +
-				sprintf(
-					/* translators: %s: bold "Generate preview sites" */
-					__( '%s with shareable URLs for quick feedback' ),
-					b( __( 'Generate preview sites' ) )
-				),
+				applyBold( __( '<b>Generate preview sites</b> with shareable URLs for quick feedback' ) ),
 			'',
 			separator,
 			'',
@@ -1701,7 +1618,11 @@ export class AiChatUI implements AiOutputAdapter {
 		}
 	}
 
-	private showFilePreview( toolName: string, input: Record< string, unknown > ): void {
+	private showFilePreview(
+		toolName: string,
+		input: Record< string, unknown >,
+		target: Container = this.messages
+	): void {
 		let preview: { collapsed: string; expanded: string } | null = null;
 
 		if ( toolName === 'Write' && typeof input.content === 'string' ) {
@@ -1718,12 +1639,15 @@ export class AiChatUI implements AiOutputAdapter {
 			return;
 		}
 
-		this.addExpandablePreview( preview );
+		this.addExpandablePreview( preview, target );
 	}
 
-	private addExpandablePreview( preview: { collapsed: string; expanded: string } ): void {
+	private addExpandablePreview(
+		preview: { collapsed: string; expanded: string },
+		target: Container = this.messages
+	): void {
 		const textComponent = new Text( preview.collapsed, 0, 0 );
-		this.messages.addChild( textComponent );
+		target.addChild( textComponent );
 
 		if ( preview.collapsed !== preview.expanded ) {
 			this.activeExpandablePreview = {
@@ -1757,6 +1681,23 @@ export class AiChatUI implements AiOutputAdapter {
 			);
 
 		return { collapsed, expanded };
+	}
+
+	private generateHiddenDetailsPreview(
+		text: string,
+		label: string,
+		maxLength = 4000
+	): { collapsed: string; expanded: string } {
+		const expandedText =
+			text.length > maxLength
+				? text.slice( 0, maxLength ) + '\n' + __( '... output truncated' )
+				: text;
+		return {
+			collapsed: formatToolOutputLines( [ chalk.dim( label ) ] ),
+			expanded: formatToolOutputLines(
+				expandedText.split( '\n' ).map( ( line ) => chalk.dim( line ) )
+			),
+		};
 	}
 
 	private generateWritePreview( content: string ): { collapsed: string; expanded: string } {
@@ -1804,84 +1745,106 @@ export class AiChatUI implements AiOutputAdapter {
 		this.tui.requestRender();
 	}
 
-	private stopToolDotBlink(): void {
-		if ( this.toolDotTimer ) {
-			clearInterval( this.toolDotTimer );
-			this.toolDotTimer = null;
-		}
-		// Ensure the dot is visible when we stop
-		if ( this.toolDotText && ! this.toolDotVisible ) {
-			this.toolDotVisible = true;
-			this.toolDotText.setText( '\n ' + '⏺' + ' ' + this.toolDotLabel );
-		}
-	}
-
-	private showToolUse( toolLabel: string ): void {
-		this.showLoader( randomThinkingMessage() );
-		this.stopToolDotBlink();
-		this.lastProgressText = null;
-		this.toolDotLabel = toolLabel;
-		this.toolDotText = new Text( '\n ' + '⏺' + ' ' + toolLabel, 0, 0 );
-		this.messages.addChild( this.toolDotText );
-		this.toolDotVisible = true;
-		if ( this.replayMode ) {
-			this.tui.requestRender();
-			return;
-		}
-		this.toolDotTimer = setInterval( () => {
-			if ( ! this.toolDotText ) {
-				return;
+	private getToolResultContent( result: ToolResultMessage ): ToolUseResultContent {
+		const blocks: Array< { type: string; text?: string } > = [];
+		for ( const block of result.content ) {
+			if ( block.type === 'text' && typeof block.text === 'string' ) {
+				blocks.push( { type: 'text', text: block.text } );
 			}
-			this.toolDotVisible = ! this.toolDotVisible;
-			const dot = this.toolDotVisible ? '⏺' : ' ';
-			this.toolDotText.setText( '\n ' + dot + ' ' + toolLabel );
-			this.tui.requestRender();
-		}, 500 );
-	}
-
-	private getToolResultContent(
-		message: SDKMessage & { type: 'user' }
-	): ToolUseResultContent | null {
-		const toolUseResult = normalizeToolUseResult( message.tool_use_result );
-		if (
-			toolUseResult &&
-			( toolUseResult.content !== undefined || toolUseResult.isError === true )
-		) {
-			return toolUseResult;
 		}
-
-		const contentBlocks = Array.isArray( message.message.content ) ? message.message.content : [];
-		const toolResultBlock = ( contentBlocks as unknown[] ).find( isToolResultBlock );
-		if ( ! toolResultBlock ) {
-			return null;
-		}
-
 		return {
-			content: normalizeToolResultContent( toolResultBlock.content ),
-			isError: toolResultBlock.is_error === true,
+			content: blocks.length > 0 ? blocks : undefined,
+			isError: result.isError,
 		};
 	}
 
-	private finalizeToolUseLine( isError: boolean, label: string ): void {
-		const elapsed = this.toolStartTime ? this.nowMs() - this.toolStartTime : 0;
-		this.toolStartTime = null;
+	private formatToolUseLine(
+		isError: boolean,
+		label: string,
+		startedAtMs: number | null = null
+	): string {
+		const elapsed = startedAtMs === null ? 0 : this.nowMs() - startedAtMs;
 		const elapsedSeconds = Math.max( elapsed, 0 ) / 1000;
 		const elapsedStr =
 			elapsed > 0 || this.replayMode ? chalk.dim( ` (${ elapsedSeconds.toFixed( 1 ) }s)` ) : '';
 		const statusIcon = isError ? chalk.red( '⏺' ) : '⏺';
 
-		if ( this.toolDotText ) {
-			this.toolDotText.setText( '\n ' + statusIcon + ' ' + label + elapsedStr );
-			this.toolDotText = null;
+		return '\n ' + statusIcon + ' ' + label + elapsedStr;
+	}
+
+	private renderToolUseLine(
+		isError: boolean,
+		label: string,
+		startedAtMs: number | null = null,
+		target: Container = this.messages
+	): Text {
+		const rowText = new Text( this.formatToolUseLine( isError, label, startedAtMs ), 0, 0 );
+		target.addChild( rowText );
+		return rowText;
+	}
+
+	private ensureToolRender( toolCall: PendingToolCall ): ToolRenderState {
+		if ( toolCall.render ) {
+			return toolCall.render;
+		}
+
+		const container = new Container();
+		const rowText = this.renderToolUseLine( false, toolCall.label, null, container );
+		toolCall.render = {
+			container,
+			rowText,
+			progressText: null,
+			progressLines: [],
+		};
+		this.messages.addChild( container );
+		return toolCall.render;
+	}
+
+	private finalizeToolRender( toolCall: PendingToolCall, isError: boolean ): ToolRenderState {
+		const render = this.ensureToolRender( toolCall );
+		render.rowText.setText(
+			this.formatToolUseLine( isError, toolCall.label, toolCall.startedAtMs )
+		);
+		return render;
+	}
+
+	private getActiveProgressToolCall(): PendingToolCall | null {
+		const toolCalls = Array.from( this.pendingToolCalls.values() );
+		for ( let i = toolCalls.length - 1; i >= 0; i-- ) {
+			const toolCall = toolCalls[ i ];
+			if ( toolCall.render ) {
+				return toolCall;
+			}
+		}
+		return null;
+	}
+
+	private addToolProgress( toolCall: PendingToolCall, message: string, update: boolean ): void {
+		const render = this.ensureToolRender( toolCall );
+		const lastLine = render.progressLines[ render.progressLines.length - 1 ];
+		if ( update && render.progressLines.length > 0 ) {
+			render.progressLines[ render.progressLines.length - 1 ] = message;
+		} else if ( lastLine !== message ) {
+			render.progressLines.push( message );
+		} else {
 			return;
 		}
 
-		if ( isError ) {
-			this.messages.addChild( new Text( '\n ' + statusIcon + ' ' + label + elapsedStr, 0, 0 ) );
+		const formatted = formatToolOutputLines(
+			render.progressLines.map( ( progressLine ) => chalk.dim( progressLine ) )
+		);
+		if ( render.progressText ) {
+			render.progressText.setText( formatted );
+		} else {
+			render.progressText = new Text( formatted, 0, 0 );
+			render.container.addChild( render.progressText );
 		}
 	}
 
-	private renderTodoUpdate( pendingTodoRender: PendingTodoRender ): void {
+	private renderTodoUpdate(
+		pendingTodoRender: PendingTodoRender,
+		target: Container = this.messages
+	): void {
 		const lines: TodoRenderLine[] = buildTodoUpdateLines( pendingTodoRender.diff.snapshot );
 		if ( lines.length === 0 ) {
 			return;
@@ -1889,7 +1852,7 @@ export class AiChatUI implements AiOutputAdapter {
 		const rendered = formatToolOutputLines(
 			lines.map( ( line ) => ( line.dim ? chalk.dim( line.text ) : line.text ) )
 		);
-		this.messages.addChild( new Text( rendered, 0, 0 ) );
+		target.addChild( new Text( rendered, 0, 0 ) );
 	}
 
 	private syncLatestTodoSnapshot(): void {
@@ -1910,31 +1873,11 @@ export class AiChatUI implements AiOutputAdapter {
 		return pendingTodoRender;
 	}
 
-	private consumeLatestPendingToolCall(): {
-		id: string;
-		name: string;
-		input: Record< string, unknown >;
-	} | null {
-		let latestPendingToolCall: {
-			id: string;
-			name: string;
-			input: Record< string, unknown >;
-		} | null = null;
-
-		for ( const [ id, toolCall ] of this.pendingToolCalls.entries() ) {
-			latestPendingToolCall = { id, ...toolCall };
-		}
-
-		if ( latestPendingToolCall ) {
-			this.pendingToolCalls.delete( latestPendingToolCall.id );
-		}
-
-		return latestPendingToolCall;
-	}
-
 	private renderToolResultText(
 		content: string | Array< { type: string; text?: string } >,
-		toolName?: string
+		toolCall?: PendingToolCall,
+		isError = false,
+		target: Container = this.messages
 	): void {
 		let text: string;
 		if ( typeof content === 'string' ) {
@@ -1949,63 +1892,117 @@ export class AiChatUI implements AiOutputAdapter {
 			return;
 		}
 
-		const maxLength = toolName === 'mcp__studio__validate_blocks' ? 2000 : 500;
+		const toolName = toolCall?.name;
+		const preview = getToolResultPreview( toolName, toolCall?.input, text, isError );
+		if ( preview ) {
+			target.addChild(
+				new Text(
+					formatToolOutputLines(
+						preview.summaryLines.map( ( line ) =>
+							isError ? chalk.red( line ) : chalk.dim( line )
+						)
+					),
+					0,
+					0
+				)
+			);
+			if ( preview.detailText ) {
+				this.addExpandablePreview(
+					this.generateHiddenDetailsPreview(
+						preview.detailText,
+						preview.detailLabel ?? __( 'Full output hidden · ctrl+o to expand' ),
+						preview.detailMaxLength
+					),
+					target
+				);
+			}
+			return;
+		}
+
+		const maxLength =
+			toolName === 'validate_html_blocks' || toolName === 'validate_and_fix_blocks' ? 2000 : 500;
 		const truncated = text.length > maxLength ? text.slice( 0, maxLength ) + '…' : text;
 		const resultLines = truncated.split( '\n' );
 		this.addExpandablePreview(
-			this.generateExpandablePreview( resultLines.map( ( line ) => chalk.dim( line ) ) )
+			this.generateExpandablePreview( resultLines.map( ( line ) => chalk.dim( line ) ) ),
+			target
 		);
 	}
 
-	private showToolResult(
-		message: SDKMessage & { type: 'user' },
-		toolName?: string,
-		toolInput?: Record< string, unknown > | null
-	): void {
-		this.stopToolDotBlink();
-		const typedResult = this.getToolResultContent( message );
-		if ( ! typedResult ) {
-			this.toolDotText = null;
-			return;
+	// Finalize tool rows created at message_end and append each result inside
+	// its matching tool container.
+	renderToolResults( results: readonly ToolResultMessage[] ): void {
+		for ( const toolResult of results ) {
+			const toolCallId = toolResult.toolCallId;
+			const toolCall = this.pendingToolCalls.get( toolCallId );
+			if ( this.pendingTodoRenders.has( toolCallId ) ) {
+				this.showTodoToolResult( toolResult, toolCallId, toolCall );
+			} else if ( this.pendingTodoRenderOrder.length > 0 && toolCall?.name === 'TodoWrite' ) {
+				this.showTodoToolResult( toolResult, this.pendingTodoRenderOrder[ 0 ], toolCall );
+			} else {
+				this.showToolResult( toolResult, toolCall );
+			}
+			if ( toolCall ) {
+				this.pendingToolCalls.delete( toolCallId );
+			}
 		}
+		if ( results.length > 0 ) {
+			this.currentMarkdown = null;
+			this.currentResponseText = '';
+		}
+	}
+
+	private showToolResult( result: ToolResultMessage, toolCall?: PendingToolCall ): void {
+		const typedResult = this.getToolResultContent( result );
 		const isError = typedResult.isError === true;
+		const label = toolCall?.label ?? chalk.bold( __( 'Tool' ) );
+		const target = toolCall
+			? this.finalizeToolRender( toolCall, isError ).container
+			: this.messages;
 
 		// Auto-select the site that was operated on
-		if ( ! isError && toolName && toolInput ) {
-			void this.autoSelectSiteFromToolResult( toolName, toolInput );
+		if ( ! isError && toolCall ) {
+			void this.autoSelectSiteFromToolResult( toolCall.name, toolCall.input );
 		}
 
-		const label = this.toolDotLabel;
-
-		this.finalizeToolUseLine( isError, label );
+		if ( ! toolCall ) {
+			this.renderToolUseLine( isError, label, null, target );
+		}
+		if ( toolCall && ( toolCall.name === 'Write' || toolCall.name === 'Edit' ) ) {
+			this.showFilePreview( toolCall.name, toolCall.input, target );
+		}
 
 		const content = typedResult.content;
 		if ( content === undefined ) {
 			this.tui.requestRender();
 			return;
 		}
-		this.renderToolResultText( content, toolName );
+		this.renderToolResultText( content, toolCall, isError, target );
 		this.tui.requestRender();
 	}
 
-	private showTodoToolResult( message: SDKMessage & { type: 'user' }, toolUseId: string ): void {
-		this.stopToolDotBlink();
-		const typedResult = this.getToolResultContent( message );
+	private showTodoToolResult(
+		result: ToolResultMessage,
+		toolUseId: string,
+		toolCall?: PendingToolCall
+	): void {
+		const typedResult = this.getToolResultContent( result );
 		const pendingTodoRender = this.consumePendingTodoRender( toolUseId );
 
-		if ( ! typedResult || ! pendingTodoRender ) {
-			this.toolDotText = null;
+		if ( ! pendingTodoRender ) {
 			return;
 		}
 
 		const isError = typedResult.isError === true;
 
 		if ( isError ) {
-			// Errors always finalize the tool-use line (showToolUse may or may not have been called)
-			this.finalizeToolUseLine( true, pendingTodoRender.toolLabel );
+			const target = toolCall ? this.finalizeToolRender( toolCall, true ).container : this.messages;
+			if ( ! toolCall ) {
+				this.renderToolUseLine( true, pendingTodoRender.toolLabel, pendingTodoRender.startedAtMs );
+			}
 			this.syncLatestTodoSnapshot();
 			if ( typedResult.content !== undefined ) {
-				this.renderToolResultText( typedResult.content, 'TodoWrite' );
+				this.renderToolResultText( typedResult.content, toolCall, true, target );
 			}
 			this.tui.requestRender();
 			return;
@@ -2015,14 +2012,16 @@ export class AiChatUI implements AiOutputAdapter {
 		this.syncLatestTodoSnapshot();
 
 		if ( ! pendingTodoRender.shouldRender ) {
-			// No showToolUse was called for suppressed renders, so don't touch toolStartTime
 			this.tui.requestRender();
 			return;
 		}
 
-		this.finalizeToolUseLine( false, pendingTodoRender.toolLabel );
+		const target = toolCall ? this.finalizeToolRender( toolCall, false ).container : this.messages;
+		if ( ! toolCall ) {
+			this.renderToolUseLine( false, pendingTodoRender.toolLabel, pendingTodoRender.startedAtMs );
+		}
 		this.lastRenderedTodoSignature = pendingTodoRender.diff.signature;
-		this.renderTodoUpdate( pendingTodoRender );
+		this.renderTodoUpdate( pendingTodoRender, target );
 		this.tui.requestRender();
 	}
 
@@ -2113,33 +2112,40 @@ export class AiChatUI implements AiOutputAdapter {
 	}
 
 	/**
-	 * Process an SDK message and update the UI.
+	 * Process a runtime event and update the UI.
 	 * Returns session result when the agent turn is complete.
 	 */
-	handleMessage( message: SDKMessage ): HandleMessageResult | undefined {
-		if ( this.wasInterrupted && message.type !== 'result' ) {
-			return undefined;
+	handleEvent( event: AgentSessionEvent ): void {
+		if ( this.wasInterrupted && event.type !== 'agent_end' ) {
+			return;
 		}
 
-		switch ( message.type ) {
-			case 'assistant': {
-				// Detect the AI usage cap response from the WordPress.com proxy.
-				// The proxy returns a 429 when the cap is hit; the SDK can't
-				// classify errors from off-domain base URLs so it forwards the
-				// body verbatim as a text block prefixed with "API Error: 429".
-				// On the wpcom provider a 429 is always a cap issue — matching
-				// the SDK's status-code prefix is more robust than any specific
-				// body marker, which has varied across backend revisions.
-				let isCapMessage = false;
-				if ( message.error && this.currentProvider === 'wpcom' ) {
-					for ( const block of message.message.content ) {
-						if ( block.type === 'text' && /API Error:\s*429/i.test( block.text ?? '' ) ) {
-							isCapMessage = true;
-							break;
-						}
-					}
+		switch ( event.type ) {
+			case 'compaction_start':
+				this.showLoader( __( 'Compacting conversation history…' ) );
+				return;
+			case 'compaction_end':
+				this.hideLoader();
+				if ( event.errorMessage ) {
+					this.showError( event.errorMessage );
+				} else if ( event.result && ! event.aborted ) {
+					this.showInfo( __( 'Conversation history compacted' ) );
 				}
-				if ( isCapMessage ) {
+				return;
+			case 'message_end': {
+				const message = event.message;
+				if ( message.role !== 'assistant' ) {
+					return;
+				}
+
+				// Detect the AI usage cap response from the WordPress.com proxy.
+				// On wpcom a 429 is always a cap issue — pi-ai surfaces it via
+				// `stopReason: 'error'` with the upstream body in `errorMessage`.
+				if (
+					message.stopReason === 'error' &&
+					this.currentProvider === 'wpcom' &&
+					/API Error:\s*429|status code 429|"status":\s*429/i.test( message.errorMessage ?? '' )
+				) {
 					this.hideLoader();
 					this.usageCapReached = true;
 					this.showError(
@@ -2152,12 +2158,12 @@ export class AiChatUI implements AiOutputAdapter {
 					);
 					this.currentMarkdown = null;
 					this.currentResponseText = '';
-					return undefined;
+					return;
 				}
-				for ( const block of message.message.content ) {
+
+				for ( const block of message.content ) {
 					if ( block.type === 'text' ) {
 						this.hideLoader();
-						// Lazily create a new markdown block if needed (e.g. after askUser closed the previous one)
 						if ( ! this.currentMarkdown ) {
 							this.currentResponseText = '';
 							this.hasShownResponseMarker = false;
@@ -2167,7 +2173,6 @@ export class AiChatUI implements AiOutputAdapter {
 							this.currentMarkdown = new Markdown( '\n', 1, 0, markdownTheme );
 							this.messages.addChild( this.currentMarkdown );
 						}
-						// Add a line break between consecutive assistant messages
 						if ( this.currentResponseText && ! this.currentResponseText.endsWith( '\n' ) ) {
 							this.currentResponseText += '\n';
 						}
@@ -2176,123 +2181,75 @@ export class AiChatUI implements AiOutputAdapter {
 							'\n' + chalk.blue( '⏺' ) + ' ' + this.currentResponseText
 						);
 						this.tui.requestRender();
-					} else if ( block.type === 'tool_use' ) {
-						this.toolStartTime = this.nowMs();
-						const typedBlock = block as {
-							id: string;
-							name: string;
-							input?: Record< string, unknown >;
-						};
-						const input = typedBlock.input;
-						this.pendingToolCalls.set( typedBlock.id, {
-							name: typedBlock.name,
-							input: input ?? {},
-						} );
+					} else if ( block.type === 'toolCall' ) {
+						const startedAtMs = this.nowMs();
+						const input = ( block.arguments ?? {} ) as Record< string, unknown >;
 						const toolLabel = formatToolName( block.name, input );
+						const toolCall: PendingToolCall = {
+							name: block.name,
+							input,
+							label: toolLabel,
+							startedAtMs,
+							render: null,
+						};
 						if ( block.name === 'TodoWrite' && isTodoWriteInput( input ) ) {
 							const diff = diffTodoSnapshot( this.latestTodoSnapshot, input.todos );
 							const shouldRender =
 								diff.hasVisibleChanges && diff.signature !== this.lastRenderedTodoSignature;
-							this.pendingTodoRenders.set( typedBlock.id, {
+							this.pendingTodoRenders.set( block.id, {
 								diff,
 								toolLabel,
+								startedAtMs,
 								shouldRender,
 							} );
-							this.pendingTodoRenderOrder.push( typedBlock.id );
+							this.pendingTodoRenderOrder.push( block.id );
 							this.latestTodoSnapshot = diff.snapshot;
 							if ( shouldRender ) {
-								this.showToolUse( toolLabel );
+								this.ensureToolRender( toolCall );
 							}
 						} else {
-							this.showToolUse( toolLabel );
+							this.ensureToolRender( toolCall );
 						}
-						if ( ( block.name === 'Write' || block.name === 'Edit' ) && input ) {
-							this.showFilePreview( block.name, input );
-						}
+						this.pendingToolCalls.set( block.id, toolCall );
 					}
 				}
-				// Always show the loader after processing — the agent turn is still active
-				// and more messages are coming (next API call, tool execution, etc.)
 				if ( ! this.replayMode && ! this.loaderVisible ) {
 					this.showLoader( randomThinkingMessage() );
 				}
-				return undefined;
+				return;
 			}
-			case 'user': {
-				const toolCallId = message.parent_tool_use_id;
-				const toolCall = toolCallId ? this.pendingToolCalls.get( toolCallId ) : null;
-				if ( toolCallId ) {
-					this.pendingToolCalls.delete( toolCallId );
-				}
-				// Direct ID match, or fallback for SDK-internal tools (e.g. TodoWrite)
-				// where parent_tool_use_id may be null.
-				if ( toolCallId && this.pendingTodoRenders.has( toolCallId ) ) {
-					this.showTodoToolResult( message, toolCallId );
-				} else if ( ! toolCallId && this.pendingTodoRenderOrder.length > 0 ) {
-					this.showTodoToolResult( message, this.pendingTodoRenderOrder[ 0 ] );
-				} else {
-					const fallbackToolCall = toolCall ?? this.consumeLatestPendingToolCall();
-					this.showToolResult( message, fallbackToolCall?.name, fallbackToolCall?.input );
-				}
-				// Close the current markdown block so the next assistant text
-				// creates a fresh visual block (mirrors askUser / endAgentTurn).
-				this.currentMarkdown = null;
-				this.currentResponseText = '';
-				return undefined;
+			case 'turn_end': {
+				this.numTurns += 1;
+				this.renderToolResults( event.toolResults );
+				return;
 			}
-			case 'result': {
+			case 'agent_end': {
 				this.hideLoader();
 
-				// When the cap message was surfaced earlier in this turn,
-				// the SDK still classifies the turn as successful (or returns
-				// is_error with the raw upstream body). Skip the "Done" /
-				// "Thought for Xs" indicators and the generic error rendering
-				// so the cap message stands on its own, and report the turn
-				// as failed to upstream callers.
 				if ( this.usageCapReached ) {
-					return { type: 'result', sessionId: message.session_id, success: false };
+					return;
 				}
 
-				// User-initiated interruption: friendly message, suppress retry prompt.
 				if ( this.wasInterrupted ) {
 					this.showInterruptedNotice();
-					return {
-						type: 'result',
-						sessionId: message.session_id,
-						success: false,
-						interrupted: true,
-					};
+					return;
 				}
 
-				// is_error is the authoritative failure signal. A message can have
-				// subtype='success' and still carry is_error=true (e.g. API 504 after
-				// the SDK exhausts retries and emits the error text as the result).
-				if ( message.is_error ) {
-					const parts: string[] = [];
-					if ( 'errors' in message && message.errors?.length ) {
-						parts.push( ...message.errors );
-					}
-					if ( 'result' in message && typeof message.result === 'string' && message.result ) {
-						parts.push( message.result );
-					} else if ( message.subtype && message.subtype !== 'success' ) {
-						parts.push( `(${ message.subtype })` );
-					}
-					if ( 'permission_denials' in message && message.permission_denials?.length ) {
-						for ( const denial of message.permission_denials ) {
-							parts.push(
-								sprintf(
-									/* translators: %s: tool name */
-									__( 'Permission denied: %s' ),
-									denial.tool_name
-								)
-							);
-						}
-					}
-					this.showError( parts.length > 0 ? parts.join( '\n' ) : __( 'Unknown error' ) );
-					return { type: 'result', sessionId: message.session_id, success: false };
+				const lastAssistant = findLastAssistant( event.messages );
+				const isError =
+					lastAssistant?.stopReason === 'error' || lastAssistant?.stopReason === 'aborted';
+
+				if ( isError ) {
+					const errorText = lastAssistant?.errorMessage?.trim();
+					const fallbackText = lastAssistant?.content
+						.filter( ( block ): block is { type: 'text'; text: string } => block.type === 'text' )
+						.map( ( block ) => block.text )
+						.join( '\n' )
+						.trim();
+					this.showError( errorText || fallbackText || __( 'Unknown error' ) );
+					return;
 				}
 
-				// Genuine success.
 				const thinkingSec = Math.round( ( this.nowMs() - this.turnStartTime ) / 1000 );
 				if ( ! this.hasShownResponseMarker ) {
 					this.messages.addChild(
@@ -2302,27 +2259,19 @@ export class AiChatUI implements AiOutputAdapter {
 				this.showInfo(
 					sprintf(
 						/* translators: 1: seconds spent thinking, 2: number of turns */
-						_n(
-							'Thought for %1$ds · %2$d turn',
-							'Thought for %1$ds · %2$d turns',
-							message.num_turns
-						),
+						_n( 'Thought for %1$ds · %2$d turn', 'Thought for %1$ds · %2$d turns', this.numTurns ),
 						thinkingSec,
-						message.num_turns
+						this.numTurns
 					)
 				);
-				return { type: 'result', sessionId: message.session_id, success: true };
+				return;
 			}
-			case 'system': {
-				if ( message.subtype === 'status' && message.status === 'compacting' ) {
-					this.showLoader( __( 'Compacting conversation history…' ) );
-				} else if ( message.subtype === 'compact_boundary' ) {
-					this.hideLoader();
-					this.showInfo( __( 'Conversation history compacted' ) );
-				}
-				return undefined;
-			}
+			default:
+				// agent_start / turn_start / message_start / message_update /
+				// tool_execution_* — UI doesn't act on these directly; pi
+				// events drive incremental state but the visible transitions
+				// happen at message_end / turn_end / agent_end.
+				return;
 		}
-		return undefined;
 	}
 }

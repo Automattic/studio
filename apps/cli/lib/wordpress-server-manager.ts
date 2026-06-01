@@ -11,9 +11,16 @@ import {
 	PLAYGROUND_CLI_INACTIVITY_TIMEOUT,
 	PLAYGROUND_CLI_MAX_TIMEOUT,
 } from '@studio/common/constants';
+import { resolveNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
+import {
+	SITE_RUNTIME_NATIVE_PHP,
+	SITE_RUNTIME_PLAYGROUND,
+	type SiteRuntime,
+} from '@studio/common/lib/site-runtime';
 import { SiteCommandLoggerAction } from '@studio/common/logger-actions';
+import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
-import { SiteData, SiteRuntime } from 'cli/lib/cli-config/core';
+import { SiteData } from 'cli/lib/cli-config/core';
 import {
 	isProcessRunning,
 	startProcess,
@@ -23,10 +30,10 @@ import {
 	sendMessageToProcess,
 } from 'cli/lib/daemon-client';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
+import { getSiteRuntime } from 'cli/lib/feature-flags';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { ServerConfig, ManagerMessagePayload } from 'cli/lib/types/wordpress-server-ipc';
 import { Logger } from 'cli/logger';
-import { validatePhpVersion } from './utils';
 import type { WordPressInstallMode } from '@wp-playground/wordpress';
 
 export const SITE_PROCESS_PREFIX = 'studio-site-';
@@ -41,19 +48,31 @@ export function getProcessName( siteId: string ): string {
 	return `${ SITE_PROCESS_PREFIX }${ siteId }`;
 }
 
-function getChildScriptPath( runtime: SiteRuntime | undefined ): string {
-	switch ( runtime ?? 'playground' ) {
-		case 'native-php':
+function getChildScriptPath( runtime: SiteRuntime ): string {
+	switch ( runtime ) {
+		case SITE_RUNTIME_NATIVE_PHP:
 			return path.resolve( import.meta.dirname, 'php-server-child.mjs' );
-		case 'playground':
+		case SITE_RUNTIME_PLAYGROUND:
 		default:
 			return path.resolve( import.meta.dirname, 'playground-server-child.mjs' );
 	}
 }
 
+function withSiteRuntime( processDescription: ProcessDescription ): ProcessDescription {
+	return {
+		...processDescription,
+		runtime: processDescription.runtime ?? SITE_RUNTIME_PLAYGROUND,
+	};
+}
+
 export async function isServerRunning( siteId: string ): Promise< ProcessDescription | undefined > {
 	const processName = getProcessName( siteId );
-	return isProcessRunning( processName );
+	const runningProcess = await isProcessRunning( processName );
+	return runningProcess ? withSiteRuntime( runningProcess ) : undefined;
+}
+
+function canReuseProcessForWpCli( processDescription: ProcessDescription ): boolean {
+	return processDescription.runtime === SITE_RUNTIME_PLAYGROUND;
 }
 
 /**
@@ -77,13 +96,17 @@ export interface StartServerOptions {
 
 function buildServerConfig(
 	site: SiteData,
+	runtime: SiteRuntime,
 	options?: Partial< StartServerOptions & RunBlueprintOptions >
 ): ServerConfig {
 	const serverConfig: ServerConfig = {
 		siteId: site.id,
 		sitePath: site.path,
 		port: site.port,
-		phpVersion: site.phpVersion,
+		phpVersion:
+			runtime === SITE_RUNTIME_NATIVE_PHP
+				? resolveNativePhpVersion( site.phpVersion )
+				: site.phpVersion,
 		siteTitle: site.name,
 	};
 
@@ -160,18 +183,19 @@ function buildServerConfig(
 
 async function ensurePhpBinaryAvailableIfNeeded(
 	site: SiteData,
-	logger: Logger< string >
+	logger: Logger< string >,
+	runtime: SiteRuntime
 ): Promise< void > {
-	if ( site.runtime === 'native-php' && site.phpVersion ) {
+	if ( runtime === SITE_RUNTIME_NATIVE_PHP ) {
+		const phpVersion = resolveNativePhpVersion( site.phpVersion );
 		logger.reportStart(
 			SiteCommandLoggerAction.ENSURE_PHP_BINARY,
-			`Checking PHP ${ site.phpVersion } binary…`
+			`Checking PHP ${ phpVersion } binary…`
 		);
-		const phpVersion = validatePhpVersion( site.phpVersion );
 		await ensurePhpBinaryAvailable( phpVersion, ( downloaded, total ) => {
 			const dl = ( downloaded / 1024 / 1024 ).toFixed( 1 );
 			const tot = total ? ` / ${ ( total / 1024 / 1024 ).toFixed( 1 ) } MB` : '';
-			logger.reportProgress( `Downloading PHP ${ site.phpVersion } (${ dl } MB${ tot })` );
+			logger.reportProgress( `Downloading PHP ${ phpVersion } (${ dl } MB${ tot })` );
 		} );
 	}
 }
@@ -195,15 +219,21 @@ export async function startWordPressServer(
 		}
 	}
 
-	await ensurePhpBinaryAvailableIfNeeded( site, logger );
+	const runtime = getSiteRuntime();
+	await ensurePhpBinaryAvailableIfNeeded( site, logger, runtime );
 
-	const wordPressServerChildPath = getChildScriptPath( site.runtime );
+	const startMessage = options?.blueprint
+		? __( 'Starting WordPress server and applying Blueprint…' )
+		: __( 'Starting WordPress server…' );
+	logger.reportStart( SiteCommandLoggerAction.START_SITE, startMessage );
+
+	const wordPressServerChildPath = getChildScriptPath( runtime );
 	const processName = getProcessName( site.id );
-	const serverConfig = buildServerConfig( site, options );
+	const serverConfig = buildServerConfig( site, runtime, options );
 
 	const readyOrExit = await subscribeForReadyOrExit( processName );
 	try {
-		const processDesc = await startProcess( processName, wordPressServerChildPath );
+		const processDesc = await startProcess( processName, wordPressServerChildPath, { runtime } );
 		await readyOrExit.waitFor( processDesc.pmId );
 		await sendMessage(
 			processDesc.pmId,
@@ -215,7 +245,7 @@ export async function startWordPressServer(
 			{ logger }
 		);
 
-		return processDesc;
+		return withSiteRuntime( processDesc );
 	} finally {
 		readyOrExit.dispose();
 	}
@@ -513,15 +543,17 @@ export async function runBlueprint(
 	logger: Logger< string >,
 	options: RunBlueprintOptions
 ): Promise< void > {
-	await ensurePhpBinaryAvailableIfNeeded( site, logger );
+	const runtime = getSiteRuntime();
+	await ensurePhpBinaryAvailableIfNeeded( site, logger, runtime );
+	logger.reportStart( SiteCommandLoggerAction.APPLY_BLUEPRINT, __( 'Applying Blueprint…' ) );
 
-	const wordPressServerChildPath = getChildScriptPath( site.runtime );
+	const wordPressServerChildPath = getChildScriptPath( runtime );
 	const processName = getProcessName( site.id );
-	const serverConfig = buildServerConfig( site, options );
+	const serverConfig = buildServerConfig( site, runtime, options );
 
 	const readyOrExit = await subscribeForReadyOrExit( processName );
 	try {
-		const processDesc = await startProcess( processName, wordPressServerChildPath );
+		const processDesc = await startProcess( processName, wordPressServerChildPath, { runtime } );
 		try {
 			await readyOrExit.waitFor( processDesc.pmId );
 			await sendMessage(
@@ -553,10 +585,14 @@ export async function sendWpCliCommand(
 	args: string[]
 ): Promise< z.infer< typeof wpCliResultSchema > > {
 	const processName = getProcessName( siteId );
-	const runningProcess = await isProcessRunning( processName );
+	const runningProcess = await isServerRunning( siteId );
 
 	if ( ! runningProcess ) {
 		throw new Error( `WordPress server is not running` );
+	}
+
+	if ( ! canReuseProcessForWpCli( runningProcess ) ) {
+		throw new Error( `Running WordPress server does not support WP-CLI commands` );
 	}
 
 	const result = await sendMessage( runningProcess.pmId, processName, {

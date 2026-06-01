@@ -1,8 +1,8 @@
 import { getAiModelFamily } from '@studio/common/ai/models';
+import { getAiModelLabel, type AiModelId } from '@studio/common/ai/models';
 import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, sprintf } from '@wordpress/i18n';
-import { getAiModelLabel, type AiModelId } from 'cli/ai/agent';
 import { getAvailableAiProviders, isAiProviderReady } from 'cli/ai/auth';
 import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
 import { captureCommandOutput } from 'cli/ai/tools';
@@ -10,7 +10,7 @@ import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { runCommand as runLogoutCommand } from 'cli/commands/auth/logout';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
-import { isRemoteSessionEnabled } from 'cli/lib/feature-flags';
+import { openBrowser } from 'cli/lib/browser';
 import { getSnapshotsFromConfig, isSnapshotExpired } from 'cli/lib/snapshots';
 import { LoggerError } from 'cli/logger';
 import { loadRemoteSessionConfig } from 'cli/remote-session/config';
@@ -43,13 +43,6 @@ export interface SlashCommandDef {
 	description: string;
 	handler?: SlashCommandHandler;
 	/**
-	 * Optional gate. When provided and returning false at evaluation time, the
-	 * command is hidden from autocomplete and unreachable from the dispatcher.
-	 * Used for feature-flagged commands so the surface stays clean for users
-	 * who haven't opted in.
-	 */
-	enabled?: () => boolean;
-	/**
 	 * Optional argument completion. When the user has typed past the first
 	 * whitespace (e.g. `/remote-session `), the autocomplete provider calls
 	 * this to surface subcommand suggestions.
@@ -57,18 +50,8 @@ export interface SlashCommandDef {
 	getArgumentCompletions?: ( argumentPrefix: string ) => AutocompleteItem[] | null;
 }
 
-/**
- * Returns the slash commands that are active at the time this function is
- * called.
- *
- * Consumers such as the dispatcher should call this rather than reading
- * `AI_CHAT_SLASH_COMMANDS` directly so feature-flag evaluation happens
- * against current state. Consumers that cache the returned list, or build
- * long-lived autocomplete providers from it, must refresh those consumers
- * separately for later feature-flag changes to be reflected.
- */
 export function getActiveSlashCommands(): SlashCommandDef[] {
-	return AI_CHAT_SLASH_COMMANDS.filter( ( c ) => c.enabled === undefined || c.enabled() );
+	return AI_CHAT_SLASH_COMMANDS;
 }
 
 function isPromptAbortError( error: unknown ): boolean {
@@ -109,7 +92,7 @@ async function runRemoteSessionStart( ctx: SlashCommandContext ): Promise< void 
 			sprintf(
 				/* translators: %d: daemon PID */
 				__(
-					'Remote-session started (PID %d). Message Dolly (@wordpress_com_bot) on Telegram to work with Studio.'
+					'Remote-session started (PID %d). Message WordPress Agent (@wordpressagentbot) on Telegram to work with Studio.'
 				),
 				result.pid
 			)
@@ -121,7 +104,7 @@ async function runRemoteSessionStart( ctx: SlashCommandContext ): Promise< void 
 				sprintf(
 					/* translators: %d: daemon PID */
 					__(
-						'Remote-session already running (PID %d). Message Dolly (@wordpress_com_bot) on Telegram to work with Studio.'
+						'Remote-session already running (PID %d). Message WordPress Agent (@wordpressagentbot) on Telegram to work with Studio.'
 					),
 					error.pid
 				)
@@ -513,7 +496,6 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 	{
 		name: 'remote-session',
 		description: __( 'Manage the Telegram remote-session daemon (start, stop)' ),
-		enabled: isRemoteSessionEnabled,
 		getArgumentCompletions: ( argumentPrefix ) => {
 			const items: AutocompleteItem[] = [
 				{ value: 'start', label: 'start', description: __( 'Spawn the daemon' ) },
@@ -523,6 +505,14 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 			return items.filter( ( item ) => item.value.startsWith( lower ) );
 		},
 		handler: runRemoteSessionSlashCommand,
+	},
+	{
+		name: 'swag',
+		description: __( 'Treat yourself to some WordPress swag' ),
+		handler: async () => {
+			await openBrowser( 'https://mercantile.wordpress.org/' );
+			return 'continue';
+		},
 	},
 	{
 		name: 'exit',

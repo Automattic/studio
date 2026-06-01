@@ -74,7 +74,9 @@ type UserDataSafeKeys =
 	| 'colorScheme'
 	| 'defaultSiteDirectory'
 	| 'cliAutoInstalled'
-	| 'wapuuScore';
+	| 'wapuuScore'
+	| 'lastNightlyUpdateCheck'
+	| 'nightlyPromptResult';
 
 type PartialUserDataWithSafeKeysToUpdate = Partial< Pick< UserData, UserDataSafeKeys > >;
 

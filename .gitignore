@@ -95,7 +95,8 @@ typings/
 out/
 
 # The latest WordPress files downloaded from the web
-wp-files/
+wp-files/*
+!wp-files/blueprints/
 
 # Release Tooling
 vendor/*
@@ -130,6 +131,9 @@ CLAUDE.md
 # Bundled Node binary (downloaded during build)
 apps/studio/bin/node
 apps/studio/bin/node.exe
+
+# Bundled PHP binary (downloaded during packaging)
+apps/studio/php-bin/
 
 # CLI launcher executable (built during packaging via @yao-pkg/pkg)
 bin/studio-cli.exe

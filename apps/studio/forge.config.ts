@@ -1,3 +1,4 @@
+import { exec } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { MakerDeb } from '@electron-forge/maker-deb';
@@ -5,13 +6,13 @@ import { MakerDMG } from '@electron-forge/maker-dmg';
 import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
-import { isErrnoException } from '@studio/common/lib/is-errno-exception';
-import { exec } from 'child_process';
 import { exec as pkgExec } from '@yao-pkg/pkg';
-import type { ForgeConfig } from '@electron-forge/shared-types';
+import { RecommendedPHPVersion } from '../../tools/common/types/php-versions';
 import { windowsSign } from './windowsSign';
+import type { ForgeConfig } from '@electron-forge/shared-types';
 
 const repoRoot = path.resolve( __dirname, '../..' );
+const bundledPhpBinaryRoot = path.join( __dirname, 'php-bin' );
 
 const config: ForgeConfig = {
 	packagerConfig: {
@@ -19,6 +20,7 @@ const config: ForgeConfig = {
 		extraResource: [
 			path.join( __dirname, 'assets' ),
 			path.join( __dirname, 'bin' ),
+			bundledPhpBinaryRoot,
 			path.join( repoRoot, 'apps', 'cli', 'dist', 'cli' ),
 		],
 		executableName: process.platform === 'linux' ? 'studio' : undefined,
@@ -36,45 +38,34 @@ const config: ForgeConfig = {
 				return {};
 			},
 		},
+		// Patterns are matched against paths inside the asar root, which is
+		// apps/studio/ (electron-forge packages from this package). Anchor each
+		// pattern at the asar root with a leading slash.
 		ignore: [
-			// Exclude major development directories
-			/^\/\..*/, // All dotfiles and dot directories
-			/^\/apps\/studio\/src/,
-			/^\/apps\/studio\/e2e/,
-			/^\/apps\/cli/,
-			/^\/tools\/common/,
-			/^\/vendor/,
-			/^\/fastlane/,
-			/^\/docs/,
-			/^\/scripts/,
-			/^\/tools/,
+			// Dev/test sources and fixtures — runtime uses /dist instead.
+			/^\/\..*/, // dotfiles and dot directories
+			/^\/src/,
+			/^\/e2e/,
+			/^\/__mocks__/,
 			/^\/patches/,
-			/^\/tools\/metrics/,
-			/^\/test-results/,
-			/^\/webpack-loaders/,
-			/^\/apps\/studio\/installers/,
+			/^\/entitlements/,
+			/^\/installers/,
+			// Build-time helpers
+			/^\/windowsSign\.ts$/,
 			// Config files
-			/^\/webpack\./,
 			/^\/tsconfig\./,
 			/^\/vitest\./,
-			/^\/playwright\./,
 			/^\/postcss\./,
 			/^\/tailwind\./,
 			/^\/forge\./,
 			/^\/electron\./,
-			/^\/apps\/studio\/.*\\.config\\./,
-			/^\/apps\/studio\/tailwind\\.config\\.js$/,
-			/^\/apps\/studio\/postcss\\.config\\.js$/,
-			/^\/apps\/studio\/index\.html$/,
-			/^\/Gemfile/,
+			/^\/index\.html$/,
 			/^\/.*\.md$/,
 			/^\/.*\.txt$/,
 			/^\/.*\.log$/,
-			// External resources (shouldn't be in asar)
+			// Resources copied separately via extraResource
 			/^\/assets/,
 			/^\/bin/,
-			/^\/apps\/cli\/dist\/cli/,
-			/^\/dist\/playground-cli/,
 		],
 	},
 	rebuildConfig: {},
@@ -101,10 +92,14 @@ const config: ForgeConfig = {
 				desktopTemplate: path.join( __dirname, 'installers', 'desktop.ejs' ),
 				// libcap2-bin: ships `setcap`, used by postinst to grant the bundled
 				// node CAP_NET_BIND_SERVICE so the proxy can bind ports 80/443.
-				// policykit-1: pkexec backend used by @vscode/sudo-prompt for hosts-file writes.
+				// pkexec | policykit-1: provides `pkexec`, used by @vscode/sudo-prompt for
+				// hosts-file writes. `policykit-1` is the legacy package name (Ubuntu 24.04
+				// and older Debian); on Debian trixie / Kali rolling polkit was split and
+				// `pkexec` ships as its own binary package. The alternative makes the
+				// dependency resolvable on both.
 				// ca-certificates: ships `update-ca-certificates` and the system trust bundle.
 				// libnss3-tools: ships `certutil`, used to import the CA into per-user NSS DBs.
-				depends: [ 'libcap2-bin', 'policykit-1', 'ca-certificates', 'libnss3-tools' ],
+				depends: [ 'libcap2-bin', 'pkexec | policykit-1', 'ca-certificates', 'libnss3-tools' ],
 				scripts: {
 					postinst: path.join( __dirname, 'installers', 'linux', 'postinst.sh' ),
 					postrm: path.join( __dirname, 'installers', 'linux', 'postrm.sh' ),
@@ -129,8 +124,7 @@ const config: ForgeConfig = {
 					: {
 							certificateFile: path.join( repoRoot, 'certificate.pfx' ),
 							certificatePassword: process.env.WINDOWS_CODE_SIGNING_CERT_PASSWORD,
-					  }
-				),
+					  } ),
 			},
 			[ 'win32' ]
 		),
@@ -172,11 +166,16 @@ const config: ForgeConfig = {
 	plugins: [ new AutoUnpackNativesPlugin( {} ) ],
 	hooks: {
 		prePackage: async ( _forgeConfig, platform, arch ) => {
-			const execAsync = ( command: string ) =>
+			const execAsync = ( command: string, env: NodeJS.ProcessEnv = {} ) =>
 				new Promise< void >( ( resolve, reject ) => {
 					exec(
 						command,
-						{ cwd: repoRoot, maxBuffer: 50 * 1024 * 1024, windowsHide: true },
+						{
+							cwd: repoRoot,
+							env: { ...process.env, ...env },
+							maxBuffer: 50 * 1024 * 1024,
+							windowsHide: true,
+						},
 						( error, stdout, stderr ) => {
 							if ( error ) {
 								if ( stdout ) console.log( stdout );
@@ -194,8 +193,12 @@ const config: ForgeConfig = {
 			// may need to rerun `npm ci` from the repo root to reset the dependency tree after packaging.
 			await execAsync( 'npm run app:install:bundle' );
 
-			console.log( 'Downloading language packs ...' );
-			await execAsync( 'npm run download-language-packs' );
+			if ( process.env.SKIP_LANGUAGE_PACKS ) {
+				console.log( 'Skipping language packs because SKIP_LANGUAGE_PACKS is set ...' );
+			} else {
+				console.log( 'Downloading language packs ...' );
+				await execAsync( 'npm run download-language-packs' );
+			}
 
 			console.log( 'Building CLI (with bundled node_modules) ...' );
 			// NOTE: The `cli:package` script mutates the `apps/cli/node_modules` directory. You may need to
@@ -208,16 +211,60 @@ const config: ForgeConfig = {
 			console.log( `Removing native binaries for other platforms from CLI bundle...` );
 			const cliNodeModules = path.join( repoRoot, 'apps', 'cli', 'dist', 'cli', 'node_modules' );
 
-			// Clean up koffi binaries (uses {platform}_{arch} format)
+			// Clean up koffi binaries (uses {platform}_{arch} format).
 			const koffiBuildDir = path.join( cliNodeModules, 'koffi', 'build', 'koffi' );
-			const platformPrefix = `${ platform }_`;
+			const koffiTarget = `${ platform }_${ arch }`;
 			if ( fs.existsSync( koffiBuildDir ) ) {
-				for ( const platformArchDir of fs.readdirSync( koffiBuildDir ) ) {
-					if ( ! platformArchDir.startsWith( platformPrefix ) ) {
-						const dirToRemove = path.join( koffiBuildDir, platformArchDir );
-						if ( fs.statSync( dirToRemove ).isDirectory() ) {
-							fs.rmSync( dirToRemove, { recursive: true, force: true } );
-							console.log( `Removed koffi/build/koffi/${ platformArchDir }` );
+				const koffiDirs = fs.readdirSync( koffiBuildDir );
+				const koffiTargetPath = path.join( koffiBuildDir, koffiTarget );
+				// Refuse to delete anything unless the target arch is present *as a directory* —
+				// guards against a koffi naming/layout change silently nuking every prebuilt.
+				const targetIsDir =
+					fs.existsSync( koffiTargetPath ) && fs.statSync( koffiTargetPath ).isDirectory();
+				if ( ! targetIsDir ) {
+					console.warn(
+						`Skipping koffi cleanup: no directory named ${ koffiTarget } in ${ koffiBuildDir }`
+					);
+				} else {
+					for ( const platformArchDir of koffiDirs ) {
+						if ( platformArchDir !== koffiTarget ) {
+							const dirToRemove = path.join( koffiBuildDir, platformArchDir );
+							if ( fs.statSync( dirToRemove ).isDirectory() ) {
+								fs.rmSync( dirToRemove, { recursive: true, force: true } );
+								console.log( `Removed koffi/build/koffi/${ platformArchDir }` );
+							}
+						}
+					}
+				}
+			}
+
+			// Clean up fs-ext-extra-prebuilt binaries (file format:
+			// fs-ext-{platform}-{arch}-{runtime}-{version}.node). The root postinstall
+			// already filtered by platform; this strips the unused arch for the target build.
+			const fsExtBinDir = path.join( cliNodeModules, 'fs-ext-extra-prebuilt', 'binaries' );
+			const fsExtPrefix = `fs-ext-${ platform }-${ arch }-`;
+			if ( fs.existsSync( fsExtBinDir ) ) {
+				const fsExtFiles = fs.readdirSync( fsExtBinDir );
+				if ( ! fsExtFiles.some( ( f ) => f.startsWith( fsExtPrefix ) ) ) {
+					console.warn(
+						`Skipping fs-ext cleanup: no file starting with ${ fsExtPrefix } in ${ fsExtBinDir }`
+					);
+				} else {
+					for ( const file of fsExtFiles ) {
+						if ( ! file.startsWith( fsExtPrefix ) ) {
+							// Tolerate transient failures (Windows AV locks, permissions) — this
+							// cleanup is a size optimization; aborting packaging over a stuck file
+							// would be worse than shipping a few hundred extra KB. Mirrors the
+							// behavior of scripts/remove-fs-ext-other-platform-binaries.mjs.
+							try {
+								fs.unlinkSync( path.join( fsExtBinDir, file ) );
+								console.log( `Removed fs-ext-extra-prebuilt/binaries/${ file }` );
+							} catch ( e ) {
+								const message = e instanceof Error ? e.message : String( e );
+								console.warn(
+									`Could not remove fs-ext-extra-prebuilt/binaries/${ file }: ${ message }`
+								);
+							}
 						}
 					}
 				}
@@ -225,11 +272,28 @@ const config: ForgeConfig = {
 
 			console.log( `Downloading Node.js binary for ${ platform }-${ arch }...` );
 			await execAsync(
-				`npx ts-node ${ path.join(
+				`npx tsx ${ path.join(
 					repoRoot,
 					'scripts',
 					'download-node-binary.ts'
 				) } ${ platform } ${ arch }`
+			);
+
+			console.log(
+				`Downloading PHP ${ RecommendedPHPVersion } package for ${ platform }-${ arch }...`
+			);
+			fs.rmSync( bundledPhpBinaryRoot, { recursive: true, force: true } );
+			await execAsync(
+				`npx tsx ${ path.join(
+					repoRoot,
+					'scripts',
+					'download-php-binary.ts'
+				) } ${ RecommendedPHPVersion } ${ platform } ${ arch } --install-root ${ JSON.stringify(
+					bundledPhpBinaryRoot
+				) }`,
+				{
+					STUDIO_PHP_BINARY_DOWNLOAD_REQUIRED: '1',
+				}
 			);
 
 			// Build CLI launcher executable for Windows AppX (Microsoft Store).

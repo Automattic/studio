@@ -31,6 +31,11 @@ import {
 import { getSiteRuntime } from 'cli/lib/feature-flags';
 import { validatePhpVersion } from 'cli/lib/utils';
 import { getDefaultPhpArgs } from './native-php';
+import {
+	DETACH_FOR_GROUP_KILL,
+	killPhpProcessTree,
+	reapPhpTreeOnInterrupt,
+} from './native-php/php-process';
 import type { SiteData } from 'cli/lib/cli-config/core';
 import type { ReadableStream as WebReadableStream } from 'node:stream/web';
 
@@ -135,10 +140,12 @@ async function runNativeWpCliCommand(
 		{
 			cwd: site.path,
 			stdio: [ 'ignore', 'pipe', 'pipe' ],
+			detached: DETACH_FOR_GROUP_KILL,
 		}
 	);
 
 	await ensureChildSpawned( child );
+	const removeReaper = reapPhpTreeOnInterrupt( child );
 
 	const exitCode = new Promise< number >( ( resolve, reject ) => {
 		child.once( 'error', ( error: Error ) => reject( error ) );
@@ -148,8 +155,10 @@ async function runNativeWpCliCommand(
 	return {
 		response: new WpCliResponse( child.stdout, child.stderr, exitCode ),
 		[ Symbol.dispose ]() {
+			removeReaper();
+			// Tree-kill so any subprocess WP-CLI spawned dies with it, not just the php.exe itself.
 			if ( child.exitCode === null && child.signalCode === null && ! child.killed ) {
-				child.kill( 'SIGKILL' );
+				killPhpProcessTree( child, 'SIGKILL' );
 			}
 		},
 	};
@@ -270,10 +279,11 @@ async function runNativeGlobalWpCliCommand( args: string[] ): Promise< Disposabl
 	const child = spawn(
 		getPhpBinaryPath( phpVersion ),
 		[ ...defaultArgs, getWpCliPharPath(), ...args ],
-		{ stdio: [ 'ignore', 'pipe', 'pipe' ] }
+		{ stdio: [ 'ignore', 'pipe', 'pipe' ], detached: DETACH_FOR_GROUP_KILL }
 	);
 
 	await ensureChildSpawned( child );
+	const removeReaper = reapPhpTreeOnInterrupt( child );
 
 	const exitCode = new Promise< number >( ( resolve, reject ) => {
 		child.once( 'error', ( error: Error ) => reject( error ) );
@@ -283,8 +293,10 @@ async function runNativeGlobalWpCliCommand( args: string[] ): Promise< Disposabl
 	return {
 		response: new WpCliResponse( child.stdout, child.stderr, exitCode ),
 		[ Symbol.dispose ]() {
+			removeReaper();
+			// Tree-kill so any subprocess WP-CLI spawned dies with it, not just the php.exe itself.
 			if ( child.exitCode === null && child.signalCode === null && ! child.killed ) {
-				child.kill( 'SIGKILL' );
+				killPhpProcessTree( child, 'SIGKILL' );
 			}
 		},
 	};

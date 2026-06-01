@@ -1,9 +1,15 @@
-import { ChildProcess, spawn } from 'node:child_process';
+import { ChildProcess, spawn, spawnSync } from 'node:child_process';
+import os from 'node:os';
 import { getPhpBinaryPath } from 'cli/lib/dependency-management/paths';
 import { getDefaultPhpArgs } from 'cli/lib/native-php';
 import type { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
 
 type ErrorLogger = ( ...args: Parameters< typeof console.error > ) => void;
+
+// A PHP child started with this flag becomes a process-group leader on POSIX, so its whole subtree
+// can be signalled at once via the negative PID. On Windows we reap with `taskkill /T` instead, so
+// a new group buys nothing and would only complicate console/Ctrl+C handling — hence win32 = false.
+export const DETACH_FOR_GROUP_KILL = process.platform !== 'win32';
 
 // Every PHP process spawned through `spawnPhpProcess` that hasn't exited yet — long-lived workers
 // and short-lived one-off commands (WordPress install, blueprint application) alike. Tracked from
@@ -85,6 +91,64 @@ export function killAllLivePhpProcesses(): void {
 		}
 	}
 	livePhpProcesses.clear();
+}
+
+// Terminate a PHP child and every descendant it spawned. TerminateProcess on Windows doesn't
+// cascade to descendants, so we walk the tree with `taskkill /T`. On POSIX we signal the child's
+// process group via the negative PID — which only reaches descendants if the child was spawned with
+// `DETACH_FOR_GROUP_KILL` (a group leader) — falling back to the lone child if the group is gone.
+export function killPhpProcessTree(
+	child: ChildProcess,
+	signal: NodeJS.Signals = 'SIGKILL'
+): void {
+	const pid = child.pid;
+	if ( ! pid ) {
+		return;
+	}
+
+	if ( process.platform === 'win32' ) {
+		spawnSync( 'taskkill', [ '/F', '/T', '/PID', String( pid ) ], {
+			windowsHide: true,
+			stdio: 'ignore',
+		} );
+		return;
+	}
+
+	try {
+		process.kill( -pid, signal );
+	} catch {
+		try {
+			child.kill( signal );
+		} catch {
+			// Already gone.
+		}
+	}
+}
+
+// Tears down a PHP child's process tree if this CLI process is interrupted (SIGINT/SIGTERM) before
+// the command finishes, then exits with the conventional 128+signal code so the orphaned php.exe —
+// and any grandchildren it spawned — don't outlive the command. Returns a disposer that removes the
+// handlers; call it once the command settles so successive commands don't stack handlers or fire
+// against an already-exited child. SIGKILL can't be caught here — Studio's quit handler tree-kills
+// for that case, and standalone SIGKILL is unavoidable.
+export function reapPhpTreeOnInterrupt( child: ChildProcess ): () => void {
+	const handleInterrupt = ( signal: NodeJS.Signals ) => {
+		// Forward the received signal to the group so php (and its grandchildren) shut down the same
+		// way a terminal Ctrl+C would, rather than being hard-killed mid-write. (On Windows the
+		// signal is moot — `taskkill /F` is the only reliable option for a console process tree.)
+		killPhpProcessTree( child, signal );
+		process.exit( 128 + ( os.constants.signals[ signal ] ?? 0 ) );
+	};
+	const onSigint = () => handleInterrupt( 'SIGINT' );
+	const onSigterm = () => handleInterrupt( 'SIGTERM' );
+
+	process.on( 'SIGINT', onSigint );
+	process.on( 'SIGTERM', onSigterm );
+
+	return () => {
+		process.off( 'SIGINT', onSigint );
+		process.off( 'SIGTERM', onSigterm );
+	};
 }
 
 type RunPhpCommandOptions = SpawnPhpProcessOptions;

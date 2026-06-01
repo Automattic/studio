@@ -1,5 +1,5 @@
 import { app } from 'electron';
-import { fork, ChildProcess, StdioOptions } from 'node:child_process';
+import { fork, spawnSync, ChildProcess, StdioOptions } from 'node:child_process';
 import * as Sentry from '@sentry/electron/main';
 import { z } from 'zod';
 import { TypedEventEmitter } from 'src/modules/cli/lib/typed-event-emitter';
@@ -182,6 +182,19 @@ export function executeCliCommand(
 	function appQuitHandler() {
 		const pid = child.pid;
 		child.removeAllListeners();
+
+		// `child.kill()` only terminates the forked CLI Node process. On Windows its descendants
+		// (e.g. a native-PHP `php.exe` running a WP-CLI import) don't get cascaded a kill and would
+		// orphan — surviving the app and keeping their loaded DLLs locked. taskkill /T walks and
+		// kills the whole tree while the parent is still alive to anchor it.
+		if ( process.platform === 'win32' && pid ) {
+			spawnSync( 'taskkill', [ '/F', '/T', '/PID', String( pid ) ], {
+				windowsHide: true,
+				stdio: 'ignore',
+			} );
+			return;
+		}
+
 		const result = child.kill();
 		if ( result ) {
 			console.log( `Successfully killed child process with pid ${ pid }. Args:`, args );

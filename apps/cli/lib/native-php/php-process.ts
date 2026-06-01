@@ -75,16 +75,16 @@ export function spawnPhpProcess(
 	return phpScriptProcess;
 }
 
-// Force-kill every PHP process spawned through `spawnPhpProcess` that hasn't exited. Used on
-// involuntary shutdown to guarantee no PHP child outlives the wrapper — including workers still
-// mid-startup and in-flight command subprocesses that callers don't track individually.
+// Force-kill every PHP process spawned through `spawnPhpProcess` that hasn't exited, so none
+// outlives the wrapper. Tree-kills (not `child.kill()`) because on Windows TerminateProcess doesn't
+// cascade — a worker's own subprocess would be orphaned and keep php-bin DLLs locked.
 export function killAllLivePhpProcesses(): void {
 	for ( const child of livePhpProcesses ) {
 		try {
-			// Detach the unexpected-exit listener so the imminent SIGKILL is not logged as a crash.
+			// Detach the unexpected-exit listener so the imminent kill is not logged as a crash.
 			child.removeAllListeners( 'exit' );
 			if ( child.exitCode === null && child.signalCode === null ) {
-				child.kill( 'SIGKILL' );
+				killPhpProcessTree( child, 'SIGKILL' );
 			}
 		} catch {
 			// Best effort - nothing useful to do if this fails.

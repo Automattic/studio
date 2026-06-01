@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { tmpdir } from 'os';
 import path from 'path';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
+import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
 import { findLatestBuild, parseElectronApp } from 'electron-playwright-helpers';
 import fs from 'fs-extra';
 import { _electron as electron, Page, ElectronApplication } from 'playwright';
@@ -37,6 +38,11 @@ export class E2ESession {
 		await fs.mkdir( this.homePath, { recursive: true } );
 		await fs.mkdir( this.cliConfigPath, { recursive: true } );
 		await fs.mkdir( this.sharedConfigPath, { recursive: true } );
+
+		await fs.writeFile(
+			path.join( this.sharedConfigPath, 'shared.json' ),
+			JSON.stringify( { version: 1, locale: DEFAULT_LOCALE }, null, 2 )
+		);
 
 		// Pre-create appdata file with beta features enabled for CLI testing
 		// Path must include 'Studio' subfolder to match Electron app's path structure

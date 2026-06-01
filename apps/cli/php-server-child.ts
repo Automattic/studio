@@ -6,34 +6,34 @@
  * working directory. Shares the IPC contract with `wordpress-server-child.ts`.
  */
 
-import { ChildProcess, spawn } from 'node:child_process';
-import fs from 'node:fs';
 import http from 'node:http';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
-import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
-import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
 import { writeStudioMuPluginsForNativePhpRuntime } from '@studio/common/lib/mu-plugins';
-import { decodePassword } from '@studio/common/lib/passwords';
-import {
-	NativePhpSupportedVersion,
-	resolveNativePhpVersion,
-} from '@studio/common/lib/php-binary-metadata';
+import { resolveNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
 import { z } from 'zod';
 import {
 	managerMessageSchema,
 	ChildMessageRaw,
 	ServerConfig,
 } from 'cli/lib/types/wordpress-server-ipc';
+import { getPhpMyAdminPath } from './lib/dependency-management/paths';
+import { runBlueprint } from './lib/native-php/blueprints';
 import {
-	getBlueprintsPharPath,
-	getPhpBinaryPath,
-	getPhpMyAdminPath,
-	getWpCliPharPath,
-} from './lib/dependency-management/paths';
-import { getDefaultPhpArgs } from './lib/native-php';
+	markPhpChildAsCritical,
+	spawnPhpProcess,
+	stopPhpChild,
+	waitForChildSpawn,
+} from './lib/native-php/php-process';
+import {
+	getNativePhpMyAdminWpEnvPath,
+	getPhpMyAdminSessionPath,
+	writeNativePhpMyAdminWpEnv,
+} from './lib/native-php/phpmyadmin';
+import { ensureWpConfig, installWordPress } from './lib/native-php/site-setup';
 import { SymlinkWatcher, collectSymlinkAllowlistEntries } from './lib/symlinks';
+import type { ChildProcess } from 'node:child_process';
 
 const ROUTER_PATH = path.resolve( import.meta.dirname, 'php', 'router.php' );
 const SET_DEFAULT_PERMALINKS_PATH = path.resolve(
@@ -46,48 +46,6 @@ const WP_CONFIG_TRANSFORMER_PATH = path.resolve(
 	'php',
 	'wp-config-transformer.php'
 );
-const DEFAULT_WP_CONFIG_CONSTANTS = { DB_NAME: 'wordpress' } as const;
-
-function phpStringLiteral( value: string ): string {
-	return `'${ value.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" ) }'`;
-}
-
-function getNativePhpMyAdminWpEnvPath( config: Pick< ServerConfig, 'siteId' > ): string {
-	const safeSiteId = config.siteId.replace( /[^a-zA-Z0-9._-]/g, '-' );
-	return path.join( os.tmpdir(), 'studio-phpmyadmin-wp-env', safeSiteId, 'wp-env.php' );
-}
-
-function getPhpMyAdminSessionPath( config: Pick< ServerConfig, 'siteId' > ): string {
-	const safeSiteId = config.siteId.replace( /[^a-zA-Z0-9._-]/g, '-' );
-	return path.join( os.tmpdir(), 'studio-phpmyadmin-sessions', safeSiteId );
-}
-
-async function writeNativePhpMyAdminWpEnv( config: ServerConfig ): Promise< string > {
-	const wpEnvPath = getNativePhpMyAdminWpEnvPath( config );
-	const sqliteDriverPath = path.join(
-		config.sitePath,
-		'wp-content',
-		'mu-plugins',
-		'sqlite-database-integration',
-		'wp-includes',
-		'database',
-		'load.php'
-	);
-	const sqliteDatabasePath = path.join( config.sitePath, 'wp-content', 'database', '.ht.sqlite' );
-	const wpEnvPhp = `<?php return array (
-  'db' => array (
-    'type' => 'sqlite',
-    'path' => ${ phpStringLiteral( sqliteDatabasePath ) },
-    'driver_path' => ${ phpStringLiteral( sqliteDriverPath ) },
-  ),
-);
-`;
-
-	await fs.promises.mkdir( path.dirname( wpEnvPath ), { recursive: true } );
-	await fs.promises.mkdir( getPhpMyAdminSessionPath( config ), { recursive: true } );
-	await fs.promises.writeFile( wpEnvPath, wpEnvPhp );
-	return wpEnvPath;
-}
 
 // Tracks how many proxied requests each PHP worker is currently handling.
 // Each `php -S` worker processes one request at a time, so a non-zero count
@@ -206,181 +164,6 @@ async function getAvailablePort(): Promise< number > {
 	} );
 }
 
-type SpawnPhpProcessOptions = {
-	disallowRiskyFunctions?: boolean;
-	env?: NodeJS.ProcessEnv;
-	mode?: 'pipe' | 'capture-stdout';
-	enableXdebug?: boolean;
-	onlyPathsThatPhpCanAccess?: string[];
-	phpVersion: NativePhpSupportedVersion;
-	siteFolder?: string;
-	signal?: AbortSignal;
-};
-
-function spawnPhpProcess(
-	args: string[],
-	{
-		phpVersion,
-		siteFolder,
-		signal,
-		env,
-		mode = 'pipe',
-		enableXdebug = false,
-		onlyPathsThatPhpCanAccess = [],
-		disallowRiskyFunctions = false,
-	}: SpawnPhpProcessOptions
-): ChildProcess {
-	const defaultArgs = getDefaultPhpArgs(
-		phpVersion,
-		onlyPathsThatPhpCanAccess,
-		disallowRiskyFunctions,
-		enableXdebug
-	);
-	const phpArgs = [ ...defaultArgs, ...args ];
-	const phpScriptProcess = spawn( getPhpBinaryPath( phpVersion ), phpArgs, {
-		cwd: siteFolder,
-		env: env ? { ...process.env, ...env } : process.env,
-		stdio: [ 'ignore', 'pipe', 'pipe' ],
-		signal,
-	} );
-
-	if ( mode === 'pipe' ) {
-		phpScriptProcess.stdout?.pipe( process.stdout, { end: false } );
-	}
-
-	// Keep stderr visible in all modes for easier debugging.
-	if ( mode === 'pipe' || mode === 'capture-stdout' ) {
-		phpScriptProcess.stderr?.pipe( process.stderr, { end: false } );
-	}
-
-	return phpScriptProcess;
-}
-
-type RunPhpCommandOptions = SpawnPhpProcessOptions;
-
-async function runPhpCommand(
-	args: string[],
-	options: RunPhpCommandOptions
-): Promise< { stdout: string } > {
-	return await new Promise< { stdout: string } >( ( resolve, reject ) => {
-		const phpScriptProcess = spawnPhpProcess( args, options );
-
-		let stdout = '';
-		const reportActivity = () => process.send?.( { topic: 'activity' } );
-		phpScriptProcess.stdout?.on( 'data', ( chunk ) => {
-			reportActivity();
-			if ( options.mode === 'capture-stdout' ) {
-				stdout += chunk.toString();
-			}
-		} );
-		phpScriptProcess.stderr?.on( 'data', reportActivity );
-
-		phpScriptProcess.once( 'error', ( error: Error ) => {
-			reject( error );
-		} );
-		phpScriptProcess.once( 'close', ( code ) => {
-			if ( code === 0 ) {
-				resolve( { stdout } );
-				return;
-			}
-
-			reject( new Error( `PHP command failed (code: ${ code })` ) );
-		} );
-	} );
-}
-
-async function ensureWpConfig(
-	siteFolder: string,
-	phpVersion: NativePhpSupportedVersion,
-	signal: AbortSignal,
-	config?: Pick< ServerConfig, 'enableDebugLog' | 'enableDebugDisplay' >
-): Promise< void > {
-	const wpConfigPath = path.join( siteFolder, 'wp-config.php' );
-	const wpConfigSamplePath = path.join( siteFolder, 'wp-config-sample.php' );
-	const ensureWpConfigScript = `
-$transformer_path = $argv[1] ?? '';
-$wp_config_path = $argv[2] ?? '';
-$constants = json_decode( $argv[3] ?? '', true );
-
-require_once $transformer_path;
-
-$transformer = WP_Config_Transformer::from_file( $wp_config_path );
-$transformer->define_constants( $constants );
-$transformer->to_file( $wp_config_path );
-`;
-
-	if ( ! fs.existsSync( wpConfigPath ) && fs.existsSync( wpConfigSamplePath ) ) {
-		await fs.promises.copyFile( wpConfigSamplePath, wpConfigPath );
-	}
-
-	const enableDebugLog = config?.enableDebugLog ?? false;
-	const enableDebugDisplay = config?.enableDebugDisplay ?? false;
-	const constants = {
-		...DEFAULT_WP_CONFIG_CONSTANTS,
-		WP_DEBUG: enableDebugLog || enableDebugDisplay,
-		WP_DEBUG_LOG: enableDebugLog,
-		WP_DEBUG_DISPLAY: enableDebugDisplay,
-	};
-
-	try {
-		await runPhpCommand(
-			[
-				'-r',
-				ensureWpConfigScript,
-				WP_CONFIG_TRANSFORMER_PATH,
-				wpConfigPath,
-				JSON.stringify( constants ),
-			],
-			{ phpVersion, signal }
-		);
-	} catch ( error ) {
-		throw new Error(
-			`Failed to ensure wp-config.php constants: ${
-				error instanceof Error ? error.message : String( error )
-			}`
-		);
-	}
-}
-
-async function isWordPressInstalled(
-	siteFolder: string,
-	phpVersion: NativePhpSupportedVersion,
-	signal: AbortSignal
-): Promise< boolean > {
-	const installationCheckScript = `
-error_reporting( E_ERROR );
-ini_set( 'display_errors', '0' );
-
-$wp_load = getcwd() . '/wp-load.php';
-if ( ! file_exists( $wp_load ) ) {
-	echo '0';
-	exit( 0 );
-}
-require_once $wp_load;
-echo is_blog_installed() ? '1' : '0';
-`;
-
-	let stdout = '';
-	try {
-		const result = await runPhpCommand( [ '-r', installationCheckScript ], {
-			phpVersion,
-			siteFolder,
-			signal,
-			mode: 'capture-stdout',
-		} );
-		stdout = result.stdout;
-	} catch ( error ) {
-		throw new Error(
-			`Failed to check WordPress installation status: ${
-				error instanceof Error ? error.message : String( error )
-			}`
-		);
-	}
-
-	const status = stdout.trim();
-	return status === '1';
-}
-
 async function waitForServerReady( url: string, signal?: AbortSignal ): Promise< void > {
 	const pollIntervalMs = 50;
 	const timeoutMs = 30_000;
@@ -398,72 +181,6 @@ async function waitForServerReady( url: string, signal?: AbortSignal ): Promise<
 			}
 			await new Promise< void >( ( resolve ) => setTimeout( resolve, pollIntervalMs ) );
 		}
-	}
-}
-
-async function installWordPress(
-	config: ServerConfig,
-	phpVersion: NativePhpSupportedVersion,
-	signal: AbortSignal
-): Promise< void > {
-	const alreadyInstalled = await isWordPressInstalled( config.sitePath, phpVersion, signal );
-	if ( alreadyInstalled ) {
-		logToConsole( `WordPress already installed; skipping installer` );
-		return;
-	}
-
-	const siteTitle = config.siteTitle ?? 'My WordPress Website';
-	const username = config.adminUsername ?? 'admin';
-	const password = config.adminPassword ? decodePassword( config.adminPassword ) : 'password';
-	const email = config.adminEmail ?? 'admin@localhost.com';
-	const siteUrl = config.absoluteUrl ?? `http://localhost:${ config.port }`;
-	// Only pass --locale for non-default locales; WP-CLI defaults to en_US for English.
-	// DEFAULT_LOCALE is 'en' which is not a valid WP locale code.
-	const locale =
-		config.siteLanguage && config.siteLanguage !== DEFAULT_LOCALE ? config.siteLanguage : undefined;
-
-	await runPhpCommand(
-		[
-			getWpCliPharPath(),
-			'core',
-			'install',
-			`--path=${ config.sitePath }`,
-			`--url=${ siteUrl }`,
-			`--title=${ siteTitle }`,
-			`--admin_user=${ username }`,
-			`--admin_password=${ password }`,
-			`--admin_email=${ email }`,
-			...( locale ? [ `--locale=${ locale }` ] : [] ),
-			'--skip-email',
-		],
-		{ phpVersion, signal }
-	);
-
-	// Store the admin username in WP options so the auto-login MU plugin can find it.
-	await runPhpCommand(
-		[
-			getWpCliPharPath(),
-			'option',
-			'update',
-			'studio_admin_username',
-			username,
-			`--path=${ config.sitePath }`,
-		],
-		{ phpVersion, signal }
-	);
-
-	try {
-		await runPhpCommand( [ SET_DEFAULT_PERMALINKS_PATH ], {
-			phpVersion,
-			siteFolder: config.sitePath,
-			signal,
-		} );
-	} catch ( error ) {
-		throw new Error(
-			`Failed to set default permalinks: ${
-				error instanceof Error ? error.message : String( error )
-			}`
-		);
 	}
 }
 
@@ -595,57 +312,15 @@ async function closePhpProxyServer(): Promise< void > {
 	} ).catch( () => {} );
 }
 
-async function stopPhpChild( child: ChildProcess ): Promise< void > {
-	child.removeAllListeners( 'exit' );
-	if ( child.exitCode !== null || child.signalCode !== null ) {
-		return;
-	}
-
-	await new Promise< void >( ( resolve ) => {
-		const forceKillTimeout = setTimeout( () => {
-			errorToConsole( 'PHP child did not exit in time; sending SIGKILL' );
-			if ( child.exitCode === null && child.signalCode === null ) {
-				child.kill( 'SIGKILL' );
-			}
-		}, STOP_SERVER_TIMEOUT );
-
-		child.once( 'close', () => {
-			clearTimeout( forceKillTimeout );
-			resolve();
-		} );
-
-		child.kill( 'SIGTERM' );
-	} );
-}
-
 async function stopCurrentPhpServer(): Promise< void > {
 	const children = getCurrentPhpProcesses();
 	phpProcess = null;
 	phpWorkerProcesses = [];
 
 	await closePhpProxyServer();
-	await Promise.all( children.map( ( child ) => stopPhpChild( child ) ) );
-}
-
-async function waitForChildSpawn( child: ChildProcess, signal?: AbortSignal ): Promise< void > {
-	await new Promise< void >( ( resolve, reject ) => {
-		child.once( 'spawn', () => {
-			resolve();
-		} );
-		child.once( 'error', ( error: Error ) => {
-			reject( error );
-		} );
-		signal?.addEventListener( 'abort', () => {
-			reject( new DOMException( 'Aborted', 'AbortError' ) );
-		} );
-	} );
-}
-
-function markPhpChildAsCritical( child: ChildProcess, label: string ): void {
-	child.once( 'exit', ( code, signalName ) => {
-		errorToConsole( `${ label } exited unexpectedly (code: ${ code }, signal: ${ signalName })` );
-		process.exit( code ?? 1 );
-	} );
+	await Promise.all(
+		children.map( ( child ) => stopPhpChild( child, STOP_SERVER_TIMEOUT, errorToConsole ) )
+	);
 }
 
 function proxyRequestToPhpWorker(
@@ -737,14 +412,26 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 
 	try {
 		stopSignal.throwIfAborted();
-		await ensureWpConfig( config.sitePath, phpVersion, stopSignal, config );
+		await ensureWpConfig(
+			config.sitePath,
+			phpVersion,
+			stopSignal,
+			WP_CONFIG_TRANSFORMER_PATH,
+			config
+		);
 		stopSignal.throwIfAborted();
 		const muPluginsPath = await writeStudioMuPluginsForNativePhpRuntime(
 			config.sitePath,
 			config.isWpAutoUpdating
 		);
 		stopSignal.throwIfAborted();
-		await installWordPress( config, phpVersion, stopSignal );
+		await installWordPress(
+			config,
+			phpVersion,
+			stopSignal,
+			SET_DEFAULT_PERMALINKS_PATH,
+			logToConsole
+		);
 		stopSignal.throwIfAborted();
 
 		if ( config.blueprint ) {
@@ -813,10 +500,6 @@ async function doStartServer(
 				STUDIO_PHPMYADMIN_PATH: getPhpMyAdminPath(),
 				STUDIO_NATIVE_PHPMYADMIN_WP_ENV_PATH: phpMyAdminWpEnvPath,
 				STUDIO_PHPMYADMIN_SESSION_PATH: getPhpMyAdminSessionPath( config ),
-				// Lets `php -S` serve concurrent requests so a single slow request
-				// doesn't block the whole site. Unix-only — Windows silently ignores it
-				// because the built-in server has no fork() there.
-				PHP_CLI_SERVER_WORKERS: '4',
 			},
 			onlyPathsThatPhpCanAccess: Array.from( openBasedirAllowlist ),
 			disallowRiskyFunctions: true,
@@ -824,24 +507,8 @@ async function doStartServer(
 		} );
 		spawnedChild = serverChild;
 
-		await new Promise< void >( ( resolve, reject ) => {
-			serverChild.once( 'spawn', () => {
-				resolve();
-			} );
-			serverChild.once( 'error', ( error: Error ) => {
-				reject( error );
-			} );
-			stopSignal?.addEventListener( 'abort', () => {
-				reject( new DOMException( 'Aborted', 'AbortError' ) );
-			} );
-		} );
-
-		serverChild.once( 'exit', ( code, signalName ) => {
-			errorToConsole(
-				`PHP child process exited unexpectedly (code: ${ code }, signal: ${ signalName })`
-			);
-			process.exit( code ?? 1 );
-		} );
+		await waitForChildSpawn( serverChild, stopSignal );
+		markPhpChildAsCritical( serverChild, 'PHP child process', errorToConsole );
 
 		stopSignal?.throwIfAborted();
 		await waitForServerReady( `http://localhost:${ config.port }/`, stopSignal );
@@ -903,7 +570,11 @@ async function doStartPooledServer(
 			} );
 			spawnedChildren.push( serverChild );
 			await waitForChildSpawn( serverChild, stopSignal );
-			markPhpChildAsCritical( serverChild, `PHP worker ${ index + 1 }/${ workerPoolSize }` );
+			markPhpChildAsCritical(
+				serverChild,
+				`PHP worker ${ index + 1 }/${ workerPoolSize }`,
+				errorToConsole
+			);
 		}
 
 		stopSignal?.throwIfAborted();
@@ -923,8 +594,9 @@ async function doStartPooledServer(
 		startSymlinkWatcher( config.sitePath );
 		return spawnedChildren[ 0 ];
 	} catch ( error ) {
-		if ( proxyServer ) {
-			await new Promise< void >( ( resolve ) => proxyServer.close( () => resolve() ) ).catch(
+		const serverToClose = proxyServer;
+		if ( serverToClose ) {
+			await new Promise< void >( ( resolve ) => serverToClose.close( () => resolve() ) ).catch(
 				() => {}
 			);
 		}
@@ -994,111 +666,6 @@ function sendErrorMessage( messageId: string, error: unknown ): Promise< void > 
 	} );
 }
 
-async function runBlueprint(
-	config: ServerConfig,
-	blueprint: NonNullable< ServerConfig[ 'blueprint' ] >,
-	phpVersion: NativePhpSupportedVersion,
-	signal: AbortSignal
-): Promise< void > {
-	// blueprints.phar's CLI accepts only local paths. Remote URIs are supported by
-	// the Playground runtime (via FetchFilesystem) but not here.
-	if ( blueprint.uri.startsWith( 'http://' ) || blueprint.uri.startsWith( 'https://' ) ) {
-		throw new Error(
-			`Remote blueprint URIs are not supported by the native PHP runtime: ${ blueprint.uri }`
-		);
-	}
-
-	// Mirror the Playground runtime: merge Studio's defaults into blueprint.contents
-	// with the same precedence so both runtimes apply blueprints consistently.
-	const enableDebugLog = config.enableDebugLog ?? false;
-	const enableDebugDisplay = config.enableDebugDisplay ?? false;
-	const defaultConstants: Record< string, boolean | string > = {
-		// Fallback for sites where DB_NAME was stripped from wp-config.php — the SQLite
-		// driver (v3+) requires a non-empty DB_NAME at runtime.
-		DB_NAME: 'wordpress',
-		WP_DEBUG: enableDebugLog || enableDebugDisplay,
-		WP_DEBUG_LOG: enableDebugLog,
-		WP_DEBUG_DISPLAY: enableDebugDisplay,
-	};
-
-	const preferredVersions = {
-		php: config.phpVersion || blueprint.contents?.preferredVersions?.php || DEFAULT_PHP_VERSION,
-		wp: config.wpVersion || blueprint.contents?.preferredVersions?.wp || 'latest',
-	};
-	blueprint.contents.constants = {
-		...blueprint.contents.constants,
-		...defaultConstants,
-	};
-	blueprint.contents.preferredVersions = preferredVersions;
-
-	// Write the merged blueprint next to the original so blueprints.phar resolves any
-	// relative file references against the original blueprint's directory — its runner
-	// uses dirname(blueprintPath) as the execution context.
-	const blueprintDir = path.dirname( blueprint.uri );
-	const tmpPath = path.join( blueprintDir, `studio-blueprint-${ config.siteId }.json` );
-	await fs.promises.writeFile( tmpPath, JSON.stringify( blueprint.contents ) );
-
-	// blueprints.phar checks wp-content/plugins/sqlite-database-integration/load.php to detect
-	// SQLite, but Studio puts it in mu-plugins. Create a temporary symlink so the PHAR can find it.
-	const muPluginsSqlite = path.join(
-		config.sitePath,
-		'wp-content',
-		'mu-plugins',
-		'sqlite-database-integration'
-	);
-	const pluginsSqlite = path.join(
-		config.sitePath,
-		'wp-content',
-		'plugins',
-		'sqlite-database-integration'
-	);
-	// Use 'junction' type so this works on Windows without elevated permissions.
-	// On macOS/Linux the type argument is ignored for directories.
-	const needsSymlink = fs.existsSync( muPluginsSqlite ) && ! fs.existsSync( pluginsSqlite );
-	let symlinkIno: number | undefined;
-	if ( needsSymlink ) {
-		fs.symlinkSync( muPluginsSqlite, pluginsSqlite, 'junction' );
-		// Record the inode so cleanup only removes the entry we created. statSync follows
-		// the link, so the inode resolves to the mu-plugins target and changes if the
-		// entry has been replaced with unrelated content.
-		symlinkIno = fs.statSync( pluginsSqlite ).ino;
-	}
-
-	try {
-		// blueprints.phar spawns its own PHP subprocesses while applying a blueprint.
-		// On Windows those subprocesses auto-load the php.ini we wrote next to
-		// php.exe, which carries the bundled-extension and CA-bundle config. On
-		// macOS/Linux every extension is statically linked into the binary, so no
-		// extra setup is needed for the subprocess.
-		await runPhpCommand(
-			[
-				getBlueprintsPharPath(),
-				'exec',
-				tmpPath,
-				'--mode=apply-to-existing-site',
-				`--site-path=${ config.sitePath }`,
-				`--site-url=${ config.absoluteUrl ?? `http://localhost:${ config.port }` }`,
-				'--db-engine=sqlite',
-			],
-			{ phpVersion, signal }
-		);
-	} finally {
-		await fs.promises.unlink( tmpPath ).catch( () => {} );
-		if ( needsSymlink ) {
-			try {
-				if ( fs.statSync( pluginsSqlite ).ino === symlinkIno ) {
-					// Use rm with recursive to handle Windows junctions, which fs.unlink
-					// rejects with EPERM. The inode check above guards against accidentally
-					// recursing into an unrelated directory.
-					await fs.promises.rm( pluginsSqlite, { recursive: true, force: true } );
-				}
-			} catch {
-				// Best effort — leaving the symlink behind is non-fatal.
-			}
-		}
-	}
-}
-
 const abortControllers: Record< string, AbortController > = {};
 
 async function ipcMessageHandler( packet: unknown ) {
@@ -1151,13 +718,20 @@ async function ipcMessageHandler( packet: unknown ) {
 					blueprintConfig.sitePath,
 					blueprintPhpVersion,
 					abortController.signal,
+					WP_CONFIG_TRANSFORMER_PATH,
 					blueprintConfig
 				);
 				await writeStudioMuPluginsForNativePhpRuntime(
 					blueprintConfig.sitePath,
 					blueprintConfig.isWpAutoUpdating
 				);
-				await installWordPress( blueprintConfig, blueprintPhpVersion, abortController.signal );
+				await installWordPress(
+					blueprintConfig,
+					blueprintPhpVersion,
+					abortController.signal,
+					SET_DEFAULT_PERMALINKS_PATH,
+					logToConsole
+				);
 				if ( ! blueprintConfig.blueprint ) {
 					throw new Error( 'Blueprint is required' );
 				}

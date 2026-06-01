@@ -101,10 +101,19 @@ export function killPhpProcessTree(
 	}
 
 	if ( process.platform === 'win32' ) {
-		spawnSync( 'taskkill', [ '/F', '/T', '/PID', String( pid ) ], {
+		// Bounded so a hung taskkill can't stall the caller's event loop indefinitely (which would
+		// hang shutdown). `signal`/`error` on the result means it was cut off before finishing —
+		// log it, since that's the smoking gun for a process tree that won't die.
+		const result = spawnSync( 'taskkill', [ '/F', '/T', '/PID', String( pid ) ], {
 			windowsHide: true,
 			stdio: 'ignore',
+			timeout: 2_000,
 		} );
+		if ( result.error || result.signal ) {
+			console.error(
+				`[PHP] taskkill for pid ${ pid } did not complete (signal: ${ result.signal }, error: ${ result.error?.message })`
+			);
+		}
 		return;
 	}
 
@@ -229,16 +238,5 @@ export async function stopPhpChild(
 			// Backstop: resolve even if 'exit' is somehow delayed, so the stop can never hang.
 			setTimeout( finish, 1000 );
 		}, timeoutMs );
-	} );
-}
-
-export function markPhpChildAsCritical(
-	child: ChildProcess,
-	label: string,
-	errorToConsole: ErrorLogger
-): void {
-	child.once( 'exit', ( code, signalName ) => {
-		errorToConsole( `${ label } exited unexpectedly (code: ${ code }, signal: ${ signalName })` );
-		process.exit( code ?? 1 );
 	} );
 }

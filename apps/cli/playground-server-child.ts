@@ -549,7 +549,8 @@ async function runBlueprint( config: ServerConfig, signal: AbortSignal ): Promis
 const runWpCliCommand = sequential(
 	async (
 		args: string[],
-		signal: AbortSignal
+		signal: AbortSignal,
+		stdin?: Uint8Array
 	): Promise< { stdout: string; stderr: string; exitCode: number } > => {
 		await Promise.allSettled( [ startingPromise ] );
 
@@ -569,12 +570,15 @@ const runWpCliCommand = sequential(
 
 		const rewrittenArgs = await rewriteWpCliPostContentToFile( args, server.playground.writeFile );
 
-		const response = await server.playground.cli( [
-			'php',
-			'/tmp/wp-cli.phar',
-			`--path=${ await server.playground.documentRoot }`,
-			...rewrittenArgs,
-		] );
+		const response = await server.playground.cli(
+			[
+				'php',
+				'/tmp/wp-cli.phar',
+				`--path=${ await server.playground.documentRoot }`,
+				...rewrittenArgs,
+			],
+			stdin ? { stdin } : {}
+		);
 
 		return {
 			stdout: await response.stdoutText,
@@ -582,7 +586,18 @@ const runWpCliCommand = sequential(
 			exitCode: await response.exitCode,
 		};
 	},
-	{ concurrent: 3, max: 100, deduplicateKey: ( args ) => args.join( ' ' ) }
+	{
+		concurrent: 3,
+		max: 100,
+		// Skip dedup entirely when stdin bytes are present: piped stdin is
+		// non-idempotent (the user may be piping streaming or one-shot
+		// content, and two callers with coincidentally equal byte lengths
+		// must not collapse into one execution). When there's no stdin,
+		// the command is idempotent from the dedup layer's perspective and
+		// we keep the args-based dedup that callers already rely on.
+		deduplicateKey: ( args, _signal, stdin ) =>
+			stdin ? undefined : args.join( ' ' ),
+	}
 );
 
 function parsePhpError( error: unknown ): string {
@@ -679,7 +694,14 @@ async function ipcMessageHandler( packet: unknown ) {
 				break;
 			case 'wp-cli-command':
 				try {
-					result = await runWpCliCommand( validMessage.data.args, abortController.signal );
+					const stdin = validMessage.data.stdinBase64
+						? Buffer.from( validMessage.data.stdinBase64, 'base64' )
+						: undefined;
+					result = await runWpCliCommand(
+						validMessage.data.args,
+						abortController.signal,
+						stdin
+					);
 				} catch ( wpCliError ) {
 					errorToConsole( `WP-CLI error:`, wpCliError );
 					await sendErrorMessage( validMessage.messageId, wpCliError );

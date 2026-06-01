@@ -72,6 +72,14 @@ const managerMessageWpCliCommand = z.object( {
 	topic: z.literal( 'wp-cli-command' ),
 	data: z.object( {
 		args: z.array( z.string() ),
+		// Optional base64-encoded stdin bytes to forward to PHP.
+		// Set when `studio wp` is invoked with a non-TTY stdin (e.g. a
+		// pipe or redirected file). The daemon child decodes and hands
+		// the bytes to `php.cli({ stdin })` so reads from `php://stdin`
+		// inside PHP observe them. Base64 is used because Node's
+		// child_process IPC serializes payloads as JSON and we need to
+		// preserve binary bytes (gzipped SQL dumps, etc.) untouched.
+		stdinBase64: z.string().optional(),
 	} ),
 } );
 

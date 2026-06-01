@@ -1,10 +1,22 @@
 import { resolveSessionModel } from '@studio/common/ai/models';
+import {
+	isStudioCustomEntryOfType,
+	type StudioCustomEntry,
+} from '@studio/common/ai/sessions/entry-types';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { privateApis } from '@wordpress/theme';
 import { Button as UiButton } from '@wordpress/ui';
-import { useLayoutEffect, useMemo, useRef, type ReactNode, type Ref } from 'react';
+import {
+	useCallback,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+	type ReactNode,
+	type Ref,
+} from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
 import { useAuth } from 'src/hooks/use-auth';
@@ -21,6 +33,7 @@ import { AgentRunProvider, useAgentRun } from './use-agent-run';
 import { useSession } from './use-session';
 import { useSingleSession } from './use-single-session';
 import buttonDefense from './wp-ui-button-defense.module.css';
+import type { SessionEntry } from '@mariozechner/pi-coding-agent';
 import '@wordpress/theme/design-tokens.css';
 
 const { ThemeProvider } = unlock( privateApis );
@@ -92,6 +105,93 @@ function UnauthenticatedNotice( { onAuthenticate }: { onAuthenticate: () => void
 	);
 }
 
+const EXAMPLE_PROMPTS: { short: string; full: string }[] = [
+	{
+		short: __( 'Build a plugin' ),
+		full: __(
+			'Help me build a small WordPress plugin from scratch. Ask me what problem it should solve, scaffold the plugin folder and main file, then walk me through the hooks and code we need to wire it up.'
+		),
+	},
+	{
+		short: __( 'Create a block' ),
+		full: __(
+			'Help me create a custom Gutenberg block. Scaffold the block files, set up the edit and save components, and explain how to register it so I can see it in the editor.'
+		),
+	},
+	{
+		short: __( 'Fix an error' ),
+		full: __(
+			'Something on my site is broken. Help me track down the error — check the logs, look at the relevant code, explain what is going wrong, and propose a fix.'
+		),
+	},
+	{
+		short: __( 'Custom post type' ),
+		full: __(
+			'Add a custom post type to my site. Ask me what it is for, then register it with sensible labels and settings and show me where the code lives.'
+		),
+	},
+	{
+		short: __( 'Tweak my theme' ),
+		full: __(
+			'Take a look at my active theme and suggest a few small improvements I could make to the design or layout, then help me implement one of them.'
+		),
+	},
+	{
+		short: __( 'Explain my site' ),
+		full: __(
+			'Give me an overview of how this site is put together — the active theme, the installed plugins, and anything notable in the code — so I understand what I am working with.'
+		),
+	},
+];
+
+function hasVisibleUserPrompt( entries: SessionEntry[] ): boolean {
+	return entries.some( ( entry ) => {
+		if ( ! isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
+			return false;
+		}
+		const data = ( entry as StudioCustomEntry< 'studio.user_prompt' > ).data;
+		return data?.source === 'prompt';
+	} );
+}
+
+function EmptyConversation( {
+	onPreviewPrompt,
+	onClearPreview,
+	onSelectPrompt,
+}: {
+	onPreviewPrompt: ( prompt: string ) => void;
+	onClearPreview: () => void;
+	onSelectPrompt: ( prompt: string ) => void;
+} ) {
+	return (
+		<div className={ styles.emptyConversation }>
+			<div className={ styles.emptyConversationPrompt }>
+				{ __( 'Ask Studio Code anything to get started.' ) }
+			</div>
+			<div className={ styles.emptyConversationExamples }>
+				{ EXAMPLE_PROMPTS.map( ( example ) => (
+					<button
+						key={ example.short }
+						type="button"
+						className={ styles.emptyConversationExample }
+						title={ example.full }
+						onMouseEnter={ () => onPreviewPrompt( example.full ) }
+						onMouseLeave={ onClearPreview }
+						onFocus={ () => onPreviewPrompt( example.full ) }
+						onBlur={ onClearPreview }
+						onClick={ () => {
+							onSelectPrompt( example.full );
+							onClearPreview();
+						} }
+					>
+						{ example.short }
+					</button>
+				) ) }
+			</div>
+		</div>
+	);
+}
+
 function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 	const { sessionId, setSessionId, newSession } = useSingleSession( selectedSite.id );
 	const { data, isLoading } = useSession( sessionId );
@@ -120,6 +220,18 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 	);
 	const composerBusy = hasActiveRun || pendingQuestions.length > 0;
 	const scrollRef = useRef< HTMLDivElement >( null );
+
+	const [ promptDraft, setPromptDraft ] = useState< { id: number; prompt: string } | null >( null );
+	const [ previewPrompt, setPreviewPrompt ] = useState< string | null >( null );
+	const draftIdRef = useRef( 0 );
+	const selectPrompt = useCallback( ( prompt: string ) => {
+		draftIdRef.current += 1;
+		setPromptDraft( { id: draftIdRef.current, prompt } );
+	}, [] );
+	const clearPreview = useCallback( () => setPreviewPrompt( null ), [] );
+
+	const showEmptyConversation =
+		! hasActiveRun && queuedPrompts.length === 0 && ! hasVisibleUserPrompt( data?.entries ?? [] );
 
 	useLayoutEffect( () => {
 		const node = scrollRef.current;
@@ -173,19 +285,29 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 						entries={ data.entries }
 						ownerSiteId={ selectedSite.id }
 						onSwitchSession={ setSessionId }
+						draftPrompt={ promptDraft }
+						previewPrompt={ previewPrompt }
 					/>
 				</div>
 			}
 		>
 			<div className={ cx( styles.classicColumn, styles.classicConversationSpacing ) }>
-				<Conversation
-					data={ data }
-					isRunning={ isRunning }
-					startedAt={ startedAt }
-					pendingQuestions={ pendingQuestionTexts }
-					pendingAnswers={ pendingAnswers }
-					onAnswerQuestion={ answerQuestion }
-				/>
+				{ showEmptyConversation ? (
+					<EmptyConversation
+						onPreviewPrompt={ setPreviewPrompt }
+						onClearPreview={ clearPreview }
+						onSelectPrompt={ selectPrompt }
+					/>
+				) : (
+					<Conversation
+						data={ data }
+						isRunning={ isRunning }
+						startedAt={ startedAt }
+						pendingQuestions={ pendingQuestionTexts }
+						pendingAnswers={ pendingAnswers }
+						onAnswerQuestion={ answerQuestion }
+					/>
+				) }
 			</div>
 		</SessionFrame>
 	);

@@ -53,6 +53,28 @@
 
 .composerOuter {
 	flex: 0 0 auto;
+	position: relative;
+}
+
+/* Floating "scroll to bottom" affordance. Anchored to the top edge of the
+   composer area and lifted above it so it sits just over the conversation
+   without overlapping the composer. */
+.scrollToBottom {
+	position: absolute;
+	bottom: 100%;
+	left: 0;
+	right: 0;
+	display: flex;
+	justify-content: center;
+	padding-bottom: var(--wpds-dimension-padding-sm);
+	pointer-events: none;
+	z-index: 1;
+}
+
+.scrollToBottom > * {
+	pointer-events: auto;
+	border-radius: 50%;
+	box-shadow: var(--wpds-elevation-shadow-md, 0 2px 8px rgba(0, 0, 0, 0.15));
 }
 
 .classicScroll {

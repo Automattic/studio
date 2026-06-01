@@ -24,6 +24,7 @@ import { requestSetAdminCredentials, toUrlSearchParams } from './lib/admin-crede
 import { getPhpMyAdminPath } from './lib/dependency-management/paths';
 import { runBlueprint } from './lib/native-php/blueprints';
 import {
+	killAllLivePhpProcesses,
 	markPhpChildAsCritical,
 	spawnPhpProcess,
 	stopPhpChild,
@@ -781,17 +782,11 @@ function killPhpProcess(): void {
 	}
 	phpProxyServer = null;
 
-	for ( const child of getCurrentPhpProcesses() ) {
-		try {
-			// Detach the unexpected-exit listener so the imminent SIGKILL is not logged as a crash.
-			child.removeAllListeners( 'exit' );
-			if ( child.exitCode === null && child.signalCode === null ) {
-				child.kill( 'SIGKILL' );
-			}
-		} catch {
-			// Best effort - nothing useful to do if this fails.
-		}
-	}
+	// Reap every PHP process we've spawned, not just the promoted servers in
+	// `getCurrentPhpProcesses()` — that misses workers still mid-startup and in-flight
+	// command subprocesses (install, blueprint), which would otherwise be orphaned.
+	killAllLivePhpProcesses();
+
 	phpProcess = null;
 	phpWorkerProcesses = [];
 	phpWorkerPorts = [];

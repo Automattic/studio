@@ -5,6 +5,13 @@ import type { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-me
 
 type ErrorLogger = ( ...args: Parameters< typeof console.error > ) => void;
 
+// Every PHP process spawned through `spawnPhpProcess` that hasn't exited yet — long-lived workers
+// and short-lived one-off commands (WordPress install, blueprint application) alike. Tracked from
+// the instant of spawn so involuntary shutdown can reap in-flight children that callers haven't
+// yet stored in their own state. Without this, a worker spawned mid-startup or a running blueprint
+// subprocess is orphaned when the wrapper exits and, on Windows, survives to keep php-bin DLLs locked.
+const livePhpProcesses = new Set< ChildProcess >();
+
 export type SpawnPhpProcessOptions = {
 	detached?: boolean;
 	disallowRiskyFunctions?: boolean;
@@ -46,6 +53,11 @@ export function spawnPhpProcess(
 		detached,
 	} );
 
+	// Track from the instant of spawn so shutdown can reap this child even before callers
+	// store it in their own state. Deregister on exit to keep the set live.
+	livePhpProcesses.add( phpScriptProcess );
+	phpScriptProcess.once( 'exit', () => livePhpProcesses.delete( phpScriptProcess ) );
+
 	if ( mode === 'pipe' ) {
 		phpScriptProcess.stdout?.pipe( process.stdout, { end: false } );
 	}
@@ -55,6 +67,24 @@ export function spawnPhpProcess(
 	}
 
 	return phpScriptProcess;
+}
+
+// Force-kill every PHP process spawned through `spawnPhpProcess` that hasn't exited. Used on
+// involuntary shutdown to guarantee no PHP child outlives the wrapper — including workers still
+// mid-startup and in-flight command subprocesses that callers don't track individually.
+export function killAllLivePhpProcesses(): void {
+	for ( const child of livePhpProcesses ) {
+		try {
+			// Detach the unexpected-exit listener so the imminent SIGKILL is not logged as a crash.
+			child.removeAllListeners( 'exit' );
+			if ( child.exitCode === null && child.signalCode === null ) {
+				child.kill( 'SIGKILL' );
+			}
+		} catch {
+			// Best effort - nothing useful to do if this fails.
+		}
+	}
+	livePhpProcesses.clear();
 }
 
 type RunPhpCommandOptions = SpawnPhpProcessOptions;

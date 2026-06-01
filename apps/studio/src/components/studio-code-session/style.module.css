@@ -18,6 +18,19 @@
 	color: var(--wpds-color-fg-content-neutral-weak);
 }
 
+.loading {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+	min-height: 0;
+}
+
+.loadingSpinner {
+	width: 36px;
+	height: 36px;
+}
+
 .header {
 	display: flex;
 	align-items: center;

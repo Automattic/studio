@@ -4,6 +4,7 @@ import {
 	type StudioCustomEntry,
 } from '@studio/common/ai/sessions/entry-types';
 import { QueryClientProvider } from '@tanstack/react-query';
+import { Spinner } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { privateApis } from '@wordpress/theme';
@@ -254,7 +255,11 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 						<ComposerSkeleton />
 					</div>
 				}
-			/>
+			>
+				<div className={ styles.loading } role="status" aria-live="polite">
+					<Spinner className={ styles.loadingSpinner } />
+				</div>
+			</SessionFrame>
 		);
 	}
 

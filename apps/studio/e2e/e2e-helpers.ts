@@ -95,14 +95,23 @@ export class E2ESession {
 
 	async cleanup() {
 		await this.closeApp();
-		// Retry on ENOTEMPTY: CLI child processes (e.g. copying skills to server-files) may still be
-		// writing to the session directory briefly after the Electron process exits.
+		// rimraf retries EBUSY/EMFILE/ENFILE itself; we only retry the transient post-exit locks
+		// it gives up on:
+		// - ENOTEMPTY: a CLI child may still be writing to the session dir after Electron exits.
+		// - EPERM: on Windows a just-killed native-PHP worker's loaded DLLs (php-bin/*.dll) stay
+		//   locked until the kernel finishes tearing it down. rimraf's EPERM path only chmods a
+		//   read-only attr, which can't clear this sharing violation.
+		const RETRYABLE_CODES = [ 'ENOTEMPTY', 'EPERM' ];
 		for ( let attempt = 0; attempt < 5; attempt++ ) {
 			try {
 				await rimraf( this.sessionPath );
 				return;
 			} catch ( error ) {
-				if ( ! isErrnoException( error ) || error.code !== 'ENOTEMPTY' || attempt === 4 ) {
+				if (
+					! isErrnoException( error ) ||
+					! RETRYABLE_CODES.includes( error.code ?? '' ) ||
+					attempt === 4
+				) {
 					throw error;
 				}
 				await new Promise< void >( ( resolve ) => setTimeout( resolve, 500 ) );

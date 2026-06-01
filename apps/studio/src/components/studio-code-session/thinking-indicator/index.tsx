@@ -1,4 +1,5 @@
 import { randomThinkingMessage } from '@studio/common/ai/thinking-messages';
+import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useState } from 'react';
 import styles from './style.module.css';
 
@@ -40,7 +41,13 @@ export function ThinkingIndicator( {
 						<span className={ styles.dot } aria-hidden="true" />
 						<span className={ styles.label }>{ message }</span>
 						{ elapsedSeconds > 0 ? (
-							<span className={ styles.elapsed }>{ `${ elapsedSeconds }s` }</span>
+							<span className={ styles.elapsed }>
+								{ sprintf(
+									/* translators: %d is the number of elapsed seconds, e.g. "5s". */
+									__( '%ds' ),
+									elapsedSeconds
+								) }
+							</span>
 						) : null }
 					</div>
 					{ progressMessage ? (

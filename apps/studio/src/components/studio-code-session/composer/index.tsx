@@ -2,6 +2,7 @@ import { AI_MODELS, getAiModelFamily, getAiModelLabel } from '@studio/common/ai/
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
 import { useQueryClient } from '@tanstack/react-query';
+import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { arrowUp, chevronDownSmall } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
@@ -304,8 +305,14 @@ export function Composer( {
 				</div>
 				<div className={ styles.meta }>
 					<span className={ styles.metaHint }>
-						<span>{ modKey } ↩</span> { __( 'to send' ) } · <span>shift ↩</span>{ ' ' }
-						{ __( 'for newline' ) }
+						{ createInterpolateElement(
+							/* translators: <send/> and <newline/> are keyboard-shortcut chips, e.g. "⌘ ↩" and "shift ↩". */
+							__( '<send/> to send · <newline/> for newline' ),
+							{
+								send: <span>{ modKey } ↩</span>,
+								newline: <span>shift ↩</span>,
+							}
+						) }
 					</span>
 					{ error ? <span className={ styles.error }>{ error }</span> : null }
 					<span className={ styles.metaUses }>{ __( 'Uses 1 message' ) }</span>

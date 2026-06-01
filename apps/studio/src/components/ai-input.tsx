@@ -57,13 +57,13 @@ const UnforwardedAIInput = (
 		isAssistantThinking,
 		showTelexLink = true,
 	}: AIInputProps,
-	inputRef: React.RefObject< HTMLTextAreaElement > | React.RefCallback< HTMLTextAreaElement > | null
+	inputRef: React.ForwardedRef< HTMLTextAreaElement >
 ) => {
 	const [ isTyping, setIsTyping ] = useState( false );
 	const [ thinkingDuration, setThinkingDuration ] = useState<
 		'short' | 'medium' | 'long' | 'veryLong'
 	>( 'short' );
-	const typingTimeout = useRef< NodeJS.Timeout >();
+	const typingTimeout = useRef< NodeJS.Timeout >( undefined );
 	const thinkingTimeout = useRef< NodeJS.Timeout[] >( [] );
 
 	const { RiveComponent } = useAiIcon( {

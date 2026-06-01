@@ -46,10 +46,13 @@ export function getAutoUpdaterState() {
  */
 export function switchToNightlyAndUpdate(): void {
 	if ( process.platform === 'linux' ) {
+		console.log( 'Switching to nightly channel and polling for update (Linux)' );
 		void pollLinuxUpdates( { channel: 'nightly' } );
 		return;
 	}
-	autoUpdater.setFeedURL( { url: buildUpdateFeedUrl( { channel: 'nightly' } ) } );
+	const feedUrl = buildUpdateFeedUrl( { channel: 'nightly' } );
+	console.log( `Switching to nightly channel and checking for update: ${ feedUrl }` );
+	autoUpdater.setFeedURL( { url: feedUrl } );
 	autoUpdater.checkForUpdates();
 }
 

@@ -183,10 +183,8 @@ export function executeCliCommand(
 		const pid = child.pid;
 		child.removeAllListeners();
 
-		// `child.kill()` only terminates the forked CLI Node process. On Windows its descendants
-		// (e.g. a native-PHP `php.exe` running a WP-CLI import) don't get cascaded a kill and would
-		// orphan — surviving the app and keeping their loaded DLLs locked. taskkill /T walks and
-		// kills the whole tree while the parent is still alive to anchor it.
+		// `child.kill()` only terminates the forked CLI process; on Windows its php.exe descendants
+		// would orphan and keep their DLLs locked. `taskkill /T` walks the whole tree instead.
 		if ( process.platform === 'win32' && pid ) {
 			spawnSync( 'taskkill', [ '/F', '/T', '/PID', String( pid ) ], {
 				windowsHide: true,

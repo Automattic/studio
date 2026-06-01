@@ -6,16 +6,12 @@ import type { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-me
 
 type ErrorLogger = ( ...args: Parameters< typeof console.error > ) => void;
 
-// A PHP child started with this flag becomes a process-group leader on POSIX, so its whole subtree
-// can be signalled at once via the negative PID. On Windows we reap with `taskkill /T` instead, so
-// a new group buys nothing and would only complicate console/Ctrl+C handling — hence win32 = false.
+// Makes a PHP child a process-group leader on POSIX so its subtree can be signalled via the
+// negative PID. On Windows we reap with `taskkill /T` instead, so a new group isn't needed.
 export const DETACH_FOR_GROUP_KILL = process.platform !== 'win32';
 
-// Every PHP process spawned through `spawnPhpProcess` that hasn't exited yet — long-lived workers
-// and short-lived one-off commands (WordPress install, blueprint application) alike. Tracked from
-// the instant of spawn so involuntary shutdown can reap in-flight children that callers haven't
-// yet stored in their own state. Without this, a worker spawned mid-startup or a running blueprint
-// subprocess is orphaned when the wrapper exits and, on Windows, survives to keep php-bin DLLs locked.
+// Every PHP process spawned through `spawnPhpProcess` that hasn't exited, so shutdown can reap
+// in-flight children (mid-startup workers, install/blueprint subprocesses) callers don't track.
 const livePhpProcesses = new Set< ChildProcess >();
 
 export type SpawnPhpProcessOptions = {
@@ -75,9 +71,8 @@ export function spawnPhpProcess(
 	return phpScriptProcess;
 }
 
-// Force-kill every PHP process spawned through `spawnPhpProcess` that hasn't exited, so none
-// outlives the wrapper. Tree-kills (not `child.kill()`) because on Windows TerminateProcess doesn't
-// cascade — a worker's own subprocess would be orphaned and keep php-bin DLLs locked.
+// Force-kill every tracked PHP process so none outlives the wrapper. Tree-kills because on Windows
+// TerminateProcess doesn't cascade — a worker's subprocess would survive and keep DLLs locked.
 export function killAllLivePhpProcesses(): void {
 	for ( const child of livePhpProcesses ) {
 		try {
@@ -93,10 +88,9 @@ export function killAllLivePhpProcesses(): void {
 	livePhpProcesses.clear();
 }
 
-// Terminate a PHP child and every descendant it spawned. TerminateProcess on Windows doesn't
-// cascade to descendants, so we walk the tree with `taskkill /T`. On POSIX we signal the child's
-// process group via the negative PID — which only reaches descendants if the child was spawned with
-// `DETACH_FOR_GROUP_KILL` (a group leader) — falling back to the lone child if the group is gone.
+// Terminate a PHP child and its descendants: `taskkill /T` on Windows (TerminateProcess doesn't
+// cascade), or the process group on POSIX (requires `DETACH_FOR_GROUP_KILL`), falling back to the
+// lone child.
 export function killPhpProcessTree(
 	child: ChildProcess,
 	signal: NodeJS.Signals = 'SIGKILL'
@@ -125,17 +119,13 @@ export function killPhpProcessTree(
 	}
 }
 
-// Tears down a PHP child's process tree if this CLI process is interrupted (SIGINT/SIGTERM) before
-// the command finishes, then exits with the conventional 128+signal code so the orphaned php.exe —
-// and any grandchildren it spawned — don't outlive the command. Returns a disposer that removes the
-// handlers; call it once the command settles so successive commands don't stack handlers or fire
-// against an already-exited child. SIGKILL can't be caught here — Studio's quit handler tree-kills
-// for that case, and standalone SIGKILL is unavoidable.
+// On SIGINT/SIGTERM, tears down the PHP child's tree and exits 128+signal so php.exe and its
+// grandchildren don't outlive the command. Returns a disposer to remove the handlers once the
+// command settles. (SIGKILL can't be caught — Studio's quit handler tree-kills for that.)
 export function reapPhpTreeOnInterrupt( child: ChildProcess ): () => void {
 	const handleInterrupt = ( signal: NodeJS.Signals ) => {
-		// Forward the received signal to the group so php (and its grandchildren) shut down the same
-		// way a terminal Ctrl+C would, rather than being hard-killed mid-write. (On Windows the
-		// signal is moot — `taskkill /F` is the only reliable option for a console process tree.)
+		// Forward the signal to the group so php shuts down like it would on a terminal Ctrl+C,
+		// rather than being hard-killed. (Moot on Windows — `taskkill /F` is the only option.)
 		killPhpProcessTree( child, signal );
 		process.exit( 128 + ( os.constants.signals[ signal ] ?? 0 ) );
 	};
@@ -212,19 +202,33 @@ export async function stopPhpChild(
 	}
 
 	await new Promise< void >( ( resolve ) => {
-		const forceKillTimeout = setTimeout( () => {
-			errorToConsole( 'PHP child did not exit in time; sending SIGKILL' );
-			if ( child.exitCode === null && child.signalCode === null ) {
-				child.kill( 'SIGKILL' );
+		let settled = false;
+		const finish = () => {
+			if ( settled ) {
+				return;
 			}
-		}, timeoutMs );
-
-		child.once( 'close', () => {
-			clearTimeout( forceKillTimeout );
+			settled = true;
+			child.off( 'exit', finish );
 			resolve();
-		} );
+		};
 
-		child.kill( 'SIGTERM' );
+		// Resolve on 'exit', not 'close': a descendant that inherited the stdio pipes can hold them
+		// open after the child dies, so 'close' may never fire and would hang the stop indefinitely.
+		child.once( 'exit', finish );
+
+		// Tree-kill so the child's subprocesses die too (Windows TerminateProcess doesn't cascade);
+		// otherwise they keep DLLs locked and hold the stdio pipes open.
+		killPhpProcessTree( child, 'SIGTERM' );
+
+		setTimeout( () => {
+			if ( settled ) {
+				return;
+			}
+			errorToConsole( 'PHP child did not exit in time; force-killing its process tree' );
+			killPhpProcessTree( child, 'SIGKILL' );
+			// Backstop: resolve even if 'exit' is somehow delayed, so the stop can never hang.
+			setTimeout( finish, 1000 );
+		}, timeoutMs );
 	} );
 }
 

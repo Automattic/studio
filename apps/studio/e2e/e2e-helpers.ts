@@ -105,18 +105,25 @@ export class E2ESession {
 		// ENOTEMPTY (a CLI child still writing post-exit) and EPERM (on Windows, a just-killed
 		// process's DLLs stay locked briefly — rimraf only chmods read-only attrs, not this).
 		const RETRYABLE_CODES = [ 'ENOTEMPTY', 'EPERM' ];
-		const maxAttempts = process.platform === 'win32' ? 30 : 5;
+		const maxAttempts = 5;
 		const retryDelayMs = process.platform === 'win32' ? 1000 : 500;
 		for ( let attempt = 0; attempt < maxAttempts; attempt++ ) {
 			try {
 				await rimraf( this.sessionPath );
 				return;
 			} catch ( error ) {
-				if (
-					! isErrnoException( error ) ||
-					! RETRYABLE_CODES.includes( error.code ?? '' ) ||
-					attempt === maxAttempts - 1
-				) {
+				const isRetryableError =
+					isErrnoException( error ) && RETRYABLE_CODES.includes( error.code ?? '' );
+				if ( ! isRetryableError ) {
+					throw error;
+				}
+				if ( attempt === maxAttempts - 1 ) {
+					if ( process.platform === 'win32' ) {
+						console.warn(
+							`Unable to remove E2E session temp directory "${ this.sessionPath }": ${ error.message }`
+						);
+						return;
+					}
 					throw error;
 				}
 				await new Promise< void >( ( resolve ) => setTimeout( resolve, retryDelayMs ) );

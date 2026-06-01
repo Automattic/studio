@@ -64,6 +64,8 @@ import { getAutoUpdaterState, setupUpdates } from 'src/updates';
 // eslint-disable-next-line import-x/order
 import packageJson from '../package.json';
 
+const STOP_ALL_SERVERS_ON_QUIT_TIMEOUT_MS = process.env.E2E ? 20_000 : 6_000;
+
 // Helper function to get the actual URL for validation
 function getRendererUrl(): string {
 	return getCurrentRendererUrl();
@@ -535,7 +537,7 @@ async function appBoot() {
 
 		if ( shouldStopSitesOnQuit ) {
 			event.preventDefault();
-			stopAllServers( true, 6_000 )
+			stopAllServers( true, STOP_ALL_SERVERS_ON_QUIT_TIMEOUT_MS )
 				.then( () => {
 					app.exit();
 				} )

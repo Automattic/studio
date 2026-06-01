@@ -13,6 +13,7 @@ import {
 	MIMIC_CONVERSATION_DELAY,
 } from 'src/components/content-tab-assistant';
 import { LOCAL_STORAGE_CHAT_MESSAGES_KEY, CLEAR_HISTORY_REMINDER_TIME } from 'src/constants';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { useOffline } from 'src/hooks/use-offline';
 import { ThemeDetailsProvider } from 'src/hooks/use-theme-details';
@@ -28,6 +29,13 @@ store.replaceReducer( testReducer );
 vi.mock( 'src/hooks/use-offline' );
 vi.mock( 'src/lib/get-ipc-api' );
 vi.mock( 'src/hooks/use-get-wp-version' );
+vi.mock( 'src/hooks/use-feature-flags' );
+
+// Lightweight marker so the gating tests can detect which branch rendered
+// without pulling in the full Studio Code chat tree.
+vi.mock( 'src/components/studio-code-chat', () => ( {
+	StudioCodeChat: () => <div data-testid="studio-code-chat-marker" />,
+} ) );
 
 vi.mock( 'src/lib/app-globals', () => ( {
 	getAppGlobals: () => ( {
@@ -168,6 +176,10 @@ describe( 'ContentTabAssistant', () => {
 		store.dispatch( chatActions.setMessages( { instanceId: runningSite.id, messages: [] } ) );
 
 		vi.mocked( useOffline ).mockReturnValue( false );
+		// Default to the legacy assistant; gating tests opt into Studio Code UI.
+		vi.mocked( useFeatureFlags, { partial: true } ).mockReturnValue( {
+			enableStudioCodeUi: false,
+		} );
 		vi.mocked( useGetWelcomeMessages, { partial: true } ).mockReturnValue( {
 			data: {
 				messages: [ 'Welcome to our service!', 'How can I help you today?' ],
@@ -496,5 +508,25 @@ describe( 'ContentTabAssistant', () => {
 		// Changing to the second site should restore the input
 		rerender( buildContextTree( { selectedSite: anotherSite } ) );
 		expect( getInput() ).toHaveValue( 'Another message' );
+	} );
+
+	describe( 'feature-flag gating', () => {
+		it( 'renders Studio Code chat when enableStudioCodeUi is true', () => {
+			vi.mocked( useFeatureFlags, { partial: true } ).mockReturnValue( {
+				enableStudioCodeUi: true,
+			} );
+
+			renderWithContext();
+
+			expect( screen.getByTestId( 'studio-code-chat-marker' ) ).toBeInTheDocument();
+			expect( screen.queryByTestId( 'ai-input-textarea' ) ).not.toBeInTheDocument();
+		} );
+
+		it( 'renders the legacy WPCOM assistant when enableStudioCodeUi is false', () => {
+			renderWithContext();
+
+			expect( screen.queryByTestId( 'studio-code-chat-marker' ) ).not.toBeInTheDocument();
+			expect( getInput() ).toBeInTheDocument();
+		} );
 	} );
 } );

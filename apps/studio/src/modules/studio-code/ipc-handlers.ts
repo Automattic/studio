@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { readSharedConfig } from '@studio/common/lib/shared-config';
-import { abortTurn, spawnTurn } from './studio-code-process';
+import { abortTurn, answerTurn, spawnTurn } from './studio-code-process';
 
 export async function studioCodeSendMessage(
 	_event: IpcMainInvokeEvent,
@@ -18,12 +18,14 @@ export async function studioCodeSendMessage(
 export async function studioCodeRespondToPermission(
 	_event: IpcMainInvokeEvent,
 	siteId: string,
-	sitePath: string,
-	siteName: string,
-	message: string,
+	_sitePath: string,
+	_siteName: string,
+	_message: string,
 	permissionResponse: Record< string, string >
 ): Promise< void > {
-	spawnTurn( siteId, sitePath, siteName, message, { permissionResponse } );
+	// The CLI child for this turn is still alive, awaiting the answer over IPC.
+	// Deliver it so the same turn resumes instead of respawning the process.
+	answerTurn( siteId, permissionResponse );
 }
 
 export function studioCodeAbort( _event: IpcMainInvokeEvent, siteId: string ): void {

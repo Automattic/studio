@@ -239,13 +239,6 @@ export {
 } from 'src/modules/desks/lib/ipc-handlers';
 export { fetchSiteRest as fetchSiteRestApi } from 'src/lib/wordpress-rest-api';
 
-export {
-	studioCodeSendMessage,
-	studioCodeRespondToPermission,
-	studioCodeAbort,
-	studioCodeCheckProvider,
-} from 'src/modules/studio-code/ipc-handlers';
-
 function hydrateAiSessionSummary(
 	summary: AiSessionSummary,
 	metadata?: Pick< AiSessionSummary, 'starred' | 'archived' >

@@ -39,6 +39,7 @@ import {
 import { handleDeeplink } from 'src/lib/deeplink';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
+import { maybePromptNightlySwitch, startNightlyPromptPoller } from 'src/lib/nightly-prompt';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
 import { setupLogging } from 'src/logging';
 import { createMainWindow, getCurrentRendererUrl, getMainWindow } from 'src/main-window';
@@ -51,7 +52,6 @@ import { autoInstallLinuxCliIfNeeded } from 'src/modules/cli/lib/linux-installat
 import { autoInstallMacOSCliIfNeeded } from 'src/modules/cli/lib/macos-installation-manager';
 import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
 import { startRemoteSessionStatusPolling } from 'src/modules/remote-session/daemon-status-poller';
-import { stopAllProcesses as stopAllStudioCodeProcesses } from 'src/modules/studio-code';
 import { getRunningSiteCount, SiteServer, stopAllServers } from 'src/site-server';
 import {
 	loadUserData,
@@ -379,6 +379,9 @@ async function appBoot() {
 
 		await createMainWindow();
 
+		void maybePromptNightlySwitch().catch( Sentry.captureException );
+		startNightlyPromptPoller();
+
 		const userData = await loadUserData();
 		// Bump stats for the first time the app runs - this is when no lastBumpStats are available
 		if ( ! userData.lastBumpStats ) {
@@ -532,7 +535,6 @@ async function appBoot() {
 		markAppQuitting();
 		globalShortcut.unregisterAll();
 		stopCliEventsSubscriber();
-		stopAllStudioCodeProcesses();
 		stopRemoteSessionStatusPolling?.();
 
 		if ( shouldStopSitesOnQuit ) {

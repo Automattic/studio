@@ -8,8 +8,14 @@ import { getPhpBinaryPath } from './dependency-management/paths';
 
 // Disabled by default to shrink the attack surface available to PHP code
 // running inside a Studio site. Each entry falls into one of:
-//   - Code execution / loading native code: dl, exec, passthru, popen,
-//     proc_open/close/terminate, shell_exec, system, pcntl_exec, pcntl_fork
+//   - Runtime native-code loading: dl (loads a native extension into the
+//     interpreter — deprecated, unavailable in most SAPIs, never needed by a
+//     real WP workload)
+//   - Forking / replacing the worker process itself: pcntl_exec, pcntl_fork.
+//     These mutate the PHP worker process rather than spawning a child
+//     command; the legitimate "run an external command" use case is served by
+//     the exec/proc_open family, which is intentionally NOT disabled (see
+//     note below).
 //   - Signal & scheduling control (DoS / handler hijack): pcntl_alarm,
 //     pcntl_async_signals, pcntl_sig*, pcntl_*priority, proc_nice, posix_kill
 //   - Privilege change: posix_set*
@@ -18,11 +24,16 @@ import { getPhpBinaryPath } from './dependency-management/paths';
 //   - Filesystem tricks that can escape open_basedir or create odd
 //     primitives: link, symlink, posix_mkfifo
 //   - Source disclosure: show_source
+//
+// NOTE: the external-command-execution functions (exec, passthru, popen,
+// proc_open/close/terminate, shell_exec, system) are deliberately left
+// enabled. Blocking them broke too many plugins and tools that legitimately
+// shell out (image processing, backups, git, etc.), so for the native PHP
+// beta a site may run external commands like a normal local PHP install. The
+// open_basedir jail and the rest of this list still apply.
 const PHP_DEFAULT_DISABLED_FUNCTIONS = [
 	'dl',
-	'exec',
 	'link',
-	'passthru',
 	'pcntl_alarm',
 	'pcntl_async_signals',
 	'pcntl_exec',
@@ -35,7 +46,6 @@ const PHP_DEFAULT_DISABLED_FUNCTIONS = [
 	'pcntl_sigprocmask',
 	'pcntl_sigtimedwait',
 	'pcntl_sigwaitinfo',
-	'popen',
 	'posix_kill',
 	'posix_mkfifo',
 	'posix_setegid',
@@ -44,11 +54,7 @@ const PHP_DEFAULT_DISABLED_FUNCTIONS = [
 	'posix_setpgid',
 	'posix_setsid',
 	'posix_setuid',
-	'proc_close',
 	'proc_nice',
-	'proc_open',
-	'proc_terminate',
-	'shell_exec',
 	'show_source',
 	'socket_accept',
 	'socket_bind',
@@ -57,7 +63,6 @@ const PHP_DEFAULT_DISABLED_FUNCTIONS = [
 	'socket_listen',
 	'stream_socket_server',
 	'symlink',
-	'system',
 ] as const;
 
 // Extensions to enable on Windows via `extension=<name>` in php.ini. Computed

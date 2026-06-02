@@ -1,22 +1,19 @@
 /**
- * WordPress Studio Server Child Process — Native PHP
+ * Native PHP site server — our "Poor Man's php-fpm".
  *
- * Runs a single WordPress site using the PHP binary's built-in web server
- * (`php -S localhost:${port} router.php`), with the site directory as the
- * working directory. Shares the IPC contract with `wordpress-server-child.ts`.
+ * Runs a WordPress site as a fixed pool of `php -S … router.php` workers with a
+ * Node.js HTTP proxy in front that load-balances requests across them: a cheap
+ * stand-in for fpm-style process concurrency, not a real FastCGI process manager.
+ *
+ * Shares the IPC contract with the Playground-based `wordpress-server-child.ts`.
  */
 
-import { ChildProcess, spawn } from 'node:child_process';
-import fs from 'node:fs';
+import http from 'node:http';
+import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
-import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
 import { writeStudioMuPluginsForNativePhpRuntime } from '@studio/common/lib/mu-plugins';
-import { decodePassword } from '@studio/common/lib/passwords';
-import {
-	NativePhpSupportedVersion,
-	resolveNativePhpVersion,
-} from '@studio/common/lib/php-binary-metadata';
+import { resolveNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
 import { z } from 'zod';
 import {
 	managerMessageSchema,
@@ -24,14 +21,22 @@ import {
 	ServerConfig,
 } from 'cli/lib/types/wordpress-server-ipc';
 import { requestSetAdminCredentials, toUrlSearchParams } from './lib/admin-credentials';
+import { getPhpMyAdminPath } from './lib/dependency-management/paths';
+import { runBlueprint } from './lib/native-php/blueprints';
 import {
-	getBlueprintsPharPath,
-	getPhpBinaryPath,
-	getPhpMyAdminPath,
-	getWpCliPharPath,
-} from './lib/dependency-management/paths';
-import { getDefaultPhpArgs } from './lib/native-php';
+	killAllLivePhpProcesses,
+	spawnPhpProcess,
+	stopPhpChild,
+	waitForChildSpawn,
+} from './lib/native-php/php-process';
+import {
+	getNativePhpMyAdminWpEnvPath,
+	getPhpMyAdminSessionPath,
+	writeNativePhpMyAdminWpEnv,
+} from './lib/native-php/phpmyadmin';
+import { ensureWpConfig, installWordPress } from './lib/native-php/site-setup';
 import { SymlinkWatcher, collectSymlinkAllowlistEntries } from './lib/symlinks';
+import type { ChildProcess } from 'node:child_process';
 
 const ROUTER_PATH = path.resolve( import.meta.dirname, 'php', 'router.php' );
 const SET_DEFAULT_PERMALINKS_PATH = path.resolve(
@@ -44,50 +49,46 @@ const WP_CONFIG_TRANSFORMER_PATH = path.resolve(
 	'php',
 	'wp-config-transformer.php'
 );
-const DEFAULT_WP_CONFIG_CONSTANTS = { DB_NAME: 'wordpress' } as const;
 
-function phpStringLiteral( value: string ): string {
-	return `'${ value.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" ) }'`;
-}
+// Tracks how many proxied requests each PHP worker is currently handling.
+// Each `php -S` worker processes one request at a time, so a non-zero count
+// means the worker is busy and any additional requests are queued at the TCP
+// layer. The picker uses these counts to prefer idle workers, then to balance
+// the queue depth when all are busy.
+class PhpWorkerRequestTracker {
+	private readonly counts: number[];
 
-function getNativePhpMyAdminWpEnvPath( config: Pick< ServerConfig, 'siteId' > ): string {
-	const safeSiteId = config.siteId.replace( /[^a-zA-Z0-9._-]/g, '-' );
-	return path.join( os.tmpdir(), 'studio-phpmyadmin-wp-env', safeSiteId, 'wp-env.php' );
-}
+	constructor( size: number ) {
+		this.counts = new Array( size ).fill( 0 );
+	}
 
-function getPhpMyAdminSessionPath( config: Pick< ServerConfig, 'siteId' > ): string {
-	const safeSiteId = config.siteId.replace( /[^a-zA-Z0-9._-]/g, '-' );
-	return path.join( os.tmpdir(), 'studio-phpmyadmin-sessions', safeSiteId );
-}
+	get( index: number ): number {
+		return this.counts[ index ] ?? 0;
+	}
 
-async function writeNativePhpMyAdminWpEnv( config: ServerConfig ): Promise< string > {
-	const wpEnvPath = getNativePhpMyAdminWpEnvPath( config );
-	const sqliteDriverPath = path.join(
-		config.sitePath,
-		'wp-content',
-		'mu-plugins',
-		'sqlite-database-integration',
-		'wp-includes',
-		'database',
-		'load.php'
-	);
-	const sqliteDatabasePath = path.join( config.sitePath, 'wp-content', 'database', '.ht.sqlite' );
-	const wpEnvPhp = `<?php return array (
-  'db' => array (
-    'type' => 'sqlite',
-    'path' => ${ phpStringLiteral( sqliteDatabasePath ) },
-    'driver_path' => ${ phpStringLiteral( sqliteDriverPath ) },
-  ),
-);
-`;
+	set( index: number, value: number ): void {
+		if ( index < 0 || index >= this.counts.length ) {
+			return;
+		}
+		this.counts[ index ] = Math.max( 0, value );
+	}
 
-	await fs.promises.mkdir( path.dirname( wpEnvPath ), { recursive: true } );
-	await fs.promises.mkdir( getPhpMyAdminSessionPath( config ), { recursive: true } );
-	await fs.promises.writeFile( wpEnvPath, wpEnvPhp );
-	return wpEnvPath;
+	getFirstFreeWorker(): number {
+		let bestIndex = 0;
+		for ( let i = 1; i < this.counts.length; i++ ) {
+			if ( this.counts[ i ] < this.counts[ bestIndex ] ) {
+				bestIndex = i;
+			}
+		}
+		return bestIndex;
+	}
 }
 
 let phpProcess: ChildProcess | null = null;
+let phpWorkerProcesses: ChildProcess[] = [];
+let phpProxyServer: http.Server | null = null;
+let phpWorkerPorts: number[] = [];
+let phpWorkerRequestTracker = new PhpWorkerRequestTracker( 0 );
 let startupAbortController: AbortController | null = null;
 let startingPromise: Promise< void > | null = null;
 let blueprintQueue: Promise< unknown > = Promise.resolve();
@@ -102,6 +103,7 @@ let runningConfig: ServerConfig | null = null;
 
 const SYMLINK_RESTART_DEBOUNCE_MS = 750;
 const STOP_SERVER_TIMEOUT = 5000;
+const NATIVE_PHP_WORKER_POOL_SIZE = 4;
 
 function logToConsole( ...args: Parameters< typeof console.log > ) {
 	console.log( `[PHP Server]`, ...args );
@@ -111,195 +113,48 @@ function errorToConsole( ...args: Parameters< typeof console.error > ) {
 	console.error( `[PHP Server]`, ...args );
 }
 
-type SpawnPhpProcessOptions = {
-	detached?: boolean;
-	disallowRiskyFunctions?: boolean;
-	env?: NodeJS.ProcessEnv;
-	mode?: 'pipe' | 'capture-stdout';
-	enableXdebug?: boolean;
-	onlyPathsThatPhpCanAccess?: string[];
-	phpVersion: NativePhpSupportedVersion;
-	siteFolder?: string;
-	signal?: AbortSignal;
-};
-
-function spawnPhpProcess(
-	args: string[],
-	{
-		phpVersion,
-		siteFolder,
-		signal,
-		env,
-		mode = 'pipe',
-		detached = false,
-		enableXdebug = false,
-		onlyPathsThatPhpCanAccess = [],
-		disallowRiskyFunctions = false,
-	}: SpawnPhpProcessOptions
-): ChildProcess {
-	const defaultArgs = getDefaultPhpArgs(
-		phpVersion,
-		onlyPathsThatPhpCanAccess,
-		disallowRiskyFunctions,
-		enableXdebug
-	);
-	const phpArgs = [ ...defaultArgs, ...args ];
-	const phpScriptProcess = spawn( getPhpBinaryPath( phpVersion ), phpArgs, {
-		cwd: siteFolder,
-		env: env ? { ...process.env, ...env } : process.env,
-		stdio: [ 'ignore', 'pipe', 'pipe' ],
-		signal,
-		detached,
-	} );
-
-	if ( mode === 'pipe' ) {
-		phpScriptProcess.stdout?.pipe( process.stdout, { end: false } );
+function shouldUsePrimaryWorker( req: http.IncomingMessage ): boolean {
+	const method = req.method?.toUpperCase() ?? 'GET';
+	if ( ! [ 'GET', 'HEAD', 'OPTIONS' ].includes( method ) ) {
+		return true;
 	}
 
-	// Keep stderr visible in all modes for easier debugging.
-	if ( mode === 'pipe' || mode === 'capture-stdout' ) {
-		phpScriptProcess.stderr?.pipe( process.stderr, { end: false } );
+	const requestUrl = req.url ?? '/';
+	if ( requestUrl.startsWith( '/phpmyadmin' ) ) {
+		return true;
 	}
 
-	return phpScriptProcess;
+	return false;
 }
 
-type RunPhpCommandOptions = SpawnPhpProcessOptions;
-
-function killProcessGroup( child: ChildProcess, signal: NodeJS.Signals ): void {
-	if ( process.platform !== 'win32' && child.pid ) {
-		try {
-			process.kill( -child.pid, signal );
-			return;
-		} catch {
-			// Fall back to the parent process if the process group is already gone.
-		}
+function pickPhpWorker( req: http.IncomingMessage ): { index: number; port: number } {
+	if ( phpWorkerPorts.length === 0 ) {
+		throw new Error( 'No PHP worker ports are available' );
 	}
 
-	child.kill( signal );
+	if ( shouldUsePrimaryWorker( req ) ) {
+		return { index: 0, port: phpWorkerPorts[ 0 ] };
+	}
+
+	const bestIndex = phpWorkerRequestTracker.getFirstFreeWorker();
+	return { index: bestIndex, port: phpWorkerPorts[ bestIndex ] };
 }
 
-async function runPhpCommand(
-	args: string[],
-	options: RunPhpCommandOptions
-): Promise< { stdout: string } > {
-	return await new Promise< { stdout: string } >( ( resolve, reject ) => {
-		const phpScriptProcess = spawnPhpProcess( args, options );
-
-		let stdout = '';
-		const reportActivity = () => process.send?.( { topic: 'activity' } );
-		phpScriptProcess.stdout?.on( 'data', ( chunk ) => {
-			reportActivity();
-			if ( options.mode === 'capture-stdout' ) {
-				stdout += chunk.toString();
-			}
-		} );
-		phpScriptProcess.stderr?.on( 'data', reportActivity );
-
-		phpScriptProcess.once( 'error', ( error: Error ) => {
-			reject( error );
-		} );
-		phpScriptProcess.once( 'close', ( code ) => {
-			if ( code === 0 ) {
-				resolve( { stdout } );
+async function getAvailablePort(): Promise< number > {
+	return await new Promise< number >( ( resolve, reject ) => {
+		const server = net.createServer();
+		server.unref();
+		server.once( 'error', reject );
+		server.listen( 0, '127.0.0.1', () => {
+			const address = server.address();
+			if ( ! address || typeof address === 'string' ) {
+				server.close( () => reject( new Error( 'Could not allocate a PHP worker port' ) ) );
 				return;
 			}
-
-			reject( new Error( `PHP command failed (code: ${ code })` ) );
+			const port = address.port;
+			server.close( () => resolve( port ) );
 		} );
 	} );
-}
-
-async function ensureWpConfig(
-	siteFolder: string,
-	phpVersion: NativePhpSupportedVersion,
-	signal: AbortSignal,
-	config?: Pick< ServerConfig, 'enableDebugLog' | 'enableDebugDisplay' >
-): Promise< void > {
-	const wpConfigPath = path.join( siteFolder, 'wp-config.php' );
-	const wpConfigSamplePath = path.join( siteFolder, 'wp-config-sample.php' );
-	const ensureWpConfigScript = `
-$transformer_path = $argv[1] ?? '';
-$wp_config_path = $argv[2] ?? '';
-$constants = json_decode( $argv[3] ?? '', true );
-
-require_once $transformer_path;
-
-$transformer = WP_Config_Transformer::from_file( $wp_config_path );
-$transformer->define_constants( $constants );
-$transformer->to_file( $wp_config_path );
-`;
-
-	if ( ! fs.existsSync( wpConfigPath ) && fs.existsSync( wpConfigSamplePath ) ) {
-		await fs.promises.copyFile( wpConfigSamplePath, wpConfigPath );
-	}
-
-	const enableDebugLog = config?.enableDebugLog ?? false;
-	const enableDebugDisplay = config?.enableDebugDisplay ?? false;
-	const constants = {
-		...DEFAULT_WP_CONFIG_CONSTANTS,
-		WP_DEBUG: enableDebugLog || enableDebugDisplay,
-		WP_DEBUG_LOG: enableDebugLog,
-		WP_DEBUG_DISPLAY: enableDebugDisplay,
-	};
-
-	try {
-		await runPhpCommand(
-			[
-				'-r',
-				ensureWpConfigScript,
-				WP_CONFIG_TRANSFORMER_PATH,
-				wpConfigPath,
-				JSON.stringify( constants ),
-			],
-			{ phpVersion, signal }
-		);
-	} catch ( error ) {
-		throw new Error(
-			`Failed to ensure wp-config.php constants: ${
-				error instanceof Error ? error.message : String( error )
-			}`
-		);
-	}
-}
-
-async function isWordPressInstalled(
-	siteFolder: string,
-	phpVersion: NativePhpSupportedVersion,
-	signal: AbortSignal
-): Promise< boolean > {
-	const installationCheckScript = `
-error_reporting( E_ERROR );
-ini_set( 'display_errors', '0' );
-
-$wp_load = getcwd() . '/wp-load.php';
-if ( ! file_exists( $wp_load ) ) {
-	echo '0';
-	exit( 0 );
-}
-require_once $wp_load;
-echo is_blog_installed() ? '1' : '0';
-`;
-
-	let stdout = '';
-	try {
-		const result = await runPhpCommand( [ '-r', installationCheckScript ], {
-			phpVersion,
-			siteFolder,
-			signal,
-			mode: 'capture-stdout',
-		} );
-		stdout = result.stdout;
-	} catch ( error ) {
-		throw new Error(
-			`Failed to check WordPress installation status: ${
-				error instanceof Error ? error.message : String( error )
-			}`
-		);
-	}
-
-	const status = stdout.trim();
-	return status === '1';
 }
 
 async function waitForServerReady( url: string, signal?: AbortSignal ): Promise< void > {
@@ -310,7 +165,7 @@ async function waitForServerReady( url: string, signal?: AbortSignal ): Promise<
 	while ( true ) {
 		signal?.throwIfAborted();
 		try {
-			await fetch( url, { signal } );
+			await fetch( url, { redirect: 'manual', signal } );
 			return;
 		} catch {
 			signal?.throwIfAborted();
@@ -319,72 +174,6 @@ async function waitForServerReady( url: string, signal?: AbortSignal ): Promise<
 			}
 			await new Promise< void >( ( resolve ) => setTimeout( resolve, pollIntervalMs ) );
 		}
-	}
-}
-
-async function installWordPress(
-	config: ServerConfig,
-	phpVersion: NativePhpSupportedVersion,
-	signal: AbortSignal
-): Promise< void > {
-	const alreadyInstalled = await isWordPressInstalled( config.sitePath, phpVersion, signal );
-	if ( alreadyInstalled ) {
-		logToConsole( `WordPress already installed; skipping installer` );
-		return;
-	}
-
-	const siteTitle = config.siteTitle ?? 'My WordPress Website';
-	const username = config.adminUsername ?? 'admin';
-	const password = config.adminPassword ? decodePassword( config.adminPassword ) : 'password';
-	const email = config.adminEmail ?? 'admin@localhost.com';
-	const siteUrl = config.absoluteUrl ?? `http://localhost:${ config.port }`;
-	// Only pass --locale for non-default locales; WP-CLI defaults to en_US for English.
-	// DEFAULT_LOCALE is 'en' which is not a valid WP locale code.
-	const locale =
-		config.siteLanguage && config.siteLanguage !== DEFAULT_LOCALE ? config.siteLanguage : undefined;
-
-	await runPhpCommand(
-		[
-			getWpCliPharPath(),
-			'core',
-			'install',
-			`--path=${ config.sitePath }`,
-			`--url=${ siteUrl }`,
-			`--title=${ siteTitle }`,
-			`--admin_user=${ username }`,
-			`--admin_password=${ password }`,
-			`--admin_email=${ email }`,
-			...( locale ? [ `--locale=${ locale }` ] : [] ),
-			'--skip-email',
-		],
-		{ phpVersion, signal }
-	);
-
-	// Store the admin username in WP options so the auto-login MU plugin can find it.
-	await runPhpCommand(
-		[
-			getWpCliPharPath(),
-			'option',
-			'update',
-			'studio_admin_username',
-			username,
-			`--path=${ config.sitePath }`,
-		],
-		{ phpVersion, signal }
-	);
-
-	try {
-		await runPhpCommand( [ SET_DEFAULT_PERMALINKS_PATH ], {
-			phpVersion,
-			siteFolder: config.sitePath,
-			signal,
-		} );
-	} catch ( error ) {
-		throw new Error(
-			`Failed to set default permalinks: ${
-				error instanceof Error ? error.message : String( error )
-			}`
-		);
 	}
 }
 
@@ -516,21 +305,7 @@ async function restartPhpServer(): Promise< void > {
 		return;
 	}
 
-	const oldChild = phpProcess;
-	phpProcess = null;
-
-	// Remove the crash listener so the imminent SIGTERM is not reported as an unexpected crash.
-	oldChild.removeAllListeners( 'exit' );
-	killProcessGroup( oldChild, 'SIGTERM' );
-	await new Promise< void >( ( resolve ) => {
-		const timeout = setTimeout( () => {
-			killProcessGroup( oldChild, 'SIGKILL' );
-		}, STOP_SERVER_TIMEOUT );
-		oldChild.once( 'close', () => {
-			clearTimeout( timeout );
-			resolve();
-		} );
-	} );
+	await stopCurrentPhpServer();
 
 	try {
 		phpProcess = await doStartServer( runningConfig, currentOpenBasedirAllowlist );
@@ -538,6 +313,120 @@ async function restartPhpServer(): Promise< void > {
 		errorToConsole( `Failed to restart PHP server:`, error );
 		process.exit( 1 );
 	}
+}
+
+function getCurrentPhpProcesses(): ChildProcess[] {
+	return [
+		...new Set( [ phpProcess, ...phpWorkerProcesses ].filter( Boolean ) ),
+	] as ChildProcess[];
+}
+
+async function closePhpProxyServer(): Promise< void > {
+	const proxyServer = phpProxyServer;
+	phpProxyServer = null;
+	phpWorkerPorts = [];
+	phpWorkerRequestTracker = new PhpWorkerRequestTracker( 0 );
+
+	if ( ! proxyServer ) {
+		return;
+	}
+
+	await new Promise< void >( ( resolve ) => {
+		proxyServer.close( () => resolve() );
+	} ).catch( () => {} );
+}
+
+async function stopCurrentPhpServer(): Promise< void > {
+	const children = getCurrentPhpProcesses();
+	phpProcess = null;
+	phpWorkerProcesses = [];
+
+	await closePhpProxyServer();
+	await Promise.all(
+		children.map( ( child ) => stopPhpChild( child, STOP_SERVER_TIMEOUT, errorToConsole ) )
+	);
+}
+
+function proxyRequestToPhpWorker(
+	config: ServerConfig,
+	req: http.IncomingMessage,
+	res: http.ServerResponse
+): void {
+	let worker: { index: number; port: number };
+	try {
+		worker = pickPhpWorker( req );
+	} catch ( error ) {
+		errorToConsole(
+			`Failed to select PHP worker: ${
+				error instanceof Error ? error.stack ?? error.message : String( error )
+			}`
+		);
+		res.writeHead( 503 );
+		res.end( 'Service temporarily unavailable' );
+		return;
+	}
+
+	phpWorkerRequestTracker.set( worker.index, phpWorkerRequestTracker.get( worker.index ) + 1 );
+	let released = false;
+	const release = () => {
+		if ( released ) {
+			return;
+		}
+		released = true;
+		phpWorkerRequestTracker.set( worker.index, phpWorkerRequestTracker.get( worker.index ) - 1 );
+	};
+	res.once( 'close', release );
+
+	const headers = { ...req.headers };
+	headers.host = req.headers.host ?? `localhost:${ config.port }`;
+	delete headers.connection;
+	delete headers[ 'proxy-connection' ];
+
+	const proxyReq = http.request(
+		{
+			hostname: '127.0.0.1',
+			port: worker.port,
+			path: req.url,
+			method: req.method,
+			headers,
+		},
+		( proxyRes ) => {
+			res.writeHead( proxyRes.statusCode ?? 502, proxyRes.headers );
+			proxyRes.pipe( res );
+		}
+	);
+
+	proxyReq.on( 'error', ( error ) => {
+		release();
+		if ( ! res.headersSent ) {
+			res.writeHead( 502 );
+		}
+		res.end( `PHP worker proxy error: ${ error.message }` );
+	} );
+
+	req.pipe( proxyReq );
+}
+
+async function startPhpProxyServer(
+	config: ServerConfig,
+	stopSignal?: AbortSignal
+): Promise< http.Server > {
+	const proxyServer = http.createServer( ( req, res ) =>
+		proxyRequestToPhpWorker( config, req, res )
+	);
+
+	await new Promise< void >( ( resolve, reject ) => {
+		proxyServer.once( 'error', reject );
+		stopSignal?.addEventListener( 'abort', () => {
+			proxyServer.close();
+			reject( new DOMException( 'Aborted', 'AbortError' ) );
+		} );
+		proxyServer.listen( config.port, 'localhost', () => {
+			resolve();
+		} );
+	} );
+
+	return proxyServer;
 }
 
 async function startServer( config: ServerConfig, signal: AbortSignal ): Promise< void > {
@@ -552,14 +441,26 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 
 	try {
 		stopSignal.throwIfAborted();
-		await ensureWpConfig( config.sitePath, phpVersion, stopSignal, config );
+		await ensureWpConfig(
+			config.sitePath,
+			phpVersion,
+			stopSignal,
+			WP_CONFIG_TRANSFORMER_PATH,
+			config
+		);
 		stopSignal.throwIfAborted();
 		const muPluginsPath = await writeStudioMuPluginsForNativePhpRuntime(
 			config.sitePath,
 			config.isWpAutoUpdating
 		);
 		stopSignal.throwIfAborted();
-		await installWordPress( config, phpVersion, stopSignal );
+		await installWordPress(
+			config,
+			phpVersion,
+			stopSignal,
+			SET_DEFAULT_PERMALINKS_PATH,
+			logToConsole
+		);
 		stopSignal.throwIfAborted();
 
 		if ( config.blueprint ) {
@@ -612,60 +513,78 @@ async function doStartServer(
 	openBasedirAllowlist: Set< string >,
 	stopSignal?: AbortSignal
 ): Promise< ChildProcess > {
-	const phpAddress = `localhost:${ config.port }`;
 	const phpVersion = resolveNativePhpVersion( config.phpVersion ?? '' );
-	let spawnedChild: ChildProcess | null = null;
+	const spawnedChildren: ChildProcess[] = [];
+	let proxyServer: http.Server | null = null;
 
 	logToConsole(
-		`Spawning PHP built-in server on ${ phpAddress } with PHP version ${ phpVersion }`
+		`Spawning native PHP worker pool with ${ NATIVE_PHP_WORKER_POOL_SIZE } workers on public port ${ config.port }`
 	);
 
 	try {
 		const phpMyAdminWpEnvPath = await writeNativePhpMyAdminWpEnv( config );
-		const serverChild = spawnPhpProcess( [ '-S', phpAddress, ROUTER_PATH ], {
-			phpVersion,
-			siteFolder: config.sitePath,
-			env: {
-				STUDIO_PHPMYADMIN_PATH: getPhpMyAdminPath(),
-				STUDIO_NATIVE_PHPMYADMIN_WP_ENV_PATH: phpMyAdminWpEnvPath,
-				STUDIO_PHPMYADMIN_SESSION_PATH: getPhpMyAdminSessionPath( config ),
-				// Lets `php -S` serve concurrent requests so a single slow request
-				// doesn't block the whole site. Unix-only — Windows silently ignores it
-				// because the built-in server has no fork() there.
-				PHP_CLI_SERVER_WORKERS: '4',
-			},
-			onlyPathsThatPhpCanAccess: Array.from( openBasedirAllowlist ),
-			detached: process.platform !== 'win32',
-			disallowRiskyFunctions: true,
-			enableXdebug: config.enableXdebug,
-		} );
-		spawnedChild = serverChild;
-		if ( serverChild.pid !== undefined ) {
-			const message: ChildMessageRaw = {
-				topic: 'server-process-started',
-				data: { pid: serverChild.pid },
-			};
-			process.send?.( message );
+		const workerPorts: number[] = [];
+		for ( let index = 0; index < NATIVE_PHP_WORKER_POOL_SIZE; index++ ) {
+			workerPorts.push( await getAvailablePort() );
 		}
 
-		await new Promise< void >( ( resolve, reject ) => {
-			serverChild.once( 'spawn', () => {
-				resolve();
-			} );
-			serverChild.once( 'error', ( error: Error ) => {
-				reject( error );
-			} );
-			stopSignal?.addEventListener( 'abort', () => {
-				reject( new DOMException( 'Aborted', 'AbortError' ) );
-			} );
-		} );
+		phpWorkerPorts = workerPorts;
+		phpWorkerRequestTracker = new PhpWorkerRequestTracker( workerPorts.length );
 
-		serverChild.once( 'exit', ( code, signalName ) => {
-			errorToConsole(
-				`PHP child process exited unexpectedly (code: ${ code }, signal: ${ signalName })`
+		for ( const [ index, workerPort ] of workerPorts.entries() ) {
+			const phpAddress = `127.0.0.1:${ workerPort }`;
+			logToConsole(
+				`Spawning PHP worker ${ index + 1 }/${ NATIVE_PHP_WORKER_POOL_SIZE } on ${ phpAddress }`
 			);
-			process.exit( code ?? 1 );
-		} );
+			// Workers are spawned without `detached`, so they share this wrapper's process
+			// group. That lets the daemon's group-kill reach every worker in one signal.
+			const serverChild = spawnPhpProcess( [ '-S', phpAddress, ROUTER_PATH ], {
+				phpVersion,
+				siteFolder: config.sitePath,
+				env: {
+					STUDIO_PHPMYADMIN_PATH: getPhpMyAdminPath(),
+					STUDIO_NATIVE_PHPMYADMIN_WP_ENV_PATH: phpMyAdminWpEnvPath,
+					STUDIO_PHPMYADMIN_SESSION_PATH: getPhpMyAdminSessionPath( config ),
+				},
+				onlyPathsThatPhpCanAccess: Array.from( openBasedirAllowlist ),
+				disallowRiskyFunctions: true,
+				enableXdebug: config.enableXdebug,
+			} );
+			spawnedChildren.push( serverChild );
+
+			// Report every worker pid to the daemon. The shared process group already lets
+			// the daemon clean these up, but the individual pids give it a direct fallback.
+			if ( serverChild.pid !== undefined ) {
+				const message: ChildMessageRaw = {
+					topic: 'server-process-started',
+					data: { pid: serverChild.pid },
+				};
+				process.send?.( message );
+			}
+
+			await waitForChildSpawn( serverChild, stopSignal );
+
+			serverChild.once( 'exit', ( code, signalName ) => {
+				errorToConsole(
+					`PHP worker ${
+						index + 1
+					}/${ NATIVE_PHP_WORKER_POOL_SIZE } exited unexpectedly (code: ${ code }, signal: ${ signalName })`
+				);
+				killAllLivePhpProcesses();
+				process.exit( code ?? 1 );
+			} );
+		}
+
+		stopSignal?.throwIfAborted();
+		await Promise.all(
+			workerPorts.map( ( workerPort ) =>
+				waitForServerReady( `http://127.0.0.1:${ workerPort }/`, stopSignal )
+			)
+		);
+
+		proxyServer = await startPhpProxyServer( config, stopSignal );
+		phpProxyServer = proxyServer;
+		phpWorkerProcesses = spawnedChildren;
 
 		stopSignal?.throwIfAborted();
 		await waitForServerReady( `http://localhost:${ config.port }/`, stopSignal );
@@ -674,12 +593,23 @@ async function doStartServer(
 		// at runtime, so the watcher triggers a debounced restart with an updated
 		// allowlist when a new symlink target is discovered.
 		startSymlinkWatcher( config.sitePath );
-
-		return spawnedChild;
+		return spawnedChildren[ 0 ];
 	} catch ( error ) {
-		if ( spawnedChild ) {
-			killProcessGroup( spawnedChild, 'SIGKILL' );
+		const serverToClose = proxyServer;
+		if ( serverToClose ) {
+			await new Promise< void >( ( resolve ) => serverToClose.close( () => resolve() ) ).catch(
+				() => {}
+			);
 		}
+		for ( const child of spawnedChildren ) {
+			child.removeAllListeners( 'exit' );
+			if ( child.exitCode === null && child.signalCode === null ) {
+				child.kill( 'SIGKILL' );
+			}
+		}
+		phpWorkerPorts = [];
+		phpWorkerRequestTracker = new PhpWorkerRequestTracker( 0 );
+		phpWorkerProcesses = [];
 		await stopSymlinkWatcher();
 
 		throw error;
@@ -702,34 +632,22 @@ async function stopServer(): Promise< StopServerResult > {
 	runningConfig = null;
 	currentOpenBasedirAllowlist.clear();
 
-	if ( ! phpProcess ) {
+	const children = getCurrentPhpProcesses();
+	if ( children.length === 0 && ! phpProxyServer ) {
 		logToConsole( 'No server running, nothing to stop' );
 		return StopServerResult.OK;
 	}
 
-	if ( phpProcess.exitCode !== null || phpProcess.signalCode !== null ) {
+	if (
+		children.length > 0 &&
+		children.every( ( child ) => child.exitCode !== null || child.signalCode !== null ) &&
+		! phpProxyServer
+	) {
 		logToConsole( 'Server already stopped' );
 		return StopServerResult.OK;
 	}
 
-	const child = phpProcess;
-	phpProcess = null;
-
-	child.removeAllListeners( 'exit' );
-
-	await new Promise< void >( ( resolve ) => {
-		const forceKillTimeout = setTimeout( () => {
-			errorToConsole( 'PHP child did not exit in time; sending SIGKILL' );
-			killProcessGroup( child, 'SIGKILL' );
-		}, STOP_SERVER_TIMEOUT );
-
-		child.once( 'close', () => {
-			clearTimeout( forceKillTimeout );
-			resolve();
-		} );
-
-		killProcessGroup( child, 'SIGTERM' );
-	} );
+	await stopCurrentPhpServer();
 
 	logToConsole( 'Server stopped gracefully' );
 	return StopServerResult.OK;
@@ -747,109 +665,6 @@ function sendErrorMessage( messageId: string, error: unknown ): Promise< void > 
 			resolve();
 		} );
 	} );
-}
-
-async function runBlueprint(
-	config: ServerConfig,
-	blueprint: NonNullable< ServerConfig[ 'blueprint' ] >,
-	phpVersion: NativePhpSupportedVersion,
-	signal: AbortSignal
-): Promise< void > {
-	// blueprints.phar's CLI accepts only local paths. Remote URIs are supported by
-	// the Playground runtime (via FetchFilesystem) but not here.
-	if ( blueprint.uri.startsWith( 'http://' ) || blueprint.uri.startsWith( 'https://' ) ) {
-		throw new Error(
-			`Remote blueprint URIs are not supported by the native PHP runtime: ${ blueprint.uri }`
-		);
-	}
-
-	// Mirror the Playground runtime: merge Studio's defaults into blueprint.contents
-	// with the same precedence so both runtimes apply blueprints consistently.
-	const enableDebugLog = config.enableDebugLog ?? false;
-	const enableDebugDisplay = config.enableDebugDisplay ?? false;
-	const defaultConstants: Record< string, boolean | string > = {
-		// Fallback for sites where DB_NAME was stripped from wp-config.php — the SQLite
-		// driver (v3+) requires a non-empty DB_NAME at runtime.
-		DB_NAME: 'wordpress',
-		WP_DEBUG: enableDebugLog || enableDebugDisplay,
-		WP_DEBUG_LOG: enableDebugLog,
-		WP_DEBUG_DISPLAY: enableDebugDisplay,
-	};
-
-	blueprint.contents.constants = {
-		...blueprint.contents.constants,
-		...defaultConstants,
-	};
-	// Native PHP selects PHP and installs WordPress before Blueprint execution.
-	// Passing preferredVersions makes blueprints.phar validate versions it does not manage here.
-	delete blueprint.contents.preferredVersions;
-
-	// Write the merged blueprint next to the original so blueprints.phar resolves any
-	// relative file references against the original blueprint's directory — its runner
-	// uses dirname(blueprintPath) as the execution context.
-	const blueprintDir = path.dirname( blueprint.uri );
-	const tmpPath = path.join( blueprintDir, `studio-blueprint-${ config.siteId }.json` );
-	await fs.promises.writeFile( tmpPath, JSON.stringify( blueprint.contents ) );
-
-	// blueprints.phar checks wp-content/plugins/sqlite-database-integration/load.php to detect
-	// SQLite, but Studio puts it in mu-plugins. Create a temporary symlink so the PHAR can find it.
-	const muPluginsSqlite = path.join(
-		config.sitePath,
-		'wp-content',
-		'mu-plugins',
-		'sqlite-database-integration'
-	);
-	const pluginsSqlite = path.join(
-		config.sitePath,
-		'wp-content',
-		'plugins',
-		'sqlite-database-integration'
-	);
-	// Use 'junction' type so this works on Windows without elevated permissions.
-	// On macOS/Linux the type argument is ignored for directories.
-	const needsSymlink = fs.existsSync( muPluginsSqlite ) && ! fs.existsSync( pluginsSqlite );
-	let symlinkIno: number | undefined;
-	if ( needsSymlink ) {
-		fs.symlinkSync( muPluginsSqlite, pluginsSqlite, 'junction' );
-		// Record the inode so cleanup only removes the entry we created. statSync follows
-		// the link, so the inode resolves to the mu-plugins target and changes if the
-		// entry has been replaced with unrelated content.
-		symlinkIno = fs.statSync( pluginsSqlite ).ino;
-	}
-
-	try {
-		// blueprints.phar spawns its own PHP subprocesses while applying a blueprint.
-		// On Windows those subprocesses auto-load the php.ini we wrote next to
-		// php.exe, which carries the bundled-extension and CA-bundle config. On
-		// macOS/Linux every extension is statically linked into the binary, so no
-		// extra setup is needed for the subprocess.
-		await runPhpCommand(
-			[
-				getBlueprintsPharPath(),
-				'exec',
-				tmpPath,
-				'--mode=apply-to-existing-site',
-				`--site-path=${ config.sitePath }`,
-				`--site-url=${ config.absoluteUrl ?? `http://localhost:${ config.port }` }`,
-				'--db-engine=sqlite',
-			],
-			{ phpVersion, signal }
-		);
-	} finally {
-		await fs.promises.unlink( tmpPath ).catch( () => {} );
-		if ( needsSymlink ) {
-			try {
-				if ( fs.statSync( pluginsSqlite ).ino === symlinkIno ) {
-					// Use rm with recursive to handle Windows junctions, which fs.unlink
-					// rejects with EPERM. The inode check above guards against accidentally
-					// recursing into an unrelated directory.
-					await fs.promises.rm( pluginsSqlite, { recursive: true, force: true } );
-				}
-			} catch {
-				// Best effort — leaving the symlink behind is non-fatal.
-			}
-		}
-	}
 }
 
 const abortControllers: Record< string, AbortController > = {};
@@ -904,13 +719,20 @@ async function ipcMessageHandler( packet: unknown ) {
 					blueprintConfig.sitePath,
 					blueprintPhpVersion,
 					abortController.signal,
+					WP_CONFIG_TRANSFORMER_PATH,
 					blueprintConfig
 				);
 				await writeStudioMuPluginsForNativePhpRuntime(
 					blueprintConfig.sitePath,
 					blueprintConfig.isWpAutoUpdating
 				);
-				await installWordPress( blueprintConfig, blueprintPhpVersion, abortController.signal );
+				await installWordPress(
+					blueprintConfig,
+					blueprintPhpVersion,
+					abortController.signal,
+					SET_DEFAULT_PERMALINKS_PATH,
+					logToConsole
+				);
 				if ( ! blueprintConfig.blueprint ) {
 					throw new Error( 'Blueprint is required' );
 				}
@@ -957,15 +779,22 @@ async function ipcMessageHandler( packet: unknown ) {
 }
 
 function killPhpProcess(): void {
-	if ( phpProcess ) {
-		try {
-			// Detach the unexpected-exit listener so the imminent SIGKILL is not logged as a crash.
-			phpProcess.removeAllListeners( 'exit' );
-			killProcessGroup( phpProcess, 'SIGKILL' );
-		} catch {
-			// Best effort — nothing useful to do if this fails.
-		}
+	try {
+		phpProxyServer?.close();
+	} catch {
+		// Best effort - nothing useful to do if this fails.
 	}
+	phpProxyServer = null;
+
+	// Reap every PHP process we've spawned, not just the promoted servers in
+	// `getCurrentPhpProcesses()` — that misses workers still mid-startup and in-flight
+	// command subprocesses (install, blueprint), which would otherwise be orphaned.
+	killAllLivePhpProcesses();
+
+	phpProcess = null;
+	phpWorkerProcesses = [];
+	phpWorkerPorts = [];
+	phpWorkerRequestTracker = new PhpWorkerRequestTracker( 0 );
 }
 
 function shutdownOnSignal( signal: NodeJS.Signals ): void {

@@ -39,6 +39,7 @@ import {
 import { handleDeeplink } from 'src/lib/deeplink';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
+import { maybePromptNightlySwitch, startNightlyPromptPoller } from 'src/lib/nightly-prompt';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
 import { setupLogging } from 'src/logging';
 import { createMainWindow, getCurrentRendererUrl, getMainWindow } from 'src/main-window';
@@ -62,6 +63,8 @@ import {
 import { getAutoUpdaterState, setupUpdates } from 'src/updates';
 // eslint-disable-next-line import-x/order
 import packageJson from '../package.json';
+
+const STOP_ALL_SERVERS_ON_QUIT_TIMEOUT_MS = process.env.E2E ? 20_000 : 6_000;
 
 // Helper function to get the actual URL for validation
 function getRendererUrl(): string {
@@ -376,6 +379,9 @@ async function appBoot() {
 
 		await createMainWindow();
 
+		void maybePromptNightlySwitch().catch( Sentry.captureException );
+		startNightlyPromptPoller();
+
 		const userData = await loadUserData();
 		// Bump stats for the first time the app runs - this is when no lastBumpStats are available
 		if ( ! userData.lastBumpStats ) {
@@ -533,7 +539,7 @@ async function appBoot() {
 
 		if ( shouldStopSitesOnQuit ) {
 			event.preventDefault();
-			stopAllServers( true, 6_000 )
+			stopAllServers( true, STOP_ALL_SERVERS_ON_QUIT_TIMEOUT_MS )
 				.then( () => {
 					app.exit();
 				} )

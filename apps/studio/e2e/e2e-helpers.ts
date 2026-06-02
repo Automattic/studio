@@ -1,7 +1,6 @@
 import { randomUUID } from 'crypto';
 import { tmpdir } from 'os';
 import path from 'path';
-import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { findLatestBuild, parseElectronApp } from 'electron-playwright-helpers';
 import fs from 'fs-extra';
 import { _electron as electron, Page, ElectronApplication } from 'playwright';

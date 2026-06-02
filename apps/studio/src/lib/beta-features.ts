@@ -13,6 +13,7 @@ export interface BetaFeatureDefinition {
  * Default values for beta features.
  */
 const BETA_FEATURE_DEFAULTS: Record< keyof BetaFeatures, boolean > = {
+	enableStudioCodeUi: false,
 	remoteSession: false,
 	nativePhpRuntime: false,
 };
@@ -23,6 +24,12 @@ const BETA_FEATURE_DEFAULTS: Record< keyof BetaFeatures, boolean > = {
  */
 export function getBetaFeaturesDefinition(): Record< keyof BetaFeatures, BetaFeatureDefinition > {
 	return {
+		enableStudioCodeUi: {
+			label: __( 'Studio Code Desktop' ),
+			key: 'enableStudioCodeUi',
+			default: BETA_FEATURE_DEFAULTS.enableStudioCodeUi,
+			description: __( 'Try the new Studio Code Desktop assistant.' ),
+		},
 		remoteSession: {
 			label: __( 'Remote Session' ),
 			key: 'remoteSession',

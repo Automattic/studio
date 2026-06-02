@@ -4,7 +4,8 @@ import os from 'os';
 import path from 'path';
 import { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
 import { writeFile } from 'atomically';
-import { getPhpBinaryPath } from './dependency-management/paths';
+import semver from 'semver';
+import { getPhpBinaryPath } from '../dependency-management/paths';
 
 // Disabled by default to shrink the attack surface available to PHP code
 // running inside a Studio site. Each entry falls into one of:
@@ -151,9 +152,14 @@ export function getNativePhpIniContents( phpVersion: NativePhpSupportedVersion )
 	if ( process.platform === 'win32' ) {
 		directives.push(
 			`extension_dir="${ toPhpIniPath( getExtensionDir( phpVersion ) ) }"`,
-			'zend_extension=opcache',
 			...WINDOWS_PHP_EXTENSIONS.map( ( extension ) => `extension=${ extension }` )
 		);
+
+		const coercedVersion = semver.coerce( phpVersion );
+		// As of PHP 8.5, the OPcache extension is always bundled with PHP
+		if ( coercedVersion && semver.lt( coercedVersion, '8.5.0' ) ) {
+			directives.push( 'zend_extension=opcache' );
+		}
 	}
 
 	return `${ directives.join( os.EOL ) }${ os.EOL }`;

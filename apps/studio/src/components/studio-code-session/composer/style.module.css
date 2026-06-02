@@ -90,51 +90,15 @@
 .toolbar {
 	display: flex;
 	align-items: flex-end;
-	justify-content: space-between;
+	justify-content: flex-end;
 	gap: var(--wpds-dimension-padding-sm);
 	padding-top: var(--wpds-dimension-padding-xs);
 }
 
-.leftActions,
 .rightActions {
 	display: flex;
 	align-items: center;
 	gap: var(--wpds-dimension-padding-xs);
-}
-
-.iconButton {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 22px;
-	height: 22px;
-	padding: 0;
-	border: 1px solid var(--wpds-color-stroke-surface-neutral);
-	border-radius: var(--wpds-border-radius-sm, 4px);
-	background-color: transparent;
-	color: var(--wpds-color-fg-content-neutral);
-	cursor: pointer;
-	font: inherit;
-}
-
-.iconButton svg {
-	width: 14px;
-	height: 14px;
-}
-
-.glyphButton {
-	font-size: 11px;
-	line-height: 1;
-}
-
-.iconButton:hover:not(:disabled),
-.iconButton:focus-visible:not(:disabled) {
-	background-color: var(--wpds-color-bg-surface-neutral);
-}
-
-.iconButton:disabled {
-	cursor: not-allowed;
-	color: var(--wpds-color-fg-content-neutral-weak);
 }
 
 .pill {
@@ -159,10 +123,6 @@
 
 .pill:disabled {
 	cursor: default;
-}
-
-.commandsMenuPopup {
-	min-width: 280px;
 }
 
 .commandItem {
@@ -263,6 +223,41 @@
 	display: inline-flex;
 	align-items: center;
 	gap: 4px;
+}
+
+/* Discoverability legend below the input. Looks like the other meta hints but
+   is clickable: it seeds "/" and focuses the textarea to open the autocomplete. */
+.commandsLegend {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 2px var(--wpds-dimension-padding-xs);
+	border: 0;
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	background: transparent;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font: inherit;
+	font-size: var(--wpds-typography-font-size-xs);
+	cursor: pointer;
+}
+
+.commandsLegend:hover,
+.commandsLegend:focus-visible {
+	color: var(--wpds-color-fg-content-neutral);
+	background: var(--wpds-color-bg-surface-neutral);
+}
+
+.commandsLegendKey {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 16px;
+	height: 16px;
+	padding: 0 4px;
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	font-family: var(--wpds-typography-font-family-mono, ui-monospace, monospace);
+	line-height: 1;
 }
 
 .metaUses {

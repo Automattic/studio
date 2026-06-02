@@ -1,6 +1,5 @@
 import { AI_MODELS, getAiModelFamily, getAiModelLabel } from '@studio/common/ai/models';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
-import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
 import { useQueryClient } from '@tanstack/react-query';
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
@@ -121,6 +120,14 @@ export function Composer( {
 
 	const insertSlashCommand = useCallback( ( name: string ) => {
 		setValue( `/${ name } ` );
+		textareaRef.current?.focus();
+	}, [] );
+
+	// Legend affordance below the input: seeds a lone "/" and focuses the
+	// textarea, which opens the inline autocomplete so users can discover the
+	// available commands without already knowing the "/" shortcut.
+	const triggerSlashCommands = useCallback( () => {
+		setValue( '/' );
 		textareaRef.current?.focus();
 	}, [] );
 
@@ -336,36 +343,6 @@ export function Composer( {
 						) : null }
 					</div>
 					<div className={ styles.toolbar }>
-						<div className={ styles.leftActions }>
-							<Menu.Root modal={ false }>
-								<Menu.Trigger
-									render={
-										<button
-											type="button"
-											className={ `${ styles.iconButton } ${ styles.glyphButton }` }
-											aria-label={ __( 'Commands' ) }
-										>
-											/
-										</button>
-									}
-								/>
-								<Menu.Popup side="top" align="start" className={ styles.commandsMenuPopup }>
-									{ AI_SKILL_COMMANDS.map( ( command ) => (
-										<Menu.Item
-											key={ command.name }
-											onClick={ () => {
-												void onSend( `/${ command.name }` );
-											} }
-										>
-											<span className={ styles.commandItem }>
-												<span className={ styles.commandName }>/{ command.name }</span>
-												<span className={ styles.commandDescription }>{ command.description }</span>
-											</span>
-										</Menu.Item>
-									) ) }
-								</Menu.Popup>
-							</Menu.Root>
-						</div>
 						<div className={ styles.rightActions }>
 							<Menu.Root modal={ false }>
 								<Menu.Trigger
@@ -430,6 +407,17 @@ export function Composer( {
 							}
 						) }
 					</span>
+					<button
+						type="button"
+						className={ styles.commandsLegend }
+						onClick={ triggerSlashCommands }
+					>
+						{ createInterpolateElement(
+							/* translators: <key/> is a chip showing the "/" key that opens the commands list. */
+							__( '<key/> for commands' ),
+							{ key: <span className={ styles.commandsLegendKey }>/</span> }
+						) }
+					</button>
 					{ error ? <span className={ styles.error }>{ error }</span> : null }
 					<span className={ styles.metaUses }>{ __( 'Uses 1 message' ) }</span>
 				</div>

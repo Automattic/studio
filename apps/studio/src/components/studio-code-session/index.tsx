@@ -1,5 +1,10 @@
 import { resolveSessionModel } from '@studio/common/ai/models';
+import {
+	isStudioCustomEntryOfType,
+	type StudioCustomEntry,
+} from '@studio/common/ai/sessions/entry-types';
 import { QueryClientProvider } from '@tanstack/react-query';
+import { Spinner } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { chevronDown } from '@wordpress/icons';
@@ -29,9 +34,11 @@ import { QueuedPrompts } from './queued-prompts';
 import { isScrolledToBottom } from './scroll-utils';
 import styles from './style.module.css';
 import { AgentRunProvider, useAgentRun } from './use-agent-run';
+import { useExamplePrompts } from './use-example-prompts';
 import { useSession } from './use-session';
 import { useSingleSession } from './use-single-session';
 import buttonDefense from './wp-ui-button-defense.module.css';
+import type { SessionEntry } from '@mariozechner/pi-coding-agent';
 import '@wordpress/theme/design-tokens.css';
 
 const { ThemeProvider } = unlock( privateApis );
@@ -117,6 +124,56 @@ function UnauthenticatedNotice( { onAuthenticate }: { onAuthenticate: () => void
 	);
 }
 
+function hasVisibleUserPrompt( entries: SessionEntry[] ): boolean {
+	return entries.some( ( entry ) => {
+		if ( ! isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
+			return false;
+		}
+		const data = ( entry as StudioCustomEntry< 'studio.user_prompt' > ).data;
+		return data?.source === 'prompt';
+	} );
+}
+
+function EmptyConversation( {
+	onPreviewPrompt,
+	onClearPreview,
+	onSelectPrompt,
+}: {
+	onPreviewPrompt: ( prompt: string ) => void;
+	onClearPreview: () => void;
+	onSelectPrompt: ( prompt: string ) => void;
+} ) {
+	const examplePrompts = useExamplePrompts();
+
+	return (
+		<div className={ styles.emptyConversation }>
+			<div className={ styles.emptyConversationPrompt }>
+				{ __( 'Ask Studio Code anything to get started.' ) }
+			</div>
+			<div className={ styles.emptyConversationExamples }>
+				{ examplePrompts.map( ( example ) => (
+					<button
+						key={ example.id }
+						type="button"
+						className={ styles.emptyConversationExample }
+						title={ example.full }
+						onMouseEnter={ () => onPreviewPrompt( example.full ) }
+						onMouseLeave={ onClearPreview }
+						onFocus={ () => onPreviewPrompt( example.full ) }
+						onBlur={ onClearPreview }
+						onClick={ () => {
+							onSelectPrompt( example.full );
+							onClearPreview();
+						} }
+					>
+						{ example.short }
+					</button>
+				) ) }
+			</div>
+		</div>
+	);
+}
+
 function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 	const { sessionId, setSessionId, newSession } = useSingleSession( selectedSite.id );
 	const { data, isLoading } = useSession( sessionId );
@@ -151,6 +208,18 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 	// Set while the effect drives `scrollTop` programmatically so the resulting
 	// scroll event doesn't get mistaken for the user scrolling up.
 	const isProgrammaticScroll = useRef( false );
+
+	const [ promptDraft, setPromptDraft ] = useState< { id: number; prompt: string } | null >( null );
+	const [ previewPrompt, setPreviewPrompt ] = useState< string | null >( null );
+	const draftIdRef = useRef( 0 );
+	const selectPrompt = useCallback( ( prompt: string ) => {
+		draftIdRef.current += 1;
+		setPromptDraft( { id: draftIdRef.current, prompt } );
+	}, [] );
+	const clearPreview = useCallback( () => setPreviewPrompt( null ), [] );
+
+	const showEmptyConversation =
+		! hasActiveRun && queuedPrompts.length === 0 && ! hasVisibleUserPrompt( data?.entries ?? [] );
 
 	const scrollToBottom = useCallback( () => {
 		const node = scrollRef.current;
@@ -201,7 +270,11 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 						<ComposerSkeleton />
 					</div>
 				}
-			/>
+			>
+				<div className={ styles.loading } role="status" aria-live="polite">
+					<Spinner className={ styles.loadingSpinner } />
+				</div>
+			</SessionFrame>
 		);
 	}
 
@@ -249,19 +322,29 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 						entries={ data.entries }
 						ownerSiteId={ selectedSite.id }
 						onSwitchSession={ setSessionId }
+						draftPrompt={ promptDraft }
+						previewPrompt={ previewPrompt }
 					/>
 				</div>
 			}
 		>
 			<div className={ cx( styles.classicColumn, styles.classicConversationSpacing ) }>
-				<Conversation
-					data={ data }
-					isRunning={ isRunning }
-					startedAt={ startedAt }
-					pendingQuestions={ pendingQuestionTexts }
-					pendingAnswers={ pendingAnswers }
-					onAnswerQuestion={ answerQuestion }
-				/>
+				{ showEmptyConversation ? (
+					<EmptyConversation
+						onPreviewPrompt={ setPreviewPrompt }
+						onClearPreview={ clearPreview }
+						onSelectPrompt={ selectPrompt }
+					/>
+				) : (
+					<Conversation
+						data={ data }
+						isRunning={ isRunning }
+						startedAt={ startedAt }
+						pendingQuestions={ pendingQuestionTexts }
+						pendingAnswers={ pendingAnswers }
+						onAnswerQuestion={ answerQuestion }
+					/>
+				) }
 			</div>
 		</SessionFrame>
 	);

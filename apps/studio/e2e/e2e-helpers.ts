@@ -95,19 +95,11 @@ export class E2ESession {
 
 	async cleanup() {
 		await this.closeApp();
-		// Retry on ENOTEMPTY: CLI child processes (e.g. copying skills to server-files) may still be
-		// writing to the session directory briefly after the Electron process exits.
-		for ( let attempt = 0; attempt < 5; attempt++ ) {
-			try {
-				await rimraf( this.sessionPath );
-				return;
-			} catch ( error ) {
-				if ( ! isErrnoException( error ) || error.code !== 'ENOTEMPTY' || attempt === 4 ) {
-					throw error;
-				}
-				await new Promise< void >( ( resolve ) => setTimeout( resolve, 500 ) );
-			}
-		}
+		await rimraf( this.sessionPath, {
+			backoff: 2,
+			maxBackoff: 2500,
+			maxRetries: 50,
+		} );
 	}
 
 	private async launchFirstWindow( testEnv: NodeJS.ProcessEnv = {} ) {

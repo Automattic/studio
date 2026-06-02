@@ -31,6 +31,7 @@ import { queryClient } from './query-client';
 import { QueuedPrompts } from './queued-prompts';
 import styles from './style.module.css';
 import { AgentRunProvider, useAgentRun } from './use-agent-run';
+import { useExamplePrompts } from './use-example-prompts';
 import { useSession } from './use-session';
 import { useSingleSession } from './use-single-session';
 import buttonDefense from './wp-ui-button-defense.module.css';
@@ -106,45 +107,6 @@ function UnauthenticatedNotice( { onAuthenticate }: { onAuthenticate: () => void
 	);
 }
 
-const EXAMPLE_PROMPTS: { short: string; full: string }[] = [
-	{
-		short: __( 'Build a plugin' ),
-		full: __(
-			'Help me build a small WordPress plugin from scratch. Ask me what problem it should solve, scaffold the plugin folder and main file, then walk me through the hooks and code we need to wire it up.'
-		),
-	},
-	{
-		short: __( 'Create a block' ),
-		full: __(
-			'Help me create a custom Gutenberg block. Scaffold the block files, set up the edit and save components, and explain how to register it so I can see it in the editor.'
-		),
-	},
-	{
-		short: __( 'Fix an error' ),
-		full: __(
-			'Something on my site is broken. Help me track down the error — check the logs, look at the relevant code, explain what is going wrong, and propose a fix.'
-		),
-	},
-	{
-		short: __( 'Custom post type' ),
-		full: __(
-			'Add a custom post type to my site. Ask me what it is for, then register it with sensible labels and settings and show me where the code lives.'
-		),
-	},
-	{
-		short: __( 'Tweak my theme' ),
-		full: __(
-			'Take a look at my active theme and suggest a few small improvements I could make to the design or layout, then help me implement one of them.'
-		),
-	},
-	{
-		short: __( 'Explain my site' ),
-		full: __(
-			'Give me an overview of how this site is put together — the active theme, the installed plugins, and anything notable in the code — so I understand what I am working with.'
-		),
-	},
-];
-
 function hasVisibleUserPrompt( entries: SessionEntry[] ): boolean {
 	return entries.some( ( entry ) => {
 		if ( ! isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
@@ -164,15 +126,17 @@ function EmptyConversation( {
 	onClearPreview: () => void;
 	onSelectPrompt: ( prompt: string ) => void;
 } ) {
+	const examplePrompts = useExamplePrompts();
+
 	return (
 		<div className={ styles.emptyConversation }>
 			<div className={ styles.emptyConversationPrompt }>
 				{ __( 'Ask Studio Code anything to get started.' ) }
 			</div>
 			<div className={ styles.emptyConversationExamples }>
-				{ EXAMPLE_PROMPTS.map( ( example ) => (
+				{ examplePrompts.map( ( example ) => (
 					<button
-						key={ example.short }
+						key={ example.id }
 						type="button"
 						className={ styles.emptyConversationExample }
 						title={ example.full }

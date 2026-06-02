@@ -214,6 +214,8 @@ const REMOTE_DESIGN_GUIDELINES = `## Design capabilities by plan
 
 const LOCAL_SKILL_ROUTING = `## Skill routing
 
+For building a COMPLETE new site or theme from a description ("build me a site for…", "make a website", "generate a theme"), load the \`site-generator\` skill FIRST. It runs the full pipeline — spec → design directions → parallel theme generation (generate_theme) → companion plugin (generate_companion_plugin) → content seeding (seed_content) → AI imagery (generate_image) → validation. It produces a pure-presentation theme plus a companion plugin for behaviour, rather than hand-writing files one per turn.
+
 For any site creation, redesign, landing page, homepage, layout, style, CSS, typography, color, motion, or visual polish work, load the \`visual-design\` skill before writing design files or block markup.
 
 For any page/post content, template or template-part content, block markup, block-theme layout, full-width section, or \`core/html\` use, load the \`block-content\` skill before writing markup or validating block content.

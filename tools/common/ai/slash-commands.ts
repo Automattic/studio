@@ -6,6 +6,12 @@ export interface SkillSlashCommand {
 }
 
 export const AI_SKILL_COMMANDS: SkillSlashCommand[] = [
+	{
+		name: 'site-generator',
+		description: __(
+			'Generate a complete WordPress site — theme + companion plugin — from a description'
+		),
+	},
 	{ name: 'annotate', description: __( 'Annotate site elements visually in a browser' ) },
 	{ name: 'taxonomist', description: __( 'Optimize category taxonomy with AI' ) },
 	{ name: 'need-for-speed', description: __( 'Run a performance audit on a site' ) },

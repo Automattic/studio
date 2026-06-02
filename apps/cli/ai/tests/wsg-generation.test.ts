@@ -1,0 +1,211 @@
+import { describe, expect, it } from 'vitest';
+import {
+	findAiImages,
+	getAttr,
+	parseAiImageAlt,
+	stripAiImagePlaceholders,
+} from 'cli/ai/generation/images';
+import { extractJson, isTransientError, runPooled, stripCodeFences } from 'cli/ai/generation/llm';
+import { parseManifest } from 'cli/ai/generation/manifest';
+import { assertInside, deriveSlug, isValidSlug } from 'cli/ai/generation/paths';
+import { aspectFromHint } from 'cli/ai/generation/wpcom-image';
+
+describe( 'stripCodeFences', () => {
+	it( 'removes a single wrapping fence', () => {
+		expect( stripCodeFences( '```json\n{"a":1}\n```' ) ).toBe( '{"a":1}' );
+		expect( stripCodeFences( '```\nhello\n```' ) ).toBe( 'hello' );
+	} );
+
+	it( 'strips a fence with no newline before the closing backticks', () => {
+		expect( stripCodeFences( '```json\n{"a":1}```' ) ).toBe( '{"a":1}' );
+	} );
+
+	it( 'recovers content from an unclosed (truncated) opening fence', () => {
+		expect( stripCodeFences( '```json\n{"a":1}' ) ).toBe( '{"a":1}' );
+	} );
+
+	it( 'leaves unfenced content untouched', () => {
+		expect( stripCodeFences( '  <div>x</div>  ' ) ).toBe( '<div>x</div>' );
+	} );
+} );
+
+describe( 'extractJson', () => {
+	it( 'extracts an object from a fenced + prose-wrapped response', () => {
+		const raw = 'Here is the manifest:\n```json\n{ "themeSlug": "acme", "n": 1 }\n```\nDone.';
+		expect( JSON.parse( extractJson( raw ) ) ).toEqual( { themeSlug: 'acme', n: 1 } );
+	} );
+
+	it( 'extracts an object from an unclosed fence (truncated wrapper)', () => {
+		expect( JSON.parse( extractJson( '```json\n{ "a": [1,2], "b": "x" }' ) ) ).toEqual( {
+			a: [ 1, 2 ],
+			b: 'x',
+		} );
+	} );
+
+	it( 'extracts a JSON array', () => {
+		expect(
+			JSON.parse( extractJson( '```json\n[ { "name": "A" }, { "name": "B" } ]\n```' ) )
+		).toEqual( [ { name: 'A' }, { name: 'B' } ] );
+	} );
+} );
+
+describe( 'isTransientError', () => {
+	it( 'flags retryable statuses and messages', () => {
+		expect( isTransientError( { status: 503 } ) ).toBe( true );
+		expect( isTransientError( { status: 429 } ) ).toBe( true );
+		expect( isTransientError( { status: 529 } ) ).toBe( true );
+		expect( isTransientError( new Error( 'WordPress.com — 503 Error' ) ) ).toBe( true );
+		expect( isTransientError( new Error( 'Overloaded' ) ) ).toBe( true );
+		expect( isTransientError( new Error( 'ECONNRESET' ) ) ).toBe( true );
+	} );
+
+	it( 'does not flag client errors', () => {
+		expect( isTransientError( { status: 400 } ) ).toBe( false );
+		expect( isTransientError( { status: 401 } ) ).toBe( false );
+		expect( isTransientError( new Error( 'invalid request: missing field' ) ) ).toBe( false );
+	} );
+} );
+
+describe( 'runPooled', () => {
+	it( 'runs every task and preserves order regardless of completion timing', async () => {
+		const tasks = [ 30, 5, 20, 1, 10 ].map(
+			( delay, index ) => () =>
+				new Promise< number >( ( resolve ) => setTimeout( () => resolve( index ), delay ) )
+		);
+		const results = await runPooled( tasks, 2 );
+		expect( results ).toEqual( [ 0, 1, 2, 3, 4 ] );
+	} );
+
+	it( 'handles an empty task list', async () => {
+		expect( await runPooled( [], 4 ) ).toEqual( [] );
+	} );
+} );
+
+describe( 'paths', () => {
+	it( 'derives and validates slugs', () => {
+		expect( deriveSlug( 'Ember & Oak!' ) ).toBe( 'ember-oak' );
+		expect( isValidSlug( 'ember-oak' ) ).toBe( true );
+		expect( isValidSlug( '-bad' ) ).toBe( false );
+		expect( isValidSlug( 'Bad Slug' ) ).toBe( false );
+	} );
+
+	it( 'allows writes inside the package and rejects escapes', () => {
+		const base = '/tmp/site/wp-content/themes/acme';
+		expect( assertInside( base, 'parts/header.html' ) ).toBe(
+			'/tmp/site/wp-content/themes/acme/parts/header.html'
+		);
+		expect( () => assertInside( base, '../../../../etc/passwd' ) ).toThrow();
+		expect( () => assertInside( base, '/etc/passwd' ) ).toThrow();
+	} );
+} );
+
+describe( 'aspectFromHint', () => {
+	it( 'maps tokens, keywords, and dimensions to Imagen aspect ratios', () => {
+		expect( aspectFromHint( '16:9' ) ).toBe( '16:9' );
+		expect( aspectFromHint( 'hero' ) ).toBe( '16:9' );
+		expect( aspectFromHint( 'portrait' ) ).toBe( '3:4' );
+		expect( aspectFromHint( 'square' ) ).toBe( '1:1' );
+		expect( aspectFromHint( '1792x1024' ) ).toBe( '16:9' );
+		expect( aspectFromHint( '1080x1920' ) ).toBe( '9:16' );
+		expect( aspectFromHint( undefined ) ).toBe( '16:9' );
+	} );
+} );
+
+describe( 'AI_IMAGE parsing', () => {
+	it( 'parses the alt convention', () => {
+		expect( parseAiImageAlt( 'AI_IMAGE: a wood-fired oven | photographic | 16:9' ) ).toEqual( {
+			description: 'a wood-fired oven',
+			style: 'photographic',
+			aspect: '16:9',
+		} );
+		expect( parseAiImageAlt( 'just an alt' ) ).toBeNull();
+	} );
+
+	it( 'reads attributes from a tag', () => {
+		const tag = '<img src="x.png" alt="AI_IMAGE: hero | photo | 16:9" />';
+		expect( getAttr( tag, 'src' ) ).toBe( 'x.png' );
+		expect( getAttr( tag, 'alt' ) ).toBe( 'AI_IMAGE: hero | photo | 16:9' );
+	} );
+
+	it( 'finds only AI_IMAGE placeholders among images', () => {
+		const html =
+			'<img src="real.jpg" alt="A real photo">' +
+			'<img src="ph.png" alt="AI_IMAGE: a cafe interior | photographic | 16:9">';
+		const found = findAiImages( html );
+		expect( found ).toHaveLength( 1 );
+		expect( found[ 0 ].description ).toBe( 'a cafe interior' );
+	} );
+
+	it( 'strips AI_IMAGE placeholders but keeps real images', () => {
+		const html =
+			'<p>x</p><img src="real.jpg" alt="A real photo" />' +
+			'<img class="bg" src="ph.png" alt="AI_IMAGE: hero | photo | 16:9" /><p>y</p>';
+		const stripped = stripAiImagePlaceholders( html );
+		expect( stripped ).toContain( 'real.jpg' );
+		expect( stripped ).not.toContain( 'AI_IMAGE' );
+		expect( stripped ).toBe( '<p>x</p><img src="real.jpg" alt="A real photo" /><p>y</p>' );
+	} );
+} );
+
+describe( 'parseManifest', () => {
+	it( 'parses a full manifest', () => {
+		const manifest = parseManifest(
+			JSON.stringify( {
+				themeSlug: 'Ember Oak',
+				themeName: 'Ember & Oak',
+				layoutMode: 'landing-page',
+				contentMode: 'homepage-and-pages',
+				parts: [ 'header', 'footer' ],
+				templates: [ 'index', 'page' ],
+				pages: [ { slug: 'Home', title: 'Home', brief: 'hero + menu teaser' } ],
+				companionPlugin: {
+					needed: true,
+					slug: 'ember-oak-functionality',
+					name: 'Ember & Oak Functionality',
+					postTypes: [
+						{ slug: 'dish', name: 'Dish', fields: [ { key: 'price', type: 'number' } ] },
+					],
+					restRoutes: [ { path: '/ember/v1/reserve', purpose: 'reservations' } ],
+					blocks: [ { slug: 'reservation-form', title: 'Reservation Form', purpose: 'booking' } ],
+				},
+				seed: [ { type: 'page', slug: 'home', title: 'Home' } ],
+			} )
+		);
+
+		expect( manifest.themeSlug ).toBe( 'ember-oak' );
+		expect( manifest.layoutMode ).toBe( 'landing-page' );
+		expect( manifest.pages[ 0 ].slug ).toBe( 'home' );
+		expect( manifest.companionPlugin.needed ).toBe( true );
+		expect( manifest.companionPlugin.postTypes[ 0 ].fields[ 0 ].type ).toBe( 'number' );
+	} );
+
+	it( 'applies safe defaults for a sparse manifest', () => {
+		const manifest = parseManifest( JSON.stringify( { themeName: 'Tiny' } ) );
+		expect( manifest.themeSlug ).toBe( 'tiny' );
+		expect( manifest.layoutMode ).toBe( 'vertical-stack' );
+		expect( manifest.contentMode ).toBe( 'homepage-and-pages' );
+		expect( manifest.parts ).toEqual( [ 'header', 'footer' ] );
+		expect( manifest.templates ).toEqual( [ 'index', 'page' ] );
+		expect( manifest.companionPlugin.needed ).toBe( false );
+	} );
+
+	it( 'normalizes an unknown layout mode and bad field types', () => {
+		const manifest = parseManifest(
+			JSON.stringify( {
+				themeName: 'X',
+				layoutMode: 'spaceship',
+				companionPlugin: {
+					needed: true,
+					postTypes: [ { slug: 'thing', name: 'Thing', fields: [ { key: 'k', type: 'weird' } ] } ],
+				},
+			} )
+		);
+		expect( manifest.layoutMode ).toBe( 'vertical-stack' );
+		expect( manifest.companionPlugin.slug ).toBe( 'x-functionality' );
+		expect( manifest.companionPlugin.postTypes[ 0 ].fields[ 0 ].type ).toBe( 'string' );
+	} );
+
+	it( 'throws on invalid JSON', () => {
+		expect( () => parseManifest( 'not json' ) ).toThrow();
+	} );
+} );

@@ -4,6 +4,10 @@ import { createSiteTool } from './create-site';
 import { deletePreviewTool } from './delete-preview';
 import { deleteSiteTool } from './delete-site';
 import { exportSiteTool } from './export-site';
+import { generateCompanionPluginTool } from './generate-companion-plugin';
+import { generateDesignPreviewsTool } from './generate-design-previews';
+import { generateImageTool } from './generate-image';
+import { generateThemeTool } from './generate-theme';
 import { importSiteTool } from './import-site';
 import { installTaxonomyScriptsTool } from './install-taxonomy-scripts';
 import { listConnectedRemoteSitesTool } from './list-connected-remote-sites';
@@ -15,6 +19,7 @@ import { pullSiteTool } from './pull-site';
 import { pushSiteTool } from './push-site';
 import { auditSeoTool } from './rank-me-up';
 import { scaffoldThemeTool } from './scaffold-theme';
+import { seedContentTool } from './seed-content';
 import { shareScreenshotTool } from './share-screenshot';
 import { getSiteInfoTool } from './site-info';
 import { startSiteTool } from './start-site';
@@ -43,6 +48,11 @@ export const studioToolDefinitions: AnyStudioAgentTool[] = [
 	deletePreviewTool,
 	runWpCliTool,
 	scaffoldThemeTool,
+	generateDesignPreviewsTool,
+	generateThemeTool,
+	generateCompanionPluginTool,
+	seedContentTool,
+	generateImageTool,
 	validateHtmlBlocksTool,
 	validateAndFixBlocksTool,
 	takeScreenshotTool,

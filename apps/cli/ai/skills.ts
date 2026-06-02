@@ -22,12 +22,23 @@ function parseSkillFile( filePath: string ): Skill | null {
 
 let cachedSkills: Skill[] | null = null;
 
+// Absolute path to the bundled skills directory. `import.meta.dirname` resolves
+// to `apps/cli/ai` in source/test runs and to the bundle output root after the
+// vite build (which copies `ai/skills` to the output root). The whole `skills`
+// tree is copied, so subdirectories like `site-generator/generators` ship too —
+// the generation pipeline resolves its prompt fragments from here via this
+// helper rather than its own `import.meta.dirname`, which would point at the
+// wrong place once bundled.
+export function getSkillsRoot(): string {
+	return path.resolve( import.meta.dirname, 'skills' );
+}
+
 // Discovers `apps/cli/ai/skills/<name>/SKILL.md` files at startup; cached
 // for the process lifetime since skills never change at runtime.
 export function loadSkills(): Skill[] {
 	if ( cachedSkills ) return cachedSkills;
 
-	const skillsRoot = path.resolve( import.meta.dirname, 'skills' );
+	const skillsRoot = getSkillsRoot();
 
 	if ( ! fs.existsSync( skillsRoot ) ) {
 		// Loud warning so a broken bundle path doesn't silently disable Skill.

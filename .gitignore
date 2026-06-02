@@ -138,6 +138,8 @@ CLAUDE.md
 # Bundled binaries (built during packaging)
 apps/studio/bin/studio
 apps/studio/bin/studio.exe
+apps/studio/bin/studio.node_modules.tar.gz
+apps/studio/bin/studio.exe.node_modules.tar.gz
 
 # Bundled PHP binary (downloaded during packaging)
 apps/studio/php-bin/

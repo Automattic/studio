@@ -5,7 +5,6 @@
 	"assets": {
 		"main.mjs": "build/main.mjs",
 		"resources.tar.gz": "build/resources.tar.gz",
-		"node_modules.tar.gz": "build/node_modules.tar.gz",
 		"bundle-version": "build/bundle-version.txt"
 	}
 }

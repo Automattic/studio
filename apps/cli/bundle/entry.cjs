@@ -2,8 +2,8 @@
 /**
  * Bundle entry point for the standalone CLI binary.
  *
- * Uses Node.js Single Executable Application to embed assets. CJS format
- * is required (Node 24 doesn't support ESM in this context).
+ * Uses Node.js Single Executable Application to embed the entry bundle. CJS
+ * format is required (Node 24 doesn't support ESM in this context).
  *
  *   1. Detects bundled mode via node:sea.isSea()
  *   2. On first run, extracts embedded assets to the CLI directory
@@ -17,9 +17,14 @@
  *   - main.mjs: Raw CLI bundle (Vite builds a single-file ESM).
  *   - resources.tar.gz: wp-files/ and other runtime static assets that live
  *     in dist/cli alongside main.mjs.
- *   - node_modules.tar.gz: Native/WASM packages Vite leaves as bare imports.
- *   - bundle-version: SHA-256 fingerprint of the assets above. When the
- *     binary changes, this value changes, triggering re-extraction.
+ *   - bundle-version: SHA-256 fingerprint of embedded assets and the sidecar.
+ *     When any runtime asset changes, this value changes, triggering
+ *     re-extraction.
+ *
+ * Assets shipped next to the binary:
+ *   - {binary}.node_modules.tar.gz: Native/WASM packages Vite leaves as bare
+ *     imports. Keeping this out of the SEA blob avoids postject's large-asset
+ *     abort on Linux.
  */
 'use strict';
 
@@ -31,6 +36,7 @@ const {
 	openSync,
 	readdirSync,
 	readFileSync,
+	realpathSync,
 	renameSync,
 	rmSync,
 	statSync,
@@ -38,7 +44,7 @@ const {
 	writeSync,
 } = require( 'node:fs' );
 const { homedir } = require( 'node:os' );
-const { join, sep } = require( 'node:path' );
+const { dirname, join, sep } = require( 'node:path' );
 const { isSea, getAsset } = require( 'node:sea' );
 const { pathToFileURL } = require( 'node:url' );
 
@@ -108,7 +114,7 @@ function sweepStaleTmpDirs() {
 	}
 }
 
-function extractTarAsset( assetName, destDir ) {
+function extractTarBuffer( tarball, destDir, sourceLabel ) {
 	// Extract into a sibling tmp dir first, then move it into place. The
 	// surrounding lock serializes this across processes, so the window between
 	// rm and rename can't be interleaved with another writer.
@@ -127,12 +133,12 @@ function extractTarAsset( assetName, destDir ) {
 		try {
 			execSync( 'tar -xz', {
 				cwd: tmpDir,
-				input: Buffer.from( getAsset( assetName ) ),
+				input: tarball,
 				stdio: [ 'pipe', 'inherit', 'inherit' ],
 			} );
 		} catch ( err ) {
 			throw new Error(
-				`Failed to extract bundle with tar. Make sure 'tar' is installed and on PATH. Original error: ${ err.message }`
+				`Failed to extract ${ sourceLabel } with tar. Make sure 'tar' is installed and on PATH. Original error: ${ err.message }`
 			);
 		}
 
@@ -146,6 +152,42 @@ function extractTarAsset( assetName, destDir ) {
 			rmSync( tmpDir, { recursive: true, force: true } );
 		}
 	}
+}
+
+function extractSeaTarAsset( assetName, destDir ) {
+	extractTarBuffer( Buffer.from( getAsset( assetName ) ), destDir, assetName );
+}
+
+function getNodeModulesSidecarCandidates() {
+	const execPaths = [ process.execPath ];
+	try {
+		const realExecPath = realpathSync( process.execPath );
+		if ( ! execPaths.includes( realExecPath ) ) {
+			execPaths.push( realExecPath );
+		}
+	} catch {
+		// If the executable path cannot be resolved, the original path is still useful.
+	}
+
+	const binDirs = [ ...new Set( execPaths.map( dirname ) ) ];
+	return [
+		...execPaths.map( ( execPath ) => `${ execPath }.node_modules.tar.gz` ),
+		...binDirs.flatMap( ( binDir ) => [
+			join( binDir, 'studio.node_modules.tar.gz' ),
+			join( binDir, 'studio.exe.node_modules.tar.gz' ),
+		] ),
+	];
+}
+
+function getNodeModulesSidecarPath() {
+	const candidates = getNodeModulesSidecarCandidates();
+	const sidecarPath = candidates.find( existsSync );
+	if ( ! sidecarPath ) {
+		throw new Error(
+			`Missing node_modules sidecar. Expected one of: ${ candidates.join( ', ' ) }`
+		);
+	}
+	return sidecarPath;
 }
 
 async function ensureExtracted( bundleVersion ) {
@@ -166,9 +208,14 @@ async function ensureExtracted( bundleVersion ) {
 		// Order matters: extracting resources.tar.gz atomically replaces CLI_DIR,
 		// so main.mjs has to be written afterwards. node_modules extracts into a
 		// subdir and can happen in either order, but we do it last for consistency.
-		extractTarAsset( 'resources.tar.gz', CLI_DIR );
+		extractSeaTarAsset( 'resources.tar.gz', CLI_DIR );
 		writeFileSync( join( CLI_DIR, 'main.mjs' ), Buffer.from( getAsset( 'main.mjs' ) ) );
-		extractTarAsset( 'node_modules.tar.gz', join( CLI_DIR, 'node_modules' ) );
+		const nodeModulesSidecarPath = getNodeModulesSidecarPath();
+		extractTarBuffer(
+			readFileSync( nodeModulesSidecarPath ),
+			join( CLI_DIR, 'node_modules' ),
+			nodeModulesSidecarPath
+		);
 
 		writeFileSync( MARKER_FILE, bundleVersion );
 		console.log( 'Extraction complete.' );

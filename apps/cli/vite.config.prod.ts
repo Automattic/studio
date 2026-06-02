@@ -15,6 +15,7 @@ const nativeModulePaths = [
 	{ src: 'node_modules/@wp-playground', dest: 'node_modules' },
 	{ src: 'node_modules/@anthropic-ai', dest: 'node_modules' },
 	{ src: 'node_modules/@img', dest: 'node_modules' },
+	{ src: 'node_modules/@silvia-odwyer/photon-node', dest: 'node_modules/@silvia-odwyer' },
 	{ src: 'node_modules/fs-ext-extra-prebuilt', dest: 'node_modules' },
 	{ src: 'node_modules/koffi', dest: 'node_modules' },
 	{ src: 'node_modules/sharp', dest: 'node_modules' },

@@ -54,6 +54,7 @@ function Install-StudioCli {
     $Arch = Get-Platform
     $BinaryName = "studio-cli-win32-${Arch}.exe"
     $BinaryUrl = "${BaseUrl}/${BinaryName}"
+    $SidecarUrl = "${BinaryUrl}.node_modules.tar.gz"
 
     Write-Host "Studio CLI Installer"
     Write-Host ""
@@ -64,21 +65,29 @@ function Install-StudioCli {
 
     $BinaryPath = Join-Path $BinDir "studio.exe"
     $ChecksumPath = "$BinaryPath.sha256"
+    $SidecarPath = "$BinaryPath.node_modules.tar.gz"
+    $SidecarChecksumPath = "$SidecarPath.sha256"
 
     Write-Host "Downloading Studio CLI..."
     Get-Bundle -Url $BinaryUrl -Dest $BinaryPath
     Get-Bundle -Url "$BinaryUrl.sha256" -Dest $ChecksumPath
+    Get-Bundle -Url $SidecarUrl -Dest $SidecarPath
+    Get-Bundle -Url "$SidecarUrl.sha256" -Dest $SidecarChecksumPath
 
     Write-Host "Verifying checksum..."
     try {
         Test-Checksum -File $BinaryPath -ChecksumFile $ChecksumPath
+        Test-Checksum -File $SidecarPath -ChecksumFile $SidecarChecksumPath
     }
     catch {
         Remove-Item $BinaryPath -Force -ErrorAction SilentlyContinue
         Remove-Item $ChecksumPath -Force -ErrorAction SilentlyContinue
+        Remove-Item $SidecarPath -Force -ErrorAction SilentlyContinue
+        Remove-Item $SidecarChecksumPath -Force -ErrorAction SilentlyContinue
         throw
     }
     Remove-Item $ChecksumPath -Force
+    Remove-Item $SidecarChecksumPath -Force
 
     # Add to PATH — split on ';' for exact-entry match, not substring.
     $UserPath = [Environment]::GetEnvironmentVariable("PATH", "User")

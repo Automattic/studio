@@ -213,7 +213,10 @@ const config: ForgeConfig = {
 					: `studio-cli-${ platform }-${ arch }`;
 			const cliSource = path.join( repoRoot, 'standalone-bundles', cliBinaryName );
 			const cliDest = path.join( __dirname, 'bin', platform === 'win32' ? 'studio.exe' : 'studio' );
+			const cliSidecarSource = `${ cliSource }.node_modules.tar.gz`;
+			const cliSidecarDest = `${ cliDest }.node_modules.tar.gz`;
 			fs.copyFileSync( cliSource, cliDest );
+			fs.copyFileSync( cliSidecarSource, cliSidecarDest );
 			if ( platform !== 'win32' ) {
 				fs.chmodSync( cliDest, 0o755 );
 			}

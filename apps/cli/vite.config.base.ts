@@ -68,6 +68,7 @@ export const nativeExternals = [
 	'@anthropic-ai/claude-agent-sdk',
 	'@img/',
 	'@php-wasm/',
+	'@silvia-odwyer/photon-node',
 	'@wp-playground/',
 	'fs-ext-extra-prebuilt',
 	'koffi',

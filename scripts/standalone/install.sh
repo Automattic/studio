@@ -95,22 +95,32 @@ verify_checksum() {
 install_studio() {
 	BINARY_NAME="studio-cli-${PLATFORM}-${ARCH}"
 	BINARY_URL="${BASE_URL}/${BINARY_NAME}"
+	SIDECAR_URL="${BINARY_URL}.node_modules.tar.gz"
 
 	mkdir -p "$INSTALL_DIR/bin"
 	BINARY_PATH="$INSTALL_DIR/bin/studio"
 	CHECKSUM_PATH="$BINARY_PATH.sha256"
+	SIDECAR_PATH="${BINARY_PATH}.node_modules.tar.gz"
+	SIDECAR_CHECKSUM_PATH="${SIDECAR_PATH}.sha256"
 
 	echo "Downloading Studio CLI..."
 	download "$BINARY_URL" "$BINARY_PATH"
 	download "${BINARY_URL}.sha256" "$CHECKSUM_PATH"
+	download "$SIDECAR_URL" "$SIDECAR_PATH"
+	download "${SIDECAR_URL}.sha256" "$SIDECAR_CHECKSUM_PATH"
 
 	echo "Verifying checksum..."
 	if ! verify_checksum "$BINARY_PATH" "$CHECKSUM_PATH"; then
-		rm -f "$BINARY_PATH" "$CHECKSUM_PATH"
+		rm -f "$BINARY_PATH" "$CHECKSUM_PATH" "$SIDECAR_PATH" "$SIDECAR_CHECKSUM_PATH"
 		echo "Error: checksum verification failed. Aborting." >&2
 		exit 1
 	fi
-	rm -f "$CHECKSUM_PATH"
+	if ! verify_checksum "$SIDECAR_PATH" "$SIDECAR_CHECKSUM_PATH"; then
+		rm -f "$BINARY_PATH" "$CHECKSUM_PATH" "$SIDECAR_PATH" "$SIDECAR_CHECKSUM_PATH"
+		echo "Error: checksum verification failed. Aborting." >&2
+		exit 1
+	fi
+	rm -f "$CHECKSUM_PATH" "$SIDECAR_CHECKSUM_PATH"
 	chmod +x "$BINARY_PATH"
 
 	# Symlink to PATH

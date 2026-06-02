@@ -2,12 +2,14 @@
 /**
  * Creates a standalone Studio CLI binary.
  *
- * The CLI bundle and node_modules are embedded as assets inside the Node binary.
- * On first run, the entry point extracts them to ~/.studio/cli/.
+ * The CLI bundle is embedded inside the Node binary. The large node_modules
+ * archive ships as a sidecar next to the binary and is extracted on first run.
  *
  * Output:
  *   standalone-bundles/studio-cli-{platform}-{arch}[.exe]
  *   standalone-bundles/studio-cli-{platform}-{arch}[.exe].sha256
+ *   standalone-bundles/studio-cli-{platform}-{arch}[.exe].node_modules.tar.gz
+ *   standalone-bundles/studio-cli-{platform}-{arch}[.exe].node_modules.tar.gz.sha256
  *
  * Prerequisites: Node.js >= 24, npm dependencies installed
  *
@@ -100,14 +102,16 @@ async function main(): Promise< void > {
 	run( 'npm run cli:package' );
 
 	// Step 2: Create bundle assets
-	// We ship three SEA assets:
+	// We ship two SEA assets plus one sidecar:
 	//   - main.mjs: the CLI source itself (raw, not tarred). Fredrik's
 	//     single-file Vite build means this is a single bundle that the SEA
 	//     bootstrap writes to disk and import()s at startup.
 	//   - resources.tar.gz: everything else from dist/cli (wp-files/, ai/plugin,
 	//     etc.) — runtime assets that the CLI reads via `import.meta.dirname`.
-	//   - node_modules.tar.gz: native-external packages that Vite leaves as
-	//     bare imports (can't be inlined because of .node addons / WASM).
+	//   - node_modules.tar.gz: sidecar archive for native-external packages
+	//     that Vite leaves as bare imports (can't be inlined because of .node
+	//     addons / WASM). Keeping it out of the SEA blob avoids postject's
+	//     large-asset abort on Linux.
 	console.log( '\n==> Step 2/5: Creating bundle assets...' );
 	fs.rmSync( bundleBuildDir, { recursive: true, force: true } );
 	fs.mkdirSync( bundleBuildDir, { recursive: true } );
@@ -144,11 +148,18 @@ async function main(): Promise< void > {
 		`   main.mjs: ${ mainSize } MB, resources: ${ resourcesSize } MB, node_modules: ${ nmSize } MB`
 	);
 
-	// Use the CLI package version as the bundle marker. Each release bumps
-	// it, which triggers re-extraction on the user's machine.
+	const mainSha = sha256( mainMjsFullPath );
+	const resourcesSha = sha256( resourcesTarFullPath );
+	const nodeModulesSha = sha256( nmTarFullPath );
+
+	// Include asset fingerprints in the marker so replacing a sidecar archive
+	// with the same package version still triggers re-extraction.
 	const cliPackageJsonPath = path.join( repoRoot, 'apps', 'cli', 'package.json' );
 	const { version: bundleVersion } = JSON.parse( fs.readFileSync( cliPackageJsonPath, 'utf8' ) );
-	fs.writeFileSync( path.join( bundleBuildDir, 'bundle-version.txt' ), bundleVersion );
+	fs.writeFileSync(
+		path.join( bundleBuildDir, 'bundle-version.txt' ),
+		[ bundleVersion, mainSha, resourcesSha, nodeModulesSha ].join( ':' )
+	);
 
 	// Step 3: Generate bundle blob
 	console.log( '\n==> Step 3/5: Generating bundle blob...' );
@@ -198,14 +209,24 @@ async function main(): Promise< void > {
 	const checksumPath = `${ outputPath }.sha256`;
 	fs.writeFileSync( checksumPath, `${ binarySha }  ${ path.basename( outputPath ) }\n` );
 
+	const sidecarPath = `${ outputPath }.node_modules.tar.gz`;
+	fs.copyFileSync( nmTarFullPath, sidecarPath );
+	const sidecarSha = sha256( sidecarPath );
+	const sidecarChecksumPath = `${ sidecarPath }.sha256`;
+	fs.writeFileSync( sidecarChecksumPath, `${ sidecarSha }  ${ path.basename( sidecarPath ) }\n` );
+
 	// Cleanup build artifacts
 	fs.rmSync( bundleBuildDir, { recursive: true, force: true } );
 	fs.rmSync( blobPath, { force: true } );
 
 	const size = ( fs.statSync( outputPath ).size / 1024 / 1024 ).toFixed( 1 );
+	const sidecarSize = ( fs.statSync( sidecarPath ).size / 1024 / 1024 ).toFixed( 1 );
 	console.log( `\n==> Done! Binary: ${ outputPath } (${ size } MB)` );
 	console.log( `    SHA-256:   ${ binarySha }` );
 	console.log( `    Checksum:  ${ checksumPath }` );
+	console.log( `    Sidecar:   ${ sidecarPath } (${ sidecarSize } MB)` );
+	console.log( `    SHA-256:   ${ sidecarSha }` );
+	console.log( `    Checksum:  ${ sidecarChecksumPath }` );
 }
 
 main().catch( ( error ) => {

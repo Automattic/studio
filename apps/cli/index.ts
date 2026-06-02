@@ -137,14 +137,16 @@ async function main() {
 			command: PHP_SERVER_CHILD_COMMAND,
 			describe: false,
 			handler: async () => {
-				await import( 'cli/php-server-child' );
+				const { startPhpServerChildProcess } = await import( 'cli/php-server-child' );
+				startPhpServerChildProcess();
 			},
 		} )
 		.command( {
 			command: REPRINT_CHILD_COMMAND,
 			describe: false,
 			handler: async () => {
-				await import( 'cli/reprint-child' );
+				const { startReprintChildProcess } = await import( 'cli/reprint-child' );
+				startReprintChildProcess();
 			},
 		} );
 

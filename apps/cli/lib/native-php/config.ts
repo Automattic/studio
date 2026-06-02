@@ -4,12 +4,19 @@ import os from 'os';
 import path from 'path';
 import { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
 import { writeFile } from 'atomically';
-import { getPhpBinaryPath } from './dependency-management/paths';
+import semver from 'semver';
+import { getPhpBinaryPath } from '../dependency-management/paths';
 
-// Disabled by default to shrink the attack surface available to PHP code
-// running inside a Studio site. Each entry falls into one of:
-//   - Code execution / loading native code: dl, exec, passthru, popen,
-//     proc_open/close/terminate, shell_exec, system, pcntl_exec, pcntl_fork
+// Disabled to shrink the attack surface available to PHP code running inside a
+// Studio site. Each entry falls into one of:
+//   - Runtime native-code loading: dl (loads a native extension into the
+//     interpreter — deprecated, unavailable in most SAPIs, never needed by a
+//     real WP workload)
+//   - Forking / replacing the worker process itself: pcntl_exec, pcntl_fork.
+//     These mutate the PHP worker process rather than spawning a child
+//     command; the legitimate "run an external command" use case is served by
+//     the exec/proc_open family, which is intentionally NOT disabled (see
+//     note below).
 //   - Signal & scheduling control (DoS / handler hijack): pcntl_alarm,
 //     pcntl_async_signals, pcntl_sig*, pcntl_*priority, proc_nice, posix_kill
 //   - Privilege change: posix_set*
@@ -18,11 +25,29 @@ import { getPhpBinaryPath } from './dependency-management/paths';
 //   - Filesystem tricks that can escape open_basedir or create odd
 //     primitives: link, symlink, posix_mkfifo
 //   - Source disclosure: show_source
+//
+// NOTE: the external-command-execution functions (exec, passthru, popen,
+// proc_open/close/terminate, shell_exec, system) are deliberately left
+// enabled. Blocking them broke too many plugins and tools that legitimately
+// shell out (image processing, backups, git, etc.), so for the native PHP
+// beta a site may run external commands like a normal local PHP install.
+//
+// WHAT THIS ACTUALLY BUYS US: this list and the open_basedir jail are
+// in-process checks — they only constrain PHP's own C-level calls. Once the
+// exec family is enabled, a child process runs as the OS user with none of
+// these checks, so most entries here have trivial shell equivalents (open_
+// basedir → `cat`/`cp`, symlink → `ln -s`, posix_kill → `kill`, socket_bind →
+// `nc -l`, show_source → `cat`). The only entries a child process cannot
+// replicate are the interpreter-level ones (dl, pcntl_fork, pcntl_exec,
+// pcntl_signal*). So treat all of this as a guardrail that limits the blast
+// radius of buggy or limited-primitive code — the common WP case (LFI, path
+// traversal, arbitrary file read/delete that abuses a PHP file function and
+// never shells out) is still genuinely contained by open_basedir — NOT as a
+// sandbox against deliberately malicious plugins. Real confinement of the
+// worker process tree (which survives exec) requires an OS-level sandbox.
 const PHP_DEFAULT_DISABLED_FUNCTIONS = [
 	'dl',
-	'exec',
 	'link',
-	'passthru',
 	'pcntl_alarm',
 	'pcntl_async_signals',
 	'pcntl_exec',
@@ -35,7 +60,6 @@ const PHP_DEFAULT_DISABLED_FUNCTIONS = [
 	'pcntl_sigprocmask',
 	'pcntl_sigtimedwait',
 	'pcntl_sigwaitinfo',
-	'popen',
 	'posix_kill',
 	'posix_mkfifo',
 	'posix_setegid',
@@ -44,11 +68,7 @@ const PHP_DEFAULT_DISABLED_FUNCTIONS = [
 	'posix_setpgid',
 	'posix_setsid',
 	'posix_setuid',
-	'proc_close',
 	'proc_nice',
-	'proc_open',
-	'proc_terminate',
-	'shell_exec',
 	'show_source',
 	'socket_accept',
 	'socket_bind',
@@ -57,7 +77,6 @@ const PHP_DEFAULT_DISABLED_FUNCTIONS = [
 	'socket_listen',
 	'stream_socket_server',
 	'symlink',
-	'system',
 ] as const;
 
 // Extensions to enable on Windows via `extension=<name>` in php.ini. Computed
@@ -151,9 +170,14 @@ export function getNativePhpIniContents( phpVersion: NativePhpSupportedVersion )
 	if ( process.platform === 'win32' ) {
 		directives.push(
 			`extension_dir="${ toPhpIniPath( getExtensionDir( phpVersion ) ) }"`,
-			'zend_extension=opcache',
 			...WINDOWS_PHP_EXTENSIONS.map( ( extension ) => `extension=${ extension }` )
 		);
+
+		const coercedVersion = semver.coerce( phpVersion );
+		// As of PHP 8.5, the OPcache extension is always bundled with PHP
+		if ( coercedVersion && semver.lt( coercedVersion, '8.5.0' ) ) {
+			directives.push( 'zend_extension=opcache' );
+		}
 	}
 
 	return `${ directives.join( os.EOL ) }${ os.EOL }`;

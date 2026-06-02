@@ -9,6 +9,7 @@ import { ContentTabSettings } from 'src/components/content-tab-settings';
 import Header from 'src/components/header';
 import { SiteIsBeingCreated } from 'src/components/site-is-being-created';
 import { MIN_WIDTH_CLASS_TO_MEASURE } from 'src/constants';
+import { useBetaFeatures } from 'src/hooks/use-beta-features';
 import { TabName } from 'src/hooks/use-content-tabs';
 import { useEffectiveTab } from 'src/hooks/use-effective-tab';
 import { useImportExport } from 'src/hooks/use-import-export';
@@ -20,6 +21,7 @@ export function SiteContentTabs() {
 	const { selectedSite, siteCreationMessages } = useSiteDetails();
 	const { importState } = useImportExport();
 	const { effectiveTab, selectedTab, setSelectedTab, tabs } = useEffectiveTab();
+	const { enableStudioCodeUi } = useBetaFeatures();
 	const { __ } = useI18n();
 
 	// Remount: Avoid focus loss on user tab changes (no remount),
@@ -98,7 +100,7 @@ export function SiteContentTabs() {
 					<div
 						className={ cx(
 							'h-full overflow-y-auto',
-							effectiveTab === 'assistant' && 'bg-frame-surface'
+							effectiveTab === 'assistant' && ! enableStudioCodeUi && 'bg-frame-surface'
 						) }
 						style={ {
 							scrollbarWidth: 'thin',

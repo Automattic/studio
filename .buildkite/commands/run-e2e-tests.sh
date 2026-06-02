@@ -101,7 +101,7 @@ fi
 echo '--- :mag: Verify CLI build artifacts'
 CLI_DIST="apps/cli/dist/cli"
 missing=()
-for f in reprint.phar reprint-child.mjs main.mjs; do
+for f in reprint.phar main.mjs; do
   [ -f "$CLI_DIST/$f" ] || missing+=("$f")
 done
 if [ ${#missing[@]} -gt 0 ]; then
@@ -109,6 +109,44 @@ if [ ${#missing[@]} -gt 0 ]; then
   exit 1
 fi
 echo "All required CLI build artifacts present."
+
+echo 'Smoke testing reprint child command...'
+node - <<'NODE'
+const { fork } = require( 'node:child_process' );
+
+const child = fork( 'apps/cli/dist/cli/main.mjs', [ 'reprint-child' ], {
+	stdio: [ 'ignore', 'pipe', 'pipe', 'ipc' ],
+} );
+let stderr = '';
+let passed = false;
+
+child.stderr.on( 'data', ( chunk ) => {
+	stderr += chunk;
+} );
+
+const timer = setTimeout( () => {
+	passed = true;
+	child.kill( 'SIGKILL' );
+}, 5000 );
+
+child.on( 'exit', ( code, signal ) => {
+	clearTimeout( timer );
+	if ( passed ) {
+		console.log( 'Reprint child command started with IPC.' );
+		process.exit( 0 );
+	}
+
+	console.error(
+		stderr ||
+			'Reprint child command exited early with code ' +
+				( code ?? 'null' ) +
+				' and signal ' +
+				( signal ?? 'null' ) +
+				'.'
+	);
+	process.exit( 1 );
+} );
+NODE
 
 echo '--- :playwright: Run End To End Tests'
 

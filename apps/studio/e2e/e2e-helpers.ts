@@ -2,7 +2,6 @@ import { randomUUID } from 'crypto';
 import { tmpdir } from 'os';
 import path from 'path';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
-import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
 import { findLatestBuild, parseElectronApp } from 'electron-playwright-helpers';
 import fs from 'fs-extra';
 import { _electron as electron, Page, ElectronApplication } from 'playwright';
@@ -38,11 +37,6 @@ export class E2ESession {
 		await fs.mkdir( this.homePath, { recursive: true } );
 		await fs.mkdir( this.cliConfigPath, { recursive: true } );
 		await fs.mkdir( this.sharedConfigPath, { recursive: true } );
-
-		await fs.writeFile(
-			path.join( this.sharedConfigPath, 'shared.json' ),
-			JSON.stringify( { version: 1, locale: DEFAULT_LOCALE }, null, 2 )
-		);
 
 		// Pre-create appdata file with beta features enabled for CLI testing
 		// Path must include 'Studio' subfolder to match Electron app's path structure
@@ -101,34 +95,11 @@ export class E2ESession {
 
 	async cleanup() {
 		await this.closeApp();
-		// rimraf retries EBUSY/EMFILE/ENFILE itself; we cover the two it gives up on:
-		// ENOTEMPTY (a CLI child still writing post-exit) and EPERM (on Windows, a just-killed
-		// process's DLLs stay locked briefly — rimraf only chmods read-only attrs, not this).
-		const RETRYABLE_CODES = [ 'ENOTEMPTY', 'EPERM' ];
-		const maxAttempts = 5;
-		const retryDelayMs = process.platform === 'win32' ? 1000 : 500;
-		for ( let attempt = 0; attempt < maxAttempts; attempt++ ) {
-			try {
-				await rimraf( this.sessionPath );
-				return;
-			} catch ( error ) {
-				const isRetryableError =
-					isErrnoException( error ) && RETRYABLE_CODES.includes( error.code ?? '' );
-				if ( ! isRetryableError ) {
-					throw error;
-				}
-				if ( attempt === maxAttempts - 1 ) {
-					if ( process.platform === 'win32' ) {
-						console.warn(
-							`Unable to remove E2E session temp directory "${ this.sessionPath }": ${ error.message }`
-						);
-						return;
-					}
-					throw error;
-				}
-				await new Promise< void >( ( resolve ) => setTimeout( resolve, retryDelayMs ) );
-			}
-		}
+		await rimraf( this.sessionPath, {
+			backoff: 2,
+			maxBackoff: 2500,
+			maxRetries: 50,
+		} );
 	}
 
 	private async launchFirstWindow( testEnv: NodeJS.ProcessEnv = {} ) {

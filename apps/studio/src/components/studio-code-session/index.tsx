@@ -32,11 +32,13 @@ import { unlock } from './lock-unlock';
 import { queryClient } from './query-client';
 import { QueuedPrompts } from './queued-prompts';
 import { isScrolledToBottom } from './scroll-utils';
+import { SiteCreatedDialog } from './site-created-dialog';
 import styles from './style.module.css';
 import { AgentRunProvider, useAgentRun } from './use-agent-run';
 import { useExamplePrompts } from './use-example-prompts';
 import { useSession } from './use-session';
 import { useSingleSession } from './use-single-session';
+import { useSiteCreationSwitch } from './use-site-creation-switch';
 import buttonDefense from './wp-ui-button-defense.module.css';
 import type { SessionEntry } from '@mariozechner/pi-coding-agent';
 import '@wordpress/theme/design-tokens.css';
@@ -178,6 +180,15 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 	const { sessionId, setSessionId, newSession } = useSingleSession( selectedSite.id );
 	const { data, isLoading } = useSession( sessionId );
 	const {
+		pending: pendingSiteCreation,
+		openNewSite,
+		stayHere,
+	} = useSiteCreationSwitch( {
+		sessionId,
+		currentSiteId: selectedSite.id,
+		onStartNewChat: () => void newSession(),
+	} );
+	const {
 		isRunning,
 		hasActiveRun,
 		isInterrupting,
@@ -288,65 +299,72 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 	}
 
 	return (
-		<SessionFrame
-			scrollRef={ scrollRef }
-			onScroll={ handleScroll }
-			header={ <SessionHeader onNewConversation={ () => void newSession() } /> }
-			scrollToBottomButton={
-				! stickToBottom && (
-					<div className={ styles.scrollToBottom }>
-						<UiButton
-							variant="outline"
-							tone="neutral"
-							size="small"
-							className={ buttonDefense.button }
-							aria-label={ __( 'Scroll to bottom' ) }
-							onClick={ handleScrollToBottomClick }
-						>
-							<Icon icon={ chevronDown } size={ 18 } />
-						</UiButton>
+		<>
+			<SessionFrame
+				scrollRef={ scrollRef }
+				onScroll={ handleScroll }
+				header={ <SessionHeader onNewConversation={ () => void newSession() } /> }
+				scrollToBottomButton={
+					! stickToBottom && (
+						<div className={ styles.scrollToBottom }>
+							<UiButton
+								variant="outline"
+								tone="neutral"
+								size="small"
+								className={ buttonDefense.button }
+								aria-label={ __( 'Scroll to bottom' ) }
+								onClick={ handleScrollToBottomClick }
+							>
+								<Icon icon={ chevronDown } size={ 18 } />
+							</UiButton>
+						</div>
+					)
+				}
+				composer={
+					<div className={ styles.classicColumn }>
+						<QueuedPrompts prompts={ queuedPrompts } onRemove={ removeQueuedPrompt } />
+						<Composer
+							busy={ composerBusy }
+							isInterrupting={ isInterrupting }
+							error={ runError }
+							model={ currentModel }
+							onSend={ sendMessage }
+							onInterrupt={ interrupt }
+							sessionId={ sessionId }
+							entries={ data.entries }
+							ownerSiteId={ selectedSite.id }
+							onSwitchSession={ setSessionId }
+							draftPrompt={ promptDraft }
+							previewPrompt={ previewPrompt }
+						/>
 					</div>
-				)
-			}
-			composer={
-				<div className={ styles.classicColumn }>
-					<QueuedPrompts prompts={ queuedPrompts } onRemove={ removeQueuedPrompt } />
-					<Composer
-						busy={ composerBusy }
-						isInterrupting={ isInterrupting }
-						error={ runError }
-						model={ currentModel }
-						onSend={ sendMessage }
-						onInterrupt={ interrupt }
-						sessionId={ sessionId }
-						entries={ data.entries }
-						ownerSiteId={ selectedSite.id }
-						onSwitchSession={ setSessionId }
-						draftPrompt={ promptDraft }
-						previewPrompt={ previewPrompt }
-					/>
+				}
+			>
+				<div className={ cx( styles.classicColumn, styles.classicConversationSpacing ) }>
+					{ showEmptyConversation ? (
+						<EmptyConversation
+							onPreviewPrompt={ setPreviewPrompt }
+							onClearPreview={ clearPreview }
+							onSelectPrompt={ selectPrompt }
+						/>
+					) : (
+						<Conversation
+							data={ data }
+							isRunning={ isRunning }
+							startedAt={ startedAt }
+							pendingQuestions={ pendingQuestionTexts }
+							pendingAnswers={ pendingAnswers }
+							onAnswerQuestion={ answerQuestion }
+						/>
+					) }
 				</div>
-			}
-		>
-			<div className={ cx( styles.classicColumn, styles.classicConversationSpacing ) }>
-				{ showEmptyConversation ? (
-					<EmptyConversation
-						onPreviewPrompt={ setPreviewPrompt }
-						onClearPreview={ clearPreview }
-						onSelectPrompt={ selectPrompt }
-					/>
-				) : (
-					<Conversation
-						data={ data }
-						isRunning={ isRunning }
-						startedAt={ startedAt }
-						pendingQuestions={ pendingQuestionTexts }
-						pendingAnswers={ pendingAnswers }
-						onAnswerQuestion={ answerQuestion }
-					/>
-				) }
-			</div>
-		</SessionFrame>
+			</SessionFrame>
+			<SiteCreatedDialog
+				pending={ pendingSiteCreation }
+				onOpenNewSite={ openNewSite }
+				onStayHere={ stayHere }
+			/>
+		</>
 	);
 }
 

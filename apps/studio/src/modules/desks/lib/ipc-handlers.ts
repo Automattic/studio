@@ -1,4 +1,4 @@
-import { BrowserWindow, dialog, type IpcMainInvokeEvent } from 'electron';
+import { app, BrowserWindow, dialog, type IpcMainInvokeEvent } from 'electron';
 import fsPromises from 'fs/promises';
 import nodePath from 'path';
 import { assertDeskConfig } from '@studio/common/lib/desk-config';
@@ -51,6 +51,9 @@ export async function getDeskSettings( _event: IpcMainInvokeEvent ): Promise< De
 }
 
 export async function getStudioUiMode( _event: IpcMainInvokeEvent ): Promise< StudioUiMode > {
+	if ( app.isPackaged ) {
+		return 'default';
+	}
 	const userData = await loadUserData();
 	const mode = userData.desks?.defaultUiMode;
 	return mode === 'desks' || mode === 'agentic' ? mode : 'default';

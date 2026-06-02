@@ -631,7 +631,10 @@ type PullSiteResult = {
 
 export const pullSiteThunk = createTypedAsyncThunk< PullSiteResult, PullSitePayload >(
 	'syncOperations/pullSite',
-	async ( { client, connectedSite, selectedSite, options }, { dispatch, rejectWithValue } ) => {
+	async (
+		{ client, connectedSite, selectedSite, options },
+		{ dispatch, getState, rejectWithValue }
+	) => {
 		const pullStatesProgressInfo = getPullStatesProgressInfo();
 		const remoteSiteId = connectedSite.id;
 		const remoteSiteUrl = connectedSite.url;
@@ -668,16 +671,28 @@ export const pullSiteThunk = createTypedAsyncThunk< PullSiteResult, PullSitePayl
 			const response = pullSiteResponseSchema.parse( rawResponse );
 
 			if ( response.success ) {
-				dispatch(
-					syncOperationsActions.updatePullState( {
-						selectedSiteId: selectedSite.id,
-						remoteSiteId,
-						state: {
-							backupId: response.backup_id,
-						},
-					} )
-				);
-				void startPullPoller( selectedSite.id, remoteSiteId );
+				// Creating the remote backup can take a while. If the user logged out (slice
+				// reset) or cancelled the pull while this request was in flight, don't resurrect
+				// the pull state or start a poller — that would leave an orphaned pull stuck at
+				// "Initializing remote backup…" after logout.
+				const currentState = syncOperationsSelectors.selectPullState(
+					selectedSite.id,
+					remoteSiteId
+				)( getState() );
+				const isStillActive = !! currentState && currentState.status.key !== 'cancelled';
+
+				if ( isStillActive ) {
+					dispatch(
+						syncOperationsActions.updatePullState( {
+							selectedSiteId: selectedSite.id,
+							remoteSiteId,
+							state: {
+								backupId: response.backup_id,
+							},
+						} )
+					);
+					void startPullPoller( selectedSite.id, remoteSiteId );
+				}
 
 				return {
 					backupId: response.backup_id,
@@ -936,6 +951,12 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 					operationId
 				);
 
+				// downloadSyncBackup resolves without a path when it was cancelled (e.g. the user
+				// logged out mid-download). Stop silently instead of importing a missing backup.
+				if ( signal.aborted || ! filePath ) {
+					return;
+				}
+
 				dispatch(
 					syncOperationsActions.updatePullState( {
 						selectedSiteId,
@@ -952,6 +973,13 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 					showErrorModal: false,
 					showNotification: false,
 				} );
+
+				// The import runs locally and is intentionally not aborted on logout, but if the
+				// user logged out / cancelled while it finished, don't surface post-logout
+				// "finished" UI (notification + re-populated sync state).
+				if ( signal.aborted ) {
+					return;
+				}
 
 				await updateSiteTimestamp( {
 					siteId: remoteSiteId,
@@ -1004,12 +1032,11 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 				);
 			}
 		} catch ( error ) {
-			const currentState = syncOperationsSelectors.selectPullState(
-				selectedSiteId,
-				remoteSiteId
-			)( getState() );
-
-			if ( signal.aborted && currentState?.status.key === 'cancelled' ) {
+			// The poller signal is aborted on user cancel and on logout cleanup — both are
+			// intentional stops, so don't capture the error or show the "Error pulling" modal.
+			// (On logout the slice is reset, so we can't rely on the state still being
+			// 'cancelled' here — the aborted signal is the reliable signal.)
+			if ( signal.aborted ) {
 				return;
 			}
 

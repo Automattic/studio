@@ -123,12 +123,25 @@ export function Composer( {
 		textareaRef.current?.focus();
 	}, [] );
 
-	// Legend affordance below the input: seeds a lone "/" and focuses the
-	// textarea, which opens the inline autocomplete so users can discover the
-	// available commands without already knowing the "/" shortcut.
+	// Legend affordance below the input: inserts a "/" at the caret (without
+	// clobbering whatever the user already typed) and focuses the textarea. On
+	// an empty input this opens the inline autocomplete so users can discover
+	// the available commands without already knowing the "/" shortcut.
 	const triggerSlashCommands = useCallback( () => {
-		setValue( '/' );
-		textareaRef.current?.focus();
+		const node = textareaRef.current;
+		if ( ! node ) {
+			setValue( ( prev ) => `${ prev }/` );
+			return;
+		}
+		const { selectionStart, selectionEnd, value: current } = node;
+		const start = selectionStart ?? current.length;
+		const end = selectionEnd ?? current.length;
+		const caret = start + 1;
+		setValue( `${ current.slice( 0, start ) }/${ current.slice( end ) }` );
+		queueMicrotask( () => {
+			node.focus();
+			node.setSelectionRange( caret, caret );
+		} );
 	}, [] );
 
 	// Cross-family swap state. We hold the picked model here while the

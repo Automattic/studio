@@ -25,7 +25,6 @@ import { getPhpMyAdminPath } from './lib/dependency-management/paths';
 import { runBlueprint } from './lib/native-php/blueprints';
 import {
 	killAllLivePhpProcesses,
-	markPhpChildAsCritical,
 	spawnPhpProcess,
 	stopPhpChild,
 	waitForChildSpawn,
@@ -564,11 +563,16 @@ async function doStartServer(
 			}
 
 			await waitForChildSpawn( serverChild, stopSignal );
-			markPhpChildAsCritical(
-				serverChild,
-				`PHP worker ${ index + 1 }/${ NATIVE_PHP_WORKER_POOL_SIZE }`,
-				errorToConsole
-			);
+
+			serverChild.once( 'exit', ( code, signalName ) => {
+				errorToConsole(
+					`PHP worker ${
+						index + 1
+					}/${ NATIVE_PHP_WORKER_POOL_SIZE } exited unexpectedly (code: ${ code }, signal: ${ signalName })`
+				);
+				killAllLivePhpProcesses();
+				process.exit( code ?? 1 );
+			} );
 		}
 
 		stopSignal?.throwIfAborted();

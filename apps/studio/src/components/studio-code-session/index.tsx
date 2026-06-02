@@ -7,8 +7,9 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { Spinner } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
+import { chevronDown } from '@wordpress/icons';
 import { privateApis } from '@wordpress/theme';
-import { Button as UiButton } from '@wordpress/ui';
+import { Button as UiButton, Icon } from '@wordpress/ui';
 import {
 	useCallback,
 	useLayoutEffect,
@@ -17,6 +18,7 @@ import {
 	useState,
 	type ReactNode,
 	type Ref,
+	type UIEvent,
 } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
@@ -29,6 +31,7 @@ import { Conversation } from './conversation';
 import { unlock } from './lock-unlock';
 import { queryClient } from './query-client';
 import { QueuedPrompts } from './queued-prompts';
+import { isScrolledToBottom } from './scroll-utils';
 import styles from './style.module.css';
 import { AgentRunProvider, useAgentRun } from './use-agent-run';
 import { useExamplePrompts } from './use-example-prompts';
@@ -44,18 +47,32 @@ interface SessionFrameProps {
 	header?: ReactNode;
 	composer?: ReactNode;
 	scrollRef?: Ref< HTMLDivElement >;
+	onScroll?: ( event: UIEvent< HTMLDivElement > ) => void;
+	scrollToBottomButton?: ReactNode;
 	children?: ReactNode;
 }
 
-function SessionFrame( { header, composer, scrollRef, children }: SessionFrameProps ) {
+function SessionFrame( {
+	header,
+	composer,
+	scrollRef,
+	onScroll,
+	scrollToBottomButton,
+	children,
+}: SessionFrameProps ) {
 	return (
 		<div className={ styles.root }>
 			<div className={ styles.chatColumn }>
 				{ header }
-				<div ref={ scrollRef } className={ cx( styles.scroll, styles.classicScroll ) }>
+				<div
+					ref={ scrollRef }
+					className={ cx( styles.scroll, styles.classicScroll ) }
+					onScroll={ onScroll }
+				>
 					{ children }
 				</div>
 				<div className={ cx( styles.composerOuter, styles.classicComposerOuter ) }>
+					{ scrollToBottomButton }
 					{ composer }
 				</div>
 			</div>
@@ -185,6 +202,12 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 	);
 	const composerBusy = hasActiveRun || pendingQuestions.length > 0;
 	const scrollRef = useRef< HTMLDivElement >( null );
+	// Whether new content should keep the view pinned to the bottom. Disabled
+	// when the user scrolls up to read history, re-enabled when they return.
+	const [ stickToBottom, setStickToBottom ] = useState( true );
+	// Set while the effect drives `scrollTop` programmatically so the resulting
+	// scroll event doesn't get mistaken for the user scrolling up.
+	const isProgrammaticScroll = useRef( false );
 
 	const [ promptDraft, setPromptDraft ] = useState< { id: number; prompt: string } | null >( null );
 	const [ previewPrompt, setPreviewPrompt ] = useState< string | null >( null );
@@ -198,17 +221,45 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 	const showEmptyConversation =
 		! hasActiveRun && queuedPrompts.length === 0 && ! hasVisibleUserPrompt( data?.entries ?? [] );
 
-	useLayoutEffect( () => {
+	const scrollToBottom = useCallback( () => {
 		const node = scrollRef.current;
 		if ( ! node ) {
 			return;
 		}
+		isProgrammaticScroll.current = true;
+		node.scrollTop = node.scrollHeight;
+	}, [] );
+
+	const handleScroll = useCallback( ( event: UIEvent< HTMLDivElement > ) => {
+		if ( isProgrammaticScroll.current ) {
+			return;
+		}
+		setStickToBottom( isScrolledToBottom( event.currentTarget ) );
+	}, [] );
+
+	const handleScrollToBottomClick = useCallback( () => {
+		scrollToBottom();
+		setStickToBottom( true );
+	}, [ scrollToBottom ] );
+
+	// A fresh session starts pinned to the bottom.
+	useLayoutEffect( () => {
+		setStickToBottom( true );
+	}, [ sessionId ] );
+
+	useLayoutEffect( () => {
+		const node = scrollRef.current;
+		if ( ! node || ! stickToBottom ) {
+			return;
+		}
+		isProgrammaticScroll.current = true;
 		node.scrollTop = node.scrollHeight;
 		const id = requestAnimationFrame( () => {
 			node.scrollTop = node.scrollHeight;
+			isProgrammaticScroll.current = false;
 		} );
 		return () => cancelAnimationFrame( id );
-	}, [ sessionId, data, isRunning, queuedPrompts.length ] );
+	}, [ sessionId, data, isRunning, queuedPrompts.length, stickToBottom ] );
 
 	if ( ! sessionId || isLoading ) {
 		return (
@@ -239,7 +290,24 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 	return (
 		<SessionFrame
 			scrollRef={ scrollRef }
+			onScroll={ handleScroll }
 			header={ <SessionHeader onNewConversation={ () => void newSession() } /> }
+			scrollToBottomButton={
+				! stickToBottom && (
+					<div className={ styles.scrollToBottom }>
+						<UiButton
+							variant="outline"
+							tone="neutral"
+							size="small"
+							className={ buttonDefense.button }
+							aria-label={ __( 'Scroll to bottom' ) }
+							onClick={ handleScrollToBottomClick }
+						>
+							<Icon icon={ chevronDown } size={ 18 } />
+						</UiButton>
+					</div>
+				)
+			}
 			composer={
 				<div className={ styles.classicColumn }>
 					<QueuedPrompts prompts={ queuedPrompts } onRemove={ removeQueuedPrompt } />

@@ -9,9 +9,9 @@ import { ContentTabSettings } from 'src/components/content-tab-settings';
 import Header from 'src/components/header';
 import { SiteIsBeingCreated } from 'src/components/site-is-being-created';
 import { MIN_WIDTH_CLASS_TO_MEASURE } from 'src/constants';
+import { useBetaFeatures } from 'src/hooks/use-beta-features';
 import { TabName } from 'src/hooks/use-content-tabs';
 import { useEffectiveTab } from 'src/hooks/use-effective-tab';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
@@ -21,7 +21,7 @@ export function SiteContentTabs() {
 	const { selectedSite, siteCreationMessages } = useSiteDetails();
 	const { importState } = useImportExport();
 	const { effectiveTab, selectedTab, setSelectedTab, tabs } = useEffectiveTab();
-	const { enableStudioCodeUi } = useFeatureFlags();
+	const { enableStudioCodeUi } = useBetaFeatures();
 	const { __ } = useI18n();
 
 	// Remount: Avoid focus loss on user tab changes (no remount),

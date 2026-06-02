@@ -66,6 +66,37 @@
 
 .composerOuter {
 	flex: 0 0 auto;
+	position: relative;
+}
+
+/* Floating "scroll to bottom" affordance. Anchored to the top edge of the
+   composer area and lifted above it so it sits just over the conversation
+   without overlapping the composer. Aligned to the right edge, next to the
+   conversation scrollbar. */
+.scrollToBottom {
+	position: absolute;
+	bottom: 100%;
+	left: 0;
+	right: 0;
+	display: flex;
+	justify-content: flex-end;
+	padding-bottom: var(--wpds-dimension-padding-sm);
+	padding-inline-end: calc( var(--wpds-dimension-padding-xl) + var(--wpds-dimension-padding-sm));
+	pointer-events: none;
+	z-index: 1;
+}
+
+.scrollToBottom > * {
+	pointer-events: auto;
+	border-radius: 50%;
+	box-shadow: var(--wpds-elevation-shadow-md, 0 2px 8px rgba(0, 0, 0, 0.15));
+	/* Square dimensions + zeroed WP-UI padding vars so the chevron sits in a
+	   perfect circle instead of a pill. */
+	width: 32px;
+	height: 32px;
+	min-width: 32px;
+	--wp-ui-button-padding-inline: 0px;
+	--wp-ui-button-padding-block: 0px;
 }
 
 .classicScroll {

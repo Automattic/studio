@@ -1,7 +1,9 @@
 import crypto from 'crypto';
 import { fork, type ChildProcess } from 'node:child_process';
+import { setAiSessionSitePlacement } from 'src/lib/ai-session-placement';
 import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
-import type { AgentRunEvent } from './types';
+import type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { StudioChatArtifactData } from '@studio/common/ai/chat-artifacts';
 import type { JsonEvent } from '@studio/common/ai/json-events';
 import type { WebContents } from 'electron';
 
@@ -12,6 +14,8 @@ interface AgentRun {
 	webContents: WebContents;
 	interrupted: boolean;
 	interruptAttempts: number;
+	eventQueue: Promise< void >;
+	startedAt: number;
 }
 
 // Two subprocesses resuming the same session id would race on the JSONL
@@ -35,43 +39,102 @@ function sendEvent( run: AgentRun, event: AgentRunEvent[ 'event' ] ): void {
 	run.webContents.send( 'ai-agent-event', payload );
 }
 
+function getCreatedSiteFromArtifact( artifact: StudioChatArtifactData ):
+	| {
+			siteId: string;
+			sitePath: string;
+			siteName: string;
+	  }
+	| undefined {
+	for ( const widget of artifact.widgets ) {
+		if ( widget.type !== 'site-preview' ) {
+			continue;
+		}
+		const { siteId, sitePath, siteName } = widget.widgetProps;
+		if (
+			typeof siteId === 'string' &&
+			typeof sitePath === 'string' &&
+			typeof siteName === 'string'
+		) {
+			return { siteId, sitePath, siteName };
+		}
+	}
+	return undefined;
+}
+
+async function applySessionPlacementFromEvent( run: AgentRun, event: JsonEvent ): Promise< void > {
+	if ( event.type !== 'chat.artifact' ) {
+		return;
+	}
+	const createdSite = getCreatedSiteFromArtifact( event.artifact );
+	if ( ! createdSite ) {
+		return;
+	}
+	const placement = await setAiSessionSitePlacement( run.sessionId, createdSite );
+	if ( run.webContents.isDestroyed() ) {
+		return;
+	}
+	run.webContents.send( 'ai-session-placement-updated', {
+		sessionId: run.sessionId,
+		placement,
+	} );
+}
+
+async function sendQueuedJsonEvent( run: AgentRun, event: JsonEvent ): Promise< void > {
+	try {
+		await applySessionPlacementFromEvent( run, event );
+	} catch ( error ) {
+		sendEvent( run, {
+			type: 'error',
+			timestamp: nowIso(),
+			message: error instanceof Error ? error.message : 'Failed to update session placement',
+		} );
+	}
+	sendEvent( run, event );
+}
+
+function enqueueJsonEvent( run: AgentRun, event: JsonEvent ): void {
+	run.eventQueue = run.eventQueue
+		.then( () => sendQueuedJsonEvent( run, event ) )
+		.catch( ( error ) => {
+			sendEvent( run, {
+				type: 'error',
+				timestamp: nowIso(),
+				message: error instanceof Error ? error.message : 'Failed to forward agent event',
+			} );
+		} );
+}
+
 export interface StartAgentRunOptions {
 	sessionId: string;
 	prompt: string;
+	displayMessage?: string;
 	webContents: WebContents;
 }
 
 export function startAgentRun( options: StartAgentRunOptions ): { runId: string } {
-	const { sessionId, prompt, webContents } = options;
+	const { sessionId, prompt, displayMessage, webContents } = options;
 
 	if ( runsBySessionId.has( sessionId ) ) {
 		throw new Error( `A run is already in progress for session ${ sessionId }` );
 	}
 
 	const runId = crypto.randomUUID();
+	const startedAt = Date.now();
 	const cliPath = getCliPath();
-	const child = fork(
-		cliPath,
-		[
-			'code',
-			'sessions',
-			'resume',
-			sessionId,
-			prompt,
-			'--json',
-			'--no-auto-approve',
-			'--avoid-telemetry',
-		],
-		{
-			// Agent events arrive over the Node IPC channel (via `process.send`
-			// in the child). stdout/stderr are ignored — the child's
-			// `emitEvent` falls back to stdout only when IPC isn't available.
-			stdio: [ 'ignore', 'ignore', 'ignore', 'ipc' ],
-			execPath: getBundledNodeBinaryPath(),
-			execArgv: [ '--experimental-wasm-jspi' ],
-			env: { ...process.env },
-		}
-	);
+	const args = [ 'code', 'sessions', 'resume', sessionId, prompt, '--json', '--avoid-telemetry' ];
+	if ( displayMessage ) {
+		args.push( '--display-message', displayMessage );
+	}
+	const child = fork( cliPath, args, {
+		// Agent events arrive over the Node IPC channel (via `process.send`
+		// in the child). stdout/stderr are ignored — the child's
+		// `emitEvent` falls back to stdout only when IPC isn't available.
+		stdio: [ 'ignore', 'ignore', 'ignore', 'ipc' ],
+		execPath: getBundledNodeBinaryPath(),
+		execArgv: [ '--experimental-wasm-jspi' ],
+		env: { ...process.env },
+	} );
 
 	const run: AgentRun = {
 		runId,
@@ -80,6 +143,8 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 		webContents,
 		interrupted: false,
 		interruptAttempts: 0,
+		eventQueue: Promise.resolve(),
+		startedAt,
 	};
 
 	runsBySessionId.set( sessionId, run );
@@ -92,9 +157,9 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 	child.on( 'message', ( message ) => {
 		// The CLI's `Logger` also writes to this IPC channel with a different
 		// shape (`{ action, status, message }`) on error paths. Forward only
-		// messages that look like a JsonEvent.
+		// messages that look like the CLI JSON transport envelope.
 		if ( message && typeof message === 'object' && 'type' in message ) {
-			sendEvent( run, message as JsonEvent );
+			enqueueJsonEvent( run, message as JsonEvent );
 		}
 	} );
 
@@ -102,14 +167,16 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 		runsBySessionId.delete( sessionId );
 		runsById.delete( runId );
 
-		if ( run.interrupted ) {
-			sendEvent( run, { type: 'run.interrupted', timestamp: nowIso() } );
-		}
-		sendEvent( run, {
-			type: 'run.exited',
-			timestamp: nowIso(),
-			status: code === 0 ? 'success' : 'error',
-			code,
+		void run.eventQueue.finally( () => {
+			if ( run.interrupted ) {
+				sendEvent( run, { type: 'run.interrupted', timestamp: nowIso() } );
+			}
+			sendEvent( run, {
+				type: 'run.exited',
+				timestamp: nowIso(),
+				status: code === 0 ? 'success' : 'error',
+				code,
+			} );
 		} );
 	};
 
@@ -134,6 +201,15 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 	return { runId };
 }
 
+export function listActiveAgentRuns(): ActiveAgentRun[] {
+	return Array.from( runsBySessionId.values() ).map( ( run ) => ( {
+		runId: run.runId,
+		sessionId: run.sessionId,
+		startedAt: run.startedAt,
+		phase: run.interrupted ? 'interrupting' : 'running',
+	} ) );
+}
+
 const INTERRUPT_FORCE_KILL_TIMEOUT_MS = 2000;
 
 export function interruptAgentRun( runId: string ): void {
@@ -143,6 +219,9 @@ export function interruptAgentRun( runId: string ): void {
 	}
 	run.interrupted = true;
 	run.interruptAttempts += 1;
+	if ( runsBySessionId.get( run.sessionId ) === run ) {
+		runsBySessionId.delete( run.sessionId );
+	}
 
 	// Second click escalates: the graceful path is in flight but evidently
 	// not landing fast enough, so skip the grace period.

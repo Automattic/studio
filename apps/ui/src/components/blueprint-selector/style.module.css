@@ -18,7 +18,7 @@
 
 .featuredHint {
 	margin: 0;
-	color: var(--wpds-color-text-secondary, #666);
+	color: var(--wpds-color-fg-content-neutral-weak, #666);
 	font-size: 0.875rem;
 }
 
@@ -48,9 +48,9 @@
 	flex-direction: column;
 	width: 100%;
 	padding: 0;
-	border: 1px solid var(--wpds-color-border, #ddd);
+	border: 1px solid var(--wpds-color-stroke-surface-neutral, #ddd);
 	border-radius: 8px;
-	background: var(--wpds-color-surface, #fff);
+	background: var(--wpds-color-bg-surface-neutral-strong, #fff);
 	cursor: pointer;
 	overflow: hidden;
 	text-align: left;
@@ -58,7 +58,7 @@
 }
 
 .card:hover {
-	border-color: var(--wpds-color-border-hover, #bbb);
+	border-color: var(--wpds-color-stroke-interactive-neutral, #bbb);
 }
 
 .previewButton {
@@ -93,7 +93,7 @@
 
 .cardExcerpt {
 	margin: 0;
-	color: var(--wpds-color-text-secondary, #666);
+	color: var(--wpds-color-fg-content-neutral-weak, #666);
 	font-size: 0.8125rem;
 	line-height: 1.4;
 	display: -webkit-box;

@@ -1,9 +1,9 @@
-#!/usr/bin/env ts-node
+#!/usr/bin/env tsx
 /**
  * Download Node.js binary for bundling with Studio.
  *
- * Usage: npx ts-node scripts/download-node-binary.ts <platform> <arch> [destDir]
- * Example: npx ts-node scripts/download-node-binary.ts darwin arm64 ./build
+ * Usage: npx tsx scripts/download-node-binary.ts <platform> <arch> [destDir]
+ * Example: npx tsx scripts/download-node-binary.ts darwin arm64 ./build
  *
  * When destDir is omitted, the binary is placed in apps/cli/bundle/build/ —
  * a dedicated build-artifact location that `create-standalone-bundle.ts`
@@ -20,7 +20,7 @@ import { extractZip } from '../tools/common/lib/extract-zip';
 const LTS_FALLBACK = 'v24.13.1';
 
 function getNodeVersion(): string {
-	const nvmrcPath = path.join( __dirname, '..', '.nvmrc' );
+	const nvmrcPath = path.join( import.meta.dirname, '..', '.nvmrc' );
 	if ( fs.existsSync( nvmrcPath ) ) {
 		const version = fs.readFileSync( nvmrcPath, 'utf-8' ).trim();
 		return version.startsWith( 'v' ) ? version : `v${ version }`;
@@ -63,7 +63,7 @@ if ( ! nodeArch ) {
 
 const binDir = destOverride
 	? path.resolve( destOverride )
-	: path.join( __dirname, '..', 'apps', 'cli', 'bundle', 'build' );
+	: path.join( import.meta.dirname, '..', 'apps', 'cli', 'bundle', 'build' );
 const tmpDir = os.tmpdir();
 
 if ( ! fs.existsSync( binDir ) ) {

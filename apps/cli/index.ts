@@ -7,6 +7,7 @@ import { registerCommand as registerExportCommand } from 'cli/commands/export';
 import { registerCommand as registerImportCommand } from 'cli/commands/import';
 import { registerCommand as registerMcpCommand } from 'cli/commands/mcp';
 import { registerCommand as registerPullCommand } from 'cli/commands/pull';
+import { registerCommand as registerPullReprintCommand } from 'cli/commands/pull-reprint';
 import { registerCommand as registerPushCommand } from 'cli/commands/push';
 import {
 	bumpAggregatedUniqueStat,
@@ -24,7 +25,9 @@ import { StudioArgv } from 'cli/types';
 const version = __STUDIO_CLI_VERSION__;
 const PROCESS_MANAGER_DAEMON_COMMAND = 'process-manager-daemon';
 const PROXY_DAEMON_COMMAND = 'proxy-daemon';
-const WORDPRESS_SERVER_CHILD_COMMAND = 'wordpress-server-child';
+const PLAYGROUND_SERVER_CHILD_COMMAND = 'playground-server-child';
+const PHP_SERVER_CHILD_COMMAND = 'php-server-child';
+const REPRINT_CHILD_COMMAND = 'reprint-child';
 
 suppressPunycodeWarning();
 
@@ -123,11 +126,25 @@ async function main() {
 			},
 		} )
 		.command( {
-			command: WORDPRESS_SERVER_CHILD_COMMAND,
+			command: PLAYGROUND_SERVER_CHILD_COMMAND,
 			describe: false,
 			handler: async () => {
-				const { startWordPressServerChildProcess } = await import( 'cli/wordpress-server-child' );
+				const { startWordPressServerChildProcess } = await import( 'cli/playground-server-child' );
 				startWordPressServerChildProcess();
+			},
+		} )
+		.command( {
+			command: PHP_SERVER_CHILD_COMMAND,
+			describe: false,
+			handler: async () => {
+				await import( 'cli/php-server-child' );
+			},
+		} )
+		.command( {
+			command: REPRINT_CHILD_COMMAND,
+			describe: false,
+			handler: async () => {
+				await import( 'cli/reprint-child' );
 			},
 		} );
 
@@ -151,6 +168,8 @@ async function main() {
 	const studioCodeCommandBuilder = async ( aiYargs: StudioArgv ) => {
 		const { registerCommand: registerAiCommand } = await import( 'cli/commands/ai' );
 		registerAiCommand( aiYargs );
+		const { registerRemoteSessionCommand } = await import( 'cli/commands/ai/remote-session' );
+		registerRemoteSessionCommand( aiYargs );
 		aiYargs.command( 'sessions', __( 'Manage code sessions' ), async ( sessionsYargs ) => {
 			const [
 				{ registerCommand: registerAiSessionsDeleteCommand },
@@ -162,15 +181,9 @@ async function main() {
 				import( 'cli/commands/ai/sessions/resume' ),
 			] );
 
-			sessionsYargs
-				.option( 'path', {
-					hidden: true,
-				} )
-				.option( 'session-persistence', {
-					type: 'boolean',
-					default: true,
-					description: __( 'Record this code session to disk' ),
-				} );
+			sessionsYargs.option( 'path', {
+				hidden: true,
+			} );
 			registerAiSessionsDeleteCommand( sessionsYargs );
 			registerAiSessionsListCommand( sessionsYargs );
 			registerAiSessionsResumeCommand( sessionsYargs );
@@ -214,7 +227,26 @@ async function main() {
 		previewYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );
 	} );
 
+	studioArgv.command( 'blueprint', __( 'Browse and use blueprints' ), async ( blueprintYargs ) => {
+		const [
+			{ registerCommand: registerBlueprintListCommand },
+			{ registerCommand: registerBlueprintUseCommand },
+		] = await Promise.all( [
+			import( 'cli/commands/blueprint/list' ),
+			import( 'cli/commands/blueprint/use' ),
+		] );
+
+		registerBlueprintListCommand( blueprintYargs );
+		registerBlueprintUseCommand( blueprintYargs );
+		blueprintYargs
+			.version( false )
+			.demandCommand( 1, __( 'You must provide a valid blueprint command' ) );
+	} );
+
 	registerPullCommand( studioArgv );
+	if ( process.env.STUDIO_ENABLE_PULL_REPRINT ) {
+		registerPullReprintCommand( studioArgv );
+	}
 	registerPushCommand( studioArgv );
 
 	studioArgv

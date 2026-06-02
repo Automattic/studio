@@ -72,7 +72,11 @@ type UserDataSafeKeys =
 	| 'preferredEditor'
 	| 'betaFeatures'
 	| 'colorScheme'
-	| 'cliAutoInstalled';
+	| 'defaultSiteDirectory'
+	| 'cliAutoInstalled'
+	| 'wapuuScore'
+	| 'lastNightlyUpdateCheck'
+	| 'nightlyPromptResult';
 
 type PartialUserDataWithSafeKeysToUpdate = Partial< Pick< UserData, UserDataSafeKeys > >;
 

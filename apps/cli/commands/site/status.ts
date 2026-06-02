@@ -31,6 +31,7 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 		autoLoginUrl.pathname = `/studio-auto-login`;
 		autoLoginUrl.searchParams.set( 'redirect_to', `/wp-admin/` );
 
+		/* translators: status value for the Xdebug setting in the site status output */
 		const xdebugStatus = site.enableXdebug ? __( 'Enabled' ) : __( 'Disabled' );
 
 		const siteData: {

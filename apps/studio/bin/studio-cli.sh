@@ -1,9 +1,11 @@
 #!/bin/sh
 
-# Studio CLI launcher
-# In production, runs the bundled binary from the app bundle.
-# In development, falls back to the CLI script with system Node.
-
+# In production, this script lives alongside the standalone CLI binary under the Electron
+# app's resources directory:
+#   macOS: /Applications/Studio.app/Contents/Resources/bin/studio-cli.sh
+#   Linux: /usr/lib/studio/resources/bin/studio-cli.sh
+#
+# In development, it falls back to the CLI script with system Node.
 BIN_DIR=$(dirname "$(realpath "$0")")
 CLI_BINARY="$BIN_DIR/studio"
 CONTENTS_DIR=$(dirname "$(dirname "$BIN_DIR")")

@@ -1,7 +1,7 @@
+import { copyFileSync, cpSync, existsSync, mkdirSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
 import semver from 'semver';
 import { defineConfig } from 'vite';
-import { viteStaticCopy } from 'vite-plugin-static-copy';
 import packageJson from './package.json';
 
 const minimumNodeVersionRange = packageJson.engines?.node;
@@ -100,17 +100,12 @@ function isNativeExternal( id: string ): boolean {
 	return nativeExternals.some( ( ext ) => id === ext || id.startsWith( ext ) );
 }
 
+const bundledWpFilesPath = resolve( __dirname, '..', '..', 'wp-files' );
+const phpSourceCodePath = resolve( __dirname, 'php' );
+const bundledReprintPhar = resolve( __dirname, 'lib/pull/reprint.phar' );
+
 export const baseConfig = defineConfig( {
 	plugins: [
-		viteStaticCopy( {
-			targets: [
-				{
-					src: '../../wp-files',
-					dest: '.',
-					preserveTimestamps: true,
-				},
-			],
-		} ),
 		{
 			// Fix trailing-slash imports for Node.js builtins (e.g., 'string_decoder/')
 			// that some CJS-to-ESM interop generates.
@@ -122,8 +117,30 @@ export const baseConfig = defineConfig( {
 				return null;
 			},
 		},
+		{
+			name: 'write-dist-extras',
+			apply: 'build',
+			writeBundle( options ) {
+				const outDir = options.dir ?? resolve( __dirname, 'dist/cli' );
+				mkdirSync( outDir, { recursive: true } );
+				writeFileSync(
+					resolve( outDir, 'package.json' ),
+					JSON.stringify( { type: 'module' }, null, 2 ) + '\n'
+				);
+				if ( existsSync( phpSourceCodePath ) ) {
+					cpSync( phpSourceCodePath, resolve( outDir, 'php' ), { recursive: true } );
+				}
+				if ( existsSync( bundledWpFilesPath ) ) {
+					cpSync( bundledWpFilesPath, resolve( outDir, 'wp-files' ), { recursive: true } );
+				}
+				if ( existsSync( bundledReprintPhar ) ) {
+					copyFileSync( bundledReprintPhar, resolve( outDir, 'reprint.phar' ) );
+				}
+			},
+		},
 	],
 	build: {
+		emptyOutDir: true,
 		lib: {
 			entry: {
 				main: resolve( __dirname, 'index.ts' ),

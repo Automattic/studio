@@ -1,11 +1,12 @@
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { moreHorizontal, plus } from '@wordpress/icons';
-import { Button, Dialog, IconButton } from '@wordpress/ui';
+import { chevronDown, chevronRight, moreHorizontal, plus } from '@wordpress/icons';
+import { Button, Dialog, Icon, IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useMemo, useState } from 'react';
 import * as Menu from '@/components/menu';
 import { SidebarButton } from '@/components/sidebar-button';
+import { SiteIcon } from '@/components/site-icon';
 import { useSessions } from '@/data/queries/use-sessions';
 import {
 	useCopySite,
@@ -88,7 +89,7 @@ function groupSessionsByOwner(
 	return groups;
 }
 
-function SessionItem( { session }: { session: AiSessionSummary } ) {
+function SessionItem( { session, isVisible }: { session: AiSessionSummary; isVisible: boolean } ) {
 	const label = session.firstPrompt?.trim() || __( '(No prompt yet)' );
 
 	return (
@@ -99,6 +100,7 @@ function SessionItem( { session }: { session: AiSessionSummary } ) {
 					<Link
 						to="/sessions/$sessionId"
 						params={ { sessionId: session.id } }
+						tabIndex={ isVisible ? undefined : -1 }
 						activeProps={ {
 							className: clsx( styles.sessionLink, styles.sessionLinkActive ),
 						} }
@@ -114,6 +116,15 @@ function SessionItem( { session }: { session: AiSessionSummary } ) {
 
 function NewSessionButton( { site }: { site: SiteDetails } ) {
 	const navigate = useNavigate();
+	const [ isPending, setIsPending ] = useState( false );
+	const handleClick = async () => {
+		setIsPending( true );
+		try {
+			await navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+		} finally {
+			setIsPending( false );
+		}
+	};
 	return (
 		<IconButton
 			variant="minimal"
@@ -122,7 +133,9 @@ function NewSessionButton( { site }: { site: SiteDetails } ) {
 			icon={ plus }
 			label={ __( 'New session' ) }
 			className={ styles.siteAction }
-			onClick={ () => void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } ) }
+			loading={ isPending }
+			loadingAnnouncement={ __( 'Creating session' ) }
+			onClick={ handleClick }
 		/>
 	);
 }
@@ -308,7 +321,18 @@ function SiteSection( {
 						onClick={ onToggle }
 						aria-expanded={ isOpen }
 					>
+						{ group.site ? (
+							<span className={ styles.siteIconSlot } aria-hidden="true">
+								<SiteIcon
+									seed={ `${ group.site.id }:${ group.site.name }:${ group.site.path }` }
+									imageSrc={ group.site.siteIcon }
+								/>
+							</span>
+						) : null }
 						<span className={ styles.siteName }>{ group.label }</span>
+						<span className={ styles.siteChevron } aria-hidden="true">
+							<Icon icon={ isOpen ? chevronDown : chevronRight } size={ 16 } />
+						</span>
 					</SidebarButton>
 				</div>
 				{ group.site ? (
@@ -318,12 +342,17 @@ function SiteSection( {
 					</div>
 				) : null }
 			</header>
-			{ isOpen && group.sessions.length > 0 ? (
-				<ul className={ styles.sessionList }>
-					{ group.sessions.map( ( session ) => (
-						<SessionItem key={ session.id } session={ session } />
-					) ) }
-				</ul>
+			{ group.sessions.length > 0 ? (
+				<div
+					className={ clsx( styles.sessionListFrame, isOpen && styles.sessionListFrameOpen ) }
+					aria-hidden={ ! isOpen }
+				>
+					<ul className={ styles.sessionList }>
+						{ group.sessions.map( ( session ) => (
+							<SessionItem key={ session.id } session={ session } isVisible={ isOpen } />
+						) ) }
+					</ul>
+				</div>
 			) : null }
 		</section>
 	);

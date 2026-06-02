@@ -102,7 +102,8 @@ typings/
 out/
 
 # The latest WordPress files downloaded from the web
-wp-files/
+wp-files/*
+!wp-files/blueprints/
 
 # Release Tooling
 vendor/*
@@ -138,6 +139,10 @@ CLAUDE.md
 apps/studio/bin/studio
 apps/studio/bin/studio.exe
 
+# Bundled PHP binary (downloaded during packaging)
+apps/studio/php-bin/
+
+# CLI launcher executable (built during packaging)
 bin/studio-cli.exe
 
 # PromptFoo evaluation outputs

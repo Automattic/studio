@@ -36,17 +36,66 @@
 .siteToggle {
 	max-width: 100%;
 	height: auto;
+	gap: 0;
+}
+
+.siteIconSlot {
+	display: inline-grid;
+	place-items: center;
+	flex-shrink: 0;
+	inline-size: 0;
+	margin-inline-end: 0;
+	opacity: 0;
+	transform: translateX(-4px) scale(0.75);
+	transform-origin: left center;
+	overflow: hidden;
+	transition: inline-size 150ms ease, margin-inline-end 150ms ease, opacity 150ms ease,
+		transform 150ms ease;
+}
+
+.siteActive .siteIconSlot {
+	inline-size: 16px;
+	margin-inline-end: var(--wpds-dimension-padding-xs);
+	opacity: 1;
+	transform: translateX(0) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.siteIconSlot {
+		transition: none;
+	}
 }
 
 .siteName {
-	font-size: var(--wpds-font-size-md);
+	font-size: var(--wpds-typography-font-size-md);
 	line-height: 1.2;
-	font-weight: var(--wpds-font-weight-regular);
+	font-weight: var(--wpds-typography-font-weight-regular);
 	color: var(--wpds-color-fg-content-neutral-weak);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	max-width: 100%;
+}
+
+.siteChevron {
+	display: grid;
+	place-items: center;
+	flex-shrink: 0;
+	width: 16px;
+	height: 16px;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	opacity: 0;
+	transition: opacity 100ms ease, color 100ms ease;
+}
+
+.siteToggle:hover .siteChevron,
+.siteToggle:focus-visible .siteChevron {
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.siteHeader:hover .siteChevron,
+.siteHeader:focus-within .siteChevron {
+	opacity: 1;
 }
 
 .siteToggle:hover .siteName {
@@ -55,7 +104,7 @@
 
 .siteActive .siteName {
 	color: var(--wpds-color-fg-content-neutral);
-	font-weight: var(--wpds-font-weight-medium);
+	font-weight: var(--wpds-typography-font-weight-medium);
 }
 
 .siteActions {
@@ -84,11 +133,27 @@
 .empty {
 	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
 	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-font-size-sm);
+	font-size: var(--wpds-typography-font-size-sm);
 	margin: 0;
 }
 
+.sessionListFrame {
+	display: grid;
+	grid-template-rows: 0fr;
+	opacity: 0;
+	pointer-events: none;
+	transition: grid-template-rows 160ms ease, opacity 120ms ease;
+}
+
+.sessionListFrameOpen {
+	grid-template-rows: 1fr;
+	opacity: 1;
+	pointer-events: auto;
+}
+
 .sessionList {
+	overflow: hidden;
+	min-height: 0;
 	list-style: none;
 	padding: 0;
 	margin: 0 0 var(--wpds-dimension-padding-sm);
@@ -105,8 +170,8 @@
 	height: 26px;
 	padding: 0 var(--wpds-dimension-padding-md) 0 var(--wpds-dimension-padding-xl);
 	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-font-size-sm);
-	font-weight: var(--wpds-font-weight-regular);
+	font-size: var(--wpds-typography-font-size-sm);
+	font-weight: var(--wpds-typography-font-weight-regular);
 }
 
 /* Use ::after so we don't collide with the Button primitive's ::before
@@ -151,8 +216,8 @@
 
 .dialogText {
 	margin: 0;
-	font-size: var(--wpds-font-size-sm);
-	line-height: var(--wpds-font-line-height-sm);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
 	color: var(--wpds-color-fg-content-neutral-weak);
 }
 
@@ -161,15 +226,15 @@
 	align-items: center;
 	gap: var(--wpds-dimension-padding-sm);
 	margin-top: var(--wpds-dimension-padding-sm);
-	font-size: var(--wpds-font-size-sm);
-	line-height: var(--wpds-font-line-height-sm);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
 	color: var(--wpds-color-fg-content-neutral);
 	cursor: var(--wpds-cursor-control);
 }
 
 .dialogError {
 	margin-top: var(--wpds-dimension-padding-sm);
-	font-size: var(--wpds-font-size-sm);
-	line-height: var(--wpds-font-line-height-sm);
-	color: var(--wpds-color-fg-content-critical, var(--wpds-color-fg-content-neutral));
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	color: var(--wpds-color-fg-content-error, var(--wpds-color-fg-content-neutral));
 }

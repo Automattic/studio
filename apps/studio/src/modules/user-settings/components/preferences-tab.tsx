@@ -2,6 +2,8 @@ import { SupportedLocale } from '@studio/common/lib/locale';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Button from 'src/components/button';
+import { FormPathInputComponent } from 'src/components/form-path-input';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { isWindowsStore } from 'src/lib/app-globals';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ColorSchemePicker } from 'src/modules/user-settings/components/color-scheme-picker';
@@ -22,28 +24,36 @@ import {
 	useSaveUserTerminalMutation,
 	useGetStudioCliIsInstalledQuery,
 	useSaveStudioCliIsInstalledMutation,
+	useGetDefaultSiteDirectoryQuery,
+	useSaveDefaultSiteDirectoryMutation,
 } from 'src/stores/installed-apps-api';
+import { SettingsFormField } from './settings-form-field';
 
 export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const { __ } = useI18n();
 	const savedLocale = useI18nLocale();
 	const dispatch = useAppDispatch();
+	const { enableDesksUiSwitch } = useFeatureFlags();
 
 	const { data: colorScheme } = useGetColorSchemeQuery();
 	const { data: editor } = useGetUserEditorQuery();
 	const { data: terminal } = useGetUserTerminalQuery();
 	const { data: isCliInstalled } = useGetStudioCliIsInstalledQuery();
+	const { data: defaultSiteDirectory, isLoading: isLoadingDefaultSiteDirectory } =
+		useGetDefaultSiteDirectoryQuery();
 
 	const [ saveColorSchemePreference ] = useSaveColorSchemeMutation();
 	const [ saveEditor ] = useSaveUserEditorMutation();
 	const [ saveTerminal ] = useSaveUserTerminalMutation();
 	const [ saveCliIsInstalled ] = useSaveStudioCliIsInstalledMutation();
+	const [ saveDefaultSiteDirectory ] = useSaveDefaultSiteDirectoryMutation();
 
 	const [ dirtyColorScheme, setDirtyColorScheme ] = useState< 'system' | 'light' | 'dark' >();
 	const [ dirtyLocale, setDirtyLocale ] = useState< SupportedLocale >();
 	const [ dirtyEditor, setDirtyEditor ] = useState< SupportedEditor | null >();
 	const [ dirtyTerminal, setDirtyTerminal ] = useState< SupportedTerminal >();
 	const [ dirtyIsCliInstalled, setDirtyIsCliInstalled ] = useState< boolean >();
+	const [ dirtyDefaultSiteDirectory, setDirtyDefaultSiteDirectory ] = useState< string >();
 
 	const wasSavedRef = useRef( false );
 	const dirtyColorSchemeRef = useRef( dirtyColorScheme );
@@ -88,14 +98,18 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 		if ( dirtyIsCliInstalled !== undefined ) {
 			await saveCliIsInstalled( dirtyIsCliInstalled );
 		}
+		if ( dirtyDefaultSiteDirectory ) {
+			await saveDefaultSiteDirectory( dirtyDefaultSiteDirectory );
+		}
 		onClose();
 	};
 
 	const colorSchemeSelection = dirtyColorScheme ?? colorScheme ?? 'light';
 	const localeSelection = dirtyLocale ?? savedLocale ?? 'en';
-	const editorSelection = dirtyEditor ?? editor ?? 'vscode';
+	const editorSelection = dirtyEditor !== undefined ? dirtyEditor : editor ?? null;
 	const terminalSelection = dirtyTerminal ?? terminal ?? 'terminal';
 	const isCliInstalledSelection = dirtyIsCliInstalled ?? isCliInstalled ?? false;
+	const defaultSiteDirectorySelection = dirtyDefaultSiteDirectory ?? defaultSiteDirectory ?? '';
 
 	const hasChanges = [
 		[ dirtyColorScheme, colorScheme ],
@@ -103,7 +117,26 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 		[ dirtyEditor, editor ],
 		[ dirtyTerminal, terminal ],
 		[ dirtyIsCliInstalled, isCliInstalled ],
+		[ dirtyDefaultSiteDirectory, defaultSiteDirectory ],
 	].some( ( [ a, b ] ) => a !== undefined && a !== b );
+
+	const handleChangeDefaultDirectory = async () => {
+		const response = await getIpcApi().showOpenFolderDialog(
+			__( 'Select default site directory' ),
+			defaultSiteDirectorySelection
+		);
+		if ( response?.path ) {
+			setDirtyDefaultSiteDirectory( response.path );
+		}
+	};
+
+	const switchToDesksUi = () => {
+		void getIpcApi().setStudioUiMode( 'desks' );
+	};
+
+	const switchToAgenticUi = () => {
+		void getIpcApi().setStudioUiMode( 'agentic' );
+	};
 
 	return (
 		<>
@@ -117,8 +150,26 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 				/>
 				<TerminalPicker value={ terminalSelection } onChange={ setDirtyTerminal } />
 			</div>
+			<SettingsFormField label={ __( 'Default site directory' ) }>
+				<FormPathInputComponent
+					value={ isLoadingDefaultSiteDirectory ? __( 'Loading…' ) : defaultSiteDirectorySelection }
+					onClick={ handleChangeDefaultDirectory }
+				/>
+			</SettingsFormField>
 			{ ! isWindowsStore() && (
 				<StudioCliToggle value={ isCliInstalledSelection } onChange={ setDirtyIsCliInstalled } />
+			) }
+			{ enableDesksUiSwitch && (
+				<SettingsFormField label={ __( 'Studio UI' ) }>
+					<div className="flex flex-wrap gap-3">
+						<Button variant="secondary" onClick={ switchToDesksUi }>
+							{ __( 'Switch to Desks UI' ) }
+						</Button>
+						<Button variant="secondary" onClick={ switchToAgenticUi }>
+							{ __( 'Switch to Agentic UI' ) }
+						</Button>
+					</div>
+				</SettingsFormField>
 			) }
 			<div className="mt-auto pt-2 flex justify-end gap-3">
 				<Button

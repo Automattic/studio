@@ -10,7 +10,7 @@ export class SqlExporter extends ImportExportEventEmitter implements Exporter {
 	async export(): Promise< void > {
 		this.emit( ExportEvents.EXPORT_START );
 		try {
-			await exportDatabaseToFile( this.options.site.path, this.options.backupFile );
+			await exportDatabaseToFile( this.options.site, this.options.backupFile );
 			this.emit( ExportEvents.EXPORT_COMPLETE );
 		} catch ( error ) {
 			this.emit( ExportEvents.EXPORT_ERROR, error );

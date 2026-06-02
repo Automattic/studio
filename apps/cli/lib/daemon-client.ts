@@ -26,6 +26,7 @@ import {
 	childMessageFromProcessManagerSchema,
 } from 'cli/lib/types/wordpress-server-ipc';
 import type { SocketEvent } from '@studio/common/lib/cli-events';
+import type { SiteRuntime } from '@studio/common/lib/site-runtime';
 
 const PROXY_PROCESS_NAME = 'studio-proxy';
 const PROCESS_MANAGER_DAEMON_COMMAND = 'process-manager-daemon';
@@ -280,9 +281,9 @@ export async function sendMessageToProcess(
 }
 
 export async function startProxyProcess(): Promise< ProcessDescription > {
-	return startProcess( PROXY_PROCESS_NAME, path.resolve( import.meta.dirname, 'main.mjs' ), {}, [
-		PROXY_DAEMON_COMMAND,
-	] );
+	return startProcess( PROXY_PROCESS_NAME, path.resolve( import.meta.dirname, 'main.mjs' ), {
+		args: [ PROXY_DAEMON_COMMAND ],
+	} );
 }
 
 export async function isProxyProcessRunning(): Promise< ProcessDescription | undefined > {
@@ -300,7 +301,9 @@ export async function isProcessRunning(
 		const processes = await listProcesses();
 		return processes.find( ( p ) => p.name === processName && p.status === 'online' );
 	} catch ( error ) {
-		console.error( `Error checking if process ${ processName } is running:`, error );
+		if ( ! isRecoverableConnectError( error ) ) {
+			console.error( `Error checking if process ${ processName } is running:`, error );
+		}
 		return undefined;
 	}
 }
@@ -309,18 +312,24 @@ const daemonStartProcessSuccessResponseSchema = z.object( {
 	process: processDescriptionSchema,
 } );
 
+type StartProcessOptions = {
+	env?: NodeJS.ProcessEnv;
+	args?: string[];
+	runtime?: SiteRuntime;
+};
+
 export async function startProcess(
 	processName: string,
 	scriptPath: string,
-	env: Record< string, string > = {},
-	args: string[] = []
+	options: StartProcessOptions = {}
 ): Promise< ProcessDescription > {
 	const response = await sendDaemonRequest( {
 		type: 'start-process',
 		processName,
 		scriptPath,
-		env,
-		args,
+		env: options.env ?? process.env,
+		args: options.args ?? [],
+		runtime: options.runtime,
 	} );
 	return daemonStartProcessSuccessResponseSchema.parse( response ).process;
 }

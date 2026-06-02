@@ -1,4 +1,4 @@
-#!/usr/bin/env ts-node
+#!/usr/bin/env tsx
 /**
  * Creates a standalone Studio CLI binary.
  *
@@ -15,9 +15,9 @@
  * clean tree afterwards, run `npm ci` from the repo root to reset it.
  *
  * Usage:
- *   npx ts-node scripts/create-standalone-bundle.ts
- *   npx ts-node scripts/create-standalone-bundle.ts darwin arm64
- *   npx ts-node scripts/create-standalone-bundle.ts win32 x64
+ *   npx tsx scripts/create-standalone-bundle.ts
+ *   npx tsx scripts/create-standalone-bundle.ts darwin arm64
+ *   npx tsx scripts/create-standalone-bundle.ts win32 x64
  */
 
 import { execSync, spawn } from 'child_process';
@@ -159,7 +159,7 @@ async function main(): Promise< void > {
 	// using a production-facing dir as scratch space.
 	console.log( `\n==> Step 4/5: Downloading Node.js binary for ${ platformArg }-${ archArg }...` );
 	run(
-		`npx ts-node scripts/download-node-binary.ts ${ platformArg } ${ archArg } "${ bundleBuildDir }"`
+		`npx tsx scripts/download-node-binary.ts ${ platformArg } ${ archArg } "${ bundleBuildDir }"`
 	);
 
 	// Step 5: Inject bundle blob into Node binary

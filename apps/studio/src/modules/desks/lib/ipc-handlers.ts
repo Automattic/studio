@@ -51,7 +51,7 @@ export async function getDeskSettings( _event: IpcMainInvokeEvent ): Promise< De
 }
 
 export async function getStudioUiMode( _event: IpcMainInvokeEvent ): Promise< StudioUiMode > {
-	if ( app.isPackaged ) {
+	if ( process.env.NODE_ENV === 'production' && app.isPackaged ) {
 		return 'default';
 	}
 	const userData = await loadUserData();

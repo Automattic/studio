@@ -1,6 +1,14 @@
 import crypto from 'crypto';
 import { fork, type ChildProcess } from 'node:child_process';
+import * as Sentry from '@sentry/electron/main';
 import { setAiSessionSitePlacement } from 'src/lib/ai-session-placement';
+import {
+	bumpStat,
+	bumpAggregatedUniqueStat,
+	getPlatformMetric,
+	StatsGroup,
+	StatsMetric,
+} from 'src/lib/bump-stats';
 import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
 import type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { StudioChatArtifactData } from '@studio/common/ai/chat-artifacts';
@@ -25,6 +33,32 @@ const runsById = new Map< string, AgentRun >();
 
 function nowIso(): string {
 	return new Date().toISOString();
+}
+
+// The CLI subprocess runs with `--avoid-telemetry`, so the desktop side is the
+// only place that records Studio Code assistant usage. Bump stats are simple
+// counters: usage volume, run outcome, and unique active users.
+function bumpChatSendStat(): void {
+	bumpStat( StatsGroup.STUDIO_APP_CODE_CHAT_SEND, getPlatformMetric() );
+	bumpAggregatedUniqueStat(
+		StatsGroup.STUDIO_APP_CODE_CHAT_WKLY_UNQ,
+		getPlatformMetric(),
+		'weekly'
+	).catch( ( err ) => Sentry.captureException( err ) );
+	bumpAggregatedUniqueStat(
+		StatsGroup.STUDIO_APP_CODE_CHAT_MON_UNQ,
+		getPlatformMetric(),
+		'monthly'
+	).catch( ( err ) => Sentry.captureException( err ) );
+}
+
+function bumpChatRunStat( run: AgentRun, code: number | null ): void {
+	const outcome = run.interrupted
+		? StatsMetric.INTERRUPTED
+		: code === 0
+		? StatsMetric.SUCCESS
+		: StatsMetric.FAILURE;
+	bumpStat( StatsGroup.STUDIO_APP_CODE_CHAT_RUN, outcome );
 }
 
 function sendEvent( run: AgentRun, event: AgentRunEvent[ 'event' ] ): void {
@@ -150,6 +184,8 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 	runsBySessionId.set( sessionId, run );
 	runsById.set( runId, run );
 
+	bumpChatSendStat();
+
 	child.on( 'spawn', () => {
 		sendEvent( run, { type: 'run.started', timestamp: nowIso() } );
 	} );
@@ -166,6 +202,8 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 	const cleanup = ( code: number | null ) => {
 		runsBySessionId.delete( sessionId );
 		runsById.delete( runId );
+
+		bumpChatRunStat( run, code );
 
 		void run.eventQueue.finally( () => {
 			if ( run.interrupted ) {

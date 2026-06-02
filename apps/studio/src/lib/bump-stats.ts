@@ -24,11 +24,19 @@ export enum StatsGroup {
 	STUDIO_APP_DOLLY_STOP = 'studio-app-dolly-stop',
 	STUDIO_APP_DOLLY_WKLY_UNQ = 'studio-app-dolly-wkly-unq',
 	STUDIO_APP_DOLLY_MON_UNQ = 'studio-app-dolly-mon-unq',
+	// Studio Code assistant (pi-agent) usage from the desktop UI. The CLI is
+	// spawned with `--avoid-telemetry`, so these are the only stats that capture
+	// the new assistant's usage.
+	STUDIO_APP_CODE_CHAT_SEND = 'studio-app-code-chat-send',
+	STUDIO_APP_CODE_CHAT_RUN = 'studio-app-code-chat-run',
+	STUDIO_APP_CODE_CHAT_WKLY_UNQ = 'studio-app-code-chat-wk-unq',
+	STUDIO_APP_CODE_CHAT_MON_UNQ = 'studio-app-code-chat-mon-unq',
 }
 
 export enum StatsMetric {
 	SUCCESS = 'success',
 	FAILURE = 'failure',
+	INTERRUPTED = 'interrupted',
 	// Export button types
 	FULL_SITE = 'full-site',
 	DATABASE_ONLY = 'database-only',

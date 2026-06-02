@@ -430,8 +430,8 @@ export function Composer( {
 						onClick={ triggerSlashCommands }
 					>
 						{ createInterpolateElement(
-							/* translators: <key/> is a chip showing the "/" key that opens the commands list. */
-							__( '<key/> for commands' ),
+							/* translators: <key/> is a chip showing the "/" key that opens the skills list. */
+							__( '<key/> for skills' ),
 							{ key: <span className={ styles.commandsLegendKey }>/</span> }
 						) }
 					</button>

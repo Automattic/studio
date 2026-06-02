@@ -18,6 +18,19 @@
 	color: var(--wpds-color-fg-content-neutral-weak);
 }
 
+.loading {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+	min-height: 0;
+}
+
+.loadingSpinner {
+	width: 36px;
+	height: 36px;
+}
+
 .header {
 	display: flex;
 	align-items: center;
@@ -73,4 +86,49 @@
 
 .classicComposerOuter {
 	padding: 0 calc(var(--wpds-dimension-padding-2xl) * 2) var(--wpds-dimension-padding-xl);
+}
+
+.emptyConversation {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-lg);
+	margin-top: 40px;
+	padding: 0 var(--wpds-dimension-padding-sm);
+}
+
+.emptyConversationPrompt {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	text-align: center;
+}
+
+.emptyConversationExamples {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: var(--wpds-dimension-padding-md);
+	max-width: 420px;
+}
+
+/* Doubled class (0,2,0) so the background survives Tailwind preflight's
+   unlayered `[type='button'] { background-color: transparent }` reset — see
+   wp-ui-button-defense.module.css for the full rationale. */
+.emptyConversationExample.emptyConversationExample {
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	background: var(--wpds-color-bg-surface-neutral-weak);
+	color: var(--wpds-color-fg-content-neutral);
+	font: inherit;
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: 20px;
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-lg);
+	border-radius: var(--wpds-border-radius-lg);
+	cursor: pointer;
+	transition: background 140ms ease, border-color 140ms ease;
+}
+
+.emptyConversationExample:hover,
+.emptyConversationExample:focus-visible {
+	background: var(--wpds-color-bg-surface-brand);
+	border-color: var(--wpds-color-fg-interactive-brand);
 }

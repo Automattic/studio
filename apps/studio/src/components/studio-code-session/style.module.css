@@ -71,15 +71,17 @@
 
 /* Floating "scroll to bottom" affordance. Anchored to the top edge of the
    composer area and lifted above it so it sits just over the conversation
-   without overlapping the composer. */
+   without overlapping the composer. Aligned to the right edge, next to the
+   conversation scrollbar. */
 .scrollToBottom {
 	position: absolute;
 	bottom: 100%;
 	left: 0;
 	right: 0;
 	display: flex;
-	justify-content: center;
+	justify-content: flex-end;
 	padding-bottom: var(--wpds-dimension-padding-sm);
+	padding-right: calc( var(--wpds-dimension-padding-xl) + var(--wpds-dimension-padding-sm));
 	pointer-events: none;
 	z-index: 1;
 }

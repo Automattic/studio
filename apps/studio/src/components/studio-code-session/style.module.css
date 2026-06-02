@@ -81,7 +81,7 @@
 	display: flex;
 	justify-content: flex-end;
 	padding-bottom: var(--wpds-dimension-padding-sm);
-	padding-right: calc( var(--wpds-dimension-padding-xl) + var(--wpds-dimension-padding-sm));
+	padding-inline-end: calc( var(--wpds-dimension-padding-xl) + var(--wpds-dimension-padding-sm));
 	pointer-events: none;
 	z-index: 1;
 }

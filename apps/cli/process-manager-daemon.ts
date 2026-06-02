@@ -454,60 +454,72 @@ export class ProcessManagerDaemon {
 
 		if ( process.platform === 'win32' ) {
 			if ( signal === 'SIGKILL' ) {
-				// Windows has no process-group concept Node can reach. /T walks the descendant
-				// tree via parent-PID lookup; /F forces termination. Without /T, grandchildren
-				// (e.g. the PHP server spawned by the wrapper) would be orphaned.
-				spawnSync( 'taskkill', [ '/F', '/T', '/PID', String( pid ) ], {
-					windowsHide: true,
-					stdio: 'ignore',
-				} );
-				return;
-			}
-			// Console apps on Windows have no SIGTERM equivalent — `child.kill( 'SIGTERM' )`
-			// maps to TerminateProcess of a single PID, so neither cleanup nor tree-walk runs.
-			// Closing the IPC channel triggers the wrapper's 'disconnect' handler instead, which
-			// kills the PHP child and exits cleanly. Force escalation falls back to taskkill /T.
-			if ( managedProcess.child.connected ) {
+				// Windows has no process group Node can reach; taskkill it instead.
+				this.taskkillTree( pid, true );
+			} else if ( managedProcess.child.connected ) {
+				// Console apps have no SIGTERM equivalent, so close the IPC channel: the wrapper's
+				// 'disconnect' handler kills the PHP child and exits cleanly.
 				try {
 					managedProcess.child.disconnect();
-					// Wait very briefly to allow the disconnect handler to run in the child process
+					// Give the disconnect handler a moment to run in the child.
 					await new Promise( ( resolve ) => setTimeout( resolve, 10 ) );
 				} catch {
 					// Do nothing
 				}
-				return;
-			}
-			try {
-				managedProcess.child.kill( signal );
-			} catch {
-				// Do nothing
-			}
-			return;
-		}
-
-		// Children are spawned with `detached: true` on non-Windows, so each lives in its own
-		// process group. Native PHP can spawn the PHP server in its own group too, so signal both
-		// when the wrapper reports that pid.
-		try {
-			process.kill( -pid, signal );
-		} catch {
-			// Group send can fail if the leader has already exited but children remain.
-			try {
-				managedProcess.child.kill( signal );
-			} catch {
-				// Do nothing
-			}
-		}
-
-		if ( managedProcess.grandchildrenPids ) {
-			for ( const pid of managedProcess.grandchildrenPids ) {
+			} else {
 				try {
-					process.kill( -pid, signal );
+					managedProcess.child.kill( signal );
 				} catch {
 					// Do nothing
 				}
 			}
+
+			// A reported grandchild (native PHP's server) is orphaned once the wrapper exits during
+			// the SIGTERM/disconnect path, leaving it outside the main child's /T tree, so taskkill
+			// it directly. The SIGTERM → SIGKILL escalation in stopProcess gives it a graceful
+			// attempt before forcing termination.
+			if ( managedProcess.grandchildrenPids ) {
+				for ( const grandchildPid of managedProcess.grandchildrenPids ) {
+					this.taskkillTree( grandchildPid, signal === 'SIGKILL' );
+				}
+			}
+		} else {
+			// Non-Windows children are spawned `detached`, so each leads its own process group; native
+			// PHP's server may lead another. Signal both groups when the wrapper reports the pid.
+			try {
+				process.kill( -pid, signal );
+			} catch {
+				// Group send can fail if the leader has already exited but children remain.
+				try {
+					managedProcess.child.kill( signal );
+				} catch {
+					// Do nothing
+				}
+			}
+
+			if ( managedProcess.grandchildrenPids ) {
+				for ( const pid of managedProcess.grandchildrenPids ) {
+					try {
+						process.kill( -pid, signal );
+					} catch {
+						// Do nothing
+					}
+				}
+			}
 		}
+	}
+
+	// Terminates a Windows process tree via taskkill: /T walks descendants by parent-PID; /F
+	// forces termination, otherwise taskkill requests a graceful close console apps may ignore.
+	private taskkillTree( pid: number, force: boolean ): void {
+		const args = [ '/T', '/PID', String( pid ) ];
+		if ( force ) {
+			args.unshift( '/F' );
+		}
+		spawnSync( 'taskkill', args, {
+			windowsHide: true,
+			stdio: 'ignore',
+		} );
 	}
 
 	private async shutdown( reason?: string ): Promise< void > {

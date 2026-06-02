@@ -97,7 +97,9 @@ export const Button = forwardRef< HTMLButtonElement, ButtonProps >( function But
 				>
 					{ content }
 				</Tooltip.Trigger>
-				<Tooltip.Popup side={ resolvedTooltipSide }>{ resolvedTooltipLabel }</Tooltip.Popup>
+				<Tooltip.Popup positioner={ <Tooltip.Positioner side={ resolvedTooltipSide } /> }>
+					{ resolvedTooltipLabel }
+				</Tooltip.Popup>
 			</Tooltip.Root>
 		</Tooltip.Provider>
 	);

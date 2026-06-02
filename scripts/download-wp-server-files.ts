@@ -9,6 +9,20 @@ import fs from 'fs-extra';
 import { z } from 'zod';
 import { extractZip } from '@studio/common/lib/extract-zip';
 import { SQLITE_DATABASE_INTEGRATION_RELEASE_URL } from '../apps/studio/src/constants';
+import { sharedDispatcher, throwForHttpStatus, withRetry } from './lib/with-retry';
+
+async function fetchWithRetry( name: string, url: string ): Promise< Buffer > {
+	return withRetry( name, async () => {
+		const response = await fetch( url, {
+			// `dispatcher` is an undici-specific option not in the standard RequestInit type.
+			dispatcher: sharedDispatcher,
+		} as RequestInit );
+		if ( ! response.ok ) {
+			throwForHttpStatus( 'Request', response.status );
+		}
+		return Buffer.from( await response.arrayBuffer() );
+	} );
+}
 
 const WP_SERVER_FILES_PATH = path.join( import.meta.dirname, '..', 'wp-files' );
 const PHPMYADMIN_PATCH_FILES_PATH = path.join( import.meta.dirname, '..', 'apps', 'cli', 'php' );
@@ -26,32 +40,34 @@ const partialGithubReleaseSchema = z.object( {
 } );
 
 export async function fetchLatestGithubRelease( repo: string ) {
-	const headers: HeadersInit = {
-		Accept: 'application/vnd.github.v3+json',
-		'User-Agent': 'wp-studio-cli',
-	};
+	return withRetry( `github:${ repo }`, async () => {
+		const headers: HeadersInit = {
+			Accept: 'application/vnd.github.v3+json',
+			'User-Agent': 'wp-studio-cli',
+		};
 
-	// GitHub API has rate limits:
-	// - 60 requests/hour for unauthenticated requests
-	// - 5,000 requests/hour with token authentication
-	// In CI environments, the IP-based rate limit is shared across runners,
-	// so we authenticate with GITHUB_TOKEN when available.
-	if ( process.env.GITHUB_TOKEN ) {
-		headers.Authorization = `token ${ process.env.GITHUB_TOKEN }`;
-	}
+		// GitHub API has rate limits:
+		// - 60 requests/hour for unauthenticated requests
+		// - 5,000 requests/hour with token authentication
+		// In CI environments, the IP-based rate limit is shared across runners,
+		// so we authenticate with GITHUB_TOKEN when available.
+		if ( process.env.GITHUB_TOKEN ) {
+			headers.Authorization = `token ${ process.env.GITHUB_TOKEN }`;
+		}
 
-	const response = await fetch( `https://api.github.com/repos/${ repo }/releases/latest`, {
-		headers,
-		signal: AbortSignal.timeout( 5000 ),
+		const response = await fetch( `https://api.github.com/repos/${ repo }/releases/latest`, {
+			headers,
+			dispatcher: sharedDispatcher,
+		} as RequestInit );
+
+		if ( ! response.ok ) {
+			throwForHttpStatus( 'GitHub API request', response.status, response.statusText );
+		}
+
+		const rawResponse: unknown = await response.json();
+
+		return partialGithubReleaseSchema.parse( rawResponse );
 	} );
-
-	if ( ! response.ok ) {
-		throw new Error( `GitHub API request failed: ${ response.status } ${ response.statusText }` );
-	}
-
-	const rawResponse: unknown = await response.json();
-
-	return partialGithubReleaseSchema.parse( rawResponse );
 }
 
 type MaybePromise< T > = T | Promise< T >;
@@ -117,11 +133,7 @@ async function downloadFile( file: FileToDownload ): Promise< void > {
 	}
 
 	const url = await file.getUrl();
-	const response = await fetch( url );
-	if ( ! response.ok ) {
-		throw new Error( `Request failed with status code: ${ response.status }` );
-	}
-	const buffer = Buffer.from( await response.arrayBuffer() );
+	const buffer = await fetchWithRetry( name, url );
 	await fs.writeFile( zipPath, buffer );
 
 	if ( name === 'wp-cli' ) {

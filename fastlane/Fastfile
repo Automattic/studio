@@ -7,6 +7,7 @@ fastlane_require 'json'
 fastlane_require 'net/http'
 fastlane_require 'uri'
 
+require_relative 'lib/studio_apps_cdn_upload'
 require_relative 'lib/studio_release_git'
 require_relative 'lib/studio_release_version'
 
@@ -158,7 +159,7 @@ lane :distribute_release_build do |version: read_package_json_version|
     username: 'CI Bot',
     icon_url: 'https://octodex.github.com/images/jenktocat.jpg',
     message: ":tada: #{release_tag} is now available! :tada:",
-    channel: '#dotcom-studio',
+    channel: '#studio',
     success: true,
     slack_url: get_required_env('SLACK_WEBHOOK'),
     payload: {
@@ -386,7 +387,7 @@ lane :new_beta_release do |version:, skip_confirm: false, github_username: nil|
     - Trigger a release build for all platforms (macOS, Windows), which will then:
       - Upload build artifacts to the Apps CDN
       - Tag v#{new_version}
-      - Notify #dotcom-studio on Slack
+      - Notify #studio on Slack
     - Create a backmerge PR from the release branch to `#{MAIN_BRANCH}`
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
@@ -429,7 +430,7 @@ lane :finalize_release do |version:, skip_confirm: false|
     - Trigger a release build for all platforms (macOS, Windows), which will then:
       - Upload build artifacts to the Apps CDN
       - Create a draft GitHub release with release notes and download links
-      - Notify #dotcom-studio on Slack
+      - Notify #studio on Slack
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
 
@@ -712,12 +713,14 @@ def distribute_builds(
     }
   }
 
-  builds_to_upload = release_tag.nil? ? update_builds : { **update_builds, **full_install_builds }
+  builds_to_upload = { **update_builds, **full_install_builds }
 
-  UI.message("Uploading #{builds_to_upload.count} builds (#{release_tag.nil? ? 'dev: updates only' : 'release: all builds'})")
+  UI.message("Uploading #{builds_to_upload.count} builds (#{build_type})")
 
   # Upload to Apps CDN
   builds_to_upload.each_value do |build|
+    visibility = StudioAppsCdnUpload.visibility_for(build_type: build_type, install_type: build[:install_type])
+
     result = upload_file_to_apps_cdn(
       site_id: WPCOM_STUDIO_SITE_ID,
       product: 'WordPress.com Studio',
@@ -726,7 +729,7 @@ def distribute_builds(
       arch: build[:arch],
       build_type: build_type,
       install_type: build[:install_type],
-      visibility: 'external',
+      visibility: visibility,
       version: version,
       build_number: build_number,
       release_notes: release_notes,

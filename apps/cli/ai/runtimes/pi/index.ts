@@ -291,7 +291,7 @@ async function createStudioAgentSession(
 		authStorage,
 		modelRegistry,
 		model,
-		thinkingLevel: 'high',
+		thinkingLevel: 'medium',
 		sessionManager: config.session,
 		settingsManager,
 		resourceLoader,

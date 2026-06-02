@@ -90,6 +90,13 @@
 	pointer-events: auto;
 	border-radius: 50%;
 	box-shadow: var(--wpds-elevation-shadow-md, 0 2px 8px rgba(0, 0, 0, 0.15));
+	/* Square dimensions + zeroed WP-UI padding vars so the chevron sits in a
+	   perfect circle instead of a pill. */
+	width: 32px;
+	height: 32px;
+	min-width: 32px;
+	--wp-ui-button-padding-inline: 0px;
+	--wp-ui-button-padding-block: 0px;
 }
 
 .classicScroll {

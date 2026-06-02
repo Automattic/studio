@@ -15,10 +15,20 @@ describe( 'getSlashCommandMatches', () => {
 		expect( result.matches ).toEqual( AI_SKILL_COMMANDS );
 	} );
 
-	it( 'filters by name prefix', () => {
+	it( 'filters by case-insensitive substring (including the start)', () => {
 		const result = getSlashCommandMatches( '/an', null );
 		expect( result.open ).toBe( true );
-		expect( result.matches.map( ( command ) => command.name ) ).toEqual( [ 'annotate' ] );
+		// `annotate` starts with it; `rank-me-up` contains it in the middle.
+		expect( result.matches.map( ( command ) => command.name ) ).toEqual( [
+			'annotate',
+			'rank-me-up',
+		] );
+	} );
+
+	it( 'matches a substring in the middle of a name', () => {
+		const result = getSlashCommandMatches( '/speed', null );
+		expect( result.open ).toBe( true );
+		expect( result.matches.map( ( command ) => command.name ) ).toEqual( [ 'need-for-speed' ] );
 	} );
 
 	it( 'closes once a trailing space follows a full command', () => {

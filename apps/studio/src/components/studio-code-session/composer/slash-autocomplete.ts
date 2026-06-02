@@ -12,8 +12,9 @@ export interface SlashCommandMatches {
  *
  * The popup opens only when the textarea holds a single `/` token at the very
  * start with no trailing space (e.g. `/`, `/an`), and no preview prompt is
- * active. The text after the `/` is matched as a case-insensitive name prefix
- * against the available skill commands. If nothing matches, the popup closes.
+ * active. The text after the `/` is matched as a case-insensitive substring
+ * against the available skill command names (so `/speed` matches
+ * `need-for-speed`). If nothing matches, the popup closes.
  */
 export function getSlashCommandMatches(
 	value: string,
@@ -26,9 +27,9 @@ export function getSlashCommandMatches(
 	if ( ! match ) {
 		return { open: false, matches: [] };
 	}
-	const prefix = match[ 1 ].toLowerCase();
+	const query = match[ 1 ].toLowerCase();
 	const matches = AI_SKILL_COMMANDS.filter( ( command ) =>
-		command.name.toLowerCase().startsWith( prefix )
+		command.name.toLowerCase().includes( query )
 	);
 	if ( matches.length === 0 ) {
 		return { open: false, matches: [] };

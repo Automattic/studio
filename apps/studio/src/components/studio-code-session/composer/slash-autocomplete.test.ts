@@ -31,6 +31,24 @@ describe( 'getSlashCommandMatches', () => {
 		expect( result.matches.map( ( command ) => command.name ) ).toEqual( [ 'need-for-speed' ] );
 	} );
 
+	it( 'keeps matching as a hyphenated name is typed out', () => {
+		const result = getSlashCommandMatches( '/need-for', null );
+		expect( result.open ).toBe( true );
+		expect( result.matches.map( ( command ) => command.name ) ).toEqual( [ 'need-for-speed' ] );
+	} );
+
+	it( 'opens for a slash token that follows earlier text and a space', () => {
+		const result = getSlashCommandMatches( 'fix my site /sp', null );
+		expect( result.open ).toBe( true );
+		expect( result.matches.map( ( command ) => command.name ) ).toEqual( [ 'need-for-speed' ] );
+	} );
+
+	it( 'stays closed for a slash glued to the end of a word', () => {
+		const result = getSlashCommandMatches( 'path/to', null );
+		expect( result.open ).toBe( false );
+		expect( result.matches ).toEqual( [] );
+	} );
+
 	it( 'closes once a trailing space follows a full command', () => {
 		const result = getSlashCommandMatches( '/annotate ', null );
 		expect( result.open ).toBe( false );

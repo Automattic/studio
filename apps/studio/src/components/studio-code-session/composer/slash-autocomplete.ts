@@ -10,11 +10,12 @@ export interface SlashCommandMatches {
  * Pure helper that decides whether the inline slash-command autocomplete popup
  * should be open and, if so, which commands match the current draft.
  *
- * The popup opens only when the textarea holds a single `/` token at the very
- * start with no trailing space (e.g. `/`, `/an`), and no preview prompt is
- * active. The text after the `/` is matched as a case-insensitive substring
- * against the available skill command names (so `/speed` matches
- * `need-for-speed`). If nothing matches, the popup closes.
+ * The popup opens when the textarea ends with a `/` token that sits at the
+ * very start or right after whitespace (e.g. `/`, `/an`, `fix this /sp`), and
+ * no preview prompt is active. A `/` glued to the end of a word (e.g.
+ * `path/to`) does not trigger it. The text after the `/` is matched as a
+ * case-insensitive substring against the available skill command names (so
+ * `/speed` matches `need-for-speed`). If nothing matches, the popup closes.
  */
 export function getSlashCommandMatches(
 	value: string,
@@ -23,7 +24,7 @@ export function getSlashCommandMatches(
 	if ( previewPrompt ) {
 		return { open: false, matches: [] };
 	}
-	const match = /^\/(\w*)$/.exec( value );
+	const match = /(?:^|\s)\/([\w-]*)$/.exec( value );
 	if ( ! match ) {
 		return { open: false, matches: [] };
 	}

@@ -118,29 +118,32 @@ export function Composer( {
 		setHighlightedIndex( 0 );
 	}, [ matchKey ] );
 
+	// Replace the trailing `/token` (at start or after whitespace) with the
+	// chosen command, preserving any earlier text and the leading whitespace.
 	const insertSlashCommand = useCallback( ( name: string ) => {
-		setValue( `/${ name } ` );
+		setValue( ( prev ) => prev.replace( /(^|\s)\/[\w-]*$/, `$1/${ name } ` ) );
 		textareaRef.current?.focus();
 	}, [] );
 
-	// Legend affordance below the input: inserts a "/" at the caret (without
-	// clobbering whatever the user already typed) and focuses the textarea. On
-	// an empty input this opens the inline autocomplete so users can discover
-	// the available commands without already knowing the "/" shortcut.
+	// Legend affordance below the input: appends a "/" (preceded by a space when
+	// the input doesn't already end in whitespace) and focuses the textarea,
+	// which opens the inline autocomplete. Keeps whatever the user already typed
+	// so commands can be discovered mid-message, not just on an empty input.
 	const triggerSlashCommands = useCallback( () => {
+		setValue( ( prev ) => {
+			if ( prev.length === 0 ) {
+				return '/';
+			}
+			return /\s$/.test( prev ) ? `${ prev }/` : `${ prev } /`;
+		} );
 		const node = textareaRef.current;
-		if ( ! node ) {
-			setValue( ( prev ) => `${ prev }/` );
-			return;
-		}
-		const { selectionStart, selectionEnd, value: current } = node;
-		const start = selectionStart ?? current.length;
-		const end = selectionEnd ?? current.length;
-		const caret = start + 1;
-		setValue( `${ current.slice( 0, start ) }/${ current.slice( end ) }` );
 		queueMicrotask( () => {
+			if ( ! node ) {
+				return;
+			}
 			node.focus();
-			node.setSelectionRange( caret, caret );
+			const end = node.value.length;
+			node.setSelectionRange( end, end );
 		} );
 	}, [] );
 
@@ -304,11 +307,12 @@ export function Composer( {
 										return;
 									}
 									if ( event.key === 'Escape' ) {
-										// Close the popup only. stopPropagation keeps this Escape
-										// from also reaching the Escape-to-interrupt handler.
+										// Close the popup by dropping the unfinished `/token`, leaving any
+										// earlier text intact. stopPropagation keeps this Escape from also
+										// reaching the Escape-to-interrupt handler.
 										event.preventDefault();
 										event.stopPropagation();
-										setValue( '' );
+										setValue( ( prev ) => prev.replace( /(^|\s)\/[\w-]*$/, '' ) );
 										return;
 									}
 								}

@@ -28,7 +28,7 @@ interface WelcomeComponentProps {
 
 const WelcomeMessagePrompt = React.forwardRef< HTMLDivElement, WelcomeMessagePromptProps >(
 	( { id, children, className }, ref ) => (
-		<div className={ cx( 'flex mt-2' ) }>
+		<div className={ 'flex mt-2' }>
 			<div
 				ref={ ref }
 				id={ id }
@@ -56,7 +56,7 @@ const ExampleMessagePrompt = ( {
 	className,
 	disabled,
 }: ExampleMessagePromptProps ) => (
-	<div className={ cx( 'flex mt-2' ) }>
+	<div className={ 'flex mt-2' }>
 		<Button
 			variant="secondary"
 			className={ cx( '!rounded', className ) }
@@ -64,9 +64,7 @@ const ExampleMessagePrompt = ( {
 			disabled={ disabled }
 		>
 			<div className="assistant-markdown flex items-center">
-				<span className={ cx( 'mr-2 w-4 h-4 flex items-center justify-center' ) }>
-					{ arrowRight }
-				</span>
+				<span className={ 'mr-2 w-4 h-4 flex items-center justify-center' }>{ arrowRight }</span>
 				<p className="inline">{ children }</p>
 			</div>
 		</Button>

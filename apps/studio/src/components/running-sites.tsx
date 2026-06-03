@@ -2,11 +2,9 @@ import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import Button from 'src/components/button';
 import { useSiteDetails } from 'src/hooks/use-site-details';
-import { cx } from 'src/lib/cx';
 
-const linkButtonClassName = cx(
-	'[&.is-link]:text-white [&.is-link:disabled]:hover:text-white [&.is-link:not(:disabled)]:hover:text-a8c-gray-10 [&.is-link]:text-right text-xxs leading-4 !mb-0 items-start'
-);
+const linkButtonClassName =
+	'[&.is-link]:text-white [&.is-link:disabled]:hover:text-white [&.is-link:not(:disabled)]:hover:text-a8c-gray-10 [&.is-link]:text-right text-xxs leading-4 !mb-0 items-start';
 
 export function RunningSites() {
 	const { __, _n } = useI18n();

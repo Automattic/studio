@@ -462,7 +462,7 @@ export const CreateSiteForm = ( {
 								isAdvancedSettingsVisible ? 'h-auto opacity-100' : 'h-0 opacity-0'
 							) }
 						>
-							<div className={ cx( 'flex flex-col gap-1.5 leading-4 py-4' ) }>
+							<div className={ 'flex flex-col gap-1.5 leading-4 py-4' }>
 								<label className="font-semibold" htmlFor="local-path">
 									{ __( 'Local path' ) }
 								</label>

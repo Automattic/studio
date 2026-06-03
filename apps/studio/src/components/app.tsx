@@ -69,10 +69,7 @@ export default function App() {
 	return (
 		<>
 			{ needsOnboarding || isEmpty ? (
-				<VStack
-					className={ cx( 'h-screen backdrop-blur-3xl app-drag-region select-none' ) }
-					spacing="0"
-				>
+				<VStack className={ 'h-screen backdrop-blur-3xl app-drag-region select-none' } spacing="0">
 					{ ( isWindows() || isLinux() ) && (
 						<CustomTitlebar className="h-titlebar-win flex-shrink-0" />
 					) }

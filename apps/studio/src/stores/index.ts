@@ -1,7 +1,6 @@
 import { combineReducers, configureStore, createListenerMiddleware } from '@reduxjs/toolkit';
 import { setupListeners } from '@reduxjs/toolkit/query';
 import { useDispatch, useSelector } from 'react-redux';
-import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
 import { generateStateId } from 'src/hooks/sync-sites/use-pull-push-states';
 import {
 	PullStateProgressInfo,
@@ -11,7 +10,6 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { appVersionApi } from 'src/stores/app-version-api';
 import { betaFeaturesReducer, loadBetaFeatures } from 'src/stores/beta-features-slice';
 import { certificateTrustApi } from 'src/stores/certificate-trust-api';
-import { reducer as chatReducer } from 'src/stores/chat-slice';
 import i18nReducer from 'src/stores/i18n-slice';
 import { installedAppsApi } from 'src/stores/installed-apps-api';
 import onboardingReducer from 'src/stores/onboarding-slice';
@@ -36,7 +34,6 @@ import type { SupportedLocale } from '@studio/common/lib/locale';
 export type RootState = {
 	appVersionApi: ReturnType< typeof appVersionApi.reducer >;
 	betaFeatures: ReturnType< typeof betaFeaturesReducer >;
-	chat: ReturnType< typeof chatReducer >;
 	installedAppsApi: ReturnType< typeof installedAppsApi.reducer >;
 	onboarding: ReturnType< typeof onboardingReducer >;
 	snapshot: ReturnType< typeof snapshotReducer >;
@@ -55,34 +52,6 @@ export type RootState = {
 
 const listenerMiddleware = createListenerMiddleware();
 const startAppListening = listenerMiddleware.startListening.withTypes< RootState, AppDispatch >();
-
-// Save chat messages to local storage
-startAppListening( {
-	predicate( action, currentState, previousState ) {
-		return currentState.chat.messagesDict !== previousState.chat.messagesDict;
-	},
-	effect( action, listenerApi ) {
-		const state = listenerApi.getState();
-		localStorage.setItem(
-			LOCAL_STORAGE_CHAT_MESSAGES_KEY,
-			JSON.stringify( state.chat.messagesDict )
-		);
-	},
-} );
-
-// Save chat API IDs to local storage
-startAppListening( {
-	predicate( action, currentState, previousState ) {
-		return currentState.chat.chatApiIdDict !== previousState.chat.chatApiIdDict;
-	},
-	effect( action, listenerApi ) {
-		const state = listenerApi.getState();
-		localStorage.setItem(
-			LOCAL_STORAGE_CHAT_API_IDS_KEY,
-			JSON.stringify( state.chat.chatApiIdDict )
-		);
-	},
-} );
 
 // Save snapshot changes to CLI config via preview set command
 startAppListening( {
@@ -324,7 +293,6 @@ startAppListening( {
 export const rootReducer = combineReducers( {
 	appVersionApi: appVersionApi.reducer,
 	betaFeatures: betaFeaturesReducer,
-	chat: chatReducer,
 	installedAppsApi: installedAppsApi.reducer,
 	connectedSitesApi: connectedSitesApi.reducer,
 	connectedSites: connectedSitesReducer,

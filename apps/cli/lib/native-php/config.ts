@@ -138,8 +138,14 @@ function getExtensionDir( phpVersion: NativePhpSupportedVersion ): string {
 // PHP's INI parser on Windows accepts forward slashes inside quoted values
 // and is fussy about backslashes (which also act as escape characters). Use
 // forward slashes everywhere and escape stray double quotes.
+//
+// Backslashes are replaced with forward slashes first so that no backslashes
+// remain by the time we escape double-quote characters. This ordering is
+// intentional: converting \ → / before escaping " means a sequence like \"
+// in the original path cannot corrupt the resulting INI value.
 function toPhpIniPath( filePath: string ): string {
-	return filePath.replace( /\\/g, '/' ).replace( /"/g, '\\"' );
+	const forwardSlashed = filePath.replace( /\\/g, '/' );
+	return forwardSlashed.replace( /"/g, '\\"' );
 }
 
 function getNativePhpIniPath( phpVersion: NativePhpSupportedVersion ): string {

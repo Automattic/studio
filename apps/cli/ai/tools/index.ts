@@ -4,6 +4,7 @@ import { createSiteTool } from './create-site';
 import { deletePreviewTool } from './delete-preview';
 import { deleteSiteTool } from './delete-site';
 import { exportSiteTool } from './export-site';
+import { fetchWebpageTool } from './fetch-webpage';
 import { importSiteTool } from './import-site';
 import { installTaxonomyScriptsTool } from './install-taxonomy-scripts';
 import { listConnectedRemoteSitesTool } from './list-connected-remote-sites';
@@ -46,6 +47,7 @@ export const studioToolDefinitions: AnyStudioAgentTool[] = [
 	validateHtmlBlocksTool,
 	validateAndFixBlocksTool,
 	takeScreenshotTool,
+	fetchWebpageTool,
 	shareScreenshotTool,
 	installTaxonomyScriptsTool,
 	auditPerformanceTool,

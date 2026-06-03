@@ -8,6 +8,8 @@ user-invokable: true
 
 Before creating a new WordPress site, gather the user's basic preferences through a short interactive discovery phase. This produces a **Site Spec** that guides all subsequent design and development decisions.
 
+If the initial prompt references an external website by URL (as inspiration, as the site's subject like "build a site for lhab.org", a content source, or a competitor), load the `reference-site` skill and fold what you learn into the spec — it often answers the discovery questions for you.
+
 ## How to Run
 
 Gather preferences through 2 rounds. Keep it concise.

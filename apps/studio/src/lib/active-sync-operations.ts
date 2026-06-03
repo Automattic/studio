@@ -59,22 +59,6 @@ export function pushBackupIsUploading( key: PushStateProgressInfo[ 'key' ] | und
 	return uploadingStateKeys.includes( key );
 }
 
-/**
- * Check if a pull operation is doing local work (download/import).
- *
- * The initial "in-progress" phase is remote backup creation and should not be treated as local work
- * when deciding whether to block unrelated local operations.
- */
-export function pullBackupIsDownloadingOrImporting(
-	key: PullStateProgressInfo[ 'key' ] | undefined
-): boolean {
-	const localPullKeys: PullStateProgressInfo[ 'key' ][] = [ 'downloading', 'importing' ];
-	if ( ! key ) {
-		return false;
-	}
-	return localPullKeys.includes( key );
-}
-
 export function hasUploadingPushOperations(): boolean {
 	//  Iterate over all the sites and check if any operation is cancelable
 	let result = false;

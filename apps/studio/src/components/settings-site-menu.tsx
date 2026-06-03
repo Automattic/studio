@@ -1,9 +1,5 @@
 import { MenuItem } from '@wordpress/components';
 import { useSiteDetails } from 'src/hooks/use-site-details';
-import {
-	pullBackupIsDownloadingOrImporting,
-	pushBackupIsUploading,
-} from 'src/lib/active-sync-operations';
 import { useRootSelector } from 'src/stores';
 import { syncOperationsSelectors } from 'src/stores/sync';
 
@@ -19,25 +15,9 @@ export const SettingsMenuItem = ( {
 	isDestructive = false,
 }: SettingsMenuItemProps ) => {
 	const { isDeleting, sites, selectedSite } = useSiteDetails();
-	const selectedSiteId = selectedSite?.id;
-	const isThisSiteDoingLocalSyncWork = useRootSelector( ( state ) => {
-		if ( ! selectedSiteId ) {
-			return false;
-		}
-		const pullStates = syncOperationsSelectors.selectPullStates( state );
-		const pushStates = syncOperationsSelectors.selectPushStates( state );
-		const anyPullLocal = Object.values( pullStates ).some(
-			( pullState ) =>
-				pullState.selectedSite?.id === selectedSiteId &&
-				pullBackupIsDownloadingOrImporting( pullState.status.key )
-		);
-		const anyPushLocal = Object.values( pushStates ).some(
-			( pushState ) =>
-				pushState.selectedSite?.id === selectedSiteId &&
-				pushBackupIsUploading( pushState.status.key )
-		);
-		return anyPullLocal || anyPushLocal;
-	} );
+	const isThisSiteDoingLocalSyncWork = useRootSelector(
+		syncOperationsSelectors.selectIsSiteDoingLocalSyncWork( selectedSite?.id )
+	);
 	if ( ! selectedSite ) {
 		return null;
 	}

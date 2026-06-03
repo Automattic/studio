@@ -4,7 +4,6 @@ import { ActionButton } from 'src/components/action-button';
 import { PublishSiteButton } from 'src/components/publish-site-button';
 import { Tooltip } from 'src/components/tooltip';
 import { useImportExport } from 'src/hooks/use-import-export';
-import { pullBackupIsDownloadingOrImporting } from 'src/lib/active-sync-operations';
 import { useRootSelector } from 'src/stores';
 import { syncOperationsSelectors } from 'src/stores/sync';
 
@@ -24,14 +23,7 @@ export const SiteManagementActions = ( {
 	const { __ } = useI18n();
 	const { isSiteImporting } = useImportExport();
 	const isPullingLocally = useRootSelector( ( state ) => {
-		if ( ! selectedSite ) {
-			return false;
-		}
-		return Object.values( syncOperationsSelectors.selectPullStates( state ) ).some(
-			( pullState ) =>
-				pullState.selectedSite?.id === selectedSite.id &&
-				pullBackupIsDownloadingOrImporting( pullState.status.key )
-		);
+		syncOperationsSelectors.selectIsSiteIdPullingLocally( selectedSite?.id )( state );
 	} );
 
 	if ( ! selectedSite ) {

@@ -3,10 +3,6 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useCallback } from 'react';
 import { useAuth } from 'src/hooks/use-auth';
 import { useSiteDetails } from 'src/hooks/use-site-details';
-import {
-	pullBackupIsDownloadingOrImporting,
-	pushBackupIsUploading,
-} from 'src/lib/active-sync-operations';
 import { generateCheckoutUrl } from 'src/lib/generate-checkout-url';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ConnectButton } from 'src/modules/sync/components/connect-button';
@@ -22,15 +18,9 @@ export const PublishSiteButton = () => {
 		localSiteId: selectedSite?.id,
 		userId: user?.id,
 	} );
-	const isAnySiteDoingLocalSyncWork = useRootSelector( ( state ) => {
-		const anyPullLocal = Object.values( syncOperationsSelectors.selectPullStates( state ) ).some(
-			( pullState ) => pullBackupIsDownloadingOrImporting( pullState.status.key )
-		);
-		const anyPushLocal = Object.values( syncOperationsSelectors.selectPushStates( state ) ).some(
-			( pushState ) => pushBackupIsUploading( pushState.status.key )
-		);
-		return anyPullLocal || anyPushLocal;
-	} );
+	const isAnySiteDoingLocalSyncWork = useRootSelector(
+		syncOperationsSelectors.selectIsAnySitePullingLocally
+	);
 
 	const handlePublishClick = useCallback( () => {
 		if ( ! selectedSite ) return;

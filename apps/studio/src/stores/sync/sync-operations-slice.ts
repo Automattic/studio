@@ -11,10 +11,6 @@ import {
 } from '@studio/common/types/sync';
 import { __, sprintf } from '@wordpress/i18n';
 import { generateStateId } from 'src/hooks/sync-sites/use-pull-push-states';
-import {
-	pullBackupIsDownloadingOrImporting,
-	pushBackupIsUploading,
-} from 'src/lib/active-sync-operations';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getHostnameFromUrl } from 'src/lib/url-utils';
 import { store } from 'src/stores';
@@ -1134,22 +1130,38 @@ const isKeyPulling = ( key?: PullStateProgressInfo[ 'key' ] ): boolean => {
 	if ( ! key ) {
 		return false;
 	}
-	const pullingStateKeys = [ 'in-progress', 'downloading', 'importing' ];
-	return pullingStateKeys.includes( key );
+	const keys = [ 'in-progress', 'downloading', 'importing' ];
+	return keys.includes( key );
+};
+
+const isKeyPullingLocally = ( key?: PullStateProgressInfo[ 'key' ] ): boolean => {
+	if ( ! key ) {
+		return false;
+	}
+	const keys = [ 'downloading', 'importing' ];
+	return keys.includes( key );
+};
+
+const isKeyUploading = ( key: PushStateProgressInfo[ 'key' ] | undefined ): boolean => {
+	if ( ! key ) {
+		return false;
+	}
+	const keys = [ 'creatingBackup', 'uploading', 'uploadingManuallyPaused' ];
+	return keys.includes( key );
 };
 
 const isKeyPushing = ( key?: PushStateProgressInfo[ 'key' ] ): boolean => {
 	if ( ! key ) {
 		return false;
 	}
-	const pushingStateKeys = [
+	const keys = [
 		'creatingBackup',
 		'uploading',
 		'creatingRemoteBackup',
 		'applyingChanges',
 		'finishing',
 	];
-	return pushingStateKeys.includes( key );
+	return keys.includes( key );
 };
 
 export const syncOperationsSelectors = {
@@ -1174,20 +1186,35 @@ export const syncOperationsSelectors = {
 			isKeyPulling( pullState.status.key )
 		);
 	},
+	selectIsAnySitePullingLocally: ( state: { syncOperations: SyncOperationsState } ): boolean => {
+		return Object.values( state.syncOperations.pullStates ).some( ( pullState ) =>
+			isKeyPullingLocally( pullState.status.key )
+		);
+	},
 	selectIsSiteIdPulling:
 		( selectedSiteId: string, remoteSiteId?: number ) =>
 		( state: { syncOperations: SyncOperationsState } ): boolean => {
 			return Object.values( state.syncOperations.pullStates ).some( ( pullState ) => {
-				if ( ! pullState.selectedSite ) {
-					return false;
-				}
 				if ( pullState.selectedSite.id !== selectedSiteId ) {
 					return false;
 				}
-				if ( remoteSiteId !== undefined ) {
-					return isKeyPulling( pullState.status.key ) && pullState.remoteSiteId === remoteSiteId;
+				if ( pullState.remoteSiteId === remoteSiteId ) {
+					return isKeyPulling( pullState.status.key );
 				}
 				return pullState.status && isKeyPulling( pullState.status.key );
+			} );
+		},
+	selectIsSiteIdPullingLocally:
+		( selectedSiteId?: string, remoteSiteId?: number ) =>
+		( state: { syncOperations: SyncOperationsState } ): boolean => {
+			return Object.values( state.syncOperations.pullStates ).some( ( pullState ) => {
+				if ( pullState.selectedSite.id !== selectedSiteId ) {
+					return false;
+				}
+				if ( pullState.remoteSiteId === remoteSiteId ) {
+					return isKeyPullingLocally( pullState.status.key );
+				}
+				return pullState.status && isKeyPullingLocally( pullState.status.key );
 			} );
 		},
 	selectIsAnySitePushing: ( state: { syncOperations: SyncOperationsState } ): boolean => {
@@ -1196,17 +1223,14 @@ export const syncOperationsSelectors = {
 		);
 	},
 	selectIsSiteIdPushing:
-		( selectedSiteId: string, remoteSiteId?: number ) =>
+		( selectedSiteId?: string, remoteSiteId?: number ) =>
 		( state: { syncOperations: SyncOperationsState } ): boolean => {
 			return Object.values( state.syncOperations.pushStates ).some( ( pushState ) => {
-				if ( ! pushState.selectedSite ) {
-					return false;
-				}
 				if ( pushState.selectedSite.id !== selectedSiteId ) {
 					return false;
 				}
-				if ( remoteSiteId !== undefined ) {
-					return isKeyPushing( pushState.status.key ) && pushState.remoteSiteId === remoteSiteId;
+				if ( pushState.remoteSiteId === remoteSiteId ) {
+					return isKeyPushing( pushState.status.key );
 				}
 				return isKeyPushing( pushState.status.key );
 			} );
@@ -1215,24 +1239,24 @@ export const syncOperationsSelectors = {
 	// downloading/importing, push backup uploading). We can only block on these; the
 	// server-bound phases of a sync continue regardless.
 	selectIsSiteDoingLocalSyncWork:
-		( selectedSiteId: string, remoteSiteId: number ) =>
+		( selectedSiteId?: string, remoteSiteId?: number ) =>
 		( state: { syncOperations: SyncOperationsState } ): boolean => {
-			const stateId = generateStateId( selectedSiteId, remoteSiteId );
-			const pullState = state.syncOperations.pullStates[ stateId ];
-			const pushState = state.syncOperations.pushStates[ stateId ];
 			return (
-				pullBackupIsDownloadingOrImporting( pullState?.status.key ) ||
-				pushBackupIsUploading( pushState?.status.key )
+				syncOperationsSelectors.selectIsSiteIdPullingLocally(
+					selectedSiteId,
+					remoteSiteId
+				)( state ) ||
+				syncOperationsSelectors.selectIsSiteIdPushing( selectedSiteId, remoteSiteId )( state )
 			);
 		},
 	selectIsAnySiteDoingLocalSyncWork: ( state: {
 		syncOperations: SyncOperationsState;
 	} ): boolean => {
 		const anyPullLocal = Object.values( state.syncOperations.pullStates ).some( ( pullState ) =>
-			pullBackupIsDownloadingOrImporting( pullState.status.key )
+			isKeyPullingLocally( pullState.status.key )
 		);
 		const anyPushLocal = Object.values( state.syncOperations.pushStates ).some( ( pushState ) =>
-			pushBackupIsUploading( pushState.status.key )
+			isKeyUploading( pushState.status.key )
 		);
 		return anyPullLocal || anyPushLocal;
 	},

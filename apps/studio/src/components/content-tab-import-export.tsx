@@ -17,10 +17,7 @@ import { useConfirmationDialog } from 'src/hooks/use-confirmation-dialog';
 import { useDragAndDropFile } from 'src/hooks/use-drag-and-drop-file';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
-import {
-	pullBackupIsDownloadingOrImporting,
-	pushBackupIsUploading,
-} from 'src/lib/active-sync-operations';
+import { pushBackupIsUploading } from 'src/lib/active-sync-operations';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useRootSelector } from 'src/stores';
@@ -349,13 +346,9 @@ export function ContentTabImportExport( { selectedSite }: ContentTabImportExport
 		userId: user?.id,
 	} );
 	const isPullingLocally = useRootSelector( ( state ) =>
-		connectedSites.some( ( site ) => {
-			const pullState = syncOperationsSelectors.selectPullState(
-				selectedSite.id,
-				site.id
-			)( state );
-			return pullBackupIsDownloadingOrImporting( pullState?.status.key );
-		} )
+		connectedSites.some( ( site ) =>
+			syncOperationsSelectors.selectIsSiteIdPullingLocally( selectedSite.id, site.id )( state )
+		)
 	);
 	// Only block import/export while the local machine is actively involved in sync.
 	// After the backup upload completes, the push continues remotely and should not block import/export.

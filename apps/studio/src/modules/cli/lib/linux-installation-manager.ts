@@ -44,10 +44,10 @@ export class LinuxCliInstallationManager implements StudioCliInstallationManager
 			return false;
 		}
 
-		return (
-			( await this.doesSymlinkLeadToPackagedCli( cliSymlinkPath ) ) ||
-			( await this.isExternallyManagedCli( cliSymlinkPath ) )
-		);
+		// Only our own packaged-CLI symlink counts as installed. A standalone
+		// (curl) install is managed outside the app: we never report, install
+		// over, or uninstall it.
+		return await this.doesSymlinkLeadToPackagedCli( cliSymlinkPath );
 	}
 
 	async installCliWithConfirmation(): Promise< void > {
@@ -179,6 +179,11 @@ export class LinuxCliInstallationManager implements StudioCliInstallationManager
 				return;
 			}
 			throw error;
+		}
+
+		// Don't remove a CLI the app didn't install (e.g. a standalone curl install).
+		if ( await this.isExternallyManagedCli( cliSymlinkPath ) ) {
+			return;
 		}
 
 		await fs.promises.unlink( cliSymlinkPath );

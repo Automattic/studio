@@ -128,8 +128,11 @@ install_studio() {
 	chmod +x "$TMP_BINARY"
 
 	# Move the verified files into place (atomic rename on the same filesystem).
-	mv -f "$TMP_BINARY" "$BINARY_PATH"
+	# Sidecar first, binary last: if the second move fails, a still-old binary
+	# keeps working with its already-extracted runtime, whereas a new binary next
+	# to an old sidecar would re-extract a version-skewed runtime.
 	mv -f "$TMP_SIDECAR" "$SIDECAR_PATH"
+	mv -f "$TMP_BINARY" "$BINARY_PATH"
 
 	# Symlink to PATH
 	mkdir -p "$BIN_DIR"
@@ -151,10 +154,13 @@ ensure_path() {
 		*)    RC_FILE="$HOME/.profile" ;;
 	esac
 
+	# Write the literal "$HOME/.local/bin" (not the install-time expanded path) so
+	# the line matches what the desktop app writes and looks for — a single shared
+	# PATH entry instead of two divergent ones.
 	if [ "$SHELL_NAME" = "fish" ]; then
-		PATH_LINE="set -gx PATH \"$BIN_DIR\" \$PATH"
+		PATH_LINE='set -gx PATH "$HOME/.local/bin" $PATH'
 	else
-		PATH_LINE="export PATH=\"$BIN_DIR:\$PATH\""
+		PATH_LINE='export PATH="$HOME/.local/bin:$PATH"'
 	fi
 
 	# Exact-line match — a substring hit against an unrelated ".local/bin/..."

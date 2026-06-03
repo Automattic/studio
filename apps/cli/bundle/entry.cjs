@@ -29,6 +29,7 @@
 'use strict';
 
 const { execSync } = require( 'node:child_process' );
+const { createHash } = require( 'node:crypto' );
 const {
 	closeSync,
 	existsSync,
@@ -225,6 +226,23 @@ async function ensureExtracted( bundleVersion ) {
 		// missing/corrupt sidecar fails fast and leaves the previous extraction
 		// intact rather than half-replacing it.
 		const nodeModulesSidecarPath = getNodeModulesSidecarPath();
+		const sidecarBuffer = readFileSync( nodeModulesSidecarPath );
+
+		// Guard against a partially-applied upgrade (a new binary left next to an
+		// old sidecar): verify the sidecar against the hash baked into
+		// bundle-version (version:mainSha:resourcesSha:nodeModulesSha) before using
+		// it, rather than extracting a version-skewed runtime.
+		const expectedSidecarSha = bundleVersion.split( ':' )[ 3 ];
+		if ( expectedSidecarSha ) {
+			const actualSidecarSha = createHash( 'sha256' ).update( sidecarBuffer ).digest( 'hex' );
+			if ( actualSidecarSha !== expectedSidecarSha ) {
+				throw new Error(
+					`node_modules sidecar (${ basename( nodeModulesSidecarPath ) }) does not match this ` +
+						`binary (expected sha256 ${ expectedSidecarSha }, got ${ actualSidecarSha }). The CLI ` +
+						`binary and its sidecar are from different builds — reinstall the CLI to fix.`
+				);
+			}
+		}
 
 		// Assemble the complete runtime in a staging dir, then swap it into place
 		// with a single atomic rename. If any step fails before the swap, CLI_DIR
@@ -241,7 +259,7 @@ async function ensureExtracted( bundleVersion ) {
 			);
 			writeFileSync( join( stagingDir, 'main.mjs' ), Buffer.from( getAsset( 'main.mjs' ) ) );
 			extractTarballInto(
-				readFileSync( nodeModulesSidecarPath ),
+				sidecarBuffer,
 				join( stagingDir, 'node_modules' ),
 				nodeModulesSidecarPath
 			);

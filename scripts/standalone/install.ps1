@@ -87,8 +87,11 @@ function Install-StudioCli {
         Test-Checksum -File $TmpSidecar -ChecksumFile $TmpSidecarChecksum
 
         # Move the verified files into place (replaces any existing install).
-        Move-Item -Path $TmpBinary -Destination $BinaryPath -Force
+        # Sidecar first, binary last: if the second move fails, a still-old binary
+        # keeps working with its already-extracted runtime, whereas a new binary
+        # next to an old sidecar would re-extract a version-skewed runtime.
         Move-Item -Path $TmpSidecar -Destination $SidecarPath -Force
+        Move-Item -Path $TmpBinary -Destination $BinaryPath -Force
     }
     finally {
         Remove-Item $StagingDir -Recurse -Force -ErrorAction SilentlyContinue

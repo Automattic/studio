@@ -273,8 +273,13 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 		return () => cancelAnimationFrame( id );
 	}, [ sessionId, data, isRunning, queuedPrompts.length, stickToBottom ] );
 
+	// The dialog renders alongside every body state below, not just the loaded
+	// one. Creating the migrated site's fresh chat flips this tab back into its
+	// loading state briefly; keeping the dialog mounted across that avoids it
+	// disappearing and reappearing mid-prompt.
+	let body: ReactNode;
 	if ( ! sessionId || isLoading ) {
-		return (
+		body = (
 			<SessionFrame
 				header={ <div className={ styles.header } /> }
 				composer={
@@ -288,19 +293,15 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 				</div>
 			</SessionFrame>
 		);
-	}
-
-	if ( ! data ) {
-		return (
+	} else if ( ! data ) {
+		body = (
 			<div className={ styles.state }>
 				<h1>{ __( 'Session not found' ) }</h1>
 				<p>{ sessionId }</p>
 			</div>
 		);
-	}
-
-	return (
-		<>
+	} else {
+		body = (
 			<SessionFrame
 				scrollRef={ scrollRef }
 				onScroll={ handleScroll }
@@ -360,6 +361,12 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 					) }
 				</div>
 			</SessionFrame>
+		);
+	}
+
+	return (
+		<>
+			{ body }
 			<SiteCreatedDialog
 				pending={ pendingSiteCreation }
 				onOpenNewSite={ openNewSite }

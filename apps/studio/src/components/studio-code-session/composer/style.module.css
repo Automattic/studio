@@ -25,43 +25,19 @@
 	flex-direction: column;
 }
 
-/* Custom listbox anchored above the textarea. Styled to match the
-   `Menu.Popup` surface (see ../menu/style.module.css) so the inline
-   autocomplete is visually consistent with the `/` toolbar menu, while
-   staying a plain element so the textarea keeps focus. */
+/* Inline listbox anchored above the textarea. Reuses the Menu surface
+   (`.popup` from ../menu/style.module.css) for its look; this rule only adds
+   the anchor/layout bits the portaled Menu doesn't need. Stays a plain element
+   so the textarea keeps focus. */
 .autocompletePopup {
 	position: absolute;
 	bottom: calc(100% + 4px);
 	left: 0;
 	z-index: 100;
-	min-width: 280px;
 	max-height: 240px;
 	overflow-y: auto;
 	margin: 0;
-	padding: var(--wpds-dimension-padding-xs);
 	list-style: none;
-	background: var(--wpds-color-bg-surface-neutral-strong);
-	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral-weak);
-	border-radius: var(--wpds-border-radius-lg);
-	box-shadow: var(--wpds-elevation-md);
-	color: var(--wpds-color-fg-content-neutral);
-	display: flex;
-	flex-direction: column;
-	gap: var(--wpds-dimension-padding-xs);
-}
-
-.autocompleteItem {
-	display: flex;
-	align-items: center;
-	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
-	border-radius: var(--wpds-border-radius-sm);
-	cursor: var(--wpds-cursor-control);
-	user-select: none;
-}
-
-.autocompleteItem[data-highlighted],
-.autocompleteItem:hover {
-	background: var(--wpds-color-bg-surface-neutral);
 }
 
 .input {

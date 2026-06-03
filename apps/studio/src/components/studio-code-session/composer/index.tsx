@@ -5,10 +5,11 @@ import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { arrowUp, chevronDownSmall } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import motionStyles from '../floating-surface-motion/style.module.css';
 import * as Menu from '../menu';
+import menuStyles from '../menu/style.module.css';
 import { SESSIONS_QUERY_KEY } from '../use-session';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import { getSlashCommandMatches } from './slash-autocomplete';
@@ -117,6 +118,15 @@ export function Composer( {
 	useEffect( () => {
 		setHighlightedIndex( 0 );
 	}, [ matchKey ] );
+
+	// Accessibility: wire the textarea (combobox) to the listbox and its active
+	// option so screen readers announce the open state and the highlighted item.
+	const listboxId = useId();
+	const optionId = useCallback( ( name: string ) => `${ listboxId }-${ name }`, [ listboxId ] );
+	const activeOptionId =
+		slashOpen && slashMatches[ highlightedIndex ]
+			? optionId( slashMatches[ highlightedIndex ].name )
+			: undefined;
 
 	// Replace the trailing `/token` (at start or after whitespace) with the
 	// chosen command, preserving any earlier text and the leading whitespace.
@@ -283,6 +293,12 @@ export function Composer( {
 							placeholder={ placeholder }
 							value={ previewPrompt ?? value }
 							data-preview={ previewPrompt ? 'true' : 'false' }
+							role="combobox"
+							aria-autocomplete="list"
+							aria-haspopup="listbox"
+							aria-expanded={ slashOpen }
+							aria-controls={ slashOpen ? listboxId : undefined }
+							aria-activedescendant={ activeOptionId }
 							onChange={ ( event ) => setValue( event.target.value ) }
 							onKeyDown={ ( event ) => {
 								if ( slashOpen ) {
@@ -330,7 +346,8 @@ export function Composer( {
 						/>
 						{ slashOpen ? (
 							<ul
-								className={ `${ styles.autocompletePopup } ${ motionStyles.motion }` }
+								id={ listboxId }
+								className={ `${ menuStyles.popup } ${ styles.autocompletePopup } ${ motionStyles.motion }` }
 								data-side="top"
 								data-align="start"
 								role="listbox"
@@ -339,9 +356,10 @@ export function Composer( {
 								{ slashMatches.map( ( command, index ) => (
 									<li
 										key={ command.name }
+										id={ optionId( command.name ) }
 										role="option"
 										aria-selected={ index === highlightedIndex }
-										className={ styles.autocompleteItem }
+										className={ menuStyles.item }
 										data-highlighted={ index === highlightedIndex ? '' : undefined }
 										onMouseDown={ ( event ) => {
 											// Prevent the textarea from losing focus on click.

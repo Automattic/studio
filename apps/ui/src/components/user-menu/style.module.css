@@ -32,15 +32,24 @@
 	gap: var(--wpds-dimension-padding-xs);
 }
 
-.userName,
-.themeToggle {
+.userName {
 	color: var(--wpds-color-fg-content-neutral-weak);
 }
 
+.settingsButton {
+	--wp-ui-button-background-color: transparent;
+	--wp-ui-button-background-color-active: var(--sidebar-row-background-hover);
+	--wp-ui-button-border-color: transparent;
+	--wp-ui-button-border-color-active: transparent;
+
+	color: var(--wpds-color-fg-content-neutral-weak);
+	flex-shrink: 0;
+}
+
 .row:hover .userName,
-.row:hover .themeToggle,
+.row:hover .settingsButton,
 .row:focus-within .userName,
-.row:focus-within .themeToggle {
+.row:focus-within .settingsButton {
 	color: var(--wpds-color-fg-content-neutral);
 }
 
@@ -49,48 +58,11 @@
 	font-weight: var(--wpds-typography-font-weight-regular);
 }
 
-.settingsLink {
-	width: 100%;
-	box-sizing: border-box;
-	height: var(--sidebar-row-height);
-	gap: var(--wpds-dimension-padding-md);
-	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm)
-		var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-xs);
-	border-radius: 6px;
+.settingsButtonActive {
+	--wp-ui-button-background-color: var(--sidebar-row-background-active);
+	--wp-ui-button-background-color-active: var(--sidebar-row-background-active);
+
 	color: var(--wpds-color-fg-content-neutral);
-	font-size: var(--wpds-typography-font-size-md);
-	font-weight: var(--wpds-typography-font-weight-regular);
-	transition: background-color 100ms ease;
-}
-
-.settingsLink:hover,
-.settingsLink:focus-visible {
-	background-color: var(--sidebar-row-background-hover);
-}
-
-.settingsLink:focus-visible {
-	outline: 2px solid var(--ui-desks-focus, #3858e9);
-	outline-offset: -2px;
-}
-
-.settingsLinkActive {
-	background-color: var(--sidebar-row-background-active);
-}
-
-.settingsIconSlot {
-	display: inline-grid;
-	place-items: center;
-	flex-shrink: 0;
-	inline-size: 24px;
-	block-size: 24px;
-}
-
-.settingsLabel {
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-	min-width: 0;
-	line-height: 1.2;
 }
 
 .userName {

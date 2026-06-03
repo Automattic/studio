@@ -1,13 +1,14 @@
 import { __ } from '@wordpress/i18n';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { SidebarHeader } from '@/components/sidebar-header';
 import { SidebarNav } from '@/components/sidebar-nav';
 import { SiteList } from '@/components/site-list';
 import { UserMenu } from '@/components/user-menu';
 import { useFullscreen } from '@/hooks/use-fullscreen';
+import { useKeyboardShortcut } from '@/hooks/use-keyboard-shortcut';
 import { useResizablePanel } from '@/hooks/use-resizable-panel';
 import { SidebarCollapsedContext } from '@/hooks/use-sidebar-collapsed';
 import { drawerIcon } from '@/lib/icons';
@@ -26,6 +27,8 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 	const sidebarStyle = collapsed
 		? undefined
 		: ( { '--sidebar-width': `${ sidebarResize.width }px` } as CSSProperties );
+	const toggleSidebar = useCallback( () => setCollapsed( ( current ) => ! current ), [] );
+	useKeyboardShortcut( 'toggle-sidebar', toggleSidebar );
 
 	return (
 		<SidebarCollapsedContext.Provider value={ collapsed }>

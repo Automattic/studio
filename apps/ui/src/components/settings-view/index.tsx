@@ -1,5 +1,6 @@
 import { isSupportedLocale, supportedLocaleNames } from '@studio/common/lib/locale';
 import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
+import { DEFAULT_MESSAGE_SEND_SHORTCUT } from '@studio/common/lib/user-settings/message-send-shortcut';
 import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { DataForm } from '@wordpress/dataviews';
 import { __ } from '@wordpress/i18n';
@@ -11,10 +12,16 @@ import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useFullscreen } from '@/hooks/use-fullscreen';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
+import {
+	KEYBOARD_SHORTCUTS,
+	getKeyboardShortcutLabel,
+	getMessageSendShortcutLabel,
+} from '@/lib/keyboard-shortcuts';
 import styles from './style.module.css';
 import type {
 	ColorScheme,
 	InstalledApps,
+	MessageSendShortcut,
 	SupportedEditor,
 	SupportedLocale,
 	SupportedTerminal,
@@ -24,10 +31,10 @@ import type {
 import type { Field, Form } from '@wordpress/dataviews';
 import type { FormEvent } from 'react';
 
-type TabId = 'preferences';
+type TabId = 'preferences' | 'keyboard';
 
 export function isSettingsTab( value: string ): value is TabId {
-	return value === 'preferences';
+	return value === 'preferences' || value === 'keyboard';
 }
 
 export type SettingsTabId = TabId;
@@ -41,6 +48,7 @@ interface FormData {
 	terminal: SupportedTerminal | typeof UNSET;
 	colorScheme: ColorScheme;
 	locale: SupportedLocale;
+	messageSendShortcut: MessageSendShortcut;
 }
 
 // The saved locale can be any string the main process resolved (including ones
@@ -56,6 +64,7 @@ function toFormData( prefs: UserPreferences ): FormData {
 		terminal: prefs.terminal ?? UNSET,
 		colorScheme: prefs.colorScheme,
 		locale: resolveFormLocale( prefs.locale ),
+		messageSendShortcut: prefs.messageSendShortcut ?? DEFAULT_MESSAGE_SEND_SHORTCUT,
 	};
 }
 
@@ -66,10 +75,14 @@ function diffFromSaved(
 	const patch: Partial< WritableUserPreferences > = {};
 	const nextEditor: SupportedEditor | null = next.editor === UNSET ? null : next.editor;
 	const nextTerminal: SupportedTerminal | null = next.terminal === UNSET ? null : next.terminal;
+	const savedMessageSendShortcut = saved.messageSendShortcut ?? DEFAULT_MESSAGE_SEND_SHORTCUT;
 	if ( nextEditor !== saved.editor ) patch.editor = nextEditor;
 	if ( nextTerminal !== saved.terminal ) patch.terminal = nextTerminal;
 	if ( next.colorScheme !== saved.colorScheme ) patch.colorScheme = next.colorScheme;
 	if ( next.locale !== resolveFormLocale( saved.locale ) ) patch.locale = next.locale;
+	if ( next.messageSendShortcut !== savedMessageSendShortcut ) {
+		patch.messageSendShortcut = next.messageSendShortcut;
+	}
 	return patch;
 }
 
@@ -103,6 +116,11 @@ const LOCALE_ELEMENTS: { value: SupportedLocale; label: string }[] = Object.entr
 	supportedLocaleNames
 ).map( ( [ value, label ] ) => ( { value: value as SupportedLocale, label } ) );
 
+const MESSAGE_SEND_SHORTCUT_ELEMENTS: { value: MessageSendShortcut; label: string }[] = [
+	{ value: 'mod-enter', label: getMessageSendShortcutLabel( 'mod-enter' ) },
+	{ value: 'enter', label: getMessageSendShortcutLabel( 'enter' ) },
+];
+
 function SettingsHeader() {
 	const sidebarCollapsed = useSidebarCollapsed();
 	const isFullscreen = useFullscreen();
@@ -115,6 +133,22 @@ function SettingsHeader() {
 		<div className={ styles.header }>
 			{ toggleSpacerClass ? <span className={ toggleSpacerClass } aria-hidden="true" /> : null }
 		</div>
+	);
+}
+
+function KeyboardShortcutsList() {
+	return (
+		<section className={ styles.keyboardSection }>
+			<h2>{ __( 'Shortcuts' ) }</h2>
+			<ul className={ styles.shortcutList }>
+				{ KEYBOARD_SHORTCUTS.map( ( shortcut ) => (
+					<li key={ shortcut.id } className={ styles.shortcutRow }>
+						<span className={ styles.shortcutLabel }>{ shortcut.label }</span>
+						<kbd className={ styles.shortcutKey }>{ getKeyboardShortcutLabel( shortcut ) }</kbd>
+					</li>
+				) ) }
+			</ul>
+		</section>
 	);
 }
 
@@ -182,6 +216,26 @@ export function SettingsView( {
 		[]
 	);
 
+	const keyboardFields = useMemo< Field< FormData >[] >(
+		() => [
+			{
+				id: 'messageSendShortcut',
+				type: 'text',
+				label: __( 'Send message with' ),
+				elements: MESSAGE_SEND_SHORTCUT_ELEMENTS,
+			},
+		],
+		[]
+	);
+
+	const keyboardForm = useMemo< Form >(
+		() => ( {
+			layout: { type: 'regular', labelPosition: 'top' },
+			fields: [ 'messageSendShortcut' ],
+		} ),
+		[]
+	);
+
 	const handleChange = useCallback( ( update: Record< string, unknown > ) => {
 		setData( ( prev ) => ( prev ? { ...prev, ...( update as Partial< FormData > ) } : prev ) );
 	}, [] );
@@ -234,6 +288,7 @@ export function SettingsView( {
 					<div className={ styles.tabsBarInner }>
 						<Tabs.List>
 							<Tabs.Tab tabId="preferences">{ __( 'Preferences' ) }</Tabs.Tab>
+							<Tabs.Tab tabId="keyboard">{ __( 'Keyboard' ) }</Tabs.Tab>
 						</Tabs.List>
 					</div>
 				</div>
@@ -246,6 +301,15 @@ export function SettingsView( {
 									data={ data }
 									fields={ preferencesFields }
 									form={ preferencesForm }
+									onChange={ handleChange }
+								/>
+							</Tabs.Panel>
+							<Tabs.Panel tabId="keyboard" className={ styles.keyboardPanel }>
+								<KeyboardShortcutsList />
+								<DataForm< FormData >
+									data={ data }
+									fields={ keyboardFields }
+									form={ keyboardForm }
 									onChange={ handleChange }
 								/>
 							</Tabs.Panel>

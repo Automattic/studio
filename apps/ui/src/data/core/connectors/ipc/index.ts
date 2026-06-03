@@ -598,18 +598,20 @@ export function createIpcConnector(): Connector {
 		// per field; we fan out in parallel here so the UI can work with a
 		// single query/mutation pair.
 		async getUserPreferences(): Promise< UserPreferences > {
-			const [ editor, terminal, colorScheme, locale ] = ( await Promise.all( [
+			const [ editor, terminal, colorScheme, locale, messageSendShortcut ] = ( await Promise.all( [
 				ipcApi.getUserEditor(),
 				ipcApi.getUserTerminal(),
 				ipcApi.getColorScheme(),
 				ipcApi.getUserLocale(),
+				ipcApi.getMessageSendShortcut(),
 			] ) ) as [
 				SupportedEditor | null,
 				SupportedTerminal | null,
 				ColorScheme,
 				string | undefined,
+				UserPreferences[ 'messageSendShortcut' ],
 			];
-			return { editor, terminal, colorScheme, locale };
+			return { editor, terminal, colorScheme, locale, messageSendShortcut };
 		},
 
 		async setUserPreferences( partial ): Promise< void > {
@@ -625,6 +627,9 @@ export function createIpcConnector(): Connector {
 			}
 			if ( 'locale' in partial && partial.locale ) {
 				writes.push( ipcApi.saveUserLocale( partial.locale ) );
+			}
+			if ( 'messageSendShortcut' in partial && partial.messageSendShortcut ) {
+				writes.push( ipcApi.saveMessageSendShortcut( partial.messageSendShortcut ) );
 			}
 			await Promise.all( writes );
 		},

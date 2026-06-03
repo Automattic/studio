@@ -9,6 +9,8 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useSta
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
+import { useUserPreferences } from '@/data/queries/use-user-preferences';
+import { getMessageSendShortcutLabel, shouldSendMessageForKeyDown } from '@/lib/keyboard-shortcuts';
 import { EnvironmentPill } from './environment-pill';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';
@@ -68,9 +70,6 @@ export interface ComposerHandle {
 	appendDraft( text: string ): void;
 }
 
-const isMacPlatform =
-	typeof navigator !== 'undefined' && /mac/i.test( navigator.platform || navigator.userAgent );
-
 export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Composer(
 	{
 		busy,
@@ -93,6 +92,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const textareaRef = useRef< HTMLTextAreaElement | null >( null );
 	const connector = useConnector();
 	const queryClient = useQueryClient();
+	const { data: preferences } = useUserPreferences();
 
 	// Cross-family swap state. We hold the picked model here while the
 	// confirmation dialog is open; nothing is persisted until the user
@@ -244,7 +244,8 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		? __( 'Queue a follow-up instruction…' )
 		: __( 'Set your next instruction…' );
 	const sendAriaLabel = busy ? __( 'Queue' ) : __( 'Send' );
-	const modKey = isMacPlatform ? '⌘' : 'Ctrl';
+	const messageSendShortcut = preferences?.messageSendShortcut;
+	const sendShortcutLabel = getMessageSendShortcutLabel( messageSendShortcut );
 
 	return (
 		<>
@@ -262,7 +263,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 								void onInterrupt();
 								return;
 							}
-							if ( event.key === 'Enter' && ( event.metaKey || event.ctrlKey ) ) {
+							if ( shouldSendMessageForKeyDown( event, messageSendShortcut ) ) {
 								event.preventDefault();
 								void send();
 							}
@@ -363,7 +364,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 				</div>
 				<div className={ styles.meta }>
 					<span className={ styles.metaHint }>
-						{ modKey }↩ { __( 'to send' ) } · shift↩ { __( 'for newline' ) }
+						{ sendShortcutLabel } { __( 'to send' ) } · Shift+Enter { __( 'for newline' ) }
 					</span>
 					{ error ? <span className={ styles.error }>{ error }</span> : null }
 					<span className={ styles.metaUses }>{ __( 'Uses 1 message' ) }</span>

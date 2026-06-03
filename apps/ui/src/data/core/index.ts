@@ -17,6 +17,7 @@ export type {
 	InstalledApps,
 	LocalMediaFile,
 	LoadedAiSession,
+	MessageSendShortcut,
 	ProposedSitePath,
 	SelectedSiteFolder,
 	SessionEntry,

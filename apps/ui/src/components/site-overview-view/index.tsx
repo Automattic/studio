@@ -1,6 +1,9 @@
+import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
+import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { Link } from '@tanstack/react-router';
-import { __ } from '@wordpress/i18n';
-import { Button, Dialog } from '@wordpress/ui';
+import { __, sprintf } from '@wordpress/i18n';
+import { archive, code, desktop, external, grid, preformatted } from '@wordpress/icons';
+import { Button, Dialog, Icon } from '@wordpress/ui';
 import { useEffect, useState } from 'react';
 import { useConnector } from '@/data/core';
 import {
@@ -9,20 +12,44 @@ import {
 	useUnarchiveSession,
 	useUpdateSessionTitleDescription,
 } from '@/data/queries/use-sessions';
-import { useSites } from '@/data/queries/use-sites';
+import {
+	useIsSiteStarting,
+	useIsSiteStopping,
+	useSites,
+	useStartSite,
+} from '@/data/queries/use-sites';
+import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { formatRelativeTime } from '@/lib/format-relative-time';
-import { getSiteDisplayUrl, getSiteUrl } from '@/lib/get-site-url';
+import { getSiteDisplayUrl } from '@/lib/get-site-url';
 import styles from './style.module.css';
-import type { AiSessionSummary } from '@/data/core';
-import type { FormEvent } from 'react';
+import type {
+	AiSessionSummary,
+	SiteDetails,
+	SupportedEditor,
+	SupportedTerminal,
+} from '@/data/core';
+import type { ComponentProps, FormEvent } from 'react';
+
+type ShortcutIcon = ComponentProps< typeof Icon >[ 'icon' ];
+
+interface SiteShortcutAction {
+	id: string;
+	label: string;
+	icon: ShortcutIcon;
+	disabled?: boolean;
+	run: () => Promise< void >;
+}
 
 export function SiteOverviewView( { siteId }: { siteId: string } ) {
-	const connector = useConnector();
 	const { data: sites, isLoading } = useSites();
 	const { data: sessions, isLoading: isLoadingSessions } = useSessions();
+	const { data: userPreferences } = useUserPreferences();
+	const startSite = useStartSite();
 	const archiveSession = useArchiveSession();
 	const unarchiveSession = useUnarchiveSession();
 	const site = sites?.find( ( candidate ) => candidate.id === siteId );
+	const isStarting = useIsSiteStarting( siteId );
+	const isStopping = useIsSiteStopping( siteId );
 
 	if ( isLoading ) {
 		return <div className={ styles.state }>{ __( 'Loading...' ) }</div>;
@@ -37,7 +64,6 @@ export function SiteOverviewView( { siteId }: { siteId: string } ) {
 		);
 	}
 
-	const siteUrl = getSiteUrl( site );
 	const siteSessions = [ ...( sessions ?? [] ) ]
 		.filter( ( session ) => session.ownerSitePath === site.path )
 		.sort( ( a, b ) => Date.parse( b.updatedAt ) - Date.parse( a.updatedAt ) );
@@ -53,14 +79,6 @@ export function SiteOverviewView( { siteId }: { siteId: string } ) {
 						<h1 className={ styles.title }>{ site.name }</h1>
 						<p className={ styles.subtitle }>{ getSiteDisplayUrl( site ) }</p>
 					</div>
-					<Button
-						variant="outline"
-						tone="neutral"
-						disabled={ ! site.running }
-						onClick={ () => void connector.openExternalUrl( siteUrl ) }
-					>
-						{ __( 'Open site' ) }
-					</Button>
 				</header>
 				<div className={ styles.details }>
 					<Detail
@@ -75,6 +93,13 @@ export function SiteOverviewView( { siteId }: { siteId: string } ) {
 						value={ site.isWpAutoUpdating === false ? __( 'Pinned' ) : __( 'Automatic' ) }
 					/>
 				</div>
+				<SiteShortcuts
+					site={ site }
+					editor={ userPreferences?.editor }
+					terminal={ userPreferences?.terminal }
+					isRuntimeBusy={ isStarting || isStopping || startSite.isPending }
+					onStartSite={ () => startSite.mutateAsync( site.id ) }
+				/>
 				<section className={ styles.chats }>
 					<header className={ styles.sectionHeader }>
 						<h2 className={ styles.sectionTitle }>{ __( 'Chats' ) }</h2>
@@ -112,6 +137,151 @@ export function SiteOverviewView( { siteId }: { siteId: string } ) {
 			</div>
 		</div>
 	);
+}
+
+function SiteShortcuts( {
+	site,
+	editor,
+	terminal,
+	isRuntimeBusy,
+	onStartSite,
+}: {
+	site: SiteDetails;
+	editor: SupportedEditor | null | undefined;
+	terminal: SupportedTerminal | null | undefined;
+	isRuntimeBusy: boolean;
+	onStartSite: () => Promise< void >;
+} ) {
+	const connector = useConnector();
+	const [ busyActionId, setBusyActionId ] = useState< string | null >( null );
+	const [ errorMessage, setErrorMessage ] = useState< string | null >( null );
+	const isActionBusy = Boolean( busyActionId );
+	const actionDisabled = isRuntimeBusy || isActionBusy;
+	const editorLabel = editor ? supportedEditorConfig[ editor ].label : __( 'Editor' );
+	const terminalLabel = terminal ? terminalConfig[ terminal ].name : __( 'Terminal' );
+
+	const openSitePath = async (
+		path = '',
+		options?: Parameters< typeof connector.openSiteUrl >[ 2 ]
+	) => {
+		if ( ! site.running ) {
+			await onStartSite();
+		}
+		if ( options ) {
+			await connector.openSiteUrl( site.id, path, options );
+			return;
+		}
+		await connector.openSiteUrl( site.id, path );
+	};
+
+	const actions: SiteShortcutAction[] = [
+		{
+			id: 'open-site',
+			label: __( 'Open site' ),
+			icon: external,
+			disabled: actionDisabled,
+			run: () => openSitePath( '', { autoLogin: false } ),
+		},
+		{
+			id: 'wp-admin',
+			label: __( 'WP Admin' ),
+			icon: desktop,
+			disabled: actionDisabled,
+			run: () => openSitePath( '/wp-admin/' ),
+		},
+		{
+			id: 'phpmyadmin',
+			label: __( 'phpMyAdmin' ),
+			icon: grid,
+			disabled: actionDisabled,
+			run: () => openSitePath( '/phpmyadmin/index.php?route=/database/structure&db=wordpress' ),
+		},
+		{
+			id: 'files',
+			label: getFilesLabel(),
+			icon: archive,
+			disabled: isActionBusy,
+			run: () => connector.openSiteFolder( site.id ),
+		},
+		{
+			id: 'editor',
+			label: editorLabel,
+			icon: code,
+			disabled: isActionBusy || ! editor,
+			run: () => connector.openSiteInEditor( site.id ),
+		},
+		{
+			id: 'terminal',
+			label: terminalLabel,
+			icon: preformatted,
+			disabled: isActionBusy,
+			run: () => connector.openSiteInTerminal( site.id ),
+		},
+	];
+
+	const runShortcut = async ( action: SiteShortcutAction ) => {
+		if ( action.disabled || busyActionId ) {
+			return;
+		}
+		setBusyActionId( action.id );
+		setErrorMessage( null );
+		try {
+			await action.run();
+		} catch ( error ) {
+			console.error( 'Failed to run site shortcut:', error );
+			setErrorMessage(
+				sprintf(
+					/* translators: %s: shortcut label, such as "WP Admin". */
+					__( 'Could not open %s.' ),
+					action.label
+				)
+			);
+		} finally {
+			setBusyActionId( null );
+		}
+	};
+
+	return (
+		<section className={ styles.shortcuts }>
+			<header className={ styles.sectionHeader }>
+				<h2 className={ styles.sectionTitle }>{ __( 'Shortcuts' ) }</h2>
+			</header>
+			<div className={ styles.shortcutGrid }>
+				{ actions.map( ( action ) => (
+					<Button
+						key={ action.id }
+						variant="outline"
+						tone="neutral"
+						className={ styles.shortcutButton }
+						disabled={ action.disabled }
+						loading={ busyActionId === action.id }
+						loadingAnnouncement={ sprintf(
+							/* translators: %s: shortcut label, such as "WP Admin". */
+							__( 'Opening %s' ),
+							action.label
+						) }
+						onClick={ () => void runShortcut( action ) }
+					>
+						<Icon icon={ action.icon } size={ 18 } />
+						<span>{ action.label }</span>
+					</Button>
+				) ) }
+			</div>
+			{ errorMessage ? <p className={ styles.shortcutError }>{ errorMessage }</p> : null }
+		</section>
+	);
+}
+
+function getFilesLabel() {
+	const platform =
+		typeof navigator === 'undefined' ? 'MacIntel' : navigator.platform || navigator.userAgent;
+	if ( /win/i.test( platform ) ) {
+		return __( 'File Explorer' );
+	}
+	if ( /mac/i.test( platform ) ) {
+		return __( 'Finder' );
+	}
+	return __( 'Files' );
 }
 
 function Detail( { label, value }: { label: string; value: string } ) {

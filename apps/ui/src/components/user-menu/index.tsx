@@ -1,7 +1,7 @@
 import { Link } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { cog } from '@wordpress/icons';
-import { Icon, IconButton } from '@wordpress/ui';
+import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { Gravatar } from '@/components/gravatar';
 import * as Menu from '@/components/menu';
@@ -9,11 +9,9 @@ import { SidebarButton } from '@/components/sidebar-button';
 import { useConnector } from '@/data/core';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
 import { useFeatureFlags } from '@/data/queries/use-feature-flags';
-import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
+import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
-import { moonIcon, sunIcon } from '@/lib/icons';
 import styles from './style.module.css';
-import type { ColorScheme } from '@/data/core';
 
 const WPCOM_PROFILE_URL = 'https://wordpress.com/me';
 const DOCS_URL = 'https://developer.wordpress.com/docs/developer-tools/studio/';
@@ -24,13 +22,11 @@ export function UserMenu() {
 	const { data: user } = useAuthUser();
 	const { data: preferences } = useUserPreferences();
 	const { data: featureFlags } = useFeatureFlags();
-	const savePreferences = useSaveUserPreferences();
 	const login = useLogin();
 	const logout = useLogout();
 	const effectiveScheme = usePrefersColorScheme();
 
 	const savedScheme = preferences?.colorScheme;
-	const currentScheme: ColorScheme = savedScheme ?? 'system';
 	const themeIsDark =
 		savedScheme === 'dark' || ( savedScheme !== 'light' && effectiveScheme === 'dark' );
 
@@ -44,22 +40,6 @@ export function UserMenu() {
 
 	return (
 		<div className={ styles.root }>
-			<SidebarButton
-				className={ styles.settingsLink }
-				render={
-					<Link
-						to="/settings"
-						activeProps={ {
-							className: clsx( styles.settingsLink, styles.settingsLinkActive ),
-						} }
-					/>
-				}
-			>
-				<span className={ styles.settingsIconSlot }>
-					<Icon icon={ cog } size={ 24 } />
-				</span>
-				<span className={ styles.settingsLabel }>{ __( 'Settings' ) }</span>
-			</SidebarButton>
 			<div className={ styles.row }>
 				{ user ? (
 					<Menu.Root modal={ false }>
@@ -101,32 +81,23 @@ export function UserMenu() {
 						{ __( 'Log in with WordPress.com' ) }
 					</SidebarButton>
 				) }
-				<Menu.Root modal={ false }>
-					<Menu.Trigger
-						render={
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								className={ styles.themeToggle }
-								icon={ themeIsDark ? sunIcon : moonIcon }
-								label={ __( 'Appearance' ) }
-							/>
-						}
-					/>
-					<Menu.Popup side="top" align="end">
-						<Menu.RadioGroup
-							value={ currentScheme }
-							onValueChange={ ( value ) =>
-								savePreferences.mutate( { colorScheme: value as ColorScheme } )
-							}
-						>
-							<Menu.RadioItem value="system">{ __( 'System' ) }</Menu.RadioItem>
-							<Menu.RadioItem value="light">{ __( 'Light' ) }</Menu.RadioItem>
-							<Menu.RadioItem value="dark">{ __( 'Dark' ) }</Menu.RadioItem>
-						</Menu.RadioGroup>
-					</Menu.Popup>
-				</Menu.Root>
+				<IconButton
+					variant="minimal"
+					tone="neutral"
+					size="small"
+					className={ styles.settingsButton }
+					icon={ cog }
+					label={ __( 'Settings' ) }
+					render={
+						<Link
+							to="/settings"
+							activeOptions={ { exact: true } }
+							activeProps={ {
+								className: clsx( styles.settingsButton, styles.settingsButtonActive ),
+							} }
+						/>
+					}
+				/>
 			</div>
 		</div>
 	);

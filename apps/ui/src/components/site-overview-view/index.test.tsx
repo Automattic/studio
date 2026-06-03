@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import {
@@ -8,7 +8,13 @@ import {
 	useUnarchiveSession,
 	useUpdateSessionTitleDescription,
 } from '@/data/queries/use-sessions';
-import { useSites } from '@/data/queries/use-sites';
+import {
+	useIsSiteStarting,
+	useIsSiteStopping,
+	useSites,
+	useStartSite,
+} from '@/data/queries/use-sites';
+import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { SiteOverviewView } from './index';
 import type { ReactNode } from 'react';
 
@@ -45,11 +51,22 @@ vi.mock( '@/data/queries/use-sessions', () => ( {
 } ) );
 
 vi.mock( '@/data/queries/use-sites', () => ( {
+	useIsSiteStarting: vi.fn(),
+	useIsSiteStopping: vi.fn(),
 	useSites: vi.fn(),
+	useStartSite: vi.fn(),
+} ) );
+
+vi.mock( '@/data/queries/use-user-preferences', () => ( {
+	useUserPreferences: vi.fn(),
 } ) );
 
 const useConnectorMock = vi.mocked( useConnector );
 const useSitesMock = vi.mocked( useSites );
+const useIsSiteStartingMock = vi.mocked( useIsSiteStarting );
+const useIsSiteStoppingMock = vi.mocked( useIsSiteStopping );
+const useStartSiteMock = vi.mocked( useStartSite );
+const useUserPreferencesMock = vi.mocked( useUserPreferences );
 const useSessionsMock = vi.mocked( useSessions );
 const useArchiveSessionMock = vi.mocked( useArchiveSession );
 const useUnarchiveSessionMock = vi.mocked( useUnarchiveSession );
@@ -59,12 +76,42 @@ describe( 'SiteOverviewView', () => {
 	const archiveMutate = vi.fn();
 	const unarchiveMutate = vi.fn();
 	const updateTitleDescriptionMutateAsync = vi.fn();
+	const openSiteUrl = vi.fn();
+	const openSiteFolder = vi.fn();
+	const openSiteInEditor = vi.fn();
+	const openSiteInTerminal = vi.fn();
+	const startSiteMutateAsync = vi.fn();
 
 	beforeEach( () => {
 		archiveMutate.mockReset();
 		unarchiveMutate.mockReset();
 		updateTitleDescriptionMutateAsync.mockReset().mockResolvedValue( undefined );
-		useConnectorMock.mockReturnValue( { openExternalUrl: vi.fn() } as never );
+		openSiteUrl.mockReset().mockResolvedValue( undefined );
+		openSiteFolder.mockReset().mockResolvedValue( undefined );
+		openSiteInEditor.mockReset().mockResolvedValue( undefined );
+		openSiteInTerminal.mockReset().mockResolvedValue( undefined );
+		startSiteMutateAsync.mockReset().mockResolvedValue( undefined );
+		useConnectorMock.mockReturnValue( {
+			openSiteUrl,
+			openSiteFolder,
+			openSiteInEditor,
+			openSiteInTerminal,
+		} as never );
+		useIsSiteStartingMock.mockReturnValue( false );
+		useIsSiteStoppingMock.mockReturnValue( false );
+		useStartSiteMock.mockReturnValue( {
+			mutateAsync: startSiteMutateAsync,
+			isPending: false,
+		} as never );
+		useUserPreferencesMock.mockReturnValue( {
+			data: {
+				editor: 'vscode',
+				terminal: 'terminal',
+				colorScheme: 'system',
+				messageSendShortcut: 'mod-enter',
+				locale: undefined,
+			},
+		} as never );
 		useArchiveSessionMock.mockReturnValue( { mutate: archiveMutate, isPending: false } as never );
 		useUnarchiveSessionMock.mockReturnValue( {
 			mutate: unarchiveMutate,
@@ -126,6 +173,55 @@ describe( 'SiteOverviewView', () => {
 			'/sessions/archived-session'
 		);
 		expect( screen.queryByText( 'Other site chat' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'opens site shortcuts from the detail view', async () => {
+		render( <SiteOverviewView siteId="site-1" /> );
+
+		fireEvent.click( screen.getByRole( 'button', { name: /Open site/ } ) );
+		await waitFor( () => {
+			expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '', { autoLogin: false } );
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: /WP Admin/ } ) );
+		await waitFor( () => {
+			expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/' );
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: /Finder|Files|File Explorer/ } ) );
+		await waitFor( () => {
+			expect( openSiteFolder ).toHaveBeenCalledWith( 'site-1' );
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: /Visual Studio Code/ } ) );
+		await waitFor( () => {
+			expect( openSiteInEditor ).toHaveBeenCalledWith( 'site-1' );
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: /Terminal/ } ) );
+		await waitFor( () => {
+			expect( openSiteInTerminal ).toHaveBeenCalledWith( 'site-1' );
+		} );
+	} );
+
+	it( 'starts a stopped site before opening web shortcuts', async () => {
+		useSitesMock.mockReturnValue( {
+			data: [
+				{
+					id: 'site-1',
+					name: 'Example Site',
+					path: '/Users/example/Studio/example-site',
+					running: false,
+					phpVersion: '8.3',
+				},
+			],
+			isLoading: false,
+		} as never );
+
+		render( <SiteOverviewView siteId="site-1" /> );
+
+		fireEvent.click( screen.getByRole( 'button', { name: /Open site/ } ) );
+
+		await waitFor( () => {
+			expect( startSiteMutateAsync ).toHaveBeenCalledWith( 'site-1' );
+			expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '', { autoLogin: false } );
+		} );
 	} );
 
 	it( 'archives and unarchives chats from the site details view', () => {

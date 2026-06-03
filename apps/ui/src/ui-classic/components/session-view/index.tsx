@@ -13,6 +13,7 @@ import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites
 import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import { useFullscreen } from '@/hooks/use-fullscreen';
+import { useKeyboardShortcut } from '@/hooks/use-keyboard-shortcut';
 import { useSessionCommands } from '@/hooks/use-session-commands';
 import { SessionUIProvider, useSessionPreviewUI } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
@@ -170,6 +171,16 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const preview = useSessionPreviewUI();
 	const canTogglePreview = !! ownerSite && effectiveEnvironment === 'local';
 	const showPreview = preview.open && canTogglePreview;
+	const ownerSiteId = ownerSite?.id;
+	const createNewChatForSite = useCallback( () => {
+		if ( ! ownerSiteId ) {
+			return;
+		}
+		void navigate( { to: '/sites/$siteId/new', params: { siteId: ownerSiteId } } );
+	}, [ navigate, ownerSiteId ] );
+	useKeyboardShortcut( 'new-chat-in-current-site', createNewChatForSite, {
+		enabled: !! ownerSiteId,
+	} );
 
 	const handleAnnotationsDone = useCallback(
 		( annotations: Annotation[] ) => {

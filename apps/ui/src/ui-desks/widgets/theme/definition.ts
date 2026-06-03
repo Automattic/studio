@@ -56,7 +56,7 @@ export const themeWidgetDefinition = {
 			Component: ThemeSiteUrlControl( {
 				icon: typography,
 				path: '/wp-admin/admin.php?page=font-library-wp-admin',
-				label: __( 'Font library' ),
+				label: () => __( 'Font library' ),
 			} ),
 		},
 		{
@@ -65,7 +65,7 @@ export const themeWidgetDefinition = {
 			Component: ThemeSiteUrlControl( {
 				icon: stylesIcon,
 				path: '/wp-admin/site-editor.php?path=%2Fwp_global_styles',
-				label: __( 'Styles' ),
+				label: () => __( 'Styles' ),
 				requiresBlockTheme: true,
 			} ),
 		},
@@ -75,7 +75,7 @@ export const themeWidgetDefinition = {
 			Component: ThemeSiteUrlControl( {
 				icon: layout,
 				path: '/wp-admin/themes.php',
-				label: __( 'Browse themes' ),
+				label: () => __( 'Browse themes' ),
 			} ),
 		},
 	],

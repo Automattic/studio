@@ -9,7 +9,7 @@ import type { ControlRenderContext } from '@/ui-desks/controls/types';
 
 type ThemeSiteUrlControlOptions = {
 	icon: ComponentProps< typeof Button >[ 'icon' ];
-	label: string;
+	label: () => string;
 	path: string;
 	requiresBlockTheme?: boolean;
 };
@@ -37,7 +37,7 @@ export function ThemeSiteUrlControl( {
 		return (
 			<Button
 				icon={ icon }
-				label={ label }
+				label={ label() }
 				variant="quiet"
 				size="medium"
 				disabled={ ! siteId }

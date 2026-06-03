@@ -10,7 +10,7 @@ export interface SkillStatus extends SkillConfig {
 	installed: boolean;
 }
 
-export const BUNDLED_SKILLS: SkillConfig[] = [
+export const getBundledSkills = (): SkillConfig[] => [
 	{
 		id: 'studio-cli',
 		displayName: __( 'Studio CLI' ),

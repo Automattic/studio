@@ -33,17 +33,17 @@ const NOTE_TONE_STROKE: Record< NoteTone, string > = {
 	'neon-blue': '#1873c9',
 };
 
-const NOTE_TONE_OPTIONS: Array< { value: NoteTone; label: string; color: string } > = [
-	{ value: 'yellow', label: __( 'Yellow' ), color: '#fff8c5' },
-	{ value: 'neon-yellow', label: __( 'Neon yellow' ), color: 'rgb(255, 236, 61)' },
-	{ value: 'mint', label: __( 'Mint' ), color: '#d9f5e1' },
-	{ value: 'neon-green', label: __( 'Neon green' ), color: '#6cda76' },
-	{ value: 'blue', label: __( 'Blue' ), color: '#c5deff' },
-	{ value: 'neon-blue', label: __( 'Neon blue' ), color: '#52aeff' },
-	{ value: 'orange', label: __( 'Orange' ), color: '#ffd8b0' },
-	{ value: 'neon-orange', label: __( 'Neon orange' ), color: '#f5b047' },
-	{ value: 'violet', label: __( 'Violet' ), color: '#e0c8ff' },
-	{ value: 'neon-violet', label: __( 'Neon violet' ), color: '#be89ec' },
+const NOTE_TONE_OPTIONS: Array< { value: NoteTone; label: () => string; color: string } > = [
+	{ value: 'yellow', label: () => __( 'Yellow' ), color: '#fff8c5' },
+	{ value: 'neon-yellow', label: () => __( 'Neon yellow' ), color: 'rgb(255, 236, 61)' },
+	{ value: 'mint', label: () => __( 'Mint' ), color: '#d9f5e1' },
+	{ value: 'neon-green', label: () => __( 'Neon green' ), color: '#6cda76' },
+	{ value: 'blue', label: () => __( 'Blue' ), color: '#c5deff' },
+	{ value: 'neon-blue', label: () => __( 'Neon blue' ), color: '#52aeff' },
+	{ value: 'orange', label: () => __( 'Orange' ), color: '#ffd8b0' },
+	{ value: 'neon-orange', label: () => __( 'Neon orange' ), color: '#f5b047' },
+	{ value: 'violet', label: () => __( 'Violet' ), color: '#e0c8ff' },
+	{ value: 'neon-violet', label: () => __( 'Neon violet' ), color: '#be89ec' },
 ];
 
 export const noteWidgetDefinition = {
@@ -61,7 +61,7 @@ export const noteWidgetDefinition = {
 			type: 'color',
 			id: 'tone',
 			property: 'tone',
-			label: __( 'Color' ),
+			label: () => __( 'Color' ),
 			options: NOTE_TONE_OPTIONS,
 		},
 	],

@@ -66,10 +66,10 @@ const COLLECTION_SOURCE_SHAPE_PROPS = {
 const POST_CARD_SHAPE_PROPS = postWidgetDefinition.getInitialWidget().shapeProps;
 const STACK_VIEW_MODE_OPTIONS: Array< {
 	value: NonNullable< PostCollectionWidgetProps[ 'viewMode' ] >;
-	label: string;
+	label: () => string;
 } > = [
-	{ value: 'stack', label: __( 'Stack' ) },
-	{ value: 'tiles', label: __( 'Tiles' ) },
+	{ value: 'stack', label: () => __( 'Stack' ) },
+	{ value: 'tiles', label: () => __( 'Tiles' ) },
 ];
 
 export const postCollectionWidgetDefinition = {
@@ -83,7 +83,7 @@ export const postCollectionWidgetDefinition = {
 			type: 'select',
 			id: 'view-mode',
 			property: 'viewMode',
-			label: __( 'Display' ),
+			label: () => __( 'Display' ),
 			icon: category,
 			defaultValue: 'stack',
 			options: STACK_VIEW_MODE_OPTIONS,

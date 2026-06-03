@@ -1,6 +1,6 @@
 import { AI_MODELS, getAiModelFamily, getAiModelLabel } from '@studio/common/ai/models';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
-import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
+import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
 import { useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { arrowUp, chevronDownSmall } from '@wordpress/icons';
@@ -284,7 +284,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 									}
 								/>
 								<Menu.Popup side="top" align="start" className={ styles.commandsMenuPopup }>
-									{ AI_SKILL_COMMANDS.map( ( command ) => (
+									{ getAiSkillCommands().map( ( command ) => (
 										<Menu.Item
 											key={ command.name }
 											onClick={ () => {

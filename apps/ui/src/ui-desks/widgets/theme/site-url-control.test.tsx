@@ -58,7 +58,7 @@ describe( 'ThemeSiteUrlControl', () => {
 	it( 'opens the font library admin page without checking the theme type', () => {
 		const FontLibraryControl = ThemeSiteUrlControl( {
 			icon: {} as never,
-			label: 'Font library',
+			label: () => 'Font library',
 			path: '/wp-admin/admin.php?page=font-library-wp-admin',
 		} );
 
@@ -76,7 +76,7 @@ describe( 'ThemeSiteUrlControl', () => {
 	it( 'shows block-theme-only controls for block themes', async () => {
 		const StylesControl = ThemeSiteUrlControl( {
 			icon: {} as never,
-			label: 'Styles',
+			label: () => 'Styles',
 			path: '/wp-admin/site-editor.php?path=%2Fwp_global_styles',
 			requiresBlockTheme: true,
 		} );
@@ -105,7 +105,7 @@ describe( 'ThemeSiteUrlControl', () => {
 		} as never );
 		const StylesControl = ThemeSiteUrlControl( {
 			icon: {} as never,
-			label: 'Styles',
+			label: () => 'Styles',
 			path: '/wp-admin/site-editor.php?path=%2Fwp_global_styles',
 			requiresBlockTheme: true,
 		} );
@@ -122,7 +122,7 @@ describe( 'ThemeSiteUrlControl', () => {
 		useActiveThemeMock.mockReturnValue( createActiveTheme( { isBlockTheme: true } ) );
 		const StylesControl = ThemeSiteUrlControl( {
 			icon: {} as never,
-			label: 'Styles',
+			label: () => 'Styles',
 			path: '/wp-admin/site-editor.php?path=%2Fwp_global_styles',
 			requiresBlockTheme: true,
 		} );

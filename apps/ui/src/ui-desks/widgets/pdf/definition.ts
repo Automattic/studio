@@ -68,7 +68,7 @@ export const pdfWidgetDefinition = {
 				extensions: PDF_FILE_EXTENSIONS,
 			},
 			loading: {
-				label: __( 'Uploading PDF' ),
+				label: () => __( 'Uploading PDF' ),
 				shapeProps: {
 					w: PDF_CARD_WIDTH,
 					h: PDF_CARD_HEIGHT,
@@ -108,7 +108,7 @@ export const pdfWidgetDefinition = {
 				extensions: PDF_FILE_EXTENSIONS,
 			},
 			loading: {
-				label: __( 'Adding PDF' ),
+				label: () => __( 'Adding PDF' ),
 				shapeProps: {
 					w: PDF_CARD_WIDTH,
 					h: PDF_CARD_HEIGHT,

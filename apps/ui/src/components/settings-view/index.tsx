@@ -78,7 +78,7 @@ function editorElements( installedApps: InstalledApps | undefined ) {
 		( editor ) => ! installedApps || installedApps[ editor ]
 	).map( ( editor ) => ( {
 		value: editor,
-		label: supportedEditorConfig[ editor ].label,
+		label: supportedEditorConfig[ editor ].label(),
 	} ) );
 	return [ { value: UNSET, label: __( 'Not set' ) }, ...options ];
 }
@@ -88,16 +88,18 @@ function terminalElements( installedApps: InstalledApps | undefined ) {
 		( terminal ) => ! installedApps || installedApps[ terminal ]
 	).map( ( terminal ) => ( {
 		value: terminal,
-		label: terminalConfig[ terminal ].name,
+		label: terminalConfig[ terminal ].name(),
 	} ) );
 	return [ { value: UNSET, label: __( 'Not set' ) }, ...options ];
 }
 
-const COLOR_SCHEME_ELEMENTS: { value: ColorScheme; label: string }[] = [
-	{ value: 'system', label: __( 'System' ) },
-	{ value: 'light', label: __( 'Light' ) },
-	{ value: 'dark', label: __( 'Dark' ) },
-];
+function colorSchemeElements(): { value: ColorScheme; label: string }[] {
+	return [
+		{ value: 'system', label: __( 'System' ) },
+		{ value: 'light', label: __( 'Light' ) },
+		{ value: 'dark', label: __( 'Dark' ) },
+	];
+}
 
 const LOCALE_ELEMENTS: { value: SupportedLocale; label: string }[] = Object.entries(
 	supportedLocaleNames
@@ -154,7 +156,7 @@ export function SettingsView( {
 				id: 'colorScheme',
 				type: 'text',
 				label: __( 'Appearance' ),
-				elements: COLOR_SCHEME_ELEMENTS,
+				elements: colorSchemeElements(),
 			},
 			{
 				id: 'locale',

@@ -66,7 +66,7 @@ export const mediaWidgetDefinition = {
 				extensions: MEDIA_FILE_EXTENSIONS,
 			},
 			loading: {
-				label: __( 'Uploading media' ),
+				label: () => __( 'Uploading media' ),
 				shapeProps: {
 					w: 320,
 					h: 320,
@@ -101,7 +101,7 @@ export const mediaWidgetDefinition = {
 				extensions: MEDIA_FILE_EXTENSIONS,
 			},
 			loading: {
-				label: __( 'Adding media' ),
+				label: () => __( 'Adding media' ),
 				shapeProps: {
 					w: 320,
 					h: 320,

@@ -107,7 +107,7 @@ export interface WidgetFileHandlerContext {
 }
 
 export interface WidgetHandlerLoading {
-	label?: string;
+	label?: () => string;
 	shapeProps?: Record< string, unknown >;
 }
 

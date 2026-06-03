@@ -28,7 +28,7 @@ import type {
 } from '@/ui-desks/widgets/types';
 import type { Editor, JsonObject } from 'tldraw';
 
-const BUILD_SOMETHING_LIKE_THIS_PROMPT = __( 'Build something like this' );
+const getBuildSomethingLikeThisPrompt = () => __( 'Build something like this' );
 
 export const scratchpadWidgetDefinition = {
 	type: SCRATCHPAD_WIDGET_TYPE,
@@ -95,9 +95,11 @@ function getScratchpadMediaDropActions(
 		return [];
 	}
 
+	const buildSomethingLikeThisPrompt = getBuildSomethingLikeThisPrompt();
+
 	return [
 		{
-			label: BUILD_SOMETHING_LIKE_THIS_PROMPT,
+			label: buildSomethingLikeThisPrompt,
 			onClick: () =>
 				context.runAction( async () => {
 					const { buildWidgetContextDisplayMessage, buildWidgetContextPrompt } = await import(
@@ -106,11 +108,11 @@ function getScratchpadMediaDropActions(
 					updateScratchpadReference( context.editor, intent, { agentStatus: 'pending' } );
 					try {
 						const sessionId = await context.startChatWithPrompt( {
-							prompt: buildWidgetContextPrompt( BUILD_SOMETHING_LIKE_THIS_PROMPT, [
+							prompt: buildWidgetContextPrompt( buildSomethingLikeThisPrompt, [
 								intent.sourceWidget,
 								intent.targetWidget,
 							] ),
-							displayMessage: buildWidgetContextDisplayMessage( BUILD_SOMETHING_LIKE_THIS_PROMPT, [
+							displayMessage: buildWidgetContextDisplayMessage( buildSomethingLikeThisPrompt, [
 								intent.sourceWidget,
 								intent.targetWidget,
 							] ),
@@ -157,7 +159,7 @@ function updateScratchpadReference(
 				...targetShape.props.widgetProps,
 				description: currentDescription.trim()
 					? currentDescription
-					: BUILD_SOMETHING_LIKE_THIS_PROMPT,
+					: getBuildSomethingLikeThisPrompt(),
 				reference: {
 					mediaId: mediaProps.mediaId,
 					url: mediaProps.url,

@@ -18,14 +18,14 @@ import type {
 	WidgetDefinition,
 } from '@/ui-desks/widgets/types';
 
-const PAGE_TONE_OPTIONS: Array< { value: PageTone; label: string; color: string } > = [
-	{ value: 'neutral', label: __( 'Default' ), color: PAGE_TONE_COLORS.neutral },
-	{ value: 'orange', label: __( 'Orange' ), color: PAGE_TONE_COLORS.orange },
-	{ value: 'red', label: __( 'Red' ), color: PAGE_TONE_COLORS.red },
-	{ value: 'violet', label: __( 'Violet' ), color: PAGE_TONE_COLORS.violet },
-	{ value: 'blue', label: __( 'Blue' ), color: PAGE_TONE_COLORS.blue },
-	{ value: 'sky', label: __( 'Sky' ), color: PAGE_TONE_COLORS.sky },
-	{ value: 'green', label: __( 'Green' ), color: PAGE_TONE_COLORS.green },
+const PAGE_TONE_OPTIONS: Array< { value: PageTone; label: () => string; color: string } > = [
+	{ value: 'neutral', label: () => __( 'Default' ), color: PAGE_TONE_COLORS.neutral },
+	{ value: 'orange', label: () => __( 'Orange' ), color: PAGE_TONE_COLORS.orange },
+	{ value: 'red', label: () => __( 'Red' ), color: PAGE_TONE_COLORS.red },
+	{ value: 'violet', label: () => __( 'Violet' ), color: PAGE_TONE_COLORS.violet },
+	{ value: 'blue', label: () => __( 'Blue' ), color: PAGE_TONE_COLORS.blue },
+	{ value: 'sky', label: () => __( 'Sky' ), color: PAGE_TONE_COLORS.sky },
+	{ value: 'green', label: () => __( 'Green' ), color: PAGE_TONE_COLORS.green },
 ];
 
 export const pageWidgetDefinition = {
@@ -38,7 +38,7 @@ export const pageWidgetDefinition = {
 			type: 'color',
 			id: 'tone',
 			property: 'tone',
-			label: __( 'Color' ),
+			label: () => __( 'Color' ),
 			options: PAGE_TONE_OPTIONS,
 		},
 		{

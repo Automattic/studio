@@ -23,7 +23,7 @@ export function ColorControl( {
 				render={
 					<Button
 						icon={ colorIcon }
-						label={ control.label }
+						label={ control.label() }
 						variant="quiet"
 						size="medium"
 						aria-pressed={ isOpen }
@@ -38,21 +38,24 @@ export function ColorControl( {
 				width="content"
 				className={ styles.swatchMenu }
 			>
-				{ control.options.map( ( option ) => (
-					<Menu.Item
-						key={ option.value }
-						variant="custom"
-						className={ styles.swatch }
-						style={ getSwatchStyle( option.color ) }
-						data-active={ currentValue === option.value ? 'true' : 'false' }
-						title={ option.label }
-						aria-label={ option.label }
-						label={ option.label }
-						onClick={ () => {
-							updateProps( { [ control.property ]: option.value } );
-						} }
-					/>
-				) ) }
+				{ control.options.map( ( option ) => {
+					const optionLabel = option.label();
+					return (
+						<Menu.Item
+							key={ option.value }
+							variant="custom"
+							className={ styles.swatch }
+							style={ getSwatchStyle( option.color ) }
+							data-active={ currentValue === option.value ? 'true' : 'false' }
+							title={ optionLabel }
+							aria-label={ optionLabel }
+							label={ optionLabel }
+							onClick={ () => {
+								updateProps( { [ control.property ]: option.value } );
+							} }
+						/>
+					);
+				} ) }
 			</Menu.Popup>
 		</Menu.Root>
 	);

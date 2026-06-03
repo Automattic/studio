@@ -1786,7 +1786,7 @@ function createTemporaryLoadingWidget(
 		zIndex: getNextZIndexFromEditor( editor ),
 		shapeProps: loading?.shapeProps,
 		widgetProps: {
-			label: loading?.label ?? __( 'Loading' ),
+			label: loading?.label?.() ?? __( 'Loading' ),
 		},
 	} );
 

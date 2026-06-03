@@ -5,7 +5,7 @@ export interface SkillSlashCommand {
 	description: string;
 }
 
-export const AI_SKILL_COMMANDS: SkillSlashCommand[] = [
+export const getAiSkillCommands = (): SkillSlashCommand[] => [
 	{ name: 'annotate', description: __( 'Annotate site elements visually in a browser' ) },
 	{ name: 'taxonomist', description: __( 'Optimize category taxonomy with AI' ) },
 	{ name: 'need-for-speed', description: __( 'Run a performance audit on a site' ) },

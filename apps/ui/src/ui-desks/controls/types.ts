@@ -3,13 +3,13 @@ import type { ComponentProps, ReactElement } from 'react';
 
 export interface ColorControlOption< TValue extends string = string > {
 	value: TValue;
-	label: string;
+	label: () => string;
 	color: string;
 }
 
 export interface SelectControlOption< TValue extends string = string > {
 	value: TValue;
-	label: string;
+	label: () => string;
 }
 
 type StringControlPropKey< TProps extends Record< string, unknown > > = {
@@ -27,7 +27,7 @@ export type ColorControlConfig<
 		type: 'color';
 		id: string;
 		property: TProperty;
-		label: string;
+		label: () => string;
 		options: Array< ColorControlOption< Extract< TProps[ TProperty ], string > > >;
 	};
 }[ StringControlPropKey< TProps > ];
@@ -39,7 +39,7 @@ export type SelectControlConfig<
 		type: 'select';
 		id: string;
 		property: TProperty;
-		label: string;
+		label: () => string;
 		icon: ControlIcon;
 		defaultValue: Extract< NonNullable< TProps[ TProperty ] >, string >;
 		options: Array< SelectControlOption< Extract< NonNullable< TProps[ TProperty ] >, string > > >;
@@ -76,7 +76,7 @@ export interface AnyColorControlConfig {
 	type: 'color';
 	id: string;
 	property: string;
-	label: string;
+	label: () => string;
 	options: Array< ColorControlOption< string > >;
 }
 
@@ -84,7 +84,7 @@ export interface AnySelectControlConfig {
 	type: 'select';
 	id: string;
 	property: string;
-	label: string;
+	label: () => string;
 	icon: ControlIcon;
 	defaultValue: string;
 	options: Array< SelectControlOption< string > >;

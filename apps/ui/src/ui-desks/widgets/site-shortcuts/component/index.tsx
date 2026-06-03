@@ -75,10 +75,10 @@ export function SiteShortcutsWidgetComponent( {
 	const runtimeActionDisabled = ! hasSite || isRuntimeBusy || isActionBusy;
 	const localActionDisabled = ! hasSite || isActionBusy;
 	const editorLabel = userPreferences?.editor
-		? supportedEditorConfig[ userPreferences.editor ].label
+		? supportedEditorConfig[ userPreferences.editor ].label()
 		: __( 'Editor' );
 	const terminalLabel = userPreferences?.terminal
-		? terminalConfig[ userPreferences.terminal ].name
+		? terminalConfig[ userPreferences.terminal ].name()
 		: __( 'Terminal' );
 
 	const getRequiredSiteId = () => {

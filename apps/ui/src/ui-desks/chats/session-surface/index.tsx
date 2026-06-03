@@ -59,51 +59,6 @@ const chatDateFormatter = new Intl.DateTimeFormat( undefined, {
 	year: 'numeric',
 } );
 
-const EXAMPLE_PROMPTS = [
-	{
-		short: __( 'Pull drafts' ),
-		full: __(
-			'Pull my unfinished drafts onto the canvas so I can see what I’ve been working on. Group anything related into stacks, and surface the ones I haven’t touched in a while.'
-		),
-	},
-	{
-		short: __( 'Draft a post' ),
-		full: __(
-			'Help me draft a new blog post. Suggest a topic worth writing about right now, sketch an outline, then take a first pass at the opening paragraph so I can iterate on voice and structure.'
-		),
-	},
-	{
-		short: __( 'Create a page' ),
-		full: __(
-			'Walk me through creating a new page on my site. Help me plan the sections, draft the headings, and write a first pass at the body copy — then drop the result onto the canvas so I can edit it.'
-		),
-	},
-	{
-		short: __( 'Design help' ),
-		full: __(
-			'Take a look at my site’s current design and call out a handful of small improvements I could make — typography, spacing, colour, or layout — and explain why each change would help.'
-		),
-	},
-	{
-		short: __( 'Top posts' ),
-		full: __(
-			'Pull my most-viewed posts from the last 30 days onto the canvas so I can see them side by side. Sort by view count and group anything that shares a topic into a stack.'
-		),
-	},
-	{
-		short: __( 'Write follow-up' ),
-		full: __(
-			'Suggest a follow-up to my most recent post. Read what I wrote, find a natural next angle, then sketch an outline and draft an opening paragraph so I can pick up where it left off.'
-		),
-	},
-	{
-		short: __( 'Build a plugin' ),
-		full: __(
-			'Help me build a small WordPress plugin from scratch. Ask me what problem it should solve, scaffold the plugin folder and main file, then walk me through the hooks and code we need to wire it up.'
-		),
-	},
-];
-
 function formatChatDate( value: string ) {
 	const timestamp = Date.parse( value );
 	if ( Number.isNaN( timestamp ) ) {
@@ -123,6 +78,51 @@ function EmptyConversation( {
 	onClearPreview: () => void;
 	onSelectPrompt: ( prompt: string ) => void;
 } ) {
+	const examplePrompts = [
+		{
+			short: __( 'Pull drafts' ),
+			full: __(
+				'Pull my unfinished drafts onto the canvas so I can see what I’ve been working on. Group anything related into stacks, and surface the ones I haven’t touched in a while.'
+			),
+		},
+		{
+			short: __( 'Draft a post' ),
+			full: __(
+				'Help me draft a new blog post. Suggest a topic worth writing about right now, sketch an outline, then take a first pass at the opening paragraph so I can iterate on voice and structure.'
+			),
+		},
+		{
+			short: __( 'Create a page' ),
+			full: __(
+				'Walk me through creating a new page on my site. Help me plan the sections, draft the headings, and write a first pass at the body copy — then drop the result onto the canvas so I can edit it.'
+			),
+		},
+		{
+			short: __( 'Design help' ),
+			full: __(
+				'Take a look at my site’s current design and call out a handful of small improvements I could make — typography, spacing, colour, or layout — and explain why each change would help.'
+			),
+		},
+		{
+			short: __( 'Top posts' ),
+			full: __(
+				'Pull my most-viewed posts from the last 30 days onto the canvas so I can see them side by side. Sort by view count and group anything that shares a topic into a stack.'
+			),
+		},
+		{
+			short: __( 'Write follow-up' ),
+			full: __(
+				'Suggest a follow-up to my most recent post. Read what I wrote, find a natural next angle, then sketch an outline and draft an opening paragraph so I can pick up where it left off.'
+			),
+		},
+		{
+			short: __( 'Build a plugin' ),
+			full: __(
+				'Help me build a small WordPress plugin from scratch. Ask me what problem it should solve, scaffold the plugin folder and main file, then walk me through the hooks and code we need to wire it up.'
+			),
+		},
+	];
+
 	return (
 		<div className={ styles.emptyConversation }>
 			<div className={ styles.emptyConversationPrompt }>
@@ -132,7 +132,7 @@ function EmptyConversation( {
 			</div>
 			{ authRequired ? null : (
 				<div className={ styles.emptyConversationExamples }>
-					{ EXAMPLE_PROMPTS.map( ( example ) => (
+					{ examplePrompts.map( ( example ) => (
 						<Button
 							key={ example.short }
 							variant="quiet"

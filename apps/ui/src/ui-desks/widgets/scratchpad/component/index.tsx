@@ -280,7 +280,7 @@ export function ScratchpadWidgetComponent( {
 					<Button
 						icon={ SCRATCHPAD_STATUS_ICON[ activeAgentStatus ] }
 						intent={ activeAgentStatus === 'done' ? 'default' : 'chat' }
-						label={ SCRATCHPAD_STATUS_LABEL[ activeAgentStatus ] }
+						label={ SCRATCHPAD_STATUS_LABEL[ activeAgentStatus ]() }
 						variant="filled"
 						tone={ activeAgentStatus === 'done' ? 'neutral' : 'primary' }
 						size="medium"
@@ -292,7 +292,7 @@ export function ScratchpadWidgetComponent( {
 						data-status={ activeAgentStatus }
 						disabled={ activeAgentStatus !== 'pending' }
 						tooltipLabel={ false }
-						title={ SCRATCHPAD_STATUS_LABEL[ activeAgentStatus ] }
+						title={ SCRATCHPAD_STATUS_LABEL[ activeAgentStatus ]() }
 						onClick={ handleRunAgent }
 						onPointerDown={ ( event ) => event.stopPropagation() }
 					/>
@@ -336,10 +336,10 @@ const SCRATCHPAD_STATUS_ICON = {
 	done: check,
 } as const;
 
-const SCRATCHPAD_STATUS_LABEL: Record< Exclude< ScratchpadAgentStatus, 'idle' >, string > = {
-	pending: __( 'Run agent on this' ),
-	running: __( 'Agent working…' ),
-	done: __( 'Done' ),
+const SCRATCHPAD_STATUS_LABEL: Record< Exclude< ScratchpadAgentStatus, 'idle' >, () => string > = {
+	pending: () => __( 'Run agent on this' ),
+	running: () => __( 'Agent working…' ),
+	done: () => __( 'Done' ),
 };
 
 function getNextAgentStatusForDescription(

@@ -2,13 +2,13 @@ import nodePath from 'path';
 import { installSkillToSite, removeSkillFromSite } from '@studio/common/lib/agent-skills';
 import { pathExists } from '@studio/common/lib/fs-utils';
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
-import { BUNDLED_SKILLS, type SkillStatus } from './skills-constants';
+import { getBundledSkills, type SkillStatus } from './skills-constants';
 
-export { BUNDLED_SKILLS, type SkillConfig, type SkillStatus } from './skills-constants';
+export { getBundledSkills, type SkillConfig, type SkillStatus } from './skills-constants';
 
 export async function getSkillsStatus( sitePath: string ): Promise< SkillStatus[] > {
 	return Promise.all(
-		BUNDLED_SKILLS.map( async ( skill ) => {
+		getBundledSkills().map( async ( skill ) => {
 			const skillMdPath = nodePath.join( sitePath, '.agents', 'skills', skill.id, 'SKILL.md' );
 			const installed = await pathExists( skillMdPath );
 			return { ...skill, installed };
@@ -21,7 +21,7 @@ export async function installAllSkills(
 	overwrite: boolean = false
 ): Promise< void > {
 	const bundledPath = getAiInstructionsPath();
-	const tasks = BUNDLED_SKILLS.map( ( skill ) =>
+	const tasks = getBundledSkills().map( ( skill ) =>
 		installSkillToSite( sitePath, bundledPath, skill.id, overwrite )
 	);
 	const results = await Promise.allSettled( tasks );

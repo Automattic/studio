@@ -21,13 +21,13 @@ const STACK_VIEW_MODE_CONTROL: AnySelectControlConfig = {
 	type: 'select',
 	id: 'stack-view-mode',
 	property: 'viewMode',
-	label: __( 'Display' ),
+	label: () => __( 'Display' ),
 	icon: category,
 	defaultValue: 'stack',
 	options: [
-		{ value: 'stack', label: __( 'Stack' ) },
-		{ value: 'tiles', label: __( 'Tiles' ) },
-		{ value: 'circle', label: __( 'Circle' ) },
+		{ value: 'stack', label: () => __( 'Stack' ) },
+		{ value: 'tiles', label: () => __( 'Tiles' ) },
+		{ value: 'circle', label: () => __( 'Circle' ) },
 	],
 };
 

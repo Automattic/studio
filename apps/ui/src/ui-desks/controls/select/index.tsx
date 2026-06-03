@@ -23,7 +23,7 @@ export function SelectControl( {
 				render={
 					<Button
 						icon={ control.icon }
-						label={ control.label }
+						label={ control.label() }
 						variant="quiet"
 						size="medium"
 						aria-pressed={ isOpen }
@@ -40,7 +40,7 @@ export function SelectControl( {
 				>
 					{ control.options.map( ( option ) => (
 						<Menu.RadioItem key={ option.value } value={ option.value }>
-							{ option.label }
+							{ option.label() }
 						</Menu.RadioItem>
 					) ) }
 				</Menu.RadioGroup>

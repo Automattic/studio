@@ -46,11 +46,11 @@ const PATTERN_SHAPE_PROPS = {
 const DEFAULT_PATTERN_LIMIT = 10;
 const STACK_VIEW_MODE_OPTIONS: Array< {
 	value: NonNullable< ThemePatternBrowserWidgetProps[ 'viewMode' ] >;
-	label: string;
+	label: () => string;
 } > = [
-	{ value: 'stack', label: __( 'Stack' ) },
-	{ value: 'tiles', label: __( 'Tiles' ) },
-	{ value: 'circle', label: __( 'Circle' ) },
+	{ value: 'stack', label: () => __( 'Stack' ) },
+	{ value: 'tiles', label: () => __( 'Tiles' ) },
+	{ value: 'circle', label: () => __( 'Circle' ) },
 ];
 
 export function getThemePatternBrowserTemporaryDeskId( sourceWidgetId: string ) {
@@ -68,7 +68,7 @@ export const themePatternBrowserWidgetDefinition = {
 			type: 'select',
 			id: 'view-mode',
 			property: 'viewMode',
-			label: __( 'Display' ),
+			label: () => __( 'Display' ),
 			icon: category,
 			defaultValue: 'tiles',
 			options: STACK_VIEW_MODE_OPTIONS,

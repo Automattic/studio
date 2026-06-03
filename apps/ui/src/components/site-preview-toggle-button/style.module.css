@@ -1,0 +1,56 @@
+:global(:root) {
+	--site-preview-header-height: 54px;
+	--site-preview-control-height: 38px;
+	--site-preview-toggle-offset-block: calc(
+		(var(--site-preview-header-height) - var(--site-preview-control-height)) / 2
+	);
+	--site-preview-toggle-offset-inline: var(--wpds-dimension-padding-lg, 16px);
+	--site-preview-toggle-reserved-width: 112px;
+}
+
+.toggle {
+	--wp-ui-button-border-color: transparent;
+	--wp-ui-button-border-color-active: transparent;
+	--wp-ui-button-border-color-hover: transparent;
+	--wp-ui-button-height: var(--site-preview-control-height);
+	--site-preview-toggle-surface-active-background: color-mix(
+		in srgb,
+		var(--wpds-color-bg-surface-neutral) 94%,
+		var(--wpds-color-fg-content-neutral)
+	);
+	--site-preview-toggle-surface-active-background-hover: color-mix(
+		in srgb,
+		var(--wpds-color-bg-surface-neutral) 90%,
+		var(--wpds-color-fg-content-neutral)
+	);
+
+	position: fixed;
+	top: var(--site-preview-toggle-offset-block);
+	right: var(--site-preview-toggle-offset-inline);
+	z-index: 1000;
+	box-sizing: border-box;
+	align-items: center;
+	height: var(--site-preview-control-height);
+	min-height: var(--site-preview-control-height);
+	white-space: nowrap;
+	-webkit-app-region: no-drag;
+}
+
+.toggle[aria-pressed='true'] {
+	--wp-ui-button-background-color: var(
+		--site-preview-toggle-active-background,
+		var(--site-preview-toggle-surface-active-background)
+	);
+	--wp-ui-button-background-color-active: var(
+		--site-preview-toggle-active-background-hover,
+		var(--site-preview-toggle-surface-active-background-hover)
+	);
+	--wp-ui-button-foreground-color: var(
+		--site-preview-toggle-active-foreground,
+		var(--wpds-color-fg-content-neutral)
+	);
+	--wp-ui-button-foreground-color-active: var(
+		--site-preview-toggle-active-foreground-hover,
+		var(--wpds-color-fg-content-neutral)
+	);
+}

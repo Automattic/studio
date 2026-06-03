@@ -94,6 +94,13 @@ function DashboardLayoutContent() {
 							collapsed={ collapsed }
 							hideResizeHandle={ hideResizeHandle }
 							layoutWidth={ layoutWidth }
+							tabs={ preview.tabs }
+							activeTabId={ preview.activeTabId }
+							onNewTab={ preview.openTab }
+							onCloseTab={ preview.closeTab }
+							onSelectTab={ preview.selectTab }
+							onNavigatePath={ preview.navigate }
+							onActiveTabPathChange={ preview.updateActiveTabPath }
 						/>
 					) : null
 				}

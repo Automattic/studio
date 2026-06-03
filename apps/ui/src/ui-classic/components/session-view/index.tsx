@@ -1,8 +1,6 @@
 import { resolveSessionModel } from '@studio/common/ai/models';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { navigation } from '@wordpress/icons';
-import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 import { PreviewSplitContent } from '@/components/preview-split-frame';
@@ -10,6 +8,7 @@ import { ProgressiveBlur } from '@/components/progressive-blur';
 import { SiteDropdown } from '@/components/site-dropdown';
 import { SiteIcon } from '@/components/site-icon';
 import { type Annotation } from '@/components/site-preview/types';
+import { SitePreviewToggleButton } from '@/components/site-preview-toggle-button';
 import { useAgentRun } from '@/data/queries/use-agent-run';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
@@ -89,15 +88,10 @@ function SessionHeader( {
 				<span className={ styles.headerSpacer } aria-hidden="true" />
 				{ canTogglePreview ? (
 					<div className={ styles.headerActions }>
-						<IconButton
-							variant="minimal"
-							tone="neutral"
-							size="small"
-							icon={ navigation }
-							label={ previewOpen ? __( 'Hide site preview' ) : __( 'Show site preview' ) }
+						<SitePreviewToggleButton
+							previewOpen={ previewOpen }
+							onTogglePreview={ onTogglePreview }
 							shortcut={ previewShortcut }
-							aria-pressed={ previewOpen }
-							onClick={ onTogglePreview }
 						/>
 					</div>
 				) : null }
@@ -106,15 +100,27 @@ function SessionHeader( {
 	);
 }
 
-export function SessionView( { sessionId }: { sessionId: string } ) {
+export function SessionView( {
+	sessionId,
+	autoFocusComposer = false,
+}: {
+	sessionId: string;
+	autoFocusComposer?: boolean;
+} ) {
 	return (
 		<SessionUIProvider>
-			<SessionViewContent sessionId={ sessionId } />
+			<SessionViewContent sessionId={ sessionId } autoFocusComposer={ autoFocusComposer } />
 		</SessionUIProvider>
 	);
 }
 
-function SessionViewContent( { sessionId }: { sessionId: string } ) {
+function SessionViewContent( {
+	sessionId,
+	autoFocusComposer,
+}: {
+	sessionId: string;
+	autoFocusComposer: boolean;
+} ) {
 	const navigate = useNavigate();
 	const { data, isLoading, error } = useSession( sessionId );
 	const { data: sites } = useSites();
@@ -165,7 +171,11 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		if ( ! ownerSiteId ) {
 			return;
 		}
-		void navigate( { to: '/sites/$siteId/new', params: { siteId: ownerSiteId } } );
+		void navigate( {
+			to: '/sites/$siteId/new',
+			params: { siteId: ownerSiteId },
+			search: { focusComposer: true },
+		} );
 	}, [ navigate, ownerSiteId ] );
 	useKeyboardShortcut( 'new-chat-in-current-site', createNewChatForSite, {
 		enabled: !! ownerSiteId,
@@ -255,6 +265,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						liveSite={ liveSite }
 						entries={ data.entries }
 						ownerSiteId={ ownerSite?.id }
+						autoFocus={ autoFocusComposer }
 						onSwitchSession={ ( nextSessionId ) =>
 							void navigate( {
 								to: '/sessions/$sessionId',

@@ -92,11 +92,40 @@ describe( 'keyboard shortcut helpers', () => {
 		).toBe( true );
 	} );
 
-	it( 'formats the site preview toggle shortcut as command-p on macOS', () => {
+	it( 'formats the browser toggle shortcut as command-shift-b on macOS', () => {
 		const shortcut = getKeyboardShortcut( 'toggle-site-preview' );
 
-		expect( getKeyboardShortcutLabel( shortcut, 'MacIntel' ) ).toBe( '⌘P' );
-		expect( getKeyboardShortcutLabel( shortcut, 'Win32' ) ).toBe( 'Ctrl+P' );
+		expect( getKeyboardShortcutLabel( shortcut, 'MacIntel' ) ).toBe( '⌘⇧B' );
+		expect( getKeyboardShortcutLabel( shortcut, 'Win32' ) ).toBe( 'Ctrl+Shift+B' );
+		expect( getKeyboardShortcutAriaKeyShortcut( shortcut, 'MacIntel' ) ).toBe( 'Meta+Shift+B' );
+		expect(
+			matchesKeyboardShortcut(
+				{
+					key: 'b',
+					metaKey: true,
+					ctrlKey: false,
+					shiftKey: true,
+					altKey: false,
+					repeat: false,
+					defaultPrevented: false,
+				},
+				shortcut
+			)
+		).toBe( true );
+		expect(
+			matchesKeyboardShortcut(
+				{
+					key: 'b',
+					metaKey: true,
+					ctrlKey: false,
+					shiftKey: false,
+					altKey: false,
+					repeat: false,
+					defaultPrevented: false,
+				},
+				shortcut
+			)
+		).toBe( false );
 	} );
 
 	it( 'formats shortcut metadata for tooltip and accessibility output', () => {

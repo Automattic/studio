@@ -67,19 +67,24 @@
 	z-index: 2;
 	isolation: isolate;
 	margin: 0 calc(-1 * var(--wpds-dimension-padding-xl));
-	min-height: 46px;
+	box-sizing: border-box;
+	height: var(--site-preview-header-height, 54px);
+	min-height: var(--site-preview-header-height, 54px);
 	-webkit-app-region: drag;
 }
 
 .headerContent {
 	position: relative;
 	z-index: 1;
+	box-sizing: border-box;
 	container-type: inline-size;
 	display: flex;
 	align-items: center;
 	gap: var(--wpds-dimension-padding-sm);
 	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-2xl);
-	min-height: 46px;
+	padding-block: var(--site-preview-toggle-offset-block, 8px);
+	height: var(--site-preview-header-height, 54px);
+	min-height: var(--site-preview-header-height, 54px);
 	font-size: var(--wpds-typography-font-size-sm);
 	color: var(--wpds-color-fg-content-neutral);
 }
@@ -127,6 +132,7 @@
 	flex: 1;
 	min-height: 0;
 	overflow-y: auto;
+	overflow-x: hidden;
 	position: relative;
 	/* Reserve scrollbar space symmetrically so the centered 760px column
 	   doesn't shift left when the scrollbar appears — keeping it aligned
@@ -149,12 +155,17 @@
 }
 
 .classicScroll {
+	display: flex;
+	flex-direction: column;
 	padding: 0 var(--wpds-dimension-padding-xl);
 }
 
 /* Classic session screen: keep the conversation + composer aligned to the
    legacy 760px reading column. */
 .classicColumn {
+	box-sizing: border-box;
+	width: 100%;
+	min-width: 0;
 	max-width: 760px;
 	margin: 0 auto;
 }
@@ -165,6 +176,7 @@
 }
 
 .classicComposerOuter {
+	margin-top: auto;
 	padding-right: var(--wpds-dimension-padding-xl);
 	padding-bottom: var(--wpds-dimension-padding-xl);
 	padding-left: 12px;

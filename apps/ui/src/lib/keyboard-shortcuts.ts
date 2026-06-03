@@ -14,6 +14,7 @@ export interface KeyboardShortcutDefinition {
 	label: string;
 	key: string;
 	modifier: 'primary';
+	shiftKey?: boolean;
 }
 
 type KeyboardEventLike = Pick<
@@ -42,9 +43,10 @@ export const KEYBOARD_SHORTCUTS: KeyboardShortcutDefinition[] = [
 	},
 	{
 		id: 'toggle-site-preview',
-		label: __( 'Toggle site preview' ),
-		key: 'p',
+		label: __( 'Toggle browser' ),
+		key: 'b',
 		modifier: 'primary',
+		shiftKey: true,
 	},
 	{
 		id: 'toggle-site-menu',
@@ -76,6 +78,9 @@ export function getKeyboardShortcutLabel(
 ): string {
 	const modifier = getPrimaryModifierLabel( platform );
 	const key = shortcut.key.toUpperCase();
+	if ( shortcut.shiftKey ) {
+		return isApplePlatform( platform ) ? `${ modifier }⇧${ key }` : `${ modifier }+Shift+${ key }`;
+	}
 	return isApplePlatform( platform ) ? `${ modifier }${ key }` : `${ modifier }+${ key }`;
 }
 
@@ -83,7 +88,11 @@ export function getKeyboardShortcutAriaKeyShortcut(
 	shortcut: KeyboardShortcutDefinition,
 	platform = getPlatform()
 ): string {
-	return `${ isApplePlatform( platform ) ? 'Meta' : 'Control' }+${ shortcut.key.toUpperCase() }`;
+	const modifiers = [ isApplePlatform( platform ) ? 'Meta' : 'Control' ];
+	if ( shortcut.shiftKey ) {
+		modifiers.push( 'Shift' );
+	}
+	return `${ modifiers.join( '+' ) }+${ shortcut.key.toUpperCase() }`;
 }
 
 export function getKeyboardShortcutDescriptor(
@@ -112,7 +121,12 @@ export function matchesKeyboardShortcut(
 	event: KeyboardEventLike,
 	shortcut: KeyboardShortcutDefinition
 ): boolean {
-	if ( event.defaultPrevented || event.repeat || event.shiftKey || event.altKey ) {
+	if (
+		event.defaultPrevented ||
+		event.repeat ||
+		event.shiftKey !== Boolean( shortcut.shiftKey ) ||
+		event.altKey
+	) {
 		return false;
 	}
 	if ( ! event.metaKey && ! event.ctrlKey ) {

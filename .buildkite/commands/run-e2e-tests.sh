@@ -68,6 +68,22 @@ esac
 echo "--- :package: Package app for testing ($PLATFORM-$ARCH)"
 npm -w studio-app run package -- --arch="$ARCH" --platform="$FORGE_PLATFORM"
 
+case "$PLATFORM" in
+  mac)
+    PACKAGED_RESOURCES_DIR="apps/studio/out/Studio-darwin-${ARCH}/Studio.app/Contents/Resources"
+    PACKAGED_CLI_BINARY="$PACKAGED_RESOURCES_DIR/bin/studio"
+    ;;
+  windows)
+    PACKAGED_RESOURCES_DIR="apps/studio/out/Studio-win32-${ARCH}/resources"
+    PACKAGED_CLI_BINARY="$PACKAGED_RESOURCES_DIR/bin/studio.exe"
+    ;;
+  linux)
+    PACKAGED_RESOURCES_DIR="apps/studio/out/Studio-linux-${ARCH}/resources"
+    PACKAGED_CLI_BINARY="$PACKAGED_RESOURCES_DIR/bin/studio"
+    ;;
+esac
+PACKAGED_CLI_SIDECAR="${PACKAGED_CLI_BINARY}.node_modules.tar.gz"
+
 if [ "$PLATFORM" = "linux" ]; then
   # The packaged app under apps/studio/out was created by electron-forge
   # running as root with restrictive default perms — the node user (which
@@ -83,20 +99,58 @@ if [ "$PLATFORM" = "linux" ]; then
   # and Chromium aborts on the misconfigured helper. Removing the helper
   # makes Chromium skip the SUID path and fall through to the user-
   # namespace sandbox, which doesn't need setuid.
-  rm -f apps/studio/out/Studio-linux-x64/chrome-sandbox
+  rm -f "apps/studio/out/Studio-linux-${ARCH}/chrome-sandbox"
 
-  # Grant cap_net_bind_service to the bundled node so the proxy daemon can
+  # Grant cap_net_bind_service to the bundled CLI so the proxy daemon can
   # listen on privileged ports 80/443 without running as root — mirrors the
   # DEB postinst hook (apps/studio/installers/linux/postinst.sh), which
   # doesn't run for `electron-forge package` output. Without this, custom-
   # domain HTTP/HTTPS tests fail to bind in the non-root test process.
-  BUNDLED_NODE="apps/studio/out/Studio-linux-${ARCH}/resources/bin/node"
-  if [ -x "$BUNDLED_NODE" ]; then
-    echo '--- :shield: Grant cap_net_bind_service to bundled node'
-    setcap 'cap_net_bind_service=+ep' "$BUNDLED_NODE" || \
-      echo "warning: setcap failed on $BUNDLED_NODE; privileged-port tests may fail to bind." >&2
+  if [ -x "$PACKAGED_CLI_BINARY" ]; then
+    echo '--- :shield: Grant cap_net_bind_service to packaged CLI'
+    setcap 'cap_net_bind_service=+ep' "$PACKAGED_CLI_BINARY" || \
+      echo "warning: setcap failed on $PACKAGED_CLI_BINARY; privileged-port tests may fail to bind." >&2
   fi
 fi
+
+echo '--- :mag: Verify packaged CLI binary'
+if [ ! -f "$PACKAGED_CLI_BINARY" ]; then
+  echo "Missing packaged CLI binary: $PACKAGED_CLI_BINARY"
+  exit 1
+fi
+if [ ! -f "$PACKAGED_CLI_SIDECAR" ]; then
+  echo "Missing packaged CLI sidecar: $PACKAGED_CLI_SIDECAR"
+  exit 1
+fi
+
+node - "$PACKAGED_CLI_BINARY" <<'NODE'
+const { spawnSync } = require( 'node:child_process' );
+const { mkdtempSync, rmSync } = require( 'node:fs' );
+const { tmpdir } = require( 'node:os' );
+const { join } = require( 'node:path' );
+
+const cliBinary = process.argv[ 2 ];
+const cliDir = mkdtempSync( join( tmpdir(), 'studio-cli-e2e-' ) );
+
+try {
+	const result = spawnSync( cliBinary, [ '--version' ], {
+		encoding: 'utf8',
+		env: {
+			...process.env,
+			STUDIO_CLI_DIR: cliDir,
+		},
+	} );
+
+	if ( result.status !== 0 ) {
+		console.error( result.stderr || result.stdout || `Packaged CLI exited with ${ result.status }.` );
+		process.exit( 1 );
+	}
+
+	console.log( `Packaged CLI version: ${ result.stdout.trim() }` );
+} finally {
+	rmSync( cliDir, { recursive: true, force: true } );
+}
+NODE
 
 echo '--- :mag: Verify CLI build artifacts'
 CLI_DIST="apps/cli/dist/cli"

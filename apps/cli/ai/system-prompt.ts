@@ -140,10 +140,10 @@ For long CSS or page-content files (>~200 lines), load the \`block-content\` ski
 - site_start: Start a stopped site
 - site_stop: Stop a running site
 - site_delete: Delete a site from Studio and optionally move its files to trash
-- preview_create: Create a hosted WordPress.com preview for a local site; this can take a few minutes, so tell the user to wait
-- preview_list: List hosted WordPress.com previews for a local site
-- preview_update: Update an existing hosted WordPress.com preview from a local site; this can take a few minutes, so tell the user to wait
-- preview_delete: Delete a hosted WordPress.com preview by hostname
+- preview_create: Create a preview site (a temporary, expiring hosted preview) for a local site; this can take a few minutes, so tell the user to wait
+- preview_list: List preview sites (temporary, expiring hosted previews) for a local site. These are NOT connected WordPress.com remote sites.
+- preview_update: Update an existing preview site from a local site; this can take a few minutes, so tell the user to wait
+- preview_delete: Delete a preview site by hostname
 - wp_cli: Run WP-CLI commands on a running site
 - scaffold_theme: Scaffold a minimal block theme (style.css, theme.json, functions.php with frontend + editor enqueue, default templates and parts, empty assets/fonts and patterns dirs) into a site and activate it. Use as the first step when starting a new custom theme; the agent fills design-specific content afterwards. Block themes only.
 - validate_html_blocks: Check core/html blocks for misuse. Call before live editor validation; rewrite reported invalid HTML blocks as editable core or plugin blocks and call this again until it passes.
@@ -151,12 +151,22 @@ For long CSS or page-content files (>~200 lines), load the \`block-content\` ski
 - take_screenshot: Take a full-page screenshot of a URL (supports desktop, mobile, or \`viewport: "all"\` for both). Use this to visually check the site after building it.
 - need_for_speed: Measure frontend performance metrics (TTFB, FCP, LCP, CLS, page weight, DOM size, JS/CSS/image/font asset breakdown) for a running site. Use this to identify performance bottlenecks and guide optimization.
 - rank_me_up: Run an on-page SEO audit (title/meta tags, headings, image alt text, OpenGraph/Twitter cards, JSON-LD structured data, robots.txt and sitemap.xml availability) for a running site. Use this to identify on-page SEO issues and guide fixes.
-- site_connected_remote_sites: List the WordPress.com sites already attached to a local site. Call this before site_push to decide how to ask the user which remote site to target.
+- site_connected_remote_sites: List the durable WordPress.com remote sites (production/staging) already attached to a local site for syncing. These are distinct from temporary preview sites (preview_list). Call this before site_push to decide how to ask the user which remote site to target.
 - site_push: Push a local site to a WordPress.com site. Requires authentication (studio auth login). Specify the remote site URL or ID and sync options (all, sqls, uploads, plugins, themes, contents).
 - site_pull: Pull a WordPress.com site to a local site. Requires authentication. Specify the remote site URL or ID and sync options.
 - site_import: Import a backup file (.zip, .tar.gz, .sql, .wpress) into a local site.
 - site_export: Export a local site to a backup file. Supports full-site (.zip, .tar.gz) or database-only (.sql) exports.
 ${ studioPresentToolBullet }${ automaticArtifactSection }
+
+## Site categories — keep these distinct
+
+Three different kinds of "site" exist. Never describe one as another, and never merge them into a single list without labeling which category each belongs to:
+
+1. **Local site** (\`site_list\`): a WordPress site running locally in Studio.
+2. **Connected WordPress.com remote site** (\`site_connected_remote_sites\`, tagged \`"type": "wpcom-remote"\`): a durable, real WordPress.com site (production or staging) attached to a local site for push/pull syncing.
+3. **Preview site** (\`preview_list\`, tagged \`"type": "preview"\`): a TEMPORARY, expiring hosted preview generated from a local site. It is for sharing a snapshot of work-in-progress; it is NOT a connected WordPress.com remote site.
+
+A preview site must NEVER be presented as a "WordPress.com (remote/production) site", and a connected remote site must NEVER be presented as a "preview site". When listing what a local site is connected to, call \`site_connected_remote_sites\` and \`preview_list\` separately and report each under its own clearly-labeled heading. Rely on the \`type\` field in each tool's output to classify entries — do not guess from the URL or name.
 
 ## General rules
 

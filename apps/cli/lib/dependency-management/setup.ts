@@ -6,6 +6,7 @@ import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
 import semver from 'semver';
 import { readCliConfig, updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
 import { getLanguagePacksPath, getWordPressVersionPath, getWpFilesPath } from './paths';
+import { updateLatestReprintPhar } from './reprint';
 import { areDirectoriesDifferentBySizeAndMtime } from './utils';
 import { getWordPressVersionFromInstallation, updateLatestWordPressVersion } from './wordpress';
 
@@ -123,6 +124,12 @@ export async function updateServerFiles(): Promise< boolean > {
 		await updateLatestWordPressVersion();
 	} catch ( error ) {
 		console.error( 'Failed to update dependency WordPress version:', error );
+	}
+
+	try {
+		await updateLatestReprintPhar();
+	} catch ( error ) {
+		console.error( 'Failed to update dependency reprint:', error );
 	}
 
 	await markDependencyCheckTime();

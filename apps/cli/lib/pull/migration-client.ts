@@ -8,6 +8,7 @@
 import { ChildProcess, fork } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { ensureReprintPharAvailable } from 'cli/lib/dependency-management/reprint';
 
 export interface ReprintProcessResult {
 	stdout: string;
@@ -35,7 +36,7 @@ export async function runReprintCommandUntilComplete(
 		verboseCommands?: boolean;
 	} = {}
 ): Promise< ReprintProcessResult > {
-	const pharPath = getBundledReprintPhar();
+	const pharPath = await ensureReprintPharAvailable();
 	const tmpDir = path.join( path.dirname( stateDir ), 'tmp' );
 	fs.mkdirSync( tmpDir, { recursive: true } );
 
@@ -506,15 +507,6 @@ function fmtBytes( bytes: number ): string {
 		return `${ ( bytes / 1024 ).toFixed( 0 ) } KB`;
 	}
 	return `${ ( bytes / ( 1024 * 1024 ) ).toFixed( 1 ) } MB`;
-}
-
-/** Resolves the path to the bundled reprint.phar, throwing if it's missing. */
-function getBundledReprintPhar(): string {
-	const candidate = path.join( import.meta.dirname, 'reprint.phar' );
-	if ( ! fs.existsSync( candidate ) ) {
-		throw new Error( `Bundled reprint.phar not found at ${ candidate }` );
-	}
-	return candidate;
 }
 
 /**

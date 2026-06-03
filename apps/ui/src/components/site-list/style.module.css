@@ -217,14 +217,17 @@
 .sessionListFrame {
 	display: grid;
 	grid-template-rows: 0fr;
+	margin-top: 0;
 	margin-bottom: 0;
 	opacity: 0;
 	pointer-events: none;
-	transition: grid-template-rows 160ms ease, margin-bottom 160ms ease, opacity 120ms ease;
+	transition: grid-template-rows 160ms ease, margin-top 160ms ease, margin-bottom 160ms ease,
+		opacity 120ms ease;
 }
 
 .sessionListFrameOpen {
 	grid-template-rows: 1fr;
+	margin-top: 2px;
 	margin-bottom: var(--wpds-dimension-padding-sm);
 	opacity: 1;
 	pointer-events: auto;
@@ -238,6 +241,7 @@
 	margin: 0;
 	display: flex;
 	flex-direction: column;
+	gap: 2px;
 }
 
 .sessionItem {

@@ -73,7 +73,7 @@ const renderWithProvider = ( children: React.ReactElement, nativePhpRuntime = fa
 	const store = createTestStore( {
 		preloadedState: {
 			betaFeatures: {
-				features: { enableStudioCodeUi: false, remoteSession: false, nativePhpRuntime },
+				features: { remoteSession: false, nativePhpRuntime },
 				loading: false,
 			},
 		},

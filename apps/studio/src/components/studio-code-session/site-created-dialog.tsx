@@ -40,7 +40,7 @@ export function SiteCreatedDialog( {
 							? sprintf(
 									/* translators: %s: name of the newly created site. */
 									__(
-										'This conversation has moved to %s. Open it to keep going there, or stay here and start a new chat.'
+										'This conversation has moved to %s. Open it to keep going there, or stay here with a fresh chat.'
 									),
 									pending.siteName
 							  )

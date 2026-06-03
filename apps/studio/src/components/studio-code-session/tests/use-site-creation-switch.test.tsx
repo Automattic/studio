@@ -58,56 +58,61 @@ beforeEach( () => {
 } );
 
 describe( 'useSiteCreationSwitch', () => {
-	it( 'surfaces a pending switch and maps the new site to the session on placement', () => {
+	it( 'migrates on placement: claims the new site and resets the current site to a fresh chat', () => {
 		siteDetails.sites = [ { id: 'old-site' }, { id: 'new-site' } ];
+		const onStartNewChat = vi.fn();
 		const { result } = renderHook( () =>
 			useSiteCreationSwitch( {
 				sessionId: 'session-1',
 				currentSiteId: 'old-site',
-				onStartNewChat: vi.fn(),
+				onStartNewChat,
 			} )
 		);
 
 		emitPlacement( placementEvent( 'session-1', 'new-site', 'My New Site' ) );
 
 		expect( result.current.pending ).toEqual( { siteId: 'new-site', siteName: 'My New Site' } );
-		// The conversation is claimed by the new site immediately.
+		// The new site claims the conversation, and the current site is moved to a
+		// fresh chat immediately — not on the user's click.
 		expect( readStoredMap()[ 'new-site' ] ).toBe( 'session-1' );
+		expect( onStartNewChat ).toHaveBeenCalledOnce();
 	} );
 
 	it( 'ignores placement events for a different session', () => {
+		const onStartNewChat = vi.fn();
 		const { result } = renderHook( () =>
 			useSiteCreationSwitch( {
 				sessionId: 'session-1',
 				currentSiteId: 'old-site',
-				onStartNewChat: vi.fn(),
+				onStartNewChat,
 			} )
 		);
 
 		emitPlacement( placementEvent( 'some-other-session', 'new-site' ) );
 
 		expect( result.current.pending ).toBeNull();
+		expect( onStartNewChat ).not.toHaveBeenCalled();
 		expect( readStoredMap() ).toEqual( {} );
 	} );
 
 	it( 'ignores a placement onto the current site (no migration)', () => {
+		const onStartNewChat = vi.fn();
 		const { result } = renderHook( () =>
 			useSiteCreationSwitch( {
 				sessionId: 'session-1',
 				currentSiteId: 'old-site',
-				onStartNewChat: vi.fn(),
+				onStartNewChat,
 			} )
 		);
 
 		emitPlacement( placementEvent( 'session-1', 'old-site' ) );
 
 		expect( result.current.pending ).toBeNull();
+		expect( onStartNewChat ).not.toHaveBeenCalled();
 	} );
 
-	it( 'openNewSite switches to the new site and forgets it on the current site', () => {
+	it( 'openNewSite switches to the new site', () => {
 		siteDetails.sites = [ { id: 'old-site' }, { id: 'new-site' } ];
-		localStorage.setItem( STORAGE_KEY, JSON.stringify( { 'old-site': 'session-1' } ) );
-
 		const { result } = renderHook( () =>
 			useSiteCreationSwitch( {
 				sessionId: 'session-1',
@@ -120,9 +125,6 @@ describe( 'useSiteCreationSwitch', () => {
 		act( () => result.current.openNewSite() );
 
 		expect( siteDetails.setSelectedSiteId ).toHaveBeenCalledWith( 'new-site' );
-		const map = readStoredMap();
-		expect( map[ 'new-site' ] ).toBe( 'session-1' );
-		expect( map[ 'old-site' ] ).toBeUndefined();
 		expect( result.current.pending ).toBeNull();
 	} );
 
@@ -149,10 +151,9 @@ describe( 'useSiteCreationSwitch', () => {
 		expect( siteDetails.setSelectedSiteId ).toHaveBeenCalledWith( 'new-site' );
 	} );
 
-	it( 'stayHere starts a new chat on the current site without switching', () => {
+	it( 'stayHere just dismisses — it does not switch or migrate again', () => {
 		siteDetails.sites = [ { id: 'old-site' }, { id: 'new-site' } ];
 		const onStartNewChat = vi.fn();
-
 		const { result } = renderHook( () =>
 			useSiteCreationSwitch( {
 				sessionId: 'session-1',
@@ -162,31 +163,13 @@ describe( 'useSiteCreationSwitch', () => {
 		);
 
 		emitPlacement( placementEvent( 'session-1', 'new-site' ) );
+		expect( onStartNewChat ).toHaveBeenCalledOnce(); // migration happened on the event
+
 		act( () => result.current.stayHere() );
 
-		expect( onStartNewChat ).toHaveBeenCalledOnce();
-		expect( siteDetails.setSelectedSiteId ).not.toHaveBeenCalled();
 		expect( result.current.pending ).toBeNull();
-	} );
-
-	it( 'does not run the stay branch after the user chose to open the new site', () => {
-		siteDetails.sites = [ { id: 'old-site' }, { id: 'new-site' } ];
-		const onStartNewChat = vi.fn();
-
-		const { result } = renderHook( () =>
-			useSiteCreationSwitch( {
-				sessionId: 'session-1',
-				currentSiteId: 'old-site',
-				onStartNewChat,
-			} )
-		);
-
-		emitPlacement( placementEvent( 'session-1', 'new-site' ) );
-		act( () => result.current.openNewSite() );
-		// Dialog close fires the dismissal path; it must be a no-op now.
-		act( () => result.current.stayHere() );
-
-		expect( onStartNewChat ).not.toHaveBeenCalled();
-		expect( siteDetails.setSelectedSiteId ).toHaveBeenCalledOnce();
+		expect( siteDetails.setSelectedSiteId ).not.toHaveBeenCalled();
+		// No second migration: the new chat was already started when the prompt opened.
+		expect( onStartNewChat ).toHaveBeenCalledOnce();
 	} );
 } );

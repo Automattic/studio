@@ -179,6 +179,7 @@ function EmptyConversation( {
 function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 	const { sessionId, setSessionId, newSession } = useSingleSession( selectedSite.id );
 	const { data, isLoading } = useSession( sessionId );
+	const startNewChat = useCallback( () => void newSession(), [ newSession ] );
 	const {
 		pending: pendingSiteCreation,
 		openNewSite,
@@ -186,7 +187,7 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 	} = useSiteCreationSwitch( {
 		sessionId,
 		currentSiteId: selectedSite.id,
-		onStartNewChat: () => void newSession(),
+		onStartNewChat: startNewChat,
 	} );
 	const {
 		isRunning,

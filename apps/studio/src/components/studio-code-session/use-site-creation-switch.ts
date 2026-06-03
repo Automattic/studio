@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
-import { clearStoredSessionId, setStoredSessionId } from './use-single-session';
+import { setStoredSessionId } from './use-single-session';
 import type { IpcRendererEvent } from 'electron';
 import type { AiSessionPlacementUpdatedEvent } from 'src/lib/ai-session-placement';
 
@@ -17,8 +17,8 @@ interface UseSiteCreationSwitchArgs {
 	// The site this tab is anchored to. A placement onto this same site is a
 	// no-op (the conversation is already here).
 	currentSiteId: string;
-	// Start a fresh conversation on the current site — used by the "Stay here"
-	// branch, since the existing conversation has migrated to the new site.
+	// Start a fresh conversation on the current site. Called the moment the
+	// conversation migrates away, so this site is left on an empty chat.
 	onStartNewChat: () => void;
 }
 
@@ -35,13 +35,14 @@ export interface SiteCreationSwitch {
  * (apps/ui) shows a "Continue in the site desk?" dialog off the same event;
  * this is the embedded-tab equivalent.
  *
- * On a placement onto a *different* site we immediately map that new site to
- * the current session (so it owns the conversation) and surface a choice:
+ * The migration happens as soon as the event arrives, not on the user's click:
+ * the new site is mapped to the moved session and the current site is reset to
+ * a fresh chat right away. This keeps the prompt honest ("the conversation has
+ * moved") and means clicking is never the thing that discards the chat. The
+ * prompt is then a pure navigation choice:
  *  - Open the new site → navigate there; its tab loads the full transcript and
- *    the still-active run keeps streaming. The current site forgets the moved
- *    session so it doesn't double-own it.
- *  - Stay here → start a fresh conversation on the current site; the migrated
- *    one waits on the new site.
+ *    the still-active run keeps streaming.
+ *  - Stay here → just dismiss; this site already shows its new chat.
  */
 export function useSiteCreationSwitch( {
 	sessionId,
@@ -55,10 +56,6 @@ export function useSiteCreationSwitch( {
 	// switch until it appears — `selectedSite` falls back to the first site for
 	// an unknown id, which would flash the wrong site.
 	const [ deferredSwitchSiteId, setDeferredSwitchSiteId ] = useState< string | null >( null );
-	// Guards against acting twice on one prompt. Closing the dialog (e.g. after
-	// choosing "Open") fires the same dismissal path as "Stay here", so without
-	// this the stay branch could also run and create a stray empty session.
-	const decisionMadeRef = useRef( false );
 
 	const handlePlacement = useCallback(
 		( _event: IpcRendererEvent, payload: AiSessionPlacementUpdatedEvent ) => {
@@ -68,13 +65,14 @@ export function useSiteCreationSwitch( {
 			if ( payload.placement.kind !== 'site' || payload.placement.siteId === currentSiteId ) {
 				return;
 			}
-			// The conversation now belongs to the new site regardless of which
-			// branch the user picks, so claim it eagerly.
+			// Hand the conversation to the new site and immediately leave this one
+			// on a fresh chat, so the move is real before the user decides where to
+			// look — not a side effect of dismissing the prompt.
 			setStoredSessionId( payload.placement.siteId, sessionId );
-			decisionMadeRef.current = false;
+			onStartNewChat();
 			setPending( { siteId: payload.placement.siteId, siteName: payload.placement.siteName } );
 		},
-		[ sessionId, currentSiteId ]
+		[ sessionId, currentSiteId, onStartNewChat ]
 	);
 
 	useIpcListener( 'ai-session-placement-updated', handlePlacement );
@@ -87,28 +85,22 @@ export function useSiteCreationSwitch( {
 	}, [ deferredSwitchSiteId, sites, setSelectedSiteId ] );
 
 	const openNewSite = useCallback( () => {
-		if ( ! pending || decisionMadeRef.current ) {
+		if ( ! pending ) {
 			return;
 		}
-		decisionMadeRef.current = true;
-		// The current site no longer owns the conversation — it moved.
-		clearStoredSessionId( currentSiteId );
 		if ( sites.some( ( site ) => site.id === pending.siteId ) ) {
 			setSelectedSiteId( pending.siteId );
 		} else {
 			setDeferredSwitchSiteId( pending.siteId );
 		}
 		setPending( null );
-	}, [ pending, currentSiteId, sites, setSelectedSiteId ] );
+	}, [ pending, sites, setSelectedSiteId ] );
 
 	const stayHere = useCallback( () => {
-		if ( decisionMadeRef.current ) {
-			return;
-		}
-		decisionMadeRef.current = true;
+		// The migration already happened when the prompt opened; staying is just
+		// a dismissal.
 		setPending( null );
-		onStartNewChat();
-	}, [ onStartNewChat ] );
+	}, [] );
 
 	return { pending, openNewSite, stayHere };
 }

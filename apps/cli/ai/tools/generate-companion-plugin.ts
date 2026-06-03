@@ -1,4 +1,6 @@
+import path from 'path';
 import { Type } from 'typebox';
+import { compileBlock } from 'cli/ai/generation/build-block';
 import { runBlockGenerator, runGenerator } from 'cli/ai/generation/generators';
 import {
 	contractFromManifest,
@@ -70,7 +72,7 @@ async function activatePlugin( siteId: string, slug: string ): Promise< string >
 
 export const generateCompanionPluginTool = defineTool(
 	'generate_companion_plugin',
-	'Generates the companion plugin for a site: custom post types, taxonomies, post meta, REST routes, and BUILD-LESS plain-JS Gutenberg blocks (block.json + plain registerBlockType JS, no @wordpress/scripts, no build step). Writes into wp-content/plugins/<slug>-functionality/ and activates it. This is where ALL site behaviour lives — keeping the theme pure presentation. Requires the manifest from generate_theme. No-ops when the manifest marks the companion plugin as not needed (brochure sites).',
+	'Generates the companion plugin for a site: custom post types, taxonomies, post meta, REST routes, and JSX/React Gutenberg blocks authored under blocks/<slug>/src/ and compiled in-process to build/ via esbuild (editor uses @wordpress/* imports; front-end view.js stays plain DOM; no npm install, no webpack). Writes into wp-content/plugins/<slug>-functionality/ and activates it. This is where ALL site behaviour lives — keeping the theme pure presentation. Requires the manifest from generate_theme. No-ops when the manifest marks the companion plugin as not needed (brochure sites).',
 	{
 		nameOrPath: Type.String( {
 			description: 'The site name or filesystem path of the target site.',
@@ -109,7 +111,7 @@ export const generateCompanionPluginTool = defineTool(
 		const mainPhpRaw = await runGenerator( {
 			name: 'companion-plugin',
 			specJson,
-			task: `Plugin name: ${ plugin.name }\nPlugin slug: ${ slug }\nGenerate the main plugin PHP file. Plan to implement:\n${ planSummary }\nRegister each block with register_block_type( __DIR__ . '/blocks/<block-slug>' ). Register each custom post type with its EXACT key and each REST route under the namespace '${ manifest.themePrefix }/v1'.\n\n${ vocabulary }`,
+			task: `Plugin name: ${ plugin.name }\nPlugin slug: ${ slug }\nGenerate the main plugin PHP file. Plan to implement:\n${ planSummary }\nRegister each block with register_block_type( __DIR__ . '/blocks/<block-slug>/build' ) — blocks are compiled from src/ to build/. Register each custom post type with its EXACT key and each REST route under the namespace '${ manifest.themePrefix }/v1'.\n\n${ vocabulary }`,
 			maxTokens: 12_000,
 			temperature: 0.3,
 		} );
@@ -150,15 +152,32 @@ export const generateCompanionPluginTool = defineTool(
 				failedBlocks.push( `${ block.slug } (${ error.slice( 0, 120 ) })` );
 				continue;
 			}
+			const srcRel = `blocks/${ block.slug }/src`;
 			for ( const [ rel, content ] of Object.entries( files ) ) {
 				// Force the block.json name to the canonical {themePrefix}/{slug} even if
 				// the generator drifted — content references must match this.
 				const finalContent = rel.endsWith( 'block.json' )
 					? reconcileBlockJsonName( content, block.slug, contract ).json
 					: content;
-				const target = `blocks/${ block.slug }/${ rel }`;
-				await writePackageFile( dir, target, finalContent );
-				written.push( target );
+				await writePackageFile( dir, `${ srcRel }/${ rel }`, finalContent );
+				written.push( `${ srcRel }/${ rel }` );
+			}
+			// Compile the JSX src/ to build/ (esbuild, WordPress packages externalised
+			// to wp.* globals). register_block_type points at build/.
+			try {
+				await compileBlock(
+					path.join( dir, 'blocks', block.slug, 'src' ),
+					path.join( dir, 'blocks', block.slug, 'build' )
+				);
+				written.push( `blocks/${ block.slug }/build/` );
+			} catch ( compileError ) {
+				failedBlocks.push(
+					`${ block.slug } (compile: ${
+						compileError instanceof Error
+							? compileError.message.slice( 0, 120 )
+							: String( compileError )
+					})`
+				);
 			}
 		}
 

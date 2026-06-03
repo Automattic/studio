@@ -51,7 +51,7 @@ Inheritance in WordPress block themes is unreliable. A child block whose text co
 
 - Any interactive or stateful behavior (countdowns, filters, sliders, calculators, form submission, scroll reveals) is implemented in **plain JavaScript** using standard DOM APIs (`querySelector`, `addEventListener`, `classList`, `dataset`, `fetch`).
 - **Never use the WordPress Interactivity API** (`@wordpress/interactivity`, `data-wp-*` directives, its store/state system).
-- **Custom blocks are build-less plain JS**: a `block.json` plus a plain `view.js`/`editor.js` that calls `wp.blocks.registerBlockType` using `wp.element.createElement` — NO JSX, NO `@wordpress/scripts`, NO npm build step. Blocks are registered server-side with `register_block_type` from the companion plugin.
+- **Custom blocks are authored as JSX/React under `src/`** and compiled to `build/` by the generation tool (esbuild externalises `@wordpress/*` to runtime globals — no `npm install`, no webpack, no per-block config). The EDITOR (`index.js`/`edit.js`) uses real JSX with `@wordpress/*` imports; the FRONT END (`view.js`) stays plain DOM only (the rule above). Blocks are registered server-side with `register_block_type` pointing at the compiled `build/` directory, from the companion plugin.
 
 ## Content quality
 

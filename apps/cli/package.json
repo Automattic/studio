@@ -45,6 +45,7 @@
 		"atomically": "^2.1.1",
 		"chokidar": "^5.0.0",
 		"cli-table3": "^0.6.5",
+		"esbuild": "^0.25.12",
 		"fs-extra": "^11.3.4",
 		"http-proxy": "^1.18.1",
 		"ignore": "^7.0.5",

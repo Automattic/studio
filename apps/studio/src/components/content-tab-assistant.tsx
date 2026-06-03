@@ -16,11 +16,10 @@ import { ChatMessage, MarkDownWithCode } from 'src/components/chat-message';
 import { ChatRating } from 'src/components/chat-rating';
 import { LearnMoreLink } from 'src/components/learn-more';
 import offlineIcon from 'src/components/offline-icon';
-import { StudioCodeChat } from 'src/components/studio-code-chat';
+import { StudioCodeSession } from 'src/components/studio-code-session';
 import WelcomeComponent from 'src/components/welcome-message-prompt';
 import { LIMIT_OF_PROMPTS_PER_USER, TELEX_HOSTNAME, TELEX_UTM_PARAMS } from 'src/constants';
 import { useAuth } from 'src/hooks/use-auth';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useOffline } from 'src/hooks/use-offline';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
 import { cx } from 'src/lib/cx';
@@ -359,10 +358,12 @@ const UnauthenticatedView = ( { onAuthenticate }: { onAuthenticate: () => void }
 );
 
 export function ContentTabAssistant( { selectedSite }: ContentTabAssistantProps ) {
-	const { enableStudioCodeUi } = useFeatureFlags();
+	const enableStudioCodeUi = useRootSelector(
+		( state ) => state.betaFeatures.features.enableStudioCodeUi
+	);
 
 	if ( enableStudioCodeUi ) {
-		return <StudioCodeChat selectedSite={ selectedSite } />;
+		return <StudioCodeSession selectedSite={ selectedSite } />;
 	}
 
 	return <WpcomAssistant selectedSite={ selectedSite } />;

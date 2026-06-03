@@ -117,7 +117,7 @@ const config: ForgeConfig = {
 				setupExe: 'studio-setup.exe',
 
 				// Sign via the custom Azure Trusted Signing hook (signtool, SHA256-only).
-				// Undefined off Windows CI, where the build is left unsigned.
+				// Undefined when SIGN_WINDOWS_BUILD isn't set (e.g. package-only jobs), leaving the build unsigned.
 				...( windowsSign ? { windowsSign } : {} ),
 			},
 			[ 'win32' ]

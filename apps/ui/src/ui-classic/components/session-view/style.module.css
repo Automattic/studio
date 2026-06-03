@@ -96,7 +96,7 @@
 .trafficLightSpacer {
 	display: block;
 	flex-shrink: 0;
-	width: 62px;
+	width: 78px;
 	height: 100%;
 	-webkit-app-region: no-drag;
 }

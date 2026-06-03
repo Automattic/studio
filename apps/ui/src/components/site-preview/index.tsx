@@ -802,7 +802,6 @@ export function SitePreview( {
 									pageSuggestions,
 									siteName: site.name,
 								} );
-								const tabPathLabel = getTabPathLabel( tabPath, index );
 								return (
 									<div
 										key={ tab.id }
@@ -869,7 +868,7 @@ export function SitePreview( {
 											<button
 												type="button"
 												className={ styles.tabButton }
-												title={ selected ? `${ tabTitleLabel } - ${ tabPath }` : tabTitleLabel }
+												title={ tabTitleLabel }
 												onClick={ () => selectTab( tab ) }
 												onDoubleClick={ () => startEditingTab( tab ) }
 											>
@@ -886,9 +885,6 @@ export function SitePreview( {
 												) }
 												<span className={ styles.tabText }>
 													<span className={ styles.tabTitle }>{ tabTitleLabel }</span>
-													{ selected ? (
-														<span className={ styles.tabPath }>{ tabPathLabel }</span>
-													) : null }
 												</span>
 											</button>
 										) }
@@ -1209,17 +1205,6 @@ function getTabTitleLabel( {
 	}
 
 	return getPathTitleFallback( safePath, index );
-}
-
-function getTabPathLabel( path: string, index: number ) {
-	const safePath = getSafePath( path );
-	if ( safePath === '/' ) {
-		return '/';
-	}
-	if ( ! safePath.trim() ) {
-		return `${ __( 'Tab' ) } ${ index + 1 }`;
-	}
-	return safePath;
 }
 
 function getCleanBrowserTitle( title: string | null, siteName: string ) {

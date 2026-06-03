@@ -3,8 +3,8 @@
 	--sidebar-row-background-hover: rgb(0 0 0 / 4%);
 	--sidebar-row-background-active: rgb(0 0 0 / 7%);
 
-	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-sm)
-		var(--wpds-dimension-padding-xl) calc(var(--wpds-dimension-padding-md) + var(--wpds-dimension-padding-sm));
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md)
+		var(--wpds-dimension-padding-md);
 	/* Stay pinned at the bottom as the sidebar scrolls; `margin-top:
 	   auto` pushes it to the bottom in the flex column when content is
 	   shorter than the viewport. */
@@ -27,70 +27,66 @@
 }
 
 .row {
+	position: relative;
 	display: flex;
 	align-items: center;
+	min-width: 0;
+	box-sizing: border-box;
+	height: var(--sidebar-row-height);
 	gap: var(--wpds-dimension-padding-xs);
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm)
+		var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-xs);
+	border-radius: 6px;
+	transition: background-color 100ms ease;
 }
 
-.userName {
-	color: var(--wpds-color-fg-content-neutral-weak);
+.row:hover,
+.row:focus-within {
+	background-color: var(--sidebar-row-background-hover);
 }
 
-.settingsButton {
+.row:has(.userTriggerActive),
+.row:has(.userTriggerActive):hover,
+.row:has(.userTriggerActive):focus-within {
+	background-color: var(--sidebar-row-background-active);
+}
+
+.userTrigger,
+.loginButton {
 	--wp-ui-button-background-color: transparent;
-	--wp-ui-button-background-color-active: var(--sidebar-row-background-hover);
+	--wp-ui-button-background-color-active: transparent;
 	--wp-ui-button-border-color: transparent;
 	--wp-ui-button-border-color-active: transparent;
+	--wp-ui-button-height: auto;
 
-	color: var(--wpds-color-fg-content-neutral-weak);
-	flex-shrink: 0;
-	margin-right: calc(32px + var(--wpds-dimension-padding-sm));
-}
-
-.settingsButton svg {
-	width: 28px;
-	height: 28px;
-}
-
-.row:hover .userName,
-.row:hover .settingsButton,
-.row:focus-within .userName,
-.row:focus-within .settingsButton {
-	color: var(--wpds-color-fg-content-neutral);
-}
-
-.userTrigger {
+	display: flex;
+	align-items: center;
+	gap: 0;
 	flex: 1;
+	min-width: 0;
+	height: 100%;
+	padding: 0;
+	padding-inline-end: calc(var(--sidebar-row-height) + var(--wpds-dimension-padding-sm));
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-md);
 	font-weight: var(--wpds-typography-font-weight-regular);
+	line-height: 1.2;
 }
 
-.settingsButtonActive {
-	--wp-ui-button-background-color: var(--sidebar-row-background-active);
-	--wp-ui-button-background-color-active: var(--sidebar-row-background-active);
-
-	color: var(--wpds-color-fg-content-neutral);
+.avatar {
+	inline-size: 24px;
+	block-size: 24px;
+	margin-inline-end: var(--wpds-dimension-padding-md);
+	border-radius: 50%;
 }
 
 .userName {
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-md);
+	font-weight: var(--wpds-typography-font-weight-regular);
+	line-height: 1.2;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	min-width: 0;
-}
-
-.loginButton {
-	flex: 1;
-}
-
-.popup {
-	min-width: 220px;
-}
-
-.email {
-	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
-	font-size: var(--wpds-typography-font-size-xs);
-	color: var(--wpds-color-fg-content-neutral-weak);
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
 }

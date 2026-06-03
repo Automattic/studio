@@ -56,8 +56,11 @@
 
 .sidebarToggle {
 	position: absolute;
-	bottom: var(--wpds-dimension-padding-xl);
-	left: calc(var(--sidebar-width, 320px) - var(--wpds-dimension-padding-sm));
+	bottom: calc(var(--wpds-dimension-padding-md) + var(--wpds-dimension-padding-xs));
+	left: calc(
+		var(--sidebar-width, 320px) - var(--wpds-dimension-padding-md) -
+			var(--wpds-dimension-padding-xs)
+	);
 	transform: translateX(-100%);
 	display: flex;
 	align-items: center;

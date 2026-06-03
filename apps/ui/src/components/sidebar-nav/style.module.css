@@ -4,8 +4,7 @@
 	--sidebar-row-background-active: rgb(0 0 0 / 7%);
 	--sidebar-icon-background: rgb(0 0 0 / 6%);
 
-	padding: 0 var(--wpds-dimension-padding-sm) 1px
-		calc(var(--wpds-dimension-padding-md) + var(--wpds-dimension-padding-sm));
+	padding: 0 var(--wpds-dimension-padding-md) 2px;
 	user-select: none;
 }
 

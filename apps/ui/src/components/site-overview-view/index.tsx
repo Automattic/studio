@@ -1,16 +1,15 @@
 import { DEFAULT_MODEL } from '@studio/common/ai/models';
-import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
-import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { __, sprintf } from '@wordpress/i18n';
-import { archive, code, desktop, external, grid, navigation, preformatted } from '@wordpress/icons';
-import { Button, Dialog, Icon, IconButton } from '@wordpress/ui';
+import { __ } from '@wordpress/i18n';
+import { Button, Dialog } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useCallback, useEffect, useState, type ComponentProps, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { PreviewSplitContent } from '@/components/preview-split-frame';
 import { ProgressiveBlur } from '@/components/progressive-blur';
 import { SiteDropdown } from '@/components/site-dropdown';
+import { SitePreviewToggleButton } from '@/components/site-preview-toggle-button';
+import { SiteSettingsForm } from '@/components/site-settings-view';
 import { useConnector } from '@/data/core';
 import {
 	SESSIONS_QUERY_KEY,
@@ -19,38 +18,17 @@ import {
 	useUnarchiveSession,
 	useUpdateSessionTitleDescription,
 } from '@/data/queries/use-sessions';
-import {
-	useIsSiteStarting,
-	useIsSiteStopping,
-	useSites,
-	useStartSite,
-} from '@/data/queries/use-sites';
-import { useUserPreferences } from '@/data/queries/use-user-preferences';
+import { useSites } from '@/data/queries/use-sites';
 import { useFullscreen } from '@/hooks/use-fullscreen';
 import { useKeyboardShortcut } from '@/hooks/use-keyboard-shortcut';
 import { SessionUIProvider, useSessionPreviewUI } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { formatRelativeTime } from '@/lib/format-relative-time';
-import { getSiteDisplayUrl } from '@/lib/get-site-url';
 import { getKeyboardShortcut, getKeyboardShortcutDescriptor } from '@/lib/keyboard-shortcuts';
 import { Composer } from '@/ui-classic/components/session-view/composer';
 import styles from './style.module.css';
-import type {
-	AiSessionSummary,
-	SiteDetails,
-	SupportedEditor,
-	SupportedTerminal,
-} from '@/data/core';
-
-type ShortcutIcon = ComponentProps< typeof Icon >[ 'icon' ];
-
-interface SiteShortcutAction {
-	id: string;
-	label: string;
-	icon: ShortcutIcon;
-	disabled?: boolean;
-	run: () => Promise< void >;
-}
+import type { SiteSettingsTabId } from '@/components/site-settings-view';
+import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
 export function SiteOverviewView( { siteId }: { siteId: string } ) {
 	return (
@@ -66,17 +44,15 @@ function SiteOverviewViewContent( { siteId }: { siteId: string } ) {
 	const queryClient = useQueryClient();
 	const { data: sites, isLoading } = useSites();
 	const { data: sessions, isLoading: isLoadingSessions } = useSessions();
-	const { data: userPreferences } = useUserPreferences();
-	const startSite = useStartSite();
 	const archiveSession = useArchiveSession();
 	const unarchiveSession = useUnarchiveSession();
 	const site = sites?.find( ( candidate ) => candidate.id === siteId );
-	const isStarting = useIsSiteStarting( siteId );
-	const isStopping = useIsSiteStopping( siteId );
 	const preview = useSessionPreviewUI();
 	const showPreview = preview.open;
 	const [ composerBusy, setComposerBusy ] = useState( false );
 	const [ composerError, setComposerError ] = useState< string | null >( null );
+	const [ settingsOpen, setSettingsOpen ] = useState( false );
+	const [ settingsTab, setSettingsTab ] = useState< SiteSettingsTabId >( 'general' );
 
 	const sendNewChatMessage = useCallback(
 		async ( prompt: string ) => {
@@ -129,86 +105,85 @@ function SiteOverviewViewContent( { siteId }: { siteId: string } ) {
 	const isUpdatingSession = archiveSession.isPending || unarchiveSession.isPending;
 
 	return (
-		<PreviewSplitContent
-			scrollClassName={ styles.scroll }
-			composerOuterClassName={ styles.composerOuter }
-			header={
-				<SiteOverviewHeader
-					site={ site }
-					previewOpen={ showPreview }
-					onTogglePreview={ preview.toggle }
-				/>
-			}
-			composer={
-				<div className={ styles.classicColumn }>
-					<Composer
-						busy={ composerBusy }
-						error={ composerError }
-						model={ DEFAULT_MODEL }
-						onSend={ sendNewChatMessage }
-						onInterrupt={ async () => undefined }
-						autoFocus={ false }
+		<>
+			<PreviewSplitContent
+				scrollClassName={ styles.scroll }
+				composerOuterClassName={ styles.composerOuter }
+				header={
+					<SiteOverviewHeader
+						site={ site }
+						previewOpen={ showPreview }
+						onTogglePreview={ preview.toggle }
+						onOpenSettings={ () => setSettingsOpen( true ) }
 					/>
+				}
+				composer={
+					<div className={ styles.classicColumn }>
+						<Composer
+							busy={ composerBusy }
+							error={ composerError }
+							model={ DEFAULT_MODEL }
+							onSend={ sendNewChatMessage }
+							onInterrupt={ async () => undefined }
+							autoFocus={ false }
+						/>
+					</div>
+				}
+			>
+				<div className={ styles.content }>
+					<section className={ styles.chats }>
+						<header className={ styles.sectionHeader }>
+							<h2 className={ styles.sectionTitle }>{ __( 'Chats' ) }</h2>
+							<span className={ styles.sectionCount }>
+								{ isLoadingSessions
+									? __( 'Loading...' )
+									: `${ activeSessions.length + archivedSessions.length }` }
+							</span>
+						</header>
+						{ isLoadingSessions ? (
+							<p className={ styles.emptyChats }>{ __( 'Loading chats...' ) }</p>
+						) : siteSessions.length === 0 ? (
+							<p className={ styles.emptyChats }>{ __( 'No chats for this site yet.' ) }</p>
+						) : (
+							<>
+								<ChatSection
+									title={ __( 'Active' ) }
+									sessions={ activeSessions }
+									emptyText={ __( 'No active chats.' ) }
+									actionLabel={ __( 'Archive' ) }
+									actionDisabled={ isUpdatingSession }
+									onAction={ ( session ) => archiveSession.mutate( session ) }
+								/>
+								<ChatSection
+									title={ __( 'Archived' ) }
+									sessions={ archivedSessions }
+									emptyText={ __( 'No archived chats.' ) }
+									actionLabel={ __( 'Unarchive' ) }
+									actionDisabled={ isUpdatingSession }
+									onAction={ ( session ) => unarchiveSession.mutate( session ) }
+								/>
+							</>
+						) }
+					</section>
 				</div>
-			}
-		>
-			<div className={ styles.content }>
-				<div className={ styles.details }>
-					<Detail
-						label={ __( 'Status' ) }
-						value={ site.running ? __( 'Running' ) : __( 'Stopped' ) }
-					/>
-					<Detail label={ __( 'Local URL' ) } value={ getSiteDisplayUrl( site ) } />
-					<Detail label={ __( 'Local path' ) } value={ site.path } />
-					<Detail label={ __( 'PHP version' ) } value={ site.phpVersion } />
-					<Detail
-						label={ __( 'WordPress updates' ) }
-						value={ site.isWpAutoUpdating === false ? __( 'Pinned' ) : __( 'Automatic' ) }
-					/>
-				</div>
-				<SiteShortcuts
-					site={ site }
-					editor={ userPreferences?.editor }
-					terminal={ userPreferences?.terminal }
-					isRuntimeBusy={ isStarting || isStopping || startSite.isPending }
-					onStartSite={ () => startSite.mutateAsync( site.id ) }
-				/>
-				<section className={ styles.chats }>
-					<header className={ styles.sectionHeader }>
-						<h2 className={ styles.sectionTitle }>{ __( 'Chats' ) }</h2>
-						<span className={ styles.sectionCount }>
-							{ isLoadingSessions
-								? __( 'Loading...' )
-								: `${ activeSessions.length + archivedSessions.length }` }
-						</span>
-					</header>
-					{ isLoadingSessions ? (
-						<p className={ styles.emptyChats }>{ __( 'Loading chats...' ) }</p>
-					) : siteSessions.length === 0 ? (
-						<p className={ styles.emptyChats }>{ __( 'No chats for this site yet.' ) }</p>
-					) : (
-						<>
-							<ChatSection
-								title={ __( 'Active' ) }
-								sessions={ activeSessions }
-								emptyText={ __( 'No active chats.' ) }
-								actionLabel={ __( 'Archive' ) }
-								actionDisabled={ isUpdatingSession }
-								onAction={ ( session ) => archiveSession.mutate( session ) }
-							/>
-							<ChatSection
-								title={ __( 'Archived' ) }
-								sessions={ archivedSessions }
-								emptyText={ __( 'No archived chats.' ) }
-								actionLabel={ __( 'Unarchive' ) }
-								actionDisabled={ isUpdatingSession }
-								onAction={ ( session ) => unarchiveSession.mutate( session ) }
-							/>
-						</>
-					) }
-				</section>
-			</div>
-		</PreviewSplitContent>
+			</PreviewSplitContent>
+			<Dialog.Root open={ settingsOpen } onOpenChange={ setSettingsOpen }>
+				<Dialog.Popup size="large">
+					<Dialog.Header>
+						<Dialog.Title>{ __( 'Site settings' ) }</Dialog.Title>
+						<Dialog.CloseIcon />
+					</Dialog.Header>
+					<Dialog.Content>
+						<SiteSettingsForm
+							site={ site }
+							activeTab={ settingsTab }
+							onTabChange={ setSettingsTab }
+							embedded
+						/>
+					</Dialog.Content>
+				</Dialog.Popup>
+			</Dialog.Root>
+		</>
 	);
 }
 
@@ -216,10 +191,12 @@ function SiteOverviewHeader( {
 	site,
 	previewOpen,
 	onTogglePreview,
+	onOpenSettings,
 }: {
 	site: SiteDetails;
 	previewOpen: boolean;
 	onTogglePreview: () => void;
+	onOpenSettings: () => void;
 } ) {
 	const sidebarCollapsed = useSidebarCollapsed();
 	const isFullscreen = useFullscreen();
@@ -239,176 +216,19 @@ function SiteOverviewHeader( {
 				{ sidebarCollapsed && ! isFullscreen ? (
 					<span className={ styles.trafficLightSpacer } aria-hidden="true" />
 				) : null }
-				<SiteDropdown site={ site } showSiteIcon={ sidebarCollapsed } />
+				<SiteDropdown
+					site={ site }
+					showSiteIcon={ sidebarCollapsed }
+					onSettingsClick={ onOpenSettings }
+				/>
 				<span className={ styles.headerSpacer } aria-hidden="true" />
 				<div className={ styles.headerActions }>
-					<IconButton
-						variant="minimal"
-						tone="neutral"
-						size="small"
-						icon={ navigation }
-						label={ previewOpen ? __( 'Hide site preview' ) : __( 'Show site preview' ) }
+					<SitePreviewToggleButton
+						previewOpen={ previewOpen }
+						onTogglePreview={ onTogglePreview }
 						shortcut={ previewShortcut }
-						aria-pressed={ previewOpen }
-						onClick={ onTogglePreview }
 					/>
 				</div>
-			</div>
-		</div>
-	);
-}
-
-function SiteShortcuts( {
-	site,
-	editor,
-	terminal,
-	isRuntimeBusy,
-	onStartSite,
-}: {
-	site: SiteDetails;
-	editor: SupportedEditor | null | undefined;
-	terminal: SupportedTerminal | null | undefined;
-	isRuntimeBusy: boolean;
-	onStartSite: () => Promise< void >;
-} ) {
-	const connector = useConnector();
-	const [ busyActionId, setBusyActionId ] = useState< string | null >( null );
-	const [ errorMessage, setErrorMessage ] = useState< string | null >( null );
-	const isActionBusy = Boolean( busyActionId );
-	const actionDisabled = isRuntimeBusy || isActionBusy;
-	const editorLabel = editor ? supportedEditorConfig[ editor ].label : __( 'Editor' );
-	const terminalLabel = terminal ? terminalConfig[ terminal ].name : __( 'Terminal' );
-
-	const openSitePath = async (
-		path = '',
-		options?: Parameters< typeof connector.openSiteUrl >[ 2 ]
-	) => {
-		if ( ! site.running ) {
-			await onStartSite();
-		}
-		if ( options ) {
-			await connector.openSiteUrl( site.id, path, options );
-			return;
-		}
-		await connector.openSiteUrl( site.id, path );
-	};
-
-	const actions: SiteShortcutAction[] = [
-		{
-			id: 'open-site',
-			label: __( 'Open site' ),
-			icon: external,
-			disabled: actionDisabled,
-			run: () => openSitePath( '', { autoLogin: false } ),
-		},
-		{
-			id: 'wp-admin',
-			label: __( 'WP Admin' ),
-			icon: desktop,
-			disabled: actionDisabled,
-			run: () => openSitePath( '/wp-admin/' ),
-		},
-		{
-			id: 'phpmyadmin',
-			label: __( 'phpMyAdmin' ),
-			icon: grid,
-			disabled: actionDisabled,
-			run: () => openSitePath( '/phpmyadmin/index.php?route=/database/structure&db=wordpress' ),
-		},
-		{
-			id: 'files',
-			label: getFilesLabel(),
-			icon: archive,
-			disabled: isActionBusy,
-			run: () => connector.openSiteFolder( site.id ),
-		},
-		{
-			id: 'editor',
-			label: editorLabel,
-			icon: code,
-			disabled: isActionBusy || ! editor,
-			run: () => connector.openSiteInEditor( site.id ),
-		},
-		{
-			id: 'terminal',
-			label: terminalLabel,
-			icon: preformatted,
-			disabled: isActionBusy,
-			run: () => connector.openSiteInTerminal( site.id ),
-		},
-	];
-
-	const runShortcut = async ( action: SiteShortcutAction ) => {
-		if ( action.disabled || busyActionId ) {
-			return;
-		}
-		setBusyActionId( action.id );
-		setErrorMessage( null );
-		try {
-			await action.run();
-		} catch ( error ) {
-			console.error( 'Failed to run site shortcut:', error );
-			setErrorMessage(
-				sprintf(
-					/* translators: %s: shortcut label, such as "WP Admin". */
-					__( 'Could not open %s.' ),
-					action.label
-				)
-			);
-		} finally {
-			setBusyActionId( null );
-		}
-	};
-
-	return (
-		<section className={ styles.shortcuts }>
-			<header className={ styles.sectionHeader }>
-				<h2 className={ styles.sectionTitle }>{ __( 'Shortcuts' ) }</h2>
-			</header>
-			<div className={ styles.shortcutGrid }>
-				{ actions.map( ( action ) => (
-					<Button
-						key={ action.id }
-						variant="outline"
-						tone="neutral"
-						className={ styles.shortcutButton }
-						disabled={ action.disabled }
-						loading={ busyActionId === action.id }
-						loadingAnnouncement={ sprintf(
-							/* translators: %s: shortcut label, such as "WP Admin". */
-							__( 'Opening %s' ),
-							action.label
-						) }
-						onClick={ () => void runShortcut( action ) }
-					>
-						<Icon icon={ action.icon } size={ 18 } />
-						<span>{ action.label }</span>
-					</Button>
-				) ) }
-			</div>
-			{ errorMessage ? <p className={ styles.shortcutError }>{ errorMessage }</p> : null }
-		</section>
-	);
-}
-
-function getFilesLabel() {
-	const platform =
-		typeof navigator === 'undefined' ? 'MacIntel' : navigator.platform || navigator.userAgent;
-	if ( /win/i.test( platform ) ) {
-		return __( 'File Explorer' );
-	}
-	if ( /mac/i.test( platform ) ) {
-		return __( 'Finder' );
-	}
-	return __( 'Files' );
-}
-
-function Detail( { label, value }: { label: string; value: string } ) {
-	return (
-		<div className={ styles.detail }>
-			<div className={ styles.detailLabel }>{ label }</div>
-			<div className={ styles.detailValue } title={ value }>
-				{ value }
 			</div>
 		</div>
 	);

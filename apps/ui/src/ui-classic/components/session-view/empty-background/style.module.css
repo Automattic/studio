@@ -11,5 +11,6 @@
 	display: block;
 	width: min(100%, var(--empty-background-canvas-size, 580px));
 	height: auto;
+	cursor: pointer;
 	pointer-events: auto;
 }

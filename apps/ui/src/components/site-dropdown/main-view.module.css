@@ -1,18 +1,162 @@
 .rows {
 	display: flex;
 	flex-direction: column;
-	/* One unified box of padding around the entire main view plus a fixed
-	   gap between rows — individual rows no longer carry their own
-	   padding, which keeps the rhythm consistent regardless of row count
-	   or which actions each row renders. */
-	padding: var(--wpds-dimension-padding-lg);
-	gap: var(--wpds-dimension-padding-lg);
 }
 
 .rowActions {
 	display: flex;
 	align-items: center;
-	gap: var(--wpds-dimension-padding-xs);
+	gap: 2px;
+}
+
+.compactIconButton {
+	width: 28px;
+	height: 28px;
+	min-width: 28px;
+	padding: 0;
+}
+
+.compactIconButton svg {
+	width: 16px;
+	height: 16px;
+	fill: currentColor;
+}
+
+.localServerButton {
+	--wp-ui-button-background-color: transparent;
+	--wp-ui-button-background-color-active: transparent;
+	--wp-ui-button-background-color-hover: var(--wpds-color-bg-surface-neutral-hover, #f3f4f6);
+	--wp-ui-button-border-color: transparent;
+	--wp-ui-button-border-color-active: transparent;
+	--wp-ui-button-border-color-hover: transparent;
+
+	width: 32px;
+	height: 32px;
+	min-width: 32px;
+	padding: 0;
+	color: var(--wpds-color-fg-content-neutral);
+	background: transparent;
+}
+
+.localServerButton[data-state='running']:hover,
+.localServerButton[data-state='running']:focus-visible {
+	--wp-ui-button-background-color-hover: #fee2e2;
+	--wp-ui-button-border-color-hover: #fecaca;
+
+	color: #dc2626;
+}
+
+.localServerIcon {
+	width: 18px;
+	height: 18px;
+	overflow: visible;
+}
+
+.localServerPlay,
+.localServerStopMorph,
+.localServerSpinnerTrack,
+.localServerSpinner {
+	transform-origin: center;
+	transition:
+		opacity 160ms ease,
+		transform 160ms ease,
+		fill 160ms ease,
+		rx 160ms ease,
+		x 160ms ease,
+		y 160ms ease,
+		width 160ms ease,
+		height 160ms ease;
+}
+
+.localServerPlay {
+	fill: currentColor;
+	opacity: 0;
+	transform: scale(0.72);
+}
+
+.localServerStopMorph {
+	x: 7px;
+	y: 7px;
+	width: 10px;
+	height: 10px;
+	rx: 2px;
+	fill: currentColor;
+	opacity: 0;
+	transform: scale(0.72);
+}
+
+.localServerSpinnerTrack,
+.localServerSpinner {
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 2.25;
+	opacity: 0;
+}
+
+.localServerSpinnerTrack {
+	opacity: 0;
+	stroke-opacity: 0.28;
+}
+
+.localServerSpinner {
+	stroke-linecap: round;
+	stroke-dasharray: 28 44;
+	animation: localServerSpin 800ms linear infinite;
+}
+
+.localServerIcon[data-state='stopped'] .localServerPlay {
+	opacity: 1;
+	transform: scale(1);
+}
+
+.localServerIcon[data-state='running'] .localServerStopMorph {
+	opacity: 1;
+	transform: scale(1);
+}
+
+.localServerIcon[data-state='transitioning'] .localServerSpinnerTrack,
+.localServerIcon[data-state='transitioning'] .localServerSpinner {
+	opacity: 1;
+}
+
+@keyframes localServerSpin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.urlLink {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	max-width: 100%;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	line-height: inherit;
+	text-align: left;
+	cursor: var(--wpds-cursor-control);
+}
+
+.urlLink:hover {
+	color: var(--wpds-color-fg-content-neutral);
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+
+.urlLink span {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.urlLink svg {
+	flex: 0 0 auto;
+	fill: currentColor;
 }
 
 /* The site-dropdown popup strips the default Menu popup padding/gap (so the
@@ -22,6 +166,41 @@
 .menuItems {
 	display: flex;
 	flex-direction: column;
-	gap: var(--wpds-dimension-padding-xs);
-	padding: var(--wpds-dimension-padding-xs);
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-md);
+}
+
+.submenuTrigger {
+	justify-content: space-between;
+}
+
+.submenuLabel {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--wpds-dimension-gap-sm);
+	min-width: 0;
+}
+
+.submenuLabel > span {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.submenuLeadingIcon {
+	flex: 0 0 auto;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	fill: currentColor;
+}
+
+.submenuChevron {
+	flex: 0 0 auto;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	fill: currentColor;
+}
+
+.menuItemIcon {
+	flex: 0 0 auto;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	fill: currentColor;
 }

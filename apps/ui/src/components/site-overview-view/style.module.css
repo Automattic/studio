@@ -20,19 +20,27 @@
 }
 
 .scroll {
+	--site-overview-inline-padding: clamp(
+		var(--wpds-dimension-padding-md),
+		3vw,
+		var(--wpds-dimension-padding-xl)
+	);
+
 	flex: 1;
 	min-height: 0;
 	overflow-y: auto;
+	overflow-x: hidden;
 	position: relative;
-	padding: 0 var(--wpds-dimension-padding-xl);
+	padding: 0 var(--site-overview-inline-padding);
 	scrollbar-gutter: stable both-edges;
 }
 
 .content {
+	box-sizing: border-box;
 	width: 100%;
 	max-width: 760px;
 	margin: 0 auto;
-	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-xl)
+	padding: var(--wpds-dimension-padding-sm) 0
 		calc(var(--wpds-dimension-padding-2xl) * 1.5);
 }
 
@@ -46,19 +54,24 @@
 	top: 0;
 	z-index: 2;
 	isolation: isolate;
-	margin: 0 calc(-1 * var(--wpds-dimension-padding-xl));
-	min-height: 46px;
+	margin: 0 calc(-1 * var(--site-overview-inline-padding));
+	box-sizing: border-box;
+	height: var(--site-preview-header-height, 54px);
+	min-height: var(--site-preview-header-height, 54px);
 	-webkit-app-region: drag;
 }
 
 .headerContent {
 	position: relative;
 	z-index: 1;
+	box-sizing: border-box;
 	display: flex;
 	align-items: center;
 	gap: var(--wpds-dimension-padding-sm);
 	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-2xl);
-	min-height: 46px;
+	padding-block: var(--site-preview-toggle-offset-block, 8px);
+	height: var(--site-preview-header-height, 54px);
+	min-height: var(--site-preview-header-height, 54px);
 	font-size: var(--wpds-typography-font-size-sm);
 	color: var(--wpds-color-fg-content-neutral);
 }
@@ -83,8 +96,8 @@
 	bottom: 0;
 	z-index: 2;
 	isolation: isolate;
-	margin: 0 calc(-1 * var(--wpds-dimension-padding-xl));
-	padding: calc(var(--wpds-dimension-padding-2xl) * 1.5) var(--wpds-dimension-padding-xl)
+	margin: 0 calc(-1 * var(--site-overview-inline-padding));
+	padding: calc(var(--wpds-dimension-padding-2xl) * 1.5) var(--site-overview-inline-padding)
 		var(--wpds-dimension-padding-xl);
 }
 
@@ -94,6 +107,9 @@
 }
 
 .classicColumn {
+	box-sizing: border-box;
+	width: 100%;
+	min-width: 0;
 	max-width: 760px;
 	margin: 0 auto;
 }
@@ -101,7 +117,7 @@
 .trafficLightSpacer {
 	display: block;
 	flex-shrink: 0;
-	width: 62px;
+	width: 78px;
 	height: 100%;
 	-webkit-app-region: no-drag;
 }
@@ -137,6 +153,12 @@
 }
 
 .shortcuts {
+	display: grid;
+	gap: var(--wpds-dimension-padding-md);
+	margin-bottom: calc(var(--wpds-dimension-padding-2xl) * 1.5);
+}
+
+.settings {
 	display: grid;
 	gap: var(--wpds-dimension-padding-md);
 	margin-bottom: calc(var(--wpds-dimension-padding-2xl) * 1.5);

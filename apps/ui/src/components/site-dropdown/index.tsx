@@ -21,9 +21,15 @@ type Props = {
 	// "Local". Outside a session context this defaults to local.
 	activeEnvironment?: 'local' | 'live';
 	showSiteIcon?: boolean;
+	onSettingsClick?: () => void;
 };
 
-export function SiteDropdown( { site, activeEnvironment = 'local', showSiteIcon = false }: Props ) {
+export function SiteDropdown( {
+	site,
+	activeEnvironment = 'local',
+	showSiteIcon = false,
+	onSettingsClick,
+}: Props ) {
 	const [ view, setView ] = useState< 'main' | 'picker' >( 'main' );
 	const [ menuOpen, setMenuOpen ] = useState( false );
 	const [ disconnectOpen, setDisconnectOpen ] = useState( false );
@@ -49,6 +55,13 @@ export function SiteDropdown( { site, activeEnvironment = 'local', showSiteIcon 
 		setMenuOpen( false );
 		setDisconnectOpen( true );
 	};
+
+	const handleSettingsClick = onSettingsClick
+		? () => {
+				setMenuOpen( false );
+				onSettingsClick();
+		  }
+		: undefined;
 
 	return (
 		<div className={ styles.root }>
@@ -85,6 +98,7 @@ export function SiteDropdown( { site, activeEnvironment = 'local', showSiteIcon 
 							site={ site }
 							onSetupClick={ () => setView( 'picker' ) }
 							onDisconnectClick={ handleDisconnectClick }
+							onSettingsClick={ handleSettingsClick }
 						/>
 					) : (
 						<PublishPickerView site={ site } onClose={ () => setView( 'main' ) } />

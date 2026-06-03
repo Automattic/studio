@@ -6,7 +6,8 @@
 	height: 100%;
 	min-height: 0;
 	border-left: 1px solid var(--wpds-color-stroke-surface-neutral);
-	overflow: visible;
+	overflow: hidden;
+	border-radius: 8px;
 }
 
 .rootResizing {
@@ -272,29 +273,13 @@
 	height: 100%;
 }
 
-.tabTitle,
-.tabPath {
+.tabTitle {
 	min-width: 0;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: 16px;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-}
-
-.tabTitle {
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: 16px;
-}
-
-.tabPath {
-	font-size: 10px;
-	font-weight: 500;
-	line-height: 11px;
-	opacity: 0.72;
-}
-
-.tabActive .tabTitle {
-	font-size: 12px;
-	line-height: 14px;
 }
 
 .tabIcon {

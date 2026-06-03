@@ -1,0 +1,1 @@
+Capture the viewport-height slice with `take_screenshot` (`fullPage: false`, paging with `offset`). Read rendered geometry and computed styles with `measure_elements` (e.g. the grid container's computed `grid-template-columns`).

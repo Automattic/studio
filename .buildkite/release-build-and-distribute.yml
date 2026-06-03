@@ -69,7 +69,7 @@ steps:
         agents:
           queue: windows
         env:
-          USE_AZURE_TRUSTED_SIGNING: 1
+          SIGN_WINDOWS_BUILD: 1
         command: |
           bash .buildkite/commands/checkout-release-branch.sh "${RELEASE_VERSION}"
           powershell -File .buildkite/commands/build-for-windows.ps1 -BuildType release -Architecture {{matrix}}

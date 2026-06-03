@@ -13,7 +13,6 @@ import { TabName } from 'src/hooks/use-content-tabs';
 import { useEffectiveTab } from 'src/hooks/use-effective-tab';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
-import { cx } from 'src/lib/cx';
 import { ContentTabSync } from 'src/modules/sync';
 
 export function SiteContentTabs() {
@@ -96,7 +95,7 @@ export function SiteContentTabs() {
 			>
 				{ ( { name } ) => (
 					<div
-						className={ cx( 'h-full overflow-y-auto' ) }
+						className="h-full overflow-y-auto"
 						style={ {
 							scrollbarWidth: 'thin',
 							scrollbarGutter: 'stable',

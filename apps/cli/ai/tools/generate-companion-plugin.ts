@@ -1,5 +1,10 @@
 import { Type } from 'typebox';
 import { runBlockGenerator, runGenerator } from 'cli/ai/generation/generators';
+import {
+	contractFromManifest,
+	contractVocabulary,
+	reconcileBlockJsonName,
+} from 'cli/ai/generation/identifier-contract';
 import { runPooled } from 'cli/ai/generation/llm';
 import { parseManifest } from 'cli/ai/generation/manifest';
 import { pluginDir, writePackageFile } from 'cli/ai/generation/paths';
@@ -92,6 +97,8 @@ export const generateCompanionPluginTool = defineTool(
 
 		const slug = plugin.slug;
 		const dir = pluginDir( site.path, slug );
+		const contract = contractFromManifest( manifest );
+		const vocabulary = contractVocabulary( manifest );
 
 		const planSummary = JSON.stringify(
 			{ postTypes: plugin.postTypes, restRoutes: plugin.restRoutes, blocks: plugin.blocks },
@@ -102,7 +109,7 @@ export const generateCompanionPluginTool = defineTool(
 		const mainPhpRaw = await runGenerator( {
 			name: 'companion-plugin',
 			specJson,
-			task: `Plugin name: ${ plugin.name }\nPlugin slug: ${ slug }\nGenerate the main plugin PHP file. Plan to implement:\n${ planSummary }\nRegister each block with register_block_type( __DIR__ . '/blocks/<block-slug>' ).`,
+			task: `Plugin name: ${ plugin.name }\nPlugin slug: ${ slug }\nGenerate the main plugin PHP file. Plan to implement:\n${ planSummary }\nRegister each block with register_block_type( __DIR__ . '/blocks/<block-slug>' ). Register each custom post type with its EXACT key and each REST route under the namespace '${ manifest.themePrefix }/v1'.\n\n${ vocabulary }`,
 			maxTokens: 12_000,
 			temperature: 0.3,
 		} );
@@ -123,7 +130,7 @@ export const generateCompanionPluginTool = defineTool(
 				try {
 					const generated = await runBlockGenerator(
 						specJson,
-						`Block slug: ${ block.slug }\nBlock title: ${ block.title }\nPurpose: ${ block.purpose }\nBlock namespace: ${ slug }/${ block.slug }`
+						`Block slug: ${ block.slug }\nBlock title: ${ block.title }\nPurpose: ${ block.purpose }\nBlock namespace (block.json "name"): ${ manifest.themePrefix }/${ block.slug } — use this EXACT name.\n\n${ vocabulary }`
 					);
 					return { block, files: generated.files, error: null as string | null };
 				} catch ( error ) {
@@ -144,8 +151,13 @@ export const generateCompanionPluginTool = defineTool(
 				continue;
 			}
 			for ( const [ rel, content ] of Object.entries( files ) ) {
+				// Force the block.json name to the canonical {themePrefix}/{slug} even if
+				// the generator drifted — content references must match this.
+				const finalContent = rel.endsWith( 'block.json' )
+					? reconcileBlockJsonName( content, block.slug, contract ).json
+					: content;
 				const target = `blocks/${ block.slug }/${ rel }`;
-				await writePackageFile( dir, target, content );
+				await writePackageFile( dir, target, finalContent );
 				written.push( target );
 			}
 		}

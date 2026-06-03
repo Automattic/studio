@@ -175,6 +175,10 @@ export interface CaseResult {
 		totalBlocks: number;
 	};
 	screenshots?: string[];
+	// Residual identifier-contract violations (a custom-block ref or Query Loop
+	// postType that resolves to nothing registered) found in the generated theme
+	// and seeded content after reconciliation. Non-empty means a render bug shipped.
+	identifierViolations?: { file: string; type: string; ref: string }[];
 	expectationsFailed?: string[];
 	errors: { stage: string; message: string }[];
 }
@@ -190,6 +194,7 @@ export interface EvalSummary {
 		totalWpHtml: number;
 		customBlocksGenerated: number;
 		inputCptsWithoutBlock: number;
+		identifierViolations: number;
 		expectationsFailed: number;
 		errors: number;
 		totalMs: number;
@@ -222,6 +227,7 @@ export function summarize( runId: string, cases: CaseResult[] ): EvalSummary {
 			totalWpHtml: c.coreBlocks?.totalWpHtml ?? 0,
 			customBlocksGenerated: c.customBlocks?.generated.length ?? 0,
 			inputCptsWithoutBlock: c.customBlocks?.inputCptsWithoutBlock.length ?? 0,
+			identifierViolations: c.identifierViolations?.length ?? 0,
 			expectationsFailed: c.expectationsFailed?.length ?? 0,
 			errors: c.errors.length,
 			totalMs: Object.values( c.stageTimingsMs ).reduce( ( a, b ) => a + b, 0 ),

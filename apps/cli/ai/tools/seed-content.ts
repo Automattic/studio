@@ -3,6 +3,11 @@ import path from 'path';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { Type } from 'typebox';
 import { runGenerator } from 'cli/ai/generation/generators';
+import {
+	contractFromManifest,
+	contractVocabulary,
+	reconcileMarkup,
+} from 'cli/ai/generation/identifier-contract';
 import { resolveAiImagesInHtml, stripAiImagePlaceholders } from 'cli/ai/generation/images';
 import { completeText, extractJson, runPooled } from 'cli/ai/generation/llm';
 import { parseManifest, type PostTypePlan, type SiteManifest } from 'cli/ai/generation/manifest';
@@ -200,6 +205,8 @@ export const seedContentTool = defineTool(
 		const site = await resolveSite( args.nameOrPath );
 		const specJson = normalizeSpecJson( args.spec );
 		const manifest = parseManifest( args.manifest );
+		const contract = contractFromManifest( manifest );
+		const vocabulary = contractVocabulary( manifest );
 		const withImages = args.withImages ?? true;
 		const imagesOk = withImages && ( await wpcomImagesAvailable() );
 
@@ -242,17 +249,20 @@ export const seedContentTool = defineTool(
 		const pagePrepared = await runPooled(
 			pageTargets.map( ( target ) => async () => {
 				try {
-					const body = await runGenerator( {
+					const rawBody = await runGenerator( {
 						name: 'page-content',
 						specJson,
 						task: `Page post type: ${ target.postType }\nPage slug: ${ target.slug }\nPage title: ${
 							target.title
 						}\nComposition brief: ${
 							target.brief || '(none — infer from the spec and page title)'
-						}`,
+						}\n\n${ vocabulary }`,
 						maxTokens: 12_000,
 						temperature: 0.6,
 					} );
+					// Reconcile any drifted block/postType identifiers to the canonical contract
+					// before the markup is published.
+					const body = reconcileMarkup( rawBody, contract ).html;
 					const img = await finalizeImages( body, target.slug );
 					const item: PreparedItem = {
 						postType: target.postType,
@@ -299,7 +309,8 @@ export const seedContentTool = defineTool(
 							slug = `${ base }-${ suffix }`;
 						}
 						usedSlugs.add( slug );
-						const img = await finalizeImages( entry.content, `${ postType.slug }-${ slug }` );
+						const entryContent = reconcileMarkup( entry.content, contract ).html;
+						const img = await finalizeImages( entryContent, `${ postType.slug }-${ slug }` );
 						generated += img.generated;
 						failed += img.failed;
 						items.push( {

@@ -2,6 +2,7 @@ import fs from 'fs';
 import { copyFile, mkdir } from 'fs/promises';
 import path from 'path';
 import { runManifest } from 'cli/ai/generation/generators';
+import { contractFromManifest, validateMarkup } from 'cli/ai/generation/identifier-contract';
 import { createSiteTool } from 'cli/ai/tools/create-site';
 import { deleteSiteTool } from 'cli/ai/tools/delete-site';
 import { generateCompanionPluginTool } from 'cli/ai/tools/generate-companion-plugin';
@@ -208,6 +209,22 @@ export async function runCase( spec: EvalSpec, opts: RunCaseOptions ): Promise< 
 				path.join( site.path, 'wp-content', 'plugins', manifest.companionPlugin.slug, 'blocks' )
 			);
 			result.customBlocks = analyzeCustomBlocks( manifest.companionPlugin, generatedBlockSlugs );
+		}
+
+		// Identifier-contract check: after reconciliation, no custom-block reference
+		// or Query Loop postType in the shipped markup should resolve to nothing
+		// registered. Any residual here is a render bug (the class that left the
+		// reservation block blank and the menu query showing the default post).
+		if ( manifest ) {
+			const contract = contractFromManifest( manifest );
+			const identifierViolations: { file: string; type: string; ref: string }[] = [];
+			for ( const file of measuredFiles ) {
+				const rel = path.relative( site.path, file );
+				for ( const v of validateMarkup( fs.readFileSync( file, 'utf8' ), contract, rel ) ) {
+					identifierViolations.push( { file: rel, type: v.type, ref: v.ref } );
+				}
+			}
+			result.identifierViolations = identifierViolations;
 		}
 
 		// 9. Validate block markup in the real editor (observational — pass content,

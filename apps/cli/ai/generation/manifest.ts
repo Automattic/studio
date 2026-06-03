@@ -1,3 +1,4 @@
+import { canonicalBlockSlug, canonicalCptKey, deriveThemePrefix } from './identifier-contract';
 import { extractJson } from './llm';
 import { deriveSlug, isValidSlug } from './paths';
 
@@ -64,6 +65,10 @@ export interface SeedItem {
 export interface SiteManifest {
 	themeSlug: string;
 	themeName: string;
+	// Canonical identifier prefix: every custom block is `{themePrefix}/{slug}`,
+	// every CPT is `{themePrefix}_{suffix}`, REST is `{themePrefix}/v1`. Derived
+	// from themeSlug; pins identifiers across every generation stage.
+	themePrefix: string;
 	layoutMode: LayoutMode;
 	contentMode: ContentMode;
 	parts: string[];
@@ -192,6 +197,61 @@ function normalizeSeed( value: unknown ): SeedItem[] {
 		.filter( ( s ) => s.title );
 }
 
+function normalizeId( value: string ): string {
+	return value.toLowerCase().replace( /-/g, '_' );
+}
+
+// Rewrite a REST route to the canonical `/{prefix}/v{n}/...` namespace.
+function canonicalRestPath( prefix: string, path: string ): string {
+	const match = path.match( /^\/?([a-z0-9-]+)\/v(\d+)\/(.+)$/i );
+	if ( match ) {
+		return `/${ prefix }/v${ match[ 2 ] }/${ match[ 3 ] }`;
+	}
+	return `/${ prefix }/v1/${ path.replace( /^\/+/, '' ) }`;
+}
+
+// Re-key `archive-<cpt>` / `single-<cpt>` / `taxonomy-<cpt>` template names to
+// the canonical CPT key so WordPress matches them to the registered post type.
+function rekeyTemplate( template: string, cptRekey: Map< string, string > ): string {
+	const match = template.match( /^(archive|single|taxonomy)-(.+)$/ );
+	if ( ! match ) {
+		return template;
+	}
+	const target = cptRekey.get( normalizeId( match[ 2 ] ) );
+	return target ? `${ match[ 1 ] }-${ target }` : template;
+}
+
+/**
+ * Re-key every identifier (CPT slugs, block slugs, REST routes, CPT templates)
+ * onto the single canonical `themePrefix` so registration and references match
+ * by construction. The downstream reconcile pass repairs any residual drift in
+ * generated markup; this makes the manifest itself the source of truth.
+ */
+function canonicalizeIdentifiers(
+	prefix: string,
+	plugin: CompanionPluginPlan,
+	templates: string[]
+): { plugin: CompanionPluginPlan; templates: string[] } {
+	const cptRekey = new Map< string, string >();
+	const postTypes = plugin.postTypes.map( ( postType ) => {
+		const key = canonicalCptKey( prefix, postType.name || postType.slug );
+		cptRekey.set( normalizeId( postType.slug ), key );
+		return { ...postType, slug: key };
+	} );
+	const blocks = plugin.blocks.map( ( block ) => ( {
+		...block,
+		slug: canonicalBlockSlug( prefix, block.title || block.slug ),
+	} ) );
+	const restRoutes = plugin.restRoutes.map( ( route ) => ( {
+		...route,
+		path: canonicalRestPath( prefix, route.path ),
+	} ) );
+	return {
+		plugin: { ...plugin, postTypes, blocks, restRoutes },
+		templates: templates.map( ( template ) => rekeyTemplate( template, cptRekey ) ),
+	};
+}
+
 export function parseManifest( raw: string ): SiteManifest {
 	let data: Record< string, unknown >;
 	try {
@@ -222,18 +282,27 @@ export function parseManifest( raw: string ): SiteManifest {
 	) as ContentMode;
 
 	const parts = asStringArray( data.parts );
-	const templates = asStringArray( data.templates );
+	const rawTemplates = asStringArray( data.templates );
+	const templates = rawTemplates.length ? rawTemplates : [ 'index', 'page' ];
+
+	const themePrefix = deriveThemePrefix( themeSlug );
+	const canonical = canonicalizeIdentifiers(
+		themePrefix,
+		normalizeCompanionPlugin( data.companionPlugin, themeSlug ),
+		templates
+	);
 
 	return {
 		themeSlug,
 		themeName,
+		themePrefix,
 		layoutMode,
 		contentMode,
 		parts: parts.length ? parts : [ 'header', 'footer' ],
-		templates: templates.length ? templates : [ 'index', 'page' ],
+		templates: canonical.templates,
 		pages: normalizePages( data.pages ),
 		patterns: asStringArray( data.patterns ),
-		companionPlugin: normalizeCompanionPlugin( data.companionPlugin, themeSlug ),
+		companionPlugin: canonical.plugin,
 		seed: normalizeSeed( data.seed ),
 	};
 }

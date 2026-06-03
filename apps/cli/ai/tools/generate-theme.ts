@@ -1,5 +1,10 @@
 import { Type } from 'typebox';
 import { runGenerator, runManifest } from 'cli/ai/generation/generators';
+import {
+	contractFromManifest,
+	contractVocabulary,
+	reconcileMarkup,
+} from 'cli/ai/generation/identifier-contract';
 import { runPooled } from 'cli/ai/generation/llm';
 import { parseManifest, type SiteManifest } from 'cli/ai/generation/manifest';
 import { themeDir, writePackageFile } from 'cli/ai/generation/paths';
@@ -129,6 +134,8 @@ export const generateThemeTool = defineTool(
 
 		const slug = manifest.themeSlug;
 		const dir = themeDir( site.path, slug );
+		const contract = contractFromManifest( manifest );
+		const vocabulary = contractVocabulary( manifest );
 
 		const planned: PlannedWrite[] = [
 			{
@@ -167,7 +174,7 @@ export const generateThemeTool = defineTool(
 						name: 'template-part',
 						specJson,
 						design,
-						task: `Part: ${ part }\nLayout mode: ${ manifest.layoutMode }`,
+						task: `Part: ${ part }\nLayout mode: ${ manifest.layoutMode }\n\n${ vocabulary }`,
 						maxTokens: 6_000,
 						temperature: 0.5,
 					} ),
@@ -182,7 +189,7 @@ export const generateThemeTool = defineTool(
 						name: 'template',
 						specJson,
 						design,
-						task: `Template: ${ template }\nLayout mode: ${ manifest.layoutMode }\nContent mode: ${ manifest.contentMode }`,
+						task: `Template: ${ template }\nLayout mode: ${ manifest.layoutMode }\nContent mode: ${ manifest.contentMode }\n\n${ vocabulary }`,
 						maxTokens: 6_000,
 						temperature: 0.5,
 					} ),
@@ -196,7 +203,13 @@ export const generateThemeTool = defineTool(
 
 		const written: string[] = [];
 		for ( const file of generated ) {
-			await writePackageFile( dir, file.rel, file.content );
+			// Reconcile drifted block/postType identifiers in markup files to the
+			// canonical contract before writing (templates/parts only; theme.json and
+			// style.css carry no block references).
+			const content = file.rel.endsWith( '.html' )
+				? reconcileMarkup( file.content, contract ).html
+				: file.content;
+			await writePackageFile( dir, file.rel, content );
 			written.push( file.rel );
 		}
 		await writePackageFile( dir, 'functions.php', renderFunctionsPhp( manifest.themeName, slug ) );

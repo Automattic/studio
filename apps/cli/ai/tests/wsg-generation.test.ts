@@ -208,4 +208,45 @@ describe( 'parseManifest', () => {
 	it( 'throws on invalid JSON', () => {
 		expect( () => parseManifest( 'not json' ) ).toThrow();
 	} );
+
+	it( 'canonicalizes identifiers under a single themePrefix', () => {
+		const manifest = parseManifest(
+			JSON.stringify( {
+				themeName: 'Ember & Oak',
+				themeSlug: 'ember-oak',
+				templates: [ 'index', 'page', 'archive-eo_menu_item', 'single-eo_menu_item' ],
+				companionPlugin: {
+					needed: true,
+					postTypes: [
+						{
+							slug: 'eo-menu-item',
+							name: 'Menu Item',
+							fields: [ { key: 'price', type: 'number' } ],
+						},
+						{ slug: 'eo-reservation', name: 'Reservation', fields: [] },
+					],
+					blocks: [
+						{ slug: 'ember-oak-reservation-form', title: 'Reservation Form', purpose: 'booking' },
+					],
+					restRoutes: [ { path: '/ember-oak/v1/reservations', purpose: 'reservations' } ],
+				},
+			} )
+		);
+
+		expect( manifest.themePrefix ).toBe( 'ember' );
+		expect( manifest.companionPlugin.postTypes.map( ( p ) => p.slug ) ).toEqual( [
+			'ember_menu_item',
+			'ember_reservation',
+		] );
+		expect( manifest.companionPlugin.blocks[ 0 ].slug ).toBe( 'reservation-form' );
+		expect( manifest.companionPlugin.restRoutes[ 0 ].path ).toBe( '/ember/v1/reservations' );
+		// CPT archive/single templates are re-keyed to the canonical post_type key.
+		expect( manifest.templates ).toContain( 'archive-ember_menu_item' );
+		expect( manifest.templates ).toContain( 'single-ember_menu_item' );
+	} );
+
+	it( 'always derives a valid themePrefix even with no companion plugin', () => {
+		const manifest = parseManifest( JSON.stringify( { themeName: 'Tiny' } ) );
+		expect( manifest.themePrefix ).toMatch( /^[a-z][a-z0-9_]{2,11}$/ );
+	} );
 } );

@@ -166,8 +166,11 @@ const config: ForgeConfig = {
 	plugins: [ new AutoUnpackNativesPlugin( {} ) ],
 	hooks: {
 		prePackage: async ( _forgeConfig, platform, arch ) => {
-			// Use execFile with an explicit args array so that paths containing
-			// spaces or shell metacharacters are never interpreted by a shell.
+			// Use execFile with shell:true and an explicit args array. The shell
+			// is required on Windows so that npm (a .cmd batch file) can be
+			// resolved; passing args as an array rather than an interpolated
+			// string still prevents shell metacharacters in path values from
+			// altering the meaning of the command.
 			const execAsync = ( args: string[], env: NodeJS.ProcessEnv = {} ) =>
 				new Promise< void >( ( resolve, reject ) => {
 					execFile(
@@ -178,6 +181,7 @@ const config: ForgeConfig = {
 							env: { ...process.env, ...env },
 							maxBuffer: 50 * 1024 * 1024,
 							windowsHide: true,
+							shell: true,
 						},
 						( error, stdout, stderr ) => {
 							if ( error ) {

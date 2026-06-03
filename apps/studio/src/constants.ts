@@ -16,6 +16,7 @@ export const LIMIT_OF_ZIP_SITES_PER_USER = 10;
 export const LIMIT_OF_PROMPTS_PER_USER = 200;
 export const UPDATED_MESSAGE_DURATION_MS = 60000; // 1 minute
 export const AUTO_UPDATE_INTERVAL_MS = 60 * 60 * 1000;
+export const NIGHTLY_UPDATE_TTL_MS = 24 * 60 * 60 * 1000;
 export const MACOS_TRAFFIC_LIGHT_POSITION = { x: 20, y: 20 };
 export const WINDOWS_TITLEBAR_HEIGHT = 44;
 export const EMPTY_SITE_PLAYGROUND_URL = 'https://playground.wordpress.net/';
@@ -83,7 +84,6 @@ export const IPC_VOID_HANDLERS = [
 	'showItemInFolder',
 	'showNotification',
 	'authenticate',
-	'studioCodeAbort',
 ] as const;
 
 // What's New

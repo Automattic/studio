@@ -1,10 +1,10 @@
 import { Icon, Popover } from '@wordpress/components';
-import { PropsWithChildren, useState, useEffect } from 'react';
+import { PropsWithChildren, ReactElement, useState, useEffect } from 'react';
 
 export interface TooltipProps
 	extends Pick< React.ComponentProps< typeof Popover >, 'placement' | 'className' > {
-	icon?: JSX.Element;
-	text?: string | JSX.Element;
+	icon?: ReactElement;
+	text?: string | ReactElement;
 	disabled?: boolean;
 }
 

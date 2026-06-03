@@ -226,7 +226,7 @@ function WebviewSurface( { url, reloadNonce, onAnnotationsDone }: WebviewSurface
 				ref={ ref }
 				src={ initialNav.url }
 				className={ styles.iframe }
-				allowpopups="true"
+				allowpopups={ true }
 				partition="persist:site-preview"
 			/>
 			{ ! ready ? (

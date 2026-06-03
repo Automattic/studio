@@ -24,6 +24,11 @@ export interface AiSessionSitePlacement {
 	siteName: string;
 }
 
+export interface NightlyPromptResult {
+	response: 'yes' | 'no';
+	dontAskAgain: boolean;
+}
+
 export interface UserData {
 	version: 1;
 	siteMetadata: Record< string, AppdataSiteData >;
@@ -44,6 +49,8 @@ export interface UserData {
 	wapuuScore?: number;
 	desks?: DesksConfig;
 	aiSessionPlacements?: Record< string, AiSessionSitePlacement >;
+	lastNightlyUpdateCheck?: number;
+	nightlyPromptResult?: NightlyPromptResult;
 }
 
 export interface PromptWindowsSpeedUpResult {

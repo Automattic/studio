@@ -1,5 +1,5 @@
 import { app } from 'electron';
-import { fork, ChildProcess, StdioOptions } from 'node:child_process';
+import { fork, spawnSync, ChildProcess, StdioOptions } from 'node:child_process';
 import * as Sentry from '@sentry/electron/main';
 import { z } from 'zod';
 import { TypedEventEmitter } from 'src/modules/cli/lib/typed-event-emitter';
@@ -182,6 +182,17 @@ export function executeCliCommand(
 	function appQuitHandler() {
 		const pid = child.pid;
 		child.removeAllListeners();
+
+		// `child.kill()` only terminates the forked CLI process; on Windows its php.exe descendants
+		// would orphan and keep their DLLs locked. `taskkill /T` walks the whole tree instead.
+		if ( process.platform === 'win32' && pid ) {
+			spawnSync( 'taskkill', [ '/F', '/T', '/PID', String( pid ) ], {
+				windowsHide: true,
+				stdio: 'ignore',
+			} );
+			return;
+		}
+
 		const result = child.kill();
 		if ( result ) {
 			console.log( `Successfully killed child process with pid ${ pid }. Args:`, args );

@@ -24,14 +24,23 @@ type ContextProps = {
 	instanceId: string;
 };
 
-export type CodeBlockProps = JSX.IntrinsicElements[ 'code' ] & ExtraProps;
+export type CodeBlockProps = React.ComponentPropsWithRef< 'code' > & ExtraProps;
 
 export default function createCodeComponent( contextProps: ContextProps ) {
 	return ( props: CodeBlockProps ) => <CodeBlock { ...contextProps } { ...props } />;
 }
 
 const LanguageBlock = ( props: ContextProps & CodeBlockProps ) => {
-	const { children, className, node, siteId, messageId, instanceId, ...htmlAttributes } = props;
+	const {
+		children,
+		className,
+		node,
+		siteId,
+		messageId,
+		instanceId,
+		ref: _ref,
+		...htmlAttributes
+	} = props;
 
 	const content = String( children ).trim();
 	const isValidWpCliCommand = useIsValidWpCliInline( content );
@@ -136,6 +145,7 @@ function FileBlock( props: ContextProps & CodeBlockProps & { isDirectory?: boole
 		messageId,
 		isDirectory,
 		instanceId,
+		ref: _ref,
 		...htmlAttributes
 	} = props;
 	const content = String( children ).trim();
@@ -188,7 +198,7 @@ function FileBlock( props: ContextProps & CodeBlockProps & { isDirectory?: boole
 function CodeBlock( props: ContextProps & CodeBlockProps ) {
 	const { children, className } = props;
 	const content = String( children ).trim();
-	const { node, siteId, messageId, instanceId, ...htmlAttributes } = props;
+	const { node, siteId, messageId, instanceId, ref: _ref, ...htmlAttributes } = props;
 
 	const isFilePath = ( content: string ) => {
 		const fileExtensions = [

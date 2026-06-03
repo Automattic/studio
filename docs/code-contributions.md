@@ -196,7 +196,7 @@ Then open `chrome://inspect` in a Chromium-based browser and click "inspect" nex
 ## Building Installers
 
 Once all required dependencies are installed, you can build installers for the app.
-Installers can currently be built on Mac (Intel or Apple Silicon), Windows, and experimentally for Linux using the following commands:
+Installers can be built on Mac (Intel or Apple Silicon), Windows (x64 or ARM64), and Linux (x64 or ARM64) using the following commands:
 
 ```bash
 npm install
@@ -205,24 +205,7 @@ npm run make
 
 After the build process completes, you can find the executables in the `out/` directory.
 
-### Linux
-
-Linux support is currently in an experimental phase. While official packages are not yet available, you can build Studio from source:
-
-```bash
-npm install
-npm run package
-```
-
-After building, the executable will be located at `apps/studio/out/Studio-linux-x64/studio`.
-
-**Important considerations:**
-
-- The auto-update feature is not currently supported on Linux builds.
-- For Wayland systems, you may need to use additional flags when running the application.
-- Some features may not work as expected due to platform-specific implementations.
-
-For detailed instructions including how to create a desktop launcher, handle Wayland compatibility, and troubleshoot common issues, see the [**Linux Guide**](./linux.md).
+Linux has additional source-build steps and platform-specific troubleshooting — see the [Linux notes](./linux.md).
 
 ## Localization
 

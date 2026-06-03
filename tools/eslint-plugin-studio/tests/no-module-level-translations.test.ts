@@ -63,6 +63,15 @@ describe( 'no-module-level-translations', () => {
 					const c = () => _nx( 'one', 'many', 2, 'ctx' );
 				`,
 			},
+			// Bare statements whose result is discarded only feed the translation
+			// extractor; they can never go stale, so they are allowed at module level.
+			{
+				code: `
+					import { __ } from '@wordpress/i18n';
+					__( 'Next' );
+					__( 'Previous' );
+				`,
+			},
 		],
 		invalid: [
 			// Assigned to a module-level const.
@@ -94,11 +103,13 @@ describe( 'no-module-level-translations', () => {
 					{ messageId: 'moduleLevelTranslation' },
 				],
 			},
-			// Bare top-level expression statement.
+			// A translation whose result is captured (here as an argument) at module
+			// level is still flagged — only fully discarded statements are exempt.
 			{
 				code: `
 					import { __ } from '@wordpress/i18n';
-					__( 'Loose translation' );
+					const messages = [];
+					messages.push( __( 'Captured translation' ) );
 				`,
 				errors: [ { messageId: 'moduleLevelTranslation' } ],
 			},

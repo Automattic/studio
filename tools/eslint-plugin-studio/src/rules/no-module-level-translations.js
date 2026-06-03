@@ -1,4 +1,4 @@
-const DEFAULT_FUNCTIONS = [ '__', '_x', '_n', '_nx' ];
+const TRANSLATION_FUNCTIONS = new Set( [ '__', '_x', '_n', '_nx' ] );
 
 /** @type {import('eslint').Rule.RuleModule} */
 export default {
@@ -13,18 +13,7 @@ export default {
 			recommended: true,
 		},
 		fixable: null,
-		schema: [
-			{
-				type: 'object',
-				properties: {
-					functions: {
-						type: 'array',
-						items: { type: 'string' },
-					},
-				},
-				additionalProperties: false,
-			},
-		],
+		schema: [],
 		messages: {
 			moduleLevelTranslation:
 				'{{ fn }}() must not be called at module level — it runs before the locale loads. ' +
@@ -32,9 +21,6 @@ export default {
 		},
 	},
 	create( context ) {
-		const options = context.options[ 0 ] || {};
-		const translationFunctions = new Set( options.functions || DEFAULT_FUNCTIONS );
-
 		// Tracks how many function scopes we are currently nested inside.
 		// A translation call is safe (lazy) as long as it lives inside any function.
 		let functionDepth = 0;
@@ -58,7 +44,13 @@ export default {
 				if ( functionDepth > 0 ) {
 					return;
 				}
-				if ( node.callee.type === 'Identifier' && translationFunctions.has( node.callee.name ) ) {
+				// A bare translation statement whose result is discarded (e.g. `__( 'Next' );`)
+				// can never go stale because nothing reads its value. This is the pattern used to
+				// feed strings to the translation extractor, so it is allowed at module level.
+				if ( node.parent && node.parent.type === 'ExpressionStatement' ) {
+					return;
+				}
+				if ( node.callee.type === 'Identifier' && TRANSLATION_FUNCTIONS.has( node.callee.name ) ) {
 					context.report( {
 						node,
 						messageId: 'moduleLevelTranslation',

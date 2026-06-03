@@ -7,10 +7,8 @@
 import { __ } from '@wordpress/i18n';
 
 // These module-level calls exist only so the translation extractor picks up the
-// strings; the return values are intentionally unused, so the lazy-evaluation
-// rule does not apply here.
-/* eslint-disable studio/no-module-level-translations */
+// strings; their return values are intentionally discarded, so they can never go
+// stale and the studio/no-module-level-translations rule allows them.
 // Navigation strings used in external components like Guide
 __( 'Next' );
 __( 'Previous' );
-/* eslint-enable studio/no-module-level-translations */

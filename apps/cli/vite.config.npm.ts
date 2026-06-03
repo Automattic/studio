@@ -12,10 +12,6 @@ export default mergeConfig(
 						src: 'ai/skills',
 						dest: '.',
 					},
-					{
-						src: 'ai/skill-overlays',
-						dest: '.',
-					},
 				],
 			} ),
 		],

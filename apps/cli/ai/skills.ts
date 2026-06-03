@@ -22,30 +22,12 @@ function parseSkillFile( filePath: string ): Skill | null {
 
 let cachedSkills: Skill[] | null = null;
 
-// A skill body is authored harness-agnostically (no tool names) so it can be
-// shared across agent surfaces. The Studio-specific mapping of each capability
-// to a concrete tool lives in `skill-overlays/<name>.md`; append it here at load
-// time, under an "In Studio" heading, so the skill body itself stays portable.
-// Skills with no overlay file load unchanged.
-function applyStudioOverlay( skill: Skill, overlaysRoot: string ): Skill {
-	const overlayPath = path.join( overlaysRoot, `${ skill.name }.md` );
-	if ( ! fs.existsSync( overlayPath ) ) {
-		return skill;
-	}
-	const overlay = fs.readFileSync( overlayPath, 'utf-8' ).trim();
-	if ( ! overlay ) {
-		return skill;
-	}
-	return { ...skill, body: `${ skill.body }\n\n## In Studio\n\n${ overlay }` };
-}
-
 // Discovers `apps/cli/ai/skills/<name>/SKILL.md` files at startup; cached
 // for the process lifetime since skills never change at runtime.
 export function loadSkills(): Skill[] {
 	if ( cachedSkills ) return cachedSkills;
 
 	const skillsRoot = path.resolve( import.meta.dirname, 'skills' );
-	const overlaysRoot = path.resolve( import.meta.dirname, 'skill-overlays' );
 
 	if ( ! fs.existsSync( skillsRoot ) ) {
 		// Loud warning so a broken bundle path doesn't silently disable Skill.
@@ -62,7 +44,7 @@ export function loadSkills(): Skill[] {
 		const skillPath = path.join( skillsRoot, entry.name, 'SKILL.md' );
 		if ( ! fs.existsSync( skillPath ) ) continue;
 		const skill = parseSkillFile( skillPath );
-		if ( skill ) skills.push( applyStudioOverlay( skill, overlaysRoot ) );
+		if ( skill ) skills.push( skill );
 	}
 	cachedSkills = skills;
 	return skills;

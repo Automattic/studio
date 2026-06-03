@@ -1,27 +1,24 @@
 import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useRef, useState } from 'react';
-import { ContentTabAssistant } from 'src/components/content-tab-assistant';
 import { ContentTabImportExport } from 'src/components/content-tab-import-export';
 import { ContentTabOverview } from 'src/components/content-tab-overview';
 import { ContentTabPreviews } from 'src/components/content-tab-previews';
 import { ContentTabSettings } from 'src/components/content-tab-settings';
 import Header from 'src/components/header';
 import { SiteIsBeingCreated } from 'src/components/site-is-being-created';
+import { StudioCodeSession } from 'src/components/studio-code-session';
 import { MIN_WIDTH_CLASS_TO_MEASURE } from 'src/constants';
-import { useBetaFeatures } from 'src/hooks/use-beta-features';
 import { TabName } from 'src/hooks/use-content-tabs';
 import { useEffectiveTab } from 'src/hooks/use-effective-tab';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
-import { cx } from 'src/lib/cx';
 import { ContentTabSync } from 'src/modules/sync';
 
 export function SiteContentTabs() {
 	const { selectedSite, siteCreationMessages } = useSiteDetails();
 	const { importState } = useImportExport();
 	const { effectiveTab, selectedTab, setSelectedTab, tabs } = useEffectiveTab();
-	const { enableStudioCodeUi } = useBetaFeatures();
 	const { __ } = useI18n();
 
 	// Remount: Avoid focus loss on user tab changes (no remount),
@@ -98,10 +95,7 @@ export function SiteContentTabs() {
 			>
 				{ ( { name } ) => (
 					<div
-						className={ cx(
-							'h-full overflow-y-auto',
-							effectiveTab === 'assistant' && ! enableStudioCodeUi && 'bg-frame-surface'
-						) }
+						className="h-full overflow-y-auto"
 						style={ {
 							scrollbarWidth: 'thin',
 							scrollbarGutter: 'stable',
@@ -111,7 +105,7 @@ export function SiteContentTabs() {
 						{ name === 'previews' && <ContentTabPreviews selectedSite={ selectedSite } /> }
 						{ name === 'sync' && <ContentTabSync selectedSite={ selectedSite } /> }
 						{ name === 'settings' && <ContentTabSettings selectedSite={ selectedSite } /> }
-						{ name === 'assistant' && <ContentTabAssistant selectedSite={ selectedSite } /> }
+						{ name === 'assistant' && <StudioCodeSession selectedSite={ selectedSite } /> }
 						{ name === 'import-export' && <ContentTabImportExport selectedSite={ selectedSite } /> }
 					</div>
 				) }

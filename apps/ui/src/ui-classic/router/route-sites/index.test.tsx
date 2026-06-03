@@ -23,7 +23,7 @@ import {
 	usePushSiteToLive,
 } from '@/data/queries/use-sync-site';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
-import { useAllConnectedWpcomSites, usePickableWpcomSites } from '@/data/queries/use-wpcom-sites';
+import { usePickableWpcomSites } from '@/data/queries/use-wpcom-sites';
 import { SitesPage } from './index';
 import type { SiteDetails } from '@/data/core';
 import type { ReactNode } from 'react';
@@ -99,7 +99,6 @@ vi.mock( '@/data/queries/use-user-preferences', () => ( {
 } ) );
 
 vi.mock( '@/data/queries/use-wpcom-sites', () => ( {
-	useAllConnectedWpcomSites: vi.fn(),
 	usePickableWpcomSites: vi.fn(),
 } ) );
 
@@ -120,7 +119,6 @@ const useDisconnectWpcomSiteMock = vi.mocked( useDisconnectWpcomSite );
 const usePullSiteFromLiveMock = vi.mocked( usePullSiteFromLive );
 const usePushSiteToLiveMock = vi.mocked( usePushSiteToLive );
 const useUserPreferencesMock = vi.mocked( useUserPreferences );
-const useAllConnectedWpcomSitesMock = vi.mocked( useAllConnectedWpcomSites );
 const usePickableWpcomSitesMock = vi.mocked( usePickableWpcomSites );
 
 describe( 'SitesPage', () => {
@@ -147,6 +145,8 @@ describe( 'SitesPage', () => {
 			openSiteFolder: vi.fn().mockResolvedValue( undefined ),
 			openSiteInEditor: vi.fn().mockResolvedValue( undefined ),
 			openSiteInTerminal: vi.fn().mockResolvedValue( undefined ),
+			isFullscreen: vi.fn().mockResolvedValue( false ),
+			onFullscreenChange: vi.fn().mockReturnValue( vi.fn() ),
 		} as never );
 		useStartSiteMock.mockReturnValue( { mutate: startSiteMutate } as never );
 		useStopSiteMock.mockReturnValue( { mutate: stopSiteMutate } as never );
@@ -202,10 +202,6 @@ describe( 'SitesPage', () => {
 		useSnapshotsMock.mockReturnValue( {
 			data: [ { localSiteId: 'site-1', url: 'preview.wp.build', date: 100 } ],
 		} as never );
-		useAllConnectedWpcomSitesMock.mockReturnValue( {
-			data: [ { localSiteId: 'site-1' } ],
-		} as never );
-
 		renderSitesPage();
 
 		expect( screen.getByRole( 'link', { name: /Example Site/ } ) ).toHaveAttribute(
@@ -258,7 +254,6 @@ describe( 'SitesPage', () => {
 		mockSites( [ exampleSite( { running: false } ) ] );
 		useConnectedWpcomSitesMock.mockReturnValue( { data: [] } as never );
 		useSnapshotsMock.mockReturnValue( { data: [] } as never );
-		useAllConnectedWpcomSitesMock.mockReturnValue( { data: [] } as never );
 
 		renderSitesPage();
 
@@ -284,7 +279,6 @@ describe( 'SitesPage', () => {
 		mockSites( [ exampleSite() ] );
 		useConnectedWpcomSitesMock.mockReturnValue( { data: [] } as never );
 		useSnapshotsMock.mockReturnValue( { data: [] } as never );
-		useAllConnectedWpcomSitesMock.mockReturnValue( { data: [] } as never );
 		usePickableWpcomSitesMock.mockReturnValue( {
 			data: [
 				{
@@ -322,7 +316,7 @@ describe( 'SitesPage', () => {
 		} );
 	} );
 
-	it( 'filters and searches the site list', () => {
+	it( 'searches and sorts the site list', () => {
 		mockSites( [
 			exampleSite( {
 				id: 'site-1',
@@ -339,20 +333,50 @@ describe( 'SitesPage', () => {
 		] );
 		useConnectedWpcomSitesMock.mockReturnValue( { data: [] } as never );
 		useSnapshotsMock.mockReturnValue( { data: [] } as never );
-		useAllConnectedWpcomSitesMock.mockReturnValue( { data: [] } as never );
 
 		renderSitesPage();
 
-		fireEvent.click( screen.getByRole( 'button', { name: /Stopped/ } ) );
-		expect( screen.queryByText( 'Example Site' ) ).not.toBeInTheDocument();
-		expect( screen.getByText( 'Archive Site' ) ).toBeInTheDocument();
+		expect( screen.getAllByRole( 'listitem' )[ 0 ] ).toHaveTextContent( 'Archive Site' );
 
-		fireEvent.click( screen.getByRole( 'button', { name: /All/ } ) );
+		fireEvent.change( screen.getByLabelText( 'Sort' ), {
+			target: { value: 'status' },
+		} );
+		expect( screen.getAllByRole( 'listitem' )[ 0 ] ).toHaveTextContent( 'Example Site' );
+
 		fireEvent.change( screen.getByRole( 'searchbox', { name: 'Search sites' } ), {
 			target: { value: 'example' },
 		} );
+		fireEvent.submit( screen.getByRole( 'search', { name: 'Search sites' } ) );
 		expect( screen.getByText( 'Example Site' ) ).toBeInTheDocument();
 		expect( screen.queryByText( 'Archive Site' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'does not match hidden filesystem path segments', () => {
+		mockSites( [
+			exampleSite( {
+				id: 'site-1',
+				name: 'Example Site',
+				path: '/Users/shaun/Studio/example-site',
+			} ),
+			exampleSite( {
+				id: 'site-2',
+				name: 'Archive Site',
+				path: '/Users/shaun/Studio/archive-site',
+				running: false,
+			} ),
+		] );
+		useConnectedWpcomSitesMock.mockReturnValue( { data: [] } as never );
+		useSnapshotsMock.mockReturnValue( { data: [] } as never );
+
+		renderSitesPage();
+
+		fireEvent.change( screen.getByRole( 'searchbox', { name: 'Search sites' } ), {
+			target: { value: 'shaun' },
+		} );
+
+		expect( screen.queryByText( 'Example Site' ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( 'Archive Site' ) ).not.toBeInTheDocument();
+		expect( screen.getByText( 'No sites match your search.' ) ).toBeInTheDocument();
 	} );
 } );
 

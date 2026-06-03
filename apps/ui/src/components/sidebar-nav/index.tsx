@@ -16,7 +16,7 @@ type NavItem = {
 };
 
 function getItems(): NavItem[] {
-	return [ { key: 'sites', label: __( 'All Sites' ), icon: category, to: '/sites' } ];
+	return [ { key: 'sites', label: __( 'All sites' ), icon: category, to: '/sites' } ];
 }
 
 function AllSitesCreateMenu() {

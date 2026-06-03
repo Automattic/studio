@@ -1,29 +1,89 @@
 .page {
 	width: 100%;
 	box-sizing: border-box;
-	padding: 32px;
+	padding: 0 32px 32px;
 }
 
 .header {
+	position: sticky;
+	top: 0;
+	z-index: 2;
+	isolation: isolate;
+	margin: 0 -32px 24px;
+	box-sizing: border-box;
+	height: var(--site-preview-header-height, 54px);
+	min-height: var(--site-preview-header-height, 54px);
+	-webkit-app-region: drag;
+}
+
+.headerContent {
+	position: relative;
+	z-index: 1;
+	box-sizing: border-box;
 	display: flex;
-	align-items: flex-start;
+	align-items: center;
 	justify-content: space-between;
-	gap: var(--wpds-dimension-padding-xl);
-	margin-bottom: 24px;
+	gap: var(--wpds-dimension-padding-sm);
+	height: var(--site-preview-header-height, 54px);
+	min-height: var(--site-preview-header-height, 54px);
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-2xl);
+	padding-block: var(--site-preview-toggle-offset-block, 8px);
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-sm);
 }
 
-/* Typography comes from the universal `h1` rule in index.css — this class only
-   layers on the spacing below the heading. */
-.title {
-	margin: 0 0 8px;
+.headerContentSidebarOpen {
+	padding-left: 12px;
 }
 
-.subtitle {
-	max-width: 720px;
-	color: var(--wpds-color-fg-content-neutral-weak, #666);
+.trafficLightSpacer {
+	display: block;
+	flex-shrink: 0;
+	width: 78px;
+	height: 100%;
+	-webkit-app-region: no-drag;
+}
+
+.headerTitle {
 	margin: 0;
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
+	font-weight: var(--wpds-typography-font-weight-medium, 500);
+	white-space: nowrap;
+}
+
+.headerSpacer {
+	flex: 1 1 auto;
+}
+
+.headerControls {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	min-width: 0;
+	-webkit-app-region: no-drag;
+}
+
+.searchForm {
+	flex: 1 1 260px;
+	min-width: 180px;
+	max-width: 360px;
+	margin: 0;
+}
+
+.searchLabel {
+	display: block;
+	width: 100%;
+}
+
+.sortLabel {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	flex: 0 0 auto;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	color: var(--wpds-color-fg-content-neutral-weak, #666);
 }
 
 .createAction,
@@ -50,56 +110,18 @@
 	background: var(--wpds-color-bg-surface-neutral-strong, #fff);
 }
 
+.searchForm,
+.searchLabel,
+.searchInput,
+.sortLabel,
+.sortSelect,
+.createAction {
+	-webkit-app-region: no-drag;
+}
+
 .createAction:hover,
 .settingsLink:hover {
 	background: var(--wpds-color-bg-surface-neutral-hover, #f3f4f6);
-}
-
-.summary {
-	display: grid;
-	grid-template-columns: repeat(5, minmax(0, 1fr));
-	gap: 1px;
-	margin-bottom: 20px;
-	overflow: hidden;
-	border: 1px solid var(--wpds-color-stroke-surface-neutral, #ddd);
-	border-radius: 8px;
-	background: var(--wpds-color-stroke-surface-neutral, #ddd);
-}
-
-.summaryItem {
-	display: grid;
-	gap: 4px;
-	min-width: 0;
-	padding: 14px 16px;
-	background: var(--wpds-color-bg-surface-neutral-strong, #fff);
-}
-
-.summaryValue {
-	color: var(--wpds-color-fg-content-neutral);
-	font-size: 1.25rem;
-	line-height: 1.2;
-	font-weight: var(--wpds-typography-font-weight-medium, 500);
-}
-
-.summaryLabel {
-	color: var(--wpds-color-fg-content-neutral-weak, #666);
-	font-size: var(--wpds-typography-font-size-xs);
-	line-height: var(--wpds-typography-line-height-xs);
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.toolbar {
-	display: flex;
-	align-items: center;
-	gap: 12px;
-	margin-bottom: 20px;
-}
-
-.searchLabel {
-	flex: 1;
-	min-width: 220px;
 }
 
 .searchInput,
@@ -122,59 +144,6 @@
 
 .sortSelect {
 	padding: 6px 28px 6px 10px;
-}
-
-.filterGroup {
-	display: inline-flex;
-	align-items: center;
-	gap: 2px;
-	padding: 2px;
-	border: 1px solid var(--wpds-color-stroke-surface-neutral, #ddd);
-	border-radius: 8px;
-	background: var(--wpds-color-bg-surface-neutral, #f8f8f8);
-}
-
-.filterButton {
-	display: inline-flex;
-	align-items: center;
-	gap: 6px;
-	min-height: 28px;
-	padding: 4px 8px;
-	border: 0;
-	border-radius: 6px;
-	background: transparent;
-	color: var(--wpds-color-fg-content-neutral-weak, #666);
-	font: inherit;
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
-	cursor: var(--wpds-cursor-control);
-}
-
-.filterButton:hover {
-	color: var(--wpds-color-fg-content-neutral);
-	background: var(--wpds-color-bg-surface-neutral-hover, #f3f4f6);
-}
-
-.filterButtonActive {
-	color: var(--wpds-color-fg-content-neutral);
-	background: var(--wpds-color-bg-surface-neutral-strong, #fff);
-	box-shadow: 0 1px 2px rgb(0 0 0 / 8%);
-}
-
-.filterCount {
-	color: var(--wpds-color-fg-content-neutral-weak, #666);
-	font-size: var(--wpds-typography-font-size-xs);
-	line-height: 1;
-}
-
-.sortLabel {
-	display: inline-flex;
-	align-items: center;
-	gap: 8px;
-	flex: 0 0 auto;
-	color: var(--wpds-color-fg-content-neutral-weak, #666);
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
 }
 
 .grid {
@@ -430,12 +399,6 @@
 	white-space: nowrap;
 }
 
-.emptyAction {
-	color: var(--wpds-color-fg-interactive-brand, #2563eb);
-	font-weight: 600;
-	text-decoration: none;
-}
-
 .dialogBody {
 	display: grid;
 	gap: 12px;
@@ -529,46 +492,66 @@
 }
 
 @media (max-width: 1100px) {
-	.toolbar {
+	.header {
+		height: auto;
+	}
+
+	.headerContent {
+		height: auto;
+		min-height: var(--site-preview-header-height, 54px);
+	}
+
+	.headerControls {
 		flex-wrap: wrap;
 	}
 
-	.filterGroup {
-		order: 3;
-		width: 100%;
-		overflow-x: auto;
+	.searchForm {
+		max-width: none;
 	}
 }
 
 @media (max-width: 760px) {
 	.page {
-		padding: 20px;
+		padding: 0 20px 20px;
 	}
 
 	.header {
-		flex-direction: column;
-		gap: 16px;
+		margin-right: -20px;
+		margin-left: -20px;
+		height: auto;
 	}
 
-	.createAction {
+	.headerContent {
+		align-items: flex-start;
+		flex-wrap: wrap;
+		padding-right: var(--wpds-dimension-padding-xl);
+		padding-left: var(--wpds-dimension-padding-xl);
+	}
+
+	.headerContentSidebarOpen {
+		padding-left: 12px;
+	}
+
+	.headerSpacer {
+		display: none;
+	}
+
+	.headerControls {
+		align-items: stretch;
 		width: 100%;
 	}
 
-	.summary {
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-	}
-
-	.toolbar {
-		align-items: stretch;
-	}
-
-	.searchLabel,
+	.searchForm,
 	.sortLabel {
 		width: 100%;
 	}
 
 	.sortLabel {
 		justify-content: space-between;
+	}
+
+	.createAction {
+		width: 100%;
 	}
 
 	.grid {

@@ -31,6 +31,7 @@ import { Button, Dialog, Icon, IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useMemo, useState } from 'react';
 import * as Menu from '@/components/menu';
+import { ProgressiveBlur } from '@/components/progressive-blur';
 import { DisconnectSiteDialog } from '@/components/site-dropdown/disconnect-site-dialog';
 import {
 	ensureProtocol,
@@ -65,16 +66,17 @@ import {
 	usePushSiteToLive,
 } from '@/data/queries/use-sync-site';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
-import { useAllConnectedWpcomSites, usePickableWpcomSites } from '@/data/queries/use-wpcom-sites';
+import { usePickableWpcomSites } from '@/data/queries/use-wpcom-sites';
 import { useSiteSyncActivity } from '@/data/sync-activity';
+import { useFullscreen } from '@/hooks/use-fullscreen';
+import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { getSiteDisplayUrl } from '@/lib/get-site-url';
 import { playIcon } from '@/lib/icons';
 import { dashboardLayoutRoute } from '../layout-dashboard';
 import styles from './style.module.css';
 import type { SiteDetails, Snapshot, SyncSite } from '@/data/core';
-import type { ComponentProps, ReactNode } from 'react';
+import type { ComponentProps, FormEvent, ReactNode } from 'react';
 
-type FilterKey = 'all' | 'running' | 'stopped' | 'live' | 'preview';
 type SortKey = 'name' | 'status';
 type MenuIcon = ComponentProps< typeof Icon >[ 'icon' ];
 
@@ -109,40 +111,17 @@ const wpAdminItems: Array< {
 export function SitesPage() {
 	const { data: sites, isLoading } = useSites();
 	const { data: snapshots } = useSnapshots();
-	const { data: allConnectedSites } = useAllConnectedWpcomSites();
 	const [ search, setSearch ] = useState( '' );
-	const [ filter, setFilter ] = useState< FilterKey >( 'all' );
 	const [ sort, setSort ] = useState< SortKey >( 'name' );
-
-	const snapshotSiteIds = useMemo(
-		() => new Set( ( snapshots ?? [] ).map( ( snapshot ) => snapshot.localSiteId ) ),
-		[ snapshots ]
-	);
-	const liveSiteIds = useMemo(
-		() => new Set( ( allConnectedSites ?? [] ).map( ( site ) => site.localSiteId ) ),
-		[ allConnectedSites ]
-	);
 
 	const visibleSites = useMemo( () => {
 		const normalizedSearch = search.trim().toLocaleLowerCase();
 		return [ ...( sites ?? [] ) ]
 			.filter( ( site ) => {
-				if ( filter === 'running' && ! site.running ) {
-					return false;
-				}
-				if ( filter === 'stopped' && site.running ) {
-					return false;
-				}
-				if ( filter === 'live' && ! liveSiteIds.has( site.id ) ) {
-					return false;
-				}
-				if ( filter === 'preview' && ! snapshotSiteIds.has( site.id ) ) {
-					return false;
-				}
 				if ( ! normalizedSearch ) {
 					return true;
 				}
-				return [ site.name, site.path, getSiteDisplayUrl( site ) ].some( ( value ) =>
+				return [ site.name, getSiteDisplayUrl( site ) ].some( ( value ) =>
 					value.toLocaleLowerCase().includes( normalizedSearch )
 				);
 			} )
@@ -152,22 +131,17 @@ export function SitesPage() {
 				}
 				return a.name.localeCompare( b.name, undefined, { sensitivity: 'base' } );
 			} );
-	}, [ filter, liveSiteIds, search, sites, snapshotSiteIds, sort ] );
-
-	const counts = useMemo(
-		() => ( {
-			total: sites?.length ?? 0,
-			running: ( sites ?? [] ).filter( ( site ) => site.running ).length,
-			stopped: ( sites ?? [] ).filter( ( site ) => ! site.running ).length,
-			live: ( sites ?? [] ).filter( ( site ) => liveSiteIds.has( site.id ) ).length,
-			preview: ( sites ?? [] ).filter( ( site ) => snapshotSiteIds.has( site.id ) ).length,
-		} ),
-		[ liveSiteIds, sites, snapshotSiteIds ]
-	);
+	}, [ search, sites, sort ] );
 
 	if ( isLoading ) {
 		return (
 			<div className={ styles.page }>
+				<SitesHeader
+					search={ search }
+					sort={ sort }
+					onSearchChange={ setSearch }
+					onSortChange={ setSort }
+				/>
 				<p className={ styles.state }>{ __( 'Loading sites…' ) }</p>
 			</div>
 		);
@@ -176,98 +150,28 @@ export function SitesPage() {
 	if ( ! sites || sites.length === 0 ) {
 		return (
 			<div className={ styles.page }>
-				<h1 className={ styles.title }>{ __( 'Sites' ) }</h1>
-				<p className={ styles.subtitle }>{ __( 'Create your first site to get started.' ) }</p>
-				<Link to="/onboarding" className={ styles.emptyAction }>
-					{ __( 'Create a site' ) }
-				</Link>
+				<SitesHeader
+					search={ search }
+					sort={ sort }
+					onSearchChange={ setSearch }
+					onSortChange={ setSort }
+				/>
+				<p className={ styles.state }>{ __( 'Create your first site to get started.' ) }</p>
 			</div>
 		);
 	}
 
 	return (
 		<div className={ styles.page }>
-			<header className={ styles.header }>
-				<div>
-					<h1 className={ styles.title }>{ __( 'Sites' ) }</h1>
-					<p className={ styles.subtitle }>
-						{ __(
-							'Start sites, publish previews, sync live copies, and jump straight into WordPress.'
-						) }
-					</p>
-				</div>
-				<Link to="/onboarding" className={ styles.createAction }>
-					<Icon icon={ plus } size={ 16 } aria-hidden="true" />
-					<span>{ __( 'Create a site' ) }</span>
-				</Link>
-			</header>
-
-			<section className={ styles.summary } aria-label={ __( 'Site summary' ) }>
-				<SummaryItem label={ __( 'Total' ) } value={ counts.total } />
-				<SummaryItem label={ __( 'Running' ) } value={ counts.running } />
-				<SummaryItem label={ __( 'Stopped' ) } value={ counts.stopped } />
-				<SummaryItem label={ __( 'Live connected' ) } value={ counts.live } />
-				<SummaryItem label={ __( 'Preview links' ) } value={ counts.preview } />
-			</section>
-
-			<div className={ styles.toolbar }>
-				<label className={ styles.searchLabel }>
-					<span className={ styles.visuallyHidden }>{ __( 'Search sites' ) }</span>
-					<input
-						className={ styles.searchInput }
-						type="search"
-						value={ search }
-						placeholder={ __( 'Search sites' ) }
-						onChange={ ( event ) => setSearch( event.target.value ) }
-					/>
-				</label>
-				<div className={ styles.filterGroup } aria-label={ __( 'Filter sites' ) }>
-					<FilterButton
-						active={ filter === 'all' }
-						label={ __( 'All' ) }
-						count={ counts.total }
-						onClick={ () => setFilter( 'all' ) }
-					/>
-					<FilterButton
-						active={ filter === 'running' }
-						label={ __( 'Running' ) }
-						count={ counts.running }
-						onClick={ () => setFilter( 'running' ) }
-					/>
-					<FilterButton
-						active={ filter === 'stopped' }
-						label={ __( 'Stopped' ) }
-						count={ counts.stopped }
-						onClick={ () => setFilter( 'stopped' ) }
-					/>
-					<FilterButton
-						active={ filter === 'live' }
-						label={ __( 'Live' ) }
-						count={ counts.live }
-						onClick={ () => setFilter( 'live' ) }
-					/>
-					<FilterButton
-						active={ filter === 'preview' }
-						label={ __( 'Preview' ) }
-						count={ counts.preview }
-						onClick={ () => setFilter( 'preview' ) }
-					/>
-				</div>
-				<label className={ styles.sortLabel }>
-					<span>{ __( 'Sort' ) }</span>
-					<select
-						className={ styles.sortSelect }
-						value={ sort }
-						onChange={ ( event ) => setSort( event.target.value as SortKey ) }
-					>
-						<option value="name">{ __( 'Name' ) }</option>
-						<option value="status">{ __( 'Status' ) }</option>
-					</select>
-				</label>
-			</div>
+			<SitesHeader
+				search={ search }
+				sort={ sort }
+				onSearchChange={ setSearch }
+				onSortChange={ setSort }
+			/>
 
 			{ visibleSites.length === 0 ? (
-				<p className={ styles.state }>{ __( 'No sites match your filters.' ) }</p>
+				<p className={ styles.state }>{ __( 'No sites match your search.' ) }</p>
 			) : (
 				<ul className={ styles.grid }>
 					{ visibleSites.map( ( site ) => (
@@ -281,36 +185,79 @@ export function SitesPage() {
 	);
 }
 
-function SummaryItem( { label, value }: { label: string; value: number } ) {
-	return (
-		<div className={ styles.summaryItem }>
-			<span className={ styles.summaryValue }>{ value }</span>
-			<span className={ styles.summaryLabel }>{ label }</span>
-		</div>
-	);
-}
-
-function FilterButton( {
-	active,
-	label,
-	count,
-	onClick,
+function SitesHeader( {
+	search,
+	sort,
+	onSearchChange,
+	onSortChange,
 }: {
-	active: boolean;
-	label: string;
-	count: number;
-	onClick: () => void;
+	search: string;
+	sort: SortKey;
+	onSearchChange: ( search: string ) => void;
+	onSortChange: ( sort: SortKey ) => void;
 } ) {
+	const sidebarCollapsed = useSidebarCollapsed();
+	const isFullscreen = useFullscreen();
+	const handleSearchSubmit = ( event: FormEvent< HTMLFormElement > ) => {
+		event.preventDefault();
+		const formData = new FormData( event.currentTarget );
+		const value = formData.get( 'site-search' );
+		if ( typeof value === 'string' ) {
+			onSearchChange( value );
+		}
+	};
+
 	return (
-		<button
-			type="button"
-			className={ clsx( styles.filterButton, active && styles.filterButtonActive ) }
-			aria-pressed={ active }
-			onClick={ onClick }
-		>
-			<span>{ label }</span>
-			<span className={ styles.filterCount }>{ count }</span>
-		</button>
+		<header className={ styles.header }>
+			<ProgressiveBlur />
+			<div
+				className={ clsx(
+					styles.headerContent,
+					! sidebarCollapsed && styles.headerContentSidebarOpen
+				) }
+			>
+				{ sidebarCollapsed && ! isFullscreen ? (
+					<span className={ styles.trafficLightSpacer } aria-hidden="true" />
+				) : null }
+				<h1 className={ styles.headerTitle }>{ __( 'All sites' ) }</h1>
+				<span className={ styles.headerSpacer } aria-hidden="true" />
+				<div className={ styles.headerControls }>
+					<form
+						className={ styles.searchForm }
+						role="search"
+						aria-label={ __( 'Search sites' ) }
+						onSubmit={ handleSearchSubmit }
+					>
+						<label className={ styles.searchLabel }>
+							<span className={ styles.visuallyHidden }>{ __( 'Search sites' ) }</span>
+							<input
+								className={ styles.searchInput }
+								type="search"
+								name="site-search"
+								value={ search }
+								placeholder={ __( 'Search sites' ) }
+								onChange={ ( event ) => onSearchChange( event.target.value ) }
+							/>
+						</label>
+					</form>
+					<label className={ styles.sortLabel }>
+						<span>{ __( 'Sort' ) }</span>
+						<select
+							className={ styles.sortSelect }
+							value={ sort }
+							onChange={ ( event ) => onSortChange( event.target.value as SortKey ) }
+						>
+							<option value="name">{ __( 'Name' ) }</option>
+							<option value="status">{ __( 'Status' ) }</option>
+						</select>
+					</label>
+					<Link to="/onboarding" className={ styles.createAction }>
+						<Icon icon={ plus } size={ 16 } aria-hidden="true" />
+						<span>{ __( 'Create a site' ) }</span>
+					</Link>
+				</div>
+			</div>
+		</header>
 	);
 }
 

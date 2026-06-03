@@ -12,6 +12,7 @@
 	background-color: var(--wpds-color-bg-surface-neutral-weak, #f4f4f4);
 	padding: var(--wpds-dimension-padding-lg);
 	box-shadow: 0 0 0 1px var(--wpds-color-stroke-surface-neutral) inset;
+	cursor: text;
 	transition: background-color 120ms ease, box-shadow 120ms ease;
 }
 

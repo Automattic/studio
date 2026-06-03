@@ -81,6 +81,7 @@ describe( 'SiteOverviewView', () => {
 	const updateTitleDescriptionMutateAsync = vi.fn();
 	const createSession = vi.fn();
 	const continueSession = vi.fn();
+	const setSessionModel = vi.fn();
 	const renderOverview = () => {
 		const queryClient = new QueryClient( {
 			defaultOptions: {
@@ -104,10 +105,12 @@ describe( 'SiteOverviewView', () => {
 		updateTitleDescriptionMutateAsync.mockReset().mockResolvedValue( undefined );
 		createSession.mockReset().mockResolvedValue( { id: 'new-session' } );
 		continueSession.mockReset().mockResolvedValue( { runId: 'run-1' } );
+		setSessionModel.mockReset().mockResolvedValue( undefined );
 		useConnectorMock.mockReturnValue( {
 			openExternalUrl: vi.fn().mockResolvedValue( undefined ),
 			createSession,
 			continueSession,
+			setSessionModel,
 			isFullscreen: vi.fn().mockResolvedValue( false ),
 			onFullscreenChange: vi.fn().mockReturnValue( vi.fn() ),
 		} as never );
@@ -270,6 +273,7 @@ describe( 'SiteOverviewView', () => {
 
 		await waitFor( () => {
 			expect( createSession ).toHaveBeenCalledWith( 'site-1' );
+			expect( setSessionModel ).not.toHaveBeenCalled();
 			expect( continueSession ).toHaveBeenCalledWith(
 				'new-session',
 				'Update the homepage heading',
@@ -282,6 +286,91 @@ describe( 'SiteOverviewView', () => {
 				params: { sessionId: 'new-session' },
 			} );
 		} );
+	} );
+
+	it( 'uses the selected model when starting a new chat from the fixed composer', async () => {
+		renderOverview();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'Opus 4.7' } ) );
+
+		expect( screen.getByRole( 'button', { name: 'Select model' } ) ).toHaveTextContent(
+			'Opus 4.7'
+		);
+		await waitFor( () => {
+			expect( screen.queryByRole( 'menuitemradio', { name: 'Opus 4.7' } ) ).not.toBeInTheDocument();
+		} );
+
+		fireEvent.change( screen.getByPlaceholderText( /Describe the next change/ ), {
+			target: { value: 'Update the homepage heading' },
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send' } ) );
+
+		await waitFor( () => {
+			expect( createSession ).toHaveBeenCalledWith( 'site-1' );
+			expect( setSessionModel ).toHaveBeenCalledWith( 'new-session', 'claude-opus-4-7' );
+			expect( continueSession ).toHaveBeenCalledWith(
+				'new-session',
+				'Update the homepage heading',
+				{
+					displayMessage: 'Update the homepage heading',
+				}
+			);
+		} );
+	} );
+
+	it( 'focuses the composer input when clicking the fixed composer shell', () => {
+		renderOverview();
+
+		const input = screen.getByPlaceholderText( /Describe the next change/ );
+		const shell = input.parentElement;
+
+		expect( shell ).toBeInTheDocument();
+
+		fireEvent.mouseDown( shell as HTMLElement );
+
+		expect( input ).toHaveFocus();
+	} );
+
+	it( 'keeps composer toolbar controls from delegating focus to the input', () => {
+		renderOverview();
+
+		const input = screen.getByPlaceholderText( /Describe the next change/ );
+
+		for ( const name of [ 'Attach image', 'Skills', 'Select model', 'Send' ] ) {
+			fireEvent.mouseDown( screen.getByRole( 'button', { name } ) );
+
+			expect( input ).not.toHaveFocus();
+		}
+	} );
+
+	it( 'keeps near misses around composer toolbar controls from delegating focus', () => {
+		renderOverview();
+
+		const input = screen.getByPlaceholderText( /Describe the next change/ );
+		const shell = input.parentElement;
+		const attachButton = screen.getByRole( 'button', { name: 'Attach image' } );
+		const rectSpy = vi.spyOn( attachButton, 'getBoundingClientRect' ).mockReturnValue( {
+			bottom: 32,
+			height: 22,
+			left: 10,
+			right: 32,
+			top: 10,
+			width: 22,
+			x: 10,
+			y: 10,
+			toJSON: () => ( {} ),
+		} );
+
+		expect( shell ).toBeInTheDocument();
+
+		try {
+			fireEvent.mouseDown( shell as HTMLElement, { clientX: 36, clientY: 20 } );
+
+			expect( input ).not.toHaveFocus();
+		} finally {
+			rectSpy.mockRestore();
+		}
 	} );
 
 	it( 'toggles the browser from the details view', () => {

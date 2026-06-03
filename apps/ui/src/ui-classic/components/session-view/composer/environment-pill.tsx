@@ -1,6 +1,7 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { chevronDownSmall } from '@wordpress/icons';
 import { Icon, Tooltip } from '@wordpress/ui';
+import { useState } from 'react';
 import * as Menu from '@/components/menu';
 import { useSetSessionEnvironment } from '@/data/queries/use-sessions';
 import styles from './style.module.css';
@@ -73,6 +74,7 @@ export function EnvironmentPill( {
 	disabled = false,
 }: EnvironmentPillProps ) {
 	const setEnvironment = useSetSessionEnvironment( sessionId, liveSite?.id );
+	const [ menuOpen, setMenuOpen ] = useState( false );
 	const isLive = effectiveEnvironment === 'live';
 	const label = isLive ? __( 'Live' ) : __( 'Local' );
 	const tooltipLabel = sprintf( __( 'Environment: %s' ), label );
@@ -83,12 +85,14 @@ export function EnvironmentPill( {
 			return;
 		}
 		if ( value === effectiveEnvironment ) {
+			setMenuOpen( false );
 			return;
 		}
 		if ( value === 'live' && ! canGoLive ) {
 			return;
 		}
 		setEnvironment.mutate( value );
+		setMenuOpen( false );
 	};
 
 	if ( disabled ) {
@@ -107,7 +111,7 @@ export function EnvironmentPill( {
 	}
 
 	return (
-		<Menu.Root modal={ false }>
+		<Menu.Root modal={ false } open={ menuOpen } onOpenChange={ setMenuOpen }>
 			<EnvironmentMenuTrigger label={ tooltipLabel }>
 				<button type="button" className={ styles.pill } aria-label={ tooltipLabel }>
 					<span

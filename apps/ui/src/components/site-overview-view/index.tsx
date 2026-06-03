@@ -28,7 +28,7 @@ import { getKeyboardShortcut, getKeyboardShortcutDescriptor } from '@/lib/keyboa
 import { Composer } from '@/ui-classic/components/session-view/composer';
 import styles from './style.module.css';
 import type { SiteSettingsTabId } from '@/components/site-settings-view';
-import type { AiSessionSummary, SiteDetails } from '@/data/core';
+import type { AiModelId, AiSessionSummary, SiteDetails } from '@/data/core';
 
 export function SiteOverviewView( { siteId }: { siteId: string } ) {
 	return (
@@ -53,6 +53,7 @@ function SiteOverviewViewContent( { siteId }: { siteId: string } ) {
 	const [ composerError, setComposerError ] = useState< string | null >( null );
 	const [ settingsOpen, setSettingsOpen ] = useState( false );
 	const [ settingsTab, setSettingsTab ] = useState< SiteSettingsTabId >( 'general' );
+	const [ selectedModel, setSelectedModel ] = useState< AiModelId >( DEFAULT_MODEL );
 
 	const sendNewChatMessage = useCallback(
 		async ( prompt: string ) => {
@@ -63,6 +64,9 @@ function SiteOverviewViewContent( { siteId }: { siteId: string } ) {
 			setComposerError( null );
 			try {
 				const session = await connector.createSession( site.id );
+				if ( selectedModel !== DEFAULT_MODEL ) {
+					await connector.setSessionModel( session.id, selectedModel );
+				}
 				await connector.continueSession( session.id, prompt, { displayMessage: prompt } );
 				void queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } );
 				await navigate( {
@@ -77,7 +81,7 @@ function SiteOverviewViewContent( { siteId }: { siteId: string } ) {
 				setComposerBusy( false );
 			}
 		},
-		[ composerBusy, connector, navigate, queryClient, site ]
+		[ composerBusy, connector, navigate, queryClient, selectedModel, site ]
 	);
 
 	useKeyboardShortcut( 'toggle-site-preview', preview.toggle, {
@@ -122,7 +126,8 @@ function SiteOverviewViewContent( { siteId }: { siteId: string } ) {
 						<Composer
 							busy={ composerBusy }
 							error={ composerError }
-							model={ DEFAULT_MODEL }
+							model={ selectedModel }
+							onModelChange={ setSelectedModel }
 							onSend={ sendNewChatMessage }
 							onInterrupt={ async () => undefined }
 							autoFocus={ false }

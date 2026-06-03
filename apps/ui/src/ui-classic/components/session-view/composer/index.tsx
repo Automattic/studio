@@ -20,6 +20,7 @@ import {
 	useMemo,
 	useRef,
 	useState,
+	type MouseEvent as ReactMouseEvent,
 	type ReactElement,
 } from 'react';
 import * as Menu from '@/components/menu';
@@ -101,6 +102,55 @@ function getImageFilesFromDataTransfer( dataTransfer: DataTransfer ) {
 const PLACEHOLDER_ROTATION_DELAY_MS = 4400;
 const PLACEHOLDER_TYPE_START_DELAY_MS = 90;
 const PLACEHOLDER_TYPE_INTERVAL_MS = 22;
+const SHELL_FOCUS_INTERACTIVE_TARGETS = [
+	'button',
+	'a',
+	'input',
+	'textarea',
+	'select',
+	'[contenteditable="true"]',
+	'[role="button"]',
+	'[role="menuitem"]',
+	'[role="menuitemcheckbox"]',
+	'[role="menuitemradio"]',
+	'[role="option"]',
+].join( ',' );
+const SHELL_FOCUS_CONTROL_TARGETS = [
+	'button',
+	'a',
+	'[role="button"]',
+	'[role="menuitem"]',
+	'[role="menuitemcheckbox"]',
+	'[role="menuitemradio"]',
+	'[role="option"]',
+].join( ',' );
+const SHELL_FOCUS_CONTROL_PROXIMITY_PX = 8;
+
+function isPointerNearControl( event: ReactMouseEvent< HTMLDivElement >, control: Element ) {
+	const rect = control.getBoundingClientRect();
+	if ( rect.width === 0 && rect.height === 0 ) {
+		return false;
+	}
+	return (
+		event.clientX >= rect.left - SHELL_FOCUS_CONTROL_PROXIMITY_PX &&
+		event.clientX <= rect.right + SHELL_FOCUS_CONTROL_PROXIMITY_PX &&
+		event.clientY >= rect.top - SHELL_FOCUS_CONTROL_PROXIMITY_PX &&
+		event.clientY <= rect.bottom + SHELL_FOCUS_CONTROL_PROXIMITY_PX
+	);
+}
+
+function shouldShellMouseDownFocusTextarea( event: ReactMouseEvent< HTMLDivElement > ) {
+	if ( event.button !== 0 ) {
+		return false;
+	}
+	const target = event.target;
+	if ( target instanceof Element && target.closest( SHELL_FOCUS_INTERACTIVE_TARGETS ) ) {
+		return false;
+	}
+	return ! Array.from( event.currentTarget.querySelectorAll( SHELL_FOCUS_CONTROL_TARGETS ) ).some(
+		( control ) => isPointerNearControl( event, control )
+	);
+}
 
 function prefersReducedMotion() {
 	return (
@@ -234,6 +284,7 @@ interface ComposerProps {
 	isInterrupting?: boolean;
 	error: string | null;
 	model: AiModelId;
+	onModelChange?: ( model: AiModelId ) => void;
 	onSend: (
 		prompt: string,
 		options?: { displayMessage?: string; images?: StudioChatImage[] }
@@ -271,6 +322,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		isInterrupting = false,
 		error,
 		model,
+		onModelChange,
 		onSend,
 		onInterrupt,
 		sessionId,
@@ -287,6 +339,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const [ attachments, setAttachments ] = useState< ComposerImageAttachment[] >( [] );
 	const [ attachmentError, setAttachmentError ] = useState< string | null >( null );
 	const [ isDraggingImage, setIsDraggingImage ] = useState( false );
+	const [ modelMenuOpen, setModelMenuOpen ] = useState( false );
 	const textareaRef = useRef< HTMLTextAreaElement | null >( null );
 	const fileInputRef = useRef< HTMLInputElement | null >( null );
 	const connector = useConnector();
@@ -396,6 +449,13 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		setAttachmentError( null );
 	}, [] );
 
+	const handleShellMouseDown = useCallback( ( event: ReactMouseEvent< HTMLDivElement > ) => {
+		if ( shouldShellMouseDownFocusTextarea( event ) ) {
+			event.preventDefault();
+			textareaRef.current?.focus();
+		}
+	}, [] );
+
 	const send = useCallback( async () => {
 		const trimmed = value.trim();
 		if ( ! trimmed && attachments.length === 0 ) {
@@ -468,6 +528,10 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 			if ( picked === model ) {
 				return;
 			}
+			if ( ! sessionId ) {
+				onModelChange?.( picked );
+				return;
+			}
 			// Cross-family switch: defer until the user confirms in the dialog
 			// — the runtimes don't share a transcript, so continuing the same
 			// JSONL across families would make the on-screen history disagree
@@ -487,7 +551,14 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 			}
 			applySameFamilyModel( picked );
 		},
-		[ applySameFamilyModel, entries, model, onSwitchSession ]
+		[ applySameFamilyModel, entries, model, onModelChange, onSwitchSession, sessionId ]
+	);
+	const handleModelValueChange = useCallback(
+		( value: string ) => {
+			handleModelChange( value as AiModelId );
+			setModelMenuOpen( false );
+		},
+		[ handleModelChange ]
 	);
 
 	const cancelFamilyChange = useCallback( () => {
@@ -539,6 +610,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 				<div
 					className={ styles.shell }
 					data-dragging-image={ isDraggingImage ? 'true' : 'false' }
+					onMouseDown={ handleShellMouseDown }
 					onDragOver={ ( event ) => {
 						const files = getImageFilesFromDataTransfer( event.dataTransfer );
 						if ( files.length === 0 ) {
@@ -676,7 +748,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 									disabled={ busy }
 								/>
 							) : null }
-							<Menu.Root modal={ false }>
+							<Menu.Root modal={ false } open={ modelMenuOpen } onOpenChange={ setModelMenuOpen }>
 								<TooltipMenuTrigger label={ modelTooltipLabel }>
 									<button
 										type="button"
@@ -688,10 +760,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 									</button>
 								</TooltipMenuTrigger>
 								<Menu.Popup side="top" align="end">
-									<Menu.RadioGroup
-										value={ model }
-										onValueChange={ ( value ) => handleModelChange( value as AiModelId ) }
-									>
+									<Menu.RadioGroup value={ model } onValueChange={ handleModelValueChange }>
 										{ AI_MODELS.map( ( { id, label } ) => (
 											<Menu.RadioItem key={ id } value={ id }>
 												{ label }

@@ -360,6 +360,16 @@ export function Composer( {
 						) : null }
 					</div>
 					<div className={ styles.toolbar }>
+						<div className={ styles.leftActions }>
+							<button
+								type="button"
+								className={ `${ styles.iconButton } ${ styles.glyphButton }` }
+								aria-label={ __( 'Skills' ) }
+								onClick={ triggerSlashCommands }
+							>
+								/
+							</button>
+						</div>
 						<div className={ styles.rightActions }>
 							<Menu.Root modal={ false }>
 								<Menu.Trigger
@@ -424,17 +434,6 @@ export function Composer( {
 							}
 						) }
 					</span>
-					<button
-						type="button"
-						className={ styles.commandsLegend }
-						onClick={ triggerSlashCommands }
-					>
-						{ createInterpolateElement(
-							/* translators: <key/> is a chip showing the "/" key that opens the skills list. */
-							__( '<key/> for skills' ),
-							{ key: <span className={ styles.commandsLegendKey }>/</span> }
-						) }
-					</button>
 					{ error ? <span className={ styles.error }>{ error }</span> : null }
 					<span className={ styles.metaUses }>{ __( 'Uses 1 message' ) }</span>
 				</div>

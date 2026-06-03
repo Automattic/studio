@@ -11,7 +11,7 @@ import { useConnector } from '@/data/core';
 import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
 import { useResizablePanel } from '@/hooks/use-resizable-panel';
 import { getSiteUrl } from '@/lib/get-site-url';
-import { playIcon } from '@/lib/icons';
+import { playIcon, refreshIcon } from '@/lib/icons';
 import { getPrimaryModifierLabel, isApplePlatform } from '@/lib/keyboard-shortcuts';
 import { PREVIEW_PANEL_CONFIG, PREVIEW_PANEL_STORAGE_KEY } from '@/lib/resizable-panels';
 import {
@@ -607,6 +607,7 @@ export function SitePreview( {
 		() => ( {
 			back: getBrowserShortcutDescriptor( '[' ),
 			forward: getBrowserShortcutDescriptor( ']' ),
+			reload: getBrowserShortcutDescriptor( 'r' ),
 		} ),
 		[]
 	);
@@ -792,6 +793,17 @@ export function SitePreview( {
 								shortcut={ browserShortcuts.forward }
 								disabled={ ! canPreview || ! activeBrowserState.canGoForward }
 								onClick={ () => sendBrowserCommand( 'forward' ) }
+							/>
+							<IconButton
+								className={ styles.browserControlButton }
+								variant="minimal"
+								tone="neutral"
+								size="small"
+								icon={ refreshIcon }
+								label={ __( 'Refresh' ) }
+								shortcut={ browserShortcuts.reload }
+								disabled={ ! canPreview }
+								onClick={ () => sendBrowserCommand( 'reload' ) }
 							/>
 						</div>
 						<div className={ styles.tabs } role="tablist" aria-label={ __( 'Browser tabs' ) }>
@@ -1002,7 +1014,11 @@ export function SitePreview( {
 											aria-hidden={ ! selected }
 										>
 											<iframe
-												key={ `${ tabUrl }#${ tab.reloadNonce }` }
+												key={ `${ tabUrl }#${ tab.reloadNonce }#${
+													browserCommand?.tabId === tab.id && browserCommand.type === 'reload'
+														? browserCommand.id
+														: 0
+												}` }
 												className={ styles.iframe }
 												src={ tabUrl }
 												title={ site.name }

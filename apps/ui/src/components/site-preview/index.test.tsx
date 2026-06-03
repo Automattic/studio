@@ -23,7 +23,7 @@ function renderPreview( children: ReactNode ) {
 	return render( <QueryClientProvider client={ queryClient }>{ children }</QueryClientProvider> );
 }
 
-function createSite(): SiteDetails {
+function createSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
 	return {
 		id: 'site-1',
 		name: 'Example Site',
@@ -31,6 +31,7 @@ function createSite(): SiteDetails {
 		port: 8881,
 		running: false,
 		phpVersion: '8.3',
+		...overrides,
 	};
 }
 
@@ -57,5 +58,27 @@ describe( 'SitePreview', () => {
 		fireEvent.doubleClick( within( tab ).getByRole( 'button', { name: 'Dashboard' } ) );
 
 		expect( screen.getByRole( 'textbox', { name: 'Browser path' } ) ).toHaveValue( '/wp-admin/' );
+	} );
+
+	it( 'shows a refresh button that reloads the active preview surface', () => {
+		useConnectorMock.mockReturnValue( {
+			fetchSiteRest: vi.fn().mockResolvedValue( { status: 200, body: '[]' } ),
+			startSite: vi.fn().mockResolvedValue( undefined ),
+		} as never );
+
+		const { container } = renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+
+		const refreshButton = screen.getByRole( 'button', { name: 'Refresh' } );
+		expect( refreshButton ).toBeEnabled();
+		expect( refreshButton ).toHaveAttribute( 'aria-keyshortcuts', expect.stringMatching( /\+R$/ ) );
+
+		const initialIframe = container.querySelector( 'iframe' );
+		expect( initialIframe ).toBeInTheDocument();
+
+		fireEvent.click( refreshButton );
+
+		expect( container.querySelector( 'iframe' ) ).not.toBe( initialIframe );
 	} );
 } );

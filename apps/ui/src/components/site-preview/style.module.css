@@ -5,9 +5,9 @@
 	flex-shrink: 0;
 	height: 100%;
 	min-height: 0;
-	border-left: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
 	overflow: hidden;
-	border-radius: 8px;
+	border-radius: 12px;
 }
 
 .rootResizing {
@@ -171,7 +171,6 @@
 	gap: 0;
 	flex-shrink: 0;
 	height: var(--site-preview-control-height, 38px);
-	-webkit-app-region: no-drag;
 }
 
 .browserControlButton {
@@ -196,7 +195,6 @@
 	min-width: 0;
 	overflow: visible;
 	position: relative;
-	-webkit-app-region: no-drag;
 }
 
 .tab {
@@ -213,6 +211,7 @@
 	color: var(--site-preview-toolbar-foreground-weak);
 	background-color: var(--site-preview-toolbar-tab-background);
 	border-radius: 6px;
+	-webkit-app-region: no-drag;
 }
 
 .tab:hover {
@@ -257,6 +256,7 @@
 	background: transparent;
 	border: 0;
 	border-radius: inherit;
+	-webkit-app-region: no-drag;
 }
 
 .tabButton:focus-visible {
@@ -319,6 +319,7 @@
 	background: transparent;
 	border-radius: 4px;
 	transition: opacity 120ms ease;
+	-webkit-app-region: no-drag;
 }
 
 .tabClosable:is(:hover, :focus-within) .tabIcon {
@@ -345,6 +346,7 @@
 	position: relative;
 	width: 100%;
 	height: 100%;
+	-webkit-app-region: no-drag;
 }
 
 .tabInput {
@@ -358,6 +360,7 @@
 	border: 0;
 	border-radius: inherit;
 	outline: none;
+	-webkit-app-region: no-drag;
 }
 
 .tabEditing:focus-within {
@@ -382,6 +385,7 @@
 	border: 1px solid var(--site-preview-toolbar-suggestion-border);
 	border-radius: 6px;
 	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+	-webkit-app-region: no-drag;
 }
 
 .suggestion {
@@ -402,6 +406,7 @@
 	background: transparent;
 	border: 0;
 	border-radius: 4px;
+	-webkit-app-region: no-drag;
 }
 
 .suggestion:hover,
@@ -436,7 +441,6 @@
 	align-items: center;
 	gap: 6px;
 	flex-shrink: 0;
-	-webkit-app-region: no-drag;
 }
 
 .annotationButton {
@@ -458,6 +462,7 @@
 	background-color: transparent;
 	border: 0;
 	border-radius: 6px;
+	-webkit-app-region: no-drag;
 }
 
 .annotationButton:hover:not(:disabled) {

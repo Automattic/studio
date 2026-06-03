@@ -82,7 +82,7 @@ export const nativeExternals = [
 // All package.json dependencies (used by npm config to externalize everything)
 export const packageJsonDependencies = Object.keys( packageJson.dependencies || {} );
 
-function isNodeBuiltin( id: string ): boolean {
+export function isNodeBuiltin( id: string ): boolean {
 	if ( id.startsWith( 'node:' ) ) {
 		return true;
 	}

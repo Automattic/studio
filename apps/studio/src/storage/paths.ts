@@ -53,6 +53,14 @@ export function getCliBinaryPath(): string | null {
 	return path.join( getResourcesPath(), 'bin', binaryName );
 }
 
+// Where the standalone binary extracts its embedded runtime assets (main.mjs,
+// wp-files, node_modules) on first run. We point it at a per-user writable dir
+// rather than the app bundle's Resources, which can be read-only for
+// non-admin/managed installs and whose code signature we must not mutate.
+export function getCliExtractionDir(): string {
+	return path.join( app.getPath( 'userData' ), 'cli' );
+}
+
 export function getCliPath(): string {
 	return process.env.NODE_ENV === 'development'
 		? path.join( getResourcesPath(), '..', 'cli', 'dist', 'cli', 'main.mjs' )

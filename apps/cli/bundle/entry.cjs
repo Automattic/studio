@@ -44,7 +44,7 @@ const {
 	writeSync,
 } = require( 'node:fs' );
 const { homedir } = require( 'node:os' );
-const { dirname, join, sep } = require( 'node:path' );
+const { basename, dirname, join, sep } = require( 'node:path' );
 const { isSea, getAsset } = require( 'node:sea' );
 const { pathToFileURL } = require( 'node:url' );
 
@@ -58,15 +58,59 @@ const CLI_DIR = process.env.STUDIO_CLI_DIR || DEFAULT_CLI_DIR;
 const PARENT_DIR = join( CLI_DIR, '..' );
 const MARKER_FILE = join( CLI_DIR, '.bundle-version' );
 const LOCK_FILE = `${ CLI_DIR }.lock`;
-const STALE_LOCK_MS = 60_000;
+// Backstop only: a lock is normally reclaimed the instant its owner PID is
+// gone (see isLockStale). This guards the rare case of PID reuse keeping a
+// dead owner's lock alive-looking.
+const STALE_LOCK_BACKSTOP_MS = 10 * 60_000;
 
 const sleep = ( ms ) => new Promise( ( resolve ) => setTimeout( resolve, ms ) );
 
+function isProcessAlive( pid ) {
+	if ( ! Number.isInteger( pid ) || pid <= 0 ) {
+		return false;
+	}
+	try {
+		// Signal 0 runs existence/permission checks without delivering a signal.
+		process.kill( pid, 0 );
+		return true;
+	} catch ( err ) {
+		// EPERM => the process exists but is owned by another user.
+		return err.code === 'EPERM';
+	}
+}
+
+// Decide whether an existing lock can be reclaimed. We key on the owner PID so a
+// long (synchronous) extraction by a live owner is never broken, while a crashed
+// owner is reclaimed at once. Extraction runs synchronously via execSync, so a
+// timer-based heartbeat couldn't refresh the lock mid-extraction anyway.
+function isLockStale() {
+	let pid = NaN;
+	try {
+		pid = parseInt( readFileSync( LOCK_FILE, 'utf8' ).trim(), 10 );
+	} catch {
+		// Unreadable: fall through to the mtime backstop below.
+	}
+
+	// A readable PID that is no longer running means the owner crashed.
+	if ( Number.isInteger( pid ) && pid > 0 && ! isProcessAlive( pid ) ) {
+		return true;
+	}
+
+	// PID not yet written (lock just created) or owner still alive: only reclaim
+	// if the lock is absurdly old, as a guard against PID reuse.
+	try {
+		const stats = statSync( LOCK_FILE );
+		return Date.now() - stats.mtimeMs > STALE_LOCK_BACKSTOP_MS;
+	} catch {
+		// Lock vanished between attempts; treat as free.
+		return true;
+	}
+}
+
 // Coordinate concurrent first-runs with a single lockfile. openSync('wx')
 // is an atomic "create if not exists" so only one process can hold it.
-// A stale lock (owning process died mid-extraction) is broken after STALE_LOCK_MS.
 async function acquireLock() {
-	const deadline = Date.now() + STALE_LOCK_MS * 2;
+	const deadline = Date.now() + STALE_LOCK_BACKSTOP_MS;
 	while ( Date.now() < deadline ) {
 		try {
 			mkdirSync( PARENT_DIR, { recursive: true } );
@@ -79,19 +123,13 @@ async function acquireLock() {
 				throw err;
 			}
 		}
-		try {
-			const stats = statSync( LOCK_FILE );
-			if ( Date.now() - stats.mtimeMs > STALE_LOCK_MS ) {
-				rmSync( LOCK_FILE, { force: true } );
-				continue;
-			}
-		} catch {
-			// Lock vanished between attempts; retry immediately.
+		if ( isLockStale() ) {
+			rmSync( LOCK_FILE, { force: true } );
 			continue;
 		}
 		await sleep( 200 );
 	}
-	throw new Error( `Timed out waiting for ${ LOCK_FILE } after ${ STALE_LOCK_MS * 2 }ms.` );
+	throw new Error( `Timed out waiting for ${ LOCK_FILE }.` );
 }
 
 function releaseLock() {
@@ -202,7 +240,9 @@ async function ensureExtracted( bundleVersion ) {
 			return;
 		}
 
-		console.log( 'First run — extracting runtime assets...' );
+		// Progress goes to stderr so it never pollutes stdout that capture-mode
+		// callers parse (e.g. `--version`, `--format json`) on first run.
+		console.error( 'First run — extracting runtime assets...' );
 		sweepStaleTmpDirs();
 
 		// Order matters: extracting resources.tar.gz atomically replaces CLI_DIR,
@@ -218,7 +258,7 @@ async function ensureExtracted( bundleVersion ) {
 		);
 
 		writeFileSync( MARKER_FILE, bundleVersion );
-		console.log( 'Extraction complete.' );
+		console.error( 'Extraction complete.' );
 	} finally {
 		releaseLock();
 	}
@@ -247,9 +287,12 @@ async function main() {
 	//
 	// argv may contain Node flags before the script path:
 	//   [binary, binary, --experimental-wasm-jspi, script.mjs, ...args]
-	// Scan for a .mjs file path to detect child process mode.
+	// Every internal child is spawned with our own entrypoint (main.mjs) as the
+	// script path, so match that basename specifically rather than any *.mjs — a
+	// user-supplied argument that merely ends in .mjs must not be mistaken for
+	// child-process mode.
 	const scriptIndex = process.argv.findIndex(
-		( arg, i ) => i >= 2 && arg.endsWith( '.mjs' ) && existsSync( arg )
+		( arg, i ) => i >= 2 && basename( arg ) === 'main.mjs' && existsSync( arg )
 	);
 
 	if ( scriptIndex >= 0 ) {

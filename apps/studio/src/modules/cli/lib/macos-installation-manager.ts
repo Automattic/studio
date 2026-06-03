@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import * as Sentry from '@sentry/electron/main';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
+import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { __, sprintf } from '@wordpress/i18n';
 import { sudoExec } from 'src/lib/sudo-exec';
 import { getMainWindow } from 'src/main-window';
@@ -239,7 +240,7 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 			const symlinkDestination = await fs.promises.readlink( symlinkPath );
 
 			// Don't overwrite standalone CLI installed via curl installer
-			const standaloneCliPath = path.join( os.homedir(), '.studio', 'bin', 'studio' );
+			const standaloneCliPath = path.join( getConfigDirectory(), 'bin', 'studio' );
 			if ( symlinkDestination === standaloneCliPath ) {
 				return true;
 			}

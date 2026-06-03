@@ -1,6 +1,6 @@
 import { defineConfig, mergeConfig } from 'vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
-import { baseConfig, nodeBuiltins, packageJsonDependencies } from './vite.config.base';
+import { baseConfig, isNodeBuiltin, packageJsonDependencies } from './vite.config.base';
 
 // For npm publishing, externalize ALL dependencies (they're installed by the end user).
 export default mergeConfig(
@@ -27,12 +27,10 @@ export default mergeConfig(
 					if ( id.includes( 'blueprint-schema-validator' ) ) {
 						return false;
 					}
-					if ( id.startsWith( 'node:' ) ) {
+					if ( isNodeBuiltin( id ) ) {
 						return true;
 					}
-					if ( nodeBuiltins.some( ( b ) => id === b || id.startsWith( b + '/' ) ) ) {
-						return true;
-					}
+					// Externalize every dependency — the end user installs them.
 					return packageJsonDependencies.some(
 						( dep ) => id === dep || id.startsWith( dep + '/' )
 					);

@@ -4,15 +4,177 @@
 	padding: 32px;
 }
 
-/* Typography comes from the universal `h1` rule in index.css — this class only
-   layers on the spacing below the heading. */
-.title {
+.header {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: var(--wpds-dimension-padding-xl);
 	margin-bottom: 24px;
 }
 
+/* Typography comes from the universal `h1` rule in index.css — this class only
+   layers on the spacing below the heading. */
+.title {
+	margin: 0 0 8px;
+}
+
 .subtitle {
+	max-width: 720px;
 	color: var(--wpds-color-fg-content-neutral-weak, #666);
-	margin: 0 0 16px;
+	margin: 0;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.createAction,
+.settingsLink {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	box-sizing: border-box;
+	min-height: 32px;
+	padding: 6px 10px;
+	border-radius: 6px;
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-sm);
+	font-weight: var(--wpds-typography-font-weight-medium, 500);
+	line-height: var(--wpds-typography-line-height-sm);
+	text-decoration: none;
+	cursor: var(--wpds-cursor-control);
+}
+
+.createAction {
+	flex: 0 0 auto;
+	border: 1px solid var(--wpds-color-stroke-surface-neutral, #ddd);
+	background: var(--wpds-color-bg-surface-neutral-strong, #fff);
+}
+
+.createAction:hover,
+.settingsLink:hover {
+	background: var(--wpds-color-bg-surface-neutral-hover, #f3f4f6);
+}
+
+.summary {
+	display: grid;
+	grid-template-columns: repeat(5, minmax(0, 1fr));
+	gap: 1px;
+	margin-bottom: 20px;
+	overflow: hidden;
+	border: 1px solid var(--wpds-color-stroke-surface-neutral, #ddd);
+	border-radius: 8px;
+	background: var(--wpds-color-stroke-surface-neutral, #ddd);
+}
+
+.summaryItem {
+	display: grid;
+	gap: 4px;
+	min-width: 0;
+	padding: 14px 16px;
+	background: var(--wpds-color-bg-surface-neutral-strong, #fff);
+}
+
+.summaryValue {
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: 1.25rem;
+	line-height: 1.2;
+	font-weight: var(--wpds-typography-font-weight-medium, 500);
+}
+
+.summaryLabel {
+	color: var(--wpds-color-fg-content-neutral-weak, #666);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.toolbar {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin-bottom: 20px;
+}
+
+.searchLabel {
+	flex: 1;
+	min-width: 220px;
+}
+
+.searchInput,
+.sortSelect {
+	box-sizing: border-box;
+	width: 100%;
+	min-height: 34px;
+	border: 1px solid var(--wpds-color-stroke-surface-neutral, #ddd);
+	border-radius: 6px;
+	background: var(--wpds-color-bg-surface-neutral-strong, #fff);
+	color: var(--wpds-color-fg-content-neutral);
+	font: inherit;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.searchInput {
+	padding: 6px 10px;
+}
+
+.sortSelect {
+	padding: 6px 28px 6px 10px;
+}
+
+.filterGroup {
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+	padding: 2px;
+	border: 1px solid var(--wpds-color-stroke-surface-neutral, #ddd);
+	border-radius: 8px;
+	background: var(--wpds-color-bg-surface-neutral, #f8f8f8);
+}
+
+.filterButton {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	min-height: 28px;
+	padding: 4px 8px;
+	border: 0;
+	border-radius: 6px;
+	background: transparent;
+	color: var(--wpds-color-fg-content-neutral-weak, #666);
+	font: inherit;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	cursor: var(--wpds-cursor-control);
+}
+
+.filterButton:hover {
+	color: var(--wpds-color-fg-content-neutral);
+	background: var(--wpds-color-bg-surface-neutral-hover, #f3f4f6);
+}
+
+.filterButtonActive {
+	color: var(--wpds-color-fg-content-neutral);
+	background: var(--wpds-color-bg-surface-neutral-strong, #fff);
+	box-shadow: 0 1px 2px rgb(0 0 0 / 8%);
+}
+
+.filterCount {
+	color: var(--wpds-color-fg-content-neutral-weak, #666);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: 1;
+}
+
+.sortLabel {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	flex: 0 0 auto;
+	color: var(--wpds-color-fg-content-neutral-weak, #666);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
 }
 
 .grid {
@@ -20,38 +182,77 @@
 	margin: 0;
 	padding: 0;
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+	grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
 	gap: 16px;
 }
 
 .card {
 	display: flex;
 	flex-direction: column;
-	align-items: flex-start;
-	gap: 12px;
-	padding: 20px;
+	gap: 14px;
+	min-width: 0;
+	box-sizing: border-box;
+	padding: 18px;
 	border: 1px solid var(--wpds-color-stroke-surface-neutral, #ddd);
-	border-radius: 12px;
+	border-radius: 8px;
 	background: var(--wpds-color-bg-surface-neutral-strong, #fff);
-	color: inherit;
-	text-decoration: none;
-	cursor: pointer;
-	transition: border-color 120ms ease, box-shadow 120ms ease;
+	color: var(--wpds-color-fg-content-neutral);
+	box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
 }
 
-.card:hover {
-	border-color: var(--wpds-color-stroke-interactive-neutral, #bbb);
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+.cardHeader {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 12px;
+	min-width: 0;
+}
+
+.siteLink {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	min-width: 0;
+	color: inherit;
+	text-decoration: none;
+}
+
+.siteLink:hover .cardName {
+	color: var(--wpds-color-fg-interactive-brand, #3858e9);
 }
 
 .cardIcon {
 	display: inline-flex;
+	flex: 0 0 auto;
+}
+
+.cardTitleBlock {
+	display: grid;
+	gap: 3px;
+	min-width: 0;
 }
 
 .cardName {
-	font-weight: 600;
-	font-size: 0.95rem;
-	max-width: 100%;
+	font-weight: var(--wpds-typography-font-weight-medium, 500);
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: var(--wpds-typography-line-height-md);
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.cardUrl,
+.metaText,
+.connectionValue,
+.state,
+.empty,
+.dialogText {
+	color: var(--wpds-color-fg-content-neutral-weak, #666);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.cardUrl {
 	overflow: hidden;
 	white-space: nowrap;
 	text-overflow: ellipsis;
@@ -61,8 +262,14 @@
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
-	font-size: 0.8125rem;
+	flex: 0 0 auto;
+	min-height: 24px;
+	padding: 2px 8px;
+	border-radius: 999px;
+	background: var(--wpds-color-bg-surface-neutral, #f8f8f8);
 	color: var(--wpds-color-fg-content-neutral-weak, #666);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
 }
 
 .statusDot {
@@ -80,12 +287,295 @@
 	background-color: var(--wpds-color-stroke-interactive-neutral, #c4c4c4);
 }
 
-.empty {
+.statusDotTransitioning {
+	background-color: var(--wpds-color-fg-warning, #b45309);
+}
+
+.quickActions {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 6px;
+}
+
+.actionButton,
+.settingsLink {
+	min-width: 0;
+	width: 100%;
+	white-space: nowrap;
+}
+
+.actionButton span,
+.settingsLink span {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.actionButton svg,
+.settingsLink svg,
+.createAction svg {
+	flex: 0 0 auto;
+	fill: currentColor;
+}
+
+.settingsLink {
+	border: 0;
+	background: transparent;
+}
+
+.connectionRows {
+	display: grid;
+	gap: 1px;
+	border-top: 1px solid var(--wpds-color-stroke-surface-neutral, #ddd);
+	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral, #ddd);
+}
+
+.connectionRow {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 12px;
+	min-height: 44px;
+	padding: 8px 0;
+}
+
+.connectionRow + .connectionRow {
+	border-top: 1px solid var(--wpds-color-stroke-surface-neutral, #ddd);
+}
+
+.connectionText {
+	display: grid;
+	gap: 2px;
+	min-width: 0;
+}
+
+.connectionLabel {
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	font-weight: var(--wpds-typography-font-weight-medium, 500);
+}
+
+.connectionValue {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.connectionActions,
+.iconActions,
+.previewActions,
+.cardFooter {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.iconAction,
+.moreButton {
+	width: 28px;
+	height: 28px;
+	min-width: 28px;
+	padding: 0;
+}
+
+.iconAction svg,
+.moreButton svg {
+	width: 16px;
+	height: 16px;
+	fill: currentColor;
+}
+
+.inlineLink {
+	display: inline;
+	max-width: 100%;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	line-height: inherit;
+	text-align: left;
+	text-decoration: underline;
+	text-underline-offset: 2px;
+	cursor: var(--wpds-cursor-control);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.syncActivity {
+	margin: -4px 0 0;
 	color: var(--wpds-color-fg-content-neutral-weak, #666);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+}
+
+.syncError {
+	color: var(--wpds-color-fg-content-error, #b32d2e);
+}
+
+.cardFooter {
+	justify-content: space-between;
+	gap: 12px;
+	min-width: 0;
+}
+
+.metaText {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .emptyAction {
 	color: var(--wpds-color-fg-interactive-brand, #2563eb);
 	font-weight: 600;
 	text-decoration: none;
+}
+
+.dialogBody {
+	display: grid;
+	gap: 12px;
+}
+
+.dialogText {
+	margin: 0;
+}
+
+.dialogCheckbox {
+	display: flex;
+	align-items: flex-start;
+	gap: 8px;
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.dialogCheckbox input {
+	margin-top: 2px;
+}
+
+.dialogError {
+	margin: 0;
+	color: var(--wpds-color-fg-content-error, #b32d2e);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.pickableList {
+	display: grid;
+	gap: 4px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.pickableItem {
+	display: grid;
+	gap: 2px;
+	width: 100%;
+	box-sizing: border-box;
+	padding: 10px;
+	border: 1px solid var(--wpds-color-stroke-surface-neutral, #ddd);
+	border-radius: 6px;
+	background: var(--wpds-color-bg-surface-neutral-strong, #fff);
+	color: var(--wpds-color-fg-content-neutral);
+	text-align: left;
+	cursor: var(--wpds-cursor-control);
+}
+
+.pickableItem:hover {
+	background: var(--wpds-color-bg-surface-neutral-hover, #f3f4f6);
+}
+
+.pickableItem:disabled {
+	color: var(--wpds-color-fg-interactive-neutral-disabled);
+	cursor: not-allowed;
+}
+
+.pickableName {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	font-weight: var(--wpds-typography-font-weight-medium, 500);
+}
+
+.pickableUrl {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--wpds-color-fg-content-neutral-weak, #666);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+}
+
+.visuallyHidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
+
+@media (max-width: 1100px) {
+	.toolbar {
+		flex-wrap: wrap;
+	}
+
+	.filterGroup {
+		order: 3;
+		width: 100%;
+		overflow-x: auto;
+	}
+}
+
+@media (max-width: 760px) {
+	.page {
+		padding: 20px;
+	}
+
+	.header {
+		flex-direction: column;
+		gap: 16px;
+	}
+
+	.createAction {
+		width: 100%;
+	}
+
+	.summary {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	.toolbar {
+		align-items: stretch;
+	}
+
+	.searchLabel,
+	.sortLabel {
+		width: 100%;
+	}
+
+	.sortLabel {
+		justify-content: space-between;
+	}
+
+	.grid {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.quickActions {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
 }

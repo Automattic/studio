@@ -19,7 +19,7 @@ export const PublishSiteButton = () => {
 		userId: user?.id,
 	} );
 	const isAnySiteDoingLocalSyncWork = useRootSelector(
-		syncOperationsSelectors.selectIsAnySitePullingLocally
+		syncOperationsSelectors.selectIsAnySiteDoingLocalSyncWork
 	);
 
 	const handlePublishClick = useCallback( () => {

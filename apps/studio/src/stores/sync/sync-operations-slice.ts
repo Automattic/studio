@@ -1186,11 +1186,6 @@ export const syncOperationsSelectors = {
 			isKeyPulling( pullState.status.key )
 		);
 	},
-	selectIsAnySitePullingLocally: ( state: { syncOperations: SyncOperationsState } ): boolean => {
-		return Object.values( state.syncOperations.pullStates ).some( ( pullState ) =>
-			isKeyPullingLocally( pullState.status.key )
-		);
-	},
 	selectIsSiteIdPulling:
 		( selectedSiteId: string, remoteSiteId?: number ) =>
 		( state: { syncOperations: SyncOperationsState } ): boolean => {
@@ -1235,6 +1230,19 @@ export const syncOperationsSelectors = {
 				return isKeyPushing( pushState.status.key );
 			} );
 		},
+	selectIsSiteIdPushingLocally:
+		( selectedSiteId?: string, remoteSiteId?: number ) =>
+		( state: { syncOperations: SyncOperationsState } ): boolean => {
+			return Object.values( state.syncOperations.pushStates ).some( ( pushState ) => {
+				if ( pushState.selectedSite.id !== selectedSiteId ) {
+					return false;
+				}
+				if ( pushState.remoteSiteId === remoteSiteId ) {
+					return isKeyUploading( pushState.status.key );
+				}
+				return isKeyUploading( pushState.status.key );
+			} );
+		},
 	// "Local sync work" = the phases the local machine is actively involved in (pull
 	// downloading/importing, push backup uploading). We can only block on these; the
 	// server-bound phases of a sync continue regardless.
@@ -1246,7 +1254,10 @@ export const syncOperationsSelectors = {
 					selectedSiteId,
 					remoteSiteId
 				)( state ) ||
-				syncOperationsSelectors.selectIsSiteIdPushing( selectedSiteId, remoteSiteId )( state )
+				syncOperationsSelectors.selectIsSiteIdPushingLocally(
+					selectedSiteId,
+					remoteSiteId
+				)( state )
 			);
 		},
 	selectIsAnySiteDoingLocalSyncWork: ( state: {

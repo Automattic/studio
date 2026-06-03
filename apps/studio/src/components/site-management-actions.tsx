@@ -22,9 +22,9 @@ export const SiteManagementActions = ( {
 }: SiteManagementActionProps ) => {
 	const { __ } = useI18n();
 	const { isSiteImporting } = useImportExport();
-	const isPullingLocally = useRootSelector( ( state ) => {
-		syncOperationsSelectors.selectIsSiteIdPullingLocally( selectedSite?.id )( state );
-	} );
+	const isPullingLocally = useRootSelector( ( state ) =>
+		syncOperationsSelectors.selectIsSiteIdPullingLocally( selectedSite?.id )( state )
+	);
 
 	if ( ! selectedSite ) {
 		return null;

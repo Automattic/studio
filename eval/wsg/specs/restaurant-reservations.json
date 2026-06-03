@@ -1,0 +1,19 @@
+{
+  "caseId": "restaurant-reservations",
+  "spec": {
+    "name": "Ember & Oak",
+    "type": "restaurant",
+    "audience": "local diners looking for a special evening",
+    "tone": "warm, refined, unfussy",
+    "topic": "a wood-fired neighbourhood restaurant in Lisbon",
+    "layoutPreference": "landing-page",
+    "pages": ["Home", "Menu", "About", "Reservations", "Contact"],
+    "features": ["reservation form", "menu with dishes"]
+  },
+  "expects": {
+    "needsCompanionPlugin": true,
+    "minPages": 4,
+    "minCustomBlocks": 1,
+    "inputCptsNeedBlock": true
+  }
+}

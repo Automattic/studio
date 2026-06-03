@@ -1,0 +1,18 @@
+{
+  "caseId": "portfolio-slideshow",
+  "spec": {
+    "name": "Studio Vermillion",
+    "type": "design studio portfolio",
+    "audience": "brands evaluating a studio for an identity project",
+    "tone": "bold, art-directed, contemporary",
+    "topic": "an independent brand and motion design studio showcasing case studies",
+    "layoutPreference": "canvas-floating-chrome",
+    "pages": ["Home", "Work", "Studio", "Contact"],
+    "features": ["an interactive image slideshow on the homepage", "project case studies", "contact form"]
+  },
+  "expects": {
+    "needsCompanionPlugin": true,
+    "minPages": 3,
+    "minCustomBlocks": 1
+  }
+}

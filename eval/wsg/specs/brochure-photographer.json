@@ -1,0 +1,18 @@
+{
+  "caseId": "brochure-photographer",
+  "spec": {
+    "name": "Aperture & Ash",
+    "type": "photographer portfolio",
+    "audience": "couples and brands looking for a documentary-style photographer",
+    "tone": "quiet, editorial, confident",
+    "topic": "a documentary wedding and brand photographer based in Porto",
+    "layoutPreference": "landing-page",
+    "pages": ["Home", "Portfolio", "About", "Contact"],
+    "features": []
+  },
+  "expects": {
+    "needsCompanionPlugin": false,
+    "minPages": 3,
+    "minCustomBlocks": 0
+  }
+}

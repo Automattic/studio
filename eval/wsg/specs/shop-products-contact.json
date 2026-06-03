@@ -1,0 +1,19 @@
+{
+  "caseId": "shop-products-contact",
+  "spec": {
+    "name": "Beans Parade",
+    "type": "specialty coffee shop with an online catalogue",
+    "audience": "home brewers and cafes buying single-origin beans",
+    "tone": "energetic, knowledgeable, friendly",
+    "topic": "a specialty coffee roaster selling single-origin beans with a product catalogue and a wholesale enquiry form",
+    "layoutPreference": "magazine-grid",
+    "pages": ["Home", "Shop", "Our Roasts", "Wholesale", "Contact"],
+    "features": ["product catalogue", "wholesale enquiry form", "contact form"]
+  },
+  "expects": {
+    "needsCompanionPlugin": true,
+    "minPages": 4,
+    "minCustomBlocks": 1,
+    "inputCptsNeedBlock": true
+  }
+}

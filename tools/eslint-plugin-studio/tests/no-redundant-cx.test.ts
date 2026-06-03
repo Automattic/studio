@@ -41,13 +41,6 @@ describe( 'no-redundant-cx', () => {
 				output: '`h-full`;',
 				errors: [ { messageId: 'redundantCx' } ],
 			},
-			{
-				// Custom helper name via options.
-				code: `classNames( 'h-full' );`,
-				output: `'h-full';`,
-				options: [ { name: 'classNames' } ],
-				errors: [ { messageId: 'redundantCx' } ],
-			},
 		],
 	} );
 } );

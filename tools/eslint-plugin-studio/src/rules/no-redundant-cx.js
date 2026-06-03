@@ -15,24 +15,13 @@ export default {
 			recommended: true,
 		},
 		fixable: 'code',
-		schema: [
-			{
-				type: 'object',
-				properties: {
-					// Name of the class-name helper to check (defaults to `cx`).
-					name: { type: 'string' },
-				},
-				additionalProperties: false,
-			},
-		],
+		schema: [],
 		messages: {
 			redundantCx:
-				'{{ name }}() with a single static string is redundant. Use the string directly and keep {{ name }}() for conditional classes.',
+				'cx() with a single static string is redundant. Use the string directly and keep cx() for conditional classes.',
 		},
 	},
 	create( context ) {
-		const options = context.options[ 0 ] || {};
-		const fnName = options.name || 'cx';
 		const sourceCode = context.sourceCode || context.getSourceCode();
 
 		/**
@@ -51,7 +40,7 @@ export default {
 
 		return {
 			CallExpression( node ) {
-				if ( node.callee.type !== 'Identifier' || node.callee.name !== fnName ) {
+				if ( node.callee.type !== 'Identifier' || node.callee.name !== 'cx' ) {
 					return;
 				}
 				if ( node.arguments.length !== 1 ) {
@@ -65,7 +54,6 @@ export default {
 				context.report( {
 					node,
 					messageId: 'redundantCx',
-					data: { name: fnName },
 					fix( fixer ) {
 						return fixer.replaceText( node, sourceCode.getText( arg ) );
 					},

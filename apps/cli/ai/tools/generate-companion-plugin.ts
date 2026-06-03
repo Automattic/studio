@@ -141,7 +141,7 @@ export const generateCompanionPluginTool = defineTool(
 					};
 				}
 			} ),
-			3
+			8
 		);
 
 		const failedBlocks: string[] = [];

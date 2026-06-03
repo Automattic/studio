@@ -198,7 +198,7 @@ export const generateThemeTool = defineTool(
 
 		const generated = await runPooled(
 			planned.map( ( item ) => async () => ( { rel: item.rel, content: await item.run() } ) ),
-			4
+			8
 		);
 
 		const written: string[] = [];

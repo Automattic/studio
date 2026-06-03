@@ -3,6 +3,7 @@ import {
 	findAiImages,
 	getAttr,
 	parseAiImageAlt,
+	resolveAiImagesInHtml,
 	stripAiImagePlaceholders,
 } from 'cli/ai/generation/images';
 import { extractJson, isTransientError, runPooled, stripCodeFences } from 'cli/ai/generation/llm';
@@ -144,6 +145,71 @@ describe( 'AI_IMAGE parsing', () => {
 		expect( stripped ).toContain( 'real.jpg' );
 		expect( stripped ).not.toContain( 'AI_IMAGE' );
 		expect( stripped ).toBe( '<p>x</p><img src="real.jpg" alt="A real photo" /><p>y</p>' );
+	} );
+} );
+
+describe( 'resolveAiImagesInHtml', () => {
+	const html =
+		'<p>a</p><img src="ph.png" alt="AI_IMAGE: a hero | photo | 16:9" />' +
+		'<img src="ph2.png" alt="AI_IMAGE: a chef | photo | 4:3" />';
+
+	it( 'fills every placeholder via the injected generator, preserving order and index', async () => {
+		let generateCalls = 0;
+		const persistedIndexes: number[] = [];
+		const result = await resolveAiImagesInHtml(
+			html,
+			async ( _bytes, ctx ) => {
+				persistedIndexes.push( ctx.index );
+				return `https://cdn/img-${ ctx.index }.png`;
+			},
+			{
+				concurrency: 4,
+				generate: async () => {
+					generateCalls++;
+					return Buffer.from( 'img' );
+				},
+			}
+		);
+		expect( generateCalls ).toBe( 2 );
+		expect( result.generated ).toBe( 2 );
+		expect( result.failed ).toBe( 0 );
+		expect( result.total ).toBe( 2 );
+		expect( result.html ).toContain( 'src="https://cdn/img-1.png"' );
+		expect( result.html ).toContain( 'src="https://cdn/img-2.png"' );
+		expect( result.html ).toContain( 'alt="a hero"' );
+		expect( result.html ).toContain( 'alt="a chef"' );
+		expect( result.html ).not.toContain( 'AI_IMAGE' );
+		expect( persistedIndexes.slice().sort() ).toEqual( [ 1, 2 ] );
+	} );
+
+	it( 'counts a persist failure without aborting the others', async () => {
+		const result = await resolveAiImagesInHtml(
+			html,
+			async ( _bytes, ctx ) => ( ctx.index === 1 ? null : `https://cdn/img-${ ctx.index }.png` ),
+			{ generate: async () => Buffer.from( 'img' ) }
+		);
+		expect( result.generated ).toBe( 1 );
+		expect( result.failed ).toBe( 1 );
+		expect( result.html ).toContain( 'https://cdn/img-2.png' );
+	} );
+
+	it( 'counts a generation error without aborting the others', async () => {
+		let calls = 0;
+		const result = await resolveAiImagesInHtml(
+			html,
+			async ( _bytes, ctx ) => `https://cdn/img-${ ctx.index }.png`,
+			{
+				generate: async () => {
+					calls++;
+					if ( calls === 1 ) {
+						throw new Error( 'boom' );
+					}
+					return Buffer.from( 'img' );
+				},
+			}
+		);
+		expect( result.generated ).toBe( 1 );
+		expect( result.failed ).toBe( 1 );
 	} );
 } );
 

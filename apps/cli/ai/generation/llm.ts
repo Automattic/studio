@@ -160,7 +160,7 @@ export async function completeText( opts: CompleteTextOptions ): Promise< string
  */
 export async function runPooled< T >(
 	tasks: Array< () => Promise< T > >,
-	concurrency = 4
+	concurrency = 8
 ): Promise< T[] > {
 	const results: T[] = new Array( tasks.length );
 	let next = 0;

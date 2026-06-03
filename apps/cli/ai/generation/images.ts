@@ -1,3 +1,4 @@
+import { runPooled } from './llm';
 import { aspectFromHint, generateImageBytes, type ImageAspectRatio } from './wpcom-image';
 
 /**
@@ -91,40 +92,65 @@ export interface ImageResolution {
 	total: number;
 }
 
+export interface ResolveImagesOptions {
+	// Max images generated/persisted concurrently. Image calls are pure network,
+	// so a bounded pool compresses a page's imagery without a thundering herd.
+	concurrency?: number;
+	// Injectable image generator (defaults to the real WPCom-proxy call) so
+	// callers and tests can substitute it.
+	generate?: ( prompt: string, aspect: ImageAspectRatio ) => Promise< Buffer >;
+}
+
 /**
  * Best-effort: any image that fails to generate or persist is left as-is (the
- * placeholder stays) so a single failure never aborts the whole build.
+ * placeholder stays) so a single failure never aborts the whole build. Images
+ * are generated/persisted concurrently (bounded pool); replacements are then
+ * applied in document order so identical placeholders map deterministically.
  */
 export async function resolveAiImagesInHtml(
 	html: string,
-	persist: PersistImage
+	persist: PersistImage,
+	options: ResolveImagesOptions = {}
 ): Promise< ImageResolution > {
 	const matches = findAiImages( html );
+	const generate = options.generate ?? generateImageBytes;
+	const concurrency = options.concurrency ?? 4;
+
+	const resolved = await runPooled(
+		matches.map(
+			( match, i ) => async (): Promise< { match: AiImageMatch; url: string | null } > => {
+				try {
+					const aspect = aspectFromHint( match.aspect );
+					const bytes = await generate(
+						buildImagePrompt( match.description, match.style ),
+						aspect
+					);
+					const url = await persist( bytes, {
+						description: match.description,
+						aspect,
+						index: i + 1,
+					} );
+					return { match, url };
+				} catch {
+					return { match, url: null };
+				}
+			}
+		),
+		concurrency
+	);
+
 	let out = html;
 	let generated = 0;
 	let failed = 0;
-	let index = 0;
-
-	for ( const match of matches ) {
-		index++;
-		try {
-			const aspect = aspectFromHint( match.aspect );
-			const bytes = await generateImageBytes(
-				buildImagePrompt( match.description, match.style ),
-				aspect
-			);
-			const url = await persist( bytes, { description: match.description, aspect, index } );
-			if ( ! url ) {
-				failed++;
-				continue;
-			}
-			let newTag = setAttr( match.tag, 'src', url );
-			newTag = setAttr( newTag, 'alt', match.description );
-			out = out.replace( match.tag, newTag );
-			generated++;
-		} catch {
+	for ( const { match, url } of resolved ) {
+		if ( ! url ) {
 			failed++;
+			continue;
 		}
+		let newTag = setAttr( match.tag, 'src', url );
+		newTag = setAttr( newTag, 'alt', match.description );
+		out = out.replace( match.tag, newTag );
+		generated++;
 	}
 
 	return { html: out, generated, failed, total: matches.length };

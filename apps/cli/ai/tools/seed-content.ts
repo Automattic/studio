@@ -289,7 +289,7 @@ export const seedContentTool = defineTool(
 					};
 				}
 			} ),
-			Math.min( Math.max( pageTargets.length, 1 ), 5 )
+			Math.min( Math.max( pageTargets.length, 1 ), 8 )
 		);
 
 		const cptPrepared = await runPooled(
@@ -333,7 +333,7 @@ export const seedContentTool = defineTool(
 					};
 				}
 			} ),
-			Math.min( Math.max( cptPlans.length, 1 ), 4 )
+			Math.min( Math.max( cptPlans.length, 1 ), 8 )
 		);
 
 		const prepared: PreparedItem[] = [];

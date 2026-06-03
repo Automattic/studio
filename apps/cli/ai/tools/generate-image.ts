@@ -2,6 +2,7 @@ import { mkdir, readFile, readdir, writeFile } from 'fs/promises';
 import path from 'path';
 import { Type } from 'typebox';
 import { resolveAiImagesInHtml } from 'cli/ai/generation/images';
+import { runPooled } from 'cli/ai/generation/llm';
 import { themeDir, uploadsDir } from 'cli/ai/generation/paths';
 import { aspectFromHint, generateImageBytes } from 'cli/ai/generation/wpcom-image';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
@@ -126,25 +127,28 @@ export const generateImageTool = defineTool(
 		if ( args.prompts && args.prompts.length > 0 ) {
 			const wsgUploads = uploadsDir( site.path );
 			await mkdir( wsgUploads, { recursive: true } );
-			const urls: string[] = [];
 			let failed = 0;
 
-			for ( let i = 0; i < args.prompts.length; i++ ) {
-				const prompt = args.prompts[ i ];
-				try {
-					const bytes = await generateImageBytes(
-						`${ prompt.description }.${
-							prompt.style ? ` Style: ${ prompt.style }.` : ''
-						} High quality, no text, no watermark.`,
-						aspectFromHint( prompt.aspect )
-					);
-					const name = `${ slugifyFileName( prompt.description, i + 1 ) }.png`;
-					await writeFile( path.join( wsgUploads, name ), bytes );
-					urls.push( `${ siteUrl }/wp-content/uploads/wsg/${ name }` );
-				} catch {
-					failed++;
-				}
-			}
+			const generated = await runPooled(
+				args.prompts.map( ( prompt, i ) => async (): Promise< string | null > => {
+					try {
+						const bytes = await generateImageBytes(
+							`${ prompt.description }.${
+								prompt.style ? ` Style: ${ prompt.style }.` : ''
+							} High quality, no text, no watermark.`,
+							aspectFromHint( prompt.aspect )
+						);
+						const name = `${ slugifyFileName( prompt.description, i + 1 ) }.png`;
+						await writeFile( path.join( wsgUploads, name ), bytes );
+						return `${ siteUrl }/wp-content/uploads/wsg/${ name }`;
+					} catch {
+						return null;
+					}
+				} ),
+				6
+			);
+			const urls = generated.filter( ( url ): url is string => url !== null );
+			failed = generated.length - urls.length;
 
 			lines.push( `Standalone images: ${ urls.length } generated, ${ failed } failed.` );
 			urls.forEach( ( url ) => lines.push( `  ${ url }` ) );

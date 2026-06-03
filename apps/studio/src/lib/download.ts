@@ -10,26 +10,27 @@ export async function download(
 ) {
 	const file = fs.createWriteStream( filePath );
 	const urlProtocol = new URL( url ).protocol;
-	const httpModule = urlProtocol === 'https:' ? https : http;
+	// follow-redirects' http and https wrappers share the same call shape; pin to
+	// one type so passing request options below resolves to a single `get`
+	// overload instead of the union of both.
+	const httpModule = ( urlProtocol === 'https:' ? https : http ) as typeof https;
 
 	// When a download starts over https, never let a redirect downgrade it to a
 	// cleartext protocol. Otherwise the https:-only guards callers rely on (e.g.
 	// the import-backup deeplink, which executes downloaded PHP via Playground)
 	// could be bypassed by an attacker-controlled `30x Location: http://…`,
 	// re-opening the MITM payload-swap window. http:-initiated downloads keep
-	// their existing behaviour.
-	const requestOptions =
-		urlProtocol === 'https:'
-			? {
-					beforeRedirect: ( options: { protocol?: string } ) => {
-						if ( options.protocol !== 'https:' ) {
-							throw new Error(
-								`Refusing to follow redirect to insecure protocol "${ options.protocol }".`
-							);
-						}
-					},
-			  }
-			: {};
+	// their existing behaviour because the guard only fires when we started on
+	// https.
+	const requestOptions = {
+		beforeRedirect: ( options: { protocol?: string | null } ) => {
+			if ( urlProtocol === 'https:' && options.protocol !== 'https:' ) {
+				throw new Error(
+					`Refusing to follow redirect to insecure protocol "${ options.protocol }".`
+				);
+			}
+		},
+	};
 
 	await new Promise< void >( ( resolve, reject ) => {
 		const request = httpModule.get( url, requestOptions, ( response ) => {

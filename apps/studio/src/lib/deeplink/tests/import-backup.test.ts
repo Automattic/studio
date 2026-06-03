@@ -73,7 +73,7 @@ describe( 'handleImportBackupDeeplink', () => {
 	} );
 
 	it( 'downloads the backup and sends the import IPC event', async () => {
-		const backupUrl = 'https://example.com/site.zip';
+		const backupUrl = 'https://telex.automattic.ai/site.zip';
 		const url = createBackupDeeplink( backupUrl );
 
 		vi.mocked( download ).mockResolvedValue( undefined );
@@ -99,7 +99,7 @@ describe( 'handleImportBackupDeeplink', () => {
 	} );
 
 	it( 'uses an explicit ?name= when supplied', async () => {
-		const backupUrl = 'https://example.com/download?token=abc';
+		const backupUrl = 'https://telex.automattic.ai/download?token=abc';
 		const url = createBackupDeeplink( backupUrl, 'my-export.tar.gz' );
 
 		vi.mocked( download ).mockResolvedValue( undefined );
@@ -121,7 +121,7 @@ describe( 'handleImportBackupDeeplink', () => {
 		// http:, file:, ftp: etc. must all be rejected — a network attacker can
 		// swap the payload of cleartext http: downloads, and backups carry
 		// executable PHP code that Studio runs via WordPress Playground.
-		const httpUrl = createBackupDeeplink( 'http://example.com/site.zip' );
+		const httpUrl = createBackupDeeplink( 'http://telex.automattic.ai/site.zip' );
 		vi.mocked( fs.remove ).mockImplementation( async () => {} );
 
 		await handleImportBackupDeeplink( httpUrl );
@@ -143,8 +143,39 @@ describe( 'handleImportBackupDeeplink', () => {
 		expect( sendIpcEventToRenderer ).not.toHaveBeenCalled();
 	} );
 
+	it( 'rejects hosts that are not in the backup allow list', async () => {
+		// Even a well-formed https URL with a valid extension must be refused
+		// when it points at a host Studio doesn't trust to produce backups —
+		// the deeplink is attacker-triggerable and imports execute PHP.
+		const url = createBackupDeeplink( 'https://evil.example/site.zip' );
+		vi.mocked( fs.remove ).mockImplementation( async () => {} );
+
+		await handleImportBackupDeeplink( url );
+
+		expect( download ).not.toHaveBeenCalled();
+		expect( sendIpcEventToRenderer ).not.toHaveBeenCalled();
+		expectErrorDialog( 'Please check the link and try again.' );
+	} );
+
+	it( 'rejects look-alike hosts that merely contain an allowed host', async () => {
+		vi.mocked( fs.remove ).mockImplementation( async () => {} );
+
+		for ( const host of [ 'telex.automattic.ai.evil.com', 'eviltelex.automattic.ai' ] ) {
+			vi.clearAllMocks();
+			vi.mocked( dialog.showMessageBox ).mockResolvedValue( {
+				response: 1,
+				checkboxChecked: false,
+			} );
+
+			await handleImportBackupDeeplink( createBackupDeeplink( `https://${ host }/site.zip` ) );
+
+			expect( download ).not.toHaveBeenCalled();
+			expect( sendIpcEventToRenderer ).not.toHaveBeenCalled();
+		}
+	} );
+
 	it( 'rejects unsupported file extensions', async () => {
-		const url = createBackupDeeplink( 'https://example.com/site.txt' );
+		const url = createBackupDeeplink( 'https://telex.automattic.ai/site.txt' );
 		vi.mocked( fs.remove ).mockImplementation( async () => {} );
 
 		await handleImportBackupDeeplink( url );
@@ -175,7 +206,7 @@ describe( 'handleImportBackupDeeplink', () => {
 	} );
 
 	it( 'cleans up the temp file and shows an error if download fails', async () => {
-		const url = createBackupDeeplink( 'https://example.com/site.zip' );
+		const url = createBackupDeeplink( 'https://telex.automattic.ai/site.zip' );
 
 		vi.mocked( download ).mockRejectedValue( new Error( 'Download failed' ) );
 		vi.mocked( fs.remove ).mockImplementation( async () => {} );
@@ -189,7 +220,7 @@ describe( 'handleImportBackupDeeplink', () => {
 	} );
 
 	it( 'rejects an empty file', async () => {
-		const url = createBackupDeeplink( 'https://example.com/site.zip' );
+		const url = createBackupDeeplink( 'https://telex.automattic.ai/site.zip' );
 
 		vi.mocked( download ).mockResolvedValue( undefined );
 		vi.mocked( fs.stat ).mockResolvedValue( {
@@ -206,9 +237,11 @@ describe( 'handleImportBackupDeeplink', () => {
 	} );
 
 	it( 'shows a network-specific error message for connectivity failures', async () => {
-		const url = createBackupDeeplink( 'https://example.com/site.zip' );
+		const url = createBackupDeeplink( 'https://telex.automattic.ai/site.zip' );
 
-		vi.mocked( download ).mockRejectedValue( new Error( 'getaddrinfo ENOTFOUND example.com' ) );
+		vi.mocked( download ).mockRejectedValue(
+			new Error( 'getaddrinfo ENOTFOUND telex.automattic.ai' )
+		);
 		vi.mocked( fs.remove ).mockImplementation( async () => {} );
 
 		await handleImportBackupDeeplink( url );
@@ -219,7 +252,7 @@ describe( 'handleImportBackupDeeplink', () => {
 	} );
 
 	it( 'restores and focuses the window when minimized', async () => {
-		const url = createBackupDeeplink( 'https://example.com/site.zip' );
+		const url = createBackupDeeplink( 'https://telex.automattic.ai/site.zip' );
 
 		vi.mocked( mockMainWindow.isMinimized ).mockReturnValue( true );
 		vi.mocked( download ).mockResolvedValue( undefined );
@@ -235,7 +268,7 @@ describe( 'handleImportBackupDeeplink', () => {
 	} );
 
 	it( 'opens the logs file when the user clicks Open Studio Logs', async () => {
-		const url = createBackupDeeplink( 'https://example.com/site.zip' );
+		const url = createBackupDeeplink( 'https://telex.automattic.ai/site.zip' );
 
 		vi.mocked( download ).mockRejectedValue( new Error( 'boom' ) );
 		vi.mocked( fs.remove ).mockImplementation( async () => {} );
@@ -250,7 +283,7 @@ describe( 'handleImportBackupDeeplink', () => {
 	} );
 
 	it( 'sanitizes weird characters in the derived file name', async () => {
-		const url = createBackupDeeplink( 'https://example.com/some site!@#.zip' );
+		const url = createBackupDeeplink( 'https://telex.automattic.ai/some site!@#.zip' );
 
 		vi.mocked( download ).mockResolvedValue( undefined );
 		vi.mocked( fs.stat ).mockResolvedValue( {

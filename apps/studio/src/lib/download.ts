@@ -12,8 +12,27 @@ export async function download(
 	const urlProtocol = new URL( url ).protocol;
 	const httpModule = urlProtocol === 'https:' ? https : http;
 
+	// When a download starts over https, never let a redirect downgrade it to a
+	// cleartext protocol. Otherwise the https:-only guards callers rely on (e.g.
+	// the import-backup deeplink, which executes downloaded PHP via Playground)
+	// could be bypassed by an attacker-controlled `30x Location: http://…`,
+	// re-opening the MITM payload-swap window. http:-initiated downloads keep
+	// their existing behaviour.
+	const requestOptions =
+		urlProtocol === 'https:'
+			? {
+					beforeRedirect: ( options: { protocol?: string } ) => {
+						if ( options.protocol !== 'https:' ) {
+							throw new Error(
+								`Refusing to follow redirect to insecure protocol "${ options.protocol }".`
+							);
+						}
+					},
+			  }
+			: {};
+
 	await new Promise< void >( ( resolve, reject ) => {
-		const request = httpModule.get( url, ( response ) => {
+		const request = httpModule.get( url, requestOptions, ( response ) => {
 			if ( response.statusCode !== 200 ) {
 				reject( new Error( `Request failed with status code: ${ response.statusCode }` ) );
 				return;

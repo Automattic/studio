@@ -26,6 +26,22 @@ function hasAcceptedExtension( fileName: string ): boolean {
 	return ACCEPTED_IMPORT_FILE_TYPES.some( ( ext ) => lower.endsWith( ext ) );
 }
 
+// Hosts allowed to hand a backup to Studio via the import-backup deeplink. The
+// deeplink is triggerable from any web page / email / IM, and the backup runs
+// PHP via Playground on import, so we only accept downloads from the Telex
+// origins that produce these exports — not an arbitrary attacker-chosen URL.
+const ALLOWED_BACKUP_HOSTS = [
+	'telex.automattic.ai', // production
+	'telex.localhost', // local development
+];
+
+// Exact hostname match (case-insensitive). Avoids `endsWith`-style checks that
+// would also accept look-alikes such as `telex.automattic.ai.evil.com` or
+// `eviltelex.automattic.ai`.
+function isAllowedBackupHost( hostname: string ): boolean {
+	return ALLOWED_BACKUP_HOSTS.includes( hostname.toLowerCase() );
+}
+
 function deriveFileNameFromUrl( rawUrl: string ): string {
 	try {
 		const pathname = new URL( rawUrl ).pathname;
@@ -88,6 +104,15 @@ export async function handleImportBackupDeeplink( urlObject: URL ): Promise< voi
 		if ( parsedUrl.protocol !== 'https:' ) {
 			throw new Error(
 				`Unsupported URL protocol "${ parsedUrl.protocol }". Only https: URLs are accepted for backup imports.`
+			);
+		}
+
+		// Only download from the Telex origins that produce these backups.
+		// `download()` separately refuses any redirect that would downgrade
+		// https to a cleartext protocol.
+		if ( ! isAllowedBackupHost( parsedUrl.hostname ) ) {
+			throw new Error(
+				`Backup host "${ parsedUrl.hostname }" is not in the allowed list for backup imports.`
 			);
 		}
 

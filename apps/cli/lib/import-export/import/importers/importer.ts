@@ -17,6 +17,7 @@ import semver from 'semver';
 import trash from 'trash';
 import { SiteData } from 'cli/lib/cli-config/core';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
+import { installSqliteIntegration } from 'cli/lib/sqlite-integration';
 import { ImportExportEventEmitter } from '../../events';
 import { BackupContents, MetaFileData } from '../types';
 import { updateSiteUrl } from '../update-site-url';
@@ -76,6 +77,9 @@ abstract class BaseImporter extends ImportExportEventEmitter implements Importer
 		const sortedSqlFiles = sqlFiles.sort( ( a, b ) => a.localeCompare( b ) );
 		let processedFiles = 0;
 		const totalFiles = sortedSqlFiles.length;
+
+		// db.php may be non-SQLite drop-in from backup
+		await installSqliteIntegration( site.path );
 
 		for ( const sqlFile of sortedSqlFiles ) {
 			const sqlTempFile = `${ generateBackupFilename( 'sql' ) }.sql`;

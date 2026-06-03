@@ -1,4 +1,3 @@
-import { SupportedPHPVersions } from '@php-wasm/universal';
 import { DEFAULT_WORDPRESS_VERSION, MINIMUM_WORDPRESS_VERSION } from '@studio/common/constants';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { getDomainNameValidationError } from '@studio/common/lib/domains';
@@ -26,9 +25,12 @@ import {
 import { getSiteByFolder, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { updateDomainInHosts } from 'cli/lib/hosts-file';
+import {
+	getSupportedPhpVersionsForSiteRuntime,
+	validatePhpVersionForSiteRuntime,
+} from 'cli/lib/php-versions';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { setupCustomDomain } from 'cli/lib/site-utils';
-import { validatePhpVersion } from 'cli/lib/utils';
 import { ValidationError } from 'cli/lib/validation-error';
 import {
 	isServerRunning,
@@ -37,8 +39,6 @@ import {
 } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
-
-const ALLOWED_PHP_VERSIONS = [ ...SupportedPHPVersions ];
 
 const logger = new Logger< LoggerAction >();
 
@@ -70,6 +70,7 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		debugDisplay,
 	} = options;
 	let { adminEmail } = options;
+	const validatedPhp = php === undefined ? undefined : validatePhpVersionForSiteRuntime( php );
 
 	if (
 		name === undefined &&
@@ -160,7 +161,7 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		const nameChanged = name !== undefined && name !== site.name;
 		const domainChanged = domain !== undefined && domain !== site.customDomain;
 		const httpsChanged = https !== undefined && https !== site.enableHttps;
-		const phpChanged = php !== undefined && php !== site.phpVersion;
+		const phpChanged = validatedPhp !== undefined && validatedPhp !== site.phpVersion;
 		const wpChanged = wp !== undefined;
 		const xdebugChanged = xdebug !== undefined && xdebug !== site.enableXdebug;
 		const adminUsernameChanged =
@@ -218,7 +219,7 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 				foundSite.enableHttps = https;
 			}
 			if ( phpChanged ) {
-				foundSite.phpVersion = php!;
+				foundSite.phpVersion = validatedPhp!;
 			}
 			if ( xdebugChanged ) {
 				foundSite.enableXdebug = xdebug;
@@ -271,10 +272,9 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 
 		if ( wpChanged ) {
 			logger.reportStart( LoggerAction.SET_WP_VERSION, __( 'Updating WordPress version…' ) );
-			const phpVersion = validatePhpVersion( site.phpVersion );
 			const zipUrl = getWordPressVersionUrl( wp );
 
-			await using command = await runWpCliCommand( sitePath, phpVersion, [
+			await using command = await runWpCliCommand( site, [
 				'core',
 				'update',
 				zipUrl,
@@ -329,6 +329,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		command: 'set',
 		describe: __( 'Configure site settings' ),
 		builder: ( yargs ) => {
+			const supportedPhpVersions = getSupportedPhpVersionsForSiteRuntime();
 			return yargs
 				.option( 'name', {
 					type: 'string',
@@ -345,7 +346,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'php', {
 					type: 'string',
 					description: __( 'PHP version' ),
-					choices: ALLOWED_PHP_VERSIONS,
+					choices: supportedPhpVersions,
 				} )
 				.option( 'wp', {
 					type: 'string',

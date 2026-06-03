@@ -1,6 +1,8 @@
 import fs from 'fs';
 import path from 'path';
+import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from '@studio/common/constants';
 import { recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
+import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
 import semver from 'semver';
 import { readCliConfig, updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
 import { getLanguagePacksPath, getWordPressVersionPath, getWpFilesPath } from './paths';
@@ -42,17 +44,27 @@ async function copyBundledLanguagePacks() {
 		return;
 	}
 	const targetLanguagePacksPath = getLanguagePacksPath();
-	const isSourceDirectoryDifferent = await areDirectoriesDifferentBySizeAndMtime(
-		sourceLanguagePacksPath,
-		targetLanguagePacksPath
-	);
-	if ( isSourceDirectoryDifferent ) {
-		try {
-			await fs.promises.rm( targetLanguagePacksPath, { recursive: true, force: true } );
-		} catch {
-			// Do nothing if the target directory is missing or corrupted
+	const lockPath = `${ targetLanguagePacksPath }.lock`;
+	await fs.promises.mkdir( path.dirname( lockPath ), { recursive: true } );
+	await lockFileAsync( lockPath, {
+		wait: LOCKFILE_WAIT_TIME,
+		stale: LOCKFILE_STALE_TIME,
+	} );
+	try {
+		const isSourceDirectoryDifferent = await areDirectoriesDifferentBySizeAndMtime(
+			sourceLanguagePacksPath,
+			targetLanguagePacksPath
+		);
+		if ( isSourceDirectoryDifferent ) {
+			try {
+				await fs.promises.rm( targetLanguagePacksPath, { recursive: true, force: true } );
+			} catch {
+				// Do nothing if the target directory is missing or corrupted
+			}
+			await recursiveCopyDirectory( sourceLanguagePacksPath, targetLanguagePacksPath );
 		}
-		await recursiveCopyDirectory( sourceLanguagePacksPath, targetLanguagePacksPath );
+	} finally {
+		await unlockFileAsync( lockPath );
 	}
 }
 

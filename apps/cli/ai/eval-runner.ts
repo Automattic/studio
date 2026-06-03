@@ -1,104 +1,102 @@
 /**
  * PromptFoo eval runner for Studio Code agent.
  *
- * Hooks into startAiAgent() to capture tool calls, tool results, assistant text,
- * and permission questions. Returns raw structured data — assertions live in the
+ * Hooks into runStudioAgentTurn() to capture tool calls, tool results, and
+ * assistant text. Returns raw structured data — assertions live in the
  * promptfoo config, not here.
  */
 
-import { startAiAgent, type AskUserQuestion } from 'cli/ai/agent';
+import { writeFileSync, writeSync as fsWriteSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { SessionManager } from '@mariozechner/pi-coding-agent';
+import { isAiModelId, type AiModelId } from '@studio/common/ai/models';
+import { findLastAssistant } from '@studio/common/ai/session-events';
 import {
 	resolveAiEnvironment,
 	resolveInitialAiProvider,
 	resolveUnavailableAiProvider,
 } from 'cli/ai/auth';
-import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
+import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
+import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
+import type { AgentSessionEvent } from '@mariozechner/pi-coding-agent';
 import type { AiProviderId } from 'cli/ai/providers';
 
 interface EvalRunnerInput {
 	prompt: string;
-	maxTurns?: number;
 	timeoutMs?: number;
-	askUserPolicy?: 'allow_all' | 'first_option' | 'deny_permissions_allow_other';
+	model?: AiModelId;
 }
 
-function normalizeToolName( name: string ): string {
-	return name.replace( /^mcp__studio__/, '' );
-}
-
-function hasPermissionOptions( options: string[] ): boolean {
-	return options.some( ( o ) => /\b(deny|allow once|allow for this session)\b/i.test( o ) );
-}
-
-function pickAnswer( question: string, options: string[], policy: string ): string {
-	if ( policy === 'allow_all' || policy === 'first_option' ) {
-		return options[ 0 ] ?? 'yes';
-	}
-
-	if ( hasPermissionOptions( options ) ) {
-		const denyOption = options.find( ( o ) => /\bdeny\b/i.test( o ) );
-		return denyOption ?? options[ options.length - 1 ] ?? 'no';
-	}
-	return options[ 0 ] ?? 'yes';
-}
-
-function extractToolCalls( message: SDKMessage ) {
-	if ( message.type !== 'assistant' ) {
+function extractToolCalls( event: AgentSessionEvent ) {
+	if ( event.type !== 'message_end' || event.message.role !== 'assistant' ) {
 		return [];
 	}
-	const content = message.message.content ?? [];
-	return content
+	return event.message.content
 		.filter(
-			( block: {
-				type: string;
-			} ): block is { type: 'tool_use'; id: string; name: string; input: unknown } =>
-				block.type === 'tool_use'
+			(
+				block
+			): block is Extract< ( typeof event.message.content )[ number ], { type: 'toolCall' } > =>
+				block.type === 'toolCall'
 		)
-		.map( ( block: { id: string; name: string } ) => ( {
+		.map( ( block ) => ( {
 			id: block.id,
-			name: normalizeToolName( block.name ),
+			name: block.name,
+			input: block.arguments as Record< string, unknown >,
 		} ) );
 }
 
-function extractTextSegments( message: SDKMessage ): string[] {
-	if ( message.type !== 'assistant' ) {
+type ToolCallRecord = {
+	id: string;
+	name: string;
+	input: unknown;
+};
+
+type ToolEvent = {
+	toolUseId: string;
+	toolName: string;
+	input: unknown;
+	startedAtMs: number;
+	endedAtMs?: number;
+	durationMs?: number;
+	isError?: boolean;
+	turnIndex: number;
+};
+
+type FirstToolError = {
+	toolUseId: string | null;
+	toolName: string | null;
+	input?: unknown;
+	error: string;
+	turnIndex: number;
+};
+
+function extractTextSegments( event: AgentSessionEvent ): string[] {
+	if ( event.type !== 'message_end' || event.message.role !== 'assistant' ) {
 		return [];
 	}
-	const content = message.message.content ?? [];
-	return content
-		.filter(
-			( block: { type: string } ): block is { type: 'text'; text: string } => block.type === 'text'
-		)
-		.map( ( block: { text: string } ) => block.text );
+	return event.message.content
+		.filter( ( block ): block is { type: 'text'; text: string } => block.type === 'text' )
+		.map( ( block ) => block.text );
 }
 
-function extractToolResult( message: SDKMessage ): {
-	toolUseId: string | null;
+function extractToolResult( event: AgentSessionEvent ): {
+	toolUseId: string;
 	isError: boolean;
 	text?: string;
 } | null {
-	if ( message.type !== 'user' || ! Array.isArray( message.message.content ) ) {
+	if ( event.type !== 'tool_execution_end' ) {
 		return null;
 	}
-	const block = message.message.content.find(
-		( b: {
-			type: string;
-		} ): b is { type: 'tool_result'; tool_use_id: string; is_error?: boolean; content?: unknown } =>
-			b.type === 'tool_result'
-	);
-	if ( ! block ) {
-		return null;
-	}
+	const result = event.result as { content?: Array< { type: string; text?: string } > } | undefined;
 	let text: string | undefined;
-	if ( typeof block.content === 'string' ) {
-		text = block.content;
-	} else if ( Array.isArray( block.content ) ) {
-		const tb = block.content.find( ( b: { type: string } ) => b.type === 'text' );
-		if ( tb && 'text' in tb ) {
-			text = tb.text as string;
-		}
+	if ( result?.content && Array.isArray( result.content ) ) {
+		const textBlock = result.content.find(
+			( b ): b is { type: 'text'; text: string } => b.type === 'text' && typeof b.text === 'string'
+		);
+		if ( textBlock ) text = textBlock.text;
 	}
-	return { toolUseId: block.tool_use_id ?? null, isError: block.is_error === true, text };
+	return { toolUseId: event.toolCallId, isError: event.isError, text };
 }
 
 function readInput(): EvalRunnerInput {
@@ -116,114 +114,209 @@ function readInput(): EvalRunnerInput {
 		}
 	}
 
+	const envModel = process.env.STUDIO_EVAL_MODEL?.trim();
+	const varModel = typeof vars.model === 'string' ? vars.model.trim() : undefined;
+	const rawModel = varModel || envModel;
+	const model = rawModel && isAiModelId( rawModel ) ? rawModel : undefined;
+
 	return {
 		prompt: ( vars.prompt as string ) ?? prompt,
-		maxTurns: typeof vars.maxTurns === 'number' ? vars.maxTurns : undefined,
 		timeoutMs: typeof vars.timeoutMs === 'number' ? vars.timeoutMs : undefined,
-		askUserPolicy: vars.askUserPolicy as EvalRunnerInput[ 'askUserPolicy' ],
+		model,
 	};
 }
 
 async function runEval( input: EvalRunnerInput ) {
-	const policy = input.askUserPolicy ?? 'deny_permissions_allow_other';
+	const evalStartedAt = Date.now();
+	const elapsed = () => Date.now() - evalStartedAt;
+	const phaseTimingsMs: Record< string, number > = {};
+	let phaseStartedAt = Date.now();
 
 	// In CI, ANTHROPIC_API_KEY is provided directly; locally we resolve via Studio's auth.
 	const env = { ...( process.env as Record< string, string > ) };
 	if ( ! env.ANTHROPIC_API_KEY ) {
 		let aiProvider: AiProviderId = await resolveInitialAiProvider();
+		phaseTimingsMs.resolve_initial_provider_ms = Date.now() - phaseStartedAt;
+
+		phaseStartedAt = Date.now();
 		aiProvider = ( await resolveUnavailableAiProvider( aiProvider ) ) ?? aiProvider;
+		phaseTimingsMs.resolve_unavailable_provider_ms = Date.now() - phaseStartedAt;
+
+		phaseStartedAt = Date.now();
 		Object.assign( env, await resolveAiEnvironment( aiProvider ) );
+		phaseTimingsMs.resolve_ai_environment_ms = Date.now() - phaseStartedAt;
 	}
 	// Allow running inside a Claude Code session
 	delete env.CLAUDECODE;
 
-	const toolCalls: { id: string; name: string }[] = [];
+	const toolCalls: ToolCallRecord[] = [];
 	const toolResults: {
 		toolUseId: string | null;
 		toolName: string | null;
 		isError: boolean;
 		text?: string;
 	}[] = [];
+	const toolEvents: ToolEvent[] = [];
 	const textSegments: string[] = [];
-	const questions: {
-		question: string;
-		options: string[];
-		answer: string;
-		isPermission: boolean;
-	}[] = [];
 	const toolNameById = new Map< string, string >();
-	let numTurns: number | null = null;
+	const toolEventById = new Map< string, ToolEvent >();
+	let firstToolError: FirstToolError | null = null;
+	// Wall-clock per turn, measured between successive assistant messages.
+	const turnDurationsMs: number[] = [];
+	let turnIndex = 0;
+	let numTurns = 0;
+	let numTurnsResult: number | null = null;
 	let success = false;
+	let error: string | null = null;
+	let timedOut = false;
 
-	const query = startAiAgent( {
-		prompt: input.prompt.trim(),
-		env,
-		maxTurns: input.maxTurns ?? 50,
-		onAskUser: async ( qs: AskUserQuestion[] ) => {
-			const answers: Record< string, string > = {};
-			for ( const q of qs ) {
-				const opts = q.options.map( ( o ) => o.label );
-				const answer = pickAnswer( q.question, opts, policy );
-				answers[ q.question ] = answer;
-				questions.push( {
-					question: q.question,
-					options: opts,
-					answer,
-					isPermission: hasPermissionOptions( opts ),
+	phaseStartedAt = Date.now();
+	const session = SessionManager.inMemory( STUDIO_SITES_ROOT );
+	const queryStartedAt = Date.now();
+	let turnStart = queryStartedAt;
+
+	const handleEvent = ( event: AgentSessionEvent ): void => {
+		if ( event.type === 'message_end' && event.message.role === 'assistant' ) {
+			const now = Date.now();
+			turnDurationsMs.push( now - turnStart );
+			turnIndex += 1;
+			if ( turnIndex === 1 ) {
+				phaseTimingsMs.first_assistant_message_ms = now - queryStartedAt;
+			}
+			turnStart = now;
+		}
+		for ( const tc of extractToolCalls( event ) ) {
+			toolCalls.push( tc );
+			toolNameById.set( tc.id, tc.name );
+			const evt: ToolEvent = {
+				toolUseId: tc.id,
+				toolName: tc.name,
+				input: tc.input,
+				startedAtMs: elapsed(),
+				turnIndex,
+			};
+			toolEvents.push( evt );
+			toolEventById.set( tc.id, evt );
+		}
+		textSegments.push( ...extractTextSegments( event ) );
+
+		if ( event.type === 'tool_execution_end' ) {
+			const tr = extractToolResult( event );
+			if ( tr ) {
+				const id = tr.toolUseId;
+				const evt = toolEventById.get( id );
+				if ( evt ) {
+					evt.endedAtMs = elapsed();
+					evt.durationMs = evt.endedAtMs - evt.startedAtMs;
+					evt.isError = tr.isError;
+				}
+				if ( tr.isError && ! firstToolError ) {
+					firstToolError = {
+						toolUseId: id,
+						toolName: toolNameById.get( id ) ?? null,
+						...( evt?.input ? { input: evt.input } : {} ),
+						error: tr.text ?? 'Tool returned an error result.',
+						turnIndex,
+					};
+				}
+				toolResults.push( {
+					toolUseId: id,
+					toolName: toolNameById.get( id ) ?? null,
+					isError: tr.isError,
+					...( tr.text ? { text: tr.text } : {} ),
 				} );
 			}
-			return answers;
-		},
-	} );
+		}
 
-	const timeout = setTimeout( () => void query.interrupt(), input.timeoutMs ?? 300000 );
+		if ( event.type === 'turn_end' ) {
+			numTurns += 1;
+		}
+
+		if ( event.type === 'agent_end' ) {
+			const lastAssistant = findLastAssistant( event.messages );
+			success =
+				! lastAssistant ||
+				( lastAssistant.stopReason !== 'error' && lastAssistant.stopReason !== 'aborted' );
+			numTurnsResult = numTurns;
+		}
+	};
+
+	const query = runStudioAgentTurn( {
+		prompt: input.prompt.trim(),
+		env,
+		session,
+		onEvent: handleEvent,
+		...( input.model ? { model: input.model } : {} ),
+	} );
+	phaseTimingsMs.start_ai_agent_ms = Date.now() - phaseStartedAt;
+
+	const timeout = setTimeout( () => {
+		timedOut = true;
+		void query.interrupt();
+	}, input.timeoutMs ?? 300000 );
 
 	try {
-		for await ( const message of query ) {
-			for ( const tc of extractToolCalls( message ) ) {
-				toolCalls.push( tc );
-				toolNameById.set( tc.id, tc.name );
-			}
-			textSegments.push( ...extractTextSegments( message ) );
-
-			if ( message.type === 'user' ) {
-				const tr = extractToolResult( message );
-				if ( tr ) {
-					const id = tr.toolUseId ?? message.parent_tool_use_id ?? null;
-					toolResults.push( {
-						toolUseId: id,
-						toolName: id ? toolNameById.get( id ) ?? null : null,
-						isError: tr.isError,
-						...( tr.text ? { text: tr.text } : {} ),
-					} );
-				}
-			}
-
-			if ( message.type === 'result' ) {
-				success = message.subtype === 'success';
-				numTurns = message.num_turns ?? null;
-			}
-		}
+		await query.result;
+	} catch ( caught ) {
+		error = caught instanceof Error ? caught.message : String( caught );
 	} finally {
 		clearTimeout( timeout );
 	}
+	phaseTimingsMs.total_eval_ms = elapsed();
 
-	return { success, numTurns, toolCalls, toolResults, textSegments, questions };
+	return {
+		success,
+		error,
+		timedOut,
+		numTurns: numTurnsResult,
+		phaseTimingsMs,
+		turnDurationsMs,
+		toolCalls,
+		toolResults,
+		toolEvents,
+		firstToolError,
+		textSegments,
+	};
 }
 
+const RESULT_PREFIX = 'EVAL_RUNNER_RESULT_FILE=';
+
+// Studio tools and the Agent SDK freely print to stdout (pi-tui spinners,
+// daemon status, …). promptfoo's `exec:` provider wraps us in
+// `child_process.exec`, whose default 1 MB stdout buffer long runs overflow.
+// Redirect stdout writes to stderr during the run, serialize the result to a
+// tmp file, and emit only `EVAL_RUNNER_RESULT_FILE=<path>` via a raw
+// `fs.writeSync(1, …)` that bypasses the wrapper.
 async function main() {
+	const filePath = path.join( os.tmpdir(), `studio-eval-${ Date.now() }-${ process.pid }.json` );
+
+	( process.stdout as unknown as { write: ( ...args: unknown[] ) => boolean } ).write = (
+		...args: unknown[]
+	) => {
+		return ( process.stderr.write as unknown as ( ...args: unknown[] ) => boolean )( ...args );
+	};
+	const rawStdout = ( line: string ) => fsWriteSync( 1, line );
+	const emit = ( payload: unknown ) => {
+		try {
+			writeFileSync( filePath, JSON.stringify( payload ) );
+			rawStdout( `${ RESULT_PREFIX }${ filePath }` );
+		} catch ( writeError ) {
+			const msg = writeError instanceof Error ? writeError.message : String( writeError );
+			process.stderr.write( `[eval-runner] failed to write ${ filePath }: ${ msg }\n` );
+			rawStdout( JSON.stringify( { success: false, error: msg } ) );
+		}
+	};
+
+	let exitCode = 0;
 	try {
-		const result = await runEval( readInput() );
-		process.stdout.write( JSON.stringify( result ) );
+		emit( await runEval( readInput() ) );
 	} catch ( error ) {
-		process.stdout.write(
-			JSON.stringify( {
-				success: false,
-				error: error instanceof Error ? error.message : String( error ),
-			} )
-		);
-		process.exitCode = 1;
+		emit( { success: false, error: error instanceof Error ? error.message : String( error ) } );
+		exitCode = 1;
 	}
+	// The Agent SDK keeps internal handles open past conversation end; bail out
+	// rather than leaving promptfoo waiting on its exec child.
+	process.exit( exitCode );
 }
 
 void main();

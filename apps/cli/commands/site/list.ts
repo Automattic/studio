@@ -96,6 +96,9 @@ export async function runCommand( format: 'table' | 'json' ): Promise< void > {
 
 		if ( cliConfig.sites.length === 0 ) {
 			logger.reportSuccess( __( 'No sites found' ) );
+			if ( format === 'json' ) {
+				displaySiteList( { tableEntries: [], jsonEntries: [] }, format );
+			}
 			return;
 		}
 

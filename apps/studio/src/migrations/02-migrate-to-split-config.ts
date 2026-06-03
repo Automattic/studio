@@ -42,8 +42,10 @@ function getOldAppdataPath(): string {
 	return path.join( os.homedir(), 'Library', 'Application Support', 'Studio', 'appdata-v1.json' );
 }
 
+// Pick only the authToken and locale fields from the shared config schema, because this is what we
+// expected when this migration was implemented.
 const sharedConfigExtractSchema = z.object( {
-	...sharedConfigSchema.omit( { version: true } ).shape,
+	...sharedConfigSchema.pick( { authToken: true, locale: true } ).shape,
 } );
 
 const cliSiteSchema = siteDetailsSchema.extend( {

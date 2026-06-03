@@ -4,13 +4,18 @@ import { createInterface } from 'readline';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { generateBackupFilename } from '@studio/common/lib/generate-backup-filename';
 import { ImportEvents } from '@studio/common/lib/import-export-events';
+import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { serializePlugins } from '@studio/common/lib/serialize-plugins';
-import { SupportedPHPVersionsList } from '@studio/common/types/php-versions';
+import { type SupportedPHPVersion } from '@studio/common/types/php-versions';
 import { __, sprintf } from '@wordpress/i18n';
 import { move } from 'fs-extra';
 import semver from 'semver';
 import trash from 'trash';
 import { SiteData } from 'cli/lib/cli-config/core';
+import {
+	getRecommendedPhpVersionForSiteRuntime,
+	getSupportedPhpVersionsForSiteRuntime,
+} from 'cli/lib/php-versions';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { ImportExportEventEmitter } from '../../events';
 import { BackupContents, MetaFileData } from '../types';
@@ -22,6 +27,34 @@ export interface ImporterResult extends Omit< BackupContents, 'metaFile' > {
 
 export interface Importer extends ImportExportEventEmitter {
 	import( site: SiteData ): Promise< ImporterResult >;
+}
+
+// Recovers from EEXIST/ENOTDIR by removing a non-directory blocker on the path.
+export async function ensureDir( dir: string ): Promise< void > {
+	try {
+		await fs.promises.mkdir( dir, { recursive: true } );
+	} catch ( error ) {
+		if ( ! isErrnoException( error ) || ( error.code !== 'EEXIST' && error.code !== 'ENOTDIR' ) ) {
+			throw error;
+		}
+		const parent = path.dirname( dir );
+		if ( parent === dir ) {
+			throw error;
+		}
+		await ensureDir( parent );
+		try {
+			const stat = await fs.promises.stat( dir );
+			if ( ! stat.isDirectory() ) {
+				await trash( dir );
+				console.warn( `ensureDir: moved non-directory blocker at ${ dir } to trash` );
+			}
+		} catch ( e ) {
+			if ( ! isErrnoException( e ) || e.code !== 'ENOENT' ) {
+				throw e;
+			}
+		}
+		await fs.promises.mkdir( dir, { recursive: true } );
+	}
 }
 
 abstract class BaseImporter extends ImportExportEventEmitter implements Importer {
@@ -59,15 +92,21 @@ abstract class BaseImporter extends ImportExportEventEmitter implements Importer
 				await move( sqlFile, tmpPath );
 				await this.prepareSqlFile( tmpPath );
 
-				await using command = await runWpCliCommand( site.path, DEFAULT_PHP_VERSION, [
-					'sqlite',
-					'import',
-					`/wordpress/${ sqlTempFile }`,
-					'--require=/tmp/sqlite-command/command.php',
-					'--enable-ast-driver',
-					'--skip-plugins',
-					'--skip-themes',
-				] );
+				await using command = await runWpCliCommand(
+					site,
+					[
+						'sqlite',
+						'import',
+						sqlTempFile,
+						'--enable-ast-driver',
+						'--skip-plugins',
+						'--skip-themes',
+					],
+					{
+						requireSqliteCliCommand: true,
+						phpVersion: DEFAULT_PHP_VERSION,
+					}
+				);
 
 				const exitCode = await command.response.exitCode;
 				const stderr = await command.response.stderrText;
@@ -226,7 +265,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 				);
 
 				const destPath = path.join( wpContentDestDir, relativePath );
-				await fs.promises.mkdir( path.dirname( destPath ), { recursive: true } );
+				await ensureDir( path.dirname( destPath ) );
 				await fs.promises.copyFile( file, destPath );
 
 				processedItems++;
@@ -269,17 +308,21 @@ abstract class BaseBackupImporter extends BaseImporter {
 	}
 
 	protected parsePhpVersion( version: string | undefined ): string {
+		const defaultPhpVersion = getRecommendedPhpVersionForSiteRuntime();
 		if ( ! version ) {
-			return DEFAULT_PHP_VERSION;
+			return defaultPhpVersion;
 		}
 		const phpVersion = semver.coerce( version );
 		if ( ! phpVersion ) {
-			return DEFAULT_PHP_VERSION;
+			return defaultPhpVersion;
 		}
 
 		const parsedVersion = `${ phpVersion.major }.${ phpVersion.minor }`;
+		const supportedPhpVersions = getSupportedPhpVersionsForSiteRuntime();
 
-		return SupportedPHPVersionsList.includes( parsedVersion ) ? parsedVersion : DEFAULT_PHP_VERSION;
+		return supportedPhpVersions.includes( parsedVersion as SupportedPHPVersion )
+			? parsedVersion
+			: defaultPhpVersion;
 	}
 }
 

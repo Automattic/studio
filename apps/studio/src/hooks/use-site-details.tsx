@@ -381,7 +381,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		setSites( sortSites( updatedSites ) );
 	}, [] );
 
-	const saveTimeoutRef = useRef< ReturnType< typeof setTimeout > >();
+	const saveTimeoutRef = useRef< ReturnType< typeof setTimeout > >( undefined );
 	const DEBOUNCE_SAVE_MS = 300;
 
 	const updateSitesSortOrder = useCallback( async ( sites: SiteDetails[] ) => {
@@ -535,7 +535,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 				getIpcApi().showNotification( {
 					title: newSite.name,
-					body: __( sprintf( 'Your site %s was copied successfully', sourceSite.name ) ),
+					body: sprintf( __( 'Your site %s was copied successfully' ), sourceSite.name ),
 				} );
 
 				void startServer( newSite );

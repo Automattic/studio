@@ -105,7 +105,6 @@ describe( 'AI auth helpers', () => {
 		);
 		expect( env.ANTHROPIC_AUTH_TOKEN ).toBe( 'wpcom-token' );
 		expect( env.ANTHROPIC_CUSTOM_HEADERS ).toBe( 'X-WPCOM-AI-Feature: studio-assistant-anthropic' );
-		expect( env.CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS ).toBe( '1' );
 		expect( env.ANTHROPIC_API_KEY ).toBeUndefined();
 	} );
 

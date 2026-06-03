@@ -1,72 +1,122 @@
 import fs from 'fs/promises';
-import { extractAiSessionIdFromFilePath } from './file-naming';
-import type { AiSessionEvent, AiSessionSummary } from './types';
+import { isStudioCustomEntryOfType } from './entry-types';
+import type { AiSessionSummary } from './types';
+import type { SessionEntry } from '@mariozechner/pi-coding-agent';
 
-export async function readAiSessionSummaryFromEvents(
-	filePath: string,
-	events: AiSessionEvent[]
-): Promise< AiSessionSummary | undefined > {
-	if ( events.length === 0 ) {
+interface PiSessionHeader {
+	type: 'session';
+	id: string;
+	timestamp: string;
+}
+
+interface PiAssistantContentBlock {
+	type: string;
+	text?: unknown;
+}
+
+interface PiAssistantMessageLike {
+	role?: unknown;
+	content?: unknown;
+}
+
+const ASSISTANT_REPLY_PREVIEW_MAX_LENGTH = 180;
+
+function isPiHeader( value: unknown ): value is PiSessionHeader {
+	return (
+		!! value &&
+		typeof value === 'object' &&
+		( value as { type?: unknown } ).type === 'session' &&
+		typeof ( value as { id?: unknown } ).id === 'string' &&
+		typeof ( value as { timestamp?: unknown } ).timestamp === 'string'
+	);
+}
+
+function getAssistantReplyPreview( entry: SessionEntry ): string | undefined {
+	if ( entry.type !== 'message' ) {
 		return undefined;
 	}
 
-	const linkedAgentSessionIds: string[] = [];
-	let createdAt: string | undefined;
-	let updatedAt: string | undefined;
-	let sessionId = extractAiSessionIdFromFilePath( filePath );
+	const message = ( entry as { message?: unknown } ).message as PiAssistantMessageLike | undefined;
+	if ( ! message || message.role !== 'assistant' || ! Array.isArray( message.content ) ) {
+		return undefined;
+	}
+
+	const text = message.content
+		.filter(
+			( block ): block is PiAssistantContentBlock =>
+				!! block &&
+				typeof block === 'object' &&
+				( block as PiAssistantContentBlock ).type === 'text' &&
+				typeof ( block as PiAssistantContentBlock ).text === 'string'
+		)
+		.map( ( block ) => block.text as string )
+		.join( ' ' )
+		.replace( /\s+/g, ' ' )
+		.trim();
+
+	if ( ! text ) {
+		return undefined;
+	}
+
+	if ( text.length <= ASSISTANT_REPLY_PREVIEW_MAX_LENGTH ) {
+		return text;
+	}
+
+	return `${ text.slice( 0, ASSISTANT_REPLY_PREVIEW_MAX_LENGTH ).trimEnd() }...`;
+}
+
+export async function readAiSessionSummaryFromEntries(
+	filePath: string,
+	fileEntries: Array< SessionEntry | PiSessionHeader >
+): Promise< AiSessionSummary | undefined > {
+	if ( fileEntries.length === 0 ) return undefined;
+
+	const header = fileEntries.find( isPiHeader );
+	const createdAt = header?.timestamp;
+	let updatedAt = header?.timestamp;
+	const sessionId = header?.id ?? '';
 	let firstPrompt: string | undefined;
-	let ownerSitePath: string | undefined;
-	let ownerSiteName: string | undefined;
+	let assistantReplyPreview: string | undefined;
 	let selectedSiteName: string | undefined;
 	let activeEnvironment: 'local' | 'live' = 'local';
 	let lastSelectedWpcomSiteId: number | undefined;
 	let endReason: 'error' | 'stopped' | undefined;
-	let eventCount = 0;
+	let entryCount = 0;
 
-	for ( const event of events ) {
-		eventCount += 1;
-		updatedAt = event.timestamp;
+	for ( const entry of fileEntries ) {
+		if ( isPiHeader( entry ) ) continue;
+		entryCount += 1;
+		const ts = entry.timestamp;
+		if ( typeof ts === 'string' ) updatedAt = ts;
 
-		if ( event.type === 'session.started' ) {
-			createdAt = event.timestamp;
-			if ( event.sessionId.trim().length > 0 ) {
-				sessionId = event.sessionId;
-			}
+		const replyPreview = getAssistantReplyPreview( entry );
+		if ( replyPreview ) {
+			assistantReplyPreview = replyPreview;
 		}
 
-		if (
-			event.type === 'session.linked' &&
-			! linkedAgentSessionIds.includes( event.agentSessionId )
-		) {
-			linkedAgentSessionIds.push( event.agentSessionId );
-		}
-
-		if ( event.type === 'site.selected' ) {
-			selectedSiteName = event.siteName;
-			const isLive = event.remote === true;
+		if ( isStudioCustomEntryOfType( entry, 'studio.site_selected' ) ) {
+			const data = entry.data;
+			if ( ! data ) continue;
+			selectedSiteName = data.siteName;
+			const isLive = data.remote === true;
 			activeEnvironment = isLive ? 'live' : 'local';
-			lastSelectedWpcomSiteId = isLive ? event.wpcomSiteId : undefined;
-
-			// Anchor the owner on the first *local* site. Remote-only sessions
-			// (CLI user picked a WP.com site as their very first site) stay
-			// ownerless — they belong in the sidebar's Unassigned group, which
-			// matches the fact that they never had a local home.
-			if ( ownerSitePath === undefined && ! isLive ) {
-				ownerSitePath = event.sitePath;
-				ownerSiteName = event.siteName;
-			}
+			lastSelectedWpcomSiteId = isLive ? data.wpcomSiteId : undefined;
+			continue;
 		}
 
-		if ( event.type === 'user.message' && event.source === 'prompt' && ! firstPrompt ) {
-			firstPrompt = event.text;
+		if ( isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
+			const data = entry.data;
+			if ( data && data.source === 'prompt' && ! firstPrompt ) {
+				firstPrompt = data.text;
+			}
+			continue;
 		}
 
-		if ( event.type === 'turn.closed' ) {
-			if ( event.status === 'error' ) {
-				endReason = 'error';
-			} else if ( event.status === 'interrupted' ) {
-				endReason = 'stopped';
-			}
+		if ( isStudioCustomEntryOfType( entry, 'studio.turn_closed' ) ) {
+			const status = entry.data?.status;
+			if ( status === 'error' ) endReason = 'error';
+			else if ( status === 'interrupted' ) endReason = 'stopped';
+			continue;
 		}
 	}
 
@@ -78,15 +128,14 @@ export async function readAiSessionSummaryFromEvents(
 		filePath,
 		createdAt: createdAt ?? fallbackTimestamp,
 		updatedAt: updatedAt ?? createdAt ?? fallbackTimestamp,
-		agentSessionId: linkedAgentSessionIds[ linkedAgentSessionIds.length - 1 ],
-		linkedAgentSessionIds,
 		firstPrompt,
-		ownerSitePath,
-		ownerSiteName,
+		assistantReplyPreview,
+		ownerSitePath: undefined,
+		ownerSiteName: undefined,
 		selectedSiteName,
 		activeEnvironment,
 		lastSelectedWpcomSiteId,
 		endReason,
-		eventCount,
+		eventCount: entryCount,
 	};
 }

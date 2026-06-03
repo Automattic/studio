@@ -1,10 +1,12 @@
 #!/bin/sh
 
-# The assumption is that this script lives in `/Applications/Studio.app/Contents/Resources/bin/studio-cli.sh`
+# In production, this script lives alongside `node` and the `cli/` directory under the Electron
+# app's resources directory:
+#   macOS: /Applications/Studio.app/Contents/Resources/bin/studio-cli.sh
+#   Linux: /usr/lib/studio/resources/bin/studio-cli.sh
 BIN_DIR=$(dirname "$(realpath "$0")")
 BUNDLED_NODE_EXECUTABLE="$BIN_DIR/node"
-CONTENTS_DIR=$(dirname "$(dirname "$BIN_DIR")")
-CLI_SCRIPT="$CONTENTS_DIR/Resources/cli/main.mjs"
+CLI_SCRIPT="$(dirname "$BIN_DIR")/cli/main.mjs"
 
 if [ -x "$BUNDLED_NODE_EXECUTABLE" ]; then
 	# Prevent node from printing warnings about NODE_OPTIONS being ignored

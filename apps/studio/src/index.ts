@@ -429,8 +429,45 @@ async function appBoot() {
 	 */
 	let shouldStopSitesOnQuit = true;
 	let isQuittingConfirmed = false;
+	let isStoppingSitesBeforeQuit = false;
+	let hasCleanedUpBeforeQuit = false;
+
+	function cleanupBeforeQuit() {
+		if ( hasCleanedUpBeforeQuit ) {
+			return;
+		}
+
+		hasCleanedUpBeforeQuit = true;
+		markAppQuitting();
+		globalShortcut.unregisterAll();
+		stopCliEventsSubscriber();
+		stopRemoteSessionStatusPolling?.();
+		stopRemoteSessionStatusPolling = undefined;
+	}
+
+	function stopSitesAndExit() {
+		if ( isStoppingSitesBeforeQuit ) {
+			return;
+		}
+
+		isStoppingSitesBeforeQuit = true;
+		cleanupBeforeQuit();
+
+		void ( async () => {
+			try {
+				await stopAllServers( true, STOP_ALL_SERVERS_ON_QUIT_TIMEOUT_MS );
+			} finally {
+				app.exit();
+			}
+		} )();
+	}
 
 	app.on( 'before-quit', ( event ) => {
+		if ( isStoppingSitesBeforeQuit ) {
+			event.preventDefault();
+			return;
+		}
+
 		if ( isQuittingConfirmed ) {
 			return;
 		}
@@ -480,14 +517,18 @@ async function appBoot() {
 
 				if ( userData.stopSitesOnQuit !== undefined ) {
 					shouldStopSitesOnQuit = userData.stopSitesOnQuit;
+					if ( shouldStopSitesOnQuit ) {
+						stopSitesAndExit();
+						return;
+					}
+
 					isQuittingConfirmed = true;
 					app.quit();
 					return;
 				}
 
 				if ( process.env.E2E ) {
-					isQuittingConfirmed = true;
-					app.quit();
+					stopSitesAndExit();
 					return;
 				}
 
@@ -523,6 +564,11 @@ async function appBoot() {
 				}
 
 				shouldStopSitesOnQuit = stopSites;
+				if ( shouldStopSitesOnQuit ) {
+					stopSitesAndExit();
+					return;
+				}
+
 				isQuittingConfirmed = true;
 				app.quit();
 			} )();
@@ -532,20 +578,16 @@ async function appBoot() {
 	} );
 
 	app.on( 'will-quit', ( event ) => {
-		markAppQuitting();
-		globalShortcut.unregisterAll();
-		stopCliEventsSubscriber();
-		stopRemoteSessionStatusPolling?.();
+		if ( isStoppingSitesBeforeQuit ) {
+			event.preventDefault();
+			return;
+		}
+
+		cleanupBeforeQuit();
 
 		if ( shouldStopSitesOnQuit ) {
 			event.preventDefault();
-			stopAllServers( true, STOP_ALL_SERVERS_ON_QUIT_TIMEOUT_MS )
-				.then( () => {
-					app.exit();
-				} )
-				.catch( () => {
-					app.exit();
-				} );
+			stopSitesAndExit();
 		}
 	} );
 

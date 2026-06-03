@@ -170,6 +170,29 @@ function mockElectron() {
 	return { mockedEvents };
 }
 
+function mockRunningSites() {
+	const stopAllServers = vi.fn().mockResolvedValue( undefined );
+
+	vi.doMock( 'src/site-server', () => ( {
+		getRunningSiteCount: vi.fn().mockReturnValue( 1 ),
+		stopAllServers,
+		SiteServer: {
+			fetchAll: vi.fn().mockResolvedValue( undefined ),
+		},
+	} ) );
+
+	return stopAllServers;
+}
+
+function restoreE2E( value: string | undefined ) {
+	if ( value === undefined ) {
+		delete process.env.E2E;
+		return;
+	}
+
+	process.env.E2E = value;
+}
+
 // Silence `console.log`, `console.warn`, and `console.error` output
 beforeAll( () => {
 	vi.spyOn( console, 'log' ).mockImplementation( () => {} );
@@ -298,5 +321,109 @@ describe( 'App initialization', () => {
 		Object.defineProperty( process, 'platform', { value: originalProcessPlatform } );
 
 		await mockedEvents[ 'will-quit' ]( { preventDefault: vi.fn() } );
+	} );
+
+	it( 'should stop running sites before exiting when confirmed while quitting', async () => {
+		const stopAllServers = mockRunningSites();
+		const { mockedEvents } = mockElectron();
+		const originalE2E = process.env.E2E;
+		delete process.env.E2E;
+		vi.resetModules();
+
+		try {
+			const { app, dialog, globalShortcut } = await import( 'electron' );
+			vi.mocked( dialog.showMessageBox ).mockResolvedValue( {
+				response: 0,
+				checkboxChecked: false,
+			} );
+
+			await import( '../index' );
+
+			const preventDefault = vi.fn();
+			await mockedEvents[ 'before-quit' ]( { preventDefault } );
+
+			expect( preventDefault ).toHaveBeenCalled();
+			await vi.waitFor( () => {
+				expect( dialog.showMessageBox ).toHaveBeenCalled();
+			} );
+			await vi.waitFor( () => {
+				expect( stopAllServers ).toHaveBeenCalledWith( true, 6000 );
+				expect( app.exit ).toHaveBeenCalled();
+			} );
+			expect( app.quit ).not.toHaveBeenCalled();
+			expect( globalShortcut.unregisterAll ).toHaveBeenCalled();
+		} finally {
+			restoreE2E( originalE2E );
+			vi.doUnmock( 'src/site-server' );
+			vi.resetModules();
+		}
+	} );
+
+	it( 'should leave running sites as the default quit dialog action', async () => {
+		const stopAllServers = mockRunningSites();
+		const { mockedEvents } = mockElectron();
+		const originalE2E = process.env.E2E;
+		delete process.env.E2E;
+		vi.resetModules();
+
+		try {
+			const { app, dialog, globalShortcut } = await import( 'electron' );
+			vi.mocked( dialog.showMessageBox ).mockResolvedValue( {
+				response: 1,
+				checkboxChecked: false,
+			} );
+
+			await import( '../index' );
+
+			await mockedEvents[ 'before-quit' ]( { preventDefault: vi.fn() } );
+
+			await vi.waitFor( () => {
+				expect( dialog.showMessageBox ).toHaveBeenCalledWith(
+					expect.objectContaining( { defaultId: 1 } )
+				);
+			} );
+			await vi.waitFor( () => {
+				expect( app.quit ).toHaveBeenCalled();
+			} );
+			expect( stopAllServers ).not.toHaveBeenCalled();
+			expect( app.exit ).not.toHaveBeenCalled();
+			expect( globalShortcut.unregisterAll ).not.toHaveBeenCalled();
+		} finally {
+			restoreE2E( originalE2E );
+			vi.doUnmock( 'src/site-server' );
+			vi.resetModules();
+		}
+	} );
+
+	it( 'should keep Studio open without cleanup when running-sites quit is cancelled', async () => {
+		const stopAllServers = mockRunningSites();
+		const { mockedEvents } = mockElectron();
+		const originalE2E = process.env.E2E;
+		delete process.env.E2E;
+		vi.resetModules();
+
+		try {
+			const { app, dialog, globalShortcut } = await import( 'electron' );
+			vi.mocked( dialog.showMessageBox ).mockResolvedValue( {
+				response: 2,
+				checkboxChecked: false,
+			} );
+
+			await import( '../index' );
+
+			await mockedEvents[ 'before-quit' ]( { preventDefault: vi.fn() } );
+			await vi.waitFor( () => {
+				expect( dialog.showMessageBox ).toHaveBeenCalled();
+			} );
+
+			expect( stopAllServers ).not.toHaveBeenCalled();
+			expect( app.quit ).not.toHaveBeenCalled();
+			expect( app.exit ).not.toHaveBeenCalled();
+			expect( globalShortcut.unregisterAll ).not.toHaveBeenCalled();
+		} finally {
+			restoreE2E( originalE2E );
+			vi.doUnmock( 'src/site-server' );
+			vi.resetModules();
+		}
 	} );
 } );

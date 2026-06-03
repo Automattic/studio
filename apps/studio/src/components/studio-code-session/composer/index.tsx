@@ -67,6 +67,49 @@ interface ComposerProps {
 const isMacPlatform =
 	typeof navigator !== 'undefined' && /mac/i.test( navigator.platform || navigator.userAgent );
 
+type FloatingPresenceStatus = 'starting' | 'open' | 'ending';
+
+/**
+ * Drives the enter/exit transitions from `floating-surface-motion` for a plain
+ * element. Base UI's `Menu.Popup` toggles `data-starting-style` /
+ * `data-ending-style` itself, but our inline listbox is a plain `<ul>` (kept
+ * plain so the textarea retains focus), so we reproduce that handshake: mount
+ * with the starting styles applied, drop them on the next paint to animate in,
+ * and keep the element mounted while the ending styles play out before
+ * unmounting. Returns whether to render the element and its transition phase.
+ */
+function useFloatingPresence( open: boolean ): {
+	mounted: boolean;
+	status: FloatingPresenceStatus;
+} {
+	// Matches the longest transition in floating-surface-motion (transform 180ms).
+	const EXIT_MS = 200;
+	const [ mounted, setMounted ] = useState( open );
+	const [ status, setStatus ] = useState< FloatingPresenceStatus >( open ? 'open' : 'ending' );
+
+	useEffect( () => {
+		if ( open ) {
+			setMounted( true );
+			setStatus( 'starting' );
+			// Two frames so the browser paints the starting styles before we drop
+			// them — otherwise there's no "from" state and the transition is skipped.
+			let inner = 0;
+			const outer = requestAnimationFrame( () => {
+				inner = requestAnimationFrame( () => setStatus( 'open' ) );
+			} );
+			return () => {
+				cancelAnimationFrame( outer );
+				cancelAnimationFrame( inner );
+			};
+		}
+		setStatus( 'ending' );
+		const timer = setTimeout( () => setMounted( false ), EXIT_MS );
+		return () => clearTimeout( timer );
+	}, [ open ] );
+
+	return { mounted, status };
+}
+
 export function Composer( {
 	busy,
 	isInterrupting = false,
@@ -118,6 +161,16 @@ export function Composer( {
 	useEffect( () => {
 		setHighlightedIndex( 0 );
 	}, [ matchKey ] );
+
+	// Mount/unmount transition so the listbox animates in and out (see
+	// `useFloatingPresence`). While exiting, `slashMatches` has already emptied,
+	// so retain the last visible set — updated during render, the supported
+	// pattern for deriving state — to animate out with its content intact.
+	const slashPresence = useFloatingPresence( slashOpen );
+	const [ popupMatches, setPopupMatches ] = useState( slashMatches );
+	if ( slashOpen && popupMatches !== slashMatches ) {
+		setPopupMatches( slashMatches );
+	}
 
 	// Accessibility: wire the textarea (combobox) to the listbox and its active
 	// option so screen readers announce the open state and the highlighted item.
@@ -344,16 +397,18 @@ export function Composer( {
 							} }
 							rows={ 2 }
 						/>
-						{ slashOpen ? (
+						{ slashPresence.mounted ? (
 							<ul
 								id={ listboxId }
 								className={ `${ menuStyles.popup } ${ styles.autocompletePopup } ${ motionStyles.motion }` }
 								data-side="top"
 								data-align="start"
+								data-starting-style={ slashPresence.status === 'starting' ? '' : undefined }
+								data-ending-style={ slashPresence.status === 'ending' ? '' : undefined }
 								role="listbox"
 								aria-label={ __( 'Slash commands' ) }
 							>
-								{ slashMatches.map( ( command, index ) => (
+								{ popupMatches.map( ( command, index ) => (
 									<li
 										key={ command.name }
 										id={ optionId( command.name ) }

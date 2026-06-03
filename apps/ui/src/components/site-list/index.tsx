@@ -16,7 +16,7 @@ import * as Menu from '@/components/menu';
 import { SidebarButton } from '@/components/sidebar-button';
 import { SiteIcon } from '@/components/site-icon';
 import { Spinner } from '@/components/spinner';
-import { useIsSessionRunning } from '@/data/queries/use-agent-run';
+import { useIsSessionRunning, useSessionHasPendingQuestion } from '@/data/queries/use-agent-run';
 import {
 	useArchiveSession,
 	useSessions,
@@ -161,6 +161,7 @@ function SessionActionsMenu( { session }: { session: AiSessionSummary } ) {
 function SessionItem( { session, isVisible }: { session: AiSessionSummary; isVisible: boolean } ) {
 	const label = session.title?.trim() || session.firstPrompt?.trim();
 	const isRunning = useIsSessionRunning( session.id );
+	const hasPendingQuestion = useSessionHasPendingQuestion( session.id );
 	const updateTitleDescription = useUpdateSessionTitleDescription();
 	const params = useParams( { strict: false } ) as { sessionId?: string };
 	const isActive = params.sessionId === session.id;
@@ -280,7 +281,26 @@ function SessionItem( { session, isVisible }: { session: AiSessionSummary; isVis
 					/>
 				}
 			>
-				{ isRunning ? (
+				{ hasPendingQuestion ? (
+					<Tooltip.Provider delay={ 0 }>
+						<Tooltip.Root>
+							<Tooltip.Trigger
+								render={
+									<span
+										className={ styles.sessionQuestionIndicator }
+										role="status"
+										aria-label={ __( 'Studio needs an answer.' ) }
+									>
+										?
+									</span>
+								}
+							/>
+							<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+								{ __( 'Studio needs an answer.' ) }
+							</Tooltip.Popup>
+						</Tooltip.Root>
+					</Tooltip.Provider>
+				) : isRunning ? (
 					<Spinner className={ styles.sessionInlineSpinner } label={ __( 'Working…' ) } />
 				) : null }
 				<span className={ clsx( styles.sessionLabel, ! label && styles.sessionLabelUntitled ) }>

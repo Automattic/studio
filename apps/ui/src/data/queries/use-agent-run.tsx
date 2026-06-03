@@ -115,7 +115,7 @@ type Action =
 	| { type: 'interrupt_requested' }
 	| { type: 'questions_added'; questions: PendingQuestion[] }
 	| { type: 'question_answered'; question: string; answer: string }
-	| { type: 'batch_dispatched' }
+	| { type: 'batch_dispatched'; answers: Record< string, string > }
 	| { type: 'queue_append'; prompt: QueuedPrompt }
 	| { type: 'queue_remove'; id: string }
 	| { type: 'queue_shift' }
@@ -157,7 +157,6 @@ function reducer( state: State, action: Action ): State {
 				...state,
 				phase: state.phase === 'idle' ? 'idle' : 'winding_down',
 				pendingQuestions: [],
-				pendingAnswers: {},
 			};
 		case 'run_ended':
 			// Preserve the queue across run boundaries so staged follow-ups
@@ -173,18 +172,24 @@ function reducer( state: State, action: Action ): State {
 				pendingQuestions: [],
 				pendingAnswers: {},
 			};
-		case 'questions_added':
+		case 'questions_added': {
+			const nextPendingAnswers = { ...state.pendingAnswers };
+			for ( const question of action.questions ) {
+				delete nextPendingAnswers[ question.question ];
+			}
 			return {
 				...state,
 				pendingQuestions: [ ...state.pendingQuestions, ...action.questions ],
+				pendingAnswers: nextPendingAnswers,
 			};
+		}
 		case 'question_answered':
 			return {
 				...state,
 				pendingAnswers: { ...state.pendingAnswers, [ action.question ]: action.answer },
 			};
 		case 'batch_dispatched':
-			return { ...state, pendingQuestions: [], pendingAnswers: {} };
+			return { ...state, pendingQuestions: [], pendingAnswers: action.answers };
 		case 'queue_append':
 			return { ...state, queuedPrompts: [ ...state.queuedPrompts, action.prompt ] };
 		case 'queue_remove':
@@ -580,7 +585,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				( q ) => typeof nextAnswers[ q.question ] === 'string'
 			);
 			if ( complete ) {
-				dispatchSession( sessionId, { type: 'batch_dispatched' } );
+				dispatchSession( sessionId, { type: 'batch_dispatched', answers: nextAnswers } );
 				void connector.answerAgentQuestion( state.runId, nextAnswers );
 			} else {
 				dispatchSession( sessionId, { type: 'question_answered', question, answer } );
@@ -742,4 +747,17 @@ export function useIsSessionRunning( sessionId: string | undefined ): boolean {
 	}
 	const phase = sessionId ? store.states[ sessionId ]?.phase : undefined;
 	return phase === 'starting' || phase === 'running';
+}
+
+export function useSessionHasPendingQuestion( sessionId: string | undefined ): boolean {
+	const store = useContext( AgentRunContext );
+	if ( ! store ) {
+		throw new Error( 'useSessionHasPendingQuestion must be used within AgentRunProvider' );
+	}
+	const state = sessionId ? store.states[ sessionId ] : undefined;
+	return (
+		state?.pendingQuestions.some(
+			( pendingQuestion ) => typeof state.pendingAnswers[ pendingQuestion.question ] !== 'string'
+		) ?? false
+	);
 }

@@ -2,7 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { forwardRef, type ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useIsSessionRunning } from '@/data/queries/use-agent-run';
+import { useIsSessionRunning, useSessionHasPendingQuestion } from '@/data/queries/use-agent-run';
 import {
 	useArchiveSession,
 	useSessions,
@@ -62,6 +62,7 @@ vi.mock( '@tanstack/react-router', () => ( {
 
 vi.mock( '@/data/queries/use-agent-run', () => ( {
 	useIsSessionRunning: vi.fn(),
+	useSessionHasPendingQuestion: vi.fn(),
 } ) );
 
 vi.mock( '@/data/queries/use-sessions', () => ( {
@@ -85,6 +86,7 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 } ) );
 
 const useIsSessionRunningMock = vi.mocked( useIsSessionRunning );
+const useSessionHasPendingQuestionMock = vi.mocked( useSessionHasPendingQuestion );
 const useSessionsMock = vi.mocked( useSessions );
 const useArchiveSessionMock = vi.mocked( useArchiveSession );
 const useUnarchiveSessionMock = vi.mocked( useUnarchiveSession );
@@ -109,6 +111,7 @@ describe( 'SiteList', () => {
 		routerPathname = '/sites/site-1';
 		updateTitleDescriptionMutateAsync.mockReset().mockResolvedValue( undefined );
 		useIsSessionRunningMock.mockReturnValue( false );
+		useSessionHasPendingQuestionMock.mockReturnValue( false );
 		useUpdateSessionMetadataMock.mockReturnValue( { mutate: vi.fn(), isPending: false } as never );
 		useArchiveSessionMock.mockReturnValue( { mutate: vi.fn(), isPending: false } as never );
 		useUnarchiveSessionMock.mockReturnValue( { mutate: vi.fn(), isPending: false } as never );
@@ -211,5 +214,15 @@ describe( 'SiteList', () => {
 
 		expect( screen.getByRole( 'status', { name: 'Working…' } ) ).toBeInTheDocument();
 		expect( screen.getByText( '2d' ) ).toBeInTheDocument();
+	} );
+
+	it( 'shows a question indicator instead of the running spinner when a chat needs an answer', () => {
+		useIsSessionRunningMock.mockReturnValue( true );
+		useSessionHasPendingQuestionMock.mockReturnValue( true );
+
+		render( <SiteList /> );
+
+		expect( screen.getByRole( 'status', { name: 'Studio needs an answer.' } ) ).toBeInTheDocument();
+		expect( screen.queryByRole( 'status', { name: 'Working…' } ) ).not.toBeInTheDocument();
 	} );
 } );

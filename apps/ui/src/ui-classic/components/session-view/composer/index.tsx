@@ -606,7 +606,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 
 	return (
 		<>
-			<div className={ styles.root }>
+			<div className={ styles.root } data-studio-chat-composer="true">
 				<div
 					className={ styles.shell }
 					data-dragging-image={ isDraggingImage ? 'true' : 'false' }

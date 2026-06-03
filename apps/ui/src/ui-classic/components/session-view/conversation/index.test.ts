@@ -1,6 +1,6 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { createElement } from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { Conversation, entriesToRenderItems } from './index';
 import type { LoadedAiSession, SessionEntry } from '@/data/core';
 
@@ -60,6 +60,44 @@ describe( 'entriesToRenderItems', () => {
 						src: 'data:image/png;base64,abc123',
 					},
 				],
+			},
+		] );
+	} );
+
+	it( 'pairs persisted ask-user answers with their question', () => {
+		const items = entriesToRenderItems( [
+			{
+				type: 'custom',
+				id: 'question',
+				parentId: null,
+				timestamp: '2026-06-02T12:00:00.000Z',
+				customType: 'studio.agent_question',
+				data: {
+					question: 'Which path should I take?',
+					options: [
+						{ label: 'Upload files', description: 'Upload each file directly.' },
+						{ label: 'Use public URLs', description: 'Point the template at public URLs.' },
+					],
+				},
+			},
+			{
+				type: 'custom',
+				id: 'answer',
+				parentId: null,
+				timestamp: '2026-06-02T12:00:00.001Z',
+				customType: 'studio.user_prompt',
+				data: {
+					text: 'Use public URLs',
+					source: 'ask_user',
+				},
+			},
+		] as SessionEntry[] );
+
+		expect( items ).toMatchObject( [
+			{
+				kind: 'agent-question',
+				question: 'Which path should I take?',
+				answeredLabel: 'Use public URLs',
 			},
 		] );
 	} );
@@ -150,5 +188,98 @@ describe( 'Conversation', () => {
 		expect( screen.getByText( 'themes/style.css' ) ).toBeVisible();
 		expect( screen.getByText( 'body { color: red; }' ) ).toBeVisible();
 		expect( screen.getByText( 'Tests passed' ) ).toBeVisible();
+	} );
+
+	it( 'renders agent question option descriptions inline and answers with the label', () => {
+		const onAnswerQuestion = vi.fn();
+		const question = 'How do you want to get the local poster images onto the live site?';
+		const data = createSession( [
+			{
+				type: 'custom',
+				id: 'question',
+				parentId: null,
+				timestamp: '2026-06-02T12:00:00.000Z',
+				customType: 'studio.agent_question',
+				data: {
+					question,
+					options: [
+						{
+							label: "I'll provide a folder",
+							description:
+								'Point me to a local folder and I will upload each image to the live media library.',
+						},
+						{
+							label: 'Re-sync uploads',
+							description: 'Run the upload sync again, then repair any references that changed.',
+						},
+					],
+				},
+			},
+		] as SessionEntry[] );
+
+		const { rerender } = render(
+			createElement( Conversation, {
+				data,
+				isRunning: false,
+				startedAt: null,
+				pendingQuestions: new Set( [ question ] ),
+				pendingAnswers: {},
+				onAnswerQuestion,
+			} )
+		);
+
+		const folderOption = screen.getByRole( 'button', { name: /I'll provide a folder/i } );
+		const syncOption = screen.getByRole( 'button', { name: /Re-sync uploads/i } );
+		expect( screen.getByText( '?' ) ).toBeVisible();
+		expect( within( folderOption ).getByText( '1' ) ).toBeVisible();
+		expect( within( syncOption ).getByText( '2' ) ).toBeVisible();
+		expect(
+			screen.getByText(
+				'Point me to a local folder and I will upload each image to the live media library.'
+			)
+		).toBeVisible();
+		expect(
+			screen.getByText( 'Run the upload sync again, then repair any references that changed.' )
+		).toBeVisible();
+		expect( folderOption ).not.toHaveAttribute( 'title' );
+
+		const input = document.createElement( 'input' );
+		document.body.append( input );
+		fireEvent.keyDown( input, { key: '1' } );
+		input.remove();
+		expect( onAnswerQuestion ).not.toHaveBeenCalled();
+
+		const composer = document.createElement( 'div' );
+		composer.setAttribute( 'data-studio-chat-composer', 'true' );
+		const composerInput = document.createElement( 'textarea' );
+		composer.append( composerInput );
+		document.body.append( composer );
+		fireEvent.keyDown( composerInput, { key: '2' } );
+		composer.remove();
+		expect( onAnswerQuestion ).toHaveBeenCalledWith( question, 'Re-sync uploads' );
+
+		onAnswerQuestion.mockClear();
+		fireEvent.keyDown( document, { key: '2' } );
+
+		expect( onAnswerQuestion ).toHaveBeenCalledWith( question, 'Re-sync uploads' );
+
+		onAnswerQuestion.mockClear();
+		rerender(
+			createElement( Conversation, {
+				data,
+				isRunning: false,
+				startedAt: null,
+				pendingQuestions: new Set< string >(),
+				pendingAnswers: { [ question ]: 'Re-sync uploads' },
+				onAnswerQuestion,
+			} )
+		);
+
+		const pickedSyncOption = screen.getByRole( 'button', { name: /Re-sync uploads/i } );
+		expect( within( pickedSyncOption ).queryByText( '2' ) ).not.toBeInTheDocument();
+
+		fireEvent.click( folderOption );
+
+		expect( onAnswerQuestion ).not.toHaveBeenCalled();
 	} );
 } );

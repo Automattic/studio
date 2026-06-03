@@ -288,6 +288,35 @@
 	gap: var(--wpds-dimension-padding-sm);
 }
 
+.questionPrompt {
+	display: grid;
+	grid-template-columns: 22px minmax(0, 1fr);
+	align-items: start;
+	column-gap: var(--wpds-dimension-padding-sm);
+	box-sizing: border-box;
+	padding: 0 var(--wpds-dimension-padding-lg);
+}
+
+.questionIndicator {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	inline-size: 18px;
+	block-size: 18px;
+	margin-top: 3px;
+	border-radius: 50%;
+	background-color: #facc15;
+	color: #422006;
+	font-size: 11px;
+	font-weight: 700;
+	line-height: 1;
+}
+
+.questionPromptAnswered .questionIndicator {
+	background-color: #e5e7eb;
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
 .questionText {
 	margin: 0;
 	color: var(--wpds-color-fg-content-neutral);
@@ -298,27 +327,46 @@
 	margin: 0;
 	padding: 0;
 	display: flex;
-	flex-wrap: wrap;
-	gap: var(--wpds-dimension-padding-md);
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-xs);
+	max-width: min(100%, 640px);
 }
 
 .questionOption {
-	background: none;
-	border: none;
-	padding: 0;
-	color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	display: grid;
+	grid-template-columns: 22px minmax(0, 1fr);
+	align-items: start;
+	column-gap: var(--wpds-dimension-padding-sm);
+	box-sizing: border-box;
+	width: 100%;
+	min-width: 0;
+	padding: var(--wpds-dimension-padding-md) var(--wpds-dimension-padding-lg);
+	border: 0;
+	border-radius: 12px;
+	background-color: transparent;
+	color: var(--wpds-color-fg-content-neutral);
 	font: inherit;
+	text-align: left;
 	cursor: pointer;
+	transition:
+		background-color 140ms ease,
+		box-shadow 140ms ease;
 }
 
 .questionOption:hover:not(:disabled),
 .questionOption:focus-visible:not(:disabled) {
-	text-decoration: underline;
+	background-color: var(--wpds-color-bg-surface-neutral-weak);
+}
+
+.questionOption:focus-visible {
+	outline: 2px solid var(--wpds-color-stroke-focus-brand, #3858e9);
+	outline-offset: 2px;
 }
 
 .questionOption:disabled {
+	background-color: var(--wpds-color-bg-surface-neutral-weak);
 	color: var(--wpds-color-fg-content-neutral-weak);
-	opacity: 0.6;
+	opacity: 0.72;
 	cursor: default;
 }
 
@@ -326,9 +374,75 @@
    can still see their choice once the batch is finalized. */
 .questionOptionPicked,
 .questionOptionPicked:disabled {
-	font-weight: 600;
-	color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	background-color: color-mix(in srgb, var(--wpds-color-fg-interactive-brand, #2563eb) 8%, transparent);
+	color: var(--wpds-color-fg-content-neutral);
 	opacity: 1;
+}
+
+.questionOptionNumber {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 18px;
+	height: 16px;
+	margin-top: 0;
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	background-color: transparent;
+	color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	font-size: var(--wpds-typography-font-size-xs);
+	font-weight: 500;
+	line-height: 1;
+}
+
+.questionOptionContent {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.questionOptionLabel {
+	color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	font-size: var(--wpds-typography-font-size-md);
+	font-weight: 500;
+	line-height: 1.35;
+}
+
+.questionOptionDescription {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: 1.35;
+}
+
+.questionOptionUnpicked,
+.questionOptionUnpicked:disabled {
+	background-color: transparent;
+	opacity: 0.58;
+}
+
+.questionOptionUnpicked .questionOptionLabel,
+.questionOptionUnpicked:disabled .questionOptionLabel,
+.questionOptionUnpicked .questionOptionNumber,
+.questionOptionUnpicked:disabled .questionOptionNumber {
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.questionOptionPicked .questionOptionLabel,
+.questionOptionPicked:disabled .questionOptionLabel {
+	color: var(--wpds-color-fg-interactive-brand, #2563eb);
+}
+
+.questionOptionPicked .questionOptionNumber,
+.questionOptionPicked:disabled .questionOptionNumber {
+	border-color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	background-color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	color: var(--wpds-color-bg-surface-neutral-strong);
+}
+
+.questionOptionPicked .questionOptionDescription,
+.questionOptionPicked:disabled .questionOptionDescription {
+	color: var(--wpds-color-fg-content-neutral);
 }
 
 .interruptedMarker {

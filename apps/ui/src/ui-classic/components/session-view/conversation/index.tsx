@@ -8,10 +8,10 @@ import {
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { chevronRight } from '@wordpress/icons';
+import { check, chevronRight } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useId, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import { Markdown } from '@/components/markdown';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
@@ -38,6 +38,7 @@ type RenderItem =
 			key: string;
 			question: string;
 			options: Array< { label: string; description: string } >;
+			answeredLabel?: string;
 	  }
 	| { kind: 'interrupted-marker'; key: string };
 
@@ -157,10 +158,24 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 	}
 
 	const items: RenderItem[] = [];
+	const pendingQuestionItems: Array< Extract< RenderItem, { kind: 'agent-question' } > > = [];
 	entries.forEach( ( entry, entryIndex ) => {
 		if ( isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
 			const data = ( entry as StudioCustomEntry< 'studio.user_prompt' > ).data;
-			if ( ! data || data.source !== 'prompt' ) return;
+			if ( ! data ) return;
+			if ( data.source === 'ask_user' ) {
+				const answer = data.text.trim();
+				const answeredQuestion = pendingQuestionItems.find(
+					( item ) =>
+						! item.answeredLabel && item.options.some( ( option ) => option.label === answer )
+				);
+				if ( answeredQuestion ) {
+					answeredQuestion.answeredLabel = answer;
+				}
+				return;
+			}
+			if ( data.source !== 'prompt' ) return;
+			pendingQuestionItems.length = 0;
 			const imageBlocks = getUserImageBlocksAfter( entries, entryIndex );
 			items.push( {
 				kind: 'user-turn',
@@ -209,16 +224,19 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 		if ( isStudioCustomEntryOfType( entry, 'studio.agent_question' ) ) {
 			const data = ( entry as StudioCustomEntry< 'studio.agent_question' > ).data;
 			if ( ! data ) return;
-			items.push( {
+			const questionItem: Extract< RenderItem, { kind: 'agent-question' } > = {
 				kind: 'agent-question',
 				key: `${ entryIndex }:question`,
 				question: data.question,
 				options: data.options,
-			} );
+			};
+			items.push( questionItem );
+			pendingQuestionItems.push( questionItem );
 			return;
 		}
 
 		if ( isStudioCustomEntryOfType( entry, 'studio.turn_closed' ) ) {
+			pendingQuestionItems.length = 0;
 			const data = ( entry as StudioCustomEntry< 'studio.turn_closed' > ).data;
 			if ( data?.status === 'interrupted' ) {
 				items.push( {
@@ -486,6 +504,23 @@ function ToolUseRow( {
 	);
 }
 
+function isTextEntryTarget( target: EventTarget | null ) {
+	if ( ! ( target instanceof HTMLElement ) ) {
+		return false;
+	}
+	if ( target.closest( '[data-studio-chat-composer="true"]' ) ) {
+		return false;
+	}
+
+	const tagName = target.tagName.toLowerCase();
+	return (
+		target.isContentEditable ||
+		tagName === 'input' ||
+		tagName === 'textarea' ||
+		tagName === 'select'
+	);
+}
+
 function AgentQuestion( {
 	question,
 	options,
@@ -499,28 +534,72 @@ function AgentQuestion( {
 	pickedLabel: string | undefined;
 	onAnswer: ( label: string ) => void;
 } ) {
+	const hasPickedLabel = typeof pickedLabel === 'string';
+	useEffect( () => {
+		if ( ! isInteractive || pickedLabel || options.length === 0 ) {
+			return;
+		}
+
+		const handleKeyDown = ( event: KeyboardEvent ) => {
+			if ( isTextEntryTarget( event.target ) || event.metaKey || event.ctrlKey || event.altKey ) {
+				return;
+			}
+
+			const index = Number.parseInt( event.key, 10 ) - 1;
+			if ( Number.isNaN( index ) || index < 0 || index >= options.length ) {
+				return;
+			}
+
+			event.preventDefault();
+			onAnswer( options[ index ].label );
+		};
+
+		document.addEventListener( 'keydown', handleKeyDown );
+		return () => document.removeEventListener( 'keydown', handleKeyDown );
+	}, [ isInteractive, onAnswer, options, pickedLabel ] );
+
 	return (
 		<div className={ styles.question }>
-			<p className={ styles.questionText }>{ question }</p>
+			<div
+				className={ clsx( styles.questionPrompt, hasPickedLabel && styles.questionPromptAnswered ) }
+			>
+				<span className={ styles.questionIndicator } aria-hidden="true">
+					?
+				</span>
+				<p className={ styles.questionText }>{ question }</p>
+			</div>
 			{ options.length > 0 ? (
-				<ul className={ styles.questionOptions }>
+				<ol className={ styles.questionOptions }>
 					{ options.map( ( option, index ) => {
 						const picked = option.label === pickedLabel;
 						return (
 							<li key={ index }>
 								<button
 									type="button"
-									className={ clsx( styles.questionOption, picked && styles.questionOptionPicked ) }
+									className={ clsx(
+										styles.questionOption,
+										hasPickedLabel && ! picked && styles.questionOptionUnpicked,
+										picked && styles.questionOptionPicked
+									) }
 									disabled={ ! isInteractive }
 									onClick={ () => onAnswer( option.label ) }
-									title={ option.description }
 								>
-									{ option.label }
+									<span className={ styles.questionOptionNumber } aria-hidden="true">
+										{ picked ? <Icon icon={ check } size={ 12 } /> : index + 1 }
+									</span>
+									<span className={ styles.questionOptionContent }>
+										<span className={ styles.questionOptionLabel }>{ option.label }</span>
+										{ option.description ? (
+											<span className={ styles.questionOptionDescription }>
+												{ option.description }
+											</span>
+										) : null }
+									</span>
 								</button>
 							</li>
 						);
 					} ) }
-				</ul>
+				</ol>
 			) : null }
 		</div>
 	);
@@ -610,7 +689,7 @@ export function Conversation( {
 						question={ item.question }
 						options={ item.options }
 						isInteractive={ pendingQuestions.has( item.question ) }
-						pickedLabel={ pendingAnswers[ item.question ] }
+						pickedLabel={ pendingAnswers[ item.question ] ?? item.answeredLabel }
 						onAnswer={ ( label ) => onAnswerQuestion( item.question, label ) }
 					/>
 				);

@@ -11,7 +11,7 @@ updates:
       interval: "weekly"
 
     cooldown:
-      default-days: 2
+      default-days: 1
 
     allow:
       # Automattic packages

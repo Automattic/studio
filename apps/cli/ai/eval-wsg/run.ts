@@ -107,6 +107,7 @@ function printSummaryTable( cases: CaseResult[] ): void {
 		}`,
 		inputCptGaps: c.customBlocks?.inputCptsWithoutBlock.length ?? 0,
 		idViolations: c.identifierViolations?.length ?? 0,
+		cptUnreg: c.cptsNotRegistered?.length ?? 0,
 		expectFails: c.expectationsFailed?.length ?? 0,
 		errors: c.errors.length,
 		seconds: Math.round( Object.values( c.stageTimingsMs ).reduce( ( a, b ) => a + b, 0 ) / 1000 ),

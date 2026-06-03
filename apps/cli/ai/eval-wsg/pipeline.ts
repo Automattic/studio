@@ -2,7 +2,11 @@ import fs from 'fs';
 import { copyFile, mkdir } from 'fs/promises';
 import path from 'path';
 import { runManifest } from 'cli/ai/generation/generators';
-import { contractFromManifest, validateMarkup } from 'cli/ai/generation/identifier-contract';
+import {
+	contractFromManifest,
+	findRegisteredPostTypes,
+	validateMarkup,
+} from 'cli/ai/generation/identifier-contract';
 import { createSiteTool } from 'cli/ai/tools/create-site';
 import { deleteSiteTool } from 'cli/ai/tools/delete-site';
 import { generateCompanionPluginTool } from 'cli/ai/tools/generate-companion-plugin';
@@ -205,10 +209,29 @@ export async function runCase( spec: EvalSpec, opts: RunCaseOptions ): Promise< 
 		result.coreBlocks = { byFile, totalBlocks, totalWpHtml };
 
 		if ( manifest?.companionPlugin.needed ) {
+			const pluginSlug = manifest.companionPlugin.slug;
 			const generatedBlockSlugs = listSubdirs(
-				path.join( site.path, 'wp-content', 'plugins', manifest.companionPlugin.slug, 'blocks' )
+				path.join( site.path, 'wp-content', 'plugins', pluginSlug, 'blocks' )
 			);
 			result.customBlocks = analyzeCustomBlocks( manifest.companionPlugin, generatedBlockSlugs );
+
+			// Verify the generated PHP actually registers the manifest's CPT keys.
+			// A register_post_type drift orphans seeded entries even when content
+			// references are canonical — the gap validateMarkup cannot see.
+			const cptKeys = manifest.companionPlugin.postTypes.map( ( postType ) => postType.slug );
+			let registered: string[] = [];
+			try {
+				registered = findRegisteredPostTypes(
+					fs.readFileSync(
+						path.join( site.path, 'wp-content', 'plugins', pluginSlug, `${ pluginSlug }.php` ),
+						'utf8'
+					)
+				);
+			} catch {
+				registered = [];
+			}
+			result.cptsNotRegistered =
+				registered.length > 0 ? cptKeys.filter( ( key ) => ! registered.includes( key ) ) : [];
 		}
 
 		// Identifier-contract check: after reconciliation, no custom-block reference

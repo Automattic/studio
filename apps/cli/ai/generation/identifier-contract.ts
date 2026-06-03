@@ -316,6 +316,20 @@ export function reconcileBlockJsonName(
 	return { json: JSON.stringify( parsed, null, '\t' ), changed: true };
 }
 
+/**
+ * Extract the literal post-type keys a plugin registers via `register_post_type()`.
+ * Used to verify the generated PHP actually registers the manifest's CPTs (a
+ * mismatch orphans seeded entries even when content references are canonical).
+ * Returns [] when registration is non-literal (e.g. a loop) — can't verify.
+ */
+export function findRegisteredPostTypes( php: string ): string[] {
+	const keys = new Set< string >();
+	for ( const match of php.matchAll( /register_post_type\(\s*['"]([a-z0-9_-]+)['"]/gi ) ) {
+		keys.add( match[ 1 ] );
+	}
+	return Array.from( keys );
+}
+
 /** Contract-level check: CPT keys must fit register_post_type's 20-char limit. */
 export function validateContract( contract: IdentifierContract ): Violation[] {
 	return contract.cptKeys

@@ -5,6 +5,7 @@ import {
 	contractFromManifest,
 	contractVocabulary,
 	deriveThemePrefix,
+	findRegisteredPostTypes,
 	reconcileBlockJsonName,
 	reconcileMarkup,
 	validateMarkup,
@@ -143,6 +144,23 @@ describe( 'contractVocabulary', () => {
 		expect( text ).toContain( 'ember/reservation-form' );
 		expect( text ).toContain( 'ember_menu_item' );
 		expect( text ).toContain( 'ember/v1' );
+	} );
+} );
+
+describe( 'findRegisteredPostTypes', () => {
+	it( 'extracts register_post_type keys from plugin PHP', () => {
+		const php = `<?php
+			register_post_type( 'ember_menu_items', array( 'public' => true ) );
+			register_post_type("ember_reservations", array());
+		`;
+		expect( findRegisteredPostTypes( php ).sort() ).toEqual( [
+			'ember_menu_items',
+			'ember_reservations',
+		] );
+	} );
+
+	it( 'returns an empty list when there are no literal registrations', () => {
+		expect( findRegisteredPostTypes( '<?php // loop-based registration' ) ).toEqual( [] );
 	} );
 } );
 

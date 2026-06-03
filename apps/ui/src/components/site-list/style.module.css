@@ -131,6 +131,10 @@
 	max-width: 100%;
 }
 
+.siteActive .siteName {
+	font-weight: var(--wpds-typography-font-weight-medium, 500);
+}
+
 .siteIconToggle:hover .siteIconChevron,
 .siteIconToggle:focus-visible .siteIconChevron {
 	color: #fff;
@@ -293,6 +297,11 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+	font-weight: var(--wpds-typography-font-weight-regular);
+}
+
+.sessionLinkActive .sessionEditableTitle {
+	font-weight: var(--wpds-typography-font-weight-medium, 500);
 }
 
 .sessionTitleInput {

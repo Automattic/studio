@@ -97,7 +97,12 @@
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	min-width: 0;
+	font-weight: var(--wpds-typography-font-weight-regular);
 	line-height: 1.2;
+}
+
+.itemActive .label {
+	font-weight: var(--wpds-typography-font-weight-medium, 500);
 }
 
 .itemActions {

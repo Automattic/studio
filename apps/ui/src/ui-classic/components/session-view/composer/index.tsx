@@ -1,11 +1,26 @@
+import {
+	STUDIO_CHAT_IMAGE_MIME_TYPES,
+	STUDIO_CHAT_MAX_IMAGES,
+	STUDIO_CHAT_MAX_IMAGE_BYTES,
+	isStudioChatImageMimeType,
+	validateStudioChatImages,
+} from '@studio/common/ai/chat-images';
 import { AI_MODELS, getAiModelFamily, getAiModelLabel } from '@studio/common/ai/models';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
 import { useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
-import { arrowUp, chevronDownSmall } from '@wordpress/icons';
+import { arrowUp, chevronDownSmall, closeSmall, image as imageIcon } from '@wordpress/icons';
 import { Icon, Tooltip } from '@wordpress/ui';
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import {
+	forwardRef,
+	useCallback,
+	useEffect,
+	useImperativeHandle,
+	useMemo,
+	useRef,
+	useState,
+} from 'react';
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
@@ -14,7 +29,149 @@ import { getMessageSendShortcutLabel, shouldSendMessageForKeyDown } from '@/lib/
 import { EnvironmentPill } from './environment-pill';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';
-import type { AiModelId, LoadedAiSession, SessionEntry, SyncSite } from '@/data/core';
+import type {
+	AiModelId,
+	LoadedAiSession,
+	SessionEntry,
+	StudioChatImage,
+	SyncSite,
+} from '@/data/core';
+
+const IMAGE_ACCEPT = STUDIO_CHAT_IMAGE_MIME_TYPES.join( ',' );
+
+interface ComposerImageAttachment extends StudioChatImage {
+	previewUrl: string;
+}
+
+function getMimeTypeForImageFile( file: File ) {
+	if ( isStudioChatImageMimeType( file.type ) ) {
+		return file.type;
+	}
+	const lowerName = file.name.toLowerCase();
+	if ( lowerName.endsWith( '.png' ) ) {
+		return 'image/png';
+	}
+	if ( lowerName.endsWith( '.jpg' ) || lowerName.endsWith( '.jpeg' ) ) {
+		return 'image/jpeg';
+	}
+	return undefined;
+}
+
+function readFileAsDataUrl( file: File ): Promise< string > {
+	return new Promise( ( resolve, reject ) => {
+		const reader = new FileReader();
+		reader.onload = () => {
+			if ( typeof reader.result === 'string' ) {
+				resolve( reader.result );
+				return;
+			}
+			reject( new Error( __( 'Unable to read the selected image.' ) ) );
+		};
+		reader.onerror = () => reject( new Error( __( 'Unable to read the selected image.' ) ) );
+		reader.readAsDataURL( file );
+	} );
+}
+
+function readImageDimensions(
+	src: string
+): Promise< { width: number; height: number } | undefined > {
+	return new Promise( ( resolve ) => {
+		const image = new Image();
+		image.onload = () =>
+			resolve( {
+				width: image.naturalWidth,
+				height: image.naturalHeight,
+			} );
+		image.onerror = () => resolve( undefined );
+		image.src = src;
+	} );
+}
+
+function fileListToArray( files: FileList | null | undefined ) {
+	return files ? Array.from( files ) : [];
+}
+
+function getImageFilesFromDataTransfer( dataTransfer: DataTransfer ) {
+	return fileListToArray( dataTransfer.files ).filter(
+		( file ) => !! getMimeTypeForImageFile( file )
+	);
+}
+
+const PLACEHOLDER_ROTATION_DELAY_MS = 4400;
+const PLACEHOLDER_TYPE_START_DELAY_MS = 90;
+const PLACEHOLDER_TYPE_INTERVAL_MS = 22;
+
+function prefersReducedMotion() {
+	return (
+		typeof window !== 'undefined' &&
+		typeof window.matchMedia === 'function' &&
+		window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches
+	);
+}
+
+function useTypedPlaceholder( phrases: string[], paused: boolean ) {
+	const [ placeholder, setPlaceholder ] = useState( () => phrases[ 0 ] ?? '' );
+
+	useEffect( () => {
+		const firstPhrase = phrases[ 0 ] ?? '';
+
+		if ( paused || phrases.length < 2 || prefersReducedMotion() ) {
+			setPlaceholder( firstPhrase );
+			return;
+		}
+
+		let cancelled = false;
+		let timeoutId: ReturnType< typeof setTimeout > | undefined;
+		let phraseIndex = 0;
+
+		const schedule = ( callback: () => void, delay: number ) => {
+			timeoutId = setTimeout( callback, delay );
+		};
+
+		const typePhrase = ( nextPhraseIndex: number ) => {
+			if ( cancelled ) {
+				return;
+			}
+
+			const phrase = phrases[ nextPhraseIndex ] ?? firstPhrase;
+			let characterIndex = 0;
+			setPlaceholder( '' );
+
+			const typeNextCharacter = () => {
+				if ( cancelled ) {
+					return;
+				}
+
+				characterIndex += 1;
+				setPlaceholder( phrase.slice( 0, characterIndex ) );
+
+				if ( characterIndex < phrase.length ) {
+					schedule( typeNextCharacter, PLACEHOLDER_TYPE_INTERVAL_MS );
+					return;
+				}
+
+				phraseIndex = nextPhraseIndex;
+				schedule( () => {
+					typePhrase( ( phraseIndex + 1 ) % phrases.length );
+				}, PLACEHOLDER_ROTATION_DELAY_MS );
+			};
+
+			schedule( typeNextCharacter, PLACEHOLDER_TYPE_START_DELAY_MS );
+		};
+
+		setPlaceholder( firstPhrase );
+		schedule( () => typePhrase( 1 ), PLACEHOLDER_ROTATION_DELAY_MS );
+
+		return () => {
+			cancelled = true;
+			if ( timeoutId ) {
+				clearTimeout( timeoutId );
+			}
+		};
+	}, [ paused, phrases ] );
+
+	return placeholder;
+}
 
 /**
  * Invisible structural placeholder that mirrors Composer's outer DOM (shell +
@@ -42,7 +199,10 @@ interface ComposerProps {
 	isInterrupting?: boolean;
 	error: string | null;
 	model: AiModelId;
-	onSend: ( prompt: string ) => Promise< void >;
+	onSend: (
+		prompt: string,
+		options?: { displayMessage?: string; images?: StudioChatImage[] }
+	) => Promise< void >;
 	onInterrupt: () => Promise< void >;
 	// Environment pill: only rendered when both a `sessionId` and a linked
 	// `liveSite` are available. Without a live link the pill is hidden
@@ -89,10 +249,33 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	ref
 ) {
 	const [ value, setValue ] = useState( '' );
+	const [ attachments, setAttachments ] = useState< ComposerImageAttachment[] >( [] );
+	const [ attachmentError, setAttachmentError ] = useState< string | null >( null );
+	const [ isDraggingImage, setIsDraggingImage ] = useState( false );
 	const textareaRef = useRef< HTMLTextAreaElement | null >( null );
+	const fileInputRef = useRef< HTMLInputElement | null >( null );
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	const { data: preferences } = useUserPreferences();
+	const defaultPlaceholder = __( 'Set your next instruction…' );
+	const changePlaceholder = __( 'Describe the next change for this site…' );
+	const pagePlaceholder = __( 'Ask Studio to update a page…' );
+	const buildPlaceholder = __( 'Tell Studio what to build next…' );
+	const tweakPlaceholder = __( 'Queue a tweak, fix, or idea…' );
+	const idlePlaceholders = useMemo(
+		() => [
+			defaultPlaceholder,
+			changePlaceholder,
+			pagePlaceholder,
+			buildPlaceholder,
+			tweakPlaceholder,
+		],
+		[ defaultPlaceholder, changePlaceholder, pagePlaceholder, buildPlaceholder, tweakPlaceholder ]
+	);
+	const typedPlaceholder = useTypedPlaceholder(
+		idlePlaceholders,
+		busy || value.length > 0 || attachments.length > 0
+	);
 
 	// Cross-family swap state. We hold the picked model here while the
 	// confirmation dialog is open; nothing is persisted until the user
@@ -128,22 +311,93 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		[]
 	);
 
+	const createAttachment = useCallback(
+		async ( file: File ): Promise< ComposerImageAttachment > => {
+			const mimeType = getMimeTypeForImageFile( file );
+			if ( ! mimeType ) {
+				throw new Error( __( 'Only PNG and JPEG images can be attached.' ) );
+			}
+			if ( file.size > STUDIO_CHAT_MAX_IMAGE_BYTES ) {
+				throw new Error( __( 'Attached images must be 5 MB or smaller.' ) );
+			}
+			const previewUrl = await readFileAsDataUrl( file );
+			const dataBase64 = previewUrl.split( ',', 2 )[ 1 ];
+			if ( ! dataBase64 ) {
+				throw new Error( __( 'Unable to read the selected image.' ) );
+			}
+			const dimensions = await readImageDimensions( previewUrl );
+			const attachment: ComposerImageAttachment = {
+				id: `${ Date.now().toString( 36 ) }-${ Math.random().toString( 36 ).slice( 2, 10 ) }`,
+				name: file.name || __( 'Attached image' ),
+				mimeType,
+				size: file.size,
+				width: dimensions?.width,
+				height: dimensions?.height,
+				dataBase64,
+				previewUrl,
+			};
+			validateStudioChatImages( [ attachment ] );
+			return attachment;
+		},
+		[]
+	);
+
+	const addImageFiles = useCallback(
+		async ( files: File[] ) => {
+			if ( files.length === 0 ) {
+				return;
+			}
+			setAttachmentError( null );
+			try {
+				if ( attachments.length + files.length > STUDIO_CHAT_MAX_IMAGES ) {
+					throw new Error( __( 'You can attach up to 4 images.' ) );
+				}
+				const nextAttachments = await Promise.all( files.map( createAttachment ) );
+				validateStudioChatImages( [ ...attachments, ...nextAttachments ] );
+				setAttachments( ( current ) => [ ...current, ...nextAttachments ] );
+				textareaRef.current?.focus();
+			} catch ( error ) {
+				setAttachmentError( error instanceof Error ? error.message : String( error ) );
+			}
+		},
+		[ attachments, createAttachment ]
+	);
+
+	const removeAttachment = useCallback( ( id: string ) => {
+		setAttachments( ( current ) => current.filter( ( attachment ) => attachment.id !== id ) );
+		setAttachmentError( null );
+	}, [] );
+
 	const send = useCallback( async () => {
 		const trimmed = value.trim();
-		if ( ! trimmed ) {
+		if ( ! trimmed && attachments.length === 0 ) {
 			return;
 		}
+		const prompt =
+			trimmed ||
+			( attachments.length === 1
+				? __( 'Please review the attached image.' )
+				: __( 'Please review the attached images.' ) );
+		const attachmentsToSend = attachments;
 		setValue( '' );
+		setAttachments( [] );
+		setAttachmentError( null );
 		try {
-			await onSend( trimmed );
+			await onSend( prompt, {
+				images:
+					attachmentsToSend.length > 0
+						? attachmentsToSend.map( ( { previewUrl: _previewUrl, ...attachment } ) => attachment )
+						: undefined,
+			} );
 		} catch {
 			// Restore the draft so the user can retry; the parent surfaces the
 			// error message via `error`. Queued sends never throw from onSend
 			// (the parent swallows the failure and clears the queue instead),
 			// so this path only trips for direct sends from the idle state.
 			setValue( trimmed );
+			setAttachments( attachmentsToSend );
 		}
-	}, [ value, onSend ] );
+	}, [ attachments, value, onSend ] );
 
 	// Same-family swap: optimistic `model_change` entry; refetch on write fail.
 	const applySameFamilyModel = useCallback(
@@ -239,19 +493,66 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		}
 	}, [ connector, onSwitchSession, ownerSiteId, pendingFamilyChange, queryClient ] );
 
-	const canSend = value.trim().length > 0;
-	const placeholder = busy
-		? __( 'Queue a follow-up instruction…' )
-		: __( 'Set your next instruction…' );
+	const canSend = value.trim().length > 0 || attachments.length > 0;
+	const placeholder = busy ? __( 'Queue a follow-up instruction…' ) : typedPlaceholder;
 	const sendAriaLabel = busy ? __( 'Queue' ) : __( 'Send' );
 	const messageSendShortcut = preferences?.messageSendShortcut;
 	const sendShortcutLabel = getMessageSendShortcutLabel( messageSendShortcut );
 	const sendTitle = `${ sendAriaLabel } (${ sendShortcutLabel })`;
+	const visibleError = attachmentError ?? error;
 
 	return (
 		<>
 			<div className={ styles.root }>
-				<div className={ styles.shell }>
+				<div
+					className={ styles.shell }
+					data-dragging-image={ isDraggingImage ? 'true' : 'false' }
+					onDragOver={ ( event ) => {
+						const files = getImageFilesFromDataTransfer( event.dataTransfer );
+						if ( files.length === 0 ) {
+							return;
+						}
+						event.preventDefault();
+						setIsDraggingImage( true );
+					} }
+					onDragLeave={ () => setIsDraggingImage( false ) }
+					onDrop={ ( event ) => {
+						const files = getImageFilesFromDataTransfer( event.dataTransfer );
+						if ( files.length === 0 ) {
+							return;
+						}
+						event.preventDefault();
+						setIsDraggingImage( false );
+						void addImageFiles( files );
+					} }
+				>
+					{ attachments.length > 0 ? (
+						<div className={ styles.attachments } aria-label={ __( 'Attached images' ) }>
+							{ attachments.map( ( attachment ) => (
+								<div
+									key={ attachment.id }
+									className={ styles.attachment }
+									title={ attachment.name }
+								>
+									<img
+										className={ styles.attachmentImage }
+										src={ attachment.previewUrl }
+										alt={ attachment.name }
+										draggable={ false }
+									/>
+									<button
+										type="button"
+										className={ styles.removeAttachment }
+										aria-label={ `${ __( 'Remove' ) } ${ attachment.name }` }
+										title={ `${ __( 'Remove' ) } ${ attachment.name }` }
+										onClick={ () => removeAttachment( attachment.id ) }
+									>
+										<Icon icon={ closeSmall } size={ 14 } />
+									</button>
+								</div>
+							) ) }
+						</div>
+					) : null }
 					<textarea
 						ref={ textareaRef }
 						className={ styles.input }
@@ -269,10 +570,38 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 								void send();
 							}
 						} }
+						onPaste={ ( event ) => {
+							const files = getImageFilesFromDataTransfer( event.clipboardData );
+							if ( files.length === 0 ) {
+								return;
+							}
+							event.preventDefault();
+							void addImageFiles( files );
+						} }
 						rows={ 2 }
 					/>
 					<div className={ styles.toolbar }>
 						<div className={ styles.leftActions }>
+							<button
+								type="button"
+								className={ styles.iconButton }
+								aria-label={ __( 'Attach image' ) }
+								title={ __( 'Attach image' ) }
+								onClick={ () => fileInputRef.current?.click() }
+							>
+								<Icon icon={ imageIcon } size={ 14 } />
+							</button>
+							<input
+								ref={ fileInputRef }
+								type="file"
+								accept={ IMAGE_ACCEPT }
+								multiple
+								className={ styles.fileInput }
+								onChange={ ( event ) => {
+									void addImageFiles( fileListToArray( event.target.files ) );
+									event.target.value = '';
+								} }
+							/>
 							<Menu.Root modal={ false }>
 								<Menu.Trigger
 									render={
@@ -373,7 +702,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 					</div>
 				</div>
 				<div className={ styles.meta }>
-					{ error ? <span className={ styles.error }>{ error }</span> : null }
+					{ visibleError ? <span className={ styles.error }>{ visibleError }</span> : null }
 					<span className={ styles.metaUses }>{ __( 'Uses 1 message' ) }</span>
 				</div>
 			</div>

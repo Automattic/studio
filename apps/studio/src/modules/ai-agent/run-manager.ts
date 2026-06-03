@@ -1,10 +1,14 @@
 import crypto from 'crypto';
 import { fork, type ChildProcess } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { setAiSessionSitePlacement } from 'src/lib/ai-session-placement';
 import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
 import { generateAiSessionMetadata } from './session-metadata';
 import type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { StudioChatArtifactData } from '@studio/common/ai/chat-artifacts';
+import type { StudioAiSessionInputPayload, StudioChatImage } from '@studio/common/ai/chat-images';
 import type { JsonEvent } from '@studio/common/ai/json-events';
 import type { WebContents } from 'electron';
 
@@ -110,11 +114,22 @@ export interface StartAgentRunOptions {
 	sessionId: string;
 	prompt: string;
 	displayMessage?: string;
+	images?: StudioChatImage[];
 	webContents: WebContents;
 }
 
+function writeInputPayloadFile( payload: StudioAiSessionInputPayload ): {
+	dir: string;
+	path: string;
+} {
+	const dir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-ai-run-' ) );
+	const filePath = path.join( dir, 'input.json' );
+	fs.writeFileSync( filePath, JSON.stringify( payload ), { encoding: 'utf8' } );
+	return { dir, path: filePath };
+}
+
 export function startAgentRun( options: StartAgentRunOptions ): { runId: string } {
-	const { sessionId, prompt, displayMessage, webContents } = options;
+	const { sessionId, prompt, displayMessage, images = [], webContents } = options;
 
 	if ( runsBySessionId.has( sessionId ) ) {
 		throw new Error( `A run is already in progress for session ${ sessionId }` );
@@ -123,8 +138,16 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 	const runId = crypto.randomUUID();
 	const startedAt = Date.now();
 	const cliPath = getCliPath();
-	const args = [ 'code', 'sessions', 'resume', sessionId, prompt, '--json', '--avoid-telemetry' ];
-	if ( displayMessage ) {
+	const inputPayload =
+		images.length > 0 ? writeInputPayloadFile( { prompt, displayMessage, images } ) : undefined;
+	const args = [ 'code', 'sessions', 'resume', sessionId ];
+	if ( inputPayload ) {
+		args.push( '--input-payload', inputPayload.path );
+	} else {
+		args.push( prompt );
+	}
+	args.push( '--json', '--avoid-telemetry' );
+	if ( displayMessage && ! inputPayload ) {
 		args.push( '--display-message', displayMessage );
 	}
 	const child = fork( cliPath, args, {
@@ -183,6 +206,13 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 				status: code === 0 ? 'success' : 'error',
 				code,
 			} );
+			if ( inputPayload ) {
+				fs.rm( inputPayload.dir, { recursive: true, force: true }, ( error ) => {
+					if ( error ) {
+						console.warn( 'Failed to clean AI session input payload', error );
+					}
+				} );
+			}
 		} );
 	};
 

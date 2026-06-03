@@ -24,6 +24,8 @@ export type {
 	SiteDetails,
 	Snapshot,
 	StudioAgentQuestionData,
+	StudioChatImage,
+	StudioChatImageAttachment,
 	StudioCustomEntry,
 	StudioCustomEntryDataMap,
 	StudioCustomEntryType,
@@ -38,5 +40,6 @@ export type {
 	SyncSite,
 	UserPreferences,
 	WritableUserPreferences,
+	WpAdminOpenTarget,
 } from './types';
 export type { ActiveAgentRun, AgentEvent, AgentRunEvent } from '@studio/common/ai/agent-events';

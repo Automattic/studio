@@ -18,6 +18,7 @@ import https from 'node:https';
 import os from 'os';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
+import { validateStudioChatImages } from '@studio/common/ai/chat-images';
 import { isAiModelId } from '@studio/common/ai/models';
 import { deriveEffectiveEnvironment } from '@studio/common/ai/sessions/effective-site';
 import {
@@ -169,6 +170,7 @@ import {
 import { Blueprint } from 'src/stores/wpcom-api';
 import { captureSiteThumbnail } from './lib/capture-site-thumbnail';
 import type { ActiveAgentRun } from '@studio/common/ai/agent-events';
+import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { Ignore } from 'ignore';
@@ -214,6 +216,7 @@ export {
 	getUserEditor,
 	getUserLocale,
 	getUserTerminal,
+	getWpAdminOpenTarget,
 	getWapuuScore,
 	previewColorScheme,
 	saveColorScheme,
@@ -221,6 +224,7 @@ export {
 	saveUserEditor,
 	saveUserLocale,
 	saveUserTerminal,
+	saveWpAdminOpenTarget,
 	saveWapuuScore,
 	showUserSettings,
 } from 'src/modules/user-settings/lib/ipc-handlers';
@@ -460,17 +464,19 @@ export async function continueAiSession(
 	event: IpcMainInvokeEvent,
 	sessionId: string,
 	prompt: string,
-	options: { displayMessage?: string } = {}
+	options: { displayMessage?: string; images?: StudioChatImage[] } = {}
 ): Promise< { runId: string } > {
 	if ( ! ( await oauthClient.isAuthenticated() ) ) {
 		throw new Error( __( 'WordPress.com login required. Log in to use Studio Desk chat.' ) );
 	}
 
 	await reconcileSessionEnvironmentBeforeRun( sessionId );
+	const images = validateStudioChatImages( options.images );
 	return startAgentRun( {
 		sessionId,
 		prompt: expandSkillCommandPrompt( prompt ),
 		displayMessage: options.displayMessage,
+		images,
 		webContents: event.sender,
 	} );
 }

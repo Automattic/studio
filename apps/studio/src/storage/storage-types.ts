@@ -4,6 +4,8 @@ import type { MessageSendShortcut } from '@studio/common/lib/user-settings/messa
 import type { DesksConfig } from '@studio/common/types/desk';
 import type { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 
+export type WpAdminOpenTarget = 'default-browser' | 'studio-browser';
+
 export interface WindowBounds {
 	x: number;
 	y: number;
@@ -44,6 +46,7 @@ export interface UserData {
 	preferredEditor?: SupportedEditor;
 	colorScheme?: 'system' | 'light' | 'dark';
 	messageSendShortcut?: MessageSendShortcut;
+	wpAdminOpenTarget?: WpAdminOpenTarget;
 	betaFeatures?: BetaFeatures;
 	stopSitesOnQuit?: boolean;
 	defaultSiteDirectory?: string;

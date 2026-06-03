@@ -1,3 +1,5 @@
+import fs from 'fs/promises';
+import { validateStudioChatImages } from '@studio/common/ai/chat-images';
 import { resolveActiveSiteFromEntries } from '@studio/common/ai/sessions/active-site';
 import { listAiSessions, loadAiSession } from '@studio/common/ai/sessions/store';
 import { __ } from '@wordpress/i18n';
@@ -8,13 +10,27 @@ import { runCommand as runAiCommand } from 'cli/commands/ai';
 import { chooseSessionForAction } from 'cli/commands/ai/sessions/helpers';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
+import type { StudioAiSessionInputPayload } from '@studio/common/ai/chat-images';
 import type { AiOutputAdapter } from 'cli/ai/output-adapter';
+
+async function readInputPayload( path: string ): Promise< StudioAiSessionInputPayload > {
+	const parsed = JSON.parse( await fs.readFile( path, 'utf8' ) ) as StudioAiSessionInputPayload;
+	if ( ! parsed || typeof parsed.prompt !== 'string' || ! parsed.prompt.trim() ) {
+		throw new Error( __( 'Invalid AI session input payload.' ) );
+	}
+	return {
+		prompt: parsed.prompt,
+		displayMessage: parsed.displayMessage,
+		images: validateStudioChatImages( parsed.images ),
+	};
+}
 
 export async function runCommand(
 	sessionIdOrPrefix?: string,
 	options: {
 		message?: string;
 		displayMessage?: string;
+		inputPayloadPath?: string;
 		json?: boolean;
 	} = {}
 ): Promise< void > {
@@ -43,6 +59,9 @@ export async function runCommand(
 
 	const session = await loadAiSession( getAiSessionsRootDirectory(), resolvedSessionIdOrPrefix );
 	const adapter: AiOutputAdapter = options.json ? new JsonAdapter() : new AiChatUI();
+	const inputPayload = options.inputPayloadPath
+		? await readInputPayload( options.inputPayloadPath )
+		: undefined;
 
 	// JSON-mode resume has no replay loop (that only runs for AiChatUI), so the
 	// active site would stay null and the agent would fall back to local tools
@@ -54,8 +73,9 @@ export async function runCommand(
 	await runAiCommand( {
 		adapter,
 		resumeSession: session,
-		initialMessage: options.message,
-		initialDisplayMessage: options.displayMessage,
+		initialMessage: inputPayload?.prompt ?? options.message,
+		initialDisplayMessage: inputPayload?.displayMessage ?? options.displayMessage,
+		initialImages: inputPayload?.images,
 		activeSite: resolvedSite,
 	} );
 }
@@ -86,8 +106,13 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					hidden: true,
 					description: __( 'Message to persist and display in the session transcript' ),
 				} )
+				.option( 'input-payload', {
+					type: 'string',
+					hidden: true,
+					description: __( 'Path to a JSON input payload for the session turn' ),
+				} )
 				.check( ( argv ) => {
-					if ( argv.json && ! argv.message ) {
+					if ( argv.json && ! argv.message && ! argv.inputPayload ) {
 						throw new Error( __( '--json requires a message argument' ) );
 					}
 					return true;
@@ -99,11 +124,13 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					id?: string;
 					message?: string;
 					displayMessage?: string;
+					inputPayload?: string;
 					json?: boolean;
 				};
 				await runCommand( typedArgv.id, {
 					message: typedArgv.message,
 					displayMessage: typedArgv.displayMessage,
+					inputPayloadPath: typedArgv.inputPayload,
 					json: typedArgv.json,
 				} );
 			} catch ( error ) {

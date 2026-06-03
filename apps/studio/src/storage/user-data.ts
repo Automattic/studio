@@ -73,6 +73,7 @@ type UserDataSafeKeys =
 	| 'betaFeatures'
 	| 'colorScheme'
 	| 'messageSendShortcut'
+	| 'wpAdminOpenTarget'
 	| 'defaultSiteDirectory'
 	| 'cliAutoInstalled'
 	| 'wapuuScore'

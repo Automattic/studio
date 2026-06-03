@@ -1,4 +1,5 @@
 import type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiModelId } from '@studio/common/ai/models';
 import type {
 	AiSessionMetadata,
@@ -17,6 +18,7 @@ import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wor
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 export type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
+export type { StudioChatImage, StudioChatImageAttachment } from '@studio/common/ai/chat-images';
 export type {
 	AiSessionMetadata,
 	AiSessionSummary,
@@ -248,7 +250,7 @@ export interface Connector {
 	continueSession(
 		sessionId: string,
 		prompt: string,
-		options?: { displayMessage?: string }
+		options?: { displayMessage?: string; images?: StudioChatImage[] }
 	): Promise< { runId: string } >;
 	getActiveAgentRuns(): Promise< ActiveAgentRun[] >;
 	// Persist a UI-driven model override for the session. The CLI picks this up
@@ -327,12 +329,14 @@ export interface FeatureFlags {
 }
 
 export type ColorScheme = 'system' | 'light' | 'dark';
+export type WpAdminOpenTarget = 'default-browser' | 'studio-browser';
 
 export interface UserPreferences {
 	editor: SupportedEditor | null;
 	terminal: SupportedTerminal | null;
 	colorScheme: ColorScheme;
 	messageSendShortcut: MessageSendShortcut;
+	wpAdminOpenTarget: WpAdminOpenTarget;
 	locale: string | undefined;
 }
 

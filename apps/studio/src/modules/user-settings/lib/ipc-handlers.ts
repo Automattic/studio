@@ -20,6 +20,7 @@ import {
 	unlockAppdata,
 	updateAppdata,
 } from 'src/storage/user-data';
+import type { WpAdminOpenTarget } from 'src/storage/storage-types';
 
 export function getInstalledAppsAndTerminals(): InstalledApps {
 	return {
@@ -128,6 +129,27 @@ export async function getMessageSendShortcut(): Promise< MessageSendShortcut > {
 	return isMessageSendShortcut( userData.messageSendShortcut )
 		? userData.messageSendShortcut
 		: DEFAULT_MESSAGE_SEND_SHORTCUT;
+}
+
+function isWpAdminOpenTarget( value: unknown ): value is WpAdminOpenTarget {
+	return value === 'default-browser' || value === 'studio-browser';
+}
+
+export async function saveWpAdminOpenTarget(
+	_event: IpcMainInvokeEvent,
+	wpAdminOpenTarget: WpAdminOpenTarget
+) {
+	if ( ! isWpAdminOpenTarget( wpAdminOpenTarget ) ) {
+		throw new Error( 'Invalid WP Admin open target' );
+	}
+	await updateAppdata( { wpAdminOpenTarget } );
+}
+
+export async function getWpAdminOpenTarget(): Promise< WpAdminOpenTarget > {
+	const userData = await loadUserData();
+	return isWpAdminOpenTarget( userData.wpAdminOpenTarget )
+		? userData.wpAdminOpenTarget
+		: 'default-browser';
 }
 
 export async function saveWapuuScore( _event: IpcMainInvokeEvent, score: number ): Promise< void > {

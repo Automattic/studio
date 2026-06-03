@@ -598,20 +598,23 @@ export function createIpcConnector(): Connector {
 		// per field; we fan out in parallel here so the UI can work with a
 		// single query/mutation pair.
 		async getUserPreferences(): Promise< UserPreferences > {
-			const [ editor, terminal, colorScheme, locale, messageSendShortcut ] = ( await Promise.all( [
-				ipcApi.getUserEditor(),
-				ipcApi.getUserTerminal(),
-				ipcApi.getColorScheme(),
-				ipcApi.getUserLocale(),
-				ipcApi.getMessageSendShortcut(),
-			] ) ) as [
-				SupportedEditor | null,
-				SupportedTerminal | null,
-				ColorScheme,
-				string | undefined,
-				UserPreferences[ 'messageSendShortcut' ],
-			];
-			return { editor, terminal, colorScheme, locale, messageSendShortcut };
+			const [ editor, terminal, colorScheme, locale, messageSendShortcut, wpAdminOpenTarget ] =
+				( await Promise.all( [
+					ipcApi.getUserEditor(),
+					ipcApi.getUserTerminal(),
+					ipcApi.getColorScheme(),
+					ipcApi.getUserLocale(),
+					ipcApi.getMessageSendShortcut(),
+					ipcApi.getWpAdminOpenTarget(),
+				] ) ) as [
+					SupportedEditor | null,
+					SupportedTerminal | null,
+					ColorScheme,
+					string | undefined,
+					UserPreferences[ 'messageSendShortcut' ],
+					UserPreferences[ 'wpAdminOpenTarget' ],
+				];
+			return { editor, terminal, colorScheme, locale, messageSendShortcut, wpAdminOpenTarget };
 		},
 
 		async setUserPreferences( partial ): Promise< void > {
@@ -630,6 +633,9 @@ export function createIpcConnector(): Connector {
 			}
 			if ( 'messageSendShortcut' in partial && partial.messageSendShortcut ) {
 				writes.push( ipcApi.saveMessageSendShortcut( partial.messageSendShortcut ) );
+			}
+			if ( 'wpAdminOpenTarget' in partial && partial.wpAdminOpenTarget ) {
+				writes.push( ipcApi.saveWpAdminOpenTarget( partial.wpAdminOpenTarget ) );
 			}
 			await Promise.all( writes );
 		},

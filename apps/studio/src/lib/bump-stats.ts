@@ -27,10 +27,10 @@ export enum StatsGroup {
 	// Studio Code assistant (pi-agent) usage from the desktop UI. The CLI is
 	// spawned with `--avoid-telemetry`, so these are the only stats that capture
 	// the new assistant's usage.
-	STUDIO_APP_CODE_SEND = 'studio-app-code-send',
-	STUDIO_APP_CODE_RUN = 'studio-app-code-run',
-	STUDIO_APP_CODE_WKLY_UNQ = 'studio-app-code-wk-unq',
-	STUDIO_APP_CODE_MON_UNQ = 'studio-app-code-mon-unq',
+	APP_STUDIO_CODE_SEND = 'app-studio-code-send',
+	APP_STUDIO_CODE_RUN = 'app-studio-code-run',
+	APP_STUDIO_CODE_WKLY_UNQ = 'app-studio-code-wk-unq',
+	APP_STUDIO_CODE_MON_UNQ = 'app-studio-code-mon-unq',
 }
 
 export enum StatsMetric {

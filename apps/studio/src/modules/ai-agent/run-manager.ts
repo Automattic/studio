@@ -39,14 +39,14 @@ function nowIso(): string {
 // only place that records Studio Code assistant usage. Bump stats are simple
 // counters: usage volume, run outcome, and unique active users.
 function bumpCodeSendStat(): void {
-	bumpStat( StatsGroup.STUDIO_APP_CODE_SEND, getPlatformMetric() );
+	bumpStat( StatsGroup.APP_STUDIO_CODE_SEND, getPlatformMetric() );
 	bumpAggregatedUniqueStat(
-		StatsGroup.STUDIO_APP_CODE_WKLY_UNQ,
+		StatsGroup.APP_STUDIO_CODE_WKLY_UNQ,
 		getPlatformMetric(),
 		'weekly'
 	).catch( ( err ) => Sentry.captureException( err ) );
 	bumpAggregatedUniqueStat(
-		StatsGroup.STUDIO_APP_CODE_MON_UNQ,
+		StatsGroup.APP_STUDIO_CODE_MON_UNQ,
 		getPlatformMetric(),
 		'monthly'
 	).catch( ( err ) => Sentry.captureException( err ) );
@@ -58,7 +58,7 @@ function bumpCodeRunStat( run: AgentRun, code: number | null ): void {
 		: code === 0
 		? StatsMetric.SUCCESS
 		: StatsMetric.FAILURE;
-	bumpStat( StatsGroup.STUDIO_APP_CODE_RUN, outcome );
+	bumpStat( StatsGroup.APP_STUDIO_CODE_RUN, outcome );
 }
 
 function sendEvent( run: AgentRun, event: AgentRunEvent[ 'event' ] ): void {

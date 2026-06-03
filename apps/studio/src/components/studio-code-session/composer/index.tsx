@@ -5,15 +5,13 @@ import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { arrowUp, chevronDownSmall } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import motionStyles from '../floating-surface-motion/style.module.css';
 import * as Menu from '../menu';
-import menuStyles from '../menu/style.module.css';
 import { SESSIONS_QUERY_KEY } from '../use-session';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
-import { getSlashCommandMatches } from './slash-autocomplete';
 import styles from './style.module.css';
+import { useSlashCommands } from './use-slash-commands';
 import type { SessionEntry } from '@mariozechner/pi-coding-agent';
 import type { AiModelId } from '@studio/common/ai/models';
 import type { LoadedAiSession } from '@studio/common/ai/sessions/types';
@@ -67,54 +65,6 @@ interface ComposerProps {
 const isMacPlatform =
 	typeof navigator !== 'undefined' && /mac/i.test( navigator.platform || navigator.userAgent );
 
-// Matches the trailing `/token` (at the start of input or right after
-// whitespace) that drives the inline autocomplete. Shared by the insert,
-// close-on-Escape, and toggle-button paths so they stay in sync.
-const TRAILING_SLASH_TOKEN = /(^|\s)\/[\w-]*$/;
-
-type FloatingPresenceStatus = 'starting' | 'open' | 'ending';
-
-/**
- * Drives the enter/exit transitions from `floating-surface-motion` for a plain
- * element. Base UI's `Menu.Popup` toggles `data-starting-style` /
- * `data-ending-style` itself, but our inline listbox is a plain `<ul>` (kept
- * plain so the textarea retains focus), so we reproduce that handshake: mount
- * with the starting styles applied, drop them on the next paint to animate in,
- * and keep the element mounted while the ending styles play out before
- * unmounting. Returns whether to render the element and its transition phase.
- */
-function useFloatingPresence( open: boolean ): {
-	mounted: boolean;
-	status: FloatingPresenceStatus;
-} {
-	// Matches the longest transition in floating-surface-motion (transform 180ms).
-	const EXIT_MS = 200;
-	const [ mounted, setMounted ] = useState( open );
-	const [ status, setStatus ] = useState< FloatingPresenceStatus >( open ? 'open' : 'ending' );
-
-	useEffect( () => {
-		if ( open ) {
-			setMounted( true );
-			setStatus( 'starting' );
-			// Two frames so the browser paints the starting styles before we drop
-			// them — otherwise there's no "from" state and the transition is skipped.
-			let inner = 0;
-			const outer = requestAnimationFrame( () => {
-				inner = requestAnimationFrame( () => setStatus( 'open' ) );
-			} );
-			return () => {
-				cancelAnimationFrame( outer );
-				cancelAnimationFrame( inner );
-			};
-		}
-		setStatus( 'ending' );
-		const timer = setTimeout( () => setMounted( false ), EXIT_MS );
-		return () => clearTimeout( timer );
-	}, [ open ] );
-
-	return { mounted, status };
-}
-
 export function Composer( {
 	busy,
 	isInterrupting = false,
@@ -151,73 +101,9 @@ export function Composer( {
 		} );
 	}, [ draftPrompt ] );
 
-	// Inline slash-command autocomplete. The popup is driven entirely by the
-	// textarea value so the textarea keeps focus the whole time (a `Menu.Root`
-	// would steal focus). The helper closes the popup while a `previewPrompt`
-	// is active so it never collides with the example-prompt preview.
-	const { open: slashOpen, matches: slashMatches } = useMemo(
-		() => getSlashCommandMatches( value, previewPrompt ),
-		[ value, previewPrompt ]
-	);
-	const [ highlightedIndex, setHighlightedIndex ] = useState( 0 );
-
-	// Whenever the filtered list changes, reset the highlight to the top.
-	const matchKey = slashMatches.map( ( command ) => command.name ).join( ',' );
-	useEffect( () => {
-		setHighlightedIndex( 0 );
-	}, [ matchKey ] );
-
-	// Mount/unmount transition so the listbox animates in and out (see
-	// `useFloatingPresence`). While exiting, `slashMatches` has already emptied,
-	// so retain the last visible set — updated during render, the supported
-	// pattern for deriving state — to animate out with its content intact.
-	const slashPresence = useFloatingPresence( slashOpen );
-	const [ popupMatches, setPopupMatches ] = useState( slashMatches );
-	if ( slashOpen && popupMatches !== slashMatches ) {
-		setPopupMatches( slashMatches );
-	}
-
-	// Accessibility: wire the textarea (combobox) to the listbox and its active
-	// option so screen readers announce the open state and the highlighted item.
-	const listboxId = useId();
-	const optionId = useCallback( ( name: string ) => `${ listboxId }-${ name }`, [ listboxId ] );
-	const activeOptionId =
-		slashOpen && slashMatches[ highlightedIndex ]
-			? optionId( slashMatches[ highlightedIndex ].name )
-			: undefined;
-
-	// Replace the trailing `/token` (at start or after whitespace) with the
-	// chosen command, preserving any earlier text and the leading whitespace.
-	const insertSlashCommand = useCallback( ( name: string ) => {
-		setValue( ( prev ) => prev.replace( TRAILING_SLASH_TOKEN, `$1/${ name } ` ) );
-		textareaRef.current?.focus();
-	}, [] );
-
-	// Toolbar "/" button. Toggles the inline autocomplete: when closed it appends
-	// a "/" (preceded by a space when the input doesn't already end in
-	// whitespace) to open it, keeping whatever the user already typed; when
-	// already open, a second click strips the trailing "/token" to close it.
-	// Either way the textarea is refocused with the caret at the end.
-	const triggerSlashCommands = useCallback( () => {
-		setValue( ( prev ) => {
-			if ( slashOpen ) {
-				return prev.replace( TRAILING_SLASH_TOKEN, '' );
-			}
-			if ( prev.length === 0 ) {
-				return '/';
-			}
-			return /\s$/.test( prev ) ? `${ prev }/` : `${ prev } /`;
-		} );
-		const node = textareaRef.current;
-		queueMicrotask( () => {
-			if ( ! node ) {
-				return;
-			}
-			node.focus();
-			const end = node.value.length;
-			node.setSelectionRange( end, end );
-		} );
-	}, [ slashOpen ] );
+	// Inline slash-command autocomplete (popup, keyboard nav, ARIA wiring, and
+	// the toolbar "/" toggle). Kept in its own hook so the Composer stays lean.
+	const slash = useSlashCommands( { value, setValue, textareaRef, previewPrompt } );
 
 	// Cross-family swap state. We hold the picked model here while the
 	// confirmation dialog is open; nothing is persisted until the user
@@ -355,44 +241,11 @@ export function Composer( {
 							placeholder={ placeholder }
 							value={ previewPrompt ?? value }
 							data-preview={ previewPrompt ? 'true' : 'false' }
-							role="combobox"
-							aria-autocomplete="list"
-							aria-haspopup="listbox"
-							aria-expanded={ slashOpen }
-							aria-controls={ slashOpen ? listboxId : undefined }
-							aria-activedescendant={ activeOptionId }
+							{ ...slash.comboboxProps }
 							onChange={ ( event ) => setValue( event.target.value ) }
 							onKeyDown={ ( event ) => {
-								if ( slashOpen ) {
-									if ( event.key === 'ArrowDown' ) {
-										event.preventDefault();
-										setHighlightedIndex( ( index ) => ( index + 1 ) % slashMatches.length );
-										return;
-									}
-									if ( event.key === 'ArrowUp' ) {
-										event.preventDefault();
-										setHighlightedIndex(
-											( index ) => ( index - 1 + slashMatches.length ) % slashMatches.length
-										);
-										return;
-									}
-									if ( event.key === 'Enter' || event.key === 'Tab' ) {
-										event.preventDefault();
-										const command = slashMatches[ highlightedIndex ];
-										if ( command ) {
-											insertSlashCommand( command.name );
-										}
-										return;
-									}
-									if ( event.key === 'Escape' ) {
-										// Close the popup by dropping the unfinished `/token`, leaving any
-										// earlier text intact. stopPropagation keeps this Escape from also
-										// reaching the Escape-to-interrupt handler.
-										event.preventDefault();
-										event.stopPropagation();
-										setValue( ( prev ) => prev.replace( TRAILING_SLASH_TOKEN, '' ) );
-										return;
-									}
+								if ( slash.handleKeyDown( event ) ) {
+									return;
 								}
 								if ( event.key === 'Escape' && busy ) {
 									event.preventDefault();
@@ -406,40 +259,7 @@ export function Composer( {
 							} }
 							rows={ 2 }
 						/>
-						{ slashPresence.mounted ? (
-							<ul
-								id={ listboxId }
-								className={ `${ menuStyles.popup } ${ styles.autocompletePopup } ${ motionStyles.motion }` }
-								data-side="top"
-								data-align="start"
-								data-starting-style={ slashPresence.status === 'starting' ? '' : undefined }
-								data-ending-style={ slashPresence.status === 'ending' ? '' : undefined }
-								role="listbox"
-								aria-label={ __( 'Slash commands' ) }
-							>
-								{ popupMatches.map( ( command, index ) => (
-									<li
-										key={ command.name }
-										id={ optionId( command.name ) }
-										role="option"
-										aria-selected={ index === highlightedIndex }
-										className={ menuStyles.item }
-										data-highlighted={ index === highlightedIndex ? '' : undefined }
-										onMouseDown={ ( event ) => {
-											// Prevent the textarea from losing focus on click.
-											event.preventDefault();
-											insertSlashCommand( command.name );
-										} }
-										onMouseEnter={ () => setHighlightedIndex( index ) }
-									>
-										<span className={ styles.commandItem }>
-											<span className={ styles.commandName }>/{ command.name }</span>
-											<span className={ styles.commandDescription }>{ command.description }</span>
-										</span>
-									</li>
-								) ) }
-							</ul>
-						) : null }
+						{ slash.popup }
 					</div>
 					<div className={ styles.toolbar }>
 						<div className={ styles.leftActions }>
@@ -447,7 +267,7 @@ export function Composer( {
 								type="button"
 								className={ `${ styles.iconButton } ${ styles.glyphButton }` }
 								aria-label={ __( 'Skills' ) }
-								onClick={ triggerSlashCommands }
+								onClick={ slash.toggle }
 							>
 								/
 							</button>

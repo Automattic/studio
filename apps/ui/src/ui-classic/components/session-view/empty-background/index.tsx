@@ -32,6 +32,9 @@ const MAX_RIPPLES = 4;
 const COLOR_STEPS = 18;
 const VELOCITY_EPSILON_SQUARED = 0.001;
 const DISPLACEMENT_EPSILON_SQUARED = 0.04;
+const REFERENCE_FRAME_MS = 1000 / 120;
+const MIN_FRAME_FACTOR = 0.5;
+const MAX_FRAME_FACTOR = 4;
 
 const COLOR_STYLES = Array.from( { length: COLOR_STEPS + 1 }, ( _, step ) => {
 	const intensity = step / COLOR_STEPS;
@@ -48,6 +51,20 @@ function getColorStyle( intensity: number ) {
 	const step = Math.min( COLOR_STEPS, Math.max( 0, Math.round( intensity * COLOR_STEPS ) ) );
 
 	return COLOR_STYLES[ step ];
+}
+
+function getFrameFactor( timestamp: number, previousTimestamp: number | null ) {
+	if ( previousTimestamp === null ) {
+		return 1;
+	}
+
+	const frameFactor = ( timestamp - previousTimestamp ) / REFERENCE_FRAME_MS;
+
+	return Math.min( MAX_FRAME_FACTOR, Math.max( MIN_FRAME_FACTOR, frameFactor ) );
+}
+
+function scaleEasingForFrameFactor( value: number, frameFactor: number ) {
+	return 1 - Math.pow( 1 - value, frameFactor );
 }
 
 type Particle = {
@@ -130,6 +147,7 @@ export function EmptyBackground() {
 		let currentWaveActive = false;
 		let waveCos = 1;
 		let waveSin = 0;
+		let previousFrameTimestamp: number | null = null;
 
 		function canAnimate() {
 			return (
@@ -159,12 +177,11 @@ export function EmptyBackground() {
 		}
 
 		function cancelLoop() {
-			if ( raf === null ) {
-				return;
+			if ( raf !== null ) {
+				cancelAnimationFrame( raf );
+				raf = null;
 			}
-
-			cancelAnimationFrame( raf );
-			raf = null;
+			previousFrameTimestamp = null;
 		}
 
 		function resetParticles() {
@@ -263,6 +280,11 @@ export function EmptyBackground() {
 				return;
 			}
 
+			const frameFactor = getFrameFactor( timestamp, previousFrameTimestamp );
+			previousFrameTimestamp = timestamp;
+			const pointerEase = scaleEasingForFrameFactor( POINTER_EASE, frameFactor );
+			const spring = SPRING * frameFactor;
+			const damping = Math.pow( DAMPING, frameFactor );
 			context.clearRect( 0, 0, CANVAS_SIZE, CANVAS_SIZE );
 
 			const activeRipples: ActiveRipple[] = [];
@@ -303,8 +325,8 @@ export function EmptyBackground() {
 			let motionX = 0;
 			let motionY = 0;
 			if ( hover ) {
-				const nextMouseX = mouseX + ( targetMouseX - mouseX ) * POINTER_EASE;
-				const nextMouseY = mouseY + ( targetMouseY - mouseY ) * POINTER_EASE;
+				const nextMouseX = mouseX + ( targetMouseX - mouseX ) * pointerEase;
+				const nextMouseY = mouseY + ( targetMouseY - mouseY ) * pointerEase;
 				motionX = nextMouseX - mouseX;
 				motionY = nextMouseY - mouseY;
 				mouseX = nextMouseX;
@@ -312,7 +334,7 @@ export function EmptyBackground() {
 			}
 
 			const motionDistance = Math.hypot( motionX, motionY );
-			const motionEnergy = Math.min( 1, motionDistance / 9 );
+			const motionEnergy = Math.min( 1, motionDistance / frameFactor / 9 );
 			const motionDirX = motionDistance > 0.0001 ? motionX / motionDistance : 0;
 			const motionDirY = motionDistance > 0.0001 ? motionY / motionDistance : 0;
 			const elapsed = timestamp - animationStart;
@@ -396,14 +418,14 @@ export function EmptyBackground() {
 					}
 				}
 
-				pt.vx += ( targetX - pt.x ) * SPRING;
-				pt.vy += ( targetY - pt.y ) * SPRING;
-				pt.vx += orbitForceX;
-				pt.vy += orbitForceY;
-				pt.vx *= DAMPING;
-				pt.vy *= DAMPING;
-				pt.x += pt.vx;
-				pt.y += pt.vy;
+				pt.vx += ( targetX - pt.x ) * spring;
+				pt.vy += ( targetY - pt.y ) * spring;
+				pt.vx += orbitForceX * frameFactor;
+				pt.vy += orbitForceY * frameFactor;
+				pt.vx *= damping;
+				pt.vy *= damping;
+				pt.x += pt.vx * frameFactor;
+				pt.y += pt.vy * frameFactor;
 
 				let intensity = 0;
 				if ( currentWaveActive ) {
@@ -444,6 +466,7 @@ export function EmptyBackground() {
 			}
 
 			resetParticles();
+			previousFrameTimestamp = null;
 			drawStatic();
 			scheduleNextWave();
 		}

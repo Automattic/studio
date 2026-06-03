@@ -1193,10 +1193,10 @@ export const syncOperationsSelectors = {
 				if ( pullState.selectedSite.id !== selectedSiteId ) {
 					return false;
 				}
-				if ( pullState.remoteSiteId === remoteSiteId ) {
-					return isKeyPulling( pullState.status.key );
+				if ( remoteSiteId !== undefined && pullState.remoteSiteId !== remoteSiteId ) {
+					return false;
 				}
-				return pullState.status && isKeyPulling( pullState.status.key );
+				return isKeyPulling( pullState.status.key );
 			} );
 		},
 	selectIsSiteIdPullingLocally:
@@ -1206,10 +1206,10 @@ export const syncOperationsSelectors = {
 				if ( pullState.selectedSite.id !== selectedSiteId ) {
 					return false;
 				}
-				if ( pullState.remoteSiteId === remoteSiteId ) {
-					return isKeyPullingLocally( pullState.status.key );
+				if ( remoteSiteId !== undefined && pullState.remoteSiteId !== remoteSiteId ) {
+					return false;
 				}
-				return pullState.status && isKeyPullingLocally( pullState.status.key );
+				return isKeyPullingLocally( pullState.status.key );
 			} );
 		},
 	selectIsAnySitePushing: ( state: { syncOperations: SyncOperationsState } ): boolean => {
@@ -1224,8 +1224,8 @@ export const syncOperationsSelectors = {
 				if ( pushState.selectedSite.id !== selectedSiteId ) {
 					return false;
 				}
-				if ( pushState.remoteSiteId === remoteSiteId ) {
-					return isKeyPushing( pushState.status.key );
+				if ( remoteSiteId !== undefined && pushState.remoteSiteId !== remoteSiteId ) {
+					return false;
 				}
 				return isKeyPushing( pushState.status.key );
 			} );
@@ -1237,8 +1237,8 @@ export const syncOperationsSelectors = {
 				if ( pushState.selectedSite.id !== selectedSiteId ) {
 					return false;
 				}
-				if ( pushState.remoteSiteId === remoteSiteId ) {
-					return isKeyUploading( pushState.status.key );
+				if ( remoteSiteId !== undefined && pushState.remoteSiteId !== remoteSiteId ) {
+					return false;
 				}
 				return isKeyUploading( pushState.status.key );
 			} );

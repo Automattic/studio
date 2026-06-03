@@ -5,7 +5,7 @@ export const MAIN_MIN_HEIGHT = 600;
 export const SIDEBAR_WIDTH = 208;
 export const SIDEBAR_MIN_WIDTH = 200;
 export const SIDEBAR_MAX_WIDTH = 400;
-export const MAIN_MIN_WIDTH = DEFAULT_WIDTH - SIDEBAR_WIDTH + 20;
+export const MAIN_MIN_WIDTH = 712;
 export const LOCAL_STORAGE_SIDEBAR_WIDTH_KEY = 'sidebar_width';
 export const APP_CHROME_SPACING = 10;
 export const MIN_WIDTH_CLASS_TO_MEASURE = 'app-measure-tabs-width';
@@ -16,6 +16,7 @@ export const LIMIT_OF_ZIP_SITES_PER_USER = 10;
 export const LIMIT_OF_PROMPTS_PER_USER = 200;
 export const UPDATED_MESSAGE_DURATION_MS = 60000; // 1 minute
 export const AUTO_UPDATE_INTERVAL_MS = 60 * 60 * 1000;
+export const NIGHTLY_UPDATE_TTL_MS = 24 * 60 * 60 * 1000;
 export const MACOS_TRAFFIC_LIGHT_POSITION = { x: 20, y: 20 };
 export const WINDOWS_TITLEBAR_HEIGHT = 44;
 export const EMPTY_SITE_PLAYGROUND_URL = 'https://playground.wordpress.net/';
@@ -83,7 +84,6 @@ export const IPC_VOID_HANDLERS = [
 	'showItemInFolder',
 	'showNotification',
 	'authenticate',
-	'studioCodeAbort',
 ] as const;
 
 // What's New

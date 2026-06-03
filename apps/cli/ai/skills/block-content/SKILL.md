@@ -13,7 +13,7 @@ Use this skill before writing or editing page content, post content, templates, 
 - Use editable WordPress blocks for content and layout. Prefer `core/group`, `core/columns`, `core/heading`, `core/paragraph`, `core/list`, `core/image`, `core/buttons`, and theme CSS.
 - Only use `core/html` blocks for inline SVGs, interaction markup with no block equivalent such as marquee or custom cursor markup, or a single bottom-of-page `<script>` block.
 - Never use `core/html` to wrap text content, headings, layout sections, lists, or forms.
-- For forms, newsletter signup, or features core blocks do not cleanly provide, load the `plugin-recommendations` skill and use editable plugin blocks.
+- For forms or features core blocks do not cleanly provide, load the `plugin-recommendations` skill and use editable plugin blocks.
 - No decorative HTML comments such as `<!-- Hero Section -->` or `<!-- Features -->`. Only WordPress block delimiter comments are allowed.
 - No custom class names on inner DOM elements. Put custom classes only on the outermost block wrapper via the block `className` attribute.
 - No inline `style` attributes or block `style` attributes for styling. Use `className` plus the theme's `style.css`.

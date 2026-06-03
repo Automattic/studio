@@ -1,0 +1,89 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { getBlueprintsPharPath } from 'cli/lib/dependency-management/paths';
+import { runPhpCommand } from './php-process';
+import type { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
+import type { ServerConfig } from 'cli/lib/types/wordpress-server-ipc';
+
+export async function runBlueprint(
+	config: ServerConfig,
+	blueprint: NonNullable< ServerConfig[ 'blueprint' ] >,
+	phpVersion: NativePhpSupportedVersion,
+	signal: AbortSignal
+): Promise< void > {
+	// blueprints.phar accepts local paths only; remote URIs need the Playground runtime.
+	if ( blueprint.uri.startsWith( 'http://' ) || blueprint.uri.startsWith( 'https://' ) ) {
+		throw new Error(
+			`Remote blueprint URIs are not supported by the native PHP runtime: ${ blueprint.uri }`
+		);
+	}
+
+	const enableDebugLog = config.enableDebugLog ?? false;
+	const enableDebugDisplay = config.enableDebugDisplay ?? false;
+	const defaultConstants: Record< string, boolean | string > = {
+		// The SQLite driver requires a non-empty DB_NAME at runtime.
+		DB_NAME: 'wordpress',
+		WP_DEBUG: enableDebugLog || enableDebugDisplay,
+		WP_DEBUG_LOG: enableDebugLog,
+		WP_DEBUG_DISPLAY: enableDebugDisplay,
+	};
+
+	blueprint.contents.constants = {
+		...blueprint.contents.constants,
+		...defaultConstants,
+	};
+	// Native PHP selects PHP and installs WordPress before Blueprint execution.
+	// Passing preferredVersions makes blueprints.phar validate versions it does not manage here.
+	delete blueprint.contents.preferredVersions;
+
+	const blueprintDir = path.dirname( blueprint.uri );
+	const tmpPath = path.join( blueprintDir, `studio-blueprint-${ config.siteId }.json` );
+	await fs.promises.writeFile( tmpPath, JSON.stringify( blueprint.contents ) );
+
+	// blueprints.phar detects SQLite under plugins, while Studio installs it under mu-plugins.
+	const muPluginsSqlite = path.join(
+		config.sitePath,
+		'wp-content',
+		'mu-plugins',
+		'sqlite-database-integration'
+	);
+	const pluginsSqlite = path.join(
+		config.sitePath,
+		'wp-content',
+		'plugins',
+		'sqlite-database-integration'
+	);
+	const needsSymlink = fs.existsSync( muPluginsSqlite ) && ! fs.existsSync( pluginsSqlite );
+	let symlinkIno: number | undefined;
+	if ( needsSymlink ) {
+		fs.symlinkSync( muPluginsSqlite, pluginsSqlite, 'junction' );
+		// Remove only the entry created here, not unrelated content that replaced it.
+		symlinkIno = fs.statSync( pluginsSqlite ).ino;
+	}
+
+	try {
+		await runPhpCommand(
+			[
+				getBlueprintsPharPath(),
+				'exec',
+				tmpPath,
+				'--mode=apply-to-existing-site',
+				`--site-path=${ config.sitePath }`,
+				`--site-url=${ config.absoluteUrl ?? `http://localhost:${ config.port }` }`,
+				'--db-engine=sqlite',
+			],
+			{ phpVersion, signal }
+		);
+	} finally {
+		await fs.promises.unlink( tmpPath ).catch( () => {} );
+		if ( needsSymlink ) {
+			try {
+				if ( fs.statSync( pluginsSqlite ).ino === symlinkIno ) {
+					await fs.promises.rm( pluginsSqlite, { recursive: true, force: true } );
+				}
+			} catch {
+				// Best effort - leaving the symlink behind is non-fatal.
+			}
+		}
+	}
+}

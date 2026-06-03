@@ -1,4 +1,3 @@
-import { HOUR_MS } from '@studio/common/constants';
 export const DEFAULT_WIDTH = 1100;
 export const DEFAULT_HEIGHT = 820;
 export const MAIN_MIN_HEIGHT = 600;
@@ -22,19 +21,11 @@ export const WINDOWS_TITLEBAR_HEIGHT = 44;
 export const EMPTY_SITE_PLAYGROUND_URL = 'https://playground.wordpress.net/';
 export const ABOUT_WINDOW_WIDTH = 300;
 export const ABOUT_WINDOW_HEIGHT = 350;
-export const TELEX_HOSTNAME = 'telex.automattic.ai';
-export const TELEX_UTM_PARAMS = {
-	utm_source: 'studio',
-	utm_medium: 'app',
-	utm_campaign: 'assistant',
-} as const;
 export const BUG_REPORT_URL =
 	'https://github.com/Automattic/studio/issues/new?assignees=&labels=Needs+triage%2C%5BType%5D+Bug&projects=&template=bug_report.yml';
 export const FEATURE_REQUEST_URL =
 	'https://github.com/Automattic/studio/issues/new?assignees=&labels=%5BType%5D+Feature+Request&projects=&template=feature_request.yml&title=Feature+Request%3A';
 export const WPCOM_PROFILE_URL = 'https://wordpress.com/me';
-export const LOCAL_STORAGE_CHAT_MESSAGES_KEY = 'ai_chat_messages';
-export const LOCAL_STORAGE_CHAT_API_IDS_KEY = 'ai_chat_ids';
 export const DEFAULT_TERMINAL = 'terminal';
 
 export const SYNC_OPTIONS = {
@@ -49,11 +40,6 @@ export const SYNC_OPTIONS = {
 	uploads: 'uploads',
 	contents: 'contents',
 } as const;
-
-// AI Assistant constants
-// IMPORTANT: When updating this value, we need to update the string located in `AIClearHistoryReminder` component.
-// Reference: https://github.com/Automattic/studio/blob/3dd5c58cdb7998e458d191e508e8e859177225a9/src/components/ai-clear-history-reminder.tsx#L78
-export const CLEAR_HISTORY_REMINDER_TIME = 2 * HOUR_MS; // In milliseconds
 
 // WP-CLI
 export const WP_CLI_DEFAULT_RESPONSE_TIMEOUT = 5 * 60 * 1000; // 5min

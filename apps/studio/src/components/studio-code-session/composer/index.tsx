@@ -6,7 +6,7 @@ import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { arrowUp, chevronDownSmall } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import * as Menu from '../menu';
 import { SESSIONS_QUERY_KEY } from '../use-session';
@@ -52,6 +52,14 @@ interface ComposerProps {
 	// dropdown still works for unowned sessions.
 	ownerSiteId?: string;
 	onSwitchSession?: ( sessionId: string ) => void;
+	// Populates (but does not send) the textarea, e.g. when the user clicks an
+	// example prompt on an empty conversation. The `id` lets us re-apply the
+	// same prompt text more than once.
+	draftPrompt?: { id: number; prompt: string } | null;
+	// Temporarily previews a prompt in the textarea (muted) without committing
+	// it to the draft, e.g. while hovering an example prompt. Clearing it
+	// restores whatever the user had typed.
+	previewPrompt?: string | null;
 }
 
 const isMacPlatform =
@@ -68,9 +76,30 @@ export function Composer( {
 	entries,
 	ownerSiteId,
 	onSwitchSession,
+	draftPrompt,
+	previewPrompt,
 }: ComposerProps ) {
 	const [ value, setValue ] = useState( '' );
+	const textareaRef = useRef< HTMLTextAreaElement | null >( null );
+	const appliedDraftPromptIdRef = useRef< number | null >( null );
 	const queryClient = useQueryClient();
+
+	useEffect( () => {
+		if ( ! draftPrompt || appliedDraftPromptIdRef.current === draftPrompt.id ) {
+			return;
+		}
+		appliedDraftPromptIdRef.current = draftPrompt.id;
+		setValue( draftPrompt.prompt );
+		queueMicrotask( () => {
+			const node = textareaRef.current;
+			if ( ! node ) {
+				return;
+			}
+			node.focus();
+			const length = node.value.length;
+			node.setSelectionRange( length, length );
+		} );
+	}, [ draftPrompt ] );
 
 	// Cross-family swap state. We hold the picked model here while the
 	// confirmation dialog is open; nothing is persisted until the user
@@ -202,9 +231,11 @@ export function Composer( {
 			<div className={ styles.root }>
 				<div className={ styles.shell }>
 					<textarea
+						ref={ textareaRef }
 						className={ styles.input }
 						placeholder={ placeholder }
-						value={ value }
+						value={ previewPrompt ?? value }
+						data-preview={ previewPrompt ? 'true' : 'false' }
 						onChange={ ( event ) => setValue( event.target.value ) }
 						onKeyDown={ ( event ) => {
 							if ( event.key === 'Escape' && busy ) {

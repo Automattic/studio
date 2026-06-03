@@ -38,6 +38,10 @@
 	color: var(--wpds-color-fg-content-neutral-weak);
 }
 
+.input[data-preview='true'] {
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
 .toolbar {
 	display: flex;
 	align-items: flex-end;

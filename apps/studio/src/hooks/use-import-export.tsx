@@ -6,9 +6,20 @@ import {
 	ValidatorEvents,
 } from '@studio/common/lib/import-export-events';
 import { __, sprintf } from '@wordpress/i18n';
-import { createContext, useMemo, useState, useCallback, useContext } from 'react';
+import {
+	createContext,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+	useCallback,
+	useContext,
+} from 'react';
+import { useAuth } from 'src/hooks/use-auth';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useRootSelector } from 'src/stores';
+import { syncOperationsSelectors } from 'src/stores/sync/sync-operations-slice';
 
 export type ImportProgressState = {
 	[ siteId: string ]: {
@@ -65,6 +76,27 @@ const WP_CONTENT_TYPE_LABELS: Record< string, string > = {
 export const ImportExportProvider = ( { children }: { children: React.ReactNode } ) => {
 	const [ importState, setImportState ] = useState< ImportProgressState >( {} );
 	const [ exportState, setExportState ] = useState< ExportProgressState >( {} );
+	const { isAuthenticated } = useAuth();
+	const isAnyPullActive = useRootSelector( syncOperationsSelectors.selectIsAnySitePulling );
+
+	// Snapshot the latest pre-logout pull-active value while still authenticated.
+	// pullStates is reset synchronously on userLoggedOut, so by the time the effect
+	// below sees `isAuthenticated === false`, isAnyPullActive is already false.
+	const hadActivePullRef = useRef( false );
+	if ( isAuthenticated ) {
+		hadActivePullRef.current = isAnyPullActive;
+	}
+
+	useEffect( () => {
+		// On logout, only clear import/export state if no pull was in flight.
+		// An active pull's import phase is driven by main-process events that
+		// would just repopulate this state, so leave it alone and let the
+		// import finish.
+		if ( ! isAuthenticated && ! hadActivePullRef.current ) {
+			setImportState( {} );
+			setExportState( {} );
+		}
+	}, [ isAuthenticated ] );
 
 	const importFile = useCallback(
 		async (

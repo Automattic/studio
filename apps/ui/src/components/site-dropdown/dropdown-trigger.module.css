@@ -1,10 +1,13 @@
 .trigger {
-	--wp-ui-button-background-color: var(--wpds-color-bg-surface-neutral);
-	--wp-ui-button-background-color-active: var(--wpds-color-bg-surface-neutral);
-	--wp-ui-button-background-color-hover: var(--wpds-color-bg-surface-neutral);
-	--wp-ui-button-border-color: var(--wpds-color-stroke-surface-neutral);
-	--wp-ui-button-border-color-active: var(--wpds-color-stroke-surface-neutral);
-	--wp-ui-button-border-color-hover: var(--wpds-color-stroke-surface-neutral);
+	--site-dropdown-trigger-background-hover: var(
+		--wpds-color-bg-interactive-neutral-weak-active,
+		#ededed
+	);
+	--wp-ui-button-background-color: transparent;
+	--wp-ui-button-background-color-active: var(--site-dropdown-trigger-background-hover);
+	--wp-ui-button-border-color: transparent;
+	--wp-ui-button-border-color-active: transparent;
+	--wp-ui-button-border-color-hover: transparent;
 	--wp-ui-button-height: var(--site-preview-control-height, 38px);
 
 	flex: 0 1 auto;
@@ -15,14 +18,18 @@
 	height: var(--site-preview-control-height, 38px);
 	min-height: var(--site-preview-control-height, 38px);
 	padding: 0 var(--wpds-dimension-padding-sm);
-	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border: 1px solid transparent;
 	border-radius: 8px;
-	background: var(--wpds-color-bg-surface-neutral);
+	background: transparent;
 	white-space: nowrap;
+	transition:
+		background-color 120ms ease,
+		border-color 120ms ease;
 }
 
-.trigger:hover {
-	border-color: var(--wpds-color-stroke-surface-neutral);
+.trigger:is(:hover, :focus-visible, [data-popup-open]) {
+	background-color: var(--site-dropdown-trigger-background-hover);
+	border-color: transparent;
 }
 
 .siteIcon {

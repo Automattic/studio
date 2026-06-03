@@ -67,6 +67,11 @@ interface ComposerProps {
 const isMacPlatform =
 	typeof navigator !== 'undefined' && /mac/i.test( navigator.platform || navigator.userAgent );
 
+// Matches the trailing `/token` (at the start of input or right after
+// whitespace) that drives the inline autocomplete. Shared by the insert,
+// close-on-Escape, and toggle-button paths so they stay in sync.
+const TRAILING_SLASH_TOKEN = /(^|\s)\/[\w-]*$/;
+
 type FloatingPresenceStatus = 'starting' | 'open' | 'ending';
 
 /**
@@ -184,16 +189,20 @@ export function Composer( {
 	// Replace the trailing `/token` (at start or after whitespace) with the
 	// chosen command, preserving any earlier text and the leading whitespace.
 	const insertSlashCommand = useCallback( ( name: string ) => {
-		setValue( ( prev ) => prev.replace( /(^|\s)\/[\w-]*$/, `$1/${ name } ` ) );
+		setValue( ( prev ) => prev.replace( TRAILING_SLASH_TOKEN, `$1/${ name } ` ) );
 		textareaRef.current?.focus();
 	}, [] );
 
-	// Legend affordance below the input: appends a "/" (preceded by a space when
-	// the input doesn't already end in whitespace) and focuses the textarea,
-	// which opens the inline autocomplete. Keeps whatever the user already typed
-	// so commands can be discovered mid-message, not just on an empty input.
+	// Toolbar "/" button. Toggles the inline autocomplete: when closed it appends
+	// a "/" (preceded by a space when the input doesn't already end in
+	// whitespace) to open it, keeping whatever the user already typed; when
+	// already open, a second click strips the trailing "/token" to close it.
+	// Either way the textarea is refocused with the caret at the end.
 	const triggerSlashCommands = useCallback( () => {
 		setValue( ( prev ) => {
+			if ( slashOpen ) {
+				return prev.replace( TRAILING_SLASH_TOKEN, '' );
+			}
 			if ( prev.length === 0 ) {
 				return '/';
 			}
@@ -208,7 +217,7 @@ export function Composer( {
 			const end = node.value.length;
 			node.setSelectionRange( end, end );
 		} );
-	}, [] );
+	}, [ slashOpen ] );
 
 	// Cross-family swap state. We hold the picked model here while the
 	// confirmation dialog is open; nothing is persisted until the user
@@ -381,7 +390,7 @@ export function Composer( {
 										// reaching the Escape-to-interrupt handler.
 										event.preventDefault();
 										event.stopPropagation();
-										setValue( ( prev ) => prev.replace( /(^|\s)\/[\w-]*$/, '' ) );
+										setValue( ( prev ) => prev.replace( TRAILING_SLASH_TOKEN, '' ) );
 										return;
 									}
 								}

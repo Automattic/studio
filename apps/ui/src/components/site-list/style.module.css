@@ -1,6 +1,6 @@
 .root {
-	padding: 0 var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-xl)
-		calc(var(--wpds-dimension-padding-xl) + var(--wpds-dimension-padding-sm));
+	padding: 0 var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-xl)
+		calc(var(--wpds-dimension-padding-md) + var(--wpds-dimension-padding-sm));
 	display: flex;
 	flex-direction: column;
 	gap: var(--wpds-dimension-padding-sm);
@@ -43,27 +43,9 @@
 	display: inline-grid;
 	place-items: center;
 	flex-shrink: 0;
-	inline-size: 0;
-	margin-inline-end: 0;
-	opacity: 0;
-	transform: translateX(-4px) scale(0.75);
-	transform-origin: left center;
+	inline-size: 24px;
+	margin-inline-end: var(--wpds-dimension-padding-md);
 	overflow: hidden;
-	transition: inline-size 150ms ease, margin-inline-end 150ms ease, opacity 150ms ease,
-		transform 150ms ease;
-}
-
-.siteActive .siteIconSlot {
-	inline-size: 16px;
-	margin-inline-end: var(--wpds-dimension-padding-xs);
-	opacity: 1;
-	transform: translateX(0) scale(1);
-}
-
-@media (prefers-reduced-motion: reduce) {
-	.siteIconSlot {
-		transition: none;
-	}
 }
 
 .siteName {
@@ -168,22 +150,14 @@
 .sessionLink {
 	width: 100%;
 	height: 26px;
-	padding: 0 var(--wpds-dimension-padding-md) 0 var(--wpds-dimension-padding-xl);
+	/* Align the session label with the site title above it: the site label
+	   sits inside a small Button (padding-inline `sm`) after the 24px icon
+	   and its `md` margin, so its text starts at `sm + 24px + md`. */
+	padding: 0 var(--wpds-dimension-padding-sm) 0
+		calc(var(--wpds-dimension-padding-sm) + 24px + var(--wpds-dimension-padding-md));
 	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
+	font-size: var(--wpds-typography-font-size-md);
 	font-weight: var(--wpds-typography-font-weight-regular);
-}
-
-/* Use ::after so we don't collide with the Button primitive's ::before
-   (which it uses for the loading spinner). */
-.sessionLink::after {
-	content: '';
-	position: absolute;
-	left: var(--wpds-dimension-padding-sm);
-	top: 4px;
-	bottom: 4px;
-	width: 1px;
-	background: transparent;
 }
 
 .sessionLabel {
@@ -196,9 +170,12 @@
 
 .sessionTime {
 	flex-shrink: 0;
-	font-size: 10px;
 	color: var(--wpds-color-fg-content-neutral-weak);
 	opacity: 0.55;
+}
+
+.sessionSpinner {
+	align-self: center;
 }
 
 .sessionLink:hover,
@@ -208,10 +185,6 @@
 
 .sessionLinkActive {
 	color: var(--wpds-color-fg-content-neutral);
-}
-
-.sessionLinkActive::after {
-	background: var(--wpds-color-fg-content-neutral);
 }
 
 .dialogText {

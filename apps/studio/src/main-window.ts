@@ -1,6 +1,7 @@
 import {
 	BrowserWindow,
 	type BrowserWindowConstructorOptions,
+	Menu,
 	screen,
 	app,
 	nativeTheme,
@@ -232,6 +233,37 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 
 	mainWindow.webContents.once( 'did-finish-load', () => {
 		void promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: true } );
+	} );
+
+	// Cmd/Ctrl +/-/0 zoom. The classic shell gets these from the application
+	// menu's zoom roles (see menu.ts); the apps/ui shell never builds that
+	// menu, so the accelerators are dead there. Wire them at the webContents
+	// level, but defer to the application menu when one is present so the
+	// classic shell doesn't zoom twice per keypress.
+	mainWindow.webContents.on( 'before-input-event', ( event, input ) => {
+		if ( input.type !== 'keyDown' || ! ( input.meta || input.control ) ) {
+			return;
+		}
+		if ( Menu.getApplicationMenu() ) {
+			return;
+		}
+		const contents = mainWindow?.webContents;
+		if ( ! contents ) {
+			return;
+		}
+		const ZOOM_STEP = 0.5;
+		const ZOOM_MIN = -3;
+		const ZOOM_MAX = 5;
+		if ( input.key === '=' || input.key === '+' ) {
+			event.preventDefault();
+			contents.setZoomLevel( Math.min( ZOOM_MAX, contents.getZoomLevel() + ZOOM_STEP ) );
+		} else if ( input.key === '-' || input.key === '_' ) {
+			event.preventDefault();
+			contents.setZoomLevel( Math.max( ZOOM_MIN, contents.getZoomLevel() - ZOOM_STEP ) );
+		} else if ( input.key === '0' ) {
+			event.preventDefault();
+			contents.setZoomLevel( 0 );
+		}
 	} );
 
 	mainWindow.on( 'closed', () => {

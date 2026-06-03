@@ -2,8 +2,9 @@
 	/* Top padding is `3xl`; the sidebar header already contributes an
 	   extra `sm` below its content, so bottom padding is `3xl + sm` to
 	   match the visible gap above. */
-	padding: var(--wpds-dimension-padding-3xl) var(--wpds-dimension-padding-xl)
-		calc(var(--wpds-dimension-padding-3xl) + var(--wpds-dimension-padding-sm));
+	padding: var(--wpds-dimension-padding-3xl) var(--wpds-dimension-padding-sm)
+		calc(var(--wpds-dimension-padding-3xl) + var(--wpds-dimension-padding-sm))
+		var(--wpds-dimension-padding-md);
 }
 
 .list {

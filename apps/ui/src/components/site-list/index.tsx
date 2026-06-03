@@ -7,6 +7,8 @@ import { useMemo, useState } from 'react';
 import * as Menu from '@/components/menu';
 import { SidebarButton } from '@/components/sidebar-button';
 import { SiteIcon } from '@/components/site-icon';
+import { Spinner } from '@/components/spinner';
+import { useIsSessionRunning } from '@/data/queries/use-agent-run';
 import { useSessions } from '@/data/queries/use-sessions';
 import {
 	useCopySite,
@@ -91,6 +93,7 @@ function groupSessionsByOwner(
 
 function SessionItem( { session, isVisible }: { session: AiSessionSummary; isVisible: boolean } ) {
 	const label = session.firstPrompt?.trim() || __( '(No prompt yet)' );
+	const isRunning = useIsSessionRunning( session.id );
 
 	return (
 		<li className={ styles.sessionItem }>
@@ -108,7 +111,11 @@ function SessionItem( { session, isVisible }: { session: AiSessionSummary; isVis
 				}
 			>
 				<span className={ styles.sessionLabel }>{ label }</span>
-				<span className={ styles.sessionTime }>{ formatRelativeTime( session.updatedAt ) }</span>
+				{ isRunning ? (
+					<Spinner className={ styles.sessionSpinner } label={ __( 'Working…' ) } />
+				) : (
+					<span className={ styles.sessionTime }>{ formatRelativeTime( session.updatedAt ) }</span>
+				) }
 			</SidebarButton>
 		</li>
 	);
@@ -321,14 +328,18 @@ function SiteSection( {
 						onClick={ onToggle }
 						aria-expanded={ isOpen }
 					>
-						{ group.site ? (
-							<span className={ styles.siteIconSlot } aria-hidden="true">
-								<SiteIcon
-									seed={ `${ group.site.id }:${ group.site.name }:${ group.site.path }` }
-									imageSrc={ group.site.siteIcon }
-								/>
-							</span>
-						) : null }
+						<span className={ styles.siteIconSlot } aria-hidden="true">
+							<SiteIcon
+								seed={
+									group.site
+										? `${ group.site.id }:${ group.site.name }:${ group.site.path }`
+										: group.key
+								}
+								imageSrc={ group.site?.siteIcon }
+								grayscale={ ! group.site }
+								style={ { width: 24, height: 24 } }
+							/>
+						</span>
 						<span className={ styles.siteName }>{ group.label }</span>
 						<span className={ styles.siteChevron } aria-hidden="true">
 							<Icon icon={ isOpen ? chevronDown : chevronRight } size={ 16 } />

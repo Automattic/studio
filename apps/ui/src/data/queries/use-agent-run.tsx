@@ -678,3 +678,19 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		removeQueuedPrompt,
 	};
 }
+
+/**
+ * Read-only counterpart to `useAgentRun` that returns just whether the given
+ * session's assistant is actively generating (`isRunning` semantics: the
+ * `starting`/`running` phases). Unlike `useAgentRun`, it registers no effects
+ * and exposes no actions, so it is safe to call many times — e.g. once per
+ * sidebar row — without re-triggering the queue auto-dispatch effect.
+ */
+export function useIsSessionRunning( sessionId: string | undefined ): boolean {
+	const store = useContext( AgentRunContext );
+	if ( ! store ) {
+		throw new Error( 'useIsSessionRunning must be used within AgentRunProvider' );
+	}
+	const phase = sessionId ? store.states[ sessionId ]?.phase : undefined;
+	return phase === 'starting' || phase === 'running';
+}

@@ -1,0 +1,91 @@
+.page {
+	width: 100%;
+	box-sizing: border-box;
+	padding: 32px;
+}
+
+/* Typography comes from the universal `h1` rule in index.css — this class only
+   layers on the spacing below the heading. */
+.title {
+	margin-bottom: 24px;
+}
+
+.subtitle {
+	color: var(--wpds-color-fg-content-neutral-weak, #666);
+	margin: 0 0 16px;
+}
+
+.grid {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+	gap: 16px;
+}
+
+.card {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 12px;
+	padding: 20px;
+	border: 1px solid var(--wpds-color-stroke-surface-neutral, #ddd);
+	border-radius: 12px;
+	background: var(--wpds-color-bg-surface-neutral-strong, #fff);
+	color: inherit;
+	text-decoration: none;
+	cursor: pointer;
+	transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.card:hover {
+	border-color: var(--wpds-color-stroke-interactive-neutral, #bbb);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.cardIcon {
+	display: inline-flex;
+}
+
+.cardName {
+	font-weight: 600;
+	font-size: 0.95rem;
+	max-width: 100%;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.cardStatus {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 0.8125rem;
+	color: var(--wpds-color-fg-content-neutral-weak, #666);
+}
+
+.statusDot {
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+
+.statusDotRunning {
+	background-color: var(--wpds-color-fg-success, #16a34a);
+}
+
+.statusDotStopped {
+	background-color: var(--wpds-color-stroke-interactive-neutral, #c4c4c4);
+}
+
+.empty {
+	color: var(--wpds-color-fg-content-neutral-weak, #666);
+}
+
+.emptyAction {
+	color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	font-weight: 600;
+	text-decoration: none;
+}

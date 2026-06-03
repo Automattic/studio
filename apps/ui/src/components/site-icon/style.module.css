@@ -35,6 +35,11 @@
 	object-fit: cover;
 }
 
+/* Desaturates both the mesh gradient and an <img> site icon. */
+.grayscale {
+	filter: grayscale(1);
+}
+
 .rootWithImage {
 	background: var(--wpds-color-bg-content-neutral, transparent);
 	border-color: color-mix(in srgb, var(--wpds-color-fg-content-neutral, currentColor) 12%, #0000);

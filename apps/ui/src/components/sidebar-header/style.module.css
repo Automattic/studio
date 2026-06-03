@@ -5,7 +5,7 @@
 	/* Leave room for macOS traffic lights at {20, 20} plus a visible gap.
 	   min-height is tuned so the flex-centered content lines up with the
 	   vertical center of the traffic lights. */
-	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-2xl)
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-sm)
 		var(--wpds-dimension-padding-sm) 94px;
 	min-height: 46px;
 	-webkit-app-region: drag;
@@ -19,13 +19,13 @@
 
 /* In macOS fullscreen the traffic lights are hidden, so reclaim the
    padding that was reserved for them and align the title with the
-   site list entries below — the site list outer padding is `xl + sm`
+   site list entries below — the site list outer padding is `md + sm`
    and each site label sits inside a button with another `sm` of
-   padding-inline, so its text starts at `xl + 2*sm` from the sidebar
+   padding-inline, so its text starts at `md + 2*sm` from the sidebar
    edge. */
 .fullscreen {
 	padding-left: calc(
-		var(--wpds-dimension-padding-xl) + 2 * var(--wpds-dimension-padding-sm)
+		var(--wpds-dimension-padding-md) + 2 * var(--wpds-dimension-padding-sm)
 	);
 }
 

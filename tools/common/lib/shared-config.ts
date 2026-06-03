@@ -29,6 +29,13 @@ export const sharedSessionMetadataSchema = z
 	.object( {
 		starred: z.boolean().optional(),
 		archived: z.boolean().optional(),
+		userTitle: z.string().optional(),
+		generatedTitle: z.string().optional(),
+		userDescription: z.string().optional(),
+		generatedDescription: z.string().optional(),
+		titleGeneratedAt: z.string().optional(),
+		descriptionGeneratedAt: z.string().optional(),
+		descriptionGeneratedEventCount: z.number().optional(),
 	} )
 	.loose();
 
@@ -125,6 +132,24 @@ function pruneSharedSessionMetadata( metadata: SharedSessionMetadata ): void {
 	}
 	if ( ! metadata.archived ) {
 		delete metadata.archived;
+	}
+	for ( const key of [
+		'userTitle',
+		'generatedTitle',
+		'userDescription',
+		'generatedDescription',
+		'titleGeneratedAt',
+		'descriptionGeneratedAt',
+	] as const ) {
+		if ( typeof metadata[ key ] === 'string' ) {
+			metadata[ key ] = metadata[ key ].trim();
+		}
+		if ( ! metadata[ key ] ) {
+			delete metadata[ key ];
+		}
+	}
+	if ( metadata.descriptionGeneratedEventCount === undefined ) {
+		delete metadata.descriptionGeneratedEventCount;
 	}
 }
 

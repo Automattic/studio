@@ -1,0 +1,198 @@
+.root {
+	height: 100%;
+	min-height: 0;
+	overflow-y: auto;
+}
+
+.content {
+	width: 100%;
+	max-width: 760px;
+	margin: 0 auto;
+	padding: calc(var(--wpds-dimension-padding-2xl) * 1.5) var(--wpds-dimension-padding-xl)
+		var(--wpds-dimension-padding-2xl);
+}
+
+.state {
+	padding: var(--wpds-dimension-padding-xl);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.header {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: var(--wpds-dimension-padding-xl);
+	margin-bottom: calc(var(--wpds-dimension-padding-2xl) * 1.5);
+}
+
+.title {
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-2xl);
+	line-height: var(--wpds-typography-line-height-2xl);
+	font-weight: var(--wpds-typography-font-weight-medium, 500);
+}
+
+.subtitle {
+	margin: var(--wpds-dimension-padding-xs) 0 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: var(--wpds-typography-line-height-md);
+}
+
+.details {
+	display: grid;
+	gap: var(--wpds-dimension-padding-md);
+	margin-bottom: calc(var(--wpds-dimension-padding-2xl) * 1.5);
+}
+
+.detail {
+	display: grid;
+	grid-template-columns: minmax(140px, 0.32fr) minmax(0, 1fr);
+	gap: var(--wpds-dimension-padding-lg);
+	padding: var(--wpds-dimension-padding-md) 0;
+	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
+}
+
+.detailLabel {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.detailValue {
+	min-width: 0;
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.chats {
+	display: grid;
+	gap: var(--wpds-dimension-padding-lg);
+}
+
+.sectionHeader,
+.chatSectionHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--wpds-dimension-padding-md);
+}
+
+.sectionTitle {
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-xl);
+	line-height: var(--wpds-typography-line-height-xl);
+	font-weight: var(--wpds-typography-font-weight-medium, 500);
+}
+
+.sectionCount,
+.chatSectionCount {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.chatSection {
+	display: grid;
+	gap: var(--wpds-dimension-padding-sm);
+}
+
+.chatSectionTitle {
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: var(--wpds-typography-line-height-md);
+	font-weight: var(--wpds-typography-font-weight-medium, 500);
+}
+
+.chatList {
+	display: grid;
+	gap: 1px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.chatRow {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-sm);
+	min-width: 0;
+	padding: var(--wpds-dimension-padding-xs) 0;
+	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
+}
+
+.chatActions {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xs);
+}
+
+.chatLink {
+	flex: 1;
+	min-width: 0;
+	display: grid;
+	gap: 2px;
+	color: inherit;
+	text-decoration: none;
+}
+
+.chatLink:hover .chatTitle,
+.chatLink:focus-visible .chatTitle {
+	color: var(--wpds-color-fg-content-primary, var(--wpds-color-fg-content-neutral));
+}
+
+.chatTitle {
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.chatMeta,
+.emptyChats {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.emptyChats {
+	margin: 0;
+}
+
+.dialogFields {
+	display: grid;
+	gap: var(--wpds-dimension-padding-md);
+}
+
+.dialogField {
+	display: grid;
+	gap: var(--wpds-dimension-padding-xs);
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.dialogField input,
+.dialogField textarea {
+	width: 100%;
+	box-sizing: border-box;
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: 4px;
+	padding: var(--wpds-dimension-padding-sm);
+	background: var(--wpds-color-bg-surface-neutral-strong);
+	color: var(--wpds-color-fg-content-neutral);
+	font: inherit;
+}
+
+.dialogField textarea {
+	resize: vertical;
+}

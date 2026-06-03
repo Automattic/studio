@@ -1,6 +1,10 @@
 import type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiModelId } from '@studio/common/ai/models';
-import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+import type {
+	AiSessionMetadata,
+	AiSessionSummary,
+	LoadedAiSession,
+} from '@studio/common/ai/sessions/types';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
@@ -12,7 +16,11 @@ import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wor
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 export type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
-export type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+export type {
+	AiSessionMetadata,
+	AiSessionSummary,
+	LoadedAiSession,
+} from '@studio/common/ai/sessions/types';
 export type { SessionEntry } from '@mariozechner/pi-coding-agent';
 export type {
 	StudioCustomEntry,
@@ -225,7 +233,7 @@ export interface Connector {
 	deleteSession( sessionId: string ): Promise< void >;
 	updateSessionMetadata(
 		sessionId: string,
-		patch: Pick< AiSessionSummary, 'starred' | 'archived' >
+		patch: Partial< AiSessionMetadata >
 	): Promise< AiSessionSummary >;
 
 	// Create an empty session file so it appears immediately. When `siteId`

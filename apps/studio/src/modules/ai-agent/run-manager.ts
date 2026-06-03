@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { fork, type ChildProcess } from 'node:child_process';
 import { setAiSessionSitePlacement } from 'src/lib/ai-session-placement';
 import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
+import { generateAiSessionMetadata } from './session-metadata';
 import type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { StudioChatArtifactData } from '@studio/common/ai/chat-artifacts';
 import type { JsonEvent } from '@studio/common/ai/json-events';
@@ -167,7 +168,12 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 		runsBySessionId.delete( sessionId );
 		runsById.delete( runId );
 
-		void run.eventQueue.finally( () => {
+		void run.eventQueue.finally( async () => {
+			if ( code === 0 && ! run.interrupted ) {
+				await generateAiSessionMetadata( sessionId ).catch( ( error ) => {
+					console.warn( 'Failed to generate AI session metadata', error );
+				} );
+			}
 			if ( run.interrupted ) {
 				sendEvent( run, { type: 'run.interrupted', timestamp: nowIso() } );
 			}

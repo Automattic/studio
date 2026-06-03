@@ -6,7 +6,7 @@ import { useSites } from '@/data/queries/use-sites';
 import { dashboardLayoutRoute } from '../layout-dashboard';
 import styles from './style.module.css';
 
-function SitesPage() {
+export function SitesPage() {
 	const { data: sites, isLoading } = useSites();
 
 	if ( isLoading ) {
@@ -35,7 +35,7 @@ function SitesPage() {
 			<ul className={ styles.grid }>
 				{ sites.map( ( site ) => (
 					<li key={ site.id }>
-						<Link to="/sites/$siteId/new" params={ { siteId: site.id } } className={ styles.card }>
+						<Link to="/sites/$siteId" params={ { siteId: site.id } } className={ styles.card }>
 							<span className={ styles.cardIcon } aria-hidden="true">
 								<SiteIcon
 									seed={ `${ site.id }:${ site.name }:${ site.path }` }

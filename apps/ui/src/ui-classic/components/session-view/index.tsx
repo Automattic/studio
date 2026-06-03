@@ -69,11 +69,8 @@ function SessionHeader( {
 					{ sidebarCollapsed ? (
 						<SiteIcon className={ styles.headerSiteIcon } seed={ siteName } />
 					) : null }
-					<span className={ styles.headerSite }>{ siteName }</span>
 					<span className={ styles.headerDot } aria-hidden="true" />
-					<span className={ styles.headerEnv }>
-						{ effectiveEnvironment === 'live' ? __( 'Live' ) : __( 'Local' ) }
-					</span>
+					<span className={ styles.headerSite }>{ siteName }</span>
 				</>
 			) }
 			<span className={ styles.headerSpacer } aria-hidden="true" />

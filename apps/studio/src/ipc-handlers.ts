@@ -73,6 +73,7 @@ import {
 	readSharedSessions,
 	updateSharedConfig,
 	updateSharedSession,
+	type SharedSessionMetadata,
 } from '@studio/common/lib/shared-config';
 import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
 import { shouldExcludeFromSync } from '@studio/common/lib/sync/exclude-from-sync';
@@ -241,12 +242,24 @@ export { fetchSiteRest as fetchSiteRestApi } from 'src/lib/wordpress-rest-api';
 
 function hydrateAiSessionSummary(
 	summary: AiSessionSummary,
-	metadata?: Pick< AiSessionSummary, 'starred' | 'archived' >
+	metadata?: SharedSessionMetadata
 ): AiSessionSummary {
+	const title = metadata?.userTitle ?? metadata?.generatedTitle ?? summary.firstPrompt;
+	const description =
+		metadata?.userDescription ?? metadata?.generatedDescription ?? summary.assistantReplyPreview;
 	return {
 		...summary,
 		starred: metadata?.starred,
 		archived: metadata?.archived,
+		userTitle: metadata?.userTitle,
+		generatedTitle: metadata?.generatedTitle,
+		userDescription: metadata?.userDescription,
+		generatedDescription: metadata?.generatedDescription,
+		titleGeneratedAt: metadata?.titleGeneratedAt,
+		descriptionGeneratedAt: metadata?.descriptionGeneratedAt,
+		descriptionGeneratedEventCount: metadata?.descriptionGeneratedEventCount,
+		title,
+		description,
 	};
 }
 
@@ -366,7 +379,7 @@ export async function createAiSession(
 export async function updateAiSessionMetadata(
 	_event: IpcMainInvokeEvent,
 	sessionIdOrPrefix: string,
-	patch: Pick< AiSessionSummary, 'starred' | 'archived' >
+	patch: Partial< SharedSessionMetadata >
 ): Promise< AiSessionSummary > {
 	const { summary } = await loadAiSessionFromStore(
 		getAiSessionsRootDirectory(),

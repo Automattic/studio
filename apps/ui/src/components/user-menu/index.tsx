@@ -1,5 +1,8 @@
+import { Link } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { IconButton } from '@wordpress/ui';
+import { cog } from '@wordpress/icons';
+import { Icon, IconButton } from '@wordpress/ui';
+import { clsx } from 'clsx';
 import { Gravatar } from '@/components/gravatar';
 import * as Menu from '@/components/menu';
 import { SidebarButton } from '@/components/sidebar-button';
@@ -41,6 +44,22 @@ export function UserMenu() {
 
 	return (
 		<div className={ styles.root }>
+			<SidebarButton
+				className={ styles.settingsLink }
+				render={
+					<Link
+						to="/settings"
+						activeProps={ {
+							className: clsx( styles.settingsLink, styles.settingsLinkActive ),
+						} }
+					/>
+				}
+			>
+				<span className={ styles.settingsIconSlot }>
+					<Icon icon={ cog } size={ 24 } />
+				</span>
+				<span className={ styles.settingsLabel }>{ __( 'Settings' ) }</span>
+			</SidebarButton>
 			<div className={ styles.row }>
 				{ user ? (
 					<Menu.Root modal={ false }>

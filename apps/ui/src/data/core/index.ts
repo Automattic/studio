@@ -2,6 +2,7 @@ export { ConnectorProvider, useConnector } from './connector-context';
 export { queryClient, persistPromise } from './query-client';
 export type {
 	AiModelId,
+	AiSessionMetadata,
 	AiSessionSummary,
 	AuthUser,
 	ColorScheme,

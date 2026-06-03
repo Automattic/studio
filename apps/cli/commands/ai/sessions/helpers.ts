@@ -73,7 +73,7 @@ function formatSessionCompactLine(
 	layout: { idWidth: number; relativeWidth: number }
 ): string {
 	const relative = getRelativeTime( session.updatedAt );
-	const prompt = toSingleLine( session.firstPrompt ?? __( '(No prompt yet)' ) );
+	const prompt = toSingleLine( session.title ?? session.firstPrompt ?? __( '(No prompt yet)' ) );
 	const separator = chalk.dim( ' • ' );
 	const idText = padEndVisible( session.id, layout.idWidth );
 	const relativeText = padEndVisible( relative, layout.relativeWidth );
@@ -90,7 +90,8 @@ function formatSessionCompactLine(
 		terminalWidth - visibleWidth( prefixPlain ) - statusPlainWidth - gapWidth - suffixWidth - 1
 	);
 	const abstract = truncateWithEllipsis( prompt, maxPromptLength );
-	const promptStyled = session.firstPrompt ? chalk.white( abstract ) : chalk.dim( abstract );
+	const promptStyled =
+		session.title || session.firstPrompt ? chalk.white( abstract ) : chalk.dim( abstract );
 
 	const statusGlyph =
 		session.endReason === 'error'

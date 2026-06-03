@@ -45,11 +45,15 @@ function persistCompactPreference( compact: boolean ) {
 }
 
 function getSessionTitle( session: AiSessionSummary ) {
-	return session.firstPrompt?.trim() || __( 'New chat' );
+	return session.title?.trim() || session.firstPrompt?.trim() || __( 'New chat' );
 }
 
 function getSessionSubtitle( session: AiSessionSummary ) {
-	return session.assistantReplyPreview ?? __( 'Ask Studio anything to get started.' );
+	return (
+		session.description ??
+		session.assistantReplyPreview ??
+		__( 'Ask Studio anything to get started.' )
+	);
 }
 
 function formatSessionTimeSince( value: string ) {

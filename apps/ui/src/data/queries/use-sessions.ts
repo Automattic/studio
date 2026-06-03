@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 import { useConnector } from '@/data/core';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
-import type { AiSessionSummary, LoadedAiSession } from '@/data/core';
+import type { AiSessionMetadata, AiSessionSummary, LoadedAiSession } from '@/data/core';
 
 export const SESSIONS_QUERY_KEY = [ 'sessions' ] as const;
 
@@ -50,12 +50,16 @@ export function useCreateSession() {
 
 function mergeSessionMetadata(
 	summary: AiSessionSummary,
-	patch: Pick< AiSessionSummary, 'starred' | 'archived' >
+	patch: Partial< AiSessionMetadata >
 ): AiSessionSummary {
-	return {
+	const next = {
 		...summary,
-		starred: patch.starred,
-		archived: patch.archived,
+		...patch,
+	};
+	return {
+		...next,
+		title: next.userTitle ?? next.generatedTitle ?? next.firstPrompt,
+		description: next.userDescription ?? next.generatedDescription ?? next.assistantReplyPreview,
 	};
 }
 
@@ -67,7 +71,7 @@ export function useUpdateSessionMetadata() {
 		Error,
 		{
 			sessionId: string;
-			patch: Pick< AiSessionSummary, 'starred' | 'archived' >;
+			patch: Partial< AiSessionMetadata >;
 		},
 		{
 			previousSessions: AiSessionSummary[] | undefined;
@@ -122,8 +126,7 @@ export function useUpdateSessionMetadata() {
 								...current,
 								summary: {
 									...current.summary,
-									starred: summary.starred,
-									archived: summary.archived,
+									...summary,
 								},
 						  }
 						: current
@@ -134,6 +137,65 @@ export function useUpdateSessionMetadata() {
 			void queryClient.invalidateQueries( { queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ] } );
 		},
 	} );
+}
+
+export function useUpdateSessionTitleDescription() {
+	const updateSessionMetadata = useUpdateSessionMetadata();
+	type Variables = {
+		sessionId: string;
+		title?: string;
+		description?: string;
+	};
+	const buildPatch = ( variables: Variables ): Partial< AiSessionMetadata > => {
+		const patch: Partial< AiSessionMetadata > = {};
+		if ( Object.prototype.hasOwnProperty.call( variables, 'title' ) ) {
+			patch.userTitle = variables.title;
+		}
+		if ( Object.prototype.hasOwnProperty.call( variables, 'description' ) ) {
+			patch.userDescription = variables.description;
+		}
+		return patch;
+	};
+
+	return {
+		...updateSessionMetadata,
+		mutate: ( variables: Variables ) =>
+			updateSessionMetadata.mutate( {
+				sessionId: variables.sessionId,
+				patch: buildPatch( variables ),
+			} ),
+		mutateAsync: ( variables: Variables ) =>
+			updateSessionMetadata.mutateAsync( {
+				sessionId: variables.sessionId,
+				patch: buildPatch( variables ),
+			} ),
+	};
+}
+
+function useSessionArchivedMutation( archived: boolean ) {
+	const updateSessionMetadata = useUpdateSessionMetadata();
+
+	return {
+		...updateSessionMetadata,
+		mutate: ( session: AiSessionSummary ) =>
+			updateSessionMetadata.mutate( {
+				sessionId: session.id,
+				patch: { archived, starred: session.starred },
+			} ),
+		mutateAsync: ( session: AiSessionSummary ) =>
+			updateSessionMetadata.mutateAsync( {
+				sessionId: session.id,
+				patch: { archived, starred: session.starred },
+			} ),
+	};
+}
+
+export function useArchiveSession() {
+	return useSessionArchivedMutation( true );
+}
+
+export function useUnarchiveSession() {
+	return useSessionArchivedMutation( false );
 }
 
 export function useSetSessionEnvironment(

@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { category, cog } from '@wordpress/icons';
+import { category } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { SidebarButton } from '@/components/sidebar-button';
@@ -15,10 +15,7 @@ type NavItem = {
 };
 
 function getItems(): NavItem[] {
-	return [
-		{ key: 'sites', label: __( 'Sites' ), icon: category, to: '/sites' },
-		{ key: 'settings', label: __( 'Settings' ), icon: cog, to: '/settings' },
-	];
+	return [ { key: 'sites', label: __( 'All Sites' ), icon: category, to: '/sites' } ];
 }
 
 export function SidebarNav() {
@@ -31,18 +28,19 @@ export function SidebarNav() {
 						<SidebarButton
 							className={ styles.item }
 							render={
-								item.to ? (
-									<Link
-										to={ item.to }
-										activeProps={ {
-											className: clsx( styles.item, styles.itemActive ),
-										} }
-									/>
-								) : undefined
+								<Link
+									to={ item.to }
+									activeOptions={ { exact: true } }
+									activeProps={ {
+										className: clsx( styles.item, styles.itemActive ),
+									} }
+								/>
 							}
 						>
-							<Icon icon={ item.icon } />
-							<span>{ item.label }</span>
+							<span className={ styles.iconSlot }>
+								<Icon icon={ item.icon } size={ 28 } />
+							</span>
+							<span className={ styles.label }>{ item.label }</span>
 						</SidebarButton>
 					</li>
 				) ) }

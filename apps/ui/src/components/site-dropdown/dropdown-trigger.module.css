@@ -1,5 +1,6 @@
 .trigger {
-	gap: var(--wpds-dimension-padding-lg);
+	gap: var(--wpds-dimension-padding-md);
+	padding-inline-start: 0;
 }
 
 .siteIcon {
@@ -10,15 +11,39 @@
 	font-weight: 600;
 }
 
-.status {
+.statusBadge {
 	display: inline-flex;
 	align-items: center;
+	justify-content: center;
+	width: 22px;
+	height: 22px;
+	border-radius: inherit;
+	flex-shrink: 0;
+}
+
+.statusBadge_live {
+	width: auto;
 	gap: var(--wpds-dimension-padding-xs);
+	padding: 0 var(--wpds-dimension-padding-xs);
+	background-color: #dbeafe;
+	color: #2563eb;
+}
+
+.statusBadge_running {
+	background-color: #dcfce7;
+}
+
+.statusBadge_stopped {
+	background-color: #f0f0f0;
+}
+
+.statusBadge_transitioning {
+	background-color: #dbeafe;
 }
 
 .dot {
-	width: 6px;
-	height: 6px;
+	width: 8px;
+	height: 8px;
 	border-radius: 50%;
 	flex-shrink: 0;
 }
@@ -30,7 +55,7 @@
 }
 
 .dot_stopped {
-	background-color: #dc2626;
+	border: 1px solid var(--wpds-color-fg-content-neutral-weak);
 }
 
 .dot_transitioning {
@@ -40,6 +65,12 @@
 
 .dot_live {
 	background-color: #2563eb;
+}
+
+.statusLabel {
+	font-size: var(--wpds-typography-font-size-sm);
+	font-weight: 500;
+	line-height: 1;
 }
 
 @keyframes siteDotBlink {
@@ -52,12 +83,8 @@
 	}
 }
 
-.env {
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
-}
-
 .url {
+	margin-inline-start: var(--wpds-dimension-padding-sm);
 	color: var(--wpds-color-fg-content-neutral-weak);
 	opacity: 0.6;
 	font-size: var(--wpds-typography-font-size-sm);

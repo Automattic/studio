@@ -1,10 +1,20 @@
 .root {
-	/* Top padding is `3xl`; the sidebar header already contributes an
-	   extra `sm` below its content, so bottom padding is `3xl + sm` to
-	   match the visible gap above. */
+	--sidebar-row-height: 32px;
+	--sidebar-row-background-hover: rgb(0 0 0 / 4%);
+	--sidebar-row-background-active: rgb(0 0 0 / 7%);
+	--sidebar-icon-background: rgb(0 0 0 / 6%);
+
 	padding: var(--wpds-dimension-padding-3xl) var(--wpds-dimension-padding-sm)
-		calc(var(--wpds-dimension-padding-3xl) + var(--wpds-dimension-padding-sm))
-		var(--wpds-dimension-padding-md);
+		1px calc(var(--wpds-dimension-padding-md) + var(--wpds-dimension-padding-sm));
+	user-select: none;
+}
+
+@media (prefers-color-scheme: dark) {
+	.root {
+		--sidebar-row-background-hover: rgb(255 255 255 / 8%);
+		--sidebar-row-background-active: rgb(255 255 255 / 12%);
+		--sidebar-icon-background: rgb(255 255 255 / 12%);
+	}
 }
 
 .list {
@@ -23,19 +33,70 @@
 }
 
 .item {
+	--sidebar-item-background: transparent;
+	--wp-ui-button-background-color: var(--sidebar-item-background);
+	--wp-ui-button-background-color-active: var(--sidebar-item-background);
+	--wp-ui-button-border-color: transparent;
+	--wp-ui-button-border-color-active: transparent;
+	--wp-ui-button-height: var(--sidebar-row-height);
+
+	display: flex;
+	align-items: center;
 	width: 100%;
-	padding: 0 var(--wpds-dimension-padding-sm);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	box-sizing: border-box;
+	height: var(--sidebar-row-height);
+	gap: 0;
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm)
+		var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-xs);
+	border-radius: 6px;
+	background-color: var(--sidebar-item-background);
+	color: var(--wpds-color-fg-content-neutral);
 	font-size: var(--wpds-typography-font-size-md);
 	font-weight: var(--wpds-typography-font-weight-regular);
+	line-height: 1.2;
+	text-decoration: none;
+	transition: background-color 100ms ease;
 }
 
 .item:hover,
 .item:focus-visible {
-	color: var(--wpds-color-fg-content-neutral);
+	--sidebar-item-background: var(--sidebar-row-background-hover);
+}
+
+.item:focus-visible {
+	outline: 2px solid var(--ui-desks-focus, #3858e9);
+	outline-offset: -2px;
 }
 
 .itemActive {
-	color: var(--wpds-color-fg-content-neutral);
-	font-weight: var(--wpds-typography-font-weight-medium);
+	--sidebar-item-background: var(--sidebar-row-background-active);
+}
+
+.itemActive:hover,
+.itemActive:focus-visible {
+	--sidebar-item-background: var(--sidebar-row-background-active);
+}
+
+.iconSlot {
+	display: inline-grid;
+	place-items: center;
+	flex-shrink: 0;
+	inline-size: 24px;
+	block-size: 24px;
+	margin-inline-end: var(--wpds-dimension-padding-md);
+	border-radius: 4px;
+	background: var(--sidebar-icon-background);
+}
+
+.iconSlot svg {
+	width: 16px;
+	height: 16px;
+}
+
+.label {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	min-width: 0;
+	line-height: 1.2;
 }

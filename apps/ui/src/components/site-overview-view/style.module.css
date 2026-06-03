@@ -200,11 +200,15 @@
 		var(--wpds-color-bg-interactive-neutral-weak-active) 45%,
 		transparent
 	);
-	--chat-row-padding-block: var(--wpds-dimension-padding-sm);
-	--chat-row-padding-inline: var(--wpds-dimension-padding-md);
+	--chat-group-gap: calc(var(--wpds-dimension-padding-2xl) * 1.25);
+	--chat-item-gap: var(--wpds-dimension-padding-md);
+	--chat-row-edge-offset: var(--wpds-dimension-padding-sm);
+	--chat-row-padding-block: var(--wpds-dimension-padding-md);
+	--chat-row-padding-inline: var(--wpds-dimension-padding-lg);
+	--chat-text-offset: calc(var(--chat-row-padding-inline) - var(--chat-row-edge-offset));
 
 	display: grid;
-	gap: var(--wpds-dimension-padding-md);
+	gap: var(--chat-group-gap);
 }
 
 .chatSectionHeader {
@@ -212,7 +216,7 @@
 	align-items: center;
 	justify-content: space-between;
 	gap: var(--wpds-dimension-padding-md);
-	padding-inline: var(--chat-row-padding-inline);
+	padding-inline: var(--chat-text-offset);
 }
 
 .chatSection {
@@ -231,7 +235,7 @@
 
 .chatList {
 	display: grid;
-	gap: var(--wpds-dimension-padding-xs);
+	gap: var(--chat-item-gap);
 	margin: 0;
 	padding: 0;
 	list-style: none;
@@ -244,6 +248,7 @@
 	position: relative;
 	display: block;
 	min-width: 0;
+	margin-inline: calc(-1 * var(--chat-row-edge-offset));
 	border-radius: 6px;
 	padding: var(--chat-row-padding-block) var(--chat-row-padding-inline);
 }
@@ -368,7 +373,7 @@
 	justify-self: start;
 	gap: 1px;
 	min-width: 0;
-	margin-inline-start: calc(var(--chat-row-padding-inline) - var(--wpds-dimension-padding-xs));
+	margin-inline-start: calc(var(--chat-text-offset) - var(--wpds-dimension-padding-xs));
 	border: 0;
 	border-radius: 4px;
 	padding: 2px var(--wpds-dimension-padding-xs);
@@ -393,7 +398,7 @@
 
 .archivedChatList {
 	display: grid;
-	gap: var(--wpds-dimension-padding-xs);
+	gap: var(--chat-item-gap);
 	margin: 0;
 	padding: 0;
 	list-style: none;
@@ -405,6 +410,7 @@
 
 	position: relative;
 	min-width: 0;
+	margin-inline: calc(-1 * var(--chat-row-edge-offset));
 	border-radius: 6px;
 	padding: var(--chat-row-padding-block) var(--chat-row-padding-inline);
 }

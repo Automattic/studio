@@ -12,6 +12,7 @@ import { resolveAiImagesInHtml, stripAiImagePlaceholders } from 'cli/ai/generati
 import { completeText, extractJson, runPooled } from 'cli/ai/generation/llm';
 import { parseManifest, type PostTypePlan, type SiteManifest } from 'cli/ai/generation/manifest';
 import { deriveSlug, uploadsDir } from 'cli/ai/generation/paths';
+import { buildSeederPhp, parseSeederResult } from 'cli/ai/generation/seed-php';
 import { isSiteRunning, withDaemon, wpCli } from 'cli/ai/generation/site-wp';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { defineTool } from './define-tool';
@@ -146,27 +147,6 @@ async function wpcomImagesAvailable(): Promise< boolean > {
 	} catch {
 		return false;
 	}
-}
-
-async function findExistingPostId(
-	siteId: string,
-	postType: string,
-	slug: string
-): Promise< number | null > {
-	const result = await wpCli( siteId, [
-		'post',
-		'list',
-		`--post_type=${ postType }`,
-		`--name=${ slug }`,
-		'--post_status=any',
-		'--format=ids',
-	] );
-	if ( result.exitCode !== 0 ) {
-		return null;
-	}
-	const match = result.stdout.match( /\b\d+\b/ );
-	const id = match ? Number.parseInt( match[ 0 ], 10 ) : NaN;
-	return Number.isFinite( id ) && id > 0 ? id : null;
 }
 
 // WordPress root as PHP sees it. The Studio site's wp-content is the live WP
@@ -374,102 +354,50 @@ export const seedContentTool = defineTool(
 			const seedDirHost = path.join( site.path, 'wp-content', 'uploads', 'wsg-seed' );
 			await mkdir( seedDirHost, { recursive: true } );
 
-			const created: string[] = [];
-			const updated: string[] = [];
-			const failed: string[] = [];
-			let homeId: number | null = null;
-			let firstPageId: number | null = null;
+			// Write each item's content to a file the WP filesystem can read, and
+			// build the manifest the single-pass seeder consumes.
+			const seedItems = prepared.map( ( item ) => ( {
+				postType: item.postType,
+				slug: item.slug,
+				title: item.title,
+				contentFile:
+					`${ item.postType }-${ item.slug }`.replace( /[^a-zA-Z0-9._-]/g, '-' ) + '.html',
+				meta: item.meta,
+				isHome: item.isHome,
+			} ) );
+			await Promise.all(
+				prepared.map( ( item, i ) =>
+					writeFile( path.join( seedDirHost, seedItems[ i ].contentFile ), item.content, 'utf8' )
+				)
+			);
+			await writeFile(
+				path.join( seedDirHost, '_seed-manifest.json' ),
+				JSON.stringify( { items: seedItems, contentMode: manifest.contentMode } )
+			);
+			await writeFile( path.join( seedDirHost, '_seed.php' ), buildSeederPhp(), 'utf8' );
 
-			for ( const item of prepared ) {
-				const fileName =
-					`${ item.postType }-${ item.slug }`.replace( /[^a-zA-Z0-9._-]/g, '-' ) + '.html';
-				await writeFile( path.join( seedDirHost, fileName ), item.content, 'utf8' );
-				// WP-CLI reads post content from this file path (no large arg over IPC).
-				const wpPath = `${ abspath }wp-content/uploads/wsg-seed/${ fileName }`;
-
-				const existingId = await findExistingPostId( site.id, item.postType, item.slug );
-				let postId: number | null = existingId;
-
-				if ( existingId ) {
-					const result = await wpCli( site.id, [
-						'post',
-						'update',
-						String( existingId ),
-						wpPath,
-						'--post_status=publish',
-						`--post_title=${ item.title }`,
-					] );
-					if ( result.exitCode === 0 ) {
-						updated.push( `${ item.postType }:${ item.slug }` );
-					} else {
-						failed.push(
-							`${ item.postType }:${ item.slug } (${ ( result.stderr || result.stdout )
-								.trim()
-								.slice( 0, 120 ) })`
-						);
-						continue;
-					}
-				} else {
-					const result = await wpCli( site.id, [
-						'post',
-						'create',
-						wpPath,
-						`--post_type=${ item.postType }`,
-						`--post_name=${ item.slug }`,
-						'--post_status=publish',
-						`--post_title=${ item.title }`,
-						'--porcelain',
-					] );
-					if ( result.exitCode === 0 ) {
-						const match = result.stdout.match( /\b\d+\b/ );
-						postId = match ? Number.parseInt( match[ 0 ], 10 ) : null;
-						if ( ! ( postId && postId > 0 ) ) {
-							postId = await findExistingPostId( site.id, item.postType, item.slug );
-						}
-						created.push( `${ item.postType }:${ item.slug }` );
-					} else {
-						failed.push(
-							`${ item.postType }:${ item.slug } (${ ( result.stderr || result.stdout )
-								.trim()
-								.slice( 0, 120 ) })`
-						);
-						continue;
-					}
-				}
-
-				if ( postId && postId > 0 ) {
-					for ( const [ key, value ] of Object.entries( item.meta ) ) {
-						await wpCli( site.id, [ 'post', 'meta', 'update', String( postId ), key, value ] );
-					}
-					if ( item.isHome ) {
-						homeId = postId;
-					}
-					if ( item.postType === 'page' && firstPageId === null ) {
-						firstPageId = postId;
-					}
-				}
+			// One WP load upserts every item, sets meta, and the static front page —
+			// instead of tens of serial WP-CLI round-trips through the WASM daemon.
+			const seederResult = await wpCli( site.id, [
+				'eval-file',
+				`${ abspath }wp-content/uploads/wsg-seed/_seed.php`,
+			] );
+			if ( seederResult.exitCode !== 0 ) {
+				throw new Error(
+					`Content seeding failed: ${ ( seederResult.stderr || seederResult.stdout )
+						.trim()
+						.slice( 0, 200 ) }`
+				);
 			}
+			const seeded = parseSeederResult( seederResult.stdout );
 
-			if ( ! homeId && firstPageId && manifest.contentMode === 'homepage-and-pages' ) {
-				homeId = firstPageId;
-			}
+			const frontPage = seeded.homeId
+				? seeded.frontSet
+					? `Set the home page (ID ${ seeded.homeId }) as the static front page.`
+					: 'Could not set the static front page automatically.'
+				: '';
 
-			let frontPage = '';
-			if ( homeId ) {
-				const showOnFront = await wpCli( site.id, [ 'option', 'update', 'show_on_front', 'page' ] );
-				const pageOnFront = await wpCli( site.id, [
-					'option',
-					'update',
-					'page_on_front',
-					String( homeId ),
-				] );
-				frontPage =
-					showOnFront.exitCode === 0 && pageOnFront.exitCode === 0
-						? `Set the home page (ID ${ homeId }) as the static front page.`
-						: 'Could not set the static front page automatically.';
-			}
-
-			return { created, updated, failed, frontPage };
+			return { created: seeded.created, updated: seeded.updated, failed: seeded.failed, frontPage };
 		} );
 
 		const imageNote =

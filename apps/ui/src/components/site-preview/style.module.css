@@ -14,15 +14,38 @@
 	border-radius: var(--wpds-border-radius-lg, 12px);
 	overflow: visible;
 	box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.06);
+	/* Animate open/close when the preview is toggled. Disabled while dragging
+	   the resize handle (via .rootResizing) so a drag tracks the cursor 1:1 —
+	   same arrangement as the sidebar. */
+	transition: width 150ms ease, margin 150ms ease;
 }
 
+.rootResizing {
+	transition: none;
+}
+
+/* Collapsed = preview toggled off. The panel stays mounted so its width can
+   animate to zero; zeroing the min-width/margin/border leaves nothing behind. */
+.rootCollapsed {
+	width: 0;
+	min-width: 0;
+	margin-right: 0;
+	border-width: 0;
+	overflow: hidden;
+	pointer-events: none;
+}
+
+/* Sits just outside the panel's left edge (no flow space — the panel is
+   absolutely-anchored). top/bottom: 0 makes the hit area and indicator the
+   full height of the panel; justify-content: flex-end keeps the indicator
+   flush against the border. */
 .resizeHandle {
 	position: absolute;
 	top: 0;
 	bottom: 0;
-	left: -15px;
+	left: -8px;
 	justify-content: flex-end;
-	padding-right: 4px;
+	padding: 0;
 }
 
 .header {

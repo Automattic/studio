@@ -26,6 +26,13 @@
 	min-width: 0;
 }
 
+/* While dragging the resize handle, the width updates every frame — the
+   collapse/expand transition would smear that into a laggy animation, so
+   disable it and let the width track the cursor 1:1. */
+.sidebarResizing {
+	transition: none;
+}
+
 .main {
 	flex: 1;
 	min-width: 0;
@@ -33,10 +40,18 @@
 	position: relative;
 }
 
+/* The negative margin cancels the handle's width so it adds no space to the
+   flex row — the main content butts straight against the sidebar's border and
+   the hit area overlays main's left edge. position/z-index lift it above main
+   (a later flex sibling) so the full-height indicator sits on the border.
+   justify-content: flex-start keeps that indicator flush against the border. */
 .resizeHandle {
+	position: relative;
+	z-index: 20;
 	flex-shrink: 0;
+	margin-right: -8px;
 	justify-content: flex-start;
-	padding-left: 4px;
+	padding: 0;
 }
 
 .floatingToggle {

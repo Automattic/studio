@@ -260,12 +260,13 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 				</div>
 			}
 			preview={
-				showPreview && ownerSite ? (
+				canTogglePreview && ownerSite ? (
 					<SitePreview
 						site={ ownerSite }
 						path={ preview.path }
 						reloadNonce={ preview.reloadNonce }
 						onAnnotationsDone={ handleAnnotationsDone }
+						collapsed={ ! showPreview }
 					/>
 				) : null
 			}

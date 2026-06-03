@@ -29,6 +29,9 @@ interface SitePreviewProps {
 	// Called when the user clicks "Submit" in the inspector toolbar. Receives
 	// the full annotation payload assembled inside the webview's guest page.
 	onAnnotationsDone?: ( annotations: Annotation[] ) => void;
+	// When true the panel stays mounted but animates its width to zero, so the
+	// open/close toggle is a transition rather than a mount/unmount.
+	collapsed?: boolean;
 }
 
 interface InspectorEvent {
@@ -56,7 +59,13 @@ const isElectron = (): boolean => {
 	return /\bElectron\//.test( navigator.userAgent );
 };
 
-export function SitePreview( { site, path, reloadNonce, onAnnotationsDone }: SitePreviewProps ) {
+export function SitePreview( {
+	site,
+	path,
+	reloadNonce,
+	onAnnotationsDone,
+	collapsed = false,
+}: SitePreviewProps ) {
 	const connector = useConnector();
 	const startSite = useStartSite();
 	const isStarting = useIsSiteStarting( site.id );
@@ -73,17 +82,28 @@ export function SitePreview( { site, path, reloadNonce, onAnnotationsDone }: Sit
 	} as CSSProperties;
 
 	return (
-		<aside className={ styles.root } style={ previewStyle } aria-label={ __( 'Site preview' ) }>
-			<ResizeHandle
-				className={ styles.resizeHandle }
-				label={ __( 'Resize site preview' ) }
-				minWidth={ previewResize.minWidth }
-				maxWidth={ previewResize.maxWidth }
-				width={ previewResize.width }
-				isResizing={ previewResize.isResizing }
-				onResizeStart={ previewResize.handleResizeStart }
-				onKeyDown={ previewResize.handleKeyDown }
-			/>
+		<aside
+			className={ clsx(
+				styles.root,
+				collapsed && styles.rootCollapsed,
+				previewResize.isResizing && styles.rootResizing
+			) }
+			style={ previewStyle }
+			aria-label={ __( 'Site preview' ) }
+			aria-hidden={ collapsed || undefined }
+		>
+			{ ! collapsed ? (
+				<ResizeHandle
+					className={ styles.resizeHandle }
+					label={ __( 'Resize site preview' ) }
+					minWidth={ previewResize.minWidth }
+					maxWidth={ previewResize.maxWidth }
+					width={ previewResize.width }
+					isResizing={ previewResize.isResizing }
+					onResizeStart={ previewResize.handleResizeStart }
+					onKeyDown={ previewResize.handleKeyDown }
+				/>
+			) : null }
 			<div className={ styles.header }>
 				<div className={ styles.trafficLights } aria-hidden="true">
 					<span className={ clsx( styles.trafficLight, styles.trafficLightActive ) } />

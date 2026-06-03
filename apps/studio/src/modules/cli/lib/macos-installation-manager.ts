@@ -4,7 +4,6 @@ import os from 'node:os';
 import path from 'node:path';
 import * as Sentry from '@sentry/electron/main';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
-import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { __, sprintf } from '@wordpress/i18n';
 import { sudoExec } from 'src/lib/sudo-exec';
 import { getMainWindow } from 'src/main-window';
@@ -45,7 +44,10 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 			return false;
 		}
 
-		return await this.doesSymlinkLeadToPackagedCli( cliSymlinkPath );
+		return (
+			( await this.doesSymlinkLeadToPackagedCli( cliSymlinkPath ) ) ||
+			( await this.isExternallyManagedCli( cliSymlinkPath ) )
+		);
 	}
 
 	async installCliWithConfirmation(): Promise< void > {
@@ -143,6 +145,12 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 			}
 		}
 
+		// Never overwrite a CLI the app didn't install — e.g. a standalone curl
+		// install symlinking studio at <STUDIO_CLI_HOME>/bin/studio (any location).
+		if ( await this.isExternallyManagedCli( cliSymlinkPath ) ) {
+			return;
+		}
+
 		if ( await this.isCliInstalled() ) {
 			return;
 		}
@@ -235,15 +243,25 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 		}
 	}
 
+	private async isExternallyManagedCli( symlinkPath: string ): Promise< boolean > {
+		let isSymlink = false;
+		try {
+			isSymlink = ( await fs.promises.lstat( symlinkPath ) ).isSymbolicLink();
+		} catch {
+			return false;
+		}
+		if ( ! isSymlink ) {
+			return false;
+		}
+		// A symlink that doesn't point at our packaged CLI is managed outside the
+		// app (e.g. a standalone curl install at <STUDIO_CLI_HOME>/bin/studio, any
+		// location). Treat it as installed and never overwrite it.
+		return ! ( await this.doesSymlinkLeadToPackagedCli( symlinkPath ) );
+	}
+
 	private async doesSymlinkLeadToPackagedCli( symlinkPath: string ): Promise< boolean > {
 		try {
 			const symlinkDestination = await fs.promises.readlink( symlinkPath );
-
-			// Don't overwrite standalone CLI installed via curl installer
-			const standaloneCliPath = path.join( getConfigDirectory(), 'bin', 'studio' );
-			if ( symlinkDestination === standaloneCliPath ) {
-				return true;
-			}
 
 			if ( process.env.NODE_ENV !== 'production' ) {
 				const prodCliPackagedPath = path.join(

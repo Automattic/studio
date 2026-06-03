@@ -152,48 +152,24 @@ function sweepStaleTmpDirs() {
 	}
 }
 
-function extractTarBuffer( tarball, destDir, sourceLabel ) {
-	// Extract into a sibling tmp dir first, then move it into place. The
-	// surrounding lock serializes this across processes, so the window between
-	// rm and rename can't be interleaved with another writer.
-	const suffix = `.tmp-${ process.pid }`;
-	const tmpDir = `${ destDir }${ suffix }`;
-
-	let extractionSucceeded = false;
+// Extract a gzipped tar buffer directly into destDir (created if needed).
+// Atomicity is handled by the caller, which assembles every asset into a single
+// staging dir and swaps that into the live CLI_DIR with one rename.
+function extractTarballInto( tarball, destDir, sourceLabel ) {
+	mkdirSync( destDir, { recursive: true } );
+	// Stream the asset to tar's stdin and extract in-place (cwd = destDir).
+	// No paths in argv => no GNU-tar "Cannot connect to C:" failure.
 	try {
-		if ( existsSync( tmpDir ) ) {
-			rmSync( tmpDir, { recursive: true, force: true } );
-		}
-		mkdirSync( tmpDir, { recursive: true } );
-
-		// Stream the asset to tar's stdin and extract in-place (cwd = tmpDir).
-		// No paths in argv => no GNU-tar "Cannot connect to C:" failure.
-		try {
-			execSync( 'tar -xz', {
-				cwd: tmpDir,
-				input: tarball,
-				stdio: [ 'pipe', 'inherit', 'inherit' ],
-			} );
-		} catch ( err ) {
-			throw new Error(
-				`Failed to extract ${ sourceLabel } with tar. Make sure 'tar' is installed and on PATH. Original error: ${ err.message }`
-			);
-		}
-
-		if ( existsSync( destDir ) ) {
-			rmSync( destDir, { recursive: true, force: true } );
-		}
-		renameSync( tmpDir, destDir );
-		extractionSucceeded = true;
-	} finally {
-		if ( ! extractionSucceeded ) {
-			rmSync( tmpDir, { recursive: true, force: true } );
-		}
+		execSync( 'tar -xz', {
+			cwd: destDir,
+			input: tarball,
+			stdio: [ 'pipe', 'inherit', 'inherit' ],
+		} );
+	} catch ( err ) {
+		throw new Error(
+			`Failed to extract ${ sourceLabel } with tar. Make sure 'tar' is installed and on PATH. Original error: ${ err.message }`
+		);
 	}
-}
-
-function extractSeaTarAsset( assetName, destDir ) {
-	extractTarBuffer( Buffer.from( getAsset( assetName ) ), destDir, assetName );
 }
 
 function getNodeModulesSidecarCandidates() {
@@ -245,19 +221,44 @@ async function ensureExtracted( bundleVersion ) {
 		console.error( 'First run — extracting runtime assets...' );
 		sweepStaleTmpDirs();
 
-		// Order matters: extracting resources.tar.gz atomically replaces CLI_DIR,
-		// so main.mjs has to be written afterwards. node_modules extracts into a
-		// subdir and can happen in either order, but we do it last for consistency.
-		extractSeaTarAsset( 'resources.tar.gz', CLI_DIR );
-		writeFileSync( join( CLI_DIR, 'main.mjs' ), Buffer.from( getAsset( 'main.mjs' ) ) );
+		// Locate the node_modules sidecar *before* touching the live runtime, so a
+		// missing/corrupt sidecar fails fast and leaves the previous extraction
+		// intact rather than half-replacing it.
 		const nodeModulesSidecarPath = getNodeModulesSidecarPath();
-		extractTarBuffer(
-			readFileSync( nodeModulesSidecarPath ),
-			join( CLI_DIR, 'node_modules' ),
-			nodeModulesSidecarPath
-		);
 
-		writeFileSync( MARKER_FILE, bundleVersion );
+		// Assemble the complete runtime in a staging dir, then swap it into place
+		// with a single atomic rename. If any step fails before the swap, CLI_DIR
+		// is left untouched.
+		const stagingDir = `${ CLI_DIR }.tmp-${ process.pid }`;
+		rmSync( stagingDir, { recursive: true, force: true } );
+
+		let swapped = false;
+		try {
+			extractTarballInto(
+				Buffer.from( getAsset( 'resources.tar.gz' ) ),
+				stagingDir,
+				'resources.tar.gz'
+			);
+			writeFileSync( join( stagingDir, 'main.mjs' ), Buffer.from( getAsset( 'main.mjs' ) ) );
+			extractTarballInto(
+				readFileSync( nodeModulesSidecarPath ),
+				join( stagingDir, 'node_modules' ),
+				nodeModulesSidecarPath
+			);
+			// Write the marker inside staging so the swap publishes it atomically.
+			writeFileSync( join( stagingDir, '.bundle-version' ), bundleVersion );
+
+			if ( existsSync( CLI_DIR ) ) {
+				rmSync( CLI_DIR, { recursive: true, force: true } );
+			}
+			renameSync( stagingDir, CLI_DIR );
+			swapped = true;
+		} finally {
+			if ( ! swapped ) {
+				rmSync( stagingDir, { recursive: true, force: true } );
+			}
+		}
+
 		console.error( 'Extraction complete.' );
 	} finally {
 		releaseLock();

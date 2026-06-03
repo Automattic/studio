@@ -82,14 +82,45 @@ function createTarball( archivePath: string, cwd: string, extraArgs: string[] ):
 		} );
 		const out = fs.createWriteStream( archivePath );
 		child.stdout.pipe( out );
-		out.on( 'error', reject );
-		child.on( 'error', reject );
-		child.on( 'close', ( code ) => {
-			if ( code === 0 ) {
-				resolve();
-			} else {
-				reject( new Error( `tar exited with code ${ code }` ) );
+
+		// Resolve only once tar has exited 0 AND the write stream has flushed and
+		// closed. Resolving on tar's exit alone can leave a large sidecar still
+		// buffering, producing a truncated archive (and a mismatched checksum).
+		let tarExitCode: number | null = null;
+		let tarExited = false;
+		let outClosed = false;
+		let settled = false;
+
+		const fail = ( err: Error ) => {
+			if ( settled ) {
+				return;
 			}
+			settled = true;
+			reject( err );
+		};
+
+		const maybeResolve = () => {
+			if ( settled || ! tarExited || ! outClosed ) {
+				return;
+			}
+			if ( tarExitCode !== 0 ) {
+				fail( new Error( `tar exited with code ${ tarExitCode }` ) );
+				return;
+			}
+			settled = true;
+			resolve();
+		};
+
+		out.on( 'error', fail );
+		child.on( 'error', fail );
+		child.on( 'close', ( code ) => {
+			tarExited = true;
+			tarExitCode = code;
+			maybeResolve();
+		} );
+		out.on( 'close', () => {
+			outClosed = true;
+			maybeResolve();
 		} );
 	} );
 }

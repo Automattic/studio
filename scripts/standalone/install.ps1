@@ -64,30 +64,35 @@ function Install-StudioCli {
     New-Item -ItemType Directory -Path $BinDir -Force | Out-Null
 
     $BinaryPath = Join-Path $BinDir "studio.exe"
-    $ChecksumPath = "$BinaryPath.sha256"
     $SidecarPath = "$BinaryPath.node_modules.tar.gz"
-    $SidecarChecksumPath = "$SidecarPath.sha256"
 
-    Write-Host "Downloading Studio CLI..."
-    Get-Bundle -Url $BinaryUrl -Dest $BinaryPath
-    Get-Bundle -Url "$BinaryUrl.sha256" -Dest $ChecksumPath
-    Get-Bundle -Url $SidecarUrl -Dest $SidecarPath
-    Get-Bundle -Url "$SidecarUrl.sha256" -Dest $SidecarChecksumPath
-
-    Write-Host "Verifying checksum..."
+    # Download + verify in a staging dir, then move the verified files into
+    # place. A failed or corrupt upgrade never clobbers a working install.
+    $StagingDir = Join-Path $BinDir (".studio-install-" + [guid]::NewGuid().ToString("N"))
+    New-Item -ItemType Directory -Path $StagingDir -Force | Out-Null
     try {
-        Test-Checksum -File $BinaryPath -ChecksumFile $ChecksumPath
-        Test-Checksum -File $SidecarPath -ChecksumFile $SidecarChecksumPath
+        $TmpBinary = Join-Path $StagingDir "studio.exe"
+        $TmpBinaryChecksum = "$TmpBinary.sha256"
+        $TmpSidecar = Join-Path $StagingDir "studio.exe.node_modules.tar.gz"
+        $TmpSidecarChecksum = "$TmpSidecar.sha256"
+
+        Write-Host "Downloading Studio CLI..."
+        Get-Bundle -Url $BinaryUrl -Dest $TmpBinary
+        Get-Bundle -Url "$BinaryUrl.sha256" -Dest $TmpBinaryChecksum
+        Get-Bundle -Url $SidecarUrl -Dest $TmpSidecar
+        Get-Bundle -Url "$SidecarUrl.sha256" -Dest $TmpSidecarChecksum
+
+        Write-Host "Verifying checksum..."
+        Test-Checksum -File $TmpBinary -ChecksumFile $TmpBinaryChecksum
+        Test-Checksum -File $TmpSidecar -ChecksumFile $TmpSidecarChecksum
+
+        # Move the verified files into place (replaces any existing install).
+        Move-Item -Path $TmpBinary -Destination $BinaryPath -Force
+        Move-Item -Path $TmpSidecar -Destination $SidecarPath -Force
     }
-    catch {
-        Remove-Item $BinaryPath -Force -ErrorAction SilentlyContinue
-        Remove-Item $ChecksumPath -Force -ErrorAction SilentlyContinue
-        Remove-Item $SidecarPath -Force -ErrorAction SilentlyContinue
-        Remove-Item $SidecarChecksumPath -Force -ErrorAction SilentlyContinue
-        throw
+    finally {
+        Remove-Item $StagingDir -Recurse -Force -ErrorAction SilentlyContinue
     }
-    Remove-Item $ChecksumPath -Force
-    Remove-Item $SidecarChecksumPath -Force
 
     # Add to PATH — split on ';' for exact-entry match, not substring.
     $UserPath = [Environment]::GetEnvironmentVariable("PATH", "User")

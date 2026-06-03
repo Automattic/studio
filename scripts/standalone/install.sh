@@ -99,29 +99,37 @@ install_studio() {
 
 	mkdir -p "$INSTALL_DIR/bin"
 	BINARY_PATH="$INSTALL_DIR/bin/studio"
-	CHECKSUM_PATH="$BINARY_PATH.sha256"
 	SIDECAR_PATH="${BINARY_PATH}.node_modules.tar.gz"
-	SIDECAR_CHECKSUM_PATH="${SIDECAR_PATH}.sha256"
+
+	# Download + verify in a staging dir on the same filesystem as the final
+	# paths, then move the verified files into place. A failed or corrupt
+	# upgrade never touches a previously working install.
+	STAGING_DIR="$(mktemp -d "${INSTALL_DIR}/bin/.studio-install.XXXXXX")"
+	trap 'rm -rf "$STAGING_DIR"' EXIT
+
+	TMP_BINARY="$STAGING_DIR/studio"
+	TMP_BINARY_SUM="$TMP_BINARY.sha256"
+	TMP_SIDECAR="$STAGING_DIR/studio.node_modules.tar.gz"
+	TMP_SIDECAR_SUM="$TMP_SIDECAR.sha256"
 
 	echo "Downloading Studio CLI..."
-	download "$BINARY_URL" "$BINARY_PATH"
-	download "${BINARY_URL}.sha256" "$CHECKSUM_PATH"
-	download "$SIDECAR_URL" "$SIDECAR_PATH"
-	download "${SIDECAR_URL}.sha256" "$SIDECAR_CHECKSUM_PATH"
+	download "$BINARY_URL" "$TMP_BINARY"
+	download "${BINARY_URL}.sha256" "$TMP_BINARY_SUM"
+	download "$SIDECAR_URL" "$TMP_SIDECAR"
+	download "${SIDECAR_URL}.sha256" "$TMP_SIDECAR_SUM"
 
 	echo "Verifying checksum..."
-	if ! verify_checksum "$BINARY_PATH" "$CHECKSUM_PATH"; then
-		rm -f "$BINARY_PATH" "$CHECKSUM_PATH" "$SIDECAR_PATH" "$SIDECAR_CHECKSUM_PATH"
-		echo "Error: checksum verification failed. Aborting." >&2
+	if ! verify_checksum "$TMP_BINARY" "$TMP_BINARY_SUM" ||
+		! verify_checksum "$TMP_SIDECAR" "$TMP_SIDECAR_SUM"; then
+		echo "Error: checksum verification failed. Aborting; existing install left untouched." >&2
 		exit 1
 	fi
-	if ! verify_checksum "$SIDECAR_PATH" "$SIDECAR_CHECKSUM_PATH"; then
-		rm -f "$BINARY_PATH" "$CHECKSUM_PATH" "$SIDECAR_PATH" "$SIDECAR_CHECKSUM_PATH"
-		echo "Error: checksum verification failed. Aborting." >&2
-		exit 1
-	fi
-	rm -f "$CHECKSUM_PATH" "$SIDECAR_CHECKSUM_PATH"
-	chmod +x "$BINARY_PATH"
+
+	chmod +x "$TMP_BINARY"
+
+	# Move the verified files into place (atomic rename on the same filesystem).
+	mv -f "$TMP_BINARY" "$BINARY_PATH"
+	mv -f "$TMP_SIDECAR" "$SIDECAR_PATH"
 
 	# Symlink to PATH
 	mkdir -p "$BIN_DIR"

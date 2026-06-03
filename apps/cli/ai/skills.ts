@@ -25,8 +25,8 @@ let cachedSkills: Skill[] | null = null;
 // A skill body is authored harness-agnostically (no tool names) so it can be
 // shared across agent surfaces. The Studio-specific mapping of each capability
 // to a concrete tool lives in `skill-overlays/<name>.md`; append it here at load
-// time so the skill body itself stays portable. Skills with no overlay load
-// unchanged. See `skill-overlays/README.md`.
+// time, under an "In Studio" heading, so the skill body itself stays portable.
+// Skills with no overlay file load unchanged.
 function applyStudioOverlay( skill: Skill, overlaysRoot: string ): Skill {
 	const overlayPath = path.join( overlaysRoot, `${ skill.name }.md` );
 	if ( ! fs.existsSync( overlayPath ) ) {

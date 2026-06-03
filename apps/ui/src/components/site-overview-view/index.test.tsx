@@ -7,6 +7,7 @@ import {
 	useArchiveSession,
 	useSessions,
 	useUnarchiveSession,
+	useUpdateSessionMetadata,
 	useUpdateSessionTitleDescription,
 } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
@@ -47,6 +48,7 @@ vi.mock( '@/data/queries/use-sessions', () => ( {
 	useArchiveSession: vi.fn(),
 	useSessions: vi.fn(),
 	useUnarchiveSession: vi.fn(),
+	useUpdateSessionMetadata: vi.fn(),
 	useUpdateSessionTitleDescription: vi.fn(),
 } ) );
 
@@ -73,11 +75,13 @@ const useSitesMock = vi.mocked( useSites );
 const useSessionsMock = vi.mocked( useSessions );
 const useArchiveSessionMock = vi.mocked( useArchiveSession );
 const useUnarchiveSessionMock = vi.mocked( useUnarchiveSession );
+const useUpdateSessionMetadataMock = vi.mocked( useUpdateSessionMetadata );
 const useUpdateSessionTitleDescriptionMock = vi.mocked( useUpdateSessionTitleDescription );
 
 describe( 'SiteOverviewView', () => {
 	const archiveMutate = vi.fn();
 	const unarchiveMutate = vi.fn();
+	const updateMetadataMutate = vi.fn();
 	const updateTitleDescriptionMutateAsync = vi.fn();
 	const createSession = vi.fn();
 	const continueSession = vi.fn();
@@ -102,6 +106,7 @@ describe( 'SiteOverviewView', () => {
 		navigateMock.mockReset().mockResolvedValue( undefined );
 		archiveMutate.mockReset();
 		unarchiveMutate.mockReset();
+		updateMetadataMutate.mockReset();
 		updateTitleDescriptionMutateAsync.mockReset().mockResolvedValue( undefined );
 		createSession.mockReset().mockResolvedValue( { id: 'new-session' } );
 		continueSession.mockReset().mockResolvedValue( { runId: 'run-1' } );
@@ -117,6 +122,10 @@ describe( 'SiteOverviewView', () => {
 		useArchiveSessionMock.mockReturnValue( { mutate: archiveMutate, isPending: false } as never );
 		useUnarchiveSessionMock.mockReturnValue( {
 			mutate: unarchiveMutate,
+			isPending: false,
+		} as never );
+		useUpdateSessionMetadataMock.mockReturnValue( {
+			mutate: updateMetadataMutate,
 			isPending: false,
 		} as never );
 		useUpdateSessionTitleDescriptionMock.mockReturnValue( {
@@ -146,6 +155,7 @@ describe( 'SiteOverviewView', () => {
 				{
 					id: 'archived-session',
 					firstPrompt: 'Archived chat',
+					description: 'Archived detail should stay hidden',
 					ownerSitePath: '/Users/example/Studio/example-site',
 					updatedAt: '2026-05-02T12:00:00.000Z',
 					archived: true,
@@ -161,7 +171,7 @@ describe( 'SiteOverviewView', () => {
 		} as never );
 	} );
 
-	it( 'lists active and archived chats for the selected site', () => {
+	it( 'lists active chats and keeps archived chats collapsed by default', () => {
 		renderOverview();
 
 		expect( screen.getByRole( 'heading', { name: 'Active' } ) ).toBeVisible();
@@ -169,18 +179,35 @@ describe( 'SiteOverviewView', () => {
 			'href',
 			'/sessions/active-session'
 		);
-		expect( screen.getByRole( 'heading', { name: 'Archived' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Archived' } ) ).toHaveAttribute(
+			'aria-expanded',
+			'false'
+		);
+		expect( screen.queryByRole( 'link', { name: /Archived chat/ } ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( 'Archived detail should stay hidden' ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( 'Other site chat' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'expands archived chats as a compact list', () => {
+		renderOverview();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Archived' } ) );
+
+		expect( screen.getByRole( 'button', { name: 'Archived' } ) ).toHaveAttribute(
+			'aria-expanded',
+			'true'
+		);
 		expect( screen.getByRole( 'link', { name: /Archived chat/ } ) ).toHaveAttribute(
 			'href',
 			'/sessions/archived-session'
 		);
-		expect( screen.queryByText( 'Other site chat' ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( 'Archived detail should stay hidden' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'keeps the site details content focused on chats', () => {
 		renderOverview();
 
-		expect( screen.getByRole( 'heading', { name: 'Chats' } ) ).toBeVisible();
+		expect( screen.queryByRole( 'heading', { name: 'Chats' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'heading', { name: 'Shortcuts' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'Local path' ) ).not.toBeInTheDocument();
 		expect( screen.queryByTestId( 'site-settings-form' ) ).not.toBeInTheDocument();
@@ -197,18 +224,38 @@ describe( 'SiteOverviewView', () => {
 		);
 	} );
 
-	it( 'archives and unarchives chats from the site details view', () => {
+	it( 'archives active chats from the site details view', () => {
 		renderOverview();
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Archive' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Archive conversation' } ) );
 		expect( archiveMutate ).toHaveBeenCalledWith(
 			expect.objectContaining( { id: 'active-session' } )
 		);
+	} );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Unarchive' } ) );
+	it( 'unarchives archived chats from the site details view', () => {
+		renderOverview();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Archived' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Unarchive conversation' } ) );
+
 		expect( unarchiveMutate ).toHaveBeenCalledWith(
 			expect.objectContaining( { id: 'archived-session' } )
 		);
+	} );
+
+	it( 'stars active chats from the site details view', () => {
+		renderOverview();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Star conversation' } ) );
+
+		expect( updateMetadataMutate ).toHaveBeenCalledWith( {
+			sessionId: 'active-session',
+			patch: {
+				starred: true,
+				archived: false,
+			},
+		} );
 	} );
 
 	it( 'edits chat title and description from the site details view', async () => {

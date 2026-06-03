@@ -2,7 +2,16 @@ import { DEFAULT_MODEL } from '@studio/common/ai/models';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { Button, Dialog } from '@wordpress/ui';
+import {
+	box,
+	chevronDown,
+	chevronRight,
+	pencil,
+	starEmpty,
+	starFilled,
+	undo,
+} from '@wordpress/icons';
+import { Button, Dialog, Icon, IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { PreviewSplitContent } from '@/components/preview-split-frame';
@@ -16,6 +25,7 @@ import {
 	useArchiveSession,
 	useSessions,
 	useUnarchiveSession,
+	useUpdateSessionMetadata,
 	useUpdateSessionTitleDescription,
 } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
@@ -46,6 +56,7 @@ function SiteOverviewViewContent( { siteId }: { siteId: string } ) {
 	const { data: sessions, isLoading: isLoadingSessions } = useSessions();
 	const archiveSession = useArchiveSession();
 	const unarchiveSession = useUnarchiveSession();
+	const updateSessionMetadata = useUpdateSessionMetadata();
 	const site = sites?.find( ( candidate ) => candidate.id === siteId );
 	const preview = useSessionPreviewUI();
 	const showPreview = preview.open;
@@ -53,6 +64,7 @@ function SiteOverviewViewContent( { siteId }: { siteId: string } ) {
 	const [ composerError, setComposerError ] = useState< string | null >( null );
 	const [ settingsOpen, setSettingsOpen ] = useState( false );
 	const [ settingsTab, setSettingsTab ] = useState< SiteSettingsTabId >( 'general' );
+	const [ archivedOpen, setArchivedOpen ] = useState( false );
 	const [ selectedModel, setSelectedModel ] = useState< AiModelId >( DEFAULT_MODEL );
 
 	const sendNewChatMessage = useCallback(
@@ -106,7 +118,8 @@ function SiteOverviewViewContent( { siteId }: { siteId: string } ) {
 		.sort( ( a, b ) => Date.parse( b.updatedAt ) - Date.parse( a.updatedAt ) );
 	const activeSessions = siteSessions.filter( ( session ) => ! session.archived );
 	const archivedSessions = siteSessions.filter( ( session ) => session.archived );
-	const isUpdatingSession = archiveSession.isPending || unarchiveSession.isPending;
+	const isUpdatingSession =
+		archiveSession.isPending || unarchiveSession.isPending || updateSessionMetadata.isPending;
 
 	return (
 		<>
@@ -137,35 +150,38 @@ function SiteOverviewViewContent( { siteId }: { siteId: string } ) {
 			>
 				<div className={ styles.content }>
 					<section className={ styles.chats }>
-						<header className={ styles.sectionHeader }>
-							<h2 className={ styles.sectionTitle }>{ __( 'Chats' ) }</h2>
-							<span className={ styles.sectionCount }>
-								{ isLoadingSessions
-									? __( 'Loading...' )
-									: `${ activeSessions.length + archivedSessions.length }` }
-							</span>
-						</header>
 						{ isLoadingSessions ? (
 							<p className={ styles.emptyChats }>{ __( 'Loading chats...' ) }</p>
 						) : siteSessions.length === 0 ? (
 							<p className={ styles.emptyChats }>{ __( 'No chats for this site yet.' ) }</p>
 						) : (
 							<>
-								<ChatSection
+								<ActiveChatSection
 									title={ __( 'Active' ) }
 									sessions={ activeSessions }
 									emptyText={ __( 'No active chats.' ) }
-									actionLabel={ __( 'Archive' ) }
+									archiveLabel={ __( 'Archive conversation' ) }
 									actionDisabled={ isUpdatingSession }
-									onAction={ ( session ) => archiveSession.mutate( session ) }
+									onArchive={ ( session ) => archiveSession.mutate( session ) }
+									onToggleStar={ ( session ) =>
+										updateSessionMetadata.mutate( {
+											sessionId: session.id,
+											patch: {
+												starred: ! session.starred,
+												archived: !! session.archived,
+											},
+										} )
+									}
 								/>
-								<ChatSection
+								<ArchivedChatSection
 									title={ __( 'Archived' ) }
 									sessions={ archivedSessions }
 									emptyText={ __( 'No archived chats.' ) }
-									actionLabel={ __( 'Unarchive' ) }
+									unarchiveLabel={ __( 'Unarchive conversation' ) }
 									actionDisabled={ isUpdatingSession }
-									onAction={ ( session ) => unarchiveSession.mutate( session ) }
+									open={ archivedOpen }
+									onToggle={ () => setArchivedOpen( ( current ) => ! current ) }
+									onUnarchive={ ( session ) => unarchiveSession.mutate( session ) }
 								/>
 							</>
 						) }
@@ -239,38 +255,40 @@ function SiteOverviewHeader( {
 	);
 }
 
-function ChatSection( {
+function ActiveChatSection( {
 	title,
 	sessions,
 	emptyText,
-	actionLabel,
+	archiveLabel,
 	actionDisabled,
-	onAction,
+	onArchive,
+	onToggleStar,
 }: {
 	title: string;
 	sessions: AiSessionSummary[];
 	emptyText: string;
-	actionLabel: string;
+	archiveLabel: string;
 	actionDisabled: boolean;
-	onAction: ( session: AiSessionSummary ) => void;
+	onArchive: ( session: AiSessionSummary ) => void;
+	onToggleStar: ( session: AiSessionSummary ) => void;
 } ) {
 	return (
 		<section className={ styles.chatSection }>
 			<div className={ styles.chatSectionHeader }>
 				<h3 className={ styles.chatSectionTitle }>{ title }</h3>
-				<span className={ styles.chatSectionCount }>{ sessions.length }</span>
 			</div>
 			{ sessions.length === 0 ? (
 				<p className={ styles.emptyChats }>{ emptyText }</p>
 			) : (
 				<ul className={ styles.chatList }>
 					{ sessions.map( ( session ) => (
-						<ChatRow
+						<ActiveChatRow
 							key={ session.id }
 							session={ session }
-							actionLabel={ actionLabel }
+							archiveLabel={ archiveLabel }
 							actionDisabled={ actionDisabled }
-							onAction={ onAction }
+							onArchive={ onArchive }
+							onToggleStar={ onToggleStar }
 						/>
 					) ) }
 				</ul>
@@ -279,19 +297,78 @@ function ChatSection( {
 	);
 }
 
-function ChatRow( {
-	session,
-	actionLabel,
+function ArchivedChatSection( {
+	title,
+	sessions,
+	emptyText,
+	unarchiveLabel,
 	actionDisabled,
-	onAction,
+	open,
+	onToggle,
+	onUnarchive,
+}: {
+	title: string;
+	sessions: AiSessionSummary[];
+	emptyText: string;
+	unarchiveLabel: string;
+	actionDisabled: boolean;
+	open: boolean;
+	onToggle: () => void;
+	onUnarchive: ( session: AiSessionSummary ) => void;
+} ) {
+	return (
+		<section className={ styles.archivedSection }>
+			<button
+				type="button"
+				className={ styles.archivedToggle }
+				aria-expanded={ open }
+				onClick={ onToggle }
+			>
+				<span>{ title }</span>
+				<Icon
+					icon={ open ? chevronDown : chevronRight }
+					size={ 14 }
+					className={ styles.archivedToggleIcon }
+					aria-hidden="true"
+				/>
+			</button>
+			{ open ? (
+				sessions.length === 0 ? (
+					<p className={ styles.emptyChats }>{ emptyText }</p>
+				) : (
+					<ul className={ styles.archivedChatList }>
+						{ sessions.map( ( session ) => (
+							<ArchivedChatRow
+								key={ session.id }
+								session={ session }
+								unarchiveLabel={ unarchiveLabel }
+								actionDisabled={ actionDisabled }
+								onUnarchive={ onUnarchive }
+							/>
+						) ) }
+					</ul>
+				)
+			) : null }
+		</section>
+	);
+}
+
+function ActiveChatRow( {
+	session,
+	archiveLabel,
+	actionDisabled,
+	onArchive,
+	onToggleStar,
 }: {
 	session: AiSessionSummary;
-	actionLabel: string;
+	archiveLabel: string;
 	actionDisabled: boolean;
-	onAction: ( session: AiSessionSummary ) => void;
+	onArchive: ( session: AiSessionSummary ) => void;
+	onToggleStar: ( session: AiSessionSummary ) => void;
 } ) {
 	const label = session.title?.trim() || session.firstPrompt?.trim() || __( 'Untitled chat' );
 	const description = session.description?.trim() || session.assistantReplyPreview?.trim();
+	const starred = !! session.starred;
 	const [ editOpen, setEditOpen ] = useState( false );
 
 	return (
@@ -302,26 +379,85 @@ function ChatRow( {
 				className={ styles.chatLink }
 			>
 				<span className={ styles.chatTitle }>{ label }</span>
-				<span className={ styles.chatMeta }>
-					{ description
-						? `${ description } · ${ formatRelativeTime( session.updatedAt ) }`
-						: formatRelativeTime( session.updatedAt ) }
-				</span>
+				{ description ? <span className={ styles.chatMeta }>{ description }</span> : null }
 			</Link>
-			<div className={ styles.chatActions }>
-				<Button variant="minimal" size="small" onClick={ () => setEditOpen( true ) }>
-					{ __( 'Edit' ) }
-				</Button>
-				<Button
-					variant="minimal"
-					size="small"
-					disabled={ actionDisabled }
-					onClick={ () => onAction( session ) }
-				>
-					{ actionLabel }
-				</Button>
+			<div className={ styles.chatEndSlot }>
+				<span className={ styles.chatTime }>{ formatRelativeTime( session.updatedAt ) }</span>
+				<div className={ styles.chatActions }>
+					<IconButton
+						variant="minimal"
+						tone="neutral"
+						size="small"
+						icon={ starred ? starFilled : starEmpty }
+						label={ starred ? __( 'Unstar conversation' ) : __( 'Star conversation' ) }
+						className={ styles.chatIconAction }
+						data-active={ starred ? 'true' : 'false' }
+						disabled={ actionDisabled }
+						onClick={ () => onToggleStar( session ) }
+					/>
+					<IconButton
+						variant="minimal"
+						tone="neutral"
+						size="small"
+						icon={ pencil }
+						label={ __( 'Edit' ) }
+						className={ styles.chatIconAction }
+						onClick={ () => setEditOpen( true ) }
+					/>
+					<IconButton
+						variant="minimal"
+						tone="neutral"
+						size="small"
+						icon={ box }
+						label={ archiveLabel }
+						className={ styles.chatIconAction }
+						disabled={ actionDisabled }
+						onClick={ () => onArchive( session ) }
+					/>
+				</div>
 			</div>
 			<EditChatDetailsDialog session={ session } open={ editOpen } onOpenChange={ setEditOpen } />
+		</li>
+	);
+}
+
+function ArchivedChatRow( {
+	session,
+	unarchiveLabel,
+	actionDisabled,
+	onUnarchive,
+}: {
+	session: AiSessionSummary;
+	unarchiveLabel: string;
+	actionDisabled: boolean;
+	onUnarchive: ( session: AiSessionSummary ) => void;
+} ) {
+	const label = session.title?.trim() || session.firstPrompt?.trim() || __( 'Untitled chat' );
+
+	return (
+		<li className={ styles.archivedChatRow }>
+			<Link
+				to="/sessions/$sessionId"
+				params={ { sessionId: session.id } }
+				className={ styles.archivedChatLink }
+			>
+				<span className={ styles.archivedChatTitle }>{ label }</span>
+			</Link>
+			<div className={ styles.archivedChatEndSlot }>
+				<span className={ styles.archivedChatTime }>
+					{ formatRelativeTime( session.updatedAt ) }
+				</span>
+				<IconButton
+					variant="minimal"
+					tone="neutral"
+					size="small"
+					icon={ undo }
+					label={ unarchiveLabel }
+					className={ styles.archivedChatAction }
+					disabled={ actionDisabled }
+					onClick={ () => onUnarchive( session ) }
+				/>
+			</div>
 		</li>
 	);
 }

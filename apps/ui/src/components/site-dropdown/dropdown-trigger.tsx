@@ -89,7 +89,7 @@ export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
 						<span className={ styles.url }>{ siteUrl }</span>
 						<Icon icon={ chevronDownSmall } />
 					</Tooltip.Trigger>
-					<Tooltip.Popup side="bottom">
+					<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
 						{ tooltipLabel }
 						{ shortcut ? (
 							<>

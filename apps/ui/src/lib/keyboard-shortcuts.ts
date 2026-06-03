@@ -136,10 +136,14 @@ export function matchesKeyboardShortcut(
 }
 
 export function shouldSendMessageForKeyDown(
-	event: Pick< KeyboardEventLike, 'key' | 'metaKey' | 'ctrlKey' | 'shiftKey' | 'altKey' >,
+	event: Pick< KeyboardEventLike, 'key' | 'metaKey' | 'ctrlKey' | 'shiftKey' | 'altKey' > & {
+		isComposing?: boolean;
+	},
 	shortcut: MessageSendShortcut = DEFAULT_MESSAGE_SEND_SHORTCUT
 ): boolean {
-	if ( event.key !== 'Enter' || event.shiftKey || event.altKey ) {
+	// Ignore the Enter that commits an active IME composition (e.g. CJK input),
+	// otherwise a half-composed message would be sent — especially in 'enter' mode.
+	if ( event.isComposing || event.key !== 'Enter' || event.shiftKey || event.altKey ) {
 		return false;
 	}
 	const hasPrimaryModifier = event.metaKey || event.ctrlKey;

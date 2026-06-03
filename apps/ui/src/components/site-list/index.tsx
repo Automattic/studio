@@ -561,7 +561,9 @@ function SiteSection( {
 									</button>
 								}
 							/>
-							<Tooltip.Popup side="top">{ toggleLabel }</Tooltip.Popup>
+							<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+								{ toggleLabel }
+							</Tooltip.Popup>
 						</Tooltip.Root>
 					</Tooltip.Provider>
 					{ group.site ? (

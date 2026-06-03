@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
@@ -167,7 +168,7 @@ describe( 'MainView', () => {
 		expect( screen.queryByText( 'Open folder' ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'Open WP admin' ) ).not.toBeInTheDocument();
 
-		fireEvent.click( screen.getByRole( 'menuitem', { name: 'WP Admin' } ) );
+		await openSubmenu( 'WP Admin' );
 
 		expect( await screen.findByText( 'Styles' ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Navigation' ) ).toBeInTheDocument();
@@ -191,7 +192,7 @@ describe( 'MainView', () => {
 		wpAdminOpenTarget = 'studio-browser';
 		renderMainView();
 
-		fireEvent.click( screen.getByRole( 'menuitem', { name: 'WP Admin' } ) );
+		await openSubmenu( 'WP Admin' );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Styles' } ) );
 
 		await waitFor( () => {
@@ -205,13 +206,15 @@ describe( 'MainView', () => {
 	it( 'saves the selected WP Admin browser target', async () => {
 		renderMainView();
 
-		fireEvent.click( screen.getByRole( 'menuitem', { name: 'WP Admin' } ) );
+		await openSubmenu( 'WP Admin' );
 		fireEvent.click(
 			await screen.findByRole( 'menuitemradio', { name: 'Open in Studio browser' } )
 		);
 
-		expect( saveUserPreferences ).toHaveBeenCalledWith( {
-			wpAdminOpenTarget: 'studio-browser',
+		await waitFor( () => {
+			expect( saveUserPreferences ).toHaveBeenCalledWith( {
+				wpAdminOpenTarget: 'studio-browser',
+			} );
 		} );
 	} );
 
@@ -315,4 +318,15 @@ function renderMainView(
 			</SessionUIProvider>
 		</QueryClientProvider>
 	);
+}
+
+// @base-ui/react 1.5 submenus open on hover (not click). Open by hovering the
+// trigger and waiting for it to expand; callers then select an item with
+// fireEvent.click so the pointer doesn't move out and trigger the hover-close,
+// which jsdom can't position correctly.
+async function openSubmenu( name: string ) {
+	const user = userEvent.setup( { pointerEventsCheck: 0 } );
+	const trigger = screen.getByRole( 'menuitem', { name } );
+	await user.hover( trigger );
+	await waitFor( () => expect( trigger ).toHaveAttribute( 'aria-expanded', 'true' ) );
 }

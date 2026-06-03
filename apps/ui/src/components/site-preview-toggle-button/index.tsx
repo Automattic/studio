@@ -43,7 +43,7 @@ export function SitePreviewToggleButton( {
 					<Icon icon={ navigation } size={ 16 } />
 					<span>{ __( 'Browser' ) }</span>
 				</Tooltip.Trigger>
-				<Tooltip.Popup side="bottom">
+				<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
 					{ label } <span aria-hidden="true">{ shortcut.displayShortcut }</span>
 				</Tooltip.Popup>
 			</Tooltip.Root>

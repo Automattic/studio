@@ -326,7 +326,7 @@ export function MainView( { site, onSetupClick, onDisconnectClick, onSettingsCli
 		<Tooltip.Provider delay={ 0 }>
 			<Tooltip.Root>
 				<Tooltip.Trigger render={ <Button { ...props }>{ children }</Button> } />
-				<Tooltip.Popup side="top">{ tooltip }</Tooltip.Popup>
+				<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>{ tooltip }</Tooltip.Popup>
 			</Tooltip.Root>
 		</Tooltip.Provider>
 	);
@@ -347,7 +347,7 @@ export function MainView( { site, onSetupClick, onDisconnectClick, onSettingsCli
 						</button>
 					}
 				/>
-				<Tooltip.Popup side="top">{ label }</Tooltip.Popup>
+				<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>{ label }</Tooltip.Popup>
 			</Tooltip.Root>
 		</Tooltip.Provider>
 	);
@@ -604,7 +604,7 @@ function LocalServerToggleButton( {
 						</Button>
 					}
 				/>
-				<Tooltip.Popup side="top">{ label }</Tooltip.Popup>
+				<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>{ label }</Tooltip.Popup>
 			</Tooltip.Root>
 		</Tooltip.Provider>
 	);

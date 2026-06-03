@@ -7,9 +7,11 @@ import {
 	getToolDisplayName,
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
-import { __ } from '@wordpress/i18n';
+import { __, _n, sprintf } from '@wordpress/i18n';
+import { chevronRight } from '@wordpress/icons';
+import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState, type ReactNode } from 'react';
 import { Markdown } from '@/components/markdown';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
@@ -38,6 +40,8 @@ type RenderItem =
 			options: Array< { label: string; description: string } >;
 	  }
 	| { kind: 'interrupted-marker'; key: string };
+
+type ToolUseRenderItem = Extract< RenderItem, { kind: 'tool-use' } >;
 
 interface PiAssistantContentBlock {
 	type: 'text' | 'toolCall' | 'thinking';
@@ -280,6 +284,160 @@ function AssistantText( { text }: { text: string } ) {
 
 const TOOL_RESULT_PREVIEW_MAX_LINES = 12;
 
+function lowerFirstCharacter( text: string ) {
+	if ( text.length === 0 ) {
+		return text;
+	}
+	return text.charAt( 0 ).toLocaleLowerCase() + text.slice( 1 );
+}
+
+function getToolActionDescription( name: string, input?: Record< string, unknown > ) {
+	const detail = getToolDetail( name, input );
+	const withDetail = ( label: string, fallback: string ) =>
+		detail ? sprintf( label as '%s', detail ) : fallback;
+
+	switch ( name ) {
+		case 'Read':
+			return withDetail( __( 'Read %s' ), __( 'Read a file' ) );
+		case 'Write':
+			return withDetail( __( 'Wrote %s' ), __( 'Wrote a file' ) );
+		case 'Edit':
+			return withDetail( __( 'Edited %s' ), __( 'Edited a file' ) );
+		case 'Bash':
+			return withDetail( __( 'Ran %s' ), __( 'Ran a command' ) );
+		case 'Grep':
+		case 'Glob':
+			return withDetail( __( 'Searched for %s' ), __( 'Searched files' ) );
+		case 'Ls':
+			return withDetail( __( 'Listed %s' ), __( 'Listed files' ) );
+		case 'Skill':
+			return withDetail( __( 'Loaded %s' ), __( 'Loaded a skill' ) );
+		case 'Task':
+			return __( 'Ran a task' );
+		case 'TodoWrite':
+			return __( 'Updated the todo list' );
+		case 'wp_cli':
+			return withDetail( __( 'Ran %s' ), __( 'Ran WP-CLI' ) );
+		case 'wpcom_request':
+			return withDetail( __( 'Requested %s' ), __( 'Called WordPress.com' ) );
+		case 'validate_html_blocks':
+			return withDetail( __( 'Checked HTML blocks in %s' ), __( 'Checked HTML blocks' ) );
+		case 'validate_and_fix_blocks':
+			return withDetail( __( 'Fixed block validation in %s' ), __( 'Fixed block validation' ) );
+		case 'take_screenshot':
+		case 'share_screenshot':
+			return withDetail( __( 'Captured %s' ), __( 'Captured a screenshot' ) );
+		case 'site_create':
+			return withDetail( __( 'Created site %s' ), __( 'Created a site' ) );
+		case 'site_start':
+			return withDetail( __( 'Started site %s' ), __( 'Started a site' ) );
+		case 'site_stop':
+			return withDetail( __( 'Stopped site %s' ), __( 'Stopped a site' ) );
+		case 'site_delete':
+			return withDetail( __( 'Deleted site %s' ), __( 'Deleted a site' ) );
+		case 'site_push':
+			return withDetail( __( 'Pushed site %s' ), __( 'Pushed a site' ) );
+		case 'site_pull':
+			return withDetail( __( 'Pulled site %s' ), __( 'Pulled a site' ) );
+		case 'site_import':
+			return withDetail( __( 'Imported site %s' ), __( 'Imported a site' ) );
+		case 'site_export':
+			return withDetail( __( 'Exported site %s' ), __( 'Exported a site' ) );
+		case 'preview_create':
+			return withDetail( __( 'Created preview %s' ), __( 'Created a preview' ) );
+		case 'preview_update':
+			return withDetail( __( 'Updated preview %s' ), __( 'Updated a preview' ) );
+		case 'preview_delete':
+			return withDetail( __( 'Deleted preview %s' ), __( 'Deleted a preview' ) );
+		default: {
+			const label = getToolDisplayName( name );
+			return detail
+				? sprintf( __( 'Used %1$s on %2$s' ), label, detail )
+				: sprintf( __( 'Used %s' ), label );
+		}
+	}
+}
+
+function getActivitySummary( activityItems: ToolUseRenderItem[], isRunning: boolean ) {
+	if ( activityItems.length === 0 ) {
+		return {
+			title: isRunning ? __( 'Thinking through it' ) : __( 'Background work' ),
+			meta: '',
+		};
+	}
+
+	const descriptions = activityItems.map( ( item ) =>
+		getToolActionDescription( item.name, item.input )
+	);
+
+	if ( descriptions.length === 1 ) {
+		return {
+			title: descriptions[ 0 ],
+			meta: isRunning ? __( 'Still working' ) : '',
+		};
+	}
+
+	if ( descriptions.length === 2 ) {
+		return {
+			title: sprintf(
+				__( '%1$s and %2$s' ),
+				descriptions[ 0 ],
+				lowerFirstCharacter( descriptions[ 1 ] )
+			),
+			meta: isRunning ? __( 'Still working' ) : '',
+		};
+	}
+
+	return {
+		title: sprintf(
+			_n( '%1$s, %2$s, and %3$d more', '%1$s, %2$s, and %3$d more', descriptions.length - 2 ),
+			descriptions[ 0 ],
+			lowerFirstCharacter( descriptions[ 1 ] ),
+			descriptions.length - 2
+		),
+		meta: isRunning ? __( 'Still working' ) : '',
+	};
+}
+
+function AgentActivityAccordion( {
+	activityItems,
+	isRunning = false,
+	children,
+}: {
+	activityItems: ToolUseRenderItem[];
+	isRunning?: boolean;
+	children: ReactNode;
+} ) {
+	const [ expanded, setExpanded ] = useState( false );
+	const panelId = useId();
+	const summary = getActivitySummary( activityItems, isRunning );
+
+	return (
+		<div className={ styles.activityAccordion } data-open={ expanded ? 'true' : 'false' }>
+			<button
+				type="button"
+				className={ styles.activityToggle }
+				aria-expanded={ expanded }
+				aria-controls={ panelId }
+				onClick={ () => setExpanded( ( previous ) => ! previous ) }
+				title={ summary.title }
+			>
+				<span className={ styles.activityTitle }>{ summary.title }</span>
+				{ isRunning ? <span className={ styles.activityPulse } aria-hidden="true" /> : null }
+				{ summary.meta ? <span className={ styles.activityMeta }>{ summary.meta }</span> : null }
+				<Icon icon={ chevronRight } size={ 16 } className={ styles.activityToggleIcon } />
+			</button>
+			<div
+				id={ panelId }
+				className={ styles.activityPanel }
+				aria-hidden={ expanded ? undefined : true }
+			>
+				<div className={ styles.activityPanelInner }>{ children }</div>
+			</div>
+		</div>
+	);
+}
+
 function ToolUseRow( {
 	name,
 	input,
@@ -389,52 +547,95 @@ export function Conversation( {
 		() => ( isRunning ? findLatestProgressMessage( entries ) : null ),
 		[ entries, isRunning ]
 	);
+	const shouldShowThinking = isRunning && pendingQuestions.size === 0;
 
-	return (
-		<div className={ styles.root }>
-			{ items.map( ( item ) => {
-				switch ( item.kind ) {
-					case 'user-turn':
-						return (
-							<UserTurn key={ item.key } text={ item.text } attachments={ item.attachments } />
-						);
-					case 'assistant-text':
-						return <AssistantText key={ item.key } text={ item.text } />;
-					case 'tool-use':
-						return (
-							<ToolUseRow
-								key={ item.key }
-								name={ item.name }
-								input={ item.input }
-								result={ item.result }
-							/>
-						);
-					case 'agent-question':
-						return (
-							<AgentQuestion
-								key={ item.key }
-								question={ item.question }
-								options={ item.options }
-								isInteractive={ pendingQuestions.has( item.question ) }
-								pickedLabel={ pendingAnswers[ item.question ] }
-								onAnswer={ ( label ) => onAnswerQuestion( item.question, label ) }
-							/>
-						);
-					case 'interrupted-marker':
-						return (
-							<div key={ item.key } className={ styles.interruptedMarker } role="status">
-								{ __( 'Interrupted by you' ) }
-							</div>
-						);
-					default:
-						return null;
-				}
-			} ) }
-			<ThinkingIndicator
-				active={ isRunning && pendingQuestions.size === 0 }
-				startedAt={ startedAt }
-				progressMessage={ progressMessage }
-			/>
-		</div>
+	const renderToolActivity = (
+		activityItems: ToolUseRenderItem[],
+		key: string,
+		includeThinkingIndicator = false
+	) => (
+		<AgentActivityAccordion
+			key={ key }
+			activityItems={ activityItems }
+			isRunning={ includeThinkingIndicator }
+		>
+			{ activityItems.map( ( item ) => (
+				<ToolUseRow
+					key={ item.key }
+					name={ item.name }
+					input={ item.input }
+					result={ item.result }
+				/>
+			) ) }
+			{ includeThinkingIndicator ? (
+				<ThinkingIndicator active startedAt={ startedAt } progressMessage={ progressMessage } />
+			) : null }
+		</AgentActivityAccordion>
 	);
+
+	const renderedItems: ReactNode[] = [];
+	let activityItems: ToolUseRenderItem[] = [];
+
+	const flushActivityItems = () => {
+		if ( activityItems.length === 0 ) {
+			return;
+		}
+		renderedItems.push(
+			renderToolActivity( activityItems, `activity:${ activityItems[ 0 ].key }` )
+		);
+		activityItems = [];
+	};
+
+	items.forEach( ( item ) => {
+		if ( item.kind === 'tool-use' ) {
+			activityItems.push( item );
+			return;
+		}
+
+		flushActivityItems();
+
+		switch ( item.kind ) {
+			case 'user-turn':
+				renderedItems.push(
+					<UserTurn key={ item.key } text={ item.text } attachments={ item.attachments } />
+				);
+				break;
+			case 'assistant-text':
+				renderedItems.push( <AssistantText key={ item.key } text={ item.text } /> );
+				break;
+			case 'agent-question':
+				renderedItems.push(
+					<AgentQuestion
+						key={ item.key }
+						question={ item.question }
+						options={ item.options }
+						isInteractive={ pendingQuestions.has( item.question ) }
+						pickedLabel={ pendingAnswers[ item.question ] }
+						onAnswer={ ( label ) => onAnswerQuestion( item.question, label ) }
+					/>
+				);
+				break;
+			case 'interrupted-marker':
+				renderedItems.push(
+					<div key={ item.key } className={ styles.interruptedMarker } role="status">
+						{ __( 'Interrupted by you' ) }
+					</div>
+				);
+				break;
+			default:
+				break;
+		}
+	} );
+
+	if ( activityItems.length > 0 || shouldShowThinking ) {
+		renderedItems.push(
+			renderToolActivity(
+				activityItems,
+				`activity:${ activityItems[ 0 ]?.key ?? 'thinking' }`,
+				shouldShowThinking
+			)
+		);
+	}
+
+	return <div className={ styles.root }>{ renderedItems }</div>;
 }

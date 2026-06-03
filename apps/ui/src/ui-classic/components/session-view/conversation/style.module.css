@@ -77,6 +77,125 @@
 	word-wrap: break-word;
 }
 
+.activityAccordion {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	max-width: 100%;
+}
+
+.activityToggle {
+	align-self: flex-start;
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	box-sizing: border-box;
+	min-width: 0;
+	max-width: 100%;
+	margin-left: -8px;
+	padding: 4px 8px;
+	border: 0;
+	border-radius: var(--wpds-border-radius-md, 8px);
+	background-color: transparent;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font: inherit;
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: 1.4;
+	cursor: pointer;
+	transition:
+		background-color 140ms ease,
+		color 140ms ease;
+}
+
+.activityAccordion[data-open='true'] .activityToggle,
+.activityToggle:hover,
+.activityToggle:focus-visible {
+	background-color: var(--wpds-color-bg-surface-neutral-weak);
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.activityToggle:focus-visible {
+	outline: 2px solid var(--wpds-color-stroke-focus-brand, #3858e9);
+	outline-offset: 2px;
+}
+
+.activityToggleIcon {
+	flex-shrink: 0;
+	color: currentColor;
+	transition: transform 160ms ease;
+	transform: rotate(0deg);
+}
+
+.activityAccordion[data-open='true'] .activityToggleIcon {
+	transform: rotate(90deg);
+}
+
+.activityTitle {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	font-weight: 400;
+	white-space: nowrap;
+}
+
+.activityPulse {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background-color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	animation: activity-pulse 1.2s ease-in-out infinite;
+	flex-shrink: 0;
+}
+
+.activityMeta {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.activityPanel {
+	display: grid;
+	grid-template-rows: 0fr;
+	margin-top: 0;
+	opacity: 0;
+	transform: translateY(-2px);
+	visibility: hidden;
+	transition:
+		grid-template-rows 180ms ease,
+		margin-top 180ms ease,
+		opacity 140ms ease,
+		transform 180ms ease,
+		visibility 0s linear 180ms;
+}
+
+.activityAccordion[data-open='true'] .activityPanel {
+	grid-template-rows: 1fr;
+	margin-top: var(--wpds-dimension-padding-sm);
+	opacity: 1;
+	transform: translateY(0);
+	visibility: visible;
+	transition:
+		grid-template-rows 180ms ease,
+		margin-top 180ms ease,
+		opacity 140ms ease,
+		transform 180ms ease,
+		visibility 0s linear 0s;
+}
+
+.activityPanelInner {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-sm);
+	box-sizing: border-box;
+	min-width: 0;
+	min-height: 0;
+	max-width: 100%;
+	overflow: hidden;
+	padding-left: calc(16px + var(--wpds-dimension-padding-sm));
+}
+
 .toolBlock {
 	display: flex;
 	flex-direction: column;
@@ -221,4 +340,16 @@
 	color: var(--wpds-color-fg-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-xs);
 	text-align: center;
+}
+
+@keyframes activity-pulse {
+	0%,
+	100% {
+		opacity: 0.35;
+		transform: scale(0.85);
+	}
+	50% {
+		opacity: 1;
+		transform: scale(1);
+	}
 }

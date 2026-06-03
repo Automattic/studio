@@ -50,8 +50,11 @@ function getMeshGradientStyle( seed = 'site' ): SiteIconStyle {
 }
 
 export function SiteIcon( { className, seed, style, imageSrc, grayscale, ...props }: Props ) {
-	const [ hasImageError, setHasImageError ] = useState( false );
-	const showImage = !! imageSrc && ! hasImageError;
+	// Track the specific source that failed rather than a plain boolean, so that
+	// a later valid `imageSrc` (these instances are reused as sites change)
+	// retries the image instead of staying stuck on the gradient fallback.
+	const [ erroredSrc, setErroredSrc ] = useState< string | null >( null );
+	const showImage = !! imageSrc && erroredSrc !== imageSrc;
 
 	return (
 		<span
@@ -70,7 +73,7 @@ export function SiteIcon( { className, seed, style, imageSrc, grayscale, ...prop
 					className={ styles.image }
 					src={ imageSrc as string }
 					alt=""
-					onError={ () => setHasImageError( true ) }
+					onError={ () => setErroredSrc( imageSrc as string ) }
 				/>
 			) }
 		</span>

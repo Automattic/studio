@@ -177,4 +177,33 @@ describe( 'keyboard shortcut helpers', () => {
 			)
 		).toBe( false );
 	} );
+
+	it( 'does not send while an IME composition is active', () => {
+		expect(
+			shouldSendMessageForKeyDown(
+				{
+					key: 'Enter',
+					metaKey: false,
+					ctrlKey: false,
+					shiftKey: false,
+					altKey: false,
+					isComposing: true,
+				},
+				'enter'
+			)
+		).toBe( false );
+		expect(
+			shouldSendMessageForKeyDown(
+				{
+					key: 'Enter',
+					metaKey: true,
+					ctrlKey: false,
+					shiftKey: false,
+					altKey: false,
+					isComposing: true,
+				},
+				'mod-enter'
+			)
+		).toBe( false );
+	} );
 } );

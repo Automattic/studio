@@ -228,7 +228,9 @@ export function SessionUIProvider( { children }: { children: ReactNode } ) {
 
 function SessionUIProviderRoot( { children }: { children: ReactNode } ) {
 	const [ state, dispatch ] = useReducer( reducer, INITIAL_STATE );
-	const previewAnnotationsRef = useRef< ( annotations: Annotation[] ) => void >();
+	const previewAnnotationsRef = useRef< ( ( annotations: Annotation[] ) => void ) | undefined >(
+		undefined
+	);
 	return (
 		<SessionUIDispatchContext.Provider value={ dispatch }>
 			<SessionUIPreviewAnnotationsContext.Provider value={ previewAnnotationsRef }>

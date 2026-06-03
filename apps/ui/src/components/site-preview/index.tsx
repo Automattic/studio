@@ -417,12 +417,18 @@ function isBrowserShortcutCommand( command: unknown ): command is BrowserShortcu
 	return command === 'back' || command === 'forward' || command === 'reload';
 }
 
-function ToolbarTooltip( { label, children }: { label: string; children: ReactElement } ) {
+function ToolbarTooltip( {
+	label,
+	children,
+}: {
+	label: string;
+	children: ReactElement< Record< string, unknown > >;
+} ) {
 	return (
 		<Tooltip.Provider delay={ 0 }>
 			<Tooltip.Root>
 				<Tooltip.Trigger render={ children } />
-				<Tooltip.Popup side="bottom">{ label }</Tooltip.Popup>
+				<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>{ label }</Tooltip.Popup>
 			</Tooltip.Root>
 		</Tooltip.Provider>
 	);
@@ -1132,7 +1138,10 @@ function getPageTitle( page: RestPage ) {
 }
 
 function stripMarkup( value: string ) {
-	return value.replace( /<[^>]*>/g, '' );
+	// Drop angle brackets directly so malformed or unclosed tags (e.g. `<script`)
+	// cannot survive sanitization. A single-character removal is complete — a
+	// tag-shaped regex pass can leave the unclosed remainder behind.
+	return value.replace( /[<>]/g, '' );
 }
 
 function dedupePageSuggestions( suggestions: PageSuggestion[] ) {

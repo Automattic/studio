@@ -9,7 +9,7 @@ import { AI_MODELS, getAiModelFamily, getAiModelLabel } from '@studio/common/ai/
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
 import { useQueryClient } from '@tanstack/react-query';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { arrowUp, chevronDownSmall, closeSmall, image as imageIcon } from '@wordpress/icons';
 import { Icon, Tooltip } from '@wordpress/ui';
 import {
@@ -20,6 +20,7 @@ import {
 	useMemo,
 	useRef,
 	useState,
+	type ReactElement,
 } from 'react';
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
@@ -173,6 +174,40 @@ function useTypedPlaceholder( phrases: string[], paused: boolean ) {
 	return placeholder;
 }
 
+function ComposerTooltip( {
+	label,
+	children,
+}: {
+	label: string;
+	children: ReactElement< Record< string, unknown > >;
+} ) {
+	return (
+		<Tooltip.Provider delay={ 0 }>
+			<Tooltip.Root>
+				<Tooltip.Trigger render={ children } />
+				<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>{ label }</Tooltip.Popup>
+			</Tooltip.Root>
+		</Tooltip.Provider>
+	);
+}
+
+function TooltipMenuTrigger( {
+	label,
+	children,
+}: {
+	label: string;
+	children: ReactElement< Record< string, unknown > >;
+} ) {
+	return (
+		<Tooltip.Provider delay={ 0 }>
+			<Tooltip.Root>
+				<Menu.Trigger render={ <Tooltip.Trigger render={ children } /> } />
+				<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>{ label }</Tooltip.Popup>
+			</Tooltip.Root>
+		</Tooltip.Provider>
+	);
+}
+
 /**
  * Invisible structural placeholder that mirrors Composer's outer DOM (shell +
  * textarea + toolbar + meta row) so the loading state can reserve the exact
@@ -257,20 +292,13 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	const { data: preferences } = useUserPreferences();
-	const defaultPlaceholder = __( 'Set your next instruction…' );
 	const changePlaceholder = __( 'Describe the next change for this site…' );
 	const pagePlaceholder = __( 'Ask Studio to update a page…' );
 	const buildPlaceholder = __( 'Tell Studio what to build next…' );
 	const tweakPlaceholder = __( 'Queue a tweak, fix, or idea…' );
 	const idlePlaceholders = useMemo(
-		() => [
-			defaultPlaceholder,
-			changePlaceholder,
-			pagePlaceholder,
-			buildPlaceholder,
-			tweakPlaceholder,
-		],
-		[ defaultPlaceholder, changePlaceholder, pagePlaceholder, buildPlaceholder, tweakPlaceholder ]
+		() => [ changePlaceholder, pagePlaceholder, buildPlaceholder, tweakPlaceholder ],
+		[ changePlaceholder, pagePlaceholder, buildPlaceholder, tweakPlaceholder ]
 	);
 	const typedPlaceholder = useTypedPlaceholder(
 		idlePlaceholders,
@@ -499,6 +527,10 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const messageSendShortcut = preferences?.messageSendShortcut;
 	const sendShortcutLabel = getMessageSendShortcutLabel( messageSendShortcut );
 	const sendTitle = `${ sendAriaLabel } (${ sendShortcutLabel })`;
+	const attachImageLabel = __( 'Attach image' );
+	const skillsLabel = __( 'Skills' );
+	const modelLabel = getAiModelLabel( model );
+	const modelTooltipLabel = sprintf( __( 'Model: %s' ), modelLabel );
 	const visibleError = attachmentError ?? error;
 
 	return (
@@ -560,12 +592,17 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 						value={ value }
 						onChange={ ( event ) => setValue( event.target.value ) }
 						onKeyDown={ ( event ) => {
+							// Let an active IME composition commit/cancel without sending
+							// the message or interrupting the run.
+							if ( event.nativeEvent.isComposing ) {
+								return;
+							}
 							if ( event.key === 'Escape' && busy ) {
 								event.preventDefault();
 								void onInterrupt();
 								return;
 							}
-							if ( shouldSendMessageForKeyDown( event, messageSendShortcut ) ) {
+							if ( shouldSendMessageForKeyDown( event.nativeEvent, messageSendShortcut ) ) {
 								event.preventDefault();
 								void send();
 							}
@@ -582,15 +619,16 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 					/>
 					<div className={ styles.toolbar }>
 						<div className={ styles.leftActions }>
-							<button
-								type="button"
-								className={ styles.iconButton }
-								aria-label={ __( 'Attach image' ) }
-								title={ __( 'Attach image' ) }
-								onClick={ () => fileInputRef.current?.click() }
-							>
-								<Icon icon={ imageIcon } size={ 14 } />
-							</button>
+							<ComposerTooltip label={ attachImageLabel }>
+								<button
+									type="button"
+									className={ styles.iconButton }
+									aria-label={ attachImageLabel }
+									onClick={ () => fileInputRef.current?.click() }
+								>
+									<Icon icon={ imageIcon } size={ 14 } />
+								</button>
+							</ComposerTooltip>
 							<input
 								ref={ fileInputRef }
 								type="file"
@@ -603,17 +641,15 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 								} }
 							/>
 							<Menu.Root modal={ false }>
-								<Menu.Trigger
-									render={
-										<button
-											type="button"
-											className={ `${ styles.iconButton } ${ styles.glyphButton }` }
-											aria-label={ __( 'Commands' ) }
-										>
-											/
-										</button>
-									}
-								/>
+								<TooltipMenuTrigger label={ skillsLabel }>
+									<button
+										type="button"
+										className={ `${ styles.iconButton } ${ styles.glyphButton }` }
+										aria-label={ skillsLabel }
+									>
+										/
+									</button>
+								</TooltipMenuTrigger>
 								<Menu.Popup side="top" align="start" className={ styles.commandsMenuPopup }>
 									{ AI_SKILL_COMMANDS.map( ( command ) => (
 										<Menu.Item
@@ -641,18 +677,16 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 								/>
 							) : null }
 							<Menu.Root modal={ false }>
-								<Menu.Trigger
-									render={
-										<button
-											type="button"
-											className={ styles.pill }
-											aria-label={ __( 'Select model' ) }
-										>
-											<span>{ getAiModelLabel( model ) }</span>
-											<Icon icon={ chevronDownSmall } size={ 16 } />
-										</button>
-									}
-								/>
+								<TooltipMenuTrigger label={ modelTooltipLabel }>
+									<button
+										type="button"
+										className={ styles.pill }
+										aria-label={ __( 'Select model' ) }
+									>
+										<span>{ modelLabel }</span>
+										<Icon icon={ chevronDownSmall } size={ 16 } />
+									</button>
+								</TooltipMenuTrigger>
 								<Menu.Popup side="top" align="end">
 									<Menu.RadioGroup
 										value={ model }
@@ -695,7 +729,9 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 									>
 										<Icon icon={ arrowUp } size={ 18 } />
 									</Tooltip.Trigger>
-									<Tooltip.Popup side="top">{ sendTitle }</Tooltip.Popup>
+									<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+										{ sendTitle }
+									</Tooltip.Popup>
 								</Tooltip.Root>
 							</Tooltip.Provider>
 						</div>

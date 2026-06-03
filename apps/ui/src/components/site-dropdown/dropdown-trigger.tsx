@@ -18,6 +18,10 @@ type Props = Omit< ComponentProps< typeof Button >, 'children' > & {
 	showSiteIcon?: boolean;
 	siteIconSeed?: string;
 	siteIconImage?: string | null;
+	shortcut?: {
+		displayShortcut: string;
+		ariaKeyShortcut: string;
+	};
 };
 
 export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
@@ -31,6 +35,7 @@ export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
 			showSiteIcon = false,
 			siteIconSeed,
 			siteIconImage,
+			shortcut,
 			className,
 			...props
 		},
@@ -42,48 +47,59 @@ export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
 		const isLive = environment === 'live';
 		const dotClass = environment === 'live' ? styles.dot_live : styles[ `dot_${ status }` ];
 		const dotLabel = isLive ? __( 'Live site' ) : statusLabel;
+		const tooltipLabel = __( 'Open site menu' );
 		return (
-			<Button
-				ref={ ref }
-				variant="minimal"
-				tone="neutral"
-				size="small"
-				className={ clsx( styles.trigger, className ) }
-				{ ...props }
-			>
-				{ showSiteIcon ? (
-					<SiteIcon
-						className={ styles.siteIcon }
-						seed={ siteIconSeed ?? `${ siteName }:${ siteUrl }` }
-						imageSrc={ siteIconImage }
-					/>
-				) : null }
-				<Tooltip.Provider delay={ 0 }>
-					<Tooltip.Root>
-						<Tooltip.Trigger
-							render={
-								<span
-									className={ clsx( styles.statusBadge, {
-										[ styles.statusBadge_live ]: isLive,
-										[ styles.statusBadge_running ]: status === 'running' && ! isLive,
-										[ styles.statusBadge_stopped ]: status === 'stopped' && ! isLive,
-										[ styles.statusBadge_transitioning ]: status === 'transitioning' && ! isLive,
-									} ) }
-									role="img"
-									aria-label={ dotLabel }
-								>
-									<span className={ clsx( styles.dot, dotClass ) } aria-hidden="true" />
-									{ isLive ? <span className={ styles.statusLabel }>{ __( 'Live' ) }</span> : null }
-								</span>
-							}
-						/>
-						<Tooltip.Popup side="bottom">{ dotLabel }</Tooltip.Popup>
-					</Tooltip.Root>
-				</Tooltip.Provider>
-				<span className={ styles.site }>{ siteName }</span>
-				<span className={ styles.url }>{ siteUrl }</span>
-				<Icon icon={ chevronDownSmall } />
-			</Button>
+			<Tooltip.Provider delay={ 0 }>
+				<Tooltip.Root>
+					<Tooltip.Trigger
+						ref={ ref }
+						render={
+							<Button
+								variant="minimal"
+								tone="neutral"
+								size="small"
+								aria-keyshortcuts={ shortcut?.ariaKeyShortcut }
+								{ ...props }
+							/>
+						}
+						className={ clsx( styles.trigger, className ) }
+					>
+						{ showSiteIcon ? (
+							<SiteIcon
+								className={ styles.siteIcon }
+								seed={ siteIconSeed ?? `${ siteName }:${ siteUrl }` }
+								imageSrc={ siteIconImage }
+							/>
+						) : null }
+						<span
+							className={ clsx( styles.statusBadge, {
+								[ styles.statusBadge_live ]: isLive,
+								[ styles.statusBadge_running ]: status === 'running' && ! isLive,
+								[ styles.statusBadge_stopped ]: status === 'stopped' && ! isLive,
+								[ styles.statusBadge_transitioning ]: status === 'transitioning' && ! isLive,
+							} ) }
+							role="img"
+							aria-label={ dotLabel }
+							title={ dotLabel }
+						>
+							<span className={ clsx( styles.dot, dotClass ) } aria-hidden="true" />
+							{ isLive ? <span className={ styles.statusLabel }>{ __( 'Live' ) }</span> : null }
+						</span>
+						<span className={ styles.site }>{ siteName }</span>
+						<span className={ styles.url }>{ siteUrl }</span>
+						<Icon icon={ chevronDownSmall } />
+					</Tooltip.Trigger>
+					<Tooltip.Popup side="bottom">
+						{ tooltipLabel }
+						{ shortcut ? (
+							<>
+								{ ' ' }
+								<span aria-hidden="true">{ shortcut.displayShortcut }</span>
+							</>
+						) : null }
+					</Tooltip.Popup>
+				</Tooltip.Root>
+			</Tooltip.Provider>
 		);
 	}
 );

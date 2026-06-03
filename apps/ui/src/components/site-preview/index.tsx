@@ -32,6 +32,8 @@ interface SitePreviewProps {
 	// When true the panel stays mounted but animates its width to zero, so the
 	// open/close toggle is a transition rather than a mount/unmount.
 	collapsed?: boolean;
+	layoutWidth?: number;
+	hideResizeHandle?: boolean;
 }
 
 interface InspectorEvent {
@@ -65,6 +67,8 @@ export function SitePreview( {
 	reloadNonce,
 	onAnnotationsDone,
 	collapsed = false,
+	layoutWidth,
+	hideResizeHandle = false,
 }: SitePreviewProps ) {
 	const connector = useConnector();
 	const startSite = useStartSite();
@@ -78,8 +82,10 @@ export function SitePreview( {
 		storageKey: PREVIEW_PANEL_STORAGE_KEY,
 	} );
 	const previewStyle = {
+		'--site-preview-layout-width': `${ layoutWidth ?? previewResize.width }px`,
 		'--site-preview-width': `${ previewResize.width }px`,
 	} as CSSProperties;
+	const showResizeHandle = ! collapsed && ! hideResizeHandle;
 
 	return (
 		<aside
@@ -92,7 +98,7 @@ export function SitePreview( {
 			aria-label={ __( 'Site preview' ) }
 			aria-hidden={ collapsed || undefined }
 		>
-			{ ! collapsed ? (
+			{ showResizeHandle ? (
 				<ResizeHandle
 					className={ styles.resizeHandle }
 					label={ __( 'Resize site preview' ) }
@@ -104,59 +110,60 @@ export function SitePreview( {
 					onKeyDown={ previewResize.handleKeyDown }
 				/>
 			) : null }
-			<div className={ styles.header }>
-				<div className={ styles.trafficLights } aria-hidden="true">
-					<span className={ clsx( styles.trafficLight, styles.trafficLightActive ) } />
-					<span className={ styles.trafficLight } />
-					<span className={ styles.trafficLight } />
-				</div>
-				<span className={ styles.headerSpacer } aria-hidden="true" />
-				<span className={ styles.separator } aria-hidden="true" />
-				<IconButton
-					variant="minimal"
-					tone="neutral"
-					size="small"
-					icon={ external }
-					label={ __( 'Open site in browser' ) }
-					disabled={ ! canPreview }
-					onClick={ () => void connector.openExternalUrl( fullUrl ) }
-				/>
-			</div>
-			<div className={ styles.body }>
-				{ canPreview ? (
-					isElectron() ? (
-						<WebviewSurface
-							key={ site.id }
-							url={ fullUrl }
-							reloadNonce={ reloadNonce }
-							onAnnotationsDone={ onAnnotationsDone }
+			<div className={ styles.viewport }>
+				<div className={ styles.surface }>
+					<div className={ styles.header }>
+						<span className={ styles.headerSpacer } aria-hidden="true" />
+						<span className={ styles.separator } aria-hidden="true" />
+						<IconButton
+							variant="minimal"
+							tone="neutral"
+							size="small"
+							icon={ external }
+							label={ __( 'Open site in browser' ) }
+							disabled={ ! canPreview }
+							onClick={ () => void connector.openExternalUrl( fullUrl ) }
 						/>
-					) : (
-						// Non-Electron fallback: plain iframe, no inspector.
-						<iframe
-							key={ `${ fullUrl }#${ reloadNonce }` }
-							className={ styles.iframe }
-							src={ fullUrl }
-							title={ site.name }
-						/>
-					)
-				) : (
-					<div className={ styles.empty }>
-						<p className={ styles.emptyText }>{ __( 'Start the site to see a live preview.' ) }</p>
-						<Button
-							variant="solid"
-							tone="brand"
-							loading={ isStarting }
-							loadingAnnouncement={ __( 'Starting site' ) }
-							onClick={ () => startSite.mutate( site.id ) }
-						>
-							<span className={ styles.startIcon } aria-hidden="true">
-								{ playIcon }
-							</span>
-							{ __( 'Start site' ) }
-						</Button>
 					</div>
-				) }
+					<div className={ styles.body }>
+						{ canPreview ? (
+							isElectron() ? (
+								<WebviewSurface
+									key={ site.id }
+									url={ fullUrl }
+									reloadNonce={ reloadNonce }
+									onAnnotationsDone={ onAnnotationsDone }
+								/>
+							) : (
+								// Non-Electron fallback: plain iframe, no inspector.
+								<iframe
+									key={ `${ fullUrl }#${ reloadNonce }` }
+									className={ styles.iframe }
+									src={ fullUrl }
+									title={ site.name }
+								/>
+							)
+						) : (
+							<div className={ styles.empty }>
+								<p className={ styles.emptyText }>
+									{ __( 'Start the site to see a live preview.' ) }
+								</p>
+								<Button
+									variant="solid"
+									tone="brand"
+									loading={ isStarting }
+									loadingAnnouncement={ __( 'Starting site' ) }
+									onClick={ () => startSite.mutate( site.id ) }
+								>
+									<span className={ styles.startIcon } aria-hidden="true">
+										{ playIcon }
+									</span>
+									{ __( 'Start site' ) }
+								</Button>
+							</div>
+						) }
+					</div>
+				</div>
 			</div>
 			{ previewResize.isResizing ? <ResizeOverlay /> : null }
 		</aside>

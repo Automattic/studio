@@ -1,15 +1,39 @@
 .root {
+	display: flex;
+	flex-direction: row;
 	height: 100%;
 	min-height: 0;
+}
+
+.contentColumn {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	min-width: 0;
+	min-height: 0;
+	position: relative;
+}
+
+.rootPreviewMeasured .contentColumn {
+	flex: 0 0 min(var(--site-overview-content-width), 100%);
+	width: min(var(--site-overview-content-width), 100%);
+}
+
+.scroll {
+	flex: 1;
+	min-height: 0;
 	overflow-y: auto;
+	position: relative;
+	padding: 0 var(--wpds-dimension-padding-xl);
+	scrollbar-gutter: stable both-edges;
 }
 
 .content {
 	width: 100%;
 	max-width: 760px;
 	margin: 0 auto;
-	padding: calc(var(--wpds-dimension-padding-2xl) * 1.5) var(--wpds-dimension-padding-xl)
-		var(--wpds-dimension-padding-2xl);
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-xl)
+		calc(var(--wpds-dimension-padding-2xl) * 1.5);
 }
 
 .state {
@@ -18,26 +42,68 @@
 }
 
 .header {
+	position: sticky;
+	top: 0;
+	z-index: 2;
+	isolation: isolate;
+	margin: 0 calc(-1 * var(--wpds-dimension-padding-xl));
+	min-height: 46px;
+	-webkit-app-region: drag;
+}
+
+.headerContent {
+	position: relative;
+	z-index: 1;
 	display: flex;
-	align-items: flex-start;
-	justify-content: space-between;
-	gap: var(--wpds-dimension-padding-xl);
-	margin-bottom: calc(var(--wpds-dimension-padding-2xl) * 1.5);
-}
-
-.title {
-	margin: 0;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-sm);
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-2xl);
+	min-height: 46px;
+	font-size: var(--wpds-typography-font-size-sm);
 	color: var(--wpds-color-fg-content-neutral);
-	font-size: var(--wpds-typography-font-size-2xl);
-	line-height: var(--wpds-typography-line-height-2xl);
-	font-weight: var(--wpds-typography-font-weight-medium, 500);
 }
 
-.subtitle {
-	margin: var(--wpds-dimension-padding-xs) 0 0;
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-md);
-	line-height: var(--wpds-typography-line-height-md);
+.headerContentSidebarOpen {
+	padding-left: 12px;
+}
+
+.headerSpacer {
+	flex: 1;
+}
+
+.headerActions {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xs);
+	-webkit-app-region: no-drag;
+}
+
+.composerOuter {
+	position: sticky;
+	bottom: 0;
+	z-index: 2;
+	isolation: isolate;
+	margin: 0 calc(-1 * var(--wpds-dimension-padding-xl));
+	padding: calc(var(--wpds-dimension-padding-2xl) * 1.5) var(--wpds-dimension-padding-xl)
+		var(--wpds-dimension-padding-xl);
+}
+
+.composerContent {
+	position: relative;
+	z-index: 1;
+}
+
+.classicColumn {
+	max-width: 760px;
+	margin: 0 auto;
+}
+
+.trafficLightSpacer {
+	display: block;
+	flex-shrink: 0;
+	width: 62px;
+	height: 100%;
+	-webkit-app-region: no-drag;
 }
 
 .details {

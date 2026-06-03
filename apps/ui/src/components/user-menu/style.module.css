@@ -44,6 +44,12 @@
 
 	color: var(--wpds-color-fg-content-neutral-weak);
 	flex-shrink: 0;
+	margin-right: calc(32px + var(--wpds-dimension-padding-sm));
+}
+
+.settingsButton svg {
+	width: 28px;
+	height: 28px;
 }
 
 .row:hover .userName,

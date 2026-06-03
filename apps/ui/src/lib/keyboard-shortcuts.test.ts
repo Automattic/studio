@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
 	getKeyboardShortcut,
+	getKeyboardShortcutAriaKeyShortcut,
+	getKeyboardShortcutDescriptor,
 	getKeyboardShortcutLabel,
 	matchesKeyboardShortcut,
 	shouldSendMessageForKeyDown,
@@ -60,6 +62,52 @@ describe( 'keyboard shortcut helpers', () => {
 
 		expect( getKeyboardShortcutLabel( shortcut, 'MacIntel' ) ).toBe( '⌘N' );
 		expect( getKeyboardShortcutLabel( shortcut, 'Win32' ) ).toBe( 'Ctrl+N' );
+	} );
+
+	it( 'formats the sidebar toggle shortcut as command-b on macOS', () => {
+		const shortcut = getKeyboardShortcut( 'toggle-sidebar' );
+
+		expect( getKeyboardShortcutLabel( shortcut, 'MacIntel' ) ).toBe( '⌘B' );
+	} );
+
+	it( 'formats the app settings shortcut as command-comma on macOS', () => {
+		const shortcut = getKeyboardShortcut( 'open-app-settings' );
+
+		expect( getKeyboardShortcutLabel( shortcut, 'MacIntel' ) ).toBe( '⌘,' );
+		expect( getKeyboardShortcutLabel( shortcut, 'Win32' ) ).toBe( 'Ctrl+,' );
+		expect( getKeyboardShortcutAriaKeyShortcut( shortcut, 'MacIntel' ) ).toBe( 'Meta+,' );
+		expect(
+			matchesKeyboardShortcut(
+				{
+					key: ',',
+					metaKey: true,
+					ctrlKey: false,
+					shiftKey: false,
+					altKey: false,
+					repeat: false,
+					defaultPrevented: false,
+				},
+				shortcut
+			)
+		).toBe( true );
+	} );
+
+	it( 'formats the site preview toggle shortcut as command-p on macOS', () => {
+		const shortcut = getKeyboardShortcut( 'toggle-site-preview' );
+
+		expect( getKeyboardShortcutLabel( shortcut, 'MacIntel' ) ).toBe( '⌘P' );
+		expect( getKeyboardShortcutLabel( shortcut, 'Win32' ) ).toBe( 'Ctrl+P' );
+	} );
+
+	it( 'formats shortcut metadata for tooltip and accessibility output', () => {
+		const shortcut = getKeyboardShortcut( 'toggle-site-menu' );
+
+		expect( getKeyboardShortcutLabel( shortcut, 'MacIntel' ) ).toBe( '⌘I' );
+		expect( getKeyboardShortcutAriaKeyShortcut( shortcut, 'MacIntel' ) ).toBe( 'Meta+I' );
+		expect( getKeyboardShortcutDescriptor( shortcut, 'Win32' ) ).toEqual( {
+			displayShortcut: 'Ctrl+I',
+			ariaKeyShortcut: 'Control+I',
+		} );
 	} );
 
 	it( 'matches the configured message send shortcut', () => {

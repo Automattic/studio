@@ -2,7 +2,12 @@ import { DEFAULT_MESSAGE_SEND_SHORTCUT } from '@studio/common/lib/user-settings/
 import { __ } from '@wordpress/i18n';
 import type { MessageSendShortcut } from '@/data/core';
 
-export type KeyboardShortcutId = 'toggle-sidebar' | 'new-chat-in-current-site';
+export type KeyboardShortcutId =
+	| 'toggle-sidebar'
+	| 'open-app-settings'
+	| 'new-chat-in-current-site'
+	| 'toggle-site-preview'
+	| 'toggle-site-menu';
 
 export interface KeyboardShortcutDefinition {
 	id: KeyboardShortcutId;
@@ -24,9 +29,27 @@ export const KEYBOARD_SHORTCUTS: KeyboardShortcutDefinition[] = [
 		modifier: 'primary',
 	},
 	{
+		id: 'open-app-settings',
+		label: __( 'Open app settings' ),
+		key: ',',
+		modifier: 'primary',
+	},
+	{
 		id: 'new-chat-in-current-site',
 		label: __( 'New chat in current site' ),
 		key: 'n',
+		modifier: 'primary',
+	},
+	{
+		id: 'toggle-site-preview',
+		label: __( 'Toggle site preview' ),
+		key: 'p',
+		modifier: 'primary',
+	},
+	{
+		id: 'toggle-site-menu',
+		label: __( 'Open site menu' ),
+		key: 'i',
 		modifier: 'primary',
 	},
 ];
@@ -54,6 +77,23 @@ export function getKeyboardShortcutLabel(
 	const modifier = getPrimaryModifierLabel( platform );
 	const key = shortcut.key.toUpperCase();
 	return isApplePlatform( platform ) ? `${ modifier }${ key }` : `${ modifier }+${ key }`;
+}
+
+export function getKeyboardShortcutAriaKeyShortcut(
+	shortcut: KeyboardShortcutDefinition,
+	platform = getPlatform()
+): string {
+	return `${ isApplePlatform( platform ) ? 'Meta' : 'Control' }+${ shortcut.key.toUpperCase() }`;
+}
+
+export function getKeyboardShortcutDescriptor(
+	shortcut: KeyboardShortcutDefinition,
+	platform = getPlatform()
+): { displayShortcut: string; ariaKeyShortcut: string } {
+	return {
+		displayShortcut: getKeyboardShortcutLabel( shortcut, platform ),
+		ariaKeyShortcut: getKeyboardShortcutAriaKeyShortcut( shortcut, platform ),
+	};
 }
 
 export function getMessageSendShortcutLabel(

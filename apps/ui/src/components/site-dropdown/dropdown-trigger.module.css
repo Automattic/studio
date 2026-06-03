@@ -1,14 +1,37 @@
 .trigger {
-	gap: var(--wpds-dimension-padding-md);
-	padding-inline-start: 0;
+	--wp-ui-button-background-color: var(--wpds-color-bg-surface-neutral);
+	--wp-ui-button-background-color-active: var(--wpds-color-bg-surface-neutral);
+	--wp-ui-button-background-color-hover: var(--wpds-color-bg-surface-neutral);
+	--wp-ui-button-border-color: var(--wpds-color-stroke-surface-neutral);
+	--wp-ui-button-border-color-active: var(--wpds-color-stroke-surface-neutral);
+	--wp-ui-button-border-color-hover: var(--wpds-color-stroke-surface-neutral);
+
+	flex: 0 1 auto;
+	gap: var(--wpds-dimension-padding-sm);
+	max-width: 100%;
+	min-width: 0;
+	min-height: 34px;
+	padding: 0 var(--wpds-dimension-padding-sm);
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: 8px;
+	background: var(--wpds-color-bg-surface-neutral);
+	white-space: nowrap;
+}
+
+.trigger:hover {
+	border-color: var(--wpds-color-stroke-surface-neutral);
 }
 
 .siteIcon {
-	margin-inline-end: calc(-1 * var(--wpds-dimension-padding-sm));
+	margin-inline-end: calc(-1 * var(--wpds-dimension-padding-xs));
 }
 
 .site {
+	min-width: 0;
+	overflow: hidden;
 	font-weight: 600;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .statusBadge {
@@ -25,20 +48,7 @@
 	width: auto;
 	gap: var(--wpds-dimension-padding-xs);
 	padding: 0 var(--wpds-dimension-padding-xs);
-	background-color: #dbeafe;
 	color: #2563eb;
-}
-
-.statusBadge_running {
-	background-color: #dcfce7;
-}
-
-.statusBadge_stopped {
-	background-color: #f0f0f0;
-}
-
-.statusBadge_transitioning {
-	background-color: #dbeafe;
 }
 
 .dot {
@@ -55,7 +65,7 @@
 }
 
 .dot_stopped {
-	border: 1px solid var(--wpds-color-fg-content-neutral-weak);
+	border: 1.5px solid var(--wpds-color-fg-content-neutral-weak);
 }
 
 .dot_transitioning {
@@ -84,6 +94,7 @@
 }
 
 .url {
+	flex: 0 1 auto;
 	margin-inline-start: var(--wpds-dimension-padding-sm);
 	color: var(--wpds-color-fg-content-neutral-weak);
 	opacity: 0.6;
@@ -92,4 +103,10 @@
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	min-width: 0;
+}
+
+@container (max-width: 560px) {
+	.url {
+		display: none;
+	}
 }

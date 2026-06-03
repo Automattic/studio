@@ -26,9 +26,8 @@
 	gap: var(--wpds-dimension-padding-xs);
 }
 
-/* Make each row match the button's height exactly — otherwise the
-   inline-flex button leaves room for the parent's line-height. */
-.list > li {
+.listItem {
+	position: relative;
 	display: flex;
 }
 
@@ -94,9 +93,40 @@
 }
 
 .label {
+	flex: 1;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	min-width: 0;
 	line-height: 1.2;
+}
+
+.itemActions {
+	position: absolute;
+	z-index: 1;
+	top: 50%;
+	right: var(--wpds-dimension-padding-xs);
+	display: flex;
+	align-items: center;
+	max-width: 0;
+	overflow: hidden;
+	opacity: 0;
+	transform: translateY(-50%);
+	transition: max-width 100ms ease, opacity 100ms ease;
+}
+
+.itemAction {
+	flex-shrink: 0;
+}
+
+.listItem:hover .itemActions,
+.listItem:focus-within .itemActions,
+.itemActive + .itemActions,
+.itemActions:has(.itemAction[data-popup-open]) {
+	max-width: 40px;
+	opacity: 1;
+}
+
+.popup {
+	min-width: 200px;
 }

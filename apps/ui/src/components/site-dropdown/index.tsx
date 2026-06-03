@@ -2,7 +2,9 @@ import { useMemo, useState } from 'react';
 import * as Menu from '@/components/menu';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { useIsSiteStarting, useIsSiteStopping } from '@/data/queries/use-sites';
+import { useKeyboardShortcut } from '@/hooks/use-keyboard-shortcut';
 import { getSiteDisplayUrl } from '@/lib/get-site-url';
+import { getKeyboardShortcut, getKeyboardShortcutDescriptor } from '@/lib/keyboard-shortcuts';
 import { DisconnectSiteDialog } from './disconnect-site-dialog';
 import { DropdownTrigger } from './dropdown-trigger';
 import { MainView } from './main-view';
@@ -31,6 +33,10 @@ export function SiteDropdown( { site, activeEnvironment = 'local', showSiteIcon 
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
 	const { status, statusLabel } = deriveSiteStatus( site, isStarting, isStopping );
+	const siteMenuShortcut = getKeyboardShortcutDescriptor(
+		getKeyboardShortcut( 'toggle-site-menu' )
+	);
+	useKeyboardShortcut( 'toggle-site-menu', () => setMenuOpen( ( open ) => ! open ) );
 
 	// Only needed here so the disconnect dialog can reference the current live
 	// site. MainView fetches the same data independently for its action row.
@@ -69,6 +75,7 @@ export function SiteDropdown( { site, activeEnvironment = 'local', showSiteIcon 
 							showSiteIcon={ showSiteIcon }
 							siteIconSeed={ `${ site.id }:${ site.name }:${ site.path }` }
 							siteIconImage={ site.siteIcon }
+							shortcut={ siteMenuShortcut }
 						/>
 					}
 				/>

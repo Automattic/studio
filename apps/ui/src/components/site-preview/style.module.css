@@ -1,51 +1,52 @@
 .root {
-	display: flex;
-	flex-direction: column;
 	position: relative;
-	width: var(--site-preview-width, 520px);
-	min-width: 360px;
-	max-width: 50vw;
+	width: var(--site-preview-layout-width, var(--site-preview-width, 520px));
+	min-width: 0;
 	flex-shrink: 0;
+	height: 100%;
 	min-height: 0;
-	margin: calc(var(--wpds-dimension-padding-md) * 2) calc(var(--wpds-dimension-padding-md) * 2)
-		calc(var(--wpds-dimension-padding-md) * 2) 0;
-	background-color: var(--wpds-color-bg-surface-neutral);
-	border: 1px solid var(--wpds-color-stroke-surface-neutral);
-	border-radius: var(--wpds-border-radius-lg, 12px);
+	border-left: 1px solid var(--wpds-color-stroke-surface-neutral);
 	overflow: visible;
-	box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.06);
-	/* Animate open/close when the preview is toggled. Disabled while dragging
-	   the resize handle (via .rootResizing) so a drag tracks the cursor 1:1 —
-	   same arrangement as the sidebar. */
-	transition: width 150ms ease, margin 150ms ease;
 }
 
 .rootResizing {
 	transition: none;
 }
 
-/* Collapsed = preview toggled off. The panel stays mounted so its width can
-   animate to zero; zeroing the min-width/margin/border leaves nothing behind. */
+/* Collapsed = preview toggled off. Zeroing the border leaves nothing behind. */
 .rootCollapsed {
 	width: 0;
-	min-width: 0;
-	margin-right: 0;
 	border-width: 0;
-	overflow: hidden;
 	pointer-events: none;
 }
 
-/* Sits just outside the panel's left edge (no flow space — the panel is
-   absolutely-anchored). top/bottom: 0 makes the hit area and indicator the
-   full height of the panel; justify-content: flex-end keeps the indicator
-   flush against the border. */
+/* Sits on the panel's left edge. top/bottom: 0 makes the hit area and
+   indicator the full height of the panel. */
 .resizeHandle {
 	position: absolute;
 	top: 0;
 	bottom: 0;
-	left: -8px;
-	justify-content: flex-end;
+	left: -4px;
+	justify-content: center;
 	padding: 0;
+}
+
+.viewport {
+	position: absolute;
+	inset: 0;
+	overflow: hidden;
+	background-color: var(--wpds-color-bg-surface-neutral);
+}
+
+.surface {
+	position: absolute;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	min-width: 0;
 }
 
 .header {
@@ -57,14 +58,7 @@
 	flex-shrink: 0;
 	background-color: #fff;
 	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
-	border-top-left-radius: inherit;
-	border-top-right-radius: inherit;
-}
-
-.trafficLights {
-	display: flex;
-	align-items: center;
-	gap: 5px;
+	-webkit-app-region: drag;
 }
 
 .separator {
@@ -72,17 +66,6 @@
 	height: 14px;
 	background-color: var(--wpds-color-stroke-surface-neutral);
 	opacity: 0.6;
-}
-
-.trafficLight {
-	width: 7px;
-	height: 7px;
-	border-radius: 50%;
-	background-color: var(--wpds-color-stroke-surface-neutral);
-}
-
-.trafficLightActive {
-	background-color: var(--wpds-color-fg-interactive-brand, #2563eb);
 }
 
 .headerSpacer {
@@ -96,8 +79,6 @@
 	position: relative;
 	background-color: #fff;
 	overflow: hidden;
-	border-bottom-right-radius: inherit;
-	border-bottom-left-radius: inherit;
 }
 
 .spinnerOverlay {

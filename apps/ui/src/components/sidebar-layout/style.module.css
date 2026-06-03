@@ -1,4 +1,5 @@
 .root {
+	position: relative;
 	display: flex;
 	height: 100vh;
 	overflow: hidden;
@@ -6,8 +7,7 @@
 
 .sidebar {
 	width: var(--sidebar-width, 320px);
-	min-width: 240px;
-	max-width: 25vw;
+	min-width: 0;
 	flex-shrink: 0;
 	background-color: var(--wpds-color-bg-surface-neutral-weak);
 	border-right: 1px solid var(--wpds-color-stroke-surface-neutral);
@@ -17,13 +17,13 @@
 	   (sticky) header and footer identically to the middle content —
 	   avoiding the misalignment you get when the scrollbar lives on an
 	   inner wrapper. */
+	overflow-x: hidden;
 	overflow-y: auto;
 	transition: width 150ms ease;
 }
 
 .sidebarCollapsed {
 	width: 0;
-	min-width: 0;
 }
 
 /* While dragging the resize handle, the width updates every frame — the
@@ -54,21 +54,31 @@
 	padding: 0;
 }
 
-.floatingToggle {
+.sidebarToggle {
 	position: absolute;
-	top: 0;
-	left: 94px;
-	/* Mirror sidebar-header vertical box so the toggle button lands at the
-	   same y-coordinate as when it lives inside the open sidebar. */
+	bottom: var(--wpds-dimension-padding-xl);
+	left: calc(var(--sidebar-width, 320px) - var(--wpds-dimension-padding-sm));
+	transform: translateX(-100%);
 	display: flex;
 	align-items: center;
-	padding: var(--wpds-dimension-padding-sm) 0;
-	min-height: 46px;
-	z-index: 10;
+	z-index: 100;
+	pointer-events: auto;
+	-webkit-app-region: no-drag;
+	transition: left 150ms ease, transform 150ms ease;
 }
 
-/* In macOS fullscreen the traffic lights are hidden, so the toggle can
-   sit near the main area's left edge. */
-.floatingToggleFullscreen {
+.sidebarToggleCollapsed {
 	left: var(--wpds-dimension-padding-xl);
+	transform: translateX(0);
+}
+
+.sidebarToggleResizing {
+	transition: none;
+}
+
+.sidebarToggleButton {
+	position: relative;
+	z-index: 1;
+	pointer-events: auto;
+	-webkit-app-region: no-drag;
 }

@@ -222,12 +222,6 @@
 	color: var(--wpds-color-fg-content-neutral-weak);
 }
 
-.metaHint {
-	display: inline-flex;
-	align-items: center;
-	gap: 4px;
-}
-
 .metaUses {
 	margin-left: auto;
 }

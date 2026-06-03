@@ -4,7 +4,7 @@ import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
 import { useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { arrowUp, chevronDownSmall } from '@wordpress/icons';
-import { Icon } from '@wordpress/ui';
+import { Icon, Tooltip } from '@wordpress/ui';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
@@ -246,6 +246,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const sendAriaLabel = busy ? __( 'Queue' ) : __( 'Send' );
 	const messageSendShortcut = preferences?.messageSendShortcut;
 	const sendShortcutLabel = getMessageSendShortcutLabel( messageSendShortcut );
+	const sendTitle = `${ sendAriaLabel } (${ sendShortcutLabel })`;
 
 	return (
 		<>
@@ -350,22 +351,28 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 									<span className={ styles.stopGlyph } aria-hidden="true" />
 								</button>
 							) : null }
-							<button
-								type="button"
-								className={ styles.sendButton }
-								onClick={ () => void send() }
-								disabled={ ! canSend }
-								aria-label={ sendAriaLabel }
-							>
-								<Icon icon={ arrowUp } size={ 18 } />
-							</button>
+							<Tooltip.Provider delay={ 0 }>
+								<Tooltip.Root>
+									<Tooltip.Trigger
+										render={
+											<button
+												type="button"
+												className={ styles.sendButton }
+												onClick={ () => void send() }
+												disabled={ ! canSend }
+												aria-label={ sendAriaLabel }
+											/>
+										}
+									>
+										<Icon icon={ arrowUp } size={ 18 } />
+									</Tooltip.Trigger>
+									<Tooltip.Popup side="top">{ sendTitle }</Tooltip.Popup>
+								</Tooltip.Root>
+							</Tooltip.Provider>
 						</div>
 					</div>
 				</div>
 				<div className={ styles.meta }>
-					<span className={ styles.metaHint }>
-						{ sendShortcutLabel } { __( 'to send' ) } · Shift+Enter { __( 'for newline' ) }
-					</span>
 					{ error ? <span className={ styles.error }>{ error }</span> : null }
 					<span className={ styles.metaUses }>{ __( 'Uses 1 message' ) }</span>
 				</div>

@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { forwardRef, type ReactNode } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useIsSessionRunning } from '@/data/queries/use-agent-run';
 import {
 	useArchiveSession,
@@ -24,6 +24,8 @@ import {
 import { SiteList } from './index';
 
 const navigateMock = vi.fn();
+let routerParams: { sessionId?: string; siteId?: string };
+let routerPathname: string;
 
 vi.mock( '@tanstack/react-router', () => ( {
 	Link: forwardRef<
@@ -54,8 +56,8 @@ vi.mock( '@tanstack/react-router', () => ( {
 		);
 	} ),
 	useNavigate: () => navigateMock,
-	useParams: () => ( {} ),
-	useRouterState: () => '/',
+	useParams: () => routerParams,
+	useRouterState: () => routerPathname,
 } ) );
 
 vi.mock( '@/data/queries/use-agent-run', () => ( {
@@ -103,6 +105,8 @@ describe( 'SiteList', () => {
 
 	beforeEach( () => {
 		navigateMock.mockReset();
+		routerParams = { siteId: 'site-1' };
+		routerPathname = '/sites/site-1';
 		updateTitleDescriptionMutateAsync.mockReset().mockResolvedValue( undefined );
 		useIsSessionRunningMock.mockReturnValue( false );
 		useUpdateSessionMetadataMock.mockReturnValue( { mutate: vi.fn(), isPending: false } as never );
@@ -146,6 +150,10 @@ describe( 'SiteList', () => {
 		} as never );
 	} );
 
+	afterEach( () => {
+		vi.useRealTimers();
+	} );
+
 	it( 'edits a chat title in place from the sidebar', async () => {
 		render( <SiteList /> );
 
@@ -172,5 +180,36 @@ describe( 'SiteList', () => {
 			sessionId: 'session-1',
 			title: undefined,
 		} );
+	} );
+
+	it( 'shows an empty chat state for open sites without active chats', () => {
+		useSessionsMock.mockReturnValue( { data: [], isLoading: false } as never );
+
+		render( <SiteList /> );
+
+		expect( screen.getByText( 'Create a chat' ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'New chat' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'does not open the first site by default on settings', () => {
+		routerParams = {};
+		routerPathname = '/settings';
+
+		render( <SiteList /> );
+
+		expect(
+			screen.getByText( 'Generated title' ).closest( '[aria-hidden="true"]' )
+		).not.toBeNull();
+	} );
+
+	it( 'keeps the timestamp visible when a chat is running', () => {
+		vi.useFakeTimers();
+		vi.setSystemTime( new Date( '2026-05-03T12:00:00.000Z' ) );
+		useIsSessionRunningMock.mockReturnValue( true );
+
+		render( <SiteList /> );
+
+		expect( screen.getByRole( 'status', { name: 'Working…' } ) ).toBeInTheDocument();
+		expect( screen.getByText( '2d' ) ).toBeInTheDocument();
 	} );
 } );

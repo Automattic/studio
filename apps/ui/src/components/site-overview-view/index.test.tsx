@@ -1,7 +1,9 @@
 import '@testing-library/jest-dom/vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
+import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import {
 	useArchiveSession,
 	useSessions,
@@ -17,6 +19,8 @@ import {
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { SiteOverviewView } from './index';
 import type { ReactNode } from 'react';
+
+const navigateMock = vi.fn();
 
 vi.mock( '@tanstack/react-router', () => ( {
 	Link: ( {
@@ -37,6 +41,7 @@ vi.mock( '@tanstack/react-router', () => ( {
 			</a>
 		);
 	},
+	useNavigate: () => navigateMock,
 } ) );
 
 vi.mock( '@/data/core', () => ( {
@@ -44,10 +49,15 @@ vi.mock( '@/data/core', () => ( {
 } ) );
 
 vi.mock( '@/data/queries/use-sessions', () => ( {
+	SESSIONS_QUERY_KEY: [ 'sessions' ],
 	useArchiveSession: vi.fn(),
 	useSessions: vi.fn(),
 	useUnarchiveSession: vi.fn(),
 	useUpdateSessionTitleDescription: vi.fn(),
+} ) );
+
+vi.mock( '@/data/queries/use-connected-wpcom-sites', () => ( {
+	useConnectedWpcomSites: vi.fn(),
 } ) );
 
 vi.mock( '@/data/queries/use-sites', () => ( {
@@ -62,6 +72,7 @@ vi.mock( '@/data/queries/use-user-preferences', () => ( {
 } ) );
 
 const useConnectorMock = vi.mocked( useConnector );
+const useConnectedWpcomSitesMock = vi.mocked( useConnectedWpcomSites );
 const useSitesMock = vi.mocked( useSites );
 const useIsSiteStartingMock = vi.mocked( useIsSiteStarting );
 const useIsSiteStoppingMock = vi.mocked( useIsSiteStopping );
@@ -80,9 +91,25 @@ describe( 'SiteOverviewView', () => {
 	const openSiteFolder = vi.fn();
 	const openSiteInEditor = vi.fn();
 	const openSiteInTerminal = vi.fn();
+	const createSession = vi.fn();
+	const continueSession = vi.fn();
 	const startSiteMutateAsync = vi.fn();
+	const renderOverview = () => {
+		const queryClient = new QueryClient( {
+			defaultOptions: {
+				queries: { retry: false },
+				mutations: { retry: false },
+			},
+		} );
+		return render(
+			<QueryClientProvider client={ queryClient }>
+				<SiteOverviewView siteId="site-1" />
+			</QueryClientProvider>
+		);
+	};
 
 	beforeEach( () => {
+		navigateMock.mockReset().mockResolvedValue( undefined );
 		archiveMutate.mockReset();
 		unarchiveMutate.mockReset();
 		updateTitleDescriptionMutateAsync.mockReset().mockResolvedValue( undefined );
@@ -90,13 +117,21 @@ describe( 'SiteOverviewView', () => {
 		openSiteFolder.mockReset().mockResolvedValue( undefined );
 		openSiteInEditor.mockReset().mockResolvedValue( undefined );
 		openSiteInTerminal.mockReset().mockResolvedValue( undefined );
+		createSession.mockReset().mockResolvedValue( { id: 'new-session' } );
+		continueSession.mockReset().mockResolvedValue( { runId: 'run-1' } );
 		startSiteMutateAsync.mockReset().mockResolvedValue( undefined );
 		useConnectorMock.mockReturnValue( {
 			openSiteUrl,
 			openSiteFolder,
 			openSiteInEditor,
 			openSiteInTerminal,
+			openExternalUrl: vi.fn().mockResolvedValue( undefined ),
+			createSession,
+			continueSession,
+			isFullscreen: vi.fn().mockResolvedValue( false ),
+			onFullscreenChange: vi.fn().mockReturnValue( vi.fn() ),
 		} as never );
+		useConnectedWpcomSitesMock.mockReturnValue( { data: [] } as never );
 		useIsSiteStartingMock.mockReturnValue( false );
 		useIsSiteStoppingMock.mockReturnValue( false );
 		useStartSiteMock.mockReturnValue( {
@@ -160,7 +195,7 @@ describe( 'SiteOverviewView', () => {
 	} );
 
 	it( 'lists active and archived chats for the selected site', () => {
-		render( <SiteOverviewView siteId="site-1" /> );
+		renderOverview();
 
 		expect( screen.getByRole( 'heading', { name: 'Active' } ) ).toBeVisible();
 		expect( screen.getByRole( 'link', { name: /Active chat/ } ) ).toHaveAttribute(
@@ -176,7 +211,7 @@ describe( 'SiteOverviewView', () => {
 	} );
 
 	it( 'opens site shortcuts from the detail view', async () => {
-		render( <SiteOverviewView siteId="site-1" /> );
+		renderOverview();
 
 		fireEvent.click( screen.getByRole( 'button', { name: /Open site/ } ) );
 		await waitFor( () => {
@@ -214,7 +249,7 @@ describe( 'SiteOverviewView', () => {
 			isLoading: false,
 		} as never );
 
-		render( <SiteOverviewView siteId="site-1" /> );
+		renderOverview();
 
 		fireEvent.click( screen.getByRole( 'button', { name: /Open site/ } ) );
 
@@ -225,7 +260,7 @@ describe( 'SiteOverviewView', () => {
 	} );
 
 	it( 'archives and unarchives chats from the site details view', () => {
-		render( <SiteOverviewView siteId="site-1" /> );
+		renderOverview();
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Archive' } ) );
 		expect( archiveMutate ).toHaveBeenCalledWith(
@@ -239,7 +274,7 @@ describe( 'SiteOverviewView', () => {
 	} );
 
 	it( 'edits chat title and description from the site details view', async () => {
-		render( <SiteOverviewView siteId="site-1" /> );
+		renderOverview();
 
 		fireEvent.click( screen.getAllByRole( 'button', { name: 'Edit' } )[ 0 ] );
 		fireEvent.change( screen.getByLabelText( 'Title' ), {
@@ -272,7 +307,7 @@ describe( 'SiteOverviewView', () => {
 			isLoading: false,
 		} as never );
 
-		render( <SiteOverviewView siteId="site-1" /> );
+		renderOverview();
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Edit' } ) );
 		expect( screen.getByLabelText( 'Title' ) ).toHaveValue( 'Generated title' );
@@ -284,5 +319,45 @@ describe( 'SiteOverviewView', () => {
 			title: undefined,
 			description: undefined,
 		} );
+	} );
+
+	it( 'starts a new chat from the fixed composer', async () => {
+		renderOverview();
+
+		fireEvent.change( screen.getByPlaceholderText( /Set your next instruction/ ), {
+			target: { value: 'Update the homepage heading' },
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send' } ) );
+
+		await waitFor( () => {
+			expect( createSession ).toHaveBeenCalledWith( 'site-1' );
+			expect( continueSession ).toHaveBeenCalledWith(
+				'new-session',
+				'Update the homepage heading',
+				{
+					displayMessage: 'Update the homepage heading',
+				}
+			);
+			expect( navigateMock ).toHaveBeenCalledWith( {
+				to: '/sessions/$sessionId',
+				params: { sessionId: 'new-session' },
+			} );
+		} );
+	} );
+
+	it( 'toggles the site preview from the details header', () => {
+		renderOverview();
+
+		expect( screen.getByRole( 'button', { name: 'Show site preview' } ) ).toHaveAttribute(
+			'aria-pressed',
+			'false'
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Show site preview' } ) );
+
+		expect( screen.getByRole( 'button', { name: 'Hide site preview' } ) ).toHaveAttribute(
+			'aria-pressed',
+			'true'
+		);
 	} );
 } );

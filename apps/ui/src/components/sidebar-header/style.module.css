@@ -28,30 +28,3 @@
 		var(--wpds-dimension-padding-md) + 2 * var(--wpds-dimension-padding-sm)
 	);
 }
-
-.title {
-	flex: 1;
-	min-width: 0;
-	font-size: var(--wpds-typography-font-size-md);
-	font-weight: 600;
-	color: var(--wpds-color-fg-content-neutral);
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.actions {
-	display: flex;
-	align-items: center;
-	gap: var(--wpds-dimension-padding-xs);
-	opacity: 0.65;
-}
-
-.actions:hover,
-.actions:focus-within {
-	opacity: 1;
-}
-
-.popup {
-	min-width: 200px;
-}

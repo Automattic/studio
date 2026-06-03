@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { cog } from '@wordpress/icons';
+import { settings } from '@wordpress/icons';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { Gravatar } from '@/components/gravatar';
@@ -8,9 +8,9 @@ import * as Menu from '@/components/menu';
 import { SidebarButton } from '@/components/sidebar-button';
 import { useConnector } from '@/data/core';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
-import { useFeatureFlags } from '@/data/queries/use-feature-flags';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
+import { getKeyboardShortcut, getKeyboardShortcutDescriptor } from '@/lib/keyboard-shortcuts';
 import styles from './style.module.css';
 
 const WPCOM_PROFILE_URL = 'https://wordpress.com/me';
@@ -21,10 +21,12 @@ export function UserMenu() {
 	const connector = useConnector();
 	const { data: user } = useAuthUser();
 	const { data: preferences } = useUserPreferences();
-	const { data: featureFlags } = useFeatureFlags();
 	const login = useLogin();
 	const logout = useLogout();
 	const effectiveScheme = usePrefersColorScheme();
+	const settingsShortcut = getKeyboardShortcutDescriptor(
+		getKeyboardShortcut( 'open-app-settings' )
+	);
 
 	const savedScheme = preferences?.colorScheme;
 	const themeIsDark =
@@ -32,10 +34,6 @@ export function UserMenu() {
 
 	const openLink = ( url: string ) => {
 		void connector.openExternalUrl( url );
-	};
-
-	const switchToDefaultUi = () => {
-		void connector.setStudioUiMode( 'default' );
 	};
 
 	return (
@@ -64,14 +62,6 @@ export function UserMenu() {
 							<Menu.Item onClick={ () => openLink( REPORT_ISSUE_URL ) }>
 								{ __( 'Report an issue' ) }
 							</Menu.Item>
-							{ featureFlags?.enableDesksUiSwitch ? (
-								<>
-									<Menu.Separator />
-									<Menu.Item onClick={ switchToDefaultUi }>
-										{ __( 'Switch to default Studio UI' ) }
-									</Menu.Item>
-								</>
-							) : null }
 							<Menu.Separator />
 							<Menu.Item onClick={ () => logout.mutate() }>{ __( 'Log out' ) }</Menu.Item>
 						</Menu.Popup>
@@ -86,8 +76,10 @@ export function UserMenu() {
 					tone="neutral"
 					size="small"
 					className={ styles.settingsButton }
-					icon={ cog }
+					icon={ settings }
 					label={ __( 'Settings' ) }
+					shortcut={ settingsShortcut }
+					nativeButton={ false }
 					render={
 						<Link
 							to="/settings"

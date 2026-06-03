@@ -7,11 +7,11 @@ import { __ } from '@wordpress/i18n';
 import { Button } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import * as Tabs from '@/components/tabs';
+import { useConnector } from '@/data/core';
 import { persister } from '@/data/core/query-client';
+import { useFeatureFlags } from '@/data/queries/use-feature-flags';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { useFullscreen } from '@/hooks/use-fullscreen';
-import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import {
 	KEYBOARD_SHORTCUTS,
 	getKeyboardShortcutLabel,
@@ -122,18 +122,7 @@ const MESSAGE_SEND_SHORTCUT_ELEMENTS: { value: MessageSendShortcut; label: strin
 ];
 
 function SettingsHeader() {
-	const sidebarCollapsed = useSidebarCollapsed();
-	const isFullscreen = useFullscreen();
-	const toggleSpacerClass = sidebarCollapsed
-		? isFullscreen
-			? styles.toggleSpacerFullscreen
-			: styles.toggleSpacer
-		: null;
-	return (
-		<div className={ styles.header }>
-			{ toggleSpacerClass ? <span className={ toggleSpacerClass } aria-hidden="true" /> : null }
-		</div>
-	);
+	return <div className={ styles.header } />;
 }
 
 function KeyboardShortcutsList() {
@@ -152,6 +141,27 @@ function KeyboardShortcutsList() {
 	);
 }
 
+function OldStudioUiPreference() {
+	const connector = useConnector();
+
+	return (
+		<section className={ styles.preferenceSection }>
+			<div className={ styles.preferenceSectionText }>
+				<h2>{ __( 'Studio UI' ) }</h2>
+				<p>{ __( 'Switch back to the old Studio UI.' ) }</p>
+			</div>
+			<Button
+				type="button"
+				variant="outline"
+				tone="neutral"
+				onClick={ () => void connector.setStudioUiMode( 'default' ) }
+			>
+				{ __( 'Switch to old Studio UI' ) }
+			</Button>
+		</section>
+	);
+}
+
 export function SettingsView( {
 	activeTab,
 	onTabChange,
@@ -161,6 +171,7 @@ export function SettingsView( {
 } ) {
 	const { data: saved, isLoading } = useUserPreferences();
 	const { data: installedApps } = useInstalledApps();
+	const { data: featureFlags } = useFeatureFlags();
 	const savePreferences = useSaveUserPreferences();
 
 	const [ data, setData ] = useState< FormData | null >( null );
@@ -303,6 +314,7 @@ export function SettingsView( {
 									form={ preferencesForm }
 									onChange={ handleChange }
 								/>
+								{ featureFlags?.enableDesksUiSwitch ? <OldStudioUiPreference /> : null }
 							</Tabs.Panel>
 							<Tabs.Panel tabId="keyboard" className={ styles.keyboardPanel }>
 								<KeyboardShortcutsList />

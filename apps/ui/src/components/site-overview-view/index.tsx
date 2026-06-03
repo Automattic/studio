@@ -1,12 +1,19 @@
+import { DEFAULT_MODEL } from '@studio/common/ai/models';
 import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
-import { Link } from '@tanstack/react-router';
+import { useQueryClient } from '@tanstack/react-query';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { archive, code, desktop, external, grid, preformatted } from '@wordpress/icons';
-import { Button, Dialog, Icon } from '@wordpress/ui';
-import { useEffect, useState } from 'react';
+import { archive, code, desktop, external, grid, navigation, preformatted } from '@wordpress/icons';
+import { Button, Dialog, Icon, IconButton } from '@wordpress/ui';
+import { clsx } from 'clsx';
+import { useCallback, useEffect, useState, type ComponentProps, type FormEvent } from 'react';
+import { PreviewSplitContent } from '@/components/preview-split-frame';
+import { ProgressiveBlur } from '@/components/progressive-blur';
+import { SiteDropdown } from '@/components/site-dropdown';
 import { useConnector } from '@/data/core';
 import {
+	SESSIONS_QUERY_KEY,
 	useArchiveSession,
 	useSessions,
 	useUnarchiveSession,
@@ -19,8 +26,14 @@ import {
 	useStartSite,
 } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
+import { useFullscreen } from '@/hooks/use-fullscreen';
+import { useKeyboardShortcut } from '@/hooks/use-keyboard-shortcut';
+import { SessionUIProvider, useSessionPreviewUI } from '@/hooks/use-session-ui';
+import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { formatRelativeTime } from '@/lib/format-relative-time';
 import { getSiteDisplayUrl } from '@/lib/get-site-url';
+import { getKeyboardShortcut, getKeyboardShortcutDescriptor } from '@/lib/keyboard-shortcuts';
+import { Composer } from '@/ui-classic/components/session-view/composer';
 import styles from './style.module.css';
 import type {
 	AiSessionSummary,
@@ -28,7 +41,6 @@ import type {
 	SupportedEditor,
 	SupportedTerminal,
 } from '@/data/core';
-import type { ComponentProps, FormEvent } from 'react';
 
 type ShortcutIcon = ComponentProps< typeof Icon >[ 'icon' ];
 
@@ -41,6 +53,17 @@ interface SiteShortcutAction {
 }
 
 export function SiteOverviewView( { siteId }: { siteId: string } ) {
+	return (
+		<SessionUIProvider>
+			<SiteOverviewViewContent siteId={ siteId } />
+		</SessionUIProvider>
+	);
+}
+
+function SiteOverviewViewContent( { siteId }: { siteId: string } ) {
+	const navigate = useNavigate();
+	const connector = useConnector();
+	const queryClient = useQueryClient();
 	const { data: sites, isLoading } = useSites();
 	const { data: sessions, isLoading: isLoadingSessions } = useSessions();
 	const { data: userPreferences } = useUserPreferences();
@@ -50,6 +73,40 @@ export function SiteOverviewView( { siteId }: { siteId: string } ) {
 	const site = sites?.find( ( candidate ) => candidate.id === siteId );
 	const isStarting = useIsSiteStarting( siteId );
 	const isStopping = useIsSiteStopping( siteId );
+	const preview = useSessionPreviewUI();
+	const showPreview = preview.open;
+	const [ composerBusy, setComposerBusy ] = useState( false );
+	const [ composerError, setComposerError ] = useState< string | null >( null );
+
+	const sendNewChatMessage = useCallback(
+		async ( prompt: string ) => {
+			if ( ! site || composerBusy ) {
+				return;
+			}
+			setComposerBusy( true );
+			setComposerError( null );
+			try {
+				const session = await connector.createSession( site.id );
+				await connector.continueSession( session.id, prompt, { displayMessage: prompt } );
+				void queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } );
+				await navigate( {
+					to: '/sessions/$sessionId',
+					params: { sessionId: session.id },
+				} );
+			} catch ( error ) {
+				const message = error instanceof Error ? error.message : __( 'Could not start chat.' );
+				setComposerError( message );
+				throw error;
+			} finally {
+				setComposerBusy( false );
+			}
+		},
+		[ composerBusy, connector, navigate, queryClient, site ]
+	);
+
+	useKeyboardShortcut( 'toggle-site-preview', preview.toggle, {
+		enabled: !! site,
+	} );
 
 	if ( isLoading ) {
 		return <div className={ styles.state }>{ __( 'Loading...' ) }</div>;
@@ -72,14 +129,30 @@ export function SiteOverviewView( { siteId }: { siteId: string } ) {
 	const isUpdatingSession = archiveSession.isPending || unarchiveSession.isPending;
 
 	return (
-		<div className={ styles.root }>
+		<PreviewSplitContent
+			scrollClassName={ styles.scroll }
+			composerOuterClassName={ styles.composerOuter }
+			header={
+				<SiteOverviewHeader
+					site={ site }
+					previewOpen={ showPreview }
+					onTogglePreview={ preview.toggle }
+				/>
+			}
+			composer={
+				<div className={ styles.classicColumn }>
+					<Composer
+						busy={ composerBusy }
+						error={ composerError }
+						model={ DEFAULT_MODEL }
+						onSend={ sendNewChatMessage }
+						onInterrupt={ async () => undefined }
+						autoFocus={ false }
+					/>
+				</div>
+			}
+		>
 			<div className={ styles.content }>
-				<header className={ styles.header }>
-					<div>
-						<h1 className={ styles.title }>{ site.name }</h1>
-						<p className={ styles.subtitle }>{ getSiteDisplayUrl( site ) }</p>
-					</div>
-				</header>
 				<div className={ styles.details }>
 					<Detail
 						label={ __( 'Status' ) }
@@ -134,6 +207,52 @@ export function SiteOverviewView( { siteId }: { siteId: string } ) {
 						</>
 					) }
 				</section>
+			</div>
+		</PreviewSplitContent>
+	);
+}
+
+function SiteOverviewHeader( {
+	site,
+	previewOpen,
+	onTogglePreview,
+}: {
+	site: SiteDetails;
+	previewOpen: boolean;
+	onTogglePreview: () => void;
+} ) {
+	const sidebarCollapsed = useSidebarCollapsed();
+	const isFullscreen = useFullscreen();
+	const previewShortcut = getKeyboardShortcutDescriptor(
+		getKeyboardShortcut( 'toggle-site-preview' )
+	);
+
+	return (
+		<div className={ styles.header }>
+			<ProgressiveBlur />
+			<div
+				className={ clsx(
+					styles.headerContent,
+					! sidebarCollapsed && styles.headerContentSidebarOpen
+				) }
+			>
+				{ sidebarCollapsed && ! isFullscreen ? (
+					<span className={ styles.trafficLightSpacer } aria-hidden="true" />
+				) : null }
+				<SiteDropdown site={ site } showSiteIcon={ sidebarCollapsed } />
+				<span className={ styles.headerSpacer } aria-hidden="true" />
+				<div className={ styles.headerActions }>
+					<IconButton
+						variant="minimal"
+						tone="neutral"
+						size="small"
+						icon={ navigation }
+						label={ previewOpen ? __( 'Hide site preview' ) : __( 'Show site preview' ) }
+						shortcut={ previewShortcut }
+						aria-pressed={ previewOpen }
+						onClick={ onTogglePreview }
+					/>
+				</div>
 			</div>
 		</div>
 	);

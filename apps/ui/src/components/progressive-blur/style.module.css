@@ -1,0 +1,163 @@
+.root {
+	position: absolute;
+	inset: 0;
+	z-index: 0;
+	overflow: hidden;
+	pointer-events: none;
+}
+
+.root::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(
+		to bottom,
+		color-mix( in srgb, var( --wpds-color-bg-surface-neutral ) 92%, transparent ),
+		color-mix( in srgb, var( --wpds-color-bg-surface-neutral ) 72%, transparent ) 58%,
+		transparent
+	);
+}
+
+.extended::before {
+	background: linear-gradient(
+		to bottom,
+		color-mix( in srgb, var( --wpds-color-bg-surface-neutral ) 58%, transparent ),
+		color-mix( in srgb, var( --wpds-color-bg-surface-neutral ) 32%, transparent ) 62%,
+		transparent
+	);
+}
+
+.bottom::before {
+	background: linear-gradient(
+		to top,
+		color-mix( in srgb, var( --wpds-color-bg-surface-neutral ) 92%, transparent ),
+		color-mix( in srgb, var( --wpds-color-bg-surface-neutral ) 72%, transparent ) 58%,
+		transparent
+	);
+}
+
+.bottom.extended::before {
+	background: linear-gradient(
+		to top,
+		color-mix( in srgb, var( --wpds-color-bg-surface-neutral ) 58%, transparent ),
+		color-mix( in srgb, var( --wpds-color-bg-surface-neutral ) 32%, transparent ) 62%,
+		transparent
+	);
+}
+
+.layer {
+	position: absolute;
+	inset: 0;
+	-webkit-backdrop-filter: saturate( 160% ) blur( var( --blur-radius ) );
+	backdrop-filter: saturate( 160% ) blur( var( --blur-radius ) );
+}
+
+.layerOne {
+	--blur-radius: 18px;
+	mask-image: linear-gradient( to bottom, black 0%, black 24%, transparent 48% );
+	-webkit-mask-image: linear-gradient( to bottom, black 0%, black 24%, transparent 48% );
+}
+
+.extended .layerOne {
+	--blur-radius: 28px;
+	mask-image: linear-gradient( to bottom, black 0%, black 30%, transparent 62% );
+	-webkit-mask-image: linear-gradient( to bottom, black 0%, black 30%, transparent 62% );
+}
+
+.bottom .layerOne {
+	mask-image: linear-gradient( to top, black 0%, black 24%, transparent 48% );
+	-webkit-mask-image: linear-gradient( to top, black 0%, black 24%, transparent 48% );
+}
+
+.bottom.extended .layerOne {
+	mask-image: linear-gradient( to top, black 0%, black 30%, transparent 62% );
+	-webkit-mask-image: linear-gradient( to top, black 0%, black 30%, transparent 62% );
+}
+
+.layerTwo {
+	--blur-radius: 14px;
+	mask-image: linear-gradient( to bottom, transparent 14%, black 34%, transparent 58% );
+	-webkit-mask-image: linear-gradient( to bottom, transparent 14%, black 34%, transparent 58% );
+}
+
+.extended .layerTwo {
+	--blur-radius: 22px;
+	mask-image: linear-gradient( to bottom, transparent 16%, black 40%, transparent 70% );
+	-webkit-mask-image: linear-gradient( to bottom, transparent 16%, black 40%, transparent 70% );
+}
+
+.bottom .layerTwo {
+	mask-image: linear-gradient( to top, transparent 14%, black 34%, transparent 58% );
+	-webkit-mask-image: linear-gradient( to top, transparent 14%, black 34%, transparent 58% );
+}
+
+.bottom.extended .layerTwo {
+	mask-image: linear-gradient( to top, transparent 16%, black 40%, transparent 70% );
+	-webkit-mask-image: linear-gradient( to top, transparent 16%, black 40%, transparent 70% );
+}
+
+.layerThree {
+	--blur-radius: 10px;
+	mask-image: linear-gradient( to bottom, transparent 28%, black 48%, transparent 72% );
+	-webkit-mask-image: linear-gradient( to bottom, transparent 28%, black 48%, transparent 72% );
+}
+
+.extended .layerThree {
+	--blur-radius: 16px;
+	mask-image: linear-gradient( to bottom, transparent 32%, black 56%, transparent 82% );
+	-webkit-mask-image: linear-gradient( to bottom, transparent 32%, black 56%, transparent 82% );
+}
+
+.bottom .layerThree {
+	mask-image: linear-gradient( to top, transparent 28%, black 48%, transparent 72% );
+	-webkit-mask-image: linear-gradient( to top, transparent 28%, black 48%, transparent 72% );
+}
+
+.bottom.extended .layerThree {
+	mask-image: linear-gradient( to top, transparent 32%, black 56%, transparent 82% );
+	-webkit-mask-image: linear-gradient( to top, transparent 32%, black 56%, transparent 82% );
+}
+
+.layerFour {
+	--blur-radius: 6px;
+	mask-image: linear-gradient( to bottom, transparent 44%, black 64%, transparent 86% );
+	-webkit-mask-image: linear-gradient( to bottom, transparent 44%, black 64%, transparent 86% );
+}
+
+.extended .layerFour {
+	--blur-radius: 10px;
+	mask-image: linear-gradient( to bottom, transparent 48%, black 72%, transparent 94% );
+	-webkit-mask-image: linear-gradient( to bottom, transparent 48%, black 72%, transparent 94% );
+}
+
+.bottom .layerFour {
+	mask-image: linear-gradient( to top, transparent 44%, black 64%, transparent 86% );
+	-webkit-mask-image: linear-gradient( to top, transparent 44%, black 64%, transparent 86% );
+}
+
+.bottom.extended .layerFour {
+	mask-image: linear-gradient( to top, transparent 48%, black 72%, transparent 94% );
+	-webkit-mask-image: linear-gradient( to top, transparent 48%, black 72%, transparent 94% );
+}
+
+.layerFive {
+	--blur-radius: 2px;
+	mask-image: linear-gradient( to bottom, transparent 64%, black 82%, transparent 100% );
+	-webkit-mask-image: linear-gradient( to bottom, transparent 64%, black 82%, transparent 100% );
+}
+
+.extended .layerFive {
+	--blur-radius: 4px;
+	mask-image: linear-gradient( to bottom, transparent 68%, black 88%, transparent 100% );
+	-webkit-mask-image: linear-gradient( to bottom, transparent 68%, black 88%, transparent 100% );
+}
+
+.bottom .layerFive {
+	mask-image: linear-gradient( to top, transparent 64%, black 82%, transparent 100% );
+	-webkit-mask-image: linear-gradient( to top, transparent 64%, black 82%, transparent 100% );
+}
+
+.bottom.extended .layerFive {
+	mask-image: linear-gradient( to top, transparent 68%, black 88%, transparent 100% );
+	-webkit-mask-image: linear-gradient( to top, transparent 68%, black 88%, transparent 100% );
+}

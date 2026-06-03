@@ -6,6 +6,7 @@ import { CheckboxControl } from '@wordpress/components';
 import { DataForm, useFormValidity } from '@wordpress/dataviews';
 import { __ } from '@wordpress/i18n';
 import { Button } from '@wordpress/ui';
+import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { LearnHowLink } from '@/components/learn-more';
 import { SiteDropdown } from '@/components/site-dropdown';
@@ -78,14 +79,11 @@ function initialFormData( site: SiteDetails ): FormData {
 function SettingsHeader( { site }: { site: SiteDetails } ) {
 	const sidebarCollapsed = useSidebarCollapsed();
 	const isFullscreen = useFullscreen();
-	const toggleSpacerClass = sidebarCollapsed
-		? isFullscreen
-			? styles.toggleSpacerFullscreen
-			: styles.toggleSpacer
-		: null;
 	return (
-		<div className={ styles.header }>
-			{ toggleSpacerClass ? <span className={ toggleSpacerClass } aria-hidden="true" /> : null }
+		<div className={ clsx( styles.header, ! sidebarCollapsed && styles.headerSidebarOpen ) }>
+			{ sidebarCollapsed && ! isFullscreen ? (
+				<span className={ styles.trafficLightSpacer } aria-hidden="true" />
+			) : null }
 			<SiteDropdown site={ site } showSiteIcon={ sidebarCollapsed } />
 		</div>
 	);

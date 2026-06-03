@@ -1,12 +1,14 @@
 import { resolveSessionModel } from '@studio/common/ai/models';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
+import { navigation } from '@wordpress/icons';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useCallback, useLayoutEffect, useMemo, useRef, type ReactNode, type Ref } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
+import { PreviewSplitContent } from '@/components/preview-split-frame';
+import { ProgressiveBlur } from '@/components/progressive-blur';
 import { SiteDropdown } from '@/components/site-dropdown';
 import { SiteIcon } from '@/components/site-icon';
-import { SitePreview } from '@/components/site-preview';
 import { type Annotation } from '@/components/site-preview/types';
 import { useAgentRun } from '@/data/queries/use-agent-run';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
@@ -15,9 +17,13 @@ import { useSites } from '@/data/queries/use-sites';
 import { useFullscreen } from '@/hooks/use-fullscreen';
 import { useKeyboardShortcut } from '@/hooks/use-keyboard-shortcut';
 import { useSessionCommands } from '@/hooks/use-session-commands';
-import { SessionUIProvider, useSessionPreviewUI } from '@/hooks/use-session-ui';
+import {
+	SessionUIProvider,
+	useSessionPreviewAnnotations,
+	useSessionPreviewUI,
+} from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
-import { drawerIcon } from '@/lib/icons';
+import { getKeyboardShortcut, getKeyboardShortcutDescriptor } from '@/lib/keyboard-shortcuts';
 import { formatAnnotationsAsPrompt, formatAnnotationsSubmittedMessage } from './annotations';
 import { Composer, ComposerSkeleton } from './composer';
 import { pickLiveSite } from './composer/environment-pill';
@@ -46,73 +52,56 @@ function SessionHeader( {
 	const { data: sites } = useSites();
 	const site = sites?.find( ( candidate ) => candidate.path === summary.ownerSitePath );
 	const effectiveEnvironment = useSessionEffectiveEnvironment( summary, site?.id );
+	const previewShortcut = getKeyboardShortcutDescriptor(
+		getKeyboardShortcut( 'toggle-site-preview' )
+	);
 	if ( ! siteName ) {
 		return null;
 	}
 
-	const toggleSpacerClass = sidebarCollapsed
-		? isFullscreen
-			? styles.toggleSpacerFullscreen
-			: styles.toggleSpacer
-		: null;
-
 	return (
 		<div className={ styles.header }>
-			{ toggleSpacerClass ? <span className={ toggleSpacerClass } aria-hidden="true" /> : null }
-			{ site ? (
-				<SiteDropdown
-					site={ site }
-					activeEnvironment={ effectiveEnvironment }
-					showSiteIcon={ sidebarCollapsed }
-				/>
-			) : (
-				<>
-					{ sidebarCollapsed ? (
-						<SiteIcon className={ styles.headerSiteIcon } seed={ siteName } />
-					) : null }
-					<span className={ styles.headerDot } aria-hidden="true" />
-					<span className={ styles.headerSite }>{ siteName }</span>
-				</>
-			) }
-			<span className={ styles.headerSpacer } aria-hidden="true" />
-			{ canTogglePreview ? (
-				<div className={ styles.headerActions }>
-					<IconButton
-						variant="minimal"
-						tone="neutral"
-						size="small"
-						icon={ drawerIcon }
-						label={ previewOpen ? __( 'Hide site preview' ) : __( 'Show site preview' ) }
-						aria-pressed={ previewOpen }
-						onClick={ onTogglePreview }
+			<ProgressiveBlur />
+			<div
+				className={ clsx(
+					styles.headerContent,
+					! sidebarCollapsed && styles.headerContentSidebarOpen
+				) }
+			>
+				{ sidebarCollapsed && ! isFullscreen ? (
+					<span className={ styles.trafficLightSpacer } aria-hidden="true" />
+				) : null }
+				{ site ? (
+					<SiteDropdown
+						site={ site }
+						activeEnvironment={ effectiveEnvironment }
+						showSiteIcon={ sidebarCollapsed }
 					/>
-				</div>
-			) : null }
-		</div>
-	);
-}
-
-interface SessionFrameProps {
-	header?: ReactNode;
-	composer?: ReactNode;
-	preview?: ReactNode;
-	scrollRef?: Ref< HTMLDivElement >;
-	children?: ReactNode;
-}
-
-function SessionFrame( { header, composer, preview, scrollRef, children }: SessionFrameProps ) {
-	return (
-		<div className={ styles.root }>
-			<div className={ styles.chatColumn }>
-				{ header }
-				<div ref={ scrollRef } className={ clsx( styles.scroll, styles.classicScroll ) }>
-					{ children }
-				</div>
-				<div className={ clsx( styles.composerOuter, styles.classicComposerOuter ) }>
-					{ composer }
-				</div>
+				) : (
+					<>
+						{ sidebarCollapsed ? (
+							<SiteIcon className={ styles.headerSiteIcon } seed={ siteName } />
+						) : null }
+						<span className={ styles.headerDot } aria-hidden="true" />
+						<span className={ styles.headerSite }>{ siteName }</span>
+					</>
+				) }
+				<span className={ styles.headerSpacer } aria-hidden="true" />
+				{ canTogglePreview ? (
+					<div className={ styles.headerActions }>
+						<IconButton
+							variant="minimal"
+							tone="neutral"
+							size="small"
+							icon={ navigation }
+							label={ previewOpen ? __( 'Hide site preview' ) : __( 'Show site preview' ) }
+							shortcut={ previewShortcut }
+							aria-pressed={ previewOpen }
+							onClick={ onTogglePreview }
+						/>
+					</div>
+				) : null }
 			</div>
-			{ preview }
 		</div>
 	);
 }
@@ -181,6 +170,9 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	useKeyboardShortcut( 'new-chat-in-current-site', createNewChatForSite, {
 		enabled: !! ownerSiteId,
 	} );
+	useKeyboardShortcut( 'toggle-site-preview', preview.toggle, {
+		enabled: canTogglePreview,
+	} );
 
 	const handleAnnotationsDone = useCallback(
 		( annotations: Annotation[] ) => {
@@ -191,6 +183,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		},
 		[ sendMessage ]
 	);
+	useSessionPreviewAnnotations( handleAnnotationsDone, canTogglePreview && !! ownerSite );
 
 	useLayoutEffect( () => {
 		const node = scrollRef.current;
@@ -205,12 +198,14 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	}, [ sessionId, data, isRunning, queuedPrompts.length ] );
 
 	if ( isLoading ) {
-		// Use the same SessionFrame with an empty header and a structural
+		// Use the same PreviewSplitFrame with an empty header and a structural
 		// ComposerSkeleton so the scroll area has the exact same dimensions
 		// as the loaded view — otherwise the EmptyBackground canvas jumps
 		// mid-transition.
 		return (
-			<SessionFrame
+			<PreviewSplitContent
+				scrollClassName={ clsx( styles.scroll, styles.classicScroll ) }
+				composerOuterClassName={ clsx( styles.composerOuter, styles.classicComposerOuter ) }
 				header={ <div className={ styles.header } /> }
 				composer={
 					<div className={ styles.classicColumn }>
@@ -219,7 +214,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 				}
 			>
 				<EmptyBackground />
-			</SessionFrame>
+			</PreviewSplitContent>
 		);
 	}
 
@@ -233,8 +228,10 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	}
 
 	return (
-		<SessionFrame
+		<PreviewSplitContent
 			scrollRef={ scrollRef }
+			scrollClassName={ clsx( styles.scroll, styles.classicScroll ) }
+			composerOuterClassName={ clsx( styles.composerOuter, styles.classicComposerOuter ) }
 			header={
 				<SessionHeader
 					summary={ data.summary }
@@ -267,17 +264,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 					/>
 				</div>
 			}
-			preview={
-				canTogglePreview && ownerSite ? (
-					<SitePreview
-						site={ ownerSite }
-						path={ preview.path }
-						reloadNonce={ preview.reloadNonce }
-						onAnnotationsDone={ handleAnnotationsDone }
-						collapsed={ ! showPreview }
-					/>
-				) : null
-			}
 		>
 			{ isEmpty ? <EmptyBackground /> : null }
 			<div className={ clsx( styles.classicColumn, styles.classicConversationSpacing ) }>
@@ -290,6 +276,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 					onAnswerQuestion={ answerQuestion }
 				/>
 			</div>
-		</SessionFrame>
+		</PreviewSplitContent>
 	);
 }

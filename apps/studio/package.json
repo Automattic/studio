@@ -88,7 +88,7 @@
 		"@types/yauzl": "^2.10.3",
 		"@vitejs/plugin-react": "^5.1.4",
 		"@wordpress/components": "^34.0.0",
-		"@wordpress/compose": "^8.0.0",
+		"@wordpress/compose": "8.0.0",
 		"@wordpress/dataviews": "^15.0.0",
 		"@wordpress/element": "^7.0.0",
 		"@wordpress/icons": "13.2.0",
@@ -129,6 +129,7 @@
 	"overrides": {
 		"fs-ext": {
 			"nan": "2.25.0"
-		}
+		},
+		"@wordpress/compose": "8.0.0"
 	}
 }

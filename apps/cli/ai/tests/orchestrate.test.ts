@@ -63,7 +63,7 @@ describe( 'buildSiteTasks', () => {
 describe( 'routeResults', () => {
 	it( 'groups results by kind and isolates failures', () => {
 		const routed = routeResults( [
-			{ kind: 'theme-file', rel: 'style.css', content: 'css' },
+			{ kind: 'theme-file', rel: 'style.css', content: 'css', error: null },
 			{ kind: 'plugin-main', content: '<?php', error: null },
 			{
 				kind: 'plugin-block',
@@ -127,5 +127,14 @@ describe( 'routeResults', () => {
 		const routed = routeResults( [ { kind: 'plugin-main', content: '', error: 'overloaded' } ] );
 		expect( routed.pluginMain ).toBeNull();
 		expect( routed.generationFailed[ 0 ] ).toContain( 'plugin-main' );
+	} );
+
+	it( 'routes a failed theme file to generationFailed, not themeFiles', () => {
+		const routed = routeResults( [
+			{ kind: 'theme-file', rel: 'style.css', content: '', error: 'overloaded' },
+			{ kind: 'theme-file', rel: 'theme.json', content: '{}', error: null },
+		] );
+		expect( routed.themeFiles.map( ( f ) => f.rel ) ).toEqual( [ 'theme.json' ] );
+		expect( routed.generationFailed ).toContain( 'theme:style.css' );
 	} );
 } );

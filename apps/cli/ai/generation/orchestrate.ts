@@ -47,7 +47,7 @@ import type { SiteData } from 'cli/lib/cli-config/core';
 
 // Discriminated-union result the writer routes by `kind` after the pool resolves.
 type GenResult =
-	| { kind: 'theme-file'; rel: string; content: string }
+	| { kind: 'theme-file'; rel: string; content: string; error: string | null }
 	| { kind: 'plugin-main'; content: string; error: string | null }
 	| {
 			kind: 'plugin-block';
@@ -131,60 +131,65 @@ export function buildSiteTasks(
 	const { specJson, design, vocabulary, contract, finalizeImages } = ctx;
 	const tasks: Array< () => Promise< GenResult > > = [];
 
-	// THEME — theme.json, style.css (★14k long-pole), parts, templates.
-	tasks.push( async () => ( {
-		kind: 'theme-file',
-		rel: 'theme.json',
-		content: await runGenerator( {
-			name: 'theme-json',
-			specJson,
-			design,
-			maxTokens: 6_000,
-			temperature: 0.4,
-		} ),
-	} ) );
-	tasks.push( async () => ( {
-		kind: 'theme-file',
-		rel: 'style.css',
-		content: ensureStyleHeader(
-			await runGenerator( {
-				name: 'style-css',
-				specJson,
-				design,
-				maxTokens: 14_000,
-				temperature: 0.5,
-			} ),
-			manifest.themeName,
-			manifest.themeSlug
-		),
-	} ) );
+	// THEME — theme.json, style.css (★14k long-pole), parts, templates. Each task
+	// is GUARDED: a single theme-file failure must not reject the whole pool (that
+	// would discard the plugin + content work too); it is routed like the rest.
+	const themeTask =
+		( rel: string, run: () => Promise< string > ) => async (): Promise< GenResult > => {
+			try {
+				return { kind: 'theme-file', rel, content: await run(), error: null };
+			} catch ( error ) {
+				return { kind: 'theme-file', rel, content: '', error: errMessage( error ) };
+			}
+		};
+
+	tasks.push(
+		themeTask( 'theme.json', () =>
+			runGenerator( { name: 'theme-json', specJson, design, maxTokens: 6_000, temperature: 0.4 } )
+		)
+	);
+	tasks.push(
+		themeTask( 'style.css', async () =>
+			ensureStyleHeader(
+				await runGenerator( {
+					name: 'style-css',
+					specJson,
+					design,
+					maxTokens: 14_000,
+					temperature: 0.5,
+				} ),
+				manifest.themeName,
+				manifest.themeSlug
+			)
+		)
+	);
 	for ( const part of manifest.parts ) {
-		tasks.push( async () => ( {
-			kind: 'theme-file',
-			rel: `parts/${ part }.html`,
-			content: await runGenerator( {
-				name: 'template-part',
-				specJson,
-				design,
-				task: `Part: ${ part }\nLayout mode: ${ manifest.layoutMode }\n\n${ vocabulary }`,
-				maxTokens: 6_000,
-				temperature: 0.5,
-			} ),
-		} ) );
+		tasks.push(
+			themeTask( `parts/${ part }.html`, () =>
+				runGenerator( {
+					name: 'template-part',
+					specJson,
+					design,
+					task: `Part: ${ part }\nLayout mode: ${ manifest.layoutMode }\n\n${ vocabulary }`,
+					maxTokens: 6_000,
+					temperature: 0.5,
+				} )
+			)
+		);
 	}
 	for ( const template of manifest.templates ) {
-		tasks.push( async () => ( {
-			kind: 'theme-file',
-			rel: `templates/${ template }.html`,
-			content: await runGenerator( {
-				name: 'template',
-				specJson,
-				design,
-				task: `Template: ${ template }\nLayout mode: ${ manifest.layoutMode }\nContent mode: ${ manifest.contentMode }\n\n${ vocabulary }`,
-				maxTokens: 6_000,
-				temperature: 0.5,
-			} ),
-		} ) );
+		tasks.push(
+			themeTask( `templates/${ template }.html`, () =>
+				runGenerator( {
+					name: 'template',
+					specJson,
+					design,
+					task: `Template: ${ template }\nLayout mode: ${ manifest.layoutMode }\nContent mode: ${ manifest.contentMode }\n\n${ vocabulary }`,
+					maxTokens: 6_000,
+					temperature: 0.5,
+				} )
+			)
+		);
 	}
 
 	// PLUGIN — only when needed: main PHP (★12k long-pole) + one task per block.
@@ -346,7 +351,11 @@ export function routeResults( results: GenResult[] ): RoutedResults {
 	for ( const r of results ) {
 		switch ( r.kind ) {
 			case 'theme-file':
-				out.themeFiles.push( { rel: r.rel, content: r.content } );
+				if ( r.error ) {
+					out.generationFailed.push( `theme:${ r.rel }` );
+				} else {
+					out.themeFiles.push( { rel: r.rel, content: r.content } );
+				}
 				break;
 			case 'plugin-main':
 				if ( r.error || ! r.content ) {
@@ -533,8 +542,14 @@ export async function generateSite( args: {
 		}
 	}
 
-	// 4-5. Activate theme, then plugin (plugin registers from build/, which now exists).
-	const themeActivation = await activateTheme( site.id, slug );
+	const pluginFailed = plugin.needed && ! routed.pluginMain;
+	const styleOk = routed.themeFiles.some( ( file ) => file.rel === 'style.css' );
+
+	// 4-5. Activate theme (only if style.css was generated — WordPress won't
+	// recognise a theme without it), then plugin (registers from build/, now present).
+	const themeActivation = styleOk
+		? await activateTheme( site.id, slug )
+		: 'Theme NOT activated — style.css generation failed; re-run generate_site (idempotent).';
 	const pluginActivation =
 		plugin.needed && routed.pluginMain ? await activatePlugin( site.id, plugin.slug ) : '';
 
@@ -546,9 +561,15 @@ export async function generateSite( args: {
 		frontPage: '',
 	};
 	let seedNote = '';
-	if ( routed.prepared.length > 0 ) {
+	// When the plugin failed to generate, its CPTs were never registered — seeding
+	// CPT entries under an unregistered post type would orphan them, so seed only
+	// pages/posts in that case.
+	const seedable = pluginFailed
+		? routed.prepared.filter( ( item ) => item.postType === 'page' || item.postType === 'post' )
+		: routed.prepared;
+	if ( seedable.length > 0 ) {
 		try {
-			seedReport = await seedPreparedItems( site, routed.prepared, manifest.contentMode );
+			seedReport = await seedPreparedItems( site, seedable, manifest.contentMode );
 		} catch ( error ) {
 			seedNote = errMessage( error );
 		}
@@ -562,10 +583,12 @@ export async function generateSite( args: {
 	const summary = [
 		`Generated site '${ manifest.themeName }' in one pass.`,
 		`Theme: wp-content/themes/${ slug }/ (${ themeWritten.length } files) — ${ themeActivation }`,
-		plugin.needed
+		pluginFailed
+			? 'Plugin: FAILED to generate main PHP — not written or activated; CPT content skipped. Re-run generate_site.'
+			: plugin.needed
 			? `Plugin: wp-content/plugins/${ plugin.slug }/ (${ pluginWritten.length } files) — ${ pluginActivation }`
 			: 'Plugin: none (brochure site).',
-		blockFailures.length ? `Blocks FAILED: ${ blockFailures.join( '; ' ) }` : '',
+		! pluginFailed && blockFailures.length ? `Blocks FAILED: ${ blockFailures.join( '; ' ) }` : '',
 		`Seeded — created: ${ seedReport.created.length }, updated: ${ seedReport.updated.length }${
 			seedReport.failed.length ? `, DB failed: ${ seedReport.failed.join( '; ' ) }` : ''
 		}.`,

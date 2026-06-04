@@ -10,11 +10,6 @@ import { withOfflineCheck, withOfflineCheckMutation } from 'src/stores/utils/wit
 import type { BaseQueryFn, FetchBaseQueryError } from '@reduxjs/toolkit/query';
 import type { WPCOM } from 'wpcom/types';
 
-const welcomeMessageSchema = z.object( {
-	messages: z.array( z.string() ),
-	example_prompts: z.array( z.string() ),
-} );
-
 export const assistantQuotaSchema = z
 	.object( {
 		max_quota: z.number(),
@@ -136,14 +131,6 @@ export const wpcomApi = createApi( {
 	baseQuery: wpcomBaseQuery,
 	tagTypes: [ 'AssistantQuota', 'SnapshotUsage' ],
 	endpoints: ( builder ) => ( {
-		getWelcomeMessages: builder.query< z.infer< typeof welcomeMessageSchema >, void >( {
-			query: () => ( {
-				path: '/studio-app/ai-assistant/welcome',
-				apiNamespace: 'wpcom/v2',
-			} ),
-			transformResponse: ( response: unknown ) => parseResponse( response, welcomeMessageSchema ),
-			keepUnusedDataFor: 60 * 60,
-		} ),
 		getAssistantQuota: builder.query< z.infer< typeof assistantQuotaSchema >, void >( {
 			query: () => ( {
 				path: '/studio-app/ai-assistant/quota',
@@ -260,10 +247,6 @@ function withWpcomClientCheckMutation< TResult, TArg >(
 		return [ wrappedTrigger, result ] as const;
 	};
 }
-
-export const useGetWelcomeMessages = withWpcomClientCheck(
-	withOfflineCheck( wpcomApi.useGetWelcomeMessagesQuery )
-);
 
 export const useGetAssistantQuota = withWpcomClientCheck(
 	withOfflineCheck( wpcomApi.useGetAssistantQuotaQuery )

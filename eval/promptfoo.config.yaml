@@ -138,29 +138,53 @@ tests:
               return { pass: false, score: 0, reason: `expected two screenshot media payloads, got ${JSON.stringify(payloads).slice(0, 500)}` };
             }
 
+            // take_screenshot emits JPEG; key the expected width by viewport so
+            // the check survives a future format change rather than the extension.
             const expectedWidths = new Map([
-              ['screenshot-desktop.png', 1040],
-              ['screenshot-mobile.png', 390],
+              ['desktop', 1040],
+              ['mobile', 390],
             ]);
+            // Read pixel dimensions from a PNG or JPEG buffer; null if neither.
+            const readImageSize = (buf) => {
+              if (buf.length > 24 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) {
+                return { format: 'png', width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
+              }
+              if (buf.length > 4 && buf[0] === 0xff && buf[1] === 0xd8) {
+                let offset = 2;
+                while (offset + 9 < buf.length) {
+                  if (buf[offset] !== 0xff) { offset++; continue; }
+                  const marker = buf[offset + 1];
+                  // Markers without a length payload: skip past them.
+                  if (marker === 0xd8 || marker === 0xd9 || (marker >= 0xd0 && marker <= 0xd7) || marker === 0x01) {
+                    offset += 2;
+                    continue;
+                  }
+                  // Start-of-frame markers carry the dimensions (excluding DHT/JPG/DAC).
+                  if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+                    return { format: 'jpeg', height: buf.readUInt16BE(offset + 5), width: buf.readUInt16BE(offset + 7) };
+                  }
+                  offset += 2 + buf.readUInt16BE(offset + 2);
+                }
+              }
+              return null;
+            };
             const seen = [];
             for (const payload of payloads) {
               const source = payload.widgetProps?.source;
-              const expectedWidth = expectedWidths.get(source?.name);
+              const viewport = (source?.name || '').replace(/^screenshot-/, '').replace(/\.(png|jpe?g)$/i, '');
+              const expectedWidth = expectedWidths.get(viewport);
               if (!expectedWidth) {
                 return { pass: false, score: 0, reason: `unexpected screenshot payload source: ${JSON.stringify(source)}` };
               }
               if (typeof source.path !== 'string' || !existsSync(source.path)) {
                 return { pass: false, score: 0, reason: `screenshot file is missing: ${JSON.stringify(source)}` };
               }
-              const png = readFileSync(source.path);
-              const isPng = png.length > 24 && png[0] === 0x89 && png[1] === 0x50 && png[2] === 0x4e && png[3] === 0x47;
-              const width = isPng ? png.readUInt32BE(16) : 0;
-              const height = isPng ? png.readUInt32BE(20) : 0;
-              if (!isPng || width !== expectedWidth || height < 600) {
+              const size = readImageSize(readFileSync(source.path));
+              if (!size || size.width !== expectedWidth || size.height < 600) {
                 return {
                   pass: false,
                   score: 0,
-                  reason: `${source.name} did not look like the expected PNG screenshot: png=${isPng}, width=${width}, height=${height}`,
+                  reason: `${source.name} did not look like the expected screenshot: ${JSON.stringify(size)}`,
                 };
               }
               seen.push(source.name);

@@ -7,6 +7,7 @@ export default defineConfig( {
 			'./apps/studio/vitest.config.ts',
 			'./apps/ui/vitest.config.ts',
 			'./tools/common/vitest.config.ts',
+			'./tools/eslint-plugin-studio/vitest.config.ts',
 		],
 	},
 } );

@@ -1,24 +1,69 @@
 .trigger {
-	gap: var(--wpds-dimension-padding-lg);
+	--site-dropdown-trigger-background-hover: var(
+		--wpds-color-bg-interactive-neutral-weak-active,
+		#ededed
+	);
+	--wp-ui-button-background-color: transparent;
+	--wp-ui-button-background-color-active: var(--site-dropdown-trigger-background-hover);
+	--wp-ui-button-border-color: transparent;
+	--wp-ui-button-border-color-active: transparent;
+	--wp-ui-button-border-color-hover: transparent;
+	--wp-ui-button-height: var(--site-preview-control-height, 38px);
+
+	flex: 0 1 auto;
+	box-sizing: border-box;
+	gap: var(--wpds-dimension-padding-sm);
+	max-width: 100%;
+	min-width: 0;
+	height: var(--site-preview-control-height, 38px);
+	min-height: var(--site-preview-control-height, 38px);
+	padding: 0 var(--wpds-dimension-padding-sm);
+	border: 1px solid transparent;
+	border-radius: 8px;
+	background: transparent;
+	white-space: nowrap;
+	transition:
+		background-color 120ms ease,
+		border-color 120ms ease;
+}
+
+.trigger:is(:hover, :focus-visible, [data-popup-open]) {
+	background-color: var(--site-dropdown-trigger-background-hover);
+	border-color: transparent;
 }
 
 .siteIcon {
-	margin-inline-end: calc(-1 * var(--wpds-dimension-padding-sm));
+	margin-inline-end: calc(-1 * var(--wpds-dimension-padding-xs));
 }
 
 .site {
+	min-width: 0;
+	overflow: hidden;
 	font-weight: 600;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
-.status {
+.statusBadge {
 	display: inline-flex;
 	align-items: center;
+	justify-content: center;
+	width: 22px;
+	height: 22px;
+	border-radius: inherit;
+	flex-shrink: 0;
+}
+
+.statusBadge_live {
+	width: auto;
 	gap: var(--wpds-dimension-padding-xs);
+	padding: 0 var(--wpds-dimension-padding-xs);
+	color: #2563eb;
 }
 
 .dot {
-	width: 6px;
-	height: 6px;
+	width: 8px;
+	height: 8px;
 	border-radius: 50%;
 	flex-shrink: 0;
 }
@@ -30,7 +75,7 @@
 }
 
 .dot_stopped {
-	background-color: #dc2626;
+	border: 1.5px solid var(--wpds-color-fg-content-neutral-weak);
 }
 
 .dot_transitioning {
@@ -40,6 +85,12 @@
 
 .dot_live {
 	background-color: #2563eb;
+}
+
+.statusLabel {
+	font-size: var(--wpds-typography-font-size-sm);
+	font-weight: 500;
+	line-height: 1;
 }
 
 @keyframes siteDotBlink {
@@ -52,12 +103,9 @@
 	}
 }
 
-.env {
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
-}
-
 .url {
+	flex: 0 1 auto;
+	margin-inline-start: var(--wpds-dimension-padding-sm);
 	color: var(--wpds-color-fg-content-neutral-weak);
 	opacity: 0.6;
 	font-size: var(--wpds-typography-font-size-sm);
@@ -65,4 +113,10 @@
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	min-width: 0;
+}
+
+@container (max-width: 560px) {
+	.url {
+		display: none;
+	}
 }

@@ -52,7 +52,7 @@ export function DeskMenu( { siteId, disabled = false, showSiteName = true }: Des
 		void navigate( { to: '/' } );
 	};
 
-	const switchToDefaultUi = () => {
+	const switchToOldUi = () => {
 		void connector.setStudioUiMode( 'default' );
 	};
 
@@ -136,12 +136,9 @@ export function DeskMenu( { siteId, disabled = false, showSiteName = true }: Des
 					<Menu.Item disabled>{ __( 'No sites yet' ) }</Menu.Item>
 				) }
 				<Menu.Separator />
-				<Menu.Item onClick={ switchToDefaultUi }>{ __( 'Switch to default Studio UI' ) }</Menu.Item>
+				<Menu.Item onClick={ switchToOldUi }>{ __( 'Switch to old Studio UI' ) }</Menu.Item>
 				{ user ? (
-					<>
-						<Menu.Separator />
-						<Menu.Item onClick={ () => logout.mutate() }>{ __( 'Log out' ) }</Menu.Item>
-					</>
+					<Menu.Item onClick={ () => logout.mutate() }>{ __( 'Log out' ) }</Menu.Item>
 				) : null }
 			</Menu.Popup>
 		</Menu.Root>

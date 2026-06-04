@@ -2,6 +2,13 @@
 	display: flex;
 	flex-direction: column;
 	gap: var(--wpds-dimension-padding-lg);
+	min-width: 0;
+	max-width: 100%;
+}
+
+.root > * {
+	min-width: 0;
+	max-width: 100%;
 }
 
 /* User bubbles act as turn anchors; give them generous breathing room above
@@ -14,6 +21,45 @@
 
 .userTurn:first-child {
 	padding-top: 0;
+}
+
+.userAttachments {
+	align-self: flex-end;
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	gap: var(--wpds-dimension-padding-xs);
+	max-width: 80%;
+	margin-bottom: var(--wpds-dimension-padding-xs);
+}
+
+.userAttachment {
+	width: min(180px, 40vw);
+	aspect-ratio: 4 / 3;
+	border-radius: var(--wpds-border-radius-md, 8px);
+	overflow: hidden;
+	background-color: var(--wpds-color-bg-surface-neutral);
+	box-shadow: inset 0 0 0 1px var(--wpds-color-stroke-surface-neutral);
+}
+
+.userAttachmentImage {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.userAttachmentFallback {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	height: 100%;
+	padding: var(--wpds-dimension-padding-sm);
+	box-sizing: border-box;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	text-align: center;
 }
 
 .userText {

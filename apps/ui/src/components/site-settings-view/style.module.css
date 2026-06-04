@@ -21,18 +21,14 @@
 	-webkit-app-region: drag;
 }
 
-.toggleSpacer {
-	display: block;
-	flex-shrink: 0;
-	width: calc(118px - var(--wpds-dimension-padding-xs));
-	height: 100%;
-	-webkit-app-region: no-drag;
+.headerSidebarOpen {
+	padding-left: 12px;
 }
 
-.toggleSpacerFullscreen {
+.trafficLightSpacer {
 	display: block;
 	flex-shrink: 0;
-	width: calc(var(--wpds-dimension-padding-md) + 24px - var(--wpds-dimension-padding-xs));
+	width: 78px;
 	height: 100%;
 	-webkit-app-region: no-drag;
 }
@@ -62,6 +58,15 @@
 	padding: 0 var(--wpds-dimension-padding-xl);
 }
 
+.embeddedTabsBar {
+	margin-top: 0;
+}
+
+.embeddedTabsBarInner {
+	max-width: none;
+	padding: 0;
+}
+
 /* Only the form content scrolls. The tabs and title sit above this container
    so the tablist's border-bottom isn't clipped by scrollbar-gutter
    reservations. */
@@ -71,11 +76,22 @@
 	overflow-y: auto;
 }
 
+.embeddedScroll {
+	overflow: visible;
+}
+
 .contentBlock {
 	max-width: 760px;
 	margin: 0 auto;
 	padding: calc(var(--wpds-dimension-padding-2xl) * 1.5) var(--wpds-dimension-padding-xl)
 		var(--wpds-dimension-padding-2xl);
+}
+
+.embeddedContentBlock {
+	max-width: none;
+	padding-right: 0;
+	padding-bottom: 0;
+	padding-left: 0;
 }
 
 .form {

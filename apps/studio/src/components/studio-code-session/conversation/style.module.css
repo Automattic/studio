@@ -31,6 +31,37 @@
 	word-wrap: break-word;
 }
 
+.userAttachments {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	gap: var(--wpds-dimension-padding-xs);
+	margin: var(--wpds-dimension-padding-xs) 0 0;
+	padding: 0;
+	list-style: none;
+	max-width: 80%;
+	align-self: flex-end;
+}
+
+.userAttachmentChip {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	max-width: 200px;
+	padding: 2px 8px;
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	background-color: var(--wpds-color-bg-surface-neutral);
+	font-size: var(--wpds-typography-font-size-xs);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.userAttachmentName {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
 .toolBlock {
 	display: flex;
 	flex-direction: column;

@@ -1,3 +1,4 @@
+import { toStudioChatImageAttachment } from '@studio/common/ai/chat-images';
 import { useQueryClient } from '@tanstack/react-query';
 import {
 	createContext,
@@ -14,6 +15,9 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { SESSIONS_QUERY_KEY } from './use-session';
 import type { SessionEntry } from '@mariozechner/pi-coding-agent';
 import type { AgentEvent, AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
+import type { StudioChatImage } from '@studio/common/ai/chat-images';
+import type { StudioChatAttachmentSummary } from '@studio/common/ai/sessions/entry-types';
 import type { LoadedAiSession } from '@studio/common/ai/sessions/types';
 
 function nowIso(): string {
@@ -38,10 +42,36 @@ export interface QueuedPrompt {
 	id: string;
 	prompt: string;
 	displayMessage?: string;
+	images?: StudioChatImage[];
+	files?: StudioChatFileAttachment[];
 }
 
 export interface SendMessageOptions {
 	displayMessage?: string;
+	images?: StudioChatImage[];
+	files?: StudioChatFileAttachment[];
+}
+
+// Build the lightweight attachment summaries persisted on the user-prompt entry
+// (mirrors the CLI's `runAgentTurn`) so optimistic chips match the disk-backed
+// transcript after refetch.
+function buildAttachmentSummaries(
+	images: StudioChatImage[] = [],
+	files: StudioChatFileAttachment[] = []
+): StudioChatAttachmentSummary[] | undefined {
+	const summaries: StudioChatAttachmentSummary[] = [
+		...images.map( ( image ) => ( {
+			kind: 'image' as const,
+			...toStudioChatImageAttachment( image ),
+		} ) ),
+		...files.map( ( file ) => ( {
+			kind: 'file' as const,
+			name: file.name,
+			mimeType: file.mimeType,
+			size: file.size,
+		} ) ),
+	];
+	return summaries.length > 0 ? summaries : undefined;
 }
 
 export interface LiveAgentEvents {
@@ -450,7 +480,11 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				parentId: null,
 				timestamp: nowIso(),
 				customType: 'studio.user_prompt',
-				data: { text: displayMessage, source: 'prompt' },
+				data: {
+					text: displayMessage,
+					source: 'prompt',
+					attachments: buildAttachmentSummaries( options.images, options.files ),
+				},
 			} as SessionEntry;
 			updateCache( sessionId, ( entries ) => [ ...entries, optimisticEntry ] );
 			dispatchSession( sessionId, { type: 'send_pending', startedAt: Date.now() } );
@@ -459,6 +493,8 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				await interruptRequestsBySessionRef.current.get( sessionId );
 				const { runId: newRunId } = await getIpcApi().continueAiSession( sessionId, prompt, {
 					displayMessage,
+					images: options.images,
+					files: options.files,
 				} );
 				if ( interruptPendingStartSessionIdsRef.current.has( sessionId ) ) {
 					interruptPendingStartSessionIdsRef.current.delete( sessionId );
@@ -615,7 +651,11 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		dispatchingQueuedRef.current = true;
 		void ( async () => {
 			try {
-				await startRun( sessionId, next.prompt, { displayMessage: next.displayMessage } );
+				await startRun( sessionId, next.prompt, {
+					displayMessage: next.displayMessage,
+					images: next.images,
+					files: next.files,
+				} );
 				dispatchSession( sessionId, { type: 'queue_shift' } );
 			} catch {
 				dispatchSession( sessionId, { type: 'queue_clear' } );
@@ -636,7 +676,13 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 			if ( phase !== 'idle' || pendingQuestions.length > 0 || queuedPrompts.length > 0 ) {
 				dispatchSession( sessionId, {
 					type: 'queue_append',
-					prompt: { id: newId(), prompt, displayMessage: options.displayMessage },
+					prompt: {
+						id: newId(),
+						prompt,
+						displayMessage: options.displayMessage,
+						images: options.images,
+						files: options.files,
+					},
 				} );
 				return;
 			}

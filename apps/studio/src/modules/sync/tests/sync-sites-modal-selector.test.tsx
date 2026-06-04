@@ -1,7 +1,10 @@
 // To run tests, execute `npm run test -- src/modules/sync/tests/sync-sites-modal-selector.test.tsx` from the root directory
 import { render, screen } from '@testing-library/react';
+import nock from 'nock';
 import { Provider } from 'react-redux';
 import { vi } from 'vitest';
+import wpcomFactory from '@studio/common/lib/wpcom-factory';
+import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -10,8 +13,7 @@ import {
 	SyncSitesModalSelector,
 } from 'src/modules/sync/components/sync-sites-modal-selector';
 import { store } from 'src/stores';
-import { useGetConnectedSitesForLocalSiteQuery } from 'src/stores/sync/connected-sites';
-import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
+import { setWpcomClient } from 'src/stores/wpcom-api';
 import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 import type { SitesQueryResult } from 'src/modules/sync/components/sync-sites-modal-selector';
 
@@ -20,14 +22,6 @@ store.replaceReducer( testReducer );
 vi.mock( 'src/lib/get-ipc-api' );
 vi.mock( 'src/hooks/use-auth' );
 vi.mock( 'src/hooks/use-offline' );
-vi.mock( 'src/stores/sync/wpcom-sites', async ( importOriginal ) => {
-	const actual = await importOriginal< typeof import('src/stores/sync/wpcom-sites') >();
-	return { ...actual, useGetWpComSitesQuery: vi.fn() };
-} );
-vi.mock( 'src/stores/sync/connected-sites', async ( importOriginal ) => {
-	const actual = await importOriginal< typeof import('src/stores/sync/connected-sites') >();
-	return { ...actual, useGetConnectedSitesForLocalSiteQuery: vi.fn() };
-} );
 
 const selectedSite: SiteDetails = {
 	name: 'Test Site',
@@ -96,20 +90,23 @@ describe( 'SyncSitesModalSelector', () => {
 			client: {} as never,
 		} );
 		vi.mocked( useOffline ).mockReturnValue( false );
-		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( { openURL: vi.fn() } );
-		vi.mocked( useGetConnectedSitesForLocalSiteQuery, { partial: true } ).mockReturnValue( {
-			data: [],
+		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+			openURL: vi.fn(),
+			getConnectedWpcomSites: vi.fn().mockResolvedValue( [] ),
+			updateConnectedWpcomSites: vi.fn().mockResolvedValue( undefined ),
 		} );
-		vi.mocked( useGetWpComSitesQuery, { partial: true } ).mockReturnValue( {
-			data: { sites: [], total: 0, page: 1, perPage: 100 },
-			isLoading: false,
-			isFetching: false,
-			isSuccess: true,
-			refetch: vi.fn(),
-		} );
+		setWpcomClient( wpcomFactory( 'mock-token', wpcomXhrRequest ) );
+		nock( 'https://public-api.wordpress.com' )
+			.get( '/rest/v1.3/me/sites' )
+			.query( true )
+			.reply( 200, { sites: [], total: 0 } );
 	} );
 
-	it( 'shows "Find a perfect plan" modal when the account has no sites and no search is active', () => {
+	afterEach( () => {
+		setWpcomClient( undefined );
+	} );
+
+	it( 'shows "Find a perfect plan" modal when the account has no sites and no search is active', async () => {
 		renderWithProvider(
 			<SyncSitesModalSelector
 				onRequestClose={ vi.fn() }
@@ -117,6 +114,6 @@ describe( 'SyncSitesModalSelector', () => {
 				selectedSite={ selectedSite }
 			/>
 		);
-		expect( screen.getByText( 'Find a perfect plan' ) ).toBeInTheDocument();
+		expect( await screen.findByText( 'Find a perfect plan' ) ).toBeInTheDocument();
 	} );
 } );

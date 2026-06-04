@@ -11,8 +11,8 @@ import {
 } from 'src/modules/sync/components/sync-sites-modal-selector';
 import { store } from 'src/stores';
 import { useGetConnectedSitesForLocalSiteQuery } from 'src/stores/sync/connected-sites';
-import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 import { useGetWpComSitesQuery } from 'src/stores/sync/wpcom-sites';
+import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
 import type { SitesQueryResult } from 'src/modules/sync/components/sync-sites-modal-selector';
 
 store.replaceReducer( testReducer );

@@ -59,6 +59,7 @@ export const baseConfig = defineConfig( {
 		lib: {
 			entry: {
 				main: resolve( __dirname, 'index.ts' ),
+				'web-server': resolve( __dirname, 'web-server/index.ts' ),
 				'process-manager-daemon': resolve( __dirname, 'process-manager-daemon.ts' ),
 				'proxy-daemon': resolve( __dirname, 'proxy-daemon.ts' ),
 				'playground-server-child': resolve( __dirname, 'playground-server-child.ts' ),

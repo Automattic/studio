@@ -8,7 +8,7 @@
 	align-items: stretch;
 	gap: 32px;
 	padding: 48px;
-	background: rgba(15, 23, 42, 0.05);
+	background: color-mix(in srgb, var(--ui-desks-text, #14171a) 5%, transparent);
 	border-radius: 18px;
 	corner-shape: superellipse(1.42);
 	-webkit-corner-shape: superellipse(1.42);
@@ -36,7 +36,7 @@
 	aspect-ratio: 16 / 9;
 	object-fit: cover;
 	border-radius: 12px;
-	background: rgba(15, 23, 42, 0.06);
+	background: var(--ui-desks-control-hover, rgba(15, 23, 42, 0.06));
 	pointer-events: none;
 	user-select: none;
 }
@@ -51,14 +51,22 @@
 .loadingPlaceholder {
 	width: min(100%, 360px);
 	margin: auto 0;
-	--loading-placeholder-line-color: rgba(15, 23, 42, 0.1);
-	--loading-placeholder-line-highlight-color: rgba(255, 255, 255, 0.9);
-	--loading-placeholder-text-color: rgba(15, 23, 42, 0.62);
+	--loading-placeholder-line-color: color-mix(
+		in srgb,
+		var(--ui-desks-text, #14171a) 10%,
+		transparent
+	);
+	--loading-placeholder-line-highlight-color: color-mix(
+		in srgb,
+		var(--ui-desks-material, #fff) 90%,
+		transparent
+	);
+	--loading-placeholder-text-color: var(--ui-desks-muted, rgba(15, 23, 42, 0.62));
 }
 
 .name {
 	margin: 0;
-	color: #14171a;
+	color: var(--ui-desks-text, #14171a);
 	font-size: 18px;
 	font-weight: 600;
 	line-height: 1.25;
@@ -69,7 +77,7 @@
 .description {
 	display: -webkit-box;
 	margin: 0;
-	color: #0f172ab8;
+	color: var(--ui-desks-muted, #0f172ab8);
 	font-size: 13px;
 	line-height: 1.5;
 	overflow: hidden;
@@ -86,10 +94,10 @@
 	align-items: center;
 	gap: 8px;
 	padding: 8px;
-	background: rgba(15, 23, 42, 0.05);
-	border: 1px solid rgba(15, 23, 42, 0.08);
+	background: color-mix(in srgb, var(--ui-desks-text, #14171a) 5%, transparent);
+	border: 1px solid var(--ui-desks-divider, rgba(15, 23, 42, 0.08));
 	border-radius: 10px;
-	color: #14171a;
+	color: var(--ui-desks-text, #14171a);
 	overflow: hidden;
 }
 
@@ -98,9 +106,13 @@
 	height: 22px;
 	border-radius: 5px;
 	background:
-		linear-gradient(135deg, rgba(15, 23, 42, 0.16), transparent 46%),
-		#fff;
-	box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
+		linear-gradient(
+			135deg,
+			color-mix(in srgb, var(--ui-desks-text, #14171a) 16%, transparent),
+			transparent 46%
+		),
+		var(--ui-desks-material, #fff);
+	box-shadow: inset 0 0 0 1px var(--ui-desks-divider, rgba(15, 23, 42, 0.08));
 }
 
 .thumbnailText {
@@ -124,7 +136,7 @@
 }
 
 .thumbnailMeta {
-	color: rgba(15, 23, 42, 0.58);
+	color: var(--ui-desks-muted, rgba(15, 23, 42, 0.58));
 	font-size: 8px;
 	line-height: 1.25;
 }

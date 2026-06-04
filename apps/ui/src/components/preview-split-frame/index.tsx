@@ -41,6 +41,7 @@ interface PreviewSplitFrameProps {
 	scrollClassName?: string;
 	composerOuterClassName?: string;
 	composerContentClassName?: string;
+	previewResizeLabel?: string;
 }
 
 const PREVIEW_TOGGLE_DURATION = 150;
@@ -59,6 +60,7 @@ export function PreviewSplitFrame( {
 	scrollClassName,
 	composerOuterClassName,
 	composerContentClassName,
+	previewResizeLabel = __( 'Resize site preview' ),
 }: PreviewSplitFrameProps ) {
 	const rootRef = useRef< HTMLDivElement >( null );
 	const [ contentWidth, setContentWidth ] = useState< number | null >( null );
@@ -486,7 +488,7 @@ export function PreviewSplitFrame( {
 			{ previewOpen && contentWidth !== null && ! previewAnimating ? (
 				<ResizeHandle
 					className={ styles.previewResizeHandle }
-					label={ __( 'Resize site preview' ) }
+					label={ previewResizeLabel }
 					minWidth={ PREVIEW_PANEL_CONFIG.minWidth }
 					maxWidth={ previewMaxWidth }
 					width={ previewLayoutWidth }

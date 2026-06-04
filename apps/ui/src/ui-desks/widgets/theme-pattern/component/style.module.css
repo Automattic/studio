@@ -8,14 +8,16 @@
 	flex-direction: column;
 	gap: 10px;
 	padding: 14px 16px;
-	background: #fff;
+	background: var(--ui-desks-material, #fff);
 	border-radius: 18px;
 	corner-shape: superellipse(1.42);
 	-webkit-corner-shape: superellipse(1.42);
-	box-shadow:
+	box-shadow: var(
+		--ui-desks-shadow-surface-raised,
 		0 1px 2px rgba(15, 23, 42, 0.04),
-		0 18px 44px rgba(15, 23, 42, 0.09);
-	color: #14171a;
+		0 18px 44px rgba(15, 23, 42, 0.09)
+	);
+	color: var(--ui-desks-text, #14171a);
 	font-family: inherit;
 	cursor: grab;
 	overflow: hidden;
@@ -25,7 +27,7 @@
 	gap: 4px;
 	padding: 8px;
 	border-radius: 10px;
-	box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+	box-shadow: var(--ui-desks-shadow-control, 0 2px 6px rgba(15, 23, 42, 0.06));
 }
 
 .header {
@@ -38,7 +40,7 @@
 	flex: 1;
 	margin: 0;
 	overflow: hidden;
-	color: #111;
+	color: var(--ui-desks-text, #111);
 	font-size: 14px;
 	font-weight: 600;
 	line-height: 1.25;
@@ -53,7 +55,7 @@
 	justify-content: center;
 	width: 28px;
 	height: 28px;
-	color: rgba(15, 23, 42, 0.45);
+	color: var(--ui-desks-muted, rgba(15, 23, 42, 0.45));
 }
 
 .typeIcon[data-source='reusable'] {
@@ -71,7 +73,7 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	background: rgba(15, 23, 42, 0.04);
+	background: var(--ui-desks-control-hover, rgba(15, 23, 42, 0.04));
 	border-radius: 10px;
 	overflow: hidden;
 }
@@ -82,13 +84,13 @@
 	left: 0;
 	display: block;
 	border: 0;
-	background: #fff;
+	background: var(--ui-desks-material, #fff);
 	pointer-events: none;
 }
 
 .previewStub {
 	padding: 6px 10px;
-	color: rgba(15, 23, 42, 0.45);
+	color: var(--ui-desks-muted, rgba(15, 23, 42, 0.45));
 	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 	font-size: 11px;
 }

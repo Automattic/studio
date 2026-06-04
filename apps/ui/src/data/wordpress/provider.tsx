@@ -10,15 +10,29 @@ interface WordPressDataProviderProps {
 	children: ReactNode;
 }
 
+const siteRegistries = new Map< string, ReturnType< typeof createRegistry > >();
+
+function getSiteRegistry( siteId: string ) {
+	const cachedRegistry = siteRegistries.get( siteId );
+	if ( cachedRegistry ) {
+		return cachedRegistry;
+	}
+
+	const registry = createRegistry();
+	registry.register( coreDataStore );
+	siteRegistries.set( siteId, registry );
+	return registry;
+}
+
 export function WordPressDataProvider( { siteId, children }: WordPressDataProviderProps ) {
 	const connector = useConnector();
-	const registry = useMemo( () => {
-		const nextRegistry = createRegistry();
-		nextRegistry.register( coreDataStore );
-		return nextRegistry;
-	}, [] );
+	const registry = useMemo( () => getSiteRegistry( siteId ), [ siteId ] );
+	const fetchHandler = useMemo(
+		() => createSiteApiFetchHandler( connector, siteId ),
+		[ connector, siteId ]
+	);
 
-	apiFetch.setFetchHandler( createSiteApiFetchHandler( connector, siteId ) );
+	apiFetch.setFetchHandler( fetchHandler );
 
 	return <RegistryProvider value={ registry }>{ children }</RegistryProvider>;
 }

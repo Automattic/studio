@@ -32,6 +32,12 @@
 	background: #ced0d3 !important;
 }
 
+@media (prefers-color-scheme: dark) {
+	.canvas[data-ui-desks-focus-mode] :global(.tl-background) {
+		background: rgb(42 45 51) !important;
+	}
+}
+
 .canvas :global(.tl-grid) {
 	display: none !important;
 }

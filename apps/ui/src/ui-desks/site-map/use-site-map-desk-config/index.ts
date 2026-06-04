@@ -84,6 +84,7 @@ export function useSiteMapDeskConfig( siteId: string | undefined, enabled: boole
 		isLoading,
 		message,
 		pageCount,
+		pages,
 		signature,
 	};
 }

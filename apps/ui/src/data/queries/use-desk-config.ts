@@ -17,6 +17,7 @@ export function useDeskConfig( siteId?: string, enabled = true ) {
 		queryFn: () =>
 			siteId ? connector.getSiteDeskConfig( siteId ) : connector.getUserDeskConfig(),
 		enabled,
+		staleTime: 60_000,
 	} );
 }
 

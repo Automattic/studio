@@ -39,6 +39,26 @@
 		0 18px 44px rgba( 15, 23, 42, 0.1 );
 }
 
+@media ( prefers-color-scheme: dark ) {
+	:root {
+		--ui-desks-bg: rgb( 28, 30, 34 );
+		--ui-desks-material: rgb( 36, 39, 45 );
+		--ui-desks-glass: rgba( 36, 39, 45, 0.86 );
+		--ui-desks-glass-border: rgba( 255, 255, 255, 0.1 );
+		--ui-desks-text: rgb( 244, 247, 251 );
+		--ui-desks-muted: rgb( 160, 168, 180 );
+		--ui-desks-divider: rgba( 255, 255, 255, 0.1 );
+		--ui-desks-control-hover: rgba( 255, 255, 255, 0.08 );
+		--ui-desks-focus: #89a8ff;
+		--ui-desks-shadow-control: 0 1px 2px rgba( 0, 0, 0, 0.28 ),
+			0 8px 24px rgba( 0, 0, 0, 0.18 );
+		--ui-desks-shadow-control-raised: 0 1px 2px rgba( 0, 0, 0, 0.32 ),
+			0 18px 44px rgba( 0, 0, 0, 0.28 );
+		--ui-desks-shadow-surface-raised: 0 1px 2px rgba( 0, 0, 0, 0.32 ),
+			0 18px 44px rgba( 0, 0, 0, 0.28 );
+	}
+}
+
 body {
 	margin: 0;
 	padding: 0;
@@ -137,7 +157,7 @@ a:focus:not( :focus-visible ),
    density only shrinks padding/gap tokens, not icon sizes. Override the
    svg width/height attributes with CSS until the design system exposes
    a density-aware icon token. Ideally this lives in ThemeProvider. */
-[data-wpds-density='compact'] [data-ui-mode='classic'] svg {
+[data-wpds-density='compact'] [data-ui-mode='studio'] svg {
 	width: 16px;
 	height: 16px;
 }

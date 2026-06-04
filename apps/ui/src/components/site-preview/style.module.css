@@ -14,6 +14,12 @@
 	transition: none;
 }
 
+.rootEmbedded {
+	width: 100%;
+	border: 0;
+	border-radius: 0;
+}
+
 /* Collapsed = preview toggled off. Zeroing the border leaves nothing behind. */
 .rootCollapsed {
 	width: 0;
@@ -550,6 +556,13 @@
 	color: var(--site-preview-toolbar-foreground-weak);
 }
 
+.newTab {
+	position: relative;
+	display: flex;
+	align-items: center;
+	flex-shrink: 0;
+}
+
 .loadingProgress {
 	position: absolute;
 	top: calc(var(--site-preview-header-height, 54px) - 2px);
@@ -597,6 +610,73 @@
 	visibility: visible;
 	opacity: 1;
 	pointer-events: auto;
+}
+
+.canvasSurface {
+	background-color: var(--wpds-color-bg-surface-neutral);
+}
+
+.emptyTab {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--wpds-dimension-padding-xl);
+	color: var(--wpds-color-fg-content-neutral);
+	background-color: var(--wpds-color-bg-surface-neutral);
+}
+
+.emptyTabOptions {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(144px, 1fr));
+	gap: var(--wpds-dimension-padding-sm);
+	width: min(100%, 420px);
+}
+
+.emptyTabOption {
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-sm);
+	min-width: 0;
+	height: 44px;
+	padding: 0 var(--wpds-dimension-padding-md);
+	font: inherit;
+	font-size: var(--wpds-typography-font-size-sm);
+	font-weight: 500;
+	color: var(--wpds-color-fg-content-neutral);
+	text-align: left;
+	background: var(--wpds-color-bg-surface-neutral-weak);
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: 8px;
+}
+
+.emptyTabOption:hover,
+.emptyTabOption:focus-visible {
+	background: var(--wpds-color-bg-interactive-neutral-weak-active);
+	outline: none;
+}
+
+.emptyTabOption:focus-visible {
+	border-color: var(--wpds-color-stroke-focus-brand, #3858e9);
+	box-shadow: 0 0 0 1px var(--wpds-color-stroke-focus-brand, #3858e9);
+}
+
+.emptyTabOptionIcon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 22px;
+	height: 22px;
+	flex: 0 0 22px;
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.emptyTabOptionTitle {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .spinnerOverlay {

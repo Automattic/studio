@@ -34,7 +34,7 @@ function stringifyAnnotation( annotation: DeskSitePreviewAnnotation ): string {
 
 /**
  * Builds the submitted annotation prompt for the agent. Keep this local to
- * desks so its workflow can diverge from classic UI without shared coupling.
+ * canvas so its workflow can diverge from Studio UI without shared coupling.
  */
 export function formatAnnotationsAsPrompt( annotations: DeskSitePreviewAnnotation[] ): string {
 	const lines: string[] = [

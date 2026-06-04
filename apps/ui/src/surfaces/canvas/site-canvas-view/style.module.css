@@ -1,0 +1,109 @@
+.root {
+	--ui-desks-bg: var(--wpds-color-bg-surface-neutral);
+
+	position: relative;
+	height: 100%;
+	min-height: 0;
+	overflow: hidden;
+	background: var(--wpds-color-bg-surface-neutral);
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.state {
+	padding: var(--wpds-dimension-padding-xl);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.header {
+	position: absolute;
+	top: 0;
+	right: 0;
+	left: 0;
+	z-index: 3;
+	isolation: isolate;
+	height: var(--site-preview-header-height, 54px);
+	min-height: var(--site-preview-header-height, 54px);
+	-webkit-app-region: drag;
+}
+
+.headerContent {
+	position: relative;
+	z-index: 1;
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-sm);
+	height: var(--site-preview-header-height, 54px);
+	min-height: var(--site-preview-header-height, 54px);
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-2xl);
+	padding-block: var(--site-preview-toggle-offset-block, 8px);
+	font-size: var(--wpds-typography-font-size-sm);
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.headerContentSidebarOpen {
+	padding-left: 12px;
+}
+
+.trafficLightSpacer {
+	display: block;
+	flex-shrink: 0;
+	width: 78px;
+	height: 100%;
+	-webkit-app-region: no-drag;
+}
+
+.deskRoot {
+	position: absolute;
+	inset: 0;
+	min-height: 0;
+	overflow: hidden;
+	background: transparent;
+}
+
+.stoppedState {
+	position: absolute;
+	inset: 0;
+	box-sizing: border-box;
+	display: grid;
+	place-items: center;
+	padding: calc(var(--site-preview-header-height, 54px) + var(--wpds-dimension-padding-xl))
+		var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-xl);
+}
+
+.panelStoppedState {
+	position: absolute;
+	inset: 0;
+	box-sizing: border-box;
+	display: grid;
+	place-items: center;
+	padding: var(--wpds-dimension-padding-xl);
+}
+
+.stoppedStateContent {
+	display: grid;
+	gap: var(--wpds-dimension-padding-sm);
+	justify-items: center;
+	max-width: 360px;
+	text-align: center;
+}
+
+.stoppedStateTitle {
+	margin: 0;
+	font-size: var(--wpds-typography-font-size-lg);
+	font-weight: 500;
+	line-height: var(--wpds-typography-line-height-lg);
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.stoppedStateText {
+	margin: 0 0 var(--wpds-dimension-padding-sm);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.embeddedCanvas {
+	width: 100%;
+	height: 100%;
+}

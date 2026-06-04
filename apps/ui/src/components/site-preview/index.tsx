@@ -1,7 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
 import { decodeEntities } from '@wordpress/html-entities';
 import { __ } from '@wordpress/i18n';
-import { Icon, chevronLeft, chevronRight, closeSmall, plus } from '@wordpress/icons';
+import {
+	Icon,
+	category,
+	chevronLeft,
+	chevronRight,
+	closeSmall,
+	color as colorIcon,
+	navigation,
+	plus,
+} from '@wordpress/icons';
 import { Button, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -28,6 +37,7 @@ import type {
 	FormEvent,
 	KeyboardEvent as ReactKeyboardEvent,
 	ReactElement,
+	ReactNode,
 } from 'react';
 
 export type { Annotation } from './types';
@@ -36,6 +46,14 @@ interface BrowserTab {
 	id: string;
 	path: string;
 	reloadNonce: number;
+	kind?: 'wordpress' | 'site-map' | 'theme' | 'empty';
+}
+
+type BrowserTabKind = NonNullable< BrowserTab[ 'kind' ] >;
+
+interface BrowserTabContentOptions {
+	kind?: BrowserTabKind;
+	path?: string;
 }
 
 interface PageSuggestion {
@@ -69,13 +87,16 @@ interface SitePreviewProps {
 	collapsed?: boolean;
 	layoutWidth?: number;
 	hideResizeHandle?: boolean;
+	embedded?: boolean;
 	tabs?: readonly BrowserTab[];
 	activeTabId?: string;
 	onNewTab?: () => void;
+	onSetTabContent?: ( tabId: string, options: BrowserTabContentOptions ) => void;
 	onCloseTab?: ( tabId: string ) => void;
 	onSelectTab?: ( tabId: string ) => void;
 	onNavigatePath?: ( path: string ) => void;
 	onActiveTabPathChange?: ( path: string ) => void;
+	renderCanvasTab?: ( tab: BrowserTab ) => ReactNode;
 }
 
 interface InspectorEvent {
@@ -455,13 +476,16 @@ export function SitePreview( {
 	collapsed = false,
 	layoutWidth,
 	hideResizeHandle = false,
+	embedded = false,
 	tabs,
 	activeTabId,
 	onNewTab,
+	onSetTabContent,
 	onCloseTab,
 	onSelectTab,
 	onNavigatePath,
 	onActiveTabPathChange,
+	renderCanvasTab,
 }: SitePreviewProps ) {
 	const connector = useConnector();
 	const startSite = useStartSite();
@@ -473,13 +497,20 @@ export function SitePreview( {
 		[ path, reloadNonce, tabs ]
 	);
 	const activeTab = browserTabs.find( ( tab ) => tab.id === activeTabId ) ?? browserTabs[ 0 ];
+	const activeTabKind = activeTab?.kind ?? 'wordpress';
+	const activeTabIsBrowser = activeTabKind === 'wordpress';
+	const browserSurfaceTabs = useMemo(
+		() => browserTabs.filter( ( tab ) => ( tab.kind ?? 'wordpress' ) === 'wordpress' ),
+		[ browserTabs ]
+	);
 	const [ browserStates, setBrowserStates ] = useState< Record< string, BrowserNavigationState > >(
 		{}
 	);
-	const activeBrowserState = activeTab
-		? browserStates[ activeTab.id ] ?? EMPTY_BROWSER_STATE
-		: EMPTY_BROWSER_STATE;
-	const toolbarHasAdminBar = canPreview && activeBrowserState.hasAdminBar;
+	const activeBrowserState =
+		activeTabIsBrowser && activeTab
+			? browserStates[ activeTab.id ] ?? EMPTY_BROWSER_STATE
+			: EMPTY_BROWSER_STATE;
+	const toolbarHasAdminBar = canPreview && activeTabIsBrowser && activeBrowserState.hasAdminBar;
 	const toolbarAdminBarBackground = activeBrowserState.adminBarBackgroundColor ?? '#1d1d1d';
 	const toolbarAdminBarForeground = activeBrowserState.adminBarForegroundColor ?? '#f0f0f1';
 	const toolbarStyle = toolbarHasAdminBar
@@ -496,7 +527,7 @@ export function SitePreview( {
 		connector,
 		siteId: site.id,
 		siteUrl,
-		enabled: canPreview,
+		enabled: canPreview && activeTabIsBrowser,
 	} );
 	const [ inspectorStates, setInspectorStates ] = useState< Record< string, InspectorState > >(
 		{}
@@ -521,12 +552,18 @@ export function SitePreview( {
 		'--site-preview-width': `${ previewResize.width }px`,
 	} as CSSProperties;
 	const showResizeHandle = ! collapsed && ! hideResizeHandle;
-	const canAnnotate = canPreview && activeInspectorState.ready;
+	const canAnnotate = canPreview && activeTabIsBrowser && activeInspectorState.ready;
 	const handlePreviewNavigation = useCallback(
 		( tabId: string, url: string ) => {
 			const nextPath = getPathFromPreviewUrl( url, siteUrl );
 			const tab = browserTabs.find( ( candidate ) => candidate.id === tabId );
-			if ( ! tab || ! nextPath || nextPath === tab.path || tabId !== activeTab?.id ) {
+			if (
+				! tab ||
+				( tab.kind ?? 'wordpress' ) !== 'wordpress' ||
+				! nextPath ||
+				nextPath === tab.path ||
+				tabId !== activeTab?.id
+			) {
 				return;
 			}
 			onActiveTabPathChange?.( nextPath );
@@ -625,7 +662,7 @@ export function SitePreview( {
 	}, [ editingTabId ] );
 
 	useEffect( () => {
-		const tabIds = new Set( browserTabs.map( ( tab ) => tab.id ) );
+		const tabIds = new Set( browserSurfaceTabs.map( ( tab ) => tab.id ) );
 		setBrowserStates( ( current ) => {
 			let changed = false;
 			const next: Record< string, BrowserNavigationState > = {};
@@ -650,7 +687,7 @@ export function SitePreview( {
 			}
 			return changed ? next : current;
 		} );
-	}, [ browserTabs ] );
+	}, [ browserSurfaceTabs ] );
 
 	useEffect( () => {
 		setBrowserStates( {} );
@@ -666,6 +703,9 @@ export function SitePreview( {
 
 	const startEditingTab = useCallback(
 		( tab: BrowserTab ) => {
+			if ( ( tab.kind ?? 'wordpress' ) !== 'wordpress' ) {
+				return;
+			}
 			onSelectTab?.( tab.id );
 			setEditingTabId( tab.id );
 			setDraftPath( getSafePath( tab.path ) );
@@ -696,27 +736,27 @@ export function SitePreview( {
 	}, [] );
 	const sendInspectorCommand = useCallback(
 		( type: InspectorCommand[ 'type' ] ) => {
-			if ( ! activeTab ) {
+			if ( ! activeTab || activeTabKind !== 'wordpress' ) {
 				return;
 			}
 			commandIdRef.current += 1;
 			setInspectorCommand( { id: commandIdRef.current, tabId: activeTab.id, type } );
 		},
-		[ activeTab ]
+		[ activeTab, activeTabKind ]
 	);
 	const sendBrowserCommand = useCallback(
 		( type: BrowserCommand[ 'type' ] ) => {
-			if ( ! activeTab ) {
+			if ( ! activeTab || activeTabKind !== 'wordpress' ) {
 				return;
 			}
 			commandIdRef.current += 1;
 			setBrowserCommand( { id: commandIdRef.current, tabId: activeTab.id, type } );
 		},
-		[ activeTab ]
+		[ activeTab, activeTabKind ]
 	);
 
 	useEffect( () => {
-		if ( collapsed || ! canPreview ) {
+		if ( collapsed || ! canPreview || ! activeTabIsBrowser ) {
 			return;
 		}
 		const handleKeyDown = ( event: globalThis.KeyboardEvent ) => {
@@ -739,13 +779,14 @@ export function SitePreview( {
 
 		document.addEventListener( 'keydown', handleKeyDown, { capture: true } );
 		return () => document.removeEventListener( 'keydown', handleKeyDown, { capture: true } );
-	}, [ canPreview, collapsed, sendBrowserCommand ] );
+	}, [ activeTabIsBrowser, canPreview, collapsed, sendBrowserCommand ] );
 
 	return (
 		<aside
 			ref={ rootRef }
 			className={ clsx(
 				styles.root,
+				embedded && styles.rootEmbedded,
 				collapsed && styles.rootCollapsed,
 				previewResize.isResizing && styles.rootResizing
 			) }
@@ -780,7 +821,7 @@ export function SitePreview( {
 								icon={ chevronLeft }
 								label={ __( 'Back' ) }
 								shortcut={ browserShortcuts.back }
-								disabled={ ! canPreview || ! activeBrowserState.canGoBack }
+								disabled={ ! canPreview || ! activeTabIsBrowser || ! activeBrowserState.canGoBack }
 								onClick={ () => sendBrowserCommand( 'back' ) }
 							/>
 							<IconButton
@@ -791,7 +832,9 @@ export function SitePreview( {
 								icon={ chevronRight }
 								label={ __( 'Forward' ) }
 								shortcut={ browserShortcuts.forward }
-								disabled={ ! canPreview || ! activeBrowserState.canGoForward }
+								disabled={
+									! canPreview || ! activeTabIsBrowser || ! activeBrowserState.canGoForward
+								}
 								onClick={ () => sendBrowserCommand( 'forward' ) }
 							/>
 							<IconButton
@@ -802,24 +845,28 @@ export function SitePreview( {
 								icon={ refreshIcon }
 								label={ __( 'Refresh' ) }
 								shortcut={ browserShortcuts.reload }
-								disabled={ ! canPreview }
+								disabled={ ! canPreview || ! activeTabIsBrowser }
 								onClick={ () => sendBrowserCommand( 'reload' ) }
 							/>
 						</div>
 						<div className={ styles.tabs } role="tablist" aria-label={ __( 'Browser tabs' ) }>
 							{ browserTabs.map( ( tab, index ) => {
 								const selected = tab.id === activeTab?.id;
+								const tabKind = tab.kind ?? 'wordpress';
 								const tabPath = getSafePath( tab.path );
-								const editing = editingTabId === tab.id;
-								const tabIcon = getWordPressTabIcon( tabPath );
+								const editing = tabKind === 'wordpress' && editingTabId === tab.id;
+								const tabIcon = getTabIcon( tab, tabPath );
 								const tabState = browserStates[ tab.id ] ?? EMPTY_BROWSER_STATE;
-								const tabTitleLabel = getTabTitleLabel( {
-									path: tabPath,
-									index,
-									browserTitle: tabState.title,
-									pageSuggestions,
-									siteName: site.name,
-								} );
+								const tabTitleLabel =
+									tabKind === 'wordpress'
+										? getTabTitleLabel( {
+												path: tabPath,
+												index,
+												browserTitle: tabState.title,
+												pageSuggestions,
+												siteName: site.name,
+										  } )
+										: getSurfaceTabTitleLabel( tabKind );
 								return (
 									<div
 										key={ tab.id }
@@ -924,15 +971,17 @@ export function SitePreview( {
 								);
 							} ) }
 							{ onNewTab ? (
-								<IconButton
-									className={ styles.newTabButton }
-									variant="minimal"
-									tone="neutral"
-									size="small"
-									icon={ plus }
-									label={ __( 'Open new browser tab' ) }
-									onClick={ () => onNewTab() }
-								/>
+								<div className={ styles.newTab }>
+									<IconButton
+										className={ styles.newTabButton }
+										variant="minimal"
+										tone="neutral"
+										size="small"
+										icon={ plus }
+										label={ __( 'Open new tab' ) }
+										onClick={ onNewTab }
+									/>
+								</div>
 							) : null }
 						</div>
 						<div className={ styles.annotationControls }>
@@ -975,9 +1024,21 @@ export function SitePreview( {
 						</div>
 					) : null }
 					<div className={ styles.body }>
-						{ canPreview ? (
+						{ activeTab && activeTabKind === 'empty' ? (
+							<EmptyTabPlaceholder tabId={ activeTab.id } onSetTabContent={ onSetTabContent } />
+						) : activeTab && activeTabKind !== 'wordpress' && renderCanvasTab ? (
+							<div
+								className={ clsx(
+									styles.previewSurface,
+									styles.previewSurfaceActive,
+									styles.canvasSurface
+								) }
+							>
+								{ renderCanvasTab( activeTab ) }
+							</div>
+						) : canPreview ? (
 							isElectron() ? (
-								browserTabs.map( ( tab ) => {
+								browserSurfaceTabs.map( ( tab ) => {
 									const selected = tab.id === activeTab?.id;
 									const tabUrl = `${ siteUrl }${ getSafePath( tab.path ) }`;
 									return (
@@ -1001,7 +1062,7 @@ export function SitePreview( {
 									);
 								} )
 							) : (
-								browserTabs.map( ( tab ) => {
+								browserSurfaceTabs.map( ( tab ) => {
 									const selected = tab.id === activeTab?.id;
 									const tabUrl = `${ siteUrl }${ getSafePath( tab.path ) }`;
 									return (
@@ -1068,6 +1129,63 @@ export function SitePreview( {
 			</div>
 			{ previewResize.isResizing ? <ResizeOverlay /> : null }
 		</aside>
+	);
+}
+
+function EmptyTabPlaceholder( {
+	tabId,
+	onSetTabContent,
+}: {
+	tabId: string;
+	onSetTabContent?: ( tabId: string, options: BrowserTabContentOptions ) => void;
+} ) {
+	const options: Array<
+		BrowserTabContentOptions & { id: string; title: string; icon: ReactElement }
+	> = [
+		{ id: 'home', title: __( 'Home' ), icon: navigation, kind: 'wordpress', path: '/' },
+		{
+			id: 'wp-admin',
+			title: __( 'WP Admin' ),
+			icon: navigation,
+			kind: 'wordpress',
+			path: '/wp-admin/',
+		},
+		{
+			id: 'posts',
+			title: __( 'Posts' ),
+			icon: navigation,
+			kind: 'wordpress',
+			path: '/wp-admin/edit.php',
+		},
+		{
+			id: 'pages',
+			title: __( 'Pages' ),
+			icon: navigation,
+			kind: 'wordpress',
+			path: '/wp-admin/edit.php?post_type=page',
+		},
+		{ id: 'site-map', title: __( 'Site Map' ), icon: category, kind: 'site-map' },
+		{ id: 'theme', title: __( 'Theme' ), icon: colorIcon, kind: 'theme' },
+	];
+
+	return (
+		<div className={ styles.emptyTab }>
+			<div className={ styles.emptyTabOptions }>
+				{ options.map( ( option ) => (
+					<button
+						key={ option.id }
+						type="button"
+						className={ styles.emptyTabOption }
+						onClick={ () => onSetTabContent?.( tabId, { kind: option.kind, path: option.path } ) }
+					>
+						<span className={ styles.emptyTabOptionIcon } aria-hidden="true">
+							<Icon icon={ option.icon } size={ 18 } />
+						</span>
+						<span className={ styles.emptyTabOptionTitle }>{ option.title }</span>
+					</button>
+				) ) }
+			</div>
+		</div>
 	);
 }
 
@@ -1194,6 +1312,33 @@ function normalizeSuggestionQuery( value: string ) {
 
 function getSafePath( path: unknown ) {
 	return typeof path === 'string' && path.trim() ? path : '/';
+}
+
+function getTabIcon( tab: BrowserTab, path: string ) {
+	const kind = tab.kind ?? 'wordpress';
+	if ( kind === 'empty' ) {
+		return plus;
+	}
+	if ( kind === 'site-map' ) {
+		return category;
+	}
+	if ( kind === 'theme' ) {
+		return colorIcon;
+	}
+	return getWordPressTabIcon( path );
+}
+
+function getSurfaceTabTitleLabel( kind: BrowserTabKind ) {
+	if ( kind === 'empty' ) {
+		return __( 'New Tab' );
+	}
+	if ( kind === 'theme' ) {
+		return __( 'Theme' );
+	}
+	if ( kind === 'site-map' ) {
+		return __( 'Site Map' );
+	}
+	return __( 'WordPress screen' );
 }
 
 function getTabTitleLabel( {

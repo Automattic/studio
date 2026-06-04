@@ -9,20 +9,22 @@
 	gap: 12px;
 	justify-content: flex-start;
 	margin: 0;
-	background: #fff;
+	background: var(--ui-desks-material, #fff);
 	border-radius: 18px;
-	box-shadow:
+	box-shadow: var(
+		--ui-desks-shadow-surface-raised,
 		0 1px 2px rgba(15, 23, 42, 0.04),
-		0 18px 44px rgba(15, 23, 42, 0.09);
-	color: #14171a;
+		0 18px 44px rgba(15, 23, 42, 0.09)
+	);
+	color: var(--ui-desks-text, #14171a);
 	overflow: hidden;
 	font-family: inherit;
 }
 
 .post[data-is-loading='true'] {
 	justify-content: flex-end;
-	border: 1px solid #dcdcde;
-	box-shadow: 0 10px 24px rgb(0 0 0 / 8%);
+	border: 1px solid var(--ui-desks-divider, #dcdcde);
+	box-shadow: var(--ui-desks-shadow-control-raised, 0 10px 24px rgb(0 0 0 / 8%));
 }
 
 .title {
@@ -31,7 +33,7 @@
 	line-height: 1.18;
 	font-weight: 600;
 	letter-spacing: 0;
-	color: #14171a;
+	color: var(--ui-desks-text, #14171a);
 	overflow-wrap: anywhere;
 }
 
@@ -41,7 +43,7 @@
 	margin: 0;
 	font-size: 13px;
 	line-height: 1.5;
-	color: #6b7280;
+	color: var(--ui-desks-muted, #6b7280);
 	overflow: hidden;
 }
 
@@ -61,7 +63,7 @@
 	margin: 12px 0 0;
 	border-radius: 18px;
 	object-fit: cover;
-	background: #f3f4f6;
+	background: var(--ui-desks-control-hover, #f3f4f6);
 }
 
 .featuredImageMorph {
@@ -88,7 +90,7 @@
 	display: inline-flex;
 	align-items: center;
 	gap: 4px;
-	color: #6b7280;
+	color: var(--ui-desks-muted, #6b7280);
 	font-size: 16px;
 	pointer-events: none;
 	z-index: 1;
@@ -105,18 +107,18 @@
 	display: flex;
 	flex-direction: column;
 	padding: 8px;
-	background: #fff;
-	border: 1px solid rgba(15, 23, 42, 0.08);
+	background: var(--ui-desks-material, #fff);
+	border: 1px solid var(--ui-desks-divider, rgba(15, 23, 42, 0.08));
 	border-radius: 10px;
 	corner-shape: superellipse(1.42);
 	-webkit-corner-shape: superellipse(1.42);
-	box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+	box-shadow: var(--ui-desks-shadow-control, 0 2px 6px rgba(15, 23, 42, 0.06));
 	overflow: hidden;
 	user-select: none;
 }
 
 .contextThumbnailTitle {
-	color: #14171a;
+	color: var(--ui-desks-text, #14171a);
 	display: -webkit-box;
 	font-size: 9px;
 	font-weight: 600;

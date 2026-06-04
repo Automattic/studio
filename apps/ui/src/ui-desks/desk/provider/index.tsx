@@ -150,12 +150,14 @@ const CONTENT_PREVIEW_RECORD_QUERY = {
 
 export function DeskProvider( {
 	siteId,
+	persistenceSiteId = siteId,
 	children,
 	deskConfig,
 	deskConfigKey,
 	initialViewportMode,
 	isLoading: externalIsLoading,
 	isReadOnly = false,
+	isLayoutOnly = false,
 	statusMessage,
 }: DeskProviderProps ) {
 	const hasExternalDeskConfig = Boolean( deskConfig );
@@ -165,7 +167,7 @@ export function DeskProvider( {
 		desk: persistedDesk,
 		isLoading: isLoadingPersistedDesk,
 		saveDeskConfig,
-	} = useDeskPersistence( siteId, {
+	} = useDeskPersistence( persistenceSiteId, {
 		enabled: ! hasExternalDeskConfig,
 	} );
 	const desk = deskConfig ?? persistedDesk;
@@ -204,17 +206,18 @@ export function DeskProvider( {
 	const focusPersistenceResumeTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
 	const saveTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
 	const { pressStack, clearPressedStack } = useStackPressAnimation( setPressedStackId );
+	const canEditContent = ! isReadOnly && ! isLayoutOnly;
 	const toolbarStateOptions = useMemo(
 		() => ( {
-			canStack: ! isReadOnly,
-			canUnstack: ! isReadOnly,
-			canSetStackView: ! isReadOnly,
-			canRemove: ! isReadOnly,
+			canStack: canEditContent,
+			canUnstack: canEditContent,
+			canSetStackView: canEditContent,
+			canRemove: canEditContent,
 		} ),
-		[ isReadOnly ]
+		[ canEditContent ]
 	);
 	const selectedWidgetEditAction = useMemo( () => {
-		if ( selectedWidgetToolbarItem?.kind !== 'single-widget' ) {
+		if ( ! canEditContent || selectedWidgetToolbarItem?.kind !== 'single-widget' ) {
 			return null;
 		}
 
@@ -226,7 +229,7 @@ export function DeskProvider( {
 				hasRunningSite: isRunningSite,
 			}
 		);
-	}, [ isRunningSite, selectedWidgetToolbarItem, siteId ] );
+	}, [ canEditContent, isRunningSite, selectedWidgetToolbarItem, siteId ] );
 	const focusedWidgetDefinition = useMemo(
 		() => ( focusedWidget ? getWidgetDefinition( focusedWidget.type ) ?? null : null ),
 		[ focusedWidget ]
@@ -420,6 +423,40 @@ export function DeskProvider( {
 			stopShapeChanges();
 		};
 	}, [ editor, isReadOnly ] );
+
+	useEffect( () => {
+		if ( ! editor || ! isLayoutOnly ) {
+			return;
+		}
+
+		const stopShapeChanges = editor.sideEffects.registerBeforeChangeHandler(
+			'shape',
+			( previousShape, nextShape, source ) => {
+				if ( ! hydratedRef.current || source !== 'user' ) {
+					return nextShape;
+				}
+
+				if ( editor.inputs.isDragging ) {
+					return nextShape;
+				}
+
+				return previousShape;
+			}
+		);
+		const stopShapeDeletes = editor.sideEffects.registerBeforeDeleteHandler(
+			'shape',
+			( _shape, source ) => {
+				if ( hydratedRef.current && source === 'user' ) {
+					return false;
+				}
+			}
+		);
+
+		return () => {
+			stopShapeChanges();
+			stopShapeDeletes();
+		};
+	}, [ editor, isLayoutOnly ] );
 
 	useEffect( () => {
 		if ( ! editor ) {
@@ -1300,7 +1337,7 @@ export function DeskProvider( {
 			isLoading,
 			isReadOnly,
 			statusMessage,
-			canAddWidgets: ! isReadOnly && Boolean( editor ) && isHydrated,
+			canAddWidgets: canEditContent && Boolean( editor ) && isHydrated,
 			selectedWidgetToolbarItem,
 			selectedConnectorToolbarItem,
 			selectedWidgetConnectionTargets,
@@ -1344,6 +1381,7 @@ export function DeskProvider( {
 			addPastedContent,
 			addWidget,
 			addWidgetAtScreenPoint,
+			canEditContent,
 			canPreviewContentInSitePreview,
 			editor,
 			editSelectedWidget,

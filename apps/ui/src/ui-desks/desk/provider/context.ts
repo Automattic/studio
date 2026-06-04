@@ -133,12 +133,14 @@ export interface AddDeskMaterializedOptions {
 
 export interface DeskProviderProps {
 	siteId?: string;
+	persistenceSiteId?: string;
 	children: ReactNode;
 	deskConfig?: DeskConfig;
 	deskConfigKey?: string;
 	initialViewportMode?: 'site-map';
 	isLoading?: boolean;
 	isReadOnly?: boolean;
+	isLayoutOnly?: boolean;
 	statusMessage?: string;
 }
 

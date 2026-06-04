@@ -1,3 +1,4 @@
+import { clsx } from 'clsx';
 import {
 	useCallback,
 	useEffect,
@@ -30,6 +31,8 @@ const deskCanvasComponents = {
 	SelectionForeground: StackAwareSelectionForeground,
 } satisfies Partial< TLComponents >;
 
+const DARK_MODE_QUERY = '(prefers-color-scheme: dark)';
+
 function DeskCanvasOverlays() {
 	return (
 		<>
@@ -40,7 +43,19 @@ function DeskCanvasOverlays() {
 	);
 }
 
-export function DeskCanvas() {
+interface DeskCanvasProps {
+	allowContextMenu?: boolean;
+	allowTextCreation?: boolean;
+	className?: string;
+	enableComposerDrop?: boolean;
+}
+
+export function DeskCanvas( {
+	allowContextMenu = true,
+	allowTextCreation,
+	className,
+	enableComposerDrop = true,
+}: DeskCanvasProps = {} ) {
 	const { isLoading, isReadOnly, statusMessage } = useDesk();
 	const { attachWidgetsToComposer, setComposerWidgetDragPreview, setComposerWidgetDragTarget } =
 		useChats();
@@ -52,9 +67,9 @@ export function DeskCanvas() {
 	const canvasOptions = useMemo(
 		() =>
 			( {
-				createTextOnCanvasDoubleClick: ! isReadOnly,
+				createTextOnCanvasDoubleClick: allowTextCreation ?? ! isReadOnly,
 			} ) satisfies Partial< TldrawOptions >,
-		[ isReadOnly ]
+		[ allowTextCreation, isReadOnly ]
 	);
 
 	const handleMount = useCallback(
@@ -74,9 +89,26 @@ export function DeskCanvas() {
 		};
 	}, [ registerEditor ] );
 
+	useEffect( () => {
+		if ( ! editor || typeof window === 'undefined' || ! window.matchMedia ) {
+			return;
+		}
+
+		const mediaQuery = window.matchMedia( DARK_MODE_QUERY );
+		const syncColorScheme = () => {
+			editor.user.updateUserPreferences( {
+				colorScheme: mediaQuery.matches ? 'dark' : 'light',
+			} );
+		};
+
+		syncColorScheme();
+		mediaQuery.addEventListener( 'change', syncColorScheme );
+		return () => mediaQuery.removeEventListener( 'change', syncColorScheme );
+	}, [ editor ] );
+
 	const handleContextMenu = useCallback(
 		( event: MouseEvent< HTMLDivElement > ) => {
-			if ( ! editor || isReadOnly ) {
+			if ( ! allowContextMenu || ! editor || isReadOnly ) {
 				return;
 			}
 
@@ -89,12 +121,12 @@ export function DeskCanvas() {
 			event.stopPropagation();
 			setContextMenu( resolveDeskContextMenuState( editor, event.clientX, event.clientY ) );
 		},
-		[ editor, isReadOnly ]
+		[ allowContextMenu, editor, isReadOnly ]
 	);
 
 	const handlePointerDown = useCallback(
 		( event: ReactPointerEvent< HTMLDivElement > ) => {
-			if ( ! editor || event.button !== 0 ) {
+			if ( ! enableComposerDrop || ! editor || event.button !== 0 ) {
 				return;
 			}
 
@@ -230,6 +262,7 @@ export function DeskCanvas() {
 		},
 		[
 			attachWidgetsToComposer,
+			enableComposerDrop,
 			editor,
 			isReadOnly,
 			setComposerWidgetDragPreview,
@@ -243,7 +276,7 @@ export function DeskCanvas() {
 
 	return (
 		<div
-			className={ styles.canvas }
+			className={ clsx( styles.canvas, className ) }
 			data-ui-desks-canvas
 			onContextMenu={ handleContextMenu }
 			onPointerDownCapture={ handlePointerDown }

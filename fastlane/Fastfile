@@ -647,10 +647,13 @@ def distribute_builds(
     }
   }
 
-  # On Linux the .deb is the only artifact — it serves as both the update
-  # payload and the full installer — so the same entry covers dev and release
-  # builds. `install_type: 'Update'` matches the URL convention the WPCOM
-  # updates endpoint emits for the in-app updater's polling path.
+  # On Linux the .deb is the only artifact, but the CDN keys builds by
+  # `install_type`, so the same file must be registered under BOTH types:
+  #   - `Update` (here) backs the in-app updater's polling path
+  #     (`/wpcom/v2/studio-app/updates`, which queries `install_type=Update`).
+  #   - `Full Install` (added to `full_install_builds` below) backs the public
+  #     download link (`/downloads/.../linux-x64/latest`, which defaults to
+  #     `full-install`). Without it that URL 404s.
   update_builds[:linux_x64_deb] = {
     binary_path: linux_deb_path(arch: 'x64'),
     name: 'Linux - x64 (DEB)',
@@ -708,6 +711,24 @@ def distribute_builds(
       binary_path: File.join(BUILDS_FOLDER, 'Studio-appx-arm64-unsigned', "Studio #{appx_version} unsigned.appx"),
       name: 'Windows - ARM64 (Unsigned Appx)',
       platform: 'Microsoft Store - ARM64',
+      arch: 'arm64',
+      install_type: 'Full Install'
+    },
+    # Same .deb as the Linux `Update` entries above, re-registered as
+    # `Full Install` so the public `/downloads/.../linux-<arch>/latest` link
+    # resolves. Distinct hash keys (`*_full`) keep the `**update_builds`
+    # spread below from clobbering the `Update` entries.
+    linux_x64_deb_full: {
+      binary_path: linux_deb_path(arch: 'x64'),
+      name: 'Linux - x64 (DEB)',
+      platform: 'Linux - x64',
+      arch: 'x64',
+      install_type: 'Full Install'
+    },
+    linux_arm64_deb_full: {
+      binary_path: linux_deb_path(arch: 'arm64'),
+      name: 'Linux - ARM64 (DEB)',
+      platform: 'Linux - ARM64',
       arch: 'arm64',
       install_type: 'Full Install'
     }

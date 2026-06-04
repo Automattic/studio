@@ -20,7 +20,7 @@ export function SitePreviewToggleButton( {
 	onTogglePreview,
 	shortcut,
 }: SitePreviewToggleButtonProps ) {
-	const label = previewOpen ? __( 'Hide browser' ) : __( 'Show browser' );
+	const label = previewOpen ? __( 'Hide Explorer' ) : __( 'Show Explorer' );
 
 	const button = (
 		<Tooltip.Provider delay={ 0 }>
@@ -41,7 +41,7 @@ export function SitePreviewToggleButton( {
 					className={ styles.toggle }
 				>
 					<Icon icon={ navigation } size={ 16 } />
-					<span>{ __( 'Browser' ) }</span>
+					<span>{ __( 'Explorer' ) }</span>
 				</Tooltip.Trigger>
 				<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
 					{ label } <span aria-hidden="true">{ shortcut.displayShortcut }</span>

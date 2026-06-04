@@ -43,7 +43,7 @@ export const KEYBOARD_SHORTCUTS: KeyboardShortcutDefinition[] = [
 	},
 	{
 		id: 'toggle-site-preview',
-		label: __( 'Toggle browser' ),
+		label: __( 'Toggle Explorer' ),
 		key: 'b',
 		modifier: 'primary',
 		shiftKey: true,

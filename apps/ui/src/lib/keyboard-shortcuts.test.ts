@@ -92,7 +92,7 @@ describe( 'keyboard shortcut helpers', () => {
 		).toBe( true );
 	} );
 
-	it( 'formats the browser toggle shortcut as command-shift-b on macOS', () => {
+	it( 'formats the Explorer toggle shortcut as command-shift-b on macOS', () => {
 		const shortcut = getKeyboardShortcut( 'toggle-site-preview' );
 
 		expect( getKeyboardShortcutLabel( shortcut, 'MacIntel' ) ).toBe( '⌘⇧B' );

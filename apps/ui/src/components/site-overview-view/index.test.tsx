@@ -25,11 +25,15 @@ vi.mock( '@tanstack/react-router', () => ( {
 		children,
 	}: {
 		to: string;
-		params?: { sessionId?: string };
+		params?: { sessionId?: string; siteId?: string };
 		className?: string;
 		children: ReactNode;
 	} ) => {
-		const href = params?.sessionId ? to.replace( '$sessionId', params.sessionId ) : to;
+		const href = params?.sessionId
+			? to.replace( '$sessionId', params.sessionId )
+			: params?.siteId
+			? to.replace( '$siteId', params.siteId )
+			: to;
 		return (
 			<a href={ href } className={ className }>
 				{ children }
@@ -420,18 +424,18 @@ describe( 'SiteOverviewView', () => {
 		}
 	} );
 
-	it( 'toggles the browser from the details view', () => {
+	it( 'toggles Explorer from the details view', () => {
 		renderOverview();
 
-		expect( screen.getByRole( 'button', { name: 'Show browser' } ) ).toHaveAttribute(
+		expect( screen.getByRole( 'button', { name: 'Show Explorer' } ) ).toHaveAttribute(
 			'aria-pressed',
 			'false'
 		);
-		expect( screen.getByText( 'Browser' ) ).toBeVisible();
+		expect( screen.getByText( 'Explorer' ) ).toBeVisible();
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Show browser' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Show Explorer' } ) );
 
-		expect( screen.getByRole( 'button', { name: 'Hide browser' } ) ).toHaveAttribute(
+		expect( screen.getByRole( 'button', { name: 'Hide Explorer' } ) ).toHaveAttribute(
 			'aria-pressed',
 			'true'
 		);

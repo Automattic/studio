@@ -156,6 +156,12 @@ export interface StartAgentRunOptions {
 // Attachments can be large (base64 image data) or numerous, so we hand them to
 // the CLI child via a temp JSON file rather than process args, which have a
 // platform-dependent length cap. The dir is removed when the run exits.
+//
+// The write is synchronous because `startAgentRun` is synchronous (it forks the
+// child and returns a run id without awaiting). This blocks the main process for
+// the write — bounded and one-time, and only meaningful at the max image batch
+// (~12 MB → ~16 MB of base64 JSON). Kept sync to avoid a guard window where two
+// concurrent sends for the same session could both pass the in-flight check.
 function writeInputPayloadFile( payload: StudioAiSessionInputPayload ): {
 	dir: string;
 	path: string;

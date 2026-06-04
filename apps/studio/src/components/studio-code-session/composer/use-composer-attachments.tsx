@@ -2,6 +2,7 @@ import { STUDIO_CHAT_MAX_FILES, type StudioChatFileAttachment } from '@studio/co
 import {
 	STUDIO_CHAT_MAX_IMAGES,
 	STUDIO_CHAT_MAX_IMAGE_BYTES,
+	STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES,
 	isStudioChatImageMimeType,
 	type StudioChatImage,
 	type StudioChatImageMimeType,
@@ -97,6 +98,11 @@ export function useComposerAttachments() {
 		setError( null );
 	}, [] );
 
+	// Put a batch back after a failed send so the user doesn't lose them.
+	const restore = useCallback( ( items: ComposerAttachment[] ) => {
+		setAttachments( items );
+	}, [] );
+
 	const addFiles = useCallback( async ( incoming: FileList | File[] ) => {
 		const list = Array.from( incoming );
 		if ( list.length === 0 ) {
@@ -152,8 +158,12 @@ export function useComposerAttachments() {
 
 		setAttachments( ( current ) => {
 			const merged = [ ...current ];
-			let imageCount = current.filter( ( item ) => item.kind === 'image' ).length;
+			const images = current.filter( ( item ) => item.kind === 'image' );
+			let imageCount = images.length;
 			let fileCount = current.length - imageCount;
+			// Mirror the main-process total-bytes cap so an over-budget batch is
+			// caught here, before it is cleared from the composer on send.
+			let imageBytes = images.reduce( ( sum, item ) => sum + item.size, 0 );
 			for ( const attachment of next ) {
 				if ( attachment.kind === 'image' ) {
 					if ( imageCount >= STUDIO_CHAT_MAX_IMAGES ) {
@@ -166,7 +176,12 @@ export function useComposerAttachments() {
 						);
 						continue;
 					}
+					if ( imageBytes + attachment.size > STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES ) {
+						setError( __( 'Attached images are too large to send together.' ) );
+						continue;
+					}
 					imageCount++;
+					imageBytes += attachment.size;
 				} else {
 					if ( fileCount >= STUDIO_CHAT_MAX_FILES ) {
 						setError(
@@ -220,6 +235,7 @@ export function useComposerAttachments() {
 		addFiles,
 		removeAttachment,
 		clear,
+		restore,
 		dragHandlers: { onDragOver, onDragLeave, onDrop },
 	};
 }

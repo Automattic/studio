@@ -127,6 +127,7 @@ export function Composer( {
 		addFiles,
 		removeAttachment,
 		clear: clearAttachments,
+		restore: restoreAttachments,
 		dragHandlers,
 	} = useComposerAttachments();
 
@@ -171,13 +172,14 @@ export function Composer( {
 		try {
 			await onSend( prompt, toComposerSendAttachments( sentAttachments ) );
 		} catch {
-			// Restore the draft so the user can retry; the parent surfaces the
-			// error message via `error`. Queued sends never throw from onSend
-			// (the parent swallows the failure and clears the queue instead),
+			// Restore the draft and attachments so the user can retry; the parent
+			// surfaces the error message via `error`. Queued sends never throw from
+			// onSend (the parent swallows the failure and clears the queue instead),
 			// so this path only trips for direct sends from the idle state.
 			setValue( trimmed );
+			restoreAttachments( sentAttachments );
 		}
-	}, [ value, attachments, clearAttachments, onSend ] );
+	}, [ value, attachments, clearAttachments, restoreAttachments, onSend ] );
 
 	const openFilePicker = useCallback( () => {
 		fileInputRef.current?.click();

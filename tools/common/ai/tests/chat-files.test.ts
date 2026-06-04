@@ -42,6 +42,12 @@ describe( 'validateStudioChatFiles', () => {
 		).toThrow( 'Attached files must be referenced by an absolute path.' );
 	} );
 
+	it( 'rejects paths containing control characters', () => {
+		expect( () =>
+			validateStudioChatFiles( [ { id: 'file-1', name: 'notes.txt', path: '/tmp/a\nb.txt' } ] )
+		).toThrow( 'Attached file path contains invalid characters.' );
+	} );
+
 	it( 'rejects missing names', () => {
 		expect( () =>
 			validateStudioChatFiles( [ { id: 'file-1', name: '', path: '/tmp/notes.txt' } ] )

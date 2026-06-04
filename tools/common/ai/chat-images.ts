@@ -27,7 +27,6 @@ export interface StudioAiSessionInputPayload {
 export const STUDIO_CHAT_MAX_IMAGES = 4;
 export const STUDIO_CHAT_MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 export const STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES = 12 * 1024 * 1024;
-export const STUDIO_CHAT_MAX_IMAGE_DIMENSION_PX = 8000;
 
 export function toStudioChatImageAttachment( image: StudioChatImage ): StudioChatImageAttachment {
 	const { dataBase64: _dataBase64, ...attachment } = image;
@@ -79,13 +78,6 @@ export function validateStudioChatImages(
 		totalBytes += Math.max( size, decodedBytes );
 		if ( totalBytes > STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES ) {
 			throw new Error( 'Attached images are too large to send together.' );
-		}
-
-		if (
-			( image.width && image.width > STUDIO_CHAT_MAX_IMAGE_DIMENSION_PX ) ||
-			( image.height && image.height > STUDIO_CHAT_MAX_IMAGE_DIMENSION_PX )
-		) {
-			throw new Error( 'Attached images must be 8000 pixels or smaller on each side.' );
 		}
 	}
 

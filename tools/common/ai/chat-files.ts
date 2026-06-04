@@ -36,6 +36,12 @@ export function validateStudioChatFiles(
 		if ( ! isAbsolutePath( file.path ) ) {
 			throw new Error( 'Attached files must be referenced by an absolute path.' );
 		}
+		// The path is interpolated into the prompt the model reads; a newline or
+		// other control char (legal in POSIX paths) could inject extra lines.
+		// eslint-disable-next-line no-control-regex
+		if ( /[\x00-\x1f]/.test( file.path ) ) {
+			throw new Error( 'Attached file path contains invalid characters.' );
+		}
 		if ( typeof file.name !== 'string' || ! file.name.trim() ) {
 			throw new Error( 'Attached file name is missing.' );
 		}

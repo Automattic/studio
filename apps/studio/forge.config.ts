@@ -1,4 +1,4 @@
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { MakerDeb } from '@electron-forge/maker-deb';
@@ -166,15 +166,22 @@ const config: ForgeConfig = {
 	plugins: [ new AutoUnpackNativesPlugin( {} ) ],
 	hooks: {
 		prePackage: async ( _forgeConfig, platform, arch ) => {
-			const execAsync = ( command: string, env: NodeJS.ProcessEnv = {} ) =>
+			// Use execFile with shell:true and an explicit args array. The shell
+			// is required on Windows so that npm (a .cmd batch file) can be
+			// resolved; passing args as an array rather than an interpolated
+			// string still prevents shell metacharacters in path values from
+			// altering the meaning of the command.
+			const execAsync = ( args: string[], env: NodeJS.ProcessEnv = {} ) =>
 				new Promise< void >( ( resolve, reject ) => {
-					exec(
-						command,
+					execFile(
+						args[ 0 ],
+						args.slice( 1 ),
 						{
 							cwd: repoRoot,
 							env: { ...process.env, ...env },
 							maxBuffer: 50 * 1024 * 1024,
 							windowsHide: true,
+							shell: true,
 						},
 						( error, stdout, stderr ) => {
 							if ( error ) {
@@ -191,19 +198,19 @@ const config: ForgeConfig = {
 			console.log( 'Installing Studio app dependencies for bundling ...' );
 			// NOTE: The `app:install:bundle` script mutates the `apps/studio/node_modules` directory. You
 			// may need to rerun `npm ci` from the repo root to reset the dependency tree after packaging.
-			await execAsync( 'npm run app:install:bundle' );
+			await execAsync( [ 'npm', 'run', 'app:install:bundle' ] );
 
 			if ( process.env.SKIP_LANGUAGE_PACKS ) {
 				console.log( 'Skipping language packs because SKIP_LANGUAGE_PACKS is set ...' );
 			} else {
 				console.log( 'Downloading language packs ...' );
-				await execAsync( 'npm run download-language-packs' );
+				await execAsync( [ 'npm', 'run', 'download-language-packs' ] );
 			}
 
 			console.log( 'Building CLI (with bundled node_modules) ...' );
 			// NOTE: The `cli:package` script mutates the `apps/cli/node_modules` directory. You may need to
 			// rerun `npm ci` from the repo root to reset the dependency tree after packaging.
-			await execAsync( 'npm run cli:package' );
+			await execAsync( [ 'npm', 'run', 'cli:package' ] );
 
 			// Remove native binaries for other platforms from CLI's node_modules.
 			// Some packages ship binaries for all platforms which causes code-signing failures
@@ -271,26 +278,27 @@ const config: ForgeConfig = {
 			}
 
 			console.log( `Downloading Node.js binary for ${ platform }-${ arch }...` );
-			await execAsync(
-				`npx tsx ${ path.join(
-					repoRoot,
-					'scripts',
-					'download-node-binary.ts'
-				) } ${ platform } ${ arch }`
-			);
+			await execAsync( [
+				'npx', 'tsx',
+				path.join( repoRoot, 'scripts', 'download-node-binary.ts' ),
+				platform,
+				arch,
+			] );
 
 			console.log(
 				`Downloading PHP ${ RecommendedPHPVersion } package for ${ platform }-${ arch }...`
 			);
 			fs.rmSync( bundledPhpBinaryRoot, { recursive: true, force: true } );
 			await execAsync(
-				`npx tsx ${ path.join(
-					repoRoot,
-					'scripts',
-					'download-php-binary.ts'
-				) } ${ RecommendedPHPVersion } ${ platform } ${ arch } --install-root ${ JSON.stringify(
-					bundledPhpBinaryRoot
-				) }`,
+				[
+					'npx', 'tsx',
+					path.join( repoRoot, 'scripts', 'download-php-binary.ts' ),
+					RecommendedPHPVersion,
+					platform,
+					arch,
+					'--install-root',
+					bundledPhpBinaryRoot,
+				],
 				{
 					STUDIO_PHP_BINARY_DOWNLOAD_REQUIRED: '1',
 				}

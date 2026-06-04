@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 export type UiMode = 'classic' | 'desks';
 
 const STUDIO_UI_MODE_PARAM = 'studio-ui-mode';
+const STUDIO_UI_MODE_STORAGE_KEY = 'studio-ui-mode';
 const DEFAULT_UI_MODE: UiMode = 'desks';
 
 function readLaunchUiMode(): UiMode | undefined {
@@ -23,8 +24,28 @@ function readLaunchUiMode(): UiMode | undefined {
 	}
 }
 
+// Persisted so a real-path web build keeps its mode across reloads/deep links
+// (the desktop renderer stays on a single hash route, so this just mirrors the
+// in-memory default there).
+function readStoredUiMode(): UiMode | undefined {
+	try {
+		const stored = window.localStorage?.getItem( STUDIO_UI_MODE_STORAGE_KEY );
+		return stored === 'desks' || stored === 'classic' ? stored : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+function storeUiMode( mode: UiMode ) {
+	try {
+		window.localStorage?.setItem( STUDIO_UI_MODE_STORAGE_KEY, mode );
+	} catch {
+		// Ignore storage failures (private mode, etc.).
+	}
+}
+
 function readInitialUiMode(): UiMode {
-	return readLaunchUiMode() ?? DEFAULT_UI_MODE;
+	return readLaunchUiMode() ?? readStoredUiMode() ?? DEFAULT_UI_MODE;
 }
 
 function resetRoute() {
@@ -54,6 +75,7 @@ export function useUiMode() {
 			}
 
 			setModeState( nextMode );
+			storeUiMode( nextMode );
 			resetRoute();
 		},
 		[ mode ]

@@ -43,6 +43,11 @@ export default defineConfig(
 						'apps/studio/forge.config.ts',
 						'apps/studio/tailwind.config.js',
 						'eslint.config.mjs',
+						'vitest.config.ts',
+						'tools/eslint-plugin-studio/vitest.config.ts',
+						'tools/eslint-plugin-studio/src/index.js',
+						'tools/eslint-plugin-studio/src/rules/*.js',
+						'tools/eslint-plugin-studio/tests/*.ts',
 					],
 				},
 			},
@@ -99,6 +104,7 @@ export default defineConfig(
 				},
 			],
 			'react-hooks/set-state-in-effect': 'off',
+			'studio/no-redundant-cx': 'error',
 			'studio/require-lock-before-save': [
 				'error',
 				{

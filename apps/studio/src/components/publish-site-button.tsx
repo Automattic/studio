@@ -18,9 +18,9 @@ export const PublishSiteButton = () => {
 		localSiteId: selectedSite?.id,
 		userId: user?.id,
 	} );
-	const isAnySitePulling = useRootSelector( syncOperationsSelectors.selectIsAnySitePulling );
-	const isAnySitePushing = useRootSelector( syncOperationsSelectors.selectIsAnySitePushing );
-	const isAnySiteSyncing = isAnySitePulling || isAnySitePushing;
+	const isAnySiteDoingLocalSyncWork = useRootSelector(
+		syncOperationsSelectors.selectIsAnySiteDoingLocalSyncWork
+	);
 
 	const handlePublishClick = useCallback( () => {
 		if ( ! selectedSite ) return;
@@ -36,9 +36,9 @@ export const PublishSiteButton = () => {
 			variant="primary"
 			icon={ cloudUpload }
 			connectSite={ handlePublishClick }
-			disabled={ isAnySiteSyncing }
+			disabled={ isAnySiteDoingLocalSyncWork }
 			tooltipText={
-				isAnySiteSyncing
+				isAnySiteDoingLocalSyncWork
 					? __(
 							'Another site is syncing. Please wait for the sync to finish before you publish your site.'
 					  )

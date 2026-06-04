@@ -159,7 +159,7 @@ lane :distribute_release_build do |version: read_package_json_version|
     username: 'CI Bot',
     icon_url: 'https://octodex.github.com/images/jenktocat.jpg',
     message: ":tada: #{release_tag} is now available! :tada:",
-    channel: '#dotcom-studio',
+    channel: '#studio',
     success: true,
     slack_url: get_required_env('SLACK_WEBHOOK'),
     payload: {
@@ -387,7 +387,7 @@ lane :new_beta_release do |version:, skip_confirm: false, github_username: nil|
     - Trigger a release build for all platforms (macOS, Windows), which will then:
       - Upload build artifacts to the Apps CDN
       - Tag v#{new_version}
-      - Notify #dotcom-studio on Slack
+      - Notify #studio on Slack
     - Create a backmerge PR from the release branch to `#{MAIN_BRANCH}`
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
@@ -430,7 +430,7 @@ lane :finalize_release do |version:, skip_confirm: false|
     - Trigger a release build for all platforms (macOS, Windows), which will then:
       - Upload build artifacts to the Apps CDN
       - Create a draft GitHub release with release notes and download links
-      - Notify #dotcom-studio on Slack
+      - Notify #studio on Slack
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
 

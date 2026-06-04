@@ -15,18 +15,14 @@ export const SettingsMenuItem = ( {
 	isDestructive = false,
 }: SettingsMenuItemProps ) => {
 	const { isDeleting, sites, selectedSite } = useSiteDetails();
-	const isPulling = useRootSelector(
-		syncOperationsSelectors.selectIsSiteIdPulling( selectedSite?.id ?? '' )
-	);
-	const isPushing = useRootSelector(
-		syncOperationsSelectors.selectIsSiteIdPushing( selectedSite?.id ?? '' )
+	const isThisSiteDoingLocalSyncWork = useRootSelector(
+		syncOperationsSelectors.selectIsSiteDoingLocalSyncWork( selectedSite?.id )
 	);
 	if ( ! selectedSite ) {
 		return null;
 	}
-	const isThisSiteSyncing = isPulling || isPushing;
 	const isAddingSite = sites.some( ( site ) => site.isAddingSite );
-	const isDisabled = isDeleting || isThisSiteSyncing || isAddingSite;
+	const isDisabled = isDeleting || isThisSiteDoingLocalSyncWork || isAddingSite;
 
 	return (
 		<MenuItem

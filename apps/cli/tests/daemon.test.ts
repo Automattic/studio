@@ -25,10 +25,12 @@ class MockChildProcess extends EventEmitter {
 }
 
 const spawnMock = vi.fn();
+const spawnSyncMock = vi.fn();
 
 vi.mock( 'child_process', () => {
 	const mockedModule = {
 		spawn: spawnMock,
+		spawnSync: spawnSyncMock,
 	};
 	return {
 		...mockedModule,
@@ -239,7 +241,7 @@ describe( 'ProcessManagerDaemon', () => {
 	} );
 
 	it.skipIf( process.platform === 'win32' )(
-		'signals a reported subprocess process group when killing the wrapper',
+		'signals the wrapper group and each reported subprocess group when killing the wrapper',
 		async () => {
 			const child = new MockChildProcess();
 			spawnMock.mockReturnValue( child );
@@ -286,4 +288,62 @@ describe( 'ProcessManagerDaemon', () => {
 			}
 		}
 	);
+
+	it( 'taskkills the wrapper and reported subprocess trees on Windows', async () => {
+		const child = new MockChildProcess();
+		spawnMock.mockReturnValue( child );
+		const { ProcessManagerDaemon } = await import( '../process-manager-daemon' );
+
+		const daemon = new ProcessManagerDaemon();
+		const daemonInternal = daemon as unknown as {
+			handleRequest: ( request: unknown ) => Promise< {
+				type: string;
+				payload: { process?: { pmId: number; name: string; status: string; pid?: number } };
+			} >;
+			managedProcesses: Map< number, unknown >;
+			signalProcessGroup: ( managedProcess: unknown, signal: NodeJS.Signals ) => Promise< void >;
+		};
+
+		const response = await daemonInternal.handleRequest( {
+			type: 'start-process',
+			requestId: '1',
+			processName: testProcessName,
+			scriptPath: '/tmp/test-child.js',
+			env: {},
+			args: [],
+		} );
+
+		const processDesc = response.payload.process;
+		if ( ! processDesc ) {
+			throw new Error( 'Expected start-process response to include a process' );
+		}
+
+		child.emit( 'message', { topic: 'server-process-started', data: { pid: 9876 } } );
+
+		const managedProcess = daemonInternal.managedProcesses.get( processDesc.pmId );
+		if ( ! managedProcess ) {
+			throw new Error( 'Expected process manager to store the managed process' );
+		}
+
+		const originalPlatform = process.platform;
+		Object.defineProperty( process, 'platform', { value: 'win32', configurable: true } );
+		try {
+			await daemonInternal.signalProcessGroup( managedProcess, 'SIGKILL' );
+			expect( spawnSyncMock ).toHaveBeenCalledWith(
+				'taskkill',
+				[ '/F', '/T', '/PID', '4321' ],
+				expect.objectContaining( { windowsHide: true } )
+			);
+			expect( spawnSyncMock ).toHaveBeenCalledWith(
+				'taskkill',
+				[ '/F', '/T', '/PID', '9876' ],
+				expect.objectContaining( { windowsHide: true } )
+			);
+		} finally {
+			Object.defineProperty( process, 'platform', {
+				value: originalPlatform,
+				configurable: true,
+			} );
+		}
+	} );
 } );

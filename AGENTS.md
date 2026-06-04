@@ -8,6 +8,7 @@ WordPress Studio - Electron desktop app for managing local WordPress sites. Buil
 **Test**: `npm test [-- path/to/test.test.ts]` | `npm run e2e`
 **Quality**: `npx eslint --fix <files>` (lint and format ONLY modified files)
 **IMPORTANT - Post-Change Verification**: After applying code changes, always run the linter and format modified files (`npx eslint --fix <files>`), the type checker (`npm run typecheck`) and run relevant tests (`npm test [-- path/to/test]`) before considering the work complete.
+**IMPORTANT - `apps/ui` Visual Verification**: Do not treat `apps/ui` as a standalone web app for browser/Playwright visual checks. It is an Electron renderer that expects Studio IPC and runtime context. Do not start the Vite dev server, open localhost, mock `window.ipcApi`, or request escalated permissions for visual browser testing unless the user explicitly asks for that. For `apps/ui` changes, run code-level checks only; the user will manually verify the UI in Studio.
 **Package**: `npm run make` (builds installers for current platform)
 
 **IMPORTANT - Hot Reload**: Renderer auto-reloads, Main process needs restart (or `rs` in terminal). Changes to Main process IPC handlers require full restart.
@@ -29,6 +30,7 @@ WordPress Studio - Electron desktop app for managing local WordPress sites. Buil
 ## Directory Structure
 
 **`/apps/studio/src`**: Main (index.ts, ipc-handlers.ts, site-server.ts, storage/, lib/) | Renderer (components/, hooks/, stores/) | modules/ (sync, cli, user-settings, preview-site)
+**`/apps/ui`**: New portable renderer UI package for Studio. Contains shared UI/data code plus two active UI explorations: `src/ui-classic/` and `src/ui-desks/`.
 **`/apps/cli`**: index.ts, commands/ (auth, preview, site), lib/ (appdata, i18n, browser)
 **`/tools/common`**: Shared lib/ (fs-utils, port-finder, oauth), types/, translations/
 **`/tools/eslint-plugin-studio`**: eslint-plugin-studio
@@ -39,6 +41,18 @@ WordPress Studio - Electron desktop app for managing local WordPress sites. Buil
 **CliServerProcess**: Desktop spawns CLI as child process (`apps/studio/src/modules/cli/lib/cli-server-process.ts`)
 **Redux Stores**: chat, sync, connectedSites, snapshot, onboarding | RTK Query APIs: wpcomApi, installedAppsApi, wordpressVersionsApi
 **SiteServer** (`apps/studio/src/site-server.ts`): Manages site instances, server start/stop, SSL certs, ports
+**New UI Connector Pattern** (`apps/ui/src/data/core/`): UI data access goes through the `Connector` interface and TanStack Query hooks in `apps/ui/src/data/queries/`. Keep UI code environment-agnostic; do not call Electron IPC directly from components when a connector/query hook is the right boundary.
+**New UI Mode Selection** (`apps/ui/src/app/use-ui-mode.ts`): `studio-ui-mode=desks` loads `ui-desks`, `studio-ui-mode=agentic` loads `ui-classic`, and the default mode is currently `desks`.
+
+## New UI Explorations (`apps/ui`)
+
+Studio has two parallel renderer explorations under `apps/ui`. When coding in this package, infer which UI the user means from the file path, route/component names, vocabulary in the request, and the current mode hook before making changes. If a request mentions sidebar, chat list, sessions, conversation view, or a traditional Studio shell, work in `apps/ui/src/ui-classic/` unless nearby shared components clearly own the behavior. If a request mentions desks, canvas, widgets, cards, site map, tldraw, spatial layout, annotations on the canvas, or infinite canvas behavior, work in `apps/ui/src/ui-desks/`.
+
+**`ui-classic`**: A more traditional Studio UI with a left sidebar and a chat/session-focused workflow. It is optimized around site lists, sessions, conversations, queued prompts, composer controls, and familiar app navigation. Classic-specific routes live in `apps/ui/src/ui-classic/router/`, and classic chat UI lives in `apps/ui/src/ui-classic/components/session-view/`.
+
+**`ui-desks`**: A more experimental spatial UI centered on an infinite canvas powered by `tldraw`. It organizes work as desks with widgets, surfaces, stacks, site previews, notes, posts, media, theme tools, and chat panels layered around the canvas. Desk-specific code lives in `apps/ui/src/ui-desks/`, with canvas/provider behavior under `desk/`, widget definitions under `widgets/`, and desk chrome under `chrome/`.
+
+Shared UI primitives and data hooks that intentionally serve both explorations belong outside either mode-specific tree, such as `apps/ui/src/components/`, `apps/ui/src/hooks/`, `apps/ui/src/lib/`, and `apps/ui/src/data/`. Before moving shared behavior, check both explorations for consumers and preserve mode-specific styling/interaction expectations.
 
 ## Tech Stack
 

@@ -9,6 +9,7 @@ import { installTaxonomyScriptsTool } from './install-taxonomy-scripts';
 import { listConnectedRemoteSitesTool } from './list-connected-remote-sites';
 import { listPreviewsTool } from './list-previews';
 import { listSitesTool } from './list-sites';
+import { measureElementsTool } from './measure-elements';
 import { auditPerformanceTool } from './need-for-speed';
 import { openAnnotationBrowserTool } from './open-annotation-browser';
 import { pullSiteTool } from './pull-site';
@@ -46,6 +47,7 @@ export const studioToolDefinitions: AnyStudioAgentTool[] = [
 	validateHtmlBlocksTool,
 	validateAndFixBlocksTool,
 	takeScreenshotTool,
+	measureElementsTool,
 	shareScreenshotTool,
 	installTaxonomyScriptsTool,
 	auditPerformanceTool,

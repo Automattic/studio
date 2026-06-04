@@ -175,20 +175,26 @@ export async function captureScreenshotBuffer(
 				? { type: 'jpeg' as const, quality: MODEL_JPEG_QUALITY }
 				: { type: 'png' as const };
 
-		if ( ! options.fullPage ) {
-			const buffer = await page.screenshot( { ...formatOptions } );
-			return {
-				buffer: Buffer.from( buffer ),
-				documentHeight: viewport.height,
-				capturedHeight: viewport.height,
-				offset: 0,
-				clipped: false,
-			};
-		}
-
 		const documentHeight = await page.evaluate( () =>
 			Math.max( document.body.scrollHeight, document.documentElement.scrollHeight )
 		);
+
+		// Viewport capture: a single viewport-height slice at `offset`. Unlike a
+		// full-page capture, the image isn't downscaled to fit the document
+		// height, so fine layout detail (column counts, card grids, spacing)
+		// stays legible. The agent pages down by passing the next `offset`.
+		if ( ! options.fullPage ) {
+			const offset = Math.max( 0, Math.min( Math.floor( options.offset ?? 0 ), documentHeight ) );
+			await page.evaluate( ( y ) => window.scrollTo( 0, y ), offset );
+			const buffer = await page.screenshot( { ...formatOptions } );
+			return {
+				buffer: Buffer.from( buffer ),
+				documentHeight,
+				capturedHeight: Math.min( viewport.height, documentHeight - offset ),
+				offset,
+				clipped: offset + viewport.height < documentHeight,
+			};
+		}
 		const offset = Math.max( 0, Math.floor( options.offset ?? 0 ) );
 		if ( offset >= documentHeight ) {
 			throw new Error(

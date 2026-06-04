@@ -23,20 +23,29 @@ function getViewportLabel( viewportTypes: ScreenshotViewportType[] ): string {
 
 export const takeScreenshotTool = defineTool(
 	'take_screenshot',
-	'Takes a full-page screenshot of a URL. Returns the screenshot as an image that you can analyze visually. ' +
-		'Also saves the screenshot as a temporary local image and returns a ready-to-use media widget payload. ' +
-		'Supports desktop and mobile viewports; pass `viewport: "all"` when you need both for design verification. ' +
-		'Long pages are clipped at 8000 vertical pixels (a vision-model limit); the response reports the document height and whether more remains, and you can call again with `offset` to fetch the next slice. ' +
+	'Screenshots a URL and returns the image for you to analyze visually. ' +
+		'Also saves it as a temporary local image and returns a ready-to-use media widget payload. ' +
+		'Supports desktop and mobile viewports; pass `viewport: "all"` when you need both. ' +
+		'Two capture modes: a full-page shot (default) for an overall gestalt of the page, and a sharp viewport-height shot (`fullPage: false`) for inspecting fine layout detail. ' +
+		'IMPORTANT: a full-page shot of a long page is downscaled to fit, which blurs fine detail — do NOT count columns, cards, or grid items, or judge spacing/alignment, from a full-page shot. ' +
+		'To verify that kind of detail, set `fullPage: false` (a crisp viewport-height slice) and page down with `offset` to inspect lower sections. ' +
+		'Full-page mode clips at 8000 vertical pixels; both modes report the document height and whether more remains below, so you can fetch the next slice with `offset`. ' +
 		'Use this to verify the site looks correct after building it. ' +
 		'Use `share_screenshot` instead only in remote sessions where you need to deliver the rendered page outside the Studio UI.',
 	{
 		url: Type.String( { description: 'The URL to screenshot' } ),
 		viewport: Type.Optional( screenshotViewportSchema ),
+		fullPage: Type.Optional(
+			Type.Boolean( {
+				description:
+					'true (default) captures the whole page in one tall image — good for an overview, but downscaled so fine detail blurs. false captures a single crisp viewport-height slice at `offset` — use this to count columns/cards or check spacing and alignment.',
+			} )
+		),
 		offset: Type.Optional(
 			Type.Number( {
 				minimum: 0,
 				description:
-					'Y-offset in CSS pixels for the capture region. Defaults to 0 (top of page). When a previous call reports the page was clipped, pass `offset` equal to where that capture ended to fetch the next slice.',
+					'Y-offset in CSS pixels for the capture region. Defaults to 0 (top of page). When a previous call reports more remains below, pass `offset` equal to where that capture ended to fetch the next slice down the page.',
 			} )
 		),
 	},
@@ -44,11 +53,12 @@ export const takeScreenshotTool = defineTool(
 		try {
 			const viewportTypes = resolveViewportTypes( args.viewport );
 			const viewportLabel = getViewportLabel( viewportTypes );
+			const fullPage = args.fullPage ?? true;
 			emitProgress( `Taking ${ viewportLabel } screenshot of ${ args.url }…` );
 			const captures = await Promise.all(
 				viewportTypes.map( async ( viewportType ) => {
 					const capture = await captureScreenshotBuffer( args.url, VIEWPORTS[ viewportType ], {
-						fullPage: true,
+						fullPage,
 						format: 'jpeg',
 						offset: args.offset,
 					} );

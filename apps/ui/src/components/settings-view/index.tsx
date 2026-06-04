@@ -1,20 +1,30 @@
 import { isSupportedLocale, supportedLocaleNames } from '@studio/common/lib/locale';
 import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
+import { DEFAULT_MESSAGE_SEND_SHORTCUT } from '@studio/common/lib/user-settings/message-send-shortcut';
 import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { DataForm } from '@wordpress/dataviews';
 import { __ } from '@wordpress/i18n';
 import { Button } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Gravatar } from '@/components/gravatar';
 import * as Tabs from '@/components/tabs';
+import { useConnector } from '@/data/core';
 import { persister } from '@/data/core/query-client';
+import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
+import { useFeatureFlags } from '@/data/queries/use-feature-flags';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { useFullscreen } from '@/hooks/use-fullscreen';
-import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
+import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
+import {
+	KEYBOARD_SHORTCUTS,
+	getKeyboardShortcutLabel,
+	getMessageSendShortcutLabel,
+} from '@/lib/keyboard-shortcuts';
 import styles from './style.module.css';
 import type {
 	ColorScheme,
 	InstalledApps,
+	MessageSendShortcut,
 	SupportedEditor,
 	SupportedLocale,
 	SupportedTerminal,
@@ -24,10 +34,10 @@ import type {
 import type { Field, Form } from '@wordpress/dataviews';
 import type { FormEvent } from 'react';
 
-type TabId = 'preferences';
+type TabId = 'preferences' | 'account' | 'keyboard';
 
 export function isSettingsTab( value: string ): value is TabId {
-	return value === 'preferences';
+	return value === 'preferences' || value === 'account' || value === 'keyboard';
 }
 
 export type SettingsTabId = TabId;
@@ -41,6 +51,7 @@ interface FormData {
 	terminal: SupportedTerminal | typeof UNSET;
 	colorScheme: ColorScheme;
 	locale: SupportedLocale;
+	messageSendShortcut: MessageSendShortcut;
 }
 
 // The saved locale can be any string the main process resolved (including ones
@@ -56,6 +67,7 @@ function toFormData( prefs: UserPreferences ): FormData {
 		terminal: prefs.terminal ?? UNSET,
 		colorScheme: prefs.colorScheme,
 		locale: resolveFormLocale( prefs.locale ),
+		messageSendShortcut: prefs.messageSendShortcut ?? DEFAULT_MESSAGE_SEND_SHORTCUT,
 	};
 }
 
@@ -66,10 +78,14 @@ function diffFromSaved(
 	const patch: Partial< WritableUserPreferences > = {};
 	const nextEditor: SupportedEditor | null = next.editor === UNSET ? null : next.editor;
 	const nextTerminal: SupportedTerminal | null = next.terminal === UNSET ? null : next.terminal;
+	const savedMessageSendShortcut = saved.messageSendShortcut ?? DEFAULT_MESSAGE_SEND_SHORTCUT;
 	if ( nextEditor !== saved.editor ) patch.editor = nextEditor;
 	if ( nextTerminal !== saved.terminal ) patch.terminal = nextTerminal;
 	if ( next.colorScheme !== saved.colorScheme ) patch.colorScheme = next.colorScheme;
 	if ( next.locale !== resolveFormLocale( saved.locale ) ) patch.locale = next.locale;
+	if ( next.messageSendShortcut !== savedMessageSendShortcut ) {
+		patch.messageSendShortcut = next.messageSendShortcut;
+	}
 	return patch;
 }
 
@@ -103,17 +119,152 @@ const LOCALE_ELEMENTS: { value: SupportedLocale; label: string }[] = Object.entr
 	supportedLocaleNames
 ).map( ( [ value, label ] ) => ( { value: value as SupportedLocale, label } ) );
 
+const MESSAGE_SEND_SHORTCUT_ELEMENTS: { value: MessageSendShortcut; label: string }[] = [
+	{ value: 'mod-enter', label: getMessageSendShortcutLabel( 'mod-enter' ) },
+	{ value: 'enter', label: getMessageSendShortcutLabel( 'enter' ) },
+];
+
+const WPCOM_PROFILE_URL = 'https://wordpress.com/me';
+const DOCS_URL = 'https://developer.wordpress.com/docs/developer-tools/studio/';
+const REPORT_ISSUE_URL = 'https://github.com/Automattic/studio/issues/new/choose';
+
 function SettingsHeader() {
-	const sidebarCollapsed = useSidebarCollapsed();
-	const isFullscreen = useFullscreen();
-	const toggleSpacerClass = sidebarCollapsed
-		? isFullscreen
-			? styles.toggleSpacerFullscreen
-			: styles.toggleSpacer
-		: null;
+	return <div className={ styles.header } />;
+}
+
+function KeyboardShortcutsList() {
 	return (
-		<div className={ styles.header }>
-			{ toggleSpacerClass ? <span className={ toggleSpacerClass } aria-hidden="true" /> : null }
+		<section className={ styles.keyboardSection }>
+			<h2>{ __( 'Shortcuts' ) }</h2>
+			<ul className={ styles.shortcutList }>
+				{ KEYBOARD_SHORTCUTS.map( ( shortcut ) => (
+					<li key={ shortcut.id } className={ styles.shortcutRow }>
+						<span className={ styles.shortcutLabel }>{ shortcut.label }</span>
+						<kbd className={ styles.shortcutKey }>{ getKeyboardShortcutLabel( shortcut ) }</kbd>
+					</li>
+				) ) }
+			</ul>
+		</section>
+	);
+}
+
+function OldStudioUiPreference() {
+	const connector = useConnector();
+
+	return (
+		<section className={ styles.preferenceSection }>
+			<div className={ styles.preferenceSectionText }>
+				<h2>{ __( 'Studio UI' ) }</h2>
+				<p>{ __( 'Switch back to the old Studio UI.' ) }</p>
+			</div>
+			<Button
+				type="button"
+				variant="outline"
+				tone="neutral"
+				onClick={ () => void connector.setStudioUiMode( 'default' ) }
+			>
+				{ __( 'Switch to old Studio UI' ) }
+			</Button>
+		</section>
+	);
+}
+
+function AccountSettingsPanel() {
+	const connector = useConnector();
+	const { data: user } = useAuthUser();
+	const { data: preferences } = useUserPreferences();
+	const login = useLogin();
+	const logout = useLogout();
+	const effectiveScheme = usePrefersColorScheme();
+	const savedScheme = preferences?.colorScheme;
+	const themeIsDark =
+		savedScheme === 'dark' || ( savedScheme !== 'light' && effectiveScheme === 'dark' );
+
+	const openLink = ( url: string ) => {
+		void connector.openExternalUrl( url );
+	};
+
+	return (
+		<div className={ styles.accountPanel }>
+			<section className={ styles.accountSection }>
+				<div className={ styles.accountSectionText }>
+					<h2>{ __( 'WordPress.com account' ) }</h2>
+					{ user ? (
+						<div className={ styles.accountIdentity }>
+							<Gravatar
+								email={ user.email }
+								isDark={ themeIsDark }
+								className={ styles.accountAvatar }
+							/>
+							<div className={ styles.accountDetails }>
+								<span className={ styles.accountName }>{ user.displayName }</span>
+								<span className={ styles.accountEmail }>{ user.email }</span>
+							</div>
+						</div>
+					) : (
+						<p>{ __( 'Log in to connect Studio with your WordPress.com account.' ) }</p>
+					) }
+				</div>
+				<div className={ styles.accountActions }>
+					{ user ? (
+						<>
+							<Button
+								type="button"
+								variant="outline"
+								tone="neutral"
+								onClick={ () => openLink( WPCOM_PROFILE_URL ) }
+							>
+								{ __( 'Edit WordPress.com profile' ) }
+							</Button>
+							<Button
+								type="button"
+								variant="outline"
+								tone="neutral"
+								loading={ logout.isPending }
+								loadingAnnouncement={ __( 'Logging out' ) }
+								onClick={ () => logout.mutate() }
+							>
+								{ __( 'Log out' ) }
+							</Button>
+						</>
+					) : (
+						<Button
+							type="button"
+							variant="outline"
+							tone="neutral"
+							loading={ login.isPending }
+							loadingAnnouncement={ __( 'Logging in' ) }
+							onClick={ () => login.mutate() }
+						>
+							{ __( 'Log in with WordPress.com' ) }
+						</Button>
+					) }
+				</div>
+			</section>
+			<section className={ styles.accountSection }>
+				<div className={ styles.accountSectionText }>
+					<h2>{ __( 'Help' ) }</h2>
+					<p>{ __( 'Find Studio documentation or report an issue on GitHub.' ) }</p>
+				</div>
+				<div className={ styles.accountActions }>
+					<Button
+						type="button"
+						variant="outline"
+						tone="neutral"
+						onClick={ () => openLink( DOCS_URL ) }
+					>
+						{ __( 'Documentation' ) }
+					</Button>
+					<Button
+						type="button"
+						variant="outline"
+						tone="neutral"
+						onClick={ () => openLink( REPORT_ISSUE_URL ) }
+					>
+						{ __( 'Report an issue' ) }
+					</Button>
+				</div>
+			</section>
 		</div>
 	);
 }
@@ -127,6 +278,7 @@ export function SettingsView( {
 } ) {
 	const { data: saved, isLoading } = useUserPreferences();
 	const { data: installedApps } = useInstalledApps();
+	const { data: featureFlags } = useFeatureFlags();
 	const savePreferences = useSaveUserPreferences();
 
 	const [ data, setData ] = useState< FormData | null >( null );
@@ -178,6 +330,26 @@ export function SettingsView( {
 				'colorScheme',
 				'locale',
 			],
+		} ),
+		[]
+	);
+
+	const keyboardFields = useMemo< Field< FormData >[] >(
+		() => [
+			{
+				id: 'messageSendShortcut',
+				type: 'text',
+				label: __( 'Send message with' ),
+				elements: MESSAGE_SEND_SHORTCUT_ELEMENTS,
+			},
+		],
+		[]
+	);
+
+	const keyboardForm = useMemo< Form >(
+		() => ( {
+			layout: { type: 'regular', labelPosition: 'top' },
+			fields: [ 'messageSendShortcut' ],
 		} ),
 		[]
 	);
@@ -234,6 +406,8 @@ export function SettingsView( {
 					<div className={ styles.tabsBarInner }>
 						<Tabs.List>
 							<Tabs.Tab tabId="preferences">{ __( 'Preferences' ) }</Tabs.Tab>
+							<Tabs.Tab tabId="account">{ __( 'Account' ) }</Tabs.Tab>
+							<Tabs.Tab tabId="keyboard">{ __( 'Keyboard' ) }</Tabs.Tab>
 						</Tabs.List>
 					</div>
 				</div>
@@ -248,20 +422,35 @@ export function SettingsView( {
 									form={ preferencesForm }
 									onChange={ handleChange }
 								/>
+								{ featureFlags?.enableDesksUiSwitch ? <OldStudioUiPreference /> : null }
+							</Tabs.Panel>
+							<Tabs.Panel tabId="account">
+								<AccountSettingsPanel />
+							</Tabs.Panel>
+							<Tabs.Panel tabId="keyboard" className={ styles.keyboardPanel }>
+								<KeyboardShortcutsList />
+								<DataForm< FormData >
+									data={ data }
+									fields={ keyboardFields }
+									form={ keyboardForm }
+									onChange={ handleChange }
+								/>
 							</Tabs.Panel>
 
-							<div className={ styles.actions }>
-								<Button
-									type="submit"
-									variant="solid"
-									tone="brand"
-									disabled={ ! canSubmit }
-									loading={ savePreferences.isPending }
-									loadingAnnouncement={ __( 'Saving settings' ) }
-								>
-									{ __( 'Save settings' ) }
-								</Button>
-							</div>
+							{ activeTab !== 'account' ? (
+								<div className={ styles.actions }>
+									<Button
+										type="submit"
+										variant="solid"
+										tone="brand"
+										disabled={ ! canSubmit }
+										loading={ savePreferences.isPending }
+										loadingAnnouncement={ __( 'Saving settings' ) }
+									>
+										{ __( 'Save settings' ) }
+									</Button>
+								</div>
+							) : null }
 						</form>
 					</div>
 				</div>

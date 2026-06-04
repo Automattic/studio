@@ -65,6 +65,7 @@ describe( 'SiteShortcutsWidgetComponent', () => {
 				editor: 'zed',
 				terminal: 'terminal',
 				colorScheme: 'system',
+				messageSendShortcut: 'mod-enter',
 				locale: undefined,
 			},
 		} as never );

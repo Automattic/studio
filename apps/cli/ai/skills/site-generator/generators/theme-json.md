@@ -45,34 +45,25 @@ Rule of thumb: for every background slug, walk through "what text will downstrea
 
 If the design direction calls for gradients or duotones, declare them under `settings.color.gradients` / `settings.color.duotone` with named slugs.
 
-## Typography (REQUIRED — fonts load from theme.json, no enqueue file)
+## Typography (REQUIRED — system-font CSS stacks, NO font files)
 
-Declare `settings.typography.fontFamilies` for every font the design direction specifies. This is how the fonts load — there is NO `fonts.php` and no enqueue step. Each entry MUST carry `fontFace` declarations so WordPress generates the `@font-face` rules itself.
+Declare `settings.typography.fontFamilies` for every font the design direction specifies — as design TOKENS ONLY. Each entry carries `name`, `slug`, and a `fontFamily` CSS stack with robust web-safe fallbacks. Do NOT emit `fontFace`/`src`; do NOT reference `fonts.gstatic.com`, `fonts.googleapis.com`, or any remote/CDN URL; do NOT use a `file:` path or `@import`. This theme ships NO `fonts.php` and NO bundled woff2 files, so the `fontFamily` stack itself must render acceptably with system fonts — a remote or `file:` font URL fails in headless, offline, and strict-CSP environments.
 
-For each Google font in the direction, emit a `fontFamilies` entry shaped like:
+For each font in the direction, emit a `fontFamilies` entry shaped like:
 
 ```
 {
     "name": "Inter",
     "slug": "body",
-    "fontFamily": "\"Inter\", system-ui, sans-serif",
-    "fontFace": [
-        {
-            "fontFamily": "Inter",
-            "fontWeight": "400 700",
-            "fontStyle": "normal",
-            "fontDisplay": "swap",
-            "src": [ "https://fonts.gstatic.com/s/inter/v18/...woff2" ]
-        }
-    ]
+    "fontFamily": "\"Inter\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif"
 }
 ```
 
 Requirements for the font setup:
 
 - Give families semantic slugs that downstream files reference: typically `heading`, `body`, and (if the direction uses one) `mono` or `accent`. Downstream style.css and block markup call these by slug via `var(--wp--preset--font-family--heading)`.
-- Each `fontFace` entry sets `fontFamily`, `fontWeight` (use a range like `"400 700"` for variable fonts, or one entry per static weight), `fontStyle`, `fontDisplay: "swap"`, and a `src` array pointing at the Google Fonts `fonts.gstatic.com` woff2 URL for that font. Include both normal and italic faces when the design needs italics.
-- Provide a robust CSS fallback stack inside `fontFamily` (e.g. `system-ui, sans-serif` for sans, `Georgia, serif` for serif, `ui-monospace, monospace` for mono) so text renders sensibly before the webfont loads.
+- The `fontFamily` value is a complete CSS stack: the design font first (it renders if the visitor happens to have it installed), then ALWAYS robust system fallbacks — sans: `system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`; serif: `Georgia, "Times New Roman", serif`; mono: `ui-monospace, "SF Mono", "Cascadia Code", monospace`. The stack must look good on system fonts alone.
+- NO `fontFace` array, NO `src`, NO remote URL, NO `file:` path, NO `@import` anywhere in the file. The theme ships no font binaries, so a `src` would 404.
 - Declare a `settings.typography.fontSizes` scale with named, fluid sizes. Cover at least `small`, `medium`, `large`, `x-large`, and `xx-large`, plus a display-scale `huge` for hero headings if the direction is expressive. Use `clamp()` for the larger steps so headings scale with the viewport, and set `fluid: true` on the entries that should scale.
 - Set `settings.typography.fluid` to `true` at the top level, and set `lineHeight: true` and `letterSpacing: true` so the design can tune rhythm.
 
@@ -125,7 +116,7 @@ Tune every style to the chosen design direction's personality: border radii, the
 ## Self-check before output
 
 - Valid JSON, `version: 3`, `$schema` present, four-space indent.
-- Every font in the design direction has a `fontFamilies` entry WITH `fontFace` and a `fonts.gstatic.com` woff2 `src` — fonts load with no enqueue file.
+- Every font has a `fontFamilies` entry with a `fontFamily` CSS stack that includes web-safe fallbacks. NO `fontFace`, NO `src`, NO `fonts.gstatic.com`/`fonts.googleapis.com`, NO `file:` paths, NO remote font URLs anywhere in theme.json.
 - Every `color` block in `styles` sets both `background` and `text`; every `:hover` does too.
 - contentSize/wideSize, root-padding-aware alignments, horizontal-only body padding, and `blockGap` are all set.
 - All button, nav, post-template gaps are declared. No invisible-text gaps remain.

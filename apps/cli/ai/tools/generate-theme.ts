@@ -9,6 +9,7 @@ import { runPooled } from 'cli/ai/generation/llm';
 import { parseManifest, type SiteManifest } from 'cli/ai/generation/manifest';
 import { themeDir, writePackageFile } from 'cli/ai/generation/paths';
 import { isSiteRunning, withDaemon, wpCli } from 'cli/ai/generation/site-wp';
+import { stripRemoteFontFaces } from 'cli/ai/generation/theme-guards';
 import { defineTool } from './define-tool';
 import { resolveSite, textResult } from './utils';
 
@@ -204,11 +205,14 @@ export const generateThemeTool = defineTool(
 		const written: string[] = [];
 		for ( const file of generated ) {
 			// Reconcile drifted block/postType identifiers in markup files to the
-			// canonical contract before writing (templates/parts only; theme.json and
-			// style.css carry no block references).
-			const content = file.rel.endsWith( '.html' )
-				? reconcileMarkup( file.content, contract ).html
-				: file.content;
+			// canonical contract before writing; strip remote/file font src from
+			// theme.json so fonts resolve offline (system stacks).
+			let content = file.content;
+			if ( file.rel.endsWith( '.html' ) ) {
+				content = reconcileMarkup( file.content, contract ).html;
+			} else if ( file.rel === 'theme.json' ) {
+				content = stripRemoteFontFaces( file.content ).json;
+			}
 			await writePackageFile( dir, file.rel, content );
 			written.push( file.rel );
 		}

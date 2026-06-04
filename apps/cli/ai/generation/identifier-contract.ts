@@ -32,16 +32,35 @@ const CORE_POST_TYPES = new Set( [
 	'wp_navigation',
 ] );
 
+// Core/built-in taxonomies a Query Loop may legitimately filter on.
+const CORE_TAXONOMIES = new Set( [
+	'category',
+	'post_tag',
+	'post_format',
+	'nav_menu',
+	'link_category',
+] );
+
 export interface IdentifierContract {
 	prefix: string;
 	restNamespace: string;
 	blockSlugs: string[];
 	blockNames: string[];
 	cptKeys: string[];
+	// Slugs of the pages seeded into the DB. A CPT archive/rewrite slug equal to
+	// one of these shadows the page (WordPress routes the URL to the CPT archive),
+	// so the plugin sanitizer neutralises any such collision.
+	pageSlugs: string[];
+	// Registered custom taxonomy keys a Query Loop `taxQuery` may legitimately
+	// filter on. Empty in the Telex-aligned model (facets are post_meta, not
+	// taxonomies); any taxQuery against a non-core, non-listed taxonomy is
+	// stripped on reconcile and flagged on validate.
+	taxKeys: string[];
 }
 
 export interface ContractManifestInput {
 	themePrefix: string;
+	pages?: Array< { slug: string } >;
 	companionPlugin: {
 		blocks: Array< { slug: string } >;
 		postTypes: Array< { slug: string } >;
@@ -49,7 +68,7 @@ export interface ContractManifestInput {
 }
 
 export interface MarkupRewrite {
-	kind: 'block' | 'postType';
+	kind: 'block' | 'postType' | 'taxonomy';
 	from: string;
 	to: string;
 }
@@ -58,6 +77,8 @@ export type ViolationType =
 	| 'prefix_mismatch'
 	| 'unknown_block_reference'
 	| 'unknown_post_type_reference'
+	| 'unknown_taxonomy_reference'
+	| 'cpt_archive_slug_collides_with_page'
 	| 'block_name_mismatch'
 	| 'cpt_slug_too_long';
 
@@ -131,6 +152,11 @@ export function contractFromManifest( manifest: ContractManifestInput ): Identif
 		blockSlugs,
 		blockNames: blockSlugs.map( ( slug ) => `${ prefix }/${ slug }` ),
 		cptKeys: manifest.companionPlugin.postTypes.map( ( p ) => p.slug ),
+		pageSlugs: ( manifest.pages ?? [] ).map( ( p ) => p.slug ),
+		// No custom taxonomies are modeled (facets are post_meta in the Telex-aligned
+		// model). Threaded here so a future manifest taxonomy field can populate it
+		// without touching the reconcile/validate call sites.
+		taxKeys: [],
 	};
 }
 
@@ -189,6 +215,71 @@ const blockRefRe = (): RegExp => /<!--\s*wp:([a-z][a-z0-9-]*)\/([a-z0-9][a-z0-9-
 const postTypeRe = (): RegExp => /("postType"\s*:\s*")([a-z0-9_-]+)(")/gi;
 
 /**
+ * Locate each `"taxQuery":{...}` object in a markup string by a balanced-brace
+ * scan (so nested term objects like `{"slug":"x"}` are handled), returning the
+ * span that covers the `"taxQuery"` key through its closing brace plus the
+ * top-level taxonomy keys it filters on.
+ */
+function findTaxQueries( html: string ): Array< { start: number; end: number; keys: string[] } > {
+	const out: Array< { start: number; end: number; keys: string[] } > = [];
+	const re = /"taxQuery"\s*:\s*\{/gi;
+	let match: RegExpExecArray | null;
+	while ( ( match = re.exec( html ) ) ) {
+		const braceStart = match.index + match[ 0 ].length - 1;
+		let depth = 0;
+		let i = braceStart;
+		for ( ; i < html.length; i++ ) {
+			if ( html[ i ] === '{' ) {
+				depth++;
+			} else if ( html[ i ] === '}' ) {
+				depth--;
+				if ( depth === 0 ) {
+					i++;
+					break;
+				}
+			}
+		}
+		let keys: string[] = [];
+		try {
+			keys = Object.keys( JSON.parse( html.slice( braceStart, i ) ) as Record< string, unknown > );
+		} catch {
+			keys = [];
+		}
+		out.push( { start: match.index, end: i, keys } );
+	}
+	return out;
+}
+
+function isKnownTaxonomy( key: string, contract: IdentifierContract ): boolean {
+	return contract.taxKeys.includes( key ) || CORE_TAXONOMIES.has( key );
+}
+
+/**
+ * Remove a `"taxQuery":{...}` span from a markup string, absorbing one adjacent
+ * comma so the surrounding Query Loop JSON object stays well-formed.
+ */
+function stripTaxQuerySpan( html: string, start: number, end: number ): string {
+	let from = start;
+	let to = end;
+	let i = start - 1;
+	while ( i >= 0 && /\s/.test( html[ i ] ) ) {
+		i--;
+	}
+	if ( html[ i ] === ',' ) {
+		from = i;
+	} else {
+		let j = end;
+		while ( j < html.length && /\s/.test( html[ j ] ) ) {
+			j++;
+		}
+		if ( html[ j ] === ',' ) {
+			to = j + 1;
+		}
+	}
+	return html.slice( 0, from ) + html.slice( to );
+}
+
+/**
  * Map a drifted postType to a registered CPT key when unambiguous: exact after
  * hyphen->underscore normalisation, or a unique suffix match (the part after
  * the first underscore). Returns null when there is no safe single target.
@@ -240,6 +331,24 @@ export function reconcileMarkup(
 		}
 		return full;
 	} );
+
+	// Strip any `taxQuery` that filters on a taxonomy which is neither registered
+	// nor core: the loop falls back to filtering by postType only, so it returns
+	// the CPT's entries instead of an empty set. (Telex models facets as
+	// post_meta, so a custom-taxonomy filter is always a dangling reference.)
+	// Process spans last-to-first so earlier indices stay valid as we splice.
+	const taxQueries = findTaxQueries( out );
+	for ( let q = taxQueries.length - 1; q >= 0; q-- ) {
+		const { start, end, keys } = taxQueries[ q ];
+		const unknown = keys.filter( ( key ) => ! isKnownTaxonomy( key, contract ) );
+		if ( unknown.length === 0 ) {
+			continue;
+		}
+		for ( const key of unknown ) {
+			rewrites.push( { kind: 'taxonomy', from: key, to: '' } );
+		}
+		out = stripTaxQuerySpan( out, start, end );
+	}
 
 	return { html: out, rewrites };
 }
@@ -293,7 +402,84 @@ export function validateMarkup(
 		}
 	}
 
+	const seenTax = new Set< string >();
+	for ( const { keys } of findTaxQueries( html ) ) {
+		for ( const key of keys ) {
+			if ( seenTax.has( key ) || isKnownTaxonomy( key, contract ) ) {
+				continue;
+			}
+			seenTax.add( key );
+			violations.push( {
+				type: 'unknown_taxonomy_reference',
+				ref: key,
+				detail: `Query Loop taxQuery '${ key }' is neither a registered custom taxonomy nor a core one${ where }`,
+			} );
+		}
+	}
+
 	return violations;
+}
+
+/**
+ * Neutralise a CPT registration whose front-end URL base would shadow a content
+ * page. `has_archive => '<page-slug>'` and `rewrite => array( 'slug' => '<page-slug>' )`
+ * are rewritten to `true` (the default), which keys the archive/single base off
+ * the theme-prefixed post-type key (e.g. `/untold_sponsors/`) so the page keeps
+ * `/<page-slug>/`. Pages remain the canonical collection surface; archives stay
+ * live but at a prefixed, collision-free URL. (Telex `functions.md`: never let an
+ * unprefixed slug become the archive/rewrite base.) Idempotent.
+ */
+export function sanitizeCptArchiveSlugs(
+	php: string,
+	pageSlugs: string[]
+): { php: string; violations: Violation[] } {
+	const pages = new Set( pageSlugs );
+	const violations: Violation[] = [];
+
+	let out = php.replace(
+		/(['"]has_archive['"]\s*=>\s*)(['"])([a-z0-9_-]+)\2/gi,
+		( full, pre: string, _q: string, slug: string ) => {
+			if ( ! pages.has( slug ) ) {
+				return full;
+			}
+			violations.push( {
+				type: 'cpt_archive_slug_collides_with_page',
+				ref: slug,
+				detail: `CPT has_archive slug '${ slug }' collides with a page; routed to the prefixed key instead`,
+			} );
+			return `${ pre }true`;
+		}
+	);
+
+	out = out.replace(
+		/(['"]rewrite['"]\s*=>\s*)array\(\s*['"]slug['"]\s*=>\s*(['"])([a-z0-9_-]+)\2[^)]*\)/gi,
+		( full, pre: string, _q: string, slug: string ) => {
+			if ( ! pages.has( slug ) ) {
+				return full;
+			}
+			violations.push( {
+				type: 'cpt_archive_slug_collides_with_page',
+				ref: slug,
+				detail: `CPT rewrite slug '${ slug }' collides with a page; using the prefixed key instead`,
+			} );
+			return `${ pre }true`;
+		}
+	);
+
+	return { php: out, violations };
+}
+
+/**
+ * Extract the literal taxonomy keys a plugin registers via `register_taxonomy()`.
+ * Mirrors {@link findRegisteredPostTypes}; used to verify a taxonomy a Query Loop
+ * filters on is actually registered. Returns [] when none are registered.
+ */
+export function findRegisteredTaxonomies( php: string ): string[] {
+	const keys = new Set< string >();
+	for ( const match of php.matchAll( /register_taxonomy\(\s*['"]([a-z0-9_-]+)['"]/gi ) ) {
+		keys.add( match[ 1 ] );
+	}
+	return Array.from( keys );
 }
 
 /** Force a block.json `name` to `{prefix}/{slug}`. */

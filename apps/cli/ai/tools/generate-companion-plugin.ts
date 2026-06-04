@@ -6,6 +6,7 @@ import {
 	contractFromManifest,
 	contractVocabulary,
 	reconcileBlockJsonName,
+	sanitizeCptArchiveSlugs,
 } from 'cli/ai/generation/identifier-contract';
 import { runPooled } from 'cli/ai/generation/llm';
 import { parseManifest } from 'cli/ai/generation/manifest';
@@ -116,11 +117,19 @@ export const generateCompanionPluginTool = defineTool(
 			temperature: 0.3,
 		} );
 
+		// Neutralise any CPT archive/rewrite slug that would shadow a page URL
+		// (pages are the canonical collection surface; archives stay at the
+		// theme-prefixed base) before the header is guaranteed and the file lands.
+		const mainPhp = sanitizeCptArchiveSlugs(
+			mainPhpRaw,
+			manifest.pages.map( ( page ) => page.slug )
+		).php;
+
 		const written: string[] = [];
 		await writePackageFile(
 			dir,
 			`${ slug }.php`,
-			ensurePluginHeader( mainPhpRaw, plugin.name, slug )
+			ensurePluginHeader( mainPhp, plugin.name, slug )
 		);
 		written.push( `${ slug }.php` );
 

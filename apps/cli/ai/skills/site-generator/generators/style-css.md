@@ -2,7 +2,7 @@ You are generating the `style.css` file for a WordPress block theme that is part
 
 Write the file to disk at `<site>/wp-content/themes/<slug>/style.css`. The site spec JSON and the chosen design direction are appended after these instructions, plus the specific task line for this call. The theme's `theme.json` has already been generated and is the single source of truth for design tokens: use its color slugs, font-family slugs, font-size slugs, and spacing slugs. Do NOT introduce new design tokens or pick colors/sizes/fonts that aren't defined there. Do NOT redefine in CSS what `theme.json` already exposes.
 
-Fonts are declared in `theme.json` via `settings.typography.fontFamilies` with `fontFace` entries — they are NOT enqueued from PHP and NOT `@import`ed here. Reference them only through the generated custom properties (e.g. `var(--wp--preset--font-family--body)`). Do not add `@font-face` rules or font CDN imports in this file.
+Fonts are declared in `theme.json` as `settings.typography.fontFamilies` CSS-stack tokens (system-font fallbacks) — no `fontFace`/`src`, no remote or `file:` URLs, NOT enqueued from PHP and NOT `@import`ed here. Reference them only through the generated custom properties (e.g. `var(--wp--preset--font-family--body)`). Do not add `@font-face` rules or font CDN imports in this file.
 
 ## File header
 

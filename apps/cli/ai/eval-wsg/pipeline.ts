@@ -5,8 +5,10 @@ import { runManifest } from 'cli/ai/generation/generators';
 import {
 	contractFromManifest,
 	findRegisteredPostTypes,
+	sanitizeCptArchiveSlugs,
 	validateMarkup,
 } from 'cli/ai/generation/identifier-contract';
+import { findArchiveLoopViolations, stripRemoteFontFaces } from 'cli/ai/generation/theme-guards';
 import { createSiteTool } from 'cli/ai/tools/create-site';
 import { deleteSiteTool } from 'cli/ai/tools/delete-site';
 import { generateCompanionPluginTool } from 'cli/ai/tools/generate-companion-plugin';
@@ -224,6 +226,16 @@ export async function runCase( spec: EvalSpec, opts: RunCaseOptions ): Promise< 
 		}
 		result.coreBlocks = { byFile, totalBlocks, totalWpHtml };
 
+		// Bug 4 guard: the shipped theme.json must carry no remote/file font src.
+		if ( themeDir ) {
+			try {
+				const themeJson = fs.readFileSync( path.join( themeDir, 'theme.json' ), 'utf8' );
+				result.fontRemoteRefs = stripRemoteFontFaces( themeJson ).stripped;
+			} catch {
+				result.fontRemoteRefs = [];
+			}
+		}
+
 		if ( manifest?.companionPlugin.needed ) {
 			const pluginSlug = manifest.companionPlugin.slug;
 			const generatedBlockSlugs = listSubdirs(
@@ -235,19 +247,28 @@ export async function runCase( spec: EvalSpec, opts: RunCaseOptions ): Promise< 
 			// A register_post_type drift orphans seeded entries even when content
 			// references are canonical — the gap validateMarkup cannot see.
 			const cptKeys = manifest.companionPlugin.postTypes.map( ( postType ) => postType.slug );
-			let registered: string[] = [];
+			let pluginPhp = '';
 			try {
-				registered = findRegisteredPostTypes(
-					fs.readFileSync(
-						path.join( site.path, 'wp-content', 'plugins', pluginSlug, `${ pluginSlug }.php` ),
-						'utf8'
-					)
+				pluginPhp = fs.readFileSync(
+					path.join( site.path, 'wp-content', 'plugins', pluginSlug, `${ pluginSlug }.php` ),
+					'utf8'
 				);
 			} catch {
-				registered = [];
+				pluginPhp = '';
 			}
+			const registered = findRegisteredPostTypes( pluginPhp );
 			result.cptsNotRegistered =
 				registered.length > 0 ? cptKeys.filter( ( key ) => ! registered.includes( key ) ) : [];
+
+			// Bug 1 guard: no CPT archive/rewrite slug in the shipped plugin may
+			// equal a page slug (re-running the sanitizer detector on the on-disk
+			// file; a non-empty result means a routing collision shipped).
+			result.cptArchivePageCollisions = pluginPhp
+				? sanitizeCptArchiveSlugs(
+						pluginPhp,
+						manifest.pages.map( ( page ) => page.slug )
+				  ).violations.map( ( v ) => v.ref )
+				: [];
 		}
 
 		// Identifier-contract check: after reconciliation, no custom-block reference
@@ -257,13 +278,20 @@ export async function runCase( spec: EvalSpec, opts: RunCaseOptions ): Promise< 
 		if ( manifest ) {
 			const contract = contractFromManifest( manifest );
 			const identifierViolations: { file: string; type: string; ref: string }[] = [];
+			const archiveLoopViolations: { file: string; code: string }[] = [];
 			for ( const file of measuredFiles ) {
 				const rel = path.relative( site.path, file );
-				for ( const v of validateMarkup( fs.readFileSync( file, 'utf8' ), contract, rel ) ) {
+				const html = fs.readFileSync( file, 'utf8' );
+				for ( const v of validateMarkup( html, contract, rel ) ) {
 					identifierViolations.push( { file: rel, type: v.type, ref: v.ref } );
+				}
+				// Bug 2 guard (observational): runaway-archive-loop shapes.
+				for ( const v of findArchiveLoopViolations( html ) ) {
+					archiveLoopViolations.push( { file: rel, code: v.code } );
 				}
 			}
 			result.identifierViolations = identifierViolations;
+			result.archiveLoopViolations = archiveLoopViolations;
 		}
 
 		// 9. Validate block markup in the real editor (observational — pass content,

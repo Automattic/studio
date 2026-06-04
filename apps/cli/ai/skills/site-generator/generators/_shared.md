@@ -38,7 +38,7 @@ Inheritance in WordPress block themes is unreliable. A child block whose text co
 
 - **Reference `theme.json` tokens by slug in block markup.** Use the declared palette, font-size, font-family, and spacing presets: `{"textColor":"primary"}`, `{"fontSize":"large"}`, `{"style":{"spacing":{"padding":{"top":"var:preset|spacing|40"}}}}`. Never introduce hardcoded hex colors, raw px values, or font names in block attributes.
 - **CSS in `style.css` references tokens via CSS variables** — `var(--wp--preset--color--primary)`, `var(--wp--preset--font-family--body)`, `var(--wp--preset--spacing--40)` — rather than hardcoding values. Custom CSS is reserved for polish (typographic detail, link treatments, button variants, image effects, animation states), not for re-implementing layout that block attributes already express.
-- **Fonts are declared in `theme.json`** via `settings.typography.fontFamilies` with `fontFace` entries pointing at the bundled font files. Do NOT enqueue fonts from PHP and do not create a `fonts.php`.
+- **Fonts are declared in `theme.json`** as `settings.typography.fontFamilies` design tokens — each a `fontFamily` CSS stack with system-font fallbacks. NO `fontFace`/`src`, NO remote (`fonts.gstatic.com`/`fonts.googleapis.com`) or `file:` URL, NO `@import`, and NO `fonts.php`. The theme ships no font binaries, so the stack must render on system fonts.
 - **Typography restraint.** Body text around 1rem with line-height 1.5–1.65. Headings scale modestly; cap display text near 3.5rem (e.g. `clamp(2.5rem, 4vw, 3.5rem)`). Never go below line-height 1.0 on any text; heading line-heights stay between 1.1 and 1.3.
 
 ## Scroll animation and motion

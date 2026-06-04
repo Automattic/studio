@@ -7,6 +7,7 @@ import {
 	contractVocabulary,
 	reconcileBlockJsonName,
 	reconcileMarkup,
+	sanitizeCptArchiveSlugs,
 } from 'cli/ai/generation/identifier-contract';
 import { resolveAiImagesInHtml, stripAiImagePlaceholders } from 'cli/ai/generation/images';
 import { runPooled } from 'cli/ai/generation/llm';
@@ -19,6 +20,7 @@ import {
 } from 'cli/ai/generation/paths';
 import { buildSeederPhp, parseSeederResult } from 'cli/ai/generation/seed-php';
 import { isSiteRunning, withDaemon, wpCli } from 'cli/ai/generation/site-wp';
+import { stripRemoteFontFaces } from 'cli/ai/generation/theme-guards';
 import { activatePlugin, ensurePluginHeader } from 'cli/ai/tools/generate-companion-plugin';
 import { activateTheme, ensureStyleHeader, renderFunctionsPhp } from 'cli/ai/tools/generate-theme';
 import {
@@ -501,9 +503,12 @@ export async function generateSite( args: {
 	// 1. Theme files (reconcile markup) + functions.php.
 	const themeWritten: string[] = [];
 	for ( const file of routed.themeFiles ) {
-		const content = file.rel.endsWith( '.html' )
-			? reconcileMarkup( file.content, contract ).html
-			: file.content;
+		let content = file.content;
+		if ( file.rel.endsWith( '.html' ) ) {
+			content = reconcileMarkup( file.content, contract ).html;
+		} else if ( file.rel === 'theme.json' ) {
+			content = stripRemoteFontFaces( file.content ).json;
+		}
 		await writePackageFile( tDir, file.rel, content );
 		themeWritten.push( file.rel );
 	}
@@ -514,10 +519,14 @@ export async function generateSite( args: {
 	const pluginWritten: string[] = [];
 	const blockFailures = [ ...routed.pluginBlockGenFailures ];
 	if ( plugin.needed && routed.pluginMain ) {
+		const pluginMain = sanitizeCptArchiveSlugs(
+			routed.pluginMain,
+			manifest.pages.map( ( page ) => page.slug )
+		).php;
 		await writePackageFile(
 			pDir,
 			`${ plugin.slug }.php`,
-			ensurePluginHeader( routed.pluginMain, plugin.name, plugin.slug )
+			ensurePluginHeader( pluginMain, plugin.name, plugin.slug )
 		);
 		pluginWritten.push( `${ plugin.slug }.php` );
 		for ( const { block, files } of routed.pluginBlocks ) {

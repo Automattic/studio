@@ -38,6 +38,16 @@ Layout-type rule of thumb: **section containers use the default layout; inner co
 - Reset top margin on every top-level group with `"style":{"spacing":{"margin":{"top":"0"}}}` so the first section sits flush under the header.
 - NO emojis anywhere. No decorative HTML comments — the only comments allowed are WordPress block-delimiter comments (`<!-- wp:... -->` / `<!-- /wp:... -->`).
 
+## Archive query-loop rules (MANDATORY — a loop that breaks these renders a runaway-height page)
+
+These apply to EVERY `wp:query` you emit — the generic `archive`, a CPT `archive-<cpt>`, and any feed-style `index`:
+
+- **NEVER place `wp:post-content` inside a `wp:post-template`.** `wp:post-content` renders an entry's ENTIRE single-page body; inside a loop it stacks every entry's full body into a multi-thousand-pixel wall of posts (the single worst archive bug). Compose the post-template ONLY from post-* primitives (`wp:post-featured-image`, `wp:post-title`, `wp:post-excerpt`, `wp:post-date`, `wp:post-author-name`) plus layout blocks (`wp:group`, `wp:columns`, `wp:cover`, `wp:media-text`). `wp:post-content` is correct ONLY on a `single` / `single-<cpt>` template (one entry, not a loop).
+- **Every archive `wp:query` MUST set an explicit, finite `perPage`.** Pick by expected count: 3–6 → editorial list / featured+rest (`perPage:6`); 6–12 → card grid (`perPage:12`); 12–30 → dense grid / compact list (`perPage:24`); 30+ → compact list (`perPage:30`) plus `wp:query-pagination`. NEVER use `perPage:-1`, and never omit `perPage`.
+- **One loop per archive.** The ONLY reason for a second `wp:query` is the featured+rest shape: emit TWO SIBLING `wp:query` blocks — first `perPage:1`, second `perPage:N` with `offset:1` to skip the featured entry. NEVER nest a `wp:query` inside another loop's `wp:post-template` (a nested same-postType query multiplies entries N×N).
+- **`"inherit":true` is for the MAIN query only.** Use it on the generic `archive` / feed `index` where `postType:"post"` matches the request's main query. On a CPT `archive-<cpt>` that pins an explicit `postType`, do NOT set `"inherit":true` — pin `perPage`/`order`/`orderBy` explicitly, or the main-query vars override your cap.
+- **Filter loops by `postType` ONLY.** Do NOT add a `taxQuery`/`tax_query` against a custom taxonomy — a facet like tier/category/type is `post_meta` surfaced via a `core/post-meta` binding, not a taxonomy the loop filters on. A `taxQuery` against an unregistered taxonomy returns zero entries.
+
 ## Template parts
 
 Reference the header and footer as template parts; never inline their markup:
@@ -190,7 +200,24 @@ A short, on-brand "page not found" shell — header part, then a constrained `<m
 
 ### `archive-<cpt>` (custom post type archive)
 
-The companion plugin registers this CPT; the template only queries it. Infer the CPT slug from the named template (`archive-acme_team` → `postType:"acme_team"`) and match it exactly to a slug the spec / plugin defines — never invent or rename it. The body is a designed `wp:query` loop, NOT `wp:post-content`. Compose the loop by domain purpose, not by slug name: a CPT listing people is a People shape (card grid or editorial rows of portrait images plus name and role); a CPT listing things or works is a Things shape (image grid); an events CPT surfaces date and location. Match shape to count and voice — four people in an editorial voice want full-row image-beside-text rows, twelve people in a minimal voice want a card grid. Compose the page around the loop: opening heading + one-line intro in an inner constrained group, then the query, optionally a CTA. Outer `<main>` stays default so a `wide`/`full` loop can flow edge-to-edge. Replace the human-readable heading with the CPT's display name inferred from its slug ("Team", "Menu", "Projects"). Pick the featured-image `aspectRatio` from the CPT's domain: `3/4` for people, `1/1` for things, `4/3` for works/properties/events, `16/9` for editorial. Add `wp:query-pagination` when the collection exceeds `perPage`.
+The companion plugin registers this CPT; the template only queries it. Infer the CPT slug from the named template (`archive-acme_team` → `postType:"acme_team"`) and match it exactly to a slug the spec / plugin defines — never invent or rename it. The body is a designed `wp:query` loop, NOT `wp:post-content`. Compose the loop by domain purpose, not by slug name: a CPT listing people is a People shape (card grid or editorial rows of portrait images plus name and role); a CPT listing things or works is a Things shape (image grid); an events CPT surfaces date and location. Match shape to count and voice — four people in an editorial voice want full-row image-beside-text rows, twelve people in a minimal voice want a card grid. Compose the page around the loop: opening heading + one-line intro in an inner constrained group, then the query, optionally a CTA. Outer `<main>` stays default so a `wide`/`full` loop can flow edge-to-edge. Replace the human-readable heading with the CPT's display name inferred from its slug ("Team", "Menu", "Projects"). Pick the featured-image `aspectRatio` from the CPT's domain: `3/4` for people, `1/1` for things, `4/3` for works/properties/events, `16/9` for editorial. Set an explicit finite `perPage`, filter by `postType` only (no `taxQuery`), and do NOT set `inherit:true` (see Archive query-loop rules above). A bounded card-grid loop — post-* primitives only, never `wp:post-content`:
+
+```
+<!-- wp:query {"query":{"perPage":12,"postType":"acme_team","order":"asc","orderBy":"title"},"layout":{"type":"constrained"}} -->
+<div class="wp-block-query">
+    <!-- wp:post-template {"layout":{"type":"grid","columnCount":3}} -->
+        <!-- wp:post-featured-image {"isLink":true,"aspectRatio":"3/4"} /-->
+        <!-- wp:post-title {"level":3,"isLink":true} /-->
+        <!-- wp:post-excerpt /-->
+    <!-- /wp:post-template -->
+    <!-- wp:query-pagination -->
+        <!-- wp:query-pagination-previous /-->
+        <!-- wp:query-pagination-numbers /-->
+        <!-- wp:query-pagination-next /-->
+    <!-- /wp:query-pagination -->
+</div>
+<!-- /wp:query -->
+```
 
 ### `single-<cpt>` (custom post type detail)
 

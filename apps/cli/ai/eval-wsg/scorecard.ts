@@ -182,6 +182,16 @@ export interface CaseResult {
 	// Manifest CPT keys the generated plugin PHP does not register via
 	// register_post_type — seeded entries under them would be orphaned.
 	cptsNotRegistered?: string[];
+	// Font families in the shipped theme.json that still carry a remote/file
+	// fontFace src (Google CDN or a woff2 the theme never bundles) — they fail
+	// offline/headless/CSP. Non-empty means the font guard did not hold.
+	fontRemoteRefs?: string[];
+	// CPT archive/rewrite slugs in the shipped plugin PHP that equal a page slug
+	// and would shadow that page's URL. Non-empty means the routing guard failed.
+	cptArchivePageCollisions?: string[];
+	// Runaway-archive-loop shapes (wp:post-content in a post-template, unbounded/
+	// missing perPage, nested same-block query) found in shipped markup.
+	archiveLoopViolations?: { file: string; code: string }[];
 	expectationsFailed?: string[];
 	errors: { stage: string; message: string }[];
 }
@@ -199,6 +209,9 @@ export interface EvalSummary {
 		inputCptsWithoutBlock: number;
 		identifierViolations: number;
 		cptsNotRegistered: number;
+		fontRemoteRefs: number;
+		cptArchivePageCollisions: number;
+		archiveLoopViolations: number;
 		expectationsFailed: number;
 		errors: number;
 		totalMs: number;
@@ -233,6 +246,9 @@ export function summarize( runId: string, cases: CaseResult[] ): EvalSummary {
 			inputCptsWithoutBlock: c.customBlocks?.inputCptsWithoutBlock.length ?? 0,
 			identifierViolations: c.identifierViolations?.length ?? 0,
 			cptsNotRegistered: c.cptsNotRegistered?.length ?? 0,
+			fontRemoteRefs: c.fontRemoteRefs?.length ?? 0,
+			cptArchivePageCollisions: c.cptArchivePageCollisions?.length ?? 0,
+			archiveLoopViolations: c.archiveLoopViolations?.length ?? 0,
 			expectationsFailed: c.expectationsFailed?.length ?? 0,
 			errors: c.errors.length,
 			totalMs: Object.values( c.stageTimingsMs ).reduce( ( a, b ) => a + b, 0 ),

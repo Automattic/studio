@@ -22,7 +22,7 @@ What the theme MUST NOT contain:
 - No REST API routes.
 - No block registration (`register_block_type`) and no custom block source.
 - No content seeding — no `wp_insert_post` loops, no `content/*.html` files, no `after_switch_theme` seeders. Content is seeded into the live database (next section).
-- No font enqueue file (`fonts.php`) and no `wp_enqueue_style` for Google Fonts. Fonts are declared in `theme.json` via `settings.typography.fontFamilies[].fontFace` (see "Fonts live in theme.json").
+- No font enqueue file (`fonts.php`) and no `wp_enqueue_style` for Google Fonts. Fonts are declared in `theme.json` as `settings.typography.fontFamilies` CSS-stack tokens — no `fontFace`, no `src`, no font files (see "Fonts live in theme.json").
 
 What `functions.php` MAY contain (and nothing more):
 
@@ -165,9 +165,9 @@ When `layoutMode` starts with `sidebar-`, force `{ "position": "static", "overla
 - `styles.elements.link.color.text` AND `.:hover.color.text` together.
 - Paired-contrast rule: every `styles.blocks.<block>.color` sets BOTH background and text — never one alone.
 
-## Fonts live in theme.json
+## Fonts live in theme.json (system-font stacks, no font files)
 
-Declare every font in `theme.json` under `settings.typography.fontFamilies`, each with a `fontFace` array pointing at bundled woff2 files in `assets/`. Do NOT enqueue Google Fonts and do NOT ship a `fonts.php`.
+Declare every font in `theme.json` under `settings.typography.fontFamilies` as design TOKENS — each a `fontFamily` CSS stack with robust system-font fallbacks. Do NOT emit a `fontFace`/`src` array, do NOT reference a remote URL (`fonts.gstatic.com`/`fonts.googleapis.com`) or a `file:` path, do NOT `@import`, and do NOT ship a `fonts.php`. The theme bundles no woff2 binaries, so a `src` would 404; the stack must render on system fonts (and stays robust in headless/offline/CSP environments).
 
 ```json
 {
@@ -175,17 +175,9 @@ Declare every font in `theme.json` under `settings.typography.fontFamilies`, eac
     "typography": {
       "fontFamilies": [
         {
-          "fontFamily": "\"Fraunces\", serif",
+          "fontFamily": "\"Fraunces\", Georgia, \"Times New Roman\", serif",
           "name": "Fraunces",
-          "slug": "display",
-          "fontFace": [
-            {
-              "fontFamily": "Fraunces",
-              "fontWeight": "400 700",
-              "fontStyle": "normal",
-              "src": [ "file:./assets/fonts/fraunces.woff2" ]
-            }
-          ]
+          "slug": "display"
         }
       ]
     }
@@ -193,7 +185,7 @@ Declare every font in `theme.json` under `settings.typography.fontFamilies`, eac
 }
 ```
 
-This loads the font in both front end and editor with no enqueue code, and keeps the theme self-contained and offline-capable.
+The design font leads the stack (it renders if the visitor has it installed); the system fallbacks guarantee readable text with no network request, keeping the theme self-contained and offline-capable.
 
 ## Theme invariants (apply to every file)
 

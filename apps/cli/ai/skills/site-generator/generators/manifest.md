@@ -6,7 +6,7 @@ You plan the complete file manifest for a generated WordPress site and decide wh
 
 A generated site is always two packages:
 
-1. **A pure presentation theme** at `<site>/wp-content/themes/<themeSlug>/`. It holds `theme.json`, `style.css`, `templates/`, `parts/`, `patterns/`, and `assets/`. Fonts are declared in `theme.json` via `settings.typography.fontFamilies` with `fontFace` entries — never enqueued from PHP. `functions.php` is minimal: it enqueues `style.css` on the front end and calls `add_editor_style`. The theme registers **no** custom post types, **no** REST routes, **no** blocks, and seeds **no** content.
+1. **A pure presentation theme** at `<site>/wp-content/themes/<themeSlug>/`. It holds `theme.json`, `style.css`, `templates/`, `parts/`, `patterns/`, and `assets/`. Fonts are declared in `theme.json` as `settings.typography.fontFamilies` CSS-stack tokens with system-font fallbacks — no `fontFace`/`src`, no remote or `file:` font URLs, never enqueued from PHP. `functions.php` is minimal: it enqueues `style.css` on the front end and calls `add_editor_style`. The theme registers **no** custom post types, **no** REST routes, **no** blocks, and seeds **no** content.
 
 2. **An optional companion plugin** at `<site>/wp-content/plugins/<themeSlug>-functionality/`. It holds **all** behavior: custom post types + taxonomies + post meta, REST API routes, and custom build-less Gutenberg blocks (plain-JS `view.js`/`editor.js` registered server-side with `register_block_type`). The companion plugin exists only when the site actually needs behavior.
 

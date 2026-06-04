@@ -1,8 +1,9 @@
-import { Link } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { category, cog, comment } from '@wordpress/icons';
-import { Icon } from '@wordpress/ui';
+import { category, download, globe, plus } from '@wordpress/icons';
+import { Icon, IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
+import * as Menu from '@/components/menu';
 import { SidebarButton } from '@/components/sidebar-button';
 import styles from './style.module.css';
 import type { ComponentProps } from 'react';
@@ -15,11 +16,38 @@ type NavItem = {
 };
 
 function getItems(): NavItem[] {
-	return [
-		{ key: 'chat', label: __( 'Chat' ), icon: comment, to: '/dashboard' },
-		{ key: 'settings', label: __( 'Settings' ), icon: cog, to: '/settings' },
-		{ key: 'skills', label: __( 'Skills' ), icon: category },
-	];
+	return [ { key: 'sites', label: __( 'All sites' ), icon: category, to: '/sites' } ];
+}
+
+function AllSitesCreateMenu() {
+	const navigate = useNavigate();
+
+	return (
+		<Menu.Root modal={ false }>
+			<Menu.Trigger
+				render={
+					<IconButton
+						variant="minimal"
+						tone="neutral"
+						size="small"
+						icon={ plus }
+						label={ __( 'Create new' ) }
+						className={ styles.itemAction }
+					/>
+				}
+			/>
+			<Menu.Popup side="bottom" align="end" className={ styles.popup }>
+				<Menu.Item onClick={ () => void navigate( { to: '/onboarding' } ) }>
+					<Icon icon={ globe } />
+					<span>{ __( 'New site' ) }</span>
+				</Menu.Item>
+				<Menu.Item onClick={ () => void navigate( { to: '/onboarding/import' } ) }>
+					<Icon icon={ download } />
+					<span>{ __( 'Import from…' ) }</span>
+				</Menu.Item>
+			</Menu.Popup>
+		</Menu.Root>
+	);
 }
 
 export function SidebarNav() {
@@ -28,23 +56,27 @@ export function SidebarNav() {
 		<nav className={ styles.root }>
 			<ul className={ styles.list }>
 				{ items.map( ( item ) => (
-					<li key={ item.key }>
+					<li key={ item.key } className={ styles.listItem }>
 						<SidebarButton
 							className={ styles.item }
 							render={
-								item.to ? (
-									<Link
-										to={ item.to }
-										activeProps={ {
-											className: clsx( styles.item, styles.itemActive ),
-										} }
-									/>
-								) : undefined
+								<Link
+									to={ item.to }
+									activeOptions={ { exact: true } }
+									activeProps={ {
+										className: clsx( styles.item, styles.itemActive ),
+									} }
+								/>
 							}
 						>
-							<Icon icon={ item.icon } />
-							<span>{ item.label }</span>
+							<span className={ styles.iconSlot }>
+								<Icon icon={ item.icon } size={ 28 } />
+							</span>
+							<span className={ styles.label }>{ item.label }</span>
 						</SidebarButton>
+						<div className={ styles.itemActions }>
+							<AllSitesCreateMenu />
+						</div>
 					</li>
 				) ) }
 			</ul>

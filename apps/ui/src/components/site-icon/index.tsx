@@ -18,6 +18,8 @@ type Props = ComponentPropsWithoutRef< 'span' > & {
 	// Data URL for the configured WordPress Site Icon. Falls back to the
 	// procedural mesh gradient when missing or when the image fails to load.
 	imageSrc?: string | null;
+	// Desaturate the icon (gradient or image) — e.g. to mark a non-site entry.
+	grayscale?: boolean;
 };
 
 function hashSeed( seed: string ): number {
@@ -47,14 +49,22 @@ function getMeshGradientStyle( seed = 'site' ): SiteIconStyle {
 	};
 }
 
-export function SiteIcon( { className, seed, style, imageSrc, ...props }: Props ) {
-	const [ hasImageError, setHasImageError ] = useState( false );
-	const showImage = !! imageSrc && ! hasImageError;
+export function SiteIcon( { className, seed, style, imageSrc, grayscale, ...props }: Props ) {
+	// Track the specific source that failed rather than a plain boolean, so that
+	// a later valid `imageSrc` (these instances are reused as sites change)
+	// retries the image instead of staying stuck on the gradient fallback.
+	const [ erroredSrc, setErroredSrc ] = useState< string | null >( null );
+	const showImage = !! imageSrc && erroredSrc !== imageSrc;
 
 	return (
 		<span
 			{ ...props }
-			className={ clsx( styles.root, showImage && styles.rootWithImage, className ) }
+			className={ clsx(
+				styles.root,
+				showImage && styles.rootWithImage,
+				grayscale && styles.grayscale,
+				className
+			) }
 			style={ showImage ? style : { ...getMeshGradientStyle( seed ), ...style } }
 			aria-hidden="true"
 		>
@@ -63,7 +73,7 @@ export function SiteIcon( { className, seed, style, imageSrc, ...props }: Props 
 					className={ styles.image }
 					src={ imageSrc as string }
 					alt=""
-					onError={ () => setHasImageError( true ) }
+					onError={ () => setErroredSrc( imageSrc as string ) }
 				/>
 			) }
 		</span>

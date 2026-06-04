@@ -22,7 +22,7 @@ function OnboardingShell() {
 	} );
 	return (
 		<OnboardingLayout
-			onClose={ hasSites ? () => void navigate( { to: '/dashboard' } ) : undefined }
+			onClose={ hasSites ? () => void navigate( { to: '/sites' } ) : undefined }
 			width={ isWide ? 'wide' : 'default' }
 		>
 			<Outlet />

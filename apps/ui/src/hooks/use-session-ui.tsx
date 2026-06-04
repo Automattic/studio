@@ -23,8 +23,16 @@ import type { Annotation } from '@/components/site-preview/types';
 //   3. Exposing a small consumer hook (like `useSessionPreviewUI`) for the UI.
 //   4. Wiring the agent event in `useSessionCommands` via `dispatch`.
 
+export type SessionPreviewTabKind = 'wordpress' | 'site-map' | 'theme' | 'empty';
+
+export interface SessionPreviewTabOptions {
+	kind?: SessionPreviewTabKind;
+	path?: string;
+}
+
 export interface SessionPreviewTab {
 	id: string;
+	kind?: SessionPreviewTabKind;
 	path: string;
 	reloadNonce: number;
 }
@@ -38,18 +46,26 @@ interface PreviewUIState {
 	nextTabIndex: number;
 }
 
+interface ExplorerUIState {
+	activeTabId: string;
+}
+
 export interface SessionUIState {
 	preview: PreviewUIState;
+	explorer: ExplorerUIState;
 }
 
 export type SessionUIAction =
 	| { type: 'preview/set-open'; value: boolean }
 	| { type: 'preview/toggle' }
 	| { type: 'preview/navigate'; path: string }
-	| { type: 'preview/open-tab'; path?: string }
+	| { type: 'preview/open-tab'; kind?: SessionPreviewTabKind; path?: string }
+	| { type: 'preview/set-tab-content'; tabId: string; kind?: SessionPreviewTabKind; path?: string }
 	| { type: 'preview/close-tab'; tabId: string }
 	| { type: 'preview/select-tab'; tabId: string }
-	| { type: 'preview/update-active-tab-path'; path: string };
+	| { type: 'preview/update-active-tab-path'; path: string }
+	| { type: 'explorer/select-tab'; tabId: string }
+	| { type: 'explorer/close-tab'; tabId: string };
 
 const INITIAL_PREVIEW_TAB_ID = 'preview-tab-1';
 const INITIAL_PREVIEW_PATH = '/';
@@ -63,7 +79,60 @@ const INITIAL_STATE: SessionUIState = {
 		activeTabId: INITIAL_PREVIEW_TAB_ID,
 		nextTabIndex: 2,
 	},
+	explorer: {
+		activeTabId: INITIAL_PREVIEW_TAB_ID,
+	},
 };
+
+function getStoredTabKind( kind: SessionPreviewTabKind | undefined ) {
+	return kind && kind !== 'wordpress' ? kind : undefined;
+}
+
+function getDefaultPathForTab( path?: string ) {
+	if ( typeof path === 'string' ) {
+		return path;
+	}
+	return '/';
+}
+
+function createPreviewTab(
+	id: string,
+	{ kind, path, reloadNonce = 0 }: SessionPreviewTabOptions & { reloadNonce?: number } = {}
+): SessionPreviewTab {
+	return {
+		id,
+		kind: getStoredTabKind( kind ),
+		path: getDefaultPathForTab( path ),
+		reloadNonce,
+	};
+}
+
+function getNextPreviewTab( state: PreviewUIState, currentTabId: string ): string {
+	const tabIds = state.tabs.map( ( tab ) => tab.id );
+	const currentIndex = tabIds.indexOf( currentTabId );
+	const remainingTabIds = tabIds.filter( ( tabId ) => tabId !== currentTabId );
+	if ( remainingTabIds.length === 0 ) {
+		return INITIAL_PREVIEW_TAB_ID;
+	}
+	return remainingTabIds[ Math.min( Math.max( currentIndex, 0 ), remainingTabIds.length - 1 ) ];
+}
+
+function getStateWithActivePreviewTab(
+	state: SessionUIState,
+	tab: SessionPreviewTab
+): SessionUIState {
+	return {
+		...state,
+		preview: {
+			...state.preview,
+			path: tab.path,
+			reloadNonce: tab.reloadNonce,
+			activeTabId: tab.id,
+			open: true,
+		},
+		explorer: { ...state.explorer, activeTabId: tab.id },
+	};
+}
 
 function reducer( state: SessionUIState, action: SessionUIAction ): SessionUIState {
 	switch ( action.type ) {
@@ -91,12 +160,16 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 						nextTabIndex: state.preview.nextTabIndex + 1,
 						open: true,
 					},
+					explorer: {
+						...state.explorer,
+						activeTabId: id,
+					},
 				};
 			}
 			const activeTab = state.preview.tabs[ activeTabIndex ];
 			const reloadNonce = activeTab.reloadNonce + 1;
 			const tabs = state.preview.tabs.map( ( tab, index ) =>
-				index === activeTabIndex ? { ...tab, path: action.path, reloadNonce } : tab
+				index === activeTabIndex ? { ...tab, kind: undefined, path: action.path, reloadNonce } : tab
 			);
 			return {
 				...state,
@@ -107,22 +180,59 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 					tabs,
 					open: true,
 				},
+				explorer: {
+					...state.explorer,
+					activeTabId: activeTab.id,
+				},
 			};
 		}
 		case 'preview/open-tab': {
-			const path = typeof action.path === 'string' ? action.path : INITIAL_PREVIEW_PATH;
 			const id = `preview-tab-${ state.preview.nextTabIndex }`;
-			const tab = { id, path, reloadNonce: 0 };
+			const tab = createPreviewTab( id, { kind: action.kind, path: action.path } );
 			return {
 				...state,
 				preview: {
 					...state.preview,
-					path,
+					path: tab.path,
 					reloadNonce: tab.reloadNonce,
 					tabs: [ ...state.preview.tabs, tab ],
 					activeTabId: id,
 					nextTabIndex: state.preview.nextTabIndex + 1,
 					open: true,
+				},
+				explorer: {
+					...state.explorer,
+					activeTabId: id,
+				},
+			};
+		}
+		case 'preview/set-tab-content': {
+			const activeTabIndex = state.preview.tabs.findIndex( ( tab ) => tab.id === action.tabId );
+			if ( activeTabIndex === -1 ) {
+				return state;
+			}
+			const currentTab = state.preview.tabs[ activeTabIndex ];
+			const nextTab = createPreviewTab( currentTab.id, {
+				kind: action.kind,
+				path: action.path,
+				reloadNonce: currentTab.reloadNonce,
+			} );
+			const tabs = state.preview.tabs.map( ( tab, index ) =>
+				index === activeTabIndex ? nextTab : tab
+			);
+			return {
+				...state,
+				preview: {
+					...state.preview,
+					path: nextTab.path,
+					reloadNonce: nextTab.reloadNonce,
+					tabs,
+					activeTabId: nextTab.id,
+					open: true,
+				},
+				explorer: {
+					...state.explorer,
+					activeTabId: nextTab.id,
 				},
 			};
 		}
@@ -135,7 +245,7 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 			const tabs = state.preview.tabs.filter( ( tab ) => tab.id !== action.tabId );
 			if ( tabs.length === 0 ) {
 				const id = `preview-tab-${ state.preview.nextTabIndex }`;
-				const tab = { id, path: INITIAL_PREVIEW_PATH, reloadNonce: 0 };
+				const tab = createPreviewTab( id, { path: INITIAL_PREVIEW_PATH } );
 				return {
 					...state,
 					preview: {
@@ -147,15 +257,29 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 						nextTabIndex: state.preview.nextTabIndex + 1,
 						open: true,
 					},
+					explorer: {
+						...state.explorer,
+						activeTabId: id,
+					},
 				};
 			}
 
 			if ( action.tabId !== state.preview.activeTabId ) {
-				return { ...state, preview: { ...state.preview, tabs } };
+				return {
+					...state,
+					preview: { ...state.preview, tabs },
+					explorer: {
+						...state.explorer,
+						activeTabId:
+							state.explorer.activeTabId === action.tabId
+								? getNextPreviewTab( state.preview, action.tabId )
+								: state.explorer.activeTabId,
+					},
+				};
 			}
 
 			const nextActiveTab = tabs[ Math.min( closedTabIndex, tabs.length - 1 ) ];
-			return {
+			const nextState = {
 				...state,
 				preview: {
 					...state.preview,
@@ -165,6 +289,16 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 					activeTabId: nextActiveTab.id,
 					open: true,
 				},
+				explorer: {
+					...state.explorer,
+					activeTabId:
+						state.explorer.activeTabId === action.tabId
+							? nextActiveTab.id
+							: state.explorer.activeTabId,
+				},
+			};
+			return {
+				...nextState,
 			};
 		}
 		case 'preview/select-tab': {
@@ -181,6 +315,10 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 					activeTabId: tab.id,
 					open: true,
 				},
+				explorer: {
+					...state.explorer,
+					activeTabId: tab.id,
+				},
 			};
 		}
 		case 'preview/update-active-tab-path': {
@@ -195,7 +333,7 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 				return state;
 			}
 			const tabs = state.preview.tabs.map( ( tab, index ) =>
-				index === activeTabIndex ? { ...tab, path: action.path } : tab
+				index === activeTabIndex ? { ...tab, kind: undefined, path: action.path } : tab
 			);
 			return {
 				...state,
@@ -205,6 +343,13 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 					tabs,
 				},
 			};
+		}
+		case 'explorer/select-tab': {
+			const tab = state.preview.tabs.find( ( candidate ) => candidate.id === action.tabId );
+			return tab ? getStateWithActivePreviewTab( state, tab ) : state;
+		}
+		case 'explorer/close-tab': {
+			return reducer( state, { type: 'preview/close-tab', tabId: action.tabId } );
 		}
 	}
 }
@@ -267,10 +412,21 @@ export interface SessionPreviewUI {
 	setOpen: ( value: boolean ) => void;
 	toggle: () => void;
 	navigate: ( path: string ) => void;
-	openTab: ( path?: string ) => void;
+	openTab: ( options?: string | SessionPreviewTabOptions ) => void;
+	setTabContent: ( tabId: string, options: SessionPreviewTabOptions ) => void;
 	closeTab: ( tabId: string ) => void;
 	selectTab: ( tabId: string ) => void;
 	updateActiveTabPath: ( path: string ) => void;
+}
+
+export interface SessionExplorerUI {
+	readonly open: boolean;
+	readonly activeTabId: string;
+	readonly visibleTabIds: readonly string[];
+	setOpen: ( value: boolean ) => void;
+	toggle: () => void;
+	selectTab: ( tabId: string ) => void;
+	closeTab: ( tabId: string ) => void;
 }
 
 export function useSessionPreviewUI(): SessionPreviewUI {
@@ -286,7 +442,15 @@ export function useSessionPreviewUI(): SessionPreviewUI {
 		[ dispatch ]
 	);
 	const openTab = useCallback(
-		( path?: string ) => dispatch( { type: 'preview/open-tab', path } ),
+		( options?: string | SessionPreviewTabOptions ) => {
+			const normalized = typeof options === 'string' ? { path: options } : options ?? {};
+			dispatch( { type: 'preview/open-tab', ...normalized } );
+		},
+		[ dispatch ]
+	);
+	const setTabContent = useCallback(
+		( tabId: string, options: SessionPreviewTabOptions ) =>
+			dispatch( { type: 'preview/set-tab-content', tabId, ...options } ),
 		[ dispatch ]
 	);
 	const closeTab = useCallback(
@@ -312,6 +476,7 @@ export function useSessionPreviewUI(): SessionPreviewUI {
 			toggle,
 			navigate,
 			openTab,
+			setTabContent,
 			closeTab,
 			selectTab,
 			updateActiveTabPath,
@@ -326,9 +491,52 @@ export function useSessionPreviewUI(): SessionPreviewUI {
 			toggle,
 			navigate,
 			openTab,
+			setTabContent,
 			closeTab,
 			selectTab,
 			updateActiveTabPath,
+		]
+	);
+}
+
+export function useSessionExplorerUI(): SessionExplorerUI {
+	const state = useSessionUIState();
+	const dispatch = useSessionUIDispatch();
+	const setOpen = useCallback(
+		( value: boolean ) => dispatch( { type: 'preview/set-open', value } ),
+		[ dispatch ]
+	);
+	const toggle = useCallback( () => dispatch( { type: 'preview/toggle' } ), [ dispatch ] );
+	const selectTab = useCallback(
+		( tabId: string ) => dispatch( { type: 'explorer/select-tab', tabId } ),
+		[ dispatch ]
+	);
+	const closeTab = useCallback(
+		( tabId: string ) => dispatch( { type: 'explorer/close-tab', tabId } ),
+		[ dispatch ]
+	);
+	const visibleTabIds = useMemo(
+		() => [ state.preview.activeTabId ],
+		[ state.preview.activeTabId ]
+	);
+	return useMemo(
+		() => ( {
+			open: state.preview.open,
+			activeTabId: state.preview.activeTabId,
+			visibleTabIds,
+			setOpen,
+			toggle,
+			selectTab,
+			closeTab,
+		} ),
+		[
+			state.preview.open,
+			state.preview.activeTabId,
+			visibleTabIds,
+			setOpen,
+			toggle,
+			selectTab,
+			closeTab,
 		]
 	);
 }

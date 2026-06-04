@@ -325,7 +325,7 @@ export interface Connector {
 }
 
 export interface FeatureFlags {
-	enableDesksUiSwitch: boolean;
+	enableBlueprints: boolean;
 }
 
 export type ColorScheme = 'system' | 'light' | 'dark';

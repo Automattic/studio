@@ -31,11 +31,19 @@ import {
 import { useSites } from '@/data/queries/use-sites';
 import { useFullscreen } from '@/hooks/use-fullscreen';
 import { useKeyboardShortcut } from '@/hooks/use-keyboard-shortcut';
-import { SessionUIProvider, useSessionPreviewUI } from '@/hooks/use-session-ui';
+import {
+	SessionUIProvider,
+	useSessionExplorerUI,
+	useSessionPreviewUI,
+} from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
+import {
+	buildExplorerAgentPrompt,
+	getVisibleExplorerPanelKinds,
+} from '@/lib/explorer-agent-context';
 import { formatRelativeTime } from '@/lib/format-relative-time';
 import { getKeyboardShortcut, getKeyboardShortcutDescriptor } from '@/lib/keyboard-shortcuts';
-import { Composer } from '@/ui-classic/components/session-view/composer';
+import { Composer } from '@/surfaces/sessions/session-view/composer';
 import styles from './style.module.css';
 import type { SiteSettingsTabId } from '@/components/site-settings-view';
 import type { AiModelId, AiSessionSummary, SiteDetails } from '@/data/core';
@@ -59,6 +67,7 @@ function SiteOverviewViewContent( { siteId }: { siteId: string } ) {
 	const updateSessionMetadata = useUpdateSessionMetadata();
 	const site = sites?.find( ( candidate ) => candidate.id === siteId );
 	const preview = useSessionPreviewUI();
+	const explorer = useSessionExplorerUI();
 	const showPreview = preview.open;
 	const [ composerBusy, setComposerBusy ] = useState( false );
 	const [ composerError, setComposerError ] = useState< string | null >( null );
@@ -79,7 +88,20 @@ function SiteOverviewViewContent( { siteId }: { siteId: string } ) {
 				if ( selectedModel !== DEFAULT_MODEL ) {
 					await connector.setSessionModel( session.id, selectedModel );
 				}
-				await connector.continueSession( session.id, prompt, { displayMessage: prompt } );
+				await connector.continueSession(
+					session.id,
+					buildExplorerAgentPrompt( {
+						prompt,
+						visiblePanelKinds: explorer.open
+							? getVisibleExplorerPanelKinds( {
+									visibleTabIds: explorer.visibleTabIds,
+									tabs: preview.tabs,
+							  } )
+							: [],
+						browserPath: preview.path,
+					} ),
+					{ displayMessage: prompt }
+				);
 				void queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } );
 				await navigate( {
 					to: '/sessions/$sessionId',
@@ -93,7 +115,18 @@ function SiteOverviewViewContent( { siteId }: { siteId: string } ) {
 				setComposerBusy( false );
 			}
 		},
-		[ composerBusy, connector, navigate, queryClient, selectedModel, site ]
+		[
+			composerBusy,
+			connector,
+			explorer.open,
+			explorer.visibleTabIds,
+			navigate,
+			preview.tabs,
+			preview.path,
+			queryClient,
+			selectedModel,
+			site,
+		]
 	);
 
 	useKeyboardShortcut( 'toggle-site-preview', preview.toggle, {
@@ -135,7 +168,7 @@ function SiteOverviewViewContent( { siteId }: { siteId: string } ) {
 					/>
 				}
 				composer={
-					<div className={ styles.classicColumn }>
+					<div className={ styles.composerColumn }>
 						<Composer
 							busy={ composerBusy }
 							error={ composerError }

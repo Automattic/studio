@@ -11,7 +11,6 @@ import * as Tabs from '@/components/tabs';
 import { useConnector } from '@/data/core';
 import { persister } from '@/data/core/query-client';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
-import { useFeatureFlags } from '@/data/queries/use-feature-flags';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
@@ -148,14 +147,14 @@ function KeyboardShortcutsList() {
 	);
 }
 
-function OldStudioUiPreference() {
+function LegacyStudioUiPreference() {
 	const connector = useConnector();
 
 	return (
 		<section className={ styles.preferenceSection }>
 			<div className={ styles.preferenceSectionText }>
 				<h2>{ __( 'Studio UI' ) }</h2>
-				<p>{ __( 'Switch back to the old Studio UI.' ) }</p>
+				<p>{ __( 'Switch to Studio 1.0.' ) }</p>
 			</div>
 			<Button
 				type="button"
@@ -163,7 +162,7 @@ function OldStudioUiPreference() {
 				tone="neutral"
 				onClick={ () => void connector.setStudioUiMode( 'default' ) }
 			>
-				{ __( 'Switch to old Studio UI' ) }
+				{ __( 'Switch to Studio 1.0' ) }
 			</Button>
 		</section>
 	);
@@ -278,7 +277,6 @@ export function SettingsView( {
 } ) {
 	const { data: saved, isLoading } = useUserPreferences();
 	const { data: installedApps } = useInstalledApps();
-	const { data: featureFlags } = useFeatureFlags();
 	const savePreferences = useSaveUserPreferences();
 
 	const [ data, setData ] = useState< FormData | null >( null );
@@ -422,7 +420,7 @@ export function SettingsView( {
 									form={ preferencesForm }
 									onChange={ handleChange }
 								/>
-								{ featureFlags?.enableDesksUiSwitch ? <OldStudioUiPreference /> : null }
+								<LegacyStudioUiPreference />
 							</Tabs.Panel>
 							<Tabs.Panel tabId="account">
 								<AccountSettingsPanel />

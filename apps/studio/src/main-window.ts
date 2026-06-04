@@ -34,51 +34,45 @@ import type { UserData, WindowBounds } from 'src/storage/storage-types';
 let mainWindow: BrowserWindow | null;
 let currentRendererUrl: string | undefined;
 
+type RendererMode = 'default' | 'studio';
+
 interface RendererLocation {
 	url: string;
 	filePath?: string;
-	query?: Record< string, string >;
 }
 
-export function getPreferredStudioUiMode( userData: Pick< UserData, 'desks' > ): StudioUiMode {
+export function getPreferredRendererMode( userData: Pick< UserData, 'desks' > ): RendererMode {
 	const preferredMode = userData.desks?.defaultUiMode;
-	return preferredMode === 'desks' || preferredMode === 'agentic' ? preferredMode : 'default';
+	return preferredMode && preferredMode !== 'default' ? 'studio' : 'default';
 }
 
-function getRendererFilePath( mode: StudioUiMode ) {
+function toRendererMode( mode: StudioUiMode | undefined ): RendererMode {
+	return mode && mode !== 'default' ? 'studio' : 'default';
+}
+
+function getRendererFilePath( mode: RendererMode ) {
 	return path.join(
 		__dirname,
-		mode === 'default' ? '../renderer/index.html' : '../renderer-desks/index.html'
+		mode === 'default' ? '../renderer/index.html' : '../renderer-studio/index.html'
 	);
 }
 
-function getRendererQuery( mode: StudioUiMode ): Record< string, string > | undefined {
-	return mode === 'default' ? undefined : { 'studio-ui-mode': mode };
-}
+function getRendererLocation(
+	userData: Pick< UserData, 'desks' >,
+	explicitMode?: StudioUiMode
+): RendererLocation {
+	const preferredMode =
+		explicitMode === undefined
+			? getPreferredRendererMode( userData )
+			: toRendererMode( explicitMode );
+	let mode =
+		! app.isPackaged && process.env[ 'ELECTRON_STUDIO_RENDERER_URL' ] && explicitMode === undefined
+			? 'studio'
+			: preferredMode;
 
-function appendRendererQuery( url: string, query: Record< string, string > | undefined ) {
-	if ( ! query ) {
-		return url;
-	}
-
-	const rendererUrl = new URL( url );
-	for ( const [ key, value ] of Object.entries( query ) ) {
-		rendererUrl.searchParams.set( key, value );
-	}
-	return rendererUrl.toString();
-}
-
-function getRendererLocation( userData: Pick< UserData, 'desks' > ): RendererLocation {
-	const preferredMode = getPreferredStudioUiMode( userData );
-	const preferredQuery = getRendererQuery( preferredMode );
-
-	if (
-		! app.isPackaged &&
-		preferredMode !== 'default' &&
-		process.env[ 'ELECTRON_DESKS_RENDERER_URL' ]
-	) {
+	if ( ! app.isPackaged && mode === 'studio' && process.env[ 'ELECTRON_STUDIO_RENDERER_URL' ] ) {
 		return {
-			url: appendRendererQuery( process.env[ 'ELECTRON_DESKS_RENDERER_URL' ], preferredQuery ),
+			url: process.env[ 'ELECTRON_STUDIO_RENDERER_URL' ],
 		};
 	}
 
@@ -88,18 +82,15 @@ function getRendererLocation( userData: Pick< UserData, 'desks' > ): RendererLoc
 		};
 	}
 
-	let mode = preferredMode;
 	let filePath = getRendererFilePath( mode );
 	if ( mode !== 'default' && ! fs.existsSync( filePath ) ) {
 		mode = 'default';
 		filePath = getRendererFilePath( mode );
 	}
-	const query = getRendererQuery( mode );
 
 	return {
 		filePath,
-		query,
-		url: appendRendererQuery( pathToFileURL( filePath ).href, query ),
+		url: pathToFileURL( filePath ).href,
 	};
 }
 
@@ -110,10 +101,7 @@ function rememberRendererLocation( location: RendererLocation ) {
 async function loadRendererLocation( window: BrowserWindow, location: RendererLocation ) {
 	rememberRendererLocation( location );
 	if ( location.filePath ) {
-		await window.loadFile(
-			location.filePath,
-			location.query ? { query: location.query } : undefined
-		);
+		await window.loadFile( location.filePath );
 		return;
 	}
 	await window.loadURL( location.url );
@@ -124,12 +112,7 @@ export async function loadMainWindowRenderer(
 	mode?: StudioUiMode
 ): Promise< void > {
 	const userData = await loadUserData();
-	const location = getRendererLocation( {
-		desks: {
-			...userData.desks,
-			...( mode ? { defaultUiMode: mode } : {} ),
-		},
-	} );
+	const location = getRendererLocation( userData, mode );
 	await loadRendererLocation( window, location );
 }
 
@@ -235,11 +218,11 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		void promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: true } );
 	} );
 
-	// Cmd/Ctrl +/-/0 zoom. The classic shell gets these from the application
+	// Cmd/Ctrl +/-/0 zoom. The legacy shell gets these from the application
 	// menu's zoom roles (see menu.ts); the apps/ui shell never builds that
 	// menu, so the accelerators are dead there. Wire them at the webContents
 	// level, but defer to the application menu when one is present so the
-	// classic shell doesn't zoom twice per keypress.
+	// legacy shell doesn't zoom twice per keypress.
 	mainWindow.webContents.on( 'before-input-event', ( event, input ) => {
 		if ( input.type !== 'keyDown' || ! ( input.meta || input.control ) ) {
 			return;

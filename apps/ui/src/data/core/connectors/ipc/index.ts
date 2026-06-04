@@ -647,7 +647,7 @@ export function createIpcConnector(): Connector {
 		async getFeatureFlags(): Promise< FeatureFlags > {
 			const appGlobals = ( await ipcApi.getAppGlobals() ) as Partial< FeatureFlags >;
 			return {
-				enableDesksUiSwitch: appGlobals.enableDesksUiSwitch ?? false,
+				enableBlueprints: appGlobals.enableBlueprints ?? false,
 			};
 		},
 

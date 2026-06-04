@@ -3,7 +3,6 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
-import { useFeatureFlags } from '@/data/queries/use-feature-flags';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { SettingsView } from './index';
@@ -36,10 +35,6 @@ vi.mock( '@/data/queries/use-auth-user', () => ( {
 	useLogout: vi.fn(),
 } ) );
 
-vi.mock( '@/data/queries/use-feature-flags', () => ( {
-	useFeatureFlags: vi.fn(),
-} ) );
-
 vi.mock( '@/data/queries/use-installed-apps', () => ( {
 	useInstalledApps: vi.fn(),
 } ) );
@@ -57,21 +52,22 @@ const useConnectorMock = vi.mocked( useConnector );
 const useAuthUserMock = vi.mocked( useAuthUser );
 const useLoginMock = vi.mocked( useLogin );
 const useLogoutMock = vi.mocked( useLogout );
-const useFeatureFlagsMock = vi.mocked( useFeatureFlags );
 const useInstalledAppsMock = vi.mocked( useInstalledApps );
 const useSaveUserPreferencesMock = vi.mocked( useSaveUserPreferences );
 const useUserPreferencesMock = vi.mocked( useUserPreferences );
 
 describe( 'SettingsView', () => {
 	const openExternalUrl = vi.fn();
+	const setStudioUiMode = vi.fn();
 	const loginMutate = vi.fn();
 	const logoutMutate = vi.fn();
 
 	beforeEach( () => {
 		openExternalUrl.mockResolvedValue( undefined );
+		setStudioUiMode.mockResolvedValue( undefined );
 		loginMutate.mockReset();
 		logoutMutate.mockReset();
-		useConnectorMock.mockReturnValue( { openExternalUrl } as never );
+		useConnectorMock.mockReturnValue( { openExternalUrl, setStudioUiMode } as never );
 		useAuthUserMock.mockReturnValue( {
 			data: {
 				displayName: 'Shaun Andrews',
@@ -80,7 +76,6 @@ describe( 'SettingsView', () => {
 		} as never );
 		useLoginMock.mockReturnValue( { mutate: loginMutate, isPending: false } as never );
 		useLogoutMock.mockReturnValue( { mutate: logoutMutate, isPending: false } as never );
-		useFeatureFlagsMock.mockReturnValue( { data: { enableDesksUiSwitch: false } } as never );
 		useInstalledAppsMock.mockReturnValue( { data: {} } as never );
 		useSaveUserPreferencesMock.mockReturnValue( { mutate: vi.fn(), isPending: false } as never );
 		useUserPreferencesMock.mockReturnValue( {
@@ -133,5 +128,13 @@ describe( 'SettingsView', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Log in with WordPress.com' } ) );
 
 		expect( loginMutate ).toHaveBeenCalled();
+	} );
+
+	it( 'always offers a switch to Studio 1.0', () => {
+		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Switch to Studio 1.0' } ) );
+
+		expect( setStudioUiMode ).toHaveBeenCalledWith( 'default' );
 	} );
 } );

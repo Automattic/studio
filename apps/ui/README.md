@@ -41,7 +41,17 @@ Mutations invalidate related queries on success, keeping the UI in sync without 
 
 ### Routing with TanStack Router
 
-Routes are **code-based** (not file-based), following the wp-calypso hosting dashboard pattern. Routes are defined with `createRoute()` calls under `router/` and assembled into a route tree in `router/router.tsx`.
+Routes are **code-based** (not file-based), following the wp-calypso hosting dashboard pattern. The shell assembles the route tree in `surfaces/shell/router.tsx`, while product areas live under `surfaces/`:
+
+```
+surfaces/
+  shell/        # app shell, root layouts, route tree
+  onboarding/   # site creation and import flows
+  sites/        # site list, overview, and settings routes
+  sessions/     # conversations, composer, and session routes
+  settings/     # app settings route
+  canvas/       # future site-scoped canvas surface
+```
 
 The router context carries both the `QueryClient` and `Connector`, enabling route-level data prefetching in `beforeLoad` hooks.
 
@@ -69,5 +79,5 @@ UI is built with `@wordpress/ui` and `@wordpress/theme` from the WordPress Desig
 Run the full Electron app with the new UI as the renderer:
 
 ```bash
-npm run start:new
+npm start
 ```

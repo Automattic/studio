@@ -19,9 +19,13 @@ function assertSiteId( siteId: unknown ): asserts siteId is string {
 }
 
 function assertStudioUiMode( mode: unknown ): asserts mode is StudioUiMode {
-	if ( mode !== 'default' && mode !== 'desks' && mode !== 'agentic' ) {
+	if ( mode !== 'default' && mode !== 'studio' && mode !== 'desks' && mode !== 'agentic' ) {
 		throw new Error( 'Invalid Studio UI mode.' );
 	}
+}
+
+function normalizeStudioUiMode( mode: StudioUiMode | undefined ): StudioUiMode {
+	return mode && mode !== 'default' ? 'studio' : 'default';
 }
 
 function getParentWindow( event: IpcMainInvokeEvent, channel: string ) {
@@ -55,8 +59,7 @@ export async function getStudioUiMode( _event: IpcMainInvokeEvent ): Promise< St
 		return 'default';
 	}
 	const userData = await loadUserData();
-	const mode = userData.desks?.defaultUiMode;
-	return mode === 'desks' || mode === 'agentic' ? mode : 'default';
+	return normalizeStudioUiMode( userData.desks?.defaultUiMode );
 }
 
 export async function setStudioUiMode(
@@ -64,6 +67,7 @@ export async function setStudioUiMode(
 	mode: StudioUiMode
 ): Promise< void > {
 	assertStudioUiMode( mode );
+	const normalizedMode = normalizeStudioUiMode( mode );
 	await lockAppdata();
 	try {
 		const userData = await loadUserData();
@@ -71,7 +75,7 @@ export async function setStudioUiMode(
 			...userData,
 			desks: {
 				...userData.desks,
-				defaultUiMode: mode,
+				defaultUiMode: normalizedMode,
 			},
 		} );
 	} finally {
@@ -81,7 +85,7 @@ export async function setStudioUiMode(
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( parentWindow && ! parentWindow.isDestroyed() ) {
 		setTimeout( () => {
-			void loadMainWindowRenderer( parentWindow, mode );
+			void loadMainWindowRenderer( parentWindow, normalizedMode );
 		}, 0 );
 	}
 }

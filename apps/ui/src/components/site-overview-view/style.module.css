@@ -109,7 +109,7 @@
 	z-index: 1;
 }
 
-.classicColumn {
+.composerColumn {
 	box-sizing: border-box;
 	width: 100%;
 	min-width: 0;

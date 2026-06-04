@@ -1,7 +1,8 @@
 export const DESK_CONFIG_VERSION = 1;
 export const DESK_SETTINGS_VERSION = 1;
 
-export type StudioUiMode = 'default' | 'desks' | 'agentic';
+// `desks` and `agentic` are legacy saved values from the former split new-UI modes.
+export type StudioUiMode = 'default' | 'studio' | 'desks' | 'agentic';
 
 export interface DeskToolbarLayout {
 	left: string[];

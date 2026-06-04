@@ -3,7 +3,6 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Button from 'src/components/button';
 import { FormPathInputComponent } from 'src/components/form-path-input';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { isWindowsStore } from 'src/lib/app-globals';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ColorSchemePicker } from 'src/modules/user-settings/components/color-scheme-picker';
@@ -33,7 +32,6 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const { __ } = useI18n();
 	const savedLocale = useI18nLocale();
 	const dispatch = useAppDispatch();
-	const { enableDesksUiSwitch } = useFeatureFlags();
 
 	const { data: colorScheme } = useGetColorSchemeQuery();
 	const { data: editor } = useGetUserEditorQuery();
@@ -130,12 +128,8 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 		}
 	};
 
-	const switchToDesksUi = () => {
-		void getIpcApi().setStudioUiMode( 'desks' );
-	};
-
-	const switchToAgenticUi = () => {
-		void getIpcApi().setStudioUiMode( 'agentic' );
+	const switchToStudioUi = () => {
+		void getIpcApi().setStudioUiMode( 'studio' );
 	};
 
 	return (
@@ -159,18 +153,13 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 			{ ! isWindowsStore() && (
 				<StudioCliToggle value={ isCliInstalledSelection } onChange={ setDirtyIsCliInstalled } />
 			) }
-			{ enableDesksUiSwitch && (
-				<SettingsFormField label={ __( 'Studio UI' ) }>
-					<div className="flex flex-wrap gap-3">
-						<Button variant="secondary" onClick={ switchToDesksUi }>
-							{ __( 'Switch to Desks UI' ) }
-						</Button>
-						<Button variant="secondary" onClick={ switchToAgenticUi }>
-							{ __( 'Switch to Agentic UI' ) }
-						</Button>
-					</div>
-				</SettingsFormField>
-			) }
+			<SettingsFormField label={ __( 'Studio UI' ) }>
+				<div className="flex flex-wrap gap-3">
+					<Button variant="secondary" onClick={ switchToStudioUi }>
+						{ __( 'Switch to Studio 2.0' ) }
+					</Button>
+				</div>
+			</SettingsFormField>
 			<div className="mt-auto pt-2 flex justify-end gap-3">
 				<Button
 					variant="tertiary"

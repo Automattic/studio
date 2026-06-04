@@ -1,10 +1,10 @@
 // To run tests, execute `npm run test -- src/modules/sync/tests/sync-sites-modal-selector.test.tsx` from the root directory
+import wpcomFactory from '@studio/common/lib/wpcom-factory';
+import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { render, screen } from '@testing-library/react';
 import nock from 'nock';
 import { Provider } from 'react-redux';
 import { vi } from 'vitest';
-import wpcomFactory from '@studio/common/lib/wpcom-factory';
-import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -13,8 +13,8 @@ import {
 	SyncSitesModalSelector,
 } from 'src/modules/sync/components/sync-sites-modal-selector';
 import { store } from 'src/stores';
-import { setWpcomClient } from 'src/stores/wpcom-api';
 import { testActions, testReducer } from 'src/stores/tests/utils/test-reducer';
+import { setWpcomClient } from 'src/stores/wpcom-api';
 import type { SitesQueryResult } from 'src/modules/sync/components/sync-sites-modal-selector';
 
 store.replaceReducer( testReducer );

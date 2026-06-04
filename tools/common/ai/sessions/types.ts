@@ -5,6 +5,13 @@ export type TurnStatus = 'success' | 'error' | 'max_turns' | 'interrupted';
 export interface AiSessionMetadata {
 	starred?: boolean;
 	archived?: boolean;
+	userTitle?: string;
+	generatedTitle?: string;
+	userDescription?: string;
+	generatedDescription?: string;
+	titleGeneratedAt?: string;
+	descriptionGeneratedAt?: string;
+	descriptionGeneratedEventCount?: number;
 }
 
 export interface AiSessionSummary extends AiSessionMetadata {
@@ -12,6 +19,8 @@ export interface AiSessionSummary extends AiSessionMetadata {
 	filePath: string;
 	createdAt: string;
 	updatedAt: string;
+	title?: string;
+	description?: string;
 	firstPrompt?: string;
 	assistantReplyPreview?: string;
 	// Desktop-only placement, hydrated by the app from app.json. CLI session

@@ -1,7 +1,10 @@
 import { StatsMetric } from 'src/lib/bump-stats';
 import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
+import type { MessageSendShortcut } from '@studio/common/lib/user-settings/message-send-shortcut';
 import type { DesksConfig } from '@studio/common/types/desk';
 import type { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
+
+export type WpAdminOpenTarget = 'default-browser' | 'studio-browser';
 
 export interface WindowBounds {
 	x: number;
@@ -42,6 +45,8 @@ export interface UserData {
 	preferredTerminal?: SupportedTerminal;
 	preferredEditor?: SupportedEditor;
 	colorScheme?: 'system' | 'light' | 'dark';
+	messageSendShortcut?: MessageSendShortcut;
+	wpAdminOpenTarget?: WpAdminOpenTarget;
 	betaFeatures?: BetaFeatures;
 	stopSitesOnQuit?: boolean;
 	defaultSiteDirectory?: string;

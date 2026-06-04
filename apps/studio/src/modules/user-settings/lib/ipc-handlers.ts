@@ -1,5 +1,10 @@
 import { BrowserWindow, IpcMainInvokeEvent, nativeTheme } from 'electron';
 import { updateSharedConfig } from '@studio/common/lib/shared-config';
+import {
+	DEFAULT_MESSAGE_SEND_SHORTCUT,
+	isMessageSendShortcut,
+	type MessageSendShortcut,
+} from '@studio/common/lib/user-settings/message-send-shortcut';
 import { DEFAULT_TERMINAL } from 'src/constants';
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { isInstalled } from 'src/lib/is-installed';
@@ -15,6 +20,7 @@ import {
 	unlockAppdata,
 	updateAppdata,
 } from 'src/storage/user-data';
+import type { WpAdminOpenTarget } from 'src/storage/storage-types';
 
 export function getInstalledAppsAndTerminals(): InstalledApps {
 	return {
@@ -106,6 +112,44 @@ export async function getColorScheme(): Promise< 'system' | 'light' | 'dark' > {
 	const colorScheme = userData.colorScheme ?? 'light';
 	nativeTheme.themeSource = colorScheme;
 	return colorScheme;
+}
+
+export async function saveMessageSendShortcut(
+	_event: IpcMainInvokeEvent,
+	messageSendShortcut: MessageSendShortcut
+) {
+	if ( ! isMessageSendShortcut( messageSendShortcut ) ) {
+		throw new Error( 'Invalid message send shortcut' );
+	}
+	await updateAppdata( { messageSendShortcut } );
+}
+
+export async function getMessageSendShortcut(): Promise< MessageSendShortcut > {
+	const userData = await loadUserData();
+	return isMessageSendShortcut( userData.messageSendShortcut )
+		? userData.messageSendShortcut
+		: DEFAULT_MESSAGE_SEND_SHORTCUT;
+}
+
+function isWpAdminOpenTarget( value: unknown ): value is WpAdminOpenTarget {
+	return value === 'default-browser' || value === 'studio-browser';
+}
+
+export async function saveWpAdminOpenTarget(
+	_event: IpcMainInvokeEvent,
+	wpAdminOpenTarget: WpAdminOpenTarget
+) {
+	if ( ! isWpAdminOpenTarget( wpAdminOpenTarget ) ) {
+		throw new Error( 'Invalid WP Admin open target' );
+	}
+	await updateAppdata( { wpAdminOpenTarget } );
+}
+
+export async function getWpAdminOpenTarget(): Promise< WpAdminOpenTarget > {
+	const userData = await loadUserData();
+	return isWpAdminOpenTarget( userData.wpAdminOpenTarget )
+		? userData.wpAdminOpenTarget
+		: 'default-browser';
 }
 
 export async function saveWapuuScore( _event: IpcMainInvokeEvent, score: number ): Promise< void > {

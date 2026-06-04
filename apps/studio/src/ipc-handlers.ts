@@ -18,6 +18,7 @@ import https from 'node:https';
 import os from 'os';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
+import { validateStudioChatImages } from '@studio/common/ai/chat-images';
 import { isAiModelId } from '@studio/common/ai/models';
 import { deriveEffectiveEnvironment } from '@studio/common/ai/sessions/effective-site';
 import {
@@ -73,6 +74,7 @@ import {
 	readSharedSessions,
 	updateSharedConfig,
 	updateSharedSession,
+	type SharedSessionMetadata,
 } from '@studio/common/lib/shared-config';
 import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
 import { shouldExcludeFromSync } from '@studio/common/lib/sync/exclude-from-sync';
@@ -168,6 +170,7 @@ import {
 import { Blueprint } from 'src/stores/wpcom-api';
 import { captureSiteThumbnail } from './lib/capture-site-thumbnail';
 import type { ActiveAgentRun } from '@studio/common/ai/agent-events';
+import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { Ignore } from 'ignore';
@@ -209,15 +212,19 @@ export {
 export {
 	getColorScheme,
 	getInstalledAppsAndTerminals,
+	getMessageSendShortcut,
 	getUserEditor,
 	getUserLocale,
 	getUserTerminal,
+	getWpAdminOpenTarget,
 	getWapuuScore,
 	previewColorScheme,
 	saveColorScheme,
+	saveMessageSendShortcut,
 	saveUserEditor,
 	saveUserLocale,
 	saveUserTerminal,
+	saveWpAdminOpenTarget,
 	saveWapuuScore,
 	showUserSettings,
 } from 'src/modules/user-settings/lib/ipc-handlers';
@@ -241,12 +248,24 @@ export { fetchSiteRest as fetchSiteRestApi } from 'src/lib/wordpress-rest-api';
 
 function hydrateAiSessionSummary(
 	summary: AiSessionSummary,
-	metadata?: Pick< AiSessionSummary, 'starred' | 'archived' >
+	metadata?: SharedSessionMetadata
 ): AiSessionSummary {
+	const title = metadata?.userTitle ?? metadata?.generatedTitle ?? summary.firstPrompt;
+	const description =
+		metadata?.userDescription ?? metadata?.generatedDescription ?? summary.assistantReplyPreview;
 	return {
 		...summary,
 		starred: metadata?.starred,
 		archived: metadata?.archived,
+		userTitle: metadata?.userTitle,
+		generatedTitle: metadata?.generatedTitle,
+		userDescription: metadata?.userDescription,
+		generatedDescription: metadata?.generatedDescription,
+		titleGeneratedAt: metadata?.titleGeneratedAt,
+		descriptionGeneratedAt: metadata?.descriptionGeneratedAt,
+		descriptionGeneratedEventCount: metadata?.descriptionGeneratedEventCount,
+		title,
+		description,
 	};
 }
 
@@ -366,7 +385,7 @@ export async function createAiSession(
 export async function updateAiSessionMetadata(
 	_event: IpcMainInvokeEvent,
 	sessionIdOrPrefix: string,
-	patch: Pick< AiSessionSummary, 'starred' | 'archived' >
+	patch: Partial< SharedSessionMetadata >
 ): Promise< AiSessionSummary > {
 	const { summary } = await loadAiSessionFromStore(
 		getAiSessionsRootDirectory(),
@@ -445,17 +464,19 @@ export async function continueAiSession(
 	event: IpcMainInvokeEvent,
 	sessionId: string,
 	prompt: string,
-	options: { displayMessage?: string } = {}
+	options: { displayMessage?: string; images?: StudioChatImage[] } = {}
 ): Promise< { runId: string } > {
 	if ( ! ( await oauthClient.isAuthenticated() ) ) {
 		throw new Error( __( 'WordPress.com login required. Log in to use Studio Desk chat.' ) );
 	}
 
 	await reconcileSessionEnvironmentBeforeRun( sessionId );
+	const images = validateStudioChatImages( options.images );
 	return startAgentRun( {
 		sessionId,
 		prompt: expandSkillCommandPrompt( prompt ),
 		displayMessage: options.displayMessage,
+		images,
 		webContents: event.sender,
 	} );
 }

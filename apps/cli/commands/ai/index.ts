@@ -1,3 +1,4 @@
+import { toStudioChatImageAttachment } from '@studio/common/ai/chat-images';
 import { DEFAULT_MODEL, type AiModelId } from '@studio/common/ai/models';
 import { getAgentEndTurnResult } from '@studio/common/ai/session-events';
 import { buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
@@ -35,6 +36,7 @@ import { findSiteByFolder } from 'cli/lib/cli-config/sites';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 import type { SessionManager } from '@mariozechner/pi-coding-agent';
+import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type {
 	StudioCustomEntryDataMap,
 	StudioCustomEntryType,
@@ -82,6 +84,7 @@ export async function runCommand( options: {
 	adapter: AiOutputAdapter;
 	initialMessage?: string;
 	initialDisplayMessage?: string;
+	initialImages?: StudioChatImage[];
 	resumeSession?: LoadedAiSession;
 	resumeSessionId?: string;
 	showLegacyCommandNotice?: boolean;
@@ -426,7 +429,8 @@ export async function runCommand( options: {
 
 	async function runAgentTurn(
 		prompt: string,
-		displayMessage = prompt
+		displayMessage = prompt,
+		images: StudioChatImage[] = []
 	): Promise< { status: TurnStatus; sessionId: string } > {
 		await maybeAutoSwitchProvider();
 		const sm = await ensureSession();
@@ -464,6 +468,7 @@ export async function runCommand( options: {
 				text: displayMessage,
 				source: 'prompt',
 				sitePath: site?.path,
+				attachments: images.length > 0 ? images.map( toStudioChatImageAttachment ) : undefined,
 			} )
 		);
 
@@ -471,6 +476,7 @@ export async function runCommand( options: {
 
 		const agentQuery = runStudioAgentTurn( {
 			prompt: enrichedPrompt,
+			images,
 			env,
 			model: currentModel,
 			session: sm,
@@ -530,7 +536,11 @@ export async function runCommand( options: {
 		try {
 			const displayMessage = options.initialDisplayMessage ?? options.initialMessage;
 			ui.addUserMessage( displayMessage );
-			const result = await runAgentTurn( options.initialMessage, displayMessage );
+			const result = await runAgentTurn(
+				options.initialMessage,
+				displayMessage,
+				options.initialImages
+			);
 			const jsonStatus = result.status === 'interrupted' ? 'error' : result.status;
 			( ui as JsonAdapter ).emitTurnCompleted( jsonStatus, result.sessionId );
 		} catch ( error ) {
@@ -550,7 +560,7 @@ export async function runCommand( options: {
 		const displayMessage = options.initialDisplayMessage ?? options.initialMessage;
 		ui.addUserMessage( displayMessage );
 		try {
-			await runAgentTurn( options.initialMessage, displayMessage );
+			await runAgentTurn( options.initialMessage, displayMessage, options.initialImages );
 		} catch ( error ) {
 			handleAgentTurnError( error );
 		}

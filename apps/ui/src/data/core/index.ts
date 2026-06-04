@@ -2,6 +2,7 @@ export { ConnectorProvider, useConnector } from './connector-context';
 export { queryClient, persistPromise } from './query-client';
 export type {
 	AiModelId,
+	AiSessionMetadata,
 	AiSessionSummary,
 	AuthUser,
 	ColorScheme,
@@ -16,12 +17,15 @@ export type {
 	InstalledApps,
 	LocalMediaFile,
 	LoadedAiSession,
+	MessageSendShortcut,
 	ProposedSitePath,
 	SelectedSiteFolder,
 	SessionEntry,
 	SiteDetails,
 	Snapshot,
 	StudioAgentQuestionData,
+	StudioChatImage,
+	StudioChatImageAttachment,
 	StudioCustomEntry,
 	StudioCustomEntryDataMap,
 	StudioCustomEntryType,
@@ -36,5 +40,6 @@ export type {
 	SyncSite,
 	UserPreferences,
 	WritableUserPreferences,
+	WpAdminOpenTarget,
 } from './types';
 export type { ActiveAgentRun, AgentEvent, AgentRunEvent } from '@studio/common/ai/agent-events';

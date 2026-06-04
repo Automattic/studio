@@ -1,8 +1,14 @@
 import type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiModelId } from '@studio/common/ai/models';
-import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+import type {
+	AiSessionMetadata,
+	AiSessionSummary,
+	LoadedAiSession,
+} from '@studio/common/ai/sessions/types';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
+import type { MessageSendShortcut } from '@studio/common/lib/user-settings/message-send-shortcut';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 import type { DeskConfig, DeskSettings, StudioUiMode } from '@studio/common/types/desk';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
@@ -12,7 +18,12 @@ import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wor
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 export type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
-export type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+export type { StudioChatImage, StudioChatImageAttachment } from '@studio/common/ai/chat-images';
+export type {
+	AiSessionMetadata,
+	AiSessionSummary,
+	LoadedAiSession,
+} from '@studio/common/ai/sessions/types';
 export type { SessionEntry } from '@mariozechner/pi-coding-agent';
 export type {
 	StudioCustomEntry,
@@ -37,6 +48,7 @@ export type {
 export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 export type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 export type { SupportedLocale } from '@studio/common/lib/locale';
+export type { MessageSendShortcut } from '@studio/common/lib/user-settings/message-send-shortcut';
 
 export type InstalledApps = Record< SupportedEditor | SupportedTerminal, boolean >;
 
@@ -225,7 +237,7 @@ export interface Connector {
 	deleteSession( sessionId: string ): Promise< void >;
 	updateSessionMetadata(
 		sessionId: string,
-		patch: Pick< AiSessionSummary, 'starred' | 'archived' >
+		patch: Partial< AiSessionMetadata >
 	): Promise< AiSessionSummary >;
 
 	// Create an empty session file so it appears immediately. When `siteId`
@@ -238,7 +250,7 @@ export interface Connector {
 	continueSession(
 		sessionId: string,
 		prompt: string,
-		options?: { displayMessage?: string }
+		options?: { displayMessage?: string; images?: StudioChatImage[] }
 	): Promise< { runId: string } >;
 	getActiveAgentRuns(): Promise< ActiveAgentRun[] >;
 	// Persist a UI-driven model override for the session. The CLI picks this up
@@ -259,9 +271,8 @@ export interface Connector {
 		environment: 'local' | 'live'
 	): Promise< { environment: 'local' | 'live'; url?: string; wpcomSiteId?: number } >;
 
-	// User preferences — editor, terminal, color scheme, locale. Fanned out to
-	// the granular main-process handlers inside the connector so the UI has a
-	// single query + mutation to work with.
+	// User preferences. Fanned out to the granular main-process handlers inside
+	// the connector so the UI has a single query + mutation to work with.
 	getUserPreferences(): Promise< UserPreferences >;
 	setUserPreferences( partial: Partial< WritableUserPreferences > ): Promise< void >;
 
@@ -318,11 +329,14 @@ export interface FeatureFlags {
 }
 
 export type ColorScheme = 'system' | 'light' | 'dark';
+export type WpAdminOpenTarget = 'default-browser' | 'studio-browser';
 
 export interface UserPreferences {
 	editor: SupportedEditor | null;
 	terminal: SupportedTerminal | null;
 	colorScheme: ColorScheme;
+	messageSendShortcut: MessageSendShortcut;
+	wpAdminOpenTarget: WpAdminOpenTarget;
 	locale: string | undefined;
 }
 

@@ -3,6 +3,7 @@
 // types are only used at the type-check boundary (`import type` is erased).
 
 import type { StudioChatArtifactData } from '../chat-artifacts';
+import type { StudioChatImageAttachment } from '../chat-images';
 import type { CustomEntry, SessionEntry } from '@mariozechner/pi-coding-agent';
 
 export type StudioCustomEntryType =
@@ -48,6 +49,7 @@ export interface StudioUserPromptData {
 	text: string;
 	source: 'prompt' | 'ask_user';
 	sitePath?: string;
+	attachments?: StudioChatImageAttachment[];
 }
 
 export interface StudioCustomEntryDataMap {

@@ -9,11 +9,15 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { getOldServerFilesPath, getOldUserDataCertificatesPath } from 'src/storage/paths';
+import {
+	getOldAppdataFilePath,
+	getOldServerFilesPath,
+	getOldUserDataCertificatesPath,
+} from 'src/storage/paths';
 import type { Migration } from '@studio/common/lib/migration';
 
 const DEPRECATED_APPDATA_FILE_PATH = path.join(
-	path.dirname( getOldServerFilesPath() ),
+	path.dirname( getOldAppdataFilePath() ),
 	'appdata-v1.deprecated.json'
 );
 

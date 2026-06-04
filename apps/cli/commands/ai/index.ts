@@ -1,8 +1,9 @@
+import { buildChatAttachmentSummaries } from '@studio/common/ai/chat-attachments';
 import {
 	buildAttachedFilesPromptBlock,
 	type StudioChatFileAttachment,
 } from '@studio/common/ai/chat-files';
-import { toStudioChatImageAttachment, type StudioChatImage } from '@studio/common/ai/chat-images';
+import { type StudioChatImage } from '@studio/common/ai/chat-images';
 import { DEFAULT_MODEL, type AiModelId } from '@studio/common/ai/models';
 import { getAgentEndTurnResult } from '@studio/common/ai/session-events';
 import { buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
@@ -41,7 +42,6 @@ import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 import type { SessionManager } from '@mariozechner/pi-coding-agent';
 import type {
-	StudioChatAttachmentSummary,
 	StudioCustomEntryDataMap,
 	StudioCustomEntryType,
 } from '@studio/common/ai/sessions/entry-types';
@@ -475,24 +475,12 @@ export async function runCommand( options: {
 		await persistSessionContext();
 
 		// Studio marker for the typed prompt; pi appends the real UserMessage.
-		const attachments: StudioChatAttachmentSummary[] = [
-			...images.map( ( image ) => ( {
-				kind: 'image' as const,
-				...toStudioChatImageAttachment( image ),
-			} ) ),
-			...files.map( ( file ) => ( {
-				kind: 'file' as const,
-				name: file.name,
-				mimeType: file.mimeType,
-				size: file.size,
-			} ) ),
-		];
 		await append( ( s ) =>
 			appendStudioEntry( s, 'studio.user_prompt', {
 				text: displayMessage,
 				source: 'prompt',
 				sitePath: site?.path,
-				attachments: attachments.length > 0 ? attachments : undefined,
+				attachments: buildChatAttachmentSummaries( images, files ),
 			} )
 		);
 

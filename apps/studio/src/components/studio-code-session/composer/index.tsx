@@ -327,7 +327,7 @@ export function Composer( {
 									<span className={ styles.attachmentName } title={ attachment.name }>
 										{ attachment.name }
 									</span>
-									{ attachment.size ? (
+									{ formatAttachmentSize( attachment.size ) ? (
 										<span className={ styles.attachmentSize }>
 											{ formatAttachmentSize( attachment.size ) }
 										</span>

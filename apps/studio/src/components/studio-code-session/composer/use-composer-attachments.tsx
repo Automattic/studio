@@ -84,6 +84,15 @@ function readFileAsBase64( file: File ): Promise< string > {
 	} );
 }
 
+// Release the blob URLs backing image previews so they don't leak.
+function revokeImageUrls( items: ComposerAttachment[] ): void {
+	for ( const item of items ) {
+		if ( item.kind === 'image' ) {
+			URL.revokeObjectURL( item.previewUrl );
+		}
+	}
+}
+
 export function useComposerAttachments() {
 	const [ attachments, setAttachments ] = useState< ComposerAttachment[] >( [] );
 	const [ error, setError ] = useState< string | null >( null );
@@ -92,20 +101,14 @@ export function useComposerAttachments() {
 	const removeAttachment = useCallback( ( id: string ) => {
 		setAttachments( ( current ) => {
 			const removed = current.find( ( item ) => item.id === id );
-			if ( removed && removed.kind === 'image' ) {
-				URL.revokeObjectURL( removed.previewUrl );
-			}
+			revokeImageUrls( removed ? [ removed ] : [] );
 			return current.filter( ( item ) => item.id !== id );
 		} );
 	}, [] );
 
 	const clear = useCallback( () => {
 		setAttachments( ( current ) => {
-			current.forEach( ( item ) => {
-				if ( item.kind === 'image' ) {
-					URL.revokeObjectURL( item.previewUrl );
-				}
-			} );
+			revokeImageUrls( current );
 			return [];
 		} );
 		setError( null );
@@ -118,46 +121,49 @@ export function useComposerAttachments() {
 		}
 		setError( null );
 
-		const next: ComposerAttachment[] = [];
-		for ( const file of list ) {
-			if ( isStudioChatImageMimeType( file.type ) ) {
-				if ( file.size > STUDIO_CHAT_MAX_IMAGE_BYTES ) {
-					setError( __( 'Images must be 5 MB or smaller.' ) );
-					continue;
+		// Read images concurrently — FileReader I/O shouldn't serialize.
+		const prepared = await Promise.all(
+			list.map( async ( file ): Promise< ComposerAttachment | null > => {
+				if ( isStudioChatImageMimeType( file.type ) ) {
+					if ( file.size > STUDIO_CHAT_MAX_IMAGE_BYTES ) {
+						setError( __( 'Images must be 5 MB or smaller.' ) );
+						return null;
+					}
+					try {
+						const dataBase64 = await readFileAsBase64( file );
+						return {
+							id: newAttachmentId(),
+							kind: 'image',
+							name: file.name,
+							mimeType: file.type,
+							size: file.size,
+							dataBase64,
+							previewUrl: URL.createObjectURL( file ),
+						};
+					} catch {
+						setError( __( 'Failed to read the attached image.' ) );
+						return null;
+					}
 				}
-				try {
-					const dataBase64 = await readFileAsBase64( file );
-					next.push( {
-						id: newAttachmentId(),
-						kind: 'image',
-						name: file.name,
-						mimeType: file.type,
-						size: file.size,
-						dataBase64,
-						previewUrl: URL.createObjectURL( file ),
-					} );
-				} catch {
-					setError( __( 'Failed to read the attached image.' ) );
+
+				// Non-image file: reference it by absolute path so the agent reads it.
+				const path = getIpcApi().getPathForFile( file );
+				if ( ! path ) {
+					setError( __( 'This file could not be attached.' ) );
+					return null;
 				}
-				continue;
-			}
+				return {
+					id: newAttachmentId(),
+					kind: 'file',
+					name: file.name,
+					path,
+					mimeType: file.type || undefined,
+					size: file.size,
+				};
+			} )
+		);
 
-			// Non-image file: reference it by absolute path so the agent reads it.
-			const path = getIpcApi().getPathForFile( file );
-			if ( ! path ) {
-				setError( __( 'This file could not be attached.' ) );
-				continue;
-			}
-			next.push( {
-				id: newAttachmentId(),
-				kind: 'file',
-				name: file.name,
-				path,
-				mimeType: file.type || undefined,
-				size: file.size,
-			} );
-		}
-
+		const next = prepared.filter( ( item ): item is ComposerAttachment => item !== null );
 		if ( next.length === 0 ) {
 			return;
 		}
@@ -176,7 +182,7 @@ export function useComposerAttachments() {
 								STUDIO_CHAT_MAX_IMAGES
 							)
 						);
-						URL.revokeObjectURL( attachment.previewUrl );
+						revokeImageUrls( [ attachment ] );
 						continue;
 					}
 					imageCount++;

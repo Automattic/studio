@@ -1,4 +1,4 @@
-import { toStudioChatImageAttachment } from '@studio/common/ai/chat-images';
+import { buildChatAttachmentSummaries } from '@studio/common/ai/chat-attachments';
 import { useQueryClient } from '@tanstack/react-query';
 import {
 	createContext,
@@ -17,7 +17,6 @@ import type { SessionEntry } from '@mariozechner/pi-coding-agent';
 import type { AgentEvent, AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
-import type { StudioChatAttachmentSummary } from '@studio/common/ai/sessions/entry-types';
 import type { LoadedAiSession } from '@studio/common/ai/sessions/types';
 
 function nowIso(): string {
@@ -50,28 +49,6 @@ export interface SendMessageOptions {
 	displayMessage?: string;
 	images?: StudioChatImage[];
 	files?: StudioChatFileAttachment[];
-}
-
-// Build the lightweight attachment summaries persisted on the user-prompt entry
-// (mirrors the CLI's `runAgentTurn`) so optimistic chips match the disk-backed
-// transcript after refetch.
-function buildAttachmentSummaries(
-	images: StudioChatImage[] = [],
-	files: StudioChatFileAttachment[] = []
-): StudioChatAttachmentSummary[] | undefined {
-	const summaries: StudioChatAttachmentSummary[] = [
-		...images.map( ( image ) => ( {
-			kind: 'image' as const,
-			...toStudioChatImageAttachment( image ),
-		} ) ),
-		...files.map( ( file ) => ( {
-			kind: 'file' as const,
-			name: file.name,
-			mimeType: file.mimeType,
-			size: file.size,
-		} ) ),
-	];
-	return summaries.length > 0 ? summaries : undefined;
 }
 
 export interface LiveAgentEvents {
@@ -483,7 +460,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				data: {
 					text: displayMessage,
 					source: 'prompt',
-					attachments: buildAttachmentSummaries( options.images, options.files ),
+					attachments: buildChatAttachmentSummaries( options.images, options.files ),
 				},
 			} as SessionEntry;
 			updateCache( sessionId, ( entries ) => [ ...entries, optimisticEntry ] );

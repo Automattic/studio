@@ -1,6 +1,13 @@
 import type { StudioChatFileAttachment } from './chat-files';
 
-export const STUDIO_CHAT_IMAGE_MIME_TYPES = [ 'image/png', 'image/jpeg' ] as const;
+// Image types the model accepts as multimodal content blocks (matches the
+// Anthropic vision-supported set). Anything else is sent as a file path instead.
+export const STUDIO_CHAT_IMAGE_MIME_TYPES = [
+	'image/png',
+	'image/jpeg',
+	'image/gif',
+	'image/webp',
+] as const;
 
 export type StudioChatImageMimeType = ( typeof STUDIO_CHAT_IMAGE_MIME_TYPES )[ number ];
 
@@ -62,7 +69,7 @@ export function validateStudioChatImages(
 	let totalBytes = 0;
 	for ( const image of images ) {
 		if ( ! isStudioChatImageMimeType( image.mimeType ) ) {
-			throw new Error( 'Only PNG and JPEG images can be attached.' );
+			throw new Error( 'Only PNG, JPEG, GIF, and WebP images can be attached.' );
 		}
 
 		if ( typeof image.dataBase64 !== 'string' || ! image.dataBase64 ) {

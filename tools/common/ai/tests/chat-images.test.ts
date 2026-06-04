@@ -20,18 +20,27 @@ describe( 'validateStudioChatImages', () => {
 		).toHaveLength( 1 );
 	} );
 
+	it( 'accepts GIF and WebP images', () => {
+		expect(
+			validateStudioChatImages( [
+				{ id: 'image-1', name: 'a.gif', mimeType: 'image/gif', size: 3, dataBase64: 'YWJj' },
+				{ id: 'image-2', name: 'b.webp', mimeType: 'image/webp', size: 3, dataBase64: 'YWJj' },
+			] )
+		).toHaveLength( 2 );
+	} );
+
 	it( 'rejects unsupported image types', () => {
 		expect( () =>
 			validateStudioChatImages( [
 				{
 					id: 'image-1',
-					name: 'logo.gif',
-					mimeType: 'image/gif' as 'image/png',
+					name: 'logo.bmp',
+					mimeType: 'image/bmp' as 'image/png',
 					size: 3,
 					dataBase64: 'YWJj',
 				},
 			] )
-		).toThrow( 'Only PNG and JPEG images can be attached.' );
+		).toThrow( 'Only PNG, JPEG, GIF, and WebP images can be attached.' );
 	} );
 
 	it( 'rejects too many images', () => {

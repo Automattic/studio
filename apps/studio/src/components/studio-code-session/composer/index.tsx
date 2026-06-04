@@ -1,6 +1,5 @@
 import { AI_MODELS, getAiModelFamily, getAiModelLabel } from '@studio/common/ai/models';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
-import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
 import { useQueryClient } from '@tanstack/react-query';
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
@@ -12,6 +11,7 @@ import * as Menu from '../menu';
 import { SESSIONS_QUERY_KEY } from '../use-session';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';
+import { useSlashCommands } from './use-slash-commands';
 import type { SessionEntry } from '@mariozechner/pi-coding-agent';
 import type { AiModelId } from '@studio/common/ai/models';
 import type { LoadedAiSession } from '@studio/common/ai/sessions/types';
@@ -100,6 +100,10 @@ export function Composer( {
 			node.setSelectionRange( length, length );
 		} );
 	}, [ draftPrompt ] );
+
+	// Inline slash-command autocomplete (popup, keyboard nav, ARIA wiring, and
+	// the toolbar "/" toggle). Kept in its own hook so the Composer stays lean.
+	const slash = useSlashCommands( { value, setValue, textareaRef, previewPrompt } );
 
 	// Cross-family swap state. We hold the picked model here while the
 	// confirmation dialog is open; nothing is persisted until the user
@@ -230,56 +234,43 @@ export function Composer( {
 		<>
 			<div className={ styles.root }>
 				<div className={ styles.shell }>
-					<textarea
-						ref={ textareaRef }
-						className={ styles.input }
-						placeholder={ placeholder }
-						value={ previewPrompt ?? value }
-						data-preview={ previewPrompt ? 'true' : 'false' }
-						onChange={ ( event ) => setValue( event.target.value ) }
-						onKeyDown={ ( event ) => {
-							if ( event.key === 'Escape' && busy ) {
-								event.preventDefault();
-								void onInterrupt();
-								return;
-							}
-							if ( event.key === 'Enter' && ( event.metaKey || event.ctrlKey ) ) {
-								event.preventDefault();
-								void send();
-							}
-						} }
-						rows={ 2 }
-					/>
+					<div className={ styles.inputWrapper }>
+						<textarea
+							ref={ textareaRef }
+							className={ styles.input }
+							placeholder={ placeholder }
+							value={ previewPrompt ?? value }
+							data-preview={ previewPrompt ? 'true' : 'false' }
+							{ ...slash.comboboxProps }
+							onChange={ ( event ) => setValue( event.target.value ) }
+							onKeyDown={ ( event ) => {
+								if ( slash.handleKeyDown( event ) ) {
+									return;
+								}
+								if ( event.key === 'Escape' && busy ) {
+									event.preventDefault();
+									void onInterrupt();
+									return;
+								}
+								if ( event.key === 'Enter' && ( event.metaKey || event.ctrlKey ) ) {
+									event.preventDefault();
+									void send();
+								}
+							} }
+							rows={ 2 }
+						/>
+						{ slash.popup }
+					</div>
 					<div className={ styles.toolbar }>
 						<div className={ styles.leftActions }>
-							<Menu.Root modal={ false }>
-								<Menu.Trigger
-									render={
-										<button
-											type="button"
-											className={ `${ styles.iconButton } ${ styles.glyphButton }` }
-											aria-label={ __( 'Commands' ) }
-										>
-											/
-										</button>
-									}
-								/>
-								<Menu.Popup side="top" align="start" className={ styles.commandsMenuPopup }>
-									{ AI_SKILL_COMMANDS.map( ( command ) => (
-										<Menu.Item
-											key={ command.name }
-											onClick={ () => {
-												void onSend( `/${ command.name }` );
-											} }
-										>
-											<span className={ styles.commandItem }>
-												<span className={ styles.commandName }>/{ command.name }</span>
-												<span className={ styles.commandDescription }>{ command.description }</span>
-											</span>
-										</Menu.Item>
-									) ) }
-								</Menu.Popup>
-							</Menu.Root>
+							<button
+								type="button"
+								className={ `${ styles.iconButton } ${ styles.glyphButton }` }
+								aria-label={ __( 'Skills' ) }
+								onClick={ slash.toggle }
+							>
+								/
+							</button>
 						</div>
 						<div className={ styles.rightActions }>
 							<Menu.Root modal={ false }>

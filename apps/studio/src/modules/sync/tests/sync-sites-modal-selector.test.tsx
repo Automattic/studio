@@ -20,16 +20,12 @@ store.replaceReducer( testReducer );
 vi.mock( 'src/lib/get-ipc-api' );
 vi.mock( 'src/hooks/use-auth' );
 vi.mock( 'src/hooks/use-offline' );
-vi.mock( 'src/stores/sync/wpcom-sites', async () => {
-	const actual = await vi.importActual< typeof import('src/stores/sync/wpcom-sites') >(
-		'src/stores/sync/wpcom-sites'
-	);
+vi.mock( 'src/stores/sync/wpcom-sites', async ( importOriginal ) => {
+	const actual = await importOriginal< typeof import('src/stores/sync/wpcom-sites') >();
 	return { ...actual, useGetWpComSitesQuery: vi.fn() };
 } );
-vi.mock( 'src/stores/sync/connected-sites', async () => {
-	const actual = await vi.importActual< typeof import('src/stores/sync/connected-sites') >(
-		'src/stores/sync/connected-sites'
-	);
+vi.mock( 'src/stores/sync/connected-sites', async ( importOriginal ) => {
+	const actual = await importOriginal< typeof import('src/stores/sync/connected-sites') >();
 	return { ...actual, useGetConnectedSitesForLocalSiteQuery: vi.fn() };
 } );
 

@@ -19,7 +19,7 @@ Every generated site is TWO packages:
 - **Theme** — pure presentation: `theme.json`, `style.css`, `templates/`,
   `parts/`, `patterns/`, `assets/`. Minimal `functions.php`. No behaviour.
 - **Companion plugin** — all behaviour: custom post types, taxonomies, post
-  meta, REST routes, and build-less plain-JS blocks. Survives a theme switch.
+  meta, REST routes, and JSX/React blocks (compiled to build/). Survives a theme switch.
 
 Page content is seeded into the **live database**, never baked into the theme.
 For background, the `theme-architecture`, `companion-plugin`, `layout-patterns`,
@@ -62,33 +62,27 @@ several first-fold HTML previews to `<site>/design/` and opens them. Show the
 user the directions and use **AskUserQuestion** to let them pick one (or ask for
 a regenerate). Keep the chosen preview's HTML — you pass it next.
 
-### 4. Generate the theme
+### 4. Generate the whole site
 
-Call **`generate_theme`** with `nameOrPath`, `spec`, and `design` (the chosen
-preview's HTML or its brief). It generates the whole theme in parallel, writes
-it, activates it, and returns a **MANIFEST** JSON block at the end of its output.
-**Copy that manifest verbatim** — the next tools need it.
+Call **`generate_site`** with `nameOrPath`, `spec`, and `design` (the chosen
+preview's HTML or its brief). It runs theme + companion plugin + content
+generation as ONE parallel pool — substantially faster than the per-phase
+tools — then writes and activates the pure-presentation theme, writes/compiles/
+activates the companion plugin (skipped automatically for brochure sites with no
+forms/CPTs/interactive blocks), and seeds the pages/posts/CPT entries into the
+database with AI imagery. It returns the same **MANIFEST** JSON block — **copy
+it verbatim** for the next steps.
 
-### 5. Generate the companion plugin (only if needed)
+> Advanced/manual: `generate_theme` → `generate_companion_plugin` → `seed_content`
+> remain available if you ever need to run a single phase, but `generate_site` is
+> the default fast path and does all three.
 
-If the manifest's `companionPlugin.needed` is `true`, call
-**`generate_companion_plugin`** with `nameOrPath`, `spec`, and the `manifest`.
-It generates CPTs, REST routes, and build-less plain-JS blocks, then activates
-the plugin. A brochure site with no forms/CPTs/interactive blocks skips this.
-
-### 6. Seed content
-
-Call **`seed_content`** with `nameOrPath`, `spec`, and the `manifest`. It
-generates each page's block markup, fills AI_IMAGE placeholders with generated
-imagery, publishes the pages into the database, and sets the home page as the
-static front page.
-
-### 7. Fill theme imagery
+### 5. Fill theme imagery
 
 Call **`generate_image`** with `nameOrPath` and `themeSlug` (the manifest's
 `themeSlug`) to fill any `AI_IMAGE:` placeholders left in theme templates/parts.
 
-### 8. Verify and fix
+### 6. Verify and fix
 
 - Run **`validate_and_fix_blocks`** (with `nameOrPath` and the relevant
   content/filePath) on generated block content; rewrite anything it flags.
@@ -101,7 +95,7 @@ Call **`generate_image`** with `nameOrPath` and `themeSlug` (the manifest's
 
 - The generation tools each run for a while (many parallel model calls). That is
   expected — let them complete; do not try to hand-write the files yourself.
-- Always pass the SAME `spec` string and the SAME `manifest` through steps 4–7.
+- Always pass the SAME `spec` string and the SAME `manifest` through steps 4–5.
 - Never put behaviour in the theme or content in theme files — the tools already
   enforce the split; don't undo it with manual `wp_cli`/`Write` edits.
 - WordPress.com login is required (AI generation + imagery route through the

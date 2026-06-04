@@ -21,6 +21,7 @@ interface CliArgs {
 	caseIds: string[];
 	dryRun: boolean;
 	withImages: boolean;
+	merged: boolean;
 	keepSite: boolean;
 	specsDir: string;
 	outDir: string;
@@ -32,6 +33,7 @@ function parseArgs( argv: string[] ): CliArgs {
 		caseIds: [],
 		dryRun: false,
 		withImages: true,
+		merged: false,
 		keepSite: false,
 		specsDir: path.resolve( process.cwd(), 'eval/wsg/specs' ),
 		outDir: path.resolve( process.cwd(), 'eval/wsg/results' ),
@@ -45,6 +47,9 @@ function parseArgs( argv: string[] ): CliArgs {
 				break;
 			case '--no-images':
 				args.withImages = false;
+				break;
+			case '--merged':
+				args.merged = true;
 				break;
 			case '--keep-site':
 				args.keepSite = true;
@@ -157,6 +162,7 @@ async function main(): Promise< void > {
 		const result = await runCase( spec, {
 			runId,
 			withImages: args.withImages,
+			merged: args.merged,
 			keepSite: args.keepSite,
 			artifactsDir: runDir,
 			log: ( message ) => process.stdout.write( message + '\n' ),

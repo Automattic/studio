@@ -7,6 +7,7 @@ import { exportSiteTool } from './export-site';
 import { generateCompanionPluginTool } from './generate-companion-plugin';
 import { generateDesignPreviewsTool } from './generate-design-previews';
 import { generateImageTool } from './generate-image';
+import { generateSiteTool } from './generate-site';
 import { generateThemeTool } from './generate-theme';
 import { importSiteTool } from './import-site';
 import { installTaxonomyScriptsTool } from './install-taxonomy-scripts';
@@ -50,6 +51,7 @@ export const studioToolDefinitions: AnyStudioAgentTool[] = [
 	scaffoldThemeTool,
 	generateDesignPreviewsTool,
 	generateThemeTool,
+	generateSiteTool,
 	generateCompanionPluginTool,
 	seedContentTool,
 	generateImageTool,

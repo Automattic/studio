@@ -12,6 +12,7 @@ import { deleteSiteTool } from 'cli/ai/tools/delete-site';
 import { generateCompanionPluginTool } from 'cli/ai/tools/generate-companion-plugin';
 import { generateDesignPreviewsTool } from 'cli/ai/tools/generate-design-previews';
 import { generateImageTool } from 'cli/ai/tools/generate-image';
+import { generateSiteTool } from 'cli/ai/tools/generate-site';
 import { generateThemeTool } from 'cli/ai/tools/generate-theme';
 import { seedContentTool } from 'cli/ai/tools/seed-content';
 import { takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
@@ -34,6 +35,7 @@ import type { SiteManifest } from 'cli/ai/generation/manifest';
 export interface RunCaseOptions {
 	runId: string;
 	withImages: boolean;
+	merged: boolean;
 	keepSite: boolean;
 	artifactsDir: string;
 	log: ( message: string ) => void;
@@ -147,17 +149,31 @@ export async function runCase( spec: EvalSpec, opts: RunCaseOptions ): Promise< 
 		} );
 
 		// 4. Theme.
-		await time( 'theme', () =>
-			generateThemeTool.rawHandler( {
-				nameOrPath: siteName,
-				spec: specJson,
-				design: design || undefined,
-				manifest: manifestJson,
-			} )
-		);
+		if ( opts.merged ) {
+			await time( 'site', () =>
+				generateSiteTool.rawHandler( {
+					nameOrPath: siteName,
+					spec: specJson,
+					design: design || undefined,
+					manifest: manifestJson,
+					withImages: opts.withImages,
+				} )
+			);
+		}
+
+		// 4. Theme (legacy path).
+		if ( ! opts.merged )
+			await time( 'theme', () =>
+				generateThemeTool.rawHandler( {
+					nameOrPath: siteName,
+					spec: specJson,
+					design: design || undefined,
+					manifest: manifestJson,
+				} )
+			);
 
 		// 5. Companion plugin (only when the manifest needs one).
-		if ( manifest?.companionPlugin.needed && manifestJson ) {
+		if ( ! opts.merged && manifest?.companionPlugin.needed && manifestJson ) {
 			await time( 'companionPlugin', () =>
 				generateCompanionPluginTool.rawHandler( {
 					nameOrPath: siteName,
@@ -168,7 +184,7 @@ export async function runCase( spec: EvalSpec, opts: RunCaseOptions ): Promise< 
 		}
 
 		// 6. Seed content into the live DB.
-		if ( manifestJson ) {
+		if ( ! opts.merged && manifestJson ) {
 			await time( 'seed', () =>
 				seedContentTool.rawHandler( {
 					nameOrPath: siteName,

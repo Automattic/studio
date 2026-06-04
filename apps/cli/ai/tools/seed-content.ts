@@ -29,7 +29,7 @@ function normalizeSpecJson( spec: string ): string {
 
 // An item ready to publish: post type, slug, title, block-markup content, and
 // (for custom post types) meta fields.
-interface PreparedItem {
+export interface PreparedItem {
 	postType: string;
 	slug: string;
 	title: string;
@@ -40,7 +40,7 @@ interface PreparedItem {
 
 // Page-like targets (pages + native posts) take their body from the
 // page-content generator. CPT entries are generated separately with meta.
-interface PageTarget {
+export interface PageTarget {
 	postType: string;
 	slug: string;
 	title: string;
@@ -48,7 +48,7 @@ interface PageTarget {
 	isHome: boolean;
 }
 
-function collectPageTargets( manifest: SiteManifest ): PageTarget[] {
+export function collectPageTargets( manifest: SiteManifest ): PageTarget[] {
 	const targets: PageTarget[] = [];
 	const seen = new Set< string >();
 
@@ -89,7 +89,7 @@ function collectPageTargets( manifest: SiteManifest ): PageTarget[] {
 	return targets;
 }
 
-interface CptEntry {
+export interface CptEntry {
 	title: string;
 	content: string;
 	meta: Record< string, string >;
@@ -98,7 +98,7 @@ interface CptEntry {
 // Generate realistic sample entries (title + short body + meta) for a custom
 // post type. Inline prompt (no bundled fragment) keyed on the CPT's declared
 // fields so the meta keys line up with what the companion plugin registered.
-async function runCptEntries(
+export async function runCptEntries(
 	specJson: string,
 	postType: PostTypePlan,
 	count: number
@@ -138,7 +138,7 @@ async function runCptEntries(
 		.filter( ( e ) => e.title );
 }
 
-async function wpcomImagesAvailable(): Promise< boolean > {
+export async function wpcomImagesAvailable(): Promise< boolean > {
 	if ( process.env.STUDIO_WPCOM_TOKEN?.trim() ) {
 		return true;
 	}
@@ -154,7 +154,7 @@ async function wpcomImagesAvailable(): Promise< boolean > {
 // so a file written to <site>/wp-content/uploads/... is readable by WP-CLI at
 // <ABSPATH>wp-content/uploads/... — letting us pass post content via a file
 // path instead of a giant `--post_content=` arg that the IPC bus truncates.
-async function getAbspath( siteId: string ): Promise< string > {
+export async function getAbspath( siteId: string ): Promise< string > {
 	const result = await wpCli( siteId, [ 'eval', 'echo ABSPATH;' ] );
 	const value = result.stdout.trim();
 	if ( ! value ) {

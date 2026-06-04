@@ -42,7 +42,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 // The generator is told to include the header; guarantee it so WordPress
 // recognises the plugin even if the model omitted it.
-function ensurePluginHeader( php: string, name: string, slug: string ): string {
+export function ensurePluginHeader( php: string, name: string, slug: string ): string {
 	// A leading UTF-8 BOM before <?php breaks WordPress's plugin-header parser,
 	// so strip it unconditionally — including when the model emitted a valid
 	// header that happens to be BOM-prefixed.
@@ -54,7 +54,7 @@ function ensurePluginHeader( php: string, name: string, slug: string ): string {
 	return `${ renderPluginHeader( name, slug ) }\n${ body }`;
 }
 
-async function activatePlugin( siteId: string, slug: string ): Promise< string > {
+export async function activatePlugin( siteId: string, slug: string ): Promise< string > {
 	return withDaemon( async () => {
 		if ( ! ( await isSiteRunning( siteId ) ) ) {
 			return `Site is not running — plugin written but not activated. Start it (site_start), then run: wp plugin activate ${ slug }`;

@@ -24,7 +24,7 @@ function normalizeSpecJson( spec: string ): string {
 	}
 }
 
-function renderFunctionsPhp( name: string, slug: string ): string {
+export function renderFunctionsPhp( name: string, slug: string ): string {
 	return `<?php
 /**
  * ${ name } theme functions.
@@ -70,7 +70,7 @@ Tags: full-site-editing, block-patterns, block-styles, wide-blocks
 // its first bytes. The generator is asked to include it, but guarantee it here
 // — and strip a leading BOM unconditionally, since a BOM before the header
 // corrupts the parser whether or not the header is otherwise present.
-function ensureStyleHeader( css: string, name: string, slug: string ): string {
+export function ensureStyleHeader( css: string, name: string, slug: string ): string {
 	const clean = css.charCodeAt( 0 ) === 0xfeff ? css.slice( 1 ) : css;
 	if ( /Theme Name:/i.test( clean ) ) {
 		return clean;
@@ -83,7 +83,7 @@ interface PlannedWrite {
 	run: () => Promise< string >;
 }
 
-async function activateTheme( siteId: string, slug: string ): Promise< string > {
+export async function activateTheme( siteId: string, slug: string ): Promise< string > {
 	return withDaemon( async () => {
 		if ( ! ( await isSiteRunning( siteId ) ) ) {
 			return `Site is not running — theme written but not activated. Start it (site_start), then run: wp theme activate ${ slug }`;

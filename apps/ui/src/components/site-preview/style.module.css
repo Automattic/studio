@@ -1,69 +1,579 @@
 .root {
-	display: flex;
-	flex-direction: column;
 	position: relative;
-	width: var(--site-preview-width, 520px);
-	min-width: 360px;
-	max-width: 50vw;
+	width: var(--site-preview-layout-width, var(--site-preview-width, 520px));
+	min-width: 0;
 	flex-shrink: 0;
+	height: 100%;
 	min-height: 0;
-	margin: calc(var(--wpds-dimension-padding-md) * 2) calc(var(--wpds-dimension-padding-md) * 2)
-		calc(var(--wpds-dimension-padding-md) * 2) 0;
-	background-color: var(--wpds-color-bg-surface-neutral);
 	border: 1px solid var(--wpds-color-stroke-surface-neutral);
-	border-radius: var(--wpds-border-radius-lg, 12px);
-	overflow: visible;
-	box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.06);
+	overflow: hidden;
+	border-radius: 12px;
 }
 
+.rootResizing {
+	transition: none;
+}
+
+.rootParentSized {
+	width: 100%;
+}
+
+/* Collapsed = preview toggled off. Zeroing the border leaves nothing behind. */
+.rootCollapsed {
+	width: 0;
+	border-width: 0;
+	pointer-events: none;
+}
+
+/* Sits on the panel's left edge. top/bottom: 0 makes the hit area and
+   indicator the full height of the panel. */
 .resizeHandle {
 	position: absolute;
 	top: 0;
 	bottom: 0;
-	left: -15px;
-	justify-content: flex-end;
-	padding-right: 4px;
+	left: -4px;
+	justify-content: center;
+	padding: 0;
+}
+
+.viewport {
+	position: absolute;
+	inset: 0;
+	overflow: hidden;
+	background-color: var(--wpds-color-bg-surface-neutral);
+}
+
+.surface {
+	position: absolute;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	min-width: 0;
 }
 
 .header {
+	--site-preview-toolbar-background: var(--wpds-color-bg-surface-neutral);
+	--site-preview-toolbar-border: var(--wpds-color-stroke-surface-neutral);
+	--site-preview-toolbar-control-background-hover: var(
+		--wpds-color-bg-interactive-neutral-weak-active,
+		rgb(0 0 0 / 7%)
+	);
+	--site-preview-toolbar-control-background-active: var(--wpds-color-bg-surface-neutral-weak);
+	--site-preview-toolbar-focus: var(--wpds-color-stroke-focus-brand, #3858e9);
+	--site-preview-toolbar-foreground: var(--wpds-color-fg-content-neutral);
+	--site-preview-toolbar-foreground-strong: var(--wpds-color-fg-content-neutral);
+	--site-preview-toolbar-foreground-weak: var(--wpds-color-fg-content-neutral-weak);
+	--site-preview-toolbar-tab-background: var(--wpds-color-bg-surface-neutral);
+	--site-preview-toolbar-tab-background-hover: var(
+		--wpds-color-bg-interactive-neutral-weak-active,
+		rgb(0 0 0 / 7%)
+	);
+	--site-preview-toolbar-tab-background-active: var(--wpds-color-bg-surface-neutral-weak);
+	--site-preview-toolbar-tab-edit-background: var(--wpds-color-bg-surface-neutral-strong);
+	--site-preview-toolbar-tab-edit-foreground: var(--wpds-color-fg-content-neutral);
+	--site-preview-toolbar-suggestion-background: var(--wpds-color-bg-surface-neutral-strong);
+	--site-preview-toolbar-suggestion-border: var(--wpds-color-stroke-surface-neutral);
+	--site-preview-toolbar-suggestion-foreground: var(--wpds-color-fg-content-neutral);
+	--site-preview-toolbar-suggestion-foreground-weak: var(--wpds-color-fg-content-neutral-weak);
+	--site-preview-toolbar-suggestion-hover: var(
+		--wpds-color-bg-interactive-neutral-weak-active,
+		rgb(0 0 0 / 7%)
+	);
+
+	box-sizing: border-box;
 	display: flex;
 	align-items: center;
-	gap: var(--wpds-dimension-padding-lg);
-	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-lg);
-	min-height: 32px;
+	gap: var(--wpds-dimension-padding-sm);
+	padding: 0 var(--wpds-dimension-padding-lg);
+	padding-left: var(--wpds-dimension-padding-sm, 8px);
+	padding-right: calc(
+		var(--wpds-dimension-padding-lg) + var(--site-preview-toggle-reserved-width, 112px)
+	);
+	height: var(--site-preview-header-height, 54px);
+	min-height: var(--site-preview-header-height, 54px);
 	flex-shrink: 0;
-	background-color: #fff;
-	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
-	border-top-left-radius: inherit;
-	border-top-right-radius: inherit;
+	color: var(--site-preview-toolbar-foreground);
+	background-color: var(--site-preview-toolbar-background);
+	border-bottom: 0;
+	-webkit-app-region: drag;
 }
 
-.trafficLights {
+.headerAdminBar {
+	--site-preview-toolbar-background: var(--site-preview-toolbar-admin-bar-background, #1d1d1d);
+	--site-preview-toolbar-border: color-mix(
+		in srgb,
+		var(--site-preview-toolbar-background) 72%,
+		#000
+	);
+	--site-preview-toolbar-control-background-hover: color-mix(
+		in srgb,
+		var(--site-preview-toolbar-background) 82%,
+		var(--site-preview-toolbar-foreground)
+	);
+	--site-preview-toolbar-control-background-active: color-mix(
+		in srgb,
+		var(--site-preview-toolbar-background) 72%,
+		var(--site-preview-toolbar-foreground)
+	);
+	--site-preview-toolbar-focus: #72aee6;
+	--site-preview-toolbar-foreground: var(--site-preview-toolbar-admin-bar-foreground, #f0f0f1);
+	--site-preview-toolbar-foreground-strong: var(
+		--site-preview-toolbar-admin-bar-foreground,
+		#fff
+	);
+	--site-preview-toolbar-foreground-weak: color-mix(
+		in srgb,
+		var(--site-preview-toolbar-foreground) 72%,
+		var(--site-preview-toolbar-background)
+	);
+	--site-preview-toolbar-tab-background: color-mix(
+		in srgb,
+		var(--site-preview-toolbar-background) 88%,
+		var(--site-preview-toolbar-foreground)
+	);
+	--site-preview-toolbar-tab-background-hover: color-mix(
+		in srgb,
+		var(--site-preview-toolbar-background) 82%,
+		var(--site-preview-toolbar-foreground)
+	);
+	--site-preview-toolbar-tab-background-active: color-mix(
+		in srgb,
+		var(--site-preview-toolbar-background) 76%,
+		var(--site-preview-toolbar-foreground)
+	);
+	--site-preview-toolbar-tab-edit-background: color-mix(
+		in srgb,
+		var(--site-preview-toolbar-background) 86%,
+		var(--site-preview-toolbar-foreground)
+	);
+	--site-preview-toolbar-tab-edit-foreground: var(--site-preview-toolbar-foreground);
+	--site-preview-toolbar-suggestion-background: color-mix(
+		in srgb,
+		var(--site-preview-toolbar-background) 92%,
+		var(--site-preview-toolbar-foreground)
+	);
+	--site-preview-toolbar-suggestion-border: color-mix(
+		in srgb,
+		var(--site-preview-toolbar-background) 68%,
+		var(--site-preview-toolbar-foreground)
+	);
+	--site-preview-toolbar-suggestion-foreground: var(--site-preview-toolbar-foreground);
+	--site-preview-toolbar-suggestion-foreground-weak: var(--site-preview-toolbar-foreground-weak);
+	--site-preview-toolbar-suggestion-hover: color-mix(
+		in srgb,
+		var(--site-preview-toolbar-background) 86%,
+		var(--site-preview-toolbar-foreground)
+	);
+}
+
+.browserControls {
 	display: flex;
 	align-items: center;
-	gap: 5px;
+	gap: 0;
+	flex-shrink: 0;
+	height: var(--site-preview-control-height, 38px);
 }
 
-.separator {
-	width: 1px;
-	height: 14px;
-	background-color: var(--wpds-color-stroke-surface-neutral);
-	opacity: 0.6;
+.browserControlButton {
+	--wp-ui-button-height: var(--site-preview-control-height, 38px);
+
+	flex-shrink: 0;
+	box-sizing: border-box;
+	width: 32px;
+	height: var(--site-preview-control-height, 38px);
+	min-width: 32px;
+	color: var(--site-preview-toolbar-foreground);
+	background: transparent;
+	-webkit-app-region: no-drag;
 }
 
-.trafficLight {
-	width: 7px;
-	height: 7px;
-	border-radius: 50%;
-	background-color: var(--wpds-color-stroke-surface-neutral);
-}
-
-.trafficLightActive {
-	background-color: var(--wpds-color-fg-interactive-brand, #2563eb);
-}
-
-.headerSpacer {
+.tabs {
+	display: flex;
+	align-self: stretch;
+	align-items: center;
 	flex: 1;
+	gap: 6px;
+	min-width: 0;
+	overflow: visible;
+	position: relative;
+}
+
+.tab {
+	position: relative;
+	display: flex;
+	align-items: center;
+	box-sizing: border-box;
+	height: var(--site-preview-control-height, 38px);
+	min-width: 112px;
+	max-width: 220px;
+	padding: 0;
+	font-size: var(--wpds-typography-font-size-sm);
+	font-weight: 500;
+	color: var(--site-preview-toolbar-foreground-weak);
+	background-color: var(--site-preview-toolbar-tab-background);
+	border-radius: 6px;
+	-webkit-app-region: no-drag;
+}
+
+.tab:hover {
+	color: var(--site-preview-toolbar-foreground-strong);
+	background-color: var(--site-preview-toolbar-tab-background-hover);
+}
+
+.tabActive,
+.tabActive:hover {
+	color: var(--site-preview-toolbar-foreground-strong);
+	background-color: var(--site-preview-toolbar-tab-background-active);
+}
+
+.tabEditing,
+.tabEditing:hover {
+	z-index: 3;
+	min-width: 180px;
+	max-width: 280px;
+	color: var(--site-preview-toolbar-tab-edit-foreground);
+	background-color: var(--site-preview-toolbar-tab-edit-background);
+}
+
+.tabButton {
+	--wp-ui-button-background-color: transparent;
+	--wp-ui-button-background-color-active: transparent;
+	--wp-ui-button-background-color-hover: transparent;
+	--wp-ui-button-border-color: transparent;
+	--wp-ui-button-border-color-active: transparent;
+	--wp-ui-button-border-color-hover: transparent;
+
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	flex: 1;
+	width: auto;
+	height: 100%;
+	min-width: 0;
+	padding: 0 8px;
+	color: inherit;
+	text-align: left;
+	cursor: pointer;
+	background: transparent;
+	border: 0;
+	border-radius: inherit;
+	-webkit-app-region: no-drag;
+}
+
+.tabButton:focus-visible {
+	outline: 2px solid var(--site-preview-toolbar-focus);
+	outline-offset: -2px;
+}
+
+.tabText {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	justify-content: center;
+	min-width: 0;
+	height: 100%;
+}
+
+.tabTitle {
+	min-width: 0;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: 16px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.tabIcon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	width: 16px;
+	height: 16px;
+	color: inherit;
+	fill: currentColor;
+	stroke: currentColor;
+	transition: opacity 120ms ease;
+}
+
+.tabIcon svg {
+	width: 16px;
+	height: 16px;
+	fill: inherit;
+	stroke: inherit;
+}
+
+.tabCloseButton {
+	position: absolute;
+	top: 50%;
+	left: 4px;
+	z-index: 2;
+	transform: translateY(-50%);
+	flex-shrink: 0;
+	box-sizing: border-box;
+	width: 24px;
+	height: 24px;
+	min-width: 24px;
+	color: inherit;
+	opacity: 0;
+	pointer-events: none;
+	background: transparent;
+	border-radius: 4px;
+	transition: opacity 120ms ease;
+	-webkit-app-region: no-drag;
+}
+
+.tabClosable:is(:hover, :focus-within) .tabIcon {
+	opacity: 0;
+}
+
+.tabClosable:is(:hover, :focus-within) .tabCloseButton {
+	opacity: 0.84;
+	pointer-events: auto;
+}
+
+.tabCloseButton:hover,
+.tabCloseButton:focus-visible {
+	color: var(--site-preview-toolbar-foreground-strong);
+	opacity: 1;
+	background-color: var(--site-preview-toolbar-control-background-hover);
+}
+
+.tabEditing .tabCloseButton {
+	display: none;
+}
+
+.tabEditor {
+	position: relative;
+	width: 100%;
+	height: 100%;
+	-webkit-app-region: no-drag;
+}
+
+.tabInput {
+	box-sizing: border-box;
+	width: 100%;
+	height: 100%;
+	padding: 0 10px;
+	color: var(--site-preview-toolbar-tab-edit-foreground);
+	font: inherit;
+	background: transparent;
+	border: 0;
+	border-radius: inherit;
+	outline: none;
+	-webkit-app-region: no-drag;
+}
+
+.tabEditing:focus-within {
+	outline: 2px solid var(--site-preview-toolbar-focus);
+	outline-offset: 0;
+}
+
+.suggestions {
+	position: absolute;
+	top: calc(100% + 6px);
+	left: 0;
+	z-index: 5;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	width: max(100%, 260px);
+	max-height: 240px;
+	padding: 4px;
+	overflow-y: auto;
+	color: var(--site-preview-toolbar-suggestion-foreground);
+	background-color: var(--site-preview-toolbar-suggestion-background);
+	border: 1px solid var(--site-preview-toolbar-suggestion-border);
+	border-radius: 6px;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+	-webkit-app-region: no-drag;
+}
+
+.suggestion {
+	--wp-ui-button-background-color: transparent;
+	--wp-ui-button-background-color-active: transparent;
+	--wp-ui-button-background-color-hover: var(--site-preview-toolbar-suggestion-hover);
+	--wp-ui-button-border-color: transparent;
+	--wp-ui-button-border-color-active: transparent;
+	--wp-ui-button-border-color-hover: transparent;
+
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	width: 100%;
+	padding: 6px 8px;
+	color: inherit;
+	text-align: left;
+	background: transparent;
+	border: 0;
+	border-radius: 4px;
+	-webkit-app-region: no-drag;
+}
+
+.suggestion:hover,
+.suggestion:focus-visible {
+	background-color: var(--site-preview-toolbar-suggestion-hover);
+}
+
+.suggestion:focus-visible {
+	outline: 2px solid var(--site-preview-toolbar-focus);
+	outline-offset: -2px;
+}
+
+.suggestionTitle,
+.suggestionPath {
+	width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.suggestionTitle {
+	font-weight: 600;
+}
+
+.suggestionPath {
+	color: var(--site-preview-toolbar-suggestion-foreground-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+}
+
+.annotationControls {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	flex-shrink: 0;
+}
+
+.annotationButton {
+	--wp-ui-button-height: var(--site-preview-control-height, 38px);
+
+	box-sizing: border-box;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	height: var(--site-preview-control-height, 38px);
+	min-height: var(--site-preview-control-height, 38px);
+	padding: 0 10px;
+	color: var(--site-preview-toolbar-foreground);
+	font: inherit;
+	font-weight: 600;
+	white-space: nowrap;
+	cursor: pointer;
+	background-color: transparent;
+	border: 0;
+	border-radius: 6px;
+	-webkit-app-region: no-drag;
+}
+
+.annotationButton:hover:not(:disabled) {
+	color: var(--site-preview-toolbar-foreground-strong);
+	background-color: var(--site-preview-toolbar-control-background-hover);
+}
+
+.annotationButton:focus-visible {
+	outline: 2px solid var(--site-preview-toolbar-focus);
+	outline-offset: 2px;
+}
+
+.annotationButton:disabled {
+	color: var(--site-preview-toolbar-foreground-weak);
+	cursor: default;
+}
+
+.annotationButtonActive,
+.annotationButtonActive:hover:not(:disabled) {
+	color: var(--site-preview-toolbar-foreground-strong);
+	background-color: var(--site-preview-toolbar-control-background-active);
+}
+
+.annotationButtonPrimary {
+	background-color: var(--site-preview-toolbar-tab-edit-background);
+	color: var(--site-preview-toolbar-tab-edit-foreground);
+}
+
+.annotationButtonPrimary:hover:not(:disabled) {
+	background-color: var(--site-preview-toolbar-tab-edit-background);
+	color: var(--site-preview-toolbar-tab-edit-foreground);
+}
+
+.annotationButtonPrimary:disabled {
+	background-color: var(--site-preview-toolbar-tab-background-active);
+}
+
+.annotationCount {
+	min-width: 18px;
+	height: 18px;
+	padding: 0 5px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--site-preview-toolbar-tab-edit-foreground);
+	background-color: color-mix(
+		in srgb,
+		var(--site-preview-toolbar-tab-edit-foreground) 12%,
+		transparent
+	);
+	border-radius: 9px;
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: 1;
+}
+
+.newTabButton {
+	--wp-ui-button-height: var(--site-preview-control-height, 38px);
+
+	flex-shrink: 0;
+	box-sizing: border-box;
+	width: var(--site-preview-control-height, 38px);
+	height: var(--site-preview-control-height, 38px);
+	min-width: var(--site-preview-control-height, 38px);
+	color: var(--site-preview-toolbar-foreground);
+	background: transparent;
+	-webkit-app-region: no-drag;
+}
+
+.newTabButton:hover,
+.newTabButton:focus-visible,
+.browserControlButton:hover,
+.browserControlButton:focus-visible {
+	color: var(--site-preview-toolbar-foreground-strong);
+	background-color: var(--site-preview-toolbar-control-background-hover);
+}
+
+.newTabButton:focus-visible,
+.browserControlButton:focus-visible {
+	outline: 2px solid var(--site-preview-toolbar-focus);
+	outline-offset: 2px;
+}
+
+.newTabButton:disabled,
+.browserControlButton:disabled {
+	color: var(--site-preview-toolbar-foreground-weak);
+}
+
+.loadingProgress {
+	position: absolute;
+	top: calc(var(--site-preview-header-height, 54px) - 2px);
+	left: 0;
+	right: 0;
+	z-index: 2;
+	height: 2px;
+	overflow: hidden;
+	pointer-events: none;
+	background-color: transparent;
+}
+
+.loadingProgress span {
+	position: absolute;
+	inset: 0;
+	display: block;
+	width: 100%;
+	background-color: var(--site-preview-toolbar-focus);
+	transform-origin: left center;
+	transition: transform 160ms ease-out;
 }
 
 .body {
@@ -71,10 +581,26 @@
 	min-height: 0;
 	display: flex;
 	position: relative;
-	background-color: #fff;
+	background-color: var(--wpds-color-bg-surface-neutral);
 	overflow: hidden;
-	border-bottom-right-radius: inherit;
-	border-bottom-left-radius: inherit;
+}
+
+.previewSurface {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	min-width: 0;
+	min-height: 0;
+	visibility: hidden;
+	opacity: 0;
+	pointer-events: none;
+	background-color: #fff;
+}
+
+.previewSurfaceActive {
+	visibility: visible;
+	opacity: 1;
+	pointer-events: auto;
 }
 
 .spinnerOverlay {
@@ -118,6 +644,7 @@
 	align-items: center;
 	justify-content: center;
 	padding: var(--wpds-dimension-padding-xl);
+	background-color: var(--wpds-color-bg-surface-neutral);
 	color: var(--wpds-color-fg-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-sm);
 	text-align: center;

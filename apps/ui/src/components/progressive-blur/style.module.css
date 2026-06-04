@@ -1,0 +1,131 @@
+.root {
+	position: absolute;
+	inset: 0;
+	z-index: 0;
+	overflow: hidden;
+	pointer-events: none;
+	/* Confine painting to this box so the compositor can skip work outside it. */
+	contain: paint;
+}
+
+.root::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(
+		to bottom,
+		color-mix( in srgb, var( --wpds-color-bg-surface-neutral ) 92%, transparent ),
+		color-mix( in srgb, var( --wpds-color-bg-surface-neutral ) 72%, transparent ) 58%,
+		transparent
+	);
+}
+
+.extended::before {
+	background: linear-gradient(
+		to bottom,
+		color-mix( in srgb, var( --wpds-color-bg-surface-neutral ) 58%, transparent ),
+		color-mix( in srgb, var( --wpds-color-bg-surface-neutral ) 32%, transparent ) 62%,
+		transparent
+	);
+}
+
+.bottom::before {
+	background: linear-gradient(
+		to top,
+		color-mix( in srgb, var( --wpds-color-bg-surface-neutral ) 92%, transparent ),
+		color-mix( in srgb, var( --wpds-color-bg-surface-neutral ) 72%, transparent ) 58%,
+		transparent
+	);
+}
+
+.bottom.extended::before {
+	background: linear-gradient(
+		to top,
+		color-mix( in srgb, var( --wpds-color-bg-surface-neutral ) 58%, transparent ),
+		color-mix( in srgb, var( --wpds-color-bg-surface-neutral ) 32%, transparent ) 62%,
+		transparent
+	);
+}
+
+.layer {
+	position: absolute;
+	inset: 0;
+	-webkit-backdrop-filter: saturate( 160% ) blur( var( --blur-radius ) );
+	backdrop-filter: saturate( 160% ) blur( var( --blur-radius ) );
+}
+
+/* Three masked bands ramp the blur from strong (near the edge) to subtle. The
+   gradients overlap generously so a 3-pass falloff still reads as continuous. */
+.layerOne {
+	--blur-radius: 18px;
+	mask-image: linear-gradient( to bottom, black 0%, black 24%, transparent 52% );
+	-webkit-mask-image: linear-gradient( to bottom, black 0%, black 24%, transparent 52% );
+}
+
+.extended .layerOne {
+	--blur-radius: 28px;
+	mask-image: linear-gradient( to bottom, black 0%, black 30%, transparent 62% );
+	-webkit-mask-image: linear-gradient( to bottom, black 0%, black 30%, transparent 62% );
+}
+
+.bottom .layerOne {
+	mask-image: linear-gradient( to top, black 0%, black 24%, transparent 52% );
+	-webkit-mask-image: linear-gradient( to top, black 0%, black 24%, transparent 52% );
+}
+
+.bottom.extended .layerOne {
+	mask-image: linear-gradient( to top, black 0%, black 30%, transparent 62% );
+	-webkit-mask-image: linear-gradient( to top, black 0%, black 30%, transparent 62% );
+}
+
+.layerTwo {
+	--blur-radius: 9px;
+	mask-image: linear-gradient( to bottom, transparent 20%, black 50%, transparent 80% );
+	-webkit-mask-image: linear-gradient( to bottom, transparent 20%, black 50%, transparent 80% );
+}
+
+.extended .layerTwo {
+	--blur-radius: 14px;
+	mask-image: linear-gradient( to bottom, transparent 28%, black 56%, transparent 86% );
+	-webkit-mask-image: linear-gradient( to bottom, transparent 28%, black 56%, transparent 86% );
+}
+
+.bottom .layerTwo {
+	mask-image: linear-gradient( to top, transparent 20%, black 50%, transparent 80% );
+	-webkit-mask-image: linear-gradient( to top, transparent 20%, black 50%, transparent 80% );
+}
+
+.bottom.extended .layerTwo {
+	mask-image: linear-gradient( to top, transparent 28%, black 56%, transparent 86% );
+	-webkit-mask-image: linear-gradient( to top, transparent 28%, black 56%, transparent 86% );
+}
+
+.layerThree {
+	--blur-radius: 3px;
+	mask-image: linear-gradient( to bottom, transparent 52%, black 80%, transparent 100% );
+	-webkit-mask-image: linear-gradient( to bottom, transparent 52%, black 80%, transparent 100% );
+}
+
+.extended .layerThree {
+	--blur-radius: 5px;
+	mask-image: linear-gradient( to bottom, transparent 60%, black 86%, transparent 100% );
+	-webkit-mask-image: linear-gradient( to bottom, transparent 60%, black 86%, transparent 100% );
+}
+
+.bottom .layerThree {
+	mask-image: linear-gradient( to top, transparent 52%, black 80%, transparent 100% );
+	-webkit-mask-image: linear-gradient( to top, transparent 52%, black 80%, transparent 100% );
+}
+
+.bottom.extended .layerThree {
+	mask-image: linear-gradient( to top, transparent 60%, black 86%, transparent 100% );
+	-webkit-mask-image: linear-gradient( to top, transparent 60%, black 86%, transparent 100% );
+}
+
+/* Honor reduced-transparency: drop every backdrop-filter pass and fall back to
+   the gradient scrim from ::before. */
+@media ( prefers-reduced-transparency: reduce ) {
+	.layer {
+		display: none;
+	}
+}

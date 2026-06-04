@@ -62,6 +62,18 @@
 	white-space: nowrap;
 }
 
+.userAttachmentThumbItem {
+	display: inline-flex;
+}
+
+.userAttachmentThumb {
+	max-width: 160px;
+	max-height: 160px;
+	border-radius: var(--wpds-border-radius-md, 8px);
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	object-fit: cover;
+}
+
 .toolBlock {
 	display: flex;
 	flex-direction: column;

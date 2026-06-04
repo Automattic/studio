@@ -48,6 +48,9 @@ export interface StudioSessionContextData {
 // file's disk path are persisted — only what the chip needs to display.
 export interface StudioChatImageAttachmentSummary extends StudioChatImageAttachment {
 	kind: 'image';
+	// `data:` URL for rendering a thumbnail in the transcript. Persisted so the
+	// preview survives a session reload (the raw bytes are not kept elsewhere).
+	previewDataUrl?: string;
 }
 
 export interface StudioChatFileAttachmentSummary {

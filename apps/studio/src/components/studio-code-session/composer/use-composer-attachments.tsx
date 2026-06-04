@@ -20,7 +20,6 @@ export interface ComposerImageAttachment {
 	mimeType: StudioChatImageMimeType;
 	size: number;
 	dataBase64: string;
-	previewUrl: string;
 }
 
 export interface ComposerFileAttachment {
@@ -84,33 +83,17 @@ function readFileAsBase64( file: File ): Promise< string > {
 	} );
 }
 
-// Release the blob URLs backing image previews so they don't leak.
-function revokeImageUrls( items: ComposerAttachment[] ): void {
-	for ( const item of items ) {
-		if ( item.kind === 'image' ) {
-			URL.revokeObjectURL( item.previewUrl );
-		}
-	}
-}
-
 export function useComposerAttachments() {
 	const [ attachments, setAttachments ] = useState< ComposerAttachment[] >( [] );
 	const [ error, setError ] = useState< string | null >( null );
 	const [ isDraggingOver, setIsDraggingOver ] = useState( false );
 
 	const removeAttachment = useCallback( ( id: string ) => {
-		setAttachments( ( current ) => {
-			const removed = current.find( ( item ) => item.id === id );
-			revokeImageUrls( removed ? [ removed ] : [] );
-			return current.filter( ( item ) => item.id !== id );
-		} );
+		setAttachments( ( current ) => current.filter( ( item ) => item.id !== id ) );
 	}, [] );
 
 	const clear = useCallback( () => {
-		setAttachments( ( current ) => {
-			revokeImageUrls( current );
-			return [];
-		} );
+		setAttachments( [] );
 		setError( null );
 	}, [] );
 
@@ -138,7 +121,6 @@ export function useComposerAttachments() {
 							mimeType: file.type,
 							size: file.size,
 							dataBase64,
-							previewUrl: URL.createObjectURL( file ),
 						};
 					} catch {
 						setError( __( 'Failed to read the attached image.' ) );
@@ -182,7 +164,6 @@ export function useComposerAttachments() {
 								STUDIO_CHAT_MAX_IMAGES
 							)
 						);
-						revokeImageUrls( [ attachment ] );
 						continue;
 					}
 					imageCount++;

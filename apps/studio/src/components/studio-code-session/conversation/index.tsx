@@ -189,14 +189,28 @@ function UserTurn( {
 			<div className={ styles.userText }>{ text }</div>
 			{ attachments && attachments.length > 0 ? (
 				<ul className={ styles.userAttachments }>
-					{ attachments.map( ( attachment, index ) => (
-						<li key={ `${ attachment.name }:${ index }` } className={ styles.userAttachmentChip }>
-							<Icon icon={ attachment.kind === 'image' ? image : page } size={ 16 } />
-							<span className={ styles.userAttachmentName } title={ attachment.name }>
-								{ attachment.name }
-							</span>
-						</li>
-					) ) }
+					{ attachments.map( ( attachment, index ) =>
+						attachment.kind === 'image' && attachment.previewDataUrl ? (
+							<li
+								key={ `${ attachment.name }:${ index }` }
+								className={ styles.userAttachmentThumbItem }
+							>
+								<img
+									className={ styles.userAttachmentThumb }
+									src={ attachment.previewDataUrl }
+									alt={ attachment.name }
+									title={ attachment.name }
+								/>
+							</li>
+						) : (
+							<li key={ `${ attachment.name }:${ index }` } className={ styles.userAttachmentChip }>
+								<Icon icon={ attachment.kind === 'image' ? image : page } size={ 16 } />
+								<span className={ styles.userAttachmentName } title={ attachment.name }>
+									{ attachment.name }
+								</span>
+							</li>
+						)
+					) }
 				</ul>
 			) : null }
 		</div>

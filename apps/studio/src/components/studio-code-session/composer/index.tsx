@@ -1,3 +1,4 @@
+import { toImageDataUrl } from '@studio/common/ai/chat-images';
 import { AI_MODELS, getAiModelFamily, getAiModelLabel } from '@studio/common/ai/models';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import { useQueryClient } from '@tanstack/react-query';
@@ -316,7 +317,7 @@ export function Composer( {
 									{ attachment.kind === 'image' ? (
 										<img
 											className={ styles.attachmentThumb }
-											src={ attachment.previewUrl }
+											src={ toImageDataUrl( attachment.mimeType, attachment.dataBase64 ) }
 											alt={ attachment.name }
 										/>
 									) : (

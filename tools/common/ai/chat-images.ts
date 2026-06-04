@@ -34,6 +34,11 @@ export function toStudioChatImageAttachment( image: StudioChatImage ): StudioCha
 	return attachment;
 }
 
+// Renderer CSP allows `data:` images but not `blob:`, so previews use data URLs.
+export function toImageDataUrl( mimeType: string, dataBase64: string ): string {
+	return `data:${ mimeType };base64,${ dataBase64 }`;
+}
+
 export function isStudioChatImageMimeType( value: string ): value is StudioChatImageMimeType {
 	return ( STUDIO_CHAT_IMAGE_MIME_TYPES as readonly string[] ).includes( value );
 }

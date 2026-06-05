@@ -3,6 +3,7 @@
 // types are only used at the type-check boundary (`import type` is erased).
 
 import type { StudioChatArtifactData } from '../chat-artifacts';
+import type { StudioChatImageAttachment } from '../chat-images';
 import type { CustomEntry, SessionEntry } from '@earendil-works/pi-coding-agent';
 
 export type StudioCustomEntryType =
@@ -42,12 +43,34 @@ export interface StudioSessionContextData {
 	model: string;
 }
 
+// Lightweight attachment summaries persisted on a user-prompt entry so the
+// conversation transcript can render chips. Neither the image bytes nor the
+// file's disk path are persisted — only what the chip needs to display.
+export interface StudioChatImageAttachmentSummary extends StudioChatImageAttachment {
+	kind: 'image';
+	// `data:` URL for rendering a thumbnail in the transcript. Persisted so the
+	// preview survives a session reload (the raw bytes are not kept elsewhere).
+	previewDataUrl?: string;
+}
+
+export interface StudioChatFileAttachmentSummary {
+	kind: 'file';
+	name: string;
+	mimeType?: string;
+	size?: number;
+}
+
+export type StudioChatAttachmentSummary =
+	| StudioChatImageAttachmentSummary
+	| StudioChatFileAttachmentSummary;
+
 // `source` distinguishes a user-typed prompt from an `ask_user` answer the
 // runtime forwarded to the model — the renderer only shows `'prompt'`.
 export interface StudioUserPromptData {
 	text: string;
 	source: 'prompt' | 'ask_user';
 	sitePath?: string;
+	attachments?: StudioChatAttachmentSummary[];
 }
 
 export interface StudioCustomEntryDataMap {

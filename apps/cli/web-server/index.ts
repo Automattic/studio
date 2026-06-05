@@ -18,7 +18,7 @@ import {
 	setBroadcast,
 	startAgentRun,
 } from './agent-runs';
-import { ensureWorkspace } from './workspaces';
+import { ensureWorkspace, getWorkspaceChanges, publishWorkspace } from './workspaces';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { SitesEndpointSite } from '@studio/common/types/sync';
 import type { Request, Response } from 'express';
@@ -218,6 +218,19 @@ app.post( '/sessions/:id/model', async ( req: Request, res: Response ) => {
 	}
 	await appendModelChangeEntry( root, param( req, 'id' ), '', model );
 	res.sendStatus( 204 );
+} );
+
+// The session's draft change set: what the agent has edited in the workspace
+// but not yet published. `git status` is the change set (Matt B's git-as-project
+// container model).
+app.get( '/sessions/:id/changes', ( req: Request, res: Response ) => {
+	res.json( getWorkspaceChanges( param( req, 'id' ) ) );
+} );
+
+// Publish the draft: snapshot the workspace as a commit (and push to the deploy
+// remote when one is configured — the hosted product's deploy to WordPress.com).
+app.post( '/sessions/:id/publish', ( req: Request, res: Response ) => {
+	res.json( publishWorkspace( param( req, 'id' ) ) );
 } );
 
 app.post( '/sessions/:id/messages', ( req: Request, res: Response ) => {

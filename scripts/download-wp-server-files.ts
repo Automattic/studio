@@ -9,14 +9,13 @@ import fs from 'fs-extra';
 import { z } from 'zod';
 import { extractZip } from '@studio/common/lib/extract-zip';
 import { SQLITE_DATABASE_INTEGRATION_RELEASE_URL } from '../apps/studio/src/constants';
-import { sharedDispatcher, throwForHttpStatus, withRetry } from './lib/with-retry';
+import { fetch, sharedDispatcher, throwForHttpStatus, withRetry } from './lib/with-retry';
 
 async function fetchWithRetry( name: string, url: string ): Promise< Buffer > {
 	return withRetry( name, async () => {
 		const response = await fetch( url, {
-			// `dispatcher` is an undici-specific option not in the standard RequestInit type.
 			dispatcher: sharedDispatcher,
-		} as RequestInit );
+		} );
 		if ( ! response.ok ) {
 			throwForHttpStatus( 'Request', response.status );
 		}

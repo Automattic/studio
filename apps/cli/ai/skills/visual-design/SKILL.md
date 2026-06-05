@@ -50,5 +50,3 @@ Interpret the user's brief creatively and make choices that feel specific to the
 ## Match Complexity To The Vision
 
 Maximalist designs need enough layered detail, motion, and visual systems to feel intentional. Minimalist or refined designs need restraint, exact spacing, strong typography, and careful hierarchy. Do not confuse minimal with unfinished.
-
-Before writing files or block markup, state a compact internal direction in your own words, then implement in small increments and verify visually.

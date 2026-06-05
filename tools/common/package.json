@@ -9,7 +9,7 @@
 		"typecheck": "tsc -p tsconfig.json --noEmit"
 	},
 	"dependencies": {
-		"@automattic/generate-password": "^0.1.0",
+		"@automattic/generate-password": "^0.2.0",
 		"@wordpress/i18n": "^6.20.0",
 		"cross-port-killer": "^1.4.0",
 		"date-fns": "^4.1.0",

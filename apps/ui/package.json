@@ -32,14 +32,14 @@
 		"@wordpress/ui": "^0.14.0",
 		"@wp-playground/blueprints": "3.1.36",
 		"clsx": "^2.1.1",
-		"react": "^19.2.6",
-		"react-dom": "^19.2.6",
+		"react": "^19.2.7",
+		"react-dom": "^19.2.7",
 		"react-markdown": "^10.1.0",
 		"remark-gfm": "^4.0.1",
 		"tldraw": "3.13.1"
 	},
 	"devDependencies": {
-		"@types/react": "^19.2.15",
+		"@types/react": "^19.2.16",
 		"@types/react-dom": "^19.2.3",
 		"@vitejs/plugin-react": "^6.0.2",
 		"typescript": "~6.0.3",

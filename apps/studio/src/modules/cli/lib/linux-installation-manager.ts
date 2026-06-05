@@ -50,6 +50,7 @@ export class LinuxCliInstallationManager implements StudioCliInstallationManager
 	async installCliWithConfirmation(): Promise< void > {
 		try {
 			await this.installCli();
+			await updateAppdata( { cliUserUninstalled: false } );
 		} catch ( error ) {
 			console.error( 'Failed to install CLI', error );
 
@@ -85,6 +86,7 @@ export class LinuxCliInstallationManager implements StudioCliInstallationManager
 	async uninstallCliWithConfirmation(): Promise< void > {
 		try {
 			await this.uninstallCli();
+			await updateAppdata( { cliUserUninstalled: true } );
 			const mainWindow = await getMainWindow();
 			await dialog.showMessageBox( mainWindow, {
 				type: 'info',
@@ -113,15 +115,15 @@ export class LinuxCliInstallationManager implements StudioCliInstallationManager
 	}
 
 	async autoInstallIfNeeded(): Promise< void > {
-		// Only auto-install on first launch. If the flag is already set but the CLI isn't
-		// installed, the user must have explicitly disabled it — respect their choice.
 		const userData = await loadUserData();
-		if ( userData.cliAutoInstalled ) {
+		if ( userData.cliUserUninstalled ) {
 			return;
 		}
 
 		await this.installCli();
-		await updateAppdata( { cliAutoInstalled: true } );
+		if ( ! userData.cliAutoInstalled ) {
+			await updateAppdata( { cliAutoInstalled: true } );
+		}
 	}
 
 	private async installCli(): Promise< void > {

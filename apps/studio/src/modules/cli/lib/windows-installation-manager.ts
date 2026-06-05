@@ -40,6 +40,10 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 
 	async autoInstallIfNeeded(): Promise< void > {
 		const userData = await loadUserData();
+		if ( userData.cliUserUninstalled ) {
+			return;
+		}
+
 		if ( userData.cliAutoInstalled ) {
 			// Already ran auto-install before. If CLI is still installed,
 			// update the proxy bat file for the current app version.
@@ -54,6 +58,7 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 	async installCliWithConfirmation(): Promise< void > {
 		try {
 			await this.installCli();
+			await updateAppdata( { cliUserUninstalled: false } );
 			const mainWindow = await getMainWindow();
 			await dialog.showMessageBox( mainWindow, {
 				type: 'info',
@@ -83,6 +88,7 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 	async uninstallCliWithConfirmation(): Promise< void > {
 		try {
 			await this.uninstallCli();
+			await updateAppdata( { cliUserUninstalled: true } );
 			const mainWindow = await getMainWindow();
 			await dialog.showMessageBox( mainWindow, {
 				type: 'info',

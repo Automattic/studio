@@ -1,6 +1,7 @@
 import fs from 'fs';
 import { Readable } from 'stream';
 import { z } from 'zod';
+import { __ } from '@wordpress/i18n';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import {
@@ -93,7 +94,12 @@ export async function pollBackupStatus(
 		backup_id: backupId,
 	} );
 
-	const response = syncBackupResponseSchema.parse( rawResponse );
+	const parseResult = syncBackupResponseSchema.safeParse( rawResponse );
+	if ( ! parseResult.success ) {
+		console.error( 'Unexpected backup status response:', rawResponse );
+		throw new Error( __( 'Unexpected response from server while checking backup status' ) );
+	}
+	const response = parseResult.data;
 	return {
 		status: response.status,
 		downloadUrl: response.download_url ?? null,

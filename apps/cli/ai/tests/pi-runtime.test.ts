@@ -1,7 +1,7 @@
-import { SessionManager } from '@mariozechner/pi-coding-agent';
+import { SessionManager } from '@earendil-works/pi-coding-agent';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runStudioAgentTurn, type StudioAgentTurnConfig } from 'cli/ai/runtimes/pi';
-import type { AgentSessionEvent, CreateAgentSessionOptions } from '@mariozechner/pi-coding-agent';
+import type { AgentSessionEvent, CreateAgentSessionOptions } from '@earendil-works/pi-coding-agent';
 import type { AiModelId } from '@studio/common/ai/models';
 
 const mocks = vi.hoisted( () => ( {
@@ -23,8 +23,8 @@ vi.mock( '@studio/common/ai/models', async ( importOriginal ) => {
 	};
 } );
 
-vi.mock( '@mariozechner/pi-coding-agent', async ( importOriginal ) => {
-	const actual = await importOriginal< typeof import('@mariozechner/pi-coding-agent') >();
+vi.mock( '@earendil-works/pi-coding-agent', async ( importOriginal ) => {
+	const actual = await importOriginal< typeof import('@earendil-works/pi-coding-agent') >();
 	const stub = ( name: string ) => ( {
 		name,
 		label: name,

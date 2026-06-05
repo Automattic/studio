@@ -3,7 +3,7 @@ import os from 'os';
 import path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { readAiSessionSummaryFromEntries } from '../summary';
-import type { SessionEntry } from '@mariozechner/pi-coding-agent';
+import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
 describe( 'readAiSessionSummaryFromEntries', () => {
 	let rootDirectory: string | undefined;

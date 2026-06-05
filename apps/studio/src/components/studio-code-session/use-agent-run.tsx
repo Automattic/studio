@@ -12,7 +12,7 @@ import {
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { SESSIONS_QUERY_KEY } from './use-session';
-import type { SessionEntry } from '@mariozechner/pi-coding-agent';
+import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 import type { AgentEvent, AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { LoadedAiSession } from '@studio/common/ai/sessions/types';
 

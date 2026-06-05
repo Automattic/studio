@@ -1,5 +1,5 @@
 import type { StudioChatArtifactData } from './chat-artifacts';
-import type { AgentSessionEvent } from '@mariozechner/pi-coding-agent';
+import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 
 export type TurnCompletedStatus = 'success' | 'error' | 'paused' | 'max_turns';
 

@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { resolveActiveSiteFromEntries } from '../active-site';
 import { deriveEffectiveEnvironment } from '../effective-site';
 import { appendStudioEntry, createAiSession, loadAiSession } from '../store';
-import type { SessionEntry } from '@mariozechner/pi-coding-agent';
+import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
 describe( 'site.selected — environment flips', () => {
 	let rootDirectory: string | undefined;

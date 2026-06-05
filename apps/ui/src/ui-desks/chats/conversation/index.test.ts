@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { createElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChatArtifact, entriesToRenderItems } from './index';
-import type { SessionEntry } from '@mariozechner/pi-coding-agent';
+import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
 const deskMocks = vi.hoisted( () => ( {
 	addWidget: vi.fn(),

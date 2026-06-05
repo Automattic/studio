@@ -25,7 +25,7 @@
 	},
 	"dependencies": {
 		"@anthropic-ai/sdk": "^0.91.1",
-		"@inquirer/prompts": "^8.3.2",
+		"@inquirer/prompts": "^8.5.2",
 		"@mariozechner/pi-agent-core": "0.70.2",
 		"@mariozechner/pi-ai": "0.70.2",
 		"@mariozechner/pi-coding-agent": "0.70.2",

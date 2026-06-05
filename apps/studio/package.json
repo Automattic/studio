@@ -69,7 +69,7 @@
 		"@electron-forge/maker-squirrel": "^7.11.2",
 		"@electron-forge/maker-zip": "^7.11.2",
 		"@electron-forge/plugin-auto-unpack-natives": "^7.11.2",
-		"@inquirer/prompts": "^8.3.0",
+		"@inquirer/prompts": "^8.5.2",
 		"@mariozechner/pi-coding-agent": "0.70.2",
 		"@reduxjs/toolkit": "^2.12.0",
 		"@rive-app/react-canvas": "^4.18.0",

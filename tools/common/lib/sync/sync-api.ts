@@ -1,7 +1,5 @@
 import fs from 'fs';
 import { Readable } from 'stream';
-import { z } from 'zod';
-import { __ } from '@wordpress/i18n';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import {
@@ -11,6 +9,8 @@ import {
 	importResponseSchema,
 } from '@studio/common/types/sync';
 import { backupLsItemSchema, backupLsResponseBodySchema } from '@studio/common/types/sync-tree';
+import { __ } from '@wordpress/i18n';
+import { z } from 'zod';
 import { transformSitesResponse } from './transform-sites';
 import type { SyncSite, ImportResponse, SyncOption } from '@studio/common/types/sync';
 import type { BackupLsItem } from '@studio/common/types/sync-tree';

@@ -75,6 +75,14 @@ export const baseConfig = defineConfig( {
 				format: 'es',
 				entryFileNames: '[name].mjs',
 				chunkFileNames: '[name]-[hash].mjs',
+				// Some bundled CommonJS dependencies (e.g. `lockfile`, `debug`) call
+				// `require( ... )` for Node built-ins at module init. Rolldown (the
+				// default bundler in Vite 8) emits a shim that throws when those calls
+				// run in an ESM output (`.mjs`), since ESM has no implicit `require`.
+				// Provide a real `require` per chunk via `createRequire` so the shim
+				// uses it instead of throwing.
+				banner:
+					'import { createRequire as __studioCreateRequire } from "node:module"; const require = __studioCreateRequire(import.meta.url);',
 			},
 			external: ( id ) => {
 				// Bundle the `@wp-playground/blueprints/blueprint-schema-validator` module since we've defined

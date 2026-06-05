@@ -57,7 +57,7 @@ export async function fetchLatestGithubRelease( repo: string ) {
 		const response = await fetch( `https://api.github.com/repos/${ repo }/releases/latest`, {
 			headers,
 			dispatcher: sharedDispatcher,
-		} as RequestInit );
+		} );
 
 		if ( ! response.ok ) {
 			throwForHttpStatus( 'GitHub API request', response.status, response.statusText );

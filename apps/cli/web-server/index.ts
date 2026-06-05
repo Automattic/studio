@@ -1,6 +1,7 @@
 import { isAiModelId } from '@studio/common/ai/models';
 import {
 	appendModelChangeEntry,
+	appendStudioEntry,
 	createAiSession,
 	deleteAiSession,
 	listAiSessions,
@@ -17,6 +18,7 @@ import {
 	setBroadcast,
 	startAgentRun,
 } from './agent-runs';
+import { ensureWorkspace } from './workspaces';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { SitesEndpointSite } from '@studio/common/types/sync';
 import type { Request, Response } from 'express';
@@ -176,9 +178,19 @@ app.get( '/sessions', async ( _req: Request, res: Response ) => {
 } );
 
 app.post( '/sessions', async ( _req: Request, res: Response ) => {
-	// `siteId` is accepted but ignored for the PoC: sessions start unbound and
-	// the agent creates/binds a site during the run.
-	res.json( await createAiSession( root ) );
+	// Studio Web runs the agent on a per-session, git-backed workspace — the
+	// cloud analog of Studio App's local site. Create the session, provision its
+	// workspace, and bind it via a `studio.site_selected` entry so the forked
+	// agent (`code sessions resume`) resolves the workspace as its active site.
+	// (`siteId` for seeding from an existing WP.com site is a later increment.)
+	const session = await createAiSession( root );
+	const workspace = ensureWorkspace( session.id );
+	await appendStudioEntry( root, session.id, 'studio.site_selected', {
+		siteName: workspace.name,
+		sitePath: workspace.path,
+		remote: false,
+	} );
+	res.json( await loadAiSession( root, session.id ) );
 } );
 
 app.get( '/sessions/:id', async ( req: Request, res: Response ) => {

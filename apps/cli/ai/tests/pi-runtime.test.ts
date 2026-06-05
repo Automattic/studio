@@ -101,7 +101,7 @@ const DEFAULT_MOCK_EVENTS: AgentSessionEvent[] = [
 		},
 		toolResults: [],
 	},
-	{ type: 'agent_end', messages: [] },
+	{ type: 'agent_end', willRetry: false, messages: [] },
 ];
 
 type MessageEndEvent = Extract< AgentSessionEvent, { type: 'message_end' } >;
@@ -327,7 +327,7 @@ describe( 'pi runtime', () => {
 				],
 				'length'
 			),
-			{ type: 'agent_end', messages: [] },
+			{ type: 'agent_end', willRetry: false, messages: [] },
 		] as AgentSessionEvent[];
 
 		await runRuntime( {

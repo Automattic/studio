@@ -1,6 +1,6 @@
 import fs from 'fs';
 import Anthropic from '@anthropic-ai/sdk';
-import { type AgentEvent, type AgentTool } from '@earendil-works/pi-agent-core';
+import { type AgentTool } from '@earendil-works/pi-agent-core';
 import { type Model, type SimpleStreamOptions } from '@earendil-works/pi-ai';
 import { streamAnthropic, type AnthropicOptions } from '@earendil-works/pi-ai/anthropic';
 import {
@@ -177,9 +177,10 @@ function resolveCredentials(
 function syntheticErrorAgentEnd(
 	stopReason: 'error' | 'aborted',
 	errorMessage: string
-): AgentEvent {
+): AgentSessionEvent {
 	return {
 		type: 'agent_end',
+		willRetry: false,
 		messages: [
 			{
 				role: 'assistant',

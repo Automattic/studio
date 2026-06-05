@@ -1,0 +1,44 @@
+.root {
+	--status-dot-size: 8px;
+	--status-dot-blue: var(--wpds-color-fg-interactive-brand, #3858e9);
+	--status-dot-orange: #d97706;
+
+	display: inline-grid;
+	place-items: center;
+	inline-size: var(--status-dot-size);
+	block-size: var(--status-dot-size);
+	flex-shrink: 0;
+}
+
+.visual {
+	display: block;
+	inline-size: 100%;
+	block-size: 100%;
+	background-color: var(--status-dot-blue);
+	border-radius: 999px;
+}
+
+.loading {
+	animation: pulse 1.2s ease-in-out infinite;
+}
+
+.waiting-response {
+	background-color: var(--status-dot-orange);
+	border-radius: 2px;
+}
+
+.finished-response {
+	background-color: var(--status-dot-blue);
+}
+
+@keyframes pulse {
+	0%,
+	100% {
+		opacity: 0.35;
+		transform: scale(0.85);
+	}
+	50% {
+		opacity: 1;
+		transform: scale(1);
+	}
+}

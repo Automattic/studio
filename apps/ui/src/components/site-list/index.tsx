@@ -16,7 +16,7 @@ import * as Menu from '@/components/menu';
 import { SidebarButton } from '@/components/sidebar-button';
 import { deriveSiteStatus } from '@/components/site-dropdown/utils';
 import { SiteIcon } from '@/components/site-icon';
-import { Spinner } from '@/components/spinner';
+import { StatusDot, type StatusDotStatus } from '@/components/status-dot';
 import { useIsSessionRunning, useSessionHasPendingQuestion } from '@/data/queries/use-agent-run';
 import {
 	useArchiveSession,
@@ -160,10 +160,37 @@ function SessionActionsMenu( { session }: { session: AiSessionSummary } ) {
 	);
 }
 
+function SessionStatusIndicator( { label, status }: { label: string; status: StatusDotStatus } ) {
+	return (
+		<Tooltip.Provider delay={ 0 }>
+			<Tooltip.Root>
+				<Tooltip.Trigger
+					render={
+						<StatusDot
+							status={ status }
+							className={ styles.sessionStatusIndicator }
+							role="status"
+							aria-label={ label }
+						/>
+					}
+				/>
+				<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>{ label }</Tooltip.Popup>
+			</Tooltip.Root>
+		</Tooltip.Provider>
+	);
+}
+
 function SessionItem( { session, isVisible }: { session: AiSessionSummary; isVisible: boolean } ) {
 	const label = session.firstPrompt?.trim();
 	const isRunning = useIsSessionRunning( session.id );
 	const hasPendingQuestion = useSessionHasPendingQuestion( session.id );
+	const params = useParams( { strict: false } ) as { sessionId?: string };
+	const isActive = params.sessionId === session.id;
+	const hasUnreadMessages =
+		! isActive &&
+		typeof session.lastReadEventCount === 'number' &&
+		typeof session.eventCount === 'number' &&
+		session.eventCount > session.lastReadEventCount;
 
 	return (
 		<li className={ styles.sessionItem }>
@@ -181,26 +208,14 @@ function SessionItem( { session, isVisible }: { session: AiSessionSummary; isVis
 				}
 			>
 				{ hasPendingQuestion ? (
-					<Tooltip.Provider delay={ 0 }>
-						<Tooltip.Root>
-							<Tooltip.Trigger
-								render={
-									<span
-										className={ styles.sessionQuestionIndicator }
-										role="status"
-										aria-label={ __( 'Studio needs an answer.' ) }
-									>
-										?
-									</span>
-								}
-							/>
-							<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-								{ __( 'Studio needs an answer.' ) }
-							</Tooltip.Popup>
-						</Tooltip.Root>
-					</Tooltip.Provider>
+					<SessionStatusIndicator
+						label={ __( 'Studio needs an answer' ) }
+						status="waiting-response"
+					/>
 				) : isRunning ? (
-					<Spinner className={ styles.sessionInlineSpinner } label={ __( 'Working…' ) } />
+					<SessionStatusIndicator label={ __( 'Working…' ) } status="loading" />
+				) : hasUnreadMessages ? (
+					<SessionStatusIndicator label={ __( 'Unread messages' ) } status="finished-response" />
 				) : null }
 				<span className={ clsx( styles.sessionLabel, ! label && styles.sessionLabelUntitled ) }>
 					{ label || __( 'Untitled chat' ) }

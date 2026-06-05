@@ -255,6 +255,7 @@ function hydrateAiSessionSummary(
 		...summary,
 		starred: metadata?.starred,
 		archived: metadata?.archived,
+		lastReadEventCount: metadata?.lastReadEventCount,
 	};
 }
 

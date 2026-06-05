@@ -1,5 +1,6 @@
 import { randomThinkingMessage } from '@studio/common/ai/thinking-messages';
 import { useEffect, useState } from 'react';
+import { StatusDot } from '@/components/status-dot';
 import styles from './style.module.css';
 
 export function ThinkingIndicator( {
@@ -37,7 +38,7 @@ export function ThinkingIndicator( {
 			{ active ? (
 				<>
 					<div className={ styles.head }>
-						<span className={ styles.dot } aria-hidden="true" />
+						<StatusDot status="loading" className={ styles.dot } aria-hidden="true" />
 						<span className={ styles.label }>{ message }</span>
 						{ elapsedSeconds > 0 ? (
 							<span className={ styles.elapsed }>{ `${ elapsedSeconds }s` }</span>

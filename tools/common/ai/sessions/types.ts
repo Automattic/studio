@@ -5,6 +5,7 @@ export type TurnStatus = 'success' | 'error' | 'max_turns' | 'interrupted';
 export interface AiSessionMetadata {
 	starred?: boolean;
 	archived?: boolean;
+	lastReadEventCount?: number;
 }
 
 export interface AiSessionSummary extends AiSessionMetadata {

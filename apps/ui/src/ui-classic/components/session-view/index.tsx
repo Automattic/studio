@@ -2,12 +2,16 @@ import { resolveSessionModel } from '@studio/common/ai/models';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { PreviewSplitContent } from '@/components/preview-split-frame';
 import { type Annotation } from '@/components/site-preview/types';
 import { useAgentRun } from '@/data/queries/use-agent-run';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
-import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
+import {
+	useMarkSessionRead,
+	useSession,
+	useSessionEffectiveEnvironment,
+} from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import { useSessionCommands } from '@/hooks/use-session-commands';
 import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-session-ui';
@@ -66,6 +70,8 @@ function SessionViewContent( {
 } ) {
 	const navigate = useNavigate();
 	const { data, isLoading, error } = useSession( sessionId );
+	const markSessionRead = useMarkSessionRead();
+	const lastReadMarkRef = useRef< string | null >( null );
 	const { data: sites } = useSites();
 	const ownerSitePath = data?.summary.ownerSitePath;
 	const ownerSite = ownerSitePath
@@ -117,6 +123,19 @@ function SessionViewContent( {
 		[ sendMessage ]
 	);
 	useSessionPreviewAnnotations( handleAnnotationsDone, canTogglePreview && !! ownerSite );
+
+	useEffect( () => {
+		if ( ! data ) {
+			return;
+		}
+		const eventCount = data.summary.eventCount;
+		const lastReadEventCount = data.summary.lastReadEventCount ?? -1;
+		const markKey = `${ sessionId }:${ eventCount }`;
+		if ( eventCount > lastReadEventCount && lastReadMarkRef.current !== markKey ) {
+			lastReadMarkRef.current = markKey;
+			markSessionRead.mutate( { sessionId, eventCount } );
+		}
+	}, [ data, markSessionRead, sessionId ] );
 
 	useLayoutEffect( () => {
 		const node = scrollRef.current;

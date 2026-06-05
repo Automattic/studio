@@ -223,17 +223,22 @@ describe( 'Shared Config', () => {
 			vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( { version: 1 } ) ) );
 
 			await expect(
-				updateSharedSession( 'abc123', { starred: true, archived: true } )
+				updateSharedSession( 'abc123', {
+					starred: true,
+					archived: true,
+					lastReadEventCount: 7,
+				} )
 			).resolves.toEqual( {
 				starred: true,
 				archived: true,
+				lastReadEventCount: 7,
 			} );
 
 			const written = vi.mocked( writeFile ).mock.calls[ 0 ][ 1 ] as string;
 			expect( JSON.parse( written ) ).toEqual( {
 				version: 1,
 				sessions: {
-					abc123: { starred: true, archived: true },
+					abc123: { starred: true, archived: true, lastReadEventCount: 7 },
 				},
 			} );
 		} );

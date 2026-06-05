@@ -29,6 +29,7 @@ export const sharedSessionMetadataSchema = z
 	.object( {
 		starred: z.boolean().optional(),
 		archived: z.boolean().optional(),
+		lastReadEventCount: z.number().optional(),
 	} )
 	.loose();
 
@@ -125,6 +126,9 @@ function pruneSharedSessionMetadata( metadata: SharedSessionMetadata ): void {
 	}
 	if ( ! metadata.archived ) {
 		delete metadata.archived;
+	}
+	if ( metadata.lastReadEventCount === undefined ) {
+		delete metadata.lastReadEventCount;
 	}
 }
 

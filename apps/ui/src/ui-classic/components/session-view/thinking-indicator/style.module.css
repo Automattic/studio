@@ -1,4 +1,6 @@
 .root {
+	--thinking-dot-size: 8px;
+
 	display: flex;
 	flex-direction: column;
 	gap: 2px;
@@ -16,11 +18,8 @@
 }
 
 .dot {
-	width: 8px;
-	height: 8px;
-	border-radius: 50%;
-	background-color: var(--wpds-color-fg-interactive-brand, #2563eb);
-	animation: pulse 1.2s ease-in-out infinite;
+	--status-dot-size: var(--thinking-dot-size);
+
 	flex-shrink: 0;
 }
 
@@ -35,22 +34,10 @@
 }
 
 .progress {
-	padding-left: calc(8px + var(--wpds-dimension-padding-md));
+	padding-left: calc(var(--thinking-dot-size) + var(--wpds-dimension-padding-md));
 	color: var(--wpds-color-fg-content-neutral-weak);
 	opacity: 0.8;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-}
-
-@keyframes pulse {
-	0%,
-	100% {
-		opacity: 0.35;
-		transform: scale(0.85);
-	}
-	50% {
-		opacity: 1;
-		transform: scale(1);
-	}
 }

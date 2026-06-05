@@ -140,6 +140,7 @@ describe( 'SiteList', () => {
 					firstPrompt: 'Build a landing page',
 					ownerSitePath: '/Users/example/Studio/example-site',
 					updatedAt: '2026-05-01T12:00:00.000Z',
+					eventCount: 4,
 				},
 			],
 			isLoading: false,
@@ -335,7 +336,29 @@ describe( 'SiteList', () => {
 
 		render( <SiteList /> );
 
-		expect( screen.getByRole( 'status', { name: 'Studio needs an answer.' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'status', { name: 'Studio needs an answer' } ) ).toBeInTheDocument();
 		expect( screen.queryByRole( 'status', { name: 'Working…' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'shows an unread indicator for inactive chats with new messages', () => {
+		useSessionsMock.mockReturnValue( {
+			data: [
+				{
+					id: 'session-1',
+					title: 'Generated title',
+					generatedTitle: 'Generated title',
+					firstPrompt: 'Build a landing page',
+					ownerSitePath: '/Users/example/Studio/example-site',
+					updatedAt: '2026-05-01T12:00:00.000Z',
+					eventCount: 8,
+					lastReadEventCount: 5,
+				},
+			],
+			isLoading: false,
+		} as never );
+
+		render( <SiteList /> );
+
+		expect( screen.getByRole( 'status', { name: 'Unread messages' } ) ).toBeInTheDocument();
 	} );
 } );

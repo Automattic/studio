@@ -134,6 +134,24 @@ export function useUpdateSessionMetadata() {
 	} );
 }
 
+export function useMarkSessionRead() {
+	const updateSessionMetadata = useUpdateSessionMetadata();
+
+	return {
+		...updateSessionMetadata,
+		mutate: ( variables: { sessionId: string; eventCount: number } ) =>
+			updateSessionMetadata.mutate( {
+				sessionId: variables.sessionId,
+				patch: { lastReadEventCount: variables.eventCount },
+			} ),
+		mutateAsync: ( variables: { sessionId: string; eventCount: number } ) =>
+			updateSessionMetadata.mutateAsync( {
+				sessionId: variables.sessionId,
+				patch: { lastReadEventCount: variables.eventCount },
+			} ),
+	};
+}
+
 function useSessionArchivedMutation( archived: boolean ) {
 	const updateSessionMetadata = useUpdateSessionMetadata();
 

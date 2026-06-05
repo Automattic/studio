@@ -1075,6 +1075,15 @@ describe( 'Studio AI MCP tools', () => {
 			expect( getTextContent( result ) ).toContain( 'wp theme activate acme-studio' );
 		} );
 
+		it( 'includes a read-before-edit hint so the agent does not guess file contents', async () => {
+			const result = await getTool( 'scaffold_theme' ).rawHandler( {
+				nameOrPath: scaffoldSite.name,
+				name: 'Acme Studio',
+			} as never );
+
+			expect( getTextContent( result ) ).toContain( 'Read a file before editing it' );
+		} );
+
 		it( 'honors an explicit slug argument over the derived one', async () => {
 			await getTool( 'scaffold_theme' ).rawHandler( {
 				nameOrPath: scaffoldSite.name,

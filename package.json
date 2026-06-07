@@ -44,6 +44,7 @@
 		"cli:build": "npm -w wp-studio run build",
 		"cli:build:prod": "npm -w wp-studio run build:prod",
 		"cli:build:npm": "npm -w wp-studio run build:npm",
+		"cli:generate-preinstalled-sqlite-template": "npm -w wp-studio run generate:preinstalled-sqlite-template",
 		"cli:package": "npm -w wp-studio run package",
 		"cli:watch": "npm -w wp-studio run watch",
 		"app:install:bundle": "npm -w studio-app run install:bundle",

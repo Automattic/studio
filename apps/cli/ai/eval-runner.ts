@@ -9,7 +9,6 @@
 import { writeFileSync, writeSync as fsWriteSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { SessionManager } from '@mariozechner/pi-coding-agent';
 import { isAiModelId, type AiModelId } from '@studio/common/ai/models';
 import { findLastAssistant } from '@studio/common/ai/session-events';
 import {
@@ -17,8 +16,6 @@ import {
 	resolveInitialAiProvider,
 	resolveUnavailableAiProvider,
 } from 'cli/ai/auth';
-import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
-import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import type { StopReason, Usage } from '@mariozechner/pi-ai';
 import type { AgentSessionEvent } from '@mariozechner/pi-coding-agent';
 import type { AiProviderId } from 'cli/ai/providers';
@@ -187,6 +184,12 @@ async function runEval( input: EvalRunnerInput ) {
 	const elapsed = () => Date.now() - evalStartedAt;
 	const phaseTimingsMs: Record< string, number > = {};
 	let phaseStartedAt = Date.now();
+	process.env.STUDIO_SITES_ROOT ??= process.cwd();
+	const [ { SessionManager }, { runStudioAgentTurn }, { STUDIO_SITES_ROOT } ] = await Promise.all( [
+		import( '@mariozechner/pi-coding-agent' ),
+		import( 'cli/ai/runtimes/pi' ),
+		import( 'cli/lib/site-paths' ),
+	] );
 
 	let aiProvider: AiProviderId = await resolveInitialAiProvider();
 	phaseTimingsMs.resolve_initial_provider_ms = Date.now() - phaseStartedAt;

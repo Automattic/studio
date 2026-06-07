@@ -13,8 +13,27 @@ import {
 	useSessionPreviewAnnotationsHandler,
 	useSessionPreviewUI,
 } from '@/hooks/use-session-ui';
+import { getSiteUrl } from '@/lib/get-site-url';
 import { rootRoute } from '../layout-root';
 import type { SiteDetails } from '@/data/core';
+
+// Bare preview for hosted/web sites that render via WordPress Playground on a
+// foreign origin. Intentionally has no effects, no postMessage listeners, and no
+// guest-script injection — unlike SitePreview, whose same-origin machinery would
+// thrash a cross-origin iframe and OOM-crash the tab.
+function PlaygroundPreviewFrame( { url, collapsed }: { url: string; collapsed?: boolean } ) {
+	if ( collapsed ) {
+		return null;
+	}
+	return (
+		<iframe
+			src={ url }
+			title="Site preview"
+			style={ { width: '100%', height: '100%', border: 0, background: '#fff' } }
+			sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
+		/>
+	);
+}
 
 function getPreviewRouteTarget( pathname: string ): {
 	sessionId?: string;
@@ -83,8 +102,19 @@ function DashboardLayoutContent() {
 	const showPreview = preview.open && supportsPreview && !! previewSite;
 
 	const renderPreview = useCallback(
-		( { collapsed, hideResizeHandle }: PreviewSplitFramePreviewProps ) =>
-			previewSite ? (
+		( { collapsed, hideResizeHandle }: PreviewSplitFramePreviewProps ) => {
+			if ( ! previewSite ) {
+				return null;
+			}
+			// Hosted/web preview (Studio Web): the site renders via WordPress
+			// Playground on a foreign origin. SitePreview's same-origin guest-script
+			// + postMessage machinery thrashes that iframe (OOM-crashes the tab), so
+			// render a bare iframe instead. Desktop/local sites keep full SitePreview.
+			const previewUrl = getSiteUrl( previewSite );
+			if ( previewUrl.startsWith( 'https://playground.wordpress.net' ) ) {
+				return <PlaygroundPreviewFrame url={ previewUrl } collapsed={ collapsed } />;
+			}
+			return (
 				<SitePreview
 					site={ previewSite }
 					path={ preview.path }
@@ -94,7 +124,8 @@ function DashboardLayoutContent() {
 					hideResizeHandle={ hideResizeHandle }
 					onPathChange={ preview.updatePath }
 				/>
-			) : null,
+			);
+		},
 		[ onAnnotationsDone, preview.path, preview.reloadNonce, preview.updatePath, previewSite ]
 	);
 

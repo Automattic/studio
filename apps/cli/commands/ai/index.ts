@@ -555,11 +555,11 @@ export async function runCommand( options: {
 				options.initialFiles
 			);
 			const jsonStatus = result.status === 'interrupted' ? 'error' : result.status;
-			( ui as JsonAdapter ).emitTurnCompleted( jsonStatus, result.sessionId );
+			ui.emitTurnCompleted( jsonStatus, result.sessionId );
 		} catch ( error ) {
 			process.exitCode = 1;
 			handleAgentTurnError( error );
-			( ui as JsonAdapter ).emitTurnCompleted( 'error', session?.getSessionId() ?? '' );
+			ui.emitTurnCompleted( 'error', session?.getSessionId() ?? '' );
 		} finally {
 			setLocalSiteSelectedCallback( null );
 			ui.stop();

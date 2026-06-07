@@ -4,7 +4,15 @@ import type { AgentSessionEvent } from '@mariozechner/pi-coding-agent';
 import type { AiProviderId } from 'cli/ai/providers';
 import type { AskUserQuestion, SiteInfo } from 'cli/ai/types';
 
-export interface AiOutputAdapter {
+/**
+ * Fire-and-forget surface the agent loop pushes information into: lifecycle,
+ * display chrome, agent-turn notifications, and turn completion. Every method
+ * returns `void`, so a silent implementation is a *legitimate* contract — the
+ * JSON path simply has no wire form for terminal chrome. That's why the no-op
+ * defaults live on {@link HeadlessReporterBase} (inherited once) instead of
+ * being hand-stubbed per adapter.
+ */
+export interface AgentReporter {
 	currentProvider: AiProviderId;
 	currentModel: AiModelId;
 	activeSite: SiteInfo | null;
@@ -30,18 +38,72 @@ export interface AiOutputAdapter {
 	endAgentTurn(): void;
 	addUserMessage( text: string ): void;
 	handleEvent( event: AgentSessionEvent ): void;
-
-	waitForInput(): Promise< string >;
-	askUser( questions: AskUserQuestion[] ): Promise< Record< string, string > >;
-	openActiveSiteInBrowser(): Promise< boolean >;
+	emitTurnCompleted(
+		status: TurnCompletedStatus,
+		sessionId: string,
+		usage?: { numTurns: number; costUsd?: number }
+	): void;
 }
 
-export class JsonAdapter implements AiOutputAdapter {
+/**
+ * Request/response surface: it *promises a value back*, so — unlike the
+ * fire-and-forget {@link AgentReporter} — a no-op or `throw` here would break
+ * the caller's contract (an LSP violation). Every implementation MUST honor it
+ * with a real answer; the JSON adapter does so via the desktop IPC round-trip
+ * (or the documented pause-and-halt fallback), never by throwing.
+ */
+export interface UserInteractor {
+	askUser( questions: AskUserQuestion[] ): Promise< Record< string, string > >;
+}
+
+/**
+ * The polymorphic surface `runCommand` depends on. Interactive-only capabilities
+ * (`waitForInput`, `openActiveSiteInBrowser`, replay, …) deliberately live only
+ * on the concrete {@link AiChatUI}, reached after the `instanceof AiChatUI`
+ * guard — so they cannot be invoked on a headless adapter that can't honor them.
+ */
+export type AiOutputAdapter = AgentReporter & UserInteractor;
+
+/**
+ * A complete, do-nothing {@link AgentReporter}. Subclasses override only the
+ * methods that actually carry agent information to the consumer (and any
+ * lifecycle they need); everything else stays a legitimately-silent no-op.
+ */
+export abstract class HeadlessReporterBase implements AgentReporter {
 	currentProvider: AiProviderId = 'wpcom';
 	currentModel: AiModelId = DEFAULT_MODEL;
 	activeSite: SiteInfo | null = null;
 	onSiteSelected: ( ( site: SiteInfo ) => void ) | null = null;
 	onInterrupt: ( () => void ) | null = null;
+
+	start(): void {}
+	stop(): void {}
+	showWelcome(): void {}
+	showOnboarding(): void {}
+	showCapabilities(): void {}
+	showSuccess( _message: string ): void {}
+	setBusy( _active: boolean ): void {}
+	setStatusMessage( _message: string | null ): void {}
+	setDaemonStatus( _state: { running: boolean; pid?: number } ): void {}
+	addUserMessage( _text: string ): void {}
+	endAgentTurn(): void {}
+
+	// Information-bearing methods: a concrete reporter MUST decide how to surface
+	// these, so they stay abstract rather than silently defaulting to no-op.
+	abstract showProgress( message: string ): void;
+	abstract showInfo( message: string ): void;
+	abstract showError( message: string ): void;
+	abstract setLoaderMessage( message: string, update?: boolean ): void;
+	abstract beginAgentTurn( sessionId?: string ): void;
+	abstract handleEvent( event: AgentSessionEvent ): void;
+	abstract emitTurnCompleted(
+		status: TurnCompletedStatus,
+		sessionId: string,
+		usage?: { numTurns: number; costUsd?: number }
+	): void;
+}
+
+export class JsonAdapter extends HeadlessReporterBase implements AiOutputAdapter {
 	onBeforeExit: ( () => Promise< void > ) | null = null;
 	permissionResponse: Record< string, string > | null = null;
 
@@ -74,28 +136,8 @@ export class JsonAdapter implements AiOutputAdapter {
 		}
 	}
 
-	showWelcome(): void {
-		// No-op in JSON mode
-	}
-
-	showOnboarding(): void {
-		// No-op in JSON mode
-	}
-
-	showCapabilities(): void {
-		// No-op in JSON mode
-	}
-
-	showSuccess( _message: string ): void {
-		// No-op in JSON mode
-	}
-
 	showProgress( message: string ): void {
 		emitEvent( { type: 'progress', timestamp: new Date().toISOString(), message } );
-	}
-
-	setBusy( _active: boolean ): void {
-		// No-op in JSON mode
 	}
 
 	showInfo( message: string ): void {
@@ -106,14 +148,6 @@ export class JsonAdapter implements AiOutputAdapter {
 		emitEvent( { type: 'error', timestamp: new Date().toISOString(), message } );
 	}
 
-	setStatusMessage(): void {
-		// No-op in JSON mode
-	}
-
-	setDaemonStatus(): void {
-		// No-op in JSON mode
-	}
-
 	setLoaderMessage( message: string, _update?: boolean ): void {
 		this.showProgress( message );
 	}
@@ -121,14 +155,6 @@ export class JsonAdapter implements AiOutputAdapter {
 	beginAgentTurn( sessionId?: string ): void {
 		this.activeSessionId = sessionId ?? '';
 		emitEvent( { type: 'turn.started', timestamp: new Date().toISOString() } );
-	}
-
-	endAgentTurn(): void {
-		// turn.completed is emitted separately with status and usage
-	}
-
-	addUserMessage( _text: string ): void {
-		// No-op in JSON mode — the service already knows the message it sent
 	}
 
 	handleEvent( event: AgentSessionEvent ): void {
@@ -150,10 +176,6 @@ export class JsonAdapter implements AiOutputAdapter {
 			status,
 			usage,
 		} );
-	}
-
-	waitForInput(): Promise< string > {
-		throw new Error( 'waitForInput is not available in JSON mode' );
 	}
 
 	async askUser( questions: AskUserQuestion[] ): Promise< Record< string, string > > {
@@ -199,9 +221,5 @@ export class JsonAdapter implements AiOutputAdapter {
 		await this.onBeforeExit?.();
 		process.exitCode = 0;
 		return new Promise< Record< string, string > >( () => {} );
-	}
-
-	openActiveSiteInBrowser(): Promise< boolean > {
-		throw new Error( 'openActiveSiteInBrowser is not available in JSON mode' );
 	}
 }

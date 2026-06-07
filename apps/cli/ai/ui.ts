@@ -1431,6 +1431,13 @@ export class AiChatUI implements AiOutputAdapter {
 	}
 
 	/**
+	 * Turn completion is surfaced inline as the turn unfolds (the loader,
+	 * usage, and tool output are already on screen), so there is nothing to
+	 * emit for the terminal — only the JSON wire needs a discrete event.
+	 */
+	emitTurnCompleted(): void {}
+
+	/**
 	 * Returns true when the current/last turn surfaced the AI usage cap
 	 * message to the user. Lets callers suppress redundant downstream
 	 * errors (e.g. the SDK's "process exited with code 1" that follows

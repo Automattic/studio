@@ -4,6 +4,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from '@/app';
 import { persistPromise } from '@/data/core';
+import { createSecexConnector } from '@/data/core/connectors/secex';
 import { createWebConnector } from '@/data/core/connectors/web';
 import type { Connector } from '@/data/core';
 
@@ -36,12 +37,27 @@ function seedDefaultUiMode() {
 	}
 }
 
+// SecEx mode (`VITE_STUDIO_BACKEND=secex`) talks straight to the hosted wpcom
+// Studio Code endpoint from the browser — no local web-server. The default mode
+// keeps the localhost web-server connector.
+function createConnector(): Connector {
+	if ( import.meta.env.VITE_STUDIO_BACKEND === 'secex' ) {
+		return createSecexConnector( {
+			runUrl:
+				import.meta.env.VITE_STUDIO_SECEX_RUN_URL ??
+				'https://public-api.wordpress.com/wpcom/v2/studio-code/run',
+			token: import.meta.env.VITE_STUDIO_WPCOM_TOKEN ?? '',
+		} );
+	}
+	return createWebConnector( {
+		apiBaseUrl: import.meta.env.VITE_STUDIO_API_URL ?? 'http://localhost:8088',
+	} );
+}
+
 async function bootstrap() {
 	seedDefaultUiMode();
 
-	const connector = createWebConnector( {
-		apiBaseUrl: import.meta.env.VITE_STUDIO_API_URL ?? 'http://localhost:8088',
-	} );
+	const connector = createConnector();
 
 	await Promise.all( [ connector.init?.(), loadTranslations( connector ), persistPromise ] );
 

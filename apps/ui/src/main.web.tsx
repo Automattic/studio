@@ -3,9 +3,11 @@ import { defaultI18n } from '@wordpress/i18n';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from '@/app';
+import { WpcomLoginScreen } from '@/components/wpcom-login-screen';
 import { persistPromise } from '@/data/core';
 import { createSecexConnector } from '@/data/core/connectors/secex';
 import { createWebConnector } from '@/data/core/connectors/web';
+import { beginLogin, captureTokenFromHash, getStoredToken } from '@/lib/wpcom-web-auth';
 import type { Connector } from '@/data/core';
 
 // Web entry point. Identical to `main.tsx` except it wires the HTTP/SSE web
@@ -37,16 +39,25 @@ function seedDefaultUiMode() {
 	}
 }
 
+const isSecexMode = import.meta.env.VITE_STUDIO_BACKEND === 'secex';
+
+// SecEx mode talks straight to the hosted endpoint from the browser, so it needs
+// a WordPress.com token: prefer a real logged-in token, fall back to the build-time
+// env var (handy for scripted runs).
+function resolveSecexToken(): string {
+	return getStoredToken() ?? import.meta.env.VITE_STUDIO_WPCOM_TOKEN ?? '';
+}
+
 // SecEx mode (`VITE_STUDIO_BACKEND=secex`) talks straight to the hosted wpcom
 // Studio Code endpoint from the browser — no local web-server. The default mode
 // keeps the localhost web-server connector.
-function createConnector(): Connector {
-	if ( import.meta.env.VITE_STUDIO_BACKEND === 'secex' ) {
+function createConnector( token: string ): Connector {
+	if ( isSecexMode ) {
 		return createSecexConnector( {
 			runUrl:
 				import.meta.env.VITE_STUDIO_SECEX_RUN_URL ??
 				'https://public-api.wordpress.com/wpcom/v2/studio-code/run',
-			token: import.meta.env.VITE_STUDIO_WPCOM_TOKEN ?? '',
+			token,
 		} );
 	}
 	return createWebConnector( {
@@ -54,10 +65,27 @@ function createConnector(): Connector {
 	} );
 }
 
+function renderLogin() {
+	createRoot( document.getElementById( 'root' )! ).render(
+		<StrictMode>
+			<WpcomLoginScreen onLogin={ beginLogin } />
+		</StrictMode>
+	);
+}
+
 async function bootstrap() {
 	seedDefaultUiMode();
 
-	const connector = createConnector();
+	// Pick up a token left in the URL fragment after a WordPress.com redirect.
+	if ( isSecexMode ) {
+		captureTokenFromHash();
+		if ( ! resolveSecexToken() ) {
+			renderLogin();
+			return;
+		}
+	}
+
+	const connector = createConnector( resolveSecexToken() );
 
 	await Promise.all( [ connector.init?.(), loadTranslations( connector ), persistPromise ] );
 

@@ -124,11 +124,8 @@ async function main() {
 	const studioCodeCommandBuilder = async ( aiYargs: StudioArgv ) => {
 		const { registerCommand: registerAiCommand } = await import( 'cli/commands/ai' );
 		registerAiCommand( aiYargs );
-		const { isRemoteSessionEnabled } = await import( 'cli/lib/feature-flags' );
-		if ( isRemoteSessionEnabled() ) {
-			const { registerRemoteSessionCommand } = await import( 'cli/commands/ai/remote-session' );
-			registerRemoteSessionCommand( aiYargs );
-		}
+		const { registerRemoteSessionCommand } = await import( 'cli/commands/ai/remote-session' );
+		registerRemoteSessionCommand( aiYargs );
 		aiYargs.command( 'sessions', __( 'Manage code sessions' ), async ( sessionsYargs ) => {
 			const [
 				{ registerCommand: registerAiSessionsDeleteCommand },
@@ -184,6 +181,22 @@ async function main() {
 		registerPreviewUpdateCommand( previewYargs );
 		registerPreviewSetCommand( previewYargs );
 		previewYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );
+	} );
+
+	studioArgv.command( 'blueprint', __( 'Browse and use blueprints' ), async ( blueprintYargs ) => {
+		const [
+			{ registerCommand: registerBlueprintListCommand },
+			{ registerCommand: registerBlueprintUseCommand },
+		] = await Promise.all( [
+			import( 'cli/commands/blueprint/list' ),
+			import( 'cli/commands/blueprint/use' ),
+		] );
+
+		registerBlueprintListCommand( blueprintYargs );
+		registerBlueprintUseCommand( blueprintYargs );
+		blueprintYargs
+			.version( false )
+			.demandCommand( 1, __( 'You must provide a valid blueprint command' ) );
 	} );
 
 	registerPullCommand( studioArgv );

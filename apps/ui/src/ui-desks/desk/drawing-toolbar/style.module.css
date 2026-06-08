@@ -1,7 +1,7 @@
 .drawingToolbar {
 	position: absolute;
 	bottom: 48px;
-	left: 50%;
+	left: calc(50% + var(--ui-desks-chat-shift, 0px));
 	z-index: 11;
 	gap: 8px;
 	padding: 6px 6px 6px 14px;

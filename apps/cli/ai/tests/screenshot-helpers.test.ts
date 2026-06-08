@@ -2,12 +2,12 @@ import { readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { saveScreenshotPngToTempFile } from '../tools/screenshot-helpers';
+import { saveScreenshotToTempFile } from '../tools/screenshot-helpers';
 
 describe( 'screenshot helpers', () => {
 	it( 'saves screenshots to a temporary local file', async () => {
 		const buffer = Buffer.from( 'not-really-a-png' );
-		const result = await saveScreenshotPngToTempFile( buffer, { viewportType: 'desktop' } );
+		const result = await saveScreenshotToTempFile( buffer, { viewportType: 'desktop' } );
 
 		try {
 			expect( result.path.startsWith( os.tmpdir() ) ).toBe( true );

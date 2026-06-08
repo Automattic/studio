@@ -1,3 +1,4 @@
+import { useRegistry } from '@wordpress/data';
 import { __ } from '@wordpress/i18n';
 import {
 	category,
@@ -22,6 +23,7 @@ import { useConnector } from '@/data/core';
 import { useSites } from '@/data/queries/use-sites';
 import { SelectionChatDialog } from '@/ui-desks/chats/selection-chat-dialog';
 import { LinkFromUrlDialog } from '@/ui-desks/chrome/link-from-url-dialog';
+import { appendIncomingConnectedWidgets } from '@/ui-desks/connectors/context';
 import { canvasShapeToDeskWidget } from '@/ui-desks/desk/tldraw-adapter';
 import { collapseStackInEditor, expandStackInEditor } from '@/ui-desks/stacks/editor-commands';
 import { createStackId, getStackId, isStackExpanded } from '@/ui-desks/stacks/utils';
@@ -29,6 +31,7 @@ import {
 	isWidgetAvailableInDeskContext,
 	isWidgetCreationDisabled,
 } from '@/ui-desks/widget-actions/availability';
+import { getCreateWidgetOptions } from '@/ui-desks/widget-actions/create-widget-options';
 import { getWidgetEditAction } from '@/ui-desks/widget-actions/edit-action';
 import {
 	getExistingContentWidgetProps,
@@ -40,11 +43,21 @@ import { pageWidgetDefinition } from '@/ui-desks/widgets/page/definition';
 import { postWidgetDefinition } from '@/ui-desks/widgets/post/definition';
 import { getCreatableWidgetDefinitions, getWidgetDefinition } from '@/ui-desks/widgets/registry';
 import { siteCardWidgetDefinition } from '@/ui-desks/widgets/site-card/definition';
+import { getThemePatterns, getThemeTemplates } from '@/ui-desks/widgets/theme/api';
+import { themeWidgetDefinition } from '@/ui-desks/widgets/theme/definition';
+import {
+	createThemePatternBrowserMaterialization,
+	themePatternBrowserWidgetDefinition,
+} from '@/ui-desks/widgets/theme-pattern-browser/definition';
+import {
+	createThemeTemplateBrowserMaterialization,
+	themeTemplateBrowserWidgetDefinition,
+} from '@/ui-desks/widgets/theme-template-browser/definition';
 import { useDesk } from '../provider';
 import styles from './style.module.css';
 import type { DeskContextMenuState } from './state';
 import type { SiteDetails } from '@/data/core';
-import type { DeskWidget } from '@/ui-desks/widgets/types';
+import type { DeskWidget, DeskWidgetDefinition } from '@/ui-desks/widgets/types';
 import type { Editor, TLShape, TLShapeId } from 'tldraw';
 
 type MenuMode = 'main' | 'show-as' | 'insert' | 'pick-post' | 'pick-page' | 'pick-site-card';
@@ -63,6 +76,7 @@ const VIEWPORT_MARGIN = 8;
 export function DeskCanvasContextMenu( { editor, state, onClose }: DeskCanvasContextMenuProps ) {
 	const connector = useConnector();
 	const desk = useDesk();
+	const registry = useRegistry();
 	const { data: sites } = useSites();
 	const site = sites?.find( ( candidate ) => candidate.id === desk.siteId );
 	const isSiteRunning = Boolean( site?.running );
@@ -143,6 +157,31 @@ export function DeskCanvasContextMenu( { editor, state, onClose }: DeskCanvasCon
 		}
 		onClose();
 	};
+	const addCreatableWidget = async (
+		definition: ReturnType< typeof getCreatableWidgetDefinitions >[ number ]
+	) => {
+		desk.addWidget(
+			definition.type,
+			await getCreateWidgetOptions( definition, registry, {
+				center: state.pagePoint,
+				shouldStartEditing: definition.shouldStartEditingOnCreate,
+			} )
+		);
+	};
+	const addPatternBrowser = async () => {
+		const patterns = await getThemePatterns( { registry } );
+		desk.addMaterializedDesk(
+			( context ) => createThemePatternBrowserMaterialization( context, patterns ),
+			{ center: state.pagePoint }
+		);
+	};
+	const addTemplateBrowser = async () => {
+		const templates = await getThemeTemplates( { registry } );
+		desk.addMaterializedDesk(
+			( context ) => createThemeTemplateBrowserMaterialization( context, templates ),
+			{ center: state.pagePoint }
+		);
+	};
 
 	return (
 		<>
@@ -205,7 +244,11 @@ export function DeskCanvasContextMenu( { editor, state, onClose }: DeskCanvasCon
 						</ContextMenuItem>
 						<ChatMenuItem
 							disabled={ ! canChat }
-							onClick={ () => setChatWidgets( selectedWidgets ) }
+							onClick={ () =>
+								setChatWidgets(
+									appendIncomingConnectedWidgets( selectedWidgets, desk.getDeskConfigSnapshot() )
+								)
+							}
 						/>
 						<ContextMenuItem
 							disabled={ ! desk.canAddWidgets || ! singleWidget || ! singleShape }
@@ -244,7 +287,11 @@ export function DeskCanvasContextMenu( { editor, state, onClose }: DeskCanvasCon
 						</ContextMenuItem>
 						<ChatMenuItem
 							disabled={ ! canChat }
-							onClick={ () => setChatWidgets( selectedWidgets ) }
+							onClick={ () =>
+								setChatWidgets(
+									appendIncomingConnectedWidgets( selectedWidgets, desk.getDeskConfigSnapshot() )
+								)
+							}
 						/>
 						<ContextMenuSeparator />
 						<ContextMenuItem
@@ -276,7 +323,11 @@ export function DeskCanvasContextMenu( { editor, state, onClose }: DeskCanvasCon
 						</ContextMenuItem>
 						<ChatMenuItem
 							disabled={ ! canChat }
-							onClick={ () => setChatWidgets( selectedWidgets ) }
+							onClick={ () =>
+								setChatWidgets(
+									appendIncomingConnectedWidgets( selectedWidgets, desk.getDeskConfigSnapshot() )
+								)
+							}
 						/>
 						<ContextMenuSeparator />
 						<ContextMenuItem
@@ -373,25 +424,30 @@ export function DeskCanvasContextMenu( { editor, state, onClose }: DeskCanvasCon
 						<ContextMenuBackItem onClick={ () => setMenuMode( 'main' ) } />
 						<ContextMenuSeparator />
 						{ creatableWidgetDefinitions.map( ( definition ) => (
-							<ContextMenuItem
+							<CreateWidgetContextMenuItems
 								key={ definition.type }
-								disabled={ isWidgetCreationDisabled(
-									definition,
-									desk.canAddWidgets,
-									isSiteRunning
-								) }
-								onClick={ () =>
-									closeAfter( () => {
-										desk.addWidget( definition.type, {
-											center: state.pagePoint,
-											shouldStartEditing: definition.shouldStartEditingOnCreate,
-										} );
-									} )
-								}
+								definition={ definition }
+								canAddWidgets={ desk.canAddWidgets }
+								isSiteRunning={ isSiteRunning }
+								onClick={ () => closeAfter( () => addCreatableWidget( definition ) ) }
 							>
-								{ definition.icon && <Icon icon={ definition.icon } /> }
-								<span>{ definition.labels.add() }</span>
-							</ContextMenuItem>
+								{ definition.type === themeWidgetDefinition.type && (
+									<>
+										<CreateWidgetContextMenuItems
+											definition={ themePatternBrowserWidgetDefinition }
+											canAddWidgets={ desk.canAddWidgets }
+											isSiteRunning={ isSiteRunning }
+											onClick={ () => closeAfter( addPatternBrowser ) }
+										/>
+										<CreateWidgetContextMenuItems
+											definition={ themeTemplateBrowserWidgetDefinition }
+											canAddWidgets={ desk.canAddWidgets }
+											isSiteRunning={ isSiteRunning }
+											onClick={ () => closeAfter( addTemplateBrowser ) }
+										/>
+									</>
+								) }
+							</CreateWidgetContextMenuItems>
 						) ) }
 						{ desk.siteId ? (
 							<ContextMenuItem
@@ -654,6 +710,33 @@ function SiteCardPickerSite( { site }: { site: SiteDetails } ) {
 					{ site.running ? __( 'Running' ) : __( 'Stopped' ) }
 				</span>
 			</span>
+		</>
+	);
+}
+
+function CreateWidgetContextMenuItems( {
+	definition,
+	canAddWidgets,
+	isSiteRunning,
+	onClick,
+	children,
+}: {
+	definition: DeskWidgetDefinition;
+	canAddWidgets: boolean;
+	isSiteRunning: boolean;
+	onClick: () => void;
+	children?: ReactNode;
+} ) {
+	return (
+		<>
+			<ContextMenuItem
+				disabled={ isWidgetCreationDisabled( definition, canAddWidgets, isSiteRunning ) }
+				onClick={ onClick }
+			>
+				{ definition.icon && <Icon icon={ definition.icon } /> }
+				<span>{ definition.labels.add() }</span>
+			</ContextMenuItem>
+			{ children }
 		</>
 	);
 }

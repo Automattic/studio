@@ -1,3 +1,4 @@
+import { execFile } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { MakerDeb } from '@electron-forge/maker-deb';
@@ -5,13 +6,13 @@ import { MakerDMG } from '@electron-forge/maker-dmg';
 import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
-import { isErrnoException } from '@studio/common/lib/is-errno-exception';
-import { exec } from 'child_process';
 import { exec as pkgExec } from '@yao-pkg/pkg';
-import type { ForgeConfig } from '@electron-forge/shared-types';
+import { RecommendedPHPVersion } from '../../tools/common/types/php-versions';
 import { windowsSign } from './windowsSign';
+import type { ForgeConfig } from '@electron-forge/shared-types';
 
 const repoRoot = path.resolve( __dirname, '../..' );
+const bundledPhpBinaryRoot = path.join( __dirname, 'php-bin' );
 
 const config: ForgeConfig = {
 	packagerConfig: {
@@ -19,6 +20,7 @@ const config: ForgeConfig = {
 		extraResource: [
 			path.join( __dirname, 'assets' ),
 			path.join( __dirname, 'bin' ),
+			bundledPhpBinaryRoot,
 			path.join( repoRoot, 'apps', 'cli', 'dist', 'cli' ),
 		],
 		executableName: process.platform === 'linux' ? 'studio' : undefined,
@@ -36,45 +38,34 @@ const config: ForgeConfig = {
 				return {};
 			},
 		},
+		// Patterns are matched against paths inside the asar root, which is
+		// apps/studio/ (electron-forge packages from this package). Anchor each
+		// pattern at the asar root with a leading slash.
 		ignore: [
-			// Exclude major development directories
-			/^\/\..*/, // All dotfiles and dot directories
-			/^\/apps\/studio\/src/,
-			/^\/apps\/studio\/e2e/,
-			/^\/apps\/cli/,
-			/^\/tools\/common/,
-			/^\/vendor/,
-			/^\/fastlane/,
-			/^\/docs/,
-			/^\/scripts/,
-			/^\/tools/,
+			// Dev/test sources and fixtures — runtime uses /dist instead.
+			/^\/\..*/, // dotfiles and dot directories
+			/^\/src/,
+			/^\/e2e/,
+			/^\/__mocks__/,
 			/^\/patches/,
-			/^\/tools\/metrics/,
-			/^\/test-results/,
-			/^\/webpack-loaders/,
-			/^\/apps\/studio\/installers/,
+			/^\/entitlements/,
+			/^\/installers/,
+			// Build-time helpers
+			/^\/windowsSign\.ts$/,
 			// Config files
-			/^\/webpack\./,
 			/^\/tsconfig\./,
 			/^\/vitest\./,
-			/^\/playwright\./,
 			/^\/postcss\./,
 			/^\/tailwind\./,
 			/^\/forge\./,
 			/^\/electron\./,
-			/^\/apps\/studio\/.*\\.config\\./,
-			/^\/apps\/studio\/tailwind\\.config\\.js$/,
-			/^\/apps\/studio\/postcss\\.config\\.js$/,
-			/^\/apps\/studio\/index\.html$/,
-			/^\/Gemfile/,
+			/^\/index\.html$/,
 			/^\/.*\.md$/,
 			/^\/.*\.txt$/,
 			/^\/.*\.log$/,
-			// External resources (shouldn't be in asar)
+			// Resources copied separately via extraResource
 			/^\/assets/,
 			/^\/bin/,
-			/^\/apps\/cli\/dist\/cli/,
-			/^\/dist\/playground-cli/,
 		],
 	},
 	rebuildConfig: {},
@@ -133,8 +124,7 @@ const config: ForgeConfig = {
 					: {
 							certificateFile: path.join( repoRoot, 'certificate.pfx' ),
 							certificatePassword: process.env.WINDOWS_CODE_SIGNING_CERT_PASSWORD,
-					  }
-				),
+					  } ),
 			},
 			[ 'win32' ]
 		),
@@ -176,11 +166,23 @@ const config: ForgeConfig = {
 	plugins: [ new AutoUnpackNativesPlugin( {} ) ],
 	hooks: {
 		prePackage: async ( _forgeConfig, platform, arch ) => {
-			const execAsync = ( command: string ) =>
+			// Use execFile with shell:true and an explicit args array. The shell
+			// is required on Windows so that npm (a .cmd batch file) can be
+			// resolved; passing args as an array rather than an interpolated
+			// string still prevents shell metacharacters in path values from
+			// altering the meaning of the command.
+			const execAsync = ( args: string[], env: NodeJS.ProcessEnv = {} ) =>
 				new Promise< void >( ( resolve, reject ) => {
-					exec(
-						command,
-						{ cwd: repoRoot, maxBuffer: 50 * 1024 * 1024, windowsHide: true },
+					execFile(
+						args[ 0 ],
+						args.slice( 1 ),
+						{
+							cwd: repoRoot,
+							env: { ...process.env, ...env },
+							maxBuffer: 50 * 1024 * 1024,
+							windowsHide: true,
+							shell: true,
+						},
 						( error, stdout, stderr ) => {
 							if ( error ) {
 								if ( stdout ) console.log( stdout );
@@ -196,15 +198,19 @@ const config: ForgeConfig = {
 			console.log( 'Installing Studio app dependencies for bundling ...' );
 			// NOTE: The `app:install:bundle` script mutates the `apps/studio/node_modules` directory. You
 			// may need to rerun `npm ci` from the repo root to reset the dependency tree after packaging.
-			await execAsync( 'npm run app:install:bundle' );
+			await execAsync( [ 'npm', 'run', 'app:install:bundle' ] );
 
-			console.log( 'Downloading language packs ...' );
-			await execAsync( 'npm run download-language-packs' );
+			if ( process.env.SKIP_LANGUAGE_PACKS ) {
+				console.log( 'Skipping language packs because SKIP_LANGUAGE_PACKS is set ...' );
+			} else {
+				console.log( 'Downloading language packs ...' );
+				await execAsync( [ 'npm', 'run', 'download-language-packs' ] );
+			}
 
 			console.log( 'Building CLI (with bundled node_modules) ...' );
 			// NOTE: The `cli:package` script mutates the `apps/cli/node_modules` directory. You may need to
 			// rerun `npm ci` from the repo root to reset the dependency tree after packaging.
-			await execAsync( 'npm run cli:package' );
+			await execAsync( [ 'npm', 'run', 'cli:package' ] );
 
 			// Remove native binaries for other platforms from CLI's node_modules.
 			// Some packages ship binaries for all platforms which causes code-signing failures
@@ -221,8 +227,7 @@ const config: ForgeConfig = {
 				// Refuse to delete anything unless the target arch is present *as a directory* —
 				// guards against a koffi naming/layout change silently nuking every prebuilt.
 				const targetIsDir =
-					fs.existsSync( koffiTargetPath ) &&
-					fs.statSync( koffiTargetPath ).isDirectory();
+					fs.existsSync( koffiTargetPath ) && fs.statSync( koffiTargetPath ).isDirectory();
 				if ( ! targetIsDir ) {
 					console.warn(
 						`Skipping koffi cleanup: no directory named ${ koffiTarget } in ${ koffiBuildDir }`
@@ -243,11 +248,7 @@ const config: ForgeConfig = {
 			// Clean up fs-ext-extra-prebuilt binaries (file format:
 			// fs-ext-{platform}-{arch}-{runtime}-{version}.node). The root postinstall
 			// already filtered by platform; this strips the unused arch for the target build.
-			const fsExtBinDir = path.join(
-				cliNodeModules,
-				'fs-ext-extra-prebuilt',
-				'binaries'
-			);
+			const fsExtBinDir = path.join( cliNodeModules, 'fs-ext-extra-prebuilt', 'binaries' );
 			const fsExtPrefix = `fs-ext-${ platform }-${ arch }-`;
 			if ( fs.existsSync( fsExtBinDir ) ) {
 				const fsExtFiles = fs.readdirSync( fsExtBinDir );
@@ -277,12 +278,30 @@ const config: ForgeConfig = {
 			}
 
 			console.log( `Downloading Node.js binary for ${ platform }-${ arch }...` );
+			await execAsync( [
+				'npx', 'tsx',
+				path.join( repoRoot, 'scripts', 'download-node-binary.ts' ),
+				platform,
+				arch,
+			] );
+
+			console.log(
+				`Downloading PHP ${ RecommendedPHPVersion } package for ${ platform }-${ arch }...`
+			);
+			fs.rmSync( bundledPhpBinaryRoot, { recursive: true, force: true } );
 			await execAsync(
-				`npx ts-node ${ path.join(
-					repoRoot,
-					'scripts',
-					'download-node-binary.ts'
-				) } ${ platform } ${ arch }`
+				[
+					'npx', 'tsx',
+					path.join( repoRoot, 'scripts', 'download-php-binary.ts' ),
+					RecommendedPHPVersion,
+					platform,
+					arch,
+					'--install-root',
+					bundledPhpBinaryRoot,
+				],
+				{
+					STUDIO_PHP_BINARY_DOWNLOAD_REQUIRED: '1',
+				}
 			);
 
 			// Build CLI launcher executable for Windows AppX (Microsoft Store).

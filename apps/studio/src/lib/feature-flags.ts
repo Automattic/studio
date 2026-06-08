@@ -12,10 +12,10 @@ export const FEATURE_FLAGS: Record< keyof FeatureFlags, FeatureFlagDefinition > 
 		flag: 'enableBlueprints',
 		default: true,
 	},
-	enableStudioCodeUi: {
-		label: 'Enable Studio Code UI',
-		env: 'ENABLE_STUDIO_CODE_UI',
-		flag: 'enableStudioCodeUi',
+	enableDesksUiSwitch: {
+		label: 'Enable Studio UI Switcher',
+		env: 'ENABLE_DESKS_UI_SWITCH',
+		flag: 'enableDesksUiSwitch',
 		default: false,
 	},
 } as const;

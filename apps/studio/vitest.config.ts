@@ -10,6 +10,11 @@ export default mergeConfig(
 			name: 'studio',
 			include: [ 'src/**/*.test.{ts,tsx}' ],
 			setupFiles: [ path.resolve( __dirname, './vitest.setup.ts' ) ],
+			env: {
+				// Prevents electron/index.js from trying to download the Electron binary
+				// when path.txt is absent (e.g. in CI where only the npm package is installed).
+				ELECTRON_OVERRIDE_DIST_PATH: '/dev/null',
+			},
 		},
 		resolve: {
 			alias: {

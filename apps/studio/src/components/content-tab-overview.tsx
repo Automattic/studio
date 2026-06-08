@@ -20,8 +20,8 @@ import { ArrowIcon } from 'src/components/arrow-icon';
 import { ButtonsSection, ButtonsSectionProps } from 'src/components/buttons-section';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { useThemeDetails } from 'src/hooks/use-theme-details';
-import { isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
+import { getFileManagerLabel } from 'src/lib/file-manager';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
 import { getTerminalName } from 'src/modules/user-settings/lib/terminal';
@@ -140,11 +140,7 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 
 	const buttonsArray: ButtonsSectionProps[ 'buttonsArray' ] = [
 		{
-			label: isWindows()
-				? // translators: name of app used to navigate files and folders on Windows
-				  __( 'File Explorer' )
-				: // translators: name of app used to navigate files and folders on macOS
-				  __( 'Finder' ),
+			label: getFileManagerLabel(),
 			className: 'text-nowrap',
 			icon: archive,
 			onClick: () => {

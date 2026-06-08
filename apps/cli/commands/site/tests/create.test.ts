@@ -1,4 +1,5 @@
 import fs from 'fs';
+import path from 'path';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import {
 	isEmptyDir,
@@ -10,6 +11,7 @@ import {
 import { isOnline } from '@studio/common/lib/network-utils';
 import { portFinder } from '@studio/common/lib/port-finder';
 import { normalizeLineEndings } from '@studio/common/lib/remove-default-db-constants';
+import { SITE_RUNTIME_NATIVE_PHP, SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import { Blueprint, BlueprintV1Declaration } from '@wp-playground/blueprints';
 import { vi, type MockInstance } from 'vitest';
@@ -23,6 +25,7 @@ import {
 import { removeSiteFromConfig, updateSiteAutoStart } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { updateServerFiles } from 'cli/lib/dependency-management/setup';
+import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
@@ -67,6 +70,7 @@ vi.mock( 'cli/lib/cli-config/sites', async () => {
 vi.mock( 'cli/lib/language-packs' );
 vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/dependency-management/setup' );
+vi.mock( 'cli/lib/dependency-management/wordpress' );
 vi.mock( import( '@studio/common/lib/well-known-paths' ), async ( importOriginal ) => {
 	const actual = await importOriginal();
 	return {
@@ -114,6 +118,7 @@ describe( 'CLI: studio site create', () => {
 		pmId: 0,
 		status: 'online',
 		pid: 12345,
+		runtime: SITE_RUNTIME_PLAYGROUND,
 	};
 
 	let consoleLogSpy: MockInstance;
@@ -159,6 +164,7 @@ describe( 'CLI: studio site create', () => {
 		vi.mocked( connectToDaemon ).mockResolvedValue( undefined );
 		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
 		vi.mocked( updateServerFiles ).mockResolvedValue( true );
+		vi.mocked( downloadWordPress ).mockResolvedValue( undefined );
 		vi.mocked( setupCustomDomain ).mockResolvedValue( undefined );
 		vi.mocked( startWordPressServer ).mockResolvedValue( mockProcessDescription );
 		vi.mocked( runBlueprint ).mockResolvedValue( undefined );
@@ -171,6 +177,7 @@ describe( 'CLI: studio site create', () => {
 	} );
 
 	afterEach( () => {
+		vi.unstubAllEnvs();
 		vi.restoreAllMocks();
 	} );
 
@@ -226,6 +233,21 @@ describe( 'CLI: studio site create', () => {
 			).rejects.toThrow();
 
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
+		} );
+
+		it( 'should error if PHP version is not supported by the native PHP runtime', async () => {
+			vi.stubEnv( 'STUDIO_RUNTIME', SITE_RUNTIME_NATIVE_PHP );
+
+			await expect(
+				runCommand( mockSitePath, {
+					...defaultTestOptions,
+					phpVersion: '8.1',
+				} )
+			).rejects.toThrow(
+				'PHP 8.1 is not supported by the native PHP runtime. Supported versions: 8.5, 8.4, 8.3, 8.2.'
+			);
+
+			expect( saveCliConfig ).not.toHaveBeenCalled();
 		} );
 
 		it( 'should error if Blueprint validation fails', async () => {
@@ -467,6 +489,35 @@ describe( 'CLI: studio site create', () => {
 				} )
 			);
 		} );
+
+		it( 'should not copy specific WordPress versions for Playground runtime', async () => {
+			vi.mocked( recursiveCopyDirectory ).mockClear();
+
+			await runCommand( mockSitePath, {
+				...defaultTestOptions,
+				wpVersion: '6.4',
+			} );
+
+			expect( downloadWordPress ).not.toHaveBeenCalled();
+			expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
+		} );
+
+		it( 'should download and copy specific WordPress versions for native PHP runtime', async () => {
+			vi.stubEnv( 'STUDIO_RUNTIME', SITE_RUNTIME_NATIVE_PHP );
+			vi.mocked( recursiveCopyDirectory ).mockClear();
+
+			await runCommand( mockSitePath, {
+				...defaultTestOptions,
+				phpVersion: '8.3',
+				wpVersion: '6.4',
+			} );
+
+			expect( downloadWordPress ).toHaveBeenCalledWith( '6.4' );
+			expect( recursiveCopyDirectory ).toHaveBeenCalledWith(
+				path.join( path.sep, 'test', 'server-files', 'wordpress-versions', '6.4' ),
+				mockSitePath
+			);
+		} );
 	} );
 
 	describe( 'Blueprint Handling', () => {
@@ -514,48 +565,6 @@ describe( 'CLI: studio site create', () => {
 				expect.any( Logger ),
 				expect.objectContaining( {
 					blueprint: expect.any( Object ),
-				} )
-			);
-		} );
-	} );
-
-	describe( 'Runtime (STUDIO_RUNTIME env var)', () => {
-		afterEach( () => {
-			vi.unstubAllEnvs();
-		} );
-
-		it( 'persists runtime=native-php when STUDIO_RUNTIME=native-php', async () => {
-			vi.stubEnv( 'STUDIO_RUNTIME', 'native-php' );
-
-			await runCommand( mockSitePath, { ...defaultTestOptions } );
-
-			expect( saveCliConfig ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					sites: expect.arrayContaining( [ expect.objectContaining( { runtime: 'native-php' } ) ] ),
-				} )
-			);
-		} );
-
-		it( 'defaults to playground when STUDIO_RUNTIME is unset', async () => {
-			vi.stubEnv( 'STUDIO_RUNTIME', undefined );
-
-			await runCommand( mockSitePath, { ...defaultTestOptions } );
-
-			expect( saveCliConfig ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					sites: expect.arrayContaining( [ expect.objectContaining( { runtime: 'playground' } ) ] ),
-				} )
-			);
-		} );
-
-		it( 'falls back to playground when STUDIO_RUNTIME has an unknown value', async () => {
-			vi.stubEnv( 'STUDIO_RUNTIME', 'nonsense' );
-
-			await runCommand( mockSitePath, { ...defaultTestOptions } );
-
-			expect( saveCliConfig ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					sites: expect.arrayContaining( [ expect.objectContaining( { runtime: 'playground' } ) ] ),
 				} )
 			);
 		} );

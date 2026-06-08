@@ -78,6 +78,141 @@ tests:
             return { pass: ok, score: ok ? 1 : 0, reason: ok ? 'site_create succeeded' : `site_create result: ${JSON.stringify(result)}` };
           });
 
+  # Regression: trunk handles desktop/mobile visual verification as separate
+  # screenshot calls. The optimized tool exposes `viewport: "all"` so the agent
+  # can satisfy the same user request with one timed call and two PNG payloads.
+  - description: screenshot verification captures desktop and mobile in one fast call
+    vars:
+      caseId: screenshot-all-timing
+      timeoutMs: 240000
+      askUserPolicy: allow_all
+      prompt: |
+        First check if a site named "Eval Screenshot Timing" exists using
+        site_list. If it does, delete it with site_delete so we start from
+        a clean slate. Do NOT touch any other site.
+
+        Then create a new site named "Eval Screenshot Timing". Do not
+        customize the theme. Verify the homepage visually with screenshots
+        for both desktop and mobile, then briefly report whether the
+        screenshots were captured.
+    assert:
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync, existsSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const screenshotCalls = (d.toolCalls || []).filter(t => t.name === 'take_screenshot');
+            if (screenshotCalls.length !== 1) {
+              return {
+                pass: false,
+                score: 0,
+                reason: `expected one take_screenshot call for desktop+mobile verification, got ${screenshotCalls.length}: ${JSON.stringify(screenshotCalls.map(t => t.input))}`,
+              };
+            }
+            const call = screenshotCalls[0];
+            if (call.input?.viewport !== 'all') {
+              return {
+                pass: false,
+                score: 0,
+                reason: `expected take_screenshot to use viewport="all"; got ${JSON.stringify(call.input)}`,
+              };
+            }
+
+            const result = (d.toolResults || []).find(r => r.toolUseId === call.id);
+            if (!result || result.isError) {
+              return { pass: false, score: 0, reason: `take_screenshot failed: ${JSON.stringify(result)}` };
+            }
+            const rawPayloads = (result.text || '').split('mediaWidgetPayloads=')[1];
+            if (!rawPayloads) {
+              return { pass: false, score: 0, reason: `screenshot result did not include mediaWidgetPayloads: ${(result.text || '').slice(0, 500)}` };
+            }
+
+            let payloads;
+            try {
+              payloads = JSON.parse(rawPayloads);
+            } catch (error) {
+              return { pass: false, score: 0, reason: `could not parse mediaWidgetPayloads JSON: ${error instanceof Error ? error.message : String(error)}` };
+            }
+            if (!Array.isArray(payloads) || payloads.length !== 2) {
+              return { pass: false, score: 0, reason: `expected two screenshot media payloads, got ${JSON.stringify(payloads).slice(0, 500)}` };
+            }
+
+            // take_screenshot emits JPEG; key the expected width by viewport so
+            // the check survives a future format change rather than the extension.
+            const expectedWidths = new Map([
+              ['desktop', 1040],
+              ['mobile', 390],
+            ]);
+            // Read pixel dimensions from a PNG or JPEG buffer; null if neither.
+            const readImageSize = (buf) => {
+              if (buf.length > 24 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) {
+                return { format: 'png', width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
+              }
+              if (buf.length > 4 && buf[0] === 0xff && buf[1] === 0xd8) {
+                let offset = 2;
+                while (offset + 9 < buf.length) {
+                  if (buf[offset] !== 0xff) { offset++; continue; }
+                  const marker = buf[offset + 1];
+                  // Markers without a length payload: skip past them.
+                  if (marker === 0xd8 || marker === 0xd9 || (marker >= 0xd0 && marker <= 0xd7) || marker === 0x01) {
+                    offset += 2;
+                    continue;
+                  }
+                  // Start-of-frame markers carry the dimensions (excluding DHT/JPG/DAC).
+                  if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+                    return { format: 'jpeg', height: buf.readUInt16BE(offset + 5), width: buf.readUInt16BE(offset + 7) };
+                  }
+                  offset += 2 + buf.readUInt16BE(offset + 2);
+                }
+              }
+              return null;
+            };
+            const seen = [];
+            for (const payload of payloads) {
+              const source = payload.widgetProps?.source;
+              const viewport = (source?.name || '').replace(/^screenshot-/, '').replace(/\.(png|jpe?g)$/i, '');
+              const expectedWidth = expectedWidths.get(viewport);
+              if (!expectedWidth) {
+                return { pass: false, score: 0, reason: `unexpected screenshot payload source: ${JSON.stringify(source)}` };
+              }
+              if (typeof source.path !== 'string' || !existsSync(source.path)) {
+                return { pass: false, score: 0, reason: `screenshot file is missing: ${JSON.stringify(source)}` };
+              }
+              const size = readImageSize(readFileSync(source.path));
+              if (!size || size.width !== expectedWidth || size.height < 600) {
+                return {
+                  pass: false,
+                  score: 0,
+                  reason: `${source.name} did not look like the expected screenshot: ${JSON.stringify(size)}`,
+                };
+              }
+              seen.push(source.name);
+            }
+            return { pass: true, score: 1, reason: `captured valid screenshots: ${seen.join(', ')}` };
+          });
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const events = (d.toolEvents || []).filter(t => t.toolName === 'take_screenshot');
+            if (events.length !== 1 || typeof events[0].durationMs !== 'number') {
+              return { pass: false, score: 0, reason: `expected one timed take_screenshot event, got ${JSON.stringify(events)}` };
+            }
+            const limitMs = 15000;
+            const duration = events[0].durationMs;
+            const pass = duration < limitMs;
+            return {
+              pass,
+              score: pass ? 1 : 0,
+              reason: pass
+                ? `take_screenshot completed in ${duration}ms`
+                : `take_screenshot took ${duration}ms, expected < ${limitMs}ms`,
+            };
+          });
+
   # Every individual turn (wall-clock between successive assistant messages)
   # should stay under 60s. Slow turns stall the UI.
   - description: single-page site build keeps every turn under 60s
@@ -140,21 +275,36 @@ tests:
             const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
             if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
             const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
-            const validationResults = (d.toolResults || []).filter(r => r.toolName === 'validate_blocks');
+            const htmlResults = (d.toolResults || []).filter(r => r.toolName === 'validate_html_blocks');
+            if (htmlResults.length === 0) {
+              return { pass: false, score: 0, reason: 'validate_html_blocks was not called before editor validation' };
+            }
+            const lastHtml = htmlResults[htmlResults.length - 1];
+            const htmlText = lastHtml.text || '';
+            if (lastHtml.isError || !/HTML block policy:\s+0\/\d+\s+core\/html blocks invalid/i.test(htmlText)) {
+              return {
+                pass: false,
+                score: 0,
+                reason: `final validate_html_blocks result was invalid or inconclusive: ${(htmlText || JSON.stringify(lastHtml)).slice(0, 500)}`,
+              };
+            }
+            const validationResults = (d.toolResults || []).filter(r => r.toolName === 'validate_and_fix_blocks');
             if (validationResults.length === 0) {
-              return { pass: false, score: 0, reason: 'validate_blocks was not called after building the page' };
+              return { pass: false, score: 0, reason: 'validate_and_fix_blocks was not called after HTML policy validation' };
             }
             const last = validationResults[validationResults.length - 1];
             const text = last.text || '';
-            const failed = last.isError || /Invalid blocks:/i.test(text) || !/Validation:\s+\d+\/\d+\s+blocks valid/i.test(text);
+            const failed = last.isError ||
+              !/Validation:\s+\d+\/\d+\s+blocks valid/i.test(text) ||
+              /Auto-fix proposal failed validation|Auto-fix proposal still has|No automatic editor serialization fix was available/i.test(text);
             if (failed) {
               return {
                 pass: false,
                 score: 0,
-                reason: `final validate_blocks result was invalid or inconclusive: ${(text || JSON.stringify(last)).slice(0, 500)}`,
+                reason: `final validate_and_fix_blocks result was invalid or inconclusive: ${(text || JSON.stringify(last)).slice(0, 500)}`,
               };
             }
-            return { pass: true, score: 1, reason: `validate_blocks passed: ${(last.text || '').split(/\r?\n/)[0]}` };
+            return { pass: true, score: 1, reason: `validation passed: ${(last.text || '').split(/\r?\n/)[0]}` };
           });
 
   - description: agent reaches for Jetpack on slideshow request (catch-all rule)

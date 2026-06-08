@@ -6,15 +6,8 @@
 	box-sizing: border-box;
 	font-family: var(--wpds-typography-font-family-body);
 	background-color: #fff;
-	background-image:
-		radial-gradient(circle, #c9cbce 1px, transparent 1.1px),
-		radial-gradient(circle, #c9cbce 0.5px, transparent 0.6px);
-	background-size:
-		40px 40px,
-		10px 10px;
-	background-position:
-		0 0,
-		5px 5px;
+	background-image: radial-gradient(circle, #c9cbce 1px, transparent 1.1px);
+	background-size: 40px 40px;
 	border-radius: 18px;
 	overflow: hidden;
 }
@@ -27,11 +20,12 @@
 	box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
 }
 
-.frame,
-.empty {
+.frame {
+	display: block;
 	width: 100%;
 	flex: 1 1 0;
 	min-height: 0;
+	border: 0;
 	border-radius: 10px;
 	background: #fff;
 	box-shadow:
@@ -39,18 +33,37 @@
 		0 8px 20px rgba(15, 23, 42, 0.08);
 }
 
-.frame {
-	display: block;
-	border: 0;
+.reference {
+	object-fit: cover;
+	opacity: 0.85;
+}
+
+.frameMedia {
+	object-fit: cover;
+}
+
+.frameMorph {
+	animation: featured-morph-in 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+	transform-origin: center;
+}
+
+@keyframes featured-morph-in {
+	from {
+		opacity: 0;
+		transform: scale(0.86);
+	}
+
+	to {
+		opacity: 1;
+		transform: scale(1);
+	}
 }
 
 .empty {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	color: #6b7280;
-	font-size: 13px;
-	line-height: 18px;
+	display: block;
+	width: 100%;
+	flex: 1 1 0;
+	min-height: 0;
 }
 
 .bottom {
@@ -59,16 +72,25 @@
 	flex: 0 0 auto;
 	display: flex;
 	align-items: flex-start;
+	justify-content: space-between;
+	gap: 12px;
 }
 
-.description {
+.descriptionWrap {
 	flex: 1 1 auto;
 	min-width: 0;
 	max-width: 60ch;
-	min-height: 20px;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.description {
+	min-width: 0;
+	min-height: 1.5em;
 	color: #6b7280;
 	font-size: 13px;
-	line-height: 20px;
+	line-height: 1.5;
 	text-align: left;
 	outline: none;
 	transition: color 140ms ease;
@@ -83,10 +105,89 @@
 	cursor: text;
 }
 
+.scratchpad[data-agent-status='running'] .description,
+.scratchpad[data-agent-status='running'] .description:hover,
+.scratchpad[data-agent-status='running'] .description:focus {
+	color: #3858e9;
+}
+
+.scratchpad[data-agent-status='done'] .description {
+	color: #14171a;
+}
+
+.using {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 6px;
+	margin-top: 6px;
+	color: #14171a;
+	font-size: inherit;
+	line-height: inherit;
+}
+
+.usingLabel,
+.usingPeriod {
+	color: #6b7280;
+}
+
+.usingPill {
+	display: inline-flex;
+	align-items: center;
+	max-width: 100%;
+	padding: 0 8px;
+	border: 0;
+	border-radius: 12px;
+	corner-shape: superellipse(1.42);
+	-webkit-corner-shape: superellipse(1.42);
+	background: rgba(15, 23, 42, 0.08);
+	color: #14171a;
+	cursor: pointer;
+	font: inherit;
+	font-weight: 400;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	transition: background 140ms ease;
+}
+
+.usingPill:hover {
+	background: rgba(15, 23, 42, 0.14);
+}
+
+.usingPeriod {
+	margin-left: -6px;
+}
+
 .description[data-empty='true']:not(:focus)::before {
 	content: attr(data-placeholder);
 	color: #6b7280;
 	pointer-events: none;
+}
+
+.agentButton {
+	flex: 0 0 auto;
+}
+
+.scratchpad .agentButton:disabled {
+	opacity: 1;
+}
+
+.agentButton.agentButtonDone {
+	--button-background: #16a34a;
+	--button-foreground: #fff;
+	box-shadow: 0 6px 18px rgba(22, 163, 74, 0.45);
+}
+
+.agentButton[data-status='running'] svg {
+	animation: scratchpad-cog-spin 1.4s linear infinite;
+	transform-origin: 50% 50%;
+}
+
+@keyframes scratchpad-cog-spin {
+	to {
+		transform: rotate(360deg);
+	}
 }
 
 .title {
@@ -132,12 +233,7 @@
 	gap: 6px;
 	padding: 8px;
 	border-radius: 10px;
-	background-size:
-		16px 16px,
-		4px 4px;
-	background-position:
-		0 0,
-		2px 2px;
+	background-size: 16px 16px;
 	text-align: center;
 }
 

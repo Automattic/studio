@@ -50,6 +50,10 @@ interface ComposerProps {
 	busy: boolean;
 	isInterrupting?: boolean;
 	error: string | null;
+	authRequired?: boolean;
+	authLoading?: boolean;
+	authPending?: boolean;
+	onLogin?: () => void;
 	model: AiModelId;
 	onSend: ( prompt: string, options?: { displayMessage?: string } ) => Promise< void >;
 	onInterrupt: () => Promise< void >;
@@ -71,6 +75,10 @@ export function Composer( {
 	busy,
 	isInterrupting = false,
 	error,
+	authRequired = false,
+	authLoading = false,
+	authPending = false,
+	onLogin,
 	model,
 	onSend,
 	onInterrupt,
@@ -122,6 +130,10 @@ export function Composer( {
 	}, [ draftPrompt ] );
 
 	const send = useCallback( async () => {
+		if ( authRequired || authLoading ) {
+			return;
+		}
+
 		const trimmed = value.trim();
 		if ( ! trimmed ) {
 			return;
@@ -142,7 +154,7 @@ export function Composer( {
 			setValue( trimmed );
 			setContextWidgets( widgetsToSend );
 		}
-	}, [ contextWidgets, onSend, value ] );
+	}, [ authLoading, authRequired, contextWidgets, onSend, value ] );
 
 	useEffect( () => {
 		if (
@@ -202,6 +214,9 @@ export function Composer( {
 
 	const handleModelChange = useCallback(
 		( picked: AiModelId ) => {
+			if ( authRequired || authLoading ) {
+				return;
+			}
 			if ( picked === model ) {
 				return;
 			}
@@ -218,7 +233,7 @@ export function Composer( {
 			}
 			applySameFamilyModel( picked );
 		},
-		[ applySameFamilyModel, entries, model, onSwitchSession ]
+		[ applySameFamilyModel, authLoading, authRequired, entries, model, onSwitchSession ]
 	);
 
 	const cancelFamilyChange = useCallback( () => {
@@ -246,7 +261,9 @@ export function Composer( {
 		}
 	}, [ connector, onSwitchSession, ownerSiteId, pendingFamilyChange, queryClient ] );
 
-	const canSend = value.trim().length > 0;
+	const authBlocked = authRequired || authLoading;
+	const canSend = ! authBlocked && value.trim().length > 0;
+	const showSendButton = ! busy || canSend;
 	const sendAriaLabel = busy ? __( 'Queue' ) : __( 'Send' );
 	const visibleContextWidgets = contextWidgets.slice( 0, MAX_VISIBLE_CHAT_WIDGETS );
 	const hiddenContextWidgetCount = contextWidgets.length - visibleContextWidgets.length;
@@ -257,6 +274,26 @@ export function Composer( {
 				className={ styles.root }
 				data-active={ canSend || contextWidgets.length > 0 ? 'true' : 'false' }
 			>
+				{ authRequired ? (
+					<div className={ styles.authNotice }>
+						<span>{ __( 'Log in with WordPress.com to use Studio Desk chat.' ) }</span>
+						<Button
+							label={
+								authPending
+									? __( 'Opening WordPress.com login' )
+									: __( 'Log in with WordPress.com' )
+							}
+							size="small"
+							variant="filled"
+							tone="primary"
+							disabled={ authPending }
+							aria-busy={ authPending }
+							onClick={ onLogin }
+						>
+							{ authPending ? __( 'Opening login...' ) : __( 'Log in' ) }
+						</Button>
+					</div>
+				) : null }
 				{ contextWidgets.length > 0 && (
 					<div className={ styles.attachments } aria-label={ __( 'Attached canvas widgets' ) }>
 						{ visibleContextWidgets.map( ( widget ) => (
@@ -296,9 +333,16 @@ export function Composer( {
 					<textarea
 						ref={ textareaRef }
 						className={ styles.input }
-						placeholder={ __( 'Ask Studio Desk…' ) }
+						placeholder={
+							authLoading
+								? __( 'Checking WordPress.com login...' )
+								: authRequired
+								? __( 'Log in to use Studio Desk chat.' )
+								: __( 'Ask Studio Desk…' )
+						}
 						value={ previewPrompt ?? value }
 						data-preview={ previewPrompt ? 'true' : 'false' }
+						disabled={ authBlocked }
 						onChange={ ( event ) => setValue( event.target.value ) }
 						onKeyDown={ ( event ) => {
 							if ( event.key === 'Escape' && busy ) {
@@ -327,6 +371,7 @@ export function Composer( {
 												tooltipLabel={ false }
 												aria-label={ __( 'Commands' ) }
 												title={ __( 'Commands' ) }
+												disabled={ authBlocked }
 											>
 												<Icon icon={ code } size={ 20 } />
 											</Button>
@@ -358,7 +403,7 @@ export function Composer( {
 										sessionId={ sessionId }
 										effectiveEnvironment={ effectiveEnvironment }
 										liveSite={ liveSite }
-										disabled={ busy }
+										disabled={ busy || authBlocked }
 									/>
 								) : null }
 								<Menu.Root modal={ false }>
@@ -372,6 +417,7 @@ export function Composer( {
 												tooltipLabel={ false }
 												aria-label={ __( 'Select model' ) }
 												title={ __( 'Select model' ) }
+												disabled={ authBlocked }
 											>
 												<span>{ getAiModelLabel( model ) }</span>
 												<Icon icon={ chevronDownSmall } size={ 14 } />
@@ -411,16 +457,19 @@ export function Composer( {
 									<span className={ styles.stopGlyph } aria-hidden="true" />
 								</Button>
 							) : null }
-							<Button
-								type="submit"
-								tone="primary"
-								variant="filled"
-								size="small"
-								disabled={ ! canSend }
-								icon={ arrowUp }
-								label={ sendAriaLabel }
-								tooltipLabel={ false }
-							/>
+							{ showSendButton ? (
+								<Button
+									type="submit"
+									intent="chat"
+									tone="primary"
+									variant="filled"
+									size="small"
+									disabled={ ! canSend }
+									icon={ arrowUp }
+									label={ sendAriaLabel }
+									tooltipLabel={ false }
+								/>
+							) : null }
 						</div>
 					</div>
 				</form>

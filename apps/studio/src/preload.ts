@@ -174,6 +174,9 @@ const api: IpcApi = {
 	setTitleBarBackdropEffect: ( enabled ) =>
 		ipcRendererInvoke( 'setTitleBarBackdropEffect', enabled ),
 	updateSitesSortOrder: ( updates ) => ipcRendererInvoke( 'updateSitesSortOrder', updates ),
+	getRemoteSessionDaemonStatus: () => ipcRendererInvoke( 'getRemoteSessionDaemonStatus' ),
+	startRemoteSessionDaemon: () => ipcRendererInvoke( 'startRemoteSessionDaemon' ),
+	stopRemoteSessionDaemon: () => ipcRendererInvoke( 'stopRemoteSessionDaemon' ),
 	isStudioCliInstalled: () => ipcRendererInvoke( 'isStudioCliInstalled' ),
 	installStudioCli: () => ipcRendererInvoke( 'installStudioCli' ),
 	uninstallStudioCli: () => ipcRendererInvoke( 'uninstallStudioCli' ),
@@ -186,19 +189,6 @@ const api: IpcApi = {
 	getWordPressSkillsStatus: ( siteId ) => ipcRendererInvoke( 'getWordPressSkillsStatus', siteId ),
 	installWordPressSkills: ( siteId, options ) =>
 		ipcRendererInvoke( 'installWordPressSkills', siteId, options ),
-	studioCodeSendMessage: ( siteId, sitePath, siteName, message ) =>
-		ipcRendererInvoke( 'studioCodeSendMessage', siteId, sitePath, siteName, message ),
-	studioCodeRespondToPermission: ( siteId, sitePath, siteName, message, permissionResponse ) =>
-		ipcRendererInvoke(
-			'studioCodeRespondToPermission',
-			siteId,
-			sitePath,
-			siteName,
-			message,
-			permissionResponse
-		),
-	studioCodeAbort: ( siteId ) => ipcRendererSend( 'studioCodeAbort', siteId ),
-	studioCodeCheckProvider: () => ipcRendererInvoke( 'studioCodeCheckProvider' ),
 	installWordPressSkillById: ( siteId, skillId, options ) =>
 		ipcRendererInvoke( 'installWordPressSkillById', siteId, skillId, options ),
 	removeWordPressSkillById: ( siteId, skillId ) =>
@@ -227,6 +217,8 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'setSessionEnvironment', sessionId, environment ),
 	getDeskSettings: () => ipcRendererInvoke( 'getDeskSettings' ),
 	saveDeskSettings: ( settings ) => ipcRendererInvoke( 'saveDeskSettings', settings ),
+	getStudioUiMode: () => ipcRendererInvoke( 'getStudioUiMode' ),
+	setStudioUiMode: ( mode ) => ipcRendererInvoke( 'setStudioUiMode', mode ),
 	exportDeskConfig: ( config, suggestedFilename ) =>
 		ipcRendererInvoke( 'exportDeskConfig', config, suggestedFilename ),
 	importDeskConfig: () => ipcRendererInvoke( 'importDeskConfig' ),

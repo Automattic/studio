@@ -57,6 +57,7 @@ WordPress Studio - Electron desktop app for managing local WordPress sites. Buil
 ## Conventions
 
 **Files**: React components (PascalCase), utils (camelCase), tests (.test.ts/.tsx)
+**Class names (`cx`)**: Use `cx()` (`apps/studio/src/lib/cx.ts`) only to join classes with conditions (e.g. `cx( 'base', isActive && 'active' )`). For a single static string, pass the bare string instead of wrapping it — `className="h-full"`, not `className={ cx( 'h-full' ) }`. Enforced (and auto-fixed) by the `studio/no-redundant-cx` ESLint rule (`tools/eslint-plugin-studio`).
 **IPC Handlers** (`apps/studio/src/ipc-handlers.ts`): **MUST** `export async function handlerName(event, ...args): Promise<ReturnType>` | Handler names in `apps/studio/src/constants.ts` | All handlers MUST be async and return Promises
 **Storage**: **CRITICAL** - Always use file locking when writing config. Each config file has its own lockfile and helpers: `lockAppdata()` / `unlockAppdata()` for `app.json` (`apps/studio/src/storage/user-data.ts`), `lockCliConfig()` / `unlockCliConfig()` for `cli.json` (`apps/cli/lib/cli-config/core.ts`), and `lockSharedConfig()` / `unlockSharedConfig()` for `shared.json` (`tools/common/lib/shared-config.ts`).
 **i18n**: `@wordpress/i18n` (`__()` function), `tools/common/translations/`, `<I18nProvider>` (renderer), `loadTranslations()` (CLI)
@@ -80,7 +81,7 @@ WordPress Studio - Electron desktop app for managing local WordPress sites. Buil
 
 **Branches**: Create from `trunk` using dash-separated lowercase names. Include a verb for clarity. Examples: `new-dark-mode`, `improve-agent-instructions`, `fix-login-bug`, `add-logout-button`. For Linear issues: `stu-123-update-sync-feature`.
 **Commits**: Single-line messages. Clear and descriptive. Focus on "what" and "why", not "how"
-**PRs**: Create PR against `trunk` branch. Use the template from `.github/PULL_REQUEST_TEMPLATE.md` (include Related issues, Proposed Changes, Testing Instructions, Pre-merge Checklist). MUST pass all CI checks before merge.
+**PRs**: Create PR against `trunk` branch. Use the template from `.github/PULL_REQUEST_TEMPLATE.md` (include Related issues, How AI was used in this PR, Proposed Changes, Testing Instructions, Pre-merge Checklist). In **Proposed Changes**, focus on the intent of the change and the user impact (the "why" and how the user experiences it) — do not list modified files or describe implementation mechanics; the diff already shows that. MUST pass all CI checks before merge.
 **IMPORTANT**: Prefer merging `trunk` into your branch over rebasing. Avoid force pushes to trunk/main branches. Avoid force pushes to already-pushed branches - add new commits instead.
 
 ## Large & Exploratory Contributions (Vibe-Coded Features)

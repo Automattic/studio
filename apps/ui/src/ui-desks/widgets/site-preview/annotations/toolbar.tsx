@@ -109,6 +109,7 @@ export function SitePreviewAnnotationSubmitControl(
 		<>
 			<Divider />
 			<Button
+				intent="chat"
 				label={ sprintf(
 					_n( 'Submit %d change', 'Submit %d changes', annotationCount ),
 					annotationCount

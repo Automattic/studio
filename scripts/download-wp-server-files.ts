@@ -7,10 +7,32 @@ import {
 } from '@wp-playground/tools';
 import fs from 'fs-extra';
 import { z } from 'zod';
+import { extractZip } from '@studio/common/lib/extract-zip';
 import { SQLITE_DATABASE_INTEGRATION_RELEASE_URL } from '../apps/studio/src/constants';
-import { extractZip } from '../tools/common/lib/extract-zip';
+import { sharedDispatcher, throwForHttpStatus, withRetry } from './lib/with-retry';
 
-const WP_SERVER_FILES_PATH = path.join( __dirname, '..', 'wp-files' );
+async function fetchWithRetry( name: string, url: string ): Promise< Buffer > {
+	return withRetry( name, async () => {
+		const response = await fetch( url, {
+			// `dispatcher` is an undici-specific option not in the standard RequestInit type.
+			dispatcher: sharedDispatcher,
+		} as RequestInit );
+		if ( ! response.ok ) {
+			throwForHttpStatus( 'Request', response.status );
+		}
+		return Buffer.from( await response.arrayBuffer() );
+	} );
+}
+
+const WP_SERVER_FILES_PATH = path.join( import.meta.dirname, '..', 'wp-files' );
+const PHPMYADMIN_PATCH_FILES_PATH = path.join( import.meta.dirname, '..', 'apps', 'cli', 'php' );
+const PHPMYADMIN_LOCAL_PATCH_FILES = new Map< string, string >( [
+	[ 'config.inc.php', path.join( PHPMYADMIN_PATCH_FILES_PATH, 'config.inc.php' ) ],
+	[
+		'libraries/classes/Dbal/DbiMysqli.php',
+		path.join( PHPMYADMIN_PATCH_FILES_PATH, 'DbiMysqli.php' ),
+	],
+] );
 
 const partialGithubReleaseSchema = z.object( {
 	tag_name: z.string(),
@@ -18,32 +40,34 @@ const partialGithubReleaseSchema = z.object( {
 } );
 
 export async function fetchLatestGithubRelease( repo: string ) {
-	const headers: HeadersInit = {
-		Accept: 'application/vnd.github.v3+json',
-		'User-Agent': 'wp-studio-cli',
-	};
+	return withRetry( `github:${ repo }`, async () => {
+		const headers: HeadersInit = {
+			Accept: 'application/vnd.github.v3+json',
+			'User-Agent': 'wp-studio-cli',
+		};
 
-	// GitHub API has rate limits:
-	// - 60 requests/hour for unauthenticated requests
-	// - 5,000 requests/hour with token authentication
-	// In CI environments, the IP-based rate limit is shared across runners,
-	// so we authenticate with GITHUB_TOKEN when available.
-	if ( process.env.GITHUB_TOKEN ) {
-		headers.Authorization = `token ${ process.env.GITHUB_TOKEN }`;
-	}
+		// GitHub API has rate limits:
+		// - 60 requests/hour for unauthenticated requests
+		// - 5,000 requests/hour with token authentication
+		// In CI environments, the IP-based rate limit is shared across runners,
+		// so we authenticate with GITHUB_TOKEN when available.
+		if ( process.env.GITHUB_TOKEN ) {
+			headers.Authorization = `token ${ process.env.GITHUB_TOKEN }`;
+		}
 
-	const response = await fetch( `https://api.github.com/repos/${ repo }/releases/latest`, {
-		headers,
-		signal: AbortSignal.timeout( 5000 ),
+		const response = await fetch( `https://api.github.com/repos/${ repo }/releases/latest`, {
+			headers,
+			dispatcher: sharedDispatcher,
+		} as RequestInit );
+
+		if ( ! response.ok ) {
+			throwForHttpStatus( 'GitHub API request', response.status, response.statusText );
+		}
+
+		const rawResponse: unknown = await response.json();
+
+		return partialGithubReleaseSchema.parse( rawResponse );
 	} );
-
-	if ( ! response.ok ) {
-		throw new Error( `GitHub API request failed: ${ response.status } ${ response.statusText }` );
-	}
-
-	const rawResponse: unknown = await response.json();
-
-	return partialGithubReleaseSchema.parse( rawResponse );
 }
 
 type MaybePromise< T > = T | Promise< T >;
@@ -93,21 +117,6 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 		getUrl: () => PHPMYADMIN_DOWNLOAD_URL,
 		destinationPath: path.join( WP_SERVER_FILES_PATH, 'phpmyadmin' ),
 	},
-	{
-		name: 'blueprints-phar',
-		description: 'blueprints.phar CLI tool',
-		getUrl: async () => {
-			const release = await fetchLatestGithubRelease( 'WordPress/php-toolkit' );
-			const asset = release.assets.find( ( a ) => a.name === 'blueprints.phar' );
-			if ( ! asset ) {
-				throw new Error(
-					`blueprints.phar not found in latest php-toolkit release ${ release.tag_name }`
-				);
-			}
-			return asset.browser_download_url;
-		},
-		destinationPath: path.join( WP_SERVER_FILES_PATH, 'blueprints' ),
-	},
 ];
 
 async function downloadFile( file: FileToDownload ): Promise< void > {
@@ -124,19 +133,12 @@ async function downloadFile( file: FileToDownload ): Promise< void > {
 	}
 
 	const url = await file.getUrl();
-	const response = await fetch( url );
-	if ( ! response.ok ) {
-		throw new Error( `Request failed with status code: ${ response.status }` );
-	}
-	const buffer = Buffer.from( await response.arrayBuffer() );
+	const buffer = await fetchWithRetry( name, url );
 	await fs.writeFile( zipPath, buffer );
 
 	if ( name === 'wp-cli' ) {
 		console.log( `[${ name }] Moving WP-CLI to destination ...` );
 		fs.moveSync( zipPath, path.join( extractedPath, 'wp-cli.phar' ), { overwrite: true } );
-	} else if ( name === 'blueprints-phar' ) {
-		console.log( `[${ name }] Moving blueprints.phar to destination ...` );
-		fs.moveSync( zipPath, path.join( extractedPath, 'blueprints.phar' ), { overwrite: true } );
 	} else if ( name === 'sqlite' ) {
 		/**
 		 * The SQLite database integration plugin zip extracts into a folder named
@@ -183,7 +185,9 @@ async function downloadFile( file: FileToDownload ): Promise< void > {
 				const destFile = path.join( extractedPath, relativePath );
 				await fs.ensureDir( path.dirname( destFile ) );
 
-				await fs.writeFile( destFile, step.data );
+				const localPatchFile = PHPMYADMIN_LOCAL_PATCH_FILES.get( relativePath );
+				const patchData = localPatchFile ? await fs.readFile( localPatchFile, 'utf8' ) : step.data;
+				await fs.writeFile( destFile, patchData );
 			}
 		}
 	} else {

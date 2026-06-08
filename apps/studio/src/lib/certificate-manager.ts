@@ -6,7 +6,9 @@ import { promisify } from 'node:util';
 import * as Sentry from '@sentry/electron/main';
 import { CERT_UNTRUSTED_ROOT, SERVER_AUTH_OID } from '@studio/common/constants';
 import {
+	areAllFirefoxProfilesTrustedLinux,
 	buildLinuxTrustInstallCommand,
+	importCAIntoFirefoxProfilesLinux,
 	importCAIntoUserNssDbsLinux,
 	isCAImportedInUserNssDbsLinux,
 	isCATrustedOnLinux,
@@ -52,11 +54,14 @@ export async function isRootCATrusted(): Promise< boolean > {
 			return false;
 		}
 	} else if ( process.platform === 'linux' ) {
-		// The CA is fully trusted on Linux only when it lives in both the system
-		// bundle (covers curl/openssl/Node) AND every NSS DB candidate (covers
-		// Chromium-family browsers, including Snap-Chromium's sandboxed DB).
+		// The CA is fully trusted on Linux only when it lives in the system
+		// bundle (curl/openssl/Node), every Chromium-family NSS DB (including
+		// Snap-Chromium's sandboxed DB), and every existing Firefox profile
+		// NSS DB. Firefox profiles that don't exist yet are vacuously trusted.
 		return (
-			( await isCATrustedOnLinux( CA_CERT_PATH ) ) && ( await isCAImportedInUserNssDbsLinux() )
+			( await isCATrustedOnLinux( CA_CERT_PATH ) ) &&
+			( await isCAImportedInUserNssDbsLinux() ) &&
+			( await areAllFirefoxProfilesTrustedLinux() )
 		);
 	}
 
@@ -118,6 +123,12 @@ export async function trustRootCA(): Promise< void > {
 			// Always run NSS imports — they're idempotent (-D before -A) and don't
 			// need sudo, so re-running covers the install-browser-after-trust case.
 			await importCAIntoUserNssDbsLinux( CA_CERT_PATH );
+			// Firefox keeps a per-profile NSS DB; the system + Chromium imports
+			// above don't reach it. Profiles that don't exist yet are skipped —
+			// when the user later opens Firefox for the first time, the trust
+			// check flips back to untrusted on refetch and the user clicks Trust
+			// again to import into the newly created profile.
+			await importCAIntoFirefoxProfilesLinux( CA_CERT_PATH );
 		} else {
 			console.error( 'Unsupported platform for automatic certificate trust:', platform );
 		}

@@ -16,7 +16,7 @@ console.log( 'Sentry environment:', isDevEnvironment ? 'development' : 'producti
 
 const require = createRequire( import.meta.url );
 
-export default defineConfig({
+export default defineConfig( {
 	main: {
 		plugins: [],
 		resolve: {
@@ -85,7 +85,7 @@ export default defineConfig({
 			viteStaticCopy( {
 				targets: [
 					{
-						src: normalizePath( require.resolve( '@rive-app/canvas/rive.wasm') ),
+						src: normalizePath( require.resolve( '@rive-app/canvas/rive.wasm' ) ),
 						dest: 'assets',
 					},
 					{

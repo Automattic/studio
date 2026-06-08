@@ -49,6 +49,15 @@ Write-Host "--- :npm: Installing Node dependencies"
 bash .buildkite/commands/install-node-dependencies.sh
 If ($LastExitCode -ne 0) { Exit $LastExitCode }
 
+# The bundled nuget.exe in electron-winstaller is v4.0 which predates long-path support (requires
+# v4.8+). Replace it with the latest stable release so the LongPathsEnabled registry key above
+# actually takes effect during `npm run make`.
+Write-Host "--- :nuget: Upgrading bundled nuget.exe to latest (long-path support requires >= 4.8)"
+$nugetVendorPath = "node_modules\electron-winstaller\vendor\nuget.exe"
+Invoke-WebRequest -Uri "https://dist.nuget.org/win-x86-commandline/latest/nuget.exe" `
+    -OutFile $nugetVendorPath -UseBasicParsing
+If ($LastExitCode -ne 0) { Exit $LastExitCode }
+
 Write-Host "--- :node: Building App for Windows ($BuildType - $Architecture)"
 
 # Run appropriate script based on build type

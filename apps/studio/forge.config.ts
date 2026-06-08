@@ -66,22 +66,6 @@ const config: ForgeConfig = {
 			// Resources copied separately via extraResource
 			/^\/assets/,
 			/^\/bin/,
-			// The packages below are dev/peer-only transitive deps that galactus
-			// (DestroyerOfModules) fails to prune after install:bundle's standalone
-			// npm install. They contain paths that exceed Windows' 260-character
-			// limit, causing the Squirrel/NuGet maker to fail.
-			//
-			// pi-coding-agent: devDep used only for `import type` — not runtime code.
-			// Its nested @mistralai/mistralai has filenames like
-			//   getchatcompletionfieldoptionscountsv1...post.js (~200 chars)
-			// which push the total Windows path past 260 chars.
-			/node_modules\/@earendil-works\/pi-coding-agent/,
-			// react-native / @react-native: pulled in as a peer dep via
-			//   @wordpress/components → @emotion/native → react-native
-			// Has deeply-nested iOS/Android source paths (~199 chars) that also
-			// exceed the Windows limit. Not used at runtime in Electron.
-			/node_modules\/react-native/,
-			/node_modules\/@react-native/,
 		],
 	},
 	rebuildConfig: {},

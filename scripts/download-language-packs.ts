@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs-extra';
 import { extractZip } from '../tools/common/lib/extract-zip';
 import { WP_LOCALES } from '../tools/common/lib/wp-locales';
-import { sharedDispatcher, throwForHttpStatus, withRetry } from './lib/with-retry';
+import { fetch, sharedDispatcher, throwForHttpStatus, withRetry } from './lib/with-retry';
 
 const WP_SERVER_FILES_PATH = path.join( import.meta.dirname, '..', 'wp-files' );
 
@@ -48,7 +48,7 @@ async function downloadTranslationsFromApi(
 	const data = await withRetry( `language-packs:${ label }`, async () => {
 		const response = await fetch( apiUrl, {
 			dispatcher: sharedDispatcher,
-		} as RequestInit );
+		} );
 		if ( ! response.ok ) {
 			throwForHttpStatus( 'Translations API request', response.status );
 		}
@@ -70,7 +70,7 @@ async function downloadTranslationsFromApi(
 		const buffer = await withRetry( `language-packs:${ label }:${ language }`, async () => {
 			const response = await fetch( packageUrl, {
 				dispatcher: sharedDispatcher,
-			} as RequestInit );
+			} );
 			if ( ! response.ok ) {
 				throwForHttpStatus( 'Translation download', response.status );
 			}

@@ -40,7 +40,7 @@ import { readCliConfig } from 'cli/lib/cli-config/core';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
-import type { SessionManager } from '@mariozechner/pi-coding-agent';
+import type { SessionManager } from '@earendil-works/pi-coding-agent';
 import type {
 	StudioCustomEntryDataMap,
 	StudioCustomEntryType,

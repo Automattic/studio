@@ -1,8 +1,8 @@
 import fs from 'fs';
 import Anthropic from '@anthropic-ai/sdk';
-import { type AgentEvent, type AgentTool } from '@mariozechner/pi-agent-core';
-import { type Model, type SimpleStreamOptions } from '@mariozechner/pi-ai';
-import { streamAnthropic, type AnthropicOptions } from '@mariozechner/pi-ai/anthropic';
+import { type AgentTool } from '@earendil-works/pi-agent-core';
+import { type Model, type SimpleStreamOptions } from '@earendil-works/pi-ai';
+import { streamAnthropic, type AnthropicOptions } from '@earendil-works/pi-ai/anthropic';
 import {
 	AuthStorage,
 	createAgentSession,
@@ -20,7 +20,7 @@ import {
 	type AgentSessionEvent,
 	type SessionManager,
 	type ToolDefinition,
-} from '@mariozechner/pi-coding-agent';
+} from '@earendil-works/pi-coding-agent';
 import {
 	DEFAULT_MODEL,
 	getAiModelFamily,
@@ -179,9 +179,10 @@ function resolveCredentials(
 function syntheticErrorAgentEnd(
 	stopReason: 'error' | 'aborted',
 	errorMessage: string
-): AgentEvent {
+): AgentSessionEvent {
 	return {
 		type: 'agent_end',
+		willRetry: false,
 		messages: [
 			{
 				role: 'assistant',

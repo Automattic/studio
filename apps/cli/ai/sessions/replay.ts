@@ -6,8 +6,8 @@
 
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import { AiChatUI } from 'cli/ai/ui';
-import type { ToolResultMessage } from '@mariozechner/pi-ai';
-import type { SessionEntry } from '@mariozechner/pi-coding-agent';
+import type { ToolResultMessage } from '@earendil-works/pi-ai';
+import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
 export function replaySessionHistory( ui: AiChatUI, entries: SessionEntry[] ): void {
 	ui.prepareForReplay();

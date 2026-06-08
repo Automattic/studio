@@ -9,7 +9,7 @@
 import { writeFileSync, writeSync as fsWriteSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { SessionManager } from '@mariozechner/pi-coding-agent';
+import { SessionManager } from '@earendil-works/pi-coding-agent';
 import { isAiModelId, type AiModelId } from '@studio/common/ai/models';
 import { findLastAssistant } from '@studio/common/ai/session-events';
 import {
@@ -19,7 +19,7 @@ import {
 } from 'cli/ai/auth';
 import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
-import type { AgentSessionEvent } from '@mariozechner/pi-coding-agent';
+import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { AiProviderId } from 'cli/ai/providers';
 
 interface EvalRunnerInput {

@@ -142,6 +142,10 @@ describe( 'UserSettings', () => {
 				expect( screen.getByText( 'Log out' ) ).toBeInTheDocument();
 				expect( screen.getByText( 'Preview sites' ) ).toBeInTheDocument();
 				expect( screen.getByText( 'AI assistant' ) ).toBeInTheDocument();
+				expect(
+					screen.getByText( 'Unlimited tokens while Studio Code is in beta.' )
+				).toBeInTheDocument();
+				expect( screen.queryByText( /monthly prompts used/ ) ).not.toBeInTheDocument();
 			} );
 		} );
 	} );

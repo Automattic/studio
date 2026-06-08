@@ -22,15 +22,22 @@ function parseSkillFile( filePath: string ): Skill | null {
 
 let cachedSkills: Skill[] | null = null;
 
-// Absolute path to the bundled skills directory. `import.meta.dirname` resolves
-// to `apps/cli/ai` in source/test runs and to the bundle output root after the
-// vite build (which copies `ai/skills` to the output root). The whole `skills`
-// tree is copied, so subdirectories like `site-generator/generators` ship too —
-// the generation pipeline resolves its prompt fragments from here via this
-// helper rather than its own `import.meta.dirname`, which would point at the
-// wrong place once bundled.
+// Resolves the skills directory. In source this is `apps/cli/ai/skills`
+// (next to this file); after bundling everything collapses into the CLI
+// out dir and the `viteStaticCopy` step places skills at `<outDir>/skills`
+// (e.g. `dist/cli/skills`), which is again next to this (bundled) file.
+// Resolving relative to `import.meta.dirname` therefore works in both
+// cases — callers that need a skill asset MUST go through this helper
+// rather than hand-rolling their own relative path. The whole `skills` tree is
+// copied, so subdirectories like `site-generator/generators` ship too.
 export function getSkillsRoot(): string {
 	return path.resolve( import.meta.dirname, 'skills' );
+}
+
+// Returns the absolute path to a file/dir inside a specific skill, e.g.
+// `getSkillPath( 'taxonomist', 'scripts' )`.
+export function getSkillPath( skillName: string, ...segments: string[] ): string {
+	return path.join( getSkillsRoot(), skillName, ...segments );
 }
 
 // Discovers `apps/cli/ai/skills/<name>/SKILL.md` files at startup; cached

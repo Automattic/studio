@@ -10,6 +10,7 @@ import { generateImageTool } from './generate-image';
 import { generateSiteTool } from './generate-site';
 import { generateThemeTool } from './generate-theme';
 import { importSiteTool } from './import-site';
+import { inspectDesignTool } from './inspect-design';
 import { installTaxonomyScriptsTool } from './install-taxonomy-scripts';
 import { listConnectedRemoteSitesTool } from './list-connected-remote-sites';
 import { listPreviewsTool } from './list-previews';
@@ -58,6 +59,7 @@ export const studioToolDefinitions: AnyStudioAgentTool[] = [
 	validateHtmlBlocksTool,
 	validateAndFixBlocksTool,
 	takeScreenshotTool,
+	inspectDesignTool,
 	shareScreenshotTool,
 	installTaxonomyScriptsTool,
 	auditPerformanceTool,

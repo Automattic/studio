@@ -45,6 +45,7 @@ import {
 	type StudioToolPayloadGuardState,
 	updateStudioToolPayloadGuardState,
 } from './tool-safety';
+import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AskUserHandler, SiteInfo } from 'cli/ai/types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -64,6 +65,7 @@ const STUDIO_COMPACTION_SETTINGS = {
 
 export interface StudioAgentTurnConfig {
 	prompt: string;
+	images?: StudioChatImage[];
 	session: SessionManager;
 	env?: Record< string, string >;
 	model?: AiModelId;
@@ -232,7 +234,15 @@ async function runAgentSessionTurn(
 			return;
 		}
 
-		await session.prompt( config.prompt, { expandPromptTemplates: false, source: 'rpc' } );
+		await session.prompt( config.prompt, {
+			expandPromptTemplates: false,
+			source: 'rpc',
+			images: config.images?.map( ( image ) => ( {
+				type: 'image' as const,
+				data: image.dataBase64,
+				mimeType: image.mimeType,
+			} ) ),
+		} );
 	} catch ( error ) {
 		const aborted = controller.signal.aborted;
 		const message = aborted ? '' : error instanceof Error ? error.message : String( error );

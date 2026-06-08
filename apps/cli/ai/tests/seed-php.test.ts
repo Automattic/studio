@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildSeederPhp, parseSeederResult } from 'cli/ai/generation/seed-php';
+import { buildSeederPhp, parseSeederResult } from 'cli/ai/tools/site-generator/seed-php';
 
 describe( 'parseSeederResult', () => {
 	it( 'parses the seeder JSON output', () => {

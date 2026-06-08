@@ -1,8 +1,8 @@
 import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
 import { Type } from 'typebox';
-import { runGenerator } from 'cli/ai/generation/generators';
-import { completeText, extractJson, runPooled } from 'cli/ai/generation/llm';
+import { runGenerator } from 'cli/ai/tools/site-generator/generators';
+import { completeText, extractJson, runPooled } from 'cli/ai/tools/site-generator/llm';
 import { openBrowser } from 'cli/lib/browser';
 import { defineTool } from './define-tool';
 import { resolveSite, textResult } from './utils';

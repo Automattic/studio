@@ -12,7 +12,7 @@ import {
 	sanitizeCptArchiveSlugs,
 	validateMarkup,
 	type IdentifierContract,
-} from 'cli/ai/generation/identifier-contract';
+} from 'cli/ai/tools/site-generator/identifier-contract';
 
 // The canonical contract for the Ember & Oak baseline site that exposed the bug.
 const contract: IdentifierContract = {

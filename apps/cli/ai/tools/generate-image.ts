@@ -1,10 +1,10 @@
 import { mkdir, readFile, readdir, writeFile } from 'fs/promises';
 import path from 'path';
 import { Type } from 'typebox';
-import { resolveAiImagesInHtml } from 'cli/ai/generation/images';
-import { runPooled } from 'cli/ai/generation/llm';
-import { themeDir, uploadsDir } from 'cli/ai/generation/paths';
-import { aspectFromHint, generateImageBytes } from 'cli/ai/generation/wpcom-image';
+import { resolveAiImagesInHtml } from 'cli/ai/tools/site-generator/images';
+import { runPooled } from 'cli/ai/tools/site-generator/llm';
+import { themeDir, uploadsDir } from 'cli/ai/tools/site-generator/paths';
+import { aspectFromHint, generateImageBytes } from 'cli/ai/tools/site-generator/wpcom-image';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { defineTool } from './define-tool';
 import { resolveSite, textResult } from './utils';

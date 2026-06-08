@@ -1,14 +1,6 @@
 import fs from 'fs';
 import { copyFile, mkdir } from 'fs/promises';
 import path from 'path';
-import { runManifest } from 'cli/ai/generation/generators';
-import {
-	contractFromManifest,
-	findRegisteredPostTypes,
-	sanitizeCptArchiveSlugs,
-	validateMarkup,
-} from 'cli/ai/generation/identifier-contract';
-import { findArchiveLoopViolations, stripRemoteFontFaces } from 'cli/ai/generation/theme-guards';
 import { createSiteTool } from 'cli/ai/tools/create-site';
 import { deleteSiteTool } from 'cli/ai/tools/delete-site';
 import { generateCompanionPluginTool } from 'cli/ai/tools/generate-companion-plugin';
@@ -17,6 +9,17 @@ import { generateImageTool } from 'cli/ai/tools/generate-image';
 import { generateSiteTool } from 'cli/ai/tools/generate-site';
 import { generateThemeTool } from 'cli/ai/tools/generate-theme';
 import { seedContentTool } from 'cli/ai/tools/seed-content';
+import { runManifest } from 'cli/ai/tools/site-generator/generators';
+import {
+	contractFromManifest,
+	findRegisteredPostTypes,
+	sanitizeCptArchiveSlugs,
+	validateMarkup,
+} from 'cli/ai/tools/site-generator/identifier-contract';
+import {
+	findArchiveLoopViolations,
+	stripRemoteFontFaces,
+} from 'cli/ai/tools/site-generator/theme-guards';
 import { takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
 import { resolveSite } from 'cli/ai/tools/utils';
 import { validateAndFixBlocksTool } from 'cli/ai/tools/validate-and-fix-blocks';
@@ -32,7 +35,7 @@ import {
 	type CaseResult,
 } from './scorecard';
 import type { EvalSpec } from './specs';
-import type { SiteManifest } from 'cli/ai/generation/manifest';
+import type { SiteManifest } from 'cli/ai/tools/site-generator/manifest';
 
 export interface RunCaseOptions {
 	runId: string;

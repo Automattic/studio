@@ -5,7 +5,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { assetPhp, compileBlock, wpGlobalForImport } from 'cli/ai/generation/build-block';
+import { assetPhp, compileBlock, wpGlobalForImport } from 'cli/ai/tools/site-generator/build-block';
 
 describe( 'wpGlobalForImport', () => {
 	it( 'maps @wordpress packages to their wp.* global and script handle', () => {

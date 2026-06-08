@@ -1,15 +1,15 @@
 import { Type } from 'typebox';
-import { runGenerator, runManifest } from 'cli/ai/generation/generators';
+import { runGenerator, runManifest } from 'cli/ai/tools/site-generator/generators';
 import {
 	contractFromManifest,
 	contractVocabulary,
 	reconcileMarkup,
-} from 'cli/ai/generation/identifier-contract';
-import { runPooled } from 'cli/ai/generation/llm';
-import { parseManifest, type SiteManifest } from 'cli/ai/generation/manifest';
-import { themeDir, writePackageFile } from 'cli/ai/generation/paths';
-import { isSiteRunning, withDaemon, wpCli } from 'cli/ai/generation/site-wp';
-import { stripRemoteFontFaces } from 'cli/ai/generation/theme-guards';
+} from 'cli/ai/tools/site-generator/identifier-contract';
+import { runPooled } from 'cli/ai/tools/site-generator/llm';
+import { parseManifest, type SiteManifest } from 'cli/ai/tools/site-generator/manifest';
+import { themeDir, writePackageFile } from 'cli/ai/tools/site-generator/paths';
+import { isSiteRunning, withDaemon, wpCli } from 'cli/ai/tools/site-generator/site-wp';
+import { stripRemoteFontFaces } from 'cli/ai/tools/site-generator/theme-guards';
 import { defineTool } from './define-tool';
 import { resolveSite, textResult } from './utils';
 

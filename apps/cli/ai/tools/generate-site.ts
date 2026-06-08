@@ -1,6 +1,9 @@
 import { Type } from 'typebox';
-import { parseManifest } from 'cli/ai/generation/manifest';
-import { runSiteGeneration, type SiteGenerationMode } from 'cli/ai/generation/orchestrate';
+import { parseManifest } from 'cli/ai/tools/site-generator/manifest';
+import {
+	runSiteGeneration,
+	type SiteGenerationMode,
+} from 'cli/ai/tools/site-generator/orchestrate';
 import { defineTool } from './define-tool';
 import { resolveSite, textResult } from './utils';
 

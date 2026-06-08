@@ -1,4 +1,4 @@
-import type { CompanionPluginPlan } from 'cli/ai/generation/manifest';
+import type { CompanionPluginPlan } from 'cli/ai/tools/site-generator/manifest';
 
 /**
  * Pure scorecard helpers for the WSG eval harness. Everything here is

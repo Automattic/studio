@@ -11,7 +11,7 @@ import {
 	type CaseResult,
 } from 'cli/ai/eval-wsg/scorecard';
 import { parseSpec } from 'cli/ai/eval-wsg/specs';
-import type { CompanionPluginPlan } from 'cli/ai/generation/manifest';
+import type { CompanionPluginPlan } from 'cli/ai/tools/site-generator/manifest';
 
 function plugin( over: Partial< CompanionPluginPlan > = {} ): CompanionPluginPlan {
 	return {

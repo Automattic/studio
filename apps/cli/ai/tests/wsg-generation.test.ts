@@ -5,11 +5,16 @@ import {
 	parseAiImageAlt,
 	resolveAiImagesInHtml,
 	stripAiImagePlaceholders,
-} from 'cli/ai/generation/images';
-import { extractJson, isTransientError, runPooled, stripCodeFences } from 'cli/ai/generation/llm';
-import { parseManifest } from 'cli/ai/generation/manifest';
-import { assertInside, deriveSlug, isValidSlug } from 'cli/ai/generation/paths';
-import { aspectFromHint } from 'cli/ai/generation/wpcom-image';
+} from 'cli/ai/tools/site-generator/images';
+import {
+	extractJson,
+	isTransientError,
+	runPooled,
+	stripCodeFences,
+} from 'cli/ai/tools/site-generator/llm';
+import { parseManifest } from 'cli/ai/tools/site-generator/manifest';
+import { assertInside, deriveSlug, isValidSlug } from 'cli/ai/tools/site-generator/paths';
+import { aspectFromHint } from 'cli/ai/tools/site-generator/wpcom-image';
 
 describe( 'stripCodeFences', () => {
 	it( 'removes a single wrapping fence', () => {

@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { findArchiveLoopViolations, stripRemoteFontFaces } from 'cli/ai/generation/theme-guards';
+import {
+	findArchiveLoopViolations,
+	stripRemoteFontFaces,
+} from 'cli/ai/tools/site-generator/theme-guards';
 
 describe( 'stripRemoteFontFaces', () => {
 	const withRemote = JSON.stringify(

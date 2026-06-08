@@ -1,17 +1,17 @@
 import path from 'path';
 import { Type } from 'typebox';
-import { compileBlock } from 'cli/ai/generation/build-block';
-import { runBlockGenerator, runGenerator } from 'cli/ai/generation/generators';
+import { compileBlock } from 'cli/ai/tools/site-generator/build-block';
+import { runBlockGenerator, runGenerator } from 'cli/ai/tools/site-generator/generators';
 import {
 	contractFromManifest,
 	contractVocabulary,
 	reconcileBlockJsonName,
 	sanitizeCptArchiveSlugs,
-} from 'cli/ai/generation/identifier-contract';
-import { runPooled } from 'cli/ai/generation/llm';
-import { parseManifest } from 'cli/ai/generation/manifest';
-import { pluginDir, writePackageFile } from 'cli/ai/generation/paths';
-import { isSiteRunning, withDaemon, wpCli } from 'cli/ai/generation/site-wp';
+} from 'cli/ai/tools/site-generator/identifier-contract';
+import { runPooled } from 'cli/ai/tools/site-generator/llm';
+import { parseManifest } from 'cli/ai/tools/site-generator/manifest';
+import { pluginDir, writePackageFile } from 'cli/ai/tools/site-generator/paths';
+import { isSiteRunning, withDaemon, wpCli } from 'cli/ai/tools/site-generator/site-wp';
 import { defineTool } from './define-tool';
 import { resolveSite, textResult } from './utils';
 

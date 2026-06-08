@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { contractFromManifest } from 'cli/ai/generation/identifier-contract';
-import { parseManifest, type SiteManifest } from 'cli/ai/generation/manifest';
+import { contractFromManifest } from 'cli/ai/tools/site-generator/identifier-contract';
+import { parseManifest, type SiteManifest } from 'cli/ai/tools/site-generator/manifest';
 import {
 	buildSiteTasks,
 	routeResults,
@@ -9,7 +9,7 @@ import {
 	type GeneratedSiteArtifacts,
 	type SiteGenerationPlan,
 	type StagedSiteGeneration,
-} from 'cli/ai/generation/orchestrate';
+} from 'cli/ai/tools/site-generator/orchestrate';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
 function manifest(): SiteManifest {

@@ -2,18 +2,25 @@ import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { Type } from 'typebox';
-import { runGenerator } from 'cli/ai/generation/generators';
+import { runGenerator } from 'cli/ai/tools/site-generator/generators';
 import {
 	contractFromManifest,
 	contractVocabulary,
 	reconcileMarkup,
-} from 'cli/ai/generation/identifier-contract';
-import { resolveAiImagesInHtml, stripAiImagePlaceholders } from 'cli/ai/generation/images';
-import { completeText, extractJson, runPooled } from 'cli/ai/generation/llm';
-import { parseManifest, type PostTypePlan, type SiteManifest } from 'cli/ai/generation/manifest';
-import { deriveSlug, uploadsDir } from 'cli/ai/generation/paths';
-import { buildSeederPhp, parseSeederResult } from 'cli/ai/generation/seed-php';
-import { isSiteRunning, withDaemon, wpCli } from 'cli/ai/generation/site-wp';
+} from 'cli/ai/tools/site-generator/identifier-contract';
+import {
+	resolveAiImagesInHtml,
+	stripAiImagePlaceholders,
+} from 'cli/ai/tools/site-generator/images';
+import { completeText, extractJson, runPooled } from 'cli/ai/tools/site-generator/llm';
+import {
+	parseManifest,
+	type PostTypePlan,
+	type SiteManifest,
+} from 'cli/ai/tools/site-generator/manifest';
+import { deriveSlug, uploadsDir } from 'cli/ai/tools/site-generator/paths';
+import { buildSeederPhp, parseSeederResult } from 'cli/ai/tools/site-generator/seed-php';
+import { isSiteRunning, withDaemon, wpCli } from 'cli/ai/tools/site-generator/site-wp';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { defineTool } from './define-tool';
 import { resolveSite, textResult } from './utils';

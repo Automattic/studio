@@ -2,27 +2,6 @@ import { randomUUID } from 'crypto';
 import { mkdir, readFile, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import path from 'path';
-import { compileBlock } from 'cli/ai/generation/build-block';
-import { runBlockGenerator, runGenerator, runManifest } from 'cli/ai/generation/generators';
-import {
-	contractFromManifest,
-	contractVocabulary,
-	reconcileBlockJsonName,
-	reconcileMarkup,
-	sanitizeCptArchiveSlugs,
-} from 'cli/ai/generation/identifier-contract';
-import { resolveAiImagesInHtml, stripAiImagePlaceholders } from 'cli/ai/generation/images';
-import { runPooled } from 'cli/ai/generation/llm';
-import {
-	deriveSlug,
-	pluginDir,
-	themeDir,
-	uploadsDir,
-	writePackageFile,
-} from 'cli/ai/generation/paths';
-import { buildSeederPhp, parseSeederResult } from 'cli/ai/generation/seed-php';
-import { isSiteRunning, withDaemon, wpCli } from 'cli/ai/generation/site-wp';
-import { stripRemoteFontFaces } from 'cli/ai/generation/theme-guards';
 import { activatePlugin, ensurePluginHeader } from 'cli/ai/tools/generate-companion-plugin';
 import { activateTheme, ensureStyleHeader, renderFunctionsPhp } from 'cli/ai/tools/generate-theme';
 import {
@@ -32,8 +11,36 @@ import {
 	wpcomImagesAvailable,
 	type PreparedItem,
 } from 'cli/ai/tools/seed-content';
+import { compileBlock } from 'cli/ai/tools/site-generator/build-block';
+import {
+	runBlockGenerator,
+	runGenerator,
+	runManifest,
+} from 'cli/ai/tools/site-generator/generators';
+import {
+	contractFromManifest,
+	contractVocabulary,
+	reconcileBlockJsonName,
+	reconcileMarkup,
+	sanitizeCptArchiveSlugs,
+} from 'cli/ai/tools/site-generator/identifier-contract';
+import {
+	resolveAiImagesInHtml,
+	stripAiImagePlaceholders,
+} from 'cli/ai/tools/site-generator/images';
+import { runPooled } from 'cli/ai/tools/site-generator/llm';
+import {
+	deriveSlug,
+	pluginDir,
+	themeDir,
+	uploadsDir,
+	writePackageFile,
+} from 'cli/ai/tools/site-generator/paths';
+import { buildSeederPhp, parseSeederResult } from 'cli/ai/tools/site-generator/seed-php';
+import { isSiteRunning, withDaemon, wpCli } from 'cli/ai/tools/site-generator/site-wp';
+import { stripRemoteFontFaces } from 'cli/ai/tools/site-generator/theme-guards';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
-import type { BlockPlan, SiteManifest } from 'cli/ai/generation/manifest';
+import type { BlockPlan, SiteManifest } from 'cli/ai/tools/site-generator/manifest';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
 /**

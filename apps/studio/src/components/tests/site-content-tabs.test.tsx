@@ -105,7 +105,7 @@ describe( 'SiteContentTabs', () => {
 		expect( screen.queryByRole( 'tab', { name: 'Sync', selected: false } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Previews', selected: false } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Settings', selected: false } ) ).toBeVisible();
-		expect( screen.queryByRole( 'tab', { name: 'Assistant', selected: false } ) ).toBeVisible();
+		expect( screen.queryByRole( 'tab', { name: 'Studio Code', selected: false } ) ).toBeVisible();
 		expect(
 			screen.queryByRole( 'tab', { name: 'Backup', selected: false } )
 		).not.toBeInTheDocument();

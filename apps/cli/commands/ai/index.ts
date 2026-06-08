@@ -315,7 +315,7 @@ export async function runCommand( options: {
 	const config = await readCliConfig();
 	let showCapabilitiesOnConnect = ! config.aiProvider;
 
-	// Since Studio Code inside Studio UI is free right now - we decided to default to WordPress.com provider so far.
+	// Studio Code Desktop defaults to WordPress.com provider.
 	if ( isJsonMode && showCapabilitiesOnConnect ) {
 		await switchProvider( 'wpcom', false );
 		showCapabilitiesOnConnect = false;

@@ -15,7 +15,6 @@ import {
 	useMemo,
 	useRef,
 	useState,
-	type PropsWithChildren,
 	type ReactNode,
 	type Ref,
 	type UIEvent,
@@ -105,7 +104,11 @@ function SessionHeader( { onNewConversation }: { onNewConversation: () => void }
 	);
 }
 
-function StudioCodeDescription( { children }: PropsWithChildren ) {
+function NoAuth() {
+	const isOffline = useOffline();
+	const { authenticate } = useAuth();
+	const offlineMessage = __( "You're currently offline." );
+
 	return (
 		<div className="p-8 flex justify-between max-w-3xl gap-4 overflow-hidden">
 			<div className="flex flex-col">
@@ -127,67 +130,55 @@ function StudioCodeDescription( { children }: PropsWithChildren ) {
 						</div>
 					) ) }
 				</div>
-				{ children }
+				<div className="mt-8">
+					<Tooltip disabled={ ! isOffline } icon={ offlineIcon } text={ offlineMessage }>
+						<Button
+							aria-description={ isOffline ? offlineMessage : '' }
+							aria-disabled={ isOffline }
+							variant="primary"
+							onClick={ () => {
+								if ( isOffline ) {
+									return;
+								}
+								authenticate();
+							} }
+						>
+							{ __( 'Log in to WordPress.com' ) }
+							<ArrowIcon />
+						</Button>
+					</Tooltip>
+				</div>
+				<div className="mt-3 w-[40ch] text-frame-text-secondary a8c-body">
+					<Tooltip
+						disabled={ ! isOffline }
+						icon={ offlineIcon }
+						text={ offlineMessage }
+						placement="bottom-start"
+					>
+						<span>
+							{ __( 'A WordPress.com account is required to use Studio Code.' ) }{ ' ' }
+							<Button
+								aria-description={ isOffline ? offlineMessage : '' }
+								aria-disabled={ isOffline }
+								className="!p-0 text-frame-theme hover:opacity-80 h-auto inline-flex items-center"
+								onClick={ () => {
+									if ( isOffline ) {
+										return;
+									}
+									getIpcApi().authenticate( true );
+								} }
+							>
+								{ __( 'Create a free account' ) }
+								<ArrowIcon />
+							</Button>
+						</span>
+					</Tooltip>
+				</div>
 			</div>
 			<IllustrationGrid>
 				<StudioCodeTabImage />
 			</IllustrationGrid>
 		</div>
-	);
-}
-
-function NoAuth() {
-	const isOffline = useOffline();
-	const { authenticate } = useAuth();
-	const offlineMessage = __( "You're currently offline." );
-
-	return (
-		<StudioCodeDescription>
-			<div className="mt-8">
-				<Tooltip disabled={ ! isOffline } icon={ offlineIcon } text={ offlineMessage }>
-					<Button
-						aria-description={ isOffline ? offlineMessage : '' }
-						aria-disabled={ isOffline }
-						variant="primary"
-						onClick={ () => {
-							if ( isOffline ) {
-								return;
-							}
-							authenticate();
-						} }
-					>
-						{ __( 'Log in to WordPress.com' ) }
-						<ArrowIcon />
-					</Button>
-				</Tooltip>
-			</div>
-			<div className="mt-3 w-[40ch] text-frame-text-secondary a8c-body">
-				<Tooltip
-					disabled={ ! isOffline }
-					icon={ offlineIcon }
-					text={ offlineMessage }
-					placement="bottom-start"
-				>
-					<span>
-						{ __( 'A WordPress.com account is required to use Studio Code.' ) }{ ' ' }
-						<Button
-							aria-description={ isOffline ? offlineMessage : '' }
-							aria-disabled={ isOffline }
-							className="!p-0 text-frame-theme hover:opacity-80 h-auto inline-flex items-center"
-							onClick={ () => {
-								if ( isOffline ) {
-									return;
-								}
-								getIpcApi().authenticate( true );
-							} }
-						>
-							{ __( 'Create a free account' ) }
-							<ArrowIcon />
-						</Button>
-					</span>
-				</Tooltip>
-			</div>
-		</StudioCodeDescription>
 	);
 }
 

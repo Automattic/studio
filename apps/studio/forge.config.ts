@@ -66,6 +66,12 @@ const config: ForgeConfig = {
 			// Resources copied separately via extraResource
 			/^\/assets/,
 			/^\/bin/,
+			// pi-coding-agent is a devDependency (used only for TypeScript types), but
+			// galactus/DestroyerOfModules sometimes fails to prune it from the packaged
+			// output after install:bundle. Its transitive @mistralai/mistralai dependency
+			// contains filenames that exceed Windows' 260-character path limit when nested,
+			// so we explicitly exclude the whole package from packaging as a safety net.
+			/node_modules\/@earendil-works\/pi-coding-agent/,
 		],
 	},
 	rebuildConfig: {},
@@ -279,7 +285,8 @@ const config: ForgeConfig = {
 
 			console.log( `Downloading Node.js binary for ${ platform }-${ arch }...` );
 			await execAsync( [
-				'npx', 'tsx',
+				'npx',
+				'tsx',
 				path.join( repoRoot, 'scripts', 'download-node-binary.ts' ),
 				platform,
 				arch,
@@ -291,7 +298,8 @@ const config: ForgeConfig = {
 			fs.rmSync( bundledPhpBinaryRoot, { recursive: true, force: true } );
 			await execAsync(
 				[
-					'npx', 'tsx',
+					'npx',
+					'tsx',
 					path.join( repoRoot, 'scripts', 'download-php-binary.ts' ),
 					RecommendedPHPVersion,
 					platform,

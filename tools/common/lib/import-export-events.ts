@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { getErrorMessage } from './error-formatting';
 
 export const BackupExtractEvents = {
 	BACKUP_EXTRACT_START: 'backup_extract_start',
@@ -136,6 +137,24 @@ export const ExportEvents = {
 	CONFIG_EXPORT_COMPLETE: 'config_export_complete',
 } as const;
 
+export const ExportErrorCodes = {
+	EXPORT_FAILED: 'export_failed',
+} as const;
+
+export const exportErrorPayloadSchema = z.object( {
+	code: z.literal( ExportErrorCodes.EXPORT_FAILED ),
+	message: z.string().optional(),
+} );
+
+export type ExportErrorPayload = z.infer< typeof exportErrorPayloadSchema >;
+
+export function createExportErrorPayload( error: unknown ): ExportErrorPayload {
+	const message = getErrorMessage( error );
+	return message
+		? { code: ExportErrorCodes.EXPORT_FAILED, message }
+		: { code: ExportErrorCodes.EXPORT_FAILED };
+}
+
 const backupCreateProgressEventDataSchema = z.object( {
 	// This schema is derived from the `archiver.ProgressData` type
 	progress: z.object( {
@@ -150,10 +169,9 @@ const backupCreateProgressEventDataSchema = z.object( {
 	} ),
 } );
 
-export const exportEventTupleSchema = z.union( [
+const exportNonErrorEventTupleSchema = z.union( [
 	z.tuple( [ z.literal( ExportEvents.EXPORT_START ), nullOrUndefined ] ),
 	z.tuple( [ z.literal( ExportEvents.EXPORT_COMPLETE ), nullOrUndefined ] ),
-	z.tuple( [ z.literal( ExportEvents.EXPORT_ERROR ), z.unknown().nullable() ] ),
 	z.tuple( [ z.literal( ExportEvents.BACKUP_CREATE_START ), nullOrUndefined ] ),
 	z.tuple( [
 		z.literal( ExportEvents.BACKUP_CREATE_PROGRESS ),
@@ -170,7 +188,15 @@ export const exportEventTupleSchema = z.union( [
 	z.tuple( [ z.literal( ExportEvents.CONFIG_EXPORT_COMPLETE ), nullOrUndefined ] ),
 ] );
 
+export const exportEventTupleSchema = z.union( [
+	exportNonErrorEventTupleSchema,
+	z.tuple( [ z.literal( ExportEvents.EXPORT_ERROR ), exportErrorPayloadSchema ] ),
+] );
+
 export const exportIpcEventSchema = z.object( { event: exportEventTupleSchema } );
 
-export type ExportEventTuple = z.infer< typeof exportEventTupleSchema >;
+export type ExportIpcEventTuple = z.infer< typeof exportEventTupleSchema >;
 export type ExportIpcEvent = z.infer< typeof exportIpcEventSchema >;
+export type ExportEventTuple =
+	| z.infer< typeof exportNonErrorEventTupleSchema >
+	| [ typeof ExportEvents.EXPORT_ERROR, unknown ];

@@ -2,8 +2,8 @@ import path from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import {
+	createExportErrorPayload,
 	ExportEvents,
-	ExportEventTuple,
 	ExportIpcEvent,
 } from '@studio/common/lib/import-export-events';
 import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
@@ -21,7 +21,7 @@ import { StudioArgv } from 'cli/types';
 
 const logger = new Logger< LoggerAction >();
 
-function sendIpcEvent( eventTuple: ExportEventTuple ) {
+function sendIpcEvent( eventTuple: ExportIpcEvent[ 'event' ] ) {
 	const ipcEvent: ExportIpcEvent = { event: eventTuple };
 	process.send!( ipcEvent );
 }
@@ -61,7 +61,7 @@ function handleExportIpc( emitter: ImportExportEventEmitter ) {
 		sendIpcEvent( [ ExportEvents.EXPORT_COMPLETE, undefined ] );
 	} );
 	emitter.on( ExportEvents.EXPORT_ERROR, ( error ) => {
-		sendIpcEvent( [ ExportEvents.EXPORT_ERROR, error ] );
+		sendIpcEvent( [ ExportEvents.EXPORT_ERROR, createExportErrorPayload( error ) ] );
 	} );
 }
 

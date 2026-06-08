@@ -1,9 +1,12 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { readAuthToken } from '@studio/common/lib/shared-config';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { getWpComSites, rotateReprintSecret, type WpComSiteInfo } from 'cli/lib/api';
 import * as migrationClient from 'cli/lib/pull/migration-client';
 import { shouldRestartFilesSyncIndex } from 'cli/lib/pull/reprint-state';
+import { pickWpComSite } from 'cli/lib/wpcom-site-picker';
 import {
 	applyDownloadedDatabase,
 	downloadSkippedFiles,
@@ -13,7 +16,21 @@ import {
 	getPrivateDirNameForImportSession,
 	inferSiteNameFromUrl,
 	normalizeSiteUrl,
+	resolveSourceSite,
 } from '../pull-reprint';
+
+vi.mock( '@studio/common/lib/shared-config', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/common/lib/shared-config') >() ),
+	readAuthToken: vi.fn(),
+} ) );
+vi.mock( 'cli/lib/api', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('cli/lib/api') >() ),
+	getWpComSites: vi.fn(),
+	rotateReprintSecret: vi.fn(),
+} ) );
+vi.mock( 'cli/lib/wpcom-site-picker', () => ( {
+	pickWpComSite: vi.fn(),
+} ) );
 
 describe( 'CLI: studio pull-reprint helpers', () => {
 	it( 'normalizes URLs by stripping hashes and trailing slashes', () => {
@@ -355,5 +372,113 @@ describe( 'CLI: studio pull-reprint db-apply phase', () => {
 		expect( fs.existsSync( path.join( technicalSiteDirectory, 'pull.json' ) ) ).toBe( false );
 
 		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
+	} );
+} );
+
+describe( 'CLI: studio pull-reprint source resolution', () => {
+	const token = {
+		accessToken: 'access-token',
+		id: 1,
+		email: 'user@example.com',
+		displayName: 'User',
+		expiresIn: 1209600,
+		expirationTime: Date.now() + 1209600000,
+	};
+
+	const sites: WpComSiteInfo[] = [
+		{ id: 11, name: 'One', url: 'https://one.wordpress.com' },
+		{ id: 22, name: 'Two', url: 'https://two.wordpress.com' },
+	];
+
+	const originalIsTTY = process.stdin.isTTY;
+
+	function setTTY( value: boolean ): void {
+		Object.defineProperty( process.stdin, 'isTTY', {
+			value,
+			configurable: true,
+		} );
+	}
+
+	beforeEach( () => {
+		vi.clearAllMocks();
+		vi.mocked( readAuthToken ).mockResolvedValue( token );
+		vi.mocked( rotateReprintSecret ).mockResolvedValue( 'fresh-secret' );
+	} );
+
+	afterEach( () => {
+		setTTY( originalIsTTY );
+		vi.restoreAllMocks();
+	} );
+
+	it( 'opens the interactive picker for multiple sites in a TTY and returns the chosen site', async () => {
+		setTTY( true );
+		vi.mocked( getWpComSites ).mockResolvedValue( sites );
+		vi.mocked( pickWpComSite ).mockResolvedValue( sites[ 1 ] );
+
+		const source = await resolveSourceSite();
+
+		expect( pickWpComSite ).toHaveBeenCalledWith( sites, expect.any( String ) );
+		expect( source ).toMatchObject( {
+			url: 'https://two.wordpress.com',
+			secret: 'fresh-secret',
+			wpComSite: sites[ 1 ],
+		} );
+		// A fresh secret is rotated for the picked site only.
+		expect( rotateReprintSecret ).toHaveBeenCalledWith( 22, token.accessToken );
+	} );
+
+	it( 'returns null without rotating a secret when the user cancels the picker', async () => {
+		setTTY( true );
+		vi.mocked( getWpComSites ).mockResolvedValue( sites );
+		vi.mocked( pickWpComSite ).mockResolvedValue( undefined );
+
+		const source = await resolveSourceSite();
+
+		expect( source ).toBeNull();
+		expect( rotateReprintSecret ).not.toHaveBeenCalled();
+	} );
+
+	it( 'prints the list and aborts for multiple sites when not in a TTY (no picker)', async () => {
+		setTTY( false );
+		vi.mocked( getWpComSites ).mockResolvedValue( sites );
+
+		await expect( resolveSourceSite() ).rejects.toThrow( /Re-run with `--url/ );
+		expect( pickWpComSite ).not.toHaveBeenCalled();
+		expect( rotateReprintSecret ).not.toHaveBeenCalled();
+	} );
+
+	it( 'auto-picks the only connected site without prompting (single-site path unchanged)', async () => {
+		setTTY( true );
+		vi.mocked( getWpComSites ).mockResolvedValue( [ sites[ 0 ] ] );
+
+		const source = await resolveSourceSite();
+
+		expect( pickWpComSite ).not.toHaveBeenCalled();
+		expect( source ).toMatchObject( {
+			url: 'https://one.wordpress.com',
+			secret: 'fresh-secret',
+			wpComSite: sites[ 0 ],
+		} );
+	} );
+
+	it( 'errors when no connected sites exist (zero-site path unchanged)', async () => {
+		setTTY( true );
+		vi.mocked( getWpComSites ).mockResolvedValue( [] );
+
+		await expect( resolveSourceSite() ).rejects.toThrow( /No active WordPress\.com sites/ );
+		expect( pickWpComSite ).not.toHaveBeenCalled();
+	} );
+
+	it( 'bypasses the picker entirely when --url and --secret are provided', async () => {
+		setTTY( true );
+
+		const source = await resolveSourceSite( 'https://self-hosted.example', 'my-secret' );
+
+		expect( source ).toEqual( {
+			url: 'https://self-hosted.example',
+			secret: 'my-secret',
+		} );
+		expect( getWpComSites ).not.toHaveBeenCalled();
+		expect( pickWpComSite ).not.toHaveBeenCalled();
 	} );
 } );

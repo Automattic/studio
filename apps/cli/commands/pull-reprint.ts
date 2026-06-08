@@ -53,6 +53,7 @@ import {
 import { getDefaultSitePath } from 'cli/lib/site-paths';
 import { buildAutoLoginUrl } from 'cli/lib/site-utils';
 import { startWordPressServer } from 'cli/lib/wordpress-server-manager';
+import { pickWpComSite } from 'cli/lib/wpcom-site-picker';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -1066,9 +1067,11 @@ export function formatWpComSitesList(
  *   2. `--url` alone — try a previously cached secret from an earlier
  *      run for this URL; fall back to rotating a fresh WP.com secret.
  *   3. No `--url` — if the user has exactly one connected WP.com
- *      site, pick it; otherwise list and abort.
+ *      site, pick it; with several, show an interactive picker in a
+ *      TTY (returning `null` if the user cancels) or fall back to
+ *      listing them and aborting when run non-interactively.
  */
-async function resolveSourceSite(
+export async function resolveSourceSite(
 	url?: string,
 	providedSecret?: string,
 	providedName?: string,
@@ -1139,19 +1142,35 @@ async function resolveSourceSite(
 		}
 
 		if ( sites.length > 1 ) {
-			console.log( __( 'Connected WordPress.com sites:' ) );
-			console.log( formatWpComSitesList( sites ) );
-			console.log( '' );
-			throw new LoggerError(
-				__( 'Multiple WordPress.com sites are available. Re-run with `--url <site-url>`.' )
-			);
-		}
+			// In a real terminal, let the user pick interactively. Outside a
+			// TTY (CI, Desktop driving the command), keep the original
+			// print-list-and-abort behavior so scripted callers are
+			// unaffected.
+			if ( ! process.stdin.isTTY ) {
+				console.log( __( 'Connected WordPress.com sites:' ) );
+				console.log( formatWpComSitesList( sites ) );
+				console.log( '' );
+				throw new LoggerError(
+					__( 'Multiple WordPress.com sites are available. Re-run with `--url <site-url>`.' )
+				);
+			}
 
-		// If the user only has one connected WordPress.com site, pull it by default.
-		wpComSite = sites[ 0 ];
-		resolvedUrl = wpComSite.url;
-		console.log( `${ __( 'Using your only connected WordPress.com site:' ) } ${ resolvedUrl }` );
-		console.log( '' );
+			const picked = await pickWpComSite( sites, __( 'Select a site to pull from' ) );
+			// Esc / Ctrl-C cancels the picker. Treat it as a clean no-op: the
+			// caller returns early without creating any local state.
+			if ( ! picked ) {
+				return null;
+			}
+
+			wpComSite = picked;
+			resolvedUrl = picked.url;
+		} else {
+			// If the user only has one connected WordPress.com site, pull it by default.
+			wpComSite = sites[ 0 ];
+			resolvedUrl = wpComSite.url;
+			console.log( `${ __( 'Using your only connected WordPress.com site:' ) } ${ resolvedUrl }` );
+			console.log( '' );
+		}
 	}
 
 	return {

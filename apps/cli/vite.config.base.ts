@@ -104,6 +104,9 @@ function isNativeExternal( id: string ): boolean {
 const bundledWpFilesPath = resolve( __dirname, '..', '..', 'wp-files' );
 const phpSourceCodePath = resolve( __dirname, 'php' );
 const bundledReprintPhar = resolve( __dirname, 'lib/pull/reprint.phar' );
+// The Skill tool loads skills from `<chunk dir>/skills` at runtime (see
+// `ai/skills.ts`), so they must sit directly next to the built chunks.
+const skillsSourcePath = resolve( __dirname, 'ai/skills' );
 
 export const baseConfig = defineConfig( {
 	plugins: [
@@ -137,6 +140,9 @@ export const baseConfig = defineConfig( {
 				if ( existsSync( bundledReprintPhar ) ) {
 					copyFileSync( bundledReprintPhar, resolve( outDir, 'reprint.phar' ) );
 				}
+				if ( existsSync( skillsSourcePath ) ) {
+					cpSync( skillsSourcePath, resolve( outDir, 'skills' ), { recursive: true } );
+				}
 			},
 		},
 	],
@@ -166,6 +172,21 @@ export const baseConfig = defineConfig( {
 						return id.slice( 0, -1 );
 					}
 					return id;
+				},
+				// Some bundled CommonJS dependencies (e.g. `lockfile`, `debug`) call
+				// `require( ... )` for Node built-ins at module init. Rolldown (the
+				// default bundler in Vite 8) emits a shim that throws when those calls
+				// run in an ESM output (`.mjs`), since ESM has no implicit `require`.
+				// Provide a real `require` per chunk via `createRequire` so the shim
+				// uses it instead of throwing. `main.mjs` additionally gets a shebang so
+				// the npm-published bundle can be executed directly as a CLI (harmless in
+				// other builds — Node ignores it when the file is run via `node main.mjs`).
+				banner: ( chunk ) => {
+					const requireShim =
+						'import { createRequire as __studioCreateRequire } from "node:module"; const require = __studioCreateRequire(import.meta.url);';
+					return chunk.fileName === 'main.mjs'
+						? `#!/usr/bin/env node\n${ requireShim }`
+						: requireShim;
 				},
 			},
 			external: ( id ) => {

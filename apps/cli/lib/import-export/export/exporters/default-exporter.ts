@@ -333,9 +333,11 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 			{ phpVersion: DEFAULT_PHP_VERSION }
 		);
 
+		const stderrPromise = command.response.stderrText;
+		const stdoutPromise = command.response.stdoutText;
 		const exitCode = await command.response.exitCode;
-		const stderr = await command.response.stderrText;
-		const stdout = await command.response.stdoutText;
+		const stderr = await stderrPromise;
+		const stdout = await stdoutPromise;
 
 		if ( exitCode !== 0 ) {
 			throw new Error( sprintf( __( 'Failed to get site plugins: %s' ), stderr ) );
@@ -372,9 +374,11 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 			{ phpVersion: DEFAULT_PHP_VERSION }
 		);
 
+		const stderrPromise = command.response.stderrText;
+		const stdoutPromise = command.response.stdoutText;
 		const exitCode = await command.response.exitCode;
-		const stderr = await command.response.stderrText;
-		const stdout = await command.response.stdoutText;
+		const stderr = await stderrPromise;
+		const stdout = await stdoutPromise;
 
 		if ( exitCode !== 0 ) {
 			throw new Error( sprintf( __( 'Failed to get site themes: %s' ), stderr ) );

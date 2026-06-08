@@ -160,21 +160,37 @@ export async function completeText( opts: CompleteTextOptions ): Promise< string
  */
 export async function runPooled< T >(
 	tasks: Array< () => Promise< T > >,
-	concurrency = 8
+	options:
+		| number
+		| { concurrency?: number; signal?: AbortSignal; onProgress?: ( completed: number ) => void } = 8
 ): Promise< T[] > {
+	const concurrency = typeof options === 'number' ? options : options.concurrency ?? 8;
+	const signal = typeof options === 'number' ? undefined : options.signal;
+	const onProgress = typeof options === 'number' ? undefined : options.onProgress;
 	const results: T[] = new Array( tasks.length );
 	let next = 0;
+	let completed = 0;
+
+	function throwIfAborted(): void {
+		if ( signal?.aborted ) {
+			throw new Error( 'Site generation was cancelled.' );
+		}
+	}
 
 	async function worker(): Promise< void > {
 		for (;;) {
+			throwIfAborted();
 			const index = next++;
 			if ( index >= tasks.length ) {
 				return;
 			}
 			results[ index ] = await tasks[ index ]();
+			completed += 1;
+			onProgress?.( completed );
 		}
 	}
 
+	throwIfAborted();
 	const workerCount = Math.max( 1, Math.min( concurrency, tasks.length ) );
 	await Promise.all( Array.from( { length: workerCount }, () => worker() ) );
 	return results;

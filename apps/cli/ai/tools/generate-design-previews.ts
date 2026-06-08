@@ -55,7 +55,7 @@ async function planDirections( specJson: string, count: number ): Promise< Direc
 
 export const generateDesignPreviewsTool = defineTool(
 	'generate_design_previews',
-	"Generates several distinct visual design directions as self-contained first-fold HTML previews (header + hero) and writes them to <site>/design/design-N.html, opening each in the browser. Use this BEFORE generate_theme so the user can pick a direction; pass the chosen preview's HTML (or its brief) as the `design` argument to generate_theme. Each direction is grounded in the site's topic, not a generic template.",
+	"Generates several distinct visual design directions as self-contained first-fold HTML previews (header + hero) and writes them to <site>/design/design-N.html, opening each in the browser. Use this BEFORE generate_site so the user can pick a direction; pass the chosen preview's HTML (or its brief) as the `design` argument to generate_site. Each direction is grounded in the site's topic, not a generic template.",
 	{
 		nameOrPath: Type.String( {
 			description: 'The site name or filesystem path of the target site.',

@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { contractFromManifest } from 'cli/ai/generation/identifier-contract';
 import { parseManifest, type SiteManifest } from 'cli/ai/generation/manifest';
-import { buildSiteTasks, routeResults } from 'cli/ai/generation/orchestrate';
+import {
+	buildSiteTasks,
+	routeResults,
+	summarizeSiteGeneration,
+	validateSiteArtifacts,
+	type GeneratedSiteArtifacts,
+	type SiteGenerationPlan,
+	type StagedSiteGeneration,
+} from 'cli/ai/generation/orchestrate';
+import type { SiteData } from 'cli/lib/cli-config/core';
 
 function manifest(): SiteManifest {
 	return parseManifest(
@@ -25,6 +34,47 @@ function manifest(): SiteManifest {
 			seed: [],
 		} )
 	);
+}
+
+function plan( m = manifest() ): SiteGenerationPlan {
+	return {
+		phase: 'plan',
+		mode: 'guided',
+		site: { id: 'site-id', name: 'Test Site', path: '/tmp/test-site' } as SiteData,
+		specJson: '{}',
+		design: '',
+		manifest: m,
+		contract: contractFromManifest( m ),
+		vocabulary: '',
+		themeSlug: m.themeSlug,
+		themeDirectory: `/tmp/test-site/wp-content/themes/${ m.themeSlug }`,
+		pluginDirectory: `/tmp/test-site/wp-content/plugins/${ m.companionPlugin.slug }`,
+		siteUrl: 'http://localhost:8881',
+		withImages: true,
+		imagesOk: true,
+	};
+}
+
+function artifacts( overrides: Partial< GeneratedSiteArtifacts > = {} ): GeneratedSiteArtifacts {
+	const m = manifest();
+	return {
+		phase: 'generate-artifacts',
+		manifest: m,
+		taskCount: 1,
+		imagesPersisted: false,
+		routed: {
+			themeFiles: [ { rel: 'theme.json', content: '{}' } ],
+			pluginMain: null,
+			pluginBlocks: [],
+			prepared: [],
+			generationFailed: [],
+			pluginBlockGenFailures: [],
+			cptCounts: [],
+			imagesGenerated: 0,
+			imagesFailed: 0,
+		},
+		...overrides,
+	};
 }
 
 describe( 'buildSiteTasks', () => {
@@ -57,6 +107,54 @@ describe( 'buildSiteTasks', () => {
 		} );
 		// theme.json + style.css + 2 default parts + 2 default templates + 1 page = 7
 		expect( tasks ).toHaveLength( 2 + 2 + 2 + 1 );
+	} );
+} );
+
+describe( 'site generation engine phases', () => {
+	it( 'validates generated artifacts before apply', () => {
+		const p = plan();
+		const validation = validateSiteArtifacts( p, artifacts() );
+
+		expect( validation.phase ).toBe( 'validate' );
+		expect( validation.styleOk ).toBe( false );
+		expect( validation.pluginFailed ).toBe( true );
+	} );
+
+	it( 'summarizes guided generation as a review payload without writes', () => {
+		const p = plan();
+		const generated = artifacts( {
+			routed: {
+				...artifacts().routed,
+				themeFiles: [ { rel: 'style.css', content: '/* Theme */' } ],
+				pluginMain: '<?php',
+				prepared: [
+					{
+						postType: 'page',
+						slug: 'home',
+						title: 'Home',
+						content: '',
+						meta: {},
+						isHome: true,
+					},
+				],
+			},
+		} );
+		const summary = summarizeSiteGeneration(
+			p,
+			generated,
+			validateSiteArtifacts( p, generated ),
+			undefined,
+			{
+				runId: '123e4567-e89b-12d3-a456-426614174000',
+				filePath: '/tmp/studio-site-generation/123e4567-e89b-12d3-a456-426614174000.json',
+			} satisfies StagedSiteGeneration
+		);
+
+		expect( summary ).toContain( 'No files were written' );
+		expect( summary ).toContain( 'STAGED_RUN_ID: 123e4567-e89b-12d3-a456-426614174000' );
+		expect( summary ).toContain( 'apply these exact artifacts' );
+		expect( summary ).toContain( 'Content prepared for review: 1 items' );
+		expect( summary ).toContain( 'MANIFEST' );
 	} );
 } );
 

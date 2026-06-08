@@ -4,11 +4,9 @@ import { createSiteTool } from './create-site';
 import { deletePreviewTool } from './delete-preview';
 import { deleteSiteTool } from './delete-site';
 import { exportSiteTool } from './export-site';
-import { generateCompanionPluginTool } from './generate-companion-plugin';
 import { generateDesignPreviewsTool } from './generate-design-previews';
 import { generateImageTool } from './generate-image';
 import { generateSiteTool } from './generate-site';
-import { generateThemeTool } from './generate-theme';
 import { importSiteTool } from './import-site';
 import { inspectDesignTool } from './inspect-design';
 import { installTaxonomyScriptsTool } from './install-taxonomy-scripts';
@@ -21,7 +19,6 @@ import { pullSiteTool } from './pull-site';
 import { pushSiteTool } from './push-site';
 import { auditSeoTool } from './rank-me-up';
 import { scaffoldThemeTool } from './scaffold-theme';
-import { seedContentTool } from './seed-content';
 import { shareScreenshotTool } from './share-screenshot';
 import { getSiteInfoTool } from './site-info';
 import { startSiteTool } from './start-site';
@@ -51,10 +48,7 @@ export const studioToolDefinitions: AnyStudioAgentTool[] = [
 	runWpCliTool,
 	scaffoldThemeTool,
 	generateDesignPreviewsTool,
-	generateThemeTool,
 	generateSiteTool,
-	generateCompanionPluginTool,
-	seedContentTool,
 	generateImageTool,
 	validateHtmlBlocksTool,
 	validateAndFixBlocksTool,
@@ -107,8 +101,8 @@ function withChatArtifactEmission< TTool extends AnyStudioAgentTool >(
 ): TTool {
 	return {
 		...tool,
-		execute: async ( _toolCallId, params ) => {
-			const result = await tool.rawHandler( params );
+		execute: async ( _toolCallId, params, signal, onUpdate ) => {
+			const result = await tool.rawHandler( params, { signal, onUpdate } );
 			if ( emitChatArtifacts ) {
 				await emitChatArtifactWidgets( result.studioArtifacts );
 			}

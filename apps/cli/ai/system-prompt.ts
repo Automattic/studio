@@ -215,7 +215,7 @@ const REMOTE_DESIGN_GUIDELINES = `## Design capabilities by plan
 
 const LOCAL_SKILL_ROUTING = `## Skill routing
 
-For building a COMPLETE new site or theme from a description ("build me a site for…", "make a website", "generate a theme"), load the \`site-generator\` skill FIRST. It runs the full pipeline — spec → design directions → one-pass site generation (generate_site: theme + companion plugin + seeded content in a single parallel pool) → AI imagery (generate_image) → validation. It produces a pure-presentation theme plus a companion plugin for behaviour, rather than hand-writing files one per turn.
+For building a COMPLETE new site or theme from a description ("build me a site for…", "make a website", "generate a theme"), load the \`site-generator\` skill FIRST. It runs the full pipeline through \`generate_site\` and the SiteGenerationEngine — spec → design directions → plan/artifact generation → validation → optional apply → AI imagery (generate_image) → visual polish. Use \`mode: "guided"\` or \`apply: false\` when the user wants incremental review before writes; preserve the returned \`STAGED_RUN_ID\` and pass it back as \`stagedRunId\` with \`apply: true\` to apply the exact reviewed artifacts. Use the default \`mode: "one-shot"\` when they want the engine to apply a complete result. It produces a pure-presentation theme plus a companion plugin for behaviour, rather than hand-writing files one per turn.
 
 For any site creation, redesign, landing page, homepage, layout, style, CSS, typography, color, or motion work, load the \`visual-design\` skill before writing design files or block markup.
 

@@ -6,11 +6,11 @@ user-invokable: true
 
 # Site Generator
 
-This is the orchestrator for building a complete WordPress site end to end. It
-uses dedicated generation tools that run many model calls in parallel and write
-whole packages to disk in one call — far faster and more complete than writing
-files one per turn. Your job is to drive the pipeline in order and verify the
-result, not to hand-author theme files.
+This is the orchestrator for building a complete WordPress site end to end. The
+normal public surface is `generate_site`, which delegates to the
+SiteGenerationEngine phases: plan, generate artifacts, validate, apply, and
+polish handoff. Your job is to decide when the user should review a phase and to
+verify the result, not to hand-author theme files.
 
 ## Output model (read this first)
 
@@ -65,17 +65,22 @@ a regenerate). Keep the chosen preview's HTML — you pass it next.
 ### 4. Generate the whole site
 
 Call **`generate_site`** with `nameOrPath`, `spec`, and `design` (the chosen
-preview's HTML or its brief). It runs theme + companion plugin + content
-generation as ONE parallel pool — substantially faster than the per-phase
-tools — then writes and activates the pure-presentation theme, writes/compiles/
-activates the companion plugin (skipped automatically for brochure sites with no
-forms/CPTs/interactive blocks), and seeds the pages/posts/CPT entries into the
-database with AI imagery. It returns the same **MANIFEST** JSON block — **copy
-it verbatim** for the next steps.
+preview's HTML or its brief).
 
-> Advanced/manual: `generate_theme` → `generate_companion_plugin` → `seed_content`
-> remain available if you ever need to run a single phase, but `generate_site` is
-> the default fast path and does all three.
+- For the default one-shot path, use `mode: "one-shot"` or omit `mode`. It runs
+  theme + companion plugin + content generation as one parallel artifact pass,
+  validates the result, writes and activates the packages, and seeds the
+  database.
+- For incremental review, use `mode: "guided"` or `apply: false`. It runs plan +
+  artifact generation + validation, returns the **MANIFEST**, warnings, and a
+  `STAGED_RUN_ID`, and does not write site files, activate packages, or change
+  the database. After review, run `generate_site` again with that
+  `stagedRunId` and `apply: true` to apply the exact reviewed artifacts.
+
+The lower-level phase tools are implementation/debug surfaces. Do not describe
+the normal workflow as `generate_theme` → `generate_companion_plugin` →
+`seed_content`; that recreates orchestration in the agent instead of using the
+engine boundary.
 
 ### 5. Fill theme imagery
 

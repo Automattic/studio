@@ -30,8 +30,14 @@ export interface StudioToolResultDetails {
 	studioArtifacts?: StudioChatArtifactWidgetDraft[];
 }
 
+export interface ToolExecutionContext {
+	signal?: AbortSignal;
+	onUpdate?: AgentToolUpdateCallback;
+}
+
 export type ToolHandler< TProps extends TProperties > = (
-	args: Static< TObject< TProps > >
+	args: Static< TObject< TProps > >,
+	context?: ToolExecutionContext
 ) => Promise< ToolResult >;
 
 export type StudioAgentTool< TProps extends TProperties = TProperties > = AgentTool<
@@ -47,7 +53,7 @@ export interface AnyStudioAgentTool {
 	description: string;
 	label: string;
 	parameters: unknown;
-	rawHandler: ( args: never ) => Promise< ToolResult >;
+	rawHandler: ( args: never, context?: ToolExecutionContext ) => Promise< ToolResult >;
 	execute: (
 		toolCallId: string,
 		params: never,
@@ -72,8 +78,8 @@ export function defineTool< TProps extends TProperties >(
 		parameters,
 		label: name,
 		rawHandler: handler,
-		execute: async ( _toolCallId, params ) => {
-			const result = await handler( params as never );
+		execute: async ( _toolCallId, params, signal, onUpdate ) => {
+			const result = await handler( params as never, { signal, onUpdate } );
 			const details: StudioToolResultDetails | undefined = result.studioArtifacts?.length
 				? { studioArtifacts: result.studioArtifacts }
 				: undefined;

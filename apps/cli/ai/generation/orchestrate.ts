@@ -1,4 +1,6 @@
-import { mkdir, writeFile } from 'fs/promises';
+import { randomUUID } from 'crypto';
+import { mkdir, readFile, writeFile } from 'fs/promises';
+import { tmpdir } from 'os';
 import path from 'path';
 import { compileBlock } from 'cli/ai/generation/build-block';
 import { runBlockGenerator, runGenerator, runManifest } from 'cli/ai/generation/generators';
@@ -80,7 +82,7 @@ type FinalizeImages = (
 ) => Promise< { content: string; generated: number; failed: number } >;
 
 // Mirror of seed_content's inline finalizeImages: generate + persist AI imagery
-// during the pool (PNG write + src rewrite stay atomically paired per image).
+// during apply (PNG write + src rewrite stay atomically paired per image).
 function makeFinalizeImages( opts: {
 	withImages: boolean;
 	imagesOk: boolean;
@@ -106,6 +108,45 @@ function makeFinalizeImages( opts: {
 			failed: resolution.failed,
 		};
 	};
+}
+
+async function finalizePreparedItemImages(
+	plan: SiteGenerationPlan,
+	prepared: PreparedItem[]
+): Promise< { prepared: PreparedItem[]; generated: number; failed: number } > {
+	if ( ! plan.withImages || prepared.length === 0 ) {
+		return { prepared, generated: 0, failed: 0 };
+	}
+
+	if ( ! plan.imagesOk ) {
+		return {
+			prepared: prepared.map( ( item ) => ( {
+				...item,
+				content: stripAiImagePlaceholders( item.content ),
+			} ) ),
+			generated: 0,
+			failed: 0,
+		};
+	}
+
+	const finalizeImages = makeFinalizeImages( {
+		withImages: true,
+		imagesOk: true,
+		wsgUploads: uploadsDir( plan.site.path ),
+		siteUrl: plan.siteUrl,
+	} );
+	const finalized: PreparedItem[] = [];
+	let generated = 0;
+	let failed = 0;
+
+	for ( const item of prepared ) {
+		const result = await finalizeImages( item.content, `${ item.postType }-${ item.slug }` );
+		generated += result.generated;
+		failed += result.failed;
+		finalized.push( { ...item, content: result.content } );
+	}
+
+	return { prepared: finalized, generated, failed };
 }
 
 function errMessage( error: unknown ): string {
@@ -456,18 +497,220 @@ async function seedPreparedItems(
 	} );
 }
 
-export interface OrchestratedResult {
+export type SiteGenerationMode = 'guided' | 'one-shot';
+
+export type SiteGenerationPhase = 'plan' | 'generate-artifacts' | 'validate' | 'apply' | 'polish';
+
+export interface SiteGenerationServices {
+	signal?: AbortSignal;
+	onProgress?: ( message: string, update?: boolean ) => void;
+}
+
+export interface SiteGenerationPlan {
+	phase: 'plan';
+	mode: SiteGenerationMode;
+	site: SiteData;
+	specJson: string;
+	design: string;
 	manifest: SiteManifest;
+	contract: ReturnType< typeof contractFromManifest >;
+	vocabulary: string;
+	themeSlug: string;
+	themeDirectory: string;
+	pluginDirectory: string;
+	siteUrl: string;
+	withImages: boolean;
+	imagesOk: boolean;
+}
+
+export interface GeneratedSiteArtifacts {
+	phase: 'generate-artifacts';
+	manifest: SiteManifest;
+	routed: RoutedResults;
+	taskCount: number;
+	imagesPersisted: boolean;
+}
+
+export interface ValidatedSiteArtifacts {
+	phase: 'validate';
+	styleOk: boolean;
+	pluginFailed: boolean;
+	blockFailures: string[];
+	generationFailed: string[];
+}
+
+interface SeedReport {
+	created: string[];
+	updated: string[];
+	failed: string[];
+	frontPage: string;
+}
+
+export interface AppliedSiteGeneration {
+	phase: 'apply';
+	themeWritten: string[];
+	pluginWritten: string[];
+	blockFailures: string[];
+	themeActivation: string;
+	pluginActivation: string;
+	seedReport: SeedReport;
+	seedNote: string;
+	imageNote: string;
+	imagesGenerated: number;
+	imagesFailed: number;
+}
+
+export interface StagedSiteGeneration {
+	runId: string;
+	filePath: string;
+}
+
+export interface SiteGenerationRun {
+	phase: 'polish';
+	mode: SiteGenerationMode;
+	plan: SiteGenerationPlan;
+	artifacts: GeneratedSiteArtifacts;
+	validation: ValidatedSiteArtifacts;
+	applied?: AppliedSiteGeneration;
+	staged?: StagedSiteGeneration;
 	summary: string;
 }
 
-export async function generateSite( args: {
+export interface OrchestratedResult {
+	manifest: SiteManifest;
+	summary: string;
+	mode: SiteGenerationMode;
+	applied: boolean;
+}
+
+function throwIfAborted( signal?: AbortSignal ): void {
+	if ( signal?.aborted ) {
+		throw new Error( 'Site generation was cancelled.' );
+	}
+}
+
+function reportProgress(
+	services: SiteGenerationServices | undefined,
+	message: string,
+	update = true
+): void {
+	services?.onProgress?.( message, update );
+}
+
+const STAGED_GENERATION_VERSION = 1;
+
+interface StoredSiteGenerationPlan {
+	siteId: string;
+	siteName: string;
+	mode: SiteGenerationMode;
+	specJson: string;
+	design: string;
+	manifest: SiteManifest;
+	withImages: boolean;
+}
+
+interface StoredSiteGenerationRun {
+	version: typeof STAGED_GENERATION_VERSION;
+	runId: string;
+	createdAt: string;
+	plan: StoredSiteGenerationPlan;
+	artifacts: GeneratedSiteArtifacts;
+	validation: ValidatedSiteArtifacts;
+}
+
+function stagedGenerationDir(): string {
+	return path.join( tmpdir(), 'studio-site-generation' );
+}
+
+function stagedGenerationPath( runId: string ): string {
+	if ( ! /^[a-f0-9-]{36}$/i.test( runId ) ) {
+		throw new Error( 'Invalid stagedRunId.' );
+	}
+	return path.join( stagedGenerationDir(), `${ runId }.json` );
+}
+
+export async function stageSiteGeneration(
+	plan: SiteGenerationPlan,
+	artifacts: GeneratedSiteArtifacts,
+	validation: ValidatedSiteArtifacts
+): Promise< StagedSiteGeneration > {
+	const runId = randomUUID();
+	const filePath = stagedGenerationPath( runId );
+	const stored: StoredSiteGenerationRun = {
+		version: STAGED_GENERATION_VERSION,
+		runId,
+		createdAt: new Date().toISOString(),
+		plan: {
+			siteId: plan.site.id,
+			siteName: plan.site.name,
+			mode: plan.mode,
+			specJson: plan.specJson,
+			design: plan.design,
+			manifest: plan.manifest,
+			withImages: plan.withImages,
+		},
+		artifacts,
+		validation,
+	};
+	await mkdir( stagedGenerationDir(), { recursive: true } );
+	await writeFile( filePath, JSON.stringify( stored ), 'utf8' );
+	return { runId, filePath };
+}
+
+export async function loadStagedSiteGeneration(
+	runId: string,
+	site: SiteData
+): Promise< {
+	plan: SiteGenerationPlan;
+	artifacts: GeneratedSiteArtifacts;
+	validation: ValidatedSiteArtifacts;
+} > {
+	const filePath = stagedGenerationPath( runId );
+	const stored = JSON.parse( await readFile( filePath, 'utf8' ) ) as StoredSiteGenerationRun;
+	if ( stored.version !== STAGED_GENERATION_VERSION ) {
+		throw new Error( 'Unsupported staged site generation payload.' );
+	}
+	if ( stored.plan.siteId !== site.id ) {
+		throw new Error(
+			`Staged generation ${ runId } belongs to "${ stored.plan.siteName }", not "${ site.name }".`
+		);
+	}
+
+	const manifest = stored.plan.manifest;
+	const contract = contractFromManifest( manifest );
+	const plugin = manifest.companionPlugin;
+	const plan: SiteGenerationPlan = {
+		phase: 'plan',
+		mode: stored.plan.mode,
+		site,
+		specJson: stored.plan.specJson,
+		design: stored.plan.design,
+		manifest,
+		contract,
+		vocabulary: contractVocabulary( manifest ),
+		themeSlug: manifest.themeSlug,
+		themeDirectory: themeDir( site.path, manifest.themeSlug ),
+		pluginDirectory: pluginDir( site.path, plugin.slug ),
+		siteUrl: getSiteUrl( site ).replace( /\/+$/, '' ),
+		withImages: stored.plan.withImages,
+		imagesOk: stored.plan.withImages && ( await wpcomImagesAvailable() ),
+	};
+	const artifacts = stored.artifacts;
+	const validation = validateSiteArtifacts( plan, artifacts );
+
+	return { plan, artifacts, validation };
+}
+
+export async function planSiteGeneration( args: {
 	site: SiteData;
 	specJson: string;
 	design: string;
 	manifest?: SiteManifest;
 	withImages: boolean;
-} ): Promise< OrchestratedResult > {
+	mode?: SiteGenerationMode;
+	services?: SiteGenerationServices;
+} ): Promise< SiteGenerationPlan > {
+	throwIfAborted( args.services?.signal );
 	const { site, specJson, design } = args;
 	const manifest = args.manifest ?? ( await runManifest( specJson ) );
 	const contract = contractFromManifest( manifest );
@@ -476,36 +719,113 @@ export async function generateSite( args: {
 	const tDir = themeDir( site.path, slug );
 	const plugin = manifest.companionPlugin;
 	const pDir = pluginDir( site.path, plugin.slug );
-
 	const withImages = args.withImages;
 	const imagesOk = withImages && ( await wpcomImagesAvailable() );
 	const siteUrl = getSiteUrl( site ).replace( /\/+$/, '' );
-	const finalizeImages = makeFinalizeImages( {
-		withImages,
-		imagesOk,
-		wsgUploads: uploadsDir( site.path ),
-		siteUrl,
-	} );
+	throwIfAborted( args.services?.signal );
 
-	// --- ONE pool: every generation call across theme + plugin + content. ---
-	const tasks = buildSiteTasks( manifest, {
+	return {
+		phase: 'plan',
+		mode: args.mode ?? 'one-shot',
+		site,
 		specJson,
 		design,
-		vocabulary,
+		manifest,
 		contract,
+		vocabulary,
+		themeSlug: slug,
+		themeDirectory: tDir,
+		pluginDirectory: pDir,
+		siteUrl,
+		withImages,
+		imagesOk,
+	};
+}
+
+export async function generateSiteArtifacts(
+	plan: SiteGenerationPlan,
+	services: SiteGenerationServices = {},
+	options: { persistImages?: boolean } = {}
+): Promise< GeneratedSiteArtifacts > {
+	throwIfAborted( services.signal );
+	const persistImages = options.persistImages ?? false;
+	const finalizeImages: FinalizeImages = persistImages
+		? makeFinalizeImages( {
+				withImages: plan.withImages,
+				imagesOk: plan.imagesOk,
+				wsgUploads: uploadsDir( plan.site.path ),
+				siteUrl: plan.siteUrl,
+		  } )
+		: async ( content ) => ( { content, generated: 0, failed: 0 } );
+
+	// --- ONE pool: every generation call across theme + plugin + content. ---
+	const tasks = buildSiteTasks( plan.manifest, {
+		specJson: plan.specJson,
+		design: plan.design,
+		vocabulary: plan.vocabulary,
+		contract: plan.contract,
 		finalizeImages,
 	} );
-	const results = await runPooled( tasks, 8 );
+	reportProgress( services, `Generating ${ tasks.length } site artifacts...`, false );
+	const results = await runPooled( tasks, {
+		concurrency: 8,
+		signal: services.signal,
+		onProgress: ( completed ) => {
+			reportProgress( services, `Generated ${ completed }/${ tasks.length } site artifacts...` );
+		},
+	} );
 	const routed = routeResults( results );
+
+	return {
+		phase: 'generate-artifacts',
+		manifest: plan.manifest,
+		routed,
+		taskCount: tasks.length,
+		imagesPersisted: persistImages && plan.withImages && plan.imagesOk,
+	};
+}
+
+export function validateSiteArtifacts(
+	plan: SiteGenerationPlan,
+	artifacts: GeneratedSiteArtifacts
+): ValidatedSiteArtifacts {
+	const routed = artifacts.routed;
+	const plugin = plan.manifest.companionPlugin;
+	const pluginFailed = plugin.needed && ! routed.pluginMain;
+	const styleOk = routed.themeFiles.some( ( file ) => file.rel === 'style.css' );
+
+	return {
+		phase: 'validate',
+		styleOk,
+		pluginFailed,
+		blockFailures: [ ...routed.pluginBlockGenFailures ],
+		generationFailed: [ ...routed.generationFailed ],
+	};
+}
+
+export async function applyGeneratedSite(
+	plan: SiteGenerationPlan,
+	artifacts: GeneratedSiteArtifacts,
+	validation: ValidatedSiteArtifacts,
+	services: SiteGenerationServices = {}
+): Promise< AppliedSiteGeneration > {
+	throwIfAborted( services.signal );
+	const { site, manifest } = plan;
+	const slug = plan.themeSlug;
+	const plugin = manifest.companionPlugin;
+	const routed = artifacts.routed;
+	const tDir = plan.themeDirectory;
+	const pDir = plan.pluginDirectory;
 
 	// --- Deferred writes, strict order (nothing above wrote to disk/DB). ---
 
 	// 1. Theme files (reconcile markup) + functions.php.
+	reportProgress( services, 'Writing generated theme files...', false );
 	const themeWritten: string[] = [];
 	for ( const file of routed.themeFiles ) {
 		let content = file.content;
 		if ( file.rel.endsWith( '.html' ) ) {
-			content = reconcileMarkup( file.content, contract ).html;
+			content = reconcileMarkup( file.content, plan.contract ).html;
 		} else if ( file.rel === 'theme.json' ) {
 			content = stripRemoteFontFaces( file.content ).json;
 		}
@@ -516,8 +836,9 @@ export async function generateSite( args: {
 	themeWritten.push( 'functions.php' );
 
 	// 2-3. Plugin main PHP, then each block (write src/ → compile → build/).
+	reportProgress( services, 'Writing and compiling generated plugin files...' );
 	const pluginWritten: string[] = [];
-	const blockFailures = [ ...routed.pluginBlockGenFailures ];
+	const blockFailures = [ ...validation.blockFailures ];
 	if ( plugin.needed && routed.pluginMain ) {
 		const pluginMain = sanitizeCptArchiveSlugs(
 			routed.pluginMain,
@@ -533,7 +854,7 @@ export async function generateSite( args: {
 			const srcRel = `blocks/${ block.slug }/src`;
 			for ( const [ rel, content ] of Object.entries( files ) ) {
 				const finalContent = rel.endsWith( 'block.json' )
-					? reconcileBlockJsonName( content, block.slug, contract ).json
+					? reconcileBlockJsonName( content, block.slug, plan.contract ).json
 					: content;
 				await writePackageFile( pDir, `${ srcRel }/${ rel }`, finalContent );
 			}
@@ -551,12 +872,10 @@ export async function generateSite( args: {
 		}
 	}
 
-	const pluginFailed = plugin.needed && ! routed.pluginMain;
-	const styleOk = routed.themeFiles.some( ( file ) => file.rel === 'style.css' );
-
 	// 4-5. Activate theme (only if style.css was generated — WordPress won't
 	// recognise a theme without it), then plugin (registers from build/, now present).
-	const themeActivation = styleOk
+	reportProgress( services, 'Activating generated packages...' );
+	const themeActivation = validation.styleOk
 		? await activateTheme( site.id, slug )
 		: 'Theme NOT activated — style.css generation failed; re-run generate_site (idempotent).';
 	const pluginActivation =
@@ -573,45 +892,120 @@ export async function generateSite( args: {
 	// When the plugin failed to generate, its CPTs were never registered — seeding
 	// CPT entries under an unregistered post type would orphan them, so seed only
 	// pages/posts in that case.
-	const seedable = pluginFailed
+	const seedable = validation.pluginFailed
 		? routed.prepared.filter( ( item ) => item.postType === 'page' || item.postType === 'post' )
 		: routed.prepared;
+	let imageReport = { prepared: seedable, generated: 0, failed: 0 };
 	if ( seedable.length > 0 ) {
 		try {
-			seedReport = await seedPreparedItems( site, seedable, manifest.contentMode );
+			reportProgress( services, 'Resolving generated content images...' );
+			imageReport = await finalizePreparedItemImages( plan, seedable );
+			const generated =
+				imageReport.generated > 0 ? ` (${ imageReport.generated } images generated)` : '';
+			reportProgress( services, `Preparing content seed${ generated }...` );
+			seedReport = await seedPreparedItems( site, imageReport.prepared, manifest.contentMode );
 		} catch ( error ) {
 			seedNote = errMessage( error );
 		}
 	}
 
 	const imageNote =
-		withImages && ! imagesOk
+		plan.withImages && ! plan.imagesOk
 			? 'AI images skipped — not logged into WordPress.com. Run `studio auth login`, then re-run to fill imagery.'
 			: '';
 
-	const summary = [
+	return {
+		phase: 'apply',
+		themeWritten,
+		pluginWritten,
+		blockFailures,
+		themeActivation,
+		pluginActivation,
+		seedReport,
+		seedNote,
+		imageNote,
+		imagesGenerated: imageReport.generated,
+		imagesFailed: imageReport.failed,
+	};
+}
+
+export function summarizeSiteGeneration(
+	plan: SiteGenerationPlan,
+	artifacts: GeneratedSiteArtifacts,
+	validation: ValidatedSiteArtifacts,
+	applied?: AppliedSiteGeneration,
+	staged?: StagedSiteGeneration
+): string {
+	const { manifest } = plan;
+	const plugin = manifest.companionPlugin;
+	const routed = artifacts.routed;
+	if ( ! applied ) {
+		return [
+			`Generated site artifacts for '${ manifest.themeName }' in ${ plan.mode } mode.`,
+			'No files were written, no theme/plugin was activated, and no WordPress database content was changed.',
+			`Theme plan: wp-content/themes/${ plan.themeSlug }/ (${ routed.themeFiles.length } generated files + functions.php planned).`,
+			validation.pluginFailed
+				? 'Plugin plan: FAILED to generate main PHP — review or re-run before applying.'
+				: plugin.needed
+				? `Plugin plan: wp-content/plugins/${ plugin.slug }/ (${ routed.pluginBlocks.length } generated blocks + main PHP planned).`
+				: 'Plugin plan: none (brochure site).',
+			`Content prepared for review: ${ routed.prepared.length } items.`,
+			validation.blockFailures.length
+				? `Blocks FAILED: ${ validation.blockFailures.join( '; ' ) }`
+				: '',
+			validation.generationFailed.length
+				? `Generation FAILED for: ${ validation.generationFailed.join(
+						', '
+				  ) } (re-run is idempotent).`
+				: '',
+			plan.withImages
+				? artifacts.imagesPersisted
+					? `AI images: ${ routed.imagesGenerated } generated, ${ routed.imagesFailed } failed.`
+					: 'AI images deferred until apply mode so the guided review run stays side-effect free.'
+				: '',
+			staged ? `STAGED_RUN_ID: ${ staged.runId }` : '',
+			staged ? `Review artifact: ${ staged.filePath }` : '',
+			'',
+			staged
+				? `NEXT: review the manifest and generated artifact plan. To apply these exact artifacts, re-run generate_site with stagedRunId: "${ staged.runId }" and apply: true.`
+				: 'NEXT: review the manifest and generated direction. To apply, re-run generate_site with mode: "one-shot" or apply: true.',
+			'',
+			'MANIFEST (pass verbatim to the next tools):',
+			JSON.stringify( manifest ),
+		]
+			.filter( Boolean )
+			.join( '\n' );
+	}
+
+	return [
 		`Generated site '${ manifest.themeName }' in one pass.`,
-		`Theme: wp-content/themes/${ slug }/ (${ themeWritten.length } files) — ${ themeActivation }`,
-		pluginFailed
+		`Theme: wp-content/themes/${ plan.themeSlug }/ (${ applied.themeWritten.length } files) — ${ applied.themeActivation }`,
+		validation.pluginFailed
 			? 'Plugin: FAILED to generate main PHP — not written or activated; CPT content skipped. Re-run generate_site.'
 			: plugin.needed
-			? `Plugin: wp-content/plugins/${ plugin.slug }/ (${ pluginWritten.length } files) — ${ pluginActivation }`
+			? `Plugin: wp-content/plugins/${ plugin.slug }/ (${ applied.pluginWritten.length } files) — ${ applied.pluginActivation }`
 			: 'Plugin: none (brochure site).',
-		! pluginFailed && blockFailures.length ? `Blocks FAILED: ${ blockFailures.join( '; ' ) }` : '',
-		`Seeded — created: ${ seedReport.created.length }, updated: ${ seedReport.updated.length }${
-			seedReport.failed.length ? `, DB failed: ${ seedReport.failed.join( '; ' ) }` : ''
+		! validation.pluginFailed && applied.blockFailures.length
+			? `Blocks FAILED: ${ applied.blockFailures.join( '; ' ) }`
+			: '',
+		`Seeded — created: ${ applied.seedReport.created.length }, updated: ${
+			applied.seedReport.updated.length
+		}${
+			applied.seedReport.failed.length
+				? `, DB failed: ${ applied.seedReport.failed.join( '; ' ) }`
+				: ''
 		}.`,
 		routed.cptCounts.length ? `CPT entries: ${ routed.cptCounts.join( ' · ' ) }` : '',
-		routed.generationFailed.length
-			? `Content generation FAILED for: ${ routed.generationFailed.join(
+		validation.generationFailed.length
+			? `Content generation FAILED for: ${ validation.generationFailed.join(
 					', '
 			  ) } (re-run is idempotent).`
 			: '',
-		withImages && imagesOk
-			? `AI images: ${ routed.imagesGenerated } generated, ${ routed.imagesFailed } failed.`
+		plan.withImages && plan.imagesOk
+			? `AI images: ${ applied.imagesGenerated } generated, ${ applied.imagesFailed } failed.`
 			: '',
-		imageNote,
-		seedNote ? `Seeding error: ${ seedNote }` : seedReport.frontPage,
+		applied.imageNote,
+		applied.seedNote ? `Seeding error: ${ applied.seedNote }` : applied.seedReport.frontPage,
 		'',
 		'NEXT: generate_image for theme-level AI_IMAGE placeholders, then validate_and_fix_blocks + take_screenshot (viewport: "all") to verify.',
 		'',
@@ -620,6 +1014,97 @@ export async function generateSite( args: {
 	]
 		.filter( Boolean )
 		.join( '\n' );
+}
 
-	return { manifest, summary };
+export async function runSiteGeneration( args: {
+	site: SiteData;
+	specJson: string;
+	design: string;
+	manifest?: SiteManifest;
+	withImages: boolean;
+	mode?: SiteGenerationMode;
+	apply?: boolean;
+	stagedRunId?: string;
+	services?: SiteGenerationServices;
+} ): Promise< SiteGenerationRun > {
+	const services = args.services ?? {};
+
+	if ( args.stagedRunId ) {
+		reportProgress( services, 'Loading staged site generation artifacts...', false );
+		const loaded = await loadStagedSiteGeneration( args.stagedRunId, args.site );
+		const plan = { ...loaded.plan, mode: args.mode ?? loaded.plan.mode };
+		const shouldApply = args.apply ?? true;
+		const applied = shouldApply
+			? await applyGeneratedSite( plan, loaded.artifacts, loaded.validation, services )
+			: undefined;
+		const staged = shouldApply
+			? undefined
+			: { runId: args.stagedRunId, filePath: stagedGenerationPath( args.stagedRunId ) };
+		const summary = summarizeSiteGeneration(
+			plan,
+			loaded.artifacts,
+			loaded.validation,
+			applied,
+			staged
+		);
+
+		return {
+			phase: 'polish',
+			mode: plan.mode,
+			plan,
+			artifacts: loaded.artifacts,
+			validation: loaded.validation,
+			applied,
+			staged,
+			summary,
+		};
+	}
+
+	const mode = args.mode ?? ( args.apply === false ? 'guided' : 'one-shot' );
+	const shouldApply = args.apply ?? mode === 'one-shot';
+
+	reportProgress( services, 'Planning generated site architecture...', false );
+	const plan = await planSiteGeneration( { ...args, mode, services } );
+	const artifacts = await generateSiteArtifacts( plan, services, {
+		persistImages: false,
+	} );
+	const validation = validateSiteArtifacts( plan, artifacts );
+	const applied = shouldApply
+		? await applyGeneratedSite( plan, artifacts, validation, services )
+		: undefined;
+	const staged = shouldApply ? undefined : await stageSiteGeneration( plan, artifacts, validation );
+	const summary = summarizeSiteGeneration( plan, artifacts, validation, applied, staged );
+
+	return {
+		phase: 'polish',
+		mode,
+		plan,
+		artifacts,
+		validation,
+		applied,
+		staged,
+		summary,
+	};
+}
+
+export async function generateSite( args: {
+	site: SiteData;
+	specJson: string;
+	design: string;
+	manifest?: SiteManifest;
+	withImages: boolean;
+	stagedRunId?: string;
+	services?: SiteGenerationServices;
+} ): Promise< OrchestratedResult > {
+	const run = await runSiteGeneration( {
+		...args,
+		mode: 'one-shot',
+		apply: true,
+	} );
+	return {
+		manifest: run.plan.manifest,
+		summary: run.summary,
+		mode: run.mode,
+		applied: Boolean( run.applied ),
+	};
 }

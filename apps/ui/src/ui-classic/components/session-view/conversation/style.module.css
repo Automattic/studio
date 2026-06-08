@@ -95,11 +95,15 @@
 	display: flex;
 	align-items: baseline;
 	gap: var(--wpds-dimension-padding-xs);
+	box-sizing: border-box;
+	max-width: 100%;
 	font-size: var(--wpds-typography-font-size-md);
 	line-height: 1.55;
 	color: var(--tool-trigger-color);
 	padding: 2px 0;
 	min-width: 0;
+	overflow: hidden;
+	white-space: nowrap;
 }
 
 .toolRowButton {
@@ -108,7 +112,7 @@
 
 	appearance: none;
 	align-self: flex-start;
-	max-width: calc(100% + 16px);
+	max-width: 100%;
 	margin: -4px -8px;
 	padding: 4px 8px;
 	border: 0;
@@ -214,7 +218,11 @@
 .toolLabel {
 	color: var(--tool-trigger-color);
 	font-weight: 400;
-	flex-shrink: 0;
+	min-width: 0;
+	flex: 0 1 auto;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .toolDetail {
@@ -223,7 +231,7 @@
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	min-width: 0;
-	flex: 0 1 auto;
+	flex: 1 1 auto;
 }
 
 .toolRow .toolIcon {

@@ -737,8 +737,8 @@ function getClassicToolDisplay(
 			display.detail = genericDetail ? shortPath( genericDetail ) : '';
 			break;
 		case 'Bash':
-			display.label = __( 'Run command' );
-			display.detail = command ? truncateToolDetail( command ) : '';
+			display.label = __( 'Run terminal command' );
+			display.detail = '';
 			break;
 	}
 

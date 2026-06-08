@@ -87,12 +87,14 @@ describe( 'Conversation tool rows', () => {
 
 		expect( screen.queryByText( /first output line/ ) ).not.toBeInTheDocument();
 
-		const toolRow = screen.getByRole( 'button', { name: /Run command npm test/ } );
+		const toolRow = screen.getByRole( 'button', { name: 'Run terminal command' } );
 		expect( toolRow ).toHaveAttribute( 'aria-expanded', 'false' );
+		expect( screen.queryByText( 'npm test' ) ).not.toBeInTheDocument();
 
 		fireEvent.click( toolRow );
 
 		expect( toolRow ).toHaveAttribute( 'aria-expanded', 'true' );
+		expect( screen.getByText( 'npm test' ) ).toBeInTheDocument();
 		expect( screen.getByText( /first output line/ ) ).toBeInTheDocument();
 
 		fireEvent.click( toolRow );
@@ -126,7 +128,7 @@ describe( 'Conversation tool rows', () => {
 
 		expect( screen.queryByRole( 'button', { name: 'Show more' } ) ).not.toBeInTheDocument();
 
-		fireEvent.click( screen.getByRole( 'button', { name: /Run command npm test/ } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Run terminal command' } ) );
 
 		expect( screen.getByText( /output line 13/ ) ).toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Show more' } ) ).not.toBeInTheDocument();

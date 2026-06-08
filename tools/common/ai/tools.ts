@@ -35,7 +35,7 @@ export function getToolDisplayName( name: string ): string {
 		Read: __( 'Read' ),
 		Write: __( 'Write' ),
 		Edit: __( 'Edit' ),
-		Bash: __( 'Run' ),
+		Bash: __( 'Run terminal command' ),
 		Glob: __( 'Search' ),
 		Grep: __( 'Search' ),
 		Ls: __( 'List' ),
@@ -45,8 +45,6 @@ export function getToolDisplayName( name: string ): string {
 	};
 	return displayNames[ name ] ?? name;
 }
-
-const BASH_DETAIL_MAX_LENGTH = 60;
 
 /**
  * Short detail string extracted from a tool's input, suitable for display
@@ -103,12 +101,7 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 			return '';
 		}
 		case 'Bash':
-			if ( typeof input.command !== 'string' ) {
-				return '';
-			}
-			return input.command.length > BASH_DETAIL_MAX_LENGTH
-				? input.command.slice( 0, BASH_DETAIL_MAX_LENGTH - 3 ) + '…'
-				: input.command;
+			return '';
 		case 'Skill':
 			if ( typeof input.name === 'string' ) {
 				return input.name;

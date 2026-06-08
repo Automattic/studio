@@ -82,17 +82,25 @@
 	display: flex;
 	align-items: baseline;
 	gap: 8px;
+	box-sizing: border-box;
+	max-width: 100%;
 	min-width: 0;
+	overflow: hidden;
 	padding: 2px 0;
 	font-family: var(--wpds-typography-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
 	font-size: 12px;
 	color: var(--ui-desks-muted, #6b7280);
+	white-space: nowrap;
 }
 
 .toolLabel {
 	color: var(--ui-desks-text, #14171a);
 	font-weight: 600;
-	flex-shrink: 0;
+	min-width: 0;
+	flex: 0 1 auto;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .toolDetail {

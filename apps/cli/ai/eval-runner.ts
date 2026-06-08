@@ -9,7 +9,6 @@
 import { writeFileSync, writeSync as fsWriteSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { SessionManager } from '@mariozechner/pi-coding-agent';
 import { isAiModelId, type AiModelId } from '@studio/common/ai/models';
 import { findLastAssistant } from '@studio/common/ai/session-events';
 import {
@@ -17,8 +16,7 @@ import {
 	resolveInitialAiProvider,
 	resolveUnavailableAiProvider,
 } from 'cli/ai/auth';
-import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
-import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
+import type { StopReason, Usage } from '@mariozechner/pi-ai';
 import type { AgentSessionEvent } from '@mariozechner/pi-coding-agent';
 import type { AiProviderId } from 'cli/ai/providers';
 
@@ -27,6 +25,61 @@ interface EvalRunnerInput {
 	timeoutMs?: number;
 	model?: AiModelId;
 }
+
+// Tool names that indicate the agent did "real work" (mutated state, ran a
+// command, scaffolded files, etc.). Used as a heuristic to detect runs where
+// the agent reported success but produced no assistant text and never invoked
+// a state-changing tool — typically a "false success" failure mode where the
+// model trivially ended a turn without addressing the prompt.
+const MUTATING_TOOL_NAMES = new Set( [
+	'Write',
+	'Edit',
+	'Bash',
+	'wp_cli',
+	'site_create',
+	'site_delete',
+	'site_import',
+	'site_export',
+	'site_pull',
+	'site_push',
+	'site_start',
+	'site_stop',
+	'scaffold_theme',
+	'install_taxonomy_scripts',
+	'preview_create',
+	'preview_delete',
+	'preview_update',
+	'wpcom_request',
+] );
+
+// Cap individual text/tool-result strings inside the opt-in transcript so a
+// single huge tool output doesn't explode the eval artifact.
+const TRANSCRIPT_TEXT_MAX_LENGTH = 4000;
+
+function truncateText( value: string, maxLength = TRANSCRIPT_TEXT_MAX_LENGTH ): string {
+	return value.length > maxLength
+		? `${ value.slice( 0, maxLength ) }…[truncated ${ value.length - maxLength } chars]`
+		: value;
+}
+
+type TranscriptEvent = {
+	index: number;
+	type: AgentSessionEvent[ 'type' ];
+	turnIndex: number;
+	elapsedMs: number;
+	text?: string[];
+	toolCalls?: ToolCallRecord[];
+	toolResult?: {
+		toolUseId: string;
+		toolName: string | null;
+		isError: boolean;
+		text?: string;
+	};
+	stopReason?: StopReason;
+	errorMessage?: string;
+	compaction?: { reason: string; aborted?: boolean };
+	autoRetry?: { attempt: number; success?: boolean; error?: string };
+};
 
 function extractToolCalls( event: AgentSessionEvent ) {
 	if ( event.type !== 'message_end' || event.message.role !== 'assistant' ) {
@@ -131,6 +184,12 @@ async function runEval( input: EvalRunnerInput ) {
 	const elapsed = () => Date.now() - evalStartedAt;
 	const phaseTimingsMs: Record< string, number > = {};
 	let phaseStartedAt = Date.now();
+	process.env.STUDIO_SITES_ROOT ??= process.cwd();
+	const [ { SessionManager }, { runStudioAgentTurn }, { STUDIO_SITES_ROOT } ] = await Promise.all( [
+		import( '@mariozechner/pi-coding-agent' ),
+		import( 'cli/ai/runtimes/pi' ),
+		import( 'cli/lib/site-paths' ),
+	] );
 
 	let aiProvider: AiProviderId = await resolveInitialAiProvider();
 	phaseTimingsMs.resolve_initial_provider_ms = Date.now() - phaseStartedAt;
@@ -168,8 +227,16 @@ async function runEval( input: EvalRunnerInput ) {
 	let numTurns = 0;
 	let numTurnsResult: number | null = null;
 	let success = false;
+	let interrupted = false;
 	let error: string | null = null;
 	let timedOut = false;
+	let resultStopReason: StopReason | null = null;
+	let resultText = '';
+	let resultErrorMessage: string | null = null;
+	let resultUsage: Usage | null = null;
+	const includeTranscript = process.env.STUDIO_EVAL_INCLUDE_TRANSCRIPT === '1';
+	const transcript: TranscriptEvent[] = [];
+	let transcriptIndex = 0;
 
 	phaseStartedAt = Date.now();
 	const session = SessionManager.inMemory( STUDIO_SITES_ROOT );
@@ -177,6 +244,15 @@ async function runEval( input: EvalRunnerInput ) {
 	let turnStart = queryStartedAt;
 
 	const handleEvent = ( event: AgentSessionEvent ): void => {
+		const transcriptEvent: TranscriptEvent | null = includeTranscript
+			? {
+					index: ++transcriptIndex,
+					type: event.type,
+					turnIndex,
+					elapsedMs: elapsed(),
+			  }
+			: null;
+
 		if ( event.type === 'message_end' && event.message.role === 'assistant' ) {
 			const now = Date.now();
 			turnDurationsMs.push( now - turnStart );
@@ -185,8 +261,16 @@ async function runEval( input: EvalRunnerInput ) {
 				phaseTimingsMs.first_assistant_message_ms = now - queryStartedAt;
 			}
 			turnStart = now;
+			if ( transcriptEvent ) {
+				transcriptEvent.turnIndex = turnIndex;
+				transcriptEvent.stopReason = event.message.stopReason;
+				if ( event.message.errorMessage ) {
+					transcriptEvent.errorMessage = event.message.errorMessage;
+				}
+			}
 		}
-		for ( const tc of extractToolCalls( event ) ) {
+		const messageToolCalls = extractToolCalls( event );
+		for ( const tc of messageToolCalls ) {
 			toolCalls.push( tc );
 			toolNameById.set( tc.id, tc.name );
 			const evt: ToolEvent = {
@@ -199,7 +283,14 @@ async function runEval( input: EvalRunnerInput ) {
 			toolEvents.push( evt );
 			toolEventById.set( tc.id, evt );
 		}
-		textSegments.push( ...extractTextSegments( event ) );
+		if ( transcriptEvent && messageToolCalls.length > 0 ) {
+			transcriptEvent.toolCalls = messageToolCalls;
+		}
+		const messageTextSegments = extractTextSegments( event );
+		textSegments.push( ...messageTextSegments );
+		if ( transcriptEvent && messageTextSegments.length > 0 ) {
+			transcriptEvent.text = messageTextSegments.map( ( segment ) => truncateText( segment ) );
+		}
 
 		if ( event.type === 'tool_execution_end' ) {
 			const tr = extractToolResult( event );
@@ -226,6 +317,14 @@ async function runEval( input: EvalRunnerInput ) {
 					isError: tr.isError,
 					...( tr.text ? { text: tr.text } : {} ),
 				} );
+				if ( transcriptEvent ) {
+					transcriptEvent.toolResult = {
+						toolUseId: id,
+						toolName: toolNameById.get( id ) ?? null,
+						isError: tr.isError,
+						...( tr.text ? { text: truncateText( tr.text ) } : {} ),
+					};
+				}
 			}
 		}
 
@@ -233,12 +332,62 @@ async function runEval( input: EvalRunnerInput ) {
 			numTurns += 1;
 		}
 
+		if ( event.type === 'compaction_start' || event.type === 'compaction_end' ) {
+			if ( transcriptEvent ) {
+				transcriptEvent.compaction = {
+					reason: event.reason,
+					...( event.type === 'compaction_end' ? { aborted: event.aborted } : {} ),
+				};
+			}
+		}
+
+		if ( event.type === 'auto_retry_start' ) {
+			if ( transcriptEvent ) {
+				transcriptEvent.autoRetry = {
+					attempt: event.attempt,
+					error: event.errorMessage,
+				};
+			}
+		}
+		if ( event.type === 'auto_retry_end' ) {
+			if ( transcriptEvent ) {
+				transcriptEvent.autoRetry = {
+					attempt: event.attempt,
+					success: event.success,
+					...( event.finalError ? { error: event.finalError } : {} ),
+				};
+			}
+		}
+
 		if ( event.type === 'agent_end' ) {
 			const lastAssistant = findLastAssistant( event.messages );
 			success =
 				! lastAssistant ||
 				( lastAssistant.stopReason !== 'error' && lastAssistant.stopReason !== 'aborted' );
+			interrupted = lastAssistant?.stopReason === 'aborted';
+			if ( lastAssistant ) {
+				resultStopReason = lastAssistant.stopReason;
+				resultErrorMessage = lastAssistant.errorMessage ?? null;
+				resultUsage = lastAssistant.usage;
+				resultText = lastAssistant.content
+					.filter( ( c ): c is { type: 'text'; text: string } => c.type === 'text' )
+					.map( ( c ) => c.text )
+					.join( '\n' )
+					.trim();
+			}
 			numTurnsResult = numTurns;
+			if ( transcriptEvent ) {
+				if ( resultStopReason ) {
+					transcriptEvent.stopReason = resultStopReason;
+				}
+				if ( resultErrorMessage ) {
+					transcriptEvent.errorMessage = resultErrorMessage;
+				}
+			}
+		}
+
+		if ( transcriptEvent ) {
+			transcript.push( transcriptEvent );
 		}
 	};
 
@@ -265,8 +414,15 @@ async function runEval( input: EvalRunnerInput ) {
 	}
 	phaseTimingsMs.total_eval_ms = elapsed();
 
+	const hasAnyAssistantText = textSegments.some( ( segment ) => segment.trim().length > 0 );
+	const hasSuccessfulMutatingTool = toolResults.some(
+		( tr ) => ! tr.isError && tr.toolName !== null && MUTATING_TOOL_NAMES.has( tr.toolName )
+	);
+	const producedNoUsefulOutput = success && ! hasAnyAssistantText && ! hasSuccessfulMutatingTool;
+
 	return {
 		success,
+		interrupted,
 		error,
 		timedOut,
 		numTurns: numTurnsResult,
@@ -277,6 +433,12 @@ async function runEval( input: EvalRunnerInput ) {
 		toolEvents,
 		firstToolError,
 		textSegments,
+		resultStopReason,
+		resultText,
+		resultErrorMessage,
+		resultUsage,
+		producedNoUsefulOutput,
+		...( includeTranscript ? { transcript } : {} ),
 	};
 }
 

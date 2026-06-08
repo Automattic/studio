@@ -120,8 +120,10 @@ export default defineConfig( {
 		assetsInclude: [ '**/*.riv', '**/*.wasm' ],
 		optimizeDeps: {
 			include: [ '@wordpress/i18n', '@rive-app/react-canvas', '@rive-app/canvas' ],
-			esbuildOptions: {
-				sourcemap: false,
+			rolldownOptions: {
+				output: {
+					sourcemap: false,
+				},
 			},
 		},
 		server: {
@@ -142,9 +144,13 @@ export default defineConfig( {
 						return 'assets/[name]-[hash][extname]';
 					},
 					// Optimize chunk splitting for better caching
-					manualChunks: {
-						vendor: [ 'react', 'react-dom', '@wordpress/components', '@wordpress/element' ],
-						sentry: [ '@sentry/react', '@sentry/electron' ],
+					manualChunks: ( id ) => {
+						if ( [ 'react', 'react-dom', '@wordpress/components', '@wordpress/element' ].some( ( pkg ) => id.includes( `/node_modules/${ pkg }/` ) ) ) {
+							return 'vendor';
+						}
+						if ( [ '@sentry/react', '@sentry/electron' ].some( ( pkg ) => id.includes( `/node_modules/${ pkg }/` ) ) ) {
+							return 'sentry';
+						}
 					},
 				},
 			},

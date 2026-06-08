@@ -1,10 +1,11 @@
+import { ReactElement } from 'react';
 import Button from 'src/components/button';
 import { cx } from 'src/lib/cx';
 
 export interface ButtonsSectionProps {
 	buttonsArray: Array< {
 		label: string;
-		icon: JSX.Element;
+		icon: ReactElement;
 		onClick: () => void;
 		className?: string;
 		disabled?: boolean;

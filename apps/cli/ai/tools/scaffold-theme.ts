@@ -359,6 +359,12 @@ export const scaffoldThemeTool = defineTool(
 				'  assets/fonts/',
 				'  patterns/',
 				'',
+				// These files already contain standard WordPress headers and starter
+				// markup, so an Edit anchored on an assumed minimal header (e.g. just
+				// `Theme Name`) would fail to match. Nudge the agent to read first.
+				'These files already contain standard WordPress headers and starter content.',
+				'Read a file before editing it — do not assume its contents.',
+				'',
 			];
 
 			if ( ! activation ) {

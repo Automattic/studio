@@ -11,7 +11,7 @@ import {
 	type PhpBinaryDownloadInfo,
 	type NativePhpSupportedVersion,
 } from '@studio/common/lib/php-binary-metadata';
-import { ensureNativePhpIniFiles } from '../native-php';
+import { ensureNativePhpIniFiles } from 'cli/lib/native-php/config';
 import { getPhpBinaryPath } from './paths';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 

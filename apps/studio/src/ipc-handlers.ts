@@ -18,6 +18,8 @@ import https from 'node:https';
 import os from 'os';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
+import { validateStudioChatFiles } from '@studio/common/ai/chat-files';
+import { validateStudioChatImages } from '@studio/common/ai/chat-images';
 import { isAiModelId } from '@studio/common/ai/models';
 import { deriveEffectiveEnvironment } from '@studio/common/ai/sessions/effective-site';
 import {
@@ -168,6 +170,8 @@ import {
 import { Blueprint } from 'src/stores/wpcom-api';
 import { captureSiteThumbnail } from './lib/capture-site-thumbnail';
 import type { ActiveAgentRun } from '@studio/common/ai/agent-events';
+import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
+import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { Ignore } from 'ignore';
@@ -238,13 +242,6 @@ export {
 	saveUserDeskConfig,
 } from 'src/modules/desks/lib/ipc-handlers';
 export { fetchSiteRest as fetchSiteRestApi } from 'src/lib/wordpress-rest-api';
-
-export {
-	studioCodeSendMessage,
-	studioCodeRespondToPermission,
-	studioCodeAbort,
-	studioCodeCheckProvider,
-} from 'src/modules/studio-code/ipc-handlers';
 
 function hydrateAiSessionSummary(
 	summary: AiSessionSummary,
@@ -452,17 +449,25 @@ export async function continueAiSession(
 	event: IpcMainInvokeEvent,
 	sessionId: string,
 	prompt: string,
-	options: { displayMessage?: string } = {}
+	options: {
+		displayMessage?: string;
+		images?: StudioChatImage[];
+		files?: StudioChatFileAttachment[];
+	} = {}
 ): Promise< { runId: string } > {
 	if ( ! ( await oauthClient.isAuthenticated() ) ) {
 		throw new Error( __( 'WordPress.com login required. Log in to use Studio Desk chat.' ) );
 	}
 
 	await reconcileSessionEnvironmentBeforeRun( sessionId );
+	const images = validateStudioChatImages( options.images );
+	const files = validateStudioChatFiles( options.files );
 	return startAgentRun( {
 		sessionId,
 		prompt: expandSkillCommandPrompt( prompt ),
 		displayMessage: options.displayMessage,
+		images,
+		files,
 		webContents: event.sender,
 	} );
 }

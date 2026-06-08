@@ -11,7 +11,8 @@ import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getPhpBinaryPath, getWpCliPharPath } from 'cli/lib/dependency-management/paths';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
 import { getSiteRuntime } from 'cli/lib/feature-flags';
-import { getDefaultPhpArgs } from 'cli/lib/native-php';
+import { getDefaultPhpArgs } from 'cli/lib/native-php/config';
+import { DETACH_FOR_GROUP_KILL, reapPhpTreeOnInterrupt } from 'cli/lib/native-php/php-process';
 import { runWpCliCommand, runGlobalWpCliCommand, WpCliResponse } from 'cli/lib/run-wp-cli-command';
 import { validatePhpVersion } from 'cli/lib/utils';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
@@ -58,18 +59,28 @@ async function runNativePhpWpCliCommand( site: SiteData, args: string[] ): Promi
 		{
 			cwd: site.path,
 			stdio: 'inherit',
+			detached: DETACH_FOR_GROUP_KILL,
 		}
 	);
 
-	const { code, signal } = await new Promise< {
-		code: number | null;
-		signal: NodeJS.Signals | null;
-	} >( ( resolve, reject ) => {
-		child.once( 'error', reject );
-		child.once( 'exit', ( exitCode, exitSignal ) =>
-			resolve( { code: exitCode, signal: exitSignal } )
-		);
-	} );
+	// Reap php.exe and any subprocess it spawned if this command is interrupted before the child exits.
+	const removeReaper = reapPhpTreeOnInterrupt( child );
+
+	let code: number | null;
+	let signal: NodeJS.Signals | null;
+	try {
+		( { code, signal } = await new Promise< {
+			code: number | null;
+			signal: NodeJS.Signals | null;
+		} >( ( resolve, reject ) => {
+			child.once( 'error', reject );
+			child.once( 'exit', ( exitCode, exitSignal ) =>
+				resolve( { code: exitCode, signal: exitSignal } )
+			);
+		} ) );
+	} finally {
+		removeReaper();
+	}
 
 	if ( signal ) {
 		process.kill( process.pid, signal );

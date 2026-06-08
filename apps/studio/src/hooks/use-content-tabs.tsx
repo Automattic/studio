@@ -44,7 +44,7 @@ function useTabs() {
 		tabs.push( {
 			order: 6,
 			name: 'assistant',
-			title: __( 'Assistant' ),
+			title: __( 'Studio Code' ),
 			className: 'components-tab-panel__tabs--assistant ltr:pl-8 rtl:pr-8 ltr:ml-auto rtl:mr-auto',
 		} );
 

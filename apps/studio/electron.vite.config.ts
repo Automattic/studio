@@ -3,7 +3,6 @@ import { createRequire } from 'module';
 import { defineConfig } from 'electron-vite';
 import { normalizePath } from 'vite';
 import react from '@vitejs/plugin-react';
-import topLevelAwait from 'vite-plugin-top-level-await';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 import wasm from 'vite-plugin-wasm';
 import { sentryVitePlugin } from '@sentry/vite-plugin';
@@ -80,7 +79,6 @@ export default defineConfig( {
 		},
 		plugins: [
 			react(),
-			topLevelAwait(),
 			wasm(),
 			viteStaticCopy( {
 				targets: [

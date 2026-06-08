@@ -91,6 +91,7 @@
 		"tsx": "^4.22.1",
 		"typescript": "~6.0.3",
 		"typescript-eslint": "^8.59.4",
+		"vite": "^8.0.16",
 		"vitest": "^4.0.18",
 		"web-streams-polyfill": "^4.2.0"
 	}

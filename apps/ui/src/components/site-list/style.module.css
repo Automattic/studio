@@ -396,11 +396,11 @@
 }
 
 .sessionStatusIndicator {
-	--status-dot-size: 12px;
+	--status-dot-size: 8px;
 
 	position: absolute;
 	inset-block-start: 50%;
-	inset-inline-start: calc(var(--wpds-dimension-padding-sm) + 6px);
+	inset-inline-start: calc(var(--wpds-dimension-padding-sm) + 8px);
 	transform: translateY(-50%);
 }
 

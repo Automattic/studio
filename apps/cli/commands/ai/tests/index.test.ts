@@ -7,11 +7,6 @@ import { createStudioSession } from 'cli/ai/sessions/pi-session';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { runCommand } from '../index';
 
-// `runCommand` pulls in the whole AI chat stack (TUI, agent runtime, slash
-// commands, sessions). We stub the heavy collaborators and drive a single
-// JSON-mode turn the way Studio Desktop does (an `initialMessage` with a mocked
-// agent runtime), so the provider-selection logic runs to completion without an
-// interactive UI.
 vi.mock( '@studio/common/lib/shared-config', () => ( {
 	readAuthToken: vi.fn(),
 } ) );
@@ -59,8 +54,6 @@ vi.mock( 'cli/ai/daemon-status-poll', () => ( {
 	startDaemonStatusPolling: vi.fn( () => vi.fn() ),
 } ) );
 vi.mock( 'cli/commands/auth/login', () => ( { runCommand: vi.fn() } ) );
-// AiChatUI is referenced only via `instanceof`; a bare class avoids loading the
-// real TUI implementation.
 vi.mock( 'cli/ai/ui', () => ( { AiChatUI: class AiChatUI {} } ) );
 vi.mock( 'cli/logger', () => ( {
 	Logger: class {},

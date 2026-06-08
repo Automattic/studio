@@ -9,7 +9,6 @@ export default mergeConfig(
 			lib: {
 				entry: {
 					'eval-runner': resolve( __dirname, 'ai/eval-runner.ts' ),
-					'eval-wsg': resolve( __dirname, 'ai/eval-wsg/run.ts' ),
 				},
 			},
 		},

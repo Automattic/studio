@@ -6,16 +6,22 @@ import chalk from 'chalk';
 import inquirer from 'inquirer';
 
 /**
- * Utility to run a child script
+ * Utility to run a child script.
  *
- * @param script Script to run.
+ * The script string is passed as an argument to the shell rather than being
+ * interpolated into the command itself, which prevents shell metacharacters
+ * in environment-derived values (e.g. paths with spaces) from altering the
+ * meaning of the command.
+ *
+ * @param script Shell command to run.
  * @param cwd    Working directory.
  * @param env    Additional environment variables to pass to the script.
  */
 export function runShellScript( script: string, cwd?: string, env: NodeJS.ProcessEnv = {} ) {
 	return new Promise( ( resolve, reject ) => {
-		childProcess.exec(
-			script,
+		childProcess.execFile(
+			process.platform === 'win32' ? 'cmd.exe' : '/bin/sh',
+			process.platform === 'win32' ? [ '/c', script ] : [ '-c', script ],
 			{
 				cwd,
 				env: {

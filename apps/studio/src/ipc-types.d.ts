@@ -103,7 +103,6 @@ interface FeatureFlags {
 }
 
 interface BetaFeatures {
-	enableStudioCodeUi: boolean;
 	remoteSession: boolean;
 	nativePhpRuntime?: boolean;
 }

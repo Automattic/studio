@@ -13,7 +13,6 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import * as Sentry from '@sentry/electron/main';
 import { siteDetailsSchema } from '@studio/common/lib/cli-events';
 import { sharedConfigSchema } from '@studio/common/lib/shared-config';
 import {
@@ -70,10 +69,6 @@ function buildCliConfig( oldData: Record< string, unknown > ): Record< string, u
 			const result = cliSiteSchema.safeParse( site );
 			if ( result.success ) {
 				acc.push( result.data );
-			} else {
-				Sentry.captureException( result.error, {
-					extra: { siteId: site.id, context: 'migrate-to-split-config' },
-				} );
 			}
 			return acc;
 		}, [] );
@@ -85,10 +80,6 @@ function buildCliConfig( oldData: Record< string, unknown > ): Record< string, u
 				const result = snapshotSchema.safeParse( snapshot );
 				if ( result.success ) {
 					acc.push( result.data );
-				} else {
-					Sentry.captureException( result.error, {
-						extra: { snapshotUrl: snapshot.url, context: 'migrate-to-split-config' },
-					} );
 				}
 				return acc;
 			},

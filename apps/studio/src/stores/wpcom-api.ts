@@ -1,6 +1,5 @@
 import { createApi, TypedUseQuery, TypedUseMutation } from '@reduxjs/toolkit/query/react';
 import * as Sentry from '@sentry/electron/renderer';
-import { DAY_MS } from '@studio/common/constants';
 import { blueprintSchema, type Blueprint } from '@studio/common/lib/studio-blueprints-api';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
@@ -9,31 +8,6 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { withOfflineCheck, withOfflineCheckMutation } from 'src/stores/utils/with-offline-check';
 import type { BaseQueryFn, FetchBaseQueryError } from '@reduxjs/toolkit/query';
 import type { WPCOM } from 'wpcom/types';
-
-const welcomeMessageSchema = z.object( {
-	messages: z.array( z.string() ),
-	example_prompts: z.array( z.string() ),
-} );
-
-export const assistantQuotaSchema = z
-	.object( {
-		max_quota: z.number(),
-		quota_reset_date: z.string().datetime( { offset: true } ),
-		remaining_quota: z.number(),
-	} )
-	.transform( ( data ) => {
-		const promptCount = data.max_quota - data.remaining_quota;
-		const daysUntilReset = calculateDaysUntilQuotaReset( data.quota_reset_date );
-
-		return {
-			daysUntilReset,
-			promptCount,
-			promptLimit: data.max_quota,
-			quotaResetDate: data.quota_reset_date,
-			remainingQuota: data.remaining_quota,
-			userCanSendMessage: promptCount < data.max_quota,
-		};
-	} );
 
 const snapshotUsageSchema = z
 	.object( {
@@ -124,35 +98,11 @@ function parseResponse< TSchema extends z.ZodType >(
 	}
 }
 
-function calculateDaysUntilQuotaReset( quotaResetDate: string ): number {
-	const resetDate = new Date( quotaResetDate );
-	const currentDate = new Date();
-	const timeDifference = resetDate.getTime() - currentDate.getTime();
-	return Math.ceil( timeDifference / DAY_MS );
-}
-
 export const wpcomApi = createApi( {
 	reducerPath: 'wpcomApi',
 	baseQuery: wpcomBaseQuery,
-	tagTypes: [ 'AssistantQuota', 'SnapshotUsage' ],
+	tagTypes: [ 'SnapshotUsage' ],
 	endpoints: ( builder ) => ( {
-		getWelcomeMessages: builder.query< z.infer< typeof welcomeMessageSchema >, void >( {
-			query: () => ( {
-				path: '/studio-app/ai-assistant/welcome',
-				apiNamespace: 'wpcom/v2',
-			} ),
-			transformResponse: ( response: unknown ) => parseResponse( response, welcomeMessageSchema ),
-			keepUnusedDataFor: 60 * 60,
-		} ),
-		getAssistantQuota: builder.query< z.infer< typeof assistantQuotaSchema >, void >( {
-			query: () => ( {
-				path: '/studio-app/ai-assistant/quota',
-				apiNamespace: 'wpcom/v2',
-			} ),
-			transformResponse: ( response: unknown ) => parseResponse( response, assistantQuotaSchema ),
-			keepUnusedDataFor: 60 * 60,
-			providesTags: [ 'AssistantQuota' ],
-		} ),
 		getSnapshotUsage: builder.query< z.infer< typeof snapshotUsageSchema >, void >( {
 			query: () => ( {
 				path: '/jurassic-ninja/usage',
@@ -260,14 +210,6 @@ function withWpcomClientCheckMutation< TResult, TArg >(
 		return [ wrappedTrigger, result ] as const;
 	};
 }
-
-export const useGetWelcomeMessages = withWpcomClientCheck(
-	withOfflineCheck( wpcomApi.useGetWelcomeMessagesQuery )
-);
-
-export const useGetAssistantQuota = withWpcomClientCheck(
-	withOfflineCheck( wpcomApi.useGetAssistantQuotaQuery )
-);
 
 export const useGetSnapshotUsage = withWpcomClientCheck(
 	withOfflineCheck( wpcomApi.useGetSnapshotUsageQuery )

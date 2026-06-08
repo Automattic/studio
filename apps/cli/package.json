@@ -1,7 +1,7 @@
 {
 	"name": "wp-studio",
 	"author": "Automattic Inc.",
-	"version": "1.10.0",
+	"version": "1.10.2",
 	"productName": "Studio CLI",
 	"description": "WordPress Studio CLI",
 	"license": "GPL-2.0-or-later",
@@ -24,8 +24,8 @@
 		"directory": "apps/cli"
 	},
 	"dependencies": {
-		"@anthropic-ai/sdk": "^0.90.0",
-		"@inquirer/prompts": "^8.3.2",
+		"@anthropic-ai/sdk": "^0.91.1",
+		"@inquirer/prompts": "^8.5.2",
 		"@mariozechner/pi-agent-core": "0.70.2",
 		"@mariozechner/pi-ai": "0.70.2",
 		"@mariozechner/pi-coding-agent": "0.70.2",
@@ -79,7 +79,7 @@
 		"@types/node-forge": "^1.3.14",
 		"@types/yargs": "^17.0.35",
 		"glob": "^13.0.6",
-		"vite": "^7.3.3",
-		"vite-plugin-static-copy": "^3.1.5"
+		"vite": "^8.0.16",
+		"vite-plugin-static-copy": "^4.1.0"
 	}
 }

@@ -10,6 +10,7 @@ import {
 	removeConnectedWpcomSite,
 	updateConnectedWpcomSites as updateConnectedWpcomSitesShared,
 } from '@studio/common/lib/connected-sites';
+import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
 import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
@@ -409,11 +410,13 @@ export async function downloadSyncBackup(
 		await download( downloadUrl, filePath, false, '', abortController.signal );
 		return filePath;
 	} catch ( error ) {
-		if ( error instanceof Error && error.name === 'AbortError' ) {
-			// Download was cancelled, throw the error
-		} else {
-			console.error( `[Download] Download failed for operation: ${ operationId }`, error );
+		// A cancelled operation (user cancel or logout cleanup) aborts this signal. That's an
+		// intentional stop, not a failure — return without logging or throwing so it doesn't
+		// surface as an error, and let the caller treat the missing path as "stopped".
+		if ( abortController.signal.aborted ) {
+			return undefined;
 		}
+		console.error( `[Download] Download failed for operation: ${ operationId }`, error );
 		throw error;
 	} finally {
 		SYNC_ABORT_CONTROLLERS.delete( operationId );
@@ -422,7 +425,16 @@ export async function downloadSyncBackup(
 
 export async function removeSyncBackup( event: IpcMainInvokeEvent, remoteSiteId: number ) {
 	const filePath = getSyncBackupTempPath( remoteSiteId );
-	await fsPromises.unlink( filePath );
+	try {
+		await fsPromises.unlink( filePath );
+	} catch ( error ) {
+		// The backup file may never have been created — e.g. cancelling a pull that was still
+		// initializing the remote backup, before anything was downloaded. A missing file is
+		// not an error here, so only rethrow unexpected failures.
+		if ( ! isErrnoException( error ) || error.code !== 'ENOENT' ) {
+			throw error;
+		}
+	}
 }
 
 type WpcomSitesToConnect = { sites: SyncSite[]; localSiteId: string }[];

@@ -40,6 +40,11 @@ If (@('1', 'true') -contains $useAzureTrustedSigning) {
     If ($LastExitCode -ne 0) { Exit $LastExitCode }
 }
 
+Write-Host "--- :windows: Enabling long path support"
+New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" `
+    -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
+If ($LastExitCode -ne 0) { Exit $LastExitCode }
+
 Write-Host "--- :npm: Installing Node dependencies"
 bash .buildkite/commands/install-node-dependencies.sh
 If ($LastExitCode -ne 0) { Exit $LastExitCode }

@@ -446,7 +446,7 @@ describe( 'AiChatUI.handleEvent', () => {
 		expect( joined ).toContain( 'WordPress.com API GET /posts' );
 		expect( joined ).toContain( 'GET /posts: Returned 2 posts' );
 		expect( joined ).toContain( 'Full API response hidden' );
-		expect( joined ).toContain( 'Run terminal command' );
+		expect( joined ).toContain( 'Run npm test' );
 		expect( joined ).toContain( 'Command completed: 2 tests passed' );
 		expect( joined ).toContain( 'Command output hidden' );
 		expect( joined ).toContain( 'Read theme/style.css' );

@@ -1,5 +1,5 @@
 import { Type, type Static, type TObject, type TProperties } from 'typebox';
-import type { AgentTool, AgentToolUpdateCallback } from '@mariozechner/pi-agent-core';
+import type { AgentTool, AgentToolUpdateCallback } from '@earendil-works/pi-agent-core';
 import type { StudioChatArtifactWidgetDraft } from '@studio/common/ai/chat-artifacts';
 
 /**

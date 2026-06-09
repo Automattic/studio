@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { hasVisibleUserPrompt, shouldShowEmptyConversation } from './empty-state';
-import type { SessionEntry } from '@mariozechner/pi-coding-agent';
+import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
 describe( 'desks chat empty state', () => {
 	it( 'detects user-visible prompt entries', () => {

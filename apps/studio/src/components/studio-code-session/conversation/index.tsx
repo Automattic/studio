@@ -16,7 +16,7 @@ import { cx } from 'src/lib/cx';
 import { Markdown } from '../markdown';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
-import type { SessionEntry } from '@mariozechner/pi-coding-agent';
+import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 import type { LoadedAiSession } from '@studio/common/ai/sessions/types';
 
 type RenderItem =

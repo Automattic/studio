@@ -1,3 +1,4 @@
+// @vitest-pool forks
 import fs from 'node:fs';
 import {
 	buildLinuxTrustInstallCommand,

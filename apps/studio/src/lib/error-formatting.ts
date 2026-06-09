@@ -23,7 +23,7 @@ export function simplifyErrorForDisplay( error: unknown ): Error {
  */
 export function simplifyErrorToFirstSentence( error: unknown ): Error {
 	const simplified = simplifyErrorForDisplay( error );
-	const firstSentence = simplified.message.match( /^[^.]+\./ );
+	const firstSentence = simplified.message.match( /^.+?\.(?=\s|$)/ );
 	return firstSentence ? new Error( firstSentence[ 0 ] ) : simplified;
 }
 

@@ -247,6 +247,17 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 
 		bumpCodeRunStat( run, code );
 
+		// Remove eagerly: the child consumed the payload at startup, and waiting
+		// for the event queue to drain risks leaking the dir (it holds
+		// user-attached images) if the app quits first.
+		if ( inputPayload ) {
+			fs.rm( inputPayload.dir, { recursive: true, force: true }, ( error ) => {
+				if ( error ) {
+					console.warn( 'Failed to clean AI session input payload', error );
+				}
+			} );
+		}
+
 		void run.eventQueue.finally( async () => {
 			if ( run.interrupted ) {
 				sendEvent( run, { type: 'run.interrupted', timestamp: nowIso() } );
@@ -257,13 +268,6 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 				status: code === 0 ? 'success' : 'error',
 				code,
 			} );
-			if ( inputPayload ) {
-				fs.rm( inputPayload.dir, { recursive: true, force: true }, ( error ) => {
-					if ( error ) {
-						console.warn( 'Failed to clean AI session input payload', error );
-					}
-				} );
-			}
 		} );
 	};
 

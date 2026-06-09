@@ -9,6 +9,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { confirm } from '@inquirer/prompts';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import * as fsUtils from '@studio/common/lib/fs-utils';
@@ -18,7 +19,7 @@ import { portFinder } from '@studio/common/lib/port-finder';
 import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/shared-config';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { PullReprintCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import chalk from 'chalk';
 import {
 	enableReprintExporter,
@@ -52,6 +53,7 @@ import {
 } from 'cli/lib/pull/runtime-start-options';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
 import { buildAutoLoginUrl } from 'cli/lib/site-utils';
+import { getPrettyPath } from 'cli/lib/utils';
 import { startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { pickWpComSite } from 'cli/lib/wpcom-site-picker';
 import { Logger, LoggerError } from 'cli/logger';
@@ -82,6 +84,12 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					describe: __( 'Abort a matching import and remove its local files' ),
 					default: false,
 				} )
+				.option( 'yes', {
+					type: 'boolean',
+					alias: 'y',
+					describe: __( 'Skip the confirmation prompt and create the site without asking' ),
+					default: false,
+				} )
 				.option( 'verbose', {
 					type: 'boolean',
 					describe: __( 'Show detailed error information and executed commands' ),
@@ -97,7 +105,8 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					argv.secret as string | undefined,
 					argv.name as string | undefined,
 					verbose,
-					argv.abort as boolean
+					argv.abort as boolean,
+					argv.yes as boolean
 				);
 			} catch ( error ) {
 				if ( error instanceof PullError ) {
@@ -241,7 +250,8 @@ export async function runCommand(
 	userProvidedSecret?: string,
 	userProvidedName?: string,
 	verbose = false,
-	abort = false
+	abort = false,
+	yes = false
 ): Promise< void > {
 	if ( abort ) {
 		if ( ! userProvidedUrl ) {
@@ -280,6 +290,33 @@ export async function runCommand(
 			! ( await fsUtils.isEmptyDir( studioMetadata.sitePath ) )
 		) {
 			throw new LoggerError( __( 'Site directory already exists and is not empty.' ) );
+		}
+	}
+
+	// A fresh pull silently creates a brand-new local site (in the ~/Studio folder).
+	// Confirm first so the user understands a new site will be created.
+	// Only ask on a fresh, interactive run when `--yes` was not passed;
+	// resumes already made this choice and non-interactive callers
+	// (CI, Desktop) must keep the current non-prompting behavior.
+	const shouldConfirmSiteCreation = created && !! process.stdin.isTTY && ! yes;
+	if ( shouldConfirmSiteCreation ) {
+		const shouldContinue = await confirm( {
+			message: sprintf(
+				// translators: 1: local site name, 2: local site path, 3: remote source URL.
+				__( 'This will create a new local site "%1$s" at %2$s, pulling from %3$s. Continue?' ),
+				studioMetadata.siteName,
+				getPrettyPath( studioMetadata.sitePath ),
+				studioMetadata.normalizedUrl
+			),
+			default: true,
+		} );
+		if ( ! shouldContinue ) {
+			// `getPullSessionMetadata` just wrote `pull.json` here. If we leave
+			// it, the next run reads it back and returns `created: false`,
+			// silently resuming this declined pull instead of re-prompting.
+			fs.rmSync( studioMetadata.technicalSiteDirectory, { recursive: true, force: true } );
+			console.log( __( 'Cancelled.' ) );
+			return;
 		}
 	}
 

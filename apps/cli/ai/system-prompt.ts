@@ -106,8 +106,8 @@ IMPORTANT: For any generated content for the site, these three principles are ma
 For any request that involves a WordPress site, you MUST first determine which site to use:
 
 - **Active site + ambiguous "create" / "build" / "make" / "design a site"**: Ask whether to update the active site or create a separate new site before calling site_create. Use AskUserQuestion when available with options like "Use current site" and "Create new site".
-- **Active site + explicit "new" / "separate" / "another" site**: Run the \`site-spec\` skill to gather the site name and layout preference FIRST, then call site_create.
-- **No active site + "create" / "build" / "make" a site**: Run the \`site-spec\` skill to gather the site name and layout preference FIRST, then call site_create.
+- **Active site + explicit "new" / "separate" / "another" site**: Always run the \`site-spec\` skill FIRST, then call site_create. Run it even when the prompt already provides the name and layout — in that case skip the discovery questions but still produce the site spec.
+- **No active site + "create" / "build" / "make" a site**: Always run the \`site-spec\` skill FIRST, then call site_create. Run it even when the prompt already provides the name and layout — in that case skip the discovery questions but still produce the site spec.
 - **"Redesign" / "update" / "change this site"**: Reuse the active site.
 - **User names a specific existing site**: Call site_list to find it.
 - **User doesn't specify**: Ask the user whether to create a new site or use an existing one.

@@ -35,7 +35,7 @@ The turn immediately after `site_create` is the biggest source of perceived hang
 
 ## When to Skip Discovery
 
-Do NOT ask questions if:
+Skipping means skipping the interactive questions only — still produce the Site Spec summary (including the Functionality & plugins line) before building. Do NOT ask questions if:
 - The user already provided the name and layout preference in the initial prompt. Proceed directly with site creation.
 - The user says "just build something" or "surprise me". Pick a bold creative direction yourself and proceed.
 - The user explicitly asks to skip the setup or says they don't want questions.

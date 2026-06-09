@@ -315,12 +315,6 @@ export async function runCommand( options: {
 	const config = await readCliConfig();
 	let showCapabilitiesOnConnect = ! config.aiProvider;
 
-	// Studio Code Desktop defaults to WordPress.com provider.
-	if ( isJsonMode && showCapabilitiesOnConnect ) {
-		await switchProvider( 'wpcom', false );
-		showCapabilitiesOnConnect = false;
-	}
-
 	if ( showCapabilitiesOnConnect ) {
 		ui.showOnboarding();
 
@@ -694,7 +688,7 @@ export async function runCommand( options: {
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: '$0 [message]',
-		describe: __( 'Start an interactive AI chat to build WordPress sites' ),
+		describe: __( 'AI agent for building WordPress' ),
 		builder: ( yargs ) => {
 			let chain = yargs
 				.positional( 'message', {

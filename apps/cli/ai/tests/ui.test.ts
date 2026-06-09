@@ -1,4 +1,3 @@
-// @vitest-pool forks
 import { Container } from '@earendil-works/pi-tui';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AiChatUI } from 'cli/ai/ui';

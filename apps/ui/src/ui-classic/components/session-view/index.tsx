@@ -70,7 +70,7 @@ function SessionViewContent( {
 } ) {
 	const navigate = useNavigate();
 	const { data, isLoading, error } = useSession( sessionId );
-	const markSessionRead = useMarkSessionRead();
+	const { mutate: markSessionRead } = useMarkSessionRead();
 	const lastReadMarkRef = useRef< string | null >( null );
 	const { data: sites } = useSites();
 	const ownerSitePath = data?.summary.ownerSitePath;
@@ -125,7 +125,11 @@ function SessionViewContent( {
 	useSessionPreviewAnnotations( handleAnnotationsDone, canTogglePreview && !! ownerSite );
 
 	useEffect( () => {
-		if ( ! data ) {
+		// Wait for the subprocess to exit before marking read: the mutation's
+		// invalidation refetches the session, and during a run the on-disk
+		// event count keeps growing, so each refetch would re-trigger the
+		// mutation in a loop while racing the optimistic transcript writes.
+		if ( ! data || hasActiveRun ) {
 			return;
 		}
 		const eventCount = data.summary.eventCount;
@@ -133,9 +137,9 @@ function SessionViewContent( {
 		const markKey = `${ sessionId }:${ eventCount }`;
 		if ( eventCount > lastReadEventCount && lastReadMarkRef.current !== markKey ) {
 			lastReadMarkRef.current = markKey;
-			markSessionRead.mutate( { sessionId, eventCount } );
+			markSessionRead( { sessionId, eventCount } );
 		}
-	}, [ data, markSessionRead, sessionId ] );
+	}, [ data, hasActiveRun, markSessionRead, sessionId ] );
 
 	useLayoutEffect( () => {
 		const node = scrollRef.current;

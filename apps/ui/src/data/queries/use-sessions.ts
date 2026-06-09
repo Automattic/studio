@@ -1,6 +1,6 @@
 import { deriveEffectiveEnvironment } from '@studio/common/ai/sessions/effective-site';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useConnector } from '@/data/core';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import type { AiSessionMetadata, AiSessionSummary, LoadedAiSession } from '@/data/core';
@@ -136,19 +136,30 @@ export function useUpdateSessionMetadata() {
 
 export function useMarkSessionRead() {
 	const updateSessionMetadata = useUpdateSessionMetadata();
+	// Stable wrappers (TanStack's `mutate`/`mutateAsync` keep their identity)
+	// so consumers can list them in effect deps without re-running per render.
+	const { mutate, mutateAsync } = updateSessionMetadata;
+	const markRead = useCallback(
+		( variables: { sessionId: string; eventCount: number } ) =>
+			mutate( {
+				sessionId: variables.sessionId,
+				patch: { lastReadEventCount: variables.eventCount },
+			} ),
+		[ mutate ]
+	);
+	const markReadAsync = useCallback(
+		( variables: { sessionId: string; eventCount: number } ) =>
+			mutateAsync( {
+				sessionId: variables.sessionId,
+				patch: { lastReadEventCount: variables.eventCount },
+			} ),
+		[ mutateAsync ]
+	);
 
 	return {
 		...updateSessionMetadata,
-		mutate: ( variables: { sessionId: string; eventCount: number } ) =>
-			updateSessionMetadata.mutate( {
-				sessionId: variables.sessionId,
-				patch: { lastReadEventCount: variables.eventCount },
-			} ),
-		mutateAsync: ( variables: { sessionId: string; eventCount: number } ) =>
-			updateSessionMetadata.mutateAsync( {
-				sessionId: variables.sessionId,
-				patch: { lastReadEventCount: variables.eventCount },
-			} ),
+		mutate: markRead,
+		mutateAsync: markReadAsync,
 	};
 }
 

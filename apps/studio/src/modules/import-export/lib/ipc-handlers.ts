@@ -1,7 +1,8 @@
 import { shell, BrowserWindow, IpcMainInvokeEvent, Notification } from 'electron';
 import fs from 'fs';
-import { stripVTControlCharacters } from 'util';
 import * as Sentry from '@sentry/electron/main';
+import { getErrorMessage } from '@studio/common/lib/error-formatting';
+import { exportErrorPayloadSchema } from '@studio/common/lib/import-export-events';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
@@ -31,14 +32,12 @@ function isExpectedImportError( error: unknown ): boolean {
 }
 
 function sanitizeImportErrorText( value: string ): string {
-	return stripVTControlCharacters( value )
-		.replace( /^Failed to import site:\s*/i, '' )
-		.trim()
-		.split( '\n' )[ 0 ]
-		.trim();
+	return value.replace( /^Failed to import site:\s*/i, '' ).trim();
 }
 
 function getBestEffortImportError( error: unknown ): Error {
+	const fallbackMessage = __( 'Check Studio Logs for more details.' );
+
 	if ( error instanceof CliCommandError ) {
 		const sanitizedLastErrorMessage = sanitizeImportErrorText( error.lastErrorMessage ?? '' );
 		if ( sanitizedLastErrorMessage ) {
@@ -46,12 +45,27 @@ function getBestEffortImportError( error: unknown ): Error {
 		}
 	}
 
-	if ( error instanceof Error ) {
-		const sanitizedMessage = sanitizeImportErrorText( error.message );
-		return new Error( sanitizedMessage );
+	const sanitizedMessage = sanitizeImportErrorText( getErrorMessage( error ) ?? '' );
+	return new Error( sanitizedMessage || fallbackMessage );
+}
+
+function getBestEffortExportError( error: unknown ): Error {
+	const fallbackMessage = __( 'Check Studio Logs for more details.' );
+	const parsedExportError = exportErrorPayloadSchema.safeParse( error );
+
+	if ( parsedExportError.success ) {
+		const message = getErrorMessage( parsedExportError.data.message );
+		return new Error( message ?? fallbackMessage );
 	}
 
-	return new Error( sanitizeImportErrorText( String( error ) ) );
+	if ( error instanceof CliCommandError ) {
+		const lastErrorMessage = getErrorMessage( error.lastErrorMessage );
+		if ( lastErrorMessage ) {
+			return new Error( lastErrorMessage );
+		}
+	}
+
+	return new Error( getErrorMessage( error ) ?? fallbackMessage );
 }
 
 async function removeFileIfExists( filePath: string ) {
@@ -163,12 +177,17 @@ export async function importSite(
 }
 
 async function showExportErrorModal( event: IpcMainInvokeEvent, error: unknown ) {
+	const errorToShow = simplifyErrorForDisplay(
+		getBestEffortExportError( error ),
+		__( 'Check Studio Logs for more details.' )
+	);
+
 	await showErrorMessageBox( event, {
 		title: __( 'Failed exporting site' ),
 		message: __(
 			'An error occurred while exporting the site. If this problem persists, please contact support.'
 		),
-		error,
+		error: errorToShow,
 		showOpenLogs: true,
 	} );
 }

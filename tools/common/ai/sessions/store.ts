@@ -7,7 +7,7 @@ import { getAiSessionsDirectoryForDate } from './paths';
 import { readAiSessionSummaryFromEntries } from './summary';
 import type { StudioCustomEntryDataMap, StudioCustomEntryType } from './entry-types';
 import type { AiSessionSummary, LoadedAiSession } from './types';
-import type { SessionEntry } from '@mariozechner/pi-coding-agent';
+import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
 // Migrates the file in place on first read, then parses the (now-pi-format)
 // JSONL into pi `SessionEntry` records.

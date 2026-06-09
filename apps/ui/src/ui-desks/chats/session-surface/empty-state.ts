@@ -2,7 +2,7 @@ import {
 	isStudioCustomEntryOfType,
 	type StudioCustomEntry,
 } from '@studio/common/ai/sessions/entry-types';
-import type { SessionEntry } from '@mariozechner/pi-coding-agent';
+import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
 interface EmptyConversationState {
 	hasVisibleUserPrompt: boolean;

@@ -19,7 +19,7 @@ import {
 	type ComposerSendAttachments,
 } from './use-composer-attachments';
 import { useSlashCommands } from './use-slash-commands';
-import type { SessionEntry } from '@mariozechner/pi-coding-agent';
+import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 import type { AiModelId } from '@studio/common/ai/models';
 import type { LoadedAiSession } from '@studio/common/ai/sessions/types';
 

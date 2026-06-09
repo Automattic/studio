@@ -12,6 +12,14 @@ export default mergeConfig(
 			name: 'cli',
 			include: [ '**/*.test.{ts,tsx}' ],
 			setupFiles: [ path.resolve( __dirname, './vitest.setup.ts' ) ],
+			// Run CLI tests in child processes instead of worker threads. The AI
+			// runtime tests import the real `@earendil-works/pi-coding-agent`,
+			// which transitively loads native `.node` addons (pi-tui, clipboard).
+			// Native addons crashing on worker-thread teardown segfault the whole
+			// runner process — an intermittent failure seen on Windows CI under the
+			// shared `pool: 'threads'`. Forks isolate each file in its own process
+			// so a native teardown crash can't take down the runner. See AINFRA-2475.
+			pool: 'forks',
 		},
 		resolve: {
 			alias: {

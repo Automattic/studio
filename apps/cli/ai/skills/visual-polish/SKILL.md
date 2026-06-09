@@ -12,7 +12,9 @@ The core method is **diagnose from evidence, not from memory**. Do not guess why
 
 ## Scope: which pages to polish, and how much
 
-Polish **every page of the site**, not just the home page. This includes all user-created pages (Home, About, Contact, and similar) and any plugin-provided pages such as the WooCommerce Shop, Cart, Checkout, My Account, and single-product pages. A page the user never sees polished feels unfinished, and plugin pages ship with generic default styling that rarely matches the theme.
+Polish **every page of the site**, not just the home page. This includes all user-created pages (Home, About, Contact, and similar) and any plugin-provided pages. A page the user never sees polished feels unfinished, and plugin pages ship with generic default styling that rarely matches the theme.
+
+For a WooCommerce shop, polish each of these pages: Shop, single-product, Cart, Checkout, and My Account.
 
 How much to iterate depends on the page:
 

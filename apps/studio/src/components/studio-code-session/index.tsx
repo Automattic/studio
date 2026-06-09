@@ -121,8 +121,8 @@ function NoAuth() {
 				<div className="mt-6">
 					{ [
 						__( 'Create and edit themes, plugins, and content.' ),
-						__( 'Debug issues and run WordPress commands.' ),
-						__( 'Powered by your WordPress.com account.' ),
+						__( 'Debug issues and run WP-CLI commands.' ),
+						__( 'Build with built-in feedback loops and agent skills.' ),
 					].map( ( text ) => (
 						<div key={ text } className="text-frame-text-secondary a8c-body flex items-center">
 							<WpIcon className="fill-frame-theme ltr:mr-2 rtl:ml-2 shrink-0" icon={ check } />

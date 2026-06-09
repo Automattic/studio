@@ -169,9 +169,10 @@ const backupCreateProgressEventDataSchema = z.object( {
 	} ),
 } );
 
-const exportNonErrorEventTupleSchema = z.union( [
+export const exportEventTupleSchema = z.union( [
 	z.tuple( [ z.literal( ExportEvents.EXPORT_START ), nullOrUndefined ] ),
 	z.tuple( [ z.literal( ExportEvents.EXPORT_COMPLETE ), nullOrUndefined ] ),
+	z.tuple( [ z.literal( ExportEvents.EXPORT_ERROR ), exportErrorPayloadSchema ] ),
 	z.tuple( [ z.literal( ExportEvents.BACKUP_CREATE_START ), nullOrUndefined ] ),
 	z.tuple( [
 		z.literal( ExportEvents.BACKUP_CREATE_PROGRESS ),
@@ -188,15 +189,7 @@ const exportNonErrorEventTupleSchema = z.union( [
 	z.tuple( [ z.literal( ExportEvents.CONFIG_EXPORT_COMPLETE ), nullOrUndefined ] ),
 ] );
 
-export const exportEventTupleSchema = z.union( [
-	exportNonErrorEventTupleSchema,
-	z.tuple( [ z.literal( ExportEvents.EXPORT_ERROR ), exportErrorPayloadSchema ] ),
-] );
-
 export const exportIpcEventSchema = z.object( { event: exportEventTupleSchema } );
 
-export type ExportIpcEventTuple = z.infer< typeof exportEventTupleSchema >;
+export type ExportEventTuple = z.infer< typeof exportEventTupleSchema >;
 export type ExportIpcEvent = z.infer< typeof exportIpcEventSchema >;
-export type ExportEventTuple =
-	| z.infer< typeof exportNonErrorEventTupleSchema >
-	| [ typeof ExportEvents.EXPORT_ERROR, unknown ];

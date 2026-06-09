@@ -1,11 +1,7 @@
 import path from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
-import {
-	createExportErrorPayload,
-	ExportEvents,
-	ExportIpcEvent,
-} from '@studio/common/lib/import-export-events';
+import { ExportEvents, ExportEventTuple } from '@studio/common/lib/import-export-events';
 import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
@@ -21,8 +17,8 @@ import { StudioArgv } from 'cli/types';
 
 const logger = new Logger< LoggerAction >();
 
-function sendIpcEvent( eventTuple: ExportIpcEvent[ 'event' ] ) {
-	const ipcEvent: ExportIpcEvent = { event: eventTuple };
+function sendIpcEvent( eventTuple: ExportEventTuple ) {
+	const ipcEvent = { event: eventTuple };
 	process.send!( ipcEvent );
 }
 
@@ -61,7 +57,7 @@ function handleExportIpc( emitter: ImportExportEventEmitter ) {
 		sendIpcEvent( [ ExportEvents.EXPORT_COMPLETE, undefined ] );
 	} );
 	emitter.on( ExportEvents.EXPORT_ERROR, ( error ) => {
-		sendIpcEvent( [ ExportEvents.EXPORT_ERROR, createExportErrorPayload( error ) ] );
+		sendIpcEvent( [ ExportEvents.EXPORT_ERROR, error ] );
 	} );
 }
 
@@ -117,7 +113,10 @@ export function handleExportEvents( emitter: ImportExportEventEmitter ): void {
 	} );
 
 	emitter.on( ExportEvents.EXPORT_ERROR, ( error ) => {
-		throw new LoggerError( __( 'Export failed' ), error instanceof Error ? error : undefined );
+		throw new LoggerError(
+			__( 'Export failed' ),
+			error.message ? new Error( error.message ) : undefined
+		);
 	} );
 }
 

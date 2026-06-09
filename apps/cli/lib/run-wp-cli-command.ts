@@ -57,10 +57,20 @@ export class WpCliResponse {
 	#stdoutText?: Promise< string >;
 	#stderrText?: Promise< string >;
 
-	constructor( stdout: Readable, stderr: Readable, exitCode: Promise< number > ) {
+	constructor(
+		stdout: Readable,
+		stderr: Readable,
+		exitCode: Promise< number >,
+		options: { bufferText?: boolean } = {}
+	) {
 		this.stdout = stdout;
 		this.stderr = stderr;
 		this.exitCode = exitCode;
+
+		if ( options.bufferText ) {
+			this.#stdoutText = text( this.stdout );
+			this.#stderrText = text( this.stderr );
+		}
 	}
 
 	get stdoutText(): Promise< string > {
@@ -153,7 +163,9 @@ async function runNativeWpCliCommand(
 	} );
 
 	return {
-		response: new WpCliResponse( child.stdout, child.stderr, exitCode ),
+		response: new WpCliResponse( child.stdout, child.stderr, exitCode, {
+			bufferText: true,
+		} ),
 		[ Symbol.dispose ]() {
 			removeReaper();
 			// Tree-kill so any subprocess WP-CLI spawned dies with it, not just the php.exe itself.

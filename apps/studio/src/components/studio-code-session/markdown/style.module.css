@@ -1,5 +1,5 @@
 .root {
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--color-frame-text);
 	font-size: var(--wpds-typography-font-size-md);
 	line-height: 1.65;
 	/* Subtle opentype improvements — lining numerals in tables, contextual
@@ -31,7 +31,7 @@
 	font-weight: 500;
 	line-height: 1.25;
 	letter-spacing: -0.01em;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--color-frame-text);
 }
 
 .h1 {
@@ -51,7 +51,7 @@
 	font-weight: 500;
 	letter-spacing: 0.06em;
 	text-transform: uppercase;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--color-frame-text-secondary);
 }
 
 /* Tighten coupling when a heading immediately follows another heading. */
@@ -80,7 +80,7 @@
 }
 
 .li::marker {
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--color-frame-text-secondary);
 }
 
 .li > .p {
@@ -97,7 +97,7 @@
 }
 
 .a {
-	color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	color: var(--color-frame-theme);
 	font-weight: 500;
 	text-decoration: underline;
 	text-decoration-thickness: 1px;
@@ -120,8 +120,8 @@
 .blockquote {
 	margin: 0 0 1em;
 	padding: 0.25em 0 0.25em 1em;
-	border-left: 2px solid var(--wpds-color-stroke-surface-neutral);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	border-left: 2px solid var(--color-frame-border);
+	color: var(--color-frame-text-secondary);
 }
 
 .blockquote > *:last-child {
@@ -131,16 +131,16 @@
 .hr {
 	margin: 2em 0;
 	border: 0;
-	border-top: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-top: 1px solid var(--color-frame-border);
 }
 
 .codeInline {
 	padding: 0.1em 0.35em;
 	border-radius: 4px;
-	background-color: var(--wpds-color-bg-surface-neutral-weak);
+	background-color: var(--color-frame-surface);
 	font-family: var(--wpds-typography-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
 	font-size: 0.875em;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--color-frame-text);
 	/* Discourage code from breaking awkwardly across lines. */
 	white-space: nowrap;
 }
@@ -149,7 +149,7 @@
 	margin: 0.75em 0 1.25em;
 	padding: 0.875em 1em;
 	border-radius: var(--wpds-border-radius-md, 8px);
-	background-color: var(--wpds-color-bg-surface-neutral-weak);
+	background-color: var(--color-frame-surface);
 	font-family: var(--wpds-typography-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
 	font-size: 0.85em;
 	line-height: 1.55;
@@ -168,7 +168,7 @@
 .tableWrap {
 	margin: 0 0 1em;
 	overflow-x: auto;
-	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border: 1px solid var(--color-frame-border);
 	border-radius: var(--wpds-border-radius-md, 8px);
 }
 
@@ -181,7 +181,7 @@
 .th,
 .td {
 	padding: 0.5em 0.75em;
-	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-bottom: 1px solid var(--color-frame-border);
 	text-align: left;
 	vertical-align: top;
 }
@@ -193,6 +193,6 @@
 
 .th {
 	font-weight: 500;
-	color: var(--wpds-color-fg-content-neutral);
-	background-color: var(--wpds-color-bg-surface-neutral-weak);
+	color: var(--color-frame-text);
+	background-color: var(--color-frame-surface);
 }

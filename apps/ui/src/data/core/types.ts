@@ -13,7 +13,7 @@ import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 export type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
 export type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
-export type { SessionEntry } from '@mariozechner/pi-coding-agent';
+export type { SessionEntry } from '@earendil-works/pi-coding-agent';
 export type {
 	StudioCustomEntry,
 	StudioCustomEntryType,

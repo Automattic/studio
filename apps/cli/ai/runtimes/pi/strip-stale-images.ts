@@ -1,4 +1,4 @@
-import type { Context, Message } from '@mariozechner/pi-ai';
+import type { Context, Message } from '@earendil-works/pi-ai';
 
 /**
  * Placeholder text inserted where an image block used to live. Kept short so

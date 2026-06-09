@@ -357,3 +357,169 @@ describe( 'CLI: studio pull-reprint db-apply phase', () => {
 		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
 	} );
 } );
+
+describe( 'CLI: studio pull-reprint confirmation before creating a site', () => {
+	const confirmMock = vi.fn();
+	let fakeHome: string;
+	let originalIsTty: boolean | undefined;
+
+	afterEach( () => {
+		vi.restoreAllMocks();
+		vi.resetModules();
+		confirmMock.mockReset();
+		if ( fakeHome ) {
+			fs.rmSync( fakeHome, { recursive: true, force: true } );
+		}
+		Object.defineProperty( process.stdin, 'isTTY', {
+			value: originalIsTty,
+			configurable: true,
+		} );
+	} );
+
+	/**
+	 * Loads a fresh `pull-reprint` module whose `PULLS_ROOT` (~/.studio/pulls)
+	 * and `STUDIO_SITES_ROOT` (~/Studio) are anchored to a throwaway home
+	 * directory, so the real `runCommand` never touches the developer's
+	 * machine.  `@inquirer/prompts` `confirm` is replaced with a spy so we
+	 * can drive the accept/decline branch deterministically.
+	 */
+	async function loadRunCommandWithFakeHome() {
+		fakeHome = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-pull-confirm-home-' ) );
+
+		vi.resetModules();
+		vi.doMock( 'os', async () => {
+			const actual = await vi.importActual< typeof import('os') >( 'os' );
+			return {
+				...actual,
+				default: { ...actual, homedir: () => fakeHome },
+				homedir: () => fakeHome,
+			};
+		} );
+		vi.doMock( '@inquirer/prompts', () => ( { confirm: confirmMock } ) );
+
+		const mod = await import( '../pull-reprint' );
+		return mod;
+	}
+
+	function setTty( isTty: boolean ) {
+		originalIsTty = process.stdin.isTTY;
+		Object.defineProperty( process.stdin, 'isTTY', {
+			value: isTty,
+			configurable: true,
+		} );
+	}
+
+	function pullsRoot() {
+		return path.join( fakeHome, '.studio', 'pulls' );
+	}
+
+	function studioSitesRoot() {
+		return path.join( fakeHome, 'Studio' );
+	}
+
+	it( 'declining the prompt creates no site dirs, removes the technical dir, and returns early', async () => {
+		setTty( true );
+		confirmMock.mockResolvedValue( false );
+		const { runCommand } = await loadRunCommandWithFakeHome();
+
+		const logSpy = vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+
+		await runCommand(
+			'https://example.com',
+			'hmac-secret',
+			'My Declined Site',
+			false,
+			false,
+			false
+		);
+
+		// The prompt was shown exactly once.
+		expect( confirmMock ).toHaveBeenCalledTimes( 1 );
+
+		// No site directory was created under ~/Studio.
+		expect( fs.existsSync( studioSitesRoot() ) ).toBe( false );
+
+		// The technical dir that getPullSessionMetadata just created (with its
+		// pull.json) was cleaned up so a later run won't treat it as resumable.
+		const pullsDirEntries = fs.existsSync( pullsRoot() ) ? fs.readdirSync( pullsRoot() ) : [];
+		expect( pullsDirEntries ).toEqual( [] );
+
+		// User saw a cancellation message.
+		expect( logSpy.mock.calls.flat().join( '\n' ) ).toContain( 'Cancelled.' );
+	} );
+
+	it( 'skips the prompt entirely when --yes is passed', async () => {
+		setTty( true );
+		confirmMock.mockResolvedValue( false );
+		const { runCommand } = await loadRunCommandWithFakeHome();
+
+		// Stop the pipeline right after the (skipped) prompt by failing the
+		// first reprint command; we only care that confirm() was never called.
+		const migrationClientMod = await import( 'cli/lib/pull/migration-client' );
+		vi.spyOn( migrationClientMod, 'runReprintCommandUntilComplete' ).mockRejectedValue(
+			new Error( 'stop after prompt gate' )
+		);
+		vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		vi.spyOn( console, 'error' ).mockImplementation( () => undefined );
+
+		// The pipeline runs past the prompt gate and then fails on the mocked
+		// reprint call — we only assert the prompt was never shown.
+		await expect(
+			runCommand( 'https://example.com', 'hmac-secret', 'My Yes Site', false, false, true )
+		).rejects.toThrow();
+
+		expect( confirmMock ).not.toHaveBeenCalled();
+	} );
+
+	it( 'does not prompt on a resumed pull (created === false)', async () => {
+		setTty( true );
+		confirmMock.mockResolvedValue( false );
+		const { runCommand, getPrivateDirNameForImportSession, normalizeSiteUrl } =
+			await loadRunCommandWithFakeHome();
+
+		// Seed a pre-existing pull.json so getPullSessionMetadata reports a
+		// resume (created === false) and the prompt gate is bypassed.
+		const normalizedUrl = normalizeSiteUrl( 'https://example.com' );
+		const pullKey = getPrivateDirNameForImportSession( normalizedUrl, 'My Resumed Site' );
+		const technicalSiteDirectory = path.join( pullsRoot(), pullKey );
+		const sitePath = path.join( studioSitesRoot(), 'My-Resumed-Site' );
+		fs.mkdirSync( technicalSiteDirectory, { recursive: true } );
+		fs.writeFileSync(
+			path.join( technicalSiteDirectory, 'pull.json' ),
+			JSON.stringify( {
+				version: 1,
+				pullKey,
+				normalizedUrl,
+				siteName: 'My Resumed Site',
+				sitePath,
+				technicalSiteDirectory,
+				rawDirectory: path.join( technicalSiteDirectory, 'raw' ),
+				stateDirectory: path.join( technicalSiteDirectory, 'state' ),
+				runtimeDirectory: path.join( technicalSiteDirectory, 'runtime' ),
+				runtimeBlueprintPath: path.join( technicalSiteDirectory, 'runtime', 'blueprint.json' ),
+				stage: 'initialized',
+			} )
+		);
+
+		// Fail the first reprint call so the resume stops quickly after the
+		// (skipped) prompt gate.
+		const migrationClientMod = await import( 'cli/lib/pull/migration-client' );
+		vi.spyOn( migrationClientMod, 'runReprintCommandUntilComplete' ).mockRejectedValue(
+			new Error( 'stop after prompt gate' )
+		);
+		vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		vi.spyOn( console, 'error' ).mockImplementation( () => undefined );
+
+		// The resume runs past the (skipped) prompt gate and then fails on the
+		// mocked reprint call — we only assert the prompt was never shown and
+		// the pre-existing technical dir survived.
+		await expect(
+			runCommand( 'https://example.com', 'hmac-secret', 'My Resumed Site', false, false, false )
+		).rejects.toThrow();
+
+		expect( confirmMock ).not.toHaveBeenCalled();
+
+		// The pre-existing technical dir must NOT be deleted by the prompt gate.
+		expect( fs.existsSync( technicalSiteDirectory ) ).toBe( true );
+	} );
+} );

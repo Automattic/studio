@@ -16,6 +16,7 @@ Use this skill before writing or editing page content, post content, templates, 
 - For forms or features core blocks do not cleanly provide, load the `plugin-recommendations` skill and use editable plugin blocks.
 - No decorative HTML comments such as `<!-- Hero Section -->` or `<!-- Features -->`. Only WordPress block delimiter comments are allowed.
 - No custom class names on inner DOM elements. Put custom classes only on the outermost block wrapper via the block `className` attribute.
+- Style buttons via `.wp-element-button` — the inner element WordPress applies the button's padding, background, and border to (shared by the button block and buttons from other blocks). A custom class on a button block sits on the `.wp-block-button` wrapper, so descend to `.your-class .wp-element-button`; never style the wrapper directly, or its padding stacks on top of the default and the button doubles in size.
 - No inline `style` attributes or block `style` attributes for styling. Use `className` plus the theme's `style.css`.
 - Use `core/spacer` for empty spacing elements, not empty `core/group` blocks.
 - No emojis anywhere in generated content.
@@ -90,4 +91,3 @@ Do not use `--post_content-file=<host path>`. `wp_cli` runs inside the PHP-WASM 
 
 - Run `validate_html_blocks` after every write or edit that creates or changes block content. If it reports invalid `core/html` blocks, rewrite only those blocks as editable core or plugin blocks, then call `validate_html_blocks` again before editor validation.
 - Run `validate_and_fix_blocks` after `validate_html_blocks` passes. Call it with `filePath` whenever the content lives in a file; safe editor serialization fixes are applied directly to that file. If it says an auto-fix was applied, do not manually replace markup or call validation again unless you intentionally change block markup afterward. Use the diff only to inspect structural changes for CSS impact. Classes added or removed by the validator can affect layout and styling.
-- After fixing invalid blocks, take desktop and mobile screenshots and check that layout, spacing, and full-width sections still render as intended.

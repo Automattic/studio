@@ -89,7 +89,14 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 			console.table( table.toString() );
 		} else {
 			const logData = Object.fromEntries(
-				siteData.map( ( { jsonKey, value } ) => [ jsonKey, value ] )
+				siteData.flatMap( ( { jsonKey, value } ) =>
+					jsonKey === 'status'
+						? [
+								[ jsonKey, value ],
+								[ 'isOnline', isOnline ],
+						  ]
+						: [ [ jsonKey, value ] ]
+				)
 			);
 
 			console.log( JSON.stringify( logData, null, 2 ) );

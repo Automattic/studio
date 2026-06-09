@@ -32,6 +32,7 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 			<div className={ styles.root }>
 				<aside
 					className={ clsx( styles.sidebar, collapsed && styles.sidebarCollapsed ) }
+					data-testid="sidebar-scroll-container"
 					style={ sidebarStyle }
 				>
 					<SidebarHeader onToggleSidebar={ () => setCollapsed( true ) } />

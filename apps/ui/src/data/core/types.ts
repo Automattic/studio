@@ -125,8 +125,8 @@ export interface Connector {
 	// picked a pinned version — undefined means "keep auto-updating".
 	updateSite( site: SiteDetails, wpVersion?: string ): Promise< void >;
 	// Refreshes the cached WordPress Site Icon path after a site-level icon
-	// change. The renderer receives image bytes through getSites().
-	refreshSiteIcon( siteId: string ): Promise< void >;
+	// change and returns the image data for that single site.
+	refreshSiteIcon( siteId: string ): Promise< SiteDetails[ 'siteIcon' ] >;
 	// Xdebug is exclusive across sites; returns the one site currently using
 	// it (or null) so the settings form can block a conflicting toggle.
 	getXdebugEnabledSite(): Promise< SiteDetails | null >;

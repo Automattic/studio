@@ -378,7 +378,7 @@ export function createIpcConnector(): Connector {
 		},
 
 		async refreshSiteIcon( siteId ) {
-			await ipcApi.loadSiteIcon( siteId );
+			return ( await ipcApi.loadSiteIcon( siteId ) ) as SiteDetails[ 'siteIcon' ];
 		},
 
 		async getXdebugEnabledSite() {

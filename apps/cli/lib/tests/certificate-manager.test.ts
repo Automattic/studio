@@ -46,6 +46,7 @@ const setPlatform = ( platform: NodeJS.Platform ) => {
 describe( 'certificate-manager (Linux)', () => {
 	const originalPlatform = process.platform;
 	let existsSpy: ReturnType< typeof vi.spyOn >;
+	let consoleErrorSpy: ReturnType< typeof vi.spyOn >;
 
 	beforeEach( () => {
 		mockedIsCATrustedOnLinux.mockReset();
@@ -61,10 +62,12 @@ describe( 'certificate-manager (Linux)', () => {
 		// install-browser-after-trust scenario.
 		mockedIsCAImportedInUserNssDbsLinux.mockResolvedValue( true );
 		existsSpy = vi.spyOn( fs, 'existsSync' ).mockReturnValue( true );
+		consoleErrorSpy = vi.spyOn( console, 'error' ).mockImplementation( () => {} );
 	} );
 
 	afterEach( () => {
 		existsSpy.mockRestore();
+		consoleErrorSpy.mockRestore();
 		setPlatform( originalPlatform );
 	} );
 
@@ -111,8 +114,11 @@ describe( 'certificate-manager (Linux)', () => {
 	} );
 
 	describe( 'trustRootCA', () => {
-		it( 'invokes sudo.exec with the install command on Linux when not yet trusted', async () => {
+		beforeEach( () => {
 			setPlatform( 'linux' );
+		} );
+
+		it( 'invokes sudo.exec with the install command on Linux when not yet trusted', async () => {
 			mockedIsCATrustedOnLinux.mockResolvedValue( false );
 			mockedIsCAImportedInUserNssDbsLinux.mockResolvedValue( false );
 			stubSudoExec();
@@ -130,7 +136,6 @@ describe( 'certificate-manager (Linux)', () => {
 		} );
 
 		it( 'imports the CA into per-user NSS DBs after the system install succeeds', async () => {
-			setPlatform( 'linux' );
 			mockedIsCATrustedOnLinux.mockResolvedValue( false );
 			mockedIsCAImportedInUserNssDbsLinux.mockResolvedValue( false );
 			stubSudoExec();
@@ -147,7 +152,6 @@ describe( 'certificate-manager (Linux)', () => {
 		} );
 
 		it( 'does not import into NSS DBs when the system install fails', async () => {
-			setPlatform( 'linux' );
 			mockedIsCATrustedOnLinux.mockResolvedValue( false );
 			mockedIsCAImportedInUserNssDbsLinux.mockResolvedValue( false );
 			stubSudoExec( new Error( 'pkexec dismissed' ) );
@@ -158,7 +162,6 @@ describe( 'certificate-manager (Linux)', () => {
 		} );
 
 		it( 'rejects when sudo.exec reports an error', async () => {
-			setPlatform( 'linux' );
 			mockedIsCATrustedOnLinux.mockResolvedValue( false );
 			mockedIsCAImportedInUserNssDbsLinux.mockResolvedValue( false );
 			stubSudoExec( new Error( 'user dismissed pkexec prompt' ) );
@@ -167,7 +170,6 @@ describe( 'certificate-manager (Linux)', () => {
 		} );
 
 		it( 'short-circuits when the CA is fully trusted (system bundle + every NSS DB)', async () => {
-			setPlatform( 'linux' );
 			mockedIsCATrustedOnLinux.mockResolvedValue( true );
 			mockedIsCAImportedInUserNssDbsLinux.mockResolvedValue( true );
 
@@ -181,7 +183,6 @@ describe( 'certificate-manager (Linux)', () => {
 			// Snap-Chromium. System bundle is already populated, so polkit
 			// shouldn't reprompt — but NSS DBs need to be re-synced because the
 			// new browser's sandboxed DB started empty.
-			setPlatform( 'linux' );
 			mockedIsCATrustedOnLinux.mockResolvedValue( true );
 			mockedIsCAImportedInUserNssDbsLinux.mockResolvedValue( false );
 

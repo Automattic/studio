@@ -8,9 +8,50 @@ import {
 	getToolDisplayName,
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
+import {
+	blockDefault,
+	brush,
+	capturePhoto,
+	category,
+	chartBar,
+	check,
+	cloud,
+	cloudDownload,
+	cloudUpload,
+	code,
+	create,
+	download,
+	file,
+	globe,
+	help,
+	Icon,
+	info,
+	link,
+	list,
+	media,
+	navigation,
+	offline,
+	pencil,
+	pending,
+	people,
+	plugins,
+	plusCircle,
+	post,
+	search,
+	seen,
+	settings,
+	share,
+	styles as stylesIcon,
+	tag,
+	tool,
+	trash,
+	trendingUp,
+	update,
+	upload,
+} from '@wordpress/icons';
 import { clsx } from 'clsx';
-import { useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState, type ReactElement } from 'react';
 import { Markdown } from '@/components/markdown';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
@@ -37,6 +78,7 @@ type RenderItem =
 			key: string;
 			question: string;
 			options: Array< { label: string; description: string } >;
+			pickedLabel?: string;
 	  }
 	| { kind: 'interrupted-marker'; key: string };
 
@@ -71,7 +113,7 @@ interface PiToolResultLike {
 	isError?: boolean;
 }
 
-const HIDDEN_TOOL_ROWS = new Set( [ 'studio_present' ] );
+const HIDDEN_TOOL_ROWS = new Set( [ 'studio_present', 'AskUserQuestion' ] );
 
 interface UserImageAttachment extends StudioChatImageAttachment {
 	src?: string;
@@ -142,6 +184,34 @@ function buildUserImageAttachments(
 		} );
 	}
 	return attachments;
+}
+
+function findAskUserAnswerAfter(
+	entries: SessionEntry[],
+	entryIndex: number,
+	options: Array< { label: string } >
+): string | undefined {
+	const optionLabels = new Set( options.map( ( option ) => option.label ) );
+	for ( let index = entryIndex + 1; index < entries.length; index += 1 ) {
+		const entry = entries[ index ];
+		if (
+			isStudioCustomEntryOfType( entry, 'studio.agent_question' ) ||
+			isStudioCustomEntryOfType( entry, 'studio.turn_closed' )
+		) {
+			return undefined;
+		}
+		if ( ! isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
+			continue;
+		}
+		const data = ( entry as StudioCustomEntry< 'studio.user_prompt' > ).data;
+		if ( data?.source === 'ask_user' && optionLabels.has( data.text ) ) {
+			return data.text;
+		}
+		if ( data?.source === 'prompt' ) {
+			return undefined;
+		}
+	}
+	return undefined;
 }
 
 export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
@@ -220,6 +290,8 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 				key: `${ entryIndex }:question`,
 				question: data.question,
 				options: data.options,
+				pickedLabel:
+					data.selectedLabel ?? findAskUserAnswerAfter( entries, entryIndex, data.options ),
 			} );
 			return;
 		}
@@ -288,7 +360,515 @@ function AssistantText( { text }: { text: string } ) {
 	return <Markdown>{ text }</Markdown>;
 }
 
-const TOOL_RESULT_PREVIEW_MAX_LINES = 12;
+const TOOL_DETAIL_MAX_LENGTH = 96;
+const TOOL_DETAILS_ANIMATION_MS = 140;
+
+interface ClassicToolDisplay {
+	label: string;
+	detail: string;
+	inputText: string;
+}
+
+function getInputString( input: Record< string, unknown > | undefined, key: string ): string {
+	const value = input?.[ key ];
+	return typeof value === 'string' ? value.trim() : '';
+}
+
+function truncateToolDetail( value: string, maxLength = TOOL_DETAIL_MAX_LENGTH ): string {
+	if ( value.length <= maxLength ) {
+		return value;
+	}
+	return value.slice( 0, maxLength - 1 ).trimEnd() + '…';
+}
+
+function shortPath( value: string ): string {
+	return value.split( '/' ).filter( Boolean ).slice( -2 ).join( '/' ) || value;
+}
+
+function splitCommandArgs( command: string ): string[] {
+	return (
+		command
+			.match( /(?:[^\s"']+|"[^"]*"|'[^']*')+/g )
+			?.map( ( arg ) => arg.replace( /^(['"])(.*)\1$/, '$2' ) )
+			.filter( Boolean ) ?? []
+	);
+}
+
+function getWpCliOptionValue( args: string[], option: string ): string | undefined {
+	const inlinePrefix = `${ option }=`;
+	for ( let index = 0; index < args.length; index += 1 ) {
+		const arg = args[ index ];
+		if ( arg.startsWith( inlinePrefix ) ) {
+			return arg.slice( inlinePrefix.length );
+		}
+		if ( arg === option ) {
+			return args[ index + 1 ];
+		}
+	}
+	return undefined;
+}
+
+function getPostTypeName( postType: string | undefined, plural: boolean ): string {
+	switch ( postType ) {
+		case 'page':
+			return plural ? __( 'pages' ) : __( 'page' );
+		case 'attachment':
+			return plural ? __( 'media items' ) : __( 'media item' );
+		case 'product':
+			return plural ? __( 'products' ) : __( 'product' );
+		case 'post':
+		case undefined:
+		case '':
+			return plural ? __( 'posts' ) : __( 'post' );
+		default:
+			return postType.replace( /[-_]+/g, ' ' );
+	}
+}
+
+function getWpCliPostLabel( args: string[] ): string {
+	const action = args[ 1 ];
+	const postType = getWpCliOptionValue( args, '--post_type' );
+	const postStatus = getWpCliOptionValue( args, '--post_status' );
+	const singularPostType = getPostTypeName( postType, false );
+	const pluralPostType = getPostTypeName( postType, true );
+
+	switch ( action ) {
+		case 'list':
+			if ( postStatus === 'publish' ) {
+				return sprintf(
+					/* translators: %s: plural post type, such as posts or pages. */
+					__( 'List published %s' ),
+					pluralPostType
+				);
+			}
+			return sprintf(
+				/* translators: %s: plural post type, such as posts or pages. */
+				__( 'List %s' ),
+				pluralPostType
+			);
+		case 'get':
+			return sprintf(
+				/* translators: %s: post type, such as post or page. */
+				__( 'Read %s' ),
+				singularPostType
+			);
+		case 'create':
+			return sprintf(
+				/* translators: %s: post type, such as post or page. */
+				__( 'Create %s' ),
+				singularPostType
+			);
+		case 'update':
+			return sprintf(
+				/* translators: %s: post type, such as post or page. */
+				__( 'Update %s' ),
+				singularPostType
+			);
+		case 'delete':
+			return sprintf(
+				/* translators: %s: post type, such as post or page. */
+				__( 'Delete %s' ),
+				singularPostType
+			);
+		default:
+			return __( 'Manage content' );
+	}
+}
+
+function getWpCliCommandLabel( command: string ): string {
+	const args = splitCommandArgs( command );
+	const [ entity, action, target ] = args;
+
+	switch ( entity ) {
+		case 'theme':
+			switch ( action ) {
+				case 'list':
+					return __( 'List themes' );
+				case 'activate':
+					return target ? sprintf( __( 'Activate theme %s' ), target ) : __( 'Activate theme' );
+				case 'install':
+					return target ? sprintf( __( 'Install theme %s' ), target ) : __( 'Install theme' );
+				case 'delete':
+					return target ? sprintf( __( 'Delete theme %s' ), target ) : __( 'Delete theme' );
+				default:
+					return __( 'Manage themes' );
+			}
+		case 'plugin':
+			switch ( action ) {
+				case 'list':
+					return __( 'List plugins' );
+				case 'activate':
+					return target ? sprintf( __( 'Activate plugin %s' ), target ) : __( 'Activate plugin' );
+				case 'deactivate':
+					return target
+						? sprintf( __( 'Deactivate plugin %s' ), target )
+						: __( 'Deactivate plugin' );
+				case 'install':
+					return target ? sprintf( __( 'Install plugin %s' ), target ) : __( 'Install plugin' );
+				case 'delete':
+					return target ? sprintf( __( 'Delete plugin %s' ), target ) : __( 'Delete plugin' );
+				case 'update':
+					return target ? sprintf( __( 'Update plugin %s' ), target ) : __( 'Update plugin' );
+				default:
+					return __( 'Manage plugins' );
+			}
+		case 'post':
+			return getWpCliPostLabel( args );
+		case 'option':
+			if ( action === 'get' ) {
+				return target === 'blogname' ? __( 'Read site title' ) : __( 'Read site option' );
+			}
+			if ( action === 'update' ) {
+				return target === 'blogname' ? __( 'Update site title' ) : __( 'Update site option' );
+			}
+			return __( 'Manage site options' );
+		case 'user':
+			switch ( action ) {
+				case 'list':
+					return __( 'List users' );
+				case 'create':
+					return __( 'Create user' );
+				case 'update':
+					return __( 'Update user' );
+				case 'delete':
+					return __( 'Delete user' );
+				default:
+					return __( 'Manage users' );
+			}
+		case 'media':
+			return action === 'import' ? __( 'Import media' ) : __( 'Manage media' );
+		case 'menu':
+			return action === 'list' ? __( 'List menus' ) : __( 'Manage menus' );
+		case 'term':
+			return action === 'list' ? __( 'List terms' ) : __( 'Manage terms' );
+		case 'cache':
+			return action === 'flush' ? __( 'Flush cache' ) : __( 'Manage cache' );
+		case 'rewrite':
+			return action === 'flush' ? __( 'Flush permalinks' ) : __( 'Manage permalinks' );
+		case 'eval':
+		case 'eval-file':
+			return __( 'Run WordPress code' );
+		default:
+			return __( 'Run WordPress command' );
+	}
+}
+
+function getAskUserDetail( input: Record< string, unknown > | undefined ): string {
+	const questions = input?.questions;
+	if ( ! Array.isArray( questions ) || questions.length === 0 ) {
+		return '';
+	}
+	const firstQuestion = questions[ 0 ];
+	if (
+		firstQuestion &&
+		typeof firstQuestion === 'object' &&
+		'question' in firstQuestion &&
+		typeof firstQuestion.question === 'string'
+	) {
+		return truncateToolDetail( firstQuestion.question );
+	}
+	return '';
+}
+
+function stringifyToolInput( input: Record< string, unknown > ): string {
+	try {
+		return JSON.stringify( input, null, 2 );
+	} catch {
+		return String( input );
+	}
+}
+
+function getClassicToolInputText(
+	name: string,
+	input: Record< string, unknown > | undefined
+): string {
+	if ( ! input || Object.keys( input ).length === 0 ) {
+		return '';
+	}
+
+	if ( name === 'wp_cli' ) {
+		const command = getInputString( input, 'command' );
+		if ( ! command ) {
+			return '';
+		}
+		return `wp ${ command }`;
+	}
+
+	if ( name === 'Bash' ) {
+		const command = getInputString( input, 'command' );
+		return command;
+	}
+
+	return stringifyToolInput( input );
+}
+
+function getClassicToolDisplay(
+	name: string,
+	input: Record< string, unknown > | undefined
+): ClassicToolDisplay {
+	const url = getInputString( input, 'url' );
+	const host = getInputString( input, 'host' );
+	const command = getInputString( input, 'command' );
+	const filePath = getInputString( input, 'filePath' );
+	const genericDetail = getToolDetail( name, input );
+
+	const display: ClassicToolDisplay = {
+		label: getToolDisplayName( name ),
+		detail: genericDetail,
+		inputText: getClassicToolInputText( name, input ),
+	};
+
+	switch ( name ) {
+		case 'site_create':
+			display.label = __( 'Create site' );
+			display.detail = getInputString( input, 'name' );
+			break;
+		case 'site_list':
+			display.label = __( 'List sites' );
+			display.detail = '';
+			break;
+		case 'site_info':
+			display.label = __( 'Inspect site' );
+			display.detail = '';
+			break;
+		case 'site_start':
+			display.label = __( 'Start site' );
+			display.detail = '';
+			break;
+		case 'site_stop':
+			display.label = __( 'Stop site' );
+			display.detail = '';
+			break;
+		case 'site_delete':
+			display.label = __( 'Delete site' );
+			display.detail = '';
+			break;
+		case 'site_push':
+			display.label = __( 'Push site' );
+			display.detail = '';
+			break;
+		case 'site_pull':
+			display.label = __( 'Pull site' );
+			display.detail = '';
+			break;
+		case 'site_import':
+			display.label = __( 'Import site' );
+			display.detail = '';
+			break;
+		case 'site_export':
+			display.label = __( 'Export site' );
+			display.detail = '';
+			break;
+		case 'site_connected_remote_sites':
+			display.label = __( 'List connected remote sites' );
+			display.detail = '';
+			break;
+		case 'preview_create':
+			display.label = __( 'Create preview' );
+			display.detail = '';
+			break;
+		case 'preview_list':
+			display.label = __( 'List previews' );
+			display.detail = '';
+			break;
+		case 'preview_update':
+			display.label = __( 'Update preview' );
+			display.detail = host;
+			break;
+		case 'preview_delete':
+			display.label = __( 'Delete preview' );
+			display.detail = host;
+			break;
+		case 'wp_cli':
+			display.label = command ? getWpCliCommandLabel( command ) : __( 'Run WordPress command' );
+			display.detail = '';
+			break;
+		case 'open_annotation_browser':
+			display.label = __( 'Open annotation browser' );
+			display.detail = '';
+			break;
+		case 'wait_for_annotations':
+			display.label = __( 'Wait for annotations' );
+			display.detail = '';
+			break;
+		case 'AskUserQuestion':
+			display.label = __( 'Ask user' );
+			display.detail = getAskUserDetail( input );
+			break;
+		case 'take_screenshot':
+			display.label = __( 'Capture screenshot' );
+			display.detail = '';
+			break;
+		case 'share_screenshot':
+			display.label = __( 'Share screenshot' );
+			display.detail = url;
+			break;
+		case 'validate_html_blocks':
+			display.label = __( 'Check block HTML' );
+			display.detail = filePath ? shortPath( filePath ) : __( 'inline content' );
+			break;
+		case 'validate_and_fix_blocks':
+			display.label = __( 'Fix block HTML' );
+			display.detail = filePath ? shortPath( filePath ) : __( 'inline content' );
+			break;
+		case 'scaffold_theme':
+			display.label = __( 'Create theme' );
+			display.detail = getInputString( input, 'name' );
+			break;
+		case 'install_taxonomy_scripts':
+			display.label = __( 'Install taxonomy tools' );
+			display.detail = '';
+			break;
+		case 'need_for_speed':
+			display.label = __( 'Audit performance' );
+			display.detail = '';
+			break;
+		case 'rank_me_up':
+			display.label = __( 'Audit SEO' );
+			display.detail = '';
+			break;
+		case 'wpcom_request':
+			display.label = __( 'Contact WordPress.com' );
+			display.detail = genericDetail;
+			break;
+		case 'Read':
+		case 'Write':
+		case 'Edit':
+			display.detail = genericDetail ? shortPath( genericDetail ) : '';
+			break;
+		case 'Bash':
+			display.label = __( 'Run command' );
+			display.detail = command ? truncateToolDetail( command ) : '';
+			break;
+	}
+
+	display.detail = truncateToolDetail( display.detail );
+	return display;
+}
+
+function getWpCliToolIcon( command: string ): ReactElement {
+	const [ entity ] = splitCommandArgs( command );
+
+	switch ( entity ) {
+		case 'theme':
+			return stylesIcon;
+		case 'plugin':
+			return plugins;
+		case 'post':
+			return post;
+		case 'option':
+			return settings;
+		case 'user':
+			return people;
+		case 'media':
+			return media;
+		case 'menu':
+			return navigation;
+		case 'term':
+			return tag;
+		case 'cache':
+			return update;
+		case 'rewrite':
+			return link;
+		case 'eval':
+		case 'eval-file':
+			return code;
+		default:
+			return code;
+	}
+}
+
+function getToolIcon(
+	name: string,
+	input: Record< string, unknown > | undefined
+): ReactElement | null {
+	switch ( name ) {
+		case 'site_create':
+			return plusCircle;
+		case 'site_list':
+			return list;
+		case 'site_info':
+			return info;
+		case 'site_start':
+			return globe;
+		case 'site_stop':
+			return offline;
+		case 'site_delete':
+			return trash;
+		case 'site_push':
+			return cloudUpload;
+		case 'site_pull':
+			return cloudDownload;
+		case 'site_import':
+			return upload;
+		case 'site_export':
+			return download;
+		case 'site_connected_remote_sites':
+			return link;
+		case 'preview_create':
+			return seen;
+		case 'preview_list':
+			return list;
+		case 'preview_update':
+			return update;
+		case 'preview_delete':
+			return trash;
+		case 'wp_cli': {
+			const command = getInputString( input, 'command' );
+			return command ? getWpCliToolIcon( command ) : code;
+		}
+		case 'open_annotation_browser':
+			return pencil;
+		case 'wait_for_annotations':
+			return pending;
+		case 'AskUserQuestion':
+			return help;
+		case 'take_screenshot':
+		case 'share_screenshot':
+			return name === 'take_screenshot' ? capturePhoto : share;
+		case 'validate_html_blocks':
+			return check;
+		case 'validate_and_fix_blocks':
+			return tool;
+		case 'scaffold_theme':
+			return brush;
+		case 'install_taxonomy_scripts':
+			return category;
+		case 'need_for_speed':
+			return chartBar;
+		case 'rank_me_up':
+			return trendingUp;
+		case 'wpcom_request':
+			return cloud;
+		case 'Read':
+			return file;
+		case 'Write':
+			return create;
+		case 'Edit':
+			return pencil;
+		case 'Bash':
+			return code;
+		case 'Grep':
+		case 'Glob':
+			return search;
+		case 'Ls':
+			return list;
+		case 'Skill':
+			return blockDefault;
+		case 'Task':
+			return tool;
+		case 'TodoWrite':
+			return check;
+		default:
+			return null;
+	}
+}
+
+function ToolIcon( { icon }: { icon: ReactElement | null } ) {
+	return (
+		<Icon icon={ icon ?? tool } size={ 18 } className={ styles.toolIcon } aria-hidden="true" />
+	);
+}
 
 function ToolUseRow( {
 	name,
@@ -299,38 +879,84 @@ function ToolUseRow( {
 	input?: Record< string, unknown >;
 	result?: NormalizedToolResult;
 } ) {
-	const label = getToolDisplayName( name );
-	const detail = getToolDetail( name, input );
-	const [ expanded, setExpanded ] = useState( false );
+	const display = getClassicToolDisplay( name, input );
+	const icon = getToolIcon( name, input );
+	const [ detailsState, setDetailsState ] = useState< 'closed' | 'opening' | 'open' | 'closing' >(
+		'closed'
+	);
+	const detailsId = useId();
 	const resultText = result?.text?.trim() ?? '';
 	const hasOutput = resultText.length > 0;
-	const isLong = resultText.split( '\n' ).length > TOOL_RESULT_PREVIEW_MAX_LINES;
+	const hasInput = display.inputText.length > 0;
+	const hasExpandableDetails = hasOutput || hasInput;
+	const isDetailsRendered = detailsState !== 'closed';
+	const isDetailsExpanded = detailsState === 'opening' || detailsState === 'open';
+
+	useEffect( () => {
+		if ( detailsState !== 'opening' ) {
+			return;
+		}
+		const frame = requestAnimationFrame( () => setDetailsState( 'open' ) );
+		return () => cancelAnimationFrame( frame );
+	}, [ detailsState ] );
+
+	useEffect( () => {
+		if ( detailsState !== 'closing' ) {
+			return;
+		}
+		const timeout = window.setTimeout(
+			() => setDetailsState( 'closed' ),
+			TOOL_DETAILS_ANIMATION_MS
+		);
+		return () => window.clearTimeout( timeout );
+	}, [ detailsState ] );
+
+	const rowContent = (
+		<>
+			<ToolIcon icon={ icon } />
+			<span className={ styles.toolLabel }>{ display.label }</span>
+			{ display.detail ? <span className={ styles.toolDetail }>{ display.detail }</span> : null }
+		</>
+	);
 
 	return (
 		<div className={ styles.toolBlock }>
-			<div className={ styles.toolRow }>
-				<span className={ styles.toolLabel }>{ label }</span>
-				{ detail ? <span className={ styles.toolDetail }>{ detail }</span> : null }
-			</div>
-			{ hasOutput ? (
-				<div className={ styles.toolOutputWrap }>
-					<pre
-						className={ clsx(
-							styles.toolOutput,
-							result?.isError && styles.toolOutputError,
-							! expanded && isLong && styles.toolOutputCollapsed
-						) }
-					>
-						{ resultText }
-					</pre>
-					{ isLong ? (
-						<button
-							type="button"
-							className={ styles.toolOutputToggle }
-							onClick={ () => setExpanded( ( prev ) => ! prev ) }
-						>
-							{ expanded ? __( 'Show less' ) : __( 'Show more' ) }
-						</button>
+			{ hasExpandableDetails ? (
+				<button
+					type="button"
+					className={ clsx( styles.toolRow, styles.toolRowButton ) }
+					aria-expanded={ isDetailsExpanded }
+					aria-controls={ detailsId }
+					onClick={ () =>
+						setDetailsState( ( state ) =>
+							state === 'open' || state === 'opening' ? 'closing' : 'opening'
+						)
+					}
+					title={ isDetailsExpanded ? __( 'Hide tool details' ) : __( 'Show tool details' ) }
+				>
+					{ rowContent }
+				</button>
+			) : (
+				<div className={ styles.toolRow }>{ rowContent }</div>
+			) }
+			{ hasExpandableDetails && isDetailsRendered ? (
+				<div
+					id={ detailsId }
+					className={ styles.toolOutputWrap }
+					data-state={ detailsState === 'open' ? 'open' : 'closed' }
+					aria-hidden={ ! isDetailsExpanded }
+					onTransitionEnd={ ( event ) => {
+						if ( event.target !== event.currentTarget || detailsState !== 'closing' ) {
+							return;
+						}
+						setDetailsState( 'closed' );
+					} }
+				>
+					{ hasInput ? <pre className={ styles.toolInput }>{ display.inputText }</pre> : null }
+					{ hasOutput ? (
+						<pre className={ clsx( styles.toolOutput, result?.isError && styles.toolOutputError ) }>
+							{ resultText }
+						</pre>
 					) : null }
 				</div>
 			) : null }
@@ -351,6 +977,8 @@ function AgentQuestion( {
 	pickedLabel: string | undefined;
 	onAnswer: ( label: string ) => void;
 } ) {
+	const optionsId = useId();
+
 	return (
 		<div className={ styles.question }>
 			<p className={ styles.questionText }>{ question }</p>
@@ -358,16 +986,40 @@ function AgentQuestion( {
 				<ul className={ styles.questionOptions }>
 					{ options.map( ( option, index ) => {
 						const picked = option.label === pickedLabel;
+						const descriptionId = option.description
+							? `${ optionsId }-option-${ index }-description`
+							: undefined;
 						return (
-							<li key={ index }>
+							<li key={ index } className={ styles.questionOptionItem }>
 								<button
 									type="button"
 									className={ clsx( styles.questionOption, picked && styles.questionOptionPicked ) }
 									disabled={ ! isInteractive }
 									onClick={ () => onAnswer( option.label ) }
-									title={ option.description }
+									aria-label={ option.label }
+									aria-describedby={ descriptionId }
+									aria-pressed={ picked }
 								>
-									{ option.label }
+									<span className={ styles.questionOptionNumber } aria-hidden="true">
+										{ picked ? (
+											<Icon
+												icon={ check }
+												size={ 14 }
+												className={ styles.questionOptionCheck }
+												aria-hidden="true"
+											/>
+										) : (
+											index + 1
+										) }
+									</span>
+									<span className={ styles.questionOptionCopy }>
+										<span className={ styles.questionOptionLabel }>{ option.label }</span>
+										{ option.description ? (
+											<span id={ descriptionId } className={ styles.questionOptionDescription }>
+												{ option.description }
+											</span>
+										) : null }
+									</span>
 								</button>
 							</li>
 						);
@@ -426,7 +1078,7 @@ export function Conversation( {
 								question={ item.question }
 								options={ item.options }
 								isInteractive={ pendingQuestions.has( item.question ) }
-								pickedLabel={ pendingAnswers[ item.question ] }
+								pickedLabel={ pendingAnswers[ item.question ] ?? item.pickedLabel }
 								onAnswer={ ( label ) => onAnswerQuestion( item.question, label ) }
 							/>
 						);

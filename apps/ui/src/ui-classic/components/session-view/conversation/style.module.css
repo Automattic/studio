@@ -84,81 +84,177 @@
 }
 
 .toolRow {
+	--tool-trigger-color: color-mix(
+		in srgb,
+		var(--wpds-color-fg-content-neutral-weak) 60%,
+		transparent
+	);
+	--tool-icon-color: var(--tool-trigger-color);
+
+	position: relative;
 	display: flex;
 	align-items: baseline;
-	gap: var(--wpds-dimension-padding-sm);
-	font-family: var(--wpds-typography-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-	font-size: var(--wpds-typography-font-size-sm);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	gap: var(--wpds-dimension-padding-xs);
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: 1.55;
+	color: var(--tool-trigger-color);
 	padding: 2px 0;
 	min-width: 0;
 }
 
+.toolRowButton {
+	--wp-ui-button-background-color: transparent;
+	--wp-ui-button-border-color: transparent;
+
+	appearance: none;
+	align-self: flex-start;
+	max-width: calc(100% + 16px);
+	margin: -4px -8px;
+	padding: 4px 8px;
+	border: 0;
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	background: transparent;
+	font-family: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+
+.toolRowButton:hover,
+.toolRowButton:focus-visible {
+	--tool-trigger-color: var(--wpds-color-fg-interactive-neutral-active);
+	--tool-icon-color: var(--tool-trigger-color);
+
+	background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
+}
+
+.toolRowButton:focus:not(:focus-visible) {
+	outline: none;
+	background-color: transparent;
+}
+
+.toolRowButton:hover:focus:not(:focus-visible) {
+	--tool-trigger-color: var(--wpds-color-fg-interactive-neutral-active);
+	--tool-icon-color: var(--tool-trigger-color);
+
+	background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
+}
+
+.toolRowButton:hover .toolLabel,
+.toolRowButton:hover .toolDetail,
+.toolRowButton:focus-visible .toolLabel,
+.toolRowButton:focus-visible .toolDetail {
+	color: var(--wpds-color-fg-interactive-neutral-active);
+}
+
+.toolRowButton:focus-visible {
+	outline: 2px solid var(--wpds-color-stroke-interactive-focus, #2563eb);
+	outline-offset: 2px;
+}
+
 .toolOutputWrap {
-	margin-left: var(--wpds-dimension-padding-md);
+	margin: 0 0 0 -8px;
+	padding: 0 var(--wpds-dimension-padding-lg);
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
+	gap: var(--wpds-dimension-padding-xs);
+	max-height: 0;
+	overflow: hidden;
+	box-sizing: border-box;
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	background-color: var(--wpds-color-bg-surface-neutral-weak);
+	opacity: 0;
+	transform: translateY(-2px);
+	transition:
+		max-height 140ms ease,
+		opacity 110ms ease,
+		transform 140ms ease,
+		margin-top 140ms ease,
+		padding-top 140ms ease,
+		padding-bottom 140ms ease;
+}
+
+.toolOutputWrap[data-state='open'] {
+	margin-top: 8px;
+	padding-top: var(--wpds-dimension-padding-lg);
+	padding-bottom: var(--wpds-dimension-padding-lg);
+	max-height: min(320px, 45vh);
+	overflow: auto;
+	opacity: 1;
+	transform: translateY(0);
+}
+
+.toolInput {
+	margin: 0;
+	padding: 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-family: var(--wpds-typography-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: 1.5;
+	white-space: pre-wrap;
+	word-wrap: break-word;
+	overflow: visible;
 }
 
 .toolOutput {
 	margin: 0;
-	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
-	border-left: 2px solid var(--wpds-color-stroke-surface-neutral);
+	padding: 0;
 	color: var(--wpds-color-fg-content-neutral);
 	font-family: var(--wpds-typography-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
 	font-size: var(--wpds-typography-font-size-xs);
 	line-height: 1.5;
 	white-space: pre-wrap;
 	word-wrap: break-word;
-	overflow: hidden;
-}
-
-.toolOutputCollapsed {
-	max-height: calc(1.5em * 12);
-	mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+	overflow: visible;
 }
 
 .toolOutputError {
-	border-left-color: var(--wpds-color-fg-content-error, #dc2626);
 	color: var(--wpds-color-fg-content-error, #dc2626);
 }
 
-.toolOutputToggle {
-	align-self: flex-start;
-	background: none;
-	border: none;
-	padding: 0;
-	color: var(--wpds-color-fg-interactive-brand, #2563eb);
-	font: inherit;
-	font-size: var(--wpds-typography-font-size-xs);
-	cursor: pointer;
-}
-
-.toolOutputToggle:hover,
-.toolOutputToggle:focus-visible {
-	text-decoration: underline;
-}
-
 .toolLabel {
-	color: var(--wpds-color-fg-content-neutral);
-	font-weight: 600;
+	color: var(--tool-trigger-color);
+	font-weight: 400;
 	flex-shrink: 0;
 }
 
 .toolDetail {
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--tool-trigger-color);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	min-width: 0;
-	flex: 1;
+	flex: 0 1 auto;
+}
+
+.toolRow .toolIcon {
+	flex: 0 0 auto;
+	width: 18px;
+	height: 18px;
+	color: var(--tool-icon-color);
+	stroke: var(--tool-icon-color);
+	transition:
+		color 120ms ease,
+		fill 120ms ease,
+		stroke 120ms ease;
+	transform: translateY(3px);
+}
+
+.toolRow .toolIcon,
+.toolRow .toolIcon :where(path:not([fill='none']), rect:not([fill='none']), circle:not([fill='none']), polygon:not([fill='none'])) {
+	fill: var(--tool-icon-color);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.toolOutputWrap,
+	.toolIcon {
+		transition: none;
+	}
 }
 
 .question {
 	display: flex;
 	flex-direction: column;
-	gap: var(--wpds-dimension-padding-sm);
+	gap: var(--wpds-dimension-padding-lg);
 }
 
 .questionText {
@@ -171,26 +267,113 @@
 	margin: 0;
 	padding: 0;
 	display: flex;
-	flex-wrap: wrap;
-	gap: var(--wpds-dimension-padding-md);
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-lg);
+	border-radius: var(--wpds-border-radius-lg);
+}
+
+.questionOptionItem {
+	margin: 0;
+	padding: 0;
 }
 
 .questionOption {
-	background: none;
+	--wp-ui-button-background-color: transparent;
+	--wp-ui-button-border-color: transparent;
+
+	display: flex;
+	align-items: flex-start;
+	gap: var(--wpds-dimension-padding-md);
+	width: 100%;
+	background: transparent;
 	border: none;
 	padding: 0;
-	color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	color: var(--wpds-color-fg-content-neutral);
 	font: inherit;
+	text-align: left;
 	cursor: pointer;
 }
 
 .questionOption:hover:not(:disabled),
 .questionOption:focus-visible:not(:disabled) {
-	text-decoration: underline;
+	outline: none;
+}
+
+.questionOption:focus:not(:focus-visible) {
+	outline: none;
+	background-color: transparent;
+}
+
+.questionOption:hover:focus:not(:focus-visible) {
+	background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
+}
+
+.questionOption:focus-visible:not(:disabled) {
+	box-shadow: 0 0 0 2px var(--wpds-color-stroke-interactive-focus, #2563eb);
+}
+
+.questionOption:hover:not(:disabled) .questionOptionLabel,
+.questionOption:focus-visible:not(:disabled) .questionOptionLabel {
+	color: var(--wpds-color-fg-interactive-brand, #2563eb);
+}
+
+.questionOption:hover:not(:disabled) .questionOptionNumber,
+.questionOption:focus-visible:not(:disabled) .questionOptionNumber {
+	border-color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	color: var(--wpds-color-fg-interactive-brand, #2563eb);
+}
+
+.questionOptionNumber {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 auto;
+	min-width: 1.5em;
+	height: 1.5em;
+	margin-top: 3px;
+	padding: 0 0.35em;
+	border: 1px dashed var(--wpds-color-stroke-surface-neutral);
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	background-color: var(--wpds-color-bg-surface-neutral);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: 1;
+	transition:
+		border-color 120ms ease,
+		color 120ms ease;
+}
+
+.questionOptionCheck {
+	width: 14px;
+	height: 14px;
+	color: currentColor;
+	fill: currentColor;
+}
+
+.questionOptionCheck :where(path:not([fill='none'])) {
+	fill: currentColor;
+}
+
+.questionOptionCopy {
+	display: flex;
+	flex-direction: column;
+	gap: 0;
+	min-width: 0;
+}
+
+.questionOptionLabel {
+	color: var(--wpds-color-fg-content-neutral);
+	transition: color 120ms ease;
+}
+
+.questionOptionDescription {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: 1.4;
 }
 
 .questionOption:disabled {
-	color: var(--wpds-color-fg-content-neutral-weak);
 	opacity: 0.6;
 	cursor: default;
 }
@@ -199,9 +382,20 @@
    can still see their choice once the batch is finalized. */
 .questionOptionPicked,
 .questionOptionPicked:disabled {
-	font-weight: 600;
-	color: var(--wpds-color-fg-interactive-brand, #2563eb);
 	opacity: 1;
+}
+
+.questionOptionPicked .questionOptionNumber,
+.questionOptionPicked:disabled .questionOptionNumber {
+	border-color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	background-color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	color: var(--wpds-color-bg-surface-neutral-strong);
+}
+
+.questionOptionPicked .questionOptionLabel,
+.questionOptionPicked:disabled .questionOptionLabel {
+	color: var(--wpds-color-fg-content-neutral);
+	font-weight: 500;
 }
 
 .interruptedMarker {

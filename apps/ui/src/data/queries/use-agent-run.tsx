@@ -19,6 +19,7 @@ import type {
 	LoadedAiSession,
 	SessionEntry,
 	StudioChatImage,
+	StudioCustomEntry,
 } from '@/data/core';
 
 function nowIso(): string {
@@ -609,6 +610,24 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			if ( ! state.runId ) {
 				return;
 			}
+			updateCache( sessionId, ( entries ) =>
+				entries.map( ( entry ) => {
+					if ( entry.type !== 'custom' || entry.customType !== 'studio.agent_question' ) {
+						return entry;
+					}
+					const questionEntry = entry as StudioCustomEntry< 'studio.agent_question' >;
+					if ( questionEntry.data?.question !== question ) {
+						return entry;
+					}
+					return {
+						...questionEntry,
+						data: {
+							...questionEntry.data,
+							selectedLabel: answer,
+						},
+					} as SessionEntry;
+				} )
+			);
 			const nextAnswers = { ...state.pendingAnswers, [ question ]: answer };
 			const complete = state.pendingQuestions.every(
 				( q ) => typeof nextAnswers[ q.question ] === 'string'
@@ -620,7 +639,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				dispatchSession( sessionId, { type: 'question_answered', question, answer } );
 			}
 		},
-		[ connector, dispatchSession, stateStore ]
+		[ connector, dispatchSession, stateStore, updateCache ]
 	);
 
 	const value = useMemo< AgentRunStore >(

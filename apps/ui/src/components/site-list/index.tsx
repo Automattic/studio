@@ -11,7 +11,7 @@ import {
 } from '@wordpress/icons';
 import { Button, Dialog, Icon, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as Menu from '@/components/menu';
 import { SidebarButton } from '@/components/sidebar-button';
 import { deriveSiteStatus } from '@/components/site-dropdown/utils';
@@ -23,6 +23,7 @@ import {
 	useSessions,
 	useUnarchiveSession,
 	useUpdateSessionMetadata,
+	useUpdateSessionTitleDescription,
 } from '@/data/queries/use-sessions';
 import {
 	useCopySite,
@@ -161,9 +162,112 @@ function SessionActionsMenu( { session }: { session: AiSessionSummary } ) {
 }
 
 function SessionItem( { session, isVisible }: { session: AiSessionSummary; isVisible: boolean } ) {
-	const label = session.firstPrompt?.trim();
+	const label = session.title?.trim() || session.firstPrompt?.trim();
 	const isRunning = useIsSessionRunning( session.id );
 	const hasPendingQuestion = useSessionHasPendingQuestion( session.id );
+	const updateTitleDescription = useUpdateSessionTitleDescription();
+	const params = useParams( { strict: false } ) as { sessionId?: string };
+	const isActive = params.sessionId === session.id;
+	const generatedTitle = session.generatedTitle ?? session.firstPrompt ?? '';
+	const [ isEditing, setIsEditing ] = useState( false );
+	const [ draftTitle, setDraftTitle ] = useState( session.userTitle ?? generatedTitle );
+	const inputRef = useRef< HTMLInputElement | null >( null );
+	const isSavingTitleRef = useRef( false );
+
+	useEffect( () => {
+		if ( ! isEditing ) {
+			setDraftTitle( session.userTitle ?? generatedTitle );
+		}
+	}, [ generatedTitle, isEditing, session.userTitle ] );
+
+	useEffect( () => {
+		if ( isEditing ) {
+			inputRef.current?.focus();
+			inputRef.current?.select();
+		}
+	}, [ isEditing ] );
+
+	const normalizeTitle = ( value: string ): string | undefined => {
+		const normalized = value.trim();
+		return normalized || undefined;
+	};
+
+	const getUserTitleOverride = (): string | undefined => {
+		const normalized = normalizeTitle( draftTitle );
+		if ( ! normalized ) {
+			return undefined;
+		}
+		return normalized === normalizeTitle( generatedTitle ) ? undefined : normalized;
+	};
+
+	const startEditing = () => {
+		if ( isRunning ) {
+			return;
+		}
+		setDraftTitle( session.userTitle ?? generatedTitle );
+		setIsEditing( true );
+	};
+
+	const saveTitle = async () => {
+		if ( updateTitleDescription.isPending || isSavingTitleRef.current ) {
+			return;
+		}
+		isSavingTitleRef.current = true;
+		try {
+			await updateTitleDescription.mutateAsync( {
+				sessionId: session.id,
+				title: getUserTitleOverride(),
+			} );
+			setIsEditing( false );
+		} catch {
+			inputRef.current?.focus();
+		} finally {
+			isSavingTitleRef.current = false;
+		}
+	};
+
+	const cancelEditing = () => {
+		setDraftTitle( session.userTitle ?? generatedTitle );
+		setIsEditing( false );
+	};
+
+	if ( isEditing ) {
+		return (
+			<li className={ styles.sessionItem }>
+				<form
+					className={ clsx(
+						styles.sessionLink,
+						styles.sessionEditForm,
+						isActive && styles.sessionLinkActive
+					) }
+					onSubmit={ ( event ) => {
+						event.preventDefault();
+						void saveTitle();
+					} }
+				>
+					<input
+						ref={ inputRef }
+						className={ styles.sessionTitleInput }
+						value={ draftTitle }
+						aria-label={ __( 'Chat title' ) }
+						placeholder={ __( 'Untitled chat' ) }
+						disabled={ updateTitleDescription.isPending }
+						onChange={ ( event ) => setDraftTitle( event.target.value ) }
+						onBlur={ () => void saveTitle() }
+						onKeyDown={ ( event ) => {
+							if ( event.key === 'Escape' ) {
+								event.preventDefault();
+								cancelEditing();
+							}
+						} }
+					/>
+					{ updateTitleDescription.isPending ? (
+						<Spinner className={ styles.sessionSpinner } label={ __( 'Saving…' ) } />
+					) : null }
+				</form>
+			</li>
+		);
+	}
 
 	return (
 		<li className={ styles.sessionItem }>
@@ -203,7 +307,16 @@ function SessionItem( { session, isVisible }: { session: AiSessionSummary; isVis
 					<Spinner className={ styles.sessionInlineSpinner } label={ __( 'Working…' ) } />
 				) : null }
 				<span className={ clsx( styles.sessionLabel, ! label && styles.sessionLabelUntitled ) }>
-					{ label || __( 'Untitled chat' ) }
+					<span
+						className={ styles.sessionEditableTitle }
+						onDoubleClick={ ( event ) => {
+							event.preventDefault();
+							event.stopPropagation();
+							startEditing();
+						} }
+					>
+						{ label || __( 'Untitled chat' ) }
+					</span>
 				</span>
 				<span className={ styles.sessionTime }>{ formatRelativeTime( session.updatedAt ) }</span>
 			</SidebarButton>

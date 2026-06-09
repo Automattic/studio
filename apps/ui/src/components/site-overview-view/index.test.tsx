@@ -8,6 +8,7 @@ import {
 	useSessions,
 	useUnarchiveSession,
 	useUpdateSessionMetadata,
+	useUpdateSessionTitleDescription,
 } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import { SessionUIProvider } from '@/hooks/use-session-ui';
@@ -48,6 +49,7 @@ vi.mock( '@/data/queries/use-sessions', () => ( {
 	useSessions: vi.fn(),
 	useUnarchiveSession: vi.fn(),
 	useUpdateSessionMetadata: vi.fn(),
+	useUpdateSessionTitleDescription: vi.fn(),
 } ) );
 
 vi.mock( '@/data/queries/use-sites', () => ( {
@@ -64,11 +66,13 @@ const useSessionsMock = vi.mocked( useSessions );
 const useArchiveSessionMock = vi.mocked( useArchiveSession );
 const useUnarchiveSessionMock = vi.mocked( useUnarchiveSession );
 const useUpdateSessionMetadataMock = vi.mocked( useUpdateSessionMetadata );
+const useUpdateSessionTitleDescriptionMock = vi.mocked( useUpdateSessionTitleDescription );
 
 describe( 'SiteOverviewView', () => {
 	const archiveMutate = vi.fn();
 	const unarchiveMutate = vi.fn();
 	const updateMetadataMutate = vi.fn();
+	const updateTitleDescriptionMutateAsync = vi.fn();
 	const createSession = vi.fn();
 	const continueSession = vi.fn();
 	const setSessionModel = vi.fn();
@@ -93,6 +97,7 @@ describe( 'SiteOverviewView', () => {
 		archiveMutate.mockReset();
 		unarchiveMutate.mockReset();
 		updateMetadataMutate.mockReset();
+		updateTitleDescriptionMutateAsync.mockReset().mockResolvedValue( undefined );
 		createSession.mockReset().mockResolvedValue( { id: 'new-session' } );
 		continueSession.mockReset().mockResolvedValue( { runId: 'run-1' } );
 		setSessionModel.mockReset().mockResolvedValue( undefined );
@@ -111,6 +116,10 @@ describe( 'SiteOverviewView', () => {
 		} as never );
 		useUpdateSessionMetadataMock.mockReturnValue( {
 			mutate: updateMetadataMutate,
+			isPending: false,
+		} as never );
+		useUpdateSessionTitleDescriptionMock.mockReturnValue( {
+			mutateAsync: updateTitleDescriptionMutateAsync,
 			isPending: false,
 		} as never );
 		useSitesMock.mockReturnValue( {
@@ -136,6 +145,7 @@ describe( 'SiteOverviewView', () => {
 				{
 					id: 'archived-session',
 					firstPrompt: 'Archived chat',
+					description: 'Archived detail should stay hidden',
 					ownerSitePath: '/Users/example/Studio/example-site',
 					updatedAt: '2026-05-02T12:00:00.000Z',
 					archived: true,
@@ -209,6 +219,7 @@ describe( 'SiteOverviewView', () => {
 			'href',
 			'/sessions/archived-session'
 		);
+		expect( screen.queryByText( 'Archived detail should stay hidden' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'keeps the site details content focused on chats', () => {
@@ -251,6 +262,54 @@ describe( 'SiteOverviewView', () => {
 				starred: true,
 				archived: false,
 			},
+		} );
+	} );
+
+	it( 'edits chat title and description from the site details view', async () => {
+		renderOverview();
+
+		fireEvent.click( screen.getAllByRole( 'button', { name: 'Edit' } )[ 0 ] );
+		fireEvent.change( screen.getByLabelText( 'Title' ), {
+			target: { value: 'Better title' },
+		} );
+		fireEvent.change( screen.getByLabelText( 'Description' ), {
+			target: { value: 'Short useful description' },
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Save' } ) );
+
+		expect( updateTitleDescriptionMutateAsync ).toHaveBeenCalledWith( {
+			sessionId: 'active-session',
+			title: 'Better title',
+			description: 'Short useful description',
+		} );
+	} );
+
+	it( 'keeps unchanged generated chat details as generated metadata', async () => {
+		useSessionsMock.mockReturnValue( {
+			data: [
+				{
+					id: 'generated-session',
+					firstPrompt: 'Original prompt',
+					generatedTitle: 'Generated title',
+					generatedDescription: 'Generated description',
+					ownerSitePath: '/Users/example/Studio/example-site',
+					updatedAt: '2026-05-01T12:00:00.000Z',
+				},
+			],
+			isLoading: false,
+		} as never );
+
+		renderOverview();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Edit' } ) );
+		expect( screen.getByLabelText( 'Title' ) ).toHaveValue( 'Generated title' );
+		expect( screen.getByLabelText( 'Description' ) ).toHaveValue( 'Generated description' );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Save' } ) );
+
+		expect( updateTitleDescriptionMutateAsync ).toHaveBeenCalledWith( {
+			sessionId: 'generated-session',
+			title: undefined,
+			description: undefined,
 		} );
 	} );
 

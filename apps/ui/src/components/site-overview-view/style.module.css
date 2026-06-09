@@ -295,6 +295,16 @@
 	padding-inline-end: var(--active-chat-actions-width);
 }
 
+.chatMeta {
+	display: -webkit-box;
+	overflow: hidden;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: 18px;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
+}
+
 .emptyChats {
 	margin: 0;
 	padding-inline: var(--chat-text-offset);
@@ -471,4 +481,18 @@
 .archivedChatRow:focus-within .archivedChatAction {
 	opacity: 1;
 	pointer-events: auto;
+}
+
+.dialogFields {
+	display: grid;
+	gap: var(--wpds-dimension-padding-md);
+	padding-block-end: calc(var(--wpds-border-width-focus, 2px) + 1px);
+}
+
+.dialogField {
+	display: grid;
+	gap: var(--wpds-dimension-padding-xs);
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
 }

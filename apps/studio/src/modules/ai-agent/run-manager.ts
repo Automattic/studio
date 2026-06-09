@@ -13,6 +13,7 @@ import {
 	StatsMetric,
 } from 'src/lib/bump-stats';
 import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
+import { generateAiSessionMetadata } from './session-metadata';
 import type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { StudioChatArtifactData } from '@studio/common/ai/chat-artifacts';
 import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
@@ -259,6 +260,11 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 		}
 
 		void run.eventQueue.finally( async () => {
+			if ( code === 0 && ! run.interrupted ) {
+				await generateAiSessionMetadata( sessionId ).catch( ( error ) => {
+					console.warn( 'Failed to generate AI session metadata', error );
+				} );
+			}
 			if ( run.interrupted ) {
 				sendEvent( run, { type: 'run.interrupted', timestamp: nowIso() } );
 			}

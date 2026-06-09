@@ -52,9 +52,14 @@ function mergeSessionMetadata(
 	summary: AiSessionSummary,
 	patch: Partial< AiSessionMetadata >
 ): AiSessionSummary {
-	return {
+	const next = {
 		...summary,
 		...patch,
+	};
+	return {
+		...next,
+		title: next.userTitle ?? next.generatedTitle ?? next.firstPrompt,
+		description: next.userDescription ?? next.generatedDescription ?? next.assistantReplyPreview,
 	};
 }
 
@@ -132,6 +137,39 @@ export function useUpdateSessionMetadata() {
 			void queryClient.invalidateQueries( { queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ] } );
 		},
 	} );
+}
+
+export function useUpdateSessionTitleDescription() {
+	const updateSessionMetadata = useUpdateSessionMetadata();
+	type Variables = {
+		sessionId: string;
+		title?: string;
+		description?: string;
+	};
+	const buildPatch = ( variables: Variables ): Partial< AiSessionMetadata > => {
+		const patch: Partial< AiSessionMetadata > = {};
+		if ( Object.prototype.hasOwnProperty.call( variables, 'title' ) ) {
+			patch.userTitle = variables.title;
+		}
+		if ( Object.prototype.hasOwnProperty.call( variables, 'description' ) ) {
+			patch.userDescription = variables.description;
+		}
+		return patch;
+	};
+
+	return {
+		...updateSessionMetadata,
+		mutate: ( variables: Variables ) =>
+			updateSessionMetadata.mutate( {
+				sessionId: variables.sessionId,
+				patch: buildPatch( variables ),
+			} ),
+		mutateAsync: ( variables: Variables ) =>
+			updateSessionMetadata.mutateAsync( {
+				sessionId: variables.sessionId,
+				patch: buildPatch( variables ),
+			} ),
+	};
 }
 
 function useSessionArchivedMutation( archived: boolean ) {

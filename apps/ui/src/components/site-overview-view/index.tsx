@@ -2,9 +2,17 @@ import { DEFAULT_MODEL } from '@studio/common/ai/models';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { box, chevronDown, chevronRight, starEmpty, starFilled, undo } from '@wordpress/icons';
-import { Button, Icon, IconButton } from '@wordpress/ui';
-import { useCallback, useMemo, useState } from 'react';
+import {
+	box,
+	chevronDown,
+	chevronRight,
+	pencil,
+	starEmpty,
+	starFilled,
+	undo,
+} from '@wordpress/icons';
+import { Button, Dialog, Field, Icon, IconButton, Input, Textarea } from '@wordpress/ui';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { PreviewSplitContent } from '@/components/preview-split-frame';
 import { useConnector } from '@/data/core';
 import {
@@ -13,6 +21,7 @@ import {
 	useSessions,
 	useUnarchiveSession,
 	useUpdateSessionMetadata,
+	useUpdateSessionTitleDescription,
 } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import { SessionUIProvider } from '@/hooks/use-session-ui';
@@ -325,8 +334,10 @@ function ActiveChatRow( {
 	onArchive: ( session: AiSessionSummary ) => void;
 	onToggleStar: ( session: AiSessionSummary ) => void;
 } ) {
-	const label = session.firstPrompt?.trim() || __( 'Untitled chat' );
+	const label = session.title?.trim() || session.firstPrompt?.trim() || __( 'Untitled chat' );
+	const description = session.description?.trim() || session.assistantReplyPreview?.trim();
 	const starred = !! session.starred;
+	const [ editOpen, setEditOpen ] = useState( false );
 
 	return (
 		<li className={ styles.chatRow }>
@@ -336,6 +347,7 @@ function ActiveChatRow( {
 				className={ styles.chatLink }
 			>
 				<span className={ styles.chatTitle }>{ label }</span>
+				{ description ? <span className={ styles.chatMeta }>{ description }</span> : null }
 			</Link>
 			<div className={ styles.chatEndSlot }>
 				<span className={ styles.chatTime }>{ formatRelativeTime( session.updatedAt ) }</span>
@@ -355,6 +367,15 @@ function ActiveChatRow( {
 						variant="minimal"
 						tone="neutral"
 						size="small"
+						icon={ pencil }
+						label={ __( 'Edit' ) }
+						className={ styles.chatIconAction }
+						onClick={ () => setEditOpen( true ) }
+					/>
+					<IconButton
+						variant="minimal"
+						tone="neutral"
+						size="small"
 						icon={ box }
 						label={ archiveLabel }
 						className={ styles.chatIconAction }
@@ -363,6 +384,9 @@ function ActiveChatRow( {
 					/>
 				</div>
 			</div>
+			{ editOpen ? (
+				<EditChatDetailsDialog session={ session } open={ editOpen } onOpenChange={ setEditOpen } />
+			) : null }
 		</li>
 	);
 }
@@ -378,7 +402,7 @@ function ArchivedChatRow( {
 	actionDisabled: boolean;
 	onUnarchive: ( session: AiSessionSummary ) => void;
 } ) {
-	const label = session.firstPrompt?.trim() || __( 'Untitled chat' );
+	const label = session.title?.trim() || session.firstPrompt?.trim() || __( 'Untitled chat' );
 
 	return (
 		<li className={ styles.archivedChatRow }>
@@ -405,5 +429,113 @@ function ArchivedChatRow( {
 				/>
 			</div>
 		</li>
+	);
+}
+
+function EditChatDetailsDialog( {
+	session,
+	open,
+	onOpenChange,
+}: {
+	session: AiSessionSummary;
+	open: boolean;
+	onOpenChange: ( open: boolean ) => void;
+} ) {
+	const updateTitleDescription = useUpdateSessionTitleDescription();
+	const generatedTitle = session.generatedTitle ?? session.firstPrompt ?? '';
+	const generatedDescription = session.generatedDescription ?? session.assistantReplyPreview ?? '';
+	const [ title, setTitle ] = useState( session.userTitle ?? generatedTitle );
+	const [ description, setDescription ] = useState(
+		session.userDescription ?? generatedDescription
+	);
+
+	useEffect( () => {
+		if ( open ) {
+			setTitle( session.userTitle ?? generatedTitle );
+			setDescription( session.userDescription ?? generatedDescription );
+		}
+	}, [ generatedDescription, generatedTitle, open, session.userDescription, session.userTitle ] );
+
+	const normalizeField = ( value: string ): string | undefined => {
+		const trimmed = value.trim();
+		return trimmed || undefined;
+	};
+
+	const getUserOverride = ( value: string, generatedFallback: string ): string | undefined => {
+		const normalized = normalizeField( value );
+		if ( ! normalized ) {
+			return undefined;
+		}
+		return normalized === normalizeField( generatedFallback ) ? undefined : normalized;
+	};
+
+	const handleSubmit = async ( event: FormEvent ) => {
+		event.preventDefault();
+		await updateTitleDescription.mutateAsync( {
+			sessionId: session.id,
+			title: getUserOverride( title, generatedTitle ),
+			description: getUserOverride( description, generatedDescription ),
+		} );
+		onOpenChange( false );
+	};
+
+	return (
+		<Dialog.Root
+			open={ open }
+			onOpenChange={ ( next ) => {
+				if ( ! updateTitleDescription.isPending ) {
+					onOpenChange( next );
+				}
+			} }
+		>
+			<Dialog.Popup size="small">
+				<form onSubmit={ handleSubmit }>
+					<Dialog.Header>
+						<Dialog.Title>{ __( 'Edit chat details' ) }</Dialog.Title>
+					</Dialog.Header>
+					<Dialog.Content>
+						<div className={ styles.dialogFields }>
+							<Field.Root className={ styles.dialogField } render={ <div /> }>
+								<Field.Label variant="plain">{ __( 'Title' ) }</Field.Label>
+								<Input
+									value={ title }
+									onValueChange={ setTitle }
+									placeholder={ generatedTitle || __( 'Untitled chat' ) }
+									disabled={ updateTitleDescription.isPending }
+								/>
+							</Field.Root>
+							<Field.Root className={ styles.dialogField } render={ <div /> }>
+								<Field.Label variant="plain">{ __( 'Description' ) }</Field.Label>
+								<Textarea
+									value={ description }
+									onValueChange={ setDescription }
+									placeholder={ generatedDescription || __( 'Add a short description' ) }
+									disabled={ updateTitleDescription.isPending }
+									rows={ 3 }
+								/>
+							</Field.Root>
+						</div>
+					</Dialog.Content>
+					<Dialog.Footer>
+						<Dialog.Action
+							variant="minimal"
+							tone="neutral"
+							disabled={ updateTitleDescription.isPending }
+						>
+							{ __( 'Cancel' ) }
+						</Dialog.Action>
+						<Button
+							type="submit"
+							variant="solid"
+							tone="brand"
+							loading={ updateTitleDescription.isPending }
+							loadingAnnouncement={ __( 'Saving chat details' ) }
+						>
+							{ __( 'Save' ) }
+						</Button>
+					</Dialog.Footer>
+				</form>
+			</Dialog.Popup>
+		</Dialog.Root>
 	);
 }

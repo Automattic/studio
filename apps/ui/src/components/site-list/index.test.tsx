@@ -8,6 +8,7 @@ import {
 	useSessions,
 	useUnarchiveSession,
 	useUpdateSessionMetadata,
+	useUpdateSessionTitleDescription,
 } from '@/data/queries/use-sessions';
 import {
 	useCopySite,
@@ -69,6 +70,7 @@ vi.mock( '@/data/queries/use-sessions', () => ( {
 	useSessions: vi.fn(),
 	useUnarchiveSession: vi.fn(),
 	useUpdateSessionMetadata: vi.fn(),
+	useUpdateSessionTitleDescription: vi.fn(),
 } ) );
 
 vi.mock( '@/data/queries/use-sites', () => ( {
@@ -89,6 +91,7 @@ const useSessionsMock = vi.mocked( useSessions );
 const useArchiveSessionMock = vi.mocked( useArchiveSession );
 const useUnarchiveSessionMock = vi.mocked( useUnarchiveSession );
 const useUpdateSessionMetadataMock = vi.mocked( useUpdateSessionMetadata );
+const useUpdateSessionTitleDescriptionMock = vi.mocked( useUpdateSessionTitleDescription );
 const useSitesMock = vi.mocked( useSites );
 const useStartSiteMock = vi.mocked( useStartSite );
 const useStopSiteMock = vi.mocked( useStopSite );
@@ -100,6 +103,7 @@ const useExportFullSiteMock = vi.mocked( useExportFullSite );
 const useDeleteSiteMock = vi.mocked( useDeleteSite );
 
 describe( 'SiteList', () => {
+	const updateTitleDescriptionMutateAsync = vi.fn();
 	const startSiteMutate = vi.fn();
 	const stopSiteMutate = vi.fn();
 
@@ -107,6 +111,7 @@ describe( 'SiteList', () => {
 		navigateMock.mockReset();
 		routerParams = { siteId: 'site-1' };
 		routerPathname = '/sites/site-1';
+		updateTitleDescriptionMutateAsync.mockReset().mockResolvedValue( undefined );
 		startSiteMutate.mockReset();
 		stopSiteMutate.mockReset();
 		useIsSessionRunningMock.mockReset().mockReturnValue( false );
@@ -114,6 +119,10 @@ describe( 'SiteList', () => {
 		useUpdateSessionMetadataMock.mockReturnValue( { mutate: vi.fn(), isPending: false } as never );
 		useArchiveSessionMock.mockReturnValue( { mutate: vi.fn(), isPending: false } as never );
 		useUnarchiveSessionMock.mockReturnValue( { mutate: vi.fn(), isPending: false } as never );
+		useUpdateSessionTitleDescriptionMock.mockReturnValue( {
+			mutateAsync: updateTitleDescriptionMutateAsync,
+			isPending: false,
+		} as never );
 		useStartSiteMock.mockReturnValue( { mutate: startSiteMutate, isPending: false } as never );
 		useStopSiteMock.mockReturnValue( { mutate: stopSiteMutate, isPending: false } as never );
 		useIsSiteStartingMock.mockReturnValue( false );
@@ -137,6 +146,8 @@ describe( 'SiteList', () => {
 			data: [
 				{
 					id: 'session-1',
+					title: 'Generated title',
+					generatedTitle: 'Generated title',
 					firstPrompt: 'Build a landing page',
 					ownerSitePath: '/Users/example/Studio/example-site',
 					updatedAt: '2026-05-01T12:00:00.000Z',
@@ -148,6 +159,34 @@ describe( 'SiteList', () => {
 
 	afterEach( () => {
 		vi.useRealTimers();
+	} );
+
+	it( 'edits a chat title in place from the sidebar', async () => {
+		render( <SiteList /> );
+
+		fireEvent.doubleClick( screen.getByText( 'Generated title' ) );
+		const input = screen.getByRole( 'textbox', { name: 'Chat title' } );
+		expect( input ).toHaveValue( 'Generated title' );
+
+		fireEvent.change( input, { target: { value: 'Better sidebar title' } } );
+		fireEvent.submit( input.closest( 'form' )! );
+
+		expect( updateTitleDescriptionMutateAsync ).toHaveBeenCalledWith( {
+			sessionId: 'session-1',
+			title: 'Better sidebar title',
+		} );
+	} );
+
+	it( 'does not save an unchanged generated sidebar title as a user override', async () => {
+		render( <SiteList /> );
+
+		fireEvent.doubleClick( screen.getByText( 'Generated title' ) );
+		fireEvent.submit( screen.getByRole( 'textbox', { name: 'Chat title' } ).closest( 'form' )! );
+
+		expect( updateTitleDescriptionMutateAsync ).toHaveBeenCalledWith( {
+			sessionId: 'session-1',
+			title: undefined,
+		} );
 	} );
 
 	it( 'shows an empty chat state for open sites without active chats', () => {
@@ -165,6 +204,8 @@ describe( 'SiteList', () => {
 			data: [
 				{
 					id: 'unassigned-session',
+					title: 'Loose chat',
+					generatedTitle: 'Loose chat',
 					firstPrompt: 'Review this idea',
 					updatedAt: '2026-05-02T12:00:00.000Z',
 				},
@@ -182,6 +223,8 @@ describe( 'SiteList', () => {
 			data: [
 				{
 					id: 'archived-unassigned-session',
+					title: 'Archived loose chat',
+					generatedTitle: 'Archived loose chat',
 					firstPrompt: 'Archive me',
 					updatedAt: '2026-05-02T12:00:00.000Z',
 					archived: true,
@@ -313,7 +356,7 @@ describe( 'SiteList', () => {
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Show chats' } ) );
 
-		expect( screen.getByText( 'Build a landing page' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Generated title' ) ).toBeInTheDocument();
 		expect( useIsSessionRunningMock ).toHaveBeenCalledWith( 'session-1' );
 		expect( useSessionHasPendingQuestionMock ).toHaveBeenCalledWith( 'session-1' );
 	} );

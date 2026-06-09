@@ -204,17 +204,18 @@ describe( 'Shared Config', () => {
 					JSON.stringify( {
 						version: 1,
 						sessions: {
-							abc123: { starred: true },
+							abc123: { starred: true, userTitle: 'Launch plan' },
 						},
 					} )
 				)
 			);
 
 			await expect( readSharedSessions() ).resolves.toEqual( {
-				abc123: { starred: true },
+				abc123: { starred: true, userTitle: 'Launch plan' },
 			} );
 			await expect( readSharedSession( 'abc123' ) ).resolves.toEqual( {
 				starred: true,
+				userTitle: 'Launch plan',
 			} );
 			await expect( readSharedSession( 'missing' ) ).resolves.toBeUndefined();
 		} );
@@ -223,17 +224,17 @@ describe( 'Shared Config', () => {
 			vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( { version: 1 } ) ) );
 
 			await expect(
-				updateSharedSession( 'abc123', { starred: true, archived: true } )
+				updateSharedSession( 'abc123', { starred: true, userDescription: '  Brief  ' } )
 			).resolves.toEqual( {
 				starred: true,
-				archived: true,
+				userDescription: 'Brief',
 			} );
 
 			const written = vi.mocked( writeFile ).mock.calls[ 0 ][ 1 ] as string;
 			expect( JSON.parse( written ) ).toEqual( {
 				version: 1,
 				sessions: {
-					abc123: { starred: true, archived: true },
+					abc123: { starred: true, userDescription: 'Brief' },
 				},
 			} );
 		} );
@@ -244,7 +245,7 @@ describe( 'Shared Config', () => {
 					JSON.stringify( {
 						version: 1,
 						sessions: {
-							abc123: { starred: true, archived: true },
+							abc123: { starred: true, archived: true, userTitle: '  ' },
 						},
 					} )
 				)

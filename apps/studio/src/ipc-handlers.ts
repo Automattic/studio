@@ -251,10 +251,22 @@ function hydrateAiSessionSummary(
 	summary: AiSessionSummary,
 	metadata?: SharedSessionMetadata
 ): AiSessionSummary {
+	const title = metadata?.userTitle ?? metadata?.generatedTitle ?? summary.firstPrompt;
+	const description =
+		metadata?.userDescription ?? metadata?.generatedDescription ?? summary.assistantReplyPreview;
 	return {
 		...summary,
 		starred: metadata?.starred,
 		archived: metadata?.archived,
+		userTitle: metadata?.userTitle,
+		generatedTitle: metadata?.generatedTitle,
+		userDescription: metadata?.userDescription,
+		generatedDescription: metadata?.generatedDescription,
+		titleGeneratedAt: metadata?.titleGeneratedAt,
+		descriptionGeneratedAt: metadata?.descriptionGeneratedAt,
+		descriptionGeneratedEventCount: metadata?.descriptionGeneratedEventCount,
+		title,
+		description,
 	};
 }
 

@@ -315,6 +315,12 @@ export async function runCommand( options: {
 	const config = await readCliConfig();
 	let showCapabilitiesOnConnect = ! config.aiProvider;
 
+	// Studio Code Desktop defaults to WordPress.com provider.
+	if ( isJsonMode && showCapabilitiesOnConnect ) {
+		await switchProvider( 'wpcom', false );
+		showCapabilitiesOnConnect = false;
+	}
+
 	if ( showCapabilitiesOnConnect ) {
 		ui.showOnboarding();
 

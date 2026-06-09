@@ -1,4 +1,6 @@
 .root {
+	min-width: 0;
+	max-width: 100%;
 	color: var(--wpds-color-fg-content-neutral);
 	font-size: var(--wpds-typography-font-size-md);
 	line-height: 1.65;
@@ -19,6 +21,7 @@
 
 .p {
 	margin: 0 0 1em;
+	overflow-wrap: anywhere;
 }
 
 .h1,
@@ -77,6 +80,7 @@
 
 .li {
 	margin: 0.25em 0;
+	overflow-wrap: anywhere;
 }
 
 .li::marker {
@@ -122,6 +126,7 @@
 	padding: 0.25em 0 0.25em 1em;
 	border-left: 2px solid var(--wpds-color-stroke-surface-neutral);
 	color: var(--wpds-color-fg-content-neutral-weak);
+	overflow-wrap: anywhere;
 }
 
 .blockquote > *:last-child {
@@ -141,11 +146,14 @@
 	font-family: var(--wpds-typography-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
 	font-size: 0.875em;
 	color: var(--wpds-color-fg-content-neutral);
-	/* Discourage code from breaking awkwardly across lines. */
-	white-space: nowrap;
+	overflow-wrap: anywhere;
 }
 
 .pre {
+	box-sizing: border-box;
+	width: 100%;
+	min-width: 0;
+	max-width: 100%;
 	margin: 0.75em 0 1.25em;
 	padding: 0.875em 1em;
 	border-radius: var(--wpds-border-radius-md, 8px);
@@ -166,6 +174,9 @@
 }
 
 .tableWrap {
+	box-sizing: border-box;
+	min-width: 0;
+	max-width: 100%;
 	margin: 0 0 1em;
 	overflow-x: auto;
 	border: 1px solid var(--wpds-color-stroke-surface-neutral);
@@ -184,6 +195,7 @@
 	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
 	text-align: left;
 	vertical-align: top;
+	overflow-wrap: anywhere;
 }
 
 .table tr:last-child .td,

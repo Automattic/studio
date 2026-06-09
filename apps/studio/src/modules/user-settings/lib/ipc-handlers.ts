@@ -1,5 +1,10 @@
 import { BrowserWindow, IpcMainInvokeEvent, nativeTheme } from 'electron';
 import { updateSharedConfig } from '@studio/common/lib/shared-config';
+import {
+	DEFAULT_MESSAGE_SEND_SHORTCUT,
+	isMessageSendShortcut,
+	type MessageSendShortcut,
+} from '@studio/common/lib/user-settings/message-send-shortcut';
 import { DEFAULT_TERMINAL } from 'src/constants';
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { isInstalled } from 'src/lib/is-installed';
@@ -106,6 +111,23 @@ export async function getColorScheme(): Promise< 'system' | 'light' | 'dark' > {
 	const colorScheme = userData.colorScheme ?? 'light';
 	nativeTheme.themeSource = colorScheme;
 	return colorScheme;
+}
+
+export async function saveMessageSendShortcut(
+	_event: IpcMainInvokeEvent,
+	messageSendShortcut: MessageSendShortcut
+) {
+	if ( ! isMessageSendShortcut( messageSendShortcut ) ) {
+		throw new Error( 'Invalid message send shortcut' );
+	}
+	await updateAppdata( { messageSendShortcut } );
+}
+
+export async function getMessageSendShortcut(): Promise< MessageSendShortcut > {
+	const userData = await loadUserData();
+	return isMessageSendShortcut( userData.messageSendShortcut )
+		? userData.messageSendShortcut
+		: DEFAULT_MESSAGE_SEND_SHORTCUT;
 }
 
 export async function saveWapuuScore( _event: IpcMainInvokeEvent, score: number ): Promise< void > {

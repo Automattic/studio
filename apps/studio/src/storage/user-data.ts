@@ -72,6 +72,7 @@ type UserDataSafeKeys =
 	| 'preferredEditor'
 	| 'betaFeatures'
 	| 'colorScheme'
+	| 'messageSendShortcut'
 	| 'defaultSiteDirectory'
 	| 'cliAutoInstalled'
 	| 'wapuuScore'

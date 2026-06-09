@@ -9,9 +9,11 @@ import { SidebarNav } from '@/components/sidebar-nav';
 import { SidebarSettingsButton } from '@/components/sidebar-settings-button';
 import { SiteList } from '@/components/site-list';
 import { useFullscreen } from '@/hooks/use-fullscreen';
+import { useKeyboardShortcut } from '@/hooks/use-keyboard-shortcut';
 import { useResizablePanel } from '@/hooks/use-resizable-panel';
 import { SidebarCollapsedContext } from '@/hooks/use-sidebar-collapsed';
 import { drawerIcon } from '@/lib/icons';
+import { getKeyboardShortcut, getKeyboardShortcutDescriptor } from '@/lib/keyboard-shortcuts';
 import { isMacPlatform } from '@/lib/platform';
 import { SIDEBAR_PANEL_CONFIG, SIDEBAR_PANEL_STORAGE_KEY } from '@/lib/resizable-panels';
 import styles from './style.module.css';
@@ -36,6 +38,9 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 	}, [ navigate ] );
 	const isMac = isMacPlatform();
 	const sidebarHeaderVariant = isMac ? ( isFullscreen ? 'fullscreen' : 'traffic-lights' ) : null;
+	const sidebarShortcut = getKeyboardShortcutDescriptor( getKeyboardShortcut( 'toggle-sidebar' ) );
+	useKeyboardShortcut( 'toggle-sidebar', toggleSidebar );
+	useKeyboardShortcut( 'open-app-settings', openSettings );
 
 	const updateSidebarScrollState = useCallback( () => {
 		const node = sidebarScrollRef.current;
@@ -150,6 +155,7 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 						className={ styles.sidebarToggleButton }
 						icon={ drawerIcon }
 						label={ collapsed ? __( 'Show sidebar' ) : __( 'Hide sidebar' ) }
+						shortcut={ sidebarShortcut }
 						onClick={ toggleSidebar }
 					/>
 				</div>

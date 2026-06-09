@@ -26,6 +26,8 @@ import {
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
+import { useUserPreferences } from '@/data/queries/use-user-preferences';
+import { getMessageSendShortcutLabel, shouldSendMessageForKeyDown } from '@/lib/keyboard-shortcuts';
 import { EnvironmentPill } from './environment-pill';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';
@@ -342,6 +344,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const fileInputRef = useRef< HTMLInputElement | null >( null );
 	const connector = useConnector();
 	const queryClient = useQueryClient();
+	const { data: preferences } = useUserPreferences();
 	const changePlaceholder = __( 'Describe the next change for this site…' );
 	const pagePlaceholder = __( 'Ask Studio to update a page…' );
 	const buildPlaceholder = __( 'Tell Studio what to build next…' );
@@ -592,7 +595,9 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const canSend = value.trim().length > 0 || attachments.length > 0;
 	const placeholder = busy ? __( 'Queue a follow-up instruction…' ) : typedPlaceholder;
 	const sendAriaLabel = busy ? __( 'Queue' ) : __( 'Send' );
-	const sendTitle = sendAriaLabel;
+	const messageSendShortcut = preferences?.messageSendShortcut;
+	const sendShortcutLabel = getMessageSendShortcutLabel( messageSendShortcut );
+	const sendTitle = `${ sendAriaLabel } (${ sendShortcutLabel })`;
 	const attachImageLabel = __( 'Attach image' );
 	const skillsLabel = __( 'Skills' );
 	const modelLabel = getAiModelLabel( model );
@@ -669,7 +674,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 								void onInterrupt();
 								return;
 							}
-							if ( event.key === 'Enter' && ( event.metaKey || event.ctrlKey ) ) {
+							if ( shouldSendMessageForKeyDown( event.nativeEvent, messageSendShortcut ) ) {
 								event.preventDefault();
 								void send();
 							}

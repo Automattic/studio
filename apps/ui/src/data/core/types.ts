@@ -8,6 +8,7 @@ import type {
 } from '@studio/common/ai/sessions/types';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
+import type { MessageSendShortcut } from '@studio/common/lib/user-settings/message-send-shortcut';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 import type { DeskConfig, DeskSettings, StudioUiMode } from '@studio/common/types/desk';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
@@ -47,6 +48,7 @@ export type {
 export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 export type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 export type { SupportedLocale } from '@studio/common/lib/locale';
+export type { MessageSendShortcut } from '@studio/common/lib/user-settings/message-send-shortcut';
 
 export type InstalledApps = Record< SupportedEditor | SupportedTerminal, boolean >;
 
@@ -332,6 +334,7 @@ export interface UserPreferences {
 	editor: SupportedEditor | null;
 	terminal: SupportedTerminal | null;
 	colorScheme: ColorScheme;
+	messageSendShortcut: MessageSendShortcut;
 	locale: string | undefined;
 }
 

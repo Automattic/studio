@@ -9,8 +9,13 @@ import { useAgentRun } from '@/data/queries/use-agent-run';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
+import { useKeyboardShortcut } from '@/hooks/use-keyboard-shortcut';
 import { useSessionCommands } from '@/hooks/use-session-commands';
-import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-session-ui';
+import {
+	SessionUIProvider,
+	useSessionPreviewAnnotations,
+	useSessionPreviewUI,
+} from '@/hooks/use-session-ui';
 import { SiteMenuHeader } from '@/ui-classic/components/site-menu-header';
 import { formatAnnotationsAsPrompt, formatAnnotationsSubmittedMessage } from './annotations';
 import { Composer, ComposerSkeleton } from './composer';
@@ -106,7 +111,26 @@ function SessionViewContent( {
 	);
 	const scrollRef = useRef< HTMLDivElement >( null );
 	useSessionCommands( sessionId );
+	const preview = useSessionPreviewUI();
 	const canTogglePreview = !! ownerSite && effectiveEnvironment === 'local';
+	const ownerSiteId = ownerSite?.id;
+	const createNewChatForSite = useCallback( () => {
+		if ( ! ownerSiteId ) {
+			return;
+		}
+		void navigate( {
+			to: '/sites/$siteId/new',
+			params: { siteId: ownerSiteId },
+			search: { focusComposer: true },
+		} );
+	}, [ navigate, ownerSiteId ] );
+	useKeyboardShortcut( 'new-chat-in-current-site', createNewChatForSite, {
+		enabled: !! ownerSiteId,
+	} );
+	useKeyboardShortcut( 'toggle-site-preview', preview.toggle, {
+		enabled: canTogglePreview,
+	} );
+
 	const handleAnnotationsDone = useCallback(
 		( annotations: Annotation[] ) => {
 			if ( annotations.length === 0 ) return;

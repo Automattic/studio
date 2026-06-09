@@ -8,7 +8,8 @@ import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
 import { useResizablePanel } from '@/hooks/use-resizable-panel';
 import { getSiteUrl } from '@/lib/get-site-url';
 import { playIcon, refreshIcon } from '@/lib/icons';
-import { getNavigatorPlatform, isMacPlatform } from '@/lib/platform';
+import { getPrimaryModifierLabel, isApplePlatform } from '@/lib/keyboard-shortcuts';
+import { getNavigatorPlatform } from '@/lib/platform';
 import { PREVIEW_PANEL_CONFIG, PREVIEW_PANEL_STORAGE_KEY } from '@/lib/resizable-panels';
 import {
 	INSPECTOR_BRIDGE_PREFIX,
@@ -330,12 +331,13 @@ function isVisibleCssColor( value: unknown ) {
 function getBrowserShortcutDescriptor( key: string ) {
 	const platform = getNavigatorPlatform();
 	const keyLabel = key.toUpperCase();
-	const isMac = isMacPlatform( platform );
-	const modifier = isMac ? '⌘' : 'Ctrl';
+	const modifier = getPrimaryModifierLabel( platform );
 
 	return {
-		displayShortcut: isMac ? `${ modifier }${ keyLabel }` : `${ modifier }+${ keyLabel }`,
-		ariaKeyShortcut: `${ isMac ? 'Meta' : 'Control' }+${ keyLabel }`,
+		displayShortcut: isApplePlatform( platform )
+			? `${ modifier }${ keyLabel }`
+			: `${ modifier }+${ keyLabel }`,
+		ariaKeyShortcut: `${ isApplePlatform( platform ) ? 'Meta' : 'Control' }+${ keyLabel }`,
 	};
 }
 
@@ -349,7 +351,7 @@ function getBrowserShortcutCommand(
 		return null;
 	}
 	const platform = getNavigatorPlatform();
-	const hasPrimaryModifier = isMacPlatform( platform ) ? event.metaKey : event.ctrlKey;
+	const hasPrimaryModifier = isApplePlatform( platform ) ? event.metaKey : event.ctrlKey;
 	if ( ! hasPrimaryModifier ) {
 		return null;
 	}

@@ -81,6 +81,26 @@ function DashboardLayoutContent() {
 
 	const previewSite = supportsPreview ? routeSite ?? lastPreviewSite : lastPreviewSite;
 	const showPreview = preview.open && supportsPreview && !! previewSite;
+	const togglePreview = preview.toggle;
+
+	useEffect( () => {
+		const ipcListener = (
+			window as Window & {
+				ipcListener?: {
+					subscribe: (
+						channel: 'toggle-site-preview',
+						listener: ( event: unknown ) => void
+					) => () => void;
+				};
+			}
+		 ).ipcListener;
+
+		return ipcListener?.subscribe( 'toggle-site-preview', () => {
+			if ( supportsPreview && previewSite ) {
+				togglePreview();
+			}
+		} );
+	}, [ previewSite, supportsPreview, togglePreview ] );
 
 	const renderPreview = useCallback(
 		( { collapsed, hideResizeHandle }: PreviewSplitFramePreviewProps ) =>

@@ -83,6 +83,7 @@ describe( 'SettingsView', () => {
 				editor: null,
 				terminal: null,
 				colorScheme: 'system',
+				messageSendShortcut: 'mod-enter',
 				locale: 'en',
 			},
 			isLoading: false,

@@ -4,9 +4,19 @@ import { vi, beforeEach, afterEach, afterAll } from 'vitest';
 ( global as typeof global & { COMMIT_HASH: string } ).COMMIT_HASH = 'mock-hash';
 
 const originalConsoleLog = console.log;
+let savedProcessSend: typeof process.send;
 
 beforeEach( () => {
 	console.log = vi.fn();
+
+	// Force standalone (non-IPC) mode for each test. The `forks` test pool gives
+	// every worker a live `process.send` IPC channel, which would make CLI code
+	// that branches on `process.send` (e.g. the logger and the import/export
+	// commands) behave as if running as the desktop app's IPC child. Clearing it
+	// keeps the pre-forks test environment; restored in afterEach so the pool can
+	// still report results. See AINFRA-2475.
+	savedProcessSend = process.send;
+	process.send = undefined;
 } );
 
 nock.disableNetConnect();
@@ -14,6 +24,7 @@ nock.enableNetConnect( 'raw.githubusercontent.com' );
 
 afterEach( () => {
 	console.log = originalConsoleLog;
+	process.send = savedProcessSend;
 	nock.cleanAll();
 	try {
 		vi.useRealTimers();

@@ -41,7 +41,7 @@ If the task asks for a part that the active layout mode does not use, still emit
 
 ## If the task is: header
 
-The header is part of the design, not a thin convention strip bolted above it. Read the chosen design direction for where the wordmark sits, how the navigation is positioned, whether there is a tall band or a thin strip or a transparent overlay, and the typographic weight of the wordmark relative to the nav. Translate those decisions into the block grammar below — the structural constraints are fixed; the spatial composition is yours.
+The header is part of the selected design, not a thin convention strip bolted above it. Read the chosen design direction for every visible header layer: contact topbar, white/nav band, logo or site-title lockup, CTA button, utility row, decorative stripe, transparency, and nav position. Translate those decisions into the block grammar below. If the selected design has two header bands plus a patterned divider, emit those bands; do not collapse them to a single generic site-title + page-list strip.
 
 Branch on `layoutMode` first:
 

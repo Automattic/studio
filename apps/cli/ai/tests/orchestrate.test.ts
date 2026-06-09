@@ -61,6 +61,7 @@ function artifacts( overrides: Partial< GeneratedSiteArtifacts > = {} ): Generat
 		phase: 'generate-artifacts',
 		manifest: m,
 		taskCount: 1,
+		themeJson: '{}',
 		imagesPersisted: false,
 		routed: {
 			themeFiles: [ { rel: 'theme.json', content: '{}' } ],
@@ -83,14 +84,15 @@ describe( 'buildSiteTasks', () => {
 		const tasks = buildSiteTasks( m, {
 			specJson: '{}',
 			design: '',
+			themeJson: '{}',
 			vocabulary: '',
 			contract: contractFromManifest( m ),
 			finalizeImages: async ( content ) => ( { content, generated: 0, failed: 0 } ),
 		} );
-		// theme.json + style.css + 2 parts + 2 templates = 6 theme
+		// style.css + 2 parts + 2 templates = 5 theme (theme.json is a pre-pool phase)
 		// + 1 plugin-main + 1 block = 2 plugin
 		// + 2 pages + 1 cpt = 3 content
-		expect( tasks ).toHaveLength( 6 + 2 + 3 );
+		expect( tasks ).toHaveLength( 5 + 2 + 3 );
 		expect( typeof tasks[ 0 ] ).toBe( 'function' );
 	} );
 
@@ -101,12 +103,13 @@ describe( 'buildSiteTasks', () => {
 		const tasks = buildSiteTasks( m, {
 			specJson: '{}',
 			design: '',
+			themeJson: '{}',
 			vocabulary: '',
 			contract: contractFromManifest( m ),
 			finalizeImages: async ( content ) => ( { content, generated: 0, failed: 0 } ),
 		} );
-		// theme.json + style.css + 2 default parts + 2 default templates + 1 page = 7
-		expect( tasks ).toHaveLength( 2 + 2 + 2 + 1 );
+		// style.css + 2 default parts + 2 default templates + 1 page = 6
+		expect( tasks ).toHaveLength( 1 + 2 + 2 + 1 );
 	} );
 } );
 

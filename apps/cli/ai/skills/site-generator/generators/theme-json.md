@@ -18,6 +18,8 @@ Emit a single valid JSON document: the complete `theme.json`. It is `$schema`-ve
 
 Indent with four spaces. Valid JSON only — no trailing commas, no comments, no JSON5. It must parse on the first try and load cleanly in WordPress.
 
+Keep the file compact and complete. Prefer a focused set of semantic tokens and the required high-impact block defaults over exhaustive per-block styling. If the output budget gets tight, drop optional embellishments first; never omit closing braces or emit a partial JSON document.
+
 ## Settings: appearance tools
 
 Set `settings.appearanceTools` to `true`. This unlocks the full set of design controls (border, color, spacing, typography, dimensions) so the downstream block markup can reference the tokens you declare.
@@ -45,9 +47,9 @@ Rule of thumb: for every background slug, walk through "what text will downstrea
 
 If the design direction calls for gradients or duotones, declare them under `settings.color.gradients` / `settings.color.duotone` with named slugs.
 
-## Typography (REQUIRED — system-font CSS stacks, NO font files)
+## Typography (REQUIRED — CSS stacks, Google Fonts allowed)
 
-Declare `settings.typography.fontFamilies` for every font the design direction specifies — as design TOKENS ONLY. Each entry carries `name`, `slug`, and a `fontFamily` CSS stack with robust web-safe fallbacks. Do NOT emit `fontFace`/`src`; do NOT reference `fonts.gstatic.com`, `fonts.googleapis.com`, or any remote/CDN URL; do NOT use a `file:` path or `@import`. This theme ships NO `fonts.php` and NO bundled woff2 files, so the `fontFamily` stack itself must render acceptably with system fonts — a remote or `file:` font URL fails in headless, offline, and strict-CSP environments.
+Declare `settings.typography.fontFamilies` for every font the design direction specifies. Each entry carries `name`, `slug`, and a `fontFamily` CSS stack with robust web-safe fallbacks. Google Fonts are allowed: the generated `functions.php` prefers the selected design's exact Google Fonts URL and otherwise enqueues a Google Fonts stylesheet from the family names you declare, so prefer URL-free family stacks unless a direct font file source is truly needed. Never use a `file:` path unless the generator actually creates that font file. Do not use CSS `@import` font loading anywhere.
 
 For each font in the direction, emit a `fontFamilies` entry shaped like:
 
@@ -63,8 +65,8 @@ Requirements for the font setup:
 
 - Give families semantic slugs that downstream files reference: typically `heading`, `body`, and (if the direction uses one) `mono` or `accent`. Downstream style.css and block markup call these by slug via `var(--wp--preset--font-family--heading)`.
 - The `fontFamily` value is a complete CSS stack: the design font first (it renders if the visitor happens to have it installed), then ALWAYS robust system fallbacks — sans: `system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`; serif: `Georgia, "Times New Roman", serif`; mono: `ui-monospace, "SF Mono", "Cascadia Code", monospace`. The stack must look good on system fonts alone.
-- NO `fontFace` array, NO `src`, NO remote URL, NO `file:` path, NO `@import` anywhere in the file. The theme ships no font binaries, so a `src` would 404.
-- Declare a `settings.typography.fontSizes` scale with named, fluid sizes. Cover at least `small`, `medium`, `large`, `x-large`, and `xx-large`, plus a display-scale `huge` for hero headings if the direction is expressive. Use `clamp()` for the larger steps so headings scale with the viewport, and set `fluid: true` on the entries that should scale.
+- Prefer URL-free font-family tokens; the runtime font loader reads the family names from this file and enqueues Google Fonts when appropriate. If you use `fontFace`, only use resolvable remote `.woff2` sources such as `fonts.gstatic.com`; never use `file:` paths unless the referenced asset is generated with the theme. Never use `@import`.
+- Declare a `settings.typography.fontSizes` scale with named, fluid sizes. Cover at least `x-small`, `small`, `medium`, `large`, `x-large`, and `xx-large`, plus a display-scale `huge` for hero headings if the direction is expressive. Use `clamp()` for the larger steps so headings scale with the viewport, and set `fluid: true` on the entries that should scale.
 - Set `settings.typography.fluid` to `true` at the top level, and set `lineHeight: true` and `letterSpacing: true` so the design can tune rhythm.
 
 Match the personality of the design direction: editorial directions get a serif display face and generous line-height; technical / product directions get a tight geometric sans; expressive directions can pair a distinctive display face with a neutral body face.
@@ -116,7 +118,7 @@ Tune every style to the chosen design direction's personality: border radii, the
 ## Self-check before output
 
 - Valid JSON, `version: 3`, `$schema` present, four-space indent.
-- Every font has a `fontFamilies` entry with a `fontFamily` CSS stack that includes web-safe fallbacks. NO `fontFace`, NO `src`, NO `fonts.gstatic.com`/`fonts.googleapis.com`, NO `file:` paths, NO remote font URLs anywhere in theme.json.
+- Every font has a `fontFamilies` entry with a `fontFamily` CSS stack that includes web-safe fallbacks. Google Fonts are allowed through runtime enqueueing from those family names; direct `fontFace` remote `.woff2` sources are acceptable only when resolvable. NO `file:` paths unless the referenced asset is generated with the theme, and NO `@import`.
 - Every `color` block in `styles` sets both `background` and `text`; every `:hover` does too.
 - contentSize/wideSize, root-padding-aware alignments, horizontal-only body padding, and `blockGap` are all set.
 - All button, nav, post-template gaps are declared. No invisible-text gaps remain.

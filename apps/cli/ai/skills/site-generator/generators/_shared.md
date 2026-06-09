@@ -6,7 +6,7 @@ These rules govern EVERY file you generate for this site, regardless of which sp
 
 A generated site is always TWO packages with a hard separation of concerns:
 
-- **The theme** (`<site>/wp-content/themes/<slug>/`) is PURE PRESENTATION: `theme.json`, `style.css`, `templates/`, `parts/`, `patterns/`, `assets/`, and a minimal `functions.php` that does nothing but enqueue `style.css` on the front end and call `add_editor_style`. The theme NEVER registers custom post types, taxonomies, post meta, REST routes, or blocks, and NEVER seeds content.
+- **The theme** (`<site>/wp-content/themes/<slug>/`) is PURE PRESENTATION: `theme.json`, `style.css`, `templates/`, `parts/`, `patterns/`, `assets/`, and a minimal `functions.php` that enqueues `style.css`, enqueues allowed Google Fonts from the selected design (or from `theme.json` font families when needed), and calls `add_editor_style`. The theme NEVER registers custom post types, taxonomies, post meta, REST routes, or blocks, and NEVER seeds content.
 - **The companion plugin** (`<site>/wp-content/plugins/<slug>-functionality/`) owns ALL behavior: custom post types, taxonomies, post meta, REST API routes, and any custom Gutenberg blocks.
 - **Content** is never baked into files. Pages, posts, and CPT entries are seeded into the LIVE WordPress database (via WP-CLI / the seed-content tool), not written as `*.html` content files in the theme.
 
@@ -36,9 +36,10 @@ Inheritance in WordPress block themes is unreliable. A child block whose text co
 
 ## Design token discipline
 
+- **The selected design is a contract, not mood-board inspiration.** When a chosen design direction is present, preserve its first-fold composition: header bands, wordmark treatment, hero layout, background medium, decorative patterns, CTA shape, and any map/card/image treatment. Extend that language below the fold, but do not replace it with a generic hero, a different visual medium, or a stock-photo composition unless the selected design itself used that move.
 - **Reference `theme.json` tokens by slug in block markup.** Use the declared palette, font-size, font-family, and spacing presets: `{"textColor":"primary"}`, `{"fontSize":"large"}`, `{"style":{"spacing":{"padding":{"top":"var:preset|spacing|40"}}}}`. Never introduce hardcoded hex colors, raw px values, or font names in block attributes.
 - **CSS in `style.css` references tokens via CSS variables** — `var(--wp--preset--color--primary)`, `var(--wp--preset--font-family--body)`, `var(--wp--preset--spacing--40)` — rather than hardcoding values. Custom CSS is reserved for polish (typographic detail, link treatments, button variants, image effects, animation states), not for re-implementing layout that block attributes already express.
-- **Fonts are declared in `theme.json`** as `settings.typography.fontFamilies` design tokens — each a `fontFamily` CSS stack with system-font fallbacks. NO `fontFace`/`src`, NO remote (`fonts.gstatic.com`/`fonts.googleapis.com`) or `file:` URL, NO `@import`, and NO `fonts.php`. The theme ships no font binaries, so the stack must render on system fonts.
+- **Fonts are declared in `theme.json`** as `settings.typography.fontFamilies` design tokens — each a `fontFamily` CSS stack with system-font fallbacks. Google Fonts are allowed and are loaded by the generated `functions.php` through normal WordPress enqueueing, preferring the selected design's exact Google Fonts URL and falling back to the family names you declare. Do not add CSS `@import` font loading. Do not use `file:` font URLs unless the generator actually creates the referenced font files. Your markup and CSS still reference only the token slugs.
 - **Typography restraint.** Body text around 1rem with line-height 1.5–1.65. Headings scale modestly; cap display text near 3.5rem (e.g. `clamp(2.5rem, 4vw, 3.5rem)`). Never go below line-height 1.0 on any text; heading line-heights stay between 1.1 and 1.3.
 
 ## Scroll animation and motion

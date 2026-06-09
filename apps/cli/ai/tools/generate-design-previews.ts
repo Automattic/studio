@@ -110,7 +110,7 @@ export const generateDesignPreviewsTool = defineTool(
 			'',
 			...written.map( ( w, i ) => `  ${ i + 1 }. ${ w.name }\n     ${ w.file }` ),
 			'',
-			"Ask the user to pick one. Then call generate_theme with that preview's HTML (or its brief) as the `design` argument so the full theme matches the chosen direction.",
+			"Ask the user to pick one. Then call generate_site with that preview's HTML (or its brief) as the `design` argument so the full site matches the chosen direction.",
 		].join( '\n' );
 
 		return textResult( summary );

@@ -2,7 +2,7 @@ import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { Type } from 'typebox';
-import { runGenerator } from 'cli/ai/tools/site-generator/generators';
+import { runPageContentGenerator } from 'cli/ai/tools/site-generator/generators';
 import {
 	contractFromManifest,
 	contractVocabulary,
@@ -21,6 +21,7 @@ import {
 import { deriveSlug, uploadsDir } from 'cli/ai/tools/site-generator/paths';
 import { buildSeederPhp, parseSeederResult } from 'cli/ai/tools/site-generator/seed-php';
 import { isSiteRunning, withDaemon, wpCli } from 'cli/ai/tools/site-generator/site-wp';
+import { assertCompleteBlockMarkup } from 'cli/ai/tools/site-generator/theme-guards';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { defineTool } from './define-tool';
 import { resolveSite, textResult } from './utils';
@@ -108,41 +109,80 @@ export interface CptEntry {
 export async function runCptEntries(
 	specJson: string,
 	postType: PostTypePlan,
-	count: number
+	count: number,
+	context: { design?: string; themeJson?: string } = {}
 ): Promise< CptEntry[] > {
 	const fieldKeys = postType.fields.map( ( f ) => f.key );
 	const fieldList = postType.fields.length
 		? postType.fields.map( ( f ) => `${ f.key } (${ f.type })` ).join( ', ' )
 		: '(no meta fields)';
 
-	const raw = await completeText( {
-		system: `You generate realistic sample entries for a WordPress custom post type on a generated site. Output ONLY a JSON array of exactly ${ count } objects — no prose, no code fences. Each object is {"title": string, "content": "WordPress block markup body, 2-4 core blocks (wp:paragraph, wp:heading, wp:list)", "meta": { ... }}. The meta object MUST use exactly these keys: ${
-			fieldKeys.join( ', ' ) || '(none — use an empty object)'
-		}. Invent plausible, domain-anchored values grounded in the site; never reference real brands or real people. No emojis.`,
-		user: `Site spec (JSON):\n${ specJson }\n\nPost type: ${ postType.name } (slug: ${ postType.slug })\nMeta fields: ${ fieldList }\nGenerate ${ count } distinct entries.`,
-		maxTokens: 8_000,
-		temperature: 0.7,
-	} );
+	const contextText = [
+		context.design ? `\n\nChosen design direction:\n${ context.design }` : '',
+		context.themeJson
+			? `\n\nGenerated theme.json (authoritative design tokens):\n${ context.themeJson }`
+			: '',
+	].join( '' );
 
-	const parsed = JSON.parse( extractJson( raw ) ) as unknown;
-	if ( ! Array.isArray( parsed ) ) {
-		return [];
+	const attempts: Array< { suffix?: string; temperature: number } > = [
+		{ temperature: 0.7 },
+		{
+			temperature: 0.4,
+			suffix:
+				'The previous JSON or one of its content fields was incomplete. Return a compact, complete JSON array only. Keep each content field to 2-3 fully closed core blocks.',
+		},
+	];
+	let lastError: unknown;
+
+	for ( const attempt of attempts ) {
+		try {
+			const raw = await completeText( {
+				system: `You generate realistic sample entries for a WordPress custom post type on a generated site. Output ONLY a JSON array of exactly ${ count } objects — no prose, no code fences. Each object is {"title": string, "content": "WordPress block markup body, 2-4 core blocks (wp:paragraph, wp:heading, wp:list)", "meta": { ... }}. The meta object MUST use exactly these keys: ${
+					fieldKeys.join( ', ' ) || '(none — use an empty object)'
+				}. Invent plausible, domain-anchored values grounded in the site; never reference real brands or real people. Match the chosen design's tone and use only the theme token slugs when block markup needs colors, font sizes, or spacing. No emojis.`,
+				user: `Site spec (JSON):\n${ specJson }${ contextText }\n\nPost type: ${
+					postType.name
+				} (slug: ${
+					postType.slug
+				})\nMeta fields: ${ fieldList }\nGenerate ${ count } distinct entries.${
+					attempt.suffix ? `\n\n${ attempt.suffix }` : ''
+				}`,
+				maxTokens: 12_000,
+				temperature: attempt.temperature,
+			} );
+
+			const parsed = JSON.parse( extractJson( raw ) ) as unknown;
+			if ( ! Array.isArray( parsed ) ) {
+				throw new Error( 'CPT generator did not return a JSON array.' );
+			}
+			return parsed
+				.filter( ( e ): e is Record< string, unknown > => !! e && typeof e === 'object' )
+				.map( ( e ) => ( {
+					title: typeof e.title === 'string' ? e.title.trim() : '',
+					content: typeof e.content === 'string' ? e.content : '',
+					meta:
+						e.meta && typeof e.meta === 'object'
+							? Object.fromEntries(
+									Object.entries( e.meta as Record< string, unknown > )
+										.filter( ( [ key ] ) => fieldKeys.length === 0 || fieldKeys.includes( key ) )
+										.map( ( [ key, value ] ) => [ key, String( value ) ] )
+							  )
+							: {},
+				} ) )
+				.filter( ( e ) => e.title )
+				.map( ( entry ) => {
+					assertCompleteBlockMarkup(
+						entry.content,
+						`Generated ${ postType.slug } content for "${ entry.title }"`
+					);
+					return entry;
+				} );
+		} catch ( error ) {
+			lastError = error;
+		}
 	}
-	return parsed
-		.filter( ( e ): e is Record< string, unknown > => !! e && typeof e === 'object' )
-		.map( ( e ) => ( {
-			title: typeof e.title === 'string' ? e.title.trim() : '',
-			content: typeof e.content === 'string' ? e.content : '',
-			meta:
-				e.meta && typeof e.meta === 'object'
-					? Object.fromEntries(
-							Object.entries( e.meta as Record< string, unknown > )
-								.filter( ( [ key ] ) => fieldKeys.length === 0 || fieldKeys.includes( key ) )
-								.map( ( [ key, value ] ) => [ key, String( value ) ] )
-					  )
-					: {},
-		} ) )
-		.filter( ( e ) => e.title );
+
+	throw lastError;
 }
 
 export async function wpcomImagesAvailable(): Promise< boolean > {
@@ -181,6 +221,18 @@ export const seedContentTool = defineTool(
 			description: 'The site spec as a JSON string (same one passed to generate_theme).',
 		} ),
 		manifest: Type.String( { description: 'The file manifest JSON returned by generate_theme.' } ),
+		design: Type.Optional(
+			Type.String( {
+				description:
+					'Optional chosen design direction from generate_design_previews, used to keep generated content aligned with the selected visual route.',
+			} )
+		),
+		themeJson: Type.Optional(
+			Type.String( {
+				description:
+					'Optional generated theme.json content, used as the authoritative token vocabulary for generated content.',
+			} )
+		),
 		withImages: Type.Optional(
 			Type.Boolean( {
 				description:
@@ -194,6 +246,8 @@ export const seedContentTool = defineTool(
 		const manifest = parseManifest( args.manifest );
 		const contract = contractFromManifest( manifest );
 		const vocabulary = contractVocabulary( manifest );
+		const design = args.design?.trim() || '';
+		const themeJson = args.themeJson?.trim() || '';
 		const withImages = args.withImages ?? true;
 		const imagesOk = withImages && ( await wpcomImagesAvailable() );
 
@@ -236,16 +290,15 @@ export const seedContentTool = defineTool(
 		const pagePrepared = await runPooled(
 			pageTargets.map( ( target ) => async () => {
 				try {
-					const rawBody = await runGenerator( {
-						name: 'page-content',
+					const rawBody = await runPageContentGenerator( {
 						specJson,
+						design,
+						themeJson,
 						task: `Page post type: ${ target.postType }\nPage slug: ${ target.slug }\nPage title: ${
 							target.title
 						}\nComposition brief: ${
 							target.brief || '(none — infer from the spec and page title)'
 						}\n\n${ vocabulary }`,
-						maxTokens: 12_000,
-						temperature: 0.6,
 					} );
 					// Reconcile any drifted block/postType identifiers to the canonical contract
 					// before the markup is published.
@@ -282,7 +335,10 @@ export const seedContentTool = defineTool(
 		const cptPrepared = await runPooled(
 			cptPlans.map( ( postType ) => async () => {
 				try {
-					const entries = await runCptEntries( specJson, postType, 4 );
+					const entries = await runCptEntries( specJson, postType, 4, {
+						design,
+						themeJson,
+					} );
 					const items: PreparedItem[] = [];
 					const usedSlugs = new Set< string >();
 					let generated = 0;

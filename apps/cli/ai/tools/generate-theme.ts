@@ -1,5 +1,9 @@
 import { Type } from 'typebox';
-import { runGenerator, runManifest } from 'cli/ai/tools/site-generator/generators';
+import {
+	runGenerator,
+	runManifest,
+	runThemeJsonGenerator,
+} from 'cli/ai/tools/site-generator/generators';
 import {
 	contractFromManifest,
 	contractVocabulary,
@@ -9,7 +13,7 @@ import { runPooled } from 'cli/ai/tools/site-generator/llm';
 import { parseManifest, type SiteManifest } from 'cli/ai/tools/site-generator/manifest';
 import { themeDir, writePackageFile } from 'cli/ai/tools/site-generator/paths';
 import { isSiteRunning, withDaemon, wpCli } from 'cli/ai/tools/site-generator/site-wp';
-import { stripRemoteFontFaces } from 'cli/ai/tools/site-generator/theme-guards';
+import { normalizeGeneratedThemeJson } from 'cli/ai/tools/site-generator/theme-guards';
 import { defineTool } from './define-tool';
 import { resolveSite, textResult } from './utils';
 
@@ -25,7 +29,141 @@ function normalizeSpecJson( spec: string ): string {
 	}
 }
 
-export function renderFunctionsPhp( name: string, slug: string ): string {
+const GENERIC_FONT_FAMILIES = new Set( [
+	'arial',
+	'blinkmacsystemfont',
+	'cursive',
+	'fantasy',
+	'georgia',
+	'helvetica',
+	'monospace',
+	'sans-serif',
+	'segoe ui',
+	'serif',
+	'system-ui',
+	'times new roman',
+	'ui-monospace',
+	'ui-rounded',
+	'ui-sans-serif',
+	'ui-serif',
+	'-apple-system',
+] );
+
+function firstFontFamily( fontFamily: string ): string {
+	const trimmed = fontFamily.trim();
+	const quoted = trimmed.match( /^["']([^"']+)["']/ );
+	if ( quoted ) {
+		return quoted[ 1 ].trim();
+	}
+	return trimmed.split( ',' )[ 0 ]?.trim() ?? '';
+}
+
+function googleFontsUrlFromThemeJson( themeJson?: string ): string {
+	if ( ! themeJson ) {
+		return '';
+	}
+	let parsed: {
+		settings?: { typography?: { fontFamilies?: Array< { fontFamily?: unknown } > } };
+	};
+	try {
+		parsed = JSON.parse( themeJson );
+	} catch {
+		return '';
+	}
+
+	const families = parsed.settings?.typography?.fontFamilies;
+	if ( ! Array.isArray( families ) ) {
+		return '';
+	}
+
+	const unique = new Map< string, string >();
+	for ( const entry of families ) {
+		if ( typeof entry?.fontFamily !== 'string' ) {
+			continue;
+		}
+		const family = firstFontFamily( entry.fontFamily );
+		const normalized = family.toLowerCase();
+		if ( ! family || GENERIC_FONT_FAMILIES.has( normalized ) || normalized.includes( 'var(' ) ) {
+			continue;
+		}
+		unique.set( normalized, family );
+	}
+
+	if ( unique.size === 0 ) {
+		return '';
+	}
+
+	const params = [ ...unique.values() ]
+		.map( ( family ) => `family=${ encodeURIComponent( family ).replace( /%20/g, '+' ) }` )
+		.join( '&' );
+	return `https://fonts.googleapis.com/css2?${ params }&display=swap`;
+}
+
+function normalizeGoogleFontsUrl( rawUrl: string ): string {
+	try {
+		const url = new URL( rawUrl.replace( /&amp;/g, '&' ) );
+		if (
+			url.protocol !== 'https:' ||
+			url.hostname !== 'fonts.googleapis.com' ||
+			! [ '/css', '/css2' ].includes( url.pathname )
+		) {
+			return '';
+		}
+		return url.toString();
+	} catch {
+		return '';
+	}
+}
+
+function googleFontsUrlsFromDesign( design?: string ): string[] {
+	if ( ! design ) {
+		return [];
+	}
+
+	const urls = new Set< string >();
+	for ( const match of design.matchAll( /https:\/\/fonts\.googleapis\.com\/css2?[^"'<\s]*/g ) ) {
+		const normalized = normalizeGoogleFontsUrl( match[ 0 ] );
+		if ( normalized ) {
+			urls.add( normalized );
+		}
+	}
+	return [ ...urls ];
+}
+
+function googleFontsUrls( themeJson?: string, design?: string ): string[] {
+	const fromDesign = googleFontsUrlsFromDesign( design );
+	if ( fromDesign.length > 0 ) {
+		return fromDesign;
+	}
+
+	const fromThemeJson = googleFontsUrlFromThemeJson( themeJson );
+	return fromThemeJson ? [ fromThemeJson ] : [];
+}
+
+export function renderFunctionsPhp(
+	name: string,
+	slug: string,
+	themeJson?: string,
+	design?: string
+): string {
+	const googleFontUrls = googleFontsUrls( themeJson, design );
+	const fonts = googleFontUrls.length
+		? `
+add_action( 'enqueue_block_assets', function () {
+${ googleFontUrls
+	.map(
+		( url, index ) => `\twp_enqueue_style(
+\t\t'${ slug }-fonts${ index > 0 ? `-${ index + 1 }` : '' }',
+\t\t'${ url }',
+\t\tarray(),
+\t\tnull
+\t);`
+	)
+	.join( '\n' ) }
+} );
+
+`
+		: '';
 	return `<?php
 /**
  * ${ name } theme functions.
@@ -36,7 +174,7 @@ export function renderFunctionsPhp( name: string, slug: string ): string {
  * @package ${ slug }
  */
 
-add_action( 'wp_enqueue_scripts', function () {
+${ fonts }add_action( 'wp_enqueue_scripts', function () {
 	wp_enqueue_style(
 		'${ slug }-style',
 		get_parent_theme_file_uri( 'style.css' ),
@@ -102,7 +240,7 @@ export async function activateTheme( siteId: string, slug: string ): Promise< st
 
 export const generateThemeTool = defineTool(
 	'generate_theme',
-	'Generates a complete PURE-PRESENTATION WordPress block theme (theme.json, style.css, template parts, templates, minimal functions.php) into a site at wp-content/themes/<slug>/ and activates it. Runs the file generators in parallel from a site spec and a chosen design direction, writing the whole theme in one call. Behaviour (custom post types, REST routes, custom blocks) is NOT generated here — call generate_companion_plugin for that. Page content is NOT written as files — call seed_content to populate the live database. Returns the resolved manifest (pass it verbatim to generate_companion_plugin and seed_content). The functions.php is intentionally minimal. Best run after generate_design_previews so a design direction has been chosen.',
+	'Generates a complete PURE-PRESENTATION WordPress block theme (theme.json, style.css, template parts, templates, minimal functions.php) into a site at wp-content/themes/<slug>/ and activates it. Runs the file generators in parallel from a site spec and a chosen design direction, writing the whole theme in one call. Behaviour (custom post types, REST routes, custom blocks) is NOT generated here — call generate_companion_plugin for that. Page content is NOT written as files — call seed_content to populate the live database. Returns the resolved manifest (pass it verbatim to generate_companion_plugin and seed_content). The functions.php is intentionally minimal: style enqueue, allowed Google Fonts enqueueing from the selected design/theme.json, and editor style setup. Best run after generate_design_previews so a design direction has been chosen.',
 	{
 		nameOrPath: Type.String( {
 			description: 'The site name or filesystem path of the target site.',
@@ -138,18 +276,9 @@ export const generateThemeTool = defineTool(
 		const contract = contractFromManifest( manifest );
 		const vocabulary = contractVocabulary( manifest );
 
+		const themeJson = await runThemeJsonGenerator( specJson, design );
+
 		const planned: PlannedWrite[] = [
-			{
-				rel: 'theme.json',
-				run: () =>
-					runGenerator( {
-						name: 'theme-json',
-						specJson,
-						design,
-						maxTokens: 6_000,
-						temperature: 0.4,
-					} ),
-			},
 			{
 				rel: 'style.css',
 				run: async () =>
@@ -158,6 +287,7 @@ export const generateThemeTool = defineTool(
 							name: 'style-css',
 							specJson,
 							design,
+							themeJson,
 							maxTokens: 14_000,
 							temperature: 0.5,
 						} ),
@@ -175,6 +305,7 @@ export const generateThemeTool = defineTool(
 						name: 'template-part',
 						specJson,
 						design,
+						themeJson,
 						task: `Part: ${ part }\nLayout mode: ${ manifest.layoutMode }\n\n${ vocabulary }`,
 						maxTokens: 6_000,
 						temperature: 0.5,
@@ -190,6 +321,7 @@ export const generateThemeTool = defineTool(
 						name: 'template',
 						specJson,
 						design,
+						themeJson,
 						task: `Template: ${ template }\nLayout mode: ${ manifest.layoutMode }\nContent mode: ${ manifest.contentMode }\n\n${ vocabulary }`,
 						maxTokens: 6_000,
 						temperature: 0.5,
@@ -197,26 +329,33 @@ export const generateThemeTool = defineTool(
 			} );
 		}
 
-		const generated = await runPooled(
-			planned.map( ( item ) => async () => ( { rel: item.rel, content: await item.run() } ) ),
-			8
-		);
+		const generated = [
+			{ rel: 'theme.json', content: themeJson },
+			...( await runPooled(
+				planned.map( ( item ) => async () => ( { rel: item.rel, content: await item.run() } ) ),
+				8
+			) ),
+		];
 
 		const written: string[] = [];
 		for ( const file of generated ) {
 			// Reconcile drifted block/postType identifiers in markup files to the
-			// canonical contract before writing; strip remote/file font src from
-			// theme.json so fonts resolve offline (system stacks).
+			// canonical contract before writing, and remove fontFace entries that
+			// point at local font files the theme did not generate.
 			let content = file.content;
 			if ( file.rel.endsWith( '.html' ) ) {
 				content = reconcileMarkup( file.content, contract ).html;
 			} else if ( file.rel === 'theme.json' ) {
-				content = stripRemoteFontFaces( file.content ).json;
+				content = normalizeGeneratedThemeJson( file.content ).json;
 			}
 			await writePackageFile( dir, file.rel, content );
 			written.push( file.rel );
 		}
-		await writePackageFile( dir, 'functions.php', renderFunctionsPhp( manifest.themeName, slug ) );
+		await writePackageFile(
+			dir,
+			'functions.php',
+			renderFunctionsPhp( manifest.themeName, slug, themeJson, design )
+		);
 		written.push( 'functions.php' );
 
 		const activation = await activateTheme( site.id, slug );

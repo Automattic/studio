@@ -1,8 +1,8 @@
 You are generating the `style.css` file for a WordPress block theme that is part of a generated site. The site is split into two packages: a pure-presentation THEME (where this file lives) and a separate companion plugin that holds all behavior (custom post types, REST routes, custom blocks). This `style.css` is THEME-side presentation only — design CSS, never behavior.
 
-Write the file to disk at `<site>/wp-content/themes/<slug>/style.css`. The site spec JSON and the chosen design direction are appended after these instructions, plus the specific task line for this call. The theme's `theme.json` has already been generated and is the single source of truth for design tokens: use its color slugs, font-family slugs, font-size slugs, and spacing slugs. Do NOT introduce new design tokens or pick colors/sizes/fonts that aren't defined there. Do NOT redefine in CSS what `theme.json` already exposes.
+Write the file to disk at `<site>/wp-content/themes/<slug>/style.css`. The site spec JSON, the chosen design direction, the generated `theme.json`, and the specific task line for this call are appended after these instructions. The generated `theme.json` is the single source of truth for design tokens: use its color slugs, font-family slugs, font-size slugs, and spacing slugs. Do NOT introduce new design tokens or pick colors/sizes/fonts that aren't defined there. Do NOT redefine in CSS what `theme.json` already exposes.
 
-Fonts are declared in `theme.json` as `settings.typography.fontFamilies` CSS-stack tokens (system-font fallbacks) — no `fontFace`/`src`, no remote or `file:` URLs, NOT enqueued from PHP and NOT `@import`ed here. Reference them only through the generated custom properties (e.g. `var(--wp--preset--font-family--body)`). Do not add `@font-face` rules or font CDN imports in this file.
+Fonts are declared in `theme.json` as `settings.typography.fontFamilies` CSS-stack tokens (system-font fallbacks). Google Fonts are loaded outside CSS by the generated `functions.php`, preferring the selected design's exact Google Fonts URL and falling back to the theme family names when needed. Reference fonts only through generated custom properties (e.g. `var(--wp--preset--font-family--body)`). Do not add `@font-face` rules or font CDN imports in this file.
 
 ## File header
 
@@ -22,6 +22,8 @@ After the header, emit focused design CSS that the block editor cannot express t
 - A `@media (prefers-reduced-motion: reduce)` block (below).
 
 Let the design direction drive the polish: a warm/editorial direction gets generous spacing, serif-forward refinement, and slow transitions; an industrial/brutalist direction gets tight tokens, hard edges, and snappy transitions. Anchor every choice in the picked design's palette and rhythm. No emojis anywhere. No decorative comments — only short section-label comments are acceptable; never narrate.
+
+The selected first-fold design is binding for CSS hooks. Define the reusable section/header/hero classes needed to reproduce that design in WordPress block markup: top contact strips, logo/wordmark lockups, decorative divider stripes, patterned backgrounds, map/card/image frames, badges, CTA variants, trust pills, and responsive adjustments. If the selected design uses a flat graphic/map card, write CSS for that graphic/card treatment; do not steer the stylesheet toward a photographic cover hero.
 
 ## Block-markup CSS conventions (the templates and patterns follow these — match them)
 
@@ -189,7 +191,7 @@ End the design CSS with a `@media (prefers-reduced-motion: reduce)` block that n
 
 ## Out of scope (do not emit)
 
-- No `@font-face` / font imports (fonts come from theme.json).
+- No `@font-face` / font imports. Google Fonts are enqueued by `functions.php` from the selected design and `theme.json` font-family tokens.
 - No JavaScript, and no rules that depend on JS-toggled classes existing at page load other than the documented `body.is-scrolled` and `.js-anim-ready` hooks (everything has a JS-off visible fallback).
 - No custom post type, REST, or block CSS that belongs to the companion plugin's own assets — keep this to theme presentation.
 - No base reset/normalize or wholesale re-skinning of core blocks that theme.json already controls.

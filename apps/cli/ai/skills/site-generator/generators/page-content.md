@@ -4,6 +4,8 @@ The site's design foundation is already established. The site spec JSON and the 
 
 Match the established design exactly. Use the same color slugs, typography, spacing presets, and class conventions the design direction and theme.json define. Do not invent a parallel palette or new font sizes. Let the site spec anchor the tone, the business domain, and any specific details the user mentioned — if the user named real services, products, locations, or language, use them. Do not substitute generic SaaS or consulting filler when the domain is concrete.
 
+For the home page, the first section MUST recreate the selected design's hero in WordPress block markup. Preserve the selected design's visual medium and layout: if it shows a flat graphic panel, route/map card, patterned blue field, decorative stripe, or compact trust pills, build that treatment with groups, columns, inline SVG where needed, and the selected class hooks. Do NOT replace it with a generic photographic `wp:cover`, a different headline shape, or a simplified centered hero unless the selected design itself did that. Below the first section, expand the same visual language into useful content.
+
 ## What to produce
 
 Build the page body as 4-7 well-composed top-level sections, in the order the composition brief implies. Each section is a self-contained band with its own rhythm. Do not compose every section from the same kit — vary archetype, alignment, and what carries the weight (image, typography, color band, or whitespace) section to section. A page where every band is a centered heading-plus-paragraph reads as a template, not a designed page.

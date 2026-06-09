@@ -17,7 +17,8 @@ verify the result, not to hand-author theme files.
 Every generated site is TWO packages:
 
 - **Theme** — pure presentation: `theme.json`, `style.css`, `templates/`,
-  `parts/`, `patterns/`, `assets/`. Minimal `functions.php`. No behaviour.
+  `parts/`, `patterns/`, `assets/`. Minimal `functions.php` for style and
+  allowed Google Fonts enqueueing from the selected design/theme tokens. No behaviour.
 - **Companion plugin** — all behaviour: custom post types, taxonomies, post
   meta, REST routes, and JSX/React blocks (compiled to build/). Survives a theme switch.
 

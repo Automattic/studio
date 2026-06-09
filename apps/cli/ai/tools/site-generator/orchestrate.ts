@@ -16,6 +16,8 @@ import {
 	runBlockGenerator,
 	runGenerator,
 	runManifest,
+	runPageContentGenerator,
+	runThemeJsonGenerator,
 } from 'cli/ai/tools/site-generator/generators';
 import {
 	contractFromManifest,
@@ -38,7 +40,10 @@ import {
 } from 'cli/ai/tools/site-generator/paths';
 import { buildSeederPhp, parseSeederResult } from 'cli/ai/tools/site-generator/seed-php';
 import { isSiteRunning, withDaemon, wpCli } from 'cli/ai/tools/site-generator/site-wp';
-import { stripRemoteFontFaces } from 'cli/ai/tools/site-generator/theme-guards';
+import {
+	findThemeTokenReferenceViolations,
+	normalizeGeneratedThemeJson,
+} from 'cli/ai/tools/site-generator/theme-guards';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import type { BlockPlan, SiteManifest } from 'cli/ai/tools/site-generator/manifest';
 import type { SiteData } from 'cli/lib/cli-config/core';
@@ -163,6 +168,7 @@ function errMessage( error: unknown ): string {
 interface BuildCtx {
 	specJson: string;
 	design: string;
+	themeJson: string;
 	vocabulary: string;
 	contract: ReturnType< typeof contractFromManifest >;
 	finalizeImages: FinalizeImages;
@@ -178,10 +184,12 @@ export function buildSiteTasks(
 	manifest: SiteManifest,
 	ctx: BuildCtx
 ): Array< () => Promise< GenResult > > {
-	const { specJson, design, vocabulary, contract, finalizeImages } = ctx;
+	const { specJson, design, themeJson, vocabulary, contract, finalizeImages } = ctx;
 	const tasks: Array< () => Promise< GenResult > > = [];
 
-	// THEME — theme.json, style.css (★14k long-pole), parts, templates. Each task
+	// THEME — style.css (★14k long-pole), parts, templates. theme.json is generated
+	// before this pool so every visual call receives the exact token contract.
+	// Each task
 	// is GUARDED: a single theme-file failure must not reject the whole pool (that
 	// would discard the plugin + content work too); it is routed like the rest.
 	const themeTask =
@@ -194,17 +202,13 @@ export function buildSiteTasks(
 		};
 
 	tasks.push(
-		themeTask( 'theme.json', () =>
-			runGenerator( { name: 'theme-json', specJson, design, maxTokens: 6_000, temperature: 0.4 } )
-		)
-	);
-	tasks.push(
 		themeTask( 'style.css', async () =>
 			ensureStyleHeader(
 				await runGenerator( {
 					name: 'style-css',
 					specJson,
 					design,
+					themeJson,
 					maxTokens: 14_000,
 					temperature: 0.5,
 				} ),
@@ -220,6 +224,7 @@ export function buildSiteTasks(
 					name: 'template-part',
 					specJson,
 					design,
+					themeJson,
 					task: `Part: ${ part }\nLayout mode: ${ manifest.layoutMode }\n\n${ vocabulary }`,
 					maxTokens: 6_000,
 					temperature: 0.5,
@@ -234,6 +239,7 @@ export function buildSiteTasks(
 					name: 'template',
 					specJson,
 					design,
+					themeJson,
 					task: `Template: ${ template }\nLayout mode: ${ manifest.layoutMode }\nContent mode: ${ manifest.contentMode }\n\n${ vocabulary }`,
 					maxTokens: 6_000,
 					temperature: 0.5,
@@ -255,6 +261,7 @@ export function buildSiteTasks(
 				const content = await runGenerator( {
 					name: 'companion-plugin',
 					specJson,
+					themeJson,
 					task: `Plugin name: ${ plugin.name }\nPlugin slug: ${ plugin.slug }\nGenerate the main plugin PHP file. Plan to implement:\n${ planSummary }\nRegister each block with register_block_type( __DIR__ . '/blocks/<block-slug>/build' ) — blocks are compiled from src/ to build/. Register each custom post type with its EXACT key and each REST route under the namespace '${ manifest.themePrefix }/v1'.\n\n${ vocabulary }`,
 					maxTokens: 12_000,
 					temperature: 0.3,
@@ -269,7 +276,8 @@ export function buildSiteTasks(
 				try {
 					const generated = await runBlockGenerator(
 						specJson,
-						`Block slug: ${ block.slug }\nBlock title: ${ block.title }\nPurpose: ${ block.purpose }\nBlock namespace (block.json "name"): ${ manifest.themePrefix }/${ block.slug } — use this EXACT name.\n\n${ vocabulary }`
+						`Block slug: ${ block.slug }\nBlock title: ${ block.title }\nPurpose: ${ block.purpose }\nBlock namespace (block.json "name"): ${ manifest.themePrefix }/${ block.slug } — use this EXACT name.\n\n${ vocabulary }`,
+						themeJson
 					);
 					return { kind: 'plugin-block', block, files: generated.files, error: null };
 				} catch ( error ) {
@@ -283,16 +291,15 @@ export function buildSiteTasks(
 	for ( const target of collectPageTargets( manifest ) ) {
 		tasks.push( async () => {
 			try {
-				const rawBody = await runGenerator( {
-					name: 'page-content',
+				const rawBody = await runPageContentGenerator( {
 					specJson,
+					design,
+					themeJson,
 					task: `Page post type: ${ target.postType }\nPage slug: ${ target.slug }\nPage title: ${
 						target.title
 					}\nComposition brief: ${
 						target.brief || '(none — infer from the spec and page title)'
 					}\n\n${ vocabulary }`,
-					maxTokens: 12_000,
-					temperature: 0.6,
 				} );
 				const img = await finalizeImages( reconcileMarkup( rawBody, contract ).html, target.slug );
 				const item: PreparedItem = {
@@ -327,7 +334,10 @@ export function buildSiteTasks(
 	for ( const postType of cptPlans ) {
 		tasks.push( async () => {
 			try {
-				const entries = await runCptEntries( specJson, postType, 4 );
+				const entries = await runCptEntries( specJson, postType, 4, {
+					design,
+					themeJson,
+				} );
 				const items: PreparedItem[] = [];
 				const usedSlugs = new Set< string >();
 				let generated = 0;
@@ -535,6 +545,7 @@ export interface GeneratedSiteArtifacts {
 	manifest: SiteManifest;
 	routed: RoutedResults;
 	taskCount: number;
+	themeJson: string;
 	imagesPersisted: boolean;
 }
 
@@ -544,6 +555,7 @@ export interface ValidatedSiteArtifacts {
 	pluginFailed: boolean;
 	blockFailures: string[];
 	generationFailed: string[];
+	themeTokenFailures: string[];
 }
 
 interface SeedReport {
@@ -765,10 +777,18 @@ export async function generateSiteArtifacts(
 		  } )
 		: async ( content ) => ( { content, generated: 0, failed: 0 } );
 
-	// --- ONE pool: every generation call across theme + plugin + content. ---
+	reportProgress( services, 'Generating theme design foundation...', false );
+	const themeJson = await runThemeJsonGenerator( plan.specJson, plan.design );
+	throwIfAborted( services.signal );
+
+	// --- ONE pool: every generation call across theme + plugin + content after
+	// the token foundation exists. The pool keeps the expensive style/plugin/page
+	// calls overlapped, while the visual files now share one authoritative palette
+	// and typography vocabulary.
 	const tasks = buildSiteTasks( plan.manifest, {
 		specJson: plan.specJson,
 		design: plan.design,
+		themeJson,
 		vocabulary: plan.vocabulary,
 		contract: plan.contract,
 		finalizeImages,
@@ -781,13 +801,17 @@ export async function generateSiteArtifacts(
 			reportProgress( services, `Generated ${ completed }/${ tasks.length } site artifacts...` );
 		},
 	} );
-	const routed = routeResults( results );
+	const routed = routeResults( [
+		{ kind: 'theme-file', rel: 'theme.json', content: themeJson, error: null },
+		...results,
+	] );
 
 	return {
 		phase: 'generate-artifacts',
 		manifest: plan.manifest,
 		routed,
-		taskCount: tasks.length,
+		taskCount: tasks.length + 1,
+		themeJson,
 		imagesPersisted: persistImages && plan.withImages && plan.imagesOk,
 	};
 }
@@ -800,6 +824,12 @@ export function validateSiteArtifacts(
 	const plugin = plan.manifest.companionPlugin;
 	const pluginFailed = plugin.needed && ! routed.pluginMain;
 	const styleOk = routed.themeFiles.some( ( file ) => file.rel === 'style.css' );
+	const themeJson = routed.themeFiles.find( ( file ) => file.rel === 'theme.json' )?.content;
+	const themeTokenFailures = themeJson
+		? findThemeTokenReferenceViolations( themeJson, routed.themeFiles ).map(
+				( violation ) => `${ violation.file }: ${ violation.detail }`
+		  )
+		: [];
 
 	return {
 		phase: 'validate',
@@ -807,6 +837,7 @@ export function validateSiteArtifacts(
 		pluginFailed,
 		blockFailures: [ ...routed.pluginBlockGenFailures ],
 		generationFailed: [ ...routed.generationFailed ],
+		themeTokenFailures,
 	};
 }
 
@@ -823,6 +854,10 @@ export async function applyGeneratedSite(
 	const routed = artifacts.routed;
 	const tDir = plan.themeDirectory;
 	const pDir = plan.pluginDirectory;
+	const themeJson =
+		artifacts.themeJson ||
+		routed.themeFiles.find( ( file ) => file.rel === 'theme.json' )?.content ||
+		'';
 
 	// --- Deferred writes, strict order (nothing above wrote to disk/DB). ---
 
@@ -834,12 +869,16 @@ export async function applyGeneratedSite(
 		if ( file.rel.endsWith( '.html' ) ) {
 			content = reconcileMarkup( file.content, plan.contract ).html;
 		} else if ( file.rel === 'theme.json' ) {
-			content = stripRemoteFontFaces( file.content ).json;
+			content = normalizeGeneratedThemeJson( file.content ).json;
 		}
 		await writePackageFile( tDir, file.rel, content );
 		themeWritten.push( file.rel );
 	}
-	await writePackageFile( tDir, 'functions.php', renderFunctionsPhp( manifest.themeName, slug ) );
+	await writePackageFile(
+		tDir,
+		'functions.php',
+		renderFunctionsPhp( manifest.themeName, slug, themeJson, plan.design )
+	);
 	themeWritten.push( 'functions.php' );
 
 	// 2-3. Plugin main PHP, then each block (write src/ → compile → build/).
@@ -965,6 +1004,9 @@ export function summarizeSiteGeneration(
 						', '
 				  ) } (re-run is idempotent).`
 				: '',
+			validation.themeTokenFailures.length
+				? `Theme token mismatch: ${ validation.themeTokenFailures.join( '; ' ) }`
+				: '',
 			plan.withImages
 				? artifacts.imagesPersisted
 					? `AI images: ${ routed.imagesGenerated } generated, ${ routed.imagesFailed } failed.`
@@ -1007,6 +1049,9 @@ export function summarizeSiteGeneration(
 			? `Content generation FAILED for: ${ validation.generationFailed.join(
 					', '
 			  ) } (re-run is idempotent).`
+			: '',
+		validation.themeTokenFailures.length
+			? `Theme token mismatch: ${ validation.themeTokenFailures.join( '; ' ) }`
 			: '',
 		plan.withImages && plan.imagesOk
 			? `AI images: ${ applied.imagesGenerated } generated, ${ applied.imagesFailed } failed.`

@@ -4,9 +4,9 @@ import { fileURLToPath } from 'url';
 import { describe, expect, it } from 'vitest';
 
 // Pin the corrected generator doctrine so a prompt edit can't silently
-// reintroduce the four shipped bugs (remote fonts, CPT archive routing
-// collision, archive-loop recursion, unregistered-taxonomy queries) without a
-// test failing — no LLM call required.
+// reintroduce the shipped generator bugs (unresolvable local font files, CPT
+// archive routing collision, archive-loop recursion, unregistered-taxonomy
+// queries) without a test failing — no LLM call required.
 const generators = path.join(
 	path.dirname( fileURLToPath( import.meta.url ) ),
 	'..',
@@ -17,12 +17,14 @@ const generators = path.join(
 const read = ( rel: string ): string => readFileSync( path.join( generators, rel ), 'utf8' );
 
 describe( 'skill prompt doctrine (regression guards)', () => {
-	it( 'theme-json.md mandates system-font tokens, not a remote fontFace src', () => {
+	it( 'theme-json.md allows Google Fonts but blocks unresolvable local font paths', () => {
 		const md = read( 'theme-json.md' );
-		expect( md ).toMatch( /Do NOT emit `fontFace`/i );
+		expect( md ).toMatch( /Google Fonts are allowed/i );
+		expect( md ).toMatch( /Never use a `file:` path/i );
+		expect( md ).toMatch( /Never use `@import`/i );
 		expect( md ).toContain( 'system-ui' );
-		// The old mandate — a fonts.gstatic.com woff2 src example — is gone.
-		expect( md ).not.toMatch( /gstatic\.com\/s\// );
+		expect( md ).toMatch( /Keep the file compact and complete/i );
+		expect( md ).not.toMatch( /never enqueued from PHP/i );
 	} );
 
 	it( 'companion-plugin.md forbids page-colliding archive slugs and prefers meta over taxonomies', () => {

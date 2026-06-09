@@ -1,22 +1,17 @@
 import { resolveSessionModel } from '@studio/common/ai/models';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useCallback, useLayoutEffect, useMemo, useRef, type ReactNode, type Ref } from 'react';
-import { SiteDropdown } from '@/components/site-dropdown';
-import { SiteIcon } from '@/components/site-icon';
-import { SitePreview } from '@/components/site-preview';
+import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
+import { PreviewSplitContent } from '@/components/preview-split-frame';
 import { type Annotation } from '@/components/site-preview/types';
 import { useAgentRun } from '@/data/queries/use-agent-run';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
-import { useFullscreen } from '@/hooks/use-fullscreen';
 import { useSessionCommands } from '@/hooks/use-session-commands';
-import { SessionUIProvider, useSessionPreviewUI } from '@/hooks/use-session-ui';
-import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
-import { drawerIcon } from '@/lib/icons';
+import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-session-ui';
+import { SiteMenuHeader } from '@/ui-classic/components/site-menu-header';
 import { formatAnnotationsAsPrompt, formatAnnotationsSubmittedMessage } from './annotations';
 import { Composer, ComposerSkeleton } from './composer';
 import { pickLiveSite } from './composer/environment-pill';
@@ -28,20 +23,10 @@ import type { AiSessionSummary } from '@/data/core';
 
 interface SessionHeaderProps {
 	summary: AiSessionSummary;
-	previewOpen: boolean;
-	onTogglePreview: () => void;
-	canTogglePreview: boolean;
 }
 
-function SessionHeader( {
-	summary,
-	previewOpen,
-	onTogglePreview,
-	canTogglePreview,
-}: SessionHeaderProps ) {
+function SessionHeader( { summary }: SessionHeaderProps ) {
 	const siteName = summary.ownerSiteName;
-	const sidebarCollapsed = useSidebarCollapsed();
-	const isFullscreen = useFullscreen();
 	const { data: sites } = useSites();
 	const site = sites?.find( ( candidate ) => candidate.path === summary.ownerSitePath );
 	const effectiveEnvironment = useSessionEffectiveEnvironment( summary, site?.id );
@@ -49,85 +34,36 @@ function SessionHeader( {
 		return null;
 	}
 
-	const toggleSpacerClass = sidebarCollapsed
-		? isFullscreen
-			? styles.toggleSpacerFullscreen
-			: styles.toggleSpacer
-		: null;
-
 	return (
-		<div className={ styles.header }>
-			{ toggleSpacerClass ? <span className={ toggleSpacerClass } aria-hidden="true" /> : null }
-			{ site ? (
-				<SiteDropdown
-					site={ site }
-					activeEnvironment={ effectiveEnvironment }
-					showSiteIcon={ sidebarCollapsed }
-				/>
-			) : (
-				<>
-					{ sidebarCollapsed ? (
-						<SiteIcon className={ styles.headerSiteIcon } seed={ siteName } />
-					) : null }
-					<span className={ styles.headerSite }>{ siteName }</span>
-					<span className={ styles.headerDot } aria-hidden="true" />
-					<span className={ styles.headerEnv }>
-						{ effectiveEnvironment === 'live' ? __( 'Live' ) : __( 'Local' ) }
-					</span>
-				</>
-			) }
-			<span className={ styles.headerSpacer } aria-hidden="true" />
-			{ canTogglePreview ? (
-				<div className={ styles.headerActions }>
-					<IconButton
-						variant="minimal"
-						tone="neutral"
-						size="small"
-						icon={ drawerIcon }
-						label={ previewOpen ? __( 'Hide site preview' ) : __( 'Show site preview' ) }
-						aria-pressed={ previewOpen }
-						onClick={ onTogglePreview }
-					/>
-				</div>
-			) : null }
-		</div>
+		<SiteMenuHeader
+			site={ site }
+			fallbackSiteName={ siteName }
+			activeEnvironment={ effectiveEnvironment }
+		/>
 	);
 }
 
-interface SessionFrameProps {
-	header?: ReactNode;
-	composer?: ReactNode;
-	preview?: ReactNode;
-	scrollRef?: Ref< HTMLDivElement >;
-	children?: ReactNode;
-}
-
-function SessionFrame( { header, composer, preview, scrollRef, children }: SessionFrameProps ) {
-	return (
-		<div className={ styles.root }>
-			<div className={ styles.chatColumn }>
-				{ header }
-				<div ref={ scrollRef } className={ clsx( styles.scroll, styles.classicScroll ) }>
-					{ children }
-				</div>
-				<div className={ clsx( styles.composerOuter, styles.classicComposerOuter ) }>
-					{ composer }
-				</div>
-			</div>
-			{ preview }
-		</div>
-	);
-}
-
-export function SessionView( { sessionId }: { sessionId: string } ) {
+export function SessionView( {
+	sessionId,
+	autoFocusComposer = false,
+}: {
+	sessionId: string;
+	autoFocusComposer?: boolean;
+} ) {
 	return (
 		<SessionUIProvider>
-			<SessionViewContent sessionId={ sessionId } />
+			<SessionViewContent sessionId={ sessionId } autoFocusComposer={ autoFocusComposer } />
 		</SessionUIProvider>
 	);
 }
 
-function SessionViewContent( { sessionId }: { sessionId: string } ) {
+function SessionViewContent( {
+	sessionId,
+	autoFocusComposer,
+}: {
+	sessionId: string;
+	autoFocusComposer: boolean;
+} ) {
 	const navigate = useNavigate();
 	const { data, isLoading, error } = useSession( sessionId );
 	const { data: sites } = useSites();
@@ -170,10 +106,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	);
 	const scrollRef = useRef< HTMLDivElement >( null );
 	useSessionCommands( sessionId );
-	const preview = useSessionPreviewUI();
 	const canTogglePreview = !! ownerSite && effectiveEnvironment === 'local';
-	const showPreview = preview.open && canTogglePreview;
-
 	const handleAnnotationsDone = useCallback(
 		( annotations: Annotation[] ) => {
 			if ( annotations.length === 0 ) return;
@@ -183,6 +116,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		},
 		[ sendMessage ]
 	);
+	useSessionPreviewAnnotations( handleAnnotationsDone, canTogglePreview && !! ownerSite );
 
 	useLayoutEffect( () => {
 		const node = scrollRef.current;
@@ -197,13 +131,15 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	}, [ sessionId, data, isRunning, queuedPrompts.length ] );
 
 	if ( isLoading ) {
-		// Use the same SessionFrame with an empty header and a structural
+		// Use the same PreviewSplitFrame with an empty header and a structural
 		// ComposerSkeleton so the scroll area has the exact same dimensions
 		// as the loaded view — otherwise the EmptyBackground canvas jumps
 		// mid-transition.
 		return (
-			<SessionFrame
-				header={ <div className={ styles.header } /> }
+			<PreviewSplitContent
+				scrollClassName={ clsx( styles.scroll, styles.classicScroll ) }
+				composerOuterClassName={ clsx( styles.composerOuter, styles.classicComposerOuter ) }
+				header={ <SiteMenuHeader /> }
 				composer={
 					<div className={ styles.classicColumn }>
 						<ComposerSkeleton />
@@ -211,7 +147,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 				}
 			>
 				<EmptyBackground />
-			</SessionFrame>
+			</PreviewSplitContent>
 		);
 	}
 
@@ -225,16 +161,11 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	}
 
 	return (
-		<SessionFrame
+		<PreviewSplitContent
 			scrollRef={ scrollRef }
-			header={
-				<SessionHeader
-					summary={ data.summary }
-					previewOpen={ showPreview }
-					onTogglePreview={ preview.toggle }
-					canTogglePreview={ canTogglePreview }
-				/>
-			}
+			scrollClassName={ clsx( styles.scroll, styles.classicScroll ) }
+			composerOuterClassName={ clsx( styles.composerOuter, styles.classicComposerOuter ) }
+			header={ <SessionHeader summary={ data.summary } /> }
 			composer={
 				<div className={ styles.classicColumn }>
 					<QueuedPrompts prompts={ queuedPrompts } onRemove={ removeQueuedPrompt } />
@@ -250,6 +181,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						liveSite={ liveSite }
 						entries={ data.entries }
 						ownerSiteId={ ownerSite?.id }
+						autoFocus={ autoFocusComposer }
 						onSwitchSession={ ( nextSessionId ) =>
 							void navigate( {
 								to: '/sessions/$sessionId',
@@ -258,16 +190,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						}
 					/>
 				</div>
-			}
-			preview={
-				showPreview && ownerSite ? (
-					<SitePreview
-						site={ ownerSite }
-						path={ preview.path }
-						reloadNonce={ preview.reloadNonce }
-						onAnnotationsDone={ handleAnnotationsDone }
-					/>
-				) : null
 			}
 		>
 			{ isEmpty ? <EmptyBackground /> : null }
@@ -281,6 +203,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 					onAnswerQuestion={ answerQuestion }
 				/>
 			</div>
-		</SessionFrame>
+		</PreviewSplitContent>
 	);
 }

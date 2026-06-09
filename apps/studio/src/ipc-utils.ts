@@ -52,6 +52,7 @@ export interface IpcEvents {
 		},
 	];
 	'test-render-failure': [ void ];
+	'toggle-site-preview': [ void ];
 	'theme-details-loading': [ { id: string } ];
 	'theme-details-loaded': [ { id: string; details: StartedSiteDetails[ 'themeDetails' ] } ];
 	'thumbnail-loading': [ { id: string } ];

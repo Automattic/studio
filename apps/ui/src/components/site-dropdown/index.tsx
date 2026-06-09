@@ -31,7 +31,6 @@ export function SiteDropdown( { site, activeEnvironment = 'local', showSiteIcon 
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
 	const { status, statusLabel } = deriveSiteStatus( site, isStarting, isStopping );
-
 	// Only needed here so the disconnect dialog can reference the current live
 	// site. MainView fetches the same data independently for its action row.
 	const { data: connectedSites } = useConnectedWpcomSites( site.id );

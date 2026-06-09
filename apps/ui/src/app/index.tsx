@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { AppProviders } from '@/app/app-providers';
 import { useUiMode } from '@/app/use-ui-mode';
 import { ClassicUiApp } from '@/ui-classic/app';
@@ -14,6 +15,14 @@ interface AppProps {
 
 export function App( { connector }: AppProps ) {
 	const { mode } = useUiMode();
+
+	useEffect( () => {
+		document.body.dataset.studioUiMode = mode;
+
+		return () => {
+			delete document.body.dataset.studioUiMode;
+		};
+	}, [ mode ] );
 
 	return (
 		<AppProviders connector={ connector }>

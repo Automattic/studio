@@ -3,7 +3,6 @@ import { createPackagedRouterHistory } from '@/app/router-history';
 import { dashboardLayoutRoute } from './layout-dashboard';
 import { onboardingLayoutRoute } from './layout-onboarding';
 import { rootRoute } from './layout-root';
-import { dashboardRoute } from './route-dashboard';
 import { indexRoute } from './route-index';
 import { newSessionRoute } from './route-new-session';
 import { onboardingBlueprintRoute } from './route-onboarding-blueprint';
@@ -12,17 +11,20 @@ import { onboardingHomeRoute } from './route-onboarding-home';
 import { onboardingImportRoute } from './route-onboarding-import';
 import { sessionDetailRoute } from './route-session-detail';
 import { settingsRoute } from './route-settings';
+import { siteOverviewRoute } from './route-site-overview';
 import { siteSettingsRoute } from './route-site-settings';
+import { unassignedOverviewRoute } from './route-unassigned-overview';
 import type { RouterContext } from './layout-root';
 
 const routeTree = rootRoute.addChildren( [
 	indexRoute,
 	dashboardLayoutRoute.addChildren( [
-		dashboardRoute,
 		newSessionRoute,
 		sessionDetailRoute,
+		siteOverviewRoute,
 		siteSettingsRoute,
 		settingsRoute,
+		unassignedOverviewRoute,
 	] ),
 	onboardingLayoutRoute.addChildren( [
 		onboardingHomeRoute,

@@ -1,19 +1,29 @@
 .root {
 	--sidebar-row-height: 32px;
 	--sidebar-row-background-hover: rgb(0 0 0 / 4%);
+	--sidebar-row-background-active: rgb(0 0 0 / 7%);
 
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md)
+		var(--wpds-dimension-padding-md);
 	flex-shrink: 0;
-	padding: 0 var(--wpds-dimension-padding-md) 2px;
+	position: relative;
+	z-index: 1;
+	background-color: transparent;
 	user-select: none;
+}
+
+.rootWithTopBorder {
+	border-top: 1px solid var(--sidebar-layout-glass-border);
 }
 
 @media (prefers-color-scheme: dark) {
 	.root {
 		--sidebar-row-background-hover: rgb(255 255 255 / 8%);
+		--sidebar-row-background-active: rgb(255 255 255 / 12%);
 	}
 }
 
-.item {
+.button {
 	--sidebar-item-background: transparent;
 	--wp-ui-button-background-color: var(--sidebar-item-background);
 	--wp-ui-button-background-color-active: var(--sidebar-item-background);
@@ -30,6 +40,7 @@
 	gap: 0;
 	padding-block: 0;
 	padding-inline: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
+	padding-inline-end: calc(var(--sidebar-row-height) + var(--wpds-dimension-padding-sm));
 	border-radius: 6px;
 	background-color: var(--sidebar-item-background);
 	color: var(--wpds-color-fg-content-neutral);
@@ -40,14 +51,23 @@
 	transition: background-color 100ms ease;
 }
 
-.item:hover,
-.item:focus-visible {
+.button:hover,
+.button:focus-visible {
 	--sidebar-item-background: var(--sidebar-row-background-hover);
 }
 
-.item:focus-visible {
+.button:focus-visible {
 	outline: 2px solid var(--ui-desks-focus, #3858e9);
 	outline-offset: -2px;
+}
+
+.buttonActive {
+	--sidebar-item-background: var(--sidebar-row-background-active);
+}
+
+.buttonActive:hover,
+.buttonActive:focus-visible {
+	--sidebar-item-background: var(--sidebar-row-background-active);
 }
 
 .iconSlot {
@@ -75,6 +95,6 @@
 	line-height: 1.2;
 }
 
-.popup {
-	min-width: 200px;
+.buttonActive .label {
+	font-weight: var(--wpds-typography-font-weight-medium, 500);
 }

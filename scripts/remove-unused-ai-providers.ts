@@ -15,7 +15,7 @@
  * duplicates wherever npm placed them in the tree.
  */
 
-import { readdirSync, rmSync, statSync } from 'fs';
+import { existsSync, readdirSync, rmSync, statSync } from 'fs';
 import { join } from 'path';
 
 // Package directories (relative to any node_modules) to remove. Whole AWS/Mistral scopes are
@@ -59,11 +59,17 @@ function removeTargets( nodeModulesDir: string ): void {
  * the hoisted one and any nested under packages such as pi-coding-agent.
  */
 export function pruneUnusedProviders( nodeModulesDir: string ): void {
+	// Most packages have no nested node_modules; recursion bottoms out here. Check existence
+	// up front so the common case is a cheap stat rather than a thrown-and-caught ENOENT.
+	if ( ! existsSync( nodeModulesDir ) ) {
+		return;
+	}
+
 	let entries;
 	try {
 		entries = readdirSync( nodeModulesDir, { withFileTypes: true } );
 	} catch {
-		return; // no such node_modules — nothing to do
+		return; // unreadable (permissions, races) — skip rather than abort packaging
 	}
 
 	removeTargets( nodeModulesDir );

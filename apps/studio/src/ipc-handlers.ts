@@ -745,16 +745,28 @@ function readWordPressDebugLog( sitePath: string ): string[] | undefined {
 	return readLastLines( debugLogPath, DEBUG_LOG_MAX_LINES );
 }
 
+function findMostRecentLog( logsDir: string, prefix: string, suffix: string ): string | undefined {
+	try {
+		const files = fs.readdirSync( logsDir );
+		const matching = files
+			.filter( ( f ) => f.startsWith( prefix ) && f.endsWith( suffix ) )
+			.sort()
+			.reverse();
+		return matching.length > 0 ? nodePath.join( logsDir, matching[ 0 ] ) : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
 function readProcessManagerLogs( siteId: string ): { stdout?: string[]; stderr?: string[] } {
 	const logsDir = nodePath.join( PROCESS_MANAGER_HOME, 'logs' );
-	const dateTag = new Date().toISOString().slice( 0, 10 ).replace( /-/g, '' );
 	const prefix = `studio-site-${ siteId }`;
-	const stdoutPath = nodePath.join( logsDir, `${ prefix }-out-${ dateTag }.log` );
-	const stderrPath = nodePath.join( logsDir, `${ prefix }-error-${ dateTag }.log` );
+	const stdoutPath = findMostRecentLog( logsDir, `${ prefix }-out-`, '.log' );
+	const stderrPath = findMostRecentLog( logsDir, `${ prefix }-error-`, '.log' );
 
 	return {
-		stdout: readLastLines( stdoutPath, DEBUG_LOG_MAX_LINES ),
-		stderr: readLastLines( stderrPath, DEBUG_LOG_MAX_LINES ),
+		stdout: stdoutPath ? readLastLines( stdoutPath, DEBUG_LOG_MAX_LINES ) : undefined,
+		stderr: stderrPath ? readLastLines( stderrPath, DEBUG_LOG_MAX_LINES ) : undefined,
 	};
 }
 

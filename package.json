@@ -72,6 +72,7 @@
 		"@types/fs-extra": "^11.0.4",
 		"@vitest/ui": "^4.1.8",
 		"electron-playwright-helpers": "^2.1.0",
+		"esbuild": "^0.28.0",
 		"eslint": "^9.39.4",
 		"eslint-config-prettier": "^9.1.2",
 		"eslint-import-resolver-typescript": "^4.4.4",

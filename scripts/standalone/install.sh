@@ -146,7 +146,7 @@ ensure_path() {
 		*":${BIN_DIR}:"*) return ;;
 	esac
 
-	SHELL_NAME="$(basename "$SHELL")"
+	SHELL_NAME="$(basename "${SHELL:-sh}")"
 	case "$SHELL_NAME" in
 		zsh)  RC_FILE="$HOME/.zshrc" ;;
 		bash) RC_FILE="$HOME/.bashrc" ;;

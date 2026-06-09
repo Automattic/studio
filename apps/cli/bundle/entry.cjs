@@ -137,8 +137,8 @@ function releaseLock() {
 	rmSync( LOCK_FILE, { force: true } );
 }
 
-// Remove orphaned `${CLI_DIR}.tmp-*` dirs left behind by killed/crashed runs.
-function sweepStaleTmpDirs() {
+// Remove orphaned work dirs left behind by killed/crashed runs.
+function sweepStaleWorkDirs() {
 	let entries;
 	try {
 		entries = readdirSync( PARENT_DIR );
@@ -147,7 +147,7 @@ function sweepStaleTmpDirs() {
 	}
 	const base = CLI_DIR.split( sep ).pop();
 	for ( const name of entries ) {
-		if ( name.startsWith( `${ base }.tmp-` ) ) {
+		if ( name.startsWith( `${ base }.tmp-` ) || name.startsWith( `${ base }.bak-` ) ) {
 			rmSync( join( PARENT_DIR, name ), { recursive: true, force: true } );
 		}
 	}
@@ -155,7 +155,7 @@ function sweepStaleTmpDirs() {
 
 // Extract a gzipped tar buffer directly into destDir (created if needed).
 // Atomicity is handled by the caller, which assembles every asset into a single
-// staging dir and swaps that into the live CLI_DIR with one rename.
+// staging dir before publishing it into the live CLI_DIR.
 function extractTarballInto( tarball, destDir, sourceLabel ) {
 	mkdirSync( destDir, { recursive: true } );
 	// Stream the asset to tar's stdin and extract in-place (cwd = destDir).
@@ -220,7 +220,7 @@ async function ensureExtracted( bundleVersion ) {
 		// Progress goes to stderr so it never pollutes stdout that capture-mode
 		// callers parse (e.g. `--version`, `--format json`) on first run.
 		console.error( 'First run — extracting runtime assets...' );
-		sweepStaleTmpDirs();
+		sweepStaleWorkDirs();
 
 		// Locate the node_modules sidecar *before* touching the live runtime, so a
 		// missing/corrupt sidecar fails fast and leaves the previous extraction
@@ -244,13 +244,16 @@ async function ensureExtracted( bundleVersion ) {
 			}
 		}
 
-		// Assemble the complete runtime in a staging dir, then swap it into place
-		// with a single atomic rename. If any step fails before the swap, CLI_DIR
-		// is left untouched.
+		// Assemble the complete runtime in a staging dir before touching CLI_DIR.
+		// The publish step keeps the previous runtime in a backup dir so a failed
+		// rename can restore it instead of leaving the CLI without a runtime.
 		const stagingDir = `${ CLI_DIR }.tmp-${ process.pid }`;
+		const backupDir = `${ CLI_DIR }.bak-${ process.pid }`;
 		rmSync( stagingDir, { recursive: true, force: true } );
+		rmSync( backupDir, { recursive: true, force: true } );
 
 		let swapped = false;
+		let backedUp = false;
 		try {
 			extractTarballInto(
 				Buffer.from( getAsset( 'resources.tar.gz' ) ),
@@ -267,13 +270,33 @@ async function ensureExtracted( bundleVersion ) {
 			writeFileSync( join( stagingDir, '.bundle-version' ), bundleVersion );
 
 			if ( existsSync( CLI_DIR ) ) {
-				rmSync( CLI_DIR, { recursive: true, force: true } );
+				renameSync( CLI_DIR, backupDir );
+				backedUp = true;
 			}
 			renameSync( stagingDir, CLI_DIR );
 			swapped = true;
+			if ( backedUp ) {
+				try {
+					rmSync( backupDir, { recursive: true, force: true } );
+				} catch {
+					// Best-effort cleanup; a later run will sweep the backup.
+				}
+			}
+		} catch ( err ) {
+			if ( backedUp && ! existsSync( CLI_DIR ) && existsSync( backupDir ) ) {
+				renameSync( backupDir, CLI_DIR );
+			}
+			throw err;
 		} finally {
 			if ( ! swapped ) {
 				rmSync( stagingDir, { recursive: true, force: true } );
+			}
+			if ( swapped && existsSync( backupDir ) ) {
+				try {
+					rmSync( backupDir, { recursive: true, force: true } );
+				} catch {
+					// Best-effort cleanup; a later run will sweep the backup.
+				}
 			}
 		}
 

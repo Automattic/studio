@@ -200,11 +200,15 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 
 	/**
 	 * Check if a standalone CLI (installed via install.ps1) is present.
-	 * Detects the standalone binary (studio.exe) in the default or custom install path.
+	 * Detects the standalone binary and its required node_modules sidecar in the
+	 * default or custom install path.
 	 */
 	private async isStandaloneCli(): Promise< boolean > {
 		const currentPath = await this.getPathFromRegistry();
-		const pathDirs = currentPath.split( ';' ).map( ( item ) => item.trim() );
+		const pathDirs = currentPath
+			.split( ';' )
+			.map( ( item ) => item.trim() )
+			.filter( Boolean );
 
 		for ( const dir of pathDirs ) {
 			// Skip the app's own bin directory
@@ -212,7 +216,8 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 				continue;
 			}
 			const studioExePath = path.join( dir, 'studio.exe' );
-			if ( existsSync( studioExePath ) ) {
+			const sidecarPath = `${ studioExePath }.node_modules.tar.gz`;
+			if ( existsSync( studioExePath ) && existsSync( sidecarPath ) ) {
 				return true;
 			}
 		}

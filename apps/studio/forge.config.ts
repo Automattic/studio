@@ -11,16 +11,13 @@ import { windowsSign } from './windowsSign';
 import type { ForgeConfig } from '@electron-forge/shared-types';
 
 const repoRoot = path.resolve( __dirname, '../..' );
+const packagedBinRoot = path.join( repoRoot, 'out', 'forge-resources', 'bin' );
 const bundledPhpBinaryRoot = path.join( __dirname, 'php-bin' );
 
 const config: ForgeConfig = {
 	packagerConfig: {
 		asar: true,
-		extraResource: [
-			path.join( __dirname, 'assets' ),
-			path.join( __dirname, 'bin' ),
-			bundledPhpBinaryRoot,
-		],
+		extraResource: [ path.join( __dirname, 'assets' ), packagedBinRoot, bundledPhpBinaryRoot ],
 		executableName: process.platform === 'linux' ? 'studio' : undefined,
 		icon: path.join( __dirname, 'assets', 'studio-app-icon' ),
 		windowsSign,
@@ -214,12 +211,31 @@ const config: ForgeConfig = {
 				arch,
 			] );
 
+			fs.rmSync( packagedBinRoot, { recursive: true, force: true } );
+			fs.mkdirSync( packagedBinRoot, { recursive: true } );
+
+			const copyBinResource = ( fileName: string ) => {
+				fs.copyFileSync(
+					path.join( __dirname, 'bin', fileName ),
+					path.join( packagedBinRoot, fileName )
+				);
+			};
+
+			copyBinResource( 'studio-cli.sh' );
+			copyBinResource( 'uninstall-studio-cli.sh' );
+			if ( platform === 'win32' ) {
+				copyBinResource( 'studio-cli.bat' );
+			} else {
+				fs.chmodSync( path.join( packagedBinRoot, 'studio-cli.sh' ), 0o755 );
+				fs.chmodSync( path.join( packagedBinRoot, 'uninstall-studio-cli.sh' ), 0o755 );
+			}
+
 			const cliBinaryName =
 				platform === 'win32'
 					? `studio-cli-${ platform }-${ arch }.exe`
 					: `studio-cli-${ platform }-${ arch }`;
 			const cliSource = path.join( repoRoot, 'standalone-bundles', cliBinaryName );
-			const cliDest = path.join( __dirname, 'bin', platform === 'win32' ? 'studio.exe' : 'studio' );
+			const cliDest = path.join( packagedBinRoot, platform === 'win32' ? 'studio.exe' : 'studio' );
 			const cliSidecarSource = `${ cliSource }.node_modules.tar.gz`;
 			const cliSidecarDest = `${ cliDest }.node_modules.tar.gz`;
 			fs.copyFileSync( cliSource, cliDest );
@@ -251,13 +267,7 @@ const config: ForgeConfig = {
 			// On Windows, the bundled binary also serves as the AppExecutionAlias target.
 			// AppX packages require AppExecutionAlias with an .exe target — batch files won't work.
 			if ( platform === 'win32' ) {
-				fs.copyFileSync( cliDest, path.join( __dirname, 'bin', 'studio-cli.exe' ) );
-			}
-
-			// Drop the cross-platform launcher file before forge copies bin/ as
-			// extraResource. macOS/Linux builds don't need studio-cli.bat.
-			if ( platform !== 'win32' ) {
-				fs.rmSync( path.join( __dirname, 'bin', 'studio-cli.bat' ), { force: true } );
+				fs.copyFileSync( cliDest, path.join( packagedBinRoot, 'studio-cli.exe' ) );
 			}
 		},
 	},

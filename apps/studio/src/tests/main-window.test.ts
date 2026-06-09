@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  */
-import { BrowserWindow } from 'electron';
+import { BrowserWindow, type BrowserWindowConstructorOptions } from 'electron';
 import { readFile } from 'atomically';
 import { vol } from 'memfs';
 import { vi } from 'vitest';
@@ -17,12 +17,25 @@ vi.mock( 'src/lib/app-globals', () => ( {
 
 // Create a simpler mock that tracks event handlers
 const mockEventHandlers = new Map< string, ( ( ...args: any[] ) => void )[] >();
+const mockBrowserWindowOptions: Array< BrowserWindowConstructorOptions | undefined > = [];
+const originalPlatform = process.platform;
+
+function setPlatform( platform: NodeJS.Platform ) {
+	Object.defineProperty( process, 'platform', {
+		value: platform,
+		configurable: true,
+	} );
+}
 
 vi.mock( 'electron', () => {
 	class MockBrowserWindow {
 		static fromWebContents = vi.fn().mockImplementation( () => new MockBrowserWindow() );
 		static getFocusedWindow = vi.fn();
 		static getAllWindows = vi.fn().mockReturnValue( [] );
+
+		constructor( options?: BrowserWindowConstructorOptions ) {
+			mockBrowserWindowOptions.push( options );
+		}
 
 		isDestroyed = vi.fn().mockReturnValue( false );
 		isFullScreen = vi.fn().mockReturnValue( false );
@@ -85,6 +98,47 @@ const mockUserData = {
 	sites: [],
 };
 vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( mockUserData ) ) );
+
+describe( 'window options', () => {
+	beforeEach( () => {
+		vol.reset();
+		mockBrowserWindowOptions.length = 0;
+	} );
+
+	afterEach( () => {
+		setPlatform( originalPlatform );
+		__resetMainWindow();
+	} );
+
+	it( 'enables native sidebar vibrancy for macOS', async () => {
+		setPlatform( 'darwin' );
+
+		await createMainWindow();
+
+		expect( mockBrowserWindowOptions[ 0 ] ).toMatchObject( {
+			backgroundColor: '#00000000',
+			frame: false,
+			transparent: true,
+			titleBarStyle: 'hidden',
+			vibrancy: 'sidebar',
+			visualEffectState: 'active',
+		} );
+	} );
+
+	it( 'uses Windows acrylic without changing frame behavior', async () => {
+		setPlatform( 'win32' );
+
+		await createMainWindow();
+
+		expect( mockBrowserWindowOptions[ 0 ] ).toMatchObject( {
+			backgroundColor: 'rgba(30, 30, 30, 1)',
+			backgroundMaterial: 'acrylic',
+			titleBarStyle: 'hidden',
+		} );
+		expect( mockBrowserWindowOptions[ 0 ] ).not.toHaveProperty( 'transparent' );
+		expect( mockBrowserWindowOptions[ 0 ] ).not.toHaveProperty( 'frame' );
+	} );
+} );
 
 describe( 'getMainWindow', () => {
 	let createdWindow: BrowserWindow;

@@ -7,11 +7,13 @@ export function getErrorMessage( error: unknown ): string | undefined {
 		return error.trim() || undefined;
 	}
 
-	if ( error && typeof error === 'object' && 'message' in error ) {
-		const message = ( error as { message?: unknown } ).message;
-		if ( typeof message === 'string' ) {
-			return message.trim() || undefined;
-		}
+	if (
+		error !== null &&
+		typeof error === 'object' &&
+		'message' in error &&
+		typeof error.message === 'string'
+	) {
+		return error.message.trim() || undefined;
 	}
 
 	return undefined;

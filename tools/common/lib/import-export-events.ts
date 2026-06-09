@@ -137,22 +137,16 @@ export const ExportEvents = {
 	CONFIG_EXPORT_COMPLETE: 'config_export_complete',
 } as const;
 
-export const ExportErrorCodes = {
-	EXPORT_FAILED: 'export_failed',
-} as const;
-
 export const exportErrorPayloadSchema = z.object( {
-	code: z.literal( ExportErrorCodes.EXPORT_FAILED ),
+	code: z.literal( 'export_failed' ),
 	message: z.string().optional(),
 } );
 
-export type ExportErrorPayload = z.infer< typeof exportErrorPayloadSchema >;
+type ExportErrorPayload = z.infer< typeof exportErrorPayloadSchema >;
 
 export function createExportErrorPayload( error: unknown ): ExportErrorPayload {
 	const message = getErrorMessage( error );
-	return message
-		? { code: ExportErrorCodes.EXPORT_FAILED, message }
-		: { code: ExportErrorCodes.EXPORT_FAILED };
+	return { code: 'export_failed', message };
 }
 
 const backupCreateProgressEventDataSchema = z.object( {

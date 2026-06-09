@@ -772,21 +772,6 @@ export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< Sit
 	return sites;
 }
 
-export async function getSiteSummaries( _event: IpcMainInvokeEvent ): Promise< SiteSummary[] > {
-	const sites = SiteServer.getAllDetails();
-	const userData = await loadUserData();
-	return sites.map( ( site ) => {
-		const appdataSite = userData.siteMetadata[ site.id ];
-		return {
-			id: site.id,
-			name: site.name,
-			path: site.path,
-			running: site.running,
-			siteIcon: appdataSite?.siteIconPath === null ? null : undefined,
-		};
-	} );
-}
-
 export async function getXdebugEnabledSite(
 	_event: IpcMainInvokeEvent
 ): Promise< SiteDetails | null > {

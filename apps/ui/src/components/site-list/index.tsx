@@ -15,13 +15,13 @@ import {
 	useExportFullSite,
 	useIsSiteStarting,
 	useIsSiteStopping,
-	useSiteSummaries,
+	useSites,
 	useStartSite,
 	useStopSite,
 } from '@/data/queries/use-sites';
 import { formatRelativeTime } from '@/lib/format-relative-time';
 import styles from './style.module.css';
-import type { AiSessionSummary, SiteSummary } from '@/data/core';
+import type { AiSessionSummary, SiteDetails } from '@/data/core';
 import type { RefObject } from 'react';
 
 const UNASSIGNED_KEY = '__unassigned__';
@@ -32,13 +32,13 @@ const VIRTUAL_OVERSCAN = 12;
 
 type SiteGroup = {
 	key: string;
-	site?: SiteSummary;
+	site?: SiteDetails;
 	label: string;
 	sessions: AiSessionSummary[];
 };
 
 function groupSessionsByOwner(
-	sites: SiteSummary[] | undefined,
+	sites: SiteDetails[] | undefined,
 	sessions: AiSessionSummary[] | undefined
 ): SiteGroup[] {
 	if ( ! sessions?.length ) {
@@ -128,7 +128,7 @@ function SessionItem( { session, isVisible }: { session: AiSessionSummary; isVis
 	);
 }
 
-function NewSessionButton( { site }: { site: SiteSummary } ) {
+function NewSessionButton( { site }: { site: SiteDetails } ) {
 	const navigate = useNavigate();
 	const [ isPending, setIsPending ] = useState( false );
 	const handleClick = async () => {
@@ -159,7 +159,7 @@ function DeleteSiteDialog( {
 	open,
 	onOpenChange,
 }: {
-	site: SiteSummary;
+	site: SiteDetails;
 	open: boolean;
 	onOpenChange: ( open: boolean ) => void;
 } ) {
@@ -239,7 +239,7 @@ function DeleteSiteDialog( {
 	);
 }
 
-function SiteActionsMenu( { site }: { site: SiteSummary } ) {
+function SiteActionsMenu( { site }: { site: SiteDetails } ) {
 	const navigate = useNavigate();
 	const startSite = useStartSite();
 	const stopSite = useStopSite();
@@ -451,7 +451,7 @@ function useSidebarViewport( rootRef: RefObject< HTMLDivElement | null > ) {
 
 export function SiteList() {
 	const rootRef = useRef< HTMLDivElement >( null );
-	const { data: sites, isLoading: sitesLoading } = useSiteSummaries();
+	const { data: sites, isLoading: sitesLoading } = useSites();
 	const { data: sessions, isLoading: sessionsLoading } = useSessions();
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
 	const activeSessionId = params.sessionId;

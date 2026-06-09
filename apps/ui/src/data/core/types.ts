@@ -80,8 +80,6 @@ export interface SiteDetails {
 	siteIcon?: string | null;
 }
 
-export type SiteSummary = Pick< SiteDetails, 'id' | 'name' | 'path' | 'running' | 'siteIcon' >;
-
 export interface LocalMediaFile {
 	name: string;
 	mimeType: string;
@@ -111,7 +109,6 @@ export interface Connector {
 
 	// Sites
 	getSites(): Promise< SiteDetails[] >;
-	getSiteSummaries(): Promise< SiteSummary[] >;
 	createSite( params: CreateSiteParams ): Promise< SiteDetails >;
 	// Deletes a site from Studio. When `deleteFiles` is true the site folder is
 	// also removed from disk; otherwise the files stay and only the Studio entry

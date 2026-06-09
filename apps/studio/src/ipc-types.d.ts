@@ -57,8 +57,6 @@ interface StartedSiteDetails extends StoppedSiteDetails {
 
 type SiteDetails = StartedSiteDetails | StoppedSiteDetails;
 
-type SiteSummary = Pick< SiteDetails, 'id' | 'name' | 'path' | 'running' | 'siteIcon' >;
-
 type InstalledApps = {
 	antigravity: boolean;
 	vscode: boolean;

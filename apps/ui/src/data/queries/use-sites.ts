@@ -1,10 +1,9 @@
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useConnector } from '@/data/core';
-import type { CreateSiteParams, SiteDetails, SiteSummary } from '@/data/core';
+import type { CreateSiteParams, SiteDetails } from '@/data/core';
 
 export const SITES_QUERY_KEY = [ 'sites' ] as const;
-export const SITE_SUMMARIES_QUERY_KEY = [ 'site-summaries' ] as const;
 
 const START_SITE_MUTATION_KEY = [ 'startSite' ] as const;
 const STOP_SITE_MUTATION_KEY = [ 'stopSite' ] as const;
@@ -17,27 +16,12 @@ export function useSites() {
 	} );
 }
 
-export function useSiteSummaries() {
-	const connector = useConnector();
-	return useQuery< SiteSummary[] >( {
-		queryKey: SITE_SUMMARIES_QUERY_KEY,
-		queryFn: () => connector.getSiteSummaries(),
-	} );
-}
-
-async function invalidateSiteQueries( queryClient: ReturnType< typeof useQueryClient > ) {
-	await Promise.all( [
-		queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } ),
-		queryClient.invalidateQueries( { queryKey: SITE_SUMMARIES_QUERY_KEY } ),
-	] );
-}
-
 export function useCreateSite() {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	return useMutation( {
 		mutationFn: ( params: CreateSiteParams ) => connector.createSite( params ),
-		onSuccess: () => invalidateSiteQueries( queryClient ),
+		onSuccess: () => queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } ),
 	} );
 }
 
@@ -54,7 +38,7 @@ export function useDeleteSite() {
 	return useMutation( {
 		mutationFn: ( { id, deleteFiles = true }: DeleteSiteInput ) =>
 			connector.deleteSite( id, deleteFiles ),
-		onSuccess: () => invalidateSiteQueries( queryClient ),
+		onSuccess: () => queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } ),
 	} );
 }
 
@@ -63,7 +47,7 @@ export function useCopySite() {
 	const queryClient = useQueryClient();
 	return useMutation( {
 		mutationFn: ( sourceSiteId: string ) => connector.copySite( sourceSiteId ),
-		onSuccess: () => invalidateSiteQueries( queryClient ),
+		onSuccess: () => queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } ),
 	} );
 }
 
@@ -90,7 +74,7 @@ export function useStartSite() {
 		mutationKey: START_SITE_MUTATION_KEY,
 		mutationFn: async ( id: string ) => {
 			await connector.startSite( id );
-			await invalidateSiteQueries( queryClient );
+			await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 		},
 	} );
 }
@@ -102,7 +86,7 @@ export function useStopSite() {
 		mutationKey: STOP_SITE_MUTATION_KEY,
 		mutationFn: async ( id: string ) => {
 			await connector.stopSite( id );
-			await invalidateSiteQueries( queryClient );
+			await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 		},
 	} );
 }
@@ -167,7 +151,7 @@ export function useSyncSitesWithEvents(): void {
 	const queryClient = useQueryClient();
 	useEffect( () => {
 		return connector.onSiteEvent( () => {
-			void invalidateSiteQueries( queryClient );
+			void queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 		} );
 	}, [ connector, queryClient ] );
 }

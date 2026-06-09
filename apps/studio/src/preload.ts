@@ -64,7 +64,6 @@ const api: IpcApi = {
 	getLastSeenVersion: () => ipcRendererInvoke( 'getLastSeenVersion' ),
 	saveLastSeenVersion: ( version ) => ipcRendererInvoke( 'saveLastSeenVersion', version ),
 	getSiteDetails: () => ipcRendererInvoke( 'getSiteDetails' ),
-	getSiteSummaries: () => ipcRendererInvoke( 'getSiteSummaries' ),
 	getXdebugEnabledSite: () => ipcRendererInvoke( 'getXdebugEnabledSite' ),
 	openSiteURL: ( id, relativeURL = '', { autoLogin = true } = {} ) =>
 		ipcRendererSend( 'openSiteURL', id, relativeURL, { autoLogin } ),

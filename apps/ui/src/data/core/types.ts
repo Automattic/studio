@@ -80,6 +80,15 @@ export interface SiteDetails {
 	siteIcon?: string | null;
 }
 
+export type SiteEventType = 'site-created' | 'site-updated' | 'site-deleted';
+
+export interface SiteEvent {
+	event: SiteEventType;
+	siteId: string;
+	site?: Omit< SiteDetails, 'running' >;
+	running: boolean;
+}
+
 export interface LocalMediaFile {
 	name: string;
 	mimeType: string;
@@ -309,8 +318,7 @@ export interface Connector {
 	onFullscreenChange( listener: ( fullscreen: boolean ) => void ): () => void;
 
 	// Fires whenever a site is created, updated, started, stopped, or deleted.
-	// Consumers typically invalidate cached site data in response.
-	onSiteEvent( listener: () => void ): () => void;
+	onSiteEvent( listener: ( event: SiteEvent ) => void ): () => void;
 }
 
 export interface FeatureFlags {

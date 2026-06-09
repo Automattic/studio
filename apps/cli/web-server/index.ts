@@ -18,7 +18,12 @@ import {
 	setBroadcast,
 	startAgentRun,
 } from './agent-runs';
-import { ensureWorkspace, getWorkspaceChanges, publishWorkspace } from './workspaces';
+import {
+	ensureWorkspace,
+	getWorkspaceChanges,
+	getWorkspaceFiles,
+	publishWorkspace,
+} from './workspaces';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { SitesEndpointSite } from '@studio/common/types/sync';
 import type { Request, Response } from 'express';
@@ -71,12 +76,21 @@ app.get( '/events', ( req: Request, res: Response ) => {
 	} );
 } );
 
-// Broadcast every agent event to all connected SSE clients, in the same
-// envelope the web connector expects (channel + payload).
-setBroadcast( ( event: AgentRunEvent ) => {
-	const data = JSON.stringify( { channel: 'agent', payload: event } );
+function broadcastSse( payload: unknown ): void {
+	const data = JSON.stringify( payload );
 	for ( const client of sseClients ) {
 		client.write( `data: ${ data }\n\n` );
+	}
+}
+
+// Broadcast every agent event to all connected SSE clients, in the same
+// envelope the web connector expects (channel + payload). When a run finishes,
+// also emit a `preview` signal so the client-side Playground knows the agent's
+// workspace files changed and can re-sync the live preview.
+setBroadcast( ( event: AgentRunEvent ) => {
+	broadcastSse( { channel: 'agent', payload: event } );
+	if ( event.event.type === 'run.exited' ) {
+		broadcastSse( { channel: 'preview', payload: { sessionId: event.sessionId } } );
 	}
 } );
 
@@ -225,6 +239,13 @@ app.post( '/sessions/:id/model', async ( req: Request, res: Response ) => {
 // container model).
 app.get( '/sessions/:id/changes', ( req: Request, res: Response ) => {
 	res.json( getWorkspaceChanges( param( req, 'id' ) ) );
+} );
+
+// The workspace's deployable files (path + base64 content). The browser overlays
+// these onto a client-side WordPress Playground to render a live preview of what
+// the agent built — no server-side site serving needed (Carril A).
+app.get( '/sessions/:id/site-files', ( req: Request, res: Response ) => {
+	res.json( getWorkspaceFiles( param( req, 'id' ) ) );
 } );
 
 // Publish the draft: snapshot the workspace as a commit (and push to the deploy

@@ -18,6 +18,7 @@ import type {
 	ProposedSitePath,
 	SelectedSiteFolder,
 	SiteDetails,
+	SitePreviewFile,
 	Snapshot,
 	SupportedEditor,
 	SupportedTerminal,
@@ -592,6 +593,16 @@ export function createIpcConnector(): Connector {
 				'ai-session-placement-updated',
 				( _event: unknown, payload: AiSessionPlacementUpdatedEvent ) => listener( payload )
 			);
+		},
+
+		// Desktop has no browser-previewable web workspace; the renderer previews
+		// the live local site directly (SitePreview). The client-side Playground
+		// preview is a Studio Web (web connector) affordance.
+		async getSiteFiles(): Promise< SitePreviewFile[] > {
+			return [];
+		},
+		onPreviewChanged() {
+			return () => {};
 		},
 
 		// User preferences — the underlying main-process handlers are split

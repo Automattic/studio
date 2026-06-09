@@ -1,5 +1,6 @@
 import { createRoute, Outlet, useRouterState } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { LivePlaygroundPreview } from '@/components/live-playground-preview';
 import {
 	PreviewSplitFrame,
 	type PreviewSplitFramePreviewProps,
@@ -7,6 +8,7 @@ import {
 import { SidebarLayout } from '@/components/sidebar-layout';
 import { SitePreview } from '@/components/site-preview';
 import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
+import { useSiteFiles } from '@/data/queries/use-site-files';
 import { useSites } from '@/data/queries/use-sites';
 import {
 	SessionUIProvider,
@@ -15,7 +17,23 @@ import {
 } from '@/hooks/use-session-ui';
 import { getSiteUrl } from '@/lib/get-site-url';
 import { rootRoute } from '../layout-root';
-import type { SiteDetails } from '@/data/core';
+import type { SiteDetails, SitePreviewFile } from '@/data/core';
+
+// A cheap content signature of the preview files, used as a React `key` on the
+// live preview. Playground caches its SQLite connection, so overlaying a changed
+// DB in place + reloading does NOT reflect it — only a fresh boot reads the new
+// DB. Keying the preview on this signature re-mounts it (and re-boots Playground)
+// exactly when the files actually change, so each agent turn's edits show up.
+function previewSignature( files: SitePreviewFile[] ): string {
+	let hash = 5381;
+	for ( const file of files ) {
+		const str = `${ file.path }:${ file.contentBase64 }`;
+		for ( let i = 0; i < str.length; i++ ) {
+			hash = ( ( hash << 5 ) + hash + str.charCodeAt( i ) ) | 0;
+		}
+	}
+	return `${ files.length }-${ hash }`;
+}
 
 // Bare preview for hosted/web sites that render via WordPress Playground on a
 // foreign origin. Intentionally has no effects, no postMessage listeners, and no
@@ -65,6 +83,11 @@ function DashboardLayoutContent() {
 	const routeTarget = useMemo( () => getPreviewRouteTarget( pathname ), [ pathname ] );
 	const { data: sites } = useSites();
 	const { data: sessionData } = useSession( routeTarget.sessionId );
+	// Studio Web: the agent's workspace files, previewed via a client-side
+	// Playground. Non-empty only for the web connector; desktop/SecEx return [].
+	const { data: siteFiles } = useSiteFiles( routeTarget.sessionId );
+	const hasLivePreview = ( siteFiles?.length ?? 0 ) > 0;
+	const previewKey = useMemo( () => previewSignature( siteFiles ?? [] ), [ siteFiles ] );
 	const preview = useSessionPreviewUI();
 	const onAnnotationsDone = useSessionPreviewAnnotationsHandler();
 	const sessionOwnerSitePath = sessionData?.summary.ownerSitePath;
@@ -99,10 +122,19 @@ function DashboardLayoutContent() {
 	}, [ routeSite ] );
 
 	const previewSite = supportsPreview ? routeSite ?? lastPreviewSite : lastPreviewSite;
-	const showPreview = preview.open && supportsPreview && !! previewSite;
+	const showPreview = preview.open && ( hasLivePreview || ( supportsPreview && !! previewSite ) );
 
 	const renderPreview = useCallback(
 		( { collapsed, hideResizeHandle }: PreviewSplitFramePreviewProps ) => {
+			// Studio Web: render the agent's workspace live in a client-side
+			// Playground. Takes precedence over the SiteDetails-based previews,
+			// which are for local/hosted sites with a server URL.
+			if ( hasLivePreview ) {
+				if ( collapsed ) {
+					return null;
+				}
+				return <LivePlaygroundPreview key={ previewKey } files={ siteFiles ?? [] } />;
+			}
 			if ( ! previewSite ) {
 				return null;
 			}
@@ -126,7 +158,16 @@ function DashboardLayoutContent() {
 				/>
 			);
 		},
-		[ onAnnotationsDone, preview.path, preview.reloadNonce, preview.updatePath, previewSite ]
+		[
+			hasLivePreview,
+			onAnnotationsDone,
+			preview.path,
+			preview.reloadNonce,
+			preview.updatePath,
+			previewKey,
+			previewSite,
+			siteFiles,
+		]
 	);
 
 	return (

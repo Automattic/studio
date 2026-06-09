@@ -107,6 +107,59 @@ export function getWorkspaceChanges( sessionId: string ): WorkspaceChange[] {
 	} ) );
 }
 
+export interface WorkspaceFile {
+	/** Path relative to the workspace root, POSIX-separated (e.g. 'wp-content/themes/foo/style.css'). */
+	path: string;
+	/** File contents, base64-encoded so binary assets survive the JSON round-trip. */
+	contentBase64: string;
+}
+
+// Guardrails so a runaway workspace can't produce an unbounded preview payload.
+// The browser only needs the deployable code the agent wrote; uploads/DB/sqlite
+// are already excluded by .gitignore (see ensureWorkspace).
+const MAX_PREVIEW_FILES = 2000;
+const MAX_PREVIEW_FILE_BYTES = 5 * 1024 * 1024; // 5 MB per file
+
+/**
+ * The workspace's deployable files (tracked + untracked, .gitignore respected)
+ * as path → base64 content. This is what the browser overlays onto a client-side
+ * WordPress Playground to render a live preview of what the agent built. Empty
+ * for sessions without a workspace yet. Files over the per-file cap are skipped.
+ */
+export function getWorkspaceFiles( sessionId: string ): WorkspaceFile[] {
+	const { path: cwd } = workspaceFor( sessionId );
+	if ( ! fs.existsSync( path.join( cwd, '.git' ) ) ) {
+		return [];
+	}
+	// `--cached --others --exclude-standard` = tracked + untracked, honoring
+	// .gitignore — i.e. the same deployable set `git status`/publish operate on.
+	const listing = gitOut( cwd, [ 'ls-files', '--cached', '--others', '--exclude-standard' ] );
+	if ( ! listing ) {
+		return [];
+	}
+	const files: WorkspaceFile[] = [];
+	for ( const relPath of listing.split( '\n' ) ) {
+		if ( files.length >= MAX_PREVIEW_FILES ) {
+			break;
+		}
+		const absPath = path.join( cwd, relPath );
+		let stat: fs.Stats;
+		try {
+			stat = fs.statSync( absPath );
+		} catch {
+			continue; // listed but gone (race with a concurrent agent edit)
+		}
+		if ( ! stat.isFile() || stat.size > MAX_PREVIEW_FILE_BYTES ) {
+			continue;
+		}
+		files.push( {
+			path: relPath,
+			contentBase64: fs.readFileSync( absPath ).toString( 'base64' ),
+		} );
+	}
+	return files;
+}
+
 export interface PublishResult {
 	/** False when the draft was already clean (nothing to publish). */
 	published: boolean;

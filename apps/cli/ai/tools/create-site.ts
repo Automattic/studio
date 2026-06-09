@@ -25,12 +25,24 @@ export const createSiteTool = defineTool(
 			}
 			const sitePath = path.join( STUDIO_SITES_ROOT, slug );
 
+			// Start the WordPress server on create (the default). The PHP-WASM server
+			// boots fine in the SecEx sandbox — and booting it runs the WP install,
+			// which creates the SQLite database, so the site is actually functional and
+			// the agent can build real content (pages, posts, options). An earlier build
+			// skipped the start in the sandbox on the assumption PHP-WASM couldn't boot
+			// there; it can, and skipping it left sites with no database. Studio Web
+			// still renders the preview client-side (browser Playground) rather than
+			// serving from the sandbox. STUDIO_SKIP_SITE_START is an explicit escape
+			// hatch for hosts where the server genuinely can't start.
+			const skipStart =
+				process.env.STUDIO_SKIP_SITE_START === '1' || process.env.STUDIO_SKIP_SITE_START === 'true';
+
 			await runCreateSiteCommand( sitePath, {
 				name: args.name,
 				wpVersion: 'latest',
 				phpVersion: DEFAULT_PHP_VERSION,
 				enableHttps: false,
-				noStart: false,
+				noStart: skipStart,
 				skipBrowser: true,
 				skipLogDetails: true,
 			} );
@@ -40,7 +52,7 @@ export const createSiteTool = defineTool(
 			await emitLocalSiteSelected( {
 				name: site.name,
 				path: site.path,
-				running: true,
+				running: ! skipStart,
 			} );
 			return {
 				...textResult(

@@ -1,5 +1,4 @@
 import { createDefaultDeskSettings } from '@studio/common/lib/desk-settings';
-import { DEFAULT_MESSAGE_SEND_SHORTCUT } from '@studio/common/lib/user-settings/message-send-shortcut';
 import type {
 	ActiveAgentRun,
 	AiSessionPlacementUpdatedEvent,
@@ -13,6 +12,7 @@ import type {
 	InstalledApps,
 	LoadedAiSession,
 	SiteDetails,
+	SitePreviewFile,
 	Snapshot,
 	StudioUiMode,
 	SyncSite,
@@ -42,7 +42,8 @@ export class WebUnsupportedError extends Error {
 // can carry both agent-run events and session-placement updates.
 type ServerEvent =
 	| { channel: 'agent'; payload: AgentRunEvent }
-	| { channel: 'placement'; payload: AiSessionPlacementUpdatedEvent };
+	| { channel: 'placement'; payload: AiSessionPlacementUpdatedEvent }
+	| { channel: 'preview'; payload: { sessionId: string } };
 
 /**
  * Connector that talks to the headless `studio web-server` over HTTP + SSE.
@@ -59,6 +60,7 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 
 	const agentListeners = new Set< ( event: AgentRunEvent ) => void >();
 	const placementListeners = new Set< ( event: AiSessionPlacementUpdatedEvent ) => void >();
+	const previewListeners = new Set< ( sessionId: string ) => void >();
 	let eventSource: EventSource | undefined;
 
 	async function api< T >( path: string, init?: RequestInit ): Promise< T > {
@@ -105,6 +107,8 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 					agentListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'placement' ) {
 					placementListeners.forEach( ( listener ) => listener( parsed.payload ) );
+				} else if ( parsed.channel === 'preview' ) {
+					previewListeners.forEach( ( listener ) => listener( parsed.payload.sessionId ) );
 				}
 			};
 		},
@@ -331,14 +335,24 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 			return () => placementListeners.delete( listener );
 		},
 
+		// The session workspace's deployable files, for the client-side Playground
+		// preview. The web-server reads them from the session's git workspace.
+		async getSiteFiles( sessionId ): Promise< SitePreviewFile[] > {
+			return api< SitePreviewFile[] >(
+				`/sessions/${ encodeURIComponent( sessionId ) }/site-files`
+			);
+		},
+		onPreviewChanged( listener ) {
+			previewListeners.add( listener );
+			return () => previewListeners.delete( listener );
+		},
+
 		// User preferences — sensible browser defaults.
 		async getUserPreferences(): Promise< UserPreferences > {
 			return {
 				editor: null,
 				terminal: null,
 				colorScheme: 'system',
-				messageSendShortcut: DEFAULT_MESSAGE_SEND_SHORTCUT,
-				wpAdminOpenTarget: 'default-browser',
 				locale: undefined,
 			};
 		},

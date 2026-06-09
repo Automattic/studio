@@ -71,8 +71,17 @@ describe( 'CLI: studio import', () => {
 		importImpl: () => Promise< ImporterResult > = async () => importResult
 	) => new MockImporter( importImpl );
 
+	// The import command forwards events over IPC when `process.send` exists and
+	// maps them to the Logger otherwise. Under the `forks` test pool the worker
+	// has a live `process.send` IPC channel, so force standalone mode here to keep
+	// these unit tests exercising the Logger path regardless of pool. See AINFRA-2475.
+	let originalProcessSend: typeof process.send;
+
 	beforeEach( () => {
 		vi.clearAllMocks();
+
+		originalProcessSend = process.send;
+		process.send = undefined;
 
 		vi.mocked( connectToDaemon ).mockResolvedValue( undefined );
 		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
@@ -89,6 +98,7 @@ describe( 'CLI: studio import', () => {
 
 	afterEach( () => {
 		vi.restoreAllMocks();
+		process.send = originalProcessSend;
 	} );
 
 	it( 'loads site and imports backup', async () => {

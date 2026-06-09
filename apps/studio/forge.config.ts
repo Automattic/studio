@@ -7,6 +7,7 @@ import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
 import { exec as pkgExec } from '@yao-pkg/pkg';
+import { pruneUnusedProviders } from '../../scripts/remove-unused-ai-providers';
 import { RecommendedPHPVersion } from '../../tools/common/types/php-versions';
 import { windowsSign } from './windowsSign';
 import type { ForgeConfig } from '@electron-forge/shared-types';
@@ -277,9 +278,17 @@ const config: ForgeConfig = {
 				}
 			}
 
+			// Strip AI provider SDKs Studio never loads (Mistral, AWS Bedrock, Google). pi-ai
+			// loads them lazily and Studio only exposes Anthropic/OpenAI, so they're dead weight —
+			// and @mistralai's ~200-char generated filenames, nested under pi-coding-agent, blow
+			// past Windows' 260-char path limit and crash the Squirrel maker.
+			console.log( 'Removing unused AI provider SDKs from CLI bundle...' );
+			pruneUnusedProviders( cliNodeModules );
+
 			console.log( `Downloading Node.js binary for ${ platform }-${ arch }...` );
 			await execAsync( [
-				'npx', 'tsx',
+				'npx',
+				'tsx',
 				path.join( repoRoot, 'scripts', 'download-node-binary.ts' ),
 				platform,
 				arch,
@@ -291,7 +300,8 @@ const config: ForgeConfig = {
 			fs.rmSync( bundledPhpBinaryRoot, { recursive: true, force: true } );
 			await execAsync(
 				[
-					'npx', 'tsx',
+					'npx',
+					'tsx',
 					path.join( repoRoot, 'scripts', 'download-php-binary.ts' ),
 					RecommendedPHPVersion,
 					platform,

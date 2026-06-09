@@ -2,6 +2,7 @@ import os from 'os';
 import path from 'path';
 import fs from 'fs-extra';
 import { extractZip } from '../tools/common/lib/extract-zip';
+import { fetch } from './lib/with-retry';
 
 const WP_FILES_PATH = path.join( import.meta.dirname, '..', 'wp-files' );
 const AI_SKILLS_PATH = path.join( WP_FILES_PATH, 'skills' );

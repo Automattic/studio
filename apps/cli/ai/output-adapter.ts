@@ -1,6 +1,6 @@
 import { DEFAULT_MODEL, type AiModelId } from '@studio/common/ai/models';
 import { emitEvent, type TurnCompletedStatus } from 'cli/ai/json-events';
-import type { AgentSessionEvent } from '@mariozechner/pi-coding-agent';
+import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { AiProviderId } from 'cli/ai/providers';
 import type { AskUserQuestion, SiteInfo } from 'cli/ai/types';
 

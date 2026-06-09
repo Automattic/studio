@@ -1,6 +1,6 @@
-import type { AgentMessage } from '@mariozechner/pi-agent-core';
-import type { AssistantMessage } from '@mariozechner/pi-ai';
-import type { AgentSessionEvent } from '@mariozechner/pi-coding-agent';
+import type { AgentMessage } from '@earendil-works/pi-agent-core';
+import type { AssistantMessage } from '@earendil-works/pi-ai';
+import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 
 export function findLastAssistant(
 	messages: ReadonlyArray< AgentMessage >

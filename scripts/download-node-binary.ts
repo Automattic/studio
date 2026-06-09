@@ -16,6 +16,7 @@ import os from 'os';
 import path from 'path';
 import { extract } from 'tar';
 import { extractZip } from '../tools/common/lib/extract-zip';
+import { fetch } from './lib/with-retry';
 
 const LTS_FALLBACK = 'v24.13.1';
 

@@ -7,7 +7,7 @@ import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
 import { exec as pkgExec } from '@yao-pkg/pkg';
-import { pruneUnusedProviders } from '../../scripts/remove-unused-ai-providers';
+import { globSync } from 'glob';
 import { RecommendedPHPVersion } from '../../tools/common/types/php-versions';
 import { windowsSign } from './windowsSign';
 import type { ForgeConfig } from '@electron-forge/shared-types';
@@ -283,15 +283,28 @@ const config: ForgeConfig = {
 			// and @mistralai's ~200-char generated filenames, nested under pi-coding-agent, blow
 			// past Windows' 260-char path limit and crash the Squirrel maker.
 			console.log( 'Removing unused AI provider SDKs from CLI bundle...' );
-			const unprunedProviders = pruneUnusedProviders( cliNodeModules );
-			if ( platform === 'win32' && unprunedProviders.length > 0 ) {
-				// A leftover provider tree on Windows resurfaces as the PathTooLongException the
-				// prune exists to prevent — fail now with the offending paths instead of letting
-				// the Squirrel maker crash later with no context.
-				throw new Error(
-					`Could not prune ${ unprunedProviders.length } provider director(ies) that exceed ` +
-						`Windows' 260-char path limit: ${ unprunedProviders.join( ', ' ) }`
+			const unusedProviderPaths = globSync(
+				'**/node_modules/{@mistralai,@aws-sdk,@aws-crypto,@smithy,@google/genai}/',
+				{ cwd: cliNodeModules, absolute: true }
+			);
+			for ( const providerPath of unusedProviderPaths ) {
+				fs.rmSync( providerPath, { recursive: true, force: true } );
+				console.log( `Removed ${ providerPath }` );
+			}
+			if ( platform === 'win32' ) {
+				// Verify the prune succeeded — a leftover provider tree on Windows resurfaces as
+				// the PathTooLongException the prune exists to prevent. Fail now with context
+				// instead of letting the Squirrel maker crash later.
+				const remaining = globSync(
+					'**/node_modules/{@mistralai,@aws-sdk,@aws-crypto,@smithy,@google/genai}/',
+					{ cwd: cliNodeModules, absolute: true }
 				);
+				if ( remaining.length > 0 ) {
+					throw new Error(
+						`Could not prune ${ remaining.length } provider director(ies) that exceed ` +
+							`Windows' 260-char path limit: ${ remaining.join( ', ' ) }`
+					);
+				}
 			}
 
 			console.log( `Downloading Node.js binary for ${ platform }-${ arch }...` );

@@ -46,8 +46,6 @@ const setPlatform = ( platform: NodeJS.Platform ) => {
 describe( 'certificate-manager (Linux)', () => {
 	const originalPlatform = process.platform;
 	let existsSpy: ReturnType< typeof vi.spyOn >;
-	let consoleErrorSpy: ReturnType< typeof vi.spyOn >;
-
 	beforeEach( () => {
 		mockedIsCATrustedOnLinux.mockReset();
 		mockedIsCAImportedInUserNssDbsLinux.mockReset();
@@ -62,12 +60,10 @@ describe( 'certificate-manager (Linux)', () => {
 		// install-browser-after-trust scenario.
 		mockedIsCAImportedInUserNssDbsLinux.mockResolvedValue( true );
 		existsSpy = vi.spyOn( fs, 'existsSync' ).mockReturnValue( true );
-		consoleErrorSpy = vi.spyOn( console, 'error' ).mockImplementation( () => {} );
 	} );
 
 	afterEach( () => {
 		existsSpy.mockRestore();
-		consoleErrorSpy.mockRestore();
 		setPlatform( originalPlatform );
 	} );
 

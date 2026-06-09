@@ -1,0 +1,29 @@
+.root {
+	height: 100%;
+	min-height: 0;
+	overflow-y: auto;
+}
+
+.content {
+	width: 100%;
+	max-width: 760px;
+	margin: 0 auto;
+	padding: calc(var(--wpds-dimension-padding-2xl) * 1.5) var(--wpds-dimension-padding-xl)
+		var(--wpds-dimension-padding-2xl);
+}
+
+.title {
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-2xl);
+	line-height: var(--wpds-typography-line-height-2xl);
+	font-weight: var(--wpds-typography-font-weight-medium, 500);
+}
+
+.description {
+	max-width: 560px;
+	margin: var(--wpds-dimension-padding-md) 0 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: var(--wpds-typography-line-height-md);
+}

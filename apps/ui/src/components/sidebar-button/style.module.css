@@ -5,7 +5,12 @@
    overrides are needed here. */
 .root {
 	justify-content: flex-start;
+	/* @wordpress/ui 0.14 centers button content with both justify-content and
+	   text-align; neutralize the text-align too so sidebar row labels stay
+	   left-aligned. */
+	text-align: start;
 	min-width: 0;
 	background-color: transparent;
+	background-clip: border-box;
 	border-color: transparent;
 }

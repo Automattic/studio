@@ -1,53 +1,44 @@
-import { Link } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { category, cog, comment } from '@wordpress/icons';
+import { download, globe, plus } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
-import { clsx } from 'clsx';
+import * as Menu from '@/components/menu';
 import { SidebarButton } from '@/components/sidebar-button';
 import styles from './style.module.css';
-import type { ComponentProps } from 'react';
 
-type NavItem = {
-	key: string;
-	label: string;
-	icon: ComponentProps< typeof Icon >[ 'icon' ];
-	to?: ComponentProps< typeof Link >[ 'to' ];
-};
+function CreateSiteMenu() {
+	const navigate = useNavigate();
 
-function getItems(): NavItem[] {
-	return [
-		{ key: 'chat', label: __( 'Chat' ), icon: comment, to: '/dashboard' },
-		{ key: 'settings', label: __( 'Settings' ), icon: cog, to: '/settings' },
-		{ key: 'skills', label: __( 'Skills' ), icon: category },
-	];
+	return (
+		<Menu.Root modal={ false }>
+			<Menu.Trigger
+				render={
+					<SidebarButton className={ styles.item }>
+						<span className={ styles.iconSlot }>
+							<Icon icon={ plus } size={ 22 } className={ styles.icon } data-sidebar-primary-icon />
+						</span>
+						<span className={ styles.label }>{ __( 'Add a site' ) }</span>
+					</SidebarButton>
+				}
+			/>
+			<Menu.Popup side="bottom" align="start" className={ styles.popup }>
+				<Menu.Item onClick={ () => void navigate( { to: '/onboarding' } ) }>
+					<Icon icon={ globe } />
+					<span>{ __( 'New site' ) }</span>
+				</Menu.Item>
+				<Menu.Item onClick={ () => void navigate( { to: '/onboarding/import' } ) }>
+					<Icon icon={ download } />
+					<span>{ __( 'Import from…' ) }</span>
+				</Menu.Item>
+			</Menu.Popup>
+		</Menu.Root>
+	);
 }
 
 export function SidebarNav() {
-	const items = getItems();
 	return (
-		<nav className={ styles.root }>
-			<ul className={ styles.list }>
-				{ items.map( ( item ) => (
-					<li key={ item.key }>
-						<SidebarButton
-							className={ styles.item }
-							render={
-								item.to ? (
-									<Link
-										to={ item.to }
-										activeProps={ {
-											className: clsx( styles.item, styles.itemActive ),
-										} }
-									/>
-								) : undefined
-							}
-						>
-							<Icon icon={ item.icon } />
-							<span>{ item.label }</span>
-						</SidebarButton>
-					</li>
-				) ) }
-			</ul>
+		<nav className={ styles.root } aria-label={ __( 'Site actions' ) }>
+			<CreateSiteMenu />
 		</nav>
 	);
 }

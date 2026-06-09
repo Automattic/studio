@@ -1,43 +1,127 @@
+import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { SidebarHeader } from '@/components/sidebar-header';
 import { SidebarNav } from '@/components/sidebar-nav';
+import { SidebarSettingsButton } from '@/components/sidebar-settings-button';
 import { SiteList } from '@/components/site-list';
-import { UserMenu } from '@/components/user-menu';
 import { useFullscreen } from '@/hooks/use-fullscreen';
 import { useResizablePanel } from '@/hooks/use-resizable-panel';
 import { SidebarCollapsedContext } from '@/hooks/use-sidebar-collapsed';
 import { drawerIcon } from '@/lib/icons';
+import { isMacPlatform } from '@/lib/platform';
 import { SIDEBAR_PANEL_CONFIG, SIDEBAR_PANEL_STORAGE_KEY } from '@/lib/resizable-panels';
 import styles from './style.module.css';
 import type { CSSProperties, ReactNode } from 'react';
 
 export function SidebarLayout( { children }: { children: ReactNode } ) {
-	const [ collapsed, setCollapsed ] = useState( false );
+	const navigate = useNavigate();
 	const isFullscreen = useFullscreen();
+	const [ collapsed, setCollapsed ] = useState( false );
+	const sidebarScrollRef = useRef< HTMLDivElement | null >( null );
+	const [ sidebarScrollHasOverflow, setSidebarScrollHasOverflow ] = useState( false );
+	const [ sidebarScrollIsScrolled, setSidebarScrollIsScrolled ] = useState( false );
 	const sidebarResize = useResizablePanel( {
 		config: SIDEBAR_PANEL_CONFIG,
 		edge: 'right',
 		storageKey: SIDEBAR_PANEL_STORAGE_KEY,
 	} );
-	const sidebarStyle = collapsed
-		? undefined
-		: ( { '--sidebar-width': `${ sidebarResize.width }px` } as CSSProperties );
+	const sidebarStyle = { '--sidebar-width': `${ sidebarResize.width }px` } as CSSProperties;
+	const toggleSidebar = useCallback( () => setCollapsed( ( current ) => ! current ), [] );
+	const openSettings = useCallback( () => {
+		void navigate( { to: '/settings' } );
+	}, [ navigate ] );
+	const isMac = isMacPlatform();
+	const sidebarHeaderVariant = isMac ? ( isFullscreen ? 'fullscreen' : 'traffic-lights' ) : null;
+
+	const updateSidebarScrollState = useCallback( () => {
+		const node = sidebarScrollRef.current;
+		if ( ! node ) {
+			setSidebarScrollHasOverflow( false );
+			setSidebarScrollIsScrolled( false );
+			return;
+		}
+
+		const hasOverflow = node.scrollHeight > node.clientHeight + 1;
+		setSidebarScrollHasOverflow( hasOverflow );
+		setSidebarScrollIsScrolled( node.scrollTop > 1 );
+	}, [] );
+
+	useEffect( () => {
+		const ipcListener = (
+			window as Window & {
+				ipcListener?: {
+					subscribe: (
+						channel: 'user-settings',
+						listener: ( event: unknown, payload: { tabName?: string } ) => void
+					) => () => void;
+				};
+			}
+		 ).ipcListener;
+
+		return ipcListener?.subscribe( 'user-settings', () => openSettings() );
+	}, [ openSettings ] );
+
+	useLayoutEffect( () => {
+		const node = sidebarScrollRef.current;
+		if ( ! node ) {
+			updateSidebarScrollState();
+			return;
+		}
+
+		updateSidebarScrollState();
+		const transitionTimeout = window.setTimeout( updateSidebarScrollState, 220 );
+		const resizeObserver =
+			typeof ResizeObserver === 'undefined'
+				? undefined
+				: new ResizeObserver( updateSidebarScrollState );
+
+		resizeObserver?.observe( node );
+		for ( const child of Array.from( node.children ) ) {
+			resizeObserver?.observe( child );
+		}
+		window.addEventListener( 'resize', updateSidebarScrollState );
+
+		return () => {
+			window.clearTimeout( transitionTimeout );
+			resizeObserver?.disconnect();
+			window.removeEventListener( 'resize', updateSidebarScrollState );
+		};
+	}, [ updateSidebarScrollState ] );
 
 	return (
 		<SidebarCollapsedContext.Provider value={ collapsed }>
-			<div className={ styles.root }>
+			<div className={ styles.root } style={ sidebarStyle }>
 				<aside
-					className={ clsx( styles.sidebar, collapsed && styles.sidebarCollapsed ) }
-					style={ sidebarStyle }
+					className={ clsx(
+						styles.sidebar,
+						! sidebarHeaderVariant && styles.sidebarNoTrafficLightSpacer,
+						collapsed && styles.sidebarCollapsed,
+						sidebarResize.isResizing && styles.sidebarResizing
+					) }
 				>
-					<SidebarHeader onToggleSidebar={ () => setCollapsed( true ) } />
-					<SidebarNav />
-					<SiteList />
-					<UserMenu />
+					<div className={ styles.sidebarInner }>
+						{ sidebarHeaderVariant ? <SidebarHeader variant={ sidebarHeaderVariant } /> : null }
+						<div
+							className={ clsx(
+								styles.sidebarScrollFrame,
+								sidebarScrollIsScrolled && styles.sidebarScrollFrameScrolled
+							) }
+						>
+							<div
+								ref={ sidebarScrollRef }
+								className={ styles.sidebarScroll }
+								onScroll={ updateSidebarScrollState }
+							>
+								<SiteList />
+							</div>
+						</div>
+						<SidebarNav />
+						<SidebarSettingsButton showTopBorder={ sidebarScrollHasOverflow } />
+					</div>
 				</aside>
 				{ ! collapsed ? (
 					<ResizeHandle
@@ -51,26 +135,24 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 						onKeyDown={ sidebarResize.handleKeyDown }
 					/>
 				) : null }
-				<main className={ styles.main }>
-					{ collapsed ? (
-						<div
-							className={ clsx(
-								styles.floatingToggle,
-								isFullscreen && styles.floatingToggleFullscreen
-							) }
-						>
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ drawerIcon }
-								label={ __( 'Show sidebar' ) }
-								onClick={ () => setCollapsed( false ) }
-							/>
-						</div>
-					) : null }
-					{ children }
-				</main>
+				<main className={ styles.main }>{ children }</main>
+				<div
+					className={ clsx(
+						styles.sidebarToggle,
+						collapsed && styles.sidebarToggleCollapsed,
+						sidebarResize.isResizing && styles.sidebarToggleResizing
+					) }
+				>
+					<IconButton
+						variant="minimal"
+						tone="neutral"
+						size="small"
+						className={ styles.sidebarToggleButton }
+						icon={ drawerIcon }
+						label={ collapsed ? __( 'Show sidebar' ) : __( 'Hide sidebar' ) }
+						onClick={ toggleSidebar }
+					/>
+				</div>
 				{ sidebarResize.isResizing ? <ResizeOverlay /> : null }
 			</div>
 		</SidebarCollapsedContext.Provider>

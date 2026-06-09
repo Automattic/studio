@@ -11,20 +11,6 @@
 	pointer-events: none;
 }
 
-.title {
-	position: fixed;
-	top: var(--desk-title-y-nudge);
-	left: 94px;
-	display: flex;
-	align-items: center;
-	height: var(--desk-titlebar-height);
-	font-size: var(--wpds-typography-font-size-md);
-	font-weight: 600;
-	color: var(--wpds-color-fg-content-neutral);
-	pointer-events: auto;
-	-webkit-app-region: drag;
-}
-
 .actions {
 	position: fixed;
 	top: calc(var(--desk-titlebar-height) + var(--wpds-dimension-padding-sm));
@@ -55,10 +41,6 @@
 	max-width: min(360px, calc(100vw - 320px));
 	transform: translateX(-50%);
 	pointer-events: none;
-}
-
-.fullscreen .title {
-	display: none;
 }
 
 .fullscreen .actions {

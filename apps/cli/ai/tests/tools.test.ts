@@ -386,6 +386,83 @@ describe( 'Studio AI MCP tools', () => {
 		}
 	} );
 
+	it( 'inspect_design returns rendered DOM facts for the requested selectors', async () => {
+		const report = [
+			{
+				selector: '.wp-block-button__link',
+				matchCount: 1,
+				matches: [
+					{
+						tag: 'a',
+						classes: [ 'wp-block-button__link', 'wp-element-button' ],
+						boundingBox: { x: 0, y: 0, width: 120, height: 44 },
+						computedStyle: { 'background-color': 'rgb(0, 0, 0)' },
+						ancestors: [ 'div.wp-block-button' ],
+					},
+				],
+			},
+		];
+		const page = {
+			emulateMedia: vi.fn(),
+			goto: vi.fn(),
+			waitForLoadState: vi.fn().mockResolvedValue( undefined ),
+			evaluate: vi.fn().mockResolvedValueOnce( undefined ).mockResolvedValueOnce( report ),
+			hover: vi.fn(),
+			mouse: { move: vi.fn() },
+			close: vi.fn(),
+		};
+		const browser = { newPage: vi.fn().mockResolvedValue( page ) };
+		vi.mocked( getSharedBrowser ).mockResolvedValue( browser as never );
+
+		const result = await getTool( 'inspect_design' ).rawHandler( {
+			url: 'http://localhost:8903/',
+			selectors: [ '.wp-block-button__link' ],
+		} as never );
+
+		const parsed = JSON.parse( getTextContent( result )! );
+		expect( parsed.viewport ).toBe( 'desktop' );
+		expect( parsed.viewportWidth ).toBe( 1040 );
+		expect( parsed.selectors[ 0 ].matchCount ).toBe( 1 );
+		expect( parsed.selectors[ 0 ].matches[ 0 ].computedStyle[ 'background-color' ] ).toBe(
+			'rgb(0, 0, 0)'
+		);
+		expect( parsed.hover ).toBeUndefined();
+		expect( page.hover ).not.toHaveBeenCalled();
+		expect( page.close ).toHaveBeenCalled();
+	} );
+
+	it( 'inspect_design captures hover styles when includeHover is set', async () => {
+		const report = [ { selector: '.wp-block-button__link', matchCount: 1, matches: [] } ];
+		const page = {
+			emulateMedia: vi.fn(),
+			goto: vi.fn(),
+			waitForLoadState: vi.fn().mockResolvedValue( undefined ),
+			evaluate: vi
+				.fn()
+				.mockResolvedValueOnce( undefined )
+				.mockResolvedValueOnce( report )
+				.mockResolvedValueOnce( { 'background-color': 'rgb(255, 0, 0)' } ),
+			hover: vi.fn().mockResolvedValue( undefined ),
+			mouse: { move: vi.fn().mockResolvedValue( undefined ) },
+			close: vi.fn(),
+		};
+		const browser = { newPage: vi.fn().mockResolvedValue( page ) };
+		vi.mocked( getSharedBrowser ).mockResolvedValue( browser as never );
+
+		const result = await getTool( 'inspect_design' ).rawHandler( {
+			url: 'http://localhost:8903/',
+			selectors: [ '.wp-block-button__link' ],
+			viewport: 'mobile',
+			includeHover: true,
+		} as never );
+
+		const parsed = JSON.parse( getTextContent( result )! );
+		expect( parsed.viewport ).toBe( 'mobile' );
+		expect( parsed.viewportWidth ).toBe( 390 );
+		expect( page.hover ).toHaveBeenCalledWith( '.wp-block-button__link', expect.anything() );
+		expect( parsed.hover[ 0 ].computedStyle[ 'background-color' ] ).toBe( 'rgb(255, 0, 0)' );
+	} );
+
 	it( 'emits explicit Studio widget artifacts from studio_present', async () => {
 		const tool = resolveStudioToolDefinitions( {
 			emitChatArtifacts: true,

@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import { isStudioCustomEntryOfType } from './entry-types';
 import type { AiSessionSummary } from './types';
-import type { SessionEntry } from '@mariozechner/pi-coding-agent';
+import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
 interface PiSessionHeader {
 	type: 'session';

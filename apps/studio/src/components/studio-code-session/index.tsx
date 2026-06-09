@@ -40,7 +40,7 @@ import { useSession } from './use-session';
 import { useSingleSession } from './use-single-session';
 import { useSiteCreationSwitch } from './use-site-creation-switch';
 import buttonDefense from './wp-ui-button-defense.module.css';
-import type { SessionEntry } from '@mariozechner/pi-coding-agent';
+import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 import '@wordpress/theme/design-tokens.css';
 
 const { ThemeProvider } = unlock( privateApis );

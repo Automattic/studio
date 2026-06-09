@@ -38,7 +38,7 @@ wp_cli eval 'foreach (\WP_Block_Type_Registry::get_instance()->get_all_registere
 
 ## WooCommerce Shop Sites
 
-A request for a "shop" or "store" is an ecommerce request by default unless the user explicitly specifies otherwise. Always set up WooCommerce with products whenever the request names a shop, store, or ecommerce site, OR the planned design includes products, product categories or ranges, prices, a catalog, a "Shop" page, or add-to-cart - even if the user does not name WooCommerce and does not explicitly ask for products. A shop with an empty catalog is not useful.
+A request for a "shop" or "store" is an ecommerce request by default unless the user explicitly specifies otherwise. Always set up WooCommerce with products whenever the request names a shop, store, or ecommerce site, OR the planned design includes products, product categories or ranges, prices, a catalog, a "Shop" page, or add-to-cart - even if the user does not name WooCommerce and does not explicitly ask for products. A shop with an empty catalog is not useful. Size and scope qualifiers like "small", "simple", or "just a few pages" describe how big the site is, not whether it sells - a small shop is still a shop and still gets WooCommerce.
 
 1. Install and activate WooCommerce:
 

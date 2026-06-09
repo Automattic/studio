@@ -1000,22 +1000,29 @@ function WebviewSurface( {
 		const handlePageTitleUpdated = ( event: Event ) => {
 			publishDocumentTitle( ( event as WebviewPageTitleUpdatedEvent ).title );
 		};
+		// `did-finish-load` and `did-stop-loading` both fire at the end of a
+		// successful load; without a per-load guard the admin-bar script would
+		// execute once per event instead of once per navigation.
+		let didDetectAfterLoad = false;
 		const handleNavigate = ( event: Event ) => {
 			const navigateEvent = event as { url?: unknown };
 			if ( typeof navigateEvent.url === 'string' ) {
 				currentUrlRef.current = navigateEvent.url;
 				onNavigateRef.current?.( navigateEvent.url );
 			}
+			didDetectAfterLoad = false;
 			publishBrowserState();
 		};
 		const handleStartLoading = () => {
+			didDetectAfterLoad = false;
 			onInspectorStateRef.current?.( EMPTY_INSPECTOR_STATE );
 			publishBrowserState( { title: null } );
 			startProgress();
 		};
 		const handleStopLoading = () => {
 			finishProgress();
-			if ( domReadyRef.current ) {
+			if ( domReadyRef.current && ! didDetectAfterLoad ) {
+				didDetectAfterLoad = true;
 				detectAdminBar();
 				publishDocumentTitle();
 			}

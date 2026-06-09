@@ -12,6 +12,7 @@ export default mergeConfig(
 			name: 'cli',
 			include: [ '**/*.test.{ts,tsx}' ],
 			setupFiles: [ path.resolve( __dirname, './vitest.setup.ts' ) ],
+			pool: 'forks',
 		},
 		resolve: {
 			alias: {

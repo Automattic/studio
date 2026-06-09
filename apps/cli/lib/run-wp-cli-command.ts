@@ -1,7 +1,7 @@
 import { ChildProcess, spawn } from 'node:child_process';
 import path from 'node:path';
-import { Readable } from 'node:stream';
-import { text } from 'node:stream/consumers';
+import { PassThrough, Readable } from 'node:stream';
+import { buffer, text } from 'node:stream/consumers';
 import { rootCertificates } from 'node:tls';
 import { loadNodeRuntime, createNodeFsMountHandler } from '@php-wasm/node';
 import {
@@ -47,6 +47,10 @@ const PLAYGROUND_INTERNAL_SHARED_FOLDER = '/internal/shared';
  * the Playground runtime produce instances of this class, so callers stay
  * decoupled from Playground's `StreamedPHPResponse`.
  *
+ * `stdout`/`stderr` are always in-memory streams (Playground produces them in
+ * memory; the native runtime pre-drains its OS pipes via `drainToMemory`), so
+ * the text getters are safe to read in any order relative to `exitCode`.
+ *
  * The text getters consume the same underlying stream as `stdout`/`stderr` —
  * use one or the other, not both.
  */
@@ -72,6 +76,32 @@ export class WpCliResponse {
 		this.#stderrText ??= text( this.stderr );
 		return this.#stderrText;
 	}
+}
+
+/**
+ * Eagerly drain a child process's OS-pipe `stdout`/`stderr` into an in-memory
+ * stream.
+ *
+ * Once the OS pipe's buffer fills up and nothing is reading the other end, the
+ * child process can't write any more and stalls — so a caller that awaits
+ * `exitCode` before reading the output would deadlock: the process can't exit
+ * until we read, and we don't read until it exits. Draining now keeps the pipe
+ * flowing no matter when, or whether, a consumer reads.
+ */
+function drainToMemory( source: Readable ): Readable {
+	const sink = new PassThrough();
+
+	// `buffer()` reads `source` right away; replay it once drained, or forward
+	// a read error to whoever consumes `sink`.
+	buffer( source )
+		.then( ( data ) => sink.end( data ) )
+		.catch( ( error ) => sink.destroy( error ) );
+
+	// `sink` may go unread (a caller may only await `exitCode`), so swallow the
+	// error to avoid an uncaught exception; a consumer still sees it via its read.
+	sink.on( 'error', () => {} );
+
+	return sink;
 }
 
 type RunWpCliCommandOptions = {
@@ -153,7 +183,11 @@ async function runNativeWpCliCommand(
 	} );
 
 	return {
-		response: new WpCliResponse( child.stdout, child.stderr, exitCode ),
+		response: new WpCliResponse(
+			drainToMemory( child.stdout ),
+			drainToMemory( child.stderr ),
+			exitCode
+		),
 		[ Symbol.dispose ]() {
 			removeReaper();
 			// Tree-kill so any subprocess WP-CLI spawned dies with it, not just the php.exe itself.
@@ -291,7 +325,11 @@ async function runNativeGlobalWpCliCommand( args: string[] ): Promise< Disposabl
 	} );
 
 	return {
-		response: new WpCliResponse( child.stdout, child.stderr, exitCode ),
+		response: new WpCliResponse(
+			drainToMemory( child.stdout ),
+			drainToMemory( child.stderr ),
+			exitCode
+		),
 		[ Symbol.dispose ]() {
 			removeReaper();
 			// Tree-kill so any subprocess WP-CLI spawned dies with it, not just the php.exe itself.

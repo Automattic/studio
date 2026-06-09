@@ -109,7 +109,10 @@ import {
 	isRootCATrusted,
 	trustRootCA,
 } from 'src/lib/certificate-manager';
-import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
+import {
+	extractErrorFromProcessManagerLogs,
+	simplifyErrorForDisplay,
+} from 'src/lib/error-formatting';
 import { buildFeatureFlags } from 'src/lib/feature-flags';
 import { getImageData } from 'src/lib/get-image-data';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
@@ -742,14 +745,28 @@ function readWordPressDebugLog( sitePath: string ): string[] | undefined {
 	return readLastLines( debugLogPath, DEBUG_LOG_MAX_LINES );
 }
 
+function findMostRecentLog( logsDir: string, prefix: string, suffix: string ): string | undefined {
+	try {
+		const files = fs.readdirSync( logsDir );
+		const matching = files
+			.filter( ( f ) => f.startsWith( prefix ) && f.endsWith( suffix ) )
+			.sort()
+			.reverse();
+		return matching.length > 0 ? nodePath.join( logsDir, matching[ 0 ] ) : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
 function readProcessManagerLogs( siteId: string ): { stdout?: string[]; stderr?: string[] } {
 	const logsDir = nodePath.join( PROCESS_MANAGER_HOME, 'logs' );
-	const stdoutPath = nodePath.join( logsDir, `studio-site-${ siteId }-out.log` );
-	const stderrPath = nodePath.join( logsDir, `studio-site-${ siteId }-error.log` );
+	const prefix = `studio-site-${ siteId }`;
+	const stdoutPath = findMostRecentLog( logsDir, `${ prefix }-out-`, '.log' );
+	const stderrPath = findMostRecentLog( logsDir, `${ prefix }-error-`, '.log' );
 
 	return {
-		stdout: readLastLines( stdoutPath, DEBUG_LOG_MAX_LINES ),
-		stderr: readLastLines( stderrPath, DEBUG_LOG_MAX_LINES ),
+		stdout: stdoutPath ? readLastLines( stdoutPath, DEBUG_LOG_MAX_LINES ) : undefined,
+		stderr: stderrPath ? readLastLines( stderrPath, DEBUG_LOG_MAX_LINES ) : undefined,
 	};
 }
 
@@ -901,6 +918,14 @@ export async function createSite(
 			},
 			contexts,
 		} );
+
+		// If the error message is generic, try to surface a more useful message from
+		// the process manager logs. The detailed error is often captured in stdout
+		// (e.g. blueprint execution errors logged by playground-cli).
+		const logErrorMessage = extractErrorFromProcessManagerLogs( processManagerLogs );
+		if ( logErrorMessage ) {
+			throw new Error( logErrorMessage );
+		}
 
 		throw error;
 	} finally {

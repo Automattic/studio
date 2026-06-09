@@ -1,7 +1,7 @@
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useConnector } from '@/data/core';
-import type { CreateSiteParams, SiteDetails, SiteEvent } from '@/data/core';
+import type { CreateSiteParams, SiteDetails } from '@/data/core';
 
 export const SITES_QUERY_KEY = [ 'sites' ] as const;
 
@@ -142,47 +142,6 @@ export function useIsSiteStopping( siteId: string | undefined ): boolean {
 	return useIsSiteMutating( siteId, STOP_SITE_MUTATION_KEY );
 }
 
-function siteFromEvent( event: SiteEvent ): SiteDetails | undefined {
-	if ( ! event.site ) {
-		return undefined;
-	}
-	return {
-		...event.site,
-		running: event.running,
-	};
-}
-
-export function applySiteEventToCache(
-	sites: SiteDetails[] | undefined,
-	event: SiteEvent
-): SiteDetails[] | undefined {
-	if ( ! sites ) {
-		return sites;
-	}
-
-	if ( event.event === 'site-deleted' ) {
-		return sites.filter( ( site ) => site.id !== event.siteId );
-	}
-
-	const nextSite = siteFromEvent( event );
-	if ( ! nextSite ) {
-		return undefined;
-	}
-
-	const existingIndex = sites.findIndex( ( site ) => site.id === event.siteId );
-	if ( existingIndex === -1 ) {
-		return [ ...sites, nextSite ];
-	}
-
-	const nextSites = [ ...sites ];
-	nextSites[ existingIndex ] = {
-		...nextSite,
-		// Preserve renderer-cached fields that the CLI event payload does not own.
-		siteIcon: sites[ existingIndex ].siteIcon,
-	};
-	return nextSites;
-}
-
 /**
  * Keeps the cached site list in sync with main-process events (site created,
  * updated, started, stopped, deleted). Mount once near the app root.
@@ -191,16 +150,8 @@ export function useSyncSitesWithEvents(): void {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	useEffect( () => {
-		return connector.onSiteEvent( ( event ) => {
-			let shouldRefetch = false;
-			queryClient.setQueryData< SiteDetails[] >( SITES_QUERY_KEY, ( sites ) => {
-				const nextSites = applySiteEventToCache( sites, event );
-				shouldRefetch = nextSites === undefined;
-				return nextSites ?? sites;
-			} );
-			if ( shouldRefetch ) {
-				void queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
-			}
+		return connector.onSiteEvent( () => {
+			void queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 		} );
 	}, [ connector, queryClient ] );
 }

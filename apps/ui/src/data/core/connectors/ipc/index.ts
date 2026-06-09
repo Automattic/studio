@@ -18,7 +18,6 @@ import type {
 	ProposedSitePath,
 	SelectedSiteFolder,
 	SiteDetails,
-	SiteEvent,
 	Snapshot,
 	SupportedEditor,
 	SupportedTerminal,
@@ -730,9 +729,7 @@ export function createIpcConnector(): Connector {
 		onSiteEvent( listener ) {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;
-			return ipcListener.subscribe( 'site-event', ( _event: unknown, payload: SiteEvent ) =>
-				listener( payload )
-			);
+			return ipcListener.subscribe( 'site-event', () => listener() );
 		},
 	};
 }

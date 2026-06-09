@@ -53,6 +53,7 @@ import {
 } from 'cli/lib/pull/runtime-start-options';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
 import { buildAutoLoginUrl } from 'cli/lib/site-utils';
+import { getPrettyPath } from 'cli/lib/utils';
 import { startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -303,17 +304,17 @@ export async function runCommand(
 				// translators: 1: local site name, 2: local site path, 3: remote source URL.
 				__( 'This will create a new local site "%1$s" at %2$s, pulling from %3$s. Continue?' ),
 				studioMetadata.siteName,
-				studioMetadata.sitePath,
+				getPrettyPath( studioMetadata.sitePath ),
 				studioMetadata.normalizedUrl
 			),
 			default: true,
 		} );
 		if ( ! shouldContinue ) {
-			// `getPullSessionMetadata` already persisted `pull.json` and
-			// created `technicalSiteDirectory`.  Remove that just-created
-			// state so a later run doesn't treat it as a resumable session.
-			// Only safe to delete on a fresh pull (`created === true`); never
-			// touch a pre-existing resumable session's directory.
+			// `getPullSessionMetadata` just wrote `pull.json` here. If we leave
+			// it, the next run reads it back and returns `created: false`,
+			// silently resuming this declined pull instead of re-prompting.
+			// Removing it lets a re-run start fresh. Safe to delete only because
+			// `created === true` means we just created this directory.
 			fs.rmSync( studioMetadata.technicalSiteDirectory, { recursive: true, force: true } );
 			console.log( __( 'Cancelled.' ) );
 			return;

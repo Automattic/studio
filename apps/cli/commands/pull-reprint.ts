@@ -313,8 +313,6 @@ export async function runCommand(
 			// `getPullSessionMetadata` just wrote `pull.json` here. If we leave
 			// it, the next run reads it back and returns `created: false`,
 			// silently resuming this declined pull instead of re-prompting.
-			// Removing it lets a re-run start fresh. Safe to delete only because
-			// `created === true` means we just created this directory.
 			fs.rmSync( studioMetadata.technicalSiteDirectory, { recursive: true, force: true } );
 			console.log( __( 'Cancelled.' ) );
 			return;

@@ -4,7 +4,7 @@ import os from 'os';
 import path from 'path';
 import { ARCHIVER_OPTIONS, DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { generateBackupFilename } from '@studio/common/lib/generate-backup-filename';
-import { ExportEvents } from '@studio/common/lib/import-export-events';
+import { createExportErrorPayload, ExportEvents } from '@studio/common/lib/import-export-events';
 import {
 	LEGACY_MU_PLUGIN_FILENAMES,
 	STUDIO_LOADER_MU_PLUGIN_FILENAME,
@@ -141,7 +141,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 			this.emit( ExportEvents.EXPORT_COMPLETE );
 		} catch ( error ) {
 			this.archiveBuilder.abort();
-			this.emit( ExportEvents.EXPORT_ERROR, error );
+			this.emit( ExportEvents.EXPORT_ERROR, createExportErrorPayload( error ) );
 			throw error;
 		} finally {
 			if ( this.options.includes.database ) {

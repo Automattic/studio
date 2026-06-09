@@ -442,13 +442,14 @@ div:has( > progress ) > div:first-child {
 	}
 
 	/* Tab labels */
-	.components-tab-panel__tabs-item {
+	.components-tab-panel__tabs-item,
+	.components-tab-panel__tabs-item:not( .is-active ):hover,
+	.components-tab-panel__tabs-item:not( .is-active ):focus {
 		color: var( --color-frame-text-secondary );
 	}
-	.components-tab-panel__tabs-item.is-active {
-		color: var( --color-frame-text );
-	}
-	.components-tab-panel__tabs-item:hover {
+	.components-tab-panel__tabs-item.is-active,
+	.components-tab-panel__tabs-item.is-active:hover,
+	.components-tab-panel__tabs-item.is-active:focus {
 		color: var( --color-frame-text );
 	}
 	.components-tab-panel__tabs {

@@ -40,7 +40,7 @@ import { readCliConfig } from 'cli/lib/cli-config/core';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
-import type { SessionManager } from '@mariozechner/pi-coding-agent';
+import type { SessionManager } from '@earendil-works/pi-coding-agent';
 import type {
 	StudioCustomEntryDataMap,
 	StudioCustomEntryType,
@@ -688,7 +688,7 @@ export async function runCommand( options: {
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: '$0 [message]',
-		describe: __( 'AI agent for building WordPress' ),
+		describe: __( 'Start an interactive AI chat to build WordPress sites' ),
 		builder: ( yargs ) => {
 			let chain = yargs
 				.positional( 'message', {

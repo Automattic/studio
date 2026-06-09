@@ -1,4 +1,4 @@
-import type { AgentSessionEvent } from '@mariozechner/pi-coding-agent';
+import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 
 // Keep individual model-generated tool payloads below the range where long
 // strings have been observed to arrive incomplete.

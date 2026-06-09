@@ -283,7 +283,16 @@ const config: ForgeConfig = {
 			// and @mistralai's ~200-char generated filenames, nested under pi-coding-agent, blow
 			// past Windows' 260-char path limit and crash the Squirrel maker.
 			console.log( 'Removing unused AI provider SDKs from CLI bundle...' );
-			pruneUnusedProviders( cliNodeModules );
+			const unprunedProviders = pruneUnusedProviders( cliNodeModules );
+			if ( platform === 'win32' && unprunedProviders.length > 0 ) {
+				// A leftover provider tree on Windows resurfaces as the PathTooLongException the
+				// prune exists to prevent — fail now with the offending paths instead of letting
+				// the Squirrel maker crash later with no context.
+				throw new Error(
+					`Could not prune ${ unprunedProviders.length } provider director(ies) that exceed ` +
+						`Windows' 260-char path limit: ${ unprunedProviders.join( ', ' ) }`
+				);
+			}
 
 			console.log( `Downloading Node.js binary for ${ platform }-${ arch }...` );
 			await execAsync( [

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -32,7 +32,7 @@ describe( 'pruneUnusedProviders', () => {
 		touch( '@smithy', 'node-http-handler', 'package.json' );
 		touch( '@google', 'genai', 'package.json' );
 
-		pruneUnusedProviders( nm );
+		expect( pruneUnusedProviders( nm ) ).toEqual( [] );
 
 		expect( has( '@mistralai' ) ).toBe( false );
 		expect( has( '@aws-sdk' ) ).toBe( false );
@@ -70,6 +70,19 @@ describe( 'pruneUnusedProviders', () => {
 	} );
 
 	it( 'is a no-op when the node_modules directory is absent', () => {
-		expect( () => pruneUnusedProviders( join( root, 'missing' ) ) ).not.toThrow();
+		expect( pruneUnusedProviders( join( root, 'missing' ) ) ).toEqual( [] );
+	} );
+
+	// A failed removal can't be induced portably; deletion permission lives on the parent
+	// directory, which behaves differently on Windows and is ignored when running as root.
+	const canInduceRemovalFailure = process.platform !== 'win32' && process.getuid?.() !== 0;
+	it.runIf( canInduceRemovalFailure )( 'returns targets it could not remove', () => {
+		touch( '@mistralai', 'mistralai', 'package.json' );
+		chmodSync( nm, 0o555 ); // read-only parent → the child can't be unlinked
+		try {
+			expect( pruneUnusedProviders( nm ) ).toEqual( [ join( nm, '@mistralai' ) ] );
+		} finally {
+			chmodSync( nm, 0o755 ); // restore so afterEach can clean up
+		}
 	} );
 } );

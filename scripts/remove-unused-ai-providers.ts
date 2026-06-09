@@ -29,7 +29,10 @@ const UNUSED_PROVIDER_DIRS = [
 	join( '@google', 'genai' ),
 ];
 
-function removeTargets( nodeModulesDir: string ): void {
+// Returns the directories that should have been removed but couldn't, so the caller can decide
+// how to react (the Forge hook fails the Windows build on any leftover — see pruneUnusedProviders).
+function removeTargets( nodeModulesDir: string ): string[] {
+	const failed: string[] = [];
 	for ( const target of UNUSED_PROVIDER_DIRS ) {
 		const dir = join( nodeModulesDir, target );
 		try {
@@ -43,36 +46,40 @@ function removeTargets( nodeModulesDir: string ): void {
 			rmSync( dir, { recursive: true, force: true } );
 			console.log( `Removed ${ target } from ${ nodeModulesDir }` );
 		} catch ( e ) {
-			// Tolerate transient failures (Windows AV locks, permissions). This is a size /
-			// path-length optimization; aborting packaging over a stuck file would be worse.
+			// Don't abort here: on a transient lock (Windows AV, permissions) other targets may
+			// still be removable, and the caller decides whether a leftover is fatal.
 			console.warn(
 				`Could not remove ${ target } from ${ nodeModulesDir }: ${
 					e instanceof Error ? e.message : String( e )
 				}`
 			);
+			failed.push( dir );
 		}
 	}
+	return failed;
 }
 
 /**
  * Walks the dependency tree and prunes the unused providers from every node_modules it finds —
- * the hoisted one and any nested under packages such as pi-coding-agent.
+ * the hoisted one and any nested under packages such as pi-coding-agent. Returns the directories
+ * that were targeted but couldn't be removed; on Windows a non-empty result is fatal, because a
+ * leftover provider tree resurfaces as the very `PathTooLongException` this prune prevents.
  */
-export function pruneUnusedProviders( nodeModulesDir: string ): void {
+export function pruneUnusedProviders( nodeModulesDir: string ): string[] {
 	// Most packages have no nested node_modules; recursion bottoms out here. Check existence
 	// up front so the common case is a cheap stat rather than a thrown-and-caught ENOENT.
 	if ( ! existsSync( nodeModulesDir ) ) {
-		return;
+		return [];
 	}
 
 	let entries;
 	try {
 		entries = readdirSync( nodeModulesDir, { withFileTypes: true } );
 	} catch {
-		return; // unreadable (permissions, races) — skip rather than abort packaging
+		return []; // unreadable (permissions, races) — skip rather than abort packaging
 	}
 
-	removeTargets( nodeModulesDir );
+	const failed = removeTargets( nodeModulesDir );
 
 	for ( const entry of entries ) {
 		if ( ! entry.isDirectory() ) {
@@ -89,11 +96,13 @@ export function pruneUnusedProviders( nodeModulesDir: string ): void {
 			}
 			for ( const scoped of scopedEntries ) {
 				if ( scoped.isDirectory() ) {
-					pruneUnusedProviders( join( packageDir, scoped.name, 'node_modules' ) );
+					failed.push( ...pruneUnusedProviders( join( packageDir, scoped.name, 'node_modules' ) ) );
 				}
 			}
 			continue;
 		}
-		pruneUnusedProviders( join( packageDir, 'node_modules' ) );
+		failed.push( ...pruneUnusedProviders( join( packageDir, 'node_modules' ) ) );
 	}
+
+	return failed;
 }

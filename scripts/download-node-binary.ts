@@ -5,13 +5,13 @@
  * Example: npx tsx scripts/download-node-binary.ts darwin arm64
  */
 
+import { execFileSync } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { pathToFileURL } from 'url';
 import { extract } from 'tar';
 import { extractZip } from '../tools/common/lib/extract-zip';
-import { fetch, throwForHttpStatus, withRetry } from './lib/with-retry';
+import { fetch } from './lib/with-retry';
 
 const LTS_FALLBACK = 'v24.13.1';
 
@@ -24,6 +24,11 @@ function getNodeVersion(): string {
 	console.log( `.nvmrc not found, using fallback version ${ LTS_FALLBACK }` );
 	return LTS_FALLBACK;
 }
+
+const NODE_VERSION = getNodeVersion();
+
+const platform = process.argv[ 2 ] || process.platform;
+const arch = process.argv[ 3 ] || process.arch;
 
 // Map platform names to nodejs.org download naming
 const platformMap: Record< string, string > = {
@@ -38,95 +43,61 @@ const archMap: Record< string, string > = {
 	x64: 'x64',
 };
 
-type NodeTarget = {
-	platform: string;
-	arch: string;
-	nodePlatform: string;
-	nodeArch: string;
-	isWindows: boolean;
-	binaryName: string;
-	ext: 'zip' | 'tar.gz';
-};
+const nodePlatform = platformMap[ platform ];
+const nodeArch = archMap[ arch ];
 
-type InstallNodeBinaryOptions = {
-	platform?: string;
-	arch?: string;
-	nodeVersion?: string;
-	binDir?: string;
-	tmpDir?: string;
-	cacheDir?: string;
-	currentPlatform?: string;
-	currentArch?: string;
-	currentNodeVersion?: string;
-	currentNodePath?: string;
-	downloadArchive?: ( downloadUrl: string, dest: string ) => Promise< void >;
-	extractTarGz?: typeof extractTarGz;
-	extractNodeZip?: typeof extractNodeZip;
-};
-
-export type InstallNodeBinaryResult = {
-	source: 'current' | 'cache' | 'download';
-	destPath: string;
-	archivePath?: string;
-};
-
-export function resolveNodeTarget( platform: string, arch: string ): NodeTarget {
-	const nodePlatform = platformMap[ platform ];
-	const nodeArch = archMap[ arch ];
-
-	if ( ! nodePlatform ) {
-		throw new Error( `Unsupported platform: ${ platform }` );
-	}
-
-	if ( ! nodeArch ) {
-		throw new Error( `Unsupported architecture: ${ arch }` );
-	}
-
-	const isWindows = nodePlatform === 'win';
-	return {
-		platform,
-		arch,
-		nodePlatform,
-		nodeArch,
-		isWindows,
-		binaryName: isWindows ? 'node.exe' : 'node',
-		// nodejs.org provides different archive formats depending on the target platform
-		ext: isWindows ? 'zip' : 'tar.gz',
-	};
+if ( ! nodePlatform ) {
+	console.error( `Unsupported platform: ${ platform }` );
+	process.exit( 1 );
 }
 
-function getCacheDir(): string {
-	if ( process.env.STUDIO_NODE_BINARY_CACHE_DIR ) {
-		return process.env.STUDIO_NODE_BINARY_CACHE_DIR;
-	}
-
-	const cacheRoot = process.env.XDG_CACHE_HOME || path.join( os.homedir(), '.cache' );
-	return path.join( cacheRoot, 'studio', 'node-binaries' );
+if ( ! nodeArch ) {
+	console.error( `Unsupported architecture: ${ arch }` );
+	process.exit( 1 );
 }
 
-function getNodeBinaryUrl(
-	nodeVersion: string,
-	target: NodeTarget
-): { filename: string; url: string } {
-	const filename = `node-${ nodeVersion }-${ target.nodePlatform }-${ target.nodeArch }.${ target.ext }`;
-	return {
-		filename,
-		url: `https://nodejs.org/dist/${ nodeVersion }/${ filename }`,
-	};
+const binDir = path.join( import.meta.dirname, '..', 'apps', 'studio', 'bin' );
+const tmpDir = os.tmpdir();
+
+if ( ! fs.existsSync( binDir ) ) {
+	fs.mkdirSync( binDir, { recursive: true } );
 }
 
-function copyNodeBinary( sourcePath: string, destPath: string, isWindows: boolean ): void {
-	fs.copyFileSync( sourcePath, destPath );
-	if ( ! isWindows ) {
-		fs.chmodSync( destPath, 0o755 );
+const isWindows = nodePlatform === 'win';
+const binaryName = isWindows ? 'node.exe' : 'node';
+const binaryPath = path.join( binDir, binaryName );
+// nodejs.org provides different archive formats depending on the target platform
+const ext = isWindows ? 'zip' : 'tar.gz';
+const filename = `node-${ NODE_VERSION }-${ nodePlatform }-${ nodeArch }.${ ext }`;
+const url = `https://nodejs.org/dist/${ NODE_VERSION }/${ filename }`;
+const downloadPath = path.join( tmpDir, filename );
+
+function hasExpectedNodeBinary(): boolean {
+	if ( ! fs.existsSync( binaryPath ) ) {
+		return false;
 	}
+
+	try {
+		const version = execFileSync( binaryPath, [ '--version' ], { encoding: 'utf8' } ).trim();
+		if ( version === NODE_VERSION ) {
+			console.log( `Using existing Node.js ${ version } binary at ${ binaryPath }.` );
+			return true;
+		}
+		console.log( `Existing Node.js binary is ${ version }; expected ${ NODE_VERSION }.` );
+	} catch ( error ) {
+		console.log( `Existing Node.js binary could not be checked: ${ ( error as Error ).message }` );
+	}
+
+	return false;
 }
 
 async function download( downloadUrl: string, dest: string ): Promise< void > {
-	const response = await withRetry( 'node binary download', () => fetch( downloadUrl ) );
+	console.log( `Downloading Node.js ${ NODE_VERSION } for ${ nodePlatform }-${ nodeArch }...` );
+
+	const response = await fetch( downloadUrl );
 
 	if ( ! response.ok ) {
-		throwForHttpStatus( 'Node.js binary download', response.status, response.statusText );
+		throw new Error( `Failed to download: HTTP ${ response.status }` );
 	}
 
 	const file = fs.createWriteStream( dest );
@@ -156,17 +127,11 @@ async function download( downloadUrl: string, dest: string ): Promise< void > {
 async function extractTarGz(
 	archivePath: string,
 	destDir: string,
-	binaryName: string,
-	nodeVersion: string,
-	target: NodeTarget,
-	tmpDir: string
+	binaryName: string
 ): Promise< void > {
 	console.log( 'Extracting node binary...' );
 
-	const extractDir = path.join(
-		tmpDir,
-		`node-${ nodeVersion }-${ target.nodePlatform }-${ target.nodeArch }`
-	);
+	const extractDir = path.join( tmpDir, `node-${ NODE_VERSION }-${ nodePlatform }-${ nodeArch }` );
 
 	await extract( {
 		file: archivePath,
@@ -184,17 +149,11 @@ async function extractTarGz(
 async function extractNodeZip(
 	archivePath: string,
 	destDir: string,
-	binaryName: string,
-	nodeVersion: string,
-	target: NodeTarget,
-	tmpDir: string
+	binaryName: string
 ): Promise< void > {
 	console.log( 'Extracting node.exe...' );
 
-	const extractDir = path.join(
-		tmpDir,
-		`node-${ nodeVersion }-${ target.nodePlatform }-${ target.nodeArch }`
-	);
+	const extractDir = path.join( tmpDir, `node-${ NODE_VERSION }-${ nodePlatform }-${ nodeArch }` );
 
 	// Use the common extractZip function
 	await extractZip( archivePath, tmpDir );
@@ -206,70 +165,21 @@ async function extractNodeZip(
 	fs.rmSync( extractDir, { recursive: true } );
 }
 
-export async function installNodeBinary(
-	options: InstallNodeBinaryOptions = {}
-): Promise< InstallNodeBinaryResult > {
-	const nodeVersion = options.nodeVersion ?? getNodeVersion();
-	const target = resolveNodeTarget(
-		options.platform ?? process.argv[ 2 ] ?? process.platform,
-		options.arch ?? process.argv[ 3 ] ?? process.arch
-	);
-	const binDir = options.binDir ?? path.join( import.meta.dirname, '..', 'apps', 'studio', 'bin' );
-	const tmpDir = options.tmpDir ?? os.tmpdir();
-	const cacheDir = options.cacheDir ?? getCacheDir();
-	const currentPlatform = options.currentPlatform ?? process.platform;
-	const currentArch = options.currentArch ?? process.arch;
-	const currentNodeVersion = options.currentNodeVersion ?? process.version;
-	const currentNodePath = options.currentNodePath ?? process.execPath;
-	const downloadArchive = options.downloadArchive ?? download;
-	const extractArchive = target.isWindows
-		? options.extractNodeZip ?? extractNodeZip
-		: options.extractTarGz ?? extractTarGz;
-	const destPath = path.join( binDir, target.binaryName );
-
-	fs.mkdirSync( binDir, { recursive: true } );
-
-	if (
-		target.platform === currentPlatform &&
-		target.arch === currentArch &&
-		nodeVersion === currentNodeVersion
-	) {
-		console.log(
-			`Using current Node.js ${ nodeVersion } binary for ${ target.nodePlatform }-${ target.nodeArch }.`
-		);
-		copyNodeBinary( currentNodePath, destPath, target.isWindows );
-		return { source: 'current', destPath };
-	}
-
-	const { filename, url } = getNodeBinaryUrl( nodeVersion, target );
-	const cachePath = path.join( cacheDir, filename );
-	let archivePath = cachePath;
-	let source: InstallNodeBinaryResult[ 'source' ] = 'cache';
-
-	if ( fs.existsSync( cachePath ) ) {
-		console.log( `Using cached Node.js archive: ${ cachePath }` );
-	} else {
-		console.log(
-			`Downloading Node.js ${ nodeVersion } for ${ target.nodePlatform }-${ target.nodeArch }...`
-		);
-		fs.mkdirSync( cacheDir, { recursive: true } );
-		const downloadPath = path.join( cacheDir, `${ filename }.${ process.pid }.download` );
-		await downloadArchive( url, downloadPath );
-		fs.renameSync( downloadPath, cachePath );
-		archivePath = cachePath;
-		source = 'download';
-		console.log( `Cached Node.js archive: ${ cachePath }` );
-	}
-
-	await extractArchive( archivePath, binDir, target.binaryName, nodeVersion, target, tmpDir );
-
-	return { source, destPath, archivePath };
-}
-
 async function main(): Promise< void > {
 	try {
-		const result = await installNodeBinary();
-		const binDir = path.dirname( result.destPath );
+		if ( hasExpectedNodeBinary() ) {
+			return;
+		}
+
+		await download( url, downloadPath );
+
+		if ( isWindows ) {
+			await extractNodeZip( downloadPath, binDir, binaryName );
+		} else {
+			await extractTarGz( downloadPath, binDir, binaryName );
+		}
+
+		fs.unlinkSync( downloadPath );
 
 		console.log( `\nNode.js binary installed to ${ binDir }` );
 
@@ -287,6 +197,4 @@ async function main(): Promise< void > {
 	}
 }
 
-if ( process.argv[ 1 ] && import.meta.url === pathToFileURL( process.argv[ 1 ] ).href ) {
-	void main();
-}
+void main();

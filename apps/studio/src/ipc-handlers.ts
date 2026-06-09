@@ -109,7 +109,6 @@ import {
 	isRootCATrusted,
 	trustRootCA,
 } from 'src/lib/certificate-manager';
-import { download } from 'src/lib/download';
 import {
 	extractErrorFromProcessManagerLogs,
 	simplifyErrorForDisplay,

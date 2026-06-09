@@ -192,26 +192,52 @@ function findAskUserAnswerAfter(
 	options: Array< { label: string } >
 ): string | undefined {
 	const optionLabels = new Set( options.map( ( option ) => option.label ) );
-	for ( let index = entryIndex + 1; index < entries.length; index += 1 ) {
+	// A question batch persists as N contiguous `studio.agent_question`
+	// entries followed by the answers in the same order (see
+	// `askUserAndPersistAnswers` in apps/cli/commands/ai), so this question's
+	// answer sits at the same offset in the answer block as the question
+	// holds within its batch.
+	let batchPosition = 0;
+	for ( let index = entryIndex - 1; index >= 0; index -= 1 ) {
+		if ( ! isStudioCustomEntryOfType( entries[ index ], 'studio.agent_question' ) ) {
+			break;
+		}
+		batchPosition += 1;
+	}
+	let batchSize = batchPosition + 1;
+	let index = entryIndex + 1;
+	while (
+		index < entries.length &&
+		isStudioCustomEntryOfType( entries[ index ], 'studio.agent_question' )
+	) {
+		batchSize += 1;
+		index += 1;
+	}
+	const answers: string[] = [];
+	for ( ; index < entries.length && answers.length < batchSize; index += 1 ) {
 		const entry = entries[ index ];
 		if (
 			isStudioCustomEntryOfType( entry, 'studio.agent_question' ) ||
 			isStudioCustomEntryOfType( entry, 'studio.turn_closed' )
 		) {
-			return undefined;
+			break;
 		}
 		if ( ! isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
 			continue;
 		}
 		const data = ( entry as StudioCustomEntry< 'studio.user_prompt' > ).data;
-		if ( data?.source === 'ask_user' && optionLabels.has( data.text ) ) {
-			return data.text;
+		if ( data?.source !== 'ask_user' ) {
+			break;
 		}
-		if ( data?.source === 'prompt' ) {
-			return undefined;
-		}
+		answers.push( data.text );
 	}
-	return undefined;
+	// Blank answers are skipped at persist time; a count mismatch makes the
+	// positional mapping unreliable, so highlight nothing rather than guess.
+	if ( answers.length !== batchSize ) {
+		return undefined;
+	}
+	const answer = answers[ batchPosition ];
+	return optionLabels.has( answer ) ? answer : undefined;
 }
 
 export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {

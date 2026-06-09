@@ -65,6 +65,47 @@ describe( 'entriesToRenderItems', () => {
 			},
 		] );
 	} );
+
+	it( 'resolves picked answers positionally for a multi-question batch', () => {
+		// Mirrors how the CLI persists a batch: all questions first, then the
+		// answers in question order. Both questions share option labels, so
+		// label matching alone would attribute the wrong answer.
+		const items = entriesToRenderItems( [
+			agentQuestionEntry( 'q1', 'Install Jetpack?', [ 'Yes', 'No' ] ),
+			agentQuestionEntry( 'q2', 'Activate dark mode?', [ 'Yes', 'No' ] ),
+			askUserAnswerEntry( 'a1', 'No' ),
+			askUserAnswerEntry( 'a2', 'Yes' ),
+		] );
+
+		expect( items ).toMatchObject( [
+			{ kind: 'agent-question', question: 'Install Jetpack?', pickedLabel: 'No' },
+			{ kind: 'agent-question', question: 'Activate dark mode?', pickedLabel: 'Yes' },
+		] );
+	} );
+
+	it( 'highlights no answer when a batch has fewer answers than questions', () => {
+		const items = entriesToRenderItems( [
+			agentQuestionEntry( 'q1', 'Install Jetpack?', [ 'Yes', 'No' ] ),
+			agentQuestionEntry( 'q2', 'Activate dark mode?', [ 'Yes', 'No' ] ),
+			askUserAnswerEntry( 'a1', 'Yes' ),
+		] );
+
+		expect( items ).toMatchObject( [
+			{ kind: 'agent-question', question: 'Install Jetpack?', pickedLabel: undefined },
+			{ kind: 'agent-question', question: 'Activate dark mode?', pickedLabel: undefined },
+		] );
+	} );
+
+	it( 'resolves a single historical question from its persisted answer', () => {
+		const items = entriesToRenderItems( [
+			agentQuestionEntry( 'q1', 'Install Jetpack?', [ 'Yes', 'No' ] ),
+			askUserAnswerEntry( 'a1', 'Yes' ),
+		] );
+
+		expect( items ).toMatchObject( [
+			{ kind: 'agent-question', question: 'Install Jetpack?', pickedLabel: 'Yes' },
+		] );
+	} );
 } );
 
 describe( 'Conversation tool rows', () => {
@@ -361,4 +402,32 @@ function toolResultEntry( text: string ): SessionEntry {
 			content: [ { type: 'text', text } ],
 		},
 	} as unknown as SessionEntry;
+}
+
+function agentQuestionEntry( id: string, question: string, labels: string[] ): SessionEntry {
+	return {
+		type: 'custom',
+		id,
+		parentId: null,
+		timestamp: '2026-06-05T12:00:01.000Z',
+		customType: 'studio.agent_question',
+		data: {
+			question,
+			options: labels.map( ( label ) => ( { label, description: '' } ) ),
+		},
+	} as SessionEntry;
+}
+
+function askUserAnswerEntry( id: string, text: string ): SessionEntry {
+	return {
+		type: 'custom',
+		id,
+		parentId: null,
+		timestamp: '2026-06-05T12:00:02.000Z',
+		customType: 'studio.user_prompt',
+		data: {
+			text,
+			source: 'ask_user',
+		},
+	} as SessionEntry;
 }

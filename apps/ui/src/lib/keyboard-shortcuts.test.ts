@@ -21,9 +21,60 @@ describe( 'keyboard shortcut helpers', () => {
 					repeat: false,
 					defaultPrevented: false,
 				},
-				getKeyboardShortcut( 'toggle-sidebar' )
+				getKeyboardShortcut( 'toggle-sidebar' ),
+				'MacIntel'
 			)
 		).toBe( true );
+	} );
+
+	it( 'only matches the platform primary modifier', () => {
+		const shortcut = getKeyboardShortcut( 'toggle-sidebar' );
+
+		expect(
+			matchesKeyboardShortcut(
+				{
+					key: 'b',
+					metaKey: false,
+					ctrlKey: true,
+					shiftKey: false,
+					altKey: false,
+					repeat: false,
+					defaultPrevented: false,
+				},
+				shortcut,
+				'MacIntel'
+			)
+		).toBe( false );
+		expect(
+			matchesKeyboardShortcut(
+				{
+					key: 'b',
+					metaKey: false,
+					ctrlKey: true,
+					shiftKey: false,
+					altKey: false,
+					repeat: false,
+					defaultPrevented: false,
+				},
+				shortcut,
+				'Win32'
+			)
+		).toBe( true );
+		expect(
+			matchesKeyboardShortcut(
+				{
+					key: 'b',
+					metaKey: true,
+					ctrlKey: false,
+					shiftKey: false,
+					altKey: false,
+					repeat: false,
+					defaultPrevented: false,
+				},
+				shortcut,
+				'Win32'
+			)
+		).toBe( false );
 	} );
 
 	it( 'ignores repeated or modified shortcut events', () => {
@@ -70,7 +121,7 @@ describe( 'keyboard shortcut helpers', () => {
 		expect( getKeyboardShortcutLabel( shortcut, 'MacIntel' ) ).toBe( '⌘B' );
 	} );
 
-	it( 'formats the app settings shortcut as command-comma on macOS', () => {
+	it( 'formats the preferences shortcut as command-comma on macOS', () => {
 		const shortcut = getKeyboardShortcut( 'open-app-settings' );
 
 		expect( getKeyboardShortcutLabel( shortcut, 'MacIntel' ) ).toBe( '⌘,' );
@@ -87,7 +138,8 @@ describe( 'keyboard shortcut helpers', () => {
 					repeat: false,
 					defaultPrevented: false,
 				},
-				shortcut
+				shortcut,
+				'MacIntel'
 			)
 		).toBe( true );
 	} );
@@ -109,7 +161,8 @@ describe( 'keyboard shortcut helpers', () => {
 					repeat: false,
 					defaultPrevented: false,
 				},
-				shortcut
+				shortcut,
+				'MacIntel'
 			)
 		).toBe( true );
 		expect(
@@ -123,7 +176,8 @@ describe( 'keyboard shortcut helpers', () => {
 					repeat: false,
 					defaultPrevented: false,
 				},
-				shortcut
+				shortcut,
+				'MacIntel'
 			)
 		).toBe( false );
 	} );
@@ -161,7 +215,34 @@ describe( 'keyboard shortcut helpers', () => {
 					shiftKey: false,
 					altKey: false,
 				},
-				'mod-enter'
+				'mod-enter',
+				'MacIntel'
+			)
+		).toBe( true );
+		expect(
+			shouldSendMessageForKeyDown(
+				{
+					key: 'Enter',
+					metaKey: false,
+					ctrlKey: true,
+					shiftKey: false,
+					altKey: false,
+				},
+				'mod-enter',
+				'MacIntel'
+			)
+		).toBe( false );
+		expect(
+			shouldSendMessageForKeyDown(
+				{
+					key: 'Enter',
+					metaKey: false,
+					ctrlKey: true,
+					shiftKey: false,
+					altKey: false,
+				},
+				'mod-enter',
+				'Win32'
 			)
 		).toBe( true );
 		expect(

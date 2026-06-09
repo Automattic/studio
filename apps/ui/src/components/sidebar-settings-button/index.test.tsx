@@ -58,14 +58,14 @@ describe( 'SidebarSettingsButton', () => {
 		routerState.search = {};
 	} );
 
-	it.each( [ 'account', 'preferences', 'keyboard' ] )(
-		'highlights the settings row when the %s settings tab is active',
+	it.each( [ 'account', 'preferences', 'skills', 'mcp' ] )(
+		'highlights the preferences row when the %s preferences tab is active',
 		( tab ) => {
 			routerState.search = { tab };
 
 			render( <SidebarSettingsButton /> );
 
-			expect( screen.getByRole( 'link', { name: 'Settings' } ) ).toHaveClass( 'buttonActive' );
+			expect( screen.getByRole( 'link', { name: 'Preferences' } ) ).toHaveClass( 'buttonActive' );
 		}
 	);
 
@@ -74,6 +74,6 @@ describe( 'SidebarSettingsButton', () => {
 
 		render( <SidebarSettingsButton /> );
 
-		expect( screen.getByRole( 'link', { name: 'Settings' } ) ).not.toHaveClass( 'buttonActive' );
+		expect( screen.getByRole( 'link', { name: 'Preferences' } ) ).not.toHaveClass( 'buttonActive' );
 	} );
 } );

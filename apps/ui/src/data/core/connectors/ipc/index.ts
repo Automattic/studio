@@ -4,6 +4,7 @@ import type {
 	ActiveAgentRun,
 	AiSessionSummary,
 	AiSessionPlacementUpdatedEvent,
+	AppGlobals,
 	AuthUser,
 	ColorScheme,
 	Connector,
@@ -18,7 +19,9 @@ import type {
 	ProposedSitePath,
 	SelectedSiteFolder,
 	SiteDetails,
+	SkillStatus,
 	Snapshot,
+	SnapshotUsage,
 	SupportedEditor,
 	SupportedTerminal,
 	SyncSite,
@@ -26,6 +29,7 @@ import type {
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { StoredAuthToken } from '@studio/common/lib/auth-token-schema';
 
 function generateBackupFilename( siteName: string ): string {
 	const now = new Date();
@@ -42,6 +46,25 @@ type ExportRequest = {
 	includes: { database: boolean; wpContent: boolean };
 	phpVersion: string;
 };
+
+function parseSnapshotUsage( response: unknown ): SnapshotUsage {
+	if ( ! response || typeof response !== 'object' ) {
+		throw new Error( 'Invalid snapshot usage response.' );
+	}
+	const record = response as Record< string, unknown >;
+	if (
+		typeof record.site_count !== 'number' ||
+		typeof record.site_limit !== 'number' ||
+		typeof record.site_creation_blocked !== 'boolean'
+	) {
+		throw new Error( 'Invalid snapshot usage response.' );
+	}
+	return {
+		siteCount: record.site_count,
+		siteLimit: record.site_limit,
+		siteCreationBlocked: record.site_creation_blocked,
+	};
+}
 
 // Runs an export IPC call and surfaces the outcome through the same
 // main-process notification channels the legacy renderer uses: a native
@@ -283,6 +306,14 @@ export function createIpcConnector(): Connector {
 			return response ?? null;
 		},
 
+		async selectDefaultSiteDirectory( defaultPath ): Promise< SelectedSiteFolder | null > {
+			const response = ( await ipcApi.showOpenFolderDialog(
+				__( 'Select default site directory' ),
+				defaultPath
+			) ) as SelectedSiteFolder | null;
+			return response ?? null;
+		},
+
 		async comparePaths( path1, path2 ) {
 			return ( await ipcApi.comparePaths( path1, path2 ) ) as boolean;
 		},
@@ -446,6 +477,29 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.fetchSnapshots() ) as Snapshot[];
 		},
 
+		async getSnapshotUsage(): Promise< SnapshotUsage | null > {
+			const token = ( await ipcApi.getAuthenticationToken() ) as StoredAuthToken | null;
+			if ( ! token ) {
+				return null;
+			}
+			const response = await fetch(
+				'https://public-api.wordpress.com/wpcom/v2/jurassic-ninja/usage',
+				{
+					headers: {
+						Authorization: `Bearer ${ token.accessToken }`,
+					},
+				}
+			);
+			if ( ! response.ok ) {
+				throw new Error( `Failed to fetch snapshot usage: ${ response.status }` );
+			}
+			return parseSnapshotUsage( await response.json() );
+		},
+
+		async deleteAllSnapshots(): Promise< void > {
+			await ipcApi.deleteAllSnapshots();
+		},
+
 		async publishPreviewSite( siteId, existingHostname ): Promise< { url: string } > {
 			const siteFolder = await resolveSiteFolder( siteId );
 			// Reuses the desktop app's `createSnapshot`/`updateSnapshot` IPC
@@ -598,20 +652,40 @@ export function createIpcConnector(): Connector {
 		// per field; we fan out in parallel here so the UI can work with a
 		// single query/mutation pair.
 		async getUserPreferences(): Promise< UserPreferences > {
-			const [ editor, terminal, colorScheme, locale, messageSendShortcut ] = ( await Promise.all( [
+			const [
+				editor,
+				terminal,
+				colorScheme,
+				locale,
+				messageSendShortcut,
+				defaultSiteDirectory,
+				studioCliInstalled,
+			] = ( await Promise.all( [
 				ipcApi.getUserEditor(),
 				ipcApi.getUserTerminal(),
 				ipcApi.getColorScheme(),
 				ipcApi.getUserLocale(),
 				ipcApi.getMessageSendShortcut(),
+				ipcApi.getDefaultSiteDirectory(),
+				ipcApi.isStudioCliInstalled(),
 			] ) ) as [
 				SupportedEditor | null,
 				SupportedTerminal | null,
 				ColorScheme,
 				string | undefined,
 				UserPreferences[ 'messageSendShortcut' ],
+				string,
+				boolean,
 			];
-			return { editor, terminal, colorScheme, locale, messageSendShortcut };
+			return {
+				editor,
+				terminal,
+				colorScheme,
+				locale,
+				messageSendShortcut,
+				defaultSiteDirectory,
+				studioCliInstalled,
+			};
 		},
 
 		async setUserPreferences( partial ): Promise< void > {
@@ -631,15 +705,31 @@ export function createIpcConnector(): Connector {
 			if ( 'messageSendShortcut' in partial && partial.messageSendShortcut ) {
 				writes.push( ipcApi.saveMessageSendShortcut( partial.messageSendShortcut ) );
 			}
+			if ( 'defaultSiteDirectory' in partial && partial.defaultSiteDirectory ) {
+				writes.push( ipcApi.saveDefaultSiteDirectory( partial.defaultSiteDirectory ) );
+			}
+			if ( 'studioCliInstalled' in partial ) {
+				writes.push(
+					partial.studioCliInstalled ? ipcApi.installStudioCli() : ipcApi.uninstallStudioCli()
+				);
+			}
 			await Promise.all( writes );
+		},
+
+		async previewColorScheme( colorScheme ): Promise< void > {
+			await ipcApi.previewColorScheme( colorScheme );
 		},
 
 		async getInstalledApps(): Promise< InstalledApps > {
 			return ( await ipcApi.getInstalledAppsAndTerminals() ) as InstalledApps;
 		},
 
+		async getAppGlobals(): Promise< AppGlobals > {
+			return ( await ipcApi.getAppGlobals() ) as AppGlobals;
+		},
+
 		async getFeatureFlags(): Promise< FeatureFlags > {
-			const appGlobals = ( await ipcApi.getAppGlobals() ) as Partial< FeatureFlags >;
+			const appGlobals = ( await ipcApi.getAppGlobals() ) as AppGlobals;
 			return {
 				enableDesksUiSwitch: appGlobals.enableDesksUiSwitch ?? false,
 			};
@@ -715,6 +805,18 @@ export function createIpcConnector(): Connector {
 
 		async openSiteUrl( siteId, relativeUrl = '', options ): Promise< void > {
 			await ipcApi.openSiteURL( siteId, relativeUrl, options );
+		},
+
+		async getWordPressSkillsStatusAllSites(): Promise< SkillStatus[] > {
+			return ( await ipcApi.getWordPressSkillsStatusAllSites() ) as SkillStatus[];
+		},
+
+		async installWordPressSkillToAllSites( skillId ): Promise< void > {
+			await ipcApi.installWordPressSkillsToAllSites( { skillId } );
+		},
+
+		async removeWordPressSkillFromAllSites( skillId ): Promise< void > {
+			await ipcApi.removeWordPressSkillFromAllSites( skillId );
 		},
 
 		// Window state

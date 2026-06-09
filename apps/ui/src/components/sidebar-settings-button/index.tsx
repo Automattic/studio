@@ -24,7 +24,7 @@ export function SidebarSettingsButton( { showTopBorder = false }: { showTopBorde
 				<span className={ styles.iconSlot } aria-hidden="true">
 					<Icon icon={ cog } size={ 22 } className={ styles.icon } data-sidebar-primary-icon />
 				</span>
-				<span className={ styles.label }>{ __( 'Settings' ) }</span>
+				<span className={ styles.label }>{ __( 'Preferences' ) }</span>
 			</SidebarButton>
 		</div>
 	);

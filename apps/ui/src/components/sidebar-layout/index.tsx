@@ -17,7 +17,15 @@ import { getKeyboardShortcut, getKeyboardShortcutDescriptor } from '@/lib/keyboa
 import { isMacPlatform } from '@/lib/platform';
 import { SIDEBAR_PANEL_CONFIG, SIDEBAR_PANEL_STORAGE_KEY } from '@/lib/resizable-panels';
 import styles from './style.module.css';
+import type { SettingsTabId } from '@/components/settings-view';
 import type { CSSProperties, ReactNode } from 'react';
+
+function getSettingsTabFromLegacyTabName( tabName?: string ): SettingsTabId {
+	if ( tabName === 'account' || tabName === 'skills' || tabName === 'mcp' ) {
+		return tabName;
+	}
+	return 'preferences';
+}
 
 export function SidebarLayout( { children }: { children: ReactNode } ) {
 	const navigate = useNavigate();
@@ -33,14 +41,17 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 	} );
 	const sidebarStyle = { '--sidebar-width': `${ sidebarResize.width }px` } as CSSProperties;
 	const toggleSidebar = useCallback( () => setCollapsed( ( current ) => ! current ), [] );
-	const openSettings = useCallback( () => {
-		void navigate( { to: '/settings' } );
-	}, [ navigate ] );
+	const openSettings = useCallback(
+		( tab: SettingsTabId = 'preferences' ) => {
+			void navigate( { to: '/settings', search: { tab } } );
+		},
+		[ navigate ]
+	);
 	const isMac = isMacPlatform();
 	const sidebarHeaderVariant = isMac ? ( isFullscreen ? 'fullscreen' : 'traffic-lights' ) : null;
 	const sidebarShortcut = getKeyboardShortcutDescriptor( getKeyboardShortcut( 'toggle-sidebar' ) );
 	useKeyboardShortcut( 'toggle-sidebar', toggleSidebar );
-	useKeyboardShortcut( 'open-app-settings', openSettings );
+	useKeyboardShortcut( 'open-app-settings', () => openSettings() );
 
 	const updateSidebarScrollState = useCallback( () => {
 		const node = sidebarScrollRef.current;
@@ -67,7 +78,9 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 			}
 		 ).ipcListener;
 
-		return ipcListener?.subscribe( 'user-settings', () => openSettings() );
+		return ipcListener?.subscribe( 'user-settings', ( _event, payload ) =>
+			openSettings( getSettingsTabFromLegacyTabName( payload?.tabName ) )
+		);
 	}, [ openSettings ] );
 
 	useLayoutEffect( () => {

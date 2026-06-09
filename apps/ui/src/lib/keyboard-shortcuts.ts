@@ -32,7 +32,7 @@ export const KEYBOARD_SHORTCUTS: KeyboardShortcutDefinition[] = [
 	},
 	{
 		id: 'open-app-settings',
-		label: __( 'Open app settings' ),
+		label: __( 'Open preferences' ),
 		key: ',',
 		modifier: 'primary',
 	},
@@ -120,7 +120,8 @@ export function getMessageSendShortcutLabel(
 
 export function matchesKeyboardShortcut(
 	event: KeyboardEventLike,
-	shortcut: KeyboardShortcutDefinition
+	shortcut: KeyboardShortcutDefinition,
+	platform = getPlatform()
 ): boolean {
 	if (
 		event.defaultPrevented ||
@@ -130,7 +131,8 @@ export function matchesKeyboardShortcut(
 	) {
 		return false;
 	}
-	if ( ! event.metaKey && ! event.ctrlKey ) {
+	const hasPrimaryModifier = isApplePlatform( platform ) ? event.metaKey : event.ctrlKey;
+	if ( ! hasPrimaryModifier ) {
 		return false;
 	}
 	return event.key.toLowerCase() === shortcut.key.toLowerCase();
@@ -140,14 +142,15 @@ export function shouldSendMessageForKeyDown(
 	event: Pick< KeyboardEventLike, 'key' | 'metaKey' | 'ctrlKey' | 'shiftKey' | 'altKey' > & {
 		isComposing?: boolean;
 	},
-	shortcut: MessageSendShortcut = DEFAULT_MESSAGE_SEND_SHORTCUT
+	shortcut: MessageSendShortcut = DEFAULT_MESSAGE_SEND_SHORTCUT,
+	platform = getPlatform()
 ): boolean {
 	// Ignore the Enter that commits an active IME composition (e.g. CJK input),
 	// otherwise a half-composed message would be sent — especially in 'enter' mode.
 	if ( event.isComposing || event.key !== 'Enter' || event.shiftKey || event.altKey ) {
 		return false;
 	}
-	const hasPrimaryModifier = event.metaKey || event.ctrlKey;
+	const hasPrimaryModifier = isApplePlatform( platform ) ? event.metaKey : event.ctrlKey;
 	if ( shortcut === 'enter' ) {
 		return ! hasPrimaryModifier;
 	}

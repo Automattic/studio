@@ -157,6 +157,7 @@ export interface Connector {
 	generateProposedSitePath( siteName: string ): Promise< ProposedSitePath >;
 	generateProposedSiteName( usedSites: SiteDetails[] ): Promise< string >;
 	selectSiteFolder( defaultPath: string ): Promise< SelectedSiteFolder | null >;
+	selectDefaultSiteDirectory( defaultPath: string ): Promise< SelectedSiteFolder | null >;
 	comparePaths( path1: string, path2: string ): Promise< boolean >;
 	getAllCustomDomains(): Promise< string[] >;
 
@@ -190,6 +191,8 @@ export interface Connector {
 
 	// Preview snapshots (WordPress.com hosted previews of local sites)
 	getSnapshots(): Promise< Snapshot[] >;
+	getSnapshotUsage(): Promise< SnapshotUsage | null >;
+	deleteAllSnapshots(): Promise< void >;
 	// Creates a new preview snapshot for the given site, or refreshes the
 	// existing one when `existingHostname` is supplied. Resolves with the
 	// final preview URL when the CLI command completes.
@@ -275,6 +278,7 @@ export interface Connector {
 	// the connector so the UI has a single query + mutation to work with.
 	getUserPreferences(): Promise< UserPreferences >;
 	setUserPreferences( partial: Partial< WritableUserPreferences > ): Promise< void >;
+	previewColorScheme( colorScheme: ColorScheme ): Promise< void >;
 
 	// Apps detected on disk (editors + terminals). Options in the preferences
 	// form are filtered against this so users can't pick something that isn't
@@ -282,6 +286,7 @@ export interface Connector {
 	getInstalledApps(): Promise< InstalledApps >;
 
 	// Desks
+	getAppGlobals(): Promise< AppGlobals >;
 	getFeatureFlags(): Promise< FeatureFlags >;
 	getStudioUiMode(): Promise< StudioUiMode >;
 	setStudioUiMode( mode: StudioUiMode ): Promise< void >;
@@ -314,6 +319,11 @@ export interface Connector {
 		options?: { autoLogin?: boolean }
 	): Promise< void >;
 
+	// WordPress agent skills applied to all existing and future sites.
+	getWordPressSkillsStatusAllSites(): Promise< SkillStatus[] >;
+	installWordPressSkillToAllSites( skillId: string ): Promise< void >;
+	removeWordPressSkillFromAllSites( skillId: string ): Promise< void >;
+
 	// Window state (macOS fullscreen hides traffic lights, so the UI needs
 	// to reclaim the space we normally leave for them).
 	isFullscreen(): Promise< boolean >;
@@ -328,13 +338,36 @@ export interface FeatureFlags {
 	enableDesksUiSwitch: boolean;
 }
 
+export interface AppGlobals extends FeatureFlags {
+	platform: string;
+	appName: string;
+	appVersion: string;
+	arm64Translation: boolean;
+	isWindowsStore: boolean;
+}
+
+export interface SkillStatus {
+	id: string;
+	displayName: string;
+	description: string;
+	installed: boolean;
+}
+
+export interface SnapshotUsage {
+	siteCount: number;
+	siteLimit: number;
+	siteCreationBlocked: boolean;
+}
+
 export type ColorScheme = 'system' | 'light' | 'dark';
 
 export interface UserPreferences {
 	editor: SupportedEditor | null;
 	terminal: SupportedTerminal | null;
 	colorScheme: ColorScheme;
+	defaultSiteDirectory: string;
 	messageSendShortcut: MessageSendShortcut;
+	studioCliInstalled: boolean;
 	locale: string | undefined;
 }
 

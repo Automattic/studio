@@ -2,6 +2,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { defaultI18n } from '@wordpress/i18n';
 import { I18nProvider } from '@wordpress/react-i18n';
 import { privateApis } from '@wordpress/theme';
+import { useEnableWpCompatOverlaySlot } from '@wordpress/ui';
 import { ConnectorProvider, queryClient } from '@/data/core';
 import { AgentRunProvider } from '@/data/queries/use-agent-run';
 import { useSyncSessionsWithEvents } from '@/data/queries/use-sessions';
@@ -13,6 +14,7 @@ import type { Connector } from '@/data/core';
 import type { PropsWithChildren } from 'react';
 
 const { ThemeProvider } = unlock( privateApis );
+const DARK_THEME_COLOR = { bg: '#1e1e1e', primary: '#6b8aff' };
 
 interface AppProvidersProps extends PropsWithChildren {
 	connector: Connector;
@@ -26,8 +28,9 @@ function SiteEventsBridge() {
 }
 
 export function AppProviders( { children, connector }: AppProvidersProps ) {
+	useEnableWpCompatOverlaySlot();
 	const colorScheme = usePrefersColorScheme();
-	const themeColor = colorScheme === 'dark' ? { bg: '#1e1e1e' } : undefined;
+	const themeColor = colorScheme === 'dark' ? DARK_THEME_COLOR : undefined;
 
 	return (
 		<ConnectorProvider connector={ connector }>

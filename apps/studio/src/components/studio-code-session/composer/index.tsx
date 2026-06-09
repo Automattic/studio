@@ -6,7 +6,7 @@ import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { arrowUp, chevronDownSmall, closeSmall, page } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type SetStateAction } from 'react';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import * as Menu from '../menu';
@@ -98,6 +98,36 @@ function formatAttachmentSize( bytes: number ): string {
 	return `${ ( bytes / ( 1024 * 1024 ) ).toFixed( 1 ) } MB`;
 }
 
+function getDraftStorageKey( sessionId: string | undefined ): string | null {
+	return sessionId ? `studio_code_composer_draft:${ sessionId }` : null;
+}
+
+function loadDraft( storageKey: string | null ): string {
+	if ( ! storageKey ) {
+		return '';
+	}
+	try {
+		return localStorage.getItem( storageKey ) ?? '';
+	} catch {
+		return '';
+	}
+}
+
+function saveDraft( storageKey: string | null, value: string ): void {
+	if ( ! storageKey ) {
+		return;
+	}
+	try {
+		if ( value ) {
+			localStorage.setItem( storageKey, value );
+		} else {
+			localStorage.removeItem( storageKey );
+		}
+	} catch {
+		// Ignore storage errors.
+	}
+}
+
 export function Composer( {
 	busy,
 	isInterrupting = false,
@@ -112,11 +142,23 @@ export function Composer( {
 	draftPrompt,
 	previewPrompt,
 }: ComposerProps ) {
-	const [ value, setValue ] = useState( '' );
+	const draftStorageKey = getDraftStorageKey( sessionId );
+	const [ value, setValue ] = useState( () => loadDraft( draftStorageKey ) );
 	const textareaRef = useRef< HTMLTextAreaElement | null >( null );
 	const fileInputRef = useRef< HTMLInputElement | null >( null );
 	const appliedDraftPromptIdRef = useRef< number | null >( null );
 	const queryClient = useQueryClient();
+	const setDraftValue = useCallback(
+		( nextValue: SetStateAction< string > ) => {
+			setValue( ( previousValue ) => {
+				const resolvedValue =
+					typeof nextValue === 'function' ? nextValue( previousValue ) : nextValue;
+				saveDraft( draftStorageKey, resolvedValue );
+				return resolvedValue;
+			} );
+		},
+		[ draftStorageKey ]
+	);
 
 	// File/image attachments (attach button + drag-and-drop). Images ride as
 	// base64 content blocks; other files are referenced by disk path.
@@ -136,7 +178,7 @@ export function Composer( {
 			return;
 		}
 		appliedDraftPromptIdRef.current = draftPrompt.id;
-		setValue( draftPrompt.prompt );
+		setDraftValue( draftPrompt.prompt );
 		queueMicrotask( () => {
 			const node = textareaRef.current;
 			if ( ! node ) {
@@ -146,11 +188,15 @@ export function Composer( {
 			const length = node.value.length;
 			node.setSelectionRange( length, length );
 		} );
-	}, [ draftPrompt ] );
+	}, [ draftPrompt, setDraftValue ] );
+
+	useEffect( () => {
+		setValue( loadDraft( draftStorageKey ) );
+	}, [ draftStorageKey ] );
 
 	// Inline slash-command autocomplete (popup, keyboard nav, ARIA wiring, and
 	// the toolbar "/" toggle). Kept in its own hook so the Composer stays lean.
-	const slash = useSlashCommands( { value, setValue, textareaRef, previewPrompt } );
+	const slash = useSlashCommands( { value, setValue: setDraftValue, textareaRef, previewPrompt } );
 
 	// Cross-family swap state. We hold the picked model here while the
 	// confirmation dialog is open; nothing is persisted until the user
@@ -167,7 +213,7 @@ export function Composer( {
 		}
 		const prompt = trimmed || __( 'Please review the attached files.' );
 		const sentAttachments = attachments;
-		setValue( '' );
+		setDraftValue( '' );
 		clearAttachments();
 		try {
 			await onSend( prompt, toComposerSendAttachments( sentAttachments ) );
@@ -176,10 +222,10 @@ export function Composer( {
 			// surfaces the error message via `error`. Queued sends never throw from
 			// onSend (the parent swallows the failure and clears the queue instead),
 			// so this path only trips for direct sends from the idle state.
-			setValue( trimmed );
+			setDraftValue( trimmed );
 			restoreAttachments( sentAttachments );
 		}
-	}, [ value, attachments, clearAttachments, restoreAttachments, onSend ] );
+	}, [ value, attachments, clearAttachments, restoreAttachments, onSend, setDraftValue ] );
 
 	const openFilePicker = useCallback( () => {
 		fileInputRef.current?.click();
@@ -355,7 +401,9 @@ export function Composer( {
 							value={ previewPrompt ?? value }
 							data-preview={ previewPrompt ? 'true' : 'false' }
 							{ ...slash.comboboxProps }
-							onChange={ ( event ) => setValue( event.target.value ) }
+							onChange={ ( event ) => {
+								setDraftValue( event.target.value );
+							} }
 							onKeyDown={ ( event ) => {
 								if ( slash.handleKeyDown( event ) ) {
 									return;

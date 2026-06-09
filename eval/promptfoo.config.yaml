@@ -338,3 +338,41 @@ tests:
                 : `no jetpack/* block in any Write tool call; sample: ${(writtenContents[0] || '').slice(0, 300)}`,
             };
           });
+
+  # Regression: a "shop"/"store" request must set up WooCommerce WITH products,
+  # even when framed with scope/style qualifiers ("small", "for inspiration")
+  # that the agent previously used to misclassify the site as informational and
+  # skip ecommerce. Guards both the proactive plugin-recommendations trigger and
+  # the ecommerce-by-default classification.
+  - description: shop request sets up WooCommerce with products
+    vars:
+      caseId: woocommerce-shop-setup
+      timeoutMs: 600000
+      askUserPolicy: allow_all
+      prompt: |
+        First check if a site named "Eval Shop Site" exists using site_list.
+        If it does, delete it with site_delete so we start from a clean
+        slate. Do NOT touch any other site.
+
+        Then build a small pet shop site named "Eval Shop Site" — keep it
+        small, just a couple of pages, look at a clean modern store for
+        inspiration. I want to sell dog and cat products.
+    assert:
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const installed = (d.toolCalls || []).some(t => t.name === 'wp_cli' && /plugin\s+install\s+woocommerce/.test(t.input?.command || ''));
+            return { pass: installed, score: installed ? 1 : 0, reason: installed ? 'WooCommerce installed' : `no woocommerce install; wp_cli cmds: ${JSON.stringify((d.toolCalls || []).filter(t => t.name === 'wp_cli').map(t => t.input?.command))}` };
+          });
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const n = (d.toolCalls || []).filter(t => t.name === 'wp_cli' && /wc\s+product\s+create/.test(t.input?.command || '')).length;
+            return { pass: n >= 1, score: n >= 1 ? 1 : 0, reason: n >= 1 ? `${n} product(s) created` : 'no `wc product create` calls' };
+          });

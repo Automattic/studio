@@ -10,6 +10,15 @@ Use this skill to verify a built or redesigned site and fix the design issues th
 
 The core method is **diagnose from evidence, not from memory**. Do not guess why something looks wrong from the screenshot alone — the rendered DOM usually differs from the markup you wrote. Read the real DOM with `inspect_design`, find the actual cause, then fix it.
 
+## Scope: which pages to polish, and how much
+
+Polish **every page of the site**, not just the home page. This includes all user-created pages (Home, About, Contact, and similar) and any plugin-provided pages such as the WooCommerce Shop, Cart, Checkout, My Account, and single-product pages. A page the user never sees polished feels unfinished, and plugin pages ship with generic default styling that rarely matches the theme.
+
+How much to iterate depends on the page:
+
+- **Home page** — run the full loop below, including Phase 3 (re-diagnose and fix again, up to the pass cap). The home page is the highest-traffic, highest-impact page and is worth iterating until it is right.
+- **Every other page** (other user pages AND WooCommerce pages) — run a **single pass**: diagnose (Phase 1), fix the batch (Phase 2), take one verification screenshot, then move on. Do not loop these pages; a single diagnose-and-fix pass is enough.
+
 ## Method: diagnose the whole page first, then fix in one batch
 
 The most important rule: **do not fix issues one at a time as you find them.** Fixing reactively makes you miss related issues, introduce regressions, and burn expensive screenshot passes. Split the work into strict phases.
@@ -31,7 +40,9 @@ Work through the plan with targeted `Edit` calls (one `Write`/`Edit` per turn, p
 
 ### Phase 3 — Verify and loop
 
-After the whole batch, take one `viewport: "all"` screenshot. Check each plan item off and look for regressions the fixes introduced. Each pass is expensive, so cap the cycle at **5 passes**. If issues remain and you are within that budget, return to Phase 1 for what's left — re-diagnose the remaining issues with `inspect_design`, don't fix blind.
+After the whole batch, take one `viewport: "all"` screenshot. Check each plan item off and look for regressions the fixes introduced.
+
+This looping phase applies to the **home page only** (see "Scope" above). For every other page — including WooCommerce pages — stop after this single verification screenshot; do not loop. For the home page, each pass is expensive, so cap the cycle at **5 passes**. If issues remain and you are within that budget, return to Phase 1 for what's left — re-diagnose the remaining issues with `inspect_design`, don't fix blind.
 
 ## Recurring issues and what to inspect
 

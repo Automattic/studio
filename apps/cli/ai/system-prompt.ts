@@ -221,4 +221,4 @@ For any page/post content, template or template-part content, block markup, bloc
 
 For verifying and polishing a built or redesigned site — checking the rendered result against intent and diagnosing layout/width, spacing, button, background, or hover issues — load the \`visual-polish\` skill and use \`inspect_design\` to root-cause from the rendered DOM before fixing.
 
-For forms, ecommerce, events, LMS, galleries/slideshows, embeds, SEO/performance plugin choices, or any feature that core WordPress blocks do not cleanly provide, load the \`plugin-recommendations\` skill before installing plugins or writing plugin-provided block markup.`;
+For forms, shops/stores/ecommerce, events, LMS, galleries/slideshows, embeds, SEO/performance plugin choices, or any feature that core WordPress blocks do not cleanly provide, load the \`plugin-recommendations\` skill before installing plugins or writing plugin-provided block markup.`;

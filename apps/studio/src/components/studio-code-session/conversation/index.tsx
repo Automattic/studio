@@ -236,7 +236,10 @@ function ToolUseRow( {
 	const detail = getToolDetail( name, input );
 	const [ expanded, setExpanded ] = useState( false );
 	const resultText = result?.text?.trim() ?? '';
-	const hasOutput = resultText.length > 0;
+	// The Skill tool returns the full skill runbook as its result. That body is
+	// guidance for the agent, not something the user needs to read inline, so we
+	// render the call as a single compact row (label + skill name) and omit it.
+	const hasOutput = resultText.length > 0 && name !== 'Skill';
 	const isLong = resultText.split( '\n' ).length > TOOL_RESULT_PREVIEW_MAX_LINES;
 
 	return (

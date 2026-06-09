@@ -9,7 +9,7 @@ const cliNodeModulesPath = resolve( __dirname, 'node_modules' );
 const distCliNodeModulesPath = resolve( __dirname, 'dist/cli/node_modules' );
 
 // Only copy native/WASM packages to dist (pure JS deps are inlined by Vite)
-// Only copy packages that can't be bundled (native addons, WASM, worker thread deps)
+// Only copy packages that can't be bundled or must stay externalized.
 const nativeModulePaths = [
 	{ src: 'node_modules/@php-wasm', dest: 'node_modules' },
 	{ src: 'node_modules/@wp-playground', dest: 'node_modules' },
@@ -21,6 +21,7 @@ const nativeModulePaths = [
 	{ src: 'node_modules/sharp', dest: 'node_modules' },
 	{ src: 'node_modules/playwright', dest: 'node_modules' },
 	{ src: 'node_modules/playwright-core', dest: 'node_modules' },
+	{ src: 'node_modules/zod', dest: 'node_modules' },
 ];
 
 export default mergeConfig(

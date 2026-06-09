@@ -63,7 +63,7 @@ export const nodeBuiltins = [
 
 // Packages that cannot be bundled by Vite and must remain as external node_modules.
 // Reasons: native .node addons, WASM binaries, platform-specific binaries,
-// or worker threads using data: URLs that need runtime module resolution.
+// worker threads using data: URLs, or current Rolldown interop bugs.
 export const nativeExternals = [
 	'@anthropic-ai/claude-agent-sdk',
 	'@img/',
@@ -77,6 +77,7 @@ export const nativeExternals = [
 	'sharp',
 	'trash',
 	'winreg',
+	'zod',
 ];
 
 // All package.json dependencies (used by npm config to externalize everything)
@@ -98,7 +99,9 @@ export function isNodeBuiltin( id: string ): boolean {
 }
 
 function isNativeExternal( id: string ): boolean {
-	return nativeExternals.some( ( ext ) => id === ext || id.startsWith( ext ) );
+	return nativeExternals.some( ( ext ) =>
+		ext.endsWith( '/' ) ? id.startsWith( ext ) : id === ext || id.startsWith( `${ ext }/` )
+	);
 }
 
 const bundledWpFilesPath = resolve( __dirname, '..', '..', 'wp-files' );

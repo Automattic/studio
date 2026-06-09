@@ -49,6 +49,17 @@ const INITIAL_STATE: SessionUIState = {
 	},
 };
 
+type IpcListener = {
+	subscribe: (
+		channel: 'toggle-site-preview',
+		listener: ( ...args: unknown[] ) => void
+	) => () => void;
+};
+
+function getIpcListener(): IpcListener | undefined {
+	return ( window as typeof window & { ipcListener?: IpcListener } ).ipcListener;
+}
+
 function reducer( state: SessionUIState, action: SessionUIAction ): SessionUIState {
 	switch ( action.type ) {
 		case 'preview/set-open':
@@ -103,6 +114,13 @@ function SessionUIProviderRoot( { children }: { children: ReactNode } ) {
 	const previewAnnotationsRef = useRef< ( ( annotations: Annotation[] ) => void ) | undefined >(
 		undefined
 	);
+
+	useEffect( () => {
+		return getIpcListener()?.subscribe( 'toggle-site-preview', () => {
+			dispatch( { type: 'preview/toggle' } );
+		} );
+	}, [] );
+
 	return (
 		<SessionUIDispatchContext.Provider value={ dispatch }>
 			<SessionUIPreviewAnnotationsContext.Provider value={ previewAnnotationsRef }>

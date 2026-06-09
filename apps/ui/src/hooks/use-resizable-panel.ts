@@ -11,11 +11,17 @@ import type { KeyboardEvent, MouseEvent } from 'react';
 
 interface UseResizablePanelOptions {
 	config: ResizablePanelConfig;
+	disabled?: boolean;
 	edge: 'left' | 'right';
 	storageKey: string;
 }
 
-export function useResizablePanel( { config, edge, storageKey }: UseResizablePanelOptions ) {
+export function useResizablePanel( {
+	config,
+	disabled = false,
+	edge,
+	storageKey,
+}: UseResizablePanelOptions ) {
 	const [ viewportWidth, setViewportWidth ] = useState( getViewportWidth );
 	const [ width, setWidth ] = useState( () =>
 		getStoredResizablePanelWidth( storageKey, config, getViewportWidth() )
@@ -40,6 +46,9 @@ export function useResizablePanel( { config, edge, storageKey }: UseResizablePan
 
 	const handleResizeStart = useCallback(
 		( event: MouseEvent< HTMLElement > ) => {
+			if ( disabled ) {
+				return;
+			}
 			if ( event.button !== 0 ) {
 				return;
 			}
@@ -48,11 +57,14 @@ export function useResizablePanel( { config, edge, storageKey }: UseResizablePan
 			dragStartX.current = event.clientX;
 			dragStartWidth.current = width;
 		},
-		[ width ]
+		[ disabled, width ]
 	);
 
 	const handleKeyDown = useCallback(
 		( event: KeyboardEvent< HTMLElement > ) => {
+			if ( disabled ) {
+				return;
+			}
 			const step = event.shiftKey ? 40 : 16;
 			if ( event.key === 'Home' ) {
 				event.preventDefault();
@@ -72,10 +84,13 @@ export function useResizablePanel( { config, edge, storageKey }: UseResizablePan
 			const delta = edge === 'right' ? direction * step : direction * -step;
 			saveWidth( width + delta );
 		},
-		[ config.minWidth, edge, maxWidth, saveWidth, width ]
+		[ config.minWidth, disabled, edge, maxWidth, saveWidth, width ]
 	);
 
 	useEffect( () => {
+		if ( disabled ) {
+			return;
+		}
 		const handleResize = () => {
 			const nextViewportWidth = getViewportWidth();
 			setViewportWidth( nextViewportWidth );
@@ -85,10 +100,10 @@ export function useResizablePanel( { config, edge, storageKey }: UseResizablePan
 		};
 		window.addEventListener( 'resize', handleResize );
 		return () => window.removeEventListener( 'resize', handleResize );
-	}, [ config ] );
+	}, [ config, disabled ] );
 
 	useEffect( () => {
-		if ( ! isResizing ) {
+		if ( disabled || ! isResizing ) {
 			return;
 		}
 
@@ -135,7 +150,7 @@ export function useResizablePanel( { config, edge, storageKey }: UseResizablePan
 			document.removeEventListener( 'mousemove', handleMouseMove );
 			document.removeEventListener( 'mouseup', handleMouseUp );
 		};
-	}, [ config, edge, isResizing, saveWidth ] );
+	}, [ config, disabled, edge, isResizing, saveWidth ] );
 
 	return {
 		width,

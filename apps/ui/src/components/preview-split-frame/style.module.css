@@ -1,0 +1,81 @@
+.root {
+	display: flex;
+	flex-direction: row;
+	height: 100%;
+	min-height: 0;
+	position: relative;
+	overflow: hidden;
+}
+
+.contentColumn {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	min-width: 0;
+	min-height: 0;
+	position: relative;
+	z-index: 1;
+	background-color: var(--wpds-color-bg-surface-neutral);
+}
+
+.contentColumnRaw {
+	overflow: auto;
+}
+
+.rootPreviewAnimating .contentColumn {
+	transition: flex-basis 150ms ease, width 150ms ease;
+}
+
+.rootPreviewResizing .contentColumn {
+	transition: none;
+}
+
+.rootPreviewOpen .contentColumn,
+.rootPreviewMeasured .contentColumn {
+	flex: 0 0 clamp(0px, var(--preview-frame-content-width), 100%);
+	width: clamp(0px, var(--preview-frame-content-width), 100%);
+}
+
+.previewSlot {
+	position: absolute;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	z-index: 0;
+	width: var(--preview-frame-preview-width, auto);
+	min-width: 0;
+	pointer-events: none;
+}
+
+.previewSlotInteractive {
+	z-index: 2;
+	pointer-events: auto;
+}
+
+.previewResizeHandle {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: min(var(--preview-frame-content-width), 100%);
+	z-index: 3;
+	transform: translateX(-4px);
+}
+
+.scroll {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	position: relative;
+}
+
+.composerOuter {
+	position: sticky;
+	bottom: 0;
+	z-index: 2;
+	isolation: isolate;
+}
+
+.composerContent {
+	position: relative;
+	z-index: 1;
+}

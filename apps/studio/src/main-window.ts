@@ -1,6 +1,7 @@
 import {
 	BrowserWindow,
 	type BrowserWindowConstructorOptions,
+	Menu,
 	screen,
 	app,
 	nativeTheme,
@@ -33,6 +34,9 @@ import type { UserData, WindowBounds } from 'src/storage/storage-types';
 let mainWindow: BrowserWindow | null;
 let currentRendererUrl: string | undefined;
 
+const OPAQUE_WINDOW_BACKGROUND = 'rgba(30, 30, 30, 1)';
+const TRANSPARENT_WINDOW_BACKGROUND = '#00000000';
+
 interface RendererLocation {
 	url: string;
 	filePath?: string;
@@ -52,7 +56,8 @@ function getRendererFilePath( mode: StudioUiMode ) {
 }
 
 function getRendererQuery( mode: StudioUiMode ): Record< string, string > | undefined {
-	return mode === 'default' ? undefined : { 'studio-ui-mode': mode };
+	const query: Record< string, string > = mode === 'default' ? {} : { 'studio-ui-mode': mode };
+	return Object.keys( query ).length ? query : undefined;
 }
 
 function appendRendererQuery( url: string, query: Record< string, string > | undefined ) {
@@ -83,7 +88,7 @@ function getRendererLocation( userData: Pick< UserData, 'desks' > ): RendererLoc
 
 	if ( ! app.isPackaged && process.env[ 'ELECTRON_RENDERER_URL' ] ) {
 		return {
-			url: process.env[ 'ELECTRON_RENDERER_URL' ],
+			url: appendRendererQuery( process.env[ 'ELECTRON_RENDERER_URL' ], preferredQuery ),
 		};
 	}
 
@@ -183,7 +188,7 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 	let windowOptions: BrowserWindowConstructorOptions = {
 		height: DEFAULT_HEIGHT,
 		width: DEFAULT_WIDTH,
-		backgroundColor: 'rgba(30, 30, 30, 1)',
+		backgroundColor: OPAQUE_WINDOW_BACKGROUND,
 		minHeight: MAIN_MIN_HEIGHT,
 		minWidth: MAIN_MIN_WIDTH,
 		webPreferences: {
@@ -234,6 +239,37 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		void promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: true } );
 	} );
 
+	// Cmd/Ctrl +/-/0 zoom. The classic shell gets these from the application
+	// menu's zoom roles (see menu.ts); the apps/ui shell never builds that
+	// menu, so the accelerators are dead there. Wire them at the webContents
+	// level, but defer to the application menu when one is present so the
+	// classic shell doesn't zoom twice per keypress.
+	mainWindow.webContents.on( 'before-input-event', ( event, input ) => {
+		if ( input.type !== 'keyDown' || ! ( input.meta || input.control ) ) {
+			return;
+		}
+		if ( Menu.getApplicationMenu() ) {
+			return;
+		}
+		const contents = mainWindow?.webContents;
+		if ( ! contents ) {
+			return;
+		}
+		const ZOOM_STEP = 0.5;
+		const ZOOM_MIN = -3;
+		const ZOOM_MAX = 5;
+		if ( input.key === '=' || input.key === '+' ) {
+			event.preventDefault();
+			contents.setZoomLevel( Math.min( ZOOM_MAX, contents.getZoomLevel() + ZOOM_STEP ) );
+		} else if ( input.key === '-' || input.key === '_' ) {
+			event.preventDefault();
+			contents.setZoomLevel( Math.max( ZOOM_MIN, contents.getZoomLevel() - ZOOM_STEP ) );
+		} else if ( input.key === '0' ) {
+			event.preventDefault();
+			contents.setZoomLevel( 0 );
+		}
+	} );
+
 	mainWindow.on( 'closed', () => {
 		removeMenu();
 		mainWindow = null;
@@ -280,17 +316,32 @@ function getOSWindowOptions(): Partial< BrowserWindowConstructorOptions > {
 	switch ( process.platform ) {
 		case 'darwin':
 			return {
+				backgroundColor: TRANSPARENT_WINDOW_BACKGROUND,
 				frame: false,
+				transparent: true,
 				titleBarStyle: 'hidden',
 				trafficLightPosition: MACOS_TRAFFIC_LIGHT_POSITION,
+				vibrancy: 'sidebar',
+				visualEffectState: 'active',
 			};
 
 		case 'win32':
+			return {
+				backgroundMaterial: 'acrylic',
+				titleBarStyle: 'hidden',
+				titleBarOverlay: {
+					color: OPAQUE_WINDOW_BACKGROUND,
+					symbolColor: 'white',
+					height: WINDOWS_TITLEBAR_HEIGHT,
+				},
+				minHeight: MAIN_MIN_HEIGHT + WINDOWS_TITLEBAR_HEIGHT,
+			};
+
 		case 'linux':
 			return {
 				titleBarStyle: 'hidden',
 				titleBarOverlay: {
-					color: 'rgba(30, 30, 30, 1)',
+					color: OPAQUE_WINDOW_BACKGROUND,
 					symbolColor: 'white',
 					height: WINDOWS_TITLEBAR_HEIGHT,
 				},

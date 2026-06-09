@@ -74,6 +74,12 @@ describe( 'CLI: studio import', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 
+		// Ensure handleImportEvents (not handleImportIpc) is used. When running
+		// in a forked process (e.g. vitest pool:forks), process.send is defined
+		// because the process is a child. Stub it out so the logger-based event
+		// handler is exercised instead of the IPC one.
+		vi.stubGlobal( 'process', { ...process, send: undefined } );
+
 		vi.mocked( connectToDaemon ).mockResolvedValue( undefined );
 		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( testSite );

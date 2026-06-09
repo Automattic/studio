@@ -52,7 +52,7 @@ wp_cli plugin install woocommerce --activate
 wp_cli option delete _transient__wc_activation_redirect
 ```
 
-3. Configure store basics. Match the currency and base location to the user's context when known, otherwise use sensible defaults. Also turn off "Coming soon" mode, which fresh WooCommerce installs enable by default - otherwise the storefront shows a "Something big is brewing! Our store is in the works and will be launching soon!" placeholder instead of the real site:
+3. Configure store basics. Match the currency and base location to the user's context when known, otherwise use sensible defaults. Also turn off "Coming soon" mode, which fresh WooCommerce installs enable by default:
 
 ```text
 wp_cli option update woocommerce_coming_soon no

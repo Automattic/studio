@@ -10,6 +10,7 @@ import {
 	createSite,
 	isFullscreen,
 	getSiteDetails,
+	getSiteSummaries,
 	getXdebugEnabledSite,
 	loadSiteIcon,
 	loadThemeDetails,
@@ -198,6 +199,49 @@ describe( 'getSiteDetails', () => {
 				siteIcon: undefined,
 			} )
 		);
+	} );
+} );
+
+describe( 'getSiteSummaries', () => {
+	it( 'returns a lightweight site list for sidebar boot without icon image data', async () => {
+		vi.mocked( SiteServer.getAllDetails ).mockReturnValue( [
+			{
+				id: 'site-1',
+				name: 'Site 1',
+				path: '/path/to/site-1',
+				running: false,
+				phpVersion: '8.4',
+				port: 9999,
+				adminPassword: 'encoded-secret',
+				customDomain: 'example.test',
+			},
+		] as SiteDetails[] );
+		vi.mocked( readFile ).mockResolvedValueOnce(
+			Buffer.from(
+				JSON.stringify( {
+					version: 1,
+					siteMetadata: {
+						'site-1': {
+							siteIconPath: '/path/to/site-1/wp-content/uploads/icon.png',
+							sortOrder: 2,
+						},
+					},
+				} )
+			)
+		);
+
+		const result = await getSiteSummaries( mockIpcMainInvokeEvent );
+
+		expect( getImageData ).not.toHaveBeenCalled();
+		expect( result ).toEqual( [
+			{
+				id: 'site-1',
+				name: 'Site 1',
+				path: '/path/to/site-1',
+				running: false,
+				siteIcon: undefined,
+			},
+		] );
 	} );
 } );
 

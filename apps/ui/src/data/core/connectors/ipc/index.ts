@@ -18,6 +18,7 @@ import type {
 	ProposedSitePath,
 	SelectedSiteFolder,
 	SiteDetails,
+	SiteSummary,
 	Snapshot,
 	SupportedEditor,
 	SupportedTerminal,
@@ -209,6 +210,10 @@ export function createIpcConnector(): Connector {
 		// Sites
 		async getSites(): Promise< SiteDetails[] > {
 			return ( await ipcApi.getSiteDetails() ) as SiteDetails[];
+		},
+
+		async getSiteSummaries(): Promise< SiteSummary[] > {
+			return ( await ipcApi.getSiteSummaries() ) as SiteSummary[];
 		},
 
 		async createSite( params ) {

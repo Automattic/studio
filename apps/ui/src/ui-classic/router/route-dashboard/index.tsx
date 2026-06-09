@@ -1,10 +1,10 @@
 import { createRoute } from '@tanstack/react-router';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { useSites } from '@/data/queries/use-sites';
+import { useSiteSummaries } from '@/data/queries/use-sites';
 import { dashboardLayoutRoute } from '../layout-dashboard';
 
 function DashboardHome() {
-	const { data: sites } = useSites();
+	const { data: sites } = useSiteSummaries();
 	const count = sites?.length ?? 0;
 
 	return (

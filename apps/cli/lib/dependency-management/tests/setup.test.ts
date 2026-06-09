@@ -1,6 +1,5 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { readCliConfig, updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
-import { updateLatestReprintPhar } from '../reprint';
 import { DEPENDENCY_CHECK_INTERVAL_MS, updateServerFiles } from '../setup';
 import { updateLatestWordPressVersion } from '../wordpress';
 
@@ -10,7 +9,6 @@ vi.mock( 'cli/lib/cli-config/core', () => ( {
 } ) );
 
 vi.mock( '../wordpress' );
-vi.mock( '../reprint' );
 
 describe( 'updateServerFiles', () => {
 	const NOW = 1_700_000_000_000;
@@ -21,7 +19,6 @@ describe( 'updateServerFiles', () => {
 		vi.setSystemTime( NOW );
 		vi.spyOn( console, 'error' ).mockImplementation( () => {} );
 		vi.mocked( updateLatestWordPressVersion ).mockResolvedValue( undefined );
-		vi.mocked( updateLatestReprintPhar ).mockResolvedValue( undefined );
 		vi.mocked( updateCliConfigWithPartial ).mockResolvedValue( undefined );
 	} );
 
@@ -38,7 +35,6 @@ describe( 'updateServerFiles', () => {
 
 			expect( result ).toBe( true );
 			expect( updateLatestWordPressVersion ).toHaveBeenCalledTimes( 1 );
-			expect( updateLatestReprintPhar ).toHaveBeenCalledTimes( 1 );
 		} );
 
 		it( 'runs the update when the last check is older than the interval', async () => {
@@ -67,7 +63,6 @@ describe( 'updateServerFiles', () => {
 
 			expect( result ).toBe( false );
 			expect( updateLatestWordPressVersion ).not.toHaveBeenCalled();
-			expect( updateLatestReprintPhar ).not.toHaveBeenCalled();
 		} );
 
 		it( 'runs the update when the timestamp is in the future (clock skew)', async () => {

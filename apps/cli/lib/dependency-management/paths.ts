@@ -44,10 +44,10 @@ export function getWordPressVersionPath( version: string ): string {
 	return path.join( getServerFilesPath(), 'wordpress-versions', version );
 }
 
-// reprint.phar is downloaded at runtime into this writable cache (no longer bundled with the CLI).
-// It is mounted into the PHP-wasm VFS at `/tmp/reprint.phar` by the reprint child process.
+// reprint.phar ships read-only with the CLI bundle (downloaded into `wp-files` at build time) and is
+// mounted into the PHP-wasm VFS at `/tmp/reprint.phar` by the reprint child process.
 export function getReprintPharPath(): string {
-	return path.join( getServerFilesPath(), 'reprint', 'reprint.phar' );
+	return path.join( getWpFilesPath(), 'reprint', 'reprint.phar' );
 }
 
 // WP-CLI ships read-only with the CLI bundle and is mounted into the PHP-wasm VFS at

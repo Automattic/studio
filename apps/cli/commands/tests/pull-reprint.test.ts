@@ -91,8 +91,8 @@ describe( 'CLI: studio pull-reprint helpers', () => {
 		expect(
 			formatWpComSitesList(
 				[
-					{ id: 1, name: 'One', url: 'https://one.wordpress.com' },
-					{ id: 2, name: 'Two', url: 'https://two.wordpress.com' },
+					{ id: 1, name: 'One', url: 'https://one.wordpress.com', isStaging: false },
+					{ id: 2, name: 'Two', url: 'https://two.wordpress.com', isStaging: false },
 				],
 				1
 			)
@@ -386,8 +386,8 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 	};
 
 	const sites: WpComSiteInfo[] = [
-		{ id: 11, name: 'One', url: 'https://one.wordpress.com' },
-		{ id: 22, name: 'Two', url: 'https://two.wordpress.com' },
+		{ id: 11, name: 'One', url: 'https://one.wordpress.com', isStaging: false },
+		{ id: 22, name: 'Two', url: 'https://two.wordpress.com', isStaging: true },
 	];
 
 	const originalIsTTY = process.stdin.isTTY;

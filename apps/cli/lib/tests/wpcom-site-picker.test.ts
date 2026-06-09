@@ -14,9 +14,9 @@ const stripAnsi = ( value: string ): string => value.replace( /\x1b\[[0-9;]*m/g,
 
 describe( 'pickWpComSite', () => {
 	const sites: WpComSiteInfo[] = [
-		{ id: 1, name: 'My Blog', url: 'https://blog.example.com' },
-		{ id: 2, name: 'Shop', url: 'https://store.wordpress.com' },
-		{ id: 3, name: 'Portfolio', url: 'https://portfolio.example.org' },
+		{ id: 1, name: 'My Blog', url: 'https://blog.example.com', isStaging: false },
+		{ id: 2, name: 'Shop', url: 'https://store.wordpress.com', isStaging: false },
+		{ id: 3, name: 'Portfolio', url: 'https://portfolio.example.org', isStaging: false },
 	];
 
 	const originalIsTTY = process.stdin.isTTY;
@@ -77,6 +77,31 @@ describe( 'pickWpComSite', () => {
 			'My Blog blog.example.com',
 			'Shop store.wordpress.com',
 			'Portfolio portfolio.example.org',
+		] );
+	} );
+
+	it( 'appends a [staging] badge to staging sites only', async () => {
+		const sitesWithStaging: WpComSiteInfo[] = [
+			{ id: 1, name: 'Production', url: 'https://prod.wordpress.com', isStaging: false },
+			{
+				id: 2,
+				name: 'Production',
+				url: 'https://staging-1-prod.wpcomstaging.com',
+				isStaging: true,
+			},
+		];
+		vi.mocked( search ).mockResolvedValue( 1 );
+
+		await pickWpComSite( sitesWithStaging, 'Pick one' );
+
+		const config = vi.mocked( search ).mock.calls[ 0 ][ 0 ] as unknown as {
+			source: ( term?: string ) => Array< { name: string; value: number } >;
+		};
+		const choices = config.source( '' ).map( ( choice ) => stripAnsi( choice.name ) );
+
+		expect( choices ).toEqual( [
+			'Production prod.wordpress.com',
+			'Production staging-1-prod.wpcomstaging.com [staging]',
 		] );
 	} );
 

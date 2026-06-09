@@ -183,6 +183,7 @@ export interface WpComSiteInfo {
 	id: number;
 	name: string;
 	url: string;
+	isStaging: boolean;
 }
 
 const rotateReprintSecretResponseSchema = z.object( {
@@ -202,6 +203,11 @@ const wpComSitesResponseSchema = z.object( {
 			URL: z.string(),
 			is_deleted: z.boolean().optional(),
 			is_a8c: z.boolean().optional(),
+			options: z
+				.object( {
+					wpcom_staging_blog_ids: z.array( z.number() ).optional(),
+				} )
+				.optional(),
 		} )
 	),
 } );
@@ -215,18 +221,26 @@ export async function getWpComSites( token: string ): Promise< WpComSiteInfo[] >
 				path: '/me/sites',
 			},
 			{
-				fields: 'ID,name,URL,is_deleted,is_a8c',
+				fields: 'ID,name,URL,is_deleted,is_a8c,options',
 				filter: 'atomic,wpcom',
+				options: 'wpcom_staging_blog_ids',
 				site_activity: 'active',
 			}
 		);
 		const result = wpComSitesResponseSchema.parse( rawResponse );
+		// A site is a staging site when its ID appears in another site's
+		// `wpcom_staging_blog_ids`. This mirrors `transformSitesResponse`,
+		// the same determination `pull` uses to badge staging sites.
+		const stagingSiteIds = new Set(
+			result.sites.flatMap( ( site ) => site.options?.wpcom_staging_blog_ids ?? [] )
+		);
 		return result.sites
 			.filter( ( site ) => ! site.is_deleted && ! site.is_a8c )
 			.map( ( site ) => ( {
 				id: site.ID,
 				name: site.name,
 				url: site.URL,
+				isStaging: stagingSiteIds.has( site.ID ),
 			} ) );
 	} catch ( error ) {
 		if ( error instanceof z.ZodError ) {

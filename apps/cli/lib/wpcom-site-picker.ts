@@ -6,21 +6,29 @@ import { normalizeHostname } from 'cli/lib/utils';
 
 /**
  * Renders one WordPress.com site as a picker choice label: the site
- * name followed by a dimmed hostname.  Unlike `pickSyncSite`'s
- * formatter there are no staging/sync-support badges — `WpComSiteInfo`
- * carries only `{ id, name, url }`.
+ * name, a dimmed hostname, and a yellow `[staging]` badge for staging
+ * sites — matching `pickSyncSite`.  There is no sync-support badge
+ * because `WpComSiteInfo` carries no `syncSupport`; every site here is
+ * selectable.
  */
 function formatSiteChoice( site: WpComSiteInfo ): string {
-	return `${ site.name } ${ chalk.dim( normalizeHostname( site.url ) ) }`;
+	const parts = [ site.name, chalk.dim( normalizeHostname( site.url ) ) ];
+
+	if ( site.isStaging ) {
+		parts.push( chalk.yellow( __( '[staging]' ) ) );
+	}
+
+	return parts.join( ' ' );
 }
 
 /**
  * Interactive, searchable WordPress.com site picker.
  *
  * A trimmed clone of `pickSyncSite` (`apps/cli/lib/sync-site-picker.ts`)
- * for the `pull-reprint` source-selection flow.  Because `WpComSiteInfo`
- * has no `syncSupport`/`isStaging`, this drops all the disabled-entry,
- * staging-badge, and sync-support logic — every site is selectable.
+ * for the `pull-reprint` source-selection flow.  It keeps the
+ * `[staging]` badge but, because `WpComSiteInfo` has no `syncSupport`,
+ * drops the disabled-entry and sync-support logic — every site is
+ * selectable.
  *
  * Type-to-filter matches on the site name and normalized hostname.  Esc
  * cancels the prompt (TTY only, via an `AbortController` wired to the

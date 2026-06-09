@@ -7,7 +7,6 @@ fastlane_require 'json'
 fastlane_require 'net/http'
 fastlane_require 'uri'
 
-require_relative 'lib/studio_apps_cdn_upload'
 require_relative 'lib/studio_release_git'
 require_relative 'lib/studio_release_version'
 
@@ -719,8 +718,6 @@ def distribute_builds(
 
   # Upload to Apps CDN
   builds_to_upload.each_value do |build|
-    visibility = StudioAppsCdnUpload.visibility_for(build_type: build_type, install_type: build[:install_type])
-
     result = upload_file_to_apps_cdn(
       site_id: WPCOM_STUDIO_SITE_ID,
       product: 'WordPress.com Studio',
@@ -729,7 +726,7 @@ def distribute_builds(
       arch: build[:arch],
       build_type: build_type,
       install_type: build[:install_type],
-      visibility: visibility,
+      visibility: 'external',
       version: version,
       build_number: build_number,
       release_notes: release_notes,

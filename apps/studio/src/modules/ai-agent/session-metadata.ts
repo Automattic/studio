@@ -5,6 +5,7 @@ import {
 	updateSharedSession,
 	type SharedSessionMetadata,
 } from '@studio/common/lib/shared-config';
+import { __, sprintf } from '@wordpress/i18n';
 import { getAiSessionsRootDirectory } from 'src/lib/ai-sessions';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 import type { AiSessionSummary } from '@studio/common/ai/sessions/types';
@@ -32,9 +33,12 @@ function truncateAtWordBoundary( value: string, maxLength: number ): string {
 	if ( value.length <= maxLength ) {
 		return value;
 	}
-	const truncated = value.slice( 0, maxLength + 1 );
+	// Reserve room for the ellipsis so the result never exceeds maxLength.
+	const budget = maxLength - 3;
+	const truncated = value.slice( 0, budget + 1 );
 	const lastSpace = truncated.lastIndexOf( ' ' );
-	const candidate = lastSpace > maxLength * 0.6 ? truncated.slice( 0, lastSpace ) : truncated;
+	const candidate =
+		lastSpace > budget * 0.6 ? truncated.slice( 0, lastSpace ) : truncated.slice( 0, budget );
 	return `${ candidate.trim().replace( /[.,;:!?-]+$/, '' ) }...`;
 }
 
@@ -69,7 +73,9 @@ function buildGeneratedTitle( summary: AiSessionSummary ): string | undefined {
 	}
 
 	const firstLine = firstPrompt.split( /(?<=[.!?])\s+|\n/ )[ 0 ] ?? firstPrompt;
-	return stripTrailingSentencePunctuation( truncateAtWordBoundary( firstLine, TITLE_MAX_LENGTH ) );
+	// Strip sentence punctuation before truncating; the other way around
+	// would eat the ellipsis the truncation just appended.
+	return truncateAtWordBoundary( stripTrailingSentencePunctuation( firstLine ), TITLE_MAX_LENGTH );
 }
 
 function buildGeneratedDescription(
@@ -81,9 +87,12 @@ function buildGeneratedDescription(
 
 	if ( title && assistantPreview ) {
 		return truncateAtWordBoundary(
-			`Working on ${ title.charAt( 0 ).toLowerCase() }${ title.slice(
-				1
-			) }. Latest: ${ assistantPreview }`,
+			sprintf(
+				/* translators: 1: chat title, 2: preview of the assistant's latest reply */
+				__( 'Working on %1$s. Latest: %2$s' ),
+				title,
+				assistantPreview
+			),
 			DESCRIPTION_MAX_LENGTH
 		);
 	}

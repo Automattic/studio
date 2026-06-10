@@ -12,10 +12,16 @@ export const FEATURE_FLAGS: Record< keyof FeatureFlags, FeatureFlagDefinition > 
 		flag: 'enableBlueprints',
 		default: true,
 	},
-	enableDesksUiSwitch: {
-		label: 'Enable Studio UI Switcher',
-		env: 'ENABLE_DESKS_UI_SWITCH',
-		flag: 'enableDesksUiSwitch',
+	enableAgenticUi: {
+		label: 'Enable Agentic UI',
+		env: 'ENABLE_AGENTIC_UI',
+		flag: 'enableAgenticUi',
+		default: false,
+	},
+	enableDesksUi: {
+		label: 'Enable Desks UI',
+		env: 'ENABLE_DESKS_UI',
+		flag: 'enableDesksUi',
 		default: false,
 	},
 } as const;

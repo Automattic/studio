@@ -48,8 +48,18 @@ export default defineConfig( {
 	},
 	build: {
 		outDir: 'dist',
-		rollupOptions: {
+		rolldownOptions: {
 			input: resolve( __dirname, 'index.html' ),
+			onwarn( warning, defaultHandler ) {
+				// These dynamic imports break a circular dependency in ui-desks
+				// (definition.ts → widget-context/editor-commands → registry → definition.ts)
+				// and cannot be used for code-splitting because the modules are also
+				// statically imported elsewhere. Suppress the noise.
+				if ( warning.code === 'INEFFECTIVE_DYNAMIC_IMPORT' ) {
+					return;
+				}
+				defaultHandler( warning );
+			},
 		},
 	},
 } );

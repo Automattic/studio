@@ -123,11 +123,8 @@ async function loadRendererLocation( window: BrowserWindow, location: RendererLo
 	await window.loadURL( location.url );
 }
 
-export async function loadMainWindowRenderer(
-	window: BrowserWindow,
-	mode?: StudioUiMode
-): Promise< void > {
-	await loadRendererLocation( window, getRendererLocation( mode ?? getPreferredStudioUiMode() ) );
+export async function loadMainWindowRenderer( window: BrowserWindow ): Promise< void > {
+	await loadRendererLocation( window, getRendererLocation( getPreferredStudioUiMode() ) );
 }
 
 export function getCurrentRendererUrl(): string {

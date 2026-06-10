@@ -33,10 +33,6 @@ export function UserMenu() {
 		void connector.openExternalUrl( url );
 	};
 
-	const switchToDefaultUi = () => {
-		void connector.setStudioUiMode( 'default' );
-	};
-
 	return (
 		<div className={ styles.root }>
 			<div className={ styles.row }>
@@ -62,10 +58,6 @@ export function UserMenu() {
 							</Menu.Item>
 							<Menu.Item onClick={ () => openLink( REPORT_ISSUE_URL ) }>
 								{ __( 'Report an issue' ) }
-							</Menu.Item>
-							<Menu.Separator />
-							<Menu.Item onClick={ switchToDefaultUi }>
-								{ __( 'Switch to default Studio UI' ) }
 							</Menu.Item>
 							<Menu.Separator />
 							<Menu.Item onClick={ () => logout.mutate() }>{ __( 'Log out' ) }</Menu.Item>

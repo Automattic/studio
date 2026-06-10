@@ -372,13 +372,25 @@ function createModelRegistry(
 	return { authStorage, modelRegistry };
 }
 
+// pi (>= 0.78) parses `registerProvider` config values (apiKey, headers) as
+// templates: a `$NAME` / `${NAME}` sequence is read as an environment-variable
+// reference and a leading `!` is read as a shell command. wpcom OAuth tokens are
+// random strings that can contain `$` followed by a name-like sequence, so pi
+// resolves that fragment to an undefined env var and treats the provider as
+// unauthenticated ("No API key found for studio-wpcom-anthropic."). Escape the
+// token so pi treats it as a literal: `$` -> `$$`, and a leading `!` -> `$!`.
+function escapePiConfigValue( value: string ): string {
+	const dollarEscaped = value.replace( /\$/g, () => '$$' );
+	return dollarEscaped.startsWith( '!' ) ? `$${ dollarEscaped }` : dollarEscaped;
+}
+
 function createWpcomAnthropicProviderConfig(
 	model: Model< 'anthropic-messages' >,
 	creds: ResolvedCredentials
 ): ProviderConfigInput {
 	return {
 		baseUrl: creds.baseURL,
-		apiKey: creds.apiKey,
+		apiKey: escapePiConfigValue( creds.apiKey ),
 		api: 'anthropic-messages',
 		headers: creds.extraHeaders,
 		streamSimple: ( m, ctx, options?: SimpleStreamOptions ) => {

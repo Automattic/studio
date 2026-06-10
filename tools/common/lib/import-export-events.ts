@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { getErrorMessage } from './error-formatting';
 
 export const BackupExtractEvents = {
 	BACKUP_EXTRACT_START: 'backup_extract_start',
@@ -136,6 +137,18 @@ export const ExportEvents = {
 	CONFIG_EXPORT_COMPLETE: 'config_export_complete',
 } as const;
 
+export const exportErrorPayloadSchema = z.object( {
+	code: z.literal( 'export_failed' ),
+	message: z.string().optional(),
+} );
+
+type ExportErrorPayload = z.infer< typeof exportErrorPayloadSchema >;
+
+export function createExportErrorPayload( error: unknown ): ExportErrorPayload {
+	const message = getErrorMessage( error );
+	return { code: 'export_failed', message };
+}
+
 const backupCreateProgressEventDataSchema = z.object( {
 	// This schema is derived from the `archiver.ProgressData` type
 	progress: z.object( {
@@ -153,7 +166,7 @@ const backupCreateProgressEventDataSchema = z.object( {
 export const exportEventTupleSchema = z.union( [
 	z.tuple( [ z.literal( ExportEvents.EXPORT_START ), nullOrUndefined ] ),
 	z.tuple( [ z.literal( ExportEvents.EXPORT_COMPLETE ), nullOrUndefined ] ),
-	z.tuple( [ z.literal( ExportEvents.EXPORT_ERROR ), z.unknown().nullable() ] ),
+	z.tuple( [ z.literal( ExportEvents.EXPORT_ERROR ), exportErrorPayloadSchema ] ),
 	z.tuple( [ z.literal( ExportEvents.BACKUP_CREATE_START ), nullOrUndefined ] ),
 	z.tuple( [
 		z.literal( ExportEvents.BACKUP_CREATE_PROGRESS ),

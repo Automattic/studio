@@ -1,11 +1,12 @@
-import { app, BrowserWindow, dialog, type IpcMainInvokeEvent } from 'electron';
+import { BrowserWindow, dialog, type IpcMainInvokeEvent } from 'electron';
 import fsPromises from 'fs/promises';
 import nodePath from 'path';
 import { assertDeskConfig } from '@studio/common/lib/desk-config';
 import { normalizeDeskSettings } from '@studio/common/lib/desk-settings';
 import { type DeskConfig, type DeskSettings, type StudioUiMode } from '@studio/common/types/desk';
 import { __ } from '@wordpress/i18n';
-import { loadMainWindowRenderer } from 'src/main-window';
+import { setFeatureFlagInEnv } from 'src/lib/feature-flags';
+import { getPreferredStudioUiMode, loadMainWindowRenderer } from 'src/main-window';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 
 function isRecord( value: unknown ): value is Record< string, unknown > {
@@ -51,12 +52,7 @@ export async function getDeskSettings( _event: IpcMainInvokeEvent ): Promise< De
 }
 
 export async function getStudioUiMode( _event: IpcMainInvokeEvent ): Promise< StudioUiMode > {
-	if ( process.env.NODE_ENV === 'production' && app.isPackaged ) {
-		return 'default';
-	}
-	const userData = await loadUserData();
-	const mode = userData.desks?.defaultUiMode;
-	return mode === 'desks' || mode === 'agentic' ? mode : 'default';
+	return getPreferredStudioUiMode();
 }
 
 export async function setStudioUiMode(
@@ -64,18 +60,11 @@ export async function setStudioUiMode(
 	mode: StudioUiMode
 ): Promise< void > {
 	assertStudioUiMode( mode );
-	await lockAppdata();
-	try {
-		const userData = await loadUserData();
-		await saveUserData( {
-			...userData,
-			desks: {
-				...userData.desks,
-				defaultUiMode: mode,
-			},
-		} );
-	} finally {
-		await unlockAppdata();
+	setFeatureFlagInEnv( 'enableDesksUi', mode === 'desks' );
+	if ( mode !== 'desks' ) {
+		// Desks UI takes precedence over Agentic UI, so leave the Agentic UI
+		// flag untouched when switching to Desks.
+		setFeatureFlagInEnv( 'enableAgenticUi', mode === 'agentic' );
 	}
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );

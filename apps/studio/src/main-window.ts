@@ -18,6 +18,7 @@ import {
 	WINDOWS_TITLEBAR_HEIGHT,
 } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
+import { getFeatureFlagFromEnv } from 'src/lib/feature-flags';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { removeMenu } from 'src/menu';
 import { SiteServer } from 'src/site-server';
@@ -28,7 +29,7 @@ import {
 	saveWindowBounds,
 } from 'src/storage/user-data';
 import type { StudioUiMode } from '@studio/common/types/desk';
-import type { UserData, WindowBounds } from 'src/storage/storage-types';
+import type { WindowBounds } from 'src/storage/storage-types';
 
 let mainWindow: BrowserWindow | null;
 let currentRendererUrl: string | undefined;
@@ -39,9 +40,14 @@ interface RendererLocation {
 	query?: Record< string, string >;
 }
 
-export function getPreferredStudioUiMode( userData: Pick< UserData, 'desks' > ): StudioUiMode {
-	const preferredMode = userData.desks?.defaultUiMode;
-	return preferredMode === 'desks' || preferredMode === 'agentic' ? preferredMode : 'default';
+export function getPreferredStudioUiMode(): StudioUiMode {
+	if ( getFeatureFlagFromEnv( 'enableDesksUi' ) ) {
+		return 'desks';
+	}
+	if ( getFeatureFlagFromEnv( 'enableAgenticUi' ) ) {
+		return 'agentic';
+	}
+	return 'default';
 }
 
 function getRendererFilePath( mode: StudioUiMode ) {
@@ -67,8 +73,7 @@ function appendRendererQuery( url: string, query: Record< string, string > | und
 	return rendererUrl.toString();
 }
 
-function getRendererLocation( userData: Pick< UserData, 'desks' > ): RendererLocation {
-	const preferredMode = getPreferredStudioUiMode( userData );
+function getRendererLocation( preferredMode: StudioUiMode ): RendererLocation {
 	const preferredQuery = getRendererQuery( preferredMode );
 
 	if (
@@ -122,14 +127,7 @@ export async function loadMainWindowRenderer(
 	window: BrowserWindow,
 	mode?: StudioUiMode
 ): Promise< void > {
-	const userData = await loadUserData();
-	const location = getRendererLocation( {
-		desks: {
-			...userData.desks,
-			...( mode ? { defaultUiMode: mode } : {} ),
-		},
-	} );
-	await loadRendererLocation( window, location );
+	await loadRendererLocation( window, getRendererLocation( mode ?? getPreferredStudioUiMode() ) );
 }
 
 export function getCurrentRendererUrl(): string {
@@ -137,7 +135,7 @@ export function getCurrentRendererUrl(): string {
 		return currentRendererUrl;
 	}
 
-	return getRendererLocation( { desks: undefined } ).url;
+	return getRendererLocation( 'default' ).url;
 }
 
 function setupDevTools( mainWindow: BrowserWindow | null, devToolsOpen?: boolean ) {
@@ -213,7 +211,7 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		mainWindow.setFullScreen( true );
 	}
 
-	void loadRendererLocation( mainWindow, getRendererLocation( userData ) );
+	void loadRendererLocation( mainWindow, getRendererLocation( getPreferredStudioUiMode() ) );
 
 	// Open the DevTools if the user had it open last time they used the app.
 	// During development the dev tools default to open.

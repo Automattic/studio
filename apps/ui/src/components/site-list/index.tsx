@@ -212,11 +212,18 @@ function SessionItem( { session, isVisible }: { session: AiSessionSummary; isVis
 		if ( updateTitleDescription.isPending || isSavingTitleRef.current ) {
 			return;
 		}
+		// Nothing changed (e.g. double-click then blur): skip the shared.json
+		// write and invalidations a no-op mutation would trigger.
+		const nextTitle = getUserTitleOverride();
+		if ( nextTitle === session.userTitle ) {
+			setIsEditing( false );
+			return;
+		}
 		isSavingTitleRef.current = true;
 		try {
 			await updateTitleDescription.mutateAsync( {
 				sessionId: session.id,
-				title: getUserTitleOverride(),
+				title: nextTitle,
 			} );
 			setIsEditing( false );
 		} catch {

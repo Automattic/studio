@@ -183,10 +183,10 @@ describe( 'SiteList', () => {
 		fireEvent.doubleClick( screen.getByText( 'Generated title' ) );
 		fireEvent.submit( screen.getByRole( 'textbox', { name: 'Chat title' } ).closest( 'form' )! );
 
-		expect( updateTitleDescriptionMutateAsync ).toHaveBeenCalledWith( {
-			sessionId: 'session-1',
-			title: undefined,
-		} );
+		// Nothing changed, so no shared.json write happens and the editor closes.
+		expect( updateTitleDescriptionMutateAsync ).not.toHaveBeenCalled();
+		expect( screen.queryByRole( 'textbox', { name: 'Chat title' } ) ).not.toBeInTheDocument();
+		expect( screen.getByText( 'Generated title' ) ).toBeInTheDocument();
 	} );
 
 	it( 'shows an empty chat state for open sites without active chats', () => {

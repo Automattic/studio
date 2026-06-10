@@ -2,7 +2,7 @@ import http from 'http';
 import net from 'net';
 import { kill as killPort } from 'cross-port-killer';
 
-const DEFAULT_PORT = 8881;
+const DEFAULT_PORT = Number( process.env.STUDIO_BASE_PORT ) || 8881;
 
 class PortFinder {
 	static #instance: PortFinder;

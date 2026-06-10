@@ -181,12 +181,15 @@ export const baseConfig = defineConfig( {
 				// default bundler in Vite 8) emits a shim that throws when those calls
 				// run in an ESM output (`.mjs`), since ESM has no implicit `require`.
 				// Provide a real `require` per chunk via `createRequire` so the shim
-				// uses it instead of throwing. `main.mjs` additionally gets a shebang so
+				// uses it instead of throwing. Declared with `var` (not `const`): some
+				// bundled ESM packages (e.g. `yargs-parser`) declare their own top-level
+				// `var require`, which is a legal redeclaration of a `var` but a
+				// SyntaxError next to a `const`. `main.mjs` additionally gets a shebang so
 				// the npm-published bundle can be executed directly as a CLI (harmless in
 				// other builds — Node ignores it when the file is run via `node main.mjs`).
 				banner: ( chunk ) => {
 					const requireShim =
-						'import { createRequire as __studioCreateRequire } from "node:module"; const require = __studioCreateRequire(import.meta.url);';
+						'import { createRequire as __studioCreateRequire } from "node:module"; var require = __studioCreateRequire(import.meta.url);';
 					return chunk.fileName === 'main.mjs'
 						? `#!/usr/bin/env node\n${ requireShim }`
 						: requireShim;

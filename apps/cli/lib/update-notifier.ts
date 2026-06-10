@@ -4,6 +4,7 @@ import { getCliConfigPath } from '@studio/common/lib/well-known-paths';
 import { __, sprintf } from '@wordpress/i18n';
 import semver from 'semver';
 import { z } from 'zod';
+import { renderBannerBox } from 'cli/lib/banner-box';
 import { updateCheckSchema, updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
 
 const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -123,25 +124,5 @@ export function formatUpdateBanner( currentVersion: string, latestVersion: strin
 		chalk.cyan( CHANGELOG_URL )
 	);
 
-	const lines = [ '', updateLine, commandLine, '', changelogLine, '' ];
-
-	// Calculate box width based on longest line (strip ANSI for measurement)
-	// eslint-disable-next-line no-control-regex
-	const ansiPattern = new RegExp( '\u001B\\[[0-9;]*m', 'g' );
-	const stripAnsi = ( str: string ) => str.replace( ansiPattern, '' );
-	const maxLen = Math.max( ...lines.map( ( l ) => stripAnsi( l ).length ) );
-	const padding = 2;
-	const innerWidth = maxLen + padding * 2;
-
-	const top = chalk.yellow( `╭${ '─'.repeat( innerWidth ) }╮` );
-	const bottom = chalk.yellow( `╰${ '─'.repeat( innerWidth ) }╯` );
-	const side = chalk.yellow( '│' );
-
-	const paddedLines = lines.map( ( line ) => {
-		const visibleLen = stripAnsi( line ).length;
-		const rightPad = Math.max( 0, innerWidth - padding - visibleLen );
-		return `${ side }${ ' '.repeat( padding ) }${ line }${ ' '.repeat( rightPad ) }${ side }`;
-	} );
-
-	return [ '', top, ...paddedLines, bottom, '' ].join( '\n' );
+	return renderBannerBox( [ '', updateLine, commandLine, '', changelogLine, '' ], chalk.yellow );
 }

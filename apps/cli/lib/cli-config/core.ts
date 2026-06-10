@@ -47,6 +47,8 @@ const cliConfigSchema = z.object( {
 		.optional(),
 	lastDependencyCheckTime: z.number().optional(),
 	updateCheck: updateCheckSchema.optional(),
+	// Unix ms timestamp of when the one-time ToS/Privacy notice was displayed.
+	tosNoticeShownAt: z.number().optional(),
 } );
 
 type CliConfig = z.infer< typeof cliConfigSchema >;

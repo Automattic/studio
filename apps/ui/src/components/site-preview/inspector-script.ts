@@ -8,6 +8,11 @@
  * `console-message` event:
  *   guest -> host: `__studio-inspector__:{ "type": "done", ... }`
  *
+ * The same bridge also forwards browser keyboard shortcuts (reload,
+ * back, forward) pressed while focus is inside the guest page, so the
+ * host toolbar can handle them:
+ *   guest -> host: `__studio-inspector__:{ "type": "browser-command", ... }`
+ *
  * Layout strategy: markers and the picking highlight use `position: absolute`
  * anchored at *document* coordinates (viewport rect + scroll offset). They
  * scroll with the page automatically — no scroll listener, no rAF loop. The
@@ -36,6 +41,21 @@ export const INSPECTOR_PAGE_SCRIPT =
 			/* JSON.stringify can fail on cycles; the host treats missing
 			 * messages as no-ops, so we swallow rather than crash the page. */
 		}
+	}
+
+	function isApplePlatform() {
+		return /mac|iphone|ipad|ipod/i.test( navigator.platform || navigator.userAgent || '' );
+	}
+
+	function getBrowserShortcutCommand( event ) {
+		if ( event.defaultPrevented || event.repeat || event.shiftKey || event.altKey ) return null;
+		const hasPrimaryModifier = isApplePlatform() ? event.metaKey : event.ctrlKey;
+		if ( ! hasPrimaryModifier ) return null;
+		const key = event.key.toLowerCase();
+		if ( key === 'r' ) return 'reload';
+		if ( key === '[' ) return 'back';
+		if ( key === ']' ) return 'forward';
+		return null;
 	}
 
 	function buildSelector( el ) {
@@ -548,19 +568,30 @@ export const INSPECTOR_PAGE_SCRIPT =
 		true
 	);
 
-	document.addEventListener( 'keydown', ( e ) => {
-		if ( e.key !== 'Escape' ) return;
-		if ( activePopup ) {
-			activePopup = null;
-			persistAnnotations();
-			render();
-		} else if ( isPicking ) {
-			isPicking = false;
-			hoveredEl = null;
-			persistAnnotations();
-			render();
-		}
-	} );
+	document.addEventListener(
+		'keydown',
+		( e ) => {
+			const browserCommand = getBrowserShortcutCommand( e );
+			if ( browserCommand ) {
+				e.preventDefault();
+				e.stopPropagation();
+				send( { type: 'browser-command', command: browserCommand } );
+				return;
+			}
+			if ( e.key !== 'Escape' ) return;
+			if ( activePopup ) {
+				activePopup = null;
+				persistAnnotations();
+				render();
+			} else if ( isPicking ) {
+				isPicking = false;
+				hoveredEl = null;
+				persistAnnotations();
+				render();
+			}
+		},
+		true
+	);
 
 	render();
 } )();

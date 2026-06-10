@@ -328,7 +328,10 @@ export async function runCommand(
 	// reprint's output; before that, anything there is user data.  On a
 	// re-pull (hasCompletedOnce) the directory holds the previous pull's
 	// output, so the guard doesn't apply.
-	if ( ! studioMetadata.hasCompletedOnce && ! hasPullCompletedStage( studioMetadata, 'flattened' ) ) {
+	if (
+		! studioMetadata.hasCompletedOnce &&
+		! hasPullCompletedStage( studioMetadata, 'flattened' )
+	) {
 		if (
 			( await fsUtils.pathExists( studioMetadata.sitePath ) ) &&
 			! ( await fsUtils.isEmptyDir( studioMetadata.sitePath ) )

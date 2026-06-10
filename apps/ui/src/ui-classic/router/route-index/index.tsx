@@ -1,10 +1,7 @@
-import { createRoute, redirect } from '@tanstack/react-router';
-import { rootRoute } from '../layout-root';
+import { createRoute } from '@tanstack/react-router';
+import { dashboardLayoutRoute } from '../layout-dashboard';
 
 export const indexRoute = createRoute( {
-	getParentRoute: () => rootRoute,
+	getParentRoute: () => dashboardLayoutRoute,
 	path: '/',
-	beforeLoad: () => {
-		throw redirect( { to: '/dashboard' } );
-	},
 } );

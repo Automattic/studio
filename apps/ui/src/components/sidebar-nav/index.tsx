@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { category, cog, comment } from '@wordpress/icons';
+import { cog } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { SidebarButton } from '@/components/sidebar-button';
@@ -11,15 +11,11 @@ type NavItem = {
 	key: string;
 	label: string;
 	icon: ComponentProps< typeof Icon >[ 'icon' ];
-	to?: ComponentProps< typeof Link >[ 'to' ];
+	to: ComponentProps< typeof Link >[ 'to' ];
 };
 
 function getItems(): NavItem[] {
-	return [
-		{ key: 'chat', label: __( 'Chat' ), icon: comment, to: '/dashboard' },
-		{ key: 'settings', label: __( 'Settings' ), icon: cog, to: '/settings' },
-		{ key: 'skills', label: __( 'Skills' ), icon: category },
-	];
+	return [ { key: 'settings', label: __( 'Settings' ), icon: cog, to: '/settings' } ];
 }
 
 export function SidebarNav() {
@@ -32,14 +28,12 @@ export function SidebarNav() {
 						<SidebarButton
 							className={ styles.item }
 							render={
-								item.to ? (
-									<Link
-										to={ item.to }
-										activeProps={ {
-											className: clsx( styles.item, styles.itemActive ),
-										} }
-									/>
-								) : undefined
+								<Link
+									to={ item.to }
+									activeProps={ {
+										className: clsx( styles.item, styles.itemActive ),
+									} }
+								/>
 							}
 						>
 							<Icon icon={ item.icon } />

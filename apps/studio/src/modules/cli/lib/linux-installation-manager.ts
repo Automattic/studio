@@ -44,9 +44,13 @@ export class LinuxCliInstallationManager implements StudioCliInstallationManager
 			return false;
 		}
 
-		// Only our own packaged-CLI symlink counts as installed. A standalone
-		// (curl) install is managed outside the app: we never report, install
-		// over, or uninstall it.
+		// A standalone (curl) install is managed outside the app: report it as
+		// installed — matching the Windows manager — so the UI doesn't offer an
+		// install that would silently no-op. We never install over or uninstall it.
+		if ( await this.isExternallyManagedCli( cliSymlinkPath ) ) {
+			return true;
+		}
+
 		return await this.doesSymlinkLeadToPackagedCli( cliSymlinkPath );
 	}
 

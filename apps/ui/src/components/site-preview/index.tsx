@@ -1,5 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { chevronLeft, chevronRight, external } from '@wordpress/icons';
+import { chevronLeft, chevronRight, external, pencil } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
 import { Button, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
@@ -367,17 +367,16 @@ export function SitePreview( {
 							</ToolbarTooltip>
 						</div>
 						<div className={ styles.annotationControls }>
-							<Button
+							<IconButton
 								variant="minimal"
 								tone="neutral"
 								size="small"
+								icon={ pencil }
+								label={ inspectorState.isPicking ? __( 'Stop annotating' ) : __( 'Annotate' ) }
 								disabled={ ! canAnnotate }
 								aria-pressed={ inspectorState.isPicking }
-								aria-label={ inspectorState.isPicking ? __( 'Stop annotating' ) : __( 'Annotate' ) }
 								onClick={ () => sendInspectorCommand( 'toggle-picking' ) }
-							>
-								{ inspectorState.isPicking ? __( 'Picking...' ) : __( 'Annotate' ) }
-							</Button>
+							/>
 							{ inspectorState.annotationCount > 0 ? (
 								<Button
 									variant="solid"

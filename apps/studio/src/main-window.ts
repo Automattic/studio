@@ -43,9 +43,16 @@ interface RendererLocation {
 	query?: Record< string, string >;
 }
 
-export function getPreferredStudioUiMode( userData: Pick< UserData, 'desks' > ): StudioUiMode {
-	const preferredMode = userData.desks?.defaultUiMode;
-	return preferredMode === 'desks' || preferredMode === 'agentic' ? preferredMode : 'default';
+export function getPreferredStudioUiMode(
+	userData: Pick< UserData, 'betaFeatures' >
+): StudioUiMode {
+	if ( userData.betaFeatures?.desksUi ) {
+		return 'desks';
+	}
+	if ( userData.betaFeatures?.agenticUi ) {
+		return 'agentic';
+	}
+	return 'default';
 }
 
 function getRendererFilePath( mode: StudioUiMode ) {
@@ -72,8 +79,7 @@ function appendRendererQuery( url: string, query: Record< string, string > | und
 	return rendererUrl.toString();
 }
 
-function getRendererLocation( userData: Pick< UserData, 'desks' > ): RendererLocation {
-	const preferredMode = getPreferredStudioUiMode( userData );
+function getRendererLocation( preferredMode: StudioUiMode ): RendererLocation {
 	const preferredQuery = getRendererQuery( preferredMode );
 
 	if (
@@ -127,14 +133,8 @@ export async function loadMainWindowRenderer(
 	window: BrowserWindow,
 	mode?: StudioUiMode
 ): Promise< void > {
-	const userData = await loadUserData();
-	const location = getRendererLocation( {
-		desks: {
-			...userData.desks,
-			...( mode ? { defaultUiMode: mode } : {} ),
-		},
-	} );
-	await loadRendererLocation( window, location );
+	const resolvedMode = mode ?? getPreferredStudioUiMode( await loadUserData() );
+	await loadRendererLocation( window, getRendererLocation( resolvedMode ) );
 }
 
 export function getCurrentRendererUrl(): string {
@@ -142,7 +142,7 @@ export function getCurrentRendererUrl(): string {
 		return currentRendererUrl;
 	}
 
-	return getRendererLocation( { desks: undefined } ).url;
+	return getRendererLocation( 'default' ).url;
 }
 
 function setupDevTools( mainWindow: BrowserWindow | null, devToolsOpen?: boolean ) {
@@ -218,7 +218,10 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		mainWindow.setFullScreen( true );
 	}
 
-	void loadRendererLocation( mainWindow, getRendererLocation( userData ) );
+	void loadRendererLocation(
+		mainWindow,
+		getRendererLocation( getPreferredStudioUiMode( userData ) )
+	);
 
 	// Open the DevTools if the user had it open last time they used the app.
 	// During development the dev tools default to open.

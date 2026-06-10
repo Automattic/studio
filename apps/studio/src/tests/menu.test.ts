@@ -5,7 +5,6 @@ import { Menu } from 'electron';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadMainWindowRenderer } from 'src/main-window';
 import { setupMenu } from 'src/menu';
-import { saveUserData } from 'src/storage/user-data';
 
 type TestMenuItem = {
 	accelerator?: string;
@@ -20,12 +19,7 @@ type TestMenuItem = {
 
 const mocks = vi.hoisted( () => ( {
 	getMainWindow: vi.fn(),
-	getPreferredStudioUiMode: vi.fn(),
 	loadMainWindowRenderer: vi.fn(),
-	loadUserData: vi.fn(),
-	lockAppdata: vi.fn(),
-	saveUserData: vi.fn(),
-	unlockAppdata: vi.fn(),
 	getBetaFeatures: vi.fn(),
 	getBetaFeaturesDefinition: vi.fn(),
 	updateBetaFeature: vi.fn(),
@@ -105,15 +99,7 @@ vi.mock( 'src/logging', () => ( {
 
 vi.mock( 'src/main-window', () => ( {
 	getMainWindow: mocks.getMainWindow,
-	getPreferredStudioUiMode: mocks.getPreferredStudioUiMode,
 	loadMainWindowRenderer: mocks.loadMainWindowRenderer,
-} ) );
-
-vi.mock( 'src/storage/user-data', () => ( {
-	loadUserData: mocks.loadUserData,
-	lockAppdata: mocks.lockAppdata,
-	saveUserData: mocks.saveUserData,
-	unlockAppdata: mocks.unlockAppdata,
 } ) );
 
 vi.mock( 'src/updates', () => ( {
@@ -157,28 +143,53 @@ describe( 'app menu', () => {
 		vi.clearAllMocks();
 		vi.useFakeTimers();
 		mocks.getMainWindow.mockResolvedValue( mainWindow );
-		mocks.getPreferredStudioUiMode.mockReturnValue( 'agentic' );
-		mocks.loadUserData.mockResolvedValue( { desks: { defaultUiMode: 'agentic' } } );
 		mocks.getBetaFeatures.mockResolvedValue( {
 			nativePhpRuntime: false,
 			remoteSession: false,
+			agenticUi: true,
+			desksUi: false,
 		} );
-		mocks.getBetaFeaturesDefinition.mockReturnValue( {} );
+		mocks.getBetaFeaturesDefinition.mockReturnValue( {
+			remoteSession: {
+				description: 'Control Studio from Telegram via the remote-session daemon.',
+				label: 'Remote Session',
+			},
+			agenticUi: {
+				description: 'Use a new AI agent focused interface for managing and editing your sites.',
+				label: 'Agentic UI',
+			},
+			desksUi: {
+				description: 'Use the experimental Desks interface. Takes precedence over Agentic UI.',
+				label: 'Desks UI',
+			},
+		} );
 	} );
 
 	afterEach( () => {
 		vi.useRealTimers();
 	} );
 
-	it( 'adds a single Agentic UI checkbox to the Beta Features menu', async () => {
+	it( 'lists the Agentic UI and Desks UI beta features with the other beta options', async () => {
 		await setupMenu( { needsOnboarding: false } );
 
 		const submenu = getBetaFeaturesSubmenu();
 
-		expect( submenu ).toHaveLength( 1 );
-		expect( submenu[ 0 ] ).toMatchObject( {
-			checked: true,
-			label: getPlatformBetaFeatureLabel( 'Agentic UI', 'Use the new agentic Studio interface.' ),
+		expect( submenu.map( ( item ) => item.label ) ).toEqual( [
+			getPlatformBetaFeatureLabel(
+				'Remote Session',
+				'Control Studio from Telegram via the remote-session daemon.'
+			),
+			getPlatformBetaFeatureLabel(
+				'Agentic UI',
+				'Use a new AI agent focused interface for managing and editing your sites.'
+			),
+			getPlatformBetaFeatureLabel(
+				'Desks UI',
+				'Use the experimental Desks interface. Takes precedence over Agentic UI.'
+			),
+		] );
+		expect( submenu.map( ( item ) => item.checked ) ).toEqual( [ false, true, false ] );
+		expect( submenu[ 1 ] ).toMatchObject( {
 			sublabel: getPlatformBetaFeatureSublabel(
 				'Use a new AI agent focused interface for managing and editing your sites.'
 			),
@@ -186,41 +197,28 @@ describe( 'app menu', () => {
 		} );
 	} );
 
-	it( 'keeps Agentic UI with the other beta options', async () => {
-		mocks.getBetaFeaturesDefinition.mockReturnValue( {
-			remoteSession: {
-				description: 'Control Studio from Telegram via the remote-session daemon.',
-				label: 'Remote Session',
-			},
-		} );
-
+	it( 'reloads the renderer when a UI mode beta feature is toggled', async () => {
 		await setupMenu( { needsOnboarding: false } );
 
-		const submenu = getBetaFeaturesSubmenu();
-
-		expect( submenu.map( ( item ) => item.label ) ).toEqual( [
-			getPlatformBetaFeatureLabel( 'Agentic UI', 'Use the new agentic Studio interface.' ),
-			getPlatformBetaFeatureLabel(
-				'Remote Session',
-				'Control Studio from Telegram via the remote-session daemon.'
-			),
-		] );
-		expect( submenu.some( ( item ) => item.type === 'separator' ) ).toBe( false );
-	} );
-
-	it( 'persists default UI mode when Agentic UI is unchecked', async () => {
-		await setupMenu( { needsOnboarding: false } );
-
-		const agenticUiItem = getBetaFeaturesSubmenu()[ 0 ];
+		const agenticUiItem = getBetaFeaturesSubmenu()[ 1 ];
 		expect( agenticUiItem.click ).toBeDefined();
 
 		await agenticUiItem.click?.( { checked: false } );
 		vi.runAllTimers();
 
-		expect( saveUserData ).toHaveBeenCalledWith( {
-			desks: { defaultUiMode: 'default' },
-		} );
-		expect( loadMainWindowRenderer ).toHaveBeenCalledWith( mainWindow, 'default' );
+		expect( mocks.updateBetaFeature ).toHaveBeenCalledWith( 'agenticUi', false );
+		expect( loadMainWindowRenderer ).toHaveBeenCalledWith( mainWindow );
+	} );
+
+	it( 'does not reload the renderer when other beta features are toggled', async () => {
+		await setupMenu( { needsOnboarding: false } );
+
+		const remoteSessionItem = getBetaFeaturesSubmenu()[ 0 ];
+		await remoteSessionItem.click?.( { checked: true } );
+		vi.runAllTimers();
+
+		expect( mocks.updateBetaFeature ).toHaveBeenCalledWith( 'remoteSession', true );
+		expect( loadMainWindowRenderer ).not.toHaveBeenCalled();
 	} );
 
 	it( 'adds a View menu item for toggling site preview', async () => {

@@ -280,7 +280,6 @@ export interface Connector {
 	getInstalledApps(): Promise< InstalledApps >;
 
 	// Desks
-	getFeatureFlags(): Promise< FeatureFlags >;
 	getStudioUiMode(): Promise< StudioUiMode >;
 	setStudioUiMode( mode: StudioUiMode ): Promise< void >;
 	getDeskSettings(): Promise< DeskSettings >;
@@ -320,10 +319,6 @@ export interface Connector {
 	// Fires whenever a site is created, updated, started, stopped, or deleted.
 	// Consumers typically invalidate cached site data in response.
 	onSiteEvent( listener: () => void ): () => void;
-}
-
-export interface FeatureFlags {
-	enableDesksUiSwitch: boolean;
 }
 
 export type ColorScheme = 'system' | 'light' | 'dark';

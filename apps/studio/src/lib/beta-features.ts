@@ -15,6 +15,8 @@ export interface BetaFeatureDefinition {
 const BETA_FEATURE_DEFAULTS: Record< keyof BetaFeatures, boolean > = {
 	remoteSession: false,
 	nativePhpRuntime: false,
+	agenticUi: false,
+	desksUi: false,
 };
 
 /**
@@ -34,6 +36,20 @@ export function getBetaFeaturesDefinition(): Record< keyof BetaFeatures, BetaFea
 			label: __( 'Native PHP runtime' ),
 			default: BETA_FEATURE_DEFAULTS.nativePhpRuntime,
 			description: __( 'Run Studio sites with native PHP instead of Playground.' ),
+		},
+		agenticUi: {
+			key: 'agenticUi',
+			label: __( 'Agentic UI' ),
+			default: BETA_FEATURE_DEFAULTS.agenticUi,
+			description: __(
+				'Use a new AI agent focused interface for managing and editing your sites.'
+			),
+		},
+		desksUi: {
+			key: 'desksUi',
+			label: __( 'Desks UI' ),
+			default: BETA_FEATURE_DEFAULTS.desksUi,
+			description: __( 'Use the experimental Desks interface. Takes precedence over Agentic UI.' ),
 		},
 	};
 }
@@ -60,21 +76,22 @@ export async function getBetaFeatures(): Promise< BetaFeatures > {
 	return betaFeatures;
 }
 
-export async function updateBetaFeature(
-	key: keyof BetaFeatures,
-	value: boolean
-): Promise< void > {
+export async function updateBetaFeatures( changes: Partial< BetaFeatures > ): Promise< void > {
 	try {
 		await lockAppdata();
 		const userData = await loadUserData();
-		const betaFeatures = await getBetaFeatures();
-		// If `BetaFeatures` is ever empty again, `key` resolves to `never` and this
-		// line stops type-checking. That's fine — rely on type checking at the call site.
-		betaFeatures[ key ] = value;
+		const betaFeatures = { ...( await getBetaFeatures() ), ...changes };
 		userData.betaFeatures = betaFeatures;
 		applyBetaFeaturesToEnvironment( betaFeatures );
 		await saveUserData( userData );
 	} finally {
 		await unlockAppdata();
 	}
+}
+
+export async function updateBetaFeature(
+	key: keyof BetaFeatures,
+	value: boolean
+): Promise< void > {
+	await updateBetaFeatures( { [ key ]: value } );
 }

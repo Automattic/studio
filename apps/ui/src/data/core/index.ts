@@ -13,7 +13,6 @@ export type {
 	DeskWidgetBase,
 	ExtractedBlueprintBundle,
 	FeaturedBlueprint,
-	FeatureFlags,
 	InstalledApps,
 	LocalMediaFile,
 	LoadedAiSession,

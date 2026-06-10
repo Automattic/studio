@@ -1,6 +1,49 @@
 Unreleased
 ==========
 
+1.11.0
+=====
+<!-- Release notes generated using configuration in .github/release.yml at HEAD -->
+* Upload nightly installers with public CDN visibility #3670
+* Pin @wordpress/* packages to exact React-19-compatible versions #3723
+* chore: pin third-party GitHub Actions to commit SHAs #3720
+* Update electron2appx to 2.1.3 #3706
+* Fix black screen on dev start: pin vite 8 at root, remove vite-plugin-top-level-await #3724
+* Rename Assistant tab to Studio Code #3725
+* Migrate @mariozechner/pi-* packages to @earendil-works/pi-* (0.78.0) #3707
+* Studio Code: make `studio code --help` more helpful #3709
+* Default wpcom provider for Studio Code in Studio UI #3696
+* Cleanup GitHub blueprints library code #3739
+* Improve site status check for json format #3485
+* Adjust login screen for Studio Code UI to align with otehr screens #3733
+* Studio: Improve context for errors that bubble up from wordpress-server-child #3477
+* Fix Native PHP export failures #3726
+* Ask for confirmation before creating a local site in pull-reprint #3728
+* Fix Dark theme for Studio Code #3744
+* Dark theme: fix tab hover color #3745
+* Fix Windows CI test failures: certificate-manager flakiness and native addon segfault #3740
+* Make creating WooCommerce shop sites easy with Studio Code #3741
+* Prune unused AI provider SDKs from CLI bundle #3735
+* Fix CLI symlink not updated after Studio app update #3713
+* fix: show friendly error instead of Zod validation dump when backup status response is unexpected #3702
+* Fix About dialog showing empty in build artifact #3749
+* Fix "No API key found" in studio code when wpcom token contains $ or ! #3742
+* build(deps): bump shell-quote from 1.8.3 to 1.8.4 #3752
+* Document dark-mode color token rule in AGENTS.md #3748
+* Update generate-password package #3715
+* Fix ineffective dynamic imports in scratchpad widget #3750
+* Rename deprecated build.rollupOptions to build.rolldownOptions in Vite configs #3757
+* Replace UI switcher flag with Agentic UI and Desks UI feature flags #3755
+* Add Fable 5 model to Studio Code agent #3747
+* Add browser navigation, page title, and load progress to the site preview #3756
+* Align chat titles to teh left in agentic mode #3761
+* Rename Assistant references to Studio Code in docs and copy #3730
+* Make reprint.phar a dynamically downloaded dependency #3690
+* Move onboarding ToS/Privacy notice above the login CTA #3764
+* Show one-time ToS/Privacy disclaimer in Studio CLI and Studio Code #3763
+* @mahangu made their first contribution in https://github.com/Automattic/studio/pull/3720
+**Full Changelog**: https://github.com/Automattic/studio/compare/v1.10.2...v1.11.0
+
 1.10.0
 =====
 * Released remote-session as beta-feature #3406, #3513, #3450

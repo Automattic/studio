@@ -5,6 +5,7 @@ import {
 	chevronDown,
 	chevronRight,
 	moreHorizontal,
+	pencil,
 	plus,
 	starEmpty,
 	starFilled,
@@ -108,7 +109,13 @@ function groupSessionsByOwner(
 	return groups;
 }
 
-function SessionActionsMenu( { session }: { session: AiSessionSummary } ) {
+function SessionActionsMenu( {
+	session,
+	onRename,
+}: {
+	session: AiSessionSummary;
+	onRename: () => void;
+} ) {
 	const updateSessionMetadata = useUpdateSessionMetadata();
 	const archiveSession = useArchiveSession();
 	const unarchiveSession = useUnarchiveSession();
@@ -140,6 +147,10 @@ function SessionActionsMenu( { session }: { session: AiSessionSummary } ) {
 				}
 			/>
 			<Menu.Popup side="bottom" align="end">
+				<Menu.Item disabled={ isPending } onClick={ onRename }>
+					<Icon icon={ pencil } size={ 16 } />
+					{ __( 'Rename conversation' ) }
+				</Menu.Item>
 				<Menu.Item
 					disabled={ isPending }
 					onClick={ () => updateMetadata( { starred: ! starred, archived } ) }
@@ -329,7 +340,7 @@ function SessionItem( { session, isVisible }: { session: AiSessionSummary; isVis
 			</SidebarButton>
 			{ ! isRunning ? (
 				<div className={ styles.sessionActions }>
-					<SessionActionsMenu session={ session } />
+					<SessionActionsMenu session={ session } onRename={ startEditing } />
 				</div>
 			) : null }
 		</li>

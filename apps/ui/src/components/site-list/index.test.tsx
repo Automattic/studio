@@ -177,6 +177,17 @@ describe( 'SiteList', () => {
 		} );
 	} );
 
+	it( 'starts renaming from the chat actions menu', async () => {
+		render( <SiteList /> );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Chat actions' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Rename conversation' } ) );
+
+		expect( screen.getByRole( 'textbox', { name: 'Chat title' } ) ).toHaveValue(
+			'Generated title'
+		);
+	} );
+
 	it( 'does not save an unchanged generated sidebar title as a user override', async () => {
 		render( <SiteList /> );
 

@@ -23,15 +23,45 @@ import { untildify } from 'cli/lib/utils';
 import { StudioArgv } from 'cli/types';
 
 const version = __STUDIO_CLI_VERSION__;
-const PROCESS_MANAGER_DAEMON_COMMAND = 'process-manager-daemon';
-const PROXY_DAEMON_COMMAND = 'proxy-daemon';
-const PLAYGROUND_SERVER_CHILD_COMMAND = 'playground-server-child';
-const PHP_SERVER_CHILD_COMMAND = 'php-server-child';
-const REPRINT_CHILD_COMMAND = 'reprint-child';
+
+// Internal commands spawned by the CLI itself (daemons, per-site server
+// children) or the desktop app. They take no user arguments and communicate
+// over IPC, so they bypass yargs entirely — and, critically, the update
+// notifier, migrations, telemetry, and server-files middleware, none of which
+// should run for internal spawns (telemetry would count every site start as a
+// CLI launch).
+const internalCommands: Record< string, () => Promise< void > > = {
+	'process-manager-daemon': async () => {
+		const { runProcessManagerDaemon } = await import( 'cli/process-manager-daemon' );
+		await runProcessManagerDaemon();
+	},
+	'proxy-daemon': async () => {
+		const { runProxyDaemon } = await import( 'cli/proxy-daemon' );
+		await runProxyDaemon();
+	},
+	'playground-server-child': async () => {
+		const { startWordPressServerChildProcess } = await import( 'cli/playground-server-child' );
+		startWordPressServerChildProcess();
+	},
+	'php-server-child': async () => {
+		const { startPhpServerChildProcess } = await import( 'cli/php-server-child' );
+		startPhpServerChildProcess();
+	},
+	'reprint-child': async () => {
+		const { startReprintChildProcess } = await import( 'cli/reprint-child' );
+		startReprintChildProcess();
+	},
+};
 
 suppressPunycodeWarning();
 
 async function main() {
+	const internalCommand = internalCommands[ process.argv[ 2 ] ];
+	if ( internalCommand ) {
+		await internalCommand();
+		return;
+	}
+
 	await setupUpdateNotifier( version );
 
 	const yargsLocale = await loadTranslations();
@@ -109,63 +139,22 @@ async function main() {
 		.middleware( async () => {
 			await setupServerFiles();
 		} )
-		.command( {
-			command: PROCESS_MANAGER_DAEMON_COMMAND,
-			describe: false,
-			handler: async () => {
-				const { runProcessManagerDaemon } = await import( 'cli/process-manager-daemon' );
-				await runProcessManagerDaemon();
-			},
-		} )
-		.command( {
-			command: PROXY_DAEMON_COMMAND,
-			describe: false,
-			handler: async () => {
-				const { runProxyDaemon } = await import( 'cli/proxy-daemon' );
-				await runProxyDaemon();
-			},
-		} )
-		.command( {
-			command: PLAYGROUND_SERVER_CHILD_COMMAND,
-			describe: false,
-			handler: async () => {
-				const { startWordPressServerChildProcess } = await import( 'cli/playground-server-child' );
-				startWordPressServerChildProcess();
-			},
-		} )
-		.command( {
-			command: PHP_SERVER_CHILD_COMMAND,
-			describe: false,
-			handler: async () => {
-				const { startPhpServerChildProcess } = await import( 'cli/php-server-child' );
-				startPhpServerChildProcess();
-			},
-		} )
-		.command( {
-			command: REPRINT_CHILD_COMMAND,
-			describe: false,
-			handler: async () => {
-				const { startReprintChildProcess } = await import( 'cli/reprint-child' );
-				startReprintChildProcess();
-			},
+		.command( 'auth', __( 'Manage authentication' ), async ( authYargs ) => {
+			const [
+				{ registerCommand: registerAuthLoginCommand },
+				{ registerCommand: registerAuthLogoutCommand },
+				{ registerCommand: registerAuthStatusCommand },
+			] = await Promise.all( [
+				import( 'cli/commands/auth/login' ),
+				import( 'cli/commands/auth/logout' ),
+				import( 'cli/commands/auth/status' ),
+			] );
+
+			registerAuthLoginCommand( authYargs );
+			registerAuthLogoutCommand( authYargs );
+			registerAuthStatusCommand( authYargs );
+			authYargs.version( false ).demandCommand( 1, __( 'You must provide a valid auth command' ) );
 		} );
-
-	studioArgv.command( 'auth', __( 'Manage authentication' ), async ( authYargs ) => {
-		const [
-			{ registerCommand: registerAuthLoginCommand },
-			{ registerCommand: registerAuthLogoutCommand },
-			{ registerCommand: registerAuthStatusCommand },
-		] = await Promise.all( [
-			import( 'cli/commands/auth/login' ),
-			import( 'cli/commands/auth/logout' ),
-			import( 'cli/commands/auth/status' ),
-		] );
-
-		registerAuthLoginCommand( authYargs );
-		registerAuthLogoutCommand( authYargs );
-		registerAuthStatusCommand( authYargs );
-		authYargs.version( false ).demandCommand( 1, __( 'You must provide a valid auth command' ) );
-	} );
 
 	const studioCodeCommandBuilder = async ( aiYargs: StudioArgv ) => {
 		const { registerCommand: registerAiCommand } = await import( 'cli/commands/ai' );

@@ -1,5 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { chevronLeft, chevronRight, external } from '@wordpress/icons';
+import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
 import { Button, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -9,7 +10,6 @@ import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
 import { useResizablePanel } from '@/hooks/use-resizable-panel';
 import { getSiteUrl } from '@/lib/get-site-url';
 import { playIcon, refreshIcon } from '@/lib/icons';
-import { getNavigatorPlatform, isMacPlatform } from '@/lib/platform';
 import { PREVIEW_PANEL_CONFIG, PREVIEW_PANEL_STORAGE_KEY } from '@/lib/resizable-panels';
 import { INSPECTOR_BRIDGE_PREFIX, INSPECTOR_PAGE_SCRIPT } from './inspector-script';
 import styles from './style.module.css';
@@ -124,39 +124,25 @@ function getIframeTitle( iframe: HTMLIFrameElement ) {
 }
 
 function getBrowserShortcutDescriptor( key: string ) {
-	const platform = getNavigatorPlatform();
-	const keyLabel = key.toUpperCase();
-	const isMac = isMacPlatform( platform );
-	const modifier = isMac ? '⌘' : 'Ctrl';
-
 	return {
-		displayShortcut: isMac ? `${ modifier }${ keyLabel }` : `${ modifier }+${ keyLabel }`,
-		ariaKeyShortcut: `${ isMac ? 'Meta' : 'Control' }+${ keyLabel }`,
+		displayShortcut: displayShortcut.primary( key ),
+		ariaKeyShortcut: ariaKeyShortcut.primary( key ),
 	};
 }
 
 function getBrowserShortcutCommand(
-	event: Pick<
-		globalThis.KeyboardEvent,
-		'key' | 'metaKey' | 'ctrlKey' | 'shiftKey' | 'altKey' | 'repeat' | 'defaultPrevented'
-	>
+	event: globalThis.KeyboardEvent
 ): BrowserShortcutCommandType | null {
-	if ( event.defaultPrevented || event.repeat || event.shiftKey || event.altKey ) {
+	if ( event.defaultPrevented || event.repeat ) {
 		return null;
 	}
-	const platform = getNavigatorPlatform();
-	const hasPrimaryModifier = isMacPlatform( platform ) ? event.metaKey : event.ctrlKey;
-	if ( ! hasPrimaryModifier ) {
-		return null;
-	}
-	const key = event.key.toLowerCase();
-	if ( key === 'r' ) {
+	if ( isKeyboardEvent.primary( event, 'r' ) ) {
 		return 'reload';
 	}
-	if ( key === '[' ) {
+	if ( isKeyboardEvent.primary( event, '[' ) ) {
 		return 'back';
 	}
-	if ( key === ']' ) {
+	if ( isKeyboardEvent.primary( event, ']' ) ) {
 		return 'forward';
 	}
 	return null;

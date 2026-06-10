@@ -112,36 +112,73 @@
 	padding: 0;
 }
 
-.sidebarToggle {
-	position: absolute;
-	bottom: calc(var(--wpds-dimension-padding-md) + var(--wpds-dimension-padding-xs));
-	left: calc(
-		var(--sidebar-width, 320px) - var(--wpds-dimension-padding-md) -
-			var(--wpds-dimension-padding-xs)
-	);
-	transform: translateX(-100%);
+.sidebarFooter {
+	--sidebar-row-height: 32px;
+	--sidebar-row-background-hover: rgb(0 0 0 / 4%);
+	--sidebar-row-background-active: rgb(0 0 0 / 7%);
+
 	display: flex;
 	align-items: center;
+	gap: var(--wpds-dimension-gap-xs, 4px);
+	flex-shrink: 0;
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md)
+		var(--wpds-dimension-padding-md);
+	position: relative;
+	z-index: 1;
+	background-color: transparent;
+	user-select: none;
+}
+
+.sidebarFooterWithTopBorder {
+	border-top: 1px solid var(--sidebar-layout-glass-border);
+}
+
+.sidebarCollapsedToggle {
+	--sidebar-row-height: 32px;
+	--sidebar-row-background-hover: rgb(0 0 0 / 4%);
+	--sidebar-collapsed-toggle-offset: var(--wpds-dimension-padding-md);
+
+	position: absolute;
+	bottom: var(--sidebar-collapsed-toggle-offset);
+	left: var(--sidebar-collapsed-toggle-offset);
+	display: flex;
 	z-index: 100;
 	pointer-events: auto;
 	-webkit-app-region: no-drag;
-	transition: left 150ms ease, transform 150ms ease;
-}
-
-.sidebarToggleCollapsed {
-	left: var(--wpds-dimension-padding-xl);
-	transform: translateX(0);
-}
-
-.sidebarToggleResizing {
-	transition: none;
 }
 
 .sidebarToggleButton {
+	--wp-ui-button-background-color: transparent;
+	--wp-ui-button-background-color-active: var(--sidebar-row-background-hover, rgb(0 0 0 / 4%));
+	--wp-ui-button-border-color: transparent;
+	--wp-ui-button-border-color-active: transparent;
+	--wp-ui-button-height: var(--sidebar-row-height, 32px);
+	--wp-ui-button-min-width: var(--sidebar-row-height, 32px);
+	--wp-ui-button-padding-block: 0;
+	--wp-ui-button-padding-inline: 0;
+
 	position: relative;
 	z-index: 1;
+	inline-size: var(--sidebar-row-height, 32px);
+	block-size: var(--sidebar-row-height, 32px);
+	min-inline-size: var(--sidebar-row-height, 32px);
+	flex: 0 0 var(--sidebar-row-height, 32px);
+	border-radius: 6px;
 	pointer-events: auto;
 	-webkit-app-region: no-drag;
+}
+
+.sidebarToggleButton svg {
+	inline-size: 22px;
+	block-size: 22px;
+}
+
+@media (prefers-color-scheme: dark) {
+	.sidebarFooter,
+	.sidebarCollapsedToggle {
+		--sidebar-row-background-hover: rgb(255 255 255 / 8%);
+		--sidebar-row-background-active: rgb(255 255 255 / 12%);
+	}
 }
 
 @media (prefers-reduced-transparency: reduce) {

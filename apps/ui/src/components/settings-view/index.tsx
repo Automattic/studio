@@ -36,11 +36,7 @@ import {
 import { useFullscreen } from '@/hooks/use-fullscreen';
 import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
-import {
-	KEYBOARD_SHORTCUTS,
-	getKeyboardShortcutLabel,
-	getMessageSendShortcutLabel,
-} from '@/lib/keyboard-shortcuts';
+import { KEYBOARD_SHORTCUTS, getKeyboardShortcutLabel } from '@/lib/keyboard-shortcuts';
 import { isMacPlatform } from '@/lib/platform';
 import styles from './style.module.css';
 import type {
@@ -150,10 +146,15 @@ const LOCALE_ELEMENTS: { value: SupportedLocale; label: string }[] = Object.entr
 	supportedLocaleNames
 ).map( ( [ value, label ] ) => ( { value: value as SupportedLocale, label } ) );
 
-const MESSAGE_SEND_SHORTCUT_ELEMENTS: { value: MessageSendShortcut; label: string }[] = [
-	{ value: 'mod-enter', label: getMessageSendShortcutLabel( 'mod-enter' ) },
-	{ value: 'enter', label: getMessageSendShortcutLabel( 'enter' ) },
-];
+function messageSendShortcutElements(): { value: MessageSendShortcut; label: string }[] {
+	return [
+		{ value: 'enter', label: __( 'Enter sends' ) },
+		{
+			value: 'mod-enter',
+			label: isMacPlatform() ? __( '⌘ Enter sends' ) : __( 'Control Enter sends' ),
+		},
+	];
+}
 
 const APPEARANCE_OPTIONS: Array< {
 	value: ColorScheme;
@@ -357,17 +358,25 @@ function StudioCliSection( {
 	);
 }
 
-function PreferenceFields( {
+function GeneralPreferencesSection( {
 	data,
 	installedApps,
+	messageSendShortcut,
+	onColorSchemeChange,
+	onDefaultSiteDirectorySelect,
 	onChange,
 }: {
 	data: FormData;
 	installedApps: InstalledApps | undefined;
+	messageSendShortcut: MessageSendShortcut;
+	onColorSchemeChange: ( value: ColorScheme ) => void;
+	onDefaultSiteDirectorySelect: () => void;
 	onChange: ( update: Record< string, unknown > ) => void;
 } ) {
 	return (
-		<>
+		<section className={ clsx( styles.preferenceSectionGroup, styles.generalPreferences ) }>
+			<h2 className={ styles.preferenceSectionHeading }>{ __( 'General settings' ) }</h2>
+			<AppearancePicker value={ data.colorScheme } onChange={ onColorSchemeChange } />
 			<PreferenceRow title={ __( 'Language' ) }>
 				<PreferenceSelect
 					label={ __( 'Language' ) }
@@ -392,14 +401,30 @@ function PreferenceFields( {
 					onChange={ ( terminal ) => onChange( { terminal } ) }
 				/>
 			</PreferenceRow>
-		</>
+			<DefaultSiteDirectoryField
+				value={ data.defaultSiteDirectory }
+				onSelect={ onDefaultSiteDirectorySelect }
+			/>
+			<PreferenceRow
+				title={ __( 'Chat message sending' ) }
+				description={ __( 'Sets the send\u00a0shortcut.' ) }
+			>
+				<PreferenceSelect
+					label={ __( 'Chat message sending' ) }
+					value={ messageSendShortcut }
+					options={ messageSendShortcutElements() }
+					onChange={ ( nextMessageSendShortcut ) =>
+						onChange( { messageSendShortcut: nextMessageSendShortcut } )
+					}
+				/>
+			</PreferenceRow>
+		</section>
 	);
 }
 
 function KeyboardShortcutsList() {
 	return (
 		<section className={ styles.keyboardSection }>
-			<h2>{ __( 'Shortcuts' ) }</h2>
 			<ul className={ styles.shortcutList }>
 				{ KEYBOARD_SHORTCUTS.map( ( shortcut ) => (
 					<li key={ shortcut.id } className={ styles.shortcutRow }>
@@ -412,25 +437,12 @@ function KeyboardShortcutsList() {
 	);
 }
 
-function KeyboardPreferences( {
-	value,
-	onChange,
-}: {
-	value: MessageSendShortcut;
-	onChange: ( update: Record< string, unknown > ) => void;
-} ) {
+function KeyboardShortcutsSection() {
 	return (
-		<div className={ styles.keyboardPreferences }>
-			<PreferenceRow title={ __( 'Chat message sending' ) }>
-				<PreferenceSelect
-					label={ __( 'Chat message sending' ) }
-					value={ value }
-					options={ MESSAGE_SEND_SHORTCUT_ELEMENTS }
-					onChange={ ( messageSendShortcut ) => onChange( { messageSendShortcut } ) }
-				/>
-			</PreferenceRow>
+		<section className={ clsx( styles.preferenceSectionGroup, styles.keyboardPreferences ) }>
+			<h2 className={ styles.preferenceSectionHeading }>{ __( 'Shortcuts' ) }</h2>
 			<KeyboardShortcutsList />
-		</div>
+		</section>
 	);
 }
 
@@ -920,17 +932,15 @@ export function SettingsView( {
 					<div className={ styles.contentBlock }>
 						<form onSubmit={ handleSubmit } className={ styles.form }>
 							<Tabs.Panel tabId="preferences" className={ styles.preferencesPanel }>
-								<AppearancePicker value={ data.colorScheme } onChange={ handleColorSchemeChange } />
-								<PreferenceFields
+								<GeneralPreferencesSection
 									data={ data }
 									installedApps={ installedApps }
+									messageSendShortcut={ data.messageSendShortcut }
+									onColorSchemeChange={ handleColorSchemeChange }
+									onDefaultSiteDirectorySelect={ () => void handleDefaultSiteDirectorySelect() }
 									onChange={ handleChange }
 								/>
-								<DefaultSiteDirectoryField
-									value={ data.defaultSiteDirectory }
-									onSelect={ () => void handleDefaultSiteDirectorySelect() }
-								/>
-								<KeyboardPreferences value={ data.messageSendShortcut } onChange={ handleChange } />
+								<KeyboardShortcutsSection />
 								{ ! appGlobals?.isWindowsStore ? (
 									<StudioCliSection
 										checked={ data.studioCliInstalled }

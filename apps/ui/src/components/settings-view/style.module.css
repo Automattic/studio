@@ -2,6 +2,9 @@
 	--settings-content-width: 760px;
 	--settings-form-width: 560px;
 	--settings-control-width: 300px;
+	--settings-divider-border: 1px dotted
+		color-mix(in srgb, var(--wpds-color-stroke-surface-neutral) 72%, transparent);
+	--settings-row-padding-block: calc(var(--wpds-dimension-padding-md) + 2px);
 
 	display: flex;
 	flex-direction: column;
@@ -22,7 +25,7 @@
 	min-height: 54px;
 	padding: 0 var(--wpds-dimension-padding-xl) 0 var(--wpds-dimension-padding-2xl);
 	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
-	font-size: var(--wpds-typography-font-size-sm);
+	font-size: var(--wpds-typography-font-size-lg, 16px);
 	color: var(--wpds-color-fg-content-neutral);
 	-webkit-app-region: drag;
 }
@@ -92,7 +95,7 @@
 .preferencesPanel {
 	display: flex;
 	flex-direction: column;
-	gap: 0;
+	gap: var(--wpds-dimension-padding-xl);
 	width: 100%;
 	max-width: var(--settings-form-width);
 	margin: 0 auto;
@@ -105,7 +108,7 @@
 }
 
 .keyboardPreferences .keyboardSection {
-	padding-block: var(--wpds-dimension-padding-2xl) 0;
+	margin-block-start: var(--wpds-dimension-padding-md);
 }
 
 .settingsSection {
@@ -146,15 +149,11 @@
 
 .preferenceRow {
 	display: grid;
-	grid-template-columns: minmax(max-content, 1fr) max-content;
+	grid-template-columns: minmax(0, 1fr) max-content;
 	align-items: center;
 	column-gap: var(--wpds-dimension-padding-xl);
 	padding-block: var(--wpds-dimension-padding-xl);
-	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
-}
-
-.preferencesPanel > .preferenceRow:first-child {
-	padding-block-start: 0;
+	border-bottom: var(--settings-divider-border);
 }
 
 .preferenceRow:last-child {
@@ -173,7 +172,7 @@
 	margin: 0;
 	color: var(--wpds-color-fg-content-neutral);
 	font-size: var(--wpds-typography-font-size-md);
-	font-weight: 600;
+	font-weight: var(--wpds-typography-font-weight-regular, 400);
 	line-height: var(--wpds-typography-line-height-sm);
 	white-space: nowrap;
 }
@@ -293,22 +292,39 @@
 }
 
 .preferenceSectionGroup {
+	box-sizing: border-box;
 	display: flex;
 	flex-direction: column;
 	gap: 0;
-	padding-block-start: var(--wpds-dimension-padding-xl);
+	padding: var(--wpds-dimension-padding-xl);
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: 8px;
+	background: color-mix(
+		in srgb,
+		var(--wpds-color-bg-surface-neutral-weak) 56%,
+		transparent
+	);
 }
 
 .preferenceSectionHeading {
 	margin: 0 0 var(--wpds-dimension-padding-md);
 	color: var(--wpds-color-fg-content-neutral);
-	font-size: var(--wpds-typography-font-size-md);
+	font-size: var(--wpds-typography-font-size-lg, 16px);
 	font-weight: 600;
-	line-height: var(--wpds-typography-line-height-sm);
+	line-height: var(--wpds-typography-line-height-md);
 }
 
 .preferenceSectionGroup .preferenceRow:first-of-type {
-	padding-block-start: var(--wpds-dimension-padding-xl);
+	padding-block-start: var(--wpds-dimension-padding-md);
+}
+
+.generalPreferences .preferenceRow,
+.generalPreferences .preferenceRow:first-of-type {
+	padding-block: var(--settings-row-padding-block);
+}
+
+.generalPreferences .preferenceRow:last-child {
+	padding-block-end: 0;
 }
 
 .cliRow {
@@ -497,21 +513,22 @@
 .keyboardSection {
 	display: flex;
 	flex-direction: column;
-	gap: var(--wpds-dimension-padding-sm);
+	gap: 0;
 }
 
 .keyboardSection h2 {
 	margin: 0;
 	color: var(--wpds-color-fg-content-neutral);
-	font-size: var(--wpds-typography-font-size-md);
+	font-size: var(--wpds-typography-font-size-lg, 16px);
 	font-weight: 600;
-	line-height: var(--wpds-typography-line-height-sm);
+	line-height: var(--wpds-typography-line-height-md);
 }
 
 .shortcutList {
 	list-style: none;
 	padding: 0;
 	margin: 0;
+	border-top: var(--settings-divider-border);
 }
 
 .shortcutRow {
@@ -519,30 +536,50 @@
 	align-items: center;
 	justify-content: space-between;
 	gap: var(--wpds-dimension-padding-xl);
-	padding: var(--wpds-dimension-padding-md) 0;
-	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
+	padding: var(--settings-row-padding-block) 0;
+	border-bottom: var(--settings-divider-border);
+}
+
+.shortcutRow:last-child {
+	padding-block-end: 0;
+	border-bottom: 0;
 }
 
 .shortcutLabel {
 	min-width: 0;
 	color: var(--wpds-color-fg-content-neutral);
 	font-size: var(--wpds-typography-font-size-md);
+	font-weight: var(--wpds-typography-font-weight-regular, 400);
 	line-height: var(--wpds-typography-line-height-sm);
 }
 
 .shortcutKey {
+	box-sizing: border-box;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
 	flex-shrink: 0;
-	min-width: 40px;
-	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
-	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	inline-size: fit-content;
+	min-inline-size: 0;
+	min-block-size: 36px;
+	padding: 0 10px;
+	border: 0;
 	border-radius: 6px;
-	background: var(--wpds-color-bg-surface-neutral);
-	color: var(--wpds-color-fg-content-neutral);
-	font-family: var(--wpds-typography-font-family-body);
-	font-size: var(--wpds-typography-font-size-sm);
-	font-weight: 500;
+	background: color-mix(in srgb, var(--wpds-color-fg-content-neutral) 6%, transparent);
+	color: color-mix(
+		in srgb,
+		var(--wpds-color-fg-content-neutral) 74%,
+		var(--wpds-color-fg-content-neutral-weak)
+	);
+	font-family: 'SF Mono', SFMono-Regular, ui-monospace, Menlo, Monaco, Consolas, 'Liberation Mono',
+		monospace;
+	font-size: var(--wpds-typography-font-size-lg, 16px);
+	font-weight: var(--wpds-typography-font-weight-medium, 500);
+	font-variant-numeric: tabular-nums;
+	letter-spacing: 0;
 	line-height: var(--wpds-typography-line-height-sm);
-	text-align: center;
+	text-align: end;
+	white-space: nowrap;
 }
 
 .skillsPanel,

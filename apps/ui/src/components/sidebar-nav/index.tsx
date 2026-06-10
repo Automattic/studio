@@ -1,6 +1,6 @@
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { download, globe, plus } from '@wordpress/icons';
+import { addTemplate, download, globe } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import * as Menu from '@/components/menu';
 import { SidebarButton } from '@/components/sidebar-button';
@@ -15,7 +15,12 @@ function CreateSiteMenu() {
 				render={
 					<SidebarButton className={ styles.item }>
 						<span className={ styles.iconSlot }>
-							<Icon icon={ plus } size={ 22 } className={ styles.icon } data-sidebar-primary-icon />
+							<Icon
+								icon={ addTemplate }
+								size={ 22 }
+								className={ styles.icon }
+								data-sidebar-primary-icon
+							/>
 						</span>
 						<span className={ styles.label }>{ __( 'Add a site' ) }</span>
 					</SidebarButton>

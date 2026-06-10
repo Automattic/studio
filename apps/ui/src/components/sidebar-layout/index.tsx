@@ -140,7 +140,26 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 							</div>
 						</div>
 						<SidebarNav />
-						<SidebarSettingsButton showTopBorder={ sidebarScrollHasOverflow } />
+						{ ! collapsed ? (
+							<div
+								className={ clsx(
+									styles.sidebarFooter,
+									sidebarScrollHasOverflow && styles.sidebarFooterWithTopBorder
+								) }
+							>
+								<SidebarSettingsButton />
+								<IconButton
+									variant="minimal"
+									tone="neutral"
+									size="small"
+									className={ styles.sidebarToggleButton }
+									icon={ drawerIcon }
+									label={ __( 'Hide sidebar' ) }
+									shortcut={ sidebarShortcut }
+									onClick={ toggleSidebar }
+								/>
+							</div>
+						) : null }
 					</div>
 				</aside>
 				{ ! collapsed ? (
@@ -156,24 +175,20 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 					/>
 				) : null }
 				<main className={ styles.main }>{ children }</main>
-				<div
-					className={ clsx(
-						styles.sidebarToggle,
-						collapsed && styles.sidebarToggleCollapsed,
-						sidebarResize.isResizing && styles.sidebarToggleResizing
-					) }
-				>
-					<IconButton
-						variant="minimal"
-						tone="neutral"
-						size="small"
-						className={ styles.sidebarToggleButton }
-						icon={ drawerIcon }
-						label={ collapsed ? __( 'Show sidebar' ) : __( 'Hide sidebar' ) }
-						shortcut={ sidebarShortcut }
-						onClick={ toggleSidebar }
-					/>
-				</div>
+				{ collapsed ? (
+					<div className={ styles.sidebarCollapsedToggle }>
+						<IconButton
+							variant="minimal"
+							tone="neutral"
+							size="small"
+							className={ styles.sidebarToggleButton }
+							icon={ drawerIcon }
+							label={ __( 'Show sidebar' ) }
+							shortcut={ sidebarShortcut }
+							onClick={ toggleSidebar }
+						/>
+					</div>
+				) : null }
 				{ sidebarResize.isResizing ? <ResizeOverlay /> : null }
 			</div>
 		</SidebarCollapsedContext.Provider>

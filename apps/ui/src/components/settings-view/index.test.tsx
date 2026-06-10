@@ -201,6 +201,20 @@ describe( 'SettingsView', () => {
 		expect( await screen.findByRole( 'option', { name: 'English' } ) ).toBeVisible();
 	} );
 
+	it( 'explains the chat message sending preference', () => {
+		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
+
+		expect(
+			screen.getByText(
+				( _content, element ) =>
+					element?.tagName === 'P' && element.textContent === 'Sets the send\u00a0shortcut.'
+			)
+		).toBeInTheDocument();
+		expect( screen.getByRole( 'combobox', { name: 'Chat message sending' } ) ).toHaveTextContent(
+			/Enter sends$/
+		);
+	} );
+
 	it( 'deletes preview sites from the preview actions menu', async () => {
 		const user = userEvent.setup();
 		const deleteMutate = vi.fn();

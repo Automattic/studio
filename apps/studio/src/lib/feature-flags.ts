@@ -6,12 +6,6 @@ export interface FeatureFlagDefinition {
 }
 
 export const FEATURE_FLAGS: Record< keyof FeatureFlags, FeatureFlagDefinition > = {
-	enableBlueprints: {
-		label: 'Enable Blueprints',
-		env: 'ENABLE_BLUEPRINTS',
-		flag: 'enableBlueprints',
-		default: true,
-	},
 	enableDesksUiSwitch: {
 		label: 'Enable Studio UI Switcher',
 		env: 'ENABLE_DESKS_UI_SWITCH',

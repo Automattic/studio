@@ -1,11 +1,17 @@
 import { readFile, writeFile } from 'fs/promises';
 import { Type } from 'typebox';
+import { validateHtmlBlockPolicy } from 'cli/ai/block-content-policy';
 import { validateBlocks, type ValidationReportBase } from 'cli/ai/block-validator';
 import { createUnifiedDiff } from 'cli/ai/content-diff';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { emitProgress } from 'cli/logger';
 import { defineTool } from './define-tool';
 import { resolveSite, textResult } from './utils';
+
+function formatPreview( content: string ): string {
+	const compact = content.replace( /\s+/g, ' ' ).trim();
+	return compact.length > 500 ? compact.slice( 0, 500 ) + '…' : compact;
+}
 
 function formatInvalidBlocks( report: ValidationReportBase ): string[] {
 	const lines: string[] = [];
@@ -33,9 +39,9 @@ function formatMarkdownFence( language: string, content: string ): string {
 	return `${ fence }${ language }\n${ content }\n${ fence }`;
 }
 
-export const validateAndFixBlocksTool = defineTool(
-	'validate_and_fix_blocks',
-	"Validates WordPress block content in the site's real block editor. When filePath is provided, applies safe live-editor serialization fixes directly to the file and returns a diff for CSS impact review. For inline content, returns exact fixed block content plus the diff. The site must be running.",
+export const validateBlocksTool = defineTool(
+	'validate_blocks',
+	"Validates WordPress block content in two stages and returns a combined report. First runs a static core/html block policy check; if it finds invalid core/html blocks, it returns only those (rewrite them as editable core or plugin blocks and call again) without touching the editor. Once the policy check passes, it validates the content in the site's real block editor: with filePath it applies safe live-editor serialization fixes directly to the file and returns a CSS-review diff; with inline content it returns the exact fixed block content plus the diff. The site must be running.",
 	{
 		nameOrPath: Type.String( {
 			description: 'The site name or file system path — the site must be running',
@@ -67,6 +73,37 @@ export const validateAndFixBlocksTool = defineTool(
 				throw new Error( 'Either content or filePath must be provided.' );
 			}
 
+			// Stage 1: static core/html policy check. Acts as a gate — if it
+			// fails we stop here instead of paying the live-editor round-trip on
+			// content we already know needs rewriting.
+			emitProgress( `Checking HTML blocks in ${ fileName }…` );
+			const htmlReport = validateHtmlBlockPolicy( blockContent );
+
+			if ( htmlReport.invalidHtmlBlocks.length > 0 ) {
+				emitProgress(
+					`${ fileName }: ${ htmlReport.invalidHtmlBlocks.length }/${ htmlReport.totalHtmlBlocks } core/html blocks invalid`
+				);
+				const lines = [
+					`HTML block policy: ${ htmlReport.invalidHtmlBlocks.length }/${ htmlReport.totalHtmlBlocks } core/html blocks invalid`,
+					'',
+					'Invalid HTML blocks:',
+					...htmlReport.invalidHtmlBlocks.flatMap( ( block ) => [
+						`  - #${ block.blockNumber } line ${ block.line }`,
+						...block.issues.map( ( issue ) => `    ${ issue }` ),
+						`    Content: ${ formatPreview( block.content ) }`,
+					] ),
+					'',
+					'Rewrite each invalid core/html block as editable core or plugin blocks, then call validate_blocks again. Editor validation was skipped until the HTML policy passes.',
+				];
+				return textResult( lines.join( '\n' ) );
+			}
+
+			const htmlSummary =
+				htmlReport.totalHtmlBlocks === 0
+					? 'HTML block policy: no core/html blocks found.'
+					: `HTML block policy: all ${ htmlReport.totalHtmlBlocks } core/html blocks within policy.`;
+
+			// Stage 2: validate (and fix) in the site's real block editor.
 			emitProgress( `Validating and fixing blocks in ${ fileName }…` );
 
 			const site = await resolveSite( args.nameOrPath );
@@ -82,6 +119,7 @@ export const validateAndFixBlocksTool = defineTool(
 				emitProgress( `${ fileName }: all ${ report.totalBlocks } blocks valid` );
 				return textResult(
 					[
+						htmlSummary,
 						`Validation: ${ report.validBlocks }/${ report.totalBlocks } blocks valid`,
 						'No editor serialization fixes needed.',
 					].join( '\n' )
@@ -95,6 +133,7 @@ export const validateAndFixBlocksTool = defineTool(
 			emitProgress( `${ fileName }: ${ report.invalidBlocks } invalid (${ invalidNames })` );
 
 			const lines = [
+				htmlSummary,
 				`Validation: ${ report.validBlocks }/${ report.totalBlocks } blocks valid`,
 				'',
 				'Invalid blocks:',

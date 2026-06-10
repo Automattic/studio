@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
-import { SitePreview } from './index';
+import { getPathFromPreviewUrl, getToolbarPageTitle, SitePreview } from './index';
 import type { SiteDetails } from '@/data/core';
 import type { ReactNode } from 'react';
 
@@ -85,22 +85,61 @@ describe( 'SitePreview', () => {
 		expect( container.querySelector( 'iframe' ) ).not.toBe( initialIframe );
 	} );
 
-	it( 'disables back and forward until the preview can navigate', () => {
+	it( 'reloads the preview on the primary-modifier+R shortcut', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
 		} as never );
 
-		renderPreview(
+		const { container } = renderPreview(
 			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
 		);
 
-		expect( screen.getByRole( 'button', { name: 'Back' } ) ).toHaveAttribute(
-			'aria-disabled',
-			'true'
+		const initialIframe = container.querySelector( 'iframe' );
+		expect( initialIframe ).toBeInTheDocument();
+
+		// jsdom reports a non-Apple platform, so the primary modifier is Ctrl.
+		fireEvent.keyDown( document.body, { key: 'r', ctrlKey: true } );
+		expect( container.querySelector( 'iframe' ) ).not.toBe( initialIframe );
+
+		// Extra modifiers must not trigger the shortcut.
+		const reloadedIframe = container.querySelector( 'iframe' );
+		fireEvent.keyDown( document.body, { key: 'r', ctrlKey: true, shiftKey: true } );
+		expect( container.querySelector( 'iframe' ) ).toBe( reloadedIframe );
+	} );
+} );
+
+describe( 'getToolbarPageTitle', () => {
+	it( 'strips the WordPress admin suffix from document titles', () => {
+		expect( getToolbarPageTitle( 'Dashboard ‹ Example Site — WordPress', 'Example Site' ) ).toBe(
+			'Dashboard'
 		);
-		expect( screen.getByRole( 'button', { name: 'Forward' } ) ).toHaveAttribute(
-			'aria-disabled',
-			'true'
+		expect( getToolbarPageTitle( 'Posts ‹ My Blog — WordPress', 'My Blog' ) ).toBe( 'Posts' );
+	} );
+
+	it( 'returns front-end titles unchanged', () => {
+		expect( getToolbarPageTitle( 'Example Site – Just another WordPress site', 'Example' ) ).toBe(
+			'Example Site – Just another WordPress site'
 		);
+	} );
+
+	it( 'falls back to the site name, then a generic label', () => {
+		expect( getToolbarPageTitle( null, 'Example Site' ) ).toBe( 'Example Site' );
+		expect( getToolbarPageTitle( '   ', 'Example Site' ) ).toBe( 'Example Site' );
+		expect( getToolbarPageTitle( null, '' ) ).toBe( 'Site preview' );
+	} );
+} );
+
+describe( 'getPathFromPreviewUrl', () => {
+	it( 'extracts the path, search, and hash for same-origin urls', () => {
+		expect(
+			getPathFromPreviewUrl( 'http://localhost:8881/wp-admin/?page=1#top', 'http://localhost:8881' )
+		).toBe( '/wp-admin/?page=1#top' );
+	} );
+
+	it( 'returns null for cross-origin or invalid urls', () => {
+		expect( getPathFromPreviewUrl( 'https://example.com/about', 'http://localhost:8881' ) ).toBe(
+			null
+		);
+		expect( getPathFromPreviewUrl( 'not-a-url', 'http://localhost:8881' ) ).toBe( null );
 	} );
 } );

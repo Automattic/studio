@@ -416,7 +416,7 @@ function getSafePath( path: unknown ) {
 	return typeof path === 'string' && path.trim() ? path : '/';
 }
 
-function getToolbarPageTitle( title: string | null, siteName: string ) {
+export function getToolbarPageTitle( title: string | null, siteName: string ) {
 	const trimmedTitle = normalizeDocumentTitle( title );
 	if ( trimmedTitle ) {
 		const [ wordPressAdminTitle ] = trimmedTitle.split( /\s+‹\s+/ );
@@ -428,7 +428,7 @@ function getToolbarPageTitle( title: string | null, siteName: string ) {
 	return siteName || __( 'Site preview' );
 }
 
-function getPathFromPreviewUrl( url: string, baseUrl: string ) {
+export function getPathFromPreviewUrl( url: string, baseUrl: string ) {
 	try {
 		const parsedUrl = new URL( url );
 		const parsedBaseUrl = new URL( baseUrl );

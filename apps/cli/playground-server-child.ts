@@ -730,6 +730,7 @@ export function startWordPressServerChildProcess() {
 	if ( isWordPressServerChildStarted ) {
 		return;
 	}
+	isWordPressServerChildStarted = true;
 
 	if ( ! process.send ) {
 		throw new Error( 'process.send is not available' );
@@ -738,5 +739,4 @@ export function startWordPressServerChildProcess() {
 	configureIpcLogging();
 	process.on( 'message', ipcMessageHandler );
 	process.send( { topic: 'ready' } );
-	isWordPressServerChildStarted = true;
 }

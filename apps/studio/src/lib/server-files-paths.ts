@@ -54,9 +54,11 @@ export function getSqlitePath(): string {
  */
 function getBundledWpFilesPath(): string {
 	// In production the CLI's runtime assets (including wp-files) are extracted
-	// from the standalone binary into the per-user CLI dir on first run, which
-	// the desktop app triggers at startup via the `_events` subscriber. In
-	// dev/test they sit next to the CLI script.
+	// from the standalone binary into the per-user CLI dir on first run. The
+	// SEA entrypoint extracts before running any command, and app startup
+	// awaits a first CLI command (`SiteServer.fetchAll()`) before creating the
+	// main window — so extraction is complete before any consumer of this path
+	// can run. In dev/test the assets sit next to the CLI script.
 	if ( process.env.NODE_ENV === 'production' ) {
 		return path.join( getCliExtractionDir(), 'wp-files' );
 	}

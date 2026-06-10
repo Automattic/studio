@@ -8,8 +8,6 @@
 # In development, it falls back to the CLI script with system Node.
 BIN_DIR=$(dirname "$(realpath "$0")")
 CLI_BINARY="$BIN_DIR/studio"
-CONTENTS_DIR=$(dirname "$(dirname "$BIN_DIR")")
-CLI_SCRIPT="$CONTENTS_DIR/Resources/cli/main.mjs"
 
 if [ -x "$CLI_BINARY" ]; then
 	# Note: Node's SEA startup skips CLI flag parsing, so we can't enable
@@ -18,11 +16,10 @@ if [ -x "$CLI_BINARY" ]; then
 	exec "$CLI_BINARY" "$@"
 fi
 
-# Development fallback: use system Node with the CLI script
-if ! [ -f "$CLI_SCRIPT" ]; then
-	STUDIO_DIR=$(dirname "$(dirname "$(realpath "$0")")")
-	CLI_SCRIPT="$(dirname "$STUDIO_DIR")/cli/dist/cli/main.mjs"
-fi
+# Development fallback: use system Node with the CLI script. This script lives
+# in apps/studio/bin, so the CLI bundle is at apps/cli/dist/cli/main.mjs.
+STUDIO_DIR=$(dirname "$BIN_DIR")
+CLI_SCRIPT="$(dirname "$STUDIO_DIR")/cli/dist/cli/main.mjs"
 
 unset NODE_OPTIONS
 exec node --experimental-wasm-jspi "$CLI_SCRIPT" "$@"

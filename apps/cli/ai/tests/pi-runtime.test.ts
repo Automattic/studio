@@ -1,7 +1,7 @@
-import { SessionManager } from '@mariozechner/pi-coding-agent';
+import { SessionManager } from '@earendil-works/pi-coding-agent';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runStudioAgentTurn, type StudioAgentTurnConfig } from 'cli/ai/runtimes/pi';
-import type { AgentSessionEvent, CreateAgentSessionOptions } from '@mariozechner/pi-coding-agent';
+import type { AgentSessionEvent, CreateAgentSessionOptions } from '@earendil-works/pi-coding-agent';
 import type { AiModelId } from '@studio/common/ai/models';
 
 const mocks = vi.hoisted( () => ( {
@@ -23,8 +23,8 @@ vi.mock( '@studio/common/ai/models', async ( importOriginal ) => {
 	};
 } );
 
-vi.mock( '@mariozechner/pi-coding-agent', async ( importOriginal ) => {
-	const actual = await importOriginal< typeof import('@mariozechner/pi-coding-agent') >();
+vi.mock( '@earendil-works/pi-coding-agent', async ( importOriginal ) => {
+	const actual = await importOriginal< typeof import('@earendil-works/pi-coding-agent') >();
 	const stub = ( name: string ) => ( {
 		name,
 		label: name,
@@ -101,7 +101,7 @@ const DEFAULT_MOCK_EVENTS: AgentSessionEvent[] = [
 		},
 		toolResults: [],
 	},
-	{ type: 'agent_end', messages: [] },
+	{ type: 'agent_end', willRetry: false, messages: [] },
 ];
 
 type MessageEndEvent = Extract< AgentSessionEvent, { type: 'message_end' } >;
@@ -327,7 +327,7 @@ describe( 'pi runtime', () => {
 				],
 				'length'
 			),
-			{ type: 'agent_end', messages: [] },
+			{ type: 'agent_end', willRetry: false, messages: [] },
 		] as AgentSessionEvent[];
 
 		await runRuntime( {
@@ -431,6 +431,30 @@ describe( 'pi runtime', () => {
 				'X-WPCOM-Session-ID': 'session-1',
 			},
 		} );
+	} );
+
+	// pi parses registerProvider config values as templates, so a wpcom token
+	// containing `$name` would be read as an undefined env-var reference and the
+	// provider would look unauthenticated ("No API key found"). The token must be
+	// escaped so pi resolves it back to the literal value.
+	it( 'keeps the wpcom token configured when it contains template metacharacters', async () => {
+		const tokenWithDollar = 'abc$t5CmlMyb$VRe7t1xyz';
+
+		await runRuntime( {
+			prompt: 'hello',
+			env: {
+				ANTHROPIC_AUTH_TOKEN: tokenWithDollar,
+				ANTHROPIC_BASE_URL: 'https://proxy.example.com',
+				ANTHROPIC_CUSTOM_HEADERS: 'X-WPCOM-AI-Feature: studio-assistant-anthropic',
+			},
+			model: 'claude-sonnet-4-6',
+			session: newSession(),
+		} );
+
+		const options = mocks.createdSessions[ 0 ].options;
+		expect( options.modelRegistry!.hasConfiguredAuth( options.model! ) ).toBe( true );
+		const auth = await options.modelRegistry!.getApiKeyAndHeaders( options.model! );
+		expect( auth ).toMatchObject( { ok: true, apiKey: tokenWithDollar } );
 	} );
 
 	// Silent header-drop would surface as an opaque 401 from the wpcom proxy.

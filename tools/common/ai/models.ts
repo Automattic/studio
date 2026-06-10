@@ -1,5 +1,5 @@
 import { isStudioCustomEntryOfType } from './sessions/entry-types';
-import type { SessionEntry } from '@mariozechner/pi-coding-agent';
+import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
 export type AiModelFamily = 'anthropic' | 'openai';
 

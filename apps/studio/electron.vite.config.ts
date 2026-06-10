@@ -3,7 +3,6 @@ import { createRequire } from 'module';
 import { defineConfig } from 'electron-vite';
 import { normalizePath } from 'vite';
 import react from '@vitejs/plugin-react';
-import topLevelAwait from 'vite-plugin-top-level-await';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 import wasm from 'vite-plugin-wasm';
 import { sentryVitePlugin } from '@sentry/vite-plugin';
@@ -80,7 +79,6 @@ export default defineConfig( {
 		},
 		plugins: [
 			react(),
-			topLevelAwait(),
 			wasm(),
 			viteStaticCopy( {
 				targets: [
@@ -95,10 +93,12 @@ export default defineConfig( {
 					{
 						src: normalizePath( resolve( __dirname, 'src/about-menu/about-menu.html' ) ),
 						dest: '.',
+						rename: { stripBase: true },
 					},
 					{
 						src: normalizePath( resolve( __dirname, 'src/about-menu/studio-app-icon.png' ) ),
 						dest: '.',
+						rename: { stripBase: true },
 					},
 				],
 			} ),
@@ -122,8 +122,10 @@ export default defineConfig( {
 		assetsInclude: [ '**/*.riv', '**/*.wasm' ],
 		optimizeDeps: {
 			include: [ '@wordpress/i18n', '@rive-app/react-canvas', '@rive-app/canvas' ],
-			esbuildOptions: {
-				sourcemap: false,
+			rolldownOptions: {
+				output: {
+					sourcemap: false,
+				},
 			},
 		},
 		server: {
@@ -144,9 +146,13 @@ export default defineConfig( {
 						return 'assets/[name]-[hash][extname]';
 					},
 					// Optimize chunk splitting for better caching
-					manualChunks: {
-						vendor: [ 'react', 'react-dom', '@wordpress/components', '@wordpress/element' ],
-						sentry: [ '@sentry/react', '@sentry/electron' ],
+					manualChunks: ( id ) => {
+						if ( [ 'react', 'react-dom', '@wordpress/components', '@wordpress/element' ].some( ( pkg ) => id.includes( `/node_modules/${ pkg }/` ) ) ) {
+							return 'vendor';
+						}
+						if ( [ '@sentry/react', '@sentry/electron' ].some( ( pkg ) => id.includes( `/node_modules/${ pkg }/` ) ) ) {
+							return 'sentry';
+						}
 					},
 				},
 			},

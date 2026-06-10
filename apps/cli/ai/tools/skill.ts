@@ -1,7 +1,7 @@
 import { Type } from 'typebox';
 import { findSkill, loadSkills } from 'cli/ai/skills';
 import { defineTool } from './define-tool';
-import type { AgentTool } from '@mariozechner/pi-agent-core';
+import type { AgentTool } from '@earendil-works/pi-agent-core';
 import type { TSchema } from 'typebox';
 
 // Returns `null` when no skills are discovered so the caller skips

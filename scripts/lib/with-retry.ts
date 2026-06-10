@@ -1,4 +1,6 @@
-import { Agent } from 'undici';
+import { Agent, fetch } from 'undici';
+
+export { fetch };
 
 export const DEFAULT_MAX_ATTEMPTS = 3;
 export const DEFAULT_CONNECT_TIMEOUT_MS = 10_000;

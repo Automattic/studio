@@ -28,7 +28,7 @@ export const AI_MODELS = [
 
 export type AiModelId = ( typeof AI_MODELS )[ number ][ 'id' ];
 
-export const DEFAULT_MODEL: AiModelId = 'claude-sonnet-4-6';
+export const DEFAULT_MODEL: AiModelId = 'claude-fable-5';
 
 // Module-scoped lookup so `getAiModelFamily` / `getAiModelLabel` are O(1)
 // and don't re-scan the array per call. Keyed by id; values are the same

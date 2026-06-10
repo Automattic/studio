@@ -6,7 +6,7 @@
  * promptfoo config, not here.
  */
 
-import { writeFileSync, writeSync as fsWriteSync } from 'node:fs';
+import { mkdirSync, writeFileSync, writeSync as fsWriteSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { SessionManager } from '@earendil-works/pi-coding-agent';
@@ -172,7 +172,14 @@ async function runEval( input: EvalRunnerInput ) {
 	let timedOut = false;
 
 	phaseStartedAt = Date.now();
-	const session = SessionManager.inMemory( STUDIO_SITES_ROOT );
+	const sessionDirEnv = process.env.STUDIO_EVAL_SESSION_DIR?.trim();
+	let session: SessionManager;
+	if ( sessionDirEnv ) {
+		mkdirSync( sessionDirEnv, { recursive: true } );
+		session = await SessionManager.create( STUDIO_SITES_ROOT, sessionDirEnv );
+	} else {
+		session = SessionManager.inMemory( STUDIO_SITES_ROOT );
+	}
 	const queryStartedAt = Date.now();
 	let turnStart = queryStartedAt;
 

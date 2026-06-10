@@ -15,8 +15,8 @@ import { siteSettingsRoute } from './route-site-settings';
 import type { RouterContext } from './layout-root';
 
 const routeTree = rootRoute.addChildren( [
+	indexRoute,
 	dashboardLayoutRoute.addChildren( [
-		indexRoute,
 		newSessionRoute,
 		sessionDetailRoute,
 		siteSettingsRoute,

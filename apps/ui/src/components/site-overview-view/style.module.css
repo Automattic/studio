@@ -496,3 +496,10 @@
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
 }
+
+.dialogError {
+	margin: 0;
+	color: var(--wpds-color-fg-content-error, #b32d2e);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+}

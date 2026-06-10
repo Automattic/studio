@@ -12,7 +12,7 @@ import {
 	undo,
 } from '@wordpress/icons';
 import { Button, Dialog, Field, Icon, IconButton, Input, Textarea } from '@wordpress/ui';
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { PreviewSplitContent } from '@/components/preview-split-frame';
 import { useConnector } from '@/data/core';
 import {
@@ -449,11 +449,16 @@ function EditChatDetailsDialog( {
 		session.userDescription ?? generatedDescription
 	);
 
+	// Reset only when the dialog opens. The generated fallbacks can change
+	// while it's open (e.g. a background run finishes and regenerates the
+	// description), and that must not clobber in-progress edits.
+	const wasOpenRef = useRef( false );
 	useEffect( () => {
-		if ( open ) {
+		if ( open && ! wasOpenRef.current ) {
 			setTitle( session.userTitle ?? generatedTitle );
 			setDescription( session.userDescription ?? generatedDescription );
 		}
+		wasOpenRef.current = open;
 	}, [ generatedDescription, generatedTitle, open, session.userDescription, session.userTitle ] );
 
 	const normalizeField = ( value: string ): string | undefined => {
@@ -471,11 +476,17 @@ function EditChatDetailsDialog( {
 
 	const handleSubmit = async ( event: FormEvent ) => {
 		event.preventDefault();
-		await updateTitleDescription.mutateAsync( {
-			sessionId: session.id,
-			title: getUserOverride( title, generatedTitle ),
-			description: getUserOverride( description, generatedDescription ),
-		} );
+		try {
+			await updateTitleDescription.mutateAsync( {
+				sessionId: session.id,
+				title: getUserOverride( title, generatedTitle ),
+				description: getUserOverride( description, generatedDescription ),
+			} );
+		} catch {
+			// Keep the dialog open so the edits aren't lost; the error message
+			// below the fields explains what happened.
+			return;
+		}
 		onOpenChange( false );
 	};
 
@@ -514,6 +525,11 @@ function EditChatDetailsDialog( {
 									rows={ 3 }
 								/>
 							</Field.Root>
+							{ updateTitleDescription.isError ? (
+								<p className={ styles.dialogError } role="alert">
+									{ __( 'Saving chat details failed. Please try again.' ) }
+								</p>
+							) : null }
 						</div>
 					</Dialog.Content>
 					<Dialog.Footer>

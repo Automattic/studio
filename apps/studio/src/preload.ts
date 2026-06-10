@@ -217,8 +217,6 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'setSessionEnvironment', sessionId, environment ),
 	getDeskSettings: () => ipcRendererInvoke( 'getDeskSettings' ),
 	saveDeskSettings: ( settings ) => ipcRendererInvoke( 'saveDeskSettings', settings ),
-	getStudioUiMode: () => ipcRendererInvoke( 'getStudioUiMode' ),
-	setStudioUiMode: ( mode ) => ipcRendererInvoke( 'setStudioUiMode', mode ),
 	exportDeskConfig: ( config, suggestedFilename ) =>
 		ipcRendererInvoke( 'exportDeskConfig', config, suggestedFilename ),
 	importDeskConfig: () => ipcRendererInvoke( 'importDeskConfig' ),

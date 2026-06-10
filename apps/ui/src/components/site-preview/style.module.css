@@ -76,18 +76,30 @@
 	flex-shrink: 0;
 }
 
+.annotationSubmit {
+	position: relative;
+}
+
+/* Floating count badge on the button's top-right corner. The ring
+   (box-shadow) separates it from both the button and the header behind. */
 .annotationCount {
-	min-width: 16px;
-	height: 16px;
-	margin-left: 6px;
-	padding: 0 4px;
+	position: absolute;
+	top: -5px;
+	right: -5px;
+	min-width: 14px;
+	height: 14px;
+	padding: 0 3px;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	background-color: rgb(255 255 255 / 20%);
-	border-radius: 8px;
-	font-size: var(--wpds-typography-font-size-xs);
+	color: var(--wpds-color-fg-content-neutral);
+	background-color: var(--wpds-color-bg-surface-neutral);
+	border-radius: 999px;
+	box-shadow: 0 0 0 1px var(--wpds-color-stroke-surface-neutral);
+	font-size: 10px;
+	font-weight: 600;
 	line-height: 1;
+	pointer-events: none;
 }
 
 /* 2px bar overlapping the header's bottom border, like a browser's page-load

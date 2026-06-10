@@ -79,9 +79,9 @@ type FileToDownload = {
 
 // reprint.phar ships bundled with every Studio build — downloaded here at build time, not at
 // runtime. Pin a specific release so each build embeds a known, fixed version; bump this constant
-// to upgrade. See https://github.com/adamziel/reprint/releases.
+// to upgrade. See https://github.com/WordPress/reprint/releases.
 const REPRINT_VERSION = 'v0.8.1';
-const REPRINT_PHAR_URL = `https://github.com/adamziel/reprint/releases/download/${ REPRINT_VERSION }/reprint.phar`;
+const REPRINT_PHAR_URL = `https://github.com/WordPress/reprint/releases/download/${ REPRINT_VERSION }/reprint.phar`;
 
 const FILES_TO_DOWNLOAD: FileToDownload[] = [
 	{

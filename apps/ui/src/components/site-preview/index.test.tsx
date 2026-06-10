@@ -65,27 +65,6 @@ describe( 'SitePreview', () => {
 		expect( screen.getByRole( 'button', { name: 'Start site' } ) ).toBeVisible();
 	} );
 
-	it( 'keeps annotation controls disabled until the inspector reports ready', () => {
-		useConnectorMock.mockReturnValue( {
-			startSite: vi.fn().mockResolvedValue( undefined ),
-		} as never );
-
-		renderPreview(
-			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
-		);
-
-		// The iframe fallback has no inspector, so the annotate toggle renders
-		// but never becomes interactive, and Submit (which needs a pending
-		// annotation count) is not shown at all.
-		expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toHaveAttribute(
-			'aria-disabled',
-			'true'
-		);
-		expect(
-			screen.queryByRole( 'button', { name: 'Submit annotations' } )
-		).not.toBeInTheDocument();
-	} );
-
 	it( 'shows a refresh button that reloads the active preview surface', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),

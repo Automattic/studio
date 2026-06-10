@@ -10,7 +10,7 @@ import { mkdirSync, writeFileSync, writeSync as fsWriteSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { SessionManager } from '@earendil-works/pi-coding-agent';
-import { isAiModelId, type AiModelId } from '@studio/common/ai/models';
+import { DEFAULT_MODEL, isAiModelId, type AiModelId } from '@studio/common/ai/models';
 import { findLastAssistant } from '@studio/common/ai/session-events';
 import {
 	resolveAiEnvironment,
@@ -127,6 +127,7 @@ function readInput(): EvalRunnerInput {
 }
 
 async function runEval( input: EvalRunnerInput ) {
+	const resolvedModel = input.model ?? DEFAULT_MODEL;
 	const evalStartedAt = Date.now();
 	const elapsed = () => Date.now() - evalStartedAt;
 	const phaseTimingsMs: Record< string, number > = {};
@@ -276,6 +277,7 @@ async function runEval( input: EvalRunnerInput ) {
 		success,
 		error,
 		timedOut,
+		model: resolvedModel,
 		numTurns: numTurnsResult,
 		phaseTimingsMs,
 		turnDurationsMs,

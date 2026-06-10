@@ -76,6 +76,7 @@ describe( 'CLI: studio pull-reprint helpers', () => {
 						id: 1,
 						name: 'Example',
 						url: 'https://example.wordpress.com/',
+						isStaging: false,
 					},
 				],
 				'https://example.wordpress.com'
@@ -84,6 +85,7 @@ describe( 'CLI: studio pull-reprint helpers', () => {
 			id: 1,
 			name: 'Example',
 			url: 'https://example.wordpress.com/',
+			isStaging: false,
 		} );
 	} );
 

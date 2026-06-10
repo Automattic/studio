@@ -33,8 +33,6 @@ export type SessionUIAction =
 	| { type: 'preview/set-open'; value: boolean }
 	| { type: 'preview/toggle' }
 	| { type: 'preview/navigate'; path: string }
-	// Unlike `preview/navigate`, this only records a path the preview already
-	// shows (user clicked a link inside it) — no reload, no panel opening.
 	| { type: 'preview/update-path'; path: string };
 
 const INITIAL_STATE: SessionUIState = {

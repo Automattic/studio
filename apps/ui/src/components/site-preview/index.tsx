@@ -1,4 +1,4 @@
-import { __, _n, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import { chevronLeft, chevronRight, external } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
 import { Button, IconButton, Tooltip } from '@wordpress/ui';
@@ -383,23 +383,11 @@ export function SitePreview( {
 									variant="solid"
 									tone="brand"
 									size="small"
-									className={ styles.annotationSubmit }
 									disabled={ ! canAnnotate }
-									aria-label={ sprintf(
-										/* translators: %d: number of pending annotations. */
-										_n(
-											'Submit %d annotation',
-											'Submit %d annotations',
-											inspectorState.annotationCount
-										),
-										inspectorState.annotationCount
-									) }
+									aria-label={ __( 'Submit annotations' ) }
 									onClick={ () => sendInspectorCommand( 'submit' ) }
 								>
 									{ __( 'Submit' ) }
-									<span className={ styles.annotationCount } aria-hidden="true">
-										{ inspectorState.annotationCount }
-									</span>
 								</Button>
 							) : null }
 						</div>

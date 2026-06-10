@@ -370,7 +370,7 @@ export function SitePreview( {
 							<Button
 								variant="minimal"
 								tone="neutral"
-								size="compact"
+								size="small"
 								disabled={ ! canAnnotate }
 								aria-pressed={ inspectorState.isPicking }
 								aria-label={ inspectorState.isPicking ? __( 'Stop annotating' ) : __( 'Annotate' ) }
@@ -382,7 +382,7 @@ export function SitePreview( {
 								<Button
 									variant="solid"
 									tone="brand"
-									size="compact"
+									size="small"
 									disabled={ ! canAnnotate }
 									aria-label={ __( 'Submit annotations' ) }
 									onClick={ () => sendInspectorCommand( 'submit' ) }

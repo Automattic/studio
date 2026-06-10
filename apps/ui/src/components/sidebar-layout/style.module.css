@@ -21,6 +21,17 @@
 	transition: width 150ms ease;
 }
 
+/* Stay pinned at the bottom as the sidebar scrolls; `margin-top: auto`
+   pushes the footer to the bottom in the flex column when content is
+   shorter than the viewport. */
+.sidebarFooter {
+	margin-top: auto;
+	position: sticky;
+	bottom: 0;
+	z-index: 1;
+	background-color: var(--wpds-color-bg-surface-neutral-weak);
+}
+
 .sidebarCollapsed {
 	width: 0;
 	min-width: 0;

@@ -1,0 +1,32 @@
+.root {
+	display: flex;
+	/* Horizontal padding matches the user-menu row below so the icon and
+	   label line up with the gravatar and user name. The bottom padding
+	   combines with the user menu's top padding to space the two rows. */
+	padding: 0 var(--wpds-dimension-padding-2xl) var(--wpds-dimension-padding-sm);
+}
+
+.button {
+	width: 100%;
+	padding: 0 var(--wpds-dimension-padding-sm);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-md);
+	font-weight: var(--wpds-typography-font-weight-regular);
+}
+
+.button:hover,
+.button:focus-visible {
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.buttonActive {
+	color: var(--wpds-color-fg-content-neutral);
+	font-weight: var(--wpds-typography-font-weight-medium);
+}
+
+.label {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	min-width: 0;
+}

@@ -2,9 +2,40 @@ import { truncateToWidth, visibleWidth } from '@earendil-works/pi-tui';
 import { select } from '@inquirer/prompts';
 import { listAiSessions } from '@studio/common/ai/sessions/store';
 import chalk from '@studio/common/lib/chalk';
+import { readSharedSessions } from '@studio/common/lib/shared-config';
 import { __ } from '@wordpress/i18n';
 import { getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
 import type { AiSessionSummary } from '@studio/common/ai/sessions/types';
+
+/**
+ * Session files persist only the event log; user/generated titles and
+ * descriptions live in shared.json (written by the desktop app). Hydrate
+ * them the same way the desktop's `hydrateAiSessionSummary` does so
+ * `session.title` is populated for display.
+ */
+export async function hydrateSessionMetadata(
+	sessions: AiSessionSummary[]
+): Promise< AiSessionSummary[] > {
+	let metadataById: Awaited< ReturnType< typeof readSharedSessions > >;
+	try {
+		metadataById = await readSharedSessions();
+	} catch {
+		// Display degrades to first prompts when shared.json is unreadable.
+		return sessions;
+	}
+	return sessions.map( ( session ) => {
+		const metadata = metadataById[ session.id ];
+		if ( ! metadata ) {
+			return session;
+		}
+		return {
+			...session,
+			title: metadata.userTitle ?? metadata.generatedTitle ?? session.firstPrompt,
+			description:
+				metadata.userDescription ?? metadata.generatedDescription ?? session.assistantReplyPreview,
+		};
+	} );
+}
 
 function formatSessionTimestamp( timestamp: string ): string {
 	const parsed = Date.parse( timestamp );
@@ -202,7 +233,9 @@ export async function chooseSessionForAction(
 	actionLabel: string,
 	noSessionsMessage: string
 ): Promise< AiSessionSummary | undefined > {
-	const sessions = await listAiSessions( getAiSessionsRootDirectory() );
+	const sessions = await hydrateSessionMetadata(
+		await listAiSessions( getAiSessionsRootDirectory() )
+	);
 	if ( sessions.length === 0 ) {
 		console.log( noSessionsMessage );
 		return undefined;

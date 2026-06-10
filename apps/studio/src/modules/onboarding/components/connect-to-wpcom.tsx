@@ -36,7 +36,7 @@ export function OnboardingConnectToWpcom( { onSkip }: { onSkip: () => void } ) {
 					{ [
 						__( 'Share preview sites with clients and colleagues' ),
 						__( 'Seamlessly sync with WordPress.com and Pressable' ),
-						__( 'Get smart suggestions from the Studio Assistant' ),
+						__( 'Get smart suggestions from Studio Code' ),
 					].map( ( text ) => (
 						<div key={ text } className="text-frame-text-secondary a8c-body flex items-start">
 							<Icon className="fill-frame-theme me-2 shrink-0" icon={ check } />

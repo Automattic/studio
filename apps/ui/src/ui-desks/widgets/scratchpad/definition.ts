@@ -1,6 +1,16 @@
 import { __ } from '@wordpress/i18n';
 import { external } from '@wordpress/icons';
 import {
+	buildWidgetContextDisplayMessage,
+	buildWidgetContextPrompt,
+} from '@/ui-desks/chats/widget-context';
+import {
+	completeConnectorPreview,
+	createConnectorPreview,
+	toPlainPoint,
+	updateConnectorEnd,
+} from '@/ui-desks/connectors/editor-commands';
+import {
 	RECTANGLE_WIDGET_SHAPE_TYPE,
 	type RectangleWidgetShape,
 } from '@/ui-desks/shapes/rectangle-widget/types';
@@ -100,9 +110,6 @@ function getScratchpadMediaDropActions(
 			label: BUILD_SOMETHING_LIKE_THIS_PROMPT,
 			onClick: () =>
 				context.runAction( async () => {
-					const { buildWidgetContextDisplayMessage, buildWidgetContextPrompt } = await import(
-						'@/ui-desks/chats/widget-context'
-					);
 					updateScratchpadReference( context.editor, intent, { agentStatus: 'pending' } );
 					try {
 						const sessionId = await context.startChatWithPrompt( {
@@ -127,7 +134,7 @@ function getScratchpadMediaDropActions(
 		{
 			label: __( 'Use this image' ),
 			onClick: () =>
-				context.runAction( async () => createConnectorBetweenWidgets( context.editor, intent ) ),
+				context.runAction( () => createConnectorBetweenWidgets( context.editor, intent ) ),
 		},
 	];
 }
@@ -169,12 +176,7 @@ function updateScratchpadReference(
 	} );
 }
 
-async function createConnectorBetweenWidgets(
-	editor: Editor,
-	intent: WidgetCustomDropActionIntent
-) {
-	const { completeConnectorPreview, createConnectorPreview, toPlainPoint, updateConnectorEnd } =
-		await import( '@/ui-desks/connectors/editor-commands' );
+function createConnectorBetweenWidgets( editor: Editor, intent: WidgetCustomDropActionIntent ) {
 	const sourceBounds = editor.getShapePageBounds( intent.sourceShapeId );
 	const targetBounds = editor.getShapePageBounds( intent.targetShapeId );
 	if ( ! sourceBounds || ! targetBounds ) {

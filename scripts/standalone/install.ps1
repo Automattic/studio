@@ -98,13 +98,22 @@ function Install-StudioCli {
     }
 
     # Add to PATH — split on ';' for exact-entry match, not substring.
-    $UserPath = [Environment]::GetEnvironmentVariable("PATH", "User")
-    $PathDirs = @()
-    if ($UserPath) {
-        $PathDirs = $UserPath -split ';' | Where-Object { $_ -ne '' }
+    # Read the raw registry value (DoNotExpandEnvironmentNames): the default
+    # [Environment]::GetEnvironmentVariable expands %VAR% entries, and writing
+    # the expanded result back would permanently break them for the user.
+    $UserPath = ""
+    $EnvKey = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey("Environment")
+    if ($EnvKey) {
+        $UserPath = [string]$EnvKey.GetValue("Path", "", [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
+        $EnvKey.Close()
     }
+    $PathDirs = $UserPath -split ';' | Where-Object { $_ -ne '' }
     if ($PathDirs -notcontains $BinDir) {
-        [Environment]::SetEnvironmentVariable("PATH", "$BinDir;$UserPath", "User")
+        $NewPath = if ($UserPath) { "$BinDir;$UserPath" } else { $BinDir }
+        # SetEnvironmentVariable preserves %VAR% entries (values containing '%'
+        # are written as REG_EXPAND_SZ) and broadcasts WM_SETTINGCHANGE so new
+        # terminals pick up the change.
+        [Environment]::SetEnvironmentVariable("PATH", $NewPath, "User")
         $env:PATH = "$BinDir;$env:PATH"
         Write-Host "Added $BinDir to user PATH"
     }

@@ -22,6 +22,11 @@ import { PullReprintCommandLoggerAction as LoggerAction } from '@studio/common/l
 import { __, sprintf } from '@wordpress/i18n';
 import chalk from 'chalk';
 import {
+	getSetAdminCredentialsRequestBody,
+	shouldSetAdminCredentials,
+	toUrlSearchParams,
+} from 'cli/lib/admin-credentials';
+import {
 	enableReprintExporter,
 	getWpComSites,
 	rotateReprintSecret,
@@ -35,7 +40,12 @@ import {
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
 import { getSiteUrl, updateSiteAutoStart, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
-import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
+import {
+	connectToDaemon,
+	disconnectFromDaemon,
+	emitCliEvent,
+	isProcessRunning,
+} from 'cli/lib/daemon-client';
 import {
 	type ReprintProcessResult,
 	runReprintCommandUntilComplete,
@@ -54,7 +64,7 @@ import {
 import { getDefaultSitePath } from 'cli/lib/site-paths';
 import { buildAutoLoginUrl } from 'cli/lib/site-utils';
 import { getPrettyPath } from 'cli/lib/utils';
-import { startWordPressServer } from 'cli/lib/wordpress-server-manager';
+import { getProcessName, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -191,6 +201,14 @@ interface PullSessionMetadata {
 	runtimeDirectory: string;
 	runtimeBlueprintPath: string;
 	stage: PullStage;
+	/**
+	 * True once this pull has reached the 'completed' stage at least once.
+	 * A re-run after that point is a delta re-pull: the stage machine is
+	 * reset so every phase re-executes, and the non-empty site-directory
+	 * guard is skipped (the directory legitimately holds the previous
+	 * pull's output).
+	 */
+	hasCompletedOnce?: boolean;
 	siteId?: string;
 	port?: number;
 	localUrl?: string;
@@ -243,6 +261,13 @@ class PullError extends LoggerError {
  * on (see {@link recordCompletedStage}), so a crash anywhere in the
  * pipeline resumes at the next stage on re-run.  `--abort` detours to
  * {@link abortPull} instead.
+ *
+ * Re-running after a pull reached 'completed' performs a delta
+ * re-pull: the stage machine resets to 'initialized' and every phase
+ * re-executes against the preserved reprint state directory.  Reprint
+ * makes each phase incremental — files re-sync as a delta (re-index +
+ * diff), the database is fully re-downloaded and re-applied (the dump
+ * is idempotent, so edits, inserts, and deletes all propagate).
  */
 export async function runCommand(
 	userProvidedUrl?: string,
@@ -280,10 +305,30 @@ export async function runCommand(
 	);
 	const apiUrl = getReprintApiUrlForSite( studioMetadata.normalizedUrl );
 
+	// A previously completed pull re-runs as a delta sync: reset the
+	// stage machine so every phase executes again. Reprint does the
+	// incremental work against the preserved state directory — files
+	// re-sync as a delta (re-index + diff), the database is fully
+	// re-downloaded and re-applied (the dump is idempotent, so remote
+	// edits, inserts, and deletes all land locally).
+	const isRepull = studioMetadata.stage === 'completed';
+	if ( isRepull ) {
+		studioMetadata.stage = 'initialized';
+		studioMetadata.hasCompletedOnce = true;
+		savePullMetadata( studioMetadata );
+
+		// Re-verify connectivity (and give the secret-rotation retry path
+		// a chance to run) instead of trusting the cached preflight from
+		// the original pull, which may be days old.
+		fs.rmSync( path.join( studioMetadata.stateDirectory, 'preflight.json' ), { force: true } );
+	}
+
 	// Refuse to clobber an existing non-empty site directory before the
 	// flatten stage.  Once flattened, the directory legitimately holds
-	// reprint's output; before that, anything there is user data.
-	if ( ! hasPullCompletedStage( studioMetadata, 'flattened' ) ) {
+	// reprint's output; before that, anything there is user data.  On a
+	// re-pull (hasCompletedOnce) the directory holds the previous pull's
+	// output, so the guard doesn't apply.
+	if ( ! studioMetadata.hasCompletedOnce && ! hasPullCompletedStage( studioMetadata, 'flattened' ) ) {
 		if (
 			( await fsUtils.pathExists( studioMetadata.sitePath ) ) &&
 			! ( await fsUtils.isEmptyDir( studioMetadata.sitePath ) )
@@ -326,13 +371,13 @@ export async function runCommand(
 	fs.mkdirSync( studioMetadata.runtimeDirectory, { recursive: true } );
 	fs.mkdirSync( studioMetadata.sitePath, { recursive: true } );
 
-	if ( studioMetadata.stage === 'completed' ) {
-		printCompletionMessage( studioMetadata );
-		process.exit( 0 );
-	}
-
 	const isResume = ! created || fs.readdirSync( studioMetadata.stateDirectory ).length > 0;
-	if ( isResume ) {
+	if ( isRepull ) {
+		console.log(
+			`Updating "${ studioMetadata.siteName }" from ${ studioMetadata.normalizedUrl } (delta sync)`
+		);
+		console.log( '' );
+	} else if ( isResume ) {
 		console.log(
 			`Resuming previous pull of "${ studioMetadata.siteName }" from ${ studioMetadata.normalizedUrl }`
 		);
@@ -476,16 +521,39 @@ export async function runCommand(
 
 			try {
 				await connectToDaemon();
-				const processDesc = await startWordPressServer( site, logger, runtimeStartOptions );
-				logger.reportSuccess( __( 'WordPress server started' ) );
 
-				if ( processDesc.status === 'online' ) {
-					await updateSiteLatestCliPid( site.id, processDesc.pid );
+				// On a re-pull, the site's server is often already running.
+				// The synced files and database are picked up live (PHP
+				// opens them per request), so there's nothing to restart —
+				// but db-apply rebuilt the database from the remote dump,
+				// wiping the local admin user and the studio_admin_username
+				// option that /studio-auto-login depends on.  A server start
+				// re-applies the credentials; when we skip the restart we
+				// must re-apply them over the running site's admin API.
+				// A connection failure means the daemon's view is stale and
+				// the server is actually down, so fall through to a start
+				// (which re-applies the credentials itself).
+				const runningProcess = await isProcessRunning( getProcessName( site.id ) );
+				const credentialsResult = runningProcess
+					? await reapplyAdminCredentials( site )
+					: 'unreachable';
+				if ( runningProcess && credentialsResult !== 'unreachable' ) {
+					logger.reportSuccess( __( 'WordPress server already running' ) );
+					studioMetadata.localUrl = getSiteUrl( site );
+					savePullMetadata( studioMetadata );
+					recordCompletedStage( studioMetadata, 'site-started' );
+				} else {
+					const processDesc = await startWordPressServer( site, logger, runtimeStartOptions );
+					logger.reportSuccess( __( 'WordPress server started' ) );
+
+					if ( processDesc.status === 'online' ) {
+						await updateSiteLatestCliPid( site.id, processDesc.pid );
+					}
+					await updateSiteAutoStart( site.id, true );
+					studioMetadata.localUrl = getSiteUrl( site );
+					savePullMetadata( studioMetadata );
+					recordCompletedStage( studioMetadata, 'site-started' );
 				}
-				await updateSiteAutoStart( site.id, true );
-				studioMetadata.localUrl = getSiteUrl( site );
-				savePullMetadata( studioMetadata );
-				recordCompletedStage( studioMetadata, 'site-started' );
 			} catch ( serverError ) {
 				throw new LoggerError(
 					__( 'Failed to start the WordPress server for the pulled site.' ),
@@ -1302,25 +1370,45 @@ function recordCompletedStage( metadata: PullSessionMetadata, stage: PullStage )
  * rewritten URLs) as the interrupted run.
  */
 async function ensurePort( metadata: PullSessionMetadata ): Promise< void > {
-	if ( metadata.port && metadata.localUrl ) {
-		return;
-	}
-
 	const cliConfig = await readCliConfig();
-	for ( const site of cliConfig.sites ) {
-		portFinder.addUnavailablePort( site.port );
-	}
 
+	// When a Studio site record already exists for this pull, adopt its
+	// identity even if the metadata already carries a port — the record
+	// can change between runs (e.g. the site was deleted and re-created
+	// and got a different id/port).  db-apply rewrites the database URLs
+	// to metadata.localUrl, so a stale port here would rewrite the site
+	// to a URL nothing serves.
 	const existingSite = cliConfig.sites.find(
 		( site ) =>
 			( metadata.siteId && site.id === metadata.siteId ) ||
 			fsUtils.arePathsEqual( site.path, metadata.sitePath ) ||
 			site.technicalSiteDirectory === metadata.technicalSiteDirectory
 	);
+	if ( existingSite ) {
+		if (
+			metadata.siteId !== existingSite.id ||
+			metadata.port !== existingSite.port ||
+			metadata.localUrl !== getSiteUrl( existingSite )
+		) {
+			metadata.siteId = existingSite.id;
+			metadata.port = existingSite.port;
+			metadata.localUrl = getSiteUrl( existingSite );
+			savePullMetadata( metadata );
+		}
+		return;
+	}
 
-	const port = existingSite?.port ?? ( await portFinder.getOpenPort() );
+	if ( metadata.port && metadata.localUrl ) {
+		return;
+	}
+
+	for ( const site of cliConfig.sites ) {
+		portFinder.addUnavailablePort( site.port );
+	}
+
+	const port = await portFinder.getOpenPort();
 	metadata.port = port;
-	metadata.localUrl = existingSite ? getSiteUrl( existingSite ) : `http://localhost:${ port }`;
+	metadata.localUrl = `http://localhost:${ port }`;
 	savePullMetadata( metadata );
 }
 
@@ -1362,6 +1450,58 @@ async function findExistingSite( metadata: PullSessionMetadata ): Promise< SiteD
 			fsUtils.arePathsEqual( site.path, metadata.sitePath ) ||
 			site.technicalSiteDirectory === metadata.technicalSiteDirectory
 	);
+}
+
+/**
+ * Re-applies the site's stored admin credentials over the running
+ * site's admin API (`POST /?studio-admin-api`) — the same endpoint
+ * both server runtimes hit on startup.
+ *
+ * Needed after a re-pull's db-apply: the remote dump contains neither
+ * the local admin user nor the `studio_admin_username` option, so
+ * rebuilding the database from it breaks `/studio-auto-login` until
+ * the credentials are applied again.
+ *
+ * Returns:
+ *   - 'applied'     credentials re-applied on the running server
+ *   - 'skipped'     the site record has no credentials to apply
+ *   - 'unreachable' the server didn't answer — the caller should
+ *                   treat the site as not running and start it
+ */
+export async function reapplyAdminCredentials(
+	site: SiteData
+): Promise< 'applied' | 'skipped' | 'unreachable' > {
+	const credentials = {
+		adminUsername: site.adminUsername,
+		adminPassword: site.adminPassword,
+		adminEmail: site.adminEmail,
+	};
+	if ( ! shouldSetAdminCredentials( credentials ) ) {
+		return 'skipped';
+	}
+
+	let response: Response;
+	try {
+		response = await fetch( new URL( '/?studio-admin-api', getSiteUrl( site ) ), {
+			method: 'POST',
+			body: toUrlSearchParams( getSetAdminCredentialsRequestBody( credentials ) ),
+			signal: AbortSignal.timeout( 15_000 ),
+		} );
+	} catch {
+		return 'unreachable';
+	}
+
+	if ( ! response.ok ) {
+		throw new LoggerError(
+			sprintf(
+				// translators: %d: HTTP status code.
+				__( 'Failed to re-apply the admin credentials after the database refresh (HTTP %d).' ),
+				response.status
+			)
+		);
+	}
+
+	return 'applied';
 }
 
 function printSiteUrls( localUrl: string ): void {

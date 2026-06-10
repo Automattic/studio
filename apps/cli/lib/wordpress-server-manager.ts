@@ -200,6 +200,32 @@ async function ensurePhpBinaryAvailableIfNeeded(
 	}
 }
 
+/**
+ * Drops mounts of reprint state files whose host paths no longer exist.
+ *
+ * reprint's apply-runtime mounts importer state files (under /tmp/reprint
+ * in the VFS) for the temporary remote-uploads proxy. Those files are
+ * transient — a later sync can empty or remove them — so a persisted
+ * start-options.json can reference paths that are gone, and mounting a
+ * missing path crashes the server start with ENOENT. Critical site mounts
+ * (core, wp-content, wp-config.php) are intentionally NOT filtered: if
+ * those are missing, failing loudly is correct.
+ */
+function dropStaleReprintStateMounts( options: StartServerOptions ): StartServerOptions {
+	const isStale = ( mount: { hostPath: string; vfsPath: string } ) =>
+		mount.vfsPath.startsWith( '/tmp/reprint/' ) && ! fs.existsSync( mount.hostPath );
+
+	return {
+		...options,
+		...( options.mountsBeforeInstall && {
+			mountsBeforeInstall: options.mountsBeforeInstall.filter( ( m ) => ! isStale( m ) ),
+		} ),
+		...( options.mounts && {
+			mounts: options.mounts.filter( ( m ) => ! isStale( m ) ),
+		} ),
+	};
+}
+
 export async function startWordPressServer(
 	site: SiteData,
 	logger: Logger< string >,
@@ -216,6 +242,7 @@ export async function startWordPressServer(
 		);
 		if ( fs.existsSync( optionsPath ) ) {
 			options = JSON.parse( fs.readFileSync( optionsPath, 'utf-8' ) ) as StartServerOptions;
+			options = dropStaleReprintStateMounts( options );
 		}
 	}
 

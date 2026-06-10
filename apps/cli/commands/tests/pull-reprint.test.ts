@@ -523,3 +523,180 @@ describe( 'CLI: studio pull-reprint confirmation before creating a site', () => 
 		expect( fs.existsSync( technicalSiteDirectory ) ).toBe( true );
 	} );
 } );
+
+describe( 'CLI: studio pull-reprint delta re-pull of a completed pull', () => {
+	let fakeHome: string;
+
+	afterEach( () => {
+		vi.restoreAllMocks();
+		vi.resetModules();
+		if ( fakeHome ) {
+			fs.rmSync( fakeHome, { recursive: true, force: true } );
+		}
+	} );
+
+	/**
+	 * Same throwaway-home harness as the confirmation tests: anchors
+	 * PULLS_ROOT and the Studio sites root to a temp directory so the
+	 * real runCommand never touches the developer's machine.
+	 */
+	async function loadRunCommandWithFakeHome() {
+		fakeHome = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-pull-repull-home-' ) );
+
+		vi.resetModules();
+		vi.doMock( 'os', async () => {
+			const actual = await vi.importActual< typeof import('os') >( 'os' );
+			return {
+				...actual,
+				default: { ...actual, homedir: () => fakeHome },
+				homedir: () => fakeHome,
+			};
+		} );
+
+		const mod = await import( '../pull-reprint' );
+		return mod;
+	}
+
+	it( 'resets a completed pull for a delta re-run instead of exiting early', async () => {
+		const { runCommand, getPrivateDirNameForImportSession, normalizeSiteUrl } =
+			await loadRunCommandWithFakeHome();
+
+		const normalizedUrl = normalizeSiteUrl( 'https://example.com' );
+		const pullKey = getPrivateDirNameForImportSession( normalizedUrl, 'My Completed Site' );
+		const pullsRoot = path.join( fakeHome, '.studio', 'pulls' );
+		const technicalSiteDirectory = path.join( pullsRoot, pullKey );
+		const stateDirectory = path.join( technicalSiteDirectory, 'state' );
+		const sitePath = path.join( fakeHome, 'Studio', 'My-Completed-Site' );
+
+		// Seed a completed pull whose site directory is non-empty (it holds
+		// the previous pull's output) and whose preflight response is cached.
+		fs.mkdirSync( stateDirectory, { recursive: true } );
+		fs.mkdirSync( sitePath, { recursive: true } );
+		fs.writeFileSync( path.join( sitePath, 'wp-config.php' ), '<?php // flattened output' );
+		fs.writeFileSync(
+			path.join( stateDirectory, 'preflight.json' ),
+			JSON.stringify( { siteurl: 'https://example.com' } )
+		);
+		fs.writeFileSync(
+			path.join( technicalSiteDirectory, 'pull.json' ),
+			JSON.stringify( {
+				version: 1,
+				pullKey,
+				normalizedUrl,
+				siteName: 'My Completed Site',
+				sitePath,
+				technicalSiteDirectory,
+				rawDirectory: path.join( technicalSiteDirectory, 'raw' ),
+				stateDirectory,
+				runtimeDirectory: path.join( technicalSiteDirectory, 'runtime' ),
+				runtimeBlueprintPath: path.join( technicalSiteDirectory, 'runtime', 'blueprint.json' ),
+				stage: 'completed',
+				port: 8901,
+				localUrl: 'http://localhost:8901',
+				secret: 'cached-secret',
+			} )
+		);
+
+		// Fail the first reprint invocation so the re-pull stops right after
+		// the stage reset — we assert on the persisted metadata, not on a
+		// full pipeline run.
+		const migrationClientMod = await import( 'cli/lib/pull/migration-client' );
+		const reprintSpy = vi
+			.spyOn( migrationClientMod, 'runReprintCommandUntilComplete' )
+			.mockRejectedValue( new Error( 'stop after repull reset' ) );
+		const logSpy = vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		vi.spyOn( console, 'error' ).mockImplementation( () => undefined );
+
+		await expect(
+			runCommand( 'https://example.com', 'hmac-secret', 'My Completed Site', false, false, false )
+		).rejects.toThrow();
+
+		// The old behavior exited early without ever invoking reprint; the
+		// re-pull must re-enter the pipeline (preflight is its first call).
+		expect( reprintSpy ).toHaveBeenCalled();
+		expect( reprintSpy.mock.calls[ 0 ][ 2 ][ 0 ] ).toBe( 'preflight' );
+
+		// The stage machine was reset and the re-pull marker persisted.
+		const metadata = JSON.parse(
+			fs.readFileSync( path.join( technicalSiteDirectory, 'pull.json' ), 'utf-8' )
+		);
+		expect( metadata.stage ).toBe( 'initialized' );
+		expect( metadata.hasCompletedOnce ).toBe( true );
+
+		// The cached preflight was dropped so connectivity is re-verified.
+		expect( fs.existsSync( path.join( stateDirectory, 'preflight.json' ) ) ).toBe( false );
+
+		// The non-empty site directory did not trip the clobber guard.
+		expect( fs.existsSync( path.join( sitePath, 'wp-config.php' ) ) ).toBe( true );
+
+		// The user sees update messaging, not a no-op success.
+		expect( logSpy.mock.calls.flat().join( '\n' ) ).toContain( 'Updating "My Completed Site"' );
+	} );
+} );
+
+describe( 'CLI: studio pull-reprint admin credentials re-apply', () => {
+	afterEach( () => {
+		vi.restoreAllMocks();
+		vi.unstubAllGlobals();
+	} );
+
+	function makeSite( overrides: Record< string, unknown > = {} ) {
+		return {
+			id: 'site-1',
+			name: 'Test Site',
+			path: '/tmp/test-site',
+			port: 8901,
+			phpVersion: '8.2',
+			running: true,
+			...overrides,
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		} as any;
+	}
+
+	it( 'skips when the site record has no admin credentials', async () => {
+		const { reapplyAdminCredentials } = await import( '../pull-reprint' );
+		const fetchSpy = vi.fn();
+		vi.stubGlobal( 'fetch', fetchSpy );
+
+		await expect( reapplyAdminCredentials( makeSite() ) ).resolves.toBe( 'skipped' );
+		expect( fetchSpy ).not.toHaveBeenCalled();
+	} );
+
+	it( 'posts the stored credentials to the running site admin API', async () => {
+		const { reapplyAdminCredentials } = await import( '../pull-reprint' );
+		const { encodePassword } = await import( '@studio/common/lib/passwords' );
+		const fetchSpy = vi.fn().mockResolvedValue( { ok: true, status: 200 } );
+		vi.stubGlobal( 'fetch', fetchSpy );
+
+		const site = makeSite( { adminPassword: encodePassword( 'secret-pw' ) } );
+		await expect( reapplyAdminCredentials( site ) ).resolves.toBe( 'applied' );
+
+		expect( fetchSpy ).toHaveBeenCalledTimes( 1 );
+		const [ url, init ] = fetchSpy.mock.calls[ 0 ];
+		expect( String( url ) ).toContain( 'studio-admin-api' );
+		expect( init.method ).toBe( 'POST' );
+		const params = init.body as URLSearchParams;
+		expect( params.get( 'action' ) ).toBe( 'set_admin_password' );
+		expect( params.get( 'password' ) ).toBe( 'secret-pw' );
+	} );
+
+	it( 'reports an unreachable server instead of throwing on connection failure', async () => {
+		const { reapplyAdminCredentials } = await import( '../pull-reprint' );
+		const { encodePassword } = await import( '@studio/common/lib/passwords' );
+		vi.stubGlobal( 'fetch', vi.fn().mockRejectedValue( new Error( 'ECONNREFUSED' ) ) );
+
+		const site = makeSite( { adminPassword: encodePassword( 'secret-pw' ) } );
+		await expect( reapplyAdminCredentials( site ) ).resolves.toBe( 'unreachable' );
+	} );
+
+	it( 'throws when the admin API answers with an error status', async () => {
+		const { reapplyAdminCredentials } = await import( '../pull-reprint' );
+		const { encodePassword } = await import( '@studio/common/lib/passwords' );
+		vi.stubGlobal( 'fetch', vi.fn().mockResolvedValue( { ok: false, status: 400 } ) );
+
+		const site = makeSite( { adminPassword: encodePassword( 'secret-pw' ) } );
+		await expect( reapplyAdminCredentials( site ) ).rejects.toThrow(
+			'Failed to re-apply the admin credentials'
+		);
+	} );
+} );

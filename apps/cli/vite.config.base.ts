@@ -76,7 +76,7 @@ export const baseConfig = defineConfig( {
 		},
 		outDir: 'dist/cli',
 		target: 'node22',
-		rollupOptions: {
+		rolldownOptions: {
 			output: {
 				format: 'es',
 				entryFileNames: '[name].mjs',

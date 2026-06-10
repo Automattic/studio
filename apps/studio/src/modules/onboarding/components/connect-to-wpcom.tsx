@@ -45,6 +45,32 @@ export function OnboardingConnectToWpcom( { onSkip }: { onSkip: () => void } ) {
 					) ) }
 				</div>
 
+				<div data-testid="onboarding-legal" className="text-frame-text-secondary text-xs leading-5">
+					{ createInterpolateElement(
+						__(
+							'By continuing, you agree to our <tos_link>Terms of Service</tos_link> and have read our <privacy_link>Privacy Policy</privacy_link>.'
+						),
+						{
+							tos_link: (
+								<Button
+									className="learn-more-link !p-0 h-auto !text-xs"
+									variant="link"
+									onClick={ () => getIpcApi().openURL( getLocalizedLink( locale, 'a8cTos' ) ) }
+								/>
+							),
+							privacy_link: (
+								<Button
+									className="learn-more-link !p-0 h-auto !text-xs"
+									variant="link"
+									onClick={ () =>
+										getIpcApi().openURL( getLocalizedLink( locale, 'a8cPrivacyPolicy' ) )
+									}
+								/>
+							),
+						}
+					) }
+				</div>
+
 				<div className="flex flex-row gap-2 items-center">
 					<Tooltip disabled={ ! isOffline } icon={ offlineIcon } text={ offlineMessage }>
 						<Button
@@ -94,35 +120,6 @@ export function OnboardingConnectToWpcom( { onSkip }: { onSkip: () => void } ) {
 						</Button>
 					</div>
 				</Tooltip>
-			</div>
-
-			<div
-				data-testid="onboarding-legal"
-				className="text-frame-text-secondary text-xs leading-5 shrink-0 pt-10"
-			>
-				{ createInterpolateElement(
-					__(
-						'By continuing, you agree to our <tos_link>Terms of Service</tos_link> and have read our <privacy_link>Privacy Policy</privacy_link>.'
-					),
-					{
-						tos_link: (
-							<Button
-								className="learn-more-link !p-0 h-auto !text-xs"
-								variant="link"
-								onClick={ () => getIpcApi().openURL( getLocalizedLink( locale, 'a8cTos' ) ) }
-							/>
-						),
-						privacy_link: (
-							<Button
-								className="learn-more-link !p-0 h-auto !text-xs"
-								variant="link"
-								onClick={ () =>
-									getIpcApi().openURL( getLocalizedLink( locale, 'a8cPrivacyPolicy' ) )
-								}
-							/>
-						),
-					}
-				) }
 			</div>
 		</div>
 	);

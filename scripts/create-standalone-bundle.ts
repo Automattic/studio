@@ -170,6 +170,17 @@ async function main(): Promise< void > {
 		'--exclude=.cache',
 		'--exclude=playwright/browsers',
 		'--exclude=playwright-core/browsers',
+		// Unused AI provider SDKs: pi-ai loads them lazily and Studio only exposes
+		// Anthropic/OpenAI. Dead weight, and @mistralai's ~200-char generated
+		// filenames (nested under pi-coding-agent) can exceed Windows' 260-char
+		// path limit when the sidecar is extracted on first run. Exclusion
+		// patterns are unanchored, so these match at any nesting depth — same
+		// prune trunk applies to the desktop CLI bundle (#3735).
+		'--exclude=@mistralai',
+		'--exclude=@aws-sdk',
+		'--exclude=@aws-crypto',
+		'--exclude=@smithy',
+		'--exclude=@google/genai',
 	] );
 
 	const mainSize = ( fs.statSync( mainMjsFullPath ).size / 1024 / 1024 ).toFixed( 1 );

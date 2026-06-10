@@ -93,10 +93,12 @@ export default defineConfig( {
 					{
 						src: normalizePath( resolve( __dirname, 'src/about-menu/about-menu.html' ) ),
 						dest: '.',
+						rename: { stripBase: true },
 					},
 					{
 						src: normalizePath( resolve( __dirname, 'src/about-menu/studio-app-icon.png' ) ),
 						dest: '.',
+						rename: { stripBase: true },
 					},
 				],
 			} ),

@@ -100,26 +100,48 @@ const SessionUIPreviewAnnotationsContext = createContext< MutableRefObject<
 	( ( annotations: Annotation[] ) => void ) | undefined
 > | null >( null );
 
-export function SessionUIProvider( { children }: { children: ReactNode } ) {
+export function SessionUIProvider( {
+	children,
+	handlePreviewToggleEvent = true,
+}: {
+	children: ReactNode;
+	// Pass false when a descendant owns the `toggle-site-preview` IPC event
+	// with its own (e.g. route-aware) handler; a second subscription here
+	// would make one menu event toggle the preview twice.
+	handlePreviewToggleEvent?: boolean;
+} ) {
 	const parentState = useContext( SessionUIStateContext );
 	const parentDispatch = useContext( SessionUIDispatchContext );
 	if ( parentState && parentDispatch ) {
 		return <>{ children }</>;
 	}
-	return <SessionUIProviderRoot>{ children }</SessionUIProviderRoot>;
+	return (
+		<SessionUIProviderRoot handlePreviewToggleEvent={ handlePreviewToggleEvent }>
+			{ children }
+		</SessionUIProviderRoot>
+	);
 }
 
-function SessionUIProviderRoot( { children }: { children: ReactNode } ) {
+function SessionUIProviderRoot( {
+	children,
+	handlePreviewToggleEvent,
+}: {
+	children: ReactNode;
+	handlePreviewToggleEvent: boolean;
+} ) {
 	const [ state, dispatch ] = useReducer( reducer, INITIAL_STATE );
 	const previewAnnotationsRef = useRef< ( ( annotations: Annotation[] ) => void ) | undefined >(
 		undefined
 	);
 
 	useEffect( () => {
+		if ( ! handlePreviewToggleEvent ) {
+			return;
+		}
 		return getIpcListener()?.subscribe( 'toggle-site-preview', () => {
 			dispatch( { type: 'preview/toggle' } );
 		} );
-	}, [] );
+	}, [ handlePreviewToggleEvent ] );
 
 	return (
 		<SessionUIDispatchContext.Provider value={ dispatch }>

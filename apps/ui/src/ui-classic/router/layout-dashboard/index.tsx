@@ -35,7 +35,9 @@ function getPreviewRouteTarget( pathname: string ): {
 
 function DashboardLayout() {
 	return (
-		<SessionUIProvider>
+		// DashboardLayoutContent owns the `toggle-site-preview` IPC event with a
+		// route-aware handler, so the provider must not also subscribe.
+		<SessionUIProvider handlePreviewToggleEvent={ false }>
 			<DashboardLayoutContent />
 		</SessionUIProvider>
 	);

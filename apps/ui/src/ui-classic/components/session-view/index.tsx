@@ -11,11 +11,7 @@ import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-s
 import { useSites } from '@/data/queries/use-sites';
 import { useKeyboardShortcut } from '@/hooks/use-keyboard-shortcut';
 import { useSessionCommands } from '@/hooks/use-session-commands';
-import {
-	SessionUIProvider,
-	useSessionPreviewAnnotations,
-	useSessionPreviewUI,
-} from '@/hooks/use-session-ui';
+import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-session-ui';
 import { SiteMenuHeader } from '@/ui-classic/components/site-menu-header';
 import { formatAnnotationsAsPrompt, formatAnnotationsSubmittedMessage } from './annotations';
 import { Composer, ComposerSkeleton } from './composer';
@@ -111,7 +107,6 @@ function SessionViewContent( {
 	);
 	const scrollRef = useRef< HTMLDivElement >( null );
 	useSessionCommands( sessionId );
-	const preview = useSessionPreviewUI();
 	const canTogglePreview = !! ownerSite && effectiveEnvironment === 'local';
 	const ownerSiteId = ownerSite?.id;
 	const createNewChatForSite = useCallback( () => {
@@ -127,9 +122,10 @@ function SessionViewContent( {
 	useKeyboardShortcut( 'new-chat-in-current-site', createNewChatForSite, {
 		enabled: !! ownerSiteId,
 	} );
-	useKeyboardShortcut( 'toggle-site-preview', preview.toggle, {
-		enabled: canTogglePreview,
-	} );
+	// Cmd/Ctrl+Shift+B is owned by the app menu accelerator (View → Toggle
+	// Site Preview), which reaches the renderer via the `toggle-site-preview`
+	// IPC event handled in the dashboard layout. A document-level key handler
+	// here would race it and toggle twice.
 
 	const handleAnnotationsDone = useCallback(
 		( annotations: Annotation[] ) => {

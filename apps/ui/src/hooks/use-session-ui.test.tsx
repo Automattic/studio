@@ -118,4 +118,20 @@ describe( 'SessionUIProvider', () => {
 
 		expect( unsubscribe ).toHaveBeenCalled();
 	} );
+
+	it( 'does not subscribe to the app menu event when a descendant owns it', () => {
+		const subscribe = vi.fn( () => vi.fn() );
+		Object.defineProperty( window, 'ipcListener', {
+			configurable: true,
+			value: { subscribe },
+		} );
+
+		render(
+			<SessionUIProvider handlePreviewToggleEvent={ false }>
+				<PreviewStatus label="preview" />
+			</SessionUIProvider>
+		);
+
+		expect( subscribe ).not.toHaveBeenCalled();
+	} );
 } );

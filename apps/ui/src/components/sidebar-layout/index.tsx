@@ -51,7 +51,9 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 	const sidebarHeaderVariant = isMac ? ( isFullscreen ? 'fullscreen' : 'traffic-lights' ) : null;
 	const sidebarShortcut = getKeyboardShortcutDescriptor( getKeyboardShortcut( 'toggle-sidebar' ) );
 	useKeyboardShortcut( 'toggle-sidebar', toggleSidebar );
-	useKeyboardShortcut( 'open-app-settings', () => openSettings() );
+	// Cmd/Ctrl+, is owned by the app menu accelerator (Settings…), which
+	// reaches this component via the `user-settings` IPC subscription below;
+	// a document-level key handler here would be a second, competing path.
 
 	const updateSidebarScrollState = useCallback( () => {
 		const node = sidebarScrollRef.current;

@@ -15,8 +15,7 @@ import {
 	useUpdateSessionMetadata,
 } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
-import { useKeyboardShortcut } from '@/hooks/use-keyboard-shortcut';
-import { SessionUIProvider, useSessionPreviewUI } from '@/hooks/use-session-ui';
+import { SessionUIProvider } from '@/hooks/use-session-ui';
 import { formatRelativeTime } from '@/lib/format-relative-time';
 import { Composer } from '@/ui-classic/components/session-view/composer';
 import { SiteMenuHeader } from '@/ui-classic/components/site-menu-header';
@@ -41,7 +40,6 @@ function SiteOverviewViewContent( { siteId }: { siteId: string } ) {
 	const unarchiveSession = useUnarchiveSession();
 	const updateSessionMetadata = useUpdateSessionMetadata();
 	const site = sites?.find( ( candidate ) => candidate.id === siteId );
-	const preview = useSessionPreviewUI();
 	const [ composerBusy, setComposerBusy ] = useState( false );
 	const [ composerError, setComposerError ] = useState< string | null >( null );
 	const [ archivedOpen, setArchivedOpen ] = useState( false );
@@ -92,9 +90,8 @@ function SiteOverviewViewContent( { siteId }: { siteId: string } ) {
 		[ composerBusy, connector, navigate, queryClient, selectedModel, site ]
 	);
 
-	useKeyboardShortcut( 'toggle-site-preview', preview.toggle, {
-		enabled: !! site,
-	} );
+	// Cmd/Ctrl+Shift+B is owned by the app menu accelerator (View → Toggle
+	// Site Preview) and handled once, route-aware, in the dashboard layout.
 
 	if ( isLoading ) {
 		return <div className={ styles.state }>{ __( 'Loading...' ) }</div>;

@@ -69,13 +69,11 @@ export async function popupMenu( position?: { x: number; y: number } ) {
 	menu.popup( { window: window ?? undefined, ...position } );
 }
 
-// Beta features that select which Studio UI is shown; toggling them requires
+// Feature flags that select which Studio UI is shown; toggling them requires
 // reloading the main window renderer.
-const UI_MODE_BETA_FEATURES: ( keyof BetaFeatures )[] = [ 'agenticUi', 'desksUi' ];
+const UI_MODE_FEATURE_FLAGS: ( keyof FeatureFlags )[] = [ 'enableAgenticUi', 'enableDesksUi' ];
 
-async function buildBetaFeaturesMenu(
-	mainWindow: BrowserWindow | null
-): Promise< MenuItemConstructorOptions[] > {
+async function buildBetaFeaturesMenu(): Promise< MenuItemConstructorOptions[] > {
 	const currentBetaFeatures = await getBetaFeatures();
 	return Object.entries< BetaFeatureDefinition >( getBetaFeaturesDefinition() ).map(
 		( [ key, definition ] ) => {
@@ -100,15 +98,6 @@ async function buildBetaFeaturesMenu(
 								: StatsGroup.STUDIO_APP_DOLLY_DISABLE,
 							getPlatformMetric()
 						);
-					}
-					if (
-						UI_MODE_BETA_FEATURES.includes( key as keyof BetaFeatures ) &&
-						mainWindow &&
-						! mainWindow.isDestroyed()
-					) {
-						setTimeout( () => {
-							void loadMainWindowRenderer( mainWindow );
-						}, 0 );
 					}
 					void sendIpcEventToRenderer( 'beta-features-updated' );
 				},
@@ -154,11 +143,20 @@ async function getAppMenu(
 		checked: getFeatureFlagFromEnv( flag as keyof FeatureFlags ),
 		click: ( menuItem: MenuItem ) => {
 			setFeatureFlagInEnv( flag as keyof FeatureFlags, menuItem.checked );
+			if (
+				UI_MODE_FEATURE_FLAGS.includes( flag as keyof FeatureFlags ) &&
+				mainWindow &&
+				! mainWindow.isDestroyed()
+			) {
+				setTimeout( () => {
+					void loadMainWindowRenderer( mainWindow );
+				}, 0 );
+			}
 			void sendIpcEventToRenderer( 'refresh-app-globals' );
 		},
 	} ) );
 
-	const betaFeaturesMenu = await buildBetaFeaturesMenu( mainWindow );
+	const betaFeaturesMenu = await buildBetaFeaturesMenu();
 
 	return Menu.buildFromTemplate( [
 		{

@@ -12,6 +12,18 @@ export const FEATURE_FLAGS: Record< keyof FeatureFlags, FeatureFlagDefinition > 
 		flag: 'enableBlueprints',
 		default: true,
 	},
+	enableAgenticUi: {
+		label: 'Enable Agentic UI',
+		env: 'ENABLE_AGENTIC_UI',
+		flag: 'enableAgenticUi',
+		default: false,
+	},
+	enableDesksUi: {
+		label: 'Enable Desks UI',
+		env: 'ENABLE_DESKS_UI',
+		flag: 'enableDesksUi',
+		default: false,
+	},
 } as const;
 
 export function getFeatureFlagFromEnv( flag: keyof FeatureFlags ): boolean {

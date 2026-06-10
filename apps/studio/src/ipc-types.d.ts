@@ -99,13 +99,13 @@ type IpcApi = {
 
 interface FeatureFlags {
 	enableBlueprints: boolean;
+	enableAgenticUi: boolean;
+	enableDesksUi: boolean;
 }
 
 interface BetaFeatures {
 	remoteSession: boolean;
 	nativePhpRuntime?: boolean;
-	agenticUi?: boolean;
-	desksUi?: boolean;
 }
 
 interface AppGlobals extends FeatureFlags {

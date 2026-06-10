@@ -23,6 +23,8 @@ const mocks = vi.hoisted( () => ( {
 	getBetaFeatures: vi.fn(),
 	getBetaFeaturesDefinition: vi.fn(),
 	updateBetaFeature: vi.fn(),
+	getFeatureFlagFromEnv: vi.fn(),
+	setFeatureFlagInEnv: vi.fn(),
 	sendIpcEventToRenderer: vi.fn(),
 } ) );
 
@@ -72,9 +74,13 @@ vi.mock( 'src/lib/bump-stats', () => ( {
 } ) );
 
 vi.mock( 'src/lib/feature-flags', () => ( {
-	FEATURE_FLAGS: {},
-	getFeatureFlagFromEnv: vi.fn(),
-	setFeatureFlagInEnv: vi.fn(),
+	FEATURE_FLAGS: {
+		enableBlueprints: { label: 'Enable Blueprints', flag: 'enableBlueprints' },
+		enableAgenticUi: { label: 'Enable Agentic UI', flag: 'enableAgenticUi' },
+		enableDesksUi: { label: 'Enable Desks UI', flag: 'enableDesksUi' },
+	},
+	getFeatureFlagFromEnv: mocks.getFeatureFlagFromEnv,
+	setFeatureFlagInEnv: mocks.setFeatureFlagInEnv,
 } ) );
 
 vi.mock( 'src/lib/get-localized-link', () => ( {
@@ -125,6 +131,12 @@ function getPlatformBetaFeatureSublabel( description: string ) {
 	return process.platform === 'darwin' ? description : undefined;
 }
 
+function getFeatureFlagsSubmenu() {
+	const appMenu = getMenuTemplate()[ 0 ];
+	return appMenu.submenu?.find( ( item ) => item.label === 'Feature Flags' )
+		?.submenu as TestMenuItem[];
+}
+
 function getViewSubmenu() {
 	const viewMenu = getMenuTemplate().find( ( item ) => item.label === 'View' );
 	return viewMenu?.submenu as TestMenuItem[];
@@ -142,75 +154,82 @@ describe( 'app menu', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		vi.useFakeTimers();
+		vi.stubEnv( 'NODE_ENV', 'development' );
 		mocks.getMainWindow.mockResolvedValue( mainWindow );
+		mocks.getFeatureFlagFromEnv.mockReturnValue( false );
 		mocks.getBetaFeatures.mockResolvedValue( {
 			nativePhpRuntime: false,
 			remoteSession: false,
-			agenticUi: true,
-			desksUi: false,
 		} );
 		mocks.getBetaFeaturesDefinition.mockReturnValue( {
 			remoteSession: {
 				description: 'Control Studio from Telegram via the remote-session daemon.',
 				label: 'Remote Session',
 			},
-			agenticUi: {
-				description: 'Use a new AI agent focused interface for managing and editing your sites.',
-				label: 'Agentic UI',
-			},
-			desksUi: {
-				description: 'Use the experimental Desks interface. Takes precedence over Agentic UI.',
-				label: 'Desks UI',
-			},
 		} );
 	} );
 
 	afterEach( () => {
+		vi.unstubAllEnvs();
 		vi.useRealTimers();
 	} );
 
-	it( 'lists the Agentic UI and Desks UI beta features with the other beta options', async () => {
+	it( 'lists beta features without any UI mode toggles', async () => {
 		await setupMenu( { needsOnboarding: false } );
 
 		const submenu = getBetaFeaturesSubmenu();
 
-		expect( submenu.map( ( item ) => item.label ) ).toEqual( [
-			getPlatformBetaFeatureLabel(
+		expect( submenu ).toHaveLength( 1 );
+		expect( submenu[ 0 ] ).toMatchObject( {
+			checked: false,
+			label: getPlatformBetaFeatureLabel(
 				'Remote Session',
 				'Control Studio from Telegram via the remote-session daemon.'
 			),
-			getPlatformBetaFeatureLabel(
-				'Agentic UI',
-				'Use a new AI agent focused interface for managing and editing your sites.'
-			),
-			getPlatformBetaFeatureLabel(
-				'Desks UI',
-				'Use the experimental Desks interface. Takes precedence over Agentic UI.'
-			),
-		] );
-		expect( submenu.map( ( item ) => item.checked ) ).toEqual( [ false, true, false ] );
-		expect( submenu[ 1 ] ).toMatchObject( {
 			sublabel: getPlatformBetaFeatureSublabel(
-				'Use a new AI agent focused interface for managing and editing your sites.'
+				'Control Studio from Telegram via the remote-session daemon.'
 			),
 			type: 'checkbox',
 		} );
 	} );
 
-	it( 'reloads the renderer when a UI mode beta feature is toggled', async () => {
+	it( 'lists the Agentic UI and Desks UI feature flags', async () => {
 		await setupMenu( { needsOnboarding: false } );
 
-		const agenticUiItem = getBetaFeaturesSubmenu()[ 1 ];
+		const submenu = getFeatureFlagsSubmenu();
+
+		expect( submenu.map( ( item ) => item.label ) ).toEqual( [
+			'Enable Blueprints',
+			'Enable Agentic UI',
+			'Enable Desks UI',
+		] );
+	} );
+
+	it( 'reloads the renderer when a UI mode feature flag is toggled', async () => {
+		await setupMenu( { needsOnboarding: false } );
+
+		const agenticUiItem = getFeatureFlagsSubmenu()[ 1 ];
 		expect( agenticUiItem.click ).toBeDefined();
 
-		await agenticUiItem.click?.( { checked: false } );
+		await agenticUiItem.click?.( { checked: true } );
 		vi.runAllTimers();
 
-		expect( mocks.updateBetaFeature ).toHaveBeenCalledWith( 'agenticUi', false );
+		expect( mocks.setFeatureFlagInEnv ).toHaveBeenCalledWith( 'enableAgenticUi', true );
 		expect( loadMainWindowRenderer ).toHaveBeenCalledWith( mainWindow );
 	} );
 
-	it( 'does not reload the renderer when other beta features are toggled', async () => {
+	it( 'does not reload the renderer when other feature flags are toggled', async () => {
+		await setupMenu( { needsOnboarding: false } );
+
+		const blueprintsItem = getFeatureFlagsSubmenu()[ 0 ];
+		await blueprintsItem.click?.( { checked: false } );
+		vi.runAllTimers();
+
+		expect( mocks.setFeatureFlagInEnv ).toHaveBeenCalledWith( 'enableBlueprints', false );
+		expect( loadMainWindowRenderer ).not.toHaveBeenCalled();
+	} );
+
+	it( 'does not reload the renderer when beta features are toggled', async () => {
 		await setupMenu( { needsOnboarding: false } );
 
 		const remoteSessionItem = getBetaFeaturesSubmenu()[ 0 ];

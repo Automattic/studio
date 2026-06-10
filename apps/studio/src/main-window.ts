@@ -19,6 +19,7 @@ import {
 	WINDOWS_TITLEBAR_HEIGHT,
 } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
+import { getFeatureFlagFromEnv } from 'src/lib/feature-flags';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { removeMenu } from 'src/menu';
 import { SiteServer } from 'src/site-server';
@@ -29,7 +30,7 @@ import {
 	saveWindowBounds,
 } from 'src/storage/user-data';
 import type { StudioUiMode } from '@studio/common/types/desk';
-import type { UserData, WindowBounds } from 'src/storage/storage-types';
+import type { WindowBounds } from 'src/storage/storage-types';
 
 let mainWindow: BrowserWindow | null;
 let currentRendererUrl: string | undefined;
@@ -43,13 +44,11 @@ interface RendererLocation {
 	query?: Record< string, string >;
 }
 
-export function getPreferredStudioUiMode(
-	userData: Pick< UserData, 'betaFeatures' >
-): StudioUiMode {
-	if ( userData.betaFeatures?.desksUi ) {
+export function getPreferredStudioUiMode(): StudioUiMode {
+	if ( getFeatureFlagFromEnv( 'enableDesksUi' ) ) {
 		return 'desks';
 	}
-	if ( userData.betaFeatures?.agenticUi ) {
+	if ( getFeatureFlagFromEnv( 'enableAgenticUi' ) ) {
 		return 'agentic';
 	}
 	return 'default';
@@ -133,8 +132,7 @@ export async function loadMainWindowRenderer(
 	window: BrowserWindow,
 	mode?: StudioUiMode
 ): Promise< void > {
-	const resolvedMode = mode ?? getPreferredStudioUiMode( await loadUserData() );
-	await loadRendererLocation( window, getRendererLocation( resolvedMode ) );
+	await loadRendererLocation( window, getRendererLocation( mode ?? getPreferredStudioUiMode() ) );
 }
 
 export function getCurrentRendererUrl(): string {
@@ -218,10 +216,7 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		mainWindow.setFullScreen( true );
 	}
 
-	void loadRendererLocation(
-		mainWindow,
-		getRendererLocation( getPreferredStudioUiMode( userData ) )
-	);
+	void loadRendererLocation( mainWindow, getRendererLocation( getPreferredStudioUiMode() ) );
 
 	// Open the DevTools if the user had it open last time they used the app.
 	// During development the dev tools default to open.

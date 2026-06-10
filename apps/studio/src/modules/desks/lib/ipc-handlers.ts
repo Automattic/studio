@@ -5,7 +5,7 @@ import { assertDeskConfig } from '@studio/common/lib/desk-config';
 import { normalizeDeskSettings } from '@studio/common/lib/desk-settings';
 import { type DeskConfig, type DeskSettings, type StudioUiMode } from '@studio/common/types/desk';
 import { __ } from '@wordpress/i18n';
-import { updateBetaFeatures } from 'src/lib/beta-features';
+import { setFeatureFlagInEnv } from 'src/lib/feature-flags';
 import { getPreferredStudioUiMode, loadMainWindowRenderer } from 'src/main-window';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 
@@ -52,8 +52,7 @@ export async function getDeskSettings( _event: IpcMainInvokeEvent ): Promise< De
 }
 
 export async function getStudioUiMode( _event: IpcMainInvokeEvent ): Promise< StudioUiMode > {
-	const userData = await loadUserData();
-	return getPreferredStudioUiMode( userData );
+	return getPreferredStudioUiMode();
 }
 
 export async function setStudioUiMode(
@@ -61,12 +60,12 @@ export async function setStudioUiMode(
 	mode: StudioUiMode
 ): Promise< void > {
 	assertStudioUiMode( mode );
-	await updateBetaFeatures( {
-		desksUi: mode === 'desks',
+	setFeatureFlagInEnv( 'enableDesksUi', mode === 'desks' );
+	if ( mode !== 'desks' ) {
 		// Desks UI takes precedence over Agentic UI, so leave the Agentic UI
 		// flag untouched when switching to Desks.
-		...( mode !== 'desks' ? { agenticUi: mode === 'agentic' } : {} ),
-	} );
+		setFeatureFlagInEnv( 'enableAgenticUi', mode === 'agentic' );
+	}
 
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( parentWindow && ! parentWindow.isDestroyed() ) {

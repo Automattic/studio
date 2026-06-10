@@ -330,12 +330,19 @@ async function main() {
 	// argv may contain Node flags before the script path:
 	//   [binary, binary, --experimental-wasm-jspi, script.mjs, ...args]
 	// Every internal child is spawned with our own entrypoint (main.mjs) as the
-	// script path, so match that basename specifically rather than any *.mjs — a
-	// user-supplied argument that merely ends in .mjs must not be mistaken for
-	// child-process mode.
-	const scriptIndex = process.argv.findIndex(
-		( arg, i ) => i >= 2 && basename( arg ) === 'main.mjs' && existsSync( arg )
-	);
+	// first non-flag argument, so only accept a main.mjs in that position — a
+	// user command with a main.mjs argument (e.g. `studio import main.mjs`)
+	// must not be mistaken for child-process mode.
+	let scriptIndex = -1;
+	for ( let i = 2; i < process.argv.length; i++ ) {
+		const arg = process.argv[ i ];
+		if ( ! arg.startsWith( '-' ) ) {
+			if ( basename( arg ) === 'main.mjs' && existsSync( arg ) ) {
+				scriptIndex = i;
+			}
+			break;
+		}
+	}
 
 	if ( scriptIndex >= 0 ) {
 		// Child process mode: run the script directly

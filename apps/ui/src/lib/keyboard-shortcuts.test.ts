@@ -108,6 +108,41 @@ describe( 'keyboard shortcut helpers', () => {
 		).toBe( false );
 	} );
 
+	it( 'rejects chords that also hold the opposite platform modifier', () => {
+		const shortcut = getKeyboardShortcut( 'toggle-sidebar' );
+
+		expect(
+			matchesKeyboardShortcut(
+				{
+					key: 'b',
+					metaKey: true,
+					ctrlKey: true,
+					shiftKey: false,
+					altKey: false,
+					repeat: false,
+					defaultPrevented: false,
+				},
+				shortcut,
+				'MacIntel'
+			)
+		).toBe( false );
+		expect(
+			matchesKeyboardShortcut(
+				{
+					key: 'b',
+					metaKey: true,
+					ctrlKey: true,
+					shiftKey: false,
+					altKey: false,
+					repeat: false,
+					defaultPrevented: false,
+				},
+				shortcut,
+				'Win32'
+			)
+		).toBe( false );
+	} );
+
 	it( 'formats primary modifier labels for macOS and other platforms', () => {
 		const shortcut = getKeyboardShortcut( 'new-chat-in-current-site' );
 

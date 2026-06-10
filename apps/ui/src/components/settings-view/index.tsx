@@ -8,7 +8,7 @@ import {
 	__experimentalToggleGroupControl as ToggleGroupControl,
 	__experimentalToggleGroupControlOption as ToggleGroupControlOption,
 } from '@wordpress/components';
-import { __, sprintf } from '@wordpress/i18n';
+import { __, _n, sprintf } from '@wordpress/i18n';
 import { external, file, moreHorizontal } from '@wordpress/icons';
 import { Button, Icon, IconButton, SelectControl } from '@wordpress/ui';
 import { clsx } from 'clsx';
@@ -157,11 +157,13 @@ const MESSAGE_SEND_SHORTCUT_ELEMENTS: { value: MessageSendShortcut; label: strin
 
 const APPEARANCE_OPTIONS: Array< {
 	value: ColorScheme;
-	label: string;
+	// Lazy so the label translates at render time; module scope evaluates
+	// before `setLocaleData()` runs in main.tsx and would freeze English in.
+	getLabel: () => string;
 } > = [
-	{ value: 'system', label: __( 'System' ) },
-	{ value: 'light', label: __( 'Light' ) },
-	{ value: 'dark', label: __( 'Dark' ) },
+	{ value: 'system', getLabel: () => __( 'System' ) },
+	{ value: 'light', getLabel: () => __( 'Light' ) },
+	{ value: 'dark', getLabel: () => __( 'Dark' ) },
 ];
 
 function isColorScheme( value: string | number | undefined ): value is ColorScheme {
@@ -267,7 +269,7 @@ function AppearancePicker( {
 					<ToggleGroupControlOption
 						key={ option.value }
 						value={ option.value }
-						label={ option.label }
+						label={ option.getLabel() }
 					/>
 				) ) }
 			</ToggleGroupControl>
@@ -401,7 +403,7 @@ function KeyboardShortcutsList() {
 			<ul className={ styles.shortcutList }>
 				{ KEYBOARD_SHORTCUTS.map( ( shortcut ) => (
 					<li key={ shortcut.id } className={ styles.shortcutRow }>
-						<span className={ styles.shortcutLabel }>{ shortcut.label }</span>
+						<span className={ styles.shortcutLabel }>{ shortcut.getLabel() }</span>
 						<kbd className={ styles.shortcutKey }>{ getKeyboardShortcutLabel( shortcut ) }</kbd>
 					</li>
 				) ) }
@@ -473,7 +475,16 @@ function PreviewSitesSummary() {
 						<div className={ styles.previewUsageText }>
 							{ isLoadingPreviewUsage
 								? __( 'Loading…' )
-								: sprintf( __( '%1$d of %2$d active preview sites' ), siteCount, siteLimit ) }
+								: sprintf(
+										/* translators: 1: number of active preview sites, 2: maximum allowed */
+										_n(
+											'%1$d of %2$d active preview site',
+											'%1$d of %2$d active preview sites',
+											siteLimit
+										),
+										siteCount,
+										siteLimit
+								  ) }
 						</div>
 					</div>
 					<div className={ styles.previewUsageControls }>
@@ -771,10 +782,13 @@ function SkillsSettingsPanel() {
 function McpSettingsPanel() {
 	const configJson = getMcpServerConfigJson();
 	const [ copied, setCopied ] = useState( false );
+	const copiedTimeoutRef = useRef< number >( undefined );
+	useEffect( () => () => window.clearTimeout( copiedTimeoutRef.current ), [] );
 	const copyConfig = async () => {
 		await navigator.clipboard?.writeText( configJson );
 		setCopied( true );
-		window.setTimeout( () => setCopied( false ), 1600 );
+		window.clearTimeout( copiedTimeoutRef.current );
+		copiedTimeoutRef.current = window.setTimeout( () => setCopied( false ), 1600 );
 	};
 
 	return (

@@ -12,7 +12,9 @@ export type KeyboardShortcutId =
 
 export interface KeyboardShortcutDefinition {
 	id: KeyboardShortcutId;
-	label: string;
+	// Lazy so the label translates at render time; module scope evaluates
+	// before `setLocaleData()` runs in main.tsx and would freeze English in.
+	getLabel: () => string;
 	key: string;
 	modifier: 'primary';
 	shiftKey?: boolean;
@@ -26,32 +28,33 @@ type KeyboardEventLike = Pick<
 export const KEYBOARD_SHORTCUTS: KeyboardShortcutDefinition[] = [
 	{
 		id: 'toggle-sidebar',
-		label: __( 'Toggle sidebar' ),
+		getLabel: () => __( 'Toggle sidebar' ),
 		key: 'b',
 		modifier: 'primary',
 	},
 	{
 		id: 'open-app-settings',
-		label: __( 'Open preferences' ),
+		getLabel: () => __( 'Open preferences' ),
 		key: ',',
 		modifier: 'primary',
 	},
 	{
 		id: 'new-chat-in-current-site',
-		label: __( 'New chat in current site' ),
+		getLabel: () => __( 'New chat in current site' ),
 		key: 'n',
 		modifier: 'primary',
 	},
 	{
 		id: 'toggle-site-preview',
-		label: __( 'Toggle browser' ),
+		// Matches the app menu item's name (View → Toggle Site Preview).
+		getLabel: () => __( 'Toggle site preview' ),
 		key: 'b',
 		modifier: 'primary',
 		shiftKey: true,
 	},
 	{
 		id: 'toggle-site-menu',
-		label: __( 'Open site menu' ),
+		getLabel: () => __( 'Open site menu' ),
 		key: 'i',
 		modifier: 'primary',
 	},
@@ -131,8 +134,12 @@ export function matchesKeyboardShortcut(
 	) {
 		return false;
 	}
-	const hasPrimaryModifier = isApplePlatform( platform ) ? event.metaKey : event.ctrlKey;
-	if ( ! hasPrimaryModifier ) {
+	// Require an exact chord: the opposite platform modifier (Ctrl on macOS,
+	// Meta on Windows/Linux) must not be held.
+	const isApple = isApplePlatform( platform );
+	const hasPrimaryModifier = isApple ? event.metaKey : event.ctrlKey;
+	const hasOppositeModifier = isApple ? event.ctrlKey : event.metaKey;
+	if ( ! hasPrimaryModifier || hasOppositeModifier ) {
 		return false;
 	}
 	return event.key.toLowerCase() === shortcut.key.toLowerCase();

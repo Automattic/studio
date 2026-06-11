@@ -122,7 +122,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 						{ ( { onClose }: { onClose: () => void } ) => (
 							<MenuGroup>
 								<SettingsMenuItem onClick={ () => void copySite( selectedSite.id ) }>
-									{ __( 'Copy site' ) }
+									{ __( 'Duplicate site' ) }
 								</SettingsMenuItem>
 								<SettingsMenuItem
 									onClick={ () => {

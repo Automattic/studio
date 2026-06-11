@@ -60,6 +60,7 @@ describe( 'SitePreview', () => {
 		renderPreview( <SitePreview site={ createSite() } path="/wp-admin/" reloadNonce={ 0 } /> );
 
 		expect( screen.queryByRole( 'button', { name: 'Refresh' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Annotate' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'http://localhost:8881/wp-admin/' ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Start site' } ) ).toBeVisible();
 	} );

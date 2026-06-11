@@ -29,6 +29,7 @@
 		"@earendil-works/pi-ai": "0.78.0",
 		"@earendil-works/pi-coding-agent": "0.78.0",
 		"@earendil-works/pi-tui": "0.78.0",
+		"@formatjs/intl-localematcher": "^0.8.10",
 		"@inquirer/prompts": "^8.5.2",
 		"@modelcontextprotocol/sdk": "^1.27.1",
 		"@php-wasm/node": "3.1.36",

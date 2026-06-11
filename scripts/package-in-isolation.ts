@@ -25,6 +25,13 @@ import { z } from 'zod';
 
 const REPO_ROOT = path.resolve( import.meta.dirname, '..' );
 const STUDIO_APP_PACKAGE_JSON = path.join( REPO_ROOT, 'apps', 'studio', 'package.json' );
+const COPY_MODE = fs.constants.COPYFILE_FICLONE;
+const WORKSPACE_NODE_MODULES = [
+	path.join( 'apps', 'studio', 'node_modules' ),
+	path.join( 'apps', 'ui', 'node_modules' ),
+	path.join( 'apps', 'cli', 'node_modules' ),
+];
+const BUILD_OUTPUT_DIRS = new Set( [ 'out', 'dist', 'test-results' ] );
 
 const STUDIO_APP_PACKAGE_JSON_SCHEMA = z.object( {
 	scripts: z.record( z.string(), z.string() ),
@@ -49,8 +56,86 @@ function runOrFail( command: string, args: string[], cwd: string ) {
 
 	const result = spawnSync( command, args, options );
 	if ( result.status !== 0 ) {
-		process.exit( result.status ?? 1 );
+		process.exitCode = result.status ?? 1;
+		throw new Error( `Command failed: ${ [ command, ...args ].join( ' ' ) }` );
 	}
+}
+
+function linkWorkspaceDependencies( stagingRoot: string ): boolean {
+	const sourceNodeModules = path.join( REPO_ROOT, 'node_modules' );
+	const stagingNodeModules = path.join( stagingRoot, 'node_modules' );
+
+	if ( ! fs.existsSync( sourceNodeModules ) ) {
+		return false;
+	}
+
+	fs.symlinkSync(
+		sourceNodeModules,
+		stagingNodeModules,
+		process.platform === 'win32' ? 'junction' : 'dir'
+	);
+	return true;
+}
+
+function linkWorkspaceNodeModules( stagingRoot: string ) {
+	for ( const relativePath of WORKSPACE_NODE_MODULES ) {
+		const sourcePath = path.join( REPO_ROOT, relativePath );
+		if ( ! fs.existsSync( sourcePath ) ) {
+			continue;
+		}
+
+		fs.symlinkSync(
+			sourcePath,
+			path.join( stagingRoot, relativePath ),
+			process.platform === 'win32' ? 'junction' : 'dir'
+		);
+	}
+}
+
+function ensureBuildToolchain( stagingRoot: string ) {
+	if ( linkWorkspaceDependencies( stagingRoot ) ) {
+		console.log( 'Linked workspace dependencies into packaging directory.' );
+		linkWorkspaceNodeModules( stagingRoot );
+		return;
+	}
+
+	console.log( 'Installing workspace dependencies in packaging directory ...' );
+	runOrFail(
+		'npm',
+		[ 'ci', '--ignore-scripts', '--no-audit', '--no-fund', '--no-progress' ],
+		stagingRoot
+	);
+	runOrFail( 'npx', [ 'patch-package', '--patch-dir', 'apps/cli/patches' ], stagingRoot );
+	runOrFail( 'npx', [ 'patch-package', '--patch-dir', 'apps/studio/patches' ], stagingRoot );
+	runOrFail( 'node', [ './scripts/remove-fs-ext-other-platform-binaries.mjs' ], stagingRoot );
+}
+
+function hasBundledServerFiles( repoRoot: string ): boolean {
+	const requiredPaths = [
+		'wp-files/latest/wordpress/wp-includes/version.php',
+		'wp-files/latest/available-site-translations.json',
+		'wp-files/sqlite-database-integration/db.copy',
+		'wp-files/wp-cli/wp-cli.phar',
+		'wp-files/sqlite-command/command.php',
+		'wp-files/phpmyadmin/index.php',
+		'wp-files/reprint/reprint.phar',
+		'wp-files/skills/wp-plugin-development/SKILL.md',
+	];
+
+	return requiredPaths.every( ( requiredPath ) =>
+		fs.existsSync( path.join( repoRoot, requiredPath ) )
+	);
+}
+
+function ensureBundledServerFiles( stagingRoot: string ) {
+	if ( hasBundledServerFiles( stagingRoot ) ) {
+		return;
+	}
+
+	console.log( 'Downloading missing bundled server files in packaging directory ...' );
+	runOrFail( 'npx', [ 'tsx', './scripts/download-wp-server-files.ts' ], stagingRoot );
+	runOrFail( 'node', [ './scripts/download-available-site-translations.mjs' ], stagingRoot );
+	runOrFail( 'npx', [ 'tsx', './scripts/download-agent-skills.ts' ], stagingRoot );
 }
 
 function shouldCopyToStaging( sourcePath: string ): boolean {
@@ -60,9 +145,36 @@ function shouldCopyToStaging( sourcePath: string ): boolean {
 	const pathSegments = relativePath.split( path.sep );
 	if ( pathSegments.includes( '.git' ) ) return false;
 	if ( pathSegments.includes( 'node_modules' ) ) return false;
+	if ( BUILD_OUTPUT_DIRS.has( pathSegments[ 0 ] ) ) return false;
+	if ( pathSegments[ 0 ] === 'apps' && BUILD_OUTPUT_DIRS.has( pathSegments[ 2 ] ) ) {
+		return false;
+	}
+	if ( pathSegments[ 0 ] === 'tools' && BUILD_OUTPUT_DIRS.has( pathSegments[ 2 ] ) ) {
+		return false;
+	}
 
-	const topLevelDir = pathSegments[ 0 ];
-	return topLevelDir !== 'out' && topLevelDir !== 'dist' && topLevelDir !== 'test-results';
+	return true;
+}
+
+function moveOrCopySync( from: string, to: string ) {
+	fs.rmSync( to, { recursive: true, force: true } );
+	fs.mkdirSync( path.dirname( to ), { recursive: true } );
+
+	try {
+		fs.renameSync( from, to );
+	} catch ( error ) {
+		const code = error && typeof error === 'object' && 'code' in error ? error.code : undefined;
+		if ( code !== 'EXDEV' ) {
+			throw error;
+		}
+		fs.cpSync( from, to, {
+			recursive: true,
+			force: true,
+			verbatimSymlinks: true,
+			mode: COPY_MODE,
+		} );
+		fs.rmSync( from, { recursive: true, force: true } );
+	}
 }
 
 function copyArtifactsBack( stagingRoot: string ) {
@@ -80,9 +192,7 @@ function copyArtifactsBack( stagingRoot: string ) {
 
 	for ( const [ from, to ] of artifactPaths ) {
 		if ( ! fs.existsSync( from ) ) continue;
-		fs.rmSync( to, { recursive: true, force: true } );
-		fs.mkdirSync( path.dirname( to ), { recursive: true } );
-		fs.cpSync( from, to, { recursive: true, force: true, verbatimSymlinks: true } );
+		moveOrCopySync( from, to );
 	}
 }
 
@@ -116,10 +226,11 @@ function main() {
 		fs.cpSync( REPO_ROOT, stagingRoot, {
 			recursive: true,
 			filter: shouldCopyToStaging,
+			mode: COPY_MODE,
 		} );
 
-		console.log( 'Installing workspace dependencies in packaging directory ...' );
-		runOrFail( 'npm', [ 'ci' ], stagingRoot );
+		ensureBuildToolchain( stagingRoot );
+		ensureBundledServerFiles( stagingRoot );
 
 		console.log( `Running script "${ scriptName }" in packaging directory ...` );
 		runOrFail( 'npm', [ '-w', 'studio-app', 'run', scriptName ], stagingRoot );

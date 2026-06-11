@@ -235,12 +235,21 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 		}
 	} );
 
+	let didCleanup = false;
 	const cleanup = ( code: number | null ) => {
+		if ( didCleanup ) {
+			return;
+		}
+		didCleanup = true;
+
 		runsBySessionId.delete( sessionId );
 		runsById.delete( runId );
 
 		bumpCodeRunStat( run, code );
 
+		// Remove eagerly: the child consumed the payload at startup, and waiting
+		// for the event queue to drain risks leaking the dir (it holds
+		// user-attached images) if the app quits first.
 		if ( inputPayload ) {
 			fs.rm( inputPayload.dir, { recursive: true, force: true }, ( error ) => {
 				if ( error ) {
@@ -249,7 +258,7 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 			} );
 		}
 
-		void run.eventQueue.finally( () => {
+		void run.eventQueue.finally( async () => {
 			if ( run.interrupted ) {
 				sendEvent( run, { type: 'run.interrupted', timestamp: nowIso() } );
 			}
@@ -268,6 +277,7 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 			timestamp: nowIso(),
 			message: error.message || 'CLI subprocess failed to start',
 		} );
+		cleanup( null );
 	} );
 
 	child.on( 'exit', cleanup );

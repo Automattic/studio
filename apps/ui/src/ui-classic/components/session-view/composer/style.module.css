@@ -19,6 +19,56 @@
 	box-shadow: 0 1px 2px rgb(0 0 0 / 6%), 0 6px 16px rgb(0 0 0 / 8%);
 }
 
+.shell[data-dragging-image='true'] {
+	border-color: var(--wpds-color-stroke-focus-brand, #3858e9);
+}
+
+.attachments {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--wpds-dimension-padding-xs);
+	padding-bottom: var(--wpds-dimension-padding-sm);
+}
+
+.attachment {
+	position: relative;
+	width: 64px;
+	height: 64px;
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	overflow: hidden;
+	background-color: var(--wpds-color-bg-surface-neutral);
+	box-shadow: inset 0 0 0 1px var(--wpds-color-stroke-surface-neutral);
+}
+
+.attachmentImage {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.removeAttachment {
+	position: absolute;
+	top: 4px;
+	right: 4px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	padding: 0;
+	border: 0;
+	border-radius: 50%;
+	background-color: rgb(0 0 0 / 72%);
+	color: #fff;
+	cursor: pointer;
+}
+
+.removeAttachment:hover,
+.removeAttachment:focus-visible {
+	background-color: rgb(0 0 0 / 88%);
+}
+
 .input {
 	min-height: 48px;
 	padding: var(--wpds-dimension-padding-xs) 0;
@@ -71,6 +121,15 @@
 .iconButton svg {
 	width: 14px;
 	height: 14px;
+}
+
+.fileInput {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
+	white-space: nowrap;
 }
 
 .glyphButton {

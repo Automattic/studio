@@ -21,6 +21,8 @@ export type {
 	SiteDetails,
 	Snapshot,
 	StudioAgentQuestionData,
+	StudioChatImage,
+	StudioChatImageAttachment,
 	StudioCustomEntry,
 	StudioCustomEntryDataMap,
 	StudioCustomEntryType,

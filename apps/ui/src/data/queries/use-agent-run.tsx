@@ -1,3 +1,4 @@
+import { toStudioChatImageAttachment } from '@studio/common/ai/chat-images';
 import { useQueryClient } from '@tanstack/react-query';
 import {
 	createContext,
@@ -11,7 +12,13 @@ import {
 } from 'react';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
-import type { AgentEvent, AgentRunEvent, LoadedAiSession, SessionEntry } from '@/data/core';
+import type {
+	AgentEvent,
+	AgentRunEvent,
+	LoadedAiSession,
+	SessionEntry,
+	StudioChatImage,
+} from '@/data/core';
 
 function nowIso(): string {
 	return new Date().toISOString();
@@ -35,10 +42,12 @@ export interface QueuedPrompt {
 	id: string;
 	prompt: string;
 	displayMessage?: string;
+	images?: StudioChatImage[];
 }
 
 export interface SendMessageOptions {
 	displayMessage?: string;
+	images?: StudioChatImage[];
 }
 
 export interface LiveAgentEvents {
@@ -437,6 +446,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 	const startRun = useCallback(
 		async ( sessionId: string, prompt: string, options: SendMessageOptions = {} ) => {
 			const displayMessage = options.displayMessage ?? prompt;
+			const images = options.images ?? [];
 			dispatchSession( sessionId, { type: 'error_set', message: null } );
 
 			const optimisticEntry: SessionEntry = {
@@ -445,15 +455,44 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				parentId: null,
 				timestamp: nowIso(),
 				customType: 'studio.user_prompt',
-				data: { text: displayMessage, source: 'prompt' },
+				data: {
+					text: displayMessage,
+					source: 'prompt',
+					attachments: images.length > 0 ? images.map( toStudioChatImageAttachment ) : undefined,
+				},
 			} as SessionEntry;
-			updateCache( sessionId, ( entries ) => [ ...entries, optimisticEntry ] );
+			const optimisticUserMessageEntry: SessionEntry | null =
+				images.length > 0
+					? ( {
+							type: 'message',
+							id: shortEntryId(),
+							parentId: null,
+							timestamp: nowIso(),
+							message: {
+								role: 'user',
+								content: [
+									{ type: 'text', text: prompt },
+									...images.map( ( image ) => ( {
+										type: 'image' as const,
+										data: image.dataBase64,
+										mimeType: image.mimeType,
+									} ) ),
+								],
+							},
+					  } as unknown as SessionEntry )
+					: null;
+			updateCache( sessionId, ( entries ) => [
+				...entries,
+				optimisticEntry,
+				...( optimisticUserMessageEntry ? [ optimisticUserMessageEntry ] : [] ),
+			] );
 			dispatchSession( sessionId, { type: 'send_pending', startedAt: Date.now() } );
 
 			try {
 				await interruptRequestsBySessionRef.current.get( sessionId );
 				const { runId: newRunId } = await connector.continueSession( sessionId, prompt, {
 					displayMessage,
+					images,
 				} );
 				if ( interruptPendingStartSessionIdsRef.current.has( sessionId ) ) {
 					interruptPendingStartSessionIdsRef.current.delete( sessionId );
@@ -473,11 +512,16 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				} );
 				subscribedRunIdsBySessionRef.current.set( sessionId, newRunId );
 			} catch ( err ) {
-				updateCache( sessionId, ( entries ) => {
-					const idx = entries.lastIndexOf( optimisticEntry );
-					if ( idx === -1 ) return entries;
-					return [ ...entries.slice( 0, idx ), ...entries.slice( idx + 1 ) ];
-				} );
+				// Match by id: concurrent cache updates recreate the entries array,
+				// so the optimistic objects can't be found by reference.
+				const optimisticIds = new Set(
+					[ optimisticEntry.id, optimisticUserMessageEntry?.id ].filter(
+						( id ): id is string => !! id
+					)
+				);
+				updateCache( sessionId, ( entries ) =>
+					entries.filter( ( entry ) => ! optimisticIds.has( entry.id ) )
+				);
 				const message = err instanceof Error ? err.message : String( err );
 				dispatchSession( sessionId, { type: 'error_set', message } );
 				throw err;
@@ -606,7 +650,10 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		dispatchingQueuedRef.current = true;
 		void ( async () => {
 			try {
-				await startRun( sessionId, next.prompt, { displayMessage: next.displayMessage } );
+				await startRun( sessionId, next.prompt, {
+					displayMessage: next.displayMessage,
+					images: next.images,
+				} );
 				dispatchSession( sessionId, { type: 'queue_shift' } );
 			} catch {
 				dispatchSession( sessionId, { type: 'queue_clear' } );
@@ -627,7 +674,12 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 			if ( phase !== 'idle' || pendingQuestions.length > 0 || queuedPrompts.length > 0 ) {
 				dispatchSession( sessionId, {
 					type: 'queue_append',
-					prompt: { id: newId(), prompt, displayMessage: options.displayMessage },
+					prompt: {
+						id: newId(),
+						prompt,
+						displayMessage: options.displayMessage,
+						images: options.images,
+					},
 				} );
 				return;
 			}

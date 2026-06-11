@@ -184,6 +184,7 @@ export interface WpComSiteInfo {
 	name: string;
 	url: string;
 	isStaging: boolean;
+	isAtomic: boolean;
 }
 
 const rotateReprintSecretResponseSchema = z.object( {
@@ -206,6 +207,7 @@ const wpComSitesResponseSchema = z.object( {
 			options: z
 				.object( {
 					wpcom_staging_blog_ids: z.array( z.number() ).optional(),
+					is_wpcom_atomic: z.boolean().optional(),
 				} )
 				.optional(),
 		} )
@@ -223,7 +225,7 @@ export async function getWpComSites( token: string ): Promise< WpComSiteInfo[] >
 			{
 				fields: 'ID,name,URL,is_deleted,is_a8c,options',
 				filter: 'atomic,wpcom',
-				options: 'wpcom_staging_blog_ids',
+				options: 'wpcom_staging_blog_ids,is_wpcom_atomic',
 				site_activity: 'active',
 			}
 		);
@@ -241,6 +243,7 @@ export async function getWpComSites( token: string ): Promise< WpComSiteInfo[] >
 				name: site.name,
 				url: site.URL,
 				isStaging: stagingSiteIds.has( site.ID ),
+				isAtomic: Boolean( site.options?.is_wpcom_atomic ),
 			} ) );
 	} catch ( error ) {
 		if ( error instanceof z.ZodError ) {

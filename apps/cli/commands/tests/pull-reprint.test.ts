@@ -77,6 +77,7 @@ describe( 'CLI: studio pull-reprint helpers', () => {
 						name: 'Example',
 						url: 'https://example.wordpress.com/',
 						isStaging: false,
+						isAtomic: true,
 					},
 				],
 				'https://example.wordpress.com'
@@ -86,6 +87,7 @@ describe( 'CLI: studio pull-reprint helpers', () => {
 			name: 'Example',
 			url: 'https://example.wordpress.com/',
 			isStaging: false,
+			isAtomic: true,
 		} );
 	} );
 
@@ -93,8 +95,20 @@ describe( 'CLI: studio pull-reprint helpers', () => {
 		expect(
 			formatWpComSitesList(
 				[
-					{ id: 1, name: 'One', url: 'https://one.wordpress.com', isStaging: false },
-					{ id: 2, name: 'Two', url: 'https://two.wordpress.com', isStaging: false },
+					{
+						id: 1,
+						name: 'One',
+						url: 'https://one.wordpress.com',
+						isStaging: false,
+						isAtomic: true,
+					},
+					{
+						id: 2,
+						name: 'Two',
+						url: 'https://two.wordpress.com',
+						isStaging: false,
+						isAtomic: true,
+					},
 				],
 				1
 			)
@@ -388,8 +402,8 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 	};
 
 	const sites: WpComSiteInfo[] = [
-		{ id: 11, name: 'One', url: 'https://one.wordpress.com', isStaging: false },
-		{ id: 22, name: 'Two', url: 'https://two.wordpress.com', isStaging: true },
+		{ id: 11, name: 'One', url: 'https://one.wordpress.com', isStaging: false, isAtomic: true },
+		{ id: 22, name: 'Two', url: 'https://two.wordpress.com', isStaging: true, isAtomic: true },
 	];
 
 	const originalIsTTY = process.stdin.isTTY;
@@ -463,12 +477,69 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 		} );
 	} );
 
-	it( 'errors when no connected sites exist (zero-site path unchanged)', async () => {
+	it( 'errors when no connected sites exist', async () => {
 		setTTY( true );
 		vi.mocked( getWpComSites ).mockResolvedValue( [] );
 
-		await expect( resolveSourceSite() ).rejects.toThrow( /No active WordPress\.com sites/ );
+		await expect( resolveSourceSite() ).rejects.toThrow( /No pullable WordPress\.com sites/ );
 		expect( pickWpComSite ).not.toHaveBeenCalled();
+	} );
+
+	it( 'offers only Atomic sites to the picker, excluding Simple sites', async () => {
+		setTTY( true );
+		const simple: WpComSiteInfo = {
+			id: 33,
+			name: 'Simple',
+			url: 'https://simple.wordpress.com',
+			isStaging: false,
+			isAtomic: false,
+		};
+		vi.mocked( getWpComSites ).mockResolvedValue( [ sites[ 0 ], simple, sites[ 1 ] ] );
+		vi.mocked( pickWpComSite ).mockResolvedValue( sites[ 1 ] );
+
+		const source = await resolveSourceSite();
+
+		// The Simple site is filtered out before the picker sees the list.
+		expect( pickWpComSite ).toHaveBeenCalledWith(
+			[ sites[ 0 ], sites[ 1 ] ],
+			expect.any( String )
+		);
+		expect( source ).toMatchObject( { wpComSite: sites[ 1 ] } );
+	} );
+
+	it( 'auto-picks the only Atomic site when the rest are Simple', async () => {
+		setTTY( true );
+		const simple: WpComSiteInfo = {
+			id: 33,
+			name: 'Simple',
+			url: 'https://simple.wordpress.com',
+			isStaging: false,
+			isAtomic: false,
+		};
+		vi.mocked( getWpComSites ).mockResolvedValue( [ simple, sites[ 0 ] ] );
+
+		const source = await resolveSourceSite();
+
+		expect( pickWpComSite ).not.toHaveBeenCalled();
+		expect( source ).toMatchObject( { url: 'https://one.wordpress.com', wpComSite: sites[ 0 ] } );
+	} );
+
+	it( 'rejects a Simple site passed via --url with a clear message', async () => {
+		setTTY( true );
+		vi.mocked( getWpComSites ).mockResolvedValue( [
+			{
+				id: 44,
+				name: 'Simple',
+				url: 'https://only-simple.example.com',
+				isStaging: false,
+				isAtomic: false,
+			},
+		] );
+
+		await expect( resolveSourceSite( 'https://only-simple.example.com' ) ).rejects.toThrow(
+			/Simple WordPress\.com site, which cannot be pulled/
+		);
+		expect( rotateReprintSecret ).not.toHaveBeenCalled();
 	} );
 
 	it( 'bypasses the picker entirely when --url and --secret are provided', async () => {

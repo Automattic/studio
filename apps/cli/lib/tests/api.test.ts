@@ -270,9 +270,14 @@ describe( 'API Module', () => {
 						ID: 1,
 						name: 'Production',
 						URL: 'https://prod.example.com',
-						options: { wpcom_staging_blog_ids: [ 2 ] },
+						options: { wpcom_staging_blog_ids: [ 2 ], is_wpcom_atomic: true },
 					},
-					{ ID: 2, name: 'Production', URL: 'https://staging-2-prod.wpcomstaging.com' },
+					{
+						ID: 2,
+						name: 'Production',
+						URL: 'https://staging-2-prod.wpcomstaging.com',
+						options: { is_wpcom_atomic: true },
+					},
 				],
 			} );
 			vi.mocked( wpcomFactory ).mockReturnValue( createWpcomMock( { get } ) );
@@ -280,26 +285,34 @@ describe( 'API Module', () => {
 			const sites = await getWpComSites( mockToken );
 
 			expect( sites ).toEqual( [
-				{ id: 1, name: 'Production', url: 'https://prod.example.com', isStaging: false },
+				{
+					id: 1,
+					name: 'Production',
+					url: 'https://prod.example.com',
+					isStaging: false,
+					isAtomic: true,
+				},
 				{
 					id: 2,
 					name: 'Production',
 					url: 'https://staging-2-prod.wpcomstaging.com',
 					isStaging: true,
+					isAtomic: true,
 				},
 			] );
-			// Must request the `options` field (and the staging sub-option) so the
-			// staging determination has data to work with.
+			// Must request the `options` field (and the staging + atomic
+			// sub-options) so the staging and pullability determinations
+			// have data to work with.
 			expect( get ).toHaveBeenCalledWith(
 				expect.objectContaining( { path: '/me/sites' } ),
 				expect.objectContaining( {
 					fields: expect.stringContaining( 'options' ),
-					options: 'wpcom_staging_blog_ids',
+					options: 'wpcom_staging_blog_ids,is_wpcom_atomic',
 				} )
 			);
 		} );
 
-		it( 'excludes deleted and a8c-owned sites', async () => {
+		it( 'excludes deleted and a8c-owned sites, and marks sites without is_wpcom_atomic as non-Atomic', async () => {
 			const get = vi.fn().mockResolvedValue( {
 				sites: [
 					{ ID: 1, name: 'Keep', URL: 'https://keep.example.com' },
@@ -312,7 +325,13 @@ describe( 'API Module', () => {
 			const sites = await getWpComSites( mockToken );
 
 			expect( sites ).toEqual( [
-				{ id: 1, name: 'Keep', url: 'https://keep.example.com', isStaging: false },
+				{
+					id: 1,
+					name: 'Keep',
+					url: 'https://keep.example.com',
+					isStaging: false,
+					isAtomic: false,
+				},
 			] );
 		} );
 	} );

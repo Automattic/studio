@@ -384,7 +384,9 @@ export async function runCommand(
 				}
 				const sites = await getWpComSites( token.accessToken );
 				const matched = findMatchingWpComSite( sites, sourceSiteUrl );
-				if ( ! matched ) {
+				// Simple sites can't rotate a secret — wpcomsh (and the
+				// exporter inside it) only exists on Atomic sites.
+				if ( ! matched || ! matched.isAtomic ) {
 					throw preflightError;
 				}
 				sourceSite.wpComSite = matched;
@@ -1103,10 +1105,12 @@ export function formatWpComSitesList(
  *      sites and arbitrary URLs).
  *   2. `--url` alone — try a previously cached secret from an earlier
  *      run for this URL; fall back to rotating a fresh WP.com secret.
- *   3. No `--url` — if the user has exactly one connected WP.com
- *      site, pick it; with several, show an interactive picker in a
- *      TTY (returning `null` if the user cancels) or fall back to
- *      listing them and aborting when run non-interactively.
+ *   3. No `--url` — among pullable (Atomic) sites only: if the user
+ *      has exactly one, pick it; with several, show an interactive
+ *      picker in a TTY (returning `null` if the user cancels) or fall
+ *      back to listing them and aborting when run non-interactively.
+ *      Simple WordPress.com sites can't run the reprint exporter, so
+ *      they are excluded everywhere here.
  */
 export async function resolveSourceSite(
 	url?: string,
@@ -1167,32 +1171,46 @@ export async function resolveSourceSite(
 				)
 			);
 		}
+		if ( ! matched.isAtomic ) {
+			throw new LoggerError(
+				sprintf(
+					// translators: %s: the site URL.
+					__(
+						'%s is a Simple WordPress.com site, which cannot be pulled. Pulling requires the reprint exporter to run on the source, which is only possible on WordPress.com sites with hosting features or self-hosted sites.'
+					),
+					matched.url
+				)
+			);
+		}
 		resolvedUrl = url;
 		wpComSite = matched;
 	} else {
-		if ( sites.length === 0 ) {
+		// Simple WordPress.com sites can't run the reprint exporter, so
+		// they are never suggested as pull candidates.
+		const pullableSites = sites.filter( ( site ) => site.isAtomic );
+		if ( pullableSites.length === 0 ) {
 			throw new LoggerError(
 				__(
-					'No active WordPress.com sites found. Provide both `--url` and `--secret` to pull a non-WordPress.com site.'
+					'No pullable WordPress.com sites found. Pulling requires a WordPress.com site with hosting features; provide both `--url` and `--secret` to pull a self-hosted site.'
 				)
 			);
 		}
 
-		if ( sites.length > 1 ) {
+		if ( pullableSites.length > 1 ) {
 			// In a real terminal, let the user pick interactively. Outside a
 			// TTY (CI, Desktop driving the command), keep the original
 			// print-list-and-abort behavior so scripted callers are
 			// unaffected.
 			if ( ! process.stdin.isTTY ) {
 				console.log( __( 'Connected WordPress.com sites:' ) );
-				console.log( formatWpComSitesList( sites ) );
+				console.log( formatWpComSitesList( pullableSites ) );
 				console.log( '' );
 				throw new LoggerError(
 					__( 'Multiple WordPress.com sites are available. Re-run with `--url <site-url>`.' )
 				);
 			}
 
-			const picked = await pickWpComSite( sites, __( 'Select a site to pull from' ) );
+			const picked = await pickWpComSite( pullableSites, __( 'Select a site to pull from' ) );
 			// Esc / Ctrl-C cancels the picker. Treat it as a clean no-op: the
 			// caller returns early without creating any local state.
 			if ( ! picked ) {
@@ -1202,8 +1220,8 @@ export async function resolveSourceSite(
 			wpComSite = picked;
 			resolvedUrl = picked.url;
 		} else {
-			// If the user only has one connected WordPress.com site, pull it by default.
-			wpComSite = sites[ 0 ];
+			// If the user only has one pullable WordPress.com site, pull it by default.
+			wpComSite = pullableSites[ 0 ];
 			resolvedUrl = wpComSite.url;
 			console.log( `${ __( 'Using your only connected WordPress.com site:' ) } ${ resolvedUrl }` );
 			console.log( '' );

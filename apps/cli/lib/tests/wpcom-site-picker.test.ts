@@ -14,9 +14,15 @@ const stripAnsi = ( value: string ): string => value.replace( /\x1b\[[0-9;]*m/g,
 
 describe( 'pickWpComSite', () => {
 	const sites: WpComSiteInfo[] = [
-		{ id: 1, name: 'My Blog', url: 'https://blog.example.com', isStaging: false },
-		{ id: 2, name: 'Shop', url: 'https://store.wordpress.com', isStaging: false },
-		{ id: 3, name: 'Portfolio', url: 'https://portfolio.example.org', isStaging: false },
+		{ id: 1, name: 'My Blog', url: 'https://blog.example.com', isStaging: false, isAtomic: true },
+		{ id: 2, name: 'Shop', url: 'https://store.wordpress.com', isStaging: false, isAtomic: true },
+		{
+			id: 3,
+			name: 'Portfolio',
+			url: 'https://portfolio.example.org',
+			isStaging: false,
+			isAtomic: true,
+		},
 	];
 
 	const originalIsTTY = process.stdin.isTTY;
@@ -82,12 +88,19 @@ describe( 'pickWpComSite', () => {
 
 	it( 'appends a [staging] badge to staging sites only', async () => {
 		const sitesWithStaging: WpComSiteInfo[] = [
-			{ id: 1, name: 'Production', url: 'https://prod.wordpress.com', isStaging: false },
+			{
+				id: 1,
+				name: 'Production',
+				url: 'https://prod.wordpress.com',
+				isStaging: false,
+				isAtomic: true,
+			},
 			{
 				id: 2,
 				name: 'Production',
 				url: 'https://staging-1-prod.wpcomstaging.com',
 				isStaging: true,
+				isAtomic: true,
 			},
 		];
 		vi.mocked( search ).mockResolvedValue( 1 );

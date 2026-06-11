@@ -4,6 +4,7 @@ export type {
 	AiModelId,
 	AiSessionSummary,
 	AuthUser,
+	AvailableSitePath,
 	ColorScheme,
 	Connector,
 	CreateSiteParams,

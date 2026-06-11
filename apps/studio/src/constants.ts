@@ -17,7 +17,7 @@ export const AUTO_UPDATE_INTERVAL_MS = 60 * 60 * 1000;
 export const NIGHTLY_UPDATE_TTL_MS = 24 * 60 * 60 * 1000;
 export const MACOS_TRAFFIC_LIGHT_POSITION = { x: 20, y: 20 };
 export const WINDOWS_TITLEBAR_HEIGHT = 44;
-export const EMPTY_SITE_PLAYGROUND_URL = 'https://playground.wordpress.net/';
+export { EMPTY_SITE_PLAYGROUND_URL } from '@studio/common/constants';
 export const ABOUT_WINDOW_WIDTH = 300;
 export const ABOUT_WINDOW_HEIGHT = 350;
 export const BUG_REPORT_URL =

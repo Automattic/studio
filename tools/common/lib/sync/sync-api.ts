@@ -30,24 +30,48 @@ const SITE_FIELDS = [
 	'environment_type',
 ].join( ',' );
 
-export async function fetchSyncableSites( token: string ): Promise< SyncSite[] > {
+export async function fetchSyncableSites(
+	token: string,
+	options?: { connectedSiteIds?: number[] }
+): Promise< SyncSite[] > {
 	const wpcom = wpcomFactory( token, wpcomXhrRequest );
 
-	const rawResponse = await wpcom.req.get(
-		{
-			apiNamespace: 'rest/v1.2',
-			path: '/me/sites',
-		},
-		{
-			fields: SITE_FIELDS,
-			filter: 'atomic,wpcom',
-			options: 'created_at,wpcom_staging_blog_ids',
-			site_activity: 'active',
-		}
-	);
+	// Mirrors the desktop renderer's site-picker query (wpcomSitesApi), but
+	// drains every page so callers get the full account in one call — the
+	// unpaginated v1.2 endpoint silently returned only a subset of sites.
+	const PER_PAGE = 100;
+	const MAX_PAGES = 20;
+	const allSites: unknown[] = [];
 
-	const parsed = sitesEndpointResponseSchema.parse( rawResponse );
-	return transformSitesResponse( parsed.sites );
+	for ( let page = 1; page <= MAX_PAGES; page++ ) {
+		const rawResponse = await wpcom.req.get(
+			{
+				apiNamespace: 'rest/v1.3',
+				path: '/me/sites',
+			},
+			{
+				fields: SITE_FIELDS,
+				filter: 'atomic,wpcom',
+				options: 'created_at,wpcom_staging_blog_ids,software_version',
+				site_activity: 'active',
+				include_a8c_owned: false,
+				page,
+				per_page: PER_PAGE,
+			}
+		);
+
+		const parsed = sitesEndpointResponseSchema.parse( rawResponse );
+		allSites.push( ...parsed.sites );
+		// The endpoint may clamp the requested page size, so judge "last page"
+		// by the server-reported per_page when it's present.
+		if ( parsed.sites.length < ( parsed.per_page ?? PER_PAGE ) ) {
+			break;
+		}
+	}
+
+	return transformSitesResponse( allSites, {
+		connectedSiteIds: options?.connectedSiteIds,
+	} );
 }
 
 export async function initiateBackup(

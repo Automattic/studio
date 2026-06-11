@@ -1,3 +1,5 @@
+import { getSiteEnvironment } from '@studio/common/lib/sync/environment-utils';
+import { getMshotUrl } from '@studio/common/lib/sync/mshots';
 import { Icon, SearchControl as SearchControlWp, Spinner } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
@@ -15,7 +17,6 @@ import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { CreateButton } from 'src/modules/sync/components/create-button';
 import { EnvironmentBadge } from 'src/modules/sync/components/environment-badge';
 import { NoWpcomSitesModal } from 'src/modules/sync/components/no-wpcom-sites-modal';
-import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import { useI18nLocale, useRootSelector } from 'src/stores';
 import {
 	connectedSitesSelectors,
@@ -416,10 +417,6 @@ function ListSites( {
 			<div className="pointer-events-none sticky bottom-0 h-10 -mt-10 z-10 bg-gradient-to-t from-frame to-transparent" />
 		</div>
 	);
-}
-
-function getMshotUrl( siteUrl: string ): string {
-	return `https://s0.wp.com/mshots/v1/${ encodeURIComponent( siteUrl ) }?w=600&h=400`;
 }
 
 function SiteThumbnail( {

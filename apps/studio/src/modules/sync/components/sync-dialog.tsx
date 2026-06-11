@@ -1,5 +1,6 @@
 import { PRESSABLE_PHP_VERSION } from '@studio/common/constants';
 import { SYNC_PUSH_SIZE_LIMIT_GB } from '@studio/common/lib/sync/constants';
+import { getSiteEnvironment } from '@studio/common/lib/sync/environment-utils';
 import {
 	Icon,
 	SelectControl,
@@ -29,7 +30,6 @@ import { SiteNameBox } from 'src/modules/sync/components/site-name-box';
 import { useSelectedItemsPushSize } from 'src/modules/sync/hooks/use-selected-items-push-size';
 import { useSyncDialogTexts } from 'src/modules/sync/hooks/use-sync-dialog-texts';
 import { useTopLevelSyncTree } from 'src/modules/sync/hooks/use-top-level-sync-tree';
-import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import { useI18nLocale } from 'src/stores';
 import {
 	useHostingPhpVersion,

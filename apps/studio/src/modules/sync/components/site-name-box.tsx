@@ -1,5 +1,5 @@
 import { EnvironmentBadge, StudioBadge } from 'src/modules/sync/components/environment-badge';
-import type { EnvironmentType } from 'src/modules/sync/lib/environment-utils';
+import type { EnvironmentType } from '@studio/common/lib/sync/environment-utils';
 
 type SiteNameBoxProps = {
 	siteName: string;

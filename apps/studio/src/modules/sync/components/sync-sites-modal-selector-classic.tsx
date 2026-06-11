@@ -1,3 +1,4 @@
+import { getSiteEnvironment } from '@studio/common/lib/sync/environment-utils';
 import { Icon, SearchControl as SearchControlWp, Spinner } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
@@ -17,7 +18,6 @@ import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { CreateButton } from 'src/modules/sync/components/create-button';
 import { EnvironmentBadge } from 'src/modules/sync/components/environment-badge';
 import { NoWpcomSitesModal } from 'src/modules/sync/components/no-wpcom-sites-modal';
-import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import { useI18nLocale, useRootSelector } from 'src/stores';
 import {
 	connectedSitesSelectors,

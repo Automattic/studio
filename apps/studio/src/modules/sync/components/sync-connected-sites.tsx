@@ -1,3 +1,4 @@
+import { getSiteEnvironment } from '@studio/common/lib/sync/environment-utils';
 import { Icon } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { sprintf } from '@wordpress/i18n';
@@ -34,7 +35,6 @@ import {
 	convertTreeToPullOptions,
 	convertTreeToPushOptions,
 } from 'src/modules/sync/lib/convert-tree-to-sync-options';
-import { getSiteEnvironment } from 'src/modules/sync/lib/environment-utils';
 import { useAppDispatch, useI18nLocale, useRootSelector } from 'src/stores';
 import {
 	syncOperationsSelectors,

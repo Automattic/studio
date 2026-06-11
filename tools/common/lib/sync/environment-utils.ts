@@ -1,6 +1,6 @@
-import { SyncSite } from '@studio/common/types/sync';
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
+import type { SyncSite } from '@studio/common/types/sync';
 
 const EnvironmentSchema = z.enum( [ 'production', 'staging', 'development' ] );
 export type EnvironmentType = z.infer< typeof EnvironmentSchema >;

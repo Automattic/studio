@@ -1,6 +1,6 @@
+import { EnvironmentType } from '@studio/common/lib/sync/environment-utils';
 import { useI18n } from '@wordpress/react-i18n';
 import { useMemo } from 'react';
-import { EnvironmentType } from 'src/modules/sync/lib/environment-utils';
 
 type TextByEnvironment = {
 	[ key in EnvironmentType ]: {

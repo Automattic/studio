@@ -1,10 +1,12 @@
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
+import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
 import type {
 	ActiveAgentRun,
 	AiSessionSummary,
 	AiSessionPlacementUpdatedEvent,
 	AuthUser,
+	AvailableSitePath,
 	ColorScheme,
 	Connector,
 	DeskConfig,
@@ -192,8 +194,8 @@ export function createIpcConnector(): Connector {
 			};
 		},
 
-		async authenticate(): Promise< void > {
-			await ipcApi.authenticate( false );
+		async authenticate( signup = false ): Promise< void > {
+			await ipcApi.authenticate( signup );
 		},
 
 		async logout(): Promise< void > {
@@ -221,6 +223,7 @@ export function createIpcConnector(): Connector {
 				adminPassword,
 				adminEmail,
 				blueprint,
+				skipStart,
 			} = params;
 			return ( await ipcApi.createSite( path, {
 				siteName: name,
@@ -232,6 +235,7 @@ export function createIpcConnector(): Connector {
 				adminPassword,
 				adminEmail,
 				blueprint,
+				noStart: skipStart,
 			} ) ) as SiteDetails;
 		},
 
@@ -256,6 +260,16 @@ export function createIpcConnector(): Connector {
 
 		async generateProposedSiteName( usedSites ): Promise< string > {
 			return ( await ipcApi.generateSiteNameFromList( usedSites ) ) as string;
+		},
+
+		async findAvailableSitePath( baseName ): Promise< AvailableSitePath > {
+			// The main process resolves the numbered-name collision search in a
+			// single call (checking both existing site names and non-empty site
+			// folders) — same helper `copySite` uses above.
+			const sites = ( await ipcApi.getSiteDetails() ) as SiteDetails[];
+			const name = ( await ipcApi.generateNumberedNameFromList( baseName, sites ) ) as string;
+			const { path } = ( await ipcApi.generateProposedSitePath( name ) ) as { path: string };
+			return { name, path };
 		},
 
 		async generateProposedSitePath( siteName ): Promise< ProposedSitePath > {
@@ -336,6 +350,13 @@ export function createIpcConnector(): Connector {
 			return list;
 		},
 
+		async getWordPressVersions() {
+			// Fetches straight from the wordpress.org version-check API (the
+			// renderer CSP allows api.wordpress.org) using the same shared
+			// helper the desktop renderer's version selector relies on.
+			return fetchWordPressVersions();
+		},
+
 		async getFilePath( file ) {
 			// `webUtils.getPathForFile` is a synchronous preload-only API; the
 			// connector wraps it in a Promise to keep the surface uniform and
@@ -354,6 +375,21 @@ export function createIpcConnector(): Connector {
 
 		async cleanupBlueprintTempDir( tempDir ) {
 			await ipcApi.cleanupBlueprintTempDir( tempDir );
+		},
+
+		async readBlueprintFile( filePath ): Promise< Record< string, unknown > > {
+			return ( await ipcApi.readBlueprintFile( filePath ) ) as Record< string, unknown >;
+		},
+
+		onAddSiteRequested( listener ) {
+			return ipcListener.subscribe( 'add-site', () => listener() );
+		},
+
+		onAddSiteWithBlueprint( listener ) {
+			return ipcListener.subscribe(
+				'add-site-with-blueprint',
+				( _event: unknown, payload: { blueprintPath: string } ) => listener( payload )
+			);
 		},
 
 		async importSiteFromBackup( siteId, backup ): Promise< SiteDetails > {

@@ -4,6 +4,7 @@ import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessio
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
+import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { DeskConfig, DeskSettings } from '@studio/common/types/desk';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
@@ -98,7 +99,9 @@ export interface Connector {
 	requiresAuth: boolean;
 	isAuthenticated(): Promise< boolean >;
 	getAuthUser(): Promise< AuthUser | null >;
-	authenticate(): Promise< void >;
+	// Starts the WordPress.com OAuth flow in the browser. Pass `signup` to
+	// land on account creation instead of login.
+	authenticate( signup?: boolean ): Promise< void >;
 	logout(): Promise< void >;
 	onAuthStateChanged?( listener: () => void ): () => void;
 
@@ -139,6 +142,11 @@ export interface Connector {
 	// and domain lookups).
 	generateProposedSitePath( siteName: string ): Promise< ProposedSitePath >;
 	generateProposedSiteName( usedSites: SiteDetails[] ): Promise< string >;
+	// Resolves a base name to one that doesn't collide with an existing site
+	// name or a non-empty site folder ("My Site", "My Site 2", …), returning
+	// it with its proposed directory. The collision search runs in the main
+	// process so callers pay a constant number of IPC round-trips.
+	findAvailableSitePath( baseName: string ): Promise< AvailableSitePath >;
 	selectSiteFolder( defaultPath: string ): Promise< SelectedSiteFolder | null >;
 	comparePaths( path1: string, path2: string ): Promise< boolean >;
 	getAllCustomDomains(): Promise< string[] >;
@@ -147,6 +155,11 @@ export interface Connector {
 	// flow. Sourced from the public wpcom/v2/studio-app/blueprints endpoint —
 	// no auth required, localized by the user's current UI locale.
 	getFeaturedBlueprints( locale?: string ): Promise< FeaturedBlueprint[] >;
+
+	// Installable WordPress versions from the wordpress.org version-check
+	// API: a "latest" auto-updating option first, then nightly/beta and
+	// stable releases down to Playground's minimum supported version.
+	getWordPressVersions(): Promise< WordPressVersion[] >;
 
 	// Resolves the absolute filesystem path of a File handle picked or dropped
 	// in the renderer. Returns an empty string when the underlying file lacks
@@ -161,6 +174,19 @@ export interface Connector {
 	// temp directory automatically when it uses the extracted blueprint.
 	extractBlueprintBundle( zipFilePath: string ): Promise< ExtractedBlueprintBundle >;
 	cleanupBlueprintTempDir( tempDir: string ): Promise< void >;
+
+	// Reads a Blueprint JSON file from disk. Used by the `wp-studio://add-site`
+	// deep link, which downloads and validates the blueprint in the main
+	// process and hands the renderer a temp file path to read it back from.
+	readBlueprintFile( filePath: string ): Promise< Record< string, unknown > >;
+
+	// Fires when the user asks to add a site from outside the renderer —
+	// currently the File ▸ Add Site… menu item (⌘N).
+	onAddSiteRequested( listener: () => void ): () => void;
+	// Fires when a `wp-studio://add-site?blueprint_url=…` (or `blueprint=…`)
+	// deep link arrives. The payload points at a blueprint JSON file the main
+	// process already downloaded and validated; read it via `readBlueprintFile`.
+	onAddSiteWithBlueprint( listener: ( payload: { blueprintPath: string } ) => void ): () => void;
 
 	// Imports a backup archive into an already-created site. Extracts the
 	// archive, installs the SQLite integration if missing, then imports the
@@ -340,6 +366,10 @@ export interface CreateSiteParams {
 	adminUsername?: string;
 	adminPassword?: string;
 	adminEmail?: string;
+	// Skips starting the site server after creation. Used by flows that
+	// immediately overwrite the fresh install (pulling a connected
+	// WordPress.com site), where the sync handler restarts the server itself.
+	skipStart?: boolean;
 	// Optional blueprint payload. When present, `blueprint` is the parsed
 	// blueprint JSON; `slug` is set for featured blueprints (used for stats);
 	// `filePath` points at the extracted `blueprint.json` inside a ZIP bundle
@@ -363,6 +393,11 @@ export interface ProposedSitePath {
 	isEmpty: boolean;
 	isWordPress: boolean;
 	isNameTooLong?: boolean;
+}
+
+export interface AvailableSitePath {
+	name: string;
+	path: string;
 }
 
 export interface SelectedSiteFolder {

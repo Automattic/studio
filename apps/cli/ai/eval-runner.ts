@@ -127,6 +127,7 @@ function readInput(): EvalRunnerInput {
 }
 
 async function runEval( input: EvalRunnerInput ) {
+	// Mirrors the fallback in runStudioAgentTurn (ai/runtimes/pi/index.ts) — keep in sync.
 	const resolvedModel = input.model ?? DEFAULT_MODEL;
 	const evalStartedAt = Date.now();
 	const elapsed = () => Date.now() - evalStartedAt;
@@ -177,7 +178,7 @@ async function runEval( input: EvalRunnerInput ) {
 	let session: SessionManager;
 	if ( sessionDirEnv ) {
 		mkdirSync( sessionDirEnv, { recursive: true } );
-		session = await SessionManager.create( STUDIO_SITES_ROOT, sessionDirEnv );
+		session = SessionManager.create( STUDIO_SITES_ROOT, sessionDirEnv );
 	} else {
 		session = SessionManager.inMemory( STUDIO_SITES_ROOT );
 	}

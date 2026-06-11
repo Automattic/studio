@@ -1,9 +1,14 @@
 import { STUDIO_CHAT_MAX_FILES, type StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import {
+	createStudioChatImagePreview,
+	loadImageElement,
+} from '@studio/common/ai/chat-image-preview';
+import {
 	STUDIO_CHAT_MAX_IMAGES,
 	STUDIO_CHAT_MAX_IMAGE_BYTES,
 	STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES,
 	isStudioChatImageMimeType,
+	toImageDataUrl,
 	type StudioChatImage,
 	type StudioChatImageMimeType,
 } from '@studio/common/ai/chat-images';
@@ -20,6 +25,11 @@ export interface ComposerImageAttachment {
 	name: string;
 	mimeType: StudioChatImageMimeType;
 	size: number;
+	width?: number;
+	height?: number;
+	// Downscaled thumbnail persisted on the transcript's user-prompt entry so
+	// the full bytes aren't duplicated there.
+	previewDataUrl?: string;
 	dataBase64: string;
 }
 
@@ -51,6 +61,9 @@ export function toComposerSendAttachments(
 				name: attachment.name,
 				mimeType: attachment.mimeType,
 				size: attachment.size,
+				width: attachment.width,
+				height: attachment.height,
+				previewDataUrl: attachment.previewDataUrl,
 				dataBase64: attachment.dataBase64,
 			} );
 		} else {
@@ -120,12 +133,17 @@ export function useComposerAttachments() {
 					}
 					try {
 						const dataBase64 = await readFileAsBase64( file );
+						const imageElement = await loadImageElement( toImageDataUrl( file.type, dataBase64 ) );
 						return {
 							id: newAttachmentId(),
 							kind: 'image',
 							name: file.name,
 							mimeType: file.type,
 							size: file.size,
+							width: imageElement?.naturalWidth,
+							height: imageElement?.naturalHeight,
+							previewDataUrl:
+								imageElement && createStudioChatImagePreview( imageElement, file.type ),
 							dataBase64,
 						};
 					} catch {

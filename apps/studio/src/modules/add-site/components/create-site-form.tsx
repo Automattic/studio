@@ -8,11 +8,10 @@ import {
 	validateAdminEmail,
 	validateAdminUsername,
 } from '@studio/common/lib/passwords';
-import { SITE_RUNTIME_NATIVE_PHP, SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import {
-	getRecommendedPHPVersionForRuntime,
-	getSupportedPHPVersionsForRuntime,
+	RecommendedPHPVersion,
 	SupportedPHPVersion,
+	SupportedPHPVersions,
 } from '@studio/common/types/php-versions';
 import { Icon, SelectControl, Notice } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
@@ -28,7 +27,6 @@ import { SiteFormError } from 'src/components/site-form-error';
 import TextControlComponent from 'src/components/text-control';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { cx } from 'src/lib/cx';
-import { useRootSelector } from 'src/stores';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 import type { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
 import type { CreateSiteFormValues, PathValidationResult } from 'src/hooks/use-add-site';
@@ -81,17 +79,12 @@ export const CreateSiteForm = ( {
 }: CreateSiteFormProps ) => {
 	const { __, isRTL } = useI18n();
 	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
-	const runtime = useRootSelector( ( state ) =>
-		state.betaFeatures.features.nativePhpRuntime ? SITE_RUNTIME_NATIVE_PHP : SITE_RUNTIME_PLAYGROUND
-	);
-	const supportedPhpVersions = getSupportedPHPVersionsForRuntime( runtime );
-	const recommendedPhpVersion = getRecommendedPHPVersionForRuntime( runtime );
 	const [ siteName, setSiteName ] = useState( defaultValues.siteName ?? '' );
 	const [ sitePath, setSitePath ] = useState( defaultValues.sitePath ?? '' );
 	const [ phpVersion, setPhpVersion ] = useState< SupportedPHPVersion >(
-		defaultValues.phpVersion && supportedPhpVersions.includes( defaultValues.phpVersion )
+		defaultValues.phpVersion && SupportedPHPVersions.includes( defaultValues.phpVersion )
 			? defaultValues.phpVersion
-			: recommendedPhpVersion
+			: RecommendedPHPVersion
 	);
 	const [ wpVersion, setWpVersion ] = useState(
 		defaultValues.wpVersion ?? DEFAULT_WORDPRESS_VERSION
@@ -141,26 +134,15 @@ export const CreateSiteForm = ( {
 	useEffect( () => {
 		if ( defaultValues.phpVersion !== undefined ) {
 			setPhpVersion(
-				supportedPhpVersions.includes( defaultValues.phpVersion )
+				SupportedPHPVersions.includes( defaultValues.phpVersion )
 					? defaultValues.phpVersion
-					: recommendedPhpVersion
+					: RecommendedPHPVersion
 			);
 		}
 		if ( defaultValues.wpVersion !== undefined ) {
 			setWpVersion( defaultValues.wpVersion );
 		}
-	}, [
-		defaultValues.phpVersion,
-		defaultValues.wpVersion,
-		recommendedPhpVersion,
-		supportedPhpVersions,
-	] );
-
-	useEffect( () => {
-		if ( ! supportedPhpVersions.includes( phpVersion ) ) {
-			setPhpVersion( recommendedPhpVersion );
-		}
-	}, [ phpVersion, recommendedPhpVersion, supportedPhpVersions ] );
+	}, [ defaultValues.phpVersion, defaultValues.wpVersion ] );
 
 	// Sync admin credentials from Blueprint when they change (only if user hasn't edited)
 	useEffect( () => {
@@ -495,7 +477,7 @@ export const CreateSiteForm = ( {
 										<SelectControl< SupportedPHPVersion >
 											id="php-version-select"
 											value={ phpVersion }
-											options={ supportedPhpVersions.map( ( version ) => ( {
+											options={ SupportedPHPVersions.map( ( version ) => ( {
 												label: version,
 												value: version,
 											} ) ) }

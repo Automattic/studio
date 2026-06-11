@@ -1,7 +1,11 @@
 import { spawn } from 'node:child_process';
 import { writeStudioMuPluginsForNativePhpRuntime } from '@studio/common/lib/mu-plugins';
 import { resolveNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
-import { SITE_RUNTIME_NATIVE_PHP, SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
+import {
+	getSiteRuntime,
+	SITE_RUNTIME_NATIVE_PHP,
+	SITE_RUNTIME_PLAYGROUND,
+} from '@studio/common/lib/site-runtime';
 import { __ } from '@wordpress/i18n';
 import { ArgumentsCamelCase } from 'yargs';
 import yargsParser from 'yargs-parser';
@@ -10,7 +14,6 @@ import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getPhpBinaryPath, getWpCliPharPath } from 'cli/lib/dependency-management/paths';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
-import { getSiteRuntime } from 'cli/lib/feature-flags';
 import { getDefaultPhpArgs } from 'cli/lib/native-php/config';
 import { DETACH_FOR_GROUP_KILL, reapPhpTreeOnInterrupt } from 'cli/lib/native-php/php-process';
 import { runWpCliCommand, runGlobalWpCliCommand, WpCliResponse } from 'cli/lib/run-wp-cli-command';
@@ -96,11 +99,11 @@ export async function runCommand(
 	args: string[],
 	options: { phpVersion?: string } = {}
 ): Promise< void > {
-	const runtime = getSiteRuntime();
-
 	// Handle global WP-CLI commands that don't require a site path (--studio-no-path)
 	if ( mode === Mode.GLOBAL ) {
-		await using command = await runGlobalWpCliCommand( args, { runtime } );
+		await using command = await runGlobalWpCliCommand( args, {
+			runtime: SITE_RUNTIME_PLAYGROUND,
+		} );
 
 		await pipePHPResponse( command.response );
 		process.exitCode = await command.response.exitCode;
@@ -110,7 +113,7 @@ export async function runCommand(
 
 	const site = await getSiteByFolder( siteFolder );
 
-	if ( runtime === SITE_RUNTIME_NATIVE_PHP ) {
+	if ( getSiteRuntime( site ) === SITE_RUNTIME_NATIVE_PHP ) {
 		await runNativePhpWpCliCommand( site, args );
 		return;
 	}

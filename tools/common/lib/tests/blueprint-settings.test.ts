@@ -100,7 +100,7 @@ describe( 'blueprint-settings', () => {
 		it( 'should extract all values from a complete blueprint', () => {
 			const blueprint: BlueprintV1Declaration = {
 				preferredVersions: {
-					php: '8.0',
+					php: '8.2',
 					wp: '6.4',
 				},
 				steps: [ { step: 'defineSiteUrl', siteUrl: 'https://dev.local' } ],
@@ -109,7 +109,7 @@ describe( 'blueprint-settings', () => {
 			const result = extractFormValuesFromBlueprint( blueprint );
 
 			expect( result ).toEqual( {
-				phpVersion: '8.0',
+				phpVersion: '8.2',
 				wpVersion: '6.4',
 				customDomain: 'dev.local',
 				enableHttps: true,

@@ -1,7 +1,6 @@
 import fs from 'fs';
 import path from 'path';
 import { select, input } from '@inquirer/prompts';
-import { SupportedPHPVersions, type SupportedPHPVersion } from '@php-wasm/universal';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import {
 	createBlueprintTempDir,
@@ -10,8 +9,10 @@ import {
 } from '@studio/common/lib/blueprint-bundle';
 import { isOnline } from '@studio/common/lib/network-utils';
 import { readSharedConfig } from '@studio/common/lib/shared-config';
+import { SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { fetchStudioBlueprints, type Blueprint } from '@studio/common/lib/studio-blueprints-api';
 import { BlueprintCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
+import { SupportedPHPVersions, type SupportedPHPVersion } from '@studio/common/types/php-versions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
@@ -124,6 +125,7 @@ export async function runCommand(
 			name: options.name,
 			wpVersion: options.wpVersion ?? DEFAULT_WORDPRESS_VERSION,
 			phpVersion: ( options.phpVersion ?? DEFAULT_PHP_VERSION ) as SupportedPHPVersion,
+			runtime: SITE_RUNTIME_PLAYGROUND,
 			customDomain: options.customDomain,
 			enableHttps: options.enableHttps,
 			blueprint: {

@@ -1,5 +1,7 @@
 import { decodePassword } from '@studio/common/lib/passwords';
-import { getClosestNativePhpVersion } from '@studio/common/types/php-versions';
+import { getSiteFileAccess, SITE_FILE_ACCESS_ALL_FILES } from '@studio/common/lib/site-file-access';
+import { getSiteRuntime, SITE_RUNTIME_NATIVE_PHP } from '@studio/common/lib/site-runtime';
+import { getClosestSupportedPhpVersion } from '@studio/common/types/php-versions';
 import {
 	DropdownMenu,
 	MenuGroup,
@@ -21,7 +23,7 @@ import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import EditSiteDetails from 'src/modules/site-settings/edit-site-details';
-import { useAppDispatch, useRootSelector } from 'src/stores';
+import { useAppDispatch } from 'src/stores';
 import {
 	certificateTrustApi,
 	useCheckCertificateTrustQuery,
@@ -46,9 +48,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 	const dispatch = useAppDispatch();
 	const { __ } = useI18n();
 	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
-	const isNativePhpRuntime = useRootSelector(
-		( state ) => state.betaFeatures.features.nativePhpRuntime
-	);
+	const isNativePhpRuntime = getSiteRuntime( selectedSite ) === SITE_RUNTIME_NATIVE_PHP;
 	const username = selectedSite.adminUsername || 'admin';
 	// Empty strings account for legacy sites lacking a stored password.
 	const storedPassword = decodePassword( selectedSite.adminPassword ?? '' );
@@ -60,7 +60,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 		: `localhost:${ selectedSite.port }`;
 	const protocol = selectedSite.customDomain && selectedSite.enableHttps ? 'https' : 'http';
 	const resolvedNativePhpVersion = isNativePhpRuntime
-		? getClosestNativePhpVersion( selectedSite.phpVersion )
+		? getClosestSupportedPhpVersion( selectedSite.phpVersion )
 		: undefined;
 	const showNativePhpVersionWarning =
 		isNativePhpRuntime &&
@@ -201,6 +201,18 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 								</Tooltip>
 							) }
 						</div>
+					</SettingsRow>
+					<SettingsRow label={ __( 'Mode' ) }>
+						{ /* translators: value for the Mode setting on the site settings screen */ }
+						<span>{ isNativePhpRuntime ? __( 'Native' ) : __( 'Sandbox' ) }</span>
+					</SettingsRow>
+					<SettingsRow label={ __( 'File access' ) }>
+						{ /* translators: value for the File access setting on the site settings screen */ }
+						<span>
+							{ getSiteFileAccess( selectedSite ) === SITE_FILE_ACCESS_ALL_FILES
+								? __( 'All files' )
+								: __( 'Site directory' ) }
+						</span>
 					</SettingsRow>
 					<tr>
 						<th colSpan={ 2 } className="pb-4 ltr:text-left rtl:text-right">

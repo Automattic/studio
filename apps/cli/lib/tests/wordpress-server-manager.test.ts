@@ -149,11 +149,13 @@ describe( 'WordPress Server Manager', () => {
 			expect( result ).toEqual( mockProcessDescription );
 		} );
 
-		it( 'should use the native-php child script when STUDIO_RUNTIME is native-php', async () => {
-			vi.stubEnv( 'STUDIO_RUNTIME', SITE_RUNTIME_NATIVE_PHP );
+		it( 'should use the native-php child script when the site runtime is native-php', async () => {
 			setupIpcMocks();
 
-			await startWordPressServer( mockSiteData, mockLogger );
+			await startWordPressServer(
+				{ ...mockSiteData, runtime: SITE_RUNTIME_NATIVE_PHP },
+				mockLogger
+			);
 
 			expect( vi.mocked( daemonClient.startProcess ) ).toHaveBeenCalledWith(
 				'studio-site-test-site-id',
@@ -163,10 +165,12 @@ describe( 'WordPress Server Manager', () => {
 		} );
 
 		it( 'should resolve older stored PHP versions to the closest native PHP version when starting native PHP', async () => {
-			vi.stubEnv( 'STUDIO_RUNTIME', SITE_RUNTIME_NATIVE_PHP );
 			setupIpcMocks();
 
-			await startWordPressServer( { ...mockSiteData, phpVersion: '7.4' }, mockLogger );
+			await startWordPressServer(
+				{ ...mockSiteData, runtime: SITE_RUNTIME_NATIVE_PHP, phpVersion: '7.4' },
+				mockLogger
+			);
 
 			expect( vi.mocked( ensurePhpBinaryAvailable ) ).toHaveBeenCalledWith(
 				'8.2',
@@ -183,7 +187,7 @@ describe( 'WordPress Server Manager', () => {
 			);
 		} );
 
-		it( 'should use the playground child script when STUDIO_RUNTIME is unset', async () => {
+		it( 'should use the playground child script when the site has no runtime set', async () => {
 			setupIpcMocks();
 
 			await startWordPressServer( mockSiteData, mockLogger );
@@ -192,6 +196,25 @@ describe( 'WordPress Server Manager', () => {
 				'studio-site-test-site-id',
 				expect.stringMatching( /playground-server-child\.mjs$/ ),
 				{ runtime: SITE_RUNTIME_PLAYGROUND }
+			);
+		} );
+
+		it( 'should include the file access setting in the server config', async () => {
+			setupIpcMocks();
+
+			await startWordPressServer(
+				{ ...mockSiteData, runtime: SITE_RUNTIME_NATIVE_PHP, fileAccess: 'all-files' },
+				mockLogger
+			);
+
+			expect( vi.mocked( daemonClient.sendMessageToProcess ) ).toHaveBeenCalledWith(
+				mockProcessDescription.pmId,
+				expect.objectContaining( {
+					topic: 'start-server',
+					data: expect.objectContaining( {
+						config: expect.objectContaining( { fileAccess: 'all-files' } ),
+					} ),
+				} )
 			);
 		} );
 

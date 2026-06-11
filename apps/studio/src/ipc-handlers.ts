@@ -76,6 +76,8 @@ import {
 	updateSharedConfig,
 	updateSharedSession,
 } from '@studio/common/lib/shared-config';
+import { getSiteFileAccess } from '@studio/common/lib/site-file-access';
+import { getSiteRuntime, siteModeFromRuntime } from '@studio/common/lib/site-runtime';
 import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
 import { shouldExcludeFromSync } from '@studio/common/lib/sync/exclude-from-sync';
 import { shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
@@ -975,6 +977,14 @@ export async function updateSite(
 		options.wp = isWordPressDevVersion( wpVersion ) ? 'nightly' : wpVersion;
 	}
 
+	if ( getSiteRuntime( updatedSite ) !== getSiteRuntime( currentSite ) ) {
+		options.mode = siteModeFromRuntime( getSiteRuntime( updatedSite ) );
+	}
+
+	if ( getSiteFileAccess( updatedSite ) !== getSiteFileAccess( currentSite ) ) {
+		options.fileAccess = getSiteFileAccess( updatedSite );
+	}
+
 	if ( updatedSite.enableXdebug !== currentSite.enableXdebug ) {
 		options.xdebug = updatedSite.enableXdebug ?? false;
 	}
@@ -1220,6 +1230,10 @@ export async function copySite(
 		name: siteName,
 		siteId: newSiteId,
 		phpVersion: sourceSite.phpVersion,
+		// Copies keep the source site's runtime settings rather than picking up
+		// the default for new sites.
+		runtime: getSiteRuntime( sourceSite ),
+		fileAccess: sourceSite.fileAccess,
 		adminUsername: sourceSite.adminUsername,
 		adminPassword: sourceSite.adminPassword
 			? decodePassword( sourceSite.adminPassword )
@@ -2442,7 +2456,7 @@ export async function startRemoteSessionDaemon(
 	//
 	// `STUDIO_ENABLE_REMOTE_SESSION=true` is required: the CLI gates the entire
 	// `code remote-session` subcommand tree behind that env var (see
-	// `apps/cli/lib/feature-flags.ts`). Without it, the spawned child fails with
+	// `tools/common/lib/remote-session.ts`). Without it, the spawned child fails with
 	// "Unknown arguments: remote-session, start". The `remoteSession` beta
 	// feature is the user-facing opt-in, so we lift the CLI gate in the spawned
 	// child rather than asking users to set the env var manually.

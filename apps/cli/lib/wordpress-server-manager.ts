@@ -13,6 +13,7 @@ import {
 } from '@studio/common/constants';
 import { resolveNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
 import {
+	getSiteRuntime,
 	SITE_RUNTIME_NATIVE_PHP,
 	SITE_RUNTIME_PLAYGROUND,
 	type SiteRuntime,
@@ -30,7 +31,6 @@ import {
 	sendMessageToProcess,
 } from 'cli/lib/daemon-client';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
-import { getSiteRuntime } from 'cli/lib/feature-flags';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { ServerConfig, ManagerMessagePayload } from 'cli/lib/types/wordpress-server-ipc';
 import { Logger } from 'cli/logger';
@@ -166,6 +166,10 @@ function buildServerConfig(
 		serverConfig.useExactMountLayout = true;
 	}
 
+	if ( site.fileAccess ) {
+		serverConfig.fileAccess = site.fileAccess;
+	}
+
 	if ( site.enableXdebug ) {
 		serverConfig.enableXdebug = true;
 	}
@@ -219,7 +223,7 @@ export async function startWordPressServer(
 		}
 	}
 
-	const runtime = getSiteRuntime();
+	const runtime = getSiteRuntime( site );
 	await ensurePhpBinaryAvailableIfNeeded( site, logger, runtime );
 
 	const startMessage = options?.blueprint
@@ -547,7 +551,7 @@ export async function runBlueprint(
 	logger: Logger< string >,
 	options: RunBlueprintOptions
 ): Promise< void > {
-	const runtime = getSiteRuntime();
+	const runtime = getSiteRuntime( site );
 	await ensurePhpBinaryAvailableIfNeeded( site, logger, runtime );
 	logger.reportStart( SiteCommandLoggerAction.APPLY_BLUEPRINT, __( 'Applying Blueprint…' ) );
 

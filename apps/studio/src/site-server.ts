@@ -11,6 +11,7 @@ import {
 	WP_CLI_DEFAULT_RESPONSE_TIMEOUT,
 	WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT,
 } from 'src/constants';
+import { getDefaultSiteRuntime } from 'src/lib/beta-features';
 import { CliServerProcess } from 'src/modules/cli/lib/cli-server-process';
 import { createSiteViaCli, type CreateSiteOptions } from 'src/modules/cli/lib/cli-site-creator';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
@@ -179,7 +180,9 @@ export class SiteServer {
 		};
 		const server = SiteServer.register( placeholderDetails, meta );
 
-		const result = await createSiteViaCli( { ...options, siteId } );
+		const runtime = options.runtime ?? ( await getDefaultSiteRuntime() );
+		const result = await createSiteViaCli( { ...options, runtime, siteId } );
+		server.details.runtime = runtime;
 
 		server.details.port = result.port;
 		if ( result.running ) {
@@ -236,6 +239,8 @@ export class SiteServer {
 			name: site.name,
 			path: site.path,
 			phpVersion: site.phpVersion,
+			runtime: site.runtime,
+			fileAccess: site.fileAccess,
 			isWpAutoUpdating: site.isWpAutoUpdating,
 			customDomain: site.customDomain,
 			enableHttps: site.enableHttps,

@@ -1,4 +1,8 @@
-import { SITE_RUNTIME_NATIVE_PHP, SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
+import {
+	SITE_RUNTIME_NATIVE_PHP,
+	SITE_RUNTIME_PLAYGROUND,
+	type SiteRuntime,
+} from '@studio/common/lib/site-runtime';
 import { __ } from '@wordpress/i18n';
 import { lockAppdata, unlockAppdata, loadUserData, saveUserData } from 'src/storage/user-data';
 
@@ -33,7 +37,7 @@ export function getBetaFeaturesDefinition(): Record< keyof BetaFeatures, BetaFea
 			key: 'nativePhpRuntime',
 			label: __( 'Native PHP runtime' ),
 			default: BETA_FEATURE_DEFAULTS.nativePhpRuntime,
-			description: __( 'Run Studio sites with native PHP instead of Playground.' ),
+			description: __( 'Use native PHP instead of the Playground sandbox for new sites.' ),
 		},
 	};
 }
@@ -47,17 +51,16 @@ function buildBetaFeatures( userData: BetaFeatures | undefined ): BetaFeatures {
 	return features as BetaFeatures;
 }
 
-function applyBetaFeaturesToEnvironment( features: BetaFeatures ): void {
-	process.env.STUDIO_RUNTIME = features.nativePhpRuntime
-		? SITE_RUNTIME_NATIVE_PHP
-		: SITE_RUNTIME_PLAYGROUND;
-}
-
 export async function getBetaFeatures(): Promise< BetaFeatures > {
 	const userData = await loadUserData();
-	const betaFeatures = buildBetaFeatures( userData.betaFeatures );
-	applyBetaFeaturesToEnvironment( betaFeatures );
-	return betaFeatures;
+	return buildBetaFeatures( userData.betaFeatures );
+}
+
+// The runtime is a per-site setting; the beta feature only selects the
+// default for newly created sites.
+export async function getDefaultSiteRuntime(): Promise< SiteRuntime > {
+	const betaFeatures = await getBetaFeatures();
+	return betaFeatures.nativePhpRuntime ? SITE_RUNTIME_NATIVE_PHP : SITE_RUNTIME_PLAYGROUND;
 }
 
 export async function updateBetaFeature(
@@ -72,7 +75,6 @@ export async function updateBetaFeature(
 		// line stops type-checking. That's fine — rely on type checking at the call site.
 		betaFeatures[ key ] = value;
 		userData.betaFeatures = betaFeatures;
-		applyBetaFeaturesToEnvironment( betaFeatures );
 		await saveUserData( userData );
 	} finally {
 		await unlockAppdata();

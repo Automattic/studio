@@ -30,7 +30,21 @@ import {
 	removeDbConstants,
 } from '@studio/common/lib/remove-default-db-constants';
 import { readSharedConfig } from '@studio/common/lib/shared-config';
-import { SITE_RUNTIME_NATIVE_PHP } from '@studio/common/lib/site-runtime';
+import {
+	isFileAccessAllowedForRuntime,
+	SITE_FILE_ACCESS_ALL_FILES,
+	SITE_FILE_ACCESS_SITE_DIRECTORY,
+	type SiteFileAccess,
+} from '@studio/common/lib/site-file-access';
+import {
+	SITE_MODE_NATIVE,
+	SITE_MODE_SANDBOX,
+	SITE_RUNTIME_NATIVE_PHP,
+	SITE_RUNTIME_PLAYGROUND,
+	siteRuntimeFromMode,
+	type SiteMode,
+	type SiteRuntime,
+} from '@studio/common/lib/site-runtime';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import {
@@ -39,7 +53,11 @@ import {
 } from '@studio/common/lib/wordpress-version-utils';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
-import { type SupportedPHPVersion } from '@studio/common/types/php-versions';
+import {
+	RecommendedPHPVersion,
+	SupportedPHPVersions,
+	type SupportedPHPVersion,
+} from '@studio/common/types/php-versions';
 import { __, sprintf } from '@wordpress/i18n';
 import { isStepDefinition, type BlueprintV1Declaration } from '@wp-playground/blueprints';
 import { bumpStat, getPlatformMetric } from 'cli/lib/bump-stat';
@@ -62,13 +80,8 @@ import {
 } from 'cli/lib/dependency-management/paths';
 import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
-import { getSiteRuntime } from 'cli/lib/feature-flags';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
-import {
-	getRecommendedPhpVersionForSiteRuntime,
-	getSupportedPhpVersionsForSiteRuntime,
-	validatePhpVersionForSiteRuntime,
-} from 'cli/lib/php-versions';
+import { validateSupportedPhpVersion } from 'cli/lib/php-versions';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { generateSiteName } from 'cli/lib/site-name';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
@@ -88,6 +101,8 @@ export type CreateCommandOptions = {
 	siteId?: string;
 	wpVersion: string;
 	phpVersion: SupportedPHPVersion;
+	runtime: SiteRuntime;
+	fileAccess?: SiteFileAccess;
 	customDomain?: string;
 	enableHttps: boolean;
 	blueprint?: {
@@ -106,8 +121,15 @@ export async function runCommand(
 	sitePath: string,
 	options: CreateCommandOptions
 ): Promise< void > {
-	const phpVersion = validatePhpVersionForSiteRuntime( options.phpVersion );
-	const siteRuntime = getSiteRuntime();
+	const siteRuntime = options.runtime;
+	if ( options.fileAccess && ! isFileAccessAllowedForRuntime( siteRuntime, options.fileAccess ) ) {
+		throw new LoggerError(
+			__(
+				'File access "all-files" requires native mode. The sandbox only has access to the site directory.'
+			)
+		);
+	}
+	const phpVersion = validateSupportedPhpVersion( options.phpVersion );
 	const isOnlineStatus = await isOnline();
 
 	try {
@@ -308,6 +330,8 @@ export async function runCommand(
 			adminEmail,
 			port,
 			phpVersion,
+			runtime: siteRuntime,
+			fileAccess: options.fileAccess,
 			running: false,
 			isWpAutoUpdating: options.wpVersion === DEFAULT_WORDPRESS_VERSION,
 			customDomain: options.customDomain,
@@ -498,8 +522,6 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		command: 'create',
 		describe: __( 'Create a new site' ),
 		builder: ( yargs ) => {
-			const supportedPhpVersions = getSupportedPhpVersionsForSiteRuntime();
-			const recommendedPhpVersion = getRecommendedPhpVersionForSiteRuntime();
 			return yargs
 				.option( 'id', {
 					type: 'string',
@@ -520,8 +542,24 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'php', {
 					type: 'string',
 					describe: __( 'PHP version' ),
-					choices: supportedPhpVersions,
-					defaultDescription: recommendedPhpVersion,
+					choices: SupportedPHPVersions,
+					defaultDescription: RecommendedPHPVersion,
+				} )
+				.option( 'mode', {
+					type: 'string',
+					describe: __(
+						'Run the site with native PHP ("native") or in the Playground sandbox ("sandbox")'
+					),
+					choices: [ SITE_MODE_NATIVE, SITE_MODE_SANDBOX ],
+					defaultDescription: SITE_MODE_SANDBOX,
+				} )
+				.option( 'file-access', {
+					type: 'string',
+					describe: __(
+						'Which files PHP can access in native mode: the site directory only, or all files'
+					),
+					choices: [ SITE_FILE_ACCESS_SITE_DIRECTORY, SITE_FILE_ACCESS_ALL_FILES ],
+					defaultDescription: SITE_FILE_ACCESS_SITE_DIRECTORY,
 				} )
 				.option( 'domain', {
 					type: 'string',
@@ -580,8 +618,20 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			let adminUsername = argv.adminUsername;
 			let adminPassword = argv.adminPassword;
 			let adminEmail = argv.adminEmail;
-			const supportedPhpVersions = getSupportedPhpVersionsForSiteRuntime();
-			const recommendedPhpVersion = getRecommendedPhpVersionForSiteRuntime();
+			const runtime = argv.mode
+				? siteRuntimeFromMode( argv.mode as SiteMode )
+				: SITE_RUNTIME_PLAYGROUND;
+			const fileAccess = argv.fileAccess as SiteFileAccess | undefined;
+			if ( fileAccess && ! isFileAccessAllowedForRuntime( runtime, fileAccess ) ) {
+				logger.reportError(
+					new LoggerError(
+						__(
+							'File access "all-files" requires native mode. The sandbox only has access to the site directory.'
+						)
+					)
+				);
+				return;
+			}
 
 			// Validate and resolve the WordPress version against available versions before prompting
 			if ( wpVersion && wpVersion !== 'latest' && wpVersion !== 'nightly' ) {
@@ -680,11 +730,11 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					if ( ! phpVersion ) {
 						phpVersion = await select( {
 							message: __( 'PHP version:' ),
-							choices: supportedPhpVersions.map( ( v ) => ( {
-								name: v === recommendedPhpVersion ? sprintf( __( '%s (recommended)' ), v ) : v,
+							choices: SupportedPHPVersions.map( ( v ) => ( {
+								name: v === RecommendedPHPVersion ? sprintf( __( '%s (recommended)' ), v ) : v,
 								value: v,
 							} ) ),
-							default: recommendedPhpVersion,
+							default: RecommendedPHPVersion,
 						} );
 					}
 
@@ -741,15 +791,14 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 
 			// Apply defaults for non-interactive mode when flags weren't provided
 			wpVersion = wpVersion ?? DEFAULT_WORDPRESS_VERSION;
-			const resolvedPhpVersion = validatePhpVersionForSiteRuntime(
-				phpVersion ?? recommendedPhpVersion
-			);
 
 			const config: CreateCommandOptions = {
 				name: siteName,
 				siteId: argv.id,
 				wpVersion,
-				phpVersion: resolvedPhpVersion,
+				phpVersion: ( phpVersion ?? RecommendedPHPVersion ) as SupportedPHPVersion,
+				runtime,
+				fileAccess,
 				customDomain,
 				enableHttps,
 				adminUsername,

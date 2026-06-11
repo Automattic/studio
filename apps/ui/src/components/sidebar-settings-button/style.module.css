@@ -1,9 +1,6 @@
 .root {
 	display: flex;
-	/* Horizontal padding matches the user-menu row below so the icon and
-	   label line up with the gravatar and user name. The bottom padding
-	   combines with the user menu's top padding to space the two rows. */
-	padding: 0 var(--wpds-dimension-padding-2xl) var(--wpds-dimension-padding-sm);
+	padding: 0 var(--wpds-dimension-padding-2xl) var(--wpds-dimension-padding-xl);
 }
 
 .button {

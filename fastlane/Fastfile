@@ -1254,9 +1254,9 @@ def make_cdn_builds_public(version:)
       No CDN post IDs found in draft release #{release_name}. Cannot publish without updating CDN visibility.
       To recover manually, an Automattician can find the post IDs by running this from a proxied machine:
         curl -H "Authorization: Bearer $WPCOM_API_TOKEN" \\
-          "https://public-api.wordpress.com/wp/v2/sites/#{WPCOM_STUDIO_SITE_ID}/a8c_cdn_build?search=#{version}&visibility=1316&per_page=20" \\
-          | jq '[.[] | {id, slug}]'
-        (visibility=1316 filters for Internal builds only)
+          "https://public-api.wordpress.com/wp/v2/sites/#{WPCOM_STUDIO_SITE_ID}/a8c_cdn_build?search=#{version}&per_page=50" \\
+          | jq '[.[] | select(.class_list | index("visibility-internal")) | {id, slug}]'
+        (the class_list filter selects builds that are still Internal)
       Then edit the draft GitHub release body to add a comment like:
         <!-- CDN_POST_IDS:123,456,789 -->
       and retry the publish_release lane or release tool task.

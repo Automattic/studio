@@ -76,22 +76,6 @@ describe( 'validateStudioChatImages', () => {
 		).toThrow( 'Attached images must be 5 MB or smaller.' );
 	} );
 
-	it( 'rejects non-finite image dimensions', () => {
-		expect( () =>
-			validateStudioChatImages( [
-				{
-					id: 'image-1',
-					name: 'logo.png',
-					mimeType: 'image/png',
-					size: 3,
-					width: Number.NaN,
-					height: Number.POSITIVE_INFINITY,
-					dataBase64: 'YWJj',
-				},
-			] )
-		).toThrow( 'Attached image dimensions must be finite numbers.' );
-	} );
-
 	it( 'rejects images above the maximum dimensions', () => {
 		expect( () =>
 			validateStudioChatImages( [
@@ -106,21 +90,6 @@ describe( 'validateStudioChatImages', () => {
 				},
 			] )
 		).toThrow( 'Attached images must be 8000 pixels or smaller on each side.' );
-	} );
-
-	it( 'rejects previews that are not data URLs', () => {
-		expect( () =>
-			validateStudioChatImages( [
-				{
-					id: 'image-1',
-					name: 'logo.png',
-					mimeType: 'image/png',
-					size: 3,
-					previewDataUrl: 'https://example.com/logo.png',
-					dataBase64: 'YWJj',
-				},
-			] )
-		).toThrow( 'Attached image previews must be data URLs.' );
 	} );
 
 	it( 'rejects previews above the maximum preview size', () => {

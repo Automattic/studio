@@ -1,6 +1,7 @@
 import {
 	isStudioCustomEntryOfType,
 	type StudioChatAttachmentSummary,
+	type StudioChatImageAttachmentSummary,
 	type StudioCustomEntry,
 } from '@studio/common/ai/sessions/entry-types';
 import {
@@ -70,17 +71,13 @@ interface UserImageAttachment extends StudioChatImageAttachment {
 	src?: string;
 }
 
-function isUserImageAttachmentMetadata(
-	attachment: StudioChatAttachmentSummary | StudioChatImageAttachment
-): attachment is StudioChatImageAttachment {
-	return ! ( 'kind' in attachment ) || attachment.kind === 'image';
-}
-
 function buildUserImageAttachments(
-	metadata: Array< StudioChatAttachmentSummary | StudioChatImageAttachment > | undefined
+	metadata: StudioChatAttachmentSummary[] | undefined
 ): UserImageAttachment[] {
 	return ( metadata ?? [] )
-		.filter( isUserImageAttachmentMetadata )
+		.filter(
+			( attachment ): attachment is StudioChatImageAttachmentSummary => attachment.kind === 'image'
+		)
 		.map( ( meta ) => ( { ...meta, src: meta.previewDataUrl } ) );
 }
 

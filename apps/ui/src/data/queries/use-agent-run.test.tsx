@@ -63,23 +63,6 @@ function createConnector( overrides: Partial< Connector > = {} ): Connector {
 }
 
 describe( 'useAgentRun optimistic entry cleanup', () => {
-	it( 'removes optimistic entries when the send fails', async () => {
-		const connector = createConnector( {
-			continueSession: vi.fn().mockRejectedValue( new Error( 'send failed' ) ),
-		} );
-		const { queryClient, agentRun } = renderAgentRun( connector );
-
-		await act( async () => {
-			await expect(
-				agentRun.current?.sendMessage( 'hello', { images: [ image ] } )
-			).rejects.toThrow( 'send failed' );
-		} );
-
-		const session = queryClient.getQueryData< LoadedAiSession >( SESSION_KEY );
-		expect( session?.entries ).toEqual( [ existingEntry ] );
-		expect( agentRun.current?.error ).toBe( 'send failed' );
-	} );
-
 	it( 'removes optimistic entries by id when a concurrent update recreated the cached entries', async () => {
 		let rejectSend: ( error: Error ) => void = () => {};
 		const connector = createConnector( {
@@ -111,5 +94,6 @@ describe( 'useAgentRun optimistic entry cleanup', () => {
 		const session = queryClient.getQueryData< LoadedAiSession >( SESSION_KEY );
 		expect( session?.entries ).toHaveLength( 1 );
 		expect( session?.entries[ 0 ].id ).toBe( 'existing-entry' );
+		expect( agentRun.current?.error ).toBe( 'send failed' );
 	} );
 } );

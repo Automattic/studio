@@ -77,6 +77,9 @@ type FileToDownload = {
 	destinationPath?: string;
 };
 
+const REPRINT_VERSION = 'v0.8.1';
+const REPRINT_PHAR_URL = `https://github.com/WordPress/reprint/releases/download/${ REPRINT_VERSION }/reprint.phar`;
+
 const FILES_TO_DOWNLOAD: FileToDownload[] = [
 	{
 		name: 'wordpress',
@@ -116,6 +119,12 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 		getUrl: () => PHPMYADMIN_DOWNLOAD_URL,
 		destinationPath: path.join( WP_SERVER_FILES_PATH, 'phpmyadmin' ),
 	},
+	{
+		name: 'reprint',
+		description: `reprint.phar (${ REPRINT_VERSION })`,
+		getUrl: () => REPRINT_PHAR_URL,
+		destinationPath: path.join( WP_SERVER_FILES_PATH, 'reprint' ),
+	},
 ];
 
 async function downloadFile( file: FileToDownload ): Promise< void > {
@@ -138,6 +147,9 @@ async function downloadFile( file: FileToDownload ): Promise< void > {
 	if ( name === 'wp-cli' ) {
 		console.log( `[${ name }] Moving WP-CLI to destination ...` );
 		fs.moveSync( zipPath, path.join( extractedPath, 'wp-cli.phar' ), { overwrite: true } );
+	} else if ( name === 'reprint' ) {
+		console.log( `[${ name }] Moving reprint.phar to destination ...` );
+		fs.moveSync( zipPath, path.join( extractedPath, 'reprint.phar' ), { overwrite: true } );
 	} else if ( name === 'sqlite' ) {
 		/**
 		 * The SQLite database integration plugin zip extracts into a folder named

@@ -135,9 +135,6 @@ export class LinuxCliInstallationManager implements StudioCliInstallationManager
 		}
 
 		await this.installCli();
-		if ( ! userData.cliAutoInstalled ) {
-			await updateAppdata( { cliAutoInstalled: true } );
-		}
 	}
 
 	private async installCli(): Promise< void > {

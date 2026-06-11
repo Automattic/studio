@@ -171,6 +171,7 @@ vi.mock( import( './src/storage/paths' ), () => ( {
 	getResourcesPath: vi.fn().mockReturnValue( '/mock/resources' ),
 	getUserDataFilePath: vi.fn().mockReturnValue( '/mock/userdata.json' ),
 	getUserDataLockFilePath: vi.fn().mockReturnValue( '/mock/userdata.json.lock' ),
+	getOldAppdataFilePath: vi.fn().mockReturnValue( '/mock/appdata-v1.json' ),
 	getOldUserDataCertificatesPath: vi.fn().mockReturnValue( '/mock/certificates' ),
 	getOldServerFilesPath: vi.fn().mockReturnValue( '/mock/server/files' ),
 	getCliPath: vi.fn().mockReturnValue( '/mock/cli/path' ),

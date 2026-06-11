@@ -7,7 +7,7 @@
  * small `studio` launcher script:
  *
  *   bin/node[.exe]      Official Node.js binary for the target platform
- *   bin/studio[.cmd]    Launcher: runs `node --experimental-wasm-jspi cli/main.mjs`
+ *   bin/studio[.cmd]    Launcher (the desktop app's studio-cli script, renamed)
  *   cli/                CLI bundle (main.mjs, node_modules, wp-files, …)
  *
  * Output:
@@ -140,9 +140,13 @@ async function main(): Promise< void > {
 
 	fs.cpSync( cliDistDir, path.join( stagingDir, 'cli' ), { recursive: true } );
 
+	// Reuse the desktop app's CLI launcher scripts — same bin/node + cli/main.mjs
+	// layout — so there's a single launcher implementation. The standalone
+	// install ships it under the `studio` name users invoke.
+	const launcherSource = isWindows ? 'studio-cli.bat' : 'studio-cli.sh';
 	const launcherName = isWindows ? 'studio.cmd' : 'studio';
 	const launcherPath = path.join( stagingDir, 'bin', launcherName );
-	fs.copyFileSync( path.join( repoRoot, 'scripts', 'standalone', launcherName ), launcherPath );
+	fs.copyFileSync( path.join( repoRoot, 'apps', 'studio', 'bin', launcherSource ), launcherPath );
 	if ( ! isWindows ) {
 		fs.chmodSync( launcherPath, 0o755 );
 	}

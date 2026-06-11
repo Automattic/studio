@@ -141,7 +141,7 @@ NODE
 echo '--- :mag: Verify CLI build artifacts'
 CLI_DIST="apps/cli/dist/cli"
 missing=()
-for f in reprint.phar main.mjs; do
+for f in main.mjs wp-files/reprint/reprint.phar; do
   [ -f "$CLI_DIST/$f" ] || missing+=("$f")
 done
 if [ ${#missing[@]} -gt 0 ]; then

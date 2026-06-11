@@ -236,12 +236,10 @@ export {
 	exportDeskConfig,
 	getDeskSettings,
 	getSiteDeskConfig,
-	getStudioUiMode,
 	getUserDeskConfig,
 	importDeskConfig,
 	saveDeskSettings,
 	saveSiteDeskConfig,
-	setStudioUiMode,
 	saveUserDeskConfig,
 } from 'src/modules/desks/lib/ipc-handlers';
 export { fetchSiteRest as fetchSiteRestApi } from 'src/lib/wordpress-rest-api';
@@ -2126,7 +2124,7 @@ export function showSiteContextMenu(
 
 	menu.append(
 		new MenuItem( {
-			label: __( 'Copy site…' ),
+			label: __( 'Duplicate site…' ),
 			enabled: ! isLoading && ! isAnySiteAdding,
 			click: () => {
 				sendIpcEventToRendererWithWindow(

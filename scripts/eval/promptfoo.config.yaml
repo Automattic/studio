@@ -15,7 +15,7 @@ evaluateOptions:
   maxConcurrency: 1
 
 providers:
-  - id: exec:node ../apps/cli/dist/cli/eval-runner.mjs
+  - id: exec:node ../../apps/cli/dist/cli/eval-runner.mjs
     label: studio-agent
 
 # Custom grader uses Studio's WP.com auth for llm-rubric assertions.

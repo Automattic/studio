@@ -28,7 +28,11 @@ function readStudioAuthToken() {
 function getAuthToken() {
 	// Prefer direct API key if set (e.g. in CI)
 	if ( process.env.ANTHROPIC_API_KEY ) {
-		return { token: process.env.ANTHROPIC_API_KEY, baseUrl: 'https://api.anthropic.com', isApiKey: true };
+		return {
+			token: process.env.ANTHROPIC_API_KEY,
+			baseUrl: 'https://api.anthropic.com',
+			isApiKey: true,
+		};
 	}
 	// Fall back to Studio's WP.com auth
 	const wpcomToken = readStudioAuthToken();

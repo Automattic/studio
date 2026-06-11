@@ -17,6 +17,7 @@ import {
 } from 'cli/lib/bump-stat';
 import { setupServerFiles } from 'cli/lib/dependency-management/setup';
 import { loadTranslations } from 'cli/lib/i18n';
+import { setupTosNotice } from 'cli/lib/tos-notice';
 import { StatsGroup, StatsMetric } from 'cli/lib/types/bump-stats';
 import { setupUpdateNotifier } from 'cli/lib/update-notifier';
 import { untildify } from 'cli/lib/utils';
@@ -78,6 +79,8 @@ async function main() {
 		);
 		process.exit( 1 );
 	}
+
+	await setupTosNotice();
 
 	const studioArgv: StudioArgv = yargs( process.argv.slice( 2 ) )
 		.scriptName( 'studio' )

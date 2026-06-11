@@ -44,7 +44,7 @@ export default mergeConfig(
 				: [] ),
 		],
 		build: {
-			rollupOptions: {
+			rolldownOptions: {
 				output: {
 					// Single-file bundle: everything the CLI needs at runtime is either
 					// inlined into main.mjs or resolved from the copied node_modules —

@@ -7,7 +7,7 @@ export default mergeConfig(
 	defineConfig( {
 		build: {
 			sourcemap: false,
-			rollupOptions: {
+			rolldownOptions: {
 				external: ( id ) => {
 					if ( id.includes( 'blueprint-schema-validator' ) ) {
 						return false;

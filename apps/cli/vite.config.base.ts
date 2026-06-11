@@ -1,4 +1,4 @@
-import { copyFileSync, cpSync, existsSync, mkdirSync, writeFileSync } from 'fs';
+import { cpSync, existsSync, mkdirSync, writeFileSync } from 'fs';
 import { builtinModules } from 'module';
 import { resolve } from 'path';
 import semver from 'semver';
@@ -64,7 +64,6 @@ function isNativeExternal( id: string ): boolean {
 
 const bundledWpFilesPath = resolve( __dirname, '..', '..', 'wp-files' );
 const phpSourceCodePath = resolve( __dirname, 'php' );
-const bundledReprintPhar = resolve( __dirname, 'lib/pull/reprint.phar' );
 // The Skill tool loads skills from `<chunk dir>/skills` at runtime (see
 // `ai/skills.ts`), so they must sit directly next to the built chunks.
 const skillsSourcePath = resolve( __dirname, 'ai/skills' );
@@ -98,9 +97,6 @@ export const baseConfig = defineConfig( {
 				if ( existsSync( bundledWpFilesPath ) ) {
 					cpSync( bundledWpFilesPath, resolve( outDir, 'wp-files' ), { recursive: true } );
 				}
-				if ( existsSync( bundledReprintPhar ) ) {
-					copyFileSync( bundledReprintPhar, resolve( outDir, 'reprint.phar' ) );
-				}
 				if ( existsSync( skillsSourcePath ) ) {
 					cpSync( skillsSourcePath, resolve( outDir, 'skills' ), { recursive: true } );
 				}
@@ -118,7 +114,7 @@ export const baseConfig = defineConfig( {
 		},
 		outDir: 'dist/cli',
 		target: 'node22',
-		rollupOptions: {
+		rolldownOptions: {
 			output: {
 				format: 'es',
 				// Single-file output (`inlineDynamicImports: true`) is opt-in per

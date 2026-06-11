@@ -1,26 +1,17 @@
-import { ACCEPTED_IMPORT_FILE_TYPES } from '@studio/common/constants';
 import { createRoute, useNavigate } from '@tanstack/react-router';
-import { __ } from '@wordpress/i18n';
-import { arrowLeft, download } from '@wordpress/icons';
-import { Button, Icon } from '@wordpress/ui';
-import { useCallback, useEffect, useState } from 'react';
-import { flushSync } from 'react-dom';
+import { speak } from '@wordpress/a11y';
+import { __, sprintf } from '@wordpress/i18n';
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { CreateSiteForm } from '@/components/create-site-form';
-import { FileDropzone } from '@/components/file-dropzone';
-import { useConnector } from '@/data/core';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
 import { useImportSite } from '@/data/queries/use-import-site';
 import { useCreateSite } from '@/data/queries/use-sites';
+import { useSeededSiteName } from '@/hooks/use-seeded-site-name';
+import { nameFromFilename } from '@/lib/backup-files';
+import { pendingBackupSlot } from '@/lib/pending-backup';
 import { onboardingLayoutRoute } from '../layout-onboarding';
 import sharedStyles from '../layout-onboarding/style.module.css';
-import styles from './style.module.css';
 import type { CreateSiteFormValues } from '@/components/create-site-form';
-
-type Step = 'select' | 'configure';
-
-interface ImportSearch {
-	step?: Step;
-}
 
 interface PickedBackup {
 	file: File;
@@ -29,99 +20,50 @@ interface PickedBackup {
 	path: string;
 }
 
-function isValidBackupFile( file: File ): boolean {
-	const lower = file.name.toLowerCase();
-	return ACCEPTED_IMPORT_FILE_TYPES.some( ( ext ) => lower.endsWith( ext ) );
-}
-
 /**
- * Derives a friendly default site name from a backup filename. Strips the
- * archive extension and common "site-backup-2024-01-01" date suffixes so the
- * form can seed the site name without the user having to retype it.
+ * Configure-and-import step. The backup file itself is always picked on the
+ * onboarding home screen (its drop-target card) and handed over through the
+ * pending-backup slot — this route has no picker of its own.
  */
-function nameFromFilename( filename: string ): string {
-	const basename = filename.replace( /^.*[\\/]/, '' );
-	const lower = basename.toLowerCase();
-	const ext = ACCEPTED_IMPORT_FILE_TYPES.find( ( candidate ) => lower.endsWith( candidate ) );
-	return ( ext ? basename.slice( 0, -ext.length ) : basename )
-		.replace( /[-_](backup|export|wordpress|jetpack)(s)?$/i, '' )
-		.replace( /[-_]\d{4}[-_]\d{2}[-_]\d{2}.*$/, '' )
-		.replace( /[-_]+/g, ' ' )
-		.trim();
-}
-
-function OnboardingImportPage() {
-	const { step } = onboardingImportRoute.useSearch();
+export function OnboardingImportPage() {
 	const navigate = useNavigate();
-	const connector = useConnector();
-	const activeStep: Step = step === 'configure' ? 'configure' : 'select';
 
 	const { data: existingDomainNames } = useExistingCustomDomains();
 	const createSite = useCreateSite();
 	const importSite = useImportSite();
 
-	// Picked backup lives in component state — survives navigation between
-	// steps but not a hard refresh. If the user lands on `step=configure`
-	// with no picked backup, the effect below bounces them back to select.
 	const [ picked, setPicked ] = useState< PickedBackup | null >( null );
-	const [ pickError, setPickError ] = useState< string | null >( null );
 	const [ submitError, setSubmitError ] = useState( '' );
+	const pending = useSyncExternalStore( pendingBackupSlot.subscribe, pendingBackupSlot.peek );
 
+	// Adopt a pending hand-off whenever one arrives — including while another
+	// backup is already being configured, so a fresh hand-off always wins and
+	// the slot never holds a stale value.
 	useEffect( () => {
-		if ( activeStep === 'configure' && ! picked ) {
-			void navigate( {
-				to: '/onboarding/import',
-				search: { step: 'select' },
-				replace: true,
-			} );
+		if ( ! pending ) {
+			return;
 		}
-	}, [ activeStep, picked, navigate ] );
+		setPicked( pending );
+		pendingBackupSlot.clear();
+	}, [ pending ] );
 
-	const handlePick = useCallback(
-		async ( file: File ) => {
-			if ( ! isValidBackupFile( file ) ) {
-				setPickError(
-					__(
-						'This file type is not supported. Please use a .zip, .gz, .tar, .tar.gz, or .wpress file.'
-					)
-				);
-				return;
-			}
-			const path = await connector.getFilePath( file );
-			if ( ! path ) {
-				setPickError(
-					__( 'Unable to resolve the backup file path. Try choosing the file via the button.' )
-				);
-				return;
-			}
-			// `flushSync` commits the state updates before `navigate` fires so
-			// the router's URL change and React's component state land in the
-			// same render pass. Without this, tanstack router's store update
-			// commits first, the component re-renders with `activeStep` already
-			// at `configure` but `picked` still null, and the hard-refresh
-			// guard effect below immediately bounces us back to `select`.
-			flushSync( () => {
-				setPickError( null );
-				setPicked( { file, path } );
-			} );
-			void navigate( {
-				to: '/onboarding/import',
-				search: { step: 'configure' },
-			} );
-		},
-		[ connector, navigate ]
-	);
+	// Landing here with nothing picked and nothing pending (hard refresh,
+	// direct URL, history navigation) returns to the home screen, where the
+	// import drop card lives.
+	useEffect( () => {
+		if ( picked || pending ) {
+			return;
+		}
+		void navigate( { to: '/onboarding', replace: true } );
+	}, [ picked, pending, navigate ] );
 
-	const handleClearPick = useCallback( () => {
-		setPicked( null );
-		setPickError( null );
-	}, [] );
+	// The filename-derived site name can collide with an existing site
+	// folder; resolve an available variant ("Name", "Name 2", ...) before
+	// seeding the form, like the desktop renderer does.
+	const seededName = useSeededSiteName( picked ? nameFromFilename( picked.file.name ) : null );
 
-	const handleBackToSelect = useCallback( () => {
-		void navigate( {
-			to: '/onboarding/import',
-			search: { step: 'select' },
-		} );
+	const handleBack = useCallback( () => {
+		void navigate( { to: '/onboarding' } );
 	}, [ navigate ] );
 
 	const handleSubmit = async ( values: CreateSiteFormValues ) => {
@@ -143,6 +85,13 @@ function OnboardingImportPage() {
 				siteId: site.id,
 				backup: { path: picked.path, type: picked.file.type },
 			} );
+			speak(
+				sprintf(
+					// translators: %s is the site name.
+					__( '%s site added.' ),
+					values.name
+				)
+			);
 			await navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
 		} catch ( error ) {
 			setSubmitError(
@@ -151,49 +100,20 @@ function OnboardingImportPage() {
 		}
 	};
 
-	if ( activeStep === 'select' ) {
-		return (
-			<div className={ sharedStyles.page }>
-				<h1 className={ sharedStyles.title }>{ __( 'Import from a backup' ) }</h1>
-				<p className={ sharedStyles.subtitle }>
-					{ __(
-						'Drop a backup archive to restore a site locally. Jetpack, All-in-One WP Migration, Local, and Playground exports are supported.'
-					) }
-				</p>
-				<FileDropzone
-					icon={ download }
-					accept={ ACCEPTED_IMPORT_FILE_TYPES.join( ',' ) }
-					prompt={ __( 'Drop a backup archive here, or' ) }
-					onFile={ ( file ) => void handlePick( file ) }
-					file={ picked?.file ?? null }
-					onClear={ handleClearPick }
-					error={ pickError }
-				/>
-			</div>
-		);
-	}
-
-	// `step=configure` with no picked backup is handled by the effect above;
-	// render nothing in the intermediate frame to avoid a flash.
+	// The bounce effect above handles the empty case; render nothing in the
+	// intermediate frame to avoid a flash.
 	if ( ! picked ) return null;
 
-	const initialValues: Partial< CreateSiteFormValues > = {
-		name: nameFromFilename( picked.file.name ),
-	};
+	// Hold the form until the collision-checked name resolves — initial
+	// values are applied once, so seeding early with a colliding name would
+	// lock it in.
+	const initialValues: Partial< CreateSiteFormValues > | undefined = seededName
+		? { name: seededName }
+		: undefined;
 	const isSubmitting = createSite.isPending || importSite.isPending;
 
 	return (
 		<div className={ sharedStyles.page }>
-			<Button
-				type="button"
-				variant="minimal"
-				tone="neutral"
-				className={ styles.backLink }
-				onClick={ handleBackToSelect }
-			>
-				<Icon icon={ arrowLeft } />
-				<span>{ __( 'Back to backup' ) }</span>
-			</Button>
 			<h1 className={ sharedStyles.title }>{ __( 'Configure the imported site' ) }</h1>
 			<p className={ sharedStyles.subtitle }>
 				{ __( 'Pick a name and local folder. The backup will restore on top of this new site.' ) }
@@ -202,7 +122,7 @@ function OnboardingImportPage() {
 				initialValues={ initialValues }
 				existingDomainNames={ existingDomainNames ?? [] }
 				onSubmit={ handleSubmit }
-				onCancel={ () => void navigate( { to: '/onboarding' } ) }
+				onCancel={ handleBack }
 				isSubmitting={ isSubmitting }
 				submitError={ submitError }
 				submitLabel={ __( 'Import site' ) }
@@ -214,12 +134,5 @@ function OnboardingImportPage() {
 export const onboardingImportRoute = createRoute( {
 	getParentRoute: () => onboardingLayoutRoute,
 	path: '/onboarding/import',
-	validateSearch: ( search: Record< string, unknown > ): ImportSearch => {
-		const value = search.step;
-		if ( value === 'configure' || value === 'select' ) {
-			return { step: value };
-		}
-		return {};
-	},
 	component: OnboardingImportPage,
 } );

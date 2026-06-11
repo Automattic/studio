@@ -98,7 +98,8 @@ type IpcApi = {
 };
 
 interface FeatureFlags {
-	enableDesksUiSwitch: boolean;
+	enableAgenticUi: boolean;
+	enableDesksUi: boolean;
 }
 
 interface BetaFeatures {

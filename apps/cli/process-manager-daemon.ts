@@ -558,7 +558,7 @@ export class ProcessManagerDaemon {
 	}
 }
 
-export async function runProcessManagerDaemon() {
+async function main() {
 	try {
 		const daemon = new ProcessManagerDaemon();
 		await daemon.start();
@@ -566,3 +566,5 @@ export async function runProcessManagerDaemon() {
 		console.error( error );
 	}
 }
+
+void main();

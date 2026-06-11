@@ -1,10 +1,17 @@
 import { cpSync, existsSync, mkdirSync, writeFileSync } from 'fs';
-import { builtinModules } from 'module';
 import { resolve } from 'path';
 import semver from 'semver';
 import { defineConfig } from 'vite';
 import packageJson from './package.json';
 
+const nodeBuiltinExternals: RegExp[] = [
+	/^node:/,
+	/^(path|fs|os|child_process|crypto|http|https|http2|url|querystring|stream|util|events|buffer|assert|net|tty|readline|zlib|constants|tls|domain|dns)$/,
+	/^fs\/promises$/,
+	/^dns\/promises$/,
+];
+
+const packageJsonDependencies = Object.keys( packageJson.dependencies || {} );
 const minimumNodeVersionRange = packageJson.engines?.node;
 
 if ( typeof minimumNodeVersionRange !== 'string' || minimumNodeVersionRange.length === 0 ) {
@@ -19,49 +26,6 @@ if ( ! minimumNodeVersion ) {
 	);
 }
 
-// Packages that cannot be bundled by Vite and must remain as external node_modules.
-// Reasons: native .node addons, WASM binaries, platform-specific binaries,
-// worker threads using data: URLs, or current Rolldown interop bugs.
-export const nativeExternals = [
-	'@anthropic-ai/claude-agent-sdk',
-	'@img/',
-	'@php-wasm/',
-	'@silvia-odwyer/photon-node',
-	'@wp-playground/',
-	'fs-ext-extra-prebuilt',
-	'koffi',
-	'playwright',
-	'playwright-core',
-	'sharp',
-	'trash',
-	'winreg',
-	'zod',
-];
-
-// All package.json dependencies (used by npm config to externalize everything)
-export const packageJsonDependencies = Object.keys( packageJson.dependencies || {} );
-
-export function isNodeBuiltin( id: string ): boolean {
-	if ( id.startsWith( 'node:' ) ) {
-		return true;
-	}
-	// Match builtins and their subpaths (e.g., 'fs/promises', 'stream/promises')
-	if ( builtinModules.some( ( b ) => id === b || id.startsWith( b + '/' ) ) ) {
-		return true;
-	}
-	// Handle trailing slash (e.g., 'string_decoder/')
-	if ( id.endsWith( '/' ) && builtinModules.includes( id.slice( 0, -1 ) ) ) {
-		return true;
-	}
-	return false;
-}
-
-function isNativeExternal( id: string ): boolean {
-	return nativeExternals.some( ( ext ) =>
-		ext.endsWith( '/' ) ? id.startsWith( ext ) : id === ext || id.startsWith( `${ ext }/` )
-	);
-}
-
 const bundledWpFilesPath = resolve( __dirname, '..', '..', 'wp-files' );
 const phpSourceCodePath = resolve( __dirname, 'php' );
 // The Skill tool loads skills from `<chunk dir>/skills` at runtime (see
@@ -70,17 +34,6 @@ const skillsSourcePath = resolve( __dirname, 'ai/skills' );
 
 export const baseConfig = defineConfig( {
 	plugins: [
-		{
-			// Fix trailing-slash imports for Node.js builtins (e.g., 'string_decoder/')
-			// that some CJS-to-ESM interop generates.
-			name: 'fix-trailing-slash-imports',
-			resolveId( source ) {
-				if ( source.endsWith( '/' ) && builtinModules.includes( source.slice( 0, -1 ) ) ) {
-					return { id: source.slice( 0, -1 ), external: true };
-				}
-				return null;
-			},
-		},
 		{
 			name: 'write-dist-extras',
 			apply: 'build',
@@ -108,6 +61,11 @@ export const baseConfig = defineConfig( {
 		lib: {
 			entry: {
 				main: resolve( __dirname, 'index.ts' ),
+				'process-manager-daemon': resolve( __dirname, 'process-manager-daemon.ts' ),
+				'proxy-daemon': resolve( __dirname, 'proxy-daemon.ts' ),
+				'playground-server-child': resolve( __dirname, 'playground-server-child.ts' ),
+				'php-server-child': resolve( __dirname, 'php-server-child.ts' ),
+				'reprint-child': resolve( __dirname, 'reprint-child.ts' ),
 			},
 			name: 'StudioCLI',
 			formats: [ 'es' ],
@@ -117,50 +75,36 @@ export const baseConfig = defineConfig( {
 		rolldownOptions: {
 			output: {
 				format: 'es',
-				// Single-file output (`inlineDynamicImports: true`) is opt-in per
-				// config — the prod build enables it so the SEA can embed one
-				// self-contained bundle, while the dev build keeps chunk splitting
-				// because it has multiple entries (eval-runner, etc.).
 				entryFileNames: '[name].mjs',
 				chunkFileNames: '[name]-[hash].mjs',
-				paths: ( id ) => {
-					// Rewrite trailing-slash imports in output
-					if ( id.endsWith( '/' ) ) {
-						return id.slice( 0, -1 );
-					}
-					return id;
-				},
 				// Some bundled CommonJS dependencies (e.g. `lockfile`, `debug`) call
 				// `require( ... )` for Node built-ins at module init. Rolldown (the
 				// default bundler in Vite 8) emits a shim that throws when those calls
 				// run in an ESM output (`.mjs`), since ESM has no implicit `require`.
 				// Provide a real `require` per chunk via `createRequire` so the shim
-				// uses it instead of throwing. Declared with `var` (not `const`): some
-				// bundled ESM packages (e.g. `yargs-parser`) declare their own top-level
-				// `var require`, which is a legal redeclaration of a `var` but a
-				// SyntaxError next to a `const`. `main.mjs` additionally gets a shebang so
+				// uses it instead of throwing. `main.mjs` additionally gets a shebang so
 				// the npm-published bundle can be executed directly as a CLI (harmless in
 				// other builds — Node ignores it when the file is run via `node main.mjs`).
 				banner: ( chunk ) => {
 					const requireShim =
-						'import { createRequire as __studioCreateRequire } from "node:module"; var require = __studioCreateRequire(import.meta.url);';
+						'import { createRequire as __studioCreateRequire } from "node:module"; const require = __studioCreateRequire(import.meta.url);';
 					return chunk.fileName === 'main.mjs'
 						? `#!/usr/bin/env node\n${ requireShim }`
 						: requireShim;
 				},
 			},
 			external: ( id ) => {
-				// Bundle the blueprint-schema-validator (locally defined module)
+				// Bundle the `@wp-playground/blueprints/blueprint-schema-validator` module since we've defined
+				// that module ourselves
 				if ( id.includes( 'blueprint-schema-validator' ) ) {
 					return false;
 				}
 
-				if ( isNodeBuiltin( id ) ) {
+				if ( nodeBuiltinExternals.some( ( pattern ) => pattern.test( id ) ) ) {
 					return true;
 				}
 
-				// Only externalize packages with native addons or WASM
-				return isNativeExternal( id );
+				return packageJsonDependencies.some( ( dep ) => id === dep || id.startsWith( dep + '/' ) );
 			},
 		},
 		commonjsOptions: {

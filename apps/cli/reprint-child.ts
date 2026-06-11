@@ -225,35 +225,22 @@ async function runReprint( msg: RunMessage ) {
 	}
 }
 
-let isStarted = false;
-
-export function startReprintChildProcess(): void {
-	if ( isStarted ) {
+process.on( 'message', async ( msg: RunMessage ) => {
+	if ( msg.type !== 'run' ) {
 		return;
 	}
-	isStarted = true;
 
-	if ( ! process.send ) {
-		throw new Error( 'process.send is not available' );
-	}
-
-	process.on( 'message', async ( msg: RunMessage ) => {
-		if ( msg.type !== 'run' ) {
-			return;
-		}
-
+	try {
+		await runReprint( msg );
+	} catch ( error ) {
 		try {
-			await runReprint( msg );
-		} catch ( error ) {
-			try {
-				await sendAndFlush( {
-					type: 'error',
-					message: error instanceof Error ? error.message : String( error ),
-				} );
-			} catch {
-				// IPC channel may already be closed.
-			}
-			process.exit( 1 );
+			await sendAndFlush( {
+				type: 'error',
+				message: error instanceof Error ? error.message : String( error ),
+			} );
+		} catch {
+			// IPC channel may already be closed.
 		}
-	} );
-}
+		process.exit( 1 );
+	}
+} );

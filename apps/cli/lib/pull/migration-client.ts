@@ -10,8 +10,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { getReprintPharPath } from 'cli/lib/dependency-management/paths';
 
-const REPRINT_CHILD_COMMAND = 'reprint-child';
-
 export interface ReprintProcessResult {
 	stdout: string;
 	stderr: string;
@@ -108,7 +106,7 @@ async function runReprintCommand(
 	},
 	progress: ProgressReporter
 ): Promise< ReprintProcessResult > {
-	const childPath = getCliEntrypointPath();
+	const childPath = getReprintChildPath();
 
 	if ( options.verboseCommands ) {
 		const mountsSuffix =
@@ -119,7 +117,7 @@ async function runReprintCommand(
 	}
 
 	return await new Promise< ReprintProcessResult >( ( resolve, reject ) => {
-		const child: ChildProcess = fork( childPath, [ REPRINT_CHILD_COMMAND ], {
+		const child: ChildProcess = fork( childPath, [], {
 			stdio: [ 'pipe', 'pipe', 'pipe', 'ipc' ],
 			env: { ...process.env },
 		} );
@@ -520,6 +518,19 @@ function fmtBytes( bytes: number ): string {
 	return `${ ( bytes / ( 1024 * 1024 ) ).toFixed( 1 ) } MB`;
 }
 
-function getCliEntrypointPath(): string {
-	return path.resolve( import.meta.dirname, 'main.mjs' );
+/**
+ * Resolves the path to the child process entry point that hosts PHP WASM.
+ *
+ * Checks for both `.mjs` and `.js` extensions to support different build
+ * configurations. Falls back to `.mjs` if neither exists, letting the
+ * runtime produce a clear "file not found" error.
+ */
+function getReprintChildPath(): string {
+	for ( const filename of [ 'reprint-child.mjs', 'reprint-child.js' ] ) {
+		const candidate = path.resolve( import.meta.dirname, filename );
+		if ( fs.existsSync( candidate ) ) {
+			return candidate;
+		}
+	}
+	return path.resolve( import.meta.dirname, 'reprint-child.mjs' );
 }

@@ -142,8 +142,8 @@ describe( 'WordPress Server Manager', () => {
 
 			expect( vi.mocked( daemonClient.startProcess ) ).toHaveBeenCalledWith(
 				'studio-site-test-site-id',
-				expect.stringContaining( 'main.mjs' ),
-				{ runtime: SITE_RUNTIME_PLAYGROUND, args: [ 'playground-server-child' ] }
+				expect.stringMatching( /playground-server-child\.mjs$/ ),
+				{ runtime: SITE_RUNTIME_PLAYGROUND }
 			);
 
 			expect( result ).toEqual( mockProcessDescription );
@@ -157,8 +157,8 @@ describe( 'WordPress Server Manager', () => {
 
 			expect( vi.mocked( daemonClient.startProcess ) ).toHaveBeenCalledWith(
 				'studio-site-test-site-id',
-				expect.stringContaining( 'main.mjs' ),
-				{ runtime: SITE_RUNTIME_NATIVE_PHP, args: [ 'php-server-child' ] }
+				expect.stringMatching( /php-server-child\.mjs$/ ),
+				{ runtime: SITE_RUNTIME_NATIVE_PHP }
 			);
 		} );
 
@@ -190,8 +190,8 @@ describe( 'WordPress Server Manager', () => {
 
 			expect( vi.mocked( daemonClient.startProcess ) ).toHaveBeenCalledWith(
 				'studio-site-test-site-id',
-				expect.stringContaining( 'main.mjs' ),
-				{ runtime: SITE_RUNTIME_PLAYGROUND, args: [ 'playground-server-child' ] }
+				expect.stringMatching( /playground-server-child\.mjs$/ ),
+				{ runtime: SITE_RUNTIME_PLAYGROUND }
 			);
 		} );
 

@@ -43,17 +43,6 @@ export default mergeConfig(
 				  ]
 				: [] ),
 		],
-		build: {
-			rolldownOptions: {
-				output: {
-					// Single-file bundle: everything the CLI needs at runtime is either
-					// inlined into main.mjs or resolved from the copied node_modules —
-					// no chunk files to ship or resolve. Requires a single entry — ok
-					// for prod since there's only `main`.
-					inlineDynamicImports: true,
-				},
-			},
-		},
 		define: {
 			__ENABLE_CLI_TELEMETRY__: true,
 		},

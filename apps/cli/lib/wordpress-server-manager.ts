@@ -37,8 +37,6 @@ import { Logger } from 'cli/logger';
 import type { WordPressInstallMode } from '@wp-playground/wordpress';
 
 export const SITE_PROCESS_PREFIX = 'studio-site-';
-const PLAYGROUND_SERVER_CHILD_COMMAND = 'playground-server-child';
-const PHP_SERVER_CHILD_COMMAND = 'php-server-child';
 
 // Get an abort signal that's triggered on SIGINT/SIGTERM. This is useful for aborting and cleaning
 // up async operations.
@@ -50,18 +48,14 @@ export function getProcessName( siteId: string ): string {
 	return `${ SITE_PROCESS_PREFIX }${ siteId }`;
 }
 
-function getChildCommand( runtime: SiteRuntime ): string {
+function getChildScriptPath( runtime: SiteRuntime ): string {
 	switch ( runtime ) {
 		case SITE_RUNTIME_NATIVE_PHP:
-			return PHP_SERVER_CHILD_COMMAND;
+			return path.resolve( import.meta.dirname, 'php-server-child.mjs' );
 		case SITE_RUNTIME_PLAYGROUND:
 		default:
-			return PLAYGROUND_SERVER_CHILD_COMMAND;
+			return path.resolve( import.meta.dirname, 'playground-server-child.mjs' );
 	}
-}
-
-function getCliEntrypointPath(): string {
-	return path.resolve( import.meta.dirname, 'main.mjs' );
 }
 
 function withSiteRuntime( processDescription: ProcessDescription ): ProcessDescription {
@@ -233,15 +227,13 @@ export async function startWordPressServer(
 		: __( 'Starting WordPress server…' );
 	logger.reportStart( SiteCommandLoggerAction.START_SITE, startMessage );
 
+	const wordPressServerChildPath = getChildScriptPath( runtime );
 	const processName = getProcessName( site.id );
 	const serverConfig = buildServerConfig( site, runtime, options );
 
 	const readyOrExit = await subscribeForReadyOrExit( processName );
 	try {
-		const processDesc = await startProcess( processName, getCliEntrypointPath(), {
-			runtime,
-			args: [ getChildCommand( runtime ) ],
-		} );
+		const processDesc = await startProcess( processName, wordPressServerChildPath, { runtime } );
 		await readyOrExit.waitFor( processDesc.pmId );
 		await sendMessage(
 			processDesc.pmId,
@@ -559,15 +551,13 @@ export async function runBlueprint(
 	await ensurePhpBinaryAvailableIfNeeded( site, logger, runtime );
 	logger.reportStart( SiteCommandLoggerAction.APPLY_BLUEPRINT, __( 'Applying Blueprint…' ) );
 
+	const wordPressServerChildPath = getChildScriptPath( runtime );
 	const processName = getProcessName( site.id );
 	const serverConfig = buildServerConfig( site, runtime, options );
 
 	const readyOrExit = await subscribeForReadyOrExit( processName );
 	try {
-		const processDesc = await startProcess( processName, getCliEntrypointPath(), {
-			runtime,
-			args: [ getChildCommand( runtime ) ],
-		} );
+		const processDesc = await startProcess( processName, wordPressServerChildPath, { runtime } );
 		try {
 			await readyOrExit.waitFor( processDesc.pmId );
 			await sendMessage(

@@ -25,44 +25,9 @@ import { StudioArgv } from 'cli/types';
 
 const version = __STUDIO_CLI_VERSION__;
 
-// Internal commands spawned by the CLI itself (daemons, per-site server
-// children) or the desktop app. They take no user arguments and communicate
-// over IPC, so they bypass yargs entirely — and, critically, the update
-// notifier, migrations, telemetry, and server-files middleware, none of which
-// should run for internal spawns (telemetry would count every site start as a
-// CLI launch).
-const internalCommands: Record< string, () => Promise< void > > = {
-	'process-manager-daemon': async () => {
-		const { runProcessManagerDaemon } = await import( 'cli/process-manager-daemon' );
-		await runProcessManagerDaemon();
-	},
-	'proxy-daemon': async () => {
-		const { runProxyDaemon } = await import( 'cli/proxy-daemon' );
-		await runProxyDaemon();
-	},
-	'playground-server-child': async () => {
-		const { startWordPressServerChildProcess } = await import( 'cli/playground-server-child' );
-		startWordPressServerChildProcess();
-	},
-	'php-server-child': async () => {
-		const { startPhpServerChildProcess } = await import( 'cli/php-server-child' );
-		startPhpServerChildProcess();
-	},
-	'reprint-child': async () => {
-		const { startReprintChildProcess } = await import( 'cli/reprint-child' );
-		startReprintChildProcess();
-	},
-};
-
 suppressPunycodeWarning();
 
 async function main() {
-	const internalCommand = internalCommands[ process.argv[ 2 ] ];
-	if ( internalCommand ) {
-		await internalCommand();
-		return;
-	}
-
 	await setupUpdateNotifier( version );
 
 	const yargsLocale = await loadTranslations();

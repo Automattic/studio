@@ -5,7 +5,7 @@
  * Node.js HTTP proxy in front that load-balances requests across them: a cheap
  * stand-in for fpm-style process concurrency, not a real FastCGI process manager.
  *
- * Shares the IPC contract with the Playground-based `playground-server-child.ts`.
+ * Shares the IPC contract with the Playground-based `wordpress-server-child.ts`.
  */
 
 import http from 'node:http';
@@ -766,7 +766,7 @@ async function ipcMessageHandler( packet: unknown ) {
 		// If the `stopServer` function ran successfully, the last open handle should be the IPC channel.
 		// Disconnect so that the process can exit cleanly.
 		if ( validMessage.topic === 'stop-server' && result === StopServerResult.OK ) {
-			process.disconnect?.();
+			process.disconnect();
 		}
 	} catch ( error ) {
 		errorToConsole( `Error handling message ${ validMessage.topic }:`, error );
@@ -805,33 +805,24 @@ function shutdownOnSignal( signal: NodeJS.Signals ): void {
 	process.exit( 128 + signum );
 }
 
-let isStarted = false;
+// If this node process is going down (normal exit or IPC disconnect), make sure PHP goes with it.
+process.on( 'exit', killPhpProcess );
+process.on( 'disconnect', () => {
+	logToConsole( 'IPC channel disconnected, shutting down' );
+	killPhpProcess();
+	// Without an explicit exit, the wrapper would linger until the event loop drains,
+	// which delays the daemon's stop sequence and risks the force-kill timer firing.
+	process.exit( 0 );
+} );
 
-export function startPhpServerChildProcess(): void {
-	if ( isStarted ) {
-		return;
-	}
-	isStarted = true;
+// Without explicit signal handlers, the process is terminated abruptly and the 'exit' event
+// does not fire — leaving the PHP child orphaned. These handlers ensure cleanup runs.
+process.on( 'SIGTERM', shutdownOnSignal );
+process.on( 'SIGINT', shutdownOnSignal );
 
-	// If this node process is going down (normal exit or IPC disconnect), make sure PHP goes with it.
-	process.on( 'exit', killPhpProcess );
-	process.on( 'disconnect', () => {
-		logToConsole( 'IPC channel disconnected, shutting down' );
-		killPhpProcess();
-		// Without an explicit exit, the wrapper would linger until the event loop drains,
-		// which delays the daemon's stop sequence and risks the force-kill timer firing.
-		process.exit( 0 );
-	} );
-
-	// Without explicit signal handlers, the process is terminated abruptly and the 'exit' event
-	// does not fire — leaving the PHP child orphaned. These handlers ensure cleanup runs.
-	process.on( 'SIGTERM', shutdownOnSignal );
-	process.on( 'SIGINT', shutdownOnSignal );
-
-	if ( ! process.send ) {
-		throw new Error( 'process.send is not available' );
-	}
-
+if ( process.send ) {
 	process.on( 'message', ipcMessageHandler );
 	process.send( { topic: 'ready' } );
+} else {
+	throw new Error( 'process.send is not available' );
 }

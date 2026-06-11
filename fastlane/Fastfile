@@ -616,6 +616,11 @@ def distribute_builds(
   appx_version = "#{version[/\d+\.\d+\.\d+/]}.0"
   release_notes = release_tag.nil? ? "Development build #{version}-#{build_number}" : "Release #{release_tag}"
 
+  # Only Production builds go through the finalize → publish flow where {make_cdn_builds_public}
+  # flips them to External. Nightlies and Betas have no publish step, so uploading them as
+  # Internal would leave them invisible to users (the updates endpoint only serves External builds).
+  visibility = build_type == 'Production' ? :internal : :external
+
   update_builds = {
     x64: {
       binary_path: File.join(BUILDS_FOLDER, 'Studio-darwin-x64', 'Studio.app.zip'),
@@ -731,7 +736,7 @@ def distribute_builds(
       arch: build[:arch],
       build_type: build_type,
       install_type: build[:install_type],
-      visibility: :internal,
+      visibility: visibility,
       version: version,
       build_number: build_number,
       release_notes: release_notes,

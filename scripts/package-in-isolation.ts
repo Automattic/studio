@@ -15,6 +15,11 @@
  *
  * In CI, where we have a clean, ephemeral environment, we short-circuit the behavior and run the
  * relevant script in place.
+ *
+ * Local packaging optimizes for fast iteration: it links the current workspace `node_modules` into
+ * the staging directory and reuses bundled WordPress/server files when they already exist. Set
+ * `STUDIO_PACKAGE_FRESH=1` to use the slower release-grade local path: lockfile-fresh `npm ci` in
+ * staging, with postinstall re-downloading bundled files.
  */
 
 import { spawnSync, type SpawnSyncOptions } from 'child_process';
@@ -32,6 +37,7 @@ const WORKSPACE_NODE_MODULES = [
 	path.join( 'apps', 'cli', 'node_modules' ),
 ];
 const BUILD_OUTPUT_DIRS = new Set( [ 'out', 'dist', 'test-results' ] );
+const useFreshLocalPackage = process.env.STUDIO_PACKAGE_FRESH === '1';
 
 const STUDIO_APP_PACKAGE_JSON_SCHEMA = z.object( {
 	scripts: z.record( z.string(), z.string() ),
@@ -56,7 +62,6 @@ function runOrFail( command: string, args: string[], cwd: string ) {
 
 	const result = spawnSync( command, args, options );
 	if ( result.status !== 0 ) {
-		process.exitCode = result.status ?? 1;
 		throw new Error( `Command failed: ${ [ command, ...args ].join( ' ' ) }` );
 	}
 }
@@ -93,6 +98,12 @@ function linkWorkspaceNodeModules( stagingRoot: string ) {
 }
 
 function ensureBuildToolchain( stagingRoot: string ) {
+	if ( useFreshLocalPackage ) {
+		console.log( 'Installing lockfile-fresh workspace dependencies in packaging directory ...' );
+		runOrFail( 'npm', [ 'ci' ], stagingRoot );
+		return;
+	}
+
 	if ( linkWorkspaceDependencies( stagingRoot ) ) {
 		console.log( 'Linked workspace dependencies into packaging directory.' );
 		linkWorkspaceNodeModules( stagingRoot );
@@ -111,6 +122,8 @@ function ensureBuildToolchain( stagingRoot: string ) {
 }
 
 function hasBundledServerFiles( repoRoot: string ): boolean {
+	// Marker paths for artifacts produced by download-wp-server-files.ts,
+	// download-available-site-translations.mjs, and download-agent-skills.ts.
 	const requiredPaths = [
 		'wp-files/latest/wordpress/wp-includes/version.php',
 		'wp-files/latest/available-site-translations.json',
@@ -162,11 +175,7 @@ function moveOrCopySync( from: string, to: string ) {
 
 	try {
 		fs.renameSync( from, to );
-	} catch ( error ) {
-		const code = error && typeof error === 'object' && 'code' in error ? error.code : undefined;
-		if ( code !== 'EXDEV' ) {
-			throw error;
-		}
+	} catch {
 		fs.cpSync( from, to, {
 			recursive: true,
 			force: true,
@@ -230,7 +239,9 @@ function main() {
 		} );
 
 		ensureBuildToolchain( stagingRoot );
-		ensureBundledServerFiles( stagingRoot );
+		if ( ! useFreshLocalPackage ) {
+			ensureBundledServerFiles( stagingRoot );
+		}
 
 		console.log( `Running script "${ scriptName }" in packaging directory ...` );
 		runOrFail( 'npm', [ '-w', 'studio-app', 'run', scriptName ], stagingRoot );

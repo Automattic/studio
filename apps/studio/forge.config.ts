@@ -16,11 +16,12 @@ const repoRoot = path.resolve( __dirname, '../..' );
 const bundledPhpBinaryRoot = path.join( __dirname, 'php-bin' );
 
 function removeNodeModules( modulePath: string ) {
-	if ( ! fs.existsSync( modulePath ) ) {
+	const stat = fs.lstatSync( modulePath, { throwIfNoEntry: false } );
+	if ( ! stat ) {
 		return;
 	}
 
-	if ( fs.lstatSync( modulePath ).isSymbolicLink() ) {
+	if ( stat.isSymbolicLink() ) {
 		fs.unlinkSync( modulePath );
 		return;
 	}
